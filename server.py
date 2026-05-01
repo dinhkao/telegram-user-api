@@ -90,12 +90,26 @@ PI_MODEL = os.getenv("PI_MODEL", "fireworks/accounts/fireworks/routers/kimi-k2p5
 FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY", "")
 
 
-async def ask_pi(question: str) -> str:
-    """Run pi -p in a subprocess and return the output."""
+# Per-chat session tracking for pi conversation continuity
+pi_sessions: dict[str, str] = {}  # chat_id -> session_name
+
+
+async def ask_pi(chat_id: str, question: str) -> str:
+    """Run pi -p with --session for conversation continuity."""
     loop = asyncio.get_running_loop()
+
+    # Use a persistent session per chat so pi remembers context
+    session_name = pi_sessions.get(chat_id)
+    if session_name is None:
+        # Sanitize chat_id for filesystem safety
+        safe_id = str(chat_id).replace("/", "_").replace(":", "_")
+        session_name = f"tg-chat-{safe_id}"
+        pi_sessions[chat_id] = session_name
+
     cmd = [
         "pi", "-p",
         "--model", PI_MODEL,
+        "--session", session_name,
         question,
     ]
     env = os.environ.copy()
@@ -184,7 +198,7 @@ def register_handlers(client: TelegramClient):
             status_msg = await client.send_message(GROUP_ID, "🤔 Thinking...")
 
             # Ask pi and reply
-            answer = await ask_pi(text)
+            answer = await ask_pi(str(GROUP_ID), text)
             await client.delete_messages(GROUP_ID, [status_msg.id])
             await client.send_message(
                 GROUP_ID,
