@@ -125,8 +125,10 @@ async def auto_reply_yes(client, chat, text):
             [Button.inline("🔄 Maybe", b"maybe")],
         ]
         await client.send_message(chat, "yes", buttons=buttons)
-        chat_name = getattr(chat, "title", str(chat)) if hasattr(chat, "title") else str(chat)
-        print(f"🤖 [{datetime.now():%H:%M:%S}] Auto-replied 'yes' to {chat_name}")
+        label = getattr(chat, "title", None) if not isinstance(chat, str) else chat
+        if label is None:
+            label = getattr(chat, "first_name", str(chat))
+        print(f"🤖 [{datetime.now():%H:%M:%S}] Auto-replied 'yes' to {label}")
 
 
 def register_handlers(client: TelegramClient):
@@ -162,12 +164,17 @@ def register_handlers(client: TelegramClient):
             if isinstance(msg, MessageService):
                 return
 
-            # Skip own messages (prevent replying to "Thinking..." or pi answers)
-            if msg.out:
+            # Skip service messages
+            if isinstance(msg, MessageService):
+                return
+
+            text = msg.text or ""
+
+            # Skip the bot's own "Thinking..." placeholders (prevent self-loop)
+            if text.strip().startswith("🤔 Thinking..."):
                 return
 
             sender = sender_info(event.sender)
-            text = msg.text or ""
             print(f"💬 [{datetime.now():%H:%M:%S}] Group - {sender['name']}: {text[:80]}")
 
             if not text.strip():
