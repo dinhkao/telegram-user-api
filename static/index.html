@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saved Messages — Live</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0f0f0f;
+    color: #e0e0e0;
+    min-height: 100vh;
+  }
+  header {
+    position: sticky; top:0; z-index:10;
+    background: #1a1a2e;
+    border-bottom: 1px solid #2a2a4a;
+    padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size:18px; font-weight:600; }
+  .status { display:flex; align-items:center; gap:8px; font-size:13px; }
+  .dot {
+    width:8px; height:8px; border-radius:50%; background:#666;
+    transition: background .3s;
+  }
+  .dot.connected { background:#4ade80; }
+  .dot.disconnected { background:#f87171; }
+  main {
+    max-width: 780px; margin:0 auto; padding:16px 20px 40px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .card {
+    background: #1e1e30;
+    border-radius: 10px;
+    padding: 14px 18px;
+    border-left: 4px solid #333;
+    animation: slideIn .3s ease;
+    transition: background .2s;
+  }
+  .card.type-new    { border-left-color: #4ade80; }
+  .card.type-edit   { border-left-color: #60a5fa; }
+  .card.type-delete { border-left-color: #f87171; background:#2a1a1a; }
+  .card .meta {
+    display:flex; align-items:center; gap:10px;
+    font-size:12px; color:#888; margin-bottom:6px;
+  }
+  .card .meta .badge {
+    font-size:10px; font-weight:700; text-transform:uppercase;
+    padding:2px 7px; border-radius:4px;
+  }
+  .badge.new    { background:#14532d; color:#4ade80; }
+  .badge.edit   { background:#1e3a5f; color:#60a5fa; }
+  .badge.delete { background:#5f1a1a; color:#f87171; }
+  .card .content {
+    font-size:14px; line-height:1.55;
+    white-space:pre-wrap; word-break:break-word;
+    color:#d0d0d0;
+  }
+  .card .content a { color:#7eb8ff; }
+  .empty { text-align:center; padding:60px 20px; color:#555; }
+  .empty .icon { font-size:48px; margin-bottom:12px; }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+  .strike { text-decoration:line-through; color:#666; }
+  .footer {
+    text-align:center; padding:20px; color:#444; font-size:12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>💬 Saved Messages — Live</h1>
+  <div class="status">
+    <span class="dot" id="dot"></span>
+    <span id="status-text">Connecting...</span>
+  </div>
+</header>
+
+<main id="feed">
+  <div class="empty">
+    <div class="icon">📭</div>
+    <div>Waiting for messages...</div>
+  </div>
+</main>
+
+<div class="footer">Real-time via Telegram User API + WebSocket</div>
+
+<script>
+const feed = document.getElementById('feed');
+const dot = document.getElementById('dot');
+const statusText = document.getElementById('status-text');
+const empty = feed.querySelector('.empty');
+let count = 0;
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+  ws.onopen = () => {
+    dot.className = 'dot connected';
+    statusText.textContent = 'Live';
+  };
+
+  ws.onclose = () => {
+    dot.className = 'dot disconnected';
+    statusText.textContent = 'Reconnecting...';
+    setTimeout(connect, 3000);
+  };
+
+  ws.onerror = () => ws.close();
+
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'history') {
+      // Batch-load recent messages (newest first)
+      data.messages.forEach(addCard);
+      return;
+    }
+    addCard(data);
+  };
+}
+
+function timeAgo(iso) {
+  const d = new Date(iso);
+  const now = new Date();
+  const s = Math.floor((now - d) / 1000);
+  if (s < 10) return 'just now';
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return d.toLocaleString();
+}
+
+function addCard(data) {
+  if (empty) empty.remove();
+
+  const card = document.createElement('div');
+  card.className = `card type-${data.type}`;
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+
+  const badge = document.createElement('span');
+  badge.className = `badge ${data.type}`;
+  badge.textContent = data.type;
+
+  const time = document.createElement('span');
+  time.textContent = data.date ? timeAgo(data.date) : '';
+
+  const idSpan = document.createElement('span');
+  idSpan.textContent = `#${data.id}`;
+  idSpan.style.marginLeft = 'auto';
+
+  meta.appendChild(badge);
+  meta.appendChild(time);
+  meta.appendChild(idSpan);
+
+  const content = document.createElement('div');
+  content.className = 'content';
+
+  if (data.type === 'delete') {
+    content.innerHTML = `<span class="strike">Deleted ${data.ids?.length || 0} message(s): ${(data.ids||[]).join(', ')}</span>`;
+  } else {
+    // Linkify
+    let text = (data.text || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    text = text.replace(/(https?:\/\/\S+)/g, '<a href="$1" target="_blank">$1</a>');
+    content.innerHTML = text || (data.media ? `📎 ${data.media}` : '<i>empty</i>');
+  }
+
+  card.appendChild(meta);
+  card.appendChild(content);
+  feed.prepend(card);
+
+  // Keep max 200 cards in DOM
+  count++;
+  if (count > 200) {
+    feed.lastElementChild.remove();
+    count--;
+  }
+
+  // Scroll to top to show newest
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+connect();
+</script>
+
+</body>
+</html>
