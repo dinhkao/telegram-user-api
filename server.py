@@ -6,6 +6,7 @@ Clients connect via WebSocket at ws://localhost:8080/ws
 import asyncio
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime
 
@@ -85,8 +86,39 @@ def sender_info(sender) -> dict:
 GROUP_ID = int(os.getenv("GROUP_ID", 0))
 
 
+PI_MODEL = os.getenv("PI_MODEL", "fireworks/accounts/fireworks/routers/kimi-k2p5-turbo")
+FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY", "")
+
+
+async def ask_pi(question: str) -> str:
+    """Run pi -p in a subprocess and return the output."""
+    loop = asyncio.get_running_loop()
+    cmd = [
+        "pi", "-p",
+        "--model", PI_MODEL,
+        question,
+    ]
+    env = os.environ.copy()
+    if FIREWORKS_API_KEY:
+        env["FIREWORKS_API_KEY"] = FIREWORKS_API_KEY
+
+    try:
+        proc = await loop.run_in_executor(
+            None,
+            lambda: subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=120),
+        )
+        output = (proc.stdout or "").strip()
+        if not output and proc.stderr:
+            output = f"Error: {proc.stderr.strip()[:500]}"
+        return output or "(empty response)"
+    except subprocess.TimeoutExpired:
+        return "Timeout: pi took too long to respond."
+    except Exception as e:
+        return f"Error running pi: {e}"
+
+
 async def auto_reply_yes(client, chat, text):
-    """Reply 'yes' to a chat with inline keyboard buttons."""
+    """Reply 'yes' to a chat with inline keyboard buttons (Saved Messages only)."""
     if text and text.strip().lower() != "yes":
         buttons = [
             [Button.inline("✅ Yes", b"yes"), Button.inline("❌ No", b"no")],
@@ -129,11 +161,30 @@ def register_handlers(client: TelegramClient):
             msg = event.message
             if isinstance(msg, MessageService):
                 return
+
+            # Skip own messages (prevent replying to "Thinking..." or pi answers)
+            if msg.out:
+                return
+
             sender = sender_info(event.sender)
-            print(f"💬 [{datetime.now():%H:%M:%S}] Group - {sender['name']}: { (msg.text or '[media]')[:80]}")
-            # Reply with inline keyboard
-            if msg.text and msg.text.strip().lower() != "yes":
-                await auto_reply_yes(client, GROUP_ID, msg.text)
+            text = msg.text or ""
+            print(f"💬 [{datetime.now():%H:%M:%S}] Group - {sender['name']}: {text[:80]}")
+
+            if not text.strip():
+                return
+
+            # Send "thinking..." placeholder
+            status_msg = await client.send_message(GROUP_ID, "🤔 Thinking...")
+
+            # Ask pi and reply
+            answer = await ask_pi(text)
+            await client.delete_messages(GROUP_ID, [status_msg.id])
+            await client.send_message(
+                GROUP_ID,
+                answer[:4000] + ("..." if len(answer) > 4000 else ""),
+                reply_to=msg.id,
+            )
+            print(f"🤖 [{datetime.now():%H:%M:%S}] Replied with pi answer ({len(answer)} chars)")
 
     @client.on(events.MessageEdited(chats="me"))
     async def on_message_edited(event):
