@@ -91,25 +91,22 @@ FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY", "")
 
 
 # Per-chat session tracking for pi conversation continuity
-pi_sessions: dict[str, str] = {}  # chat_id -> session_name
+import pathlib
+PI_SESSIONS_DIR = pathlib.Path(os.getenv("PI_SESSIONS_DIR", os.path.expanduser("~/.pi/agent/tg-sessions")))
+PI_SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 async def ask_pi(chat_id: str, question: str) -> str:
-    """Run pi -p with --session for conversation continuity."""
+    """Run pi -p with --session pointing to a file for conversation continuity."""
     loop = asyncio.get_running_loop()
 
-    # Use a persistent session per chat so pi remembers context
-    session_name = pi_sessions.get(chat_id)
-    if session_name is None:
-        # Sanitize chat_id for filesystem safety
-        safe_id = str(chat_id).replace("/", "_").replace(":", "_")
-        session_name = f"tg-chat-{safe_id}"
-        pi_sessions[chat_id] = session_name
+    safe_id = str(chat_id).replace("/", "_").replace(":", "_").lstrip("-")
+    session_path = PI_SESSIONS_DIR / f"{safe_id}.jsonl"
 
     cmd = [
         "pi", "-p",
         "--model", PI_MODEL,
-        "--session", session_name,
+        "--session", str(session_path),
         question,
     ]
     env = os.environ.copy()
