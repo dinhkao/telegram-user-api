@@ -7,6 +7,7 @@ import asyncio
 import json
 import os
 import ssl
+import subprocess
 import sys
 from datetime import datetime
 import http.client
@@ -83,29 +84,67 @@ def sender_info(sender) -> dict:
     return {"name": name, "id": sender.id, "is_channel": False}
 
 
-# ─── Fireworks API ─────────────────────────────────────────────────────────────
+# ─── AI Backend ────────────────────────────────────────────────────────────────
+# "pi" = use pi CLI (has tools: bash, read, write, web search, etc.)
+# "fireworks" = use direct Fireworks API (chat only, no tools)
+AI_BACKEND = os.getenv("AI_BACKEND", "pi")
+
 FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY", "")
-FIREWORKS_MODEL = os.getenv("PI_MODEL", "accounts/fireworks/routers/kimi-k2p5-turbo")
-# Strip provider prefix if user set the full pi-style model name
+PI_MODEL = os.getenv("PI_MODEL", "fireworks/accounts/fireworks/routers/kimi-k2p5-turbo")
+
+# Per-chat conversation history (used by fireworks backend)
+import pathlib
+PI_SESSIONS_DIR = pathlib.Path(os.getenv("PI_SESSIONS_DIR", os.path.expanduser("~/.pi/agent/tg-sessions")))
+PI_SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+async def ask_pi(chat_id: str, question: str) -> str:
+    """Use pi CLI with --session for tool capabilities (bash, read, write, search)."""
+    loop = asyncio.get_running_loop()
+    safe_id = str(chat_id).replace("/", "_").replace(":", "_").lstrip("-")
+    session_path = PI_SESSIONS_DIR / f"{safe_id}.jsonl"
+
+    cmd = ["pi", "-p", "--model", PI_MODEL, "--session", str(session_path), question]
+    env = os.environ.copy()
+    if FIREWORKS_API_KEY:
+        env["FIREWORKS_API_KEY"] = FIREWORKS_API_KEY
+
+    try:
+        proc = await loop.run_in_executor(
+            None,
+            lambda: subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=180),
+        )
+        output = (proc.stdout or "").strip()
+        if not output and proc.stderr:
+            output = f"Error: {proc.stderr.strip()[:500]}"
+        return output or "(empty response)"
+    except subprocess.TimeoutExpired:
+        return "Timeout: pi took too long."
+    except Exception as e:
+        return f"Error running pi: {e}"
+
+
+async def ask_ai(chat_id: str, question: str) -> str:
+    """Route to pi CLI (with tools) or direct Fireworks API."""
+    if AI_BACKEND == "pi":
+        return await ask_pi(chat_id, question)
+    else:
+        return await _ask_fireworks(chat_id, question)
+
+
+# ─── Direct Fireworks API (optional, no tools) ────────────────────────────────
+FIREWORKS_MODEL = os.getenv("FIREWORKS_MODEL", "accounts/fireworks/routers/kimi-k2p5-turbo")
 if FIREWORKS_MODEL.startswith("fireworks/"):
     FIREWORKS_MODEL = FIREWORKS_MODEL[len("fireworks/"):]
-
 SYSTEM_PROMPT = "You are a helpful assistant in a Telegram group chat. Keep answers concise and clear."
-
-# Per-chat conversation history: chat_id -> list of {"role": ..., "content": ...}
 chat_histories: dict[str, list[dict]] = {}
-MAX_HISTORY = 20  # keep last N message pairs
+MAX_HISTORY = 20
 
 
-def ask_fireworks_sync(messages: list[dict]) -> str:
-    """Call Fireworks API synchronously (runs in thread pool)."""
+def _ask_fireworks_sync(messages: list[dict]) -> str:
     ctx = ssl.create_default_context()
     conn = http.client.HTTPSConnection("api.fireworks.ai", context=ctx, timeout=120)
-    payload = json.dumps({
-        "model": FIREWORKS_MODEL,
-        "messages": messages,
-        "max_tokens": 1024,
-    })
+    payload = json.dumps({"model": FIREWORKS_MODEL, "messages": messages, "max_tokens": 1024})
     conn.request("POST", "/inference/v1/chat/completions", payload, {
         "Authorization": f"Bearer {FIREWORKS_API_KEY}",
         "Content-Type": "application/json",
@@ -114,40 +153,24 @@ def ask_fireworks_sync(messages: list[dict]) -> str:
     r = conn.getresponse()
     body = json.loads(r.read())
     conn.close()
-
     content = body["choices"][0]["message"]["content"].strip()
-    # Strip thinking tags if model returns them
     if "</thinking>" in content:
         content = content.split("</thinking>")[-1].strip()
     return content
 
 
-async def ask_ai(chat_id: str, question: str) -> str:
-    """Ask Fireworks API with conversation history per chat."""
+async def _ask_fireworks(chat_id: str, question: str) -> str:
     loop = asyncio.get_running_loop()
-
-    # Get or create history for this chat
     history = chat_histories.setdefault(str(chat_id), [])
-
-    # Add user message
     history.append({"role": "user", "content": question})
-
-    # Trim history if too long
     if len(history) > MAX_HISTORY * 2:
         history[:] = history[-(MAX_HISTORY * 2):]
-
-    # Build messages with system prompt
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
-
     try:
-        answer = await loop.run_in_executor(None, ask_fireworks_sync, messages)
-
-        # Add assistant response to history
+        answer = await loop.run_in_executor(None, _ask_fireworks_sync, messages)
         history.append({"role": "assistant", "content": answer})
-
         return answer or "(empty response)"
     except Exception as e:
-        # Remove the user message if API failed
         history.pop()
         return f"Error: {e}"
 
