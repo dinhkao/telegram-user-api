@@ -101,6 +101,63 @@ let loading = false;
 let totalLoaded = 0;
 let currentQuery = '';
 
+// Vietnamese normalize — must mirror server-side vn.py exactly.
+const _VN_MAP = { 'ă':'a','â':'a','ê':'e','ô':'o','ơ':'o','ư':'u','đ':'d',
+                  'Ă':'A','Â':'A','Ê':'E','Ô':'O','Ơ':'O','Ư':'U','Đ':'D' };
+function vnNormalize(s) {
+  if (!s) return '';
+  let out = '';
+  for (const ch of s) out += _VN_MAP[ch] || ch;
+  return out.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+}
+
+// Highlight `query` (accent-insensitive) inside an HTML-escaped string.
+// We normalize per-character so positions in normalized form map back 1:1.
+function highlightVN(html, query) {
+  const nq = vnNormalize(query);
+  if (!nq) return html;
+  // Skip inside HTML tags. Process text segments only.
+  const parts = html.split(/(<[^>]+>)/);
+  const escQ = nq.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(escQ, 'g');
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i].startsWith('<')) continue;
+    const seg = parts[i];
+    // Build normalized string char-by-char (each source char → 1 normalized char or 0).
+    // For each source char, compute its normalized form, accumulate map src→norm index.
+    const srcChars = Array.from(seg);
+    const normChars = [];
+    const srcStartOfNormChar = []; // norm index → src char index
+    for (let si = 0; si < srcChars.length; si++) {
+      const n = vnNormalize(srcChars[si]);
+      for (const c of n) {
+        normChars.push(c);
+        srcStartOfNormChar.push(si);
+      }
+    }
+    const normStr = normChars.join('');
+    let out = '';
+    let lastSrc = 0;
+    let m;
+    re.lastIndex = 0;
+    while ((m = re.exec(normStr)) !== null) {
+      const startNorm = m.index;
+      const endNorm = m.index + m[0].length;
+      if (endNorm === startNorm) { re.lastIndex++; continue; }
+      const startSrc = srcStartOfNormChar[startNorm];
+      const endSrc = endNorm < srcStartOfNormChar.length
+        ? srcStartOfNormChar[endNorm]
+        : srcChars.length;
+      out += srcChars.slice(lastSrc, startSrc).join('');
+      out += '<mark>' + srcChars.slice(startSrc, endSrc).join('') + '</mark>';
+      lastSrc = endSrc;
+    }
+    out += srcChars.slice(lastSrc).join('');
+    parts[i] = out;
+  }
+  return parts.join('');
+}
+
 async function refreshStats() {
   try {
     const r = await fetch('/api/donhang/stats');
@@ -175,10 +232,9 @@ async function fetchBatch() {
       text = text.replace(/(https?:\/\/\S+)/g, '<a href="$1" target="_blank">$1</a>');
       text = text.replace(/(#\w+)/g, '<mark>$1</mark>');
 
-      // Highlight search query (case + diacritic insensitive simple match)
+      // Highlight search query — accent-insensitive (cua matches Cửa, lượng…)
       if (currentQuery) {
-        const q = currentQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        text = text.replace(new RegExp(`(${q})`, 'gi'), '<mark>$1</mark>');
+        text = highlightVN(text, currentQuery);
       }
 
       content.innerHTML = text || (msg.media ? `📎 ${msg.media}` : '<i>empty</i>');
