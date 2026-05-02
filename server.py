@@ -9,14 +9,16 @@ import os
 import ssl
 import subprocess
 import sys
+import time
+import unicodedata
 from datetime import datetime
 import http.client
-import unicodedata
 
 from aiohttp import web
 from dotenv import load_dotenv
 from telethon import TelegramClient, events, Button
-from telethon.tl.types import MessageService
+from telethon.tl.functions.messages import SearchRequest
+from telethon.tl.types import MessageService, InputPeerSelf, InputMessagesFilterEmpty
 
 load_dotenv()
 
@@ -331,76 +333,213 @@ async def websocket_handler(request: web.Request):
 
 
 # ─── Search endpoint ──────────────────────────────────────────────────────────
-async def search_handler(request: web.Request):
-    """Search saved messages with Vietnamese no-accent matching.
-    GET /api/search?q=...&offset=N
-    If no results in memory, fetches next 100 from Telegram.
-    Returns {results, searched, has_more, next_offset}
+SEARCH_BATCH = 50  # results per SearchRequest page (like official apps)
+SEARCH_MAX_DEEP = 5000  # max messages to deep-scan in fallback
+
+RESULT_CACHE: dict[str, list[dict]] = {}  # query -> results cache
+RESULT_CACHE_TTL_SEC = 30  # cache hits expire after 30s
+
+
+async def _msg_to_dict(msg) -> dict:
+    s = await msg.get_sender()
+    return {
+        "type": "new",
+        "id": msg.id,
+        "date": msg.date.isoformat(),
+        "sender": sender_info(s),
+        "text": msg.text[:1000] if msg.text else None,
+        "media": type(msg.media).__name__.replace("MessageMedia", "") if msg.media else None,
+        "reply_to": msg.reply_to_msg_id,
+    }
+
+
+async def _server_search(query: str, offset_id: int = 0) -> tuple[list[dict], bool, int]:
+    """Pass 1: Telegram server-side indexed search via messages.search.
+    Returns (results, has_more, next_offset_id).
     """
-    q = request.query.get("q", "").strip()
-    if not q:
-        return web.json_response({"results": [], "searched": 0, "has_more": False, "next_offset": 0})
+    try:
+        result = await _client(SearchRequest(
+            peer=InputPeerSelf(),
+            q=query,
+            filter=InputMessagesFilterEmpty(),
+            min_date=None,
+            max_date=None,
+            offset_id=offset_id,
+            add_offset=0,
+            limit=SEARCH_BATCH,
+            max_id=0,
+            min_id=0,
+            hash=0,
+        ))
+    except Exception as e:
+        err = str(e)
+        if "FLOOD_WAIT" in err.upper():
+            raise
+        print(f"[search] Server search error: {e}")
+        return [], False, 0
 
-    if _client is None:
-        return web.json_response({"error": "Telegram client not connected yet"}, status=503)
+    from telethon.tl.types import MessagesMessages, MessagesMessagesSlice
+    results = []
+    msgs = []
+    full_count = 0
 
-    normalized_q = vn_normalize(q)
-    results: list[dict] = []
+    if isinstance(result, MessagesMessages):
+        msgs = result.messages
+        full_count = len(msgs)
+    elif isinstance(result, MessagesMessagesSlice):
+        msgs = result.messages
+        full_count = result.count
 
-    # 1. Search in-memory recent_messages (fast path)
+    for msg in msgs:
+        if hasattr(msg, "message") and msg.message:
+            results.append({
+                "type": "new",
+                "id": msg.id,
+                "date": msg.date.isoformat(),
+                "sender": {"name": "Saved Messages", "id": 0},
+                "text": msg.message[:1000],
+                "media": type(msg.media).__name__.replace("MessageMedia", "") if msg.media else None,
+                "reply_to": getattr(msg, "reply_to", {}).reply_to_msg_id if hasattr(msg, "reply_to") else None,
+            })
+
+    has_more = len(results) >= SEARCH_BATCH or (full_count > offset_id + SEARCH_BATCH if full_count else False)
+    next_offset = msgs[-1].id if msgs else 0
+
+    return results, has_more, next_offset
+
+
+async def _deep_search(query: str, offset_id: int = 0) -> tuple[list[dict], bool, int, int]:
+    """Pass 2: Local scan with vn_normalize for accent-insensitive matching.
+    Returns (results, has_more, next_offset_id, total_scanned).
+    """
+    normalized_q = vn_normalize(query)
+    results = []
+    total_scanned = 0
+    has_more = False
+    next_offset = 0
+
+    # First search in-memory recent_messages
     for msg in recent_messages:
+        total_scanned += 1
         text = msg.get("text") or ""
         if normalized_q in vn_normalize(text):
             results.append(msg)
 
-    total_searched = len(recent_messages)
+    if results:
+        return results, False, 0, total_scanned
 
-    # 2. If no results, fetch one batch from Telegram
-    offset_id = int(request.query.get("offset", "0"))
-    if not offset_id and recent_messages:
-        offset_id = recent_messages[0]["id"]  # oldest cached msg
+    # Fetch from Telegram in batches
+    fetch_offset = offset_id
+    if not fetch_offset and recent_messages:
+        fetch_offset = recent_messages[0]["id"]  # oldest cached
 
-    has_more = False
-    next_offset = 0
-
-    if not results and offset_id > 0:
+    while not results and total_scanned < SEARCH_MAX_DEEP:
         try:
-            batch = await _client.get_messages("me", limit=100, offset_id=offset_id)
+            batch = await _client.get_messages("me", limit=100, offset_id=fetch_offset)
         except Exception as e:
             err = str(e)
-            if "FloodWait" in err or "FLOOD_WAIT" in err:
+            if "FLOOD_WAIT" in err.upper():
+                raise
+            print(f"[search] Deep scan fetch error: {e}")
+            break
+
+        if not batch:
+            break
+
+        total_scanned += len(batch)
+        for msg in batch:
+            text = msg.message or ""
+            if normalized_q in vn_normalize(text):
+                results.append({
+                    "type": "new",
+                    "id": msg.id,
+                    "date": msg.date.isoformat(),
+                    "sender": {"name": "Saved Messages", "id": 0},
+                    "text": msg.message[:1000] if msg.message else None,
+                    "media": type(msg.media).__name__.replace("MessageMedia", "") if msg.media else None,
+                    "reply_to": msg.reply_to_msg_id,
+                })
+
+        if not results and total_scanned < SEARCH_MAX_DEEP:
+            fetch_offset = batch[-1].id
+        else:
+            next_offset = batch[-1].id
+            has_more = total_scanned < SEARCH_MAX_DEEP and not results
+            break
+
+    return results, has_more, next_offset, total_scanned
+
+
+async def search_handler(request: web.Request):
+    """Hybrid search: Telegram server index (fast) + local vn_normalize fallback.
+    GET /api/search?q=...&offset=N&mode=server|deep
+    """
+    q = request.query.get("q", "").strip()
+    if not q:
+        return web.json_response({"results": [], "searched": 0, "has_more": False, "next_offset": 0, "mode": None})
+
+    if _client is None:
+        return web.json_response({"error": "Telegram client not connected yet"}, status=503)
+
+    offset_id = int(request.query.get("offset", "0"))
+    mode = request.query.get("mode", "auto")  # "auto", "server", "deep"
+
+    # Cache check
+    cache_key = f"{q}:{offset_id}:{mode}"
+    now = time.monotonic()
+    cached = RESULT_CACHE.get(cache_key)
+    if cached and (now - cached["ts"]) < RESULT_CACHE_TTL_SEC:
+        return web.json_response(cached["data"])
+
+    results = []
+    has_more = False
+    next_offset = 0
+    total_searched = 0
+    used_mode = None
+
+    # ── Pass 1: Server search (instant indexed lookup) ─────────────────
+    if mode in ("auto", "server"):
+        try:
+            results, has_more, next_offset = await _server_search(q, offset_id)
+            used_mode = "server"
+            total_searched = len(results)
+        except Exception as e:
+            err = str(e)
+            if "FLOOD_WAIT" in err.upper():
                 return web.json_response({
                     "error": "Telegram rate limit — wait a moment and try again",
-                    "searched": total_searched,
                 }, status=429)
-            return web.json_response({"error": err, "searched": total_searched}, status=500)
 
-        if batch:
-            total_searched += len(batch)
-            for msg in batch:
-                text = msg.text or ""
-                if normalized_q in vn_normalize(text):
-                    s = await msg.get_sender()
-                    results.append({
-                        "type": "new",
-                        "id": msg.id,
-                        "date": msg.date.isoformat(),
-                        "sender": sender_info(s),
-                        "text": msg.text[:1000] if msg.text else None,
-                        "media": type(msg.media).__name__.replace("MessageMedia", "") if msg.media else None,
-                        "reply_to": msg.reply_to_msg_id,
-                    })
+    # ── Pass 2: Local deep scan (no-accent Vietnamese fallback) ────────
+    if not results and mode in ("auto", "deep"):
+        print(f"[search] Server returned 0 results for '{q}', starting deep scan...")
+        try:
+            results, has_more, next_offset, total_searched = await _deep_search(q, offset_id)
+            used_mode = "deep"
+        except Exception as e:
+            err = str(e)
+            if "FLOOD_WAIT" in err.upper():
+                return web.json_response({
+                    "error": "Telegram rate limit — deep scan paused. Try again in a moment.",
+                }, status=429)
+            print(f"[search] Deep search error: {e}")
 
-            if not results:
-                next_offset = batch[-1].id
-                has_more = True
-
-    return web.json_response({
+    data = {
         "results": results,
         "searched": total_searched,
         "has_more": has_more,
         "next_offset": next_offset,
-    })
+        "mode": used_mode,
+    }
+
+    # Cache it
+    RESULT_CACHE[cache_key] = {"data": data, "ts": now}
+    # Purge old entries
+    stale = [k for k, v in RESULT_CACHE.items() if now - v["ts"] > RESULT_CACHE_TTL_SEC]
+    for k in stale:
+        del RESULT_CACHE[k]
+
+    return web.json_response(data)
 
 
 # ─── Main ──────────────────────────────────────────────────────────────────────

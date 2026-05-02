@@ -148,23 +148,24 @@ searchInput.addEventListener('keydown', (e) => {
 });
 clearBtn.addEventListener('click', clearSearch);
 
-function doSearch() {
+function doSearch(loadMore = false) {
   const q = searchInput.value.trim();
   if (!q) return;
 
-  searchMode = true;
-  searchQuery = q;
-  searchOffset = 0;
-  totalSearched = 0;
-  liveBuffer = [];
+  if (!loadMore) {
+    searchMode = true;
+    searchQuery = q;
+    searchOffset = 0;
+    totalSearched = 0;
+    liveBuffer = [];
+    clearBtn.style.display = 'inline-block';
 
-  clearBtn.style.display = 'inline-block';
+    // Clear feed for results
+    feed.innerHTML = '';
+    count = 0;
+  }
+
   searchStatus.textContent = 'Searching...';
-
-  // Clear feed for results
-  feed.innerHTML = '';
-  count = 0;
-
   fetchResults();
 }
 
@@ -185,29 +186,48 @@ async function fetchResults() {
 
     totalSearched = data.searched;
 
+    // Build header label
+    const modeLabel = data.mode === 'server' ? '⚡ server' : data.mode === 'deep' ? '🐢 deep scan' : '';
+
     if (data.results.length > 0) {
-      // Found results — display them
-      searchStatus.textContent = `${data.results.length} result(s) in ${totalSearched} msgs`;
+      searchStatus.textContent = `${data.results.length} result(s) · ${modeLabel}`;
+
+      // Remove existing load-more button if any
+      const oldBtn = document.getElementById('load-more-btn');
+      if (oldBtn) oldBtn.remove();
 
       // Add a header card
       const headerCard = document.createElement('div');
       headerCard.className = 'card';
       headerCard.style.borderLeftColor = '#facc15';
       headerCard.innerHTML = `
-        <div class="meta"><span class="badge" style="background:#3b2f00;color:#facc15">search</span><span>"${escHtml(searchQuery)}"</span></div>
-        <div class="content">${data.results.length} match(es) · searched ${totalSearched} messages</div>
+        <div class="meta"><span class="badge" style="background:#3b2f00;color:#facc15">search</span><span>"${escHtml(searchQuery)}"</span><span style="margin-left:auto;color:#888;font-size:11px">${modeLabel}</span></div>
+        <div class="content">${data.results.length} match(es)</div>
       `;
       feed.appendChild(headerCard);
 
       data.results.forEach(addCard);
+
+      // Load more button
+      if (data.has_more) {
+        const btn = document.createElement('button');
+        btn.id = 'load-more-btn';
+        btn.textContent = 'Load more...';
+        btn.style.cssText = 'display:block;width:100%;padding:12px;margin-top:10px;border-radius:8px;border:1px solid #333;background:#1e1e30;color:#ccc;cursor:pointer;font-size:14px';
+        btn.addEventListener('click', () => {
+          searchOffset = data.next_offset;
+          doSearch(true);
+        });
+        feed.appendChild(btn);
+      }
     } else if (data.has_more) {
-      // No results yet, more to fetch
+      // No results yet, more to scan (deep scan mode)
       searchOffset = data.next_offset;
-      searchStatus.textContent = `Searching... scanned ${totalSearched} msgs`;
+      searchStatus.textContent = `Deep scanning... scanned ${totalSearched} msgs`;
       await fetchResults();  // auto-continue
     } else {
-      // Exhausted all messages
-      searchStatus.textContent = `No results for "${searchQuery}" (scanned ${totalSearched} msgs)`;
+      // Exhausted
+      searchStatus.textContent = `No results for "${searchQuery}" (${modeLabel})`;
       const emptyCard = document.createElement('div');
       emptyCard.className = 'empty';
       emptyCard.innerHTML = `<div class="icon">🔍</div><div>No messages match "${escHtml(searchQuery)}"</div><div style="font-size:12px;color:#555;margin-top:6px">Searched ${totalSearched} messages</div>`;
