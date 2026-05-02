@@ -89,13 +89,19 @@ def sender_info(sender) -> dict:
 
 # ─── Vietnamese accent normalization ──────────────────────────────────────────
 def vn_normalize(text: str) -> str:
-    """Remove Vietnamese diacritics for accent-insensitive search.
-    'Xin chào' -> 'xin chao', 'Đường' -> 'duong'
+    """Collapse Vietnamese text to plain Latin for accent-insensitive search.
+    'cửa' -> 'cua', 'của' -> 'cua', 'cưa' -> 'cua', 'Đường' -> 'duong'
+    Maps: ư→u, ơ→o, ô→o, â→a, ă→a, ê→e, đ→d + strip all tone marks.
     """
     if not text:
         return ""
-    # đ/Đ don't decompose via NFD — handle them first
-    text = text.replace('đ', 'd').replace('Đ', 'd')
+    # Map Vietnamese-specific base chars to plain Latin equivalents
+    VIET_TO_LATIN = str.maketrans(
+        'ăâêôơưđĂÂÊÔƠƯĐ',
+        'aaeooudAAEOOUD'
+    )
+    text = text.translate(VIET_TO_LATIN)
+    # NFD decompose + strip combining marks (tone marks)
     nfd = unicodedata.normalize('NFD', text)
     return ''.join(c for c in nfd if not unicodedata.combining(c)).lower()
 

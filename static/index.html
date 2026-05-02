@@ -267,10 +267,18 @@ function escHtml(s) {
 }
 
 // ── Vietnamese accent normalization (JS) ──────────────────────────────────
+// Maps Vietnamese base chars to plain Latin, then strips all tone marks.
+// 'cửa', 'của', 'cưa' all → 'cua'
 function vnNormalize(text) {
-  // đ/Đ don't decompose via NFD — handle first
-  text = text.replace(/đ/g, 'd').replace(/Đ/g, 'd');
-  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const VIET_TO_LATIN = {
+    'ă':'a','â':'a','ê':'e','ô':'o','ơ':'o','ư':'u','đ':'d',
+    'Ă':'A','Â':'A','Ê':'E','Ô':'O','Ơ':'O','Ư':'U','Đ':'D'
+  };
+  let result = '';
+  for (let i = 0; i < text.length; i++) {
+    result += VIET_TO_LATIN[text[i]] || text[i];
+  }
+  return result.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
 // ── Highlight matching words in text ──────────────────────────────────────
