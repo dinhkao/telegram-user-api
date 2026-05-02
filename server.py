@@ -729,6 +729,10 @@ async def main():
     app.router.add_get("/donhang", donhang_page_handler)
     app.router.add_static("/static/", "static")
 
+    # Edit a message via the user account (called from final_telegram instead of bot edit)
+    from tg_edit import make_handler as _make_edit_handler
+    app.router.add_post("/api/tg/edit-message", _make_edit_handler(lambda: _client))
+
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
