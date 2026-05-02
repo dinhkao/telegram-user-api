@@ -88,6 +88,9 @@
     color:#d0d0d0;
   }
   .card .content a { color:#7eb8ff; }
+  mark {
+    background:#facc15; color:#000; padding:1px 3px; border-radius:2px;
+  }
   .empty { text-align:center; padding:60px 20px; color:#555; }
   .empty .icon { font-size:48px; margin-bottom:12px; }
   @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
@@ -263,6 +266,76 @@ function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── Vietnamese accent normalization (JS) ──────────────────────────────────
+function vnNormalize(text) {
+  // đ/Đ don't decompose via NFD — handle first
+  text = text.replace(/đ/g, 'd').replace(/Đ/g, 'd');
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+// ── Highlight matching words in text ──────────────────────────────────────
+function highlightMatches(text, query) {
+  if (!query || !text) return escHtml(text);
+
+  const escaped = escHtml(text);
+  const q = query.trim();
+  if (!q) return escaped;
+
+  // Build regex: split query into words, match case-insensitive with accent-insensitivity
+  const words = q.split(/\s+/).filter(w => w.length > 0);
+
+  // Approach: find all positions in the original text where normalized text matches
+  const normText = vnNormalize(text);
+  const normQuery = vnNormalize(q);
+
+  // Collect all match spans
+  const spans = [];
+
+  // Try whole phrase first
+  let idx = normText.indexOf(normQuery, 0);
+  while (idx !== -1) {
+    spans.push([idx, idx + normQuery.length]);
+    idx = normText.indexOf(normQuery, idx + 1);
+  }
+
+  // Also try individual words
+  for (const word of words) {
+    const nw = vnNormalize(word);
+    if (!nw || nw === normQuery) continue; // already matched
+    idx = normText.indexOf(nw, 0);
+    while (idx !== -1) {
+      // Check not overlapping with existing spans
+      const end = idx + nw.length;
+      const overlaps = spans.some(([s, e]) => idx < e && end > s);
+      if (!overlaps) {
+        spans.push([idx, end]);
+      }
+      idx = normText.indexOf(nw, idx + 1);
+    }
+  }
+
+  if (spans.length === 0) return escaped;
+
+  // Sort and deduplicate
+  spans.sort((a, b) => a[0] - b[0]);
+
+  // Escape the original text, then insert <mark> tags at correct positions
+  // Since we escaped already, positions in `escaped` don't match original positions
+  // Strategy: build result char by char from original, escaping and marking inline
+  let result = '';
+  let pos = 0;
+  for (const [start, end] of spans) {
+    // Append non-highlighted part (before this span)
+    result += escHtml(text.slice(pos, start));
+    // Append highlighted part
+    result += '<mark>' + escHtml(text.slice(start, end)) + '</mark>';
+    pos = end;
+  }
+  result += escHtml(text.slice(pos));
+
+  return result;
+}
+
 // ── WebSocket ─────────────────────────────────────────────────────────────
 
 function connect() {
@@ -345,6 +418,16 @@ function addCard(data) {
     // Linkify
     let text = (data.text || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     text = text.replace(/(https?:\/\/\S+)/g, '<a href="$1" target="_blank">$1</a>');
+    // Highlight matches if in search mode
+    if (searchMode && searchQuery) {
+      // Decode HTML entities back for highlightMatches (it will re-escape)
+      const decoder = document.createElement('textarea');
+      decoder.innerHTML = text;
+      text = decoder.value;
+      text = highlightMatches(text, searchQuery);
+      // Re-linkify after highlight
+      text = text.replace(/(https?:\/\/\S+)/g, '<a href="$1" target="_blank">$1</a>');
+    }
     content.innerHTML = text || (data.media ? `📎 ${data.media}` : '<i>empty</i>');
   }
 
