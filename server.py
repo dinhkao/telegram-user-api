@@ -353,10 +353,9 @@ async def _msg_to_dict(msg) -> dict:
 
 
 async def _server_search(query: str, offset_id: int = 0) -> tuple[list[dict], bool, int]:
-    """Pass 1: Telegram server-side indexed search via iter_messages(search=...).
+    """Pass 1: Telegram server-side indexed search via get_messages(search=...).
     Returns (results, has_more, next_offset_id).
     """
-    print(f"[search] _server_search(query='{query}', offset={offset_id})")
     try:
         msgs = await _client.get_messages(
             "me",
@@ -371,15 +370,13 @@ async def _server_search(query: str, offset_id: int = 0) -> tuple[list[dict], bo
         print(f"[search] Server search error: {e}")
         return [], False, 0
 
-    print(f"[search] Server returned {len(msgs)} messages")
-    results = []
-    if isinstance(msgs, list):
-        total = await _client.get_messages("me", search=query, limit=0)  # get count
-        full_count = total.total if hasattr(total, 'total') else len(msgs)
-    else:
-        full_count = len(msgs) if msgs else 0
-        msgs = msgs or []
+    if not msgs:
+        return [], False, 0
 
+    if not isinstance(msgs, list):
+        msgs = [msgs] if msgs else []
+
+    results = []
     for msg in msgs:
         text = msg.text or ""
         if text:
