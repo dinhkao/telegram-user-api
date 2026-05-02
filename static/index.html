@@ -27,6 +27,35 @@
   }
   .dot.connected { background:#4ade80; }
   .dot.disconnected { background:#f87171; }
+
+  /* Search bar */
+  .search-wrap {
+    position: sticky; top:57px; z-index:9;
+    background: #12121f;
+    border-bottom: 1px solid #2a2a4a;
+    padding: 10px 20px;
+    display: flex; gap:8px; align-items: center;
+  }
+  .search-wrap input {
+    flex:1;
+    background: #1e1e30; border:1px solid #333; border-radius:8px;
+    color:#e0e0e0; padding:9px 14px; font-size:14px;
+    outline:none; transition: border-color .2s;
+  }
+  .search-wrap input:focus { border-color:#7eb8ff; }
+  .search-wrap button {
+    background: #2a2a4a; border:none; color:#e0e0e0;
+    padding:9px 14px; border-radius:8px; cursor:pointer; font-size:14px;
+    transition: background .2s;
+  }
+  .search-wrap button:hover { background:#3a3a5a; }
+  .search-wrap .clear-search {
+    background: transparent; color:#888; font-size:18px; padding:9px 10px;
+  }
+  .search-wrap .clear-search:hover { color:#f87171; }
+  .search-status {
+    font-size:12px; color:#888; white-space:nowrap;
+  }
   main {
     max-width: 780px; margin:0 auto; padding:16px 20px 40px;
     display:flex; flex-direction:column; gap:10px;
@@ -78,6 +107,13 @@
   </div>
 </header>
 
+<div class="search-wrap">
+  <input type="text" id="search-input" placeholder="Search saved messages (no accent needed)...">
+  <button id="search-btn" title="Search">🔍</button>
+  <button class="clear-search" id="clear-search" title="Clear search" style="display:none">✕</button>
+  <span class="search-status" id="search-status"></span>
+</div>
+
 <main id="feed">
   <div class="empty">
     <div class="icon">📭</div>
@@ -93,6 +129,121 @@ const dot = document.getElementById('dot');
 const statusText = document.getElementById('status-text');
 const empty = feed.querySelector('.empty');
 let count = 0;
+
+// ── Search state ──────────────────────────────────────────────────────────
+let searchMode = false;
+let searchQuery = '';
+let searchOffset = 0;
+let totalSearched = 0;
+let liveBuffer = [];  // buffered live msgs while in search mode
+
+const searchInput = document.getElementById('search-input');
+const searchBtn = document.getElementById('search-btn');
+const clearBtn = document.getElementById('clear-search');
+const searchStatus = document.getElementById('search-status');
+
+searchBtn.addEventListener('click', () => doSearch());
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doSearch();
+});
+clearBtn.addEventListener('click', clearSearch);
+
+function doSearch() {
+  const q = searchInput.value.trim();
+  if (!q) return;
+
+  searchMode = true;
+  searchQuery = q;
+  searchOffset = 0;
+  totalSearched = 0;
+  liveBuffer = [];
+
+  clearBtn.style.display = 'inline-block';
+  searchStatus.textContent = 'Searching...';
+
+  // Clear feed for results
+  feed.innerHTML = '';
+  count = 0;
+
+  fetchResults();
+}
+
+async function fetchResults() {
+  if (!searchMode) return;
+
+  const params = new URLSearchParams({ q: searchQuery });
+  if (searchOffset) params.set('offset', searchOffset);
+
+  try {
+    const res = await fetch(`/api/search?${params}`);
+    const data = await res.json();
+
+    if (data.error) {
+      searchStatus.textContent = data.error;
+      return;
+    }
+
+    totalSearched = data.searched;
+
+    if (data.results.length > 0) {
+      // Found results — display them
+      searchStatus.textContent = `${data.results.length} result(s) in ${totalSearched} msgs`;
+
+      // Add a header card
+      const headerCard = document.createElement('div');
+      headerCard.className = 'card';
+      headerCard.style.borderLeftColor = '#facc15';
+      headerCard.innerHTML = `
+        <div class="meta"><span class="badge" style="background:#3b2f00;color:#facc15">search</span><span>"${escHtml(searchQuery)}"</span></div>
+        <div class="content">${data.results.length} match(es) · searched ${totalSearched} messages</div>
+      `;
+      feed.appendChild(headerCard);
+
+      data.results.forEach(addCard);
+    } else if (data.has_more) {
+      // No results yet, more to fetch
+      searchOffset = data.next_offset;
+      searchStatus.textContent = `Searching... scanned ${totalSearched} msgs`;
+      await fetchResults();  // auto-continue
+    } else {
+      // Exhausted all messages
+      searchStatus.textContent = `No results for "${searchQuery}" (scanned ${totalSearched} msgs)`;
+      const emptyCard = document.createElement('div');
+      emptyCard.className = 'empty';
+      emptyCard.innerHTML = `<div class="icon">🔍</div><div>No messages match "${escHtml(searchQuery)}"</div><div style="font-size:12px;color:#555;margin-top:6px">Searched ${totalSearched} messages</div>`;
+      feed.appendChild(emptyCard);
+    }
+  } catch (err) {
+    searchStatus.textContent = 'Search error: ' + err.message;
+  }
+}
+
+function clearSearch() {
+  searchMode = false;
+  searchQuery = '';
+  searchOffset = 0;
+
+  searchInput.value = '';
+  clearBtn.style.display = 'none';
+  searchStatus.textContent = '';
+
+  // Restore live feed
+  feed.innerHTML = '';
+  count = 0;
+  if (liveBuffer.length === 0) {
+    feed.appendChild(document.createElement('div'));
+    feed.lastChild.className = 'empty';
+    feed.lastChild.innerHTML = '<div class="icon">📭</div><div>Waiting for messages...</div>';
+  }
+  liveBuffer.forEach(addCard);
+  liveBuffer = [];
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────
 
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -114,8 +265,14 @@ function connect() {
   ws.onmessage = (e) => {
     const data = JSON.parse(e.data);
     if (data.type === 'history') {
-      // Batch-load recent messages (newest first)
-      data.messages.forEach(addCard);
+      if (!searchMode) {
+        data.messages.forEach(addCard);
+      }
+      return;
+    }
+    if (searchMode) {
+      liveBuffer.push(data);
+      if (liveBuffer.length > 50) liveBuffer.shift();
       return;
     }
     addCard(data);

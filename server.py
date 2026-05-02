@@ -11,6 +11,7 @@ import subprocess
 import sys
 from datetime import datetime
 import http.client
+import unicodedata
 
 from aiohttp import web
 from dotenv import load_dotenv
@@ -31,6 +32,7 @@ if not all([API_ID, API_HASH, PHONE]):
 # ─── WebSocket broadcast ──────────────────────────────────────────────────────
 ws_clients: set[web.WebSocketResponse] = set()
 recent_messages: list[dict] = []
+_client: TelegramClient | None = None
 
 
 async def load_recent_messages(client: TelegramClient, limit=100):
@@ -82,6 +84,19 @@ def sender_info(sender) -> dict:
     if getattr(sender, "username", None):
         name += f" (@{sender.username})"
     return {"name": name, "id": sender.id, "is_channel": False}
+
+
+# ─── Vietnamese accent normalization ──────────────────────────────────────────
+def vn_normalize(text: str) -> str:
+    """Remove Vietnamese diacritics for accent-insensitive search.
+    'Xin chào' -> 'xin chao', 'Đường' -> 'duong'
+    """
+    if not text:
+        return ""
+    # đ/Đ don't decompose via NFD — handle them first
+    text = text.replace('đ', 'd').replace('Đ', 'd')
+    nfd = unicodedata.normalize('NFD', text)
+    return ''.join(c for c in nfd if not unicodedata.combining(c)).lower()
 
 
 # ─── AI Backend ────────────────────────────────────────────────────────────────
@@ -315,10 +330,86 @@ async def websocket_handler(request: web.Request):
     return ws
 
 
+# ─── Search endpoint ──────────────────────────────────────────────────────────
+async def search_handler(request: web.Request):
+    """Search saved messages with Vietnamese no-accent matching.
+    GET /api/search?q=...&offset=N
+    If no results in memory, fetches next 100 from Telegram.
+    Returns {results, searched, has_more, next_offset}
+    """
+    q = request.query.get("q", "").strip()
+    if not q:
+        return web.json_response({"results": [], "searched": 0, "has_more": False, "next_offset": 0})
+
+    if _client is None:
+        return web.json_response({"error": "Telegram client not connected yet"}, status=503)
+
+    normalized_q = vn_normalize(q)
+    results: list[dict] = []
+
+    # 1. Search in-memory recent_messages (fast path)
+    for msg in recent_messages:
+        text = msg.get("text") or ""
+        if normalized_q in vn_normalize(text):
+            results.append(msg)
+
+    total_searched = len(recent_messages)
+
+    # 2. If no results, fetch one batch from Telegram
+    offset_id = int(request.query.get("offset", "0"))
+    if not offset_id and recent_messages:
+        offset_id = recent_messages[0]["id"]  # oldest cached msg
+
+    has_more = False
+    next_offset = 0
+
+    if not results and offset_id > 0:
+        try:
+            batch = await _client.get_messages("me", limit=100, offset_id=offset_id)
+        except Exception as e:
+            err = str(e)
+            if "FloodWait" in err or "FLOOD_WAIT" in err:
+                return web.json_response({
+                    "error": "Telegram rate limit — wait a moment and try again",
+                    "searched": total_searched,
+                }, status=429)
+            return web.json_response({"error": err, "searched": total_searched}, status=500)
+
+        if batch:
+            total_searched += len(batch)
+            for msg in batch:
+                text = msg.text or ""
+                if normalized_q in vn_normalize(text):
+                    s = await msg.get_sender()
+                    results.append({
+                        "type": "new",
+                        "id": msg.id,
+                        "date": msg.date.isoformat(),
+                        "sender": sender_info(s),
+                        "text": msg.text[:1000] if msg.text else None,
+                        "media": type(msg.media).__name__.replace("MessageMedia", "") if msg.media else None,
+                        "reply_to": msg.reply_to_msg_id,
+                    })
+
+            if not results:
+                next_offset = batch[-1].id
+                has_more = True
+
+    return web.json_response({
+        "results": results,
+        "searched": total_searched,
+        "has_more": has_more,
+        "next_offset": next_offset,
+    })
+
+
 # ─── Main ──────────────────────────────────────────────────────────────────────
 async def main():
+    global _client
+
     # Start Telethon
     client = TelegramClient("user_session", API_ID, API_HASH)
+    _client = client
     await client.start(phone=PHONE)
     me = await client.get_me()
     print(f"✅ Logged in as {me.first_name}")
@@ -332,6 +423,7 @@ async def main():
     app = web.Application()
     app.router.add_get("/", index_handler)
     app.router.add_get("/ws", websocket_handler)
+    app.router.add_get("/api/search", search_handler)
     app.router.add_static("/static/", "static")
 
     runner = web.AppRunner(app)
