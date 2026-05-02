@@ -100,6 +100,8 @@ let hasMore = true;
 let loading = false;
 let totalLoaded = 0;
 let currentQuery = '';
+let pendingClear = false;
+let requestSeq = 0;        // monotonic id; only the latest fetch wins
 
 // Vietnamese normalize — must mirror server-side vn.py exactly.
 const _VN_MAP = { 'ă':'a','â':'a','ê':'e','ô':'o','ơ':'o','ư':'u','đ':'d',
@@ -143,7 +145,8 @@ refreshStats();
 setInterval(refreshStats, 5000);
 
 function resetFeed() {
-  feed.innerHTML = '';
+  // Do not wipe the DOM yet — keep old cards visible until new data arrives.
+  pendingClear = true;
   offset = 0;
   hasMore = true;
   totalLoaded = 0;
@@ -152,7 +155,8 @@ function resetFeed() {
 async function fetchBatch() {
   if (loading || !hasMore) return;
   loading = true;
-  statusText.textContent = 'Loading...';
+  const myReq = ++requestSeq;
+  statusText.textContent = pendingClear ? 'Searching…' : 'Loading…';
 
   try {
     const params = new URLSearchParams();
@@ -162,11 +166,19 @@ async function fetchBatch() {
     const res = await fetch(`/api/donhang?${params}`);
     const data = await res.json();
 
+    // Ignore stale responses (user typed more after we kicked off this request)
+    if (myReq !== requestSeq) return;
+
     if (data.error) {
       statusText.textContent = data.error;
       return;
     }
 
+    // Now that we have fresh data, swap the old feed out (avoids blank flash).
+    if (pendingClear) {
+      feed.innerHTML = '';
+      pendingClear = false;
+    }
     if (empty && empty.parentNode) empty.remove();
 
     if (!data.results.length && totalLoaded === 0) {
