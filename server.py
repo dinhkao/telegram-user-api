@@ -539,6 +539,67 @@ async def search_handler(request: web.Request):
     return web.json_response(data)
 
 
+# ─── #don_hang channel search ─────────────────────────────────────────────────
+DON_HANG_CHAT_ID = -1002138495144  # TARGET_CHAT from .env as full MTProto ID
+DON_HANG_QUERY = "#don_hang"
+DON_HANG_BATCH = 50
+
+
+async def donhang_handler(request: web.Request):
+    """Search #don_hang in the TARGET_CHAT channel.
+    GET /api/donhang?offset=N
+    """
+    if _client is None:
+        return web.json_response({"error": "Telegram client not connected yet"}, status=503)
+
+    offset_id = int(request.query.get("offset", "0"))
+
+    try:
+        msgs = await _client.get_messages(
+            DON_HANG_CHAT_ID,
+            search=DON_HANG_QUERY,
+            limit=DON_HANG_BATCH,
+            offset_id=offset_id,
+        )
+    except Exception as e:
+        err = str(e)
+        if "FLOOD_WAIT" in err.upper():
+            return web.json_response({"error": "Telegram rate limit"}, status=429)
+        print(f"[donhang] Search error: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+    if not msgs:
+        return web.json_response({"results": [], "has_more": False, "next_offset": 0})
+
+    if not isinstance(msgs, list):
+        msgs = [msgs] if msgs else []
+
+    results = []
+    for msg in msgs:
+        text = msg.text or ""
+        if text:
+            results.append({
+                "id": msg.id,
+                "date": msg.date.isoformat(),
+                "text": text[:2000],
+                "media": type(msg.media).__name__.replace("MessageMedia", "") if msg.media else None,
+                "reply_to": msg.reply_to_msg_id,
+            })
+
+    has_more = len(msgs) >= DON_HANG_BATCH
+    next_offset = msgs[-1].id if msgs else 0
+
+    return web.json_response({
+        "results": results,
+        "has_more": has_more,
+        "next_offset": next_offset,
+    })
+
+
+async def donhang_page_handler(request: web.Request):
+    return web.FileResponse("static/donhang.html")
+
+
 # ─── Main ──────────────────────────────────────────────────────────────────────
 async def main():
     global _client
@@ -560,6 +621,8 @@ async def main():
     app.router.add_get("/", index_handler)
     app.router.add_get("/ws", websocket_handler)
     app.router.add_get("/api/search", search_handler)
+    app.router.add_get("/api/donhang", donhang_handler)
+    app.router.add_get("/donhang", donhang_page_handler)
     app.router.add_static("/static/", "static")
 
     runner = web.AppRunner(app)
