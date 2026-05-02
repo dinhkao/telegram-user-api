@@ -377,9 +377,12 @@ async def _server_search(query: str, offset_id: int = 0) -> tuple[list[dict], bo
         msgs = [msgs] if msgs else []
 
     results = []
+    normalized_q = vn_normalize(query)
     for msg in msgs:
         text = msg.text or ""
-        if text:
+        # Telegram server search is fuzzy — filter locally to ensure the query
+        # actually appears in the text (accent-insensitive)
+        if text and normalized_q in vn_normalize(text):
             results.append({
                 "type": "new",
                 "id": msg.id,
@@ -390,7 +393,7 @@ async def _server_search(query: str, offset_id: int = 0) -> tuple[list[dict], bo
                 "reply_to": msg.reply_to_msg_id,
             })
 
-    has_more = len(results) >= SEARCH_BATCH
+    has_more = len(msgs) >= SEARCH_BATCH  # more on server, even if filtered here
     next_offset = msgs[-1].id if msgs else 0
 
     return results, has_more, next_offset
