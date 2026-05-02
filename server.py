@@ -17,8 +17,7 @@ import http.client
 from aiohttp import web
 from dotenv import load_dotenv
 from telethon import TelegramClient, events, Button
-from telethon.tl.functions.messages import SearchRequest
-from telethon.tl.types import MessageService, InputPeerSelf, InputMessagesFilterEmpty
+from telethon.tl.types import MessageService
 
 load_dotenv()
 
@@ -354,23 +353,17 @@ async def _msg_to_dict(msg) -> dict:
 
 
 async def _server_search(query: str, offset_id: int = 0) -> tuple[list[dict], bool, int]:
-    """Pass 1: Telegram server-side indexed search via messages.search.
+    """Pass 1: Telegram server-side indexed search via iter_messages(search=...).
     Returns (results, has_more, next_offset_id).
     """
+    print(f"[search] _server_search(query='{query}', offset={offset_id})")
     try:
-        result = await _client(SearchRequest(
-            peer=InputPeerSelf(),
-            q=query,
-            filter=InputMessagesFilterEmpty(),
-            min_date=None,
-            max_date=None,
-            offset_id=offset_id,
-            add_offset=0,
+        msgs = await _client.get_messages(
+            "me",
+            search=query,
             limit=SEARCH_BATCH,
-            max_id=0,
-            min_id=0,
-            hash=0,
-        ))
+            offset_id=offset_id,
+        )
     except Exception as e:
         err = str(e)
         if "FLOOD_WAIT" in err.upper():
@@ -378,31 +371,29 @@ async def _server_search(query: str, offset_id: int = 0) -> tuple[list[dict], bo
         print(f"[search] Server search error: {e}")
         return [], False, 0
 
-    from telethon.tl.types import MessagesMessages, MessagesMessagesSlice
+    print(f"[search] Server returned {len(msgs)} messages")
     results = []
-    msgs = []
-    full_count = 0
-
-    if isinstance(result, MessagesMessages):
-        msgs = result.messages
-        full_count = len(msgs)
-    elif isinstance(result, MessagesMessagesSlice):
-        msgs = result.messages
-        full_count = result.count
+    if isinstance(msgs, list):
+        total = await _client.get_messages("me", search=query, limit=0)  # get count
+        full_count = total.total if hasattr(total, 'total') else len(msgs)
+    else:
+        full_count = len(msgs) if msgs else 0
+        msgs = msgs or []
 
     for msg in msgs:
-        if hasattr(msg, "message") and msg.message:
+        text = msg.text or ""
+        if text:
             results.append({
                 "type": "new",
                 "id": msg.id,
                 "date": msg.date.isoformat(),
                 "sender": {"name": "Saved Messages", "id": 0},
-                "text": msg.message[:1000],
+                "text": text[:1000],
                 "media": type(msg.media).__name__.replace("MessageMedia", "") if msg.media else None,
-                "reply_to": getattr(msg, "reply_to", {}).reply_to_msg_id if hasattr(msg, "reply_to") else None,
+                "reply_to": msg.reply_to_msg_id,
             })
 
-    has_more = len(results) >= SEARCH_BATCH or (full_count > offset_id + SEARCH_BATCH if full_count else False)
+    has_more = len(results) >= SEARCH_BATCH
     next_offset = msgs[-1].id if msgs else 0
 
     return results, has_more, next_offset
