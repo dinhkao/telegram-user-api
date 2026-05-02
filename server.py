@@ -6,9 +6,10 @@ Clients connect via WebSocket at ws://localhost:8080/ws
 import asyncio
 import json
 import os
-import subprocess
+import ssl
 import sys
 from datetime import datetime
+import http.client
 
 from aiohttp import web
 from dotenv import load_dotenv
@@ -82,50 +83,76 @@ def sender_info(sender) -> dict:
     return {"name": name, "id": sender.id, "is_channel": False}
 
 
-# ─── Telethon event handlers ──────────────────────────────────────────────────
-GROUP_ID = int(os.getenv("GROUP_ID", 0))
-
-
-PI_MODEL = os.getenv("PI_MODEL", "fireworks/accounts/fireworks/routers/kimi-k2p5-turbo")
+# ─── Fireworks API ─────────────────────────────────────────────────────────────
 FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY", "")
+FIREWORKS_MODEL = os.getenv("PI_MODEL", "accounts/fireworks/routers/kimi-k2p5-turbo")
+# Strip provider prefix if user set the full pi-style model name
+if FIREWORKS_MODEL.startswith("fireworks/"):
+    FIREWORKS_MODEL = FIREWORKS_MODEL[len("fireworks/"):]
+
+SYSTEM_PROMPT = "You are a helpful assistant in a Telegram group chat. Keep answers concise and clear."
+
+# Per-chat conversation history: chat_id -> list of {"role": ..., "content": ...}
+chat_histories: dict[str, list[dict]] = {}
+MAX_HISTORY = 20  # keep last N message pairs
 
 
-# Per-chat session tracking for pi conversation continuity
-import pathlib
-PI_SESSIONS_DIR = pathlib.Path(os.getenv("PI_SESSIONS_DIR", os.path.expanduser("~/.pi/agent/tg-sessions")))
-PI_SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+def ask_fireworks_sync(messages: list[dict]) -> str:
+    """Call Fireworks API synchronously (runs in thread pool)."""
+    ctx = ssl.create_default_context()
+    conn = http.client.HTTPSConnection("api.fireworks.ai", context=ctx, timeout=120)
+    payload = json.dumps({
+        "model": FIREWORKS_MODEL,
+        "messages": messages,
+        "max_tokens": 1024,
+    })
+    conn.request("POST", "/inference/v1/chat/completions", payload, {
+        "Authorization": f"Bearer {FIREWORKS_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    })
+    r = conn.getresponse()
+    body = json.loads(r.read())
+    conn.close()
+
+    content = body["choices"][0]["message"]["content"].strip()
+    # Strip thinking tags if model returns them
+    if "</thinking>" in content:
+        content = content.split("</thinking>")[-1].strip()
+    return content
 
 
-async def ask_pi(chat_id: str, question: str) -> str:
-    """Run pi -p with --session pointing to a file for conversation continuity."""
+async def ask_ai(chat_id: str, question: str) -> str:
+    """Ask Fireworks API with conversation history per chat."""
     loop = asyncio.get_running_loop()
 
-    safe_id = str(chat_id).replace("/", "_").replace(":", "_").lstrip("-")
-    session_path = PI_SESSIONS_DIR / f"{safe_id}.jsonl"
+    # Get or create history for this chat
+    history = chat_histories.setdefault(str(chat_id), [])
 
-    cmd = [
-        "pi", "-p",
-        "--model", PI_MODEL,
-        "--session", str(session_path),
-        question,
-    ]
-    env = os.environ.copy()
-    if FIREWORKS_API_KEY:
-        env["FIREWORKS_API_KEY"] = FIREWORKS_API_KEY
+    # Add user message
+    history.append({"role": "user", "content": question})
+
+    # Trim history if too long
+    if len(history) > MAX_HISTORY * 2:
+        history[:] = history[-(MAX_HISTORY * 2):]
+
+    # Build messages with system prompt
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
 
     try:
-        proc = await loop.run_in_executor(
-            None,
-            lambda: subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=120),
-        )
-        output = (proc.stdout or "").strip()
-        if not output and proc.stderr:
-            output = f"Error: {proc.stderr.strip()[:500]}"
-        return output or "(empty response)"
-    except subprocess.TimeoutExpired:
-        return "Timeout: pi took too long to respond."
+        answer = await loop.run_in_executor(None, ask_fireworks_sync, messages)
+
+        # Add assistant response to history
+        history.append({"role": "assistant", "content": answer})
+
+        return answer or "(empty response)"
     except Exception as e:
-        return f"Error running pi: {e}"
+        # Remove the user message if API failed
+        history.pop()
+        return f"Error: {e}"
+
+
+GROUP_ID = int(os.getenv("GROUP_ID", 0))
 
 
 async def auto_reply_yes(client, chat, text):
@@ -195,14 +222,14 @@ def register_handlers(client: TelegramClient):
             status_msg = await client.send_message(GROUP_ID, "🤔 Thinking...")
 
             # Ask pi and reply
-            answer = await ask_pi(str(GROUP_ID), text)
+            answer = await ask_ai(str(GROUP_ID), text)
             await client.delete_messages(GROUP_ID, [status_msg.id])
             await client.send_message(
                 GROUP_ID,
                 answer[:4000] + ("..." if len(answer) > 4000 else ""),
                 reply_to=msg.id,
             )
-            print(f"🤖 [{datetime.now():%H:%M:%S}] Replied with pi answer ({len(answer)} chars)")
+            print(f"🤖 [{datetime.now():%H:%M:%S}] Replied with Fireworks answer ({len(answer)} chars)")
 
     @client.on(events.MessageEdited(chats="me"))
     async def on_message_edited(event):
