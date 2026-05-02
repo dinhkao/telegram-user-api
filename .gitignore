@@ -4,4 +4,10 @@
 __pycache__/
 *.pyc
 venv/
+.venv/
 .env
+donhang.db
+donhang.db-shm
+donhang.db-wal
+server.log
+nohup.out

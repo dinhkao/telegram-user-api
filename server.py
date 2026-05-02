@@ -19,6 +19,9 @@ from dotenv import load_dotenv
 from telethon import TelegramClient, events, Button
 from telethon.tl.types import MessageService
 
+from donhang_db import DonHangDB
+from donhang_indexer import backfill, register_live_handlers, fill_gap_to_newest
+
 load_dotenv()
 
 API_ID = int(os.getenv("API_ID", 0))
@@ -88,22 +91,7 @@ def sender_info(sender) -> dict:
 
 
 # ─── Vietnamese accent normalization ──────────────────────────────────────────
-def vn_normalize(text: str) -> str:
-    """Collapse Vietnamese text to plain Latin for accent-insensitive search.
-    'cửa' -> 'cua', 'của' -> 'cua', 'cưa' -> 'cua', 'Đường' -> 'duong'
-    Maps: ư→u, ơ→o, ô→o, â→a, ă→a, ê→e, đ→d + strip all tone marks.
-    """
-    if not text:
-        return ""
-    # Map Vietnamese-specific base chars to plain Latin equivalents
-    VIET_TO_LATIN = str.maketrans(
-        'ăâêôơưđĂÂÊÔƠƯĐ',
-        'aaeooudAAEOOUD'
-    )
-    text = text.translate(VIET_TO_LATIN)
-    # NFD decompose + strip combining marks (tone marks)
-    nfd = unicodedata.normalize('NFD', text)
-    return ''.join(c for c in nfd if not unicodedata.combining(c)).lower()
+from vn import vn_normalize  # noqa: E402
 
 
 # ─── AI Backend ────────────────────────────────────────────────────────────────
@@ -543,56 +531,124 @@ async def search_handler(request: web.Request):
 DON_HANG_CHAT_ID = -1002138495144  # TARGET_CHAT from .env as full MTProto ID
 DON_HANG_QUERY = "#don_hang"
 DON_HANG_BATCH = 50
+DON_HANG_DB_PATH = os.getenv("DONHANG_DB", "donhang.db")
+
+_donhang_db: DonHangDB | None = None
 
 
 async def donhang_handler(request: web.Request):
-    """Search #don_hang in the TARGET_CHAT channel.
-    GET /api/donhang?offset=N
+    """DB-backed search for #don_hang in TARGET_CHAT.
+    GET /api/donhang?offset=N&q=text&mode=db|live
+
+    - mode=db (default): Read from local SQLite cache (instant).
+      Supports `q` for FTS5 text search (diacritic-insensitive).
+    - mode=live: Bypass cache, scan Telegram directly (legacy local scan).
     """
     if _client is None:
         return web.json_response({"error": "Telegram client not connected yet"}, status=503)
 
     offset_id = int(request.query.get("offset", "0"))
+    q = request.query.get("q", "").strip()
+    mode = request.query.get("mode", "db")
 
+    if mode == "live":
+        return await _donhang_live(offset_id)
+    if mode == "server":
+        return await _donhang_server(offset_id)
+
+    # DB mode
+    if _donhang_db is None:
+        return web.json_response({"error": "DB not initialized"}, status=503)
+
+    rows = _donhang_db.search(q, offset_id=offset_id, limit=DON_HANG_BATCH) if q \
+        else _donhang_db.page(offset_id=offset_id, limit=DON_HANG_BATCH)
+
+    results = [{
+        "id": r["id"],
+        "date": r["date"],
+        "text": (r["text"] or "")[:2000],
+        "media": r["media"],
+        "reply_to": r["reply_to"],
+    } for r in rows]
+
+    return web.json_response({
+        "results": results,
+        "has_more": len(rows) >= DON_HANG_BATCH,
+        "next_offset": rows[-1]["id"] if rows else 0,
+        "mode": "db",
+        "query": q,
+    })
+
+
+async def donhang_stats_handler(request: web.Request):
+    if _donhang_db is None:
+        return web.json_response({"error": "DB not initialized"}, status=503)
+    return web.json_response(_donhang_db.stats())
+
+
+async def _donhang_server(offset_id: int):
+    """Telegram server-side hashtag index. Fast but misses edited messages."""
     try:
         msgs = await _client.get_messages(
-            DON_HANG_CHAT_ID,
-            search=DON_HANG_QUERY,
-            limit=DON_HANG_BATCH,
-            offset_id=offset_id,
+            DON_HANG_CHAT_ID, search=DON_HANG_QUERY,
+            limit=DON_HANG_BATCH, offset_id=offset_id,
         )
+    except Exception as e:
+        if "FLOOD_WAIT" in str(e).upper():
+            return web.json_response({"error": "Telegram rate limit"}, status=429)
+        return web.json_response({"error": str(e)}, status=500)
+    if not msgs:
+        return web.json_response({"results": [], "has_more": False, "next_offset": 0, "mode": "server"})
+    if not isinstance(msgs, list):
+        msgs = [msgs]
+    results = [{
+        "id": m.id,
+        "date": m.date.isoformat() if m.date else None,
+        "text": (m.text or "")[:2000],
+    } for m in msgs if (m.text or "")]
+    return web.json_response({
+        "results": results,
+        "has_more": len(msgs) >= DON_HANG_BATCH,
+        "next_offset": msgs[-1].id if msgs else 0,
+        "mode": "server",
+    })
+
+
+async def _donhang_live(offset_id: int):
+    """Legacy: live scan via iter_messages (bypasses DB)."""
+    results = []
+    scanned = 0
+    last_id = offset_id
+    try:
+        kwargs = {"limit": 500}
+        if offset_id:
+            kwargs["offset_id"] = offset_id
+        async for msg in _client.iter_messages(DON_HANG_CHAT_ID, **kwargs):
+            scanned += 1
+            last_id = msg.id
+            text = msg.text or ""
+            if DON_HANG_QUERY in text:
+                results.append({
+                    "id": msg.id,
+                    "date": msg.date.isoformat() if msg.date else None,
+                    "text": text[:2000],
+                    "media": type(msg.media).__name__.replace("MessageMedia", "") if msg.media else None,
+                    "reply_to": msg.reply_to_msg_id,
+                })
+                if len(results) >= DON_HANG_BATCH:
+                    break
     except Exception as e:
         err = str(e)
         if "FLOOD_WAIT" in err.upper():
             return web.json_response({"error": "Telegram rate limit"}, status=429)
-        print(f"[donhang] Search error: {e}")
         return web.json_response({"error": str(e)}, status=500)
-
-    if not msgs:
-        return web.json_response({"results": [], "has_more": False, "next_offset": 0})
-
-    if not isinstance(msgs, list):
-        msgs = [msgs] if msgs else []
-
-    results = []
-    for msg in msgs:
-        text = msg.text or ""
-        if text:
-            results.append({
-                "id": msg.id,
-                "date": msg.date.isoformat(),
-                "text": text[:2000],
-                "media": type(msg.media).__name__.replace("MessageMedia", "") if msg.media else None,
-                "reply_to": msg.reply_to_msg_id,
-            })
-
-    has_more = len(msgs) >= DON_HANG_BATCH
-    next_offset = msgs[-1].id if msgs else 0
 
     return web.json_response({
         "results": results,
-        "has_more": has_more,
-        "next_offset": next_offset,
+        "has_more": scanned >= 500 or len(results) >= DON_HANG_BATCH,
+        "next_offset": last_id,
+        "scanned": scanned,
+        "mode": "live",
     })
 
 
@@ -600,9 +656,34 @@ async def donhang_page_handler(request: web.Request):
     return web.FileResponse("static/donhang.html")
 
 
+async def donhang_msg_handler(request: web.Request):
+    """Debug: fetch a single message by id from DON_HANG_CHAT_ID.
+    GET /api/donhang/msg?id=N
+    """
+    if _client is None:
+        return web.json_response({"error": "Telegram client not connected yet"}, status=503)
+    try:
+        mid = int(request.query.get("id", "0"))
+    except ValueError:
+        return web.json_response({"error": "bad id"}, status=400)
+    msg = await _client.get_messages(DON_HANG_CHAT_ID, ids=mid)
+    if msg is None:
+        return web.json_response({"error": "not found"}, status=404)
+    return web.json_response({
+        "id": msg.id,
+        "date": msg.date.isoformat() if msg.date else None,
+        "text": msg.text or "",
+        "raw_text": msg.raw_text or "",
+        "message": msg.message or "",
+        "has_hashtag_donhang_in_text": "#don_hang" in (msg.text or ""),
+        "has_hashtag_donhang_in_raw": "#don_hang" in (msg.raw_text or ""),
+        "media": type(msg.media).__name__ if msg.media else None,
+    })
+
+
 # ─── Main ──────────────────────────────────────────────────────────────────────
 async def main():
-    global _client
+    global _client, _donhang_db
 
     # Start Telethon
     client = TelegramClient("user_session", API_ID, API_HASH)
@@ -616,12 +697,35 @@ async def main():
     await load_recent_messages(client, limit=100)
     register_handlers(client)
 
+    # ── #don_hang DB cache ────────────────────────────────────────────────
+    _donhang_db = DonHangDB(DON_HANG_DB_PATH)
+    print(f"💾 #don_hang DB: {DON_HANG_DB_PATH} — {_donhang_db.stats()}")
+    register_live_handlers(client, _donhang_db, DON_HANG_CHAT_ID, DON_HANG_QUERY)
+
+    async def _bootstrap_donhang():
+        try:
+            # Fill any gap since the server was last running.
+            gained = await fill_gap_to_newest(client, _donhang_db, DON_HANG_CHAT_ID, DON_HANG_QUERY)
+            if gained:
+                print(f"📥 #don_hang gap-fill: +{gained} new messages")
+            # Resume backfill (no-op once done).
+            def _progress(scanned, matched, oldest_id):
+                print(f"⏳ #don_hang backfill: scanned={scanned} matched={matched} oldest={oldest_id}", flush=True)
+            res = await backfill(client, _donhang_db, DON_HANG_CHAT_ID, DON_HANG_QUERY, on_progress=_progress)
+            print(f"✅ #don_hang backfill: {res}")
+        except Exception as e:
+            print(f"⚠️  #don_hang backfill error: {e}")
+
+    asyncio.create_task(_bootstrap_donhang())
+
     # Start aiohttp
     app = web.Application()
     app.router.add_get("/", index_handler)
     app.router.add_get("/ws", websocket_handler)
     app.router.add_get("/api/search", search_handler)
     app.router.add_get("/api/donhang", donhang_handler)
+    app.router.add_get("/api/donhang/stats", donhang_stats_handler)
+    app.router.add_get("/api/donhang/msg", donhang_msg_handler)
     app.router.add_get("/donhang", donhang_page_handler)
     app.router.add_static("/static/", "static")
 
