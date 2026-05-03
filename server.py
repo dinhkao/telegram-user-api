@@ -21,6 +21,7 @@ from telethon.tl.types import MessageService
 
 from donhang_db import DonHangDB
 from donhang_indexer import backfill, register_live_handlers, fill_gap_to_newest
+from what_data import register_what_data_handler
 
 load_dotenv()
 
@@ -696,6 +697,9 @@ async def main():
     # Load recent message history
     await load_recent_messages(client, limit=100)
     register_handlers(client)
+
+    # ── "what data" fast order lookup in topics ─────────────────────────
+    register_what_data_handler(client)
 
     # ── #don_hang DB cache ────────────────────────────────────────────────
     _donhang_db = DonHangDB(DON_HANG_DB_PATH)
