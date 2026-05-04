@@ -737,6 +737,10 @@ async def main():
     from tg_edit import make_handler as _make_edit_handler
     app.router.add_post("/api/tg/edit-message", _make_edit_handler(lambda: _client))
 
+    # Send a message via the user account (called from final_telegram instead of bot send)
+    from tg_send import make_handler as _make_send_handler
+    app.router.add_post("/api/tg/send-message", _make_send_handler(lambda: _client))
+
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
