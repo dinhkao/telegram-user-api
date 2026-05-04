@@ -701,6 +701,10 @@ async def main():
     # ── "what data" fast order lookup in topics ─────────────────────────
     register_what_data_handler(client)
 
+    # ── "gtr" fast command via Telethon (same speed as what_data) ────────
+    from gtr_handler import register_gtr_handler
+    register_gtr_handler(client)
+
     # ── #don_hang DB cache ────────────────────────────────────────────────
     _donhang_db = DonHangDB(DON_HANG_DB_PATH)
     print(f"💾 #don_hang DB: {DON_HANG_DB_PATH} — {_donhang_db.stats()}")
