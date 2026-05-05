@@ -16,6 +16,7 @@ Body JSON:
 Auth: requires header `X-API-Key` matching env `TG_EDIT_API_KEY` (if set).
 """
 from __future__ import annotations
+import logging
 import os
 from aiohttp import web
 from telethon import TelegramClient
@@ -24,6 +25,7 @@ from telethon.errors import (
     ChatAdminRequiredError,
 )
 
+log = logging.getLogger("tg_send")
 
 _API_KEY = os.getenv("TG_EDIT_API_KEY", "")
 
@@ -41,26 +43,33 @@ def make_handler(get_client):
 
     async def handler(request: web.Request):
         if not _check_auth(request):
+            log.warning("Unauthorized send attempt from %s", request.remote)
             return web.json_response({"error": "unauthorized"}, status=401)
 
         client: TelegramClient | None = get_client()
         if client is None:
+            log.error("Send request failed: client not connected")
             return web.json_response({"error": "telegram client not connected"}, status=503)
 
         try:
             body = await request.json()
         except Exception as e:
+            log.warning("Send request invalid JSON: %s", e)
             return web.json_response({"error": f"invalid json: {e}"}, status=400)
 
         try:
             chat_id = int(body["chat_id"])
             text = body["text"]
         except (KeyError, TypeError, ValueError) as e:
+            log.warning("Send request missing/invalid field: %s", e)
             return web.json_response({"error": f"missing/invalid field: {e}"}, status=400)
 
         parse_mode = body.get("parse_mode", "html")
         reply_to = body.get("reply_to")
         link_preview = bool(body.get("link_preview", False))
+
+        log.debug("Send msg: chat=%d text_len=%d parse=%s reply_to=%s link_prev=%s",
+                  chat_id, len(text), parse_mode, reply_to, link_preview)
 
         try:
             msg = await client.send_message(
@@ -70,15 +79,19 @@ def make_handler(get_client):
                 reply_to=reply_to,
                 link_preview=link_preview,
             )
+            log.info("Send OK: chat=%d msg_id=%d", chat_id, msg.id)
             return web.json_response({"ok": True, "id": msg.id, "date": str(msg.date)})
         except FloodWaitError as e:
+            log.warning("Send flood_wait: chat=%d seconds=%s", chat_id, e.seconds)
             return web.json_response(
                 {"error": "flood_wait", "seconds": e.seconds},
                 status=429,
             )
         except ChatAdminRequiredError:
+            log.warning("Send no admin rights: chat=%d", chat_id)
             return web.json_response({"error": "user account lacks send rights in this chat"}, status=403)
         except Exception as e:
+            log.error("Send failed: chat=%d error=%s: %s", chat_id, type(e).__name__, e)
             return web.json_response({"error": f"{type(e).__name__}: {e}"}, status=502)
 
     return handler

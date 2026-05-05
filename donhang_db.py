@@ -12,6 +12,7 @@ Usage:
     db.search(query="cua", offset_id=0, limit=50)
 """
 from __future__ import annotations
+import logging
 import sqlite3
 import time
 import threading
@@ -19,6 +20,7 @@ from typing import Optional
 
 from vn import vn_normalize
 
+log = logging.getLogger("donhang_db")
 
 # text_norm = vn_normalize(text + ' ' + raw_text). FTS5 indexes text_norm only.
 SCHEMA = """
@@ -73,9 +75,9 @@ class DonHangDB:
         needs_rebuild = self._migrate()
         self._conn.executescript(SCHEMA)
         if needs_rebuild:
-            print("[donhang_db] rebuilding FTS index...", flush=True)
+            log.info("rebuilding FTS index...")
             self._conn.execute("INSERT INTO messages_fts(messages_fts) VALUES('rebuild')")
-            print("[donhang_db] FTS rebuild done", flush=True)
+            log.info("FTS rebuild done")
 
     def _migrate(self) -> bool:
         """Migrate older schema (without text_norm) to new schema.
@@ -87,8 +89,7 @@ class DonHangDB:
             return False  # fresh DB; SCHEMA will create everything
         if "text_norm" in cols:
             return False  # already migrated
-        # Old schema: drop old FTS and triggers, add text_norm col, repopulate.
-        print("[donhang_db] migrating schema: adding text_norm column...", flush=True)
+        log.info("migrating schema: adding text_norm column...")
         self._conn.executescript(
             """
             DROP TRIGGER IF EXISTS messages_ai;
@@ -98,7 +99,6 @@ class DonHangDB:
             ALTER TABLE messages ADD COLUMN text_norm TEXT;
             """
         )
-        # Backfill text_norm for all rows.
         rows = self._conn.execute("SELECT id, text, raw_text FROM messages").fetchall()
         self._conn.execute("BEGIN")
         try:
@@ -109,7 +109,7 @@ class DonHangDB:
         except Exception:
             self._conn.execute("ROLLBACK")
             raise
-        print(f"[donhang_db] migrated {len(rows)} rows", flush=True)
+        log.info("migrated %d rows", len(rows))
         return True
 
     # ── Mutations ────────────────────────────────────────────────────────────

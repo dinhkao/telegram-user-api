@@ -10,13 +10,14 @@ Works exactly like what_data.py — same listener, same reply speed.
 from __future__ import annotations
 import http.client
 import json
+import logging
 import os
 import sqlite3
 import time
-from datetime import datetime
 from telethon import events
 from telethon.tl.types import MessageService
 
+log = logging.getLogger("gtr")
 
 ORDER_GROUP_ID = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
 SHARED_DB_PATH = os.path.expanduser(
@@ -70,6 +71,7 @@ def _notify_final_telegram(thread_id: int, user_id: int | None):
         "user_id": user_id,
         "note": "gtr",
     })
+    log.debug("gtr: notifying final_telegram thread=%d user=%s", thread_id, user_id)
     try:
         conn = http.client.HTTPConnection(
             FINAL_TELEGRAM_URL.replace("http://", "").replace("https://", "").split(":")[0],
@@ -79,10 +81,9 @@ def _notify_final_telegram(thread_id: int, user_id: int | None):
         conn.request("POST", "/api/order/nhan-tien", body, {
             "Content-Type": "application/json",
         })
-        # Don't wait for response — fire and forget
         conn.close()
     except Exception as e:
-        print(f"[gtr] Failed to notify final_telegram: {e}")
+        log.warning("Failed to notify final_telegram: %s", e)
 
 
 def _get_connection():
@@ -103,10 +104,7 @@ def register_gtr_handler(client):
     """Attach the 'gtr' command handler. Called from server.py."""
 
     db_conn = _get_connection()
-    print(
-        f"[gtr] listening on chat {ORDER_GROUP_ID} "
-        f"for '{TRIGGER_TEXT}'. DB: {SHARED_DB_PATH}"
-    )
+    log.info("listening on chat %d for '%s'. DB: %s", ORDER_GROUP_ID, TRIGGER_TEXT, SHARED_DB_PATH)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_group_message(event):
@@ -118,14 +116,19 @@ def register_gtr_handler(client):
         if text.lower() != TRIGGER_TEXT:
             return
 
+        log.debug("gtr triggered by sender=%s", getattr(msg, "sender_id", "?"))
+
         thread_id = _extract_thread_id(msg)
         if not thread_id:
+            log.warning("gtr: could not determine thread_id for msg %d", msg.id)
             await client.send_message(
                 msg.chat_id,
                 "❌ gtr: Không xác định được thread_id. Dùng lệnh này trong topic đơn hàng.",
                 reply_to=msg.id,
             )
             return
+
+        log.debug("gtr: extracted thread_id=%d for msg %d", thread_id, msg.id)
 
         t0 = time.monotonic()
         order_text = ""
@@ -138,6 +141,7 @@ def register_gtr_handler(client):
         elapsed = (time.monotonic() - t0) * 1000
 
         if not order_text:
+            log.info("gtr: thread=%d order not found in SQLite", thread_id)
             await client.send_message(
                 msg.chat_id,
                 "❌ Không tìm thấy đơn hàng trong SQLite.",
@@ -158,8 +162,5 @@ def register_gtr_handler(client):
         _notify_final_telegram(thread_id, sender_id)
 
         who = getattr(msg, "sender_id", "?")
-        print(
-            f"[gtr] [{datetime.now():%H:%M:%S}] "
-            f"thread={thread_id} text={order_text[:40]!r} "
-            f"{elapsed:.1f}ms asked by {who} — reply sent, API notified"
-        )
+        log.info("thread=%d text=%r %.1fms asked by %s — reply sent, API notified",
+                 thread_id, order_text[:40], elapsed, who)

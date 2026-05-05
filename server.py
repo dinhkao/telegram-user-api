@@ -5,6 +5,7 @@ Clients connect via WebSocket at ws://localhost:8080/ws
 """
 import asyncio
 import json
+import logging
 import os
 import ssl
 import subprocess
@@ -22,8 +23,11 @@ from telethon.tl.types import MessageService
 from donhang_db import DonHangDB
 from donhang_indexer import backfill, register_live_handlers, fill_gap_to_newest
 from what_data import register_what_data_handler
+from utils.logger import configure_logging
 
 load_dotenv()
+configure_logging()
+log = logging.getLogger("server")
 
 API_ID = int(os.getenv("API_ID", 0))
 API_HASH = os.getenv("API_HASH", "")
@@ -31,7 +35,7 @@ PHONE = os.getenv("PHONE", "")
 PORT = int(os.getenv("PORT", 8080))
 
 if not all([API_ID, API_HASH, PHONE]):
-    print("❌ Missing .env config!")
+    log.error("Missing .env config!")
     sys.exit(1)
 
 # ─── WebSocket broadcast ──────────────────────────────────────────────────────
@@ -57,7 +61,7 @@ async def load_recent_messages(client: TelegramClient, limit=100):
             "reply_to": msg.reply_to_msg_id,
         }
         recent_messages.append(data)
-    print(f"📋 Loaded {len(recent_messages)} recent messages")
+    log.info("Loaded %d recent messages", len(recent_messages))
 
 
 async def broadcast(data: dict, persist=True):
@@ -69,6 +73,7 @@ async def broadcast(data: dict, persist=True):
             recent_messages.pop(0)
 
     payload = json.dumps(data, default=str)
+    log.debug("Broadcasting type=%s to %d clients", data.get("type", "?"), len(ws_clients))
     for ws in ws_clients.copy():
         try:
             await ws.send_str(payload)
@@ -138,8 +143,10 @@ async def ask_pi(chat_id: str, question: str) -> str:
 async def ask_ai(chat_id: str, question: str) -> str:
     """Route to pi CLI (with tools) or direct Fireworks API."""
     if AI_BACKEND == "pi":
+        log.debug("Using pi CLI backend for chat %s", chat_id)
         return await ask_pi(chat_id, question)
     else:
+        log.debug("Using Fireworks API backend for chat %s", chat_id)
         return await _ask_fireworks(chat_id, question)
 
 
@@ -200,7 +207,7 @@ async def auto_reply_yes(client, chat, text):
         label = getattr(chat, "title", None) if not isinstance(chat, str) else chat
         if label is None:
             label = getattr(chat, "first_name", str(chat))
-        print(f"🤖 [{datetime.now():%H:%M:%S}] Auto-replied 'yes' to {label}")
+            log.info("Auto-replied 'yes' to %s", label)
 
 
 def register_handlers(client: TelegramClient):
@@ -221,7 +228,8 @@ def register_handlers(client: TelegramClient):
             "media": type(msg.media).__name__.replace("MessageMedia", "") if msg.media else None,
             "reply_to": msg.reply_to_msg_id,
         }
-        print(f"🆕 [{datetime.now():%H:%M:%S}] {sender['name']}: { (msg.text or '[media]')[:80]}")
+        log.info("New: %s: %s", sender['name'], (msg.text or '[media]')[:80])
+        log.debug("New msg id=%d media=%s reply_to=%s", msg.id, type(msg.media).__name__ if msg.media else None, msg.reply_to_msg_id)
         await broadcast(data)
 
         # Auto-reply with inline keyboard (avoid infinite loop)
@@ -247,7 +255,7 @@ def register_handlers(client: TelegramClient):
                 return
 
             sender = sender_info(event.sender)
-            print(f"💬 [{datetime.now():%H:%M:%S}] Group - {sender['name']}: {text[:80]}")
+            log.info("Group - %s: %s", sender['name'], text[:80])
 
             if not text.strip():
                 return
@@ -263,7 +271,7 @@ def register_handlers(client: TelegramClient):
                 answer[:4000] + ("..." if len(answer) > 4000 else ""),
                 reply_to=msg.id,
             )
-            print(f"🤖 [{datetime.now():%H:%M:%S}] Replied with Fireworks answer ({len(answer)} chars)")
+            log.info("Replied with AI answer (%d chars)", len(answer))
 
     @client.on(events.MessageEdited(chats="me"))
     async def on_message_edited(event):
@@ -274,7 +282,8 @@ def register_handlers(client: TelegramClient):
             "date": msg.date.isoformat(),
             "text": msg.text[:1000] if msg.text else None,
         }
-        print(f"✏️  [{datetime.now():%H:%M:%S}] Edited msg {msg.id}")
+        log.info("Edited msg %d", msg.id)
+        log.debug("Edit text len=%d", len(msg.text) if msg.text else 0)
         await broadcast(data)
 
     @client.on(events.MessageDeleted(chats="me"))
@@ -283,7 +292,7 @@ def register_handlers(client: TelegramClient):
             "type": "delete",
             "ids": event.deleted_ids or [],
         }
-        print(f"🗑️  [{datetime.now():%H:%M:%S}] Deleted: {data['ids']}")
+        log.info("Deleted: %s", data['ids'])
         await broadcast(data)
 
     # ── Inline keyboard callback handler ──────────────────────────────────────
@@ -293,7 +302,7 @@ def register_handlers(client: TelegramClient):
         sender = await event.get_sender()
         sname = sender_info(sender)["name"]
         await event.answer(f"You clicked: {data}", alert=False)
-        print(f"🔘 [{datetime.now():%H:%M:%S}] {sname} clicked: {data}")
+        log.info("%s clicked: %s", sname, data)
         await event.edit(f"yes — {sname} chose **{data.upper()}**")
 
 
@@ -306,23 +315,25 @@ async def websocket_handler(request: web.Request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
     ws_clients.add(ws)
-    print(f"🔌 Client connected ({len(ws_clients)} total)")
+    log.info("Client connected (%d total)", len(ws_clients))
 
     # Send recent message history
     history = {"type": "history", "messages": recent_messages}
+    log.debug("Sending history (%d msgs) to new client", len(recent_messages))
     await ws.send_str(json.dumps(history, default=str))
 
     try:
         async for msg in ws:
             if msg.type == web.WSMsgType.TEXT:
                 if msg.data == "history":
+                    log.debug("Client requested history resend")
                     history = {"type": "history", "messages": recent_messages}
                     await ws.send_str(json.dumps(history, default=str))
             elif msg.type == web.WSMsgType.ERROR:
-                print(f"WS error: {ws.exception()}")
+                log.warning("WS error: %s", ws.exception())
     finally:
         ws_clients.discard(ws)
-        print(f"🔌 Client disconnected ({len(ws_clients)} total)")
+        log.info("Client disconnected (%d total)", len(ws_clients))
     return ws
 
 
@@ -359,11 +370,11 @@ async def _server_search(query: str, offset_id: int = 0) -> tuple[list[dict], bo
             offset_id=offset_id,
         )
     except Exception as e:
-        err = str(e)
-        if "FLOOD_WAIT" in err.upper():
-            raise
-        print(f"[search] Server search error: {e}")
-        return [], False, 0
+            err = str(e)
+            if "FLOOD_WAIT" in err.upper():
+                raise
+            log.error("Server search error: %s", e)
+            return [], False, 0
 
     if not msgs:
         return [], False, 0
@@ -426,7 +437,7 @@ async def _deep_search(query: str, offset_id: int = 0) -> tuple[list[dict], bool
             err = str(e)
             if "FLOOD_WAIT" in err.upper():
                 raise
-            print(f"[search] Deep scan fetch error: {e}")
+            log.error("Deep scan fetch error: %s", e)
             break
 
         if not batch:
@@ -470,11 +481,14 @@ async def search_handler(request: web.Request):
     offset_id = int(request.query.get("offset", "0"))
     mode = request.query.get("mode", "auto")  # "auto", "server", "deep"
 
+    log.debug("search q=%r offset=%d mode=%s", q, offset_id, mode)
+
     # Cache check
     cache_key = f"{q}:{offset_id}:{mode}"
     now = time.monotonic()
     cached = RESULT_CACHE.get(cache_key)
     if cached and (now - cached["ts"]) < RESULT_CACHE_TTL_SEC:
+        log.debug("search cache hit for %r", cache_key)
         return web.json_response(cached["data"])
 
     results = []
@@ -498,7 +512,7 @@ async def search_handler(request: web.Request):
 
     # ── Pass 2: Local deep scan (no-accent Vietnamese fallback) ────────
     if not results and mode in ("auto", "deep"):
-        print(f"[search] Server returned 0 results for '{q}', starting deep scan...")
+        log.info("Server returned 0 results for '%s', starting deep scan...", q)
         try:
             results, has_more, next_offset, total_searched = await _deep_search(q, offset_id)
             used_mode = "deep"
@@ -508,7 +522,9 @@ async def search_handler(request: web.Request):
                 return web.json_response({
                     "error": "Telegram rate limit — deep scan paused. Try again in a moment.",
                 }, status=429)
-            print(f"[search] Deep search error: {e}")
+            log.error("Deep search error: %s", e)
+
+    log.debug("search result: mode=%s results=%d has_more=%s", used_mode, len(results), has_more)
 
     data = {
         "results": results,
@@ -551,6 +567,8 @@ async def donhang_handler(request: web.Request):
     offset_id = int(request.query.get("offset", "0"))
     q = request.query.get("q", "").strip()
     mode = request.query.get("mode", "db")
+
+    log.debug("donhang offset=%d q=%r mode=%s", offset_id, q, mode)
 
     if mode == "live":
         return await _donhang_live(offset_id)
@@ -691,8 +709,8 @@ async def main():
     _client = client
     await client.start(phone=PHONE)
     me = await client.get_me()
-    print(f"✅ Logged in as {me.first_name}")
-    print(f"👂 Listening to Saved Messages...")
+    log.info("Logged in as %s", me.first_name)
+    log.info("Listening to Saved Messages...")
 
     # Load recent message history
     await load_recent_messages(client, limit=100)
@@ -707,22 +725,23 @@ async def main():
 
     # ── #don_hang DB cache ────────────────────────────────────────────────
     _donhang_db = DonHangDB(DON_HANG_DB_PATH)
-    print(f"💾 #don_hang DB: {DON_HANG_DB_PATH} — {_donhang_db.stats()}")
+    log.info("#don_hang DB: %s — %s", DON_HANG_DB_PATH, _donhang_db.stats())
     register_live_handlers(client, _donhang_db, DON_HANG_CHAT_ID, DON_HANG_QUERY)
 
     async def _bootstrap_donhang():
         try:
+            log.debug("Starting donhang bootstrap: gap-fill + backfill")
             # Fill any gap since the server was last running.
             gained = await fill_gap_to_newest(client, _donhang_db, DON_HANG_CHAT_ID, DON_HANG_QUERY)
             if gained:
-                print(f"📥 #don_hang gap-fill: +{gained} new messages")
+                log.info("#don_hang gap-fill: +%d new messages", gained)
             # Resume backfill (no-op once done).
             def _progress(scanned, matched, oldest_id):
-                print(f"⏳ #don_hang backfill: scanned={scanned} matched={matched} oldest={oldest_id}", flush=True)
+                log.info("#don_hang backfill: scanned=%d matched=%d oldest=%d", scanned, matched, oldest_id)
             res = await backfill(client, _donhang_db, DON_HANG_CHAT_ID, DON_HANG_QUERY, on_progress=_progress)
-            print(f"✅ #don_hang backfill: {res}")
+            log.info("#don_hang backfill: %s", res)
         except Exception as e:
-            print(f"⚠️  #don_hang backfill error: {e}")
+            log.warning("#don_hang backfill error: %s", e)
 
     asyncio.create_task(_bootstrap_donhang())
 
@@ -749,8 +768,8 @@ async def main():
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
-    print(f"🌐 Web server: http://localhost:{PORT}")
-    print("─" * 50)
+    log.info("Web server: http://localhost:%d", PORT)
+    log.info("─" * 50)
 
     # Run both forever
     await client.run_until_disconnected()
@@ -760,4 +779,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n👋 Shutting down.")
+        log.info("Shutting down.")

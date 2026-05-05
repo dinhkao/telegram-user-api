@@ -5,12 +5,19 @@ Usage:
     python fetch.py 10 @telegram    # get 10 from a different chat
     python fetch.py 50 --since 2026-04-01   # messages since April 1
 """
-import asyncio, os, sys
+import asyncio
+import logging
+import os
+import sys
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 from telethon import TelegramClient
 
+from utils.logger import configure_logging
+
 load_dotenv()
+configure_logging()
+log = logging.getLogger("fetch")
 
 API_ID = int(os.getenv("API_ID", 0))
 API_HASH = os.getenv("API_HASH", "")
@@ -62,35 +69,33 @@ async def main():
 
     entity = await client.get_entity(args["chat"])
     name = entity.title if hasattr(entity, "title") else entity.first_name
-    print(f"📌 Chat: {name} (ID: {entity.id})")
-    print(f"📋 Last {args['limit']} messages")
+    log.info("Chat: %s (ID: %s)", name, entity.id)
+    log.info("Last %d messages", args["limit"])
 
     kwargs = {"limit": args["limit"]}
     if args["since"]:
         kwargs["offset_date"] = args["since"]
-        print(f"   Since: {args['since'].strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        log.info("  Since: %s UTC", args["since"].strftime("%Y-%m-%d %H:%M:%S"))
     if args["before"]:
         kwargs["offset_date"] = args["before"]
-        print(f"   Before: {args['before'].strftime('%Y-%m-%d %H:%M:%S')} UTC")
-    print()
+        log.info("  Before: %s UTC", args["before"].strftime("%Y-%m-%d %H:%M:%S"))
 
+    log.debug("Fetching with kwargs=%s", kwargs)
     messages = await client.get_messages(entity, **kwargs)
 
     for i, msg in enumerate(messages, 1):
         s = await msg.get_sender()
         date_str = msg.date.strftime("%Y-%m-%d %H:%M:%S")
-        print("─" * 60)
-        print(f"[{i}] ID:{msg.id} | {date_str} | {sender_name(s)}")
+        log.info("[%d] ID:%d | %s | %s", i, msg.id, date_str, sender_name(s))
         if msg.text:
-            print(f"    {msg.text}")
+            log.info("    %s", msg.text)
         if msg.media:
             mt = type(msg.media).__name__.replace("MessageMedia", "")
-            print(f"    [Media: {mt}]")
+            log.debug("    [Media: %s]", mt)
         if msg.reply_to_msg_id:
-            print(f"    [Reply to: {msg.reply_to_msg_id}]")
+            log.debug("    [Reply to: %s]", msg.reply_to_msg_id)
 
-    print("─" * 60)
-    print(f"✅ Done — {len(messages)} messages fetched.")
+    log.info("Done — %d messages fetched.", len(messages))
     await client.disconnect()
 
 
