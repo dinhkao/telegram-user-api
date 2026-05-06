@@ -507,3 +507,15 @@ def parse_comma_text(text: str, conn, kh_id: str | int | None) -> list[dict]:
         })
 
     return invoice
+
+def save_order_invoice(conn, thread_id: int, invoice: list[dict]) -> tuple[bool, str]:
+    """Save parsed invoice items to an order. Returns (ok, message)."""
+    data = get_order_by_thread_id(conn, thread_id)
+    if data is None:
+        return False, "Không tìm thấy đơn hàng"
+    data["invoice"] = invoice
+    data["updated_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    ok = _save_order(conn, thread_id, data)
+    if ok:
+        return True, f"✅ Đã lưu {len(invoice)} sản phẩm"
+    return False, "❌ Lỗi lưu đơn hàng"

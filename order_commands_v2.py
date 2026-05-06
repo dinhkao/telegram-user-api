@@ -19,6 +19,7 @@ from order_db import (
     get_order_by_thread_id,
     get_customer_kv_id,
     parse_comma_text,
+    save_order_invoice,
     delete_order,
     search_customers,
     add_customer,
@@ -208,7 +209,6 @@ def register_order_commands_v2(client):
         msg = event.message
         if isinstance(msg, MessageService): return
         text = (msg.text or "").strip()
-        # Normalize: users/clients sometimes put comma on its own line
         text = text.replace("\n", " ").replace("\r", " ")
         while text and text[0] in ('"', "'", '`') and text[-1] == text[0]:
             text = text[1:-1].strip()
@@ -217,21 +217,32 @@ def register_order_commands_v2(client):
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
         log.info("comma: thread=%s text=%r", thread_id, text)
-        # Parse in Python
+        # Parse
         order = get_order_by_thread_id(db_conn, thread_id)
         kh_id = (order.get("khach_hang_id") or order.get("khID")) if order else None
         invoice = parse_comma_text(text, db_conn, kh_id)
         if not invoice:
             await client.send_message(msg.chat_id, "❌ Không parse được dòng sản phẩm", reply_to=msg.id)
             return
-        # Bridge to Node.js for Firebase write + view refresh + side effects
-        user_id = getattr(msg, "sender_id", None)
-        result = _call_final("/api/order/update-invoice", {
-            "thread_id": thread_id,
-            "invoice_items": invoice,
-            "user_id": user_id,
-        }, timeout=30)
-        # Build reply with customer + debt (like Node.js)
+        # Save to SQLite
+        save_order_invoice(db_conn, thread_id, invoice)
+        # Refresh main message via Telethon
+        try:
+            order = get_order_by_thread_id(db_conn, thread_id)
+            if order and order.get("channel_id") and order.get("message_id"):
+                from order_html import build_order_main_message_html
+                html = build_order_main_message_html(order, thread_id)
+                await client.edit_message(
+                    entity=order["channel_id"],
+                    message=order["message_id"],
+                    text=html,
+                    parse_mode="html",
+                    link_preview=False,
+                )
+                log.info("comma: edited main message %d in channel %d", order["message_id"], order["channel_id"])
+        except Exception as e:
+            log.warning("comma: Telethon edit failed: %s", e)
+        # Reply with customer + debt
         lines = [f"✅ Đã cập nhật {len(invoice)} sản phẩm"]
         if kh_id:
             try:
