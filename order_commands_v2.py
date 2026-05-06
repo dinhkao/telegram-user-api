@@ -205,13 +205,15 @@ def register_order_commands_v2(client):
         msg = event.message
         if isinstance(msg, MessageService): return
         text = (msg.text or "").strip()
-        # Strip leading/trailing quotes that users sometimes add
+        # Normalize: users/clients sometimes put comma on its own line
+        # e.g. ",\nkddt 2b 3" → ", kddt 2b 3"
+        text = text.replace("\n", " ").replace("\r", " ")
+        # Strip paired quotes
         while text and text[0] in ('"', "'", '`') and text[-1] == text[0]:
             text = text[1:-1].strip()
-        m = re.match(r"^,(.+)$", text)
-        if not m: return
-        log.debug("comma: thread=%s text=%r", _extract_thread_id(msg), text)
-        # Bridge to Node.js applyInvoiceFromCommaText
+        if not text.startswith(","):
+            return
+        log.info("comma: thread=%s text=%r", _extract_thread_id(msg), text)
         result = _call_final("/api/order/apply-comma-invoice", {
             "thread_id": _extract_thread_id(msg),
             "text": text,
@@ -219,7 +221,6 @@ def register_order_commands_v2(client):
         }, timeout=30)
         reply = result.get("reply", "✅ Đã cập nhật") if result else "❌ Lỗi kết nối"
         await client.send_message(msg.chat_id, reply, reply_to=msg.id)
-
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_auto_complete_ban_hd(event):
         msg = event.message
