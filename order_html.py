@@ -139,6 +139,55 @@ def build_order_main_message_html(order: dict, thread_id: int) -> str:
                 parts.append(f"<code>{pad}{val}</code>")
             else:
                 parts.append(val)
-    parts.append("-------------------")
 
+    # ── Tags line ──────────────────────────────────────────────────
+    tag_parts: list[str] = ["tags:"]
+    # Financial numbers (cut last 3 digits)
+    fin_nums = [invoice_total, discount, pvc, vat, current_debt, final_total]
+    fin_strs = []
+    for n in fin_nums:
+        s = str(abs(n))
+        if len(s) > 3:
+            s = s[:-3]
+        if int(s) > 0:
+            fin_strs.append(s)
+    if fin_strs:
+        tag_parts.append(" ".join(fin_strs))
+    # Date tag
+    if created:
+        try:
+            if isinstance(created, str):
+                dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+            elif created > 1e10:
+                dt = datetime.fromtimestamp(created / 1000, tz=timezone.utc)
+            else:
+                dt = datetime.fromtimestamp(created, tz=timezone.utc)
+            vn = dt.astimezone(timezone(timedelta(hours=7)))
+            tag_parts.append(f"#tạo_{vn.day:02d}_{vn.month:02d}_{vn.year}")
+        except Exception:
+            pass
+    tag_parts.append("#don_hang dh")
+    # Debt tag if no payments
+    if not total_payments:
+        tag_parts.append("#nợ")
+    # Pending task hashtags
+    pending = []
+    for tt in ("ban_hd", "soan_hang", "giao_hang", "nop_tien", "nhan_tien"):
+        st = task_status.get(tt) or {}
+        if not st.get("done"):
+            pending.append(f"#chua_{tt}")
+    if pending:
+        # Add short aliases
+        alias_map = {"chua_giao_hang": "cg", "chua_soan_hang": "cs", "chua_nop_tien": "cnt"}
+        for p in pending:
+            base = p.replace("#", "")
+            a = alias_map.get(base, "")
+            tag_parts.append(p + (f" {a}" if a else ""))
+    # cnhan tag: nop_tien done but nhan_tien not done
+    nop_done = (task_status.get("nop_tien") or {}).get("done")
+    nhan_done = (task_status.get("nhan_tien") or {}).get("done")
+    if nop_done and not nhan_done:
+        tag_parts.append("cnhan")
+    parts.append("-------------------")
+    parts.append(" ".join(tag_parts))
     return main_line + "\n<blockquote expandable>" + "\n".join(parts) + "</blockquote>"
