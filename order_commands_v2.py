@@ -199,14 +199,18 @@ def register_order_commands_v2(client):
         ok, message = update_customer(db_conn, key, data)
         await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
-    # ── PRODUCT SEARCH ──────────────────────────────────────────────
+    # ── COMMA COMMAND (product search + invoice entry) ───────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
-    async def on_product_search(event):
+    async def on_comma(event):
         msg = event.message
         if isinstance(msg, MessageService): return
         text = (msg.text or "").strip()
+        # Strip leading/trailing quotes that users sometimes add
+        while text and text[0] in ('"', "'", '`') and text[-1] == text[0]:
+            text = text[1:-1].strip()
         m = re.match(r"^,(.+)$", text)
         if not m: return
+        log.debug("comma: thread=%s text=%r", _extract_thread_id(msg), text)
         # Bridge to Node.js applyInvoiceFromCommaText
         result = _call_final("/api/order/apply-comma-invoice", {
             "thread_id": _extract_thread_id(msg),
