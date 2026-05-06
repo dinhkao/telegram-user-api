@@ -226,28 +226,17 @@ def register_order_commands_v3(client):
         if isinstance(msg, MessageService): return
         m = re.match(r"^ck\s+(.+)$", (msg.text or "").strip(), re.IGNORECASE)
         if not m: return
-        method_code = m.group(1).strip()
+        amount = m.group(1).strip()
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
-        order = get_order_by_thread_id(db_conn, thread_id)
-        if not order:
-            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
-            return
-        total = order.get("tong_cong") or order.get("total") or 0
         user_id = getattr(msg, "sender_id", None)
-        # 1. Create KiotViet payment
-        try:
-            customer_id = order.get("kiotviet_customer_id") or order.get("khID")
-            payment_result = create_payment_kv(total, method_code, customer_id=customer_id, order_code=str(thread_id))
-        except Exception as e:
-            await client.send_message(msg.chat_id, f"❌ Lỗi KiotViet: {e}", reply_to=msg.id)
-            return
-        # 2. Save to SQLite
-        payment = {"amount": total, "method": method_code, "type": "transfer", "kiotviet_id": payment_result.get("id")}
-        ok, message = add_payment(db_conn, thread_id, payment)
-        # 3. Bridge to Node.js for Firebase + notifications
-        _call_final("/api/order/after-payment", {"thread_id": thread_id, "amount": total, "method": method_code, "user_id": user_id})
-        await client.send_message(msg.chat_id, message, reply_to=msg.id)
+        result = _call_final("/api/order/payment/ck", {
+            "thread_id": thread_id,
+            "amount": int(amount),
+            "user_id": user_id,
+        })
+        reply = "✅ Đã xử lý ck" if result else "❌ Lỗi kết nối"
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_tm(event):
@@ -255,29 +244,17 @@ def register_order_commands_v3(client):
         if isinstance(msg, MessageService): return
         m = re.match(r"^tm\s+(.+)$", (msg.text or "").strip(), re.IGNORECASE)
         if not m: return
-        method_code = m.group(1).strip()
+        amount = m.group(1).strip()
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
-        order = get_order_by_thread_id(db_conn, thread_id)
-        if not order:
-            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
-            return
-        total = order.get("tong_cong") or order.get("total") or 0
         user_id = getattr(msg, "sender_id", None)
-        # 1. Create KiotViet payment
-        try:
-            customer_id = order.get("kiotviet_customer_id") or order.get("khID")
-            payment_result = create_payment_kv(total, method_code, customer_id=customer_id, order_code=str(thread_id))
-        except Exception as e:
-            await client.send_message(msg.chat_id, f"❌ Lỗi KiotViet: {e}", reply_to=msg.id)
-            return
-        # 2. Save to SQLite
-        payment = {"amount": total, "method": method_code, "type": "cash", "kiotviet_id": payment_result.get("id")}
-        ok, message = add_payment(db_conn, thread_id, payment)
-        # 3. Bridge to Node.js for Firebase + notifications
-        _call_final("/api/order/after-payment", {"thread_id": thread_id, "amount": total, "method": method_code, "user_id": user_id})
-        await client.send_message(msg.chat_id, message, reply_to=msg.id)
-
+        result = _call_final("/api/order/payment/tm", {
+            "thread_id": thread_id,
+            "amount": int(amount),
+            "user_id": user_id,
+        })
+        reply = "✅ Đã xử lý tm" if result else "❌ Lỗi kết nối"
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
     # ── /payments, /del_payment_<id>, /orders ────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_payments(event):
