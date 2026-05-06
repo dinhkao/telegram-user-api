@@ -17,6 +17,8 @@ from telethon.tl.types import MessageService
 from order_db import (
     _get_connection,
     get_order_by_thread_id,
+    get_customer_kv_id,
+    parse_comma_text,
     delete_order,
     search_customers,
     add_customer,
@@ -32,6 +34,7 @@ from order_db import (
     _call_final_telegram,
 )
 
+from kiotviet import get_customer_debt_kv
 log = logging.getLogger("order_commands_v2")
 ORDER_GROUP_ID = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
 FINAL_TELEGRAM_URL = os.getenv("FINAL_TELEGRAM_URL", "http://localhost:3000")
@@ -206,21 +209,40 @@ def register_order_commands_v2(client):
         if isinstance(msg, MessageService): return
         text = (msg.text or "").strip()
         # Normalize: users/clients sometimes put comma on its own line
-        # e.g. ",\nkddt 2b 3" → ", kddt 2b 3"
         text = text.replace("\n", " ").replace("\r", " ")
-        # Strip paired quotes
         while text and text[0] in ('"', "'", '`') and text[-1] == text[0]:
             text = text[1:-1].strip()
         if not text.startswith(","):
             return
-        log.info("comma: thread=%s text=%r", _extract_thread_id(msg), text)
-        result = _call_final("/api/order/apply-comma-invoice", {
-            "thread_id": _extract_thread_id(msg),
-            "text": text,
-            "user_id": getattr(msg, "sender_id", None),
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+        log.info("comma: thread=%s text=%r", thread_id, text)
+        # Parse in Python
+        order = get_order_by_thread_id(db_conn, thread_id)
+        kh_id = (order.get("khach_hang_id") or order.get("khID")) if order else None
+        invoice = parse_comma_text(text, db_conn, kh_id)
+        if not invoice:
+            await client.send_message(msg.chat_id, "❌ Không parse được dòng sản phẩm", reply_to=msg.id)
+            return
+        # Bridge to Node.js for Firebase write + view refresh + side effects
+        user_id = getattr(msg, "sender_id", None)
+        result = _call_final("/api/order/update-invoice", {
+            "thread_id": thread_id,
+            "invoice_items": invoice,
+            "user_id": user_id,
         }, timeout=30)
-        reply = result.get("reply", "✅ Đã cập nhật") if result else "❌ Lỗi kết nối"
-        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
+        # Build reply with customer + debt (like Node.js)
+        lines = [f"✅ Đã cập nhật {len(invoice)} sản phẩm"]
+        if kh_id:
+            try:
+                cust_id = get_customer_kv_id(db_conn, str(kh_id))
+                if cust_id:
+                    debt = get_customer_debt_kv(cust_id)
+                    lines.append(f"👤 Khách: {debt.get('name', 'N/A')}")
+                    lines.append(f"📊 Nợ hiện tại (KiotViet): {debt.get('debt', 0):,}đ")
+            except Exception:
+                pass
+        await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id)
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_auto_complete_ban_hd(event):
         msg = event.message

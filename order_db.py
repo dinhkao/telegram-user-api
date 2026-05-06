@@ -6,6 +6,7 @@ WAL mode write connection — concurrent reads with one writer.
 from __future__ import annotations
 import json
 import logging
+import re
 import os
 import sqlite3
 import time
@@ -381,3 +382,128 @@ def set_order_flag(conn, thread_id: int, flag_name: str, value: bool | str) -> t
     if ok:
         return True, f"✅ Đã cập nhật {flag_name}"
     return False, "❌ Lỗi lưu đơn hàng"
+
+# ── Comma text parser ───────────────────────────────────────────────
+
+_RE_NO_QC = re.compile(
+    r"^\s*([A-Za-z0-9-]+)\s{2,}(\d+(?:\.\d+)?)(?:\s+(\d+(?:\.\d+)?))?(?:\s+(.+))?\s*$"
+)
+
+_RE_QC_T = re.compile(r"^\d+t$")
+_RE_QC_B = re.compile(r"^\d+b$")
+_RE_QC_TB = re.compile(r"^([\d.]+)t([\d.]+)b$")
+_RE_QC_TX_BX = re.compile(r"^(t\d+|b\d+)$")
+
+
+def _parse_no_qc(line: str) -> dict | None:
+    """Parse a no-QC line: 'KDDT  3  130000  note' → {sp, sl1qc, price, note}."""
+    m = _RE_NO_QC.match(line)
+    if not m:
+        return None
+    return {
+        "sp": m.group(1),
+        "sl1qc": m.group(2),
+        "price": m.group(3),
+        "note": m.group(4),
+    }
+
+
+def _parse_qc(qc: str) -> tuple[str | None, list[int]]:
+    """Parse quantity code. Returns (qc_type, so_qc)."""
+    if not qc:
+        return None, [1]
+    if _RE_QC_T.match(qc):
+        return "t", [int(qc[:-1])]
+    if _RE_QC_B.match(qc):
+        return "b", [int(qc[:-1])]
+    m = _RE_QC_TB.match(qc)
+    if m:
+        return "tb", [int(m.group(1)), int(m.group(2))]
+    if _RE_QC_TX_BX.match(qc):
+        return qc, [1]
+    return None, [1]
+
+
+def get_customer_price_list(conn, kh_id: str | int) -> dict[str, int]:
+    """Get product → price map for a customer's assigned price list."""
+    cur = conn.execute("SELECT json FROM customers WHERE firebase_key = ? AND deleted_at IS NULL", (str(kh_id),))
+    row = cur.fetchone()
+    if not row:
+        return {}
+    cust = json.loads(row["json"])
+    price_list_id = cust.get("price_list")
+    if not price_list_id:
+        return {}
+    cur = conn.execute("SELECT value FROM kv_store WHERE path = 'bang_gia_moi'")
+    row = cur.fetchone()
+    if not row or not row["value"]:
+        return {}
+    all_lists = json.loads(row["value"])
+    return all_lists.get(str(price_list_id), {}).get("price_list", {})
+
+
+def parse_comma_text(text: str, conn, kh_id: str | int | None) -> list[dict]:
+    """Parse comma command text into invoice items.
+
+    Returns list of dicts: {sp, so_qc, qc_type, sl1pc, sl, price, note}
+    """
+    cleaned = text.replace(",", "").strip()
+    price_list = get_customer_price_list(conn, kh_id) if kh_id else {}
+
+    # Split by newlines, filter empty + "tao hd" lines
+    lines = [l.strip() for l in cleaned.split("\n")]
+    lines = [l for l in lines if l]
+    while lines and lines[-1].lower().replace(" ", "") in ("taohd", "taohoadon"):
+        lines.pop()
+
+    invoice: list[dict] = []
+    for line in lines:
+        # Strip pattern suffix: <text>
+        pattern_text = None
+        clean_line = re.sub(r"<[^>]+>$", "", line).strip()
+        if not clean_line:
+            continue
+
+        no_qc = _parse_no_qc(clean_line)
+        if no_qc:
+            sp = no_qc["sp"].upper()
+            sl1qc_val = float(no_qc["sl1qc"])
+            price_override = no_qc["price"]
+            note = no_qc["note"]
+            qc_type = None
+            so_qc = [1]
+        else:
+            words = clean_line.split()
+            if len(words) < 3:
+                continue
+            sp = words[0].upper()
+            qc_raw = words[1]
+            sl1qc_val = float(words[2]) if len(words) > 2 else 0
+            price_override = words[3] if len(words) > 3 else None
+            note = " ".join(words[4:]) if len(words) > 4 else None
+            qc_type, so_qc = _parse_qc(qc_raw)
+
+        # Price: price list lookup, overridden by explicit price
+        price = price_list.get(sp, 0)
+        if price_override is not None:
+            try:
+                price = int(price_override)
+            except ValueError:
+                note = f"{price_override} {note or ''}".strip() or None
+
+        sl = 1
+        for v in so_qc:
+            sl *= v
+        sl *= int(sl1qc_val) if sl1qc_val else 0
+
+        invoice.append({
+            "sp": sp,
+            "so_qc": so_qc,
+            "qc_type": qc_type,
+            "sl1pc": sl1qc_val,
+            "sl": sl,
+            "price": price,
+            "note": note,
+        })
+
+    return invoice
