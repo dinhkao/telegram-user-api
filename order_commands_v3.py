@@ -335,33 +335,34 @@ def register_order_commands_v3(client):
         if not order:
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
-        # Try KiotViet live debt first — must resolve khID → customer.kh_id
+        kh_id = order.get("khID")
+        if not kh_id:
+            await client.send_message(msg.chat_id, "❌ Đơn hàng này chưa được gán khách hàng.", reply_to=msg.id)
+            return
+        customer_id = get_customer_kv_id(db_conn, str(kh_id))
+        if not customer_id:
+            await client.send_message(msg.chat_id, "❌ Khách hàng này không có mã KiotViet.", reply_to=msg.id)
+            return
         try:
-            kh_id = order.get("khID")  # Firebase customer key, NOT KiotViet ID
-            if kh_id:
-                customer_id = get_customer_kv_id(db_conn, str(kh_id))
-                if customer_id:
-                    debt = get_customer_debt_kv(customer_id)
-                    lines = [
-                        "<b>📊 Công nợ (KiotViet):</b>",
-                        f"Khách: <b>{debt.get('name', 'N/A')}</b>",
-                        f"Tổng nợ: <b>{debt.get('debt', 0):,}đ</b>",
-                        f"Tổng HĐ: {debt.get('total_invoice', 0):,}đ",
-                        f"Đã trả: {debt.get('total_payment', 0):,}đ",
-                    ]
-                    await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
-                    return
+            debt = get_customer_debt_kv(customer_id)
+            lines = [
+                "<b>📊 Công nợ (KiotViet):</b>",
+                f"Khách: <b>{debt.get('name', 'N/A')}</b>",
+                f"Tổng nợ: <b>{debt.get('debt', 0):,}đ</b>",
+                f"Tổng HĐ: {debt.get('total_invoice', 0):,}đ",
+                f"Đã trả: {debt.get('total_payment', 0):,}đ",
+            ]
+            await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
         except Exception as e:
-            log.warning("KiotViet debt fetch failed: %s", e)
-        # Fallback to local
-        debt = calculate_debt(db_conn, thread_id)
-        lines = [
-            "<b>📊 Công nợ (local):</b>",
-            f"Tổng: <b>{debt['total']:,}đ</b>",
-            f"Đã trả: {debt['paid']:,}đ",
-            f"Còn lại: <b>{debt['remaining']:,}đ</b>",
-        ]
-        await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
+            log.warning("KiotViet debt fetch failed for customer %s (khID=%s): %s", customer_id, kh_id, e)
+            debt = calculate_debt(db_conn, thread_id)
+            lines = [
+                "<b>📊 Công nợ (local — KiotViet lỗi):</b>",
+                f"Tổng: <b>{debt['total']:,}đ</b>",
+                f"Đã trả: {debt['paid']:,}đ",
+                f"Còn lại: <b>{debt['remaining']:,}đ</b>",
+            ]
+            await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_view_debt(event):
         msg = event.message
