@@ -16,6 +16,7 @@ from typing import Any
 log = logging.getLogger("kiotviet")
 
 KIOTVIET_BASE = os.getenv("KIOTVIET_BASE_URL", "https://public.kiotapi.com")
+KIOTVIET_TOKEN_URL = os.getenv("KIOTVIET_TOKEN_URL", "https://id.kiotviet.vn/connect/token")
 KIOTVIET_CLIENT_ID = os.getenv("KIOTVIET_CLIENT_ID", "1c88abb0-61d0-48a9-b179-e9ec94bade9f")
 KIOTVIET_CLIENT_SECRET = os.getenv("KIOTVIET_CLIENT_SECRET", "65FE124DBB02D060F5D09EB5B5B34485173A2782")
 KIOTVIET_RETAILER = os.getenv("KIOTVIET_RETAILER", "letrangphat")
@@ -77,7 +78,7 @@ def _refresh_token():
         "client_secret": KIOTVIET_CLIENT_SECRET,
     }).encode()
     req = urllib.request.Request(
-        f"{KIOTVIET_BASE}/token",
+        KIOTVIET_TOKEN_URL,
         data=data,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         method="POST",

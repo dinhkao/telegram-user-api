@@ -13,6 +13,7 @@ from telethon.tl.types import MessageService
 from order_db import (
     _get_connection,
     get_order_by_thread_id,
+    get_customer_kv_id,
     search_products,
     _call_final_telegram,
 )
@@ -334,20 +335,22 @@ def register_order_commands_v3(client):
         if not order:
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
-        # Try KiotViet live debt first
+        # Try KiotViet live debt first — must resolve khID → customer.kh_id
         try:
-            customer_id = order.get("kiotviet_customer_id") or order.get("khID")
-            if customer_id:
-                debt = get_customer_debt_kv(customer_id)
-                lines = [
-                    "<b>📊 Công nợ (KiotViet):</b>",
-                    f"Khách: <b>{debt.get('name', 'N/A')}</b>",
-                    f"Tổng nợ: <b>{debt.get('debt', 0):,}đ</b>",
-                    f"Tổng HĐ: {debt.get('total_invoice', 0):,}đ",
-                    f"Đã trả: {debt.get('total_payment', 0):,}đ",
-                ]
-                await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
-                return
+            kh_id = order.get("khID")  # Firebase customer key, NOT KiotViet ID
+            if kh_id:
+                customer_id = get_customer_kv_id(db_conn, str(kh_id))
+                if customer_id:
+                    debt = get_customer_debt_kv(customer_id)
+                    lines = [
+                        "<b>📊 Công nợ (KiotViet):</b>",
+                        f"Khách: <b>{debt.get('name', 'N/A')}</b>",
+                        f"Tổng nợ: <b>{debt.get('debt', 0):,}đ</b>",
+                        f"Tổng HĐ: {debt.get('total_invoice', 0):,}đ",
+                        f"Đã trả: {debt.get('total_payment', 0):,}đ",
+                    ]
+                    await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
+                    return
         except Exception as e:
             log.warning("KiotViet debt fetch failed: %s", e)
         # Fallback to local
