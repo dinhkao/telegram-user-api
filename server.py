@@ -724,6 +724,10 @@ async def main():
     register_gtr_handler(client)
     from order_commands import register_order_commands
     register_order_commands(client)
+    from order_commands_v2 import register_order_commands_v2
+    register_order_commands_v2(client)
+    from order_commands_v3 import register_order_commands_v3
+    register_order_commands_v3(client)
 
     # ── #don_hang DB cache ────────────────────────────────────────────────
     _donhang_db = DonHangDB(DON_HANG_DB_PATH)
