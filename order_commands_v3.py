@@ -189,17 +189,17 @@ def register_order_commands_v3(client):
         if not thread_id: return
         order = get_order_by_thread_id(db_conn, thread_id)
         if not order:
-            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng")
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
         try:
             invoices = get_invoices_by_order(str(thread_id))
             if not invoices:
-                await client.send_message(msg.chat_id, "❌ Chưa có hóa đơn")
+                await client.send_message(msg.chat_id, "❌ Chưa có hóa đơn", reply_to=msg.id)
                 return
             html = _fmt_invoice_html(invoices[0])
-            await client.send_message(msg.chat_id, html, parse_mode="html")
+            await client.send_message(msg.chat_id, html, reply_to=msg.id, parse_mode="html")
         except Exception as e:
-            await client.send_message(msg.chat_id, f"❌ Lỗi KiotViet: {e}")
+            await client.send_message(msg.chat_id, f"❌ Lỗi KiotViet: {e}", reply_to=msg.id)
 
     # ── PRINT ───────────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -211,14 +211,14 @@ def register_order_commands_v3(client):
         if not thread_id: return
         order = get_order_by_thread_id(db_conn, thread_id)
         if not order:
-            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng")
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
         try:
             invoices = get_invoices_by_order(str(thread_id))
         except Exception:
             invoices = None
         receipt = _fmt_receipt(order, invoices)
-        await client.send_message(msg.chat_id, f"```\n{receipt}\n```", parse_mode="markdown")
+        await client.send_message(msg.chat_id, f"```\n{receipt}\n```", reply_to=msg.id, parse_mode="markdown")
 
     # ── PAYMENT: ck / tm ────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -232,12 +232,12 @@ def register_order_commands_v3(client):
         if not thread_id: return
         order = get_order_by_thread_id(db_conn, thread_id)
         if not order:
-            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng")
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
         total = order.get("tong_cong") or order.get("total") or 0
         payment = {"amount": total, "method": method_code, "type": "cash"}
         ok, message = add_payment(db_conn, thread_id, payment)
-        await client.send_message(msg.chat_id, message)
+        await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_tm(event):
@@ -250,12 +250,12 @@ def register_order_commands_v3(client):
         if not thread_id: return
         order = get_order_by_thread_id(db_conn, thread_id)
         if not order:
-            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng")
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
         total = order.get("tong_cong") or order.get("total") or 0
         payment = {"amount": total, "method": method_code, "type": "transfer"}
         ok, message = add_payment(db_conn, thread_id, payment)
-        await client.send_message(msg.chat_id, message)
+        await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     # ── /payments, /del_payment_<id>, /orders ────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -267,9 +267,9 @@ def register_order_commands_v3(client):
         if not thread_id: return
         payments = get_payments(db_conn, thread_id)
         if not payments:
-            await client.send_message(msg.chat_id, "❌ Chưa có thanh toán nào")
+            await client.send_message(msg.chat_id, "❌ Chưa có thanh toán nào", reply_to=msg.id)
             return
-        await client.send_message(msg.chat_id, _fmt_payment_list(payments), parse_mode="html")
+        await client.send_message(msg.chat_id, _fmt_payment_list(payments), reply_to=msg.id, parse_mode="html")
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_del_payment(event):
@@ -281,7 +281,7 @@ def register_order_commands_v3(client):
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
         ok, message = delete_payment_record(db_conn, thread_id, payment_id)
-        await client.send_message(msg.chat_id, message)
+        await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_orders(event):
@@ -300,7 +300,7 @@ def register_order_commands_v3(client):
             total = order.get("tong_cong") or order.get("total") or 0
             status = order.get("trang_thai", "")
             lines.append(f"• {name} — <b>{int(total):,}đ</b> ({status})")
-        await client.send_message(msg.chat_id, "\n".join(lines), parse_mode="html")
+        await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
 
     # ── DEBT ────────────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -317,7 +317,7 @@ def register_order_commands_v3(client):
             f"Đã trả: {debt['paid']:,}đ",
             f"Còn lại: <b>{debt['remaining']:,}đ</b>",
         ]
-        await client.send_message(msg.chat_id, "\n".join(lines), parse_mode="html")
+        await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_view_debt(event):
@@ -326,9 +326,9 @@ def register_order_commands_v3(client):
         if (msg.text or "").strip() != "/view_debt": return
         debts = get_all_debts(db_conn)
         if not debts:
-            await client.send_message(msg.chat_id, "✅ Không có công nợ nào")
+            await client.send_message(msg.chat_id, "✅ Không có công nợ nào", reply_to=msg.id)
             return
-        await client.send_message(msg.chat_id, _fmt_debt_list(debts), parse_mode="html")
+        await client.send_message(msg.chat_id, _fmt_debt_list(debts), reply_to=msg.id, parse_mode="html")
 
     # ── HDDT: in tam tinh, global ignore list ────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -343,7 +343,7 @@ def register_order_commands_v3(client):
             "thread_id": _extract_thread_id(msg),
         })
         reply = result.get("reply", "✅ Đã xử lý") if result else "❌ Lỗi kết nối"
-        await client.send_message(msg.chat_id, reply)
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_global_ignore_list(event):
@@ -355,12 +355,12 @@ def register_order_commands_v3(client):
         row = cur.fetchone()
         patterns = json.loads(row["value"]) if row and row["value"] else []
         if not patterns:
-            await client.send_message(msg.chat_id, "📋 Không có pattern nào")
+            await client.send_message(msg.chat_id, "📋 Không có pattern nào", reply_to=msg.id)
             return
         lines = ["<b>📋 Pattern bỏ qua HDDT:</b>", ""]
         for p in patterns:
             lines.append(f"• <code>{p}</code>")
-        await client.send_message(msg.chat_id, "\n".join(lines), parse_mode="html")
+        await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
 
     # ── ANALYZE PRODUCTS ────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -383,6 +383,6 @@ def register_order_commands_v3(client):
                 product_counts[name] = product_counts.get(name, 0) + 1
         sorted_products = sorted(product_counts.items(), key=lambda x: x[1], reverse=True)[:20]
         if not sorted_products:
-            await client.send_message(msg.chat_id, "❌ Chưa có dữ liệu sản phẩm")
+            await client.send_message(msg.chat_id, "❌ Chưa có dữ liệu sản phẩm", reply_to=msg.id)
             return
-        await client.send_message(msg.chat_id, _fmt_analysis(sorted_products), parse_mode="html")
+        await client.send_message(msg.chat_id, _fmt_analysis(sorted_products), reply_to=msg.id, parse_mode="html")

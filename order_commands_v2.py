@@ -132,11 +132,11 @@ def register_order_commands_v2(client):
         if text not in ("del", "del hd"): return
         thread_id = _extract_thread_id(msg)
         if not thread_id:
-            await client.send_message(msg.chat_id, "❌ Dùng lệnh này trong topic đơn hàng")
+            await client.send_message(msg.chat_id, "❌ Dùng lệnh này trong topic đơn hàng", reply_to=msg.id)
             return
         force = (text == "del hd")
         ok, message = delete_order(db_conn, thread_id, force=force)
-        await client.send_message(msg.chat_id, message)
+        await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     # ── CUSTOMER ────────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -152,9 +152,9 @@ def register_order_commands_v2(client):
         if not results:
             results = search_customers(db_conn, "")
         if not results:
-            await client.send_message(msg.chat_id, "❌ Không có dữ liệu khách hàng")
+            await client.send_message(msg.chat_id, "❌ Không có dữ liệu khách hàng", reply_to=msg.id)
             return
-        await client.send_message(msg.chat_id, _fmt_customer_list(results), parse_mode="html")
+        await client.send_message(msg.chat_id, _fmt_customer_list(results), reply_to=msg.id, parse_mode="html")
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_add_khach_hang(event):
@@ -165,10 +165,10 @@ def register_order_commands_v2(client):
         try:
             data = json.loads(m.group(1))
         except json.JSONDecodeError:
-            await client.send_message(msg.chat_id, "❌ JSON không hợp lệ")
+            await client.send_message(msg.chat_id, "❌ JSON không hợp lệ", reply_to=msg.id)
             return
         ok, message = add_customer(db_conn, data)
-        await client.send_message(msg.chat_id, message)
+        await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_editkh(event):
@@ -180,10 +180,10 @@ def register_order_commands_v2(client):
         try:
             data = json.loads(m.group(2))
         except json.JSONDecodeError:
-            await client.send_message(msg.chat_id, "❌ JSON không hợp lệ")
+            await client.send_message(msg.chat_id, "❌ JSON không hợp lệ", reply_to=msg.id)
             return
         ok, message = update_customer(db_conn, key, data)
-        await client.send_message(msg.chat_id, message)
+        await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     # ── PRODUCT SEARCH ──────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -196,9 +196,9 @@ def register_order_commands_v2(client):
         code = m.group(1).strip()
         results = search_products(db_conn, code)
         if not results:
-            await client.send_message(msg.chat_id, f"❌ Không tìm thấy: {code}")
+            await client.send_message(msg.chat_id, f"❌ Không tìm thấy: {code}", reply_to=msg.id)
             return
-        await client.send_message(msg.chat_id, _fmt_product_list(results, code), parse_mode="html")
+        await client.send_message(msg.chat_id, _fmt_product_list(results, code), reply_to=msg.id, parse_mode="html")
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_auto_complete_ban_hd(event):
@@ -209,7 +209,7 @@ def register_order_commands_v2(client):
         if not thread_id: return
         result = _call_final("/api/order/auto-complete-ban-hd", {"thread_id": thread_id})
         reply = result.get("reply", "✅ Đã tự động hoàn thành") if result else "❌ Lỗi kết nối"
-        await client.send_message(msg.chat_id, reply)
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
     # ── DETECT CUSTOMER ─────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -221,7 +221,7 @@ def register_order_commands_v2(client):
         if not thread_id: return
         result = _call_final("/api/order/detect-customer", {"thread_id": thread_id})
         reply = result.get("reply", "✅ Đã nhận diện khách hàng") if result else "❌ Lỗi kết nối"
-        await client.send_message(msg.chat_id, reply)
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
     # ── TASK MANAGEMENT ─────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -231,9 +231,9 @@ def register_order_commands_v2(client):
         if (msg.text or "").strip() != "show task": return
         tasks = get_all_tasks(db_conn)
         if not tasks:
-            await client.send_message(msg.chat_id, "📋 Không có task nào")
+            await client.send_message(msg.chat_id, "📋 Không có task nào", reply_to=msg.id)
             return
-        await client.send_message(msg.chat_id, _fmt_task_list(tasks), parse_mode="html")
+        await client.send_message(msg.chat_id, _fmt_task_list(tasks), reply_to=msg.id, parse_mode="html")
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_delete_all_task(event):
@@ -241,7 +241,7 @@ def register_order_commands_v2(client):
         if isinstance(msg, MessageService): return
         if (msg.text or "").strip() != "delete all task": return
         count, message = delete_all_tasks(db_conn)
-        await client.send_message(msg.chat_id, message)
+        await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_sort_tasks(event):
@@ -249,7 +249,7 @@ def register_order_commands_v2(client):
         if isinstance(msg, MessageService): return
         if (msg.text or "").strip() != "sort tasks": return
         count, message = sort_tasks(db_conn)
-        await client.send_message(msg.chat_id, message)
+        await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_migrate_tasks(event):
@@ -257,7 +257,7 @@ def register_order_commands_v2(client):
         if isinstance(msg, MessageService): return
         if (msg.text or "").strip() != "migrate tasks": return
         count, message = migrate_tasks_to_v2(db_conn)
-        await client.send_message(msg.chat_id, message)
+        await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_check_tasks(event):
@@ -277,7 +277,7 @@ def register_order_commands_v2(client):
         await client.send_message(
             msg.chat_id,
             f"📊 <b>Thống kê task:</b>\nTổng: {total}\nV2: {v2}\nChưa xong: {incomplete}",
-            parse_mode="html",
+            reply_to=msg.id, parse_mode="html",
         )
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -287,7 +287,7 @@ def register_order_commands_v2(client):
         if (msg.text or "").strip() != "send task notification": return
         result = _call_final("/api/order/send-task-notification", {"chat_id": msg.chat_id})
         reply = result.get("reply", "✅ Đã gửi thông báo") if result else "❌ Lỗi kết nối"
-        await client.send_message(msg.chat_id, reply)
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
     # ── PRICE / DISPLAY ─────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -300,7 +300,7 @@ def register_order_commands_v2(client):
         if not thread_id: return
         value = (text == "turn on money")
         ok, message = set_order_flag(db_conn, thread_id, "show_price", value)
-        await client.send_message(msg.chat_id, message)
+        await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_update_debt(event):
@@ -311,7 +311,7 @@ def register_order_commands_v2(client):
         if not thread_id: return
         result = _call_final("/api/order/update-debt", {"thread_id": thread_id})
         reply = result.get("reply", "✅ Đã cập nhật công nợ") if result else "❌ Lỗi kết nối"
-        await client.send_message(msg.chat_id, reply)
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
     # ── DATE / TIME ─────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -324,7 +324,7 @@ def register_order_commands_v2(client):
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
         ok, message = set_order_flag(db_conn, thread_id, "date_override", date_val)
-        await client.send_message(msg.chat_id, message)
+        await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_time(event):
@@ -336,7 +336,7 @@ def register_order_commands_v2(client):
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
         ok, message = set_order_flag(db_conn, thread_id, "time_override", time_val)
-        await client.send_message(msg.chat_id, message)
+        await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     # ── MEDIA ───────────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -397,12 +397,12 @@ def register_order_commands_v2(client):
         if not thread_id: return
         data = get_order_json(db_conn, thread_id)
         if not data:
-            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng")
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
         text = json.dumps(data, ensure_ascii=False, indent=2)
         if len(text) > 3800:
             text = text[:3800] + "\n... (truncated)"
-        await client.send_message(msg.chat_id, f"```json\n{text}\n```", parse_mode="markdown")
+        await client.send_message(msg.chat_id, f"```json\n{text}\n```", reply_to=msg.id, parse_mode="markdown")
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_get_html(event):
@@ -413,9 +413,9 @@ def register_order_commands_v2(client):
         if not thread_id: return
         html = get_order_html(db_conn, thread_id)
         if not html or html.startswith("❌"):
-            await client.send_message(msg.chat_id, html or "❌ Không có HTML")
+            await client.send_message(msg.chat_id, html or "❌ Không có HTML", reply_to=msg.id)
             return
-        await client.send_message(msg.chat_id, html[:4096], parse_mode="html")
+        await client.send_message(msg.chat_id, html[:4096], reply_to=msg.id, parse_mode="html")
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_test_rate_limit(event):
@@ -425,30 +425,30 @@ def register_order_commands_v2(client):
         # Test Telethon speed — send 10 messages as fast as possible
         t0 = time.time()
         for i in range(5):
-            await client.send_message(msg.chat_id, f"⚡ Test {i+1}/5 — {time.time()-t0:.2f}s")
-            await client.send_message(msg.chat_id, "💨")
-        await client.send_message(msg.chat_id, f"✅ Done — {time.time()-t0:.2f}s total")
+            await client.send_message(msg.chat_id, f"⚡ Test {i+1}/5 — {time.time()-t0:.2f}s", reply_to=msg.id)
+            await client.send_message(msg.chat_id, "💨", reply_to=msg.id)
+        await client.send_message(msg.chat_id, f"✅ Done — {time.time()-t0:.2f}s total", reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_batcher_stats(event):
         msg = event.message
         if isinstance(msg, MessageService): return
         if (msg.text or "").strip() != "batcher stats": return
-        await client.send_message(msg.chat_id, "📊 Batcher: chạy trên Telethon, không giới hạn rate limit")
+        await client.send_message(msg.chat_id, "📊 Batcher: chạy trên Telethon, không giới hạn rate limit", reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_flush_edits(event):
         msg = event.message
         if isinstance(msg, MessageService): return
         if (msg.text or "").strip() != "flush edits": return
-        await client.send_message(msg.chat_id, "✅ Telethon không dùng edit queue — edits là realtime")
+        await client.send_message(msg.chat_id, "✅ Telethon không dùng edit queue — edits là realtime", reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_cancel_edits(event):
         msg = event.message
         if isinstance(msg, MessageService): return
         if (msg.text or "").strip() != "cancel edits": return
-        await client.send_message(msg.chat_id, "✅ Không có edit queue để hủy (Telethon realtime)")
+        await client.send_message(msg.chat_id, "✅ Không có edit queue để hủy (Telethon realtime)", reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_test_edit_batching(event):
@@ -456,11 +456,11 @@ def register_order_commands_v2(client):
         if isinstance(msg, MessageService): return
         if (msg.text or "").strip() != "test edit batching": return
         t0 = time.time()
-        sent = await client.send_message(msg.chat_id, "🔄 Testing edits...")
+        sent = await client.send_message(msg.chat_id, "🔄 Testing edits...", reply_to=msg.id)
         for i in range(5):
             await sent.edit(f"🔄 Edit {i+1}/5 — {time.time()-t0:.2f}s")
         await sent.edit(f"✅ Edit batching test done — {time.time()-t0:.2f}s")
-        await client.send_message(msg.chat_id, "✅ Telethon edits are instant (no queue)")
+        await client.send_message(msg.chat_id, "✅ Telethon edits are instant (no queue)", reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_add_pattern(event):
@@ -486,7 +486,7 @@ def register_order_commands_v2(client):
             ("hddt_ignore_patterns", json.dumps(patterns, ensure_ascii=False), now_ts),
         )
         db_conn.commit()
-        await client.send_message(msg.chat_id, f"✅ Đã thêm pattern: <code>{pattern}</code>", parse_mode="html")
+        await client.send_message(msg.chat_id, f"✅ Đã thêm pattern: <code>{pattern}</code>", reply_to=msg.id, parse_mode="html")
 
     # ── HELP ────────────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -523,4 +523,4 @@ def register_order_commands_v2(client):
             "• <code>getjson2</code> / <code>get html</code> / <code>?</code>\n"
             "• <code>analyze products</code> / <code>test rate limit</code>\n"
         )
-        await client.send_message(msg.chat_id, help_text, parse_mode="html")
+        await client.send_message(msg.chat_id, help_text, reply_to=msg.id, parse_mode="html")
