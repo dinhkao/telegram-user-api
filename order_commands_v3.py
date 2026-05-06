@@ -335,7 +335,7 @@ def register_order_commands_v3(client):
         if not order:
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
-        kh_id = order.get("khID")
+        kh_id = order.get("khach_hang_id") or order.get("khID")
         if not kh_id:
             await client.send_message(msg.chat_id, "❌ Đơn hàng này chưa được gán khách hàng.", reply_to=msg.id)
             return
