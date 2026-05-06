@@ -157,3 +157,40 @@ def delete_payment_kv(payment_id: int) -> bool:
     """Delete a payment from KiotViet."""
     _request("DELETE", f"/payments/{payment_id}")
     return True
+def create_payment_kv(amount: int, method_code: str, customer_id: int | None = None, order_code: str | None = None) -> dict:
+    """Create a payment in KiotViet. Returns the payment response."""
+    body = {
+        "amount": amount,
+        "methodCode": method_code,
+        "description": f"Payment for order {order_code or 'unknown'}",
+    }
+    if customer_id:
+        body["customerId"] = customer_id
+    if order_code:
+        body["orderCode"] = order_code
+    return _request("POST", "/payments", body=body)
+
+
+def get_customer_debt_kv(customer_id: int) -> dict:
+    """Get customer debt from KiotViet."""
+    result = _request("GET", f"/customers/{customer_id}")
+    return {
+        "total_debt": result.get("totalDebt", 0),
+        "total_invoice": result.get("totalInvoice", 0),
+        "total_payment": result.get("totalPayment", 0),
+        "code": result.get("code", ""),
+        "name": result.get("name", ""),
+    }
+
+
+def get_customer_by_code_kv(code: str) -> dict | None:
+    """Find customer by code."""
+    result = _request("GET", "/customers", query_params={"code": code, "pageSize": 1})
+    data = result.get("data", [])
+    return data[0] if data else None
+
+
+def search_customers_kv(name: str, limit: int = 20) -> list[dict]:
+    """Search KiotViet customers by name."""
+    result = _request("GET", "/customers", query_params={"search": name, "pageSize": limit})
+    return result.get("data", [])

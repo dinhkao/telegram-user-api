@@ -24,6 +24,8 @@ from kiotviet import (
     get_payment_methods,
     process_payment,
     delete_payment_kv,
+    create_payment_kv,
+    get_customer_debt_kv,
 )
 from payment_db import (
     get_payments,
@@ -209,16 +211,12 @@ def register_order_commands_v3(client):
         if (msg.text or "").strip() != "print": return
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
-        order = get_order_by_thread_id(db_conn, thread_id)
-        if not order:
-            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
-            return
-        try:
-            invoices = get_invoices_by_order(str(thread_id))
-        except Exception:
-            invoices = None
-        receipt = _fmt_receipt(order, invoices)
-        await client.send_message(msg.chat_id, f"```\n{receipt}\n```", reply_to=msg.id, parse_mode="markdown")
+        result = _call_final("/api/order/handle-print", {
+            "thread_id": thread_id,
+            "user_id": getattr(msg, "sender_id", None),
+        })
+        reply = result.get("reply", "✅ Đã in phiếu") if result else "❌ Lỗi kết nối"
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
     # ── PAYMENT: ck / tm ────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -235,8 +233,19 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
         total = order.get("tong_cong") or order.get("total") or 0
-        payment = {"amount": total, "method": method_code, "type": "cash"}
+        user_id = getattr(msg, "sender_id", None)
+        # 1. Create KiotViet payment
+        try:
+            customer_id = order.get("kiotviet_customer_id") or order.get("khID")
+            payment_result = create_payment_kv(total, method_code, customer_id=customer_id, order_code=str(thread_id))
+        except Exception as e:
+            await client.send_message(msg.chat_id, f"❌ Lỗi KiotViet: {e}", reply_to=msg.id)
+            return
+        # 2. Save to SQLite
+        payment = {"amount": total, "method": method_code, "type": "transfer", "kiotviet_id": payment_result.get("id")}
         ok, message = add_payment(db_conn, thread_id, payment)
+        # 3. Bridge to Node.js for Firebase + notifications
+        _call_final("/api/order/after-payment", {"thread_id": thread_id, "amount": total, "method": method_code, "user_id": user_id})
         await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -253,8 +262,19 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
         total = order.get("tong_cong") or order.get("total") or 0
-        payment = {"amount": total, "method": method_code, "type": "transfer"}
+        user_id = getattr(msg, "sender_id", None)
+        # 1. Create KiotViet payment
+        try:
+            customer_id = order.get("kiotviet_customer_id") or order.get("khID")
+            payment_result = create_payment_kv(total, method_code, customer_id=customer_id, order_code=str(thread_id))
+        except Exception as e:
+            await client.send_message(msg.chat_id, f"❌ Lỗi KiotViet: {e}", reply_to=msg.id)
+            return
+        # 2. Save to SQLite
+        payment = {"amount": total, "method": method_code, "type": "cash", "kiotviet_id": payment_result.get("id")}
         ok, message = add_payment(db_conn, thread_id, payment)
+        # 3. Bridge to Node.js for Firebase + notifications
+        _call_final("/api/order/after-payment", {"thread_id": thread_id, "amount": total, "method": method_code, "user_id": user_id})
         await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     # ── /payments, /del_payment_<id>, /orders ────────────────────────
@@ -310,15 +330,35 @@ def register_order_commands_v3(client):
         if (msg.text or "").strip() != "/debt": return
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+        # Try KiotViet live debt first
+        try:
+            customer_id = order.get("kiotviet_customer_id") or order.get("khID")
+            if customer_id:
+                debt = get_customer_debt_kv(customer_id)
+                lines = [
+                    "<b>📊 Công nợ (KiotViet):</b>",
+                    f"Khách: <b>{debt.get('name', 'N/A')}</b>",
+                    f"Tổng nợ: <b>{debt.get('total_debt', 0):,}đ</b>",
+                    f"Tổng HĐ: {debt.get('total_invoice', 0):,}đ",
+                    f"Đã trả: {debt.get('total_payment', 0):,}đ",
+                ]
+                await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
+                return
+        except Exception as e:
+            log.warning("KiotViet debt fetch failed: %s", e)
+        # Fallback to local
         debt = calculate_debt(db_conn, thread_id)
         lines = [
-            "<b>📊 Công nợ:</b>",
+            "<b>📊 Công nợ (local):</b>",
             f"Tổng: <b>{debt['total']:,}đ</b>",
             f"Đã trả: {debt['paid']:,}đ",
             f"Còn lại: <b>{debt['remaining']:,}đ</b>",
         ]
         await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
-
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_view_debt(event):
         msg = event.message

@@ -142,6 +142,10 @@ def register_order_commands(client):
                 reply_to=msg.id,
             )
             return
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if order and order.get("flow_version") != 2:
+            await client.send_message(msg.chat_id, "❌ Đơn hàng V1. Dùng 'migrate tasks' để chuyển sang V2 trước.", reply_to=msg.id)
+            return
 
         sender_id = getattr(msg, "sender_id", None)
         log.debug("task_done: thread=%d task=%s user=%s", thread_id, task_type, sender_id)
@@ -195,6 +199,28 @@ def register_order_commands(client):
                 "❌ Không thể đặt lại trạng thái (lỗi không xác định).",
                 reply_to=msg.id,
             )
+
+
+    # ── Add xuat hd (creates task as not done) ──────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_add_xuat_hd(event):
+        msg = event.message
+        if isinstance(msg, MessageService):
+            return
+        text = (msg.text or "").strip()
+        if not re.match(r"^add\s+xuat\s*hd$", text, re.IGNORECASE):
+            return
+        thread_id = _extract_thread_id(msg)
+        if not thread_id:
+            await client.send_message(msg.chat_id, "❌ Không xác định được thread_id", reply_to=msg.id)
+            return
+        sender_id = getattr(msg, "sender_id", None)
+        ok = set_task_status(db_conn, thread_id, "xuat_hd", sender_id, done=False)
+        if ok:
+            await client.send_message(msg.chat_id, "🆕 Đã thêm task Xuất HĐ (chưa hoàn thành)", reply_to=msg.id)
+            _notify_refresh(thread_id)
+        else:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng hoặc lỗi cập nhật.", reply_to=msg.id)
 
     # ── Skip commands ─────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))

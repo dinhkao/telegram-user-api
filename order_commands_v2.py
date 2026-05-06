@@ -134,8 +134,12 @@ def register_order_commands_v2(client):
             if not thread_id:
                 await client.send_message(msg.chat_id, "❌ Dùng lệnh này trong topic đơn hàng", reply_to=msg.id)
                 return
-            ok, message = delete_order(db_conn, thread_id, force=False)
-            await client.send_message(msg.chat_id, message, reply_to=msg.id)
+            result = _call_final("/api/order/mark-deleted", {
+                "thread_id": thread_id,
+                "user_id": getattr(msg, "sender_id", None),
+            })
+            reply = result.get("reply", "🗑️ Đã xóa đơn hàng") if result else "❌ Lỗi kết nối"
+            await client.send_message(msg.chat_id, reply, reply_to=msg.id)
         elif text == "del hd":
             thread_id = _extract_thread_id(msg)
             if not thread_id:
@@ -203,12 +207,14 @@ def register_order_commands_v2(client):
         text = (msg.text or "").strip()
         m = re.match(r"^,(.+)$", text)
         if not m: return
-        code = m.group(1).strip()
-        results = search_products(db_conn, code)
-        if not results:
-            await client.send_message(msg.chat_id, f"❌ Không tìm thấy: {code}", reply_to=msg.id)
-            return
-        await client.send_message(msg.chat_id, _fmt_product_list(results, code), reply_to=msg.id, parse_mode="html")
+        # Bridge to Node.js applyInvoiceFromCommaText
+        result = _call_final("/api/order/apply-comma-invoice", {
+            "thread_id": _extract_thread_id(msg),
+            "text": text,
+            "user_id": getattr(msg, "sender_id", None),
+        }, timeout=30)
+        reply = result.get("reply", "✅ Đã cập nhật") if result else "❌ Lỗi kết nối"
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_auto_complete_ban_hd(event):
