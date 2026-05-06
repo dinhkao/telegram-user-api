@@ -152,12 +152,15 @@ def register_order_commands(client):
 
         ok = set_task_status(db_conn, thread_id, task_type, sender_id)
         if ok:
-            kwargs = {"reply_to": msg.id}
             if task_type == "soan_hang":
-                kwargs["buttons"] = [
-                    [Button.inline("A", b"soan_test_a"), Button.inline("B", b"soan_test_b")],
-                ]
-            await client.send_message(msg.chat_id, reply_text, **kwargs)
+                await event.respond(
+                    reply_text,
+                    buttons=[
+                        [Button.inline("A", b"soan_test_a"), Button.inline("B", b"soan_test_b")],
+                    ],
+                )
+            else:
+                await client.send_message(msg.chat_id, reply_text, reply_to=msg.id)
             _notify_refresh(thread_id)
         else:
             await client.send_message(
