@@ -129,14 +129,24 @@ def register_order_commands_v2(client):
         msg = event.message
         if isinstance(msg, MessageService): return
         text = (msg.text or "").strip()
-        if text not in ("del", "del hd"): return
-        thread_id = _extract_thread_id(msg)
-        if not thread_id:
-            await client.send_message(msg.chat_id, "❌ Dùng lệnh này trong topic đơn hàng", reply_to=msg.id)
-            return
-        force = (text == "del hd")
-        ok, message = delete_order(db_conn, thread_id, force=force)
-        await client.send_message(msg.chat_id, message, reply_to=msg.id)
+        if text == "del":
+            thread_id = _extract_thread_id(msg)
+            if not thread_id:
+                await client.send_message(msg.chat_id, "❌ Dùng lệnh này trong topic đơn hàng", reply_to=msg.id)
+                return
+            ok, message = delete_order(db_conn, thread_id, force=False)
+            await client.send_message(msg.chat_id, message, reply_to=msg.id)
+        elif text == "del hd":
+            thread_id = _extract_thread_id(msg)
+            if not thread_id:
+                await client.send_message(msg.chat_id, "❌ Dùng lệnh này trong topic đơn hàng", reply_to=msg.id)
+                return
+            result = _call_final("/api/order/delete-kiotviet-invoice", {
+                "thread_id": thread_id,
+                "user_id": getattr(msg, "sender_id", None),
+            })
+            reply = result.get("reply", "✅ Đã xóa hóa đơn KiotViet") if result else "❌ Lỗi kết nối"
+            await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
     # ── CUSTOMER ────────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
