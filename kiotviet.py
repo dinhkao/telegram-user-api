@@ -16,9 +16,9 @@ from typing import Any
 log = logging.getLogger("kiotviet")
 
 KIOTVIET_BASE = os.getenv("KIOTVIET_BASE_URL", "https://public.kiotapi.com")
-KIOTVIET_CLIENT_ID = os.getenv("KIOTVIET_CLIENT_ID", "")
-KIOTVIET_CLIENT_SECRET = os.getenv("KIOTVIET_CLIENT_SECRET", "")
-KIOTVIET_RETAILER = os.getenv("KIOTVIET_RETAILER", "")
+KIOTVIET_CLIENT_ID = os.getenv("KIOTVIET_CLIENT_ID", "1c88abb0-61d0-48a9-b179-e9ec94bade9f")
+KIOTVIET_CLIENT_SECRET = os.getenv("KIOTVIET_CLIENT_SECRET", "65FE124DBB02D060F5D09EB5B5B34485173A2782")
+KIOTVIET_RETAILER = os.getenv("KIOTVIET_RETAILER", "letrangphat")
 
 _token: str | None = None
 _token_expires: float = 0.0
@@ -175,7 +175,7 @@ def get_customer_debt_kv(customer_id: int) -> dict:
     """Get customer debt from KiotViet."""
     result = _request("GET", f"/customers/{customer_id}")
     return {
-        "total_debt": result.get("totalDebt", 0),
+        "debt": result.get("debt", 0),
         "total_invoice": result.get("totalInvoice", 0),
         "total_payment": result.get("totalPayment", 0),
         "code": result.get("code", ""),

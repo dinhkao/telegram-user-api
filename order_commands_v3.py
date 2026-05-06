@@ -342,7 +342,7 @@ def register_order_commands_v3(client):
                 lines = [
                     "<b>📊 Công nợ (KiotViet):</b>",
                     f"Khách: <b>{debt.get('name', 'N/A')}</b>",
-                    f"Tổng nợ: <b>{debt.get('total_debt', 0):,}đ</b>",
+                    f"Tổng nợ: <b>{debt.get('debt', 0):,}đ</b>",
                     f"Tổng HĐ: {debt.get('total_invoice', 0):,}đ",
                     f"Đã trả: {debt.get('total_payment', 0):,}đ",
                 ]
