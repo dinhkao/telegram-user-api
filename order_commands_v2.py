@@ -368,7 +368,7 @@ def register_order_commands_v2(client):
             "message_id": msg.id,
         })
         if not result:
-            await client.send_message(msg.chat_id, "❌ Lỗi gửi reply", reply_to=msg.id)
+            await client.send_message(msg.chat_id, "❌ Lỗi gửi reply")
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_replysi(event):
@@ -385,7 +385,7 @@ def register_order_commands_v2(client):
             "message_id": msg.id,
         })
         if not result:
-            await client.send_message(msg.chat_id, "❌ Lỗi gửi replysi", reply_to=msg.id)
+            await client.send_message(msg.chat_id, "❌ Lỗi gửi replysi")
 
     # ── ADMIN / DEBUG ───────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
