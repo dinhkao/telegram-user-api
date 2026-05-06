@@ -139,8 +139,7 @@ def register_order_commands(client):
             await client.send_message(
                 msg.chat_id,
                 "❌ Không xác định được thread_id. Dùng lệnh này trong topic đơn hàng.",
-                reply_to=msg.id,
-            )
+                            )
             return
 
         sender_id = getattr(msg, "sender_id", None)
@@ -148,14 +147,13 @@ def register_order_commands(client):
 
         ok = set_task_status(db_conn, thread_id, task_type, sender_id)
         if ok:
-            await client.send_message(msg.chat_id, reply_text, reply_to=msg.id)
+            await client.send_message(msg.chat_id, reply_text)
             _notify_refresh(thread_id)
         else:
             await client.send_message(
                 msg.chat_id,
                 "❌ Không tìm thấy đơn hàng hoặc lỗi cập nhật.",
-                reply_to=msg.id,
-            )
+                            )
 
     # ── Clear commands ────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -178,8 +176,7 @@ def register_order_commands(client):
             await client.send_message(
                 msg.chat_id,
                 "❌ Không xác định được thread_id. Dùng lệnh này trong topic đơn hàng.",
-                reply_to=msg.id,
-            )
+                            )
             return
 
         sender_id = getattr(msg, "sender_id", None)
@@ -187,14 +184,13 @@ def register_order_commands(client):
 
         ok = clear_task_status(db_conn, thread_id, task_type, sender_id)
         if ok:
-            await client.send_message(msg.chat_id, reply_text, reply_to=msg.id)
+            await client.send_message(msg.chat_id, reply_text)
             _notify_refresh(thread_id)
         else:
             await client.send_message(
                 msg.chat_id,
                 "❌ Không thể đặt lại trạng thái (lỗi không xác định).",
-                reply_to=msg.id,
-            )
+                            )
 
     # ── Skip commands ─────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -216,8 +212,7 @@ def register_order_commands(client):
             await client.send_message(
                 msg.chat_id,
                 "❌ Không xác định được thread_id.",
-                reply_to=msg.id,
-            )
+                            )
             return
 
         sender_id = getattr(msg, "sender_id", None)
@@ -225,11 +220,10 @@ def register_order_commands(client):
 
         ok = set_task_status(db_conn, thread_id, task_type, sender_id, skip=True)
         if ok:
-            await client.send_message(msg.chat.id, "🔘 Đã bỏ qua Nộp tiền", reply_to=msg.id)
+            await client.send_message(msg.chat.id, "🔘 Đã bỏ qua Nộp tiền")
             _notify_refresh(thread_id)
         else:
             await client.send_message(
                 msg.chat_id,
                 "❌ Không thể bỏ qua (lỗi không xác định).",
-                reply_to=msg.id,
-            )
+                            )
