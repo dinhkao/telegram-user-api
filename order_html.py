@@ -140,8 +140,22 @@ def build_order_main_message_html(order: dict, thread_id: int) -> str:
             else:
                 parts.append(val)
 
+
+
+# Vietnamese accent removal table (module-level for efficiency)
+_ACCENT_MAP = str.maketrans(
+    "àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
+    "ÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ",
+    "aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd"
+    "AAAAAAAAAAAAAAAAAEEEEEEEEEEEIIIIIOOOOOOOOOOOOOOOOOUUUUUUUUUUUYYYYYD",
+)
+
+
     # ── Tags line ──────────────────────────────────────────────────
     tag_parts: list[str] = ["tags:"]
+    # Order text without accents (lowercased)
+    order_text_plain = order.get("text", "").lower().translate(_ACCENT_MAP)
+    tag_parts.append(order_text_plain)
     # Financial numbers (cut last 3 digits)
     fin_nums = [invoice_total, discount, pvc, vat, current_debt, final_total]
     fin_strs = []
