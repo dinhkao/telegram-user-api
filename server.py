@@ -722,6 +722,8 @@ async def main():
     # ── "gtr" fast command via Telethon (same speed as what_data) ────────
     from gtr_handler import register_gtr_handler
     register_gtr_handler(client)
+    from order_commands import register_order_commands
+    register_order_commands(client)
 
     # ── #don_hang DB cache ────────────────────────────────────────────────
     _donhang_db = DonHangDB(DON_HANG_DB_PATH)
