@@ -209,10 +209,13 @@ def register_order_commands_v2(client):
         msg = event.message
         if isinstance(msg, MessageService): return
         text = (msg.text or "").strip()
-        text = text.replace("\n", " ").replace("\r", " ")
-        while text and text[0] in ('"', "'", '`') and text[-1] == text[0]:
-            text = text[1:-1].strip()
-        if not text.startswith(","):
+        # Use flattened version only for comma detection, keep original
+        # newlines for parse_comma_text so multi-line input works
+        flat = text.replace("\n", " ").replace("\r", " ")
+        while flat and flat[0] in ('"', "'", '`') and flat[-1] == flat[0]:
+            flat = flat[1:-1].strip()
+            text = text[1:-1].strip()  # also strip quotes from original
+        if not flat.startswith(","):
             return
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
