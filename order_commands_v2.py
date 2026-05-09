@@ -361,41 +361,16 @@ def register_order_commands_v2(client):
         # Media is auto-visible in the topic, no reply needed.
         # final_telegram has its own media handler for saving to Firebase/SQLite.
 
-    # ── REPLY ───────────────────────────────────────────────────────
-    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
-    async def on_reply(event):
-        msg = event.message
-        if isinstance(msg, MessageService): return
-        text = (msg.text or "").strip()
-        if not text: return
-        m = re.match(r"^reply(?:\s+(.+))?$", text, re.IGNORECASE)
-        if not m: return
-        reply_content = m.group(1) or ""
-        result = _call_final("/api/order/reply", {
-            "thread_id": _extract_thread_id(msg),
-            "text": reply_content,
-            "chat_id": msg.chat_id,
-            "message_id": msg.id,
-        })
-        if not result:
-            await client.send_message(msg.chat_id, "❌ Lỗi gửi reply")
-
-    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
-    async def on_replysi(event):
-        msg = event.message
-        if isinstance(msg, MessageService): return
-        text = (msg.text or "").strip()
-        m = re.match(r"^replysi\s+(.+)$", text, re.IGNORECASE)
-        if not m: return
-        reply_si = m.group(1)
-        result = _call_final("/api/order/replysi", {
-            "thread_id": _extract_thread_id(msg),
-            "text": reply_si,
-            "chat_id": msg.chat_id,
-            "message_id": msg.id,
-        })
-        if not result:
-            await client.send_message(msg.chat_id, "❌ Lỗi gửi replysi")
+    # ── REPLY / REPLYSI ─────────────────────────────────────────────
+    # Disabled: handled by Node.js bot (groupDonHang.js) which has
+    # richer features (multi-line support, xN multiplier, etc.).
+    # Remove the return below to re-enable Telethon reply handling.
+    # @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    # async def on_reply(event):
+    #     ...
+    # @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    # async def on_replysi(event):
+    #     ...
 
     # ── ADMIN / DEBUG ───────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
