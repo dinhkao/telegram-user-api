@@ -203,60 +203,13 @@ def register_order_commands_v2(client):
         ok, message = update_customer(db_conn, key, data)
         await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
-    # ── COMMA COMMAND (product search + invoice entry) ───────────────
-    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
-    async def on_comma(event):
-        msg = event.message
-        if isinstance(msg, MessageService): return
-        text = (msg.text or "").strip()
-        # Use flattened version only for comma detection, keep original
-        # newlines for parse_comma_text so multi-line input works
-        flat = text.replace("\n", " ").replace("\r", " ")
-        while flat and flat[0] in ('"', "'", '`') and flat[-1] == flat[0]:
-            flat = flat[1:-1].strip()
-            text = text[1:-1].strip()  # also strip quotes from original
-        if not flat.startswith(","):
-            return
-        thread_id = _extract_thread_id(msg)
-        if not thread_id: return
-        log.info("comma: thread=%s text=%r", thread_id, text)
-        # Parse
-        order = get_order_by_thread_id(db_conn, thread_id)
-        kh_id = (order.get("khach_hang_id") or order.get("khID")) if order else None
-        invoice = parse_comma_text(text, db_conn, kh_id)
-        if not invoice:
-            await client.send_message(msg.chat_id, "❌ Không parse được dòng sản phẩm", reply_to=msg.id)
-            return
-        # Save to SQLite
-        save_order_invoice(db_conn, thread_id, invoice)
-        # Refresh main message via Telethon
-        try:
-            order = get_order_by_thread_id(db_conn, thread_id)
-            if order and order.get("channel_id") and order.get("message_id"):
-                from order_html import build_order_main_message_html
-                html = build_order_main_message_html(order, thread_id)
-                await client.edit_message(
-                    entity=order["channel_id"],
-                    message=order["message_id"],
-                    text=html,
-                    parse_mode="html",
-                    link_preview=False,
-                )
-                log.info("comma: edited main message %d in channel %d", order["message_id"], order["channel_id"])
-        except Exception as e:
-            log.warning("comma: Telethon edit failed: %s", e)
-        # Reply with customer + debt
-        lines = [f"✅ Đã cập nhật {len(invoice)} sản phẩm"]
-        if kh_id:
-            try:
-                cust_id = get_customer_kv_id(db_conn, str(kh_id))
-                if cust_id:
-                    debt = get_customer_debt_kv(cust_id)
-                    lines.append(f"👤 Khách: {debt.get('name', 'N/A')}")
-                    lines.append(f"📊 Nợ hiện tại (KiotViet): {debt.get('debt', 0):,}đ")
-            except Exception:
-                pass
-        await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id)
+    # ── COMMA COMMAND ───────────────────────────────────────────────
+    # Disabled: handled by Node.js bot (groupDonHang.js) which has
+    # richer features (pattern learning, customer detection DB updates).
+    # Remove the return below to re-enable Telethon comma handling.
+    # @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    # async def on_comma(event):
+    #     ...
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_auto_complete_ban_hd(event):
         msg = event.message
