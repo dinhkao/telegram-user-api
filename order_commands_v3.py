@@ -18,6 +18,7 @@ from order_db import (
     search_products,
     _call_final_telegram,
     set_task_status,
+    _save_order,
 )
 from kiotviet import (
     search_products_kv,
@@ -385,6 +386,16 @@ async def _refresh_order_message(client, db_conn, thread_id: int, channel_id: in
         log.warning("Failed to refresh order message thread=%d: %s", thread_id, e)
 
 
+def _refresh_order_if_possible(client, db_conn, order: dict):
+    """Queue a refresh of the order's main message if channel_id and message_id are known."""
+    channel_id = order.get("channel_id")
+    message_id = order.get("message_id")
+    if channel_id and message_id:
+        client.loop.create_task(
+            _refresh_order_message(client, db_conn, order.get("thread_id", 0), channel_id, message_id)
+        )
+
+
 # ── Handler registration ────────────────────────────────────────────
 
 def register_order_commands_v3(client):
@@ -605,3 +616,90 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Chưa có dữ liệu sản phẩm", reply_to=msg.id)
             return
         await client.send_message(msg.chat_id, _fmt_analysis(sorted_products), reply_to=msg.id, parse_mode="html")
+
+    # ── VAT ─────────────────────────────────────────────────────────
+    # vat <amount> — set VAT to specific amount
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_vat_with_amount(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        m = re.match(r"^vat\s+(.+)$", (msg.text or "").strip(), re.IGNORECASE)
+        if not m: return
+        amount_str = m.group(1).strip()
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+        try:
+            amount = int(amount_str)
+            if amount < 0:
+                await client.send_message(msg.chat_id, "❌ Số tiền VAT không được âm", reply_to=msg.id)
+                return
+        except ValueError:
+            await client.send_message(msg.chat_id, "❌ Số tiền VAT không hợp lệ", reply_to=msg.id)
+            return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+
+        order["vat"] = amount
+        if not _save_order(db_conn, thread_id, order):
+            await client.send_message(msg.chat_id, "❌ Lỗi lưu VAT", reply_to=msg.id)
+            return
+
+        # Sync to Firebase
+        try:
+            fb_set_order(thread_id, order)
+        except Exception as e:
+            log.warning("Firebase sync for vat failed: %s", e)
+
+        await client.send_message(
+            msg.chat_id,
+            f"✅ Cập nhật VAT thành công: {amount:,}đ",
+            reply_to=msg.id,
+        )
+
+        # Refresh main message
+        _refresh_order_if_possible(client, db_conn, order)
+
+    # vat (no amount) — auto-calculate 8% of invoice total
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_vat_auto(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        if (msg.text or "").strip().lower() != "vat": return
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+
+        # Compute 8% of invoice items total
+        invoice = order.get("invoice") or order.get("invoice_items") or []
+        invoice_total = sum(
+            int(item.get("price", 0)) * int(item.get("sl", 0))
+            for item in invoice
+        )
+        new_vat = round(invoice_total * 0.08)
+
+        order["vat"] = new_vat
+        if not _save_order(db_conn, thread_id, order):
+            await client.send_message(msg.chat_id, "❌ Lỗi lưu VAT", reply_to=msg.id)
+            return
+
+        # Sync to Firebase
+        try:
+            fb_set_order(thread_id, order)
+        except Exception as e:
+            log.warning("Firebase sync for vat auto failed: %s", e)
+
+        await client.send_message(
+            msg.chat_id,
+            f"✅ Cập nhật VAT tự động 8%: {new_vat:,}đ",
+            reply_to=msg.id,
+        )
+
+        # Refresh main message
+        _refresh_order_if_possible(client, db_conn, order)
