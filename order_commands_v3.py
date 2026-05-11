@@ -195,20 +195,27 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
     method_label = "TM" if method == "Cash" else "CK"
     method_icon = "💵" if method == "Cash" else "💳"
 
+    # Immediate feedback
+    processing_msg = await client.send_message(
+        msg.chat_id,
+        "⏳ Đang xử lý......",
+        reply_to=msg.id,
+    )
+
     # 1. Read order
     order = get_order_by_thread_id(db_conn, thread_id)
     if not order:
-        await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+        await client.edit_message(msg.chat_id, processing_msg.id, "❌ Không tìm thấy đơn hàng")
         return
 
     kh_id_fb = order.get("khach_hang_id") or order.get("khID")
     if not kh_id_fb:
-        await client.send_message(msg.chat_id, "❌ Đơn hàng này chưa được gán khách hàng.", reply_to=msg.id)
+        await client.edit_message(msg.chat_id, processing_msg.id, "❌ Đơn hàng này chưa được gán khách hàng.")
         return
 
     customer = get_customer_by_key(db_conn, str(kh_id_fb))
     if not customer or not customer.get("kh_id"):
-        await client.send_message(msg.chat_id, "❌ Không tìm thấy thông tin khách hàng hoặc ID KiotViet.", reply_to=msg.id)
+        await client.edit_message(msg.chat_id, processing_msg.id, "❌ Không tìm thấy thông tin khách hàng hoặc ID KiotViet.")
         return
 
     kv_id = customer["kh_id"]
@@ -232,15 +239,13 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
         )
     except Exception as e:
         log.error("KiotViet create_order_with_payment failed: %s", e)
-        await client.send_message(
-            msg.chat_id,
-            f"❌ Lỗi tạo thanh toán KiotViet: {e}",
-            reply_to=msg.id,
-        )
+        await client.edit_message(msg.chat_id, processing_msg.id,
+            f"❌ Lỗi tạo thanh toán KiotViet: {e}")
         return
 
     if not kv_res:
-        await client.send_message(msg.chat_id, "❌ Không thể tạo thanh toán trên KiotViet", reply_to=msg.id)
+        await client.edit_message(msg.chat_id, processing_msg.id,
+            "❌ Không thể tạo thanh toán trên KiotViet")
         return
 
     # 4. Save payment to SQLite
@@ -269,11 +274,11 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
     except Exception as e:
         log.warning("Firebase full sync failed: %s", e)
 
-    # 7. Send success reply in group chat
-    await client.send_message(
+    # 7. Edit the processing message with success
+    await client.edit_message(
         msg.chat_id,
+        processing_msg.id,
         f"✅ Đã tạo thanh toán {method_label} thành công {kv_code}",
-        reply_to=msg.id,
     )
 
     # 8. Fund receipt (ONLY for tm/Cash)
