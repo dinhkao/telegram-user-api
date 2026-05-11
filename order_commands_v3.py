@@ -410,6 +410,40 @@ def _firebase_refresh_async(client, db_conn, thread_id: int, order: dict):
     client.loop.create_task(_firebase_and_refresh(client, db_conn, thread_id, order))
 
 
+# ── Mirror fields: task_type → order root boolean ──────────────────
+
+TASK_MIRROR_FIELDS = {
+    "soan_hang": "soan",
+    "giao_hang": "giao",
+    "nop_tien": "nop",
+    "nhan_tien": "nhan",
+}
+
+
+def _sync_task_mirror(order: dict) -> None:
+    """Sync task_status done/skip → root boolean fields (soan, giao, nop, nhan)."""
+    task_status = order.get("task_status")
+    if not task_status or not isinstance(task_status, dict):
+        return
+    for task_type, field in TASK_MIRROR_FIELDS.items():
+        entry = task_status.get(task_type)
+        if entry and isinstance(entry, dict):
+            order[field] = bool(entry.get("done") or entry.get("skip"))
+
+
+def _clean_text_chat(order: dict) -> None:
+    """Remove cs, cg, cnt, cnhan tokens from text_chat."""
+    text_chat = (order.get("text_chat") or "").strip()
+    if not text_chat:
+        return
+    cleaned = " ".join(
+        w for w in text_chat.split()
+        if w not in ("cs", "cg", "cnt", "cnhan")
+    )
+    if cleaned != text_chat:
+        order["text_chat"] = cleaned
+
+
 # ── Handler registration ────────────────────────────────────────────
 
 def register_order_commands_v3(client):
@@ -630,6 +664,47 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Chưa có dữ liệu sản phẩm", reply_to=msg.id)
             return
         await client.send_message(msg.chat_id, _fmt_analysis(sorted_products), reply_to=msg.id, parse_mode="html")
+
+    # ── UPDATE ───────────────────────────────────────────────────────
+    # update — force refresh main order message (via Telethon, no rate limit)
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_update(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        if (msg.text or "").strip().lower() != "update": return
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+
+        # Sync task_status mirror to root booleans (soan, giao, nop, nhan)
+        _sync_task_mirror(order)
+        # Clean text_chat (remove cs, cg, cnt, cnhan)
+        _clean_text_chat(order)
+
+        # Save to SQLite
+        if not _save_order(db_conn, thread_id, order):
+            await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
+            return
+
+        # Reply immediately
+        await client.send_message(
+            msg.chat_id,
+            "✅ Đã cập nhật lại nội dung đơn hàng",
+            reply_to=msg.id,
+        )
+
+        # Refresh main message + Firebase sync (non-blocking)
+        channel_id = order.get("channel_id")
+        message_id = order.get("message_id")
+        if channel_id and message_id:
+            client.loop.create_task(
+                _refresh_order_message(client, db_conn, thread_id, channel_id, message_id)
+            )
+        _firebase_refresh_async(client, db_conn, thread_id, order)
 
     # ── VAT ─────────────────────────────────────────────────────────
     # vat <amount> — set VAT to specific amount
