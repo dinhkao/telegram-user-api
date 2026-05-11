@@ -150,15 +150,22 @@ def register_order_commands(client):
         sender_id = getattr(msg, "sender_id", None)
         log.debug("task_done: thread=%d task=%s user=%s", thread_id, task_type, sender_id)
 
+
         ok = set_task_status(db_conn, thread_id, task_type, sender_id)
         if ok:
             if task_type == "soan_hang":
-                await event.respond(
-                    reply_text,
-                    buttons=[
-                        [Button.inline("A", b"soan_test_a"), Button.inline("B", b"soan_test_b")],
-                    ],
-                )
+                try:
+                    sent = await client.send_message(
+                        msg.chat_id,
+                        reply_text,
+                        reply_to=msg.id,
+                        buttons=[
+                            [Button.inline("A", "soan_test_a"), Button.inline("B", "soan_test_b")],
+                        ],
+                    )
+                    log.info("task_done: soan reply sent, msg_id=%s", getattr(sent, "id", "unknown"))
+                except Exception:
+                    log.exception("task_done: soan send_message failed")
             else:
                 await client.send_message(msg.chat_id, reply_text, reply_to=msg.id)
             _notify_refresh(thread_id)
