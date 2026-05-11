@@ -267,15 +267,13 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
     # 5. Auto-complete v2 tasks: nhan_tien + nop_tien
     _auto_complete_tasks(client, db_conn, thread_id, user_id, msg.chat_id)
 
-    # 6. Sync to Firebase (best-effort)
+    # 6. Re-read order after all writes and sync to Firebase
+    order = get_order_by_thread_id(db_conn, thread_id)
     try:
-        now_iso = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
-        fb_update_order(thread_id, {
-            "payments": payments,
-            "updated_at": now_iso,
-        })
+        if order:
+            fb_set_order(thread_id, order)
     except Exception as e:
-        log.warning("Firebase sync failed: %s", e)
+        log.warning("Firebase full sync failed: %s", e)
 
     # 7. Send success reply in group chat
     await client.send_message(
