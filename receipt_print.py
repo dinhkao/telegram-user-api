@@ -1,12 +1,12 @@
 """receipt_print.py — Generate & send payment receipt HTML.
 
-Mirrors Node.js generatePaymentReceiptPrint() + enqueueHtmlForPrint().
+Mirrors Node.js generatePaymentReceiptPrint() + queueHtmlToPngWithDiscussionMirror().
 Two outputs:
-  1. Firebase meta/to_print → physical printer (via RTDB watch)
+  1. Firebase html-to-png → physical printer (via RTDB watch)
   2. Telegram document → group chat
 """
 from __future__ import annotations
-import asyncio
+import json
 import logging
 import os
 import tempfile
@@ -17,9 +17,7 @@ from firebase_sync import _ref as fb_ref
 log = logging.getLogger("receipt_print")
 
 ORDER_GROUP_ID = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
-PRINT_PATH = os.getenv("FIREBASE_PRINT_PATH", "meta/to_print")
-PRINT_SETTLE_MS = int(os.getenv("PRINT_SETTLE_MS", "120"))
-PRINT_GAP_MS = int(os.getenv("PRINT_GAP_MS", "220"))
+HTML_TO_PNG_PATH = os.getenv("FIREBASE_HTML_TO_PNG_PATH", "html-to-png")
 
 
 def _escape_html(s: str) -> str:
@@ -87,35 +85,28 @@ def generate_receipt_html(
     return html, file_stamp
 
 
-async def _enqueue_html_for_print(html: str, copies: int = 1) -> None:
-    """Write HTML to Firebase meta/to_print for physical printer.
+async def _enqueue_html_to_png(html: str, chat_id: int, thread_id: int) -> None:
+    """Write receipt to Firebase html-to-png for physical printer.
     
-    Mirrors Node.js enqueueHtmlForPrint() — write → settle → delete.
-    The printer process watches this path on Firebase RTDB.
-    Adds an HTML comment marker for tracking: <!-- print-queue:batchId:copy:N/total -->
+    Mirrors Node.js queueHtmlToPngWithDiscussionMirror():
+    Writes JSON {html, chat_id, message_thread_id} to html-to-png path.
+    Single write, no settle/delete cycle — downstream process handles it.
     """
-    ref = fb_ref(PRINT_PATH)
+    ref = fb_ref(HTML_TO_PNG_PATH)
     if ref is None:
-        log.warning("Firebase not configured — skipping print queue")
+        log.warning("Firebase not configured — skipping html-to-png queue")
         return
 
-    batch_id = f"{int(datetime.now(timezone.utc).timestamp() * 1000)}-{os.urandom(4).hex()}"
-
-    for i in range(copies):
-        marker = f"print-queue:{batch_id}:copy:{i + 1}/{copies}"
-        payload = html.replace("</body>", f"<!-- {marker} -->\n</body>") if "</body>" in html else f"{html}\n<!-- {marker} -->"
-
-        try:
-            ref.set(payload)
-            await asyncio.sleep(PRINT_SETTLE_MS / 1000.0)
-            ref.delete()
-        except Exception as e:
-            log.warning("Print queue write/delete failed (copy %d/%d): %s", i + 1, copies, e)
-
-        if i < copies - 1:
-            await asyncio.sleep(PRINT_GAP_MS / 1000.0)
-
-    log.info("Print queued to %s: copies=%d batch=%s", PRINT_PATH, copies, batch_id)
+    payload = {
+        "html": html,
+        "chat_id": chat_id,
+        "message_thread_id": thread_id,
+    }
+    try:
+        ref.set(json.dumps(payload, ensure_ascii=False))
+        log.info("Receipt queued to %s: thread=%d", HTML_TO_PNG_PATH, thread_id)
+    except Exception as e:
+        log.warning("html-to-png write failed: %s", e)
 
 
 async def send_payment_receipt(
@@ -130,7 +121,7 @@ async def send_payment_receipt(
     
     Mirrors Node.js generatePaymentReceiptPrint():
     1. Generate HTML receipt
-    2. Enqueue to Firebase meta/to_print → physical printer
+    2. Write to Firebase html-to-png → physical printer
     3. Save to temp file → send as document via Telegram
     """
     html, file_stamp = generate_receipt_html(
@@ -141,11 +132,11 @@ async def send_payment_receipt(
         new_debt=new_debt,
     )
 
-    # 1. Queue to physical printer via Firebase
+    # 1. Queue to physical printer via Firebase html-to-png
     try:
-        await _enqueue_html_for_print(html, copies=1)
+        await _enqueue_html_to_png(html, ORDER_GROUP_ID, thread_id)
     except Exception as e:
-        log.warning("Failed to enqueue print: %s", e)
+        log.warning("Failed to enqueue html-to-png: %s", e)
 
     # 2. Send as Telegram document
     try:
