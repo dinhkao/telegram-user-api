@@ -396,6 +396,20 @@ def _refresh_order_if_possible(client, db_conn, order: dict):
         )
 
 
+async def _firebase_and_refresh(client, db_conn, thread_id: int, order: dict):
+    """Sync to Firebase + refresh main message (runs in background)."""
+    try:
+        fb_set_order(thread_id, order)
+    except Exception as e:
+        log.warning("Firebase sync failed: %s", e)
+    _refresh_order_if_possible(client, db_conn, order)
+
+
+def _firebase_refresh_async(client, db_conn, thread_id: int, order: dict):
+    """Fire-and-forget Firebase sync + refresh via Telethon event loop."""
+    client.loop.create_task(_firebase_and_refresh(client, db_conn, thread_id, order))
+
+
 # ── Handler registration ────────────────────────────────────────────
 
 def register_order_commands_v3(client):
@@ -647,20 +661,14 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Lỗi lưu VAT", reply_to=msg.id)
             return
 
-        # Sync to Firebase
-        try:
-            fb_set_order(thread_id, order)
-        except Exception as e:
-            log.warning("Firebase sync for vat failed: %s", e)
-
         await client.send_message(
             msg.chat_id,
             f"✅ Cập nhật VAT thành công: {amount:,}đ",
             reply_to=msg.id,
         )
 
-        # Refresh main message
-        _refresh_order_if_possible(client, db_conn, order)
+        # Sync Firebase + refresh main message (non-blocking)
+        _firebase_refresh_async(client, db_conn, thread_id, order)
 
     # vat (no amount) — auto-calculate 8% of invoice total
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -689,17 +697,11 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Lỗi lưu VAT", reply_to=msg.id)
             return
 
-        # Sync to Firebase
-        try:
-            fb_set_order(thread_id, order)
-        except Exception as e:
-            log.warning("Firebase sync for vat auto failed: %s", e)
-
         await client.send_message(
             msg.chat_id,
             f"✅ Cập nhật VAT tự động 8%: {new_vat:,}đ",
             reply_to=msg.id,
         )
 
-        # Refresh main message
-        _refresh_order_if_possible(client, db_conn, order)
+        # Sync Firebase + refresh main message (non-blocking)
+        _firebase_refresh_async(client, db_conn, thread_id, order)
