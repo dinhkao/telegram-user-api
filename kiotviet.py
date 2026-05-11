@@ -195,3 +195,49 @@ def search_customers_kv(name: str, limit: int = 20) -> list[dict]:
     """Search KiotViet customers by name."""
     result = _request("GET", "/customers", query_params={"search": name, "pageSize": limit})
     return result.get("data", [])
+
+
+def create_order_with_payment(
+    customer_id: int,
+    method: str,
+    total_payment: int | str,
+    account_id: int | None = None,
+    branch_id: int = 1133,
+    sold_by_id: int = 186250,
+    order_details: list[dict] | None = None,
+    make_invoice: bool = False,
+) -> dict:
+    """Create a KiotViet order with embedded payment.
+    
+    Mirrors Node.js KiotVietService.createOrderWithPayment().
+    Calls POST /orders with payment info embedded.
+    
+    Args:
+        customer_id: KiotViet customer ID (kh_id)
+        method: 'Cash' or 'Transfer'
+        total_payment: Payment amount (int or string)
+        account_id: For 'Transfer', the bank account ID (default: 1)
+        branch_id: KiotViet branch ID
+        sold_by_id: KiotViet seller ID
+        order_details: Line items (default: 1 test item)
+        make_invoice: Whether to auto-create invoice
+    """
+    if order_details is None:
+        order_details = [{"productCode": "test", "quantity": 1, "price": 1}]
+
+    payload = {
+        "branchId": branch_id,
+        "soldById": sold_by_id,
+        "method": method,
+        "totalPayment": int(total_payment),
+        "makeInvoice": make_invoice,
+        "orderDetails": order_details,
+        "customer": {"id": customer_id},
+    }
+    if account_id:
+        payload["accountId"] = account_id
+
+    log.info("Creating KiotViet order+pymt: cust=%d method=%s amt=%s acct=%s",
+             customer_id, method, total_payment, account_id)
+
+    return _request("POST", "/orders", body=payload)

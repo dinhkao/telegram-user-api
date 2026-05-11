@@ -225,6 +225,18 @@ def get_customer_kv_id(conn, firebase_key: str) -> int | None:
         return data.get("kh_id")
     except Exception:
         return None
+
+
+def get_customer_by_key(conn, firebase_key: str) -> dict | None:
+    """Return full customer JSON for a given Firebase customer key."""
+    try:
+        cur = conn.execute("SELECT json FROM customers WHERE firebase_key = ? AND deleted_at IS NULL", (firebase_key,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        return json.loads(row["json"])
+    except Exception:
+        return None
 def search_products(conn, code_or_name: str, limit: int = 15) -> list[dict]:
     """Search products — tries kv_store, falls back to KiotViet API."""
     pattern = f"%{code_or_name}%"

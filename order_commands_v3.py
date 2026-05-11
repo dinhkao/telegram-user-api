@@ -14,8 +14,10 @@ from order_db import (
     _get_connection,
     get_order_by_thread_id,
     get_customer_kv_id,
+    get_customer_by_key,
     search_products,
     _call_final_telegram,
+    set_task_status,
 )
 from kiotviet import (
     search_products_kv,
@@ -27,6 +29,7 @@ from kiotviet import (
     delete_payment_kv,
     create_payment_kv,
     get_customer_debt_kv,
+    create_order_with_payment,
 )
 from payment_db import (
     get_payments,
@@ -35,6 +38,14 @@ from payment_db import (
     calculate_debt,
     get_all_debts,
 )
+from firebase_sync import (
+    get_order as fb_get_order,
+    update_order as fb_update_order,
+    set_order as fb_set_order,
+)
+from quy_db import create_fund_receipt
+from customer_notify import send_payment_notification
+from receipt_print import queue_payment_receipt_print
 
 log = logging.getLogger("order_commands_v3")
 ORDER_GROUP_ID = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
@@ -175,6 +186,205 @@ def _fmt_analysis(product_counts: list[tuple[str, int]]) -> str:
     return "\n".join(lines)
 
 
+# ── Core payment handler ────────────────────────────────────────────
+
+async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int | None, method: str):
+    """Process a payment (tm=Cash or ck=Transfer) — fully in Telethon.
+    
+    Mirrors the Node.js processCashPaymentForOrder() + POST /api/order/payment/* logic.
+    """
+    db_conn = _get_connection()
+    actor_name = str(user_id) if user_id else "API"
+    account_id = 1 if method == "Transfer" else None
+    method_label = "TM" if method == "Cash" else "CK"
+    method_icon = "💵" if method == "Cash" else "💳"
+
+    # 1. Read order
+    order = get_order_by_thread_id(db_conn, thread_id)
+    if not order:
+        await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+        return
+
+    kh_id_fb = order.get("khach_hang_id") or order.get("khID")
+    if not kh_id_fb:
+        await client.send_message(msg.chat_id, "❌ Đơn hàng này chưa được gán khách hàng.", reply_to=msg.id)
+        return
+
+    customer = get_customer_by_key(db_conn, str(kh_id_fb))
+    if not customer or not customer.get("kh_id"):
+        await client.send_message(msg.chat_id, "❌ Không tìm thấy thông tin khách hàng hoặc ID KiotViet.", reply_to=msg.id)
+        return
+
+    kv_id = customer["kh_id"]
+    kh_name = customer.get("name") or order.get("khach_hang") or str(kh_id_fb)
+
+    # 2. Get old debt from KiotViet (best-effort)
+    old_debt = None
+    try:
+        det = get_customer_debt_kv(kv_id)
+        old_debt = det.get("debt")
+    except Exception as e:
+        log.warning("Could not fetch old debt for customer %d: %s", kv_id, e)
+
+    # 3. Create order + payment on KiotViet
+    try:
+        kv_res = create_order_with_payment(
+            customer_id=kv_id,
+            method=method,
+            total_payment=amount,
+            account_id=account_id,
+        )
+    except Exception as e:
+        log.error("KiotViet create_order_with_payment failed: %s", e)
+        await client.send_message(
+            msg.chat_id,
+            f"❌ Lỗi tạo thanh toán KiotViet: {e}",
+            reply_to=msg.id,
+        )
+        return
+
+    if not kv_res:
+        await client.send_message(msg.chat_id, "❌ Không thể tạo thanh toán trên KiotViet", reply_to=msg.id)
+        return
+
+    # 4. Save payment to SQLite
+    payment_record = {
+        "amount": amount,
+        "method": method,
+        "kiotvietData": kv_res,
+        "createdBy": actor_name,
+    }
+    ok, payment_msg = add_payment(db_conn, thread_id, payment_record)
+    if not ok:
+        log.error("Failed to save payment to SQLite: %s", payment_msg)
+
+    # Re-read order to get updated payments
+    order = get_order_by_thread_id(db_conn, thread_id)
+    payments = order.get("payments", []) if order else []
+    payment_info = payments[-1] if payments else payment_record
+    kv_code = kv_res.get("code", "N/A")
+
+    # 5. Auto-complete v2 tasks: nhan_tien + nop_tien
+    _auto_complete_tasks(client, db_conn, thread_id, user_id, msg.chat_id)
+
+    # 6. Sync to Firebase (best-effort)
+    try:
+        now_iso = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+        fb_update_order(thread_id, {
+            "payments": payments,
+            "updated_at": now_iso,
+        })
+    except Exception as e:
+        log.warning("Firebase sync failed: %s", e)
+
+    # 7. Send success reply in group chat
+    await client.send_message(
+        msg.chat_id,
+        f"✅ Đã tạo thanh toán {method_label} thành công {kv_code}",
+        reply_to=msg.id,
+    )
+
+    # 8. Fund receipt (ONLY for tm/Cash)
+    if method == "Cash":
+        try:
+            create_fund_receipt(
+                amount=amount,
+                khach_hang_name=kh_name,
+                created_by=actor_name,
+                client=client,
+                order_chat_id=msg.chat_id,
+                order_thread_id=thread_id,
+            )
+        except Exception as e:
+            log.warning("Fund receipt creation failed: %s", e)
+
+    # 9. Fetch new debt from KiotViet
+    new_debt = None
+    try:
+        det = get_customer_debt_kv(kv_id)
+        new_debt = det.get("debt")
+    except Exception as e:
+        log.warning("Could not fetch new debt for customer %d: %s", kv_id, e)
+
+    if new_debt is not None:
+        await client.send_message(
+            msg.chat_id,
+            f"✅ Cập nhật nợ khách hàng -> {new_debt:,}đ",
+            reply_to=thread_id,
+        )
+
+    # 10. Notify customer topic
+    try:
+        order_text = order.get("text") or order.get("name") or f"Đơn #{thread_id}"
+        send_payment_notification(
+            client=client,
+            kh_id=str(kh_id_fb),
+            thread_id=thread_id,
+            amount=amount,
+            method=method,
+            order_text=order_text,
+            old_debt=old_debt,
+            new_debt=new_debt,
+        )
+    except Exception as e:
+        log.warning("Customer notification failed: %s", e)
+
+    # 11. Queue receipt print
+    try:
+        queue_payment_receipt_print(
+            thread_id=thread_id,
+            customer_name=kh_name,
+            payment_amount=amount,
+            old_debt=old_debt,
+            new_debt=new_debt,
+        )
+    except Exception as e:
+        log.warning("Print job queuing failed: %s", e)
+
+    # 12. Refresh order main message (async, best-effort)
+    try:
+        channel_id = order.get("channel_id")
+        message_id = order.get("message_id")
+        if channel_id and message_id:
+            client.loop.create_task(
+                _refresh_order_message(client, db_conn, thread_id, channel_id, message_id)
+            )
+    except Exception as e:
+        log.warning("Order message refresh queuing failed: %s", e)
+
+
+def _auto_complete_tasks(client, db_conn, thread_id: int, user_id: int | None, chat_id: int):
+    """Auto-complete nhan_tien + nop_tien tasks for the order."""
+    for task_type in ("nhan_tien", "nop_tien"):
+        try:
+            ok = set_task_status(db_conn, thread_id, task_type, user_id)
+            if ok:
+                log.info("Auto-completed task %s for thread %d", task_type, thread_id)
+        except Exception as e:
+            log.warning("Failed to auto-complete %s for thread %d: %s", task_type, thread_id, e)
+
+
+async def _refresh_order_message(client, db_conn, thread_id: int, channel_id: int, message_id: int):
+    """Rebuild order message HTML and edit in channel via Telethon."""
+    try:
+        from order_html import build_order_main_message_html
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            return
+        html = build_order_main_message_html(order, thread_id)
+        if not html:
+            return
+        await client.edit_message(
+            channel_id,
+            message_id,
+            html,
+            parse_mode="html",
+        )
+        log.info("Order message refreshed: thread=%d msg=%d", thread_id, message_id)
+    except Exception as e:
+        log.warning("Failed to refresh order message thread=%d: %s", thread_id, e)
+
+
 # ── Handler registration ────────────────────────────────────────────
 
 def register_order_commands_v3(client):
@@ -226,17 +436,11 @@ def register_order_commands_v3(client):
         if isinstance(msg, MessageService): return
         m = re.match(r"^ck\s+(.+)$", (msg.text or "").strip(), re.IGNORECASE)
         if not m: return
-        amount = m.group(1).strip()
+        amount_str = m.group(1).strip()
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
         user_id = getattr(msg, "sender_id", None)
-        result = _call_final("/api/order/payment/ck", {
-            "thread_id": thread_id,
-            "amount": int(amount),
-            "user_id": user_id,
-        })
-        reply = "✅ Đã xử lý ck" if result else "❌ Lỗi kết nối"
-        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
+        await _handle_payment(client, msg, thread_id, int(amount_str), user_id, "Transfer")
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_tm(event):
@@ -244,17 +448,11 @@ def register_order_commands_v3(client):
         if isinstance(msg, MessageService): return
         m = re.match(r"^tm\s+(.+)$", (msg.text or "").strip(), re.IGNORECASE)
         if not m: return
-        amount = m.group(1).strip()
+        amount_str = m.group(1).strip()
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
         user_id = getattr(msg, "sender_id", None)
-        result = _call_final("/api/order/payment/tm", {
-            "thread_id": thread_id,
-            "amount": int(amount),
-            "user_id": user_id,
-        })
-        reply = "✅ Đã xử lý tm" if result else "❌ Lỗi kết nối"
-        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
+        await _handle_payment(client, msg, thread_id, int(amount_str), user_id, "Cash")
     # ── /payments, /del_payment_<id>, /orders ────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_payments(event):
