@@ -38,11 +38,7 @@ from payment_db import (
     calculate_debt,
     get_all_debts,
 )
-from firebase_sync import (
-    get_order as fb_get_order,
-    update_order as fb_update_order,
-    set_order as fb_set_order,
-)
+from firebase_sync import set_order as fb_set_order
 from quy_db import create_fund_receipt
 from customer_notify import send_payment_notification
 from receipt_print import send_payment_receipt
@@ -260,8 +256,6 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
 
     # Re-read order to get updated payments
     order = get_order_by_thread_id(db_conn, thread_id)
-    payments = order.get("payments", []) if order else []
-    payment_info = payments[-1] if payments else payment_record
     kv_code = kv_res.get("code", "N/A")
 
     # 5. Auto-complete v2 tasks: nhan_tien + nop_tien
