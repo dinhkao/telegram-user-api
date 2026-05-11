@@ -45,7 +45,7 @@ from firebase_sync import (
 )
 from quy_db import create_fund_receipt
 from customer_notify import send_payment_notification
-from receipt_print import queue_payment_receipt_print
+from receipt_print import send_payment_receipt
 
 log = logging.getLogger("order_commands_v3")
 ORDER_GROUP_ID = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
@@ -327,17 +327,20 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
     except Exception as e:
         log.warning("Customer notification failed: %s", e)
 
-    # 11. Queue receipt print
+    # 11. Send receipt (async)
     try:
-        queue_payment_receipt_print(
-            thread_id=thread_id,
-            customer_name=kh_name,
-            payment_amount=amount,
-            old_debt=old_debt,
-            new_debt=new_debt,
+        client.loop.create_task(
+            send_payment_receipt(
+                client=client,
+                thread_id=thread_id,
+                customer_name=kh_name,
+                payment_amount=amount,
+                old_debt=old_debt,
+                new_debt=new_debt,
+            )
         )
     except Exception as e:
-        log.warning("Print job queuing failed: %s", e)
+        log.warning("Receipt sending failed: %s", e)
 
     # 12. Refresh order main message (async, best-effort)
     try:
