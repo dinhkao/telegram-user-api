@@ -6,7 +6,6 @@ Two outputs:
   2. Telegram document → group chat
 """
 from __future__ import annotations
-import json
 import logging
 import os
 import tempfile
@@ -103,7 +102,8 @@ async def _enqueue_html_to_png(html: str, chat_id: int, thread_id: int) -> None:
         "message_thread_id": thread_id,
     }
     try:
-        ref.set(json.dumps(payload, ensure_ascii=False))
+        # Pass dict directly — Firebase SDK serializes to object (not string)
+        ref.set(payload)
         log.info("Receipt queued to %s: thread=%d", HTML_TO_PNG_PATH, thread_id)
     except Exception as e:
         log.warning("html-to-png write failed: %s", e)
