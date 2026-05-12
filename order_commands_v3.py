@@ -519,11 +519,19 @@ async def _send_invoice_html_file(
             log.warning("Failed to push invoice to html-to-png: %s", e)
 
         # 3. Push to meta/to_print (Firebase) with write→settle→delete for physical printer
+        # Mirrors Node.js enqueueHtmlForPrint() with print marker injection
         try:
             import asyncio
             ref_print = fb_ref("meta/to_print")
             if ref_print:
-                ref_print.set(html)
+                marker = f"print-queue:{int(time.time()*1000)}-{invoice_id}:copy:1/1"
+                marker_tag = f"<!-- {marker} -->"
+                if "</body>" in html.lower():
+                    html_print = html.replace("</body>", f"{marker_tag}\n</body>", 1)
+                    html_print = html_print.replace("</BODY>", f"{marker_tag}\n</BODY>", 1)
+                else:
+                    html_print = f"{html}\n{marker_tag}"
+                ref_print.set(html_print)
                 await asyncio.sleep(0.12)  # 120ms settle
                 ref_print.delete()
         except Exception as e:

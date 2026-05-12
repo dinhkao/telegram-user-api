@@ -24,17 +24,21 @@ def _get_app():
     if _app is not None:
         return _app
 
-    cred_json = os.getenv("FIREBASE_SERVICE_ACCOUNT", "")
-    if not cred_json:
-        # Try loading from file
-        cred_file = os.getenv("FIREBASE_CRED_FILE", "")
-        if cred_file and os.path.exists(cred_file):
-            cred = credentials.Certificate(cred_file)
-        else:
-            log.warning("FIREBASE_SERVICE_ACCOUNT not set — Firebase writes disabled")
-            return None
+    # Use the same credential file as final_telegram Node.js to avoid 401 errors
+    cred_file = os.getenv(
+        "FIREBASE_CRED_FILE",
+        os.path.expanduser("~/Documents/final_telegram/config/credentials/lt-4-asia-backup-firebase-adminsdk-fbsvc-455a8e080f.json"),
+    )
+    if cred_file and os.path.exists(cred_file):
+        cred = credentials.Certificate(cred_file)
     else:
-        cred = credentials.Certificate(json.loads(cred_json))
+        # Fallback to env var JSON (legacy)
+        cred_json = os.getenv("FIREBASE_SERVICE_ACCOUNT", "")
+        if cred_json:
+            cred = credentials.Certificate(json.loads(cred_json))
+        else:
+            log.warning("FIREBASE_CRED_FILE not found — Firebase writes disabled")
+            return None
 
     database_url = os.getenv(
         "FIREBASE_DATABASE_URL",
