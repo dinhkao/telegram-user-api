@@ -674,6 +674,14 @@ def register_order_commands_v3(client):
         pvc = int(order.get("pvc", 0))
         vat = int(order.get("vat", 0))
 
+        # Fetch old debt before creating invoice (best-effort)
+        old_debt = None
+        try:
+            det = get_customer_debt_kv(kv_id)
+            old_debt = det.get("debt")
+        except Exception as e:
+            log.warning("Could not fetch old debt for customer %d: %s", kv_id, e)
+
         # Processing feedback
         proc_msg = await client.send_message(msg.chat_id, "⏳ Đang tạo hóa đơn KiotViet......", reply_to=msg.id)
 
@@ -697,14 +705,25 @@ def register_order_commands_v3(client):
         invoice_code = result.get("code", "N/A")
         invoice_id = result.get("id")
 
-        # Save invoice ID to SQLite
+        # Save invoice ID + metadata to SQLite
         order["kiotvietInvoiceID"] = invoice_id
+        order["nguoi_tao_HD"] = [user_id or 1809874974]
+        snapshot_debt = old_debt if old_debt is not None else 0
+        order["invoice_debt_snapshot"] = snapshot_debt
+        if old_debt is not None:
+            order["khDebt"] = old_debt
         if not _save_order(db_conn, thread_id, order):
             await client.edit_message(msg.chat_id, proc_msg.id, "❌ Lỗi lưu hóa đơn vào database")
             return
 
-        # Auto-complete ban_hd task
+        # Auto-complete ban_hd task locally
         set_task_status(db_conn, thread_id, "ban_hd", user_id)
+
+        # Call external final_telegram API to mirror ban_hd (same as Node.js)
+        try:
+            _call_final("/api/order/ban", {"thread_id": thread_id, "user_id": user_id})
+        except Exception as e:
+            log.warning("Failed to call external ban_hd API: %s", e)
 
         await client.edit_message(
             msg.chat_id,
@@ -712,10 +731,10 @@ def register_order_commands_v3(client):
             f"✅ Tạo hóa đơn KiotViet thành công! {invoice_code}\n✅ Đã đánh dấu Bán HĐ hoàn thành",
         )
 
-        # Send invoice HTML file (async, non-blocking)
+        # Send invoice HTML file with real debt snapshot (async, non-blocking)
         client.loop.create_task(
             _send_invoice_html_file(client, msg.chat_id, thread_id, invoice_id, invoice_code,
-                                    kh_name, debt=0)
+                                    kh_name, debt=snapshot_debt)
         )
 
         # Firebase sync + refresh (non-blocking)

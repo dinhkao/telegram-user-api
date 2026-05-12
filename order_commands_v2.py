@@ -389,18 +389,7 @@ def register_order_commands_v2(client):
             text = text[:3800] + "\n... (truncated)"
         await client.send_message(msg.chat_id, f"```json\n{text}\n```", reply_to=msg.id, parse_mode="markdown")
 
-    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
-    async def on_get_html(event):
-        msg = event.message
-        if isinstance(msg, MessageService): return
-        if (msg.text or "").strip() != "get html": return
-        thread_id = _extract_thread_id(msg)
-        if not thread_id: return
-        html = get_order_html(db_conn, thread_id)
-        if not html or html.startswith("❌"):
-            await client.send_message(msg.chat_id, html or "❌ Không có HTML", reply_to=msg.id)
-            return
-        await client.send_message(msg.chat_id, html[:4096], reply_to=msg.id, parse_mode="html")
+    # NOTE: `get html` handler removed — migrated to order_commands_v3.py
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_test_rate_limit(event):
