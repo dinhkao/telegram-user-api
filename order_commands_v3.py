@@ -445,6 +445,21 @@ def _clean_text_chat(order: dict) -> None:
         order["text_chat"] = cleaned
 
 
+async def _append_kv_debt(client, chat_id: int, reply_msg_id: int, kv_id: int) -> None:
+    """Fetch KiotViet debt and append to existing reply message (non-blocking)."""
+    try:
+        det = get_customer_debt_kv(kv_id)
+        debt_val = det.get("debt")
+        if debt_val is not None:
+            # Read current message text, append debt, edit
+            original = await client.get_messages(chat_id, ids=reply_msg_id)
+            if original and original.text:
+                new_text = original.text + f"\n📊 Nợ hiện tại (KiotViet): {debt_val:,}đ"
+                await client.edit_message(chat_id, reply_msg_id, new_text, parse_mode="html")
+    except Exception as e:
+        log.warning("Failed to append KiotViet debt to reply: %s", e)
+
+
 # ── Handler registration ────────────────────────────────────────────
 
 def register_order_commands_v3(client):
@@ -484,7 +499,13 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Đơn hàng chưa có khách hàng. Gán khách hàng trước.", reply_to=msg.id)
             return
 
-        # Parse invoice items
+        # Read customer once (reuse for price list + response)
+        customer = get_customer_by_key(db_conn, str(kh_id_fb))
+        cust_name = customer.get("name", "N/A") if customer else "N/A"
+        cust_kv_id = customer.get("kh_id") if customer else None
+        cust_phone = customer.get("contactNumber") if customer else None
+
+        # Parse invoice items (uses get_customer_price_list internally)
         invoice = parse_comma_text(cleaned, db_conn, kh_id_fb)
         if not invoice:
             await client.send_message(msg.chat_id, "❌ Không parse được sản phẩm. Kiểm tra định dạng.", reply_to=msg.id)
@@ -514,34 +535,25 @@ def register_order_commands_v3(client):
         lines.append(f"\n<b>Tổng cộng: {grand_total:,}đ</b>")
         lines.append("")
 
-        customer = get_customer_by_key(db_conn, str(kh_id_fb))
         if customer:
-            cust_name = customer.get("name", "N/A")
             lines.append(f"👤 Khách hàng: {cust_name}")
-
-            # KiotViet debt
-            kv_id = customer.get("kh_id")
-            if kv_id:
-                try:
-                    det = get_customer_debt_kv(kv_id)
-                    debt_val = det.get("debt")
-                    if debt_val is not None:
-                        lines.append(f"📊 Nợ hiện tại (KiotViet): {debt_val:,}đ")
-                except Exception as e:
-                    log.warning("Could not fetch KiotViet debt for %s: %s", kv_id, e)
-
-            # Phone
-            if customer.get("contactNumber"):
-                lines.append(f"📱 SĐT: {customer['contactNumber']}")
+            if cust_phone:
+                lines.append(f"📱 SĐT: {cust_phone}")
         else:
             lines.append("⚠️ Khách hàng: Chưa được gán")
 
-        await client.send_message(
+        reply_msg = await client.send_message(
             msg.chat_id,
             "\n".join(lines),
             reply_to=thread_id,
             parse_mode="html",
         )
+
+        # Append KiotViet debt to reply (async, non-blocking)
+        if cust_kv_id:
+            client.loop.create_task(
+                _append_kv_debt(client, msg.chat_id, reply_msg.id, cust_kv_id)
+            )
 
         # Firebase sync + refresh (non-blocking)
         _firebase_refresh_async(client, db_conn, thread_id, order)
