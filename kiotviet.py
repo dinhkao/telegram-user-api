@@ -241,3 +241,70 @@ def create_order_with_payment(
              customer_id, method, total_payment, account_id)
 
     return _request("POST", "/orders", body=payload)
+
+
+def create_kiotviet_invoice(
+    customer_id: int,
+    invoice_items: list[dict],
+    discount: int = 0,
+    pvc: int = 0,
+    vat: int = 0,
+    branch_id: int = 1133,
+    sold_by_id: int = 186250,
+) -> dict:
+    """Create a KiotViet invoice from invoice items.
+    
+    Mirrors Node.js KiotVietService.createInvoice().
+    
+    Args:
+        customer_id: KiotViet customer ID (kh_id)
+        invoice_items: List of {sp, sl, price, note}
+        discount: Discount amount
+        pvc: Shipping/service charge
+        vat: VAT amount
+    """
+    invoice_details = []
+    for item in invoice_items:
+        product_code = item.get("sp") or item.get("productCode", "test")
+        quantity = int(item.get("sl", item.get("quantity", 1)))
+        price = int(item.get("price", 0))
+        note = str(item.get("note", "")) if item.get("note") else ""
+        invoice_details.append({
+            "productCode": product_code,
+            "quantity": quantity,
+            "price": price,
+            "note": note,
+        })
+
+    payload = {
+        "branchId": branch_id,
+        "soldById": sold_by_id,
+        "invoiceDetails": invoice_details,
+        "customer": {"id": customer_id},
+        "usingCod": True,
+        "deliveryDetail": {"status": 1},
+    }
+
+    if discount:
+        payload["discount"] = discount
+
+    surcharges = []
+    if pvc:
+        surcharges.append({
+            "id": 1000000298,
+            "code": "THK000003",
+            "price": pvc,
+        })
+    if vat:
+        surcharges.append({
+            "id": 1865,
+            "code": "THK000001",
+            "price": vat,
+        })
+    if surcharges:
+        payload["surchages"] = surcharges
+
+    log.info("Creating KiotViet invoice: cust=%d items=%d disc=%s pvc=%s vat=%s",
+             customer_id, len(invoice_details), discount, pvc, vat)
+
+    return _request("POST", "/invoices", body=payload)

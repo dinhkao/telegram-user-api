@@ -24,6 +24,7 @@ from order_db import (
 from kiotviet import (
     search_products_kv,
     create_invoice as kv_create_invoice,
+    create_kiotviet_invoice,
     get_invoices_by_order,
     get_invoice_detail,
     get_payment_methods,
@@ -554,6 +555,89 @@ def register_order_commands_v3(client):
             client.loop.create_task(
                 _append_kv_debt(client, msg.chat_id, reply_msg.id, cust_kv_id)
             )
+
+        # Firebase sync + refresh (non-blocking)
+        _firebase_refresh_async(client, db_conn, thread_id, order)
+
+    # ── TAO HD ──────────────────────────────────────────────────────
+    # tao hd / tao hoa don / tao hoadon — create KiotViet invoice
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_tao_hd(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        t = (msg.text or "").strip().lower()
+        # Normalize: remove diacritics
+        import unicodedata
+        t_normalized = unicodedata.normalize("NFD", t).encode("ascii", "ignore").decode()
+        if t_normalized not in ("tao hd", "tao hoa don", "tao hoadon"):
+            return
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+        user_id = getattr(msg, "sender_id", None)
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+
+        invoice = order.get("invoice") or order.get("invoice_items") or []
+        if not invoice:
+            await client.send_message(msg.chat_id, "❌ Không có sản phẩm nào trong đơn hàng. Dùng lệnh `,` để thêm sản phẩm.", reply_to=msg.id)
+            return
+
+        kh_id_fb = order.get("khach_hang_id") or order.get("khID")
+        if not kh_id_fb:
+            await client.send_message(msg.chat_id, "❌ Đơn hàng chưa có khách hàng. Gán khách hàng trước.", reply_to=msg.id)
+            return
+
+        customer = get_customer_by_key(db_conn, str(kh_id_fb))
+        if not customer or not customer.get("kh_id"):
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy ID KiotViet của khách hàng.", reply_to=msg.id)
+            return
+
+        kv_id = customer["kh_id"]
+        kh_name = customer.get("name", "N/A")
+        discount = int(order.get("discount", 0))
+        pvc = int(order.get("pvc", 0))
+        vat = int(order.get("vat", 0))
+
+        # Processing feedback
+        proc_msg = await client.send_message(msg.chat_id, "⏳ Đang tạo hóa đơn KiotViet......", reply_to=msg.id)
+
+        try:
+            result = create_kiotviet_invoice(
+                customer_id=kv_id,
+                invoice_items=invoice,
+                discount=discount,
+                pvc=pvc,
+                vat=vat,
+            )
+        except Exception as e:
+            log.error("KiotViet create invoice failed: %s", e)
+            await client.edit_message(msg.chat_id, proc_msg.id, f"❌ Lỗi tạo hóa đơn KiotViet: {e}")
+            return
+
+        if not result:
+            await client.edit_message(msg.chat_id, proc_msg.id, "❌ Tạo hóa đơn KiotViet thất bại!")
+            return
+
+        invoice_code = result.get("code", "N/A")
+        invoice_id = result.get("id")
+
+        # Save invoice ID to SQLite
+        order["kiotvietInvoiceID"] = invoice_id
+        if not _save_order(db_conn, thread_id, order):
+            await client.edit_message(msg.chat_id, proc_msg.id, "❌ Lỗi lưu hóa đơn vào database")
+            return
+
+        # Auto-complete ban_hd task
+        set_task_status(db_conn, thread_id, "ban_hd", user_id)
+
+        await client.edit_message(
+            msg.chat_id,
+            proc_msg.id,
+            f"✅ Tạo hóa đơn KiotViet thành công! {invoice_code}\n✅ Đã đánh dấu Bán HĐ hoàn thành",
+        )
 
         # Firebase sync + refresh (non-blocking)
         _firebase_refresh_async(client, db_conn, thread_id, order)
