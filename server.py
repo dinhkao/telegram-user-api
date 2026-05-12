@@ -755,25 +755,24 @@ async def orders_api_handler(request: web.Request):
         total = count_row[0] if count_row else 0
 
         # Fetch page — sort by invoice datetime (DD/MM/YYYY HH:MM → YYYY-MM-DD HH:MM)
-        # so most recent invoice appears first, fallback to updated_at
+        # Records WITH an invoice date appear first (sorted by date desc),
+        # then records without date fall back to updated_at desc.
+        dt_raw = "json_extract(o.json, '$.hoadon.print_content.datetime')"
         dt_expr = (
-            "substr(json_extract(o.json, '$.hoadon.print_content.datetime'), 7, 4) || '-' || "
-            "substr(json_extract(o.json, '$.hoadon.print_content.datetime'), 4, 2) || '-' || "
-            "substr(json_extract(o.json, '$.hoadon.print_content.datetime'), 1, 2) || ' ' || "
-            "substr(json_extract(o.json, '$.hoadon.print_content.datetime'), 12, 5)"
+            f"substr({dt_raw}, 7, 4) || '-' || "
+            f"substr({dt_raw}, 4, 2) || '-' || "
+            f"substr({dt_raw}, 1, 2) || ' ' || "
+            f"substr({dt_raw}, 12, 5)"
         )
+        has_dt = f"{dt_raw} IS NOT NULL AND {dt_raw} != ''"
         rows = conn.execute(
             f"""SELECT o.firebase_key, o.thread_id, o.channel_id, o.message_id,
                        o.json, o.updated_at
                 FROM orders o
                 WHERE {where_clause}
                 ORDER BY
-                    CASE
-                        WHEN json_extract(o.json, '$.hoadon.print_content.datetime') IS NOT NULL
-                             AND json_extract(o.json, '$.hoadon.print_content.datetime') != ''
-                        THEN {dt_expr}
-                        ELSE o.updated_at
-                    END DESC
+                    CASE WHEN {has_dt} THEN 0 ELSE 1 END ASC,
+                    CASE WHEN {has_dt} THEN {dt_expr} ELSE o.updated_at END DESC
                 LIMIT ? OFFSET ?""",
             params + [limit, offset],
         ).fetchall()
