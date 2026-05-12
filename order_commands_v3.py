@@ -4,8 +4,9 @@ import json
 import logging
 import os
 import re
+import tempfile
 import time
-from datetime import datetime, timezone, UTC
+from datetime import datetime, timezone, timedelta, UTC
 
 from telethon import events
 from telethon.tl.types import MessageService
@@ -461,6 +462,97 @@ async def _append_kv_debt(client, chat_id: int, reply_msg_id: int, kv_id: int) -
         log.warning("Failed to append KiotViet debt to reply: %s", e)
 
 
+async def _send_invoice_html_file(
+    client, chat_id: int, thread_id: int,
+    invoice_id, invoice_code: str,
+    invoice: list[dict], discount: int, pvc: int, vat: int,
+    customer_name: str,
+) -> None:
+    """Generate invoice HTML, save to temp file, send as document via Telethon.
+    
+    Mirrors Node.js sendInvoiceHTMLFile() — saves HTML locally and uploads to Telegram.
+    """
+    try:
+        vn_now = datetime.now(timezone(timedelta(hours=7)))
+        time_label = vn_now.strftime("%H:%M:%S %d/%m/%Y")
+        file_stamp = vn_now.strftime("%Y%m%d_%H%M%S")
+
+        # Calculate totals
+        items_total = 0
+        item_rows = ""
+        for item in invoice:
+            sp = item.get("sp", "?")
+            sl = int(item.get("sl", 0))
+            price = int(item.get("price", 0))
+            sub = sl * price
+            items_total += sub
+            note = item.get("note", "")
+            note_html = f" <small style='color:#888'>({note})</small>" if note else ""
+            item_rows += f"""<tr>
+  <td>{sp}{note_html}</td>
+  <td style='text-align:right'>{sl}</td>
+  <td style='text-align:right'>{price:,}</td>
+  <td style='text-align:right'><b>{sub:,}</b></td>
+</tr>"""
+
+        grand_total = items_total + pvc + vat - discount
+
+        html = f"""<!DOCTYPE html><html lang="vi"><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Hóa đơn {invoice_code}</title>
+<style>
+  body{{font-family:Arial,sans-serif;margin:16px;font-size:15px;max-width:380px;}}
+  h2{{margin:0 0 4px;font-size:18px;}}
+  .meta{{color:#555;margin-bottom:12px;}}
+  table{{width:100%;border-collapse:collapse;margin:12px 0;}}
+  th{{background:#f0f0f0;padding:6px 4px;text-align:left;font-size:13px;border-bottom:2px solid #ccc;}}
+  td{{padding:5px 4px;border-bottom:1px solid #eee;font-size:14px;}}
+  .total-row td{{font-size:16px;border-top:2px solid #333;padding-top:8px;}}
+  .footer{{margin-top:16px;color:#555;font-size:13px;}}
+</style>
+</head><body>
+<h2>🧾 Hóa đơn KiotViet</h2>
+<div class="meta">{time_label} — Mã: <b>{invoice_code}</b></div>
+<div>Khách hàng: <b>{customer_name}</b></div>
+<div>Đơn hàng: <b>#{thread_id}</b></div>
+<table>
+<thead><tr><th>Sản phẩm</th><th style='text-align:right'>SL</th><th style='text-align:right'>Giá</th><th style='text-align:right'>T.Tiền</th></tr></thead>
+<tbody>{item_rows}</tbody>
+<tfoot>
+  <tr><td colspan="2"></td><td>Tổng SP:</td><td style='text-align:right'><b>{items_total:,}</b></td></tr>
+  {f'<tr><td colspan="2"></td><td>Phí VC:</td><td style="text-align:right">+{pvc:,}</td></tr>' if pvc else ''}
+  {f'<tr><td colspan="2"></td><td>VAT:</td><td style="text-align:right">+{vat:,}</td></tr>' if vat else ''}
+  {f'<tr><td colspan="2"></td><td>Giảm giá:</td><td style="text-align:right">-{discount:,}</td></tr>' if discount else ''}
+  <tr class="total-row"><td colspan="2"></td><td><b>TỔNG CỘNG:</b></td><td style='text-align:right'><b>{grand_total:,}đ</b></td></tr>
+</tfoot>
+</table>
+<div class="footer">Cảm ơn quý khách!</div>
+</body></html>"""
+
+        file_name = f"invoice_{invoice_id}_{file_stamp}.html"
+        file_path = os.path.join(tempfile.gettempdir(), file_name)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(html)
+
+        await client.send_file(
+            chat_id,
+            file_path,
+            caption=f"🧾 Hóa đơn {invoice_code} — {customer_name} — {grand_total:,}đ",
+            reply_to=thread_id,
+            force_document=True,
+        )
+
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+
+        log.info("Invoice HTML sent: invoice=%s thread=%d", invoice_code, thread_id)
+    except Exception as e:
+        log.warning("Failed to send invoice HTML: %s", e)
+
+
 # ── Handler registration ────────────────────────────────────────────
 
 def register_order_commands_v3(client):
@@ -637,6 +729,12 @@ def register_order_commands_v3(client):
             msg.chat_id,
             proc_msg.id,
             f"✅ Tạo hóa đơn KiotViet thành công! {invoice_code}\n✅ Đã đánh dấu Bán HĐ hoàn thành",
+        )
+
+        # Send invoice HTML file (async, non-blocking)
+        client.loop.create_task(
+            _send_invoice_html_file(client, msg.chat_id, thread_id, invoice_id, invoice_code,
+                                    invoice, discount, pvc, vat, kh_name)
         )
 
         # Firebase sync + refresh (non-blocking)
