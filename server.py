@@ -700,6 +700,114 @@ async def donhang_msg_handler(request: web.Request):
     })
 
 
+# ─── Orders viewer (shared app.db) ────────────────────────────────────────────
+import sqlite3 as _sqlite3
+
+_ORDERS_DB_PATH = os.path.expanduser(
+    os.getenv("SHARED_DB_PATH", "~/Documents/final_telegram/data/app.db")
+)
+
+def _get_orders_conn():
+    """Read-only connection to the shared orders DB."""
+    conn = _sqlite3.connect(_ORDERS_DB_PATH, check_same_thread=False)
+    conn.row_factory = _sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA busy_timeout=5000;")
+    return conn
+
+
+async def orders_api_handler(request: web.Request):
+    """GET /api/orders?page=1&limit=50&search=&status=
+    Returns paginated orders from shared app.db."""
+    try:
+        page = max(1, int(request.query.get("page", "1")))
+    except ValueError:
+        page = 1
+    try:
+        limit = max(1, min(200, int(request.query.get("limit", "50"))))
+    except ValueError:
+        limit = 50
+    search = request.query.get("search", "").strip()
+    status = request.query.get("status", "").strip()
+
+    offset = (page - 1) * limit
+
+    where = ["o.deleted_at IS NULL"]
+    params = []
+
+    if search:
+        where.append("(o.json LIKE ? OR o.firebase_key LIKE ?)")
+        p = f"%{search}%"
+        params.extend([p, p])
+
+    if status:
+        where.append("json_extract(o.json, '$.trang_thai') = ?")
+        params.append(status)
+
+    where_clause = " AND ".join(where)
+
+    conn = _get_orders_conn()
+    try:
+        # Count total
+        count_row = conn.execute(
+            f"SELECT COUNT(*) FROM orders o WHERE {where_clause}", params
+        ).fetchone()
+        total = count_row[0] if count_row else 0
+
+        # Fetch page
+        rows = conn.execute(
+            f"""SELECT o.firebase_key, o.thread_id, o.channel_id, o.message_id,
+                       o.json, o.updated_at
+                FROM orders o
+                WHERE {where_clause}
+                ORDER BY o.updated_at DESC
+                LIMIT ? OFFSET ?""",
+            params + [limit, offset],
+        ).fetchall()
+
+        orders = []
+        for r in rows:
+            try:
+                j = json.loads(r["json"])
+            except Exception:
+                j = {}
+            hd = j.get("hoadon", {}) or {}
+            pc = hd.get("print_content", {}) or {}
+            orders.append({
+                "key": r["firebase_key"],
+                "thread_id": r["thread_id"],
+                "channel_id": r["channel_id"],
+                "message_id": r["message_id"],
+                "customer": pc.get("kh", ""),
+                "total": pc.get("tongthanhtoan", ""),
+                "phone": pc.get("sdt", ""),
+                "date": pc.get("datetime", ""),
+                "status": j.get("trang_thai", ""),
+                "soan": j.get("soan", False),
+                "giao": j.get("giao", False),
+                "nop": j.get("nop", False),
+                "nhan": j.get("nhan", False),
+                "done_after_20250124": j.get("done_after_20250124", False),
+                "updated_at": r["updated_at"],
+            })
+
+        total_pages = max(1, (total + limit - 1) // limit)
+
+        return web.json_response({
+            "orders": orders,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages,
+        })
+    finally:
+        conn.close()
+
+
+async def orders_page_handler(request: web.Request):
+    return web.FileResponse("static/orders.html")
+
+
 # ─── Main ──────────────────────────────────────────────────────────────────────
 async def main():
     global _client, _donhang_db
@@ -760,6 +868,8 @@ async def main():
     app.router.add_get("/api/donhang/stats", donhang_stats_handler)
     app.router.add_get("/api/donhang/msg", donhang_msg_handler)
     app.router.add_get("/donhang", donhang_page_handler)
+    app.router.add_get("/orders", orders_page_handler)
+    app.router.add_get("/api/orders", orders_api_handler)
     app.router.add_static("/static/", "static")
 
     # Edit a message via the user account (called from final_telegram instead of bot edit)

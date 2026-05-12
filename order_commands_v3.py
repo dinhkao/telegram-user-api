@@ -721,6 +721,39 @@ def register_order_commands_v3(client):
         # Firebase sync + refresh (non-blocking)
         _firebase_refresh_async(client, db_conn, thread_id, order)
 
+    # ── GET HTML ─────────────────────────────────────────────────────
+    # get html — resend the invoice HTML file for the current order
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_get_html(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        if (msg.text or "").strip() != "get html": return
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+
+        invoice_id = order.get("kiotvietInvoiceID")
+        if not invoice_id:
+            await client.send_message(msg.chat_id, "❌ Đơn hàng chưa có hóa đơn KiotViet. Dùng lệnh `tao hd` trước.", reply_to=msg.id)
+            return
+
+        kh_id_fb = order.get("khach_hang_id") or order.get("khID")
+        kh_name = "Khách hàng"
+        if kh_id_fb:
+            customer = get_customer_by_key(db_conn, str(kh_id_fb))
+            if customer:
+                kh_name = customer.get("name", "Khách hàng")
+
+        await client.send_message(msg.chat_id, "⏳ Đang gửi lại hóa đơn......", reply_to=msg.id)
+
+        client.loop.create_task(
+            _send_invoice_html_file(client, msg.chat_id, thread_id, invoice_id, str(invoice_id), kh_name, debt=0)
+        )
+
     # ── SHOW INVOICE ────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_show_invoice(event):
