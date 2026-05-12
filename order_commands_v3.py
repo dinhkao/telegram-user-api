@@ -1282,3 +1282,45 @@ def register_order_commands_v3(client):
             client.loop.create_task(
                 _refresh_order_message(client, db_conn, thread_id, channel_id, message_id)
             )
+
+    # ── BO NO / NO (toggle debt tag) ─────────────────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_bo_no(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        t = (msg.text or "").strip().lower()
+        import unicodedata
+        t_norm = unicodedata.normalize("NFD", t).encode("ascii", "ignore").decode()
+        
+        if t_norm == "bo no":
+            enabled = False
+            reply_text = "Đã bỏ nợ cho đơn này"
+        elif t == "no":
+            enabled = True
+            reply_text = "✅ Đã bật hiển thị nợ cho đơn này"
+        else:
+            return
+
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+
+        order["debt_tag_disabled"] = not enabled
+        if not _save_order(db_conn, thread_id, order):
+            await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
+            return
+
+        await client.send_message(msg.chat_id, reply_text, reply_to=msg.id)
+
+        # Refresh main message + Firebase sync (non-blocking)
+        _firebase_refresh_async(client, db_conn, thread_id, order)
+        channel_id = order.get("channel_id")
+        message_id = order.get("message_id")
+        if channel_id and message_id:
+            client.loop.create_task(
+                _refresh_order_message(client, db_conn, thread_id, channel_id, message_id)
+            )
