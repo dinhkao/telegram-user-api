@@ -437,21 +437,36 @@ def _parse_qc(qc: str) -> tuple[str | None, list[int]]:
 
 
 def get_customer_price_list(conn, kh_id: str | int) -> dict[str, int]:
-    """Get product → price map for a customer's assigned price list."""
+    """Get product → price map for a customer's assigned price list.
+
+    Mirrors Node.js KhachHang.getPriceList():
+    1. Reads bang_gia_moi/{price_list_id}/price_list from kv_store
+    2. Merges with personal_price_list (customer-specific overrides take precedence)
+    3. Returns combined price map (personal overrides general)
+    """
     cur = conn.execute("SELECT json FROM customers WHERE firebase_key = ? AND deleted_at IS NULL", (str(kh_id),))
     row = cur.fetchone()
     if not row:
         return {}
     cust = json.loads(row["json"])
+
+    price_list = {}
+
+    # 1. General price list from bang_gia_moi/{priceListID}/price_list
     price_list_id = cust.get("price_list")
-    if not price_list_id:
-        return {}
-    cur = conn.execute("SELECT value FROM kv_store WHERE path = 'bang_gia_moi'")
-    row = cur.fetchone()
-    if not row or not row["value"]:
-        return {}
-    all_lists = json.loads(row["value"])
-    return all_lists.get(str(price_list_id), {}).get("price_list", {})
+    if price_list_id:
+        cur = conn.execute("SELECT value FROM kv_store WHERE path = 'bang_gia_moi'")
+        row = cur.fetchone()
+        if row and row["value"]:
+            all_lists = json.loads(row["value"])
+            price_list = all_lists.get(str(price_list_id), {}).get("price_list", {})
+
+    # 2. Merge personal_price_list (takes precedence over general)
+    personal = cust.get("personal_price_list")
+    if personal and isinstance(personal, dict):
+        price_list = {**price_list, **personal}
+
+    return price_list
 
 
 def parse_comma_text(text: str, conn, kh_id: str | int | None) -> list[dict]:
