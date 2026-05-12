@@ -230,7 +230,14 @@ def register_order_commands_v2(client):
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
         result = _call_final("/api/order/detect-customer", {"thread_id": thread_id})
-        reply = result.get("reply", "✅ Đã nhận diện khách hàng") if result else "❌ Lỗi kết nối"
+        if not result:
+            reply = "❌ Lỗi kết nối đến server xử lý đơn hàng. Vui lòng thử lại."
+        elif result.get("reply"):
+            reply = result["reply"]
+        elif result.get("error"):
+            reply = f"⚠️ Lỗi: {result['error']}"
+        else:
+            reply = "⚠️ Không nhận được phản hồi từ server."
         await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
     # ── TASK MANAGEMENT ─────────────────────────────────────────────
