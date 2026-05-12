@@ -3,37 +3,62 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Orders — Shared DB Viewer</title>
+<title>Orders — Local DB Viewer</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:13px; margin:0; padding:8px 12px; color:#222; background:#fff; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:13px; margin:0; padding:8px 12px; color:#222; background:#f8f9fa; }
   h1 { font-size:16px; margin:0 0 8px 0; }
-  .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
-  .toolbar input, .toolbar select { padding:4px 8px; font-size:13px; border:1px solid #999; border-radius:3px; }
-  .toolbar button { padding:4px 10px; font-size:13px; cursor:pointer; }
-  .info { color:#666; margin-bottom:6px; }
-  table { width:100%; border-collapse:collapse; table-layout:fixed; }
-  th, td { padding:4px 6px; text-align:left; border-bottom:1px solid #ddd; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  th { background:#f5f5f5; position:sticky; top:0; font-weight:600; }
-  tr:hover td { background:#fafafa; }
-  .num { text-align:right; }
-  .badge { display:inline-block; padding:1px 5px; border-radius:3px; font-size:11px; }
+  .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; background:#fff; padding:10px; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+  .toolbar input, .toolbar select { padding:5px 10px; font-size:13px; border:1px solid #ccc; border-radius:4px; }
+  .toolbar button { padding:5px 14px; font-size:13px; cursor:pointer; background:#0066cc; color:#fff; border:none; border-radius:4px; }
+  .toolbar button:hover { background:#0052a3; }
+  .info { color:#666; margin-bottom:10px; background:#fff; padding:8px 10px; border-radius:4px; }
+  table { width:100%; border-collapse:collapse; background:#fff; border-radius:6px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+  th, td { padding:6px 8px; text-align:left; border-bottom:1px solid #eee; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  th { background:#f0f0f0; position:sticky; top:0; font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:0.3px; }
+  tr:hover td { background:#f5f8ff; }
+  tr { cursor:pointer; }
+  .num { text-align:right; font-family:monospace; }
+  .badge { display:inline-block; padding:2px 6px; border-radius:3px; font-size:11px; font-weight:500; }
   .badge-done { background:#d4edda; color:#155724; }
   .badge-pending { background:#fff3cd; color:#856404; }
-  .steps { font-size:11px; color:#888; }
-  .steps b { color:#333; }
-  .pagination { display:flex; gap:4px; margin-top:10px; align-items:center; }
-  .pagination button { padding:4px 10px; font-size:13px; cursor:pointer; }
-  .pagination span { padding:0 8px; }
+  .badge-cancelled { background:#f8d7da; color:#721c24; }
+  .steps { font-size:11px; }
+  .step-done { color:#28a745; font-weight:600; }
+  .step-pending { color:#ccc; }
+  .pagination { display:flex; gap:4px; margin-top:12px; align-items:center; justify-content:center; }
+  .pagination button { padding:5px 12px; font-size:13px; cursor:pointer; background:#fff; border:1px solid #ccc; border-radius:4px; }
+  .pagination button:hover { background:#f0f0f0; }
+  .pagination button:disabled { opacity:0.5; cursor:not-allowed; }
+  .pagination span { padding:0 12px; font-weight:500; }
   a { color:#06c; text-decoration:none; }
   a:hover { text-decoration:underline; }
+
+  /* Modal */
+  .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:flex-start; padding-top:40px; }
+  .modal-overlay.active { display:flex; }
+  .modal { background:#fff; border-radius:8px; width:90%; max-width:700px; max-height:85vh; overflow-y:auto; box-shadow:0 4px 20px rgba(0,0,0,0.2); }
+  .modal-header { padding:15px 20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; background:#fff; z-index:10; }
+  .modal-header h2 { margin:0; font-size:16px; }
+  .modal-close { font-size:24px; cursor:pointer; color:#999; line-height:1; }
+  .modal-close:hover { color:#333; }
+  .modal-body { padding:15px 20px; }
+  .detail-section { margin-bottom:16px; }
+  .detail-section h3 { margin:0 0 8px 0; font-size:13px; text-transform:uppercase; color:#666; letter-spacing:0.5px; border-bottom:1px solid #eee; padding-bottom:4px; }
+  .detail-row { display:flex; padding:4px 0; border-bottom:1px solid #f5f5f5; }
+  .detail-label { width:140px; color:#666; font-weight:500; flex-shrink:0; }
+  .detail-value { flex:1; word-break:break-word; }
+  .detail-value pre { margin:0; background:#f8f9fa; padding:8px; border-radius:4px; font-size:11px; overflow-x:auto; }
+  .invoice-table { width:100%; border-collapse:collapse; margin-top:8px; }
+  .invoice-table th { background:#f0f0f0; font-size:11px; padding:4px 6px; }
+  .invoice-table td { padding:4px 6px; font-size:12px; border-bottom:1px solid #f0f0f0; }
 </style>
 </head>
 <body>
 
-<h1>📋 Orders — Shared DB Viewer</h1>
+<h1>📋 Orders — Local DB Viewer</h1>
 
 <div class="toolbar">
-  <input id="search" type="text" placeholder="Search customer or key..." style="width:200px;">
+  <input id="search" type="text" placeholder="Search customer, phone, product..." style="width:220px;">
   <select id="status-filter">
     <option value="">All statuses</option>
     <option value="Done">Done</option>
@@ -51,12 +76,13 @@
 <table id="table">
   <thead>
     <tr>
-      <th style="width:80px">Thread</th>
-      <th style="width:140px">Customer</th>
-      <th style="width:100px">Total</th>
-      <th style="width:80px">Status</th>
-      <th style="width:110px">Steps</th>
-      <th style="width:110px">Date</th>
+      <th style="width:70px">Thread</th>
+      <th style="width:130px">Customer</th>
+      <th style="width:90px">Total</th>
+      <th style="width:70px">Status</th>
+      <th style="width:120px">Steps</th>
+      <th style="width:100px">Date</th>
+      <th style="width:90px">Phone</th>
     </tr>
   </thead>
   <tbody id="tbody"></tbody>
@@ -64,9 +90,21 @@
 
 <div class="pagination" id="pager"></div>
 
+<!-- Detail Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Order Details</h2>
+      <span class="modal-close" onclick="closeModal()">&times;</span>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
 <script>
 let currentPage = 1;
 const limit = 50;
+let currentOrders = [];
 
 function loadPage(page) {
   currentPage = page;
@@ -77,6 +115,7 @@ function loadPage(page) {
   fetch('/api/orders?' + params)
     .then(r => r.json())
     .then(data => {
+      currentOrders = data.orders || [];
       document.getElementById('info').textContent =
         `Showing ${data.orders.length} of ${data.total} orders · Page ${data.page}/${data.total_pages}`;
 
@@ -84,37 +123,44 @@ function loadPage(page) {
       tbody.innerHTML = '';
 
       if (!data.orders.length) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#999;">No orders found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">No orders found</td></tr>';
+        renderPager(1, 1);
+        return;
       }
 
       data.orders.forEach(o => {
         const steps = [];
-        if (o.soan) steps.push('Soạn');
-        if (o.giao) steps.push('Giao');
-        if (o.nop) steps.push('Nộp');
-        if (o.nhan) steps.push('Nhận');
-        const stepsHtml = steps.length
-          ? '<span class="steps">' + steps.map(s => '<b>' + s + '</b>').join(' ') + '</span>'
-          : '<span class="steps" style="color:#ccc">—</span>';
+        if (o.soan) steps.push('<span class="step-done">Soạn</span>');
+        else steps.push('<span class="step-pending">Soạn</span>');
+        if (o.giao) steps.push('<span class="step-done">Giao</span>');
+        else steps.push('<span class="step-pending">Giao</span>');
+        if (o.nop) steps.push('<span class="step-done">Nộp</span>');
+        else steps.push('<span class="step-pending">Nộp</span>');
+        if (o.nhan) steps.push('<span class="step-done">Nhận</span>');
+        else steps.push('<span class="step-pending">Nhận</span>');
 
         const statusBadge = o.status === 'Done'
           ? '<span class="badge badge-done">Done</span>'
-          : o.status
-            ? '<span class="badge badge-pending">' + o.status + '</span>'
-            : '<span style="color:#999">—</span>';
+          : o.status === 'Cancelled'
+            ? '<span class="badge badge-cancelled">Cancelled</span>'
+            : o.status
+              ? '<span class="badge badge-pending">' + o.status + '</span>'
+              : '<span style="color:#999">—</span>';
 
         const totalDisplay = o.total
           ? parseInt(o.total).toLocaleString('vi-VN') + '₫'
           : '—';
 
         const tr = document.createElement('tr');
+        tr.onclick = () => showDetail(o.thread_id);
         tr.innerHTML = `
-          <td><a href="https://t.me/c/${String(o.channel_id).replace('-100','')}/${o.message_id || o.thread_id}" target="_blank">${o.thread_id || '—'}</a></td>
+          <td><a href="https://t.me/c/${String(o.channel_id).replace('-100','')}/${o.message_id || o.thread_id}" target="_blank" onclick="event.stopPropagation()">${o.thread_id || '—'}</a></td>
           <td title="${o.customer || ''}">${o.customer || '—'}</td>
           <td class="num">${totalDisplay}</td>
           <td>${statusBadge}</td>
-          <td>${stepsHtml}</td>
+          <td class="steps">${steps.join(' ')}</td>
           <td>${o.date || '—'}</td>
+          <td>${o.phone || '—'}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -150,6 +196,111 @@ function renderPager(page, totalPages) {
   pager.appendChild(addBtn('Next ›', page + 1, page === totalPages));
   pager.appendChild(addBtn('Last »', totalPages, page === totalPages));
 }
+
+function showDetail(threadId) {
+  const order = currentOrders.find(o => o.thread_id === threadId);
+  if (!order) return;
+
+  // Fetch full order JSON
+  fetch('/api/order/' + threadId)
+    .then(r => r.json())
+    .then(data => {
+      renderModal(data);
+    })
+    .catch(() => {
+      // Fallback: show basic info from list view
+      renderModal({ thread_id: threadId, ...order });
+    });
+}
+
+function renderModal(order) {
+  const body = document.getElementById('modal-body');
+  const invoice = order.invoice || order.invoice_items || [];
+  const payments = order.payments || [];
+  const tasks = order.task_status || {};
+
+  let html = '';
+
+  // Basic info
+  html += `<div class="detail-section">
+    <h3>📋 Basic Info</h3>
+    <div class="detail-row"><div class="detail-label">Thread ID:</div><div class="detail-value">${order.thread_id || '—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Customer:</div><div class="detail-value">${order.customer || order.khach_hang || '—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Phone:</div><div class="detail-value">${order.phone || order.so_dien_thoai || '—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Total:</div><div class="detail-value">${order.total ? parseInt(order.total).toLocaleString('vi-VN') + '₫' : '—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Status:</div><div class="detail-value">${order.trang_thai || order.status || '—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Firebase Key:</div><div class="detail-value">${order.firebase_key || order.key || '—'}</div></div>
+  </div>`;
+
+  // Task Status
+  html += `<div class="detail-section">
+    <h3>✅ Task Status</h3>`;
+  const taskTypes = ['ban_hd', 'soan_hang', 'giao_hang', 'nop_tien', 'nhan_tien'];
+  taskTypes.forEach(tt => {
+    const st = tasks[tt];
+    if (st && st.done) {
+      html += `<div class="detail-row"><div class="detail-label">${tt}:</div><div class="detail-value">✅ Done${st.skip ? ' (skipped)' : ''}${st.note ? ' — Note: ' + st.note : ''}${st.by ? ' — By: ' + st.by : ''}</div></div>`;
+    } else {
+      html += `<div class="detail-row"><div class="detail-label">${tt}:</div><div class="detail-value">❌ Not done</div></div>`;
+    }
+  });
+  html += `</div>`;
+
+  // Invoice Items
+  if (invoice.length) {
+    html += `<div class="detail-section">
+      <h3>📦 Invoice Items (${invoice.length})</h3>
+      <table class="invoice-table">
+        <thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Total</th><th>Note</th></tr></thead>
+        <tbody>`;
+    invoice.forEach(item => {
+      const qty = item.sl || item.quantity || 0;
+      const price = item.price || 0;
+      const total = qty * price;
+      html += `<tr>
+        <td>${item.sp || item.productCode || item.name || '?'}</td>
+        <td>${qty}</td>
+        <td>${price ? price.toLocaleString('vi-VN') + '₫' : '—'}</td>
+        <td>${total ? total.toLocaleString('vi-VN') + '₫' : '—'}</td>
+        <td>${item.note || '—'}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  // Payments
+  if (payments.length) {
+    html += `<div class="detail-section">
+      <h3>💰 Payments (${payments.length})</h3>`;
+    payments.forEach(p => {
+      html += `<div class="detail-row"><div class="detail-label">${p.method || '?'}:</div><div class="detail-value">${p.amount ? parseInt(p.amount).toLocaleString('vi-VN') + '₫' : '—'}</div></div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Raw JSON
+  html += `<div class="detail-section">
+    <h3>📝 Raw JSON</h3>
+    <div class="detail-value"><pre>${JSON.stringify(order, null, 2)}</pre></div>
+  </div>`;
+
+  body.innerHTML = html;
+  document.getElementById('modal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('active');
+}
+
+// Close modal on overlay click
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target.id === 'modal') closeModal();
+});
+
+// Close on Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
 
 // Search on Enter
 document.getElementById('search').addEventListener('keydown', e => {

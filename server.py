@@ -808,6 +808,44 @@ async def orders_page_handler(request: web.Request):
     return web.FileResponse("static/orders.html")
 
 
+async def order_detail_handler(request: web.Request):
+    """GET /api/order/{thread_id}
+    Return full order row JSON for the detail modal.
+    """
+    thread_id = request.match_info.get("thread_id", "").strip()
+    if not thread_id:
+        return web.json_response({"error": "missing thread_id"}, status=400)
+
+    conn = _get_orders_conn()
+    try:
+        row = conn.execute(
+            """SELECT firebase_key, thread_id, channel_id, message_id,
+                      json, updated_at
+               FROM orders
+               WHERE thread_id = ? AND deleted_at IS NULL""",
+            (thread_id,),
+        ).fetchone()
+
+        if row is None:
+            return web.json_response({"error": "not found"}, status=404)
+
+        try:
+            j = json.loads(row["json"])
+        except Exception:
+            j = {}
+
+        return web.json_response({
+            "key": row["firebase_key"],
+            "thread_id": row["thread_id"],
+            "channel_id": row["channel_id"],
+            "message_id": row["message_id"],
+            "updated_at": row["updated_at"],
+            "data": j,
+        })
+    finally:
+        conn.close()
+
+
 # ─── Main ──────────────────────────────────────────────────────────────────────
 async def main():
     global _client, _donhang_db
@@ -870,6 +908,7 @@ async def main():
     app.router.add_get("/donhang", donhang_page_handler)
     app.router.add_get("/orders", orders_page_handler)
     app.router.add_get("/api/orders", orders_api_handler)
+    app.router.add_get("/api/order/{thread_id}", order_detail_handler)
     app.router.add_static("/static/", "static")
 
     # Edit a message via the user account (called from final_telegram instead of bot edit)
