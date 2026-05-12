@@ -777,6 +777,12 @@ async def orders_api_handler(request: web.Request):
                 f"CASE WHEN {has_dt} THEN 0 ELSE 1 END ASC, "
                 f"CASE WHEN {has_dt} THEN {dt_expr} ELSE o.updated_at END DESC"
             )
+        elif sort == "created":
+            # Sort by JSON created timestamp (ISO 8601 string, naturally sortable)
+            order_by = (
+                f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, "
+                f"json_extract(o.json, '$.created') DESC, o.thread_id DESC"
+            )
         else:
             # Default: real orders first, then by updated_at DESC
             order_by = (
