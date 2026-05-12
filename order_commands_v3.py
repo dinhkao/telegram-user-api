@@ -743,9 +743,10 @@ def register_order_commands_v3(client):
         )
 
         # Send invoice HTML file with real debt snapshot (async, non-blocking)
+        # tao hd: only html-to-png, NO meta/to_print
         client.loop.create_task(
             _send_invoice_html_file(client, msg.chat_id, thread_id, invoice_id, invoice_code,
-                                    kh_name, debt=snapshot_debt)
+                                    kh_name, debt=snapshot_debt, push_to_print=False)
         )
 
         # Firebase sync + refresh (non-blocking)
