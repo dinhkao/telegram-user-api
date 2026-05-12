@@ -757,6 +757,11 @@ async def orders_api_handler(request: web.Request):
         total = count_row[0] if count_row else 0
 
         # Sort selection
+        # has_data: records with customer name, total, or hd_code are "real" orders
+        has_data = (
+            "json_extract(o.json, '$.hoadon.print_content.kh') IS NOT NULL "
+            "AND json_extract(o.json, '$.hoadon.print_content.kh') != ''"
+        )
         if sort == "date":
             # Sort by invoice datetime (DD/MM/YYYY HH:MM → YYYY-MM-DD HH:MM)
             dt_raw = "json_extract(o.json, '$.hoadon.print_content.datetime')"
@@ -768,12 +773,16 @@ async def orders_api_handler(request: web.Request):
             )
             has_dt = f"{dt_raw} IS NOT NULL AND {dt_raw} != ''"
             order_by = (
+                f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, "
                 f"CASE WHEN {has_dt} THEN 0 ELSE 1 END ASC, "
                 f"CASE WHEN {has_dt} THEN {dt_expr} ELSE o.updated_at END DESC"
             )
         else:
-            # Default: sort by updated_at DESC (most recently touched first)
-            order_by = "o.updated_at DESC, o.thread_id DESC"
+            # Default: real orders first, then by updated_at DESC
+            order_by = (
+                f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, "
+                f"o.updated_at DESC, o.thread_id DESC"
+            )
 
         rows = conn.execute(
             f"""SELECT o.firebase_key, o.thread_id, o.channel_id, o.message_id,
