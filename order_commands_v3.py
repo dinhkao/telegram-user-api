@@ -707,6 +707,7 @@ def register_order_commands_v3(client):
 
         # Save invoice ID + metadata to SQLite
         order["kiotvietInvoiceID"] = invoice_id
+        order["kiotvietInvoiceCode"] = invoice_code
         order["nguoi_tao_HD"] = [user_id or 1809874974]
         snapshot_debt = old_debt if old_debt is not None else 0
         order["invoice_debt_snapshot"] = snapshot_debt
@@ -767,11 +768,19 @@ def register_order_commands_v3(client):
             if customer:
                 kh_name = customer.get("name", "Khách hàng")
 
+        invoice_code = order.get("kiotvietInvoiceCode") or str(invoice_id)
+        snapshot_debt = order.get("invoice_debt_snapshot", 0)
+
         await client.send_message(msg.chat_id, "⏳ Đang gửi lại hóa đơn......", reply_to=msg.id)
 
+        # Send invoice HTML file with real debt snapshot (async, non-blocking)
         client.loop.create_task(
-            _send_invoice_html_file(client, msg.chat_id, thread_id, invoice_id, str(invoice_id), kh_name, debt=0)
+            _send_invoice_html_file(client, msg.chat_id, thread_id, invoice_id, invoice_code,
+                                    kh_name, debt=snapshot_debt)
         )
+
+        # Firebase sync + refresh (non-blocking)
+        _firebase_refresh_async(client, db_conn, thread_id, order)
 
     # ── SHOW INVOICE ────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
