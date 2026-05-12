@@ -454,21 +454,23 @@ def register_order_commands_v3(client):
 
     # ── COMMA INVOICE ───────────────────────────────────────────────
     # Messages starting with , → parse as invoice items
-    # Example:
-    #   ,P1 2t3b 5 150000 Red
-    #   ,SP-A 1t 10
+    # Format: comma on its own line, then items below
+    #   ,
+    #   SP001 2t3b 5 150000 Đỏ
+    #   SP002 1t 10
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_comma_invoice(event):
         msg = event.message
         if isinstance(msg, MessageService): return
-        text = (msg.text or "").strip()
-        if not text.startswith(","): return
+        raw_text = msg.text or ""
+        # Check raw text (before strip) so leading comma on its own line is caught
+        if not raw_text.startswith(","): return
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
         user_id = getattr(msg, "sender_id", None)
 
-        # Remove leading comma
-        cleaned = text[1:].strip()
+        # Remove leading comma(s) and whitespace — match Node.js: text.replace(',', '').trim()
+        cleaned = raw_text.lstrip(",").strip()
         if not cleaned:
             return
 
