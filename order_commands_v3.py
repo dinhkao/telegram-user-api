@@ -466,6 +466,7 @@ async def _send_invoice_html_file(
     client, chat_id: int, thread_id: int,
     invoice_id, invoice_code: str,
     customer_name: str, debt: int = 0,
+    *, push_to_print: bool = True,
 ) -> None:
     """Generate invoice HTML (Node.js style), send as doc + push to printers.
     
@@ -473,8 +474,8 @@ async def _send_invoice_html_file(
     1. Fetch real invoice from KiotViet API
     2. Generate HTML via inhoadon.generate_invoice_html()
     3. Send as Telegram document
-    4. Push to html-to-png (Firebase) for printer
-    5. Push to meta/to_print (Firebase) with write→settle→delete
+    4. Push to html-to-png (Firebase) for PNG conversion
+    5. Push to meta/to_print (Firebase) with write→settle→delete (if push_to_print=True)
     """
     try:
         from inhoadon import generate_invoice_html
@@ -520,22 +521,23 @@ async def _send_invoice_html_file(
 
         # 3. Push to meta/to_print (Firebase) with write→settle→delete for physical printer
         # Mirrors Node.js enqueueHtmlForPrint() with print marker injection
-        try:
-            import asyncio
-            ref_print = fb_ref("meta/to_print")
-            if ref_print:
-                marker = f"print-queue:{int(time.time()*1000)}-{invoice_id}:copy:1/1"
-                marker_tag = f"<!-- {marker} -->"
-                if "</body>" in html.lower():
-                    html_print = html.replace("</body>", f"{marker_tag}\n</body>", 1)
-                    html_print = html_print.replace("</BODY>", f"{marker_tag}\n</BODY>", 1)
-                else:
-                    html_print = f"{html}\n{marker_tag}"
-                ref_print.set(html_print)
-                await asyncio.sleep(0.12)  # 120ms settle
-                ref_print.delete()
-        except Exception as e:
-            log.warning("Failed to push invoice to meta/to_print: %s", e)
+        if push_to_print:
+            try:
+                import asyncio
+                ref_print = fb_ref("meta/to_print")
+                if ref_print:
+                    marker = f"print-queue:{int(time.time()*1000)}-{invoice_id}:copy:1/1"
+                    marker_tag = f"<!-- {marker} -->"
+                    if "</body>" in html.lower():
+                        html_print = html.replace("</body>", f"{marker_tag}\n</body>", 1)
+                        html_print = html_print.replace("</BODY>", f"{marker_tag}\n</BODY>", 1)
+                    else:
+                        html_print = f"{html}\n{marker_tag}"
+                    ref_print.set(html_print)
+                    await asyncio.sleep(0.12)  # 120ms settle
+                    ref_print.delete()
+            except Exception as e:
+                log.warning("Failed to push invoice to meta/to_print: %s", e)
 
         log.info("Invoice HTML processed: invoice=%s thread=%d", invoice_code, thread_id)
     except Exception as e:
@@ -782,9 +784,10 @@ def register_order_commands_v3(client):
         await client.send_message(msg.chat_id, "⏳ Đang gửi lại hóa đơn......", reply_to=msg.id)
 
         # Send invoice HTML file with real debt snapshot (async, non-blocking)
+        # get html: only html-to-png, NO meta/to_print (user explicitly requested)
         client.loop.create_task(
             _send_invoice_html_file(client, msg.chat_id, thread_id, invoice_id, invoice_code,
-                                    kh_name, debt=snapshot_debt)
+                                    kh_name, debt=snapshot_debt, push_to_print=False)
         )
 
         # Firebase sync + refresh (non-blocking)
