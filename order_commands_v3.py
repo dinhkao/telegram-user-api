@@ -1032,20 +1032,38 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
             return
 
-        # Reply immediately
-        await client.send_message(
-            msg.chat_id,
-            "✅ Đã cập nhật lại nội dung đơn hàng",
-            reply_to=msg.id,
-        )
+        # Fetch channel_id and message_id from DB row (not inside JSON)
+        row = db_conn.execute(
+            "SELECT channel_id, message_id FROM orders WHERE thread_id = ? AND deleted_at IS NULL",
+            (thread_id,),
+        ).fetchone()
+        channel_id = row["channel_id"] if row else None
+        message_id = row["message_id"] if row else None
 
-        # Refresh main message + Firebase sync (non-blocking)
-        channel_id = order.get("channel_id")
-        message_id = order.get("message_id")
+        # Refresh main message immediately (await so user sees result)
         if channel_id and message_id:
-            client.loop.create_task(
-                _refresh_order_message(client, db_conn, thread_id, channel_id, message_id)
+            try:
+                await _refresh_order_message(client, db_conn, thread_id, channel_id, message_id)
+                await client.send_message(
+                    msg.chat_id,
+                    "✅ Đã cập nhật lại nội dung đơn hàng",
+                    reply_to=msg.id,
+                )
+            except Exception as e:
+                log.warning("update: failed to refresh main message thread=%d: %s", thread_id, e)
+                await client.send_message(
+                    msg.chat_id,
+                    f"⚠️ Đã lưu nhưng không sửa được tin nhắn chính: {e}",
+                    reply_to=msg.id,
+                )
+        else:
+            await client.send_message(
+                msg.chat_id,
+                "✅ Đã cập nhật dữ liệu (không tìm thấy message_id để sửa tin nhắn)",
+                reply_to=msg.id,
             )
+
+        # Firebase sync + refresh (non-blocking)
         _firebase_refresh_async(client, db_conn, thread_id, order)
 
     # ── VAT ─────────────────────────────────────────────────────────
