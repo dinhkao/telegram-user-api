@@ -77,12 +77,16 @@
   <thead>
     <tr>
       <th style="width:70px">Thread</th>
+      <th style="width:110px">HD Code</th>
       <th style="width:130px">Customer</th>
-      <th style="width:90px">Total</th>
-      <th style="width:70px">Status</th>
-      <th style="width:120px">Steps</th>
-      <th style="width:100px">Date</th>
-      <th style="width:90px">Phone</th>
+      <th style="width:80px">Total</th>
+      <th style="width:65px">Status</th>
+      <th style="width:110px">Steps</th>
+      <th style="width:90px">Date ↓</th>
+      <th style="width:70px">Phone</th>
+      <th style="width:90px">Creator</th>
+      <th style="width:140px">Topic</th>
+      <th style="width:50px">Items</th>
     </tr>
   </thead>
   <tbody id="tbody"></tbody>
@@ -117,13 +121,13 @@ function loadPage(page) {
     .then(data => {
       currentOrders = data.orders || [];
       document.getElementById('info').textContent =
-        `Showing ${data.orders.length} of ${data.total} orders · Page ${data.page}/${data.total_pages}`;
+        `Showing ${data.orders.length} of ${data.total} orders · Page ${data.page}/${data.total_pages} · Sorted by date (newest first)`;
 
       const tbody = document.getElementById('tbody');
       tbody.innerHTML = '';
 
       if (!data.orders.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">No orders found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:#999;">No orders found</td></tr>';
         renderPager(1, 1);
         return;
       }
@@ -155,12 +159,16 @@ function loadPage(page) {
         tr.onclick = () => showDetail(o.thread_id);
         tr.innerHTML = `
           <td><a href="https://t.me/c/${String(o.channel_id).replace('-100','')}/${o.message_id || o.thread_id}" target="_blank" onclick="event.stopPropagation()">${o.thread_id || '—'}</a></td>
+          <td>${o.hd_code || '—'}</td>
           <td title="${o.customer || ''}">${o.customer || '—'}</td>
           <td class="num">${totalDisplay}</td>
           <td>${statusBadge}</td>
           <td class="steps">${steps.join(' ')}</td>
           <td>${o.date || '—'}</td>
           <td>${o.phone || '—'}</td>
+          <td>${o.creator || '—'}</td>
+          <td title="${o.topic_name || ''}">${o.topic_name ? o.topic_name.substring(0, 25) + (o.topic_name.length > 25 ? '…' : '') : '—'}</td>
+          <td class="num">${o.invoice_count || 0}</td>
         `;
         tbody.appendChild(tr);
       });

@@ -754,13 +754,26 @@ async def orders_api_handler(request: web.Request):
         ).fetchone()
         total = count_row[0] if count_row else 0
 
-        # Fetch page
+        # Fetch page — sort by invoice datetime (DD/MM/YYYY HH:MM → YYYY-MM-DD HH:MM)
+        # so most recent invoice appears first, fallback to updated_at
+        dt_expr = (
+            "substr(json_extract(o.json, '$.hoadon.print_content.datetime'), 7, 4) || '-' || "
+            "substr(json_extract(o.json, '$.hoadon.print_content.datetime'), 4, 2) || '-' || "
+            "substr(json_extract(o.json, '$.hoadon.print_content.datetime'), 1, 2) || ' ' || "
+            "substr(json_extract(o.json, '$.hoadon.print_content.datetime'), 12, 5)"
+        )
         rows = conn.execute(
             f"""SELECT o.firebase_key, o.thread_id, o.channel_id, o.message_id,
                        o.json, o.updated_at
                 FROM orders o
                 WHERE {where_clause}
-                ORDER BY o.updated_at DESC
+                ORDER BY
+                    CASE
+                        WHEN json_extract(o.json, '$.hoadon.print_content.datetime') IS NOT NULL
+                             AND json_extract(o.json, '$.hoadon.print_content.datetime') != ''
+                        THEN {dt_expr}
+                        ELSE o.updated_at
+                    END DESC
                 LIMIT ? OFFSET ?""",
             params + [limit, offset],
         ).fetchall()
@@ -773,6 +786,13 @@ async def orders_api_handler(request: web.Request):
                 j = {}
             hd = j.get("hoadon", {}) or {}
             pc = hd.get("print_content", {}) or {}
+
+            creator = j.get("nguoi_tao_HD")
+            if isinstance(creator, list):
+                creator = ", ".join(str(x) for x in creator)
+            else:
+                creator = str(creator) if creator else ""
+
             orders.append({
                 "key": r["firebase_key"],
                 "thread_id": r["thread_id"],
@@ -789,6 +809,12 @@ async def orders_api_handler(request: web.Request):
                 "nhan": j.get("nhan", False),
                 "done_after_20250124": j.get("done_after_20250124", False),
                 "updated_at": r["updated_at"],
+                "hd_code": hd.get("hd_code", ""),
+                "creator": creator,
+                "topic_name": j.get("topic_name", ""),
+                "invoice_count": len(pc.get("invoice", []) or []),
+                "no_truoc": pc.get("no_truoc", ""),
+                "tongtienhang": pc.get("tongtienhang", ""),
             })
 
         total_pages = max(1, (total + limit - 1) // limit)
