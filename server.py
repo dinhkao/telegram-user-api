@@ -757,10 +757,12 @@ async def orders_api_handler(request: web.Request):
         total = count_row[0] if count_row else 0
 
         # Sort selection
-        # has_data: records with customer name, total, or hd_code are "real" orders
+        # has_data: records with customer name are "real" orders (both old & new structure)
         has_data = (
-            "json_extract(o.json, '$.hoadon.print_content.kh') IS NOT NULL "
-            "AND json_extract(o.json, '$.hoadon.print_content.kh') != ''"
+            "(json_extract(o.json, '$.hoadon.print_content.kh') IS NOT NULL "
+            " AND json_extract(o.json, '$.hoadon.print_content.kh') != '') "
+            "OR (json_extract(o.json, '$.customer_name') IS NOT NULL "
+            " AND json_extract(o.json, '$.customer_name') != '')"
         )
         if sort == "date":
             # Sort by invoice datetime (DD/MM/YYYY HH:MM → YYYY-MM-DD HH:MM)
@@ -775,7 +777,7 @@ async def orders_api_handler(request: web.Request):
             order_by = (
                 f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, "
                 f"CASE WHEN {has_dt} THEN 0 ELSE 1 END ASC, "
-                f"CASE WHEN {has_dt} THEN {dt_expr} ELSE o.updated_at END DESC"
+                f"CASE WHEN {has_dt} THEN {dt_expr} ELSE json_extract(o.json, '$.created') END DESC"
             )
         elif sort == "created":
             # Sort by JSON created timestamp (ISO 8601 string, naturally sortable)
@@ -809,6 +811,39 @@ async def orders_api_handler(request: web.Request):
             hd = j.get("hoadon", {}) or {}
             pc = hd.get("print_content", {}) or {}
 
+            # Support both old and new data structures
+            # Old: hoadon.print_content.kh, tongthanhtoan, datetime, sdt, hd_code
+            # New: customer_name, invoice[], created, text, kiotvietInvoiceCode
+            customer = pc.get("kh") or j.get("customer_name", "")
+            hd_code = hd.get("hd_code") or j.get("kiotvietInvoiceCode", "")
+            phone = pc.get("sdt", "")
+            date = pc.get("datetime", "")
+            order_total = pc.get("tongthanhtoan", "")
+            no_truoc = pc.get("no_truoc", "")
+            tongtienhang = pc.get("tongtienhang", "")
+            invoice_count = len(pc.get("invoice", []) or [])
+
+            # If new structure (no hoadon.print_content), calculate from top-level fields
+            if not customer and j.get("customer_name"):
+                customer = j.get("customer_name")
+            if not hd_code and j.get("kiotvietInvoiceCode"):
+                hd_code = j.get("kiotvietInvoiceCode")
+            if not date and j.get("created"):
+                # Format ISO to DD/MM/YYYY HH:MM
+                created = j.get("created", "")
+                if len(created) >= 16:
+                    date = created[8:10] + "/" + created[5:7] + "/" + created[:4] + " " + created[11:16]
+            if not order_total and j.get("invoice"):
+                t = 0
+                for item in j.get("invoice", []):
+                    p = item.get("price", 0) or 0
+                    sl = item.get("sl", item.get("quantity", 0)) or 0
+                    t += p * sl
+                if t > 0:
+                    order_total = f"{t:,}".replace(",", ".")
+            if not invoice_count and j.get("invoice"):
+                invoice_count = len(j.get("invoice", []))
+
             creator = j.get("nguoi_tao_HD")
             if isinstance(creator, list):
                 creator = ", ".join(str(x) for x in creator)
@@ -820,10 +855,10 @@ async def orders_api_handler(request: web.Request):
                 "thread_id": r["thread_id"],
                 "channel_id": r["channel_id"],
                 "message_id": r["message_id"],
-                "customer": pc.get("kh", ""),
-                "total": pc.get("tongthanhtoan", ""),
-                "phone": pc.get("sdt", ""),
-                "date": pc.get("datetime", ""),
+                "customer": customer,
+                "total": order_total,
+                "phone": phone,
+                "date": date,
                 "status": j.get("trang_thai", ""),
                 "soan": j.get("soan", False),
                 "giao": j.get("giao", False),
@@ -831,14 +866,15 @@ async def orders_api_handler(request: web.Request):
                 "nhan": j.get("nhan", False),
                 "done_after_20250124": j.get("done_after_20250124", False),
                 "updated_at": r["updated_at"],
-                "hd_code": hd.get("hd_code", ""),
+                "hd_code": hd_code,
                 "creator": creator,
                 "topic_name": j.get("topic_name", ""),
-                "invoice_count": len(pc.get("invoice", []) or []),
-                "no_truoc": pc.get("no_truoc", ""),
-                "tongtienhang": pc.get("tongtienhang", ""),
+                "invoice_count": invoice_count,
+                "no_truoc": no_truoc,
+                "tongtienhang": tongtienhang,
             })
 
+        total = int(total) if total else 0
         total_pages = max(1, (total + limit - 1) // limit)
 
         return web.json_response({
