@@ -205,13 +205,13 @@ def register_order_commands_v2(client):
             "customer_id": arg,
             "add_example": True,
             "user_id": getattr(msg.sender, "id", None) if msg.sender else None,
-        })
+        }, timeout=30)
         if result and result.get("ok"):
             reply = f"✅ Đã gán khách hàng (ID: {arg})"
         elif result and result.get("error"):
             reply = f"❌ Lỗi: {result['error']}"
         else:
-            reply = "❌ Lỗi khi gán khách hàng."
+            reply = "❌ Lỗi khi gán khách hàng (timeout hoặc server không phản hồi)."
         await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
     # ── ADD KL (quick assign Khách lẻ #2803) ───────────────────────
@@ -231,13 +231,13 @@ def register_order_commands_v2(client):
             "update_debt": True,
             "force_update": True,
             "user_id": getattr(msg.sender, "id", None) if msg.sender else None,
-        })
+        }, timeout=30)
         if result and result.get("ok"):
             reply = "✅ Đã gán Khách lẻ (ID: 2803) và cập nhật nợ."
         elif result and result.get("error"):
             reply = f"❌ Lỗi add kl: {result['error']}"
         else:
-            reply = "❌ Lỗi khi thực hiện add kl."
+            reply = "❌ Lỗi khi thực hiện add kl (timeout hoặc server không phản hồi)."
         await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
