@@ -105,6 +105,29 @@ def get_fund_receipts() -> dict:
     return r.get() or {}
 
 
+# ── Customers (khach_hang) ───────────────────────────────────────
+
+KHACH_HANG_PATH = os.getenv("FIREBASE_KHACH_HANG_PATH", "khach_hang")
+
+
+def get_customer(thread_id: int | str) -> dict | None:
+    """Read customer data from Firebase RTDB."""
+    r = _ref(f"{KHACH_HANG_PATH}/{thread_id}")
+    if r is None:
+        return None
+    return r.get()
+
+
+def set_customer(thread_id: int | str, data: dict) -> bool:
+    """Write customer data to Firebase RTDB."""
+    r = _ref(f"{KHACH_HANG_PATH}/{thread_id}")
+    if r is None:
+        return False
+    data["updated_at"] = _now_iso()
+    r.set(data)
+    return True
+
+
 # ── Helpers ────────────────────────────────────────────────────────
 
 def _now_iso() -> str:

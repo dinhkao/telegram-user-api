@@ -243,6 +243,31 @@ def create_order_with_payment(
     return _request("POST", "/orders", body=payload)
 
 
+def create_customer_kv(customer_data: dict, branch_id: int = 1133) -> dict:
+    """Create a new customer in KiotViet.
+
+    Mirrors Node.js KiotVietService.createCustomer().
+    """
+    payload = {
+        "branchId": branch_id,
+        "name": customer_data.get("name", ""),
+        "gender": customer_data.get("gender", "Unknown"),
+        "type": customer_data.get("type", 0),
+    }
+    if customer_data.get("contactNumber"):
+        payload["contactNumber"] = customer_data["contactNumber"]
+    if customer_data.get("address"):
+        payload["address"] = customer_data["address"]
+
+    log.info("Creating KiotViet customer: %s", payload.get("name"))
+    result = _request("POST", "/customers", body=payload)
+    created = result.get("data")
+    if not created or not created.get("id"):
+        raise RuntimeError(f"KiotViet createCustomer failed: {result}")
+    log.info("KiotViet customer created: id=%s name=%s", created.get("id"), created.get("name"))
+    return created
+
+
 def create_kiotviet_invoice(
     customer_id: int,
     invoice_items: list[dict],

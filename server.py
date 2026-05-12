@@ -900,6 +900,10 @@ async def main():
     from order_commands_v3 import register_order_commands_v3
     register_order_commands_v3(client)
 
+    # ── "newkh" create customer + topic in KhachHang group ───────────────
+    from newkh_handler import register_newkh_handler
+    register_newkh_handler(client)
+
     # ── #don_hang DB cache ────────────────────────────────────────────────
     _donhang_db = DonHangDB(DON_HANG_DB_PATH)
     log.info("#don_hang DB: %s — %s", DON_HANG_DB_PATH, _donhang_db.stats())
