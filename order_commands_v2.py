@@ -4,6 +4,7 @@ Covers ~40 commands previously handled by groupDonHang.js handlers.
 Each handler: catches command, reads/writes SQLite, replies via Telethon.
 """
 from __future__ import annotations
+import asyncio
 import json
 import logging
 import os
@@ -200,19 +201,24 @@ def register_order_commands_v2(client):
         if not thread_id:
             await client.send_message(msg.chat_id, "❌ Không xác định được đơn hàng.", reply_to=msg.id)
             return
-        result = _call_final("/api/order/assign-customer", {
-            "thread_id": thread_id,
-            "customer_id": arg,
-            "add_example": True,
-            "user_id": getattr(msg.sender, "id", None) if msg.sender else None,
-        }, timeout=30)
-        if result and result.get("ok"):
-            reply = f"✅ Đã gán khách hàng (ID: {arg})"
-        elif result and result.get("error"):
-            reply = f"❌ Lỗi: {result['error']}"
-        else:
-            reply = "❌ Lỗi khi gán khách hàng (timeout hoặc server không phản hồi)."
-        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
+
+        # Fire-and-forget: Node.js bots will show the actual result
+        async def _do_assign():
+            try:
+                result = _call_final("/api/order/assign-customer", {
+                    "thread_id": thread_id,
+                    "customer_id": arg,
+                    "add_example": True,
+                    "user_id": getattr(msg.sender, "id", None) if msg.sender else None,
+                }, timeout=60)
+                if not result or not result.get("ok"):
+                    err = (result or {}).get("error", "timeout / no response")
+                    log.warning("add khach hang bg task failed: %s", err)
+            except Exception as e:
+                log.warning("add khach hang bg task exception: %s", e)
+
+        asyncio.create_task(_do_assign())
+        await client.send_message(msg.chat_id, f"⏳ Đang gán khách hàng (ID: {arg})...", reply_to=msg.id)
 
     # ── ADD KL (quick assign Khách lẻ #2803) ───────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -224,21 +230,27 @@ def register_order_commands_v2(client):
         if not thread_id:
             await client.send_message(msg.chat_id, "❌ Không xác định được đơn hàng.", reply_to=msg.id)
             return
-        result = _call_final("/api/order/assign-customer", {
-            "thread_id": thread_id,
-            "customer_id": "2803",
-            "add_example": True,
-            "update_debt": True,
-            "force_update": True,
-            "user_id": getattr(msg.sender, "id", None) if msg.sender else None,
-        }, timeout=30)
-        if result and result.get("ok"):
-            reply = "✅ Đã gán Khách lẻ (ID: 2803) và cập nhật nợ."
-        elif result and result.get("error"):
-            reply = f"❌ Lỗi add kl: {result['error']}"
-        else:
-            reply = "❌ Lỗi khi thực hiện add kl (timeout hoặc server không phản hồi)."
-        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
+
+        # Fire-and-forget: Node.js bots will show the actual result
+        async def _do_add_kl():
+            try:
+                result = _call_final("/api/order/assign-customer", {
+                    "thread_id": thread_id,
+                    "customer_id": "2803",
+                    "add_example": True,
+                    "update_debt": True,
+                    "force_update": True,
+                    "user_id": getattr(msg.sender, "id", None) if msg.sender else None,
+                }, timeout=60)
+                if not result or not result.get("ok"):
+                    err = (result or {}).get("error", "timeout / no response")
+                    log.warning("add kl bg task failed: %s", err)
+            except Exception as e:
+                log.warning("add kl bg task exception: %s", e)
+
+        asyncio.create_task(_do_add_kl())
+        # Immediate feedback; actual success/fail shown by Node.js bots
+        await client.send_message(msg.chat_id, "⏳ Đang gán Khách lẻ (2803) và cập nhật nợ...", reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_editkh(event):
