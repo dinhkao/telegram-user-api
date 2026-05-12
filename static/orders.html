@@ -65,6 +65,10 @@
     <option value="Pending">Pending</option>
     <option value="Cancelled">Cancelled</option>
   </select>
+  <select id="sort-filter">
+    <option value="updated">Updated (newest first)</option>
+    <option value="date">Invoice Date (newest first)</option>
+  </select>
   <button onclick="loadPage(1)">Search</button>
   <span style="margin:0 10px;color:#ccc">|</span>
   <a href="/">Saved Messages</a>
@@ -82,7 +86,7 @@
       <th style="width:80px">Total</th>
       <th style="width:65px">Status</th>
       <th style="width:110px">Steps</th>
-      <th style="width:90px">Date ↓</th>
+      <th style="width:90px">Date</th>
       <th style="width:70px">Phone</th>
       <th style="width:90px">Creator</th>
       <th style="width:140px">Topic</th>
@@ -114,14 +118,16 @@ function loadPage(page) {
   currentPage = page;
   const search = document.getElementById('search').value.trim();
   const status = document.getElementById('status-filter').value;
-  const params = new URLSearchParams({ page, limit, search, status });
+  const sort = document.getElementById('sort-filter').value;
+  const params = new URLSearchParams({ page, limit, search, status, sort });
 
   fetch('/api/orders?' + params)
     .then(r => r.json())
     .then(data => {
       currentOrders = data.orders || [];
+      const sortLabel = sort === 'date' ? 'Invoice Date' : 'Last Updated';
       document.getElementById('info').textContent =
-        `Showing ${data.orders.length} of ${data.total} orders · Page ${data.page}/${data.total_pages} · Sorted by date (newest first)`;
+        `Showing ${data.orders.length} of ${data.total} orders · Page ${data.page}/${data.total_pages} · Sorted by ${sortLabel} (newest first)`;
 
       const tbody = document.getElementById('tbody');
       tbody.innerHTML = '';
@@ -315,6 +321,7 @@ document.getElementById('search').addEventListener('keydown', e => {
   if (e.key === 'Enter') loadPage(1);
 });
 document.getElementById('status-filter').addEventListener('change', () => loadPage(1));
+document.getElementById('sort-filter').addEventListener('change', () => loadPage(1));
 
 // Initial load
 loadPage(1);

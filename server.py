@@ -746,6 +746,8 @@ async def orders_api_handler(request: web.Request):
 
     where_clause = " AND ".join(where)
 
+    sort = request.query.get("sort", "updated").strip()
+
     conn = _get_orders_conn()
     try:
         # Count total
@@ -754,25 +756,31 @@ async def orders_api_handler(request: web.Request):
         ).fetchone()
         total = count_row[0] if count_row else 0
 
-        # Fetch page — sort by invoice datetime (DD/MM/YYYY HH:MM → YYYY-MM-DD HH:MM)
-        # Records WITH an invoice date appear first (sorted by date desc),
-        # then records without date fall back to updated_at desc.
-        dt_raw = "json_extract(o.json, '$.hoadon.print_content.datetime')"
-        dt_expr = (
-            f"substr({dt_raw}, 7, 4) || '-' || "
-            f"substr({dt_raw}, 4, 2) || '-' || "
-            f"substr({dt_raw}, 1, 2) || ' ' || "
-            f"substr({dt_raw}, 12, 5)"
-        )
-        has_dt = f"{dt_raw} IS NOT NULL AND {dt_raw} != ''"
+        # Sort selection
+        if sort == "date":
+            # Sort by invoice datetime (DD/MM/YYYY HH:MM → YYYY-MM-DD HH:MM)
+            dt_raw = "json_extract(o.json, '$.hoadon.print_content.datetime')"
+            dt_expr = (
+                f"substr({dt_raw}, 7, 4) || '-' || "
+                f"substr({dt_raw}, 4, 2) || '-' || "
+                f"substr({dt_raw}, 1, 2) || ' ' || "
+                f"substr({dt_raw}, 12, 5)"
+            )
+            has_dt = f"{dt_raw} IS NOT NULL AND {dt_raw} != ''"
+            order_by = (
+                f"CASE WHEN {has_dt} THEN 0 ELSE 1 END ASC, "
+                f"CASE WHEN {has_dt} THEN {dt_expr} ELSE o.updated_at END DESC"
+            )
+        else:
+            # Default: sort by updated_at DESC (most recently touched first)
+            order_by = "o.updated_at DESC, o.thread_id DESC"
+
         rows = conn.execute(
             f"""SELECT o.firebase_key, o.thread_id, o.channel_id, o.message_id,
                        o.json, o.updated_at
                 FROM orders o
                 WHERE {where_clause}
-                ORDER BY
-                    CASE WHEN {has_dt} THEN 0 ELSE 1 END ASC,
-                    CASE WHEN {has_dt} THEN {dt_expr} ELSE o.updated_at END DESC
+                ORDER BY {order_by}
                 LIMIT ? OFFSET ?""",
             params + [limit, offset],
         ).fetchall()
