@@ -465,71 +465,33 @@ async def _append_kv_debt(client, chat_id: int, reply_msg_id: int, kv_id: int) -
 async def _send_invoice_html_file(
     client, chat_id: int, thread_id: int,
     invoice_id, invoice_code: str,
-    invoice: list[dict], discount: int, pvc: int, vat: int,
-    customer_name: str,
+    customer_name: str, debt: int = 0,
 ) -> None:
-    """Generate invoice HTML, save to temp file, send as document via Telethon.
+    """Generate invoice HTML (Node.js style), send as doc + push to printers.
     
-    Mirrors Node.js sendInvoiceHTMLFile() — saves HTML locally and uploads to Telegram.
+    Mirrors Node.js sendInvoiceHTMLFile():
+    1. Fetch real invoice from KiotViet API
+    2. Generate HTML via inhoadon.generate_invoice_html()
+    3. Send as Telegram document
+    4. Push to html-to-png (Firebase) for printer
+    5. Push to meta/to_print (Firebase) with write→settle→delete
     """
     try:
+        from inhoadon import generate_invoice_html
+        from firebase_sync import _ref as fb_ref
+
+        # Generate HTML using the real KiotViet invoice (same as Node.js)
+        html = generate_invoice_html(invoice_id, debt=debt, hints={
+            "customerNameOverride": customer_name,
+            "expectedVAT": 0,
+            "expectedPVC": 0,
+            "disableQR": True,
+        })
+
         vn_now = datetime.now(timezone(timedelta(hours=7)))
-        time_label = vn_now.strftime("%H:%M:%S %d/%m/%Y")
         file_stamp = vn_now.strftime("%Y%m%d_%H%M%S")
 
-        # Calculate totals
-        items_total = 0
-        item_rows = ""
-        for item in invoice:
-            sp = item.get("sp", "?")
-            sl = int(item.get("sl", 0))
-            price = int(item.get("price", 0))
-            sub = sl * price
-            items_total += sub
-            note = item.get("note", "")
-            note_html = f" <small style='color:#888'>({note})</small>" if note else ""
-            item_rows += f"""<tr>
-  <td>{sp}{note_html}</td>
-  <td style='text-align:right'>{sl}</td>
-  <td style='text-align:right'>{price:,}</td>
-  <td style='text-align:right'><b>{sub:,}</b></td>
-</tr>"""
-
-        grand_total = items_total + pvc + vat - discount
-
-        html = f"""<!DOCTYPE html><html lang="vi"><head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Hóa đơn {invoice_code}</title>
-<style>
-  body{{font-family:Arial,sans-serif;margin:16px;font-size:15px;max-width:380px;}}
-  h2{{margin:0 0 4px;font-size:18px;}}
-  .meta{{color:#555;margin-bottom:12px;}}
-  table{{width:100%;border-collapse:collapse;margin:12px 0;}}
-  th{{background:#f0f0f0;padding:6px 4px;text-align:left;font-size:13px;border-bottom:2px solid #ccc;}}
-  td{{padding:5px 4px;border-bottom:1px solid #eee;font-size:14px;}}
-  .total-row td{{font-size:16px;border-top:2px solid #333;padding-top:8px;}}
-  .footer{{margin-top:16px;color:#555;font-size:13px;}}
-</style>
-</head><body>
-<h2>🧾 Hóa đơn KiotViet</h2>
-<div class="meta">{time_label} — Mã: <b>{invoice_code}</b></div>
-<div>Khách hàng: <b>{customer_name}</b></div>
-<div>Đơn hàng: <b>#{thread_id}</b></div>
-<table>
-<thead><tr><th>Sản phẩm</th><th style='text-align:right'>SL</th><th style='text-align:right'>Giá</th><th style='text-align:right'>T.Tiền</th></tr></thead>
-<tbody>{item_rows}</tbody>
-<tfoot>
-  <tr><td colspan="2"></td><td>Tổng SP:</td><td style='text-align:right'><b>{items_total:,}</b></td></tr>
-  {f'<tr><td colspan="2"></td><td>Phí VC:</td><td style="text-align:right">+{pvc:,}</td></tr>' if pvc else ''}
-  {f'<tr><td colspan="2"></td><td>VAT:</td><td style="text-align:right">+{vat:,}</td></tr>' if vat else ''}
-  {f'<tr><td colspan="2"></td><td>Giảm giá:</td><td style="text-align:right">-{discount:,}</td></tr>' if discount else ''}
-  <tr class="total-row"><td colspan="2"></td><td><b>TỔNG CỘNG:</b></td><td style='text-align:right'><b>{grand_total:,}đ</b></td></tr>
-</tfoot>
-</table>
-<div class="footer">Cảm ơn quý khách!</div>
-</body></html>"""
-
+        # 1. Save to temp file + send as Telegram document
         file_name = f"invoice_{invoice_id}_{file_stamp}.html"
         file_path = os.path.join(tempfile.gettempdir(), file_name)
         with open(file_path, "w", encoding="utf-8") as f:
@@ -538,7 +500,7 @@ async def _send_invoice_html_file(
         await client.send_file(
             chat_id,
             file_path,
-            caption=f"🧾 Hóa đơn {invoice_code} — {customer_name} — {grand_total:,}đ",
+            caption=f"🧾 Hóa đơn {invoice_code} — {customer_name}",
             reply_to=thread_id,
             force_document=True,
         )
@@ -548,7 +510,26 @@ async def _send_invoice_html_file(
         except OSError:
             pass
 
-        log.info("Invoice HTML sent: invoice=%s thread=%d", invoice_code, thread_id)
+        # 2. Push to html-to-png (Firebase) — same as Node.js queueHtmlToPngWithDiscussionMirror
+        try:
+            ref_png = fb_ref("html-to-png")
+            if ref_png:
+                ref_png.set({"html": html, "chat_id": chat_id, "message_thread_id": thread_id})
+        except Exception as e:
+            log.warning("Failed to push invoice to html-to-png: %s", e)
+
+        # 3. Push to meta/to_print (Firebase) with write→settle→delete for physical printer
+        try:
+            import asyncio
+            ref_print = fb_ref("meta/to_print")
+            if ref_print:
+                ref_print.set(html)
+                await asyncio.sleep(0.12)  # 120ms settle
+                ref_print.delete()
+        except Exception as e:
+            log.warning("Failed to push invoice to meta/to_print: %s", e)
+
+        log.info("Invoice HTML processed: invoice=%s thread=%d", invoice_code, thread_id)
     except Exception as e:
         log.warning("Failed to send invoice HTML: %s", e)
 
@@ -734,7 +715,7 @@ def register_order_commands_v3(client):
         # Send invoice HTML file (async, non-blocking)
         client.loop.create_task(
             _send_invoice_html_file(client, msg.chat_id, thread_id, invoice_id, invoice_code,
-                                    invoice, discount, pvc, vat, kh_name)
+                                    kh_name, debt=0)
         )
 
         # Firebase sync + refresh (non-blocking)
