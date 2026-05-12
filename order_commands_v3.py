@@ -496,12 +496,28 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
             return
 
-        # Build response: customer info + KiotViet debt
-        response = f"✅ Đã cập nhật {len(invoice)} sản phẩm\n\n"
+        # Build response: invoice summary + customer info + price breakdown
+        lines = [f"✅ Đã cập nhật {len(invoice)} sản phẩm"]
+
+        # Per-item breakdown
+        grand_total = 0
+        for item in invoice:
+            sp = item.get("sp", "?")
+            sl = item.get("sl", 0)
+            price = item.get("price", 0)
+            sub_total = sl * price
+            grand_total += sub_total
+            note = item.get("note", "")
+            note_suffix = f" — {note}" if note else ""
+            lines.append(f"• <b>{sp}</b> x{sl} @ {price:,}đ = <b>{sub_total:,}đ</b>{note_suffix}")
+
+        lines.append(f"\n<b>Tổng cộng: {grand_total:,}đ</b>")
+        lines.append("")
+
         customer = get_customer_by_key(db_conn, str(kh_id_fb))
         if customer:
             cust_name = customer.get("name", "N/A")
-            response += f"👤 Khách hàng: {cust_name}\n"
+            lines.append(f"👤 Khách hàng: {cust_name}")
 
             # KiotViet debt
             kv_id = customer.get("kh_id")
@@ -510,20 +526,21 @@ def register_order_commands_v3(client):
                     det = get_customer_debt_kv(kv_id)
                     debt_val = det.get("debt")
                     if debt_val is not None:
-                        response += f"📊 Nợ hiện tại (KiotViet): {debt_val:,}đ\n"
+                        lines.append(f"📊 Nợ hiện tại (KiotViet): {debt_val:,}đ")
                 except Exception as e:
                     log.warning("Could not fetch KiotViet debt for %s: %s", kv_id, e)
 
             # Phone
             if customer.get("contactNumber"):
-                response += f"📱 SĐT: {customer['contactNumber']}\n"
+                lines.append(f"📱 SĐT: {customer['contactNumber']}")
         else:
-            response += "⚠️ Khách hàng: Chưa được gán\n"
+            lines.append("⚠️ Khách hàng: Chưa được gán")
 
         await client.send_message(
             msg.chat_id,
-            response,
+            "\n".join(lines),
             reply_to=thread_id,
+            parse_mode="html",
         )
 
         # Firebase sync + refresh (non-blocking)
