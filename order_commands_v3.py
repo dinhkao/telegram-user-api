@@ -1140,3 +1140,144 @@ def register_order_commands_v3(client):
 
         # Sync Firebase + refresh main message (non-blocking)
         _firebase_refresh_async(client, db_conn, thread_id, order)
+
+    # ── BANG GIA CHO / BANG GIA NPP ──────────────────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_bang_gia(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        t = (msg.text or "").strip().lower()
+        import unicodedata
+        t_norm = unicodedata.normalize("NFD", t).encode("ascii", "ignore").decode()
+        price_list_id = None
+        label = ""
+        if t_norm == "bang gia cho":
+            price_list_id = 5
+            label = "bảng giá cho"
+        elif t_norm == "bang gia npp":
+            price_list_id = 160
+            label = "bảng giá NPP"
+        else:
+            return
+
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+
+        invoice = order.get("invoice") or order.get("invoice_items") or []
+        if not invoice:
+            await client.send_message(msg.chat_id, "❌ Đơn hàng chưa có sản phẩm trong hóa đơn.", reply_to=msg.id)
+            return
+
+        # Read price list from kv_store (mirrored from Firebase bang_gia_moi)
+        cur = db_conn.execute("SELECT value FROM kv_store WHERE path = 'bang_gia_moi'")
+        row = cur.fetchone()
+        if not row or not row["value"]:
+            await client.send_message(msg.chat_id, f"❌ Không tìm thấy bảng giá ID {price_list_id}.", reply_to=msg.id)
+            return
+
+        all_lists = json.loads(row["value"])
+        entry = all_lists.get(str(price_list_id))
+        if not entry or not isinstance(entry, dict):
+            await client.send_message(msg.chat_id, f"❌ Không tìm thấy bảng giá ID {price_list_id}.", reply_to=msg.id)
+            return
+
+        price_list = entry.get("price_list")
+        if not price_list or not isinstance(price_list, dict):
+            await client.send_message(msg.chat_id, f"❌ Bảng giá ID {price_list_id} không có dữ liệu hợp lệ.", reply_to=msg.id)
+            return
+
+        matched_count = 0
+        changed_count = 0
+        missing_codes = []
+        detail_rows = []
+        next_invoice = []
+
+        for idx, item in enumerate(invoice):
+            code = str(item.get("sp") or "").strip().upper()
+            qty = int(item.get("sl", 0))
+            old_price = int(item.get("price", 0))
+
+            if not code:
+                detail_rows.append(f"{idx + 1}. (không có mã) - {qty} x {old_price:,}đ = {(qty * old_price):,}đ")
+                next_invoice.append(item)
+                continue
+
+            if code not in price_list:
+                if code not in missing_codes:
+                    missing_codes.append(code)
+                detail_rows.append(f"{idx + 1}. {code} - {qty} x {old_price:,}đ = {(qty * old_price):,}đ (giữ giá, không có trong bảng giá)")
+                next_invoice.append(item)
+                continue
+
+            new_price = price_list[code]
+            if not isinstance(new_price, (int, float)):
+                detail_rows.append(f"{idx + 1}. {code} - {qty} x {old_price:,}đ = {(qty * old_price):,}đ (giữ giá, giá bảng giá không hợp lệ)")
+                next_invoice.append(item)
+                continue
+
+            new_price = int(new_price)
+            matched_count += 1
+            changed = old_price != new_price
+            if changed:
+                changed_count += 1
+            next_item = {**item, "price": new_price}
+            line_total = qty * new_price
+            detail_rows.append(
+                f"{idx + 1}. {code} - {qty} x {old_price:,}đ -> {new_price:,}đ = {line_total:,}đ"
+                if changed else
+                f"{idx + 1}. {code} - {qty} x {new_price:,}đ = {line_total:,}đ (không đổi)"
+            )
+            next_invoice.append(next_item)
+
+        if not matched_count:
+            await client.send_message(
+                msg.chat_id,
+                f"⚠️ Không có sản phẩm nào trong đơn khớp bảng giá ID {price_list_id}.",
+                reply_to=msg.id,
+            )
+            return
+
+        # Save updated invoice
+        order["invoice"] = next_invoice
+        if not _save_order(db_conn, thread_id, order):
+            await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
+            return
+
+        total = sum(int(i.get("sl", 0)) * int(i.get("price", 0)) for i in next_invoice)
+        list_name = str(entry.get("name") or entry.get("ten") or "").strip()
+        name_part = f"{list_name} (ID {price_list_id})" if list_name else f"ID {price_list_id}"
+        reply = f"✅ {label}: áp dụng {name_part}\n"
+        reply += f"Khớp {matched_count}/{len(next_invoice)} sản phẩm, đổi giá {changed_count} sản phẩm.\n"
+        reply += f"Tổng tạm tính: {total:,}đ"
+        if detail_rows:
+            reply += f"\n\n📋 Chi tiết từng sản phẩm:\n" + "\n".join(detail_rows)
+        if missing_codes:
+            reply += f"\nKhông có giá cho: {', '.join(missing_codes[:10])}"
+            if len(missing_codes) > 10:
+                reply += "…"
+        if len(reply) > 3800:
+            reply = (
+                f"✅ {label}: áp dụng {name_part}\n"
+                f"Khớp {matched_count}/{len(next_invoice)} sản phẩm, đổi giá {changed_count} sản phẩm.\n"
+                f"Tổng tạm tính: {total:,}đ\n\n"
+                f"📋 Chi tiết từng sản phẩm (rút gọn do tin nhắn dài):\n"
+                + "\n".join(detail_rows[:30])
+                + (f"\n… ({len(detail_rows) - 30} dòng nữa)" if len(detail_rows) > 30 else "")
+                + (f"\nKhông có giá cho: {', '.join(missing_codes[:10])}" if missing_codes else "")
+            )
+
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
+
+        # Refresh main message + Firebase sync (non-blocking)
+        _firebase_refresh_async(client, db_conn, thread_id, order)
+        channel_id = order.get("channel_id")
+        message_id = order.get("message_id")
+        if channel_id and message_id:
+            client.loop.create_task(
+                _refresh_order_message(client, db_conn, thread_id, channel_id, message_id)
+            )
