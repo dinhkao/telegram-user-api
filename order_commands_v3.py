@@ -19,6 +19,7 @@ from order_db import (
     _call_final_telegram,
     set_task_status,
     _save_order,
+    parse_comma_text,
 )
 from kiotviet import (
     search_products_kv,
@@ -450,6 +451,81 @@ def register_order_commands_v3(client):
     """Register Phase 3 handlers: invoice, print, payment, debt, analysis."""
     db_conn = _get_connection()
     log.info("order_commands_v3 listening on chat %d", ORDER_GROUP_ID)
+
+    # ── COMMA INVOICE ───────────────────────────────────────────────
+    # Messages starting with , → parse as invoice items
+    # Example:
+    #   ,P1 2t3b 5 150000 Red
+    #   ,SP-A 1t 10
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_comma_invoice(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        text = (msg.text or "").strip()
+        if not text.startswith(","): return
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+        user_id = getattr(msg, "sender_id", None)
+
+        # Remove leading comma
+        cleaned = text[1:].strip()
+        if not cleaned:
+            return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+
+        kh_id_fb = order.get("khach_hang_id") or order.get("khID")
+        if not kh_id_fb:
+            await client.send_message(msg.chat_id, "❌ Đơn hàng chưa có khách hàng. Gán khách hàng trước.", reply_to=msg.id)
+            return
+
+        # Parse invoice items
+        invoice = parse_comma_text(cleaned, db_conn, kh_id_fb)
+        if not invoice:
+            await client.send_message(msg.chat_id, "❌ Không parse được sản phẩm. Kiểm tra định dạng.", reply_to=msg.id)
+            return
+
+        # Save to SQLite
+        order["invoice"] = invoice
+        if not _save_order(db_conn, thread_id, order):
+            await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
+            return
+
+        # Build response: customer info + KiotViet debt
+        response = f"✅ Đã cập nhật {len(invoice)} sản phẩm\n\n"
+        customer = get_customer_by_key(db_conn, str(kh_id_fb))
+        if customer:
+            cust_name = customer.get("name", "N/A")
+            response += f"👤 Khách hàng: {cust_name}\n"
+
+            # KiotViet debt
+            kv_id = customer.get("kh_id")
+            if kv_id:
+                try:
+                    det = get_customer_debt_kv(kv_id)
+                    debt_val = det.get("debt")
+                    if debt_val is not None:
+                        response += f"📊 Nợ hiện tại (KiotViet): {debt_val:,}đ\n"
+                except Exception as e:
+                    log.warning("Could not fetch KiotViet debt for %s: %s", kv_id, e)
+
+            # Phone
+            if customer.get("contactNumber"):
+                response += f"📱 SĐT: {customer['contactNumber']}\n"
+        else:
+            response += "⚠️ Khách hàng: Chưa được gán\n"
+
+        await client.send_message(
+            msg.chat_id,
+            response,
+            reply_to=thread_id,
+        )
+
+        # Firebase sync + refresh (non-blocking)
+        _firebase_refresh_async(client, db_conn, thread_id, order)
 
     # ── SHOW INVOICE ────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
