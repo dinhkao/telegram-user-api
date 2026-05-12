@@ -106,7 +106,11 @@ def build_order_main_message_html(order: dict, thread_id: int) -> str:
     # ── Order text + link ───────────────────────────────────────────
     order_text = _esc(order.get("text", ""))
     order_link = f"tg://privatepost?channel=2124542200&post={thread_id}"
-    main_line = f"dh {status_icons}💰 <a href=\"{order_link}\">{order_text}</a>"
+    # Wrap status icons with bot deep-link for quick actions (same as Node.js)
+    order_start_key = order.get("firebase_key") or thread_id
+    bot_start_url = f"tg://resolve?domain=letrangdonhangbot&start={order_start_key}"
+    icons_linked = f"<a href=\"{bot_start_url}\">{status_icons}💰</a>"
+    main_line = f"dh {icons_linked} <a href=\"{order_link}\">{order_text}</a>"
 
     # ── Assemble expanded blockquote ────────────────────────────────
     parts: list[str] = []
