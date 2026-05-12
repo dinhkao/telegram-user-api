@@ -178,15 +178,67 @@ def register_order_commands_v2(client):
     async def on_add_khach_hang(event):
         msg = event.message
         if isinstance(msg, MessageService): return
-        m = re.match(r"^add khach hang (.+)$", (msg.text or "").strip(), re.IGNORECASE)
+        text = (msg.text or "").strip()
+        # Support both "add khach hang <ID>" and legacy "add khach hang <json>"
+        m = re.match(r"^add khach hang (.+)$", text, re.IGNORECASE)
         if not m: return
-        try:
-            data = json.loads(m.group(1))
-        except json.JSONDecodeError:
-            await client.send_message(msg.chat_id, "❌ JSON không hợp lệ", reply_to=msg.id)
+        arg = m.group(1).strip()
+
+        # Legacy JSON mode (for admin inserting raw customer JSON)
+        if arg.startswith("{"):
+            try:
+                data = json.loads(arg)
+            except json.JSONDecodeError:
+                await client.send_message(msg.chat_id, "❌ JSON không hợp lệ", reply_to=msg.id)
+                return
+            ok, message = add_customer(db_conn, data)
+            await client.send_message(msg.chat_id, message, reply_to=msg.id)
             return
-        ok, message = add_customer(db_conn, data)
-        await client.send_message(msg.chat_id, message, reply_to=msg.id)
+
+        # ID mode: "add khach hang 45833" → call assign-customer API
+        thread_id = _extract_thread_id(msg)
+        if not thread_id:
+            await client.send_message(msg.chat_id, "❌ Không xác định được đơn hàng.", reply_to=msg.id)
+            return
+        result = _call_final("/api/order/assign-customer", {
+            "thread_id": thread_id,
+            "customer_id": arg,
+            "add_example": True,
+            "user_id": getattr(msg.sender, "id", None) if msg.sender else None,
+        })
+        if result and result.get("ok"):
+            reply = f"✅ Đã gán khách hàng (ID: {arg})"
+        elif result and result.get("error"):
+            reply = f"❌ Lỗi: {result['error']}"
+        else:
+            reply = "❌ Lỗi khi gán khách hàng."
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
+
+    # ── ADD KL (quick assign Khách lẻ #2803) ───────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_add_kl(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        if (msg.text or "").strip().lower() != "add kl": return
+        thread_id = _extract_thread_id(msg)
+        if not thread_id:
+            await client.send_message(msg.chat_id, "❌ Không xác định được đơn hàng.", reply_to=msg.id)
+            return
+        result = _call_final("/api/order/assign-customer", {
+            "thread_id": thread_id,
+            "customer_id": "2803",
+            "add_example": True,
+            "update_debt": True,
+            "force_update": True,
+            "user_id": getattr(msg.sender, "id", None) if msg.sender else None,
+        })
+        if result and result.get("ok"):
+            reply = "✅ Đã gán Khách lẻ (ID: 2803) và cập nhật nợ."
+        elif result and result.get("error"):
+            reply = f"❌ Lỗi add kl: {result['error']}"
+        else:
+            reply = "❌ Lỗi khi thực hiện add kl."
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_editkh(event):
