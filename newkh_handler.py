@@ -14,7 +14,7 @@ import sqlite3
 import time
 
 from telethon import events
-from telethon.tl.functions.channels import CreateForumTopicRequest
+from telethon.tl.functions.messages import CreateForumTopicRequest
 from telethon.tl.types import (
     MessageService,
     UpdateNewChannelMessage,
@@ -105,7 +105,7 @@ def register_newkh_handler(client):
             peer = await client.get_input_entity(GROUP_KHACHHANG_ID)
             result = await client(
                 CreateForumTopicRequest(
-                    channel=peer,
+                    peer=peer,
                     title=kv_name,
                     random_id=int.from_bytes(os.urandom(8), "big"),
                 )

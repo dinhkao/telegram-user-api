@@ -963,6 +963,10 @@ async def main():
     from newkh_handler import register_newkh_handler
     register_newkh_handler(client)
 
+    # ── Firebase html-to-png listener (replaces test-qwen2-main Node service) ─
+    from firebase_html_to_png import start_listener as _start_html_to_png
+    _start_html_to_png(client)
+
     # ── #don_hang DB cache ────────────────────────────────────────────────
     _donhang_db = DonHangDB(DON_HANG_DB_PATH)
     log.info("#don_hang DB: %s — %s", DON_HANG_DB_PATH, _donhang_db.stats())
