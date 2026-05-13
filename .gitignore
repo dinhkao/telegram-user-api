@@ -11,3 +11,4 @@ donhang.db-shm
 donhang.db-wal
 server.log
 nohup.out
+__pycache__/
