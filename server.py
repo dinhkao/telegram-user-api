@@ -959,6 +959,10 @@ async def main():
     from order_commands_v3 import register_order_commands_v3
     register_order_commands_v3(client)
 
+    # ── "gdt / ingdt" giấy dán thùng commands ─────────────────────────────
+    from gdt_handler import register_gdt_handler
+    register_gdt_handler(client)
+
     # ── "newkh" create customer + topic in KhachHang group ───────────────
     from newkh_handler import register_newkh_handler
     register_newkh_handler(client)
