@@ -1,17 +1,18 @@
-"""what_data.py — Fast raw-data lookup for orders from group topic messages.
+"""what_data.py — Fast HTML-file order viewer for group topic messages.
 
 Listens for "what data" in the order group chat. Extracts the topic/thread ID,
 queries the shared final_telegram SQLite database directly, and replies with
-the raw order JSON.
+a small HTML file that can be opened to view the order in a clean table layout.
 
 Fits into server.py's register_handlers(client) call.
 """
 from __future__ import annotations
 import json
 import logging
-import sqlite3
-import time
 import os
+import sqlite3
+import tempfile
+import time
 from telethon import events
 from telethon.tl.types import MessageService
 
@@ -28,6 +29,22 @@ SHARED_DB_PATH = os.path.expanduser(
 # Trigger text (case-insensitive comparison)
 TRIGGER_TEXT = "what data"
 
+# Telegram user ID → display name (same as bot-don-hang/config.py)
+USER_NAMES = {
+    "1809874974": "Duy",
+    "6970077624": "Tùng",
+    "6964088058": "Trinh",
+    "7569624990": "Tuấn",
+    "6730500620": "Trang",
+    "7158345531": "Trí",
+}
+
+
+def _name_of_user_id(uid) -> str:
+    if uid is None or uid == "":
+        return ""
+    return USER_NAMES.get(str(uid), str(uid))
+
 
 def _get_order_raw(conn, thread_id: int) -> dict | None:
     """Query the orders table by thread_id. Returns the full JSON or None."""
@@ -43,18 +60,155 @@ def _get_order_raw(conn, thread_id: int) -> dict | None:
         return {"_raw": str(row[0])}
 
 
-def _format_reply(data: dict | None, thread_id: int, elapsed_ms: float) -> str:
-    """Build a compact reply message for the raw data."""
-    header = f"<b>Order data</b> (thread {thread_id}, {elapsed_ms:.1f}ms)\n\n"
-    if data is None:
-        return header + "❌ <i>Order not found in SQLite</i>"
-    try:
-        pretty = json.dumps(data, ensure_ascii=False, indent=2, default=str)
-    except Exception:
-        pretty = str(data)
-    if len(pretty) > 3800:
-        pretty = pretty[:3800] + "\n\n... [truncated]"
-    return header + f"<pre>{_escape_html(pretty)}</pre>"
+def _build_order_html(data: dict, thread_id: int, elapsed_ms: float) -> str:
+    """Build a compact, readable HTML page from the order JSON."""
+
+    def val(key, default="—"):
+        v = data.get(key)
+        return v if v is not None and v != "" else default
+
+    def money(key, default=0):
+        v = data.get(key, default)
+        try:
+            return f"{int(v):,}"
+        except Exception:
+            return str(v)
+
+    def fmt_ts(entry):
+        if not entry or not isinstance(entry, dict):
+            return "—"
+        by_raw = entry.get("by", "")
+        by_name = _name_of_user_id(by_raw)
+        done = entry.get("done", False)
+        skip = entry.get("skip", False)
+        note = entry.get("note", "")
+        status = "✅" if done else ("🔘" if skip else "❌")
+        note_str = f" ({note})" if note else ""
+        return f"{status}{note_str} — {by_name}" if by_name else f"{status}{note_str}"
+
+    text = _escape_html(val("text"))
+    kh = _escape_html(val("kh", val("customer_name")))
+    kh_id = val("khach_hang_id", val("khID"))
+    kv_id = val("kiotvietInvoiceID", val("kiotviet_invoice_id"))
+    kv_code = val("kiotvietInvoiceCode", "")
+
+    invoice_items = data.get("invoice") or data.get("invoice_items") or []
+    rows = []
+    total = 0
+    for it in invoice_items:
+        if not isinstance(it, dict):
+            continue
+        sp = _escape_html(str(it.get("sp", "")))
+        sl = int(it.get("sl", 0) or 0)
+        pr = int(it.get("price", 0) or 0)
+        line_total = sl * pr
+        total += line_total
+        rows.append(
+            f"<tr><td>{sp}</td><td>{sl}</td><td>{pr:,}</td><td>{line_total:,}</td></tr>"
+        )
+
+    invoice_table = (
+        "<table><tr><th>SP</th><th>SL</th><th>Giá</th><th>Tổng</th></tr>"
+        + "".join(rows)
+        + f"<tr><td colspan=3><b>Tổng hàng</b></td><td><b>{total:,}</b></td></tr></table>"
+        if rows
+        else "<p><i>Chưa có sản phẩm</i></p>"
+    )
+
+    ts = data.get("task_status") or {}
+
+    discount = money("discount")
+    pvc = money("pvc")
+    vat = money("vat")
+    kh_debt = money("khDebt")
+    order_total = total + int(data.get("pvc", 0) or 0) + int(data.get("vat", 0) or 0) - int(data.get("discount", 0) or 0)
+    final_total = order_total + int(data.get("khDebt", 0) or 0)
+
+    payments = data.get("payments") or []
+    pay_rows = []
+    for p in payments:
+        if not isinstance(p, dict):
+            continue
+        amt = int(p.get("amount", 0) or 0)
+        method = _escape_html(str(p.get("method", "")))
+        note = _escape_html(str(p.get("note", "")))
+        pay_rows.append(f"<tr><td>{method}</td><td>{amt:,}</td><td>{note}</td></tr>")
+    pay_table = (
+        "<table><tr><th>Phương thức</th><th>Số tiền</th><th>Ghi chú</th></tr>"
+        + "".join(pay_rows)
+        + "</table>"
+        if pay_rows
+        else "<p><i>Chưa có thanh toán</i></p>"
+    )
+
+    html = f"""<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đơn hàng #{thread_id}</title>
+<style>
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 20px; background: #f5f5f5; }}
+  .card {{ background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }}
+  h1 {{ font-size: 18px; margin: 0 0 8px; color: #1a1a1a; }}
+  h2 {{ font-size: 14px; margin: 0 0 12px; color: #555; text-transform: uppercase; letter-spacing: 0.5px; }}
+  .meta {{ font-size: 13px; color: #666; margin-bottom: 4px; }}
+  table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
+  th, td {{ padding: 8px 6px; text-align: left; border-bottom: 1px solid #eee; }}
+  th {{ color: #888; font-weight: 500; }}
+  tr:last-child td {{ border-bottom: none; }}
+  .money {{ font-family: "SF Mono", Monaco, monospace; text-align: right; }}
+  .total {{ font-weight: 600; color: #2e7d32; }}
+  .status {{ display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; background: #e3f2fd; color: #1565c0; }}
+  .footer {{ font-size: 11px; color: #aaa; text-align: center; margin-top: 20px; }}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Đơn hàng #{thread_id}</h1>
+  <div class="meta"><b>Tên:</b> {text}</div>
+  <div class="meta"><b>Khách:</b> {kh} (ID: {kh_id})</div>
+  <div class="meta"><b>KV Invoice:</b> {kv_code or kv_id or "—"}</div>
+</div>
+
+<div class="card">
+  <h2>🧾 Hóa đơn</h2>
+  {invoice_table}
+</div>
+
+<div class="card">
+  <h2>📊 Tổng kết</h2>
+  <table>
+    <tr><td>Tổng hàng</td><td class="money">{total:,}</td></tr>
+    <tr><td>Giảm</td><td class="money">-{discount}</td></tr>
+    <tr><td>Ship</td><td class="money">+{pvc}</td></tr>
+    <tr><td>VAT</td><td class="money">+{vat}</td></tr>
+    <tr><td><b>Tổng đơn</b></td><td class="money total">{order_total:,}</td></tr>
+    <tr><td>Nợ trước</td><td class="money">{kh_debt}</td></tr>
+    <tr><td><b>Tổng thanh toán</b></td><td class="money total">{final_total:,}</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>💸 Thanh toán</h2>
+  {pay_table}
+</div>
+
+<div class="card">
+  <h2>📋 Trạng thái</h2>
+  <table>
+    <tr><td>Bán HĐ</td><td>{fmt_ts(ts.get("ban_hd"))}</td></tr>
+    <tr><td>Soạn hàng</td><td>{fmt_ts(ts.get("soan_hang"))}</td></tr>
+    <tr><td>Giao hàng</td><td>{fmt_ts(ts.get("giao_hang"))}</td></tr>
+    <tr><td>Nộp tiền</td><td>{fmt_ts(ts.get("nop_tien"))}</td></tr>
+    <tr><td>Nhận tiền</td><td>{fmt_ts(ts.get("nhan_tien"))}</td></tr>
+  </table>
+</div>
+
+<div class="footer">Generated in {elapsed_ms:.1f}ms • what_data</div>
+</body>
+</html>"""
+    return html
 
 
 def _escape_html(s: str) -> str:
@@ -137,13 +291,40 @@ def register_what_data_handler(client):
             return
 
         elapsed = (time.monotonic() - t0) * 1000
-        reply_text = _format_reply(data, thread_id, elapsed)
 
-        await client.send_message(
-            msg.chat_id,
-            reply_text,
-            parse_mode="html",
-            reply_to=msg.id,
-        )
-        who = getattr(msg, "sender_id", "?")
-        log.info("thread=%d found=%s %.1fms asked by %s", thread_id, data is not None, elapsed, who)
+        if data is None:
+            await client.send_message(
+                msg.chat_id,
+                f"❌ Order not found (thread {thread_id}, {elapsed:.1f}ms)",
+                reply_to=msg.id,
+            )
+            return
+
+        # Build HTML file
+        html = _build_order_html(data, thread_id, elapsed)
+        file_path = os.path.join(tempfile.gettempdir(), f"order_{thread_id}_{int(time.time())}.html")
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(html)
+
+        try:
+            await client.send_file(
+                msg.chat_id,
+                file_path,
+                caption=f"📄 Order #{thread_id} • {elapsed:.1f}ms",
+                reply_to=msg.id,
+                force_document=True,
+            )
+            who = getattr(msg, "sender_id", "?")
+            log.info("thread=%d html=%dB %.1fms asked by %s", thread_id, len(html), elapsed, who)
+        except Exception as e:
+            log.error("what_data send file error: %s", e)
+            await client.send_message(
+                msg.chat_id,
+                f"❌ Failed to send HTML file: {e}",
+                reply_to=msg.id,
+            )
+        finally:
+            try:
+                os.unlink(file_path)
+            except Exception:
+                pass

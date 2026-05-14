@@ -1011,6 +1011,10 @@ async def main():
     from tg_send import make_handler as _make_send_handler
     app.router.add_post("/api/tg/send-message", _make_send_handler(lambda: _client))
 
+    # Send a file via the user account (called from bot-don-hang for media forwarding)
+    from tg_send_file import make_handler as _make_send_file_handler
+    app.router.add_post("/api/tg/send-file", _make_send_file_handler(lambda: _client))
+
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
