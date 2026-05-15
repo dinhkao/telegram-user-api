@@ -967,6 +967,10 @@ async def main():
     from newkh_handler import register_newkh_handler
     register_newkh_handler(client)
 
+    # ── product price lookup / personal price in KhachHang group ─────────
+    from khachhang_commands import register_khachhang_commands
+    register_khachhang_commands(client)
+
     # ── Firebase html-to-png listener (replaces test-qwen2-main Node service) ─
     from firebase_html_to_png import start_listener as _start_html_to_png
     _start_html_to_png(client)
