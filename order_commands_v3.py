@@ -1,5 +1,6 @@
 """order_commands_v3.py — Phase 3: KiotViet invoice, print, payment, debt, analysis handlers."""
 from __future__ import annotations
+import asyncio
 import json
 import logging
 import os
@@ -345,14 +346,12 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
     except Exception as e:
         log.warning("Receipt sending failed: %s", e)
 
-    # 12. Refresh order main message (async, best-effort)
+    # 12. Refresh order main message (debounced via batcher)
     try:
         channel_id = order.get("channel_id")
         message_id = order.get("message_id")
         if channel_id and message_id:
-            client.loop.create_task(
-                _refresh_order_message(client, db_conn, thread_id, channel_id, message_id)
-            )
+            _edit_batcher.schedule(thread_id, channel_id, message_id)
     except Exception as e:
         log.warning("Order message refresh queuing failed: %s", e)
 
@@ -366,6 +365,9 @@ def _auto_complete_tasks(client, db_conn, thread_id: int, user_id: int | None, c
                 log.info("Auto-completed task %s for thread %d", task_type, thread_id)
         except Exception as e:
             log.warning("Failed to auto-complete %s for thread %d: %s", task_type, thread_id, e)
+
+
+_edit_batcher: _EditBatcher | None = None
 
 
 async def _refresh_order_message(client, db_conn, thread_id: int, channel_id: int, message_id: int):
@@ -393,9 +395,15 @@ def _refresh_order_if_possible(client, db_conn, order: dict):
     """Queue a refresh of the order's main message if channel_id and message_id are known."""
     channel_id = order.get("channel_id")
     message_id = order.get("message_id")
-    if channel_id and message_id:
+    if not channel_id or not message_id:
+        return
+    thread_id = order.get("thread_id", 0)
+    if _edit_batcher is not None:
+        _edit_batcher.schedule(thread_id, channel_id, message_id)
+    else:
+        # Fallback (should not happen after registration)
         client.loop.create_task(
-            _refresh_order_message(client, db_conn, order.get("thread_id", 0), channel_id, message_id)
+            _refresh_order_message(client, db_conn, thread_id, channel_id, message_id)
         )
 
 
@@ -544,11 +552,49 @@ async def _send_invoice_html_file(
         log.warning("Failed to send invoice HTML: %s", e)
 
 
+# ── Edit batcher (prevents FloodWaitError from rapid edits) ─────────
+class _EditBatcher:
+    """Debounces message edits: only the last edit for a given message wins."""
+
+    def __init__(self, client, db_conn, delay: float = 3.0):
+        self.client = client
+        self.db_conn = db_conn
+        self.delay = delay
+        self._pending: dict[tuple[int, int], int] = {}  # (channel_id, message_id): version
+        self._lock = asyncio.Lock()
+
+    def schedule(self, thread_id: int, channel_id: int, message_id: int):
+        """Schedule a debounced edit.  Multiple calls for the same message collapse into one."""
+        key = (channel_id, message_id)
+        client_loop = getattr(self.client, "loop", None)
+        if client_loop is None:
+            return
+        # Schedule on the client's event loop
+        client_loop.create_task(self._run(thread_id, key))
+
+    async def _run(self, thread_id: int, key: tuple[int, int]):
+        async with self._lock:
+            version = self._pending.get(key, 0) + 1
+            self._pending[key] = version
+
+        await asyncio.sleep(self.delay)
+
+        async with self._lock:
+            current = self._pending.get(key)
+            if current != version:
+                return  # A newer version is pending; let it win
+            self._pending.pop(key, None)
+
+        await _refresh_order_message(self.client, self.db_conn, thread_id, key[0], key[1])
+
+
 # ── Handler registration ────────────────────────────────────────────
 
 def register_order_commands_v3(client):
     """Register Phase 3 handlers: invoice, print, payment, debt, analysis."""
     db_conn = _get_connection()
+    global _edit_batcher
+    _edit_batcher = _EditBatcher(client, db_conn, delay=3.0)
     log.info("order_commands_v3 listening on chat %d", ORDER_GROUP_ID)
 
     # ── COMMA INVOICE ───────────────────────────────────────────────
@@ -1279,9 +1325,7 @@ def register_order_commands_v3(client):
         channel_id = order.get("channel_id")
         message_id = order.get("message_id")
         if channel_id and message_id:
-            client.loop.create_task(
-                _refresh_order_message(client, db_conn, thread_id, channel_id, message_id)
-            )
+            _edit_batcher.schedule(thread_id, channel_id, message_id)
 
     # ── BO NO / NO (toggle debt tag) ─────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -1316,11 +1360,5 @@ def register_order_commands_v3(client):
 
         await client.send_message(msg.chat_id, reply_text, reply_to=msg.id)
 
-        # Refresh main message + Firebase sync (non-blocking)
+        # Refresh main message + Firebase sync (non-blocking, debounced)
         _firebase_refresh_async(client, db_conn, thread_id, order)
-        channel_id = order.get("channel_id")
-        message_id = order.get("message_id")
-        if channel_id and message_id:
-            client.loop.create_task(
-                _refresh_order_message(client, db_conn, thread_id, channel_id, message_id)
-            )
