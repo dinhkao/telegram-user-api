@@ -40,6 +40,27 @@ VALID_PRODUCT_CODES = {
 }
 
 
+def _extract_thread_id(msg) -> int | None:
+    """Robust thread/topic ID extraction (same as order_commands_v3.py)."""
+    thread_id = None
+    if msg.reply_to:
+        thread_id = (
+            getattr(msg.reply_to, "reply_to_top_id", None)
+            or getattr(msg.reply_to, "reply_to_msg_id", None)
+        )
+        if thread_id and not getattr(msg.reply_to, "forum_topic", False):
+            thread_id = getattr(msg.reply_to, "reply_to_top_id", None)
+    if not thread_id:
+        thread_id = getattr(msg, "reply_to_top_id", None)
+    if not thread_id:
+        raw = getattr(msg, "_raw", None) or getattr(msg, "original_update", None)
+        if raw:
+            r = getattr(raw, "reply_to", None)
+            if r:
+                thread_id = getattr(r, "reply_to_top_id", None)
+    return thread_id
+
+
 def register_khachhang_commands(client):
     if not GROUP_KHACHHANG_ID:
         log.warning("GROUP_KHACHHANG_ID not configured — khachhang commands disabled")
@@ -67,7 +88,8 @@ def register_khachhang_commands(client):
         if code not in VALID_PRODUCT_CODES:
             return
 
-        thread_id = msg.reply_to_top_id or msg.reply_to_msg_id
+        thread_id = _extract_thread_id(msg)
+        log.debug("price_lookup code=%s thread_id=%s", code, thread_id)
         if not thread_id:
             await client.send_message(
                 msg.chat_id,
@@ -131,7 +153,8 @@ def register_khachhang_commands(client):
         if price <= 0:
             return
 
-        thread_id = msg.reply_to_top_id or msg.reply_to_msg_id
+        thread_id = _extract_thread_id(msg)
+        log.debug("set_price code=%s price=%s thread_id=%s", code, price, thread_id)
         if not thread_id:
             await client.send_message(
                 msg.chat_id,
