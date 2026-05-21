@@ -1409,3 +1409,57 @@ def register_order_commands_v3(client):
 
         # Refresh main message + Firebase sync (non-blocking, debounced)
         _firebase_refresh_async(client, db_conn, thread_id, order)
+
+    # ── DONE ALL TASKS ───────────────────────────────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_done_all_tasks(event):
+        msg = event.message
+        if isinstance(msg, MessageService):
+            return
+        if (msg.text or "").strip().lower() != "done all tasks":
+            return
+
+        thread_id = _extract_thread_id(msg)
+        if not thread_id:
+            await client.send_message(
+                msg.chat_id,
+                "❌ Không xác định được topic đơn hàng.",
+                reply_to=msg.id,
+            )
+            return
+
+        user_id = getattr(msg, "sender_id", None)
+        TASK_TYPES = ["ban_hd", "soan_hang", "giao_hang", "nop_tien", "nhan_tien"]
+
+        try:
+            # Mark all 5 tasks as done in one batch
+            for task_type in TASK_TYPES:
+                set_task_status(db_conn, thread_id, task_type, user_id, done=True, skip=False)
+
+            # Re-read order and sync to Firebase + refresh main message
+            order = get_order_by_thread_id(db_conn, thread_id)
+            if order:
+                try:
+                    fb_set_order(thread_id, order)
+                except Exception as e:
+                    log.warning("done_all_tasks Firebase sync failed: %s", e)
+                channel_id = order.get("channel_id")
+                message_id = order.get("message_id")
+                if channel_id and message_id:
+                    try:
+                        _edit_batcher.schedule(thread_id, channel_id, message_id)
+                    except Exception as e:
+                        log.warning("done_all_tasks refresh failed: %s", e)
+
+            await client.send_message(
+                msg.chat_id,
+                "✅ Đã đánh dấu hoàn thành tất cả task.",
+                reply_to=msg.id,
+            )
+        except Exception as e:
+            log.error("done_all_tasks error: %s", e, exc_info=True)
+            await client.send_message(
+                msg.chat_id,
+                f"❌ Lỗi khi cập nhật: {e}",
+                reply_to=msg.id,
+            )
