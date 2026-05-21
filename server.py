@@ -930,6 +930,98 @@ async def order_detail_handler(request: web.Request):
         conn.close()
 
 
+# ─── Payment handlers (REST API for bot-don-hang) ────────────────────────────
+
+async def _payment_handler(request: web.Request, method: str):
+    """POST /api/order/payment/{tm|ck}
+    Process payment from bot-don-hang. Mirrors Telethon ck/tm commands.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+
+    thread_id = body.get("thread_id")
+    amount = body.get("amount")
+    user_id = body.get("user_id")
+
+    if not thread_id or not amount:
+        return web.json_response({"ok": False, "error": "Missing thread_id or amount"}, status=400)
+
+    try:
+        from order_commands_v3 import _process_payment_core
+        result = await _process_payment_core(int(thread_id), int(amount), user_id, method)
+    except Exception as e:
+        log.error("Payment API error: %s", e, exc_info=True)
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    if not result["success"]:
+        return web.json_response({"ok": False, "error": result["error"]}, status=400)
+
+    return web.json_response({
+        "ok": True,
+        "thread_id": result["thread_id"],
+        "amount": result["amount"],
+        "method": result["method"],
+        "method_label": result["method_label"],
+        "kv_code": result["kv_code"],
+        "old_debt": result["old_debt"],
+        "new_debt": result["new_debt"],
+    })
+
+
+async def payment_tm_handler(request: web.Request):
+    return await _payment_handler(request, "Cash")
+
+
+async def payment_ck_handler(request: web.Request):
+    return await _payment_handler(request, "Transfer")
+
+
+async def order_totals_handler(request: web.Request):
+    """POST /api/order/totals
+    Return order totals for amount suggestion (used by bot-don-hang payment flow).
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+
+    thread_id = body.get("thread_id")
+    if not thread_id:
+        return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
+
+    try:
+        from order_db import _get_connection, get_order_by_thread_id
+        conn = _get_connection()
+        order = get_order_by_thread_id(conn, int(thread_id))
+        if not order:
+            return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+
+        # Calculate totals from invoice if available
+        invoice = order.get("invoice") or order.get("san_pham") or []
+        total = sum(int(item.get("price", 0)) * int(item.get("sl", 1)) for item in invoice)
+        discount = order.get("discount", 0)
+        pvc = order.get("pvc", 0)
+        vat = order.get("vat", 0)
+        pre_debt_total = total - discount + pvc + vat
+
+        return web.json_response({
+            "ok": True,
+            "order": {
+                "pre_debt_total": pre_debt_total,
+                "total_payable": pre_debt_total,
+                "total": total,
+                "discount": discount,
+                "pvc": pvc,
+                "vat": vat,
+            }
+        })
+    except Exception as e:
+        log.error("Totals API error: %s", e, exc_info=True)
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+
 # ─── Main ──────────────────────────────────────────────────────────────────────
 async def main():
     global _client, _donhang_db
@@ -1022,6 +1114,11 @@ async def main():
     # Send a file via the user account (called from bot-don-hang for media forwarding)
     from tg_send_file import make_handler as _make_send_file_handler
     app.router.add_post("/api/tg/send-file", _make_send_file_handler(lambda: _client))
+
+    # Payment endpoints (called from bot-don-hang, mirrors ck/tm Telethon commands)
+    app.router.add_post("/api/order/payment/tm", payment_tm_handler)
+    app.router.add_post("/api/order/payment/ck", payment_ck_handler)
+    app.router.add_post("/api/order/totals", order_totals_handler)
 
     runner = web.AppRunner(app)
     await runner.setup()

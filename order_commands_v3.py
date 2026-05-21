@@ -189,48 +189,58 @@ def _fmt_analysis(product_counts: list[tuple[str, int]]) -> str:
 
 # ── Core payment handler ────────────────────────────────────────────
 
-async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int | None, method: str):
-    """Process a payment (tm=Cash or ck=Transfer) — fully in Telethon.
-    
-    Mirrors the Node.js processCashPaymentForOrder() + POST /api/order/payment/* logic.
-    """
+async def _process_payment_core(thread_id: int, amount: int, user_id: int | None, method: str) -> dict:
+    """Core payment processing (DB + KiotViet). Returns result dict for both Telethon and REST API."""
     db_conn = _get_connection()
     actor_name = str(user_id) if user_id else "API"
     account_id = 1 if method == "Transfer" else None
     method_label = "TM" if method == "Cash" else "CK"
-    method_icon = "💵" if method == "Cash" else "💳"
 
-    # Immediate feedback
-    processing_msg = await client.send_message(
-        msg.chat_id,
-        "⏳ Đang xử lý......",
-        reply_to=msg.id,
-    )
+    result = {
+        "success": False,
+        "error": None,
+        "thread_id": thread_id,
+        "amount": amount,
+        "method": method,
+        "method_label": method_label,
+        "kv_code": None,
+        "old_debt": None,
+        "new_debt": None,
+        "kh_id_fb": None,
+        "kv_id": None,
+        "kh_name": None,
+        "order": None,
+    }
 
     # 1. Read order
     order = get_order_by_thread_id(db_conn, thread_id)
     if not order:
-        await client.edit_message(msg.chat_id, processing_msg.id, "❌ Không tìm thấy đơn hàng")
-        return
+        result["error"] = "Không tìm thấy đơn hàng"
+        return result
+    result["order"] = order
 
     kh_id_fb = order.get("khach_hang_id") or order.get("khID")
     if not kh_id_fb:
-        await client.edit_message(msg.chat_id, processing_msg.id, "❌ Đơn hàng này chưa được gán khách hàng.")
-        return
+        result["error"] = "Đơn hàng này chưa được gán khách hàng."
+        return result
+    result["kh_id_fb"] = kh_id_fb
 
     customer = get_customer_by_key(db_conn, str(kh_id_fb))
     if not customer or not customer.get("kh_id"):
-        await client.edit_message(msg.chat_id, processing_msg.id, "❌ Không tìm thấy thông tin khách hàng hoặc ID KiotViet.")
-        return
+        result["error"] = "Không tìm thấy thông tin khách hàng hoặc ID KiotViet."
+        return result
 
     kv_id = customer["kh_id"]
     kh_name = customer.get("name") or order.get("khach_hang") or str(kh_id_fb)
+    result["kv_id"] = kv_id
+    result["kh_name"] = kh_name
 
     # 2. Get old debt from KiotViet (best-effort)
     old_debt = None
     try:
         det = get_customer_debt_kv(kv_id)
         old_debt = det.get("debt")
+        result["old_debt"] = old_debt
     except Exception as e:
         log.warning("Could not fetch old debt for customer %d: %s", kv_id, e)
 
@@ -244,14 +254,14 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
         )
     except Exception as e:
         log.error("KiotViet create_order_with_payment failed: %s", e)
-        await client.edit_message(msg.chat_id, processing_msg.id,
-            f"❌ Lỗi tạo thanh toán KiotViet: {e}")
-        return
+        result["error"] = f"Lỗi tạo thanh toán KiotViet: {e}"
+        return result
 
     if not kv_res:
-        await client.edit_message(msg.chat_id, processing_msg.id,
-            "❌ Không thể tạo thanh toán trên KiotViet")
-        return
+        result["error"] = "Không thể tạo thanh toán trên KiotViet"
+        return result
+
+    result["kv_code"] = kv_res.get("code", "N/A")
 
     # 4. Save payment to SQLite
     payment_record = {
@@ -264,20 +274,59 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
     if not ok:
         log.error("Failed to save payment to SQLite: %s", payment_msg)
 
-    # Re-read order to get updated payments
-    order = get_order_by_thread_id(db_conn, thread_id)
-    kv_code = kv_res.get("code", "N/A")
-
     # 5. Auto-complete v2 tasks: nhan_tien + nop_tien
-    _auto_complete_tasks(client, db_conn, thread_id, user_id, msg.chat_id)
+    _auto_complete_tasks_core(db_conn, thread_id, user_id)
 
     # 6. Re-read order after all writes and sync to Firebase
     order = get_order_by_thread_id(db_conn, thread_id)
+    result["order"] = order
     try:
         if order:
             fb_set_order(thread_id, order)
     except Exception as e:
         log.warning("Firebase full sync failed: %s", e)
+
+    # 7. Fetch new debt from KiotViet
+    new_debt = None
+    try:
+        det = get_customer_debt_kv(kv_id)
+        new_debt = det.get("debt")
+        result["new_debt"] = new_debt
+    except Exception as e:
+        log.warning("Could not fetch new debt for customer %d: %s", kv_id, e)
+
+    result["success"] = True
+    return result
+
+
+async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int | None, method: str):
+    """Process a payment (tm=Cash or ck=Transfer) — fully in Telethon.
+    
+    Mirrors the Node.js processCashPaymentForOrder() + POST /api/order/payment/* logic.
+    """
+    # Immediate feedback
+    processing_msg = await client.send_message(
+        msg.chat_id,
+        "⏳ Đang xử lý......",
+        reply_to=msg.id,
+    )
+
+    result = await _process_payment_core(thread_id, amount, user_id, method)
+
+    if not result["success"]:
+        await client.edit_message(msg.chat_id, processing_msg.id, f"❌ {result['error']}")
+        return
+
+    method_label = result["method_label"]
+    kv_code = result["kv_code"]
+    new_debt = result["new_debt"]
+    kh_name = result["kh_name"]
+    kh_id_fb = result["kh_id_fb"]
+    kv_id = result["kv_id"]
+    order = result["order"]
+    old_debt = result["old_debt"]
+    amount = result["amount"]
+    method = result["method"]
 
     # 7. Edit the processing message with success
     await client.edit_message(
@@ -292,7 +341,7 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
             create_fund_receipt(
                 amount=amount,
                 khach_hang_name=kh_name,
-                created_by=actor_name,
+                created_by=str(user_id) if user_id else "API",
                 client=client,
                 order_chat_id=msg.chat_id,
                 order_thread_id=thread_id,
@@ -300,14 +349,7 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
         except Exception as e:
             log.warning("Fund receipt creation failed: %s", e)
 
-    # 9. Fetch new debt from KiotViet
-    new_debt = None
-    try:
-        det = get_customer_debt_kv(kv_id)
-        new_debt = det.get("debt")
-    except Exception as e:
-        log.warning("Could not fetch new debt for customer %d: %s", kv_id, e)
-
+    # 9. Show new debt
     if new_debt is not None:
         await client.send_message(
             msg.chat_id,
@@ -356,8 +398,8 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
         log.warning("Order message refresh queuing failed: %s", e)
 
 
-def _auto_complete_tasks(client, db_conn, thread_id: int, user_id: int | None, chat_id: int):
-    """Auto-complete nhan_tien + nop_tien tasks for the order."""
+def _auto_complete_tasks_core(db_conn, thread_id: int, user_id: int | None):
+    """Auto-complete nhan_tien + nop_tien tasks for the order (DB only)."""
     for task_type in ("nhan_tien", "nop_tien"):
         try:
             ok = set_task_status(db_conn, thread_id, task_type, user_id)
@@ -365,6 +407,11 @@ def _auto_complete_tasks(client, db_conn, thread_id: int, user_id: int | None, c
                 log.info("Auto-completed task %s for thread %d", task_type, thread_id)
         except Exception as e:
             log.warning("Failed to auto-complete %s for thread %d: %s", task_type, thread_id, e)
+
+
+def _auto_complete_tasks(client, db_conn, thread_id: int, user_id: int | None, chat_id: int):
+    """Auto-complete nhan_tien + nop_tien tasks for the order."""
+    _auto_complete_tasks_core(db_conn, thread_id, user_id)
 
 
 _edit_batcher: _EditBatcher | None = None
