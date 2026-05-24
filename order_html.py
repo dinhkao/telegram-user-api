@@ -109,7 +109,9 @@ def build_order_main_message_html(order: dict, thread_id: int) -> str:
     # Wrap status icons with bot deep-link for quick actions (same as Node.js)
     order_start_key = order.get("firebase_key") or thread_id
     bot_start_url = f"tg://resolve?domain=letrangdonhangbot&start={order_start_key}"
-    icons_linked = f"<a href=\"{bot_start_url}\">{status_icons}💰</a>"
+    nhan_tien_done = (task_status.get("nhan_tien") or {}).get("done")
+    money_icon = "💰" if nhan_tien_done else "😠"
+    icons_linked = f"<a href=\"{bot_start_url}\">{status_icons}{money_icon}</a>"
     main_line = f"dh {icons_linked} <a href=\"{order_link}\">{order_text}</a>"
 
     # ── Assemble expanded blockquote ────────────────────────────────
