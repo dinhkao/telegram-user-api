@@ -328,8 +328,17 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
 def generate_product_detail_html(db_conn, product_code):
     """Generate detail page for a specific product."""
     product = get_product(db_conn, product_code)
+    
+    # If product not in table, create a placeholder
     if not product:
-        return "<h1>Sản phẩm không tồn tại</h1>"
+        product = {
+            "code": product_code,
+            "name": "",
+            "cost_price": 0,
+            "note": "Chưa có giá vốn",
+            "created_at": None,
+            "updated_at": None,
+        }
     
     # Get orders containing this product
     cur = db_conn.execute(
@@ -391,6 +400,9 @@ def generate_product_detail_html(db_conn, product_code):
         .container {{ max-width: 1200px; margin: 0 auto; }}
         h1 {{ color: #333; margin-bottom: 20px; }}
         .back {{ color: #3b82f6; text-decoration: none; margin-bottom: 20px; display: inline-block; }}
+        .nav {{ margin-bottom: 20px; }}
+        .nav a {{ padding: 8px 16px; background: #3b82f6; color: white; text-decoration: none; border-radius: 5px; margin-right: 10px; }}
+        .nav a:hover {{ background: #2563eb; }}
         .product-info {{ background: white; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
         .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }}
         .card {{ background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
@@ -413,7 +425,10 @@ def generate_product_detail_html(db_conn, product_code):
 </head>
 <body>
     <div class="container">
-        <a href="/" class="back">← Quay lại Dashboard</a>
+        <div class="nav">
+            <a href="/">🏠 Dashboard</a>
+            <a href="/customers">👥 Khách hàng</a>
+        </div>
         <h1>📦 Sản phẩm: {product_code}</h1>
         
         <div class="product-info">
@@ -421,6 +436,7 @@ def generate_product_detail_html(db_conn, product_code):
                 <label>Giá vốn: </label>
                 <input type="number" name="cost_price" value="{product['cost_price']}" placeholder="Giá vốn">
                 <button type="submit">💾 Cập nhật</button>
+                {f'<span style="color: #ef4444; margin-left: 10px;">⚠️ Chưa có giá vốn - lợi nhuận sẽ = 0</span>' if product['cost_price'] == 0 else ''}
             </form>
         </div>
         
