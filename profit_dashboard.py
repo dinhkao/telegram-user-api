@@ -242,6 +242,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                         <th>Đơn hàng</th>
                         <th>Ngày</th>
                         <th>Khách hàng</th>
+                        <th>Sản phẩm</th>
                         <th>Doanh thu</th>
                         <th>Giá vốn</th>
                         <th>Lợi nhuận</th>
@@ -273,11 +274,26 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         else:
             date_display = ""
         
+        # Build product details
+        items = od.get('items', [])
+        product_details = []
+        for item in items:
+            code = item.get('code', '?')
+            qty = item.get('qty', 0)
+            cost_price = item.get('cost_price', 0)
+            has_item_cost = item.get('has_cost', False)
+            if has_item_cost:
+                product_details.append(f"{code}({qty})")
+            else:
+                product_details.append(f"<span style='color:#f59e0b'>{code}({qty})</span>")
+        products_html = "<br>".join(product_details) if product_details else "-"
+        
         html += f"""
                     <tr>
                         <td><a href="tg://privatepost?channel=2124542200&post={od['thread_id']}" target="_blank">#{od['thread_id']}</a></td>
                         <td>{date_display}</td>
                         <td>{customer_name}</td>
+                        <td style="font-size: 12px;">{products_html}</td>
                         <td>{_format_money(od['revenue'])}đ</td>
                         <td>{_format_money(od['cost'])}đ</td>
                         <td class="profit {profit_class}">{profit_display}</td>
@@ -425,13 +441,26 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                 
                 data.orders.forEach(od => {
                     const profitClass = od.profit > 0 ? 'positive' : (od.profit < 0 ? 'negative' : '');
-                    const profitDisplay = od.has_cost ? `${od.provenue - od.cost}đ` : '<span class="tag yellow">Chưa có giá vốn</span>';
+                    const profitDisplay = od.has_cost ? `${od.revenue - od.cost}đ` : '<span class="tag yellow">Chưa có giá vốn</span>';
+                    
+                    // Build product details
+                    let productsHtml = '-';
+                    if (od.items && od.items.length > 0) {
+                        productsHtml = od.items.map(item => {
+                            if (item.has_cost) {
+                                return `${item.code}(${item.qty})`;
+                            } else {
+                                return `<span style='color:#f59e0b'>${item.code}(${item.qty})</span>`;
+                            }
+                        }).join('<br>');
+                    }
                     
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td><a href="tg://privatepost?channel=2124542200&post=${od.thread_id}" target="_blank">#${od.thread_id}</a></td>
                         <td>${od.date}</td>
                         <td>${od.customer}</td>
+                        <td style="font-size: 12px;">${productsHtml}</td>
                         <td>${od.revenue.toLocaleString()}đ</td>
                         <td>${od.cost.toLocaleString()}đ</td>
                         <td class="profit ${profitClass}">${profitDisplay}</td>
@@ -1071,6 +1100,16 @@ def create_app():
             else:
                 date_display = ""
             
+            # Build items summary
+            items_summary = []
+            for item in result["items"]:
+                items_summary.append({
+                    "code": item["code"],
+                    "qty": item["qty"],
+                    "cost_price": item["cost_price"],
+                    "has_cost": item["has_cost"],
+                })
+            
             all_orders.append({
                 "thread_id": thread_id,
                 "customer": customer[:30],
@@ -1079,6 +1118,7 @@ def create_app():
                 "cost": result["total_cost"],
                 "profit": result["total_profit"],
                 "has_cost": result["total_cost"] > 0,
+                "items": items_summary,
             })
         
         # Paginate
