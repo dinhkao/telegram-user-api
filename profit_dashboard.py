@@ -239,6 +239,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                 <thead>
                     <tr>
                         <th>Đơn hàng</th>
+                        <th>Ngày</th>
                         <th>Khách hàng</th>
                         <th>Doanh thu</th>
                         <th>Giá vốn</th>
@@ -256,9 +257,25 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         profit_display = f'{_format_money(od["profit"])}đ' if has_cost else '<span class="tag yellow">Chưa có giá vốn</span>'
         
         customer_name = (od['customer'] or '')[:30]
+        # Format date
+        created = od.get('created', '')
+        if created:
+            try:
+                if isinstance(created, str):
+                    date_display = created[:10]  # YYYY-MM-DD
+                elif created > 1e10:
+                    date_display = datetime.fromtimestamp(created / 1000, tz=timezone.utc).strftime("%d/%m/%Y")
+                else:
+                    date_display = datetime.fromtimestamp(created, tz=timezone.utc).strftime("%d/%m/%Y")
+            except:
+                date_display = ""
+        else:
+            date_display = ""
+        
         html += f"""
                     <tr>
                         <td><a href="tg://privatepost?channel=2124542200&post={od['thread_id']}" target="_blank">#{od['thread_id']}</a></td>
+                        <td>{date_display}</td>
                         <td>{customer_name}</td>
                         <td>{_format_money(od['revenue'])}đ</td>
                         <td>{_format_money(od['cost'])}đ</td>
@@ -273,19 +290,24 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         
         <div id="products-tab" class="section" style="display:none">
             <h2>📦 Lợi nhuận theo sản phẩm</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Mã SP</th>
-                        <th>Giá vốn</th>
-                        <th>SL bán</th>
-                        <th>Doanh thu</th>
-                        <th>Giá vốn</th>
-                        <th>Lợi nhuận</th>
-                        <th>Thao tác</th>
-                    </tr>
-                </thead>
-                <tbody>"""
+            <form method="POST" action="/products/bulk-update">
+                <div style="margin-bottom: 10px;">
+                    <button type="submit" style="padding: 8px 16px; background: #22c55e; color: white; border: none; border-radius: 5px; cursor: pointer;">💾 Lưu tất cả giá vốn</button>
+                    <button type="button" onclick="selectAllWithCost()" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">Chọn SP chưa có giá vốn</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mã SP</th>
+                            <th>Giá vốn hiện tại</th>
+                            <th>Giá vốn mới</th>
+                            <th>SL bán</th>
+                            <th>Doanh thu</th>
+                            <th>Lợi nhuận</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>"""
     
     # Add product rows
     for code, pdata in product_summary[:100]:
@@ -297,21 +319,28 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         cost_tag = f'<span class="tag green">{_format_money(cost_price)}đ</span>' if has_cost else '<span class="tag yellow">Chưa có</span>'
         
         html += f"""
-                    <tr>
+                    <tr id="row-{code}">
                         <td><strong>{code}</strong></td>
                         <td>{cost_tag}</td>
+                        <td><input type="number" name="cost_{code}" value="{cost_price if has_cost else ''}" placeholder="Nhập giá" style="width: 100px; padding: 4px;" {'class="no-cost"' if not has_cost else ''}></td>
                         <td>{pdata['qty']}</td>
                         <td>{_format_money(pdata['revenue'])}đ</td>
-                        <td>{_format_money(pdata['cost'])}đ</td>
                         <td class="profit {profit_class}">{_format_money(pdata['profit'])}đ</td>
                         <td><a href="/product/{code}">Chi tiết</a></td>
                     </tr>"""
     
     html += """
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </form>
         </div>
     </div>
+    
+    <script>
+    function selectAllWithCost() {
+        document.querySelectorAll('input.no-cost').forEach(el => el.focus());
+    }
+    </script>
     
     <script>
     function showTab(tab) {
@@ -319,6 +348,13 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         document.getElementById('products-tab').style.display = tab === 'products' ? 'block' : 'none';
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         event.target.classList.add('active');
+    }
+    
+    // Check URL params for tab
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('tab') === 'products') {
+        showTab('products');
+        document.querySelectorAll('.tab')[1].classList.add('active');
     }
     </script>
 </body>
@@ -811,10 +847,29 @@ def create_app():
         result = calculate_order_profit(db_conn, order)
         return web.json_response(result)
     
+    async def handle_products_bulk_update(request):
+        """Bulk update cost prices from products tab."""
+        data = await request.post()
+        updated = 0
+        for key, value in data.items():
+            if key.startswith("cost_") and value.strip():
+                code = key[5:].upper()  # Remove 'cost_' prefix
+                try:
+                    cost_price = int(value.replace(",", "").replace(".", ""))
+                    if cost_price >= 0:
+                        upsert_product(db_conn, code, cost_price=cost_price)
+                        updated += 1
+                except ValueError:
+                    continue
+        
+        # Redirect back to dashboard with products tab
+        raise web.HTTPFound(location="/?tab=products")
+    
     app.router.add_get("/", handle_index)
     app.router.add_get("/customers", handle_customers)
     app.router.add_get("/product/{code}", handle_product_detail)
     app.router.add_post("/product/{code}/cost", handle_product_cost_update)
+    app.router.add_post("/products/bulk-update", handle_products_bulk_update)
     app.router.add_get("/export/orders", handle_export_orders)
     app.router.add_get("/export/products", handle_export_products)
     app.router.add_get("/api/products", handle_api_products)
