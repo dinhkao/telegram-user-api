@@ -39,7 +39,7 @@ def _format_money(n: int) -> str:
     return f"{n:,}"
 
 
-def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, limit=100, since_date=None):
+def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, limit=100, since_date=None, until_date=None):
     """Generate the main dashboard HTML."""
     
     # Get all products
@@ -68,10 +68,9 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         thread_id = row[0]
         order = json.loads(row[1])
         
-        # Filter by date
+        # Filter by date range
         created = order.get("created", "")
-        if since_date and created:
-            # Compare dates (handle both ISO string and timestamp)
+        if created:
             try:
                 if isinstance(created, str):
                     created_date = created[:10]  # Get YYYY-MM-DD part
@@ -79,7 +78,9 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                     created_date = datetime.fromtimestamp(created / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
                 else:
                     created_date = datetime.fromtimestamp(created, tz=timezone.utc).strftime("%Y-%m-%d")
-                if created_date < since_date:
+                if since_date and created_date < since_date:
+                    continue
+                if until_date and created_date > until_date:
                     continue
             except:
                 continue
@@ -200,6 +201,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         <div class="filters">
             <form method="GET" action="/">
                 <input type="date" name="since" value="{since_date or '2026-05-01'}" title="Từ ngày">
+                <input type="date" name="until" value="{until_date or ''}" title="Đến ngày">
                 <input type="text" name="product" placeholder="Lọc theo mã SP" value="{filter_product or ''}">
                 <input type="text" name="customer" placeholder="Lọc theo khách hàng" value="{filter_customer or ''}">
                 <button type="submit">🔍 Lọc</button>
@@ -499,7 +501,7 @@ def generate_product_detail_html(db_conn, product_code):
     return html
 
 
-def generate_customer_profit_html(db_conn, since_date=None):
+def generate_customer_profit_html(db_conn, since_date=None, until_date=None):
     """Generate customer profit analysis page."""
     if since_date is None:
         since_date = "2026-05-01"
@@ -507,7 +509,7 @@ def generate_customer_profit_html(db_conn, since_date=None):
     cur = db_conn.execute(
         "SELECT thread_id, json FROM orders WHERE deleted_at IS NULL "
         "AND json IS NOT NULL AND thread_id BETWEEN 460000 AND 480000 "
-        "ORDER BY thread_id DESC LIMIT 200"
+        "ORDER BY thread_id DESC LIMIT 500"
     )
     
     customer_data = {}  # customer_name -> {revenue, cost, profit, orders, products}
@@ -516,8 +518,8 @@ def generate_customer_profit_html(db_conn, since_date=None):
         order = json.loads(row[1])
         created = order.get("created", "")
         
-        # Filter by date
-        if since_date and created:
+        # Filter by date range
+        if created:
             try:
                 if isinstance(created, str):
                     created_date = created[:10]
@@ -525,7 +527,9 @@ def generate_customer_profit_html(db_conn, since_date=None):
                     created_date = datetime.fromtimestamp(created / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
                 else:
                     created_date = datetime.fromtimestamp(created, tz=timezone.utc).strftime("%Y-%m-%d")
-                if created_date < since_date:
+                if since_date and created_date < since_date:
+                    continue
+                if until_date and created_date > until_date:
                     continue
             except:
                 continue
@@ -598,6 +602,15 @@ def generate_customer_profit_html(db_conn, since_date=None):
             <a href="/export/orders">📥 Export CSV</a>
         </div>
         <h1>👥 Phân tích lợi nhuận theo khách hàng</h1>
+        
+        <div class="filters">
+            <form method="GET" action="/customers">
+                <input type="date" name="since" value="{since_date or '2026-05-01'}" title="Từ ngày">
+                <input type="date" name="until" value="{until_date or ''}" title="Đến ngày">
+                <button type="submit">🔍 Lọc</button>
+                <a href="/customers" style="padding: 8px 12px; text-decoration: none; color: #3b82f6;">Xóa bộ lọc</a>
+            </form>
+        </div>
         
         <div class="summary">
             <div class="card">
@@ -673,13 +686,15 @@ def create_app():
         filter_product = request.query.get("product", "").strip().upper() or None
         filter_customer = request.query.get("customer", "").strip() or None
         since_date = request.query.get("since", "2026-05-01").strip() or None
+        until_date = request.query.get("until", "").strip() or None
         
-        html = generate_dashboard_html(db_conn, filter_product, filter_customer, since_date=since_date)
+        html = generate_dashboard_html(db_conn, filter_product, filter_customer, since_date=since_date, until_date=until_date)
         return web.Response(text=html, content_type="text/html")
     
     async def handle_customers(request):
         since_date = request.query.get("since", "2026-05-01").strip() or None
-        html = generate_customer_profit_html(db_conn, since_date)
+        until_date = request.query.get("until", "").strip() or None
+        html = generate_customer_profit_html(db_conn, since_date, until_date)
         return web.Response(text=html, content_type="text/html")
     
     async def handle_product_detail(request):
