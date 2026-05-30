@@ -39,7 +39,7 @@ def _format_money(n: int) -> str:
     return f"{n:,}"
 
 
-def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, limit=100, since_date=None, until_date=None):
+def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, limit=500, since_date=None, until_date=None):
     """Generate the main dashboard HTML."""
     
     # Get all products
