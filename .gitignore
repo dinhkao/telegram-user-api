@@ -12,3 +12,5 @@ donhang.db-wal
 server.log
 nohup.out
 __pycache__/
+.DS_Store
+app.log

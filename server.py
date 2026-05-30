@@ -1063,6 +1063,19 @@ async def main():
     from khachhang_commands import register_khachhang_commands
     register_khachhang_commands(client)
 
+    # ── product management + profit commands ────────────────────────────
+    from product_commands import register_product_commands
+    register_product_commands(client)
+
+    # ── profit dashboard web server ─────────────────────────────────────
+    from profit_dashboard import create_app as create_profit_app, DASHBOARD_PORT
+    profit_app = create_profit_app()
+    profit_runner = web.AppRunner(profit_app)
+    await profit_runner.setup()
+    profit_site = web.TCPSite(profit_runner, "0.0.0.0", DASHBOARD_PORT)
+    await profit_site.start()
+    log.info("Profit dashboard: http://localhost:%d", DASHBOARD_PORT)
+
     # ── Firebase html-to-png listener (replaces test-qwen2-main Node service) ─
     from firebase_html_to_png import start_listener as _start_html_to_png
     _start_html_to_png(client)

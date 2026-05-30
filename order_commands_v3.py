@@ -688,8 +688,9 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Không parse được sản phẩm. Kiểm tra định dạng.", reply_to=msg.id)
             return
 
-        # Save to SQLite
-        order["invoice"] = invoice
+        # Save to SQLite (freeze cost prices at order time)
+        from product_db import freeze_invoice_cost_prices
+        order["invoice"] = freeze_invoice_cost_prices(db_conn, invoice)
         if not _save_order(db_conn, thread_id, order):
             await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
             return
@@ -910,6 +911,7 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, f"❌ Lỗi KiotViet: {e}", reply_to=msg.id)
 
     # ── PRINT ───────────────────────────────────────────────────────
+    # Print invoice + delivery ticket (mirrors Node.js /api/order/print-giao)
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_print(event):
         msg = event.message
@@ -917,12 +919,101 @@ def register_order_commands_v3(client):
         if (msg.text or "").strip() != "print": return
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
-        result = _call_final("/api/order/handle-print", {
-            "thread_id": thread_id,
-            "user_id": getattr(msg, "sender_id", None),
-        })
-        reply = result.get("reply", "✅ Đã in phiếu") if result else "❌ Lỗi kết nối"
-        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
+        user_id = getattr(msg, "sender_id", None)
+        
+        # Get order from DB
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+        
+        # Check if order has KiotViet invoice
+        invoice_id = order.get("kiotvietInvoiceID")
+        if not invoice_id:
+            await client.send_message(msg.chat_id, "❌ Đơn hàng chưa có hóa đơn KiotViet. Dùng lệnh `tao hd` trước.", reply_to=msg.id)
+            return
+        
+        # Get customer name
+        kh_id_fb = order.get("khach_hang_id") or order.get("khID")
+        customer_name = "Khách hàng"
+        if kh_id_fb:
+            customer = get_customer_by_key(db_conn, str(kh_id_fb))
+            if customer:
+                customer_name = customer.get("name", "Khách hàng")
+        
+        # Get order text
+        order_text = order.get("text", "")
+        
+        # Get printed by name
+        printed_by = str(user_id) if user_id else "Hệ thống"
+        
+        # Processing feedback
+        proc_msg = await client.send_message(msg.chat_id, "⏳ Đang in phiếu giao hàng......", reply_to=msg.id)
+        
+        try:
+            # 1. Print 2 copies of invoice (no QR) via Firebase
+            from inhoadon import generate_invoice_html
+            from delivery_ticket import _enqueue_html_for_print, generate_delivery_ticket_html
+            
+            # Get debt snapshot
+            snapshot_debt = order.get("invoice_debt_snapshot", 0)
+            
+            # Generate invoice HTML (no QR)
+            invoice_html = generate_invoice_html(invoice_id, debt=snapshot_debt, hints={
+                "expectedVAT": int(order.get("vat", 0)),
+                "expectedPVC": int(order.get("pvc", 0)),
+                "customerNameOverride": customer_name,
+                "disableQR": True,
+            })
+            
+            # Queue 2 copies of invoice for printing
+            await _enqueue_html_for_print(invoice_html, copies=2)
+            
+            # 2. Get nộp tiền task URL (if exists)
+            nop_tien_topic_url = ""
+            try:
+                # Query tasks table for nop_tien task
+                cur = db_conn.execute(
+                    "SELECT json FROM tasks WHERE json_extract(json, '$.dhThreadID') = ? "
+                    "AND json_extract(json, '$.taskType') = 'nop_tien' LIMIT 1",
+                    (thread_id,)
+                )
+                task_row = cur.fetchone()
+                if task_row:
+                    import json
+                    task_data = json.loads(task_row["json"])
+                    task_thread_id = task_data.get("threadID")
+                    if task_thread_id:
+                        task_group_id = int(os.getenv("TASK_GROUP_ID", "-1002574612166"))
+                        internal_task_group_id = str(task_group_id)[4:] if str(task_group_id).startswith("-100") else str(abs(task_group_id))
+                        nop_tien_topic_url = f"tg://privatepost?channel={internal_task_group_id}&post={task_thread_id}"
+            except Exception as e:
+                log.warning("Failed to get nop_tien task URL: %s", e)
+            
+            # 3. Generate and print delivery ticket
+            delivery_html = generate_delivery_ticket_html(
+                thread_id=thread_id,
+                customer_name=customer_name,
+                order_text=order_text,
+                printed_by=printed_by,
+                nop_tien_topic_url=nop_tien_topic_url,
+            )
+            await _enqueue_html_for_print(delivery_html, copies=1)
+            
+            # 4. Send success message
+            await client.edit_message(
+                msg.chat_id,
+                proc_msg.id,
+                f"🖨️ {printed_by} đã in 2 hóa đơn (không QR) và Phiếu giao hàng",
+            )
+            
+        except Exception as e:
+            log.error("Print failed: %s", e, exc_info=True)
+            await client.edit_message(
+                msg.chat_id,
+                proc_msg.id,
+                f"❌ Lỗi in phiếu: {e}",
+            )
 
     # ── PAYMENT: ck / tm ────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -1336,8 +1427,9 @@ def register_order_commands_v3(client):
             )
             return
 
-        # Save updated invoice
-        order["invoice"] = next_invoice
+        # Save updated invoice (freeze cost prices)
+        from product_db import freeze_invoice_cost_prices
+        order["invoice"] = freeze_invoice_cost_prices(db_conn, next_invoice)
         if not _save_order(db_conn, thread_id, order):
             await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
             return

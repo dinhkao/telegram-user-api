@@ -1,6 +1,10 @@
 """order_html.py — Generate main order message HTML, matching Node.js buildMessageContent()."""
 from __future__ import annotations
+import os
 from datetime import datetime, timezone, timedelta
+
+# Customer group ID for building customer topic hyperlinks
+_CUSTOMER_GROUP_ID = int(os.getenv("GROUP_KHACHHANG_ID", "-1002437761799"))
 
 
 # Vietnamese accent removal table (module-level for efficiency)
@@ -52,7 +56,11 @@ def build_order_main_message_html(order: dict, thread_id: int) -> str:
     customer_name = order.get("customer_name") or ""
     customer_line = ""
     if customer_name:
-        customer_line = f"👤 <b>{_esc(customer_name)}</b> #KH{kh_id} #don_hang"
+        # Build customer topic hyperlink matching Node.js buildMessageContent()
+        group_id_str = str(_CUSTOMER_GROUP_ID)
+        internal_group_id = group_id_str[4:] if group_id_str.startswith("-100") else str(abs(_CUSTOMER_GROUP_ID))
+        customer_topic_url = f"tg://privatepost?channel={internal_group_id}&post={kh_id}"
+        customer_line = f"👤 <b><a href=\"{customer_topic_url}\">{_esc(customer_name)}</a></b> #KH{kh_id} #don_hang"
 
     # ── Invoice details ─────────────────────────────────────────────
     invoice = order.get("invoice") or []
