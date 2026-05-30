@@ -206,6 +206,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                 <input type="text" name="customer" placeholder="Lọc theo khách hàng" value="{filter_customer or ''}">
                 <button type="submit">🔍 Lọc</button>
                 <a href="/" style="padding: 8px 12px; text-decoration: none; color: #3b82f6;">Xóa bộ lọc</a>
+                <button type="button" onclick="freezeAllCosts()" style="padding: 8px 16px; background: #f59e0b; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">🔒 Đóng băng giá vốn</button>
             </form>
         </div>
         
@@ -284,6 +285,11 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                     </tr>"""
     
     html += """
+                    <tr id="loading-row" style="display:none;">
+                        <td colspan="7" style="text-align:center; padding: 20px;">
+                            <div class="spinner"></div> Đang tải thêm...
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -342,6 +348,22 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     }
     </script>
     
+    <style>
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
     <script>
     function showTab(tab) {
         document.getElementById('orders-tab').style.display = tab === 'orders' ? 'block' : 'none';
@@ -356,6 +378,85 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         showTab('products');
         document.querySelectorAll('.tab')[1].classList.add('active');
     }
+    
+    // Freeze all cost prices
+    function freezeAllCosts() {
+        if (!confirm('Đóng băng giá vốn vào tất cả đơn hàng? Giá vốn hiện tại sẽ được lưu vào đơn hàng và không thay đổi khi bạn cập nhật giá mới.')) {
+            return;
+        }
+        
+        fetch('/api/freeze-costs', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                alert(`Đã đóng băng giá vốn cho ${data.updated} đơn hàng`);
+                location.reload();
+            })
+            .catch(err => {
+                alert('Lỗi: ' + err.message);
+            });
+    }
+    
+    // Infinite scroll for orders
+    let currentPage = 1;
+    let isLoading = false;
+    let hasMore = true;
+    
+    function loadMoreOrders() {
+        if (isLoading || !hasMore) return;
+        
+        isLoading = true;
+        document.getElementById('loading-row').style.display = 'table-row';
+        
+        currentPage++;
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', currentPage);
+        
+        fetch(`/api/orders?${params.toString()}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.orders.length === 0) {
+                    hasMore = false;
+                    document.getElementById('loading-row').style.display = 'none';
+                    return;
+                }
+                
+                const tbody = document.querySelector('#orders-tab tbody');
+                const loadingRow = document.getElementById('loading-row');
+                
+                data.orders.forEach(od => {
+                    const profitClass = od.profit > 0 ? 'positive' : (od.profit < 0 ? 'negative' : '');
+                    const profitDisplay = od.has_cost ? `${od.provenue - od.cost}đ` : '<span class="tag yellow">Chưa có giá vốn</span>';
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><a href="tg://privatepost?channel=2124542200&post=${od.thread_id}" target="_blank">#${od.thread_id}</a></td>
+                        <td>${od.date}</td>
+                        <td>${od.customer}</td>
+                        <td>${od.revenue.toLocaleString()}đ</td>
+                        <td>${od.cost.toLocaleString()}đ</td>
+                        <td class="profit ${profitClass}">${profitDisplay}</td>
+                        <td>${od.revenue > 0 && od.has_cost ? ((od.profit / od.revenue) * 100).toFixed(1) + '%' : '0%'}</td>
+                    `;
+                    tbody.insertBefore(row, loadingRow);
+                });
+                
+                hasMore = data.has_more;
+                isLoading = false;
+                document.getElementById('loading-row').style.display = 'none';
+            })
+            .catch(err => {
+                console.error('Error loading orders:', err);
+                isLoading = false;
+                document.getElementById('loading-row').style.display = 'none';
+            });
+    }
+    
+    // Detect scroll to bottom
+    window.addEventListener('scroll', () => {
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+            loadMoreOrders();
+        }
+    });
     </script>
 </body>
 </html>"""
@@ -865,6 +966,134 @@ def create_app():
         # Redirect back to dashboard with products tab
         raise web.HTTPFound(location="/?tab=products")
     
+    async def handle_freeze_costs(request):
+        """Freeze cost prices into all orders that don't have frozen prices."""
+        from product_db import freeze_invoice_cost_prices
+        
+        cur = db_conn.execute(
+            "SELECT thread_id, json FROM orders WHERE deleted_at IS NULL "
+            "AND json IS NOT NULL AND thread_id BETWEEN 460000 AND 480000"
+        )
+        
+        updated = 0
+        for row in cur.fetchall():
+            thread_id = row[0]
+            order = json.loads(row[1])
+            invoice = order.get("invoice") or []
+            
+            if not invoice:
+                continue
+            
+            # Check if any item needs freezing
+            needs_freeze = any("cost_price" not in item for item in invoice)
+            if not needs_freeze:
+                continue
+            
+            # Freeze cost prices
+            frozen_invoice = freeze_invoice_cost_prices(db_conn, invoice)
+            order["invoice"] = frozen_invoice
+            
+            # Save back to database
+            from order_db import _save_order
+            if _save_order(db_conn, thread_id, order):
+                updated += 1
+        
+        return web.json_response({"ok": True, "updated": updated})
+    
+    async def handle_api_orders(request):
+        """API endpoint for paginated orders (infinite scroll)."""
+        page = int(request.query.get("page", 1))
+        per_page = int(request.query.get("per_page", 50))
+        since_date = request.query.get("since", "2026-05-01").strip() or None
+        until_date = request.query.get("until", "").strip() or None
+        filter_product = request.query.get("product", "").strip().upper() or None
+        filter_customer = request.query.get("customer", "").strip() or None
+        
+        # Get all orders first, then paginate
+        cur = db_conn.execute(
+            "SELECT thread_id, json FROM orders WHERE deleted_at IS NULL "
+            "AND json IS NOT NULL AND thread_id BETWEEN 460000 AND 480000 "
+            "ORDER BY thread_id DESC"
+        )
+        
+        all_orders = []
+        for row in cur.fetchall():
+            thread_id = row[0]
+            order = json.loads(row[1])
+            created = order.get("created", "")
+            
+            # Filter by date range
+            if created:
+                try:
+                    if isinstance(created, str):
+                        created_date = created[:10]
+                    elif created > 1e10:
+                        created_date = datetime.fromtimestamp(created / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+                    else:
+                        created_date = datetime.fromtimestamp(created, tz=timezone.utc).strftime("%Y-%m-%d")
+                    if since_date and created_date < since_date:
+                        continue
+                    if until_date and created_date > until_date:
+                        continue
+                except:
+                    continue
+            
+            result = calculate_order_profit(db_conn, order)
+            if not result["items"]:
+                continue
+            
+            customer = order.get("customer_name") or order.get("khach_hang") or ""
+            if isinstance(customer, dict):
+                customer = customer.get("name", "")
+            customer = str(customer or "")
+            
+            # Filter by product
+            if filter_product:
+                has_product = any(item["code"] == filter_product for item in result["items"])
+                if not has_product:
+                    continue
+            
+            # Filter by customer
+            if filter_customer and filter_customer.lower() not in customer.lower():
+                continue
+            
+            # Format date
+            if created:
+                try:
+                    if isinstance(created, str):
+                        date_display = created[:10]
+                    elif created > 1e10:
+                        date_display = datetime.fromtimestamp(created / 1000, tz=timezone.utc).strftime("%d/%m/%Y")
+                    else:
+                        date_display = datetime.fromtimestamp(created, tz=timezone.utc).strftime("%d/%m/%Y")
+                except:
+                    date_display = ""
+            else:
+                date_display = ""
+            
+            all_orders.append({
+                "thread_id": thread_id,
+                "customer": customer[:30],
+                "date": date_display,
+                "revenue": result["total_revenue"],
+                "cost": result["total_cost"],
+                "profit": result["total_profit"],
+                "has_cost": result["total_cost"] > 0,
+            })
+        
+        # Paginate
+        start = (page - 1) * per_page
+        end = start + per_page
+        orders_page = all_orders[start:end]
+        has_more = end < len(all_orders)
+        
+        return web.json_response({
+            "orders": orders_page,
+            "page": page,
+            "has_more": has_more,
+            "total": len(all_orders)
+        })
+    
     app.router.add_get("/", handle_index)
     app.router.add_get("/customers", handle_customers)
     app.router.add_get("/product/{code}", handle_product_detail)
@@ -872,9 +1101,11 @@ def create_app():
     app.router.add_post("/products/bulk-update", handle_products_bulk_update)
     app.router.add_get("/export/orders", handle_export_orders)
     app.router.add_get("/export/products", handle_export_products)
+    app.router.add_get("/api/orders", handle_api_orders)
     app.router.add_get("/api/products", handle_api_products)
     app.router.add_post("/api/products", handle_api_product_update)
     app.router.add_get("/api/profit", handle_api_profit)
+    app.router.add_post("/api/freeze-costs", handle_freeze_costs)
     
     return app
 
