@@ -340,10 +340,11 @@ def generate_product_detail_html(db_conn, product_code):
             "updated_at": None,
         }
     
-    # Get orders containing this product
+    # Get orders containing this product (from May 2026 onwards)
     cur = db_conn.execute(
         "SELECT thread_id, json FROM orders WHERE deleted_at IS NULL "
-        "AND json IS NOT NULL ORDER BY updated_at DESC LIMIT 200"
+        "AND json IS NOT NULL AND thread_id BETWEEN 460000 AND 480000 "
+        "ORDER BY thread_id DESC LIMIT 500"
     )
     
     orders_with_product = []
