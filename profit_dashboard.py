@@ -288,11 +288,11 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                 product_details.append(f"<span style='color:#f59e0b'>{code}({qty})</span>")
         products_html = "<br>".join(product_details) if product_details else "-"
         
-        # Build items JSON for modal
-        items_json = json.dumps(items)
+        # Build items JSON for modal - escape for HTML attribute
+        items_json = json.dumps(items).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace(chr(39), '&#39;')
         
         html += f"""
-                    <tr onclick="showOrderDetail({od['thread_id']}, '{customer_name}', '{date_display}', {od['revenue']}, {od['cost']}, {od['profit']}, {items_json.replace(chr(39), '&#39;')})" style="cursor: pointer;">
+                    <tr onclick="showOrderDetail({od['thread_id']}, &#39;{customer_name}&#39;, &#39;{date_display}&#39;, {od['revenue']}, {od['cost']}, {od['profit']}, {items_json})" style="cursor: pointer;">
                         <td><a href="tg://privatepost?channel=2124542200&post={od['thread_id']}" target="_blank" onclick="event.stopPropagation()">#{od['thread_id']}</a></td>
                         <td>{date_display}</td>
                         <td>{customer_name}</td>
