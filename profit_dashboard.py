@@ -311,8 +311,15 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         # Build items JSON for modal - escape for HTML attribute
         items_json = json.dumps(items).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace(chr(39), '&#39;')
         
+        # Get fees for the order
+        vat = int(order.get("vat", 0))
+        pvc = int(order.get("pvc", 0))
+        disc = int(order.get("discount", 0))
+        fees_obj = {"vat": vat, "pvc": pvc, "discount": disc}
+        fees_json = json.dumps(fees_obj)
+        
         html += f"""
-                    <tr onclick="showOrderDetail({od['thread_id']}, &#39;{customer_name}&#39;, &#39;{date_display}&#39;, {od['revenue']}, {od['cost']}, {od['profit']}, {items_json})" style="cursor: pointer;">
+                    <tr onclick="showOrderDetail({od['thread_id']}, &#39;{customer_name}&#39;, &#39;{date_display}&#39;, {od['revenue']}, {od['cost']}, {od['profit']}, {items_json}, {fees_json})" style="cursor: pointer;">
                         <td><a href="tg://privatepost?channel=2124542200&post={od['thread_id']}" target="_blank" onclick="event.stopPropagation()">#{od['thread_id']}</a></td>
                         <td>{date_display}</td>
                         <td>{customer_name}</td>
@@ -447,7 +454,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     }
     
     // Show order detail modal
-    function showOrderDetail(threadId, customer, date, revenue, cost, profit, items) {
+    function showOrderDetail(threadId, customer, date, revenue, cost, profit, items, fees) {
         document.getElementById('modal-title').innerHTML = `📦 Chi tiết đơn hàng #${threadId}`;
         
         const hasCost = cost > 0;
@@ -496,6 +503,18 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         
         const profitColor = profit > 0 ? '#22c55e' : (profit < 0 ? '#ef4444' : '#333');
         
+        // Build fee display if any fees exist
+        let feesHtml = '';
+        if (fees && (fees.vat || fees.pvc || fees.discount)) {
+            feesHtml = '<div style="margin-top:12px; padding:12px; background:#fffbe6; border-radius:8px; font-size:13px;">';
+            feesHtml += '<strong>📊 Phí & Thuế:</strong> ';
+            if (fees.vat) feesHtml += `<span style="margin-left:8px;">VAT: +${fees.vat.toLocaleString()}đ</span>`;
+            if (fees.pvc) feesHtml += `<span style="margin-left:8px;">Ship: +${fees.pvc.toLocaleString()}đ</span>`;
+            if (fees.discount) feesHtml += `<span style="margin-left:8px;">Giảm: -${fees.discount.toLocaleString()}đ</span>`;
+            feesHtml += '<br><span style="color:#666;">Đã cộng vào doanh thu và lợi nhuận</span>';
+            feesHtml += '</div>';
+        }
+        
         document.getElementById('modal-content').innerHTML = `
             <div style="margin-bottom:20px;">
                 <p><strong>Khách hàng:</strong> ${customer || 'N/A'}</p>
@@ -523,6 +542,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
             </div>
             
             <h3 style="margin:15px 0 10px;">Chi tiết sản phẩm</h3>
+            ${feesHtml}
             ${itemsHtml}
         `;
         
@@ -599,7 +619,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                         <td>${od.revenue > 0 && od.has_cost ? ((od.profit / od.revenue) * 100).toFixed(1) + '%' : '0%'}</td>
                     `;
                     row.addEventListener('click', function() {
-                        showOrderDetail(od.thread_id, od.customer, od.date, od.revenue, od.cost, od.profit, od.items);
+                        showOrderDetail(od.thread_id, od.customer, od.date, od.revenue, od.cost, od.profit, od.items, od.fees || {});
                     });
                     tbody.insertBefore(row, loadingRow);
                 });
@@ -1297,6 +1317,7 @@ def create_app():
                 "profit": result["total_profit"],
                 "has_cost": result["total_cost"] > 0,
                 "items": items_summary,
+                "fees": result.get("fees", {}),
             })
         
         # Paginate

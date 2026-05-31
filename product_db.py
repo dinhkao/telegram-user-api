@@ -162,13 +162,21 @@ def calculate_order_profit(conn, order: dict) -> dict:
     Uses frozen cost price from invoice item if available (saved at order time).
     Falls back to current cost price from products table if frozen price not set.
     
+    VAT and additional fees (pvc/shipping) are added to revenue.
+    Discount is subtracted from revenue.
+    
     Returns dict with:
     - items: list of item profits
-    - total_revenue: total selling price
+    - total_revenue: total selling price + vat + pvc - discount
     - total_cost: total cost price
     - total_profit: profit = revenue - cost
+    - fees: {vat, pvc, discount}
     """
     invoice = order.get("invoice") or order.get("invoice_items") or []
+    vat = int(order.get("vat", 0))
+    pvc = int(order.get("pvc", 0))
+    discount = int(order.get("discount", 0))
+    fee_total = vat + pvc - discount
     
     items_profit = []
     total_revenue = 0
@@ -214,8 +222,10 @@ def calculate_order_profit(conn, order: dict) -> dict:
         if cost_price > 0:
             total_cost += cost
     
-    # Calculate total profit only from items with cost
-    total_profit = sum(i["profit"] for i in items_profit)
+    # Calculate total profit only from items with cost, plus fees
+    items_profit_total = sum(i["profit"] for i in items_profit)
+    total_revenue += fee_total
+    total_profit = items_profit_total + fee_total if total_cost > 0 else 0
     
     return {
         "items": items_profit,
@@ -224,6 +234,7 @@ def calculate_order_profit(conn, order: dict) -> dict:
         "total_profit": total_profit,
         "item_count": len(items_profit),
         "items_with_cost": sum(1 for i in items_profit if i["has_cost"]),
+        "fees": {"vat": vat, "pvc": pvc, "discount": discount, "fee_total": fee_total},
     }
 
 
