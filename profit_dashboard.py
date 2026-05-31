@@ -486,66 +486,66 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         if (profitChart) return;
         const ctx = document.getElementById('profitChart').getContext('2d');
         const days = chartData.map(d => d.day);
-        profitChart = new Chart(ctx, {{
+        profitChart = new Chart(ctx, {
             type: 'bar',
-            data: {{
+            data: {
                 labels: days,
                 datasets: [
-                    {{
+                    {
                         label: 'Doanh thu',
                         data: chartData.map(d => d.revenue),
                         backgroundColor: 'rgba(59, 130, 246, 0.7)',
                         borderColor: '#3b82f6',
                         borderWidth: 1
-                    }},
-                    {{
+                    },
+                    {
                         label: 'Giá vốn',
                         data: chartData.map(d => d.cost),
                         backgroundColor: 'rgba(239, 68, 68, 0.5)',
                         borderColor: '#ef4444',
                         borderWidth: 1
-                    }},
-                    {{
+                    },
+                    {
                         label: 'Lợi nhuận',
                         data: chartData.map(d => d.profit),
                         backgroundColor: 'rgba(34, 197, 94, 0.7)',
                         borderColor: '#22c55e',
                         borderWidth: 1
-                    }}
+                    }
                 ]
-            }},
-            options: {{
+            },
+            options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {{
-                    legend: {{ position: 'top' }},
-                    tooltip: {{
-                        callbacks: {{
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
                             label: ctx => ctx.dataset.label + ': ' + ctx.raw.toLocaleString() + 'đ'
-                        }}
-                    }}
-                }},
-                scales: {{
-                    y: {{
-                        ticks: {{
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: {
                             callback: v => (v / 1000000).toFixed(1) + 'M'
-                        }}
-                    }}
-                }}
-            }}
-        }});
+                        }
+                    }
+                }
+            }
+        });
     }
     
     // Check URL params for tab
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('tab') === 'products') {{
+    if (urlParams.get('tab') === 'products') {
         showTab('products');
         document.querySelectorAll('.tab')[1].classList.add('active');
-    }}
-    if (urlParams.get('tab') === 'chart') {{
+    }
+    if (urlParams.get('tab') === 'chart') {
         showTab('chart');
         document.querySelectorAll('.tab')[2].classList.add('active');
-    }}
+    }
     
     // Quick date presets
     function setDatePreset(preset) {
@@ -800,11 +800,11 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     }
     
     // Detect scroll to bottom
-    window.addEventListener('scroll', () => {{
-        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {{
+    window.addEventListener('scroll', () => {
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
             loadMoreOrders();
-        }}
-    }});
+        }
+    });
     </script>
 </body>
 </html>"""
