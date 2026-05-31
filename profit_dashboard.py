@@ -165,6 +165,10 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         .filters input[type="text"] {{ width: auto; min-width: 100px; }}
         .filters button {{ background: #3b82f6; color: white; cursor: pointer; border: none; }}
         .filters button:hover {{ background: #2563eb; }}
+        .presets {{ display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; Width: 100%; }}
+        .presets button {{ padding: 5px 10px; background: #e5e7eb; color: #333; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; white-space: nowrap; }}
+        .presets button:hover {{ background: #d1d5db; }}
+        .presets button.active {{ background: #3b82f6; color: white; }}
         .filters a {{ padding: 8px 10px; text-decoration: none; color: #3b82f6; white-space: nowrap; font-size: 13px; }}
         .table-wrap {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 24px; }}
         table {{ width: 100%; min-width: 600px; border-collapse: collapse; }}
@@ -218,9 +222,19 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         <h1>📊 Dashboard Lợi Nhuận</h1>
         
         <div class="filters">
+            <div class="presets">
+                <button type="button" onclick="setDatePreset('today')">Hôm nay</button>
+                <button type="button" onclick="setDatePreset('yesterday')">Hôm qua</button>
+                <button type="button" onclick="setDatePreset('this_week')">Tuần này</button>
+                <button type="button" onclick="setDatePreset('7days')">7 ngày</button>
+                <button type="button" onclick="setDatePreset('14days')">14 ngày</button>
+                <button type="button" onclick="setDatePreset('30days')">30 ngày</button>
+                <button type="button" onclick="setDatePreset('this_month')">Tháng này</button>
+                <button type="button" onclick="setDatePreset('last_month')">Tháng trước</button>
+            </div>
             <form method="GET" action="/">
-                <input type="date" name="since" value="{since_date or '2026-05-01'}" title="Từ ngày">
-                <input type="date" name="until" value="{until_date or ''}" title="Đến ngày">
+                <input type="date" name="since" id="since" value="{since_date or '2026-05-01'}" title="Từ ngày">
+                <input type="date" name="until" id="until" value="{until_date or ''}" title="Đến ngày">
                 <input type="text" name="product" placeholder="Lọc theo mã SP" value="{filter_product or ''}">
                 <input type="text" name="customer" placeholder="Lọc theo khách hàng" value="{filter_customer or ''}">
                 <button type="submit">🔍 Lọc</button>
@@ -434,6 +448,59 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     if (urlParams.get('tab') === 'products') {
         showTab('products');
         document.querySelectorAll('.tab')[1].classList.add('active');
+    }
+    
+    // Quick date presets
+    function setDatePreset(preset) {
+        const now = new Date();
+        const fmt = d => d.toISOString().split('T')[0];
+        let since, until;
+        
+        switch(preset) {
+            case 'today':
+                since = until = fmt(now);
+                break;
+            case 'yesterday':
+                const yest = new Date(now); yest.setDate(yest.getDate() - 1);
+                since = until = fmt(yest);
+                break;
+            case 'this_week':
+                const mon = new Date(now); mon.setDate(mon.getDate() - mon.getDay() + 1);
+                if (mon > now) mon.setDate(mon.getDate() - 7);
+                since = fmt(mon); until = fmt(now);
+                break;
+            case '7days':
+                const d7 = new Date(now); d7.setDate(d7.getDate() - 7);
+                since = fmt(d7); until = fmt(now);
+                break;
+            case '14days':
+                const d14 = new Date(now); d14.setDate(d14.getDate() - 14);
+                since = fmt(d14); until = fmt(now);
+                break;
+            case '30days':
+                const d30 = new Date(now); d30.setDate(d30.getDate() - 30);
+                since = fmt(d30); until = fmt(now);
+                break;
+            case 'this_month':
+                since = fmt(new Date(now.getFullYear(), now.getMonth(), 1));
+                until = fmt(now);
+                break;
+            case 'last_month':
+                const firstLast = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const lastLast = new Date(now.getFullYear(), now.getMonth(), 0);
+                since = fmt(firstLast); until = fmt(lastLast);
+                break;
+        }
+        
+        document.getElementById('since').value = since;
+        document.getElementById('until').value = until;
+        
+        // Highlight active preset
+        document.querySelectorAll('.presets button').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        // Submit form
+        event.target.closest('form').submit();
     }
     
     // Freeze all cost prices
@@ -962,9 +1029,19 @@ def generate_customer_profit_html(db_conn, since_date=None, until_date=None):
         <h1>👥 Phân tích lợi nhuận theo khách hàng</h1>
         
         <div class="filters">
+            <div class="presets">
+                <button type="button" onclick="setDatePreset('today')">Hôm nay</button>
+                <button type="button" onclick="setDatePreset('yesterday')">Hôm qua</button>
+                <button type="button" onclick="setDatePreset('this_week')">Tuần này</button>
+                <button type="button" onclick="setDatePreset('7days')">7 ngày</button>
+                <button type="button" onclick="setDatePreset('14days')">14 ngày</button>
+                <button type="button" onclick="setDatePreset('30days')">30 ngày</button>
+                <button type="button" onclick="setDatePreset('this_month')">Tháng này</button>
+                <button type="button" onclick="setDatePreset('last_month')">Tháng trước</button>
+            </div>
             <form method="GET" action="/customers">
-                <input type="date" name="since" value="{since_date or '2026-05-01'}" title="Từ ngày">
-                <input type="date" name="until" value="{until_date or ''}" title="Đến ngày">
+                <input type="date" name="since" id="since" value="{since_date or '2026-05-01'}" title="Từ ngày">
+                <input type="date" name="until" id="until" value="{until_date or ''}" title="Đến ngày">
                 <button type="submit">🔍 Lọc</button>
                 <a href="/customers" style="padding: 8px 12px; text-decoration: none; color: #3b82f6;">Xóa bộ lọc</a>
             </form>
@@ -1026,6 +1103,28 @@ def generate_customer_profit_html(db_conn, since_date=None, until_date=None):
         </table>
         </div>
     </div>
+    <script>
+    function setDatePreset(preset) {
+        const now = new Date();
+        const fmt = d => d.toISOString().split('T')[0];
+        let since, until;
+        switch(preset) {
+            case 'today': since = until = fmt(now); break;
+            case 'yesterday': const yest = new Date(now); yest.setDate(yest.getDate() - 1); since = until = fmt(yest); break;
+            case 'this_week': const mon = new Date(now); mon.setDate(mon.getDate() - mon.getDay() + 1); if (mon > now) mon.setDate(mon.getDate() - 7); since = fmt(mon); until = fmt(now); break;
+            case '7days': const d7 = new Date(now); d7.setDate(d7.getDate() - 7); since = fmt(d7); until = fmt(now); break;
+            case '14days': const d14 = new Date(now); d14.setDate(d14.getDate() - 14); since = fmt(d14); until = fmt(now); break;
+            case '30days': const d30 = new Date(now); d30.setDate(d30.getDate() - 30); since = fmt(d30); until = fmt(now); break;
+            case 'this_month': since = fmt(new Date(now.getFullYear(), now.getMonth(), 1)); until = fmt(now); break;
+            case 'last_month': const fl = new Date(now.getFullYear(), now.getMonth() - 1, 1); const ll = new Date(now.getFullYear(), now.getMonth(), 0); since = fmt(fl); until = fmt(ll); break;
+        }
+        document.getElementById('since').value = since;
+        document.getElementById('until').value = until;
+        document.querySelectorAll('.presets button').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        event.target.closest('form').submit();
+    }
+    </script>
 </body>
 </html>"""
     
