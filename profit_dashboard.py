@@ -325,7 +325,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     
     html += """
                     <tr id="loading-row" style="display:none;">
-                        <td colspan="7" style="text-align:center; padding: 20px;">
+                        <td colspan="8" style="text-align:center; padding: 20px;">
                             <div class="spinner"></div> Đang tải thêm...
                         </td>
                     </tr>
@@ -587,8 +587,9 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                     }
                     
                     const row = document.createElement('tr');
+                    row.style.cursor = 'pointer';
                     row.innerHTML = `
-                        <td><a href="tg://privatepost?channel=2124542200&post=${od.thread_id}" target="_blank">#${od.thread_id}</a></td>
+                        <td><a href="tg://privatepost?channel=2124542200&post=${od.thread_id}" target="_blank" onclick="event.stopPropagation()">#${od.thread_id}</a></td>
                         <td>${od.date}</td>
                         <td>${od.customer}</td>
                         <td style="font-size: 12px;">${productsHtml}</td>
@@ -597,6 +598,9 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                         <td class="profit ${profitClass}">${profitDisplay}</td>
                         <td>${od.revenue > 0 && od.has_cost ? ((od.profit / od.revenue) * 100).toFixed(1) + '%' : '0%'}</td>
                     `;
+                    row.addEventListener('click', function() {
+                        showOrderDetail(od.thread_id, od.customer, od.date, od.revenue, od.cost, od.profit, od.items);
+                    });
                     tbody.insertBefore(row, loadingRow);
                 });
                 
@@ -662,8 +666,16 @@ def generate_product_detail_html(db_conn, product_code):
                 qty = int(item.get("sl", 0))
                 sell_price = int(item.get("price", 0))
                 revenue = qty * sell_price
-                cost = qty * product["cost_price"]
-                profit = revenue - cost
+                
+                # Use frozen cost_price from invoice item if available
+                frozen_cost = item.get("cost_price")
+                if frozen_cost is not None:
+                    cost_price = int(frozen_cost)
+                else:
+                    cost_price = product.get("cost_price", 0)
+                
+                cost = qty * cost_price
+                profit = (revenue - cost) if cost_price > 0 else 0
                 
                 customer = order.get("customer_name") or order.get("khach_hang") or ""
                 # Extract name if customer is a dict
@@ -686,7 +698,7 @@ def generate_product_detail_html(db_conn, product_code):
                 total_revenue += revenue
                 total_cost += cost
                 # If cost is 0, profit is 0
-                total_profit += profit if product['cost_price'] > 0 else 0
+                total_profit += profit if cost_price > 0 else 0
     
     html = f"""<!DOCTYPE html>
 <html lang="vi">
@@ -1262,13 +1274,17 @@ def create_app():
             else:
                 date_display = ""
             
-            # Build items summary
+            # Build items summary with full data for modal
             items_summary = []
             for item in result["items"]:
                 items_summary.append({
                     "code": item["code"],
                     "qty": item["qty"],
+                    "sell_price": item["sell_price"],
                     "cost_price": item["cost_price"],
+                    "revenue": item["revenue"],
+                    "cost": item["cost"],
+                    "profit": item["profit"],
                     "has_cost": item["has_cost"],
                 })
             
