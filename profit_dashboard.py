@@ -511,8 +511,13 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     }
     
     // Close modal on outside click
-    document.getElementById('orderModal').addEventListener('click', function(e) {
-        if (e.target === this) closeModal();
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('orderModal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) closeModal();
+            });
+        }
     });
     
     // Infinite scroll for orders
