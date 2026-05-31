@@ -374,6 +374,7 @@ def register_product_commands(client):
         orders_profit = []
         total_revenue = 0
         total_cost = 0
+        total_profit = 0
         
         for row in cur.fetchall():
             thread_id = row[0]
@@ -382,8 +383,10 @@ def register_product_commands(client):
             result = calculate_order_profit(db_conn, order)
             if result["items"]:
                 customer = order.get("customer_name") or order.get("khach_hang") or ""
+                if isinstance(customer, dict):
+                    customer = customer.get("name", "")
+                customer = str(customer or "")
                 orders_profit.append({
-                    "thread_id": thread_id,
                     "customer": customer,
                     "revenue": result["total_revenue"],
                     "cost": result["total_cost"],
@@ -393,6 +396,7 @@ def register_product_commands(client):
                 })
                 total_revenue += result["total_revenue"]
                 total_cost += result["total_cost"]
+                total_profit += result["total_profit"]
         
         if not orders_profit:
             await client.send_message(
@@ -423,7 +427,6 @@ def register_product_commands(client):
         lines.append(f"📦 Tổng doanh thu: <b>{_format_money(total_revenue)}</b>")
         lines.append(f"💵 Tổng giá vốn: <b>{_format_money(total_cost)}</b>")
         
-        total_profit = total_revenue - total_cost
         profit_emoji = "🟢" if total_profit >= 0 else "🔴"
         lines.append(f"{profit_emoji} Tổng lợi nhuận: <b>{_format_profit(total_profit)}</b>")
         
