@@ -233,8 +233,8 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                 <button type="button" onclick="setDatePreset('last_month')">Tháng trước</button>
             </div>
             <form method="GET" action="/">
-                <input type="date" name="since" id="since" value="{since_date or '2026-05-01'}" title="Từ ngày">
-                <input type="date" name="until" id="until" value="{until_date or ''}" title="Đến ngày">
+                <input type="date" name="since" id="since" value="{since_date or '2026-05-01'}" title="Từ ngày" onchange="this.form.submit()">
+                <input type="date" name="until" id="until" value="{until_date or ''}" title="Đến ngày" onchange="this.form.submit()">
                 <input type="text" name="product" placeholder="Lọc theo mã SP" value="{filter_product or ''}">
                 <input type="text" name="customer" placeholder="Lọc theo khách hàng" value="{filter_customer or ''}">
                 <button type="submit">🔍 Lọc</button>
@@ -293,16 +293,20 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         profit_display = f'{_format_money(od["profit"])}đ' if has_cost else '<span class="tag yellow">Chưa có giá vốn</span>'
         
         customer_name = (od['customer'] or '')[:30]
-        # Format date
+        # Format date + time
         created = od.get('created', '')
         if created:
             try:
                 if isinstance(created, str):
-                    date_display = created[:10]  # YYYY-MM-DD
+                    date_display = created[:16].replace('T', ' ')  # YYYY-MM-DD HH:MM
                 elif created > 1e10:
-                    date_display = datetime.fromtimestamp(created / 1000, tz=timezone.utc).strftime("%d/%m/%Y")
+                    dt = datetime.fromtimestamp(created / 1000, tz=timezone.utc)
+                    vn = dt.astimezone(timezone(timedelta(hours=7)))
+                    date_display = vn.strftime("%d/%m %H:%M")
                 else:
-                    date_display = datetime.fromtimestamp(created, tz=timezone.utc).strftime("%d/%m/%Y")
+                    dt = datetime.fromtimestamp(created, tz=timezone.utc)
+                    vn = dt.astimezone(timezone(timedelta(hours=7)))
+                    date_display = vn.strftime("%d/%m %H:%M")
             except:
                 date_display = ""
         else:
@@ -1379,15 +1383,19 @@ def create_app():
             if filter_customer and filter_customer.lower() not in customer.lower():
                 continue
             
-            # Format date
+            # Format date + time (VN timezone)
             if created:
                 try:
                     if isinstance(created, str):
-                        date_display = created[:10]
+                        date_display = created[:16].replace('T', ' ')
                     elif created > 1e10:
-                        date_display = datetime.fromtimestamp(created / 1000, tz=timezone.utc).strftime("%d/%m/%Y")
+                        dt = datetime.fromtimestamp(created / 1000, tz=timezone.utc)
+                        vn = dt.astimezone(timezone(timedelta(hours=7)))
+                        date_display = vn.strftime("%d/%m %H:%M")
                     else:
-                        date_display = datetime.fromtimestamp(created, tz=timezone.utc).strftime("%d/%m/%Y")
+                        dt = datetime.fromtimestamp(created, tz=timezone.utc)
+                        vn = dt.astimezone(timezone(timedelta(hours=7)))
+                        date_display = vn.strftime("%d/%m %H:%M")
                 except:
                     date_display = ""
             else:
