@@ -478,7 +478,6 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     }
     
     // Chart data from server
-    </script>
     let profitChart = null;
     const chartData = __CHART_DATA__;
     
