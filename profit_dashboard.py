@@ -316,7 +316,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         pvc = int(order.get("pvc", 0))
         disc = int(order.get("discount", 0))
         fees_obj = {"vat": vat, "pvc": pvc, "discount": disc}
-        fees_json = json.dumps(fees_obj)
+        fees_json = json.dumps(fees_obj).replace('"', '&quot;').replace(chr(39), '&#39;')
         
         html += f"""
                     <tr onclick="showOrderDetail({od['thread_id']}, &#39;{customer_name}&#39;, &#39;{date_display}&#39;, {od['revenue']}, {od['cost']}, {od['profit']}, {items_json}, {fees_json})" style="cursor: pointer;">
