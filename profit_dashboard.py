@@ -504,7 +504,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         event.target.classList.add('active');
         
         // Submit form
-        event.target.closest('form').submit();
+        document.querySelector('.filters form').submit();
     }
     
     // Freeze all cost prices
@@ -1126,7 +1126,7 @@ def generate_customer_profit_html(db_conn, since_date=None, until_date=None):
         document.getElementById('until').value = until;
         document.querySelectorAll('.presets button').forEach(b => b.classList.remove('active'));
         event.target.classList.add('active');
-        event.target.closest('form').submit();
+        document.querySelector('.filters form').submit();
     }
     </script>
 </body>
