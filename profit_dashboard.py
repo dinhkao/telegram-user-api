@@ -137,6 +137,25 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     # Sort products by profit
     product_summary = sorted(product_profit_map.items(), key=lambda x: x[1]["profit"], reverse=True)
     
+    # Aggregate profit by day for chart
+    daily = {}
+    for od in orders_data:
+        day = (od.get('created', '') or '')[:10]
+        if not day:
+            continue
+        daily.setdefault(day, {"revenue": 0, "cost": 0, "profit": 0})
+        daily[day]["revenue"] += od["revenue"]
+        daily[day]["cost"] += od["cost"]
+        daily[day]["profit"] += od["profit"]
+    chart_days = sorted(daily.keys())
+    chart_data = json.dumps([{
+        "day": d[-5:],  # MM-DD
+        "full_day": d,
+        "revenue": daily[d]["revenue"],
+        "cost": daily[d]["cost"],
+        "profit": daily[d]["profit"],
+    } for d in chart_days[-60:]], ensure_ascii=False)  # Last 60 days
+    
     # Build HTML
     html = f"""<!DOCTYPE html>
 <html lang="vi">
@@ -210,6 +229,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
             h1 {{ font-size: 16px; }}
         }}
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
     <div class="container">
@@ -265,6 +285,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         <div class="tabs">
             <button class="tab active" onclick="showTab('orders')">Đơn hàng</button>
             <button class="tab" onclick="showTab('products')">Sản phẩm</button>
+            <button class="tab" onclick="showTab('chart')">Biểu đồ</button>
         </div>
         
         <div id="orders-tab" class="section">
@@ -409,6 +430,13 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         </div>
     </div>
     
+    <div id="chart-tab" class="section" style="display:none">
+        <h2>📊 Biểu đồ lợi nhuận theo ngày</h2>
+        <div style="background:white; border-radius:10px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+            <canvas id="profitChart" style="width:100%; max-height:400px;"></canvas>
+        </div>
+    </div>
+    
     <!-- Order Detail Modal -->
     <div id="orderModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; overflow:auto;">
         <div class="modal-content" style="background:white; margin:40px auto; max-width:95%; width:700px; border-radius:10px; padding:16px; position:relative;">
@@ -443,16 +471,81 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     function showTab(tab) {
         document.getElementById('orders-tab').style.display = tab === 'orders' ? 'block' : 'none';
         document.getElementById('products-tab').style.display = tab === 'products' ? 'block' : 'none';
+        document.getElementById('chart-tab').style.display = tab === 'chart' ? 'block' : 'none';
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         event.target.classList.add('active');
+        if (tab === 'chart') renderChart();
+    }
+    
+    // Chart data from server
+    </script>
+    let profitChart = null;
+    const chartData = __CHART_DATA__;
+    
+    function renderChart() {
+        if (profitChart) return;
+        const ctx = document.getElementById('profitChart').getContext('2d');
+        const days = chartData.map(d => d.day);
+        profitChart = new Chart(ctx, {{
+            type: 'bar',
+            data: {{
+                labels: days,
+                datasets: [
+                    {{
+                        label: 'Doanh thu',
+                        data: chartData.map(d => d.revenue),
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        borderColor: '#3b82f6',
+                        borderWidth: 1
+                    }},
+                    {{
+                        label: 'Giá vốn',
+                        data: chartData.map(d => d.cost),
+                        backgroundColor: 'rgba(239, 68, 68, 0.5)',
+                        borderColor: '#ef4444',
+                        borderWidth: 1
+                    }},
+                    {{
+                        label: 'Lợi nhuận',
+                        data: chartData.map(d => d.profit),
+                        backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                        borderColor: '#22c55e',
+                        borderWidth: 1
+                    }}
+                ]
+            }},
+            options: {{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {{
+                    legend: {{ position: 'top' }},
+                    tooltip: {{
+                        callbacks: {{
+                            label: ctx => ctx.dataset.label + ': ' + ctx.raw.toLocaleString() + 'đ'
+                        }}
+                    }}
+                }},
+                scales: {{
+                    y: {{
+                        ticks: {{
+                            callback: v => (v / 1000000).toFixed(1) + 'M'
+                        }}
+                    }}
+                }}
+            }}
+        }});
     }
     
     // Check URL params for tab
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('tab') === 'products') {
+    if (urlParams.get('tab') === 'products') {{
         showTab('products');
         document.querySelectorAll('.tab')[1].classList.add('active');
-    }
+    }}
+    if (urlParams.get('tab') === 'chart') {{
+        showTab('chart');
+        document.querySelectorAll('.tab')[2].classList.add('active');
+    }}
     
     // Quick date presets
     function setDatePreset(preset) {
@@ -707,15 +800,17 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     }
     
     // Detect scroll to bottom
-    window.addEventListener('scroll', () => {
-        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+    window.addEventListener('scroll', () => {{
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {{
             loadMoreOrders();
-        }
-    });
+        }}
+    }});
     </script>
 </body>
 </html>"""
     
+    # Replace chart data placeholder
+    html = html.replace('__CHART_DATA__', chart_data)
     return html
 
 
