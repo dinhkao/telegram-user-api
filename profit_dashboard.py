@@ -288,9 +288,12 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                 product_details.append(f"<span style='color:#f59e0b'>{code}({qty})</span>")
         products_html = "<br>".join(product_details) if product_details else "-"
         
+        # Build items JSON for modal
+        items_json = json.dumps(items)
+        
         html += f"""
-                    <tr>
-                        <td><a href="tg://privatepost?channel=2124542200&post={od['thread_id']}" target="_blank">#{od['thread_id']}</a></td>
+                    <tr onclick="showOrderDetail({od['thread_id']}, '{customer_name}', '{date_display}', {od['revenue']}, {od['cost']}, {od['profit']}, {items_json.replace(chr(39), '&#39;')})" style="cursor: pointer;">
+                        <td><a href="tg://privatepost?channel=2124542200&post={od['thread_id']}" target="_blank" onclick="event.stopPropagation()">#{od['thread_id']}</a></td>
                         <td>{date_display}</td>
                         <td>{customer_name}</td>
                         <td style="font-size: 12px;">{products_html}</td>
@@ -358,12 +361,20 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         </div>
     </div>
     
+    <!-- Order Detail Modal -->
+    <div id="orderModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; overflow:auto;">
+        <div style="background:white; margin:50px auto; max-width:700px; border-radius:10px; padding:20px; position:relative;">
+            <button onclick="closeModal()" style="position:absolute; top:10px; right:15px; background:none; border:none; font-size:24px; cursor:pointer;">✕</button>
+            <h2 id="modal-title" style="margin-bottom:20px;">Chi tiết đơn hàng</h2>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+    
     <script>
     function selectAllWithCost() {
         document.querySelectorAll('input.no-cost').forEach(el => el.focus());
     }
     </script>
-    
     <style>
         .spinner {
             border: 3px solid #f3f3f3;
@@ -411,6 +422,98 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                 alert('Lỗi: ' + err.message);
             });
     }
+    
+    // Show order detail modal
+    function showOrderDetail(threadId, customer, date, revenue, cost, profit, items) {
+        document.getElementById('modal-title').innerHTML = `📦 Chi tiết đơn hàng #${threadId}`;
+        
+        const hasCost = cost > 0;
+        const margin = hasCost && revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : 0;
+        
+        let itemsHtml = '';
+        if (items && items.length > 0) {
+            itemsHtml = `
+                <table style="width:100%; border-collapse:collapse; margin:10px 0;">
+                    <thead>
+                        <tr style="background:#f8f9fa;">
+                            <th style="padding:8px; text-align:left; border-bottom:1px solid #eee;">Mã SP</th>
+                            <th style="padding:8px; text-align:right; border-bottom:1px solid #eee;">SL</th>
+                            <th style="padding:8px; text-align:right; border-bottom:1px solid #eee;">Giá bán</th>
+                            <th style="padding:8px; text-align:right; border-bottom:1px solid #eee;">Giá vốn</th>
+                            <th style="padding:8px; text-align:right; border-bottom:1px solid #eee;">Doanh thu</th>
+                            <th style="padding:8px; text-align:right; border-bottom:1px solid #eee;">Chi phí</th>
+                            <th style="padding:8px; text-align:right; border-bottom:1px solid #eee;">Lợi nhuận</th>
+                            <th style="padding:8px; text-align:right; border-bottom:1px solid #eee;">%LN</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            
+            items.forEach(item => {
+                const itemRevenue = item.revenue || (item.qty * item.sell_price);
+                const itemCost = item.cost || (item.qty * item.cost_price);
+                const itemProfit = item.profit || (item.has_cost ? itemRevenue - itemCost : 0);
+                const itemMargin = item.has_cost && itemRevenue > 0 ? ((itemProfit / itemRevenue) * 100).toFixed(1) : 0;
+                const profitClass = itemProfit > 0 ? 'color:#22c55e' : (itemProfit < 0 ? 'color:#ef4444' : '');
+                
+                itemsHtml += `
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #eee;"><strong>${item.code}</strong></td>
+                        <td style="padding:8px; text-align:right; border-bottom:1px solid #eee;">${item.qty}</td>
+                        <td style="padding:8px; text-align:right; border-bottom:1px solid #eee;">${(item.sell_price || 0).toLocaleString()}đ</td>
+                        <td style="padding:8px; text-align:right; border-bottom:1px solid #eee;">${item.has_cost ? (item.cost_price || 0).toLocaleString() + 'đ' : '<span style="color:#f59e0b">?</span>'}</td>
+                        <td style="padding:8px; text-align:right; border-bottom:1px solid #eee;">${itemRevenue.toLocaleString()}đ</td>
+                        <td style="padding:8px; text-align:right; border-bottom:1px solid #eee;">${item.has_cost ? itemCost.toLocaleString() + 'đ' : '-'}</td>
+                        <td style="padding:8px; text-align:right; border-bottom:1px solid #eee; ${profitClass}">${item.has_cost ? itemProfit.toLocaleString() + 'đ' : '<span style="color:#f59e0b">0đ</span>'}</td>
+                        <td style="padding:8px; text-align:right; border-bottom:1px solid #eee; ${profitClass}">${item.has_cost ? itemMargin + '%' : '-'}</td>
+                    </tr>`;
+            });
+            
+            itemsHtml += '</tbody></table>';
+        }
+        
+        const profitColor = profit > 0 ? '#22c55e' : (profit < 0 ? '#ef4444' : '#333');
+        
+        document.getElementById('modal-content').innerHTML = `
+            <div style="margin-bottom:20px;">
+                <p><strong>Khách hàng:</strong> ${customer || 'N/A'}</p>
+                <p><strong>Ngày:</strong> ${date || 'N/A'}</p>
+                <p><a href="tg://privatepost?channel=2124542200&post=${threadId}" target="_blank">Mở trong Telegram →</a></p>
+            </div>
+            
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:20px;">
+                <div style="background:#f8f9fa; padding:15px; border-radius:8px; text-align:center;">
+                    <div style="font-size:12px; color:#666;">Doanh thu</div>
+                    <div style="font-size:18px; font-weight:bold;">${revenue.toLocaleString()}đ</div>
+                </div>
+                <div style="background:#f8f9fa; padding:15px; border-radius:8px; text-align:center;">
+                    <div style="font-size:12px; color:#666;">Giá vốn</div>
+                    <div style="font-size:18px; font-weight:bold;">${hasCost ? cost.toLocaleString() + 'đ' : '?'}</div>
+                </div>
+                <div style="background:#f8f9fa; padding:15px; border-radius:8px; text-align:center;">
+                    <div style="font-size:12px; color:#666;">Lợi nhuận</div>
+                    <div style="font-size:18px; font-weight:bold; color:${profitColor};">${hasCost ? profit.toLocaleString() + 'đ' : '?'}</div>
+                </div>
+                <div style="background:#f8f9fa; padding:15px; border-radius:8px; text-align:center;">
+                    <div style="font-size:12px; color:#666;">Biên LN</div>
+                    <div style="font-size:18px; font-weight:bold; color:${profitColor};">${hasCost ? margin + '%' : '?'}</div>
+                </div>
+            </div>
+            
+            <h3 style="margin:15px 0 10px;">Chi tiết sản phẩm</h3>
+            ${itemsHtml}
+        `;
+        
+        document.getElementById('orderModal').style.display = 'block';
+    }
+    
+    function closeModal() {
+        document.getElementById('orderModal').style.display = 'none';
+    }
+    
+    // Close modal on outside click
+    document.getElementById('orderModal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
     
     // Infinite scroll for orders
     let currentPage = 1;
