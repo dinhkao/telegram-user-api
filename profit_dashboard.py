@@ -137,10 +137,24 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     # Sort products by profit
     product_summary = sorted(product_profit_map.items(), key=lambda x: x[1]["profit"], reverse=True)
     
-    # Aggregate profit by day for chart
+    # Aggregate profit by day for chart (VN timezone)
     daily = {}
     for od in orders_data:
-        day = (od.get('created', '') or '')[:10]
+        created = od.get('created', '') or ''
+        if not created:
+            continue
+        # Convert to VN timezone for correct day grouping
+        try:
+            if isinstance(created, str):
+                dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+            elif created > 1e10:
+                dt = datetime.fromtimestamp(created / 1000, tz=timezone.utc)
+            else:
+                dt = datetime.fromtimestamp(created, tz=timezone.utc)
+            vn = dt.astimezone(timezone(timedelta(hours=7)))
+            day = vn.strftime("%Y-%m-%d")
+        except:
+            day = created[:10] if isinstance(created, str) else ""
         if not day:
             continue
         daily.setdefault(day, {"revenue": 0, "cost": 0, "profit": 0})
