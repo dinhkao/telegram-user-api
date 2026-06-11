@@ -1,6 +1,6 @@
-# How to run all 3 apps correctly
+# How to run all apps correctly
 
-Three apps form the order management system. Start order matters — ports and dependencies.
+Four apps form the order management system. Start order matters — ports and dependencies.
 
 ---
 
@@ -18,10 +18,15 @@ final_telegram (Node, port 3000)
   └─ SQLite database (data/app.db) — shared with other apps
   └─ HTTP API for tg_edit, tg_send, order/nhan-tien
 
-bot-don-hang (Node, port 3002)
-  └─ Product code keyboard / order interaction bot
+bot-don-hang (Python, port 3002)
+  └─ Telegram bot with Telethon session
+  └─ Product code keyboard / order interaction
   └─ Polls Telegram independently (different bot token)
-  └─ HTTP API for /api/product-codes
+  └─ HTTP API for /health
+
+pi-lan/hono-viewer (Node, port 3005/3006) [optional]
+  └─ Inventory viewer / todo app
+  └─ Port 3005 = production, 3006 = dev
 ```
 
 ---
@@ -32,7 +37,8 @@ bot-don-hang (Node, port 3002)
 |---|---|---|
 | final_telegram | 3000 | Main bot + HTTP API |
 | telegram-user-api | 8090 | Telethon listener + WebSocket |
-| bot-don-hang | 3002 | Product codes API |
+| bot-don-hang | 3002 | Product codes API + Telegram bot |
+| pi-lan/hono-viewer | 3005, 3006 | Inventory viewer (optional) |
 
 **Conflict note:** `PORT=8090` is set in the shell environment (`.zshrc` or parent process). This leaks into final_telegram's `app.js` unless explicitly overridden. final_telegram's `process-manager.js` now unsets `PORT` before spawning `app.js`, so `app.js` defaults to 3000.
 
@@ -58,14 +64,26 @@ nohup .venv/bin/python server.py > server.log 2>&1 &
 
 Wait for: `Web server: http://localhost:8090`
 
-### 3. bot-don-hang
+### 3. bot-don-hang (Python version)
 
 ```bash
 cd ~/Documents/bot-don-hang
-nohup node src/index.js > server.log 2>&1 &
+nohup .venv/bin/python -m bot_don_hang.main > server.log 2>&1 &
 ```
 
-Wait for: `Polling started. Waiting for /start <order_id>...`
+Wait for: `HTTP API listening on :3002`
+
+### 4. pi-lan/hono-viewer (optional)
+
+```bash
+# Production (port 3005)
+cd ~/Documents/pi-lan/hono-viewer
+nohup node index.js > /tmp/prod-server.log 2>&1 &
+
+# Dev (port 3006)
+cd ~/Documents/pi-lan/hono-viewer
+nohup ENV_FILE=.env.dev node index.js > /tmp/dev-server.log 2>&1 &
+```
 
 ---
 
@@ -79,9 +97,10 @@ lsof -i :3000 -i :8090 -i :3002 | grep LISTEN
 curl -s http://localhost:3000/
 curl -s http://localhost:8090/
 curl -s http://localhost:3002/health
+curl -s http://localhost:3005/api/health  # pi-lan
 
 # Process check
-ps aux | grep -E "process-manager|server\.py|bot-don-hang.*index" | grep -v grep
+ps aux | grep -E "process-manager|server\.py|bot_don_hang" | grep -v grep
 ```
 
 Expected output:
@@ -89,7 +108,7 @@ Expected output:
 node    ... process-manager.js
 node    ... app.js                     # spawned by process-manager
 Python  ... server.py                  # telegram-user-api
-node    ... src/index.js               # bot-don-hang
+Python  ... bot_don_hang.main          # bot-don-hang
 ```
 
 ---
@@ -116,20 +135,9 @@ Caused by stale long-poll connections at Telegram's end after a crash.
   ```
   This drains any pending updates and releases the connection lock.
 
-### Stale polling lock
-
-If bot-don-hang says "Another instance owns polling lock" but no other instance is running:
-```bash
-cd ~/Documents/bot-don-hang
-node -e "
-  const sqlite = require('./src/db/firebase-shim');
-  sqlite.database().ref('_runtime/telegram_polling_lock').remove().then(() => process.exit(0));
-"
-```
-
 ### SQLite `app.db` locked
 
-All 3 apps access `~/Documents/final_telegram/data/app.db`. WAL mode prevents most conflicts, but if writes are heavy:
+All 3 core apps access `~/Documents/final_telegram/data/app.db`. WAL mode prevents most conflicts, but if writes are heavy:
 - Check: `lsof | grep app.db` to see which processes have it open
 - Kill and restart in order: final_telegram → telegram-user-api → bot-don-hang
 
@@ -140,6 +148,6 @@ All 3 apps access `~/Documents/final_telegram/data/app.db`. WAL mode prevents mo
 ```bash
 pkill -f "process-manager\.js"
 pkill -f "python.*server\.py"
-pkill -f "bot-don-hang.*src/index"
+pkill -f "bot_don_hang\.main"
 pkill -f "app\.js"    # final_telegram child process
 ```

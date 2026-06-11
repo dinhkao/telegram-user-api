@@ -68,6 +68,79 @@ def _call_final(endpoint: str, body: dict, timeout: int = 10) -> dict | None:
     return _call_final_telegram(endpoint, body, timeout)
 
 
+async def _assign_customer(client, msg, db_conn, thread_id: int, kh_id: str):
+    """Assign customer to order directly via SQLite + Telethon (no HTTP roundtrip)."""
+    from order_db import get_customer_by_key, get_customer_price_list, _save_order, parse_comma_text
+
+    order = get_order_by_thread_id(db_conn, thread_id)
+    if not order:
+        await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+        return
+
+    customer = get_customer_by_key(db_conn, str(kh_id))
+    if not customer:
+        await client.send_message(msg.chat_id, f"❌ Không tìm thấy khách hàng ID: {kh_id}", reply_to=msg.id)
+        return
+
+    cust_name = customer.get("name", "N/A")
+    cust_phone = customer.get("so_dien_thoai") or customer.get("contactNumber") or ""
+
+    # Update order
+    order["khach_hang_id"] = kh_id
+    order["customer_name"] = cust_name
+
+    # Re-parse existing invoice with new customer's price list
+    order_text = order.get("text") or order.get("text_raw") or ""
+    if order_text and order.get("invoice"):
+        new_invoice = parse_comma_text(order_text, db_conn, kh_id)
+        if new_invoice:
+            from product_db import freeze_invoice_cost_prices
+            order["invoice"] = freeze_invoice_cost_prices(db_conn, new_invoice)
+
+    if not _save_order(db_conn, thread_id, order):
+        await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
+        return
+
+    # Build response
+    lines = [f"✅ Đã gán khách hàng: <b>{cust_name}</b>"]
+    if cust_phone:
+        lines.append(f"📱 {cust_phone}")
+
+    # Show invoice with updated prices if any
+    invoice = order.get("invoice") or []
+    if invoice:
+        grand_total = 0
+        for item in invoice:
+            sp = item.get("sp", "?")
+            sl = item.get("sl", 0)
+            price = item.get("price", 0)
+            sub_total = sl * price
+            grand_total += sub_total
+            lines.append(f"• <b>{sp}</b> x{sl} @ {price:,}đ = <b>{sub_total:,}đ</b>")
+        lines.append(f"\n💰 <b>Tổng cộng: {grand_total:,}đ</b>")
+
+    await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
+
+    # Firebase sync + refresh main message (background, non-blocking)
+    from firebase_sync import set_order as fb_set_order
+    try:
+        fb_set_order(thread_id, order)
+    except Exception as e:
+        log.warning("_assign_customer Firebase sync: %s", e)
+    # Schedule main message refresh via Node.js (one HTTP call, non-blocking)
+    channel_id = order.get("channel_id")
+    message_id = order.get("message_id")
+    if channel_id and message_id:
+        try:
+            _call_final_telegram("/api/update-order-message", {
+                "order": order,
+                "message_id": message_id,
+                "channel_id": channel_id,
+            }, timeout=5)
+        except Exception:
+            pass
+
+
 # ── Formatting helpers ─────────────────────────────────────────────
 
 def _fmt_customer_list(results: list[dict]) -> str:
@@ -192,33 +265,13 @@ def register_order_commands_v2(client):
             await client.send_message(msg.chat_id, message, reply_to=msg.id)
             return
 
-        # ID mode: "add khach hang 45833" → call assign-customer API
+        # ID mode: "add khach hang 45833" — direct Python (no HTTP to Node.js)
         thread_id = _extract_thread_id(msg)
         if not thread_id:
             await client.send_message(msg.chat_id, "❌ Không xác định được đơn hàng.", reply_to=msg.id)
             return
 
-        # Run blocking HTTP call in thread pool so it doesn't stall the event loop
-        try:
-            result = await asyncio.to_thread(
-                _call_final, "/api/order/assign-customer", {
-                    "thread_id": thread_id,
-                    "customer_id": arg,
-                    "add_example": True,
-                    "user_id": getattr(msg.sender, "id", None) if msg.sender else None,
-                }, 60
-            )
-        except Exception as e:
-            log.warning("add khach hang exception: %s", e)
-            result = None
-
-        if result and result.get("ok"):
-            # Node.js bots will send the actual update message; stay silent
-            pass
-        elif result and result.get("error"):
-            await client.send_message(msg.chat_id, f"❌ Lỗi: {result['error']}", reply_to=msg.id)
-        else:
-            await client.send_message(msg.chat_id, "❌ Lỗi khi gán khách hàng (timeout hoặc server không phản hồi).", reply_to=msg.id)
+        await _assign_customer(client, msg, db_conn, thread_id, arg)
 
     # ── ADD KL (quick assign Khách lẻ #2803) ───────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
@@ -231,29 +284,7 @@ def register_order_commands_v2(client):
             await client.send_message(msg.chat_id, "❌ Không xác định được đơn hàng.", reply_to=msg.id)
             return
 
-        # Run blocking HTTP call in thread pool so it doesn't stall the event loop
-        try:
-            result = await asyncio.to_thread(
-                _call_final, "/api/order/assign-customer", {
-                    "thread_id": thread_id,
-                    "customer_id": "2803",
-                    "add_example": True,
-                    "update_debt": True,
-                    "force_update": True,
-                    "user_id": getattr(msg.sender, "id", None) if msg.sender else None,
-                }, 60
-            )
-        except Exception as e:
-            log.warning("add kl exception: %s", e)
-            result = None
-
-        if result and result.get("ok"):
-            # Node.js bots will send the actual update message; stay silent
-            pass
-        elif result and result.get("error"):
-            await client.send_message(msg.chat_id, f"❌ Lỗi add kl: {result['error']}", reply_to=msg.id)
-        else:
-            await client.send_message(msg.chat_id, "❌ Lỗi khi thực hiện add kl (timeout hoặc server không phản hồi).", reply_to=msg.id)
+        await _assign_customer(client, msg, db_conn, thread_id, "2803")
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_editkh(event):

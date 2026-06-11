@@ -11,6 +11,7 @@ Runs on a separate port (default 8091) and shows:
 from __future__ import annotations
 import csv
 import io
+import calendar
 import json
 import logging
 import os
@@ -19,6 +20,7 @@ from datetime import datetime, timezone, timedelta
 from urllib.parse import quote
 
 from order_db import _get_connection, get_order_by_thread_id
+from what_data import USER_NAMES
 from product_db import (
     create_products_table,
     migrate_products_table,
@@ -34,12 +36,104 @@ log = logging.getLogger("profit_dashboard")
 
 DASHBOARD_PORT = int(os.getenv("PROFIT_DASHBOARD_PORT", "8091"))
 
+SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "profit_settings.json")
+
+
+DEFAULT_WEIGHTS = {str(m): 1.0 for m in range(1, 13)}
+
+
+def load_settings():
+    """Load dashboard settings from JSON file, ensuring weights exist."""
+    default = {"yearly_loan_payment": 0, "monthly_weights": dict(DEFAULT_WEIGHTS)}
+    if not os.path.exists(SETTINGS_FILE):
+        return default
+    try:
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        # Backward compat: convert monthly to yearly
+        if "yearly_loan_payment" not in data:
+            if "monthly_loan_payment" in data:
+                data["yearly_loan_payment"] = data["monthly_loan_payment"] * 12
+                del data["monthly_loan_payment"]
+            else:
+                data["yearly_loan_payment"] = 0
+        # Backfill weights if missing
+        if "monthly_weights" not in data:
+            data["monthly_weights"] = dict(DEFAULT_WEIGHTS)
+        else:
+            # Ensure all 12 months present
+            for m in range(1, 13):
+                data["monthly_weights"].setdefault(str(m), 1.0)
+        return data
+    except:
+        return default
+
+
+def save_settings(settings):
+    """Save dashboard settings to JSON file."""
+    try:
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        log.error(f"Failed to save settings: {e}")
+        return False
+
+
+def calc_prorated_loan(since_date, until_date, base_monthly_loan, weights=None):
+    """Calculate loan allocation for a date range using monthly weights.
+
+    Each month M gets: base_monthly_loan * weight[M] / avg_weight
+    Prorated by actual overlap days within that month.
+    """
+    if base_monthly_loan <= 0:
+        return 0
+    if weights is None:
+        weights = DEFAULT_WEIGHTS
+    # Ensure all 12 months have a weight
+    w = {str(m): float(weights.get(str(m), weights.get(m, 1.0))) for m in range(1, 13)}
+    avg_weight = sum(w.values()) / 12.0
+    if avg_weight <= 0:
+        return 0
+
+    total = 0.0
+    current = since_date
+    while current <= until_date:
+        days_in_month = calendar.monthrange(current.year, current.month)[1]
+        month_start = current.replace(day=1)
+        month_end = current.replace(day=days_in_month)
+        overlap_start = max(current, month_start)
+        overlap_end = min(until_date, month_end)
+        overlap_days = (overlap_end - overlap_start).days + 1
+        monthly_amount = base_monthly_loan * w[str(current.month)] / avg_weight
+        total += monthly_amount * overlap_days / days_in_month
+        # advance to first day of next month
+        if current.month == 12:
+            current = current.replace(year=current.year + 1, month=1, day=1)
+        else:
+            current = current.replace(month=current.month + 1, day=1)
+    return int(total)
 
 def _format_money(n: int) -> str:
     return f"{n:,}"
 
 
-def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, limit=500, since_date=None, until_date=None):
+def _get_date_presets_html():
+    """Generate HTML for quick date preset buttons."""
+    return """
+                <div class="presets">
+                    <button type="button" onclick="setDatePreset('today')">Hôm nay</button>
+                    <button type="button" onclick="setDatePreset('yesterday')">Hôm qua</button>
+                    <button type="button" onclick="setDatePreset('this_week')">Tuần này</button>
+                    <button type="button" onclick="setDatePreset('7days')">7 ngày</button>
+                    <button type="button" onclick="setDatePreset('14days')">14 ngày</button>
+                    <button type="button" onclick="setDatePreset('30days')">30 ngày</button>
+                    <button type="button" onclick="setDatePreset('this_month')">Tháng này</button>
+                    <button type="button" onclick="setDatePreset('last_month')">Tháng trước</button>
+                </div>"""
+
+
+def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, limit=500, since_date=None, until_date=None, yearly_loan=0, monthly_weights=None):
     """Generate the main dashboard HTML."""
     
     # Get all products
@@ -68,16 +162,18 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         thread_id = row[0]
         order = json.loads(row[1])
         
-        # Filter by date range
+        # Filter by date range (VN timezone UTC+7)
         created = order.get("created", "")
         if created:
             try:
+                vn_tz = timezone(timedelta(hours=7))
                 if isinstance(created, str):
-                    created_date = created[:10]  # Get YYYY-MM-DD part
+                    dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                    created_date = dt.astimezone(vn_tz).strftime("%Y-%m-%d")
                 elif created > 1e10:
-                    created_date = datetime.fromtimestamp(created / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+                    created_date = datetime.fromtimestamp(created / 1000, tz=timezone.utc).astimezone(vn_tz).strftime("%Y-%m-%d")
                 else:
-                    created_date = datetime.fromtimestamp(created, tz=timezone.utc).strftime("%Y-%m-%d")
+                    created_date = datetime.fromtimestamp(created, tz=timezone.utc).astimezone(vn_tz).strftime("%Y-%m-%d")
                 if since_date and created_date < since_date:
                     continue
                 if until_date and created_date > until_date:
@@ -137,6 +233,181 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     # Sort products by profit
     product_summary = sorted(product_profit_map.items(), key=lambda x: x[1]["profit"], reverse=True)
     
+    # Calculate previous period for comparison
+    try:
+        vn_tz = timezone(timedelta(hours=7))
+        try:
+            end_date = datetime.strptime(until_date, "%Y-%m-%d").date() if until_date else datetime.now(vn_tz).date()
+        except (ValueError, TypeError):
+            end_date = datetime.now(vn_tz).date()
+        try:
+            start_date = datetime.strptime(since_date, "%Y-%m-%d").date() if since_date else datetime.strptime("2026-05-01", "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            start_date = datetime.strptime("2026-05-01", "%Y-%m-%d").date()
+        
+        # Validate date range
+        if end_date < start_date:
+            end_date = start_date
+        
+        period_days = (end_date - start_date).days + 1
+        
+        # Previous period: same length, shifted back
+        prev_end = start_date - timedelta(days=1)
+        prev_start = prev_end - timedelta(days=period_days - 1)
+        
+        # Query previous period orders
+        prev_cur = db_conn.execute(
+            "SELECT thread_id, json FROM orders WHERE deleted_at IS NULL "
+            "AND json IS NOT NULL AND thread_id BETWEEN 460000 AND 480000 "
+            "ORDER BY thread_id DESC LIMIT 1000"
+        )
+        
+        prev_revenue = 0
+        prev_cost = 0
+        prev_profit = 0
+        prev_orders = 0
+        prev_customer_profit = {}
+        prev_product_profit = {}
+        
+        for row in prev_cur.fetchall():
+            order = json.loads(row[1])
+            created = order.get("created", "")
+            if not created:
+                continue
+            try:
+                if isinstance(created, str):
+                    dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                elif created > 1e10:
+                    dt = datetime.fromtimestamp(created / 1000, tz=timezone.utc)
+                else:
+                    dt = datetime.fromtimestamp(created, tz=timezone.utc)
+                created_date = dt.astimezone(vn_tz).date()
+                if created_date < prev_start or created_date > prev_end:
+                    continue
+            except:
+                continue
+            
+            result = calculate_order_profit(db_conn, order)
+            if not result["items"]:
+                continue
+            
+            prev_revenue += result["total_revenue"]
+            prev_cost += result["total_cost"]
+            prev_profit += result["total_profit"]
+            prev_orders += 1
+            
+            # Track customers (consistent handling)
+            customer = order.get("customer_name") or order.get("khach_hang") or ""
+            if isinstance(customer, dict):
+                customer = customer.get("name", "")
+            customer = str(customer or "").strip() or "Khách lẻ"
+            if customer not in prev_customer_profit:
+                prev_customer_profit[customer] = {"revenue": 0, "profit": 0, "orders": 0}
+            prev_customer_profit[customer]["revenue"] += result["total_revenue"]
+            prev_customer_profit[customer]["profit"] += result["total_profit"]
+            prev_customer_profit[customer]["orders"] += 1
+            
+            # Track products
+            for item in result["items"]:
+                code = item["code"]
+                if code not in prev_product_profit:
+                    prev_product_profit[code] = {"qty": 0, "profit": 0}
+                prev_product_profit[code]["qty"] += item["qty"]
+                prev_product_profit[code]["profit"] += item["profit"]
+        
+        # Calculate percentage changes
+        def pct_change(current, previous):
+            if previous == 0:
+                return None  # Signal for "new" data
+            return ((current - previous) / previous) * 100
+        
+        revenue_change = pct_change(total_revenue, prev_revenue)
+        cost_change = pct_change(total_cost, prev_cost)
+        profit_change = pct_change(total_profit, prev_profit)
+        orders_change = pct_change(len(orders_data), prev_orders)
+        
+        # Top performers - use unfiltered data to show overall top performers
+        # Need to re-query to get all customers in the period (not filtered by product/customer)
+        top_customers_current = {}
+        top_products_current = {}
+        
+        # Re-query current period for top performers
+        curr_cur = db_conn.execute(
+            "SELECT thread_id, json FROM orders WHERE deleted_at IS NULL "
+            "AND json IS NOT NULL AND thread_id BETWEEN 460000 AND 480000 "
+            "ORDER BY thread_id DESC LIMIT 2000"
+        )
+        
+        for row in curr_cur.fetchall():
+            order = json.loads(row[1])
+            created = order.get("created", "")
+            if not created:
+                continue
+            try:
+                if isinstance(created, str):
+                    dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                elif created > 1e10:
+                    dt = datetime.fromtimestamp(created / 1000, tz=timezone.utc)
+                else:
+                    dt = datetime.fromtimestamp(created, tz=timezone.utc)
+                created_date = dt.astimezone(vn_tz).date()
+                if created_date < start_date or created_date > end_date:
+                    continue
+            except:
+                continue
+            
+            result = calculate_order_profit(db_conn, order)
+            if not result["items"]:
+                continue
+            
+            # Track customers (consistent handling)
+            customer = order.get("customer_name") or order.get("khach_hang") or ""
+            if isinstance(customer, dict):
+                customer = customer.get("name", "")
+            customer = str(customer or "").strip() or "Khách lẻ"
+            if customer not in top_customers_current:
+                top_customers_current[customer] = {"revenue": 0, "profit": 0, "orders": 0}
+            top_customers_current[customer]["revenue"] += result["total_revenue"]
+            top_customers_current[customer]["profit"] += result["total_profit"]
+            top_customers_current[customer]["orders"] += 1
+            
+            # Track products
+            for item in result["items"]:
+                code = item["code"]
+                if code not in top_products_current:
+                    top_products_current[code] = {"qty": 0, "revenue": 0, "profit": 0}
+                top_products_current[code]["qty"] += item["qty"]
+                top_products_current[code]["revenue"] += item["revenue"]
+                top_products_current[code]["profit"] += item["profit"]
+        
+        top_customers = sorted(top_customers_current.items(), key=lambda x: x[1]["profit"], reverse=True)[:5]
+        top_products = sorted(top_products_current.items(), key=lambda x: x[1]["profit"], reverse=True)[:5]
+        
+        prev_period_label = f"{prev_start.strftime('%d/%m')} - {prev_end.strftime('%d/%m')}"
+        curr_period_label = f"{start_date.strftime('%d/%m')} - {end_date.strftime('%d/%m')}"
+    except Exception as e:
+        revenue_change = cost_change = profit_change = orders_change = 0
+        prev_revenue = prev_cost = prev_profit = prev_orders = 0
+        top_customers = []
+        top_products = []
+        prev_period_label = "kỳ trước"
+        curr_period_label = "kỳ này"
+    
+    # Calculate prorated loan payment using monthly weights
+    base_monthly = yearly_loan / 12.0
+    prorated_loan = 0
+    if base_monthly > 0:
+        try:
+            vn_tz = timezone(timedelta(hours=7))
+            period_end = datetime.strptime(until_date, "%Y-%m-%d").date() if until_date else datetime.now(vn_tz).date()
+            period_start = datetime.strptime(since_date, "%Y-%m-%d").date() if since_date else datetime.strptime("2026-05-01", "%Y-%m-%d").date()
+            prorated_loan = calc_prorated_loan(period_start, period_end, base_monthly, monthly_weights)
+        except:
+            prorated_loan = int(base_monthly)
+    
+    real_profit = total_profit - prorated_loan
+    profit_margin = (real_profit / total_revenue * 100) if total_revenue > 0 else 0
+    
     # Aggregate profit by day for chart (VN timezone)
     daily = {}
     for od in orders_data:
@@ -162,12 +433,24 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         daily[day]["cost"] += od["cost"]
         daily[day]["profit"] += od["profit"]
     chart_days = sorted(daily.keys())
+    
+    # Calculate daily loan allocation for chart
+    daily_loan = {}
+    if base_monthly > 0 and chart_days:
+        for d in chart_days:
+            try:
+                day_date = datetime.strptime(d, "%Y-%m-%d").date()
+                daily_loan[d] = calc_prorated_loan(day_date, day_date, base_monthly, monthly_weights)
+            except:
+                daily_loan[d] = 0
+    
     chart_data = json.dumps([{
         "day": d[-5:],  # MM-DD
         "full_day": d,
         "revenue": daily[d]["revenue"],
         "cost": daily[d]["cost"],
         "profit": daily[d]["profit"],
+        "real_profit": daily[d]["profit"] - daily_loan.get(d, 0),
     } for d in chart_days[-60:]], ensure_ascii=False)  # Last 60 days
     
     # Build HTML
@@ -218,6 +501,36 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         .tag.yellow {{ background: #fef9c3; color: #854d0e; }}
         .section {{ margin-bottom: 24px; }}
         .section h2 {{ color: #333; margin-bottom: 12px; font-size: 16px; }}
+        
+        /* Comparison indicators */
+        .change {{ font-size: 12px; margin-top: 6px; font-weight: 600; display: flex; align-items: center; gap: 4px; justify-content: center; flex-wrap: wrap; }}
+        .change.up {{ color: #22c55e; }}
+        .change.down {{ color: #ef4444; }}
+        .change.new {{ color: #3b82f6; }}
+        .change-label {{ color: #999; font-weight: normal; font-size: 11px; }}
+        
+        /* Top Performers Widget */
+        .top-performers {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }}
+        
+        /* Real Profit Card */
+        .real-profit-card {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; color: white; }}
+        .real-profit-card h3 {{ color: rgba(255,255,255,0.9) !important; }}
+        .real-profit-card .value {{ color: white !important; }}
+        .loan-info {{ font-size: 11px; margin-top: 6px; opacity: 0.95; display: flex; flex-direction: column; gap: 2px; align-items: center; }}
+        .margin-badge {{ background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }}
+        .performer-section {{ background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        .performer-section h3 {{ color: #333; margin-bottom: 12px; font-size: 15px; }}
+        .performer-list {{ display: flex; flex-direction: column; gap: 8px; }}
+        .performer-item {{ display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 6px; transition: background 0.2s; }}
+        .performer-item:hover {{ background: #f8f9fa; }}
+        .performer-rank {{ background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; flex-shrink: 0; }}
+        .performer-item:nth-child(1) .performer-rank {{ background: linear-gradient(135deg, #fbbf24, #f59e0b); }}
+        .performer-item:nth-child(2) .performer-rank {{ background: linear-gradient(135deg, #94a3b8, #64748b); }}
+        .performer-item:nth-child(3) .performer-rank {{ background: linear-gradient(135deg, #fb923c, #ea580c); }}
+        .performer-info {{ flex: 1; min-width: 0; }}
+        .performer-name {{ font-weight: 600; color: #333; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+        .performer-stats {{ display: flex; gap: 12px; margin-top: 2px; font-size: 12px; color: #666; }}
+        .empty-state {{ text-align: center; color: #999; padding: 20px; font-size: 13px; }}
         .tabs {{ display: flex; gap: 8px; margin-bottom: 16px; }}
         .tab {{ padding: 10px 16px; background: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }}
         .tab.active {{ background: #3b82f6; color: white; }}
@@ -236,6 +549,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
             .filters button {{ width: 100%; }}
             .tab {{ font-size: 13px; padding: 8px 12px; }}
             th, td {{ padding: 8px 10px; font-size: 13px; }}
+            .top-performers {{ grid-template-columns: 1fr; gap: 12px; }}
         }}
         @media (max-width: 480px) {{
             .summary {{ grid-template-columns: 1fr 1fr; gap: 6px; }}
@@ -252,6 +566,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
             <a href="/customers">👥 Khách hàng</a>
             <a href="/export/orders">📥 Export Orders</a>
             <a href="/export/products">📥 Export Products</a>
+            <a href="/settings">⚙️ Cấu hình</a>
         </div>
         <h1>📊 Dashboard Lợi Nhuận</h1>
         
@@ -281,18 +596,80 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
             <div class="card">
                 <h3>📦 Doanh thu</h3>
                 <div class="value">{_format_money(total_revenue)}đ</div>
+                <div class="change {'up' if revenue_change is not None and revenue_change >= 0 else 'down' if revenue_change is not None else 'new'}">
+                    {f"🆕 Mới" if revenue_change is None else f"{'↑' if revenue_change >= 0 else '↓'} {abs(revenue_change):.1f}%"}
+                    <span class="change-label">vs {prev_period_label}</span>
+                </div>
             </div>
             <div class="card">
                 <h3>💵 Giá vốn</h3>
                 <div class="value">{_format_money(total_cost)}đ</div>
+                <div class="change {'up' if cost_change is not None and cost_change >= 0 else 'down' if cost_change is not None else 'new'}">
+                    {f"🆕 Mới" if cost_change is None else f"{'↑' if cost_change >= 0 else '↓'} {abs(cost_change):.1f}%"}
+                    <span class="change-label">vs {prev_period_label}</span>
+                </div>
             </div>
             <div class="card">
                 <h3>💰 Lợi nhuận</h3>
                 <div class="value {'positive' if total_profit >= 0 else 'negative'}">{_format_money(total_profit)}đ</div>
+                <div class="change {'up' if profit_change is not None and profit_change >= 0 else 'down' if profit_change is not None else 'new'}">
+                    {f"🆕 Mới" if profit_change is None else f"{'↑' if profit_change >= 0 else '↓'} {abs(profit_change):.1f}%"}
+                    <span class="change-label">vs {prev_period_label}</span>
+                </div>
+            </div>
+            <div class="card real-profit-card">
+                <h3>💎 Lợi nhuận thực</h3>
+                <div class="value {'positive' if real_profit >= 0 else 'negative'}">{_format_money(real_profit)}đ</div>
+                <div class="loan-info">
+                    <span>Trừ lãi vay: {_format_money(prorated_loan)}đ</span>
+                    {f'<span class="margin-badge">Biên: {profit_margin:.1f}%</span>' if total_revenue > 0 else ''}
+                </div>
             </div>
             <div class="card">
                 <h3>📋 Đơn hàng</h3>
                 <div class="value">{len(orders_data)}</div>
+                <div class="change {'up' if orders_change is not None and orders_change >= 0 else 'down' if orders_change is not None else 'new'}">
+                    {f"🆕 Mới" if orders_change is None else f"{'↑' if orders_change >= 0 else '↓'} {abs(orders_change):.1f}%"}
+                    <span class="change-label">vs {prev_period_label}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Top Performers Widget -->
+        <div class="top-performers">
+            <div class="performer-section">
+                <h3>🏆 Top 5 Khách hàng VIP</h3>
+                <div class="performer-list">
+                    {''.join(f'''
+                    <div class="performer-item" onclick="location.href='/customer/{quote(cust)}'" style="cursor: pointer;">
+                        <div class="performer-rank">{i+1}</div>
+                        <div class="performer-info">
+                            <div class="performer-name">{cust[:30]}</div>
+                            <div class="performer-stats">
+                                <span>📦 {data["orders"]} đơn</span>
+                                <span>💰 {_format_money(data["profit"])}đ</span>
+                            </div>
+                        </div>
+                    </div>
+                    ''' for i, (cust, data) in enumerate(top_customers)) if top_customers else '<div class="empty-state">Chưa có dữ liệu</div>'}
+                </div>
+            </div>
+            <div class="performer-section">
+                <h3>⭐ Top 5 Sản phẩm lợi nhuận cao</h3>
+                <div class="performer-list">
+                    {''.join(f'''
+                    <div class="performer-item">
+                        <div class="performer-rank">{i+1}</div>
+                        <div class="performer-info">
+                            <div class="performer-name">{code}</div>
+                            <div class="performer-stats">
+                                <span>📊 {pdata["qty"]} sp</span>
+                                <span>💰 {_format_money(pdata["profit"])}đ</span>
+                            </div>
+                        </div>
+                    </div>
+                    ''' for i, (code, pdata) in enumerate(top_products)) if top_products else '<div class="empty-state">Chưa có dữ liệu</div>'}
+                </div>
             </div>
         </div>
         
@@ -328,19 +705,23 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         profit_display = f'{_format_money(od["profit"])}đ' if has_cost else '<span class="tag yellow">Chưa có giá vốn</span>'
         
         customer_name = (od['customer'] or '')[:30]
-        # Format date + time
+        customer_url = quote(od['customer'] or '')
+        # Format date + time (convert to VN timezone UTC+7)
         created = od.get('created', '')
         if created:
             try:
+                vn_tz = timezone(timedelta(hours=7))
                 if isinstance(created, str):
-                    date_display = created[:16].replace('T', ' ')  # YYYY-MM-DD HH:MM
+                    dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                    vn = dt.astimezone(vn_tz)
+                    date_display = vn.strftime("%d/%m %H:%M")
                 elif created > 1e10:
                     dt = datetime.fromtimestamp(created / 1000, tz=timezone.utc)
-                    vn = dt.astimezone(timezone(timedelta(hours=7)))
+                    vn = dt.astimezone(vn_tz)
                     date_display = vn.strftime("%d/%m %H:%M")
                 else:
                     dt = datetime.fromtimestamp(created, tz=timezone.utc)
-                    vn = dt.astimezone(timezone(timedelta(hours=7)))
+                    vn = dt.astimezone(vn_tz)
                     date_display = vn.strftime("%d/%m %H:%M")
             except:
                 date_display = ""
@@ -375,7 +756,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                     <tr onclick="showOrderDetail({od['thread_id']}, &#39;{customer_name}&#39;, &#39;{date_display}&#39;, {od['revenue']}, {od['cost']}, {od['profit']}, {items_json}, {fees_json})" style="cursor: pointer;">
                         <td><a href="tg://privatepost?channel=2124542200&post={od['thread_id']}" target="_blank" onclick="event.stopPropagation()">#{od['thread_id']}</a></td>
                         <td>{date_display}</td>
-                        <td>{customer_name}</td>
+                        <td><a href="/customer/{customer_url}" style="color: #3b82f6; text-decoration: none;" onclick="event.stopPropagation()">{customer_name}</a></td>
                         <td style="font-size: 12px;">{products_html}</td>
                         <td>{_format_money(od['revenue'])}đ</td>
                         <td>{_format_money(od['cost'])}đ</td>
@@ -523,6 +904,13 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
                         data: chartData.map(d => d.profit),
                         backgroundColor: 'rgba(34, 197, 94, 0.7)',
                         borderColor: '#22c55e',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Lợi nhuận sau vay',
+                        data: chartData.map(d => d.real_profit),
+                        backgroundColor: 'rgba(168, 85, 247, 0.7)',
+                        borderColor: '#a855f7',
                         borderWidth: 1
                     }
                 ]
@@ -827,7 +1215,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     return html
 
 
-def generate_product_detail_html(db_conn, product_code):
+def generate_product_detail_html(db_conn, product_code, since_date=None, until_date=None):
     """Generate detail page for a specific product."""
     product = get_product(db_conn, product_code)
     
@@ -846,8 +1234,11 @@ def generate_product_detail_html(db_conn, product_code):
     cur = db_conn.execute(
         "SELECT thread_id, json FROM orders WHERE deleted_at IS NULL "
         "AND json IS NOT NULL AND thread_id BETWEEN 460000 AND 480000 "
-        "ORDER BY thread_id DESC LIMIT 500"
+        "ORDER BY thread_id DESC LIMIT 1000"
     )
+    
+    if since_date is None:
+        since_date = "2026-05-01"
     
     orders_with_product = []
     total_qty = 0
@@ -858,6 +1249,25 @@ def generate_product_detail_html(db_conn, product_code):
     for row in cur.fetchall():
         thread_id = row[0]
         order = json.loads(row[1])
+        
+        # Filter by date range (VN timezone UTC+7)
+        created = order.get("created", "")
+        if created:
+            try:
+                vn_tz = timezone(timedelta(hours=7))
+                if isinstance(created, str):
+                    dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                elif created > 1e10:
+                    dt = datetime.fromtimestamp(created / 1000, tz=timezone.utc)
+                else:
+                    dt = datetime.fromtimestamp(created, tz=timezone.utc)
+                created_date = dt.astimezone(vn_tz).strftime("%Y-%m-%d")
+                if since_date and created_date < since_date:
+                    continue
+                if until_date and created_date > until_date:
+                    continue
+            except:
+                continue
         
         invoice = order.get("invoice") or order.get("invoice_items") or []
         for item in invoice:
@@ -951,6 +1361,16 @@ def generate_product_detail_html(db_conn, product_code):
         </div>
         <h1>📦 Sản phẩm: {product_code}</h1>
         
+        <div class="filter-bar">
+            {_get_date_presets_html()}
+            <form method="GET" action="/product/{product_code}" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%;">
+                <input type="date" name="since" value="{since_date or '2026-05-01'}" title="Từ ngày" onchange="this.form.submit()">
+                <input type="date" name="until" value="{until_date or ''}" title="Đến ngày" onchange="this.form.submit()">
+                <button type="submit">🔍 Lọc</button>
+                <a href="/product/{product_code}" style="padding: 8px 12px; text-decoration: none; color: #3b82f6;">Xóa bộ lọc</a>
+            </form>
+        </div>
+        
         <div class="product-info">
             <form method="POST" action="/product/{product_code}/cost" class="form">
                 <label>Giá vốn: </label>
@@ -999,8 +1419,8 @@ def generate_product_detail_html(db_conn, product_code):
         profit_class = "positive" if od["profit"] >= 0 else "negative"
         cust_name = (od['customer'] or '')[:25]
         html += f"""
-                <tr>
-                    <td><a href="tg://privatepost?channel=2124542200&post={od['thread_id']}" target="_blank">#{od['thread_id']}</a></td>
+                <tr onclick="location.href='/order/{od['thread_id']}'" style="cursor: pointer;">
+                    <td><a href="/order/{od['thread_id']}" style="color: #3b82f6; text-decoration: none;" onclick="event.stopPropagation()"><strong>#{od['thread_id']}</strong></a></td>
                     <td>{cust_name}</td>
                     <td>{od['qty']}</td>
                     <td>{_format_money(od['sell_price'])}đ</td>
@@ -1014,6 +1434,26 @@ def generate_product_detail_html(db_conn, product_code):
         </table>
         </div>
     </div>
+    <script>
+    function setDatePreset(preset) {
+        const now = new Date();
+        const fmt = d => d.toISOString().split('T')[0];
+        let since, until;
+        switch(preset) {
+            case 'today': since = until = fmt(now); break;
+            case 'yesterday': const yest = new Date(now); yest.setDate(yest.getDate() - 1); since = until = fmt(yest); break;
+            case 'this_week': const mon = new Date(now); mon.setDate(mon.getDate() - mon.getDay() + 1); if (mon > now) mon.setDate(mon.getDate() - 7); since = fmt(mon); until = fmt(now); break;
+            case '7days': const d7 = new Date(now); d7.setDate(d7.getDate() - 7); since = fmt(d7); until = fmt(now); break;
+            case '14days': const d14 = new Date(now); d14.setDate(d14.getDate() - 14); since = fmt(d14); until = fmt(now); break;
+            case '30days': const d30 = new Date(now); d30.setDate(d30.getDate() - 30); since = fmt(d30); until = fmt(now); break;
+            case 'this_month': since = fmt(new Date(now.getFullYear(), now.getMonth(), 1)); until = fmt(now); break;
+            case 'last_month': const firstLast = new Date(now.getFullYear(), now.getMonth() - 1, 1); const lastLast = new Date(now.getFullYear(), now.getMonth(), 0); since = fmt(firstLast); until = fmt(lastLast); break;
+        }
+        document.querySelector('input[name="since"]').value = since;
+        document.querySelector('input[name="until"]').value = until;
+        document.querySelector('.filter-bar form').submit();
+    }
+    </script>
 </body>
 </html>"""
     
@@ -1037,15 +1477,17 @@ def generate_customer_profit_html(db_conn, since_date=None, until_date=None):
         order = json.loads(row[1])
         created = order.get("created", "")
         
-        # Filter by date range
+        # Filter by date range (VN timezone UTC+7)
         if created:
             try:
+                vn_tz = timezone(timedelta(hours=7))
                 if isinstance(created, str):
-                    created_date = created[:10]
+                    dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                    created_date = dt.astimezone(vn_tz).strftime("%Y-%m-%d")
                 elif created > 1e10:
-                    created_date = datetime.fromtimestamp(created / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+                    created_date = datetime.fromtimestamp(created / 1000, tz=timezone.utc).astimezone(vn_tz).strftime("%Y-%m-%d")
                 else:
-                    created_date = datetime.fromtimestamp(created, tz=timezone.utc).strftime("%Y-%m-%d")
+                    created_date = datetime.fromtimestamp(created, tz=timezone.utc).astimezone(vn_tz).strftime("%Y-%m-%d")
                 if since_date and created_date < since_date:
                     continue
                 if until_date and created_date > until_date:
@@ -1243,6 +1685,864 @@ def generate_customer_profit_html(db_conn, since_date=None, until_date=None):
     return html
 
 
+def generate_customer_detail_html(db_conn, customer_name, filter_product=None, since_date=None, until_date=None, limit=500):
+    """Generate customer detail page with all orders."""
+    vn_tz = timezone(timedelta(hours=7))
+    
+    # Default date range
+    if since_date is None:
+        since_date = "2026-05-01"
+    
+    # Get all orders
+    cur = db_conn.execute(
+        "SELECT thread_id, json FROM orders WHERE deleted_at IS NULL "
+        "AND json IS NOT NULL AND thread_id BETWEEN 460000 AND 480000 "
+        "ORDER BY thread_id DESC LIMIT ?",
+        (limit * 3,)  # Get more to account for filtering
+    )
+    
+    customer_orders = []
+    total_revenue = 0
+    total_cost = 0
+    total_profit = 0
+    products_bought = {}  # code -> {qty, revenue, profit}
+    
+    for row in cur.fetchall():
+        thread_id = row[0]
+        order = json.loads(row[1])
+        
+        # Get customer name
+        customer = order.get("customer_name") or order.get("khach_hang") or ""
+        if isinstance(customer, dict):
+            customer = customer.get("name", "")
+        customer = str(customer or "").strip() or "Khách lẻ"
+        
+        # Match customer (case-insensitive)
+        if customer.lower() != customer_name.lower():
+            continue
+        
+        # Filter by date
+        created = order.get("created", "")
+        if created:
+            try:
+                if isinstance(created, str):
+                    dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                elif created > 1e10:
+                    dt = datetime.fromtimestamp(created / 1000, tz=timezone.utc)
+                else:
+                    dt = datetime.fromtimestamp(created, tz=timezone.utc)
+                created_date = dt.astimezone(vn_tz).strftime("%Y-%m-%d")
+                if since_date and created_date < since_date:
+                    continue
+                if until_date and created_date > until_date:
+                    continue
+            except:
+                continue
+        
+        result = calculate_order_profit(db_conn, order)
+        if not result["items"]:
+            continue
+        
+        # Filter by product if specified
+        if filter_product:
+            has_product = any(item["code"] == filter_product for item in result["items"])
+            if not has_product:
+                continue
+        
+        # Format date
+        try:
+            if isinstance(created, str):
+                dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+            elif created > 1e10:
+                dt = datetime.fromtimestamp(created / 1000, tz=timezone.utc)
+            else:
+                dt = datetime.fromtimestamp(created, tz=timezone.utc)
+            vn = dt.astimezone(vn_tz)
+            date_display = vn.strftime("%d/%m/%Y %H:%M")
+        except:
+            date_display = ""
+        
+        customer_orders.append({
+            "thread_id": thread_id,
+            "created": created,
+            "date_display": date_display,
+            "revenue": result["total_revenue"],
+            "cost": result["total_cost"],
+            "profit": result["total_profit"],
+            "items": result["items"],
+            "item_count": result["item_count"],
+            "items_with_cost": result["items_with_cost"],
+        })
+        
+        total_revenue += result["total_revenue"]
+        total_cost += result["total_cost"]
+        total_profit += result["total_profit"]
+        
+        # Track products
+        for item in result["items"]:
+            code = item["code"]
+            if code not in products_bought:
+                products_bought[code] = {"qty": 0, "revenue": 0, "profit": 0}
+            products_bought[code]["qty"] += item["qty"]
+            products_bought[code]["revenue"] += item["revenue"]
+            products_bought[code]["profit"] += item["profit"]
+    
+    # Sort orders by newest first
+    customer_orders.sort(key=lambda x: x["thread_id"], reverse=True)
+    
+    # Sort products by profit
+    top_products = sorted(products_bought.items(), key=lambda x: x[1]["profit"], reverse=True)[:10]
+    
+    # Calculate stats
+    avg_order_value = total_revenue // len(customer_orders) if customer_orders else 0
+    profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+    
+    # URL encode customer name
+    from urllib.parse import quote
+    customer_encoded = quote(customer_name)
+    
+    html = f"""<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khách hàng: {customer_name}</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 10px; }}
+        .container {{ max-width: 1200px; margin: 0 auto; }}
+        h1 {{ color: #333; margin-bottom: 8px; font-size: 22px; }}
+        .subtitle {{ color: #666; font-size: 14px; margin-bottom: 16px; }}
+        .nav {{ margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px; }}
+        .nav a {{ padding: 8px 12px; background: #3b82f6; color: white; text-decoration: none; border-radius: 5px; white-space: nowrap; font-size: 13px; }}
+        .nav a:hover {{ background: #2563eb; }}
+        .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 24px; }}
+        .card {{ background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
+        .card h3 {{ color: #666; font-size: 12px; margin-bottom: 6px; }}
+        .card .value {{ font-size: 20px; font-weight: bold; }}
+        .card .value.positive {{ color: #22c55e; }}
+        .card .value.negative {{ color: #ef4444; }}
+        .section {{ margin-bottom: 24px; }}
+        .section h2 {{ color: #333; margin-bottom: 12px; font-size: 16px; }}
+        .table-wrap {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        table {{ width: 100%; min-width: 600px; border-collapse: collapse; }}
+        th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }}
+        th {{ background: #f8f9fa; font-weight: 600; color: #333; white-space: nowrap; }}
+        tr:hover {{ background: #f5f5f5; }}
+        .profit {{ font-weight: 600; }}
+        .profit.positive {{ color: #22c55e; }}
+        .profit.negative {{ color: #ef4444; }}
+        .items-summary {{ font-size: 12px; color: #666; }}
+        .filter-bar {{ background: white; border-radius: 10px; padding: 12px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }}
+        .filter-bar input, .filter-bar button {{ padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px; }}
+        .filter-bar button {{ background: #3b82f6; color: white; cursor: pointer; border: none; }}
+        .filter-bar button:hover {{ background: #2563eb; }}
+        .empty-state {{ text-align: center; padding: 40px; color: #999; font-size: 14px; }}
+        @media (max-width: 768px) {{
+            .summary {{ grid-template-columns: 1fr 1fr; gap: 8px; }}
+            h1 {{ font-size: 18px; }}
+            .card {{ padding: 12px; }}
+            .card .value {{ font-size: 18px; }}
+            th, td {{ padding: 8px 10px; font-size: 13px; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">🏠 Dashboard</a>
+            <a href="/customers">👥 Khách hàng</a>
+        </div>
+        <h1>👤 {customer_name}</h1>
+        <div class="subtitle">Chi tiết đơn hàng và lịch sử mua hàng</div>
+        
+        <div class="filter-bar">
+            {_get_date_presets_html()}
+            <form method="GET" action="/customer/{customer_encoded}" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%;">
+                <input type="date" name="since" value="{since_date or '2026-05-01'}" title="Từ ngày" onchange="this.form.submit()">
+                <input type="date" name="until" value="{until_date or ''}" title="Đến ngày" onchange="this.form.submit()">
+                <input type="text" name="product" placeholder="Lọc theo mã SP" value="{filter_product or ''}">
+                <button type="submit">🔍 Lọc</button>
+                <a href="/customer/{customer_encoded}" style="padding: 8px 12px; text-decoration: none; color: #3b82f6;">Xóa bộ lọc</a>
+            </form>
+        </div>
+        
+        <div class="summary">
+            <div class="card">
+                <h3>📋 Tổng đơn</h3>
+                <div class="value">{len(customer_orders)}</div>
+            </div>
+            <div class="card">
+                <h3>📦 Doanh thu</h3>
+                <div class="value">{_format_money(total_revenue)}đ</div>
+            </div>
+            <div class="card">
+                <h3>💵 Giá vốn</h3>
+                <div class="value">{_format_money(total_cost)}đ</div>
+            </div>
+            <div class="card">
+                <h3>💰 Lợi nhuận</h3>
+                <div class="value {'positive' if total_profit >= 0 else 'negative'}">{_format_money(total_profit)}đ</div>
+            </div>
+            <div class="card">
+                <h3>📊 TB/đơn</h3>
+                <div class="value">{_format_money(avg_order_value)}đ</div>
+            </div>
+            <div class="card">
+                <h3>📈 Biên LN</h3>
+                <div class="value {'positive' if profit_margin >= 0 else 'negative'}">{profit_margin:.1f}%</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🛒 Sản phẩm đã mua</h2>
+            <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mã SP</th>
+                        <th>SL mua</th>
+                        <th>Doanh thu</th>
+                        <th>Lợi nhuận</th>
+                        <th>Biên LN</th>
+                    </tr>
+                </thead>
+                <tbody>"""
+    
+    if top_products:
+        for code, pdata in top_products:
+            margin = (pdata["profit"] / pdata["revenue"] * 100) if pdata["revenue"] > 0 else 0
+            profit_class = "positive" if pdata["profit"] >= 0 else "negative"
+            html += f"""
+                    <tr>
+                        <td><a href="/product/{code}" style="color: #3b82f6; text-decoration: none;"><strong>{code}</strong></a></td>
+                        <td>{pdata['qty']}</td>
+                        <td>{_format_money(pdata['revenue'])}đ</td>
+                        <td class="profit {profit_class}">{_format_money(pdata['profit'])}đ</td>
+                        <td>{margin:.1f}%</td>
+                    </tr>"""
+    else:
+        html += """
+                    <tr><td colspan="5" class="empty-state">Chưa có dữ liệu sản phẩm</td></tr>"""
+    
+    html += """
+                </tbody>
+            </table>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>📋 Lịch sử đơn hàng</h2>
+            <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Đơn hàng</th>
+                        <th>Ngày</th>
+                        <th>Sản phẩm</th>
+                        <th>Doanh thu</th>
+                        <th>Giá vốn</th>
+                        <th>Lợi nhuận</th>
+                    </tr>
+                </thead>
+                <tbody>"""
+    
+    if customer_orders:
+        for od in customer_orders[:200]:  # Limit to 200 orders for performance
+            profit_class = "positive" if od["profit"] >= 0 else "negative"
+            has_cost = od["cost"] > 0
+            profit_display = f'{_format_money(od["profit"])}đ' if has_cost else '<span style="color: #f59e0b;">Chưa có giá vốn</span>'
+            
+            # Build product details
+            items = od.get('items', [])
+            product_details = []
+            for item in items[:5]:  # Show max 5 items
+                code = item.get('code', '?')
+                qty = item.get('qty', 0)
+                product_details.append(f"{code}({qty})")
+            if len(items) > 5:
+                product_details.append(f"<span style='color: #999;'>+{len(items) - 5} SP khác</span>")
+            products_html = "<br>".join(product_details) if product_details else "-"
+            
+            html += f"""
+                    <tr onclick="location.href='/order/{od['thread_id']}'" style="cursor: pointer;">
+                        <td><a href="/order/{od['thread_id']}" style="color: #3b82f6; text-decoration: none;" onclick="event.stopPropagation()"><strong>#{od['thread_id']}</strong></a> <a href="tg://privatepost?channel=2124542200&post={od['thread_id']}" target="_blank" onclick="event.stopPropagation()" style="color: #999; font-size: 11px;">📱</a></td>
+                        <td>{od['date_display']}</td>
+                        <td class="items-summary">{products_html}</td>
+                        <td>{_format_money(od['revenue'])}đ</td>
+                        <td>{_format_money(od['cost'])}đ</td>
+                        <td class="profit {profit_class}">{profit_display}</td>
+                    </tr>"""
+    else:
+        html += """
+                    <tr><td colspan="6" class="empty-state">Chưa có đơn hàng nào trong kỳ này</td></tr>"""
+    
+    html += """
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+    <script>
+    function setDatePreset(preset) {
+        const now = new Date();
+        const fmt = d => d.toISOString().split('T')[0];
+        let since, until;
+        switch(preset) {
+            case 'today': since = until = fmt(now); break;
+            case 'yesterday': const yest = new Date(now); yest.setDate(yest.getDate() - 1); since = until = fmt(yest); break;
+            case 'this_week': const mon = new Date(now); mon.setDate(mon.getDate() - mon.getDay() + 1); if (mon > now) mon.setDate(mon.getDate() - 7); since = fmt(mon); until = fmt(now); break;
+            case '7days': const d7 = new Date(now); d7.setDate(d7.getDate() - 7); since = fmt(d7); until = fmt(now); break;
+            case '14days': const d14 = new Date(now); d14.setDate(d14.getDate() - 14); since = fmt(d14); until = fmt(now); break;
+            case '30days': const d30 = new Date(now); d30.setDate(d30.getDate() - 30); since = fmt(d30); until = fmt(now); break;
+            case 'this_month': since = fmt(new Date(now.getFullYear(), now.getMonth(), 1)); until = fmt(now); break;
+            case 'last_month': const firstLast = new Date(now.getFullYear(), now.getMonth() - 1, 1); const lastLast = new Date(now.getFullYear(), now.getMonth(), 0); since = fmt(firstLast); until = fmt(lastLast); break;
+        }
+        document.querySelector('input[name="since"]').value = since;
+        document.querySelector('input[name="until"]').value = until;
+        document.querySelector('.filter-bar form').submit();
+    }
+    </script>
+</body>
+</html>"""
+    
+    return html
+
+
+def generate_order_detail_html(db_conn, thread_id):
+    """Generate order detail page."""
+    from order_db import get_order_by_thread_id
+    
+    order = get_order_by_thread_id(db_conn, thread_id)
+    if not order:
+        return f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Không tìm thấy</title></head>
+<body style="font-family: sans-serif; padding: 20px;">
+<h1>❌ Không tìm thấy đơn hàng #{thread_id}</h1>
+<p><a href="/">← Quay lại Dashboard</a></p>
+</body></html>"""
+    
+    vn_tz = timezone(timedelta(hours=7))
+    
+    # Get customer
+    customer = order.get("customer_name") or order.get("khach_hang") or ""
+    if isinstance(customer, dict):
+        customer = customer.get("name", "")
+    customer = str(customer or "").strip() or "Khách lẻ"
+    
+    # Format date
+    created = order.get("created", "")
+    date_display = ""
+    if created:
+        try:
+            if isinstance(created, str):
+                dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+            elif created > 1e10:
+                dt = datetime.fromtimestamp(created / 1000, tz=timezone.utc)
+            else:
+                dt = datetime.fromtimestamp(created, tz=timezone.utc)
+            vn = dt.astimezone(vn_tz)
+            date_display = vn.strftime("%d/%m/%Y %H:%M:%S")
+        except:
+            date_display = ""
+    
+    # Calculate profit
+    result = calculate_order_profit(db_conn, order)
+    total_revenue = result["total_revenue"]
+    total_cost = result["total_cost"]
+    total_profit = result["total_profit"]
+    items = result["items"]
+    
+    # Get fees
+    vat = int(order.get("vat", 0))
+    pvc = int(order.get("pvc", 0))
+    discount = int(order.get("discount", 0))
+    
+    # Get additional fees
+    extra_fees = order.get("extra_fees", [])
+    fee_adjustments = order.get("fee_adjustments", [])
+    
+    # Process task status
+    task_status = order.get("task_status", {})
+    task_names = {
+        "ban_hd": ("📝", "Bán hóa đơn"),
+        "soan_hang": ("📦", "Soạn hàng"),
+        "giao_hang": ("🚚", "Giao hàng"),
+        "nop_tien": ("💵", "Nộp tiền"),
+        "nhan_tien": ("💰", "Nhận tiền"),
+    }
+    
+    tasks_html = ""
+    for key, (icon, name) in task_names.items():
+        task = task_status.get(key, {})
+        done = task.get("done", False) or task.get("skip", False)
+        skip = task.get("skip", False)
+        by_id = task.get("by")
+        by_name = USER_NAMES.get(str(by_id), f"User {by_id}") if by_id else "N/A"
+        at_time = task.get("at", "")
+        
+        # Format time
+        time_display = ""
+        if at_time:
+            try:
+                if isinstance(at_time, str):
+                    dt = datetime.fromisoformat(at_time.replace('Z', '+00:00'))
+                elif at_time > 1e10:
+                    dt = datetime.fromtimestamp(at_time / 1000, tz=timezone.utc)
+                else:
+                    dt = datetime.fromtimestamp(at_time, tz=timezone.utc)
+                vn = dt.astimezone(vn_tz)
+                time_display = vn.strftime("%d/%m/%Y %H:%M:%S")
+            except:
+                time_display = at_time
+        
+        if done:
+            if skip:
+                status_class = "task-skip"
+                status_icon = "⏭️"
+                status_text = "Bỏ qua"
+            else:
+                status_class = "task-done"
+                status_icon = "✅"
+                status_text = "Hoàn thành"
+        else:
+            status_class = "task-pending"
+            status_icon = "⏳"
+            status_text = "Chưa hoàn thành"
+        
+        tasks_html += f"""
+            <div class="task-item {status_class}">
+                <div class="task-icon">{icon}</div>
+                <div class="task-content">
+                    <div class="task-name">{name} {status_icon}</div>
+                    <div class="task-details">
+                        <span class="task-by">👤 {by_name}</span>
+                        {f'<span class="task-time">🕐 {time_display}</span>' if time_display else ''}
+                    </div>
+                </div>
+            </div>"""
+    
+    # Calculate margin
+    margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+    
+    # Back URL - try to determine where to go back
+    back_url = f"/customer/{quote(customer)}" if customer != "Khách lẻ" else "/"
+    
+    html = f"""<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đơn hàng #{thread_id}</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 10px; }}
+        .container {{ max-width: 1000px; margin: 0 auto; }}
+        h1 {{ color: #333; margin-bottom: 8px; font-size: 22px; }}
+        .subtitle {{ color: #666; font-size: 14px; margin-bottom: 16px; }}
+        .nav {{ margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px; }}
+        .nav a {{ padding: 8px 12px; background: #3b82f6; color: white; text-decoration: none; border-radius: 5px; white-space: nowrap; font-size: 13px; }}
+        .nav a:hover {{ background: #2563eb; }}
+        .info-card {{ background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 16px; }}
+        .info-row {{ display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }}
+        .info-row:last-child {{ border-bottom: none; }}
+        .info-label {{ color: #666; font-weight: 500; }}
+        .info-value {{ color: #333; font-weight: 600; }}
+        .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }}
+        .card {{ background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
+        .card h3 {{ color: #666; font-size: 12px; margin-bottom: 6px; }}
+        .card .value {{ font-size: 20px; font-weight: bold; }}
+        .card .value.positive {{ color: #22c55e; }}
+        .card .value.negative {{ color: #ef4444; }}
+        .table-wrap {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 16px; }}
+        table {{ width: 100%; min-width: 600px; border-collapse: collapse; }}
+        th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }}
+        th {{ background: #f8f9fa; font-weight: 600; color: #333; white-space: nowrap; }}
+        tr:hover {{ background: #f5f5f5; }}
+        .profit {{ font-weight: 600; }}
+        .profit.positive {{ color: #22c55e; }}
+        .profit.negative {{ color: #ef4444; }}
+        .text-right {{ text-align: right; }}
+        .fees-section {{ background: #fffbe6; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; }}
+        .fees-section h3 {{ color: #854d0e; margin-bottom: 8px; font-size: 14px; }}
+        .fees-row {{ display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }}
+        
+        /* Task Timeline */
+        .tasks-section {{ background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 16px; }}
+        .tasks-section h3 {{ color: #333; margin-bottom: 12px; font-size: 15px; }}
+        .task-item {{ display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 8px; margin-bottom: 6px; transition: all 0.2s; }}
+        .task-item:hover {{ background: #f8f9fa; }}
+        .task-item.task-done {{ background: #f0fdf4; border-left: 3px solid #22c55e; }}
+        .task-item.task-skip {{ background: #f5f5f5; border-left: 3px solid #999; opacity: 0.7; }}
+        .task-item.task-pending {{ background: #fffbeb; border-left: 3px solid #f59e0b; }}
+        .task-icon {{ font-size: 20px; width: 32px; text-align: center; }}
+        .task-content {{ flex: 1; }}
+        .task-name {{ font-weight: 600; color: #333; font-size: 14px; margin-bottom: 2px; }}
+        .task-details {{ display: flex; gap: 12px; font-size: 12px; color: #666; }}
+        .task-by {{ font-weight: 500; }}
+        .task-time {{ color: #888; }}
+        @media (max-width: 768px) {{
+            .info-row {{ flex-direction: column; gap: 4px; }}
+            .summary {{ grid-template-columns: 1fr 1fr; }}
+            h1 {{ font-size: 18px; }}
+            th, td {{ padding: 8px 10px; font-size: 13px; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">🏠 Dashboard</a>
+            <a href="/customers">👥 Khách hàng</a>
+            {f'<a href="{back_url}">← Quay lại</a>'}
+        </div>
+        <h1>📦 Đơn hàng #{thread_id}</h1>
+        <div class="subtitle">Chi tiết đơn hàng</div>
+        
+        <div class="info-card">
+            <div class="info-row">
+                <span class="info-label">👤 Khách hàng:</span>
+                <span class="info-value">{customer if customer == "Khách lẻ" else f'<a href="/customer/{quote(customer)}" style="color: #3b82f6;">{customer}</a>'}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">📅 Ngày tạo:</span>
+                <span class="info-value">{date_display or "N/A"}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">🔗 Link Telegram:</span>
+                <span class="info-value"><a href="tg://privatepost?channel=2124542200&post={thread_id}" target="_blank">Mở trong Telegram →</a></span>
+            </div>
+        </div>
+        
+        <div class="summary">
+            <div class="card">
+                <h3>📦 Doanh thu</h3>
+                <div class="value">{_format_money(total_revenue)}đ</div>
+            </div>
+            <div class="card">
+                <h3>💵 Giá vốn</h3>
+                <div class="value">{_format_money(total_cost)}đ</div>
+            </div>
+            <div class="card">
+                <h3>💰 Lợi nhuận</h3>
+                <div class="value {'positive' if total_profit >= 0 else 'negative'}">{_format_money(total_profit)}đ</div>
+            </div>
+            <div class="card">
+                <h3>📈 Biên LN</h3>
+                <div class="value {'positive' if margin >= 0 else 'negative'}">{margin:.1f}%</div>
+            </div>
+        </div>
+        
+        <div class="tasks-section">
+            <h3>📋 Tiến độ đơn hàng</h3>
+            {tasks_html if tasks_html else '<div style="color: #999; font-size: 13px; padding: 10px;">Chưa có thông tin tiến độ</div>'}
+        </div>
+        
+        {f'''
+        <div class="fees-section">
+            <h3>💰 Phí & Chiết khấu</h3>
+            {f'''
+            <div class="fees-row">
+                <span>📊 VAT (thuế):</span>
+                <strong style="color: #dc2626;">+{_format_money(vat)}đ</strong>
+            </div>''' if vat else ''}
+            {f'''
+            <div class="fees-row">
+                <span>🚚 Phí vận chuyển:</span>
+                <strong style="color: #dc2626;">+{_format_money(pvc)}đ</strong>
+            </div>''' if pvc else ''}
+            {f'''
+            <div class="fees-row">
+                <span>🏷️ Chiết khấu:</span>
+                <strong style="color: #16a34a;">-{_format_money(discount)}đ</strong>
+            </div>''' if discount else ''}
+            {f'''
+            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #fde68a; font-size: 12px; color: #854d0e;">
+                ℹ️ Các khoản phí đã được cộng vào doanh thu và lợi nhuận
+            </div>''' if (vat or pvc or discount) else ''}
+        </div>
+        ''' if (vat or pvc or discount or extra_fees) else ''}
+        
+        <h2 style="margin-bottom: 12px; font-size: 16px;">🛒 Sản phẩm ({len(items)})</h2>
+        <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Mã SP</th>
+                    <th class="text-right">SL</th>
+                    <th class="text-right">Giá bán</th>
+                    <th class="text-right">Giá vốn</th>
+                    <th class="text-right">Doanh thu</th>
+                    <th class="text-right">Chi phí</th>
+                    <th class="text-right">Lợi nhuận</th>
+                    <th class="text-right">%LN</th>
+                </tr>
+            </thead>
+            <tbody>"""
+    
+    if items:
+        for item in items:
+            has_cost = item.get("has_cost", False)
+            item_revenue = item.get("revenue", 0)
+            item_cost = item.get("cost", 0)
+            item_profit = item.get("profit", 0)
+            item_margin = (item_profit / item_revenue * 100) if item_revenue > 0 and has_cost else 0
+            
+            profit_display = f'{_format_money(item_profit)}đ' if has_cost else '<span style="color: #f59e0b;">?</span>'
+            cost_display = f'{_format_money(item.get("cost_price", 0))}đ' if has_cost else '<span style="color: #f59e0b;">?</span>'
+            
+            html += f"""
+                <tr>
+                    <td><a href="/product/{item['code']}" style="color: #3b82f6; text-decoration: none;"><strong>{item['code']}</strong></a></td>
+                    <td class="text-right">{item['qty']}</td>
+                    <td class="text-right">{_format_money(item['sell_price'])}đ</td>
+                    <td class="text-right">{cost_display}</td>
+                    <td class="text-right">{_format_money(item_revenue)}đ</td>
+                    <td class="text-right">{_format_money(item_cost)}đ</td>
+                    <td class="text-right profit {'positive' if item_profit > 0 else 'negative' if item_profit < 0 else ''}">{profit_display}</td>
+                    <td class="text-right">{item_margin:.1f}%</td>
+                </tr>"""
+    else:
+        html += """
+                <tr><td colspan="8" style="text-align: center; padding: 20px; color: #999;">Không có sản phẩm</td></tr>"""
+    
+    html += f"""
+            </tbody>
+        </table>
+        </div>
+        
+        <div style="background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 16px;">
+            <h3 style="margin-bottom: 12px; font-size: 15px;">📊 Tổng kết</h3>
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0;">
+                <span>Tổng số sản phẩm:</span>
+                <strong>{sum(item['qty'] for item in items)}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0;">
+                <span>Số mã SP khác nhau:</span>
+                <strong>{len(items)}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0;">
+                <span>Doanh thu:</span>
+                <strong>{_format_money(total_revenue)}đ</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0;">
+                <span>Giá vốn:</span>
+                <strong>{_format_money(total_cost)}đ</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; padding-top: 8px; margin-top: 4px; border-top: 2px solid #333;">
+                <span style="font-weight: bold; font-size: 15px;">Lợi nhuận:</span>
+                <strong style="color: {'#22c55e' if total_profit >= 0 else '#ef4444'}; font-size: 15px;">{_format_money(total_profit)}đ</strong>
+            </div>
+        </div>
+    </div>
+</body>
+</html>"""
+    
+    return html
+
+
+def generate_settings_html(yearly_loan, monthly_weights=None):
+    """Generate settings page HTML with monthly weight configuration."""
+    if monthly_weights is None:
+        monthly_weights = DEFAULT_WEIGHTS
+    w = {str(m): float(monthly_weights.get(str(m), 1.0)) for m in range(1, 13)}
+    MONTH_NAMES = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"]
+    avg_w = sum(w.values()) / 12.0
+    monthly_base = yearly_loan / 12.0
+
+    # Build weight input rows
+    weight_rows = ""
+    for m in range(1, 13):
+        allocated = int(monthly_base * w[str(m)] / avg_w) if avg_w > 0 else 0
+        weight_rows += f"""
+                <div class="weight-row">
+                    <span class="weight-label">{MONTH_NAMES[m-1]}</span>
+                    <input type="number" class="weight-input" data-month="{m}" value="{w[str(m)]}" min="0" step="0.1">
+                    <span class="weight-amount" id="amount-{m}">{_format_money(allocated)}đ</span>
+                </div>"""
+
+    html = f"""<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cấu hình Dashboard</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 10px; }}
+        .container {{ max-width: 800px; margin: 0 auto; }}
+        h1 {{ color: #333; margin-bottom: 16px; font-size: 22px; }}
+        h2 {{ color: #333; margin-bottom: 12px; font-size: 16px; }}
+        .nav {{ margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px; }}
+        .nav a {{ padding: 8px 12px; background: #3b82f6; color: white; text-decoration: none; border-radius: 5px; white-space: nowrap; font-size: 13px; }}
+        .nav a:hover {{ background: #2563eb; }}
+        .nav a.active {{ background: #1d4ed8; }}
+        .settings-card {{ background: white; border-radius: 10px; padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 16px; }}
+        .form-group {{ margin-bottom: 20px; }}
+        .form-group label {{ display: block; color: #333; font-weight: 600; margin-bottom: 8px; font-size: 14px; }}
+        .form-group input {{ width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; transition: border-color 0.2s; }}
+        .form-group input:focus {{ outline: none; border-color: #3b82f6; }}
+        .form-group .help {{ color: #666; font-size: 12px; margin-top: 4px; }}
+        .btn {{ padding: 12px 24px; background: #22c55e; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }}
+        .btn:hover {{ background: #16a34a; }}
+        .btn-reset {{ background: #6b7280; margin-left: 8px; }}
+        .btn-reset:hover {{ background: #4b5563; }}
+        .weight-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-top: 12px; }}
+        .weight-row {{ display: flex; align-items: center; gap: 8px; background: #f9fafb; padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e7eb; }}
+        .weight-label {{ font-weight: 600; color: #374151; min-width: 32px; font-size: 14px; }}
+        .weight-input {{ width: 70px !important; padding: 6px 8px !important; font-size: 14px !important; text-align: center; border: 2px solid #e5e7eb; border-radius: 6px; }}
+        .weight-input:focus {{ outline: none; border-color: #3b82f6; }}
+        .weight-amount {{ color: #1e40af; font-size: 13px; font-weight: 500; margin-left: auto; white-space: nowrap; }}
+        .preview {{ background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 8px; margin-top: 20px; }}
+        .preview h3 {{ color: #1e40af; margin-bottom: 8px; font-size: 14px; }}
+        .preview-row {{ display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }}
+        .preview-row strong {{ color: #1e40af; }}
+        .alert {{ padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; display: none; }}
+        .alert.success {{ background: #dcfce7; color: #166534; border: 1px solid #86efac; }}
+        .alert.error {{ background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }}
+        @media (max-width: 768px) {{
+            .settings-card {{ padding: 16px; }}
+            .weight-grid {{ grid-template-columns: 1fr; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">🏠 Dashboard</a>
+            <a href="/customers">👥 Khách hàng</a>
+            <a href="/settings" class="active">⚙️ Cấu hình</a>
+        </div>
+        <h1>⚙️ Cấu hình Dashboard</h1>
+
+        <div id="alert" class="alert"></div>
+
+        <div class="settings-card">
+            <form id="settingsForm">
+                <div class="form-group">
+                    <label for="yearly_loan">💳 Tổng lãi vay ngân hàng 1 năm (VNĐ)</label>
+                    <input type="number" id="yearly_loan" name="yearly_loan" value="{yearly_loan}" placeholder="Nhập tổng số tiền lãi vay phải trả trong 1 năm" min="0" step="100000">
+                    <div class="help">Tổng lãi vay 1 năm, sẽ được phân bổ theo trọng số từng tháng bên dưới.</div>
+                </div>
+
+                <h2>📊 Trọng số phân bổ theo tháng</h2>
+                <div class="help" style="margin-bottom: 8px;">Mỗi tháng có một trọng số (mặc định 1.0). Tháng trọng số cao hơn sẽ chịu nhiều lãi vay hơn. Tổng phân bổ cả năm vẫn bằng tổng lãi vay bạn nhập.</div>
+                <div class="weight-grid" id="weightGrid">{weight_rows}
+                </div>
+                <div style="margin-top: 8px; display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-reset" onclick="resetWeights()">↺ Reset về 1.0</button>
+                    <button type="button" class="btn btn-reset" onclick="equalizeWeights()">= Chia đều</button>
+                </div>
+
+                <div class="preview">
+                    <h3>📊 Xem trước</h3>
+                    <div class="preview-row">
+                        <span>Tổng lãi vay/năm:</span>
+                        <strong id="preview-yearly">{_format_money(yearly_loan)}đ</strong>
+                    </div>
+                    <div class="preview-row">
+                        <span>Trung bình/tháng:</span>
+                        <strong id="preview-monthly">{_format_money(int(yearly_loan / 12))}đ</strong>
+                    </div>
+                    <div class="preview-row">
+                        <span>Tháng cao nhất:</span>
+                        <strong id="preview-max">—</strong>
+                    </div>
+                    <div class="preview-row">
+                        <span>Tháng thấp nhất:</span>
+                        <strong id="preview-min">—</strong>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn" style="margin-top: 20px;">💾 Lưu cấu hình</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const loanInput = document.getElementById('yearly_loan');
+        loanInput.addEventListener('input', updatePreview);
+        document.querySelectorAll('.weight-input').forEach(inp => inp.addEventListener('input', updatePreview));
+
+        function getWeights() {{
+            const w = {{}};
+            document.querySelectorAll('.weight-input').forEach(inp => {{
+                w[inp.dataset.month] = parseFloat(inp.value) || 0;
+            }});
+            return w;
+        }}
+
+        function updatePreview() {{
+            const yearly = parseInt(loanInput.value) || 0;
+            const monthly = yearly / 12;
+            const w = getWeights();
+            const vals = Object.values(w);
+            const avgW = vals.reduce((a, b) => a + b, 0) / 12;
+
+            let maxVal = 0, minVal = Infinity, maxMonth = '', minMonth = '';
+            const names = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
+            for (let m = 1; m <= 12; m++) {{
+                const wM = w[String(m)] || 0;
+                const allocated = avgW > 0 ? Math.round(monthly * wM / avgW) : 0;
+                document.getElementById('amount-' + m).textContent = allocated.toLocaleString() + 'đ';
+                if (allocated > maxVal) {{ maxVal = allocated; maxMonth = names[m-1]; }}
+                if (allocated < minVal) {{ minVal = allocated; minMonth = names[m-1]; }}
+            }}
+
+            document.getElementById('preview-yearly').textContent = yearly.toLocaleString() + 'đ';
+            document.getElementById('preview-monthly').textContent = Math.round(monthly).toLocaleString() + 'đ';
+            document.getElementById('preview-max').textContent = maxMonth + ': ' + maxVal.toLocaleString() + 'đ';
+            document.getElementById('preview-min').textContent = minMonth + ': ' + minVal.toLocaleString() + 'đ';
+        }}
+
+        function resetWeights() {{
+            document.querySelectorAll('.weight-input').forEach(inp => inp.value = '1.0');
+            updatePreview();
+        }}
+
+        function equalizeWeights() {{
+            resetWeights();
+        }}
+
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {{
+            e.preventDefault();
+            const yearly = parseInt(loanInput.value) || 0;
+            const weights = getWeights();
+
+            try {{
+                const response = await fetch('/api/settings', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ yearly_loan_payment: yearly, monthly_weights: weights }})
+                }});
+
+                if (response.ok) {{
+                    showAlert('✅ Đã lưu cấu hình thành công!', 'success');
+                    setTimeout(() => location.href = '/', 1500);
+                }} else {{
+                    showAlert('❌ Lỗi khi lưu cấu hình', 'error');
+                }}
+            }} catch (err) {{
+                showAlert('❌ Lỗi: ' + err.message, 'error');
+            }}
+        }});
+
+        function showAlert(message, type) {{
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = 'alert ' + type;
+            alert.style.display = 'block';
+            setTimeout(() => alert.style.display = 'none', 3000);
+        }}
+
+        // Initial preview
+        updatePreview();
+    </script>
+</body>
+</html>"""
+    return html
+
+
 def create_app():
     """Create aiohttp application."""
     db_conn = _get_connection()
@@ -1259,7 +2559,11 @@ def create_app():
         since_date = request.query.get("since", "2026-05-01").strip() or None
         until_date = request.query.get("until", "").strip() or None
         
-        html = generate_dashboard_html(db_conn, filter_product, filter_customer, since_date=since_date, until_date=until_date)
+        settings = load_settings()
+        yearly_loan = settings.get("yearly_loan_payment", 0)
+        monthly_weights = settings.get("monthly_weights", DEFAULT_WEIGHTS)
+        
+        html = generate_dashboard_html(db_conn, filter_product, filter_customer, since_date=since_date, until_date=until_date, yearly_loan=yearly_loan, monthly_weights=monthly_weights)
         return web.Response(text=html, content_type="text/html")
     
     async def handle_customers(request):
@@ -1268,9 +2572,54 @@ def create_app():
         html = generate_customer_profit_html(db_conn, since_date, until_date)
         return web.Response(text=html, content_type="text/html")
     
+    async def handle_settings(request):
+        settings = load_settings()
+        yearly_loan = settings.get("yearly_loan_payment", 0)
+        monthly_weights = settings.get("monthly_weights", DEFAULT_WEIGHTS)
+        html = generate_settings_html(yearly_loan, monthly_weights)
+        return web.Response(text=html, content_type="text/html")
+
+    async def handle_api_settings(request):
+        try:
+            data = await request.json()
+            yearly_loan = int(data.get("yearly_loan_payment", 0))
+            if yearly_loan < 0:
+                return web.json_response({"error": "Số tiền không hợp lệ"}, status=400)
+
+            # Parse monthly weights
+            raw_weights = data.get("monthly_weights", {})
+            weights = {}
+            for m in range(1, 13):
+                v = raw_weights.get(str(m), raw_weights.get(m, 1.0))
+                weights[str(m)] = max(0.0, float(v))
+
+            settings = {"yearly_loan_payment": yearly_loan, "monthly_weights": weights}
+            if save_settings(settings):
+                return web.json_response({"success": True, "yearly_loan_payment": yearly_loan, "monthly_weights": weights})
+            else:
+                return web.json_response({"error": "Lỗi khi lưu"}, status=500)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=400)
+    
     async def handle_product_detail(request):
         code = request.match_info["code"].upper()
-        html = generate_product_detail_html(db_conn, code)
+        since_date = request.query.get("since", "2026-05-01").strip() or None
+        until_date = request.query.get("until", "").strip() or None
+        html = generate_product_detail_html(db_conn, code, since_date=since_date, until_date=until_date)
+        return web.Response(text=html, content_type="text/html")
+    
+    async def handle_customer_detail(request):
+        from urllib.parse import unquote
+        customer_name = unquote(request.match_info["name"])
+        filter_product = request.query.get("product", "").strip().upper() or None
+        since_date = request.query.get("since", "2026-05-01").strip() or None
+        until_date = request.query.get("until", "").strip() or None
+        html = generate_customer_detail_html(db_conn, customer_name, filter_product, since_date, until_date)
+        return web.Response(text=html, content_type="text/html")
+    
+    async def handle_order_detail(request):
+        thread_id = int(request.match_info["thread_id"])
+        html = generate_order_detail_html(db_conn, thread_id)
         return web.Response(text=html, content_type="text/html")
     
     async def handle_product_cost_update(request):
@@ -1303,12 +2652,14 @@ def create_app():
             
             if since_date and created:
                 try:
+                    vn_tz = timezone(timedelta(hours=7))
                     if isinstance(created, str):
-                        created_date = created[:10]
+                        dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                        created_date = dt.astimezone(vn_tz).strftime("%Y-%m-%d")
                     elif created > 1e10:
-                        created_date = datetime.fromtimestamp(created / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+                        created_date = datetime.fromtimestamp(created / 1000, tz=timezone.utc).astimezone(vn_tz).strftime("%Y-%m-%d")
                     else:
-                        created_date = datetime.fromtimestamp(created, tz=timezone.utc).strftime("%Y-%m-%d")
+                        created_date = datetime.fromtimestamp(created, tz=timezone.utc).astimezone(vn_tz).strftime("%Y-%m-%d")
                     if created_date < since_date:
                         continue
                 except:
@@ -1456,15 +2807,17 @@ def create_app():
             order = json.loads(row[1])
             created = order.get("created", "")
             
-            # Filter by date range
+            # Filter by date range (VN timezone UTC+7)
             if created:
                 try:
+                    vn_tz = timezone(timedelta(hours=7))
                     if isinstance(created, str):
-                        created_date = created[:10]
+                        dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                        created_date = dt.astimezone(vn_tz).strftime("%Y-%m-%d")
                     elif created > 1e10:
-                        created_date = datetime.fromtimestamp(created / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+                        created_date = datetime.fromtimestamp(created / 1000, tz=timezone.utc).astimezone(vn_tz).strftime("%Y-%m-%d")
                     else:
-                        created_date = datetime.fromtimestamp(created, tz=timezone.utc).strftime("%Y-%m-%d")
+                        created_date = datetime.fromtimestamp(created, tz=timezone.utc).astimezone(vn_tz).strftime("%Y-%m-%d")
                     if since_date and created_date < since_date:
                         continue
                     if until_date and created_date > until_date:
@@ -1491,18 +2844,21 @@ def create_app():
             if filter_customer and filter_customer.lower() not in customer.lower():
                 continue
             
-            # Format date + time (VN timezone)
+            # Format date + time (VN timezone UTC+7)
             if created:
                 try:
+                    vn_tz = timezone(timedelta(hours=7))
                     if isinstance(created, str):
-                        date_display = created[:16].replace('T', ' ')
+                        dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                        vn = dt.astimezone(vn_tz)
+                        date_display = vn.strftime("%d/%m %H:%M")
                     elif created > 1e10:
                         dt = datetime.fromtimestamp(created / 1000, tz=timezone.utc)
-                        vn = dt.astimezone(timezone(timedelta(hours=7)))
+                        vn = dt.astimezone(vn_tz)
                         date_display = vn.strftime("%d/%m %H:%M")
                     else:
                         dt = datetime.fromtimestamp(created, tz=timezone.utc)
-                        vn = dt.astimezone(timezone(timedelta(hours=7)))
+                        vn = dt.astimezone(vn_tz)
                         date_display = vn.strftime("%d/%m %H:%M")
                 except:
                     date_display = ""
@@ -1550,7 +2906,11 @@ def create_app():
     
     app.router.add_get("/", handle_index)
     app.router.add_get("/customers", handle_customers)
+    app.router.add_get("/settings", handle_settings)
+    app.router.add_post("/api/settings", handle_api_settings)
     app.router.add_get("/product/{code}", handle_product_detail)
+    app.router.add_get("/customer/{name}", handle_customer_detail)
+    app.router.add_get("/order/{thread_id}", handle_order_detail)
     app.router.add_post("/product/{code}/cost", handle_product_cost_update)
     app.router.add_post("/products/bulk-update", handle_products_bulk_update)
     app.router.add_get("/export/orders", handle_export_orders)

@@ -823,12 +823,18 @@ def register_order_commands_v3(client):
 
         # Auto-complete ban_hd task locally
         set_task_status(db_conn, thread_id, "ban_hd", user_id)
-
-        # Call external final_telegram API to mirror ban_hd (same as Node.js)
+        # Send ban_hd notification directly via Telethon (no Node.js)
         try:
-            _call_final("/api/order/ban", {"thread_id": thread_id, "user_id": user_id})
+            user_name = "Hệ thống"
+            if user_id:
+                try: user_name = (await client.get_entity(user_id)).first_name or str(user_id)
+                except: pass
+            await client.send_message(
+                msg.chat_id, f"{user_name} bán HĐ",
+                reply_to=thread_id, disable_web_page_preview=True,
+            )
         except Exception as e:
-            log.warning("Failed to call external ban_hd API: %s", e)
+            log.warning("ban_hd notification failed: %s", e)
 
         await client.edit_message(
             msg.chat_id,
@@ -1500,6 +1506,82 @@ def register_order_commands_v3(client):
         await client.send_message(msg.chat_id, reply_text, reply_to=msg.id)
 
         # Refresh main message + Firebase sync (non-blocking, debounced)
+        _firebase_refresh_async(client, db_conn, thread_id, order)
+
+    # ── DETECT INVOICE ───────────────────────────────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_detect_invoice(event):
+        msg = event.message
+        if isinstance(msg, MessageService):
+            return
+        if (msg.text or "").strip().lower() != "detect invoice":
+            return
+
+        thread_id = _extract_thread_id(msg)
+        if not thread_id:
+            await client.send_message(msg.chat_id, "❌ Không xác định được đơn hàng.", reply_to=msg.id)
+            return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+
+        order_text = order.get("text") or order.get("text_raw") or ""
+        if not order_text:
+            await client.send_message(msg.chat_id, "❌ Đơn hàng này không có nội dung để phân tích.", reply_to=msg.id)
+            return
+
+        kh_id_fb = order.get("khach_hang_id") or order.get("khID")
+
+        from order_db import parse_invoice_free_text
+        invoice = parse_invoice_free_text(db_conn, order_text, kh_id_fb)
+
+        if not invoice:
+            await client.send_message(
+                msg.chat_id,
+                f"❌ Không tìm thấy sản phẩm nào trong order text.\n\n📝 Text: \"{order_text[:500]}\"",
+                reply_to=msg.id,
+            )
+            return
+
+        # Save to SQLite
+        from product_db import freeze_invoice_cost_prices
+        order["invoice"] = freeze_invoice_cost_prices(db_conn, invoice)
+        if not _save_order(db_conn, thread_id, order):
+            await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
+            return
+
+        # Build response
+        lines = [f"🎯 TÌM THẤY {len(invoice)} SẢN PHẨM:\n"]
+        grand_total = 0
+        for item in invoice:
+            sp = item.get("sp", "?")
+            sl = item.get("sl", 0)
+            price = item.get("price", 0)
+            sub_total = sl * price
+            grand_total += sub_total
+            qc_type = item.get("qc_type")
+            so_qc = item.get("so_qc", [])
+            sl1pc = item.get("sl1pc", 0)
+            note = item.get("note", "")
+
+            lines.append(f"• <b>{sp}</b>")
+            if qc_type:
+                lines.append(f"  📦 QC: {''.join(str(v) for v in so_qc)}{qc_type}")
+            lines.append(f"  🔢 SL1PC: {sl1pc}  →  Tổng SL: <b>{sl}</b>")
+            if price > 0:
+                lines.append(f"  💰 Giá: {price:,}đ  →  Thành tiền: <b>{sub_total:,}đ</b>")
+            if note:
+                lines.append(f"  📝 {note}")
+            lines.append("")
+
+        lines.append(f"💰 <b>Tổng cộng: {grand_total:,}đ</b>")
+        lines.append(f"\n✅ Đã lưu {len(invoice)} sản phẩm vào đơn hàng.")
+
+        await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
+
+        # Refresh main message + Firebase sync (non-blocking)
         _firebase_refresh_async(client, db_conn, thread_id, order)
 
     # ── DONE ALL TASKS ───────────────────────────────────────────────

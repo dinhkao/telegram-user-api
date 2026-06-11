@@ -501,11 +501,18 @@ def parse_comma_text(text: str, conn, kh_id: str | int | None) -> list[dict]:
             so_qc = [1]
         else:
             words = clean_line.split()
-            if len(words) < 3:
+            if len(words) < 2:
                 continue
             sp = words[0].upper()
+            # Skip if first word doesn't look like a product code
+            if not re.match(r'^[A-Z0-9][A-Z0-9.-]*$', sp):
+                continue
             qc_raw = words[1]
-            sl1qc_val = float(words[2]) if len(words) > 2 else 0
+            # Try float conversion; skip line if not numeric
+            try:
+                sl1qc_val = float(words[2]) if len(words) > 2 else 0
+            except (ValueError, TypeError):
+                continue
             price_override = words[3] if len(words) > 3 else None
             note = " ".join(words[4:]) if len(words) > 4 else None
             qc_type, so_qc = _parse_qc(qc_raw)
@@ -535,6 +542,115 @@ def parse_comma_text(text: str, conn, kh_id: str | int | None) -> list[dict]:
 
     return invoice
 
+
+def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None) -> list[dict]:
+    """Parse free-form order text into invoice items by scanning for known product codes.
+
+    Handles text like: "hoa ngà k2l 70 , k2nv128 50"
+    Returns list of dicts: {sp, so_qc, qc_type, sl1pc, sl, price, note}
+    """
+    import re
+    from product_db import get_all_products
+
+    if not text or not text.strip():
+        return []
+
+    all_products = get_all_products(conn)
+    valid_codes = {p["code"].upper() for p in all_products} if all_products else set()
+    if not valid_codes:
+        return []
+
+    price_list = get_customer_price_list(conn, kh_id) if kh_id else {}
+
+    # Normalize: commas/newlines → spaces, collapse whitespace
+    cleaned = re.sub(r'[,\n]+', ' ', text)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    tokens = cleaned.split(' ')
+
+    invoice = []
+    i = 0
+    while i < len(tokens):
+        token_upper = tokens[i].upper()
+        if token_upper in valid_codes:
+            sp = token_upper
+            i += 1
+            if i >= len(tokens):
+                i += 1
+                continue
+
+            next_token = tokens[i]
+            qc_type = None
+            so_qc = [1]
+            sl1pc = 0
+            has_qc = False
+
+            # Check for QC format: <int>t, <int>b, <num>t<num>b
+            m_t = re.match(r'^(\d+)t$', next_token)
+            m_b = re.match(r'^(\d+)b$', next_token)
+            m_tb = re.match(r'^([\d.]+)t([\d.]+)b$', next_token)
+            if m_t:
+                # e.g. 4t → 4 túi, default 50/túi
+                qc_type = 't'
+                so_qc = [int(m_t.group(1))]
+                has_qc = True
+                i += 1
+            elif m_b:
+                # e.g. 3b → 3 bịch, MUST have next number
+                qc_type = 'b'
+                so_qc = [int(m_b.group(1))]
+                has_qc = True
+                i += 1
+            elif m_tb:
+                # e.g. 2t3b → 2 túi x 3 bịch, default 50
+                qc_type = 'tb'
+                so_qc = [float(m_tb.group(1)), float(m_tb.group(2))]
+                has_qc = True
+                i += 1
+
+            if has_qc:
+                # Check for optional sl1pc after QC
+                if qc_type == 't' or qc_type == 'tb':
+                    sl1pc = 50  # default for túi
+                    if i < len(tokens):
+                        try:
+                            sl1pc = int(tokens[i])
+                            i += 1
+                        except ValueError:
+                            pass
+                elif qc_type == 'b':
+                    # bịch MUST have explicit quantity
+                    if i < len(tokens):
+                        try:
+                            sl1pc = int(tokens[i])
+                            i += 1
+                        except ValueError:
+                            sl1pc = 0
+                    if sl1pc <= 0:
+                        continue  # skip — no quantity for bịch
+            else:
+                # No QC: plain number as sl1pc
+                try:
+                    sl1pc = int(next_token)
+                    i += 1
+                except ValueError:
+                    continue
+
+            sl = 1
+            for v in so_qc:
+                sl *= v
+            sl *= sl1pc
+
+            price = price_list.get(sp, 0)
+            invoice.append({
+                "sp": sp, "so_qc": so_qc, "qc_type": qc_type,
+                "sl1pc": sl1pc, "sl": int(sl), "price": price, "note": None,
+            })
+            continue
+        i += 1
+
+    return invoice
+
+
 def save_order_invoice(conn, thread_id: int, invoice: list[dict]) -> tuple[bool, str]:
     """Save parsed invoice items to an order. Returns (ok, message)."""
     data = get_order_by_thread_id(conn, thread_id)
@@ -546,3 +662,68 @@ def save_order_invoice(conn, thread_id: int, invoice: list[dict]) -> tuple[bool,
     if ok:
         return True, f"✅ Đã lưu {len(invoice)} sản phẩm"
     return False, "❌ Lỗi lưu đơn hàng"
+
+
+def detect_customer_free_text(conn, text: str) -> dict:
+    """Detect customer from free-form order text using pattern matching.
+
+    Scans all customers with patterns in SQLite, matches against order text.
+    Returns: { matches: [{customerID, customerName, score, bestMatchedPattern}], autoAssign: {customerID, customerName, score} | None }
+    """
+    import re as _re
+    from vn import vn_normalize
+
+    if not text or not text.strip():
+        return {"matches": [], "autoAssign": None}
+
+    norm_text = vn_normalize(text)
+    orig_text = text.lower()
+
+    cur = conn.execute(
+        "SELECT firebase_key, json FROM customers WHERE json_extract(json, '$.patterns') IS NOT NULL AND json_extract(json, '$.patterns') != '[]' AND deleted_at IS NULL"
+    )
+    candidates = []
+    for row in cur.fetchall():
+        cust = json.loads(row["json"])
+        patterns = cust.get("patterns") or []
+        if not patterns:
+            continue
+        best_pattern = None
+        best_score = 0
+        for pattern in patterns:
+            p = (pattern or "").strip()
+            if not p:
+                continue
+            norm_p = vn_normalize(p)
+            word_re = _re.compile(r'(?:^|\s)' + _re.escape(norm_p) + r'(?:$|\s)', _re.IGNORECASE)
+            if word_re.search(norm_text):
+                score = len(norm_p) * 10
+                if score > best_score:
+                    best_score = score
+                    best_pattern = p
+            elif norm_p in norm_text:
+                score = len(norm_p) * 3
+                if score > best_score:
+                    best_score = score
+                    best_pattern = p
+
+        if best_pattern:
+            candidates.append({
+                "customerID": row["firebase_key"],
+                "customerName": cust.get("name", "N/A"),
+                "score": best_score,
+                "bestMatchedPattern": best_pattern,
+            })
+
+    candidates.sort(key=lambda c: c["score"], reverse=True)
+
+    auto_assign = None
+    if len(candidates) == 1 and candidates[0]["score"] >= 30:
+        auto_assign = candidates[0]
+    elif len(candidates) >= 2:
+        top = candidates[0]
+        second = candidates[1]
+        if top["score"] >= 50 and top["score"] >= second["score"] * 2:
+            auto_assign = top
+
+    return {"matches": candidates, "autoAssign": auto_assign}

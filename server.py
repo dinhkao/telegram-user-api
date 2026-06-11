@@ -1022,6 +1022,325 @@ async def order_totals_handler(request: web.Request):
         return web.json_response({"ok": False, "error": str(e)}, status=500)
 
 
+async def auto_parse_handler(request: web.Request):
+    """POST /api/order/auto-parse
+    Auto-detect invoice items from order text. Called by channelDonHangMoi.js
+    when a new #don_hang order is created.
+    Body: { thread_id: int, text: str }
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+
+    thread_id = body.get("thread_id")
+    text = body.get("text", "").strip()
+    if not thread_id or not text:
+        return web.json_response({"ok": False, "error": "Missing thread_id or text"}, status=400)
+
+    from order_db import _get_connection, get_order_by_thread_id, parse_invoice_free_text, _save_order
+    conn = _get_connection()
+
+    order = get_order_by_thread_id(conn, thread_id)
+    if not order:
+        return web.json_response({"ok": False, "error": "Order not found in SQLite"}, status=404)
+
+    kh_id_fb = order.get("khach_hang_id") or order.get("khID")
+    invoice = parse_invoice_free_text(conn, text, kh_id_fb)
+    if not invoice:
+        return web.json_response({"ok": True, "parsed": 0, "message": "No invoice items detected"})
+
+    from product_db import freeze_invoice_cost_prices
+    order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
+    ok = _save_order(conn, thread_id, order)
+    if not ok:
+        return web.json_response({"ok": False, "error": "Failed to save order"}, status=500)
+
+    log.info("auto-parse: thread=%d items=%d", thread_id, len(invoice))
+
+    # Build notification lines
+    lines = []
+    if _client is not None:
+        # ── Invoice section ──
+        if invoice:
+            lines.append(f"🤖 <b>Auto-detect:</b> đã tìm thấy {len(invoice)} sản phẩm\n")
+            grand_total = 0
+            for item in invoice:
+                sp = item.get("sp", "?")
+                sl = item.get("sl", 0)
+                price = item.get("price", 0)
+                sub_total = sl * price
+                grand_total += sub_total
+                lines.append(f"• <b>{sp}</b> x{sl} @ {price:,}đ = <b>{sub_total:,}đ</b>")
+            lines.append(f"\n💰 <b>Tổng cộng: {grand_total:,}đ</b>")
+
+        # ── Customer detection section ──
+        from order_db import detect_customer_free_text, get_customer_by_key
+        detection = detect_customer_free_text(conn, text)
+        if detection["autoAssign"]:
+            cust = detection["autoAssign"]
+            # Auto-assign
+            order["khach_hang_id"] = cust["customerID"]
+            order["customer_name"] = cust["customerName"]
+            _save_order(conn, thread_id, order)
+            if lines:
+                lines.append("")
+            lines.append(f"👤 <b>Đã gán:</b> {cust['customerName']} ({cust['score']}%)")
+            lines.append(f"🎯 Mẫu: \"{cust['bestMatchedPattern']}\"")
+        elif detection["matches"]:
+            matches = detection["matches"][:3]
+            if lines:
+                lines.append("")
+            lines.append(f"🔍 <b>Khách hàng có thể:</b>")
+            for i, m in enumerate(matches):
+                lines.append(f"  {i+1}. {m['customerName']} ({m['score']}%) — <code>add khach hang {m['customerID']}</code>")
+
+        # Send
+        if lines:
+            try:
+                order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
+                await _client.send_message(
+                    order_group_id,
+                    "\n".join(lines),
+                    reply_to=thread_id,
+                    parse_mode="html",
+                )
+            except Exception as e:
+                log.warning("auto-parse notification failed: %s", e)
+
+    return web.json_response({
+        "ok": True,
+        "parsed": len(invoice),
+        "auto_assigned": detection["autoAssign"]["customerID"] if detection.get("autoAssign") else None,
+    })
+
+
+# ── Task/invoice endpoints for bot-don-hang (replaces Node.js HTTP calls) ──────
+
+def _make_task_handler(task_type: str):
+    """Factory: creates handler for POST /api/order/{soan|ban|giao|nop-tien}."""
+    async def handler(request: web.Request):
+        try:
+            body = await request.json()
+        except Exception:
+            return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+        body["type"] = task_type
+        return await api_task_handler_impl(body)
+    return handler
+
+
+async def api_task_handler(request: web.Request):
+    """POST /api/order/task  { thread_id, type, user_id? }"""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    return await api_task_handler_impl(body)
+
+
+async def api_task_handler_impl(body: dict):
+    thread_id = body.get("thread_id")
+    task_type = body.get("type")
+    user_id = body.get("user_id")
+    if not thread_id or not task_type:
+        return web.json_response({"ok": False, "error": "Missing thread_id or type"}, status=400)
+
+    from order_db import _get_connection, get_order_by_thread_id, set_task_status, _save_order
+    conn = _get_connection()
+    order = get_order_by_thread_id(conn, thread_id)
+    if not order:
+        return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+
+    TASK_MAP = {"soan": "soan_hang", "ban": "ban_hd", "giao": "giao_hang", "nop": "nop_tien"}
+    TASK_NAMES = {"soan_hang": "soạn hàng", "ban_hd": "bán HĐ", "giao_hang": "giao hàng", "nop_tien": "nộp tiền"}
+    internal_type = TASK_MAP.get(task_type, task_type)
+    set_task_status(conn, thread_id, internal_type, user_id)
+    # Re-read after update
+    order = get_order_by_thread_id(conn, thread_id)
+
+    # Background: send notification + refresh main message
+    task_name = TASK_NAMES.get(internal_type, internal_type)
+    actor = "Hệ thống"
+    if user_id:
+        try:
+            entity = await _client.get_entity(user_id)
+            actor = entity.first_name or str(user_id)
+        except Exception:
+            actor = str(user_id)
+
+    order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
+    client.loop.create_task(_send_task_notification(order_group_id, thread_id, f"{actor} {task_name}"))
+    # Refresh main message
+    channel_id = order.get("channel_id")
+    message_id = order.get("message_id")
+    if channel_id and message_id:
+        client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
+    return web.json_response({"ok": True, "task": internal_type})
+
+
+async def _send_task_notification(chat_id, thread_id, message):
+    """Send task notification to order thread via Telethon user client."""
+    try:
+        await _client.send_message(chat_id, message, reply_to=thread_id, disable_web_page_preview=True)
+    except Exception as e:
+        log.warning("Task notification failed: %s", e)
+
+
+async def _refresh_order_bg(conn, thread_id, channel_id, message_id):
+    """Refresh main message in background (uses Node.js renderer for now)."""
+    try:
+        from order_db import _call_final_telegram, get_order_by_thread_id
+        order = get_order_by_thread_id(conn, thread_id)
+        if not order:
+            return
+        _call_final_telegram("/api/update-order-message", {
+            "order": order, "message_id": message_id, "channel_id": channel_id,
+        }, timeout=10)
+    except Exception:
+        pass
+
+
+# ── Additional bot-don-hang endpoints ────────────────────────────────
+
+async def api_fix_handler(request: web.Request):
+    """POST /api/order/fix  { thread_id, text, user_id? }
+    Update order text in SQLite directly.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    thread_id = body.get("thread_id")
+    text = (body.get("text") or "").strip()
+    if not thread_id or not text:
+        return web.json_response({"ok": False, "error": "Missing thread_id or text"}, status=400)
+
+    from order_db import _get_connection, get_order_by_thread_id, _save_order
+    conn = _get_connection()
+    order = get_order_by_thread_id(conn, thread_id)
+    if not order:
+        return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+
+    order["text"] = text
+    order["text_raw"] = text
+    if not _save_order(conn, thread_id, order):
+        return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
+
+    # Refresh main message in background
+    channel_id = order.get("channel_id")
+    message_id = order.get("message_id")
+    if channel_id and message_id:
+        client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
+    return web.json_response({"ok": True})
+
+
+async def api_invoice_update_handler(request: web.Request):
+    """POST /api/order/invoice/update  { thread_id, invoice: [...] }
+    Update invoice items in SQLite directly.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    thread_id = body.get("thread_id")
+    invoice = body.get("invoice")
+    if not thread_id or not isinstance(invoice, list):
+        return web.json_response({"ok": False, "error": "Missing thread_id or invoice"}, status=400)
+
+    from order_db import _get_connection, get_order_by_thread_id, _save_order
+    from product_db import freeze_invoice_cost_prices
+    conn = _get_connection()
+    order = get_order_by_thread_id(conn, thread_id)
+    if not order:
+        return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+
+    order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
+    if not _save_order(conn, thread_id, order):
+        return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
+
+    # Refresh main message
+    channel_id = order.get("channel_id")
+    message_id = order.get("message_id")
+    if channel_id and message_id:
+        client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
+    log.info("invoice-update: thread=%d items=%d", thread_id, len(invoice))
+    return web.json_response({"ok": True})
+
+
+async def api_reply_handler(request: web.Request):
+    """POST /api/order/reply  { thread_id, text, times? }
+    Send reply message to order thread via Telethon.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    thread_id = body.get("thread_id")
+    text = (body.get("text") or "").strip()
+    times = body.get("times", 1)
+    if not thread_id or not text:
+        return web.json_response({"ok": False, "error": "Missing thread_id or text"}, status=400)
+
+    order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
+    try:
+        for _ in range(min(times, 5)):
+            await _client.send_message(order_group_id, text, reply_to=thread_id)
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+    return web.json_response({"ok": True})
+
+
+async def api_customer_price_handler(request: web.Request):
+    """POST /api/customer/price  { customer_id, product }
+    Get customer-specific price for a product from SQLite.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    customer_id = body.get("customer_id")
+    product = (body.get("product") or "").upper().strip()
+    if not customer_id or not product:
+        return web.json_response({"ok": False, "error": "Missing customer_id or product"}, status=400)
+
+    from order_db import _get_connection, get_customer_price_list
+    conn = _get_connection()
+    price_list = get_customer_price_list(conn, str(customer_id))
+    price = price_list.get(product, 0)
+    return web.json_response({"ok": True, "price": price, "product": product})
+
+
+async def api_refresh_handler(request: web.Request):
+    """POST /api/order/refresh  { thread_id }
+    Refresh main message via Node.js renderer (keep for channel message editing).
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    thread_id = body.get("thread_id")
+    if not thread_id:
+        return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
+
+    from order_db import _get_connection, get_order_by_thread_id
+    conn = _get_connection()
+    order = get_order_by_thread_id(conn, thread_id)
+    if not order:
+        return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+
+    from order_db import _call_final_telegram
+    channel_id = order.get("channel_id")
+    message_id = order.get("message_id")
+    if channel_id and message_id:
+        try:
+            _call_final_telegram("/api/update-order-message", {
+                "order": order, "message_id": message_id, "channel_id": channel_id,
+            }, timeout=10)
+        except Exception:
+            pass
+    return web.json_response({"ok": True})
+
+
 # ─── Main ──────────────────────────────────────────────────────────────────────
 async def main():
     global _client, _donhang_db
@@ -1132,6 +1451,19 @@ async def main():
     app.router.add_post("/api/order/payment/tm", payment_tm_handler)
     app.router.add_post("/api/order/payment/ck", payment_ck_handler)
     app.router.add_post("/api/order/totals", order_totals_handler)
+
+    # Auto-parse invoice items from order text (called by channelDonHangMoi.js on new order)
+    app.router.add_post("/api/order/auto-parse", auto_parse_handler)
+    # Task endpoints (replaces Node.js /api/order/soan, /ban, /giao, /nop-tien)
+    app.router.add_post("/api/order/soan", _make_task_handler("soan"))
+    app.router.add_post("/api/order/ban", _make_task_handler("ban"))
+    app.router.add_post("/api/order/giao", _make_task_handler("giao"))
+    app.router.add_post("/api/order/nop-tien", _make_task_handler("nop"))
+    app.router.add_post("/api/order/refresh-view", api_refresh_handler)
+    app.router.add_post("/api/order/fix", api_fix_handler)
+    app.router.add_post("/api/order/invoice/update", api_invoice_update_handler)
+    app.router.add_post("/api/order/reply", api_reply_handler)
+    app.router.add_post("/api/customer/price", api_customer_price_handler)
 
     runner = web.AppRunner(app)
     await runner.setup()

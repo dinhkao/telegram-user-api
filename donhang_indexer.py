@@ -99,8 +99,14 @@ async def backfill(client, db: DonHangDB, chat_id: int, query: str, on_progress=
     }
 
 
-def register_live_handlers(client, db: DonHangDB, chat_id: int, query: str):
-    """Register Telethon handlers to keep the DB in sync with new/edited/deleted msgs."""
+def register_live_handlers(client, db: DonHangDB, chat_id: int, query: str,
+                         on_new_donhang=None):
+    """Register Telethon handlers to keep the DB in sync with new/edited/deleted msgs.
+
+    Args:
+        on_new_donhang: Optional async callback(text, msg_id) called when a new
+                        #don_hang message is indexed. Use for auto invoice parsing.
+    """
 
     @client.on(events.NewMessage(chats=chat_id))
     async def _on_new(event):
@@ -108,6 +114,11 @@ def register_live_handlers(client, db: DonHangDB, chat_id: int, query: str):
         if _matches(msg, query):
             db.upsert(_serialize(msg))
             log.debug("donhang live: new msg id=%d indexed", msg.id)
+            if on_new_donhang:
+                try:
+                    await on_new_donhang(msg.text or "", msg.id)
+                except Exception:
+                    log.warning("donhang auto-parse callback failed", exc_info=True)
 
     @client.on(events.MessageEdited(chats=chat_id))
     async def _on_edit(event):
