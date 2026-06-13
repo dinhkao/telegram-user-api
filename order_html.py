@@ -214,4 +214,10 @@ def build_order_main_message_html(order: dict, thread_id: int) -> str:
         tag_parts.append("cnhan")
     parts.append("-------------------")
     parts.append(" ".join(tag_parts))
-    return main_line + "\n<blockquote expandable>" + "\n".join(parts) + "</blockquote>"
+    result = main_line + "\n<blockquote expandable>" + "\n".join(parts) + "</blockquote>"
+
+    # ── Deleted order banner ──────────────────────────────────────
+    if order.get("del"):
+        result = f"🗑️ <b><i>ĐƠN HÀNG ĐÃ XÓA</i></b>\n\n{result}"
+
+    return result

@@ -716,6 +716,70 @@ def _get_orders_conn():
     return conn
 
 
+# ── Orders FTS5 index for fast search ────────────────────────────────────────
+_orders_fts_ready = False
+
+
+def _ensure_orders_fts(conn):
+    """Create trigram FTS5 index on orders. Accent-normalized for Vietnamese."""
+    global _orders_fts_ready
+    if _orders_fts_ready:
+        return
+    try:
+        conn.execute("DROP TABLE IF EXISTS orders_fts")
+        conn.execute("""
+            CREATE VIRTUAL TABLE orders_fts USING fts5(
+                thread_id UNINDEXED,
+                content,
+                tokenize='trigram'
+            )
+        """)
+        rows = conn.execute(
+            "SELECT thread_id, json FROM orders WHERE deleted_at IS NULL AND json IS NOT NULL"
+        ).fetchall()
+        for r in rows:
+            try:
+                j = json.loads(r["json"])
+                raw = " ".join([
+                    j.get("customer_name", ""),
+                    j.get("text", ""),
+                    j.get("text_raw", ""),
+                    j.get("kiotvietInvoiceCode", ""),
+                    str(j.get("firebase_key", "")),
+                    str(j.get("thread_id", "")),
+                    " ".join(it.get("sp", "") for it in (j.get("invoice") or [])),
+                ])
+                text = vn_normalize(raw)
+                conn.execute(
+                    "INSERT INTO orders_fts(thread_id, content) VALUES(?, ?)",
+                    (r["thread_id"], text),
+                )
+            except Exception:
+                pass
+        conn.commit()
+        _orders_fts_ready = True
+        log.info("orders_fts trigram index built with %d rows", len(rows))
+    except Exception as e:
+        log.warning("orders_fts setup failed: %s", e)
+
+
+def _search_orders_fts(conn, query: str):
+    """Fast trigram search with accent normalization. Returns list of thread_ids."""
+    global _orders_fts_ready
+    if not _orders_fts_ready:
+        return None
+    try:
+        normalized = vn_normalize(query)
+        rows = conn.execute(
+            "SELECT thread_id FROM orders_fts WHERE content LIKE ? LIMIT 500",
+            (f"%{normalized}%",),
+        ).fetchall()
+        return [r["thread_id"] for r in rows] if rows else [-1]
+    except Exception as e:
+        log.warning("orders_fts search failed: %s", e)
+        return None
+
+
 async def orders_api_handler(request: web.Request):
     """GET /api/orders?page=1&limit=50&search=&status=
     Returns paginated orders from shared app.db."""
@@ -735,10 +799,21 @@ async def orders_api_handler(request: web.Request):
     where = ["o.deleted_at IS NULL"]
     params = []
 
+    conn = _get_orders_conn()
+
     if search:
-        where.append("(o.json LIKE ? OR o.firebase_key LIKE ?)")
-        p = f"%{search}%"
-        params.extend([p, p])
+        # FTS5 fast search — build trigram index on first use
+        _ensure_orders_fts(conn)
+        fts_ids = _search_orders_fts(conn, search)
+        if fts_ids is not None:
+            placeholders = ",".join("?" * len(fts_ids))
+            where.append(f"o.thread_id IN ({placeholders})")
+            params.extend(fts_ids)
+        else:
+            # Fallback: slow LIKE scan
+            where.append("(o.json LIKE ? OR o.firebase_key LIKE ?)")
+            p = f"%{search}%"
+            params.extend([p, p])
 
     if status:
         where.append("json_extract(o.json, '$.trang_thai') = ?")
@@ -746,9 +821,8 @@ async def orders_api_handler(request: web.Request):
 
     where_clause = " AND ".join(where)
 
-    sort = request.query.get("sort", "updated").strip()
+    sort = request.query.get("sort", "created").strip()
 
-    conn = _get_orders_conn()
     try:
         # Count total
         count_row = conn.execute(
@@ -850,6 +924,21 @@ async def orders_api_handler(request: web.Request):
             else:
                 creator = str(creator) if creator else ""
 
+            # ── Debt calculation ──────────────────────────────────────────────
+            paid = 0
+            for pmt in (j.get("payments") or []):
+                try:
+                    paid += int(pmt.get("amount", 0))
+                except (ValueError, TypeError):
+                    pass
+            raw_total = 0
+            if order_total:
+                try:
+                    raw_total = int(str(order_total).replace(".", ""))
+                except (ValueError, TypeError):
+                    raw_total = 0
+            remaining = max(0, raw_total - paid)
+
             orders.append({
                 "key": r["firebase_key"],
                 "thread_id": r["thread_id"],
@@ -857,6 +946,8 @@ async def orders_api_handler(request: web.Request):
                 "message_id": r["message_id"],
                 "customer": customer,
                 "total": order_total,
+                "paid": paid,
+                "remaining": remaining,
                 "phone": phone,
                 "date": date,
                 "status": j.get("trang_thai", ""),
@@ -864,12 +955,18 @@ async def orders_api_handler(request: web.Request):
                 "giao": j.get("giao", False),
                 "nop": j.get("nop", False),
                 "nhan": j.get("nhan", False),
+                "nhan_tien_note": (j.get("task_status", {}) or {}).get("nhan_tien", {}).get("note", ""),
                 "done_after_20250124": j.get("done_after_20250124", False),
                 "updated_at": r["updated_at"],
                 "hd_code": hd_code,
                 "creator": creator,
+                "text": (j.get("text") or j.get("text_raw") or ""),
                 "topic_name": j.get("topic_name", ""),
                 "invoice_count": invoice_count,
+                "invoice_summary": [
+                    {"sp": it.get("sp", "?"), "sl": it.get("sl", it.get("quantity", it.get("sl1pc", 0)) or 0)}
+                    for it in (j.get("invoice") or [])[:5]
+                ],
                 "no_truoc": no_truoc,
                 "tongtienhang": tongtienhang,
             })
@@ -877,12 +974,36 @@ async def orders_api_handler(request: web.Request):
         total = int(total) if total else 0
         total_pages = max(1, (total + limit - 1) // limit)
 
+        # ── Global stats (unfiltered, computed once per page 1) ──────────────
+        stats = {}
+        if page == 1:
+            try:
+                stat_row = conn.execute(
+                    """SELECT
+                         COUNT(*) as cnt,
+                         COUNT(CASE WHEN json_extract(o.json, '$.done_after_20250124') = 1 THEN 1 END) as done,
+                         COUNT(CASE WHEN json_extract(o.json, '$.done_after_20250124') IS NOT 1 THEN 1 END) as pending
+                       FROM orders o
+                       WHERE o.deleted_at IS NULL
+                         AND (json_extract(o.json, '$.hoadon.print_content.kh') IS NOT NULL
+                              AND json_extract(o.json, '$.hoadon.print_content.kh') != '')
+                          OR (json_extract(o.json, '$.customer_name') IS NOT NULL
+                              AND json_extract(o.json, '$.customer_name') != '')"""
+                ).fetchone()
+                if stat_row:
+                    stats["total_orders"] = stat_row["cnt"] or 0
+                    stats["pending"] = stat_row["pending"] or 0
+                    stats["done"] = stat_row["done"] or 0
+            except Exception:
+                stats = {"total_orders": 0, "pending": 0, "done": 0}
+
         return web.json_response({
             "orders": orders,
             "total": total,
             "page": page,
             "limit": limit,
             "total_pages": total_pages,
+            "stats": stats,
         })
     finally:
         conn.close()
@@ -890,6 +1011,11 @@ async def orders_api_handler(request: web.Request):
 
 async def orders_page_handler(request: web.Request):
     return web.FileResponse("static/orders.html")
+
+
+async def order_detail_page_handler(request: web.Request):
+    """Serve the standalone order detail page."""
+    return web.FileResponse("static/order-detail.html")
 
 
 async def order_detail_handler(request: web.Request):
@@ -918,6 +1044,17 @@ async def order_detail_handler(request: web.Request):
         except Exception:
             j = {}
 
+        # ── Fetch chat messages for this order ───────────────────────────
+        chat_rows = conn.execute(
+            """SELECT id, message_id, sender_id, sender_name, text,
+                      media_type, created_at
+               FROM order_chat_messages
+               WHERE thread_id = ?
+               ORDER BY created_at ASC""",
+            (thread_id,),
+        ).fetchall()
+        chat_messages = [dict(r) for r in chat_rows]
+
         return web.json_response({
             "key": row["firebase_key"],
             "thread_id": row["thread_id"],
@@ -925,6 +1062,7 @@ async def order_detail_handler(request: web.Request):
             "message_id": row["message_id"],
             "updated_at": row["updated_at"],
             "data": j,
+            "chat_messages": chat_messages,
         })
     finally:
         conn.close()
@@ -1046,22 +1184,39 @@ async def auto_parse_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Order not found in SQLite"}, status=404)
 
     kh_id_fb = order.get("khach_hang_id") or order.get("khID")
-    invoice = parse_invoice_free_text(conn, text, kh_id_fb)
-    if not invoice:
-        return web.json_response({"ok": True, "parsed": 0, "message": "No invoice items detected"})
 
     from product_db import freeze_invoice_cost_prices
-    order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
-    ok = _save_order(conn, thread_id, order)
-    if not ok:
-        return web.json_response({"ok": False, "error": "Failed to save order"}, status=500)
+    from order_db import detect_customer_free_text, get_customer_by_key, get_customer_price_list
 
-    log.info("auto-parse: thread=%d items=%d", thread_id, len(invoice))
+    # ── Always run customer detection (even if no invoice items) ──
+    detection = detect_customer_free_text(conn, text)
+    assigned_cust = None
+    if detection["autoAssign"]:
+        cust = detection["autoAssign"]
+        assigned_cust = cust
+        order["khach_hang_id"] = cust["customerID"]
+        order["customer_name"] = cust["customerName"]
+        kh_id_fb = cust["customerID"]  # use for invoice parsing below
 
-    # Build notification lines
+    # ── Parse invoice (with customer price list if assigned) ──
+    invoice = parse_invoice_free_text(conn, text, kh_id_fb)
+    if invoice:
+        # Re-parse with customer price list if auto-assigned
+        if assigned_cust:
+            price_list = get_customer_price_list(conn, assigned_cust["customerID"])
+            if price_list:
+                invoice = parse_invoice_free_text(conn, text, assigned_cust["customerID"])
+
+    # ── Save to order ──
+    if invoice:
+        order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
+    _save_order(conn, thread_id, order)
+
+    log.info("auto-parse: thread=%d items=%d assigned=%s", thread_id, len(invoice) if invoice else 0, assigned_cust["customerName"] if assigned_cust else "none")
+
+    # ── Build notification with final prices ──
     lines = []
     if _client is not None:
-        # ── Invoice section ──
         if invoice:
             lines.append(f"🤖 <b>Auto-detect:</b> đã tìm thấy {len(invoice)} sản phẩm\n")
             grand_total = 0
@@ -1074,19 +1229,11 @@ async def auto_parse_handler(request: web.Request):
                 lines.append(f"• <b>{sp}</b> x{sl} @ {price:,}đ = <b>{sub_total:,}đ</b>")
             lines.append(f"\n💰 <b>Tổng cộng: {grand_total:,}đ</b>")
 
-        # ── Customer detection section ──
-        from order_db import detect_customer_free_text, get_customer_by_key
-        detection = detect_customer_free_text(conn, text)
-        if detection["autoAssign"]:
-            cust = detection["autoAssign"]
-            # Auto-assign
-            order["khach_hang_id"] = cust["customerID"]
-            order["customer_name"] = cust["customerName"]
-            _save_order(conn, thread_id, order)
+        if assigned_cust:
             if lines:
                 lines.append("")
-            lines.append(f"👤 <b>Đã gán:</b> {cust['customerName']} ({cust['score']}%)")
-            lines.append(f"🎯 Mẫu: \"{cust['bestMatchedPattern']}\"")
+            lines.append(f"👤 <b>Đã gán:</b> {assigned_cust['customerName']} ({assigned_cust['score']}%)")
+            lines.append(f"🎯 Mẫu: \"{assigned_cust['bestMatchedPattern']}\"")
         elif detection["matches"]:
             matches = detection["matches"][:3]
             if lines:
@@ -1095,18 +1242,27 @@ async def auto_parse_handler(request: web.Request):
             for i, m in enumerate(matches):
                 lines.append(f"  {i+1}. {m['customerName']} ({m['score']}%) — <code>add khach hang {m['customerID']}</code>")
 
-        # Send
         if lines:
-            try:
-                order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
-                await _client.send_message(
-                    order_group_id,
-                    "\n".join(lines),
-                    reply_to=thread_id,
-                    parse_mode="html",
-                )
-            except Exception as e:
-                log.warning("auto-parse notification failed: %s", e)
+            # Background: send HTML notification (don't block response)
+            msg_text = "\n".join(lines)
+            order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
+            async def _send_auto_parse_notif():
+                try:
+                    await _client.send_message(
+                        order_group_id,
+                        msg_text,
+                        reply_to=thread_id,
+                        parse_mode="html",
+                    )
+                except Exception as e:
+                    log.warning("auto-parse notification failed: %s", e)
+            _client.loop.create_task(_send_auto_parse_notif())
+
+    # Refresh main message in channel (background)
+    channel_id = order.get("channel_id")
+    message_id = order.get("message_id")
+    if channel_id and message_id:
+        _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
 
     return web.json_response({
         "ok": True,
@@ -1142,6 +1298,9 @@ async def api_task_handler_impl(body: dict):
     thread_id = body.get("thread_id")
     task_type = body.get("type")
     user_id = body.get("user_id")
+    note = (body.get("note") or "").strip()
+    # Support explicit done=false (for "chiều lấy tiền" nop-tien case)
+    done = body.get("done") if "done" in body else True
     if not thread_id or not task_type:
         return web.json_response({"ok": False, "error": "Missing thread_id or type"}, status=400)
 
@@ -1151,10 +1310,10 @@ async def api_task_handler_impl(body: dict):
     if not order:
         return web.json_response({"ok": False, "error": "Order not found"}, status=404)
 
-    TASK_MAP = {"soan": "soan_hang", "ban": "ban_hd", "giao": "giao_hang", "nop": "nop_tien"}
+    TASK_MAP = {"soan": "soan_hang", "ban": "ban_hd", "giao": "giao_hang", "nop": "nop_tien", "nop-tien": "nop_tien"}
     TASK_NAMES = {"soan_hang": "soạn hàng", "ban_hd": "bán HĐ", "giao_hang": "giao hàng", "nop_tien": "nộp tiền"}
     internal_type = TASK_MAP.get(task_type, task_type)
-    set_task_status(conn, thread_id, internal_type, user_id)
+    set_task_status(conn, thread_id, internal_type, user_id, done=done, note=note)
     # Re-read after update
     order = get_order_by_thread_id(conn, thread_id)
 
@@ -1168,34 +1327,48 @@ async def api_task_handler_impl(body: dict):
         except Exception:
             actor = str(user_id)
 
+    # Build notification message with note (mirrors old Node.js behavior)
+    if internal_type == "nop_tien" and done is False:
+        msg = f"{actor} đánh dấu nộp tiền" + (f" = {note}" if note else "")
+    elif internal_type == "nop_tien" and note:
+        msg = f"{actor} nộp tiền ({note})"
+    else:
+        msg = f"{actor} {task_name}"
+
     order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
-    client.loop.create_task(_send_task_notification(order_group_id, thread_id, f"{actor} {task_name}"))
+    _client.loop.create_task(_send_task_notification(order_group_id, thread_id, msg))
     # Refresh main message
     channel_id = order.get("channel_id")
     message_id = order.get("message_id")
     if channel_id and message_id:
-        client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
+        _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
     return web.json_response({"ok": True, "task": internal_type})
 
 
 async def _send_task_notification(chat_id, thread_id, message):
     """Send task notification to order thread via Telethon user client."""
     try:
-        await _client.send_message(chat_id, message, reply_to=thread_id, disable_web_page_preview=True)
+        await _client.send_message(chat_id, message, reply_to=thread_id, link_preview=False)
     except Exception as e:
         log.warning("Task notification failed: %s", e)
 
 
 async def _refresh_order_bg(conn, thread_id, channel_id, message_id):
-    """Refresh main message in background (uses Node.js renderer for now)."""
+    """Refresh main channel message via Telethon edit (no Node.js dependency)."""
     try:
-        from order_db import _call_final_telegram, get_order_by_thread_id
+        from order_db import get_order_by_thread_id
+        from order_html import build_order_main_message_html
         order = get_order_by_thread_id(conn, thread_id)
         if not order:
             return
-        _call_final_telegram("/api/update-order-message", {
-            "order": order, "message_id": message_id, "channel_id": channel_id,
-        }, timeout=10)
+        html = build_order_main_message_html(order, thread_id)
+        await _client.edit_message(
+            entity=channel_id,
+            message=message_id,
+            text=html,
+            parse_mode="html",
+            link_preview=False,
+        )
     except Exception:
         pass
 
@@ -1230,7 +1403,7 @@ async def api_fix_handler(request: web.Request):
     channel_id = order.get("channel_id")
     message_id = order.get("message_id")
     if channel_id and message_id:
-        client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
+        _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
     return web.json_response({"ok": True})
 
 
@@ -1328,17 +1501,53 @@ async def api_refresh_handler(request: web.Request):
     if not order:
         return web.json_response({"ok": False, "error": "Order not found"}, status=404)
 
-    from order_db import _call_final_telegram
     channel_id = order.get("channel_id")
     message_id = order.get("message_id")
     if channel_id and message_id:
-        try:
-            _call_final_telegram("/api/update-order-message", {
-                "order": order, "message_id": message_id, "channel_id": channel_id,
-            }, timeout=10)
-        except Exception:
-            pass
+        _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
     return web.json_response({"ok": True})
+
+
+async def api_task_status_clear_handler(request: web.Request):
+    """POST /api/order/{id}/task_status/clear  { type: "soan_hang"|"ban_hd"|... }
+    Clear a task_status entry via order_db.clear_task_status.
+    Used by bot-don-hang after "Huỷ soạn" / "Huỷ bán" / etc.
+    """
+    thread_id_str = request.match_info.get("id", "")
+    if not thread_id_str:
+        return web.json_response({"ok": False, "error": "Missing thread ID"}, status=400)
+    try:
+        thread_id = int(thread_id_str)
+    except ValueError:
+        return web.json_response({"ok": False, "error": "Invalid thread ID"}, status=400)
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    task_type = (body.get("type") or "").strip()
+    user_id = body.get("user_id")
+
+    from order_db import _get_connection, clear_task_status, get_order_by_thread_id
+    conn = _get_connection()
+    ok = clear_task_status(conn, thread_id, task_type, user_id)
+    if not ok:
+        return web.json_response({"ok": False, "error": "Order not found or clear failed"}, status=404)
+
+    # Background: refresh main message + send notification (mirrors old Node.js behavior)
+    order = get_order_by_thread_id(conn, thread_id)
+    if order:
+        channel_id = order.get("channel_id")
+        message_id = order.get("message_id")
+        if channel_id and message_id:
+            _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
+        # Notify in group thread
+        TASK_NAMES = {"soan_hang": "soạn hàng", "ban_hd": "bán HĐ", "giao_hang": "giao hàng", "nop_tien": "nộp tiền", "nhan_tien": "nhận tiền"}
+        vi_name = TASK_NAMES.get(task_type, task_type)
+        order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
+        _client.loop.create_task(_send_task_notification(order_group_id, thread_id, f"🧹 Đã huỷ: {vi_name}"))
+
+    return web.json_response({"ok": True, "cleared": [task_type] if task_type else []})
 
 
 # ─── Main ──────────────────────────────────────────────────────────────────────
@@ -1386,6 +1595,10 @@ async def main():
     from product_commands import register_product_commands
     register_product_commands(client)
 
+    # ── chat logger: store all thread messages to SQLite ────────────────
+    from order_chat_logger import register_chat_logger
+    register_chat_logger(client)
+
     # ── profit dashboard web server ─────────────────────────────────────
     from profit_dashboard import create_app as create_profit_app, DASHBOARD_PORT
     profit_app = create_profit_app()
@@ -1431,6 +1644,7 @@ async def main():
     app.router.add_get("/api/donhang/msg", donhang_msg_handler)
     app.router.add_get("/donhang", donhang_page_handler)
     app.router.add_get("/orders", orders_page_handler)
+    app.router.add_get("/orders/{thread_id}", order_detail_page_handler)
     app.router.add_get("/api/orders", orders_api_handler)
     app.router.add_get("/api/order/{thread_id}", order_detail_handler)
     app.router.add_static("/static/", "static")
@@ -1464,6 +1678,35 @@ async def main():
     app.router.add_post("/api/order/invoice/update", api_invoice_update_handler)
     app.router.add_post("/api/order/reply", api_reply_handler)
     app.router.add_post("/api/customer/price", api_customer_price_handler)
+    app.router.add_post("/api/order/{id}/task_status/clear", api_task_status_clear_handler)
+
+    # ── Proxy fallback: forward unknown /api/order/* to Node.js :3000 ──
+    async def api_proxy_handler(request: web.Request):
+        """Forward to Node.js final_telegram for endpoints not yet migrated."""
+        import aiohttp
+        path = request.match_info.get("tail", "")
+        target_url = f"http://127.0.0.1:3000/api/order/{path}"
+        try:
+            body = await request.json() if request.can_read_body else None
+        except Exception:
+            body = None
+        timeout = aiohttp.ClientTimeout(total=30)
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                if body is not None:
+                    async with session.post(target_url, json=body) as resp:
+                        result = await resp.json()
+                        return web.json_response(result, status=resp.status)
+                else:
+                    async with session.get(target_url) as resp:
+                        result = await resp.json()
+                        return web.json_response(result, status=resp.status)
+        except Exception as e:
+            log.warning("Proxy to Node.js failed: %s %s", target_url, e)
+            return web.json_response({"ok": False, "error": str(e)}, status=502)
+
+    app.router.add_post("/api/order/{tail:.*}", api_proxy_handler)
+    app.router.add_get("/api/order/{tail:.*}", api_proxy_handler)
 
     runner = web.AppRunner(app)
     await runner.setup()

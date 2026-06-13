@@ -462,33 +462,33 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     <title>Dashboard Lợi Nhuận</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 10px; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 4px; }}
         .container {{ max-width: 1400px; margin: 0 auto; }}
-        h1 {{ color: #333; margin-bottom: 16px; font-size: 22px; }}
-        .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 24px; }}
-        .card {{ background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
-        .card h3 {{ color: #666; font-size: 12px; margin-bottom: 6px; }}
-        .card .value {{ font-size: 20px; font-weight: bold; }}
+        h1 {{ color: #333; margin-bottom: 8px; font-size: 19px; }}
+        .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; margin-bottom: 12px; }}
+        .card {{ background: white; border-radius: 6px; padding: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); text-align: center; }}
+        .card h3 {{ color: #666; font-size: 11px; margin-bottom: 3px; }}
+        .card .value {{ font-size: 18px; font-weight: bold; }}
         .card .value.positive {{ color: #22c55e; }}
         .card .value.negative {{ color: #ef4444; }}
-        .nav {{ margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px; }}
-        .nav a {{ padding: 8px 12px; background: #3b82f6; color: white; text-decoration: none; border-radius: 5px; white-space: nowrap; font-size: 13px; }}
+        .nav {{ margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px; }}
+        .nav a {{ padding: 5px 9px; background: #3b82f6; color: white; text-decoration: none; border-radius: 4px; white-space: nowrap; font-size: 12px; }}
         .nav a:hover {{ background: #2563eb; }}
         .nav a.active {{ background: #1d4ed8; }}
-        .filters {{ background: white; border-radius: 10px; padding: 12px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }}
-        .filters input, .filters button {{ padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px; }}
-        .filters input[type="date"] {{ width: auto; min-width: 120px; }}
-        .filters input[type="text"] {{ width: auto; min-width: 100px; }}
+        .filters {{ background: white; border-radius: 6px; padding: 8px; margin-bottom: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }}
+        .filters input, .filters button {{ padding: 5px 7px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }}
+        .filters input[type="date"] {{ width: auto; min-width: 110px; }}
+        .filters input[type="text"] {{ width: auto; min-width: 90px; }}
         .filters button {{ background: #3b82f6; color: white; cursor: pointer; border: none; }}
         .filters button:hover {{ background: #2563eb; }}
-        .presets {{ display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; Width: 100%; }}
-        .presets button {{ padding: 5px 10px; background: #e5e7eb; color: #333; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; white-space: nowrap; }}
+        .presets {{ display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 6px; Width: 100%; }}
+        .presets button {{ padding: 3px 7px; background: #e5e7eb; color: #333; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; white-space: nowrap; }}
         .presets button:hover {{ background: #d1d5db; }}
         .presets button.active {{ background: #3b82f6; color: white; }}
-        .filters a {{ padding: 8px 10px; text-decoration: none; color: #3b82f6; white-space: nowrap; font-size: 13px; }}
-        .table-wrap {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 24px; }}
+        .filters a {{ padding: 5px 7px; text-decoration: none; color: #3b82f6; white-space: nowrap; font-size: 12px; }}
+        .table-wrap {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 6px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); margin-bottom: 12px; }}
         table {{ width: 100%; min-width: 600px; border-collapse: collapse; }}
-        th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }}
+        th, td {{ padding: 6px 8px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }}
         th {{ background: #f8f9fa; font-weight: 600; color: #333; white-space: nowrap; position: sticky; top: 0; }}
         tr:hover {{ background: #f5f5f5; }}
         tr {{ cursor: pointer; }}
@@ -499,8 +499,8 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         .tag.green {{ background: #dcfce7; color: #166534; }}
         .tag.red {{ background: #fee2e2; color: #991b1b; }}
         .tag.yellow {{ background: #fef9c3; color: #854d0e; }}
-        .section {{ margin-bottom: 24px; }}
-        .section h2 {{ color: #333; margin-bottom: 12px; font-size: 16px; }}
+        .section {{ margin-bottom: 12px; }}
+        .section h2 {{ color: #333; margin-bottom: 6px; font-size: 14px; }}
         
         /* Comparison indicators */
         .change {{ font-size: 12px; margin-top: 6px; font-weight: 600; display: flex; align-items: center; gap: 4px; justify-content: center; flex-wrap: wrap; }}
@@ -510,7 +510,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         .change-label {{ color: #999; font-weight: normal; font-size: 11px; }}
         
         /* Top Performers Widget */
-        .top-performers {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }}
+        .top-performers {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }}
         
         /* Real Profit Card */
         .real-profit-card {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; color: white; }}
@@ -518,43 +518,43 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         .real-profit-card .value {{ color: white !important; }}
         .loan-info {{ font-size: 11px; margin-top: 6px; opacity: 0.95; display: flex; flex-direction: column; gap: 2px; align-items: center; }}
         .margin-badge {{ background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }}
-        .performer-section {{ background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-        .performer-section h3 {{ color: #333; margin-bottom: 12px; font-size: 15px; }}
-        .performer-list {{ display: flex; flex-direction: column; gap: 8px; }}
-        .performer-item {{ display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 6px; transition: background 0.2s; }}
+        .performer-section {{ background: white; border-radius: 6px; padding: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); }}
+        .performer-section h3 {{ color: #333; margin-bottom: 8px; font-size: 13px; }}
+        .performer-list {{ display: flex; flex-direction: column; gap: 4px; }}
+        .performer-item {{ display: flex; align-items: center; gap: 8px; padding: 5px; border-radius: 4px; transition: background 0.2s; }}
         .performer-item:hover {{ background: #f8f9fa; }}
-        .performer-rank {{ background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; flex-shrink: 0; }}
+        .performer-rank {{ background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; flex-shrink: 0; }}
         .performer-item:nth-child(1) .performer-rank {{ background: linear-gradient(135deg, #fbbf24, #f59e0b); }}
         .performer-item:nth-child(2) .performer-rank {{ background: linear-gradient(135deg, #94a3b8, #64748b); }}
         .performer-item:nth-child(3) .performer-rank {{ background: linear-gradient(135deg, #fb923c, #ea580c); }}
         .performer-info {{ flex: 1; min-width: 0; }}
-        .performer-name {{ font-weight: 600; color: #333; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-        .performer-stats {{ display: flex; gap: 12px; margin-top: 2px; font-size: 12px; color: #666; }}
-        .empty-state {{ text-align: center; color: #999; padding: 20px; font-size: 13px; }}
-        .tabs {{ display: flex; gap: 8px; margin-bottom: 16px; }}
-        .tab {{ padding: 10px 16px; background: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }}
+        .performer-name {{ font-weight: 600; color: #333; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+        .performer-stats {{ display: flex; gap: 8px; margin-top: 1px; font-size: 11px; color: #666; }}
+        .empty-state {{ text-align: center; color: #999; padding: 12px; font-size: 13px; }}
+        .tabs {{ display: flex; gap: 4px; margin-bottom: 10px; }}
+        .tab {{ padding: 6px 12px; background: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }}
         .tab.active {{ background: #3b82f6; color: white; }}
         .tab:hover {{ background: #e5e7eb; }}
         .tab.active:hover {{ background: #2563eb; }}
         @media (max-width: 768px) {{
-            body {{ padding: 8px; }}
-            h1 {{ font-size: 18px; }}
-            .summary {{ grid-template-columns: 1fr 1fr; gap: 8px; }}
-            .card {{ padding: 12px; }}
-            .card h3 {{ font-size: 11px; }}
-            .card .value {{ font-size: 18px; }}
-            .nav a {{ font-size: 12px; padding: 6px 10px; }}
+            body {{ padding: 4px; }}
+            h1 {{ font-size: 16px; }}
+            .summary {{ grid-template-columns: 1fr 1fr; gap: 4px; }}
+            .card {{ padding: 8px; }}
+            .card h3 {{ font-size: 10px; }}
+            .card .value {{ font-size: 16px; }}
+            .nav a {{ font-size: 11px; padding: 4px 7px; }}
             .filters {{ flex-direction: column; align-items: stretch; }}
             .filters input {{ width: 100% !important; }}
             .filters button {{ width: 100%; }}
-            .tab {{ font-size: 13px; padding: 8px 12px; }}
-            th, td {{ padding: 8px 10px; font-size: 13px; }}
-            .top-performers {{ grid-template-columns: 1fr; gap: 12px; }}
+            .tab {{ font-size: 12px; padding: 5px 10px; }}
+            th, td {{ padding: 5px 6px; font-size: 12px; }}
+            .top-performers {{ grid-template-columns: 1fr; gap: 8px; }}
         }}
         @media (max-width: 480px) {{
-            .summary {{ grid-template-columns: 1fr 1fr; gap: 6px; }}
-            .card .value {{ font-size: 16px; }}
-            h1 {{ font-size: 16px; }}
+            .summary {{ grid-template-columns: 1fr 1fr; gap: 4px; }}
+            .card .value {{ font-size: 14px; }}
+            h1 {{ font-size: 15px; }}
         }}
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
@@ -766,7 +766,7 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     
     html += """
                     <tr id="loading-row" style="display:none;">
-                        <td colspan="8" style="text-align:center; padding: 20px;">
+                        <td colspan="8" style="text-align:center; padding: 12px;">
                             <div class="spinner"></div> Đang tải thêm...
                         </td>
                     </tr>
@@ -827,14 +827,14 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
     
     <div id="chart-tab" class="section" style="display:none">
         <h2>📊 Biểu đồ lợi nhuận theo ngày</h2>
-        <div style="background:white; border-radius:10px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+        <div style="background:white; border-radius:6px; padding:12px; box-shadow:0 1px 6px rgba(0,0,0,0.08);">
             <canvas id="profitChart" style="width:100%; max-height:400px;"></canvas>
         </div>
     </div>
     
     <!-- Order Detail Modal -->
     <div id="orderModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; overflow:auto;">
-        <div class="modal-content" style="background:white; margin:40px auto; max-width:95%; width:700px; border-radius:10px; padding:16px; position:relative;">
+        <div class="modal-content" style="background:white; margin:20px auto; max-width:95%; width:700px; border-radius:6px; padding:12px; position:relative;">
             <button onclick="closeModal()" style="position:absolute; top:8px; right:12px; background:none; border:none; font-size:28px; cursor:pointer; line-height:1; padding:4px;">✕</button>
             <h2 id="modal-title" style="margin-bottom:16px; font-size:18px;">Chi tiết đơn hàng</h2>
             <div id="modal-content" style="overflow-x:auto;"></div>
@@ -1081,32 +1081,32 @@ def generate_dashboard_html(db_conn, filter_product=None, filter_customer=None, 
         }
         
         document.getElementById('modal-content').innerHTML = `
-            <div style="margin-bottom:20px;">
+            <div style="margin-bottom:12px;">
                 <p><strong>Khách hàng:</strong> ${customer || 'N/A'}</p>
                 <p><strong>Ngày:</strong> ${date || 'N/A'}</p>
                 <p><a href="tg://privatepost?channel=2124542200&post=${threadId}" target="_blank">Mở trong Telegram →</a></p>
             </div>
             
-            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:20px;">
-                <div style="background:#f8f9fa; padding:15px; border-radius:8px; text-align:center;">
-                    <div style="font-size:12px; color:#666;">Doanh thu</div>
-                    <div style="font-size:18px; font-weight:bold;">${revenue.toLocaleString()}đ</div>
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:6px; margin-bottom:12px;">
+                <div style="background:#f8f9fa; padding:10px; border-radius:5px; text-align:center;">
+                    <div style="font-size:11px; color:#666;">Doanh thu</div>
+                    <div style="font-size:16px; font-weight:bold;">${revenue.toLocaleString()}đ</div>
                 </div>
-                <div style="background:#f8f9fa; padding:15px; border-radius:8px; text-align:center;">
-                    <div style="font-size:12px; color:#666;">Giá vốn</div>
-                    <div style="font-size:18px; font-weight:bold;">${hasCost ? cost.toLocaleString() + 'đ' : '?'}</div>
+                <div style="background:#f8f9fa; padding:10px; border-radius:5px; text-align:center;">
+                    <div style="font-size:11px; color:#666;">Giá vốn</div>
+                    <div style="font-size:16px; font-weight:bold;">${hasCost ? cost.toLocaleString() + 'đ' : '?'}</div>
                 </div>
-                <div style="background:#f8f9fa; padding:15px; border-radius:8px; text-align:center;">
-                    <div style="font-size:12px; color:#666;">Lợi nhuận</div>
-                    <div style="font-size:18px; font-weight:bold; color:${profitColor};">${hasCost ? profit.toLocaleString() + 'đ' : '?'}</div>
+                <div style="background:#f8f9fa; padding:10px; border-radius:5px; text-align:center;">
+                    <div style="font-size:11px; color:#666;">Lợi nhuận</div>
+                    <div style="font-size:16px; font-weight:bold; color:${profitColor};">${hasCost ? profit.toLocaleString() + 'đ' : '?'}</div>
                 </div>
-                <div style="background:#f8f9fa; padding:15px; border-radius:8px; text-align:center;">
-                    <div style="font-size:12px; color:#666;">Biên LN</div>
-                    <div style="font-size:18px; font-weight:bold; color:${profitColor};">${hasCost ? margin + '%' : '?'}</div>
+                <div style="background:#f8f9fa; padding:10px; border-radius:5px; text-align:center;">
+                    <div style="font-size:11px; color:#666;">Biên LN</div>
+                    <div style="font-size:16px; font-weight:bold; color:${profitColor};">${hasCost ? margin + '%' : '?'}</div>
                 </div>
             </div>
             
-            <h3 style="margin:15px 0 10px;">Chi tiết sản phẩm</h3>
+            <h3 style="margin:10px 0 6px;">Chi tiết sản phẩm</h3>
             ${feesHtml}
             ${itemsHtml}
         `;
@@ -1317,39 +1317,39 @@ def generate_product_detail_html(db_conn, product_code, since_date=None, until_d
     <title>Chi tiết sản phẩm {product_code}</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 10px; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 4px; }}
         .container {{ max-width: 1200px; margin: 0 auto; }}
-        h1 {{ color: #333; margin-bottom: 16px; font-size: 20px; }}
-        .back {{ color: #3b82f6; text-decoration: none; margin-bottom: 16px; display: inline-block; }}
-        .nav {{ margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px; }}
-        .nav a {{ padding: 8px 12px; background: #3b82f6; color: white; text-decoration: none; border-radius: 5px; white-space: nowrap; font-size: 13px; }}
+        h1 {{ color: #333; margin-bottom: 8px; font-size: 18px; }}
+        .back {{ color: #3b82f6; text-decoration: none; margin-bottom: 8px; display: inline-block; }}
+        .nav {{ margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px; }}
+        .nav a {{ padding: 5px 9px; background: #3b82f6; color: white; text-decoration: none; border-radius: 4px; white-space: nowrap; font-size: 12px; }}
         .nav a:hover {{ background: #2563eb; }}
-        .product-info {{ background: white; border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-        .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }}
-        .card {{ background: white; border-radius: 10px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
-        .card h3 {{ color: #666; font-size: 11px; margin-bottom: 4px; }}
-        .card .value {{ font-size: 18px; font-weight: bold; }}
+        .product-info {{ background: white; border-radius: 6px; padding: 10px; margin-bottom: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); }}
+        .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; margin-bottom: 10px; }}
+        .card {{ background: white; border-radius: 6px; padding: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); text-align: center; }}
+        .card h3 {{ color: #666; font-size: 10px; margin-bottom: 3px; }}
+        .card .value {{ font-size: 16px; font-weight: bold; }}
         .card .value.positive {{ color: #22c55e; }}
         .card .value.negative {{ color: #ef4444; }}
-        .table-wrap {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        .table-wrap {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 6px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); }}
         table {{ width: 100%; min-width: 600px; border-collapse: collapse; }}
-        th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }}
+        th, td {{ padding: 6px 8px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }}
         th {{ background: #f8f9fa; font-weight: 600; color: #333; white-space: nowrap; }}
         tr:hover {{ background: #f5f5f5; }}
         .profit {{ font-weight: 600; }}
         .profit.positive {{ color: #22c55e; }}
         .profit.negative {{ color: #ef4444; }}
-        .form {{ background: white; border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }}
-        .form input, .form button {{ padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px; }}
+        .form {{ background: white; border-radius: 6px; padding: 10px; margin-bottom: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }}
+        .form input, .form button {{ padding: 5px 7px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }}
         .form button {{ background: #3b82f6; color: white; cursor: pointer; border: none; }}
         .form button:hover {{ background: #2563eb; }}
         @media (max-width: 768px) {{
-            body {{ padding: 8px; }}
-            h1 {{ font-size: 18px; }}
-            .summary {{ grid-template-columns: 1fr 1fr; gap: 8px; }}
-            .nav a {{ font-size: 12px; padding: 6px 10px; }}
+            body {{ padding: 4px; }}
+            h1 {{ font-size: 16px; }}
+            .summary {{ grid-template-columns: 1fr 1fr; gap: 4px; }}
+            .nav a {{ font-size: 11px; padding: 4px 7px; }}
             .form {{ flex-direction: column; align-items: stretch; }}
-            th, td {{ padding: 8px 10px; font-size: 13px; }}
+            th, td {{ padding: 5px 6px; font-size: 12px; }}
         }}
     </style>
 </head>
@@ -1533,43 +1533,43 @@ def generate_customer_profit_html(db_conn, since_date=None, until_date=None):
     <title>Phân tích lợi nhuận theo khách hàng</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 10px; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 4px; }}
         .container {{ max-width: 1200px; margin: 0 auto; }}
-        h1 {{ color: #333; margin-bottom: 16px; font-size: 20px; }}
-        .nav {{ margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px; }}
-        .nav a {{ padding: 8px 12px; background: #3b82f6; color: white; text-decoration: none; border-radius: 5px; white-space: nowrap; font-size: 13px; }}
+        h1 {{ color: #333; margin-bottom: 8px; font-size: 18px; }}
+        .nav {{ margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px; }}
+        .nav a {{ padding: 5px 9px; background: #3b82f6; color: white; text-decoration: none; border-radius: 4px; white-space: nowrap; font-size: 12px; }}
         .nav a:hover {{ background: #2563eb; }}
         .nav a.active {{ background: #1d4ed8; }}
-        .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 24px; }}
-        .card {{ background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
-        .card h3 {{ color: #666; font-size: 12px; margin-bottom: 6px; }}
-        .card .value {{ font-size: 20px; font-weight: bold; }}
+        .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; margin-bottom: 12px; }}
+        .card {{ background: white; border-radius: 6px; padding: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); text-align: center; }}
+        .card h3 {{ color: #666; font-size: 11px; margin-bottom: 3px; }}
+        .card .value {{ font-size: 18px; font-weight: bold; }}
         .card .value.positive {{ color: #22c55e; }}
         .card .value.negative {{ color: #ef4444; }}
-        .filters {{ background: white; border-radius: 10px; padding: 12px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }}
-        .filters input, .filters button {{ padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px; }}
+        .filters {{ background: white; border-radius: 6px; padding: 8px; margin-bottom: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }}
+        .filters input, .filters button {{ padding: 5px 7px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }}
         .filters button {{ background: #3b82f6; color: white; cursor: pointer; border: none; }}
-        .filters a {{ padding: 8px 10px; text-decoration: none; color: #3b82f6; white-space: nowrap; font-size: 13px; }}
-        .table-wrap {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        .filters a {{ padding: 5px 7px; text-decoration: none; color: #3b82f6; white-space: nowrap; font-size: 12px; }}
+        .table-wrap {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 6px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); }}
         table {{ width: 100%; min-width: 600px; border-collapse: collapse; }}
-        th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }}
+        th, td {{ padding: 6px 8px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }}
         th {{ background: #f8f9fa; font-weight: 600; color: #333; white-space: nowrap; }}
         tr:hover {{ background: #f5f5f5; }}
         .profit {{ font-weight: 600; }}
         .profit.positive {{ color: #22c55e; }}
         .profit.negative {{ color: #ef4444; }}
         @media (max-width: 768px) {{
-            body {{ padding: 8px; }}
-            h1 {{ font-size: 18px; }}
-            .summary {{ grid-template-columns: 1fr 1fr; gap: 8px; }}
-            .card {{ padding: 12px; }}
-            .card h3 {{ font-size: 11px; }}
-            .card .value {{ font-size: 18px; }}
-            .nav a {{ font-size: 12px; padding: 6px 10px; }}
+            body {{ padding: 4px; }}
+            h1 {{ font-size: 16px; }}
+            .summary {{ grid-template-columns: 1fr 1fr; gap: 4px; }}
+            .card {{ padding: 8px; }}
+            .card h3 {{ font-size: 10px; }}
+            .card .value {{ font-size: 16px; }}
+            .nav a {{ font-size: 11px; padding: 4px 7px; }}
             .filters {{ flex-direction: column; align-items: stretch; }}
             .filters input {{ width: 100% !important; }}
             .filters button {{ width: 100%; }}
-            th, td {{ padding: 8px 10px; font-size: 13px; }}
+            th, td {{ padding: 5px 6px; font-size: 12px; }}
         }}
     </style>
 </head>
@@ -1809,41 +1809,41 @@ def generate_customer_detail_html(db_conn, customer_name, filter_product=None, s
     <title>Khách hàng: {customer_name}</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 10px; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 4px; }}
         .container {{ max-width: 1200px; margin: 0 auto; }}
-        h1 {{ color: #333; margin-bottom: 8px; font-size: 22px; }}
-        .subtitle {{ color: #666; font-size: 14px; margin-bottom: 16px; }}
-        .nav {{ margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px; }}
-        .nav a {{ padding: 8px 12px; background: #3b82f6; color: white; text-decoration: none; border-radius: 5px; white-space: nowrap; font-size: 13px; }}
+        h1 {{ color: #333; margin-bottom: 4px; font-size: 19px; }}
+        .subtitle {{ color: #666; font-size: 12px; margin-bottom: 8px; }}
+        .nav {{ margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px; }}
+        .nav a {{ padding: 5px 9px; background: #3b82f6; color: white; text-decoration: none; border-radius: 4px; white-space: nowrap; font-size: 12px; }}
         .nav a:hover {{ background: #2563eb; }}
-        .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 24px; }}
-        .card {{ background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
-        .card h3 {{ color: #666; font-size: 12px; margin-bottom: 6px; }}
-        .card .value {{ font-size: 20px; font-weight: bold; }}
+        .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; margin-bottom: 12px; }}
+        .card {{ background: white; border-radius: 6px; padding: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); text-align: center; }}
+        .card h3 {{ color: #666; font-size: 11px; margin-bottom: 3px; }}
+        .card .value {{ font-size: 18px; font-weight: bold; }}
         .card .value.positive {{ color: #22c55e; }}
         .card .value.negative {{ color: #ef4444; }}
-        .section {{ margin-bottom: 24px; }}
-        .section h2 {{ color: #333; margin-bottom: 12px; font-size: 16px; }}
-        .table-wrap {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        .section {{ margin-bottom: 12px; }}
+        .section h2 {{ color: #333; margin-bottom: 6px; font-size: 14px; }}
+        .table-wrap {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 6px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); }}
         table {{ width: 100%; min-width: 600px; border-collapse: collapse; }}
-        th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }}
+        th, td {{ padding: 6px 8px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }}
         th {{ background: #f8f9fa; font-weight: 600; color: #333; white-space: nowrap; }}
         tr:hover {{ background: #f5f5f5; }}
         .profit {{ font-weight: 600; }}
         .profit.positive {{ color: #22c55e; }}
         .profit.negative {{ color: #ef4444; }}
-        .items-summary {{ font-size: 12px; color: #666; }}
-        .filter-bar {{ background: white; border-radius: 10px; padding: 12px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }}
-        .filter-bar input, .filter-bar button {{ padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px; }}
+        .items-summary {{ font-size: 11px; color: #666; }}
+        .filter-bar {{ background: white; border-radius: 6px; padding: 8px; margin-bottom: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }}
+        .filter-bar input, .filter-bar button {{ padding: 5px 7px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }}
         .filter-bar button {{ background: #3b82f6; color: white; cursor: pointer; border: none; }}
         .filter-bar button:hover {{ background: #2563eb; }}
-        .empty-state {{ text-align: center; padding: 40px; color: #999; font-size: 14px; }}
+        .empty-state {{ text-align: center; padding: 12px; color: #999; font-size: 13px; }}
         @media (max-width: 768px) {{
-            .summary {{ grid-template-columns: 1fr 1fr; gap: 8px; }}
-            h1 {{ font-size: 18px; }}
-            .card {{ padding: 12px; }}
-            .card .value {{ font-size: 18px; }}
-            th, td {{ padding: 8px 10px; font-size: 13px; }}
+            .summary {{ grid-template-columns: 1fr 1fr; gap: 4px; }}
+            h1 {{ font-size: 16px; }}
+            .card {{ padding: 8px; }}
+            .card .value {{ font-size: 16px; }}
+            th, td {{ padding: 5px 6px; font-size: 12px; }}
         }}
     </style>
 </head>
@@ -2017,7 +2017,7 @@ def generate_order_detail_html(db_conn, thread_id):
     if not order:
         return f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>Không tìm thấy</title></head>
-<body style="font-family: sans-serif; padding: 20px;">
+<body style="font-family: sans-serif; padding: 12px;">
 <h1>❌ Không tìm thấy đơn hàng #{thread_id}</h1>
 <p><a href="/">← Quay lại Dashboard</a></p>
 </body></html>"""
@@ -2136,56 +2136,56 @@ def generate_order_detail_html(db_conn, thread_id):
     <title>Đơn hàng #{thread_id}</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 10px; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 4px; }}
         .container {{ max-width: 1000px; margin: 0 auto; }}
-        h1 {{ color: #333; margin-bottom: 8px; font-size: 22px; }}
-        .subtitle {{ color: #666; font-size: 14px; margin-bottom: 16px; }}
-        .nav {{ margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px; }}
-        .nav a {{ padding: 8px 12px; background: #3b82f6; color: white; text-decoration: none; border-radius: 5px; white-space: nowrap; font-size: 13px; }}
+        h1 {{ color: #333; margin-bottom: 4px; font-size: 19px; }}
+        .subtitle {{ color: #666; font-size: 12px; margin-bottom: 8px; }}
+        .nav {{ margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px; }}
+        .nav a {{ padding: 5px 9px; background: #3b82f6; color: white; text-decoration: none; border-radius: 4px; white-space: nowrap; font-size: 12px; }}
         .nav a:hover {{ background: #2563eb; }}
-        .info-card {{ background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 16px; }}
-        .info-row {{ display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }}
+        .info-card {{ background: white; border-radius: 6px; padding: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); margin-bottom: 10px; }}
+        .info-row {{ display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0; }}
         .info-row:last-child {{ border-bottom: none; }}
         .info-label {{ color: #666; font-weight: 500; }}
         .info-value {{ color: #333; font-weight: 600; }}
-        .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }}
-        .card {{ background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }}
-        .card h3 {{ color: #666; font-size: 12px; margin-bottom: 6px; }}
-        .card .value {{ font-size: 20px; font-weight: bold; }}
+        .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; margin-bottom: 10px; }}
+        .card {{ background: white; border-radius: 6px; padding: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); text-align: center; }}
+        .card h3 {{ color: #666; font-size: 11px; margin-bottom: 3px; }}
+        .card .value {{ font-size: 18px; font-weight: bold; }}
         .card .value.positive {{ color: #22c55e; }}
         .card .value.negative {{ color: #ef4444; }}
-        .table-wrap {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 16px; }}
+        .table-wrap {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 6px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); margin-bottom: 10px; }}
         table {{ width: 100%; min-width: 600px; border-collapse: collapse; }}
-        th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }}
+        th, td {{ padding: 6px 8px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }}
         th {{ background: #f8f9fa; font-weight: 600; color: #333; white-space: nowrap; }}
         tr:hover {{ background: #f5f5f5; }}
         .profit {{ font-weight: 600; }}
         .profit.positive {{ color: #22c55e; }}
         .profit.negative {{ color: #ef4444; }}
         .text-right {{ text-align: right; }}
-        .fees-section {{ background: #fffbe6; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; }}
-        .fees-section h3 {{ color: #854d0e; margin-bottom: 8px; font-size: 14px; }}
-        .fees-row {{ display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }}
+        .fees-section {{ background: #fffbe6; border-left: 3px solid #f59e0b; padding: 8px 12px; border-radius: 5px; margin-bottom: 10px; }}
+        .fees-section h3 {{ color: #854d0e; margin-bottom: 5px; font-size: 13px; }}
+        .fees-row {{ display: flex; justify-content: space-between; padding: 3px 0; font-size: 12px; }}
         
         /* Task Timeline */
-        .tasks-section {{ background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 16px; }}
-        .tasks-section h3 {{ color: #333; margin-bottom: 12px; font-size: 15px; }}
-        .task-item {{ display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 8px; margin-bottom: 6px; transition: all 0.2s; }}
+        .tasks-section {{ background: white; border-radius: 6px; padding: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); margin-bottom: 10px; }}
+        .tasks-section h3 {{ color: #333; margin-bottom: 8px; font-size: 13px; }}
+        .task-item {{ display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 4px; margin-bottom: 4px; transition: all 0.2s; }}
         .task-item:hover {{ background: #f8f9fa; }}
         .task-item.task-done {{ background: #f0fdf4; border-left: 3px solid #22c55e; }}
         .task-item.task-skip {{ background: #f5f5f5; border-left: 3px solid #999; opacity: 0.7; }}
         .task-item.task-pending {{ background: #fffbeb; border-left: 3px solid #f59e0b; }}
-        .task-icon {{ font-size: 20px; width: 32px; text-align: center; }}
+        .task-icon {{ font-size: 16px; width: 26px; text-align: center; }}
         .task-content {{ flex: 1; }}
-        .task-name {{ font-weight: 600; color: #333; font-size: 14px; margin-bottom: 2px; }}
-        .task-details {{ display: flex; gap: 12px; font-size: 12px; color: #666; }}
+        .task-name {{ font-weight: 600; color: #333; font-size: 13px; margin-bottom: 1px; }}
+        .task-details {{ display: flex; gap: 8px; font-size: 11px; color: #666; }}
         .task-by {{ font-weight: 500; }}
         .task-time {{ color: #888; }}
         @media (max-width: 768px) {{
-            .info-row {{ flex-direction: column; gap: 4px; }}
+            .info-row {{ flex-direction: column; gap: 2px; }}
             .summary {{ grid-template-columns: 1fr 1fr; }}
-            h1 {{ font-size: 18px; }}
-            th, td {{ padding: 8px 10px; font-size: 13px; }}
+            h1 {{ font-size: 16px; }}
+            th, td {{ padding: 5px 6px; font-size: 12px; }}
         }}
     </style>
 </head>
@@ -2304,15 +2304,15 @@ def generate_order_detail_html(db_conn, thread_id):
                 </tr>"""
     else:
         html += """
-                <tr><td colspan="8" style="text-align: center; padding: 20px; color: #999;">Không có sản phẩm</td></tr>"""
+                <tr><td colspan="8" style="text-align: center; padding: 12px; color: #999;">Không có sản phẩm</td></tr>"""
     
     html += f"""
             </tbody>
         </table>
         </div>
         
-        <div style="background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 16px;">
-            <h3 style="margin-bottom: 12px; font-size: 15px;">📊 Tổng kết</h3>
+        <div style="background: white; border-radius: 6px; padding: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); margin-bottom: 10px;">
+            <h3 style="margin-bottom: 8px; font-size: 14px;">📊 Tổng kết</h3>
             <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0;">
                 <span>Tổng số sản phẩm:</span>
                 <strong>{sum(item['qty'] for item in items)}</strong>
@@ -2369,39 +2369,39 @@ def generate_settings_html(yearly_loan, monthly_weights=None):
     <title>Cấu hình Dashboard</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 10px; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 4px; }}
         .container {{ max-width: 800px; margin: 0 auto; }}
-        h1 {{ color: #333; margin-bottom: 16px; font-size: 22px; }}
-        h2 {{ color: #333; margin-bottom: 12px; font-size: 16px; }}
-        .nav {{ margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px; }}
-        .nav a {{ padding: 8px 12px; background: #3b82f6; color: white; text-decoration: none; border-radius: 5px; white-space: nowrap; font-size: 13px; }}
+        h1 {{ color: #333; margin-bottom: 8px; font-size: 19px; }}
+        h2 {{ color: #333; margin-bottom: 8px; font-size: 14px; }}
+        .nav {{ margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px; }}
+        .nav a {{ padding: 5px 9px; background: #3b82f6; color: white; text-decoration: none; border-radius: 4px; white-space: nowrap; font-size: 12px; }}
         .nav a:hover {{ background: #2563eb; }}
         .nav a.active {{ background: #1d4ed8; }}
-        .settings-card {{ background: white; border-radius: 10px; padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 16px; }}
-        .form-group {{ margin-bottom: 20px; }}
-        .form-group label {{ display: block; color: #333; font-weight: 600; margin-bottom: 8px; font-size: 14px; }}
-        .form-group input {{ width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; transition: border-color 0.2s; }}
+        .settings-card {{ background: white; border-radius: 6px; padding: 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); margin-bottom: 10px; }}
+        .form-group {{ margin-bottom: 14px; }}
+        .form-group label {{ display: block; color: #333; font-weight: 600; margin-bottom: 5px; font-size: 13px; }}
+        .form-group input {{ width: 100%; padding: 8px; border: 2px solid #e5e7eb; border-radius: 5px; font-size: 14px; transition: border-color 0.2s; }}
         .form-group input:focus {{ outline: none; border-color: #3b82f6; }}
-        .form-group .help {{ color: #666; font-size: 12px; margin-top: 4px; }}
-        .btn {{ padding: 12px 24px; background: #22c55e; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }}
+        .form-group .help {{ color: #666; font-size: 11px; margin-top: 3px; }}
+        .btn {{ padding: 8px 16px; background: #22c55e; color: white; border: none; border-radius: 5px; font-size: 14px; font-weight: 600; cursor: pointer; }}
         .btn:hover {{ background: #16a34a; }}
-        .btn-reset {{ background: #6b7280; margin-left: 8px; }}
+        .btn-reset {{ background: #6b7280; margin-left: 6px; }}
         .btn-reset:hover {{ background: #4b5563; }}
-        .weight-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-top: 12px; }}
-        .weight-row {{ display: flex; align-items: center; gap: 8px; background: #f9fafb; padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e7eb; }}
-        .weight-label {{ font-weight: 600; color: #374151; min-width: 32px; font-size: 14px; }}
-        .weight-input {{ width: 70px !important; padding: 6px 8px !important; font-size: 14px !important; text-align: center; border: 2px solid #e5e7eb; border-radius: 6px; }}
+        .weight-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; margin-top: 8px; }}
+        .weight-row {{ display: flex; align-items: center; gap: 6px; background: #f9fafb; padding: 6px 10px; border-radius: 5px; border: 1px solid #e5e7eb; }}
+        .weight-label {{ font-weight: 600; color: #374151; min-width: 28px; font-size: 13px; }}
+        .weight-input {{ width: 60px !important; padding: 4px 6px !important; font-size: 13px !important; text-align: center; border: 2px solid #e5e7eb; border-radius: 4px; }}
         .weight-input:focus {{ outline: none; border-color: #3b82f6; }}
-        .weight-amount {{ color: #1e40af; font-size: 13px; font-weight: 500; margin-left: auto; white-space: nowrap; }}
-        .preview {{ background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 8px; margin-top: 20px; }}
-        .preview h3 {{ color: #1e40af; margin-bottom: 8px; font-size: 14px; }}
-        .preview-row {{ display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }}
+        .weight-amount {{ color: #1e40af; font-size: 12px; font-weight: 500; margin-left: auto; white-space: nowrap; }}
+        .preview {{ background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 12px; border-radius: 5px; margin-top: 14px; }}
+        .preview h3 {{ color: #1e40af; margin-bottom: 6px; font-size: 13px; }}
+        .preview-row {{ display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }}
         .preview-row strong {{ color: #1e40af; }}
-        .alert {{ padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; display: none; }}
+        .alert {{ padding: 8px 12px; border-radius: 5px; margin-bottom: 10px; font-size: 13px; display: none; }}
         .alert.success {{ background: #dcfce7; color: #166534; border: 1px solid #86efac; }}
         .alert.error {{ background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }}
         @media (max-width: 768px) {{
-            .settings-card {{ padding: 16px; }}
+            .settings-card {{ padding: 10px; }}
             .weight-grid {{ grid-template-columns: 1fr; }}
         }}
     </style>

@@ -733,8 +733,13 @@ def register_order_commands_v3(client):
                 _append_kv_debt(client, msg.chat_id, reply_msg.id, cust_kv_id)
             )
 
-        # Firebase sync + refresh (non-blocking)
+        # Firebase sync + refresh main message (non-blocking)
         _firebase_refresh_async(client, db_conn, thread_id, order)
+        # Also refresh channel main message
+        channel_id = order.get("channel_id")
+        message_id = order.get("message_id")
+        if channel_id and message_id:
+            asyncio.ensure_future(_refresh_order_message(client, db_conn, thread_id, channel_id, message_id))
 
     # ── TAO HD ──────────────────────────────────────────────────────
     # tao hd / tao hoa don / tao hoadon — create KiotViet invoice
@@ -1208,7 +1213,7 @@ def register_order_commands_v3(client):
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
 
-        order = get_order_by_thread_id(db_conn, thread_id)
+        order = get_order_by_thread_id(db_conn, thread_id, )
         if not order:
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
@@ -1522,7 +1527,7 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Không xác định được đơn hàng.", reply_to=msg.id)
             return
 
-        order = get_order_by_thread_id(db_conn, thread_id)
+        order = get_order_by_thread_id(db_conn, thread_id, )
         if not order:
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return

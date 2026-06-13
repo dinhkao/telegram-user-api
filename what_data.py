@@ -49,7 +49,7 @@ def _name_of_user_id(uid) -> str:
 def _get_order_raw(conn, thread_id: int) -> dict | None:
     """Query the orders table by thread_id. Returns the full JSON or None."""
     row = conn.execute(
-        "SELECT json FROM orders WHERE thread_id = ? AND deleted_at IS NULL",
+        "SELECT json FROM orders WHERE thread_id = ?",
         (thread_id,),
     ).fetchone()
     if row is None:

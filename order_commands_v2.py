@@ -68,11 +68,137 @@ def _call_final(endpoint: str, body: dict, timeout: int = 10) -> dict | None:
     return _call_final_telegram(endpoint, body, timeout)
 
 
+async def _refresh_main_msg(client, conn, thread_id, channel_id, message_id):
+    """Refresh main channel message via Telethon edit (no Node.js dependency)."""
+    try:
+        from order_html import build_order_main_message_html
+        order = get_order_by_thread_id(conn, thread_id)
+        if not order:
+            return
+        html = build_order_main_message_html(order, thread_id)
+        await client.edit_message(
+            entity=channel_id,
+            message=message_id,
+            text=html,
+            parse_mode="html",
+            link_preview=False,
+        )
+    except Exception:
+        pass
+
+
+def _generate_customer_html(conn) -> str:
+    """Generate a self-contained customer search HTML page from live SQLite data."""
+    import html as _html
+    from vn import vn_normalize
+
+    rows = conn.execute(
+        "SELECT firebase_key, json FROM customers WHERE deleted_at IS NULL ORDER BY json_extract(json, '$.name') COLLATE NOCASE"
+    ).fetchall()
+
+    items = []
+    for row in rows:
+        cust = json.loads(row["json"])
+        name = cust.get("name", "N/A")
+        fb_key = row["firebase_key"]
+        kv_id = cust.get("kh_id") or cust.get("kiotvietID") or ""
+        note = cust.get("note") or cust.get("ghi_chu") or ""
+        name_no_accent = vn_normalize(name)
+
+        note_html = f" | Ghi chú: {_html.escape(note)}" if note else ""
+        kv_html = f" | KiotViet ID: {kv_id}" if kv_id else ""
+
+        items.append(f"""                <div class="customer-item" data-name="{_html.escape(name_no_accent)}" data-id="{_html.escape(str(fb_key))}">
+                    <div class="customer-info">
+                        <div class="customer-name">{_html.escape(name)}</div>
+                        <div class="customer-details">
+                            ID: {_html.escape(str(fb_key))}{kv_html}{note_html}
+                        </div>
+                    </div>
+                    <button class="copy-button" onclick="copyCommand('{_html.escape(str(fb_key))}', this)">
+                        Sao chép lệnh
+                    </button>
+                </div>""")
+
+    total = len(items)
+    items_html = "\n".join(items)
+
+    return f"""<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tìm kiếm khách hàng</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background-color: #f5f5f5; }}
+        .container {{ background: white; border-radius: 10px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        h1 {{ color: #333; text-align: center; margin-bottom: 30px; }}
+        .search-box {{ width: 100%; padding: 15px; font-size: 16px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 20px; box-sizing: border-box; }}
+        .search-box:focus {{ outline: none; border-color: #4CAF50; }}
+        .customer-list {{ max-height: 600px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; }}
+        .customer-item {{ padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; transition: background-color 0.2s; display: flex; justify-content: space-between; align-items: center; }}
+        .customer-item:hover {{ background-color: #f0f8ff; }}
+        .customer-item:last-child {{ border-bottom: none; }}
+        .customer-info {{ flex: 1; }}
+        .customer-name {{ font-weight: bold; font-size: 16px; color: #333; margin-bottom: 5px; }}
+        .customer-details {{ font-size: 14px; color: #666; }}
+        .copy-button {{ background-color: #4CAF50; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; }}
+        .copy-button:hover {{ background-color: #45a049; }}
+        .copied {{ background-color: #28a745 !important; }}
+        .no-results {{ text-align: center; padding: 40px; color: #666; font-style: italic; }}
+        .stats {{ text-align: center; margin-bottom: 20px; color: #666; font-size: 14px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Tìm kiếm khách hàng</h1>
+        <div class="stats">
+            Tổng số khách hàng: <strong id="total-customers">{total}</strong> | 
+            Hiển thị: <strong id="showing-customers">{total}</strong>
+        </div>
+        <input type="text" class="search-box" id="searchBox" placeholder="Nhập tên khách hàng để tìm kiếm..." autofocus>
+        <div class="customer-list" id="customerList">
+{items_html}
+        </div>
+    </div>
+    <script>
+        function copyCommand(id, btn) {{
+            navigator.clipboard.writeText(id).then(() => {{
+                btn.textContent = 'Đã copy!';
+                btn.classList.add('copied');
+                setTimeout(() => {{ btn.textContent = 'Sao chép lệnh'; btn.classList.remove('copied'); }}, 1500);
+            }}).catch(() => {{
+                const ta = document.createElement('textarea');
+                ta.value = id;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                btn.textContent = 'Đã copy!';
+                btn.classList.add('copied');
+                setTimeout(() => {{ btn.textContent = 'Sao chép lệnh'; btn.classList.remove('copied'); }}, 1500);
+            }});
+        }}
+        document.getElementById('searchBox').addEventListener('input', function(e) {{
+            const q = e.target.value.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
+            let count = 0;
+            document.querySelectorAll('.customer-item').forEach(item => {{
+                const name = (item.getAttribute('data-name') || '').toLowerCase();
+                if (!q || name.includes(q)) {{ item.style.display = ''; count++; }}
+                else {{ item.style.display = 'none'; }}
+            }});
+            document.getElementById('showing-customers').textContent = count;
+        }});
+    </script>
+</body>
+</html>"""
+
+
 async def _assign_customer(client, msg, db_conn, thread_id: int, kh_id: str):
     """Assign customer to order directly via SQLite + Telethon (no HTTP roundtrip)."""
     from order_db import get_customer_by_key, get_customer_price_list, _save_order, parse_comma_text
 
-    order = get_order_by_thread_id(db_conn, thread_id)
+    order = get_order_by_thread_id(db_conn, thread_id, )
     if not order:
         await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
         return
@@ -127,18 +253,11 @@ async def _assign_customer(client, msg, db_conn, thread_id: int, kh_id: str):
         fb_set_order(thread_id, order)
     except Exception as e:
         log.warning("_assign_customer Firebase sync: %s", e)
-    # Schedule main message refresh via Node.js (one HTTP call, non-blocking)
+    # Schedule main message refresh via Telethon (background)
     channel_id = order.get("channel_id")
     message_id = order.get("message_id")
     if channel_id and message_id:
-        try:
-            _call_final_telegram("/api/update-order-message", {
-                "order": order,
-                "message_id": message_id,
-                "channel_id": channel_id,
-            }, timeout=5)
-        except Exception:
-            pass
+        asyncio.ensure_future(_refresh_main_msg(client, db_conn, thread_id, channel_id, message_id))
 
 
 # ── Formatting helpers ─────────────────────────────────────────────
@@ -234,15 +353,22 @@ def register_order_commands_v2(client):
         if (msg.text or "").strip().lower() != "customer search": return
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
-        order = get_order_by_thread_id(db_conn, thread_id)
-        order_text = order.get("noi_dung", order.get("name", "")) if order else ""
-        results = search_customers(db_conn, order_text)
-        if not results:
-            results = search_customers(db_conn, "")
-        if not results:
-            await client.send_message(msg.chat_id, "❌ Không có dữ liệu khách hàng", reply_to=msg.id)
-            return
-        await client.send_message(msg.chat_id, _fmt_customer_list(results), reply_to=msg.id, parse_mode="html")
+
+        # Generate live HTML from SQLite and send
+        import tempfile
+        html_content = _generate_customer_html(db_conn)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False, encoding="utf-8") as f:
+            f.write(html_content)
+            tmp_path = f.name
+        try:
+            await client.send_file(
+                msg.chat_id,
+                tmp_path,
+                reply_to=msg.id,
+                caption="📋 File tìm kiếm khách hàng (live từ database) — mở bằng trình duyệt để tìm và copy ID.",
+            )
+        finally:
+            os.unlink(tmp_path)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_add_khach_hang(event):
@@ -319,6 +445,87 @@ def register_order_commands_v2(client):
         reply = result.get("reply", "✅ Đã tự động hoàn thành") if result else "❌ Lỗi kết nối"
         await client.send_message(msg.chat_id, reply, reply_to=msg.id)
 
+    # ── DETECT ALL (customer + invoice) ──────────────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_detect_all(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        if (msg.text or "").strip().lower() != "detect": return
+        thread_id = _extract_thread_id(msg)
+        if not thread_id:
+            await client.send_message(msg.chat_id, "❌ Không xác định được đơn hàng.", reply_to=msg.id)
+            return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+
+        order_text = order.get("text") or order.get("text_raw") or ""
+        if not order_text:
+            await client.send_message(msg.chat_id, "❌ Đơn hàng này không có nội dung để phân tích.", reply_to=msg.id)
+            return
+
+        from order_db import detect_customer_free_text, parse_invoice_free_text, _save_order
+        from order_db import get_customer_price_list
+        from product_db import freeze_invoice_cost_prices
+
+        lines = []
+
+        # Step 1: Detect customer
+        detection = detect_customer_free_text(db_conn, order_text)
+        kh_id = order.get("khach_hang_id") or order.get("khID")
+        assigned = False
+
+        if detection["autoAssign"]:
+            cust = detection["autoAssign"]
+            order["khach_hang_id"] = cust["customerID"]
+            order["customer_name"] = cust["customerName"]
+            kh_id = cust["customerID"]
+            assigned = True
+            lines.append(f"👤 <b>Đã gán:</b> {cust['customerName']} ({cust['score']}%)")
+            lines.append(f"🎯 Mẫu: \"{cust['bestMatchedPattern']}\"")
+        elif detection["matches"]:
+            matches = detection["matches"][:3]
+            lines.append(f"🔍 <b>Khách hàng có thể:</b>")
+            for i, m in enumerate(matches):
+                lines.append(f"  {i+1}. {m['customerName']} ({m['score']}%) — <code>add khach hang {m['customerID']}</code>")
+        else:
+            lines.append("👤 Không tìm thấy khách hàng phù hợp.")
+
+        # Step 2: Parse invoice with customer price (or 0 if no customer)
+        invoice = parse_invoice_free_text(db_conn, order_text, kh_id)
+        if assigned:
+            price_list = get_customer_price_list(db_conn, kh_id)
+            if price_list:
+                invoice = parse_invoice_free_text(db_conn, order_text, kh_id)
+
+        if invoice:
+            order["invoice"] = freeze_invoice_cost_prices(db_conn, invoice)
+            lines.append(f"\n🎯 <b>Tìm thấy {len(invoice)} sản phẩm:</b>")
+            grand_total = 0
+            for item in invoice:
+                sp = item.get("sp", "?")
+                sl = item.get("sl", 0)
+                price = item.get("price", 0)
+                sub_total = sl * price
+                grand_total += sub_total
+                lines.append(f"• <b>{sp}</b> x{sl} @ {price:,}đ = <b>{sub_total:,}đ</b>")
+            lines.append(f"\n💰 <b>Tổng cộng: {grand_total:,}đ</b>")
+        else:
+            lines.append("\n🎯 Không tìm thấy sản phẩm nào.")
+
+        # Save
+        _save_order(db_conn, thread_id, order)
+
+        # Refresh main message
+        channel_id = order.get("channel_id")
+        message_id = order.get("message_id")
+        if channel_id and message_id:
+            asyncio.ensure_future(_refresh_main_msg(client, db_conn, thread_id, channel_id, message_id))
+
+        await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
+
     # ── DETECT CUSTOMER ─────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_detect_customer(event):
@@ -326,17 +533,58 @@ def register_order_commands_v2(client):
         if isinstance(msg, MessageService): return
         if (msg.text or "").strip().lower() != "detect customer": return
         thread_id = _extract_thread_id(msg)
-        if not thread_id: return
-        result = _call_final("/api/order/detect-customer", {"thread_id": thread_id})
-        if not result:
-            reply = "❌ Lỗi kết nối đến server xử lý đơn hàng. Vui lòng thử lại."
-        elif result.get("reply"):
-            reply = result["reply"]
-        elif result.get("error"):
-            reply = f"⚠️ Lỗi: {result['error']}"
+        if not thread_id:
+            await client.send_message(msg.chat_id, "❌ Không xác định được đơn hàng.", reply_to=msg.id)
+            return
+
+        order = get_order_by_thread_id(db_conn, thread_id, )
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+
+        order_text = order.get("text") or order.get("text_raw") or ""
+        if not order_text:
+            await client.send_message(msg.chat_id, "❌ Đơn hàng này không có nội dung để phân tích.", reply_to=msg.id)
+            return
+
+        from order_db import detect_customer_free_text
+        detection = detect_customer_free_text(db_conn, order_text)
+
+        if not detection["matches"]:
+            await client.send_message(
+                msg.chat_id,
+                "❌ Chưa có patterns trong database khách hàng hoặc không tìm thấy khách hàng phù hợp.",
+                reply_to=msg.id,
+            )
+            return
+
+        # Auto-assign if high confidence
+        if detection["autoAssign"]:
+            from order_db import _save_order
+            cust = detection["autoAssign"]
+            order["khach_hang_id"] = cust["customerID"]
+            order["customer_name"] = cust["customerName"]
+            _save_order(db_conn, thread_id, order)
+
+            # Refresh main message in channel (background, non-blocking)
+            channel_id = order.get("channel_id")
+            message_id = order.get("message_id")
+            if channel_id and message_id:
+                asyncio.ensure_future(_refresh_main_msg(client, db_conn, thread_id, channel_id, message_id))
+
+            reply = (
+                f"👤 <b>Đã gán:</b> {cust['customerName']}\n"
+                f"🎯 Mẫu: \"{cust['bestMatchedPattern']}\" ({cust['score']}%)\n\n"
+                f"✅ Đã lưu vào SQLite. Bấm 'Xem hóa đơn' để kiểm tra."
+            )
         else:
-            reply = "⚠️ Không nhận được phản hồi từ server."
-        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
+            matches = detection["matches"][:5]
+            lines = [f"🔍 <b>Tìm thấy {len(detection['matches'])} khách hàng tiềm năng:</b>\n"]
+            for i, m in enumerate(matches):
+                lines.append(f"  {i+1}. {m['customerName']} ({m['score']}%) — <code>add khach hang {m['customerID']}</code>")
+            reply = "\n".join(lines)
+
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id, parse_mode="html")
 
     # ── TASK MANAGEMENT ─────────────────────────────────────────────
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))

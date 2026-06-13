@@ -5,345 +5,386 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Orders — Local DB Viewer</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:13px; margin:0; padding:8px 12px; color:#222; background:#f8f9fa; }
-  h1 { font-size:16px; margin:0 0 8px 0; }
-  .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; background:#fff; padding:10px; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
-  .toolbar input, .toolbar select { padding:5px 10px; font-size:13px; border:1px solid #ccc; border-radius:4px; }
-  .toolbar button { padding:5px 14px; font-size:13px; cursor:pointer; background:#0066cc; color:#fff; border:none; border-radius:4px; }
-  .toolbar button:hover { background:#0052a3; }
-  .info { color:#666; margin-bottom:10px; background:#fff; padding:8px 10px; border-radius:4px; }
-  table { width:100%; border-collapse:collapse; background:#fff; border-radius:6px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
-  th, td { padding:6px 8px; text-align:left; border-bottom:1px solid #eee; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  th { background:#f0f0f0; position:sticky; top:0; font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:0.3px; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:13px; color:#222; background:#f0f2f5; min-height:100vh; overflow-x:hidden; }
+
+  .top-bar {
+    position:sticky; top:0; z-index:10;
+  }
+  header {
+    background:#fff; border-bottom:1px solid #e0e0e0; padding:6px 10px;
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  }
+  header h1 { font-size:14px; margin:0; white-space:nowrap; }
+  header a { color:#06c; text-decoration:none; font-size:11px; white-space:nowrap; }
+
+  .toolbar {
+    background:#fff; border-bottom:1px solid #e0e0e0; padding:5px 10px;
+    display:flex; flex-direction:column; gap:5px;
+  }
+  .toolbar input, .toolbar select { padding:4px 8px; font-size:12px; border:1px solid #ddd; border-radius:5px; background:#fff; }
+  .toolbar input { flex:1; min-width:120px; }
+  .toolbar select { min-width:90px; }
+
+  .stats-bar { display:none; gap:10px; padding:5px 10px; background:#fff; border-bottom:1px solid #e0e0e0; font-size:12px; flex-wrap:wrap; }
+  .stat-value { font-weight:700; font-size:13px; }
+  .stat-label { color:#888; font-size:10px; }
+
+  .info { padding:8px 12px; color:#888; font-size:12px; background:#fff; border-bottom:1px solid #f0f0f0; }
+
+  /* Card grid */
+  .feed { padding:4px; display:grid; grid-template-columns:1fr; gap:4px; }
+  @media (min-width: 600px) { .feed { grid-template-columns:1fr 1fr; } }
+  @media (min-width: 900px) { .feed { grid-template-columns:1fr 1fr 1fr; } }
+  @media (min-width: 1200px) { .feed { grid-template-columns:1fr 1fr 1fr 1fr; } }
+
+  .card {
+    background:#fff; border-radius:6px; padding:8px 10px; cursor:pointer;
+    box-shadow:0 1px 2px rgba(0,0,0,0.05); transition:box-shadow .15s;
+    display:flex; flex-direction:column; gap:3px;
+  }
+  .card:hover { box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+
+  .card-text { font-size:14px; color:#111; line-height:1.4; overflow:hidden; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; word-break:break-word; font-weight:500; }
+  .card-customer { font-size:11px; color:#888; line-height:1.2; }
+  .card-sub { display:flex; gap:6px; font-size:10px; color:#bbb; flex-wrap:wrap; }
+  .card-meta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:12px; }
+  .card-total { font-size:14px; font-weight:700; }
+
+  .card-inv { display:flex; gap:3px; flex-wrap:wrap; font-size:10px; color:#555; }
+  .inv-item { background:#f5f5f5; padding:1px 5px; border-radius:3px; white-space:nowrap; }
+  .inv-item b { font-weight:600; color:#333; }
+
+  .debt-paid { color:#27ae60; }
+  .debt-partial { color:#e67e22; }
+  .debt-full { color:#e74c3c; }
+
+  .card-steps { display:flex; gap:4px; font-size:10px; flex-wrap:wrap; }
+  .step-done { color:#27ae60; font-weight:600; background:#eafaf1; padding:1px 5px; border-radius:3px; }
+  .step-pending { color:#ccc; background:#f8f8f8; padding:1px 5px; border-radius:3px; }
+
+  .card-footer { display:flex; justify-content:space-between; align-items:center; font-size:10px; color:#bbb; }
+  .card-footer a { color:#06c; text-decoration:none; }
+
+  /* Toggle */
+  .view-toggle { display:flex; gap:0; border-radius:6px; overflow:hidden; border:1px solid #ddd; }
+  .view-toggle button { padding:5px 10px; font-size:12px; cursor:pointer; background:#fff; border:none; color:#666; }
+  .view-toggle button.active { background:#0066cc; color:#fff; }
+
+  /* Table view */
+  .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:4px; }
+  .table-wrap table { width:max-content; min-width:100%; border-collapse:collapse; background:#fff; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  th, td { padding:6px 8px; text-align:left; border-bottom:1px solid #eee; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+  th { background:#f5f5f5; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; }
   tr:hover td { background:#f5f8ff; }
   tr { cursor:pointer; }
   .num { text-align:right; font-family:monospace; }
-  .badge { display:inline-block; padding:2px 6px; border-radius:3px; font-size:11px; font-weight:500; }
-  .badge-done { background:#d4edda; color:#155724; }
-  .badge-pending { background:#fff3cd; color:#856404; }
-  .badge-cancelled { background:#f8d7da; color:#721c24; }
-  .steps { font-size:11px; }
-  .step-done { color:#28a745; font-weight:600; }
-  .step-pending { color:#ccc; }
-  .pagination { display:flex; gap:4px; margin-top:12px; align-items:center; justify-content:center; }
-  .pagination button { padding:5px 12px; font-size:13px; cursor:pointer; background:#fff; border:1px solid #ccc; border-radius:4px; }
-  .pagination button:hover { background:#f0f0f0; }
-  .pagination button:disabled { opacity:0.5; cursor:not-allowed; }
-  .pagination span { padding:0 12px; font-weight:500; }
-  a { color:#06c; text-decoration:none; }
-  a:hover { text-decoration:underline; }
 
-  /* Modal */
-  .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:flex-start; padding-top:40px; }
-  .modal-overlay.active { display:flex; }
-  .modal { background:#fff; border-radius:8px; width:90%; max-width:700px; max-height:85vh; overflow-y:auto; box-shadow:0 4px 20px rgba(0,0,0,0.2); }
-  .modal-header { padding:15px 20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; background:#fff; z-index:10; }
-  .modal-header h2 { margin:0; font-size:16px; }
-  .modal-close { font-size:24px; cursor:pointer; color:#999; line-height:1; }
-  .modal-close:hover { color:#333; }
-  .modal-body { padding:15px 20px; }
-  .detail-section { margin-bottom:16px; }
-  .detail-section h3 { margin:0 0 8px 0; font-size:13px; text-transform:uppercase; color:#666; letter-spacing:0.5px; border-bottom:1px solid #eee; padding-bottom:4px; }
-  .detail-row { display:flex; padding:4px 0; border-bottom:1px solid #f5f5f5; }
-  .detail-label { width:140px; color:#666; font-weight:500; flex-shrink:0; }
-  .detail-value { flex:1; word-break:break-word; }
-  .detail-value pre { margin:0; background:#f8f9fa; padding:8px; border-radius:4px; font-size:11px; overflow-x:auto; }
-  .invoice-table { width:100%; border-collapse:collapse; margin-top:8px; }
-  .invoice-table th { background:#f0f0f0; font-size:11px; padding:4px 6px; }
-  .invoice-table td { padding:4px 6px; font-size:12px; border-bottom:1px solid #f0f0f0; }
+  #load-more { text-align:center; padding:16px; color:#888; font-size:13px; display:none; }
+  .empty-state { text-align:center; padding:40px 20px; color:#999; }
 </style>
 </head>
 <body>
 
-<h1>📋 Orders — Local DB Viewer</h1>
+<div class="top-bar">
+<header>
+  <h1>📋 Orders</h1>
+  <a href="/">Saved Messages</a>
+  <span class="header-sep">|</span>
+  <a href="/donhang">#don_hang</a>
+</header>
 
 <div class="toolbar">
-  <input id="search" type="text" placeholder="Search customer, phone, product..." style="width:220px;">
-  <select id="status-filter">
-    <option value="">All statuses</option>
-    <option value="Done">Done</option>
-    <option value="Pending">Pending</option>
-    <option value="Cancelled">Cancelled</option>
-  </select>
-  <select id="sort-filter">
-    <option value="updated">Updated (newest first)</option>
-    <option value="created">Created (newest first)</option>
-    <option value="date">Invoice Date (newest first)</option>
-  </select>
-  <button onclick="loadPage(1)">Search</button>
-  <span style="margin:0 10px;color:#ccc">|</span>
-  <a href="/">Saved Messages</a>
-  <a href="/donhang">#don_hang</a>
-</div>
-
-<div class="info" id="info">Loading...</div>
-
-<table id="table">
-  <thead>
-    <tr>
-      <th style="width:70px">Thread</th>
-      <th style="width:110px">HD Code</th>
-      <th style="width:130px">Customer</th>
-      <th style="width:80px">Total</th>
-      <th style="width:65px">Status</th>
-      <th style="width:110px">Steps</th>
-      <th style="width:90px">Date</th>
-      <th style="width:70px">Phone</th>
-      <th style="width:90px">Creator</th>
-      <th style="width:140px">Topic</th>
-      <th style="width:50px">Items</th>
-    </tr>
-  </thead>
-  <tbody id="tbody"></tbody>
-</table>
-
-<div class="pagination" id="pager"></div>
-
-<!-- Detail Modal -->
-<div class="modal-overlay" id="modal">
-  <div class="modal">
-    <div class="modal-header">
-      <h2>Order Details</h2>
-      <span class="modal-close" onclick="closeModal()">&times;</span>
+  <input id="search" type="text" placeholder="Search customer, phone, product..." style="width:100%">
+  <div style="display:flex;gap:5px;align-items:center">
+    <select id="sort-filter">
+      <option value="created">Created</option>
+      <option value="updated">Updated</option>
+      <option value="date">Invoice Date</option>
+    </select>
+    <div class="view-toggle">
+      <button id="btn-card" class="active" onclick="setView('card')">📱 Card</button>
+      <button id="btn-table" onclick="setView('table')">📋 Table</button>
     </div>
-    <div class="modal-body" id="modal-body"></div>
   </div>
 </div>
 
-<script>
-let currentPage = 1;
-const limit = 50;
-let currentOrders = [];
+<div class="stats-bar" id="stats-bar">
+  <div class="stat-item"><span class="stat-value" id="stat-total">—</span><span class="stat-label">total</span></div>
+  <div class="stat-item stat-pending"><span class="stat-value" id="stat-pending">—</span><span class="stat-label">pending</span></div>
+  <div class="stat-item stat-done"><span class="stat-value" id="stat-done">—</span><span class="stat-label">done</span></div>
+</div>
 
-function loadPage(page) {
+<div class="info" id="info">Loading...</div>
+</div>
+
+<div class="feed" id="feed"></div>
+<div class="table-wrap">
+<table id="table" style="display:none">
+  <thead><tr>
+    <th>Thread</th><th>HD Code</th><th>Customer</th><th>Total</th><th>Debt</th><th>Steps</th><th>Date</th><th>Phone</th><th>Creator</th><th>Items</th>
+  </tr></thead>
+  <tbody id="tbody"></tbody>
+</table>
+</div>
+<div id="load-more"></div>
+
+<script>
+const limit = 50;
+let currentPage = 1;
+let totalPages = 1;
+let isLoading = false;
+let allOrders = [];
+let viewMode = 'card';  // overridden at init based on screen width
+
+function setView(mode) {
+  viewMode = mode;
+  localStorage.setItem('orderView', mode);
+  document.getElementById('btn-card').classList.toggle('active', mode === 'card');
+  document.getElementById('btn-table').classList.toggle('active', mode === 'table');
+  document.getElementById('feed').style.display = mode === 'card' ? '' : 'none';
+  document.querySelector('.table-wrap').style.display = mode === 'table' ? '' : 'none';
+  // Re-render current data
+  var container = mode === 'card' ? document.getElementById('feed') : document.getElementById('tbody');
+  container.innerHTML = '';
+  if (!allOrders.length) return;
+  var fn = mode === 'card' ? buildCard : buildRow;
+  allOrders.forEach(function(o) { container.appendChild(fn(o)); });
+}
+
+function fmt(v) {
+  return parseInt(String(v).replace(/\./g, '')).toLocaleString('vi-VN') + '₫';
+}
+
+function debtInfo(o) {
+  var rawTotal = o.total ? parseInt(String(o.total).replace(/\./g, '')) : 0;
+  if (o.nhan_tien_note === 'gtr') return { text:'Gửi toa rồi', cls:'debt-partial' };
+  if (rawTotal > 0 && o.remaining === 0) return { text:'✅', cls:'debt-paid' };
+  if (rawTotal > 0 && o.paid > 0) return { text:o.remaining.toLocaleString('vi-VN')+'₫', cls:'debt-partial' };
+  if (rawTotal > 0) return { text:o.remaining.toLocaleString('vi-VN')+'₫', cls:'debt-full' };
+  return { text:'—', cls:'' };
+}
+
+function buildRow(o) {
+  var d = debtInfo(o);
+  var steps = ['soan','giao','nop','nhan'];
+  var labels = { soan:'Soạn', giao:'Giao', nop:'Nộp', nhan:'Nhận' };
+  var stepsHtml = steps.map(function(s) {
+    return o[s] ? '<span class="step-done">'+labels[s]+'</span>' : '<span class="step-pending">'+labels[s]+'</span>';
+  }).join(' ');
+
+  var tgChannel = String(o.channel_id || '').replace('-100','');
+  var tgLink = tgChannel && o.message_id
+    ? '<a href="https://t.me/c/'+tgChannel+'/'+o.message_id+'" target="_blank" onclick="event.stopPropagation()">'+o.thread_id+'</a>'
+    : (o.thread_id || '—');
+
+  var tr = document.createElement('tr');
+  tr.onclick = function() { window.location = '/orders/' + o.thread_id; };
+  tr.innerHTML =
+    '<td>'+tgLink+'</td>' +
+    '<td>'+(o.hd_code||'—')+'</td>' +
+    '<td title="'+(o.customer||'')+'">'+(o.customer||'—')+'</td>' +
+    '<td class="num">'+(o.total?fmt(o.total):'—')+'</td>' +
+    '<td class="num '+d.cls+'">'+d.text+'</td>' +
+    '<td style="font-size:11px">'+stepsHtml+'</td>' +
+    '<td>'+(o.date||'—')+'</td>' +
+    '<td>'+(o.phone||'—')+'</td>' +
+    '<td>'+(o.creator||'—')+'</td>' +
+    '<td class="num">'+(o.invoice_count||0)+'</td>';
+  return tr;
+}
+
+function relativeTime(dateStr) {
+  if (!dateStr) return '';
+  // Parse DD/MM/YYYY HH:MM or YYYY-MM-DDTHH:MM
+  var d, m, y, hh, mm;
+  var m1 = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})/);
+  if (m1) { d=+m1[1]; m=+m1[2]-1; y=+m1[3]; hh=+m1[4]; mm=+m1[5]; }
+  else {
+    var m2 = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!m2) return dateStr;
+    d=+m2[3]; m=+m2[2]-1; y=+m2[1]; hh=+m2[4]; mm=+m2[5];
+  }
+  var then = new Date(y, m, d, hh, mm);
+  var now = new Date();
+  var diffMin = Math.floor((now - then) / 60000);
+  if (diffMin < 1) return 'Vừa xong';
+  if (diffMin < 60) return diffMin + ' phút';
+  var diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return diffH + ' giờ';
+  var diffD = Math.floor(diffH / 24);
+  if (diffD === 1) return 'Hôm qua';
+  if (diffD < 7) return diffD + ' ngày';
+  if (diffD < 30) return Math.floor(diffD/7) + ' tuần';
+  if (diffD < 365) return Math.floor(diffD/30) + ' tháng';
+  return Math.floor(diffD/365) + ' năm';
+}
+
+function buildCard(o) {
+  var card = document.createElement('div');
+  card.className = 'card';
+  card.onclick = function() { window.location = '/orders/' + o.thread_id; };
+
+  var d = debtInfo(o);
+  var debtHtml = d.text !== '—' ? '<span class="'+d.cls+'">'+d.text+'</span>' : '';
+
+  var steps = ['soan','giao','nop','nhan'];
+  var stepLabels = { soan:'Soạn', giao:'Giao', nop:'Nộp', nhan:'Nhận' };
+  var stepsHtml = steps.map(function(s) {
+    return o[s] ? '<span class="step-done">'+stepLabels[s]+'</span>' : '<span class="step-pending">'+stepLabels[s]+'</span>';
+  }).join('');
+
+  var tgChannel = String(o.channel_id || '').replace('-100','');
+  var tgLink = tgChannel && o.message_id
+    ? '<a href="https://t.me/c/'+tgChannel+'/'+o.message_id+'" target="_blank" onclick="event.stopPropagation()">#'+o.thread_id+'</a>'
+    : '#' + (o.thread_id || '—');
+
+  var relTime = relativeTime(o.date);
+
+  // Full invoice items
+  var invItems = o.invoice_summary || [];
+  var invHtml = '';
+  if (invItems.length) {
+    invHtml = '<div class="card-inv">';
+    invItems.forEach(function(it) {
+      invHtml += '<span class="inv-item">' + (it.sp||'?') + ' <b>x' + (it.sl||0) + '</b></span>';
+    });
+    if (o.invoice_count > invItems.length) invHtml += '<span style="font-size:10px;color:#aaa">+ ' + (o.invoice_count - invItems.length) + ' more</span>';
+    invHtml += '</div>';
+  }
+
+  card.innerHTML =
+    '<div class="card-text">' + ((o.text||'').substring(0, 200) || (o.customer||'—')) + '</div>' +
+    '<div class="card-customer">' + (o.customer || '—') + '</div>' +
+    '<div class="card-sub">' +
+      (o.hd_code ? '<span>' + o.hd_code + '</span>' : '') +
+      (o.date ? '<span>' + o.date + '</span>' : '') +
+      (relTime ? '<span style="color:#e67e22">' + relTime + ' trước</span>' : '') +
+    '</div>' +
+    '<div class="card-meta">' +
+      (o.total ? '<span class="card-total">'+fmt(o.total)+'</span>' : '') +
+      debtHtml +
+    '</div>' +
+    invHtml +
+    '<div class="card-steps">' + stepsHtml + '</div>' +
+    '<div class="card-footer">' +
+      '<span>' + tgLink + '</span>' +
+    '</div>';
+  return card;
+}
+
+function loadPage(page, append) {
+  if (isLoading) return;
+  isLoading = true;
   currentPage = page;
-  const search = document.getElementById('search').value.trim();
-  const status = document.getElementById('status-filter').value;
-  const sort = document.getElementById('sort-filter').value;
-  const params = new URLSearchParams({ page, limit, search, status, sort });
+
+  var search = document.getElementById('search').value.trim();
+  var sort = document.getElementById('sort-filter').value;
+  var params = new URLSearchParams({ page:page, limit:limit, search:search, sort:sort });
+
+  var loadEl = document.getElementById('load-more');
+  loadEl.style.display = 'block';
+  loadEl.textContent = '⏳ Loading...';
 
   fetch('/api/orders?' + params)
-    .then(r => r.json())
-    .then(data => {
-      currentOrders = data.orders || [];
-      const sortLabel = sort === 'date' ? 'Invoice Date' : 'Last Updated';
-      document.getElementById('info').textContent =
-        `Showing ${data.orders.length} of ${data.total} orders · Page ${data.page}/${data.total_pages} · Sorted by ${sortLabel} (newest first)`;
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      totalPages = data.total_pages;
+      var orders = data.orders || [];
 
-      const tbody = document.getElementById('tbody');
-      tbody.innerHTML = '';
-
-      if (!data.orders.length) {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:#999;">No orders found</td></tr>';
-        renderPager(1, 1);
-        return;
+      if (!append) {
+        allOrders = orders;
+        document.getElementById('feed').innerHTML = '';
+      } else {
+        var existingIds = {};
+        allOrders.forEach(function(o) { existingIds[o.thread_id] = true; });
+        orders.forEach(function(o) {
+          if (!existingIds[o.thread_id]) allOrders.push(o);
+        });
       }
 
-      data.orders.forEach(o => {
-        const steps = [];
-        if (o.soan) steps.push('<span class="step-done">Soạn</span>');
-        else steps.push('<span class="step-pending">Soạn</span>');
-        if (o.giao) steps.push('<span class="step-done">Giao</span>');
-        else steps.push('<span class="step-pending">Giao</span>');
-        if (o.nop) steps.push('<span class="step-done">Nộp</span>');
-        else steps.push('<span class="step-pending">Nộp</span>');
-        if (o.nhan) steps.push('<span class="step-done">Nhận</span>');
-        else steps.push('<span class="step-pending">Nhận</span>');
+      var sortLabels = { created:'Created', updated:'Updated', date:'Invoice Date' };
+      document.getElementById('info').textContent =
+        'Showing ' + allOrders.length + ' of ' + data.total + ' · ' + (sortLabels[sort] || 'Created') + ' ↓';
 
-        const statusBadge = o.status === 'Done'
-          ? '<span class="badge badge-done">Done</span>'
-          : o.status === 'Cancelled'
-            ? '<span class="badge badge-cancelled">Cancelled</span>'
-            : o.status
-              ? '<span class="badge badge-pending">' + o.status + '</span>'
-              : '<span style="color:#999">—</span>';
+      if (data.stats && Object.keys(data.stats).length) {
+        document.getElementById('stats-bar').style.display = 'flex';
+        document.getElementById('stat-total').textContent = (data.stats.total_orders||0).toLocaleString('vi-VN');
+        document.getElementById('stat-pending').textContent = (data.stats.pending||0).toLocaleString('vi-VN');
+        document.getElementById('stat-done').textContent = (data.stats.done||0).toLocaleString('vi-VN');
+      }
 
-        const totalDisplay = o.total
-          ? parseInt(o.total).toLocaleString('vi-VN') + '₫'
-          : '—';
+      var container = viewMode === 'card' ? document.getElementById('feed') : document.getElementById('tbody');
+      var builder = viewMode === 'card' ? buildCard : buildRow;
+      if (!append) {
+        document.getElementById('feed').innerHTML = '';
+        document.getElementById('tbody').innerHTML = '';
+        if (!orders.length) {
+          document.getElementById('feed').innerHTML = '<div class="empty-state">No orders found</div>';
+          loadEl.style.display = 'none';
+          isLoading = false;
+          return;
+        }
+        orders.forEach(function(o) { container.appendChild(builder(o)); });
+      } else {
+        var existingIds = {};
+        container.querySelectorAll(viewMode==='card'?'.card-footer a':'td:first-child a').forEach(function(a) {
+          var m = a.textContent.match(/(\d+)/);
+          if (m) existingIds[parseInt(m[1])] = true;
+        });
+        orders.forEach(function(o) {
+          if (!existingIds[o.thread_id]) container.appendChild(builder(o));
+        });
+      }
 
-        const tr = document.createElement('tr');
-        tr.onclick = () => showDetail(o.thread_id);
-        tr.innerHTML = `
-          <td><a href="https://t.me/c/${String(o.channel_id).replace('-100','')}/${o.message_id || o.thread_id}" target="_blank" onclick="event.stopPropagation()">${o.thread_id || '—'}</a></td>
-          <td>${o.hd_code || '—'}</td>
-          <td title="${o.customer || ''}">${o.customer || '—'}</td>
-          <td class="num">${totalDisplay}</td>
-          <td>${statusBadge}</td>
-          <td class="steps">${steps.join(' ')}</td>
-          <td>${o.date || '—'}</td>
-          <td>${o.phone || '—'}</td>
-          <td>${o.creator || '—'}</td>
-          <td title="${o.topic_name || ''}">${o.topic_name ? o.topic_name.substring(0, 25) + (o.topic_name.length > 25 ? '…' : '') : '—'}</td>
-          <td class="num">${o.invoice_count || 0}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      renderPager(data.page, data.total_pages);
+      if (currentPage >= totalPages) {
+        loadEl.textContent = allOrders.length ? '✅ All loaded' : '';
+        loadEl.style.display = allOrders.length ? 'block' : 'none';
+      } else {
+        loadEl.textContent = '⏳ Scroll for more...';
+        loadEl.style.display = 'block';
+      }
+      isLoading = false;
     })
-    .catch(err => {
+    .catch(function(err) {
       document.getElementById('info').textContent = 'Error: ' + err.message;
+      loadEl.style.display = 'none';
+      isLoading = false;
     });
 }
 
-function renderPager(page, totalPages) {
-  const pager = document.getElementById('pager');
-  pager.innerHTML = '';
-
-  if (totalPages <= 1) return;
-
-  const addBtn = (label, p, disabled) => {
-    const btn = document.createElement('button');
-    btn.textContent = label;
-    btn.disabled = disabled;
-    btn.onclick = () => loadPage(p);
-    return btn;
-  };
-
-  pager.appendChild(addBtn('« First', 1, page === 1));
-  pager.appendChild(addBtn('‹ Prev', page - 1, page === 1));
-
-  const span = document.createElement('span');
-  span.textContent = `Page ${page} / ${totalPages}`;
-  pager.appendChild(span);
-
-  pager.appendChild(addBtn('Next ›', page + 1, page === totalPages));
-  pager.appendChild(addBtn('Last »', totalPages, page === totalPages));
-}
-
-function showDetail(threadId) {
-  const order = currentOrders.find(o => o.thread_id === threadId);
-  if (!order) return;
-
-  // Fetch full order JSON
-  fetch('/api/order/' + threadId)
-    .then(r => r.json())
-    .then(data => {
-      renderModal(data);
-    })
-    .catch(() => {
-      // Fallback: show basic info from list view
-      renderModal({ thread_id: threadId, ...order });
-    });
-}
-
-function renderModal(order) {
-  const body = document.getElementById('modal-body');
-  // Detail endpoint nests full JSON under "data" key
-  const d = order.data || order;
-  const invoice = d.invoice || d.invoice_items || [];
-  const payments = d.payments || [];
-  const tasks = d.task_status || {};
-  const hd = d.hoadon || {};
-  const pc = hd.print_content || {};
-
-  // Normalize both old and new structures
-  const customer = d.customer_name || pc.kh || d.customer || d.khach_hang || '—';
-  const total = d.total || pc.tongthanhtoan || '';
-  const phone = d.phone || pc.sdt || d.so_dien_thoai || '—';
-  const date = d.date || pc.datetime || '';
-  const hdCode = d.hd_code || hd.hd_code || d.kiotvietInvoiceCode || '';
-  const status = d.status || d.trang_thai || '—';
-  const key = d.key || d.firebase_key || '';
-  const text = d.text || d.text_raw || '';
-
-  let html = '';
-
-  // Basic info
-  html += `<div class="detail-section">
-    <h3>📋 Basic Info</h3>
-    <div class="detail-row"><div class="detail-label">Thread ID:</div><div class="detail-value">${d.thread_id || '—'}</div></div>
-    <div class="detail-row"><div class="detail-label">Customer:</div><div class="detail-value">${customer}</div></div>
-    <div class="detail-row"><div class="detail-label">Phone:</div><div class="detail-value">${phone}</div></div>
-    <div class="detail-row"><div class="detail-label">Total:</div><div class="detail-value">${total ? parseInt(total.replace(/\./g, '')).toLocaleString('vi-VN') + '₫' : '—'}</div></div>
-    <div class="detail-row"><div class="detail-label">Date:</div><div class="detail-value">${date || '—'}</div></div>
-    <div class="detail-row"><div class="detail-label">HD Code:</div><div class="detail-value">${hdCode || '—'}</div></div>
-    <div class="detail-row"><div class="detail-label">Status:</div><div class="detail-value">${status}</div></div>
-    <div class="detail-row"><div class="detail-label">Firebase Key:</div><div class="detail-value">${key || '—'}</div></div>
-    <div class="detail-row"><div class="detail-label">Text:</div><div class="detail-value"><pre style="white-space:pre-wrap">${text}</pre></div></div>
-  </div>`;
-
-  // Task Status
-  html += `<div class="detail-section">
-    <h3>✅ Task Status</h3>`;
-  const taskTypes = ['ban_hd', 'soan_hang', 'giao_hang', 'nop_tien', 'nhan_tien'];
-  taskTypes.forEach(tt => {
-    const st = tasks[tt];
-    if (st && st.done) {
-      html += `<div class="detail-row"><div class="detail-label">${tt}:</div><div class="detail-value">✅ Done${st.skip ? ' (skipped)' : ''}${st.note ? ' — Note: ' + st.note : ''}${st.by ? ' — By: ' + st.by : ''}</div></div>`;
-    } else {
-      html += `<div class="detail-row"><div class="detail-label">${tt}:</div><div class="detail-value">❌ Not done</div></div>`;
+// Infinite scroll
+var sentinel = document.getElementById('load-more');
+new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) {
+    if (e.isIntersecting && !isLoading && currentPage < totalPages) {
+      loadPage(currentPage + 1, true);
     }
   });
-  html += `</div>`;
+}, { rootMargin: '200px' }).observe(sentinel);
 
-  // Invoice Items
-  if (invoice.length) {
-    html += `<div class="detail-section">
-      <h3>📦 Invoice Items (${invoice.length})</h3>
-      <table class="invoice-table">
-        <thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Total</th><th>Note</th></tr></thead>
-        <tbody>`;
-    invoice.forEach(item => {
-      const qty = item.sl || item.quantity || item.sl1pc || 0;
-      const price = item.price || 0;
-      const totalItem = qty * price;
-      html += `<tr>
-        <td>${item.sp || item.productCode || item.name || '?'}</td>
-        <td>${qty}</td>
-        <td>${price ? price.toLocaleString('vi-VN') + '₫' : '—'}</td>
-        <td>${totalItem ? totalItem.toLocaleString('vi-VN') + '₫' : '—'}</td>
-        <td>${item.note || item.qc_type || '—'}</td>
-      </tr>`;
-    });
-    html += `</tbody></table></div>`;
-  }
-
-  // Payments
-  if (payments.length) {
-    html += `<div class="detail-section">
-      <h3>💰 Payments (${payments.length})</h3>`;
-    payments.forEach(p => {
-      html += `<div class="detail-row"><div class="detail-label">${p.method || '?'}:</div><div class="detail-value">${p.amount ? parseInt(p.amount).toLocaleString('vi-VN') + '₫' : '—'}</div></div>`;
-    });
-    html += `</div>`;
-  }
-
-  // Raw JSON
-  html += `<div class="detail-section">
-    <h3>📝 Raw JSON</h3>
-    <div class="detail-value"><pre>${JSON.stringify(d, null, 2)}</pre></div>
-  </div>`;
-
-  body.innerHTML = html;
-  document.getElementById('modal').classList.add('active');
+// Debounce search
+function debounce(fn, ms) {
+  var t;
+  return function() {
+    var args = arguments, ctx = this;
+    clearTimeout(t);
+    t = setTimeout(function() { fn.apply(ctx, args); }, ms);
+  };
 }
+document.getElementById('search').addEventListener('keydown', function(e) { if (e.key === 'Enter') loadPage(1); });
+document.getElementById('search').addEventListener('input', debounce(function() { loadPage(1); }, 300));
+document.getElementById('sort-filter').addEventListener('change', function() { loadPage(1); });
 
-function closeModal() {
-  document.getElementById('modal').classList.remove('active');
+// Init view mode: localStorage > screen width > card fallback
+var storedView = localStorage.getItem('orderView');
+if (!storedView) {
+  viewMode = window.innerWidth < 768 ? 'card' : 'table';
+} else {
+  viewMode = storedView;
 }
-
-// Close modal on overlay click
-document.getElementById('modal').addEventListener('click', e => {
-  if (e.target.id === 'modal') closeModal();
-});
-
-// Close on Escape
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeModal();
-});
-
-// Search on Enter
-document.getElementById('search').addEventListener('keydown', e => {
-  if (e.key === 'Enter') loadPage(1);
-});
-document.getElementById('status-filter').addEventListener('change', () => loadPage(1));
-document.getElementById('sort-filter').addEventListener('change', () => loadPage(1));
-
-// Initial load
+setView(viewMode);
 loadPage(1);
 </script>
-
 </body>
 </html>

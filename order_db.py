@@ -39,12 +39,11 @@ def _get_connection():
     return conn
 
 
-def get_order_by_thread_id(conn, thread_id: int) -> dict | None:
-    """Read full order JSON by thread_id. Returns None if not found."""
-    row = conn.execute(
-        "SELECT json FROM orders WHERE thread_id = ? AND deleted_at IS NULL",
-        (thread_id,),
-    ).fetchone()
+def get_order_by_thread_id(conn, thread_id: int, *, include_deleted: bool = True) -> dict | None:
+    """Read full order JSON by thread_id. Returns None if not found.
+    Always includes deleted orders (del=true). Use include_deleted=False for list views."""
+    where = "WHERE thread_id = ?" if include_deleted else "WHERE thread_id = ? AND deleted_at IS NULL"
+    row = conn.execute(f"SELECT json FROM orders {where}", (thread_id,)).fetchone()
     if row is None:
         return None
     try:
@@ -84,7 +83,7 @@ def _all_steps_done(task_status: dict) -> bool:
     )
 
 
-def set_task_status(conn, thread_id: int, task_type: str, user_id: int | None, *, skip: bool = False, done: bool = True) -> bool:
+def set_task_status(conn, thread_id: int, task_type: str, user_id: int | None, *, skip: bool = False, done: bool = True, note: str = "") -> bool:
     """Write task_status entry and mirror boolean. Returns True on success."""
     data = get_order_by_thread_id(conn, thread_id)
     if data is None:
@@ -93,6 +92,8 @@ def set_task_status(conn, thread_id: int, task_type: str, user_id: int | None, *
 
     now_iso = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
     payload = {"done": done, "by": user_id, "at": now_iso, "skip": skip}
+    if note:
+        payload["note"] = note
 
     # Update task_status
     task_status = data.get("task_status") or {}
@@ -157,9 +158,11 @@ def delete_order(conn, thread_id: int, force: bool = False) -> tuple[bool, str]:
     if not force and order.get("trang_thai") == "Done":
         return False, "Đơn hàng đã hoàn thành, dùng `del hd` để xóa cưỡng chế"
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    order["del"] = True
+    order["deleted_at"] = now
     conn.execute(
-        "UPDATE orders SET deleted_at = ? WHERE thread_id = ?",
-        (now, thread_id),
+        "UPDATE orders SET json = ?, deleted_at = ? WHERE thread_id = ?",
+        (json.dumps(order, ensure_ascii=False), now, thread_id),
     )
     conn.commit()
     return True, f"🗑️ Đã xóa đơn hàng (key={firebase_key})"
@@ -508,14 +511,27 @@ def parse_comma_text(text: str, conn, kh_id: str | int | None) -> list[dict]:
             if not re.match(r'^[A-Z0-9][A-Z0-9.-]*$', sp):
                 continue
             qc_raw = words[1]
-            # Try float conversion; skip line if not numeric
-            try:
-                sl1qc_val = float(words[2]) if len(words) > 2 else 0
-            except (ValueError, TypeError):
-                continue
-            price_override = words[3] if len(words) > 3 else None
-            note = " ".join(words[4:]) if len(words) > 4 else None
             qc_type, so_qc = _parse_qc(qc_raw)
+            if qc_type is not None:
+                # Has QC: "KDDT 2t 50" → quantity is words[2]
+                try:
+                    sl1qc_val = float(words[2]) if len(words) > 2 else 0
+                except (ValueError, TypeError):
+                    continue
+            else:
+                # No QC: "KGL250 10" → qc_raw IS the quantity
+                try:
+                    sl1qc_val = float(qc_raw)
+                except (ValueError, TypeError):
+                    continue
+
+            # Extract optional price override + note from remaining words
+            if qc_type is not None:
+                price_override = words[3] if len(words) > 3 else None
+                note = " ".join(words[4:]) if len(words) > 4 else None
+            else:
+                price_override = words[2] if len(words) > 2 else None
+                note = " ".join(words[3:]) if len(words) > 3 else None
 
         # Price: price list lookup, overridden by explicit price
         price = price_list.get(sp, 0)
@@ -565,6 +581,10 @@ def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None) -> 
     # Normalize: commas/newlines → spaces, collapse whitespace
     cleaned = re.sub(r'[,\n]+', ' ', text)
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+
+    # Special: "dm180 1 lốc" / "dm180 1 loc" → "dm180 1b 12"
+    cleaned = re.sub(r'(?i)(dm180)\s+1\s+l[ốo]c\b', r'\1 1b 12', cleaned)
+
     tokens = cleaned.split(' ')
 
     invoice = []
@@ -618,15 +638,14 @@ def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None) -> 
                         except ValueError:
                             pass
                 elif qc_type == 'b':
-                    # bịch MUST have explicit quantity
+                    # bịch: if no explicit quantity follows, default 3
+                    sl1pc = 3
                     if i < len(tokens):
                         try:
                             sl1pc = int(tokens[i])
                             i += 1
                         except ValueError:
-                            sl1pc = 0
-                    if sl1pc <= 0:
-                        continue  # skip — no quantity for bịch
+                            pass  # keep default 3, don't consume token
             else:
                 # No QC: plain number as sl1pc
                 try:
@@ -718,12 +737,14 @@ def detect_customer_free_text(conn, text: str) -> dict:
     candidates.sort(key=lambda c: c["score"], reverse=True)
 
     auto_assign = None
-    if len(candidates) == 1 and candidates[0]["score"] >= 30:
-        auto_assign = candidates[0]
-    elif len(candidates) >= 2:
-        top = candidates[0]
-        second = candidates[1]
-        if top["score"] >= 50 and top["score"] >= second["score"] * 2:
-            auto_assign = top
+    # Auto-assign top match if score >= 30, or score >= 20 and no close runner-up
+    if candidates and candidates[0]["score"] >= 20:
+        if len(candidates) == 1:
+            auto_assign = candidates[0]
+        else:
+            top = candidates[0]
+            second = candidates[1]
+            if top["score"] >= 30 or (top["score"] - second["score"] >= 15):
+                auto_assign = top
 
     return {"matches": candidates, "autoAssign": auto_assign}
