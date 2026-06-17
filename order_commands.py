@@ -5,8 +5,6 @@ in the order group chat. Writes task_status to SQLite, replies via
 Telethon, then fire-and-forgets a refresh to final_telegram's updateView.
 """
 from __future__ import annotations
-import http.client
-import json
 import logging
 import os
 import re
@@ -24,19 +22,18 @@ from order_db import (
 log = logging.getLogger("order_commands")
 
 ORDER_GROUP_ID = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
-FINAL_TELEGRAM_URL = os.getenv("FINAL_TELEGRAM_URL", "http://localhost:3000")
 
 # Command → (task_type, reply text)
 TASK_DONE_COMMANDS: dict[str, tuple[str, str]] = {
-    "ban":        ("ban_hd",     "✅ Đã đánh dấu Bán HĐ"),
-    "soan":       ("soan_hang",  "✅ Đã đánh dấu Soạn hàng"),
-    "giao":       ("giao_hang",  "✅ Đã đánh dấu Giao hàng"),
-    "nop tien":   ("nop_tien",   "✅ Đã đánh dấu Nộp tiền"),
-    "nop":        ("nop_tien",   "✅ Đã đánh dấu Nộp tiền"),
-    "nhan tien":  ("nhan_tien",  "✅ Đã đánh dấu Nhận tiền"),
-    "nhan":       ("nhan_tien",  "✅ Đã đánh dấu Nhận tiền"),
-    "xuat hd roi":("xuat_hd",    "✅ Đã đánh dấu Xuất HĐ"),
-    "xuat hd":    ("xuat_hd",    "✅ Đã đánh dấu Xuất HĐ"),
+    "ban":        ("ban_hd",     "✅ {user} đã đánh dấu Bán HĐ"),
+    "soan":       ("soan_hang",  "✅ {user} đã đánh dấu Soạn hàng"),
+    "giao":       ("giao_hang",  "✅ {user} đã đánh dấu Giao hàng"),
+    "nop tien":   ("nop_tien",   "✅ {user} đã đánh dấu Nộp tiền"),
+    "nop":        ("nop_tien",   "✅ {user} đã đánh dấu Nộp tiền"),
+    "nhan tien":  ("nhan_tien",  "✅ {user} đã đánh dấu Nhận tiền"),
+    "nhan":       ("nhan_tien",  "✅ {user} đã đánh dấu Nhận tiền"),
+    "xuat hd roi":("xuat_hd",    "✅ {user} đã đánh dấu Xuất HĐ"),
+    "xuat hd":    ("xuat_hd",    "✅ {user} đã đánh dấu Xuất HĐ"),
 }
 
 CLEAR_COMMANDS: dict[str, str] = {
@@ -86,19 +83,28 @@ def _extract_thread_id(msg) -> int | None:
     return thread_id
 
 
-def _notify_refresh(thread_id: int):
-    """Fire-and-forget POST to final_telegram to trigger updateView."""
-    body = json.dumps({"thread_id": thread_id})
-    log.debug("notifying refresh for thread=%d", thread_id)
+def _notify_refresh(client, db_conn, thread_id: int):
+    """Fire-and-forget refresh main order message via Telethon (no Node.js)."""
     try:
-        host_port = FINAL_TELEGRAM_URL.replace("http://", "").replace("https://", "")
-        host, _, port_str = host_port.partition(":")
-        port = int(port_str) if port_str else 80
-        conn = http.client.HTTPConnection(host, port, timeout=5)
-        conn.request("POST", "/api/order/refresh-view", body, {
-            "Content-Type": "application/json",
-        })
-        conn.close()
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            return
+        row = db_conn.execute(
+            "SELECT channel_id, message_id FROM orders WHERE thread_id = ? AND deleted_at IS NULL",
+            (thread_id,),
+        ).fetchone()
+        channel_id = row["channel_id"] if row else None
+        message_id = row["message_id"] if row else None
+        # Firebase sync
+        from firebase_sync import set_order as fb_set_order
+        try:
+            fb_set_order(thread_id, order)
+        except Exception:
+            pass
+        # Refresh channel post
+        if channel_id and message_id:
+            from order_commands_v3 import _refresh_order_message
+            client.loop.create_task(_refresh_order_message(client, db_conn, thread_id, channel_id, message_id))
     except Exception as e:
         log.warning("Failed to notify refresh: %s", e)
 
@@ -150,6 +156,21 @@ def register_order_commands(client):
         sender_id = getattr(msg, "sender_id", None)
         log.debug("task_done: thread=%d task=%s user=%s", thread_id, task_type, sender_id)
 
+        # Resolve full name
+        user_name = "Hệ thống"
+        if sender_id:
+            try:
+                entity = await client.get_entity(sender_id)
+                first = getattr(entity, "first_name", None)
+                last = getattr(entity, "last_name", None)
+                if first and last:
+                    user_name = f"{first} {last}"
+                elif first:
+                    user_name = first
+                else:
+                    user_name = str(sender_id)
+            except Exception:
+                pass
 
         ok = set_task_status(db_conn, thread_id, task_type, sender_id)
         if ok:
@@ -157,7 +178,7 @@ def register_order_commands(client):
                 try:
                     sent = await client.send_message(
                         msg.chat_id,
-                        reply_text,
+                        reply_text.format(user=user_name),
                         reply_to=msg.id,
                         buttons=[
                             [Button.inline("A", "soan_test_a"), Button.inline("B", "soan_test_b")],
@@ -167,8 +188,8 @@ def register_order_commands(client):
                 except Exception:
                     log.exception("task_done: soan send_message failed")
             else:
-                await client.send_message(msg.chat_id, reply_text, reply_to=msg.id)
-            _notify_refresh(thread_id)
+                await client.send_message(msg.chat_id, reply_text.format(user=user_name), reply_to=msg.id)
+            _notify_refresh(client, db_conn, thread_id)
         else:
             await client.send_message(
                 msg.chat_id,
@@ -207,7 +228,7 @@ def register_order_commands(client):
         ok = clear_task_status(db_conn, thread_id, task_type, sender_id)
         if ok:
             await client.send_message(msg.chat_id, reply_text, reply_to=msg.id)
-            _notify_refresh(thread_id)
+            _notify_refresh(client, db_conn, thread_id)
         else:
             await client.send_message(
                 msg.chat_id,
@@ -233,7 +254,7 @@ def register_order_commands(client):
         ok = set_task_status(db_conn, thread_id, "xuat_hd", sender_id, done=False)
         if ok:
             await client.send_message(msg.chat_id, "🆕 Đã thêm task Xuất HĐ (chưa hoàn thành)", reply_to=msg.id)
-            _notify_refresh(thread_id)
+            _notify_refresh(client, db_conn, thread_id)
         else:
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng hoặc lỗi cập nhật.", reply_to=msg.id)
 
@@ -267,7 +288,7 @@ def register_order_commands(client):
         ok = set_task_status(db_conn, thread_id, task_type, sender_id, skip=True)
         if ok:
             await client.send_message(msg.chat.id, "🔘 Đã bỏ qua Nộp tiền", reply_to=msg.id)
-            _notify_refresh(thread_id)
+            _notify_refresh(client, db_conn, thread_id)
         else:
             await client.send_message(
                 msg.chat_id,

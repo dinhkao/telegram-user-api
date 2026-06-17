@@ -1188,7 +1188,7 @@ async def auto_parse_handler(request: web.Request):
     from product_db import freeze_invoice_cost_prices
     from order_db import detect_customer_free_text, get_customer_by_key, get_customer_price_list
 
-    # ── Always run customer detection (even if no invoice items) ──
+    # ── Always run customer detection FIRST (even if no invoice items) ──
     detection = detect_customer_free_text(conn, text)
     assigned_cust = None
     if detection["autoAssign"]:
@@ -1196,16 +1196,14 @@ async def auto_parse_handler(request: web.Request):
         assigned_cust = cust
         order["khach_hang_id"] = cust["customerID"]
         order["customer_name"] = cust["customerName"]
-        kh_id_fb = cust["customerID"]  # use for invoice parsing below
+        kh_id_fb = cust["customerID"]
 
     # ── Parse invoice (with customer price list if assigned) ──
     invoice = parse_invoice_free_text(conn, text, kh_id_fb)
-    if invoice:
-        # Re-parse with customer price list if auto-assigned
-        if assigned_cust:
-            price_list = get_customer_price_list(conn, assigned_cust["customerID"])
-            if price_list:
-                invoice = parse_invoice_free_text(conn, text, assigned_cust["customerID"])
+    if invoice and assigned_cust:
+        price_list = get_customer_price_list(conn, assigned_cust["customerID"])
+        if price_list:
+            invoice = parse_invoice_free_text(conn, text, assigned_cust["customerID"])
 
     # ── Save to order ──
     if invoice:
@@ -1259,8 +1257,13 @@ async def auto_parse_handler(request: web.Request):
             _client.loop.create_task(_send_auto_parse_notif())
 
     # Refresh main message in channel (background)
-    channel_id = order.get("channel_id")
-    message_id = order.get("message_id")
+    # Read channel_id + message_id from DB columns (not always in JSON)
+    row = conn.execute(
+        "SELECT channel_id, message_id FROM orders WHERE thread_id = ?",
+        (thread_id,),
+    ).fetchone()
+    channel_id = row["channel_id"] if row else None
+    message_id = row["message_id"] if row else None
     if channel_id and message_id:
         _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
 
@@ -1337,9 +1340,13 @@ async def api_task_handler_impl(body: dict):
 
     order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
     _client.loop.create_task(_send_task_notification(order_group_id, thread_id, msg))
-    # Refresh main message
-    channel_id = order.get("channel_id")
-    message_id = order.get("message_id")
+    # Refresh main message — read channel_id/message_id from DB columns
+    row = conn.execute(
+        "SELECT channel_id, message_id FROM orders WHERE thread_id = ?",
+        (thread_id,),
+    ).fetchone()
+    channel_id = row["channel_id"] if row else None
+    message_id = row["message_id"] if row else None
     if channel_id and message_id:
         _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
     return web.json_response({"ok": True, "task": internal_type})
@@ -1501,8 +1508,13 @@ async def api_refresh_handler(request: web.Request):
     if not order:
         return web.json_response({"ok": False, "error": "Order not found"}, status=404)
 
-    channel_id = order.get("channel_id")
-    message_id = order.get("message_id")
+    # Read channel_id + message_id from DB columns (not always in JSON)
+    row = conn.execute(
+        "SELECT channel_id, message_id FROM orders WHERE thread_id = ?",
+        (thread_id,),
+    ).fetchone()
+    channel_id = row["channel_id"] if row else None
+    message_id = row["message_id"] if row else None
     if channel_id and message_id:
         _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
     return web.json_response({"ok": True})
@@ -1537,8 +1549,12 @@ async def api_task_status_clear_handler(request: web.Request):
     # Background: refresh main message + send notification (mirrors old Node.js behavior)
     order = get_order_by_thread_id(conn, thread_id)
     if order:
-        channel_id = order.get("channel_id")
-        message_id = order.get("message_id")
+        row = conn.execute(
+            "SELECT channel_id, message_id FROM orders WHERE thread_id = ?",
+            (thread_id,),
+        ).fetchone()
+        channel_id = row["channel_id"] if row else None
+        message_id = row["message_id"] if row else None
         if channel_id and message_id:
             _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
         # Notify in group thread
@@ -1579,6 +1595,10 @@ async def main():
     from order_commands_v3 import register_order_commands_v3
     register_order_commands_v3(client)
 
+    # ── Channel handler: create order topics from #don_hang channel ───────
+    from channel_handler import register as register_channel_handler
+    register_channel_handler(client)
+
     # ── "gdt / ingdt" giấy dán thùng commands ─────────────────────────────
     from gdt_handler import register_gdt_handler
     register_gdt_handler(client)
@@ -1599,14 +1619,7 @@ async def main():
     from order_chat_logger import register_chat_logger
     register_chat_logger(client)
 
-    # ── profit dashboard web server ─────────────────────────────────────
-    from profit_dashboard import create_app as create_profit_app, DASHBOARD_PORT
-    profit_app = create_profit_app()
-    profit_runner = web.AppRunner(profit_app)
-    await profit_runner.setup()
-    profit_site = web.TCPSite(profit_runner, "0.0.0.0", DASHBOARD_PORT)
-    await profit_site.start()
-    log.info("Profit dashboard: http://localhost:%d", DASHBOARD_PORT)
+    # ── profit dashboard runs separately: cd ~/Documents/profit-dashboard && .venv/bin/python profit_dashboard/main.py
 
     # ── Firebase html-to-png listener (replaces test-qwen2-main Node service) ─
     from firebase_html_to_png import start_listener as _start_html_to_png
@@ -1680,33 +1693,47 @@ async def main():
     app.router.add_post("/api/customer/price", api_customer_price_handler)
     app.router.add_post("/api/order/{id}/task_status/clear", api_task_status_clear_handler)
 
-    # ── Proxy fallback: forward unknown /api/order/* to Node.js :3000 ──
-    async def api_proxy_handler(request: web.Request):
-        """Forward to Node.js final_telegram for endpoints not yet migrated."""
-        import aiohttp
-        path = request.match_info.get("tail", "")
-        target_url = f"http://127.0.0.1:3000/api/order/{path}"
-        try:
-            body = await request.json() if request.can_read_body else None
-        except Exception:
-            body = None
-        timeout = aiohttp.ClientTimeout(total=30)
-        try:
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                if body is not None:
-                    async with session.post(target_url, json=body) as resp:
-                        result = await resp.json()
-                        return web.json_response(result, status=resp.status)
-                else:
-                    async with session.get(target_url) as resp:
-                        result = await resp.json()
-                        return web.json_response(result, status=resp.status)
-        except Exception as e:
-            log.warning("Proxy to Node.js failed: %s %s", target_url, e)
-            return web.json_response({"ok": False, "error": str(e)}, status=502)
+    # Native print-giao handler (Python — mirrors command "print" logic inline)
+    async def api_print_giao_handler(request: web.Request):
+        body = await request.json()
+        thread_id = body.get("thread_id")
+        if not thread_id:
+            return web.json_response({"error": "Missing thread_id"}, status=400)
 
-    app.router.add_post("/api/order/{tail:.*}", api_proxy_handler)
-    app.router.add_get("/api/order/{tail:.*}", api_proxy_handler)
+        from order_db import _get_connection, get_order_by_thread_id
+        from print_service import execute_print_giao
+
+        conn = _get_connection()
+        order = get_order_by_thread_id(conn, thread_id)
+        if not order:
+            return web.json_response({"error": "Order not found"}, status=404)
+
+        user_id = body.get("user_id")
+        result = await execute_print_giao(conn, order, user_id)
+        if result.get("error"):
+            status = 409 if "No KiotViet" in result["error"] else 500
+            return web.json_response(result, status=status)
+
+        # Send notification to order topic forum via Telethon
+        if _client:
+            try:
+                printed_by = str(user_id) if user_id else "Hệ thống"
+                order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
+                _client.loop.create_task(
+                    _client.send_message(
+                        order_group_id,
+                        f"🖨️ {printed_by} đã in 2 hóa đơn (không QR) và Phiếu giao hàng",
+                        reply_to=thread_id,
+                    )
+                )
+            except Exception as e:
+                log.warning("print-giao notification failed: %s", e)
+
+        return web.json_response(result)
+    app.router.add_post("/api/order/print-giao", api_print_giao_handler)
+
+    # ── Proxy fallback REMOVED: all /api/order/* endpoints now handled natively by this server ──
+    # (Previously forwarded unknown /api/order/* to Node.js :3000 — no longer needed after migration)
 
     runner = web.AppRunner(app)
     await runner.setup()

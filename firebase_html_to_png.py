@@ -19,7 +19,24 @@ from firebase_admin import db
 
 log = logging.getLogger("html_to_png")
 
-_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="html_to_png")
+_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="html_to_png")
+
+# Persistent Playwright browser (reused across jobs)
+_playwright = None
+_browser = None
+
+
+def _init_browser():
+    """Launch Playwright once (in a thread, since we're inside asyncio)."""
+    global _playwright, _browser
+    if _browser is not None:
+        return
+    _playwright = sync_playwright().start()
+    _browser = _playwright.chromium.launch(
+        headless=True,
+        args=["--no-sandbox", "--disable-gpu"],
+    )
+    log.info("Playwright browser started (persistent)")
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -117,15 +134,13 @@ def _html_to_png(html_content: str) -> str:
     output_path = tempfile.mktemp(suffix=".png")
 
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=True,
-                args=["--no-sandbox", "--disable-gpu"],
-            )
-            page = browser.new_page()
-            page.goto(f"file://{os.path.abspath(html_path)}", wait_until="networkidle")
-            page.screenshot(path=screenshot_path, full_page=True)
-            browser.close()
+        page = _browser.new_page()
+        page.set_viewport_size({"width": 360, "height": 600})
+        page.goto(f"file://{os.path.abspath(html_path)}", wait_until="load")
+        # Wait just enough for fonts/images to settle
+        page.wait_for_timeout(100)
+        page.screenshot(path=screenshot_path, full_page=True)
+        page.close()
 
         _crop_image(screenshot_path, output_path)
         return output_path
@@ -221,6 +236,8 @@ def start_listener(client, fb_app=None):
         return
 
     loop = asyncio.get_running_loop()
+    # Launch Playwright browser in a thread (sync API incompatible with asyncio loop)
+    _executor.submit(_init_browser).result(timeout=30)
     ref = db.reference("html-to-png", app=app)
     first_event = True
 

@@ -51,6 +51,8 @@ from receipt_print import send_payment_receipt
 log = logging.getLogger("order_commands_v3")
 ORDER_GROUP_ID = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
 FINAL_TELEGRAM_URL = os.getenv("FINAL_TELEGRAM_URL", "http://localhost:3000")
+PORT = int(os.getenv("PORT", "8080"))
+API_BASE = f"http://127.0.0.1:{PORT}"
 
 
 def _extract_thread_id(msg) -> int | None:
@@ -432,6 +434,7 @@ async def _refresh_order_message(client, db_conn, thread_id: int, channel_id: in
             message_id,
             html,
             parse_mode="html",
+            link_preview=False,
         )
         log.info("Order message refreshed: thread=%d msg=%d", thread_id, message_id)
     except Exception as e:
@@ -635,6 +638,43 @@ class _EditBatcher:
         await _refresh_order_message(self.client, self.db_conn, thread_id, key[0], key[1])
 
 
+async def _auto_parse_fix(client, conn, thread_id: int, text: str):
+    """Re-run invoice parsing after order text is changed by fix/fixapp."""
+    try:
+        from order_db import parse_invoice_free_text, detect_customer_free_text, get_customer_price_list
+        from product_db import freeze_invoice_cost_prices
+
+        order = get_order_by_thread_id(conn, thread_id)
+        if not order:
+            return
+        kh_id = order.get("khach_hang_id") or order.get("khID")
+        detection = detect_customer_free_text(conn, text)
+        if detection.get("autoAssign"):
+            cust = detection["autoAssign"]
+            order["khach_hang_id"] = cust["customerID"]
+            order["customer_name"] = cust["customerName"]
+            kh_id = cust["customerID"]
+
+        invoice = parse_invoice_free_text(conn, text, kh_id)
+        if invoice:
+            price_list = get_customer_price_list(conn, kh_id) if kh_id else None
+            if price_list:
+                invoice = parse_invoice_free_text(conn, text, kh_id)
+            order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
+            _save_order(conn, thread_id, order)
+            _firebase_refresh_async(client, conn, thread_id, order)
+            log.info("auto-parse (fix): thread=%d items=%d", thread_id, len(invoice))
+
+            # Generate picking sheet (phiếu soạn hàng) — same as new order auto-parse
+            try:
+                from picking_sheet import generate_picking_sheet
+                await generate_picking_sheet(client, conn, thread_id)
+            except Exception as e:
+                log.warning("picking sheet generation failed for thread=%d: %s", thread_id, e)
+    except Exception as e:
+        log.warning("auto-parse (fix) failed for thread=%d: %s", thread_id, e)
+
+
 # ── Handler registration ────────────────────────────────────────────
 
 def register_order_commands_v3(client):
@@ -657,6 +697,12 @@ def register_order_commands_v3(client):
         raw_text = msg.text or ""
         # Check raw text (before strip) so leading comma on its own line is caught
         if not raw_text.startswith(","): return
+
+        log.info("COMMA triggered: chat=%s thread=%s text=%s",
+                 getattr(msg, 'chat_id', '?'),
+                 _extract_thread_id(msg),
+                 raw_text[:80])
+
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
         user_id = getattr(msg, "sender_id", None)
@@ -783,16 +829,13 @@ def register_order_commands_v3(client):
         pvc = int(order.get("pvc", 0))
         vat = int(order.get("vat", 0))
 
-        # Fetch old debt before creating invoice (best-effort)
-        old_debt = None
-        try:
-            det = get_customer_debt_kv(kv_id)
-            old_debt = det.get("debt")
-        except Exception as e:
-            log.warning("Could not fetch old debt for customer %d: %s", kv_id, e)
-
-        # Processing feedback
+        # Processing feedback — show immediately
         proc_msg = await client.send_message(msg.chat_id, "⏳ Đang tạo hóa đơn KiotViet......", reply_to=msg.id)
+
+        # Start debt fetch in background thread (parallel with invoice creation)
+        old_debt_future = asyncio.get_running_loop().run_in_executor(
+            None, get_customer_debt_kv, kv_id
+        )
 
         try:
             result = create_kiotviet_invoice(
@@ -806,6 +849,14 @@ def register_order_commands_v3(client):
             log.error("KiotViet create invoice failed: %s", e)
             await client.edit_message(msg.chat_id, proc_msg.id, f"❌ Lỗi tạo hóa đơn KiotViet: {e}")
             return
+
+        # Collect debt result (best-effort, already fetched in parallel)
+        old_debt = None
+        try:
+            det = await old_debt_future
+            old_debt = det.get("debt")
+        except Exception as e:
+            log.warning("Could not fetch old debt for customer %d: %s", kv_id, e)
 
         if not result:
             await client.edit_message(msg.chat_id, proc_msg.id, "❌ Tạo hóa đơn KiotViet thất bại!")
@@ -832,7 +883,16 @@ def register_order_commands_v3(client):
         try:
             user_name = "Hệ thống"
             if user_id:
-                try: user_name = (await client.get_entity(user_id)).first_name or str(user_id)
+                try:
+                    entity = await client.get_entity(user_id)
+                    first = getattr(entity, "first_name", None)
+                    last = getattr(entity, "last_name", None)
+                    if first and last:
+                        user_name = f"{first} {last}"
+                    elif first:
+                        user_name = first
+                    else:
+                        user_name = str(user_id)
                 except: pass
             await client.send_message(
                 msg.chat_id, f"{user_name} bán HĐ",
@@ -962,62 +1022,15 @@ def register_order_commands_v3(client):
         proc_msg = await client.send_message(msg.chat_id, "⏳ Đang in phiếu giao hàng......", reply_to=msg.id)
         
         try:
-            # 1. Print 2 copies of invoice (no QR) via Firebase
-            from inhoadon import generate_invoice_html
-            from delivery_ticket import _enqueue_html_for_print, generate_delivery_ticket_html
-            
-            # Get debt snapshot
-            snapshot_debt = order.get("invoice_debt_snapshot", 0)
-            
-            # Generate invoice HTML (no QR)
-            invoice_html = generate_invoice_html(invoice_id, debt=snapshot_debt, hints={
-                "expectedVAT": int(order.get("vat", 0)),
-                "expectedPVC": int(order.get("pvc", 0)),
-                "customerNameOverride": customer_name,
-                "disableQR": True,
-            })
-            
-            # Queue 2 copies of invoice for printing
-            await _enqueue_html_for_print(invoice_html, copies=2)
-            
-            # 2. Get nộp tiền task URL (if exists)
-            nop_tien_topic_url = ""
-            try:
-                # Query tasks table for nop_tien task
-                cur = db_conn.execute(
-                    "SELECT json FROM tasks WHERE json_extract(json, '$.dhThreadID') = ? "
-                    "AND json_extract(json, '$.taskType') = 'nop_tien' LIMIT 1",
-                    (thread_id,)
-                )
-                task_row = cur.fetchone()
-                if task_row:
-                    import json
-                    task_data = json.loads(task_row["json"])
-                    task_thread_id = task_data.get("threadID")
-                    if task_thread_id:
-                        task_group_id = int(os.getenv("TASK_GROUP_ID", "-1002574612166"))
-                        internal_task_group_id = str(task_group_id)[4:] if str(task_group_id).startswith("-100") else str(abs(task_group_id))
-                        nop_tien_topic_url = f"tg://privatepost?channel={internal_task_group_id}&post={task_thread_id}"
-            except Exception as e:
-                log.warning("Failed to get nop_tien task URL: %s", e)
-            
-            # 3. Generate and print delivery ticket
-            delivery_html = generate_delivery_ticket_html(
-                thread_id=thread_id,
-                customer_name=customer_name,
-                order_text=order_text,
-                printed_by=printed_by,
-                nop_tien_topic_url=nop_tien_topic_url,
-            )
-            await _enqueue_html_for_print(delivery_html, copies=1)
-            
-            # 4. Send success message
+            from print_service import execute_print_giao
+            result = await execute_print_giao(db_conn, order, user_id)
+            if result.get("error"):
+                raise RuntimeError(result["error"])
             await client.edit_message(
                 msg.chat_id,
                 proc_msg.id,
                 f"🖨️ {printed_by} đã in 2 hóa đơn (không QR) và Phiếu giao hàng",
             )
-            
         except Exception as e:
             log.error("Print failed: %s", e, exc_info=True)
             await client.edit_message(
@@ -1609,30 +1622,64 @@ def register_order_commands_v3(client):
 
         user_id = getattr(msg, "sender_id", None)
         TASK_TYPES = ["ban_hd", "soan_hang", "giao_hang", "nop_tien", "nhan_tien"]
+        TASK_LABELS = {
+            "ban_hd": "Bán HĐ",
+            "soan_hang": "Soạn hàng",
+            "giao_hang": "Giao hàng",
+            "nop_tien": "Nộp tiền",
+            "nhan_tien": "Nhận tiền",
+        }
 
         try:
+            # Read current task_status to know which were already done
+            order = get_order_by_thread_id(db_conn, thread_id)
+            prev_task_status = (order.get("task_status") or {}) if order else {}
+
             # Mark all 5 tasks as done in one batch
             for task_type in TASK_TYPES:
                 set_task_status(db_conn, thread_id, task_type, user_id, done=True, skip=False)
 
-            # Re-read order and sync to Firebase + refresh main message
+            # Build specific reply: which tasks just became done vs were already done
+            just_done = []
+            already_done = []
+            for task_type in TASK_TYPES:
+                was_done = (prev_task_status.get(task_type) or {}).get("done", False)
+                label = TASK_LABELS.get(task_type, task_type)
+                if was_done:
+                    already_done.append(label)
+                else:
+                    just_done.append(label)
+
+            reply_lines = []
+            if just_done:
+                reply_lines.append(f"✅ Đã hoàn thành: {', '.join(just_done)}")
+            if already_done:
+                reply_lines.append(f"ℹ️ Đã hoàn thành từ trước: {', '.join(already_done)}")
+            reply_text = "\n".join(reply_lines)
+
+            # Re-read order (now updated) and sync to Firebase + refresh main message
             order = get_order_by_thread_id(db_conn, thread_id)
             if order:
                 try:
                     fb_set_order(thread_id, order)
                 except Exception as e:
                     log.warning("done_all_tasks Firebase sync failed: %s", e)
-                channel_id = order.get("channel_id")
-                message_id = order.get("message_id")
+                # Read channel_id/message_id from DB columns
+                row = db_conn.execute(
+                    "SELECT channel_id, message_id FROM orders WHERE thread_id = ?",
+                    (thread_id,),
+                ).fetchone()
+                channel_id = row["channel_id"] if row else None
+                message_id = row["message_id"] if row else None
                 if channel_id and message_id:
                     try:
-                        _edit_batcher.schedule(thread_id, channel_id, message_id)
+                        await _refresh_order_message(client, db_conn, thread_id, channel_id, message_id)
                     except Exception as e:
                         log.warning("done_all_tasks refresh failed: %s", e)
 
             await client.send_message(
                 msg.chat_id,
-                "✅ Đã đánh dấu hoàn thành tất cả task.",
+                reply_text,
                 reply_to=msg.id,
             )
         except Exception as e:
@@ -1642,3 +1689,229 @@ def register_order_commands_v3(client):
                 f"❌ Lỗi khi cập nhật: {e}",
                 reply_to=msg.id,
             )
+
+    # ── REPLY / REPLYSI ───────────────────────────────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_reply(event):
+        msg = event.message
+        if isinstance(msg, MessageService):
+            return
+        text = (msg.text or "").strip()
+        if not text.lower().startswith("reply ") and not text.lower().startswith("replysi "):
+            return
+
+        thread_id = _extract_thread_id(msg)
+        if not thread_id:
+            await client.send_message(msg.chat_id, "❌ Không xác định được topic đơn hàng.", reply_to=msg.id)
+            return
+
+        is_silent = text.lower().startswith("replysi ")
+        prefix_len = 8 if is_silent else 6  # "replysi " = 8, "reply " = 6
+        reply_text = text[prefix_len:].strip()
+        if not reply_text:
+            await client.send_message(msg.chat_id, "Vui lòng nhập nội dung tin nhắn.", reply_to=msg.id)
+            return
+
+        # Parse xN multiplier (single-line only, max 10)
+        import re
+        times = 1
+        if "\n" not in reply_text:
+            m = re.search(r"\s+x(\d{1,2})\s*$", reply_text, re.IGNORECASE)
+            if m:
+                times = max(1, min(10, int(m.group(1))))
+                reply_text = reply_text[:m.start()].rstrip()
+
+        if not reply_text:
+            await client.send_message(msg.chat_id, "Vui lòng nhập nội dung tin nhắn.", reply_to=msg.id)
+            return
+
+        message_to_send = f"! {reply_text}"
+
+        # Get order's channel_id + message_id from DB
+        row = db_conn.execute(
+            "SELECT channel_id, message_id FROM orders WHERE thread_id = ? AND deleted_at IS NULL",
+            (thread_id,),
+        ).fetchone()
+        channel_id = row["channel_id"] if row else None
+        reply_to_msg_id = row["message_id"] if row else None
+
+        if not reply_to_msg_id:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy message ID của đơn hàng để reply.", reply_to=msg.id)
+            return
+
+        target_channel = channel_id or int(os.getenv("CHANNEL_DON_HANG_MOI", "-1002138495144"))
+
+        try:
+            for i in range(times):
+                kwargs = {"reply_to": reply_to_msg_id} if i == 0 else {}
+                if is_silent:
+                    kwargs["silent"] = True
+                await client.send_message(target_channel, message_to_send, **kwargs)
+                if i < times - 1:
+                    await asyncio.sleep(1)
+
+            label = "replysi" if is_silent else "reply"
+            await client.send_message(
+                msg.chat_id,
+                f"✅ Đã gửi {label} {times} lần.",
+                reply_to=msg.id,
+            )
+        except Exception as e:
+            log.error("reply error: %s", e, exc_info=True)
+            await client.send_message(
+                msg.chat_id,
+                f"❌ Lỗi khi gửi tin nhắn: {e}",
+                reply_to=msg.id,
+            )
+
+    # ── FIX / FIXAPP ──────────────────────────────────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_fix(event):
+        msg = event.message
+        if isinstance(msg, MessageService):
+            return
+        text = (msg.text or "").strip()
+        if not text:
+            return
+
+        is_append = text.lower().startswith("fixapp")
+        is_replace = not is_append and text.lower().startswith("fix ") and not text.lower().startswith("fixsi")
+
+        if not is_append and not is_replace:
+            return
+
+        log.info("fix/fixapp triggered: is_append=%s thread=%s text=%s", is_append, _extract_thread_id(msg), text[:80])
+
+        thread_id = _extract_thread_id(msg)
+        if not thread_id:
+            await client.send_message(msg.chat_id, "❌ Không xác định được topic đơn hàng.", reply_to=msg.id)
+            return
+
+        prefix_len = 6 if is_append else 4  # "fixapp" = 6, "fix " = 4
+        new_text = text[prefix_len:].strip()
+        if not new_text:
+            await client.send_message(msg.chat_id, "Vui lòng nhập nội dung mới.", reply_to=msg.id)
+            return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng.", reply_to=msg.id)
+            return
+
+        old_text = (order.get("text") or "").strip()
+
+        if is_append:
+            # Append: smart join with newline
+            base = old_text.rstrip()
+            append_part = new_text
+            if not base:
+                combined = append_part
+            elif append_part.startswith("\n"):
+                combined = base + append_part
+            elif "\n" in append_part:
+                combined = base + "\n" + append_part.lstrip()
+            else:
+                combined = base + " " + append_part
+        else:
+            combined = new_text
+
+        # Update order
+        order["text"] = combined
+        order["text_raw"] = combined.replace("\n", "\\n")
+        order["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+        _save_order(db_conn, thread_id, order)
+
+        # Refresh main message + Firebase
+        _firebase_refresh_async(client, db_conn, thread_id, order)
+
+        # Send notification to channel with '!' prefix
+        row = db_conn.execute(
+            "SELECT channel_id, message_id FROM orders WHERE thread_id = ? AND deleted_at IS NULL",
+            (thread_id,),
+        ).fetchone()
+        channel_id = row["channel_id"] if row else None
+        reply_to_msg_id = row["message_id"] if row else None
+
+        target_channel = channel_id or int(os.getenv("CHANNEL_DON_HANG_MOI", "-1002138495144"))
+
+        # Build notification with diff
+        def _esc(t: str) -> str:
+            return (t or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+        label = "FIXAPP" if is_append else "FIX"
+        if is_append:
+            sep = "" if (not old_text or new_text.startswith("\n")) else ("\n" if "\n" in new_text else " ")
+            notification = f"!✏️ <b>ĐÃ SỬA ĐƠN HÀNG ({label})</b>\n<b>Trước:</b> {_esc(old_text) or '(trống)'}\n<b>Thêm:</b> <b>{_esc(new_text)}</b>"
+        else:
+            notification = f"!✏️ <b>ĐÃ SỬA ĐƠN HÀNG ({label})</b>\n<b>Trước:</b> {_esc(old_text)}\n<b>Sau:</b> <b>{_esc(combined)}</b>"
+
+        try:
+            if reply_to_msg_id:
+                await client.send_message(
+                    target_channel,
+                    notification,
+                    reply_to=reply_to_msg_id,
+                    parse_mode="html",
+                )
+            else:
+                await client.send_message(
+                    target_channel,
+                    notification,
+                    parse_mode="html",
+                )
+        except Exception as e:
+            log.warning("fix notification failed: %s", e)
+
+        # Confirm in topic
+        await client.send_message(
+            msg.chat_id,
+            f"✅ Đã sửa đơn hàng ({label}).",
+            reply_to=msg.id,
+        )
+
+        # Auto-parse invoice from new text (background)
+        client.loop.create_task(_auto_parse_fix(client, db_conn, thread_id, combined))
+
+    # ── PVC / VAT ─────────────────────────────────────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_pvc_vat(event):
+        msg = event.message
+        if isinstance(msg, MessageService):
+            return
+        text = (msg.text or "").strip().lower()
+        if not text.startswith("pvc ") and not text.startswith("vat "):
+            return
+
+        is_pvc = text.startswith("pvc ")
+        field = "pvc" if is_pvc else "vat"
+        label = "PVC (phí vận chuyển)" if is_pvc else "VAT"
+
+        thread_id = _extract_thread_id(msg)
+        if not thread_id:
+            await client.send_message(msg.chat_id, "❌ Không xác định được topic đơn hàng.", reply_to=msg.id)
+            return
+
+        param = text[4:].strip()  # "pvc " or "vat " → both 4 chars
+        try:
+            amount = int(param.replace(",", "").replace(".", ""))
+        except (ValueError, TypeError):
+            await client.send_message(msg.chat_id, f"❌ Vui lòng nhập số tiền. Ví dụ: `{field} 50000`", reply_to=msg.id)
+            return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng.", reply_to=msg.id)
+            return
+
+        order[field] = amount
+        order["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+        _save_order(db_conn, thread_id, order)
+
+        # Refresh main message + Firebase
+        _firebase_refresh_async(client, db_conn, thread_id, order)
+
+        await client.send_message(
+            msg.chat_id,
+            f"✅ Cập nhật {label} thành công: {amount:,}đ",
+            reply_to=msg.id,
+        )

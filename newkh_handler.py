@@ -107,7 +107,7 @@ def register_newkh_handler(client):
                 CreateForumTopicRequest(
                     peer=peer,
                     title=kv_name,
-                    random_id=int.from_bytes(os.urandom(8), "big"),
+                    random_id=int.from_bytes(os.urandom(8), "big") & 0x7FFFFFFFFFFFFFFF,
                 )
             )
 

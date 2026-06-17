@@ -1,15 +1,10 @@
 """gtr_handler.py — Ultra-fast "gtr" reply via Telethon.
 
 Listens for "gtr" in the order group chat. Extracts thread ID, validates the
-order exists in SQLite, replies instantly via Telethon (direct MTProto, no
-HTTP bridge), then fire-and-forgets the heavy DB write to final_telegram's
-existing /api/order/nhan-tien endpoint.
-
-Works exactly like what_data.py — same listener, same reply speed.
+order exists in SQLite, replies instantly via Telethon (direct MTProto), then
+updates nhan_tien task_status directly in SQLite and refreshes the main message.
 """
 from __future__ import annotations
-import http.client
-import json
 import logging
 import os
 import sqlite3
@@ -24,9 +19,6 @@ SHARED_DB_PATH = os.path.expanduser(
     os.getenv("SHARED_DB_PATH", "~/Documents/final_telegram/data/app.db")
 )
 TRIGGER_TEXT = "gtr"
-
-# API endpoint on final_telegram for the actual DB work
-FINAL_TELEGRAM_URL = os.getenv("FINAL_TELEGRAM_URL", "http://localhost:3000")
 
 
 def _get_order_text(conn, thread_id: int) -> str | None:
@@ -64,39 +56,16 @@ def _extract_thread_id(msg) -> int | None:
     return thread_id
 
 
-def _notify_final_telegram(thread_id: int, user_id: int | None):
-    """Fire-and-forget: POST /api/order/nhan-tien to do the DB work."""
-    body = json.dumps({
-        "thread_id": thread_id,
-        "user_id": user_id,
-        "note": "gtr",
-    })
-    log.debug("gtr: notifying final_telegram thread=%d user=%s", thread_id, user_id)
-    try:
-        conn = http.client.HTTPConnection(
-            FINAL_TELEGRAM_URL.replace("http://", "").replace("https://", "").split(":")[0],
-            int(FINAL_TELEGRAM_URL.split(":")[-1]) if ":" in FINAL_TELEGRAM_URL else 80,
-            timeout=5,
-        )
-        conn.request("POST", "/api/order/nhan-tien", body, {
-            "Content-Type": "application/json",
-        })
-        conn.close()
-    except Exception as e:
-        log.warning("Failed to notify final_telegram: %s", e)
-
-
 def _get_connection():
-    """Open a new read-only WAL connection."""
+    """Open a new read-write WAL connection."""
     conn = sqlite3.connect(
-        f"file:{SHARED_DB_PATH}?mode=ro",
-        uri=True,
+        SHARED_DB_PATH,
         check_same_thread=False,
         isolation_level=None,
     )
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA busy_timeout=2000;")
+    conn.execute("PRAGMA busy_timeout=5000;")
     return conn
 
 
@@ -149,7 +118,15 @@ def register_gtr_handler(client):
             )
             return
 
-        # Reply instantly via Telethon — ultra-fast, same as what_data
+        sender_id = getattr(msg, "sender_id", None)
+
+        # ── 1. Update nhan_tien directly in SQLite ─────────────────
+        from order_db import set_task_status, get_order_by_thread_id
+        ok = set_task_status(db_conn, thread_id, "nhan_tien", sender_id, note="gtr")
+        if not ok:
+            log.warning("gtr: set_task_status failed for thread=%d", thread_id)
+
+        # ── 2. Reply instantly ─────────────────────────────────────
         await client.send_message(
             msg.chat_id,
             "✅ Đã đánh dấu Nhận tiền (gtr)",
@@ -157,10 +134,32 @@ def register_gtr_handler(client):
             reply_to=msg.id,
         )
 
-        # Fire-and-forget: call final_telegram to do the actual DB work
-        sender_id = getattr(msg, "sender_id", None)
-        _notify_final_telegram(thread_id, sender_id)
+        # ── 3. Refresh main order message + Firebase sync ───────────
+        if ok:
+            try:
+                order = get_order_by_thread_id(db_conn, thread_id)
+                if order:
+                    # Firebase sync
+                    from firebase_sync import set_order as fb_set_order
+                    try:
+                        fb_set_order(thread_id, order)
+                    except Exception:
+                        pass
+                    # Refresh channel post
+                    row = db_conn.execute(
+                        "SELECT channel_id, message_id FROM orders WHERE thread_id = ? AND deleted_at IS NULL",
+                        (thread_id,),
+                    ).fetchone()
+                    channel_id = row["channel_id"] if row else None
+                    message_id = row["message_id"] if row else None
+                    if channel_id and message_id:
+                        from order_commands_v3 import _refresh_order_message
+                        client.loop.create_task(
+                            _refresh_order_message(client, db_conn, thread_id, channel_id, message_id)
+                        )
+            except Exception as e:
+                log.warning("gtr: refresh failed for thread=%d: %s", thread_id, e)
 
         who = getattr(msg, "sender_id", "?")
-        log.info("thread=%d text=%r %.1fms asked by %s — reply sent, API notified",
+        log.info("thread=%d text=%r %.1fms asked by %s — reply sent, DB updated",
                  thread_id, order_text[:40], elapsed, who)

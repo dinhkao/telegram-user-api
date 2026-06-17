@@ -31,7 +31,7 @@ def _request(
     body: dict | None = None,
     query_params: dict | None = None,
     retry: bool = True,
-    timeout: int = 20,
+    timeout: int = 10,
 ) -> dict[str, Any]:
     global _token, _token_expires
 

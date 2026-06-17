@@ -74,6 +74,21 @@ def _save_order(conn, thread_id: int, data: dict) -> bool:
         return False
 
 
+def _create_order(conn, firebase_key: str, thread_id: int, channel_id: int, message_id: int, data: dict) -> bool:
+    """Insert a new order row into SQLite. Returns True on success."""
+    try:
+        conn.execute(
+            "INSERT OR IGNORE INTO orders(firebase_key, thread_id, channel_id, message_id, json, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (firebase_key, thread_id, channel_id, message_id,
+             json.dumps(data, ensure_ascii=False), int(time.time() * 1000)),
+        )
+        return True
+    except Exception as e:
+        log.error("Failed to create order thread=%d: %s", thread_id, e)
+        return False
+
+
 def _all_steps_done(task_status: dict) -> bool:
     """Check if all 5 core steps are done or skipped."""
     required = ["ban_hd", "soan_hang", "giao_hang", "nop_tien", "nhan_tien"]
@@ -631,12 +646,17 @@ def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None) -> 
                 # Check for optional sl1pc after QC
                 if qc_type == 't' or qc_type == 'tb':
                     sl1pc = 50  # default for túi
+                    explicit_sl1pc = False
                     if i < len(tokens):
                         try:
                             sl1pc = int(tokens[i])
+                            explicit_sl1pc = True
                             i += 1
                         except ValueError:
                             pass
+                    # Product-specific defaults when no explicit quantity
+                    if not explicit_sl1pc and sp.upper() == "KDXDB":
+                        sl1pc = 5
                 elif qc_type == 'b':
                     # bịch: if no explicit quantity follows, default 3
                     sl1pc = 3
