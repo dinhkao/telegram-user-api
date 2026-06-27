@@ -23,6 +23,8 @@ from telethon.tl.types import MessageService
 from donhang_db import DonHangDB
 from donhang_indexer import backfill, register_live_handlers, fill_gap_to_newest
 from what_data import register_what_data_handler
+from audit_log import async_log_event, init_audit_db, new_request_id
+from telegram_gateway import TelegramGateway
 from utils.logger import configure_logging
 
 load_dotenv()
@@ -33,6 +35,7 @@ API_ID = int(os.getenv("API_ID", 0))
 API_HASH = os.getenv("API_HASH", "")
 PHONE = os.getenv("PHONE", "")
 PORT = int(os.getenv("PORT", 8080))
+SESSION = os.getenv("SESSION", "user_session")
 
 if not all([API_ID, API_HASH, PHONE]):
     log.error("Missing .env config!")
@@ -42,6 +45,118 @@ if not all([API_ID, API_HASH, PHONE]):
 ws_clients: set[web.WebSocketResponse] = set()
 recent_messages: list[dict] = []
 _client: TelegramClient | None = None
+_tg_gateway: TelegramGateway | None = None
+
+
+def spawn_tracked(name: str, coro, context: dict | None = None) -> asyncio.Task:
+    """Run a background task and log failures instead of losing them."""
+    task = asyncio.create_task(coro, name=name)
+    ctx = context or {}
+
+    def _done(done_task: asyncio.Task) -> None:
+        try:
+            done_task.result()
+            log.debug("background task ok: %s context=%s", name, ctx)
+        except asyncio.CancelledError:
+            log.warning("background task cancelled: %s context=%s", name, ctx)
+        except Exception as exc:
+            log.exception("background task failed: %s context=%s", name, ctx)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(async_log_event(
+                    "background_task.error",
+                    actor_type="server",
+                    source=name,
+                    payload=ctx,
+                    error=exc,
+                ))
+            except RuntimeError:
+                pass
+
+    task.add_done_callback(_done)
+    return task
+
+
+async def tg_send_message(entity, message, **kwargs):
+    if _tg_gateway is not None:
+        return await _tg_gateway.send_message(entity, message, **kwargs)
+    return await _client.send_message(entity, message, **kwargs)
+
+
+async def tg_edit_message(entity, message, text=None, **kwargs):
+    if _tg_gateway is not None:
+        return await _tg_gateway.edit_message(entity=entity, message=message, text=text, **kwargs)
+    return await _client.edit_message(entity=entity, message=message, text=text, **kwargs)
+
+
+async def tg_delete_messages(entity, message_ids, **kwargs):
+    if _tg_gateway is not None:
+        return await _tg_gateway.delete_messages(entity, message_ids, **kwargs)
+    return await _client.delete_messages(entity, message_ids, **kwargs)
+
+
+async def tg_get_messages(entity, **kwargs):
+    if _tg_gateway is not None:
+        return await _tg_gateway.get_messages(entity, **kwargs)
+    return await _client.get_messages(entity, **kwargs)
+
+
+@web.middleware
+async def audit_middleware(request: web.Request, handler):
+    request_id = new_request_id()
+    request["request_id"] = request_id
+    start = time.perf_counter()
+    body_text = None
+
+    is_multipart = (request.content_type or "").startswith("multipart/")
+    if request.can_read_body and not is_multipart:
+        try:
+            body_text = await request.text()
+        except Exception as exc:
+            body_text = f"<body read failed: {type(exc).__name__}: {exc}>"
+
+    try:
+        response = await handler(request)
+        duration_ms = (time.perf_counter() - start) * 1000
+        response.headers["X-Request-ID"] = request_id
+        await async_log_event(
+            "http.request",
+            request_id=request_id,
+            actor_type="http_client",
+            actor_id=request.remote,
+            direction="in",
+            source=f"{request.method} {request.path}",
+            payload={
+                "method": request.method,
+                "path": request.path,
+                "query": dict(request.query),
+                "headers": dict(request.headers),
+                "body": body_text if body_text is not None else "<multipart-or-empty>",
+            },
+            result={"status": response.status},
+            duration_ms=duration_ms,
+        )
+        return response
+    except Exception as exc:
+        duration_ms = (time.perf_counter() - start) * 1000
+        await async_log_event(
+            "http.request",
+            request_id=request_id,
+            actor_type="http_client",
+            actor_id=request.remote,
+            direction="in",
+            source=f"{request.method} {request.path}",
+            payload={
+                "method": request.method,
+                "path": request.path,
+                "query": dict(request.query),
+                "headers": dict(request.headers),
+                "body": body_text if body_text is not None else "<multipart-or-empty>",
+            },
+            error=exc,
+            duration_ms=duration_ms,
+        )
+        raise
 
 
 async def load_recent_messages(client: TelegramClient, limit=100):
@@ -203,7 +318,7 @@ async def auto_reply_yes(client, chat, text):
             [Button.inline("✅ Yes", b"yes"), Button.inline("❌ No", b"no")],
             [Button.inline("🔄 Maybe", b"maybe")],
         ]
-        await client.send_message(chat, "yes", buttons=buttons)
+        await tg_send_message(chat, "yes", buttons=buttons)
         label = getattr(chat, "title", None) if not isinstance(chat, str) else chat
         if label is None:
             label = getattr(chat, "first_name", str(chat))
@@ -261,12 +376,12 @@ def register_handlers(client: TelegramClient):
                 return
 
             # Send "thinking..." placeholder
-            status_msg = await client.send_message(GROUP_ID, "🤔 Thinking...")
+            status_msg = await tg_send_message(GROUP_ID, "🤔 Thinking...")
 
             # Ask pi and reply
             answer = await ask_ai(str(GROUP_ID), text)
-            await client.delete_messages(GROUP_ID, [status_msg.id])
-            await client.send_message(
+            await tg_delete_messages(GROUP_ID, [status_msg.id])
+            await tg_send_message(
                 GROUP_ID,
                 answer[:4000] + ("..." if len(answer) > 4000 else ""),
                 reply_to=msg.id,
@@ -363,7 +478,7 @@ async def _server_search(query: str, offset_id: int = 0) -> tuple[list[dict], bo
     Returns (results, has_more, next_offset_id).
     """
     try:
-        msgs = await _client.get_messages(
+        msgs = await tg_get_messages(
             "me",
             search=query,
             limit=SEARCH_BATCH,
@@ -432,7 +547,7 @@ async def _deep_search(query: str, offset_id: int = 0) -> tuple[list[dict], bool
 
     while not results and total_scanned < SEARCH_MAX_DEEP:
         try:
-            batch = await _client.get_messages("me", limit=100, offset_id=fetch_offset)
+            batch = await tg_get_messages("me", limit=100, offset_id=fetch_offset)
         except Exception as e:
             err = str(e)
             if "FLOOD_WAIT" in err.upper():
@@ -608,7 +723,7 @@ async def donhang_stats_handler(request: web.Request):
 async def _donhang_server(offset_id: int):
     """Telegram server-side hashtag index. Fast but misses edited messages."""
     try:
-        msgs = await _client.get_messages(
+        msgs = await tg_get_messages(
             DON_HANG_CHAT_ID, search=DON_HANG_QUERY,
             limit=DON_HANG_BATCH, offset_id=offset_id,
         )
@@ -685,7 +800,7 @@ async def donhang_msg_handler(request: web.Request):
         mid = int(request.query.get("id", "0"))
     except ValueError:
         return web.json_response({"error": "bad id"}, status=400)
-    msg = await _client.get_messages(DON_HANG_CHAT_ID, ids=mid)
+    msg = await tg_get_messages(DON_HANG_CHAT_ID, ids=mid)
     if msg is None:
         return web.json_response({"error": "not found"}, status=404)
     return web.json_response({
@@ -704,7 +819,7 @@ async def donhang_msg_handler(request: web.Request):
 import sqlite3 as _sqlite3
 
 _ORDERS_DB_PATH = os.path.expanduser(
-    os.getenv("SHARED_DB_PATH", "~/Documents/final_telegram/data/app.db")
+    os.getenv("SHARED_DB_PATH", "~/letrang-db/app.db")
 )
 
 def _get_orders_conn():
@@ -1246,7 +1361,7 @@ async def auto_parse_handler(request: web.Request):
             order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
             async def _send_auto_parse_notif():
                 try:
-                    await _client.send_message(
+                    await tg_send_message(
                         order_group_id,
                         msg_text,
                         reply_to=thread_id,
@@ -1254,7 +1369,7 @@ async def auto_parse_handler(request: web.Request):
                     )
                 except Exception as e:
                     log.warning("auto-parse notification failed: %s", e)
-            _client.loop.create_task(_send_auto_parse_notif())
+            spawn_tracked("auto_parse.notification", _send_auto_parse_notif(), {"thread_id": thread_id})
 
     # Refresh main message in channel (background)
     # Read channel_id + message_id from DB columns (not always in JSON)
@@ -1265,7 +1380,11 @@ async def auto_parse_handler(request: web.Request):
     channel_id = row["channel_id"] if row else None
     message_id = row["message_id"] if row else None
     if channel_id and message_id:
-        _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
+        spawn_tracked(
+            "order.refresh",
+            _refresh_order_bg(conn, thread_id, channel_id, message_id),
+            {"thread_id": thread_id, "channel_id": channel_id, "message_id": message_id},
+        )
 
     return web.json_response({
         "ok": True,
@@ -1339,7 +1458,11 @@ async def api_task_handler_impl(body: dict):
         msg = f"{actor} {task_name}"
 
     order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
-    _client.loop.create_task(_send_task_notification(order_group_id, thread_id, msg))
+    spawn_tracked(
+        "task.notification",
+        _send_task_notification(order_group_id, thread_id, msg),
+        {"thread_id": thread_id, "task": internal_type},
+    )
     # Refresh main message — read channel_id/message_id from DB columns
     row = conn.execute(
         "SELECT channel_id, message_id FROM orders WHERE thread_id = ?",
@@ -1348,14 +1471,18 @@ async def api_task_handler_impl(body: dict):
     channel_id = row["channel_id"] if row else None
     message_id = row["message_id"] if row else None
     if channel_id and message_id:
-        _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
+        spawn_tracked(
+            "order.refresh",
+            _refresh_order_bg(conn, thread_id, channel_id, message_id),
+            {"thread_id": thread_id, "channel_id": channel_id, "message_id": message_id},
+        )
     return web.json_response({"ok": True, "task": internal_type})
 
 
 async def _send_task_notification(chat_id, thread_id, message):
     """Send task notification to order thread via Telethon user client."""
     try:
-        await _client.send_message(chat_id, message, reply_to=thread_id, link_preview=False)
+        await tg_send_message(chat_id, message, reply_to=thread_id, link_preview=False)
     except Exception as e:
         log.warning("Task notification failed: %s", e)
 
@@ -1369,15 +1496,19 @@ async def _refresh_order_bg(conn, thread_id, channel_id, message_id):
         if not order:
             return
         html = build_order_main_message_html(order, thread_id)
-        await _client.edit_message(
+        await tg_edit_message(
             entity=channel_id,
             message=message_id,
             text=html,
             parse_mode="html",
             link_preview=False,
         )
-    except Exception:
-        pass
+
+        # ── Mirror channel sync (DISABLED) ─────────────────────
+        # from mirror_channel import sync_order_to_mirror
+        # await sync_order_to_mirror(_tg_gateway or _client, conn, thread_id)
+    except Exception as e:
+        log.warning("refresh order failed: thread=%s channel=%s message=%s error=%s", thread_id, channel_id, message_id, e, exc_info=True)
 
 
 # ── Additional bot-don-hang endpoints ────────────────────────────────
@@ -1406,11 +1537,12 @@ async def api_fix_handler(request: web.Request):
     if not _save_order(conn, thread_id, order):
         return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
 
-    # Refresh main message in background
-    channel_id = order.get("channel_id")
-    message_id = order.get("message_id")
-    if channel_id and message_id:
-        _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
+    # NOTE: No refresh here — _auto_parse_fix below will refresh after re-parsing invoice
+
+    # Re-parse invoice and generate picking sheet (same as Telethon fix/fixapp command)
+    from order_commands_v3 import _auto_parse_fix
+    spawn_tracked("order.auto_parse_fix", _auto_parse_fix(_client, conn, thread_id, text), {"thread_id": thread_id})
+
     return web.json_response({"ok": True})
 
 
@@ -1441,8 +1573,12 @@ async def api_invoice_update_handler(request: web.Request):
     # Refresh main message
     channel_id = order.get("channel_id")
     message_id = order.get("message_id")
-    if channel_id and message_id:
-        client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
+    if channel_id and message_id and _client is not None:
+        spawn_tracked(
+            "order.refresh",
+            _refresh_order_bg(conn, thread_id, channel_id, message_id),
+            {"thread_id": thread_id, "channel_id": channel_id, "message_id": message_id},
+        )
     log.info("invoice-update: thread=%d items=%d", thread_id, len(invoice))
     return web.json_response({"ok": True})
 
@@ -1464,7 +1600,7 @@ async def api_reply_handler(request: web.Request):
     order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
     try:
         for _ in range(min(times, 5)):
-            await _client.send_message(order_group_id, text, reply_to=thread_id)
+            await tg_send_message(order_group_id, text, reply_to=thread_id)
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500)
     return web.json_response({"ok": True})
@@ -1516,7 +1652,11 @@ async def api_refresh_handler(request: web.Request):
     channel_id = row["channel_id"] if row else None
     message_id = row["message_id"] if row else None
     if channel_id and message_id:
-        _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
+        spawn_tracked(
+            "order.refresh",
+            _refresh_order_bg(conn, thread_id, channel_id, message_id),
+            {"thread_id": thread_id, "channel_id": channel_id, "message_id": message_id},
+        )
     return web.json_response({"ok": True})
 
 
@@ -1556,24 +1696,35 @@ async def api_task_status_clear_handler(request: web.Request):
         channel_id = row["channel_id"] if row else None
         message_id = row["message_id"] if row else None
         if channel_id and message_id:
-            _client.loop.create_task(_refresh_order_bg(conn, thread_id, channel_id, message_id))
+            spawn_tracked(
+                "order.refresh",
+                _refresh_order_bg(conn, thread_id, channel_id, message_id),
+                {"thread_id": thread_id, "channel_id": channel_id, "message_id": message_id},
+            )
         # Notify in group thread
         TASK_NAMES = {"soan_hang": "soạn hàng", "ban_hd": "bán HĐ", "giao_hang": "giao hàng", "nop_tien": "nộp tiền", "nhan_tien": "nhận tiền"}
         vi_name = TASK_NAMES.get(task_type, task_type)
         order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
-        _client.loop.create_task(_send_task_notification(order_group_id, thread_id, f"🧹 Đã huỷ: {vi_name}"))
+        spawn_tracked(
+            "task.clear_notification",
+            _send_task_notification(order_group_id, thread_id, f"🧹 Đã huỷ: {vi_name}"),
+            {"thread_id": thread_id, "task": task_type},
+        )
 
     return web.json_response({"ok": True, "cleared": [task_type] if task_type else []})
 
 
 # ─── Main ──────────────────────────────────────────────────────────────────────
 async def main():
-    global _client, _donhang_db
+    global _client, _tg_gateway, _donhang_db
 
     # Start Telethon
-    client = TelegramClient("user_session", API_ID, API_HASH)
+    client = TelegramClient(SESSION, API_ID, API_HASH)
     _client = client
     await client.start(phone=PHONE)
+    _tg_gateway = TelegramGateway(client)
+    _tg_gateway.install()
+    init_audit_db()
     me = await client.get_me()
     log.info("Logged in as %s", me.first_name)
     log.info("Listening to Saved Messages...")
@@ -1622,6 +1773,9 @@ async def main():
     # ── profit dashboard runs separately: cd ~/Documents/profit-dashboard && .venv/bin/python profit_dashboard/main.py
 
     # ── Firebase html-to-png listener (replaces test-qwen2-main Node service) ─
+    # Browser init is now lazy (on first job), so this won't block startup.
+    # IMPORTANT: Playwright Chromium requires Full Disk Access on macOS —
+    # run this server from a real Terminal (not CodeWhale sandbox) for it to work.
     from firebase_html_to_png import start_listener as _start_html_to_png
     _start_html_to_png(client)
 
@@ -1629,6 +1783,7 @@ async def main():
     _donhang_db = DonHangDB(DON_HANG_DB_PATH)
     log.info("#don_hang DB: %s — %s", DON_HANG_DB_PATH, _donhang_db.stats())
     register_live_handlers(client, _donhang_db, DON_HANG_CHAT_ID, DON_HANG_QUERY)
+    log.info("register_live_handlers done")
 
     async def _bootstrap_donhang():
         try:
@@ -1645,10 +1800,9 @@ async def main():
         except Exception as e:
             log.warning("#don_hang backfill error: %s", e)
 
-    asyncio.create_task(_bootstrap_donhang())
-
-    # Start aiohttp
-    app = web.Application()
+    log.info("Starting aiohttp...")
+    # Start aiohttp (before bootstrap so API is available immediately)
+    app = web.Application(middlewares=[audit_middleware])
     app.router.add_get("/", index_handler)
     app.router.add_get("/ws", websocket_handler)
     app.router.add_get("/api/search", search_handler)
@@ -1661,27 +1815,24 @@ async def main():
     app.router.add_get("/api/orders", orders_api_handler)
     app.router.add_get("/api/order/{thread_id}", order_detail_handler)
     app.router.add_static("/static/", "static")
-
+ 
     # Edit a message via the user account (called from final_telegram instead of bot edit)
     from tg_edit import make_handler as _make_edit_handler
-    app.router.add_post("/api/tg/edit-message", _make_edit_handler(lambda: _client))
-
+    app.router.add_post("/api/tg/edit-message", _make_edit_handler(lambda: _tg_gateway or _client))
+ 
     # Send a message via the user account (called from final_telegram instead of bot send)
     from tg_send import make_handler as _make_send_handler
-    app.router.add_post("/api/tg/send-message", _make_send_handler(lambda: _client))
-
+    app.router.add_post("/api/tg/send-message", _make_send_handler(lambda: _tg_gateway or _client))
+ 
     # Send a file via the user account (called from bot-don-hang for media forwarding)
     from tg_send_file import make_handler as _make_send_file_handler
-    app.router.add_post("/api/tg/send-file", _make_send_file_handler(lambda: _client))
-
+    app.router.add_post("/api/tg/send-file", _make_send_file_handler(lambda: _tg_gateway or _client))
+ 
     # Payment endpoints (called from bot-don-hang, mirrors ck/tm Telethon commands)
     app.router.add_post("/api/order/payment/tm", payment_tm_handler)
     app.router.add_post("/api/order/payment/ck", payment_ck_handler)
     app.router.add_post("/api/order/totals", order_totals_handler)
-
-    # Auto-parse invoice items from order text (called by channelDonHangMoi.js on new order)
     app.router.add_post("/api/order/auto-parse", auto_parse_handler)
-    # Task endpoints (replaces Node.js /api/order/soan, /ban, /giao, /nop-tien)
     app.router.add_post("/api/order/soan", _make_task_handler("soan"))
     app.router.add_post("/api/order/ban", _make_task_handler("ban"))
     app.router.add_post("/api/order/giao", _make_task_handler("giao"))
@@ -1692,6 +1843,22 @@ async def main():
     app.router.add_post("/api/order/reply", api_reply_handler)
     app.router.add_post("/api/customer/price", api_customer_price_handler)
     app.router.add_post("/api/order/{id}/task_status/clear", api_task_status_clear_handler)
+
+    async def _resolve_name(user_id: int) -> str:
+        """Resolve Telegram user ID to display name. Falls back to str(user_id)."""
+        try:
+            entity = await _client.get_entity(user_id)
+            first = getattr(entity, "first_name", "") or ""
+            last = getattr(entity, "last_name", "") or ""
+            if first:
+                return f"{first} {last}".strip()
+            username = getattr(entity, "username", "") or ""
+            if username:
+                return f"@{username}"
+            return str(user_id)
+        except Exception:
+            return str(user_id)
+
 
     # Native print-giao handler (Python — mirrors command "print" logic inline)
     async def api_print_giao_handler(request: web.Request):
@@ -1717,14 +1884,16 @@ async def main():
         # Send notification to order topic forum via Telethon
         if _client:
             try:
-                printed_by = str(user_id) if user_id else "Hệ thống"
+                printed_by = await _resolve_name(user_id) if user_id else "Hệ thống"
                 order_group_id = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
-                _client.loop.create_task(
-                    _client.send_message(
+                spawn_tracked(
+                    "print_giao.notification",
+                    tg_send_message(
                         order_group_id,
                         f"🖨️ {printed_by} đã in 2 hóa đơn (không QR) và Phiếu giao hàng",
                         reply_to=thread_id,
-                    )
+                    ),
+                    {"thread_id": thread_id, "user_id": user_id},
                 )
             except Exception as e:
                 log.warning("print-giao notification failed: %s", e)
@@ -1737,10 +1906,14 @@ async def main():
 
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    site = web.TCPSite(runner, "0.0.0.0", PORT, reuse_address=True, reuse_port=True)
+    log.info("About to site.start() on port %d", PORT)
     await site.start()
     log.info("Web server: http://localhost:%d", PORT)
     log.info("─" * 50)
+
+    # Bootstrap donhang DB in background (gap-fill + backfill)
+    spawn_tracked("donhang.bootstrap", _bootstrap_donhang())
 
     # Run both forever
     await client.run_until_disconnected()
