@@ -1,0 +1,70 @@
+from __future__ import annotations
+
+import logging
+import os
+
+from aiohttp import web
+
+from order_db import _get_connection, detect_customer_free_text, get_customer_by_key, get_customer_price_list, get_order_by_thread_id, parse_invoice_free_text, _save_order
+from product_db import freeze_invoice_cost_prices
+
+from server_app import state
+from server_app.config import ORDER_GROUP_ID
+from server_app.order_api_common import refresh_order_bg
+from server_app.tasks import spawn_tracked
+from server_app.telegram_helpers import tg_send_message
+
+log = logging.getLogger("server")
+
+
+async def auto_parse_handler(request: web.Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    thread_id, text = body.get("thread_id"), (body.get("text") or "").strip()
+    if not thread_id or not text:
+        return web.json_response({"ok": False, "error": "Missing thread_id or text"}, status=400)
+    conn = _get_connection()
+    order = get_order_by_thread_id(conn, thread_id)
+    if not order:
+        return web.json_response({"ok": False, "error": "Order not found in SQLite"}, status=404)
+    kh_id_fb = order.get("khach_hang_id") or order.get("khID")
+    detection = detect_customer_free_text(conn, text)
+    assigned_cust = detection["autoAssign"] if detection["autoAssign"] else None
+    if assigned_cust:
+        order.update({"khach_hang_id": assigned_cust["customerID"], "customer_name": assigned_cust["customerName"]})
+        kh_id_fb = assigned_cust["customerID"]
+    invoice = parse_invoice_free_text(conn, text, kh_id_fb)
+    if invoice and assigned_cust and get_customer_price_list(conn, assigned_cust["customerID"]):
+        invoice = parse_invoice_free_text(conn, text, assigned_cust["customerID"])
+    if invoice:
+        order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
+    _save_order(conn, thread_id, order)
+    log.info("auto-parse: thread=%d items=%d assigned=%s", thread_id, len(invoice) if invoice else 0, assigned_cust["customerName"] if assigned_cust else "none")
+    if state._client is not None:
+        lines = []
+        if invoice:
+            lines.append(f"🤖 <b>Auto-detect:</b> đã tìm thấy {len(invoice)} sản phẩm\n")
+            total = 0
+            for item in invoice:
+                sub = item.get("sl", 0) * item.get("price", 0)
+                total += sub
+                lines.append(f"• <b>{item.get('sp', '?')}</b> x{item.get('sl', 0)} @ {item.get('price', 0):,}đ = <b>{sub:,}đ</b>")
+            lines.append(f"\n💰 <b>Tổng cộng: {total:,}đ</b>")
+        if assigned_cust:
+            if lines:
+                lines.append("")
+            lines += [f"👤 <b>Đã gán:</b> {assigned_cust['customerName']} ({assigned_cust['score']}%)", f"🎯 Mẫu: \"{assigned_cust['bestMatchedPattern']}\""]
+        elif detection["matches"]:
+            if lines:
+                lines.append("")
+            lines.append("🔍 <b>Khách hàng có thể:</b>")
+            for i, m in enumerate(detection["matches"][:3]):
+                lines.append(f"  {i+1}. {m['customerName']} ({m['score']}%) — <code>add khach hang {m['customerID']}</code>")
+        if lines:
+            spawn_tracked("auto_parse.notification", tg_send_message(ORDER_GROUP_ID, "\n".join(lines), reply_to=thread_id, parse_mode="html"), {"thread_id": thread_id})
+    row = conn.execute("SELECT channel_id, message_id FROM orders WHERE thread_id = ?", (thread_id,)).fetchone()
+    if row and row["channel_id"] and row["message_id"]:
+        spawn_tracked("order.refresh", refresh_order_bg(conn, thread_id, row["channel_id"], row["message_id"]), {"thread_id": thread_id, "channel_id": row["channel_id"], "message_id": row["message_id"]})
+    return web.json_response({"ok": True, "parsed": len(invoice), "auto_assigned": detection["autoAssign"]["customerID"] if detection.get("autoAssign") else None})

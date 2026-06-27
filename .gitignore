@@ -14,3 +14,15 @@ nohup.out
 __pycache__/
 .DS_Store
 app.log
+logs/
+*.orig.png
+
+# Node / Frontend
+node_modules/
+.next/
+dist/
+
+# Secrets / Credentials
+*-firebase-adminsdk-*.json
+*.db
+

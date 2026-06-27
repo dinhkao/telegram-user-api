@@ -1,0 +1,90 @@
+"""order_commands_v3.py — Phase 3: KiotViet invoice, print, payment, debt, analysis handlers."""
+from __future__ import annotations
+import asyncio
+import json
+import logging
+import os
+import re
+import tempfile
+import time
+from datetime import datetime, timezone, timedelta, UTC
+
+from telethon import events
+from telethon.tl.types import MessageService
+
+from order_db import (
+    _get_connection,
+    get_order_by_thread_id,
+    get_customer_kv_id,
+    get_customer_by_key,
+    search_products,
+    _call_final_telegram,
+    set_task_status,
+    _save_order,
+    parse_comma_text,
+)
+from kiotviet import (
+    search_products_kv,
+    create_invoice as kv_create_invoice,
+    create_kiotviet_invoice,
+    get_invoices_by_order,
+    get_invoice_detail,
+    get_payment_methods,
+    process_payment,
+    delete_payment_kv,
+    create_payment_kv,
+    get_customer_debt_kv,
+    create_order_with_payment,
+)
+from payment_db import (
+    get_payments,
+    add_payment,
+    delete_payment_record,
+    calculate_debt,
+    get_all_debts,
+)
+from firebase_sync import set_order as fb_set_order
+from quy_db import create_fund_receipt
+from customer_notify import send_payment_notification
+from receipt_print import send_payment_receipt
+
+log = logging.getLogger("order_commands_v3")
+ORDER_GROUP_ID = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
+FINAL_TELEGRAM_URL = os.getenv("FINAL_TELEGRAM_URL", "http://localhost:3000")
+PORT = int(os.getenv("PORT", "8080"))
+API_BASE = f"http://127.0.0.1:{PORT}"
+
+
+def _extract_thread_id(msg) -> int | None:
+    thread_id = None
+    if msg.reply_to:
+        thread_id = (
+            getattr(msg.reply_to, "reply_to_top_id", None)
+            or getattr(msg.reply_to, "reply_to_msg_id", None)
+        )
+        if thread_id and not getattr(msg.reply_to, "forum_topic", False):
+            thread_id = getattr(msg.reply_to, "reply_to_top_id", None)
+    if not thread_id:
+        thread_id = getattr(msg, "reply_to_top_id", None)
+    if not thread_id:
+        raw = getattr(msg, "_raw", None) or getattr(msg, "original_update", None)
+        if raw:
+            r = getattr(raw, "reply_to", None)
+            if r:
+                thread_id = getattr(r, "reply_to_top_id", None)
+    return thread_id
+
+
+def _call_final(endpoint: str, body: dict, timeout: int = 10) -> dict | None:
+    return _call_final_telegram(endpoint, body, timeout)
+
+
+# ── Formatting ──────────────────────────────────────────────────────
+
+def _fmt_invoice_html(invoice: dict) -> str:
+    """Format a KiotViet invoice as HTML."""
+    lines = ["<b>🧾 Hóa đơn</b>", ""]
+    code = invoice.get("code", "N/A")
+    created = invoice.get("createdDate", "")[:10] if invoice.get("createdDate") else ""
+    lines.append(f"Mã HĐ: <b>{code}</b>  |  {created}")
+    lines.append(f"Tổng: <b>{invoice.get('total', 0):,}đ</b>")

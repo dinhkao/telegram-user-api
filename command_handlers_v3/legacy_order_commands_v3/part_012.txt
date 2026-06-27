@@ -1,0 +1,90 @@
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+        user_id = getattr(msg, "sender_id", None)
+        
+        # Get order from DB
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+        
+        # Check if order has KiotViet invoice
+        invoice_id = order.get("kiotvietInvoiceID")
+        if not invoice_id:
+            await client.send_message(msg.chat_id, "❌ Đơn hàng chưa có hóa đơn KiotViet. Dùng lệnh `tao hd` trước.", reply_to=msg.id)
+            return
+        
+        # Get customer name
+        kh_id_fb = order.get("khach_hang_id") or order.get("khID")
+        customer_name = "Khách hàng"
+        if kh_id_fb:
+            customer = get_customer_by_key(db_conn, str(kh_id_fb))
+            if customer:
+                customer_name = customer.get("name", "Khách hàng")
+        
+        # Get order text
+        order_text = order.get("text", "")
+        
+        # Get printed by name
+        printed_by = str(user_id) if user_id else "Hệ thống"
+        
+        # Processing feedback
+        proc_msg = await client.send_message(msg.chat_id, "⏳ Đang in phiếu giao hàng......", reply_to=msg.id)
+        
+        try:
+            from print_service import execute_print_giao
+            result = await execute_print_giao(db_conn, order, user_id)
+            if result.get("error"):
+                raise RuntimeError(result["error"])
+            await client.edit_message(
+                msg.chat_id,
+                proc_msg.id,
+                f"🖨️ {printed_by} đã in 2 hóa đơn (không QR) và Phiếu giao hàng",
+            )
+        except Exception as e:
+            log.error("Print failed: %s", e, exc_info=True)
+            await client.edit_message(
+                msg.chat_id,
+                proc_msg.id,
+                f"❌ Lỗi in phiếu: {e}",
+            )
+
+    # ── PAYMENT: ck / tm ────────────────────────────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_ck(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        m = re.match(r"^ck\s+(.+)$", (msg.text or "").strip(), re.IGNORECASE)
+        if not m: return
+        amount_str = m.group(1).strip()
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+        user_id = getattr(msg, "sender_id", None)
+        await _handle_payment(client, msg, thread_id, int(amount_str), user_id, "Transfer")
+
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_tm(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        m = re.match(r"^tm\s+(.+)$", (msg.text or "").strip(), re.IGNORECASE)
+        if not m: return
+        amount_str = m.group(1).strip()
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+        user_id = getattr(msg, "sender_id", None)
+        await _handle_payment(client, msg, thread_id, int(amount_str), user_id, "Cash")
+    # ── /payments, /del_payment_<id>, /orders ────────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_payments(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        if (msg.text or "").strip() != "/payments": return
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+        payments = get_payments(db_conn, thread_id)
+        if not payments:
+            await client.send_message(msg.chat_id, "❌ Chưa có thanh toán nào", reply_to=msg.id)
+            return
+        await client.send_message(msg.chat_id, _fmt_payment_list(payments), reply_to=msg.id, parse_mode="html")
+
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))

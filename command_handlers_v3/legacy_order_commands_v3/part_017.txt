@@ -1,0 +1,90 @@
+                if changed else
+                f"{idx + 1}. {code} - {qty} x {new_price:,}đ = {line_total:,}đ (không đổi)"
+            )
+            next_invoice.append(next_item)
+
+        if not matched_count:
+            await client.send_message(
+                msg.chat_id,
+                f"⚠️ Không có sản phẩm nào trong đơn khớp bảng giá ID {price_list_id}.",
+                reply_to=msg.id,
+            )
+            return
+
+        # Save updated invoice (freeze cost prices)
+        from product_db import freeze_invoice_cost_prices
+        order["invoice"] = freeze_invoice_cost_prices(db_conn, next_invoice)
+        if not _save_order(db_conn, thread_id, order):
+            await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
+            return
+
+        total = sum(int(i.get("sl", 0)) * int(i.get("price", 0)) for i in next_invoice)
+        list_name = str(entry.get("name") or entry.get("ten") or "").strip()
+        name_part = f"{list_name} (ID {price_list_id})" if list_name else f"ID {price_list_id}"
+        reply = f"✅ {label}: áp dụng {name_part}\n"
+        reply += f"Khớp {matched_count}/{len(next_invoice)} sản phẩm, đổi giá {changed_count} sản phẩm.\n"
+        reply += f"Tổng tạm tính: {total:,}đ"
+        if detail_rows:
+            reply += f"\n\n📋 Chi tiết từng sản phẩm:\n" + "\n".join(detail_rows)
+        if missing_codes:
+            reply += f"\nKhông có giá cho: {', '.join(missing_codes[:10])}"
+            if len(missing_codes) > 10:
+                reply += "…"
+        if len(reply) > 3800:
+            reply = (
+                f"✅ {label}: áp dụng {name_part}\n"
+                f"Khớp {matched_count}/{len(next_invoice)} sản phẩm, đổi giá {changed_count} sản phẩm.\n"
+                f"Tổng tạm tính: {total:,}đ\n\n"
+                f"📋 Chi tiết từng sản phẩm (rút gọn do tin nhắn dài):\n"
+                + "\n".join(detail_rows[:30])
+                + (f"\n… ({len(detail_rows) - 30} dòng nữa)" if len(detail_rows) > 30 else "")
+                + (f"\nKhông có giá cho: {', '.join(missing_codes[:10])}" if missing_codes else "")
+            )
+
+        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
+
+        # Refresh main message + Firebase sync (non-blocking)
+        _firebase_refresh_async(client, db_conn, thread_id, order)
+        channel_id = order.get("channel_id")
+        message_id = order.get("message_id")
+        if channel_id and message_id:
+            _edit_batcher.schedule(thread_id, channel_id, message_id)
+
+    # ── BO NO / NO (toggle debt tag) ─────────────────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_bo_no(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        t = (msg.text or "").strip().lower()
+        import unicodedata
+        t_norm = unicodedata.normalize("NFD", t).encode("ascii", "ignore").decode()
+        
+        if t_norm == "bo no":
+            enabled = False
+            reply_text = "Đã bỏ nợ cho đơn này"
+        elif t == "no":
+            enabled = True
+            reply_text = "✅ Đã bật hiển thị nợ cho đơn này"
+        else:
+            return
+
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+
+        order["debt_tag_disabled"] = not enabled
+        if not _save_order(db_conn, thread_id, order):
+            await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
+            return
+
+        await client.send_message(msg.chat_id, reply_text, reply_to=msg.id)
+
+        # Refresh main message + Firebase sync (non-blocking, debounced)
+        _firebase_refresh_async(client, db_conn, thread_id, order)
+
+    # ── DETECT INVOICE ───────────────────────────────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))

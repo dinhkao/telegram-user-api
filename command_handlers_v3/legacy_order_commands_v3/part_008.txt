@@ -1,0 +1,90 @@
+
+        async with self._lock:
+            current = self._pending.get(key)
+            if current != version:
+                return  # A newer version is pending; let it win
+            self._pending.pop(key, None)
+
+        await _refresh_order_message(self.client, self.db_conn, thread_id, key[0], key[1])
+
+
+async def _auto_parse_fix(client, conn, thread_id: int, text: str):
+    """Re-run invoice parsing after order text is changed by fix/fixapp."""
+    try:
+        from order_db import parse_invoice_free_text, detect_customer_free_text, get_customer_price_list
+        from product_db import freeze_invoice_cost_prices
+
+        order = get_order_by_thread_id(conn, thread_id)
+        if not order:
+            return
+        kh_id = order.get("khach_hang_id") or order.get("khID")
+        detection = detect_customer_free_text(conn, text)
+        if detection.get("autoAssign"):
+            cust = detection["autoAssign"]
+            order["khach_hang_id"] = cust["customerID"]
+            order["customer_name"] = cust["customerName"]
+            kh_id = cust["customerID"]
+
+        invoice = parse_invoice_free_text(conn, text, kh_id)
+        if invoice:
+            price_list = get_customer_price_list(conn, kh_id) if kh_id else None
+            if price_list:
+                invoice = parse_invoice_free_text(conn, text, kh_id)
+            order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
+            _save_order(conn, thread_id, order)
+            _firebase_refresh_async(client, conn, thread_id, order)
+            log.info("auto-parse (fix): thread=%d items=%d", thread_id, len(invoice))
+
+            # Generate picking sheet (phiếu soạn hàng) — same as new order auto-parse
+            try:
+                from picking_sheet import generate_picking_sheet
+                await generate_picking_sheet(client, conn, thread_id)
+            except Exception as e:
+                log.warning("picking sheet generation failed for thread=%d: %s", thread_id, e)
+    except Exception as e:
+        log.warning("auto-parse (fix) failed for thread=%d: %s", thread_id, e)
+
+
+# ── Handler registration ────────────────────────────────────────────
+
+def register_order_commands_v3(client):
+    """Register Phase 3 handlers: invoice, print, payment, debt, analysis."""
+    db_conn = _get_connection()
+    global _edit_batcher
+    _edit_batcher = _EditBatcher(client, db_conn, delay=3.0)
+    log.info("order_commands_v3 listening on chat %d", ORDER_GROUP_ID)
+
+    # ── COMMA INVOICE ───────────────────────────────────────────────
+    # Messages starting with , → parse as invoice items
+    # Format: comma on its own line, then items below
+    #   ,
+    #   SP001 2t3b 5 150000 Đỏ
+    #   SP002 1t 10
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_comma_invoice(event):
+        msg = event.message
+        if isinstance(msg, MessageService): return
+        raw_text = msg.text or ""
+        # Check raw text (before strip) so leading comma on its own line is caught
+        if not raw_text.startswith(","): return
+
+        log.info("COMMA triggered: chat=%s thread=%s text=%s",
+                 getattr(msg, 'chat_id', '?'),
+                 _extract_thread_id(msg),
+                 raw_text[:80])
+
+        thread_id = _extract_thread_id(msg)
+        if not thread_id: return
+        user_id = getattr(msg, "sender_id", None)
+
+        # Remove leading comma(s) and whitespace — match Node.js: text.replace(',', '').trim()
+        cleaned = raw_text.lstrip(",").strip()
+        if not cleaned:
+            return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
+            return
+
+        kh_id_fb = order.get("khach_hang_id") or order.get("khID")

@@ -1,0 +1,90 @@
+        if not reply_text:
+            await client.send_message(msg.chat_id, "Vui lòng nhập nội dung tin nhắn.", reply_to=msg.id)
+            return
+
+        # Parse xN multiplier (single-line only, max 10)
+        import re
+        times = 1
+        if "\n" not in reply_text:
+            m = re.search(r"\s+x(\d{1,2})\s*$", reply_text, re.IGNORECASE)
+            if m:
+                times = max(1, min(10, int(m.group(1))))
+                reply_text = reply_text[:m.start()].rstrip()
+
+        if not reply_text:
+            await client.send_message(msg.chat_id, "Vui lòng nhập nội dung tin nhắn.", reply_to=msg.id)
+            return
+
+        message_to_send = f"! {reply_text}"
+
+        # Get order's channel_id + message_id from DB
+        row = db_conn.execute(
+            "SELECT channel_id, message_id FROM orders WHERE thread_id = ? AND deleted_at IS NULL",
+            (thread_id,),
+        ).fetchone()
+        channel_id = row["channel_id"] if row else None
+        reply_to_msg_id = row["message_id"] if row else None
+
+        if not reply_to_msg_id:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy message ID của đơn hàng để reply.", reply_to=msg.id)
+            return
+
+        target_channel = channel_id or int(os.getenv("CHANNEL_DON_HANG_MOI", "-1002138495144"))
+
+        try:
+            for i in range(times):
+                kwargs = {"reply_to": reply_to_msg_id} if i == 0 else {}
+                if is_silent:
+                    kwargs["silent"] = True
+                await client.send_message(target_channel, message_to_send, **kwargs)
+                if i < times - 1:
+                    await asyncio.sleep(1)
+
+            label = "replysi" if is_silent else "reply"
+            await client.send_message(
+                msg.chat_id,
+                f"✅ Đã gửi {label} {times} lần.",
+                reply_to=msg.id,
+            )
+        except Exception as e:
+            log.error("reply error: %s", e, exc_info=True)
+            await client.send_message(
+                msg.chat_id,
+                f"❌ Lỗi khi gửi tin nhắn: {e}",
+                reply_to=msg.id,
+            )
+
+    # ── FIX / FIXAPP ──────────────────────────────────────────────────
+    @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
+    async def on_fix(event):
+        msg = event.message
+        if isinstance(msg, MessageService):
+            return
+        text = (msg.text or "").strip()
+        if not text:
+            return
+
+        is_append = text.lower().startswith("fixapp")
+        is_replace = not is_append and text.lower().startswith("fix ") and not text.lower().startswith("fixsi")
+
+        if not is_append and not is_replace:
+            return
+
+        log.info("fix/fixapp triggered: is_append=%s thread=%s text=%s", is_append, _extract_thread_id(msg), text[:80])
+
+        thread_id = _extract_thread_id(msg)
+        if not thread_id:
+            await client.send_message(msg.chat_id, "❌ Không xác định được topic đơn hàng.", reply_to=msg.id)
+            return
+
+        prefix_len = 6 if is_append else 4  # "fixapp" = 6, "fix " = 4
+        new_text = text[prefix_len:].strip()
+        if not new_text:
+            await client.send_message(msg.chat_id, "Vui lòng nhập nội dung mới.", reply_to=msg.id)
+            return
+
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng.", reply_to=msg.id)
+            return
+

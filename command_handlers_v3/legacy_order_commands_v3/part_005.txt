@@ -1,0 +1,90 @@
+
+    # 10. Notify customer topic
+    try:
+        order_text = order.get("text") or order.get("name") or f"Đơn #{thread_id}"
+        send_payment_notification(
+            client=client,
+            kh_id=str(kh_id_fb),
+            thread_id=thread_id,
+            amount=amount,
+            method=method,
+            order_text=order_text,
+            old_debt=old_debt,
+            new_debt=new_debt,
+        )
+    except Exception as e:
+        log.warning("Customer notification failed: %s", e)
+
+    # 11. Send receipt (async)
+    try:
+        client.loop.create_task(
+            send_payment_receipt(
+                client=client,
+                thread_id=thread_id,
+                customer_name=kh_name,
+                payment_amount=amount,
+                old_debt=old_debt,
+                new_debt=new_debt,
+            )
+        )
+    except Exception as e:
+        log.warning("Receipt sending failed: %s", e)
+
+    # 12. Refresh order main message (debounced via batcher)
+    try:
+        channel_id = order.get("channel_id")
+        message_id = order.get("message_id")
+        if channel_id and message_id:
+            _edit_batcher.schedule(thread_id, channel_id, message_id)
+    except Exception as e:
+        log.warning("Order message refresh queuing failed: %s", e)
+
+
+def _auto_complete_tasks_core(db_conn, thread_id: int, user_id: int | None):
+    """Auto-complete nhan_tien + nop_tien tasks for the order (DB only)."""
+    for task_type in ("nhan_tien", "nop_tien"):
+        try:
+            ok = set_task_status(db_conn, thread_id, task_type, user_id)
+            if ok:
+                log.info("Auto-completed task %s for thread %d", task_type, thread_id)
+        except Exception as e:
+            log.warning("Failed to auto-complete %s for thread %d: %s", task_type, thread_id, e)
+
+
+def _auto_complete_tasks(client, db_conn, thread_id: int, user_id: int | None, chat_id: int):
+    """Auto-complete nhan_tien + nop_tien tasks for the order."""
+    _auto_complete_tasks_core(db_conn, thread_id, user_id)
+
+
+_edit_batcher: _EditBatcher | None = None
+
+
+async def _refresh_order_message(client, db_conn, thread_id: int, channel_id: int, message_id: int):
+    """Rebuild order message HTML and edit in channel via Telethon."""
+    try:
+        from order_html import build_order_main_message_html
+        order = get_order_by_thread_id(db_conn, thread_id)
+        if not order:
+            return
+        html = build_order_main_message_html(order, thread_id)
+        if not html:
+            return
+        await client.edit_message(
+            channel_id,
+            message_id,
+            html,
+            parse_mode="html",
+            link_preview=False,
+        )
+        log.info("Order message refreshed: thread=%d msg=%d", thread_id, message_id)
+    except Exception as e:
+        log.warning("Failed to refresh order message thread=%d: %s", thread_id, e)
+
+
+def _refresh_order_if_possible(client, db_conn, order: dict):
+    """Queue a refresh of the order's main message if channel_id and message_id are known."""
+    channel_id = order.get("channel_id")
+    message_id = order.get("message_id")
+    if not channel_id or not message_id:
+        return
+    thread_id = order.get("thread_id", 0)

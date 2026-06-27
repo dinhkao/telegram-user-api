@@ -1,0 +1,9 @@
+from __future__ import annotations
+
+from .order_commands_v2_detect_all import register_order_commands_v2_detect_all
+from .order_commands_v2_detect_customer import register_order_commands_v2_detect_customer
+
+
+def register_order_commands_v2_detect(client):
+    register_order_commands_v2_detect_all(client)
+    register_order_commands_v2_detect_customer(client)

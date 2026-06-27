@@ -61,7 +61,7 @@ allow = ["Bash(lsof -i :9026 2>/dev/null || echo \"No process on port 9026 (or l
 # bash = "enforce" (default) jails each command in an OS sandbox (macOS now;
 # graceful fallback elsewhere); "off" disables it. network allows egress.
 # workspace_root = ""            # default: current working directory
-allow_write = ["/tmp", "/Users/duydinh0225/Documents/final_telegram", "/Users/duydinh0225/Documents/bot-don-hang"]  # extra dirs writers may also modify
+allow_write = ["/tmp", "/Users/duydinh0225/Documents/final_telegram", "/Users/duydinh0225/Documents/bot-don-hang", "/Users/duydinh0225/.codewhale"]  # extra dirs writers may also modify
 bash    = "enforce"
 network = true
 

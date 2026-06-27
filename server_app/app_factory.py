@@ -1,0 +1,59 @@
+from __future__ import annotations
+
+from aiohttp import web
+
+from server_app.audit import audit_middleware
+from server_app.config import PORT
+from server_app.donhang_routes import donhang_handler, donhang_msg_handler, donhang_page_handler, donhang_stats_handler
+from server_app.order_api_auto import auto_parse_handler
+from server_app.order_api_mutations import api_fix_handler, api_invoice_update_handler, api_refresh_handler, api_reply_handler
+from server_app.order_api_payments import api_customer_price_handler, order_totals_handler, payment_ck_handler, payment_tm_handler
+from server_app.order_api_print import api_print_giao_handler
+from server_app.order_api_tasks import _make_task_handler, api_task_status_clear_handler
+from server_app.orders_api import order_detail_handler, orders_api_handler
+from server_app.orders_pages import order_detail_page_handler, orders_page_handler
+from server_app.search_routes import search_handler
+from server_app.web_pages import index_handler
+from server_app.websocket_routes import websocket_handler
+from server_app import state
+
+
+def create_app():
+    from tg_edit import make_handler as make_edit_handler
+    from tg_send import make_handler as make_send_handler
+    from tg_send_file import make_handler as make_send_file_handler
+
+    app = web.Application(middlewares=[audit_middleware])
+    r = app.router
+    r.add_get("/", index_handler)
+    r.add_get("/ws", websocket_handler)
+    r.add_get("/api/search", search_handler)
+    r.add_get("/api/donhang", donhang_handler)
+    r.add_get("/api/donhang/stats", donhang_stats_handler)
+    r.add_get("/api/donhang/msg", donhang_msg_handler)
+    r.add_get("/donhang", donhang_page_handler)
+    r.add_get("/orders", orders_page_handler)
+    r.add_get("/orders/{thread_id}", order_detail_page_handler)
+    r.add_get("/api/orders", orders_api_handler)
+    r.add_get("/api/order/{thread_id}", order_detail_handler)
+    r.add_static("/static/", "static")
+    get_client = lambda: state._tg_gateway or state._client
+    r.add_post("/api/tg/edit-message", make_edit_handler(get_client))
+    r.add_post("/api/tg/send-message", make_send_handler(get_client))
+    r.add_post("/api/tg/send-file", make_send_file_handler(get_client))
+    r.add_post("/api/order/payment/tm", payment_tm_handler)
+    r.add_post("/api/order/payment/ck", payment_ck_handler)
+    r.add_post("/api/order/totals", order_totals_handler)
+    r.add_post("/api/order/auto-parse", auto_parse_handler)
+    r.add_post("/api/order/soan", _make_task_handler("soan"))
+    r.add_post("/api/order/ban", _make_task_handler("ban"))
+    r.add_post("/api/order/giao", _make_task_handler("giao"))
+    r.add_post("/api/order/nop-tien", _make_task_handler("nop"))
+    r.add_post("/api/order/refresh-view", api_refresh_handler)
+    r.add_post("/api/order/fix", api_fix_handler)
+    r.add_post("/api/order/invoice/update", api_invoice_update_handler)
+    r.add_post("/api/order/reply", api_reply_handler)
+    r.add_post("/api/customer/price", api_customer_price_handler)
+    r.add_post("/api/order/{id}/task_status/clear", api_task_status_clear_handler)
+    r.add_post("/api/order/print-giao", api_print_giao_handler)
+    return app
