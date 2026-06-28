@@ -29,13 +29,12 @@
         except OSError:
             pass
 
-        # 2. Push to html-to-png (Firebase) — same as Node.js queueHtmlToPngWithDiscussionMirror
+        # 2. Render HTML to PNG + send as image (directly using local Chromium)
         try:
-            ref_png = fb_ref("html-to-png")
-            if ref_png:
-                ref_png.set({"html": html, "chat_id": chat_id, "message_thread_id": thread_id})
+            from firebase_html_to_png import render_and_send_html
+            await render_and_send_html(client, html, chat_id, thread_id)
         except Exception as e:
-            log.warning("Failed to push invoice to html-to-png: %s", e)
+            log.warning("Failed to render invoice to PNG: %s", e)
 
         # 3. Push to meta/to_print (Firebase) with write→settle→delete for physical printer
         # Mirrors Node.js enqueueHtmlForPrint() with print marker injection
