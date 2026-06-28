@@ -44,4 +44,9 @@ async def main():
     await web.TCPSite(runner, "0.0.0.0", PORT, reuse_address=True, reuse_port=True).start()
     log.info("Web server: http://localhost:%d", PORT)
     spawn_tracked("donhang.bootstrap", bootstrap_donhang(client, db))
+
+    # Start bot client (merged from bot-don-hang)
+    from server_app.bot_bootstrap import start_bot
+    spawn_tracked("bot.startup", start_bot(API_ID, API_HASH))
+
     await client.run_until_disconnected()
