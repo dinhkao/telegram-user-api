@@ -1,4 +1,4 @@
-"""bot_don_hang/keyboards.py — Reply and inline keyboard builders."""
+"""bot_core/keyboards.py — Reply and inline keyboard builders."""
 from telethon import Button
 
 from bot_core.config import PRODUCT_CODE_ROWS, QTY_OPTIONS, QTY_OPTIONS_BY_CODE
@@ -59,40 +59,8 @@ def build_qty_keyboard(code: str | None):
     return rows
 
 
-def build_payment_methods_keyboard():
-    return [
-        [Button.text("Tiền mặt"), Button.text("Chuyển khoản")],
-        [Button.text("Huỷ")],
-    ]
-
-
-def build_payment_amount_keyboard(suggested: int | None = None):
-    rows = []
-    if suggested:
-        rows.append([Button.text(f"Dùng số tiền gợi ý {suggested:,}")])
-    rows.append([Button.text("Huỷ")])
-    return rows
-
-
-def build_nop_wizard_type_keyboard():
-    return [
-        [Button.text("Báo khách nợ"), Button.text("Báo khách trả đủ")],
-        [Button.text("Huỷ")],
-    ]
-
-
-def build_nop_wizard_ky_toa_keyboard():
-    return [
-        [Button.text("Có ký toa"), Button.text("Không ký toa"), Button.text("Chiều lấy tiền")],
-        [Button.text("Huỷ")],
-    ]
-
-
 def build_confirm_keyboard():
-    return [
-        [Button.text("Có")],
-        [Button.text("Không")],
-    ]
+    return [[Button.text("Có")], [Button.text("Không")]]
 
 
 def build_kv_confirm_keyboard():
@@ -102,26 +70,8 @@ def build_kv_confirm_keyboard():
     ]
 
 
-def build_invoice_next_keyboard():
-    return [
-        [Button.text("Thêm dòng mới"), Button.text("Hoàn tất")],
-        [Button.text("Huỷ")],
-    ]
-
-
-def build_price_choice_keyboard(suggested_price: int | None = None):
-    rows = []
-    if suggested_price is not None:
-        rows.append([Button.text(f"Dùng giá có sẵn {suggested_price}")])
-    rows.append([Button.text("Tự nhập giá")])
-    rows.append([Button.text("Huỷ")])
-    return rows
-
-
 def build_rename_keyboard():
-    return [
-        [Button.text("< Quay lại, không sửa nữa")],
-    ]
+    return [[Button.text("< Quay lại, không sửa nữa")]]
 
 
 def build_inline_invoice_keyboard(has_items: bool = False, has_kv: bool = False):
@@ -130,3 +80,14 @@ def build_inline_invoice_keyboard(has_items: bool = False, has_kv: bool = False)
     if has_items and not has_kv:
         rows.append([Button.inline("Tạo hóa đơn Kiotviet luôn!", b"kv:create")])
     return rows
+
+
+# Re-export from keyboards_extra for backward compatibility
+from bot_core.keyboards_extra import (
+    build_payment_methods_keyboard,
+    build_payment_amount_keyboard,
+    build_nop_wizard_type_keyboard,
+    build_nop_wizard_ky_toa_keyboard,
+    build_invoice_next_keyboard,
+    build_price_choice_keyboard,
+)

@@ -11,7 +11,8 @@ from .invoice_edit import handle_invoice_edit_text
 from .print_invoice import handle_get_html, handle_confirm_print_text
 from .kv_confirm import handle_kv_confirm_text
 from .payment import start_payment_flow, handle_payment_text
-from .nop_wizard import start_nop_wizard, handle_nop_wizard_text, handle_nop_wizard_photo
+from .nop_wizard import start_nop_wizard, handle_nop_wizard_text
+from .nop_wizard_photo import handle_nop_wizard_photo
 from .rename_giao import handle_rename_text, start_giao_confirm, handle_giao_confirm_text
 
 __all__ = [
