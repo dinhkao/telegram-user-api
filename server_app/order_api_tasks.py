@@ -44,9 +44,12 @@ async def api_task_handler_impl(body: dict):
     internal_type = {"soan": "soan_hang", "ban": "ban_hd", "giao": "giao_hang", "nop": "nop_tien", "nop-tien": "nop_tien"}.get(task_type, task_type)
     task_names = {"soan_hang": "soạn hàng", "ban_hd": "bán HĐ", "giao_hang": "giao hàng", "nop_tien": "nộp tiền"}
     set_task_status(conn, thread_id, internal_type, user_id, done=done, note=note)
-    if internal_type == "giao_hang" and done:
-        from nop_tien_reminder import start_reminder
-        start_reminder(thread_id)
+    if internal_type == "giao_hang":
+        from nop_tien_reminder import start_reminder, stop_reminder
+        if done:
+            start_reminder(thread_id)
+        else:
+            stop_reminder(thread_id)
     actor = "Hệ thống"
     if user_id:
         try:
@@ -78,6 +81,9 @@ async def api_task_status_clear_handler(request: web.Request):
     conn = _get_connection()
     if not clear_task_status(conn, thread_id, task_type, user_id):
         return web.json_response({"ok": False, "error": "Order not found or clear failed"}, status=404)
+    if task_type == "giao_hang":
+        from nop_tien_reminder import stop_reminder
+        stop_reminder(thread_id)
     row = conn.execute("SELECT channel_id, message_id FROM orders WHERE thread_id = ?", (thread_id,)).fetchone()
     if row and row["channel_id"] and row["message_id"]:
         spawn_tracked("order.refresh", refresh_order_bg(conn, thread_id, row["channel_id"], row["message_id"]), {"thread_id": thread_id, "channel_id": row["channel_id"], "message_id": row["message_id"]})

@@ -28,6 +28,9 @@ def register_order_commands_clear(client, db_conn):
             await client.send_message(msg.chat_id, "❌ Không xác định được thread_id. Dùng lệnh này trong topic đơn hàng.", reply_to=msg.id)
             return
         if clear_task_status(db_conn, thread_id, task_type, getattr(msg, "sender_id", None)):
+            if task_type == "giao_hang":
+                from nop_tien_reminder import stop_reminder
+                stop_reminder(thread_id)
             await client.send_message(msg.chat_id, CLEAR_REPLIES.get(task_type, "♻️ Đã đặt lại trạng thái"), reply_to=msg.id)
             notify_refresh(client, db_conn, thread_id)
         else:

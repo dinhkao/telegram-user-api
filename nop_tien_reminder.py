@@ -3,6 +3,7 @@
 Khi giao hang duoc danh dau done, bat dau timer:
 - Check sau 15 phut, neu nop_tien chua done -> gui tin nhan cho Duy
 - Lap lai moi 15 phut cho den khi nop_tien done hoac order bi xoa
+- Neu giao hang bi undo, cancel timer ngay lap tuc
 """
 
 import asyncio
@@ -13,17 +14,26 @@ from server_app import state
 
 log = logging.getLogger("nop_tien_reminder")
 
-# Tranh start nhieu timer cho cung 1 order
-_active: set[int] = set()
+# Luu Task de co cancel ngay khi giao hang bi undo
+_tasks: dict[int, asyncio.Task] = {}
 
 
 def start_reminder(thread_id: int):
     """Goi khi giao hang done. Start background loop reminder."""
-    if thread_id in _active:
+    if thread_id in _tasks:
         log.debug("reminder already active for order %d", thread_id)
         return
-    _active.add(thread_id)
-    asyncio.create_task(_reminder_loop(thread_id), name=f"nop_tien_reminder_{thread_id}")
+    task = asyncio.create_task(_reminder_loop(thread_id),
+                               name=f"nop_tien_reminder_{thread_id}")
+    _tasks[thread_id] = task
+
+
+def stop_reminder(thread_id: int):
+    """Goi khi giao hang bi undo. Huy timer ngay."""
+    task = _tasks.pop(thread_id, None)
+    if task:
+        task.cancel()
+        log.info("cancelled reminder for order %d", thread_id)
 
 
 async def _reminder_loop(thread_id: int):
@@ -46,7 +56,8 @@ async def _reminder_loop(thread_id: int):
 
             duy_id = state.duy_user_id
             if not duy_id:
-                log.warning("duy_user_id not set — skip reminder order=%d", thread_id)
+                log.warning("duy_user_id not set — skip reminder order=%d",
+                            thread_id)
                 return
 
             customer = order.get("khach_hang", order.get("name", "?"))
@@ -64,5 +75,8 @@ async def _reminder_loop(thread_id: int):
                 log.info("sent reminder to Duy for order %d", thread_id)
             except Exception as e:
                 log.error("failed send reminder order %d: %s", thread_id, e)
+    except asyncio.CancelledError:
+        log.info("reminder cancelled for order %d", thread_id)
+        raise
     finally:
-        _active.discard(thread_id)
+        _tasks.pop(thread_id, None)
