@@ -2,7 +2,7 @@
 from bot_core import config, db, keyboards
 from bot_core.utils import post_json
 from bot_core.store import reset_timer
-from ._helpers import log
+from ._helpers import log, ORDER_API_BASE
 
 
 async def handle_get_html(bot, event, s):
@@ -32,13 +32,13 @@ async def handle_confirm_print_text(bot, event, s, text):
         caption = "Đã gửi lệnh in hoá đơn"
         if not s.thread_id:
             await event.reply("Không lấy được thread_id để in hoá đơn")
-            from bot_core.handlers import send_help
+            from bot_handlers import send_help
             await send_help(bot, s.chat_id, s)
             return
         try:
             await event.reply("Đang in hóa đơn giao hàng...")
             resp = await post_json(
-                f"http://127.0.0.1:8090/api/order/print-giao",
+                f"{ORDER_API_BASE}/api/order/print-giao",
                 {"thread_id": s.thread_id, "channel_id": config.GROUP_CHAT_ID},
             )
             if resp and resp.get("ok"):
@@ -59,12 +59,12 @@ async def handle_confirm_print_text(bot, event, s, text):
                 s.task_status = fresh.get("task_status")
         except Exception:
             pass
-        from bot_core.handlers import send_help
+        from bot_handlers import send_help
         await send_help(bot, s.chat_id, s, caption=caption)
         return
     if txt == "không":
         s.confirm_print = None
-        from bot_core.handlers import send_help
+        from bot_handlers import send_help
         await send_help(bot, s.chat_id, s)
         return
     # Re-prompt

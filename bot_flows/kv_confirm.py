@@ -11,7 +11,7 @@ async def handle_kv_confirm_text(bot, event, s, text):
         return
     if txt == "không, quay lại":
         s.confirm_kv = None
-        from bot_core.handlers import send_help
+        from bot_handlers import send_help
         await send_help(bot, s.chat_id, s)
         return
     reset_timer(s.chat_id)

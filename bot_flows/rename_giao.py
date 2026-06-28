@@ -11,7 +11,7 @@ async def handle_rename_text(bot, event, s, text):
         return
     if is_cancel(text) or _norm(text) == "quay lai, khong sua nua":
         s.awaiting_rename = False
-        from bot_core.handlers import send_help
+        from bot_handlers import send_help
         await send_help(bot, s.chat_id, s)
         return
 
@@ -39,7 +39,7 @@ async def handle_rename_text(bot, event, s, text):
             "user_id": s.user_id,
         })
         s.last_text = text
-        from bot_core.handlers import send_help
+        from bot_handlers import send_help
         await send_help(bot, s.chat_id, s)
         await event.reply("Đã cập nhật tên đơn hàng")
     except Exception as e:
@@ -78,7 +78,7 @@ async def handle_giao_confirm_text(bot, event, s, text):
             except Exception:
                 pass
             await event.reply("✅ Đã đánh dấu giao hàng.")
-            from bot_core.handlers import send_help
+            from bot_handlers import send_help
             await send_help(bot, s.chat_id, s)
         except Exception as e:
             log.error("giao error: %s", e)
@@ -86,7 +86,7 @@ async def handle_giao_confirm_text(bot, event, s, text):
         return
     if txt == "không":
         s.confirm_giao = None
-        from bot_core.handlers import send_help
+        from bot_handlers import send_help
         await send_help(bot, s.chat_id, s)
         return
     await event.reply(
