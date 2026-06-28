@@ -20,7 +20,10 @@ def _get_app():
     cred_file = os.getenv("FIREBASE_PNG_CRED_FILE", "")
     if not cred_file or not os.path.exists(cred_file):
         fallbacks = [
-            os.getenv("FIREBASE_CRED_FILE", ""),
+            os.getenv("FIREBASE_CRED_FILE",
+                      os.path.expanduser(
+                          "~/letrang-db/lt-4-asia-backup-firebase-adminsdk-fbsvc-455a8e080f.json"
+                      )),
             os.path.join(os.path.dirname(os.path.dirname(__file__)),
                          "lt-4-asia-firebase-adminsdk-h742l-dd613bfebd.json"),
         ]
