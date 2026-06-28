@@ -15,6 +15,7 @@ RESULT_CACHE: dict[str, dict] = {}
 _client: "TelegramClient | None" = None
 _tg_gateway: "TelegramGateway | None" = None
 _donhang_db: "DonHangDB | None" = None
+duy_user_id: int | None = None
 
 
 def set_client(client):
@@ -30,4 +31,9 @@ def set_gateway(gateway):
 def set_donhang_db(db):
     global _donhang_db
     _donhang_db = db
+
+
+def set_duy_user_id(user_id: int):
+    global duy_user_id
+    duy_user_id = user_id
 

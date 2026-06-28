@@ -34,6 +34,9 @@ def register_order_commands_done(client, db_conn):
         sender_id = getattr(msg, "sender_id", None)
         user_name = await resolve_user_name(client, sender_id)
         if set_task_status(db_conn, thread_id, task_type, sender_id):
+            if task_type == "giao_hang":
+                from nop_tien_reminder import start_reminder
+                start_reminder(thread_id)
             if task_type == "soan_hang":
                 try:
                     await client.send_message(msg.chat_id, reply_text.format(user=user_name), reply_to=msg.id, buttons=[[Button.inline("A", "soan_test_a"), Button.inline("B", "soan_test_b")]])

@@ -44,6 +44,9 @@ async def api_task_handler_impl(body: dict):
     internal_type = {"soan": "soan_hang", "ban": "ban_hd", "giao": "giao_hang", "nop": "nop_tien", "nop-tien": "nop_tien"}.get(task_type, task_type)
     task_names = {"soan_hang": "soạn hàng", "ban_hd": "bán HĐ", "giao_hang": "giao hàng", "nop_tien": "nộp tiền"}
     set_task_status(conn, thread_id, internal_type, user_id, done=done, note=note)
+    if internal_type == "giao_hang" and done:
+        from nop_tien_reminder import start_reminder
+        start_reminder(thread_id)
     actor = "Hệ thống"
     if user_id:
         try:
