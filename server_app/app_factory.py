@@ -56,4 +56,15 @@ def create_app():
     r.add_post("/api/customer/price", api_customer_price_handler)
     r.add_post("/api/order/{id}/task_status/clear", api_task_status_clear_handler)
     r.add_post("/api/order/print-giao", api_print_giao_handler)
+
+    async def _reminder_stop_handler(request: web.Request):
+        from nop_tien_reminder import stop_reminder
+        thread_id_str = request.match_info.get("id", "")
+        try:
+            stop_reminder(int(thread_id_str))
+            return web.json_response({"ok": True})
+        except (ValueError, TypeError):
+            return web.json_response({"ok": False, "error": "invalid thread_id"}, status=400)
+    r.add_post("/api/reminder/stop/{id}", _reminder_stop_handler)
+
     return app

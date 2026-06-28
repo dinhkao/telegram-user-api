@@ -22,7 +22,8 @@ def _get_app():
         log.warning("Firebase PNG credential not found: %s", cred_file)
         return None
     db_url = os.getenv("FIREBASE_PNG_DATABASE_URL",
-                       "https://lt-4-asia-default-rtdb.asia-southeast1.firebasedatabase.app")
+                       os.getenv("FIREBASE_DATABASE_URL",
+                       "https://lt-4-asia-default-rtdb.asia-southeast1.firebasedatabase.app"))
     _app = firebase_admin.initialize_app(credentials.Certificate(cred_file), {"databaseURL": db_url}, name="png_print")
     log.info("Firebase PNG/Print initialized: %s", db_url)
     return _app
