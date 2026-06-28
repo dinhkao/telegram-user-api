@@ -8,8 +8,16 @@ from bot_core.utils import esc_html
 
 log = logging.getLogger("bot.handlers")
 
+MAX_CACHE = 500
+
 _search_state: dict[int, str] = {}
 _search_page: dict[int, int] = {}
+
+def _cleanup_cache(cache: dict, maxsize: int = MAX_CACHE):
+    if len(cache) > maxsize:
+        keys = list(cache.keys())[:len(cache) - maxsize]
+        for k in keys:
+            del cache[k]
 
 
 async def _send_search_page(bot, event, page: int, keyword: str, edit: bool = False):
@@ -23,6 +31,8 @@ async def _send_search_page(bot, event, page: int, keyword: str, edit: bool = Fa
                 await event.reply("Không tìm thấy đơn hàng nào.")
             return
 
+        _cleanup_cache(_search_state)
+        _cleanup_cache(_search_page)
         _search_state[event.chat_id] = keyword
         total_pages = (total + 9) // 10
         buttons = []

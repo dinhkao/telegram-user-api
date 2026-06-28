@@ -1,12 +1,11 @@
 """bot_handlers/action_handlers.py — Handle action buttons & flow delegation."""
 import logging
 from bot_core import config, db, store
-from bot_core.utils import post_json
+from bot_core.utils import mark_task
 import bot_flows as flows
 from .session import send_help
 
 log = logging.getLogger("bot.handlers")
-ORDER_API_BASE = config.ORDER_API_BASE
 
 async def handle_action(bot, event, s, text, uid):
     from bot_core import keyboards
@@ -54,6 +53,8 @@ async def _handle_clear(s, uid, key, event):
         await event.reply(f"Chỉ {by_name} mới có thể huỷ.")
         return
     if s.thread_id:
+        from bot_core.utils import post_json
+        from bot_flows._helpers import ORDER_API_BASE
         try:
             await post_json(f"{ORDER_API_BASE}/api/order/{s.thread_id}/task_status/clear", {"type": key})
             fresh = db.get_order_by_thread(s.thread_id)
@@ -67,20 +68,6 @@ async def _handle_action_button(bot, event, s, uid, step, text):
     if step == "ban":
         await event.reply("Bấm vào Xem hóa đơn → Cập nhật hóa đơn")
         return
-    if step == "giao":
-        if not s.thread_id:
-            await event.reply("Không lấy được thread_id.")
-            return
-        try:
-            await post_json(f"{ORDER_API_BASE}/api/order/giao", {"thread_id": s.thread_id, "user_id": uid})
-            fresh = db.get_order_by_thread(s.thread_id)
-            if fresh:
-                s.task_status = fresh.get("task_status")
-            await event.reply("✅ Đã đánh dấu giao hàng.")
-            await send_help(bot, event.chat_id, s)
-        except Exception as e:
-            await event.reply(f"Thao tác thất bại: {e}")
-        return
     if step == "nop-tien":
         await flows.start_nop_wizard(bot, event, s)
         return
@@ -90,12 +77,9 @@ async def _handle_action_button(bot, event, s, uid, step, text):
     if not s.thread_id:
         await event.reply("Không lấy được thread_id.")
         return
-    try:
-        await post_json(f"{ORDER_API_BASE}/api/order/{step}", {"thread_id": s.thread_id, "user_id": uid})
-        fresh = db.get_order_by_thread(s.thread_id)
-        if fresh:
-            s.task_status = fresh.get("task_status")
+    ok = await mark_task(s, step, uid)
+    if ok:
         await event.reply(f"✅ Đã đánh dấu {text}.")
         await send_help(bot, event.chat_id, s)
-    except Exception as e:
-        await event.reply(f"Thao tác thất bại: {e}")
+    else:
+        await event.reply(f"Thao tác thất bại.")

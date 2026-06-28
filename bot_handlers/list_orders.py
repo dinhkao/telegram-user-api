@@ -5,7 +5,14 @@ from bot_core import config, db
 from bot_core.utils import esc_html
 
 log = logging.getLogger("bot.handlers")
+MAX_CACHE = 500
 _list_state: dict[int, int] = {}
+
+def _cleanup_cache(cache: dict, maxsize: int = MAX_CACHE):
+    if len(cache) > maxsize:
+        keys = list(cache.keys())[:len(cache) - maxsize]
+        for k in keys:
+            del cache[k]
 
 async def _send_list_page(bot, event, chat_id, page=1, edit=False):
     try:
@@ -17,6 +24,7 @@ async def _send_list_page(bot, event, chat_id, page=1, edit=False):
             else:
                 await event.reply(msg)
             return
+        _cleanup_cache(_list_state)
         _list_state[chat_id] = page
         total_pages = (total + 9) // 10
         buttons = []

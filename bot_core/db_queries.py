@@ -4,29 +4,24 @@ from datetime import datetime, timedelta, timezone
 
 
 def get_orders_without_giao(conn, limit: int = 5) -> list[dict]:
-    """Get last N orders without giao_hang completed."""
     rows = conn.execute(
         "SELECT json FROM orders WHERE deleted_at IS NULL "
-        "AND thread_id IS NOT NULL "
-        "AND thread_id < 1000000000 "
+        "AND thread_id IS NOT NULL AND thread_id < 1000000000 "
         "AND json_extract(json, '$.text') IS NOT NULL "
         "AND json_extract(json, '$.text') != '' "
         "AND lower(json_extract(json, '$.text')) NOT LIKE 'test%' "
         "AND (json_extract(json, '$.task_status.giao_hang.done') IS NULL "
         "     OR json_extract(json, '$.task_status.giao_hang.done') != 1) "
-        "ORDER BY thread_id DESC LIMIT ?",
-        (limit,),
+        "ORDER BY thread_id DESC LIMIT ?", (limit,)
     ).fetchall()
     return [json.loads(r[0]) for r in rows if r]
 
 
-def get_orders_without_giao_paginated(conn, page: int = 1, per_page: int = 10, days: int = 30):
-    """Get orders without giao_hang, created in last N days. Returns (orders, total)."""
+def get_orders_without_giao_paginated(conn, page=1, per_page=10, days=30):
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
     base = (
         "FROM orders WHERE deleted_at IS NULL "
-        "AND thread_id IS NOT NULL "
-        "AND thread_id < 1000000000 "
+        "AND thread_id IS NOT NULL AND thread_id < 1000000000 "
         "AND json_extract(json, '$.text') IS NOT NULL "
         "AND json_extract(json, '$.text') != '' "
         "AND lower(json_extract(json, '$.text')) NOT LIKE 'test%' "
@@ -37,53 +32,51 @@ def get_orders_without_giao_paginated(conn, page: int = 1, per_page: int = 10, d
     total = conn.execute(f"SELECT COUNT(*) {base}", (cutoff,)).fetchone()[0]
     rows = conn.execute(
         f"SELECT json {base} ORDER BY thread_id DESC LIMIT ? OFFSET ?",
-        (cutoff, per_page, (page - 1) * per_page),
+        (cutoff, per_page, (page - 1) * per_page)
     ).fetchall()
     return [json.loads(r[0]) for r in rows if r], total
 
 
-def get_orders_without_nop(conn, page: int = 1, per_page: int = 10):
-    """Orders where nop_tien OR nhan_tien NOT done, created after 2026-04-01."""
+def get_orders_without_nop(conn, page=1, per_page=10):
     base = (
         "FROM orders WHERE deleted_at IS NULL "
-        "AND thread_id IS NOT NULL "
-        "AND thread_id < 1000000000 "
+        "AND thread_id IS NOT NULL AND thread_id < 1000000000 "
         "AND json_extract(json, '$.text') IS NOT NULL "
         "AND json_extract(json, '$.text') != '' "
         "AND lower(json_extract(json, '$.text')) NOT LIKE 'test%' "
         "AND json_extract(json, '$.created') >= '2026-04-01' "
-        "AND ("
-        "     json_extract(json, '$.task_status.nop_tien.done') IS NULL "
+        "AND (json_extract(json, '$.task_status.nop_tien.done') IS NULL "
         "     OR json_extract(json, '$.task_status.nop_tien.done') != 1 "
         "     OR json_extract(json, '$.task_status.nhan_tien.done') IS NULL "
-        "     OR json_extract(json, '$.task_status.nhan_tien.done') != 1"
-        ") "
+        "     OR json_extract(json, '$.task_status.nhan_tien.done') != 1) "
     )
     total = conn.execute(f"SELECT COUNT(*) {base}").fetchone()[0]
     rows = conn.execute(
         f"SELECT json {base} ORDER BY thread_id DESC LIMIT ? OFFSET ?",
-        (per_page, (page - 1) * per_page),
+        (per_page, (page - 1) * per_page)
     ).fetchall()
     return [json.loads(r[0]) for r in rows if r], total
 
 
-def search_orders(conn, keyword: str, page: int = 1, per_page: int = 10):
-    """Search orders by keyword (accent-insensitive) created after 2026-04-01."""
+def search_orders(conn, keyword: str, page=1, per_page=10):
+    """Search orders with SQL pre-filter then Python accent-insensitive match."""
     from bot_core.utils import _norm
     norm_kw = _norm(keyword)
+    # SQL pre-filter: basic LIKE on raw text to reduce rows
+    like_pattern = f"%{keyword[:20]}%"
     rows = conn.execute(
         "SELECT json FROM orders WHERE deleted_at IS NULL "
         "AND thread_id IS NOT NULL "
         "AND json_extract(json, '$.text') IS NOT NULL "
         "AND json_extract(json, '$.text') != '' "
         "AND json_extract(json, '$.created') >= '2026-04-01' "
-        "ORDER BY thread_id DESC"
+        "AND json_extract(json, '$.text') LIKE ? "
+        "ORDER BY thread_id DESC", (like_pattern,)
     ).fetchall()
     matched = []
     for r in rows:
         o = json.loads(r[0])
-        text = o.get("text", "")
-        if norm_kw in _norm(text):
+        if norm_kw in _norm(o.get("text", "")):
             matched.append(o)
     total = len(matched)
     start = (page - 1) * per_page
