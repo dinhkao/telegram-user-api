@@ -7,7 +7,7 @@ from telethon.tl.types import MessageService
 
 from bot_core import config, db, keyboards, store
 from bot_core.utils import mark_once, post_json, is_cancel
-from bot_flows import flows
+import bot_flows as flows
 from .session import send_help
 from .search_list import _send_list_page, _send_search_page, _send_order_detail, _search_state, _search_page, _list_state
 from .start_steps import register_start, register_steps

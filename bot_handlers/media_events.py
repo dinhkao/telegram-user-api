@@ -5,7 +5,7 @@ from telethon import events
 
 from bot_core import config, db, store
 from bot_core.utils import post_json
-from bot_flows import flows
+import bot_flows as flows
 from .session import send_help
 
 log = logging.getLogger("bot.handlers")
