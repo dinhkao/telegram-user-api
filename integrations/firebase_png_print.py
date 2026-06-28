@@ -15,7 +15,7 @@ def _get_app():
     from firebase_admin import credentials
 
     cred_file = os.getenv("FIREBASE_PNG_CRED_FILE", os.path.join(
-        os.path.dirname(__file__),
+        os.path.dirname(os.path.dirname(__file__)),
         "lt-4-asia-firebase-adminsdk-h742l-dd613bfebd.json",
     ))
     if not os.path.exists(cred_file):
