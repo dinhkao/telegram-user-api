@@ -7,7 +7,7 @@ def format_search_results(results: list[dict]) -> str:
     lines = [f"🔍 <b>Tìm thấy {len(results)} khách hàng:</b>", ""]
     for c in results:
         name = c.get("name", "N/A")
-        firebase_key = name.lower().replace(" ", "_")
+        firebase_key = c.get("_firebase_key") or name.lower().replace(" ", "_")
         kv_id = c.get("kh_id") or c.get("kiotvietID") or ""
         note = c.get("note") or c.get("ghi_chu") or ""
         extra = f" | KV: {kv_id}" if kv_id else ""

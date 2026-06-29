@@ -8,14 +8,16 @@ from .search import _invalidate_customer_patterns_cache
 def search_customers(conn, name: str, limit: int = 20) -> list[dict]:
     pattern = f"%{name}%"
     results = []
-    for (json_text,) in conn.execute(
-        """SELECT json FROM customers WHERE deleted_at IS NULL
+    for firebase_key, json_text in conn.execute(
+        """SELECT firebase_key, json FROM customers WHERE deleted_at IS NULL
            AND (json LIKE ? OR firebase_key LIKE ?)
            ORDER BY firebase_key LIMIT ?""",
         (pattern, pattern, limit),
     ):
         try:
-            results.append(json.loads(json_text))
+            data = json.loads(json_text)
+            data["_firebase_key"] = firebase_key
+            results.append(data)
         except json.JSONDecodeError:
             continue
     return results
