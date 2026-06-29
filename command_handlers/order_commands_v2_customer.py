@@ -13,6 +13,7 @@ from order_db import _get_connection, add_customer, update_customer
 from order_store.customers import search_customers
 
 from .order_commands_v2_delete import handle_delete
+from .order_commands_v2_customer_search import format_not_found, format_search_results
 from .order_commands_v2_utils import assign_customer, call_final, generate_customer_html
 from .thread_utils import extract_thread_id
 
@@ -48,17 +49,9 @@ def register_order_commands_v2_customer(client):
             if query:
                 results = search_customers(db_conn, query, limit=10)
                 if not results:
-                    await client.send_message(msg.chat_id, f"❌ Không tìm thấy khách hàng nào tên '{query}'", reply_to=msg.id)
+                    await client.send_message(msg.chat_id, format_not_found(query), reply_to=msg.id)
                 else:
-                    lines = [f"🔍 <b>Tìm thấy {len(results)} khách hàng:</b>", ""]
-                    for c in results:
-                        name = c.get("name", "N/A")
-                        kv_id = c.get("kh_id") or c.get("kiotvietID") or ""
-                        note = c.get("note") or c.get("ghi_chu") or ""
-                        extra = f" | KV: {kv_id}" if kv_id else ""
-                        extra += f" | {note}" if note else ""
-                        lines.append(f"• <b>{name}</b> — <code>add khach hang {name}</code>{extra}")
-                    await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
+                    await client.send_message(msg.chat_id, format_search_results(results), reply_to=msg.id, parse_mode="html")
                 return
             if extract_thread_id(msg):
                 await _send_customer_file(client, msg, db_conn)
