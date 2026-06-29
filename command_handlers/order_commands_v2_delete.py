@@ -4,7 +4,8 @@ import logging
 import os
 
 from kiotviet import delete_invoice_kv, get_customer_debt_kv
-from order_db import _save_order, clear_task_status, delete_order, get_customer_by_key, get_order_by_thread_id
+from order_db import _save_order, delete_order, get_customer_by_key, get_order_by_thread_id
+from order_store.tasks import set_task_status
 from .order_commands_v2_delete_debt import update_debt_and_notify
 from .order_commands_v2_delete_refresh import refresh_after_soft_delete
 from .order_commands_v2_utils import refresh_main_msg
@@ -47,7 +48,7 @@ async def handle_delete(client, msg, db_conn):
         return True
     await status_msg.edit("⏳ Đang cập nhật dữ liệu đơn hàng...")
     _clear_invoice_fields(db_conn, thread_id, order)
-    clear_task_status(db_conn, thread_id, "ban_hd", user_id)
+    set_task_status(db_conn, thread_id, "ban_hd", user_id, done=False)
     if order.get("channel_id") and order.get("message_id"):
         await status_msg.edit("⏳ Đang làm mới tin nhắn đơn hàng...")
         await refresh_main_msg(client, db_conn, thread_id, order["channel_id"], order["message_id"])
