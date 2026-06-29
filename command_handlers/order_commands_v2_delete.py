@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import html as _html
 import logging
 import os
 
 from kiotviet import delete_invoice_kv, get_customer_debt_kv
 from order_db import _save_order, clear_task_status, delete_order, get_customer_by_key, get_order_by_thread_id
+from .order_commands_v2_delete_debt import update_debt_and_notify
+from .order_commands_v2_delete_refresh import refresh_after_soft_delete
 from .order_commands_v2_utils import refresh_main_msg
 from .thread_utils import extract_thread_id
 log = logging.getLogger("order_commands_v2")
@@ -20,8 +21,12 @@ async def handle_delete(client, msg, db_conn):
         await client.send_message(msg.chat_id, "❌ Dùng lệnh này trong topic đơn hàng", reply_to=msg.id)
         return True
     if text == "del":
-        _, message = delete_order(db_conn, thread_id)
+        ok, message = delete_order(db_conn, thread_id)
         await client.send_message(msg.chat_id, message, reply_to=msg.id)
+        if ok:
+            deleted_order = get_order_by_thread_id(db_conn, thread_id)
+            if deleted_order:
+                await refresh_after_soft_delete(client, db_conn, thread_id, deleted_order)
         return True
     user_id = getattr(msg, "sender_id", None)
     status_msg = await client.send_message(msg.chat_id, "⏳ Đang kiểm tra đơn hàng...", reply_to=msg.id)
@@ -34,67 +39,45 @@ async def handle_delete(client, msg, db_conn):
         await status_msg.edit("❌ Đơn hàng chưa có hóa đơn KiotViet")
         return True
     kh_id_fb = order.get("khach_hang_id") or order.get("khID")
-    old_debt = None
-    if kh_id_fb:
-        try:
-            customer = get_customer_by_key(db_conn, str(kh_id_fb))
-            kv_id = customer.get("kh_id") if customer else None
-            if kv_id:
-                old_debt = get_customer_debt_kv(kv_id).get("debt", 0)
-        except Exception:
-            pass
+    old_debt = _fetch_old_debt(db_conn, kh_id_fb)
     await status_msg.edit(f"⏳ Đang xóa hóa đơn KiotViet #{invoice_id}...")
-    try:
-        delete_invoice_kv(invoice_id)
-    except Exception as e:
-        log.error("delete_invoice_kv failed thread=%d invoice=%s: %s", thread_id, invoice_id, e)
-        await status_msg.edit(f"❌ Lỗi kết nối KiotViet: {e}")
+    ok, err = await _delete_kv_invoice(invoice_id)
+    if not ok:
+        await status_msg.edit(f"❌ Lỗi kết nối KiotViet: {err}")
         return True
     await status_msg.edit("⏳ Đang cập nhật dữ liệu đơn hàng...")
-    order.update({"kiotvietInvoiceID": None, "kiotvietInvoiceCode": None, "invoice_debt_snapshot": None, "nguoi_tao_HD": None})
-    _save_order(db_conn, thread_id, order)
+    _clear_invoice_fields(db_conn, thread_id, order)
     clear_task_status(db_conn, thread_id, "ban_hd", user_id)
     if order.get("channel_id") and order.get("message_id"):
         await status_msg.edit("⏳ Đang làm mới tin nhắn đơn hàng...")
         await refresh_main_msg(client, db_conn, thread_id, order["channel_id"], order["message_id"])
-    debt_lines = []
-    if kh_id_fb:
-        try:
-            customer2 = get_customer_by_key(db_conn, str(kh_id_fb))
-            kv_id2 = customer2.get("kh_id") if customer2 else None
-            if kv_id2:
-                await status_msg.edit("⏳ Đang cập nhật công nợ khách hàng...")
-                new_debt = None
-                for attempt in range(1, 6):
-                    try:
-                        new_debt = get_customer_debt_kv(kv_id2).get("debt", 0)
-                    except Exception:
-                        pass
-                    if old_debt is None or new_debt is None or new_debt != old_debt or attempt == 5:
-                        break
-                    import asyncio
-
-                    await asyncio.sleep(1.2 * attempt)
-                if new_debt is not None:
-                    order["khDebt"] = new_debt
-                    _save_order(db_conn, thread_id, order)
-                    if old_debt is not None:
-                        delta = new_debt - old_debt
-                        debt_lines.append(f"💰 Nợ: {old_debt:,}đ → {new_debt:,}đ ({delta:+,}đ)")
-                    else:
-                        debt_lines.append(f"💰 Nợ: {new_debt:,}đ")
-                    order_group_str = str(ORDER_GROUP_ID)
-                    internal_id = order_group_str[4:] if order_group_str.startswith("-100") else str(abs(ORDER_GROUP_ID))
-                    order_topic_url = f"https://t.me/c/{internal_id}/{thread_id}"
-                    title = _html.escape(str(order.get("text") or f"Đơn hàng #{thread_id}"))
-                    note = f'🗑️ Xóa hoá đơn của <a href="{order_topic_url}">{title}</a>'
-                    if old_debt is not None:
-                        note += f"\nNợ cũ: {old_debt:,}đ\nNợ mới: {new_debt:,}đ ({delta:+,}đ)"
-                    try:
-                        await client.send_message(ORDER_GROUP_ID, note, parse_mode="html", message_thread_id=int(kh_id_fb))
-                    except Exception as e2:
-                        log.warning("Customer topic notify failed: %s", e2)
-        except Exception as e3:
-            log.warning("Debt update after invoice delete failed: %s", e3)
+    debt_lines = await update_debt_and_notify(client, db_conn, thread_id, order, kh_id_fb, old_debt)
     await status_msg.edit("✅ Xóa hoá đơn KiotViet thành công!" + ("\n" + "\n".join(debt_lines) if debt_lines else ""))
     return True
+
+
+def _fetch_old_debt(db_conn, kh_id_fb):
+    if not kh_id_fb:
+        return None
+    try:
+        customer = get_customer_by_key(db_conn, str(kh_id_fb))
+        kv_id = customer.get("kh_id") if customer else None
+        if kv_id:
+            return get_customer_debt_kv(kv_id).get("debt", 0)
+    except Exception:
+        pass
+    return None
+
+
+async def _delete_kv_invoice(invoice_id):
+    try:
+        delete_invoice_kv(invoice_id)
+        return True, None
+    except Exception as e:
+        log.error("delete_invoice_kv failed invoice=%s: %s", invoice_id, e)
+        return False, e
+
+
+def _clear_invoice_fields(db_conn, thread_id, order):
+    order.update({"kiotvietInvoiceID": None, "kiotvietInvoiceCode": None, "invoice_debt_snapshot": None, "nguoi_tao_HD": None})
+    _save_order(db_conn, thread_id, order)
