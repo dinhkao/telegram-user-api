@@ -7,7 +7,7 @@ from telethon import events
 from bot_core import config
 from bot_core.utils import esc_html, mark_once
 from .sheets_helpers import fetch_orders_by_tag, chunk_lines
-from .chua_nop import _send_chua_nop_page
+from .chua_nop import _send_chua_nop_page, _send_chua_nop_table
 
 log = logging.getLogger("bot.handlers")
 
@@ -68,7 +68,20 @@ def register_sheet_commands(bot):
             return
         await _send_chua_nop_page(bot, event, 1)
 
+    @bot.on(events.NewMessage(pattern=r"^/chua_nop_table\b"))
+    async def h(event):
+        if not mark_once(event):
+            return
+        if not config.is_allowed(event.sender_id):
+            return
+        await _send_chua_nop_table(bot, event, 1)
+
     @bot.on(events.CallbackQuery(data=re.compile(rb"^chuanop:\d+$")))
     async def on_chua_nop_page(event):
         page = int(event.data.decode().split(":")[1])
         await _send_chua_nop_page(bot, event, page, edit=True)
+
+    @bot.on(events.CallbackQuery(data=re.compile(rb"^chuanopt:\d+$")))
+    async def on_chua_nop_table_page(event):
+        page = int(event.data.decode().split(":")[1])
+        await _send_chua_nop_table(bot, event, page, edit=True)

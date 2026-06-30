@@ -44,11 +44,9 @@ def get_orders_without_nop(conn, page=1, per_page=10):
         "AND json_extract(json, '$.text') IS NOT NULL "
         "AND json_extract(json, '$.text') != '' "
         "AND lower(json_extract(json, '$.text')) NOT LIKE 'test%' "
-        "AND json_extract(json, '$.created') >= '2026-04-01' "
-        "AND (json_extract(json, '$.task_status.nop_tien.done') IS NULL "
-        "     OR json_extract(json, '$.task_status.nop_tien.done') != 1 "
-        "     OR json_extract(json, '$.task_status.nhan_tien.done') IS NULL "
-        "     OR json_extract(json, '$.task_status.nhan_tien.done') != 1) "
+        "AND order_created >= '2026-04-01' "
+        "AND nop_nhan_done = 0 "
+        "AND json_extract(json, '$.task_status.giao_hang.done') = 1 "
     )
     total = conn.execute(f"SELECT COUNT(*) {base}").fetchone()[0]
     rows = conn.execute(

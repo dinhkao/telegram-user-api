@@ -10,7 +10,28 @@ def _conn():
         _db_local.conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
         for pragma in ["journal_mode = WAL", "synchronous = NORMAL", "foreign_keys = ON", "busy_timeout = 5000"]:
             _db_local.conn.execute(f"PRAGMA {pragma}")
+        _migrate(_db_local.conn)
     return _db_local.conn
+
+
+def _migrate(conn):
+    # Generated columns (hidden=2) only seen in table_xinfo, not table_info
+    hidden = [r[1] for r in conn.execute("PRAGMA table_xinfo(orders)").fetchall() if r[6] == 2]
+    if "nop_nhan_done" not in hidden:
+        conn.executescript("""
+            ALTER TABLE orders ADD COLUMN nop_nhan_done INTEGER
+                GENERATED ALWAYS AS (
+                    CASE WHEN json_extract(json, '$.task_status.nop_tien.done') = 1
+                           AND json_extract(json, '$.task_status.nhan_tien.done') = 1
+                    THEN 1 ELSE 0 END
+                ) VIRTUAL;
+            ALTER TABLE orders ADD COLUMN order_created TEXT
+                GENERATED ALWAYS AS (json_extract(json, '$.created')) VIRTUAL;
+            CREATE INDEX IF NOT EXISTS idx_orders_nop_nhan
+                ON orders(nop_nhan_done, order_created)
+                WHERE deleted_at IS NULL;
+        """)
+        conn.commit()
 
 def _fetch_one(sql, params=()):
     row = _conn().execute(sql, params).fetchone()

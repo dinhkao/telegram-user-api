@@ -16,7 +16,7 @@ def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None, *, 
     price_list = get_customer_price_list(conn, kh_id) if kh_id else {}
     cleaned = re.sub(r"[,\n]+", " ", text)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    cleaned = re.sub(r"(?i)(dm180)\s+1\s+l[ốo]c\b", r"\1 1b 12", cleaned)
+    cleaned = re.sub(r"(?i)(dm180)\s+(\d+)\s*l[ốo]c\b", r"\1 \2b 12", cleaned)
     tokens, invoice, i = cleaned.split(" "), [], 0
     while i < len(tokens):
         token_upper = tokens[i].upper()
