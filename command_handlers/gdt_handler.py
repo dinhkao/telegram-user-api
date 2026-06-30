@@ -69,7 +69,7 @@ def register_gdt_handler(client):
         customer_name = (order.get("customer_name") or order.get("kh") or "khong_ten").strip()
         safe_name = re.sub(r"[^a-zA-Z0-9\u0080-\uffff_\- ]", "", customer_name.replace(" ", "_").replace("/", "_").replace("\\", "_"))[:50] or "gdt"
         file_path = os.path.join(tempfile.gettempdir(), f"gdt_{safe_name}.html")
-        content = f"<!DOCTYPE html><html><body style='margin:0;display:flex;justify-content:center;align-items:center;height:297mm;width:80mm'><div style='writing-mode:vertical-rl;font:700 40px Arial;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:30px;text-align:center'><p style='margin:0'>Người gửi: Kẹo Lê Trang 0941 586 542</p><p style='margin:0'>Người nhận:{gdt.get('ten_gdt','')} {gdt.get('sdt_gdt','')}</p><p style='margin:0'>{gdt.get('so_thung','')} (thùng)</p><p style='margin:0'>{gdt.get('note_gdt','')}</p></div></body></html>"
+        content = f"<!DOCTYPE html><html><body style='margin:0'><div style='writing-mode:vertical-rl;font:700 40px Arial;height:297mm;width:80mm;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:30px;text-align:center'><p style='margin:0'>Người gửi: Kẹo Lê Trang 0941 586 542</p><p style='margin:0'>Người nhận:{gdt.get('ten_gdt','')} {gdt.get('sdt_gdt','')}</p><p style='margin:0'>{gdt.get('so_thung','')} (thùng)</p><p style='margin:0'>{gdt.get('note_gdt','')}</p></div></body></html>"
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
         try:
