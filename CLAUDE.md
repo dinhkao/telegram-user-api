@@ -170,10 +170,10 @@ runners.
   atomic — otherwise concurrent writers lose updates. `set_task_status` /
   `clear_task_status` already do; new mutation sites should too. See
   `docs/senior-review.md` for the phased plan to replace the blob with a typed model.
-- **The order heart has characterization tests** (`tests/test_order_store.py`).
-  Run `.venv/bin/python -m unittest discover -s tests` before/after touching
-  `order_store`. (No pytest installed — some test files are pytest-style and won't
-  run under unittest; the audit/telegram/order_store ones do.)
+- **Run the tests with `./scripts/test.sh`** (wraps pytest; auto-installs dev deps
+  from `requirements-dev.txt` on first run). 46 tests. Run before/after touching
+  `order_store` — `tests/test_order_store.py` characterizes the order heart.
+  Filter: `./scripts/test.sh -k task_status`.
 
 ---
 
