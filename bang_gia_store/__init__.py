@@ -1,3 +1,4 @@
+"""Price-slip ("bang gia") store: schema + queries -> shared SQLite (app.db)."""
 from .schema import create_bang_gia_table, migrate_bang_gia_table
 from .queries import (
     get_slip,

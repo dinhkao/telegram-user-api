@@ -1,3 +1,4 @@
+"""Production-slip ("phieu SX") store: schema + queries -> shared SQLite."""
 from .schema import create_production_table, migrate_production_table
 from .queries import (
     get_slip,

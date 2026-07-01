@@ -1,3 +1,4 @@
+"""Append-only audit-event logging (redaction, request ids) -> SQLite audit DB (SHARED_DB_PATH). Root shim: audit_log.py."""
 from __future__ import annotations
 
 from .config import DEFAULT_MAX_FIELD_CHARS, DEFAULT_SHARED_DB_PATH

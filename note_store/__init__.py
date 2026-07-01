@@ -1,3 +1,4 @@
+"""Order-note store: schema + queries (text/tags/check/del) -> shared SQLite (app.db)."""
 from .schema import create_note_table, migrate_note_table
 from .queries import (
     get_note,

@@ -1,5 +1,11 @@
 # telegram-user-api — Giải thích chi tiết toàn bộ hệ thống
 
+> ⚠️ **Một phần tài liệu này đã cũ.** Nguồn chuẩn hiện tại là `../CLAUDE.md`.
+> Thay đổi lớn: **không còn 3 process riêng** — `bot-don-hang` đã gộp vào chung
+> một process (`server.py`), chạy trên **một** Telethon user client duy nhất
+> (xem `server_app/bootstrap.py`). Các file `.py` ở thư mục gốc phần lớn là
+> **shim** re-export từ package. Đọc `CLAUDE.md` trước.
+
 ## 1. App này làm gì?
 
 Đây là hệ thống **quản lý đơn hàng qua Telegram** cho một doanh nghiệp bán sỉ bánh kẹo (Lê Trang Phát). Toàn bộ quy trình từ lúc nhận đơn, soạn hàng, giao hàng, xuất hóa đơn, thu tiền — đều diễn ra trong Telegram. App này là **phiên bản Python** đang được port dần từ Node.js, mục tiêu cuối cùng là bỏ hoàn toàn Node.js.
