@@ -9,6 +9,7 @@ from telethon.tl.types import MessageService
 
 from order_db import _get_connection, delete_all_tasks, get_all_tasks, set_order_flag, sort_tasks, migrate_tasks_to_v2
 
+from .order_commands_v2_delete_debt import update_debt_command
 from .order_commands_v2_utils import call_final, fmt_task_list
 from .thread_utils import extract_thread_id
 
@@ -61,8 +62,8 @@ def register_order_commands_v2_admin(client):
         if lower == "update debt":
             thread_id = extract_thread_id(msg)
             if thread_id:
-                result = call_final("/api/order/update-debt", {"thread_id": thread_id})
-                await client.send_message(msg.chat_id, result.get("reply", "✅ Đã cập nhật công nợ") if result else "❌ Lỗi kết nối", reply_to=msg.id)
+                reply = await update_debt_command(client, msg, db_conn, thread_id)
+                await client.send_message(msg.chat_id, reply, reply_to=msg.id)
             return
         if m := re.match(r"^date\s+(.+)$", text, re.IGNORECASE):
             thread_id = extract_thread_id(msg)
