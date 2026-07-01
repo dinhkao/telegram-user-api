@@ -13,9 +13,12 @@ def _get_app():
     if _app is not None:
         return _app
 
+    # Real creds come from .env (FIREBASE_CRED_FILE or FIREBASE_SERVICE_ACCOUNT).
+    # Default aligned with integrations/firebase_sync (no longer points into the
+    # retired final_telegram dir).
     cred_file = os.getenv(
         "FIREBASE_CRED_FILE",
-        os.path.expanduser("~/Documents/final_telegram/config/credentials/lt-4-asia-backup-firebase-adminsdk-fbsvc-455a8e080f.json"),
+        os.path.expanduser("~/letrang-db/lt-4-asia-backup-firebase-adminsdk-fbsvc-455a8e080f.json"),
     )
     if cred_file and os.path.exists(cred_file):
         cred = credentials.Certificate(cred_file)
