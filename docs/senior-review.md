@@ -137,7 +137,22 @@ trigger or a change to the **write path**, which the Node app shares → that wo
 belongs to Phase 4, not here. No safe, high-value Phase-3 change remains in the
 Python repo alone.
 
-## Phase 4 — cut the Node cord 🚧 (Python-side dependency mapped + shrinking)
+## Phase 4 — cut the Node cord ✅ (Python is Node-free)
+
+**Done (2026-07-01):** removed every Python→Node call. `get_order_html` uses the
+local renderer; the 3 Node-implemented features (`in-tam-tinh` print,
+`send-task-notification`, `auto-complete-ban-hd`) were retired with honest
+"đã ngừng" replies (user accepted dropping them; `auto-complete-ban-hd` is
+redundant — the Python `ban` command already completes `ban_hd`). Deleted
+`_call_final_telegram`, the `call_final`/`_call_final` wrappers, `FINAL_TELEGRAM_URL`,
+and all imports/exports. Verified: full live import graph loads Node-free, 85 tests
+pass. No Node process was even running — Python has been the sole live system.
+
+**Residual (optional, not blocking):** move the hardcoded Firebase cred paths
+(`bot_core/firebase_rtdb.py`, `integrations/firebase_sync/core.py`) to env; if the
+3 dropped features are wanted back, port them from the archived Node source.
+
+### Original plan (kept for context)
 
 Goal: this process owns the data + Telegram ops; retire `final_telegram`.
 

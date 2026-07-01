@@ -18,7 +18,6 @@ from order_db import (
     get_customer_kv_id,
     get_customer_by_key,
     search_products,
-    _call_final_telegram,
     set_task_status,
     _save_order,
     parse_comma_text,
@@ -51,7 +50,6 @@ from receipt_print import send_payment_receipt
 
 log = logging.getLogger("order_commands_v3")
 ORDER_GROUP_ID = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
-FINAL_TELEGRAM_URL = os.getenv("FINAL_TELEGRAM_URL", "http://localhost:3000")
 PORT = int(os.getenv("PORT", "8080"))
 API_BASE = f"http://127.0.0.1:{PORT}"
 
@@ -74,10 +72,6 @@ def _extract_thread_id(msg) -> int | None:
             if r:
                 thread_id = getattr(r, "reply_to_top_id", None)
     return thread_id
-
-
-def _call_final(endpoint: str, body: dict, timeout: int = 10) -> dict | None:
-    return _call_final_telegram(endpoint, body, timeout)
 
 
 # ── Formatting ──────────────────────────────────────────────────────
@@ -1156,12 +1150,8 @@ def register_order_commands_v3(client):
         text = (msg.text or "").strip()
         if not re.search(r"(?i)in\s+t[aạ]m\s+t[ií]nh|print\s+provisional", text):
             return
-        result = _call_final("/api/order/in-tam-tinh", {
-            "text": text,
-            "thread_id": _extract_thread_id(msg),
-        })
-        reply = result.get("reply", "✅ Đã xử lý") if result else "❌ Lỗi kết nối"
-        await client.send_message(msg.chat_id, reply, reply_to=msg.id)
+        # Node retired — "in tạm tính" do Node đảm nhiệm, đã ngừng.
+        await client.send_message(msg.chat_id, "⚠️ Tính năng in tạm tính đã ngừng (Node app đã retire).", reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def on_global_ignore_list(event):

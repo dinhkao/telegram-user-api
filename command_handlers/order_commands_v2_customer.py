@@ -14,7 +14,7 @@ from order_store.customers import search_customers
 
 from .order_commands_v2_delete import handle_delete
 from .order_commands_v2_customer_search import format_not_found, format_search_results
-from .order_commands_v2_utils import assign_customer, call_final, generate_customer_html
+from .order_commands_v2_utils import assign_customer, generate_customer_html
 from .thread_utils import extract_thread_id
 
 log = logging.getLogger("order_commands_v2")
@@ -92,8 +92,6 @@ def register_order_commands_v2_customer(client):
             await client.send_message(msg.chat_id, message, reply_to=msg.id)
             return
         if lower == "auto complete ban hd":
-            thread_id = extract_thread_id(msg)
-            if not thread_id:
-                return
-            result = call_final("/api/order/auto-complete-ban-hd", {"thread_id": thread_id})
-            await client.send_message(msg.chat_id, result.get("reply", "✅ Đã tự động hoàn thành") if result else "❌ Lỗi kết nối", reply_to=msg.id)
+            # Node retired — dùng lệnh `ban` (đã có sẵn trong Python) để đánh dấu Bán HĐ.
+            await client.send_message(msg.chat_id, "⚠️ Lệnh này đã ngừng — hãy dùng lệnh <code>ban</code> để đánh dấu Bán HĐ.", reply_to=msg.id, parse_mode="html")
+            return

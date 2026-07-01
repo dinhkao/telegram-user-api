@@ -10,7 +10,7 @@ from telethon.tl.types import MessageService
 from order_db import _get_connection, delete_all_tasks, get_all_tasks, set_order_flag, sort_tasks, migrate_tasks_to_v2
 
 from .order_commands_v2_delete_debt import update_debt_command
-from .order_commands_v2_utils import call_final, fmt_task_list
+from .order_commands_v2_utils import fmt_task_list
 from .thread_utils import extract_thread_id
 
 log = logging.getLogger("order_commands_v2")
@@ -51,8 +51,8 @@ def register_order_commands_v2_admin(client):
             await client.send_message(msg.chat_id, f"📊 <b>Thống kê task:</b>\nTổng: {total}\nV2: {v2}\nChưa xong: {incomplete}", reply_to=msg.id, parse_mode="html")
             return
         if lower == "send task notification":
-            result = call_final("/api/order/send-task-notification", {"chat_id": msg.chat_id})
-            await client.send_message(msg.chat_id, result.get("reply", "✅ Đã gửi thông báo") if result else "❌ Lỗi kết nối", reply_to=msg.id)
+            # Node retired — tính năng này do Node đảm nhiệm, đã ngừng.
+            await client.send_message(msg.chat_id, "⚠️ Tính năng này đã ngừng (Node app đã retire).", reply_to=msg.id)
             return
         if lower in {"turn on money", "turn off money"}:
             thread_id = extract_thread_id(msg)
