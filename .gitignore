@@ -26,3 +26,6 @@ dist/
 *-firebase-adminsdk-*.json
 *.db
 
+
+# Google Sheets service account (bot-nhap-phieu-sp)
+sheets_sa.json

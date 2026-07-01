@@ -49,9 +49,9 @@ async def main():
     from server_app.bot_bootstrap import start_bot
     spawn_tracked("bot.startup", start_bot(API_ID, API_HASH))
 
-    # Start Google Sheets bot (ported from bot-nhap-phieu-sp).
-    # No-op unless SHEETS_BOT_TOKEN + Google creds are configured.
+    # Start Google Sheets handlers (ported from bot-nhap-phieu-sp).
+    # Runs on the user-account client — no bot token. No-op unless Google creds set.
     from sheets_bot import start_sheets_bot
-    spawn_tracked("sheets_bot.startup", start_sheets_bot(API_ID, API_HASH))
+    spawn_tracked("sheets_bot.startup", start_sheets_bot(client))
 
     await client.run_until_disconnected()

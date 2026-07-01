@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 
 from .. import config
 
@@ -28,9 +29,18 @@ class SheetsBase:
         self._import_sheet_name = None
         self._allowed_cache = {"at": 0.0, "values": set()}
         self._global_lock = asyncio.Lock()
+        # googleapiclient's default httplib2 transport is NOT thread-safe: the
+        # service (one TLS socket) is shared across every to_thread execute().
+        # Concurrent requests corrupt the connection (SSL RECORD_LAYER_FAILURE).
+        # Serialize execute() so only one HTTP call touches the socket at a time.
+        self._http_lock = threading.Lock()
 
     async def _exec(self, request):
-        return await asyncio.to_thread(request.execute)
+        def _run():
+            with self._http_lock:
+                return request.execute()
+
+        return await asyncio.to_thread(_run)
 
     def _ss(self):
         return self.service.spreadsheets()

@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
+
 from ..clock import get_sheet_context
 from ..parse import HEADERS, a1, get_sheet_name_from_rows
+
+log = logging.getLogger("sheets_bot.sheets")
 
 
 class WriteMixin:
@@ -52,6 +57,15 @@ class WriteMixin:
                 body={"values": rows_with_ts},
             )
         )
-        await self.auto_resize_columns(sheet_id)
-        await self.sort_by_stt(sheet_id)
+        # Data is in the sheet now — the caller can reply immediately. The
+        # cosmetic resize + sort are two more serialized round-trips, so run
+        # them in the background instead of blocking the reply.
+        async def _finalize():
+            try:
+                await self.auto_resize_columns(sheet_id)
+                await self.sort_by_stt(sheet_id)
+            except Exception as err:  # noqa: BLE001
+                log.warning("append_rows finalize (resize/sort) failed: %s", err)
+
+        asyncio.create_task(_finalize())
         return {"replaced": bool(existing), "count": len(rows_with_ts)}

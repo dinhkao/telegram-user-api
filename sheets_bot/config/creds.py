@@ -18,7 +18,9 @@ log = logging.getLogger("sheets_bot.config")
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
-_lock = threading.Lock()
+# Reentrant: get_service() holds this lock and then calls get_credentials(),
+# which re-acquires it on the same thread. A plain Lock would self-deadlock.
+_lock = threading.RLock()
 _credentials = None
 _service = None
 
