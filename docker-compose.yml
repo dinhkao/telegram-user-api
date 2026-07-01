@@ -1,0 +1,24 @@
+# PostgreSQL cho telegram-user-api (portable — `docker compose up -d` là chạy).
+# Migration: docs/postgres-migration.md. Data init: migrations/pg/0001_init.sql.
+services:
+  postgres:
+    image: postgres:16
+    container_name: letrang-pg
+    environment:
+      POSTGRES_USER: letrang
+      POSTGRES_PASSWORD: letrang
+      POSTGRES_DB: app
+    ports:
+      - "5432:5432"
+    volumes:
+      - letrang_pg_data:/var/lib/postgresql/data
+      # Init tự chạy 0001_init.sql lần đầu (DB rỗng). Migrate data = tools/migrate_sqlite_to_pg.py.
+      - ./migrations/pg:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U letrang -d app"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  letrang_pg_data:

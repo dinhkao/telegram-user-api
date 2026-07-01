@@ -31,14 +31,11 @@ from .thread_utils import extract_thread_id
 log = logging.getLogger("bang_gia")
 GROUP_BANG_GIA_ID = int(os.getenv("GROUP_BANG_GIA_ID", "-1002373184927"))
 from utils.paths import SHARED_DB_PATH
+from utils.db import get_connection
 
 
 def _conn():
-    conn = sqlite3.connect(SHARED_DB_PATH, check_same_thread=False, isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA busy_timeout=5000;")
-    return conn
+    return get_connection()
 
 
 # ─── number formatting (node `toVND()` = Number(n).toLocaleString() + "đ") ──

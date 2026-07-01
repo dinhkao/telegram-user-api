@@ -26,7 +26,7 @@ def search_customers(conn, name: str, limit: int = 20) -> list[dict]:
 def add_customer(conn, customer_data: dict) -> tuple[bool, str]:
     name = customer_data.get("name") or customer_data.get("ten") or "unknown"
     firebase_key = name.lower().replace(" ", "_")
-    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = int(datetime.now(UTC).timestamp() * 1000)  # cột updated_at = epoch ms (bigint)
     try:
         conn.execute(
             """INSERT INTO customers (firebase_key, json, updated_at)
@@ -42,7 +42,7 @@ def add_customer(conn, customer_data: dict) -> tuple[bool, str]:
 
 
 def update_customer(conn, firebase_key: str, customer_data: dict) -> tuple[bool, str]:
-    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now = int(datetime.now(UTC).timestamp() * 1000)  # cột updated_at = epoch ms (bigint)
     cur = conn.execute("UPDATE customers SET json = ?, updated_at = ? WHERE firebase_key = ? AND deleted_at IS NULL", (json.dumps(customer_data, ensure_ascii=False), now, firebase_key))
     conn.commit(); _invalidate_customer_patterns_cache()
     return (False, f"❌ Không tìm thấy khách hàng: {firebase_key}") if cur.rowcount == 0 else (True, f"✅ Đã cập nhật: {firebase_key}")

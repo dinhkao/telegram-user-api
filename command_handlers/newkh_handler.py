@@ -16,15 +16,12 @@ from kiotviet import create_customer_kv
 log = logging.getLogger("newkh")
 GROUP_KHACHHANG_ID = int(os.getenv("GROUP_KHACHHANG_ID", 0))
 from utils.paths import SHARED_DB_PATH
+from utils.db import get_connection
 TRIGGER_TEXT = "newkh "
 
 
 def _conn():
-    conn = sqlite3.connect(SHARED_DB_PATH, check_same_thread=False, isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA busy_timeout=5000;")
-    return conn
+    return get_connection()
 
 
 def _save(thread_id: int, data: dict):

@@ -13,4 +13,7 @@ if ! "$PY" -c "import pytest" 2>/dev/null; then
 fi
 
 cd "$ROOT"
+# Test suite là unit-test SQLite thuần — luôn ép engine sqlite dù shell/.env đang set
+# postgres (tránh test audit/persistence chạy nhầm PG).
+export DB_ENGINE=sqlite
 exec "$PY" -m pytest "$@"

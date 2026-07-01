@@ -69,7 +69,13 @@ async def orders_api_handler(request: web.Request):
         total = int(total_row[0]) if total_row else 0
         stats = {}
         if page == 1:
-            stat_row = conn.execute("SELECT COUNT(*) as cnt, COUNT(CASE WHEN json_extract(o.json, '$.done_after_20250124') = 1 THEN 1 END) as done, COUNT(CASE WHEN json_extract(o.json, '$.done_after_20250124') IS NOT 1 THEN 1 END) as pending FROM orders o WHERE o.deleted_at IS NULL AND ((json_extract(o.json, '$.hoadon.print_content.kh') IS NOT NULL AND json_extract(o.json, '$.hoadon.print_content.kh') != '') OR (json_extract(o.json, '$.customer_name') IS NOT NULL AND json_extract(o.json, '$.customer_name') != ''))").fetchone()
+            # done_after_20250124 là JSON bool. SQLite json_extract(true)->1; PG (emulation)
+            # trả text 'true'. So sánh type-sensitive nên phải nhánh theo engine.
+            from utils.db import IS_POSTGRES
+            _done = "json_extract(o.json, '$.done_after_20250124')"
+            _is_done = f"{_done} = 'true'" if IS_POSTGRES else f"{_done} = 1"
+            _is_pending = f"{_done} IS DISTINCT FROM 'true'" if IS_POSTGRES else f"{_done} IS NOT 1"
+            stat_row = conn.execute(f"SELECT COUNT(*) as cnt, COUNT(CASE WHEN {_is_done} THEN 1 END) as done, COUNT(CASE WHEN {_is_pending} THEN 1 END) as pending FROM orders o WHERE o.deleted_at IS NULL AND ((json_extract(o.json, '$.hoadon.print_content.kh') IS NOT NULL AND json_extract(o.json, '$.hoadon.print_content.kh') != '') OR (json_extract(o.json, '$.customer_name') IS NOT NULL AND json_extract(o.json, '$.customer_name') != ''))").fetchone()
             stats = {"total_orders": stat_row["cnt"] or 0, "pending": stat_row["pending"] or 0, "done": stat_row["done"] or 0} if stat_row else {"total_orders": 0, "pending": 0, "done": 0}
         return web.json_response({"orders": orders, "total": total, "page": page, "limit": limit, "total_pages": max(1, (total + limit - 1) // limit), "stats": stats})
     finally:

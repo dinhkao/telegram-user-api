@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 
 def delete_all_tasks(conn) -> tuple[int, str]:
-    count, now = 0, datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    count, now = 0, int(datetime.now(UTC).timestamp() * 1000)  # cột updated_at = epoch ms
     for row in conn.execute("SELECT thread_id, json FROM orders WHERE deleted_at IS NULL"):
         if not row["json"]:
             continue
@@ -18,7 +18,7 @@ def delete_all_tasks(conn) -> tuple[int, str]:
 
 
 def migrate_tasks_to_v2(conn) -> tuple[int, str]:
-    count, now = 0, datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    count, now = 0, int(datetime.now(UTC).timestamp() * 1000)  # cột updated_at = epoch ms
     for row in conn.execute("SELECT thread_id, json FROM orders WHERE deleted_at IS NULL"):
         if not row["json"]:
             continue

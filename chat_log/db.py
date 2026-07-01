@@ -6,6 +6,7 @@ import sqlite3
 
 log = logging.getLogger("chat_logger")
 from utils.paths import SHARED_DB_PATH
+from utils.db import get_connection
 ORDER_GROUP_ID = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
 
 _SCHEMA_SQL = """
@@ -28,11 +29,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_thread ON order_chat_messages(thread_id);
 
 
 def connect_db() -> sqlite3.Connection:
-    conn = sqlite3.connect(SHARED_DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=3000")
-    return conn
+    return get_connection(SHARED_DB_PATH, autocommit=False, busy_timeout=3000)
 
 
 def table_columns(conn: sqlite3.Connection) -> set[str]:
@@ -63,9 +60,11 @@ def migrate_table(conn: sqlite3.Connection) -> None:
 
 
 def init_table() -> None:
+    from utils.db import IS_POSTGRES
     conn = connect_db()
     try:
-        conn.executescript(_SCHEMA_SQL)
+        if not IS_POSTGRES:  # trên PG bảng do migrations/pg/0001_init.sql tạo (AUTOINCREMENT là SQLite)
+            conn.executescript(_SCHEMA_SQL)
         migrate_table(conn)
     finally:
         conn.close()

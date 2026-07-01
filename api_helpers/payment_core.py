@@ -19,7 +19,8 @@ def _stamp() -> str:
 def _save(conn, order, thread_id: int) -> None:
     conn.execute(
         "UPDATE orders SET json = ?, updated_at = ? WHERE thread_id = ? AND deleted_at IS NULL",
-        (json.dumps(order, ensure_ascii=False), order["updated_at"], thread_id),
+        # cột updated_at = epoch ms (thống nhất mọi writer; blob data['updated_at'] giữ ISO).
+        (json.dumps(order, ensure_ascii=False), int(datetime.now(UTC).timestamp() * 1000), thread_id),
     )
     conn.commit()
 

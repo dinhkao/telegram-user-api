@@ -1,20 +1,26 @@
-"""bot_core/db.py — SQLite access mirroring final_telegram schema."""
-import json, sqlite3, threading, time
+"""bot_core/db.py — truy cập app.db (SQLite hoặc Postgres) qua cổng utils.db."""
+import json, threading, time
 from pathlib import Path
 from bot_core.config import DB_PATH
+from utils.db import get_connection, IS_POSTGRES
 
 _db_local = threading.local()
 
 def _conn():
     if not hasattr(_db_local, "conn") or _db_local.conn is None:
-        _db_local.conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-        for pragma in ["journal_mode = WAL", "synchronous = NORMAL", "foreign_keys = ON", "busy_timeout = 5000"]:
-            _db_local.conn.execute(f"PRAGMA {pragma}")
-        _migrate(_db_local.conn)
+        # autocommit OFF (như cũ: không đặt isolation_level, dùng commit() tường minh).
+        conn = get_connection(str(DB_PATH), autocommit=False)
+        if not IS_POSTGRES:
+            conn.execute("PRAGMA synchronous = NORMAL")
+            conn.execute("PRAGMA foreign_keys = ON")
+        _db_local.conn = conn
+        _migrate(conn)
     return _db_local.conn
 
 
 def _migrate(conn):
+    if IS_POSTGRES:
+        return  # schema từ migrations/pg/0001_init.sql là nguồn; generated cols đã có.
     # Generated columns (hidden=2) only seen in table_xinfo, not table_info
     hidden = [r[1] for r in conn.execute("PRAGMA table_xinfo(orders)").fetchall() if r[6] == 2]
     if "nop_nhan_done" not in hidden:
@@ -66,7 +72,8 @@ def set_kv(path: str, value):
 def bump_rev(path: str):
     _conn().execute(
         "INSERT INTO kv_revisions(path, rev) VALUES (?, 1) "
-        "ON CONFLICT(path) DO UPDATE SET rev = rev + 1", (path,))
+        # qualify bảng: PG coi `rev` trần là mơ hồ; SQLite cũng chấp nhận dạng này.
+        "ON CONFLICT(path) DO UPDATE SET rev = kv_revisions.rev + 1", (path,))
     _conn().commit()
 
 def clear_task_status(order_id: str, key: str) -> bool:

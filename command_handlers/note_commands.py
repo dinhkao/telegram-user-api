@@ -36,14 +36,11 @@ from .thread_utils import extract_thread_id
 log = logging.getLogger("note")
 GROUP_NOTE_ID = int(os.getenv("GROUP_NOTE_ID", "-1003053046732"))
 from utils.paths import SHARED_DB_PATH
+from utils.db import get_connection
 
 
 def _conn():
-    conn = sqlite3.connect(SHARED_DB_PATH, check_same_thread=False, isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA busy_timeout=5000;")
-    return conn
+    return get_connection()
 
 
 # ─── tag normalization (node normalizeTag) ──────────────────────────────────

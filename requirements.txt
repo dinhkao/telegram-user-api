@@ -8,3 +8,5 @@ Pillow>=10.0.0
 google-api-python-client>=2.100.0
 google-auth>=2.20.0
 google-auth-httplib2>=0.2.0
+# Postgres backend (chỉ dùng khi DB_ENGINE=postgres — mặc định sqlite không cần).
+psycopg[binary]>=3.2

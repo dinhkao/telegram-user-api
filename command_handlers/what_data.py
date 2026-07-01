@@ -14,15 +14,12 @@ from .thread_utils import extract_thread_id
 log = logging.getLogger("what_data")
 ORDER_GROUP_ID = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
 from utils.paths import SHARED_DB_PATH
+from utils.db import get_connection
 TRIGGER_TEXT = "what data"
 
 
 def _conn():
-    conn = sqlite3.connect(f"file:{SHARED_DB_PATH}?mode=ro", uri=True, check_same_thread=False, isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA busy_timeout=2000;")
-    return conn
+    return get_connection(SHARED_DB_PATH, readonly=True, busy_timeout=2000)
 
 
 def _order_raw(conn, thread_id: int):

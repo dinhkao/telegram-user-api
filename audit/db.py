@@ -33,12 +33,9 @@ CREATE INDEX IF NOT EXISTS idx_audit_events_thread_id ON audit_events(thread_id)
 """
 
 
-def _connect(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path, check_same_thread=False, isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA busy_timeout=5000;")
-    return conn
+def _connect(db_path: str):
+    from utils.db import get_connection
+    return get_connection(db_path, autocommit=True, busy_timeout=5000)
 
 
 def _json_text(value: Any, *, max_field_chars: int | None = None) -> str | None:
@@ -70,6 +67,9 @@ def _coerce_text(value: Any, *, max_field_chars: int | None = None) -> str | Non
 
 
 def init_audit_db(db_path: str | os.PathLike[str] | None = None) -> bool:
+    from utils.db import IS_POSTGRES
+    if IS_POSTGRES:
+        return True  # audit_events do migrations/pg/0001_init.sql tạo — không chạy DDL SQLite.
     path = shared_db_path(db_path)
     try:
         conn = _connect(path)

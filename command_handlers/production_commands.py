@@ -43,16 +43,13 @@ from .thread_utils import extract_thread_id
 
 log = logging.getLogger("production")
 from utils.paths import SHARED_DB_PATH
+from utils.db import get_connection
 PUBLIC_URL = os.getenv("PUBLIC_URL", "https://finaltelegram-production.up.railway.app").rstrip("/")
 _VN_TZ = timezone(timedelta(hours=7))
 
 
 def _conn():
-    conn = sqlite3.connect(SHARED_DB_PATH, check_same_thread=False, isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA busy_timeout=5000;")
-    return conn
+    return get_connection()
 
 
 # ─── number formatting (node `so()` = toLocaleString('vi-VN')) ──────────────

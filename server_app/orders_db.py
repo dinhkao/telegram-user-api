@@ -5,6 +5,7 @@ import logging
 import sqlite3
 
 from server_app.config import SHARED_DB_PATH
+from utils.db import get_connection
 from vn import vn_normalize
 
 log = logging.getLogger("server")
@@ -12,11 +13,7 @@ _orders_fts_ready = False
 
 
 def get_orders_conn():
-    conn = sqlite3.connect(SHARED_DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA busy_timeout=5000;")
-    return conn
+    return get_connection(SHARED_DB_PATH, autocommit=False, busy_timeout=5000)
 
 
 def ensure_orders_fts(conn):
@@ -24,8 +21,13 @@ def ensure_orders_fts(conn):
     if _orders_fts_ready:
         return
     try:
+        from utils.db import IS_POSTGRES
         conn.execute("DROP TABLE IF EXISTS orders_fts")
-        conn.execute("CREATE VIRTUAL TABLE orders_fts USING fts5(thread_id UNINDEXED, content, tokenize='trigram')")
+        if IS_POSTGRES:
+            # PG không có fts5; orders_fts vốn chỉ query bằng LIKE nên dùng bảng thường.
+            conn.execute("CREATE TABLE orders_fts (thread_id bigint, content text)")
+        else:
+            conn.execute("CREATE VIRTUAL TABLE orders_fts USING fts5(thread_id UNINDEXED, content, tokenize='trigram')")
         rows = conn.execute("SELECT thread_id, json FROM orders WHERE deleted_at IS NULL AND json IS NOT NULL").fetchall()
         for r in rows:
             try:
