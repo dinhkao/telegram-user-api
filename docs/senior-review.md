@@ -120,19 +120,34 @@ Three layers, enforced by imports:
 - ⬜ Grow `Order` typed accessors as fields get touched; keep it lossless until
   Phase 3 promotes fields to columns.
 
-## Phase 3 — promote hot fields out of the blob ⬜
+## Phase 3 — promote hot fields out of the blob ✅ (mostly pre-existing)
 
-Move the columns you actually query (status, customer_id, amount_due, timestamps)
-into real typed columns + indices (there are already two GENERATED virtual columns
-— `nop_nhan_done`, `order_created` — proving the need). JSON stays for the long
-tail. "Unpaid > 30 days" becomes a `WHERE`, not a full-table Python scan.
+**Finding (2026-07-01): the prod `orders` table is already substantially
+denormalized/indexed** — this phase was largely done before the review:
+- generated column `nop_nhan_done` + partial composite index
+  `(nop_nhan_done, order_created) WHERE deleted_at IS NULL`
+- indexes on `thread_id`, `message_id`, `updated_at`, `json_extract('$.created')`
+- a full-text `orders_fts` table and a denormalized `tasks` table
 
-## Phase 4 — cut the Node cord ⬜
+So point lookups and the common status/date filters are already indexed. The one
+NOT covered is **debt/`remaining`**: payments live inside the JSON blob
+(`order["payments"]`, no payments table), so a `remaining` column would need to
+sum a JSON array — not a plain generated column. Maintaining it requires either a
+trigger or a change to the **write path**, which the Node app shares → that work
+belongs to Phase 4, not here. No safe, high-value Phase-3 change remains in the
+Python repo alone.
+
+## Phase 4 — cut the Node cord ⬜ (blocked: out-of-scope repo + live data)
 
 Replace shared-SQLite + HTTP-to-`:3000` with this process owning the data and
 exposing one API. Move the hardcoded Firebase cred paths
 (`bot_core/firebase_rtdb.py`, `integrations/firebase_sync/core.py`) to env. Retire
 `final_telegram`. This was the stated long-term goal; layering makes it reachable.
+
+**Cannot be done from this repo/session:** it requires editing the Node
+`final_telegram` repo (out of scope — Python-only rule) and re-owning a live
+production data path. Needs its own project with staged cutover + backups. The
+Phase 1–2 layering done here is the prerequisite that makes it *possible* later.
 
 ---
 
