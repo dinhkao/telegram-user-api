@@ -35,14 +35,22 @@ async def orders_api_handler(request: web.Request):
         params.append(status)
     where_clause = " AND ".join(where)
     sort = request.query.get("sort", "created").strip()
-    has_data = "(json_extract(o.json, '$.hoadon.print_content.kh') IS NOT NULL AND json_extract(o.json, '$.hoadon.print_content.kh') != '') OR (json_extract(o.json, '$.customer_name') IS NOT NULL AND json_extract(o.json, '$.customer_name') != '')"
+    # Trên PG: dùng cột generated indexed (has_customer, order_created) — nhanh 100×.
+    # Trên SQLite: json_extract native + expression index đã nhanh, giữ nguyên.
+    from utils.db import IS_POSTGRES
+    if IS_POSTGRES:
+        has_data = "o.has_customer"
+        created_expr = "o.order_created"
+    else:
+        has_data = "(json_extract(o.json, '$.hoadon.print_content.kh') IS NOT NULL AND json_extract(o.json, '$.hoadon.print_content.kh') != '') OR (json_extract(o.json, '$.customer_name') IS NOT NULL AND json_extract(o.json, '$.customer_name') != '')"
+        created_expr = "json_extract(o.json, '$.created')"
     if sort == "date":
         dt_raw = "json_extract(o.json, '$.hoadon.print_content.datetime')"
         dt_expr = f"substr({dt_raw}, 7, 4) || '-' || substr({dt_raw}, 4, 2) || '-' || substr({dt_raw}, 1, 2) || ' ' || substr({dt_raw}, 12, 5)"
         has_dt = f"{dt_raw} IS NOT NULL AND {dt_raw} != ''"
-        order_by = f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, CASE WHEN {has_dt} THEN 0 ELSE 1 END ASC, CASE WHEN {has_dt} THEN {dt_expr} ELSE json_extract(o.json, '$.created') END DESC"
+        order_by = f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, CASE WHEN {has_dt} THEN 0 ELSE 1 END ASC, CASE WHEN {has_dt} THEN {dt_expr} ELSE {created_expr} END DESC"
     elif sort == "created":
-        order_by = f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, json_extract(o.json, '$.created') DESC, o.thread_id DESC"
+        order_by = f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, {created_expr} DESC, o.thread_id DESC"
     else:
         order_by = f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, o.updated_at DESC, o.thread_id DESC"
     try:
@@ -75,7 +83,8 @@ async def orders_api_handler(request: web.Request):
             _done = "json_extract(o.json, '$.done_after_20250124')"
             _is_done = f"{_done} = 'true'" if IS_POSTGRES else f"{_done} = 1"
             _is_pending = f"{_done} IS DISTINCT FROM 'true'" if IS_POSTGRES else f"{_done} IS NOT 1"
-            stat_row = conn.execute(f"SELECT COUNT(*) as cnt, COUNT(CASE WHEN {_is_done} THEN 1 END) as done, COUNT(CASE WHEN {_is_pending} THEN 1 END) as pending FROM orders o WHERE o.deleted_at IS NULL AND ((json_extract(o.json, '$.hoadon.print_content.kh') IS NOT NULL AND json_extract(o.json, '$.hoadon.print_content.kh') != '') OR (json_extract(o.json, '$.customer_name') IS NOT NULL AND json_extract(o.json, '$.customer_name') != ''))").fetchone()
+            # dùng lại has_data (PG: cột has_customer indexed; SQLite: json_extract)
+            stat_row = conn.execute(f"SELECT COUNT(*) as cnt, COUNT(CASE WHEN {_is_done} THEN 1 END) as done, COUNT(CASE WHEN {_is_pending} THEN 1 END) as pending FROM orders o WHERE o.deleted_at IS NULL AND ({has_data})").fetchone()
             stats = {"total_orders": stat_row["cnt"] or 0, "pending": stat_row["pending"] or 0, "done": stat_row["done"] or 0} if stat_row else {"total_orders": 0, "pending": 0, "done": 0}
         return web.json_response({"orders": orders, "total": total, "page": page, "limit": limit, "total_pages": max(1, (total + limit - 1) // limit), "stats": stats})
     finally:

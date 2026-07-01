@@ -89,12 +89,19 @@ CREATE TABLE orders (
               AND (json::jsonb #>> '{task_status,nhan_tien,done}') IN ('true','1')
         THEN 1 ELSE 0 END
     ) STORED,
-    order_created text GENERATED ALWAYS AS ((json::jsonb #>> '{created}')) STORED
+    order_created text GENERATED ALWAYS AS ((json::jsonb #>> '{created}')) STORED,
+    -- Đơn có thông tin khách (dùng cho sort/stats dashboard) — cột generated indexed
+    -- để tránh json_extract 17k dòng mỗi lần list (perf: 519ms -> 5ms).
+    has_customer boolean GENERATED ALWAYS AS (
+        ((json::jsonb #>> '{hoadon,print_content,kh}') IS NOT NULL AND (json::jsonb #>> '{hoadon,print_content,kh}') <> '')
+        OR ((json::jsonb #>> '{customer_name}') IS NOT NULL AND (json::jsonb #>> '{customer_name}') <> '')
+    ) STORED
 );
 CREATE INDEX idx_orders_thread   ON orders(thread_id);
 CREATE INDEX idx_orders_message  ON orders(message_id);
 CREATE INDEX idx_orders_updated  ON orders(updated_at);
 CREATE INDEX idx_orders_created  ON orders(order_created);
+CREATE INDEX idx_orders_has_cust ON orders(has_customer, order_created DESC);
 CREATE INDEX idx_orders_nop_nhan ON orders(nop_nhan_done, order_created) WHERE deleted_at IS NULL;
 
 CREATE TABLE order_key_by_thread (

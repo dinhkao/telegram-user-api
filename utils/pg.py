@@ -10,10 +10,25 @@ rollback/close, thuộc tính in_transaction, và Row hỗ trợ row[0] lẫn ro
 """
 from __future__ import annotations
 
-import psycopg
 from psycopg.pq import TransactionStatus
+from psycopg_pool import ConnectionPool
 
 from utils.sql_translate import translate
+
+# Pool connection (giữ lại conn thay vì mở mới mỗi query). Mở conn PG tốn ~4ms
+# (TCP+auth+docker); pool đưa xuống ~0.3ms/query — nhanh hơn cả SQLite cũ.
+_pools: dict[str, ConnectionPool] = {}
+
+
+def _get_pool(dsn: str) -> ConnectionPool:
+    p = _pools.get(dsn)
+    if p is None:
+        p = ConnectionPool(
+            dsn, min_size=2, max_size=20, max_idle=300.0,
+            kwargs={"row_factory": _row_factory}, open=True,
+        )
+        _pools[dsn] = p
+    return p
 
 
 class Row:
@@ -92,7 +107,13 @@ class _Empty:
 
 class PgConnection:
     def __init__(self, dsn: str, *, autocommit: bool = True):
-        self._conn = psycopg.connect(dsn, autocommit=autocommit, row_factory=_row_factory)
+        self._pool = _get_pool(dsn)
+        self._conn = self._pool.getconn()
+        self._closed = False
+        if self._conn.autocommit != autocommit:
+            if self._conn.info.transaction_status != TransactionStatus.IDLE:
+                self._conn.rollback()
+            self._conn.autocommit = autocommit
 
     # --- bề mặt sqlite3.Connection ---
     def execute(self, sql, params=()):
@@ -125,7 +146,16 @@ class PgConnection:
         self._conn.rollback()
 
     def close(self):
-        self._conn.close()
+        # Trả conn về pool (không đóng thật) để tái dùng.
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            if not self._conn.autocommit and self._conn.info.transaction_status != TransactionStatus.IDLE:
+                self._conn.rollback()
+        except Exception:
+            pass
+        self._pool.putconn(self._conn)
 
     @property
     def in_transaction(self) -> bool:
