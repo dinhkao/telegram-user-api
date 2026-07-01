@@ -11,6 +11,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 # ─── Groups (override in .env if needed) ────────────────────────────────────
 GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID", os.getenv("ORDER_GROUP_ID", "-1002124542200")))
 DISCUSSION_GROUP_CHAT_ID = int(os.getenv("DISCUSSION_GROUP_CHAT_ID", "-1003776216538"))
+PRODUCTION_GROUP_ID = int(os.getenv("PRODUCTION_GROUP_ID", "-1002309480904"))
+PRODUCTION_CHANNEL_ID = int(os.getenv("PRODUCTION_CHANNEL_ID", "-1002464385161"))
 
 # ─── Backend (now same process, but keep for compatibility) ─────────────────
 ORDER_API_BASE = os.getenv("ORDER_API_BASE", "http://localhost:8090")
@@ -67,6 +69,50 @@ PRODUCT_CODE_ROWS = [
 PRODUCT_CODES = [c for row in PRODUCT_CODE_ROWS for c in row]
 QTY_OPTIONS = ["1", "5", "10", "20", "30", "40", "50", "100", "150", "200", "250", "300"]
 QTY_OPTIONS_BY_CODE = {"KDDT": ["1", "2", "3", "6", "9", "12", "15", "18", "21", "24", "27", "30"]}
+
+
+# ─── Sản xuất (production) ──────────────────────────────────────────────────
+# mâm = số mâm trong 1 chảo, luong = lượng SP mỗi mẻ (ported from node spInfo).
+SP_INFO = {
+    "K10LV87": {"mam": 3, "luong": 1100},
+    "K10LT": {"mam": 3, "luong": 1200},
+    "K10LV85": {"mam": 3, "luong": 1000},
+    "K10NV60": {"mam": 5, "luong": 500},
+    "K10TV80": {"mam": 4, "luong": 800},
+    "K2L": {"mam": 3.5, "luong": 720},
+    "K2NT128": {"mam": 6, "luong": 400},
+    "K2NV120": {"mam": 6, "luong": 380},
+    "K2NV128": {"mam": 6, "luong": 380},
+    "KDDT": {"mam": 5, "luong": 700},
+    "KD2M": {"mam": 6, "luong": 900},
+    "KDBN2M": {"mam": 4.5, "luong": 1000},
+    "KDBN1L": {"mam": 4, "luong": 1000},
+    "K1L": {"mam": 4, "luong": 720},
+}
+
+# Cây trong 1 chảo (ported from node cayTrong1Chao).
+CAY_TRONG_1_CHAO = {
+    "K10LT": 18,
+    "K10LV87": 19,
+    "K10LV-87M": 18,
+    "K10LV85": 25,
+    "K10TV80": 27,
+    "K10NV60": 44,
+    "K2L": 31,
+    "K1L": 25,
+    "K2LBN": 33,
+    "K2L DÀY": 31,
+    "KE": 27,
+    "K2NT128": 36,
+    "K2NV128": 47,
+    "K2NV120": 54,
+    "KD2M": 40,
+    "KDBN2M": 30,
+    "KDBN1L": 28,
+    "KDDT": 330,
+    "KDDT10M": 16,
+    "KDDT2": 160,
+}
 
 
 def name_of_user_id(uid) -> str | None:
