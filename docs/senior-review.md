@@ -137,17 +137,32 @@ trigger or a change to the **write path**, which the Node app shares → that wo
 belongs to Phase 4, not here. No safe, high-value Phase-3 change remains in the
 Python repo alone.
 
-## Phase 4 — cut the Node cord ⬜ (blocked: out-of-scope repo + live data)
+## Phase 4 — cut the Node cord 🚧 (Python-side dependency mapped + shrinking)
 
-Replace shared-SQLite + HTTP-to-`:3000` with this process owning the data and
-exposing one API. Move the hardcoded Firebase cred paths
-(`bot_core/firebase_rtdb.py`, `integrations/firebase_sync/core.py`) to env. Retire
-`final_telegram`. This was the stated long-term goal; layering makes it reachable.
+Goal: this process owns the data + Telegram ops; retire `final_telegram`.
 
-**Cannot be done from this repo/session:** it requires editing the Node
-`final_telegram` repo (out of scope — Python-only rule) and re-owning a live
-production data path. Needs its own project with staged cutover + backups. The
-Phase 1–2 layering done here is the prerequisite that makes it *possible* later.
+**Key finding: Python is already Node-independent for the entire core order
+workflow.** `soan`/`giao`/`nop`/`nhan`/`ck`/`tm`/invoice are handled here, and the
+order main-message refresh builds HTML locally (`renderers/order_html.
+build_order_main_message_html`) + edits via Telethon — no Node. And
+`_call_final_telegram` already fails soft (returns None → "❌ Lỗi kết nối"), so
+**Node can be stopped now without breaking the core** — only the endpoints below
+degrade.
+
+**Complete inventory of Python→Node calls** (all that remain):
+| Endpoint | Trigger | Status |
+|---|---|---|
+| `/api/order/get-html` | `get_order_html()` | ✅ **cut** — now uses the local Python renderer |
+| `/api/order/auto-complete-ban-hd` | admin "auto complete ban hd" | ⬜ portable (`set_task_status(…, "ban_hd")`) — Node behavior unconfirmed, needs source to match exactly |
+| `/api/order/send-task-notification` | admin "send task notification" | ⬜ Node-implemented; needs Node source to port |
+| `/api/order/in-tam-tinh` | "in tạm tính" (print provisional) | ⬜ Node-implemented print feature; needs Node source to port |
+
+**To finish:** port the 3 remaining endpoints (needs reading the out-of-scope
+`final_telegram` repo to reproduce behavior), move the hardcoded Firebase cred
+paths (`bot_core/firebase_rtdb.py`, `integrations/firebase_sync/core.py`) to env,
+then confirm — by auditing the Node repo — that Node has no *independent* live
+responsibilities (its own bot event handlers) before shutting it off. That last
+audit is the real gate and it can't be done from this repo.
 
 ---
 

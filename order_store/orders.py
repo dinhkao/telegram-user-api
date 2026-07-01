@@ -41,8 +41,14 @@ def _call_final_telegram(endpoint: str, body: dict, timeout: int = 10) -> dict |
 
 
 def get_order_html(conn, thread_id: int) -> str:
-    result = _call_final_telegram("/api/order/get-html", {"thread_id": thread_id})
-    return "❌ Không thể lấy HTML" if not result else (result.get("html", "") or "Không có HTML")
+    # Node-independent: build the order HTML with the local Python renderer
+    # (the same one the live message-refresh uses) instead of calling Node's
+    # /api/order/get-html. Part of Phase 4 (cut the Node cord) — see docs/senior-review.md.
+    from renderers.order_html import build_order_main_message_html
+    order = get_order_by_thread_id(conn, thread_id)
+    if not order:
+        return "❌ Không thể lấy HTML"
+    return build_order_main_message_html(order, thread_id) or "Không có HTML"
 
 
 def set_order_flag(conn, thread_id: int, flag_name: str, value: bool | str) -> tuple[bool, str]:
