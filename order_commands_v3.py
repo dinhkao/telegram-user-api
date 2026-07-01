@@ -43,6 +43,7 @@ from payment_db import (
     calculate_debt,
     get_all_debts,
 )
+from payment_store.domain import method_params, resolve_payment_target, build_payment_record
 from firebase_sync import set_order as fb_set_order
 from quy_db import create_fund_receipt
 from customer_notify import send_payment_notification
@@ -195,8 +196,7 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     """Core payment processing (DB + KiotViet). Returns result dict for both Telethon and REST API."""
     db_conn = _get_connection()
     actor_name = str(user_id) if user_id else "API"
-    account_id = 1 if method == "Transfer" else None
-    method_label = "TM" if method == "Cash" else "CK"
+    account_id, method_label = method_params(method)
 
     result = {
         "success": False,
@@ -214,26 +214,21 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
         "order": None,
     }
 
-    # 1. Read order
+    # 1. Read order + validate payment target (pure logic in payment_store.domain)
     order = get_order_by_thread_id(db_conn, thread_id)
     if not order:
         result["error"] = "Không tìm thấy đơn hàng"
         return result
     result["order"] = order
 
-    kh_id_fb = order.get("khach_hang_id") or order.get("khID")
-    if not kh_id_fb:
-        result["error"] = "Đơn hàng này chưa được gán khách hàng."
+    kh_id_fb_pre = order.get("khach_hang_id") or order.get("khID")
+    customer = get_customer_by_key(db_conn, str(kh_id_fb_pre)) if kh_id_fb_pre else None
+    kh_id_fb, kv_id, kh_name, err = resolve_payment_target(order, customer)
+    if kh_id_fb is not None:
+        result["kh_id_fb"] = kh_id_fb
+    if err:
+        result["error"] = err
         return result
-    result["kh_id_fb"] = kh_id_fb
-
-    customer = get_customer_by_key(db_conn, str(kh_id_fb))
-    if not customer or not customer.get("kh_id"):
-        result["error"] = "Không tìm thấy thông tin khách hàng hoặc ID KiotViet."
-        return result
-
-    kv_id = customer["kh_id"]
-    kh_name = customer.get("name") or order.get("khach_hang") or str(kh_id_fb)
     result["kv_id"] = kv_id
     result["kh_name"] = kh_name
 
@@ -266,12 +261,7 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     result["kv_code"] = kv_res.get("code", "N/A")
 
     # 4. Save payment to SQLite
-    payment_record = {
-        "amount": amount,
-        "method": method,
-        "kiotvietData": kv_res,
-        "createdBy": actor_name,
-    }
+    payment_record = build_payment_record(amount, method, kv_res, actor_name)
     ok, payment_msg = add_payment(db_conn, thread_id, payment_record)
     if not ok:
         log.error("Failed to save payment to SQLite: %s", payment_msg)

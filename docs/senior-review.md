@@ -81,10 +81,16 @@ Three layers, enforced by imports:
   + `order_store/tasks.py` (transaction + IO only). Behavior identical (guarded by
   `tests/test_order_store.py`); pure rules unit-tested in `tests/test_order_domain.py`
   with zero IO. This is the pattern to copy.
-- ⬜ Migrate the next commands to the same shape, starting with the async money
-  ones (`order_commands_v3` ck/tm/invoice — also clears Phase 1 tail): extract the
-  synchronous mutation into a `domain` function + a transactional store call, do
-  the KiotViet/Telegram IO in the handler outside the lock.
+- ✅ **Payments (`ck`/`tm`)** templatized: the order-blob mutation already flows
+  through the refactored atomic `set_task_status` (via `_auto_complete_tasks_core`);
+  the payment row is a separate table (`add_payment`). Extracted the pure decision
+  logic (`payment_store/domain.py`: `method_params`, `resolve_payment_target`,
+  `build_payment_record`) out of `_process_payment_core` and unit-tested it
+  (`tests/test_payment_domain.py`) — no KiotViet/DB needed. Orchestration
+  unchanged.
+- ⬜ Migrate the remaining commands (invoice/print/fix and `order_commands_v2_*`)
+  to the same shape: pure rule in a `domain` module + transactional store call +
+  IO in the handler outside the lock.
 - ⬜ Grow `Order` typed accessors as fields get touched; keep it lossless until
   Phase 3 promotes fields to columns.
 
