@@ -9,12 +9,19 @@ Nền tảng đã đọc: `docs/senior-review.md` (lộ trình strangler), schem
 
 ---
 
-## ⚡ TRẠNG THÁI: ĐÃ CUTOVER — APP ĐANG CHẠY POSTGRES (2026-07-02)
+## ⚡ TRẠNG THÁI: ĐÃ CUTOVER — APP ĐANG CHẠY POSTGRES NATIVE (2026-07-02)
 
-`server.py` đang chạy trên PostgreSQL (docker `letrang-pg`, volume bền
-`letrang_pg_data`, `restart=unless-stopped`, cổng **5433**). app.db LIVE (17016 đơn)
-đã migrate, verify byte-identity ✅, không ghi SQLite nữa.
+`server.py` đang chạy trên **PostgreSQL native** (homebrew `postgresql@16`, qua
+**unix socket** `postgresql://duydinh0225@/app?host=/tmp`). brew services quản → tự
+start khi reboot. app.db LIVE (17016 đơn) đã migrate, verify byte-identity ✅.
 
+**Vì sao native (không docker):** docker-trên-Mac TCP có sàn ~0.74ms/query; unix
+socket native = **0.049ms/query** (nhanh hơn cả SQLite ~0.2ms). Connection pooling
+(psycopg_pool) + native socket → PG giờ nhanh hơn SQLite cũ ở mọi đường.
+
+- Docker container `letrang-pg` (cổng 5433, volume `letrang_pg_data`) **giữ lại đã
+  stop** làm backup/rollback nhanh (`docker start letrang-pg` + đổi DATABASE_URL về
+  `postgresql://letrang:letrang@localhost:5433/app`).
 - **Khởi động lại app:** `./scripts/start-pg.sh` (export env rồi launch — KHÔNG dùng
   `python server.py` trần vì mặc định về SQLite).
 - **Backup rollback:** `~/letrang-db/app.db.precutover-20260702-000127` (SQLite nguyên

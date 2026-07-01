@@ -8,13 +8,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 export DB_ENGINE=postgres
-export DATABASE_URL="${DATABASE_URL:-postgresql://letrang:letrang@localhost:5433/app}"
-
-# Đảm bảo container PG đang chạy
-if ! docker exec letrang-pg pg_isready -U letrang -d app >/dev/null 2>&1; then
-    echo "PG container 'letrang-pg' chưa sẵn sàng. Khởi động: docker start letrang-pg" >&2
-    exit 1
-fi
+# PG native (homebrew postgresql@16) qua UNIX SOCKET — 0.05ms/query (docker TCP ~0.7ms).
+# brew services quản (tự start khi reboot). Docker container 'letrang-pg' là backup (đã stop).
+export DATABASE_URL="${DATABASE_URL:-postgresql://duydinh0225@/app?host=/tmp}"
 
 echo "server.py -> PostgreSQL ($DATABASE_URL)"
 exec "$ROOT/.venv/bin/python" -u server.py
