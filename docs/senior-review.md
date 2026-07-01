@@ -96,6 +96,11 @@ Three layers, enforced by imports:
   `parse_invoice_free_text`) that was previously untested. Pure (no DB): uses the
   `_all_products` injection seam / `kh_id=None`. Documents the rules (t=thùng ×50
   default, KDXDB special 5, DM180 lốc→12/b, trailing `tao hd` stripped).
+- ✅ **Money calcs characterized**: extracted pure `compute_debt` to
+  `payment_store/domain.py` (single source for `calculate_debt` + `get_all_debts`,
+  was duplicated) and characterized `calculate_order_profit`
+  (`tests/test_payment_domain.py`, `tests/test_profit.py`). Revenue/cost/profit +
+  VAT/PVC/discount fees now locked.
 - ⬜ Grow `Order` typed accessors as fields get touched; keep it lossless until
   Phase 3 promotes fields to columns.
 

@@ -39,3 +39,12 @@ def resolve_payment_target(order: dict | None, customer: dict | None) -> tuple:
 def build_payment_record(amount: int, method: str, kv_res: dict, actor_name: str) -> dict:
     """The SQLite payment row payload. Matches the original inline dict."""
     return {"amount": amount, "method": method, "kiotvietData": kv_res, "createdBy": actor_name}
+
+
+def compute_debt(order: dict) -> dict:
+    """Pure debt math for one order: total (tong_cong|total|0) minus sum of
+    payment amounts. Returns {total, paid, remaining}. Callers add thread_id /
+    customer. Single source for calculate_debt + get_all_debts."""
+    total = order.get("tong_cong") or order.get("total") or 0
+    paid = sum(p.get("amount", 0) for p in order.get("payments", []))
+    return {"total": total, "paid": paid, "remaining": total - paid}

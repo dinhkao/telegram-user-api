@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import unittest
 
-from payment_store.domain import method_params, resolve_payment_target, build_payment_record
+from payment_store.domain import method_params, resolve_payment_target, build_payment_record, compute_debt
 
 
 class MethodParams(unittest.TestCase):
@@ -52,6 +52,21 @@ class ResolvePaymentTarget(unittest.TestCase):
         self.assertEqual(name, "OrderName")     # no customer name -> order name
         kh, kv, name, err = resolve_payment_target({"khID": "FB2"}, {"kh_id": 7})
         self.assertEqual((kh, name), ("FB2", "FB2"))   # falls back to str(kh_id_fb); khID alias works
+
+
+class ComputeDebt(unittest.TestCase):
+    def test_empty_order(self):
+        self.assertEqual(compute_debt({}), {"total": 0, "paid": 0, "remaining": 0})
+
+    def test_total_minus_payments(self):
+        d = compute_debt({"tong_cong": 100000, "payments": [{"amount": 30000}, {"amount": 20000}]})
+        self.assertEqual(d, {"total": 100000, "paid": 50000, "remaining": 50000})
+
+    def test_total_field_fallback(self):
+        self.assertEqual(compute_debt({"total": 500}), {"total": 500, "paid": 0, "remaining": 500})
+
+    def test_tong_cong_takes_precedence_over_total(self):
+        self.assertEqual(compute_debt({"tong_cong": 100, "total": 999})["total"], 100)
 
 
 class BuildPaymentRecord(unittest.TestCase):

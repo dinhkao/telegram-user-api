@@ -8,6 +8,9 @@ from order_db import get_order_by_thread_id
 
 log = logging.getLogger("payment_db")
 
+# NOTE: compute_debt is imported lazily inside the functions below. A top-level
+# import would form a cycle: payment_store/__init__ -> queries -> this module.
+
 
 def _stamp() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
@@ -54,25 +57,23 @@ def delete_payment_record(conn, thread_id: int, payment_id: str) -> tuple[bool, 
 
 
 def calculate_debt(conn, thread_id: int) -> dict:
+    from payment_store.domain import compute_debt
     order = get_order_by_thread_id(conn, thread_id)
     if not order:
         return {"total": 0, "paid": 0, "remaining": 0}
-    total = order.get("tong_cong") or order.get("total") or 0
-    paid = sum(p.get("amount", 0) for p in order.get("payments", []))
-    return {"total": total, "paid": paid, "remaining": total - paid, "thread_id": thread_id}
+    return {**compute_debt(order), "thread_id": thread_id}
 
 
 def get_all_debts(conn) -> list[dict]:
+    from payment_store.domain import compute_debt
     debts = []
     for row in conn.execute("SELECT thread_id, json FROM orders WHERE deleted_at IS NULL AND json IS NOT NULL"):
         try:
             order = json.loads(row["json"])
         except json.JSONDecodeError:
             continue
-        total = order.get("tong_cong") or order.get("total") or 0
-        paid = sum(p.get("amount", 0) for p in order.get("payments", []))
-        remaining = total - paid
-        if remaining > 0:
-            debts.append({"thread_id": row["thread_id"], "customer": order.get("khach_hang", "N/A"), "total": total, "paid": paid, "remaining": remaining})
+        d = compute_debt(order)
+        if d["remaining"] > 0:
+            debts.append({"thread_id": row["thread_id"], "customer": order.get("khach_hang", "N/A"), **d})
     return debts
 
