@@ -34,7 +34,7 @@ async def handle_action(bot, event, s, text, uid):
     clear_map = {"Huỷ bán": "ban_hd", "Huỷ soạn": "soan_hang",
         "Huỷ giao": "giao_hang", "Huỷ nộp": "nop_tien", "Huỷ nhận": "nhan_tien"}
     if text in clear_map:
-        await _handle_clear(s, uid, clear_map[text], event)
+        await _handle_clear(bot, s, uid, clear_map[text], event)
         return True
     action_map = {"Bán HD": "ban", "Soạn hàng": "soan", "Giao hàng": "giao",
         "Nộp tiền": "nop-tien", "Nhận tiền": "nhan-tien"}
@@ -43,7 +43,7 @@ async def handle_action(bot, event, s, text, uid):
         return True
     return False
 
-async def _handle_clear(s, uid, key, event):
+async def _handle_clear(bot, s, uid, key, event):
     entry = (s.task_status or {}).get(key) or {}
     if not entry.get("done"):
         await event.reply("Thao tác nãy chưa được đánh dấu hoàn thành.")
@@ -60,7 +60,7 @@ async def _handle_clear(s, uid, key, event):
             fresh = db.get_order_by_thread(s.thread_id)
             if fresh:
                 s.task_status = fresh.get("task_status")
-            await send_help(None, event.chat_id, s)
+            await send_help(bot, event.chat_id, s)
         except Exception as e:
             await event.reply(f"Huỷ thất bại: {e}")
 
