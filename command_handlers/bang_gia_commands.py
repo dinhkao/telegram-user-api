@@ -30,7 +30,7 @@ from .thread_utils import extract_thread_id
 
 log = logging.getLogger("bang_gia")
 GROUP_BANG_GIA_ID = int(os.getenv("GROUP_BANG_GIA_ID", "-1002373184927"))
-SHARED_DB_PATH = os.path.expanduser(os.getenv("SHARED_DB_PATH", "~/letrang-db/app.db"))
+from utils.paths import SHARED_DB_PATH
 
 
 def _conn():

@@ -42,7 +42,7 @@ from production_store import (
 from .thread_utils import extract_thread_id
 
 log = logging.getLogger("production")
-SHARED_DB_PATH = os.path.expanduser(os.getenv("SHARED_DB_PATH", "~/letrang-db/app.db"))
+from utils.paths import SHARED_DB_PATH
 PUBLIC_URL = os.getenv("PUBLIC_URL", "https://finaltelegram-production.up.railway.app").rstrip("/")
 _VN_TZ = timezone(timedelta(hours=7))
 

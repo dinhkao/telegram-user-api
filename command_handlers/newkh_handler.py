@@ -15,7 +15,7 @@ from kiotviet import create_customer_kv
 
 log = logging.getLogger("newkh")
 GROUP_KHACHHANG_ID = int(os.getenv("GROUP_KHACHHANG_ID", 0))
-SHARED_DB_PATH = os.path.expanduser(os.getenv("SHARED_DB_PATH", "~/letrang-db/app.db"))
+from utils.paths import SHARED_DB_PATH
 TRIGGER_TEXT = "newkh "
 
 

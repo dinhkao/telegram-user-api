@@ -20,7 +20,8 @@ USER_API_BASE = os.getenv("USER_API_BASE", "http://localhost:8090")
 
 # ─── SQLite (shared with telegram-user-api) ─────────────────────────────────
 from pathlib import Path
-DB_PATH = Path(os.getenv("SHARED_DB_PATH", os.path.expanduser("~/letrang-db/app.db")))
+from utils.paths import SHARED_DB_PATH
+DB_PATH = Path(SHARED_DB_PATH)
 
 # ─── HTTP ───────────────────────────────────────────────────────────────────
 BOT_HTTP_PORT = int(os.getenv("BOT_HTTP_PORT", "3002"))

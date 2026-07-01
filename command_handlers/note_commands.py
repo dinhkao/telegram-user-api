@@ -35,7 +35,7 @@ from .thread_utils import extract_thread_id
 
 log = logging.getLogger("note")
 GROUP_NOTE_ID = int(os.getenv("GROUP_NOTE_ID", "-1003053046732"))
-SHARED_DB_PATH = os.path.expanduser(os.getenv("SHARED_DB_PATH", "~/letrang-db/app.db"))
+from utils.paths import SHARED_DB_PATH
 
 
 def _conn():

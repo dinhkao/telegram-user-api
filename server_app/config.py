@@ -20,7 +20,7 @@ DON_HANG_CHAT_ID = int(os.getenv("DONHANG_CHAT_ID", "-1002138495144"))
 DON_HANG_QUERY = "#don_hang"
 DON_HANG_BATCH = 50
 DON_HANG_DB_PATH = os.getenv("DONHANG_DB", "donhang.db")
-SHARED_DB_PATH = os.path.expanduser(os.getenv("SHARED_DB_PATH", "~/letrang-db/app.db"))
+from utils.paths import SHARED_DB_PATH
 AI_BACKEND = os.getenv("AI_BACKEND", "pi")
 FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY", "")
 PI_MODEL = os.getenv("PI_MODEL", "fireworks/accounts/fireworks/routers/kimi-k2p5-turbo")

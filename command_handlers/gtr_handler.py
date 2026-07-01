@@ -14,7 +14,7 @@ from .thread_utils import extract_thread_id
 
 log = logging.getLogger("gtr")
 ORDER_GROUP_ID = int(os.getenv("ORDER_GROUP_ID", "-1002124542200"))
-SHARED_DB_PATH = os.path.expanduser(os.getenv("SHARED_DB_PATH", "~/letrang-db/app.db"))
+from utils.paths import SHARED_DB_PATH
 TRIGGER_TEXT = "gtr"
 
 

@@ -4,7 +4,7 @@ import os
 import sqlite3
 
 log = logging.getLogger("order_db")
-SHARED_DB_PATH = os.path.expanduser(os.getenv("SHARED_DB_PATH", "~/letrang-db/app.db"))
+from utils.paths import SHARED_DB_PATH
 MIRROR_FIELDS = {"soan_hang": "soan", "giao_hang": "giao", "nop_tien": "nop", "nhan_tien": "nhan"}
 
 

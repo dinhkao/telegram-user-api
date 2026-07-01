@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 import os
 
+from utils.paths import DEFAULT_SHARED_DB as DEFAULT_SHARED_DB_PATH
+
 log = logging.getLogger("audit_log")
-DEFAULT_SHARED_DB_PATH = "~/letrang-db/app.db"
 DEFAULT_MAX_FIELD_CHARS = 4096
 REDACTED_TEXT = "[REDACTED]"
 TRUNCATED_SUFFIX = "...<truncated>"
