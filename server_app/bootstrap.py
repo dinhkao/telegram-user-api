@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 
 from aiohttp import web
 from telethon import TelegramClient
@@ -50,8 +51,12 @@ async def main():
     spawn_tracked("bot.startup", start_bot(API_ID, API_HASH))
 
     # Start Google Sheets handlers (ported from bot-nhap-phieu-sp).
-    # Runs on the user-account client — no bot token. No-op unless Google creds set.
-    from sheets_bot import start_sheets_bot
-    spawn_tracked("sheets_bot.startup", start_sheets_bot(client))
+    # Runs on the user-account client — no bot token. TẮT mặc định (không dùng nữa);
+    # bật lại: SHEETS_BOT_ENABLED=true. No-op unless Google creds set.
+    if os.getenv("SHEETS_BOT_ENABLED", "").strip().lower() in ("1", "true", "yes"):
+        from sheets_bot import start_sheets_bot
+        spawn_tracked("sheets_bot.startup", start_sheets_bot(client))
+    else:
+        log.info("sheets_bot disabled (set SHEETS_BOT_ENABLED=true to enable)")
 
     await client.run_until_disconnected()
