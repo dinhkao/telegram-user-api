@@ -54,7 +54,7 @@ and mounts three formerly-separate apps onto it. There is no longer a separate
 ```
 server.py → server_app.bootstrap.main()
   ├─ aiohttp web server (REST + WebSocket) ....... server_app/ (port 8090)
-  ├─ command handlers on the user client ......... command_handlers/, command_handlers_v3/
+  ├─ command handlers on the user client ......... command_handlers/, order_commands_v3.py
   ├─ #don_hang channel indexer (live + backfill) . donhang_indexer_pkg/ → donhang_store/
   ├─ bot role (merged bot-don-hang) .............. server_app/bot_bootstrap.py + bot_core/, bot_flows/, bot_handlers/
   └─ Google Sheets bot (ported) .................. sheets_bot/   (no-op unless sheets creds set)
@@ -83,8 +83,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 **Order workflow (the heart)**
 - `command_handlers/` — text commands typed in order/customer forum topics
   (`soan`, `giao`, `nop`, product/customer/note/quỹ/production commands…). Older layer.
-- `command_handlers_v3/` — **dead facade** (see §5). The live v3 layer (KiotViet
-  invoice, payment, print, debt, analysis) is the root module `order_commands_v3.py`.
+- `order_commands_v3.py` (root module, not a shim) — live v3 order commands:
+  KiotViet invoice, payment, print, debt, analysis. Registered by
+  `server_app/command_bootstrap.py`.
 - `channel_handlers/` — reacts to new posts in `#don_hang`: creates topic,
   parses, notifies, renders.
 - `donhang_indexer_pkg/` — live + backfill indexing of `#don_hang` → `donhang_store`.
@@ -147,12 +148,6 @@ a normal module. It is the **live** v3 implementation, registered by
 `server_app/command_bootstrap.py`. `fetch.py` / `listener.py` are shim + `__main__`
 runners.
 
-> **Dead code:** `command_handlers_v3/` (the package: `registry.py`, `customer.py`,
-> `debt.py`, `invoice.py`, …) is a half-finished getattr-facade over
-> `order_commands_v3.py`. It is **not imported anywhere live** and `registry.py`
-> does not even import (`register_customer_handlers` missing). The live v3 code is
-> `order_commands_v3.py`, not this package. Remove or finish it — don't trust it.
-
 ---
 
 ## 6. Conventions
@@ -169,6 +164,16 @@ runners.
   hardcode new secrets/paths — add an env var with a default.
 - **Telegram sends/edits go through the gateway** (`TelegramGateway`) so flood-wait
   / rate limits are handled — don't call `client.edit_message` raw in hot paths.
+- **Order mutations are read-modify-write on a JSON blob.** Orders live as one
+  `json` column; a mutation is `get_order_by_thread_id → mutate dict → _save_order`.
+  Wrap that sequence in `with transaction(conn):` (`order_store.schema`) so it's
+  atomic — otherwise concurrent writers lose updates. `set_task_status` /
+  `clear_task_status` already do; new mutation sites should too. See
+  `docs/senior-review.md` for the phased plan to replace the blob with a typed model.
+- **The order heart has characterization tests** (`tests/test_order_store.py`).
+  Run `.venv/bin/python -m unittest discover -s tests` before/after touching
+  `order_store`. (No pytest installed — some test files are pytest-style and won't
+  run under unittest; the audit/telegram/order_store ones do.)
 
 ---
 
