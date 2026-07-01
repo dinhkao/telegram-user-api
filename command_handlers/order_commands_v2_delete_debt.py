@@ -99,6 +99,6 @@ async def _notify_customer_topic(client, thread_id, order, kh_id_fb, old_debt, n
     if old_debt is not None:
         note += f"\nNợ cũ: {old_debt:,}đ\nNợ mới: {new_debt:,}đ ({delta:+,}đ)"
     try:
-        await client.send_message(ORDER_GROUP_ID, note, parse_mode="html", message_thread_id=int(kh_id_fb))
+        await client.send_message(ORDER_GROUP_ID, note, parse_mode="html", reply_to=int(kh_id_fb))
     except Exception as e2:
         log.warning("Customer topic notify failed: %s", e2)

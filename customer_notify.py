@@ -26,7 +26,7 @@ def send_payment_notification(client, kh_id: str, thread_id: int, amount: int, m
     else:
         note = f"{method_icon} Đã tạo thanh toán ({method_label}) {amount:,}đ cho <a href=\"{order_topic_url}\">{title}</a>"
     try:
-        client.loop.create_task(client.send_message(ORDER_GROUP_ID, note, parse_mode="html", message_thread_id=int(kh_id)))
+        client.loop.create_task(client.send_message(ORDER_GROUP_ID, note, parse_mode="html", reply_to=int(kh_id)))
         log.info("Payment notification sent to customer topic %s", kh_id)
     except Exception as e:
         log.warning("Failed to notify customer topic %s: %s", kh_id, e)
