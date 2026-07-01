@@ -91,6 +91,11 @@ Three layers, enforced by imports:
 - ⬜ Migrate the remaining commands (invoice/print/fix and `order_commands_v2_*`)
   to the same shape: pure rule in a `domain` module + transactional store call +
   IO in the handler outside the lock.
+- ✅ **Parsers characterized** — `tests/test_parsers.py` locks the core Vietnamese
+  order parsing (`_parse_qc`, `_parse_no_qc`, `parse_comma_text`,
+  `parse_invoice_free_text`) that was previously untested. Pure (no DB): uses the
+  `_all_products` injection seam / `kh_id=None`. Documents the rules (t=thùng ×50
+  default, KDXDB special 5, DM180 lốc→12/b, trailing `tao hd` stripped).
 - ⬜ Grow `Order` typed accessors as fields get touched; keep it lossless until
   Phase 3 promotes fields to columns.
 
