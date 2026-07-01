@@ -23,8 +23,11 @@ _pools: dict[str, ConnectionPool] = {}
 def _get_pool(dsn: str) -> ConnectionPool:
     p = _pools.get(dsn)
     if p is None:
+        # max_size lớn: app mở conn thoải mái không phải lúc nào cũng close() (thói quen
+        # từ SQLite). __del__ của PgConnection trả conn về pool khi GC (bắt rò rỉ), nhưng
+        # vẫn cần headroom cho conn giữ lâu (bot_core thread-local) + đỉnh đồng thời.
         p = ConnectionPool(
-            dsn, min_size=2, max_size=20, max_idle=300.0,
+            dsn, min_size=2, max_size=64, max_idle=60.0, timeout=10.0,
             kwargs={"row_factory": _row_factory}, open=True,
         )
         _pools[dsn] = p
@@ -155,7 +158,16 @@ class PgConnection:
                 self._conn.rollback()
         except Exception:
             pass
-        self._pool.putconn(self._conn)
+        try:
+            self._pool.putconn(self._conn)
+        except Exception:
+            pass
+
+    def __del__(self):
+        # Safety net: nếu caller quên close() (thói quen SQLite), GC trả conn về pool
+        # để pool không cạn. Refcount GC gọi ngay khi biến ra khỏi scope.
+        if not getattr(self, "_closed", True):
+            self.close()
 
     @property
     def in_transaction(self) -> bool:
