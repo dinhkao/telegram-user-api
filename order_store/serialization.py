@@ -39,7 +39,11 @@ def _save_order(conn, thread_id: int, data: dict) -> bool:
 
 def _update_order_json_field(conn, thread_id: int, field_path: str, value) -> bool:
     try:
-        sql_val = json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value
+        # JSON-encode EVERY value, not just dict/list. A bare string previously
+        # became json('Anh Tú') — malformed JSON — so string writes (e.g.
+        # $.customer_name, string customer IDs) silently failed. json.dumps makes
+        # it json('"Anh Tú"'), which parses correctly.
+        sql_val = json.dumps(value, ensure_ascii=False)
         conn.execute(
             "UPDATE orders SET json = json_set(json, ?, json(?)), updated_at = ? WHERE thread_id = ? AND deleted_at IS NULL",
             (field_path, sql_val, int(time.time() * 1000), thread_id),

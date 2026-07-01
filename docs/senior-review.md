@@ -46,19 +46,22 @@ Goal: stop silent data loss; give every mutation one safe place to stand.
   lock current behavior of create/get/save/task-status/flags/invoice/soft-delete
   so later phases can't silently regress.
 - ✅ **Atomic read-modify-write** — added `order_store.schema.transaction(conn)`
-  (`BEGIN IMMEDIATE`, re-entrancy-safe, rolls back on exception) and wrapped the
-  highest-traffic chokepoint mutations `set_task_status` / `clear_task_status`
-  (the soan/giao/nop/nhan flow). Tested for commit, rollback, reentrancy, no
-  leaked transaction.
-- ⬜ Wrap the remaining ~23 RMW call sites (every `get_order_by_thread_id` →
-  mutate → `_save_order` pair — grep `_save_order`). Do a few per PR, each under
-  the characterization tests. Candidates: `order_store/orders.py`,
-  `order_commands_v3.py`, `command_handlers/order_commands_v2_*`,
-  `server_app/order_api_*`.
-- ⬜ **Fix latent bug** documented by `test_update_json_field_bare_string_is_broken`:
-  `_update_order_json_field(conn, tid, path, "somestring")` produces `json('somestring')`
-  = malformed JSON and silently returns False. Make it JSON-encode scalar strings
-  too (`json.dumps(value)` for any non-pre-encoded value). Then flip that test.
+  (`BEGIN IMMEDIATE`, re-entrancy-safe, rolls back on exception; exported from
+  `order_store` / `order_db`). Tested for commit, rollback, reentrancy, no leaked
+  transaction. Migrated the **synchronous** RMW sites: `set_task_status`,
+  `clear_task_status`, `set_order_flag`, `save_order_invoice` (store level) and
+  `api_fix_handler`, `api_invoice_update_handler` (aiohttp — async work kept
+  outside the lock).
+- ✅ **Fixed latent bug**: `_update_order_json_field` with a bare string produced
+  `json('Anh Tú')` (malformed JSON) and silently dropped the write — this was
+  hitting `$.customer_name` and string customer IDs in `channel_handlers/parse.py`.
+  Now `json.dumps` every value. Regression test added.
+- ⬜ Remaining RMW sites are the **async money commands** in `order_commands_v3.py`
+  (ck/tm/invoice/print) and `command_handlers/order_commands_v2_*`. These `await`
+  network IO (KiotViet, Telegram) *between* the read and the save, so they must NOT
+  be wrapped in a transaction as-is (that holds a write lock across IO). Correct fix
+  = Phase 2: extract the synchronous mutation into a store helper, do the async work
+  outside it. Do one command end-to-end as the template, then the rest.
 - ⬜ Introduce a typed `Order` model (dataclass/Pydantic) as the ONLY thing new
   handler code touches; serialize to/from the JSON column underneath. One place
   knows an order's shape. Add round-trip tests. Do NOT rewire all handlers at

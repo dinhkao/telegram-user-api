@@ -4,6 +4,7 @@ import json
 import os
 from datetime import UTC, datetime
 
+from .schema import transaction
 from .serialization import _save_order, get_order_by_thread_id
 
 FINAL_TELEGRAM_URL = os.getenv("FINAL_TELEGRAM_URL", "http://localhost:3000")
@@ -45,17 +46,19 @@ def get_order_html(conn, thread_id: int) -> str:
 
 
 def set_order_flag(conn, thread_id: int, flag_name: str, value: bool | str) -> tuple[bool, str]:
-    data = get_order_by_thread_id(conn, thread_id)
-    if data is None:
-        return False, "Không tìm thấy đơn hàng"
-    data[flag_name] = value
-    data["updated_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-    return (True, f"✅ Đã cập nhật {flag_name}") if _save_order(conn, thread_id, data) else (False, "❌ Lỗi lưu đơn hàng")
+    with transaction(conn):   # atomic read-modify-write (see order_store.schema.transaction)
+        data = get_order_by_thread_id(conn, thread_id)
+        if data is None:
+            return False, "Không tìm thấy đơn hàng"
+        data[flag_name] = value
+        data["updated_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        return (True, f"✅ Đã cập nhật {flag_name}") if _save_order(conn, thread_id, data) else (False, "❌ Lỗi lưu đơn hàng")
 
 
 def save_order_invoice(conn, thread_id: int, invoice: list[dict]) -> tuple[bool, str]:
-    data = get_order_by_thread_id(conn, thread_id)
-    if data is None:
-        return False, "Không tìm thấy đơn hàng"
-    data["invoice"], data["updated_at"] = invoice, datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-    return (True, f"✅ Đã lưu {len(invoice)} sản phẩm") if _save_order(conn, thread_id, data) else (False, "❌ Lỗi lưu đơn hàng")
+    with transaction(conn):   # atomic read-modify-write
+        data = get_order_by_thread_id(conn, thread_id)
+        if data is None:
+            return False, "Không tìm thấy đơn hàng"
+        data["invoice"], data["updated_at"] = invoice, datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        return (True, f"✅ Đã lưu {len(invoice)} sản phẩm") if _save_order(conn, thread_id, data) else (False, "❌ Lỗi lưu đơn hàng")

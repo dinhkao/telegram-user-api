@@ -82,11 +82,14 @@ class OrderStoreCharacterization(unittest.TestCase):
         self.assertEqual(order["priority"], 3)
         self.assertEqual(order["meta"], {"a": 1})
 
-    def test_update_json_field_bare_string_is_broken(self):
-        # DOCUMENTS A LATENT BUG: a bare string value produces json('VIP') which is
-        # malformed JSON, so the update fails and returns False. Callers must pass
-        # already-JSON values. See docs/senior-review.md (Phase 1 fix candidate).
-        self.assertFalse(_update_order_json_field(self.conn, THREAD, "$.tag", "VIP"))
+    def test_update_json_field_bare_string_now_works(self):
+        # Regression: bare strings used to fail (json('VIP') is malformed JSON),
+        # silently dropping writes like $.customer_name. Now fixed.
+        self.assertTrue(_update_order_json_field(self.conn, THREAD, "$.customer_name", "Anh Tú"))
+        self.assertEqual(get_order_by_thread_id(self.conn, THREAD)["customer_name"], "Anh Tú")
+        # unicode-safe round-trip
+        self.assertTrue(_update_order_json_field(self.conn, THREAD, "$.tag", "Ưu tiên"))
+        self.assertEqual(get_order_by_thread_id(self.conn, THREAD)["tag"], "Ưu tiên")
 
     def test_set_task_status_marks_done_and_mirror_field(self):
         ok = set_task_status(self.conn, THREAD, "soan_hang", user_id=42)
