@@ -895,7 +895,7 @@ def register_order_commands_v3(client):
                 except: pass
             await client.send_message(
                 msg.chat_id, f"{user_name} bán HĐ",
-                reply_to=thread_id, disable_web_page_preview=True,
+                reply_to=thread_id, link_preview=False,   # Telethon kwarg (was Bot-API disable_web_page_preview -> TypeError)
             )
         except Exception as e:
             log.warning("ban_hd notification failed: %s", e)
