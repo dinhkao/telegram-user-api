@@ -3,17 +3,20 @@ import json
 import logging
 import time
 
-from .schema import MIRROR_FIELDS, transaction
+from .schema import transaction
 from .serialization import _save_order, get_order_by_thread_id
+from .model import Order
+from .domain import all_steps_done, mark_task, clear_task
 
 log = logging.getLogger("order_db")
 
-
-def _all_steps_done(task_status: dict) -> bool:
-    required = ["ban_hd", "soan_hang", "giao_hang", "nop_tien", "nhan_tien"]
-    return all(task_status.get(step, {}).get("done") or task_status.get(step, {}).get("skip", False) for step in required)
+# Back-compat alias — some callers/tests import _all_steps_done from here.
+_all_steps_done = all_steps_done
 
 
+# Reference implementation of the 3-layer pattern (Phase 2, see docs/senior-review.md):
+#   store (this fn): transaction + IO   ->   model: Order façade   ->   domain: pure rule
+# Behavior is identical to the old inline version (guarded by tests/test_order_store.py).
 def set_task_status(conn, thread_id: int, task_type: str, user_id: int | None, *, skip: bool = False, done: bool = True, note: str = "") -> bool:
     # Atomic read-modify-write: take the write lock before the SELECT so a
     # concurrent writer cannot interleave and clobber the blob.
@@ -23,20 +26,8 @@ def set_task_status(conn, thread_id: int, task_type: str, user_id: int | None, *
             log.warning("set_task_status: order not found thread=%d", thread_id)
             return False
         now_iso = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
-        payload = {"done": done, "by": user_id, "at": now_iso, "skip": skip}
-        if note:
-            payload["note"] = note
-        task_status = data.get("task_status") or {}
-        task_status[task_type] = payload
-        data["task_status"] = task_status
-        mirror_field = MIRROR_FIELDS.get(task_type)
-        if mirror_field:
-            data[mirror_field] = bool(done or skip)
-        if _all_steps_done(task_status):
-            data["done_after_20250124"] = True
-        if "flow_version" not in data:
-            data["flow_version"] = 2
-        return _save_order(conn, thread_id, data)
+        order = mark_task(Order.from_dict(data), task_type, user_id, done=done, skip=skip, note=note, now_iso=now_iso)
+        return _save_order(conn, thread_id, order.to_dict())
 
 
 def clear_task_status(conn, thread_id: int, task_type: str, user_id: int | None) -> bool:
@@ -45,17 +36,8 @@ def clear_task_status(conn, thread_id: int, task_type: str, user_id: int | None)
         if data is None:
             log.warning("clear_task_status: order not found thread=%d", thread_id)
             return False
-        task_status = data.get("task_status") or {}
-        if task_type in task_status:
-            del task_status[task_type]
-        if task_status:
-            data["task_status"] = task_status
-        elif "task_status" in data:
-            del data["task_status"]
-        mirror_field = MIRROR_FIELDS.get(task_type)
-        if mirror_field:
-            data[mirror_field] = False
-        return _save_order(conn, thread_id, data)
+        order = clear_task(Order.from_dict(data), task_type)
+        return _save_order(conn, thread_id, order.to_dict())
 
 
 def get_all_tasks(conn) -> list[dict]:

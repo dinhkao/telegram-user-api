@@ -67,7 +67,7 @@ Goal: stop silent data loss; give every mutation one safe place to stand.
   knows an order's shape. Add round-trip tests. Do NOT rewire all handlers at
   once — new/changed code adopts it first.
 
-## Phase 2 — layer it ⬜
+## Phase 2 — layer it 🚧 (template landed)
 
 Three layers, enforced by imports:
 - `telegram/handlers` — parse input, format output, NO business logic.
@@ -75,8 +75,18 @@ Three layers, enforced by imports:
 - `stores` + `integrations` — all IO (SQLite, Firebase, KiotViet) behind
   interfaces with fakes.
 
-Handlers become thin; the heart becomes testable without a live Telegram client.
-Migrate one command end-to-end as the reference implementation, then the rest.
+- ✅ **Reference template** on the task-status command (`soan`/`giao`/`nop`/`nhan`,
+  live-verified): `order_store/model.py` (`Order` — lossless typed façade over the
+  blob) + `order_store/domain.py` (pure `mark_task`/`clear_task`/`all_steps_done`)
+  + `order_store/tasks.py` (transaction + IO only). Behavior identical (guarded by
+  `tests/test_order_store.py`); pure rules unit-tested in `tests/test_order_domain.py`
+  with zero IO. This is the pattern to copy.
+- ⬜ Migrate the next commands to the same shape, starting with the async money
+  ones (`order_commands_v3` ck/tm/invoice — also clears Phase 1 tail): extract the
+  synchronous mutation into a `domain` function + a transactional store call, do
+  the KiotViet/Telegram IO in the handler outside the lock.
+- ⬜ Grow `Order` typed accessors as fields get touched; keep it lossless until
+  Phase 3 promotes fields to columns.
 
 ## Phase 3 — promote hot fields out of the blob ⬜
 
