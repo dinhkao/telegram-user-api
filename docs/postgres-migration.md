@@ -9,7 +9,19 @@ Nền tảng đã đọc: `docs/senior-review.md` (lộ trình strangler), schem
 
 ---
 
-## ⚡ TRẠNG THÁI: ĐÃ CUTOVER — APP ĐANG CHẠY POSTGRES NATIVE (2026-07-02)
+## ⚠️ TRẠNG THÁI: ĐÃ REVERT VỀ SQLITE (2026-07-02)
+
+Migrate sang PG + cutover live xong, **nhưng đã quay lại SQLite cùng ngày** (chủ dự án
+quyết): app 1-process/1-máy/17k đơn — lý do mạnh nhất chọn PG (nhiều writer) mất khi
+Node retire, PG chỉ thêm phức tạp vận hành. App hiện chạy SQLite (`~/letrang-db/app.db`,
+`DB_ENGINE` unset). Migrate ngược `tools/migrate_pg_to_sqlite.py` verify byte-identity,
+giữ mọi write sau cutover. Toàn bộ hạ tầng PG dưới đây **giữ lại dormant** — bật lại =
+`DB_ENGINE=postgres` (xem [[app-live-on-postgres]] trong memory). Phần dưới là tài liệu
+migration để tham khảo / bật lại.
+
+---
+
+## (LỊCH SỬ) TRẠNG THÁI CUTOVER — POSTGRES NATIVE (2026-07-02)
 
 `server.py` đang chạy trên **PostgreSQL native** (homebrew `postgresql@16`, qua
 **unix socket** `postgresql://duydinh0225@/app?host=/tmp`). brew services quản → tự
