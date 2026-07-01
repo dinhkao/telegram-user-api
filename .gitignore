@@ -22,6 +22,12 @@ node_modules/
 .next/
 dist/
 
+# SQLite WAL/SHM sidecars + run logs
+*.db-shm
+*.db-wal
+*.db-journal
+*_nohup.log
+
 # Secrets / Credentials
 *-firebase-adminsdk-*.json
 *.db
