@@ -67,7 +67,23 @@ Goal: stop silent data loss; give every mutation one safe place to stand.
   knows an order's shape. Add round-trip tests. Do NOT rewire all handlers at
   once — new/changed code adopts it first.
 
-## Phase 2 — layer it 🚧 (template landed)
+## Phase 2 — layer it ✅ (core complete; mechanical tail remains)
+
+**Core done:** the model/domain/store pattern is established and copied across the
+key domains (task-status, payments, debt, profit), and every core piece of
+previously-untested business logic is now locked under tests (85 total). All
+*synchronous* order mutations are atomic.
+
+**Remaining (mechanical, do incrementally with live tests — NOT blind):**
+- Thin-handler migration of the async commands in `order_commands_v3` (invoice /
+  VAT / print / fix — ~8 `_save_order` sites). Each `await`s KiotViet/Telegram
+  between read and save, so the mutation must be extracted into a synchronous
+  `domain` + transactional store call with the IO left in the handler, then
+  live-tested. Low marginal risk-reduction (the shared `task_status` mutation is
+  already atomic; single-command races are rare and WAL+busy_timeout serialize
+  statements) — hence deferred, not rushed.
+- Same for `command_handlers/order_commands_v2_*`.
+
 
 Three layers, enforced by imports:
 - `telegram/handlers` — parse input, format output, NO business logic.

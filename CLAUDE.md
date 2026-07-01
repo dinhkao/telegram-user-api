@@ -170,9 +170,17 @@ runners.
   atomic — otherwise concurrent writers lose updates. `set_task_status` /
   `clear_task_status` already do; new mutation sites should too. See
   `docs/senior-review.md` for the phased plan to replace the blob with a typed model.
+- **Layering pattern (copy this).** New/changed order logic goes in 3 layers:
+  **store** (`order_store/tasks.py`, `payment_store/…`) = transaction + IO only →
+  **domain** (`order_store/domain.py`, `payment_store/domain.py`) = pure rules, no
+  IO, unit-tested → **model** (`order_store/model.py` `Order`) = lossless typed
+  façade over the blob. Reference impls: `set_task_status`, the payment decision
+  logic, `compute_debt`. Put pure logic in a `domain` module and unit-test it.
 - **Run the tests with `./scripts/test.sh`** (wraps pytest; auto-installs dev deps
-  from `requirements-dev.txt` on first run). 46 tests. Run before/after touching
-  `order_store` — `tests/test_order_store.py` characterizes the order heart.
+  from `requirements-dev.txt` on first run). 85 tests. Run before/after touching
+  `order_store`/`payment_store` — the heart, parsers, and money math are
+  characterized (`tests/test_order_store.py`, `test_order_domain.py`,
+  `test_parsers.py`, `test_payment_domain.py`, `test_profit.py`).
   Filter: `./scripts/test.sh -k task_status`.
 
 ---
