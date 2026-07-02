@@ -122,6 +122,11 @@ export function OrdersList() {
   const [err, setErr] = useState("");
   const [compact, setCompact] = useState(() => localStorage.getItem("dash_compact") === "1");
   const toggleCompact = () => setCompact((c) => { localStorage.setItem("dash_compact", c ? "0" : "1"); return !c; });
+  const [flashing, setFlashing] = useState<Record<string, boolean>>({});
+  const flashOrder = (tid: string) => {
+    setFlashing((f) => ({ ...f, [tid]: true }));
+    setTimeout(() => setFlashing((f) => { const n = { ...f }; delete n[tid]; return n; }), 1600);
+  };
   const reqSeq = useRef(0); // "query mới nhất thắng" — bỏ debounce nhưng chặn race
   const sentinel = useRef<HTMLDivElement>(null);
   // refs giữ state mới nhất cho observer (tránh stale closure)
@@ -209,6 +214,7 @@ export function OrdersList() {
         } else if (idx >= 0) {
           next = prev.slice();
           next[idx] = e.row as OrderRow; // vá dòng đã đổi
+          flashOrder(tid);               // nháy sáng card vừa đổi
         } else {
           return prev; // chưa có trong danh sách hiện tại → hiện ở lần tải sau
         }
@@ -287,7 +293,7 @@ export function OrdersList() {
       <ul class="order-list">
         {compact && visible.map((o) => (
           <li key={o.thread_id}>
-            <a class="order-card compact" href={`#/order/${o.thread_id}`}>
+            <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}`} href={`#/order/${o.thread_id}`}>
               <div class="order-text">
                 {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
               </div>
@@ -299,7 +305,7 @@ export function OrdersList() {
           const stt = statusLabel(o);
           return (
           <li key={o.thread_id}>
-            <a class="order-card two-col" href={`#/order/${o.thread_id}`}>
+            <a class={`order-card two-col${flashing[String(o.thread_id)] ? " flash" : ""}`} href={`#/order/${o.thread_id}`}>
               <div class="card-main">
                 {o.text
                   ? <div class="order-text"><Highlight text={o.text} q={search} /></div>
