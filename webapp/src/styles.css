@@ -160,3 +160,4 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
   .dside { position: sticky; top: 52px; }
 }
 .inv-mini .debt td { color: var(--danger); font-weight: 600; }
+.paid-ok { color: var(--ok); font-size: .9rem; }

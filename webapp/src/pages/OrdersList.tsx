@@ -27,6 +27,8 @@ type OrderRow = {
   no_truoc?: string;
   kh_debt?: number | null;
   giao_by?: string;
+  nop_by?: string;
+  nop_note?: string;
   topic_name: string;
   creator: string;
   text: string;
@@ -37,7 +39,9 @@ function statusLabel(o: OrderRow): string {
   if (!o.soan) return "Chưa soạn";
   if (!o.giao) return "Chưa giao";
   if (!o.nop) return o.giao_by ? `${o.giao_by} chưa nộp` : "Chưa nộp";
-  return "";
+  // đã nộp → "<người nộp> đã nộp (<tình trạng>)"
+  const note = (o.nop_note || "").replace(/_/g, " ").trim();
+  return `${o.nop_by ? `${o.nop_by} ` : ""}đã nộp${note ? ` (${note})` : ""}`;
 }
 
 // Tô sáng cụm khớp khi tìm kiếm (không phân biệt hoa/thường)
@@ -292,7 +296,7 @@ export function OrdersList() {
                 <div class="row space">
                   <span>
                     {o.total && <b class="money">{o.total}đ</b>}
-                    {stt && <span class="owe"> · {stt}</span>}
+                    {stt && <span class={stt.includes("đã nộp") ? "paid-ok" : "owe"}> · {stt}</span>}
                   </span>
                   <TaskBadges o={o} />
                 </div>
