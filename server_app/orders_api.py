@@ -114,7 +114,9 @@ async def orders_api_handler(request: web.Request):
         if _stage:
             e = f"json_extract(o.json, '$.{_stage}')"
             not_done = f"{e} IS DISTINCT FROM 'true'" if IS_POSTGRES else f"{e} IS NOT 1"
-            where.append(f"({has_data}) AND ({not_done})")
+            # Chỉ đơn tạo sau 01/06/2026 — data cũ cờ soạn/giao/nộp/nhận lộn xộn.
+            # order_created là ISO ('2026-07-01T…') nên so sánh chuỗi là đúng thứ tự.
+            where.append(f"({has_data}) AND ({not_done}) AND (o.order_created >= '2026-06-01')")
     where_clause = " AND ".join(where)
     sort = request.query.get("sort", "created").strip()
     if sort == "date":
