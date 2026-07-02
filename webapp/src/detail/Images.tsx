@@ -107,9 +107,9 @@ export function Images({ threadId }: { threadId: string }) {
         </div>
       </div>
       <input ref={camInput} type="file" accept="image/*" capture="environment" hidden onChange={onPick} />
-      {/* single-file (không 'multiple') — đi đúng luồng đã chạy tốt của nút Chụp;
-          WebView trả nhiều file qua clipData hay lỗi khi bật multiple trên vài máy */}
-      <input ref={fileInput} type="file" accept="image/*" hidden onChange={onPick} />
+      {/* multiple: chọn nhiều ảnh 1 lượt. APK dùng gallery THUẦN (không trộn camera)
+          cho input này nên chọn-nhiều chạy ổn; trình duyệt xử lý natively. */}
+      <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={onPick} />
 
       {err && <p class="error small">{err}</p>}
 
