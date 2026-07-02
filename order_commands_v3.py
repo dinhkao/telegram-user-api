@@ -285,6 +285,57 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     return result
 
 
+async def _process_create_invoice_core(thread_id: int, user_id: int | None) -> dict:
+    """Core tạo hoá đơn KiotViet (DB + KiotViet). Dùng chung cho lệnh Telethon
+    'tạo hd' và endpoint REST /api/order/invoice/create-kiotviet. Trả dict
+    {success, error, kv_code, kv_id, old_debt, kh_name} — caller tự hiển thị."""
+    db_conn = _get_connection()
+    result = {"success": False, "error": None, "thread_id": thread_id,
+              "kv_code": None, "kv_id": None, "old_debt": None, "kh_name": None}
+    order = get_order_by_thread_id(db_conn, thread_id)
+    if not order:
+        result["error"] = "Không tìm thấy đơn hàng"; return result
+    invoice = order.get("invoice") or order.get("invoice_items") or []
+    if not invoice:
+        result["error"] = "Không có sản phẩm nào trong đơn. Thêm sản phẩm trước."; return result
+    kh_id_fb = order.get("khach_hang_id") or order.get("khID")
+    if not kh_id_fb:
+        result["error"] = "Đơn chưa có khách hàng. Gán khách trước."; return result
+    customer = get_customer_by_key(db_conn, str(kh_id_fb))
+    if not customer or not customer.get("kh_id"):
+        result["error"] = "Không tìm thấy ID KiotViet của khách hàng."; return result
+    kv_id = customer["kh_id"]
+    result["kh_name"] = customer.get("name", "N/A")
+    discount = int(order.get("discount", 0)); pvc = int(order.get("pvc", 0)); vat = int(order.get("vat", 0))
+    # Nợ cũ lấy song song (thread) trong lúc tạo HĐ
+    old_debt_future = asyncio.get_running_loop().run_in_executor(None, get_customer_debt_kv, kv_id)
+    try:
+        inv = create_kiotviet_invoice(customer_id=kv_id, invoice_items=invoice, discount=discount, pvc=pvc, vat=vat)
+    except Exception as e:
+        log.error("KiotViet create invoice failed: %s", e)
+        result["error"] = f"Lỗi tạo hoá đơn KiotViet: {e}"; return result
+    old_debt = None
+    try:
+        det = await old_debt_future; old_debt = det.get("debt")
+    except Exception as e:
+        log.warning("Could not fetch old debt for customer %s: %s", kv_id, e)
+    if not inv:
+        result["error"] = "Tạo hoá đơn KiotViet thất bại!"; return result
+    invoice_code = inv.get("code", "N/A"); invoice_id = inv.get("id")
+    order["kiotvietInvoiceID"] = invoice_id
+    order["kiotvietInvoiceCode"] = invoice_code
+    order["nguoi_tao_HD"] = [user_id or 1809874974]
+    snapshot_debt = old_debt if old_debt is not None else 0
+    order["invoice_debt_snapshot"] = snapshot_debt
+    if old_debt is not None:
+        order["khDebt"] = old_debt
+    if not _save_order(db_conn, thread_id, order):
+        result["error"] = "Lỗi lưu hoá đơn vào database"; return result
+    set_task_status(db_conn, thread_id, "ban_hd", user_id)
+    result.update(success=True, kv_code=invoice_code, kv_id=invoice_id, old_debt=snapshot_debt)
+    return result
+
+
 async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int | None, method: str):
     """Process a payment (tm=Cash or ck=Transfer) — fully in Telethon.
     
@@ -789,82 +840,20 @@ def register_order_commands_v3(client):
         if not thread_id: return
         user_id = getattr(msg, "sender_id", None)
 
-        order = get_order_by_thread_id(db_conn, thread_id)
-        if not order:
-            await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
-            return
-
-        invoice = order.get("invoice") or order.get("invoice_items") or []
-        if not invoice:
-            await client.send_message(msg.chat_id, "❌ Không có sản phẩm nào trong đơn hàng. Dùng lệnh `,` để thêm sản phẩm.", reply_to=msg.id)
-            return
-
-        kh_id_fb = order.get("khach_hang_id") or order.get("khID")
-        if not kh_id_fb:
-            await client.send_message(msg.chat_id, "❌ Đơn hàng chưa có khách hàng. Gán khách hàng trước.", reply_to=msg.id)
-            return
-
-        customer = get_customer_by_key(db_conn, str(kh_id_fb))
-        if not customer or not customer.get("kh_id"):
-            await client.send_message(msg.chat_id, "❌ Không tìm thấy ID KiotViet của khách hàng.", reply_to=msg.id)
-            return
-
-        kv_id = customer["kh_id"]
-        kh_name = customer.get("name", "N/A")
-        discount = int(order.get("discount", 0))
-        pvc = int(order.get("pvc", 0))
-        vat = int(order.get("vat", 0))
-
         # Processing feedback — show immediately
         proc_msg = await client.send_message(msg.chat_id, "⏳ Đang tạo hóa đơn KiotViet......", reply_to=msg.id)
 
-        # Start debt fetch in background thread (parallel with invoice creation)
-        old_debt_future = asyncio.get_running_loop().run_in_executor(
-            None, get_customer_debt_kv, kv_id
-        )
-
-        try:
-            result = create_kiotviet_invoice(
-                customer_id=kv_id,
-                invoice_items=invoice,
-                discount=discount,
-                pvc=pvc,
-                vat=vat,
-            )
-        except Exception as e:
-            log.error("KiotViet create invoice failed: %s", e)
-            await client.edit_message(msg.chat_id, proc_msg.id, f"❌ Lỗi tạo hóa đơn KiotViet: {e}")
+        # Core dùng chung với endpoint web (_process_create_invoice_core)
+        core = await _process_create_invoice_core(thread_id, user_id)
+        if not core["success"]:
+            await client.edit_message(msg.chat_id, proc_msg.id, f"❌ {core['error']}")
             return
+        invoice_code = core["kv_code"]
+        invoice_id = core["kv_id"]
+        snapshot_debt = core["old_debt"]
+        kh_name = core["kh_name"]
+        order = get_order_by_thread_id(db_conn, thread_id)  # đọc lại bản đã lưu để refresh/firebase
 
-        # Collect debt result (best-effort, already fetched in parallel)
-        old_debt = None
-        try:
-            det = await old_debt_future
-            old_debt = det.get("debt")
-        except Exception as e:
-            log.warning("Could not fetch old debt for customer %d: %s", kv_id, e)
-
-        if not result:
-            await client.edit_message(msg.chat_id, proc_msg.id, "❌ Tạo hóa đơn KiotViet thất bại!")
-            return
-
-        invoice_code = result.get("code", "N/A")
-        invoice_id = result.get("id")
-
-        # Save invoice ID + metadata to SQLite
-        order["kiotvietInvoiceID"] = invoice_id
-        order["kiotvietInvoiceCode"] = invoice_code
-        order["nguoi_tao_HD"] = [user_id or 1809874974]
-        snapshot_debt = old_debt if old_debt is not None else 0
-        order["invoice_debt_snapshot"] = snapshot_debt
-        if old_debt is not None:
-            order["khDebt"] = old_debt
-        if not _save_order(db_conn, thread_id, order):
-            await client.edit_message(msg.chat_id, proc_msg.id, "❌ Lỗi lưu hóa đơn vào database")
-            return
-
-        # Auto-complete ban_hd task locally
-        set_task_status(db_conn, thread_id, "ban_hd", user_id)
         # Send ban_hd notification directly via Telethon (no Node.js)
         try:
             user_name = "Hệ thống"

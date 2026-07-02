@@ -14,7 +14,9 @@ from server_app.order_api_mutations import api_fix_handler, api_invoice_update_h
 from server_app.order_api_payments import api_customer_price_handler, order_totals_handler, payment_ck_handler, payment_tm_handler
 from server_app.order_api_print import api_print_giao_handler
 from server_app.order_api_tasks import _make_task_handler, api_task_handler, api_task_status_clear_handler
+from server_app.order_api_invoice import api_create_invoice_handler
 from server_app.orders_api import order_detail_handler, orders_api_handler
+from server_app.product_routes import products_search_handler
 from server_app.orders_pages import order_detail_page_handler, orders_page_handler
 from server_app.web_auth import login_handler, me_handler, web_auth_middleware
 from server_app.web_pages import index_handler
@@ -60,6 +62,8 @@ def create_app():
     r.add_post("/api/order/refresh-view", api_refresh_handler)
     r.add_post("/api/order/fix", api_fix_handler)
     r.add_post("/api/order/invoice/update", api_invoice_update_handler)
+    r.add_post("/api/order/invoice/create-kiotviet", api_create_invoice_handler)
+    r.add_get("/api/products", products_search_handler)
     r.add_post("/api/order/reply", api_reply_handler)
     r.add_post("/api/customer/price", api_customer_price_handler)
     r.add_post("/api/order/{id}/task_status/clear", api_task_status_clear_handler)

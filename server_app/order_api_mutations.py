@@ -43,14 +43,24 @@ async def api_invoice_update_handler(request: web.Request):
     except Exception:
         return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
     thread_id, invoice = body.get("thread_id"), body.get("invoice")
-    if not thread_id or not isinstance(invoice, list):
-        return web.json_response({"ok": False, "error": "Missing thread_id or invoice"}, status=400)
+    if not thread_id:
+        return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
+    if invoice is not None and not isinstance(invoice, list):
+        return web.json_response({"ok": False, "error": "invoice must be a list"}, status=400)
     conn = _get_connection()
     with transaction(conn):   # atomic RMW; the async refresh runs AFTER, outside the lock
         order = get_order_by_thread_id(conn, thread_id)
         if not order:
             return web.json_response({"ok": False, "error": "Order not found"}, status=404)
-        order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
+        if invoice is not None:
+            order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
+        # Điều chỉnh (chiết khấu / PVC / VAT) — chỉ set khi client gửi kèm
+        for k in ("vat", "pvc", "discount"):
+            if k in body:
+                try:
+                    order[k] = int(body[k] or 0)
+                except (TypeError, ValueError):
+                    order[k] = 0
         if not _save_order(conn, thread_id, order):
             return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
     if order.get("channel_id") and order.get("message_id") and state._client is not None:
