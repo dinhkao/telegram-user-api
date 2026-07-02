@@ -54,7 +54,7 @@ function ProductInput({ value, onChange, onCommit }: {
   );
 }
 
-export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCreateInvoice, hasInvoice, createMode }: {
+export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCreateInvoice, hasInvoice, createMode, onView, onDelete, canDelete, invoiceCode }: {
   customerId?: string;
   invoice: any[];
   discount?: number; pvc?: number; vat?: number;
@@ -62,6 +62,10 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   onCreateInvoice?: () => Promise<void> | void;
   hasInvoice?: boolean;
   createMode?: boolean;   // form tạo đơn → luôn ở chế độ sửa, không có nút xem
+  onView?: () => void;                 // xem HĐ KiotViet
+  onDelete?: () => Promise<void> | void; // xoá HĐ KiotViet
+  canDelete?: boolean;                 // chỉ admin
+  invoiceCode?: string | number;
 }) {
   const [rows, setRows] = useState<EditorRow[]>([]);
   const [disc, setDisc] = useState(0);
@@ -138,9 +142,14 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       : <span class="pricetag">{name}: {money(info.price)}</span>;
   };
 
-  // Chỉ hiện "Tạo HĐ" khi CHƯA có HĐ KiotViet (đã có thì xem/xoá ở trang chi tiết)
-  const createBtn = onCreateInvoice && !hasInvoice && (
-    <button class="btn primary wide" disabled={busy} onClick={() => run(onCreateInvoice)}>🧾 Tạo HĐ KiotViet</button>
+  // Nút liên quan hoá đơn KiotViet — gom chung ở đây (chưa có HĐ → Tạo; có HĐ → Xem/Xoá)
+  const invActions = (
+    <div class="row" style="margin-top:8px">
+      {hasInvoice && invoiceCode ? <span class="muted small">HĐ: {invoiceCode}</span> : null}
+      {hasInvoice && onView ? <button class="btn small" onClick={onView}>👁️ Xem HĐ</button> : null}
+      {hasInvoice && canDelete && onDelete ? <button class="btn small danger" disabled={busy} onClick={() => run(onDelete)}>🗑️ Xoá HĐ</button> : null}
+      {!hasInvoice && onCreateInvoice ? <button class="btn primary" disabled={busy} onClick={() => run(onCreateInvoice)}>🧾 Tạo HĐ KiotViet</button> : null}
+    </div>
   );
 
   // ── Chế độ XEM (mặc định ở trang chi tiết) ──────────────────────────────
@@ -174,7 +183,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
           {v > 0 && <div class="row space"><span>VAT</span><b>+{money(v)}đ</b></div>}
           <div class="row space total"><b>Tổng thanh toán</b><b class="money">{money(tong)}đ</b></div>
         </div>
-        {createBtn}
+        {invActions}
       </div>
     );
   }

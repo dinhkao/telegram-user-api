@@ -9,6 +9,7 @@ import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
 import { Payments } from "../detail/Payments";
 import { Tasks } from "../detail/Tasks";
+import { invalidateListCache } from "./OrdersList";
 
 export function OrderDetail({ threadId }: { threadId: string }) {
   const [detail, setDetail] = useState<any>(null);
@@ -26,6 +27,8 @@ export function OrderDetail({ threadId }: { threadId: string }) {
       setErr(ex.message);
     }
   };
+  // Sau khi SỬA đơn: xoá cache dashboard rồi tải lại (đơn có thể đã rời filter)
+  const changed = () => { invalidateListCache(); reload(); };
   useEffect(() => {
     reload();
   }, [threadId]);
@@ -78,7 +81,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
       await postJSON("/api/order/assign-customer", { thread_id: Number(threadId), customer_key: c.key });
       setMsg(`✅ Đã gán khách: ${c.name}`);
       setChangingCust(false);
-      reload();
+      changed();
     } catch (ex: any) {
       setMsg(`❌ ${ex.message}`);
     }
@@ -87,7 +90,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
   const saveInvoice = async (payload: EditorPayload) => {
     await postJSON("/api/order/invoice/update", { thread_id: Number(threadId), ...payload });
     setMsg("✅ Đã lưu hoá đơn");
-    reload();
+    changed();
   };
 
   const createHD = async () => {
@@ -95,7 +98,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
     try {
       const r = await createKiotVietInvoice(threadId);
       setMsg(`🧾 Đã tạo HĐ ${r.kv_code || ""}${r.old_debt ? ` · nợ cũ ${money(r.old_debt)}đ` : ""}`);
-      reload();
+      changed();
     } catch (ex: any) {
       setMsg(`❌ ${ex.message}`);
     }
@@ -105,7 +108,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
     try {
       const r = await refreshOrderDebt(threadId);
       setMsg(`💰 Đã cập nhật nợ KiotViet: ${money(r.debt)}đ`);
-      reload();
+      changed();
     } catch (ex: any) {
       setMsg(`❌ ${ex.message}`);
     }
@@ -116,7 +119,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
     try {
       await deleteKiotVietInvoice(threadId);
       setMsg("🗑️ Đã xoá hoá đơn KiotViet");
-      reload();
+      changed();
     } catch (ex: any) {
       setMsg(`❌ ${ex.message}`);
     }
@@ -129,7 +132,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
       await postJSON("/api/order/fix", { thread_id: Number(threadId), text: editText });
       setMsg("✅ Đã sửa text — hệ thống đang parse lại");
       setEditText(null);
-      setTimeout(reload, 1500);
+      setTimeout(changed, 1500);
     } catch (ex: any) {
       setMsg(`❌ ${ex.message}`);
     } finally {
@@ -154,7 +157,23 @@ export function OrderDetail({ threadId }: { threadId: string }) {
       <div class="detail-grid">
       <div class="dmain">
       <div class="card">
-        <div class="row space"><span>Tổng tiền</span><b class="money">{total}đ</b></div>
+        <div class="row space">
+          <b>Nội dung đơn</b>
+          {editText === null && <button class="btn small" onClick={() => setEditText(j.text || j.text_raw || "")}>Sửa</button>}
+        </div>
+        {editText === null ? (
+          <pre class="order-text">{j.text || j.text_raw || "(trống)"}</pre>
+        ) : (
+          <div>
+            <textarea rows={6} value={editText} onInput={(e: any) => setEditText(e.target.value)} />
+            <div class="row">
+              <button class="btn primary" disabled={busy} onClick={saveText}>Lưu & parse lại</button>
+              <button class="btn" onClick={() => setEditText(null)}>Huỷ</button>
+            </div>
+          </div>
+        )}
+      </div>
+      <div class="card">
         <div class="row space"><span>Đã trả</span><b>{money(paid)}đ</b></div>
         {pc.no_truoc && <div class="row space"><span>Nợ trước</span><b>{pc.no_truoc}đ</b></div>}
         {(j.khach_hang_id || j.khID) && (
@@ -165,15 +184,6 @@ export function OrderDetail({ threadId }: { threadId: string }) {
                 ? <b>{money(j.khDebt ?? j.invoice_debt_snapshot)}đ</b>
                 : <span class="muted small">chưa có</span>}
               <button class="btn small" title="Kéo nợ KiotViet mới nhất" onClick={refreshDebt}>🔄</button>
-            </span>
-          </div>
-        )}
-        {j.kiotvietInvoiceID && (
-          <div class="row space" style="margin-top:8px">
-            <span class="muted small">HĐ KiotViet: {j.kiotvietInvoiceCode || j.kiotvietInvoiceID}</span>
-            <span class="row">
-              <button class="btn small" onClick={() => window.open(invoiceHtmlUrl(threadId), "_blank")}>👁️ Xem HĐ</button>
-              {isAdmin && <button class="btn small danger" onClick={deleteHD}>🗑️ Xoá HĐ</button>}
             </span>
           </div>
         )}
@@ -197,7 +207,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
         )}
       </div>
 
-      <Tasks threadId={threadId} taskStatus={j.task_status || {}} userNames={detail.user_names || {}} onChanged={reload} />
+      <Tasks threadId={threadId} taskStatus={j.task_status || {}} userNames={detail.user_names || {}} onChanged={changed} />
       <InvoiceEditor
         customerId={j.khach_hang_id || j.khID}
         invoice={j.invoice || []}
@@ -207,26 +217,12 @@ export function OrderDetail({ threadId }: { threadId: string }) {
         onSave={saveInvoice}
         onCreateInvoice={createHD}
         hasInvoice={!!j.kiotvietInvoiceID}
+        onView={() => window.open(invoiceHtmlUrl(threadId), "_blank")}
+        onDelete={deleteHD}
+        canDelete={isAdmin}
+        invoiceCode={j.kiotvietInvoiceCode || j.kiotvietInvoiceID}
       />
-      <Payments threadId={threadId} payments={j.payments || []} onChanged={reload} />
-
-      <div class="card">
-        <div class="row space">
-          <b>Text đơn</b>
-          {editText === null && <button class="btn small" onClick={() => setEditText(j.text || j.text_raw || "")}>Sửa</button>}
-        </div>
-        {editText === null ? (
-          <pre class="order-text">{j.text || j.text_raw || "(trống)"}</pre>
-        ) : (
-          <div>
-            <textarea rows={6} value={editText} onInput={(e: any) => setEditText(e.target.value)} />
-            <div class="row">
-              <button class="btn primary" disabled={busy} onClick={saveText}>Lưu & parse lại</button>
-              <button class="btn" onClick={() => setEditText(null)}>Huỷ</button>
-            </div>
-          </div>
-        )}
-      </div>
+      <Payments threadId={threadId} payments={j.payments || []} onChanged={changed} />
 
       <button class="btn wide" disabled={busy} onClick={doPrint}>🖨️ In hoá đơn + phiếu giao</button>
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>

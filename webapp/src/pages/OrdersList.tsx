@@ -119,6 +119,12 @@ let listCache: {
   filter: FilterKey; page: number; totalPages: number; scrollY: number;
 } | null = null;
 
+/** Xoá cache danh sách — gọi sau khi 1 đơn bị sửa ở trang chi tiết, để khi quay
+ *  lại dashboard tải mới (đơn có thể đã rời khỏi filter đang chọn). */
+export function invalidateListCache() {
+  listCache = null;
+}
+
 // 5 task icon y hệt main message Telegram: HĐ · Soạn · Giao · Nộp · Nhận
 const TASK_LABELS = ["HĐ", "Soạn", "Giao", "Nộp", "Nhận"];
 function TaskBadges({ o }: { o: OrderRow }) {
@@ -146,6 +152,8 @@ export function OrdersList() {
   const [loading, setLoading] = useState(false);
   const [stale, setStale] = useState(false);
   const [err, setErr] = useState("");
+  const [compact, setCompact] = useState(() => localStorage.getItem("dash_compact") === "1");
+  const toggleCompact = () => setCompact((c) => { localStorage.setItem("dash_compact", c ? "0" : "1"); return !c; });
   const reqSeq = useRef(0); // "query mới nhất thắng" — bỏ debounce nhưng chặn race
   const sentinel = useRef<HTMLDivElement>(null);
   // refs giữ state mới nhất cho observer (tránh stale closure)
@@ -293,6 +301,7 @@ export function OrdersList() {
           onInput={(e: any) => onSearch(e.target.value)}
         />
         {anyFilter && <button class="btn small clear-filter" onClick={clearFilters}>✕ Bỏ lọc</button>}
+        <button class="btn small clear-filter" title="Đổi kiểu xem" onClick={toggleCompact}>{compact ? "⊞" : "⊟"}</button>
       </header>
       {stats && (
         <div class="chips">
@@ -308,7 +317,17 @@ export function OrdersList() {
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {err && <p class="error">{err}</p>}
       <ul class="order-list">
-        {visible.map((o) => {
+        {compact && visible.map((o) => (
+          <li key={o.thread_id}>
+            <a class="order-card compact" href={`#/order/${o.thread_id}`}>
+              <div class="order-text">
+                {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
+              </div>
+              <TaskBadges o={o} />
+            </a>
+          </li>
+        ))}
+        {!compact && visible.map((o) => {
           const stt = statusLabel(o);
           return (
           <li key={o.thread_id}>
