@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { deleteOrderImage, listOrderImages, orderImageUrl, postForm, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
 import { processImage } from "./imageProcess";
-import { fmtTime } from "../format";
+import { PhotoViewer } from "./PhotoViewer";
 
 type Pending = { key: number; url: string };
 let _pk = 0;
@@ -153,17 +153,12 @@ export function Images({ threadId }: { threadId: string }) {
       )}
 
       {lightbox && (
-        <div class="lightbox" onClick={() => setLightbox(null)}>
-          <img src={orderImageUrl(threadId, lightbox.id, "full")} alt="" onClick={(e: any) => e.stopPropagation()} />
-          <div class="lightbox-bar" onClick={(e: any) => e.stopPropagation()}>
-            <span class="muted small">{lightbox.uploaded_by} · {fmtTime(lightbox.created_at)}</span>
-            <div class="row">
-              <a class="btn" href={orderImageUrl(threadId, lightbox.id, "full")} target="_blank" rel="noreferrer">Mở gốc</a>
-              <button class="btn danger" onClick={() => remove(lightbox)}>Xoá</button>
-              <button class="btn" onClick={() => setLightbox(null)}>Đóng</button>
-            </div>
-          </div>
-        </div>
+        <PhotoViewer
+          images={images}
+          start={Math.max(0, images.findIndex((x) => x.id === lightbox.id))}
+          threadId={threadId}
+          onClose={() => setLightbox(null)}
+        />
       )}
     </div>
   );
