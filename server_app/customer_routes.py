@@ -61,3 +61,18 @@ async def customer_detail_handler(request: web.Request):
     if data is None:
         return web.json_response({"ok": False, "error": "không thấy khách hàng"}, status=404)
     return web.json_response({"ok": True, "customer": {**_summary(data, key), "price_list": data.get("price_list"), "personal_price_list": data.get("personal_price_list")}})
+
+
+async def customer_refresh_debt_handler(request: web.Request):
+    key = request.match_info.get("key", "").strip()
+    if not key:
+        return web.json_response({"ok": False, "error": "thiếu key"}, status=400)
+
+    from server_app.debt_sync import refresh_single_debt
+    try:
+        data = await asyncio.to_thread(refresh_single_debt, key)
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+    if data is None:
+        return web.json_response({"ok": False, "error": "không thấy khách hàng"}, status=404)
+    return web.json_response({"ok": True, "customer": _summary(data, key)})
