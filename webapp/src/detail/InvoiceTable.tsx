@@ -2,10 +2,20 @@
 // chế độ XEM ở trang chi tiết. Tính từ items + phí (CK/PVC/VAT) + nợ.
 import { money } from "../format";
 
-export function InvoiceTable({ items, discount, pvc, vat, debt, total }: {
+// Tô sáng cụm khớp tìm kiếm trong 1 chuỗi (vd mã SP)
+function hl(text: string, q?: string) {
+  const s = text || "";
+  const query = (q || "").trim();
+  if (!query) return s;
+  const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "ig");
+  return s.split(re).map((p, i) => (i % 2 === 1 ? <mark key={i}>{p}</mark> : p));
+}
+
+export function InvoiceTable({ items, discount, pvc, vat, debt, total, q }: {
   items: { sp: string; sl: number | string; price: number }[];
   discount?: number; pvc?: number; vat?: number; debt?: number | null;
   total?: string;   // tổng in sẵn từ KiotViet (nếu có) — ưu tiên dòng "Tổng thanh toán"
+  q?: string;       // từ khoá tìm kiếm → tô sáng mã SP khớp
 }) {
   const list = items || [];
   const tienHang = list.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.sl) || 0), 0);
@@ -22,7 +32,7 @@ export function InvoiceTable({ items, discount, pvc, vat, debt, total }: {
       <tbody>
         {list.map((it, i) => (
           <tr key={i}>
-            <td>{it.sp}</td>
+            <td>{hl(it.sp, q)}</td>
             <td class="num">{it.sl}</td>
             <td class="num">{money(it.price)}</td>
             <td class="num">{money((Number(it.price) || 0) * (Number(it.sl) || 0))}</td>

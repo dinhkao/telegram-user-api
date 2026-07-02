@@ -73,9 +73,9 @@ function Highlight({ text, q }: { text: string; q: string }) {
 }
 
 // Bảng chi tiết hoá đơn 1 đơn (dùng ở card dashboard) — dùng chung InvoiceTable
-function InvoiceMini({ o }: { o: OrderRow }) {
+function InvoiceMini({ o, q }: { o: OrderRow; q?: string }) {
   if (!(o.invoice_items || []).length) return null;
-  return <InvoiceTable items={o.invoice_items || []} discount={o.discount} pvc={o.pvc} vat={o.vat} debt={o.kh_debt} total={o.total} />;
+  return <InvoiceTable items={o.invoice_items || []} discount={o.discount} pvc={o.pvc} vat={o.vat} debt={o.kh_debt} total={o.total} q={q} />;
 }
 
 type FilterKey = "all" | "pending" | "done" | "chua_soan" | "chua_giao" | "chua_nop" | "chua_nhan";
@@ -320,7 +320,7 @@ export function OrdersList() {
                   {o.invoice_count} món{o.creator ? ` · ${o.creator}` : ""}
                 </div>
               </div>
-              <div class="card-inv"><InvoiceMini o={o} /></div>
+              <div class="card-inv"><InvoiceMini o={o} q={search} /></div>
             </a>
           </li>
           );
