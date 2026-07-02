@@ -87,10 +87,11 @@ let listCache: {
   filter: FilterKey; page: number; totalPages: number; scrollY: number;
 } | null = null;
 
-/** Xoá cache danh sách — gọi sau khi 1 đơn bị sửa ở trang chi tiết, để khi quay
- *  lại dashboard tải mới (đơn có thể đã rời khỏi filter đang chọn). */
+/** No-op giữ lại cho tương thích: giờ dashboard LUÔN refetch trang 1 khi remount
+ *  (giữ nguyên search/filter/scroll từ cache), nên không cần xoá cache sau mutation
+ *  — làm vậy sẽ mất filter đang chọn. Freshness do refetch lo. */
 export function invalidateListCache() {
-  listCache = null;
+  /* no-op */
 }
 
 // 5 task icon y hệt main message Telegram: HĐ · Soạn · Giao · Nộp · Nhận
@@ -173,16 +174,17 @@ export function OrdersList() {
       return;
     }
     if (listCache) {
-      // Quay lại từ trang chi tiết → khôi phục danh sách + vị trí cuộn, không fetch lại
+      // Quay lại → vẽ ngay từ cache (mượt + giữ vị trí cuộn) NHƯNG luôn refetch nền
+      // để có DATA MỚI NHẤT (thay đổi lúc rời trang mà realtime chưa bắt được).
       const c = listCache;
       setOrders(c.orders);
       setStats(c.stats);
       setSearch(c.search);
       setFilter(c.filter);
-      setPage(c.page);
+      setPage(1);
       setTotalPages(c.totalPages);
-      // đợi 2 frame cho danh sách render đủ chiều cao rồi mới cuộn
       requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, c.scrollY)));
+      load(1, c.search, c.filter, false); // làm mới trang 1 theo search/filter cũ
       return;
     }
     load(1, "", "all", false);
