@@ -217,6 +217,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
         onSave={saveInvoice}
         onCreateInvoice={createHD}
         hasInvoice={!!j.kiotvietInvoiceID}
+        debt={j.khDebt ?? j.invoice_debt_snapshot}
         onView={() => window.open(invoiceHtmlUrl(threadId), "_blank")}
         onDelete={deleteHD}
         canDelete={isAdmin}

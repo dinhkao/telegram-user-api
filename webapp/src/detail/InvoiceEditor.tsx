@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { fetchCustomerPrice, searchProducts, type PriceInfo } from "../api";
 import { money, parseMoney } from "../format";
+import { InvoiceTable } from "./InvoiceTable";
 
 export type EditorRow = { sp: string; sl: number; price: number; note?: string };
 export type EditorPayload = { invoice: EditorRow[]; discount: number; pvc: number; vat: number };
@@ -54,7 +55,7 @@ function ProductInput({ value, onChange, onCommit }: {
   );
 }
 
-export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCreateInvoice, hasInvoice, createMode, onView, onDelete, canDelete, invoiceCode }: {
+export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCreateInvoice, hasInvoice, createMode, debt, onView, onDelete, canDelete, invoiceCode }: {
   customerId?: string;
   invoice: any[];
   discount?: number; pvc?: number; vat?: number;
@@ -62,6 +63,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   onCreateInvoice?: () => Promise<void> | void;
   hasInvoice?: boolean;
   createMode?: boolean;   // form tạo đơn → luôn ở chế độ sửa, không có nút xem
+  debt?: number | null;                // nợ khách (cho bảng xem, giống dashboard)
   onView?: () => void;                 // xem HĐ KiotViet
   onDelete?: () => Promise<void> | void; // xoá HĐ KiotViet
   canDelete?: boolean;                 // chỉ admin
@@ -163,26 +165,8 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
         {rows.length === 0 ? (
           <p class="muted small">Chưa có sản phẩm. Bấm ✏️ Sửa để thêm.</p>
         ) : (
-          <ul class="inv-view">
-            {rows.map((it, i) => (
-              <li key={i}>
-                <div class="inv-line">
-                  <span class="inv-sp">{it.sp}</span>
-                  <span class="inv-calc muted">{it.sl} × {money(it.price)}</span>
-                  <b class="inv-amt">{money((it.price || 0) * (it.sl || 0))}đ</b>
-                </div>
-                {it.note && <div class="muted small">{it.note}</div>}
-              </li>
-            ))}
-          </ul>
+          <InvoiceTable items={rows} discount={disc} pvc={p} vat={v} debt={debt} />
         )}
-        <div class="adj-view">
-          <div class="row space"><span>Tiền hàng</span><b>{money(tienHang)}đ</b></div>
-          {disc > 0 && <div class="row space"><span>Chiết khấu</span><b>−{money(disc)}đ</b></div>}
-          {p > 0 && <div class="row space"><span>PVC (ship)</span><b>+{money(p)}đ</b></div>}
-          {v > 0 && <div class="row space"><span>VAT</span><b>+{money(v)}đ</b></div>}
-          <div class="row space total"><b>Tổng thanh toán</b><b class="money">{money(tong)}đ</b></div>
-        </div>
         {invActions}
       </div>
     );

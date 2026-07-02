@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON } from "../api";
 import { money } from "../format";
 import { onRealtime } from "../realtime";
+import { InvoiceTable } from "../detail/InvoiceTable";
 
 type OrderRow = {
   thread_id: number;
@@ -70,44 +71,10 @@ function Highlight({ text, q }: { text: string; q: string }) {
   return <>{parts.map((p, i) => (i % 2 === 1 ? <mark key={i}>{p}</mark> : p))}</>;
 }
 
-// Bảng chi tiết hoá đơn 1 đơn (dùng ở card dashboard)
+// Bảng chi tiết hoá đơn 1 đơn (dùng ở card dashboard) — dùng chung InvoiceTable
 function InvoiceMini({ o }: { o: OrderRow }) {
-  const items = o.invoice_items || [];
-  if (!items.length) return null;
-  // Tính y chang summary hoá đơn KiotViet (renderers/invoice_parts.build_summary_rows)
-  const tienHang = items.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.sl) || 0), 0);
-  const pvc = o.pvc || 0, vat = o.vat || 0, disc = o.discount || 0;
-  const debt = Number(o.kh_debt) || 0;
-  const hasFees = !!(pvc || vat || disc);
-  const tongDon = tienHang + pvc + vat - disc;      // tổng đơn này
-  const tongTT = tongDon + debt;                     // tổng thanh toán = tổng đơn + nợ
-  return (
-    <table class="inv-mini">
-      <tbody>
-        {items.map((it, i) => (
-          <tr key={i}>
-            <td>{it.sp}</td>
-            <td class="num">{it.sl}</td>
-            <td class="num">{money((Number(it.price) || 0) * (Number(it.sl) || 0))}</td>
-          </tr>
-        ))}
-        {!hasFees && debt === 0 ? (
-          // tiền hàng == tổng → chỉ 1 dòng Tổng
-          <tr class="tot"><td colSpan={2}>Tổng</td><td class="num">{money(tongTT)}đ</td></tr>
-        ) : (
-          <>
-            <tr class="sub"><td colSpan={2}>Tổng tiền hàng</td><td class="num">{money(tienHang)}</td></tr>
-            {pvc ? <tr class="sub"><td colSpan={2}>PVC</td><td class="num">+{money(pvc)}</td></tr> : null}
-            {vat ? <tr class="sub"><td colSpan={2}>VAT</td><td class="num">+{money(vat)}</td></tr> : null}
-            {disc ? <tr class="sub"><td colSpan={2}>Giảm giá</td><td class="num">−{money(disc)}</td></tr> : null}
-            {debt !== 0 && hasFees ? <tr class="sub"><td colSpan={2}>Tổng đơn này</td><td class="num">{money(tongDon)}</td></tr> : null}
-            {debt !== 0 ? <tr class="sub debt"><td colSpan={2}>Nợ trước</td><td class="num">{money(debt)}</td></tr> : null}
-            <tr class="tot"><td colSpan={2}>Tổng thanh toán</td><td class="num">{money(tongTT)}đ</td></tr>
-          </>
-        )}
-      </tbody>
-    </table>
-  );
+  if (!(o.invoice_items || []).length) return null;
+  return <InvoiceTable items={o.invoice_items || []} discount={o.discount} pvc={o.pvc} vat={o.vat} debt={o.kh_debt} total={o.total} />;
 }
 
 type FilterKey = "all" | "pending" | "done" | "chua_soan" | "chua_giao" | "chua_nop" | "chua_nhan";
