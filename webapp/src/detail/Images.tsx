@@ -48,14 +48,12 @@ export function Images({ threadId }: { threadId: string }) {
     };
   }, [threadId]);
 
-  const uploadOne = async (file: File) => {
+  const uploadOne = async (file: File): Promise<boolean> => {
     const key = ++_pk;
     let previewUrl = "";
     const nm = file.name || "?";
     try {
-      logDbg(`⏳ xử lý ${nm}…`);
       const p = await processImage(file);
-      logDbg(`✓ nén: full ${(p.full.size / 1024) | 0}KB, thumb ${(p.thumb.size / 1024) | 0}KB (${p.width}×${p.height})`);
       previewUrl = URL.createObjectURL(p.thumb);
       setPending((prev) => [{ key, url: previewUrl }, ...prev]);
       const fd = new FormData();
@@ -63,13 +61,13 @@ export function Images({ threadId }: { threadId: string }) {
       fd.append("thumb", p.thumb, `thumb${p.ext}`);
       fd.append("width", String(p.width));
       fd.append("height", String(p.height));
-      logDbg(`⏫ đang tải lên…`);
       await postForm(`/api/order/${threadId}/images`, fd);
-      logDbg(`✅ xong ${nm}`);
+      return true;
     } catch (ex: any) {
       const m = ex?.message || String(ex);
       setErr(`Lỗi tải ${nm}: ${m}`);
-      logDbg(`❌ LỖI ${nm}: ${m}`);
+      logDbg(`❌ ${nm} (${(file.size / 1024) | 0}KB, ${file.type || "no-type"}): ${m}`);
+      return false;
     } finally {
       setPending((prev) => prev.filter((x) => x.key !== key));
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -80,26 +78,20 @@ export function Images({ threadId }: { threadId: string }) {
     const files: FileList = e.target.files;
     setErr("");
     setDbg([]);
-    if (!files || !files.length) {
-      logDbg("⚠️ không nhận được file nào từ trình chọn");
-      return;
-    }
-    const all = Array.from(files);
-    all.forEach((f) => logDbg(`📄 ${f.name || "?"} · ${f.type || "no-type"} · ${(f.size / 1024) | 0}KB`));
+    if (!files || !files.length) return;
     // Ảnh từ gallery/content-provider có thể có MIME rỗng hoặc lạ → đừng lọc gắt,
     // nhận cả file không có type hoặc có đuôi ảnh (HEIC iOS…). processImage tự báo lỗi nếu không đọc được.
     const isImg = (f: File) =>
       f.type.startsWith("image/") || f.type === "" || /\.(jpe?g|png|webp|heic|heif|gif|bmp|avif|tiff?)$/i.test(f.name);
-    const imgs = all.filter(isImg);
+    const imgs = Array.from(files).filter(isImg);
     e.target.value = ""; // cho phép chọn lại cùng file
     if (!imgs.length) {
       setErr("Không nhận được ảnh hợp lệ từ lựa chọn.");
-      logDbg("❌ tất cả bị loại bởi bộ lọc (type/đuôi)");
       return;
     }
-    if (imgs.length < all.length) logDbg(`⚠️ ${all.length - imgs.length} file bị loại`);
-    await Promise.all(imgs.map(uploadOne)); // upload song song cho nhanh
+    const oks = await Promise.all(imgs.map(uploadOne)); // upload song song cho nhanh
     await load(); // đồng bộ danh sách chuẩn từ server
+    if (oks.every(Boolean)) setDbg([]); // thành công hết → ẩn khối chẩn đoán
   };
 
   const remove = async (img: OrderImage) => {
