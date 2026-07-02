@@ -117,8 +117,9 @@ async def api_refresh_debt_handler(request: web.Request):
     debt = det.get("debt", 0)
     order["khDebt"] = debt
     order["invoice_debt_snapshot"] = debt
-    from order_db import _save_order
+    from order_db import _save_order, update_customer_debt
     _save_order(conn, int(thread_id), order)
+    update_customer_debt(conn, str(kh_id_fb), debt)
     if order.get("channel_id") and order.get("message_id") and state._client is not None:
         spawn_tracked("debt.refresh", refresh_order_bg(conn, int(thread_id), order["channel_id"], order["message_id"]), {"thread_id": int(thread_id)})
     return web.json_response({"ok": True, "thread_id": int(thread_id), "debt": debt})

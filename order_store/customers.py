@@ -87,6 +87,21 @@ def touch_customer_last_order(conn, firebase_key: str) -> None:
         log.warning("touch_customer_last_order failed key=%s: %s", firebase_key, e)
 
 
+def update_customer_debt(conn, firebase_key: str, debt: float | int) -> None:
+    """Cập nhật debt + debt_updated_at trong customer JSON khi có giá trị mới từ KiotViet."""
+    if not firebase_key or debt is None:
+        return
+    try:
+        now_ms = int(datetime.now(UTC).timestamp() * 1000)
+        conn.execute(
+            "UPDATE customers SET json = json_set(json_set(json, '$.debt', ?), '$.debt_updated_at', ?), updated_at = ? WHERE firebase_key = ? AND deleted_at IS NULL",
+            (debt, now_ms, now_ms, firebase_key),
+        )
+        conn.commit()
+    except Exception as e:
+        log.warning("update_customer_debt failed key=%s: %s", firebase_key, e)
+
+
 def get_customer_by_key(conn, firebase_key: str) -> dict | None:
     try:
         row = conn.execute("SELECT json FROM customers WHERE firebase_key = ? AND deleted_at IS NULL", (firebase_key,)).fetchone()

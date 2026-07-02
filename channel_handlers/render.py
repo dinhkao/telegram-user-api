@@ -49,6 +49,8 @@ async def fetch_debt_and_rerender(client, thread_id: int, message_id: int, kh_id
         try:
             _update_order_json_field(conn2, thread_id, "$.khDebt", debt_val)
             _update_order_json_field(conn2, thread_id, "$.invoice_debt_snapshot", det.get("debt", 0))
+            from order_db import update_customer_debt
+            update_customer_debt(conn2, kh_id_fb, debt_val)
         finally:
             conn2.close()
         conn3 = _get_connection()

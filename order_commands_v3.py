@@ -278,6 +278,11 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
         det = get_customer_debt_kv(kv_id)
         new_debt = det.get("debt")
         result["new_debt"] = new_debt
+        if new_debt is not None:
+            from order_db import update_customer_debt
+            kh_id_fb = order.get("khach_hang_id") or order.get("khID")
+            if kh_id_fb:
+                update_customer_debt(db_conn, str(kh_id_fb), new_debt)
     except Exception as e:
         log.warning("Could not fetch new debt for customer %d: %s", kv_id, e)
 
@@ -335,6 +340,9 @@ async def _process_create_invoice_core(thread_id: int, user_id: int | None) -> d
     if not _save_order(db_conn, thread_id, order):
         result["error"] = "Lỗi lưu hoá đơn vào database"; return result
     set_task_status(db_conn, thread_id, "ban_hd", user_id)
+    if old_debt is not None:
+        from order_db import update_customer_debt
+        update_customer_debt(db_conn, str(kh_id_fb), old_debt)
     result.update(success=True, kv_code=invoice_code, kv_id=invoice_id, old_debt=snapshot_debt)
     return result
 

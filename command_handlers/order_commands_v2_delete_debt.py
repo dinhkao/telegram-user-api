@@ -51,6 +51,8 @@ async def update_debt_command(client, msg, db_conn, thread_id):
         display_debt = kv_debt - _get_order_total_value(order)
     order["khDebt"] = display_debt
     _save_order(db_conn, thread_id, order)
+    from order_db import update_customer_debt
+    update_customer_debt(db_conn, str(kh_id_fb), kv_debt)
     if not order.get("kiotvietInvoiceID") and order.get("channel_id") and order.get("message_id"):
         await refresh_main_msg(client, db_conn, thread_id, order["channel_id"], order["message_id"])
     return f"Cập nhật nợ khách hàng -> {display_debt:,.0f}đ"
@@ -79,6 +81,8 @@ async def update_debt_and_notify(client, db_conn, thread_id, order, kh_id_fb, ol
         if new_debt is not None:
             order["khDebt"] = new_debt
             _save_order(db_conn, thread_id, order)
+            from order_db import update_customer_debt
+            update_customer_debt(db_conn, str(kh_id_fb), new_debt)
             if old_debt is not None:
                 delta = new_debt - old_debt
                 debt_lines.append(f"💰 Nợ: {old_debt:,}đ → {new_debt:,}đ ({delta:+,}đ)")

@@ -45,8 +45,6 @@ async def main():
     # Dựng sẵn FTS + index đơn ở thread nền → lần search đầu không phải chờ ~460ms
     from server_app.orders_db import prewarm_orders_indexes
     spawn_tracked("orders.prewarm", asyncio.to_thread(prewarm_orders_indexes))
-    from server_app.debt_sync import debt_sync_loop
-    spawn_tracked("debt_sync", debt_sync_loop())
     spawn_tracked("donhang.bootstrap", bootstrap_donhang(client, db))
 
     # Start bot client (merged from bot-don-hang)
