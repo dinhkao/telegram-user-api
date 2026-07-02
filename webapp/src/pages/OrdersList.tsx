@@ -5,9 +5,11 @@ import { getJSON } from "../api";
 import { money, fmtTime } from "../format";
 import { onRealtime } from "../realtime";
 import { InvoiceTable } from "../detail/InvoiceTable";
+import { orderImageUrl } from "../api";
 
 type OrderRow = {
   thread_id: number;
+  thumb_image_id?: number | null;
   customer: string;
   total: string;
   paid: number;
@@ -305,6 +307,7 @@ export function OrdersList() {
           <li key={o.thread_id}>
             <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}`} href={`#/order/${o.thread_id}`}>
               {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
+              {o.thumb_image_id ? <img class="card-thumb" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" /> : null}
               <div class="order-text">
                 <span class="ot-text">
                   {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
@@ -321,9 +324,12 @@ export function OrdersList() {
             <a class={`order-card two-col${flashing[String(o.thread_id)] ? " flash" : ""}`} href={`#/order/${o.thread_id}`}>
               <div class="card-main">
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
-                {o.text
-                  ? <div class="order-text"><span class="ot-text"><Highlight text={o.text} q={search} /></span><TaskBadges o={o} /></div>
-                  : <div class="order-text muted"><span class="ot-text">(không có nội dung)</span><TaskBadges o={o} /></div>}
+                <div class="card-lead">
+                  {o.thumb_image_id ? <img class="card-thumb" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" /> : null}
+                  {o.text
+                    ? <div class="order-text"><span class="ot-text"><Highlight text={o.text} q={search} /></span><TaskBadges o={o} /></div>
+                    : <div class="order-text muted"><span class="ot-text">(không có nội dung)</span><TaskBadges o={o} /></div>}
+                </div>
                 <div class="row space">
                   <b class="cust"><Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} /></b>
                   <span class="muted small">{o.created ? fmtTime(o.created) : o.date}</span>

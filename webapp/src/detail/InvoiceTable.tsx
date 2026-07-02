@@ -39,16 +39,16 @@ export function InvoiceTable({ items, discount, pvc, vat, debt, total, q }: {
           </tr>
         ))}
         {!hasFees && d === 0 ? (
-          <tr class="tot"><td colSpan={3}>Tổng</td><td class="num">{money(tongTT)}đ</td></tr>
+          <tr class="tot"><td colSpan={3} class="lbl">Tổng</td><td class="num">{money(tongTT)}đ</td></tr>
         ) : (
           <>
-            <tr class="sub"><td colSpan={3}>Tổng tiền hàng</td><td class="num">{money(tienHang)}</td></tr>
-            {p ? <tr class="sub"><td colSpan={3}>PVC</td><td class="num">+{money(p)}</td></tr> : null}
-            {v ? <tr class="sub"><td colSpan={3}>VAT</td><td class="num">+{money(v)}</td></tr> : null}
-            {disc ? <tr class="sub"><td colSpan={3}>Giảm giá</td><td class="num">−{money(disc)}</td></tr> : null}
-            {d !== 0 && hasFees ? <tr class="sub"><td colSpan={3}>Tổng đơn này</td><td class="num">{money(tongDon)}</td></tr> : null}
-            {d !== 0 ? <tr class="sub debt"><td colSpan={3}>Nợ trước</td><td class="num">{money(d)}</td></tr> : null}
-            <tr class="tot"><td colSpan={3}>Tổng thanh toán</td><td class="num">{money(tongTT)}đ</td></tr>
+            <tr class="sub"><td colSpan={3} class="lbl">Tổng tiền hàng</td><td class="num">{money(tienHang)}</td></tr>
+            {p ? <tr class="sub"><td colSpan={3} class="lbl">PVC</td><td class="num">+{money(p)}</td></tr> : null}
+            {v ? <tr class="sub"><td colSpan={3} class="lbl">VAT</td><td class="num">+{money(v)}</td></tr> : null}
+            {disc ? <tr class="sub"><td colSpan={3} class="lbl">Giảm giá</td><td class="num">−{money(disc)}</td></tr> : null}
+            {d !== 0 && hasFees ? <tr class="sub"><td colSpan={3} class="lbl">Tổng đơn này</td><td class="num">{money(tongDon)}</td></tr> : null}
+            {d !== 0 ? <tr class="sub debt"><td colSpan={3} class="lbl">Nợ trước</td><td class="num">{money(d)}</td></tr> : null}
+            <tr class="tot"><td colSpan={3} class="lbl">Tổng thanh toán</td><td class="num">{money(tongTT)}đ</td></tr>
           </>
         )}
       </tbody>
