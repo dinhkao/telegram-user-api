@@ -67,6 +67,24 @@ def ensure_orders_stats_columns(conn):
         log.warning("ensure_orders_stats_columns failed: %s", e)
 
 
+def prewarm_orders_indexes():
+    """Dựng sẵn FTS + cột/index stats lúc khởi động (chạy trong thread nền).
+
+    FTS build lần đầu tốn ~460ms/17k đơn — nếu để lười tới lần search đầu thì
+    người dùng phải chờ. Gọi ở bootstrap qua asyncio.to_thread để không chặn
+    event loop. Set cờ _orders_fts_ready toàn process → request sau chỉ sync."""
+    try:
+        conn = get_orders_conn()
+        try:
+            ensure_orders_stats_columns(conn)
+            ensure_orders_fts(conn)
+            log.info("orders indexes prewarmed (FTS + stats cols)")
+        finally:
+            conn.close()
+    except Exception as e:
+        log.warning("prewarm_orders_indexes failed: %s", e)
+
+
 def _fts_content(json_text: str) -> str | None:
     try:
         j = json.loads(json_text)

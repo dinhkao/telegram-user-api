@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 
@@ -41,6 +42,9 @@ async def main():
     await runner.setup()
     await web.TCPSite(runner, "0.0.0.0", PORT, reuse_address=True, reuse_port=True).start()
     log.info("Web server: http://localhost:%d", PORT)
+    # Dựng sẵn FTS + index đơn ở thread nền → lần search đầu không phải chờ ~460ms
+    from server_app.orders_db import prewarm_orders_indexes
+    spawn_tracked("orders.prewarm", asyncio.to_thread(prewarm_orders_indexes))
     spawn_tracked("donhang.bootstrap", bootstrap_donhang(client, db))
 
     # Start bot client (merged from bot-don-hang)
