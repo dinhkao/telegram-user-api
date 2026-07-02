@@ -33,16 +33,23 @@ async def customers_search_handler(request: web.Request):
         limit = max(1, min(50, int(request.query.get("limit", "20"))))
     except ValueError:
         limit = 20
+    try:
+        page = max(1, int(request.query.get("page", "1")))
+    except ValueError:
+        page = 1
+    offset = (page - 1) * limit
 
     def _run():
         conn = _get_connection()
         try:
-            return search_customers(conn, search, limit=limit, sort=sort)
+            return search_customers(conn, search, limit=limit, sort=sort, offset=offset)
         finally:
             conn.close()
 
-    results = await asyncio.to_thread(_run)
-    return web.json_response({"ok": True, "customers": [_summary(c, c.get("_firebase_key", "")) for c in results]})
+    results, total = await asyncio.to_thread(_run)
+    total_pages = max(1, -(-total // limit))
+    return web.json_response({"ok": True, "customers": [_summary(c, c.get("_firebase_key", "")) for c in results],
+                              "page": page, "total_pages": total_pages, "total": total})
 
 
 async def customer_detail_handler(request: web.Request):

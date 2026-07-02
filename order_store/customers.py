@@ -8,19 +8,24 @@ from .search import _invalidate_customer_patterns_cache
 log = logging.getLogger("order_store.customers")
 
 
-def search_customers(conn, name: str, limit: int = 20, *, sort: str = "name") -> list[dict]:
+def search_customers(conn, name: str, limit: int = 20, *, sort: str = "name",
+                     offset: int = 0) -> tuple[list[dict], int]:
+    """Return (customers, total_count) with offset-based pagination."""
     pattern = f"%{name}%"
     order_clause = (
         "json_extract(json, '$.last_order_at') DESC NULLS LAST, firebase_key"
         if sort == "recent"
         else "firebase_key"
     )
+    where = "deleted_at IS NULL AND (json LIKE ? OR firebase_key LIKE ?)"
+    total = conn.execute(
+        f"SELECT COUNT(*) FROM customers WHERE {where}", (pattern, pattern),
+    ).fetchone()[0]
     results = []
     for firebase_key, json_text in conn.execute(
-        f"""SELECT firebase_key, json FROM customers WHERE deleted_at IS NULL
-           AND (json LIKE ? OR firebase_key LIKE ?)
-           ORDER BY {order_clause} LIMIT ?""",
-        (pattern, pattern, limit),
+        f"""SELECT firebase_key, json FROM customers WHERE {where}
+           ORDER BY {order_clause} LIMIT ? OFFSET ?""",
+        (pattern, pattern, limit, offset),
     ):
         try:
             data = json.loads(json_text)
@@ -28,7 +33,7 @@ def search_customers(conn, name: str, limit: int = 20, *, sort: str = "name") ->
             results.append(data)
         except json.JSONDecodeError:
             continue
-    return results
+    return results, total
 
 
 def add_customer(conn, customer_data: dict) -> tuple[bool, str]:
