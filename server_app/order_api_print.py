@@ -18,6 +18,8 @@ log = logging.getLogger("server")
 
 async def api_print_giao_handler(request: web.Request):
     body = await request.json()
+    if not body.get("user_id") and request.get("web_user"):
+        body["user_id"] = request["web_user"]
     thread_id = body.get("thread_id")
     if not thread_id:
         return web.json_response({"error": "Missing thread_id"}, status=400)

@@ -11,6 +11,8 @@ log = logging.getLogger("server")
 
 
 async def resolve_name(user_id: int) -> str:
+    if isinstance(user_id, str) and user_id and not user_id.isdigit():
+        return user_id   # web user (username) — không tra Telegram entity
     try:
         entity = await state._client.get_entity(user_id)
         first = getattr(entity, "first_name", "") or ""

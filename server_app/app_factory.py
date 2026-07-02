@@ -4,12 +4,15 @@ from aiohttp import web
 
 from server_app.audit import audit_middleware
 from server_app.config import PORT
+from server_app.comment_routes import comments_add_handler, comments_list_handler
+from server_app.customer_routes import customer_detail_handler, customers_search_handler
 from server_app.donhang_routes import donhang_handler, donhang_msg_handler, donhang_page_handler, donhang_stats_handler
 from server_app.order_api_auto import auto_parse_handler
+from server_app.order_api_create import order_create_handler
 from server_app.order_api_mutations import api_fix_handler, api_invoice_update_handler, api_refresh_handler, api_reply_handler
 from server_app.order_api_payments import api_customer_price_handler, order_totals_handler, payment_ck_handler, payment_tm_handler
 from server_app.order_api_print import api_print_giao_handler
-from server_app.order_api_tasks import _make_task_handler, api_task_status_clear_handler
+from server_app.order_api_tasks import _make_task_handler, api_task_handler, api_task_status_clear_handler
 from server_app.orders_api import order_detail_handler, orders_api_handler
 from server_app.orders_pages import order_detail_page_handler, orders_page_handler
 from server_app.search_routes import search_handler
@@ -52,6 +55,7 @@ def create_app():
     r.add_post("/api/order/ban", _make_task_handler("ban"))
     r.add_post("/api/order/giao", _make_task_handler("giao"))
     r.add_post("/api/order/nop-tien", _make_task_handler("nop"))
+    r.add_post("/api/order/task", api_task_handler)
     r.add_post("/api/order/refresh-view", api_refresh_handler)
     r.add_post("/api/order/fix", api_fix_handler)
     r.add_post("/api/order/invoice/update", api_invoice_update_handler)
@@ -59,6 +63,11 @@ def create_app():
     r.add_post("/api/customer/price", api_customer_price_handler)
     r.add_post("/api/order/{id}/task_status/clear", api_task_status_clear_handler)
     r.add_post("/api/order/print-giao", api_print_giao_handler)
+    r.add_post("/api/order/create", order_create_handler)
+    r.add_get("/api/order/{thread_id}/comments", comments_list_handler)
+    r.add_post("/api/order/{thread_id}/comments", comments_add_handler)
+    r.add_get("/api/customers", customers_search_handler)
+    r.add_get("/api/customers/{key}", customer_detail_handler)
 
     async def _reminder_stop_handler(request: web.Request):
         from nop_tien_reminder import stop_reminder

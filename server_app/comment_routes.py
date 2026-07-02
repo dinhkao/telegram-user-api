@@ -1,0 +1,44 @@
+"""HTTP handlers bình luận web trên đơn — GET/POST /api/order/{thread_id}/comments.
+
+Người bình luận = request["web_user"] (web_auth middleware); chưa đăng nhập thì
+nhận từ body["user"] (giai đoạn chưa bật chặn). DB-only — không gửi Telegram.
+Connects to: comment_store. Đăng ký ở server_app/app_factory.
+"""
+from __future__ import annotations
+
+import asyncio
+
+from aiohttp import web
+
+from comment_store import add_comment, list_comments
+
+
+def _thread_id(request: web.Request) -> int | None:
+    try:
+        return int(request.match_info.get("thread_id", ""))
+    except (ValueError, TypeError):
+        return None
+
+
+async def comments_list_handler(request: web.Request):
+    thread_id = _thread_id(request)
+    if thread_id is None:
+        return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
+    comments = await asyncio.to_thread(list_comments, thread_id)
+    return web.json_response({"ok": True, "comments": comments})
+
+
+async def comments_add_handler(request: web.Request):
+    thread_id = _thread_id(request)
+    if thread_id is None:
+        return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "body phải là JSON"}, status=400)
+    username = request.get("web_user") or str(body.get("user") or "").strip() or "?"
+    try:
+        comment = await asyncio.to_thread(add_comment, thread_id, username, str(body.get("text") or ""))
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
+    return web.json_response({"ok": True, "comment": comment})

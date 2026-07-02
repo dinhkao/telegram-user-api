@@ -20,6 +20,8 @@ def _make_task_handler(task_type: str):
         except Exception:
             return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
         body["type"] = task_type
+        if not body.get("user_id") and request.get("web_user"):
+            body["user_id"] = request["web_user"]
         return await api_task_handler_impl(body)
     return handler
 
@@ -29,6 +31,8 @@ async def api_task_handler(request: web.Request):
         body = await request.json()
     except Exception:
         return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    if not body.get("user_id") and request.get("web_user"):
+        body["user_id"] = request["web_user"]
     return await api_task_handler_impl(body)
 
 
@@ -51,7 +55,9 @@ async def api_task_handler_impl(body: dict):
         else:
             stop_reminder(thread_id)
     actor = "Hệ thống"
-    if user_id:
+    if isinstance(user_id, str) and user_id and not user_id.isdigit():
+        actor = user_id   # web user (username) — không tra Telegram entity
+    elif user_id:
         try:
             entity = await state._client.get_entity(user_id)
             actor = entity.first_name or str(user_id)

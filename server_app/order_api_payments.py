@@ -17,6 +17,8 @@ async def _payment_handler(request: web.Request, method: str):
     except Exception:
         return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
     thread_id, amount, user_id = body.get("thread_id"), body.get("amount"), body.get("user_id")
+    if not user_id and request.get("web_user"):
+        user_id = request["web_user"]
     if not thread_id or not amount:
         return web.json_response({"ok": False, "error": "Missing thread_id or amount"}, status=400)
     try:
