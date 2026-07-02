@@ -122,10 +122,16 @@ export function OrdersList() {
   const [err, setErr] = useState("");
   const [compact, setCompact] = useState(() => localStorage.getItem("dash_compact") === "1");
   const toggleCompact = () => setCompact((c) => { localStorage.setItem("dash_compact", c ? "0" : "1"); return !c; });
-  const [flashing, setFlashing] = useState<Record<string, boolean>>({});
-  const flashOrder = (tid: string) => {
-    setFlashing((f) => ({ ...f, [tid]: true }));
-    setTimeout(() => setFlashing((f) => { const n = { ...f }; delete n[tid]; return n; }), 1600);
+  const [flashing, setFlashing] = useState<Record<string, string>>({});
+  const flashOrder = async (tid: string) => {
+    let msg = "Vừa cập nhật";
+    try {
+      const r = await getJSON(`/api/order/${tid}/history`, { cache: false });
+      const h = (r.history || [])[0];
+      if (h) msg = `${h.action}${h.detail ? ` — ${h.detail}` : ""}`;
+    } catch { /* ignore */ }
+    setFlashing((f) => ({ ...f, [tid]: msg }));
+    setTimeout(() => setFlashing((f) => { const n = { ...f }; delete n[tid]; return n; }), 5000);
   };
   const reqSeq = useRef(0); // "query mới nhất thắng" — bỏ debounce nhưng chặn race
   const sentinel = useRef<HTMLDivElement>(null);
@@ -205,6 +211,7 @@ export function OrdersList() {
       }
       if (e.type !== "order_changed") return;
       const tid = e.thread_id;
+      let patched = false;
       setOrders((prev) => {
         const idx = prev.findIndex((o) => String(o.thread_id) === tid);
         let next = prev;
@@ -214,13 +221,14 @@ export function OrdersList() {
         } else if (idx >= 0) {
           next = prev.slice();
           next[idx] = e.row as OrderRow; // vá dòng đã đổi
-          flashOrder(tid);               // nháy sáng card vừa đổi
+          patched = true;
         } else {
           return prev; // chưa có trong danh sách hiện tại → hiện ở lần tải sau
         }
         if (listCache) listCache = { ...listCache, orders: next }; // đồng bộ cache module
         return next;
       });
+      if (patched) flashOrder(tid); // nháy sáng + hiện thao tác vừa xảy ra
     });
   }, []);
 
@@ -294,6 +302,7 @@ export function OrdersList() {
         {compact && visible.map((o) => (
           <li key={o.thread_id}>
             <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}`} href={`#/order/${o.thread_id}`}>
+              {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
               <div class="order-text">
                 {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
               </div>
@@ -307,6 +316,7 @@ export function OrdersList() {
           <li key={o.thread_id}>
             <a class={`order-card two-col${flashing[String(o.thread_id)] ? " flash" : ""}`} href={`#/order/${o.thread_id}`}>
               <div class="card-main">
+                {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
                 {o.text
                   ? <div class="order-text"><Highlight text={o.text} q={search} /></div>
                   : <div class="order-text muted">(không có nội dung)</div>}

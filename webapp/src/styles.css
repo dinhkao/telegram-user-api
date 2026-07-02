@@ -189,3 +189,8 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
   0%   { background: rgba(26,115,232,.22); box-shadow: 0 0 0 2px rgba(26,115,232,.5); }
   100% { background: var(--card); box-shadow: none; }
 }
+
+/* Nhãn "vừa có thao tác" trên card dashboard */
+.flash-msg { display: inline-block; background: var(--primary); color: #fff; font-size: .72rem; padding: 1px 8px; border-radius: 6px; margin-bottom: 4px; }
+.order-card.compact { flex-wrap: wrap; }
+.order-card.compact .flash-msg { flex-basis: 100%; }
