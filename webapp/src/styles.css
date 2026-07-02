@@ -1,0 +1,71 @@
+/* Style chung — mobile-first, nhẹ cho máy cũ (không framework CSS). */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --primary: #1a73e8;
+  --danger: #d93025;
+  --ok: #188038;
+  --bg: #f5f6f8;
+  --card: #fff;
+  --border: #e0e3e8;
+  --muted: #6b7280;
+}
+html { font-size: 16px; }
+body { font-family: system-ui, -apple-system, Roboto, sans-serif; background: var(--bg); color: #1f2328; }
+.app { max-width: 640px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+.page { flex: 1; padding: 10px 10px 70px; }
+
+.topbar { position: sticky; top: 0; background: var(--bg); padding: 6px 0; z-index: 5; }
+.search { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; }
+
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: var(--card); border-top: 1px solid var(--border); max-width: 640px; margin: 0 auto; }
+.bottom-nav .tab { flex: 1; text-align: center; padding: 10px 4px; text-decoration: none; color: var(--muted); font-size: .85rem; }
+.bottom-nav .tab.active { color: var(--primary); font-weight: 600; }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin: 8px 0; }
+.row { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.row.space { justify-content: space-between; }
+.center { text-align: center; }
+.muted { color: var(--muted); }
+.small { font-size: .82rem; }
+.error { color: var(--danger); padding: 6px 0; }
+.notice { background: #e8f0fe; border-radius: 8px; padding: 8px; margin: 6px 0; font-size: .9rem; }
+.money { color: var(--primary); }
+.owe { color: var(--danger); font-size: .9rem; }
+
+.btn { border: 1px solid var(--border); background: var(--card); border-radius: 10px; padding: 10px 14px; font-size: .95rem; cursor: pointer; text-decoration: none; color: inherit; display: inline-block; text-align: center; }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn.small { padding: 5px 10px; font-size: .82rem; }
+.btn.wide { width: 100%; margin: 8px 0; }
+.btn:disabled { opacity: .5; }
+
+input, textarea, select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; margin: 4px 0; font-family: inherit; }
+.row input { flex: 1; width: auto; }
+label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block; }
+
+.order-list { list-style: none; }
+.order-card { display: block; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin: 6px 0; text-decoration: none; color: inherit; }
+.badges { display: flex; gap: 3px; }
+.badge { font-size: .68rem; padding: 2px 5px; border-radius: 6px; background: #eee; color: var(--muted); }
+.badge.done { background: #e6f4ea; color: var(--ok); font-weight: 600; }
+.chips { display: flex; gap: 6px; padding: 4px 0; overflow-x: auto; }
+.chip { border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 6px 12px; font-size: .85rem; white-space: nowrap; }
+.chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+.detail-head { display: flex; gap: 10px; align-items: center; padding: 6px 0; }
+.back { font-size: 1.4rem; text-decoration: none; color: inherit; padding: 4px 10px; }
+.order-text { white-space: pre-wrap; font-family: inherit; font-size: .9rem; background: var(--bg); border-radius: 8px; padding: 8px; margin-top: 6px; }
+
+.invoice-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: .9rem; }
+.invoice-table th, .invoice-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: left; }
+.invoice-table .num { text-align: right; }
+.invoice-table input.narrow { width: 64px; padding: 6px; }
+
+.task-list, .payment-list, .comment-list { list-style: none; margin-top: 6px; }
+.task-list li, .payment-list li { padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.comment { padding: 6px 8px; border-radius: 8px; margin: 4px 0; background: var(--bg); }
+.comment.web { background: #e8f0fe; }
+
+.offline-banner { background: #fef7e0; color: #7a5c00; text-align: center; padding: 6px; font-size: .85rem; position: sticky; top: 0; z-index: 10; }
+.login-page { padding-top: 12vh; text-align: center; }
+.login-page .card { text-align: left; margin-top: 16px; }

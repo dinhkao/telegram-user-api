@@ -18,6 +18,7 @@ from server_app.orders_pages import order_detail_page_handler, orders_page_handl
 from server_app.search_routes import search_handler
 from server_app.web_auth import login_handler, me_handler, web_auth_middleware
 from server_app.web_pages import index_handler
+from server_app.webapp_routes import register_webapp_routes
 from server_app.websocket_routes import websocket_handler
 from server_app import state
 
@@ -43,6 +44,7 @@ def create_app():
     r.add_get("/api/orders", orders_api_handler)
     r.add_get("/api/order/{thread_id}", order_detail_handler)
     r.add_static("/static/", "static")
+    register_webapp_routes(r)
     get_client = lambda: state._tg_gateway or state._client
     r.add_post("/api/tg/edit-message", make_edit_handler(get_client))
     r.add_post("/api/tg/send-message", make_send_handler(get_client))
