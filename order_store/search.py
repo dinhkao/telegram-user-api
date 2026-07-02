@@ -52,3 +52,28 @@ def get_customer_price_list(conn, kh_id: str | int) -> dict[str, int]:
     if personal and isinstance(personal, dict):
         price_list = {**price_list, **personal}
     return price_list
+
+
+def get_customer_price_source(conn, kh_id, product) -> tuple[int, str | None, str | None]:
+    """Trả (giá, nguồn, tên_bảng_giá) cho 1 SP theo khách.
+
+    nguồn: 'personal' (bảng giá riêng của khách, đè lên) | 'shared' (bảng giá
+    chung khách đang gán) | None (không có). Dùng để ghi rõ giá lấy từ bảng nào."""
+    product = str(product).upper().strip()
+    row = conn.execute("SELECT json FROM customers WHERE firebase_key = ? AND deleted_at IS NULL", (str(kh_id),)).fetchone()
+    if not row:
+        return 0, None, None
+    cust = json.loads(row["json"])
+    personal = cust.get("personal_price_list") or {}
+    if isinstance(personal, dict) and product in personal:
+        return int(personal[product] or 0), "personal", "Bảng giá riêng"
+    plid = cust.get("price_list")
+    if plid:
+        r = conn.execute("SELECT value FROM kv_store WHERE path = 'bang_gia_moi'").fetchone()
+        if r and r["value"]:
+            book = json.loads(r["value"]).get(str(plid), {})
+            pl = book.get("price_list", {}) or {}
+            if product in pl:
+                name = (book.get("name") or "").strip() or f"BG {plid}"
+                return int(pl[product] or 0), "shared", name
+    return 0, None, None

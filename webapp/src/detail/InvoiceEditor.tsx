@@ -3,7 +3,7 @@
 // điều chỉnh Chiết khấu/PVC/VAT (nút VAT 8%), tổng sống, nút Lưu + Tạo HĐ KiotViet.
 // Parent quyết định onSave làm gì (invoice/update hay create-flow) và onCreateInvoice.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { fetchCustomerPrice, searchProducts } from "../api";
+import { fetchCustomerPrice, searchProducts, type PriceInfo } from "../api";
 import { money, parseMoney } from "../format";
 
 export type EditorRow = { sp: string; sl: number; price: number; note?: string };
@@ -71,19 +71,20 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const [v, setV] = useState(0);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(!!createMode);
-  // Giá theo bảng giá của khách, theo mã SP (đã hoa) — để hiện chú thích dưới giá
-  const [listPrices, setListPrices] = useState<Record<string, number>>({});
-  const listRef = useRef<Record<string, number>>({});
+  // Giá + bảng giá theo mã SP (đã hoa) — để ghi rõ giá lấy từ bảng giá nào
+  const [listPrices, setListPrices] = useState<Record<string, PriceInfo>>({});
+  const listRef = useRef<Record<string, PriceInfo>>({});
 
-  // Tra 1 lần giá bảng cho 1 mã (cache trong listRef); trả giá (0 nếu không có)
-  const loadListPrice = async (code: string): Promise<number> => {
+  // Tra 1 lần giá bảng cho 1 mã (cache trong listRef); trả PriceInfo
+  const loadListPrice = async (code: string): Promise<PriceInfo> => {
     const key = (code || "").trim().toUpperCase();
-    if (!key || !customerId) return 0;
+    const empty: PriceInfo = { price: 0, source: null, list_name: null };
+    if (!key || !customerId) return empty;
     if (key in listRef.current) return listRef.current[key];
-    const price = await fetchCustomerPrice(customerId, key).catch(() => 0);
-    listRef.current = { ...listRef.current, [key]: price };
+    const info = await fetchCustomerPrice(customerId, key).catch(() => empty);
+    listRef.current = { ...listRef.current, [key]: info };
     setListPrices(listRef.current);
-    return price;
+    return info;
   };
 
   useEffect(() => {
@@ -112,7 +113,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   // Tự lấy giá theo khách khi chốt mã SP — chỉ điền khi giá đang trống (không đè giá tay)
   const autoPrice = async (i: number, code: string) => {
     if (!customerId || !code.trim()) return;
-    const price = await loadListPrice(code);
+    const { price } = await loadListPrice(code);
     if (price) setRows((prev) => prev.map((r, idx) => (idx === i && !r.price ? { ...r, price } : r)));
   };
 
@@ -131,9 +132,12 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   };
 
   const priceTag = (sp: string, price: number) => {
-    const lp = listPrices[(sp || "").trim().toUpperCase()];
-    if (!lp) return null;
-    return Number(price) === lp ? <span class="pricetag ok">✓ giá bảng</span> : <span class="pricetag">bảng: {money(lp)}</span>;
+    const info = listPrices[(sp || "").trim().toUpperCase()];
+    if (!info || !info.price) return null;
+    const name = info.list_name || "bảng giá";
+    return Number(price) === info.price
+      ? <span class="pricetag ok">✓ {name}</span>
+      : <span class="pricetag">{name}: {money(info.price)}</span>;
   };
 
   const createBtn = onCreateInvoice && (

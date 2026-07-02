@@ -75,4 +75,6 @@ async def api_customer_price_handler(request: web.Request):
     if not customer_id or not product:
         return web.json_response({"ok": False, "error": "Missing customer_id or product"}, status=400)
     conn = _get_connection()
-    return web.json_response({"ok": True, "price": get_customer_price_list(conn, str(customer_id)).get(product, 0), "product": product})
+    from order_store.search import get_customer_price_source
+    price, source, list_name = get_customer_price_source(conn, str(customer_id), product)
+    return web.json_response({"ok": True, "price": price, "product": product, "source": source, "list_name": list_name})

@@ -122,11 +122,13 @@ export async function searchProducts(q: string): Promise<{ code: string; name: s
   return d.products || [];
 }
 
-/** Giá SP theo khách (0 nếu không có trong bảng giá). */
-export async function fetchCustomerPrice(customerId: string, product: string): Promise<number> {
-  if (!customerId || !product) return 0;
+export type PriceInfo = { price: number; source: "personal" | "shared" | null; list_name: string | null };
+
+/** Giá SP theo khách + bảng giá nào (price 0 nếu không có). */
+export async function fetchCustomerPrice(customerId: string, product: string): Promise<PriceInfo> {
+  if (!customerId || !product) return { price: 0, source: null, list_name: null };
   const d = await postJSON("/api/customer/price", { customer_id: customerId, product });
-  return d.price || 0;
+  return { price: d.price || 0, source: d.source || null, list_name: d.list_name || null };
 }
 
 /** Tạo hoá đơn KiotViet cho đơn (tương đương lệnh 'tạo hd'). */
