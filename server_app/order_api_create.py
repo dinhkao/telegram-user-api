@@ -85,4 +85,6 @@ async def order_create_handler(request: web.Request):
         return web.json_response({"ok": False, "error": str(exc)}, status=500)
     from server_app.realtime import emit_orders_changed
     emit_orders_changed()  # đơn web mới → dashboard refetch ngay
+    from server_app.fcm import notify_bg
+    notify_bg("🆕 Đơn mới (web)", text.strip()[:120], {"thread_id": str(result.get("thread_id"))})
     return web.json_response({"ok": True, **result})

@@ -54,6 +54,8 @@ def register(client):
         client.loop.create_task(firebase_sync(firebase_key, thread_id, msg.id, new_order))
         from server_app.realtime import emit_orders_changed
         emit_orders_changed()  # đơn mới → dashboard refetch (chạy nền)
+        from server_app.fcm import notify_bg
+        notify_bg("🆕 Đơn hàng mới", (order_text or "").strip()[:120], {"thread_id": str(thread_id)})
         try:
             sent = await client.send_message(ORDER_GROUP_ID, msg.text, reply_to=thread_id)
             pin_msg_id = sent.id
