@@ -18,20 +18,18 @@ function ProductInput({ value, onChange, onCommit }: {
   const [q, setQ] = useState(value);
   const [sug, setSug] = useState<{ code: string; name: string }[]>([]);
   const [open, setOpen] = useState(false);
-  const t = useRef<number>();
+  const seq = useRef(0);
   useEffect(() => setQ(value), [value]);
 
-  const input = (val: string) => {
-    setQ(val);
-    onChange(val);
-    clearTimeout(t.current);
-    if (!val.trim()) { setSug([]); setOpen(false); return; }
-    t.current = window.setTimeout(async () => {
-      const r = await searchProducts(val).catch(() => []);
-      setSug(r);
-      setOpen(r.length > 0);
-    }, 200);
+  // Không debounce — gõ/bấm là gọi ngay; seq chặn kết quả cũ đè kết quả mới
+  const fetchSug = async (val: string) => {
+    const s = ++seq.current;
+    const r = await searchProducts(val).catch(() => []);
+    if (s !== seq.current) return;
+    setSug(r);
+    setOpen(r.length > 0);
   };
+  const input = (val: string) => { setQ(val); onChange(val); fetchSug(val); };
   const pick = (code: string) => { setQ(code); setOpen(false); setSug([]); onChange(code); onCommit(code); };
 
   return (
@@ -40,7 +38,7 @@ function ProductInput({ value, onChange, onCommit }: {
         value={q}
         placeholder="Mã SP"
         onInput={(e: any) => input(e.target.value)}
-        onFocus={() => sug.length && setOpen(true)}
+        onFocus={() => fetchSug(q)}
         onBlur={() => { setTimeout(() => setOpen(false), 150); onCommit(q); }}
       />
       {open && (
@@ -140,10 +138,9 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       : <span class="pricetag">{name}: {money(info.price)}</span>;
   };
 
-  const createBtn = onCreateInvoice && (
-    <button class="btn primary wide" disabled={busy} onClick={() => run(onCreateInvoice)}>
-      {hasInvoice ? "🧾 Tạo lại HĐ KiotViet" : "🧾 Tạo HĐ KiotViet"}
-    </button>
+  // Chỉ hiện "Tạo HĐ" khi CHƯA có HĐ KiotViet (đã có thì xem/xoá ở trang chi tiết)
+  const createBtn = onCreateInvoice && !hasInvoice && (
+    <button class="btn primary wide" disabled={busy} onClick={() => run(onCreateInvoice)}>🧾 Tạo HĐ KiotViet</button>
   );
 
   // ── Chế độ XEM (mặc định ở trang chi tiết) ──────────────────────────────

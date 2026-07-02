@@ -136,6 +136,12 @@ export async function createKiotVietInvoice(threadId: string | number): Promise<
   return postJSON("/api/order/invoice/create-kiotviet", { thread_id: Number(threadId) });
 }
 
+/** Xoá hoá đơn KiotViet (chỉ admin 'duy'). */
+export async function deleteKiotVietInvoice(threadId: string | number): Promise<any> {
+  const u = currentUser();
+  return postJSON("/api/order/invoice/delete-kiotviet", { thread_id: Number(threadId), user_id: u?.username });
+}
+
 /** URL HTML hoá đơn để mở tab mới (kèm token cho WebView/khi bật auth). */
 export function invoiceHtmlUrl(threadId: string | number): string {
   const t = getToken();

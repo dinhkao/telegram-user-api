@@ -138,6 +138,15 @@ async def order_detail_handler(request: web.Request):
         except Exception:
             j = {}
         chat_rows = conn.execute("SELECT id, message_id, sender_id, sender_name, text, media_type, created_at FROM order_chat_messages WHERE thread_id = ? ORDER BY created_at ASC", (thread_id,)).fetchall()
-        return web.json_response({"key": row["firebase_key"], "thread_id": row["thread_id"], "channel_id": row["channel_id"], "message_id": row["message_id"], "updated_at": row["updated_at"], "data": j, "chat_messages": [dict(r) for r in chat_rows]})
+        # Ánh xạ id nhân viên → tên (task 'by', người tạo HĐ) để hiển thị tên thay vì id
+        user_names = {}
+        try:
+            from bot_core.config import USER_NAMES
+            ids = {str(t.get("by")) for t in (j.get("task_status", {}) or {}).values() if t.get("by")}
+            ids |= {str(x) for x in (j.get("nguoi_tao_HD") or [])}
+            user_names = {i: USER_NAMES[i] for i in ids if i in USER_NAMES}
+        except Exception:
+            pass
+        return web.json_response({"key": row["firebase_key"], "thread_id": row["thread_id"], "channel_id": row["channel_id"], "message_id": row["message_id"], "updated_at": row["updated_at"], "data": j, "chat_messages": [dict(r) for r in chat_rows], "user_names": user_names})
     finally:
         conn.close()

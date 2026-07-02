@@ -1,7 +1,7 @@
 // Chi tiết đơn — header + text + ghép các khối detail/* (tasks, invoice,
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useState } from "preact/hooks";
-import { createKiotVietInvoice, getJSON, invoiceHtmlUrl, postJSON } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, getJSON, invoiceHtmlUrl, postJSON } from "../api";
 import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal } from "../format";
 import { Comments } from "../detail/Comments";
@@ -52,6 +52,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
 
   const j = detail.data || {};
   const pc = (j.hoadon || {}).print_content || {};
+  const isAdmin = currentUser()?.username === "duy";
   // ưu tiên tổng từ hoá đơn in (đã gồm mọi điều chỉnh); tự tính thì phải cộng trừ
   // discount/pvc/vat như /api/order/totals — không thì lệch với Telegram
   const computedTotal = invoiceTotal(j.invoice) - (Number(j.discount) || 0) + (Number(j.pvc) || 0) + (Number(j.vat) || 0);
@@ -100,6 +101,17 @@ export function OrderDetail({ threadId }: { threadId: string }) {
     }
   };
 
+  const deleteHD = async () => {
+    if (!confirm("XOÁ hoá đơn KiotViet của đơn này? Không thể hoàn tác.")) return;
+    try {
+      await deleteKiotVietInvoice(threadId);
+      setMsg("🗑️ Đã xoá hoá đơn KiotViet");
+      reload();
+    } catch (ex: any) {
+      setMsg(`❌ ${ex.message}`);
+    }
+  };
+
   const saveText = async () => {
     if (editText === null) return;
     setBusy(true);
@@ -136,6 +148,15 @@ export function OrderDetail({ threadId }: { threadId: string }) {
         {(j.khDebt != null || j.invoice_debt_snapshot != null) && (
           <div class="row space"><span>Nợ khách (KiotViet)</span><b>{money(j.khDebt ?? j.invoice_debt_snapshot)}đ</b></div>
         )}
+        {j.kiotvietInvoiceID && (
+          <div class="row space" style="margin-top:8px">
+            <span class="muted small">HĐ KiotViet: {j.kiotvietInvoiceCode || j.kiotvietInvoiceID}</span>
+            <span class="row">
+              <button class="btn small" onClick={() => window.open(invoiceHtmlUrl(threadId), "_blank")}>👁️ Xem HĐ</button>
+              {isAdmin && <button class="btn small danger" onClick={deleteHD}>🗑️ Xoá HĐ</button>}
+            </span>
+          </div>
+        )}
       </div>
 
       <div class="card">
@@ -156,7 +177,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
         )}
       </div>
 
-      <Tasks threadId={threadId} taskStatus={j.task_status || {}} onChanged={reload} />
+      <Tasks threadId={threadId} taskStatus={j.task_status || {}} userNames={detail.user_names || {}} onChanged={reload} />
       <InvoiceEditor
         customerId={j.khach_hang_id || j.khID}
         invoice={j.invoice || []}
@@ -189,9 +210,6 @@ export function OrderDetail({ threadId }: { threadId: string }) {
 
       <Comments threadId={threadId} chatMessages={detail.chat_messages || []} />
 
-      {j.kiotvietInvoiceID && (
-        <button class="btn wide" onClick={() => window.open(invoiceHtmlUrl(threadId), "_blank")}>👁️ Xem hoá đơn KiotViet</button>
-      )}
       <button class="btn wide" disabled={busy} onClick={doPrint}>🖨️ In hoá đơn + phiếu giao</button>
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>
     </div>
