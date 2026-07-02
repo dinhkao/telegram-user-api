@@ -170,5 +170,5 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 
 /* Chế độ xem gọn dashboard */
 .order-card.compact { display: flex; align-items: center; gap: 10px; padding: 6px 10px; margin: 3px 0; }
-.order-card.compact .order-text { flex: 1; margin: 0; font-size: .85rem; font-weight: 500; max-height: 2.6em; overflow: hidden; }
+.order-card.compact .order-text { flex: 1; margin: 0; font-size: .85rem; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .order-card.compact .badges { flex-shrink: 0; }
