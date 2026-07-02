@@ -78,6 +78,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 **Web / server core**
 - `server_app/` — aiohttp app: bootstrap, routes (orders, search, saved messages,
   websocket, pages), state, AI backend. Wires everything together.
+  `server_app/web_auth/` — per-user login + HMAC-token middleware for the orders
+  web app (enforcement off by default; `WEB_AUTH_ENABLED=true` to gate `/api/*`).
+  Plan: `docs/web-app-plan.md`.
 - `utils/` — logging config and shared helpers. Imported everywhere.
 
 **Order workflow (the heart)**
@@ -94,6 +97,8 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 - `donhang_store/` — `#don_hang` index DB (schema, reads, writes, migrations, api).
 - `order_store/`, `product_store/`, `payment_store/`, `bang_gia_store/`,
   `note_store/`, `production_store/` — domain tables in the shared `app.db`.
+- `user_store/` — `web_users` table in `app.db`: login accounts for the orders web
+  app (PIN hash in `pin.py`, CLI: `tools/add_web_user.py`).
 - `chat_log/` — logs new/edited/deleted Telegram messages to DB.
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
 

@@ -13,6 +13,7 @@ from server_app.order_api_tasks import _make_task_handler, api_task_status_clear
 from server_app.orders_api import order_detail_handler, orders_api_handler
 from server_app.orders_pages import order_detail_page_handler, orders_page_handler
 from server_app.search_routes import search_handler
+from server_app.web_auth import login_handler, me_handler, web_auth_middleware
 from server_app.web_pages import index_handler
 from server_app.websocket_routes import websocket_handler
 from server_app import state
@@ -23,8 +24,10 @@ def create_app():
     from tg_send import make_handler as make_send_handler
     from tg_send_file import make_handler as make_send_file_handler
 
-    app = web.Application(middlewares=[audit_middleware])
+    app = web.Application(middlewares=[audit_middleware, web_auth_middleware])
     r = app.router
+    r.add_post("/api/auth/login", login_handler)
+    r.add_get("/api/auth/me", me_handler)
     r.add_get("/", index_handler)
     r.add_get("/ws", websocket_handler)
     r.add_get("/api/search", search_handler)
