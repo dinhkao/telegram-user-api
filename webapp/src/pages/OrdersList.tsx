@@ -128,7 +128,7 @@ export function OrdersList() {
     try {
       const r = await getJSON(`/api/order/${tid}/history`, { cache: false });
       const h = (r.history || [])[0];
-      if (h) msg = `${h.action}${h.detail ? ` — ${h.detail}` : ""}`;
+      if (h) msg = `${h.actor || "?"}: ${h.action}${h.detail ? ` — ${h.detail}` : ""}`;
     } catch { /* ignore */ }
     setFlashing((f) => ({ ...f, [tid]: msg }));
     setTimeout(() => setFlashing((f) => { const n = { ...f }; delete n[tid]; return n; }), 5000);
