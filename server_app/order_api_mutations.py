@@ -5,7 +5,7 @@ import os
 
 from aiohttp import web
 
-from order_db import _get_connection, clear_task_status, get_order_by_thread_id, _save_order, transaction
+from order_db import _get_connection, clear_task_status, get_customer_by_key, get_order_by_thread_id, _save_order, transaction
 from product_db import freeze_invoice_cost_prices
 
 from server_app import state
@@ -35,6 +35,33 @@ async def api_fix_handler(request: web.Request):
     from order_commands_v3 import _auto_parse_fix
     spawn_tracked("order.auto_parse_fix", _auto_parse_fix(state._client, conn, thread_id, text), {"thread_id": thread_id})
     return web.json_response({"ok": True})
+
+
+async def api_assign_customer_handler(request: web.Request):
+    """Gán khách cho đơn — set khach_hang_id + customer_name (→ has_customer=1).
+    Body {thread_id, customer_key}. Dùng cho section Khách hàng ở trang chi tiết."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    thread_id, customer_key = body.get("thread_id"), body.get("customer_key")
+    if not thread_id or not customer_key:
+        return web.json_response({"ok": False, "error": "Missing thread_id or customer_key"}, status=400)
+    conn = _get_connection()
+    customer = get_customer_by_key(conn, str(customer_key))
+    if not customer:
+        return web.json_response({"ok": False, "error": "Không tìm thấy khách hàng"}, status=404)
+    with transaction(conn):
+        order = get_order_by_thread_id(conn, thread_id)
+        if not order:
+            return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+        order["khach_hang_id"] = str(customer_key)
+        order["customer_name"] = customer.get("name", "")
+        if not _save_order(conn, thread_id, order):
+            return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
+    if order.get("channel_id") and order.get("message_id") and state._client is not None:
+        spawn_tracked("order.refresh", refresh_order_bg(conn, thread_id, order["channel_id"], order["message_id"]), {"thread_id": thread_id})
+    return web.json_response({"ok": True, "customer_name": customer.get("name", ""), "customer_key": str(customer_key)})
 
 
 async def api_invoice_update_handler(request: web.Request):

@@ -6,6 +6,7 @@ import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal } from "../format";
 import { Comments } from "../detail/Comments";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
+import { CustomerPicker } from "../detail/CustomerPicker";
 import { Payments } from "../detail/Payments";
 import { Tasks } from "../detail/Tasks";
 
@@ -15,6 +16,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [editText, setEditText] = useState<string | null>(null);
+  const [changingCust, setChangingCust] = useState(false);
 
   const reload = async () => {
     try {
@@ -66,6 +68,18 @@ export function OrderDetail({ threadId }: { threadId: string }) {
       setMsg(`❌ ${ex.message}`);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const assignCustomer = async (c: { key: string; name: string } | null) => {
+    if (!c) return;
+    try {
+      await postJSON("/api/order/assign-customer", { thread_id: Number(threadId), customer_key: c.key });
+      setMsg(`✅ Đã gán khách: ${c.name}`);
+      setChangingCust(false);
+      reload();
+    } catch (ex: any) {
+      setMsg(`❌ ${ex.message}`);
     }
   };
 
@@ -121,6 +135,24 @@ export function OrderDetail({ threadId }: { threadId: string }) {
         {pc.no_truoc && <div class="row space"><span>Nợ trước</span><b>{pc.no_truoc}đ</b></div>}
         {(j.khDebt != null || j.invoice_debt_snapshot != null) && (
           <div class="row space"><span>Nợ khách (KiotViet)</span><b>{money(j.khDebt ?? j.invoice_debt_snapshot)}đ</b></div>
+        )}
+      </div>
+
+      <div class="card">
+        <div class="row space">
+          <span>Khách hàng</span>
+          {(j.customer_name || j.khach_hang_id) && !changingCust && (
+            <button class="btn small" onClick={() => setChangingCust(true)}>Đổi</button>
+          )}
+        </div>
+        {(j.customer_name || j.khach_hang_id) && !changingCust ? (
+          <b>{j.customer_name || pc.kh}</b>
+        ) : (
+          <div>
+            {!(j.customer_name || j.khach_hang_id) && <p class="muted small">⚠️ Đơn chưa có khách — tìm và gán để lấy giá + tạo HĐ.</p>}
+            <CustomerPicker onPick={assignCustomer} placeholder="🔍 Tìm khách để gán" />
+            {changingCust && <button class="btn small" onClick={() => setChangingCust(false)}>Huỷ</button>}
+          </div>
         )}
       </div>
 

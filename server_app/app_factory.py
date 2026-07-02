@@ -10,7 +10,7 @@ from server_app.customer_routes import customer_detail_handler, customers_search
 from server_app.donhang_routes import donhang_handler, donhang_msg_handler, donhang_page_handler, donhang_stats_handler
 from server_app.order_api_auto import auto_parse_handler
 from server_app.order_api_create import order_create_handler
-from server_app.order_api_mutations import api_fix_handler, api_invoice_update_handler, api_refresh_handler, api_reply_handler
+from server_app.order_api_mutations import api_assign_customer_handler, api_fix_handler, api_invoice_update_handler, api_refresh_handler, api_reply_handler
 from server_app.order_api_payments import api_customer_price_handler, order_totals_handler, payment_ck_handler, payment_tm_handler
 from server_app.order_api_print import api_print_giao_handler
 from server_app.order_api_tasks import _make_task_handler, api_task_handler, api_task_status_clear_handler
@@ -62,6 +62,7 @@ def create_app():
     r.add_post("/api/order/refresh-view", api_refresh_handler)
     r.add_post("/api/order/fix", api_fix_handler)
     r.add_post("/api/order/invoice/update", api_invoice_update_handler)
+    r.add_post("/api/order/assign-customer", api_assign_customer_handler)
     r.add_post("/api/order/invoice/create-kiotviet", api_create_invoice_handler)
     r.add_get("/api/order/{thread_id}/invoice-html", api_invoice_html_handler)
     r.add_get("/api/products", products_search_handler)
