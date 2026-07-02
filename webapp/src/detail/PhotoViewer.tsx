@@ -71,16 +71,20 @@ export function PhotoViewer({
     reset(false);
   }, [idx]);
 
-  // Khoá cuộn nền + Esc để đóng
+  // Khoá cuộn nền + phím: Esc đóng, ← → chuyển ảnh (desktop)
   useEffect(() => {
     document.body.classList.add("pv-open");
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") setIdx((i) => (i > 0 ? i - 1 : i));
+      else if (e.key === "ArrowRight") setIdx((i) => (i < images.length - 1 ? i + 1 : i));
+    };
     window.addEventListener("keydown", h);
     return () => {
       document.body.classList.remove("pv-open");
       window.removeEventListener("keydown", h);
     };
-  }, []);
+  }, [images.length]);
 
   const go = (d: number) => {
     const n = idx + d;
