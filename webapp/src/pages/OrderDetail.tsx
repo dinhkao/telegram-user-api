@@ -9,6 +9,7 @@ import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
 import { Payments } from "../detail/Payments";
 import { Tasks } from "../detail/Tasks";
+import { History } from "../detail/History";
 import { invalidateListCache } from "./OrdersList";
 
 export function OrderDetail({ threadId }: { threadId: string }) {
@@ -225,6 +226,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
         invoiceCode={j.kiotvietInvoiceCode || j.kiotvietInvoiceID}
       />
       <Payments threadId={threadId} payments={j.payments || []} onChanged={changed} />
+      <History threadId={threadId} />
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>
       </div>{/* .dmain */}
 

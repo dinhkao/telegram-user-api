@@ -173,3 +173,8 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .order-card.compact { display: flex; align-items: flex-start; gap: 10px; padding: 6px 10px; margin: 3px 0; }
 .order-card.compact .order-text { flex: 1; margin: 0; font-size: .85rem; font-weight: 500; white-space: pre-wrap; word-break: break-word; }
 .order-card.compact .badges { flex-shrink: 0; }
+
+/* Lịch sử thao tác */
+.hist { list-style: none; margin-top: 6px; }
+.hist li { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: .88rem; }
+.hist li.hist-fail { opacity: .6; }

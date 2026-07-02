@@ -15,6 +15,7 @@ from server_app.order_api_payments import api_customer_price_handler, order_tota
 from server_app.order_api_print import api_print_giao_handler
 from server_app.order_api_tasks import _make_task_handler, api_task_handler, api_task_status_clear_handler
 from server_app.order_api_invoice import api_create_invoice_handler, api_delete_invoice_handler, api_invoice_html_handler, api_refresh_debt_handler
+from server_app.order_history import order_history_handler
 from server_app.orders_api import order_detail_handler, orders_api_handler
 from server_app.product_routes import products_search_handler
 from server_app.orders_pages import order_detail_page_handler, orders_page_handler
@@ -73,6 +74,7 @@ def create_app():
     r.add_post("/api/order/{id}/task_status/clear", api_task_status_clear_handler)
     r.add_post("/api/order/print-giao", api_print_giao_handler)
     r.add_post("/api/order/create", order_create_handler)
+    r.add_get("/api/order/{thread_id}/history", order_history_handler)
     r.add_get("/api/order/{thread_id}/comments", comments_list_handler)
     r.add_post("/api/order/{thread_id}/comments", comments_add_handler)
     r.add_get("/api/customers", customers_search_handler)
