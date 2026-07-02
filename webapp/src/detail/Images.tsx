@@ -69,8 +69,16 @@ export function Images({ threadId }: { threadId: string }) {
     const files: FileList = e.target.files;
     if (!files || !files.length) return;
     setErr("");
-    const imgs = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    // Ảnh từ gallery/content-provider có thể có MIME rỗng hoặc lạ → đừng lọc gắt,
+    // nhận cả file không có type hoặc có đuôi ảnh (HEIC iOS…). processImage tự báo lỗi nếu không đọc được.
+    const isImg = (f: File) =>
+      f.type.startsWith("image/") || f.type === "" || /\.(jpe?g|png|webp|heic|heif|gif|bmp|avif|tiff?)$/i.test(f.name);
+    const imgs = Array.from(files).filter(isImg);
     e.target.value = ""; // cho phép chọn lại cùng file
+    if (!imgs.length) {
+      setErr("Không nhận được ảnh hợp lệ từ lựa chọn.");
+      return;
+    }
     await Promise.all(imgs.map(uploadOne)); // upload song song cho nhanh
     await load(); // đồng bộ danh sách chuẩn từ server
   };

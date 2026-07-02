@@ -37,13 +37,13 @@ function scaled(w: number, h: number, max: number): [number, number] {
   return [Math.round(w * r), Math.round(h * r)];
 }
 
-async function encode(bmp: ImageBitmap, w: number, h: number, mime: string, q: number): Promise<Blob> {
+async function encode(src: CanvasImageSource, w: number, h: number, mime: string, q: number): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
   ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(bmp, 0, 0, w, h);
+  ctx.drawImage(src, 0, 0, w, h);
   const blob: Blob | null = await new Promise((res) => canvas.toBlob(res, mime, q));
   if (blob) return blob;
   // rớt về JPEG nếu mime không được hỗ trợ
@@ -52,25 +52,64 @@ async function encode(bmp: ImageBitmap, w: number, h: number, mime: string, q: n
   );
 }
 
+type Source = { src: CanvasImageSource; width: number; height: number; done: () => void };
+
+/** Giải mã File ảnh thành nguồn vẽ được lên canvas.
+ *  Ưu tiên createImageBitmap (nhanh, tôn trọng EXIF); nếu lỗi (một số ảnh gallery,
+ *  HEIC iOS…) → rớt về <img> element (Safari tự giải mã HEIC, tự xoay EXIF). */
+async function loadSource(file: File): Promise<Source> {
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+    return { src: bmp, width: bmp.width, height: bmp.height, done: () => bmp.close?.() };
+  } catch {
+    /* thử tiếp */
+  }
+  try {
+    const bmp = await createImageBitmap(file); // trình duyệt cũ không nhận option
+    return { src: bmp, width: bmp.width, height: bmp.height, done: () => bmp.close?.() };
+  } catch {
+    /* rớt về <img> */
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = () => rej(new Error("không đọc được ảnh (định dạng không hỗ trợ?)"));
+      im.src = url;
+    });
+    return {
+      src: img,
+      width: img.naturalWidth || img.width,
+      height: img.naturalHeight || img.height,
+      done: () => URL.revokeObjectURL(url),
+    };
+  } catch (e) {
+    URL.revokeObjectURL(url);
+    throw e;
+  }
+}
+
 /** Đọc File ảnh → { full, thumb, dims }. Ném lỗi nếu không giải mã được. */
 export async function processImage(file: File): Promise<Processed> {
-  // imageOrientation:'from-image' → tự xoay theo EXIF (ảnh dọc không bị nằm ngang)
-  let bmp: ImageBitmap;
-  try {
-    bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
-  } catch {
-    bmp = await createImageBitmap(file); // trình duyệt cũ không nhận option
+  const s = await loadSource(file);
+  if (!s.width || !s.height) {
+    s.done();
+    throw new Error("ảnh không hợp lệ (kích thước 0)");
   }
-  const useWebp = webpSupported();
-  const mime = useWebp ? "image/webp" : "image/jpeg";
-  const ext = useWebp ? ".webp" : ".jpg";
+  try {
+    const useWebp = webpSupported();
+    const mime = useWebp ? "image/webp" : "image/jpeg";
+    const ext = useWebp ? ".webp" : ".jpg";
 
-  const [fw, fh] = scaled(bmp.width, bmp.height, FULL_MAX);
-  const [tw, th] = scaled(bmp.width, bmp.height, THUMB_MAX);
-  const [full, thumb] = await Promise.all([
-    encode(bmp, fw, fh, mime, FULL_Q),
-    encode(bmp, tw, th, mime, THUMB_Q),
-  ]);
-  bmp.close?.();
-  return { full, thumb, width: fw, height: fh, ext, mime };
+    const [fw, fh] = scaled(s.width, s.height, FULL_MAX);
+    const [tw, th] = scaled(s.width, s.height, THUMB_MAX);
+    const [full, thumb] = await Promise.all([
+      encode(s.src, fw, fh, mime, FULL_Q),
+      encode(s.src, tw, th, mime, THUMB_Q),
+    ]);
+    return { full, thumb, width: fw, height: fh, ext, mime };
+  } finally {
+    s.done();
+  }
 }
