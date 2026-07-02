@@ -8,8 +8,6 @@ DEFAULT_EXCLUDES = (
     ".git",
     ".venv",
     "__pycache__",
-    "frontend/node_modules",
-    "frontend/.next",
     "node_modules",
     "docs",
     "static",
