@@ -56,7 +56,7 @@ export function CreateOrder() {
             <CustomerPicker onPick={setCustomer} />
             {customer ? <p class="muted small">✓ {customer.name}</p> : <p class="muted small">Chọn khách để tự lấy giá theo bảng giá.</p>}
           </div>
-          <InvoiceEditor customerId={customer?.key} invoice={[]} onSave={createAdvanced} />
+          <InvoiceEditor customerId={customer?.key} invoice={[]} onSave={createAdvanced} createMode />
           <p class="muted small">Bấm 💾 Lưu để tạo đơn; sang trang chi tiết bấm 🧾 Tạo HĐ KiotViet.</p>
         </div>
       )}

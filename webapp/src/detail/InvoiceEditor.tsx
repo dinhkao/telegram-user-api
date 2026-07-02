@@ -56,19 +56,21 @@ function ProductInput({ value, onChange, onCommit }: {
   );
 }
 
-export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCreateInvoice, hasInvoice }: {
+export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCreateInvoice, hasInvoice, createMode }: {
   customerId?: string;
   invoice: any[];
   discount?: number; pvc?: number; vat?: number;
   onSave: (payload: EditorPayload) => Promise<void> | void;
   onCreateInvoice?: () => Promise<void> | void;
   hasInvoice?: boolean;
+  createMode?: boolean;   // form tạo đơn → luôn ở chế độ sửa, không có nút xem
 }) {
   const [rows, setRows] = useState<EditorRow[]>([]);
   const [disc, setDisc] = useState(0);
   const [p, setP] = useState(0);
   const [v, setV] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(!!createMode);
   // Giá theo bảng giá của khách, theo mã SP (đã hoa) — để hiện chú thích dưới giá
   const [listPrices, setListPrices] = useState<Record<string, number>>({});
   const listRef = useRef<Record<string, number>>({});
@@ -118,40 +120,91 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
     setBusy(true);
     try { await fn(); } catch (e: any) { alert(e?.message || "Lỗi"); } finally { setBusy(false); }
   };
-  const save = () => run(() => onSave({ invoice: rows.filter((r) => (r.sp || "").trim()), discount: disc, pvc: p, vat: v }));
+  const save = () => run(async () => {
+    await onSave({ invoice: rows.filter((r) => (r.sp || "").trim()), discount: disc, pvc: p, vat: v });
+    if (!createMode) setEditing(false);   // chi tiết: lưu xong về chế độ xem
+  });
+  const cancel = () => {
+    setRows((invoice || []).map((it) => ({ sp: it.sp || "", sl: Number(it.sl ?? it.quantity ?? 0) || 0, price: Number(it.price) || 0, note: it.note || "" })));
+    setDisc(Number(discount) || 0); setP(Number(pvc) || 0); setV(Number(vat) || 0);
+    setEditing(false);
+  };
 
+  const priceTag = (sp: string, price: number) => {
+    const lp = listPrices[(sp || "").trim().toUpperCase()];
+    if (!lp) return null;
+    return Number(price) === lp ? <span class="pricetag ok">✓ giá bảng</span> : <span class="pricetag">bảng: {money(lp)}</span>;
+  };
+
+  const createBtn = onCreateInvoice && (
+    <button class="btn primary wide" disabled={busy} onClick={() => run(onCreateInvoice)}>
+      {hasInvoice ? "🧾 Tạo lại HĐ KiotViet" : "🧾 Tạo HĐ KiotViet"}
+    </button>
+  );
+
+  // ── Chế độ XEM (mặc định ở trang chi tiết) ──────────────────────────────
+  if (!editing) {
+    return (
+      <div class="card">
+        <div class="row space">
+          <b>Hoá đơn ({rows.length} món)</b>
+          <button class="btn small" onClick={() => setEditing(true)}>✏️ Sửa</button>
+        </div>
+        {rows.length === 0 ? (
+          <p class="muted small">Chưa có sản phẩm. Bấm ✏️ Sửa để thêm.</p>
+        ) : (
+          <ul class="inv-view">
+            {rows.map((it, i) => (
+              <li key={i}>
+                <div class="inv-line">
+                  <span class="inv-sp">{it.sp}</span>
+                  <span class="inv-calc muted">{it.sl} × {money(it.price)}</span>
+                  <b class="inv-amt">{money((it.price || 0) * (it.sl || 0))}đ</b>
+                </div>
+                {it.note && <div class="muted small">{it.note}</div>}
+              </li>
+            ))}
+          </ul>
+        )}
+        <div class="adj-view">
+          <div class="row space"><span>Tiền hàng</span><b>{money(tienHang)}đ</b></div>
+          {disc > 0 && <div class="row space"><span>Chiết khấu</span><b>−{money(disc)}đ</b></div>}
+          {p > 0 && <div class="row space"><span>PVC (ship)</span><b>+{money(p)}đ</b></div>}
+          {v > 0 && <div class="row space"><span>VAT</span><b>+{money(v)}đ</b></div>}
+          <div class="row space total"><b>Tổng thanh toán</b><b class="money">{money(tong)}đ</b></div>
+        </div>
+        {createBtn}
+      </div>
+    );
+  }
+
+  // ── Chế độ SỬA — mỗi món là 1 khối, canh gọn trên mobile ────────────────
   return (
     <div class="card">
-      <b>Hoá đơn ({rows.length} món)</b>
-      <table class="invoice-table">
-        <thead>
-          <tr><th>SP</th><th>SL</th><th>Giá</th><th>Tiền</th><th /></tr>
-        </thead>
-        <tbody>
-          {rows.map((it, i) => (
-            <tr key={i}>
-              <td>
-                <ProductInput value={it.sp} onChange={(c) => setRow(i, "sp", c)} onCommit={(c) => autoPrice(i, c)} />
-                <input class="note-inp" placeholder="ghi chú" value={it.note || ""} onInput={(e: any) => setRow(i, "note", e.target.value)} />
-              </td>
-              <td class="num"><input class="narrow" inputMode="numeric" value={it.sl} onInput={(e: any) => setRow(i, "sl", parseMoney(e.target.value))} /></td>
-              <td class="num">
-                <input class="narrow" inputMode="numeric" value={it.price} onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} />
-                {(() => {
-                  const lp = listPrices[(it.sp || "").trim().toUpperCase()];
-                  if (!lp) return null;
-                  return Number(it.price) === lp
-                    ? <div class="pricetag ok">✓ giá bảng</div>
-                    : <div class="pricetag">bảng: {money(lp)}</div>;
-                })()}
-              </td>
-              <td class="num">{money((it.price || 0) * (it.sl || 0))}</td>
-              <td><button class="btn small danger" onClick={() => removeRow(i)}>✕</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <button class="btn" onClick={addRow}>+ Thêm dòng</button>
+      <div class="row space">
+        <b>{createMode ? "Sản phẩm" : "Sửa hoá đơn"} ({rows.length} món)</b>
+      </div>
+      <div class="inv-edit">
+        {rows.map((it, i) => (
+          <div class="edit-row" key={i}>
+            <div class="edit-top">
+              <ProductInput value={it.sp} onChange={(c) => setRow(i, "sp", c)} onCommit={(c) => autoPrice(i, c)} />
+              <button class="btn small danger" onClick={() => removeRow(i)}>✕</button>
+            </div>
+            <div class="edit-mid">
+              <label class="fld sl">SL<input inputMode="numeric" value={it.sl} onInput={(e: any) => setRow(i, "sl", parseMoney(e.target.value))} /></label>
+              <span class="times">×</span>
+              <label class="fld price">Giá<input inputMode="numeric" value={it.price} onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} /></label>
+              <span class="eq">= <b>{money((it.price || 0) * (it.sl || 0))}đ</b></span>
+            </div>
+            <div class="edit-bot">
+              {priceTag(it.sp, it.price)}
+              <input class="note-inp" placeholder="ghi chú" value={it.note || ""} onInput={(e: any) => setRow(i, "note", e.target.value)} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <button class="btn wide" onClick={addRow}>+ Thêm dòng</button>
 
       <div class="adj">
         <label>Tiền hàng<b class="num">{money(tienHang)}đ</b></label>
@@ -167,12 +220,8 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       </div>
 
       <div class="row">
-        <button class="btn primary" disabled={busy} onClick={save}>{busy ? "Đang lưu…" : "💾 Lưu"}</button>
-        {onCreateInvoice && (
-          <button class="btn primary" disabled={busy} onClick={() => run(onCreateInvoice)}>
-            {hasInvoice ? "🧾 Tạo lại HĐ" : "🧾 Tạo HĐ KiotViet"}
-          </button>
-        )}
+        <button class="btn primary" disabled={busy} onClick={save}>{busy ? "Đang lưu…" : createMode ? "💾 Lưu & tạo đơn" : "💾 Lưu"}</button>
+        {!createMode && <button class="btn" disabled={busy} onClick={cancel}>Huỷ</button>}
       </div>
     </div>
   );
