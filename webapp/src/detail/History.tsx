@@ -1,42 +1,51 @@
 // Lịch sử thao tác của đơn — GET /api/order/{id}/history (từ audit_events).
-// Thu gọn mặc định; bấm "Xem" mới tải (khỏi tốn cho mỗi lần mở đơn).
+// Luôn hiện + tự cập nhật realtime khi đơn có thao tác mới.
 import { useEffect, useState } from "preact/hooks";
 import { getJSON } from "../api";
 import { fmtTime } from "../format";
+import { onRealtime } from "../realtime";
 
 export function History({ threadId }: { threadId: string }) {
   const [items, setItems] = useState<any[]>([]);
-  const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    if (!open || loaded) return;
+
+  const load = () =>
     getJSON(`/api/order/${threadId}/history`, { cache: false })
       .then((r) => { setItems(r.history || []); setLoaded(true); })
       .catch(() => {});
-  }, [open, threadId, loaded]);
+
+  useEffect(() => { load(); }, [threadId]);
+
+  // Realtime: đơn có thao tác mới (hoặc nối lại) → tải lại lịch sử (debounce nhỏ;
+  // đợi audit ghi xong sau khi handler trả về).
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => {
+      if ((e.type === "order_changed" && e.thread_id === String(threadId)) || e.type === "resync") {
+        clearTimeout(t);
+        t = setTimeout(load, 500);
+      }
+    });
+    return () => { off(); clearTimeout(t); };
+  }, [threadId]);
 
   return (
     <div class="card">
-      <div class="row space">
-        <b>🕘 Lịch sử thao tác</b>
-        <button class="btn small" onClick={() => setOpen((o) => !o)}>{open ? "Ẩn" : "Xem"}</button>
-      </div>
-      {open && (
-        items.length ? (
-          <ul class="hist">
-            {items.map((h, i) => (
-              <li key={i} class={h.ok === false ? "hist-fail" : ""}>
-                <div>
-                  <b>{h.action}</b>{h.detail ? <span> — {h.detail}</span> : null}
-                  {h.ok === false ? <span class="owe"> ✗</span> : null}
-                </div>
-                <div class="muted small">{h.actor || "?"} · {fmtTime(h.ts)}</div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p class="muted small">{loaded ? "Chưa có thao tác nào được ghi." : "Đang tải…"}</p>
-        )
+      <b>🕘 Lịch sử thao tác</b>
+      {items.length ? (
+        <ul class="hist">
+          {items.map((h, i) => (
+            <li key={i} class={h.ok === false ? "hist-fail" : ""}>
+              <div>
+                <b>{h.action}</b>{h.detail ? <span> — {h.detail}</span> : null}
+                {h.ok === false ? <span class="owe"> ✗</span> : null}
+              </div>
+              <div class="muted small">{h.actor || "?"} · {fmtTime(h.ts)}</div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="muted small">{loaded ? "Chưa có thao tác nào được ghi." : "Đang tải…"}</p>
       )}
     </div>
   );
