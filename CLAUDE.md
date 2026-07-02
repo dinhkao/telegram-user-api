@@ -68,6 +68,7 @@ server.py → server_app.bootstrap.main()
 | **Firebase RTDB** | Sync + print queue (`meta/to_print`, `html-to-png`) | service-account JSON (env / hardcoded path) |
 | **KiotViet REST API** | External POS/accounting: invoices, payments, debt | see `integrations/` |
 | **SQLite `bot_sessions.db`** | Bot-role session/state | local |
+| **Order image files** (disk) | Photos attached to an order (full + thumbnail), one dir per thread_id. Metadata row in `order_images` table (app.db) | `ORDER_MEDIA_DIR`, default `~/letrang-db/media`. Via `order_images_store/` + `server_app/image_routes.py` |
 
 ---
 
@@ -84,8 +85,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   - `server_app/realtime.py` — **realtime push** to webapp over `/ws`. Order
     mutations from BOTH sources (web via `order_api_common.refresh_order_bg`,
     Telegram via `order_commands_v3._refresh_order_message`) plus new-order
-    (`channel_handlers/register.py`) and comment-add emit `order_changed` (carries
-    a ready-to-splice list row) / `orders_changed`. Emit via `emit_*` (fire-and-
+    (`channel_handlers/register.py`), comment-add, and image add/delete
+    (`server_app/image_routes.py`, `order_photo_sync.py`) emit `order_changed`
+    (carries a ready-to-splice list row) / `orders_changed`. Emit via `emit_*` (fire-and-
     forget, never blocks the refresh path); sends concurrently with a timeout and
     closes dead sockets. `/ws` is gated by token when `WEB_AUTH_ENABLED` (carries
     PII). Client: `webapp/src/realtime.ts` (reconnect + resync-on-reconnect).
@@ -112,6 +114,16 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   background thread at startup** (`orders_db.prewarm_orders_indexes`) so the first
   search doesn't pay the ~460ms cold build. If you change the row shape or these
   filters, keep the generated-column definitions and `_build_order_row` in sync.
+- **Order images (photos) — `server_app/image_routes.py` + `server_app/order_photo_sync.py`.**
+  `/api/order/{thread_id}/images` GET/POST(multipart)/DELETE + `.../{id}/file`
+  (FileResponse, immutable cache, path-traversal guard). Client resizes+re-encodes
+  to WebP and sends a full (~1600px) + thumbnail (~400px) so the server does no
+  image work (Pillow only as a thumb fallback). **2-way sync with the Telegram
+  topic:** a web upload is forwarded into the order's topic (`ORDER_GROUP_ID`,
+  `reply_to=thread_id`, photo preview); a photo posted in the topic is pulled back
+  into the gallery (inbound `NewMessage` handler registered in
+  `command_bootstrap.py`). Loop-prevention: self-sent message-ids tracked in-memory
+  + the `tg_message_id` column. Add/delete emit realtime `order_changed`.
 
 **Data stores (one package per SQLite domain)**
 - `donhang_store/` — `#don_hang` index DB (schema, reads, writes, migrations, api).
@@ -121,6 +133,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   app (PIN hash in `pin.py`, CLI: `tools/add_web_user.py`).
 - `comment_store/` — `web_comments` table in `app.db`: web-app comments on orders
   (separate from `order_chat_messages` = read-only Telegram log).
+- `order_images_store/` — `order_images` table in `app.db`: metadata for photos
+  attached to an order (filename, thumb, size, dims, uploader, `tg_message_id`).
+  Image bytes live on disk under `ORDER_MEDIA_DIR/<thread_id>/`, not in the DB.
 - `chat_log/` — logs new/edited/deleted Telegram messages to DB.
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
 
@@ -145,10 +160,19 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 
 **Web app for phones (orders management, 5-6 internal users)**
 - `webapp/` — Vite + Preact + TS mobile UI (Vietnamese): orders list/detail, tasks,
-  payments, comments, create order, customers/debt, offline cache+queue. Build
-  `cd webapp && npm run build` → served at `/app` (`server_app/webapp_routes.py`).
-- `android/` — thin WebView APK bundling `webapp/dist` (gradle `assembleDebug`;
-  needs `ANDROID_HOME`). Users reach the server over Tailscale.
+  payments, comments, create order, customers/debt, **photos (camera + gallery, with
+  2-way Telegram sync)**, offline cache+queue. Build `cd webapp && npm run build` →
+  served at `/app` (`server_app/webapp_routes.py`). Image UI: `webapp/src/detail/
+  Images.tsx` (+ `imageProcess.ts` client-side WebP resize/thumbnail).
+- **APK for phones** — built by the EXTERNAL generic builder at
+  `~/Documents/ultimate-webview-android` (a thin WebView loading the server URL over
+  Tailscale), NOT the in-repo `android/`. To push an update run
+  `./push-update.sh` there: it bumps the versionCode above the deployed one and
+  deploys `app.apk` + `version.json` into `~/letrang-db/apk` (= `WEBAPP_APK_DIR`),
+  served at `/app/update/`; installed apps auto-prompt on next resume. Webapp-only
+  changes don't need an APK push (WebView loads the webapp remotely — a reload gets
+  them); rebuild the APK only for native changes (permissions, camera) or to force a
+  fresh reopen. The in-repo `android/` is legacy (bundled dist, "not installable").
   Full plan/status: `docs/web-app-plan.md`.
 
 **Tooling**
@@ -197,8 +221,8 @@ runners.
 - **Every module should say what it does and what it connects to.** Start each
   module with a one-line docstring: what this file does + which package(s)/store(s)
   it talks to. Packages: put the summary in `__init__.py`.
-- **Config via env.** Shared DB paths live in **`utils/paths.py`** (single source:
-  `SHARED_DB_PATH`, `DONHANG_DB_PATH`) — import from there, never re-derive
+- **Config via env.** Shared filesystem paths live in **`utils/paths.py`** (single
+  source: `SHARED_DB_PATH`, `DONHANG_DB_PATH`, `ORDER_MEDIA_DIR`) — import from there, never re-derive
   `os.path.expanduser(os.getenv("SHARED_DB_PATH", ...))` inline. Other env/config
   reads go through `server_app/config.py` (or a package's own `config.py`). Don't
   hardcode new secrets/paths — add an env var with a default.
