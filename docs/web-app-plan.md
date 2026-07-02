@@ -49,30 +49,53 @@ Backend: cùng process aiohttp hiện tại — thêm auth middleware + vài end
 - ✅ Tests: `tests/test_web_auth.py` (PIN, token, exempt rules) — 113 pass
 - ⏳ Đóng dấu `by: <username>` vào write endpoints → làm cùng Phase 2 (mutations)
 
-### Phase 1 — Read-only ~2 ngày
-- Danh sách đơn: search/filter trạng thái/phân trang (endpoint có sẵn)
-- Chi tiết đơn: thông tin, tasks, dòng invoice, thanh toán, công nợ, chat log
-- Nhãn tiếng Việt khớp lệnh Telegram (soạn, giao, nộp, nhận)
+### Phase 1 — Read-only — ✅ XONG 2026-07-02
+- ✅ Frontend mới `webapp/` (Vite + Preact + TS, 12.5KB gzip JS) — serve tại `/app`
+  (`server_app/webapp_routes.py`), hash routing, UI tiếng Việt
+- ✅ Danh sách đơn: FTS search, chip lọc xong/chưa, "Tải thêm" (`pages/OrdersList.tsx`)
+- ✅ Chi tiết đơn: header, tổng/đã trả/nợ trước, text đơn (`pages/OrderDetail.tsx`)
 
-### Phase 2 — Mutations ~1-2 ngày
-- Nút task soạn/giao/nộp/nhận (endpoint có sẵn)
-- Thanh toán TM/CK (có sẵn)
-- Comment: bảng mới `web_comments(thread_id, user, text, created_at)` + 2 endpoint
-- Mọi mutation bọc `with transaction(conn):` (JSON blob read-modify-write phải atomic — convention repo)
+### Phase 2 — Mutations — ✅ XONG 2026-07-02
+- ✅ Nút 5 task (bán/soạn/giao/nộp/nhận) qua endpoint generic mới `POST /api/order/task`
+  (`nhan_tien` trước đây không gọi được qua HTTP) — `detail/Tasks.tsx`
+- ✅ Thanh toán TM/CK — `detail/Payments.tsx` (endpoint có sẵn)
+- ✅ Comment: `comment_store/` (bảng `web_comments`) + GET/POST
+  `/api/order/{id}/comments` (`server_app/comment_routes.py`), UI trộn với chat log
+  Telegram theo thời gian — `detail/Comments.tsx`
+- ✅ Attribution: task/payment/print endpoint tự đóng `request["web_user"]` vào
+  `by`/`created_by`; `resolve_name` không tra Telegram entity cho username web
 
-### Phase 3 — Tạo/sửa đơn + khách hàng ~2-3 ngày
-- Tạo đơn: ô text tự do → `/api/order/auto-parse` → form sửa dòng → lưu (endpoint mới dùng `order_store._create_order`)
-- Sửa dòng invoice (endpoint có sẵn)
-- Tìm khách + xem công nợ (`order_store/customers.py` có sẵn, thêm endpoint HTTP mỏng)
+### Phase 3 — Tạo/sửa đơn + khách hàng — ✅ XONG 2026-07-02
+- ✅ Tạo đơn: `POST /api/order/create` (`server_app/order_api_create.py`) — text tự do
+  → detect khách + parse invoice (cùng pipeline Telegram). Đơn web: thread_id ÂM,
+  firebase_key `web_<epoch>`, flow_version `web` — `pages/CreateOrder.tsx`
+- ✅ Sửa invoice: bảng edit sl/giá/thêm/xoá dòng — `detail/Invoice.tsx`; sửa text đơn
+  → `/api/order/fix` (parse lại)
+- ✅ Khách hàng: `GET /api/customers[?search]` + `/api/customers/{key}`
+  (`server_app/customer_routes.py`) — tìm + công nợ — `pages/Customers.tsx`
 
-### Phase 4 — In + offline ~1 ngày
-- Nút in → endpoint print-giao / print queue firebase (`meta/to_print`)
-- Offline: shell đã offline (trong APK); cache danh sách + đơn đã xem vào IndexedDB
-- **Write queue offline CHỈ cho task-mark + comment** — sửa invoice offline rồi replay = nguy cơ mất update (JSON blob), nên tạo/sửa đơn bị chặn khi offline, báo rõ
+### Phase 4 — In + offline — ✅ XONG 2026-07-02
+- ✅ Nút in → `/api/order/print-giao` (print queue có sẵn)
+- ✅ Offline (`src/offline.ts`): cache GET (localStorage, TTL 3 ngày, tự dọn khi đầy),
+  banner mất mạng, hàng đợi POST CHỈ cho task-mark + comment (replay khi online
+  lại / mỗi 30s); thanh toán/sửa invoice/tạo đơn chặn khi offline (RMW blob)
 
-### Phase 5 — APK ~1 ngày
-- Project Android tối giản: 1 Activity, WebViewAssetLoader, xử lý nút back, màn hình cài server URL
-- `./gradlew assembleDebug` → file APK chia cho 5-6 người
+### Phase 5 — APK — ✅ XONG 2026-07-02
+- ✅ `android/` — 1 Activity Java (WebView + WebViewAssetLoader), bundle web trong
+  APK assets (gradle task `copyWebApp` tự copy `webapp/dist`), nút back = go back,
+  minSdk 23 (Android 6+), mixed-content allow (shell https → API http Tailscale)
+- ✅ CORS middleware (`server_app/cors.py`) — WebView origin khác server
+- ✅ Build: `cd webapp && npm run build && cd ../android && ANDROID_HOME=~/Library/Android/sdk gradle assembleDebug`
+  → `android/app/build/outputs/apk/debug/app-debug.apk` (3.1MB)
+- Cài APK → mở app → màn hình đăng nhập nhập `http://<tailscale-ip>:8090` + username + PIN
+
+## Vận hành (checklist go-live)
+1. Tạo user: `.venv/bin/python tools/add_web_user.py add <username> --name "Tên" --role admin|staff`
+2. Bật chặn API: thêm `WEB_AUTH_ENABLED=true` vào env → restart server
+   (lưu ý: UI cũ `/orders` static sẽ cần token — hoặc để tắt nếu vẫn dùng UI cũ)
+3. Build + phát APK cho 5-6 máy; mỗi máy nhập Tailscale IP ở màn đăng nhập
+4. Đổi UI: sửa `webapp/`, `npm run build`, rebuild APK (hoặc dùng qua trình duyệt
+   `http://<ip>:8090/app/` — không cần phát lại APK)
 
 ## Rủi ro đã ghi nhận (theo lựa chọn của bạn)
 

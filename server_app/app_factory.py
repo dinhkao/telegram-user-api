@@ -4,6 +4,7 @@ from aiohttp import web
 
 from server_app.audit import audit_middleware
 from server_app.config import PORT
+from server_app.cors import cors_middleware
 from server_app.comment_routes import comments_add_handler, comments_list_handler
 from server_app.customer_routes import customer_detail_handler, customers_search_handler
 from server_app.donhang_routes import donhang_handler, donhang_msg_handler, donhang_page_handler, donhang_stats_handler
@@ -28,7 +29,7 @@ def create_app():
     from tg_send import make_handler as make_send_handler
     from tg_send_file import make_handler as make_send_file_handler
 
-    app = web.Application(middlewares=[audit_middleware, web_auth_middleware])
+    app = web.Application(middlewares=[cors_middleware, audit_middleware, web_auth_middleware])
     r = app.router
     r.add_post("/api/auth/login", login_handler)
     r.add_get("/api/auth/me", me_handler)

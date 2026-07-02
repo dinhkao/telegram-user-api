@@ -99,6 +99,8 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `note_store/`, `production_store/` — domain tables in the shared `app.db`.
 - `user_store/` — `web_users` table in `app.db`: login accounts for the orders web
   app (PIN hash in `pin.py`, CLI: `tools/add_web_user.py`).
+- `comment_store/` — `web_comments` table in `app.db`: web-app comments on orders
+  (separate from `order_chat_messages` = read-only Telegram log).
 - `chat_log/` — logs new/edited/deleted Telegram messages to DB.
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
 
@@ -118,6 +120,14 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   static/Next.js frontend served/pushed over WebSocket.
 - `sheets_bot/` — Google Sheets bot (runs on the user client). DISABLED by default
   (gated by `SHEETS_BOT_ENABLED` in `server_app/bootstrap.py`); no-op without creds.
+
+**Web app for phones (orders management, 5-6 internal users)**
+- `webapp/` — Vite + Preact + TS mobile UI (Vietnamese): orders list/detail, tasks,
+  payments, comments, create order, customers/debt, offline cache+queue. Build
+  `cd webapp && npm run build` → served at `/app` (`server_app/webapp_routes.py`).
+- `android/` — thin WebView APK bundling `webapp/dist` (gradle `assembleDebug`;
+  needs `ANDROID_HOME`). Users reach the server over Tailscale.
+  Full plan/status: `docs/web-app-plan.md`.
 
 **Tooling**
 - `scripts/`, `tools/`, `tests/`, `docs/` — startup scripts, dev tools, tests, docs.

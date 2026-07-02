@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'vn.letrangphat.orders'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "vn.letrangphat.orders"
+        minSdk 23          // Android 6.0 — máy cũ vẫn cài được
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        debug {
+            // debug APK — ký bằng debug key mặc định, cài trực tiếp, không cần store
+        }
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation platform('org.jetbrains.kotlin:kotlin-bom:1.8.22')  // gỡ trùng kotlin-stdlib giữa webkit/appcompat
+    implementation 'androidx.webkit:webkit:1.12.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+}
+
+// Copy bundle web (webapp/dist) vào assets/www trước khi build.
+// Build web trước: cd ../webapp && npm run build
+tasks.register('copyWebApp', Copy) {
+    from '../../webapp/dist'
+    into 'src/main/assets/www'
+}
+preBuild.dependsOn 'copyWebApp'
