@@ -24,6 +24,8 @@ type OrderRow = {
   vat?: number;
   pvc?: number;
   discount?: number;
+  no_truoc?: string;
+  kh_debt?: number | null;
   giao_by?: string;
   topic_name: string;
   creator: string;
@@ -63,11 +65,14 @@ function InvoiceMini({ o }: { o: OrderRow }) {
             <td class="num">{money((Number(it.price) || 0) * (Number(it.sl) || 0))}</td>
           </tr>
         ))}
-        {(o.discount || o.pvc || o.vat) ? <tr class="sub"><td colSpan={2}>Tiền hàng</td><td class="num">{money(tienHang)}</td></tr> : null}
+        <tr class="sub"><td colSpan={2}>Tiền hàng</td><td class="num">{money(tienHang)}</td></tr>
         {o.discount ? <tr class="sub"><td colSpan={2}>Chiết khấu</td><td class="num">−{money(o.discount)}</td></tr> : null}
         {o.pvc ? <tr class="sub"><td colSpan={2}>PVC</td><td class="num">+{money(o.pvc)}</td></tr> : null}
         {o.vat ? <tr class="sub"><td colSpan={2}>VAT</td><td class="num">+{money(o.vat)}</td></tr> : null}
         <tr class="tot"><td colSpan={2}>Tổng</td><td class="num">{o.total ? `${o.total}đ` : money(tienHang) + "đ"}</td></tr>
+        {o.paid > 0 ? <tr class="sub"><td colSpan={2}>Đã trả</td><td class="num">{money(o.paid)}</td></tr> : null}
+        {o.no_truoc ? <tr class="sub"><td colSpan={2}>Nợ trước</td><td class="num">{o.no_truoc}</td></tr> : null}
+        {o.kh_debt != null ? <tr class="sub debt"><td colSpan={2}>Nợ khách (lúc tạo HĐ)</td><td class="num">{money(o.kh_debt)}</td></tr> : null}
       </tbody>
     </table>
   );

@@ -159,3 +159,4 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
   .detail-grid { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: start; }
   .dside { position: sticky; top: 52px; }
 }
+.inv-mini .debt td { color: var(--danger); font-weight: 600; }
