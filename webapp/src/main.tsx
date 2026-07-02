@@ -4,6 +4,7 @@ import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { currentUser, replayQueue, serverUrl } from "./api";
 import { getQueue } from "./offline";
+import { startRealtime, stopRealtime } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
 import { Customers } from "./pages/Customers";
 import { Login } from "./pages/Login";
@@ -58,12 +59,19 @@ function App() {
   const inApk = window.location.hostname === "appassets.androidplatform.net" || window.location.protocol === "file:";
   const needSetup = inApk && !serverUrl();
   const showLogin = hash === "#/login" || !user || needSetup;
+  const authed = !!user && !needSetup;
 
   // Chuẩn hoá URL hash về #/login khi cần đăng nhập/cài server — làm trong effect,
   // KHÔNG sửa location trong lúc render (gây trắng trang lần đầu, phải reload).
   useEffect(() => {
     if (showLogin && hash !== "#/login") window.location.hash = "#/login";
   }, [showLogin, hash]);
+
+  // Kênh realtime (/ws): bật khi đã đăng nhập, tắt khi đăng xuất.
+  useEffect(() => {
+    if (authed) startRealtime();
+    else stopRealtime();
+  }, [authed]);
 
   let page;
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);

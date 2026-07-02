@@ -16,7 +16,6 @@ from server_app.order_api_print import api_print_giao_handler
 from server_app.order_api_tasks import _make_task_handler, api_task_handler, api_task_status_clear_handler
 from server_app.orders_api import order_detail_handler, orders_api_handler
 from server_app.orders_pages import order_detail_page_handler, orders_page_handler
-from server_app.search_routes import search_handler
 from server_app.web_auth import login_handler, me_handler, web_auth_middleware
 from server_app.web_pages import index_handler
 from server_app.webapp_routes import register_webapp_routes
@@ -35,7 +34,6 @@ def create_app():
     r.add_get("/api/auth/me", me_handler)
     r.add_get("/", index_handler)
     r.add_get("/ws", websocket_handler)
-    r.add_get("/api/search", search_handler)
     r.add_get("/api/donhang", donhang_handler)
     r.add_get("/api/donhang/stats", donhang_stats_handler)
     r.add_get("/api/donhang/msg", donhang_msg_handler)

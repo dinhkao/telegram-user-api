@@ -9,9 +9,6 @@ if TYPE_CHECKING:
     from telethon import TelegramClient
 
 ws_clients: set["web.WebSocketResponse"] = set()
-recent_messages: list[dict] = []
-chat_histories: dict[str, list[dict]] = {}
-RESULT_CACHE: dict[str, dict] = {}
 _client: "TelegramClient | None" = None
 _tg_gateway: "TelegramGateway | None" = None
 _donhang_db: "DonHangDB | None" = None

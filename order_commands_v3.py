@@ -423,6 +423,9 @@ async def _refresh_order_message(client, db_conn, thread_id: int, channel_id: in
         log.info("Order message refreshed: thread=%d msg=%d", thread_id, message_id)
     except Exception as e:
         log.warning("Failed to refresh order message thread=%d: %s", thread_id, e)
+    # Đẩy realtime tới webapp (best-effort) — phủ mọi lệnh gõ trong Telegram
+    from server_app.realtime import broadcast_order_changed
+    await broadcast_order_changed(thread_id)
 
 
 def _refresh_order_if_possible(client, db_conn, order: dict):

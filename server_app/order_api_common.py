@@ -54,3 +54,6 @@ async def refresh_order_bg(conn, thread_id, channel_id, message_id):
         await tg_edit_message(channel_id, message_id, text=build_order_main_message_html(order, thread_id), parse_mode="html", link_preview=False)
     except Exception as e:
         log.warning("refresh order failed: thread=%s channel=%s message=%s error=%s", thread_id, channel_id, message_id, e, exc_info=True)
+    # Đẩy realtime tới webapp (best-effort, không chặn refresh nếu lỗi)
+    from server_app.realtime import broadcast_order_changed
+    await broadcast_order_changed(thread_id)

@@ -7,7 +7,7 @@ from server_app import state as _state
 
 
 def __getattr__(name):
-    if name in {"_client", "_tg_gateway", "_donhang_db", "ws_clients", "recent_messages"}:
+    if name in {"_client", "_tg_gateway", "_donhang_db", "ws_clients"}:
         return getattr(_state, name)
     raise AttributeError(name)
 

@@ -45,6 +45,9 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 
 .order-list { list-style: none; }
 .order-card { display: block; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin: 6px 0; text-decoration: none; color: inherit; }
+.order-text { margin-bottom: 6px; font-size: .95rem; font-weight: 600; color: var(--fg, inherit); white-space: pre-wrap; word-break: break-word; }
+.order-text.muted { font-weight: 400; color: var(--muted); }
+.cust { font-size: .85rem; font-weight: 500; color: var(--muted); }
 .badges { display: flex; gap: 3px; }
 .badge { font-size: .68rem; padding: 2px 5px; border-radius: 6px; background: #eee; color: var(--muted); }
 .badge.done { background: #e6f4ea; color: var(--ok); font-weight: 600; }

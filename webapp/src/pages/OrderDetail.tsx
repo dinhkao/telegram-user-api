@@ -2,6 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useState } from "preact/hooks";
 import { getJSON, postJSON } from "../api";
+import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal } from "../format";
 import { Comments } from "../detail/Comments";
 import { InvoiceBlock } from "../detail/Invoice";
@@ -25,6 +26,23 @@ export function OrderDetail({ threadId }: { threadId: string }) {
   };
   useEffect(() => {
     reload();
+  }, [threadId]);
+
+  // Realtime: đơn này đổi (task/thanh toán/bình luận…) hoặc vừa nối lại → tải lại.
+  // Gộp event dồn dập bằng debounce nhỏ. editText giữ nguyên (state riêng, reload
+  // chỉ thay detail nền) nên không phá thao tác sửa đang mở.
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => {
+      if ((e.type === "order_changed" && e.thread_id === String(threadId)) || e.type === "resync") {
+        clearTimeout(t);
+        t = setTimeout(reload, 250);
+      }
+    });
+    return () => {
+      off();
+      clearTimeout(t);
+    };
   }, [threadId]);
 
   if (err && !detail) return <p class="error">{err}</p>;

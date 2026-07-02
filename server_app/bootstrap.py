@@ -14,7 +14,6 @@ from server_app.app_factory import create_app
 from server_app.command_bootstrap import register_command_handlers
 from server_app.config import API_HASH, API_ID, PHONE, PORT, SESSION
 from server_app.donhang_bootstrap import bootstrap_donhang, init_donhang_db, register_donhang_live
-from server_app.saved_messages import load_recent_messages
 from server_app.state import set_client, set_donhang_db, set_gateway, set_duy_user_id
 from server_app.tasks import spawn_tracked
 
@@ -32,8 +31,6 @@ async def main():
     me = await client.get_me()
     set_duy_user_id(me.id)
     log.info("Logged in as %s (id=%d)", me.first_name, me.id)
-    log.info("Listening to Saved Messages...")
-    await load_recent_messages(client, limit=100)
     register_command_handlers(client)
     start_html_to_png(client)
     db = init_donhang_db()
