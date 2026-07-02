@@ -108,6 +108,13 @@ async def orders_api_handler(request: web.Request):
         where.append(f"({has_data}) AND ({_is_pending})")
     elif filt == "done":
         where.append(f"({has_data}) AND ({_is_done})")
+    else:
+        # Lọc theo bước workflow chưa xong (chưa soạn/giao/nộp/nhận) — dùng cờ gốc
+        _stage = {"chua_soan": "soan", "chua_giao": "giao", "chua_nop": "nop", "chua_nhan": "nhan"}.get(filt)
+        if _stage:
+            e = f"json_extract(o.json, '$.{_stage}')"
+            not_done = f"{e} IS DISTINCT FROM 'true'" if IS_POSTGRES else f"{e} IS NOT 1"
+            where.append(f"({has_data}) AND ({not_done})")
     where_clause = " AND ".join(where)
     sort = request.query.get("sort", "created").strip()
     if sort == "date":

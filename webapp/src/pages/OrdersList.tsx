@@ -109,11 +109,13 @@ function InvoiceMini({ o }: { o: OrderRow }) {
   );
 }
 
+type FilterKey = "all" | "pending" | "done" | "chua_soan" | "chua_giao" | "chua_nop" | "chua_nhan";
+
 // Cache toàn danh sách + vị trí cuộn — sống ở module scope nên vẫn còn khi
 // rời trang chi tiết rồi quay lại (mount lại). Reset khi có search mới.
 let listCache: {
   orders: OrderRow[]; stats: any; search: string;
-  filter: "all" | "pending" | "done"; page: number; totalPages: number; scrollY: number;
+  filter: FilterKey; page: number; totalPages: number; scrollY: number;
 } | null = null;
 
 function TaskBadges({ o }: { o: OrderRow }) {
@@ -131,7 +133,7 @@ export function OrdersList() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "pending" | "done">("all");
+  const [filter, setFilter] = useState<FilterKey>("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -256,7 +258,7 @@ export function OrdersList() {
   };
 
   // Đổi chip → reset trang, tải lại từ server với filter mới (nhất quán phân trang)
-  const onFilter = (f: "all" | "pending" | "done") => {
+  const onFilter = (f: FilterKey) => {
     setFilter(f);
     setPage(1);
     load(1, search, f, false);
@@ -290,6 +292,10 @@ export function OrdersList() {
           <button class={filter === "all" ? "chip active" : "chip"} onClick={() => onFilter("all")}>Tất cả {stats.total_orders}</button>
           <button class={filter === "pending" ? "chip active" : "chip"} onClick={() => onFilter("pending")}>Chưa xong {stats.pending}</button>
           <button class={filter === "done" ? "chip active" : "chip"} onClick={() => onFilter("done")}>Xong {stats.done}</button>
+          <button class={filter === "chua_soan" ? "chip active" : "chip"} onClick={() => onFilter("chua_soan")}>Chưa soạn</button>
+          <button class={filter === "chua_giao" ? "chip active" : "chip"} onClick={() => onFilter("chua_giao")}>Chưa giao</button>
+          <button class={filter === "chua_nop" ? "chip active" : "chip"} onClick={() => onFilter("chua_nop")}>Chưa nộp</button>
+          <button class={filter === "chua_nhan" ? "chip active" : "chip"} onClick={() => onFilter("chua_nhan")}>Chưa nhận</button>
         </div>
       )}
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
