@@ -62,7 +62,10 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 
 .detail-head { display: flex; gap: 10px; align-items: center; padding: 6px 0; }
 .back { font-size: 1.4rem; text-decoration: none; color: inherit; padding: 4px 10px; }
-.order-text { white-space: pre-wrap; font-family: inherit; font-size: .9rem; background: var(--bg); border-radius: 8px; padding: 8px; margin-top: 6px; }
+.order-text { white-space: pre-wrap; font-family: inherit; font-size: .9rem; background: var(--bg); border-radius: 8px; padding: 8px; margin-top: 6px; display: flex; align-items: flex-start; gap: 8px; }
+/* text reserves space; 5 task icons sit inside the grey box, pinned top-right */
+.order-text > .ot-text { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; font-family: inherit; }
+.order-text > .badges { flex-shrink: 0; }
 
 .invoice-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: .9rem; }
 .invoice-table th, .invoice-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: left; }

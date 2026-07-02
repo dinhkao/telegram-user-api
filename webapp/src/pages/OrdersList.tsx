@@ -306,9 +306,11 @@ export function OrdersList() {
             <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}`} href={`#/order/${o.thread_id}`}>
               {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
               <div class="order-text">
-                {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
+                <span class="ot-text">
+                  {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
+                </span>
+                <TaskBadges o={o} />
               </div>
-              <TaskBadges o={o} />
             </a>
           </li>
         ))}
@@ -320,8 +322,8 @@ export function OrdersList() {
               <div class="card-main">
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
                 {o.text
-                  ? <div class="order-text"><Highlight text={o.text} q={search} /></div>
-                  : <div class="order-text muted">(không có nội dung)</div>}
+                  ? <div class="order-text"><span class="ot-text"><Highlight text={o.text} q={search} /></span><TaskBadges o={o} /></div>
+                  : <div class="order-text muted"><span class="ot-text">(không có nội dung)</span><TaskBadges o={o} /></div>}
                 <div class="row space">
                   <b class="cust"><Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} /></b>
                   <span class="muted small">{o.created ? fmtTime(o.created) : o.date}</span>
@@ -331,7 +333,6 @@ export function OrdersList() {
                     {o.total && <b class="money">{o.total}đ</b>}
                     {stt && <span class={stt.includes("đã nộp") ? "paid-ok" : "owe"}> · {stt}</span>}
                   </span>
-                  <TaskBadges o={o} />
                 </div>
                 <div class="muted small">
                   {o.hd_code && <span>{o.hd_code} · </span>}
