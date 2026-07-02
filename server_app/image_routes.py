@@ -178,9 +178,14 @@ async def images_upload_handler(request: web.Request):
     # Push FCM cho app (best-effort, tắt nếu FCM_ENABLED=false)
     from server_app.fcm import notify_bg
     notify_bg("🖼 Ảnh mới", f"{uploaded_by} thêm ảnh vào đơn", {"thread_id": str(thread_id), "type": "image", "image_id": str(image["id"])})
+    # Ghi vào lịch sử thao tác (kèm id ảnh để hiện thumbnail)
+    from server_app.tasks import spawn_tracked
+    from audit_log import async_log_event
+    spawn_tracked("audit.image_added", async_log_event(
+        "order.image_added", actor_type="web", actor_id=uploaded_by,
+        thread_id=thread_id, payload={"image_id": image["id"]}))
     # Forward ảnh vào topic Telegram của đơn (nền, không chặn/không làm hỏng upload)
     from server_app.order_photo_sync import forward_web_image_to_topic
-    from server_app.tasks import spawn_tracked
     fp = _safe_path(thread_id, image["filename"])
     if fp:
         spawn_tracked(

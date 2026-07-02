@@ -163,4 +163,8 @@ def register_inbound_photo_sync(client) -> None:
         emit_order_changed(int(thread_id))
         from server_app.fcm import notify_bg
         notify_bg("🖼 Ảnh mới", f"{who} thêm ảnh (Telegram)", {"thread_id": str(thread_id), "type": "image", "image_id": str(saved["id"])})
+        # Ghi vào lịch sử thao tác (kèm id ảnh để hiện thumbnail)
+        from audit_log import async_log_event
+        await async_log_event("order.image_added", actor_type="telegram", actor_id=who,
+                              thread_id=int(thread_id), payload={"image_id": saved["id"]})
         log.info("nhập ảnh topic→web ok thread=%s msg=%s by=%s", thread_id, mid, who)

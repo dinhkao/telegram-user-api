@@ -73,8 +73,8 @@ def get_order_history(thread_id, limit: int = 60) -> list[dict]:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            "SELECT ts, actor_id, actor_type, source, payload_json, result_json "
-            "FROM audit_events WHERE thread_id = ? AND action = 'http.request' "
+            "SELECT ts, actor_id, actor_type, action, source, payload_json, result_json "
+            "FROM audit_events WHERE thread_id = ? AND action IN ('http.request', 'order.image_added') "
             "ORDER BY id DESC LIMIT 300",
             (int(thread_id),),
         ).fetchall()
@@ -84,6 +84,17 @@ def get_order_history(thread_id, limit: int = 60) -> list[dict]:
         pass
     out = []
     for r in rows:
+        # Thêm ảnh (ghi tường minh vì upload là multipart, id ảnh không nằm trong request)
+        if r["action"] == "order.image_added":
+            try:
+                pid = json.loads(r["payload_json"] or "{}").get("image_id")
+            except Exception:
+                pid = None
+            out.append({"ts": r["ts"], "actor": r["actor_id"], "action": "Thêm ảnh",
+                        "detail": "", "image_id": pid, "ok": True})
+            if len(out) >= limit:
+                break
+            continue
         source = r["source"] or ""
         if not source.startswith("POST "):
             continue
