@@ -94,8 +94,11 @@ function App() {
 
   let page;
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
+  // Deep-link từ notification: ?focus=comment:123 / ?focus=image:45 → cuộn + nháy
+  const focusMatch = hash.match(/[?&]focus=([a-z]+):(\d+)/i);
+  const focusEl = focusMatch ? `${focusMatch[1]}-${focusMatch[2]}` : undefined;
   if (showLogin) page = <Login />;
-  else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} />;
+  else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} focus={focusEl} />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
   else page = <OrdersList />;

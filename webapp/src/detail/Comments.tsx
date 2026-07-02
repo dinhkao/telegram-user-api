@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { getJSON, postJSON, currentUser } from "../api";
 import { fmtTime } from "../format";
 
-type Item = { who: string; text: string; at: number; source: "web" | "tg" };
+type Item = { who: string; text: string; at: number; source: "web" | "tg"; id?: number };
 
 /** order_chat_messages.created_at là TEXT UTC 'YYYY-MM-DD HH:MM:SS' (sqlite
  *  datetime('now')), còn comment web là epoch giây — quy hết về epoch. */
@@ -56,7 +56,7 @@ export function Comments({ threadId, chatMessages }: { threadId: string; chatMes
   const items: Item[] = useMemo(
     () =>
       [
-        ...comments.map((c): Item => ({ who: c.username, text: c.text, at: toEpoch(c.created_at), source: "web" })),
+        ...comments.map((c): Item => ({ who: c.username, text: c.text, at: toEpoch(c.created_at), source: "web", id: c.id })),
         ...chatMessages
           .filter((m) => (m.text || "").trim())
           .map((m): Item => ({ who: m.sender_name || String(m.sender_id), text: m.text, at: toEpoch(m.created_at), source: "tg" })),
@@ -69,7 +69,7 @@ export function Comments({ threadId, chatMessages }: { threadId: string; chatMes
       <b>Trao đổi</b>
       <ul class="comment-list">
         {items.map((it, i) => (
-          <li key={i} class={it.source === "web" ? "comment web" : "comment tg"}>
+          <li key={i} id={it.id ? `comment-${it.id}` : undefined} class={it.source === "web" ? "comment web" : "comment tg"}>
             <div class="muted small">
               {it.source === "tg" ? "✈️ " : "💬 "}
               {it.who} · {fmtTime(it.at)}

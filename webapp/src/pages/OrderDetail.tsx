@@ -16,7 +16,7 @@ import { invalidateListCache } from "./OrdersList";
 // Nhớ vị trí cuộn theo từng đơn — quay lại đơn cũ về đúng chỗ đang xem
 const detailScroll: Record<string, number> = {};
 
-export function OrderDetail({ threadId }: { threadId: string }) {
+export function OrderDetail({ threadId, focus }: { threadId: string; focus?: string }) {
   const [detail, setDetail] = useState<any>(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
@@ -44,7 +44,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
   // Sau khi SỬA đơn: xoá cache dashboard rồi tải lại (đơn có thể đã rời filter)
   const changed = () => { invalidateListCache(); reload(); };
   useEffect(() => {
-    restored.current = false; // đơn mới → cho phép khôi phục cuộn 1 lần
+    restored.current = !!focus; // có focus (từ notification) → bỏ khôi phục cuộn, để focus thắng
     reload();
   }, [threadId]);
 
@@ -52,6 +52,25 @@ export function OrderDetail({ threadId }: { threadId: string }) {
   useEffect(() => {
     return () => { detailScroll[threadId] = window.scrollY; };
   }, [threadId]);
+
+  // Deep-link notification: đợi phần tử (bình luận/ảnh) render rồi cuộn tới + nháy sáng
+  useEffect(() => {
+    if (!focus) return;
+    let tries = 0;
+    const iv = setInterval(() => {
+      const el = document.getElementById(focus);
+      if (el) {
+        clearInterval(iv);
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("flash-target");
+        setTimeout(() => el.classList.remove("flash-target"), 2400);
+        history.replaceState(null, "", `#/order/${threadId}`); // xoá ?focus khỏi URL
+      } else if (++tries > 50) {
+        clearInterval(iv); // ~5s không thấy → thôi
+      }
+    }, 100);
+    return () => clearInterval(iv);
+  }, [focus, threadId]);
 
   // Realtime: đơn này đổi (task/thanh toán/bình luận…) hoặc vừa nối lại → tải lại.
   // Gộp event dồn dập bằng debounce nhỏ. editText giữ nguyên (state riêng, reload

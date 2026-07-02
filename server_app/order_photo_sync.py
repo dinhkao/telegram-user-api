@@ -152,7 +152,7 @@ def register_inbound_photo_sync(client) -> None:
                 who = "Telegram"
 
         try:
-            await persist_order_image(
+            saved = await persist_order_image(
                 int(thread_id), full_b, mime, full_ext, thumb_b, thumb_ext,
                 width=w, height=h, uploaded_by=who, tg_message_id=mid,
             )
@@ -162,5 +162,5 @@ def register_inbound_photo_sync(client) -> None:
         from server_app.realtime import emit_order_changed
         emit_order_changed(int(thread_id))
         from server_app.fcm import notify_bg
-        notify_bg("🖼 Ảnh mới", f"{who} thêm ảnh (Telegram)", {"thread_id": str(thread_id), "type": "image"})
+        notify_bg("🖼 Ảnh mới", f"{who} thêm ảnh (Telegram)", {"thread_id": str(thread_id), "type": "image", "image_id": str(saved["id"])})
         log.info("nhập ảnh topic→web ok thread=%s msg=%s by=%s", thread_id, mid, who)

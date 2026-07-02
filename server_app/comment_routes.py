@@ -48,5 +48,5 @@ async def comments_add_handler(request: web.Request):
     emit_order_changed(thread_id)
     # Push FCM cho app (best-effort, tắt nếu FCM_ENABLED=false)
     from server_app.fcm import notify_bg
-    notify_bg("💬 Bình luận mới", f"{username}: {comment['text'][:100]}", {"thread_id": str(thread_id), "type": "comment"})
+    notify_bg("💬 Bình luận mới", f"{username}: {comment['text'][:100]}", {"thread_id": str(thread_id), "type": "comment", "comment_id": str(comment["id"])})
     return web.json_response({"ok": True, "comment": comment})

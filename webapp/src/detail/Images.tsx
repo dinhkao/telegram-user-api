@@ -139,7 +139,7 @@ export function Images({ threadId }: { threadId: string }) {
             </div>
           ))}
           {images.map((img) => (
-            <div class="img-tile" key={img.id}>
+            <div class="img-tile" id={`image-${img.id}`} key={img.id}>
               <img
                 src={orderImageUrl(threadId, img.id, "thumb")}
                 loading="lazy"

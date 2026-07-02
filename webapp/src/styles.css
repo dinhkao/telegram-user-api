@@ -199,6 +199,13 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .order-card.compact .flash-msg { flex-basis: 100%; }
 
 /* ── Ảnh đính kèm đơn ── */
+/* Nháy sáng phần tử được mở từ notification (bình luận/ảnh) */
+.flash-target { animation: flash-target 2.4s ease; border-radius: 8px; }
+@keyframes flash-target {
+  0%, 20% { box-shadow: 0 0 0 3px var(--primary); background: rgba(26,115,232,.16); }
+  100% { box-shadow: 0 0 0 0 transparent; background: transparent; }
+}
+
 .img-actions { display: flex; gap: 6px; }
 /* Chỉ hiện khi có lỗi — nhẹ nhàng, không chói */
 .img-dbg { background: var(--bg); color: var(--muted); font-size: .7rem; line-height: 1.3; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; margin: 6px 0; white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow: auto; }
