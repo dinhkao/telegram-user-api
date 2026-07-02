@@ -53,7 +53,7 @@ and mounts three formerly-separate apps onto it. There is no longer a separate
 
 ```
 server.py → server_app.bootstrap.main()
-  ├─ aiohttp web server (REST + WebSocket) ....... server_app/ (port 8090)
+  ├─ aiohttp web server (REST + realtime /ws) .... server_app/ (port 8090)
   ├─ command handlers on the user client ......... command_handlers/, order_commands_v3.py
   ├─ #don_hang channel indexer (live + backfill) . donhang_indexer_pkg/ → donhang_store/
   ├─ bot role (merged bot-don-hang) .............. server_app/bot_bootstrap.py + bot_core/, bot_flows/, bot_handlers/
@@ -76,11 +76,21 @@ server.py → server_app.bootstrap.main()
 Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 
 **Web / server core**
-- `server_app/` — aiohttp app: bootstrap, routes (orders, search, saved messages,
-  websocket, pages), state, AI backend. Wires everything together.
+- `server_app/` — aiohttp app: bootstrap, routes (orders, customers, comments,
+  create-order, pages), state, `/ws` realtime channel. Wires everything together.
   `server_app/web_auth/` — per-user login + HMAC-token middleware for the orders
   web app (enforcement off by default; `WEB_AUTH_ENABLED=true` to gate `/api/*`).
   Plan: `docs/web-app-plan.md`.
+  - `server_app/realtime.py` — **realtime push** to webapp over `/ws`. Order
+    mutations from BOTH sources (web via `order_api_common.refresh_order_bg`,
+    Telegram via `order_commands_v3._refresh_order_message`) plus new-order
+    (`channel_handlers/register.py`) and comment-add emit `order_changed` (carries
+    a ready-to-splice list row) / `orders_changed`. Emit via `emit_*` (fire-and-
+    forget, never blocks the refresh path); sends concurrently with a timeout and
+    closes dead sockets. `/ws` is gated by token when `WEB_AUTH_ENABLED` (carries
+    PII). Client: `webapp/src/realtime.ts` (reconnect + resync-on-reconnect).
+  - The old **saved-messages** feed, `/api/search`, `ai_backend.py` (group AI +
+    auto-reply-"yes") and the static `/` page were removed; `/` now 302s to `/app/`.
 - `utils/` — logging config and shared helpers. Imported everywhere.
 
 **Order workflow (the heart)**
@@ -92,6 +102,16 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 - `channel_handlers/` — reacts to new posts in `#don_hang`: creates topic,
   parses, notifies, renders.
 - `donhang_indexer_pkg/` — live + backfill indexing of `#don_hang` → `donhang_store`.
+- **Orders list load (`server_app/orders_api.py`)** — `GET /api/orders` paginates
+  20/page over the `orders` blob table; `_build_order_row` is the single source of
+  the list-row shape (reused by realtime). Kept fast by SQLite VIRTUAL generated
+  columns `has_customer` / `is_done` + partial indexes `idx_orders_stats` (chip
+  counts) and `idx_orders_list` (default `created` sort — no temp-btree), added by
+  `orders_db.ensure_orders_stats_columns` (PG already has these). Search uses a
+  trigram FTS5 table (`orders_fts`); it + the indexes are **prewarmed in a
+  background thread at startup** (`orders_db.prewarm_orders_indexes`) so the first
+  search doesn't pay the ~460ms cold build. If you change the row shape or these
+  filters, keep the generated-column definitions and `_build_order_row` in sync.
 
 **Data stores (one package per SQLite domain)**
 - `donhang_store/` — `#don_hang` index DB (schema, reads, writes, migrations, api).
@@ -116,8 +136,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 - `tg_api/` — aiohttp HTTP endpoints wrapping Telegram edit/send-file ops, API-key
   auth. Lets other services edit/send as the user.
 - `api_helpers/` — fetch/payment core helpers.
-- `renderers/`, `printouts/`, `frontend/` — HTML/PNG rendering, print output,
-  static/Next.js frontend served/pushed over WebSocket.
+- `renderers/`, `printouts/` — HTML/PNG rendering; print jobs queued via **Firebase
+  RTDB** (`meta/to_print`, `html-to-png`), not WebSocket. (`/ws` is now the webapp
+  realtime channel only — see `server_app/realtime.py`. The old Next.js `frontend/`
+  was removed — use `webapp/`.)
 - `sheets_bot/` — Google Sheets bot (runs on the user client). DISABLED by default
   (gated by `SHEETS_BOT_ENABLED` in `server_app/bootstrap.py`); no-op without creds.
 
