@@ -14,9 +14,13 @@ export function Images({ threadId }: { threadId: string }) {
   const [images, setImages] = useState<OrderImage[]>([]);
   const [pending, setPending] = useState<Pending[]>([]);
   const [err, setErr] = useState("");
+  const [dbg, setDbg] = useState<string[]>([]);
   const [lightbox, setLightbox] = useState<OrderImage | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const camInput = useRef<HTMLInputElement>(null);
+
+  // Chẩn đoán trên máy: hiện từng bước để biết ảnh gallery hỏng ở đâu
+  const logDbg = (m: string) => setDbg((p) => [...p.slice(-11), m]);
 
   const load = async () => {
     try {
@@ -47,8 +51,11 @@ export function Images({ threadId }: { threadId: string }) {
   const uploadOne = async (file: File) => {
     const key = ++_pk;
     let previewUrl = "";
+    const nm = file.name || "?";
     try {
+      logDbg(`⏳ xử lý ${nm}…`);
       const p = await processImage(file);
+      logDbg(`✓ nén: full ${(p.full.size / 1024) | 0}KB, thumb ${(p.thumb.size / 1024) | 0}KB (${p.width}×${p.height})`);
       previewUrl = URL.createObjectURL(p.thumb);
       setPending((prev) => [{ key, url: previewUrl }, ...prev]);
       const fd = new FormData();
@@ -56,9 +63,13 @@ export function Images({ threadId }: { threadId: string }) {
       fd.append("thumb", p.thumb, `thumb${p.ext}`);
       fd.append("width", String(p.width));
       fd.append("height", String(p.height));
+      logDbg(`⏫ đang tải lên…`);
       await postForm(`/api/order/${threadId}/images`, fd);
+      logDbg(`✅ xong ${nm}`);
     } catch (ex: any) {
-      setErr(ex?.message || "Tải ảnh thất bại");
+      const m = ex?.message || String(ex);
+      setErr(`Lỗi tải ${nm}: ${m}`);
+      logDbg(`❌ LỖI ${nm}: ${m}`);
     } finally {
       setPending((prev) => prev.filter((x) => x.key !== key));
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -67,18 +78,26 @@ export function Images({ threadId }: { threadId: string }) {
 
   const onPick = async (e: any) => {
     const files: FileList = e.target.files;
-    if (!files || !files.length) return;
     setErr("");
+    setDbg([]);
+    if (!files || !files.length) {
+      logDbg("⚠️ không nhận được file nào từ trình chọn");
+      return;
+    }
+    const all = Array.from(files);
+    all.forEach((f) => logDbg(`📄 ${f.name || "?"} · ${f.type || "no-type"} · ${(f.size / 1024) | 0}KB`));
     // Ảnh từ gallery/content-provider có thể có MIME rỗng hoặc lạ → đừng lọc gắt,
     // nhận cả file không có type hoặc có đuôi ảnh (HEIC iOS…). processImage tự báo lỗi nếu không đọc được.
     const isImg = (f: File) =>
       f.type.startsWith("image/") || f.type === "" || /\.(jpe?g|png|webp|heic|heif|gif|bmp|avif|tiff?)$/i.test(f.name);
-    const imgs = Array.from(files).filter(isImg);
+    const imgs = all.filter(isImg);
     e.target.value = ""; // cho phép chọn lại cùng file
     if (!imgs.length) {
       setErr("Không nhận được ảnh hợp lệ từ lựa chọn.");
+      logDbg("❌ tất cả bị loại bởi bộ lọc (type/đuôi)");
       return;
     }
+    if (imgs.length < all.length) logDbg(`⚠️ ${all.length - imgs.length} file bị loại`);
     await Promise.all(imgs.map(uploadOne)); // upload song song cho nhanh
     await load(); // đồng bộ danh sách chuẩn từ server
   };
@@ -112,6 +131,10 @@ export function Images({ threadId }: { threadId: string }) {
       <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={onPick} />
 
       {err && <p class="error small">{err}</p>}
+
+      {dbg.length > 0 && (
+        <pre class="img-dbg" onClick={() => setDbg([])}>{dbg.join("\n")}</pre>
+      )}
 
       {count === 0 ? (
         <p class="muted small">Chưa có ảnh. Bấm 📸 Chụp hoặc 📁 Chọn để thêm.</p>

@@ -200,6 +200,7 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 
 /* ── Ảnh đính kèm đơn ── */
 .img-actions { display: flex; gap: 6px; }
+.img-dbg { background: #111; color: #7CFC00; font-size: .72rem; line-height: 1.35; padding: 8px; border-radius: 8px; margin: 6px 0; white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto; }
 .img-actions .btn { padding: 6px 12px; font-size: .9rem; }
 .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; margin-top: 8px; }
 .img-tile { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--bg); border: 1px solid var(--border); }
