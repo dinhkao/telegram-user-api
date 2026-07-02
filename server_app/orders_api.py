@@ -103,9 +103,10 @@ async def orders_api_handler(request: web.Request):
         has_dt = f"{dt_raw} IS NOT NULL AND {dt_raw} != ''"
         order_by = f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, CASE WHEN {has_dt} THEN 0 ELSE 1 END ASC, CASE WHEN {has_dt} THEN {dt_expr} ELSE {created_expr} END DESC"
     elif sort == "created":
-        # Sắp xếp bằng cột thô (has_customer DESC = có KH trước) → khớp idx_orders_list,
-        # tránh TEMP B-TREE sort toàn bảng (~59ms → <1ms). Thứ tự y hệt CASE cũ.
-        order_by = f"{has_col} DESC, {created_expr} DESC, o.thread_id DESC"
+        # Mặc định: MỚI NHẤT trước, KHÔNG ưu tiên "có khách" — để đơn mới (kể cả
+        # chưa gán khách) luôn lên đầu, không bị đẩy xuống đáy. Khớp idx_orders_created_tid
+        # (order_created DESC, thread_id DESC) → không TEMP B-TREE (<1ms).
+        order_by = f"{created_expr} DESC, o.thread_id DESC"
     else:
         order_by = f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, o.updated_at DESC, o.thread_id DESC"
     try:
