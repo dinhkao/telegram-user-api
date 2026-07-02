@@ -29,6 +29,7 @@ type OrderRow = {
   giao_by?: string;
   nop_by?: string;
   nop_note?: string;
+  task_icons?: string;
   topic_name: string;
   creator: string;
   text: string;
@@ -118,12 +119,18 @@ let listCache: {
   filter: FilterKey; page: number; totalPages: number; scrollY: number;
 } | null = null;
 
+// 5 task icon y hệt main message Telegram: HĐ · Soạn · Giao · Nộp · Nhận
+const TASK_LABELS = ["HĐ", "Soạn", "Giao", "Nộp", "Nhận"];
 function TaskBadges({ o }: { o: OrderRow }) {
-  const items: [string, boolean][] = [["Soạn", o.soan], ["Giao", o.giao], ["Nộp", o.nop], ["Nhận", o.nhan]];
+  const icons = [...(o.task_icons || "")];
+  const fallback: boolean[] = [false, o.soan, o.giao, o.nop, o.nhan];
   return (
     <span class="badges">
-      {items.map(([label, done]) => (
-        <span class={done ? "badge done" : "badge"}>{label}</span>
+      {TASK_LABELS.map((label, i) => (
+        <span class="tstat" key={label}>
+          <span class="tico">{icons[i] || (fallback[i] ? "✅" : "❌")}</span>
+          <span class="tlbl">{label}</span>
+        </span>
       ))}
     </span>
   );
