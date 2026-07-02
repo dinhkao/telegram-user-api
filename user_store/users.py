@@ -67,6 +67,21 @@ def list_users(*, db_path: str | None = None) -> list[dict]:
         conn.close()
 
 
+def set_pin(username: str, pin: str, *, db_path: str | None = None) -> bool:
+    """Đổi PIN. Trả True nếu có user bị đổi."""
+    if not pin:
+        raise ValueError("PIN trống")
+    conn = get_users_conn(db_path)
+    try:
+        cur = conn.execute(
+            "UPDATE web_users SET pin_hash = ? WHERE username = ?",
+            (hash_pin(pin), (username or "").strip().lower()),
+        )
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
 def set_disabled(username: str, disabled: bool, *, db_path: str | None = None) -> bool:
     """Khoá/mở user. Trả True nếu có user bị đổi."""
     conn = get_users_conn(db_path)

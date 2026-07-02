@@ -3,6 +3,6 @@
 Ai dùng: server_app/web_auth (login), tools/add_web_user.py (quản lý user).
 Layering: pin.py (thuần, unit-test) → schema.py (bảng) → users.py (IO).
 """
-from user_store.users import add_user, get_user, list_users, set_disabled, verify_login
+from user_store.users import add_user, get_user, list_users, set_disabled, set_pin, verify_login
 
-__all__ = ["add_user", "get_user", "list_users", "set_disabled", "verify_login"]
+__all__ = ["add_user", "get_user", "list_users", "set_disabled", "set_pin", "verify_login"]

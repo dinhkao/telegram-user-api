@@ -2,6 +2,7 @@
 
 Dùng:
   .venv/bin/python tools/add_web_user.py add <username> [--name "Tên"] [--role staff|admin]
+  .venv/bin/python tools/add_web_user.py pin <username>      # đổi PIN
   .venv/bin/python tools/add_web_user.py list
   .venv/bin/python tools/add_web_user.py disable <username>
   .venv/bin/python tools/add_web_user.py enable <username>
@@ -16,7 +17,7 @@ import sys
 
 sys.path.insert(0, ".")
 
-from user_store import add_user, list_users, set_disabled
+from user_store import add_user, list_users, set_disabled, set_pin
 
 
 def main() -> int:
@@ -27,7 +28,7 @@ def main() -> int:
     p_add.add_argument("--name", default="")
     p_add.add_argument("--role", default="staff", choices=["staff", "admin"])
     sub.add_parser("list")
-    for name in ("disable", "enable"):
+    for name in ("pin", "disable", "enable"):
         p = sub.add_parser(name)
         p.add_argument("username")
     args = parser.parse_args()
@@ -48,6 +49,13 @@ def main() -> int:
         for u in list_users():
             flag = " [KHOÁ]" if u["disabled"] else ""
             print(f"{u['username']}\t{u['display_name']}\t{u['role']}{flag}")
+    elif args.cmd == "pin":
+        pin = getpass.getpass("PIN mới: ")
+        pin2 = getpass.getpass("Nhập lại: ")
+        if pin != pin2:
+            print("PIN không khớp", file=sys.stderr)
+            return 1
+        print("OK" if set_pin(args.username, pin) else f"Không thấy user '{args.username}'")
     else:
         changed = set_disabled(args.username, args.cmd == "disable")
         print("OK" if changed else f"Không thấy user '{args.username}'")
