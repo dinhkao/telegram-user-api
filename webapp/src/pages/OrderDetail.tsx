@@ -1,7 +1,7 @@
 // Chi tiết đơn — header + text + ghép các khối detail/* (tasks, invoice,
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useState } from "preact/hooks";
-import { createKiotVietInvoice, getJSON, postJSON } from "../api";
+import { createKiotVietInvoice, getJSON, invoiceHtmlUrl, postJSON } from "../api";
 import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal } from "../format";
 import { Comments } from "../detail/Comments";
@@ -157,6 +157,9 @@ export function OrderDetail({ threadId }: { threadId: string }) {
 
       <Comments threadId={threadId} chatMessages={detail.chat_messages || []} />
 
+      {j.kiotvietInvoiceID && (
+        <button class="btn wide" onClick={() => window.open(invoiceHtmlUrl(threadId), "_blank")}>👁️ Xem hoá đơn KiotViet</button>
+      )}
       <button class="btn wide" disabled={busy} onClick={doPrint}>🖨️ In hoá đơn + phiếu giao</button>
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>
     </div>

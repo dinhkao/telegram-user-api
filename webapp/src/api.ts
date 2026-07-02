@@ -133,3 +133,9 @@ export async function fetchCustomerPrice(customerId: string, product: string): P
 export async function createKiotVietInvoice(threadId: string | number): Promise<any> {
   return postJSON("/api/order/invoice/create-kiotviet", { thread_id: Number(threadId) });
 }
+
+/** URL HTML hoá đơn để mở tab mới (kèm token cho WebView/khi bật auth). */
+export function invoiceHtmlUrl(threadId: string | number): string {
+  const t = getToken();
+  return `${serverUrl()}/api/order/${Number(threadId)}/invoice-html${t ? `?token=${encodeURIComponent(t)}` : ""}`;
+}
