@@ -178,3 +178,7 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .hist { list-style: none; margin-top: 6px; }
 .hist li { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: .88rem; }
 .hist li.hist-fail { opacity: .6; }
+
+/* Popup báo thao tác mới (trượt xuống từ trên) */
+.toast { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); z-index: 60; max-width: 92%; background: #1f2328; color: #fff; padding: 10px 16px; border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.28); font-size: .9rem; cursor: pointer; animation: toast-in .25s ease-out; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }

@@ -19,6 +19,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
   const [busy, setBusy] = useState(false);
   const [editText, setEditText] = useState<string | null>(null);
   const [changingCust, setChangingCust] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const reload = async () => {
     try {
@@ -38,17 +39,29 @@ export function OrderDetail({ threadId }: { threadId: string }) {
   // Gộp event dồn dập bằng debounce nhỏ. editText giữ nguyên (state riêng, reload
   // chỉ thay detail nền) nên không phá thao tác sửa đang mở.
   useEffect(() => {
-    let t: any;
+    let t: any, tt: any, hide: any;
     const off = onRealtime((e) => {
-      if ((e.type === "order_changed" && e.thread_id === String(threadId)) || e.type === "resync") {
-        clearTimeout(t);
-        t = setTimeout(reload, 250);
+      if (e.type === "resync") {
+        clearTimeout(t); t = setTimeout(reload, 250);
+        return;
+      }
+      if (e.type === "order_changed" && e.thread_id === String(threadId)) {
+        clearTimeout(t); t = setTimeout(reload, 250);
+        // Popup báo thao tác mới nhất (đợi audit ghi xong)
+        clearTimeout(tt);
+        tt = setTimeout(async () => {
+          try {
+            const r = await getJSON(`/api/order/${threadId}/history`, { cache: false });
+            const h = (r.history || [])[0];
+            if (h) {
+              setToast(`🔔 ${h.actor || "?"}: ${h.action}${h.detail ? ` — ${h.detail}` : ""}`);
+              clearTimeout(hide); hide = setTimeout(() => setToast(null), 6000);
+            }
+          } catch { /* ignore */ }
+        }, 500);
       }
     });
-    return () => {
-      off();
-      clearTimeout(t);
-    };
+    return () => { off(); clearTimeout(t); clearTimeout(tt); clearTimeout(hide); };
   }, [threadId]);
 
   if (err && !detail) return <p class="error">{err}</p>;
@@ -143,6 +156,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
 
   return (
     <div class="detail">
+      {toast && <div class="toast" onClick={() => setToast(null)}>{toast}</div>}
       <header class="detail-head">
         <a href="#/orders" class="back">←</a>
         <div>
