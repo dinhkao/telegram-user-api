@@ -177,6 +177,15 @@ export function OrdersList() {
     load(1, search, f, false);
   };
 
+  // Đang lọc? (có search hoặc chip khác "tất cả") → cho phép bỏ lọc về mặc định
+  const anyFilter = search.trim() !== "" || filter !== "all";
+  const clearFilters = () => {
+    setSearch("");
+    setFilter("all");
+    setPage(1);
+    load(1, "", "all", false);
+  };
+
   const visible = orders;
 
   return (
@@ -189,6 +198,7 @@ export function OrdersList() {
           value={search}
           onInput={(e: any) => onSearch(e.target.value)}
         />
+        {anyFilter && <button class="btn small clear-filter" onClick={clearFilters}>✕ Bỏ lọc</button>}
       </header>
       {stats && (
         <div class="chips">

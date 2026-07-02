@@ -97,3 +97,8 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 /* Chú thích giá bảng dưới ô giá bán */
 .pricetag { font-size: .68rem; color: var(--muted, #999); margin-top: 2px; white-space: nowrap; }
 .pricetag.ok { color: #34a853; }
+
+/* Nút bỏ lọc trong thanh tìm kiếm */
+.topbar { display: flex; align-items: center; gap: 8px; }
+.topbar .search { flex: 1; }
+.clear-filter { white-space: nowrap; flex-shrink: 0; }
