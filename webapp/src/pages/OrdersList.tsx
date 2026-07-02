@@ -20,10 +20,58 @@ type OrderRow = {
   done_after_20250124: boolean;
   invoice_count: number;
   invoice_summary?: { sp: string; sl: number | string }[];
+  invoice_items?: { sp: string; sl: number | string; price: number }[];
+  vat?: number;
+  pvc?: number;
+  discount?: number;
+  giao_by?: string;
   topic_name: string;
   creator: string;
   text: string;
 };
+
+// Nhãn trạng thái workflow (thay cho "thiếu <số tiền>")
+function statusLabel(o: OrderRow): string {
+  if (!o.soan) return "Chưa soạn";
+  if (!o.giao) return "Chưa giao";
+  if (!o.nop) return o.giao_by ? `${o.giao_by} chưa nộp` : "Chưa nộp";
+  return "";
+}
+
+// Tô sáng cụm khớp khi tìm kiếm (không phân biệt hoa/thường)
+function Highlight({ text, q }: { text: string; q: string }) {
+  const s = (text || "").trim();
+  const query = (q || "").trim();
+  if (!query || !s) return <>{s}</>;
+  const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "ig");
+  const parts = s.split(re);
+  return <>{parts.map((p, i) => (i % 2 === 1 ? <mark key={i}>{p}</mark> : p))}</>;
+}
+
+// Bảng chi tiết hoá đơn 1 đơn (dùng ở card dashboard)
+function InvoiceMini({ o }: { o: OrderRow }) {
+  const items = o.invoice_items || [];
+  if (!items.length) return null;
+  const tienHang = items.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.sl) || 0), 0);
+  return (
+    <table class="inv-mini">
+      <tbody>
+        {items.map((it, i) => (
+          <tr key={i}>
+            <td>{it.sp}</td>
+            <td class="num">{it.sl}</td>
+            <td class="num">{money((Number(it.price) || 0) * (Number(it.sl) || 0))}</td>
+          </tr>
+        ))}
+        {(o.discount || o.pvc || o.vat) ? <tr class="sub"><td colSpan={2}>Tiền hàng</td><td class="num">{money(tienHang)}</td></tr> : null}
+        {o.discount ? <tr class="sub"><td colSpan={2}>Chiết khấu</td><td class="num">−{money(o.discount)}</td></tr> : null}
+        {o.pvc ? <tr class="sub"><td colSpan={2}>PVC</td><td class="num">+{money(o.pvc)}</td></tr> : null}
+        {o.vat ? <tr class="sub"><td colSpan={2}>VAT</td><td class="num">+{money(o.vat)}</td></tr> : null}
+        <tr class="tot"><td colSpan={2}>Tổng</td><td class="num">{o.total ? `${o.total}đ` : money(tienHang) + "đ"}</td></tr>
+      </tbody>
+    </table>
+  );
+}
 
 // Cache toàn danh sách + vị trí cuộn — sống ở module scope nên vẫn còn khi
 // rời trang chi tiết rồi quay lại (mount lại). Reset khi có search mới.
@@ -211,40 +259,36 @@ export function OrdersList() {
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {err && <p class="error">{err}</p>}
       <ul class="order-list">
-        {visible.map((o) => (
+        {visible.map((o) => {
+          const stt = statusLabel(o);
+          return (
           <li key={o.thread_id}>
-            <a class="order-card" href={`#/order/${o.thread_id}`}>
-              {o.text
-                ? <div class="order-text">{o.text}</div>
-                : <div class="order-text muted">(không có nội dung)</div>}
-              <div class="row space">
-                <b class="cust">{o.customer || o.topic_name || `#${o.thread_id}`}</b>
-                <span class="muted small">{o.date}</span>
-              </div>
-              <div class="row space">
-                <span>
-                  {o.total && <b class="money">{o.total}đ</b>}
-                  {o.remaining > 0 && <span class="owe"> · thiếu {money(o.remaining)}đ</span>}
-                </span>
-                <TaskBadges o={o} />
-              </div>
-              {o.invoice_summary && o.invoice_summary.length > 0 && (
-                <div class="items small">
-                  {o.invoice_summary.map((it) => (
-                    <span class="item-chip">{it.sl}× {it.sp}</span>
-                  ))}
-                  {o.invoice_count > o.invoice_summary.length && (
-                    <span class="item-chip more">+{o.invoice_count - o.invoice_summary.length}</span>
-                  )}
+            <a class="order-card two-col" href={`#/order/${o.thread_id}`}>
+              <div class="card-main">
+                {o.text
+                  ? <div class="order-text"><Highlight text={o.text} q={search} /></div>
+                  : <div class="order-text muted">(không có nội dung)</div>}
+                <div class="row space">
+                  <b class="cust"><Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} /></b>
+                  <span class="muted small">{o.date}</span>
                 </div>
-              )}
-              <div class="muted small">
-                {o.hd_code && <span>{o.hd_code} · </span>}
-                {o.invoice_count} món{o.creator ? ` · ${o.creator}` : ""}
+                <div class="row space">
+                  <span>
+                    {o.total && <b class="money">{o.total}đ</b>}
+                    {stt && <span class="owe"> · {stt}</span>}
+                  </span>
+                  <TaskBadges o={o} />
+                </div>
+                <div class="muted small">
+                  {o.hd_code && <span>{o.hd_code} · </span>}
+                  {o.invoice_count} món{o.creator ? ` · ${o.creator}` : ""}
+                </div>
               </div>
+              <div class="card-inv"><InvoiceMini o={o} /></div>
             </a>
           </li>
-        ))}
+          );
+        })}
       </ul>
       {loading && <p class="muted center">Đang tải…</p>}
       {/* sentinel cho infinite scroll — observer tải trang kế khi lọt khung nhìn */}

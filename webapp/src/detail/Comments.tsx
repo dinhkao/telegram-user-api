@@ -2,7 +2,7 @@
 // Telegram của topic (order_chat_messages, chỉ đọc), trộn theo thời gian.
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { getJSON, postJSON, currentUser } from "../api";
-import { timeAgo } from "../format";
+import { fmtTime } from "../format";
 
 type Item = { who: string; text: string; at: number; source: "web" | "tg" };
 
@@ -72,7 +72,7 @@ export function Comments({ threadId, chatMessages }: { threadId: string; chatMes
           <li key={i} class={it.source === "web" ? "comment web" : "comment tg"}>
             <div class="muted small">
               {it.source === "tg" ? "✈️ " : "💬 "}
-              {it.who} · {timeAgo(it.at)}
+              {it.who} · {fmtTime(it.at)}
             </div>
             <div>{it.text}</div>
           </li>

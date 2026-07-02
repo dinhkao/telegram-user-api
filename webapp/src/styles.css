@@ -139,3 +139,23 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .edit-bot { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .edit-bot .note-inp { flex: 1; margin-top: 0; }
 .pricetag { display: inline-block; }
+
+/* Tô sáng cụm khớp tìm kiếm */
+mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; }
+
+/* Bảng hoá đơn thu nhỏ trên card dashboard */
+.inv-mini { width: 100%; border-collapse: collapse; font-size: .76rem; }
+.inv-mini td { padding: 2px 4px; border-bottom: 1px solid var(--border); }
+.inv-mini .num { text-align: right; white-space: nowrap; }
+.inv-mini .sub td { color: var(--muted); border-bottom: none; padding-top: 4px; }
+.inv-mini .tot td { font-weight: 700; border-top: 1px solid var(--border); border-bottom: none; }
+.card-inv { margin-top: 8px; }
+
+/* Desktop: rộng hơn, bố cục 2 cột */
+@media (min-width: 820px) {
+  .app, .bottom-nav { max-width: 1040px; }
+  .order-card.two-col { display: grid; grid-template-columns: 1fr 300px; gap: 14px; align-items: start; }
+  .order-card.two-col .card-inv { margin-top: 0; border-left: 1px solid var(--border); padding-left: 12px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: start; }
+  .dside { position: sticky; top: 52px; }
+}

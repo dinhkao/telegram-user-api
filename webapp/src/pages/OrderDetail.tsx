@@ -141,6 +141,8 @@ export function OrderDetail({ threadId }: { threadId: string }) {
       {detail._stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {msg && <p class="notice" onClick={() => setMsg("")}>{msg}</p>}
 
+      <div class="detail-grid">
+      <div class="dmain">
       <div class="card">
         <div class="row space"><span>Tổng tiền</span><b class="money">{total}đ</b></div>
         <div class="row space"><span>Đã trả</span><b>{money(paid)}đ</b></div>
@@ -208,10 +210,14 @@ export function OrderDetail({ threadId }: { threadId: string }) {
         )}
       </div>
 
-      <Comments threadId={threadId} chatMessages={detail.chat_messages || []} />
-
       <button class="btn wide" disabled={busy} onClick={doPrint}>🖨️ In hoá đơn + phiếu giao</button>
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>
+      </div>{/* .dmain */}
+
+      <aside class="dside">
+        <Comments threadId={threadId} chatMessages={detail.chat_messages || []} />
+      </aside>
+      </div>{/* .detail-grid */}
     </div>
   );
 }
