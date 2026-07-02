@@ -93,3 +93,7 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .adj { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
 .adj > label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; font-size: .9rem; }
 .adj .total { border-top: 1px dashed var(--border); padding-top: 8px; margin-top: 8px; font-size: 1.05rem; }
+
+/* Chú thích giá bảng dưới ô giá bán */
+.pricetag { font-size: .68rem; color: var(--muted, #999); margin-top: 2px; white-space: nowrap; }
+.pricetag.ok { color: #34a853; }

@@ -69,6 +69,20 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const [p, setP] = useState(0);
   const [v, setV] = useState(0);
   const [busy, setBusy] = useState(false);
+  // Giá theo bảng giá của khách, theo mã SP (đã hoa) — để hiện chú thích dưới giá
+  const [listPrices, setListPrices] = useState<Record<string, number>>({});
+  const listRef = useRef<Record<string, number>>({});
+
+  // Tra 1 lần giá bảng cho 1 mã (cache trong listRef); trả giá (0 nếu không có)
+  const loadListPrice = async (code: string): Promise<number> => {
+    const key = (code || "").trim().toUpperCase();
+    if (!key || !customerId) return 0;
+    if (key in listRef.current) return listRef.current[key];
+    const price = await fetchCustomerPrice(customerId, key).catch(() => 0);
+    listRef.current = { ...listRef.current, [key]: price };
+    setListPrices(listRef.current);
+    return price;
+  };
 
   useEffect(() => {
     setRows((invoice || []).map((it) => ({
@@ -76,6 +90,12 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       price: Number(it.price) || 0, note: it.note || "",
     })));
   }, [invoice]);
+  // Nạp trước giá bảng cho các mã có sẵn (đơn đang mở) để chú thích hiện ngay
+  useEffect(() => {
+    if (!customerId) return;
+    const codes = [...new Set((invoice || []).map((it) => (it.sp || "").trim().toUpperCase()).filter(Boolean))];
+    codes.forEach((c) => loadListPrice(c));
+  }, [invoice, customerId]);
   useEffect(() => setDisc(Number(discount) || 0), [discount]);
   useEffect(() => setP(Number(pvc) || 0), [pvc]);
   useEffect(() => setV(Number(vat) || 0), [vat]);
@@ -90,7 +110,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   // Tự lấy giá theo khách khi chốt mã SP — chỉ điền khi giá đang trống (không đè giá tay)
   const autoPrice = async (i: number, code: string) => {
     if (!customerId || !code.trim()) return;
-    const price = await fetchCustomerPrice(customerId, code.trim()).catch(() => 0);
+    const price = await loadListPrice(code);
     if (price) setRows((prev) => prev.map((r, idx) => (idx === i && !r.price ? { ...r, price } : r)));
   };
 
@@ -115,7 +135,16 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
                 <input class="note-inp" placeholder="ghi chú" value={it.note || ""} onInput={(e: any) => setRow(i, "note", e.target.value)} />
               </td>
               <td class="num"><input class="narrow" inputMode="numeric" value={it.sl} onInput={(e: any) => setRow(i, "sl", parseMoney(e.target.value))} /></td>
-              <td class="num"><input class="narrow" inputMode="numeric" value={it.price} onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} /></td>
+              <td class="num">
+                <input class="narrow" inputMode="numeric" value={it.price} onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} />
+                {(() => {
+                  const lp = listPrices[(it.sp || "").trim().toUpperCase()];
+                  if (!lp) return null;
+                  return Number(it.price) === lp
+                    ? <div class="pricetag ok">✓ giá bảng</div>
+                    : <div class="pricetag">bảng: {money(lp)}</div>;
+                })()}
+              </td>
               <td class="num">{money((it.price || 0) * (it.sl || 0))}</td>
               <td><button class="btn small danger" onClick={() => removeRow(i)}>✕</button></td>
             </tr>
