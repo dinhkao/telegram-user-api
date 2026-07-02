@@ -6,11 +6,16 @@ các choke point refresh sau khi ghi đơn — cả web lẫn Telegram đều đ
   - order_commands_v3._refresh_order_message        (lệnh gõ trong Telegram)
   - channel_handlers/register.py                    (đơn mới từ #don_hang)
   - server_app/comment_routes.comments_add_handler  (bình luận web → refresh detail)
-Consumer: webapp/src/realtime.ts. Event luôn best-effort — lỗi phát KHÔNG được làm
-hỏng đường refresh gọi nó (đã bọc try ở đây).
+
+Dùng emit_* (đồng bộ, không chặn) ở các đường refresh — phát chạy nền qua
+spawn_tracked, KHÔNG await trong hot path (1 client treo không được làm chậm
+refresh/edit của đơn). Gửi tới từng client song song, mỗi client có timeout; lỗi
+gửi thì đóng + loại bỏ (để client thấy close mà tự nối lại, không bị "treo im").
+Consumer: webapp/src/realtime.ts.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
@@ -18,14 +23,26 @@ from server_app.state import ws_clients
 
 log = logging.getLogger("server")
 
+_SEND_TIMEOUT = 5.0  # giây — client chậm/ngủ không được chặn cả vòng phát
+
+
+async def _send_one(ws, data: str) -> None:
+    try:
+        await asyncio.wait_for(ws.send_str(data), timeout=_SEND_TIMEOUT)
+    except Exception:
+        ws_clients.discard(ws)
+        try:
+            await ws.close()  # đóng để client nhận close → tự nối lại (tránh orphan im lặng)
+        except Exception:
+            pass
+
 
 async def _send(payload: dict) -> None:
     data = json.dumps(payload, default=str)
-    for ws in ws_clients.copy():
-        try:
-            await ws.send_str(data)
-        except Exception:
-            ws_clients.discard(ws)
+    clients = list(ws_clients)
+    if not clients:
+        return
+    await asyncio.gather(*(_send_one(ws, data) for ws in clients), return_exceptions=True)
 
 
 async def broadcast_order_changed(thread_id) -> None:
@@ -45,3 +62,15 @@ async def broadcast_orders_changed() -> None:
         await _send({"type": "orders_changed"})
     except Exception as e:
         log.warning("realtime orders_changed failed: %s", e)
+
+
+def emit_order_changed(thread_id) -> None:
+    """Lên lịch phát 'đơn đổi' chạy nền — gọi từ đường refresh, KHÔNG await."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.order_changed", broadcast_order_changed(thread_id), {"thread_id": thread_id})
+
+
+def emit_orders_changed() -> None:
+    """Lên lịch phát 'danh sách đổi' chạy nền — gọi từ đường tạo đơn, KHÔNG await."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.orders_changed", broadcast_orders_changed())

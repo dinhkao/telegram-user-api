@@ -52,8 +52,8 @@ def register(client):
         conn = _get_connection()
         _create_order(conn, firebase_key, thread_id, CHANNEL_DON_HANG_MOI, msg.id, new_order)
         client.loop.create_task(firebase_sync(firebase_key, thread_id, msg.id, new_order))
-        from server_app.realtime import broadcast_orders_changed
-        client.loop.create_task(broadcast_orders_changed())  # đơn mới → dashboard refetch
+        from server_app.realtime import emit_orders_changed
+        emit_orders_changed()  # đơn mới → dashboard refetch (chạy nền)
         try:
             sent = await client.send_message(ORDER_GROUP_ID, msg.text, reply_to=thread_id)
             pin_msg_id = sent.id

@@ -11,11 +11,18 @@ import logging
 from aiohttp import web
 
 from server_app import state
+from server_app.config import WEB_AUTH_ENABLED
 
 log = logging.getLogger("server")
 
+_LOOPBACK = {"127.0.0.1", "::1", "localhost"}
+
 
 async def websocket_handler(request: web.Request):
+    # Khi bật chặn: /ws đẩy PII (khách, sđt, tiền) nên phải có token hợp lệ.
+    # Middleware đã giải ?token= → request["web_user"]; loopback (bot role) miễn.
+    if WEB_AUTH_ENABLED and "web_user" not in request and request.remote not in _LOOPBACK:
+        return web.json_response({"ok": False, "error": "unauthorized"}, status=401)
     ws = web.WebSocketResponse(heartbeat=30)
     await ws.prepare(request)
     state.ws_clients.add(ws)

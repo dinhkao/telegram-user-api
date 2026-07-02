@@ -43,7 +43,7 @@ async def comments_add_handler(request: web.Request):
         comment = await asyncio.to_thread(add_comment, thread_id, username, str(body.get("text") or ""))
     except ValueError as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
-    # Đẩy realtime để trang chi tiết đang mở tải lại bình luận
-    from server_app.realtime import broadcast_order_changed
-    await broadcast_order_changed(thread_id)
+    # Đẩy realtime để trang chi tiết đang mở tải lại bình luận (chạy nền)
+    from server_app.realtime import emit_order_changed
+    emit_order_changed(thread_id)
     return web.json_response({"ok": True, "comment": comment})

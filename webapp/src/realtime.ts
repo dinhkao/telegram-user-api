@@ -2,7 +2,7 @@
 // phát cho subscriber. Tự kết nối lại (backoff luỹ thừa). Mất rồi nối lại → phát
 // "resync" để subscriber tải lại (phòng đã lỡ event lúc rớt). Chỉ nhận, không gửi.
 // Dùng bởi: main.tsx (bật/tắt theo đăng nhập), OrdersList, OrderDetail.
-import { serverUrl } from "./api";
+import { getToken, serverUrl } from "./api";
 
 export type RealtimeEvent =
   | { type: "order_changed"; thread_id: string; row: any | null }
@@ -20,7 +20,9 @@ let everConnected = false;
 function wsUrl(): string {
   // Web: same-origin. APK/WebView: serverUrl() là IP Tailscale đã cấu hình.
   const base = serverUrl() || location.origin;
-  return base.replace(/^http/, "ws") + "/ws";
+  // ?token= để server xác thực /ws khi bật WEB_AUTH (browser không set header được)
+  const t = getToken();
+  return base.replace(/^http/, "ws") + "/ws" + (t ? `?token=${encodeURIComponent(t)}` : "");
 }
 
 function emit(e: RealtimeEvent) {
