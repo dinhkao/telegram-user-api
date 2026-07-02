@@ -1,6 +1,6 @@
 // Chi tiết đơn — header + text + ghép các khối detail/* (tasks, invoice,
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, getJSON, invoiceHtmlUrl, postJSON, refreshOrderDebt } from "../api";
 import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal } from "../format";
@@ -20,6 +20,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
   const [editText, setEditText] = useState<string | null>(null);
   const [changingCust, setChangingCust] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const seenTs = useRef<string | null>(null); // ts mới nhất đã báo — chặn báo lại lịch sử cũ
 
   const reload = async () => {
     try {
@@ -38,8 +39,17 @@ export function OrderDetail({ threadId }: { threadId: string }) {
   // Realtime: đơn này đổi (task/thanh toán/bình luận…) hoặc vừa nối lại → tải lại.
   // Gộp event dồn dập bằng debounce nhỏ. editText giữ nguyên (state riêng, reload
   // chỉ thay detail nền) nên không phá thao tác sửa đang mở.
+  // Baseline: ghi nhận ts thao tác mới nhất khi mở đơn (không popup lịch sử cũ)
+  useEffect(() => {
+    seenTs.current = null;
+    getJSON(`/api/order/${threadId}/history`, { cache: false })
+      .then((r) => { seenTs.current = (r.history || [])[0]?.ts || null; })
+      .catch(() => {});
+  }, [threadId]);
+
   useEffect(() => {
     let t: any, tt: any, hide: any;
+    const line = (h: any) => `• ${h.actor || "?"}: ${h.action}${h.detail ? ` — ${h.detail}` : ""}`;
     const off = onRealtime((e) => {
       if (e.type === "resync") {
         clearTimeout(t); t = setTimeout(reload, 250);
@@ -47,18 +57,23 @@ export function OrderDetail({ threadId }: { threadId: string }) {
       }
       if (e.type === "order_changed" && e.thread_id === String(threadId)) {
         clearTimeout(t); t = setTimeout(reload, 250);
-        // Popup báo thao tác mới nhất (đợi audit ghi xong)
+        // Gom mọi thao tác đến trong 1 đợt ngắn (debounce), popup 1 lần
         clearTimeout(tt);
         tt = setTimeout(async () => {
           try {
             const r = await getJSON(`/api/order/${threadId}/history`, { cache: false });
-            const h = (r.history || [])[0];
-            if (h) {
-              setToast(`🔔 ${h.actor || "?"}: ${h.action}${h.detail ? ` — ${h.detail}` : ""}`);
-              clearTimeout(hide); hide = setTimeout(() => setToast(null), 6000);
-            }
+            const all = r.history || [];
+            // các thao tác mới hơn ts đã thấy (history sắp mới→cũ)
+            const fresh = seenTs.current ? all.filter((h: any) => h.ts > seenTs.current!) : all.slice(0, 1);
+            if (!fresh.length) return;
+            seenTs.current = all[0].ts;
+            const msg = fresh.length === 1
+              ? `🔔 ${fresh[0].actor || "?"}: ${fresh[0].action}${fresh[0].detail ? ` — ${fresh[0].detail}` : ""}`
+              : [`🔔 ${fresh.length} thao tác mới`, ...fresh.slice(0, 4).map(line), fresh.length > 4 ? `… +${fresh.length - 4} nữa` : ""].filter(Boolean).join("\n");
+            setToast(msg);
+            clearTimeout(hide); hide = setTimeout(() => setToast(null), Math.min(10000, 4000 + fresh.length * 1200));
           } catch { /* ignore */ }
-        }, 500);
+        }, 600);
       }
     });
     return () => { off(); clearTimeout(t); clearTimeout(tt); clearTimeout(hide); };
