@@ -141,6 +141,13 @@ async def orders_api_handler(request: web.Request):
             # _is_done/_is_pending/has_data đã định nghĩa ở trên (dùng chung với filter).
             stat_row = conn.execute(f"SELECT COUNT(*) as cnt, COUNT(CASE WHEN {_is_done} THEN 1 END) as done, COUNT(CASE WHEN {_is_pending} THEN 1 END) as pending FROM orders o WHERE o.deleted_at IS NULL AND ({has_data})").fetchone()
             stats = {"total_orders": stat_row["cnt"] or 0, "pending": stat_row["pending"] or 0, "done": stat_row["done"] or 0} if stat_row else {"total_orders": 0, "pending": 0, "done": 0}
+            # Đếm 4 bước chưa xong (chỉ đơn từ 01/06/2026 — khớp filter). Tập nhỏ nên nhanh.
+            def _nd(fld):
+                e = f"json_extract(o.json, '$.{fld}')"
+                return f"{e} IS DISTINCT FROM 'true'" if IS_POSTGRES else f"{e} IS NOT 1"
+            stg = conn.execute(f"SELECT COUNT(CASE WHEN {_nd('soan')} THEN 1 END) s, COUNT(CASE WHEN {_nd('giao')} THEN 1 END) g, COUNT(CASE WHEN {_nd('nop')} THEN 1 END) n, COUNT(CASE WHEN {_nd('nhan')} THEN 1 END) nh FROM orders o WHERE o.deleted_at IS NULL AND ({has_data}) AND o.order_created >= '2026-06-01'").fetchone()
+            if stg:
+                stats.update({"chua_soan": stg["s"] or 0, "chua_giao": stg["g"] or 0, "chua_nop": stg["n"] or 0, "chua_nhan": stg["nh"] or 0})
         return web.json_response({"orders": orders, "total": total, "page": page, "limit": limit, "total_pages": max(1, (total + limit - 1) // limit), "stats": stats})
     finally:
         conn.close()
