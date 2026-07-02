@@ -33,7 +33,7 @@ body { font-family: system-ui, -apple-system, Roboto, sans-serif; background: va
 .muted { color: var(--muted); }
 .small { font-size: .82rem; }
 .error { color: var(--danger); padding: 6px 0; }
-.notice { background: #e8f0fe; border-radius: 8px; padding: 8px; margin: 6px 0; font-size: .9rem; }
+.notice { background: #e8f0fe; border-radius: 8px; padding: 8px; margin: 6px 0; font-size: .9rem; position: sticky; top: 48px; z-index: 15; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
 .money { color: var(--primary); }
 .owe { color: var(--danger); font-size: .9rem; }
 

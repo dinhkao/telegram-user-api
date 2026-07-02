@@ -220,12 +220,11 @@ export function OrderDetail({ threadId }: { threadId: string }) {
         debt={j.khDebt ?? j.invoice_debt_snapshot}
         onView={() => window.open(invoiceHtmlUrl(threadId), "_blank")}
         onDelete={deleteHD}
+        onPrint={doPrint}
         canDelete={isAdmin}
         invoiceCode={j.kiotvietInvoiceCode || j.kiotvietInvoiceID}
       />
       <Payments threadId={threadId} payments={j.payments || []} onChanged={changed} />
-
-      <button class="btn wide" disabled={busy} onClick={doPrint}>🖨️ In hoá đơn + phiếu giao</button>
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>
       </div>{/* .dmain */}
 

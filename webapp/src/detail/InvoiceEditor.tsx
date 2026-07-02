@@ -55,7 +55,7 @@ function ProductInput({ value, onChange, onCommit }: {
   );
 }
 
-export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCreateInvoice, hasInvoice, createMode, debt, onView, onDelete, canDelete, invoiceCode }: {
+export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCreateInvoice, hasInvoice, createMode, debt, onView, onDelete, onPrint, canDelete, invoiceCode }: {
   customerId?: string;
   invoice: any[];
   discount?: number; pvc?: number; vat?: number;
@@ -66,6 +66,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   debt?: number | null;                // nợ khách (cho bảng xem, giống dashboard)
   onView?: () => void;                 // xem HĐ KiotViet
   onDelete?: () => Promise<void> | void; // xoá HĐ KiotViet
+  onPrint?: () => Promise<void> | void;  // in HĐ + phiếu giao
   canDelete?: boolean;                 // chỉ admin
   invoiceCode?: string | number;
 }) {
@@ -150,6 +151,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       {hasInvoice && invoiceCode ? <span class="muted small">HĐ: {invoiceCode}</span> : null}
       {hasInvoice && onView ? <button class="btn small" onClick={onView}>👁️ Xem HĐ</button> : null}
       {hasInvoice && canDelete && onDelete ? <button class="btn small danger" disabled={busy} onClick={() => run(onDelete)}>🗑️ Xoá HĐ</button> : null}
+      {hasInvoice && onPrint ? <button class="btn small" disabled={busy} onClick={() => run(onPrint)}>🖨️ In HĐ + phiếu giao</button> : null}
       {!hasInvoice && onCreateInvoice ? <button class="btn primary" disabled={busy} onClick={() => run(onCreateInvoice)}>🧾 Tạo HĐ KiotViet</button> : null}
     </div>
   );
