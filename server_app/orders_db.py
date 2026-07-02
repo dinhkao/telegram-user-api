@@ -150,7 +150,10 @@ def search_orders_fts(conn, query: str):
     if not _orders_fts_ready:
         return None
     try:
-        rows = conn.execute("SELECT thread_id FROM orders_fts WHERE content LIKE ? LIMIT 500", (f"%{vn_normalize(query)}%",)).fetchall()
+        # ORDER BY thread_id DESC: nếu >500 kết quả, giữ 500 đơn MỚI NHẤT (thread_id
+        # tăng dần theo thời gian) thay vì 500 tuỳ ý → không rớt đơn mới. Danh sách
+        # cuối vẫn được orders_api sắp theo order_created DESC.
+        rows = conn.execute("SELECT thread_id FROM orders_fts WHERE content LIKE ? ORDER BY thread_id DESC LIMIT 500", (f"%{vn_normalize(query)}%",)).fetchall()
         return [r["thread_id"] for r in rows] if rows else [-1]
     except Exception as e:
         log.warning("orders_fts search failed: %s", e)
