@@ -46,4 +46,7 @@ async def comments_add_handler(request: web.Request):
     # Đẩy realtime để trang chi tiết đang mở tải lại bình luận (chạy nền)
     from server_app.realtime import emit_order_changed
     emit_order_changed(thread_id)
+    # Push FCM cho app (best-effort, tắt nếu FCM_ENABLED=false)
+    from server_app.fcm import notify_bg
+    notify_bg("💬 Bình luận mới", f"{username}: {comment['text'][:100]}", {"thread_id": str(thread_id), "type": "comment"})
     return web.json_response({"ok": True, "comment": comment})

@@ -161,4 +161,6 @@ def register_inbound_photo_sync(client) -> None:
             return
         from server_app.realtime import emit_order_changed
         emit_order_changed(int(thread_id))
+        from server_app.fcm import notify_bg
+        notify_bg("🖼 Ảnh mới", f"{who} thêm ảnh (Telegram)", {"thread_id": str(thread_id), "type": "image"})
         log.info("nhập ảnh topic→web ok thread=%s msg=%s by=%s", thread_id, mid, who)
