@@ -88,6 +88,42 @@ async def api_delete_invoice_handler(request: web.Request):
     return web.json_response({"ok": True, "thread_id": int(thread_id)})
 
 
+async def api_refresh_debt_handler(request: web.Request):
+    """Kéo nợ KiotViet mới nhất của khách → lưu làm snapshot nợ của đơn
+    (khDebt + invoice_debt_snapshot). Body {thread_id}."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    thread_id = body.get("thread_id")
+    if not thread_id:
+        return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
+    conn = _get_connection()
+    order = get_order_by_thread_id(conn, int(thread_id))
+    if not order:
+        return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+    kh_id_fb = order.get("khach_hang_id") or order.get("khID")
+    if not kh_id_fb:
+        return web.json_response({"ok": False, "error": "Đơn chưa có khách hàng"}, status=400)
+    customer = get_customer_by_key(conn, str(kh_id_fb))
+    if not customer or not customer.get("kh_id"):
+        return web.json_response({"ok": False, "error": "Không tìm thấy ID KiotViet của khách"}, status=400)
+    try:
+        from kiotviet import get_customer_debt_kv
+        det = await asyncio.to_thread(get_customer_debt_kv, customer["kh_id"])
+    except Exception as e:
+        log.error("refresh debt failed thread=%s: %s", thread_id, e)
+        return web.json_response({"ok": False, "error": f"Lỗi lấy nợ KiotViet: {e}"}, status=500)
+    debt = det.get("debt", 0)
+    order["khDebt"] = debt
+    order["invoice_debt_snapshot"] = debt
+    from order_db import _save_order
+    _save_order(conn, int(thread_id), order)
+    if order.get("channel_id") and order.get("message_id") and state._client is not None:
+        spawn_tracked("debt.refresh", refresh_order_bg(conn, int(thread_id), order["channel_id"], order["message_id"]), {"thread_id": int(thread_id)})
+    return web.json_response({"ok": True, "thread_id": int(thread_id), "debt": debt})
+
+
 async def api_invoice_html_handler(request: web.Request):
     """Trả HTML hoá đơn KiotViet đã render để webapp mở xem (tương đương 'get html').
     Fetch invoice từ KiotViet nên chạy trong thread để không chặn event loop."""

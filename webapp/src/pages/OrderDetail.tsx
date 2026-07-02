@@ -1,7 +1,7 @@
 // Chi tiết đơn — header + text + ghép các khối detail/* (tasks, invoice,
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useState } from "preact/hooks";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, getJSON, invoiceHtmlUrl, postJSON } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, getJSON, invoiceHtmlUrl, postJSON, refreshOrderDebt } from "../api";
 import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal } from "../format";
 import { Comments } from "../detail/Comments";
@@ -101,6 +101,16 @@ export function OrderDetail({ threadId }: { threadId: string }) {
     }
   };
 
+  const refreshDebt = async () => {
+    try {
+      const r = await refreshOrderDebt(threadId);
+      setMsg(`💰 Đã cập nhật nợ KiotViet: ${money(r.debt)}đ`);
+      reload();
+    } catch (ex: any) {
+      setMsg(`❌ ${ex.message}`);
+    }
+  };
+
   const deleteHD = async () => {
     if (!confirm("XOÁ hoá đơn KiotViet của đơn này? Không thể hoàn tác.")) return;
     try {
@@ -147,8 +157,16 @@ export function OrderDetail({ threadId }: { threadId: string }) {
         <div class="row space"><span>Tổng tiền</span><b class="money">{total}đ</b></div>
         <div class="row space"><span>Đã trả</span><b>{money(paid)}đ</b></div>
         {pc.no_truoc && <div class="row space"><span>Nợ trước</span><b>{pc.no_truoc}đ</b></div>}
-        {(j.khDebt != null || j.invoice_debt_snapshot != null) && (
-          <div class="row space"><span>Nợ khách (KiotViet)</span><b>{money(j.khDebt ?? j.invoice_debt_snapshot)}đ</b></div>
+        {(j.khach_hang_id || j.khID) && (
+          <div class="row space">
+            <span>Nợ khách (KiotViet)</span>
+            <span class="row">
+              {(j.khDebt != null || j.invoice_debt_snapshot != null)
+                ? <b>{money(j.khDebt ?? j.invoice_debt_snapshot)}đ</b>
+                : <span class="muted small">chưa có</span>}
+              <button class="btn small" title="Kéo nợ KiotViet mới nhất" onClick={refreshDebt}>🔄</button>
+            </span>
+          </div>
         )}
         {j.kiotvietInvoiceID && (
           <div class="row space" style="margin-top:8px">

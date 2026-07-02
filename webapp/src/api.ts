@@ -142,6 +142,11 @@ export async function deleteKiotVietInvoice(threadId: string | number): Promise<
   return postJSON("/api/order/invoice/delete-kiotviet", { thread_id: Number(threadId), user_id: u?.username });
 }
 
+/** Kéo nợ KiotViet mới nhất của khách về làm snapshot nợ của đơn. */
+export async function refreshOrderDebt(threadId: string | number): Promise<any> {
+  return postJSON("/api/order/refresh-debt", { thread_id: Number(threadId) });
+}
+
 /** URL HTML hoá đơn để mở tab mới (kèm token cho WebView/khi bật auth). */
 export function invoiceHtmlUrl(threadId: string | number): string {
   const t = getToken();
