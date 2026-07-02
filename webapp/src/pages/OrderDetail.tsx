@@ -13,6 +13,9 @@ import { History } from "../detail/History";
 import { Images } from "../detail/Images";
 import { invalidateListCache } from "./OrdersList";
 
+// Nhớ vị trí cuộn theo từng đơn — quay lại đơn cũ về đúng chỗ đang xem
+const detailScroll: Record<string, number> = {};
+
 export function OrderDetail({ threadId }: { threadId: string }) {
   const [detail, setDetail] = useState<any>(null);
   const [err, setErr] = useState("");
@@ -22,11 +25,18 @@ export function OrderDetail({ threadId }: { threadId: string }) {
   const [changingCust, setChangingCust] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const seenTs = useRef<string | null>(null); // ts mới nhất đã báo — chặn báo lại lịch sử cũ
+  const restored = useRef(false); // đã khôi phục vị trí cuộn cho đơn này chưa
 
   const reload = async () => {
     try {
       setDetail(await getJSON(`/api/order/${threadId}`));
       setErr("");
+      // Lần tải đầu của đơn này: về đúng vị trí cuộn đã lưu (double-rAF đợi layout dựng)
+      if (!restored.current) {
+        restored.current = true;
+        const y = detailScroll[threadId] || 0;
+        requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+      }
     } catch (ex: any) {
       setErr(ex.message);
     }
@@ -34,7 +44,13 @@ export function OrderDetail({ threadId }: { threadId: string }) {
   // Sau khi SỬA đơn: xoá cache dashboard rồi tải lại (đơn có thể đã rời filter)
   const changed = () => { invalidateListCache(); reload(); };
   useEffect(() => {
+    restored.current = false; // đơn mới → cho phép khôi phục cuộn 1 lần
     reload();
+  }, [threadId]);
+
+  // Lưu vị trí cuộn khi rời đơn (đổi đơn / thoát trang) để lần sau về đúng chỗ
+  useEffect(() => {
+    return () => { detailScroll[threadId] = window.scrollY; };
   }, [threadId]);
 
   // Realtime: đơn này đổi (task/thanh toán/bình luận…) hoặc vừa nối lại → tải lại.
