@@ -57,13 +57,13 @@ server.py → server_app.bootstrap.main()
   ├─ command handlers on the user client ......... command_handlers/, order_commands_v3.py
   ├─ #don_hang channel indexer (live + backfill) . donhang_indexer_pkg/ → donhang_store/
   ├─ bot role (merged bot-don-hang) .............. server_app/bot_bootstrap.py + bot_core/, bot_flows/, bot_handlers/
-  └─ Google Sheets bot (ported) .................. sheets_bot/   (no-op unless sheets creds set)
+  └─ Google Sheets bot (ported) .................. sheets_bot/   (DISABLED by default; SHEETS_BOT_ENABLED=true to enable)
 ```
 
 ### Data stores it talks to
 | Store | What | Path / config |
 |---|---|---|
-| **SQLite `app.db`** (shared) | Orders/customers/notes/quỹ — shared with the Node app | `SHARED_DB_PATH`, default `~/letrang-db/app.db` |
+| **SQLite `app.db`** (shared) | Orders/customers/notes/quỹ. Was shared with the (now-retired) Node app; Python is the sole writer | `SHARED_DB_PATH`, default `~/letrang-db/app.db`. Connections via `utils/db.py` |
 | **SQLite `donhang.db`** (local) | Index of the `#don_hang` channel | `DONHANG_DB`, default `donhang.db` |
 | **Firebase RTDB** | Sync + print queue (`meta/to_print`, `html-to-png`) | service-account JSON (env / hardcoded path) |
 | **KiotViet REST API** | External POS/accounting: invoices, payments, debt | see `integrations/` |
@@ -111,7 +111,8 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 - `api_helpers/` — fetch/payment core helpers.
 - `renderers/`, `printouts/`, `frontend/` — HTML/PNG rendering, print output,
   static/Next.js frontend served/pushed over WebSocket.
-- `sheets_bot/` — Google Sheets bot (runs on the user client; no-op without creds).
+- `sheets_bot/` — Google Sheets bot (runs on the user client). DISABLED by default
+  (gated by `SHEETS_BOT_ENABLED` in `server_app/bootstrap.py`); no-op without creds.
 
 **Tooling**
 - `scripts/`, `tools/`, `tests/`, `docs/` — startup scripts, dev tools, tests, docs.
@@ -162,6 +163,13 @@ runners.
   `os.path.expanduser(os.getenv("SHARED_DB_PATH", ...))` inline. Other env/config
   reads go through `server_app/config.py` (or a package's own `config.py`). Don't
   hardcode new secrets/paths — add an env var with a default.
+- **DB connections go through `utils/db.py`** — `get_connection(path, *, readonly,
+  autocommit, busy_timeout)` + `transaction(conn)`. Every `app.db` access uses this
+  one gateway (no scattered `sqlite3.connect`). Default engine is **SQLite**. There
+  is a **dormant PostgreSQL path** behind `DB_ENGINE=postgres` (`utils/pg.py` psycopg
+  wrapper, `utils/sql_translate.py`, `migrations/pg/`, `tools/migrate_*`) — the app
+  was migrated to PG then reverted to SQLite (single process/machine → SQLite fits;
+  see `docs/postgres-migration.md`). Leave it dormant unless re-enabling PG.
 - **Telegram sends/edits go through the gateway** (`TelegramGateway`) so flood-wait
   / rate limits are handled — don't call `client.edit_message` raw in hot paths.
 - **Order mutations are read-modify-write on a JSON blob.** Orders live as one
