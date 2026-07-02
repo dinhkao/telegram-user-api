@@ -57,14 +57,17 @@ function App() {
   // trong đó bắt buộc phải có server_url (fetch relative sẽ trỏ nhầm vào assets)
   const inApk = window.location.hostname === "appassets.androidplatform.net" || window.location.protocol === "file:";
   const needSetup = inApk && !serverUrl();
-  if ((!user || needSetup) && hash !== "#/login") {
-    window.location.hash = "#/login";
-    return null;
-  }
+  const showLogin = hash === "#/login" || !user || needSetup;
+
+  // Chuẩn hoá URL hash về #/login khi cần đăng nhập/cài server — làm trong effect,
+  // KHÔNG sửa location trong lúc render (gây trắng trang lần đầu, phải reload).
+  useEffect(() => {
+    if (showLogin && hash !== "#/login") window.location.hash = "#/login";
+  }, [showLogin, hash]);
 
   let page;
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
-  if (hash === "#/login") page = <Login />;
+  if (showLogin) page = <Login />;
   else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
@@ -75,7 +78,7 @@ function App() {
     <div class="app">
       <OfflineBanner />
       <main class="page">{page}</main>
-      {hash !== "#/login" && (
+      {!showLogin && (
         <nav class="bottom-nav">
           <a class={hash === "#/orders" || orderMatch ? "tab active" : "tab"} href="#/orders">📋 Đơn</a>
           <a class={tab("#/create")} href="#/create">➕ Tạo</a>
