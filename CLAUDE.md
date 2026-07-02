@@ -190,8 +190,10 @@ runners.
 
 ## 6. Conventions
 
-- **One feature = one file.** Split modules by responsibility, not by line count.
-  Do not impose an arbitrary line cap; do not merge unrelated features to save files.
+- **One file = one thing, ≤400 lines.** Each file does one job and does it well.
+  Split modules by responsibility. Hard cap **400 lines per file** — if a file grows
+  past it, split it along responsibility lines. Do not merge unrelated features to
+  save files.
 - **Every module should say what it does and what it connects to.** Start each
   module with a one-line docstring: what this file does + which package(s)/store(s)
   it talks to. Packages: put the summary in `__init__.py`.
@@ -227,6 +229,10 @@ runners.
   characterized (`tests/test_order_store.py`, `test_order_domain.py`,
   `test_parsers.py`, `test_payment_domain.py`, `test_profit.py`).
   Filter: `./scripts/test.sh -k task_status`.
+- **Auto-commit after every change.** When you finish a change, commit it
+  yourself — do not ask the user first. Small, focused commits (Conventional
+  Commits style, Vietnamese subject OK). Never commit secrets/DBs (see gitignore).
+  Committing ≠ pushing: push only when asked.
 
 ---
 
