@@ -83,4 +83,6 @@ async def order_create_handler(request: web.Request):
         result = await asyncio.to_thread(_build_and_insert, text, creator, customer_key)
     except Exception as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=500)
+    from server_app.realtime import emit_orders_changed
+    emit_orders_changed()  # đơn web mới → dashboard refetch ngay
     return web.json_response({"ok": True, **result})

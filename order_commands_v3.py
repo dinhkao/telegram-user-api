@@ -281,6 +281,9 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     except Exception as e:
         log.warning("Could not fetch new debt for customer %d: %s", kv_id, e)
 
+    # Đẩy realtime (web + telegram đều qua đây) → dashboard/detail cập nhật ngay
+    from server_app.realtime import emit_order_changed
+    emit_order_changed(thread_id)
     result["success"] = True
     return result
 
