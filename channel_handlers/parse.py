@@ -29,6 +29,8 @@ async def auto_parse(client, conn, thread_id: int, text: str):
             kh_id_fb = assigned_cust["customerID"]
             _update_order_json_field(conn, thread_id, "$.khach_hang_id", assigned_cust["customerID"])
             _update_order_json_field(conn, thread_id, "$.customer_name", assigned_cust["customerName"])
+            from order_db import touch_customer_last_order
+            touch_customer_last_order(conn, kh_id_fb)
         invoice = parse_invoice_free_text(conn, text, kh_id_fb, _all_products=all_products)
         if invoice:
             _update_order_json_field(conn, thread_id, "$.invoice", freeze_invoice_cost_prices(conn, invoice))

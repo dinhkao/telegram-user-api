@@ -61,6 +61,9 @@ def _build_and_insert(text: str, creator: str, customer_key: str | None) -> dict
         }
         if not _create_order(conn, data["firebase_key"], thread_id, 0, 0, data):
             raise RuntimeError("insert thất bại")
+        if kh_id:
+            from order_db import touch_customer_last_order
+            touch_customer_last_order(conn, kh_id)
         # _create_order dùng INSERT OR IGNORE và trả True cả khi bị bỏ qua — xác nhận
         if get_order_by_thread_id(conn, thread_id) is None:
             raise RuntimeError("insert bị bỏ qua (trùng key) — thử lại")

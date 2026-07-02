@@ -16,6 +16,8 @@ async def assign_customer(client, msg, db_conn, thread_id: int, kh_id: str):
         await client.send_message(msg.chat_id, f"❌ Không tìm thấy khách hàng ID: {kh_id}", reply_to=msg.id)
         return
     order["khach_hang_id"], order["customer_name"] = kh_id, customer.get("name", "N/A")
+    from order_db import touch_customer_last_order
+    touch_customer_last_order(db_conn, kh_id)
     order_text = order.get("text") or order.get("text_raw") or ""
     if order_text and order.get("invoice"):
         new_invoice = parse_comma_text(order_text, db_conn, kh_id)

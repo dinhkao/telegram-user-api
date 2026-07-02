@@ -44,6 +44,8 @@ def register_order_commands_v2_detect_customer(client):
             cust = detection["autoAssign"]
             order["khach_hang_id"], order["customer_name"] = cust["customerID"], cust["customerName"]
             _save_order(db_conn, thread_id, order)
+            from order_db import touch_customer_last_order
+            touch_customer_last_order(db_conn, cust["customerID"])
             if order.get("channel_id") and order.get("message_id"):
                 asyncio.ensure_future(refresh_main_msg(client, db_conn, thread_id, order["channel_id"], order["message_id"]))
             reply = f"👤 <b>Đã gán:</b> {cust['customerName']}\n🎯 Mẫu: \"{cust['bestMatchedPattern']}\" ({cust['score']}%)\n\n✅ Đã lưu vào SQLite. Bấm 'Xem hóa đơn' để kiểm tra."

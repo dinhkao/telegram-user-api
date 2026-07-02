@@ -35,23 +35,47 @@ def ensure_orders_stats_columns(conn):
         if IS_POSTGRES:
             _stats_cols_ready = True
             return
+        _new_has_customer_expr = (
+            "CASE WHEN (json_extract(json, '$.hoadon.print_content.kh') IS NOT NULL"
+            "           AND json_extract(json, '$.hoadon.print_content.kh') != '')"
+            "       OR (json_extract(json, '$.customer_name') IS NOT NULL"
+            "           AND json_extract(json, '$.customer_name') != '')"
+            "       OR (json_extract(json, '$.khach_hang_id') IS NOT NULL"
+            "           AND json_extract(json, '$.khach_hang_id') != '')"
+            " THEN 1 ELSE 0 END"
+        )
         hidden = [r[1] for r in conn.execute("PRAGMA table_xinfo(orders)").fetchall() if r[6] == 2]
         if "has_customer" not in hidden:
-            conn.executescript("""
+            conn.executescript(f"""
                 ALTER TABLE orders ADD COLUMN has_customer INTEGER
-                    GENERATED ALWAYS AS (
-                        CASE WHEN (json_extract(json, '$.hoadon.print_content.kh') IS NOT NULL
-                                   AND json_extract(json, '$.hoadon.print_content.kh') != '')
-                               OR (json_extract(json, '$.customer_name') IS NOT NULL
-                                   AND json_extract(json, '$.customer_name') != '')
-                        THEN 1 ELSE 0 END
-                    ) VIRTUAL;
+                    GENERATED ALWAYS AS ({_new_has_customer_expr}) VIRTUAL;
                 ALTER TABLE orders ADD COLUMN is_done INTEGER
                     GENERATED ALWAYS AS (
                         CASE WHEN json_extract(json, '$.done_after_20250124') = 1 THEN 1 ELSE 0 END
                     ) VIRTUAL;
             """)
             conn.commit()
+        else:
+            # Kiểm tra xem column cũ thiếu khach_hang_id không — nếu thiếu, drop + recreate
+            col_sql = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='orders'"
+            ).fetchone()
+            if col_sql and "khach_hang_id" not in (col_sql[0] or ""):
+                conn.executescript(f"""
+                    DROP INDEX IF EXISTS idx_orders_stats;
+                    DROP INDEX IF EXISTS idx_orders_list;
+                    DROP INDEX IF EXISTS idx_orders_created_tid;
+                    ALTER TABLE orders DROP COLUMN has_customer;
+                    ALTER TABLE orders DROP COLUMN is_done;
+                    ALTER TABLE orders ADD COLUMN has_customer INTEGER
+                        GENERATED ALWAYS AS ({_new_has_customer_expr}) VIRTUAL;
+                    ALTER TABLE orders ADD COLUMN is_done INTEGER
+                        GENERATED ALWAYS AS (
+                            CASE WHEN json_extract(json, '$.done_after_20250124') = 1 THEN 1 ELSE 0 END
+                        ) VIRTUAL;
+                """)
+                conn.commit()
+                log.info("recreated has_customer column (now includes khach_hang_id)")
         # Index tạo ngoài guard cột → bổ sung được cả khi cột đã tồn tại sẵn.
         conn.executescript("""
             CREATE INDEX IF NOT EXISTS idx_orders_stats

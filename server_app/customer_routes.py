@@ -26,6 +26,9 @@ def _summary(data: dict, firebase_key: str) -> dict:
 
 async def customers_search_handler(request: web.Request):
     search = request.query.get("search", "").strip()
+    sort = request.query.get("sort", "name")
+    if sort not in ("name", "recent"):
+        sort = "name"
     try:
         limit = max(1, min(50, int(request.query.get("limit", "20"))))
     except ValueError:
@@ -34,7 +37,7 @@ async def customers_search_handler(request: web.Request):
     def _run():
         conn = _get_connection()
         try:
-            return search_customers(conn, search, limit=limit)
+            return search_customers(conn, search, limit=limit, sort=sort)
         finally:
             conn.close()
 

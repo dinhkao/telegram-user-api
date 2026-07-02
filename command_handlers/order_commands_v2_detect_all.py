@@ -44,6 +44,8 @@ def register_order_commands_v2_detect_all(client):
             cust = detection["autoAssign"]
             order["khach_hang_id"], order["customer_name"] = cust["customerID"], cust["customerName"]
             kh_id = cust["customerID"]
+            from order_db import touch_customer_last_order
+            touch_customer_last_order(db_conn, kh_id)
             lines += [f"👤 <b>Đã gán:</b> {cust['customerName']} ({cust['score']}%)", f"🎯 Mẫu: \"{cust['bestMatchedPattern']}\""]
         elif detection["matches"]:
             lines.append("🔍 <b>Khách hàng có thể:</b>")
