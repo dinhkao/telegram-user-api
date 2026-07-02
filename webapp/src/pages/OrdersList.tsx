@@ -54,7 +54,13 @@ function Highlight({ text, q }: { text: string; q: string }) {
 function InvoiceMini({ o }: { o: OrderRow }) {
   const items = o.invoice_items || [];
   if (!items.length) return null;
+  // Tính y chang summary hoá đơn KiotViet (renderers/invoice_parts.build_summary_rows)
   const tienHang = items.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.sl) || 0), 0);
+  const pvc = o.pvc || 0, vat = o.vat || 0, disc = o.discount || 0;
+  const debt = Number(o.kh_debt) || 0;
+  const hasFees = !!(pvc || vat || disc);
+  const tongDon = tienHang + pvc + vat - disc;      // tổng đơn này
+  const tongTT = tongDon + debt;                     // tổng thanh toán = tổng đơn + nợ
   return (
     <table class="inv-mini">
       <tbody>
@@ -65,14 +71,20 @@ function InvoiceMini({ o }: { o: OrderRow }) {
             <td class="num">{money((Number(it.price) || 0) * (Number(it.sl) || 0))}</td>
           </tr>
         ))}
-        <tr class="sub"><td colSpan={2}>Tiền hàng</td><td class="num">{money(tienHang)}</td></tr>
-        {o.discount ? <tr class="sub"><td colSpan={2}>Chiết khấu</td><td class="num">−{money(o.discount)}</td></tr> : null}
-        {o.pvc ? <tr class="sub"><td colSpan={2}>PVC</td><td class="num">+{money(o.pvc)}</td></tr> : null}
-        {o.vat ? <tr class="sub"><td colSpan={2}>VAT</td><td class="num">+{money(o.vat)}</td></tr> : null}
-        <tr class="tot"><td colSpan={2}>Tổng</td><td class="num">{o.total ? `${o.total}đ` : money(tienHang) + "đ"}</td></tr>
-        {o.paid > 0 ? <tr class="sub"><td colSpan={2}>Đã trả</td><td class="num">{money(o.paid)}</td></tr> : null}
-        {o.no_truoc ? <tr class="sub"><td colSpan={2}>Nợ trước</td><td class="num">{o.no_truoc}</td></tr> : null}
-        {o.kh_debt != null ? <tr class="sub debt"><td colSpan={2}>Nợ khách (lúc tạo HĐ)</td><td class="num">{money(o.kh_debt)}</td></tr> : null}
+        {!hasFees && debt === 0 ? (
+          // tiền hàng == tổng → chỉ 1 dòng Tổng
+          <tr class="tot"><td colSpan={2}>Tổng</td><td class="num">{money(tongTT)}đ</td></tr>
+        ) : (
+          <>
+            <tr class="sub"><td colSpan={2}>Tổng tiền hàng</td><td class="num">{money(tienHang)}</td></tr>
+            {pvc ? <tr class="sub"><td colSpan={2}>PVC</td><td class="num">+{money(pvc)}</td></tr> : null}
+            {vat ? <tr class="sub"><td colSpan={2}>VAT</td><td class="num">+{money(vat)}</td></tr> : null}
+            {disc ? <tr class="sub"><td colSpan={2}>Giảm giá</td><td class="num">−{money(disc)}</td></tr> : null}
+            {debt !== 0 && hasFees ? <tr class="sub"><td colSpan={2}>Tổng đơn này</td><td class="num">{money(tongDon)}</td></tr> : null}
+            {debt !== 0 ? <tr class="sub debt"><td colSpan={2}>Nợ trước</td><td class="num">{money(debt)}</td></tr> : null}
+            <tr class="tot"><td colSpan={2}>Tổng thanh toán</td><td class="num">{money(tongTT)}đ</td></tr>
+          </>
+        )}
       </tbody>
     </table>
   );
