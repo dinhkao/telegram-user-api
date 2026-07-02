@@ -52,7 +52,7 @@ export function OrdersList() {
   const [loading, setLoading] = useState(false);
   const [stale, setStale] = useState(false);
   const [err, setErr] = useState("");
-  const debounce = useRef<number>();
+  const reqSeq = useRef(0); // "query mới nhất thắng" — bỏ debounce nhưng chặn race
   const sentinel = useRef<HTMLDivElement>(null);
   // refs giữ state mới nhất cho observer (tránh stale closure)
   const st = useRef<any>({});
@@ -61,6 +61,7 @@ export function OrdersList() {
   const PAGE_SIZE = 20; // luôn tải 20 mỗi lần, kể cả lần đầu — không bao giờ tải hết
 
   const load = async (p: number, q: string, f: string, append: boolean) => {
+    const seq = ++reqSeq.current; // đánh dấu request này là mới nhất
     setLoading(true);
     setErr("");
     try {
@@ -68,14 +69,15 @@ export function OrdersList() {
       const fp = f && f !== "all" ? `&filter=${f}` : "";
       // chỉ cache trang không search — kết quả theo phím gõ không rác localStorage
       const data = await getJSON(`/api/orders?page=${p}&limit=${PAGE_SIZE}&search=${encodeURIComponent(q)}${fp}`, { cache: !q });
+      if (seq !== reqSeq.current) return; // đã có query mới hơn → bỏ kết quả cũ (chống race)
       setOrders((prev) => (append ? [...prev, ...data.orders] : data.orders));
       setTotalPages(data.total_pages || 1);
       if (data.stats && Object.keys(data.stats).length) setStats(data.stats);
       setStale(!!data._stale);
     } catch (ex: any) {
-      setErr(ex.message);
+      if (seq === reqSeq.current) setErr(ex.message);
     } finally {
-      setLoading(false);
+      if (seq === reqSeq.current) setLoading(false);
     }
   };
 
@@ -165,8 +167,7 @@ export function OrdersList() {
   const onSearch = (q: string) => {
     setSearch(q);
     setPage(1);
-    clearTimeout(debounce.current);
-    debounce.current = window.setTimeout(() => load(1, q, st.current.filter, false), 350);
+    load(1, q, st.current.filter, false); // gõ tới đâu tìm tới đó — không delay (reqSeq chặn race)
   };
 
   // Đổi chip → reset trang, tải lại từ server với filter mới (nhất quán phân trang)
