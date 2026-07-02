@@ -34,13 +34,28 @@ type OrderRow = {
   text: string;
 };
 
+// Mã ghi chú nộp tiền → tiếng Việt đầy đủ
+const NOP_NOTE_VI: Record<string, string> = {
+  co_ky_toa: "có ký toa",
+  khong_ky_toa: "không ký toa",
+  tra_tien_mat: "trả tiền mặt",
+  chieu_lay_tien: "chiều lấy tiền",
+};
+const noteVi = (n?: string) => NOP_NOTE_VI[(n || "").toLowerCase()] || (n || "").replace(/_/g, " ").trim();
+
 // Nhãn trạng thái workflow (thay cho "thiếu <số tiền>")
 function statusLabel(o: OrderRow): string {
   if (!o.soan) return "Chưa soạn";
   if (!o.giao) return "Chưa giao";
-  if (!o.nop) return o.giao_by ? `${o.giao_by} chưa nộp` : "Chưa nộp";
-  // đã nộp → "<người nộp> đã nộp (<tình trạng>)"
-  const note = (o.nop_note || "").replace(/_/g, " ").trim();
+  if (!o.nop) {
+    // "chiều lấy tiền": đã giao, hẹn thu sau (chưa nộp) → hiện rõ lý do
+    if ((o.nop_note || "").toLowerCase() === "chieu_lay_tien") {
+      const who = o.nop_by || o.giao_by;
+      return `${who ? `${who} ` : ""}chiều lấy tiền`;
+    }
+    return o.giao_by ? `${o.giao_by} chưa nộp` : "Chưa nộp";
+  }
+  const note = noteVi(o.nop_note);
   return `${o.nop_by ? `${o.nop_by} ` : ""}đã nộp${note ? ` (${note})` : ""}`;
 }
 
