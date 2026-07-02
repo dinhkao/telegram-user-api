@@ -11,10 +11,60 @@ from vn import vn_normalize
 log = logging.getLogger("server")
 _orders_fts_ready = False
 _fts_last_updated_at = 0   # max(orders.updated_at) đã index — mốc cho sync tăng dần
+_stats_cols_ready = False
 
 
 def get_orders_conn():
     return get_connection(SHARED_DB_PATH, autocommit=False, busy_timeout=5000)
+
+
+def ensure_orders_stats_columns(conn):
+    """Cột generated + index cho việc load danh sách đơn (SQLite).
+
+    Không có index: mỗi lần load trang 1 vừa quét toàn bảng đếm 3 chip
+    (~66ms/17k đơn) vừa TEMP B-TREE sort toàn bảng cho ORDER BY (~59ms).
+    Có index (has_customer,is_done) + (has_customer,order_created,thread_id):
+    đếm + sắp xếp bằng index → <1ms. PG đã sẵn has_customer (migrations/pg).
+    Cột VIRTUAL không tốn chỗ. Chạy 1 lần/process; index tạo idempotent nên vẫn
+    được bổ sung kể cả khi cột đã có từ lần chạy trước."""
+    global _stats_cols_ready
+    if _stats_cols_ready:
+        return
+    try:
+        from utils.db import IS_POSTGRES
+        if IS_POSTGRES:
+            _stats_cols_ready = True
+            return
+        hidden = [r[1] for r in conn.execute("PRAGMA table_xinfo(orders)").fetchall() if r[6] == 2]
+        if "has_customer" not in hidden:
+            conn.executescript("""
+                ALTER TABLE orders ADD COLUMN has_customer INTEGER
+                    GENERATED ALWAYS AS (
+                        CASE WHEN (json_extract(json, '$.hoadon.print_content.kh') IS NOT NULL
+                                   AND json_extract(json, '$.hoadon.print_content.kh') != '')
+                               OR (json_extract(json, '$.customer_name') IS NOT NULL
+                                   AND json_extract(json, '$.customer_name') != '')
+                        THEN 1 ELSE 0 END
+                    ) VIRTUAL;
+                ALTER TABLE orders ADD COLUMN is_done INTEGER
+                    GENERATED ALWAYS AS (
+                        CASE WHEN json_extract(json, '$.done_after_20250124') = 1 THEN 1 ELSE 0 END
+                    ) VIRTUAL;
+            """)
+            conn.commit()
+        # Index tạo ngoài guard cột → bổ sung được cả khi cột đã tồn tại sẵn.
+        conn.executescript("""
+            CREATE INDEX IF NOT EXISTS idx_orders_stats
+                ON orders(has_customer, is_done)
+                WHERE deleted_at IS NULL;
+            CREATE INDEX IF NOT EXISTS idx_orders_list
+                ON orders(has_customer DESC, order_created DESC, thread_id DESC)
+                WHERE deleted_at IS NULL;
+        """)
+        conn.commit()
+        _stats_cols_ready = True
+    except Exception as e:
+        log.warning("ensure_orders_stats_columns failed: %s", e)
 
 
 def _fts_content(json_text: str) -> str | None:
