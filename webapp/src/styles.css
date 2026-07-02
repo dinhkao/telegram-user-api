@@ -14,7 +14,12 @@ body { font-family: system-ui, -apple-system, Roboto, sans-serif; background: va
 .app { max-width: 640px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
 .page { flex: 1; padding: 10px 10px 70px; }
 
-.topbar { position: sticky; top: 0; background: var(--bg); padding: 6px 0; z-index: 5; }
+.topbar { position: sticky; top: 44px; background: var(--bg); padding: 6px 0; z-index: 5; }
+
+/* Thanh app dính trên cùng — tiêu đề + đèn realtime + nút tải lại */
+.app-bar { position: sticky; top: 0; z-index: 20; height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; background: var(--card); border-bottom: 1px solid var(--border); }
+.app-title { font-weight: 700; }
+.app-bar-right { display: flex; align-items: center; gap: 10px; }
 .search { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; }
 
 .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: var(--card); border-top: 1px solid var(--border); max-width: 640px; margin: 0 auto; }
@@ -74,7 +79,7 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .login-page .card { text-align: left; margin-top: 16px; }
 
 /* Chấm trạng thái realtime — cố định góc trên-phải, không chặn thao tác */
-.rt-dot { position: fixed; top: 8px; right: 10px; z-index: 30; display: inline-flex; align-items: center; gap: 6px; pointer-events: none; }
+.rt-dot { display: inline-flex; align-items: center; gap: 6px; pointer-events: none; }
 .rt-led { width: 9px; height: 9px; border-radius: 50%; background: #9aa0a6; box-shadow: 0 0 0 2px var(--bg); }
 .rt-text { font-size: .72rem; color: #7a5c00; background: #fef7e0; border-radius: 999px; padding: 2px 8px; }
 .rt-online .rt-led { background: #34a853; }

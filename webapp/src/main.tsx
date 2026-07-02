@@ -103,7 +103,15 @@ function App() {
   const tab = (h: string) => (hash.startsWith(h) ? "tab active" : "tab");
   return (
     <div class="app">
-      {!showLogin && <RealtimeDot />}
+      {!showLogin && (
+        <header class="app-bar">
+          <span class="app-title">🍬 Đơn hàng</span>
+          <div class="app-bar-right">
+            <RealtimeDot />
+            <button class="btn small" title="Tải lại" onClick={() => window.location.reload()}>🔄 Tải lại</button>
+          </div>
+        </header>
+      )}
       <OfflineBanner />
       <main class="page">{page}</main>
       {!showLogin && (
