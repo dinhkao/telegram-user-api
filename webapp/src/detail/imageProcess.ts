@@ -1,0 +1,76 @@
+// Nén ảnh phía client TRƯỚC khi upload — điểm mấu chốt về tốc độ. Ảnh gốc điện
+// thoại 3–8MB → giảm còn ~100–250KB: co về cạnh dài tối đa 1600px, mã hoá WebP
+// (rớt về JPEG nếu thiết bị không hỗ trợ WebP), đồng thời tạo thumbnail ~400px
+// (~10–20KB) để lưới gallery tải tức thì. Tôn trọng xoay EXIF. Dùng: detail/Images.
+
+const FULL_MAX = 1600;
+const THUMB_MAX = 400;
+const FULL_Q = 0.82;
+const THUMB_Q = 0.7;
+
+export type Processed = {
+  full: Blob;
+  thumb: Blob;
+  width: number; // kích thước ảnh 'full' sau khi co
+  height: number;
+  ext: string; // '.webp' | '.jpg'
+  mime: string;
+};
+
+let _webpOk: boolean | null = null;
+/** Thiết bị có mã hoá được WebP qua canvas không (cache 1 lần). */
+function webpSupported(): boolean {
+  if (_webpOk !== null) return _webpOk;
+  try {
+    const c = document.createElement("canvas");
+    c.width = c.height = 1;
+    _webpOk = c.toDataURL("image/webp").startsWith("data:image/webp");
+  } catch {
+    _webpOk = false;
+  }
+  return _webpOk;
+}
+
+function scaled(w: number, h: number, max: number): [number, number] {
+  if (w <= max && h <= max) return [w, h];
+  const r = Math.min(max / w, max / h);
+  return [Math.round(w * r), Math.round(h * r)];
+}
+
+async function encode(bmp: ImageBitmap, w: number, h: number, mime: string, q: number): Promise<Blob> {
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(bmp, 0, 0, w, h);
+  const blob: Blob | null = await new Promise((res) => canvas.toBlob(res, mime, q));
+  if (blob) return blob;
+  // rớt về JPEG nếu mime không được hỗ trợ
+  return await new Promise((res, rej) =>
+    canvas.toBlob((b) => (b ? res(b) : rej(new Error("encode ảnh thất bại"))), "image/jpeg", q)
+  );
+}
+
+/** Đọc File ảnh → { full, thumb, dims }. Ném lỗi nếu không giải mã được. */
+export async function processImage(file: File): Promise<Processed> {
+  // imageOrientation:'from-image' → tự xoay theo EXIF (ảnh dọc không bị nằm ngang)
+  let bmp: ImageBitmap;
+  try {
+    bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    bmp = await createImageBitmap(file); // trình duyệt cũ không nhận option
+  }
+  const useWebp = webpSupported();
+  const mime = useWebp ? "image/webp" : "image/jpeg";
+  const ext = useWebp ? ".webp" : ".jpg";
+
+  const [fw, fh] = scaled(bmp.width, bmp.height, FULL_MAX);
+  const [tw, th] = scaled(bmp.width, bmp.height, THUMB_MAX);
+  const [full, thumb] = await Promise.all([
+    encode(bmp, fw, fh, mime, FULL_Q),
+    encode(bmp, tw, th, mime, THUMB_Q),
+  ]);
+  bmp.close?.();
+  return { full, thumb, width: fw, height: fh, ext, mime };
+}

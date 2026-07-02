@@ -152,3 +152,58 @@ export function invoiceHtmlUrl(threadId: string | number): string {
   const t = getToken();
   return `${serverUrl()}/api/order/${Number(threadId)}/invoice-html${t ? `?token=${encodeURIComponent(t)}` : ""}`;
 }
+
+// ── Ảnh đính kèm đơn ─────────────────────────────────────────────────────────
+
+/** Header chỉ có Authorization (KHÔNG set Content-Type — để browser tự gắn
+ *  multipart boundary cho FormData). */
+function authHeaders(): Record<string, string> {
+  const h: Record<string, string> = {};
+  const t = getToken();
+  if (t) h["Authorization"] = `Bearer ${t}`;
+  return h;
+}
+
+/** POST multipart/form-data (upload ảnh). Không queue offline — cần mạng. */
+export async function postForm(path: string, form: FormData): Promise<any> {
+  const url = serverUrl() + path;
+  try {
+    const res = await fetch(url, { method: "POST", headers: authHeaders(), body: form });
+    return await parse(res);
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    throw new Error("Mất mạng — tải ảnh cần mạng, thử lại sau");
+  }
+}
+
+/** DELETE JSON. */
+export async function delJSON(path: string): Promise<any> {
+  const url = serverUrl() + path;
+  try {
+    const res = await fetch(url, { method: "DELETE", headers: headers() });
+    return await parse(res);
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    throw new Error("Mất mạng — thao tác này cần mạng, thử lại sau");
+  }
+}
+
+/** URL 1 ảnh của đơn (size 'thumb' | 'full'), kèm token cho <img src>. */
+export function orderImageUrl(threadId: string | number, imageId: number, size: "thumb" | "full" = "full"): string {
+  const t = getToken();
+  const q = `?size=${size}${t ? `&token=${encodeURIComponent(t)}` : ""}`;
+  return `${serverUrl()}/api/order/${Number(threadId)}/images/${imageId}/file${q}`;
+}
+
+export type OrderImage = { id: number; width: number; height: number; size: number; uploaded_by: string; created_at: number };
+
+/** Liệt kê ảnh của đơn (mới nhất trước). */
+export async function listOrderImages(threadId: string | number): Promise<OrderImage[]> {
+  const d = await getJSON(`/api/order/${Number(threadId)}/images`, { cache: false });
+  return d.images || [];
+}
+
+/** Xoá 1 ảnh của đơn. */
+export async function deleteOrderImage(threadId: string | number, imageId: number): Promise<any> {
+  return delJSON(`/api/order/${Number(threadId)}/images/${imageId}`);
+}

@@ -197,3 +197,21 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .flash-msg { display: inline-block; background: var(--primary); color: #fff; font-size: .85rem; font-weight: 600; padding: 1px 8px; border-radius: 6px; margin-bottom: 4px; }
 .order-card.compact { flex-wrap: wrap; }
 .order-card.compact .flash-msg { flex-basis: 100%; }
+
+/* ── Ảnh đính kèm đơn ── */
+.img-actions { display: flex; gap: 6px; }
+.img-actions .btn { padding: 6px 12px; font-size: .9rem; }
+.img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; margin-top: 8px; }
+.img-tile { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--bg); border: 1px solid var(--border); }
+.img-tile img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer; }
+.img-tile.uploading img { opacity: .5; }
+.img-del { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; border: none; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font-size: 1rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+.img-spin { position: absolute; top: 50%; left: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border: 3px solid rgba(0,0,0,.15); border-top-color: var(--primary); border-radius: 50%; animation: img-spin .7s linear infinite; }
+@keyframes img-spin { to { transform: rotate(360deg); } }
+
+/* Xem ảnh phóng to */
+.lightbox { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.9); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px; }
+.lightbox img { max-width: 100%; max-height: calc(100vh - 70px); object-fit: contain; border-radius: 6px; }
+.lightbox-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; max-width: 640px; margin-top: 10px; color: #fff; }
+.lightbox-bar .row { display: flex; gap: 6px; }
+.lightbox-bar .btn { padding: 6px 12px; font-size: .9rem; }

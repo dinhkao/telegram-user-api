@@ -19,3 +19,7 @@ SHARED_DB_PATH = os.path.expanduser(os.getenv("SHARED_DB_PATH", DEFAULT_SHARED_D
 
 # Local index of the #don_hang channel (rebuildable from Telegram).
 DONHANG_DB_PATH = os.path.expanduser(os.getenv("DONHANG_DB", "donhang.db"))
+
+# User-uploaded order images (full + thumbnail files), one subdir per thread_id.
+# Filesystem store sibling of app.db; DB holds only metadata (order_images_store).
+ORDER_MEDIA_DIR = os.path.expanduser(os.getenv("ORDER_MEDIA_DIR", "~/letrang-db/media"))

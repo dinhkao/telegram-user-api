@@ -10,6 +10,7 @@ import { CustomerPicker } from "../detail/CustomerPicker";
 import { Payments } from "../detail/Payments";
 import { Tasks } from "../detail/Tasks";
 import { History } from "../detail/History";
+import { Images } from "../detail/Images";
 import { invalidateListCache } from "./OrdersList";
 
 export function OrderDetail({ threadId }: { threadId: string }) {
@@ -255,6 +256,7 @@ export function OrderDetail({ threadId }: { threadId: string }) {
         invoiceCode={j.kiotvietInvoiceCode || j.kiotvietInvoiceID}
       />
       <Payments threadId={threadId} payments={j.payments || []} onChanged={changed} />
+      <Images threadId={threadId} />
       <History threadId={threadId} />
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>
       </div>{/* .dmain */}

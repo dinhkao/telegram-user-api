@@ -8,6 +8,7 @@ from server_app.cors import cors_middleware
 from server_app.comment_routes import comments_add_handler, comments_list_handler
 from server_app.customer_routes import customer_detail_handler, customer_refresh_debt_handler, customers_search_handler
 from server_app.donhang_routes import donhang_handler, donhang_msg_handler, donhang_page_handler, donhang_stats_handler
+from server_app.image_routes import images_delete_handler, images_file_handler, images_list_handler, images_upload_handler
 from server_app.order_api_auto import auto_parse_handler
 from server_app.order_api_create import order_create_handler
 from server_app.order_api_mutations import api_assign_customer_handler, api_fix_handler, api_invoice_update_handler, api_refresh_handler, api_reply_handler
@@ -77,6 +78,10 @@ def create_app():
     r.add_get("/api/order/{thread_id}/history", order_history_handler)
     r.add_get("/api/order/{thread_id}/comments", comments_list_handler)
     r.add_post("/api/order/{thread_id}/comments", comments_add_handler)
+    r.add_get("/api/order/{thread_id}/images", images_list_handler)
+    r.add_post("/api/order/{thread_id}/images", images_upload_handler)
+    r.add_delete("/api/order/{thread_id}/images/{image_id}", images_delete_handler)
+    r.add_get("/api/order/{thread_id}/images/{image_id}/file", images_file_handler)
     r.add_get("/api/customers", customers_search_handler)
     r.add_get("/api/customers/{key}", customer_detail_handler)
     r.add_post("/api/customers/{key}/refresh-debt", customer_refresh_debt_handler)
