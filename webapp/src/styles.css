@@ -72,3 +72,12 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .offline-banner { background: #fef7e0; color: #7a5c00; text-align: center; padding: 6px; font-size: .85rem; position: sticky; top: 0; z-index: 10; }
 .login-page { padding-top: 12vh; text-align: center; }
 .login-page .card { text-align: left; margin-top: 16px; }
+
+/* Chấm trạng thái realtime — cố định góc trên-phải, không chặn thao tác */
+.rt-dot { position: fixed; top: 8px; right: 10px; z-index: 30; display: inline-flex; align-items: center; gap: 6px; pointer-events: none; }
+.rt-led { width: 9px; height: 9px; border-radius: 50%; background: #9aa0a6; box-shadow: 0 0 0 2px var(--bg); }
+.rt-text { font-size: .72rem; color: #7a5c00; background: #fef7e0; border-radius: 999px; padding: 2px 8px; }
+.rt-online .rt-led { background: #34a853; }
+.rt-offline .rt-led { background: #ea4335; }
+.rt-connecting .rt-led { background: #fbbc04; animation: rt-pulse 1s ease-in-out infinite; }
+@keyframes rt-pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }

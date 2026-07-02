@@ -11,11 +11,41 @@ export type RealtimeEvent =
 
 type Handler = (e: RealtimeEvent) => void;
 
+export type RealtimeStatus = "online" | "connecting" | "offline";
+type StatusHandler = (s: RealtimeStatus) => void;
+
 const handlers = new Set<Handler>();
+const statusHandlers = new Set<StatusHandler>();
+let status: RealtimeStatus = "offline";
 let ws: WebSocket | null = null;
 let backoff = 1000;
 let stopped = false;
 let everConnected = false;
+
+function setStatus(s: RealtimeStatus) {
+  if (s === status) return;
+  status = s;
+  statusHandlers.forEach((h) => {
+    try {
+      h(s);
+    } catch {
+      /* subscriber lỗi không làm chết vòng phát */
+    }
+  });
+}
+
+export function getStatus(): RealtimeStatus {
+  return status;
+}
+
+/** Đăng ký nhận trạng thái kết nối; gọi ngay 1 lần với trạng thái hiện tại. */
+export function onStatus(h: StatusHandler): () => void {
+  statusHandlers.add(h);
+  h(status);
+  return () => {
+    statusHandlers.delete(h);
+  };
+}
 
 function wsUrl(): string {
   // Web: same-origin. APK/WebView: serverUrl() là IP Tailscale đã cấu hình.
@@ -43,14 +73,17 @@ function schedule() {
 
 function connect() {
   if (stopped || ws) return;
+  setStatus("connecting");
   try {
     ws = new WebSocket(wsUrl());
   } catch {
+    setStatus("offline");
     schedule();
     return;
   }
   ws.onopen = () => {
     backoff = 1000;
+    setStatus("online");
     if (everConnected) emit({ type: "resync" }); // lần nối LẠI mới cần tải bù
     everConnected = true;
   };
@@ -65,6 +98,7 @@ function connect() {
   };
   ws.onclose = () => {
     ws = null;
+    setStatus(stopped ? "offline" : "connecting");
     schedule();
   };
   ws.onerror = () => {
@@ -89,6 +123,7 @@ export function stopRealtime() {
     /* ignore */
   }
   ws = null;
+  setStatus("offline");
 }
 
 /** Đăng ký nhận event; trả hàm huỷ đăng ký. */

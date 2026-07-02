@@ -4,7 +4,7 @@ import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { currentUser, replayQueue, serverUrl } from "./api";
 import { getQueue } from "./offline";
-import { startRealtime, stopRealtime } from "./realtime";
+import { getStatus, onStatus, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
 import { Customers } from "./pages/Customers";
 import { Login } from "./pages/Login";
@@ -51,6 +51,25 @@ function OfflineBanner() {
   );
 }
 
+// Chấm trạng thái realtime — xanh: trực tiếp, vàng nhấp nháy: đang nối lại,
+// đỏ: mất kết nối. Ẩn khi đang "online" cho gọn (chỉ hiện khi có vấn đề).
+const RT_LABEL: Record<RealtimeStatus, string> = {
+  online: "Trực tiếp",
+  connecting: "Đang kết nối lại…",
+  offline: "Mất kết nối trực tiếp",
+};
+
+function RealtimeDot() {
+  const [s, setS] = useState<RealtimeStatus>(getStatus());
+  useEffect(() => onStatus(setS), []);
+  return (
+    <div class={`rt-dot rt-${s}`} title={RT_LABEL[s]}>
+      <span class="rt-led" />
+      {s !== "online" && <span class="rt-text">{RT_LABEL[s]}</span>}
+    </div>
+  );
+}
+
 function App() {
   const hash = useHash();
   const user = currentUser();
@@ -84,6 +103,7 @@ function App() {
   const tab = (h: string) => (hash.startsWith(h) ? "tab active" : "tab");
   return (
     <div class="app">
+      {!showLogin && <RealtimeDot />}
       <OfflineBanner />
       <main class="page">{page}</main>
       {!showLogin && (
