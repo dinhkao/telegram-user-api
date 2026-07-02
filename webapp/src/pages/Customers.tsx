@@ -1,25 +1,27 @@
-// Khách hàng — tìm kiếm + công nợ. GET /api/customers?search=. Tap → lọc đơn theo tên.
+// Khách hàng — tìm kiếm + công nợ. GET /api/customers?search=&sort=recent. Tap → lọc đơn theo tên.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON } from "../api";
-import { money } from "../format";
+import { money, fmtTime } from "../format";
 
 export function Customers() {
   const [search, setSearch] = useState("");
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const debounce = useRef<number>();
+  const reqSeq = useRef(0);
 
   const load = async (q: string) => {
+    const seq = ++reqSeq.current;
     setLoading(true);
     setErr("");
     try {
-      const r = await getJSON(`/api/customers?search=${encodeURIComponent(q)}&limit=30`);
+      const r = await getJSON(`/api/customers?search=${encodeURIComponent(q)}&limit=40&sort=recent`, { cache: false });
+      if (seq !== reqSeq.current) return;
       setCustomers(r.customers || []);
     } catch (ex: any) {
-      setErr(ex.message);
+      if (seq === reqSeq.current) setErr(ex.message);
     } finally {
-      setLoading(false);
+      if (seq === reqSeq.current) setLoading(false);
     }
   };
 
@@ -29,9 +31,8 @@ export function Customers() {
 
   const onSearch = (q: string) => {
     setSearch(q);
-    clearTimeout(debounce.current);
-    if (q.length === 1) return; // 1 ký tự = full-scan LIKE vô ích trên server, chờ gõ thêm
-    debounce.current = window.setTimeout(() => load(q), 350);
+    if (q.length === 1) return;
+    load(q);
   };
 
   return (
@@ -52,7 +53,10 @@ export function Customers() {
                   </span>
                 )}
               </div>
-              <div class="muted small">{c.kh_id ? `KV: ${c.kh_id} · ` : ""}{c.key}</div>
+              <div class="row space">
+                <span class="muted small">{c.kh_id ? `KV: ${c.kh_id} · ` : ""}{c.key}</span>
+                {c.last_order_at && <span class="muted small">📦 {fmtTime(c.last_order_at)}</span>}
+              </div>
               <a class="btn small" href={`#/orders`} onClick={() => localStorage.setItem("pending_search", c.name)}>
                 Xem đơn của khách này
               </a>
