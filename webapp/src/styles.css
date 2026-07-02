@@ -102,3 +102,8 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .topbar { display: flex; align-items: center; gap: 8px; }
 .topbar .search { flex: 1; }
 .clear-filter { white-space: nowrap; flex-shrink: 0; }
+
+/* Danh sách món trên card đơn (dashboard) */
+.items { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.item-chip { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; font-size: .72rem; white-space: nowrap; }
+.item-chip.more { color: var(--muted, #888); font-weight: 600; }

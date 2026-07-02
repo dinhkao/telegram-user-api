@@ -19,6 +19,7 @@ type OrderRow = {
   nhan: boolean;
   done_after_20250124: boolean;
   invoice_count: number;
+  invoice_summary?: { sp: string; sl: number | string }[];
   topic_name: string;
   creator: string;
   text: string;
@@ -227,6 +228,16 @@ export function OrdersList() {
                 </span>
                 <TaskBadges o={o} />
               </div>
+              {o.invoice_summary && o.invoice_summary.length > 0 && (
+                <div class="items small">
+                  {o.invoice_summary.map((it) => (
+                    <span class="item-chip">{it.sl}× {it.sp}</span>
+                  ))}
+                  {o.invoice_count > o.invoice_summary.length && (
+                    <span class="item-chip more">+{o.invoice_count - o.invoice_summary.length}</span>
+                  )}
+                </div>
+              )}
               <div class="muted small">
                 {o.hd_code && <span>{o.hd_code} · </span>}
                 {o.invoice_count} món{o.creator ? ` · ${o.creator}` : ""}
