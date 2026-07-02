@@ -7,7 +7,12 @@ from order_images_store.images import (
     add_image,
     delete_image,
     get_image,
+    has_tg_message,
     list_images,
+    set_tg_message_id,
 )
 
-__all__ = ["add_image", "delete_image", "get_image", "list_images"]
+__all__ = [
+    "add_image", "delete_image", "get_image", "has_tg_message",
+    "list_images", "set_tg_message_id",
+]

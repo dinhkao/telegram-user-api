@@ -1,7 +1,8 @@
 """Bảng `order_images` (app.db) — CRUD metadata ảnh đính kèm theo thread_id đơn.
 
 Connection qua utils.db (cổng chung). File ảnh thật do server_app/image_routes ghi
-xuống đĩa; ở đây chỉ lưu tên file + kích thước + người tải. Dùng bởi: image_routes.
+xuống đĩa; ở đây chỉ lưu tên file + kích thước + người tải + id tin Telegram (để
+đồng bộ 2 chiều, chống nhập trùng). Dùng bởi: image_routes, server_app/order_photo_sync.
 """
 from __future__ import annotations
 
@@ -20,10 +21,13 @@ CREATE TABLE IF NOT EXISTS order_images (
     width INTEGER NOT NULL DEFAULT 0,
     height INTEGER NOT NULL DEFAULT 0,
     uploaded_by TEXT NOT NULL DEFAULT '?',
+    tg_message_id INTEGER,
     created_at INTEGER NOT NULL
 )
 """
 _CREATE_IDX = "CREATE INDEX IF NOT EXISTS idx_order_images_thread ON order_images(thread_id, created_at)"
+
+_COLS = "id, thread_id, filename, thumb, mime, size, width, height, uploaded_by, tg_message_id, created_at"
 
 _ensured: set[str] = set()   # DDL chạy 1 lần mỗi path mỗi process — không tốn schema lock mỗi request
 
@@ -34,6 +38,13 @@ def _conn(path: str | None = None):
     if key not in _ensured:
         conn.execute(_CREATE_SQL)
         conn.execute(_CREATE_IDX)
+        # Migration: bảng cũ (bản đầu) chưa có cột tg_message_id → thêm nếu thiếu.
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(order_images)").fetchall()}
+        if "tg_message_id" not in cols:
+            try:
+                conn.execute("ALTER TABLE order_images ADD COLUMN tg_message_id INTEGER")
+            except Exception:  # noqa: BLE001 — cột đã có ở process khác thì bỏ qua
+                pass
         _ensured.add(key)
     return conn
 
@@ -48,6 +59,7 @@ def add_image(
     width: int = 0,
     height: int = 0,
     uploaded_by: str = "?",
+    tg_message_id: int | None = None,
     db_path: str | None = None,
 ) -> dict:
     """Ghi 1 dòng metadata ảnh; trả về dict đầy đủ (kèm id)."""
@@ -55,14 +67,15 @@ def add_image(
     conn = _conn(db_path)
     try:
         cur = conn.execute(
-            "INSERT INTO order_images (thread_id, filename, thumb, mime, size, width, height, uploaded_by, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (int(thread_id), filename, thumb, mime, int(size), int(width), int(height), uploaded_by or "?", now),
+            "INSERT INTO order_images (thread_id, filename, thumb, mime, size, width, height, uploaded_by, tg_message_id, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (int(thread_id), filename, thumb, mime, int(size), int(width), int(height),
+             uploaded_by or "?", tg_message_id, now),
         )
         return {
             "id": cur.lastrowid, "thread_id": int(thread_id), "filename": filename, "thumb": thumb,
             "mime": mime, "size": int(size), "width": int(width), "height": int(height),
-            "uploaded_by": uploaded_by or "?", "created_at": now,
+            "uploaded_by": uploaded_by or "?", "tg_message_id": tg_message_id, "created_at": now,
         }
     finally:
         conn.close()
@@ -73,8 +86,7 @@ def list_images(thread_id: int, *, db_path: str | None = None) -> list[dict]:
     conn = _conn(db_path)
     try:
         rows = conn.execute(
-            "SELECT id, thread_id, filename, thumb, mime, size, width, height, uploaded_by, created_at"
-            " FROM order_images WHERE thread_id = ? ORDER BY created_at DESC, id DESC",
+            f"SELECT {_COLS} FROM order_images WHERE thread_id = ? ORDER BY created_at DESC, id DESC",
             (int(thread_id),),
         ).fetchall()
         return [dict(r) for r in rows]
@@ -86,11 +98,31 @@ def get_image(image_id: int, *, db_path: str | None = None) -> dict | None:
     conn = _conn(db_path)
     try:
         row = conn.execute(
-            "SELECT id, thread_id, filename, thumb, mime, size, width, height, uploaded_by, created_at"
-            " FROM order_images WHERE id = ?",
-            (int(image_id),),
+            f"SELECT {_COLS} FROM order_images WHERE id = ?", (int(image_id),),
         ).fetchone()
         return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def has_tg_message(thread_id: int, tg_message_id: int, *, db_path: str | None = None) -> bool:
+    """Đã có ảnh nào của đơn ứng với tin Telegram này chưa (chống nhập trùng)."""
+    conn = _conn(db_path)
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM order_images WHERE thread_id = ? AND tg_message_id = ? LIMIT 1",
+            (int(thread_id), int(tg_message_id)),
+        ).fetchone()
+        return row is not None
+    finally:
+        conn.close()
+
+
+def set_tg_message_id(image_id: int, tg_message_id: int, *, db_path: str | None = None) -> None:
+    """Gắn id tin Telegram vào dòng ảnh (sau khi forward web → topic thành công)."""
+    conn = _conn(db_path)
+    try:
+        conn.execute("UPDATE order_images SET tg_message_id = ? WHERE id = ?", (int(tg_message_id), int(image_id)))
     finally:
         conn.close()
 

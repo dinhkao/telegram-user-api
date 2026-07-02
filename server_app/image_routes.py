@@ -58,6 +58,45 @@ def _ext_for(mime: str, filename: str) -> str:
     return ext if ext in _MIME_BY_EXT else ".jpg"
 
 
+async def persist_order_image(
+    thread_id: int,
+    full_bytes: bytes,
+    mime: str,
+    ext: str,
+    thumb_bytes: bytes,
+    thumb_ext: str,
+    *,
+    width: int = 0,
+    height: int = 0,
+    uploaded_by: str = "?",
+    tg_message_id: int | None = None,
+) -> dict:
+    """Ghi file (full + thumb) xuống ORDER_MEDIA_DIR/<thread_id>/ + 1 dòng metadata.
+
+    Dùng chung cho upload web (image_routes) và nhập từ Telegram (order_photo_sync).
+    Không phát realtime — caller tự gọi emit_order_changed.
+    """
+    uid = uuid.uuid4().hex
+    fname, tname = f"{uid}{ext}", f"{uid}_t{thumb_ext}"
+
+    def _write():
+        fp = _safe_path(thread_id, fname)
+        tp = _safe_path(thread_id, tname)
+        if not fp or not tp:
+            raise ValueError("tên file không hợp lệ")
+        with open(fp, "wb") as f:
+            f.write(full_bytes)
+        with open(tp, "wb") as f:
+            f.write(thumb_bytes)
+
+    await asyncio.to_thread(_write)
+    return await asyncio.to_thread(
+        add_image, thread_id, fname, tname, mime,
+        size=len(full_bytes), width=width, height=height,
+        uploaded_by=uploaded_by, tg_message_id=tg_message_id,
+    )
+
+
 async def images_list_handler(request: web.Request):
     thread_id = _thread_id(request)
     if thread_id is None:
@@ -125,31 +164,27 @@ async def images_upload_handler(request: web.Request):
     width, height = _to_int(data.get("width")), _to_int(data.get("height"))
     uploaded_by = str(request.get("web_user") or data.get("user") or "?")
 
-    uid = uuid.uuid4().hex
-    fname, tname = f"{uid}{ext}", f"{uid}_t{thumb_ext}"
-
-    def _write():
-        fp = _safe_path(thread_id, fname)
-        tp = _safe_path(thread_id, tname)
-        if not fp or not tp:
-            raise ValueError("tên file không hợp lệ")
-        with open(fp, "wb") as f:
-            f.write(photo_bytes)
-        with open(tp, "wb") as f:
-            f.write(thumb_bytes)
-
     try:
-        await asyncio.to_thread(_write)
+        image = await persist_order_image(
+            thread_id, photo_bytes, photo_mime, ext, thumb_bytes, thumb_ext,
+            width=width, height=height, uploaded_by=uploaded_by,
+        )
     except Exception as e:  # noqa: BLE001
         log.error("ghi file ảnh lỗi: %s", e)
         return web.json_response({"ok": False, "error": f"lưu file lỗi: {e}"}, status=500)
 
-    image = await asyncio.to_thread(
-        add_image, thread_id, fname, tname, photo_mime,
-        size=len(photo_bytes), width=width, height=height, uploaded_by=uploaded_by,
-    )
     from server_app.realtime import emit_order_changed
     emit_order_changed(thread_id)
+    # Forward ảnh vào topic Telegram của đơn (nền, không chặn/không làm hỏng upload)
+    from server_app.order_photo_sync import forward_web_image_to_topic
+    from server_app.tasks import spawn_tracked
+    fp = _safe_path(thread_id, image["filename"])
+    if fp:
+        spawn_tracked(
+            "order_photo.forward",
+            forward_web_image_to_topic(thread_id, fp, image["id"], uploaded_by),
+            context={"thread_id": thread_id, "image_id": image["id"]},
+        )
     return web.json_response({"ok": True, "image": image})
 
 
