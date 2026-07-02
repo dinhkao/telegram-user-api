@@ -6,6 +6,7 @@ from aiohttp import web
 
 from order_db import _get_connection, get_order_by_thread_id, get_customer_price_list
 
+from server_app.order_api_common import apply_web_actor
 from server_app.telegram_helpers import tg_send_message
 
 log = logging.getLogger("server")
@@ -16,9 +17,8 @@ async def _payment_handler(request: web.Request, method: str):
         body = await request.json()
     except Exception:
         return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    apply_web_actor(request, body)
     thread_id, amount, user_id = body.get("thread_id"), body.get("amount"), body.get("user_id")
-    if not user_id and request.get("web_user"):
-        user_id = request["web_user"]
     if not thread_id or not amount:
         return web.json_response({"ok": False, "error": "Missing thread_id or amount"}, status=400)
     try:

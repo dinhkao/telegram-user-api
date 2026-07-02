@@ -36,7 +36,9 @@ async def comments_add_handler(request: web.Request):
         body = await request.json()
     except Exception:
         return web.json_response({"ok": False, "error": "body phải là JSON"}, status=400)
-    username = request.get("web_user") or str(body.get("user") or "").strip() or "?"
+    from server_app.order_api_common import apply_web_actor
+    apply_web_actor(request, body, key="user")
+    username = str(body.get("user") or "").strip() or "?"
     try:
         comment = await asyncio.to_thread(add_comment, thread_id, username, str(body.get("text") or ""))
     except ValueError as exc:

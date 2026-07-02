@@ -14,6 +14,7 @@ SENSITIVE_KEY_HINTS = (
     "api hash",
     "api_hash",
     "authorization",
+    "pin",
     "private_key",
     "phone",
     "password",

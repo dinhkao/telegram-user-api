@@ -30,6 +30,7 @@ export function Customers() {
   const onSearch = (q: string) => {
     setSearch(q);
     clearTimeout(debounce.current);
+    if (q.length === 1) return; // 1 ký tự = full-scan LIKE vô ích trên server, chờ gõ thêm
     debounce.current = window.setTimeout(() => load(q), 350);
   };
 

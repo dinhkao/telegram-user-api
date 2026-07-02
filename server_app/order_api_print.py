@@ -9,7 +9,7 @@ from print_service import execute_print_giao
 
 from server_app import state
 from server_app.config import ORDER_GROUP_ID
-from server_app.order_api_common import resolve_name
+from server_app.order_api_common import apply_web_actor, resolve_name
 from server_app.tasks import spawn_tracked
 from server_app.telegram_helpers import tg_send_message
 
@@ -18,8 +18,7 @@ log = logging.getLogger("server")
 
 async def api_print_giao_handler(request: web.Request):
     body = await request.json()
-    if not body.get("user_id") and request.get("web_user"):
-        body["user_id"] = request["web_user"]
+    apply_web_actor(request, body)
     thread_id = body.get("thread_id")
     if not thread_id:
         return web.json_response({"error": "Missing thread_id"}, status=400)

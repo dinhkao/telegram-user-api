@@ -55,17 +55,19 @@ async function parse(res: Response): Promise<any> {
   return data;
 }
 
-/** GET network-first; mất mạng → trả cache (kèm cờ _stale) nếu có. */
-export async function getJSON(path: string): Promise<any> {
+/** GET network-first; mất mạng → trả cache (kèm cờ _stale) nếu có.
+ *  cache=false cho kết quả search theo phím gõ — không rác localStorage. */
+export async function getJSON(path: string, opts?: { cache?: boolean }): Promise<any> {
   const url = serverUrl() + path;
+  const useCache = opts?.cache !== false;
   try {
     const res = await fetch(url, { headers: headers() });
     const data = await parse(res);
-    writeCache(path, data);
+    if (useCache) writeCache(path, data);
     return data;
   } catch (e) {
     if (e instanceof ApiError) throw e;
-    const cached = readCache(path);
+    const cached = useCache ? readCache(path) : null;
     if (cached) return { ...cached.data, _stale: true, _cachedAt: cached.t };
     throw new Error("Mất mạng và chưa có dữ liệu lưu sẵn");
   }
@@ -87,11 +89,16 @@ export async function postJSON(path: string, body: any, opts?: { queueable?: boo
   }
 }
 
-/** Gửi lại hàng đợi offline (gọi khi online lại / mở app). */
+/** Gửi lại hàng đợi offline (gọi khi online lại / mở app).
+ *  401 → GIỮ item (token hết hạn, đăng nhập lại sẽ gửi tiếp — không mất dữ liệu);
+ *  4xx khác → BỎ (đơn không còn / dữ liệu sai, retry mãi vô ích); lỗi mạng/5xx → giữ. */
 export function replayQueue(): Promise<number> {
   return flushQueue(async (path, body) => {
     const res = await fetch(serverUrl() + path, { method: "POST", headers: headers(), body: JSON.stringify(body) });
-    if (!res.ok && res.status !== 401) throw new Error(`retry ${res.status}`);
+    if (res.ok) return "ok";
+    if (res.status === 401) return "keep";
+    if (res.status >= 400 && res.status < 500) return "drop";
+    return "keep";
   });
 }
 

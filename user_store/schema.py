@@ -19,10 +19,16 @@ CREATE TABLE IF NOT EXISTS web_users (
 """
 
 
+_ensured: set[str] = set()   # DDL chạy 1 lần mỗi path mỗi process — không tốn schema lock mỗi request
+
+
 def get_users_conn(path: str | None = None):
     """Mở connection app.db (hoặc `path` cho test) và đảm bảo bảng tồn tại."""
     conn = get_connection(path) if path else get_connection()
-    conn.execute(_CREATE_SQL)
+    key = path or ""
+    if key not in _ensured:
+        conn.execute(_CREATE_SQL)
+        _ensured.add(key)
     return conn
 
 

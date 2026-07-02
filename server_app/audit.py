@@ -13,7 +13,10 @@ async def audit_middleware(request: web.Request, handler):
     request["request_id"] = request_id
     start = time.perf_counter()
     body_text = None
-    if request.can_read_body and not (request.content_type or "").startswith("multipart/"):
+    if request.path == "/api/auth/login":
+        # body chứa PIN cleartext — không được ghi vào audit DB
+        body_text = "<login body redacted>"
+    elif request.can_read_body and not (request.content_type or "").startswith("multipart/"):
         try:
             body_text = await request.text()
         except Exception as exc:

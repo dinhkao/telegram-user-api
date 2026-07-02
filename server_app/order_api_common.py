@@ -10,6 +10,19 @@ from order_html import build_order_main_message_html
 log = logging.getLogger("server")
 
 
+def apply_web_actor(request, body: dict, key: str = "user_id") -> None:
+    """Đóng dấu user web (từ token) vào body[key] cho các endpoint mutation.
+
+    Token luôn thắng body (chống giả mạo); body chỉ được tự khai khi CHƯA bật
+    chặn auth (giai đoạn chuyển tiếp). Dùng ở mọi handler ghi có actor.
+    """
+    from server_app.config import WEB_AUTH_ENABLED
+    web_user = request.get("web_user")
+    if web_user:
+        if WEB_AUTH_ENABLED or not body.get(key):
+            body[key] = web_user
+
+
 async def resolve_name(user_id: int) -> str:
     if isinstance(user_id, str) and user_id and not user_id.isdigit():
         return user_id   # web user (username) — không tra Telegram entity

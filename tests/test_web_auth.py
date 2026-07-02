@@ -67,6 +67,12 @@ class Exempt(unittest.TestCase):
         self.assertTrue(is_exempt("POST", "/api/auth/login"))
         self.assertTrue(is_exempt("GET", "/api/auth/me"))
 
+    def test_loopback_exempt(self):
+        # bot role nội bộ gọi API qua localhost không token — không được 401
+        self.assertTrue(is_exempt("POST", "/api/order/ban", "127.0.0.1"))
+        self.assertTrue(is_exempt("POST", "/api/order/soan", "::1"))
+        self.assertFalse(is_exempt("POST", "/api/order/ban", "100.64.1.5"))
+
     def test_tg_api_exempt(self):
         self.assertTrue(is_exempt("POST", "/api/tg/edit-message"))
 
@@ -93,6 +99,30 @@ class ExtractToken(unittest.TestCase):
 
     def test_none(self):
         self.assertEqual(extract_token({}, {}), "")
+
+
+class CorsAllowlist(unittest.TestCase):
+    def test_webview_origin_allowed(self):
+        from server_app.cors import cors_headers
+        h = cors_headers("https://appassets.androidplatform.net")
+        self.assertEqual(h.get("Access-Control-Allow-Origin"), "https://appassets.androidplatform.net")
+
+    def test_unknown_origin_gets_nothing(self):
+        from server_app.cors import cors_headers
+        self.assertEqual(cors_headers("https://evil.example.com"), {})
+        self.assertEqual(cors_headers(""), {})
+
+
+class DigitUsernameRejected(unittest.TestCase):
+    def test_all_digit_username_rejected(self):
+        # username toàn số sẽ bị resolve_name nhầm là Telegram id
+        import os
+        import tempfile
+        from user_store import add_user
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        with self.assertRaises(ValueError):
+            add_user("0912345678", "1234", db_path=db)
+        add_user("duy91", "1234", db_path=db)  # có chữ cái — hợp lệ
 
 
 if __name__ == "__main__":

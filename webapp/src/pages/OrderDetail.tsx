@@ -32,7 +32,10 @@ export function OrderDetail({ threadId }: { threadId: string }) {
 
   const j = detail.data || {};
   const pc = (j.hoadon || {}).print_content || {};
-  const total = pc.tongthanhtoan ? pc.tongthanhtoan : money(invoiceTotal(j.invoice));
+  // ưu tiên tổng từ hoá đơn in (đã gồm mọi điều chỉnh); tự tính thì phải cộng trừ
+  // discount/pvc/vat như /api/order/totals — không thì lệch với Telegram
+  const computedTotal = invoiceTotal(j.invoice) - (Number(j.discount) || 0) + (Number(j.pvc) || 0) + (Number(j.vat) || 0);
+  const total = pc.tongthanhtoan ? pc.tongthanhtoan : money(computedTotal);
   const paid = paidTotal(j.payments);
 
   const doPrint = async () => {

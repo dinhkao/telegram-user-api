@@ -20,10 +20,16 @@ CREATE TABLE IF NOT EXISTS web_comments (
 _CREATE_IDX = "CREATE INDEX IF NOT EXISTS idx_web_comments_thread ON web_comments(thread_id, created_at)"
 
 
+_ensured: set[str] = set()   # DDL chạy 1 lần mỗi path mỗi process — không tốn schema lock mỗi request
+
+
 def _conn(path: str | None = None):
     conn = get_connection(path) if path else get_connection()
-    conn.execute(_CREATE_SQL)
-    conn.execute(_CREATE_IDX)
+    key = path or ""
+    if key not in _ensured:
+        conn.execute(_CREATE_SQL)
+        conn.execute(_CREATE_IDX)
+        _ensured.add(key)
     return conn
 
 

@@ -7,16 +7,14 @@ sai thì chờ 0.5s (hãm brute-force PIN ngắn). /api/auth/me: cho frontend bi
 from __future__ import annotations
 
 import asyncio
-import os
 import time
 
 from aiohttp import web
 
+from server_app.config import WEB_AUTH_ENABLED, WEB_AUTH_TOKEN_TTL
 from server_app.web_auth.secret import get_web_auth_secret
 from server_app.web_auth.token import issue_token
 from user_store import get_user, verify_login
-
-WEB_AUTH_TOKEN_TTL = int(os.getenv("WEB_AUTH_TOKEN_TTL", 30 * 24 * 3600))  # 30 ngày
 
 
 async def login_handler(request: web.Request):
@@ -41,7 +39,6 @@ async def login_handler(request: web.Request):
 
 
 async def me_handler(request: web.Request):
-    from server_app.web_auth.middleware import WEB_AUTH_ENABLED
     username = request.get("web_user")
     if not username:
         return web.json_response({"ok": True, "auth_enabled": WEB_AUTH_ENABLED, "user": None})

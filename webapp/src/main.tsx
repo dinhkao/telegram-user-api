@@ -53,7 +53,10 @@ function OfflineBanner() {
 function App() {
   const hash = useHash();
   const user = currentUser();
-  const needSetup = !serverUrl() && window.location.protocol !== "http:" && window.location.protocol !== "https:";
+  // APK load bundle qua WebViewAssetLoader tại appassets.androidplatform.net —
+  // trong đó bắt buộc phải có server_url (fetch relative sẽ trỏ nhầm vào assets)
+  const inApk = window.location.hostname === "appassets.androidplatform.net" || window.location.protocol === "file:";
+  const needSetup = inApk && !serverUrl();
   if ((!user || needSetup) && hash !== "#/login") {
     window.location.hash = "#/login";
     return null;

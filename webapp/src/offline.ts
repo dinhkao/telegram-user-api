@@ -57,19 +57,22 @@ export function getQueue(): QueuedPost[] {
   }
 }
 
-/** Gửi lần lượt; item lỗi mạng giữ lại, item lỗi khác (4xx) bỏ. Trả số item đã gửi. */
-export async function flushQueue(send: (path: string, body: any) => Promise<void>): Promise<number> {
+/** Gửi lần lượt. Callback trả "ok" (đã gửi) | "drop" (bỏ hẳn) | "keep" (giữ thử sau);
+ *  ném exception (mất mạng) = "keep". Trả số item đã gửi. */
+export async function flushQueue(send: (path: string, body: any) => Promise<"ok" | "drop" | "keep">): Promise<number> {
   const q = getQueue();
   if (!q.length) return 0;
   const remaining: QueuedPost[] = [];
   let sent = 0;
   for (const item of q) {
+    let verdict: "ok" | "drop" | "keep";
     try {
-      await send(item.path, item.body);
-      sent++;
+      verdict = await send(item.path, item.body);
     } catch {
-      remaining.push(item); // còn lỗi → giữ lại thử lần sau
+      verdict = "keep";
     }
+    if (verdict === "ok") sent++;
+    else if (verdict === "keep") remaining.push(item);
   }
   localStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
   return sent;

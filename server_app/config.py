@@ -29,6 +29,16 @@ if FIREWORKS_MODEL.startswith("fireworks/"):
     FIREWORKS_MODEL = FIREWORKS_MODEL[len("fireworks/"):]
 PI_SESSIONS_DIR = pathlib.Path(os.getenv("PI_SESSIONS_DIR", os.path.expanduser("~/.pi/agent/tg-sessions")))
 PI_SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+# Web app auth (server_app/web_auth/) — bật chặn /api/* bằng WEB_AUTH_ENABLED=true.
+WEB_AUTH_ENABLED = os.getenv("WEB_AUTH_ENABLED", "false").strip().lower() in ("1", "true", "yes")
+WEB_AUTH_TOKEN_TTL = int(os.getenv("WEB_AUTH_TOKEN_TTL", 30 * 24 * 3600))  # 30 ngày
+# CORS allowlist cho web app (WebView APK + dev); thêm origin qua env, phẩy ngăn cách.
+WEB_CORS_ORIGINS = tuple(
+    o.strip() for o in os.getenv(
+        "WEB_CORS_ORIGINS",
+        "https://appassets.androidplatform.net,http://localhost:5174,http://127.0.0.1:5174",
+    ).split(",") if o.strip()
+)
 SEARCH_BATCH = 50
 SEARCH_MAX_DEEP = 5000
 RESULT_CACHE_TTL_SEC = 30

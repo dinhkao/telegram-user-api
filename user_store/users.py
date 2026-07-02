@@ -22,24 +22,29 @@ def _row_to_dict(row) -> dict:
 
 
 def add_user(username: str, pin: str, display_name: str = "", role: str = "staff", *, db_path: str | None = None) -> dict:
-    """Tạo user mới. Raise ValueError nếu username trống/PIN trống/đã tồn tại."""
+    """Tạo user mới. Raise ValueError nếu username trống/toàn số/PIN trống/đã tồn tại."""
     username = (username or "").strip().lower()
     if not username:
         raise ValueError("username trống")
+    if username.isdigit():
+        # username toàn số sẽ bị các consumer (resolve_name, task actor) nhầm là
+        # Telegram user id — cấm từ gốc
+        raise ValueError("username không được toàn số — thêm chữ cái")
     if not pin:
         raise ValueError("PIN trống")
     conn = get_users_conn(db_path)
     try:
-        conn.execute(
-            "INSERT INTO web_users (username, pin_hash, display_name, role, created_at) VALUES (?, ?, ?, ?, ?)",
-            (username, hash_pin(pin), display_name or username, role, int(time.time())),
-        )
-    except Exception as exc:
-        if "UNIQUE" in str(exc):
-            raise ValueError(f"username '{username}' đã tồn tại") from exc
-        raise
-    finally:
+        try:
+            conn.execute(
+                "INSERT INTO web_users (username, pin_hash, display_name, role, created_at) VALUES (?, ?, ?, ?, ?)",
+                (username, hash_pin(pin), display_name or username, role, int(time.time())),
+            )
+        except Exception as exc:
+            if "UNIQUE" in str(exc):
+                raise ValueError(f"username '{username}' đã tồn tại") from exc
+            raise
         row = conn.execute("SELECT * FROM web_users WHERE username = ?", (username,)).fetchone()
+    finally:
         conn.close()
     return _row_to_dict(row)
 

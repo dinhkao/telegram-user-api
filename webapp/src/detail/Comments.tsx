@@ -1,10 +1,18 @@
 // Khối trao đổi — bình luận web (web_comments, queueable offline) + log chat
 // Telegram của topic (order_chat_messages, chỉ đọc), trộn theo thời gian.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { getJSON, postJSON, currentUser } from "../api";
 import { timeAgo } from "../format";
 
 type Item = { who: string; text: string; at: number; source: "web" | "tg" };
+
+/** order_chat_messages.created_at là TEXT UTC 'YYYY-MM-DD HH:MM:SS' (sqlite
+ *  datetime('now')), còn comment web là epoch giây — quy hết về epoch. */
+function toEpoch(v: any): number {
+  if (typeof v === "number") return v;
+  const t = Date.parse(String(v || "").replace(" ", "T") + "Z");
+  return isNaN(t) ? 0 : Math.floor(t / 1000);
+}
 
 export function Comments({ threadId, chatMessages }: { threadId: string; chatMessages: any[] }) {
   const [comments, setComments] = useState<any[]>([]);
@@ -34,7 +42,8 @@ export function Comments({ threadId, chatMessages }: { threadId: string; chatMes
         const user = currentUser();
         setComments((p) => [...p, { username: user?.username || "?", text: t, created_at: Math.floor(Date.now() / 1000), _queued: true }]);
       } else {
-        load();
+        // server trả comment vừa tạo — append thẳng, khỏi refetch cả danh sách
+        setComments((p) => [...p, r.comment]);
       }
     } catch (ex: any) {
       alert(ex.message);
@@ -43,12 +52,17 @@ export function Comments({ threadId, chatMessages }: { threadId: string; chatMes
     }
   };
 
-  const items: Item[] = [
-    ...comments.map((c): Item => ({ who: c.username, text: c.text, at: c.created_at, source: "web" })),
-    ...chatMessages
-      .filter((m) => (m.text || "").trim())
-      .map((m): Item => ({ who: m.sender_name || String(m.sender_id), text: m.text, at: m.created_at, source: "tg" })),
-  ].sort((a, b) => a.at - b.at);
+  // useMemo: không re-sort cả log chat dài theo từng phím gõ vào ô comment
+  const items: Item[] = useMemo(
+    () =>
+      [
+        ...comments.map((c): Item => ({ who: c.username, text: c.text, at: toEpoch(c.created_at), source: "web" })),
+        ...chatMessages
+          .filter((m) => (m.text || "").trim())
+          .map((m): Item => ({ who: m.sender_name || String(m.sender_id), text: m.text, at: toEpoch(m.created_at), source: "tg" })),
+      ].sort((a, b) => a.at - b.at),
+    [comments, chatMessages]
+  );
 
   return (
     <div class="card">

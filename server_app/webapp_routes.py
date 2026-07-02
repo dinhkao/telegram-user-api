@@ -13,10 +13,6 @@ from aiohttp import web
 _DIST = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "webapp", "dist")
 
 
-def webapp_dist_exists() -> bool:
-    return os.path.isfile(os.path.join(_DIST, "index.html"))
-
-
 async def webapp_index_handler(request: web.Request):
     index = os.path.join(_DIST, "index.html")
     if not os.path.isfile(index):
@@ -32,5 +28,8 @@ async def _redirect_to_slash(request: web.Request):
 def register_webapp_routes(router) -> None:
     router.add_get("/app", _redirect_to_slash)
     router.add_get("/app/", webapp_index_handler)
-    if os.path.isdir(os.path.join(_DIST, "assets")):
-        router.add_static("/app/assets/", os.path.join(_DIST, "assets"))
+    # tạo sẵn thư mục để add_static không nổ khi server start trước khi build web —
+    # build xong là serve được ngay, không cần restart
+    assets = os.path.join(_DIST, "assets")
+    os.makedirs(assets, exist_ok=True)
+    router.add_static("/app/assets/", assets)

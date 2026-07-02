@@ -46,7 +46,9 @@ def _build_and_insert(text: str, creator: str, customer_key: str | None) -> dict
             "text_raw": text,
             "created": datetime.now().isoformat(),
             "thread_id": thread_id,
-            "firebase_key": f"web_{now}",
+            # key theo thread_id (đã uniquify) — không phải `now`, tránh 2 đơn cùng
+            # giây trùng PRIMARY KEY rồi bị INSERT OR IGNORE nuốt im lặng
+            "firebase_key": f"web_{-thread_id}",
             "channel_id": 0,
             "message_id": 0,
             "flow_version": "web",
@@ -59,6 +61,9 @@ def _build_and_insert(text: str, creator: str, customer_key: str | None) -> dict
         }
         if not _create_order(conn, data["firebase_key"], thread_id, 0, 0, data):
             raise RuntimeError("insert thất bại")
+        # _create_order dùng INSERT OR IGNORE và trả True cả khi bị bỏ qua — xác nhận
+        if get_order_by_thread_id(conn, thread_id) is None:
+            raise RuntimeError("insert bị bỏ qua (trùng key) — thử lại")
     return {"thread_id": thread_id, "key": data["firebase_key"], "customer_name": customer_name, "khach_hang_id": kh_id, "invoice_count": len(invoice)}
 
 
@@ -70,7 +75,9 @@ async def order_create_handler(request: web.Request):
     text = str(body.get("text") or "").strip()
     if not text:
         return web.json_response({"ok": False, "error": "thiếu text đơn hàng"}, status=400)
-    creator = request.get("web_user") or str(body.get("user") or "web")
+    from server_app.order_api_common import apply_web_actor
+    apply_web_actor(request, body, key="user")
+    creator = str(body.get("user") or "web")
     customer_key = str(body.get("customer_key") or "").strip() or None
     try:
         result = await asyncio.to_thread(_build_and_insert, text, creator, customer_key)

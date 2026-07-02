@@ -49,7 +49,8 @@ export function OrdersList() {
     setLoading(true);
     setErr("");
     try {
-      const data = await getJSON(`/api/orders?page=${p}&limit=30&search=${encodeURIComponent(q)}`);
+      // chỉ cache trang không search — kết quả theo phím gõ không rác localStorage
+      const data = await getJSON(`/api/orders?page=${p}&limit=30&search=${encodeURIComponent(q)}`, { cache: !q });
       setOrders((prev) => (append ? [...prev, ...data.orders] : data.orders));
       setTotalPages(data.total_pages || 1);
       if (data.stats && Object.keys(data.stats).length) setStats(data.stats);
