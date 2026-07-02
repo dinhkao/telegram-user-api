@@ -1,11 +1,11 @@
 // Chi tiết đơn — header + text + ghép các khối detail/* (tasks, invoice,
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useState } from "preact/hooks";
-import { getJSON, postJSON } from "../api";
+import { createKiotVietInvoice, getJSON, postJSON } from "../api";
 import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal } from "../format";
 import { Comments } from "../detail/Comments";
-import { InvoiceBlock } from "../detail/Invoice";
+import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { Payments } from "../detail/Payments";
 import { Tasks } from "../detail/Tasks";
 
@@ -69,6 +69,23 @@ export function OrderDetail({ threadId }: { threadId: string }) {
     }
   };
 
+  const saveInvoice = async (payload: EditorPayload) => {
+    await postJSON("/api/order/invoice/update", { thread_id: Number(threadId), ...payload });
+    setMsg("✅ Đã lưu hoá đơn");
+    reload();
+  };
+
+  const createHD = async () => {
+    if (!confirm("Tạo hoá đơn KiotViet cho đơn này?")) return;
+    try {
+      const r = await createKiotVietInvoice(threadId);
+      setMsg(`🧾 Đã tạo HĐ ${r.kv_code || ""}${r.old_debt ? ` · nợ cũ ${money(r.old_debt)}đ` : ""}`);
+      reload();
+    } catch (ex: any) {
+      setMsg(`❌ ${ex.message}`);
+    }
+  };
+
   const saveText = async () => {
     if (editText === null) return;
     setBusy(true);
@@ -102,10 +119,22 @@ export function OrderDetail({ threadId }: { threadId: string }) {
         <div class="row space"><span>Tổng tiền</span><b class="money">{total}đ</b></div>
         <div class="row space"><span>Đã trả</span><b>{money(paid)}đ</b></div>
         {pc.no_truoc && <div class="row space"><span>Nợ trước</span><b>{pc.no_truoc}đ</b></div>}
+        {(j.khDebt != null || j.invoice_debt_snapshot != null) && (
+          <div class="row space"><span>Nợ khách (KiotViet)</span><b>{money(j.khDebt ?? j.invoice_debt_snapshot)}đ</b></div>
+        )}
       </div>
 
       <Tasks threadId={threadId} taskStatus={j.task_status || {}} onChanged={reload} />
-      <InvoiceBlock threadId={threadId} invoice={j.invoice || []} onChanged={reload} />
+      <InvoiceEditor
+        customerId={j.khach_hang_id || j.khID}
+        invoice={j.invoice || []}
+        discount={j.discount}
+        pvc={j.pvc}
+        vat={j.vat}
+        onSave={saveInvoice}
+        onCreateInvoice={createHD}
+        hasInvoice={!!j.kiotvietInvoiceID}
+      />
       <Payments threadId={threadId} payments={j.payments || []} onChanged={reload} />
 
       <div class="card">

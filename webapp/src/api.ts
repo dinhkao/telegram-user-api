@@ -113,3 +113,23 @@ export async function login(username: string, pin: string): Promise<any> {
   setAuth(data.token, data.user);
   return data.user;
 }
+
+// ── Helpers cho trình nhập hoá đơn nâng cao ──────────────────────────────
+
+/** Autocomplete mã/tên SP. Không cache (kết quả theo phím gõ). */
+export async function searchProducts(q: string): Promise<{ code: string; name: string }[]> {
+  const d = await getJSON(`/api/products?search=${encodeURIComponent(q)}&limit=15`, { cache: false });
+  return d.products || [];
+}
+
+/** Giá SP theo khách (0 nếu không có trong bảng giá). */
+export async function fetchCustomerPrice(customerId: string, product: string): Promise<number> {
+  if (!customerId || !product) return 0;
+  const d = await postJSON("/api/customer/price", { customer_id: customerId, product });
+  return d.price || 0;
+}
+
+/** Tạo hoá đơn KiotViet cho đơn (tương đương lệnh 'tạo hd'). */
+export async function createKiotVietInvoice(threadId: string | number): Promise<any> {
+  return postJSON("/api/order/invoice/create-kiotviet", { thread_id: Number(threadId) });
+}

@@ -81,3 +81,15 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .rt-offline .rt-led { background: #ea4335; }
 .rt-connecting .rt-led { background: #fbbc04; animation: rt-pulse 1s ease-in-out infinite; }
 @keyframes rt-pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* Autocomplete (mã SP / khách hàng) */
+.ac { position: relative; }
+.ac-list { position: absolute; z-index: 40; left: 0; right: 0; top: 100%; margin-top: 2px; max-height: 220px; overflow-y: auto; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12); list-style: none; }
+.ac-list li { padding: 8px 10px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: .9rem; }
+.ac-list li:active, .ac-list li:hover { background: var(--bg); }
+.note-inp { width: 100%; margin-top: 3px; font-size: .8rem; padding: 4px 6px; }
+
+/* Khối điều chỉnh hoá đơn (CK / PVC / VAT / tổng) */
+.adj { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.adj > label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; font-size: .9rem; }
+.adj .total { border-top: 1px dashed var(--border); padding-top: 8px; margin-top: 8px; font-size: 1.05rem; }
