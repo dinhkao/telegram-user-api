@@ -2,7 +2,7 @@
 // Data: GET /api/orders (server_app/orders_api.py). Card → #/order/:thread_id.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON } from "../api";
-import { money } from "../format";
+import { money, fmtTime } from "../format";
 import { onRealtime } from "../realtime";
 import { InvoiceTable } from "../detail/InvoiceTable";
 
@@ -27,6 +27,7 @@ type OrderRow = {
   discount?: number;
   no_truoc?: string;
   kh_debt?: number | null;
+  created?: string;
   giao_by?: string;
   nop_by?: string;
   nop_note?: string;
@@ -305,7 +306,7 @@ export function OrdersList() {
                   : <div class="order-text muted">(không có nội dung)</div>}
                 <div class="row space">
                   <b class="cust"><Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} /></b>
-                  <span class="muted small">{o.date}</span>
+                  <span class="muted small">{o.created ? fmtTime(o.created) : o.date}</span>
                 </div>
                 <div class="row space">
                   <span>
