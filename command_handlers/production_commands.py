@@ -38,6 +38,7 @@ from production_store import (
     set_bang,
     delete_slip,
 )
+from production_store.domain import looks_like_report, parse_report, compute_report
 
 from .thread_utils import extract_thread_id
 
@@ -72,89 +73,8 @@ def _is_product_code(s: str) -> bool:
     return s in SP_INFO or s in PRODUCT_CODES
 
 
-# ─── CSV parsing (node parseSanXuatData / parseCSVLine) ─────────────────────
-def _parse_csv_line(line: str) -> list[str]:
-    cells, current, in_quotes = [], "", False
-    i = 0
-    while i < len(line):
-        ch = line[i]
-        nxt = line[i + 1] if i + 1 < len(line) else ""
-        if ch == '"':
-            if in_quotes and nxt == '"':
-                current += '"'
-                i += 1
-            else:
-                in_quotes = not in_quotes
-        elif ch == "," and not in_quotes:
-            cells.append(current)
-            current = ""
-        else:
-            current += ch
-        i += 1
-    cells.append(current)
-    out = []
-    for cell in cells:
-        if cell.startswith('"') and cell.endswith('"'):
-            out.append(cell[1:-1].replace('""', '"'))
-        else:
-            out.append(cell)
-    return out
-
-
-def _clean_num(val) -> float:
-    if val is None or val in ('""', ""):
-        return 0.0
-    cleaned = str(val).strip().strip('"').strip("'").strip()
-    try:
-        return float(cleaned)
-    except ValueError:
-        return 0.0
-
-
-def _is_nan_cell(val: str) -> bool:
-    try:
-        float(str(val).strip().strip('"'))
-        return False
-    except ValueError:
-        return True
-
-
-def parse_san_xuat_data(text: str) -> list[dict]:
-    lines = text.strip().split("\n")
-    if not lines:
-        return []
-    delimiter = "\t" if "\t" in lines[0] else ","
-    parsed = []
-    for idx, raw in enumerate(lines):
-        line = raw.strip()
-        if not line:
-            continue
-        cells = _parse_csv_line(line) if delimiter == "," else line.split(delimiter)
-        cells = [c.strip() for c in cells]
-        if idx == 0 and (
-            "thợ" in (cells[0] or "").lower()
-            or (len(cells) > 1 and _is_nan_cell(cells[1]))
-            or (len(cells) > 2 and _is_nan_cell(cells[2]))
-        ):
-            continue  # header row
-        if len(cells) >= 4:
-            parsed.append({
-                "name": cells[0].strip().strip('"').strip("'"),
-                "so_gach": _clean_num(cells[1]),
-                "so_tru": _clean_num(cells[2]),
-                "so_cay_le": _clean_num(cells[3]),
-                "tong_sp": _clean_num(cells[4]) if len(cells) > 4 else 0.0,
-            })
-    return parsed
-
-
-def _looks_like_csv(text: str) -> bool:
-    low = text.lower()
-    return (
-        '"thợ"' in low
-        or ('","' in text and len(text.split("\n")) > 3)
-        or "thợ,số gạch" in low
-    )
+# CSV parsing moved to production_store/domain.py (parse_report/compute_report/
+# looks_like_report) — shared with the webapp endpoint so the two never drift.
 
 
 # ─── channel message edit (node updateTinNhan, no inline kb on user acct) ───
@@ -281,7 +201,7 @@ def register_production_commands(client):
             return
 
         # google-sheet CSV → báo cáo sản xuất
-        if _looks_like_csv(text):
+        if looks_like_report(text):
             await _handle_csv_report(msg, text, thread_id)
             return
 
@@ -390,26 +310,21 @@ def register_production_commands(client):
         await reply(msg, f"Tổng SX = {_fmt_num(real_total)}")
 
     async def _handle_csv_report(msg, text, thread_id):
-        product_code = None
-        for line in text.split("\n"):
-            up = line.upper().strip()
-            if up.startswith("SP:") or up.startswith("MÃ SP:"):
-                product_code = up.split(":", 1)[1].strip()
-                break
-            if up in SP_INFO:
-                product_code = up
-                break
+        parsed = parse_report(text)
+        if not parsed["rows"]:
+            await reply(msg, "❌ Không thể phân tích dữ liệu. Vui lòng dán dữ liệu từ Google Sheet với định dạng đúng.")
+            return
+
+        # product code: from the data, else the slip's current sp_name
+        product_code = parsed.get("product_code")
         if not product_code and thread_id:
             slip = get_slip(conn, thread_id)
             if slip and slip.get("sp_name"):
                 product_code = slip["sp_name"].upper()
-
-        rows = parse_san_xuat_data(text)
-        if not rows:
-            await reply(msg, "❌ Không thể phân tích dữ liệu. Vui lòng dán dữ liệu từ Google Sheet với định dạng đúng.")
-            return
-
         so_cay_1_mam = SP_INFO.get(product_code, {}).get("mam", 0) if product_code else 0
+
+        report = compute_report({**parsed, "product_code": product_code}, so_cay_1_mam)
+
         out = "📊 **BÁO CÁO SẢN XUẤT**\n"
         if product_code:
             out += f"📦 Mã SP: **{product_code}**\n🌿 Số cây 1 mâm: {so_cay_1_mam}\n"
@@ -417,29 +332,13 @@ def register_production_commands(client):
             out += "⚠️ _Chưa có mã sản phẩm - sử dụng cột Tổng SP từ dữ liệu_\n"
         out += "\n👷 **Chi tiết theo thợ:**\n"
 
-        grand_total = 0.0
-        maker_totals = []
-        table_rows = []
-        for row in rows:
-            gach, tru, le, tong = row["so_gach"], row["so_tru"], row["so_cay_le"], row["tong_sp"]
-            if not gach and not tru and not le and not tong:
-                continue
-            if so_cay_1_mam > 0:
-                so_mam = max(gach * 5 - tru - (1 if le > 0 else 0), 0)
-                total = so_cay_1_mam * so_mam + le
-            else:
-                total = tong
-            total = round(total * 100) / 100
-            if total > 0:
-                maker_totals.append((row["name"], total))
-                grand_total += total
-            table_rows.append({**row, "tong_calc": total})
-
-        maker_totals.sort(key=lambda x: x[1], reverse=True)
+        maker_totals = sorted(
+            ((r["name"], r["tong_calc"]) for r in report["rows"] if r["tong_calc"] > 0),
+            key=lambda x: x[1], reverse=True,
+        )
         for name, total in maker_totals:
             out += f"• {name}: **{_fmt_num(total)}** SP\n"
-        grand_total = round(grand_total * 100) / 100
-        out += f"\n📈 **TỔNG CỘNG: {_fmt_num(grand_total)} SP**"
+        out += f"\n📈 **TỔNG CỘNG: {_fmt_num(report['grand_total'])} SP**"
         if product_code and so_cay_1_mam > 0:
             out += f"\n\n_Công thức: (Số gạch × 5 - Số trừ - Làm tròn) × {so_cay_1_mam} + Số cây lẻ_"
 
@@ -449,7 +348,10 @@ def register_production_commands(client):
             set_bang(conn, thread_id, {
                 "product_code": product_code,
                 "so_cay_1_mam": so_cay_1_mam,
-                "rows": table_rows,
-                "grand_total": grand_total,
+                "date": report.get("date"),
+                "start": report.get("start"),
+                "end": report.get("end"),
+                "rows": report["rows"],
+                "grand_total": report["grand_total"],
                 "updated_at": datetime.now(_VN_TZ).isoformat(),
             })
