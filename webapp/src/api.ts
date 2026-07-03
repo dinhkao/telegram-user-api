@@ -128,9 +128,17 @@ export type OrderPreview = {
     debt?: number | null; debt_updated_at?: string | null; price_list_name?: string | null;
   } | null;
   candidates: { id: string; name: string; score: number }[];
-  invoice: { sp: string; sl: number; price: number; sub: number }[];
+  invoice: { sp: string; sl: number; price: number; sub: number; list_price?: number }[];
   total: number;
 };
+
+export type CustomerPriceList = { name: string | null; items: { sp: string; price: number }[] };
+
+/** Toàn bộ bảng giá hiệu lực của khách (cho popup xem giá). */
+export async function getCustomerPriceList(key: string): Promise<CustomerPriceList> {
+  const d = await getJSON(`/api/customer/${key}/price-list`, { cache: false });
+  return { name: d.name ?? null, items: d.items || [] };
+}
 
 /** Xem trước kết quả parse text đơn (khách + SP + tổng) — không tạo/lưu.
  *  customerKey: chọn khách tay (đè lên tự nhận diện). */

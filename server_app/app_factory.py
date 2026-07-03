@@ -9,7 +9,7 @@ from server_app.comment_routes import comments_add_handler, comments_list_handle
 from server_app.customer_routes import customer_detail_handler, customer_refresh_debt_handler, customers_search_handler
 from server_app.donhang_routes import donhang_handler, donhang_msg_handler, donhang_page_handler, donhang_stats_handler
 from server_app.image_routes import images_delete_handler, images_file_handler, images_list_handler, images_upload_handler
-from server_app.order_api_auto import auto_parse_handler, order_preview_handler
+from server_app.order_api_auto import auto_parse_handler, order_preview_handler, customer_price_list_handler
 from server_app.order_api_create import order_create_handler
 from server_app.order_api_mutations import api_assign_customer_handler, api_fix_handler, api_invoice_update_handler, api_refresh_handler, api_reply_handler
 from server_app.order_api_payments import api_customer_price_handler, order_totals_handler, payment_ck_handler, payment_tm_handler
@@ -70,6 +70,7 @@ def create_app():
     r.add_post("/api/order/totals", order_totals_handler)
     r.add_post("/api/order/auto-parse", auto_parse_handler)
     r.add_post("/api/order/preview", order_preview_handler)
+    r.add_get("/api/customer/{key}/price-list", customer_price_list_handler)
     r.add_post("/api/order/soan", _make_task_handler("soan"))
     r.add_post("/api/order/ban", _make_task_handler("ban"))
     r.add_post("/api/order/giao", _make_task_handler("giao"))

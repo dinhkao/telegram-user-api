@@ -4,7 +4,7 @@
 //    rồi lưu hoá đơn, chuyển sang trang chi tiết để bấm "Tạo HĐ KiotViet".
 // Cần mạng (không queue).
 import { useState, useEffect, useRef } from "preact/hooks";
-import { postJSON, previewOrder, refreshCustomerDebt, type OrderPreview } from "../api";
+import { postJSON, previewOrder, refreshCustomerDebt, getCustomerPriceList, type OrderPreview, type CustomerPriceList } from "../api";
 import { money } from "../format";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
@@ -20,6 +20,13 @@ export function CreateOrder() {
   const [previewing, setPreviewing] = useState(false);
   const [liveDebt, setLiveDebt] = useState<{ id: string; debt: number | null } | null>(null);
   const [debtBusy, setDebtBusy] = useState(false);
+  const [priceList, setPriceList] = useState<CustomerPriceList | null>(null);
+  const [plOpen, setPlOpen] = useState(false);
+  const openPriceList = async (key: string) => {
+    setPlOpen(true);
+    setPriceList(null);
+    try { setPriceList(await getCustomerPriceList(key)); } catch { /* ignore */ }
+  };
   const seq = useRef(0);
 
   // Khách vừa nhận diện → kéo nợ MỚI từ KiotViet 1 lần (theo id, không mỗi phím)
@@ -117,7 +124,10 @@ export function CreateOrder() {
                           );
                         })()}
                         {preview.customer.price_list_name && (
-                          <div class="muted small">📋 Bảng giá: {preview.customer.price_list_name}</div>
+                          <div class="muted small">
+                            📋 Bảng giá: {preview.customer.price_list_name}{" "}
+                            <button class="btn small" onClick={(e: any) => { e.preventDefault(); openPriceList(preview.customer!.id); }}>Xem giá</button>
+                          </div>
                         )}
                       </>
                     ) : preview.candidates.length ? (
@@ -133,7 +143,12 @@ export function CreateOrder() {
                           <tr key={i}>
                             <td>{it.sp}</td>
                             <td class="num">x{it.sl}</td>
-                            <td class="num">{money(it.price)}đ</td>
+                            <td class="num">
+                              {money(it.price)}đ
+                              {it.list_price != null && it.list_price > 0 && it.list_price !== it.price && (
+                                <div class="old-price">{money(it.list_price)}đ</div>
+                              )}
+                            </td>
                             <td class="num"><b>{money(it.sub)}đ</b></td>
                           </tr>
                         ))}
@@ -189,6 +204,32 @@ export function CreateOrder() {
         </div>
       )}
       <p class="muted small">⚠️ Đơn tạo từ web chỉ nằm trong hệ thống — không tạo topic Telegram.</p>
+
+      {plOpen && (
+        <div class="modal-backdrop" onClick={() => setPlOpen(false)}>
+          <div class="modal" onClick={(e: any) => e.stopPropagation()}>
+            <div class="row space">
+              <b>📋 Bảng giá{priceList?.name ? `: ${priceList.name}` : ""}</b>
+              <button class="btn small" onClick={() => setPlOpen(false)}>✕</button>
+            </div>
+            {!priceList ? (
+              <p class="muted small">Đang tải…</p>
+            ) : priceList.items.length ? (
+              <div class="pl-scroll">
+                <table class="invoice-table">
+                  <tbody>
+                    {priceList.items.map((it) => (
+                      <tr key={it.sp}><td>{it.sp}</td><td class="num">{money(it.price)}đ</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p class="muted small">Bảng giá trống.</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

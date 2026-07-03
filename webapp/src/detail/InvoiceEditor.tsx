@@ -253,7 +253,12 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
                   <tr key={i}>
                     <td>{it.sp}</td>
                     <td class="num">x{it.sl}</td>
-                    <td class="num">{money(it.price)}đ</td>
+                    <td class="num">
+                      {money(it.price)}đ
+                      {it.list_price != null && it.list_price > 0 && it.list_price !== it.price && (
+                        <div class="old-price">{money(it.list_price)}đ</div>
+                      )}
+                    </td>
                     <td class="num"><b>{money(it.sub)}đ</b></td>
                   </tr>
                 ))}

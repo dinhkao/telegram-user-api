@@ -37,6 +37,18 @@ from server_app.telegram_helpers import tg_send_message
 log = logging.getLogger("server")
 
 
+async def customer_price_list_handler(request: web.Request):
+    """Toàn bộ bảng giá hiệu lực của khách (chung + riêng) → cho popup xem giá."""
+    key = (request.match_info.get("key") or "").strip()
+    if not key:
+        return web.json_response({"ok": False, "error": "thiếu key"}, status=400)
+    conn = _get_connection()
+    pl = get_customer_price_list(conn, key)  # {SP: giá} (đã gộp riêng đè chung)
+    extra = _customer_extra(conn, key)
+    items = sorted(({"sp": k, "price": v} for k, v in pl.items()), key=lambda x: x["sp"])
+    return web.json_response({"ok": True, "name": extra.get("price_list_name"), "items": items})
+
+
 async def order_preview_handler(request: web.Request):
     """Xem trước kết quả parse text đơn (khách + sản phẩm + tổng) — KHÔNG tạo/lưu/
     gửi Telegram. Dùng cho preview tức thời ở tab 'Nhanh' trang tạo đơn."""
@@ -74,6 +86,8 @@ async def order_preview_handler(request: web.Request):
         {"id": m["customerID"], "name": m["customerName"], "score": m["score"]}
         for m in ((detection or {}).get("matches") or [])[:3]
     ]
+    # Giá bảng của khách (để so sánh: nếu giá bán khác giá bảng = ghi đè)
+    pl = get_customer_price_list(conn, kh_id) if kh_id else {}
     return web.json_response({
         "ok": True,
         "customer": customer_out,
@@ -81,6 +95,7 @@ async def order_preview_handler(request: web.Request):
         "invoice": [{
             "sp": it.get("sp"), "sl": it.get("sl", 0), "price": it.get("price", 0),
             "sub": (it.get("sl", 0) or 0) * (it.get("price", 0) or 0),
+            "list_price": pl.get((it.get("sp") or "").upper(), 0),
         } for it in invoice],
         "total": total,
     })
