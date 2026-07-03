@@ -280,3 +280,5 @@ body.pv-open { overflow: hidden; }
 .btn.danger { background: #d64545; color: #fff; border: none; }
 .error-banner { background: #fde8e8; color: #a12; padding: 8px 12px; border-radius: 8px; font-size: .9rem; }
 .muted.small, .small { font-size: .8rem; }
+
+.prod-report-table tr.prod-row-off td { color: #b0b0b0; }

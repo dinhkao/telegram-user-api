@@ -41,7 +41,8 @@ export function ProductionReport({ threadId, slip }: { threadId: string; slip: P
     }
   };
 
-  const makers = report ? report.rows.filter((r) => r.tong_calc > 0).sort((a, b) => b.tong_calc - a.tong_calc) : [];
+  // Hiện TẤT CẢ thợ theo thứ tự bảng (kể cả nghỉ/vít/… tổng 0) — không lọc.
+  const rows = report ? report.rows : [];
 
   return (
     <section class="card">
@@ -92,17 +93,19 @@ export function ProductionReport({ threadId, slip }: { threadId: string; slip: P
                   <th>Lẻ</th>
                   <th>Mâm</th>
                   <th>Tổng SP</th>
+                  <th>Ghi chú</th>
                 </tr>
               </thead>
               <tbody>
-                {makers.map((r, i) => (
-                  <tr key={i}>
+                {rows.map((r, i) => (
+                  <tr key={i} class={r.tong_calc > 0 ? "" : "prod-row-off"}>
                     <td>{r.name}</td>
                     <td>{soVN(r.so_gach)}</td>
                     <td>{soVN(r.so_tru)}</td>
                     <td>{soVN(r.so_cay_le)}</td>
                     <td>{soVN(r.so_mam)}</td>
                     <td class="strong">{soVN(r.tong_calc)}</td>
+                    <td>{r.note || ""}</td>
                   </tr>
                 ))}
               </tbody>
@@ -110,6 +113,7 @@ export function ProductionReport({ threadId, slip }: { threadId: string; slip: P
                 <tr>
                   <td colSpan={5}>TỔNG CỘNG</td>
                   <td class="strong">{soVN(report.grand_total)}</td>
+                  <td></td>
                 </tr>
               </tfoot>
             </table>
