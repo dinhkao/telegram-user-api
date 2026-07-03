@@ -203,9 +203,13 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 /* ── Ảnh đính kèm đơn ── */
 /* Ảnh đại diện đơn trên card dashboard */
 .card-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); flex-shrink: 0; background: var(--bg); }
-.card-lead { display: flex; gap: 8px; align-items: flex-start; }
-.card-lead > .order-text { flex: 1; min-width: 0; margin-top: 0; }
 .order-card.compact .card-thumb { width: 46px; height: 46px; }
+
+/* Card two-col: ảnh thành ô photo cao full thân card, bên trái */
+.card-body { display: flex; gap: 10px; align-items: stretch; }
+.card-body > .card-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.card-body > .card-content > .order-text { margin-top: 0; margin-bottom: 0; }
+.card-thumb-tile { width: clamp(72px, 22vw, 104px); height: auto; align-self: stretch; border-radius: 10px; }
 
 /* Thumbnail ảnh trong lịch sử thao tác */
 .hist-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
