@@ -2,7 +2,7 @@
 // kho product (nhóm theo size: 5 thùng 50, x thùng 70…). POST .../boxes (queueable).
 // onChanged() để phiếu tải lại tổng. Nguồn tồn: GET /api/inventory/:code.
 import { useEffect, useState } from "preact/hooks";
-import { addProductionBoxes, inventoryDetail, slipBoxes, soVN, type ProdSlip, type InvDetail, type InvBox } from "../api";
+import { addProductionBoxes, slipBoxes, soVN, type ProdSlip, type InvBox } from "../api";
 
 const STATUS: Record<string, { label: string; cls: string }> = {
   in_stock: { label: "Trong kho", cls: "in" },
@@ -24,21 +24,8 @@ export function ProductionBoxes({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  const [inv, setInv] = useState<InvDetail | null>(null);
-  const [showBoxes, setShowBoxes] = useState(false);
   const [myBoxes, setMyBoxes] = useState<InvBox[]>([]);
 
-  const loadInv = async () => {
-    if (!slip.sp_name) {
-      setInv(null);
-      return;
-    }
-    try {
-      setInv(await inventoryDetail(slip.sp_name));
-    } catch {
-      /* im lặng — tồn kho là phụ */
-    }
-  };
   const loadMine = async () => {
     try {
       setMyBoxes(await slipBoxes(threadId));
@@ -47,7 +34,6 @@ export function ProductionBoxes({
     }
   };
   useEffect(() => {
-    loadInv();
     loadMine();
   }, [slip.sp_name, slip.total]);
 
@@ -79,7 +65,7 @@ export function ProductionBoxes({
       } else {
         setMsg(`✅ Đã nhập ${qs.length} thùng`);
         onChanged();
-        loadInv();
+        loadMine();
       }
     } catch (e: any) {
       setMsg(e?.message || "Lỗi nhập thùng");
@@ -126,33 +112,6 @@ export function ProductionBoxes({
         {busy ? "…" : `Nhập ${validCount || ""} thùng`}
       </button>
       {msg && <div class="muted small">{msg}</div>}
-
-      {inv && inv.box_count > 0 && (
-        <div class="inv-summary">
-          <div class="inv-total">
-            Tồn kho: <b>{soVN(inv.total)}</b> ({inv.box_count} thùng)
-          </div>
-          <div class="inv-groups">
-            {inv.groups.map((g) => (
-              <span class="inv-chip" key={g.quantity}>
-                {g.count} thùng × {soVN(g.quantity)}
-              </span>
-            ))}
-          </div>
-          <button class="btn small" onClick={() => setShowBoxes(!showBoxes)}>
-            {showBoxes ? "Ẩn mã thùng" : "Xem mã thùng"}
-          </button>
-          {showBoxes && (
-            <ul class="inv-box-list">
-              {inv.boxes.map((b) => (
-                <li key={b.id}>
-                  <code>{b.box_code}</code> · {soVN(b.quantity)}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
 
       {myBoxes.length > 0 && (
         <div class="inv-summary">
