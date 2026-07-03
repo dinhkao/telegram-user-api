@@ -19,7 +19,7 @@ function fmtWhen(iso?: string): string {
   return `${d}/${mo} ${hh}:${mi}`;
 }
 
-export function InventoryDetail({ code }: { code: string }) {
+export function InventoryDetail({ code, focus }: { code: string; focus?: string }) {
   const [inv, setInv] = useState<InvDetail | null>(null);
   const [err, setErr] = useState("");
 
@@ -40,6 +40,29 @@ export function InventoryDetail({ code }: { code: string }) {
       }),
     [code]
   );
+
+  // Deep-link từ đơn (?focus=box:id): đợi thùng render rồi cuộn tới + nháy sáng
+  useEffect(() => {
+    if (!focus) return;
+    let tries = 0;
+    let flashT: any;
+    const iv = setInterval(() => {
+      const el = document.getElementById(focus);
+      if (el) {
+        clearInterval(iv);
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("flash-target");
+        flashT = setTimeout(() => el.classList.remove("flash-target"), 2400);
+        history.replaceState(null, "", `#/kho/${encodeURIComponent(code)}`);
+      } else if (++tries > 50) {
+        clearInterval(iv);
+      }
+    }, 100);
+    return () => {
+      clearInterval(iv);
+      clearTimeout(flashT);
+    };
+  }, [focus, code]);
 
   if (err) return <div class="error-banner">{err}</div>;
   if (!inv) return <div class="muted">Đang tải…</div>;
@@ -74,30 +97,38 @@ export function InventoryDetail({ code }: { code: string }) {
         {all.length === 0 ? (
           <div class="muted small">Chưa có thùng nào.</div>
         ) : (
-          <ul class="inv-detail-list">
+          <div class="inv-detail-list">
             {all.map((b) => {
               const st = STATUS[b.status] || { label: b.status, cls: "" };
               const tail = b.order_thread_id ? ` đơn #${b.order_thread_id}` : "";
-              return (
-                <li key={b.id} class="inv-detail-row">
+              const inner = (
+                <>
                   <code class="inv-bc">{b.box_code}</code>
                   <span class="inv-q">{soVN(b.quantity)}</span>
-                  {b.status === "allocated" && b.order_thread_id ? (
-                    <a class={`inv-status ${st.cls}`} href={`#/order/${b.order_thread_id}`}>
-                      {st.label}
-                      {tail}
-                    </a>
-                  ) : (
-                    <span class={`inv-status ${st.cls}`}>
-                      {st.label}
-                      {tail}
-                    </span>
-                  )}
+                  <span class={`inv-status ${st.cls}`}>
+                    {st.label}
+                    {tail}
+                  </span>
                   <span class="inv-when muted small">{fmtWhen(b.created_at)}</span>
-                </li>
+                </>
+              );
+              // Thùng đã xuất → tap sang đơn, cuộn + nháy đúng thùng
+              return b.status === "allocated" && b.order_thread_id ? (
+                <a
+                  id={`box-${b.id}`}
+                  key={b.id}
+                  class="inv-detail-row link"
+                  href={`#/order/${b.order_thread_id}?focus=box:${b.id}`}
+                >
+                  {inner}
+                </a>
+              ) : (
+                <div id={`box-${b.id}`} key={b.id} class="inv-detail-row">
+                  {inner}
+                </div>
               );
             })}
-          </ul>
+          </div>
         )}
       </section>
     </div>

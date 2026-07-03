@@ -367,6 +367,10 @@ body.pv-open { overflow: hidden; }
 .inv-status.alloc { background: #fff3e0; color: #a15c00; }
 .inv-status.ship { background: #eef; color: #337; }
 .inv-when { min-width: 68px; text-align: right; }
+.inv-detail-row.link { text-decoration: none; color: inherit; cursor: pointer; }
+.inv-detail-row.link:active { background: #eef4ff; }
+.box-link { text-decoration: none; color: #2456b8; }
+.box-link:active { opacity: .6; }
 
 .prod-card-note { margin-top: 8px; font-size: .82rem; color: #555; background: #fffbe6; border-radius: 6px; padding: 5px 8px; }
 

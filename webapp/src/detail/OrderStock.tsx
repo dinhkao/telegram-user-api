@@ -118,8 +118,15 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
             {mine.length > 0 && (
               <ul class="inv-box-list">
                 {mine.map((b) => (
-                  <li key={b.id}>
-                    <code>{b.box_code}</code> · {soVN(b.quantity)}
+                  <li key={b.id} id={`box-${b.id}`}>
+                    <a
+                      class="box-link"
+                      href={`#/kho/${encodeURIComponent(b.product_code)}?focus=box:${b.id}`}
+                      title="Xem trong kho"
+                    >
+                      <code>{b.box_code}</code>
+                    </a>{" "}
+                    · {soVN(b.quantity)}
                     <button class="link-btn" disabled={busy} onClick={() => doRelease(b.id)} title="Thu hồi">
                       {" "}
                       ✕
