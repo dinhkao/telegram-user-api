@@ -30,6 +30,6 @@ def delete_order_kv(order_id: int, void_payment: bool = True) -> bool:
     Thanh toán ở app tạo bằng workaround POST /orders (create_order_with_payment)
     nên KHÔNG có payment độc lập để xoá — phải xoá cả phiếu đặt hàng. Theo mẫu
     delete_invoice_kv: DELETE ở endpoint tập hợp + body chứa id."""
-    _request("DELETE", "/orders", body={"id": order_id, "isVoidPayment": void_payment})
+    _request("DELETE", f"/orders/{order_id}")
     log.info("KiotViet order deleted: id=%d void_payment=%s", order_id, void_payment)
     return True
