@@ -372,6 +372,15 @@ body.pv-open { overflow: hidden; }
 .box-link { text-decoration: none; color: #2456b8; }
 .box-link:active { opacity: .6; }
 
+/* chi tiết 1 thùng */
+.box-kv { display: flex; align-items: baseline; gap: 12px; padding: 6px 0; border-bottom: 1px solid #f2f2f2; }
+.box-kv:last-child { border-bottom: none; }
+.box-k { min-width: 96px; color: #888; font-size: .85rem; }
+.box-v { font-size: .95rem; }
+.box-v.big { font-size: 1.2rem; font-weight: 700; }
+.box-jump { display: inline-block; text-decoration: none; color: #2456b8; font-weight: 600; padding: 4px 0; }
+.box-jump:active { opacity: .6; }
+
 .prod-card-note { margin-top: 8px; font-size: .82rem; color: #555; background: #fffbe6; border-radius: 6px; padding: 5px 8px; }
 
 /* Đơn vừa mở gần nhất — tô sáng khi quay lại dashboard */

@@ -19,6 +19,7 @@ from inventory_store import (
     add_boxes,
     list_boxes,
     product_summary,
+    get_box,
     allocate_boxes,
     release_boxes,
     summarize,
@@ -105,6 +106,33 @@ async def inventory_list_handler(request: web.Request):
             conn.close()
     products = await asyncio.to_thread(_run)
     return web.json_response({"ok": True, "products": products})
+
+
+async def box_detail_handler(request: web.Request):
+    """Chi tiết 1 thùng: info + phiếu SX nguồn (sp_name, ngày) + đơn đã xuất (nếu có)."""
+    try:
+        box_id = int(request.match_info.get("box_id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "box_id không hợp lệ"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            create_inventory_table(conn)
+            box = get_box(conn, box_id)
+            slip = None
+            if box and box.get("source_thread_id"):
+                slip = get_slip(conn, box["source_thread_id"])
+        finally:
+            conn.close()
+        return box, slip
+    box, slip = await asyncio.to_thread(_run)
+    if not box:
+        return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
+    source = None
+    if slip:
+        source = {"thread_id": slip["thread_id"], "date": slip.get("date"), "sp_name": slip.get("sp_name")}
+    return web.json_response({"ok": True, "box": box, "source_slip": source})
 
 
 async def inventory_detail_handler(request: web.Request):

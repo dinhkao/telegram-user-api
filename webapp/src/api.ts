@@ -415,6 +415,15 @@ export async function inventoryDetail(code: string): Promise<InvDetail> {
   };
 }
 
+export type InvSourceSlip = { thread_id: number; date?: string | null; sp_name?: string | null };
+export type InvBoxDetail = { box: InvBox; source_slip: InvSourceSlip | null };
+
+/** Chi tiết 1 thùng: info + phiếu SX nguồn + đơn đã xuất. */
+export async function boxDetail(id: string | number): Promise<InvBoxDetail | null> {
+  const d = await getJSON(`/api/inventory/box/${id}`);
+  return d.ok ? { box: d.box, source_slip: d.source_slip } : null;
+}
+
 /** Thùng đã xuất cho đơn này. */
 export async function orderAllocations(id: string | number): Promise<InvBox[]> {
   const d = await getJSON(`/api/order/${id}/allocations`);

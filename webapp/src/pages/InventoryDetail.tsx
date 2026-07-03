@@ -19,7 +19,7 @@ function fmtWhen(iso?: string): string {
   return `${d}/${mo} ${hh}:${mi}`;
 }
 
-export function InventoryDetail({ code, focus }: { code: string; focus?: string }) {
+export function InventoryDetail({ code }: { code: string }) {
   const [inv, setInv] = useState<InvDetail | null>(null);
   const [err, setErr] = useState("");
 
@@ -40,29 +40,6 @@ export function InventoryDetail({ code, focus }: { code: string; focus?: string 
       }),
     [code]
   );
-
-  // Deep-link từ đơn (?focus=box:id): đợi thùng render rồi cuộn tới + nháy sáng
-  useEffect(() => {
-    if (!focus) return;
-    let tries = 0;
-    let flashT: any;
-    const iv = setInterval(() => {
-      const el = document.getElementById(focus);
-      if (el) {
-        clearInterval(iv);
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        el.classList.add("flash-target");
-        flashT = setTimeout(() => el.classList.remove("flash-target"), 2400);
-        history.replaceState(null, "", `#/kho/${encodeURIComponent(code)}`);
-      } else if (++tries > 50) {
-        clearInterval(iv);
-      }
-    }, 100);
-    return () => {
-      clearInterval(iv);
-      clearTimeout(flashT);
-    };
-  }, [focus, code]);
 
   if (err) return <div class="error-banner">{err}</div>;
   if (!inv) return <div class="muted">Đang tải…</div>;
@@ -100,9 +77,10 @@ export function InventoryDetail({ code, focus }: { code: string; focus?: string 
           <div class="inv-detail-list">
             {all.map((b) => {
               const st = STATUS[b.status] || { label: b.status, cls: "" };
-              const tail = b.order_thread_id ? ` đơn #${b.order_thread_id}` : "";
-              const inner = (
-                <>
+              const tail = b.order_thread_id ? ` #${b.order_thread_id}` : "";
+              // Tap thùng → trang chi tiết thùng (phiếu nguồn + đơn phân bổ)
+              return (
+                <a key={b.id} class="inv-detail-row link" href={`#/thung/${b.id}`}>
                   <code class="inv-bc">{b.box_code}</code>
                   <span class="inv-q">{soVN(b.quantity)}</span>
                   <span class={`inv-status ${st.cls}`}>
@@ -110,22 +88,7 @@ export function InventoryDetail({ code, focus }: { code: string; focus?: string 
                     {tail}
                   </span>
                   <span class="inv-when muted small">{fmtWhen(b.created_at)}</span>
-                </>
-              );
-              // Thùng đã xuất → tap sang đơn, cuộn + nháy đúng thùng
-              return b.status === "allocated" && b.order_thread_id ? (
-                <a
-                  id={`box-${b.id}`}
-                  key={b.id}
-                  class="inv-detail-row link"
-                  href={`#/order/${b.order_thread_id}?focus=box:${b.id}`}
-                >
-                  {inner}
                 </a>
-              ) : (
-                <div id={`box-${b.id}`} key={b.id} class="inv-detail-row">
-                  {inner}
-                </div>
               );
             })}
           </div>

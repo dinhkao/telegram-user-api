@@ -14,6 +14,7 @@ import { ProductionList } from "./pages/ProductionList";
 import { ProductionDetail } from "./pages/ProductionDetail";
 import { InventoryList } from "./pages/InventoryList";
 import { InventoryDetail } from "./pages/InventoryDetail";
+import { BoxDetail } from "./pages/BoxDetail";
 import "./styles.css";
 
 function useHash(): string {
@@ -98,6 +99,7 @@ function App() {
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
   const prodMatch = hash.match(/^#\/san_xuat\/(-?\d+)/);
   const khoMatch = hash.match(/^#\/kho\/([^?]+)/);
+  const boxMatch = hash.match(/^#\/thung\/(\d+)/);
   // Deep-link từ notification: ?focus=comment:123 / ?focus=image:45 → cuộn + nháy
   const focusMatch = hash.match(/[?&]focus=([a-z]+):(\d+)/i);
   const focusEl = focusMatch ? `${focusMatch[1]}-${focusMatch[2]}` : undefined;
@@ -105,7 +107,8 @@ function App() {
   else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} focus={focusEl} />;
   else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} />;
   else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;
-  else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} focus={focusEl} />;
+  else if (boxMatch) page = <BoxDetail boxId={boxMatch[1]} />;
+  else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;
   else if (hash.startsWith("#/kho")) page = <InventoryList />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
