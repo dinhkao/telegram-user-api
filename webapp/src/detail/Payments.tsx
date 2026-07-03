@@ -13,12 +13,12 @@ export function Payments({ threadId, payments, onChanged }: { threadId: string; 
   // Xoá 1 thanh toán — chỉ admin. Payment cũ không có id thì xoá bằng lệnh Telegram.
   const del = async (p: any) => {
     if (!p.id) return alert("Thanh toán cũ không có id — xoá bằng lệnh Telegram /del_payment_");
-    if (!confirm(`Xoá thanh toán ${money(p.amount)}đ?\n(Xoá cả trên KiotViet — không hoàn tác được)`)) return;
+    if (!confirm(`Xoá thanh toán ${money(p.amount)}đ?\n(Xoá khỏi đơn; KiotViet có thể phải xoá tay)`)) return;
     setBusy(true);
     setMsg("");
     try {
-      await postJSON("/api/order/payment/delete", { thread_id: Number(threadId), payment_id: p.id });
-      setMsg(`🗑️ Đã xoá thanh toán ${money(p.amount)}đ`);
+      const r = await postJSON("/api/order/payment/delete", { thread_id: Number(threadId), payment_id: p.id });
+      setMsg(r.kv_warning ? `🗑️ Đã xoá (local) ${money(p.amount)}đ · ⚠️ ${r.kv_warning}` : `🗑️ Đã xoá thanh toán ${money(p.amount)}đ`);
       onChanged();
     } catch (ex: any) {
       setMsg(`❌ ${ex.message}`);

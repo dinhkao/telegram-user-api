@@ -37,17 +37,20 @@ async def payment_delete_handler(request: web.Request):
     pay = next((p for p in order.get("payments", []) if p.get("id") == str(payment_id)), None)
     if not pay:
         return web.json_response({"ok": False, "error": f"Không tìm thấy payment: {payment_id}"}, status=400)
-    # 1) Xoá payment trên KiotViet (id nằm trong kiotvietData.payments[].id)
+    # 1) Best-effort xoá payment trên KiotViet (id nằm trong kiotvietData.payments[].id).
+    # KiotViet public API KHÔNG có endpoint xoá payment (chỉ quản lý payment trong
+    # /orders) → thường 404. Không chặn: vẫn xoá local, trả cảnh báo để xoá tay.
     kv = pay.get("kiotvietData") or {}
     kv_pay_ids = [np.get("id") for np in (kv.get("payments") or []) if isinstance(np, dict) and np.get("id")]
+    kv_warning = ""
     if kv_pay_ids:
         try:
             from kiotviet import delete_payment_kv
             for pid in kv_pay_ids:
                 await asyncio.to_thread(delete_payment_kv, int(pid))
         except Exception as e:
-            log.error("delete KV payment failed thread=%s ids=%s: %s", thread_id, kv_pay_ids, e)
-            return web.json_response({"ok": False, "error": f"Lỗi xoá thanh toán trên KiotViet: {e}"}, status=502)
+            log.warning("delete KV payment failed (bỏ qua, xoá local) thread=%s ids=%s: %s", thread_id, kv_pay_ids, e)
+            kv_warning = "KiotViet không xoá được thanh toán (API không hỗ trợ) — vào app KiotViet xoá tay nếu cần."
     # 2) Xoá record local (nợ tự tính lại từ danh sách payments)
     from payment_store import delete_payment_record
     ok, message = delete_payment_record(conn, int(thread_id), str(payment_id))
@@ -62,7 +65,7 @@ async def payment_delete_handler(request: web.Request):
     else:
         from server_app.realtime import emit_order_changed
         emit_order_changed(int(thread_id))
-    return web.json_response({"ok": True, "thread_id": int(thread_id), "payment_id": str(payment_id)})
+    return web.json_response({"ok": True, "thread_id": int(thread_id), "payment_id": str(payment_id), "kv_warning": kv_warning})
 
 
 async def _payment_handler(request: web.Request, method: str):
