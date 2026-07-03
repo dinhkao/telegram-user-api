@@ -7,6 +7,7 @@ import {
   productionCatalog,
   setProductionProduct,
   setProductionTarget,
+  setProductionNote,
   deleteProduction,
   soVN,
   prodCreated,
@@ -23,6 +24,8 @@ export function ProductionDetail({ threadId }: { threadId: string }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [targetInput, setTargetInput] = useState("");
+  const [noteInput, setNoteInput] = useState("");
+  const [noteSaved, setNoteSaved] = useState(false);
   const reloadTimer = useRef<any>(null);
 
   const reload = async () => {
@@ -30,6 +33,7 @@ export function ProductionDetail({ threadId }: { threadId: string }) {
       const s = await getProduction(threadId);
       setSlip(s);
       if (s?.sx_target != null) setTargetInput(String(s.sx_target));
+      setNoteInput(s?.ghi_chu || "");
     } catch (e: any) {
       setErr(e?.message || "Lỗi tải phiếu");
     } finally {
@@ -78,6 +82,18 @@ export function ProductionDetail({ threadId }: { threadId: string }) {
       reload();
     } catch (e: any) {
       setErr(e?.message || "Lỗi cập nhật mục tiêu");
+    }
+  };
+
+  const saveNote = async () => {
+    setErr("");
+    try {
+      await setProductionNote(threadId, noteInput.trim());
+      setNoteSaved(true);
+      setTimeout(() => setNoteSaved(false), 1500);
+      reload();
+    } catch (e: any) {
+      setErr(e?.message || "Lỗi lưu ghi chú");
     }
   };
 
@@ -148,6 +164,17 @@ export function ProductionDetail({ threadId }: { threadId: string }) {
           />
           <button class="btn" onClick={saveTarget}>Lưu</button>
         </div>
+      </section>
+
+      <section class="card">
+        <label class="card-label">Ghi chú {noteSaved && <span class="muted small">✓ đã lưu</span>}</label>
+        <textarea
+          rows={2}
+          value={noteInput}
+          onInput={(e) => setNoteInput((e.target as HTMLTextAreaElement).value)}
+          onBlur={saveNote}
+          placeholder="Ghi chú cho phiếu (tự lưu khi rời ô)…"
+        />
       </section>
 
       <ProductionNumbers threadId={threadId} slip={slip} onChanged={reload} />

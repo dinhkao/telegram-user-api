@@ -153,6 +153,7 @@ function ProdCard({ slip }: { slip: ProdSlip }) {
           <div class={done ? "prod-bar-fill done" : "prod-bar-fill"} style={{ width: `${pct}%` }} />
         </div>
       )}
+      {slip.ghi_chu && <div class="prod-card-note">📝 {slip.ghi_chu}</div>}
     </a>
   );
 }

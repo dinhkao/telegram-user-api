@@ -236,6 +236,7 @@ export type ProdSlip = {
   sp_luong?: number | null;
   sx_target?: number | null;
   total: number;
+  ghi_chu?: string | null;
   numbers?: { amount: number; note?: string; at?: string; by?: string }[];
   bang?: any | null;
   updated_at?: string;
@@ -284,6 +285,10 @@ export async function setProductionProduct(id: string | number, product: string)
 
 export async function setProductionTarget(id: string | number, target: number): Promise<any> {
   return postJSON(`/api/production/${id}/target`, { target });
+}
+
+export async function setProductionNote(id: string | number, note: string): Promise<any> {
+  return postJSON(`/api/production/${id}/note`, { note });
 }
 
 /** Nhập số lượng đã nhận (queueable: an toàn khi mất mạng). Kèm tên người nhập. */

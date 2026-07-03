@@ -17,6 +17,7 @@ _COLUMNS = (
     "total",
     "numbers",
     "bang",
+    "ghi_chu",
     "updated_at",
 )
 _JSON_COLUMNS = {"numbers", "bang"}
@@ -42,7 +43,7 @@ def list_slips(conn, limit: int = 20, offset: int = 0) -> list[dict]:
     """Slips newest-first, paginated. Lightweight rows (no numbers/bang decode)."""
     rows = conn.execute(
         "SELECT thread_id, date, date_code, sp_name, sp_mam, sx_target, total, "
-        "updated_at FROM production_slips ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+        "ghi_chu, updated_at FROM production_slips ORDER BY updated_at DESC LIMIT ? OFFSET ?",
         (limit, offset),
     ).fetchall()
     return [dict(r) for r in rows]
@@ -75,6 +76,10 @@ def set_sp(conn, thread_id, name, mam, luong) -> bool:
 
 def set_target(conn, thread_id, sx_target) -> bool:
     return upsert_slip(conn, thread_id, sx_target=sx_target)
+
+
+def set_note(conn, thread_id, ghi_chu) -> bool:
+    return upsert_slip(conn, thread_id, ghi_chu=ghi_chu)
 
 
 def add_number(conn, thread_id, amount, note, by=None, at=None) -> float:

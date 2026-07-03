@@ -24,6 +24,7 @@ from production_store import (
     upsert_slip,
     set_sp,
     set_target,
+    set_note,
     add_number,
     set_bang,
     delete_slip,
@@ -68,6 +69,7 @@ def build_production_row(thread_id) -> dict | None:
         "sp_mam": slip.get("sp_mam"),
         "sx_target": slip.get("sx_target"),
         "total": slip.get("total") or 0,
+        "ghi_chu": slip.get("ghi_chu"),
         "updated_at": slip.get("updated_at"),
         **_progress(slip),
     }
@@ -213,6 +215,27 @@ async def production_set_target_handler(request: web.Request):
         conn = _conn()
         try:
             set_target(conn, thread_id, target)
+        finally:
+            conn.close()
+    await asyncio.to_thread(_run)
+    _emit(thread_id)
+    return web.json_response({"ok": True})
+
+
+async def production_set_note_handler(request: web.Request):
+    thread_id = _thread_id(request)
+    if thread_id is None:
+        return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    note = str(body.get("note") or "")
+
+    def _run():
+        conn = _conn()
+        try:
+            set_note(conn, thread_id, note)
         finally:
             conn.close()
     await asyncio.to_thread(_run)
