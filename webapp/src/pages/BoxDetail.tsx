@@ -2,7 +2,9 @@
 // thuộc phiếu SX nào (link), đã xuất đơn nào (link → cuộn+nháy thùng trong đơn).
 // GET /api/inventory/box/:id.
 import { useEffect, useState } from "preact/hooks";
-import { boxDetail, updateBox, soVN, type InvBoxDetail } from "../api";
+import { boxDetail, updateBox, setBoxDisabled, soVN, type InvBoxDetail, type InvBox } from "../api";
+
+const isDisabled = (b: InvBox) => !!b.disabled;
 
 const STATUS: Record<string, { label: string; cls: string }> = {
   in_stock: { label: "Trong kho", cls: "in" },
@@ -24,6 +26,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   const [loading, setLoading] = useState(true);
   const [noteInput, setNoteInput] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
+  const [disBusy, setDisBusy] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -53,6 +56,26 @@ export function BoxDetail({ boxId }: { boxId: string }) {
     }
   };
 
+  const toggleDisabled = async () => {
+    if (!d) return;
+    const next = !isDisabled(d.box);
+    if (
+      next &&
+      !confirm("Vô hiệu hoá thùng này? Nó sẽ không tính tồn kho, không phân bổ đơn, và bị trừ khỏi phiếu SX.")
+    )
+      return;
+    setDisBusy(true);
+    setErr("");
+    try {
+      const b2 = await setBoxDisabled(boxId, next);
+      if (b2) setD({ ...d, box: b2 });
+    } catch (e: any) {
+      setErr(e?.message || "Lỗi cập nhật");
+    } finally {
+      setDisBusy(false);
+    }
+  };
+
   if (loading) return <div class="muted">Đang tải…</div>;
   if (err || !d)
     return (
@@ -65,8 +88,10 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   const st = STATUS[b.status] || { label: b.status, cls: "" };
   const backCode = b.product_code;
 
+  const disabled = isDisabled(b);
+
   return (
-    <div class="box-detail">
+    <div class={disabled ? "box-detail is-disabled" : "box-detail"}>
       <div class="prod-detail-head">
         <a class="back" href={`#/kho/${encodeURIComponent(backCode)}`}>
           ←
@@ -77,9 +102,16 @@ export function BoxDetail({ boxId }: { boxId: string }) {
           </div>
           <div class="prod-date muted">
             {b.product_code} · <span class={`inv-status ${st.cls}`}>{st.label}</span>
+            {disabled && <span class="inv-status disabled"> Vô hiệu</span>}
           </div>
         </div>
       </div>
+
+      {disabled && (
+        <div class="box-disabled-banner">
+          🚫 Thùng đã bị vô hiệu — không tính tồn kho, không phân bổ đơn, không tính vào phiếu SX.
+        </div>
+      )}
 
       <section class="card">
         <div class="box-kv">
@@ -133,6 +165,16 @@ export function BoxDetail({ boxId }: { boxId: string }) {
         ) : (
           <div class="muted small">Chưa phân bổ vào đơn nào — còn trong kho.</div>
         )}
+      </section>
+
+      <section class="card">
+        <button
+          class={disabled ? "btn block" : "btn danger block"}
+          disabled={disBusy}
+          onClick={toggleDisabled}
+        >
+          {disBusy ? "…" : disabled ? "✅ Kích hoạt lại thùng" : "🚫 Vô hiệu hoá thùng"}
+        </button>
       </section>
     </div>
   );

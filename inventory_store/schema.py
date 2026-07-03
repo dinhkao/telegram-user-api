@@ -18,6 +18,7 @@ def create_inventory_table(conn):
             source_thread_id INTEGER,
             order_thread_id  INTEGER,
             note             TEXT,
+            disabled         INTEGER DEFAULT 0,
             created_at       TEXT DEFAULT (datetime('now')),
             created_by       TEXT,
             allocated_at     TEXT,
@@ -36,6 +37,7 @@ def migrate_inventory_table(conn):
     adds = {
         "order_thread_id": "INTEGER",
         "note": "TEXT",
+        "disabled": "INTEGER DEFAULT 0",
         "created_by": "TEXT",
         "allocated_at": "TEXT",
         "allocated_by": "TEXT",

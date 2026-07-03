@@ -363,6 +363,7 @@ export type InvBox = {
   source_thread_id?: number | null;
   order_thread_id?: number | null;
   note?: string | null;
+  disabled?: number | boolean | null;
   created_at?: string;
   created_by?: string;
 };
@@ -428,6 +429,12 @@ export type InvBoxDetail = { box: InvBox; source_slip: InvSourceSlip | null };
 export async function boxDetail(id: string | number): Promise<InvBoxDetail | null> {
   const d = await getJSON(`/api/inventory/box/${id}`);
   return d.ok ? { box: d.box, source_slip: d.source_slip } : null;
+}
+
+/** Vô hiệu / kích hoạt lại 1 thùng (không tính tồn/phân bổ/phiếu khi vô hiệu). */
+export async function setBoxDisabled(id: string | number, disabled: boolean): Promise<InvBox | null> {
+  const d = await postJSON(`/api/inventory/box/${id}/disable`, { disabled });
+  return d.ok ? d.box : null;
 }
 
 /** Sửa ghi chú / số cây của 1 thùng. */

@@ -98,14 +98,23 @@ export function ProductionBoxes({
               const st = STATUS[b.status] || { label: b.status, cls: "" };
               const tail = b.order_thread_id ? ` #${b.order_thread_id}` : "";
               return (
-                <a key={b.id} id={`box-${b.id}`} class="inv-detail-row link" href={`#/thung/${b.id}`}>
+                <a
+                  key={b.id}
+                  id={`box-${b.id}`}
+                  class={b.disabled ? "inv-detail-row link box-off" : "inv-detail-row link"}
+                  href={`#/thung/${b.id}`}
+                >
                   <code class="inv-bc">{b.box_code}</code>
                   <span class="inv-q">{soVN(b.quantity)}</span>
                   {b.note && <span class="inv-note muted small">📝 {b.note}</span>}
-                  <span class={`inv-status ${st.cls}`}>
-                    {st.label}
-                    {tail}
-                  </span>
+                  {b.disabled ? (
+                    <span class="inv-status disabled">Vô hiệu</span>
+                  ) : (
+                    <span class={`inv-status ${st.cls}`}>
+                      {st.label}
+                      {tail}
+                    </span>
+                  )}
                 </a>
               );
             })}

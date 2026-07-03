@@ -44,8 +44,13 @@ def add_boxes(conn, product_code, quantities, *, source_thread_id=None, by=None,
     return created
 
 
-def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None, order_thread_id=None) -> list[dict]:
-    """Liệt kê thùng theo bộ lọc (product/status/slip nguồn/đơn). Sắp theo mã thùng."""
+def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
+               order_thread_id=None, active_only=False) -> list[dict]:
+    """Liệt kê thùng theo bộ lọc (product/status/slip nguồn/đơn). Sắp theo mã thùng.
+
+    active_only=True → chỉ thùng còn hiệu lực (bỏ thùng bị vô hiệu) — dùng cho tồn
+    kho / khả dụng phân bổ. Mặc định trả cả thùng vô hiệu (để hiển thị mờ).
+    """
     where, params = [], []
     if product_code:
         where.append("product_code = ?"); params.append(str(product_code).strip().upper())
@@ -55,6 +60,8 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None, o
         where.append("source_thread_id = ?"); params.append(source_thread_id)
     if order_thread_id is not None:
         where.append("order_thread_id = ?"); params.append(order_thread_id)
+    if active_only:
+        where.append("(disabled IS NULL OR disabled = 0)")
     sql = "SELECT * FROM inventory_boxes"
     if where:
         sql += " WHERE " + " AND ".join(where)
@@ -73,13 +80,14 @@ def product_totals(conn, *, status="in_stock") -> list[dict]:
 
 
 def product_summary(conn) -> list[dict]:
-    """Tồn/xuất theo từng product cho dashboard kho: tồn (in_stock) + đã xuất + đã giao."""
+    """Tồn/xuất theo product cho dashboard. Thùng vô hiệu KHÔNG tính vào tồn (chỉ đếm riêng)."""
     rows = conn.execute(
         "SELECT product_code, "
-        "COALESCE(SUM(CASE WHEN status='in_stock'  THEN quantity ELSE 0 END),0) AS in_stock_total, "
-        "SUM(CASE WHEN status='in_stock'  THEN 1 ELSE 0 END) AS in_stock_count, "
+        "COALESCE(SUM(CASE WHEN status='in_stock' AND (disabled IS NULL OR disabled=0) THEN quantity ELSE 0 END),0) AS in_stock_total, "
+        "SUM(CASE WHEN status='in_stock' AND (disabled IS NULL OR disabled=0) THEN 1 ELSE 0 END) AS in_stock_count, "
         "SUM(CASE WHEN status='allocated' THEN 1 ELSE 0 END) AS allocated_count, "
         "SUM(CASE WHEN status='shipped'   THEN 1 ELSE 0 END) AS shipped_count, "
+        "SUM(CASE WHEN disabled=1 THEN 1 ELSE 0 END) AS disabled_count, "
         "COUNT(*) AS total_count "
         "FROM inventory_boxes GROUP BY product_code ORDER BY product_code"
     ).fetchall()
@@ -102,9 +110,9 @@ def allocate_boxes(conn, box_ids, order_thread_id, *, by=None) -> list[int]:
     allocated: list[int] = []
     with transaction(conn):
         for bid in box_ids:
-            row = conn.execute("SELECT status FROM inventory_boxes WHERE id = ?", (bid,)).fetchone()
-            if not row or row[0] != "in_stock":
-                continue
+            row = conn.execute("SELECT status, disabled FROM inventory_boxes WHERE id = ?", (bid,)).fetchone()
+            if not row or row[0] != "in_stock" or row[1]:
+                continue  # bỏ thùng đã xuất/giao hoặc bị vô hiệu
             conn.execute(
                 "UPDATE inventory_boxes SET status='allocated', order_thread_id=?, "
                 "allocated_at=?, allocated_by=? WHERE id = ?",
@@ -142,6 +150,20 @@ def update_box(conn, box_id, *, quantity=None, note=None) -> bool:
     params.append(box_id)
     with transaction(conn):
         conn.execute(f"UPDATE inventory_boxes SET {', '.join(sets)} WHERE id = ?", params)
+    return True
+
+
+def set_disabled(conn, box_id, disabled: bool) -> bool:
+    """Vô hiệu / kích hoạt lại 1 thùng. Nếu vô hiệu thùng đang xuất → thu về in_stock."""
+    with transaction(conn):
+        if disabled:
+            conn.execute(
+                "UPDATE inventory_boxes SET disabled=1, status='in_stock', order_thread_id=NULL, "
+                "allocated_at=NULL, allocated_by=NULL WHERE id = ?",
+                (box_id,),
+            )
+        else:
+            conn.execute("UPDATE inventory_boxes SET disabled=0 WHERE id = ?", (box_id,))
     return True
 
 

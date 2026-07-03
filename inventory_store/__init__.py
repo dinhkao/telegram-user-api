@@ -13,6 +13,7 @@ from .queries import (
     allocate_boxes,
     release_boxes,
     update_box,
+    set_disabled,
     delete_box,
 )
 from .domain import group_by_size, summarize, next_box_code, format_box_code, parse_box_seq
@@ -28,6 +29,7 @@ __all__ = [
     "allocate_boxes",
     "release_boxes",
     "update_box",
+    "set_disabled",
     "delete_box",
     "group_by_size",
     "summarize",

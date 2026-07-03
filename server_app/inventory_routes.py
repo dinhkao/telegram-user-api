@@ -21,17 +21,24 @@ from inventory_store import (
     product_summary,
     get_box,
     update_box,
+    set_disabled,
     allocate_boxes,
     release_boxes,
     summarize,
 )
-from production_store import get_slip, add_number
+from production_store import get_slip, add_number, set_total
 from server_app.production_routes import _web_actor
 from utils.db import get_connection
 
 
 def _conn():
     return get_connection()
+
+
+def _ensure(conn):
+    """Tạo bảng + migrate (thêm cột mới như disabled) — dùng ở mọi handler."""
+    create_inventory_table(conn)
+    migrate_inventory_table(conn)
 
 
 def _thread_id(request: web.Request) -> int | None:
@@ -73,8 +80,7 @@ async def production_add_boxes_handler(request: web.Request):
     def _run():
         conn = _conn()
         try:
-            create_inventory_table(conn)
-            migrate_inventory_table(conn)
+            _ensure(conn)
             slip = get_slip(conn, thread_id)
             if not slip or not slip.get("sp_name"):
                 return None, None
@@ -104,7 +110,7 @@ async def production_boxes_list_handler(request: web.Request):
     def _run():
         conn = _conn()
         try:
-            create_inventory_table(conn)
+            _ensure(conn)
             return list_boxes(conn, source_thread_id=thread_id)
         finally:
             conn.close()
@@ -118,7 +124,7 @@ async def inventory_list_handler(request: web.Request):
     def _run():
         conn = _conn()
         try:
-            create_inventory_table(conn)
+            _ensure(conn)
             return product_summary(conn)
         finally:
             conn.close()
@@ -136,7 +142,7 @@ async def box_detail_handler(request: web.Request):
     def _run():
         conn = _conn()
         try:
-            create_inventory_table(conn)
+            _ensure(conn)
             box = get_box(conn, box_id)
             slip = None
             if box and box.get("source_thread_id"):
@@ -182,7 +188,7 @@ async def box_update_handler(request: web.Request):
     def _run():
         conn = _conn()
         try:
-            create_inventory_table(conn)
+            _ensure(conn)
             if not get_box(conn, box_id):
                 return None
             update_box(conn, box_id, **kwargs)
@@ -195,6 +201,51 @@ async def box_update_handler(request: web.Request):
     return web.json_response({"ok": True, "box": box})
 
 
+async def box_disable_handler(request: web.Request):
+    """Vô hiệu / kích hoạt lại 1 thùng. Vô hiệu = không tính tồn, không phân bổ đơn,
+    trừ khỏi tổng phiếu SX nguồn (kích hoạt lại thì cộng vào). Vẫn hiển thị."""
+    try:
+        box_id = int(request.match_info.get("box_id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "box_id không hợp lệ"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    disabled = bool(body.get("disabled", True))
+
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            box = get_box(conn, box_id)
+            if not box:
+                return None
+            was = bool(box.get("disabled"))
+            if was == disabled:
+                return box  # không đổi
+            set_disabled(conn, box_id, disabled)
+            # Đồng bộ tổng phiếu SX nguồn: vô hiệu → trừ, kích hoạt → cộng
+            src = box.get("source_thread_id")
+            if src:
+                slip = get_slip(conn, src)
+                if slip:
+                    qty = box.get("quantity") or 0
+                    total = (slip.get("total") or 0) + (-qty if disabled else qty)
+                    set_total(conn, src, max(0, total))
+            return get_box(conn, box_id)
+        finally:
+            conn.close()
+    box = await asyncio.to_thread(_run)
+    if not box:
+        return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
+    src = box.get("source_thread_id")
+    if src:
+        from server_app.realtime import emit_production_changed
+        emit_production_changed(src)
+    return web.json_response({"ok": True, "box": box})
+
+
 async def inventory_detail_handler(request: web.Request):
     """Tồn 1 product: tổng + nhóm theo size (5 thùng 50, x thùng 70…) + list thùng."""
     code = _product_code(request)
@@ -204,8 +255,8 @@ async def inventory_detail_handler(request: web.Request):
     def _run():
         conn = _conn()
         try:
-            create_inventory_table(conn)
-            in_stock = list_boxes(conn, product_code=code, status="in_stock")
+            _ensure(conn)
+            in_stock = list_boxes(conn, product_code=code, status="in_stock", active_only=True)
             all_boxes = list_boxes(conn, product_code=code)
         finally:
             conn.close()
@@ -228,7 +279,7 @@ async def order_allocations_handler(request: web.Request):
     def _run():
         conn = _conn()
         try:
-            create_inventory_table(conn)
+            _ensure(conn)
             return list_boxes(conn, order_thread_id=thread_id)
         finally:
             conn.close()
@@ -257,7 +308,7 @@ async def order_allocate_handler(request: web.Request):
     def _run():
         conn = _conn()
         try:
-            create_inventory_table(conn)
+            _ensure(conn)
             allocated = allocate_boxes(conn, box_ids, thread_id, by=actor)
             return list_boxes(conn, order_thread_id=thread_id), allocated
         finally:
@@ -286,7 +337,7 @@ async def order_release_handler(request: web.Request):
     def _run():
         conn = _conn()
         try:
-            create_inventory_table(conn)
+            _ensure(conn)
             released = release_boxes(conn, box_ids)
             return list_boxes(conn, order_thread_id=thread_id), released
         finally:
