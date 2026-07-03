@@ -295,6 +295,15 @@ export function OrdersList() {
     load(1, q, st.current.filter, false); // gõ tới đâu tìm tới đó — không delay (reqSeq chặn race)
   };
 
+  // Lọc nhanh theo khách: bấm nút cạnh tên khách trên card → đặt ô tìm = tên khách
+  // (dùng luôn FTS server). Chặn link card + cuộn lên đầu để thấy kết quả.
+  const filterByCustomer = (e: Event, name: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onSearch(name);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  };
+
   // Đổi chip → reset trang, tải lại từ server với filter mới (nhất quán phân trang)
   const onFilter = (f: FilterKey) => {
     setFilter(f);
@@ -388,7 +397,8 @@ export function OrdersList() {
                       ? <div class="order-text wrap-badges"><TaskBadges o={o} /><span class="ot-text"><Highlight text={o.text} q={search} /></span></div>
                       : <div class="order-text muted wrap-badges"><TaskBadges o={o} /><span class="ot-text">(không có nội dung)</span></div>}
                     <div class="row space">
-                      <b class="cust">{isNew && <span class="tag-new">Mới</span>} <Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} /></b>
+                      <b class="cust">{isNew && <span class="tag-new">Mới</span>} <Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} />
+                        {o.customer ? <button class="cust-filter" title={`Lọc đơn của ${o.customer}`} onClick={(e) => filterByCustomer(e, o.customer)}>🔎</button> : null}</b>
                       <span class="muted small order-when">
                         {o.created ? (
                           <>🕒 {fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</>
