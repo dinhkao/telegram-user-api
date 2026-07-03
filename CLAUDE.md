@@ -102,7 +102,20 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   KiotViet invoice, payment, print, debt, analysis. Registered by
   `server_app/command_bootstrap.py`.
 - `channel_handlers/` — reacts to new posts in `#don_hang`: creates topic,
-  parses, notifies, renders.
+  parses, notifies, renders. **Core = `channel_handlers/create.py::process_new_order(client, msg)`**
+  (creates forum topic + order row + fires `auto_parse` = customer/invoice parse +
+  channel render + **picking-sheet print**). `register.py` is now just the thin
+  Telethon `NewMessage(#don_hang)` listener → calls `process_new_order`. It is
+  **idempotent by `message_id`**, and the **webapp create-order calls it directly**
+  (see below) because Telethon does NOT emit `NewMessage` for the client's own sends.
+  Picking sheet (`renderers/picking_sheet.py`) prints for **every** new order now
+  (the old `if invoice:` gate was removed 2026-07-04).
+- **Webapp create-order (`server_app/order_api_create.py`, `POST /api/order/create`)** —
+  posts the order text into `CHANNEL_DON_HANG_MOI` as the user, then calls
+  `channel_handlers.create.process_new_order(client, sent)` directly → real Telegram
+  topic + order (positive thread_id, flow_version 2), returns thread_id so the web
+  navigates straight to it. **No more DB-only web orders** (the old negative-thread_id
+  `flow_version:"web"` path is gone). Client: `webapp/src/pages/CreateOrder.tsx`.
 - `donhang_indexer_pkg/` — live + backfill indexing of `#don_hang` → `donhang_store`.
 - **Orders list load (`server_app/orders_api.py`)** — `GET /api/orders` paginates
   20/page over the `orders` blob table; `_build_order_row` is the single source of
@@ -165,8 +178,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     xuất `POST /api/order/{id}/allocate|release`, `GET /api/order/{id}/allocations`.
   - UI: tab **📦 Kho** (`#/kho`) → `pages/InventoryList.tsx` (dashboard/product) →
     `InventoryDetail.tsx` (list thùng) → `pages/BoxDetail.tsx` (`#/thung/:id`, info hub:
-    còn lại, NSX, ghi chú, phiếu nguồn, các đơn đã xuất — deep-link cuộn+nháy 2 chiều
-    thùng↔đơn↔phiếu qua `?focus=box:<id>`). Nhập: `detail/ProductionBoxes.tsx`. Xuất:
+    còn lại, NSX, ghi chú, phiếu nguồn, các đơn đã xuất — kèm **sneak peek dòng đầu
+    nội dung đơn** (`order_text`, `box_detail_handler` enrich qua get_order_by_thread_id)
+    — deep-link cuộn+nháy 2 chiều thùng↔đơn↔phiếu qua `?focus=box:<id>`). Nhập:
+    `detail/ProductionBoxes.tsx`. Xuất:
     `detail/OrderStock.tsx` + `detail/StockPickerModal.tsx` (popup chọn thùng, lấy 1
     phần, hiện "còn X/Y").
 - `order_images_store/` — `order_images` table in `app.db`: metadata for photos
@@ -207,7 +222,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   best-effort Google Sheet import-row on number-add (gated; no-op without creds).
   Webapp UI: `webapp/src/pages/ProductionList.tsx` + `ProductionDetail.tsx` +
   `detail/ProductionNumbers.tsx` + `detail/ProductionReport.tsx`, nav tab 🏭 SX
-  (`#/san_xuat`).
+  (`#/san_xuat`). Chọn mã SP (tạo phiếu + đổi SP) dùng **`detail/ProductPicker.tsx`** —
+  dropdown tìm-theo-mã (autocomplete lọc tại chỗ, chung CSS `.ac`/`.ac-list` với
+  `CustomerPicker`).
 
 **Web app for phones (orders management, 5-6 internal users)**
 - `webapp/` — Vite + Preact + TS mobile UI (Vietnamese). Hash router `main.tsx`, nav

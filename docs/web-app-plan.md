@@ -4,7 +4,8 @@ Yêu cầu đã chốt:
 - 5-6 người dùng nội bộ, truy cập qua **Tailscale**
 - Tính năng: xem/tìm đơn, cập nhật task (soạn/giao/nộp/nhận), tạo/sửa đơn, thanh toán + công nợ, **comment trên trang chi tiết đơn**, **in** từ app
 - **Tài khoản riêng từng user** (biết ai sửa gì)
-- Ghi **DB-only** (không sync Telegram cho endpoint mới)
+- Ghi **DB-only** cho phần lớn mutation; **tạo đơn** thì đăng vào #don_hang → tạo
+  topic Telegram thật (từ 2026-07-04)
 - UI **tiếng Việt**, tối ưu **điện thoại Android cũ/chậm**, chịu được mạng chập chờn
 - Đóng gói: **debug APK** (WebView), không cần lên store
 
@@ -66,9 +67,12 @@ Backend: cùng process aiohttp hiện tại — thêm auth middleware + vài end
   `by`/`created_by`; `resolve_name` không tra Telegram entity cho username web
 
 ### Phase 3 — Tạo/sửa đơn + khách hàng — ✅ XONG 2026-07-02
-- ✅ Tạo đơn: `POST /api/order/create` (`server_app/order_api_create.py`) — text tự do
-  → detect khách + parse invoice (cùng pipeline Telegram). Đơn web: thread_id ÂM,
-  firebase_key `web_<epoch>`, flow_version `web` — `pages/CreateOrder.tsx`
+- ✅ Tạo đơn: `POST /api/order/create` (`server_app/order_api_create.py`) — **đăng text
+  vào kênh #don_hang** (CHANNEL_DON_HANG_MOI) rồi gọi thẳng `channel_handlers.create.
+  process_new_order` → tạo forum topic + đơn (thread_id DƯƠNG, flow_version 2) **y hệt
+  đơn gõ tay Telegram** (auto-parse khách/invoice + in phiếu soạn). Trả thread_id để web
+  điều hướng thẳng — `pages/CreateOrder.tsx`. (Trước 2026-07-04: DB-only thread_id âm —
+  đã bỏ; Telethon không phát NewMessage cho tin do chính client gửi nên phải gọi thẳng.)
 - ✅ Sửa invoice: bảng edit sl/giá/thêm/xoá dòng — `detail/Invoice.tsx`; sửa text đơn
   → `/api/order/fix` (parse lại)
 - ✅ Khách hàng: `GET /api/customers[?search]` + `/api/customers/{key}`
@@ -99,7 +103,7 @@ Backend: cùng process aiohttp hiện tại — thêm auth middleware + vài end
 
 ## Rủi ro đã ghi nhận (theo lựa chọn của bạn)
 
-- **DB-only**: message Telegram sẽ cũ sau khi sửa từ web. Endpoint task/payment CŨ có thể đã tự refresh Telegram (giữ nguyên hành vi); chỉ endpoint MỚI (tạo đơn, comment) là DB-only. Muốn bật sync sau: gọi `/api/order/refresh-view` có sẵn — rẻ.
+- **DB-only**: message Telegram sẽ cũ sau khi sửa từ web. Endpoint task/payment CŨ có thể đã tự refresh Telegram (giữ nguyên hành vi); chỉ endpoint comment là DB-only. **Tạo đơn KHÔNG còn DB-only** (2026-07-04): đăng vào #don_hang → tạo topic Telegram thật. Muốn bật sync cho endpoint khác: gọi `/api/order/refresh-view` có sẵn — rẻ.
 - **Bảo mật**: Tailscale là lớp mạng; auth middleware là cổng thật. Có thể thêm Tailscale ACL giới hạn thiết bị.
 
 ## Quy tắc code
