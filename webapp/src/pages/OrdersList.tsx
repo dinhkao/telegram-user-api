@@ -365,7 +365,6 @@ export function OrdersList() {
           return (
           <li key={o.thread_id}>
             <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
-              {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
               {(() => {
                 const allIds = o.thumb_image_ids && o.thumb_image_ids.length ? o.thumb_image_ids : (o.thumb_image_id ? [o.thumb_image_id] : []);
                 if (!allIds.length) return null;
@@ -378,15 +377,18 @@ export function OrdersList() {
                   </span>
                 );
               })()}
-              <div class="order-text">
-                <span class="ot-text">
-                  {isNew && <span class="tag-new">Mới</span>}
-                  {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
-                </span>
-                <TaskBadges o={o} />
-              </div>
-              <div class="order-when muted small">
-                🕒 {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
+              <div class="compact-right">
+                {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
+                <div class="order-text">
+                  <span class="ot-text">
+                    {isNew && <span class="tag-new">Mới</span>}
+                    {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
+                  </span>
+                  <TaskBadges o={o} />
+                </div>
+                <div class="order-when muted small">
+                  🕒 {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
+                </div>
               </div>
             </a>
           </li>

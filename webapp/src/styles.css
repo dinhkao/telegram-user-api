@@ -197,8 +197,8 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 
 /* Nhãn "vừa có thao tác" trên card dashboard */
 .flash-msg { display: inline-block; background: var(--primary); color: #fff; font-size: .85rem; font-weight: 600; padding: 1px 8px; border-radius: 6px; margin-bottom: 4px; }
-.order-card.compact { flex-wrap: wrap; }
-.order-card.compact .flash-msg { flex-basis: 100%; }
+/* Cột phải: nội dung + giờ xếp dọc, thumbnail bên trái cao full thân card */
+.order-card.compact .compact-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 
 /* ── Ảnh đính kèm đơn ── */
 /* Ảnh đại diện đơn trên card dashboard */
@@ -434,7 +434,7 @@ body.pv-open { overflow: hidden; }
 .quick-add { margin: 8px 0; padding: 8px; background: #f7f9fb; border: 1px dashed var(--border); border-radius: 8px; }
 .quick-add textarea { font-size: .9rem; }
 
-.order-card.compact .order-when { flex-basis: 100%; margin-top: 2px; text-align: right; }
+.order-card.compact .order-when { margin-top: auto; text-align: right; }
 
 /* Đơn mới tạo (≤5 phút) — tô vàng + tag "Mới" */
 .order-card.new-order { background: #fff8dc; border-color: #f0c000; box-shadow: 0 0 0 2px rgba(240,192,0,.25); }
