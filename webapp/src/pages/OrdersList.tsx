@@ -379,12 +379,12 @@ export function OrdersList() {
               })()}
               <div class="compact-right">
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
-                <div class="order-text">
+                <div class="order-text wrap-badges">
+                  <TaskBadges o={o} />
                   <span class="ot-text">
                     {isNew && <span class="tag-new">Mới</span>}
                     {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
                   </span>
-                  <TaskBadges o={o} />
                 </div>
                 <div class="order-when muted small">
                   🕒 {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
