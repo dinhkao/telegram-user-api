@@ -10,6 +10,12 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   shipped: { label: "Đã giao", cls: "ship" },
 };
 
+function todayLocal(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 export function ProductionBoxes({
   threadId,
   slip,
@@ -22,6 +28,7 @@ export function ProductionBoxes({
   const hasSp = !!slip.sp_name;
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [mfgDate, setMfgDate] = useState(todayLocal());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [myBoxes, setMyBoxes] = useState<InvBox[]>([]);
@@ -46,7 +53,7 @@ export function ProductionBoxes({
     setBusy(true);
     setMsg("");
     try {
-      const r = await addProductionBoxes(threadId, [{ quantity: n }], note.trim());
+      const r = await addProductionBoxes(threadId, [{ quantity: n }], note.trim(), mfgDate);
       setAmount("");
       setNote("");
       if (r?._queued) {
@@ -68,6 +75,15 @@ export function ProductionBoxes({
       <label class="card-label">📦 Nhập thùng {slip.sp_name ? `(${slip.sp_name})` : ""}</label>
       {!hasSp && <div class="muted small">Chọn sản phẩm trước khi nhập.</div>}
 
+      <div class="row">
+        <label class="inline-label">📅 NSX</label>
+        <input
+          type="date"
+          value={mfgDate}
+          disabled={!hasSp}
+          onInput={(e) => setMfgDate((e.target as HTMLInputElement).value)}
+        />
+      </div>
       <div class="row">
         <input
           type="text"

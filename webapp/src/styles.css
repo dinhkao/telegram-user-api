@@ -389,6 +389,23 @@ body.pv-open { overflow: hidden; }
 .box-detail.is-disabled .box-kv, .box-detail.is-disabled .prod-sp { opacity: .6; }
 .box-disabled-banner { background: #f3f3f3; color: #777; border: 1px dashed #ccc; padding: 8px 12px; border-radius: 8px; font-size: .88rem; margin-bottom: 4px; }
 .box-disabled-reason { margin-top: 4px; color: #555; font-weight: 600; }
+.box-mfg { max-width: 170px; }
+.inline-label { align-self: center; font-size: .85rem; color: #666; white-space: nowrap; }
+
+/* popup chọn thùng xuất kho */
+.modal-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; justify-content: center; }
+.modal-sheet { background: var(--card, #fff); width: 100%; max-width: 640px; max-height: 85vh; border-radius: 14px 14px 0 0; padding: 14px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.modal-head { display: flex; align-items: center; justify-content: space-between; }
+.modal-head b { font-size: 1.05rem; }
+.stock-pick-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 4px 0; }
+.stock-pick-row { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid #eee; border-radius: 8px; }
+.stock-pick-row.on { background: #f0f7ff; border-color: #b9d6f5; }
+.stock-pick-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
+.stock-pick-info { display: flex; flex-direction: column; min-width: 0; }
+.stock-pick-info code { font-weight: 700; }
+.stock-pick-info .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stock-pick-qty { width: 84px; flex: none; text-align: right; }
+.modal-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid #eee; }
 
 .prod-card-note { margin-top: 8px; font-size: .82rem; color: #555; background: #fffbe6; border-radius: 6px; padding: 5px 8px; }
 

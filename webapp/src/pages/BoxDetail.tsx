@@ -26,6 +26,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   const [loading, setLoading] = useState(true);
   const [noteInput, setNoteInput] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
+  const [mfgInput, setMfgInput] = useState("");
   const [disBusy, setDisBusy] = useState(false);
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
         else {
           setD(r);
           setNoteInput(r.box.note || "");
+          setMfgInput(r.box.mfg_date || "");
         }
       })
       .catch((e: any) => setErr(e?.message || "Lỗi tải thùng"))
@@ -53,6 +55,16 @@ export function BoxDetail({ boxId }: { boxId: string }) {
       }
     } catch (e: any) {
       setErr(e?.message || "Lỗi lưu ghi chú");
+    }
+  };
+
+  const saveMfg = async (v: string) => {
+    if (!d || v === (d.box.mfg_date || "")) return;
+    try {
+      const b = await updateBox(boxId, { mfg_date: v });
+      if (b) setD({ ...d, box: b });
+    } catch (e: any) {
+      setErr(e?.message || "Lỗi lưu ngày SX");
     }
   };
 
@@ -120,6 +132,16 @@ export function BoxDetail({ boxId }: { boxId: string }) {
         <div class="box-kv">
           <span class="box-k">Số cây</span>
           <span class="box-v big">{soVN(b.quantity)}</span>
+        </div>
+        <div class="box-kv">
+          <span class="box-k">Ngày SX</span>
+          <input
+            class="box-mfg"
+            type="date"
+            value={mfgInput}
+            onInput={(e) => setMfgInput((e.target as HTMLInputElement).value)}
+            onChange={(e) => saveMfg((e.target as HTMLInputElement).value)}
+          />
         </div>
         <div class="box-kv">
           <span class="box-k">Người nhập</span>

@@ -363,6 +363,7 @@ export type InvBox = {
   source_thread_id?: number | null;
   order_thread_id?: number | null;
   note?: string | null;
+  mfg_date?: string | null;
   disabled?: number | boolean | null;
   disabled_reason?: string | null;
   created_at?: string;
@@ -390,11 +391,16 @@ export type InvProductSummary = {
 export async function addProductionBoxes(
   id: string | number,
   boxes: { quantity: number }[],
-  note = ""
+  note = "",
+  mfgDate = ""
 ): Promise<{ boxes: InvBox[]; total: number; _queued?: boolean }> {
   const u = currentUser();
   const user = u?.display_name || u?.username || "";
-  const d = await postJSON(`/api/production/${id}/boxes`, { boxes, note, user }, { queueable: true });
+  const d = await postJSON(
+    `/api/production/${id}/boxes`,
+    { boxes, note, mfg_date: mfgDate, user },
+    { queueable: true }
+  );
   return { boxes: d.boxes || [], total: d.total, _queued: d._queued };
 }
 
@@ -445,7 +451,7 @@ export async function setBoxDisabled(
 /** Sửa ghi chú / số cây của 1 thùng. */
 export async function updateBox(
   id: string | number,
-  patch: { note?: string; quantity?: number }
+  patch: { note?: string; quantity?: number; mfg_date?: string }
 ): Promise<InvBox | null> {
   const d = await postJSON(`/api/inventory/box/${id}`, patch);
   return d.ok ? d.box : null;
@@ -457,11 +463,22 @@ export async function orderAllocations(id: string | number): Promise<InvBox[]> {
   return d.boxes || [];
 }
 
-/** Xuất kho cho đơn: chọn box_ids in_stock. Trả list thùng đã xuất của đơn. */
+/** Xuất kho cho đơn: chọn box_ids in_stock (full). Trả list thùng đã xuất của đơn. */
 export async function allocateBoxes(id: string | number, boxIds: number[]): Promise<InvBox[]> {
   const u = currentUser();
   const user = u?.display_name || u?.username || "";
   const d = await postJSON(`/api/order/${id}/allocate`, { box_ids: boxIds, user });
+  return d.boxes || [];
+}
+
+/** Xuất kho cho đơn — lấy 1 phần được: picks=[{box_id, quantity?}] (thiếu qty = full). */
+export async function allocatePicks(
+  id: string | number,
+  picks: { box_id: number; quantity?: number | null }[]
+): Promise<InvBox[]> {
+  const u = currentUser();
+  const user = u?.display_name || u?.username || "";
+  const d = await postJSON(`/api/order/${id}/allocate`, { picks, user });
   return d.boxes || [];
 }
 

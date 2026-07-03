@@ -1,24 +1,15 @@
-// Xuất kho cho đơn: mỗi mã SP trong hoá đơn → chọn thùng in_stock (mã + số cây)
-// tổng đủ SL cần, xuất cho đơn này. Hiện thùng đã xuất + thu hồi. GET/POST
-// /api/order/:id/allocations|allocate|release + /api/inventory/:code.
+// Xuất kho cho đơn: mỗi mã SP trong hoá đơn → nút "Chọn thùng" mở popup chọn thùng
+// (có thể lấy 1 phần, nhiều thùng). Hiện thùng đã xuất + thu hồi. Tap mã thùng →
+// chi tiết thùng. GET/POST /api/order/:id/allocations|allocate|release.
 import { useEffect, useState } from "preact/hooks";
-import {
-  orderAllocations,
-  inventoryDetail,
-  allocateBoxes,
-  releaseBoxes,
-  soVN,
-  type InvBox,
-  type InvDetail,
-} from "../api";
+import { orderAllocations, allocatePicks, releaseBoxes, soVN, type InvBox } from "../api";
+import { StockPickerModal } from "./StockPickerModal";
 
 type Line = { sp: string; sl: number | string };
 
 export function OrderStock({ threadId, invoice }: { threadId: string; invoice: Line[] }) {
   const [alloc, setAlloc] = useState<InvBox[]>([]);
-  const [openCode, setOpenCode] = useState("");
-  const [inv, setInv] = useState<InvDetail | null>(null);
-  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [pickCode, setPickCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
@@ -43,46 +34,6 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
   const products = [...needs.entries()].map(([code, need]) => ({ code, need }));
   if (!products.length) return null;
 
-  const openPicker = async (code: string) => {
-    if (openCode === code) {
-      setOpenCode("");
-      return;
-    }
-    setOpenCode(code);
-    setPicked(new Set());
-    setInv(null);
-    setMsg("");
-    try {
-      setInv(await inventoryDetail(code));
-    } catch {
-      setInv(null);
-    }
-  };
-
-  const toggle = (id: number) => {
-    const s = new Set(picked);
-    s.has(id) ? s.delete(id) : s.add(id);
-    setPicked(s);
-  };
-
-  const pickedSum = inv ? inv.boxes.filter((b) => picked.has(b.id)).reduce((s, b) => s + b.quantity, 0) : 0;
-
-  const doAllocate = async () => {
-    if (!picked.size) return;
-    setBusy(true);
-    setMsg("");
-    try {
-      await allocateBoxes(threadId, [...picked]);
-      setOpenCode("");
-      setPicked(new Set());
-      await load();
-    } catch (e: any) {
-      setMsg(e?.message || "Lỗi xuất kho");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const doRelease = async (id: number) => {
     setBusy(true);
     setMsg("");
@@ -95,6 +46,11 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
       setBusy(false);
     }
   };
+
+  const current = pickCode ? products.find((p) => p.code === pickCode) : null;
+  const pickGot = pickCode
+    ? alloc.filter((b) => b.product_code === pickCode).reduce((s, b) => s + b.quantity, 0)
+    : 0;
 
   return (
     <section class="card">
@@ -110,8 +66,8 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
               <span class={enough ? "inv-pick-sum ok" : "inv-pick-sum"}>
                 Đã xuất {soVN(got)}/{soVN(need)}
               </span>
-              <button class="btn small" onClick={() => openPicker(code)}>
-                {openCode === code ? "Đóng" : "Chọn thùng"}
+              <button class="btn small" onClick={() => setPickCode(code)}>
+                Chọn thùng
               </button>
             </div>
 
@@ -131,44 +87,23 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
                 ))}
               </ul>
             )}
-
-            {openCode === code && (
-              <div class="stock-picker">
-                {!inv || inv.boxes.length === 0 ? (
-                  <div class="muted small">Kho hết thùng {code}.</div>
-                ) : (
-                  <>
-                    <ul class="inv-box-list">
-                      {inv.boxes.map((b) => (
-                        <li key={b.id} class={picked.has(b.id) ? "picked" : ""} onClick={() => toggle(b.id)}>
-                          <code>{b.box_code}</code> · {soVN(b.quantity)}
-                        </li>
-                      ))}
-                    </ul>
-                    <div class="inv-pick-bar">
-                      <span
-                        class={
-                          pickedSum + got > need
-                            ? "inv-pick-sum over"
-                            : pickedSum + got >= need
-                              ? "inv-pick-sum ok"
-                              : "inv-pick-sum"
-                        }
-                      >
-                        Chọn {soVN(pickedSum)} · còn thiếu {soVN(Math.max(need - got - pickedSum, 0))}
-                      </span>
-                      <button class="btn primary small" disabled={busy || !picked.size} onClick={doAllocate}>
-                        Xuất {picked.size || ""} thùng
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
           </div>
         );
       })}
       {msg && <div class="muted small">{msg}</div>}
+
+      {current && (
+        <StockPickerModal
+          productCode={current.code}
+          need={current.need}
+          got={pickGot}
+          onClose={() => setPickCode("")}
+          onPick={async (picks) => {
+            await allocatePicks(threadId, picks);
+            await load();
+          }}
+        />
+      )}
     </section>
   );
 }

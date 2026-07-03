@@ -23,6 +23,7 @@ from inventory_store import (
     update_box,
     set_disabled,
     allocate_boxes,
+    allocate_picks,
     release_boxes,
     summarize,
 )
@@ -75,6 +76,7 @@ async def production_add_boxes_handler(request: web.Request):
             return web.json_response({"ok": False, "error": "Số lượng thùng phải > 0"}, status=400)
         quantities.append(q)
     note = str(body.get("note") or "").strip()
+    mfg_date = str(body.get("mfg_date") or "").strip() or None
     actor = _web_actor(request, body)
 
     def _run():
@@ -85,7 +87,7 @@ async def production_add_boxes_handler(request: web.Request):
             if not slip or not slip.get("sp_name"):
                 return None, None
             code = str(slip["sp_name"]).strip().upper()
-            created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note)
+            created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date)
             # đồng bộ slip.total/numbers/progress: 1 entry/thùng (note = mã thùng)
             total = slip.get("total") or 0
             for box in created:
@@ -171,9 +173,12 @@ async def box_update_handler(request: web.Request):
         body = {}
     note = body.get("note")
     quantity = body.get("quantity")
+    mfg_date = body.get("mfg_date")
     kwargs = {}
     if note is not None:
         kwargs["note"] = str(note)
+    if mfg_date is not None:
+        kwargs["mfg_date"] = str(mfg_date).strip()
     if quantity is not None:
         try:
             q = float(quantity)
@@ -296,7 +301,11 @@ async def order_allocations_handler(request: web.Request):
 
 
 async def order_allocate_handler(request: web.Request):
-    """Xuất kho cho đơn: chọn box_ids in_stock → gán cho đơn này."""
+    """Xuất kho cho đơn: picks=[{box_id, quantity?}] → gán cho đơn (lấy 1 phần được).
+
+    quantity thiếu = lấy full thùng. Lấy 1 phần → tách thùng. Tương thích ngược:
+    body {box_ids:[...]} = lấy full mỗi thùng.
+    """
     thread_id = _thread_id(request)
     if thread_id is None:
         return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
@@ -304,20 +313,20 @@ async def order_allocate_handler(request: web.Request):
         body = await request.json()
     except Exception:
         body = {}
-    box_ids = body.get("box_ids")
-    if not isinstance(box_ids, list) or not box_ids:
-        return web.json_response({"ok": False, "error": "Chưa chọn thùng"}, status=400)
-    try:
-        box_ids = [int(x) for x in box_ids]
-    except (TypeError, ValueError):
-        return web.json_response({"ok": False, "error": "box_ids không hợp lệ"}, status=400)
+    picks = body.get("picks")
+    if not isinstance(picks, list) or not picks:
+        box_ids = body.get("box_ids")
+        if isinstance(box_ids, list) and box_ids:
+            picks = [{"box_id": b, "quantity": None} for b in box_ids]
+        else:
+            return web.json_response({"ok": False, "error": "Chưa chọn thùng"}, status=400)
     actor = _web_actor(request, body)
 
     def _run():
         conn = _conn()
         try:
             _ensure(conn)
-            allocated = allocate_boxes(conn, box_ids, thread_id, by=actor)
+            allocated = allocate_picks(conn, picks, thread_id, by=actor)
             return list_boxes(conn, order_thread_id=thread_id), allocated
         finally:
             conn.close()
