@@ -12,8 +12,12 @@ from typing import Any
 log = logging.getLogger("kiotviet")
 KIOTVIET_BASE = os.getenv("KIOTVIET_BASE_URL", "https://public.kiotapi.com")
 KIOTVIET_TOKEN_URL = os.getenv("KIOTVIET_TOKEN_URL", "https://id.kiotviet.vn/connect/token")
-KIOTVIET_CLIENT_ID = os.getenv("KIOTVIET_CLIENT_ID", "1c88abb0-61d0-48a9-b179-e9ec94bade9f")
-KIOTVIET_CLIENT_SECRET = os.getenv("KIOTVIET_CLIENT_SECRET", "65FE124DBB02D060F5D09EB5B5B34485173A2782")
+# Secret KHÔNG hardcode trong source — đọc từ env (.env, gitignored). Bí mật cũ đã
+# lộ trong git history → CẦN XOAY (rotate) ở KiotViet; xem REVIEW_REPORT.md.
+KIOTVIET_CLIENT_ID = os.getenv("KIOTVIET_CLIENT_ID", "")
+KIOTVIET_CLIENT_SECRET = os.getenv("KIOTVIET_CLIENT_SECRET", "")
+if not KIOTVIET_CLIENT_SECRET:
+    log.warning("KIOTVIET_CLIENT_SECRET chưa đặt trong env — gọi KiotViet sẽ thất bại")
 KIOTVIET_RETAILER = os.getenv("KIOTVIET_RETAILER", "letrangphat")
 _token: str | None = None
 _token_expires = 0.0

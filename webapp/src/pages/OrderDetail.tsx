@@ -26,6 +26,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [toast, setToast] = useState<string | null>(null);
   const seenTs = useRef<string | null>(null); // ts mới nhất đã báo — chặn báo lại lịch sử cũ
   const restored = useRef(false); // đã khôi phục vị trí cuộn cho đơn này chưa
+  const saveTimer = useRef<any>(null);
+  useEffect(() => () => clearTimeout(saveTimer.current), []); // huỷ timer "sửa text" khi unmount
 
   const reload = async () => {
     try {
@@ -81,19 +83,20 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   useEffect(() => {
     if (!focus) return;
     let tries = 0;
+    let flashT: any;
     const iv = setInterval(() => {
       const el = document.getElementById(focus);
       if (el) {
         clearInterval(iv);
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         el.classList.add("flash-target");
-        setTimeout(() => el.classList.remove("flash-target"), 2400);
+        flashT = setTimeout(() => el.classList.remove("flash-target"), 2400);
         history.replaceState(null, "", `#/order/${threadId}`); // xoá ?focus khỏi URL
       } else if (++tries > 50) {
         clearInterval(iv); // ~5s không thấy → thôi
       }
     }, 100);
-    return () => clearInterval(iv);
+    return () => { clearInterval(iv); clearTimeout(flashT); };
   }, [focus, threadId]);
 
   // Realtime: đơn này đổi (task/thanh toán/bình luận…) hoặc vừa nối lại → tải lại.
@@ -221,7 +224,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       await postJSON("/api/order/fix", { thread_id: Number(threadId), text: editText });
       setMsg("✅ Đã sửa text — hệ thống đang parse lại");
       setEditText(null);
-      setTimeout(changed, 1500);
+      saveTimer.current = setTimeout(changed, 1500);
     } catch (ex: any) {
       setMsg(`❌ ${ex.message}`);
     } finally {

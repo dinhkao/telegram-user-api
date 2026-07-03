@@ -96,7 +96,9 @@ function connect() {
     }
     if (data && (data.type === "order_changed" || data.type === "orders_changed")) emit(data);
   };
+  const self = ws;
   ws.onclose = () => {
+    if (ws !== self) return; // close muộn của socket cũ → đừng null socket hiện tại
     ws = null;
     setStatus(stopped ? "offline" : "connecting");
     schedule();
@@ -117,6 +119,7 @@ export function startRealtime() {
 
 export function stopRealtime() {
   stopped = true;
+  everConnected = false; // đăng xuất→đăng nhập lại: lần nối đầu KHÔNG phát resync thừa
   try {
     ws?.close();
   } catch {

@@ -92,7 +92,13 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
     return info;
   };
 
+  // Chỉ nạp lại rows khi NỘI DUNG invoice đổi thật — không nạp lại khi reload nền
+  // (realtime) trả về invoice y hệt, để không xoá phần user đang sửa dở.
+  const seededSig = useRef<string>("__init__");
   useEffect(() => {
+    const sig = JSON.stringify((invoice || []).map((it) => [it.sp, it.sl ?? it.quantity, it.price, it.note]));
+    if (sig === seededSig.current) return;
+    seededSig.current = sig;
     setRows((invoice || []).map((it) => ({
       sp: it.sp || "", sl: Number(it.sl ?? it.quantity ?? 0) || 0,
       price: Number(it.price) || 0, note: it.note || "",

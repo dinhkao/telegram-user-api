@@ -69,7 +69,7 @@ export function Comments({ threadId, chatMessages }: { threadId: string; chatMes
       <b>Trao đổi</b>
       <ul class="comment-list">
         {items.map((it, i) => (
-          <li key={i} id={it.id ? `comment-${it.id}` : undefined} class={it.source === "web" ? "comment web" : "comment tg"}>
+          <li key={it.id ? `w${it.id}` : `t${it.source}-${it.at}-${i}`} id={it.id ? `comment-${it.id}` : undefined} class={it.source === "web" ? "comment web" : "comment tg"}>
             <div class="muted small">
               {it.source === "tg" ? "✈️ " : "💬 "}
               {it.who} · {fmtTime(it.at)}

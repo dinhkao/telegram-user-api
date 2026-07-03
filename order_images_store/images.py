@@ -45,6 +45,15 @@ def _conn(path: str | None = None):
                 conn.execute("ALTER TABLE order_images ADD COLUMN tg_message_id INTEGER")
             except Exception:  # noqa: BLE001 — cột đã có ở process khác thì bỏ qua
                 pass
+        # Backstop chống nhập trùng: 1 tin Telegram (tg_message_id non-NULL) chỉ 1 ảnh/đơn.
+        # NULL được coi là khác nhau trong UNIQUE → nhiều upload web (chưa forward) không đụng.
+        try:
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_order_images_tgmsg "
+                "ON order_images(thread_id, tg_message_id)"
+            )
+        except Exception:  # noqa: BLE001 — có dòng trùng cũ thì bỏ qua, không chặn khởi động
+            pass
         _ensured.add(key)
     return conn
 
@@ -67,11 +76,19 @@ def add_image(
     conn = _conn(db_path)
     try:
         cur = conn.execute(
-            "INSERT INTO order_images (thread_id, filename, thumb, mime, size, width, height, uploaded_by, tg_message_id, created_at)"
+            "INSERT OR IGNORE INTO order_images (thread_id, filename, thumb, mime, size, width, height, uploaded_by, tg_message_id, created_at)"
             " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (int(thread_id), filename, thumb, mime, int(size), int(width), int(height),
              uploaded_by or "?", tg_message_id, now),
         )
+        if cur.rowcount == 0 and tg_message_id is not None:
+            # đã có ảnh cho tin Telegram này (race) → trả về dòng sẵn có, không tạo trùng
+            row = conn.execute(
+                f"SELECT {_COLS} FROM order_images WHERE thread_id = ? AND tg_message_id = ?",
+                (int(thread_id), int(tg_message_id)),
+            ).fetchone()
+            if row:
+                return dict(row)
         return {
             "id": cur.lastrowid, "thread_id": int(thread_id), "filename": filename, "thumb": thumb,
             "mime": mime, "size": int(size), "width": int(width), "height": int(height),

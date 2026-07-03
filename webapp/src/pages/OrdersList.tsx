@@ -134,9 +134,12 @@ export function OrdersList() {
       if (h) msg = `${h.actor || "?"}: ${h.action}${h.detail ? ` — ${h.detail}` : ""}`;
     } catch { /* ignore */ }
     setFlashing((f) => ({ ...f, [tid]: msg }));
-    setTimeout(() => setFlashing((f) => { const n = { ...f }; delete n[tid]; return n; }), 5000);
+    const id = window.setTimeout(() => setFlashing((f) => { const n = { ...f }; delete n[tid]; return n; }), 5000);
+    flashTimers.current.push(id);
   };
   const reqSeq = useRef(0); // "query mới nhất thắng" — bỏ debounce nhưng chặn race
+  const flashTimers = useRef<number[]>([]);
+  useEffect(() => () => flashTimers.current.forEach(clearTimeout), []); // dọn timer nháy khi rời trang
   const sentinel = useRef<HTMLDivElement>(null);
   // refs giữ state mới nhất cho observer (tránh stale closure)
   const st = useRef<any>({});
@@ -154,7 +157,7 @@ export function OrdersList() {
       // chỉ cache trang không search — kết quả theo phím gõ không rác localStorage
       const data = await getJSON(`/api/orders?page=${p}&limit=${PAGE_SIZE}&search=${encodeURIComponent(q)}${fp}`, { cache: !q });
       if (seq !== reqSeq.current) return; // đã có query mới hơn → bỏ kết quả cũ (chống race)
-      setOrders((prev) => (append ? [...prev, ...data.orders] : data.orders));
+      setOrders((prev) => (append ? [...prev, ...(data.orders || [])] : (data.orders || [])));
       setTotalPages(data.total_pages || 1);
       if (data.stats && Object.keys(data.stats).length) setStats(data.stats);
       setStale(!!data._stale);

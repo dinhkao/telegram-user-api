@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from datetime import UTC, datetime
 
 from order_db import get_order_by_thread_id
@@ -35,7 +36,8 @@ def add_payment(conn, thread_id: int, payment: dict) -> tuple[bool, str]:
     if not order:
         return False, "Không tìm thấy đơn hàng"
     payments = order.get("payments", [])
-    payment["id"] = f"payment_{len(payments)}_{int(datetime.now(UTC).timestamp())}"
+    # uuid thay vì len(payments): tránh trùng id sau khi xoá 1 payment (len tái dùng chỉ số)
+    payment["id"] = f"payment_{int(datetime.now(UTC).timestamp())}_{uuid.uuid4().hex[:8]}"
     payment["created_at"] = _stamp()
     payments.append(payment)
     order["payments"] = payments
@@ -71,9 +73,9 @@ def get_all_debts(conn) -> list[dict]:
     for row in conn.execute("SELECT thread_id, json FROM orders WHERE deleted_at IS NULL AND json IS NOT NULL"):
         try:
             order = json.loads(row["json"])
-        except json.JSONDecodeError:
+            d = compute_debt(order)  # trong try: 1 đơn dữ liệu lỗi không đánh sập cả báo cáo nợ
+        except (json.JSONDecodeError, ValueError, TypeError):
             continue
-        d = compute_debt(order)
         if d["remaining"] > 0:
             debts.append({"thread_id": row["thread_id"], "customer": order.get("khach_hang", "N/A"), **d})
     return debts

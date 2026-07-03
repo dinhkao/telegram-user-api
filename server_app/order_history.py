@@ -72,16 +72,20 @@ def _detail(norm: str, body: dict) -> str:
 def get_order_history(thread_id, limit: int = 60) -> list[dict]:
     conn = _get_connection()
     try:
-        rows = conn.execute(
-            "SELECT ts, actor_id, actor_type, action, source, payload_json, result_json "
-            "FROM audit_events WHERE thread_id = ? AND action IN ('http.request', 'order.image_added') "
-            "ORDER BY id DESC LIMIT 300",
-            (int(thread_id),),
-        ).fetchall()
+        return _get_order_history_rows(conn, thread_id, limit)
     except Exception:
         return []
     finally:
-        pass
+        conn.close()
+
+
+def _get_order_history_rows(conn, thread_id, limit: int) -> list[dict]:
+    rows = conn.execute(
+        "SELECT ts, actor_id, actor_type, action, source, payload_json, result_json "
+        "FROM audit_events WHERE thread_id = ? AND action IN ('http.request', 'order.image_added') "
+        "ORDER BY id DESC LIMIT 300",
+        (int(thread_id),),
+    ).fetchall()
     out = []
     for r in rows:
         # Thêm ảnh (ghi tường minh vì upload là multipart, id ảnh không nằm trong request)
@@ -121,7 +125,6 @@ def get_order_history(thread_id, limit: int = 60) -> list[dict]:
         })
         if len(out) >= limit:
             break
-    conn.close()
     return out
 
 

@@ -1,6 +1,6 @@
 // Ô tìm + chọn khách hàng (autocomplete /api/customers). Dùng ở CreateOrder
 // (tạo đơn) và OrderDetail (gán khách cho đơn chưa có). Gọi onPick khi chọn.
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON } from "../api";
 import { money } from "../format";
 
@@ -12,6 +12,7 @@ export function CustomerPicker({ onPick, placeholder }: {
   const [sug, setSug] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const t = useRef<number>();
+  useEffect(() => () => clearTimeout(t.current), []); // huỷ debounce khi unmount
   const input = (v: string) => {
     setQ(v);
     onPick(null);

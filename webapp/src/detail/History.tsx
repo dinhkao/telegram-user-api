@@ -44,7 +44,7 @@ export function History({ threadId }: { threadId: string }) {
       {items.length ? (
         <ul class="hist">
           {items.map((h, i) => (
-            <li key={i} class={h.ok === false ? "hist-fail" : ""}>
+            <li key={`${h.ts}-${h.action}-${h.image_id ?? h.detail ?? i}`} class={h.ok === false ? "hist-fail" : ""}>
               <div class="hist-row">
                 <div>
                   <div>

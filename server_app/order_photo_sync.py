@@ -17,6 +17,7 @@ import io
 import logging
 import os
 import tempfile
+from collections import deque
 
 from telethon import events
 
@@ -32,14 +33,20 @@ _FULL_MAX = 1600
 _THUMB_MAX = 400
 
 # id các tin ảnh do chính process gửi ra (forward web → topic) — inbound bỏ qua.
+# set để tra O(1) + deque giữ thứ tự để evict FIFO (không evict nhầm id còn trong cửa sổ dedup).
 _self_sent: set[int] = set()
+_self_sent_q: deque[int] = deque()
+_SELF_SENT_MAX = 5000
 
 
 def mark_self_sent(message_id: int) -> None:
-    _self_sent.add(int(message_id))
-    if len(_self_sent) > 5000:  # chặn phình vô hạn
-        for mid in list(_self_sent)[:2500]:
-            _self_sent.discard(mid)
+    mid = int(message_id)
+    if mid in _self_sent:
+        return
+    _self_sent.add(mid)
+    _self_sent_q.append(mid)
+    while len(_self_sent_q) > _SELF_SENT_MAX:  # evict id CŨ NHẤT
+        _self_sent.discard(_self_sent_q.popleft())
 
 
 def is_self_sent(message_id: int) -> bool:

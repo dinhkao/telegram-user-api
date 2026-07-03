@@ -92,7 +92,7 @@ async def api_invoice_update_handler(request: web.Request):
             return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
     if order.get("channel_id") and order.get("message_id") and state._client is not None:
         spawn_tracked("order.refresh", refresh_order_bg(conn, thread_id, order["channel_id"], order["message_id"]), {"thread_id": thread_id, "channel_id": order["channel_id"], "message_id": order["message_id"]})
-    log.info("invoice-update: thread=%d items=%d", thread_id, len(invoice))
+    log.info("invoice-update: thread=%d items=%d", thread_id, len(invoice or []))
     return web.json_response({"ok": True})
 
 

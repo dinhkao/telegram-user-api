@@ -85,7 +85,7 @@ def make_handler(get_client):
             return web.json_response({"error": "user account lacks send rights"}, status=403)
         except Exception as e:
             log.error("Send file failed: chat=%d error=%s: %s", chat_id, type(e).__name__, e)
-            return web.json_response({"error": f"{type(e).__name__}: {e}"}, status=502)
+            return web.json_response({"error": "send failed"}, status=502)  # chi tiết ở log, không lộ ra caller
         finally:
             if tmp_path:
                 try:

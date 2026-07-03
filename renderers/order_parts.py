@@ -69,9 +69,13 @@ def tag_parts(order_text, invoice_total, discount, pvc, vat, current_debt, final
     tags = ["tags:", accentless_lower(order_text)]
     fin = []
     for n in (invoice_total, discount, pvc, vat, current_debt, final_total):
+        try:
+            n = int(n or 0)  # ép int trước: tránh "5.0"[:-3]=="" (crash) + cắt nghìn sai với float
+        except (TypeError, ValueError):
+            continue
         s = str(abs(n))
         s = s[:-3] if len(s) > 3 else s
-        if int(s) > 0:
+        if s and int(s) > 0:
             fin.append(s)
     if fin:
         tags.append(" ".join(fin))

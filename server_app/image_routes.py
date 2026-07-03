@@ -37,14 +37,16 @@ def _thread_id(request: web.Request) -> int | None:
 
 
 def _thread_dir(thread_id: int) -> str:
+    """Thư mục ảnh của đơn — TẠO nếu chưa có. Chỉ gọi ở đường GHI (không ở đường đọc)."""
     d = os.path.join(ORDER_MEDIA_DIR, str(thread_id))
     os.makedirs(d, exist_ok=True)
     return d
 
 
 def _safe_path(thread_id: int, name: str) -> str | None:
-    """Ghép ORDER_MEDIA_DIR/<thread_id>/<name> và chặn path-traversal."""
-    base = os.path.normpath(_thread_dir(thread_id))
+    """Ghép ORDER_MEDIA_DIR/<thread_id>/<name> và chặn path-traversal.
+    Thuần tính toán — KHÔNG tạo thư mục (đường đọc/serve gọi hàm này mỗi request)."""
+    base = os.path.normpath(os.path.join(ORDER_MEDIA_DIR, str(thread_id)))
     full = os.path.normpath(os.path.join(base, name))
     if full != base and not full.startswith(base + os.sep):
         return None
@@ -80,6 +82,7 @@ async def persist_order_image(
     fname, tname = f"{uid}{ext}", f"{uid}_t{thumb_ext}"
 
     def _write():
+        _thread_dir(thread_id)  # tạo thư mục đơn (chỉ ở đường ghi)
         fp = _safe_path(thread_id, fname)
         tp = _safe_path(thread_id, tname)
         if not fp or not tp:

@@ -74,6 +74,9 @@ export async function flushQueue(send: (path: string, body: any) => Promise<"ok"
     if (verdict === "ok") sent++;
     else if (verdict === "keep") remaining.push(item);
   }
-  localStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
+  // Item được queuePost thêm TRONG lúc flush nằm ở cuối queue hiện tại (sau snapshot q)
+  // → giữ lại, đừng ghi đè mất.
+  const added = getQueue().slice(q.length);
+  localStorage.setItem(QUEUE_KEY, JSON.stringify([...remaining, ...added]));
   return sent;
 }
