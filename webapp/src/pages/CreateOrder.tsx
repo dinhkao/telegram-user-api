@@ -61,10 +61,7 @@ export function CreateOrder() {
 
       {mode === "quick" ? (
         <div class="card">
-          <p class="muted small">Gõ như nhắn Telegram: tên khách + các dòng sản phẩm. Hệ thống tự nhận khách và parse.</p>
-          <textarea rows={8} placeholder={"vd:\nchị Hoa chợ Xóm Mới\n2 thùng KLC 350\n5kg C40 60"} value={text} onInput={(e: any) => setText(e.target.value)} />
-
-          {/* Xem trước tự động kết quả parse */}
+          {/* Xem trước Ở TRÊN ô nhập → bàn phím mobile không che */}
           {text.trim() && (
             <div class="preview-box">
               <div class="preview-head">
@@ -74,7 +71,15 @@ export function CreateOrder() {
                 <>
                   <div class="preview-cust">
                     {preview.customer ? (
-                      <>👤 <b>{preview.customer.name}</b> <span class="muted small">({preview.customer.score}%)</span></>
+                      <>
+                        👤 <b>{preview.customer.name}</b> <span class="muted small">({preview.customer.score}%)</span>
+                        {preview.customer.debt != null && (
+                          <span class={preview.customer.debt > 0 ? "owe" : "muted small"}> · Nợ: {money(preview.customer.debt)}đ</span>
+                        )}
+                        {preview.customer.price_list_name && (
+                          <div class="muted small">📋 Bảng giá: {preview.customer.price_list_name}</div>
+                        )}
+                      </>
                     ) : preview.candidates.length ? (
                       <span class="muted small">🔍 Có thể: {preview.candidates.map((c) => `${c.name} (${c.score}%)`).join(" · ")}</span>
                     ) : (
@@ -107,6 +112,13 @@ export function CreateOrder() {
               )}
             </div>
           )}
+
+          <textarea rows={8} placeholder={"vd:\nchị Hoa chợ Xóm Mới\n2 thùng KLC 350\n5kg C40 60"} value={text} onInput={(e: any) => setText(e.target.value)} />
+
+          <div class="muted small hint">
+            💡 Tự nhận diện: <b>tên khách</b> (tự gán nếu khớp cao — kèm nợ &amp; bảng giá) · mỗi dòng
+            {" "}<b>sản phẩm</b> dạng <code>&lt;SL&gt; &lt;mã SP&gt; [giá]</code> — bỏ trống giá thì tự lấy theo bảng giá khách.
+          </div>
 
           {err && <p class="error">{err}</p>}
           <button class="btn primary wide" disabled={busy} onClick={submitQuick}>{busy ? "Đang tạo…" : "Tạo đơn"}</button>

@@ -123,7 +123,10 @@ export async function searchProducts(q: string): Promise<{ code: string; name: s
 }
 
 export type OrderPreview = {
-  customer: { id: string; name: string; score: number } | null;
+  customer: {
+    id: string; name: string; score: number;
+    debt?: number | null; debt_updated_at?: string | null; price_list_name?: string | null;
+  } | null;
   candidates: { id: string; name: string; score: number }[];
   invoice: { sp: string; sl: number; price: number; sub: number }[];
   total: number;

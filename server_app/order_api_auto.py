@@ -1,11 +1,31 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 
 from aiohttp import web
 
 from order_db import _get_connection, detect_customer_free_text, get_customer_by_key, get_customer_price_list, get_order_by_thread_id, parse_invoice_free_text, _save_order
+
+
+def _customer_extra(conn, cust_key) -> dict:
+    """Nợ (snapshot) + tên bảng giá đang gán của khách (cho preview)."""
+    cust = get_customer_by_key(conn, cust_key) or {}
+    pl_name = None
+    plid = cust.get("price_list")
+    if plid:
+        r = conn.execute("SELECT value FROM kv_store WHERE path = 'bang_gia_moi'").fetchone()
+        if r and r["value"]:
+            book = json.loads(r["value"]).get(str(plid), {})
+            pl_name = (book.get("name") or "").strip() or f"BG {plid}"
+    if cust.get("personal_price_list"):
+        pl_name = f"{pl_name} + riêng" if pl_name else "Bảng giá riêng"
+    return {
+        "debt": cust.get("debt"),
+        "debt_updated_at": cust.get("debt_updated_at"),
+        "price_list_name": pl_name,
+    }
 from product_db import freeze_invoice_cost_prices
 
 from server_app import state
@@ -36,9 +56,12 @@ async def order_preview_handler(request: web.Request):
         invoice = parse_invoice_free_text(conn, text, assigned["customerID"])
     invoice = invoice or []
     total = sum((it.get("sl", 0) or 0) * (it.get("price", 0) or 0) for it in invoice)
+    customer_out = None
+    if assigned:
+        customer_out = {"id": assigned["customerID"], "name": assigned["customerName"], "score": assigned["score"], **_customer_extra(conn, assigned["customerID"])}
     return web.json_response({
         "ok": True,
-        "customer": {"id": assigned["customerID"], "name": assigned["customerName"], "score": assigned["score"]} if assigned else None,
+        "customer": customer_out,
         "candidates": [] if assigned else [
             {"id": m["customerID"], "name": m["customerName"], "score": m["score"]}
             for m in (detection.get("matches") or [])[:3]
