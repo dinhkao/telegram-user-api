@@ -328,3 +328,14 @@ body.pv-open { overflow: hidden; }
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .modal { background: #fff; border-radius: 12px; padding: 14px; width: 100%; max-width: 420px; max-height: 80vh; display: flex; flex-direction: column; }
 .pl-scroll { overflow-y: auto; margin-top: 8px; }
+
+/* Card đơn (two-col) bố cục mới: thumbnail lớn trái · nội dung giữa · giờ/tiền/trạng thái phải */
+.card-main .card-row { display: flex; gap: 10px; align-items: flex-start; }
+.card-thumb-lg { width: 80px; height: 80px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); flex-shrink: 0; background: var(--bg); }
+.card-thumb-lg.ph { display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #c4c7cc; }
+.card-mid { flex: 1; min-width: 0; }
+.card-mid .cust { display: block; margin-bottom: 2px; }
+.card-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; text-align: right; gap: 2px; min-width: 96px; }
+.card-right .money { font-size: 1.02rem; }
+.card-right .paid-ok, .card-right .owe { font-size: .82rem; }
+.xsmall { font-size: .68rem; }

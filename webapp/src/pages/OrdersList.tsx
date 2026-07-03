@@ -362,31 +362,26 @@ export function OrdersList() {
             <a class={`order-card two-col${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               <div class="card-main">
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
-                <div class="card-lead">
-                  {o.thumb_image_id ? <img class="card-thumb" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" /> : null}
-                  {o.text
-                    ? <div class="order-text"><span class="ot-text"><Highlight text={o.text} q={search} /></span><TaskBadges o={o} /></div>
-                    : <div class="order-text muted"><span class="ot-text">(không có nội dung)</span><TaskBadges o={o} /></div>}
-                </div>
-                <div class="row space">
-                  <b class="cust">{isNew && <span class="tag-new">Mới</span>} <Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} /></b>
-                  <span class="muted small order-when">
-                    {o.created ? (
-                      <>🕒 {fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</>
-                    ) : (
-                      o.date
-                    )}
-                  </span>
-                </div>
-                <div class="row space">
-                  <span>
+                <div class="card-row">
+                  {o.thumb_image_id
+                    ? <img class="card-thumb-lg" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" />
+                    : <div class="card-thumb-lg ph">📷</div>}
+                  <div class="card-mid">
+                    <b class="cust">{isNew && <span class="tag-new">Mới</span>} <Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} /></b>
+                    {o.text
+                      ? <div class="order-text"><span class="ot-text"><Highlight text={o.text} q={search} /></span><TaskBadges o={o} /></div>
+                      : <div class="order-text muted"><span class="ot-text">(không có nội dung)</span><TaskBadges o={o} /></div>}
+                    <div class="muted small">
+                      {o.hd_code && <span>{o.hd_code} · </span>}
+                      {o.invoice_count} món{o.creator ? ` · ${o.creator}` : ""}
+                    </div>
+                  </div>
+                  <div class="card-right">
+                    <span class="order-when muted small">🕒 {o.created ? fmtRelative(o.created) : o.date}</span>
+                    {o.created && <span class="muted xsmall">{fmtDateTimeVN(o.created)}</span>}
                     {o.total && <b class="money">{o.total}đ</b>}
-                    {stt && <span class={stt.includes("đã nộp") ? "paid-ok" : "owe"}> · {stt}</span>}
-                  </span>
-                </div>
-                <div class="muted small">
-                  {o.hd_code && <span>{o.hd_code} · </span>}
-                  {o.invoice_count} món{o.creator ? ` · ${o.creator}` : ""}
+                    {stt && <span class={stt.includes("đã nộp") ? "paid-ok" : "owe"}>{stt}</span>}
+                  </div>
                 </div>
               </div>
               <div class="card-inv"><InvoiceMini o={o} q={search} /></div>
