@@ -393,10 +393,11 @@ export function OrdersList() {
                   {(() => {
                     const allIds = o.thumb_image_ids && o.thumb_image_ids.length ? o.thumb_image_ids : (o.thumb_image_id ? [o.thumb_image_id] : []);
                     if (!allIds.length) return null;
-                    // Text đơn xuống dòng nhiều (card cao) → đủ chỗ hiện 2 thumbnail
+                    // Text đơn RẤT dài (card đủ cao cho 2 ô vuông) → hiện 2 thumbnail.
+                    // 1 ảnh còn lại tự kéo dài lấp chỗ trống (CSS flex), không cần mốc này.
                     const t = o.text || "";
-                    const tall = t.split("\n").length >= 4 || t.length > 80;
-                    const shown = (tall ? allIds.slice(0, 2) : allIds.slice(0, 1));
+                    const veryTall = t.split("\n").length >= 8 || t.length > 150;
+                    const shown = (veryTall ? allIds.slice(0, 2) : allIds.slice(0, 1));
                     const total = o.image_count ?? allIds.length;
                     return (
                       <div class="card-thumb-col">
