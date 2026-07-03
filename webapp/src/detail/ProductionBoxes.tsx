@@ -4,12 +4,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { addProductionBoxes, slipBoxes, soVN, type ProdSlip, type InvBox } from "../api";
 
-const STATUS: Record<string, { label: string; cls: string }> = {
-  in_stock: { label: "Trong kho", cls: "in" },
-  allocated: { label: "Đã xuất", cls: "alloc" },
-  shipped: { label: "Đã giao", cls: "ship" },
-};
-
 function todayLocal(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
@@ -112,8 +106,8 @@ export function ProductionBoxes({
           <div class="inv-total">Thùng nhập ở phiếu này ({myBoxes.length})</div>
           <div class="inv-detail-list">
             {myBoxes.map((b) => {
-              const st = STATUS[b.status] || { label: b.status, cls: "" };
-              const tail = b.order_thread_id ? ` #${b.order_thread_id}` : "";
+              const rem = b.remaining ?? b.quantity;
+              const used = b.allocated ?? 0;
               return (
                 <a
                   key={b.id}
@@ -122,17 +116,19 @@ export function ProductionBoxes({
                   href={`#/thung/${b.id}`}
                 >
                   <code class="inv-bc">{b.box_code}</code>
-                  <span class="inv-q">{soVN(b.quantity)}</span>
+                  <span class="inv-q">
+                    {soVN(rem)}
+                    {used > 0 ? <span class="muted">/{soVN(b.quantity)}</span> : ""}
+                  </span>
                   {b.note && <span class="inv-note muted small">📝 {b.note}</span>}
                   {b.disabled ? (
                     <span class="inv-status disabled" title={b.disabled_reason || undefined}>
                       Vô hiệu
                     </span>
+                  ) : used > 0 ? (
+                    <span class="inv-status alloc">đã xuất {soVN(used)}</span>
                   ) : (
-                    <span class={`inv-status ${st.cls}`}>
-                      {st.label}
-                      {tail}
-                    </span>
+                    <span class="inv-status in">Trong kho</span>
                   )}
                 </a>
               );

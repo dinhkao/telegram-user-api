@@ -368,6 +368,21 @@ export type InvBox = {
   disabled_reason?: string | null;
   created_at?: string;
   created_by?: string;
+  allocated?: number; // tổng đã xuất cho các đơn
+  remaining?: number; // còn lại = quantity - allocated
+};
+
+export type Allocation = {
+  allocation_id: number;
+  quantity: number; // phần lấy từ thùng
+  box_id: number;
+  box_code: string;
+  product_code: string;
+  box_quantity?: number;
+  box_remaining?: number;
+  mfg_date?: string | null;
+  order_thread_id?: number;
+  allocated_by?: string;
 };
 export type InvGroup = { quantity: number; count: number; total: number; box_codes: string[] };
 export type InvDetail = {
@@ -430,12 +445,12 @@ export async function inventoryDetail(code: string): Promise<InvDetail> {
 }
 
 export type InvSourceSlip = { thread_id: number; date?: string | null; sp_name?: string | null };
-export type InvBoxDetail = { box: InvBox; source_slip: InvSourceSlip | null };
+export type InvBoxDetail = { box: InvBox; source_slip: InvSourceSlip | null; allocations: Allocation[] };
 
-/** Chi tiết 1 thùng: info + phiếu SX nguồn + đơn đã xuất. */
+/** Chi tiết 1 thùng: info + còn lại + phiếu SX nguồn + các đơn đã xuất. */
 export async function boxDetail(id: string | number): Promise<InvBoxDetail | null> {
   const d = await getJSON(`/api/inventory/box/${id}`);
-  return d.ok ? { box: d.box, source_slip: d.source_slip } : null;
+  return d.ok ? { box: d.box, source_slip: d.source_slip, allocations: d.allocations || [] } : null;
 }
 
 /** Vô hiệu / kích hoạt lại 1 thùng (vô hiệu cần lý do). */
@@ -457,33 +472,25 @@ export async function updateBox(
   return d.ok ? d.box : null;
 }
 
-/** Thùng đã xuất cho đơn này. */
-export async function orderAllocations(id: string | number): Promise<InvBox[]> {
+/** Các phần thùng đã xuất cho đơn này (1 dòng = 1 phần thùng). */
+export async function orderAllocations(id: string | number): Promise<Allocation[]> {
   const d = await getJSON(`/api/order/${id}/allocations`);
-  return d.boxes || [];
+  return d.allocations || [];
 }
 
-/** Xuất kho cho đơn: chọn box_ids in_stock (full). Trả list thùng đã xuất của đơn. */
-export async function allocateBoxes(id: string | number, boxIds: number[]): Promise<InvBox[]> {
-  const u = currentUser();
-  const user = u?.display_name || u?.username || "";
-  const d = await postJSON(`/api/order/${id}/allocate`, { box_ids: boxIds, user });
-  return d.boxes || [];
-}
-
-/** Xuất kho cho đơn — lấy 1 phần được: picks=[{box_id, quantity?}] (thiếu qty = full). */
+/** Xuất kho cho đơn — lấy 1 phần được: picks=[{box_id, quantity?}] (thiếu qty = hết còn lại). */
 export async function allocatePicks(
   id: string | number,
   picks: { box_id: number; quantity?: number | null }[]
-): Promise<InvBox[]> {
+): Promise<Allocation[]> {
   const u = currentUser();
   const user = u?.display_name || u?.username || "";
   const d = await postJSON(`/api/order/${id}/allocate`, { picks, user });
-  return d.boxes || [];
+  return d.allocations || [];
 }
 
-/** Thu hồi thùng đã xuất về kho. Trả list thùng còn lại của đơn. */
-export async function releaseBoxes(id: string | number, boxIds: number[]): Promise<InvBox[]> {
-  const d = await postJSON(`/api/order/${id}/release`, { box_ids: boxIds });
-  return d.boxes || [];
+/** Thu hồi phần thùng khỏi đơn (theo allocation_ids). Trả list phần còn của đơn. */
+export async function releaseAllocations(id: string | number, allocationIds: number[]): Promise<Allocation[]> {
+  const d = await postJSON(`/api/order/${id}/release`, { allocation_ids: allocationIds });
+  return d.allocations || [];
 }

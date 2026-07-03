@@ -16,15 +16,19 @@ from aiohttp import web
 from inventory_store import (
     create_inventory_table,
     migrate_inventory_table,
+    create_allocations_table,
+    migrate_legacy_allocations,
     add_boxes,
     list_boxes,
     product_summary,
     get_box,
     update_box,
     set_disabled,
-    allocate_boxes,
     allocate_picks,
-    release_boxes,
+    list_order_allocations,
+    list_box_allocations,
+    get_allocation,
+    delete_allocation,
     summarize,
 )
 from production_store import get_slip, add_number, set_total
@@ -37,9 +41,11 @@ def _conn():
 
 
 def _ensure(conn):
-    """Tạo bảng + migrate (thêm cột mới như disabled) — dùng ở mọi handler."""
+    """Tạo bảng + migrate (cột mới như disabled/mfg_date, bảng box_allocations)."""
     create_inventory_table(conn)
     migrate_inventory_table(conn)
+    create_allocations_table(conn)
+    migrate_legacy_allocations(conn)
 
 
 def _thread_id(request: web.Request) -> int | None:
@@ -146,19 +152,23 @@ async def box_detail_handler(request: web.Request):
         try:
             _ensure(conn)
             box = get_box(conn, box_id)
-            slip = None
-            if box and box.get("source_thread_id"):
-                slip = get_slip(conn, box["source_thread_id"])
+            if not box:
+                return None, None, None
+            allocs = list_box_allocations(conn, box_id)
+            slip = get_slip(conn, box["source_thread_id"]) if box.get("source_thread_id") else None
+            return box, slip, allocs
         finally:
             conn.close()
-        return box, slip
-    box, slip = await asyncio.to_thread(_run)
+    box, slip, allocs = await asyncio.to_thread(_run)
     if not box:
         return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
+    used = sum(a.get("quantity") or 0 for a in allocs)
+    box["allocated"] = used
+    box["remaining"] = float(box.get("quantity") or 0) - used
     source = None
     if slip:
         source = {"thread_id": slip["thread_id"], "date": slip.get("date"), "sp_name": slip.get("sp_name")}
-    return web.json_response({"ok": True, "box": box, "source_slip": source})
+    return web.json_response({"ok": True, "box": box, "source_slip": source, "allocations": allocs})
 
 
 async def box_update_handler(request: web.Request):
@@ -232,8 +242,8 @@ async def box_disable_handler(request: web.Request):
             was = bool(box.get("disabled"))
             if was == disabled:
                 return box, None  # không đổi
-            # Cấm vô hiệu thùng đang phân bổ đơn — phải thu hồi khỏi đơn trước
-            if disabled and box.get("status") in ("allocated", "shipped"):
+            # Cấm vô hiệu thùng đã xuất 1 phần cho đơn — thu hồi khỏi đơn trước
+            if disabled and list_box_allocations(conn, box_id):
                 return box, "Thùng đã phân bổ vào đơn — thu hồi khỏi đơn trước khi vô hiệu"
             set_disabled(conn, box_id, disabled, reason=reason)
             # Đồng bộ tổng phiếu SX nguồn: vô hiệu → trừ, kích hoạt → cộng
@@ -269,22 +279,23 @@ async def inventory_detail_handler(request: web.Request):
         conn = _conn()
         try:
             _ensure(conn)
-            in_stock = list_boxes(conn, product_code=code, status="in_stock", active_only=True)
             all_boxes = list_boxes(conn, product_code=code)
         finally:
             conn.close()
-        return in_stock, all_boxes
-    in_stock, all_boxes = await asyncio.to_thread(_run)
-    # boxes = in_stock (giữ tương thích ProductionBoxes/OrderStock); all_boxes = mọi status
+        return all_boxes
+    all_boxes = await asyncio.to_thread(_run)
+    # khả dụng phân bổ = thùng còn hiệu lực + còn lại > 0 (giữ quantity gốc + remaining)
+    avail = [b for b in all_boxes if not b.get("disabled") and b.get("remaining", 0) > 0]
+    # tồn = tổng CÒN LẠI → gộp theo remaining
+    summary = summarize([{**b, "quantity": b["remaining"]} for b in avail])
     return web.json_response({
-        "ok": True, "product_code": code, "boxes": in_stock, "all_boxes": all_boxes,
-        **summarize(in_stock),
+        "ok": True, "product_code": code, "boxes": avail, "all_boxes": all_boxes, **summary,
     })
 
 
 # ─── xuất / thu thùng cho đơn ─────────────────────────────────────────────────
 async def order_allocations_handler(request: web.Request):
-    """Các thùng đã xuất cho đơn này (nhóm theo product)."""
+    """Các phần thùng đã xuất cho đơn này (1 dòng = 1 phần thùng)."""
     thread_id = _thread_id(request)
     if thread_id is None:
         return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
@@ -293,18 +304,17 @@ async def order_allocations_handler(request: web.Request):
         conn = _conn()
         try:
             _ensure(conn)
-            return list_boxes(conn, order_thread_id=thread_id)
+            return list_order_allocations(conn, thread_id)
         finally:
             conn.close()
-    boxes = await asyncio.to_thread(_run)
-    return web.json_response({"ok": True, "boxes": boxes})
+    allocs = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, "allocations": allocs})
 
 
 async def order_allocate_handler(request: web.Request):
-    """Xuất kho cho đơn: picks=[{box_id, quantity?}] → gán cho đơn (lấy 1 phần được).
+    """Xuất kho cho đơn: picks=[{box_id, quantity?}] → ghi phần lấy (thùng KHÔNG tách).
 
-    quantity thiếu = lấy full thùng. Lấy 1 phần → tách thùng. Tương thích ngược:
-    body {box_ids:[...]} = lấy full mỗi thùng.
+    quantity thiếu = lấy hết phần còn lại của thùng.
     """
     thread_id = _thread_id(request)
     if thread_id is None:
@@ -327,15 +337,15 @@ async def order_allocate_handler(request: web.Request):
         try:
             _ensure(conn)
             allocated = allocate_picks(conn, picks, thread_id, by=actor)
-            return list_boxes(conn, order_thread_id=thread_id), allocated
+            return list_order_allocations(conn, thread_id), allocated
         finally:
             conn.close()
-    boxes, allocated = await asyncio.to_thread(_run)
-    return web.json_response({"ok": True, "allocated": allocated, "boxes": boxes})
+    allocs, allocated = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, "allocated": allocated, "allocations": allocs})
 
 
 async def order_release_handler(request: web.Request):
-    """Thu hồi thùng đã xuất về kho (huỷ xuất)."""
+    """Thu hồi 1 phần thùng khỏi đơn (xoá allocation theo allocation_ids)."""
     thread_id = _thread_id(request)
     if thread_id is None:
         return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
@@ -343,21 +353,26 @@ async def order_release_handler(request: web.Request):
         body = await request.json()
     except Exception:
         body = {}
-    box_ids = body.get("box_ids")
-    if not isinstance(box_ids, list) or not box_ids:
-        return web.json_response({"ok": False, "error": "Chưa chọn thùng"}, status=400)
+    ids = body.get("allocation_ids")
+    if not isinstance(ids, list) or not ids:
+        return web.json_response({"ok": False, "error": "Chưa chọn phần thùng"}, status=400)
     try:
-        box_ids = [int(x) for x in box_ids]
+        ids = [int(x) for x in ids]
     except (TypeError, ValueError):
-        return web.json_response({"ok": False, "error": "box_ids không hợp lệ"}, status=400)
+        return web.json_response({"ok": False, "error": "allocation_ids không hợp lệ"}, status=400)
 
     def _run():
         conn = _conn()
         try:
             _ensure(conn)
-            released = release_boxes(conn, box_ids)
-            return list_boxes(conn, order_thread_id=thread_id), released
+            released = []
+            for aid in ids:
+                a = get_allocation(conn, aid)
+                if a and a.get("order_thread_id") == thread_id:
+                    delete_allocation(conn, aid)
+                    released.append(aid)
+            return list_order_allocations(conn, thread_id), released
         finally:
             conn.close()
-    boxes, released = await asyncio.to_thread(_run)
-    return web.json_response({"ok": True, "released": released, "boxes": boxes})
+    allocs, released = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, "released": released, "allocations": allocs})

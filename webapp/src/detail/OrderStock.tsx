@@ -1,21 +1,21 @@
 // Xuất kho cho đơn: mỗi mã SP trong hoá đơn → nút "Chọn thùng" mở popup chọn thùng
-// (có thể lấy 1 phần, nhiều thùng). Hiện thùng đã xuất + thu hồi. Tap mã thùng →
-// chi tiết thùng. GET/POST /api/order/:id/allocations|allocate|release.
+// (lấy 1 phần được, nhiều thùng — thùng KHÔNG tách, chỉ giảm phần còn lại). Hiện các
+// phần đã xuất + thu hồi. Tap mã thùng → chi tiết thùng.
 import { useEffect, useState } from "preact/hooks";
-import { orderAllocations, allocatePicks, releaseBoxes, soVN, type InvBox } from "../api";
+import { orderAllocations, allocatePicks, releaseAllocations, soVN, type Allocation } from "../api";
 import { StockPickerModal } from "./StockPickerModal";
 
 type Line = { sp: string; sl: number | string };
 
 export function OrderStock({ threadId, invoice }: { threadId: string; invoice: Line[] }) {
-  const [alloc, setAlloc] = useState<InvBox[]>([]);
+  const [allocs, setAllocs] = useState<Allocation[]>([]);
   const [pickCode, setPickCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
   const load = async () => {
     try {
-      setAlloc(await orderAllocations(threadId));
+      setAllocs(await orderAllocations(threadId));
     } catch {
       /* im lặng */
     }
@@ -34,12 +34,12 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
   const products = [...needs.entries()].map(([code, need]) => ({ code, need }));
   if (!products.length) return null;
 
-  const doRelease = async (b: InvBox) => {
-    if (!confirm(`Thu hồi thùng ${b.box_code} (${soVN(b.quantity)}) khỏi đơn về kho?`)) return;
+  const doRelease = async (a: Allocation) => {
+    if (!confirm(`Thu hồi ${soVN(a.quantity)} từ thùng ${a.box_code} khỏi đơn về kho?`)) return;
     setBusy(true);
     setMsg("");
     try {
-      await releaseBoxes(threadId, [b.id]);
+      await releaseAllocations(threadId, [a.allocation_id]);
       await load();
     } catch (e: any) {
       setMsg(e?.message || "Lỗi thu hồi");
@@ -50,15 +50,15 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
 
   const current = pickCode ? products.find((p) => p.code === pickCode) : null;
   const pickGot = pickCode
-    ? alloc.filter((b) => b.product_code === pickCode).reduce((s, b) => s + b.quantity, 0)
+    ? allocs.filter((a) => a.product_code === pickCode).reduce((s, a) => s + a.quantity, 0)
     : 0;
 
   return (
     <section class="card">
       <label class="card-label">📦 Xuất kho cho đơn</label>
       {products.map(({ code, need }) => {
-        const mine = alloc.filter((b) => b.product_code === code);
-        const got = mine.reduce((s, b) => s + b.quantity, 0);
+        const mine = allocs.filter((a) => a.product_code === code);
+        const got = mine.reduce((s, a) => s + a.quantity, 0);
         const enough = got >= need;
         return (
           <div class="stock-line" key={code}>
@@ -74,13 +74,14 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
 
             {mine.length > 0 && (
               <ul class="inv-box-list">
-                {mine.map((b) => (
-                  <li key={b.id} id={`box-${b.id}`}>
-                    <a class="box-link" href={`#/thung/${b.id}`} title="Chi tiết thùng">
-                      <code>{b.box_code}</code>
+                {mine.map((a) => (
+                  <li key={a.allocation_id}>
+                    <a class="box-link" href={`#/thung/${a.box_id}`} title="Chi tiết thùng">
+                      <code>{a.box_code}</code>
                     </a>{" "}
-                    · {soVN(b.quantity)}
-                    <button class="link-btn" disabled={busy} onClick={() => doRelease(b)} title="Thu hồi">
+                    · lấy {soVN(a.quantity)}
+                    {a.box_quantity ? <span class="muted small"> /{soVN(a.box_quantity)}</span> : null}
+                    <button class="link-btn" disabled={busy} onClick={() => doRelease(a)} title="Thu hồi">
                       {" "}
                       ✕
                     </button>

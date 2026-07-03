@@ -53,20 +53,29 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
     """
     where, params = [], []
     if product_code:
-        where.append("product_code = ?"); params.append(str(product_code).strip().upper())
+        where.append("b.product_code = ?"); params.append(str(product_code).strip().upper())
     if status:
-        where.append("status = ?"); params.append(status)
+        where.append("b.status = ?"); params.append(status)
     if source_thread_id is not None:
-        where.append("source_thread_id = ?"); params.append(source_thread_id)
+        where.append("b.source_thread_id = ?"); params.append(source_thread_id)
     if order_thread_id is not None:
-        where.append("order_thread_id = ?"); params.append(order_thread_id)
+        where.append("b.order_thread_id = ?"); params.append(order_thread_id)
     if active_only:
-        where.append("(disabled IS NULL OR disabled = 0)")
-    sql = "SELECT * FROM inventory_boxes"
+        where.append("(b.disabled IS NULL OR b.disabled = 0)")
+    sql = (
+        "SELECT b.*, "
+        "COALESCE((SELECT SUM(a.quantity) FROM box_allocations a WHERE a.box_id=b.id),0) AS allocated "
+        "FROM inventory_boxes b"
+    )
     if where:
         sql += " WHERE " + " AND ".join(where)
-    sql += " ORDER BY box_code"
-    return [dict(r) for r in conn.execute(sql, params).fetchall()]
+    sql += " ORDER BY b.box_code"
+    out = []
+    for r in conn.execute(sql, params).fetchall():
+        d = dict(r)
+        d["remaining"] = float(d.get("quantity") or 0) - float(d.get("allocated") or 0)
+        out.append(d)
+    return out
 
 
 def product_totals(conn, *, status="in_stock") -> list[dict]:
@@ -80,134 +89,29 @@ def product_totals(conn, *, status="in_stock") -> list[dict]:
 
 
 def product_summary(conn) -> list[dict]:
-    """Tồn/xuất theo product cho dashboard. Thùng vô hiệu KHÔNG tính vào tồn (chỉ đếm riêng)."""
-    rows = conn.execute(
-        "SELECT product_code, "
-        "COALESCE(SUM(CASE WHEN status='in_stock' AND (disabled IS NULL OR disabled=0) THEN quantity ELSE 0 END),0) AS in_stock_total, "
-        "SUM(CASE WHEN status='in_stock' AND (disabled IS NULL OR disabled=0) THEN 1 ELSE 0 END) AS in_stock_count, "
-        "SUM(CASE WHEN status='allocated' THEN 1 ELSE 0 END) AS allocated_count, "
-        "SUM(CASE WHEN status='shipped'   THEN 1 ELSE 0 END) AS shipped_count, "
-        "SUM(CASE WHEN disabled=1 THEN 1 ELSE 0 END) AS disabled_count, "
-        "COUNT(*) AS total_count "
-        "FROM inventory_boxes GROUP BY product_code ORDER BY product_code"
-    ).fetchall()
-    return [dict(r) for r in rows]
+    """Tồn/xuất theo product cho dashboard. Tồn = tổng CÒN LẠI (remaining) của thùng
+    còn hiệu lực; đã xuất = số thùng có phần xuất; vô hiệu đếm riêng (không tính tồn)."""
+    agg: dict = {}
+    for b in list_boxes(conn):
+        code = b["product_code"]
+        g = agg.setdefault(code, {
+            "product_code": code, "in_stock_total": 0.0, "in_stock_count": 0,
+            "allocated_count": 0, "shipped_count": 0, "disabled_count": 0, "total_count": 0,
+        })
+        g["total_count"] += 1
+        if b.get("disabled"):
+            g["disabled_count"] += 1
+        elif b["remaining"] > 0:
+            g["in_stock_total"] += b["remaining"]
+            g["in_stock_count"] += 1
+        if (b.get("allocated") or 0) > 0:
+            g["allocated_count"] += 1
+    return [agg[k] for k in sorted(agg)]
 
 
 def get_box(conn, box_id) -> dict | None:
     row = conn.execute("SELECT * FROM inventory_boxes WHERE id = ?", (box_id,)).fetchone()
     return dict(row) if row else None
-
-
-def allocate_boxes(conn, box_ids, order_thread_id, *, by=None) -> list[int]:
-    """Xuất kho: gán thùng in_stock cho đơn. Trả id các thùng thực sự xuất.
-
-    Bỏ qua thùng đã allocated/shipped (tránh xuất trùng). Nguyên tử.
-    """
-    if not box_ids:
-        return []
-    now = _now()
-    allocated: list[int] = []
-    with transaction(conn):
-        for bid in box_ids:
-            row = conn.execute("SELECT status, disabled FROM inventory_boxes WHERE id = ?", (bid,)).fetchone()
-            if not row or row[0] != "in_stock" or row[1]:
-                continue  # bỏ thùng đã xuất/giao hoặc bị vô hiệu
-            conn.execute(
-                "UPDATE inventory_boxes SET status='allocated', order_thread_id=?, "
-                "allocated_at=?, allocated_by=? WHERE id = ?",
-                (order_thread_id, now, by or "", bid),
-            )
-            allocated.append(bid)
-    return allocated
-
-
-def allocate_picks(conn, picks, order_thread_id, *, by=None) -> list[dict]:
-    """Xuất kho cho đơn — có thể lấy 1 PHẦN thùng. picks=[{box_id, quantity}].
-
-    Lấy đủ cả thùng → gán nguyên thùng cho đơn. Lấy 1 phần → tách: thùng gốc giảm
-    số cây còn lại, tạo thùng mới (cùng product/nguồn/NSX/ghi chú, mã tự sinh) mang
-    phần đã lấy, gán cho đơn. Bỏ qua thùng không hợp lệ (đã xuất/vô hiệu/không đủ).
-    Nguyên tử. Trả list thùng đã gán cho đơn.
-    """
-    if not picks:
-        return []
-    now = _now()
-    allocated: list[dict] = []
-    with transaction(conn):
-        for p in picks:
-            try:
-                bid = int(p.get("box_id"))
-            except (TypeError, ValueError, AttributeError):
-                continue
-            row = conn.execute("SELECT * FROM inventory_boxes WHERE id = ?", (bid,)).fetchone()
-            if not row:
-                continue
-            box = dict(row)
-            if box["status"] != "in_stock" or box.get("disabled"):
-                continue
-            avail = float(box["quantity"] or 0)
-            if avail <= 0:
-                continue
-            # quantity None/thiếu → lấy full thùng
-            raw_q = p.get("quantity")
-            try:
-                take = avail if raw_q is None else float(raw_q)
-            except (TypeError, ValueError):
-                continue
-            if take <= 0:
-                continue
-            take = min(take, avail)
-            if take >= avail:
-                # lấy nguyên thùng
-                conn.execute(
-                    "UPDATE inventory_boxes SET status='allocated', order_thread_id=?, "
-                    "allocated_at=?, allocated_by=? WHERE id = ?",
-                    (order_thread_id, now, by or "", bid),
-                )
-                box.update({"status": "allocated", "order_thread_id": order_thread_id,
-                            "allocated_at": now, "allocated_by": by or ""})
-                allocated.append(box)
-            else:
-                # tách: giảm thùng gốc, tạo thùng mới mang phần đã lấy
-                conn.execute("UPDATE inventory_boxes SET quantity=? WHERE id = ?", (avail - take, bid))
-                code = box["product_code"]
-                existing = [r[0] for r in conn.execute(
-                    "SELECT box_code FROM inventory_boxes WHERE product_code = ?", (code,)).fetchall()]
-                new_code = next_box_code(code, existing)
-                cur = conn.execute(
-                    "INSERT INTO inventory_boxes "
-                    "(product_code, box_code, quantity, status, source_thread_id, order_thread_id, "
-                    "note, mfg_date, created_at, created_by, allocated_at, allocated_by) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (code, new_code, take, "allocated", box.get("source_thread_id"), order_thread_id,
-                     box.get("note") or "", box.get("mfg_date"), now, box.get("created_by") or "", now, by or ""),
-                )
-                allocated.append({
-                    "id": cur.lastrowid, "product_code": code, "box_code": new_code, "quantity": take,
-                    "status": "allocated", "source_thread_id": box.get("source_thread_id"),
-                    "order_thread_id": order_thread_id, "mfg_date": box.get("mfg_date"),
-                    "allocated_at": now, "allocated_by": by or "",
-                    "split_from": box["box_code"],
-                })
-    return allocated
-
-
-def release_boxes(conn, box_ids) -> list[int]:
-    """Thu hồi thùng đã xuất về in_stock (huỷ xuất). Trả id đã thu hồi. Nguyên tử."""
-    if not box_ids:
-        return []
-    released: list[int] = []
-    with transaction(conn):
-        for bid in box_ids:
-            cur = conn.execute(
-                "UPDATE inventory_boxes SET status='in_stock', order_thread_id=NULL, "
-                "allocated_at=NULL, allocated_by=NULL WHERE id = ? AND status='allocated'",
-                (bid,),
-            )
-            if cur.rowcount:
-                released.append(bid)
-    return released
 
 
 def update_box(conn, box_id, *, quantity=None, note=None, mfg_date=None) -> bool:

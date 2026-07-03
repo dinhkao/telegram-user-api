@@ -6,12 +6,6 @@ import { boxDetail, updateBox, setBoxDisabled, soVN, type InvBoxDetail, type Inv
 
 const isDisabled = (b: InvBox) => !!b.disabled;
 
-const STATUS: Record<string, { label: string; cls: string }> = {
-  in_stock: { label: "Trong kho", cls: "in" },
-  allocated: { label: "Đã xuất đơn", cls: "alloc" },
-  shipped: { label: "Đã giao", cls: "ship" },
-};
-
 function fmtWhen(iso?: string | null): string {
   if (!iso) return "—";
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
@@ -97,9 +91,9 @@ export function BoxDetail({ boxId }: { boxId: string }) {
     );
 
   const b = d.box;
-  const st = STATUS[b.status] || { label: b.status, cls: "" };
   const backCode = b.product_code;
-
+  const used = b.allocated ?? 0;
+  const remaining = b.remaining ?? b.quantity;
   const disabled = isDisabled(b);
 
   return (
@@ -113,7 +107,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
             <code>{b.box_code}</code>
           </div>
           <div class="prod-date muted">
-            {b.product_code} · <span class={`inv-status ${st.cls}`}>{st.label}</span>
+            {b.product_code}
             {disabled && <span class="inv-status disabled"> Vô hiệu</span>}
           </div>
         </div>
@@ -132,6 +126,13 @@ export function BoxDetail({ boxId }: { boxId: string }) {
         <div class="box-kv">
           <span class="box-k">Số cây</span>
           <span class="box-v big">{soVN(b.quantity)}</span>
+        </div>
+        <div class="box-kv">
+          <span class="box-k">Còn lại</span>
+          <span class="box-v big" style={{ color: remaining > 0 ? "#2b6b2b" : "#a15c00" }}>
+            {soVN(remaining)}
+          </span>
+          {used > 0 ? <span class="muted small">đã xuất {soVN(used)}</span> : null}
         </div>
         <div class="box-kv">
           <span class="box-k">Ngày SX</span>
@@ -177,25 +178,26 @@ export function BoxDetail({ boxId }: { boxId: string }) {
       </section>
 
       <section class="card">
-        <label class="card-label">Phân bổ — Đơn hàng</label>
-        {b.status === "allocated" && b.order_thread_id ? (
-          <a class="box-jump" href={`#/order/${b.order_thread_id}?focus=box:${b.id}`}>
-            📋 Đơn #{b.order_thread_id}
-            {b.allocated_by ? ` · ${b.allocated_by}` : ""} →
-          </a>
-        ) : b.status === "shipped" && b.order_thread_id ? (
-          <a class="box-jump" href={`#/order/${b.order_thread_id}?focus=box:${b.id}`}>
-            📋 Đơn #{b.order_thread_id} (đã giao) →
-          </a>
+        <label class="card-label">Đã xuất cho đơn</label>
+        {d.allocations.length === 0 ? (
+          <div class="muted small">Chưa xuất cho đơn nào — còn trong kho.</div>
         ) : (
-          <div class="muted small">Chưa phân bổ vào đơn nào — còn trong kho.</div>
+          <ul class="box-alloc-list">
+            {d.allocations.map((a) => (
+              <li key={a.allocation_id}>
+                <a class="box-jump" href={`#/order/${a.order_thread_id}`}>
+                  📋 Đơn #{a.order_thread_id} · lấy {soVN(a.quantity)}
+                  {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
+                </a>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 
       <section class="card">
         {(() => {
-          const allocated = b.status === "allocated" || b.status === "shipped";
-          const blocked = !disabled && allocated; // đang phân bổ đơn → cấm vô hiệu
+          const blocked = !disabled && d.allocations.length > 0; // đã xuất đơn → cấm vô hiệu
           return (
             <>
               <button

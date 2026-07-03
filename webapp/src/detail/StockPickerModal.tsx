@@ -38,11 +38,12 @@ export function StockPickerModal({
 
   const remaining = Math.max(need - got, 0);
 
+  const avail = (b: InvBox) => (b.remaining != null ? b.remaining : b.quantity);
   const toggle = (b: InvBox) =>
     setSel((s) => {
       const n = { ...s };
       if (b.id in n) delete n[b.id];
-      else n[b.id] = String(b.quantity);
+      else n[b.id] = String(avail(b));
       return n;
     });
   const setQty = (id: number, v: string) => setSel((s) => ({ ...s, [id]: v }));
@@ -106,7 +107,8 @@ export function StockPickerModal({
                     <span class="stock-pick-info">
                       <code>{b.box_code}</code>
                       <span class="muted small">
-                        {soVN(b.quantity)} cây
+                        còn {soVN(avail(b))}
+                        {b.remaining != null && b.remaining !== b.quantity ? `/${soVN(b.quantity)}` : ""} cây
                         {b.mfg_date ? ` · NSX ${fmtDate(b.mfg_date)}` : ""}
                         {b.note ? ` · 📝 ${b.note}` : ""}
                       </span>

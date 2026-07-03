@@ -5,12 +5,6 @@ import { useEffect, useState } from "preact/hooks";
 import { inventoryDetail, soVN, type InvDetail, type InvBox } from "../api";
 import { onRealtime } from "../realtime";
 
-const STATUS: Record<string, { label: string; cls: string }> = {
-  in_stock: { label: "Trong kho", cls: "in" },
-  allocated: { label: "Đã xuất", cls: "alloc" },
-  shipped: { label: "Đã giao", cls: "ship" },
-};
-
 function fmtWhen(iso?: string): string {
   if (!iso) return "";
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
@@ -76,8 +70,8 @@ export function InventoryDetail({ code }: { code: string }) {
         ) : (
           <div class="inv-detail-list">
             {all.map((b) => {
-              const st = STATUS[b.status] || { label: b.status, cls: "" };
-              const tail = b.order_thread_id ? ` #${b.order_thread_id}` : "";
+              const rem = b.remaining ?? b.quantity;
+              const used = b.allocated ?? 0;
               // Tap thùng → trang chi tiết thùng (phiếu nguồn + đơn phân bổ)
               return (
                 <a
@@ -86,17 +80,19 @@ export function InventoryDetail({ code }: { code: string }) {
                   href={`#/thung/${b.id}`}
                 >
                   <code class="inv-bc">{b.box_code}</code>
-                  <span class="inv-q">{soVN(b.quantity)}</span>
+                  <span class="inv-q">
+                    {soVN(rem)}
+                    {used > 0 ? <span class="muted">/{soVN(b.quantity)}</span> : ""}
+                  </span>
                   {b.note && <span class="inv-note muted small">📝 {b.note}</span>}
                   {b.disabled ? (
                     <span class="inv-status disabled" title={b.disabled_reason || undefined}>
                       Vô hiệu
                     </span>
+                  ) : used > 0 ? (
+                    <span class="inv-status alloc">đã xuất {soVN(used)}</span>
                   ) : (
-                    <span class={`inv-status ${st.cls}`}>
-                      {st.label}
-                      {tail}
-                    </span>
+                    <span class="inv-status in">Trong kho</span>
                   )}
                   <span class="inv-when muted small">{fmtWhen(b.created_at)}</span>
                 </a>
