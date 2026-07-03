@@ -169,10 +169,26 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 - `sheets_bot/` — Google Sheets bot (runs on the user client). DISABLED by default
   (gated by `SHEETS_BOT_ENABLED` in `server_app/bootstrap.py`); no-op without creds.
 
+**Production (sản xuất / phiếu SX)**
+- `production_store/` — `production_slips` table (1 row per forum topic, keyed
+  `thread_id`; standalone, **no order link**). `domain.py` = pure `;`-format báo cáo
+  parser (`parse_report`/`compute_report`/`looks_like_report`, unit-tested) shared by
+  the Telegram handler AND the webapp so they never drift. `command_handlers/
+  production_commands.py` = the group bot.
+- `server_app/production_routes.py` — webapp API `/api/production*` (list/detail/
+  catalog/create/set-product/set-target/add-number/report parse+save/delete). Create
+  opens a forum topic in `PRODUCTION_GROUP_ID`. Emits realtime `production_changed`/
+  `productions_changed` (separate id-space from orders). `production_sheets.py` =
+  best-effort Google Sheet import-row on number-add (gated; no-op without creds).
+  Webapp UI: `webapp/src/pages/ProductionList.tsx` + `ProductionDetail.tsx` +
+  `detail/ProductionNumbers.tsx` + `detail/ProductionReport.tsx`, nav tab 🏭 SX
+  (`#/san_xuat`).
+
 **Web app for phones (orders management, 5-6 internal users)**
 - `webapp/` — Vite + Preact + TS mobile UI (Vietnamese): orders list/detail, tasks,
   payments, comments, create order, customers/debt, **photos (camera + gallery, with
-  2-way Telegram sync)**, offline cache+queue. Build `cd webapp && npm run build` →
+  2-way Telegram sync)**, **phiếu sản xuất (🏭 SX tab)**, offline cache+queue. Build
+  `cd webapp && npm run build` →
   served at `/app` (`server_app/webapp_routes.py`). Image UI: `webapp/src/detail/
   Images.tsx` (+ `imageProcess.ts` client-side WebP resize/thumbnail).
 - **APK for phones** — built by the EXTERNAL generic builder at
