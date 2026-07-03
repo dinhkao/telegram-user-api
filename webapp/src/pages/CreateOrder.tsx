@@ -162,9 +162,13 @@ export function CreateOrder() {
               <li><b>Sản phẩm:</b> mỗi dòng <code>&lt;mã SP&gt; &lt;số lượng&gt;</code> — mã trước, SL sau (số đứng trước mã bị bỏ qua).</li>
               <li>
                 <b>Số lượng / quy cách:</b> <code>K2L 10</code> = 10 cái ·
-                {" "}<code>5t</code> = 5 thùng (50 cái/thùng), đổi bằng <code>5t 60</code> ·
-                {" "}<code>KDXDB 3b</code> = 3 bịch (3 cái/bịch), đổi bằng <code>3b 12</code> ·
+                {" "}<code>5t</code> = 5 thùng, đổi số/thùng bằng <code>5t 60</code> ·
+                {" "}<code>3b</code> = 3 bịch, đổi số/bịch bằng <code>3b 12</code> ·
                 {" "}<code>2t3b</code> = 2 thùng 3 bịch.
+              </li>
+              <li>
+                <b>Mặc định số/thùng:</b> 50 · DM50 = 100 · KDXDB/KGL/KMT/KMD/KHDX = 5 · KDDT = 12.
+                {" "}<b>Số/bịch:</b> 10 · KDDT = 3 · DM180 1 lốc = 12.
               </li>
               <li><b>Giá:</b> tự lấy theo bảng giá khách; nhập số sau SL để <b>ghi đè giá</b>, vd <code>K2L 10 25000</code> = 10 cái, giá 25.000.</li>
             </ul>
