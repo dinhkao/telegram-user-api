@@ -13,7 +13,7 @@ export function Payments({ threadId, payments, onChanged }: { threadId: string; 
   // Xoá 1 thanh toán — chỉ admin. Payment cũ không có id thì xoá bằng lệnh Telegram.
   const del = async (p: any) => {
     if (!p.id) return alert("Thanh toán cũ không có id — xoá bằng lệnh Telegram /del_payment_");
-    if (!confirm(`Xoá thanh toán ${money(p.amount)}đ?`)) return;
+    if (!confirm(`Xoá thanh toán ${money(p.amount)}đ?\n(Xoá cả trên KiotViet — không hoàn tác được)`)) return;
     setBusy(true);
     setMsg("");
     try {

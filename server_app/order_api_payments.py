@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from aiohttp import web
@@ -16,8 +17,9 @@ log = logging.getLogger("server")
 
 async def payment_delete_handler(request: web.Request):
     """Xoá 1 thanh toán của đơn — CHỈ user role 'admin'. Body {thread_id, payment_id}.
-    Xoá record local (payment_store.delete_payment_record) → refresh main message +
-    realtime. Không đụng KiotViet (giống lệnh Telegram /del_payment_)."""
+    Xoá TRÊN KiotViet trước (các payment trong kiotvietData.payments[]), nếu lỗi thì
+    GIỮ NGUYÊN local (tránh lệch). Sau đó xoá record local (delete_payment_record) →
+    refresh main message + realtime."""
     try:
         body = await request.json()
     except Exception:
@@ -29,6 +31,24 @@ async def payment_delete_handler(request: web.Request):
     if not thread_id or not payment_id:
         return web.json_response({"ok": False, "error": "Missing thread_id or payment_id"}, status=400)
     conn = _get_connection()
+    order = get_order_by_thread_id(conn, int(thread_id))
+    if not order:
+        return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+    pay = next((p for p in order.get("payments", []) if p.get("id") == str(payment_id)), None)
+    if not pay:
+        return web.json_response({"ok": False, "error": f"Không tìm thấy payment: {payment_id}"}, status=400)
+    # 1) Xoá payment trên KiotViet (id nằm trong kiotvietData.payments[].id)
+    kv = pay.get("kiotvietData") or {}
+    kv_pay_ids = [np.get("id") for np in (kv.get("payments") or []) if isinstance(np, dict) and np.get("id")]
+    if kv_pay_ids:
+        try:
+            from kiotviet import delete_payment_kv
+            for pid in kv_pay_ids:
+                await asyncio.to_thread(delete_payment_kv, int(pid))
+        except Exception as e:
+            log.error("delete KV payment failed thread=%s ids=%s: %s", thread_id, kv_pay_ids, e)
+            return web.json_response({"ok": False, "error": f"Lỗi xoá thanh toán trên KiotViet: {e}"}, status=502)
+    # 2) Xoá record local (nợ tự tính lại từ danh sách payments)
     from payment_store import delete_payment_record
     ok, message = delete_payment_record(conn, int(thread_id), str(payment_id))
     if not ok:
