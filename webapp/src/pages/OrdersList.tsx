@@ -2,7 +2,9 @@
 // Data: GET /api/orders (server_app/orders_api.py). Card → #/order/:thread_id.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON } from "../api";
-import { money, fmtDateTimeVN, fmtRelative, foldVN } from "../format";
+import { money, fmtDateTimeVN, fmtRelative, foldVN, isRecent } from "../format";
+
+const NEW_ORDER_SEC = 5 * 60; // đơn tạo trong 5 phút → tô vàng + tag "Mới"
 import { onRealtime } from "../realtime";
 import { InvoiceTable } from "../detail/InvoiceTable";
 import { orderImageUrl } from "../api";
@@ -297,6 +299,12 @@ export function OrdersList() {
 
   const visible = orders;
   const lastOrder = getLastOrder(); // đơn vừa mở → tô sáng khi quay lại dashboard
+  // Nhịp 60s để tag "Mới" tự hết sau 5 phút (không cần event khác)
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((x) => x + 1), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <div>
@@ -325,13 +333,16 @@ export function OrdersList() {
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {err && <p class="error">{err}</p>}
       <ul class="order-list">
-        {compact && visible.map((o) => (
+        {compact && visible.map((o) => {
+          const isNew = isRecent(o.created, NEW_ORDER_SEC);
+          return (
           <li key={o.thread_id}>
-            <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
+            <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
               {o.thumb_image_id ? <img class="card-thumb" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" /> : null}
               <div class="order-text">
                 <span class="ot-text">
+                  {isNew && <span class="tag-new">Mới</span>}
                   {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
                 </span>
                 <TaskBadges o={o} />
@@ -341,12 +352,14 @@ export function OrdersList() {
               </div>
             </a>
           </li>
-        ))}
+          );
+        })}
         {!compact && visible.map((o) => {
           const stt = statusLabel(o);
+          const isNew = isRecent(o.created, NEW_ORDER_SEC);
           return (
           <li key={o.thread_id}>
-            <a class={`order-card two-col${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
+            <a class={`order-card two-col${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               <div class="card-main">
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
                 <div class="card-lead">
@@ -356,7 +369,7 @@ export function OrdersList() {
                     : <div class="order-text muted"><span class="ot-text">(không có nội dung)</span><TaskBadges o={o} /></div>}
                 </div>
                 <div class="row space">
-                  <b class="cust"><Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} /></b>
+                  <b class="cust">{isNew && <span class="tag-new">Mới</span>} <Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} /></b>
                   <span class="muted small order-when">
                     {o.created ? (
                       <>🕒 {fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</>

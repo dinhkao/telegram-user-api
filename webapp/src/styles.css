@@ -317,3 +317,7 @@ body.pv-open { overflow: hidden; }
 .quick-add textarea { font-size: .9rem; }
 
 .order-card.compact .order-when { flex-basis: 100%; margin-top: 2px; }
+
+/* Đơn mới tạo (≤5 phút) — tô vàng + tag "Mới" */
+.order-card.new-order { background: #fff8dc; border-color: #f0c000; box-shadow: 0 0 0 2px rgba(240,192,0,.25); }
+.tag-new { display: inline-block; background: #f0c000; color: #4a3800; font-size: .65rem; font-weight: 700; padding: 1px 6px; border-radius: 6px; margin-right: 4px; vertical-align: middle; }

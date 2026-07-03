@@ -75,6 +75,14 @@ export function fmtDateTimeVN(at: any): string {
   });
 }
 
+/** Mốc thời gian nằm trong `withinSec` giây gần đây (và không ở tương lai). */
+export function isRecent(at: any, withinSec: number): boolean {
+  const ms = toMs(at);
+  if (ms == null) return false;
+  const d = Date.now() - ms;
+  return d >= 0 && d < withinSec * 1000;
+}
+
 /** Thời gian tương đối tiếng Việt (luôn dạng "… trước"), kể cả mốc xa. */
 export function fmtRelative(at: any): string {
   const ms = toMs(at);
