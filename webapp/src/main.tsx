@@ -12,7 +12,10 @@ import { OrderDetail } from "./pages/OrderDetail";
 import { OrdersList } from "./pages/OrdersList";
 import { ProductionList } from "./pages/ProductionList";
 import { ProductionDetail } from "./pages/ProductionDetail";
+import { installSwipeBack } from "./swipeBack";
 import "./styles.css";
+
+installSwipeBack();
 
 function useHash(): string {
   const [hash, setHash] = useState(window.location.hash || "#/orders");
