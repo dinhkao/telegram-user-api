@@ -74,3 +74,32 @@ def emit_orders_changed() -> None:
     """Lên lịch phát 'danh sách đổi' chạy nền — gọi từ đường tạo đơn, KHÔNG await."""
     from server_app.tasks import spawn_tracked
     spawn_tracked("realtime.orders_changed", broadcast_orders_changed())
+
+
+# ─── Phiếu sản xuất (production) — id-space riêng, sự kiện riêng ──────────────
+async def broadcast_production_changed(thread_id) -> None:
+    """1 phiếu SX đổi → đẩy kèm row danh sách (client vá tại chỗ + tải lại chi tiết)."""
+    try:
+        from server_app.production_routes import build_production_row
+        row = build_production_row(thread_id)
+        await _send({"type": "production_changed", "thread_id": str(thread_id), "row": row})
+    except Exception as e:
+        log.warning("realtime production_changed failed thread=%s: %s", thread_id, e)
+
+
+async def broadcast_productions_changed() -> None:
+    """Thay đổi cấp danh sách phiếu SX (tạo mới / xoá) → client refetch."""
+    try:
+        await _send({"type": "productions_changed"})
+    except Exception as e:
+        log.warning("realtime productions_changed failed: %s", e)
+
+
+def emit_production_changed(thread_id) -> None:
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.production_changed", broadcast_production_changed(thread_id), {"thread_id": thread_id})
+
+
+def emit_productions_changed() -> None:
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.productions_changed", broadcast_productions_changed())

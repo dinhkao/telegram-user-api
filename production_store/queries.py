@@ -35,6 +35,16 @@ def get_slip(conn, thread_id) -> dict | None:
     return data
 
 
+def list_slips(conn, limit: int = 200) -> list[dict]:
+    """All slips, newest first. Lightweight rows (no numbers/bang decode)."""
+    rows = conn.execute(
+        "SELECT thread_id, date, date_code, sp_name, sp_mam, sx_target, total, "
+        "updated_at FROM production_slips ORDER BY updated_at DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def upsert_slip(conn, thread_id, **fields) -> bool:
     conn.execute("INSERT OR IGNORE INTO production_slips (thread_id) VALUES (?)", (thread_id,))
     updates, params = [], []

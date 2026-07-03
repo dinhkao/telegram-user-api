@@ -19,6 +19,18 @@ from server_app.order_api_invoice import api_create_invoice_handler, api_delete_
 from server_app.order_history import order_history_handler
 from server_app.orders_api import order_detail_handler, orders_api_handler
 from server_app.product_routes import products_search_handler
+from server_app.production_routes import (
+    production_add_number_handler,
+    production_catalog_handler,
+    production_create_handler,
+    production_delete_handler,
+    production_detail_handler,
+    production_list_handler,
+    production_report_parse_handler,
+    production_report_save_handler,
+    production_set_product_handler,
+    production_set_target_handler,
+)
 from server_app.orders_pages import order_detail_page_handler, orders_page_handler
 from server_app.web_auth import login_handler, me_handler, web_auth_middleware
 from server_app.web_pages import index_handler
@@ -82,6 +94,19 @@ def create_app():
     r.add_post("/api/order/{thread_id}/images", images_upload_handler)
     r.add_delete("/api/order/{thread_id}/images/{image_id}", images_delete_handler)
     r.add_get("/api/order/{thread_id}/images/{image_id}/file", images_file_handler)
+    # ─── phiếu sản xuất (production) ─────────────────────────────────────────
+    # catalog + create đăng ký TRƯỚC /{thread_id} để không bị route động nuốt
+    r.add_get("/api/production/catalog", production_catalog_handler)
+    r.add_get("/api/production", production_list_handler)
+    r.add_post("/api/production", production_create_handler)
+    r.add_get("/api/production/{thread_id}", production_detail_handler)
+    r.add_delete("/api/production/{thread_id}", production_delete_handler)
+    r.add_post("/api/production/{thread_id}/product", production_set_product_handler)
+    r.add_post("/api/production/{thread_id}/target", production_set_target_handler)
+    r.add_post("/api/production/{thread_id}/number", production_add_number_handler)
+    r.add_post("/api/production/{thread_id}/report/parse", production_report_parse_handler)
+    r.add_post("/api/production/{thread_id}/report", production_report_save_handler)
+
     r.add_get("/api/customers", customers_search_handler)
     r.add_get("/api/customers/{key}", customer_detail_handler)
     r.add_post("/api/customers/{key}/refresh-debt", customer_refresh_debt_handler)
