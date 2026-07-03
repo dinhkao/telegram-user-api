@@ -3,7 +3,7 @@
 //  • Nâng cao: chọn khách → nhập từng dòng SP (tự lấy giá) + VAT/PVC/CK → tạo đơn
 //    rồi lưu hoá đơn, chuyển sang trang chi tiết để bấm "Tạo HĐ KiotViet".
 // Cần mạng (không queue).
-import { useState, useEffect } from "preact/hooks";
+import { useState, useEffect, useRef } from "preact/hooks";
 import { postJSON, previewOrder, type OrderPreview } from "../api";
 import { money } from "../format";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
@@ -17,17 +17,19 @@ export function CreateOrder() {
   const [err, setErr] = useState("");
   const [preview, setPreview] = useState<OrderPreview | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const seq = useRef(0);
 
-  // Xem trước tự động (debounce) khi gõ ở tab Nhanh
+  // Xem trước tức thời khi gõ ở tab Nhanh — không delay; seq chặn kết quả cũ về sau
   useEffect(() => {
     if (mode !== "quick") { setPreview(null); return; }
     const t = text.trim();
     if (!t) { setPreview(null); setPreviewing(false); return; }
+    const my = ++seq.current;
     setPreviewing(true);
-    const id = setTimeout(async () => {
-      try { setPreview(await previewOrder(t)); } catch { setPreview(null); } finally { setPreviewing(false); }
-    }, 400);
-    return () => clearTimeout(id);
+    previewOrder(t)
+      .then((r) => { if (my === seq.current) setPreview(r); })
+      .catch(() => { if (my === seq.current) setPreview(null); })
+      .finally(() => { if (my === seq.current) setPreviewing(false); });
   }, [text, mode]);
 
   const submitQuick = async () => {
