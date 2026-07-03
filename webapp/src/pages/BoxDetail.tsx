@@ -168,13 +168,24 @@ export function BoxDetail({ boxId }: { boxId: string }) {
       </section>
 
       <section class="card">
-        <button
-          class={disabled ? "btn block" : "btn danger block"}
-          disabled={disBusy}
-          onClick={toggleDisabled}
-        >
-          {disBusy ? "…" : disabled ? "✅ Kích hoạt lại thùng" : "🚫 Vô hiệu hoá thùng"}
-        </button>
+        {(() => {
+          const allocated = b.status === "allocated" || b.status === "shipped";
+          const blocked = !disabled && allocated; // đang phân bổ đơn → cấm vô hiệu
+          return (
+            <>
+              <button
+                class={disabled ? "btn block" : "btn danger block"}
+                disabled={disBusy || blocked}
+                onClick={toggleDisabled}
+              >
+                {disBusy ? "…" : disabled ? "✅ Kích hoạt lại thùng" : "🚫 Vô hiệu hoá thùng"}
+              </button>
+              {blocked && (
+                <div class="muted small">Thùng đã phân bổ vào đơn — thu hồi khỏi đơn trước khi vô hiệu.</div>
+              )}
+            </>
+          );
+        })()}
       </section>
     </div>
   );

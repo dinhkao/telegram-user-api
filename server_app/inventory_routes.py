@@ -220,10 +220,13 @@ async def box_disable_handler(request: web.Request):
             _ensure(conn)
             box = get_box(conn, box_id)
             if not box:
-                return None
+                return None, None
             was = bool(box.get("disabled"))
             if was == disabled:
-                return box  # không đổi
+                return box, None  # không đổi
+            # Cấm vô hiệu thùng đang phân bổ đơn — phải thu hồi khỏi đơn trước
+            if disabled and box.get("status") in ("allocated", "shipped"):
+                return box, "Thùng đã phân bổ vào đơn — thu hồi khỏi đơn trước khi vô hiệu"
             set_disabled(conn, box_id, disabled)
             # Đồng bộ tổng phiếu SX nguồn: vô hiệu → trừ, kích hoạt → cộng
             src = box.get("source_thread_id")
@@ -233,10 +236,12 @@ async def box_disable_handler(request: web.Request):
                     qty = box.get("quantity") or 0
                     total = (slip.get("total") or 0) + (-qty if disabled else qty)
                     set_total(conn, src, max(0, total))
-            return get_box(conn, box_id)
+            return get_box(conn, box_id), None
         finally:
             conn.close()
-    box = await asyncio.to_thread(_run)
+    box, err = await asyncio.to_thread(_run)
+    if err:
+        return web.json_response({"ok": False, "error": err}, status=409)
     if not box:
         return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
     src = box.get("source_thread_id")
