@@ -1,9 +1,9 @@
-// Trang đăng nhập + cài server URL (cần cho APK trỏ Tailscale IP).
+// Trang đăng nhập. Webapp cùng origin với server (APK nạp URL từ xa qua Tailscale)
+// nên không cần nhập server URL nữa — gọi API bằng đường dẫn tương đối.
 import { useState } from "preact/hooks";
-import { currentUser, login, serverUrl, setAuth, setServerUrl } from "../api";
+import { currentUser, login, setAuth } from "../api";
 
 export function Login() {
-  const [url, setUrl] = useState(serverUrl());
   const [username, setUsername] = useState("");
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
@@ -15,7 +15,6 @@ export function Login() {
     setErr("");
     setBusy(true);
     try {
-      if (url.trim()) setServerUrl(url.trim());
       await login(username.trim(), pin);
       window.location.hash = "#/orders";
     } catch (ex: any) {
@@ -39,8 +38,6 @@ export function Login() {
         </div>
       )}
       <form onSubmit={submit} class="card">
-        <label>Server (để trống nếu mở qua trình duyệt)</label>
-        <input type="url" placeholder="http://100.x.y.z:8090" value={url} onInput={(e: any) => setUrl(e.target.value)} />
         <label>Tên đăng nhập</label>
         <input type="text" autocapitalize="none" value={username} onInput={(e: any) => setUsername(e.target.value)} />
         <label>PIN</label>

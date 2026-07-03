@@ -3,12 +3,10 @@
 import { flushQueue, queuePost, readCache, writeCache } from "./offline";
 
 export function serverUrl(): string {
-  // Trong APK (file:// hoặc appassets) bắt buộc có server_url; trên web dùng same-origin.
-  return localStorage.getItem("server_url") || "";
-}
-
-export function setServerUrl(url: string) {
-  localStorage.setItem("server_url", url.replace(/\/+$/, ""));
+  // APK giờ nạp webapp từ URL server (qua Tailscale) nên webapp luôn cùng origin
+  // với API → dùng đường dẫn tương đối. Xoá giá trị cũ (nếu có) để không ghim IP cũ.
+  if (localStorage.getItem("server_url")) localStorage.removeItem("server_url");
+  return "";
 }
 
 export function getToken(): string {
