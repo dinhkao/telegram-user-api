@@ -113,7 +113,7 @@ function App() {
 
   // Lớp chi tiết (bottom-sheet) đè lên nền
   let overlay = null;
-  if (!showLogin && orderMatch) overlay = <OrderDetail threadId={orderMatch[1]} focus={focusEl} />;
+  if (!showLogin && orderMatch) overlay = <OrderDetail threadId={orderMatch[1]} focus={focusEl} inSheet />;
   else if (!showLogin && prodMatch) overlay = <ProductionDetail threadId={prodMatch[1]} />;
   const closeSheet = () => history.back();
 

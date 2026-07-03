@@ -296,13 +296,17 @@ body.pv-open { overflow: hidden; }
 .prod-card-note { margin-top: 8px; font-size: .82rem; color: #555; background: #fffbe6; border-radius: 6px; padding: 5px 8px; }
 
 /* ─── Bottom-sheet chi tiết (mở đè dashboard, vuốt xuống đóng) ─────────────── */
-body.sheet-open { overflow: hidden; }
+/* KHÔNG khoá overflow body: dashboard nằm nền vẫn giữ nguyên vị trí cuộn (nếu
+   khoá overflow:hidden thì cuộn nền bị về 0 → đóng sheet bị nhảy lên đầu). Nền
+   không cuộn được vì backdrop cố định chặn chạm; sheet dùng overscroll-contain
+   để không kéo lây nền. */
 .sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; }
 .detail-sheet {
   position: fixed; left: 0; right: 0; bottom: 0; top: 6vh;
   background: #f2f3f5; z-index: 201;
   border-radius: 16px 16px 0 0;
   overflow-y: auto; -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   box-shadow: 0 -6px 28px rgba(0,0,0,.28);
   will-change: transform;
 }

@@ -16,7 +16,7 @@ import { invalidateListCache } from "./OrdersList";
 // Nhớ vị trí cuộn theo từng đơn — quay lại đơn cũ về đúng chỗ đang xem
 const detailScroll: Record<string, number> = {};
 
-export function OrderDetail({ threadId, focus }: { threadId: string; focus?: string }) {
+export function OrderDetail({ threadId, focus, inSheet }: { threadId: string; focus?: string; inSheet?: boolean }) {
   const [detail, setDetail] = useState<any>(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
@@ -44,8 +44,10 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     reload();
   }, [threadId]);
 
-  // Lưu vị trí cuộn khi rời đơn (đổi đơn / thoát trang) để lần sau về đúng chỗ
+  // Lưu vị trí cuộn khi rời đơn (đổi đơn / thoát trang) để lần sau về đúng chỗ.
+  // Trong bottom-sheet: window là của dashboard nền → KHÔNG động vào.
   useEffect(() => {
+    if (inSheet) return;
     return () => { detailScroll[threadId] = window.scrollY; };
   }, [threadId]);
 
@@ -53,7 +55,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   // trang cao dần — áp lại scrollTo nhiều lần cho tới khi trang đủ cao/đạt đích; huỷ
   // ngay khi người dùng tự cuộn (không giằng co). Chạy 1 lần mỗi lần mở đơn.
   useEffect(() => {
-    if (focus || restored.current) return;
+    if (inSheet || focus || restored.current) return; // sheet: đừng cuộn window (là dashboard nền)
     restored.current = true;
     const y = detailScroll[threadId] || 0;
     if (y <= 4) return;
