@@ -13,6 +13,7 @@ import { PhotoViewer } from "../detail/PhotoViewer";
 type OrderRow = {
   thread_id: number;
   thumb_image_id?: number | null;
+  image_count?: number;
   customer: string;
   total: string;
   paid: number;
@@ -376,7 +377,12 @@ export function OrdersList() {
               <div class="card-main">
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
                 <div class="card-body">
-                  {o.thumb_image_id ? <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" onClick={(e) => openThumb(e, o)} /> : null}
+                  {o.thumb_image_id ? (
+                    <span class="card-thumb-wrap" onClick={(e) => openThumb(e, o)}>
+                      <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" />
+                      {(o.image_count ?? 0) > 1 && <span class="thumb-count">+{(o.image_count ?? 0) - 1}</span>}
+                    </span>
+                  ) : null}
                   <div class="card-content">
                     {o.text
                       ? <div class="order-text wrap-badges"><TaskBadges o={o} /><span class="ot-text"><Highlight text={o.text} q={search} /></span></div>
