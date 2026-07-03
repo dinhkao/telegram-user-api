@@ -122,8 +122,19 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   topic:** a web upload is forwarded into the order's topic (`ORDER_GROUP_ID`,
   `reply_to=thread_id`, photo preview); a photo posted in the topic is pulled back
   into the gallery (inbound `NewMessage` handler registered in
-  `command_bootstrap.py`). Loop-prevention: self-sent message-ids tracked in-memory
-  + the `tg_message_id` column. Add/delete emit realtime `order_changed`.
+  `command_bootstrap.py`). **Bot-forwarded photos** (session photo → topic via
+  `POST /api/tg/send-file`) are imported directly in `send_file_handler` because
+  Telethon fires no `NewMessage` for the client's own sends —
+  `order_photo_sync.import_sent_image`. Loop-prevention: self-sent message-ids
+  (set+deque FIFO) + a `UNIQUE(thread_id, tg_message_id)` index. Add/delete emit
+  realtime `order_changed`, an `order.image_added` audit event (→ shows in **Lịch sử
+  thao tác** with a thumbnail), and an **FCM push** (`server_app/fcm.py`, topic
+  `orders`) — same as new comments (`comment_routes`). Tapping a push **deep-links**
+  to `#/order/<id>?focus=<type>:<id>` → OrderDetail scrolls to + highlights the item
+  (APK reads FCM `data` extras in `MainActivity`).
+- **Dashboard card thumbnail** — `orders_api._attach_thumbs` batch-fetches each
+  order's latest image id per list page (and on realtime rows); the card shows it on
+  the left. Updates live via the `order_changed` row-splice.
 
 **Data stores (one package per SQLite domain)**
 - `donhang_store/` — `#don_hang` index DB (schema, reads, writes, migrations, api).
@@ -274,6 +285,13 @@ tracked files:
   `test.txt`, `app_nohup.log`, `donhang-kh.db` (0 bytes), `bot_sessions.db-*`
   wal/shm. `*.db`, `*.session`, `.env`, and `*-firebase-adminsdk-*.json` are
   correctly gitignored — do not commit secrets or DBs.
+- **Secrets:** KiotViet `client_id`/`client_secret` were hardcoded in
+  `integrations/kiotviet/core.py`; now read from `.env` (`KIOTVIET_CLIENT_ID/SECRET`).
+  ⚠ The old secret is in git history — **rotate it** (see `REVIEW_REPORT.md`).
+- **Security debt (Tailscale-mitigated):** `WEB_AUTH_ENABLED` defaults false (all
+  `/api/*` unauthenticated), and `tg_api` auth (`tg_api/common.py`) fails OPEN when
+  `TG_EDIT_API_KEY` is unset. Safe only because deployment is Tailscale/LAN-only.
+  Remediation steps in `REVIEW_REPORT.md` (repo root — full autonomous review 2026-07-03).
 - **Stale docs:** `docs/app-overview.md` still describes 3 separate processes and
   root-level handlers as live code. Reality: single process, packages + shims.
   Trust this file + `bootstrap.py` over older docs.
