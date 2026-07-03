@@ -80,6 +80,25 @@ def _topic_link(thread_id) -> str:
     return f"https://t.me/c/{internal}/{thread_id}"
 
 
+async def _send_link_buttons(thread_id) -> None:
+    """Gửi nút bấm inline (URL) vào channel qua BOT — tài khoản user KHÔNG gắn được
+    inline keyboard (giới hạn Telegram). Best-effort: chưa có bot / bot không phải
+    admin channel → bỏ qua, link chữ trong bài channel vẫn còn."""
+    from server_app.bot_bootstrap import get_bot_client
+    bot = get_bot_client()
+    if bot is None:
+        return
+    from telethon import Button
+    buttons = [[
+        Button.url("💬 Mở topic", _topic_link(thread_id)),
+        Button.url("🔗 Xem phiếu", f"{PUBLIC_URL}/san_xuat/{thread_id}"),
+    ]]
+    try:
+        await bot.send_message(PRODUCTION_CHANNEL_ID, "🔖 Phiếu sản xuất", buttons=buttons)
+    except Exception as e:  # noqa: BLE001 — cần bot là admin channel; không có thì thôi
+        log.warning("bot link-buttons failed thread=%s: %s", thread_id, e)
+
+
 # CSV parsing moved to production_store/domain.py (parse_report/compute_report/
 # looks_like_report) — shared with the webapp endpoint so the two never drift.
 
@@ -172,6 +191,8 @@ def register_production_commands(client):
         # Sửa chính bài trong channel để hiện tóm tắt + link (trước đây chỉ gửi vào
         # topic group, bài channel không được cập nhật → không thấy link).
         await _update_tin_nhan(client, conn, thread_id)
+        # Nút bấm inline (qua bot) — user account không gắn keyboard được.
+        await _send_link_buttons(thread_id)
 
     # ─── group messages ─────────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=PRODUCTION_GROUP_ID))
