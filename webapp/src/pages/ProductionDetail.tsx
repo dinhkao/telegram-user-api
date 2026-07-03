@@ -18,7 +18,7 @@ import { onRealtime } from "../realtime";
 import { ProductionBoxes } from "../detail/ProductionBoxes";
 import { ProductionReport } from "../detail/ProductionReport";
 
-export function ProductionDetail({ threadId }: { threadId: string }) {
+export function ProductionDetail({ threadId, focus }: { threadId: string; focus?: string }) {
   const [slip, setSlip] = useState<ProdSlip | null>(null);
   const [catalog, setCatalog] = useState<ProdCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +58,29 @@ export function ProductionDetail({ threadId }: { threadId: string }) {
       reloadTimer.current = setTimeout(reload, 250);
     });
   }, [threadId]);
+
+  // Deep-link từ chi tiết thùng (?focus=box:id): đợi thùng render rồi cuộn tới + nháy
+  useEffect(() => {
+    if (!focus) return;
+    let tries = 0;
+    let flashT: any;
+    const iv = setInterval(() => {
+      const el = document.getElementById(focus);
+      if (el) {
+        clearInterval(iv);
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("flash-target");
+        flashT = setTimeout(() => el.classList.remove("flash-target"), 2400);
+        history.replaceState(null, "", `#/san_xuat/${threadId}`);
+      } else if (++tries > 50) {
+        clearInterval(iv);
+      }
+    }, 100);
+    return () => {
+      clearInterval(iv);
+      clearTimeout(flashT);
+    };
+  }, [focus, threadId]);
 
   const changeProduct = async (code: string) => {
     if (!code) return;

@@ -86,7 +86,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
       <section class="card">
         <label class="card-label">Nguồn — Phiếu sản xuất</label>
         {d.source_slip ? (
-          <a class="box-jump" href={`#/san_xuat/${d.source_slip.thread_id}`}>
+          <a class="box-jump" href={`#/san_xuat/${d.source_slip.thread_id}?focus=box:${b.id}`}>
             🏭 {d.source_slip.sp_name || b.product_code}
             {d.source_slip.date ? ` · ${d.source_slip.date}` : ""} →
           </a>

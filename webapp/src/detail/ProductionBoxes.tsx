@@ -2,7 +2,13 @@
 // kho product (nhóm theo size: 5 thùng 50, x thùng 70…). POST .../boxes (queueable).
 // onChanged() để phiếu tải lại tổng. Nguồn tồn: GET /api/inventory/:code.
 import { useEffect, useState } from "preact/hooks";
-import { addProductionBoxes, inventoryDetail, soVN, type ProdSlip, type InvDetail } from "../api";
+import { addProductionBoxes, inventoryDetail, slipBoxes, soVN, type ProdSlip, type InvDetail, type InvBox } from "../api";
+
+const STATUS: Record<string, { label: string; cls: string }> = {
+  in_stock: { label: "Trong kho", cls: "in" },
+  allocated: { label: "Đã xuất", cls: "alloc" },
+  shipped: { label: "Đã giao", cls: "ship" },
+};
 
 export function ProductionBoxes({
   threadId,
@@ -20,6 +26,7 @@ export function ProductionBoxes({
   const [msg, setMsg] = useState("");
   const [inv, setInv] = useState<InvDetail | null>(null);
   const [showBoxes, setShowBoxes] = useState(false);
+  const [myBoxes, setMyBoxes] = useState<InvBox[]>([]);
 
   const loadInv = async () => {
     if (!slip.sp_name) {
@@ -32,8 +39,16 @@ export function ProductionBoxes({
       /* im lặng — tồn kho là phụ */
     }
   };
+  const loadMine = async () => {
+    try {
+      setMyBoxes(await slipBoxes(threadId));
+    } catch {
+      /* im lặng */
+    }
+  };
   useEffect(() => {
     loadInv();
+    loadMine();
   }, [slip.sp_name, slip.total]);
 
   const setRow = (i: number, v: string) => setRows(rows.map((r, j) => (j === i ? v : r)));
@@ -136,6 +151,28 @@ export function ProductionBoxes({
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {myBoxes.length > 0 && (
+        <div class="inv-summary">
+          <div class="inv-total">Thùng nhập ở phiếu này ({myBoxes.length})</div>
+          <div class="inv-detail-list">
+            {myBoxes.map((b) => {
+              const st = STATUS[b.status] || { label: b.status, cls: "" };
+              const tail = b.order_thread_id ? ` #${b.order_thread_id}` : "";
+              return (
+                <a key={b.id} id={`box-${b.id}`} class="inv-detail-row link" href={`#/thung/${b.id}`}>
+                  <code class="inv-bc">{b.box_code}</code>
+                  <span class="inv-q">{soVN(b.quantity)}</span>
+                  <span class={`inv-status ${st.cls}`}>
+                    {st.label}
+                    {tail}
+                  </span>
+                </a>
+              );
+            })}
+          </div>
         </div>
       )}
     </section>

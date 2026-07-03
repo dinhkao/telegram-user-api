@@ -34,6 +34,7 @@ from server_app.production_routes import (
 )
 from server_app.inventory_routes import (
     production_add_boxes_handler,
+    production_boxes_list_handler,
     inventory_list_handler,
     inventory_detail_handler,
     box_detail_handler,
@@ -119,6 +120,7 @@ def create_app():
     r.add_post("/api/production/{thread_id}/note", production_set_note_handler)
     r.add_post("/api/production/{thread_id}/number", production_add_number_handler)
     r.add_post("/api/production/{thread_id}/boxes", production_add_boxes_handler)
+    r.add_get("/api/production/{thread_id}/boxes", production_boxes_list_handler)
     r.add_post("/api/production/{thread_id}/report/parse", production_report_parse_handler)
     r.add_post("/api/production/{thread_id}/report", production_report_save_handler)
     # ─── kho thùng (inventory) ───────────────────────────────────────────────

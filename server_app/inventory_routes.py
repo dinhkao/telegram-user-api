@@ -94,6 +94,23 @@ async def production_add_boxes_handler(request: web.Request):
     return web.json_response({"ok": True, "boxes": created, "total": total})
 
 
+async def production_boxes_list_handler(request: web.Request):
+    """Các thùng đã nhập ở 1 phiếu SX (mọi status) — cho list + deep-link focus."""
+    thread_id = _thread_id(request)
+    if thread_id is None:
+        return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            create_inventory_table(conn)
+            return list_boxes(conn, source_thread_id=thread_id)
+        finally:
+            conn.close()
+    boxes = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, "boxes": boxes})
+
+
 # ─── xem tồn kho ──────────────────────────────────────────────────────────────
 async def inventory_list_handler(request: web.Request):
     """Dashboard kho: mỗi product tồn (in_stock) + số thùng đã xuất/đã giao."""

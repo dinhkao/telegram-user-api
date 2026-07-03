@@ -105,7 +105,7 @@ function App() {
   const focusEl = focusMatch ? `${focusMatch[1]}-${focusMatch[2]}` : undefined;
   if (showLogin) page = <Login />;
   else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} focus={focusEl} />;
-  else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} />;
+  else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} focus={focusEl} />;
   else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;
   else if (boxMatch) page = <BoxDetail boxId={boxMatch[1]} />;
   else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;

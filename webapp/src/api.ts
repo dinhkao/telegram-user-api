@@ -396,6 +396,12 @@ export async function addProductionBoxes(
   return { boxes: d.boxes || [], total: d.total, _queued: d._queued };
 }
 
+/** Các thùng đã nhập ở 1 phiếu SX (mọi status). */
+export async function slipBoxes(id: string | number): Promise<InvBox[]> {
+  const d = await getJSON(`/api/production/${id}/boxes`);
+  return d.boxes || [];
+}
+
 /** Dashboard kho: mỗi product tồn + số thùng đã xuất/đã giao. */
 export async function inventoryList(): Promise<InvProductSummary[]> {
   const d = await getJSON("/api/inventory");
