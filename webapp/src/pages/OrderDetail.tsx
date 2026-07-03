@@ -148,7 +148,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
 
   const j = detail.data || {};
   const pc = (j.hoadon || {}).print_content || {};
-  const isAdmin = currentUser()?.username === "duy";
+  const isAdmin = currentUser()?.role === "admin";
   // ưu tiên tổng từ hoá đơn in (đã gồm mọi điều chỉnh); tự tính thì phải cộng trừ
   // discount/pvc/vat như /api/order/totals — không thì lệch với Telegram
   const computedTotal = invoiceTotal(j.invoice) - (Number(j.discount) || 0) + (Number(j.pvc) || 0) + (Number(j.vat) || 0);
@@ -310,6 +310,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         vat={j.vat}
         onSave={saveInvoice}
         onCreateInvoice={createHD}
+        canCreate={isAdmin}
         hasInvoice={!!j.kiotvietInvoiceID}
         debt={j.khDebt ?? j.invoice_debt_snapshot}
         onView={() => window.open(invoiceHtmlUrl(threadId), "_blank")}

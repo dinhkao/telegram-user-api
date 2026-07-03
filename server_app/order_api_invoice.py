@@ -22,12 +22,30 @@ from server_app.tasks import spawn_tracked
 log = logging.getLogger("server")
 
 
+async def _is_admin(request: web.Request) -> bool:
+    """True nếu user gọi (theo token đăng nhập) có role 'admin' trong web_users.
+    Dựa vào request['web_user'] do web_auth middleware set từ token (kể cả khi
+    WEB_AUTH_ENABLED=false, miễn là client gửi token). Không tin body.user_id
+    (có thể giả mạo)."""
+    actor = request.get("web_user")
+    if not actor:
+        return False
+    try:
+        from user_store import get_user
+        u = await asyncio.to_thread(get_user, actor)
+    except Exception:
+        return False
+    return bool(u) and u.get("role") == "admin"
+
+
 async def api_create_invoice_handler(request: web.Request):
     try:
         body = await request.json()
     except Exception:
         return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
     apply_web_actor(request, body)
+    if not await _is_admin(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin mới được tạo hoá đơn KiotViet"}, status=403)
     thread_id, user_id = body.get("thread_id"), body.get("user_id")
     if not thread_id:
         return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
@@ -52,17 +70,15 @@ async def api_create_invoice_handler(request: web.Request):
 
 
 async def api_delete_invoice_handler(request: web.Request):
-    """Xoá hoá đơn KiotViet của đơn — CHỈ user admin (ADMIN_WEB_USER, mặc định 'duy').
+    """Xoá hoá đơn KiotViet của đơn — CHỈ user có role 'admin' trong web_users.
     Body {thread_id, user_id?}. Xoá HĐ trên KiotViet + gỡ kiotvietInvoiceID/Code."""
     try:
         body = await request.json()
     except Exception:
         return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
     apply_web_actor(request, body)
-    from server_app.config import ADMIN_WEB_USER
-    actor = request.get("web_user") or str(body.get("user_id") or "")
-    if actor != ADMIN_WEB_USER:
-        return web.json_response({"ok": False, "error": f"Chỉ {ADMIN_WEB_USER} mới được xoá hoá đơn"}, status=403)
+    if not await _is_admin(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin mới được xoá hoá đơn KiotViet"}, status=403)
     thread_id = body.get("thread_id")
     if not thread_id:
         return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
