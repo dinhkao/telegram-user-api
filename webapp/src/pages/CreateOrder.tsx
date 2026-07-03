@@ -4,7 +4,7 @@
 //    rồi lưu hoá đơn, chuyển sang trang chi tiết để bấm "Tạo HĐ KiotViet".
 // Cần mạng (không queue).
 import { useState, useEffect, useRef } from "preact/hooks";
-import { postJSON, previewOrder, type OrderPreview } from "../api";
+import { postJSON, previewOrder, refreshCustomerDebt, type OrderPreview } from "../api";
 import { money } from "../format";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
@@ -17,7 +17,22 @@ export function CreateOrder() {
   const [err, setErr] = useState("");
   const [preview, setPreview] = useState<OrderPreview | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [liveDebt, setLiveDebt] = useState<{ id: string; debt: number | null } | null>(null);
+  const [debtBusy, setDebtBusy] = useState(false);
   const seq = useRef(0);
+
+  // Khách vừa nhận diện → kéo nợ MỚI từ KiotViet 1 lần (theo id, không mỗi phím)
+  useEffect(() => {
+    const id = preview?.customer?.id;
+    if (!id) { setLiveDebt(null); return; }
+    let alive = true;
+    setDebtBusy(true);
+    refreshCustomerDebt(id)
+      .then((c) => { if (alive) setLiveDebt({ id, debt: c.debt }); })
+      .catch(() => {})
+      .finally(() => { if (alive) setDebtBusy(false); });
+    return () => { alive = false; };
+  }, [preview?.customer?.id]);
 
   // Xem trước tức thời khi gõ ở tab Nhanh — không delay; seq chặn kết quả cũ về sau
   useEffect(() => {
@@ -73,9 +88,15 @@ export function CreateOrder() {
                     {preview.customer ? (
                       <>
                         👤 <b>{preview.customer.name}</b> <span class="muted small">({preview.customer.score}%)</span>
-                        {preview.customer.debt != null && (
-                          <span class={preview.customer.debt > 0 ? "owe" : "muted small"}> · Nợ: {money(preview.customer.debt)}đ</span>
-                        )}
+                        {(() => {
+                          const isLive = liveDebt?.id === preview.customer!.id;
+                          const debt = isLive ? liveDebt!.debt : preview.customer!.debt;
+                          if (debtBusy && !isLive) return <span class="muted small"> · Nợ: đang lấy KiotViet…</span>;
+                          if (debt == null) return null;
+                          return (
+                            <span class={debt > 0 ? "owe" : "muted small"}> · Nợ: {money(debt)}đ {isLive ? "🟢" : ""}</span>
+                          );
+                        })()}
                         {preview.customer.price_list_name && (
                           <div class="muted small">📋 Bảng giá: {preview.customer.price_list_name}</div>
                         )}

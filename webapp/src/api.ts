@@ -137,6 +137,12 @@ export async function previewOrder(text: string): Promise<OrderPreview> {
   return postJSON("/api/order/preview", { text });
 }
 
+/** Kéo nợ MỚI của khách từ KiotViet (cập nhật snapshot) → trả nợ mới. */
+export async function refreshCustomerDebt(key: string): Promise<{ debt: number | null }> {
+  const d = await postJSON(`/api/customers/${key}/refresh-debt`, {});
+  return { debt: d.customer?.debt ?? null };
+}
+
 export type PriceInfo = { price: number; source: "personal" | "shared" | null; list_name: string | null };
 
 /** Giá SP theo khách + bảng giá nào (price 0 nếu không có). */
