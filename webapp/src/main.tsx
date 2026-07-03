@@ -1,7 +1,7 @@
 // Entry — hash router (#/orders, #/order/:id, #/create, #/customers, #/login)
 // + thanh nav dưới + banner offline/hàng đợi. Connects to: pages/*, api.ts.
 import { render } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { currentUser, replayQueue } from "./api";
 import { getQueue } from "./offline";
 import { getStatus, onStatus, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
@@ -16,6 +16,31 @@ import { InventoryList } from "./pages/InventoryList";
 import { InventoryDetail } from "./pages/InventoryDetail";
 import { BoxDetail } from "./pages/BoxDetail";
 import "./styles.css";
+
+// Nhớ vị trí cuộn theo hash cho các trang KHÔNG tự quản (OrdersList/OrderDetail đã
+// tự nhớ). Lưu scrollY của trang rời đi, khôi phục khi quay lại (poll vì nội dung
+// tải bất đồng bộ, trang cao dần). Bỏ qua trang #/order* và khi có ?focus (deep-link).
+const scrollMem = new Map<string, number>();
+const selfManagesScroll = (h: string) => h.startsWith("#/order");
+
+function useScrollMemory(hash: string, hasFocus: boolean) {
+  const prev = useRef(hash);
+  useEffect(() => {
+    const outgoing = prev.current;
+    if (outgoing !== hash && !selfManagesScroll(outgoing)) {
+      scrollMem.set(outgoing, window.scrollY); // lưu cuộn trang vừa rời
+    }
+    prev.current = hash;
+    if (hasFocus || selfManagesScroll(hash)) return; // focus/tự-quản thắng
+    const y = scrollMem.get(hash) ?? 0;
+    let tries = 0;
+    const iv = setInterval(() => {
+      window.scrollTo(0, y);
+      if (Math.abs(window.scrollY - y) <= 2 || ++tries > 40) clearInterval(iv);
+    }, 25);
+    return () => clearInterval(iv);
+  }, [hash, hasFocus]);
+}
 
 function useHash(): string {
   const [hash, setHash] = useState(window.location.hash || "#/orders");
@@ -103,6 +128,7 @@ function App() {
   // Deep-link từ notification: ?focus=comment:123 / ?focus=image:45 → cuộn + nháy
   const focusMatch = hash.match(/[?&]focus=([a-z]+):(\d+)/i);
   const focusEl = focusMatch ? `${focusMatch[1]}-${focusMatch[2]}` : undefined;
+  useScrollMemory(hash, !!focusEl);
   if (showLogin) page = <Login />;
   else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} focus={focusEl} />;
   else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} focus={focusEl} />;
