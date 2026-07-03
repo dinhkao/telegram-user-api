@@ -37,20 +37,20 @@ async def payment_delete_handler(request: web.Request):
     pay = next((p for p in order.get("payments", []) if p.get("id") == str(payment_id)), None)
     if not pay:
         return web.json_response({"ok": False, "error": f"Không tìm thấy payment: {payment_id}"}, status=400)
-    # 1) Best-effort xoá payment trên KiotViet (id nằm trong kiotvietData.payments[].id).
-    # KiotViet public API KHÔNG có endpoint xoá payment (chỉ quản lý payment trong
-    # /orders) → thường 404. Không chặn: vẫn xoá local, trả cảnh báo để xoá tay.
+    # 1) Best-effort xoá trên KiotViet. Thanh toán được tạo bằng workaround POST
+    # /orders (create_order_with_payment) nên KHÔNG có payment độc lập — phải xoá cả
+    # phiếu đặt hàng (DH), id = kiotvietData.id → payment nhúng mất theo. Không chặn:
+    # lỗi thì vẫn xoá local + trả cảnh báo.
     kv = pay.get("kiotvietData") or {}
-    kv_pay_ids = [np.get("id") for np in (kv.get("payments") or []) if isinstance(np, dict) and np.get("id")]
+    kv_order_id = kv.get("id")
     kv_warning = ""
-    if kv_pay_ids:
+    if kv_order_id:
         try:
-            from kiotviet import delete_payment_kv
-            for pid in kv_pay_ids:
-                await asyncio.to_thread(delete_payment_kv, int(pid))
+            from kiotviet import delete_order_kv
+            await asyncio.to_thread(delete_order_kv, int(kv_order_id))
         except Exception as e:
-            log.warning("delete KV payment failed (bỏ qua, xoá local) thread=%s ids=%s: %s", thread_id, kv_pay_ids, e)
-            kv_warning = "KiotViet không xoá được thanh toán (API không hỗ trợ) — vào app KiotViet xoá tay nếu cần."
+            log.warning("delete KV order failed (bỏ qua, xoá local) thread=%s order_id=%s: %s", thread_id, kv_order_id, e)
+            kv_warning = "KiotViet không xoá được phiếu đặt hàng — vào app KiotViet xoá tay nếu cần."
     # 2) Xoá record local (nợ tự tính lại từ danh sách payments)
     from payment_store import delete_payment_record
     ok, message = delete_payment_record(conn, int(thread_id), str(payment_id))
