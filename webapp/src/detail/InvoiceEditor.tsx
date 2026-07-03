@@ -3,7 +3,7 @@
 // điều chỉnh Chiết khấu/PVC/VAT (nút VAT 8%), tổng sống, nút Lưu + Tạo HĐ KiotViet.
 // Parent quyết định onSave làm gì (invoice/update hay create-flow) và onCreateInvoice.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { fetchCustomerPrice, previewOrder, searchProducts, type PriceInfo } from "../api";
+import { fetchCustomerPrice, previewOrder, searchProducts, type PriceInfo, type OrderPreview } from "../api";
 import { money, parseMoney } from "../format";
 import { InvoiceTable } from "./InvoiceTable";
 
@@ -79,6 +79,18 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const [quickText, setQuickText] = useState("");
   const [quickBusy, setQuickBusy] = useState(false);
   const [quickMsg, setQuickMsg] = useState("");
+  const [quickPreview, setQuickPreview] = useState<OrderPreview | null>(null);
+  const quickSeq = useRef(0);
+
+  // Xem trước tức thời khi gõ ở ô Thêm nhanh (giá theo khách của đơn)
+  useEffect(() => {
+    const t = quickText.trim();
+    if (!editing || !t) { setQuickPreview(null); return; }
+    const my = ++quickSeq.current;
+    previewOrder(t, customerId)
+      .then((r) => { if (my === quickSeq.current) setQuickPreview(r); })
+      .catch(() => { if (my === quickSeq.current) setQuickPreview(null); });
+  }, [quickText, customerId, editing]);
   // Giá + bảng giá theo mã SP (đã hoa) — để ghi rõ giá lấy từ bảng giá nào
   const [listPrices, setListPrices] = useState<Record<string, PriceInfo>>({});
   const listRef = useRef<Record<string, PriceInfo>>({});
@@ -230,8 +242,31 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       </div>
       <button class="btn wide" onClick={addRow}>+ Thêm dòng</button>
 
-      {/* Thêm nhanh bằng text — như tab Nhanh ở trang tạo đơn */}
+      {/* Thêm nhanh bằng text — như tab Nhanh ở trang tạo đơn (kèm xem trước + gợi ý) */}
       <div class="quick-add">
+        {/* Xem trước Ở TRÊN ô nhập → bàn phím mobile không che */}
+        {quickText.trim() && quickPreview && (
+          quickPreview.invoice.length ? (
+            <table class="invoice-table">
+              <tbody>
+                {quickPreview.invoice.map((it, i) => (
+                  <tr key={i}>
+                    <td>{it.sp}</td>
+                    <td class="num">x{it.sl}</td>
+                    <td class="num">{money(it.price)}đ</td>
+                    <td class="num"><b>{money(it.sub)}đ</b></td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr><td colSpan={3}>Tổng thêm</td><td class="num"><b class="money">{money(quickPreview.total)}đ</b></td></tr>
+              </tfoot>
+            </table>
+          ) : (
+            <p class="muted small">Chưa nhận ra sản phẩm nào — kiểm tra mã SP.</p>
+          )
+        )}
+
         <textarea
           rows={2}
           placeholder={"⚡ Thêm nhanh (dán nhiều dòng): vd\nK2L 10\nKDDT 5t"}
@@ -243,6 +278,9 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
             {quickBusy ? "Đang thêm…" : "⚡ Thêm nhanh"}
           </button>
           {quickMsg && <span class="muted small">{quickMsg}</span>}
+        </div>
+        <div class="muted small hint">
+          💡 Mỗi dòng <code>&lt;mã SP&gt; &lt;SL&gt;</code> (mã trước, SL sau) · <code>5t</code> = 5 thùng (50/thùng), đổi <code>5t 60</code> · <code>3b</code> = 3 bịch (3/bịch) · giá tự theo bảng giá khách.
         </div>
       </div>
 
