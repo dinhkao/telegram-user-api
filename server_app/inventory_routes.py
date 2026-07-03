@@ -18,7 +18,7 @@ from inventory_store import (
     migrate_inventory_table,
     add_boxes,
     list_boxes,
-    product_totals,
+    product_summary,
     allocate_boxes,
     release_boxes,
     summarize,
@@ -95,12 +95,12 @@ async def production_add_boxes_handler(request: web.Request):
 
 # ─── xem tồn kho ──────────────────────────────────────────────────────────────
 async def inventory_list_handler(request: web.Request):
-    """Tổng tồn (in_stock) theo từng product — cho trang danh mục kho."""
+    """Dashboard kho: mỗi product tồn (in_stock) + số thùng đã xuất/đã giao."""
     def _run():
         conn = _conn()
         try:
             create_inventory_table(conn)
-            return product_totals(conn, status="in_stock")
+            return product_summary(conn)
         finally:
             conn.close()
     products = await asyncio.to_thread(_run)
@@ -117,12 +117,17 @@ async def inventory_detail_handler(request: web.Request):
         conn = _conn()
         try:
             create_inventory_table(conn)
-            boxes = list_boxes(conn, product_code=code, status="in_stock")
+            in_stock = list_boxes(conn, product_code=code, status="in_stock")
+            all_boxes = list_boxes(conn, product_code=code)
         finally:
             conn.close()
-        return boxes
-    boxes = await asyncio.to_thread(_run)
-    return web.json_response({"ok": True, "product_code": code, "boxes": boxes, **summarize(boxes)})
+        return in_stock, all_boxes
+    in_stock, all_boxes = await asyncio.to_thread(_run)
+    # boxes = in_stock (giữ tương thích ProductionBoxes/OrderStock); all_boxes = mọi status
+    return web.json_response({
+        "ok": True, "product_code": code, "boxes": in_stock, "all_boxes": all_boxes,
+        **summarize(in_stock),
+    })
 
 
 # ─── xuất / thu thùng cho đơn ─────────────────────────────────────────────────

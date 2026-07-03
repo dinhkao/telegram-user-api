@@ -367,8 +367,22 @@ export type InvBox = {
   created_by?: string;
 };
 export type InvGroup = { quantity: number; count: number; total: number; box_codes: string[] };
-export type InvDetail = { product_code: string; total: number; box_count: number; groups: InvGroup[]; boxes: InvBox[] };
-export type InvProductTotal = { product_code: string; box_count: number; total: number };
+export type InvDetail = {
+  product_code: string;
+  total: number;
+  box_count: number;
+  groups: InvGroup[];
+  boxes: InvBox[]; // in_stock
+  all_boxes: InvBox[]; // mọi status
+};
+export type InvProductSummary = {
+  product_code: string;
+  in_stock_total: number;
+  in_stock_count: number;
+  allocated_count: number;
+  shipped_count: number;
+  total_count: number;
+};
 
 /** Nhập 1 đợt = N thùng (mỗi thùng số cây tự do). Mã tự sinh. Queueable (offline). */
 export async function addProductionBoxes(
@@ -382,13 +396,13 @@ export async function addProductionBoxes(
   return { boxes: d.boxes || [], total: d.total, _queued: d._queued };
 }
 
-/** Tổng tồn (in_stock) theo từng product. */
-export async function inventoryList(): Promise<InvProductTotal[]> {
+/** Dashboard kho: mỗi product tồn + số thùng đã xuất/đã giao. */
+export async function inventoryList(): Promise<InvProductSummary[]> {
   const d = await getJSON("/api/inventory");
   return d.products || [];
 }
 
-/** Tồn 1 product: tổng + nhóm theo size + list thùng in_stock. */
+/** Tồn 1 product: tổng + nhóm size + thùng in_stock (boxes) + mọi thùng (all_boxes). */
 export async function inventoryDetail(code: string): Promise<InvDetail> {
   const d = await getJSON(`/api/inventory/${encodeURIComponent(code)}`);
   return {
@@ -397,6 +411,7 @@ export async function inventoryDetail(code: string): Promise<InvDetail> {
     box_count: d.box_count || 0,
     groups: d.groups || [],
     boxes: d.boxes || [],
+    all_boxes: d.all_boxes || [],
   };
 }
 

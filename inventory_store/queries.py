@@ -72,6 +72,20 @@ def product_totals(conn, *, status="in_stock") -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def product_summary(conn) -> list[dict]:
+    """Tồn/xuất theo từng product cho dashboard kho: tồn (in_stock) + đã xuất + đã giao."""
+    rows = conn.execute(
+        "SELECT product_code, "
+        "COALESCE(SUM(CASE WHEN status='in_stock'  THEN quantity ELSE 0 END),0) AS in_stock_total, "
+        "SUM(CASE WHEN status='in_stock'  THEN 1 ELSE 0 END) AS in_stock_count, "
+        "SUM(CASE WHEN status='allocated' THEN 1 ELSE 0 END) AS allocated_count, "
+        "SUM(CASE WHEN status='shipped'   THEN 1 ELSE 0 END) AS shipped_count, "
+        "COUNT(*) AS total_count "
+        "FROM inventory_boxes GROUP BY product_code ORDER BY product_code"
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def get_box(conn, box_id) -> dict | None:
     row = conn.execute("SELECT * FROM inventory_boxes WHERE id = ?", (box_id,)).fetchone()
     return dict(row) if row else None

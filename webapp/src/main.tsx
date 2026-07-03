@@ -12,6 +12,8 @@ import { OrderDetail } from "./pages/OrderDetail";
 import { OrdersList } from "./pages/OrdersList";
 import { ProductionList } from "./pages/ProductionList";
 import { ProductionDetail } from "./pages/ProductionDetail";
+import { InventoryList } from "./pages/InventoryList";
+import { InventoryDetail } from "./pages/InventoryDetail";
 import "./styles.css";
 
 function useHash(): string {
@@ -95,6 +97,7 @@ function App() {
   let page;
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
   const prodMatch = hash.match(/^#\/san_xuat\/(-?\d+)/);
+  const khoMatch = hash.match(/^#\/kho\/(.+)$/);
   // Deep-link từ notification: ?focus=comment:123 / ?focus=image:45 → cuộn + nháy
   const focusMatch = hash.match(/[?&]focus=([a-z]+):(\d+)/i);
   const focusEl = focusMatch ? `${focusMatch[1]}-${focusMatch[2]}` : undefined;
@@ -102,6 +105,8 @@ function App() {
   else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} focus={focusEl} />;
   else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} />;
   else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;
+  else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;
+  else if (hash.startsWith("#/kho")) page = <InventoryList />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
   else page = <OrdersList />;
@@ -125,6 +130,7 @@ function App() {
           <a class={hash === "#/orders" || orderMatch ? "tab active" : "tab"} href="#/orders">📋 Đơn</a>
           <a class={tab("#/create")} href="#/create">➕ Tạo</a>
           <a class={tab("#/san_xuat")} href="#/san_xuat">🏭 SX</a>
+          <a class={tab("#/kho")} href="#/kho">📦 Kho</a>
           <a class={tab("#/customers")} href="#/customers">👤 Khách</a>
           <a class="tab" href="#/login">⚙️</a>
         </nav>
