@@ -109,3 +109,19 @@ Backend: cùng process aiohttp hiện tại — thêm auth middleware + vài end
 
 ## Kiểm thử
 Logic thuần đặt trong module `domain` + chạy `./scripts/test.sh` (convention repo, 85 tests hiện có).
+
+## Module Kho thùng (📦 Kho) — đã giao
+
+Quản lý tồn kho theo **đơn vị thùng** (đã port + mở rộng ngoài plan gốc). Chi tiết
+kiến trúc: xem `CLAUDE.md` §4 `inventory_store/`.
+
+- **Nhập thùng** trong phiếu SX: mỗi lần 1 thùng (số cây tự do) + **ngày SX** (mặc
+  định hôm nay) + ghi chú. Mã thùng tự sinh `<SP>-NNN`. Cộng vào tổng phiếu SX.
+- **Theo dõi 2 dạng**: tổng tồn kho + theo từng thùng (mã, số cây, còn lại, NSX,
+  trạng thái). Tab 📦 Kho → dashboard/product → list thùng → chi tiết 1 thùng.
+- **Xuất kho cho đơn**: popup chọn thùng (info đủ để chọn) — lấy **1 phần** thùng
+  được (mặc định full), **nhiều thùng**. Thùng **KHÔNG tách**: lưu phần lấy ở bảng
+  `box_allocations`, thùng hiện "còn lại". Thu hồi = trả phần về kho.
+- **Vô hiệu thùng** (cần lý do): loại khỏi tồn/phân bổ/phiếu SX, vẫn hiện mờ; cấm
+  vô hiệu nếu thùng đã xuất phần nào.
+- **Deep-link 2 chiều** thùng ↔ đơn ↔ phiếu SX (cuộn tới + nháy sáng).

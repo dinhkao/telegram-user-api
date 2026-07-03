@@ -144,13 +144,31 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   app (PIN hash in `pin.py`, CLI: `tools/add_web_user.py`).
 - `comment_store/` — `web_comments` table in `app.db`: web-app comments on orders
   (separate from `order_chat_messages` = read-only Telegram log).
-- `inventory_store/` — `inventory_boxes` table in `app.db`: kho thùng theo đơn vị.
-  1 row = 1 thùng vật lý (mã tự sinh `K2L-001`), pool tồn gom theo `product_code`
-  (gộp mọi phiếu SX). Status `in_stock→allocated→shipped`. `domain.py` (pure,
-  unit-tested) = sinh mã + gộp nhóm theo size. API: `server_app/inventory_routes.py`
-  (`/api/inventory*`, nhập thùng từ slip `POST /api/production/{id}/boxes`, xuất cho
-  đơn `POST /api/order/{id}/allocate|release`). UI: `webapp/src/detail/
-  ProductionBoxes.tsx` (nhập + xem tồn) + `OrderStock.tsx` (picker xuất kho cho đơn).
+- `inventory_store/` — kho thùng theo đơn vị (`app.db`). Hai bảng:
+  - `inventory_boxes` (`schema.py`+`queries.py`): 1 row = 1 thùng vật lý, mã tự sinh
+    `K2L-001`, pool tồn gom theo `product_code` (gộp mọi phiếu SX). Cột: `quantity`
+    (số cây gốc), `mfg_date` (ngày SX), `note`, `disabled`+`disabled_reason`,
+    `source_thread_id` (phiếu SX nguồn). (Cột `status`/`order_thread_id` là **legacy**
+    — xuất kho đời mới KHÔNG dùng chúng.)
+  - `box_allocations` (`allocations.py`): 1 row = 1 **phần** thùng xuất cho 1 đơn.
+    Thùng **KHÔNG tách** khi lấy 1 phần; `remaining = quantity − Σ allocations`; tồn =
+    Σ remaining. Xuất `allocate_picks(picks=[{box_id,quantity?}])` (thiếu qty = lấy hết
+    còn lại); thu hồi = `delete_allocation`. `migrate_legacy_allocations` chuyển thùng
+    xuất kiểu cũ (status allocated) sang bảng này.
+  - `domain.py` (pure, unit-tested `tests/test_inventory_domain.py`) = sinh mã +
+    gộp nhóm theo size. Thùng có thể **vô hiệu** (cần lý do) → loại khỏi tồn/phân bổ,
+    trừ khỏi tổng phiếu SX; cấm vô hiệu nếu đã xuất phần nào.
+  - API `server_app/inventory_routes.py` (`_ensure` = create+migrate cả 2 bảng mọi
+    handler): `/api/inventory` (dashboard summary), `/api/inventory/{code}` (tồn +
+    all_boxes), `/api/inventory/box/{id}` GET/POST (chi tiết + sửa note/qty/mfg_date)
+    + `/disable`, nhập thùng `POST /api/production/{id}/boxes` (+GET list thùng phiếu),
+    xuất `POST /api/order/{id}/allocate|release`, `GET /api/order/{id}/allocations`.
+  - UI: tab **📦 Kho** (`#/kho`) → `pages/InventoryList.tsx` (dashboard/product) →
+    `InventoryDetail.tsx` (list thùng) → `pages/BoxDetail.tsx` (`#/thung/:id`, info hub:
+    còn lại, NSX, ghi chú, phiếu nguồn, các đơn đã xuất — deep-link cuộn+nháy 2 chiều
+    thùng↔đơn↔phiếu qua `?focus=box:<id>`). Nhập: `detail/ProductionBoxes.tsx`. Xuất:
+    `detail/OrderStock.tsx` + `detail/StockPickerModal.tsx` (popup chọn thùng, lấy 1
+    phần, hiện "còn X/Y").
 - `order_images_store/` — `order_images` table in `app.db`: metadata for photos
   attached to an order (filename, thumb, size, dims, uploader, `tg_message_id`).
   Image bytes live on disk under `ORDER_MEDIA_DIR/<thread_id>/`, not in the DB.
@@ -192,9 +210,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (`#/san_xuat`).
 
 **Web app for phones (orders management, 5-6 internal users)**
-- `webapp/` — Vite + Preact + TS mobile UI (Vietnamese): orders list/detail, tasks,
-  payments, comments, create order, customers/debt, **photos (camera + gallery, with
-  2-way Telegram sync)**, **phiếu sản xuất (🏭 SX tab)**, offline cache+queue. Build
+- `webapp/` — Vite + Preact + TS mobile UI (Vietnamese). Hash router `main.tsx`, nav
+  bottom **📋 Đơn · 👤 Khách · ➕ Tạo · 🏭 SX · 📦 Kho** + ⚙️ cài đặt ở top bar
+  (đăng xuất). Trang: orders list/detail, tasks, payments, comments, create order,
+  customers/debt, **photos (camera + gallery, 2-way Telegram sync)**, **phiếu sản
+  xuất (🏭 SX)**, **kho thùng (📦 Kho → chi tiết SP → chi tiết thùng)**. Nhớ vị trí
+  cuộn theo trang (`useScrollMemory` trong `main.tsx`). Offline cache+queue. Build
   `cd webapp && npm run build` →
   served at `/app` (`server_app/webapp_routes.py`). Image UI: `webapp/src/detail/
   Images.tsx` (+ `imageProcess.ts` client-side WebP resize/thumbnail).
