@@ -112,13 +112,23 @@ def register_inbound_photo_sync(client) -> None:
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))
     async def _on_topic_photo(event):  # noqa: ANN001
         msg = event.message
-        if not getattr(msg, "photo", None):
+        media = getattr(msg, "media", None)
+        if media is None:
+            return
+        is_photo = bool(getattr(msg, "photo", None))
+        doc = getattr(msg, "document", None)
+        is_image_doc = bool(doc and (getattr(doc, "mime_type", "") or "").startswith("image/"))
+        log.info("[inbound] media msg id=%s photo=%s image_doc=%s type=%s out=%s",
+                 msg.id, is_photo, is_image_doc, type(media).__name__, getattr(event, "out", None))
+        if not (is_photo or is_image_doc):
             return
         thread_id = extract_thread_id(msg)
+        log.info("[inbound] msg=%s thread_id=%s", msg.id, thread_id)
         if not thread_id:
             return
         mid = int(msg.id)
         if is_self_sent(mid):
+            log.info("[inbound] skip self-sent msg=%s", mid)
             return  # ảnh do web forward ra — đã có trong gallery
         # chờ chút cho forward web (nếu có) kịp gắn tg_message_id, rồi kiểm tra trùng
         await asyncio.sleep(2)
@@ -126,10 +136,12 @@ def register_inbound_photo_sync(client) -> None:
             return
         try:
             if await asyncio.to_thread(has_tg_message, int(thread_id), mid):
+                log.info("[inbound] skip dup tg_message=%s", mid)
                 return
         except Exception as e:  # noqa: BLE001
             log.warning("check trùng ảnh lỗi: %s", e)
 
+        log.info("[inbound] downloading msg=%s thread=%s", mid, thread_id)
         try:
             data = await client.download_media(msg, file=bytes)
         except Exception as e:  # noqa: BLE001
