@@ -245,9 +245,11 @@ export type ProdReport = {
   rows: { name: string; so_gach: number; so_tru: number; so_cay_le: number; note: string; so_mam: number; tong_calc: number }[];
 };
 
-export async function listProduction(): Promise<ProdSlip[]> {
-  const d = await getJSON("/api/production");
-  return d.slips || [];
+export type ProdListResp = { slips: ProdSlip[]; total: number; page: number; total_pages: number };
+
+export async function listProduction(page = 1): Promise<ProdListResp> {
+  const d = await getJSON(`/api/production?page=${page}`);
+  return { slips: d.slips || [], total: d.total || 0, page: d.page || 1, total_pages: d.total_pages || 1 };
 }
 
 export async function getProduction(id: string | number): Promise<ProdSlip | null> {

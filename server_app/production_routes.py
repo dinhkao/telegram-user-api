@@ -20,6 +20,7 @@ from production_store import (
     create_production_table,
     get_slip,
     list_slips,
+    count_slips,
     upsert_slip,
     set_sp,
     set_target,
@@ -74,18 +75,32 @@ def build_production_row(thread_id) -> dict | None:
 
 # ─── reads ───────────────────────────────────────────────────────────────────
 async def production_list_handler(request: web.Request):
+    try:
+        page = max(1, int(request.query.get("page", "1")))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, min(100, int(request.query.get("limit", "20"))))
+    except (ValueError, TypeError):
+        limit = 20
+    offset = (page - 1) * limit
+
     def _run():
         conn = _conn()
         try:
             create_production_table(conn)
-            slips = list_slips(conn)
+            total = count_slips(conn)
+            slips = list_slips(conn, limit=limit, offset=offset)
         finally:
             conn.close()
         for s in slips:
             s.update(_progress(s))
-        return slips
-    slips = await asyncio.to_thread(_run)
-    return web.json_response({"ok": True, "slips": slips})
+        return slips, total
+    slips, total = await asyncio.to_thread(_run)
+    return web.json_response({
+        "ok": True, "slips": slips, "total": total, "page": page,
+        "limit": limit, "total_pages": max(1, (total + limit - 1) // limit),
+    })
 
 
 async def production_detail_handler(request: web.Request):

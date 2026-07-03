@@ -3,6 +3,7 @@ from .schema import create_production_table, migrate_production_table
 from .queries import (
     get_slip,
     list_slips,
+    count_slips,
     upsert_slip,
     set_sp,
     set_target,
@@ -17,6 +18,7 @@ __all__ = [
     "migrate_production_table",
     "get_slip",
     "list_slips",
+    "count_slips",
     "upsert_slip",
     "set_sp",
     "set_target",

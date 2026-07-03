@@ -1,6 +1,6 @@
-// Danh sách phiếu sản xuất — GET /api/production. Card → #/san_xuat/:thread_id.
-// Tạo phiếu mới (mở forum topic group SX) ngay trên đầu trang. Realtime:
-// productions_changed/resync → tải lại; production_changed → vá dòng tại chỗ.
+// Danh sách phiếu sản xuất — GET /api/production (phân trang 20/trang, cuộn tải
+// thêm như dashboard đơn). Card → #/san_xuat/:thread_id. Tạo phiếu mới ở đầu.
+// Realtime: productions_changed/resync → tải lại trang 1; production_changed → vá.
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   listProduction,
@@ -19,22 +19,30 @@ export function ProductionList() {
   const [creating, setCreating] = useState(false);
   const [newCode, setNewCode] = useState("");
   const [err, setErr] = useState("");
-  const st = useRef<ProdSlip[]>([]);
-  st.current = slips;
+  const [total, setTotal] = useState(0);
+  const st = useRef({ page: 1, totalPages: 1, loading: false });
+  const sentinel = useRef<HTMLDivElement>(null);
 
-  const load = async () => {
+  const load = async (page: number, append: boolean) => {
+    if (st.current.loading) return;
+    st.current.loading = true;
+    if (!append) setLoading(true);
     try {
-      const rows = await listProduction();
-      setSlips(rows);
+      const r = await listProduction(page);
+      st.current.page = r.page;
+      st.current.totalPages = r.total_pages;
+      setTotal(r.total);
+      setSlips((prev) => (append ? [...prev, ...r.slips] : r.slips));
     } catch (e: any) {
       setErr(e?.message || "Lỗi tải danh sách");
     } finally {
+      st.current.loading = false;
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    load();
+    load(1, false);
     productionCatalog().then(setCatalog).catch(() => {});
   }, []);
 
@@ -42,7 +50,7 @@ export function ProductionList() {
   useEffect(() => {
     return onRealtime((e) => {
       if (e.type === "productions_changed" || e.type === "resync") {
-        load();
+        load(1, false);
         return;
       }
       if (e.type !== "production_changed") return;
@@ -58,6 +66,23 @@ export function ProductionList() {
         return [e.row as ProdSlip, ...prev];
       });
     });
+  }, []);
+
+  // Cuộn tải thêm (như OrdersList)
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0].isIntersecting) return;
+        const { page, totalPages, loading: ld } = st.current;
+        if (ld || page >= totalPages) return;
+        load(page + 1, true);
+      },
+      { rootMargin: "300px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
   const doCreate = async () => {
@@ -88,7 +113,7 @@ export function ProductionList() {
       </div>
 
       {err && <div class="error-banner">{err}</div>}
-      {loading && <div class="muted">Đang tải…</div>}
+      {loading && !slips.length && <div class="muted">Đang tải…</div>}
       {!loading && !slips.length && <div class="muted">Chưa có phiếu sản xuất nào.</div>}
 
       <div class="prod-cards">
@@ -96,6 +121,13 @@ export function ProductionList() {
           <ProdCard key={s.thread_id} slip={s} />
         ))}
       </div>
+
+      <div ref={sentinel} style={{ height: "1px" }} />
+      {slips.length > 0 && (
+        <div class="muted small" style={{ textAlign: "center", padding: "10px" }}>
+          {slips.length}/{total} phiếu
+        </div>
+      )}
     </div>
   );
 }
