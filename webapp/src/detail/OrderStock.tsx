@@ -34,11 +34,12 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
   const products = [...needs.entries()].map(([code, need]) => ({ code, need }));
   if (!products.length) return null;
 
-  const doRelease = async (id: number) => {
+  const doRelease = async (b: InvBox) => {
+    if (!confirm(`Thu hồi thùng ${b.box_code} (${soVN(b.quantity)}) khỏi đơn về kho?`)) return;
     setBusy(true);
     setMsg("");
     try {
-      await releaseBoxes(threadId, [id]);
+      await releaseBoxes(threadId, [b.id]);
       await load();
     } catch (e: any) {
       setMsg(e?.message || "Lỗi thu hồi");
@@ -79,7 +80,7 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
                       <code>{b.box_code}</code>
                     </a>{" "}
                     · {soVN(b.quantity)}
-                    <button class="link-btn" disabled={busy} onClick={() => doRelease(b.id)} title="Thu hồi">
+                    <button class="link-btn" disabled={busy} onClick={() => doRelease(b)} title="Thu hồi">
                       {" "}
                       ✕
                     </button>
