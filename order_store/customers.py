@@ -3,6 +3,7 @@ import json
 import logging
 from datetime import UTC, datetime
 
+from vn import vn_normalize
 from .search import _invalidate_customer_patterns_cache
 
 log = logging.getLogger("order_store.customers")
@@ -10,30 +11,36 @@ log = logging.getLogger("order_store.customers")
 
 def search_customers(conn, name: str, limit: int = 20, *, sort: str = "name",
                      offset: int = 0) -> tuple[list[dict], int]:
-    """Return (customers, total_count) with offset-based pagination."""
-    pattern = f"%{name}%"
-    order_clause = (
-        "json_extract(json, '$.last_order_at') DESC NULLS LAST, firebase_key"
-        if sort == "recent"
-        else "firebase_key"
-    )
-    where = "deleted_at IS NULL AND (json LIKE ? OR firebase_key LIKE ?)"
-    total = conn.execute(
-        f"SELECT COUNT(*) FROM customers WHERE {where}", (pattern, pattern),
-    ).fetchone()[0]
-    results = []
+    """Return (customers, total_count), phân trang offset.
+
+    Tìm KHÔNG DẤU (vn_normalize) như ô tìm dashboard: gõ 'loan phu' khớp 'Loàn
+    Phú'. Khớp trên tên/ten/firebase_key/mẫu nhận diện. 343 khách → quét toàn bộ
+    trong bộ nhớ rất nhanh."""
+    q = vn_normalize(name.strip()) if name and name.strip() else ""
+    matched: list[dict] = []
     for firebase_key, json_text in conn.execute(
-        f"""SELECT firebase_key, json FROM customers WHERE {where}
-           ORDER BY {order_clause} LIMIT ? OFFSET ?""",
-        (pattern, pattern, limit, offset),
+        "SELECT firebase_key, json FROM customers WHERE deleted_at IS NULL"
     ):
         try:
             data = json.loads(json_text)
-            data["_firebase_key"] = firebase_key
-            results.append(data)
         except json.JSONDecodeError:
             continue
-    return results, total
+        if q:
+            pats = data.get("detectPatterns") or data.get("patterns") or []
+            hay = vn_normalize(" ".join([
+                str(data.get("name") or ""), str(data.get("ten") or ""),
+                str(firebase_key), " ".join(str(p) for p in pats),
+            ]))
+            if q not in hay:
+                continue
+        data["_firebase_key"] = firebase_key
+        matched.append(data)
+    if sort == "recent":
+        matched.sort(key=lambda d: d.get("last_order_at") or 0, reverse=True)
+    else:
+        matched.sort(key=lambda d: vn_normalize(str(d.get("name") or d.get("ten") or d.get("_firebase_key") or "")))
+    total = len(matched)
+    return matched[offset:offset + limit], total
 
 
 def add_customer(conn, customer_data: dict) -> tuple[bool, str]:
