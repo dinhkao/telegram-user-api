@@ -312,3 +312,6 @@ body.pv-open { overflow: hidden; }
 
 .hint-list { margin: 4px 0 0 0; padding-left: 18px; }
 .hint-list li { margin: 3px 0; }
+
+.quick-add { margin: 8px 0; padding: 8px; background: #f7f9fb; border: 1px dashed var(--border); border-radius: 8px; }
+.quick-add textarea { font-size: .9rem; }

@@ -3,7 +3,7 @@
 // điều chỉnh Chiết khấu/PVC/VAT (nút VAT 8%), tổng sống, nút Lưu + Tạo HĐ KiotViet.
 // Parent quyết định onSave làm gì (invoice/update hay create-flow) và onCreateInvoice.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { fetchCustomerPrice, searchProducts, type PriceInfo } from "../api";
+import { fetchCustomerPrice, previewOrder, searchProducts, type PriceInfo } from "../api";
 import { money, parseMoney } from "../format";
 import { InvoiceTable } from "./InvoiceTable";
 
@@ -76,6 +76,9 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const [v, setV] = useState(0);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(!!createMode);
+  const [quickText, setQuickText] = useState("");
+  const [quickBusy, setQuickBusy] = useState(false);
+  const [quickMsg, setQuickMsg] = useState("");
   // Giá + bảng giá theo mã SP (đã hoa) — để ghi rõ giá lấy từ bảng giá nào
   const [listPrices, setListPrices] = useState<Record<string, PriceInfo>>({});
   const listRef = useRef<Record<string, PriceInfo>>({});
@@ -120,6 +123,25 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const setRow = (i: number, f: string, val: any) => setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [f]: val } : r)));
   const addRow = () => setRows((prev) => [...prev, { sp: "", sl: 1, price: 0, note: "" }]);
   const removeRow = (i: number) => setRows((prev) => prev.filter((_, idx) => idx !== i));
+
+  // Thêm nhanh: dán text (như tab Nhanh) → parse (giá theo khách) → nối vào danh sách
+  const quickAdd = async () => {
+    const t = quickText.trim();
+    if (!t) return;
+    setQuickBusy(true); setQuickMsg("");
+    try {
+      const r = await previewOrder(t, customerId);
+      const add = (r.invoice || []).map((it) => ({ sp: it.sp || "", sl: Number(it.sl) || 0, price: Number(it.price) || 0, note: "" }));
+      if (!add.length) { setQuickMsg("Không nhận ra sản phẩm nào — kiểm tra mã SP."); return; }
+      setRows((prev) => [...prev, ...add]);
+      setQuickText("");
+      setQuickMsg(`✓ Đã thêm ${add.length} món`);
+    } catch {
+      setQuickMsg("Lỗi phân tích");
+    } finally {
+      setQuickBusy(false);
+    }
+  };
 
   // Tự lấy giá theo khách khi chốt mã SP — chỉ điền khi giá đang trống (không đè giá tay)
   const autoPrice = async (i: number, code: string) => {
@@ -207,6 +229,22 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
         ))}
       </div>
       <button class="btn wide" onClick={addRow}>+ Thêm dòng</button>
+
+      {/* Thêm nhanh bằng text — như tab Nhanh ở trang tạo đơn */}
+      <div class="quick-add">
+        <textarea
+          rows={2}
+          placeholder={"⚡ Thêm nhanh (dán nhiều dòng): vd\nK2L 10\nKDDT 5t"}
+          value={quickText}
+          onInput={(e: any) => setQuickText(e.target.value)}
+        />
+        <div class="row">
+          <button class="btn small" disabled={quickBusy || !quickText.trim()} onClick={quickAdd}>
+            {quickBusy ? "Đang thêm…" : "⚡ Thêm nhanh"}
+          </button>
+          {quickMsg && <span class="muted small">{quickMsg}</span>}
+        </div>
+      </div>
 
       <div class="adj">
         <label>Tiền hàng<b class="num">{money(tienHang)}đ</b></label>
