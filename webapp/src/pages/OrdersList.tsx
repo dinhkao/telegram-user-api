@@ -7,7 +7,8 @@ import { money, fmtDateTimeVN, fmtRelative, foldVN, isRecent } from "../format";
 const NEW_ORDER_SEC = 5 * 60; // đơn tạo trong 5 phút → tô vàng + tag "Mới"
 import { onRealtime } from "../realtime";
 import { InvoiceTable } from "../detail/InvoiceTable";
-import { orderImageUrl } from "../api";
+import { orderImageUrl, listOrderImages, type OrderImage } from "../api";
+import { PhotoViewer } from "../detail/PhotoViewer";
 
 type OrderRow = {
   thread_id: number;
@@ -146,6 +147,18 @@ export function OrdersList() {
   const [compact, setCompact] = useState(() => localStorage.getItem("dash_compact") === "1");
   const toggleCompact = () => setCompact((c) => { localStorage.setItem("dash_compact", c ? "0" : "1"); return !c; });
   const [flashing, setFlashing] = useState<Record<string, string>>({});
+  // Xem ảnh phóng to khi bấm thumbnail trên card (không vào trang chi tiết)
+  const [viewer, setViewer] = useState<{ threadId: string; images: OrderImage[]; start: number } | null>(null);
+  const openThumb = async (e: Event, o: OrderRow) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const imgs = await listOrderImages(o.thread_id);
+      if (!imgs.length) return;
+      const start = Math.max(0, imgs.findIndex((x) => x.id === o.thumb_image_id));
+      setViewer({ threadId: String(o.thread_id), images: imgs, start });
+    } catch { /* mất mạng — bỏ qua, vẫn có thể mở đơn */ }
+  };
   const flashOrder = async (tid: string) => {
     let msg = "Vừa cập nhật";
     try {
@@ -339,7 +352,7 @@ export function OrdersList() {
           <li key={o.thread_id}>
             <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
-              {o.thumb_image_id ? <img class="card-thumb" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" /> : null}
+              {o.thumb_image_id ? <img class="card-thumb" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" onClick={(e) => openThumb(e, o)} /> : null}
               <div class="order-text">
                 <span class="ot-text">
                   {isNew && <span class="tag-new">Mới</span>}
@@ -363,7 +376,7 @@ export function OrdersList() {
               <div class="card-main">
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
                 <div class="card-body">
-                  {o.thumb_image_id ? <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" /> : null}
+                  {o.thumb_image_id ? <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" onClick={(e) => openThumb(e, o)} /> : null}
                   <div class="card-content">
                     {o.text
                       ? <div class="order-text"><span class="ot-text"><Highlight text={o.text} q={search} /></span><TaskBadges o={o} /></div>
@@ -404,6 +417,14 @@ export function OrdersList() {
         <p class="muted center small">— Hết đơn —</p>
       )}
       {!loading && !visible.length && !err && <p class="muted center">Không có đơn nào</p>}
+      {viewer && (
+        <PhotoViewer
+          images={viewer.images}
+          start={viewer.start}
+          threadId={viewer.threadId}
+          onClose={() => setViewer(null)}
+        />
+      )}
     </div>
   );
 }
