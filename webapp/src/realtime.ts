@@ -7,6 +7,8 @@ import { getToken, serverUrl } from "./api";
 export type RealtimeEvent =
   | { type: "order_changed"; thread_id: string; row: any | null }
   | { type: "orders_changed" }
+  | { type: "production_changed"; thread_id: string; row: any | null }
+  | { type: "productions_changed" }
   | { type: "resync" };
 
 type Handler = (e: RealtimeEvent) => void;
@@ -94,7 +96,14 @@ function connect() {
     } catch {
       return;
     }
-    if (data && (data.type === "order_changed" || data.type === "orders_changed")) emit(data);
+    if (
+      data &&
+      (data.type === "order_changed" ||
+        data.type === "orders_changed" ||
+        data.type === "production_changed" ||
+        data.type === "productions_changed")
+    )
+      emit(data);
   };
   const self = ws;
   ws.onclose = () => {

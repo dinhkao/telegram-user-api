@@ -238,3 +238,45 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .pv-controls .btn:disabled { opacity: .35; }
 .pv-info { font-size: .75rem; opacity: .85; padding: 0 6px; }
 body.pv-open { overflow: hidden; }
+
+/* ─── Phiếu sản xuất (production) ─────────────────────────────────────────── */
+.prod-list { padding: 8px; }
+.prod-create { display: flex; gap: 8px; margin-bottom: 12px; }
+.prod-create select { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; }
+.prod-cards { display: flex; flex-direction: column; gap: 8px; }
+.prod-card { display: block; background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 12px; text-decoration: none; color: inherit; }
+.prod-card-top { display: flex; justify-content: space-between; align-items: baseline; }
+.prod-sp { font-weight: 700; font-size: 1.05rem; }
+.prod-sp.big { font-size: 1.3rem; }
+.prod-date { color: #888; font-size: .8rem; }
+.prod-card-stat { display: flex; gap: 14px; margin-top: 6px; font-size: .95rem; }
+.prod-total.done { color: #1a8f3c; font-weight: 700; }
+.prod-bar { height: 6px; background: #eee; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.prod-bar-fill { height: 100%; background: #f0a500; border-radius: 3px; transition: width .3s; }
+.prod-bar-fill.done { background: #1a8f3c; }
+
+.prod-detail { padding: 8px; display: flex; flex-direction: column; gap: 12px; }
+.prod-detail-head { display: flex; align-items: center; gap: 12px; }
+.prod-detail-head .back { font-size: 1.5rem; text-decoration: none; color: #333; }
+.prod-summary { display: flex; gap: 16px; align-items: center; font-size: 1rem; }
+.prod-pct { margin-left: auto; font-weight: 700; color: #f0a500; }
+.prod-detail .card { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 12px; }
+.card-label { display: block; font-weight: 600; font-size: .9rem; margin-bottom: 8px; }
+.prod-detail .row { display: flex; gap: 8px; align-items: center; }
+.prod-detail input, .prod-detail select, .prod-detail textarea { padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; flex: 1; width: 100%; box-sizing: border-box; }
+.prod-numbers { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.prod-numbers li { background: #f5f5f5; border-radius: 6px; padding: 4px 8px; font-size: .9rem; }
+.prod-num-amt { font-weight: 700; }
+.prod-num-note { color: #888; margin-left: 6px; }
+.prod-report-input { font-family: monospace; font-size: .8rem; }
+.prod-report-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: .85rem; color: #555; margin: 10px 0; }
+.prod-report-scroll { overflow-x: auto; }
+.prod-report-table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+.prod-report-table th, .prod-report-table td { border: 1px solid #eee; padding: 5px 8px; text-align: right; white-space: nowrap; }
+.prod-report-table th:first-child, .prod-report-table td:first-child { text-align: left; }
+.prod-report-table td.strong, .prod-report-table .strong { font-weight: 700; }
+.prod-report-table tfoot td { background: #faf3e0; font-weight: 700; }
+.btn.block { width: 100%; }
+.btn.danger { background: #d64545; color: #fff; border: none; }
+.error-banner { background: #fde8e8; color: #a12; padding: 8px 12px; border-radius: 8px; font-size: .9rem; }
+.muted.small, .small { font-size: .8rem; }

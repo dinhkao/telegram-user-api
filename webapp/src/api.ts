@@ -207,3 +207,88 @@ export async function listOrderImages(threadId: string | number): Promise<OrderI
 export async function deleteOrderImage(threadId: string | number, imageId: number): Promise<any> {
   return delJSON(`/api/order/${Number(threadId)}/images/${imageId}`);
 }
+
+// ── Phiếu sản xuất (production) ───────────────────────────────────────────────
+
+/** Số kiểu vi-VN (dấu chấm ngăn nghìn) — khớp _so() phía server. */
+export function soVN(n: number | null | undefined): string {
+  const v = Number(n);
+  if (!isFinite(v)) return String(n ?? "");
+  return v.toLocaleString("vi-VN");
+}
+
+export type ProdSlip = {
+  thread_id: number;
+  date?: string;
+  date_code?: string;
+  sp_name?: string | null;
+  sp_mam?: number | null;
+  sp_luong?: number | null;
+  sx_target?: number | null;
+  total: number;
+  numbers?: { amount: number; note?: string }[];
+  bang?: any | null;
+  updated_at?: string;
+  target?: number | null;
+  pct?: number | null;
+};
+
+export type ProdCatalogItem = { code: string; mam: number | null; luong: number | null; cay_1_chao: number | null };
+
+export type ProdReport = {
+  product_code: string | null;
+  so_cay_1_mam: number;
+  date?: string | null;
+  start?: string | null;
+  end?: string | null;
+  grand_total: number;
+  rows: { name: string; so_gach: number; so_tru: number; so_cay_le: number; note: string; so_mam: number; tong_calc: number }[];
+};
+
+export async function listProduction(): Promise<ProdSlip[]> {
+  const d = await getJSON("/api/production");
+  return d.slips || [];
+}
+
+export async function getProduction(id: string | number): Promise<ProdSlip | null> {
+  const d = await getJSON(`/api/production/${id}`);
+  return d.slip || null;
+}
+
+export async function productionCatalog(): Promise<ProdCatalogItem[]> {
+  const d = await getJSON("/api/production/catalog");
+  return d.products || [];
+}
+
+/** Tạo phiếu mới (mở forum topic ở group SX). Trả thread_id. */
+export async function createProduction(product?: string): Promise<number> {
+  const d = await postJSON("/api/production", { product: product || null });
+  return d.thread_id;
+}
+
+export async function setProductionProduct(id: string | number, product: string): Promise<any> {
+  return postJSON(`/api/production/${id}/product`, { product });
+}
+
+export async function setProductionTarget(id: string | number, target: number): Promise<any> {
+  return postJSON(`/api/production/${id}/target`, { target });
+}
+
+/** Nhập số lượng đã nhận (queueable: an toàn khi mất mạng). */
+export async function addProductionNumber(id: string | number, amount: number, note: string): Promise<any> {
+  return postJSON(`/api/production/${id}/number`, { amount, note }, { queueable: true });
+}
+
+/** Xem trước báo cáo (parse + compute, không lưu). */
+export async function parseProductionReport(id: string | number, text: string): Promise<ProdReport> {
+  return postJSON(`/api/production/${id}/report/parse`, { text });
+}
+
+/** Lưu báo cáo. */
+export async function saveProductionReport(id: string | number, text: string): Promise<ProdReport> {
+  return postJSON(`/api/production/${id}/report`, { text });
+}
+
+export async function deleteProduction(id: string | number): Promise<any> {
+  return delJSON(`/api/production/${id}`);
+}
