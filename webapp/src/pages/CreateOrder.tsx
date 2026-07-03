@@ -153,7 +153,7 @@ export function CreateOrder() {
             </div>
           )}
 
-          <textarea rows={8} placeholder={"vd:\nLoan Phú\nK2L 10\nKDDT 5t\nKDXDB 3b 12"} value={text} onInput={(e: any) => setText(e.target.value)} />
+          <textarea rows={8} placeholder={"lp\nk2l 1t\nk1l 1t 30\nkdxdb 2t\nkddt 1b\ndm180 1t 50 25000"} value={text} onInput={(e: any) => setText(e.target.value)} />
 
           <div class="muted small hint">
             💡 <b>Cách nhận diện:</b>
