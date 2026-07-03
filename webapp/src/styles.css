@@ -367,6 +367,7 @@ body.pv-open { overflow: hidden; }
 .inv-status.alloc { background: #fff3e0; color: #a15c00; }
 .inv-status.ship { background: #eef; color: #337; }
 .inv-when { min-width: 68px; text-align: right; }
+.inv-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 45%; }
 .inv-detail-row.link { text-decoration: none; color: inherit; cursor: pointer; }
 .inv-detail-row.link:active { background: #eef4ff; }
 .box-link { text-decoration: none; color: #2456b8; }

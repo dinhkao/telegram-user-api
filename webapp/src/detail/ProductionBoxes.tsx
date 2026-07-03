@@ -101,6 +101,7 @@ export function ProductionBoxes({
                 <a key={b.id} id={`box-${b.id}`} class="inv-detail-row link" href={`#/thung/${b.id}`}>
                   <code class="inv-bc">{b.box_code}</code>
                   <span class="inv-q">{soVN(b.quantity)}</span>
+                  {b.note && <span class="inv-note muted small">📝 {b.note}</span>}
                   <span class={`inv-status ${st.cls}`}>
                     {st.label}
                     {tail}
