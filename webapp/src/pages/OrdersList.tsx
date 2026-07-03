@@ -379,8 +379,8 @@ export function OrdersList() {
                   {o.thumb_image_id ? <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" onClick={(e) => openThumb(e, o)} /> : null}
                   <div class="card-content">
                     {o.text
-                      ? <div class="order-text"><span class="ot-text"><Highlight text={o.text} q={search} /></span><TaskBadges o={o} /></div>
-                      : <div class="order-text muted"><span class="ot-text">(không có nội dung)</span><TaskBadges o={o} /></div>}
+                      ? <div class="order-text wrap-badges"><TaskBadges o={o} /><span class="ot-text"><Highlight text={o.text} q={search} /></span></div>
+                      : <div class="order-text muted wrap-badges"><TaskBadges o={o} /><span class="ot-text">(không có nội dung)</span></div>}
                     <div class="row space">
                       <b class="cust">{isNew && <span class="tag-new">Mới</span>} <Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} /></b>
                       <span class="muted small order-when">
