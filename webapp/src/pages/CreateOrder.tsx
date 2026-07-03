@@ -8,6 +8,7 @@ import { postJSON, previewOrder, refreshCustomerDebt, getCustomerPriceList, type
 import { money } from "../format";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
+import { useScrollLock } from "../useScrollLock";
 
 export function CreateOrder() {
   const [mode, setMode] = useState<"advanced" | "quick">("quick");
@@ -27,6 +28,7 @@ export function CreateOrder() {
     setPriceList(null);
     try { setPriceList(await getCustomerPriceList(key)); } catch { /* ignore */ }
   };
+  useScrollLock(plOpen); // khoá cuộn nền khi popup bảng giá mở
   const seq = useRef(0);
 
   // Khách vừa nhận diện → kéo nợ MỚI từ KiotViet 1 lần (theo id, không mỗi phím)
