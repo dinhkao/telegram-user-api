@@ -294,25 +294,3 @@ body.pv-open { overflow: hidden; }
 .prod-save-msg { font-size: .85rem; padding: 9px 11px; border-radius: 8px; background: #eef2f7; border: 1px solid #dbe3ec; margin-top: 8px; white-space: pre-wrap; line-height: 1.4; }
 
 .prod-card-note { margin-top: 8px; font-size: .82rem; color: #555; background: #fffbe6; border-radius: 6px; padding: 5px 8px; }
-
-/* ─── Bottom-sheet chi tiết (mở đè dashboard, vuốt xuống đóng) ─────────────── */
-/* KHÔNG khoá overflow body: dashboard nằm nền vẫn giữ nguyên vị trí cuộn (nếu
-   khoá overflow:hidden thì cuộn nền bị về 0 → đóng sheet bị nhảy lên đầu). Nền
-   không cuộn được vì backdrop cố định chặn chạm; sheet dùng overscroll-contain
-   để không kéo lây nền. */
-.sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 200; }
-/* Layer chi tiết phủ 100% màn hình. KHÔNG để transform/will-change ở trạng thái
-   nghỉ (chỉ set khi kéo) — nếu không, con position:fixed (PhotoViewer) sẽ bị
-   canh theo layer này thay vì viewport → ảnh fullscreen lệch vị trí. */
-.detail-sheet {
-  position: fixed; inset: 0; z-index: 201;
-  background: #f2f3f5;
-  overflow-y: auto; -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-}
-.sheet-handle {
-  position: sticky; top: 0; z-index: 2;
-  height: 22px; display: flex; align-items: center; justify-content: center;
-  background: #f2f3f5; cursor: pointer;
-}
-.sheet-grip { width: 40px; height: 4px; border-radius: 3px; background: #c4c7cc; }

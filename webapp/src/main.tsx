@@ -12,7 +12,6 @@ import { OrderDetail } from "./pages/OrderDetail";
 import { OrdersList } from "./pages/OrdersList";
 import { ProductionList } from "./pages/ProductionList";
 import { ProductionDetail } from "./pages/ProductionDetail";
-import { DetailSheet } from "./DetailSheet";
 import "./styles.css";
 
 function useHash(): string {
@@ -95,27 +94,19 @@ function App() {
     else stopRealtime();
   }, [authed]);
 
+  let page;
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
   const prodMatch = hash.match(/^#\/san_xuat\/(-?\d+)/);
   // Deep-link từ notification: ?focus=comment:123 / ?focus=image:45 → cuộn + nháy
   const focusMatch = hash.match(/[?&]focus=([a-z]+):(\d+)/i);
   const focusEl = focusMatch ? `${focusMatch[1]}-${focusMatch[2]}` : undefined;
-
-  // Trang nền (dashboard) — chi tiết mở đè lên nền tương ứng để giữ nguyên state/
-  // cuộn của danh sách phía sau (đơn↔chi tiết đơn, SX↔chi tiết SX).
-  let page;
   if (showLogin) page = <Login />;
-  else if (orderMatch || hash === "#/orders" || hash === "#/" || hash === "") page = <OrdersList />;
-  else if (prodMatch || hash.startsWith("#/san_xuat")) page = <ProductionList />;
+  else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} focus={focusEl} />;
+  else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} />;
+  else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
   else page = <OrdersList />;
-
-  // Lớp chi tiết (bottom-sheet) đè lên nền
-  let overlay = null;
-  if (!showLogin && orderMatch) overlay = <OrderDetail threadId={orderMatch[1]} focus={focusEl} inSheet />;
-  else if (!showLogin && prodMatch) overlay = <ProductionDetail threadId={prodMatch[1]} />;
-  const closeSheet = () => history.back();
 
   const tab = (h: string) => (hash.startsWith(h) ? "tab active" : "tab");
   return (
@@ -131,11 +122,6 @@ function App() {
       )}
       <OfflineBanner />
       <main class="page">{page}</main>
-      {overlay && (
-        <DetailSheet key={hash.split("?")[0]} onClose={closeSheet}>
-          {overlay}
-        </DetailSheet>
-      )}
       {!showLogin && (
         <nav class="bottom-nav">
           <a class={hash === "#/orders" || orderMatch ? "tab active" : "tab"} href="#/orders">📋 Đơn</a>
