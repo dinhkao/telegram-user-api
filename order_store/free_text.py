@@ -5,6 +5,17 @@ from product_store.queries import get_all_products
 
 from .search import get_customer_price_list
 
+# Quy cách mặc định (số cái / 1 thùng, 1 bịch) theo mã SP. Nhập tay số sau <n>t /
+# <n>b sẽ ghi đè các mặc định này.
+_THUNG_BASE = 50  # 1 thùng mặc định = 50
+_THUNG_DEFAULT = {
+    "DM50": 100,
+    "KDXDB": 5, "KGL": 5, "KMT": 5, "KMD": 5, "KHDX": 5,
+    "KDDT": 12,
+}
+_BICH_BASE = 10  # 1 bịch mặc định = 10 (trừ KDDT = 3)
+_BICH_DEFAULT = {"KDDT": 3}
+
 
 def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None, *, _all_products=None) -> list[dict]:
     if not text or not text.strip():
@@ -35,19 +46,17 @@ def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None, *, 
                 qc_type, so_qc, has_qc, i = "tb", [float(m_tb.group(1)), float(m_tb.group(2))], True, i + 1
             if has_qc:
                 if qc_type in ("t", "tb"):
-                    sl1pc, explicit = 50, False
+                    sl1pc = _THUNG_DEFAULT.get(sp.upper(), _THUNG_BASE)
                     if i < len(tokens):
                         try:
-                            sl1pc, explicit, i = int(tokens[i]), True, i + 1
+                            sl1pc, i = int(tokens[i]), i + 1  # số/thùng nhập tay → ghi đè
                         except ValueError:
                             pass
-                    if not explicit and sp.upper() == "KDXDB":
-                        sl1pc = 5
                 elif qc_type == "b":
-                    sl1pc = 3
+                    sl1pc = _BICH_DEFAULT.get(sp.upper(), _BICH_BASE)
                     if i < len(tokens):
                         try:
-                            sl1pc, i = int(tokens[i]), i + 1
+                            sl1pc, i = int(tokens[i]), i + 1  # số/bịch nhập tay → ghi đè
                         except ValueError:
                             pass
             else:
