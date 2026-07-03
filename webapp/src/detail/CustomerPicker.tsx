@@ -1,6 +1,6 @@
 // Ô tìm + chọn khách hàng (autocomplete /api/customers). Dùng ở CreateOrder
 // (tạo đơn) và OrderDetail (gán khách cho đơn chưa có). Gọi onPick khi chọn.
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import { getJSON } from "../api";
 import { money } from "../format";
 
@@ -11,18 +11,17 @@ export function CustomerPicker({ onPick, placeholder }: {
   const [q, setQ] = useState("");
   const [sug, setSug] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
-  const t = useRef<number>();
-  useEffect(() => () => clearTimeout(t.current), []); // huỷ debounce khi unmount
-  const input = (v: string) => {
+  const seq = useRef(0);
+  // Tìm tức thời (không delay); seq chặn kết quả cũ ghi đè kết quả mới
+  const input = async (v: string) => {
     setQ(v);
     onPick(null);
-    clearTimeout(t.current);
     if (!v.trim()) { setSug([]); setOpen(false); return; }
-    t.current = window.setTimeout(async () => {
-      const d = await getJSON(`/api/customers?search=${encodeURIComponent(v)}&limit=10`, { cache: false }).catch(() => ({ customers: [] }));
-      setSug(d.customers || []);
-      setOpen((d.customers || []).length > 0);
-    }, 250);
+    const my = ++seq.current;
+    const d = await getJSON(`/api/customers?search=${encodeURIComponent(v)}&limit=10`, { cache: false }).catch(() => ({ customers: [] }));
+    if (my !== seq.current) return; // phản hồi cũ về muộn → bỏ
+    setSug(d.customers || []);
+    setOpen((d.customers || []).length > 0);
   };
   const pick = (c: any) => { setQ(c.name); setOpen(false); onPick({ key: c.key, name: c.name }); };
   return (
