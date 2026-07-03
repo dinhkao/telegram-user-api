@@ -96,6 +96,14 @@ export function invalidateListCache() {
   /* no-op */
 }
 
+// Đơn cuối cùng người dùng mở — để tô sáng trên dashboard khi quay lại.
+export function markLastOrder(id: string | number) {
+  try { localStorage.setItem("last_order", String(id)); } catch { /* ignore */ }
+}
+function getLastOrder(): string {
+  try { return localStorage.getItem("last_order") || ""; } catch { return ""; }
+}
+
 // 5 task icon y hệt main message Telegram: HĐ · Soạn · Giao · Nộp · Nhận
 const TASK_LABELS = ["HĐ", "Soạn", "Giao", "Nộp", "Nhận"];
 function TaskBadges({ o }: { o: OrderRow }) {
@@ -278,6 +286,7 @@ export function OrdersList() {
   };
 
   const visible = orders;
+  const lastOrder = getLastOrder(); // đơn vừa mở → tô sáng khi quay lại dashboard
 
   return (
     <div>
@@ -308,7 +317,7 @@ export function OrdersList() {
       <ul class="order-list">
         {compact && visible.map((o) => (
           <li key={o.thread_id}>
-            <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}`} href={`#/order/${o.thread_id}`}>
+            <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
               {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
               {o.thumb_image_id ? <img class="card-thumb" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" /> : null}
               <div class="order-text">
@@ -324,7 +333,7 @@ export function OrdersList() {
           const stt = statusLabel(o);
           return (
           <li key={o.thread_id}>
-            <a class={`order-card two-col${flashing[String(o.thread_id)] ? " flash" : ""}`} href={`#/order/${o.thread_id}`}>
+            <a class={`order-card two-col${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
               <div class="card-main">
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
                 <div class="card-lead">

@@ -11,7 +11,7 @@ import { Payments } from "../detail/Payments";
 import { Tasks } from "../detail/Tasks";
 import { History } from "../detail/History";
 import { Images } from "../detail/Images";
-import { invalidateListCache } from "./OrdersList";
+import { invalidateListCache, markLastOrder } from "./OrdersList";
 
 // Nhớ vị trí cuộn theo từng đơn — quay lại đơn cũ về đúng chỗ đang xem
 const detailScroll: Record<string, number> = {};
@@ -41,6 +41,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const changed = () => { invalidateListCache(); reload(); };
   useEffect(() => {
     restored.current = !!focus; // có focus (từ notification) → bỏ khôi phục cuộn, để focus thắng
+    markLastOrder(threadId); // ghi nhận đơn vừa mở → dashboard tô sáng khi quay lại
     reload();
   }, [threadId]);
 
