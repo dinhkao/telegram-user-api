@@ -3,8 +3,9 @@
 //  • Nâng cao: chọn khách → nhập từng dòng SP (tự lấy giá) + VAT/PVC/CK → tạo đơn
 //    rồi lưu hoá đơn, chuyển sang trang chi tiết để bấm "Tạo HĐ KiotViet".
 // Cần mạng (không queue).
-import { useState } from "preact/hooks";
-import { postJSON } from "../api";
+import { useState, useEffect } from "preact/hooks";
+import { postJSON, previewOrder, type OrderPreview } from "../api";
+import { money } from "../format";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
 
@@ -14,6 +15,20 @@ export function CreateOrder() {
   const [customer, setCustomer] = useState<{ key: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [preview, setPreview] = useState<OrderPreview | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+
+  // Xem trước tự động (debounce) khi gõ ở tab Nhanh
+  useEffect(() => {
+    if (mode !== "quick") { setPreview(null); return; }
+    const t = text.trim();
+    if (!t) { setPreview(null); setPreviewing(false); return; }
+    setPreviewing(true);
+    const id = setTimeout(async () => {
+      try { setPreview(await previewOrder(t)); } catch { setPreview(null); } finally { setPreviewing(false); }
+    }, 400);
+    return () => clearTimeout(id);
+  }, [text, mode]);
 
   const submitQuick = async () => {
     if (!text.trim()) return setErr("Nhập nội dung đơn");
@@ -45,7 +60,52 @@ export function CreateOrder() {
       {mode === "quick" ? (
         <div class="card">
           <p class="muted small">Gõ như nhắn Telegram: tên khách + các dòng sản phẩm. Hệ thống tự nhận khách và parse.</p>
-          <textarea rows={10} placeholder={"vd:\nchị Hoa chợ Xóm Mới\n2 thùng KLC 350\n5kg C40 60"} value={text} onInput={(e: any) => setText(e.target.value)} />
+          <textarea rows={8} placeholder={"vd:\nchị Hoa chợ Xóm Mới\n2 thùng KLC 350\n5kg C40 60"} value={text} onInput={(e: any) => setText(e.target.value)} />
+
+          {/* Xem trước tự động kết quả parse */}
+          {text.trim() && (
+            <div class="preview-box">
+              <div class="preview-head">
+                🔎 Xem trước {previewing && <span class="muted small">đang phân tích…</span>}
+              </div>
+              {preview && (
+                <>
+                  <div class="preview-cust">
+                    {preview.customer ? (
+                      <>👤 <b>{preview.customer.name}</b> <span class="muted small">({preview.customer.score}%)</span></>
+                    ) : preview.candidates.length ? (
+                      <span class="muted small">🔍 Có thể: {preview.candidates.map((c) => `${c.name} (${c.score}%)`).join(" · ")}</span>
+                    ) : (
+                      <span class="muted small">👤 Chưa nhận ra khách hàng</span>
+                    )}
+                  </div>
+                  {preview.invoice.length ? (
+                    <table class="invoice-table">
+                      <tbody>
+                        {preview.invoice.map((it, i) => (
+                          <tr key={i}>
+                            <td>{it.sp}</td>
+                            <td class="num">x{it.sl}</td>
+                            <td class="num">{money(it.price)}đ</td>
+                            <td class="num"><b>{money(it.sub)}đ</b></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <td colSpan={3}>Tổng cộng</td>
+                          <td class="num"><b class="money">{money(preview.total)}đ</b></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  ) : (
+                    <p class="muted small">Chưa nhận ra sản phẩm nào — kiểm tra tên/mã SP.</p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {err && <p class="error">{err}</p>}
           <button class="btn primary wide" disabled={busy} onClick={submitQuick}>{busy ? "Đang tạo…" : "Tạo đơn"}</button>
         </div>

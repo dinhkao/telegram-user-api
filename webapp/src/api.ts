@@ -122,6 +122,18 @@ export async function searchProducts(q: string): Promise<{ code: string; name: s
   return d.products || [];
 }
 
+export type OrderPreview = {
+  customer: { id: string; name: string; score: number } | null;
+  candidates: { id: string; name: string; score: number }[];
+  invoice: { sp: string; sl: number; price: number; sub: number }[];
+  total: number;
+};
+
+/** Xem trước kết quả parse text đơn (khách + SP + tổng) — không tạo/lưu. */
+export async function previewOrder(text: string): Promise<OrderPreview> {
+  return postJSON("/api/order/preview", { text });
+}
+
 export type PriceInfo = { price: number; source: "personal" | "shared" | null; list_name: string | null };
 
 /** Giá SP theo khách + bảng giá nào (price 0 nếu không có). */

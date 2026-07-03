@@ -297,3 +297,8 @@ body.pv-open { overflow: hidden; }
 
 /* Đơn vừa mở gần nhất — tô sáng khi quay lại dashboard */
 .order-card.last-visited { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(26,115,232,.28); background: #f0f6ff; }
+
+/* Xem trước đơn (tab Nhanh) */
+.preview-box { margin: 8px 0; border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: #fafbfc; }
+.preview-head { font-size: .85rem; font-weight: 600; margin-bottom: 6px; }
+.preview-cust { margin-bottom: 6px; font-size: .9rem; }

@@ -17,6 +17,40 @@ from server_app.telegram_helpers import tg_send_message
 log = logging.getLogger("server")
 
 
+async def order_preview_handler(request: web.Request):
+    """Xem trước kết quả parse text đơn (khách + sản phẩm + tổng) — KHÔNG tạo/lưu/
+    gửi Telegram. Dùng cho preview tức thời ở tab 'Nhanh' trang tạo đơn."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    text = (body.get("text") or "").strip()
+    if not text:
+        return web.json_response({"ok": True, "customer": None, "candidates": [], "invoice": [], "total": 0})
+    conn = _get_connection()
+    detection = detect_customer_free_text(conn, text)
+    assigned = detection["autoAssign"] if detection.get("autoAssign") else None
+    kh_id = assigned["customerID"] if assigned else None
+    invoice = parse_invoice_free_text(conn, text, kh_id)
+    if invoice and assigned and get_customer_price_list(conn, assigned["customerID"]):
+        invoice = parse_invoice_free_text(conn, text, assigned["customerID"])
+    invoice = invoice or []
+    total = sum((it.get("sl", 0) or 0) * (it.get("price", 0) or 0) for it in invoice)
+    return web.json_response({
+        "ok": True,
+        "customer": {"id": assigned["customerID"], "name": assigned["customerName"], "score": assigned["score"]} if assigned else None,
+        "candidates": [] if assigned else [
+            {"id": m["customerID"], "name": m["customerName"], "score": m["score"]}
+            for m in (detection.get("matches") or [])[:3]
+        ],
+        "invoice": [{
+            "sp": it.get("sp"), "sl": it.get("sl", 0), "price": it.get("price", 0),
+            "sub": (it.get("sl", 0) or 0) * (it.get("price", 0) or 0),
+        } for it in invoice],
+        "total": total,
+    })
+
+
 async def auto_parse_handler(request: web.Request):
     try:
         body = await request.json()
