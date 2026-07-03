@@ -1,5 +1,25 @@
 // Format tiền/ngày kiểu Việt Nam — thuần, dùng khắp các page.
 
+// Bỏ dấu tiếng Việt GIỮ NGUYÊN ĐỘ DÀI (1 ký tự → 1 ký tự) để map vị trí khớp về
+// text gốc khi tô sáng. Dùng bảng precomposed (không NFD vì NFD đổi độ dài).
+const _VN_FOLD: Record<string, string> = (() => {
+  const g: Record<string, string> = {
+    a: "àáảãạăằắẳẵặâầấẩẫậ", e: "èéẻẽẹêềếểễệ", i: "ìíỉĩị",
+    o: "òóỏõọôồốổỗộơờớởỡợ", u: "ùúủũụưừứửữự", y: "ỳýỷỹỵ", d: "đ",
+  };
+  const m: Record<string, string> = {};
+  for (const base in g) for (const c of g[base]) { m[c] = base; m[c.toUpperCase()] = base; }
+  return m;
+})();
+
+/** Bỏ dấu + thường hoá, giữ nguyên độ dài chuỗi. */
+export function foldVN(s: string): string {
+  const src = s || "";
+  let out = "";
+  for (let i = 0; i < src.length; i++) out += _VN_FOLD[src[i]] ?? src[i].toLowerCase();
+  return out;
+}
+
 export function money(n: number | string): string {
   const v = typeof n === "string" ? parseInt(n.replace(/\./g, ""), 10) || 0 : n || 0;
   return v.toLocaleString("vi-VN");

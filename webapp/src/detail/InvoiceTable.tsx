@@ -1,14 +1,24 @@
 // Bảng hoá đơn (y chang summary KiotViet) — dùng chung cho card dashboard và
 // chế độ XEM ở trang chi tiết. Tính từ items + phí (CK/PVC/VAT) + nợ.
-import { money } from "../format";
+import { money, foldVN } from "../format";
 
-// Tô sáng cụm khớp tìm kiếm trong 1 chuỗi (vd mã SP)
+// Tô sáng cụm khớp tìm kiếm (KHÔNG DẤU) trong 1 chuỗi (vd mã SP)
 function hl(text: string, q?: string) {
   const s = text || "";
   const query = (q || "").trim();
   if (!query) return s;
-  const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "ig");
-  return s.split(re).map((p, i) => (i % 2 === 1 ? <mark key={i}>{p}</mark> : p));
+  const fs = foldVN(s);
+  const fq = foldVN(query);
+  if (!fq) return s;
+  const out: any[] = [];
+  let from = 0, idx: number, key = 0;
+  while ((idx = fs.indexOf(fq, from)) !== -1) {
+    if (idx > from) out.push(s.slice(from, idx));
+    out.push(<mark key={key++}>{s.slice(idx, idx + fq.length)}</mark>);
+    from = idx + fq.length;
+  }
+  out.push(s.slice(from));
+  return out;
 }
 
 export function InvoiceTable({ items, discount, pvc, vat, debt, total, q }: {

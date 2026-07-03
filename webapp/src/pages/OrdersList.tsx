@@ -2,7 +2,7 @@
 // Data: GET /api/orders (server_app/orders_api.py). Card → #/order/:thread_id.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON } from "../api";
-import { money, fmtDateTimeVN, fmtRelative } from "../format";
+import { money, fmtDateTimeVN, fmtRelative, foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { InvoiceTable } from "../detail/InvoiceTable";
 import { orderImageUrl } from "../api";
@@ -69,9 +69,19 @@ function Highlight({ text, q }: { text: string; q: string }) {
   const s = (text || "").trim();
   const query = (q || "").trim();
   if (!query || !s) return <>{s}</>;
-  const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "ig");
-  const parts = s.split(re);
-  return <>{parts.map((p, i) => (i % 2 === 1 ? <mark key={i}>{p}</mark> : p))}</>;
+  // So khớp KHÔNG DẤU: fold cả text + query (giữ độ dài) rồi map vị trí về text gốc.
+  const fs = foldVN(s);
+  const fq = foldVN(query);
+  if (!fq) return <>{s}</>;
+  const parts: any[] = [];
+  let from = 0, idx: number, key = 0;
+  while ((idx = fs.indexOf(fq, from)) !== -1) {
+    if (idx > from) parts.push(s.slice(from, idx));
+    parts.push(<mark key={key++}>{s.slice(idx, idx + fq.length)}</mark>);
+    from = idx + fq.length;
+  }
+  parts.push(s.slice(from));
+  return <>{parts}</>;
 }
 
 // Bảng chi tiết hoá đơn 1 đơn (dùng ở card dashboard) — dùng chung InvoiceTable
