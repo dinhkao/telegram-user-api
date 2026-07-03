@@ -11,6 +11,7 @@ import { Payments } from "../detail/Payments";
 import { Tasks } from "../detail/Tasks";
 import { History } from "../detail/History";
 import { Images } from "../detail/Images";
+import { OrderStock } from "../detail/OrderStock";
 import { invalidateListCache, markLastOrder } from "./OrdersList";
 
 // Nhớ vị trí cuộn theo từng đơn — quay lại đơn cũ về đúng chỗ đang xem
@@ -321,6 +322,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         canDelete={isAdmin}
         invoiceCode={j.kiotvietInvoiceCode || j.kiotvietInvoiceID}
       />
+      <OrderStock threadId={threadId} invoice={j.invoice || []} />
       <Payments threadId={threadId} payments={j.payments || []} onChanged={changed} />
       <Images threadId={threadId} />
       <History threadId={threadId} />

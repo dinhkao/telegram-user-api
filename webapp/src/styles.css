@@ -334,6 +334,16 @@ body.pv-open { overflow: hidden; }
 .inv-pick-sum.ok { color: #2b6b2b; font-weight: 700; }
 .inv-pick-sum.over { color: #c33; font-weight: 700; }
 
+/* xuất kho cho đơn — 1 khối / mã SP */
+.stock-line { padding: 8px 0; border-top: 1px solid #f0f0f0; }
+.stock-line:first-of-type { border-top: none; }
+.stock-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.stock-head b { font-size: 1rem; }
+.stock-head .btn.small { margin-left: auto; }
+.stock-picker { margin-top: 8px; padding: 8px; background: #fafcff; border: 1px solid #e6eef7; border-radius: 8px; }
+.stock-picker .inv-box-list li { cursor: pointer; user-select: none; }
+.link-btn { background: none; border: none; color: #c33; cursor: pointer; font-size: .85rem; padding: 0 2px; }
+
 .prod-card-note { margin-top: 8px; font-size: .82rem; color: #555; background: #fffbe6; border-radius: 6px; padding: 5px 8px; }
 
 /* Đơn vừa mở gần nhất — tô sáng khi quay lại dashboard */
