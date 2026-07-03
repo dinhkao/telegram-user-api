@@ -45,7 +45,10 @@ from .thread_utils import extract_thread_id
 log = logging.getLogger("production")
 from utils.paths import SHARED_DB_PATH
 from utils.db import get_connection
-PUBLIC_URL = os.getenv("PUBLIC_URL", "https://finaltelegram-production.up.railway.app").rstrip("/")
+# Base URL của webapp (Tailscale/LAN). Trống = chưa cấu hình → chỉ dùng link topic
+# Telegram (luôn hoạt động). Đặt WEBAPP_URL để hiện link web /app/#/san_xuat/<id>.
+# (Bỏ railway finaltelegram — không dùng nữa.)
+WEBAPP_URL = os.getenv("WEBAPP_URL", "").rstrip("/")
 _VN_TZ = timezone(timedelta(hours=7))
 
 
@@ -80,6 +83,11 @@ def _topic_link(thread_id) -> str:
     return f"https://t.me/c/{internal}/{thread_id}"
 
 
+def _web_link(thread_id) -> str | None:
+    """Link webapp xem phiếu, hoặc None nếu chưa cấu hình WEBAPP_URL."""
+    return f"{WEBAPP_URL}/app/#/san_xuat/{thread_id}" if WEBAPP_URL else None
+
+
 async def _send_link_buttons(thread_id) -> None:
     """Gửi nút bấm inline (URL) vào channel qua BOT — tài khoản user KHÔNG gắn được
     inline keyboard (giới hạn Telegram). Best-effort: chưa có bot / bot không phải
@@ -89,10 +97,11 @@ async def _send_link_buttons(thread_id) -> None:
     if bot is None:
         return
     from telethon import Button
-    buttons = [[
-        Button.url("💬 Mở topic", _topic_link(thread_id)),
-        Button.url("🔗 Xem phiếu", f"{PUBLIC_URL}/san_xuat/{thread_id}"),
-    ]]
+    row = [Button.url("💬 Mở topic", _topic_link(thread_id))]
+    web = _web_link(thread_id)
+    if web:
+        row.append(Button.url("🔗 Xem phiếu", web))
+    buttons = [row]
     try:
         await bot.send_message(PRODUCTION_CHANNEL_ID, "🔖 Phiếu sản xuất", buttons=buttons)
     except Exception as e:  # noqa: BLE001 — cần bot là admin channel; không có thì thôi
@@ -115,9 +124,11 @@ async def _update_tin_nhan(client, conn, thread_id):
         f"📦 SP: {slip.get('sp_name') or 'Chưa có SP'}"
         f"\n🎯 SX: {slip.get('sx_target') if slip.get('sx_target') is not None else 'Chưa có'}"
         f"\n✅ Nhận: {_so(slip.get('total') or 0)}"
-        f"\n🔗 Web: {PUBLIC_URL}/san_xuat/{thread_id}"
         f"\n💬 Topic: {_topic_link(thread_id)}"
     )
+    web = _web_link(thread_id)
+    if web:
+        text += f"\n🔗 Web: {web}"
     try:
         await client.edit_message(int(channel_id), int(message_id), text)
     except Exception as e:  # noqa: BLE001 — edit is best-effort (unchanged text, perms)
@@ -181,13 +192,14 @@ def register_production_commands(client):
             date=now.strftime("%d/%m/%Y %H:%M"), date_code=date_code,
             text=(msg.text or ""),
         )
-        link = f"{PUBLIC_URL}/san_xuat/{thread_id}"
-        try:
-            await client.send_message(
-                PRODUCTION_GROUP_ID, f"🔗 Link phiếu trên web: {link}", reply_to=thread_id,
-            )
-        except Exception as e:  # noqa: BLE001
-            log.error("failed to send welcome to topic %s: %s", thread_id, e)
+        web = _web_link(thread_id)
+        if web:
+            try:
+                await client.send_message(
+                    PRODUCTION_GROUP_ID, f"🔗 Link phiếu trên web: {web}", reply_to=thread_id,
+                )
+            except Exception as e:  # noqa: BLE001
+                log.error("failed to send welcome to topic %s: %s", thread_id, e)
         # Sửa chính bài trong channel để hiện tóm tắt + link (trước đây chỉ gửi vào
         # topic group, bài channel không được cập nhật → không thấy link).
         await _update_tin_nhan(client, conn, thread_id)
@@ -229,8 +241,11 @@ def register_production_commands(client):
             if not thread_id:
                 await reply(msg, "❌ Không xác định được thread hiện tại")
                 return
-            link = f"{PUBLIC_URL}/san_xuat/{thread_id}"
-            await reply(msg, f"🔗 Link phiếu trên web: {link}")
+            web = _web_link(thread_id)
+            out = f"💬 Topic: {_topic_link(thread_id)}"
+            if web:
+                out += f"\n🔗 Web: {web}"
+            await reply(msg, out)
             return
 
         # google-sheet CSV → báo cáo sản xuất
