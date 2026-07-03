@@ -111,6 +111,9 @@ async def api_refresh_debt_handler(request: web.Request):
     order = get_order_by_thread_id(conn, int(thread_id))
     if not order:
         return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+    # Đơn đã có HĐ KiotViet → nợ đã chốt theo hoá đơn, không cho kéo nợ mới (tránh ghi đè)
+    if order.get("kiotvietInvoiceID"):
+        return web.json_response({"ok": False, "error": "Đơn đã có hoá đơn KiotViet — không kéo nợ được"}, status=400)
     kh_id_fb = order.get("khach_hang_id") or order.get("khID")
     if not kh_id_fb:
         return web.json_response({"ok": False, "error": "Đơn chưa có khách hàng"}, status=400)

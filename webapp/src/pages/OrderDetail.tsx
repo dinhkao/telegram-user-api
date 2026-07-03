@@ -277,7 +277,9 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
               {(j.khDebt != null || j.invoice_debt_snapshot != null)
                 ? <b>{money(j.khDebt ?? j.invoice_debt_snapshot)}đ</b>
                 : <span class="muted small">chưa có</span>}
-              <button class="btn small" title="Kéo nợ KiotViet mới nhất" onClick={refreshDebt}>🔄</button>
+              {j.kiotvietInvoiceID
+                ? <span class="muted small" title="Đơn đã có hoá đơn KiotViet — nợ đã chốt">🔒</span>
+                : <button class="btn small" title="Kéo nợ KiotViet mới nhất" onClick={refreshDebt}>🔄</button>}
             </span>
           </div>
         )}
