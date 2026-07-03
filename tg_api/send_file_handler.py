@@ -61,6 +61,21 @@ def make_handler(get_client):
                 force_document=force_doc,
             )
             log.info("Send file OK: chat=%d msg_id=%d", chat_id, msg.id)
+            # Ảnh gửi vào topic đơn (bot forward ảnh từ session) → nhập luôn vào gallery
+            # webapp. Phải làm ở đây vì Telethon KHÔNG bắn NewMessage cho tin tự gửi.
+            try:
+                from server_app.config import ORDER_GROUP_ID
+                is_img = not force_doc and suffix.lower() in (".jpg", ".jpeg", ".png", ".webp")
+                if is_img and reply_to and int(chat_id) == int(ORDER_GROUP_ID):
+                    with open(tmp_path, "rb") as _f:
+                        img_bytes = _f.read()
+                    import re
+                    m = re.search(r"bởi\s+(.+?)\s*$", caption or "")
+                    who = (m.group(1).strip() if m else "") or "Telegram"
+                    from server_app.order_photo_sync import import_sent_image
+                    await import_sent_image(int(reply_to), img_bytes, int(msg.id), who)
+            except Exception as e:  # noqa: BLE001 — nhập gallery lỗi không được làm hỏng send
+                log.warning("import ảnh send-file vào gallery lỗi: %s", e)
             return web.json_response({"ok": True, "id": msg.id, "date": str(msg.date)})
         except FloodWaitError as e:
             log.warning("Send file flood_wait: chat=%d seconds=%s", chat_id, e.seconds)

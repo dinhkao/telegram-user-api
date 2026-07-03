@@ -106,6 +106,35 @@ def _process_incoming(photo_bytes: bytes) -> tuple[bytes, str, str, bytes, str, 
     return fb.getvalue(), ".jpg", "image/jpeg", tb.getvalue(), ".jpg", full.width, full.height
 
 
+async def import_sent_image(thread_id, file_bytes: bytes, tg_message_id, uploaded_by: str = "Telegram"):
+    """Nhập vào gallery 1 ảnh VỪA GỬI vào topic đơn qua /api/tg/send-file (vd bot
+    forward ảnh từ session). Cần gọi TRỰC TIẾP vì Telethon KHÔNG bắn NewMessage cho
+    tin do chính client gửi bằng send_file → handler inbound không thấy. Chống trùng
+    bằng tg_message_id. Phát realtime + FCM + ghi lịch sử như mọi lần thêm ảnh."""
+    if not thread_id or not file_bytes:
+        return None
+    try:
+        if await asyncio.to_thread(has_tg_message, int(thread_id), int(tg_message_id)):
+            return None
+    except Exception:  # noqa: BLE001
+        pass
+    full_b, full_ext, mime, thumb_b, thumb_ext, w, h = await asyncio.to_thread(_process_incoming, file_bytes)
+    img = await persist_order_image(
+        int(thread_id), full_b, mime, full_ext, thumb_b, thumb_ext,
+        width=w, height=h, uploaded_by=uploaded_by or "Telegram", tg_message_id=int(tg_message_id),
+    )
+    mark_self_sent(int(tg_message_id))  # phòng NewMessage có bắn thì cũng bỏ qua
+    from server_app.realtime import emit_order_changed
+    emit_order_changed(int(thread_id))
+    from server_app.fcm import notify_bg
+    notify_bg("🖼 Ảnh mới", f"{uploaded_by} thêm ảnh", {"thread_id": str(thread_id), "type": "image", "image_id": str(img["id"])})
+    from audit_log import async_log_event
+    await async_log_event("order.image_added", actor_type="telegram", actor_id=uploaded_by,
+                          thread_id=int(thread_id), payload={"image_id": img["id"]})
+    log.info("nhập ảnh send-file→web ok thread=%s msg=%s by=%s", thread_id, tg_message_id, uploaded_by)
+    return img
+
+
 def register_inbound_photo_sync(client) -> None:
     """Nghe ảnh đăng trong topic đơn → nhập vào gallery webapp."""
 
