@@ -10,6 +10,23 @@ from order_html import build_order_main_message_html
 log = logging.getLogger("server")
 
 
+async def is_admin_request(request) -> bool:
+    """True nếu user gọi (theo token đăng nhập) có role 'admin' trong web_users.
+    Dựa vào request['web_user'] do web_auth middleware set từ token (kể cả khi
+    WEB_AUTH_ENABLED=false, miễn client gửi token). KHÔNG tin body.user_id (giả mạo được).
+    Dùng chung cho các thao tác chỉ-admin (tạo/xoá HĐ, xoá thanh toán…)."""
+    import asyncio
+    actor = request.get("web_user")
+    if not actor:
+        return False
+    try:
+        from user_store import get_user
+        u = await asyncio.to_thread(get_user, actor)
+    except Exception:
+        return False
+    return bool(u) and u.get("role") == "admin"
+
+
 def apply_web_actor(request, body: dict, key: str = "user_id") -> None:
     """Đóng dấu user web (từ token) vào body[key] cho các endpoint mutation.
 

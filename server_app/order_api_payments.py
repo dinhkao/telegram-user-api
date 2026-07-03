@@ -6,10 +6,43 @@ from aiohttp import web
 
 from order_db import _get_connection, get_order_by_thread_id, get_customer_price_list
 
-from server_app.order_api_common import apply_web_actor
+from server_app import state
+from server_app.order_api_common import apply_web_actor, is_admin_request, refresh_order_bg
+from server_app.tasks import spawn_tracked
 from server_app.telegram_helpers import tg_send_message
 
 log = logging.getLogger("server")
+
+
+async def payment_delete_handler(request: web.Request):
+    """Xoá 1 thanh toán của đơn — CHỈ user role 'admin'. Body {thread_id, payment_id}.
+    Xoá record local (payment_store.delete_payment_record) → refresh main message +
+    realtime. Không đụng KiotViet (giống lệnh Telegram /del_payment_)."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    apply_web_actor(request, body)
+    if not await is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin mới được xoá thanh toán"}, status=403)
+    thread_id, payment_id = body.get("thread_id"), body.get("payment_id")
+    if not thread_id or not payment_id:
+        return web.json_response({"ok": False, "error": "Missing thread_id or payment_id"}, status=400)
+    conn = _get_connection()
+    from payment_store import delete_payment_record
+    ok, message = delete_payment_record(conn, int(thread_id), str(payment_id))
+    if not ok:
+        return web.json_response({"ok": False, "error": message}, status=400)
+    order = get_order_by_thread_id(conn, int(thread_id))
+    if order and order.get("channel_id") and order.get("message_id") and state._client is not None:
+        # refresh_order_bg tự phát realtime ở cuối
+        spawn_tracked("payment.delete.refresh",
+                      refresh_order_bg(conn, int(thread_id), order["channel_id"], order["message_id"]),
+                      {"thread_id": int(thread_id)})
+    else:
+        from server_app.realtime import emit_order_changed
+        emit_order_changed(int(thread_id))
+    return web.json_response({"ok": True, "thread_id": int(thread_id), "payment_id": str(payment_id)})
 
 
 async def _payment_handler(request: web.Request, method: str):

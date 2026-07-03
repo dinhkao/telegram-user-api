@@ -1,13 +1,31 @@
 // Khối thanh toán — danh sách payment + nhập tiền TM/CK (KiotViet qua backend).
 // POST /api/order/payment/tm|ck — cần mạng, không queue (chạm KiotViet + nợ).
 import { useState } from "preact/hooks";
-import { postJSON } from "../api";
+import { currentUser, postJSON } from "../api";
 import { money, parseMoney } from "../format";
 
 export function Payments({ threadId, payments, onChanged }: { threadId: string; payments: any[]; onChanged: () => void }) {
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const isAdmin = currentUser()?.role === "admin";
+
+  // Xoá 1 thanh toán — chỉ admin. Payment cũ không có id thì xoá bằng lệnh Telegram.
+  const del = async (p: any) => {
+    if (!p.id) return alert("Thanh toán cũ không có id — xoá bằng lệnh Telegram /del_payment_");
+    if (!confirm(`Xoá thanh toán ${money(p.amount)}đ?`)) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      await postJSON("/api/order/payment/delete", { thread_id: Number(threadId), payment_id: p.id });
+      setMsg(`🗑️ Đã xoá thanh toán ${money(p.amount)}đ`);
+      onChanged();
+    } catch (ex: any) {
+      setMsg(`❌ ${ex.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const pay = async (method: "tm" | "ck") => {
     const value = parseMoney(amount);
@@ -35,7 +53,10 @@ export function Payments({ threadId, payments, onChanged }: { threadId: string; 
           {payments.map((p, i) => (
             <li class="row space" key={i}>
               <span>{p.code || p.method || "?"} <span class="muted small">{p.createdBy ? `· ${p.createdBy}` : ""}</span></span>
-              <b>{money(p.amount)}đ</b>
+              <span class="row" style="gap:6px;align-items:center">
+                <b>{money(p.amount)}đ</b>
+                {isAdmin && p.id ? <button class="btn small danger" disabled={busy} title="Xoá thanh toán" onClick={() => del(p)}>🗑️</button> : null}
+              </span>
             </li>
           ))}
         </ul>

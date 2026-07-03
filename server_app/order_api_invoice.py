@@ -23,19 +23,9 @@ log = logging.getLogger("server")
 
 
 async def _is_admin(request: web.Request) -> bool:
-    """True nếu user gọi (theo token đăng nhập) có role 'admin' trong web_users.
-    Dựa vào request['web_user'] do web_auth middleware set từ token (kể cả khi
-    WEB_AUTH_ENABLED=false, miễn là client gửi token). Không tin body.user_id
-    (có thể giả mạo)."""
-    actor = request.get("web_user")
-    if not actor:
-        return False
-    try:
-        from user_store import get_user
-        u = await asyncio.to_thread(get_user, actor)
-    except Exception:
-        return False
-    return bool(u) and u.get("role") == "admin"
+    """Chỉ-admin cho tạo/xoá HĐ — dùng chung is_admin_request (order_api_common)."""
+    from server_app.order_api_common import is_admin_request
+    return await is_admin_request(request)
 
 
 async def api_create_invoice_handler(request: web.Request):
