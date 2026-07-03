@@ -1,7 +1,7 @@
 // Entry — hash router (#/orders, #/order/:id, #/create, #/customers, #/login)
 // + thanh nav dưới + banner offline/hàng đợi. Connects to: pages/*, api.ts.
 import { render } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { currentUser, replayQueue } from "./api";
 import { getQueue } from "./offline";
 import { getStatus, onStatus, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
@@ -23,14 +23,16 @@ import "./styles.css";
 const scrollMem = new Map<string, number>();
 const selfManagesScroll = (h: string) => h.startsWith("#/order");
 
+// Lưu scrollY của trang RỜI ĐI ngay tại hashchange (DOM cũ còn nguyên → scrollY
+// đúng, chưa bị clamp bởi trang mới). Cài 1 lần trước khi render.
+let _lastHash = window.location.hash || "#/orders";
+window.addEventListener("hashchange", () => {
+  if (!selfManagesScroll(_lastHash)) scrollMem.set(_lastHash, window.scrollY);
+  _lastHash = window.location.hash || "#/orders";
+});
+
 function useScrollMemory(hash: string, hasFocus: boolean) {
-  const prev = useRef(hash);
   useEffect(() => {
-    const outgoing = prev.current;
-    if (outgoing !== hash && !selfManagesScroll(outgoing)) {
-      scrollMem.set(outgoing, window.scrollY); // lưu cuộn trang vừa rời
-    }
-    prev.current = hash;
     if (hasFocus || selfManagesScroll(hash)) return; // focus/tự-quản thắng
     const y = scrollMem.get(hash) ?? 0;
     let tries = 0;
