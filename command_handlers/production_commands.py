@@ -88,6 +88,16 @@ def _web_link(thread_id) -> str | None:
     return f"{WEBAPP_URL}/app/#/san_xuat/{thread_id}" if WEBAPP_URL else None
 
 
+async def _sender_name(msg) -> str:
+    """Tên người gửi tin (để ghi vào lần nhập số lượng). Best-effort."""
+    try:
+        s = await msg.get_sender()
+        return (getattr(s, "first_name", None) or getattr(s, "title", None)
+                or getattr(s, "username", None) or "")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 async def _send_link_buttons(thread_id) -> None:
     """Gửi nút bấm inline (URL) vào channel qua BOT — tài khoản user KHÔNG gắn được
     inline keyboard (giới hạn Telegram). Best-effort: chưa có bot / bot không phải
@@ -311,7 +321,7 @@ def register_production_commands(client):
                 await reply(msg, "Tất cả nhiệm vụ đã hoàn thành rồi!")
                 return
             remaining = sx_target - current_total
-            add_number(conn, thread_id, remaining, "Hoàn thành tất cả nhiệm vụ")
+            add_number(conn, thread_id, remaining, "Hoàn thành tất cả nhiệm vụ", by=await _sender_name(msg))
             set_total(conn, thread_id, sx_target)
             await reply(
                 msg,
@@ -331,7 +341,7 @@ def register_production_commands(client):
             await reply(msg, "Chưa có sản phẩm, chưa nhập hàng được")
             return
         note = " ".join(words[1:])
-        total = add_number(conn, thread_id, amount, note)
+        total = add_number(conn, thread_id, amount, note, by=await _sender_name(msg))
         await reply(msg, f"Cập nhật số lượng thành công, tổng hiện tại: {_fmt_num(total)}")
         await _update_tin_nhan(client, conn, thread_id)
 

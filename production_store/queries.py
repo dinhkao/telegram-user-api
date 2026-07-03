@@ -1,5 +1,8 @@
 from __future__ import annotations
 import json
+from datetime import datetime, timezone, timedelta
+
+_VN_TZ = timezone(timedelta(hours=7))
 
 _COLUMNS = (
     "thread_id",
@@ -74,10 +77,16 @@ def set_target(conn, thread_id, sx_target) -> bool:
     return upsert_slip(conn, thread_id, sx_target=sx_target)
 
 
-def add_number(conn, thread_id, amount, note) -> float:
+def add_number(conn, thread_id, amount, note, by=None, at=None) -> float:
+    """Thêm 1 lần nhập số lượng nhận. Lưu kèm thời điểm (at) + người nhập (by)."""
     slip = get_slip(conn, thread_id) or {}
     numbers = slip.get("numbers") or []
-    numbers.append({"amount": amount, "note": note})
+    numbers.append({
+        "amount": amount,
+        "note": note or "",
+        "at": at or datetime.now(_VN_TZ).isoformat(timespec="seconds"),
+        "by": by or "",
+    })
     total = sum(item.get("amount", 0) for item in numbers)
     upsert_slip(conn, thread_id, numbers=numbers, total=total)
     return total

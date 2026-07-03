@@ -282,3 +282,11 @@ body.pv-open { overflow: hidden; }
 .muted.small, .small { font-size: .8rem; }
 
 .prod-report-table tr.prod-row-off td { color: #b0b0b0; }
+
+/* số lượng nhận — danh sách có thời gian + người + ghi chú */
+.prod-numbers { flex-direction: column; align-items: stretch; }
+.prod-num-row { display: flex; align-items: baseline; gap: 10px; background: #f7f7f7; }
+.prod-num-row .prod-num-amt { min-width: 60px; font-size: 1rem; }
+.prod-num-meta { display: flex; flex-direction: column; gap: 2px; }
+.prod-num-when { font-size: .72rem; color: #888; }
+.prod-num-row .prod-num-note { color: #555; margin: 0; font-size: .82rem; }

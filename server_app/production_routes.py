@@ -230,6 +230,7 @@ async def production_add_number_handler(request: web.Request):
     except (Exception, TypeError, ValueError):
         return web.json_response({"ok": False, "error": "Số lượng không hợp lệ"}, status=400)
     note = str(body.get("note") or "").strip()
+    actor = _web_actor(request, body)
 
     def _run():
         conn = _conn()
@@ -237,7 +238,7 @@ async def production_add_number_handler(request: web.Request):
             slip = get_slip(conn, thread_id)
             if not slip or not slip.get("sp_name"):
                 return None
-            return add_number(conn, thread_id, amount, note)
+            return add_number(conn, thread_id, amount, note, by=actor)
         finally:
             conn.close()
     total = await asyncio.to_thread(_run)
@@ -334,3 +335,15 @@ def _compute(thread_id, text: str) -> dict:
 def _emit(thread_id) -> None:
     from server_app.realtime import emit_production_changed
     emit_production_changed(thread_id)
+
+
+def _web_actor(request: web.Request, body: dict | None = None) -> str:
+    """Tên người thao tác: web_user (middleware) → body['user'] → 'web'."""
+    user = request.get("web_user")
+    if isinstance(user, dict):
+        return str(user.get("display_name") or user.get("name") or user.get("username") or "web")
+    if user:
+        return str(user)
+    if body and body.get("user"):
+        return str(body["user"])
+    return "web"

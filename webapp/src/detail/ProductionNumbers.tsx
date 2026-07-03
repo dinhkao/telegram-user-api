@@ -4,6 +4,15 @@
 import { useState } from "preact/hooks";
 import { addProductionNumber, soVN, type ProdSlip } from "../api";
 
+/** ISO (…+07:00) → "dd/mm HH:MM"; rỗng nếu không parse được. */
+function fmtWhen(iso?: string): string {
+  if (!iso) return "";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return iso;
+  const [, , mo, d, hh, mi] = m;
+  return `${d}/${mo} ${hh}:${mi}`;
+}
+
 export function ProductionNumbers({
   threadId,
   slip,
@@ -70,12 +79,18 @@ export function ProductionNumbers({
       {numbers.length > 0 && (
         <ul class="prod-numbers">
           {numbers
-            .slice()
+            .map((it, i) => ({ it, i }))
             .reverse()
-            .map((it, i) => (
-              <li key={i}>
+            .map(({ it, i }) => (
+              <li key={i} class="prod-num-row">
                 <span class="prod-num-amt">{soVN(it.amount)}</span>
-                {it.note && <span class="prod-num-note">{it.note}</span>}
+                <div class="prod-num-meta">
+                  <span class="prod-num-when">
+                    {fmtWhen(it.at)}
+                    {it.by ? ` · ${it.by}` : ""}
+                  </span>
+                  {it.note && <span class="prod-num-note">{it.note}</span>}
+                </div>
               </li>
             ))}
         </ul>

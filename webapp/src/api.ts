@@ -236,7 +236,7 @@ export type ProdSlip = {
   sp_luong?: number | null;
   sx_target?: number | null;
   total: number;
-  numbers?: { amount: number; note?: string }[];
+  numbers?: { amount: number; note?: string; at?: string; by?: string }[];
   bang?: any | null;
   updated_at?: string;
   target?: number | null;
