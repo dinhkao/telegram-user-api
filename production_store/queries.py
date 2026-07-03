@@ -40,10 +40,11 @@ def get_slip(conn, thread_id) -> dict | None:
 
 
 def list_slips(conn, limit: int = 20, offset: int = 0) -> list[dict]:
-    """Slips newest-first, paginated. Lightweight rows (no numbers/bang decode)."""
+    """Slips theo NGÀY TẠO mới→cũ (date_code lúc tạo), phân trang. Row nhẹ."""
     rows = conn.execute(
         "SELECT thread_id, date, date_code, sp_name, sp_mam, sx_target, total, "
-        "ghi_chu, updated_at FROM production_slips ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+        "ghi_chu, updated_at FROM production_slips "
+        "ORDER BY date_code DESC, thread_id DESC LIMIT ? OFFSET ?",
         (limit, offset),
     ).fetchall()
     return [dict(r) for r in rows]
