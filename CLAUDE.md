@@ -144,6 +144,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   app (PIN hash in `pin.py`, CLI: `tools/add_web_user.py`).
 - `comment_store/` — `web_comments` table in `app.db`: web-app comments on orders
   (separate from `order_chat_messages` = read-only Telegram log).
+- `inventory_store/` — `inventory_boxes` table in `app.db`: kho thùng theo đơn vị.
+  1 row = 1 thùng vật lý (mã tự sinh `K2L-001`), pool tồn gom theo `product_code`
+  (gộp mọi phiếu SX). Status `in_stock→allocated→shipped`. `domain.py` (pure,
+  unit-tested) = sinh mã + gộp nhóm theo size. API: `server_app/inventory_routes.py`
+  (`/api/inventory*`, nhập thùng từ slip `POST /api/production/{id}/boxes`, xuất cho
+  đơn `POST /api/order/{id}/allocate|release`). UI: `webapp/src/detail/
+  ProductionBoxes.tsx` (nhập + xem tồn) + `OrderStock.tsx` (picker xuất kho cho đơn).
 - `order_images_store/` — `order_images` table in `app.db`: metadata for photos
   attached to an order (filename, thumb, size, dims, uploader, `tg_message_id`).
   Image bytes live on disk under `ORDER_MEDIA_DIR/<thread_id>/`, not in the DB.
