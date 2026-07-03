@@ -9,6 +9,7 @@ import {
   setProductionTarget,
   deleteProduction,
   soVN,
+  prodCreated,
   type ProdSlip,
   type ProdCatalogItem,
 } from "../api";
@@ -104,7 +105,7 @@ export function ProductionDetail({ threadId }: { threadId: string }) {
         <a class="back" href="#/san_xuat">←</a>
         <div>
           <div class="prod-sp big">{slip.sp_name || "Chưa có SP"}</div>
-          <div class="prod-date muted">{slip.date || ""}</div>
+          <div class="prod-date muted">📅 Tạo: {prodCreated(slip)}</div>
         </div>
       </div>
 

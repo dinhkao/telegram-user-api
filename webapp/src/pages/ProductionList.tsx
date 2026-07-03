@@ -7,6 +7,7 @@ import {
   createProduction,
   productionCatalog,
   soVN,
+  prodCreated,
   type ProdSlip,
   type ProdCatalogItem,
 } from "../api";
@@ -141,7 +142,7 @@ function ProdCard({ slip }: { slip: ProdSlip }) {
     <a class="prod-card" href={`#/san_xuat/${slip.thread_id}`}>
       <div class="prod-card-top">
         <span class="prod-sp">{slip.sp_name || "Chưa có SP"}</span>
-        <span class="prod-date">{slip.date || ""}</span>
+        <span class="prod-date">📅 {prodCreated(slip)}</span>
       </div>
       <div class="prod-card-stat">
         <span class={done ? "prod-total done" : "prod-total"}>✅ {soVN(total)}</span>

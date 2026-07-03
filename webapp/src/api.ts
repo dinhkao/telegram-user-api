@@ -217,6 +217,16 @@ export function soVN(n: number | null | undefined): string {
   return v.toLocaleString("vi-VN");
 }
 
+/** Ngày tạo phiếu — ưu tiên field date, fallback parse date_code (YYYYMMDDHHMMSS).
+ *  date_code luôn được set lúc tạo nên luôn có ngày để hiện. */
+export function prodCreated(slip: { date?: string | null; date_code?: string | null }): string {
+  if (slip.date) return slip.date;
+  const dc = slip.date_code || "";
+  if (dc.length < 8) return "";
+  const [y, mo, d, h, mi] = [dc.slice(0, 4), dc.slice(4, 6), dc.slice(6, 8), dc.slice(8, 10), dc.slice(10, 12)];
+  return h ? `${d}/${mo}/${y} ${h}:${mi}` : `${d}/${mo}/${y}`;
+}
+
 export type ProdSlip = {
   thread_id: number;
   date?: string;
