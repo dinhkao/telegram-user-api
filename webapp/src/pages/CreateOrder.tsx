@@ -153,11 +153,21 @@ export function CreateOrder() {
             </div>
           )}
 
-          <textarea rows={8} placeholder={"vd:\nchị Hoa chợ Xóm Mới\n2 thùng KLC 350\n5kg C40 60"} value={text} onInput={(e: any) => setText(e.target.value)} />
+          <textarea rows={8} placeholder={"vd:\nLoan Phú\nK2L 10\nKDDT 5t\nKGL 3b 12"} value={text} onInput={(e: any) => setText(e.target.value)} />
 
           <div class="muted small hint">
-            💡 Tự nhận diện: <b>tên khách</b> (tự gán nếu khớp cao — kèm nợ &amp; bảng giá) · mỗi dòng
-            {" "}<b>sản phẩm</b> dạng <code>&lt;SL&gt; &lt;mã SP&gt; [giá]</code> — bỏ trống giá thì tự lấy theo bảng giá khách.
+            💡 <b>Cách nhận diện:</b>
+            <ul class="hint-list">
+              <li><b>Khách:</b> tên khách (tự gán nếu khớp cao — kèm nợ &amp; bảng giá), hoặc chọn ở ô trên.</li>
+              <li><b>Sản phẩm:</b> mỗi dòng <code>&lt;mã SP&gt; &lt;số lượng&gt;</code> — mã trước, SL sau (số đứng trước mã bị bỏ qua).</li>
+              <li>
+                <b>Số lượng / quy cách:</b> <code>K2L 10</code> = 10 cái ·
+                {" "}<code>5t</code> = 5 thùng (50 cái/thùng), đổi bằng <code>5t 60</code> ·
+                {" "}<code>3b</code> = 3 bịch (3 cái/bịch), đổi bằng <code>3b 12</code> ·
+                {" "}<code>2t3b</code> = 2 thùng 3 bịch.
+              </li>
+              <li><b>Giá:</b> tự lấy theo bảng giá của khách (không nhập giá trong text).</li>
+            </ul>
           </div>
 
           {err && <p class="error">{err}</p>}

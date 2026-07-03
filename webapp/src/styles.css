@@ -309,3 +309,6 @@ body.pv-open { overflow: hidden; }
 .quick-cust { margin-bottom: 8px; }
 .picked-cust { display: flex; align-items: center; gap: 10px; font-size: .95rem; background: #eef6ff; border-radius: 8px; padding: 8px 10px; }
 .picked-cust .btn { margin-left: auto; }
+
+.hint-list { margin: 4px 0 0 0; padding-left: 18px; }
+.hint-list li { margin: 3px 0; }
