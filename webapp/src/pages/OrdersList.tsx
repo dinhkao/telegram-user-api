@@ -366,7 +366,18 @@ export function OrdersList() {
           <li key={o.thread_id}>
             <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
-              {o.thumb_image_id ? <img class="card-thumb" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" onLoad={rotIfLandscape} onClick={(e) => openThumb(e, o)} /> : null}
+              {(() => {
+                const allIds = o.thumb_image_ids && o.thumb_image_ids.length ? o.thumb_image_ids : (o.thumb_image_id ? [o.thumb_image_id] : []);
+                if (!allIds.length) return null;
+                const id = allIds[0];
+                const total = o.image_count ?? allIds.length;
+                return (
+                  <span class="card-thumb-wrap compact-thumb" onClick={(e) => openThumb(e, o, id)}>
+                    <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, id, "thumb")} loading="lazy" alt="" onLoad={rotIfLandscape} />
+                    {total > 1 && <span class="thumb-count">+{total - 1}</span>}
+                  </span>
+                );
+              })()}
               <div class="order-text">
                 <span class="ot-text">
                   {isNew && <span class="tag-new">Mới</span>}
