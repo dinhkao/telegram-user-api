@@ -15,7 +15,7 @@ import {
   type ProdCatalogItem,
 } from "../api";
 import { onRealtime } from "../realtime";
-import { ProductionNumbers } from "../detail/ProductionNumbers";
+import { ProductionBoxes } from "../detail/ProductionBoxes";
 import { ProductionReport } from "../detail/ProductionReport";
 
 export function ProductionDetail({ threadId }: { threadId: string }) {
@@ -177,7 +177,7 @@ export function ProductionDetail({ threadId }: { threadId: string }) {
         />
       </section>
 
-      <ProductionNumbers threadId={threadId} slip={slip} onChanged={reload} />
+      <ProductionBoxes threadId={threadId} slip={slip} onChanged={reload} />
 
       <ProductionReport threadId={threadId} slip={slip} />
 

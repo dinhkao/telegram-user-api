@@ -32,6 +32,14 @@ from server_app.production_routes import (
     production_set_product_handler,
     production_set_target_handler,
 )
+from server_app.inventory_routes import (
+    production_add_boxes_handler,
+    inventory_list_handler,
+    inventory_detail_handler,
+    order_allocations_handler,
+    order_allocate_handler,
+    order_release_handler,
+)
 from server_app.orders_pages import order_detail_page_handler, orders_page_handler
 from server_app.web_auth import login_handler, me_handler, web_auth_middleware
 from server_app.web_pages import index_handler
@@ -109,8 +117,15 @@ def create_app():
     r.add_post("/api/production/{thread_id}/target", production_set_target_handler)
     r.add_post("/api/production/{thread_id}/note", production_set_note_handler)
     r.add_post("/api/production/{thread_id}/number", production_add_number_handler)
+    r.add_post("/api/production/{thread_id}/boxes", production_add_boxes_handler)
     r.add_post("/api/production/{thread_id}/report/parse", production_report_parse_handler)
     r.add_post("/api/production/{thread_id}/report", production_report_save_handler)
+    # ─── kho thùng (inventory) ───────────────────────────────────────────────
+    r.add_get("/api/inventory", inventory_list_handler)
+    r.add_get("/api/inventory/{product_code}", inventory_detail_handler)
+    r.add_get("/api/order/{thread_id}/allocations", order_allocations_handler)
+    r.add_post("/api/order/{thread_id}/allocate", order_allocate_handler)
+    r.add_post("/api/order/{thread_id}/release", order_release_handler)
 
     r.add_get("/api/customers", customers_search_handler)
     r.add_get("/api/customers/{key}", customer_detail_handler)

@@ -351,3 +351,71 @@ export async function saveProductionReport(
 export async function deleteProduction(id: string | number): Promise<any> {
   return delJSON(`/api/production/${id}`);
 }
+
+// ── Kho thùng (inventory) ─────────────────────────────────────────────────────
+
+export type InvBox = {
+  id: number;
+  product_code: string;
+  box_code: string;
+  quantity: number;
+  status: string;
+  source_thread_id?: number | null;
+  order_thread_id?: number | null;
+  note?: string | null;
+  created_at?: string;
+  created_by?: string;
+};
+export type InvGroup = { quantity: number; count: number; total: number; box_codes: string[] };
+export type InvDetail = { product_code: string; total: number; box_count: number; groups: InvGroup[]; boxes: InvBox[] };
+export type InvProductTotal = { product_code: string; box_count: number; total: number };
+
+/** Nhập 1 đợt = N thùng (mỗi thùng số cây tự do). Mã tự sinh. Queueable (offline). */
+export async function addProductionBoxes(
+  id: string | number,
+  boxes: { quantity: number }[],
+  note = ""
+): Promise<{ boxes: InvBox[]; total: number; _queued?: boolean }> {
+  const u = currentUser();
+  const user = u?.display_name || u?.username || "";
+  const d = await postJSON(`/api/production/${id}/boxes`, { boxes, note, user }, { queueable: true });
+  return { boxes: d.boxes || [], total: d.total, _queued: d._queued };
+}
+
+/** Tổng tồn (in_stock) theo từng product. */
+export async function inventoryList(): Promise<InvProductTotal[]> {
+  const d = await getJSON("/api/inventory");
+  return d.products || [];
+}
+
+/** Tồn 1 product: tổng + nhóm theo size + list thùng in_stock. */
+export async function inventoryDetail(code: string): Promise<InvDetail> {
+  const d = await getJSON(`/api/inventory/${encodeURIComponent(code)}`);
+  return {
+    product_code: d.product_code,
+    total: d.total || 0,
+    box_count: d.box_count || 0,
+    groups: d.groups || [],
+    boxes: d.boxes || [],
+  };
+}
+
+/** Thùng đã xuất cho đơn này. */
+export async function orderAllocations(id: string | number): Promise<InvBox[]> {
+  const d = await getJSON(`/api/order/${id}/allocations`);
+  return d.boxes || [];
+}
+
+/** Xuất kho cho đơn: chọn box_ids in_stock. Trả list thùng đã xuất của đơn. */
+export async function allocateBoxes(id: string | number, boxIds: number[]): Promise<InvBox[]> {
+  const u = currentUser();
+  const user = u?.display_name || u?.username || "";
+  const d = await postJSON(`/api/order/${id}/allocate`, { box_ids: boxIds, user });
+  return d.boxes || [];
+}
+
+/** Thu hồi thùng đã xuất về kho. Trả list thùng còn lại của đơn. */
+export async function releaseBoxes(id: string | number, boxIds: number[]): Promise<InvBox[]> {
+  const d = await postJSON(`/api/order/${id}/release`, { box_ids: boxIds });
+  return d.boxes || [];
+}
