@@ -46,6 +46,29 @@ function absVN(ms: number): string {
   return new Date(ms).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
 }
 
+/** Ngày+giờ tuyệt đối theo giờ VN: "dd/mm/yyyy HH:MM". Rỗng nếu không parse được. */
+export function fmtDateTimeVN(at: any): string {
+  const ms = toMs(at);
+  if (ms == null) return "";
+  return new Date(ms).toLocaleString("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
+
+/** Thời gian tương đối tiếng Việt (luôn dạng "… trước"), kể cả mốc xa. */
+export function fmtRelative(at: any): string {
+  const ms = toMs(at);
+  if (ms == null) return "";
+  const sec = Math.floor((Date.now() - ms) / 1000);
+  if (sec < 0) return "";
+  if (sec < 60) return "vừa xong";
+  if (sec < 3600) return `${Math.floor(sec / 60)} phút trước`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)} giờ trước`;
+  if (sec < 30 * 86400) return `${Math.floor(sec / 86400)} ngày trước`;
+  if (sec < 365 * 86400) return `${Math.floor(sec / (30 * 86400))} tháng trước`;
+  return `${Math.floor(sec / (365 * 86400))} năm trước`;
+}
+
 /** Tổng tiền hàng từ invoice (sl × price). */
 export function invoiceTotal(invoice: any[]): number {
   return (invoice || []).reduce((sum, it) => sum + (parseInt(it.price, 10) || 0) * (parseInt(it.sl ?? it.quantity, 10) || 0), 0);
