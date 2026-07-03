@@ -31,12 +31,6 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     try {
       setDetail(await getJSON(`/api/order/${threadId}`));
       setErr("");
-      // Lần tải đầu của đơn này: về đúng vị trí cuộn đã lưu (double-rAF đợi layout dựng)
-      if (!restored.current) {
-        restored.current = true;
-        const y = detailScroll[threadId] || 0;
-        requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
-      }
     } catch (ex: any) {
       setErr(ex.message);
     }
@@ -52,6 +46,36 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   useEffect(() => {
     return () => { detailScroll[threadId] = window.scrollY; };
   }, [threadId]);
+
+  // Khôi phục vị trí cuộn: các khối con (bình luận/ảnh/lịch sử) tải BẤT ĐỒNG BỘ nên
+  // trang cao dần — áp lại scrollTo nhiều lần cho tới khi trang đủ cao/đạt đích; huỷ
+  // ngay khi người dùng tự cuộn (không giằng co). Chạy 1 lần mỗi lần mở đơn.
+  useEffect(() => {
+    if (focus || restored.current) return;
+    restored.current = true;
+    const y = detailScroll[threadId] || 0;
+    if (y <= 4) return;
+    let cancelled = false;
+    const onUser = () => { cancelled = true; done(); };
+    const done = () => {
+      clearInterval(iv); clearTimeout(to);
+      window.removeEventListener("wheel", onUser);
+      window.removeEventListener("touchstart", onUser);
+      window.removeEventListener("keydown", onUser);
+    };
+    const tryScroll = () => {
+      if (cancelled) return;
+      window.scrollTo(0, y);
+      if (Math.abs(window.scrollY - y) <= 2) done(); // đạt đích (trang đã đủ cao)
+    };
+    window.addEventListener("wheel", onUser, { passive: true });
+    window.addEventListener("touchstart", onUser, { passive: true });
+    window.addEventListener("keydown", onUser);
+    const iv = setInterval(tryScroll, 80);
+    const to = setTimeout(done, 2500);
+    tryScroll();
+    return done;
+  }, [threadId, focus]);
 
   // Deep-link notification: đợi phần tử (bình luận/ảnh) render rồi cuộn tới + nháy sáng
   useEffect(() => {
