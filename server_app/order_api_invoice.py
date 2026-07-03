@@ -65,6 +65,9 @@ async def api_create_invoice_handler(request: web.Request):
                       {"thread_id": int(thread_id)})
         name = await resolve_name(user_id) if user_id else "web"
         spawn_tracked("invoice.notify", send_task_notification(int(thread_id), f"{name} bán HĐ"))
+    # Render hình hoá đơn KiotViet → thêm vào gallery đơn (chạy nền, Playwright ~1-2s)
+    from server_app.invoice_image import add_invoice_image_to_gallery
+    spawn_tracked("invoice.image", add_invoice_image_to_gallery(int(thread_id)), {"thread_id": int(thread_id)})
     return web.json_response({"ok": True, "thread_id": int(thread_id), "kv_code": result["kv_code"],
                               "kv_id": result["kv_id"], "old_debt": result["old_debt"]})
 
