@@ -48,10 +48,10 @@ async def auto_parse(client, conn, thread_id: int, text: str):
             row = conn.execute("SELECT channel_id, message_id FROM orders WHERE thread_id = ?", (thread_id,)).fetchone()
             if row and row["channel_id"] and row["message_id"]:
                 await render_channel_post(client, conn, thread_id, row["message_id"], order)
-        if invoice:
-            try:
-                await generate_picking_sheet(client, conn, thread_id)
-            except Exception as e:
-                log.warning("picking sheet generation failed for thread=%d: %s", thread_id, e)
+        # In phiếu soạn hàng cho MỌI đơn mới (kể cả chưa nhận ra SP nào — items=0)
+        try:
+            await generate_picking_sheet(client, conn, thread_id)
+        except Exception as e:
+            log.warning("picking sheet generation failed for thread=%d: %s", thread_id, e)
     except Exception as e:
         log.warning("auto-parse failed for thread=%d: %s", thread_id, e)
