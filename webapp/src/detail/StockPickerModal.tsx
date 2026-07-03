@@ -118,6 +118,7 @@ export function StockPickerModal({
                       type="text"
                       inputMode="decimal"
                       value={sel[b.id]}
+                      onFocus={(e) => (e.target as HTMLInputElement).select()}
                       onInput={(e) => setQty(b.id, (e.target as HTMLInputElement).value)}
                       title="Số cây lấy từ thùng này"
                     />

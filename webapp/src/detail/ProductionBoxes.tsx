@@ -90,6 +90,7 @@ export function ProductionBoxes({
           inputMode="decimal"
           value={amount}
           disabled={!hasSp}
+          onFocus={(e) => (e.target as HTMLInputElement).select()}
           onInput={(e) => setAmount((e.target as HTMLInputElement).value)}
           placeholder="Số cây trong thùng"
         />
