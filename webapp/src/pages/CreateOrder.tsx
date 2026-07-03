@@ -153,7 +153,7 @@ export function CreateOrder() {
             </div>
           )}
 
-          <textarea rows={8} placeholder={"vd:\nLoan Phú\nK2L 10\nKDDT 5t\nKGL 3b 12"} value={text} onInput={(e: any) => setText(e.target.value)} />
+          <textarea rows={8} placeholder={"vd:\nLoan Phú\nK2L 10\nKDDT 5t\nKDXDB 3b 12"} value={text} onInput={(e: any) => setText(e.target.value)} />
 
           <div class="muted small hint">
             💡 <b>Cách nhận diện:</b>
@@ -163,7 +163,7 @@ export function CreateOrder() {
               <li>
                 <b>Số lượng / quy cách:</b> <code>K2L 10</code> = 10 cái ·
                 {" "}<code>5t</code> = 5 thùng (50 cái/thùng), đổi bằng <code>5t 60</code> ·
-                {" "}<code>3b</code> = 3 bịch (3 cái/bịch), đổi bằng <code>3b 12</code> ·
+                {" "}<code>KDXDB 3b</code> = 3 bịch (3 cái/bịch), đổi bằng <code>3b 12</code> ·
                 {" "}<code>2t3b</code> = 2 thùng 3 bịch.
               </li>
               <li><b>Giá:</b> tự lấy theo bảng giá của khách (không nhập giá trong text).</li>
