@@ -1,13 +1,12 @@
-// Vuốt từ mép trái → quay lại, có hiệu ứng trang trượt theo ngón tay (như native).
-// Chỉ nhận khi bắt đầu sát mép trái (≤ EDGE px) → không đụng cuộn ngang bảng /
-// carousel ảnh. Tắt khi mở PhotoViewer (body.pv-open). Không thư viện.
-//
-// Cơ chế: kéo → dịch <main.page> sang phải theo ngón tay. Thả:
-//   - qua ngưỡng → trượt hết ra + history.back() rồi reset (trang trước hiện).
-//   - chưa đủ → trượt về chỗ cũ.
-const EDGE = 30; // px từ mép trái — vùng bắt đầu vuốt
-const MIN_DX = 80; // px ngang tối thiểu khi thả để tính "back"
-const MAX_DY = 45; // px dọc tối đa (lệch nhiều = cuộn dọc, bỏ)
+// Vuốt từ mép trái → quay lại, trang trượt theo ngón tay (như native).
+// Dễ + mượt: mép rộng, ngưỡng thấp, nhận cả "flick" nhanh, cập nhật bằng rAF +
+// tăng tốc GPU (translate3d/will-change). Bắt đầu sát mép trái → không đụng cuộn
+// ngang bảng / carousel ảnh. Tắt khi mở PhotoViewer (body.pv-open). Không thư viện.
+const EDGE = 40; // px từ mép trái — vùng bắt đầu vuốt (rộng cho dễ)
+const MIN_DX = 55; // px ngang tối thiểu khi thả để "back"
+const FLICK_DX = 24; // px tối thiểu nếu là flick nhanh
+const FLICK_V = 0.45; // px/ms — vận tốc coi là flick
+const MAX_DY = 60; // px dọc tối đa (lệch nhiều = cuộn dọc, bỏ)
 
 function pageEl(): HTMLElement | null {
   return document.querySelector("main.page");
@@ -16,15 +15,27 @@ function pageEl(): HTMLElement | null {
 export function installSwipeBack(): void {
   let startX = 0;
   let startY = 0;
+  let startT = 0;
   let dx = 0;
   let tracking = false;
+  let raf = 0;
   let el: HTMLElement | null = null;
 
-  const clearStyle = (withTransition: boolean) => {
+  const apply = () => {
+    raf = 0;
+    if (el) el.style.transform = `translate3d(${dx}px,0,0)`;
+  };
+
+  const reset = (withTransition: boolean) => {
+    if (raf) {
+      cancelAnimationFrame(raf);
+      raf = 0;
+    }
     if (!el) return;
-    el.style.transition = withTransition ? "transform .2s ease-out" : "none";
+    el.style.transition = withTransition ? "transform .22s cubic-bezier(.22,.61,.36,1)" : "none";
     el.style.transform = "";
     el.style.boxShadow = "";
+    el.style.willChange = "";
   };
 
   addEventListener(
@@ -35,11 +46,15 @@ export function installSwipeBack(): void {
       const t = e.touches[0];
       startX = t.clientX;
       startY = t.clientY;
+      startT = e.timeStamp;
       dx = 0;
       if (t.clientX > EDGE) return;
       tracking = true;
       el = pageEl();
-      if (el) el.style.transition = "none";
+      if (el) {
+        el.style.transition = "none";
+        el.style.willChange = "transform";
+      }
     },
     { passive: true }
   );
@@ -51,15 +66,14 @@ export function installSwipeBack(): void {
       const t = e.touches[0];
       dx = t.clientX - startX;
       const dy = Math.abs(t.clientY - startY);
-      // Lệch dọc rõ khi chưa kéo ngang → nhường cuộn dọc
-      if (dy > MAX_DY && dx < 20) {
+      if (dy > MAX_DY && dx < 24) {
         tracking = false;
-        clearStyle(true);
+        reset(true);
         return;
       }
       if (dx < 0) dx = 0;
-      el.style.transform = `translateX(${dx}px)`;
-      el.style.boxShadow = dx > 4 ? "-8px 0 16px rgba(0,0,0,.15)" : "";
+      el.style.boxShadow = dx > 4 ? "-10px 0 20px rgba(0,0,0,.14)" : "";
+      if (!raf) raf = requestAnimationFrame(apply);
     },
     { passive: true }
   );
@@ -73,10 +87,16 @@ export function installSwipeBack(): void {
       const t = e.changedTouches[0];
       const finalDx = t.clientX - startX;
       const dy = Math.abs(t.clientY - startY);
-      if (finalDx > MIN_DX && dy < MAX_DY) {
-        // trượt hết ra rồi back + reset (trang trước hiện tại vị trí 0)
-        cur.style.transition = "transform .18s ease-out";
-        cur.style.transform = "translateX(100%)";
+      const dt = Math.max(1, e.timeStamp - startT);
+      const v = finalDx / dt; // px/ms
+      const go = dy < MAX_DY && (finalDx > MIN_DX || (finalDx > FLICK_DX && v > FLICK_V));
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+      if (go) {
+        cur.style.transition = "transform .16s ease-out";
+        cur.style.transform = "translate3d(100%,0,0)";
         let settled = false;
         const done = () => {
           if (settled) return;
@@ -87,13 +107,13 @@ export function installSwipeBack(): void {
             cur.style.transition = "none";
             cur.style.transform = "";
             cur.style.boxShadow = "";
+            cur.style.willChange = "";
           });
         };
         cur.addEventListener("transitionend", done);
-        // dự phòng nếu transitionend không bắn
-        setTimeout(done, 260);
+        setTimeout(done, 240);
       } else {
-        clearStyle(true);
+        reset(true);
       }
     },
     { passive: true }
