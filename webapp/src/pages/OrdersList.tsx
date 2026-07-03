@@ -336,6 +336,9 @@ export function OrdersList() {
                 </span>
                 <TaskBadges o={o} />
               </div>
+              <div class="order-when muted small">
+                🕒 {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
+              </div>
             </a>
           </li>
         ))}

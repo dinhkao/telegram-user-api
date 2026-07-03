@@ -315,3 +315,5 @@ body.pv-open { overflow: hidden; }
 
 .quick-add { margin: 8px 0; padding: 8px; background: #f7f9fb; border: 1px dashed var(--border); border-radius: 8px; }
 .quick-add textarea { font-size: .9rem; }
+
+.order-card.compact .order-when { flex-basis: 100%; margin-top: 2px; }
