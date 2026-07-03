@@ -73,6 +73,13 @@ def _is_product_code(s: str) -> bool:
     return s in SP_INFO or s in PRODUCT_CODES
 
 
+def _topic_link(thread_id) -> str:
+    """Deep-link tới topic chat của phiếu trong group SX (t.me/c/<internal>/<topic>)."""
+    gid = str(PRODUCTION_GROUP_ID)
+    internal = gid[4:] if gid.startswith("-100") else gid.lstrip("-")
+    return f"https://t.me/c/{internal}/{thread_id}"
+
+
 # CSV parsing moved to production_store/domain.py (parse_report/compute_report/
 # looks_like_report) — shared with the webapp endpoint so the two never drift.
 
@@ -89,7 +96,8 @@ async def _update_tin_nhan(client, conn, thread_id):
         f"📦 SP: {slip.get('sp_name') or 'Chưa có SP'}"
         f"\n🎯 SX: {slip.get('sx_target') if slip.get('sx_target') is not None else 'Chưa có'}"
         f"\n✅ Nhận: {_so(slip.get('total') or 0)}"
-        f"\n🔗 Link: {PUBLIC_URL}/san_xuat/{thread_id}"
+        f"\n🔗 Web: {PUBLIC_URL}/san_xuat/{thread_id}"
+        f"\n💬 Topic: {_topic_link(thread_id)}"
     )
     try:
         await client.edit_message(int(channel_id), int(message_id), text)
