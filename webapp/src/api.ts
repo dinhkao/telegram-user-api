@@ -286,9 +286,11 @@ export async function setProductionTarget(id: string | number, target: number): 
   return postJSON(`/api/production/${id}/target`, { target });
 }
 
-/** Nhập số lượng đã nhận (queueable: an toàn khi mất mạng). */
+/** Nhập số lượng đã nhận (queueable: an toàn khi mất mạng). Kèm tên người nhập. */
 export async function addProductionNumber(id: string | number, amount: number, note: string): Promise<any> {
-  return postJSON(`/api/production/${id}/number`, { amount, note }, { queueable: true });
+  const u = currentUser();
+  const user = u?.display_name || u?.username || "";
+  return postJSON(`/api/production/${id}/number`, { amount, note, user }, { queueable: true });
 }
 
 /** Xem trước báo cáo (parse + compute, không lưu). */
