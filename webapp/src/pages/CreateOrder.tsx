@@ -166,7 +166,7 @@ export function CreateOrder() {
                 {" "}<code>KDXDB 3b</code> = 3 bịch (3 cái/bịch), đổi bằng <code>3b 12</code> ·
                 {" "}<code>2t3b</code> = 2 thùng 3 bịch.
               </li>
-              <li><b>Giá:</b> tự lấy theo bảng giá của khách (không nhập giá trong text).</li>
+              <li><b>Giá:</b> tự lấy theo bảng giá khách; nhập số sau SL để <b>ghi đè giá</b>, vd <code>K2L 10 25000</code> = 10 cái, giá 25.000.</li>
             </ul>
           </div>
 

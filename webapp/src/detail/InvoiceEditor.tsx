@@ -280,7 +280,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
           {quickMsg && <span class="muted small">{quickMsg}</span>}
         </div>
         <div class="muted small hint">
-          💡 Mỗi dòng <code>&lt;mã SP&gt; &lt;SL&gt;</code> (mã trước, SL sau) · <code>5t</code> = 5 thùng (50/thùng), đổi <code>5t 60</code> · <code>3b</code> = 3 bịch (3/bịch) · giá tự theo bảng giá khách.
+          💡 Mỗi dòng <code>&lt;mã SP&gt; &lt;SL&gt;</code> (mã trước, SL sau) · <code>5t</code> = 5 thùng (50/thùng), đổi <code>5t 60</code> · <code>3b</code> = 3 bịch (3/bịch) · giá tự theo bảng giá, nhập số sau SL để ghi đè (<code>K2L 10 25000</code>).
         </div>
       </div>
 

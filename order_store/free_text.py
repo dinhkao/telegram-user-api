@@ -58,7 +58,16 @@ def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None, *, 
             sl = int(sl1pc)
             for v in so_qc:
                 sl *= v
-            invoice.append({"sp": sp, "so_qc": so_qc, "qc_type": qc_type, "sl1pc": sl1pc, "sl": sl, "price": price_list.get(sp, 0), "note": None})
+            # Giá: mặc định theo bảng giá khách; nếu token kế tiếp là SỐ (và không
+            # phải mã SP) → dùng làm GIÁ BÁN ghi đè (user tự nhập giá sau số lượng).
+            price = price_list.get(sp, 0)
+            if i < len(tokens) and tokens[i].upper() not in valid_codes:
+                try:
+                    price = int(tokens[i])
+                    i += 1
+                except ValueError:
+                    pass
+            invoice.append({"sp": sp, "so_qc": so_qc, "qc_type": qc_type, "sl1pc": sl1pc, "sl": sl, "price": price, "note": None})
             continue
         i += 1
     return invoice
