@@ -2,7 +2,7 @@
 // + thanh nav dưới + banner offline/hàng đợi. Connects to: pages/*, api.ts.
 import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
-import { currentUser, replayQueue, serverUrl } from "./api";
+import { currentUser, replayQueue } from "./api";
 import { getQueue } from "./offline";
 import { getStatus, onStatus, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
@@ -75,14 +75,12 @@ function RealtimeDot() {
 function App() {
   const hash = useHash();
   const user = currentUser();
-  // APK load bundle qua WebViewAssetLoader tại appassets.androidplatform.net —
-  // trong đó bắt buộc phải có server_url (fetch relative sẽ trỏ nhầm vào assets)
-  const inApk = window.location.hostname === "appassets.androidplatform.net" || window.location.protocol === "file:";
-  const needSetup = inApk && !serverUrl();
-  const showLogin = hash === "#/login" || !user || needSetup;
-  const authed = !!user && !needSetup;
+  // Webapp luôn cùng origin với server (APK nạp URL từ xa qua Tailscale) nên không
+  // còn màn hình cài server_url — chỉ cần đăng nhập.
+  const showLogin = hash === "#/login" || !user;
+  const authed = !!user;
 
-  // Chuẩn hoá URL hash về #/login khi cần đăng nhập/cài server — làm trong effect,
+  // Chuẩn hoá URL hash về #/login khi cần đăng nhập — làm trong effect,
   // KHÔNG sửa location trong lúc render (gây trắng trang lần đầu, phải reload).
   useEffect(() => {
     if (showLogin && hash !== "#/login") window.location.hash = "#/login";
