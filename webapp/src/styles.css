@@ -273,6 +273,8 @@ body.pv-open { overflow: hidden; }
 .prod-list { padding: 8px; }
 .prod-create { display: flex; gap: 8px; margin-bottom: 12px; }
 .prod-create select { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; }
+.prod-create .ac { flex: 1; }
+.prod-create .ac input { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; }
 .prod-cards { display: flex; flex-direction: column; gap: 8px; }
 .prod-card { display: block; background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 12px; text-decoration: none; color: inherit; }
 .prod-card-top { display: flex; justify-content: space-between; align-items: baseline; }

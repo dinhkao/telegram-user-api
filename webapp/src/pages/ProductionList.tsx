@@ -12,6 +12,7 @@ import {
   type ProdCatalogItem,
 } from "../api";
 import { onRealtime } from "../realtime";
+import { ProductPicker } from "../detail/ProductPicker";
 
 export function ProductionList() {
   const [slips, setSlips] = useState<ProdSlip[]>([]);
@@ -102,12 +103,7 @@ export function ProductionList() {
   return (
     <div class="prod-list">
       <div class="prod-create">
-        <select value={newCode} onChange={(e) => setNewCode((e.target as HTMLSelectElement).value)}>
-          <option value="">— Chọn SP (tuỳ chọn) —</option>
-          {catalog.map((c) => (
-            <option value={c.code}>{c.code}</option>
-          ))}
-        </select>
+        <ProductPicker catalog={catalog} value={newCode} onPick={setNewCode} placeholder="🔍 Tìm mã SP (tuỳ chọn)" />
         <button class="btn primary" disabled={creating} onClick={doCreate}>
           {creating ? "Đang tạo…" : "➕ Tạo phiếu"}
         </button>

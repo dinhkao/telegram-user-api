@@ -17,6 +17,7 @@ import {
 import { onRealtime } from "../realtime";
 import { ProductionBoxes } from "../detail/ProductionBoxes";
 import { ProductionReport } from "../detail/ProductionReport";
+import { ProductPicker } from "../detail/ProductPicker";
 
 export function ProductionDetail({ threadId, focus }: { threadId: string; focus?: string }) {
   const [slip, setSlip] = useState<ProdSlip | null>(null);
@@ -163,15 +164,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
 
       <section class="card">
         <label class="card-label">Sản phẩm</label>
-        <select value={slip.sp_name || ""} onChange={(e) => changeProduct((e.target as HTMLSelectElement).value)}>
-          <option value="">— Chọn SP —</option>
-          {catalog.map((c) => (
-            <option value={c.code}>
-              {c.code}
-              {c.mam != null ? ` (mâm ${c.mam})` : ""}
-            </option>
-          ))}
-        </select>
+        <ProductPicker catalog={catalog} value={slip.sp_name || ""} onPick={changeProduct} placeholder="🔍 Tìm mã SP" />
         {slip.sp_mam != null && <div class="muted small">🌿 Số cây 1 mâm: {slip.sp_mam}</div>}
       </section>
 
