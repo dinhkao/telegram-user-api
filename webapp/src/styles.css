@@ -387,6 +387,7 @@ body.pv-open { overflow: hidden; }
 .box-jump { display: inline-block; text-decoration: none; color: #2456b8; font-weight: 600; padding: 4px 0; }
 .box-jump:active { opacity: .6; }
 .box-alloc-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.box-alloc-peek { color: var(--muted); font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -2px; }
 
 /* thùng vô hiệu */
 .inv-status.disabled { background: #eee; color: #999; text-decoration: line-through; }

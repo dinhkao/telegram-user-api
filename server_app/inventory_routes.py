@@ -32,8 +32,20 @@ from inventory_store import (
     summarize,
 )
 from production_store import get_slip, add_number, set_total
+from order_store.serialization import get_order_by_thread_id
 from server_app.production_routes import _web_actor
 from utils.db import get_connection
+
+
+def _order_first_line(conn, thread_id) -> str:
+    """Dòng đầu nội dung đơn (sneak peek cho danh sách đơn đã xuất). Rỗng nếu không có."""
+    if not thread_id:
+        return ""
+    o = get_order_by_thread_id(conn, thread_id)
+    if not o:
+        return ""
+    txt = (o.get("text") or o.get("text_raw") or "").strip()
+    return txt.split("\n", 1)[0].strip()[:80] if txt else ""
 
 
 def _conn():
@@ -155,6 +167,8 @@ async def box_detail_handler(request: web.Request):
             if not box:
                 return None, None, None
             allocs = list_box_allocations(conn, box_id)
+            for a in allocs:
+                a["order_text"] = _order_first_line(conn, a.get("order_thread_id"))
             slip = get_slip(conn, box["source_thread_id"]) if box.get("source_thread_id") else None
             return box, slip, allocs
         finally:

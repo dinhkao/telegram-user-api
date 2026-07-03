@@ -189,6 +189,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
                   📋 Đơn #{a.order_thread_id} · lấy {soVN(a.quantity)}
                   {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
                 </a>
+                {a.order_text ? <div class="box-alloc-peek">{a.order_text}</div> : null}
               </li>
             ))}
           </ul>

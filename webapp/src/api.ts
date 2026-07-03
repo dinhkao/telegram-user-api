@@ -383,6 +383,7 @@ export type Allocation = {
   mfg_date?: string | null;
   order_thread_id?: number;
   allocated_by?: string;
+  order_text?: string; // dòng đầu nội dung đơn (sneak peek, chỉ trang chi tiết thùng)
 };
 export type InvGroup = { quantity: number; count: number; total: number; box_codes: string[] };
 export type InvDetail = {
