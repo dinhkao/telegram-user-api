@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { deleteOrderImage, listOrderImages, orderImageUrl, postForm, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
 import { processImage } from "./imageProcess";
+import { createPortal } from "preact/compat";
 import { PhotoViewer } from "./PhotoViewer";
 
 type Pending = { key: number; url: string };
@@ -165,14 +166,18 @@ export function Images({ threadId }: { threadId: string }) {
         </div>
       )}
 
-      {lightbox && (
-        <PhotoViewer
-          images={images}
-          start={Math.max(0, images.findIndex((x) => x.id === lightbox.id))}
-          threadId={threadId}
-          onClose={() => history.back()}
-        />
-      )}
+      {/* Portal ra body → thoát khỏi .detail-sheet (overflow/transform tạo
+          containing block) nên PhotoViewer position:fixed canh đúng viewport. */}
+      {lightbox &&
+        createPortal(
+          <PhotoViewer
+            images={images}
+            start={Math.max(0, images.findIndex((x) => x.id === lightbox.id))}
+            threadId={threadId}
+            onClose={() => history.back()}
+          />,
+          document.body
+        )}
     </div>
   );
 }
