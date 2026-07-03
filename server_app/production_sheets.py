@@ -68,28 +68,29 @@ def sync_number_bg(thread_id, amount: float, note: str, request) -> None:
     spawn_tracked("production.sheet_sync", _sync(thread_id, amount, note, actor))
 
 
-async def _sync_report(thread_id, text: str) -> None:
+async def push_report(thread_id, text: str) -> dict:
     """Đẩy báo cáo theo thợ vào Google Sheet (tab theo ngày) qua append_rows —
-    tái dùng toàn bộ pipeline sheets_bot: tạo tab ngày, header, công thức lương,
-    sắp theo STT, và GHI ĐÈ dòng cũ cùng topic (idempotent theo thread_url).
-    Ô raw ; ánh xạ thẳng vào HEADERS (Tên..Số mâm..)."""
+    tái dùng pipeline sheets_bot: tạo tab ngày, header, công thức lương, sắp theo
+    STT, GHI ĐÈ dòng cũ cùng topic (idempotent theo thread_url). Ô ; ánh xạ thẳng
+    HEADERS. Trả trạng thái rõ ràng để webapp báo thành công/thất bại:
+      {ok, disabled?, error?, tab?, rows?, replaced?}
+    """
     mgr = _get_manager()
     if mgr is None:
-        return
+        return {"ok": False, "disabled": True, "error": "Google Sheet chưa cấu hình (thiếu credentials)"}
     try:
         rows = [[c.strip() for c in line.split(";")] for line in text.splitlines() if line.strip()]
         if not rows:
-            return
+            return {"ok": False, "error": "Không có dòng dữ liệu để đẩy"}
         from command_handlers.production_commands import _topic_link
         thread_url = _topic_link(thread_id)
         result = await mgr.append_rows(rows, thread_url)
-        log.info("sheet report sync ok thread=%s rows=%s replaced=%s",
-                 thread_id, len(rows), bool(result and result.get("replaced")))
+        from sheets_bot.parse import get_sheet_name_from_rows
+        tab = get_sheet_name_from_rows(rows)
+        replaced = bool(result and result.get("replaced"))
+        log.info("sheet report push ok thread=%s tab=%s rows=%s replaced=%s",
+                 thread_id, tab, len(rows), replaced)
+        return {"ok": True, "tab": tab, "rows": len(rows), "replaced": replaced}
     except Exception as e:  # noqa: BLE001
-        log.warning("sheet report sync hỏng thread=%s: %s", thread_id, e)
-
-
-def sync_report_bg(thread_id, text: str) -> None:
-    """Lên lịch đẩy báo cáo lên Google Sheet chạy nền."""
-    from server_app.tasks import spawn_tracked
-    spawn_tracked("production.sheet_report", _sync_report(thread_id, text))
+        log.warning("sheet report push hỏng thread=%s: %s", thread_id, e)
+        return {"ok": False, "error": str(e)}

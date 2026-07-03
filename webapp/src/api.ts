@@ -298,8 +298,20 @@ export async function parseProductionReport(id: string | number, text: string): 
   return postJSON(`/api/production/${id}/report/parse`, { text });
 }
 
-/** Lưu báo cáo. */
-export async function saveProductionReport(id: string | number, text: string): Promise<ProdReport> {
+export type SheetStatus = {
+  ok: boolean;
+  disabled?: boolean;
+  error?: string;
+  tab?: string;
+  rows?: number;
+  replaced?: boolean;
+};
+
+/** Lưu báo cáo. Trả kèm trạng thái đẩy Google Sheet (sheet). */
+export async function saveProductionReport(
+  id: string | number,
+  text: string
+): Promise<ProdReport & { sheet?: SheetStatus }> {
   return postJSON(`/api/production/${id}/report`, { text });
 }
 

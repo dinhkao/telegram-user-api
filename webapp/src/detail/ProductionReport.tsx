@@ -33,7 +33,14 @@ export function ProductionReport({ threadId, slip }: { threadId: string; slip: P
     try {
       const r = await saveProductionReport(threadId, text);
       setReport(r);
-      setMsg("✅ Đã lưu báo cáo");
+      const s = r.sheet;
+      if (s?.ok) {
+        setMsg(`✅ Đã lưu + đẩy Google Sheet — tab ${s.tab}, ${s.rows} dòng${s.replaced ? " (ghi đè dòng cũ)" : ""}.`);
+      } else if (s?.disabled) {
+        setMsg("✅ Đã lưu. ⚠️ Chưa đẩy Google Sheet: chưa cấu hình credentials.");
+      } else {
+        setMsg(`✅ Đã lưu. ❌ Đẩy Google Sheet THẤT BẠI: ${s?.error || "lỗi không rõ"}`);
+      }
     } catch (e: any) {
       setMsg(e?.message || "Lỗi lưu báo cáo");
     } finally {
@@ -67,7 +74,7 @@ export function ProductionReport({ threadId, slip }: { threadId: string; slip: P
               💾 Lưu báo cáo
             </button>
           </div>
-          {msg && <div class="muted small">{msg}</div>}
+          {msg && <div class="prod-save-msg">{msg}</div>}
         </>
       )}
 
