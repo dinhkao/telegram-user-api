@@ -51,8 +51,9 @@ def _build_order_row(r) -> dict:
 
 
 def _attach_thumbs(conn, orders: list[dict]) -> None:
-    """Gắn ảnh mới nhất (thumb_image_id) + tổng số ảnh (image_count) của mỗi đơn —
-    1 truy vấn gộp cho cả trang. image_count để card hiện badge "+N".
+    """Gắn 2 ảnh mới nhất (thumb_image_ids) + ảnh mới nhất (thumb_image_id) + tổng số
+    ảnh (image_count) của mỗi đơn — 1 truy vấn gộp cho cả trang. image_count để card
+    hiện badge "+N"; thumb_image_ids để card cao hiện tối đa 2 thumbnail.
     Bảng order_images có thể chưa tồn tại (chưa ai thêm ảnh) → bỏ qua an toàn."""
     ids = [o["thread_id"] for o in orders if o.get("thread_id") is not None]
     m: dict = {}
@@ -60,16 +61,18 @@ def _attach_thumbs(conn, orders: list[dict]) -> None:
         try:
             ph = ",".join("?" * len(ids))
             rows = conn.execute(
-                f"SELECT thread_id, MAX(id) AS id, COUNT(*) AS n FROM order_images WHERE thread_id IN ({ph}) GROUP BY thread_id",
+                f"SELECT thread_id, id FROM order_images WHERE thread_id IN ({ph}) ORDER BY thread_id, id DESC",
                 ids,
             ).fetchall()
-            m = {row["thread_id"]: (row["id"], row["n"]) for row in rows}
+            for row in rows:
+                m.setdefault(row["thread_id"], []).append(row["id"])
         except Exception:
             m = {}
     for o in orders:
-        latest, n = m.get(o.get("thread_id"), (None, 0))
-        o["thumb_image_id"] = latest
-        o["image_count"] = n
+        lst = m.get(o.get("thread_id"), [])
+        o["thumb_image_id"] = lst[0] if lst else None
+        o["thumb_image_ids"] = lst[:2]
+        o["image_count"] = len(lst)
 
 
 def build_row_for_thread(thread_id) -> dict | None:

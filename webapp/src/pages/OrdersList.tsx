@@ -13,6 +13,7 @@ import { PhotoViewer } from "../detail/PhotoViewer";
 type OrderRow = {
   thread_id: number;
   thumb_image_id?: number | null;
+  thumb_image_ids?: number[];
   image_count?: number;
   customer: string;
   total: string;
@@ -150,13 +151,13 @@ export function OrdersList() {
   const [flashing, setFlashing] = useState<Record<string, string>>({});
   // Xem ảnh phóng to khi bấm thumbnail trên card (không vào trang chi tiết)
   const [viewer, setViewer] = useState<{ threadId: string; images: OrderImage[]; start: number } | null>(null);
-  const openThumb = async (e: Event, o: OrderRow) => {
+  const openThumb = async (e: Event, o: OrderRow, atId?: number) => {
     e.preventDefault();
     e.stopPropagation();
     try {
       const imgs = await listOrderImages(o.thread_id);
       if (!imgs.length) return;
-      const start = Math.max(0, imgs.findIndex((x) => x.id === o.thumb_image_id));
+      const start = Math.max(0, imgs.findIndex((x) => x.id === (atId ?? o.thumb_image_id)));
       setViewer({ threadId: String(o.thread_id), images: imgs, start });
     } catch { /* mất mạng — bỏ qua, vẫn có thể mở đơn */ }
   };
@@ -384,12 +385,25 @@ export function OrdersList() {
               <div class="card-main">
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
                 <div class="card-body">
-                  {o.thumb_image_id ? (
-                    <span class="card-thumb-wrap" onClick={(e) => openThumb(e, o)}>
-                      <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" />
-                      {(o.image_count ?? 0) > 1 && <span class="thumb-count">+{(o.image_count ?? 0) - 1}</span>}
-                    </span>
-                  ) : null}
+                  {(() => {
+                    const allIds = o.thumb_image_ids && o.thumb_image_ids.length ? o.thumb_image_ids : (o.thumb_image_id ? [o.thumb_image_id] : []);
+                    if (!allIds.length) return null;
+                    // Text đơn xuống dòng nhiều (card cao) → đủ chỗ hiện 2 thumbnail
+                    const t = o.text || "";
+                    const tall = t.split("\n").length >= 4 || t.length > 80;
+                    const shown = (tall ? allIds.slice(0, 2) : allIds.slice(0, 1));
+                    const total = o.image_count ?? allIds.length;
+                    return (
+                      <div class="card-thumb-col">
+                        {shown.map((id, i) => (
+                          <span class="card-thumb-wrap" key={id} onClick={(e) => openThumb(e, o, id)}>
+                            <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, id, "thumb")} loading="lazy" alt="" />
+                            {i === shown.length - 1 && total > shown.length && <span class="thumb-count">+{total - shown.length}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   <div class="card-content">
                     {o.text
                       ? <div class="order-text wrap-badges"><TaskBadges o={o} /><span class="ot-text"><Highlight text={o.text} q={search} /></span></div>
