@@ -185,7 +185,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
           <ul class="box-alloc-list">
             {d.allocations.map((a) => (
               <li key={a.allocation_id}>
-                <a class="box-jump" href={`#/order/${a.order_thread_id}`}>
+                <a class="box-jump" href={`#/order/${a.order_thread_id}?focus=box:${b.id}`}>
                   📋 Đơn #{a.order_thread_id} · lấy {soVN(a.quantity)}
                   {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
                 </a>

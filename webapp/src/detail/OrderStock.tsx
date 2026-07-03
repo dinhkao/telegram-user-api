@@ -75,7 +75,7 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
             {mine.length > 0 && (
               <ul class="inv-box-list">
                 {mine.map((a) => (
-                  <li key={a.allocation_id}>
+                  <li key={a.allocation_id} id={`box-${a.box_id}`}>
                     <a class="box-link" href={`#/thung/${a.box_id}`} title="Chi tiết thùng">
                       <code>{a.box_code}</code>
                     </a>{" "}
