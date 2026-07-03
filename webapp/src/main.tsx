@@ -151,6 +151,7 @@ function App() {
           <div class="app-bar-right">
             <RealtimeDot />
             <button class="btn small" title="Tải lại" onClick={() => window.location.reload()}>🔄 Tải lại</button>
+            <a class="btn small" href="#/login" title="Cài đặt">⚙️</a>
           </div>
         </header>
       )}
@@ -159,11 +160,10 @@ function App() {
       {!showLogin && (
         <nav class="bottom-nav">
           <a class={hash === "#/orders" || orderMatch ? "tab active" : "tab"} href="#/orders">📋 Đơn</a>
+          <a class={tab("#/customers")} href="#/customers">👤 Khách</a>
           <a class={tab("#/create")} href="#/create">➕ Tạo</a>
           <a class={tab("#/san_xuat")} href="#/san_xuat">🏭 SX</a>
           <a class={tab("#/kho")} href="#/kho">📦 Kho</a>
-          <a class={tab("#/customers")} href="#/customers">👤 Khách</a>
-          <a class="tab" href="#/login">⚙️</a>
         </nav>
       )}
     </div>

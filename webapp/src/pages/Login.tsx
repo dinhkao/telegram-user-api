@@ -28,7 +28,8 @@ export function Login() {
     <div class="login-page">
       <h1>🍬 Lê Trang Phát</h1>
       <p class="muted">Quản lý đơn hàng</p>
-      {user && (
+      {user ? (
+        // Đã đăng nhập → trang cài đặt: chỉ hiện thông tin + đăng xuất (ẩn form login)
         <div class="card">
           <p>Đang đăng nhập: <b>{user.display_name}</b> ({user.username})</p>
           <div class="row">
@@ -36,15 +37,16 @@ export function Login() {
             <button class="btn danger" onClick={() => { setAuth("", null); window.location.reload(); }}>Đăng xuất</button>
           </div>
         </div>
+      ) : (
+        <form onSubmit={submit} class="card">
+          <label>Tên đăng nhập</label>
+          <input type="text" autocapitalize="none" value={username} onInput={(e: any) => setUsername(e.target.value)} />
+          <label>PIN</label>
+          <input type="password" inputMode="numeric" value={pin} onInput={(e: any) => setPin(e.target.value)} />
+          {err && <p class="error">{err}</p>}
+          <button class="btn primary" type="submit" disabled={busy}>{busy ? "Đang vào…" : "Đăng nhập"}</button>
+        </form>
       )}
-      <form onSubmit={submit} class="card">
-        <label>Tên đăng nhập</label>
-        <input type="text" autocapitalize="none" value={username} onInput={(e: any) => setUsername(e.target.value)} />
-        <label>PIN</label>
-        <input type="password" inputMode="numeric" value={pin} onInput={(e: any) => setPin(e.target.value)} />
-        {err && <p class="error">{err}</p>}
-        <button class="btn primary" type="submit" disabled={busy}>{busy ? "Đang vào…" : "Đăng nhập"}</button>
-      </form>
     </div>
   );
 }
