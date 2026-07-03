@@ -344,13 +344,11 @@ export function OrdersList() {
       </header>
       {stats && (
         <div class="chips">
-          <button class={filter === "all" ? "chip active" : "chip"} onClick={() => onFilter("all")}>Tất cả {stats.total_orders}</button>
-          <button class={filter === "pending" ? "chip active" : "chip"} onClick={() => onFilter("pending")}>Chưa xong {stats.pending}</button>
-          <button class={filter === "done" ? "chip active" : "chip"} onClick={() => onFilter("done")}>Xong {stats.done}</button>
-          <button class={filter === "chua_soan" ? "chip active" : "chip"} onClick={() => onFilter("chua_soan")}>Chưa soạn {stats.chua_soan ?? ""}</button>
-          <button class={filter === "chua_giao" ? "chip active" : "chip"} onClick={() => onFilter("chua_giao")}>Chưa giao {stats.chua_giao ?? ""}</button>
-          <button class={filter === "chua_nop" ? "chip active" : "chip"} onClick={() => onFilter("chua_nop")}>Chưa nộp {stats.chua_nop ?? ""}</button>
-          <button class={filter === "chua_nhan" ? "chip active" : "chip"} onClick={() => onFilter("chua_nhan")}>Chưa nhận {stats.chua_nhan ?? ""}</button>
+          <button class={filter === "all" ? "chip active" : "chip"} onClick={() => onFilter("all")}>Tất cả</button>
+          <button class={filter === "chua_soan" ? "chip active" : "chip"} onClick={() => onFilter("chua_soan")}>Chưa soạn {stats.chua_soan != null ? `(${stats.chua_soan})` : ""}</button>
+          <button class={filter === "chua_giao" ? "chip active" : "chip"} onClick={() => onFilter("chua_giao")}>Chưa giao {stats.chua_giao != null ? `(${stats.chua_giao})` : ""}</button>
+          <button class={filter === "chua_nop" ? "chip active" : "chip"} onClick={() => onFilter("chua_nop")}>Chưa nộp {stats.chua_nop != null ? `(${stats.chua_nop})` : ""}</button>
+          <button class={filter === "chua_nhan" ? "chip active" : "chip"} onClick={() => onFilter("chua_nhan")}>Chưa nhận {stats.chua_nhan != null ? `(${stats.chua_nhan})` : ""}</button>
         </div>
       )}
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
