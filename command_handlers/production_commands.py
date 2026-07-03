@@ -89,6 +89,7 @@ async def _update_tin_nhan(client, conn, thread_id):
         f"📦 SP: {slip.get('sp_name') or 'Chưa có SP'}"
         f"\n🎯 SX: {slip.get('sx_target') if slip.get('sx_target') is not None else 'Chưa có'}"
         f"\n✅ Nhận: {_so(slip.get('total') or 0)}"
+        f"\n🔗 Link: {PUBLIC_URL}/san_xuat/{thread_id}"
     )
     try:
         await client.edit_message(int(channel_id), int(message_id), text)
@@ -160,6 +161,9 @@ def register_production_commands(client):
             )
         except Exception as e:  # noqa: BLE001
             log.error("failed to send welcome to topic %s: %s", thread_id, e)
+        # Sửa chính bài trong channel để hiện tóm tắt + link (trước đây chỉ gửi vào
+        # topic group, bài channel không được cập nhật → không thấy link).
+        await _update_tin_nhan(client, conn, thread_id)
 
     # ─── group messages ─────────────────────────────────────────────────────
     @client.on(events.NewMessage(chats=PRODUCTION_GROUP_ID))
