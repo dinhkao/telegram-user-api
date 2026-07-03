@@ -2,7 +2,7 @@
 // thuộc phiếu SX nào (link), đã xuất đơn nào (link → cuộn+nháy thùng trong đơn).
 // GET /api/inventory/box/:id.
 import { useEffect, useState } from "preact/hooks";
-import { boxDetail, soVN, type InvBoxDetail } from "../api";
+import { boxDetail, updateBox, soVN, type InvBoxDetail } from "../api";
 
 const STATUS: Record<string, { label: string; cls: string }> = {
   in_stock: { label: "Trong kho", cls: "in" },
@@ -22,17 +22,36 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   const [d, setD] = useState<InvBoxDetail | null>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
+  const [noteInput, setNoteInput] = useState("");
+  const [noteSaved, setNoteSaved] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     boxDetail(boxId)
       .then((r) => {
         if (!r) setErr("Không tìm thấy thùng");
-        else setD(r);
+        else {
+          setD(r);
+          setNoteInput(r.box.note || "");
+        }
       })
       .catch((e: any) => setErr(e?.message || "Lỗi tải thùng"))
       .finally(() => setLoading(false));
   }, [boxId]);
+
+  const saveNote = async () => {
+    if (!d || noteInput === (d.box.note || "")) return;
+    try {
+      const b = await updateBox(boxId, { note: noteInput.trim() });
+      if (b) {
+        setD({ ...d, box: b });
+        setNoteSaved(true);
+        setTimeout(() => setNoteSaved(false), 1500);
+      }
+    } catch (e: any) {
+      setErr(e?.message || "Lỗi lưu ghi chú");
+    }
+  };
 
   if (loading) return <div class="muted">Đang tải…</div>;
   if (err || !d)
@@ -75,12 +94,17 @@ export function BoxDetail({ boxId }: { boxId: string }) {
           <span class="box-k">Ngày nhập</span>
           <span class="box-v">{fmtWhen(b.created_at)}</span>
         </div>
-        {b.note ? (
-          <div class="box-kv">
-            <span class="box-k">Ghi chú</span>
-            <span class="box-v">{b.note}</span>
-          </div>
-        ) : null}
+      </section>
+
+      <section class="card">
+        <label class="card-label">Ghi chú {noteSaved && <span class="muted small">✓ đã lưu</span>}</label>
+        <textarea
+          rows={2}
+          value={noteInput}
+          onInput={(e) => setNoteInput((e.target as HTMLTextAreaElement).value)}
+          onBlur={saveNote}
+          placeholder="Ghi chú cho thùng (tự lưu khi rời ô)…"
+        />
       </section>
 
       <section class="card">

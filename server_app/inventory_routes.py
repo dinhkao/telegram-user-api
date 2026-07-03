@@ -20,6 +20,7 @@ from inventory_store import (
     list_boxes,
     product_summary,
     get_box,
+    update_box,
     allocate_boxes,
     release_boxes,
     summarize,
@@ -150,6 +151,48 @@ async def box_detail_handler(request: web.Request):
     if slip:
         source = {"thread_id": slip["thread_id"], "date": slip.get("date"), "sp_name": slip.get("sp_name")}
     return web.json_response({"ok": True, "box": box, "source_slip": source})
+
+
+async def box_update_handler(request: web.Request):
+    """Sửa ghi chú (và/hoặc số cây) của 1 thùng. Trả box sau khi cập nhật."""
+    try:
+        box_id = int(request.match_info.get("box_id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "box_id không hợp lệ"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    note = body.get("note")
+    quantity = body.get("quantity")
+    kwargs = {}
+    if note is not None:
+        kwargs["note"] = str(note)
+    if quantity is not None:
+        try:
+            q = float(quantity)
+        except (TypeError, ValueError):
+            return web.json_response({"ok": False, "error": "Số cây không hợp lệ"}, status=400)
+        if q <= 0:
+            return web.json_response({"ok": False, "error": "Số cây phải > 0"}, status=400)
+        kwargs["quantity"] = q
+    if not kwargs:
+        return web.json_response({"ok": False, "error": "Không có gì để sửa"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            create_inventory_table(conn)
+            if not get_box(conn, box_id):
+                return None
+            update_box(conn, box_id, **kwargs)
+            return get_box(conn, box_id)
+        finally:
+            conn.close()
+    box = await asyncio.to_thread(_run)
+    if not box:
+        return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
+    return web.json_response({"ok": True, "box": box})
 
 
 async def inventory_detail_handler(request: web.Request):

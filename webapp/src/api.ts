@@ -430,6 +430,15 @@ export async function boxDetail(id: string | number): Promise<InvBoxDetail | nul
   return d.ok ? { box: d.box, source_slip: d.source_slip } : null;
 }
 
+/** Sửa ghi chú / số cây của 1 thùng. */
+export async function updateBox(
+  id: string | number,
+  patch: { note?: string; quantity?: number }
+): Promise<InvBox | null> {
+  const d = await postJSON(`/api/inventory/box/${id}`, patch);
+  return d.ok ? d.box : null;
+}
+
 /** Thùng đã xuất cho đơn này. */
 export async function orderAllocations(id: string | number): Promise<InvBox[]> {
   const d = await getJSON(`/api/order/${id}/allocations`);
