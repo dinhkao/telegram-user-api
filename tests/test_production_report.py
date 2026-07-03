@@ -46,6 +46,28 @@ Bảo Xuyên;;;;Q.kẹo;0;;;;;;;;K10LV85;1/7/2026;3;20;0;08:25;10:00
 """
 
 
+# Real paste #3 — KDDT: thợ nhập THẲNG số mâm ở cột 17 (gạch để trống). Công thức
+# gạch×5 sẽ ra 0 → phải lấy số mâm cột 17 (mâm=5). Có note "rắc cơm dừa".
+BLOCK_KDDT = """Hiền;;;4;;204;;;;;;;;KDDT;1/7/2026;5;40;40;13:00;16:10
+Lệ;;;;nghỉ;0;;;;;;;;KDDT;1/7/2026;5;40;0;13:00;16:10
+Trọng;;;3;;138;;;;;;;;KDDT;1/7/2026;5;40;27;13:00;16:10
+Mai;;;3;;183;;;;;;;;KDDT;1/7/2026;5;40;36;13:00;16:10
+Sáu;;;;;90;;;;;;;;KDDT;1/7/2026;5;40;18;13:00;16:10
+Hằng;;;1;;186;;;;;;;;KDDT;1/7/2026;5;40;37;13:00;16:10
+Kim;;;;nghỉ;0;;;;;;;;KDDT;1/7/2026;5;40;0;13:00;16:10
+Quyên;;;2;;142;;;;;;;;KDDT;1/7/2026;5;40;28;13:00;16:10
+Duy;;;;vít;0;;;;;;;;KDDT;1/7/2026;5;40;0;13:00;16:10
+Là;;;1;;136;;;;;;;;KDDT;1/7/2026;5;40;27;13:00;16:10
+Huệ;;;;nghỉ;0;;;;;;;;KDDT;1/7/2026;5;40;0;13:00;16:10
+Tâm;;;;rắc cơm dừa;0;;;;;;;;KDDT;1/7/2026;5;40;0;13:00;16:10
+Vĩ;;;;rắc cơm dừa;0;;;;;;;;KDDT;1/7/2026;5;40;0;13:00;16:10
+Trân;;;;rắc cơm dừa;0;;;;;;;;KDDT;1/7/2026;5;40;0;13:00;16:10
+Thủy Đặng;;;;vít;0;;;;;;;;KDDT;1/7/2026;5;40;0;13:00;16:10
+Kim Dung;;;;Q.kẹo;0;;;;;;;;KDDT;1/7/2026;5;40;0;13:00;16:10
+Bảo Xuyên;;;;Q.kẹo;0;;;;;;;;KDDT;1/7/2026;5;40;0;13:00;16:10
+"""
+
+
 def test_looks_like_report_true_on_paste():
     assert looks_like_report(BLOCK_K10LT)
     assert looks_like_report(BLOCK_K10LV85)
@@ -92,6 +114,18 @@ def test_compute_k10lv85_totals():
     assert by_name["Mai"] == 66
     assert by_name["Tâm"] == 0        # vô kẹo
     assert result["grand_total"] == 489.5
+
+
+def test_compute_kddt_uses_col17_so_mam():
+    # gạch trống → phải lấy số mâm cột 17 (không recompute ra 0)
+    result = compute_report(parse_report(BLOCK_KDDT), so_cay_1_mam=5)
+    assert result["product_code"] == "KDDT"
+    by_name = {r["name"]: r["tong_calc"] for r in result["rows"]}
+    assert by_name["Hiền"] == 204   # 5×40 + 4
+    assert by_name["Trọng"] == 138  # 5×27 + 3
+    assert by_name["Sáu"] == 90     # 5×18 + 0
+    assert by_name["Tâm"] == 0      # rắc cơm dừa
+    assert result["grand_total"] == 1079
 
 
 def test_compute_falls_back_to_sheet_total_when_no_yield():

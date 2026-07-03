@@ -22,6 +22,7 @@ _C_TONG_SEMI = 5   # tổng sp when a note column is present (semicolon layout)
 _C_TONG_COMMA = 4  # tổng sp in the legacy comma/tab layout (no note column)
 _C_CODE = 13
 _C_DATE = 14
+_C_SOMAM = 17  # số mâm đã tính sẵn trong sheet (nguồn chuẩn cho tổng SP)
 _C_START = 18
 _C_END = 19
 
@@ -113,6 +114,8 @@ def parse_report(text: str) -> dict:
             "so_cay_le": _num(cells[_C_LE]),
             "note": note,
             "tong_sheet": _num(cells[tong_idx]) if len(cells) > tong_idx else 0.0,
+            # số mâm sheet đã tính (None nếu dòng không có cột 17) — nguồn chuẩn
+            "so_mam_sheet": _num(cells[_C_SOMAM]) if len(cells) > _C_SOMAM else None,
         })
         if product_code is None and len(cells) > _C_CODE and cells[_C_CODE]:
             product_code = cells[_C_CODE].upper()
@@ -132,20 +135,27 @@ def _round2(x: float) -> float:
 def compute_report(parsed: dict, so_cay_1_mam: float) -> dict:
     """Apply the yield formula to parsed rows.
 
-    total = số_cây_1_mâm × max(gạch×5 − trừ − (1 if lẻ>0 else 0), 0) + lẻ
-    When số cây 1 mâm is unknown (0/None), falls back to the sheet's tổng column.
-    Note-rows (nghỉ/vít/…) with no quantities naturally compute to 0.
+    total = số_cây_1_mâm × số_mâm + lẻ
+    Số mâm ưu tiên lấy từ cột 17 của sheet (đã tính sẵn — đúng cho cả kiểu nhập
+    trực tiếp số mâm như KDDT lẫn kiểu nhập gạch). Nếu dòng không có cột 17 thì
+    suy ra từ gạch: max(gạch×5 − trừ − (1 if lẻ>0 else 0), 0).
+    Khi số cây 1 mâm chưa biết (0/None) → dùng cột tổng của sheet.
+    Note-rows (nghỉ/vít/…) không có số liệu → tự nhiên bằng 0.
     """
     scm = float(so_cay_1_mam or 0)
     out_rows = []
     grand_total = 0.0
     for row in parsed.get("rows", []):
         gach, tru, le = row["so_gach"], row["so_tru"], row["so_cay_le"]
+        somam_sheet = row.get("so_mam_sheet")
         if scm > 0:
-            so_mam = max(gach * 5 - tru - (1 if le > 0 else 0), 0)
+            if somam_sheet is not None:
+                so_mam = somam_sheet
+            else:
+                so_mam = max(gach * 5 - tru - (1 if le > 0 else 0), 0)
             total = scm * so_mam + le
         else:
-            so_mam = 0.0
+            so_mam = somam_sheet or 0.0
             total = row.get("tong_sheet", 0.0)
         total = _round2(total)
         if total > 0:
