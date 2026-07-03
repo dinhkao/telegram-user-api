@@ -57,7 +57,7 @@ export function InvoiceTable({ items, discount, pvc, vat, debt, total, q }: {
             {v ? <tr class="sub"><td colSpan={3} class="lbl">VAT</td><td class="num">+{money(v)}</td></tr> : null}
             {disc ? <tr class="sub"><td colSpan={3} class="lbl">Giảm giá</td><td class="num">−{money(disc)}</td></tr> : null}
             {d !== 0 && hasFees ? <tr class="sub"><td colSpan={3} class="lbl">Tổng đơn này</td><td class="num">{money(tongDon)}</td></tr> : null}
-            {d !== 0 ? <tr class="sub debt"><td colSpan={3} class="lbl">Nợ trước</td><td class="num">{money(d)}</td></tr> : null}
+            {d !== 0 ? <tr class="sub"><td colSpan={3} class="lbl">Nợ trước</td><td class="num">{money(d)}</td></tr> : null}
             <tr class="tot"><td colSpan={3} class="lbl">Tổng thanh toán</td><td class="num">{money(tongTT)}đ</td></tr>
           </>
         )}
