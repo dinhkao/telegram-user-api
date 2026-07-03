@@ -213,6 +213,9 @@ async def box_disable_handler(request: web.Request):
     except Exception:
         body = {}
     disabled = bool(body.get("disabled", True))
+    reason = str(body.get("reason") or "").strip()
+    if disabled and not reason:
+        return web.json_response({"ok": False, "error": "Nhập lý do vô hiệu thùng"}, status=400)
 
     def _run():
         conn = _conn()
@@ -227,7 +230,7 @@ async def box_disable_handler(request: web.Request):
             # Cấm vô hiệu thùng đang phân bổ đơn — phải thu hồi khỏi đơn trước
             if disabled and box.get("status") in ("allocated", "shipped"):
                 return box, "Thùng đã phân bổ vào đơn — thu hồi khỏi đơn trước khi vô hiệu"
-            set_disabled(conn, box_id, disabled)
+            set_disabled(conn, box_id, disabled, reason=reason)
             # Đồng bộ tổng phiếu SX nguồn: vô hiệu → trừ, kích hoạt → cộng
             src = box.get("source_thread_id")
             if src:

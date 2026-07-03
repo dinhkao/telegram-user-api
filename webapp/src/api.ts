@@ -364,6 +364,7 @@ export type InvBox = {
   order_thread_id?: number | null;
   note?: string | null;
   disabled?: number | boolean | null;
+  disabled_reason?: string | null;
   created_at?: string;
   created_by?: string;
 };
@@ -431,9 +432,13 @@ export async function boxDetail(id: string | number): Promise<InvBoxDetail | nul
   return d.ok ? { box: d.box, source_slip: d.source_slip } : null;
 }
 
-/** Vô hiệu / kích hoạt lại 1 thùng (không tính tồn/phân bổ/phiếu khi vô hiệu). */
-export async function setBoxDisabled(id: string | number, disabled: boolean): Promise<InvBox | null> {
-  const d = await postJSON(`/api/inventory/box/${id}/disable`, { disabled });
+/** Vô hiệu / kích hoạt lại 1 thùng (vô hiệu cần lý do). */
+export async function setBoxDisabled(
+  id: string | number,
+  disabled: boolean,
+  reason = ""
+): Promise<InvBox | null> {
+  const d = await postJSON(`/api/inventory/box/${id}/disable`, { disabled, reason });
   return d.ok ? d.box : null;
 }
 

@@ -59,15 +59,15 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   const toggleDisabled = async () => {
     if (!d) return;
     const next = !isDisabled(d.box);
-    if (
-      next &&
-      !confirm("Vô hiệu hoá thùng này? Nó sẽ không tính tồn kho, không phân bổ đơn, và bị trừ khỏi phiếu SX.")
-    )
-      return;
+    let reason = "";
+    if (next) {
+      reason = (prompt("Lý do vô hiệu thùng này?") || "").trim();
+      if (!reason) return; // huỷ hoặc bỏ trống → không làm gì
+    }
     setDisBusy(true);
     setErr("");
     try {
-      const b2 = await setBoxDisabled(boxId, next);
+      const b2 = await setBoxDisabled(boxId, next, reason);
       if (b2) setD({ ...d, box: b2 });
     } catch (e: any) {
       setErr(e?.message || "Lỗi cập nhật");
@@ -110,6 +110,9 @@ export function BoxDetail({ boxId }: { boxId: string }) {
       {disabled && (
         <div class="box-disabled-banner">
           🚫 Thùng đã bị vô hiệu — không tính tồn kho, không phân bổ đơn, không tính vào phiếu SX.
+          {b.disabled_reason ? (
+            <div class="box-disabled-reason">Lý do: {b.disabled_reason}</div>
+          ) : null}
         </div>
       )}
 

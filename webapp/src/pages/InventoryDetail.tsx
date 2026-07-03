@@ -89,7 +89,9 @@ export function InventoryDetail({ code }: { code: string }) {
                   <span class="inv-q">{soVN(b.quantity)}</span>
                   {b.note && <span class="inv-note muted small">📝 {b.note}</span>}
                   {b.disabled ? (
-                    <span class="inv-status disabled">Vô hiệu</span>
+                    <span class="inv-status disabled" title={b.disabled_reason || undefined}>
+                      Vô hiệu
+                    </span>
                   ) : (
                     <span class={`inv-status ${st.cls}`}>
                       {st.label}

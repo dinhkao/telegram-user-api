@@ -153,11 +153,20 @@ def update_box(conn, box_id, *, quantity=None, note=None) -> bool:
     return True
 
 
-def set_disabled(conn, box_id, disabled: bool) -> bool:
-    """Vô hiệu / kích hoạt lại 1 thùng (chỉ đặt cờ). Không đụng status/đơn — caller
-    phải bảo đảm thùng KHÔNG đang phân bổ đơn trước khi vô hiệu."""
+def set_disabled(conn, box_id, disabled: bool, reason: str | None = None) -> bool:
+    """Vô hiệu / kích hoạt lại 1 thùng (chỉ đặt cờ + lý do). Không đụng status/đơn —
+    caller phải bảo đảm thùng KHÔNG đang phân bổ đơn trước khi vô hiệu. Kích hoạt lại
+    xoá lý do."""
     with transaction(conn):
-        conn.execute("UPDATE inventory_boxes SET disabled = ? WHERE id = ?", (1 if disabled else 0, box_id))
+        if disabled:
+            conn.execute(
+                "UPDATE inventory_boxes SET disabled=1, disabled_reason=? WHERE id = ?",
+                (reason or "", box_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE inventory_boxes SET disabled=0, disabled_reason=NULL WHERE id = ?", (box_id,)
+            )
     return True
 
 

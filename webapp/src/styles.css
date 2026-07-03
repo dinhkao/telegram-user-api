@@ -388,6 +388,7 @@ body.pv-open { overflow: hidden; }
 .box-off .inv-bc { text-decoration: line-through; }
 .box-detail.is-disabled .box-kv, .box-detail.is-disabled .prod-sp { opacity: .6; }
 .box-disabled-banner { background: #f3f3f3; color: #777; border: 1px dashed #ccc; padding: 8px 12px; border-radius: 8px; font-size: .88rem; margin-bottom: 4px; }
+.box-disabled-reason { margin-top: 4px; color: #555; font-weight: 600; }
 
 .prod-card-note { margin-top: 8px; font-size: .82rem; color: #555; background: #fffbe6; border-radius: 6px; padding: 5px 8px; }
 
