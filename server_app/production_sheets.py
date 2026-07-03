@@ -66,3 +66,30 @@ def sync_number_bg(thread_id, amount: float, note: str, request) -> None:
         actor = str(user)
     from server_app.tasks import spawn_tracked
     spawn_tracked("production.sheet_sync", _sync(thread_id, amount, note, actor))
+
+
+async def _sync_report(thread_id, text: str) -> None:
+    """Đẩy báo cáo theo thợ vào Google Sheet (tab theo ngày) qua append_rows —
+    tái dùng toàn bộ pipeline sheets_bot: tạo tab ngày, header, công thức lương,
+    sắp theo STT, và GHI ĐÈ dòng cũ cùng topic (idempotent theo thread_url).
+    Ô raw ; ánh xạ thẳng vào HEADERS (Tên..Số mâm..)."""
+    mgr = _get_manager()
+    if mgr is None:
+        return
+    try:
+        rows = [[c.strip() for c in line.split(";")] for line in text.splitlines() if line.strip()]
+        if not rows:
+            return
+        from command_handlers.production_commands import _topic_link
+        thread_url = _topic_link(thread_id)
+        result = await mgr.append_rows(rows, thread_url)
+        log.info("sheet report sync ok thread=%s rows=%s replaced=%s",
+                 thread_id, len(rows), bool(result and result.get("replaced")))
+    except Exception as e:  # noqa: BLE001
+        log.warning("sheet report sync hỏng thread=%s: %s", thread_id, e)
+
+
+def sync_report_bg(thread_id, text: str) -> None:
+    """Lên lịch đẩy báo cáo lên Google Sheet chạy nền."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("production.sheet_report", _sync_report(thread_id, text))

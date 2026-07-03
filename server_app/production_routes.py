@@ -277,6 +277,9 @@ async def production_report_save_handler(request: web.Request):
             conn.close()
     await asyncio.to_thread(_run)
     _emit(thread_id)
+    # Đẩy báo cáo lên Google Sheet (tab theo ngày) — best-effort, chạy nền
+    from server_app.production_sheets import sync_report_bg
+    sync_report_bg(thread_id, text)
     return web.json_response({"ok": True, **result})
 
 
