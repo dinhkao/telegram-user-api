@@ -151,6 +151,11 @@ export function OrdersList() {
   const [flashing, setFlashing] = useState<Record<string, string>>({});
   // Xem ảnh phóng to khi bấm thumbnail trên card (không vào trang chi tiết)
   const [viewer, setViewer] = useState<{ threadId: string; images: OrderImage[]; start: number } | null>(null);
+  // Ảnh ngang (rộng > cao) → xoay 90° cho đứng, ô vẫn giữ 1:1
+  const rotIfLandscape = (e: any) => {
+    const im = e?.currentTarget;
+    if (im && im.naturalWidth > im.naturalHeight) im.classList.add("rot90");
+  };
   const openThumb = async (e: Event, o: OrderRow, atId?: number) => {
     e.preventDefault();
     e.stopPropagation();
@@ -361,7 +366,7 @@ export function OrdersList() {
           <li key={o.thread_id}>
             <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
-              {o.thumb_image_id ? <img class="card-thumb" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" onClick={(e) => openThumb(e, o)} /> : null}
+              {o.thumb_image_id ? <img class="card-thumb" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" onLoad={rotIfLandscape} onClick={(e) => openThumb(e, o)} /> : null}
               <div class="order-text">
                 <span class="ot-text">
                   {isNew && <span class="tag-new">Mới</span>}
@@ -397,7 +402,7 @@ export function OrdersList() {
                       <div class="card-thumb-col">
                         {shown.map((id, i) => (
                           <span class="card-thumb-wrap" key={id} onClick={(e) => openThumb(e, o, id)}>
-                            <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, id, "thumb")} loading="lazy" alt="" />
+                            <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, id, "thumb")} loading="lazy" alt="" onLoad={rotIfLandscape} />
                             {i === shown.length - 1 && total > shown.length && <span class="thumb-count">+{total - shown.length}</span>}
                           </span>
                         ))}

@@ -203,6 +203,8 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 /* ── Ảnh đính kèm đơn ── */
 /* Ảnh đại diện đơn trên card dashboard */
 .card-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); flex-shrink: 0; background: var(--bg); }
+/* Ảnh ngang → xoay 90° cho đứng (ô vẫn vuông 1:1) */
+.card-thumb.rot90 { transform: rotate(90deg); }
 .order-card.compact .card-thumb { width: 46px; height: 46px; }
 
 /* Card two-col: ảnh thành ô photo cao full thân card, bên trái */
