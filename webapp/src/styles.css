@@ -300,19 +300,19 @@ body.pv-open { overflow: hidden; }
    khoá overflow:hidden thì cuộn nền bị về 0 → đóng sheet bị nhảy lên đầu). Nền
    không cuộn được vì backdrop cố định chặn chạm; sheet dùng overscroll-contain
    để không kéo lây nền. */
-.sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; }
+.sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 200; }
+/* Layer chi tiết phủ 100% màn hình. KHÔNG để transform/will-change ở trạng thái
+   nghỉ (chỉ set khi kéo) — nếu không, con position:fixed (PhotoViewer) sẽ bị
+   canh theo layer này thay vì viewport → ảnh fullscreen lệch vị trí. */
 .detail-sheet {
-  position: fixed; left: 0; right: 0; bottom: 0; top: 6vh;
-  background: #f2f3f5; z-index: 201;
-  border-radius: 16px 16px 0 0;
+  position: fixed; inset: 0; z-index: 201;
+  background: #f2f3f5;
   overflow-y: auto; -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  box-shadow: 0 -6px 28px rgba(0,0,0,.28);
-  will-change: transform;
 }
 .sheet-handle {
   position: sticky; top: 0; z-index: 2;
-  height: 26px; display: flex; align-items: center; justify-content: center;
-  background: #f2f3f5; border-radius: 16px 16px 0 0; cursor: pointer;
+  height: 22px; display: flex; align-items: center; justify-content: center;
+  background: #f2f3f5; cursor: pointer;
 }
 .sheet-grip { width: 40px; height: 4px; border-radius: 3px; background: #c4c7cc; }

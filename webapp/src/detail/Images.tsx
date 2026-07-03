@@ -19,6 +19,19 @@ export function Images({ threadId }: { threadId: string }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const camInput = useRef<HTMLInputElement>(null);
 
+  // Lightbox = 1 lớp riêng: mở → đẩy history entry để nút back/OS đóng ảnh trước
+  // (rồi mới đóng chi tiết). Đóng thủ công (X/vuốt) → history.back() để nhất quán.
+  const openViewer = (img: OrderImage) => {
+    setLightbox(img);
+    history.pushState({ lb: 1 }, "");
+  };
+  useEffect(() => {
+    if (!lightbox) return;
+    const onPop = () => setLightbox(null);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [lightbox]);
+
   // Chẩn đoán trên máy: hiện từng bước để biết ảnh gallery hỏng ở đâu
   const logDbg = (m: string) => setDbg((p) => [...p.slice(-11), m]);
 
@@ -97,7 +110,7 @@ export function Images({ threadId }: { threadId: string }) {
   const remove = async (img: OrderImage) => {
     if (!confirm("Xoá ảnh này?")) return;
     setImages((prev) => prev.filter((x) => x.id !== img.id)); // lạc quan
-    if (lightbox?.id === img.id) setLightbox(null);
+    if (lightbox?.id === img.id) history.back(); // đóng lớp ảnh + nhả history entry
     try {
       await deleteOrderImage(threadId, img.id);
     } catch (ex: any) {
@@ -144,7 +157,7 @@ export function Images({ threadId }: { threadId: string }) {
                 src={orderImageUrl(threadId, img.id, "thumb")}
                 loading="lazy"
                 alt=""
-                onClick={() => setLightbox(img)}
+                onClick={() => openViewer(img)}
               />
               <button class="img-del" title="Xoá" onClick={() => remove(img)}>×</button>
             </div>
@@ -157,7 +170,7 @@ export function Images({ threadId }: { threadId: string }) {
           images={images}
           start={Math.max(0, images.findIndex((x) => x.id === lightbox.id))}
           threadId={threadId}
-          onClose={() => setLightbox(null)}
+          onClose={() => history.back()}
         />
       )}
     </div>

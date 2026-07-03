@@ -29,11 +29,23 @@ export function DetailSheet({ onClose, children }: { onClose: () => void; childr
     setTimeout(onClose, 220);
   };
 
+  // Xoá transform + will-change ở trạng thái nghỉ để con position:fixed
+  // (PhotoViewer) canh theo viewport, không theo sheet.
+  const clearTransformAtRest = (s: HTMLElement) => {
+    const h = () => {
+      s.removeEventListener("transitionend", h);
+      s.style.transform = "";
+      s.style.willChange = "";
+    };
+    s.addEventListener("transitionend", h);
+  };
+
   const snapBack = () => {
     const s = sheetRef.current;
     if (s) {
       s.style.transition = "transform .2s ease-out";
       s.style.transform = "translateY(0)";
+      clearTransformAtRest(s);
     }
     if (backRef.current) backRef.current.style.transition = "opacity .2s";
     setBack(1);
@@ -46,12 +58,20 @@ export function DetailSheet({ onClose, children }: { onClose: () => void; childr
     if (!s) return;
     document.body.classList.add("sheet-open");
     s.style.transform = "translateY(100%)";
+    s.style.willChange = "transform";
     setBack(0);
     requestAnimationFrame(() => {
       s.style.transition = "transform .28s cubic-bezier(.22,.61,.36,1)";
       if (backRef.current) backRef.current.style.transition = "opacity .28s";
       s.style.transform = "translateY(0)";
       setBack(1);
+      // sau khi trượt lên xong → bỏ transform để lớp ảnh fullscreen canh đúng
+      const h = () => {
+        s.removeEventListener("transitionend", h);
+        s.style.transform = "";
+        s.style.willChange = "";
+      };
+      s.addEventListener("transitionend", h);
     });
 
     const apply = () => {
@@ -69,7 +89,9 @@ export function DetailSheet({ onClose, children }: { onClose: () => void; childr
       st.dy = 0;
       // chỉ cho kéo-đóng khi sheet đã cuộn lên đỉnh
       st.dragging = s.scrollTop <= 0;
+      if (!st.dragging) return;
       s.style.transition = "none";
+      s.style.willChange = "transform";
       if (backRef.current) backRef.current.style.transition = "none";
     };
     const onMove = (e: TouchEvent) => {
