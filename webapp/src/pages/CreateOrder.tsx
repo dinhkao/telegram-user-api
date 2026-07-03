@@ -61,19 +61,20 @@ export function CreateOrder() {
     if (!text.trim()) return setErr("Nhập nội dung đơn");
     setBusy(true); setErr("");
     try {
-      const body: any = { text: text.trim() };
-      if (picked) body.customer_key = picked.key; // khách chọn tay → gán luôn
-      const r = await postJSON("/api/order/create", body);
-      window.location.hash = `#/order/${r.thread_id}`;
+      // Đăng vào kênh #don_hang → tạo topic Telegram + đơn (như gõ tay trên Telegram)
+      const r = await postJSON("/api/order/create", { text: text.trim() });
+      if (r.thread_id) window.location.hash = `#/order/${r.thread_id}`;
+      else { setErr("✅ Đã gửi vào #don_hang — đang tạo đơn, sẽ hiện ở danh sách."); window.location.hash = "#/"; }
     } catch (ex: any) { setErr(ex.message); } finally { setBusy(false); }
   };
 
-  // Nâng cao: tạo đơn (gán khách) → lưu hoá đơn + điều chỉnh → sang trang chi tiết
+  // Nâng cao: đăng tên khách vào #don_hang (tạo topic + đơn) → lưu hoá đơn → chi tiết
   const createAdvanced = async (payload: EditorPayload) => {
     if (!customer) throw new Error("Chọn khách hàng trước");
     if (!payload.invoice.length) throw new Error("Thêm ít nhất 1 sản phẩm");
-    const r = await postJSON("/api/order/create", { text: customer.name, customer_key: customer.key });
+    const r = await postJSON("/api/order/create", { text: customer.name });
     const tid = r.thread_id;
+    if (!tid) throw new Error("Đơn đang được tạo trên Telegram — chờ vài giây rồi thử lại");
     await postJSON("/api/order/invoice/update", { thread_id: tid, ...payload });
     window.location.hash = `#/order/${tid}`;
   };
@@ -205,7 +206,7 @@ export function CreateOrder() {
           <p class="muted small">Bấm 💾 Lưu để tạo đơn; sang trang chi tiết bấm 🧾 Tạo HĐ KiotViet.</p>
         </div>
       )}
-      <p class="muted small">⚠️ Đơn tạo từ web chỉ nằm trong hệ thống — không tạo topic Telegram.</p>
+      <p class="muted small">📨 Đơn tạo từ web sẽ đăng vào kênh #don_hang và tạo topic Telegram như gõ tay.</p>
 
       {plOpen && (
         <div class="modal-backdrop" onClick={() => setPlOpen(false)}>
