@@ -45,27 +45,39 @@ async def order_preview_handler(request: web.Request):
     except Exception:
         return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
     text = (body.get("text") or "").strip()
-    if not text:
+    manual_key = (body.get("customer_key") or "").strip() or None
+    if not text and not manual_key:
         return web.json_response({"ok": True, "customer": None, "candidates": [], "invoice": [], "total": 0})
     conn = _get_connection()
-    detection = detect_customer_free_text(conn, text)
-    assigned = detection["autoAssign"] if detection.get("autoAssign") else None
-    kh_id = assigned["customerID"] if assigned else None
-    invoice = parse_invoice_free_text(conn, text, kh_id)
-    if invoice and assigned and get_customer_price_list(conn, assigned["customerID"]):
-        invoice = parse_invoice_free_text(conn, text, assigned["customerID"])
+
+    # Khách: ưu tiên khách người dùng CHỌN tay; nếu không thì tự nhận diện từ text
+    detection = None
+    if manual_key:
+        kh_id = manual_key
+        cust = get_customer_by_key(conn, kh_id) or {}
+        name = cust.get("name") or cust.get("ten") or None
+        assigned_out = {"id": kh_id, "name": name, "score": 100, "manual": True}
+    else:
+        detection = detect_customer_free_text(conn, text)
+        a = detection["autoAssign"] if detection.get("autoAssign") else None
+        kh_id = a["customerID"] if a else None
+        assigned_out = {"id": a["customerID"], "name": a["customerName"], "score": a["score"], "manual": False} if a else None
+
+    invoice = parse_invoice_free_text(conn, text, kh_id) if text else []
+    if invoice and kh_id and get_customer_price_list(conn, kh_id):
+        invoice = parse_invoice_free_text(conn, text, kh_id)
     invoice = invoice or []
     total = sum((it.get("sl", 0) or 0) * (it.get("price", 0) or 0) for it in invoice)
-    customer_out = None
-    if assigned:
-        customer_out = {"id": assigned["customerID"], "name": assigned["customerName"], "score": assigned["score"], **_customer_extra(conn, assigned["customerID"])}
+
+    customer_out = {**assigned_out, **_customer_extra(conn, kh_id)} if assigned_out else None
+    candidates = [] if (manual_key or assigned_out) else [
+        {"id": m["customerID"], "name": m["customerName"], "score": m["score"]}
+        for m in ((detection or {}).get("matches") or [])[:3]
+    ]
     return web.json_response({
         "ok": True,
         "customer": customer_out,
-        "candidates": [] if assigned else [
-            {"id": m["customerID"], "name": m["customerName"], "score": m["score"]}
-            for m in (detection.get("matches") or [])[:3]
-        ],
+        "candidates": candidates,
         "invoice": [{
             "sp": it.get("sp"), "sl": it.get("sl", 0), "price": it.get("price", 0),
             "sub": (it.get("sl", 0) or 0) * (it.get("price", 0) or 0),

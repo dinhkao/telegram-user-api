@@ -124,7 +124,7 @@ export async function searchProducts(q: string): Promise<{ code: string; name: s
 
 export type OrderPreview = {
   customer: {
-    id: string; name: string; score: number;
+    id: string; name: string | null; score: number; manual?: boolean;
     debt?: number | null; debt_updated_at?: string | null; price_list_name?: string | null;
   } | null;
   candidates: { id: string; name: string; score: number }[];
@@ -132,9 +132,10 @@ export type OrderPreview = {
   total: number;
 };
 
-/** Xem trước kết quả parse text đơn (khách + SP + tổng) — không tạo/lưu. */
-export async function previewOrder(text: string): Promise<OrderPreview> {
-  return postJSON("/api/order/preview", { text });
+/** Xem trước kết quả parse text đơn (khách + SP + tổng) — không tạo/lưu.
+ *  customerKey: chọn khách tay (đè lên tự nhận diện). */
+export async function previewOrder(text: string, customerKey?: string): Promise<OrderPreview> {
+  return postJSON("/api/order/preview", { text, customer_key: customerKey || null });
 }
 
 /** Kéo nợ MỚI của khách từ KiotViet (cập nhật snapshot) → trả nợ mới. */

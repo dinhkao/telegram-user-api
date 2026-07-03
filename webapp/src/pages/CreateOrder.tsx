@@ -10,9 +10,10 @@ import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
 
 export function CreateOrder() {
-  const [mode, setMode] = useState<"advanced" | "quick">("advanced");
+  const [mode, setMode] = useState<"advanced" | "quick">("quick");
   const [text, setText] = useState("");
   const [customer, setCustomer] = useState<{ key: string; name: string } | null>(null);
+  const [picked, setPicked] = useState<{ key: string; name: string } | null>(null); // khách chọn tay ở tab Nhanh
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [preview, setPreview] = useState<OrderPreview | null>(null);
@@ -38,20 +39,22 @@ export function CreateOrder() {
   useEffect(() => {
     if (mode !== "quick") { setPreview(null); return; }
     const t = text.trim();
-    if (!t) { setPreview(null); setPreviewing(false); return; }
+    if (!t && !picked) { setPreview(null); setPreviewing(false); return; }
     const my = ++seq.current;
     setPreviewing(true);
-    previewOrder(t)
+    previewOrder(t, picked?.key)
       .then((r) => { if (my === seq.current) setPreview(r); })
       .catch(() => { if (my === seq.current) setPreview(null); })
       .finally(() => { if (my === seq.current) setPreviewing(false); });
-  }, [text, mode]);
+  }, [text, mode, picked?.key]);
 
   const submitQuick = async () => {
     if (!text.trim()) return setErr("Nhập nội dung đơn");
     setBusy(true); setErr("");
     try {
-      const r = await postJSON("/api/order/create", { text: text.trim() });
+      const body: any = { text: text.trim() };
+      if (picked) body.customer_key = picked.key; // khách chọn tay → gán luôn
+      const r = await postJSON("/api/order/create", body);
       window.location.hash = `#/order/${r.thread_id}`;
     } catch (ex: any) { setErr(ex.message); } finally { setBusy(false); }
   };
@@ -70,14 +73,29 @@ export function CreateOrder() {
     <div>
       <h2>➕ Tạo đơn mới</h2>
       <div class="chips">
-        <button class={mode === "advanced" ? "chip active" : "chip"} onClick={() => setMode("advanced")}>Nâng cao</button>
         <button class={mode === "quick" ? "chip active" : "chip"} onClick={() => setMode("quick")}>Nhanh (text)</button>
+        <button class={mode === "advanced" ? "chip active" : "chip"} onClick={() => setMode("advanced")}>Nâng cao</button>
       </div>
 
       {mode === "quick" ? (
         <div class="card">
+          {/* Chọn khách (tùy chọn) — đè lên tự nhận diện từ text */}
+          <div class="quick-cust">
+            {picked ? (
+              <div class="picked-cust">
+                ✓ <b>{picked.name}</b>
+                <button class="btn small" onClick={() => setPicked(null)}>Đổi</button>
+              </div>
+            ) : (
+              <>
+                <label>Khách hàng (tùy chọn — để trống thì tự nhận từ text)</label>
+                <CustomerPicker onPick={setPicked} />
+              </>
+            )}
+          </div>
+
           {/* Xem trước Ở TRÊN ô nhập → bàn phím mobile không che */}
-          {text.trim() && (
+          {(text.trim() || picked) && (
             <div class="preview-box">
               <div class="preview-head">
                 🔎 Xem trước {previewing && <span class="muted small">đang phân tích…</span>}
@@ -87,7 +105,8 @@ export function CreateOrder() {
                   <div class="preview-cust">
                     {preview.customer ? (
                       <>
-                        👤 <b>{preview.customer.name}</b> <span class="muted small">({preview.customer.score}%)</span>
+                        👤 <b>{preview.customer.name || picked?.name || "Khách"}</b>{" "}
+                        <span class="muted small">{preview.customer.manual ? "(chọn tay)" : `(${preview.customer.score}%)`}</span>
                         {(() => {
                           const isLive = liveDebt?.id === preview.customer!.id;
                           const debt = isLive ? liveDebt!.debt : preview.customer!.debt;
