@@ -56,9 +56,10 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   }, [detail?.data?.ngay_giao]);
   // Ghép lại: có giờ → 'YYYY-MM-DDTHH:MM', chỉ ngày → 'YYYY-MM-DD', không ngày → ''.
   const nggCombined = nggDate ? (nggTime ? `${nggDate}T${nggTime}` : nggDate) : "";
-  const saveNgayGiao = async () => {
+  // Tự lưu ngay khi đổi ngày/giờ (không cần nút Lưu) — tính combined từ giá trị MỚI.
+  const commitNgg = async (d: string, t: string) => {
     setSavingNg(true); setMsg("");
-    try { await setOrderNgayGiao(threadId, nggCombined); changed(); setMsg("✅ Đã lưu ngày giao"); }
+    try { await setOrderNgayGiao(threadId, d ? (t ? `${d}T${t}` : d) : ""); changed(); setMsg("✅ Đã lưu ngày giao"); }
     catch (e: any) { setMsg(`❌ ${e.message}`); }
     finally { setSavingNg(false); }
   };
@@ -317,12 +318,14 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           {j.ngay_giao && j.ngay_giao_auto ? <span class="muted small">tự đặt khi tạo đơn</span> : null}
         </div>
         <div class="row ngg-row">
-          <input type="date" class="ngg-date" value={nggDate} onInput={(e: any) => setNggDate(e.target.value)} />
-          <input type="time" class="ngg-time" value={nggTime} disabled={!nggDate} onInput={(e: any) => setNggTime(e.target.value)} />
-          <button class="btn primary" disabled={savingNg} onClick={saveNgayGiao}>{savingNg ? "…" : "Lưu"}</button>
-          {nggDate && <button class="btn small" disabled={savingNg} title="Xoá ngày giao" onClick={() => { setNggDate(""); setNggTime(""); }}>✕</button>}
+          <input type="date" class="ngg-date" value={nggDate} disabled={savingNg}
+            onChange={(e: any) => { const v = e.target.value; setNggDate(v); commitNgg(v, nggTime); }} />
+          <input type="time" class="ngg-time" value={nggTime} disabled={!nggDate || savingNg}
+            onChange={(e: any) => { const v = e.target.value; setNggTime(v); commitNgg(nggDate, v); }} />
+          {savingNg && <span class="muted small">⏳</span>}
+          {nggDate && !savingNg && <button class="btn small" title="Xoá ngày giao" onClick={() => { setNggDate(""); setNggTime(""); commitNgg("", ""); }}>✕</button>}
         </div>
-        {nggCombined ? <p class="muted small">Giao dự kiến: <b>{fmtNgayGiao(nggCombined)}</b></p> : <p class="muted small">Chưa đặt ngày giao.</p>}
+        {nggCombined ? <p class="muted small">Giao dự kiến: <b>{fmtNgayGiao(nggCombined)}</b> · tự lưu khi đổi</p> : <p class="muted small">Chưa đặt ngày giao.</p>}
       </div>
 
       <Tasks threadId={threadId} taskStatus={j.task_status || {}} userNames={detail.user_names || {}} onChanged={changed} />
