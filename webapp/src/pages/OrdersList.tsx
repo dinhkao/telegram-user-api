@@ -528,6 +528,7 @@ export function OrdersList() {
         <span class="sort-lbl">Sắp xếp:</span>
         <button class={sort === "created" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("created")}>Mới tạo</button>
         <button class={sort === "updated" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("updated")}>Mới cập nhật</button>
+        <a class="sort-opt cal-chip" href="#/lich" title="Lịch giao hàng">📅 Lịch giao</a>
       </div>
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {err && <p class="error">{err}</p>}

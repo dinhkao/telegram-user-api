@@ -66,12 +66,20 @@ export function DeliveryCalendar() {
         {cells.map((d, i) => {
           if (d === null) return <span class="cal-cell empty" key={`e${i}`} />;
           const ds = iso(ym.y, ym.m, d);
-          const n = (byDay[ds] || []).length;
+          const dayOrders = byDay[ds] || [];
+          const n = dayOrders.length;
           const cls = ["cal-cell", ds === sel ? "sel" : "", ds === todayIso ? "today" : "", n ? "has" : ""].filter(Boolean).join(" ");
           return (
             <button class={cls} key={ds} onClick={() => setSel(ds)}>
               <span class="cal-d">{d}</span>
-              {n > 0 && <span class="cal-dot">{n}</span>}
+              {n > 0 && (
+                <span class="cal-names">
+                  {dayOrders.slice(0, 2).map((o) => (
+                    <span class="cal-nm" key={o.thread_id}>{o.customer || o.topic_name || `#${o.thread_id}`}</span>
+                  ))}
+                  {n > 2 && <span class="cal-more">+{n - 2}</span>}
+                </span>
+              )}
             </button>
           );
         })}

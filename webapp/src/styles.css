@@ -452,14 +452,22 @@ body.pv-open { overflow: hidden; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .cal-wd { margin-bottom: 6px; }
 .cal-wd-cell { text-align: center; font-size: .72rem; color: var(--muted); font-weight: 700; }
-.cal-cell { position: relative; aspect-ratio: 1 / 1; border: 1px solid transparent; background: var(--card); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: .95rem; color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; padding: 0; }
+.cal-cell { position: relative; aspect-ratio: 1 / 1; border: 1px solid transparent; background: var(--card); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: .95rem; color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; padding: 2px; overflow: hidden; }
 .cal-cell.empty { background: transparent; cursor: default; }
-.cal-cell.has { font-weight: 700; }
 .cal-cell.today { border-color: var(--primary); }
 .cal-cell.sel { background: var(--primary); color: #fff; border-color: var(--primary); }
-.cal-dot { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); min-width: 16px; height: 15px; padding: 0 4px; border-radius: 999px; background: var(--warn); color: #fff; font-size: .6rem; font-weight: 800; display: flex; align-items: center; justify-content: center; line-height: 1; }
-.cal-cell.sel .cal-dot { background: #fff; color: var(--primary); }
+.cal-cell .cal-d { line-height: 1.05; }
+/* Ngày có đơn: số ngày nhích lên trên, tên khách siêu nhỏ phía dưới */
+.cal-cell.has { justify-content: flex-start; }
+.cal-cell.has .cal-d { font-size: .78rem; font-weight: 700; margin: 1px 0; }
+.cal-names { display: flex; flex-direction: column; align-self: stretch; gap: 0; overflow: hidden; }
+.cal-nm { font-size: .5rem; line-height: 1.18; font-weight: 700; color: var(--warn); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.cal-cell.sel .cal-nm { color: #fff; }
+.cal-more { font-size: .48rem; line-height: 1.1; color: var(--muted); text-align: center; }
+.cal-cell.sel .cal-more { color: rgba(255,255,255,.85); }
 .cal-day-head { margin: 16px 2px 8px; font-weight: 700; font-size: 1rem; }
+/* Chip mở Lịch giao ở hàng sắp xếp (đẩy về cuối hàng) */
+.sort-opt.cal-chip { margin-left: auto; text-decoration: none; }
 /* Ngày giao — badge trên card danh sách + hàng nhập ở trang chi tiết */
 .od-deliver { display: inline-flex; align-items: center; gap: 4px; margin: 2px 0 6px; font-size: .8rem; font-weight: 700; color: var(--warn); background: var(--warn-wash); padding: 3px 10px; border-radius: 999px; }
 .ngg-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
