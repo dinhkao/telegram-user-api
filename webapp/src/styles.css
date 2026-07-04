@@ -84,13 +84,6 @@ body { font-family: system-ui, -apple-system, Roboto, sans-serif; background: va
 .od-back { font-size: 1.5rem; text-decoration: none; color: inherit; padding: 4px 8px; }
 .od-appttl { font-weight: 600; font-size: 1rem; }
 .od-id { font-family: ui-monospace, monospace; color: var(--muted); font-weight: 500; font-size: .9rem; }
-.od-head { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md, 12px); padding: 14px 14px 13px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
-.od-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.od-cust { font-size: 1.2rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
-.od-sub { margin-top: 3px; font-size: .78rem; color: var(--muted); font-family: ui-monospace, monospace; }
-.od-pill { flex: 0 0 auto; font-size: .72rem; font-weight: 700; padding: 5px 11px; border-radius: 999px; white-space: nowrap; }
-.od-pill.deliver { color: var(--primary); background: var(--accent-wash); }
-.od-pill.ok { color: var(--ok); background: var(--ok-wash); }
 .od-sum { display: flex; margin-top: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .od-sum .od-s { flex: 1; padding: 9px 11px; border-right: 1px solid var(--border); }
 .od-sum .od-s:last-child { border-right: none; }

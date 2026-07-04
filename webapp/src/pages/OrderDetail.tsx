@@ -158,16 +158,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const computedTotal = invoiceTotal(j.invoice) - (Number(j.discount) || 0) + (Number(j.pvc) || 0) + (Number(j.vat) || 0);
   const total = pc.tongthanhtoan ? pc.tongthanhtoan : money(computedTotal);
   const paid = paidTotal(j.payments);
-  // Redesign: tóm tắt tiền + stepper 5 bước + action bar (từ task_status có sẵn)
-  const STEPS = [
-    { k: "ban_hd", lb: "Bán HĐ" }, { k: "soan_hang", lb: "Soạn" },
-    { k: "giao_hang", lb: "Giao" }, { k: "nop_tien", lb: "Nộp" }, { k: "nhan_tien", lb: "Nhận" },
-  ];
-  const ts = j.task_status || {};
-  const stepDone = (k: string) => !!(ts[k]?.done || ts[k]?.skip);
-  const nextStep = STEPS.find((s) => !stepDone(s.k)) || null;
   const remaining = Math.max(0, computedTotal - paid);
-  const pill = nextStep ? { cls: "deliver", txt: `Đang ${nextStep.lb.toLowerCase()}` } : { cls: "ok", txt: "Hoàn tất" };
 
   const doPrint = async () => {
     if (!(await confirmDialog("In 2 hoá đơn + phiếu giao?"))) return;
@@ -254,15 +245,6 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         <BackLink fallback="#/orders" className="od-back" />
         <div class="od-appttl">Đơn <span class="od-id">#{threadId}</span></div>
       </header>
-      <div class="od-head">
-        <div class="od-top">
-          <div class="od-cust">{pc.kh || j.customer_name || j.topic_name || `#${threadId}`}</div>
-          <span class={`od-pill ${pill.cls}`}>{pill.txt}</span>
-        </div>
-        {(j.kiotvietInvoiceCode || (j.hoadon || {}).hd_code) && (
-          <div class="od-sub">{j.kiotvietInvoiceCode || (j.hoadon || {}).hd_code}{pc.datetime ? ` · ${pc.datetime}` : ""}</div>
-        )}
-      </div>
       {detail._stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {msg && <p class="notice" onClick={() => setMsg("")}>{msg}</p>}
 
