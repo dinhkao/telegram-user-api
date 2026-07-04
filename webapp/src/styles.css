@@ -52,7 +52,7 @@ body { font-family: system-ui, -apple-system, Roboto, sans-serif; background: va
 .bottom-nav .tab.active .tab-lbl { font-weight: 600; }
 .bottom-nav .tab.active .tab-ico { transform: translateY(-1px); }
 
-.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin: 8px 0; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin: 5px 0; }
 .row { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
 .row.space { justify-content: space-between; }
 .center { text-align: center; }
