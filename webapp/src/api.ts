@@ -138,6 +138,15 @@ export async function getCustomerPriceList(key: string): Promise<CustomerPriceLi
   return { name: d.name ?? null, items: d.items || [] };
 }
 
+// ── Cập nhật APK (manifest do builder deploy vào /app/update) ──
+export type ApkVersion = { versionCode: number; versionName?: string; url?: string };
+/** Đọc phiên bản APK mới nhất trên máy chủ (versionCode 0 = chưa deploy). */
+export async function getApkVersion(): Promise<ApkVersion> {
+  const res = await fetch("/app/update/version.json", { cache: "no-store" });
+  if (!res.ok) throw new Error("Không đọc được thông tin cập nhật");
+  return res.json();
+}
+
 // ── Bảng giá chung (kv_store['bang_gia_moi']) ──
 export type PriceListSummary = { id: string; name: string; product_count: number };
 export type PriceItem = { sp: string; price: number };

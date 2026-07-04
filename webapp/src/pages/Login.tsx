@@ -2,6 +2,7 @@
 // nên không cần nhập server URL nữa — gọi API bằng đường dẫn tương đối.
 import { useState } from "preact/hooks";
 import { currentUser, login, setAuth } from "../api";
+import { AppUpdate } from "../detail/AppUpdate";
 
 export function Login() {
   const [username, setUsername] = useState("");
@@ -30,13 +31,16 @@ export function Login() {
       <p class="muted">Quản lý đơn hàng</p>
       {user ? (
         // Đã đăng nhập → trang cài đặt: chỉ hiện thông tin + đăng xuất (ẩn form login)
-        <div class="card">
-          <p>Đang đăng nhập: <b>{user.display_name}</b> ({user.username})</p>
-          <div class="row">
-            <a class="btn" href="#/orders">← Quay lại</a>
-            <button class="btn danger" onClick={() => { setAuth("", null); window.location.reload(); }}>Đăng xuất</button>
+        <>
+          <div class="card">
+            <p>Đang đăng nhập: <b>{user.display_name}</b> ({user.username})</p>
+            <div class="row">
+              <a class="btn" href="#/orders">← Quay lại</a>
+              <button class="btn danger" onClick={() => { setAuth("", null); window.location.reload(); }}>Đăng xuất</button>
+            </div>
           </div>
-        </div>
+          <AppUpdate />
+        </>
       ) : (
         <form onSubmit={submit} class="card">
           <label>Tên đăng nhập</label>
