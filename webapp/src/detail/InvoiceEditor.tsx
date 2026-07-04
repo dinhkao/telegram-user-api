@@ -189,12 +189,21 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
 
   // Nút liên quan hoá đơn KiotViet — gom chung ở đây (chưa có HĐ → Tạo; có HĐ → Xem/Xoá)
   const invActions = (
-    <div class="row" style="margin-top:8px">
-      {hasInvoice && invoiceCode ? <span class="muted small">HĐ: {invoiceCode}</span> : null}
-      {hasInvoice && onView ? <button class="btn small" onClick={onView}>👁️ Xem HĐ</button> : null}
-      {hasInvoice && canDelete && onDelete ? <button class="btn small danger" disabled={busy} onClick={() => run(onDelete)}>🗑️ Xoá HĐ</button> : null}
-      {hasInvoice && onPrint ? <button class="btn small" disabled={busy} onClick={() => run(onPrint)}>🖨️ In HĐ + phiếu giao</button> : null}
-      {!hasInvoice && canCreate && onCreateInvoice ? <button class="btn primary" disabled={busy} onClick={() => run(onCreateInvoice)}>🧾 Tạo HĐ KiotViet</button> : null}
+    <div class="inv-actions">
+      {hasInvoice && invoiceCode ? (
+        <div class="inv-created">✅ Đã tạo hoá đơn KiotViet · Mã <b>{invoiceCode}</b></div>
+      ) : null}
+      {hasInvoice ? (
+        <div class="inv-btns">
+          {onView ? <button class="btn small" onClick={onView}>👁️ Xem</button> : null}
+          {onPrint ? <button class="btn small" disabled={busy} title="In HĐ + phiếu giao" onClick={() => run(onPrint)}>🖨️ In</button> : null}
+          {canDelete && onDelete ? <button class="btn small danger" disabled={busy} onClick={() => run(onDelete)}>🗑️ Xoá</button> : null}
+        </div>
+      ) : (
+        canCreate && onCreateInvoice ? (
+          <button class="btn primary wide" disabled={busy} onClick={() => run(onCreateInvoice)}>🧾 Tạo HĐ KiotViet</button>
+        ) : null
+      )}
     </div>
   );
 

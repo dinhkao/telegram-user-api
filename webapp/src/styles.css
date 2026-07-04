@@ -248,6 +248,14 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .inv-mini .tot td { font-weight: 700; border-top: 1px solid var(--border); border-bottom: none; }
 .card-inv { margin-top: 8px; }
 
+/* Hoá đơn KiotViet — banner "đã tạo · mã" 1 dòng riêng + hàng nút đều nhau */
+.inv-actions { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.inv-created { background: var(--ok-wash); color: var(--ok); border: 1px solid rgba(24,128,56,.18); border-radius: 8px; padding: 8px 11px; font-size: .85rem; font-weight: 600; }
+.inv-created b { font-family: ui-monospace, monospace; }
+.inv-btns { display: flex; gap: 8px; }
+.inv-btns .btn { flex: 1; min-height: 40px; }
+.inv-actions > .btn.wide { margin: 0; }
+
 /* Desktop: rộng hơn, bố cục 2 cột */
 @media (min-width: 820px) {
   .app, .bottom-nav { max-width: 1040px; }
