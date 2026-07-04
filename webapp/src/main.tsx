@@ -173,7 +173,7 @@ function App() {
           <a class={tab("#/create")} href="#/create">➕ Tạo</a>
           <a class={tab("#/san_xuat")} href="#/san_xuat">🏭 SX</a>
           <a class={tab("#/kho")} href="#/kho">📦 Kho</a>
-          <button class={hash.startsWith("#/bang-gia") ? "tab active" : "tab"} onClick={() => setMenuOpen(true)}>☰ Thêm</button>
+          <button class={hash.startsWith("#/bang-gia") ? "tab nav-more active" : "tab nav-more"} onClick={() => setMenuOpen(true)} title="Thêm">☰</button>
         </nav>
       )}
       {menuOpen && !showLogin && (
