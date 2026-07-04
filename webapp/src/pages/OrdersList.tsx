@@ -1,6 +1,6 @@
 // Danh sách đơn — search (FTS server), lọc xong/chưa, phân trang "Tải thêm".
 // Data: GET /api/orders (server_app/orders_api.py). Card → #/order/:thread_id.
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { getJSON } from "../api";
 import { money, fmtDateTimeVN, fmtRelative, foldVN, isRecent } from "../format";
 
@@ -147,6 +147,74 @@ function LastAction({ o }: { o: OrderRow }) {
         </ul>
       )}
       <div class="la-meta">{o.last_actor || "?"} · {fmtRelative(o.last_action_ts)}</div>
+    </div>
+  );
+}
+
+// Thân card two-col: cột thumbnail (trái) + nội dung (phải). ĐO chiều cao nội dung
+// thật (ResizeObserver) → nếu đủ cho 2 ô vuông (H ≥ 2×rộng-cột + gap) thì hiện 2 ảnh.
+function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }: {
+  o: OrderRow; search: string; stt: string; isNew: boolean;
+  openThumb: (e: Event, o: OrderRow, atId?: number) => void;
+  filterByCustomer: (e: Event, c: string) => void;
+}) {
+  const allIds = o.thumb_image_ids && o.thumb_image_ids.length ? o.thumb_image_ids : (o.thumb_image_id ? [o.thumb_image_id] : []);
+  const total = o.image_count ?? allIds.length;
+  const contentRef = useRef<HTMLDivElement>(null);
+  const colRef = useRef<HTMLDivElement>(null);
+  const [two, setTwo] = useState(false);
+  useLayoutEffect(() => {
+    if (allIds.length < 2) { setTwo(false); return; }
+    const el = contentRef.current;
+    if (!el) return;
+    const measure = () => {
+      const h = el.offsetHeight; // chiều cao nội dung TỰ NHIÊN (không bị flex kéo giãn)
+      const w = colRef.current?.offsetWidth || 100;
+      setTwo(h >= 2 * w + 6); // 2 ô vuông xếp dọc + gap 6px
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    if (colRef.current) ro.observe(colRef.current);
+    return () => ro.disconnect();
+  }, [allIds.length, o.text, o.last_action, o.last_changes?.length, o.customer, o.total]);
+  const shown = two ? allIds.slice(0, 2) : allIds.slice(0, 1);
+  return (
+    <div class="card-body">
+      {allIds.length > 0 && (
+        <div class="card-thumb-col" ref={colRef}>
+          {shown.map((id, i) => (
+            <span class="card-thumb-wrap" key={id} onClick={(e) => openThumb(e, o, id)}>
+              <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, id, "thumb")} loading="lazy" alt="" />
+              {i === shown.length - 1 && total > shown.length && <span class="thumb-count">+{total - shown.length}</span>}
+            </span>
+          ))}
+        </div>
+      )}
+      <div class="card-content">
+        <div class="cc-measure" ref={contentRef}>
+          {o.text
+            ? <div class="order-text wrap-badges"><TaskBadges o={o} /><span class="ot-text"><Highlight text={o.text} q={search} /></span></div>
+            : <div class="order-text muted wrap-badges"><TaskBadges o={o} /><span class="ot-text">(không có nội dung)</span></div>}
+          <div class="row space">
+            <b class="cust">{isNew && <span class="tag-new">Mới</span>} <Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} />
+              {o.customer ? <button class="cust-filter" title={`Lọc đơn của ${o.customer}`} onClick={(e) => filterByCustomer(e, o.customer)}>🔎</button> : null}</b>
+            <span class="muted small order-when">
+              {o.created ? <>🕒 {fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
+            </span>
+          </div>
+          <div class="row space">
+            <span>
+              {o.total && <b class="money">{o.total}đ</b>}
+              {stt && <span class={stt.includes("đã nộp") ? "paid-ok" : "owe"}> · {stt}</span>}
+            </span>
+          </div>
+          <div class="muted small">
+            {o.hd_code && <span>{o.hd_code} · </span>}
+            {o.invoice_count} món{o.creator ? ` · ${o.creator}` : ""}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -446,58 +514,7 @@ export function OrdersList() {
               <div class="card-main">
                 {sort === "updated" && <LastAction o={o} />}
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
-                <div class="card-body">
-                  {(() => {
-                    const allIds = o.thumb_image_ids && o.thumb_image_ids.length ? o.thumb_image_ids : (o.thumb_image_id ? [o.thumb_image_id] : []);
-                    if (!allIds.length) return null;
-                    // Card đủ cao cho 2 ô vuông → hiện 2 thumbnail (ước lượng theo số
-                    // dòng nội dung: text + khối "thao tác mới nhất" nếu đang ở view đó).
-                    const t = o.text || "";
-                    const textLines = Math.max(t.split("\n").length, Math.ceil((t.length || 0) / 34));
-                    const laLines = sort === "updated" && o.last_action
-                      ? 2 + Math.min(4, o.last_changes?.length || 0) // head + meta + số dòng thay đổi
-                      : 0;
-                    const veryTall = t.length > 150 || t.split("\n").length >= 8 || (textLines + laLines) >= 7;
-                    const shown = (veryTall && allIds.length >= 2 ? allIds.slice(0, 2) : allIds.slice(0, 1));
-                    const total = o.image_count ?? allIds.length;
-                    return (
-                      <div class="card-thumb-col">
-                        {shown.map((id, i) => (
-                          <span class="card-thumb-wrap" key={id} onClick={(e) => openThumb(e, o, id)}>
-                            <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, id, "thumb")} loading="lazy" alt="" />
-                            {i === shown.length - 1 && total > shown.length && <span class="thumb-count">+{total - shown.length}</span>}
-                          </span>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                  <div class="card-content">
-                    {o.text
-                      ? <div class="order-text wrap-badges"><TaskBadges o={o} /><span class="ot-text"><Highlight text={o.text} q={search} /></span></div>
-                      : <div class="order-text muted wrap-badges"><TaskBadges o={o} /><span class="ot-text">(không có nội dung)</span></div>}
-                    <div class="row space">
-                      <b class="cust">{isNew && <span class="tag-new">Mới</span>} <Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} />
-                        {o.customer ? <button class="cust-filter" title={`Lọc đơn của ${o.customer}`} onClick={(e) => filterByCustomer(e, o.customer)}>🔎</button> : null}</b>
-                      <span class="muted small order-when">
-                        {o.created ? (
-                          <>🕒 {fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</>
-                        ) : (
-                          o.date
-                        )}
-                      </span>
-                    </div>
-                    <div class="row space">
-                      <span>
-                        {o.total && <b class="money">{o.total}đ</b>}
-                        {stt && <span class={stt.includes("đã nộp") ? "paid-ok" : "owe"}> · {stt}</span>}
-                      </span>
-                    </div>
-                    <div class="muted small">
-                      {o.hd_code && <span>{o.hd_code} · </span>}
-                      {o.invoice_count} món{o.creator ? ` · ${o.creator}` : ""}
-                    </div>
-                  </div>
-                </div>
+                <CardBody o={o} search={search} stt={stt} isNew={isNew} openThumb={openThumb} filterByCustomer={filterByCustomer} />
               </div>
               <div class="card-inv"><InvoiceMini o={o} q={search} /></div>
             </a>
