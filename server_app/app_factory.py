@@ -18,7 +18,7 @@ from server_app.order_api_print import api_print_giao_handler
 from server_app.order_api_tasks import _make_task_handler, api_task_handler, api_task_status_clear_handler
 from server_app.order_api_invoice import api_create_invoice_handler, api_delete_invoice_handler, api_invoice_html_handler, api_refresh_debt_handler
 from server_app.order_history import order_history_handler
-from server_app.orders_api import order_detail_handler, orders_api_handler
+from server_app.orders_api import order_detail_handler, orders_api_handler, orders_delivery_handler
 from server_app.product_routes import products_search_handler
 from server_app.production_routes import (
     production_add_number_handler,
@@ -74,6 +74,7 @@ def create_app():
     r.add_get("/orders", orders_page_handler)
     r.add_get("/orders/{thread_id}", order_detail_page_handler)
     r.add_get("/api/orders", orders_api_handler)
+    r.add_get("/api/orders/delivery", orders_delivery_handler)
     r.add_get("/api/order/{thread_id}", order_detail_handler)
     r.add_static("/static/", "static")
     register_webapp_routes(r)

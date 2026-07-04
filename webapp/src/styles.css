@@ -445,6 +445,21 @@ body.pv-open { overflow: hidden; }
 .prod-detail .card { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 12px; }
 .card-label { display: block; font-weight: 600; font-size: .9rem; margin-bottom: 8px; }
 .pl-select { width: 100%; cursor: pointer; }
+/* Lịch giao — lưới tháng 7 cột + ô ngày có chấm số đơn */
+.cal { padding-bottom: 24px; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 2px 12px; }
+.cal-head b { font-size: 1.05rem; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-wd { margin-bottom: 6px; }
+.cal-wd-cell { text-align: center; font-size: .72rem; color: var(--muted); font-weight: 700; }
+.cal-cell { position: relative; aspect-ratio: 1 / 1; border: 1px solid transparent; background: var(--card); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: .95rem; color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; padding: 0; }
+.cal-cell.empty { background: transparent; cursor: default; }
+.cal-cell.has { font-weight: 700; }
+.cal-cell.today { border-color: var(--primary); }
+.cal-cell.sel { background: var(--primary); color: #fff; border-color: var(--primary); }
+.cal-dot { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); min-width: 16px; height: 15px; padding: 0 4px; border-radius: 999px; background: var(--warn); color: #fff; font-size: .6rem; font-weight: 800; display: flex; align-items: center; justify-content: center; line-height: 1; }
+.cal-cell.sel .cal-dot { background: #fff; color: var(--primary); }
+.cal-day-head { margin: 16px 2px 8px; font-weight: 700; font-size: 1rem; }
 /* Ngày giao — badge trên card danh sách + hàng nhập ở trang chi tiết */
 .od-deliver { display: inline-flex; align-items: center; gap: 4px; margin: 2px 0 6px; font-size: .8rem; font-weight: 700; color: var(--warn); background: var(--warn-wash); padding: 3px 10px; border-radius: 999px; }
 .ngg-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

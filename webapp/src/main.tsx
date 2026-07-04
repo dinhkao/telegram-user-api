@@ -14,6 +14,7 @@ import { Login } from "./pages/Login";
 import { FeedbackHost } from "./ui/feedback";
 import { OrderDetail } from "./pages/OrderDetail";
 import { OrdersList } from "./pages/OrdersList";
+import { DeliveryCalendar } from "./pages/DeliveryCalendar";
 import { ProductionList } from "./pages/ProductionList";
 import { ProductionDetail } from "./pages/ProductionDetail";
 import { InventoryList } from "./pages/InventoryList";
@@ -145,6 +146,7 @@ function App() {
   else if (boxMatch) page = <BoxDetail boxId={boxMatch[1]} />;
   else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;
   else if (hash.startsWith("#/kho")) page = <InventoryList />;
+  else if (hash.startsWith("#/lich")) page = <DeliveryCalendar />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
   else if (khachMatch) page = <CustomerDetail ckey={decodeURIComponent(khachMatch[1])} />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
@@ -161,6 +163,7 @@ function App() {
           <span class="app-title">🍬 Đơn hàng</span>
           <div class="app-bar-right">
             <RealtimeDot />
+            <a class="icon-btn" href="#/lich" title="Lịch giao">📅</a>
             <button class="icon-btn" title="Tải lại" onClick={() => window.location.reload()}>🔄</button>
             <a class="icon-btn" href="#/login" title="Cài đặt">⚙️</a>
           </div>
@@ -182,6 +185,7 @@ function App() {
         <div class="modal-overlay" onClick={() => setMenuOpen(false)}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head">Mục khác</div>
+            <a class="menu-item" href="#/lich" onClick={() => setMenuOpen(false)}>📅 Lịch giao</a>
             <a class="menu-item" href="#/bang-gia" onClick={() => setMenuOpen(false)}>💰 Bảng giá chung</a>
           </div>
         </div>

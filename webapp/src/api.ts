@@ -243,6 +243,12 @@ export async function refreshOrderDebt(threadId: string | number): Promise<any> 
   return postJSON("/api/order/refresh-debt", { thread_id: Number(threadId) });
 }
 
+/** Đơn theo ngày giao trong 1 tháng (YYYY-MM) — cho lịch giao. Rows compact. */
+export async function getDeliveryOrders(month: string): Promise<{ month: string; orders: any[] }> {
+  const d = await getJSON(`/api/orders/delivery?month=${encodeURIComponent(month)}`, { cache: false });
+  return { month: d.month, orders: d.orders || [] };
+}
+
 /** Đặt ngày giao dự kiến ('YYYY-MM-DDTHH:MM' hoặc '' để xoá). */
 export async function setOrderNgayGiao(threadId: string | number, ngayGiao: string): Promise<{ ngay_giao: string | null }> {
   const d = await postJSON("/api/order/ngay-giao", { thread_id: Number(threadId), ngay_giao: ngayGiao || null });

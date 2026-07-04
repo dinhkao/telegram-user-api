@@ -263,6 +263,28 @@ async def orders_api_handler(request: web.Request):
         conn.close()
 
 
+async def orders_delivery_handler(request: web.Request):
+    """Đơn theo NGÀY GIAO trong 1 tháng (query month=YYYY-MM) — cho lịch giao.
+    Trả rows compact (shape _build_order_row, đã gắn thumb) để webapp gom theo ngày."""
+    import re
+    month = (request.query.get("month") or "").strip()
+    if not re.match(r"^\d{4}-\d{2}$", month):
+        return web.json_response({"ok": False, "error": "month phải dạng YYYY-MM"}, status=400)
+    conn = get_orders_conn()
+    try:
+        rows = conn.execute(
+            f"SELECT {_ROW_COLUMNS} FROM orders o "
+            "WHERE substr(json_extract(o.json, '$.ngay_giao'), 1, 7) = ? AND o.deleted_at IS NULL "
+            "ORDER BY json_extract(o.json, '$.ngay_giao')",
+            (month,),
+        ).fetchall()
+        orders = [_build_order_row(r) for r in rows]
+        _attach_thumbs(conn, orders)
+        return web.json_response({"ok": True, "month": month, "orders": orders})
+    finally:
+        conn.close()
+
+
 async def order_detail_handler(request: web.Request):
     thread_id = request.match_info.get("thread_id", "").strip()
     if not thread_id:
