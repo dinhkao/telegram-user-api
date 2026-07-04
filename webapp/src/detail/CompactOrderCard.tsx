@@ -35,12 +35,12 @@ export function CompactOrderCard({ o }: { o: any }) {
       <div class="compact-right">
         <div class="order-text wrap-badges">
           <TaskBadges o={o} />
+          {o.ngay_giao && <span class="od-deliver">🚚 {fmtNgayGiao(o.ngay_giao)}</span>}
           <span class="ot-text">{o.text || <span class="muted">(không có nội dung)</span>}</span>
         </div>
         <div class="order-when muted small">
           🕒 {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
         </div>
-        {o.ngay_giao && <div class="od-deliver">🚚 Giao {fmtNgayGiao(o.ngay_giao)}</div>}
       </div>
     </a>
   );
