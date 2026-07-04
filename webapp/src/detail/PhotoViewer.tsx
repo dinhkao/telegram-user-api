@@ -278,23 +278,34 @@ export function PhotoViewer({
     }
   };
 
-  // Tải ảnh về máy — dùng object URL để giữ đúng định dạng + tên file gọn.
+  // Tải/chia sẻ ảnh. Trong WebView Android, <a download>/blob KHÔNG tải được
+  // (không có DownloadListener native) → ưu tiên Web Share (mở share sheet: Lưu
+  // ảnh / Photos / Zalo…). Trình duyệt desktop: rớt về tải file trực tiếp.
   const downloadImage = async () => {
     if (!cur) return;
     try {
       const res = await fetch(orderImageUrl(threadId, cur.id, "full"));
       const blob = await res.blob();
       const ext = blob.type.includes("png") ? "png" : blob.type.includes("jpeg") ? "jpg" : blob.type.includes("webp") ? "webp" : "img";
+      const name = `don-${threadId}-anh-${cur.id}.${ext}`;
+      const nav: any = navigator;
+      const file = new File([blob], name, { type: blob.type || "image/webp" });
+      if (nav.canShare && nav.canShare({ files: [file] })) {
+        await nav.share({ files: [file], title: name }); // share sheet có "Lưu ảnh"
+        return; // sheet tự báo; không cần toast
+      }
+      // Fallback (desktop): tải trực tiếp
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `don-${threadId}-anh-${cur.id}.${ext}`;
+      a.download = name;
       document.body.appendChild(a);
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      flash("✓ Đang tải ảnh");
-    } catch {
+      flash("✓ Đã tải ảnh");
+    } catch (e: any) {
+      if (e?.name === "AbortError") return; // người dùng đóng share sheet
       flash("Tải không được");
     }
   };
@@ -319,7 +330,7 @@ export function PhotoViewer({
       {/* Thanh trên: copy / tải / đóng */}
       <div class="pv-topbar">
         <button class="pv-tbtn" title="Copy ảnh" onClick={copyImage}>⧉</button>
-        <button class="pv-tbtn" title="Tải ảnh" onClick={downloadImage}>⤓</button>
+        <button class="pv-tbtn" title="Tải / chia sẻ ảnh" onClick={downloadImage}>⤓</button>
         <button class="pv-tbtn" title="Đóng" onClick={onClose}>✕</button>
       </div>
 
