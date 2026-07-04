@@ -118,8 +118,9 @@ def prewarm_orders_indexes():
 def _fts_content(json_text: str) -> str | None:
     try:
         j = json.loads(json_text)
-        # KHÔNG index thread_id/firebase_key: tìm theo số đơn vô dụng, chỉ gây nhiễu.
-        raw = " ".join([j.get("customer_name", ""), j.get("text", ""), j.get("text_raw", ""), j.get("kiotvietInvoiceCode", ""), " ".join(it.get("sp", "") for it in (j.get("invoice") or []))])
+        # Chỉ index: tên khách + nội dung đơn + mã SP. KHÔNG index số đơn/mã HĐ KiotViet
+        # (tìm theo mấy cái đó vô dụng, gây nhiễu + kết quả không tô sáng được).
+        raw = " ".join([j.get("customer_name", ""), j.get("text", ""), j.get("text_raw", ""), " ".join(it.get("sp", "") for it in (j.get("invoice") or []))])
         return vn_normalize(raw)
     except Exception:
         return None

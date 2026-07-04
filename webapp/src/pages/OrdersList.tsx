@@ -76,10 +76,9 @@ function statusLabel(o: OrderRow): string {
   return `${o.nop_by ? `${o.nop_by} ` : ""}đã nộp${note ? ` (${note})` : ""}`;
 }
 
-// Tô sáng cụm khớp khi tìm kiếm (không phân biệt hoa/thường)
-// Tô sáng KHÔNG DẤU. Tìm kiếm là LIKE %q% trên NHIỀU trường ghép lại (tên KH + nội
-// dung + mã HĐ + mã SP…), nên tách q theo khoảng trắng và tô SÁNG TỪNG TỪ ở mọi vị
-// trí → khớp chéo trường ("Duy 5m") vẫn sáng đủ. foldVN giữ nguyên độ dài để map vị trí.
+// Tô sáng KHÔNG DẤU. Tìm kiếm là LIKE %q% trên các trường ghép lại (tên KH + nội
+// dung + mã SP), nên tách q theo khoảng trắng và tô SÁNG TỪNG TỪ ở mọi vị trí → khớp
+// chéo trường ("Duy 5m") vẫn sáng đủ. foldVN giữ nguyên độ dài để map vị trí.
 function Highlight({ text, q }: { text: string; q: string }) {
   const s = text || "";
   const tokens = (q || "").trim().split(/\s+/).map(foldVN).filter((t) => t.length >= 1);
@@ -107,13 +106,6 @@ function Highlight({ text, q }: { text: string; q: string }) {
   }
   if (pos < s.length) parts.push(s.slice(pos));
   return <>{parts}</>;
-}
-
-// Query (không dấu, tách từ) có khớp chuỗi này không — để biết đơn khớp nhờ trường ẩn.
-function qMatches(text: string | undefined, q: string): boolean {
-  if (!text) return false;
-  const fs = foldVN(text);
-  return (q || "").trim().split(/\s+/).map(foldVN).filter(Boolean).some((t) => fs.includes(t));
 }
 
 // Bảng chi tiết hoá đơn 1 đơn (dùng ở card dashboard) — dùng chung InvoiceTable
@@ -232,9 +224,6 @@ function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }: {
               {o.created ? <>🕒 {fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
             </span>
           </div>
-          {search && o.hd_code && qMatches(o.hd_code, search) && (
-            <div class="muted small match-hint">🧾 Mã HĐ: <Highlight text={o.hd_code} q={search} /></div>
-          )}
           <div class="row space">
             <span>
               {o.total && <b class="money">{o.total}đ</b>}
@@ -533,7 +522,7 @@ export function OrdersList() {
         <input
           class="search"
           type="search"
-          placeholder="🔍 Tìm khách, mã HĐ, sản phẩm…"
+          placeholder="🔍 Tìm khách, sản phẩm…"
           value={search}
           onInput={(e: any) => onSearch(e.target.value)}
         />
