@@ -195,7 +195,7 @@ export async function getCustomer(key: string): Promise<CustomerDetail> {
 /** Sửa khách: bảng giá riêng (personal_price_list {SP:giá}) và/hoặc detectPatterns[]. */
 export async function updateCustomer(
   key: string,
-  patch: { personal_price_list?: Record<string, number>; detectPatterns?: string[] },
+  patch: { personal_price_list?: Record<string, number>; detectPatterns?: string[]; price_list?: string | null },
 ): Promise<CustomerDetail> {
   const d = await postJSON(`/api/customers/${encodeURIComponent(key)}`, patch);
   return d.customer;

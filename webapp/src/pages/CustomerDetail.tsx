@@ -6,6 +6,7 @@ import { BackLink } from "../nav";
 import {
   getCustomer, updateCustomer, getCustomerOrders, refreshCustomerDebt,
   getCustomerPriceList, type CustomerPriceList,
+  getPriceLists, type PriceListSummary,
   type CustomerDetail as Cust,
 } from "../api";
 import { money, parseMoney } from "../format";
@@ -25,6 +26,8 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
   const [msg, setMsg] = useState("");
   const [debtBusy, setDebtBusy] = useState(false);
   const [effective, setEffective] = useState<CustomerPriceList | null>(null);
+  const [priceLists, setPriceLists] = useState<PriceListSummary[]>([]);
+  const [savingPl, setSavingPl] = useState(false);
 
   const [orders, setOrders] = useState<any[]>([]);
   const [oPage, setOPage] = useState(1);
@@ -61,6 +64,18 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
     getCustomer(ckey).then(hydrate).catch((e) => setErr(e.message));
     loadOrders(1);
     loadEffective();
+  };
+
+  useEffect(() => { getPriceLists().then(setPriceLists).catch(() => {}); }, []);
+
+  // Gán khách vào 1 bảng giá chung (hoặc bỏ gán) → lưu + tải lại giá hiệu lực
+  const changePriceList = async (id: string) => {
+    setSavingPl(true); setErr(""); setMsg("");
+    try {
+      hydrate(await updateCustomer(ckey, { price_list: id || null }));
+      loadEffective();
+      setMsg("✅ Đã đổi bảng giá chung");
+    } catch (e: any) { setErr(e.message); } finally { setSavingPl(false); }
   };
 
   useEffect(() => {
@@ -171,7 +186,22 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
       </section>
 
       <section class="card">
-        <label class="card-label">Bảng giá hiệu lực{effective?.name ? ` — ${effective.name}` : ""}</label>
+        <label class="card-label">Bảng giá chung (gán cho khách)</label>
+        <select class="pl-select" disabled={savingPl} value={String(cust.price_list ?? "")}
+          onChange={(e: any) => changePriceList(e.target.value)}>
+          <option value="">— Không gắn —</option>
+          {priceLists.map((pl) => (
+            <option key={pl.id} value={pl.id}>{pl.name} ({pl.product_count} SP)</option>
+          ))}
+        </select>
+        {savingPl && <p class="muted small">Đang lưu…</p>}
+      </section>
+
+      <details class="card collapse-card">
+        <summary class="card-label collapse-sum">
+          Bảng giá hiệu lực{effective?.name ? ` — ${effective.name}` : ""}
+          {effective?.items?.length ? <span class="muted small"> ({effective.items.length} SP)</span> : null}
+        </summary>
         {!effective ? (
           <p class="muted small">Đang tải…</p>
         ) : effective.items.length ? (
@@ -191,7 +221,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
         ) : (
           <p class="muted small">Khách chưa gắn bảng giá chung nào.</p>
         )}
-      </section>
+      </details>
 
       <section class="card">
         <label class="card-label">Pattern nhận diện (cách nhau dấu phẩy)</label>

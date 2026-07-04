@@ -103,6 +103,10 @@ async def customer_update_handler(request: web.Request):
                 data["personal_price_list"] = clean
             if "detectPatterns" in body and isinstance(body["detectPatterns"], list):
                 data["detectPatterns"] = [str(p).strip() for p in body["detectPatterns"] if str(p).strip()]
+            if "price_list" in body:
+                # Gán bảng giá chung (id trong kv_store['bang_gia_moi']); "" / None = bỏ gán
+                pl = body["price_list"]
+                data["price_list"] = str(pl).strip() if pl not in (None, "") else None
             ok, msg = update_customer(conn, key, data)
             return (data, ok, msg)
         finally:
