@@ -232,7 +232,7 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 
 /* Hamburger sheet "☰ Thêm" — mục điều hướng phụ */
 .menu-item { display: block; width: 100%; text-align: left; padding: 15px 18px; border: none; border-bottom: 1px solid var(--border); background: none; font-size: 1.05rem; color: inherit; text-decoration: none; cursor: pointer; }
-.menu-item:last-child { border-bottom: none; color: var(--muted); }
+.menu-item:last-child { border-bottom: none; }
 .menu-item:active { background: var(--bg); }
 
 /* Nút lọc nhanh theo khách (cạnh tên khách trên card dashboard) */

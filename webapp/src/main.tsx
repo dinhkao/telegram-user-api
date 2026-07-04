@@ -181,7 +181,6 @@ function App() {
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head">Mục khác</div>
             <a class="menu-item" href="#/bang-gia" onClick={() => setMenuOpen(false)}>💰 Bảng giá chung</a>
-            <button class="menu-item" onClick={() => setMenuOpen(false)}>✕ Đóng</button>
           </div>
         </div>
       )}
