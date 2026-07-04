@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   getCustomer, updateCustomer, getCustomerOrders, refreshCustomerDebt,
+  getCustomerPriceList, type CustomerPriceList,
   type CustomerDetail as Cust,
 } from "../api";
 import { money } from "../format";
@@ -20,6 +21,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
   const [savingPat, setSavingPat] = useState(false);
   const [msg, setMsg] = useState("");
   const [debtBusy, setDebtBusy] = useState(false);
+  const [effective, setEffective] = useState<CustomerPriceList | null>(null);
 
   const [orders, setOrders] = useState<any[]>([]);
   const [oPage, setOPage] = useState(1);
@@ -50,9 +52,12 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
     }
   };
 
+  const loadEffective = () => getCustomerPriceList(ckey).then(setEffective).catch(() => setEffective(null));
+
   useEffect(() => {
     getCustomer(ckey).then(hydrate).catch((e) => setErr(e.message));
     loadOrders(1);
+    loadEffective();
   }, [ckey]);
 
   const setRow = (i: number, k: keyof Row, v: string) =>
@@ -70,6 +75,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
     }
     try {
       hydrate(await updateCustomer(ckey, { personal_price_list: ppl }));
+      loadEffective();
       setMsg("✅ Đã lưu bảng giá");
     } catch (e: any) { setErr(e.message); } finally { setSavingP(false); }
   };
@@ -137,6 +143,29 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
           <button class="btn small" onClick={addRow}>➕ Thêm SP</button>
           <button class="btn primary" disabled={savingP} onClick={savePrices}>{savingP ? "Đang lưu…" : "💾 Lưu bảng giá"}</button>
         </div>
+      </section>
+
+      <section class="card">
+        <label class="card-label">Bảng giá hiệu lực{effective?.name ? ` — ${effective.name}` : ""}</label>
+        {!effective ? (
+          <p class="muted small">Đang tải…</p>
+        ) : effective.items.length ? (
+          <table class="invoice-table">
+            <tbody>
+              {effective.items.map((it) => {
+                const rieng = !!(cust.personal_price_list && it.sp in cust.personal_price_list);
+                return (
+                  <tr key={it.sp}>
+                    <td>{it.sp} {rieng ? <span class="tag-new">riêng</span> : <span class="muted small">chung</span>}</td>
+                    <td class="num">{money(it.price)}đ</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <p class="muted small">Khách chưa gắn bảng giá chung nào.</p>
+        )}
       </section>
 
       <section class="card">
