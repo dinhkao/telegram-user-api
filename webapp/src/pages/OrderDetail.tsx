@@ -262,22 +262,6 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         {(j.kiotvietInvoiceCode || (j.hoadon || {}).hd_code) && (
           <div class="od-sub">{j.kiotvietInvoiceCode || (j.hoadon || {}).hd_code}{pc.datetime ? ` · ${pc.datetime}` : ""}</div>
         )}
-        <div class="od-sum">
-          <div class="od-s"><span class="l">Tổng</span><span class="v">{typeof total === "string" ? total : money(total)}<small>đ</small></span></div>
-          <div class="od-s"><span class="l">Đã thu</span><span class="v">{money(paid)}<small>đ</small></span></div>
-          <div class="od-s due"><span class="l">Còn nợ</span><span class="v">{money(remaining)}<small>đ</small></span></div>
-        </div>
-        <div class="od-stepper">
-          {STEPS.map((s, i) => {
-            const cls = stepDone(s.k) ? "done" : (nextStep?.k === s.k ? "now" : "");
-            return (
-              <div class={`od-step ${cls}`} key={s.k}>
-                <span class="c">{stepDone(s.k) ? "✓" : i + 1}</span>
-                <span class="lb">{s.lb}</span>
-              </div>
-            );
-          })}
-        </div>
       </div>
       {detail._stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {msg && <p class="notice" onClick={() => setMsg("")}>{msg}</p>}
