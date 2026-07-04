@@ -1,18 +1,28 @@
-// Card "Cập nhật ứng dụng" ở trang cài đặt — kiểm tra bản APK mới nhất trên máy
-// chủ (/app/update/version.json) và tải về (/app/update/app.apk → Android hỏi cài).
-// APK (WebView builder) KHÔNG báo phiên bản đang cài cho web → dùng proxy: sau khi
-// cài xong người dùng bấm "Đã cài xong" để lưu versionCode vào localStorage, nhờ đó
-// lần sau biết đang ở bản mới nhất hay chưa.
+// Card "Cập nhật ứng dụng" ở trang cài đặt.
+// APK mới (có cầu JS window.AndroidApp) → cập nhật 1 CHẠM: bấm gọi native tải APK
+// + mở trình cài (chỉ còn 1 hộp xác nhận của Android), và đọc ĐÚNG phiên bản đang
+// cài để so "mới nhất hay chưa".
+// APK cũ / trình duyệt (không có cầu) → fallback: tải /app/update/app.apk + proxy
+// "Đã cài xong" (lưu versionCode vào localStorage).
 import { useEffect, useState } from "preact/hooks";
 import { getApkVersion, type ApkVersion } from "../api";
 
-const LS_KEY = "apk_installed_vc"; // versionCode người dùng đánh dấu "đã cài"
+const LS_KEY = "apk_installed_vc"; // proxy khi KHÔNG có cầu native
+
+// Cầu JS do APK tiêm (chỉ có ở bản APK mới)
+const bridge: any = (typeof window !== "undefined") ? (window as any).AndroidApp : undefined;
+function bridgeVersion(): number | null {
+  try { return bridge?.versionCode ? Number(bridge.versionCode()) : null; } catch { return null; }
+}
 
 export function AppUpdate() {
   const [latest, setLatest] = useState<ApkVersion | null>(null);
   const [checking, setChecking] = useState(false);
   const [err, setErr] = useState("");
+  // Bản đang cài: ưu tiên cầu native (chính xác), nếu không có → proxy localStorage
   const [installed, setInstalled] = useState<number | null>(() => {
+    const nv = bridgeVersion();
+    if (nv != null) return nv;
     const v = localStorage.getItem(LS_KEY);
     return v ? Number(v) : null;
   });
@@ -32,6 +42,7 @@ export function AppUpdate() {
     setInstalled(latest.versionCode);
   };
 
+  const hasBridge = !!bridge?.updateNow;
   const hasBuild = !!latest && latest.versionCode > 0;
   const upToDate = hasBuild && installed != null && installed >= latest!.versionCode;
   const outdated = hasBuild && installed != null && installed < latest!.versionCode;
@@ -57,11 +68,19 @@ export function AppUpdate() {
           </p>
           {upToDate && <p class="paid-ok">✅ Bạn đang dùng bản mới nhất.</p>}
           {outdated && <p class="owe">🔔 Có bản mới hơn bản bạn đang cài!</p>}
-          {installed == null && <p class="muted small">Chưa rõ bản đang cài — tải & cài rồi bấm "Đã cài xong".</p>}
-          <div class="row">
-            <a class="btn primary" href="/app/update/app.apk">⬇️ Tải & cài bản mới</a>
-            <button class="btn" onClick={markInstalled}>✔️ Đã cài xong bản này</button>
-          </div>
+          {installed == null && !hasBridge && <p class="muted small">Chưa rõ bản đang cài — tải & cài rồi bấm "Đã cài xong".</p>}
+
+          {hasBridge ? (
+            // 1 chạm: native tải APK + mở trình cài (chỉ còn hộp xác nhận Android)
+            <button class="btn primary wide" onClick={() => { try { bridge.updateNow(); } catch { /* ignore */ } }}>
+              ⬆️ Cập nhật ngay (1 chạm)
+            </button>
+          ) : (
+            <div class="row">
+              <a class="btn primary" href="/app/update/app.apk">⬇️ Tải & cài bản mới</a>
+              <button class="btn" onClick={markInstalled}>✔️ Đã cài xong bản này</button>
+            </div>
+          )}
         </>
       )}
     </div>
