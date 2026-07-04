@@ -86,16 +86,17 @@ def _attach_latest_action(conn, orders: list[dict]) -> None:
     if not ids:
         return
     try:
-        from server_app.order_history import _norm, _LABELS, _actor_display, _load_names
+        import json
+        from server_app.order_history import _norm, _LABELS, _detail, _actor_display, _load_names
         ph = ",".join("?" * len(ids))
         rows = conn.execute(
-            f"""SELECT thread_id, ts, source, actor_id, action FROM (
-                    SELECT thread_id, ts, source, actor_id, action,
+            f"""SELECT thread_id, ts, source, actor_id, action, payload_json FROM (
+                    SELECT thread_id, ts, source, actor_id, action, payload_json,
                            ROW_NUMBER() OVER (PARTITION BY thread_id ORDER BY id DESC) rn
                     FROM audit_events
                     WHERE thread_id IN ({ph})
                       AND (action = 'order.image_added' OR (action = 'http.request' AND source LIKE 'POST %'))
-                ) WHERE rn <= 20 ORDER BY thread_id, rn""",
+                ) WHERE rn <= 8 ORDER BY thread_id, rn""",
             ids,
         ).fetchall()
         names = _load_names()
@@ -110,9 +111,19 @@ def _attach_latest_action(conn, orders: list[dict]) -> None:
                 src = r["source"] or ""
                 if not src.startswith("POST "):
                     continue
-                label = _LABELS.get(_norm(src[5:].split("?")[0]))
+                norm = _norm(src[5:].split("?")[0])
+                label = _LABELS.get(norm)
                 if not label:
                     continue
+                # Chi tiết ngắn (loại việc / số tiền / khách…) cho rõ nghĩa
+                try:
+                    b = json.loads(r["payload_json"] or "{}").get("body")
+                    body = json.loads(b) if isinstance(b, str) and b.strip().startswith("{") else {}
+                    d = _detail(norm, body)
+                    if d:
+                        label = f"{label}: {d}"
+                except Exception:
+                    pass
             best[tid] = (label, _actor_display(r["actor_id"], names), r["ts"])
     except Exception:
         return
