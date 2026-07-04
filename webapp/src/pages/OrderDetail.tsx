@@ -276,7 +276,13 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           )}
         </div>
         {(j.customer_name || j.khach_hang_id) && !changingCust ? (
-          <b>{j.customer_name || pc.kh}</b>
+          j.khach_hang_id ? (
+            <a class="cust-link" href={`#/khach/${encodeURIComponent(j.khach_hang_id)}`}>
+              <b>{j.customer_name || pc.kh}</b> <span class="cust-link-arrow">›</span>
+            </a>
+          ) : (
+            <b>{j.customer_name || pc.kh}</b>
+          )
         ) : (
           <div>
             {!(j.customer_name || j.khach_hang_id) && <p class="muted small">⚠️ Đơn chưa có khách — tìm và gán để lấy giá + tạo HĐ.</p>}
