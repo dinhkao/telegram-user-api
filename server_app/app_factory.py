@@ -58,7 +58,10 @@ def create_app():
     from tg_send import make_handler as make_send_handler
     from tg_send_file import make_handler as make_send_file_handler
 
-    app = web.Application(middlewares=[cors_middleware, audit_middleware, web_auth_middleware])
+    # client_max_size 32MB: mặc định aiohttp 1MB quá nhỏ cho upload ảnh gốc / gửi
+    # file lớn (vd APK qua /api/tg/send-file). Tailscale/LAN nội bộ nên nới an toàn.
+    app = web.Application(client_max_size=32 * 1024 * 1024,
+                          middlewares=[cors_middleware, audit_middleware, web_auth_middleware])
     r = app.router
     r.add_post("/api/auth/login", login_handler)
     r.add_get("/api/auth/me", me_handler)
