@@ -76,12 +76,14 @@ def _attach_thumbs(conn, orders: list[dict]) -> None:
 
 
 def _attach_latest_action(conn, orders: list[dict]) -> None:
-    """Gắn thao tác MỚI NHẤT (nhãn + người làm + thời gian) của mỗi đơn — cho view
-    sort 'Mới cập nhật'. Lấy từ audit_events (POST có nhãn trong _LABELS, hoặc thêm
-    ảnh). 1 truy vấn gộp cho cả trang, giới hạn 10 dòng mới nhất/đơn (window). Tái
-    dùng _norm/_LABELS/_actor_display của order_history. Lỗi/thiếu bảng → bỏ qua."""
+    """Gắn thao tác MỚI NHẤT của mỗi đơn — GIÀU như Lịch sử thao tác: nhãn + chi tiết
+    ngắn + danh sách thay đổi cũ→mới (changes) + người làm + thời gian. Cho view sort
+    'Mới cập nhật'. Lấy từ audit_events (POST có nhãn trong _LABELS, hoặc thêm ảnh);
+    1 truy vấn gộp, 8 dòng mới nhất/đơn (window). Tái dùng _norm/_LABELS/_detail/
+    _actor_display của order_history (payload_json.changes do audit ghi sẵn). Lỗi→bỏ qua."""
     for o in orders:
-        o["last_action"] = o["last_actor"] = o["last_action_ts"] = None
+        o["last_action"] = o["last_detail"] = o["last_actor"] = o["last_action_ts"] = None
+        o["last_changes"] = []
     ids = [o["thread_id"] for o in orders if o.get("thread_id") is not None]
     if not ids:
         return
@@ -105,6 +107,7 @@ def _attach_latest_action(conn, orders: list[dict]) -> None:
             tid = r["thread_id"]
             if tid in best:
                 continue
+            detail, changes = "", []
             if r["action"] == "order.image_added":
                 label = "Thêm ảnh"
             else:
@@ -115,23 +118,30 @@ def _attach_latest_action(conn, orders: list[dict]) -> None:
                 label = _LABELS.get(norm)
                 if not label:
                     continue
-                # Chi tiết ngắn (loại việc / số tiền / khách…) cho rõ nghĩa
                 try:
-                    b = json.loads(r["payload_json"] or "{}").get("body")
+                    payload = json.loads(r["payload_json"] or "{}")
+                    b = payload.get("body")
                     body = json.loads(b) if isinstance(b, str) and b.strip().startswith("{") else {}
                     d = _detail(norm, body)
-                    # bỏ detail khi nó chỉ là tên path (vd 'nop-tien') — nhãn đã rõ rồi
-                    if d and d != norm.rsplit("/", 1)[-1]:
-                        label = f"{label}: {d}"
+                    if d and d != norm.rsplit("/", 1)[-1]:  # bỏ detail trùng tên path
+                        detail = d
+                    ch = payload.get("changes")
+                    if isinstance(ch, list):
+                        changes = ch
                 except Exception:
                     pass
-            best[tid] = (label, _actor_display(r["actor_id"], names), r["ts"])
+            best[tid] = {"action": label, "detail": detail, "changes": changes,
+                         "actor": _actor_display(r["actor_id"], names), "ts": r["ts"]}
     except Exception:
         return
     for o in orders:
         v = best.get(o.get("thread_id"))
         if v:
-            o["last_action"], o["last_actor"], o["last_action_ts"] = v
+            o["last_action"] = v["action"]
+            o["last_detail"] = v["detail"] or None
+            o["last_changes"] = v["changes"]
+            o["last_actor"] = v["actor"]
+            o["last_action_ts"] = v["ts"]
 
 
 def build_row_for_thread(thread_id) -> dict | None:

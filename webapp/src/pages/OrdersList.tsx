@@ -42,7 +42,9 @@ type OrderRow = {
   topic_name: string;
   creator: string;
   text: string;
-  last_action?: string | null; // view 'Mới cập nhật': thao tác mới nhất
+  last_action?: string | null; // view 'Mới cập nhật': thao tác mới nhất (giàu như Lịch sử)
+  last_detail?: string | null;
+  last_changes?: { label: string; old: string; new: string }[];
   last_actor?: string | null;
   last_action_ts?: string | null;
 };
@@ -124,6 +126,31 @@ function getLastOrder(): string {
 
 // 5 task icon y hệt main message Telegram: HĐ · Soạn · Giao · Nộp · Nhận
 const TASK_LABELS = ["HĐ", "Soạn", "Giao", "Nộp", "Nhận"];
+// Dòng "thao tác mới nhất" trên card (view Mới cập nhật) — giàu như Lịch sử thao tác
+function LastAction({ o }: { o: OrderRow }) {
+  if (!o.last_action) return null;
+  const ch = Array.isArray(o.last_changes) ? o.last_changes : [];
+  return (
+    <div class="last-act">
+      <div class="la-head">⚡ <b>{o.last_action}</b>{o.last_detail ? <span> — {o.last_detail}</span> : null}</div>
+      {ch.length > 0 && (
+        <ul class="la-changes">
+          {ch.slice(0, 4).map((c, ci) => (
+            <li key={ci}>
+              <span class="hc-label">{c.label}:</span>{" "}
+              {c.old ? <span class="hc-old">{c.old}</span> : null}
+              {c.old && c.new ? <span class="hc-arrow"> → </span> : null}
+              {c.new ? <span class="hc-new">{c.new}</span> : null}
+            </li>
+          ))}
+          {ch.length > 4 && <li class="muted">+{ch.length - 4} thay đổi nữa</li>}
+        </ul>
+      )}
+      <div class="la-meta">{o.last_actor || "?"} · {fmtRelative(o.last_action_ts)}</div>
+    </div>
+  );
+}
+
 function TaskBadges({ o }: { o: OrderRow }) {
   const icons = [...(o.task_icons || "")];
   const fallback: boolean[] = [false, o.soan, o.giao, o.nop, o.nhan];
@@ -393,9 +420,7 @@ export function OrdersList() {
                 );
               })()}
               <div class="compact-right">
-                {sort === "updated" && o.last_action && (
-                  <div class="last-act">⚡ {o.last_action}{o.last_actor ? ` · ${o.last_actor}` : ""} · {fmtRelative(o.last_action_ts)}</div>
-                )}
+                {sort === "updated" && <LastAction o={o} />}
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
                 <div class="order-text wrap-badges">
                   <TaskBadges o={o} />
@@ -419,9 +444,7 @@ export function OrdersList() {
           <li key={o.thread_id}>
             <a class={`order-card two-col${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               <div class="card-main">
-                {sort === "updated" && o.last_action && (
-                  <div class="last-act">⚡ {o.last_action}{o.last_actor ? ` · ${o.last_actor}` : ""} · {fmtRelative(o.last_action_ts)}</div>
-                )}
+                {sort === "updated" && <LastAction o={o} />}
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
                 <div class="card-body">
                   {(() => {
