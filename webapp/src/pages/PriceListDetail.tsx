@@ -3,6 +3,7 @@
 // xem khách đang dùng + lịch sử đổi giá. API: getPriceList / savePriceOne /
 // getPriceHistory.
 import { useEffect, useState } from "preact/hooks";
+import { BackLink } from "../nav";
 import { getPriceList, savePriceOne, getPriceHistory, type PriceListFull, type PriceHistoryRow } from "../api";
 import { money } from "../format";
 
@@ -46,7 +47,7 @@ export function PriceListDetail({ listId }: { listId: string }) {
     getPriceHistory(listId, sp || undefined).then(setHistory).catch(() => setHistory([]));
   };
 
-  if (err && !list) return <div class="prod-detail"><a class="back" href="#/bang-gia">←</a><p class="error">{err}</p></div>;
+  if (err && !list) return <div class="prod-detail"><BackLink fallback="#/bang-gia" /><p class="error">{err}</p></div>;
   if (!list) return <div class="prod-detail"><p class="muted">Đang tải…</p></div>;
 
   const q = filter.trim().toLowerCase();
@@ -55,7 +56,7 @@ export function PriceListDetail({ listId }: { listId: string }) {
   return (
     <div class="prod-detail">
       <div class="prod-detail-head">
-        <a class="back" href="#/bang-gia">←</a>
+        <BackLink fallback="#/bang-gia" />
         <div>
           <div class="prod-sp">{list.name}</div>
           <div class="muted small">#{list.id} · {list.items.length} SP</div>

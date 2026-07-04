@@ -2,6 +2,7 @@
 // pattern nhận diện (detectPatterns) + list đơn của khách (compact, bấm → đơn).
 // API: getCustomer / updateCustomer / getCustomerOrders / refreshCustomerDebt.
 import { useEffect, useRef, useState } from "preact/hooks";
+import { BackLink } from "../nav";
 import {
   getCustomer, updateCustomer, getCustomerOrders, refreshCustomerDebt,
   getCustomerPriceList, type CustomerPriceList,
@@ -97,13 +98,13 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
     } catch { /* ignore */ } finally { setDebtBusy(false); }
   };
 
-  if (err && !cust) return <div class="prod-detail"><a class="back" href="#/customers">←</a><p class="error">{err}</p></div>;
+  if (err && !cust) return <div class="prod-detail"><BackLink fallback="#/customers" /><p class="error">{err}</p></div>;
   if (!cust) return <div class="prod-detail"><p class="muted">Đang tải…</p></div>;
 
   return (
     <div class="prod-detail">
       <div class="prod-detail-head">
-        <a class="back" href="#/customers">←</a>
+        <BackLink fallback="#/customers" />
         <div>
           <div class="prod-sp">{cust.name}</div>
           <div class="muted small">{cust.kh_id ? `KV: ${cust.kh_id} · ` : ""}{cust.key}</div>

@@ -2,6 +2,7 @@
 // đơn #x / Đã giao). GET /api/inventory/:code (all_boxes). Nhóm tồn theo size ở đầu.
 // Thùng đã xuất link tới đơn. Realtime production_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
+import { BackLink } from "../nav";
 import { inventoryDetail, soVN, type InvDetail, type InvBox } from "../api";
 import { onRealtime } from "../realtime";
 
@@ -42,9 +43,7 @@ export function InventoryDetail({ code }: { code: string }) {
   return (
     <div class="inv-detail">
       <div class="prod-detail-head inv-head">
-        <a class="back" href="#/kho">
-          ←
-        </a>
+        <BackLink fallback="#/kho" />
         <div class="inv-head-title">
           <div class="prod-sp big">{inv.product_code}</div>
           <div class="prod-date muted">{inv.box_count} thùng</div>

@@ -2,6 +2,7 @@
 // nhập số lượng (ProductionNumbers), báo cáo theo thợ (ProductionReport), xoá.
 // Realtime: production_changed đúng thread / resync → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
+import { BackLink } from "../nav";
 import {
   getProduction,
   productionCatalog,
@@ -142,7 +143,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   return (
     <div class="prod-detail">
       <div class="prod-detail-head">
-        <a class="back" href="#/san_xuat">←</a>
+        <BackLink fallback="#/san_xuat" />
         <div>
           <div class="prod-sp big">{slip.sp_name || "Chưa có SP"}</div>
           <div class="prod-date muted">📅 Tạo: {prodCreated(slip)}</div>

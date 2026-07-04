@@ -2,6 +2,7 @@
 // thuộc phiếu SX nào (link), đã xuất đơn nào (link → cuộn+nháy thùng trong đơn).
 // GET /api/inventory/box/:id.
 import { useEffect, useState } from "preact/hooks";
+import { BackLink } from "../nav";
 import { boxDetail, updateBox, setBoxDisabled, soVN, type InvBoxDetail, type InvBox } from "../api";
 
 const isDisabled = (b: InvBox) => !!b.disabled;
@@ -99,9 +100,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   return (
     <div class={disabled ? "box-detail is-disabled" : "box-detail"}>
       <div class="prod-detail-head">
-        <a class="back" href={`#/kho/${encodeURIComponent(backCode)}`}>
-          ←
-        </a>
+        <BackLink fallback={`#/kho/${encodeURIComponent(backCode)}`} />
         <div>
           <div class="prod-sp big">
             <code>{b.box_code}</code>

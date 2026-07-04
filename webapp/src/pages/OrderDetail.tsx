@@ -1,6 +1,7 @@
 // Chi tiết đơn — header + text + ghép các khối detail/* (tasks, invoice,
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
+import { BackLink } from "../nav";
 import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, getJSON, invoiceHtmlUrl, postJSON, refreshOrderDebt } from "../api";
 import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal } from "../format";
@@ -238,7 +239,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     <div class="detail">
       {toast && <div class="toast" onClick={() => setToast(null)}>{toast}</div>}
       <header class="detail-head">
-        <a href="#/orders" class="back">←</a>
+        <BackLink fallback="#/orders" />
         <div>
           <b>{pc.kh || j.customer_name || j.topic_name || `#${threadId}`}</b>
           <div class="muted small">
