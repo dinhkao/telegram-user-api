@@ -159,8 +159,8 @@ function App() {
           <span class="app-title">🍬 Đơn hàng</span>
           <div class="app-bar-right">
             <RealtimeDot />
-            <button class="btn small" title="Tải lại" onClick={() => window.location.reload()}>🔄 Tải lại</button>
-            <a class="btn small" href="#/login" title="Cài đặt">⚙️</a>
+            <button class="icon-btn" title="Tải lại" onClick={() => window.location.reload()}>🔄</button>
+            <a class="icon-btn" href="#/login" title="Cài đặt">⚙️</a>
           </div>
         </header>
       )}
@@ -168,12 +168,12 @@ function App() {
       <main class="page">{page}</main>
       {!showLogin && (
         <nav class="bottom-nav">
-          <a class={hash === "#/orders" || orderMatch ? "tab active" : "tab"} href="#/orders">📋 Đơn</a>
-          <a class={tab("#/customers")} href="#/customers">👤 Khách</a>
-          <a class={tab("#/create")} href="#/create">➕ Tạo</a>
-          <a class={tab("#/san_xuat")} href="#/san_xuat">🏭 SX</a>
-          <a class={tab("#/kho")} href="#/kho">📦 Kho</a>
-          <button class={hash.startsWith("#/bang-gia") ? "tab nav-more active" : "tab nav-more"} onClick={() => setMenuOpen(true)} title="Thêm">☰</button>
+          <a class={hash === "#/orders" || orderMatch ? "tab active" : "tab"} href="#/orders"><span class="tab-ico">📋</span><span class="tab-lbl">Đơn</span></a>
+          <a class={tab("#/customers")} href="#/customers"><span class="tab-ico">👤</span><span class="tab-lbl">Khách</span></a>
+          <a class={tab("#/create")} href="#/create"><span class="tab-ico">➕</span><span class="tab-lbl">Tạo</span></a>
+          <a class={tab("#/san_xuat")} href="#/san_xuat"><span class="tab-ico">🏭</span><span class="tab-lbl">SX</span></a>
+          <a class={tab("#/kho")} href="#/kho"><span class="tab-ico">📦</span><span class="tab-lbl">Kho</span></a>
+          <button class={hash.startsWith("#/bang-gia") ? "tab nav-more active" : "tab nav-more"} onClick={() => setMenuOpen(true)} title="Thêm"><span class="tab-ico">☰</span><span class="tab-lbl">Thêm</span></button>
         </nav>
       )}
       {menuOpen && !showLogin && (
