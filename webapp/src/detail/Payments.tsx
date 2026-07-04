@@ -49,7 +49,7 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
   return (
     <div class="card">
       <b>Thanh toán</b>
-      {payments.length > 0 && (
+      {payments.length > 0 ? (
         <ul class="payment-list">
           {payments.map((p, i) => (
             <li class="row space" key={i}>
@@ -61,16 +61,18 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
             </li>
           ))}
         </ul>
+      ) : (
+        <p class="muted small">Chưa có thanh toán nào.</p>
       )}
       {msg && <p class="notice" onClick={() => setMsg("")}>{msg}</p>}
       <div class="pay-box">
+        <input inputMode="numeric" placeholder="Số tiền" value={amount} onInput={(e: any) => setAmount(e.target.value)} />
         {suggest ? (
           <button type="button" class="pay-suggest" title="Điền tổng tiền hàng"
             onClick={() => setAmount(String(suggest))}>
             Tổng tiền hàng: {money(suggest)}đ
           </button>
         ) : null}
-        <input inputMode="numeric" placeholder="Số tiền" value={amount} onInput={(e: any) => setAmount(e.target.value)} />
         <div class="pay-btns">
           <button class="btn primary" disabled={busy} onClick={() => pay("tm")}>💵 TM</button>
           <button class="btn primary" disabled={busy} onClick={() => pay("ck")}>🏦 CK</button>
