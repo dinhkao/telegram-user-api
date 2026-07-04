@@ -20,6 +20,7 @@ import { ProductionBoxes } from "../detail/ProductionBoxes";
 import { ProductionReport } from "../detail/ProductionReport";
 import { ProductPicker } from "../detail/ProductPicker";
 import { confirmDialog } from "../ui/feedback";
+import { parseMoney } from "../format";
 
 export function ProductionDetail({ threadId, focus }: { threadId: string; focus?: string }) {
   const [slip, setSlip] = useState<ProdSlip | null>(null);
@@ -97,8 +98,8 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   };
 
   const saveTarget = async () => {
-    const n = parseInt(targetInput, 10);
-    if (!isFinite(n)) {
+    const n = parseMoney(targetInput);
+    if (!n) {
       setErr("Mục tiêu SX không hợp lệ");
       return;
     }
@@ -174,7 +175,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
         <label class="card-label">Mục tiêu SX</label>
         <div class="row">
           <input
-            type="number"
+            type="text"
             inputMode="numeric"
             value={targetInput}
             onInput={(e) => setTargetInput((e.target as HTMLInputElement).value)}

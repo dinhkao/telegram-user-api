@@ -5,7 +5,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { getPriceList, savePriceOne, getPriceHistory, type PriceListFull, type PriceHistoryRow } from "../api";
-import { money } from "../format";
+import { money, parseMoney } from "../format";
 import { onRealtime } from "../realtime";
 
 function fmtMs(ms: number): string {
@@ -48,7 +48,7 @@ export function PriceListDetail({ listId }: { listId: string }) {
   const saveEdit = async (sp: string) => {
     setSaving(true); setErr("");
     try {
-      const updated = await savePriceOne(listId, sp, parseInt(editVal, 10));
+      const updated = await savePriceOne(listId, sp, parseMoney(editVal));
       setList((l) => ({ ...updated, customers: l?.customers || [] }));
       setEditSp(null);
       if (history !== null) loadHistory(histSp); // đang mở lịch sử → làm mới
@@ -88,7 +88,7 @@ export function PriceListDetail({ listId }: { listId: string }) {
                 <td>{it.sp}</td>
                 {editSp === it.sp ? (
                   <>
-                    <td class="num"><input class="num-inp" type="number" inputMode="numeric" value={editVal} autofocus onFocus={(e: any) => e.target.select()} onInput={(e: any) => setEditVal(e.target.value)} /></td>
+                    <td class="num"><input class="num-inp" type="text" inputMode="numeric" value={editVal} autofocus onFocus={(e: any) => e.target.select()} onInput={(e: any) => setEditVal(e.target.value)} /></td>
                     <td>
                       <button class="btn small primary" disabled={saving} onClick={() => saveEdit(it.sp)}>{saving ? "…" : "💾"}</button>
                       <button class="btn small" onClick={cancelEdit}>✕</button>

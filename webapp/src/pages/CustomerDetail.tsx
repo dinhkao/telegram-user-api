@@ -8,7 +8,7 @@ import {
   getCustomerPriceList, type CustomerPriceList,
   type CustomerDetail as Cust,
 } from "../api";
-import { money } from "../format";
+import { money, parseMoney } from "../format";
 import { CompactOrderCard } from "../detail/CompactOrderCard";
 import { onRealtime } from "../realtime";
 
@@ -87,7 +87,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
     const ppl: Record<string, number> = {};
     for (const r of rows) {
       const sp = r.sp.trim();
-      const p = parseInt(r.price, 10);
+      const p = parseMoney(r.price);
       if (sp && p > 0) ppl[sp] = p;
     }
     try {
@@ -149,7 +149,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
             {rows.map((r, i) => (
               <tr key={i}>
                 <td><input value={r.sp} placeholder="Mã SP" onInput={(e: any) => setRow(i, "sp", e.target.value)} /></td>
-                <td class="num"><input class="num-inp" type="number" inputMode="numeric" value={r.price} placeholder="Giá" onFocus={(e: any) => e.target.select()} onInput={(e: any) => setRow(i, "price", e.target.value)} /></td>
+                <td class="num"><input class="num-inp" type="text" inputMode="numeric" value={r.price} placeholder="Giá" onFocus={(e: any) => e.target.select()} onInput={(e: any) => setRow(i, "price", e.target.value)} /></td>
                 <td><button class="btn small" onClick={() => delRow(i)}>✕</button></td>
               </tr>
             ))}
