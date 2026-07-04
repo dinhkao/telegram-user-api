@@ -128,6 +128,13 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
         </div>
       </div>
 
+      {cust.note ? (
+        <section class="card cust-note">
+          <label class="card-label">📝 Ghi chú</label>
+          <p class="cust-note-text">{cust.note}</p>
+        </section>
+      ) : null}
+
       <section class="card">
         <div class="row space">
           <b>Công nợ</b>

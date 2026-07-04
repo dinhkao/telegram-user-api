@@ -183,6 +183,7 @@ export type CustomerDetail = {
   last_order_at?: any; price_list?: string | number | null;
   personal_price_list?: Record<string, number> | null;
   detectPatterns?: string[];
+  note?: string;   // ghi chú khách (vd dặn giao hàng) — chỉ đọc, đồng bộ từ Firebase/Node
 };
 
 /** Chi tiết 1 khách (bảng giá riêng + pattern nhận diện). */

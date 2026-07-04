@@ -68,7 +68,7 @@ async def customer_detail_handler(request: web.Request):
     data = await asyncio.to_thread(_run)
     if data is None:
         return web.json_response({"ok": False, "error": "không thấy khách hàng"}, status=404)
-    return web.json_response({"ok": True, "customer": {**_summary(data, key), "price_list": data.get("price_list"), "personal_price_list": data.get("personal_price_list"), "detectPatterns": data.get("detectPatterns") or data.get("patterns") or []}})
+    return web.json_response({"ok": True, "customer": {**_summary(data, key), "note": data.get("note") or data.get("ghi_chu") or "", "price_list": data.get("price_list"), "personal_price_list": data.get("personal_price_list"), "detectPatterns": data.get("detectPatterns") or data.get("patterns") or []}})
 
 
 async def customer_update_handler(request: web.Request):
@@ -114,7 +114,7 @@ async def customer_update_handler(request: web.Request):
     data, ok, msg = res
     if not ok:
         return web.json_response({"ok": False, "error": msg}, status=500)
-    return web.json_response({"ok": True, "customer": {**_summary(data, key), "price_list": data.get("price_list"), "personal_price_list": data.get("personal_price_list"), "detectPatterns": data.get("detectPatterns") or data.get("patterns") or []}})
+    return web.json_response({"ok": True, "customer": {**_summary(data, key), "note": data.get("note") or data.get("ghi_chu") or "", "price_list": data.get("price_list"), "personal_price_list": data.get("personal_price_list"), "detectPatterns": data.get("detectPatterns") or data.get("patterns") or []}})
 
 
 async def customer_orders_handler(request: web.Request):
