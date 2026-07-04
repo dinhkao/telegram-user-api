@@ -120,7 +120,8 @@ def _attach_latest_action(conn, orders: list[dict]) -> None:
                     b = json.loads(r["payload_json"] or "{}").get("body")
                     body = json.loads(b) if isinstance(b, str) and b.strip().startswith("{") else {}
                     d = _detail(norm, body)
-                    if d:
+                    # bỏ detail khi nó chỉ là tên path (vd 'nop-tien') — nhãn đã rõ rồi
+                    if d and d != norm.rsplit("/", 1)[-1]:
                         label = f"{label}: {d}"
                 except Exception:
                     pass
