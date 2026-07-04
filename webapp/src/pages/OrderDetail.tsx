@@ -14,6 +14,7 @@ import { History } from "../detail/History";
 import { Images } from "../detail/Images";
 import { OrderStock } from "../detail/OrderStock";
 import { invalidateListCache, markLastOrder } from "./OrdersList";
+import { confirmDialog } from "../ui/feedback";
 
 // Nhớ vị trí cuộn theo từng đơn — quay lại đơn cũ về đúng chỗ đang xem
 const detailScroll: Record<string, number> = {};
@@ -158,7 +159,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const paid = paidTotal(j.payments);
 
   const doPrint = async () => {
-    if (!confirm("In 2 hoá đơn + phiếu giao?")) return;
+    if (!(await confirmDialog("In 2 hoá đơn + phiếu giao?"))) return;
     setBusy(true);
     try {
       const r = await postJSON("/api/order/print-giao", { thread_id: Number(threadId) });
@@ -189,7 +190,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   };
 
   const createHD = async () => {
-    if (!confirm("Tạo hoá đơn KiotViet cho đơn này?")) return;
+    if (!(await confirmDialog("Tạo hoá đơn KiotViet cho đơn này?"))) return;
     try {
       const r = await createKiotVietInvoice(threadId);
       setMsg(`🧾 Đã tạo HĐ ${r.kv_code || ""}${r.old_debt ? ` · nợ cũ ${money(r.old_debt)}đ` : ""}`);
@@ -210,7 +211,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   };
 
   const deleteHD = async () => {
-    if (!confirm("XOÁ hoá đơn KiotViet của đơn này? Không thể hoàn tác.")) return;
+    if (!(await confirmDialog("XOÁ hoá đơn KiotViet của đơn này? Không thể hoàn tác.", { danger: true }))) return;
     try {
       await deleteKiotVietInvoice(threadId);
       setMsg("🗑️ Đã xoá hoá đơn KiotViet");

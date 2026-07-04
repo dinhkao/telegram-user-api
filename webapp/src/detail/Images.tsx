@@ -7,6 +7,7 @@ import { onRealtime } from "../realtime";
 import { processImage } from "./imageProcess";
 import { PhotoViewer } from "./PhotoViewer";
 import { CameraBox, cameraSupported } from "./CameraBox";
+import { confirmDialog } from "../ui/feedback";
 
 type Pending = { key: number; url: string };
 let _pk = 0;
@@ -96,7 +97,7 @@ export function Images({ threadId }: { threadId: string }) {
   };
 
   const remove = async (img: OrderImage) => {
-    if (!confirm("Xoá ảnh này?")) return;
+    if (!(await confirmDialog("Xoá ảnh này?", { danger: true }))) return;
     setImages((prev) => prev.filter((x) => x.id !== img.id)); // lạc quan
     if (lightbox?.id === img.id) setLightbox(null);
     try {

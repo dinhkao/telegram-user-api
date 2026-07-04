@@ -4,6 +4,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { orderAllocations, allocatePicks, releaseAllocations, soVN, type Allocation } from "../api";
 import { StockPickerModal } from "./StockPickerModal";
+import { confirmDialog } from "../ui/feedback";
 
 type Line = { sp: string; sl: number | string };
 
@@ -35,7 +36,7 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
   if (!products.length) return null;
 
   const doRelease = async (a: Allocation) => {
-    if (!confirm(`Thu hồi ${soVN(a.quantity)} từ thùng ${a.box_code} khỏi đơn về kho?`)) return;
+    if (!(await confirmDialog(`Thu hồi ${soVN(a.quantity)} từ thùng ${a.box_code} khỏi đơn về kho?`, { danger: true }))) return;
     setBusy(true);
     setMsg("");
     try {

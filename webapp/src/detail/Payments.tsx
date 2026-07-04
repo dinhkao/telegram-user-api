@@ -3,6 +3,7 @@
 import { useState } from "preact/hooks";
 import { currentUser, postJSON } from "../api";
 import { money, parseMoney } from "../format";
+import { confirmDialog, toast } from "../ui/feedback";
 
 export function Payments({ threadId, payments, onChanged }: { threadId: string; payments: any[]; onChanged: () => void }) {
   const [amount, setAmount] = useState("");
@@ -12,8 +13,8 @@ export function Payments({ threadId, payments, onChanged }: { threadId: string; 
 
   // Xoá 1 thanh toán — chỉ admin. Payment cũ không có id thì xoá bằng lệnh Telegram.
   const del = async (p: any) => {
-    if (!p.id) return alert("Thanh toán cũ không có id — xoá bằng lệnh Telegram /del_payment_");
-    if (!confirm(`Xoá thanh toán ${money(p.amount)}đ?\n(Xoá khỏi đơn; KiotViet có thể phải xoá tay)`)) return;
+    if (!p.id) { toast("Thanh toán cũ không có id — xoá bằng lệnh Telegram /del_payment_", "err"); return; }
+    if (!(await confirmDialog(`Xoá thanh toán ${money(p.amount)}đ?\n(Xoá khỏi đơn; KiotViet có thể phải xoá tay)`, { danger: true }))) return;
     setBusy(true);
     setMsg("");
     try {
@@ -29,8 +30,8 @@ export function Payments({ threadId, payments, onChanged }: { threadId: string; 
 
   const pay = async (method: "tm" | "ck") => {
     const value = parseMoney(amount);
-    if (!value) return alert("Nhập số tiền");
-    if (!confirm(`Thu ${money(value)}đ (${method === "tm" ? "tiền mặt" : "chuyển khoản"})?`)) return;
+    if (!value) { toast("Nhập số tiền", "err"); return; }
+    if (!(await confirmDialog(`Thu ${money(value)}đ (${method === "tm" ? "tiền mặt" : "chuyển khoản"})?`))) return;
     setBusy(true);
     setMsg("");
     try {

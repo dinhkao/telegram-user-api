@@ -3,6 +3,7 @@
 import { useState } from "preact/hooks";
 import { postJSON } from "../api";
 import { fmtTime } from "../format";
+import { confirmDialog, toast } from "../ui/feedback";
 
 const TASKS: [string, string][] = [
   ["ban_hd", "Bán HĐ"],
@@ -21,22 +22,22 @@ export function Tasks({ threadId, taskStatus, userNames, onChanged }: { threadId
     try {
       const r = await postJSON("/api/order/task", { thread_id: Number(threadId), type }, { queueable: true });
       if (!r._queued) onChanged();
-      else alert("📴 Đã lưu, sẽ gửi khi có mạng");
+      else toast("📴 Đã lưu, sẽ gửi khi có mạng", "ok");
     } catch (ex: any) {
-      alert(ex.message);
+      toast(ex.message, "err");
     } finally {
       setBusy("");
     }
   };
 
   const clear = async (type: string) => {
-    if (!confirm("Huỷ đánh dấu bước này?")) return;
+    if (!(await confirmDialog("Huỷ đánh dấu bước này?", { danger: true }))) return;
     setBusy(type);
     try {
       await postJSON(`/api/order/${threadId}/task_status/clear`, { type });
       onChanged();
     } catch (ex: any) {
-      alert(ex.message);
+      toast(ex.message, "err");
     } finally {
       setBusy("");
     }

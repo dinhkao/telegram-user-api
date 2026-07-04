@@ -19,6 +19,7 @@ import { onRealtime } from "../realtime";
 import { ProductionBoxes } from "../detail/ProductionBoxes";
 import { ProductionReport } from "../detail/ProductionReport";
 import { ProductPicker } from "../detail/ProductPicker";
+import { confirmDialog } from "../ui/feedback";
 
 export function ProductionDetail({ threadId, focus }: { threadId: string; focus?: string }) {
   const [slip, setSlip] = useState<ProdSlip | null>(null);
@@ -123,7 +124,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   };
 
   const doDelete = async () => {
-    if (!confirm("Xoá phiếu sản xuất này?")) return;
+    if (!(await confirmDialog("Xoá phiếu sản xuất này?", { danger: true }))) return;
     try {
       await deleteProduction(threadId);
       window.location.hash = "#/san_xuat";

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { fetchCustomerPrice, previewOrder, searchProducts, type PriceInfo, type OrderPreview } from "../api";
 import { money, parseMoney } from "../format";
 import { InvoiceTable } from "./InvoiceTable";
+import { toast } from "../ui/feedback";
 
 export type EditorRow = { sp: string; sl: number; price: number; note?: string };
 export type EditorPayload = { invoice: EditorRow[]; discount: number; pvc: number; vat: number };
@@ -165,7 +166,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
 
   const run = async (fn: () => Promise<void> | void) => {
     setBusy(true);
-    try { await fn(); } catch (e: any) { alert(e?.message || "Lỗi"); } finally { setBusy(false); }
+    try { await fn(); } catch (e: any) { toast(e?.message || "Lỗi", "err"); } finally { setBusy(false); }
   };
   const save = () => run(async () => {
     await onSave({ invoice: rows.filter((r) => (r.sp || "").trim()), discount: disc, pvc: p, vat: v });
