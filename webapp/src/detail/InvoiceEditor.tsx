@@ -213,7 +213,9 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       <div class="card">
         <div class="row space">
           <b>Hoá đơn ({rows.length} món)</b>
-          <button class="btn small" onClick={() => setEditing(true)}>✏️ Sửa</button>
+          {hasInvoice
+            ? <span class="muted small" title="Đã tạo hoá đơn KiotViet — không sửa sản phẩm được nữa">🔒 Đã chốt</span>
+            : <button class="btn small" onClick={() => setEditing(true)}>✏️ Sửa</button>}
         </div>
         {rows.length === 0 ? (
           <p class="muted small">Chưa có sản phẩm. Bấm ✏️ Sửa để thêm.</p>
