@@ -14,7 +14,7 @@ export function DeliveryCalendar() {
   const todayIso = iso(now.getFullYear(), now.getMonth(), now.getDate());
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() }); // m: 0-based
   const [orders, setOrders] = useState<any[]>([]);
-  const [hideDelivered, setHideDelivered] = useState(false); // lọc bỏ đơn đã giao rồi
+  const [hideDelivered, setHideDelivered] = useState(true); // mặc định ẩn đơn đã giao rồi
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState(todayIso);
 
