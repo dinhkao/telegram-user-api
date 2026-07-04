@@ -13,6 +13,7 @@ import {
 } from "../api";
 import { onRealtime } from "../realtime";
 import { ProductPicker } from "../detail/ProductPicker";
+import { Loading, EmptyState } from "../ui/states";
 
 export function ProductionList() {
   const [slips, setSlips] = useState<ProdSlip[]>([]);
@@ -110,8 +111,8 @@ export function ProductionList() {
       </div>
 
       {err && <div class="error-banner">{err}</div>}
-      {loading && !slips.length && <div class="muted">Đang tải…</div>}
-      {!loading && !slips.length && <div class="muted">Chưa có phiếu sản xuất nào.</div>}
+      {loading && !slips.length && <Loading />}
+      {!loading && !slips.length && <EmptyState>Chưa có phiếu sản xuất nào.</EmptyState>}
 
       <div class="prod-cards">
         {slips.map((s) => (

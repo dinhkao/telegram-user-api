@@ -11,6 +11,7 @@ import {
 import { money, parseMoney } from "../format";
 import { CompactOrderCard } from "../detail/CompactOrderCard";
 import { onRealtime } from "../realtime";
+import { Loading, ErrorState } from "../ui/states";
 
 type Row = { sp: string; price: string };
 
@@ -114,8 +115,8 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
     } catch { /* ignore */ } finally { setDebtBusy(false); }
   };
 
-  if (err && !cust) return <div class="prod-detail"><BackLink fallback="#/customers" /><p class="error">{err}</p></div>;
-  if (!cust) return <div class="prod-detail"><p class="muted">Đang tải…</p></div>;
+  if (err && !cust) return <div class="prod-detail"><BackLink fallback="#/customers" /><ErrorState msg={err} onRetry={reload} /></div>;
+  if (!cust) return <div class="prod-detail"><Loading /></div>;
 
   return (
     <div class="prod-detail">

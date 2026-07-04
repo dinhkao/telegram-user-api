@@ -5,6 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { inventoryDetail, soVN, type InvDetail, type InvBox } from "../api";
 import { onRealtime } from "../realtime";
+import { Loading, ErrorState } from "../ui/states";
 
 function fmtWhen(iso?: string): string {
   if (!iso) return "";
@@ -36,8 +37,8 @@ export function InventoryDetail({ code }: { code: string }) {
     [code]
   );
 
-  if (err) return <div class="error-banner">{err}</div>;
-  if (!inv) return <div class="muted">Đang tải…</div>;
+  if (err) return <ErrorState msg={err} onRetry={load} />;
+  if (!inv) return <Loading />;
   const all: InvBox[] = inv.all_boxes;
 
   return (

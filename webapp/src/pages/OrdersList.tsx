@@ -9,6 +9,7 @@ import { onRealtime } from "../realtime";
 import { InvoiceTable } from "../detail/InvoiceTable";
 import { orderImageUrl, listOrderImages, type OrderImage } from "../api";
 import { PhotoViewer } from "../detail/PhotoViewer";
+import { Loading, EmptyState } from "../ui/states";
 
 type OrderRow = {
   thread_id: number;
@@ -555,13 +556,13 @@ export function OrdersList() {
           );
         })}
       </ul>
-      {loading && <p class="muted center">Đang tải…</p>}
+      {loading && <Loading />}
       {/* sentinel cho infinite scroll — observer tải trang kế khi lọt khung nhìn */}
       <div ref={sentinel} style="height:1px" />
       {!loading && page >= totalPages && visible.length > 0 && (
         <p class="muted center small">— Hết đơn —</p>
       )}
-      {!loading && !visible.length && !err && <p class="muted center">Không có đơn nào</p>}
+      {!loading && !visible.length && !err && <EmptyState>Không có đơn nào</EmptyState>}
       {viewer && (
         <PhotoViewer
           images={viewer.images}

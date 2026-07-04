@@ -3,6 +3,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { getPriceLists, type PriceListSummary } from "../api";
 import { onRealtime } from "../realtime";
+import { Loading, EmptyState } from "../ui/states";
 
 export function PriceLists() {
   const [lists, setLists] = useState<PriceListSummary[] | null>(null);
@@ -30,9 +31,9 @@ export function PriceLists() {
       <h2>💰 Bảng giá chung</h2>
       {err && <p class="error">{err}</p>}
       {!lists ? (
-        <p class="muted">Đang tải…</p>
+        <Loading />
       ) : !lists.length ? (
-        <p class="muted">Chưa có bảng giá chung nào.</p>
+        <EmptyState>Chưa có bảng giá chung nào.</EmptyState>
       ) : (
         <ul class="order-list">
           {lists.map((l) => (

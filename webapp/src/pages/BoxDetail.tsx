@@ -5,6 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { boxDetail, updateBox, setBoxDisabled, soVN, type InvBoxDetail, type InvBox } from "../api";
 import { onRealtime } from "../realtime";
+import { Loading } from "../ui/states";
 
 const isDisabled = (b: InvBox) => !!b.disabled;
 
@@ -99,7 +100,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
     }
   };
 
-  if (loading) return <div class="muted">Đang tải…</div>;
+  if (loading) return <Loading />;
   if (err || !d)
     return (
       <div class="muted">

@@ -15,6 +15,7 @@ import { Images } from "../detail/Images";
 import { OrderStock } from "../detail/OrderStock";
 import { invalidateListCache, markLastOrder } from "./OrdersList";
 import { confirmDialog } from "../ui/feedback";
+import { Loading, ErrorState } from "../ui/states";
 
 // Nhớ vị trí cuộn theo từng đơn — quay lại đơn cũ về đúng chỗ đang xem
 const detailScroll: Record<string, number> = {};
@@ -146,8 +147,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     return () => { off(); clearTimeout(t); clearTimeout(tt); clearTimeout(hide); };
   }, [threadId]);
 
-  if (err && !detail) return <p class="error">{err}</p>;
-  if (!detail) return <p class="muted center">Đang tải…</p>;
+  if (err && !detail) return <ErrorState msg={err} onRetry={reload} />;
+  if (!detail) return <Loading />;
 
   const j = detail.data || {};
   const pc = (j.hoadon || {}).print_content || {};

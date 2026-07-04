@@ -21,6 +21,7 @@ import { ProductionReport } from "../detail/ProductionReport";
 import { ProductPicker } from "../detail/ProductPicker";
 import { confirmDialog } from "../ui/feedback";
 import { parseMoney } from "../format";
+import { Loading } from "../ui/states";
 
 export function ProductionDetail({ threadId, focus }: { threadId: string; focus?: string }) {
   const [slip, setSlip] = useState<ProdSlip | null>(null);
@@ -134,7 +135,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
     }
   };
 
-  if (loading) return <div class="muted">Đang tải…</div>;
+  if (loading) return <Loading />;
   if (!slip) return <div class="muted">Không tìm thấy phiếu. <a href="#/san_xuat">← Danh sách</a></div>;
 
   const total = slip.total || 0;

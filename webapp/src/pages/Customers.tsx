@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON } from "../api";
 import { money, fmtTime } from "../format";
 import { onRealtime } from "../realtime";
+import { Loading, EmptyState } from "../ui/states";
 
 const PAGE_SIZE = 30;
 
@@ -114,8 +115,8 @@ export function Customers() {
         ))}
       </ul>
       <div ref={sentinel} style="height:1px" />
-      {loading && <p class="muted center">Đang tải…</p>}
-      {!loading && !customers.length && !err && <p class="muted center">Không thấy khách</p>}
+      {loading && <Loading />}
+      {!loading && !customers.length && !err && <EmptyState>Không thấy khách</EmptyState>}
       {!loading && page >= totalPages && customers.length > 0 && (
         <p class="muted center small">Hết danh sách ({customers.length} khách)</p>
       )}

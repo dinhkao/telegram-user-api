@@ -7,6 +7,7 @@ import { BackLink } from "../nav";
 import { getPriceList, savePriceOne, getPriceHistory, type PriceListFull, type PriceHistoryRow } from "../api";
 import { money, parseMoney } from "../format";
 import { onRealtime } from "../realtime";
+import { Loading, ErrorState } from "../ui/states";
 
 function fmtMs(ms: number): string {
   try { return new Date(ms).toLocaleString("vi-VN"); } catch { return String(ms); }
@@ -61,8 +62,8 @@ export function PriceListDetail({ listId }: { listId: string }) {
     getPriceHistory(listId, sp || undefined).then(setHistory).catch(() => setHistory([]));
   };
 
-  if (err && !list) return <div class="prod-detail"><BackLink fallback="#/bang-gia" /><p class="error">{err}</p></div>;
-  if (!list) return <div class="prod-detail"><p class="muted">Đang tải…</p></div>;
+  if (err && !list) return <div class="prod-detail"><BackLink fallback="#/bang-gia" /><ErrorState msg={err} onRetry={reload} /></div>;
+  if (!list) return <div class="prod-detail"><Loading /></div>;
 
   const q = filter.trim().toLowerCase();
   const items = q ? list.items.filter((it) => it.sp.toLowerCase().includes(q)) : list.items;

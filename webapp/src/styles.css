@@ -72,6 +72,10 @@ body { font-family: system-ui, -apple-system, Roboto, sans-serif; background: va
 .cf-msg { font-size: 1rem; line-height: 1.5; color: var(--ink); margin-bottom: 18px; }
 .cf-actions { display: flex; gap: 10px; }
 .cf-actions .btn { flex: 1; min-height: 44px; }
+/* Trạng thái màn dùng chung (ui/states.tsx) */
+.state-loading, .state-empty { padding: 24px 12px; font-size: .92rem; }
+.state-empty-ic { display: block; font-size: 1.8rem; margin-bottom: 6px; opacity: .7; }
+.state-error { padding: 16px 12px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .notice { background: #e8f0fe; border-radius: 8px; padding: 8px; margin: 6px 0; font-size: .9rem; position: sticky; top: 48px; z-index: 15; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
 .money { color: var(--primary); }
 .owe { color: var(--danger); font-size: .9rem; }

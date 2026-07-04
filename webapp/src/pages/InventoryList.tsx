@@ -4,6 +4,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { inventoryList, soVN, type InvProductSummary } from "../api";
 import { onRealtime } from "../realtime";
+import { Loading, EmptyState, ErrorState } from "../ui/states";
 
 export function InventoryList() {
   const [products, setProducts] = useState<InvProductSummary[] | null>(null);
@@ -27,16 +28,14 @@ export function InventoryList() {
     []
   );
 
-  if (err) return <div class="error-banner">{err}</div>;
-  if (!products) return <div class="muted">Đang tải…</div>;
+  if (err) return <ErrorState msg={err} onRetry={load} />;
+  if (!products) return <Loading />;
 
   return (
     <div class="inv-dash">
       <h2 class="page-h">📦 Kho hàng</h2>
       {!products.length && (
-        <div class="muted center" style={{ padding: "40px 0" }}>
-          Kho trống. Nhập thùng ở phiếu SX (🏭 SX).
-        </div>
+        <EmptyState>Kho trống. Nhập thùng ở phiếu SX (🏭 SX).</EmptyState>
       )}
       {products.map((p) => (
         <a class="inv-card" href={`#/kho/${encodeURIComponent(p.product_code)}`} key={p.product_code}>
