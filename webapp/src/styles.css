@@ -68,6 +68,13 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .chips { display: flex; gap: 6px; padding: 4px 0; overflow-x: auto; }
 .chip { border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 6px 12px; font-size: .85rem; white-space: nowrap; }
 .chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+/* Chọn kiểu sắp xếp danh sách đơn */
+.sort-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 2px; }
+.sort-lbl { font-size: .8rem; color: var(--muted); }
+.sort-opt { border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 4px 12px; font-size: .82rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.sort-opt.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+/* Dòng "thao tác mới nhất" trên đầu card (view Mới cập nhật) */
+.last-act { display: block; font-size: .78rem; font-weight: 600; color: var(--primary); background: var(--bg); background: color-mix(in srgb, var(--primary) 10%, transparent); border-radius: 6px; padding: 2px 8px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .detail-head { display: flex; gap: 10px; align-items: center; padding: 6px 0; }
 .back { font-size: 1.4rem; text-decoration: none; color: inherit; padding: 4px 10px; }

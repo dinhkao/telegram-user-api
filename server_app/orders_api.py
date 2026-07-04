@@ -75,6 +75,53 @@ def _attach_thumbs(conn, orders: list[dict]) -> None:
         o["image_count"] = len(lst)
 
 
+def _attach_latest_action(conn, orders: list[dict]) -> None:
+    """Gắn thao tác MỚI NHẤT (nhãn + người làm + thời gian) của mỗi đơn — cho view
+    sort 'Mới cập nhật'. Lấy từ audit_events (POST có nhãn trong _LABELS, hoặc thêm
+    ảnh). 1 truy vấn gộp cho cả trang, giới hạn 10 dòng mới nhất/đơn (window). Tái
+    dùng _norm/_LABELS/_actor_display của order_history. Lỗi/thiếu bảng → bỏ qua."""
+    for o in orders:
+        o["last_action"] = o["last_actor"] = o["last_action_ts"] = None
+    ids = [o["thread_id"] for o in orders if o.get("thread_id") is not None]
+    if not ids:
+        return
+    try:
+        from server_app.order_history import _norm, _LABELS, _actor_display, _load_names
+        ph = ",".join("?" * len(ids))
+        rows = conn.execute(
+            f"""SELECT thread_id, ts, source, actor_id, action FROM (
+                    SELECT thread_id, ts, source, actor_id, action,
+                           ROW_NUMBER() OVER (PARTITION BY thread_id ORDER BY id DESC) rn
+                    FROM audit_events
+                    WHERE thread_id IN ({ph})
+                      AND (action = 'order.image_added' OR (action = 'http.request' AND source LIKE 'POST %'))
+                ) WHERE rn <= 20 ORDER BY thread_id, rn""",
+            ids,
+        ).fetchall()
+        names = _load_names()
+        best: dict = {}
+        for r in rows:
+            tid = r["thread_id"]
+            if tid in best:
+                continue
+            if r["action"] == "order.image_added":
+                label = "Thêm ảnh"
+            else:
+                src = r["source"] or ""
+                if not src.startswith("POST "):
+                    continue
+                label = _LABELS.get(_norm(src[5:].split("?")[0]))
+                if not label:
+                    continue
+            best[tid] = (label, _actor_display(r["actor_id"], names), r["ts"])
+    except Exception:
+        return
+    for o in orders:
+        v = best.get(o.get("thread_id"))
+        if v:
+            o["last_action"], o["last_actor"], o["last_action_ts"] = v
+
+
 def build_row_for_thread(thread_id) -> dict | None:
     """Đọc 1 đơn theo thread_id → dựng row danh sách (hoặc None nếu không có/đã xoá).
     Dùng bởi server_app/realtime.py để đẩy dòng đã thay đổi qua WebSocket."""
@@ -85,6 +132,7 @@ def build_row_for_thread(thread_id) -> dict | None:
             return None
         row = _build_order_row(r)
         _attach_thumbs(conn, [row])
+        _attach_latest_action(conn, [row])
         return row
     finally:
         conn.close()
@@ -163,6 +211,9 @@ async def orders_api_handler(request: web.Request):
         # chưa gán khách) luôn lên đầu, không bị đẩy xuống đáy. Khớp idx_orders_created_tid
         # (order_created DESC, thread_id DESC) → không TEMP B-TREE (<1ms).
         order_by = f"{created_expr} DESC, o.thread_id DESC"
+    elif sort == "updated":
+        # 'Mới cập nhật': theo lần sửa gần nhất. Khớp idx_orders_updated_tid → <1ms.
+        order_by = "o.updated_at DESC, o.thread_id DESC"
     else:
         order_by = f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, o.updated_at DESC, o.thread_id DESC"
     try:
@@ -170,6 +221,8 @@ async def orders_api_handler(request: web.Request):
         rows = conn.execute(f"SELECT {_ROW_COLUMNS} FROM orders o WHERE {where_clause} ORDER BY {order_by} LIMIT ? OFFSET ?", params + [limit, offset]).fetchall()
         orders = [_build_order_row(r) for r in rows]
         _attach_thumbs(conn, orders)  # gắn ảnh đại diện cho từng đơn (1 truy vấn gộp)
+        if sort == "updated":  # view 'Mới cập nhật': gắn thao tác mới nhất/đơn
+            _attach_latest_action(conn, orders)
         total = int(total_row[0]) if total_row else 0
         stats = {}
         if page == 1:

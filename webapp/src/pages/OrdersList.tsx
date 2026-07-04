@@ -42,6 +42,9 @@ type OrderRow = {
   topic_name: string;
   creator: string;
   text: string;
+  last_action?: string | null; // view 'Mới cập nhật': thao tác mới nhất
+  last_actor?: string | null;
+  last_action_ts?: string | null;
 };
 
 // Mã ghi chú nộp tiền → tiếng Việt đầy đủ
@@ -148,6 +151,17 @@ export function OrdersList() {
   const [err, setErr] = useState("");
   const [compact, setCompact] = useState(() => localStorage.getItem("dash_compact") === "1");
   const toggleCompact = () => setCompact((c) => { localStorage.setItem("dash_compact", c ? "0" : "1"); return !c; });
+  const [sort, setSort] = useState<"created" | "updated">(() => (localStorage.getItem("dash_sort") === "updated" ? "updated" : "created"));
+  const sortRef = useRef(sort); // đọc trong load (tránh stale closure)
+  const changeSort = (s: "created" | "updated") => {
+    if (s === sortRef.current) return;
+    sortRef.current = s;
+    localStorage.setItem("dash_sort", s);
+    setSort(s);
+    setPage(1);
+    listCache = null; // đổi sort → bỏ cache cũ để không vẽ lại danh sách cũ
+    load(1, search, filter, false);
+  };
   const [flashing, setFlashing] = useState<Record<string, string>>({});
   // Xem ảnh phóng to khi bấm thumbnail trên card (không vào trang chi tiết)
   const [viewer, setViewer] = useState<{ threadId: string; images: OrderImage[]; start: number } | null>(null);
@@ -189,8 +203,9 @@ export function OrdersList() {
     try {
       // filter=all → không gửi (server mặc định all). Lọc pending/done server-side.
       const fp = f && f !== "all" ? `&filter=${f}` : "";
+      const sp = sortRef.current === "updated" ? "&sort=updated" : "";
       // chỉ cache trang không search — kết quả theo phím gõ không rác localStorage
-      const data = await getJSON(`/api/orders?page=${p}&limit=${PAGE_SIZE}&search=${encodeURIComponent(q)}${fp}`, { cache: !q });
+      const data = await getJSON(`/api/orders?page=${p}&limit=${PAGE_SIZE}&search=${encodeURIComponent(q)}${fp}${sp}`, { cache: !q });
       if (seq !== reqSeq.current) return; // đã có query mới hơn → bỏ kết quả cũ (chống race)
       setOrders((prev) => (append ? [...prev, ...(data.orders || [])] : (data.orders || [])));
       setTotalPages(data.total_pages || 1);
@@ -352,6 +367,11 @@ export function OrdersList() {
           <button class={filter === "chua_nhan" ? "chip active" : "chip"} onClick={() => onFilter("chua_nhan")}>Chưa nhận {stats.chua_nhan != null ? `(${stats.chua_nhan})` : ""}</button>
         </div>
       )}
+      <div class="sort-row">
+        <span class="sort-lbl">Sắp xếp:</span>
+        <button class={sort === "created" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("created")}>Mới tạo</button>
+        <button class={sort === "updated" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("updated")}>Mới cập nhật</button>
+      </div>
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {err && <p class="error">{err}</p>}
       <ul class="order-list">
@@ -373,6 +393,9 @@ export function OrdersList() {
                 );
               })()}
               <div class="compact-right">
+                {sort === "updated" && o.last_action && (
+                  <div class="last-act">⚡ {o.last_action}{o.last_actor ? ` · ${o.last_actor}` : ""} · {fmtRelative(o.last_action_ts)}</div>
+                )}
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
                 <div class="order-text wrap-badges">
                   <TaskBadges o={o} />
@@ -396,6 +419,9 @@ export function OrdersList() {
           <li key={o.thread_id}>
             <a class={`order-card two-col${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               <div class="card-main">
+                {sort === "updated" && o.last_action && (
+                  <div class="last-act">⚡ {o.last_action}{o.last_actor ? ` · ${o.last_actor}` : ""} · {fmtRelative(o.last_action_ts)}</div>
+                )}
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
                 <div class="card-body">
                   {(() => {

@@ -87,6 +87,9 @@ def ensure_orders_stats_columns(conn):
             CREATE INDEX IF NOT EXISTS idx_orders_created_tid
                 ON orders(order_created DESC, thread_id DESC)
                 WHERE deleted_at IS NULL;
+            CREATE INDEX IF NOT EXISTS idx_orders_updated_tid
+                ON orders(updated_at DESC, thread_id DESC)
+                WHERE deleted_at IS NULL;
         """)
         conn.commit()
         _stats_cols_ready = True
