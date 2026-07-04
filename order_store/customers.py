@@ -9,6 +9,19 @@ from .search import _invalidate_customer_patterns_cache
 log = logging.getLogger("order_store.customers")
 
 
+def _recent_key(v) -> float:
+    """Khoá sắp xếp 'recent' đồng nhất kiểu số — `last_order_at` có thể là epoch
+    (int/float), chuỗi ISO, hoặc thiếu. Trộn int↔str khi sort sẽ TypeError."""
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str) and v.strip():
+        try:
+            return datetime.fromisoformat(v.strip().replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
 def search_customers(conn, name: str, limit: int = 20, *, sort: str = "name",
                      offset: int = 0) -> tuple[list[dict], int]:
     """Return (customers, total_count), phân trang offset.
@@ -36,7 +49,7 @@ def search_customers(conn, name: str, limit: int = 20, *, sort: str = "name",
         data["_firebase_key"] = firebase_key
         matched.append(data)
     if sort == "recent":
-        matched.sort(key=lambda d: d.get("last_order_at") or 0, reverse=True)
+        matched.sort(key=lambda d: _recent_key(d.get("last_order_at")), reverse=True)
     else:
         matched.sort(key=lambda d: vn_normalize(str(d.get("name") or d.get("ten") or d.get("_firebase_key") or "")))
     total = len(matched)
