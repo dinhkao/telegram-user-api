@@ -261,16 +261,29 @@ export function PhotoViewer({
   const copyImage = async () => {
     if (!cur) return;
     try {
-      const png = (async () => {
-        const res = await fetch(orderImageUrl(threadId, cur.id, "full"));
-        const bmp = await createImageBitmap(await res.blob());
-        const c = document.createElement("canvas");
-        c.width = bmp.width;
-        c.height = bmp.height;
-        c.getContext("2d")!.drawImage(bmp, 0, 0);
-        bmp.close?.();
-        return await new Promise<Blob>((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error("png"))), "image/png"));
-      })();
+      const res = await fetch(orderImageUrl(threadId, cur.id, "full"));
+      const blob = await res.blob();
+      // WebView Android không copy ảnh được → ưu tiên cầu native copyImage.
+      const bridge: any = (window as any).AndroidApp;
+      if (bridge?.copyImage) {
+        const dataUrl: string = await new Promise((ok, no) => {
+          const fr = new FileReader();
+          fr.onload = () => ok(String(fr.result));
+          fr.onerror = () => no(new Error("read"));
+          fr.readAsDataURL(blob);
+        });
+        const ok = bridge.copyImage(dataUrl);
+        flash(ok === false ? "Copy ảnh lỗi" : "✓ Đã copy ảnh");
+        return;
+      }
+      // Trình duyệt: clipboard.write PNG (cần HTTPS)
+      const bmp = await createImageBitmap(blob);
+      const c = document.createElement("canvas");
+      c.width = bmp.width;
+      c.height = bmp.height;
+      c.getContext("2d")!.drawImage(bmp, 0, 0);
+      bmp.close?.();
+      const png = await new Promise<Blob>((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error("png"))), "image/png"));
       await navigator.clipboard.write([new (window as any).ClipboardItem({ "image/png": png })]);
       flash("✓ Đã copy ảnh");
     } catch {
