@@ -28,7 +28,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [editText, setEditText] = useState<string | null>(null);
   const [changingCust, setChangingCust] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [ngg, setNgg] = useState("");        // giá trị input datetime-local ngày giao
+  const [nggDate, setNggDate] = useState("");   // ngày giao (YYYY-MM-DD)
+  const [nggTime, setNggTime] = useState("");   // giờ giao (HH:MM) — tách riêng
   const [savingNg, setSavingNg] = useState(false);
   const seenTs = useRef<string | null>(null); // ts mới nhất đã báo — chặn báo lại lịch sử cũ
   const restored = useRef(false); // đã khôi phục vị trí cuộn cho đơn này chưa
@@ -46,11 +47,18 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   // Sau khi SỬA đơn: xoá cache dashboard rồi tải lại (đơn có thể đã rời filter)
   const changed = () => { invalidateListCache(); reload(); };
 
-  // Seed input ngày giao theo dữ liệu đơn (cắt còn YYYY-MM-DDTHH:MM cho datetime-local)
-  useEffect(() => { setNgg((detail?.data?.ngay_giao || "").slice(0, 16)); }, [detail?.data?.ngay_giao]);
+  // Seed 2 input ngày/giờ giao từ đơn. Giờ 00:00 = "chưa đặt giờ" → ô giờ để trống.
+  useEffect(() => {
+    const v = detail?.data?.ngay_giao || "";
+    setNggDate(v.slice(0, 10));
+    const t = v.slice(11, 16);
+    setNggTime(t && t !== "00:00" ? t : "");
+  }, [detail?.data?.ngay_giao]);
+  // Ghép lại: có giờ → 'YYYY-MM-DDTHH:MM', chỉ ngày → 'YYYY-MM-DD', không ngày → ''.
+  const nggCombined = nggDate ? (nggTime ? `${nggDate}T${nggTime}` : nggDate) : "";
   const saveNgayGiao = async () => {
     setSavingNg(true); setMsg("");
-    try { await setOrderNgayGiao(threadId, ngg); changed(); setMsg("✅ Đã lưu ngày giao"); }
+    try { await setOrderNgayGiao(threadId, nggCombined); changed(); setMsg("✅ Đã lưu ngày giao"); }
     catch (e: any) { setMsg(`❌ ${e.message}`); }
     finally { setSavingNg(false); }
   };
@@ -309,11 +317,12 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           {j.ngay_giao && j.ngay_giao_auto ? <span class="muted small">tự đặt khi tạo đơn</span> : null}
         </div>
         <div class="row ngg-row">
-          <input type="datetime-local" value={ngg} onInput={(e: any) => setNgg(e.target.value)} />
+          <input type="date" class="ngg-date" value={nggDate} onInput={(e: any) => setNggDate(e.target.value)} />
+          <input type="time" class="ngg-time" value={nggTime} disabled={!nggDate} onInput={(e: any) => setNggTime(e.target.value)} />
           <button class="btn primary" disabled={savingNg} onClick={saveNgayGiao}>{savingNg ? "…" : "Lưu"}</button>
-          {ngg && <button class="btn small" disabled={savingNg} title="Xoá ngày giao" onClick={() => { setNgg(""); }}>✕</button>}
+          {nggDate && <button class="btn small" disabled={savingNg} title="Xoá ngày giao" onClick={() => { setNggDate(""); setNggTime(""); }}>✕</button>}
         </div>
-        {ngg ? <p class="muted small">Giao dự kiến: <b>{fmtNgayGiao(ngg)}</b></p> : <p class="muted small">Chưa đặt ngày giao.</p>}
+        {nggCombined ? <p class="muted small">Giao dự kiến: <b>{fmtNgayGiao(nggCombined)}</b></p> : <p class="muted small">Chưa đặt ngày giao.</p>}
       </div>
 
       <Tasks threadId={threadId} taskStatus={j.task_status || {}} userNames={detail.user_names || {}} onChanged={changed} />
