@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON } from "../api";
 import { money, fmtTime } from "../format";
+import { onRealtime } from "../realtime";
 
 const PAGE_SIZE = 30;
 
@@ -56,6 +57,17 @@ export function Customers() {
     );
     io.observe(el);
     return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => {
+      if (e.type === "resync" || e.type === "order_changed" || e.type === "orders_changed") {
+        clearTimeout(t);
+        t = setTimeout(() => load(1, st.current.search, false), 300);
+      }
+    });
+    return () => { off(); clearTimeout(t); };
   }, []);
 
   const onSearch = (q: string) => {

@@ -10,6 +10,7 @@ import {
 } from "../api";
 import { money } from "../format";
 import { CompactOrderCard } from "../detail/CompactOrderCard";
+import { onRealtime } from "../realtime";
 
 type Row = { sp: string; price: string };
 
@@ -55,10 +56,25 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
 
   const loadEffective = () => getCustomerPriceList(ckey).then(setEffective).catch(() => setEffective(null));
 
-  useEffect(() => {
+  const reload = () => {
     getCustomer(ckey).then(hydrate).catch((e) => setErr(e.message));
     loadOrders(1);
     loadEffective();
+  };
+
+  useEffect(() => {
+    reload();
+  }, [ckey]);
+
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => {
+      if (e.type === "resync" || e.type === "order_changed") {
+        clearTimeout(t);
+        t = setTimeout(reload, 300);
+      }
+    });
+    return () => { off(); clearTimeout(t); };
   }, [ckey]);
 
   const setRow = (i: number, k: keyof Row, v: string) =>

@@ -6,6 +6,7 @@ import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { getPriceList, savePriceOne, getPriceHistory, type PriceListFull, type PriceHistoryRow } from "../api";
 import { money } from "../format";
+import { onRealtime } from "../realtime";
 
 function fmtMs(ms: number): string {
   try { return new Date(ms).toLocaleString("vi-VN"); } catch { return String(ms); }
@@ -24,8 +25,21 @@ export function PriceListDetail({ listId }: { listId: string }) {
   const [history, setHistory] = useState<PriceHistoryRow[] | null>(null);
   const [histSp, setHistSp] = useState<string | null>(null);
 
+  const reload = () => getPriceList(listId).then(setList).catch((e) => setErr(e.message));
+
   useEffect(() => {
-    getPriceList(listId).then(setList).catch((e) => setErr(e.message));
+    reload();
+  }, [listId]);
+
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => {
+      if (e.type === "resync") {
+        clearTimeout(t);
+        t = setTimeout(reload, 300);
+      }
+    });
+    return () => { off(); clearTimeout(t); };
   }, [listId]);
 
   const startEdit = (sp: string, price: number) => { setEditSp(sp); setEditVal(String(price)); setErr(""); };

@@ -2,13 +2,27 @@
 // chi tiết (#/bang-gia/:id) để sửa giá + xem khách dùng + lịch sử đổi giá.
 import { useEffect, useState } from "preact/hooks";
 import { getPriceLists, type PriceListSummary } from "../api";
+import { onRealtime } from "../realtime";
 
 export function PriceLists() {
   const [lists, setLists] = useState<PriceListSummary[] | null>(null);
   const [err, setErr] = useState("");
 
+  const reload = () => getPriceLists().then(setLists).catch((e) => setErr(e.message));
+
   useEffect(() => {
-    getPriceLists().then(setLists).catch((e) => setErr(e.message));
+    reload();
+  }, []);
+
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => {
+      if (e.type === "resync") {
+        clearTimeout(t);
+        t = setTimeout(reload, 300);
+      }
+    });
+    return () => { off(); clearTimeout(t); };
   }, []);
 
   return (

@@ -4,6 +4,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { boxDetail, updateBox, setBoxDisabled, soVN, type InvBoxDetail, type InvBox } from "../api";
+import { onRealtime } from "../realtime";
 
 const isDisabled = (b: InvBox) => !!b.disabled;
 
@@ -24,8 +25,8 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   const [mfgInput, setMfgInput] = useState("");
   const [disBusy, setDisBusy] = useState(false);
 
-  useEffect(() => {
-    setLoading(true);
+  const reload = (showLoading: boolean) => {
+    if (showLoading) setLoading(true);
     boxDetail(boxId)
       .then((r) => {
         if (!r) setErr("Không tìm thấy thùng");
@@ -37,6 +38,21 @@ export function BoxDetail({ boxId }: { boxId: string }) {
       })
       .catch((e: any) => setErr(e?.message || "Lỗi tải thùng"))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    reload(true);
+  }, [boxId]);
+
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => {
+      if (e.type === "resync" || e.type === "order_changed") {
+        clearTimeout(t);
+        t = setTimeout(() => reload(false), 300);
+      }
+    });
+    return () => { off(); clearTimeout(t); };
   }, [boxId]);
 
   const saveNote = async () => {
