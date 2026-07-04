@@ -14,6 +14,27 @@ from aiohttp import web
 from order_db import _get_connection
 
 _ID = re.compile(r"/api/order/-?\d+")
+# actor_id kiểu địa chỉ (loopback proxy Tailscale serve / IP) = việc gọi nội bộ,
+# không phải người dùng đăng nhập → hiển thị "Hệ thống".
+_LOOPBACK = {"127.0.0.1", "::1", "localhost", ""}
+_IPISH = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$|^[0-9a-f:]+$", re.I)
+
+
+def _load_names() -> dict:
+    """username → display_name (để lịch sử hiện 'Duy' thay vì 'duy')."""
+    try:
+        from user_store import list_users
+        return {u["username"]: (u.get("display_name") or u["username"]) for u in list_users()}
+    except Exception:
+        return {}
+
+
+def _actor_display(actor_id, names: dict) -> str:
+    """actor_id (web_user username / IP) → tên hiển thị cho lịch sử."""
+    s = "" if actor_id is None else str(actor_id)
+    if s in _LOOPBACK or _IPISH.match(s):
+        return "Hệ thống"
+    return names.get(s, s)
 
 
 def _norm(path: str) -> str:
@@ -86,6 +107,7 @@ def _get_order_history_rows(conn, thread_id, limit: int) -> list[dict]:
         "ORDER BY id DESC LIMIT 300",
         (int(thread_id),),
     ).fetchall()
+    names = _load_names()
     out = []
     for r in rows:
         # Thêm ảnh (ghi tường minh vì upload là multipart, id ảnh không nằm trong request)
@@ -94,7 +116,7 @@ def _get_order_history_rows(conn, thread_id, limit: int) -> list[dict]:
                 pid = json.loads(r["payload_json"] or "{}").get("image_id")
             except Exception:
                 pid = None
-            out.append({"ts": r["ts"], "actor": r["actor_id"], "action": "Thêm ảnh",
+            out.append({"ts": r["ts"], "actor": _actor_display(r["actor_id"], names), "action": "Thêm ảnh",
                         "detail": "", "image_id": pid, "ok": True})
             if len(out) >= limit:
                 break
@@ -119,7 +141,7 @@ def _get_order_history_rows(conn, thread_id, limit: int) -> list[dict]:
         except Exception:
             status = None
         out.append({
-            "ts": r["ts"], "actor": r["actor_id"], "action": label,
+            "ts": r["ts"], "actor": _actor_display(r["actor_id"], names), "action": label,
             "detail": _detail(norm, body),
             "ok": status is None or (isinstance(status, int) and 200 <= status < 300),
         })
