@@ -192,7 +192,7 @@ export function CreateOrder() {
             </ul>
           </div>
 
-          {err && <p class="error">{err}</p>}
+          {err && <p class={err.startsWith("✅") ? "ok-msg" : "error"}>{err}</p>}
           <button class="btn primary wide" disabled={busy} onClick={submitQuick}>{busy ? "Đang tạo…" : "Tạo đơn"}</button>
         </div>
       ) : (
