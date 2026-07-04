@@ -219,6 +219,64 @@ function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }: {
   );
 }
 
+// Thân card COMPACT: cột thumbnail (trái) + nội dung (phải). Đo chiều cao nội dung
+// thật → đủ cho 2 ô vuông thì hiện 2 (giống card two-col, tile hẹp hơn ~68px).
+function CompactBody({ o, search, sort, flashMsg, isNew, openThumb }: {
+  o: OrderRow; search: string; sort: string; flashMsg?: string; isNew: boolean;
+  openThumb: (e: Event, o: OrderRow, atId?: number) => void;
+}) {
+  const allIds = o.thumb_image_ids && o.thumb_image_ids.length ? o.thumb_image_ids : (o.thumb_image_id ? [o.thumb_image_id] : []);
+  const total = o.image_count ?? allIds.length;
+  const contentRef = useRef<HTMLDivElement>(null);
+  const colRef = useRef<HTMLDivElement>(null);
+  const [two, setTwo] = useState(false);
+  useLayoutEffect(() => {
+    if (allIds.length < 2) { setTwo(false); return; }
+    const el = contentRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = colRef.current?.offsetWidth || 68;
+      setTwo(el.offsetHeight >= 2 * w + 4);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    if (colRef.current) ro.observe(colRef.current);
+    return () => ro.disconnect();
+  }, [allIds.length, o.text, o.last_action, o.last_changes?.length, sort, flashMsg]);
+  const shown = two ? allIds.slice(0, 2) : allIds.slice(0, 1);
+  return (
+    <>
+      {allIds.length > 0 && (
+        <div class="compact-thumb-col" ref={colRef}>
+          {shown.map((id, i) => (
+            <span class="card-thumb-wrap" key={id} onClick={(e) => openThumb(e, o, id)}>
+              <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, id, "thumb")} loading="lazy" alt="" />
+              {i === shown.length - 1 && total > shown.length && <span class="thumb-count">+{total - shown.length}</span>}
+            </span>
+          ))}
+        </div>
+      )}
+      <div class="compact-right">
+        <div class="cc-measure" ref={contentRef}>
+          {sort === "updated" && <LastAction o={o} />}
+          {flashMsg && <div class="flash-msg">🔔 {flashMsg}</div>}
+          <div class="order-text wrap-badges">
+            <TaskBadges o={o} />
+            <span class="ot-text">
+              {isNew && <span class="tag-new">Mới</span>}
+              {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
+            </span>
+          </div>
+          <div class="order-when muted small">
+            🕒 {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function TaskBadges({ o }: { o: OrderRow }) {
   const icons = [...(o.task_icons || "")];
   const fallback: boolean[] = [false, o.soan, o.giao, o.nop, o.nhan];
@@ -475,32 +533,7 @@ export function OrdersList() {
           return (
           <li key={o.thread_id}>
             <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
-              {(() => {
-                const allIds = o.thumb_image_ids && o.thumb_image_ids.length ? o.thumb_image_ids : (o.thumb_image_id ? [o.thumb_image_id] : []);
-                if (!allIds.length) return null;
-                const id = allIds[0];
-                const total = o.image_count ?? allIds.length;
-                return (
-                  <span class="card-thumb-wrap compact-thumb" onClick={(e) => openThumb(e, o, id)}>
-                    <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, id, "thumb")} loading="lazy" alt="" />
-                    {total > 1 && <span class="thumb-count">+{total - 1}</span>}
-                  </span>
-                );
-              })()}
-              <div class="compact-right">
-                {sort === "updated" && <LastAction o={o} />}
-                {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
-                <div class="order-text wrap-badges">
-                  <TaskBadges o={o} />
-                  <span class="ot-text">
-                    {isNew && <span class="tag-new">Mới</span>}
-                    {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
-                  </span>
-                </div>
-                <div class="order-when muted small">
-                  🕒 {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
-                </div>
-              </div>
+              <CompactBody o={o} search={search} sort={sort} flashMsg={flashing[String(o.thread_id)]} isNew={isNew} openThumb={openThumb} />
             </a>
           </li>
           );

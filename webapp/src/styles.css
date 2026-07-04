@@ -240,7 +240,11 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .card-body { display: flex; gap: 10px; align-items: stretch; }
 .card-body > .card-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 /* Bọc nội dung để ĐO chiều cao tự nhiên (không bị flex kéo giãn) → quyết định 1/2 thumbnail */
-.card-body > .card-content > .cc-measure { display: flex; flex-direction: column; gap: 4px; }
+.cc-measure { display: flex; flex-direction: column; gap: 4px; }
+.order-card.compact .cc-measure { gap: 2px; }
+/* Cột thumbnail card compact: 1-2 ô xếp dọc, rộng ~68px, cao full thân card */
+.order-card.compact .compact-thumb-col { flex: 0 0 auto; width: 68px; display: flex; flex-direction: column; gap: 4px; align-self: stretch; }
+.order-card.compact .compact-thumb-col .card-thumb-wrap { flex: 1 1 0; min-height: 52px; width: 100%; }
 .card-body > .card-content > .order-text { margin-top: 0; margin-bottom: 0; }
 .card-thumb-tile { border-radius: 10px; }
 
