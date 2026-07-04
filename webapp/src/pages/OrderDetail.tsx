@@ -158,6 +158,16 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const computedTotal = invoiceTotal(j.invoice) - (Number(j.discount) || 0) + (Number(j.pvc) || 0) + (Number(j.vat) || 0);
   const total = pc.tongthanhtoan ? pc.tongthanhtoan : money(computedTotal);
   const paid = paidTotal(j.payments);
+  // Redesign: tóm tắt tiền + stepper 5 bước + action bar (từ task_status có sẵn)
+  const STEPS = [
+    { k: "soan_hang", lb: "Soạn" }, { k: "ban_hd", lb: "Bán HĐ" },
+    { k: "giao_hang", lb: "Giao" }, { k: "nop_tien", lb: "Nộp" }, { k: "nhan_tien", lb: "Nhận" },
+  ];
+  const ts = j.task_status || {};
+  const stepDone = (k: string) => !!(ts[k]?.done || ts[k]?.skip);
+  const nextStep = STEPS.find((s) => !stepDone(s.k)) || null;
+  const remaining = Math.max(0, computedTotal - paid);
+  const pill = nextStep ? { cls: "deliver", txt: `Đang ${nextStep.lb.toLowerCase()}` } : { cls: "ok", txt: "Hoàn tất" };
 
   const doPrint = async () => {
     if (!(await confirmDialog("In 2 hoá đơn + phiếu giao?"))) return;
@@ -222,6 +232,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     }
   };
 
+  const markStep = async (type: string) => {
+    try { await postJSON("/api/order/task", { thread_id: Number(threadId), type, done: true }); changed(); }
+    catch (ex: any) { setMsg(`❌ ${ex.message}`); }
+  };
+
   const saveText = async () => {
     if (editText === null) return;
     setBusy(true);
@@ -240,15 +255,35 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   return (
     <div class="detail">
       {toast && <div class="toast" onClick={() => setToast(null)}>{toast}</div>}
-      <header class="detail-head">
-        <BackLink fallback="#/orders" />
-        <div>
-          <b>{pc.kh || j.customer_name || j.topic_name || `#${threadId}`}</b>
-          <div class="muted small">
-            {j.kiotvietInvoiceCode || (j.hoadon || {}).hd_code || ""} {pc.datetime ? `· ${pc.datetime}` : ""}
-          </div>
-        </div>
+      <header class="od-appbar">
+        <BackLink fallback="#/orders" className="od-back" />
+        <div class="od-appttl">Đơn <span class="od-id">#{threadId}</span></div>
       </header>
+      <div class="od-head">
+        <div class="od-top">
+          <div class="od-cust">{pc.kh || j.customer_name || j.topic_name || `#${threadId}`}</div>
+          <span class={`od-pill ${pill.cls}`}>{pill.txt}</span>
+        </div>
+        {(j.kiotvietInvoiceCode || (j.hoadon || {}).hd_code) && (
+          <div class="od-sub">{j.kiotvietInvoiceCode || (j.hoadon || {}).hd_code}{pc.datetime ? ` · ${pc.datetime}` : ""}</div>
+        )}
+        <div class="od-sum">
+          <div class="od-s"><span class="l">Tổng</span><span class="v">{typeof total === "string" ? total : money(total)}<small>đ</small></span></div>
+          <div class="od-s"><span class="l">Đã thu</span><span class="v">{money(paid)}<small>đ</small></span></div>
+          <div class="od-s due"><span class="l">Còn nợ</span><span class="v">{money(remaining)}<small>đ</small></span></div>
+        </div>
+        <div class="od-stepper">
+          {STEPS.map((s, i) => {
+            const cls = stepDone(s.k) ? "done" : (nextStep?.k === s.k ? "now" : "");
+            return (
+              <div class={`od-step ${cls}`} key={s.k}>
+                <span class="c">{stepDone(s.k) ? "✓" : i + 1}</span>
+                <span class="lb">{s.lb}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
       {detail._stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {msg && <p class="notice" onClick={() => setMsg("")}>{msg}</p>}
 
@@ -336,6 +371,15 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         <Comments threadId={threadId} chatMessages={detail.chat_messages || []} />
       </aside>
       </div>{/* .detail-grid */}
+
+      <div class="od-actionbar">
+        {nextStep ? (
+          <button class="ab-pri" onClick={() => markStep(nextStep.k)}>✓ Đánh dấu {nextStep.lb.toLowerCase()}</button>
+        ) : (
+          <div class="ab-done">✅ Đơn đã hoàn tất</div>
+        )}
+        <button class="ab-sec" onClick={doPrint} disabled={busy} title="In hoá đơn + phiếu giao">🖨️</button>
+      </div>
     </div>
   );
 }
