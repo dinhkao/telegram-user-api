@@ -258,12 +258,9 @@ export function PhotoViewer({
           {images.length > 1 ? `${idx + 1}/${images.length} · ` : ""}
           {cur.uploaded_by} · {fmtTime(cur.created_at)}
         </span>
-        {images.length > 1 && (
-          <>
-            <button class="btn" disabled={idx === 0} onClick={() => go(-1)}>‹</button>
-            <button class="btn" disabled={idx === images.length - 1} onClick={() => go(1)}>›</button>
-          </>
-        )}
+        {/* Luôn render ‹ › (disable ở biên) để số nút KHÔNG đổi → thanh không nhảy */}
+        <button class="btn" disabled={images.length <= 1 || idx === 0} onClick={() => go(-1)}>‹</button>
+        <button class="btn" disabled={images.length <= 1 || idx === images.length - 1} onClick={() => go(1)}>›</button>
         <a class="btn" href={orderImageUrl(threadId, cur.id, "full")} target="_blank" rel="noreferrer">⤢</a>
         <button class="btn" onClick={onClose}>✕</button>
       </div>
