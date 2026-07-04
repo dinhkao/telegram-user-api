@@ -218,10 +218,6 @@ function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }: {
               {stt && <span class={stt.includes("đã nộp") ? "paid-ok" : "owe"}> · {stt}</span>}
             </span>
           </div>
-          <div class="muted small">
-            {o.hd_code && <span>{o.hd_code} · </span>}
-            {o.invoice_count} món{o.creator ? ` · ${o.creator}` : ""}
-          </div>
         </div>
       </div>
     </div>
