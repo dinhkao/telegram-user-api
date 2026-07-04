@@ -450,11 +450,15 @@ export function OrdersList() {
                   {(() => {
                     const allIds = o.thumb_image_ids && o.thumb_image_ids.length ? o.thumb_image_ids : (o.thumb_image_id ? [o.thumb_image_id] : []);
                     if (!allIds.length) return null;
-                    // Text đơn RẤT dài (card đủ cao cho 2 ô vuông) → hiện 2 thumbnail.
-                    // 1 ảnh còn lại tự kéo dài lấp chỗ trống (CSS flex), không cần mốc này.
+                    // Card đủ cao cho 2 ô vuông → hiện 2 thumbnail (ước lượng theo số
+                    // dòng nội dung: text + khối "thao tác mới nhất" nếu đang ở view đó).
                     const t = o.text || "";
-                    const veryTall = t.split("\n").length >= 8 || t.length > 150;
-                    const shown = (veryTall ? allIds.slice(0, 2) : allIds.slice(0, 1));
+                    const textLines = Math.max(t.split("\n").length, Math.ceil((t.length || 0) / 34));
+                    const laLines = sort === "updated" && o.last_action
+                      ? 2 + Math.min(4, o.last_changes?.length || 0) // head + meta + số dòng thay đổi
+                      : 0;
+                    const veryTall = t.length > 150 || t.split("\n").length >= 8 || (textLines + laLines) >= 7;
+                    const shown = (veryTall && allIds.length >= 2 ? allIds.slice(0, 2) : allIds.slice(0, 1));
                     const total = o.image_count ?? allIds.length;
                     return (
                       <div class="card-thumb-col">
