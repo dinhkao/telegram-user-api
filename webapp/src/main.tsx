@@ -13,7 +13,7 @@ import { PriceListDetail } from "./pages/PriceListDetail";
 import { Login } from "./pages/Login";
 import { FeedbackHost } from "./ui/feedback";
 import { OrderDetail } from "./pages/OrderDetail";
-import { OrdersList } from "./pages/OrdersList";
+import { OrdersList, resetOrdersScroll } from "./pages/OrdersList";
 import { DeliveryCalendar } from "./pages/DeliveryCalendar";
 import { ProductionList } from "./pages/ProductionList";
 import { ProductionDetail } from "./pages/ProductionDetail";
@@ -172,7 +172,7 @@ function App() {
       <main class="page">{page}</main>
       {!showLogin && (
         <nav class="bottom-nav">
-          <a class={hash === "#/orders" || orderMatch ? "tab active" : "tab"} href="#/orders"><span class="tab-ico">📋</span><span class="tab-lbl">Đơn</span></a>
+          <a class={hash === "#/orders" || orderMatch ? "tab active" : "tab"} href="#/orders" onClick={() => resetOrdersScroll()}><span class="tab-ico">📋</span><span class="tab-lbl">Đơn</span></a>
           <a class={tab("#/customers")} href="#/customers"><span class="tab-ico">👤</span><span class="tab-lbl">Khách</span></a>
           <a class={tab("#/create")} href="#/create"><span class="tab-ico">➕</span><span class="tab-lbl">Tạo</span></a>
           <a class={tab("#/san_xuat")} href="#/san_xuat"><span class="tab-ico">🏭</span><span class="tab-lbl">SX</span></a>

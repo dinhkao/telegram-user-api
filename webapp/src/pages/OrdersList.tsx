@@ -118,6 +118,13 @@ export function invalidateListCache() {
   /* no-op */
 }
 
+/** Bấm tab Đơn → về đầu danh sách: xoá scrollY đã nhớ (để khi vào lại không khôi
+ *  phục vị trí cũ) + cuộn cửa sổ lên đầu ngay nếu đang ở trang Đơn. */
+export function resetOrdersScroll() {
+  if (listCache) listCache.scrollY = 0;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 // Đơn cuối cùng người dùng mở — để tô sáng trên dashboard khi quay lại.
 export function markLastOrder(id: string | number) {
   try { localStorage.setItem("last_order", String(id)); } catch { /* ignore */ }
