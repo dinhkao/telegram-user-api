@@ -14,7 +14,9 @@ body { font-family: system-ui, -apple-system, Roboto, sans-serif; background: va
 .app { max-width: 640px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
 .page { flex: 1; padding: 10px 10px 70px; }
 
-.topbar { position: sticky; top: 44px; background: var(--bg); padding: 6px 0; z-index: 5; }
+/* margin-top −10 khử padding-top của .page → vị trí trong luồng = vị trí dính
+   (top:44) nên KHÔNG nhảy khi cuộn; padding-top bù lại khoảng thở dưới app-bar */
+.topbar { position: sticky; top: 44px; background: var(--bg); padding: 12px 0 6px; margin-top: -10px; z-index: 5; }
 
 /* Thanh app dính trên cùng — tiêu đề + đèn realtime + nút tải lại */
 .app-bar { position: sticky; top: 0; z-index: 20; height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; background: var(--card); border-bottom: 1px solid var(--border); }
