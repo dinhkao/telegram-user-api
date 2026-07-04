@@ -445,6 +445,10 @@ body.pv-open { overflow: hidden; }
 .prod-detail .card { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 12px; }
 .card-label { display: block; font-weight: 600; font-size: .9rem; margin-bottom: 8px; }
 .pl-select { width: 100%; cursor: pointer; }
+/* Ngày giao — badge trên card danh sách + hàng nhập ở trang chi tiết */
+.od-deliver { display: inline-flex; align-items: center; gap: 4px; margin: 2px 0 6px; font-size: .8rem; font-weight: 700; color: var(--warn); background: var(--warn-wash); padding: 3px 10px; border-radius: 999px; }
+.ngg-row { display: flex; gap: 8px; align-items: center; }
+.ngg-row input { flex: 1; min-width: 0; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
 /* Khối nhập thanh toán — chip gợi ý tổng tiền hàng + TM/CK chia đều dưới ô tiền */
 .pay-box { display: flex; flex-direction: column; gap: 8px; }
 .pay-box input { width: 100%; box-sizing: border-box; }

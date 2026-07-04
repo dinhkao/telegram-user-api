@@ -75,6 +75,17 @@ export function fmtDateTimeVN(at: any): string {
   });
 }
 
+/** Hiển thị ngày giao ('YYYY-MM-DDTHH:MM') → 'DD/MM' (nếu giờ 00:00) hoặc 'DD/MM HH:MM'.
+ *  Rỗng/không hợp lệ → "". Dùng cho badge card + trang chi tiết. */
+export function fmtNgayGiao(v?: string | null): string {
+  const s = (v || "").trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+  if (!m) return "";
+  const [, , mo, d, hh, mm] = m;
+  const date = `${d}/${mo}`;
+  return hh && !(hh === "00" && mm === "00") ? `${date} ${hh}:${mm}` : date;
+}
+
 /** Mốc thời gian nằm trong `withinSec` giây gần đây (và không ở tương lai). */
 export function isRecent(at: any, withinSec: number): boolean {
   const ms = toMs(at);

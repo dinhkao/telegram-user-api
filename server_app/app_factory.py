@@ -12,7 +12,7 @@ from server_app.donhang_routes import donhang_handler, donhang_msg_handler, donh
 from server_app.image_routes import images_delete_handler, images_file_handler, images_list_handler, images_upload_handler
 from server_app.order_api_auto import auto_parse_handler, order_preview_handler, customer_price_list_handler
 from server_app.order_api_create import order_create_handler
-from server_app.order_api_mutations import api_assign_customer_handler, api_fix_handler, api_invoice_update_handler, api_refresh_handler, api_reply_handler
+from server_app.order_api_mutations import api_assign_customer_handler, api_fix_handler, api_invoice_update_handler, api_refresh_handler, api_reply_handler, api_set_ngay_giao_handler
 from server_app.order_api_payments import api_customer_price_handler, order_totals_handler, payment_ck_handler, payment_delete_handler, payment_tm_handler
 from server_app.order_api_print import api_print_giao_handler
 from server_app.order_api_tasks import _make_task_handler, api_task_handler, api_task_status_clear_handler
@@ -97,6 +97,7 @@ def create_app():
     r.add_post("/api/order/fix", api_fix_handler)
     r.add_post("/api/order/invoice/update", api_invoice_update_handler)
     r.add_post("/api/order/assign-customer", api_assign_customer_handler)
+    r.add_post("/api/order/ngay-giao", api_set_ngay_giao_handler)
     r.add_post("/api/order/invoice/create-kiotviet", api_create_invoice_handler)
     r.add_post("/api/order/invoice/delete-kiotviet", api_delete_invoice_handler)
     r.add_post("/api/order/refresh-debt", api_refresh_debt_handler)

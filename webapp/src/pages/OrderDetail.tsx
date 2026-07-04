@@ -2,9 +2,9 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, getJSON, invoiceHtmlUrl, postJSON, refreshOrderDebt } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, getJSON, invoiceHtmlUrl, postJSON, refreshOrderDebt, setOrderNgayGiao } from "../api";
 import { onRealtime } from "../realtime";
-import { money, invoiceTotal, paidTotal } from "../format";
+import { money, invoiceTotal, paidTotal, fmtNgayGiao } from "../format";
 import { Comments } from "../detail/Comments";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
@@ -28,6 +28,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [editText, setEditText] = useState<string | null>(null);
   const [changingCust, setChangingCust] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [ngg, setNgg] = useState("");        // giá trị input datetime-local ngày giao
+  const [savingNg, setSavingNg] = useState(false);
   const seenTs = useRef<string | null>(null); // ts mới nhất đã báo — chặn báo lại lịch sử cũ
   const restored = useRef(false); // đã khôi phục vị trí cuộn cho đơn này chưa
   const saveTimer = useRef<any>(null);
@@ -43,6 +45,15 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   };
   // Sau khi SỬA đơn: xoá cache dashboard rồi tải lại (đơn có thể đã rời filter)
   const changed = () => { invalidateListCache(); reload(); };
+
+  // Seed input ngày giao theo dữ liệu đơn (cắt còn YYYY-MM-DDTHH:MM cho datetime-local)
+  useEffect(() => { setNgg((detail?.data?.ngay_giao || "").slice(0, 16)); }, [detail?.data?.ngay_giao]);
+  const saveNgayGiao = async () => {
+    setSavingNg(true); setMsg("");
+    try { await setOrderNgayGiao(threadId, ngg); changed(); setMsg("✅ Đã lưu ngày giao"); }
+    catch (e: any) { setMsg(`❌ ${e.message}`); }
+    finally { setSavingNg(false); }
+  };
   useEffect(() => {
     restored.current = !!focus; // có focus (từ notification) → bỏ khôi phục cuộn, để focus thắng
     markLastOrder(threadId); // ghi nhận đơn vừa mở → dashboard tô sáng khi quay lại
@@ -290,6 +301,19 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
             {changingCust && <button class="btn small" onClick={() => setChangingCust(false)}>Huỷ</button>}
           </div>
         )}
+      </div>
+
+      <div class="card">
+        <div class="row space">
+          <b>🚚 Ngày giao</b>
+          {j.ngay_giao && j.ngay_giao_auto ? <span class="muted small">tự đặt khi tạo đơn</span> : null}
+        </div>
+        <div class="row ngg-row">
+          <input type="datetime-local" value={ngg} onInput={(e: any) => setNgg(e.target.value)} />
+          <button class="btn primary" disabled={savingNg} onClick={saveNgayGiao}>{savingNg ? "…" : "Lưu"}</button>
+          {ngg && <button class="btn small" disabled={savingNg} title="Xoá ngày giao" onClick={() => { setNgg(""); }}>✕</button>}
+        </div>
+        {ngg ? <p class="muted small">Giao dự kiến: <b>{fmtNgayGiao(ngg)}</b></p> : <p class="muted small">Chưa đặt ngày giao.</p>}
       </div>
 
       <Tasks threadId={threadId} taskStatus={j.task_status || {}} userNames={detail.user_names || {}} onChanged={changed} />

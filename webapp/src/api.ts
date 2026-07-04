@@ -243,6 +243,12 @@ export async function refreshOrderDebt(threadId: string | number): Promise<any> 
   return postJSON("/api/order/refresh-debt", { thread_id: Number(threadId) });
 }
 
+/** Đặt ngày giao dự kiến ('YYYY-MM-DDTHH:MM' hoặc '' để xoá). */
+export async function setOrderNgayGiao(threadId: string | number, ngayGiao: string): Promise<{ ngay_giao: string | null }> {
+  const d = await postJSON("/api/order/ngay-giao", { thread_id: Number(threadId), ngay_giao: ngayGiao || null });
+  return { ngay_giao: d.ngay_giao ?? null };
+}
+
 /** URL HTML hoá đơn để mở tab mới (kèm token cho WebView/khi bật auth). */
 export function invoiceHtmlUrl(threadId: string | number): string {
   const t = getToken();

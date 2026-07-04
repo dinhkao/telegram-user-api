@@ -64,6 +64,32 @@ async def api_assign_customer_handler(request: web.Request):
     return web.json_response({"ok": True, "customer_name": customer.get("name", ""), "customer_key": str(customer_key)})
 
 
+async def api_set_ngay_giao_handler(request: web.Request):
+    """Đặt ngày giao dự kiến cho đơn. Body {thread_id, ngay_giao} — chuỗi
+    'YYYY-MM-DDTHH:MM' (hoặc '' / null để xoá). Đánh dấu ngay_giao_auto=False (sửa tay)."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    thread_id = body.get("thread_id")
+    if not thread_id:
+        return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
+    val = body.get("ngay_giao")
+    val = str(val).strip()[:16] if val else None   # cắt còn YYYY-MM-DDTHH:MM
+    conn = _get_connection()
+    with transaction(conn):
+        order = get_order_by_thread_id(conn, thread_id)
+        if not order:
+            return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+        order["ngay_giao"] = val
+        order["ngay_giao_auto"] = False
+        if not _save_order(conn, thread_id, order):
+            return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
+    if order.get("channel_id") and order.get("message_id") and state._client is not None:
+        spawn_tracked("order.refresh", refresh_order_bg(conn, thread_id, order["channel_id"], order["message_id"]), {"thread_id": thread_id})
+    return web.json_response({"ok": True, "ngay_giao": val})
+
+
 async def api_invoice_update_handler(request: web.Request):
     try:
         body = await request.json()

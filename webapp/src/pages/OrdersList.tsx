@@ -2,7 +2,7 @@
 // Data: GET /api/orders (server_app/orders_api.py). Card → #/order/:thread_id.
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { getJSON } from "../api";
-import { money, fmtDateTimeVN, fmtRelative, foldVN, isRecent } from "../format";
+import { money, fmtDateTimeVN, fmtRelative, fmtNgayGiao, foldVN, isRecent } from "../format";
 
 const NEW_ORDER_SEC = 5 * 60; // đơn tạo trong 5 phút → tô vàng + tag "Mới"
 import { onRealtime } from "../realtime";
@@ -36,6 +36,7 @@ type OrderRow = {
   no_truoc?: string;
   kh_debt?: number | null;
   created?: string;
+  ngay_giao?: string;
   giao_by?: string;
   nop_by?: string;
   nop_note?: string;
@@ -204,6 +205,7 @@ function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }: {
               {o.created ? <>🕒 {fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
             </span>
           </div>
+          {o.ngay_giao && <div class="od-deliver">🚚 Giao {fmtNgayGiao(o.ngay_giao)}</div>}
           <div class="row space">
             <span>
               {o.total && <b class="money">{o.total}đ</b>}
