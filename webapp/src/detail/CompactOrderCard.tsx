@@ -2,7 +2,7 @@
 // chi tiết đơn. Dùng CSS .order-card.compact chung với dashboard. Dùng ở trang
 // chi tiết khách (list đơn của khách). Nhận sẵn 1 order row (shape _build_order_row).
 import { orderImageUrl } from "../api";
-import { fmtDateTimeVN, fmtRelative } from "../format";
+import { fmtDateTimeVN, fmtRelative, fmtNgayGiao } from "../format";
 
 const TASK_LABELS = ["HĐ", "Soạn", "Giao", "Nộp", "Nhận"];
 
@@ -40,6 +40,7 @@ export function CompactOrderCard({ o }: { o: any }) {
         <div class="order-when muted small">
           🕒 {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
         </div>
+        {o.ngay_giao && <div class="od-deliver">🚚 Giao {fmtNgayGiao(o.ngay_giao)}</div>}
       </div>
     </a>
   );

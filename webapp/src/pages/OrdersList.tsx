@@ -274,6 +274,7 @@ function CompactBody({ o, search, sort, flashMsg, isNew, openThumb }: {
           <div class="order-when muted small">
             🕒 {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
           </div>
+          {o.ngay_giao && <div class="od-deliver">🚚 Giao {fmtNgayGiao(o.ngay_giao)}</div>}
         </div>
       </div>
     </>
