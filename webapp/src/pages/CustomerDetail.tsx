@@ -1,0 +1,161 @@
+// Chi tiết 1 khách (#/khach/:key) — sửa bảng giá riêng (personal_price_list) +
+// pattern nhận diện (detectPatterns) + list đơn của khách (compact, bấm → đơn).
+// API: getCustomer / updateCustomer / getCustomerOrders / refreshCustomerDebt.
+import { useEffect, useRef, useState } from "preact/hooks";
+import {
+  getCustomer, updateCustomer, getCustomerOrders, refreshCustomerDebt,
+  type CustomerDetail as Cust,
+} from "../api";
+import { money } from "../format";
+import { CompactOrderCard } from "../detail/CompactOrderCard";
+
+type Row = { sp: string; price: string };
+
+export function CustomerDetail({ ckey }: { ckey: string }) {
+  const [cust, setCust] = useState<Cust | null>(null);
+  const [err, setErr] = useState("");
+  const [rows, setRows] = useState<Row[]>([]);
+  const [patterns, setPatterns] = useState("");
+  const [savingP, setSavingP] = useState(false);
+  const [savingPat, setSavingPat] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [debtBusy, setDebtBusy] = useState(false);
+
+  const [orders, setOrders] = useState<any[]>([]);
+  const [oPage, setOPage] = useState(1);
+  const [oTotalPages, setOTotalPages] = useState(1);
+  const [oTotal, setOTotal] = useState(0);
+  const [oLoading, setOLoading] = useState(false);
+  const seq = useRef(0);
+
+  const hydrate = (c: Cust) => {
+    setCust(c);
+    const ppl = c.personal_price_list || {};
+    setRows(Object.keys(ppl).map((sp) => ({ sp, price: String(ppl[sp]) })));
+    setPatterns((c.detectPatterns || []).join(", "));
+  };
+
+  const loadOrders = async (page: number) => {
+    const my = ++seq.current;
+    setOLoading(true);
+    try {
+      const r = await getCustomerOrders(ckey, page);
+      if (my !== seq.current) return;
+      setOTotalPages(r.total_pages || 1);
+      setOTotal(r.total || 0);
+      setOrders((prev) => (page === 1 ? r.orders : [...prev, ...r.orders]));
+      setOPage(r.page || page);
+    } finally {
+      if (my === seq.current) setOLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    getCustomer(ckey).then(hydrate).catch((e) => setErr(e.message));
+    loadOrders(1);
+  }, [ckey]);
+
+  const setRow = (i: number, k: keyof Row, v: string) =>
+    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+  const addRow = () => setRows((rs) => [...rs, { sp: "", price: "" }]);
+  const delRow = (i: number) => setRows((rs) => rs.filter((_, j) => j !== i));
+
+  const savePrices = async () => {
+    setSavingP(true); setErr(""); setMsg("");
+    const ppl: Record<string, number> = {};
+    for (const r of rows) {
+      const sp = r.sp.trim();
+      const p = parseInt(r.price, 10);
+      if (sp && p > 0) ppl[sp] = p;
+    }
+    try {
+      hydrate(await updateCustomer(ckey, { personal_price_list: ppl }));
+      setMsg("✅ Đã lưu bảng giá");
+    } catch (e: any) { setErr(e.message); } finally { setSavingP(false); }
+  };
+
+  const savePatterns = async () => {
+    setSavingPat(true); setErr(""); setMsg("");
+    const list = patterns.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+    try {
+      hydrate(await updateCustomer(ckey, { detectPatterns: list }));
+      setMsg("✅ Đã lưu pattern nhận diện");
+    } catch (e: any) { setErr(e.message); } finally { setSavingPat(false); }
+  };
+
+  const doRefreshDebt = async () => {
+    setDebtBusy(true);
+    try {
+      const { debt } = await refreshCustomerDebt(ckey);
+      setCust((c) => (c ? { ...c, debt } : c));
+    } catch { /* ignore */ } finally { setDebtBusy(false); }
+  };
+
+  if (err && !cust) return <div class="prod-detail"><a class="back" href="#/customers">←</a><p class="error">{err}</p></div>;
+  if (!cust) return <div class="prod-detail"><p class="muted">Đang tải…</p></div>;
+
+  return (
+    <div class="prod-detail">
+      <div class="prod-detail-head">
+        <a class="back" href="#/customers">←</a>
+        <div>
+          <div class="prod-sp">{cust.name}</div>
+          <div class="muted small">{cust.kh_id ? `KV: ${cust.kh_id} · ` : ""}{cust.key}</div>
+        </div>
+      </div>
+
+      <section class="card">
+        <div class="row space">
+          <b>Công nợ</b>
+          <span class={Number(cust.debt) > 0 ? "owe" : "muted"}>
+            {cust.debt != null ? `${money(Number(cust.debt) || 0)}đ` : "—"}
+          </span>
+        </div>
+        <button class="btn small" disabled={debtBusy} onClick={doRefreshDebt}>
+          {debtBusy ? "Đang lấy…" : "🔄 Cập nhật nợ KiotViet"}
+        </button>
+      </section>
+
+      {msg && <p class="muted small">{msg}</p>}
+      {err && <p class="error">{err}</p>}
+
+      <section class="card">
+        <label class="card-label">Bảng giá riêng (đè bảng giá chung)</label>
+        <table class="invoice-table">
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td><input value={r.sp} placeholder="Mã SP" onInput={(e: any) => setRow(i, "sp", e.target.value)} /></td>
+                <td class="num"><input class="num-inp" type="number" inputMode="numeric" value={r.price} placeholder="Giá" onFocus={(e: any) => e.target.select()} onInput={(e: any) => setRow(i, "price", e.target.value)} /></td>
+                <td><button class="btn small" onClick={() => delRow(i)}>✕</button></td>
+              </tr>
+            ))}
+            {!rows.length && <tr><td colSpan={3} class="muted small">Chưa có giá riêng — thêm dòng bên dưới.</td></tr>}
+          </tbody>
+        </table>
+        <div class="row">
+          <button class="btn small" onClick={addRow}>➕ Thêm SP</button>
+          <button class="btn primary" disabled={savingP} onClick={savePrices}>{savingP ? "Đang lưu…" : "💾 Lưu bảng giá"}</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <label class="card-label">Pattern nhận diện (cách nhau dấu phẩy)</label>
+        <textarea rows={3} value={patterns} placeholder="vd: loan phu, chị loàn, lp" onInput={(e: any) => setPatterns(e.target.value)} />
+        <button class="btn primary" disabled={savingPat} onClick={savePatterns}>{savingPat ? "Đang lưu…" : "💾 Lưu pattern"}</button>
+      </section>
+
+      <section class="card">
+        <label class="card-label">Đơn của khách {oTotal > 0 ? `(${oTotal})` : ""}</label>
+        <ul class="order-list">
+          {orders.map((o) => <li key={o.thread_id}><CompactOrderCard o={o} /></li>)}
+        </ul>
+        {!oLoading && !orders.length && <p class="muted small">Chưa có đơn nào của khách này.</p>}
+        {oLoading && <p class="muted center small">Đang tải…</p>}
+        {!oLoading && oPage < oTotalPages && (
+          <button class="btn small wide" onClick={() => loadOrders(oPage + 1)}>Tải thêm đơn</button>
+        )}
+      </section>
+    </div>
+  );
+}

@@ -80,7 +80,7 @@ export function Customers() {
       <ul class="order-list">
         {customers.map((c) => (
           <li key={c.key}>
-            <div class="order-card">
+            <a class="order-card" href={`#/khach/${encodeURIComponent(c.key)}`}>
               <div class="row space">
                 <b>{c.name}</b>
                 {c.debt != null && (
@@ -96,14 +96,8 @@ export function Customers() {
                 </span>
                 {c.last_order_at && <span class="muted small">📦 {fmtTime(c.last_order_at)}</span>}
               </div>
-              <a
-                class="btn small"
-                href={`#/orders`}
-                onClick={() => localStorage.setItem("pending_search", c.name)}
-              >
-                Xem đơn của khách này
-              </a>
-            </div>
+              <span class="muted small">✏️ Sửa bảng giá · pattern · xem đơn →</span>
+            </a>
           </li>
         ))}
       </ul>

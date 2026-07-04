@@ -6,7 +6,7 @@ from server_app.audit import audit_middleware
 from server_app.config import PORT
 from server_app.cors import cors_middleware
 from server_app.comment_routes import comments_add_handler, comments_list_handler
-from server_app.customer_routes import customer_detail_handler, customer_refresh_debt_handler, customers_search_handler
+from server_app.customer_routes import customer_detail_handler, customer_refresh_debt_handler, customers_search_handler, customer_update_handler, customer_orders_handler
 from server_app.donhang_routes import donhang_handler, donhang_msg_handler, donhang_page_handler, donhang_stats_handler
 from server_app.image_routes import images_delete_handler, images_file_handler, images_list_handler, images_upload_handler
 from server_app.order_api_auto import auto_parse_handler, order_preview_handler, customer_price_list_handler
@@ -137,6 +137,8 @@ def create_app():
 
     r.add_get("/api/customers", customers_search_handler)
     r.add_get("/api/customers/{key}", customer_detail_handler)
+    r.add_post("/api/customers/{key}", customer_update_handler)
+    r.add_get("/api/customers/{key}/orders", customer_orders_handler)
     r.add_post("/api/customers/{key}/refresh-debt", customer_refresh_debt_handler)
 
     async def _reminder_stop_handler(request: web.Request):

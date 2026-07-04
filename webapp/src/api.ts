@@ -138,6 +138,34 @@ export async function getCustomerPriceList(key: string): Promise<CustomerPriceLi
   return { name: d.name ?? null, items: d.items || [] };
 }
 
+export type CustomerDetail = {
+  key: string; name: string; kh_id?: string | number | null;
+  debt?: number | null; debt_updated_at?: any; thread_id?: number | null;
+  last_order_at?: any; price_list?: string | number | null;
+  personal_price_list?: Record<string, number> | null;
+  detectPatterns?: string[];
+};
+
+/** Chi tiết 1 khách (bảng giá riêng + pattern nhận diện). */
+export async function getCustomer(key: string): Promise<CustomerDetail> {
+  const d = await getJSON(`/api/customers/${encodeURIComponent(key)}`, { cache: false });
+  return d.customer;
+}
+
+/** Sửa khách: bảng giá riêng (personal_price_list {SP:giá}) và/hoặc detectPatterns[]. */
+export async function updateCustomer(
+  key: string,
+  patch: { personal_price_list?: Record<string, number>; detectPatterns?: string[] },
+): Promise<CustomerDetail> {
+  const d = await postJSON(`/api/customers/${encodeURIComponent(key)}`, patch);
+  return d.customer;
+}
+
+/** Đơn của 1 khách (lọc theo khach_hang_id) — row compact như dashboard, phân trang. */
+export async function getCustomerOrders(key: string, page = 1): Promise<{ orders: any[]; page: number; total_pages: number; total: number }> {
+  return getJSON(`/api/customers/${encodeURIComponent(key)}/orders?page=${page}`, { cache: false });
+}
+
 /** Xem trước kết quả parse text đơn (khách + SP + tổng) — không tạo/lưu.
  *  customerKey: chọn khách tay (đè lên tự nhận diện). */
 export async function previewOrder(text: string, customerKey?: string): Promise<OrderPreview> {

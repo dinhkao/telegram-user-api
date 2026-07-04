@@ -7,6 +7,7 @@ import { getQueue } from "./offline";
 import { getStatus, onStatus, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
 import { Customers } from "./pages/Customers";
+import { CustomerDetail } from "./pages/CustomerDetail";
 import { Login } from "./pages/Login";
 import { OrderDetail } from "./pages/OrderDetail";
 import { OrdersList } from "./pages/OrdersList";
@@ -127,6 +128,7 @@ function App() {
   const prodMatch = hash.match(/^#\/san_xuat\/(-?\d+)/);
   const khoMatch = hash.match(/^#\/kho\/([^?]+)/);
   const boxMatch = hash.match(/^#\/thung\/(\d+)/);
+  const khachMatch = hash.match(/^#\/khach\/([^?]+)/);
   // Deep-link từ notification: ?focus=comment:123 / ?focus=image:45 → cuộn + nháy
   const focusMatch = hash.match(/[?&]focus=([a-z]+):(\d+)/i);
   const focusEl = focusMatch ? `${focusMatch[1]}-${focusMatch[2]}` : undefined;
@@ -139,6 +141,7 @@ function App() {
   else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;
   else if (hash.startsWith("#/kho")) page = <InventoryList />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
+  else if (khachMatch) page = <CustomerDetail ckey={decodeURIComponent(khachMatch[1])} />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
   else page = <OrdersList />;
 
