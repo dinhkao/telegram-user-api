@@ -11,6 +11,7 @@ import { CustomerDetail } from "./pages/CustomerDetail";
 import { PriceLists } from "./pages/PriceLists";
 import { PriceListDetail } from "./pages/PriceListDetail";
 import { Login } from "./pages/Login";
+import { FeedbackHost } from "./ui/feedback";
 import { OrderDetail } from "./pages/OrderDetail";
 import { OrdersList } from "./pages/OrdersList";
 import { ProductionList } from "./pages/ProductionList";
@@ -154,6 +155,7 @@ function App() {
   const tab = (h: string) => (hash.startsWith(h) ? "tab active" : "tab");
   return (
     <div class="app">
+      <FeedbackHost />
       {!showLogin && (
         <header class="app-bar">
           <span class="app-title">🍬 Đơn hàng</span>
