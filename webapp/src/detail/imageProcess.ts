@@ -90,25 +90,28 @@ async function loadSource(file: File): Promise<Source> {
   }
 }
 
+/** Nén sẵn một nguồn vẽ được (canvas/bitmap/img) → { full, thumb }. Dùng cho
+ *  camera trực tiếp (bắt frame <video> ra canvas) khỏi phải đi vòng qua File. */
+export async function processSource(src: CanvasImageSource, width: number, height: number): Promise<Processed> {
+  if (!width || !height) throw new Error("ảnh không hợp lệ (kích thước 0)");
+  const useWebp = webpSupported();
+  const mime = useWebp ? "image/webp" : "image/jpeg";
+  const ext = useWebp ? ".webp" : ".jpg";
+
+  const [fw, fh] = scaled(width, height, FULL_MAX);
+  const [tw, th] = scaled(width, height, THUMB_MAX);
+  const [full, thumb] = await Promise.all([
+    encode(src, fw, fh, mime, FULL_Q),
+    encode(src, tw, th, mime, THUMB_Q),
+  ]);
+  return { full, thumb, width: fw, height: fh, ext, mime };
+}
+
 /** Đọc File ảnh → { full, thumb, dims }. Ném lỗi nếu không giải mã được. */
 export async function processImage(file: File): Promise<Processed> {
   const s = await loadSource(file);
-  if (!s.width || !s.height) {
-    s.done();
-    throw new Error("ảnh không hợp lệ (kích thước 0)");
-  }
   try {
-    const useWebp = webpSupported();
-    const mime = useWebp ? "image/webp" : "image/jpeg";
-    const ext = useWebp ? ".webp" : ".jpg";
-
-    const [fw, fh] = scaled(s.width, s.height, FULL_MAX);
-    const [tw, th] = scaled(s.width, s.height, THUMB_MAX);
-    const [full, thumb] = await Promise.all([
-      encode(s.src, fw, fh, mime, FULL_Q),
-      encode(s.src, tw, th, mime, THUMB_Q),
-    ]);
-    return { full, thumb, width: fw, height: fh, ext, mime };
+    return await processSource(s.src, s.width, s.height);
   } finally {
     s.done();
   }

@@ -269,6 +269,20 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .img-spin { position: absolute; top: 50%; left: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border: 3px solid rgba(0,0,0,.15); border-top-color: var(--primary); border-radius: 50%; animation: img-spin .7s linear infinite; }
 @keyframes img-spin { to { transform: rotate(360deg); } }
 
+/* Camera trực tiếp trong khung (CameraBox) */
+.cam-open { margin-top: 8px; }
+.cambox { margin-top: 8px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #000; }
+.cam-view { position: relative; width: 100%; aspect-ratio: 3 / 4; background: #000; }
+.cam-view video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cam-flash { position: absolute; inset: 0; background: #fff; opacity: .8; animation: cam-flash .12s ease-out; }
+@keyframes cam-flash { from { opacity: .8; } to { opacity: 0; } }
+.cam-count { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.6); color: #fff; font-size: .8rem; padding: 2px 8px; border-radius: 999px; }
+.cam-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; background: var(--card); }
+.cam-bar .muted { flex: 0 0 auto; }
+.cam-shot { position: relative; flex: 0 0 auto; width: 58px; height: 58px; border-radius: 50%; border: 4px solid var(--primary); background: #fff; cursor: pointer; box-shadow: 0 0 0 2px var(--card) inset; }
+.cam-shot:active { transform: scale(.94); }
+.cam-shot:disabled { opacity: .6; }
+
 /* Xem ảnh phóng to (pinch/pan/double-tap; vuốt xuống đóng; vuốt ngang đổi ảnh) */
 .pv-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.95); display: flex; align-items: center; justify-content: center; touch-action: none; overscroll-behavior: contain; user-select: none; -webkit-user-select: none; overflow: hidden; }
 .pv-img { max-width: 100vw; max-height: 100vh; object-fit: contain; transform-origin: center center; touch-action: none; pointer-events: none; -webkit-user-drag: none; will-change: transform; }

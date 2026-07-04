@@ -6,6 +6,7 @@ import { deleteOrderImage, listOrderImages, orderImageUrl, postForm, type OrderI
 import { onRealtime } from "../realtime";
 import { processImage } from "./imageProcess";
 import { PhotoViewer } from "./PhotoViewer";
+import { CameraBox } from "./CameraBox";
 
 type Pending = { key: number; url: string };
 let _pk = 0;
@@ -121,6 +122,9 @@ export function Images({ threadId }: { threadId: string }) {
       {/* multiple: chọn nhiều ảnh 1 lượt. APK dùng gallery THUẦN (không trộn camera)
           cho input này nên chọn-nhiều chạy ổn; trình duyệt xử lý natively. */}
       <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={onPick} />
+
+      {/* Camera trực tiếp trong khung (nhanh, chụp liên tiếp) — tự ẩn nếu thiếu HTTPS */}
+      <CameraBox threadId={threadId} onUploaded={load} />
 
       {err && <p class="error small">{err}</p>}
 
