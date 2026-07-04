@@ -469,7 +469,7 @@ body.pv-open { overflow: hidden; }
 /* Chip mở Lịch giao ở hàng sắp xếp (đẩy về cuối hàng) */
 .sort-opt.cal-chip { margin-left: auto; text-decoration: none; }
 /* Ngày giao — badge trên card danh sách + hàng nhập ở trang chi tiết */
-.od-deliver { display: inline-flex; align-items: center; gap: 4px; margin: 2px 0 6px; font-size: .8rem; font-weight: 700; color: var(--warn); background: var(--warn-wash); padding: 3px 10px; border-radius: 999px; }
+.od-deliver { display: inline-flex; align-self: flex-start; width: fit-content; align-items: center; gap: 4px; margin: 4px 0 6px; font-size: .8rem; font-weight: 700; color: var(--warn); background: var(--warn-wash); padding: 3px 10px; border-radius: 999px; }
 .ngg-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .ngg-row input { padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
 .ngg-row .ngg-date { flex: 2 1 130px; min-width: 0; }

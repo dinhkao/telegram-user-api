@@ -205,6 +205,7 @@ function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }: {
           {o.text
             ? <div class="order-text wrap-badges"><TaskBadges o={o} /><span class="ot-text"><Highlight text={o.text} q={search} /></span></div>
             : <div class="order-text muted wrap-badges"><TaskBadges o={o} /><span class="ot-text">(không có nội dung)</span></div>}
+          {o.ngay_giao && <div class="od-deliver">🚚 Giao {fmtNgayGiao(o.ngay_giao)}</div>}
           <div class="row space">
             <b class="cust">{isNew && <span class="tag-new">Mới</span>} <Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} />
               {o.customer ? <button class="cust-filter" title={`Lọc đơn của ${o.customer}`} onClick={(e) => filterByCustomer(e, o.customer)}>🔎</button> : null}</b>
@@ -212,7 +213,6 @@ function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }: {
               {o.created ? <>🕒 {fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
             </span>
           </div>
-          {o.ngay_giao && <div class="od-deliver">🚚 Giao {fmtNgayGiao(o.ngay_giao)}</div>}
           <div class="row space">
             <span>
               {o.total && <b class="money">{o.total}đ</b>}
@@ -278,10 +278,10 @@ function CompactBody({ o, search, sort, flashMsg, isNew, openThumb }: {
               {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
             </span>
           </div>
+          {o.ngay_giao && <div class="od-deliver">🚚 Giao {fmtNgayGiao(o.ngay_giao)}</div>}
           <div class="order-when muted small">
             🕒 {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
           </div>
-          {o.ngay_giao && <div class="od-deliver">🚚 Giao {fmtNgayGiao(o.ngay_giao)}</div>}
         </div>
       </div>
     </>
