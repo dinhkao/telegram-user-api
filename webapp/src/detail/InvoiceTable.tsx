@@ -2,22 +2,34 @@
 // chế độ XEM ở trang chi tiết. Tính từ items + phí (CK/PVC/VAT) + nợ.
 import { money, foldVN } from "../format";
 
-// Tô sáng cụm khớp tìm kiếm (KHÔNG DẤU) trong 1 chuỗi (vd mã SP)
+// Tô sáng KHÔNG DẤU trong 1 chuỗi (vd mã SP) — tách q theo khoảng trắng, tô TỪNG TỪ
+// ở mọi vị trí (khớp cách tìm kiếm ghép nhiều trường). foldVN giữ nguyên độ dài.
 function hl(text: string, q?: string) {
   const s = text || "";
-  const query = (q || "").trim();
-  if (!query) return s;
+  const tokens = (q || "").trim().split(/\s+/).map(foldVN).filter((t) => t.length >= 1);
+  if (!tokens.length) return s;
   const fs = foldVN(s);
-  const fq = foldVN(query);
-  if (!fq) return s;
-  const out: any[] = [];
-  let from = 0, idx: number, key = 0;
-  while ((idx = fs.indexOf(fq, from)) !== -1) {
-    if (idx > from) out.push(s.slice(from, idx));
-    out.push(<mark key={key++}>{s.slice(idx, idx + fq.length)}</mark>);
-    from = idx + fq.length;
+  const ranges: [number, number][] = [];
+  for (const t of tokens) {
+    let from = 0, idx: number;
+    while ((idx = fs.indexOf(t, from)) !== -1) { ranges.push([idx, idx + t.length]); from = idx + t.length; }
   }
-  out.push(s.slice(from));
+  if (!ranges.length) return s;
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const r of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+    else merged.push([r[0], r[1]]);
+  }
+  const out: any[] = [];
+  let pos = 0, key = 0;
+  for (const [a, b] of merged) {
+    if (a > pos) out.push(s.slice(pos, a));
+    out.push(<mark key={key++}>{s.slice(a, b)}</mark>);
+    pos = b;
+  }
+  if (pos < s.length) out.push(s.slice(pos));
   return out;
 }
 

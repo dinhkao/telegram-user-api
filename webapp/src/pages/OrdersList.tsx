@@ -77,22 +77,35 @@ function statusLabel(o: OrderRow): string {
 }
 
 // Tô sáng cụm khớp khi tìm kiếm (không phân biệt hoa/thường)
+// Tô sáng KHÔNG DẤU. Tìm kiếm là LIKE %q% trên NHIỀU trường ghép lại (tên KH + nội
+// dung + mã HĐ + mã SP…), nên tách q theo khoảng trắng và tô SÁNG TỪNG TỪ ở mọi vị
+// trí → khớp chéo trường ("Duy 5m") vẫn sáng đủ. foldVN giữ nguyên độ dài để map vị trí.
 function Highlight({ text, q }: { text: string; q: string }) {
-  const s = (text || "").trim();
-  const query = (q || "").trim();
-  if (!query || !s) return <>{s}</>;
-  // So khớp KHÔNG DẤU: fold cả text + query (giữ độ dài) rồi map vị trí về text gốc.
+  const s = text || "";
+  const tokens = (q || "").trim().split(/\s+/).map(foldVN).filter((t) => t.length >= 1);
+  if (!tokens.length || !s) return <>{s}</>;
   const fs = foldVN(s);
-  const fq = foldVN(query);
-  if (!fq) return <>{s}</>;
-  const parts: any[] = [];
-  let from = 0, idx: number, key = 0;
-  while ((idx = fs.indexOf(fq, from)) !== -1) {
-    if (idx > from) parts.push(s.slice(from, idx));
-    parts.push(<mark key={key++}>{s.slice(idx, idx + fq.length)}</mark>);
-    from = idx + fq.length;
+  const ranges: [number, number][] = [];
+  for (const t of tokens) {
+    let from = 0, idx: number;
+    while ((idx = fs.indexOf(t, from)) !== -1) { ranges.push([idx, idx + t.length]); from = idx + t.length; }
   }
-  parts.push(s.slice(from));
+  if (!ranges.length) return <>{s}</>;
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const r of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+    else merged.push([r[0], r[1]]);
+  }
+  const parts: any[] = [];
+  let pos = 0, key = 0;
+  for (const [a, b] of merged) {
+    if (a > pos) parts.push(s.slice(pos, a));
+    parts.push(<mark key={key++}>{s.slice(a, b)}</mark>);
+    pos = b;
+  }
+  if (pos < s.length) parts.push(s.slice(pos));
   return <>{parts}</>;
 }
 
