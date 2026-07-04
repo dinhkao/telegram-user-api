@@ -62,7 +62,7 @@ body { font-family: system-ui, -apple-system, Roboto, sans-serif; background: va
 .ok-msg { color: var(--ok); background: var(--ok-wash); padding: 8px 10px; border-radius: 8px; font-size: .9rem; margin: 6px 0; }
 
 /* Phản hồi dùng chung — toast + hộp xác nhận (ui/feedback.tsx) */
-.toast-host { position: fixed; inset: 0; z-index: 400; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 0 28px; pointer-events: none; }
+.toast-host { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; z-index: 400; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 0 28px; box-sizing: border-box; pointer-events: none; }
 .toast-item { pointer-events: auto; background: #23262e; color: #fff; padding: 10px 16px; border-radius: 14px; font-size: .9rem; font-weight: 500; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,.24); animation: toast-in .2s ease both; max-width: 100%; text-align: center; }
 .toast-item.ok { background: var(--ok); }
 .toast-item.err { background: var(--danger); }
