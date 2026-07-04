@@ -64,3 +64,22 @@ def test_no_change():
 
 def test_none_before():
     assert diff_changes(None, {"customer_name": "A"})[0]["old"] == "(trống)"
+
+
+def test_empty_to_zero_money_is_noop():
+    # trống → 0đ cho VAT/PVC/Giảm giá KHÔNG phải thay đổi (bỏ nhiễu lịch sử)
+    before = {"invoice": []}
+    after = {"vat": 0, "pvc": 0, "discount": 0, "invoice": [{"sp": "K10", "sl": 100, "price": 18000}]}
+    ch = diff_changes(before, after)
+    assert _find(ch, "VAT") == [] and _find(ch, "Phụ phí (PVC)") == [] and _find(ch, "Giảm giá") == []
+    assert _find(ch, "SP K10")  # thay đổi thật (thêm SP) vẫn còn
+
+
+def test_empty_to_real_money_kept():
+    ch = diff_changes({}, {"vat": 5000})
+    assert _find(ch, "VAT")[0] == {"label": "VAT", "old": "(trống)", "new": "5.000đ"}
+
+
+def test_real_money_to_zero_kept():
+    ch = diff_changes({"vat": 5000}, {"vat": 0})
+    assert _find(ch, "VAT")[0] == {"label": "VAT", "old": "5.000đ", "new": "0đ"}

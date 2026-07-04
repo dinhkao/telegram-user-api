@@ -43,6 +43,16 @@ def _money(v) -> str:
         return str(v)
 
 
+def _norm_money(v):
+    """Chuẩn hóa để so sánh: trống/None coi như 0 (nên 'trống → 0đ' KHÔNG phải thay đổi)."""
+    if v in (None, ""):
+        return 0
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return v
+
+
 def _short(s, n: int = 45) -> str:
     s = "" if s is None else str(s)
     s = " ".join(s.split())
@@ -104,7 +114,8 @@ def diff_changes(before: dict | None, after: dict | None) -> list[dict]:
     # Trường vô hướng (tiền/mã/khách)
     for key, label, fmt in _SCALARS:
         o, n = before.get(key), after.get(key)
-        if o == n:
+        # Tiền: coi trống==0 để bỏ nhiễu "(trống) → 0đ" (không phải thay đổi thật)
+        if _norm_money(o) == _norm_money(n) if fmt is _money else o == n:
             continue
         changes.append(_chg(label, fmt(o) if o not in (None, "") else "(trống)", fmt(n) if n not in (None, "") else "(trống)"))
 
