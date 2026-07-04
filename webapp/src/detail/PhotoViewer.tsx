@@ -288,6 +288,21 @@ export function PhotoViewer({
       const blob = await res.blob();
       const ext = blob.type.includes("png") ? "png" : blob.type.includes("jpeg") ? "jpg" : blob.type.includes("webp") ? "webp" : "img";
       const name = `don-${threadId}-anh-${cur.id}.${ext}`;
+
+      // Ưu tiên cầu native APK: lưu THẲNG vào thư viện ảnh (Photos) qua MediaStore.
+      const bridge: any = (window as any).AndroidApp;
+      if (bridge?.saveImage) {
+        const dataUrl: string = await new Promise((res, rej) => {
+          const fr = new FileReader();
+          fr.onload = () => res(String(fr.result));
+          fr.onerror = () => rej(new Error("read"));
+          fr.readAsDataURL(blob);
+        });
+        const ok = bridge.saveImage(dataUrl, name);
+        flash(ok === false ? "Lưu ảnh lỗi" : "✓ Đã lưu vào thư viện");
+        return;
+      }
+
       const nav: any = navigator;
       const file = new File([blob], name, { type: blob.type || "image/webp" });
       if (nav.canShare && nav.canShare({ files: [file] })) {
