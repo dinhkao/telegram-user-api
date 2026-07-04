@@ -339,6 +339,13 @@ body.pv-open { overflow: hidden; }
 /* kho thùng — tồn kho theo size + list mã thùng */
 .inv-summary { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #e0e0e0; }
 .inv-total { font-size: .95rem; margin-bottom: 6px; }
+/* Đầu trang chi tiết SP: tên trái, số tồn kho TO bên phải */
+.inv-head { display: flex; align-items: center; gap: 10px; }
+.inv-head-title { flex: 1; min-width: 0; }
+.inv-stock-big { flex: 0 0 auto; text-align: right; line-height: 1; }
+.inv-stock-num { display: block; font-size: 2.1rem; font-weight: 800; color: var(--primary); }
+.inv-stock-lbl { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+
 .inv-groups { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .inv-chip { background: #eef6ee; border: 1px solid #cfe6cf; color: #2b6b2b; border-radius: 999px; padding: 3px 10px; font-size: .82rem; white-space: nowrap; }
 .inv-box-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }

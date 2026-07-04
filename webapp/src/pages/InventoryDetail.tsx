@@ -41,15 +41,17 @@ export function InventoryDetail({ code }: { code: string }) {
 
   return (
     <div class="inv-detail">
-      <div class="prod-detail-head">
+      <div class="prod-detail-head inv-head">
         <a class="back" href="#/kho">
           ←
         </a>
-        <div>
+        <div class="inv-head-title">
           <div class="prod-sp big">{inv.product_code}</div>
-          <div class="prod-date muted">
-            Tồn: {soVN(inv.total)} · {inv.box_count} thùng
-          </div>
+          <div class="prod-date muted">{inv.box_count} thùng</div>
+        </div>
+        <div class="inv-stock-big">
+          <span class="inv-stock-num">{soVN(inv.total)}</span>
+          <span class="inv-stock-lbl">tồn kho</span>
         </div>
       </div>
 
