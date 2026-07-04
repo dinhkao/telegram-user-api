@@ -151,11 +151,6 @@ export function OrdersList() {
   const [flashing, setFlashing] = useState<Record<string, string>>({});
   // Xem ảnh phóng to khi bấm thumbnail trên card (không vào trang chi tiết)
   const [viewer, setViewer] = useState<{ threadId: string; images: OrderImage[]; start: number } | null>(null);
-  // Ảnh ngang (rộng > cao) → xoay 90° cho đứng, ô vẫn giữ 1:1
-  const rotIfLandscape = (e: any) => {
-    const im = e?.currentTarget;
-    if (im && im.naturalWidth > im.naturalHeight) im.classList.add("rot90");
-  };
   const openThumb = async (e: Event, o: OrderRow, atId?: number) => {
     e.preventDefault();
     e.stopPropagation();
@@ -372,7 +367,7 @@ export function OrdersList() {
                 const total = o.image_count ?? allIds.length;
                 return (
                   <span class="card-thumb-wrap compact-thumb" onClick={(e) => openThumb(e, o, id)}>
-                    <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, id, "thumb")} loading="lazy" alt="" onLoad={rotIfLandscape} />
+                    <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, id, "thumb")} loading="lazy" alt="" />
                     {total > 1 && <span class="thumb-count">+{total - 1}</span>}
                   </span>
                 );
@@ -416,7 +411,7 @@ export function OrdersList() {
                       <div class="card-thumb-col">
                         {shown.map((id, i) => (
                           <span class="card-thumb-wrap" key={id} onClick={(e) => openThumb(e, o, id)}>
-                            <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, id, "thumb")} loading="lazy" alt="" onLoad={rotIfLandscape} />
+                            <img class="card-thumb card-thumb-tile" src={orderImageUrl(o.thread_id, id, "thumb")} loading="lazy" alt="" />
                             {i === shown.length - 1 && total > shown.length && <span class="thumb-count">+{total - shown.length}</span>}
                           </span>
                         ))}
