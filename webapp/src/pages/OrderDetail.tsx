@@ -160,7 +160,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const paid = paidTotal(j.payments);
   // Redesign: tóm tắt tiền + stepper 5 bước + action bar (từ task_status có sẵn)
   const STEPS = [
-    { k: "soan_hang", lb: "Soạn" }, { k: "ban_hd", lb: "Bán HĐ" },
+    { k: "ban_hd", lb: "Bán HĐ" }, { k: "soan_hang", lb: "Soạn" },
     { k: "giao_hang", lb: "Giao" }, { k: "nop_tien", lb: "Nộp" }, { k: "nhan_tien", lb: "Nhận" },
   ];
   const ts = j.task_status || {};
@@ -230,11 +230,6 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     } catch (ex: any) {
       setMsg(`❌ ${ex.message}`);
     }
-  };
-
-  const markStep = async (type: string) => {
-    try { await postJSON("/api/order/task", { thread_id: Number(threadId), type, done: true }); changed(); }
-    catch (ex: any) { setMsg(`❌ ${ex.message}`); }
   };
 
   const saveText = async () => {
@@ -371,15 +366,6 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         <Comments threadId={threadId} chatMessages={detail.chat_messages || []} />
       </aside>
       </div>{/* .detail-grid */}
-
-      <div class="od-actionbar">
-        {nextStep ? (
-          <button class="ab-pri" onClick={() => markStep(nextStep.k)}>✓ Đánh dấu {nextStep.lb.toLowerCase()}</button>
-        ) : (
-          <div class="ab-done">✅ Đơn đã hoàn tất</div>
-        )}
-        <button class="ab-sec" onClick={doPrint} disabled={busy} title="In hoá đơn + phiếu giao">🖨️</button>
-      </div>
     </div>
   );
 }
