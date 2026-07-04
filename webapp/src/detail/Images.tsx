@@ -6,7 +6,7 @@ import { deleteOrderImage, listOrderImages, orderImageUrl, postForm, type OrderI
 import { onRealtime } from "../realtime";
 import { processImage } from "./imageProcess";
 import { PhotoViewer } from "./PhotoViewer";
-import { CameraBox } from "./CameraBox";
+import { CameraBox, cameraSupported } from "./CameraBox";
 
 type Pending = { key: number; url: string };
 let _pk = 0;
@@ -17,8 +17,8 @@ export function Images({ threadId }: { threadId: string }) {
   const [err, setErr] = useState("");
   const [dbg, setDbg] = useState<string[]>([]);
   const [lightbox, setLightbox] = useState<OrderImage | null>(null);
+  const [camOpen, setCamOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const camInput = useRef<HTMLInputElement>(null);
 
   // Chẩn đoán trên máy: hiện từng bước để biết ảnh gallery hỏng ở đâu
   const logDbg = (m: string) => setDbg((p) => [...p.slice(-11), m]);
@@ -113,18 +113,23 @@ export function Images({ threadId }: { threadId: string }) {
     <div class="card">
       <div class="row space">
         <b>Ảnh {count > 0 && <span class="muted small">({count})</span>}</b>
-        <div class="img-actions">
-          <button class="btn" onClick={() => camInput.current?.click()}>📸 Chụp</button>
-          <button class="btn" onClick={() => fileInput.current?.click()}>📁 Chọn</button>
-        </div>
       </div>
-      <input ref={camInput} type="file" accept="image/*" capture="environment" hidden onChange={onPick} />
       {/* multiple: chọn nhiều ảnh 1 lượt. APK dùng gallery THUẦN (không trộn camera)
           cho input này nên chọn-nhiều chạy ổn; trình duyệt xử lý natively. */}
       <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={onPick} />
 
-      {/* Camera trực tiếp trong khung (nhanh, chụp liên tiếp) — tự ẩn nếu thiếu HTTPS */}
-      <CameraBox threadId={threadId} onUploaded={load} />
+      {/* Camera trực tiếp trong khung (nhanh, chụp liên tiếp). Nút mở camera chỉ
+          hiện khi có HTTPS; nếu không → chỉ còn nút Chọn ảnh từ máy. */}
+      {camOpen ? (
+        <CameraBox threadId={threadId} onUploaded={load} onClose={() => setCamOpen(false)} />
+      ) : (
+        <div class="img-actions">
+          {cameraSupported() && (
+            <button class="btn cam-primary" onClick={() => setCamOpen(true)}>🎥 Mở camera</button>
+          )}
+          <button class="btn" onClick={() => fileInput.current?.click()}>📁 Chọn ảnh</button>
+        </div>
+      )}
 
       {err && <p class="error small">{err}</p>}
 

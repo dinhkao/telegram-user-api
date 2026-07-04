@@ -1,13 +1,19 @@
 // Camera trực tiếp trong KHUNG (không fullscreen): mở luồng video 1 lần, chạm
 // nút để chụp liên tiếp từng tấm — bắt frame <video> ra <canvas>, nén WebP
 // (imageProcess.processSource) rồi upload /api/order/{id}/images. Nhanh vì camera
-// chỉ khởi động MỘT lần (khác nút 📸 <input capture> mở lại OS camera mỗi tấm).
-// CẦN secure context (HTTPS) — trên HTTP LAN navigator.mediaDevices là undefined
-// nên component tự ẩn, người dùng dùng nút 📸 Chụp cũ làm phương án dự phòng.
-// Data: POST /api/order/{thread_id}/images. Gọi onUploaded() để Images tải lại lưới.
+// chỉ khởi động MỘT lần (khác nút <input capture> mở lại OS camera mỗi tấm).
+// CẦN secure context (HTTPS) — trên HTTP navigator.mediaDevices là undefined nên
+// cameraSupported() = false, khung cha sẽ ẩn nút mở camera.
+// Controlled: cha (Images) mount component này khi mở, gọi onClose để đóng.
+// Data: POST /api/order/{thread_id}/images. onUploaded() để Images tải lại lưới.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { postForm } from "../api";
 import { processSource } from "./imageProcess";
+
+/** Trình duyệt/WebView có API camera trực tiếp không (cần HTTPS). */
+export function cameraSupported(): boolean {
+  return typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
+}
 
 function camError(ex: any): string {
   switch (ex?.name) {
@@ -22,8 +28,15 @@ function camError(ex: any): string {
   }
 }
 
-export function CameraBox({ threadId, onUploaded }: { threadId: string; onUploaded: () => void }) {
-  const [on, setOn] = useState(false);
+export function CameraBox({
+  threadId,
+  onClose,
+  onUploaded,
+}: {
+  threadId: string;
+  onClose: () => void;
+  onUploaded: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [shots, setShots] = useState(0);
   const [flash, setFlash] = useState(false);
@@ -31,48 +44,44 @@ export function CameraBox({ threadId, onUploaded }: { threadId: string; onUpload
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const supported =
-    typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
-
   const stop = () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
   };
 
-  // Dọn camera khi rời trang / component unmount
-  useEffect(() => () => stop(), []);
-
-  const start = async () => {
-    setErr("");
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" }, // ưu tiên camera sau
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        audio: false,
-      });
-      streamRef.current = stream;
-      setOn(true);
-      setShots(0);
-      // gán srcObject sau khi <video> đã render trong DOM
-      requestAnimationFrame(() => {
+  // Mở camera ngay khi mount; dọn khi unmount (đóng khung / rời trang)
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: "environment" }, // ưu tiên camera sau
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+          audio: false,
+        });
+        if (!alive) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
         const v = videoRef.current;
-        if (!v) return;
-        v.srcObject = stream;
-        v.play().catch(() => {});
-      });
-    } catch (ex: any) {
-      setErr(camError(ex));
-    }
-  };
-
-  const close = () => {
-    stop();
-    setOn(false);
-  };
+        if (v) {
+          v.srcObject = stream;
+          v.play().catch(() => {});
+        }
+      } catch (ex: any) {
+        if (alive) setErr(camError(ex));
+      }
+    })();
+    return () => {
+      alive = false;
+      stop();
+    };
+  }, []);
 
   const shoot = async () => {
     const v = videoRef.current;
@@ -101,16 +110,6 @@ export function CameraBox({ threadId, onUploaded }: { threadId: string; onUpload
     }
   };
 
-  if (!supported) return null; // thiếu HTTPS/camera API → ẩn, dùng nút 📸 Chụp
-
-  if (!on)
-    return (
-      <div class="cam-open">
-        <button class="btn" onClick={start}>🎥 Mở camera</button>
-        {err && <p class="error small">{err}</p>}
-      </div>
-    );
-
   return (
     <div class="cambox">
       <div class="cam-view">
@@ -119,7 +118,9 @@ export function CameraBox({ threadId, onUploaded }: { threadId: string; onUpload
         {shots > 0 && <span class="cam-count">✓ {shots}</span>}
       </div>
       <div class="cam-bar">
-        <button class="btn" onClick={close}>Xong{shots > 0 ? ` (${shots})` : ""}</button>
+        <button class="btn" onClick={onClose}>
+          Xong{shots > 0 ? ` · ${shots} ảnh` : ""}
+        </button>
         <button class="cam-shot" disabled={busy} onClick={shoot} aria-label="Chụp">
           {busy && <span class="img-spin" />}
         </button>

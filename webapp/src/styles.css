@@ -257,10 +257,12 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
   100% { box-shadow: 0 0 0 0 transparent; background: transparent; }
 }
 
-.img-actions { display: flex; gap: 6px; }
+.img-actions { display: flex; gap: 8px; margin-top: 10px; }
+.img-actions .btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 11px 12px; font-size: .95rem; font-weight: 600; }
+.btn.cam-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn.cam-primary:active { filter: brightness(.94); }
 /* Chỉ hiện khi có lỗi — nhẹ nhàng, không chói */
 .img-dbg { background: var(--bg); color: var(--muted); font-size: .7rem; line-height: 1.3; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; margin: 6px 0; white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow: auto; }
-.img-actions .btn { padding: 6px 12px; font-size: .9rem; }
 .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; margin-top: 8px; }
 .img-tile { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--bg); border: 1px solid var(--border); }
 .img-tile img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer; }
@@ -270,8 +272,7 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 @keyframes img-spin { to { transform: rotate(360deg); } }
 
 /* Camera trực tiếp trong khung (CameraBox) */
-.cam-open { margin-top: 8px; }
-.cambox { margin-top: 8px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #000; }
+.cambox { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #000; }
 .cam-view { position: relative; width: 100%; aspect-ratio: 3 / 4; background: #000; }
 .cam-view video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cam-flash { position: absolute; inset: 0; background: #fff; opacity: .8; animation: cam-flash .12s ease-out; }
