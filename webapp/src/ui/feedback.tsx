@@ -5,6 +5,7 @@
 // <FeedbackHost/> mount MỘT lần ở main.tsx; store module + subscriber (không cần
 // context). CSS: .toast-host/.toast-item + .cf-* trong styles.css.
 import { useEffect, useState } from "preact/hooks";
+import { createPortal } from "preact/compat";
 
 type Kind = "ok" | "err" | "info";
 type Toast = { id: number; msg: string; kind: Kind };
@@ -45,7 +46,9 @@ export function FeedbackHost() {
     return () => { toastSubs.delete(setTs); cfSubs.delete(setCf); };
   }, []);
   const close = (v: boolean) => { if (current) { current.resolve(v); current = null; emitCf(); } };
-  return (
+  // Render THẲNG vào <body> (portal) → thoát mọi ancestor có transform/filter tạo
+  // containing-block cho position:fixed, nên toast/hộp xác nhận luôn center theo viewport.
+  const ui = (
     <>
       {ts.length > 0 && (
         <div class="toast-host">
@@ -65,4 +68,5 @@ export function FeedbackHost() {
       )}
     </>
   );
+  return typeof document !== "undefined" ? createPortal(ui, document.body) : ui;
 }
