@@ -465,6 +465,8 @@ body.pv-open { overflow: hidden; }
 .cal-cell.sel .cal-nm { color: #fff; }
 .cal-more { font-size: .48rem; line-height: 1.1; color: var(--muted); text-align: center; }
 .cal-cell.sel .cal-more { color: rgba(255,255,255,.85); }
+.cal-toggle { display: flex; align-items: center; gap: 8px; padding: 4px 2px 12px; font-size: .85rem; font-weight: 600; color: var(--ink); cursor: pointer; user-select: none; }
+.cal-toggle input { width: 18px; height: 18px; flex: 0 0 auto; }
 .cal-day-head { margin: 16px 2px 8px; font-weight: 700; font-size: 1rem; }
 /* Chip mở Lịch giao ở hàng sắp xếp (đẩy về cuối hàng) */
 .sort-opt.cal-chip { margin-left: auto; text-decoration: none; }

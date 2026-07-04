@@ -13,7 +13,8 @@ export function DeliveryCalendar() {
   const now = new Date();
   const todayIso = iso(now.getFullYear(), now.getMonth(), now.getDate());
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() }); // m: 0-based
-  const [byDay, setByDay] = useState<Record<string, any[]>>({});
+  const [orders, setOrders] = useState<any[]>([]);
+  const [hideDelivered, setHideDelivered] = useState(false); // lọc bỏ đơn đã giao rồi
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState(todayIso);
 
@@ -22,18 +23,18 @@ export function DeliveryCalendar() {
     let alive = true;
     setLoading(true);
     getDeliveryOrders(monthStr)
-      .then(({ orders }) => {
-        if (!alive) return;
-        const g: Record<string, any[]> = {};
-        for (const o of orders) {
-          const d = (o.ngay_giao || "").slice(0, 10);
-          if (d) (g[d] = g[d] || []).push(o);
-        }
-        setByDay(g);
-      })
+      .then(({ orders }) => { if (alive) setOrders(orders); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [monthStr]);
+
+  // Gom theo ngày (áp bộ lọc "đã giao rồi" nếu bật) — tính lại mỗi render, rẻ.
+  const byDay: Record<string, any[]> = {};
+  for (const o of orders) {
+    if (hideDelivered && o.giao_done) continue;
+    const d = (o.ngay_giao || "").slice(0, 10);
+    if (d) (byDay[d] = byDay[d] || []).push(o);
+  }
 
   const daysInMonth = new Date(ym.y, ym.m + 1, 0).getDate();
   const firstOffset = (new Date(ym.y, ym.m, 1).getDay() + 6) % 7; // ô trống đầu (T2 = 0)
@@ -50,6 +51,7 @@ export function DeliveryCalendar() {
   const selOrders = byDay[sel] || [];
   const [, selM, selD] = sel.split("-");
   const monthTotal = Object.values(byDay).reduce((s, a) => s + a.length, 0);
+  const deliveredCount = orders.filter((o) => o.giao_done && (o.ngay_giao || "").slice(0, 10)).length;
 
   return (
     <div class="cal">
@@ -58,6 +60,11 @@ export function DeliveryCalendar() {
         <b>Tháng {ym.m + 1} / {ym.y}{monthTotal ? <span class="muted small"> · {monthTotal} đơn</span> : null}</b>
         <button class="btn small" title="Tháng sau" onClick={() => shiftMonth(1)}>›</button>
       </div>
+
+      <label class="cal-toggle">
+        <input type="checkbox" checked={hideDelivered} onChange={(e: any) => setHideDelivered(e.target.checked)} />
+        <span>Ẩn đơn đã giao rồi{deliveredCount ? ` (${deliveredCount})` : ""}</span>
+      </label>
 
       <div class="cal-grid cal-wd">
         {WEEKDAYS.map((w) => <span class="cal-wd-cell" key={w}>{w}</span>)}
