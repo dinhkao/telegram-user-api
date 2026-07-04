@@ -109,6 +109,13 @@ function Highlight({ text, q }: { text: string; q: string }) {
   return <>{parts}</>;
 }
 
+// Query (không dấu, tách từ) có khớp chuỗi này không — để biết đơn khớp nhờ trường ẩn.
+function qMatches(text: string | undefined, q: string): boolean {
+  if (!text) return false;
+  const fs = foldVN(text);
+  return (q || "").trim().split(/\s+/).map(foldVN).filter(Boolean).some((t) => fs.includes(t));
+}
+
 // Bảng chi tiết hoá đơn 1 đơn (dùng ở card dashboard) — dùng chung InvoiceTable
 function InvoiceMini({ o, q }: { o: OrderRow; q?: string }) {
   if (!(o.invoice_items || []).length) return null;
@@ -225,6 +232,9 @@ function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }: {
               {o.created ? <>🕒 {fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
             </span>
           </div>
+          {search && o.hd_code && qMatches(o.hd_code, search) && (
+            <div class="muted small match-hint">🧾 Mã HĐ: <Highlight text={o.hd_code} q={search} /></div>
+          )}
           <div class="row space">
             <span>
               {o.total && <b class="money">{o.total}đ</b>}
