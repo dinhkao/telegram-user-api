@@ -12,7 +12,6 @@ import { PhotoViewer } from "../detail/PhotoViewer";
 import { Loading, EmptyState } from "../ui/states";
 
 type OrderRow = {
-  key?: string;        // firebase_key (vd dh_36289) — dùng cho gợi ý khớp mã đơn
   thread_id: number;
   thumb_image_id?: number | null;
   thumb_image_ids?: number[];
@@ -235,9 +234,6 @@ function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }: {
           </div>
           {search && o.hd_code && qMatches(o.hd_code, search) && (
             <div class="muted small match-hint">🧾 Mã HĐ: <Highlight text={o.hd_code} q={search} /></div>
-          )}
-          {search && !qMatches(o.text, search) && !qMatches(o.customer, search) && (qMatches(String(o.thread_id), search) || qMatches(o.key, search)) && (
-            <div class="muted small match-hint">🔖 Mã đơn: <Highlight text={qMatches(String(o.thread_id), search) ? String(o.thread_id) : (o.key || "")} q={search} /></div>
           )}
           <div class="row space">
             <span>

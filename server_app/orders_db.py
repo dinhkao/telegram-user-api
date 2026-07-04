@@ -118,7 +118,8 @@ def prewarm_orders_indexes():
 def _fts_content(json_text: str) -> str | None:
     try:
         j = json.loads(json_text)
-        raw = " ".join([j.get("customer_name", ""), j.get("text", ""), j.get("text_raw", ""), j.get("kiotvietInvoiceCode", ""), str(j.get("firebase_key", "")), str(j.get("thread_id", "")), " ".join(it.get("sp", "") for it in (j.get("invoice") or []))])
+        # KHÔNG index thread_id/firebase_key: tìm theo số đơn vô dụng, chỉ gây nhiễu.
+        raw = " ".join([j.get("customer_name", ""), j.get("text", ""), j.get("text_raw", ""), j.get("kiotvietInvoiceCode", ""), " ".join(it.get("sp", "") for it in (j.get("invoice") or []))])
         return vn_normalize(raw)
     except Exception:
         return None
