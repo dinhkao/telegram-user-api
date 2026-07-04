@@ -313,7 +313,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         debtLocked={!!j.kiotvietInvoiceID}
       />
       <OrderStock threadId={threadId} invoice={j.invoice || []} />
-      <Payments threadId={threadId} payments={j.payments || []} onChanged={changed} />
+      <Payments threadId={threadId} payments={j.payments || []} suggest={invoiceTotal(j.invoice)} onChanged={changed} />
       <Images threadId={threadId} />
       <History threadId={threadId} />
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>

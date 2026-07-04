@@ -445,6 +445,13 @@ body.pv-open { overflow: hidden; }
 .prod-detail .card { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 12px; }
 .card-label { display: block; font-weight: 600; font-size: .9rem; margin-bottom: 8px; }
 .pl-select { width: 100%; cursor: pointer; }
+/* Khối nhập thanh toán — chip gợi ý tổng tiền hàng + TM/CK chia đều dưới ô tiền */
+.pay-box { display: flex; flex-direction: column; gap: 8px; }
+.pay-box input { width: 100%; box-sizing: border-box; }
+.pay-suggest { align-self: flex-start; border: none; background: var(--accent-wash); color: var(--primary); font-size: .82rem; font-weight: 600; padding: 5px 12px; border-radius: 999px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pay-suggest:active { background: var(--primary); color: #fff; }
+.pay-btns { display: flex; gap: 8px; }
+.pay-btns .btn { flex: 1; }
 /* Tên khách trong chi tiết đơn → link sang trang chi tiết khách */
 .cust-link { color: var(--primary); text-decoration: none; display: inline-flex; align-items: baseline; gap: 4px; }
 .cust-link b { color: inherit; }

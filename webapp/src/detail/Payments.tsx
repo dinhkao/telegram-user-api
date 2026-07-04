@@ -5,7 +5,7 @@ import { currentUser, postJSON } from "../api";
 import { money, parseMoney } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 
-export function Payments({ threadId, payments, onChanged }: { threadId: string; payments: any[]; onChanged: () => void }) {
+export function Payments({ threadId, payments, suggest, onChanged }: { threadId: string; payments: any[]; suggest?: number; onChanged: () => void }) {
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -63,10 +63,18 @@ export function Payments({ threadId, payments, onChanged }: { threadId: string; 
         </ul>
       )}
       {msg && <p class="notice" onClick={() => setMsg("")}>{msg}</p>}
-      <div class="row">
+      <div class="pay-box">
+        {suggest ? (
+          <button type="button" class="pay-suggest" title="Điền tổng tiền hàng"
+            onClick={() => setAmount(String(suggest))}>
+            Tổng tiền hàng: {money(suggest)}đ
+          </button>
+        ) : null}
         <input inputMode="numeric" placeholder="Số tiền" value={amount} onInput={(e: any) => setAmount(e.target.value)} />
-        <button class="btn primary" disabled={busy} onClick={() => pay("tm")}>💵 TM</button>
-        <button class="btn primary" disabled={busy} onClick={() => pay("ck")}>🏦 CK</button>
+        <div class="pay-btns">
+          <button class="btn primary" disabled={busy} onClick={() => pay("tm")}>💵 TM</button>
+          <button class="btn primary" disabled={busy} onClick={() => pay("ck")}>🏦 CK</button>
+        </div>
       </div>
     </div>
   );
