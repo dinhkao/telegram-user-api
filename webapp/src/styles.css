@@ -301,6 +301,24 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .pv-info { flex: 1 1 auto; min-width: 0; font-size: .75rem; opacity: .85; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 body.pv-open { overflow: hidden; }
 
+/* Thanh hành động trên: copy / tải / đóng */
+.pv-topbar { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; z-index: 102; display: flex; gap: 8px; }
+.pv-tbtn { width: 42px; height: 42px; border: none; border-radius: 50%; background: rgba(0,0,0,.5); color: #fff; font-size: 19px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); transition: background .15s, transform .1s; }
+.pv-tbtn:hover { background: rgba(255,255,255,.2); }
+.pv-tbtn:active { transform: scale(.9); }
+
+/* Dải thumbnail dưới (trên thanh điều hướng) */
+.pv-thumbs { position: fixed; left: 0; right: 0; bottom: calc(82px + env(safe-area-inset-bottom, 0px)); z-index: 101; display: flex; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
+.pv-thumbs::-webkit-scrollbar { display: none; }
+.pv-thumbs-inner { display: flex; gap: 6px; margin: 0 auto; padding: 6px 20px; }
+.pv-thumb { flex: 0 0 auto; width: 50px; height: 50px; padding: 0; border: 2px solid transparent; border-radius: 8px; overflow: hidden; background: none; cursor: pointer; opacity: .5; transition: opacity .15s, border-color .15s, transform .15s; }
+.pv-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pv-thumb.active { opacity: 1; border-color: #fff; transform: translateY(-3px); box-shadow: 0 3px 10px rgba(0,0,0,.55); }
+
+/* Toast nhỏ (đã copy / đang tải) */
+.pv-toast { position: fixed; left: 50%; top: calc(50% - 20px); transform: translate(-50%,-50%); z-index: 103; background: rgba(0,0,0,.82); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: .9rem; pointer-events: none; animation: pv-toast-in .2s ease; }
+@keyframes pv-toast-in { from { opacity: 0; transform: translate(-50%,-40%); } to { opacity: 1; transform: translate(-50%,-50%); } }
+
 /* ─── Phiếu sản xuất (production) ─────────────────────────────────────────── */
 .prod-list { padding: 8px; }
 .prod-create { display: flex; gap: 8px; margin-bottom: 12px; }

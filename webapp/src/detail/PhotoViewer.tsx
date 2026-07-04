@@ -25,8 +25,11 @@ export function PhotoViewer({
   onClose: () => void;
 }) {
   const [idx, setIdx] = useState(start);
+  const [toast, setToast] = useState("");
   const imgRef = useRef<HTMLImageElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const thumbsRef = useRef<HTMLDivElement>(null);
+  const flash = (m: string) => setToast(m);
 
   // Trạng thái biến đổi + cử chỉ giữ trong ref (không re-render mỗi frame)
   const g = useRef({
@@ -66,9 +69,17 @@ export function PhotoViewer({
     apply(animate);
   };
 
-  // Đổi ảnh → về mặc định
+  // Đổi ảnh → về mặc định + cuộn dải thumbnail cho thumb đang xem vào giữa
   useEffect(() => {
     reset(false);
+    const strip = thumbsRef.current;
+    const el = strip?.querySelector(".pv-thumb.active") as HTMLElement | null;
+    if (strip && el) {
+      const sr = strip.getBoundingClientRect();
+      const er = el.getBoundingClientRect();
+      const delta = er.left + er.width / 2 - (sr.left + sr.width / 2);
+      strip.scrollTo({ left: strip.scrollLeft + delta, behavior: "smooth" });
+    }
   }, [idx]);
 
   // Khoá cuộn nền + phím: Esc đóng, ← → chuyển ảnh (desktop)
@@ -120,7 +131,7 @@ export function PhotoViewer({
   };
 
   const onDown = (e: PointerEvent) => {
-    if ((e.target as HTMLElement).closest(".pv-controls")) return; // để nút bấm được
+    if ((e.target as HTMLElement).closest(".pv-controls, .pv-thumbs, .pv-topbar")) return; // để nút/thumbnail bấm được
     overlayRef.current?.setPointerCapture(e.pointerId);
     const s = g.current;
     s.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -236,7 +247,58 @@ export function PhotoViewer({
     if (s.scale <= 1.01) reset(true);
   };
 
+  // Toast tự tắt
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(""), 1700);
+    return () => clearTimeout(t);
+  }, [toast]);
+
   const cur = images[idx];
+
+  // Copy ảnh vào clipboard (đổi sang PNG vì clipboard chỉ chắc ăn với PNG).
+  // ClipboardItem nhận Promise → hợp lệ cả Safari (yêu cầu tạo trong cùng cử chỉ).
+  const copyImage = async () => {
+    if (!cur) return;
+    try {
+      const png = (async () => {
+        const res = await fetch(orderImageUrl(threadId, cur.id, "full"));
+        const bmp = await createImageBitmap(await res.blob());
+        const c = document.createElement("canvas");
+        c.width = bmp.width;
+        c.height = bmp.height;
+        c.getContext("2d")!.drawImage(bmp, 0, 0);
+        bmp.close?.();
+        return await new Promise<Blob>((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error("png"))), "image/png"));
+      })();
+      await navigator.clipboard.write([new (window as any).ClipboardItem({ "image/png": png })]);
+      flash("✓ Đã copy ảnh");
+    } catch {
+      flash("Copy không được (trình duyệt chặn)");
+    }
+  };
+
+  // Tải ảnh về máy — dùng object URL để giữ đúng định dạng + tên file gọn.
+  const downloadImage = async () => {
+    if (!cur) return;
+    try {
+      const res = await fetch(orderImageUrl(threadId, cur.id, "full"));
+      const blob = await res.blob();
+      const ext = blob.type.includes("png") ? "png" : blob.type.includes("jpeg") ? "jpg" : blob.type.includes("webp") ? "webp" : "img";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `don-${threadId}-anh-${cur.id}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      flash("✓ Đang tải ảnh");
+    } catch {
+      flash("Tải không được");
+    }
+  };
+
   if (!cur) return null;
 
   return (
@@ -253,6 +315,27 @@ export function PhotoViewer({
       }}
     >
       <img ref={imgRef} class="pv-img" src={orderImageUrl(threadId, cur.id, "full")} draggable={false} alt="" />
+
+      {/* Thanh trên: copy / tải / đóng */}
+      <div class="pv-topbar">
+        <button class="pv-tbtn" title="Copy ảnh" onClick={copyImage}>⧉</button>
+        <button class="pv-tbtn" title="Tải ảnh" onClick={downloadImage}>⤓</button>
+        <button class="pv-tbtn" title="Đóng" onClick={onClose}>✕</button>
+      </div>
+
+      {/* Dải thumbnail các ảnh cùng đơn — chạm để nhảy, cuộn ngang, tô sáng ảnh đang xem */}
+      {images.length > 1 ? (
+        <div class="pv-thumbs" ref={thumbsRef}>
+          <div class="pv-thumbs-inner">
+            {images.map((im, i) => (
+              <button key={im.id} class={`pv-thumb${i === idx ? " active" : ""}`} onClick={() => setIdx(i)} aria-label={`Ảnh ${i + 1}`}>
+                <img src={orderImageUrl(threadId, im.id, "thumb")} loading="lazy" alt="" />
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div class="pv-controls">
         <span class="pv-info">
           {images.length > 1 ? `${idx + 1}/${images.length} · ` : ""}
@@ -261,9 +344,9 @@ export function PhotoViewer({
         {/* Luôn render ‹ › (disable ở biên) để số nút KHÔNG đổi → thanh không nhảy */}
         <button class="btn" disabled={images.length <= 1 || idx === 0} onClick={() => go(-1)}>‹</button>
         <button class="btn" disabled={images.length <= 1 || idx === images.length - 1} onClick={() => go(1)}>›</button>
-        <a class="btn" href={orderImageUrl(threadId, cur.id, "full")} target="_blank" rel="noreferrer">⤢</a>
-        <button class="btn" onClick={onClose}>✕</button>
       </div>
+
+      {toast ? <div class="pv-toast">{toast}</div> : null}
     </div>
   );
 }
