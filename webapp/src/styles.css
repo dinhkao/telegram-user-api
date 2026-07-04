@@ -188,6 +188,12 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .hist { list-style: none; margin-top: 6px; }
 .hist li { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: .88rem; }
 .hist li.hist-fail { opacity: .6; }
+.hist-changes { list-style: none; margin: 3px 0 2px; padding-left: 10px; border-left: 2px solid var(--border); }
+.hist-changes li { padding: 1px 0; border: none; font-size: .82rem; line-height: 1.35; }
+.hc-label { color: var(--muted); }
+.hc-old { color: var(--muted); text-decoration: line-through; }
+.hc-arrow { color: var(--muted); }
+.hc-new { color: var(--text, inherit); font-weight: 600; }
 
 /* Popup báo thao tác mới (trượt xuống từ trên) */
 .toast { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); z-index: 60; max-width: 92%; background: #1f2328; color: #fff; padding: 10px 16px; border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.28); font-size: .9rem; cursor: pointer; animation: toast-in .25s ease-out; white-space: pre-line; text-align: left; line-height: 1.4; }

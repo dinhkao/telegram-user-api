@@ -7,8 +7,26 @@ import time
 from aiohttp import web
 
 from audit_log import async_log_event, new_request_id
+from server_app import order_diff
 
 _ORDER_PATH = re.compile(r"^/api/order/(-?\d+)")
+
+
+def _load_order_snapshot(thread_id):
+    """Đọc blob đơn (readonly) để chụp trạng thái trước/sau 1 thao tác. Không được
+    làm hỏng request nếu lỗi → trả None."""
+    if thread_id is None:
+        return None
+    try:
+        from order_db import _get_connection
+        from order_store import get_order_by_thread_id
+        conn = _get_connection()
+        try:
+            return get_order_by_thread_id(conn, int(thread_id))
+        finally:
+            conn.close()
+    except Exception:
+        return None
 
 
 def _extract_thread_id(path: str, body_text: str | None):
@@ -39,9 +57,17 @@ async def audit_middleware(request: web.Request, handler):
             body_text = await request.text()
         except Exception as exc:
             body_text = f"<body read failed: {type(exc).__name__}: {exc}>"
+    # Chụp trạng thái đơn TRƯỚC khi handler chạy (chỉ với POST sửa đơn) để so cũ→mới
+    tid = _extract_thread_id(request.path, body_text)
+    is_mut = order_diff.is_order_mutation(request.method, request.path)
+    before = _load_order_snapshot(tid) if is_mut else None
     try:
         response = await handler(request)
-        await _log_http(request, request_id, start, response.status, body_text)
+        changes = None
+        if is_mut and 200 <= response.status < 300:
+            after = _load_order_snapshot(tid)
+            changes = order_diff.diff_changes(before, after)
+        await _log_http(request, request_id, start, response.status, body_text, changes=changes)
         response.headers["X-Request-ID"] = request_id
         return response
     except Exception as exc:
@@ -49,7 +75,7 @@ async def audit_middleware(request: web.Request, handler):
         raise
 
 
-async def _log_http(request, request_id, start, status, body_text, error=None):
+async def _log_http(request, request_id, start, status, body_text, error=None, changes=None):
     web_user = request.get("web_user")   # do web_auth middleware gắn (nếu có token)
     await async_log_event(
         "http.request", request_id=request_id,
@@ -57,6 +83,6 @@ async def _log_http(request, request_id, start, status, body_text, error=None):
         actor_id=web_user or request.remote,
         thread_id=_extract_thread_id(request.path, body_text),
         direction="in", source=f"{request.method} {request.path}",
-        payload={"method": request.method, "path": request.path, "query": dict(request.query), "headers": dict(request.headers), "body": body_text if body_text is not None else "<multipart-or-empty>"},
+        payload={"method": request.method, "path": request.path, "query": dict(request.query), "headers": dict(request.headers), "body": body_text if body_text is not None else "<multipart-or-empty>", "changes": changes or []},
         result=None if status is None else {"status": status}, error=error, duration_ms=(time.perf_counter() - start) * 1000,
     )

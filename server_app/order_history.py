@@ -55,6 +55,8 @@ _LABELS = {
     "/api/order/invoice/update": "Sửa hoá đơn",
     "/api/order/payment/tm": "Thu tiền mặt",
     "/api/order/payment/ck": "Thu chuyển khoản",
+    "/api/order/payment/delete": "Xóa thanh toán",
+    "/api/order/auto-parse": "Tự phân tích lại",
     "/api/order/assign-customer": "Gán khách hàng",
     "/api/order/refresh-debt": "Cập nhật nợ KiotViet",
     "/api/order/fix": "Sửa nội dung đơn",
@@ -129,12 +131,17 @@ def _get_order_history_rows(conn, thread_id, limit: int) -> list[dict]:
         if not label:
             continue
         body = {}
+        changes = []
         try:
-            b = json.loads(r["payload_json"] or "{}").get("body")
+            payload = json.loads(r["payload_json"] or "{}")
+            b = payload.get("body")
             if isinstance(b, str) and b.strip().startswith("{"):
                 body = json.loads(b)
+            ch = payload.get("changes")
+            if isinstance(ch, list):
+                changes = ch
         except Exception:
-            body = {}
+            body, changes = {}, []
         status = None
         try:
             status = json.loads(r["result_json"] or "{}").get("status")
@@ -143,6 +150,7 @@ def _get_order_history_rows(conn, thread_id, limit: int) -> list[dict]:
         out.append({
             "ts": r["ts"], "actor": _actor_display(r["actor_id"], names), "action": label,
             "detail": _detail(norm, body),
+            "changes": changes,
             "ok": status is None or (isinstance(status, int) and 200 <= status < 300),
         })
         if len(out) >= limit:

@@ -51,6 +51,18 @@ export function History({ threadId }: { threadId: string }) {
                     <b>{h.action}</b>{h.detail ? <span> — {h.detail}</span> : null}
                     {h.ok === false ? <span class="owe"> ✗</span> : null}
                   </div>
+                  {Array.isArray(h.changes) && h.changes.length > 0 ? (
+                    <ul class="hist-changes">
+                      {h.changes.map((c: any, ci: number) => (
+                        <li key={ci}>
+                          <span class="hc-label">{c.label}:</span>{" "}
+                          {c.old ? <span class="hc-old">{c.old}</span> : null}
+                          {c.old && c.new ? <span class="hc-arrow"> → </span> : null}
+                          {c.new ? <span class="hc-new">{c.new}</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                   <div class="muted small">{h.actor || "?"} · {fmtTime(h.ts)}</div>
                 </div>
                 {h.image_id ? (
