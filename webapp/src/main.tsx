@@ -8,6 +8,8 @@ import { getStatus, onStatus, startRealtime, stopRealtime, type RealtimeStatus }
 import { CreateOrder } from "./pages/CreateOrder";
 import { Customers } from "./pages/Customers";
 import { CustomerDetail } from "./pages/CustomerDetail";
+import { PriceLists } from "./pages/PriceLists";
+import { PriceListDetail } from "./pages/PriceListDetail";
 import { Login } from "./pages/Login";
 import { OrderDetail } from "./pages/OrderDetail";
 import { OrdersList } from "./pages/OrdersList";
@@ -105,6 +107,7 @@ function RealtimeDot() {
 
 function App() {
   const hash = useHash();
+  const [menuOpen, setMenuOpen] = useState(false);
   const user = currentUser();
   // Webapp luôn cùng origin với server (APK nạp URL từ xa qua Tailscale) nên không
   // còn màn hình cài server_url — chỉ cần đăng nhập.
@@ -129,6 +132,7 @@ function App() {
   const khoMatch = hash.match(/^#\/kho\/([^?]+)/);
   const boxMatch = hash.match(/^#\/thung\/(\d+)/);
   const khachMatch = hash.match(/^#\/khach\/([^?]+)/);
+  const bangGiaMatch = hash.match(/^#\/bang-gia\/([^?]+)/);
   // Deep-link từ notification: ?focus=comment:123 / ?focus=image:45 → cuộn + nháy
   const focusMatch = hash.match(/[?&]focus=([a-z]+):(\d+)/i);
   const focusEl = focusMatch ? `${focusMatch[1]}-${focusMatch[2]}` : undefined;
@@ -143,6 +147,8 @@ function App() {
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
   else if (khachMatch) page = <CustomerDetail ckey={decodeURIComponent(khachMatch[1])} />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
+  else if (bangGiaMatch) page = <PriceListDetail listId={decodeURIComponent(bangGiaMatch[1])} />;
+  else if (hash.startsWith("#/bang-gia")) page = <PriceLists />;
   else page = <OrdersList />;
 
   const tab = (h: string) => (hash.startsWith(h) ? "tab active" : "tab");
@@ -167,7 +173,17 @@ function App() {
           <a class={tab("#/create")} href="#/create">➕ Tạo</a>
           <a class={tab("#/san_xuat")} href="#/san_xuat">🏭 SX</a>
           <a class={tab("#/kho")} href="#/kho">📦 Kho</a>
+          <button class={hash.startsWith("#/bang-gia") ? "tab active" : "tab"} onClick={() => setMenuOpen(true)}>☰ Thêm</button>
         </nav>
+      )}
+      {menuOpen && !showLogin && (
+        <div class="modal-overlay" onClick={() => setMenuOpen(false)}>
+          <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
+            <div class="modal-head">Mục khác</div>
+            <a class="menu-item" href="#/bang-gia" onClick={() => setMenuOpen(false)}>💰 Bảng giá chung</a>
+            <button class="menu-item" onClick={() => setMenuOpen(false)}>✕ Đóng</button>
+          </div>
+        </div>
       )}
     </div>
   );

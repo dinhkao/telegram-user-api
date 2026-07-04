@@ -138,6 +138,31 @@ export async function getCustomerPriceList(key: string): Promise<CustomerPriceLi
   return { name: d.name ?? null, items: d.items || [] };
 }
 
+// ── Bảng giá chung (kv_store['bang_gia_moi']) ──
+export type PriceListSummary = { id: string; name: string; product_count: number };
+export type PriceItem = { sp: string; price: number };
+export type PriceListFull = { id: string; name: string; items: PriceItem[]; customers: { key: string; name: string }[] };
+export type PriceHistoryRow = { sp: string; old_price: number | null; new_price: number | null; changed_by: string; changed_at: number };
+
+export async function getPriceLists(): Promise<PriceListSummary[]> {
+  const d = await getJSON("/api/price-lists", { cache: false });
+  return d.lists || [];
+}
+export async function getPriceList(id: string): Promise<PriceListFull> {
+  const d = await getJSON(`/api/price-lists/${encodeURIComponent(id)}`, { cache: false });
+  return d.list;
+}
+/** Ghi lại toàn bộ giá (backend diff → lịch sử mỗi SP đổi). */
+export async function savePriceList(id: string, items: PriceItem[], name?: string): Promise<PriceListFull> {
+  const d = await postJSON(`/api/price-lists/${encodeURIComponent(id)}`, { items, name });
+  return d.list;
+}
+export async function getPriceHistory(id: string, sp?: string): Promise<PriceHistoryRow[]> {
+  const q = sp ? `?sp=${encodeURIComponent(sp)}` : "";
+  const d = await getJSON(`/api/price-lists/${encodeURIComponent(id)}/history${q}`, { cache: false });
+  return d.history || [];
+}
+
 export type CustomerDetail = {
   key: string; name: string; kh_id?: string | number | null;
   debt?: number | null; debt_updated_at?: any; thread_id?: number | null;
