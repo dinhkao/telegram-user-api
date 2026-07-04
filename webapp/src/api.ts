@@ -157,6 +157,11 @@ export async function savePriceList(id: string, items: PriceItem[], name?: strin
   const d = await postJSON(`/api/price-lists/${encodeURIComponent(id)}`, { items, name });
   return d.list;
 }
+/** Đổi giá 1 SP (view-only + sửa từng dòng) → backend ghi lịch sử. Trả bảng đã cập nhật. */
+export async function savePriceOne(id: string, sp: string, price: number): Promise<PriceListFull> {
+  const d = await postJSON(`/api/price-lists/${encodeURIComponent(id)}/price`, { sp, price });
+  return d.list;
+}
 export async function getPriceHistory(id: string, sp?: string): Promise<PriceHistoryRow[]> {
   const q = sp ? `?sp=${encodeURIComponent(sp)}` : "";
   const d = await getJSON(`/api/price-lists/${encodeURIComponent(id)}/history${q}`, { cache: false });

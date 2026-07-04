@@ -1,11 +1,10 @@
-// Chi tiết 1 bảng giá chung (#/bang-gia/:id) — sửa giá (thêm/sửa/xoá) → lưu
-// (backend diff → lịch sử mỗi SP đổi), xem khách đang dùng, xem lịch sử đổi giá
-// (cả bảng hoặc lọc 1 SP). API: getPriceList / savePriceList / getPriceHistory.
+// Chi tiết 1 bảng giá chung (#/bang-gia/:id) — XEM giá (lọc theo mã SP), sửa giá
+// TỪNG dòng (bấm ✏️ → nhập giá → lưu, backend tự ghi 1 dòng lịch sử cho SP đó),
+// xem khách đang dùng + lịch sử đổi giá. API: getPriceList / savePriceOne /
+// getPriceHistory.
 import { useEffect, useState } from "preact/hooks";
-import { getPriceList, savePriceList, getPriceHistory, type PriceListFull, type PriceHistoryRow } from "../api";
+import { getPriceList, savePriceOne, getPriceHistory, type PriceListFull, type PriceHistoryRow } from "../api";
 import { money } from "../format";
-
-type Row = { sp: string; price: string };
 
 function fmtMs(ms: number): string {
   try { return new Date(ms).toLocaleString("vi-VN"); } catch { return String(ms); }
@@ -16,35 +15,27 @@ function priceLabel(p: number | null): string {
 
 export function PriceListDetail({ listId }: { listId: string }) {
   const [list, setList] = useState<PriceListFull | null>(null);
-  const [rows, setRows] = useState<Row[]>([]);
   const [err, setErr] = useState("");
-  const [msg, setMsg] = useState("");
+  const [filter, setFilter] = useState("");
+  const [editSp, setEditSp] = useState<string | null>(null);
+  const [editVal, setEditVal] = useState("");
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<PriceHistoryRow[] | null>(null);
   const [histSp, setHistSp] = useState<string | null>(null);
 
-  const hydrate = (l: PriceListFull) => {
-    setList(l);
-    setRows(l.items.map((it) => ({ sp: it.sp, price: String(it.price) })));
-  };
-
   useEffect(() => {
-    getPriceList(listId).then(hydrate).catch((e) => setErr(e.message));
+    getPriceList(listId).then(setList).catch((e) => setErr(e.message));
   }, [listId]);
 
-  const setRow = (i: number, k: keyof Row, v: string) =>
-    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
-  const addRow = () => setRows((rs) => [...rs, { sp: "", price: "" }]);
-  const delRow = (i: number) => setRows((rs) => rs.filter((_, j) => j !== i));
+  const startEdit = (sp: string, price: number) => { setEditSp(sp); setEditVal(String(price)); setErr(""); };
+  const cancelEdit = () => setEditSp(null);
 
-  const save = async () => {
-    setSaving(true); setErr(""); setMsg("");
-    const items = rows
-      .map((r) => ({ sp: r.sp.trim(), price: parseInt(r.price, 10) }))
-      .filter((it) => it.sp && it.price > 0);
+  const saveEdit = async (sp: string) => {
+    setSaving(true); setErr("");
     try {
-      hydrate(await savePriceList(listId, items));
-      setMsg("✅ Đã lưu — lịch sử đổi giá đã ghi");
+      const updated = await savePriceOne(listId, sp, parseInt(editVal, 10));
+      setList((l) => ({ ...updated, customers: l?.customers || [] }));
+      setEditSp(null);
       if (history !== null) loadHistory(histSp); // đang mở lịch sử → làm mới
     } catch (e: any) { setErr(e.message); } finally { setSaving(false); }
   };
@@ -58,48 +49,56 @@ export function PriceListDetail({ listId }: { listId: string }) {
   if (err && !list) return <div class="prod-detail"><a class="back" href="#/bang-gia">←</a><p class="error">{err}</p></div>;
   if (!list) return <div class="prod-detail"><p class="muted">Đang tải…</p></div>;
 
+  const q = filter.trim().toLowerCase();
+  const items = q ? list.items.filter((it) => it.sp.toLowerCase().includes(q)) : list.items;
+
   return (
     <div class="prod-detail">
       <div class="prod-detail-head">
         <a class="back" href="#/bang-gia">←</a>
         <div>
           <div class="prod-sp">{list.name}</div>
-          <div class="muted small">#{list.id} · {rows.length} SP</div>
+          <div class="muted small">#{list.id} · {list.items.length} SP</div>
         </div>
       </div>
 
-      {msg && <p class="muted small">{msg}</p>}
       {err && <p class="error">{err}</p>}
 
       <section class="card">
-        <label class="card-label">Giá sản phẩm</label>
+        <input class="search" type="search" placeholder="🔍 Tìm mã SP…" value={filter} onInput={(e: any) => setFilter(e.target.value)} />
         <table class="invoice-table">
           <tbody>
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td><input value={r.sp} placeholder="Mã SP" onInput={(e: any) => setRow(i, "sp", e.target.value)} /></td>
-                <td class="num"><input class="num-inp" type="number" inputMode="numeric" value={r.price} placeholder="Giá" onFocus={(e: any) => e.target.select()} onInput={(e: any) => setRow(i, "price", e.target.value)} /></td>
-                <td>
-                  <button class="btn small" title="Lịch sử SP này" onClick={() => loadHistory(r.sp.trim())}>🕐</button>
-                  <button class="btn small" onClick={() => delRow(i)}>✕</button>
-                </td>
+            {items.map((it) => (
+              <tr key={it.sp}>
+                <td>{it.sp}</td>
+                {editSp === it.sp ? (
+                  <>
+                    <td class="num"><input class="num-inp" type="number" inputMode="numeric" value={editVal} autofocus onFocus={(e: any) => e.target.select()} onInput={(e: any) => setEditVal(e.target.value)} /></td>
+                    <td>
+                      <button class="btn small primary" disabled={saving} onClick={() => saveEdit(it.sp)}>{saving ? "…" : "💾"}</button>
+                      <button class="btn small" onClick={cancelEdit}>✕</button>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td class="num"><b>{money(it.price)}đ</b></td>
+                    <td>
+                      <button class="btn small" title="Sửa giá" onClick={() => startEdit(it.sp, it.price)}>✏️</button>
+                      <button class="btn small" title="Lịch sử SP này" onClick={() => loadHistory(it.sp)}>🕐</button>
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
-            {!rows.length && <tr><td colSpan={3} class="muted small">Chưa có SP — thêm dòng.</td></tr>}
+            {!items.length && <tr><td colSpan={3} class="muted small">{q ? "Không thấy SP khớp." : "Bảng giá trống."}</td></tr>}
           </tbody>
         </table>
-        <div class="row">
-          <button class="btn small" onClick={addRow}>➕ Thêm SP</button>
-          <button class="btn primary" disabled={saving} onClick={save}>{saving ? "Đang lưu…" : "💾 Lưu giá"}</button>
-        </div>
       </section>
 
       <section class="card">
         <div class="row space">
           <label class="card-label">Lịch sử đổi giá {histSp ? `— ${histSp}` : ""}</label>
-          <span>
-            <button class="btn small" onClick={() => loadHistory(null)}>Toàn bộ</button>
-          </span>
+          <button class="btn small" onClick={() => loadHistory(null)}>Toàn bộ</button>
         </div>
         {history === null ? (
           <button class="btn small" onClick={() => loadHistory(null)}>Xem lịch sử</button>

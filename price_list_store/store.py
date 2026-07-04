@@ -101,6 +101,37 @@ def save_prices(list_id: str, items: list[dict], actor: str, *, name: str | None
         conn.close()
 
 
+def set_price(list_id: str, sp: str, price, actor: str) -> dict | None:
+    """Đổi giá 1 SP → ghi 1 dòng price_history (nếu đổi). Trả bảng đã cập nhật
+    (get_one), None nếu không có bảng, {"error":..} nếu SP/giá không hợp lệ."""
+    sp = str(sp or "").strip()
+    try:
+        p = int(price)
+    except (TypeError, ValueError):
+        return {"error": "giá không hợp lệ"}
+    if not sp or p <= 0:
+        return {"error": "mã SP / giá không hợp lệ"}
+    conn = get_connection()
+    try:
+        create_price_history_table(conn)
+        with transaction(conn):
+            blob = _load_blob(conn)
+            v = blob.get(str(list_id))
+            if v is None:
+                return None
+            pl = v.get("price_list") or {}
+            old = int(pl[sp]) if sp in pl and pl[sp] is not None else None
+            if old != p:
+                record_change(conn, list_id, sp, old, p, actor)
+                pl[sp] = p
+                v["price_list"] = pl
+                blob[str(list_id)] = v
+                _save_blob(conn, blob)
+        return get_one(list_id)
+    finally:
+        conn.close()
+
+
 def customers_using(list_id: str) -> list[dict]:
     """Khách đang gắn bảng giá này (customer.price_list == id): [{key, name}]."""
     conn = get_connection()

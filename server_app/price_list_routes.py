@@ -10,7 +10,7 @@ import asyncio
 
 from aiohttp import web
 
-from price_list_store import list_all, get_one, save_prices, customers_using, get_history
+from price_list_store import list_all, get_one, save_prices, set_price, customers_using, get_history
 from utils.db import get_connection
 
 
@@ -61,6 +61,30 @@ async def price_list_save_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "không thấy bảng giá"}, status=404)
     data["customers"] = await asyncio.to_thread(customers_using, lid)
     return web.json_response({"ok": True, "list": data})
+
+
+async def price_one_save_handler(request: web.Request):
+    """Đổi giá 1 SP (view-only + sửa từng dòng). Body {sp, price} → ghi lịch sử."""
+    lid = request.match_info.get("id", "").strip()
+    if not lid:
+        return web.json_response({"ok": False, "error": "thiếu id"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "body phải là JSON"}, status=400)
+    from server_app.order_api_common import apply_web_actor
+    apply_web_actor(request, body, key="user")
+    actor = str(body.get("user") or "web")
+    sp = str(body.get("sp") or "").strip()
+    if not sp:
+        return web.json_response({"ok": False, "error": "thiếu mã SP"}, status=400)
+
+    res = await asyncio.to_thread(set_price, lid, sp, body.get("price"), actor)
+    if res is None:
+        return web.json_response({"ok": False, "error": "không thấy bảng giá"}, status=404)
+    if isinstance(res, dict) and res.get("error"):
+        return web.json_response({"ok": False, "error": res["error"]}, status=400)
+    return web.json_response({"ok": True, "list": res})
 
 
 async def price_list_history_handler(request: web.Request):
