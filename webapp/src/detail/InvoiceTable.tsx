@@ -21,11 +21,12 @@ function hl(text: string, q?: string) {
   return out;
 }
 
-export function InvoiceTable({ items, discount, pvc, vat, debt, total, q }: {
+export function InvoiceTable({ items, discount, pvc, vat, debt, total, q, debtCtl }: {
   items: { sp: string; sl: number | string; price: number }[];
   discount?: number; pvc?: number; vat?: number; debt?: number | null;
   total?: string;   // tổng in sẵn từ KiotViet (nếu có) — ưu tiên dòng "Tổng thanh toán"
   q?: string;       // từ khoá tìm kiếm → tô sáng mã SP khớp
+  debtCtl?: any;    // nút khoá 🔒 / 🔄 cập nhật nợ — render NGAY cạnh chữ "Nợ trước"
 }) {
   const list = items || [];
   const tienHang = list.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.sl) || 0), 0);
@@ -48,7 +49,7 @@ export function InvoiceTable({ items, discount, pvc, vat, debt, total, q }: {
             <td class="num">{money((Number(it.price) || 0) * (Number(it.sl) || 0))}</td>
           </tr>
         ))}
-        {!hasFees && d === 0 ? (
+        {!hasFees && d === 0 && !debtCtl ? (
           <tr class="tot"><td colSpan={3} class="lbl">Tổng</td><td class="num">{money(tongTT)}đ</td></tr>
         ) : (
           <>
@@ -57,7 +58,7 @@ export function InvoiceTable({ items, discount, pvc, vat, debt, total, q }: {
             {v ? <tr class="sub"><td colSpan={3} class="lbl">VAT</td><td class="num">+{money(v)}</td></tr> : null}
             {disc ? <tr class="sub"><td colSpan={3} class="lbl">Giảm giá</td><td class="num">−{money(disc)}</td></tr> : null}
             {d !== 0 && hasFees ? <tr class="sub"><td colSpan={3} class="lbl">Tổng đơn này</td><td class="num">{money(tongDon)}</td></tr> : null}
-            {d !== 0 ? <tr class="sub"><td colSpan={3} class="lbl">Nợ trước</td><td class="num">{money(d)}</td></tr> : null}
+            {(d !== 0 || debtCtl) ? <tr class="sub"><td colSpan={3} class="lbl">Nợ trước{debtCtl ? <span class="debt-ctl">{debtCtl}</span> : null}</td><td class="num">{d !== 0 ? money(d) : <span class="muted">—</span>}</td></tr> : null}
             <tr class="tot"><td colSpan={3} class="lbl">Tổng thanh toán</td><td class="num">{money(tongTT)}đ</td></tr>
           </>
         )}

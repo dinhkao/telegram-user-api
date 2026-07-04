@@ -254,11 +254,12 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .inv-created b { font-family: ui-monospace, monospace; }
 .inv-btns { display: flex; gap: 8px; }
 .inv-btns .btn { flex: 1; min-height: 40px; }
-.inv-debt-ctl { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
-.inv-debt-ctl b { color: var(--ink); }
 /* Chip khoá bấm được → hiện lý do (toast) */
 .lock-chip { border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-size: .78rem; font-weight: 600; padding: 5px 10px; border-radius: 999px; cursor: pointer; min-height: 32px; -webkit-tap-highlight-color: transparent; }
 .lock-chip:active { background: var(--border); }
+/* Nút khoá/cập nhật nợ khi render inline cạnh chữ "Nợ trước" trong bảng hoá đơn */
+.inv-mini .lbl .debt-ctl { margin-left: 6px; }
+.inv-mini .lbl .lock-chip, .inv-mini .lbl .debt-ctl .btn { min-height: 24px; padding: 2px 8px; font-size: .72rem; vertical-align: middle; }
 .inv-actions > .btn.wide { margin: 0; }
 
 /* Desktop: rộng hơn, bố cục 2 cột */
