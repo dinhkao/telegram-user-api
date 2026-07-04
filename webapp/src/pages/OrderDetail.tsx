@@ -285,23 +285,6 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           </div>
         )}
       </div>
-      <div class="card">
-        <div class="row space"><span>Đã trả</span><b>{money(paid)}đ</b></div>
-        {pc.no_truoc && <div class="row space"><span>Nợ trước</span><b>{pc.no_truoc}đ</b></div>}
-        {(j.khach_hang_id || j.khID) && (
-          <div class="row space">
-            <span>Nợ khách (KiotViet)</span>
-            <span class="row">
-              {(j.khDebt != null || j.invoice_debt_snapshot != null)
-                ? <b>{money(j.khDebt ?? j.invoice_debt_snapshot)}đ</b>
-                : <span class="muted small">chưa có</span>}
-              {j.kiotvietInvoiceID
-                ? <span class="muted small" title="Đơn đã có hoá đơn KiotViet — nợ đã chốt">🔒</span>
-                : <button class="btn small" title="Kéo nợ KiotViet mới nhất" onClick={refreshDebt}>🔄</button>}
-            </span>
-          </div>
-        )}
-      </div>
 
       <div class="card">
         <div class="row space">
@@ -338,6 +321,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         onPrint={doPrint}
         canDelete={isAdmin}
         invoiceCode={j.kiotvietInvoiceCode || j.kiotvietInvoiceID}
+        onRefreshDebt={refreshDebt}
+        debtLocked={!!j.kiotvietInvoiceID}
       />
       <OrderStock threadId={threadId} invoice={j.invoice || []} />
       <Payments threadId={threadId} payments={j.payments || []} onChanged={changed} />

@@ -56,7 +56,7 @@ function ProductInput({ value, onChange, onCommit }: {
   );
 }
 
-export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCreateInvoice, canCreate, hasInvoice, createMode, debt, onView, onDelete, onPrint, canDelete, invoiceCode }: {
+export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCreateInvoice, canCreate, hasInvoice, createMode, debt, onView, onDelete, onPrint, canDelete, invoiceCode, onRefreshDebt, debtLocked }: {
   customerId?: string;
   invoice: any[];
   discount?: number; pvc?: number; vat?: number;
@@ -71,6 +71,8 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   onPrint?: () => Promise<void> | void;  // in HĐ + phiếu giao
   canDelete?: boolean;                 // chỉ admin
   invoiceCode?: string | number;
+  onRefreshDebt?: () => void;          // kéo nợ KiotViet mới nhất
+  debtLocked?: boolean;                // đã tạo HĐ → nợ chốt, không kéo được
 }) {
   const [rows, setRows] = useState<EditorRow[]>([]);
   const [disc, setDisc] = useState(0);
@@ -222,6 +224,14 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
         ) : (
           <InvoiceTable items={rows} discount={disc} pvc={p} vat={v} debt={debt} />
         )}
+        {customerId ? (
+          <div class="inv-debt-ctl">
+            <span class="muted small">Nợ trước (KiotViet){debt != null ? <>: <b>{money(debt)}đ</b></> : <span class="muted"> — chưa có</span>}</span>
+            {debtLocked
+              ? <span class="muted small" title="Đã tạo HĐ KiotViet — nợ đã chốt">🔒 đã chốt</span>
+              : (onRefreshDebt ? <button class="btn small" title="Kéo nợ KiotViet mới nhất" onClick={onRefreshDebt}>🔄 Cập nhật nợ</button> : null)}
+          </div>
+        ) : null}
         {invActions}
       </div>
     );
