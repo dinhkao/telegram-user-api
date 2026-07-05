@@ -815,3 +815,13 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .quy-periods .qf { flex: 0 0 auto; }
 .quy-custom { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .quy-date { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; font-size: .9rem; min-width: 0; }
+
+/* Sửa báo cáo SX — ảnh nền để dò (phủ lên bảng, chỉnh độ mờ) */
+.wr-bg-ctrl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 8px; }
+.wr-bg-lbl { font-size: .82rem; font-weight: 600; color: var(--muted); }
+.wr-bg-slider { flex: 1; min-width: 120px; accent-color: var(--primary); }
+.wr-bg-pct { min-width: 34px; text-align: right; }
+.wr-scroll.has-bg { position: relative; }
+.wr-bg-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  object-fit: contain; object-position: top left; pointer-events: none; z-index: 6;
+  border-radius: 6px; }

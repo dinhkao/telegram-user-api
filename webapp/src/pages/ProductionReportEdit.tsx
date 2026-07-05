@@ -8,6 +8,7 @@ import { getProduction, saveProductionReport, lockReport, unlockReport, pushRepo
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { confirmDialog } from "../ui/feedback";
+import { processImage } from "../detail/imageProcess";
 
 type Wrow = { name: string; gach: string; tru: string; le: string; note: string };
 
@@ -31,6 +32,13 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const [msg, setMsg] = useState("");
   const seeded = useRef(false);
   const draftTimer = useRef<any>(null);
+  // Ảnh nền để DÒ (phủ lên bảng, chỉnh độ mờ) — cục bộ, không lưu server.
+  const [bgUrl, setBgUrl] = useState<string | null>(null);
+  const [bgOpacity, setBgOpacity] = useState(55);
+  const [bgLoading, setBgLoading] = useState(false);
+  const bgInput = useRef<HTMLInputElement>(null);
+  const bgUrlRef = useRef<string | null>(null);
+  bgUrlRef.current = bgUrl;
 
   const mine = !holder;                       // tôi được sửa khi không ai khác giữ
   const readOnly = !!holder;                  // người khác giữ → chỉ xem
@@ -102,6 +110,28 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   };
   const selAll = (e: any) => e.target.select();   // bấm vào ô → chọn hết nội dung, gõ đè ngay
 
+  // ── Ảnh nền để dò: chọn ảnh (camera/thư viện) → nén bằng engine như trang đơn
+  // (processImage: co ~1600px, tôn trọng EXIF, HEIC ok) → phủ lên bảng. Slider chỉnh
+  // độ mờ để đọc ảnh rồi gõ. Không upload/không lưu — chỉ hỗ trợ nhập.
+  const onPickBg = async (e: any) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBgLoading(true);
+    try {
+      const p = await processImage(file);
+      const url = URL.createObjectURL(p.full);
+      setBgUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
+      if (bgOpacity <= 0) setBgOpacity(55);
+    } catch (err: any) {
+      setMsg(err?.message || "Không đọc được ảnh");
+    } finally {
+      setBgLoading(false);
+    }
+  };
+  const clearBg = () => setBgUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+  useEffect(() => () => { if (bgUrlRef.current) URL.revokeObjectURL(bgUrlRef.current); }, []);
+
   const buildText = (): string => {
     const CODE = (slip?.sp_name || "").toUpperCase();
     const lines = wrows.filter((r) => r.name.trim()).map((r) => {
@@ -155,7 +185,27 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         </div>
         {scm <= 0 && <div class="prod-save-msg">⚠️ SP chưa có số cây 1 mâm — chọn mã SP để tính tổng.</div>}
 
-        <div class="prod-report-scroll wr-scroll">
+        {/* Ảnh nền để dò — phủ lên bảng, kéo slider chỉnh độ mờ rồi gõ */}
+        <div class="wr-bg-ctrl">
+          <input ref={bgInput} type="file" accept="image/*" hidden onChange={onPickBg} />
+          {!bgUrl ? (
+            <button class="btn small" disabled={bgLoading} onClick={() => bgInput.current?.click()}>
+              {bgLoading ? "⏳ Đang mở ảnh…" : "🖼️ Ảnh nền để dò"}
+            </button>
+          ) : (
+            <>
+              <span class="wr-bg-lbl">🖼️ Độ mờ ảnh</span>
+              <input class="wr-bg-slider" type="range" min={0} max={100} value={bgOpacity}
+                onInput={(e: any) => setBgOpacity(+e.target.value)} />
+              <span class="muted small wr-bg-pct">{bgOpacity}%</span>
+              <button class="btn small" onClick={() => bgInput.current?.click()} disabled={bgLoading} title="Đổi ảnh">🔁</button>
+              <button class="btn small" onClick={clearBg} title="Bỏ ảnh">✕</button>
+            </>
+          )}
+        </div>
+
+        <div class={"prod-report-scroll wr-scroll" + (bgUrl ? " has-bg" : "")}>
+          {bgUrl && <img class="wr-bg-overlay" src={bgUrl} style={{ opacity: bgOpacity / 100 }} alt="" />}
           <table class="prod-report-table wr-edit">
             <colgroup>
               <col class="c-name" /><col class="c-num" /><col class="c-num" /><col class="c-num" />
