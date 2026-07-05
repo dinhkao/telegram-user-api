@@ -38,8 +38,6 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const [bgShow, setBgShow] = useState(false);   // đang giữ nút → hiện ảnh
   const [bgLoading, setBgLoading] = useState(false);
   const bgInput = useRef<HTMLInputElement>(null);
-  const tfootRef = useRef<HTMLTableSectionElement>(null);
-  const [footH, setFootH] = useState(0);   // cao dòng TỔNG CỘNG → ảnh dừng trên nó
 
   const mine = !holder;                       // tôi được sửa khi không ai khác giữ
   const readOnly = !!holder;                  // người khác giữ → chỉ xem
@@ -147,8 +145,6 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     }
   };
   const clearBg = () => { try { localStorage.removeItem(bgKey); } catch { /* im */ } setBgUrl(null); setBgShow(false); };
-  // Đo chiều cao dòng TỔNG CỘNG (tfoot) để ảnh phủ chừa nó lại (dừng trên dòng tổng).
-  useEffect(() => { setFootH(tfootRef.current?.offsetHeight || 0); }, [bgUrl, bgShow, wrows.length, readOnly]);
 
   const buildText = (): string => {
     const CODE = (slip?.sp_name || "").toUpperCase();
@@ -219,12 +215,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
           )}
         </div>
 
-        <div class={"prod-report-scroll wr-scroll" + (bgUrl && bgShow ? " has-bg" : "")}>
-          {bgUrl && bgShow && (
-            <div class="wr-bg-overlay" style={{ bottom: footH + "px" }}>
-              <img src={bgUrl} alt="" />
-            </div>
-          )}
+        <div class="prod-report-scroll wr-scroll">
           <table class="prod-report-table wr-edit">
             <colgroup>
               <col class="c-name" /><col class="c-num" /><col class="c-num" /><col class="c-num" />
@@ -255,7 +246,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
                 );
               })}
             </tbody>
-            <tfoot ref={tfootRef}>
+            <tfoot>
               <tr><td colSpan={5}>TỔNG CỘNG</td><td class="strong">{soVN(grand)}</td><td colSpan={readOnly ? 1 : 2}></td></tr>
             </tfoot>
           </table>
@@ -269,6 +260,14 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         )}
         {msg && <div class="prod-save-msg">{msg}</div>}
       </section>
+
+      {/* Ảnh phủ cố định (fixed) — KHÔNG trôi theo cuộn. Che vùng nhập, chừa app-bar
+          + nav; nút 👁️ nổi trên ảnh. Chỉ hiện khi đang giữ nút. */}
+      {bgUrl && bgShow && (
+        <div class="wr-bg-overlay">
+          <img src={bgUrl} alt="" />
+        </div>
+      )}
 
       {/* Nút tròn cố định giữa màn hình, trên nav — GIỮ để hiện ảnh, thả ra ẩn */}
       {bgUrl && (
