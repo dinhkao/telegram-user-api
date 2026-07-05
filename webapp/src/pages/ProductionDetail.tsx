@@ -18,6 +18,8 @@ import {
 import { onRealtime } from "../realtime";
 import { ProductionBoxes } from "../detail/ProductionBoxes";
 import { ProductionReport } from "../detail/ProductionReport";
+import { Images } from "../detail/Images";
+import { Comments } from "../detail/Comments";
 import { ProductPicker } from "../detail/ProductPicker";
 import { confirmDialog } from "../ui/feedback";
 import { parseMoney } from "../format";
@@ -200,6 +202,9 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
       <ProductionBoxes threadId={threadId} slip={slip} onChanged={reload} />
 
       <ProductionReport threadId={threadId} slip={slip} />
+
+      <Images base={`/api/media/production/${threadId}`} />
+      <Comments base={`/api/media/production/${threadId}`} />
 
       <button class="btn danger block" onClick={doDelete}>🗑 Xoá phiếu</button>
     </div>

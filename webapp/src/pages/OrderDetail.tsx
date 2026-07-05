@@ -347,13 +347,13 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       />
       <OrderStock threadId={threadId} invoice={j.invoice || []} />
       <Payments threadId={threadId} payments={j.payments || []} suggest={invoiceTotal(j.invoice)} onChanged={changed} />
-      <Images threadId={threadId} />
+      <Images base={`/api/order/${threadId}`} />
       <History threadId={threadId} />
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>
       </div>{/* .dmain */}
 
       <aside class="dside">
-        <Comments threadId={threadId} chatMessages={detail.chat_messages || []} />
+        <Comments base={`/api/order/${threadId}`} chatMessages={detail.chat_messages || []} />
       </aside>
       </div>{/* .detail-grid */}
     </div>

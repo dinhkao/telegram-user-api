@@ -15,14 +15,14 @@ function toEpoch(v: any): number {
   return isNaN(t) ? 0 : Math.floor(t / 1000);
 }
 
-export function Comments({ threadId, chatMessages }: { threadId: string; chatMessages: any[] }) {
+export function Comments({ base, chatMessages = [] }: { base: string; chatMessages?: any[] }) {
   const [comments, setComments] = useState<any[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
     try {
-      const r = await getJSON(`/api/order/${threadId}/comments`);
+      const r = await getJSON(`${base}/comments`);
       setComments(r.comments || []);
     } catch {
       /* offline không có cache thì thôi */
@@ -30,14 +30,14 @@ export function Comments({ threadId, chatMessages }: { threadId: string; chatMes
   };
   useEffect(() => {
     load();
-  }, [threadId]);
+  }, [base]);
 
   const send = async () => {
     const t = text.trim();
     if (!t) return;
     setBusy(true);
     try {
-      const r = await postJSON(`/api/order/${threadId}/comments`, { text: t }, { queueable: true });
+      const r = await postJSON(`${base}/comments`, { text: t }, { queueable: true });
       setText("");
       if (r._queued) {
         const user = currentUser();

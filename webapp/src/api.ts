@@ -305,6 +305,21 @@ export function orderImageUrl(threadId: string | number, imageId: number, size: 
 
 export type OrderImage = { id: number; width: number; height: number; size: number; uploaded_by: string; created_at: number };
 
+// ── Media DÙNG CHUNG (comments+ảnh) — base là gốc API, vd '/api/order/123' hoặc
+//    '/api/media/production/123' / '/api/media/box/5'. Dùng bởi Comments/Images/… ──
+export function mediaImageUrl(base: string, imageId: number, size: "thumb" | "full" = "full"): string {
+  const t = getToken();
+  const q = `?size=${size}${t ? `&token=${encodeURIComponent(t)}` : ""}`;
+  return `${serverUrl()}${base}/images/${imageId}/file${q}`;
+}
+export async function listMediaImages(base: string): Promise<OrderImage[]> {
+  const d = await getJSON(`${base}/images`, { cache: false });
+  return d.images || [];
+}
+export async function deleteMediaImage(base: string, imageId: number): Promise<any> {
+  return delJSON(`${base}/images/${imageId}`);
+}
+
 /** Liệt kê ảnh của đơn (mới nhất trước). */
 export async function listOrderImages(threadId: string | number): Promise<OrderImage[]> {
   const d = await getJSON(`/api/order/${Number(threadId)}/images`, { cache: false });

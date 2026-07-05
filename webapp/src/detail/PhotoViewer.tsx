@@ -2,7 +2,7 @@
 // không thư viện): pinch-zoom + kéo (pan) + double-tap zoom. Thêm: vuốt xuống để
 // đóng, vuốt trái/phải để chuyển ảnh. Dùng bởi: detail/Images.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { orderImageUrl, type OrderImage } from "../api";
+import { mediaImageUrl, type OrderImage } from "../api";
 import { fmtTime } from "../format";
 import { toast } from "../ui/feedback";
 
@@ -17,12 +17,12 @@ type Pt = { x: number; y: number };
 export function PhotoViewer({
   images,
   start,
-  threadId,
+  base,
   onClose,
 }: {
   images: OrderImage[];
   start: number;
-  threadId: string;
+  base: string;
   onClose: () => void;
 }) {
   const [idx, setIdx] = useState(start);
@@ -254,7 +254,7 @@ export function PhotoViewer({
   const copyImage = async () => {
     if (!cur) return;
     try {
-      const res = await fetch(orderImageUrl(threadId, cur.id, "full"));
+      const res = await fetch(mediaImageUrl(base, cur.id, "full"));
       const blob = await res.blob();
       // WebView Android không copy ảnh được → ưu tiên cầu native copyImage.
       const bridge: any = (window as any).AndroidApp;
@@ -290,10 +290,10 @@ export function PhotoViewer({
   const downloadImage = async () => {
     if (!cur) return;
     try {
-      const res = await fetch(orderImageUrl(threadId, cur.id, "full"));
+      const res = await fetch(mediaImageUrl(base, cur.id, "full"));
       const blob = await res.blob();
       const ext = blob.type.includes("png") ? "png" : blob.type.includes("jpeg") ? "jpg" : blob.type.includes("webp") ? "webp" : "img";
-      const name = `don-${threadId}-anh-${cur.id}.${ext}`;
+      const name = `anh-${cur.id}.${ext}`;
 
       // Ưu tiên cầu native APK: lưu THẲNG vào thư viện ảnh (Photos) qua MediaStore.
       const bridge: any = (window as any).AndroidApp;
@@ -346,7 +346,7 @@ export function PhotoViewer({
         zoomAt(g.current.scale * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY);
       }}
     >
-      <img ref={imgRef} class="pv-img" src={orderImageUrl(threadId, cur.id, "full")} draggable={false} alt="" />
+      <img ref={imgRef} class="pv-img" src={mediaImageUrl(base, cur.id, "full")} draggable={false} alt="" />
 
       {/* Thanh trên: copy / tải / đóng */}
       <div class="pv-topbar">
@@ -361,7 +361,7 @@ export function PhotoViewer({
           <div class="pv-thumbs-inner">
             {images.map((im, i) => (
               <button key={im.id} class={`pv-thumb${i === idx ? " active" : ""}`} onClick={() => setIdx(i)} aria-label={`Ảnh ${i + 1}`}>
-                <img src={orderImageUrl(threadId, im.id, "thumb")} loading="lazy" alt="" />
+                <img src={mediaImageUrl(base, im.id, "thumb")} loading="lazy" alt="" />
               </button>
             ))}
           </div>

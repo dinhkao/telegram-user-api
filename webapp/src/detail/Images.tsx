@@ -1,8 +1,8 @@
-// Khối ẢNH của đơn — chụp/chọn ảnh, nén phía client (imageProcess), upload
+// Khối ẢNH dùng chung — chụp/chọn ảnh, nén phía client (imageProcess), upload
 // multipart, lưới thumbnail tải lười + xem phóng to (lightbox), xoá ảnh.
-// Data: GET/POST/DELETE /api/order/{thread_id}/images. Realtime: order_changed → tải lại.
+// Data: GET/POST/DELETE {base}/images (base vd /api/order/123 hoặc /api/media/box/5).
 import { useEffect, useRef, useState } from "preact/hooks";
-import { deleteOrderImage, listOrderImages, orderImageUrl, postForm, type OrderImage } from "../api";
+import { deleteMediaImage, listMediaImages, mediaImageUrl, postForm, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
 import { processImage } from "./imageProcess";
 import { PhotoViewer } from "./PhotoViewer";
@@ -12,7 +12,7 @@ import { confirmDialog } from "../ui/feedback";
 type Pending = { key: number; url: string };
 let _pk = 0;
 
-export function Images({ threadId }: { threadId: string }) {
+export function Images({ base }: { base: string }) {
   const [images, setImages] = useState<OrderImage[]>([]);
   const [pending, setPending] = useState<Pending[]>([]);
   const [err, setErr] = useState("");
@@ -26,20 +26,20 @@ export function Images({ threadId }: { threadId: string }) {
 
   const load = async () => {
     try {
-      setImages(await listOrderImages(threadId));
+      setImages(await listMediaImages(base));
     } catch {
       /* mất mạng, không có cache → để trống */
     }
   };
   useEffect(() => {
     load();
-  }, [threadId]);
+  }, [base]);
 
-  // Realtime: ảnh thêm/xoá từ máy khác → tải lại lưới (debounce nhẹ)
+  // Realtime: reconnect (resync) → tải lại lưới. (Thêm/xoá tự tải lại ngay.)
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
-      if ((e.type === "order_changed" && e.thread_id === String(threadId)) || e.type === "resync") {
+      if (e.type === "resync") {
         clearTimeout(t);
         t = setTimeout(load, 300);
       }
@@ -48,7 +48,7 @@ export function Images({ threadId }: { threadId: string }) {
       clearTimeout(t);
       off();
     };
-  }, [threadId]);
+  }, [base]);
 
   const uploadOne = async (file: File): Promise<boolean> => {
     const key = ++_pk;
@@ -63,7 +63,7 @@ export function Images({ threadId }: { threadId: string }) {
       fd.append("thumb", p.thumb, `thumb${p.ext}`);
       fd.append("width", String(p.width));
       fd.append("height", String(p.height));
-      await postForm(`/api/order/${threadId}/images`, fd);
+      await postForm(`${base}/images`, fd);
       return true;
     } catch (ex: any) {
       const m = ex?.message || String(ex);
@@ -101,7 +101,7 @@ export function Images({ threadId }: { threadId: string }) {
     setImages((prev) => prev.filter((x) => x.id !== img.id)); // lạc quan
     if (lightbox?.id === img.id) setLightbox(null);
     try {
-      await deleteOrderImage(threadId, img.id);
+      await deleteMediaImage(base, img.id);
     } catch (ex: any) {
       setErr(ex?.message || "Xoá thất bại");
       load(); // khôi phục nếu lỗi
@@ -122,7 +122,7 @@ export function Images({ threadId }: { threadId: string }) {
       {/* Camera trực tiếp trong khung (nhanh, chụp liên tiếp). Nút mở camera chỉ
           hiện khi có HTTPS; nếu không → chỉ còn nút Chọn ảnh từ máy. */}
       {camOpen ? (
-        <CameraBox threadId={threadId} onUploaded={load} onClose={() => setCamOpen(false)} />
+        <CameraBox base={base} onUploaded={load} onClose={() => setCamOpen(false)} />
       ) : (
         <div class="img-actions">
           {cameraSupported() && (
@@ -151,7 +151,7 @@ export function Images({ threadId }: { threadId: string }) {
           {images.map((img) => (
             <div class="img-tile" id={`image-${img.id}`} key={img.id}>
               <img
-                src={orderImageUrl(threadId, img.id, "thumb")}
+                src={mediaImageUrl(base, img.id, "thumb")}
                 loading="lazy"
                 alt=""
                 onClick={() => setLightbox(img)}
@@ -166,7 +166,7 @@ export function Images({ threadId }: { threadId: string }) {
         <PhotoViewer
           images={images}
           start={Math.max(0, images.findIndex((x) => x.id === lightbox.id))}
-          threadId={threadId}
+          base={base}
           onClose={() => setLightbox(null)}
         />
       )}

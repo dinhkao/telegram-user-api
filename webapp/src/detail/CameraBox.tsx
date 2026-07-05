@@ -29,11 +29,11 @@ function camError(ex: any): string {
 }
 
 export function CameraBox({
-  threadId,
+  base,
   onClose,
   onUploaded,
 }: {
-  threadId: string;
+  base: string;
   onClose: () => void;
   onUploaded: () => void;
 }) {
@@ -100,7 +100,7 @@ export function CameraBox({
       fd.append("thumb", p.thumb, `thumb${p.ext}`);
       fd.append("width", String(p.width));
       fd.append("height", String(p.height));
-      await postForm(`/api/order/${threadId}/images`, fd);
+      await postForm(`${base}/images`, fd);
       setShots((n) => n + 1);
       onUploaded();
     } catch (ex: any) {

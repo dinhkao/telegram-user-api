@@ -6,6 +6,8 @@ import { BackLink } from "../nav";
 import { boxDetail, updateBox, setBoxDisabled, soVN, type InvBoxDetail, type InvBox } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
+import { Images } from "../detail/Images";
+import { Comments } from "../detail/Comments";
 
 const isDisabled = (b: InvBox) => !!b.disabled;
 
@@ -211,6 +213,9 @@ export function BoxDetail({ boxId }: { boxId: string }) {
           </ul>
         )}
       </section>
+
+      <Images base={`/api/media/box/${b.id}`} />
+      <Comments base={`/api/media/box/${b.id}`} />
 
       <section class="card">
         {(() => {
