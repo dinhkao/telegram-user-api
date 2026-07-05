@@ -508,6 +508,55 @@ export async function pushReportDraft(id: string | number, draft: { rows: any[];
   return postJSON(`/api/production/${id}/report/draft`, { ...draft, user: _actor() });
 }
 
+// ── Sổ quỹ (cash book) ────────────────────────────────────────────────────────
+
+export type QuyReceipt = {
+  id: number;
+  type: "thu" | "chi";
+  amount: number;
+  note?: string | null;
+  source: "manual" | "order";
+  order_thread_id?: number | null;
+  payment_id?: string | null;
+  customer_key?: string | null;
+  customer_name?: string | null;
+  created_by?: string | null;
+  created_at?: string | null;
+  date?: string | null;
+};
+export type QuySummary = { thu: number; chi: number; balance: number; count: number };
+export type QuyListResp = {
+  receipts: QuyReceipt[];
+  total: number;
+  page: number;
+  total_pages: number;
+  summary: QuySummary;
+};
+
+export async function listQuy(page = 1, type?: "thu" | "chi", q?: string): Promise<QuyListResp> {
+  const qs = new URLSearchParams({ page: String(page) });
+  if (type) qs.set("type", type);
+  if (q) qs.set("q", q);
+  const d = await getJSON(`/api/quy?${qs.toString()}`, { cache: false });
+  return {
+    receipts: d.receipts || [],
+    total: d.total || 0,
+    page: d.page || 1,
+    total_pages: d.total_pages || 1,
+    summary: d.summary || { thu: 0, chi: 0, balance: 0, count: 0 },
+  };
+}
+
+/** Tạo phiếu thu/chi tay. Trả receipt mới. */
+export async function createQuy(type: "thu" | "chi", amount: number, note: string): Promise<QuyReceipt> {
+  const d = await postJSON("/api/quy", { type, amount, note });
+  return d.receipt;
+}
+
+export async function deleteQuy(id: number | string): Promise<any> {
+  return delJSON(`/api/quy/${id}`);
+}
+
 // ── Kho thùng (inventory) ─────────────────────────────────────────────────────
 
 export type InvBox = {

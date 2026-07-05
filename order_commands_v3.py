@@ -44,7 +44,6 @@ from payment_db import (
 )
 from payment_store.domain import method_params, resolve_payment_target, build_payment_record
 from firebase_sync import set_order as fb_set_order
-from quy_db import create_fund_receipt
 from customer_notify import send_payment_notification
 from receipt_print import send_payment_receipt
 
@@ -186,6 +185,22 @@ def _fmt_analysis(product_counts: list[tuple[str, int]]) -> str:
 
 # ── Core payment handler ────────────────────────────────────────────
 
+def _record_cash_receipt(conn, thread_id, amount, payment_id, kh_id_fb, kh_name, actor_name) -> None:
+    """Ghi 1 phiếu thu sổ quỹ cho 1 thanh toán tiền mặt của đơn → phát realtime."""
+    from quy_store import create_quy_table, migrate_quy_table, create_receipt
+    create_quy_table(conn)
+    migrate_quy_table(conn)
+    note = f"Thu tiền mặt đơn #{thread_id}" + (f" - {kh_name}" if kh_name else "")
+    create_receipt(
+        conn, type="thu", amount=int(amount), note=note, source="order",
+        order_thread_id=int(thread_id), payment_id=payment_id,
+        customer_key=None if kh_id_fb is None else str(kh_id_fb),
+        customer_name=kh_name, created_by=str(actor_name or ""),
+    )
+    from server_app.realtime import emit_quy_changed
+    emit_quy_changed()
+
+
 async def _process_payment_core(thread_id: int, amount: int, user_id: int | None, method: str) -> dict:
     """Core payment processing (DB + KiotViet). Returns result dict for both Telethon and REST API."""
     db_conn = _get_connection()
@@ -259,6 +274,15 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     ok, payment_msg = add_payment(db_conn, thread_id, payment_record)
     if not ok:
         log.error("Failed to save payment to SQLite: %s", payment_msg)
+
+    # 4b. Sổ quỹ: thanh toán TIỀN MẶT → tạo phiếu thu gắn đơn + khách (web lẫn telegram
+    # đều qua đây). Không chặn thanh toán nếu ghi quỹ lỗi.
+    if ok and method == "Cash":
+        try:
+            _record_cash_receipt(db_conn, thread_id, amount,
+                                 payment_record.get("id"), kh_id_fb, kh_name, actor_name)
+        except Exception as e:
+            log.warning("Ghi phiếu thu sổ quỹ thất bại: %s", e)
 
     # 5. Auto-complete v2 tasks: nhan_tien + nop_tien
     _auto_complete_tasks_core(db_conn, thread_id, user_id)
@@ -386,19 +410,8 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
         f"✅ Đã tạo thanh toán {method_label} thành công {kv_code}",
     )
 
-    # 8. Fund receipt (ONLY for tm/Cash)
-    if method == "Cash":
-        try:
-            create_fund_receipt(
-                amount=amount,
-                khach_hang_name=kh_name,
-                created_by=str(user_id) if user_id else "API",
-                client=client,
-                order_chat_id=msg.chat_id,
-                order_thread_id=thread_id,
-            )
-        except Exception as e:
-            log.warning("Fund receipt creation failed: %s", e)
+    # 8. Phiếu thu sổ quỹ (chỉ tiền mặt) đã được ghi trong _process_payment_core →
+    # sổ quỹ webapp. Không còn ghi Firebase / báo group quỹ.
 
     # 9. Show new debt
     if new_debt is not None:
@@ -1076,6 +1089,14 @@ def register_order_commands_v3(client):
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
         ok, message = delete_payment_record(db_conn, thread_id, payment_id)
+        if ok:
+            try:
+                from quy_store import delete_by_payment
+                if delete_by_payment(db_conn, payment_id):
+                    from server_app.realtime import emit_quy_changed
+                    emit_quy_changed()
+            except Exception as e:
+                log.warning("Xoá phiếu thu sổ quỹ theo payment thất bại: %s", e)
         await client.send_message(msg.chat_id, message, reply_to=msg.id)
 
     @client.on(events.NewMessage(chats=ORDER_GROUP_ID))

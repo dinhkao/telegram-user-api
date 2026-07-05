@@ -56,6 +56,12 @@ from server_app.inventory_routes import (
 from server_app.orders_pages import order_detail_page_handler, orders_page_handler
 from server_app.web_auth import login_handler, me_handler, web_auth_middleware
 from server_app.web_pages import index_handler
+from server_app.quy_routes import (
+    quy_list_handler,
+    quy_detail_handler,
+    quy_create_handler,
+    quy_delete_handler,
+)
 from server_app.webapp_routes import register_webapp_routes
 from server_app.websocket_routes import websocket_handler
 from server_app import state
@@ -166,6 +172,11 @@ def create_app():
     r.add_post("/api/order/{thread_id}/allocate", order_allocate_handler)
     r.add_post("/api/order/{thread_id}/release", order_release_handler)
 
+    # ─── sổ quỹ (cash book) ──────────────────────────────────────────────────
+    r.add_get("/api/quy", quy_list_handler)
+    r.add_post("/api/quy", quy_create_handler)
+    r.add_get("/api/quy/{id}", quy_detail_handler)
+    r.add_delete("/api/quy/{id}", quy_delete_handler)
     r.add_get("/api/customers", customers_search_handler)
     r.add_get("/api/customers/{key}", customer_detail_handler)
     r.add_post("/api/customers/{key}", customer_update_handler)
