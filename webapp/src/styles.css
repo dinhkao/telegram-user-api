@@ -822,6 +822,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .wr-bg-slider { flex: 1; min-width: 120px; accent-color: var(--primary); }
 .wr-bg-pct { min-width: 34px; text-align: right; }
 .wr-scroll.has-bg { position: relative; }
-.wr-bg-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  object-fit: contain; object-position: top left; pointer-events: none; z-index: 6;
-  border-radius: 6px; }
+/* Ảnh phủ KÍN bảng, kéo giãn cả 2 chiều (fill). Div dùng inset top/left/right +
+   bottom (inline = cao dòng TỔNG CỘNG) nên hộp giãn tới đúng vùng; img fill hộp →
+   ảnh dừng NGAY TRÊN dòng tổng. */
+.wr-bg-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none; z-index: 6; overflow: hidden; border-radius: 4px; }
+.wr-bg-overlay img { display: block; width: 100%; height: 100%; object-fit: fill; }

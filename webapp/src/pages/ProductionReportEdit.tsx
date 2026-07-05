@@ -39,6 +39,8 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const bgInput = useRef<HTMLInputElement>(null);
   const bgUrlRef = useRef<string | null>(null);
   bgUrlRef.current = bgUrl;
+  const tfootRef = useRef<HTMLTableSectionElement>(null);
+  const [footH, setFootH] = useState(0);   // cao dòng TỔNG CỘNG → ảnh dừng trên nó
 
   const mine = !holder;                       // tôi được sửa khi không ai khác giữ
   const readOnly = !!holder;                  // người khác giữ → chỉ xem
@@ -131,6 +133,8 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   };
   const clearBg = () => setBgUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
   useEffect(() => () => { if (bgUrlRef.current) URL.revokeObjectURL(bgUrlRef.current); }, []);
+  // Đo chiều cao dòng TỔNG CỘNG (tfoot) để ảnh phủ chừa nó lại (dừng trên dòng tổng).
+  useEffect(() => { setFootH(tfootRef.current?.offsetHeight || 0); }, [bgUrl, wrows.length, readOnly]);
 
   const buildText = (): string => {
     const CODE = (slip?.sp_name || "").toUpperCase();
@@ -205,7 +209,11 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         </div>
 
         <div class={"prod-report-scroll wr-scroll" + (bgUrl ? " has-bg" : "")}>
-          {bgUrl && <img class="wr-bg-overlay" src={bgUrl} style={{ opacity: bgOpacity / 100 }} alt="" />}
+          {bgUrl && (
+            <div class="wr-bg-overlay" style={{ opacity: bgOpacity / 100, bottom: footH + "px" }}>
+              <img src={bgUrl} alt="" />
+            </div>
+          )}
           <table class="prod-report-table wr-edit">
             <colgroup>
               <col class="c-name" /><col class="c-num" /><col class="c-num" /><col class="c-num" />
@@ -236,7 +244,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
                 );
               })}
             </tbody>
-            <tfoot>
+            <tfoot ref={tfootRef}>
               <tr><td colSpan={5}>TỔNG CỘNG</td><td class="strong">{soVN(grand)}</td><td colSpan={readOnly ? 1 : 2}></td></tr>
             </tfoot>
           </table>
