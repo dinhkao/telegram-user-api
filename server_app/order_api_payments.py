@@ -56,6 +56,14 @@ async def payment_delete_handler(request: web.Request):
     ok, message = delete_payment_record(conn, int(thread_id), str(payment_id))
     if not ok:
         return web.json_response({"ok": False, "error": message}, status=400)
+    # Xoá phiếu thu sổ quỹ gắn payment tiền mặt này (nếu có) → sổ quỹ khớp
+    try:
+        from quy_store import delete_by_payment
+        if delete_by_payment(conn, str(payment_id)):
+            from server_app.realtime import emit_quy_changed
+            emit_quy_changed()
+    except Exception as e:
+        log.warning("Xoá phiếu thu sổ quỹ theo payment thất bại: %s", e)
     order = get_order_by_thread_id(conn, int(thread_id))
     if order and order.get("channel_id") and order.get("message_id") and state._client is not None:
         # refresh_order_bg tự phát realtime ở cuối

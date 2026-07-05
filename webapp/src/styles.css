@@ -767,3 +767,43 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .modal { background: #fff; border-radius: 12px; padding: 14px; width: 100%; max-width: 420px; max-height: 80vh; display: flex; flex-direction: column; }
 .pl-scroll { overflow-y: auto; margin-top: 8px; }
+
+/* ─── Sổ quỹ (cash book) ─────────────────────────────────────────────────── */
+.quy-summary { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin: 6px 0 10px; }
+.quy-sum-balance { text-align: center; margin-bottom: 12px; }
+.quy-sum-lbl { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.quy-sum-val { font-size: 1.7rem; font-weight: 800; color: var(--ink); margin-top: 2px; }
+.quy-sum-val.neg { color: var(--danger); }
+.quy-sum-row { display: flex; gap: 8px; }
+.quy-sum-cell { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 10px; background: var(--bg); }
+.quy-sum-cell span { font-size: .7rem; font-weight: 600; text-transform: uppercase; color: var(--muted); }
+.quy-sum-cell b { font-size: 1rem; margin-top: 2px; }
+.quy-sum-cell.thu { background: var(--ok-wash); } .quy-sum-cell.thu b { color: var(--ok); }
+.quy-sum-cell.chi { background: var(--danger-wash); } .quy-sum-cell.chi b { color: var(--danger); }
+
+.quy-create { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+.quy-type-toggle { display: flex; gap: 8px; }
+.quy-type-toggle .qt { flex: 1; padding: 9px; border: 1px solid var(--border); background: var(--card); border-radius: 10px; font-size: .95rem; font-weight: 600; color: var(--muted); cursor: pointer; }
+.quy-type-toggle .qt.thu.active { background: var(--ok-wash); border-color: var(--ok); color: var(--ok); }
+.quy-type-toggle .qt.chi.active { background: var(--danger-wash); border-color: var(--danger); color: var(--danger); }
+.quy-input { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; box-sizing: border-box; }
+
+.quy-filter { display: flex; gap: 8px; margin-bottom: 8px; }
+.quy-filter .qf { padding: 6px 14px; border: 1px solid var(--border); background: var(--card); border-radius: 999px; font-size: .85rem; font-weight: 600; color: var(--muted); cursor: pointer; }
+.quy-filter .qf.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+.quy-group { margin-bottom: 12px; }
+.quy-group-head { font-size: .78rem; font-weight: 700; color: var(--muted); padding: 4px 2px; position: sticky; top: 44px; background: var(--bg); z-index: 2; }
+.quy-row { display: flex; align-items: flex-start; gap: 8px; background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 10px; padding: 9px 11px; margin: 5px 0; }
+.quy-row.thu { border-left-color: var(--ok); }
+.quy-row.chi { border-left-color: var(--danger); }
+.quy-row-main { flex: 1; min-width: 0; }
+.quy-row-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.quy-amt { font-size: 1.05rem; font-weight: 800; }
+.quy-amt.thu { color: var(--ok); }
+.quy-amt.chi { color: var(--danger); }
+.quy-order-link { font-size: .78rem; color: var(--primary); text-decoration: none; background: var(--accent-wash); padding: 1px 7px; border-radius: 999px; }
+.quy-time { margin-left: auto; }
+.quy-note { font-size: .9rem; color: var(--ink); margin-top: 2px; word-break: break-word; }
+.quy-del { border: none; background: none; font-size: 1rem; cursor: pointer; padding: 4px; border-radius: 8px; opacity: .6; }
+.quy-del:active { background: var(--bg); opacity: 1; }

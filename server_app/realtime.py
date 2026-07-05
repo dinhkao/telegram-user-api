@@ -133,6 +133,12 @@ def emit_box_changed(box_id=None) -> None:
                   _broadcast({"type": "box_changed", "box_id": None if box_id is None else str(box_id)}, "box_changed"))
 
 
+def emit_quy_changed() -> None:
+    """Sổ quỹ đổi (tạo/xoá phiếu thu/chi, thanh toán tiền mặt của đơn) → trang Quỹ refetch."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.quy_changed", _broadcast({"type": "quy_changed"}, "quy_changed"))
+
+
 def emit_price_lists_changed() -> None:
     """Bảng giá chung đổi (lưu giá) → trang bảng giá + khách refetch."""
     from server_app.tasks import spawn_tracked
