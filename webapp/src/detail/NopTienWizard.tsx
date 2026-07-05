@@ -4,6 +4,7 @@
 import { useRef, useState } from "preact/hooks";
 import { postJSON, postForm } from "../api";
 import { processImage } from "./imageProcess";
+import { CameraBox, cameraSupported } from "./CameraBox";
 import { toast } from "../ui/feedback";
 
 // note giống bot để dữ liệu khớp Telegram
@@ -14,11 +15,20 @@ export function NopTienWizard({ threadId, onClose, onDone }: { threadId: string;
   const [branch, setBranch] = useState<Branch | null>(null);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const marked = useRef(false);   // chống ghi task 2 lần (camera có thể chụp nhiều tấm)
 
   const markTask = async (note: string, done: boolean) => {
     await postJSON("/api/order/task", { thread_id: Number(threadId), type: "nop_tien", note, done }, { queueable: true });
     onDone();
     onClose();
+  };
+
+  // Camera đã upload 1 ảnh (vào /api/order/{id}/images → tự sang topic) → ghi task 1 lần
+  const onPhotoUploaded = async () => {
+    if (marked.current || !branch) return;
+    marked.current = true;
+    try { await markTask(branch.note, branch.done); toast(`✅ ${branch.label}`, "ok"); }
+    catch (e: any) { marked.current = false; toast(e?.message || "Lỗi ghi nộp tiền", "err"); }
   };
 
   // Nhánh KHÔNG cần ảnh → ghi task luôn
@@ -88,17 +98,25 @@ export function NopTienWizard({ threadId, onClose, onDone }: { threadId: string;
         {step === "photo" && branch && (
           <>
             <p class="nt-photo-hint">
-              {branch.note === "tra_tien_mat" ? "Chụp/chọn ảnh tiền mặt + toa" : "Chụp/chọn ảnh toa có chữ ký"} <b>(bắt buộc)</b>
+              {branch.note === "tra_tien_mat" ? "Chụp ảnh tiền mặt + toa" : "Chụp ảnh toa có chữ ký"} <b>(bắt buộc)</b>
             </p>
-            <input ref={fileInput} type="file" accept="image/*" capture="environment" hidden onChange={onFile} />
-            <button class="btn primary block" disabled={busy} onClick={() => fileInput.current?.click()}>
-              {busy ? "⏳ Đang gửi…" : "📷 Chụp / Chọn ảnh"}
-            </button>
-            <button class="btn small nt-back" disabled={busy} onClick={() => setStep(branch.note === "tra_tien_mat" ? "type" : "kytoa")}>← Quay lại</button>
+            {cameraSupported() ? (
+              // Cùng camera engine với khối Ảnh (in-page getUserMedia). Chụp 1 tấm → ghi task.
+              <CameraBox base={`/api/order/${threadId}`} onUploaded={onPhotoUploaded} onClose={onClose} />
+            ) : (
+              // Fallback không HTTPS: input capture của máy
+              <>
+                <input ref={fileInput} type="file" accept="image/*" capture="environment" hidden onChange={onFile} />
+                <button class="btn primary block" disabled={busy} onClick={() => fileInput.current?.click()}>
+                  {busy ? "⏳ Đang gửi…" : "📷 Chụp / Chọn ảnh"}
+                </button>
+              </>
+            )}
+            {!busy && <button class="btn small nt-back" onClick={() => setStep(branch.note === "tra_tien_mat" ? "type" : "kytoa")}>← Quay lại</button>}
           </>
         )}
 
-        {!busy && <button class="btn nt-cancel" onClick={onClose}>Huỷ</button>}
+        {step !== "photo" && !busy && <button class="btn nt-cancel" onClick={onClose}>Huỷ</button>}
       </div>
     </div>
   );
