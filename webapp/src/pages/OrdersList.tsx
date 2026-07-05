@@ -115,6 +115,10 @@ function InvoiceMini({ o, q }: { o: OrderRow; q?: string }) {
 }
 
 type FilterKey = "all" | "pending" | "done" | "chua_soan" | "chua_giao" | "chua_nop" | "chua_nhan";
+const FILTER_LABELS: Record<string, string> = {
+  pending: "Chưa xong", done: "Đã xong",
+  chua_soan: "Chưa soạn", chua_giao: "Chưa giao", chua_nop: "Chưa nộp", chua_nhan: "Chưa nhận",
+};
 
 // Cache toàn danh sách + vị trí cuộn — sống ở module scope nên vẫn còn khi
 // rời trang chi tiết rồi quay lại (mount lại). Reset khi có search mới.
@@ -544,6 +548,18 @@ export function OrdersList() {
         <button class={sort === "updated" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("updated")}>Mới cập nhật</button>
         <a class="sort-opt cal-chip" href="#/lich" title="Lịch giao hàng">📅 Lịch giao</a>
       </div>
+      {anyFilter && (
+        <div class="filter-active-bar">
+          <span class="fab-txt">
+            🔍 Đang lọc:{" "}
+            {filter !== "all" ? <b>{FILTER_LABELS[filter] || filter}</b> : null}
+            {filter !== "all" && search.trim() ? " · " : null}
+            {search.trim() ? <b>“{search.trim()}”</b> : null}
+            {filter !== "all" && stats && (stats as any)[filter] != null ? <span class="fab-count"> · {(stats as any)[filter]} đơn</span> : null}
+          </span>
+          <button class="fab-clear" onClick={clearFilters}>✕ Bỏ lọc</button>
+        </div>
+      )}
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {err && <p class="error">{err}</p>}
       <ul class="order-list">
