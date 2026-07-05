@@ -2,7 +2,7 @@
 // + thanh nav dưới + banner offline/hàng đợi. Connects to: pages/*, api.ts.
 import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
-import { currentUser, replayQueue } from "./api";
+import { currentUser, replayQueue, netOk, onNetStatus } from "./api";
 import { getQueue } from "./offline";
 import { getStatus, onStatus, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
@@ -61,23 +61,25 @@ function useHash(): string {
 }
 
 function OfflineBanner() {
-  const [online, setOnline] = useState(navigator.onLine);
+  // "online" = có TỚI ĐƯỢC server (theo fetch thực), KHÔNG theo navigator.onLine (WebView
+  // qua Tailscale báo sai → banner "mất mạng" ảo dù mạng vẫn chạy).
+  const [online, setOnline] = useState(netOk());
   const [queued, setQueued] = useState(getQueue().length);
   useEffect(() => {
+    const offNet = onNetStatus((ok) => {
+      setOnline(ok);
+      if (ok) replayQueue().then(() => setQueued(getQueue().length)).catch(() => {});
+    });
     const sync = async () => {
-      setOnline(navigator.onLine);
-      if (navigator.onLine) {
-        await replayQueue().catch(() => {});
-      }
+      if (navigator.onLine) await replayQueue().catch(() => {});
       setQueued(getQueue().length);
     };
     window.addEventListener("online", sync);
-    window.addEventListener("offline", sync);
     const timer = setInterval(sync, 30000);
     sync();
     return () => {
+      offNet();
       window.removeEventListener("online", sync);
-      window.removeEventListener("offline", sync);
       clearInterval(timer);
     };
   }, []);

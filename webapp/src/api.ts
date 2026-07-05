@@ -2,6 +2,19 @@
 // cache GET (network-first, rớt mạng đọc cache) + hàng đợi POST offline (offline.ts).
 import { flushQueue, queuePost, readCache, writeCache } from "./offline";
 
+// Trạng thái MẠNG THẬT: dựa trên fetch tới server có tới được hay không, KHÔNG dựa
+// navigator.onLine (Android WebView qua Tailscale báo sai → banner "mất mạng" ảo).
+// getJSON/postJSON gọi setNet() theo kết quả thực. Mặc định online → không báo sai lúc mở.
+let _netOk = true;
+const _netSubs = new Set<(ok: boolean) => void>();
+export function netOk(): boolean { return _netOk; }
+export function onNetStatus(fn: (ok: boolean) => void): () => void { _netSubs.add(fn); return () => { _netSubs.delete(fn); }; }
+function setNet(ok: boolean): void {
+  if (ok === _netOk) return;
+  _netOk = ok;
+  _netSubs.forEach((f) => { try { f(ok); } catch { /* ignore */ } });
+}
+
 export function serverUrl(): string {
   // APK giờ nạp webapp từ URL server (qua Tailscale) nên webapp luôn cùng origin
   // với API → dùng đường dẫn tương đối. Xoá giá trị cũ (nếu có) để không ghim IP cũ.
@@ -60,11 +73,13 @@ export async function getJSON(path: string, opts?: { cache?: boolean }): Promise
   const useCache = opts?.cache !== false;
   try {
     const res = await fetch(url, { headers: headers() });
+    setNet(true);   // server phản hồi (kể cả lỗi HTTP) = có mạng
     const data = await parse(res);
     if (useCache) writeCache(path, data);
     return data;
   } catch (e) {
     if (e instanceof ApiError) throw e;
+    setNet(false);  // fetch bị reject = mất mạng thật
     const cached = useCache ? readCache(path) : null;
     if (cached) return { ...cached.data, _stale: true, _cachedAt: cached.t };
     throw new Error("Mất mạng và chưa có dữ liệu lưu sẵn");
@@ -76,9 +91,11 @@ export async function postJSON(path: string, body: any, opts?: { queueable?: boo
   const url = serverUrl() + path;
   try {
     const res = await fetch(url, { method: "POST", headers: headers(), body: JSON.stringify(body) });
+    setNet(true);
     return await parse(res);
   } catch (e) {
     if (e instanceof ApiError) throw e;
+    setNet(false);
     if (opts?.queueable) {
       queuePost(path, body);
       return { ok: true, _queued: true };
