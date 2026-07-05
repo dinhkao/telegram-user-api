@@ -194,9 +194,6 @@ function dayLabel(key: string): string {
 
 function ProdCard({ slip }: { slip: ProdSlip }) {
   const total = slip.total || 0;
-  const target = slip.sx_target ?? slip.target ?? null;
-  const pct = target ? Math.min(Math.round((total / target) * 100), 100) : null;
-  const done = target != null && total >= target;
   return (
     <a class="prod-card" href={`#/san_xuat/${slip.thread_id}`}>
       <div class="prod-card-top">
@@ -204,14 +201,8 @@ function ProdCard({ slip }: { slip: ProdSlip }) {
         <span class="prod-date">🕒 {(() => { const c = prodCreated(slip); return c.includes(" ") ? c.split(" ")[1] : c; })()}</span>
       </div>
       <div class="prod-card-stat">
-        <span class={done ? "prod-total done" : "prod-total"}>✅ {soVN(total)}</span>
-        <span class="prod-target">🎯 {target != null ? soVN(target) : "—"}</span>
+        <span class="prod-total">📦 {soVN(total)}</span>
       </div>
-      {pct != null && (
-        <div class="prod-bar">
-          <div class={done ? "prod-bar-fill done" : "prod-bar-fill"} style={{ width: `${pct}%` }} />
-        </div>
-      )}
       {slip.ghi_chu && <div class="prod-card-note">📝 {slip.ghi_chu}</div>}
     </a>
   );
