@@ -493,6 +493,16 @@ export async function getProductionDashboard(from?: string, to?: string): Promis
   return getJSON(`/api/production/report-dashboard${q ? "?" + q : ""}`, { cache: false });
 }
 
+export type WorkerReportRow = { thread_id: number; product_code: string; date: string; ymd: string; so_mam: number; tong_calc: number; note: string };
+export type WorkerReport = { name: string; total: number; total_mam: number; phieu: number; rows: WorkerReportRow[] };
+export async function getWorkerReport(name: string, from?: string, to?: string): Promise<WorkerReport> {
+  const qs = new URLSearchParams();
+  if (from) qs.set("from", from);
+  if (to) qs.set("to", to);
+  const q = qs.toString();
+  return getJSON(`/api/production/worker/${encodeURIComponent(name)}${q ? "?" + q : ""}`, { cache: false });
+}
+
 /** Gửi bản nháp bảng (người đang sửa) → người xem thấy trực tiếp. Không lưu. */
 export async function pushReportDraft(id: string | number, draft: { rows: any[]; date?: string; start?: string; end?: string }): Promise<any> {
   return postJSON(`/api/production/${id}/report/draft`, { ...draft, user: _actor() });

@@ -20,6 +20,7 @@ import { ProductionList } from "./pages/ProductionList";
 import { ProductionDetail } from "./pages/ProductionDetail";
 import { ProductionReportEdit } from "./pages/ProductionReportEdit";
 import { ProductionDashboard } from "./pages/ProductionDashboard";
+import { ProductionWorkerDetail } from "./pages/ProductionWorkerDetail";
 import { InventoryList } from "./pages/InventoryList";
 import { InventoryDetail } from "./pages/InventoryDetail";
 import { BoxDetail } from "./pages/BoxDetail";
@@ -167,6 +168,7 @@ function App() {
   let page;
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
   const prodEditMatch = hash.match(/^#\/san_xuat\/(-?\d+)\/bao-cao/);
+  const shtMatch = hash.match(/^#\/sx-tho\/([^?]+)/);
   const prodMatch = hash.match(/^#\/san_xuat\/(-?\d+)/);
   const khoMatch = hash.match(/^#\/kho\/([^?]+)/);
   const boxMatch = hash.match(/^#\/thung\/(\d+)/);
@@ -179,6 +181,7 @@ function App() {
   if (showLogin) page = <Login />;
   else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} focus={focusEl} />;
   else if (prodEditMatch) page = <ProductionReportEdit threadId={prodEditMatch[1]} />;
+  else if (shtMatch) page = <ProductionWorkerDetail name={decodeURIComponent(shtMatch[1])} />;
   else if (hash.startsWith("#/sx-bang")) page = <ProductionDashboard />;
   else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} focus={focusEl} />;
   else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;

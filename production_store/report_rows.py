@@ -129,6 +129,34 @@ def dashboard(conn, dfrom: str | None = None, dto: str | None = None) -> dict:
     }
 
 
+def worker_detail(conn, name: str, dfrom: str | None = None, dto: str | None = None) -> dict:
+    """Chi tiết 1 thợ: mỗi ngày làm phiếu nào, SP gì, bao nhiêu. Sắp theo ngày mới→cũ."""
+    ensure_report_rows_schema(conn)
+    where = "WHERE worker_name = ?"
+    args: list = [name]
+    if dfrom:
+        where += " AND report_ymd >= ?"
+        args.append(dfrom)
+    if dto:
+        where += " AND report_ymd <= ?"
+        args.append(dto)
+    rows = conn.execute(
+        f"SELECT thread_id, product_code, report_date, report_ymd, so_gach, so_tru, so_cay_le, "
+        f"so_mam, tong_calc, note FROM production_report_rows {where} "
+        f"ORDER BY report_ymd DESC, thread_id DESC", args).fetchall()
+    total = round(sum(r[8] or 0 for r in rows), 1)
+    total_mam = round(sum(r[7] or 0 for r in rows), 1)
+    phieu = len({r[0] for r in rows if (r[8] or 0) > 0})
+    return {
+        "name": name, "total": total, "total_mam": total_mam, "phieu": phieu,
+        "rows": [{
+            "thread_id": r[0], "product_code": r[1] or "?", "date": r[2], "ymd": r[3],
+            "so_gach": r[4] or 0, "so_tru": r[5] or 0, "so_cay_le": r[6] or 0,
+            "so_mam": r[7] or 0, "tong_calc": r[8] or 0, "note": r[9] or "",
+        } for r in rows],
+    }
+
+
 def backfill_report_rows(conn) -> int:
     """Nạp lại toàn bộ từ blob `bang` hiện có (chạy 1 lần khi thêm bảng). Trả số phiếu."""
     ensure_report_rows_schema(conn)

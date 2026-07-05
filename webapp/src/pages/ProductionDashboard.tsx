@@ -20,15 +20,16 @@ function rangeFor(p: Period): { from?: string; to?: string } {
   return { from: iso(wk), to };
 }
 
-function Bar({ label, sub, val, max }: { label: string; sub?: string; val: number; max: number }) {
+function Bar({ label, sub, val, max, href }: { label: string; sub?: string; val: number; max: number; href?: string }) {
   const pct = max > 0 ? Math.max(2, Math.round((val / max) * 100)) : 0;
-  return (
-    <div class="db-row">
+  const inner = (
+    <>
       <div class="db-row-head"><span class="db-name">{label}</span><b class="db-val">{soVN(val)}</b></div>
       <div class="db-bar"><div class="db-bar-fill" style={{ width: pct + "%" }} /></div>
       {sub && <span class="db-sub muted small">{sub}</span>}
-    </div>
+    </>
   );
+  return href ? <a class="db-row db-link" href={href}>{inner}</a> : <div class="db-row">{inner}</div>;
 }
 
 export function ProductionDashboard() {
@@ -80,7 +81,7 @@ export function ProductionDashboard() {
           <section class="card">
             <label class="card-label">🏆 Theo thợ ({data.by_worker.length})</label>
             {data.by_worker.length ? data.by_worker.map((w) => (
-              <Bar key={w.name} label={w.name} sub={`${soVN(w.mam)} mâm · ${w.phieu} phiếu`} val={w.tong} max={maxW} />
+              <Bar key={w.name} label={w.name} sub={`${soVN(w.mam)} mâm · ${w.phieu} phiếu`} val={w.tong} max={maxW} href={`#/sx-tho/${encodeURIComponent(w.name)}`} />
             )) : <p class="muted small">Chưa có dữ liệu kỳ này.</p>}
           </section>
 

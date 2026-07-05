@@ -12,7 +12,7 @@ from aiohttp import web
 
 from utils.db import get_connection
 from utils.paths import SHARED_DB_PATH
-from production_store.report_rows import dashboard
+from production_store.report_rows import dashboard, worker_detail
 
 
 async def production_report_dashboard_handler(request: web.Request):
@@ -23,6 +23,25 @@ async def production_report_dashboard_handler(request: web.Request):
         conn = get_connection(SHARED_DB_PATH)
         try:
             return dashboard(conn, dfrom, dto)
+        finally:
+            conn.close()
+
+    data = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, **data})
+
+
+async def production_worker_report_handler(request: web.Request):
+    """Chi tiết 1 thợ — mỗi ngày làm phiếu nào / SP gì / bao nhiêu."""
+    name = (request.match_info.get("name") or "").strip()
+    if not name:
+        return web.json_response({"ok": False, "error": "thiếu tên thợ"}, status=400)
+    dfrom = (request.query.get("from") or "").strip() or None
+    dto = (request.query.get("to") or "").strip() or None
+
+    def _run():
+        conn = get_connection(SHARED_DB_PATH)
+        try:
+            return worker_detail(conn, name, dfrom, dto)
         finally:
             conn.close()
 
