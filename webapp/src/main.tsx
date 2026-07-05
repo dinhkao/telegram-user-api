@@ -169,6 +169,18 @@ function App() {
     else stopRealtime();
   }, [authed]);
 
+  // KHOÁ CUỘN NỀN khi có popup — quy tắc TOÀN CỤC: hễ có overlay bất kỳ trong DOM
+  // thì thêm body.modal-open (overflow:hidden) để nền không cuộn, khỏi phá cuộn
+  // trong popup. Tự cover mọi popup hiện tại lẫn tương lai dùng các class overlay này.
+  useEffect(() => {
+    const SEL = ".modal-overlay, .cf-backdrop, .pv-overlay";
+    const update = () => document.body.classList.toggle("modal-open", !!document.querySelector(SEL));
+    const mo = new MutationObserver(update);
+    mo.observe(document.body, { childList: true, subtree: true });
+    update();
+    return () => { mo.disconnect(); document.body.classList.remove("modal-open"); };
+  }, []);
+
   let page;
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
   const prodEditMatch = hash.match(/^#\/san_xuat\/(-?\d+)\/bao-cao/);

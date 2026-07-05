@@ -26,6 +26,10 @@
 }
 html { font-size: 16px; }
 body { font-family: system-ui, -apple-system, Roboto, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.45; }
+/* Khoá cuộn nền khi có popup (toggle bởi observer ở main.tsx) — nền đứng yên,
+   khỏi phá cuộn trong popup. overscroll ngăn "cuộn lan" từ popup ra nền. */
+body.modal-open { overflow: hidden; touch-action: none; overscroll-behavior: none; }
+.modal-overlay, .cf-backdrop, .pv-overlay { overscroll-behavior: contain; }
 /* Trạng thái focus rõ (a11y) — chỉ hiện khi điều hướng bàn phím, không cản chạm */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 5px; }
 .app { max-width: 640px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
