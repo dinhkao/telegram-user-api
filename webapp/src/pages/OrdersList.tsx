@@ -585,7 +585,7 @@ export function OrdersList() {
         <PhotoViewer
           images={viewer.images}
           start={viewer.start}
-          threadId={viewer.threadId}
+          base={`/api/order/${viewer.threadId}`}
           onClose={() => setViewer(null)}
         />
       )}
