@@ -1,6 +1,6 @@
-// Nhập thùng cho phiếu SX: mỗi lần 1 số cây cho 1 thùng, mã tự sinh (K2L-001).
-// POST .../boxes (queueable). onChanged() để phiếu tải lại tổng. Liệt kê thùng đã
-// nhập ở phiếu này (GET /api/production/:id/boxes) — tap → chi tiết thùng.
+// Nhập thùng cho phiếu SX: 1 đợt = N thùng GIỐNG NHAU (cùng số cây), mã tự sinh
+// (K2L-001). POST .../boxes (queueable, gửi mảng {quantity} × số thùng). onChanged()
+// để phiếu tải lại tổng. Liệt kê thùng đã nhập ở phiếu này — tap → chi tiết thùng.
 import { useEffect, useState } from "preact/hooks";
 import { addProductionBoxes, slipBoxes, soVN, type ProdSlip, type InvBox } from "../api";
 import { onRealtime } from "../realtime";
@@ -22,6 +22,7 @@ export function ProductionBoxes({
 }) {
   const hasSp = !!slip.sp_name;
   const [amount, setAmount] = useState("");
+  const [count, setCount] = useState("1");
   const [note, setNote] = useState("");
   const [mfgDate, setMfgDate] = useState(todayLocal());
   const [busy, setBusy] = useState(false);
@@ -56,16 +57,23 @@ export function ProductionBoxes({
       setMsg("Số cây không hợp lệ");
       return;
     }
+    const c = Math.floor(parseFloat(count.replace(",", ".")));
+    if (!isFinite(c) || c <= 0) {
+      setMsg("Số thùng không hợp lệ");
+      return;
+    }
     setBusy(true);
     setMsg("");
     try {
-      const r = await addProductionBoxes(threadId, [{ quantity: n }], note.trim(), mfgDate);
+      const picks = Array.from({ length: c }, () => ({ quantity: n }));  // c thùng giống nhau
+      const r = await addProductionBoxes(threadId, picks, note.trim(), mfgDate);
       setAmount("");
+      setCount("1");
       setNote("");
       if (r?._queued) {
         setMsg("⏳ Đã lưu tạm (mất mạng), sẽ gửi lại");
       } else {
-        setMsg("✅ Đã nhập 1 thùng");
+        setMsg(`✅ Đã nhập ${c} thùng`);
         onChanged();
         loadMine();
       }
@@ -94,12 +102,27 @@ export function ProductionBoxes({
         <input
           type="text"
           inputMode="decimal"
+          class="pb-amount"
           value={amount}
           disabled={!hasSp}
           onFocus={(e) => (e.target as HTMLInputElement).select()}
           onInput={(e) => setAmount((e.target as HTMLInputElement).value)}
-          placeholder="Số cây trong thùng"
+          placeholder="Số cây / thùng"
         />
+        <span class="pb-x">×</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          class="pb-count"
+          value={count}
+          disabled={!hasSp}
+          onFocus={(e) => (e.target as HTMLInputElement).select()}
+          onInput={(e) => setCount((e.target as HTMLInputElement).value)}
+          placeholder="Số thùng"
+          title="Số thùng giống nhau"
+        />
+      </div>
+      <div class="row">
         <input
           type="text"
           value={note}
