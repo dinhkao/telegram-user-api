@@ -125,6 +125,9 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     } catch { /* mất mạng → giữ nguyên */ }
   };
   useEffect(() => { refreshBg(); }, [threadId]);   // nạp ảnh nền đã lưu khi vào trang
+  // Nạp sẵn ảnh full vào cache trình duyệt ngay khi có URL → bấm 👁️ hiện tức thì
+  // (không phải chờ tải ~1600px lần đầu như trước).
+  useEffect(() => { if (bgUrl) { const im = new Image(); im.src = bgUrl; } }, [bgUrl]);
   const onPickBg = async (e: any) => {
     const file = e.target.files?.[0];
     e.target.value = "";
