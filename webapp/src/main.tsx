@@ -15,6 +15,7 @@ import { FeedbackHost } from "./ui/feedback";
 import { OrderDetail } from "./pages/OrderDetail";
 import { OrdersList, resetOrdersScroll } from "./pages/OrdersList";
 import { DeliveryCalendar } from "./pages/DeliveryCalendar";
+import { ActivityLog } from "./pages/ActivityLog";
 import { ProductionList } from "./pages/ProductionList";
 import { ProductionDetail } from "./pages/ProductionDetail";
 import { InventoryList } from "./pages/InventoryList";
@@ -146,6 +147,7 @@ function App() {
   else if (boxMatch) page = <BoxDetail boxId={boxMatch[1]} />;
   else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;
   else if (hash.startsWith("#/kho")) page = <InventoryList />;
+  else if (hash.startsWith("#/lich-su")) page = <ActivityLog />;
   else if (hash.startsWith("#/lich")) page = <DeliveryCalendar />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
   else if (khachMatch) page = <CustomerDetail ckey={decodeURIComponent(khachMatch[1])} />;
@@ -184,6 +186,7 @@ function App() {
         <div class="modal-overlay" onClick={() => setMenuOpen(false)}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head">Mục khác</div>
+            <a class="menu-item" href="#/lich-su" onClick={() => setMenuOpen(false)}>🕘 Lịch sử thao tác</a>
             <a class="menu-item" href="#/bang-gia" onClick={() => setMenuOpen(false)}>💰 Bảng giá chung</a>
           </div>
         </div>

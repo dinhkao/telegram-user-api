@@ -243,6 +243,11 @@ export async function refreshOrderDebt(threadId: string | number): Promise<any> 
   return postJSON("/api/order/refresh-debt", { thread_id: Number(threadId) });
 }
 
+/** Lịch sử thao tác toàn bộ (mọi đơn/phiếu/thùng), phân trang. */
+export async function getActivity(page = 1): Promise<{ items: any[]; has_more: boolean; page: number }> {
+  return getJSON(`/api/activity?page=${page}`, { cache: false });
+}
+
 /** Đơn theo ngày giao trong 1 tháng (YYYY-MM) — cho lịch giao. Rows compact. */
 export async function getDeliveryOrders(month: string): Promise<{ month: string; orders: any[] }> {
   const d = await getJSON(`/api/orders/delivery?month=${encodeURIComponent(month)}`, { cache: false });

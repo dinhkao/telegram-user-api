@@ -130,6 +130,8 @@ def create_app():
     r.add_get("/api/media/{scope}/{entity_id}/images/{image_id}/file", em_images_file)
     from server_app.entity_history import entity_history_handler
     r.add_get("/api/media/{scope}/{entity_id}/history", entity_history_handler)
+    from server_app.activity import activity_handler
+    r.add_get("/api/activity", activity_handler)
     # ─── phiếu sản xuất (production) ─────────────────────────────────────────
     # catalog + create đăng ký TRƯỚC /{thread_id} để không bị route động nuốt
     r.add_get("/api/production/catalog", production_catalog_handler)
