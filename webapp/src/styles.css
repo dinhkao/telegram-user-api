@@ -421,6 +421,10 @@ body.pv-open { overflow: hidden; }
 .prod-create .ac { flex: 1; }
 .prod-create .ac input { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; }
 .prod-cards { display: flex; flex-direction: column; gap: 8px; }
+/* Nhóm phiếu SX theo ngày tạo — tiêu đề ngày dính khi cuộn */
+.prod-group { display: flex; flex-direction: column; gap: 8px; }
+.prod-group + .prod-group { margin-top: 6px; }
+.prod-group-head { position: sticky; top: 44px; z-index: 3; background: var(--bg); padding: 6px 2px; font-weight: 700; font-size: .9rem; color: var(--ink); border-bottom: 1px solid var(--border); }
 .prod-card { display: block; background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 12px; text-decoration: none; color: inherit; }
 .prod-card-top { display: flex; justify-content: space-between; align-items: baseline; }
 .prod-sp { font-weight: 700; font-size: 1.05rem; }

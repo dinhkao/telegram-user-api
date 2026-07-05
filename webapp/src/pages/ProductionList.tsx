@@ -115,8 +115,11 @@ export function ProductionList() {
       {!loading && !slips.length && <EmptyState>Chưa có phiếu sản xuất nào.</EmptyState>}
 
       <div class="prod-cards">
-        {slips.map((s) => (
-          <ProdCard key={s.thread_id} slip={s} />
+        {groupByDay(slips).map((g) => (
+          <div class="prod-group" key={g.key}>
+            <div class="prod-group-head">{g.label} <span class="muted small">({g.slips.length})</span></div>
+            {g.slips.map((s) => <ProdCard key={s.thread_id} slip={s} />)}
+          </div>
         ))}
       </div>
 
@@ -130,6 +133,33 @@ export function ProductionList() {
   );
 }
 
+const _WD = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+
+/** Nhóm phiếu theo NGÀY tạo (slip đã sắp mới→cũ). Trả [{key, label, slips}]. */
+function groupByDay(slips: ProdSlip[]): { key: string; label: string; slips: ProdSlip[] }[] {
+  const out: { key: string; label: string; slips: ProdSlip[] }[] = [];
+  for (const s of slips) {
+    const key = (prodCreated(s).split(" ")[0]) || "?";   // "DD/MM/YYYY"
+    const last = out[out.length - 1];
+    if (last && last.key === key) last.slips.push(s);
+    else out.push({ key, label: dayLabel(key), slips: [s] });
+  }
+  return out;
+}
+
+function dayLabel(key: string): string {
+  const [d, m, y] = key.split("/").map(Number);
+  if (!d || !m || !y) return key || "Không rõ ngày";
+  const date = new Date(y, m - 1, d);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((today.getTime() - date.getTime()) / 86400000);
+  const wd = _WD[date.getDay()];
+  const dm = `${key.slice(0, 5)}`; // DD/MM
+  if (diff === 0) return `Hôm nay · ${wd} ${dm}`;
+  if (diff === 1) return `Hôm qua · ${wd} ${dm}`;
+  return `${wd} · ${key}`;
+}
+
 function ProdCard({ slip }: { slip: ProdSlip }) {
   const total = slip.total || 0;
   const target = slip.sx_target ?? slip.target ?? null;
@@ -139,7 +169,7 @@ function ProdCard({ slip }: { slip: ProdSlip }) {
     <a class="prod-card" href={`#/san_xuat/${slip.thread_id}`}>
       <div class="prod-card-top">
         <span class="prod-sp">{slip.sp_name || "Chưa có SP"}</span>
-        <span class="prod-date">📅 {prodCreated(slip)}</span>
+        <span class="prod-date">🕒 {(() => { const c = prodCreated(slip); return c.includes(" ") ? c.split(" ")[1] : c; })()}</span>
       </div>
       <div class="prod-card-stat">
         <span class={done ? "prod-total done" : "prod-total"}>✅ {soVN(total)}</span>
