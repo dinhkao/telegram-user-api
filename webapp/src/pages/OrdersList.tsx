@@ -178,6 +178,17 @@ function LastAction({ o }: { o: OrderRow }) {
 
 // Thân card two-col: cột thumbnail (trái) + nội dung (phải). ĐO chiều cao nội dung
 // thật (ResizeObserver) → nếu đủ cho 2 ô vuông (H ≥ 2×rộng-cột + gap) thì hiện 2 ảnh.
+// Siêu gọn: chỉ 5 icon trạng thái + nội dung đơn 1 dòng (bỏ hết xuống dòng)
+function UltraBody({ o, search }: { o: OrderRow; search: string }) {
+  const text = (o.text || o.topic_name || `#${o.thread_id}`).replace(/\s+/g, " ").trim();
+  return (
+    <div class="ultra-row">
+      <TaskBadges o={o} />
+      <span class="ultra-text"><Highlight text={text} q={search} /></span>
+    </div>
+  );
+}
+
 function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }: {
   o: OrderRow; search: string; stt: string; isNew: boolean;
   openThumb: (e: Event, o: OrderRow, atId?: number) => void;
@@ -324,8 +335,18 @@ export function OrdersList() {
   const [loading, setLoading] = useState(false);
   const [stale, setStale] = useState(false);
   const [err, setErr] = useState("");
-  const [compact, setCompact] = useState(() => localStorage.getItem("dash_compact") === "1");
-  const toggleCompact = () => setCompact((c) => { localStorage.setItem("dash_compact", c ? "0" : "1"); return !c; });
+  // 3 kiểu xem: full (chi tiết) · compact (gọn) · ultra (siêu gọn: 5 icon + 1 dòng text)
+  const [view, setView] = useState<"full" | "compact" | "ultra">(() => {
+    const v = localStorage.getItem("dash_view");
+    if (v === "compact" || v === "ultra" || v === "full") return v;
+    return localStorage.getItem("dash_compact") === "1" ? "compact" : "full"; // back-compat
+  });
+  const cycleView = () => setView((v) => {
+    const next = v === "full" ? "compact" : v === "compact" ? "ultra" : "full";
+    localStorage.setItem("dash_view", next);
+    return next;
+  });
+  const _VIEW_ICON = { full: "☰", compact: "⊟", ultra: "≣" } as const;
   const [sort, setSort] = useState<"created" | "updated">(() => (localStorage.getItem("dash_sort") === "updated" ? "updated" : "created"));
   const sortRef = useRef(sort); // đọc trong load (tránh stale closure)
   const changeSort = (s: "created" | "updated") => {
@@ -531,7 +552,7 @@ export function OrdersList() {
             value={search}
             onInput={(e: any) => onSearch(e.target.value)}
           />
-          <button class="btn small clear-filter" title="Đổi kiểu xem" onClick={toggleCompact}>{compact ? "⊞" : "⊟"}</button>
+          <button class="btn small clear-filter" title="Đổi kiểu xem (chi tiết · gọn · siêu gọn)" onClick={cycleView}>{_VIEW_ICON[view]}</button>
         </div>
         {anyFilter && (
           <div class="filter-active-bar">
@@ -564,7 +585,14 @@ export function OrdersList() {
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {err && <p class="error">{err}</p>}
       <ul class="order-list">
-        {compact && visible.map((o) => {
+        {view === "ultra" && visible.map((o) => (
+          <li key={o.thread_id}>
+            <a class={`order-card ultra${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
+              <UltraBody o={o} search={search} />
+            </a>
+          </li>
+        ))}
+        {view === "compact" && visible.map((o) => {
           const isNew = isRecent(o.created, NEW_ORDER_SEC);
           return (
           <li key={o.thread_id}>
@@ -574,7 +602,7 @@ export function OrdersList() {
           </li>
           );
         })}
-        {!compact && visible.map((o) => {
+        {view === "full" && visible.map((o) => {
           const stt = statusLabel(o);
           const isNew = isRecent(o.created, NEW_ORDER_SEC);
           return (
