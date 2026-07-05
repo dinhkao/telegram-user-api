@@ -523,15 +523,28 @@ export function OrdersList() {
   return (
     <div>
       <header class="topbar">
-        <input
-          class="search"
-          type="search"
-          placeholder="🔍 Tìm khách, sản phẩm…"
-          value={search}
-          onInput={(e: any) => onSearch(e.target.value)}
-        />
-        {anyFilter && <button class="btn small clear-filter" onClick={clearFilters}>✕ Bỏ lọc</button>}
-        <button class="btn small clear-filter" title="Đổi kiểu xem" onClick={toggleCompact}>{compact ? "⊞" : "⊟"}</button>
+        <div class="topbar-row">
+          <input
+            class="search"
+            type="search"
+            placeholder="🔍 Tìm khách, sản phẩm…"
+            value={search}
+            onInput={(e: any) => onSearch(e.target.value)}
+          />
+          <button class="btn small clear-filter" title="Đổi kiểu xem" onClick={toggleCompact}>{compact ? "⊞" : "⊟"}</button>
+        </div>
+        {anyFilter && (
+          <div class="filter-active-bar">
+            <span class="fab-txt">
+              🔍 Đang lọc:{" "}
+              {filter !== "all" ? <b>{FILTER_LABELS[filter] || filter}</b> : null}
+              {filter !== "all" && search.trim() ? " · " : null}
+              {search.trim() ? <b>“{search.trim()}”</b> : null}
+              {filter !== "all" && stats && (stats as any)[filter] != null ? <span class="fab-count"> · {(stats as any)[filter]} đơn</span> : null}
+            </span>
+            <button class="fab-clear" onClick={clearFilters}>✕ Bỏ lọc</button>
+          </div>
+        )}
       </header>
       {stats && (
         <div class="chips">
@@ -548,18 +561,6 @@ export function OrdersList() {
         <button class={sort === "updated" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("updated")}>Mới cập nhật</button>
         <a class="sort-opt cal-chip" href="#/lich" title="Lịch giao hàng">📅 Lịch giao</a>
       </div>
-      {anyFilter && (
-        <div class="filter-active-bar">
-          <span class="fab-txt">
-            🔍 Đang lọc:{" "}
-            {filter !== "all" ? <b>{FILTER_LABELS[filter] || filter}</b> : null}
-            {filter !== "all" && search.trim() ? " · " : null}
-            {search.trim() ? <b>“{search.trim()}”</b> : null}
-            {filter !== "all" && stats && (stats as any)[filter] != null ? <span class="fab-count"> · {(stats as any)[filter]} đơn</span> : null}
-          </span>
-          <button class="fab-clear" onClick={clearFilters}>✕ Bỏ lọc</button>
-        </div>
-      )}
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {err && <p class="error">{err}</p>}
       <ul class="order-list">

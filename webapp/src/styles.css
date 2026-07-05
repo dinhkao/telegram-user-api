@@ -191,8 +191,9 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .pricetag.ok { color: var(--ok); }
 
 /* Nút bỏ lọc trong thanh tìm kiếm */
-.topbar { display: flex; align-items: center; gap: 8px; }
-.topbar .search { flex: 1; }
+.topbar { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.topbar-row { display: flex; align-items: center; gap: 8px; }
+.topbar-row .search { flex: 1; }
 .clear-filter { white-space: nowrap; flex-shrink: 0; }
 
 /* Danh sách món trên card đơn (dashboard) */
@@ -440,7 +441,7 @@ body.pv-open { overflow: hidden; }
 .card-label { display: block; font-weight: 600; font-size: .9rem; margin-bottom: 8px; }
 .pl-select { width: 100%; cursor: pointer; }
 /* Thanh báo ĐANG LỌC ở dashboard — nổi bật (nền vàng) để dễ thấy đang lọc */
-.filter-active-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 2px 0 8px; padding: 8px 12px; background: var(--warn-wash); border: 1px solid #f0d890; border-left: 4px solid var(--warn); border-radius: 10px; font-size: .9rem; }
+.filter-active-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 12px; background: var(--warn-wash); border: 1px solid #f0d890; border-left: 4px solid var(--warn); border-radius: 10px; font-size: .9rem; }
 .filter-active-bar .fab-txt { color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .filter-active-bar .fab-count { color: var(--muted); font-weight: 600; }
 .filter-active-bar .fab-clear { flex: 0 0 auto; border: none; background: var(--warn); color: #fff; font-weight: 700; font-size: .82rem; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
