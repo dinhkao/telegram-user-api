@@ -133,6 +133,12 @@ def emit_box_changed(box_id=None) -> None:
                   _broadcast({"type": "box_changed", "box_id": None if box_id is None else str(box_id)}, "box_changed"))
 
 
+def emit_notif_added(notif: dict) -> None:
+    """Thông báo mới (notification center) → client cập nhật chuông + danh sách."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.notif_added", _broadcast({"type": "notif_added", "notif": notif}, "notif_added"))
+
+
 def emit_quy_changed() -> None:
     """Sổ quỹ đổi (tạo/xoá phiếu thu/chi, thanh toán tiền mặt của đơn) → trang Quỹ refetch."""
     from server_app.tasks import spawn_tracked

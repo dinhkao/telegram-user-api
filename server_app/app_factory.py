@@ -179,6 +179,9 @@ def create_app():
     r.add_post("/api/order/{thread_id}/allocate", order_allocate_handler)
     r.add_post("/api/order/{thread_id}/release", order_release_handler)
 
+    # ─── notification center ─────────────────────────────────────────────────
+    from server_app.notify import notifications_list_handler
+    r.add_get("/api/notifications", notifications_list_handler)
     # ─── quản lý user (chỉ admin) ────────────────────────────────────────────
     r.add_get("/api/users", users_list_handler)
     r.add_post("/api/users", users_create_handler)

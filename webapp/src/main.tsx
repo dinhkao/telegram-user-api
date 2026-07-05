@@ -23,6 +23,7 @@ import { ProductionDashboard } from "./pages/ProductionDashboard";
 import { ProductionWorkerDetail } from "./pages/ProductionWorkerDetail";
 import { QuyList } from "./pages/QuyList";
 import { Users } from "./pages/Users";
+import { NotifCenter } from "./NotifCenter";
 import { InventoryList } from "./pages/InventoryList";
 import { InventoryDetail } from "./pages/InventoryDetail";
 import { BoxDetail } from "./pages/BoxDetail";
@@ -210,6 +211,7 @@ function App() {
           <span class="app-title">🍬 Đơn hàng</span>
           <div class="app-bar-right">
             <RealtimeDot />
+            <NotifCenter />
             <button class="icon-btn" title="Tải lại" onClick={() => window.location.reload()}>🔄</button>
             <a class="icon-btn" href="#/login" title="Cài đặt">⚙️</a>
           </div>
