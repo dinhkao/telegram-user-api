@@ -178,6 +178,33 @@ function LastAction({ o }: { o: OrderRow }) {
 
 // Thân card two-col: cột thumbnail (trái) + nội dung (phải). ĐO chiều cao nội dung
 // thật (ResizeObserver) → nếu đủ cho 2 ô vuông (H ≥ 2×rộng-cột + gap) thì hiện 2 ảnh.
+const _WD = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+
+/** Nhóm đơn theo NGÀY tạo (giữ thứ tự hiện có; gộp liên tiếp cùng ngày). */
+function groupOrdersByDay(orders: OrderRow[]): { key: string; label: string; orders: OrderRow[] }[] {
+  const out: { key: string; label: string; orders: OrderRow[] }[] = [];
+  for (const o of orders) {
+    const key = (fmtDateTimeVN(o.created).split(" ")[0]) || "?";   // "DD/MM/YYYY" (giờ VN)
+    const last = out[out.length - 1];
+    if (last && last.key === key) last.orders.push(o);
+    else out.push({ key, label: orderDayLabel(key), orders: [o] });
+  }
+  return out;
+}
+
+function orderDayLabel(key: string): string {
+  const [d, m, y] = key.split("/").map(Number);
+  if (!d || !m || !y) return "Không rõ ngày";
+  const date = new Date(y, m - 1, d);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((today.getTime() - date.getTime()) / 86400000);
+  const wd = _WD[date.getDay()];
+  const dm = key.slice(0, 5); // DD/MM
+  if (diff === 0) return `Hôm nay · ${wd} ${dm}`;
+  if (diff === 1) return `Hôm qua · ${wd} ${dm}`;
+  return `${wd} · ${key}`;
+}
+
 // Siêu gọn: chỉ 5 icon trạng thái + nội dung đơn 1 dòng (bỏ hết xuống dòng)
 function UltraBody({ o, search }: { o: OrderRow; search: string }) {
   const text = (o.text || o.topic_name || `#${o.thread_id}`).replace(/\s+/g, " ").trim();
@@ -589,11 +616,18 @@ export function OrdersList() {
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {err && <p class="error">{err}</p>}
       <ul class="order-list">
-        {view === "ultra" && visible.map((o) => (
-          <li key={o.thread_id}>
-            <a class={`order-card ultra${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
-              <UltraBody o={o} search={search} />
-            </a>
+        {view === "ultra" && groupOrdersByDay(visible).map((g) => (
+          <li key={`g-${g.key}`} class="order-day-group">
+            <div class="order-day-head">{g.label} <span class="muted small">({g.orders.length})</span></div>
+            <ul class="order-list">
+              {g.orders.map((o) => (
+                <li key={o.thread_id}>
+                  <a class={`order-card ultra${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
+                    <UltraBody o={o} search={search} />
+                  </a>
+                </li>
+              ))}
+            </ul>
           </li>
         ))}
         {view === "compact" && visible.map((o) => {

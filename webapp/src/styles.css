@@ -278,6 +278,10 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .tlbl { font-size: .6rem; color: var(--muted); }
 
 /* Chế độ xem gọn dashboard */
+/* Nhóm đơn theo ngày tạo (kiểu siêu gọn) */
+.order-day-group { list-style: none; }
+.order-day-head { padding: 8px 2px 4px; font-weight: 700; font-size: .85rem; color: var(--muted); border-bottom: 1px solid var(--border); margin: 6px 0 4px; }
+.order-day-group:first-child .order-day-head { margin-top: 0; }
 /* Kiểu SIÊU GỌN — 1 dòng: 5 icon trạng thái + nội dung đơn (không xuống dòng) */
 .order-card.ultra { display: block; padding: 6px 10px; margin: 2px 0; }
 .ultra-row { display: flex; align-items: center; gap: 8px; }
