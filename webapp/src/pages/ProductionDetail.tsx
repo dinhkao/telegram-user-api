@@ -124,7 +124,11 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   if (loading) return <Loading />;
   if (!slip) return <div class="muted">Không tìm thấy phiếu. <a href="#/san_xuat">← Danh sách</a></div>;
 
-  const total = slip.total || 0;
+  const boxed = slip.total || 0;                          // tổng nhập thùng
+  const reported = Number(slip.bang?.grand_total || 0);   // tổng báo cáo theo thợ
+  const diff = Math.round((boxed - reported) * 100) / 100;
+  const match = diff === 0;
+  const hasReport = reported > 0 || (slip.bang?.rows?.length || 0) > 0;
 
   return (
     <div class="prod-detail">
@@ -138,8 +142,20 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
 
       {err && <div class="error-banner">{err}</div>}
 
-      <div class="prod-summary">
-        <span class="prod-total">📦 Tổng SP: {soVN(total)}</span>
+      {/* So sánh: tổng nhập thùng vs tổng báo cáo theo thợ (khớp/lệch) */}
+      <div class={"prod-compare" + (!hasReport ? " none" : match ? " ok" : " warn")}>
+        <div class="pc-cell">
+          <div class="pc-lb">📦 Nhập thùng</div>
+          <div class="pc-val">{soVN(boxed)}</div>
+        </div>
+        <div class="pc-sep">vs</div>
+        <div class="pc-cell">
+          <div class="pc-lb">📋 Báo cáo thợ</div>
+          <div class="pc-val">{soVN(reported)}</div>
+        </div>
+        <div class="pc-verdict">
+          {!hasReport ? "— chưa báo cáo" : match ? "✅ Khớp" : `⚠️ Lệch ${soVN(Math.abs(diff))}`}
+        </div>
       </div>
 
       <section class="card">

@@ -452,6 +452,21 @@ body.pv-open { overflow: hidden; }
 .prod-bar-fill { height: 100%; background: #f0a500; border-radius: 3px; transition: width .3s; }
 .prod-bar-fill.done { background: var(--ok); }
 
+/* So sánh nhập thùng vs báo cáo thợ */
+.prod-compare { display: flex; align-items: stretch; gap: 8px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.prod-compare.ok { border-color: var(--ok); background: var(--ok-wash); }
+.prod-compare.warn { border-color: var(--warn); background: var(--warn-wash); }
+.prod-compare .pc-cell { flex: 1; text-align: center; min-width: 0; }
+.prod-compare .pc-lb { font-size: .72rem; color: var(--muted); font-weight: 600; }
+.prod-compare .pc-val { font-size: 1.4rem; font-weight: 800; line-height: 1.2; }
+.prod-compare .pc-sep { align-self: center; color: var(--muted); font-size: .8rem; }
+.prod-compare .pc-verdict { flex: 0 0 auto; align-self: center; padding-left: 8px;
+  border-left: 1px solid var(--border); font-weight: 700; font-size: .85rem; white-space: nowrap; }
+.prod-compare.ok .pc-verdict { color: var(--ok); }
+.prod-compare.warn .pc-verdict { color: var(--warn); }
+.prod-compare.none .pc-verdict { color: var(--muted); font-weight: 600; }
+
 .prod-detail { padding: 8px; display: flex; flex-direction: column; gap: 12px; }
 .prod-detail-head { display: flex; align-items: center; gap: 12px; }
 .prod-detail-head .back { font-size: 1.5rem; text-decoration: none; color: #333; }
