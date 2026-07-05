@@ -369,7 +369,23 @@ export function OrdersList() {
     if (v === "compact" || v === "ultra" || v === "full") return v;
     return localStorage.getItem("dash_compact") === "1" ? "compact" : "full"; // back-compat
   });
-  const setViewMode = (m: "full" | "compact" | "ultra") => { localStorage.setItem("dash_view", m); setView(m); };
+  // Đổi kiểu xem GIỮ VỊ TRÍ: neo vào đơn trên cùng đang hiện (top-most visible), đổi
+  // view rồi cuộn để đơn đó về đúng chỗ cũ → các đơn đang xem vẫn trên màn hình.
+  const setViewMode = (m: "full" | "compact" | "ultra") => {
+    if (m === view) return;
+    let anchor: { oid: string; top: number } | null = null;
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>(".order-card[data-oid]"))) {
+      const r = el.getBoundingClientRect();
+      if (r.bottom > 120) { anchor = { oid: el.dataset.oid!, top: r.top }; break; } // đơn đầu còn dưới app-bar
+    }
+    localStorage.setItem("dash_view", m);
+    setView(m);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (!anchor) return;
+      const el = document.querySelector<HTMLElement>(`.order-card[data-oid="${anchor.oid}"]`);
+      if (el) window.scrollBy(0, el.getBoundingClientRect().top - anchor.top);
+    }));
+  };
   const _VIEWS = [
     { m: "full" as const, ic: "☰", t: "Chi tiết" },
     { m: "compact" as const, ic: "≣", t: "Gọn" },
@@ -637,7 +653,7 @@ export function OrdersList() {
             <ul class="order-list">
               {g.orders.map((o) => (
                 <li key={o.thread_id}>
-                  <a class={`order-card ultra${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
+                  <a data-oid={o.thread_id} class={`order-card ultra${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
                     <UltraBody o={o} search={search} />
                   </a>
                 </li>
@@ -649,7 +665,7 @@ export function OrdersList() {
           const isNew = isRecent(o.created, NEW_ORDER_SEC);
           return (
           <li key={o.thread_id}>
-            <a class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
+            <a data-oid={o.thread_id} class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               <CompactBody o={o} search={search} sort={sort} flashMsg={flashing[String(o.thread_id)]} isNew={isNew} openThumb={openThumb} />
             </a>
           </li>
@@ -660,7 +676,7 @@ export function OrdersList() {
           const isNew = isRecent(o.created, NEW_ORDER_SEC);
           return (
           <li key={o.thread_id}>
-            <a class={`order-card two-col${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
+            <a data-oid={o.thread_id} class={`order-card two-col${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               <div class="card-main">
                 {sort === "updated" && <LastAction o={o} />}
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}
