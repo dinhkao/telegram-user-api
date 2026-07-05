@@ -18,6 +18,8 @@ from server_app.entity_history import _ACTION_LABELS, _SKIP, _label as _ent_labe
 _PER = 40
 _SCOPE_LABEL = {"order": "Đơn", "production": "Phiếu SX", "box": "Thùng"}
 _ORDER_ID = re.compile(r"/api/order/(-?\d+)")
+# Endpoint chỉ ĐỌC/preview — không phải "thao tác", bỏ khỏi feed (tránh spam khi gõ tạo đơn)
+_NOISE = {"/api/order/preview", "/api/order/totals", "/api/order/refresh-view"}
 _CREATED_SCOPE = {"order.created": "order", "production.created": "production", "box.created": "box"}
 
 
@@ -56,6 +58,8 @@ def _row_meta(r):
     # phân trang không bị hụt.
     if scope == "order" or (scope is None and "/api/order/" in source):
         norm = _order_norm(source.split(" ", 1)[1].split("?")[0])
+        if norm in _NOISE:
+            return None
         method, key, path = _ent_norm(source)
         label = _ORDER_LABELS.get(norm) or _ent_label(key, method, path)
         eid = tid
@@ -73,49 +77,67 @@ def _row_meta(r):
     return None
 
 
-def get_activity(page: int = 1, per: int = _PER):
-    off = (max(1, page) - 1) * per
+_BASE_WHERE = (
+    "WHERE ("
+    " action IN ('order.created','production.created','box.created','order.image_added')"
+    " OR (action='http.request' AND (source LIKE 'POST %' OR source LIKE 'DELETE %'))) "
+    "AND (scope IN ('order','production','box') "
+    "     OR (scope IS NULL AND (source LIKE 'POST /api/order/%' OR source LIKE 'DELETE /api/order/%')))"
+)
+
+
+def get_activity(before: int | None = None, per: int = _PER):
+    """Cursor theo id (before). Quét cửa sổ raw rows, lọc hiển thị được, gom tới `per`.
+    Trả (items, next_before, has_more). Lọc-sau-phân-trang không tạo trang rỗng."""
     conn = _get_connection()
     try:
-        rows = conn.execute(
-            "SELECT ts, actor_id, action, source, scope, thread_id, payload_json, result_json "
-            "FROM audit_events WHERE ("
-            " action IN ('order.created','production.created','box.created','order.image_added')"
-            " OR (action='http.request' AND (source LIKE 'POST %' OR source LIKE 'DELETE %'))) "
-            "AND (scope IN ('order','production','box') "
-            "     OR (scope IS NULL AND (source LIKE 'POST /api/order/%' OR source LIKE 'DELETE /api/order/%'))) "
-            "ORDER BY id DESC LIMIT ? OFFSET ?",
-            (per + 1, off),
-        ).fetchall()
         names = _load_names()
-        has_more = len(rows) > per
-        out = []
-        for r in rows[:per]:
-            meta = _row_meta(r)
-            if not meta:
-                continue
-            sc, eid, label, detail = meta
-            try:
-                status = json.loads(r["result_json"] or "{}").get("status")
-            except Exception:
-                status = None
-            out.append({
-                "ts": r["ts"], "actor": _actor_display(r["actor_id"], names),
-                "action": label, "detail": detail, "scope": sc, "scope_label": _SCOPE_LABEL.get(sc, sc),
-                "entity_id": eid, "href": _href(sc, eid),
-                "ok": status is None or (isinstance(status, int) and 200 <= status < 300),
-            })
-        return out, has_more
+        out: list[dict] = []
+        cursor = before
+        exhausted = False
+        # tối đa vài vòng quét (mỗi vòng 300 raw) để lấp đủ `per` kể cả vùng nhiều preview
+        for _ in range(20):
+            if len(out) >= per or exhausted:
+                break
+            q = "SELECT id, ts, actor_id, action, source, scope, thread_id, payload_json, result_json FROM audit_events " + _BASE_WHERE
+            args: list = []
+            if cursor is not None:
+                q += " AND id < ?"
+                args.append(cursor)
+            q += " ORDER BY id DESC LIMIT 300"
+            rows = conn.execute(q, args).fetchall()
+            if len(rows) < 300:
+                exhausted = True
+            for r in rows:
+                cursor = r["id"]
+                meta = _row_meta(r)
+                if not meta:
+                    continue
+                sc, eid, label, detail = meta
+                try:
+                    status = json.loads(r["result_json"] or "{}").get("status")
+                except Exception:
+                    status = None
+                out.append({
+                    "ts": r["ts"], "actor": _actor_display(r["actor_id"], names),
+                    "action": label, "detail": detail, "scope": sc, "scope_label": _SCOPE_LABEL.get(sc, sc),
+                    "entity_id": eid, "href": _href(sc, eid),
+                    "ok": status is None or (isinstance(status, int) and 200 <= status < 300),
+                })
+                if len(out) >= per:
+                    break
+        return out, cursor, not exhausted
     except Exception:
-        return [], False
+        return [], None, False
     finally:
         conn.close()
 
 
 async def activity_handler(request: web.Request):
     try:
-        page = max(1, int(request.query.get("page", "1")))
+        before = request.query.get("before")
+        before = int(before) if before else None
     except (ValueError, TypeError):
-        page = 1
-    items, has_more = await asyncio.to_thread(get_activity, page)
-    return web.json_response({"ok": True, "items": items, "page": page, "has_more": has_more})
+        before = None
+    items, next_before, has_more = await asyncio.to_thread(get_activity, before)
+    return web.json_response({"ok": True, "items": items, "next_before": next_before, "has_more": has_more})

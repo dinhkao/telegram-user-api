@@ -7,24 +7,24 @@ import { Loading } from "../ui/states";
 
 export function ActivityLog() {
   const [items, setItems] = useState<any[]>([]);
-  const [page, setPage] = useState(1);
+  const [before, setBefore] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const load = async (p: number) => {
+  const load = async (cursor: number | null) => {
     setLoading(true);
     try {
-      const r = await getActivity(p);
-      setItems((prev) => (p === 1 ? r.items : [...prev, ...r.items]));
+      const r = await getActivity(cursor);
+      setItems((prev) => (cursor == null ? r.items : [...prev, ...r.items]));
       setHasMore(!!r.has_more);
-      setPage(r.page || p);
+      setBefore(r.next_before ?? null);
     } catch {
       /* ignore */
     } finally {
       setLoading(false);
     }
   };
-  useEffect(() => { load(1); }, []);
+  useEffect(() => { load(null); }, []);
 
   return (
     <div>
@@ -53,7 +53,7 @@ export function ActivityLog() {
       ) : (
         <p class="muted small">Chưa có thao tác nào được ghi.</p>
       )}
-      {!loading && hasMore && <button class="btn small wide" onClick={() => load(page + 1)}>Tải thêm</button>}
+      {!loading && hasMore && <button class="btn small wide" onClick={() => load(before)}>Tải thêm</button>}
       {loading && items.length > 0 && <p class="muted center small">Đang tải…</p>}
     </div>
   );

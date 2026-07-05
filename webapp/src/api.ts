@@ -243,9 +243,9 @@ export async function refreshOrderDebt(threadId: string | number): Promise<any> 
   return postJSON("/api/order/refresh-debt", { thread_id: Number(threadId) });
 }
 
-/** Lịch sử thao tác toàn bộ (mọi đơn/phiếu/thùng), phân trang. */
-export async function getActivity(page = 1): Promise<{ items: any[]; has_more: boolean; page: number }> {
-  return getJSON(`/api/activity?page=${page}`, { cache: false });
+/** Lịch sử thao tác toàn bộ (mọi đơn/phiếu/thùng), cursor theo id (before). */
+export async function getActivity(before?: number | null): Promise<{ items: any[]; has_more: boolean; next_before: number | null }> {
+  return getJSON(`/api/activity${before ? `?before=${before}` : ""}`, { cache: false });
 }
 
 /** Đơn theo ngày giao trong 1 tháng (YYYY-MM) — cho lịch giao. Rows compact. */
