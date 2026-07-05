@@ -62,6 +62,13 @@ from server_app.quy_routes import (
     quy_create_handler,
     quy_delete_handler,
 )
+from server_app.user_routes import (
+    users_list_handler,
+    users_create_handler,
+    users_role_handler,
+    users_disabled_handler,
+    users_pin_handler,
+)
 from server_app.webapp_routes import register_webapp_routes
 from server_app.websocket_routes import websocket_handler
 from server_app import state
@@ -172,6 +179,12 @@ def create_app():
     r.add_post("/api/order/{thread_id}/allocate", order_allocate_handler)
     r.add_post("/api/order/{thread_id}/release", order_release_handler)
 
+    # ─── quản lý user (chỉ admin) ────────────────────────────────────────────
+    r.add_get("/api/users", users_list_handler)
+    r.add_post("/api/users", users_create_handler)
+    r.add_post("/api/users/{username}/role", users_role_handler)
+    r.add_post("/api/users/{username}/disabled", users_disabled_handler)
+    r.add_post("/api/users/{username}/pin", users_pin_handler)
     # ─── sổ quỹ (cash book) ──────────────────────────────────────────────────
     r.add_get("/api/quy", quy_list_handler)
     r.add_post("/api/quy", quy_create_handler)

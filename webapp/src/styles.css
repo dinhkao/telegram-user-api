@@ -843,3 +843,15 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .od-quicknav { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
 .od-quicknav .qn { flex: 1; min-width: 96px; white-space: nowrap; }
 .od-created { margin-top: 6px; }
+
+/* Quản lý user */
+.usr-form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.usr-role { padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; font-size: .95rem; background: var(--card); }
+.usr-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.usr-row { padding: 10px 0; border-top: 1px solid var(--border); }
+.usr-row:first-child { border-top: none; }
+.usr-row.off { opacity: .55; }
+.usr-name { font-weight: 600; margin-bottom: 6px; }
+.usr-locked { color: var(--danger); font-weight: 600; }
+.usr-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.usr-actions .usr-role { flex: 1; min-width: 120px; }
