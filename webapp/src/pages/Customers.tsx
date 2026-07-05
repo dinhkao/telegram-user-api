@@ -11,6 +11,14 @@ const PAGE_SIZE = 30;
 // (hệ cuộn trung tâm main.tsx khôi phục ngay, khỏi refetch/nhảy trang).
 let custCache: { customers: any[]; page: number; totalPages: number; search: string } | null = null;
 
+// FIX realtime khi trang ĐANG UNMOUNT: đánh dấu "bẩn" nếu khách/công nợ đổi lúc vắng
+// mặt → mount lại VÁ TẠI CHỖ (refreshMerge) thay vì hiện cache cũ. KHÔNG bỏ cache nên
+// giữ nguyên list đã tải + vị trí cuộn.
+let custDirty = false;
+onRealtime((e) => {
+  if (e.type === "customer_changed" || e.type === "order_changed" || e.type === "orders_changed" || e.type === "resync") custDirty = true;
+});
+
 export function Customers() {
   const [search, setSearch] = useState("");
   const [customers, setCustomers] = useState<any[]>([]);
@@ -50,6 +58,7 @@ export function Customers() {
       setPage(custCache.page);
       setTotalPages(custCache.totalPages);
       setSearch(custCache.search);
+      if (custDirty) { custDirty = false; refreshMerge(); }   // đổi lúc vắng mặt → vá tại chỗ (giữ cuộn)
       return;
     }
     load(1, "", false);

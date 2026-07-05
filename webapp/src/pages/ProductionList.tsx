@@ -18,6 +18,23 @@ import { Loading, EmptyState } from "../ui/states";
 // Cache list đã tải → quay lại giữ nguyên + hệ cuộn khôi phục vị trí (khỏi tải lại).
 let prodCache: { slips: ProdSlip[]; page: number; totalPages: number } | null = null;
 
+// FIX realtime khi trang ĐANG UNMOUNT (ở trang khác): handler trong component chết nên
+// bỏ lỡ event → quay lại thấy cache cũ. Subscriber cấp-module này LUÔN sống, VÁ prodCache
+// tại chỗ (giữ vị trí cuộn, KHÔNG co về trang 1). Chỉ bỏ cache khi thêm/xoá phiếu (cấu
+// trúc list đổi) hoặc reconnect.
+onRealtime((e) => {
+  if (e.type === "productions_changed" || e.type === "resync") { prodCache = null; return; }
+  if (e.type !== "production_changed" || !prodCache) return;
+  const idx = prodCache.slips.findIndex((s) => String(s.thread_id) === e.thread_id);
+  if (e.row === null) {
+    if (idx >= 0) prodCache = { ...prodCache, slips: prodCache.slips.filter((_, i) => i !== idx) };
+  } else if (idx >= 0) {
+    const next = prodCache.slips.slice();
+    next[idx] = { ...next[idx], ...(e.row as ProdSlip) };
+    prodCache = { ...prodCache, slips: next };
+  }
+});
+
 export function ProductionList() {
   const [slips, setSlips] = useState<ProdSlip[]>([]);
   const [catalog, setCatalog] = useState<ProdCatalogItem[]>([]);

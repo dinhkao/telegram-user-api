@@ -3,6 +3,7 @@
 // nhập ở phiếu này (GET /api/production/:id/boxes) — tap → chi tiết thùng.
 import { useEffect, useState } from "preact/hooks";
 import { addProductionBoxes, slipBoxes, soVN, type ProdSlip, type InvBox } from "../api";
+import { onRealtime } from "../realtime";
 
 function todayLocal(): string {
   const d = new Date();
@@ -37,6 +38,17 @@ export function ProductionBoxes({
   useEffect(() => {
     loadMine();
   }, [slip.sp_name, slip.total]);
+  // Realtime: thùng đổi ở nơi khác (sửa ghi chú/số cây/vô hiệu/xuất) không luôn đổi
+  // slip.total → tự tải lại list thùng của phiếu này.
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => {
+      if (e.type === "box_changed" || e.type === "inventory_changed" || e.type === "resync") {
+        clearTimeout(t); t = setTimeout(loadMine, 300);
+      }
+    });
+    return () => { off(); clearTimeout(t); };
+  }, [threadId]);
 
   const submit = async () => {
     const n = parseFloat(amount.replace(",", "."));
