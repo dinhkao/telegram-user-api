@@ -27,6 +27,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [nggDate, setNggDate] = useState("");   // ngày giao (YYYY-MM-DD)
   const [nggTime, setNggTime] = useState("");   // giờ giao (HH:MM) — tách riêng
   const [savingNg, setSavingNg] = useState(false);
+  const [camSignal, setCamSignal] = useState(0);   // tăng để mở camera ở khối Ảnh
   const seenTs = useRef<string | null>(null); // ts mới nhất đã báo — chặn báo lại lịch sử cũ
   const saveTimer = useRef<any>(null);
   useEffect(() => () => clearTimeout(saveTimer.current), []); // huỷ timer "sửa text" khi unmount
@@ -140,6 +141,12 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const total = pc.tongthanhtoan ? pc.tongthanhtoan : money(computedTotal);
   const paid = paidTotal(j.payments);
   const remaining = Math.max(0, computedTotal - paid);
+  const hasInvoice = !!j.kiotvietInvoiceID;
+
+  // Điều hướng nhanh trong trang
+  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const goCamera = () => { scrollTo("od-camera"); setCamSignal((s) => s + 1); };  // cuộn + mở camera
+  const goInvoice = () => scrollTo("od-invoice");
 
   const doPrint = async () => {
     if (!(await confirmDialog("In 2 hoá đơn + phiếu giao?"))) return;
@@ -248,6 +255,13 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         )}
       </div>
 
+      {/* Thanh điều hướng nhanh — cuộn tới camera/hoá đơn, in nhanh nếu có HĐ KiotViet */}
+      <div class="od-quicknav">
+        <button class="btn small qn" onClick={goCamera}>📸 Chụp ảnh</button>
+        {hasInvoice && <button class="btn small qn" disabled={busy} onClick={doPrint}>🖨️ In hoá đơn</button>}
+        <button class="btn small qn" onClick={goInvoice}>🧾 Hoá đơn</button>
+      </div>
+
       <div class="card">
         <div class="row space">
           <span>Khách hàng</span>
@@ -289,6 +303,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       </div>
 
       <Tasks threadId={threadId} taskStatus={j.task_status || {}} userNames={detail.user_names || {}} onChanged={changed} />
+      <div id="od-invoice">
       <InvoiceEditor
         customerId={j.khach_hang_id || j.khID}
         invoice={j.invoice || []}
@@ -308,9 +323,10 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         onRefreshDebt={refreshDebt}
         debtLocked={!!j.kiotvietInvoiceID}
       />
+      </div>{/* #od-invoice */}
       <OrderStock threadId={threadId} invoice={j.invoice || []} />
       <Payments threadId={threadId} payments={j.payments || []} suggest={invoiceTotal(j.invoice)} onChanged={changed} />
-      <Images base={`/api/order/${threadId}`} />
+      <Images base={`/api/order/${threadId}`} anchorId="od-camera" openSignal={camSignal} />
       <History base={`/api/order/${threadId}`} />
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>
       </div>{/* .dmain */}
