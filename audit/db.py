@@ -31,7 +31,6 @@ CREATE INDEX IF NOT EXISTS idx_audit_events_ts ON audit_events(ts);
 CREATE INDEX IF NOT EXISTS idx_audit_events_request_id ON audit_events(request_id);
 CREATE INDEX IF NOT EXISTS idx_audit_events_action ON audit_events(action);
 CREATE INDEX IF NOT EXISTS idx_audit_events_thread_id ON audit_events(thread_id);
-CREATE INDEX IF NOT EXISTS idx_audit_events_scope_thread ON audit_events(scope, thread_id);
 """
 
 
@@ -77,11 +76,13 @@ def init_audit_db(db_path: str | os.PathLike[str] | None = None) -> bool:
         conn = _connect(path)
         try:
             conn.executescript(_SCHEMA_SQL)
-            # Migration DB cũ: thêm cột scope nếu chưa có (phân biệt order/production/box)
+            # Migration DB cũ: thêm cột scope nếu chưa có (phân biệt order/production/box).
+            # Index scope tạo SAU (không để trong _SCHEMA_SQL vì bảng cũ chưa có cột scope
+            # → executescript sẽ lỗi trước khi kịp ALTER).
             cols = {r[1] for r in conn.execute("PRAGMA table_info(audit_events)").fetchall()}
             if "scope" not in cols:
                 conn.execute("ALTER TABLE audit_events ADD COLUMN scope TEXT")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_events_scope_thread ON audit_events(scope, thread_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_events_scope_thread ON audit_events(scope, thread_id)")
             conn.commit()
         finally:
             conn.close()
