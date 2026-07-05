@@ -30,7 +30,7 @@ export function ProductionReport({ threadId, slip }: { threadId: string; slip: P
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={i} class={r.tong_calc > 0 ? "" : "prod-row-off"}>
-                    <td>{r.name}</td>
+                    <td>{r.name ? <a class="wr-tho-link" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>{r.name}</a> : ""}</td>
                     <td>{soVN(r.so_gach)}</td>
                     <td>{soVN(r.so_tru)}</td>
                     <td>{soVN(r.so_cay_le)}</td>
