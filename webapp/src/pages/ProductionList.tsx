@@ -149,7 +149,7 @@ function groupByDay(slips: ProdSlip[]): { key: string; label: string; slips: Pro
 
 function dayLabel(key: string): string {
   const [d, m, y] = key.split("/").map(Number);
-  if (!d || !m || !y) return key || "Không rõ ngày";
+  if (!d || !m || !y) return "Không rõ ngày";
   const date = new Date(y, m - 1, d);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const diff = Math.round((today.getTime() - date.getTime()) / 86400000);
