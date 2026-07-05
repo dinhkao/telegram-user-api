@@ -12,6 +12,7 @@ import { Payments } from "../detail/Payments";
 import { Tasks } from "../detail/Tasks";
 import { History } from "../detail/History";
 import { Images } from "../detail/Images";
+import { ImageStrip } from "../detail/ImageStrip";
 import { OrderStock } from "../detail/OrderStock";
 import { invalidateListCache, markLastOrder } from "./OrdersList";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -264,6 +265,9 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         {hasInvoice && <button class="btn small qn" disabled={busy} onClick={doPrint}>🖨️ In hoá đơn</button>}
         <button class="btn small qn" onClick={goInvoice}>🧾 Hoá đơn</button>
       </div>
+
+      {/* Xem trước ảnh — bấm mở lightbox; bấm 📸 để thêm */}
+      <ImageStrip base={`/api/order/${threadId}`} />
 
       <div class="card">
         <div class="row space">
