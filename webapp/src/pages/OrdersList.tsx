@@ -453,16 +453,16 @@ export function OrdersList() {
       return;
     }
     if (listCache) {
-      // Quay lại → vẽ ngay TOÀN BỘ list từ cache (trang đủ cao để hệ cuộn trung tâm
-      // khôi phục đúng vị trí) NHƯNG luôn refetch nền để có DATA MỚI NHẤT.
+      // Quay lại → vẽ NGAY toàn bộ list đã tải từ cache (giữ nguyên số trang) → trang đủ
+      // cao, hệ cuộn trung tâm khôi phục vị trí 1 phát, KHÔNG refetch (tránh co list về
+      // trang 1 rồi phải cuộn/tải lại dần). Realtime lo cập nhật khi đang mở.
       const c = listCache;
       setOrders(c.orders);
       setStats(c.stats);
       setSearch(c.search);
       setFilter(c.filter);
-      setPage(1);
+      setPage(c.page);
       setTotalPages(c.totalPages);
-      load(1, c.search, c.filter, false); // làm mới trang 1 theo search/filter cũ
       return;
     }
     load(1, "", "all", false);
