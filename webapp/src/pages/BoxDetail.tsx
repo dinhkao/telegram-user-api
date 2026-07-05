@@ -8,6 +8,7 @@ import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
+import { History } from "../detail/History";
 
 const isDisabled = (b: InvBox) => !!b.disabled;
 
@@ -216,6 +217,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
 
       <Images base={`/api/media/box/${b.id}`} />
       <Comments base={`/api/media/box/${b.id}`} />
+      <History base={`/api/media/box/${b.id}`} />
 
       <section class="card">
         {(() => {

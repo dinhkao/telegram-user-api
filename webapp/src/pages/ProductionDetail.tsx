@@ -20,6 +20,7 @@ import { ProductionBoxes } from "../detail/ProductionBoxes";
 import { ProductionReport } from "../detail/ProductionReport";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
+import { History } from "../detail/History";
 import { ProductPicker } from "../detail/ProductPicker";
 import { confirmDialog } from "../ui/feedback";
 import { parseMoney } from "../format";
@@ -205,6 +206,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
 
       <Images base={`/api/media/production/${threadId}`} />
       <Comments base={`/api/media/production/${threadId}`} />
+      <History base={`/api/media/production/${threadId}`} />
 
       <button class="btn danger block" onClick={doDelete}>🗑 Xoá phiếu</button>
     </div>

@@ -118,6 +118,15 @@ async def production_add_boxes_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Chưa có sản phẩm, chưa nhập thùng được"}, status=400)
     from server_app.realtime import emit_production_changed
     emit_production_changed(thread_id)
+    # Log lịch sử thao tác: mỗi thùng mới → 1 event box.created (hiện ở lịch sử thùng)
+    from audit_log import async_log_event
+    from server_app.tasks import spawn_tracked
+    for box in created:
+        spawn_tracked("audit.box_created", async_log_event(
+            "box.created", scope="box", thread_id=box.get("id"),
+            actor_type="web_user" if request.get("web_user") else "http_client",
+            actor_id=actor, source="box.created",
+            payload={"box_code": box.get("box_code"), "quantity": box.get("quantity"), "from_slip": thread_id}))
     return web.json_response({"ok": True, "boxes": created, "total": total})
 
 

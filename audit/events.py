@@ -26,6 +26,7 @@ def log_event(
     actor_id: str | int | None = None,
     direction: str | None = None,
     source: str | None = None,
+    scope: str | None = None,
     chat_id: int | str | None = None,
     thread_id: int | str | None = None,
     message_id: int | str | None = None,
@@ -55,9 +56,9 @@ def log_event(
             cursor = conn.execute(
                 """
                 INSERT INTO audit_events (
-                    ts, request_id, actor_type, actor_id, action, direction, source,
+                    ts, request_id, actor_type, actor_id, action, direction, source, scope,
                     chat_id, thread_id, message_id, payload_json, result_json, error, duration_ms
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     _utc_now_iso(),
@@ -67,6 +68,7 @@ def log_event(
                     _coerce_text(action, max_field_chars=limit) or "",
                     _coerce_text(direction, max_field_chars=limit),
                     _coerce_text(source, max_field_chars=limit),
+                    _coerce_text(scope, max_field_chars=limit),
                     _coerce_int(chat_id, "chat_id"),
                     _coerce_int(thread_id, "thread_id"),
                     _coerce_int(message_id, "message_id"),

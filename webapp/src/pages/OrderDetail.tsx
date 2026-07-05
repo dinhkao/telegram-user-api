@@ -348,7 +348,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       <OrderStock threadId={threadId} invoice={j.invoice || []} />
       <Payments threadId={threadId} payments={j.payments || []} suggest={invoiceTotal(j.invoice)} onChanged={changed} />
       <Images base={`/api/order/${threadId}`} />
-      <History threadId={threadId} />
+      <History base={`/api/order/${threadId}`} />
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>
       </div>{/* .dmain */}
 

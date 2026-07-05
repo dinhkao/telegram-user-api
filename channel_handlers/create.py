@@ -79,6 +79,11 @@ async def process_new_order(client, msg) -> int | None:
     new_order = build_new_order(order_text, text_raw, thread_id, firebase_key, msg.id)
     _create_order(conn, firebase_key, thread_id, CHANNEL_DON_HANG_MOI, msg.id, new_order)
     client.loop.create_task(firebase_sync(firebase_key, thread_id, msg.id, new_order))
+    # Log lịch sử thao tác: tạo đơn (hiện trong Lịch sử thao tác của đơn)
+    from audit_log import async_log_event
+    client.loop.create_task(async_log_event(
+        "order.created", scope="order", thread_id=thread_id,
+        actor_type="system", source="order.created", payload={"message_id": msg.id}))
     from server_app.realtime import emit_orders_changed
     emit_orders_changed()  # đơn mới → dashboard refetch (chạy nền)
     from server_app.fcm import notify_bg

@@ -174,6 +174,14 @@ async def production_create_handler(request: web.Request):
 
     from server_app.realtime import emit_productions_changed
     emit_productions_changed()
+    # Log lịch sử thao tác: tạo phiếu SX
+    from audit_log import async_log_event
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("audit.production_created", async_log_event(
+        "production.created", scope="production", thread_id=thread_id,
+        actor_type="web_user" if request.get("web_user") else "http_client",
+        actor_id=request.get("web_user") or request.remote,
+        source="production.created", payload={"product": product}))
     return web.json_response({"ok": True, "thread_id": thread_id})
 
 

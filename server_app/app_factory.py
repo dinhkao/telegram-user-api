@@ -128,6 +128,8 @@ def create_app():
     r.add_post("/api/media/{scope}/{entity_id}/images", em_images_upload)
     r.add_delete("/api/media/{scope}/{entity_id}/images/{image_id}", em_images_delete)
     r.add_get("/api/media/{scope}/{entity_id}/images/{image_id}/file", em_images_file)
+    from server_app.entity_history import entity_history_handler
+    r.add_get("/api/media/{scope}/{entity_id}/history", entity_history_handler)
     # ─── phiếu sản xuất (production) ─────────────────────────────────────────
     # catalog + create đăng ký TRƯỚC /{thread_id} để không bị route động nuốt
     r.add_get("/api/production/catalog", production_catalog_handler)

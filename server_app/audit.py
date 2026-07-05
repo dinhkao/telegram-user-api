@@ -10,6 +10,9 @@ from audit_log import async_log_event, new_request_id
 from server_app import order_diff
 
 _ORDER_PATH = re.compile(r"^/api/order/(-?\d+)")
+_PRODUCTION_PATH = re.compile(r"^/api/production/(-?\d+)")
+_MEDIA_PATH = re.compile(r"^/api/media/(production|box)/(-?\d+)")
+_INV_BOX_PATH = re.compile(r"^/api/inventory/box/(-?\d+)")
 
 
 def _load_order_snapshot(thread_id):
@@ -29,18 +32,29 @@ def _load_order_snapshot(thread_id):
         return None
 
 
-def _extract_thread_id(path: str, body_text: str | None):
-    """thread_id để gắn vào audit event (cho lịch sử thao tác theo đơn)."""
+def _scope_entity(path: str, body_text: str | None):
+    """(scope, entity_id) để gắn vào audit event → lịch sử thao tác theo đơn/phiếu/thùng.
+    scope ∈ {order, production, box}. entity_id = thread_id (order/production) hoặc box_id."""
+    m = _MEDIA_PATH.match(path)
+    if m:
+        return m.group(1), int(m.group(2))
+    m = _INV_BOX_PATH.match(path)
+    if m:
+        return "box", int(m.group(1))
+    m = _PRODUCTION_PATH.match(path)
+    if m:
+        return "production", int(m.group(1))
     m = _ORDER_PATH.match(path)
     if m:
-        return int(m.group(1))
+        return "order", int(m.group(1))
     if body_text:
         try:
             tid = json.loads(body_text).get("thread_id")
-            return int(tid) if tid is not None else None
+            if tid is not None:
+                return "order", int(tid)
         except Exception:
-            return None
-    return None
+            return None, None
+    return None, None
 
 
 @web.middleware
@@ -58,14 +72,14 @@ async def audit_middleware(request: web.Request, handler):
         except Exception as exc:
             body_text = f"<body read failed: {type(exc).__name__}: {exc}>"
     # Chụp trạng thái đơn TRƯỚC khi handler chạy (chỉ với POST sửa đơn) để so cũ→mới
-    tid = _extract_thread_id(request.path, body_text)
-    is_mut = order_diff.is_order_mutation(request.method, request.path)
-    before = _load_order_snapshot(tid) if is_mut else None
+    scope, entity_id = _scope_entity(request.path, body_text)
+    is_mut = scope == "order" and order_diff.is_order_mutation(request.method, request.path)
+    before = _load_order_snapshot(entity_id) if is_mut else None
     try:
         response = await handler(request)
         changes = None
         if is_mut and 200 <= response.status < 300:
-            after = _load_order_snapshot(tid)
+            after = _load_order_snapshot(entity_id)
             changes = order_diff.diff_changes(before, after)
         await _log_http(request, request_id, start, response.status, body_text, changes=changes)
         response.headers["X-Request-ID"] = request_id
@@ -77,11 +91,12 @@ async def audit_middleware(request: web.Request, handler):
 
 async def _log_http(request, request_id, start, status, body_text, error=None, changes=None):
     web_user = request.get("web_user")   # do web_auth middleware gắn (nếu có token)
+    scope, entity_id = _scope_entity(request.path, body_text)
     await async_log_event(
         "http.request", request_id=request_id,
         actor_type="web_user" if web_user else "http_client",
         actor_id=web_user or request.remote,
-        thread_id=_extract_thread_id(request.path, body_text),
+        scope=scope, thread_id=entity_id,
         direction="in", source=f"{request.method} {request.path}",
         payload={"method": request.method, "path": request.path, "query": dict(request.query), "headers": dict(request.headers), "body": body_text if body_text is not None else "<multipart-or-empty>", "changes": changes or []},
         result=None if status is None else {"status": status}, error=error, duration_ms=(time.perf_counter() - start) * 1000,
