@@ -21,6 +21,7 @@ from server_app.order_api_mutations import api_assign_customer_handler, api_fix_
 from server_app.order_api_payments import api_customer_price_handler, order_totals_handler, payment_ck_handler, payment_delete_handler, payment_tm_handler
 from server_app.order_api_print import api_print_giao_handler
 from server_app.order_api_tasks import _make_task_handler, api_task_handler, api_task_status_clear_handler
+from server_app.order_api_custom_tasks import add_custom_task_handler, remove_custom_task_handler
 from server_app.order_api_invoice import api_create_invoice_handler, api_delete_invoice_handler, api_invoice_html_handler, api_refresh_debt_handler
 from server_app.order_history import order_history_handler
 from server_app.orders_api import order_detail_handler, orders_api_handler, orders_delivery_handler
@@ -128,6 +129,8 @@ def create_app():
     r.add_post("/api/order/reply", api_reply_handler)
     r.add_post("/api/customer/price", api_customer_price_handler)
     r.add_post("/api/order/{id}/task_status/clear", api_task_status_clear_handler)
+    r.add_post("/api/order/{id}/custom-task", add_custom_task_handler)
+    r.add_post("/api/order/{id}/custom-task/remove", remove_custom_task_handler)
     r.add_post("/api/order/print-giao", api_print_giao_handler)
     r.add_post("/api/order/create", order_create_handler)
     r.add_get("/api/order/{thread_id}/history", order_history_handler)
