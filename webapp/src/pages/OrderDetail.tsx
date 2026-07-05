@@ -145,7 +145,15 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const hasInvoice = !!j.kiotvietInvoiceID;
 
   // Điều hướng nhanh trong trang
-  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const scrollTo = (id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.classList.remove("flash-target");
+    void el.offsetWidth;               // reflow → chạy lại animation nếu bấm liên tiếp
+    el.classList.add("flash-target");
+    setTimeout(() => el.classList.remove("flash-target"), 2400);
+  };
   const goCamera = () => { scrollTo("od-camera"); setCamSignal((s) => s + 1); };  // cuộn + mở camera
   const goInvoice = () => scrollTo("od-invoice");
   const goPay = () => scrollTo("od-payments");
