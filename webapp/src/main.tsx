@@ -26,27 +26,58 @@ import "./styles.css";
 // Nhớ vị trí cuộn theo hash cho các trang KHÔNG tự quản (OrdersList/OrderDetail đã
 // tự nhớ). Lưu scrollY của trang rời đi, khôi phục khi quay lại (poll vì nội dung
 // tải bất đồng bộ, trang cao dần). Bỏ qua trang #/order* và khi có ?focus (deep-link).
-const scrollMem = new Map<string, number>();
-const selfManagesScroll = (h: string) => h.startsWith("#/order");
+// ── Khôi phục vị trí cuộn CHUYÊN NGHIỆP — 1 hệ trung tâm cho MỌI trang:
+//  • BACK (nút back trình duyệt / BackLink history.back() → popstate) → về ĐÚNG vị trí cũ.
+//  • FORWARD (bấm link, mở chi tiết mới) → lên ĐẦU trang.
+// Khôi phục chịu nội dung tải trễ (theo dõi chiều cao, lặp tới khi tới nơi + cao ổn định)
+// và TỰ HUỶ khi người dùng chạm/cuộn. Key = hash sạch (bỏ ?focus/query).
+if (typeof history !== "undefined" && "scrollRestoration" in history) history.scrollRestoration = "manual";
 
-// Lưu scrollY của trang RỜI ĐI ngay tại hashchange (DOM cũ còn nguyên → scrollY
-// đúng, chưa bị clamp bởi trang mới). Cài 1 lần trước khi render.
-let _lastHash = window.location.hash || "#/orders";
+const scrollMem = new Map<string, number>();
+const _SCROLL_MAX = 60;
+const cleanHash = (h: string) => (h || "#/orders").split("?")[0];
+function rememberScroll(h: string) {
+  scrollMem.set(cleanHash(h), window.scrollY);
+  if (scrollMem.size > _SCROLL_MAX) {
+    const k = scrollMem.keys().next().value; // FIFO evict cũ nhất
+    if (k !== undefined) scrollMem.delete(k);
+  }
+}
+
+let _lastHash = cleanHash(window.location.hash);
+let _navBack = false; // điều hướng vừa rồi là back? → hook quyết định khôi phục hay lên đầu
+let _pop = false;
+window.addEventListener("popstate", () => { _pop = true; });
 window.addEventListener("hashchange", () => {
-  if (!selfManagesScroll(_lastHash)) scrollMem.set(_lastHash, window.scrollY);
-  _lastHash = window.location.hash || "#/orders";
+  rememberScroll(_lastHash);            // lưu vị trí trang RỜI ĐI (DOM cũ còn → scrollY đúng)
+  _navBack = _pop; _pop = false;
+  _lastHash = cleanHash(window.location.hash);
 });
 
 function useScrollMemory(hash: string, hasFocus: boolean) {
   useEffect(() => {
-    if (hasFocus || selfManagesScroll(hash)) return; // focus/tự-quản thắng
-    const y = scrollMem.get(hash) ?? 0;
-    let tries = 0;
-    const iv = setInterval(() => {
-      window.scrollTo(0, y);
-      if (Math.abs(window.scrollY - y) <= 2 || ++tries > 40) clearInterval(iv);
-    }, 25);
-    return () => clearInterval(iv);
+    if (hasFocus) return;                              // deep-link (?focus) tự cuộn tới phần tử
+    if (!_navBack) { window.scrollTo(0, 0); return; }  // FORWARD → lên đầu
+    const target = scrollMem.get(cleanHash(hash)) ?? 0; // BACK → khôi phục
+    if (target <= 4) { window.scrollTo(0, 0); return; }
+    let cancelled = false, raf = 0, lastH = -1, stableAt = 0;
+    const start = performance.now();
+    const onUser = () => { cancelled = true; };
+    const evs: (keyof WindowEventMap)[] = ["wheel", "touchstart", "keydown", "pointerdown"];
+    evs.forEach((ev) => window.addEventListener(ev, onUser, { passive: true }));
+    const cleanup = () => { cancelAnimationFrame(raf); evs.forEach((ev) => window.removeEventListener(ev, onUser)); };
+    const step = () => {
+      if (cancelled) return cleanup();
+      window.scrollTo(0, target);
+      const now = performance.now();
+      const h = document.documentElement.scrollHeight;
+      if (h !== lastH) { lastH = h; stableAt = now; }  // trang còn cao lên (nội dung tải trễ)
+      const reached = Math.abs(window.scrollY - target) <= 2;
+      if ((reached && now - stableAt > 400) || now - start > 6000) return cleanup();
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return cleanup;
   }, [hash, hasFocus]);
 }
 

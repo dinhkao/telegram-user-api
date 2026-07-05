@@ -124,7 +124,7 @@ const FILTER_LABELS: Record<string, string> = {
 // rời trang chi tiết rồi quay lại (mount lại). Reset khi có search mới.
 let listCache: {
   orders: OrderRow[]; stats: any; search: string;
-  filter: FilterKey; page: number; totalPages: number; scrollY: number;
+  filter: FilterKey; page: number; totalPages: number;
 } | null = null;
 
 /** No-op giữ lại cho tương thích: giờ dashboard LUÔN refetch trang 1 khi remount
@@ -134,10 +134,9 @@ export function invalidateListCache() {
   /* no-op */
 }
 
-/** Bấm tab Đơn → về đầu danh sách: xoá scrollY đã nhớ (để khi vào lại không khôi
- *  phục vị trí cũ) + cuộn cửa sổ lên đầu ngay nếu đang ở trang Đơn. */
+/** Bấm tab Đơn khi ĐANG ở trang Đơn → cuộn lên đầu (hashchange không xảy ra nên hệ
+ *  cuộn trung tâm không tự lo). Điều hướng bình thường do main.tsx quản. */
 export function resetOrdersScroll() {
-  if (listCache) listCache.scrollY = 0;
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -454,8 +453,8 @@ export function OrdersList() {
       return;
     }
     if (listCache) {
-      // Quay lại → vẽ ngay từ cache (mượt + giữ vị trí cuộn) NHƯNG luôn refetch nền
-      // để có DATA MỚI NHẤT (thay đổi lúc rời trang mà realtime chưa bắt được).
+      // Quay lại → vẽ ngay TOÀN BỘ list từ cache (trang đủ cao để hệ cuộn trung tâm
+      // khôi phục đúng vị trí) NHƯNG luôn refetch nền để có DATA MỚI NHẤT.
       const c = listCache;
       setOrders(c.orders);
       setStats(c.stats);
@@ -463,7 +462,6 @@ export function OrdersList() {
       setFilter(c.filter);
       setPage(1);
       setTotalPages(c.totalPages);
-      requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, c.scrollY)));
       load(1, c.search, c.filter, false); // làm mới trang 1 theo search/filter cũ
       return;
     }
@@ -477,7 +475,7 @@ export function OrdersList() {
       if (!s.orders?.length) return;
       listCache = {
         orders: s.orders, stats: s.stats, search: s.search, filter: s.filter,
-        page: s.page, totalPages: s.totalPages, scrollY: window.scrollY,
+        page: s.page, totalPages: s.totalPages,
       };
     };
   }, []);

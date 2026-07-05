@@ -17,9 +17,6 @@ import { invalidateListCache, markLastOrder } from "./OrdersList";
 import { confirmDialog, toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
 
-// Nhớ vị trí cuộn theo từng đơn — quay lại đơn cũ về đúng chỗ đang xem
-const detailScroll: Record<string, number> = {};
-
 export function OrderDetail({ threadId, focus }: { threadId: string; focus?: string }) {
   const [detail, setDetail] = useState<any>(null);
   const [err, setErr] = useState("");
@@ -31,7 +28,6 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [nggTime, setNggTime] = useState("");   // giờ giao (HH:MM) — tách riêng
   const [savingNg, setSavingNg] = useState(false);
   const seenTs = useRef<string | null>(null); // ts mới nhất đã báo — chặn báo lại lịch sử cũ
-  const restored = useRef(false); // đã khôi phục vị trí cuộn cho đơn này chưa
   const saveTimer = useRef<any>(null);
   useEffect(() => () => clearTimeout(saveTimer.current), []); // huỷ timer "sửa text" khi unmount
 
@@ -63,45 +59,12 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     finally { setSavingNg(false); }
   };
   useEffect(() => {
-    restored.current = !!focus; // có focus (từ notification) → bỏ khôi phục cuộn, để focus thắng
     markLastOrder(threadId); // ghi nhận đơn vừa mở → dashboard tô sáng khi quay lại
     reload();
   }, [threadId]);
 
-  // Lưu vị trí cuộn khi rời đơn (đổi đơn / thoát trang) để lần sau về đúng chỗ
-  useEffect(() => {
-    return () => { detailScroll[threadId] = window.scrollY; };
-  }, [threadId]);
-
-  // Khôi phục vị trí cuộn: các khối con (bình luận/ảnh/lịch sử) tải BẤT ĐỒNG BỘ nên
-  // trang cao dần — áp lại scrollTo nhiều lần cho tới khi trang đủ cao/đạt đích; huỷ
-  // ngay khi người dùng tự cuộn (không giằng co). Chạy 1 lần mỗi lần mở đơn.
-  useEffect(() => {
-    if (focus || restored.current) return;
-    restored.current = true;
-    const y = detailScroll[threadId] || 0;
-    if (y <= 4) return;
-    let cancelled = false;
-    const onUser = () => { cancelled = true; done(); };
-    const done = () => {
-      clearInterval(iv); clearTimeout(to);
-      window.removeEventListener("wheel", onUser);
-      window.removeEventListener("touchstart", onUser);
-      window.removeEventListener("keydown", onUser);
-    };
-    const tryScroll = () => {
-      if (cancelled) return;
-      window.scrollTo(0, y);
-      if (Math.abs(window.scrollY - y) <= 2) done(); // đạt đích (trang đã đủ cao)
-    };
-    window.addEventListener("wheel", onUser, { passive: true });
-    window.addEventListener("touchstart", onUser, { passive: true });
-    window.addEventListener("keydown", onUser);
-    const iv = setInterval(tryScroll, 80);
-    const to = setTimeout(done, 2500);
-    tryScroll();
-    return done;
-  }, [threadId, focus]);
+  // (Vị trí cuộn do hệ trung tâm ở main.tsx quản: mở đơn = forward → lên đầu;
+  //  quay lại danh sách = back → khôi phục. Deep-link ?focus xử lý riêng bên dưới.)
 
   // Deep-link notification: đợi phần tử (bình luận/ảnh) render rồi cuộn tới + nháy sáng
   useEffect(() => {
