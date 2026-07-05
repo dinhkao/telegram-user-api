@@ -5,6 +5,7 @@ import { useState } from "preact/hooks";
 import { postJSON, isOffice } from "../api";
 import { fmtTime } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
+import { NopTienWizard } from "./NopTienWizard";
 
 const TASKS: [string, string][] = [
   ["ban_hd", "Bán HĐ"],
@@ -14,12 +15,21 @@ const TASKS: [string, string][] = [
   ["nhan_tien", "Nhận tiền"],
 ];
 
+// note nộp tiền (giống bot) → nhãn đẹp hiển thị
+const NOP_NOTE_LABEL: Record<string, string> = {
+  tra_tien_mat: "trả đủ · tiền mặt",
+  co_ky_toa: "nợ · có ký toa",
+  khong_ky_toa: "nợ · không ký toa",
+  chieu_lay_tien: "nợ · chiều lấy tiền",
+};
+
 type CustomTask = { id: string; label: string };
 
 export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged }: { threadId: string; taskStatus: any; customTasks?: CustomTask[]; userNames?: Record<string, string>; onChanged: () => void }) {
   const [busy, setBusy] = useState("");
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
+  const [nopOpen, setNopOpen] = useState(false);   // wizard nộp tiền
   const office = isOffice();   // chỉ văn phòng được đánh dấu/huỷ "nhận tiền"
   const nameOf = (by: any) => (by == null ? "" : (userNames && userNames[String(by)]) || String(by));
 
@@ -81,7 +91,7 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
   const meta = (st: any) => (
     <>
       {st.done && st.by && <span class="muted small"> — {nameOf(st.by)}{fmtTime(st.at) ? `, ${fmtTime(st.at)}` : ""}</span>}
-      {st.note && <span class="muted small"> ({st.note})</span>}
+      {st.note && <span class="muted small"> ({NOP_NOTE_LABEL[st.note] || st.note})</span>}
     </>
   );
 
@@ -102,6 +112,8 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
               </span>
               {locked ? null : done ? (
                 <button class="btn small" disabled={busy === type} onClick={() => clear(type)}>Huỷ</button>
+              ) : type === "nop_tien" ? (
+                <button class="btn small primary" onClick={() => setNopOpen(true)}>Xong</button>
               ) : (
                 <button class="btn small primary" disabled={busy === type} onClick={() => mark(type)}>Xong</button>
               )}
@@ -142,6 +154,7 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
           )}
         </li>
       </ul>
+      {nopOpen && <NopTienWizard threadId={threadId} onClose={() => setNopOpen(false)} onDone={onChanged} />}
     </div>
   );
 }
