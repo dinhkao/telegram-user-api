@@ -101,17 +101,6 @@ export function ProductionBoxes({
       <div class="row">
         <input
           type="text"
-          inputMode="decimal"
-          class="pb-amount"
-          value={amount}
-          disabled={!hasSp}
-          onFocus={(e) => (e.target as HTMLInputElement).select()}
-          onInput={(e) => setAmount((e.target as HTMLInputElement).value)}
-          placeholder="Số cây / thùng"
-        />
-        <span class="pb-x">×</span>
-        <input
-          type="text"
           inputMode="numeric"
           class="pb-count"
           value={count}
@@ -120,6 +109,17 @@ export function ProductionBoxes({
           onInput={(e) => setCount((e.target as HTMLInputElement).value)}
           placeholder="Số thùng"
           title="Số thùng giống nhau"
+        />
+        <span class="pb-x">thùng ×</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          class="pb-amount"
+          value={amount}
+          disabled={!hasSp}
+          onFocus={(e) => (e.target as HTMLInputElement).select()}
+          onInput={(e) => setAmount((e.target as HTMLInputElement).value)}
+          placeholder="Số cây / thùng"
         />
       </div>
       <div class="row">
