@@ -838,3 +838,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
   left: 50%; transform: translateX(-50%); width: 100%; max-width: 640px;
   pointer-events: none; z-index: 30; overflow: hidden; background: #000; }
 .wr-bg-overlay img { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+/* Chi tiết đơn — thanh điều hướng nhanh (dưới nội dung đơn) */
+.od-quicknav { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+.od-quicknav .qn { flex: 1; min-width: 96px; white-space: nowrap; }

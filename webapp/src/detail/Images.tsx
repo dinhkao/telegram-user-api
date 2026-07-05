@@ -12,7 +12,7 @@ import { confirmDialog } from "../ui/feedback";
 type Pending = { key: number; url: string };
 let _pk = 0;
 
-export function Images({ base }: { base: string }) {
+export function Images({ base, anchorId, openSignal }: { base: string; anchorId?: string; openSignal?: number }) {
   const [images, setImages] = useState<OrderImage[]>([]);
   const [pending, setPending] = useState<Pending[]>([]);
   const [err, setErr] = useState("");
@@ -34,6 +34,14 @@ export function Images({ base }: { base: string }) {
   useEffect(() => {
     load();
   }, [base]);
+
+  // Nút "Chụp ảnh" ở thanh điều hướng nhanh (OrderDetail) tăng openSignal → mở camera
+  // trong khung (nếu có HTTPS) hoặc bật hộp chọn ảnh của máy (mở được camera).
+  useEffect(() => {
+    if (!openSignal) return;
+    if (cameraSupported()) setCamOpen(true);
+    else fileInput.current?.click();
+  }, [openSignal]);
 
   // Realtime: ảnh thêm/xoá trên CÙNG thực thể (từ máy khác / Telegram) → tải lại lưới
   useEffect(() => {
@@ -105,7 +113,7 @@ export function Images({ base }: { base: string }) {
   const count = images.length + pending.length;
 
   return (
-    <div class="card">
+    <div class="card" id={anchorId}>
       <div class="row space">
         <b>Ảnh {count > 0 && <span class="muted small">({count})</span>}</b>
       </div>
