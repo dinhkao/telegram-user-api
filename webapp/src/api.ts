@@ -41,6 +41,12 @@ export function currentUser(): { username: string; display_name: string; role: s
   }
 }
 
+/** Văn phòng = role admin hoặc van_phong. Chỉ văn phòng được: nhận tiền + tạo thanh toán. */
+export function isOffice(): boolean {
+  const r = currentUser()?.role;
+  return r === "admin" || r === "van_phong";
+}
+
 function headers(): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json" };
   const t = getToken();

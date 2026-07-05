@@ -81,6 +81,9 @@ async def _payment_handler(request: web.Request, method: str):
         body = await request.json()
     except Exception:
         return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    from server_app.order_api_common import is_office_request
+    if not await is_office_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được tạo thanh toán"}, status=403)
     apply_web_actor(request, body)
     thread_id, amount, user_id = body.get("thread_id"), body.get("amount"), body.get("user_id")
     if not thread_id or not amount:
