@@ -5,6 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { orderAllocations, allocatePicks, releaseAllocations, soVN, type Allocation } from "../api";
 import { StockPickerModal } from "./StockPickerModal";
 import { confirmDialog } from "../ui/feedback";
+import { onRealtime } from "../realtime";
 
 type Line = { sp: string; sl: number | string };
 
@@ -23,6 +24,17 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
   };
   useEffect(() => {
     load();
+  }, [threadId]);
+
+  // Realtime: xuất/thu hồi thùng cho đơn này (từ máy khác) hoặc kho đổi → tải lại phần đã xuất
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => {
+      const rel = e.type === "resync" || e.type === "inventory_changed" || e.type === "box_changed" ||
+        (e.type === "order_changed" && e.thread_id === String(threadId));
+      if (rel) { clearTimeout(t); t = setTimeout(load, 250); }
+    });
+    return () => { off(); clearTimeout(t); };
   }, [threadId]);
 
   // gộp nhu cầu theo mã SP (SL cộng dồn)

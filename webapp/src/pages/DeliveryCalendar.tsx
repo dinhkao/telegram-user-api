@@ -4,6 +4,7 @@ import { useEffect, useState } from "preact/hooks";
 import { getDeliveryOrders } from "../api";
 import { CompactOrderCard } from "../detail/CompactOrderCard";
 import { Loading } from "../ui/states";
+import { onRealtime } from "../realtime";
 
 const WEEKDAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]; // tuần bắt đầu Thứ 2
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -26,6 +27,18 @@ export function DeliveryCalendar() {
       .then(({ orders }) => { if (alive) setOrders(orders); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
+  }, [monthStr]);
+
+  // Realtime: đơn đổi (đặt/đổi ngày giao, đánh dấu giao…) → tải lại tháng đang xem
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => {
+      if (e.type === "order_changed" || e.type === "orders_changed" || e.type === "resync") {
+        clearTimeout(t);
+        t = setTimeout(() => { getDeliveryOrders(monthStr).then(({ orders }) => setOrders(orders)).catch(() => {}); }, 400);
+      }
+    });
+    return () => { off(); clearTimeout(t); };
   }, [monthStr]);
 
   // Gom theo ngày (áp bộ lọc "đã giao rồi" nếu bật) — tính lại mỗi render, rẻ.

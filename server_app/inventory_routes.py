@@ -116,8 +116,9 @@ async def production_add_boxes_handler(request: web.Request):
     created, total = await asyncio.to_thread(_run)
     if created is None:
         return web.json_response({"ok": False, "error": "Chưa có sản phẩm, chưa nhập thùng được"}, status=400)
-    from server_app.realtime import emit_production_changed
+    from server_app.realtime import emit_inventory_changed, emit_production_changed
     emit_production_changed(thread_id)
+    emit_inventory_changed()
     # Log lịch sử thao tác: mỗi thùng mới → 1 event box.created (hiện ở lịch sử thùng)
     from audit_log import async_log_event
     from server_app.tasks import spawn_tracked
@@ -236,6 +237,9 @@ async def box_update_handler(request: web.Request):
     box = await asyncio.to_thread(_run)
     if not box:
         return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
+    from server_app.realtime import emit_box_changed, emit_inventory_changed
+    emit_box_changed(box_id)
+    emit_inventory_changed()
     return web.json_response({"ok": True, "box": box})
 
 
@@ -285,10 +289,12 @@ async def box_disable_handler(request: web.Request):
         return web.json_response({"ok": False, "error": err}, status=409)
     if not box:
         return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
+    from server_app.realtime import emit_box_changed, emit_inventory_changed, emit_production_changed
     src = box.get("source_thread_id")
     if src:
-        from server_app.realtime import emit_production_changed
         emit_production_changed(src)
+    emit_box_changed(box.get("id"))
+    emit_inventory_changed()
     return web.json_response({"ok": True, "box": box})
 
 
@@ -364,6 +370,14 @@ async def order_allocate_handler(request: web.Request):
         finally:
             conn.close()
     allocs, allocated = await asyncio.to_thread(_run)
+    from server_app.realtime import emit_box_changed, emit_inventory_changed, emit_order_changed
+    emit_order_changed(thread_id)   # picking của đơn đổi → chi tiết đơn + OrderStock
+    emit_inventory_changed()        # tồn kho đổi → trang Kho / thùng
+    for pk in picks:
+        try:
+            emit_box_changed(int(pk.get("box_id")))
+        except (TypeError, ValueError):
+            pass
     return web.json_response({"ok": True, "allocated": allocated, "allocations": allocs})
 
 
@@ -398,4 +412,7 @@ async def order_release_handler(request: web.Request):
         finally:
             conn.close()
     allocs, released = await asyncio.to_thread(_run)
+    from server_app.realtime import emit_inventory_changed, emit_order_changed
+    emit_order_changed(thread_id)   # picking của đơn đổi
+    emit_inventory_changed()        # tồn kho trả lại → trang Kho / thùng
     return web.json_response({"ok": True, "released": released, "allocations": allocs})

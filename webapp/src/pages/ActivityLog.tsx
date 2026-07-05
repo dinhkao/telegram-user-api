@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { getActivity } from "../api";
 import { fmtTime } from "../format";
 import { Loading } from "../ui/states";
+import { onRealtime } from "../realtime";
 
 // Cache list đã tải → quay lại giữ nguyên + hệ cuộn khôi phục vị trí (khỏi tải lại).
 let actCache: { items: any[]; before: number | null; hasMore: boolean } | null = null;
@@ -37,6 +38,13 @@ export function ActivityLog() {
     load(null);
   }, []);
   useEffect(() => () => { if (snap.current?.items?.length) actCache = { ...snap.current }; }, []);
+
+  // Realtime: bất kỳ thao tác nào (đơn/SX/thùng…) → làm mới đầu danh sách (mới nhất trước)
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime(() => { clearTimeout(t); t = setTimeout(() => { actCache = null; load(null); }, 800); });
+    return () => { off(); clearTimeout(t); };
+  }, []);
 
   return (
     <div>

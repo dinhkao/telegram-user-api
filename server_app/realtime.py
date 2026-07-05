@@ -103,3 +103,37 @@ def emit_production_changed(thread_id) -> None:
 def emit_productions_changed() -> None:
     from server_app.tasks import spawn_tracked
     spawn_tracked("realtime.productions_changed", broadcast_productions_changed())
+
+
+# ─── Khách hàng / Kho / Thùng / Bảng giá — sự kiện thô (client tự refetch) ─────
+async def _broadcast(payload: dict, what: str) -> None:
+    try:
+        await _send(payload)
+    except Exception as e:  # noqa: BLE001
+        log.warning("realtime %s failed: %s", what, e)
+
+
+def emit_customer_changed(key=None) -> None:
+    """Khách đổi (sửa bảng giá riêng / pattern / công nợ). key=firebase_key khách (hoặc None)."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.customer_changed",
+                  _broadcast({"type": "customer_changed", "key": None if key is None else str(key)}, "customer_changed"))
+
+
+def emit_inventory_changed() -> None:
+    """Kho đổi (nhập/sửa/vô hiệu thùng, xuất/thu hồi) → trang Kho refetch."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.inventory_changed", _broadcast({"type": "inventory_changed"}, "inventory_changed"))
+
+
+def emit_box_changed(box_id=None) -> None:
+    """1 thùng đổi (sửa ghi chú/số cây/NSX, vô hiệu, xuất/thu hồi, ảnh/bình luận thùng)."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.box_changed",
+                  _broadcast({"type": "box_changed", "box_id": None if box_id is None else str(box_id)}, "box_changed"))
+
+
+def emit_price_lists_changed() -> None:
+    """Bảng giá chung đổi (lưu giá) → trang bảng giá + khách refetch."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.price_lists_changed", _broadcast({"type": "price_lists_changed"}, "price_lists_changed"))

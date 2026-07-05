@@ -287,8 +287,11 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
         log.warning("Could not fetch new debt for customer %d: %s", kv_id, e)
 
     # Đẩy realtime (web + telegram đều qua đây) → dashboard/detail cập nhật ngay
-    from server_app.realtime import emit_order_changed
+    from server_app.realtime import emit_customer_changed, emit_order_changed
     emit_order_changed(thread_id)
+    kh_id_fb2 = order.get("khach_hang_id") or order.get("khID")
+    if kh_id_fb2:
+        emit_customer_changed(str(kh_id_fb2))   # công nợ khách đổi → trang Khách cập nhật
     result["success"] = True
     return result
 

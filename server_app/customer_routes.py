@@ -118,6 +118,8 @@ async def customer_update_handler(request: web.Request):
     data, ok, msg = res
     if not ok:
         return web.json_response({"ok": False, "error": msg}, status=500)
+    from server_app.realtime import emit_customer_changed
+    emit_customer_changed(key)
     return web.json_response({"ok": True, "customer": {**_summary(data, key), "note": data.get("note") or data.get("ghi_chu") or "", "price_list": data.get("price_list"), "personal_price_list": data.get("personal_price_list"), "detectPatterns": data.get("detectPatterns") or data.get("patterns") or []}})
 
 
@@ -168,4 +170,6 @@ async def customer_refresh_debt_handler(request: web.Request):
         return web.json_response({"ok": False, "error": str(e)}, status=500)
     if data is None:
         return web.json_response({"ok": False, "error": "không thấy khách hàng"}, status=404)
+    from server_app.realtime import emit_customer_changed
+    emit_customer_changed(key)
     return web.json_response({"ok": True, "customer": _summary(data, key)})

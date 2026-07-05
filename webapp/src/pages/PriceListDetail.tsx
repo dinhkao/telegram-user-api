@@ -35,7 +35,7 @@ export function PriceListDetail({ listId }: { listId: string }) {
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
-      if (e.type === "resync") {
+      if (e.type === "resync" || e.type === "price_lists_changed") {
         clearTimeout(t);
         t = setTimeout(reload, 300);
       }

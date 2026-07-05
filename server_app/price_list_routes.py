@@ -60,6 +60,8 @@ async def price_list_save_handler(request: web.Request):
     if data is None:
         return web.json_response({"ok": False, "error": "không thấy bảng giá"}, status=404)
     data["customers"] = await asyncio.to_thread(customers_using, lid)
+    from server_app.realtime import emit_price_lists_changed
+    emit_price_lists_changed()
     return web.json_response({"ok": True, "list": data})
 
 
@@ -84,6 +86,8 @@ async def price_one_save_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "không thấy bảng giá"}, status=404)
     if isinstance(res, dict) and res.get("error"):
         return web.json_response({"ok": False, "error": res["error"]}, status=400)
+    from server_app.realtime import emit_price_lists_changed
+    emit_price_lists_changed()
     return web.json_response({"ok": True, "list": res})
 
 

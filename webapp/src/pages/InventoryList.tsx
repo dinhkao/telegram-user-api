@@ -23,7 +23,7 @@ export function InventoryList() {
   useEffect(
     () =>
       onRealtime((e) => {
-        if (e.type === "resync" || e.type === "production_changed") load();
+        if (e.type === "resync" || e.type === "production_changed" || e.type === "inventory_changed" || e.type === "box_changed" || e.type === "order_changed") load();
       }),
     []
   );

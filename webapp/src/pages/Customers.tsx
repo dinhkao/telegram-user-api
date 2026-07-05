@@ -75,12 +75,28 @@ export function Customers() {
     return () => io.disconnect();
   }, []);
 
+  // Realtime: cập nhật công nợ/khách MÀ KHÔNG co danh sách về trang 1. Lấy trang 1 mới
+  // rồi VÁ tại chỗ theo key (giữ nguyên các trang đã cuộn + vị trí), chèn khách mới lên đầu.
+  const refreshMerge = async () => {
+    try {
+      const q = st.current.search;
+      const r = await getJSON(`/api/customers?search=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&page=1&sort=recent`, { cache: false });
+      const fresh: any[] = r.customers || [];
+      const byKey = new Map(fresh.map((c) => [c.key, c]));
+      setCustomers((prev) => {
+        const seen = new Set(prev.map((c) => c.key));
+        const patched = prev.map((c) => byKey.get(c.key) || c);          // cập nhật tại chỗ
+        const added = fresh.filter((c) => !seen.has(c.key));             // khách mới → lên đầu
+        return added.length ? [...added, ...patched] : patched;
+      });
+    } catch { /* im lặng */ }
+  };
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
-      if (e.type === "resync" || e.type === "order_changed" || e.type === "orders_changed") {
+      if (e.type === "resync" || e.type === "order_changed" || e.type === "orders_changed" || e.type === "customer_changed") {
         clearTimeout(t);
-        t = setTimeout(() => load(1, st.current.search, false), 300);
+        t = setTimeout(refreshMerge, 300);
       }
     });
     return () => { off(); clearTimeout(t); };

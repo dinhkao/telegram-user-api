@@ -3,7 +3,7 @@
 // Data: GET/POST/DELETE {base}/images (base vd /api/order/123 hoặc /api/media/box/5).
 import { useEffect, useRef, useState } from "preact/hooks";
 import { deleteMediaImage, listMediaImages, mediaImageUrl, postForm, type OrderImage } from "../api";
-import { onRealtime } from "../realtime";
+import { onRealtime, eventMatchesBase } from "../realtime";
 import { processImage } from "./imageProcess";
 import { PhotoViewer } from "./PhotoViewer";
 import { CameraBox, cameraSupported } from "./CameraBox";
@@ -35,19 +35,13 @@ export function Images({ base }: { base: string }) {
     load();
   }, [base]);
 
-  // Realtime: reconnect (resync) → tải lại lưới. (Thêm/xoá tự tải lại ngay.)
+  // Realtime: ảnh thêm/xoá trên CÙNG thực thể (từ máy khác / Telegram) → tải lại lưới
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
-      if (e.type === "resync") {
-        clearTimeout(t);
-        t = setTimeout(load, 300);
-      }
+      if (eventMatchesBase(base, e)) { clearTimeout(t); t = setTimeout(load, 300); }
     });
-    return () => {
-      clearTimeout(t);
-      off();
-    };
+    return () => { clearTimeout(t); off(); };
   }, [base]);
 
   const uploadOne = async (file: File): Promise<boolean> => {

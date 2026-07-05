@@ -9,9 +9,28 @@ export type RealtimeEvent =
   | { type: "orders_changed" }
   | { type: "production_changed"; thread_id: string; row: any | null }
   | { type: "productions_changed" }
+  | { type: "customer_changed"; key: string | null }
+  | { type: "inventory_changed" }
+  | { type: "box_changed"; box_id: string | null }
+  | { type: "price_lists_changed" }
   | { type: "resync" };
 
+// Các event server phát (không kèm "resync" — đó là do client tự sinh khi nối lại).
+const _SERVER_EVENTS = new Set([
+  "order_changed", "orders_changed", "production_changed", "productions_changed",
+  "customer_changed", "inventory_changed", "box_changed", "price_lists_changed",
+]);
+
 type Handler = (e: RealtimeEvent) => void;
+
+/** Event có LIÊN QUAN tới thực thể của 1 base ("/api/order/123", "/api/media/box/5"…)?
+ *  Dùng cho Comments/Images/History để chỉ tải lại khi ĐÚNG thực thể đổi. resync = luôn. */
+export function eventMatchesBase(base: string, e: RealtimeEvent): boolean {
+  if (e.type === "resync") return true;
+  if ((e.type === "order_changed" || e.type === "production_changed") && e.thread_id) return base.endsWith("/" + e.thread_id);
+  if (e.type === "box_changed" && e.box_id) return base.endsWith("/" + e.box_id);
+  return false;
+}
 
 export type RealtimeStatus = "online" | "connecting" | "offline";
 type StatusHandler = (s: RealtimeStatus) => void;
@@ -96,14 +115,7 @@ function connect() {
     } catch {
       return;
     }
-    if (
-      data &&
-      (data.type === "order_changed" ||
-        data.type === "orders_changed" ||
-        data.type === "production_changed" ||
-        data.type === "productions_changed")
-    )
-      emit(data);
+    if (data && _SERVER_EVENTS.has(data.type)) emit(data);
   };
   const self = ws;
   ws.onclose = () => {

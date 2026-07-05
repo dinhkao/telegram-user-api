@@ -1,12 +1,14 @@
 // Báo cáo sản xuất theo thợ — dán dữ liệu ; từ Google Sheet, xem trước (parse
 // phía server) rồi Lưu. Server tính tổng theo công thức (số cây 1 mâm) và ghi vào
 // slip.bang. Hiển thị báo cáo đã lưu sẵn nếu có.
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { parseProductionReport, saveProductionReport, soVN, type ProdSlip, type ProdReport } from "../api";
 
 export function ProductionReport({ threadId, slip }: { threadId: string; slip: ProdSlip }) {
   const [text, setText] = useState("");
   const [report, setReport] = useState<ProdReport | null>((slip.bang as ProdReport) || null);
+  // Đồng bộ báo cáo khi slip.bang đổi (realtime: người khác lưu báo cáo → parent reload)
+  useEffect(() => { setReport((slip.bang as ProdReport) || null); }, [slip.bang]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [open, setOpen] = useState(false);

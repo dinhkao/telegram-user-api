@@ -59,12 +59,15 @@ def _ext_for(mime: str, filename: str) -> str:
 
 
 def _emit(scope: str, entity_id: int) -> None:
-    if scope == "production":
-        try:
+    try:
+        if scope == "production":
             from server_app.realtime import emit_production_changed
             emit_production_changed(entity_id)
-        except Exception:  # noqa: BLE001
-            pass
+        elif scope == "box":
+            from server_app.realtime import emit_box_changed
+            emit_box_changed(entity_id)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # ── Bình luận ────────────────────────────────────────────────────────────────

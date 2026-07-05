@@ -85,10 +85,9 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
-      if (e.type === "resync" || e.type === "order_changed") {
-        clearTimeout(t);
-        t = setTimeout(reload, 300);
-      }
+      const rel = e.type === "resync" || e.type === "order_changed" || e.type === "price_lists_changed" ||
+        (e.type === "customer_changed" && (e.key == null || e.key === String(ckey)));
+      if (rel) { clearTimeout(t); t = setTimeout(reload, 300); }
     });
     return () => { off(); clearTimeout(t); };
   }, [ckey]);

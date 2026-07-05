@@ -65,6 +65,9 @@ async def api_task_handler_impl(body: dict):
     row = conn.execute("SELECT channel_id, message_id FROM orders WHERE thread_id = ?", (thread_id,)).fetchone()
     if row and row["channel_id"] and row["message_id"]:
         spawn_tracked("order.refresh", refresh_order_bg(conn, thread_id, row["channel_id"], row["message_id"]), {"thread_id": thread_id, "channel_id": row["channel_id"], "message_id": row["message_id"]})
+    else:   # đơn web-only (không topic) — vẫn phải phát realtime cho webapp
+        from server_app.realtime import emit_order_changed
+        emit_order_changed(thread_id)
     return web.json_response({"ok": True, "task": internal_type})
 
 
@@ -91,6 +94,9 @@ async def api_task_status_clear_handler(request: web.Request):
     row = conn.execute("SELECT channel_id, message_id FROM orders WHERE thread_id = ?", (thread_id,)).fetchone()
     if row and row["channel_id"] and row["message_id"]:
         spawn_tracked("order.refresh", refresh_order_bg(conn, thread_id, row["channel_id"], row["message_id"]), {"thread_id": thread_id, "channel_id": row["channel_id"], "message_id": row["message_id"]})
+    else:   # đơn web-only — vẫn phát realtime
+        from server_app.realtime import emit_order_changed
+        emit_order_changed(thread_id)
     if thread_id > 0:   # đơn web không có topic Telegram
         spawn_tracked("task.clear_notification", send_task_notification(thread_id, f"🧹 Đã huỷ: { {'soan_hang':'soạn hàng','ban_hd':'bán HĐ','giao_hang':'giao hàng','nop_tien':'nộp tiền','nhan_tien':'nhận tiền'}.get(task_type, task_type) }"), {"thread_id": thread_id, "task": task_type})
     return web.json_response({"ok": True, "cleared": [task_type] if task_type else []})

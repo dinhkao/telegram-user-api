@@ -51,7 +51,10 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
-      if (e.type === "resync" || e.type === "order_changed") {
+      const rel = e.type === "resync" || e.type === "inventory_changed" || e.type === "production_changed" ||
+        e.type === "order_changed" ||   // xuất/thu hồi cho đơn đổi phần còn lại
+        (e.type === "box_changed" && (e.box_id == null || e.box_id === String(boxId)));
+      if (rel) {
         clearTimeout(t);
         t = setTimeout(() => reload(false), 300);
       }

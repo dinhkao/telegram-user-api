@@ -3,7 +3,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { getJSON, mediaImageUrl } from "../api";
 import { fmtTime } from "../format";
-import { onRealtime } from "../realtime";
+import { onRealtime, eventMatchesBase } from "../realtime";
 
 // Cuộn tới ảnh trong khối Ảnh + nháy sáng (tái dùng cơ chế deep-link)
 function focusImage(id: number) {
@@ -25,14 +25,11 @@ export function History({ base }: { base: string }) {
 
   useEffect(() => { load(); }, [base]);
 
-  // Realtime: nối lại (resync) → tải lại lịch sử. (Đổi trong trang tự tải lại.)
+  // Realtime: thao tác mới trên CÙNG thực thể → tải lại lịch sử (đợi audit ghi xong)
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
-      if (e.type === "resync") {
-        clearTimeout(t);
-        t = setTimeout(load, 500);
-      }
+      if (eventMatchesBase(base, e)) { clearTimeout(t); t = setTimeout(load, 500); }
     });
     return () => { off(); clearTimeout(t); };
   }, [base]);

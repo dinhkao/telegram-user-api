@@ -458,6 +458,21 @@ export function OrdersList() {
     }
   };
 
+  // Làm mới CHỈ số đếm chip (Chưa soạn/giao/nộp/nhận) — khi vá 1 dòng tại chỗ, số đếm
+  // dễ lệch. Lấy nhẹ page=1&limit=1 (stats tính riêng, không đụng danh sách/vị trí cuộn).
+  const statsTimer = useRef<any>(null);
+  const refreshStats = () => {
+    clearTimeout(statsTimer.current);
+    statsTimer.current = setTimeout(async () => {
+      try {
+        const { search: q, filter: f } = st.current;
+        const fp = f && f !== "all" ? `&filter=${f}` : "";
+        const data = await getJSON(`/api/orders?page=1&limit=1&search=${encodeURIComponent(q)}${fp}`, { cache: false });
+        if (data.stats && Object.keys(data.stats).length) setStats(data.stats);
+      } catch { /* im lặng */ }
+    }, 400);
+  };
+
   useEffect(() => {
     // Customers page có thể gửi sẵn từ khoá qua pending_search
     const pending = localStorage.getItem("pending_search") || "";
@@ -525,6 +540,7 @@ export function OrdersList() {
         return next;
       });
       if (patched) flashOrder(tid); // nháy sáng + hiện thao tác vừa xảy ra
+      refreshStats(); // số đếm chip có thể đổi (đơn flip trạng thái) → cập nhật
     });
   }, []);
 

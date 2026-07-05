@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { getJSON, postJSON, currentUser } from "../api";
 import { fmtTime } from "../format";
 import { toast } from "../ui/feedback";
+import { onRealtime, eventMatchesBase } from "../realtime";
 
 type Item = { who: string; text: string; at: number; source: "web" | "tg"; id?: number };
 
@@ -30,6 +31,13 @@ export function Comments({ base, chatMessages = [] }: { base: string; chatMessag
   };
   useEffect(() => {
     load();
+  }, [base]);
+
+  // Realtime: bình luận/ảnh của người khác trên CÙNG thực thể → tải lại
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => { if (eventMatchesBase(base, e)) { clearTimeout(t); t = setTimeout(load, 250); } });
+    return () => { off(); clearTimeout(t); };
   }, [base]);
 
   const send = async () => {
