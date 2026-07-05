@@ -60,6 +60,8 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
     return onRealtime((e) => {
       const hit =
         e.type === "resync" ||
+        // nhập/sửa/vô hiệu/xuất thùng ở nơi khác đổi tổng SP + list thùng của phiếu này
+        e.type === "inventory_changed" || e.type === "box_changed" ||
         ((e.type === "production_changed") && e.thread_id === String(threadId));
       if (!hit) return;
       clearTimeout(reloadTimer.current);

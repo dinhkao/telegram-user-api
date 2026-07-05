@@ -35,7 +35,8 @@ export function PriceListDetail({ listId }: { listId: string }) {
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
-      if (e.type === "resync" || e.type === "price_lists_changed") {
+      // customer_changed: khách được (gỡ) gán bảng giá này → "Khách đang dùng" đổi
+      if (e.type === "resync" || e.type === "price_lists_changed" || e.type === "customer_changed") {
         clearTimeout(t);
         t = setTimeout(reload, 300);
       }

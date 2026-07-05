@@ -3,6 +3,7 @@
 // phần (mặc định full thùng). Trả picks cho OrderStock gọi allocatePicks.
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { inventoryDetail, soVN, type InvBox } from "../api";
+import { onRealtime } from "../realtime";
 import { useScrollLock } from "../useScrollLock";
 
 function fmtDate(s?: string | null): string {
@@ -30,10 +31,20 @@ export function StockPickerModal({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  useEffect(() => {
+  const load = () =>
     inventoryDetail(productCode)
       .then((d) => setBoxes(d.boxes))
       .catch((e: any) => setErr(e?.message || "Lỗi tải kho"));
+  useEffect(() => { load(); }, [productCode]);
+  // Realtime: kho/thùng đổi (nơi khác xuất/nhập/vô hiệu) → cập nhật list thùng khả dụng
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => {
+      if (e.type === "box_changed" || e.type === "inventory_changed" || e.type === "resync") {
+        clearTimeout(t); t = setTimeout(load, 300);
+      }
+    });
+    return () => { off(); clearTimeout(t); };
   }, [productCode]);
 
   const remaining = Math.max(need - got, 0);

@@ -9,6 +9,14 @@ import { onRealtime } from "../realtime";
 // Cache list đã tải → quay lại giữ nguyên + hệ cuộn khôi phục vị trí (khỏi tải lại).
 let actCache: { items: any[]; before: number | null; hasMore: boolean } | null = null;
 
+// FIX realtime khi trang ĐANG UNMOUNT: bất kỳ thao tác nào (trừ lock/draft tạm) → bỏ cache
+// để mount lại tải feed mới nhất. Khớp hành vi khi đang mở trang (vốn cũng reset về mới
+// nhất mỗi thao tác). Không có thao tác nào lúc vắng mặt → cache còn nguyên → giữ vị trí cuộn.
+onRealtime((e) => {
+  if (e.type === "report_draft" || e.type === "report_lock") return;
+  actCache = null;
+});
+
 export function ActivityLog() {
   const [items, setItems] = useState<any[]>([]);
   const [before, setBefore] = useState<number | null>(null);
