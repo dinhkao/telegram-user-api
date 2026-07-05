@@ -2,10 +2,11 @@
 // tự thêm (custom). Đánh dấu / huỷ: POST /api/order/task (queueable offline) +
 // /task_status/clear. Thêm/xoá việc tự thêm: /api/order/{id}/custom-task[/remove].
 import { useState } from "preact/hooks";
-import { postJSON, isOffice } from "../api";
+import { postJSON, isOffice, mediaImageUrl } from "../api";
 import { fmtTime } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 import { NopTienWizard } from "./NopTienWizard";
+import { SoanHangPicker } from "./SoanHangPicker";
 
 const TASKS: [string, string][] = [
   ["ban_hd", "Bán HĐ"],
@@ -30,6 +31,7 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
   const [nopOpen, setNopOpen] = useState(false);   // wizard nộp tiền
+  const [soanOpen, setSoanOpen] = useState(false); // popup chọn ảnh soạn hàng
   const office = isOffice();   // chỉ văn phòng được đánh dấu/huỷ "nhận tiền"
   const nameOf = (by: any) => (by == null ? "" : (userNames && userNames[String(by)]) || String(by));
 
@@ -88,12 +90,20 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
     }
   };
 
-  const meta = (st: any) => (
-    <>
-      {st.done && st.by && <span class="muted small"> — {nameOf(st.by)}{fmtTime(st.at) ? `, ${fmtTime(st.at)}` : ""}</span>}
-      {st.note && <span class="muted small"> ({NOP_NOTE_LABEL[st.note] || st.note})</span>}
-    </>
-  );
+  const meta = (st: any, type?: string) => {
+    const imgIds = type === "soan_hang" && typeof st.note === "string" && st.note.startsWith("imgs:")
+      ? st.note.slice(5).split(",").filter(Boolean) : null;
+    return (
+      <>
+        {st.done && st.by && <span class="muted small"> — {nameOf(st.by)}{fmtTime(st.at) ? `, ${fmtTime(st.at)}` : ""}</span>}
+        {imgIds ? (
+          <span class="task-thumbs">
+            {imgIds.map((id: string) => <img class="task-thumb" key={id} src={mediaImageUrl(`/api/order/${threadId}`, Number(id), "thumb")} loading="lazy" alt="" />)}
+          </span>
+        ) : st.note ? <span class="muted small"> ({NOP_NOTE_LABEL[st.note] || st.note})</span> : null}
+      </>
+    );
+  };
 
   return (
     <div class="card">
@@ -107,13 +117,15 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
             <li class="row space" key={type}>
               <span>
                 {done ? "✅" : "⬜"} {lbl}
-                {meta(st)}
+                {meta(st, type)}
                 {locked && <span class="muted small"> 🔒 chỉ văn phòng</span>}
               </span>
               {locked ? null : done ? (
                 <button class="btn small" disabled={busy === type} onClick={() => clear(type)}>Huỷ</button>
               ) : type === "nop_tien" ? (
                 <button class="btn small primary" onClick={() => setNopOpen(true)}>Xong</button>
+              ) : type === "soan_hang" ? (
+                <button class="btn small primary" onClick={() => setSoanOpen(true)}>Xong</button>
               ) : (
                 <button class="btn small primary" disabled={busy === type} onClick={() => mark(type)}>Xong</button>
               )}
@@ -155,6 +167,7 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
         </li>
       </ul>
       {nopOpen && <NopTienWizard threadId={threadId} onClose={() => setNopOpen(false)} onDone={onChanged} />}
+      {soanOpen && <SoanHangPicker threadId={threadId} onClose={() => setSoanOpen(false)} onDone={onChanged} />}
     </div>
   );
 }
