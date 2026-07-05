@@ -157,7 +157,8 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .invoice-table input.narrow { width: 64px; padding: 6px; }
 
 .task-list, .payment-list, .comment-list { list-style: none; margin-top: 6px; }
-.task-list li, .payment-list li { padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.payment-list li { padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.task-list li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
 .comment { padding: 6px 8px; border-radius: 8px; margin: 4px 0; background: var(--bg); }
 .comment.web { background: #e8f0fe; }
 
