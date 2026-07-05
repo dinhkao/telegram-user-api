@@ -1,7 +1,7 @@
 // Khối thanh toán — danh sách payment + nhập tiền TM/CK (KiotViet qua backend).
 // POST /api/order/payment/tm|ck — cần mạng, không queue (chạm KiotViet + nợ).
 import { useState } from "preact/hooks";
-import { currentUser, postJSON } from "../api";
+import { currentUser, isOffice, postJSON } from "../api";
 import { money, parseMoney } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 
@@ -10,6 +10,7 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const isAdmin = currentUser()?.role === "admin";
+  const office = isOffice();   // chỉ văn phòng được tạo thanh toán
 
   // Xoá 1 thanh toán — chỉ admin. Payment cũ không có id thì xoá bằng lệnh Telegram.
   const del = async (p: any) => {
@@ -65,19 +66,23 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
         <p class="muted small">Chưa có thanh toán nào.</p>
       )}
       {msg && <p class="notice" onClick={() => setMsg("")}>{msg}</p>}
-      <div class="pay-box">
-        <input inputMode="numeric" placeholder="Số tiền" value={amount} onInput={(e: any) => setAmount(e.target.value)} />
-        {suggest ? (
-          <button type="button" class="pay-suggest" title="Điền tổng tiền hàng"
-            onClick={() => setAmount(String(suggest))}>
-            Tổng tiền hàng: {money(suggest)}đ
-          </button>
-        ) : null}
-        <div class="pay-btns">
-          <button class="btn primary" disabled={busy} onClick={() => pay("tm")}>💵 TM</button>
-          <button class="btn primary" disabled={busy} onClick={() => pay("ck")}>🏦 CK</button>
+      {office ? (
+        <div class="pay-box">
+          <input inputMode="numeric" placeholder="Số tiền" value={amount} onInput={(e: any) => setAmount(e.target.value)} />
+          {suggest ? (
+            <button type="button" class="pay-suggest" title="Điền tổng tiền hàng"
+              onClick={() => setAmount(String(suggest))}>
+              Tổng tiền hàng: {money(suggest)}đ
+            </button>
+          ) : null}
+          <div class="pay-btns">
+            <button class="btn primary" disabled={busy} onClick={() => pay("tm")}>💵 TM</button>
+            <button class="btn primary" disabled={busy} onClick={() => pay("ck")}>🏦 CK</button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <p class="muted small">🔒 Chỉ văn phòng mới được tạo thanh toán.</p>
+      )}
     </div>
   );
 }

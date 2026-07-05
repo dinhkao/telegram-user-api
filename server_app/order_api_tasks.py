@@ -29,11 +29,25 @@ def _make_task_handler(task_type: str):
     return handler
 
 
+async def _deny_if_nhan_tien_not_office(request, task_type_raw):
+    """Task 'nhận tiền' chỉ văn phòng (admin/van_phong) được đánh dấu/huỷ.
+    Trả về response 403 nếu bị chặn, None nếu cho qua."""
+    internal = _TASK_ALIASES.get(task_type_raw, task_type_raw)
+    if internal == "nhan_tien":
+        from server_app.order_api_common import is_office_request
+        if not await is_office_request(request):
+            return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được đánh dấu nhận tiền"}, status=403)
+    return None
+
+
 async def api_task_handler(request: web.Request):
     try:
         body = await request.json()
     except Exception:
         return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    deny = await _deny_if_nhan_tien_not_office(request, body.get("type"))
+    if deny:
+        return deny
     apply_web_actor(request, body)
     return await api_task_handler_impl(body)
 
@@ -83,6 +97,9 @@ async def api_task_status_clear_handler(request: web.Request):
         body = await request.json()
     except Exception:
         body = {}
+    deny = await _deny_if_nhan_tien_not_office(request, (body.get("type") or "").strip())
+    if deny:
+        return deny
     apply_web_actor(request, body)
     task_type, user_id = (body.get("type") or "").strip(), body.get("user_id")
     conn = _get_connection()

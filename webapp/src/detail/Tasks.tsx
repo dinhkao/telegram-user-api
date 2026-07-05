@@ -1,7 +1,7 @@
 // Khối task đơn hàng — 5 bước (bán HĐ, soạn, giao, nộp, nhận) với nút đánh dấu /
 // huỷ. POST /api/order/task (queueable offline) + /task_status/clear.
 import { useState } from "preact/hooks";
-import { postJSON } from "../api";
+import { postJSON, isOffice } from "../api";
 import { fmtTime } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 
@@ -15,6 +15,7 @@ const TASKS: [string, string][] = [
 
 export function Tasks({ threadId, taskStatus, userNames, onChanged }: { threadId: string; taskStatus: any; userNames?: Record<string, string>; onChanged: () => void }) {
   const [busy, setBusy] = useState("");
+  const office = isOffice();   // chỉ văn phòng được đánh dấu/huỷ "nhận tiền"
   const nameOf = (by: any) => (by == null ? "" : (userNames && userNames[String(by)]) || String(by));
 
   const mark = async (type: string) => {
@@ -50,14 +51,16 @@ export function Tasks({ threadId, taskStatus, userNames, onChanged }: { threadId
         {TASKS.map(([type, label]) => {
           const st = taskStatus[type] || {};
           const done = !!st.done;
+          const locked = type === "nhan_tien" && !office;   // nhận tiền: chỉ văn phòng
           return (
             <li class="row space" key={type}>
               <span>
                 {done ? "✅" : "⬜"} {label}
                 {done && st.by && <span class="muted small"> — {nameOf(st.by)}{fmtTime(st.at) ? `, ${fmtTime(st.at)}` : ""}</span>}
                 {st.note && <span class="muted small"> ({st.note})</span>}
+                {locked && <span class="muted small"> 🔒 chỉ văn phòng</span>}
               </span>
-              {done ? (
+              {locked ? null : done ? (
                 <button class="btn small" disabled={busy === type} onClick={() => clear(type)}>Huỷ</button>
               ) : (
                 <button class="btn small primary" disabled={busy === type} onClick={() => mark(type)}>Xong</button>

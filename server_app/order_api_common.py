@@ -27,6 +27,22 @@ async def is_admin_request(request) -> bool:
     return bool(u) and u.get("role") == "admin"
 
 
+async def is_office_request(request) -> bool:
+    """True nếu user gọi thuộc nhóm 'văn phòng' (role admin hoặc van_phong).
+    Chỉ văn phòng được: hoàn thành task nhận tiền + tạo thanh toán. Dựa vào
+    request['web_user'] (từ token), KHÔNG tin body (giả mạo được)."""
+    import asyncio
+    actor = request.get("web_user")
+    if not actor:
+        return False
+    try:
+        from user_store import get_user, is_office
+        u = await asyncio.to_thread(get_user, actor)
+    except Exception:
+        return False
+    return bool(u) and is_office(u.get("role"))
+
+
 def apply_web_actor(request, body: dict, key: str = "user_id") -> None:
     """Đóng dấu user web (từ token) vào body[key] cho các endpoint mutation.
 

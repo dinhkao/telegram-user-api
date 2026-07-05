@@ -95,6 +95,32 @@ def set_disabled(username: str, disabled: bool, *, db_path: str | None = None) -
         conn.close()
 
 
+# Vai trò: admin (toàn quyền) ⊃ van_phong (văn phòng: nhận tiền + tạo thanh toán) ⊃
+# staff (nhân viên). "Văn phòng" = admin hoặc van_phong.
+ROLES = ("admin", "van_phong", "staff")
+OFFICE_ROLES = ("admin", "van_phong")
+
+
+def is_office(role: str | None) -> bool:
+    """True nếu role thuộc nhóm 'văn phòng' (admin/van_phong)."""
+    return (role or "") in OFFICE_ROLES
+
+
+def set_role(username: str, role: str, *, db_path: str | None = None) -> bool:
+    """Đổi vai trò user. role ∈ ROLES. Trả True nếu có user bị đổi."""
+    if role not in ROLES:
+        raise ValueError(f"role không hợp lệ: {role} (phải là {ROLES})")
+    conn = get_users_conn(db_path)
+    try:
+        cur = conn.execute(
+            "UPDATE web_users SET role = ? WHERE username = ?",
+            (role, (username or "").strip().lower()),
+        )
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
 def verify_login(username: str, pin: str, *, db_path: str | None = None) -> dict | None:
     """Đúng username + PIN + chưa bị khoá → dict user; sai → None."""
     conn = get_users_conn(db_path)
