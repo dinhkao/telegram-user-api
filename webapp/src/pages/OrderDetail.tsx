@@ -305,7 +305,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         {nggCombined ? <p class="muted small">Giao dự kiến: <b>{fmtNgayGiao(nggCombined)}</b> · tự lưu khi đổi</p> : <p class="muted small">Chưa đặt ngày giao.</p>}
       </div>
 
-      <Tasks threadId={threadId} taskStatus={j.task_status || {}} userNames={detail.user_names || {}} onChanged={changed} />
+      <Tasks threadId={threadId} taskStatus={j.task_status || {}} customTasks={j.custom_tasks || []} userNames={detail.user_names || {}} onChanged={changed} />
       <div id="od-invoice">
       <InvoiceEditor
         customerId={j.khach_hang_id || j.khID}

@@ -58,13 +58,15 @@ async def api_task_handler_impl(body: dict):
     if not thread_id or not task_type:
         return web.json_response({"ok": False, "error": "Missing thread_id or type"}, status=400)
     internal_type = _TASK_ALIASES.get(task_type, task_type)
-    if internal_type not in _VALID_TASK_TYPES:
-        return web.json_response({"ok": False, "error": f"Loại task không hợp lệ: {task_type}"}, status=400)
     conn = _get_connection()
     order = get_order_by_thread_id(conn, thread_id)
     if not order:
         return web.json_response({"ok": False, "error": "Order not found"}, status=404)
-    task_names = {"soan_hang": "soạn hàng", "ban_hd": "bán HĐ", "giao_hang": "giao hàng", "nop_tien": "nộp tiền", "nhan_tien": "nhận tiền"}
+    # Cho phép cả 5 bước mặc định lẫn việc tự thêm (custom_tasks của chính đơn này).
+    custom_labels = {t.get("id"): (t.get("label") or "") for t in (order.get("custom_tasks") or []) if t.get("id")}
+    if internal_type not in _VALID_TASK_TYPES and internal_type not in custom_labels:
+        return web.json_response({"ok": False, "error": f"Loại task không hợp lệ: {task_type}"}, status=400)
+    task_names = {"soan_hang": "soạn hàng", "ban_hd": "bán HĐ", "giao_hang": "giao hàng", "nop_tien": "nộp tiền", "nhan_tien": "nhận tiền", **custom_labels}
     set_task_status(conn, thread_id, internal_type, user_id, done=done, note=note)
     if internal_type == "giao_hang":
         from nop_tien_reminder import start_reminder, stop_reminder

@@ -41,6 +41,41 @@ def mark_task(order: Order, task_type: str, user_id: int | None, *, done: bool, 
     return order
 
 
+def next_custom_task_id(order: Order) -> str:
+    """Deterministic unique id for a new custom task within this order: custom_<n>."""
+    used = {t.get("id") for t in (order.data.get("custom_tasks") or [])}
+    n = 1
+    while f"custom_{n}" in used:
+        n += 1
+    return f"custom_{n}"
+
+
+def add_custom_task(order: Order, task_id: str, label: str, user_id: int | None, now_iso: str) -> Order:
+    """Append a user-defined custom task definition (id + label) to the order.
+    Its done-status lives in task_status[id] like a default step. Pure."""
+    tasks = list(order.data.get("custom_tasks") or [])
+    tasks.append({"id": task_id, "label": label, "by": user_id, "at": now_iso})
+    order.set_field("custom_tasks", tasks)
+    return order
+
+
+def remove_custom_task(order: Order, task_id: str) -> Order:
+    """Remove a custom task definition AND its status entry from the order. Pure."""
+    tasks = [t for t in (order.data.get("custom_tasks") or []) if t.get("id") != task_id]
+    if tasks:
+        order.set_field("custom_tasks", tasks)
+    else:
+        order.del_field("custom_tasks")
+    task_status = order.task_status
+    if task_id in task_status:
+        del task_status[task_id]
+        if task_status:
+            order.set_field("task_status", task_status)
+        else:
+            order.del_field("task_status")
+    return order
+
+
 def clear_task(order: Order, task_type: str) -> Order:
     """Remove task_type from the order (+ unset mirror field). Mutates and
     returns the same Order. Pure."""
