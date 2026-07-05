@@ -91,6 +91,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     forget, never blocks the refresh path); sends concurrently with a timeout and
     closes dead sockets. `/ws` is gated by token when `WEB_AUTH_ENABLED` (carries
     PII). Client: `webapp/src/realtime.ts` (reconnect + resync-on-reconnect).
+    **Realtime coverage is app-wide** — besides order/production events there are
+    `customer_changed` (khách sửa/công nợ), `inventory_changed` + `box_changed` (kho/thùng),
+    `price_lists_changed` (bảng giá), and the report-editing pair `report_lock` /
+    `report_draft` (see Production). Every mutation site emits (customer edit, price save,
+    box update/disable/allocate/release, box comments/images, web-only order tasks). Client
+    detail widgets Comments/Images/History use `eventMatchesBase(base, e)` to reload only
+    when *their* entity changed. If you add a mutation, add its `emit_*`.
   - The old **saved-messages** feed, `/api/search`, `ai_backend.py` (group AI +
     auto-reply-"yes") and the static `/` page were removed; `/` now 302s to `/app/`.
 - `utils/` — logging config and shared helpers. Imported everywhere.
@@ -211,28 +218,51 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 
 **Production (sản xuất / phiếu SX)**
 - `production_store/` — `production_slips` table (1 row per forum topic, keyed
-  `thread_id`; standalone, **no order link**). `domain.py` = pure `;`-format báo cáo
-  parser (`parse_report`/`compute_report`/`looks_like_report`, unit-tested) shared by
-  the Telegram handler AND the webapp so they never drift. `command_handlers/
-  production_commands.py` = the group bot.
+  `thread_id`; standalone, **no order link**). The worker báo cáo (bảng theo thợ) is a
+  **JSON blob in the `bang` column** of that row (whole-blob overwrite via `set_bang`).
+  `domain.py` = pure `;`-format báo cáo parser (`parse_report`/`compute_report`/
+  `looks_like_report`, unit-tested) shared by the Telegram handler AND the webapp so they
+  never drift. `command_handlers/production_commands.py` = the group bot.
+  - **`production_store/report_rows.py` — relational mirror `production_report_rows`**
+    (1 row per thợ per phiếu: worker_name, product_code, report_date + normalized
+    `report_ymd`, so_gach/so_tru/so_cay_le/so_mam/tong_calc, note; indexed). Dual-written:
+    `set_bang` also does delete+insert here so it's queryable for the dashboard (the `bang`
+    blob stays the source for current UI reads). Has `dashboard()` + `worker_detail()`
+    aggregation queries + `backfill_report_rows()`.
 - `server_app/production_routes.py` — webapp API `/api/production*` (list/detail/
   catalog/create/set-product/set-target/add-number/report parse+save/delete). Create
   opens a forum topic in `PRODUCTION_GROUP_ID`. Emits realtime `production_changed`/
-  `productions_changed` (separate id-space from orders). `production_sheets.py` =
-  best-effort Google Sheet import-row on number-add (gated; no-op without creds).
+  `productions_changed` (separate id-space from orders). **Report editing has a
+  single-editor lock** (in-memory TTL 45s, heartbeat 20s): `/report/lock|unlock|draft`
+  + events `report_lock` (who holds) / `report_draft` (live keystrokes to viewers). Save
+  is server-guarded (409 if another holds). These transient endpoints are **excluded from
+  audit** (`server_app/audit.py` `_NO_AUDIT`) so history isn't spammed. `production_sheets.py`
+  = best-effort Google Sheet push on report save (gated; no-op without creds).
+  `server_app/production_dashboard_routes.py` — `/api/production/report-dashboard` +
+  `/api/production/worker/{name}` (registered BEFORE `{thread_id}`).
   Webapp UI: `webapp/src/pages/ProductionList.tsx` + `ProductionDetail.tsx` +
-  `detail/ProductionNumbers.tsx` + `detail/ProductionReport.tsx`, nav tab 🏭 SX
-  (`#/san_xuat`). Chọn mã SP (tạo phiếu + đổi SP) dùng **`detail/ProductPicker.tsx`** —
-  dropdown tìm-theo-mã (autocomplete lọc tại chỗ, chung CSS `.ac`/`.ac-list` với
-  `CustomerPicker`).
+  `detail/ProductionReport.tsx` (báo cáo **view-only, always shown** + ✏️ Sửa button), nav
+  tab 🏭 SX (`#/san_xuat`). **Sửa báo cáo = trang riêng `pages/ProductionReportEdit.tsx`**
+  (`#/san_xuat/:id/bao-cao`): editable spreadsheet-grid table (type Tên/Gạch/Trừ/Lẻ/Ghi
+  chú, auto-computes Mâm+Tổng from `slip.sp_mam`; builds `;`-text → existing save endpoint),
+  with the lock overlay + live draft view. **Dashboard `pages/ProductionDashboard.tsx`**
+  (`#/sx-bang`, in ☰ Thêm) → tap a thợ → `pages/ProductionWorkerDetail.tsx` (`#/sx-tho/:name`,
+  per-day phiếu/SP breakdown). Chọn mã SP dùng **`detail/ProductPicker.tsx`** (autocomplete,
+  chung CSS `.ac`/`.ac-list` với `CustomerPicker`).
 
 **Web app for phones (orders management, 5-6 internal users)**
 - `webapp/` — Vite + Preact + TS mobile UI (Vietnamese). Hash router `main.tsx`, nav
   bottom **📋 Đơn · 👤 Khách · ➕ Tạo · 🏭 SX · 📦 Kho** + ⚙️ cài đặt ở top bar
   (đăng xuất). Trang: orders list/detail, tasks, payments, comments, create order,
   customers/debt, **photos (camera + gallery, 2-way Telegram sync)**, **phiếu sản
-  xuất (🏭 SX)**, **kho thùng (📦 Kho → chi tiết SP → chi tiết thùng)**. Nhớ vị trí
-  cuộn theo trang (`useScrollMemory` trong `main.tsx`). Offline cache+queue. Build
+  xuất (🏭 SX)** + **sửa báo cáo thợ (khoá 1 người + xem nháp trực tiếp)** + **dashboard SX
+  + xem theo thợ** (☰ Thêm → 📊 Dashboard sản xuất), **kho thùng (📦 Kho → chi tiết SP →
+  chi tiết thùng)**, lịch giao (`#/lich`), lịch sử thao tác toàn cục (`#/lich-su`, kèm diff
+  từng trường + sneak-peek nội dung đơn). Nhớ vị trí cuộn **trung tâm** (`useScrollMemory`
+  trong `main.tsx`: back→khôi phục, forward→top; trang lazy-load cache list ở module scope
+  để về đúng vị trí tức thì, khỏi refetch). **Camera cần HTTPS** (WebView phải load URL
+  `https://…/app` qua tailscale serve :443 — nếu load `http://…:8090` thì nút Mở camera ẩn;
+  push-update.sh default URL = HTTPS). Offline cache+queue. Build
   `cd webapp && npm run build` →
   served at `/app` (`server_app/webapp_routes.py`). Image UI: `webapp/src/detail/
   Images.tsx` (+ `imageProcess.ts` client-side WebP resize/thumbnail).
