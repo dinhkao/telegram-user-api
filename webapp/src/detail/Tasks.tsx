@@ -90,17 +90,24 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
     }
   };
 
+  const thumb = (id: string) => <img class="task-thumb" key={id} src={mediaImageUrl(`/api/order/${threadId}`, Number(id), "thumb")} loading="lazy" alt="" />;
   const meta = (st: any, type?: string) => {
-    const imgIds = type === "soan_hang" && typeof st.note === "string" && st.note.startsWith("imgs:")
-      ? st.note.slice(5).split(",").filter(Boolean) : null;
+    const note: string = typeof st.note === "string" ? st.note : "";
+    // soạn hàng: 'imgs:1,2' — chọn từ pool. nộp tiền: '<code>;img:5' — chụp mới.
+    const soanIds = type === "soan_hang" && note.startsWith("imgs:") ? note.slice(5).split(",").filter(Boolean) : null;
+    let nopCode: string | null = null, nopImg: string | null = null;
+    if (type === "nop_tien" && note) { const [c, rest] = note.split(";img:"); nopCode = c; nopImg = rest || null; }
     return (
       <>
         {st.done && st.by && <span class="muted small"> — {nameOf(st.by)}{fmtTime(st.at) ? `, ${fmtTime(st.at)}` : ""}</span>}
-        {imgIds ? (
-          <span class="task-thumbs">
-            {imgIds.map((id: string) => <img class="task-thumb" key={id} src={mediaImageUrl(`/api/order/${threadId}`, Number(id), "thumb")} loading="lazy" alt="" />)}
-          </span>
-        ) : st.note ? <span class="muted small"> ({NOP_NOTE_LABEL[st.note] || st.note})</span> : null}
+        {soanIds ? (
+          <span class="task-thumbs">{soanIds.map((id: string) => thumb(id))}</span>
+        ) : nopCode ? (
+          <>
+            <span class="muted small"> ({NOP_NOTE_LABEL[nopCode] || nopCode})</span>
+            {nopImg && <span class="task-thumbs">{thumb(nopImg)}</span>}
+          </>
+        ) : note ? <span class="muted small"> ({NOP_NOTE_LABEL[note] || note})</span> : null}
       </>
     );
   };

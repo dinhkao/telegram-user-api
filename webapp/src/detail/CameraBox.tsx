@@ -35,7 +35,7 @@ export function CameraBox({
 }: {
   base: string;
   onClose: () => void;
-  onUploaded: () => void;
+  onUploaded: (image?: any) => void;   // truyền ảnh vừa upload (id…) cho caller cần
 }) {
   const [busy, setBusy] = useState(false);
   const [shots, setShots] = useState(0);
@@ -100,9 +100,9 @@ export function CameraBox({
       fd.append("thumb", p.thumb, `thumb${p.ext}`);
       fd.append("width", String(p.width));
       fd.append("height", String(p.height));
-      await postForm(`${base}/images`, fd);
+      const res = await postForm(`${base}/images`, fd);
       setShots((n) => n + 1);
-      onUploaded();
+      onUploaded(res?.image);
     } catch (ex: any) {
       setErr(ex?.message || "Chụp lỗi");
     } finally {

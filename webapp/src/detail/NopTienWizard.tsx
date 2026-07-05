@@ -23,11 +23,13 @@ export function NopTienWizard({ threadId, onClose, onDone }: { threadId: string;
     onClose();
   };
 
-  // Camera đã upload 1 ảnh (vào /api/order/{id}/images → tự sang topic) → ghi task 1 lần
-  const onPhotoUploaded = async () => {
+  // Camera đã upload 1 ảnh (vào /api/order/{id}/images → tự sang topic) → ghi task 1 lần.
+  // note = '<code>;img:<id>' để dashboard biết ảnh nào là ảnh nộp tiền.
+  const onPhotoUploaded = async (image?: any) => {
     if (marked.current || !branch) return;
     marked.current = true;
-    try { await markTask(branch.note, branch.done); toast(`✅ ${branch.label}`, "ok"); }
+    const note = image?.id ? `${branch.note};img:${image.id}` : branch.note;
+    try { await markTask(note, branch.done); toast(`✅ ${branch.label}`, "ok"); }
     catch (e: any) { marked.current = false; toast(e?.message || "Lỗi ghi nộp tiền", "err"); }
   };
 
@@ -53,8 +55,9 @@ export function NopTienWizard({ threadId, onClose, onDone }: { threadId: string;
       fd.append("thumb", p.thumb, `thumb${p.ext}`);
       fd.append("width", String(p.width));
       fd.append("height", String(p.height));
-      await postForm(`/api/order/${threadId}/images`, fd);   // → tự forward sang topic
-      await markTask(branch.note, branch.done);
+      const res = await postForm(`/api/order/${threadId}/images`, fd);   // → tự forward sang topic
+      const note = res?.image?.id ? `${branch.note};img:${res.image.id}` : branch.note;
+      await markTask(note, branch.done);
       toast(`✅ ${branch.label}`, "ok");
     } catch (ex: any) {
       toast(ex?.message || "Lỗi tải ảnh / ghi nộp tiền", "err");

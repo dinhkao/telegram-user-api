@@ -37,6 +37,15 @@ def _build_order_row(r) -> dict:
         task_icons = ""
     nop_t = ts.get("nop_tien", {}) or {}
     nop_note = nop_t.get("note") or ""
+    # Ảnh gắn với công đoạn: soạn hàng chọn từ pool (note 'imgs:1,2'); nộp tiền chụp
+    # mới (note '<code>;img:5'). Tách ra để dashboard ưu tiên thumb soạn→nộp.
+    soan_note = (ts.get("soan_hang", {}) or {}).get("note") or ""
+    soan_img_ids = [int(x) for x in soan_note[5:].split(",") if x.strip().isdigit()] if soan_note.startswith("imgs:") else []
+    nop_img_id = None
+    if ";img:" in nop_note:
+        nop_note, _tail = nop_note.split(";img:", 1)     # nop_note = code sạch để hiển thị
+        if _tail.strip().isdigit():
+            nop_img_id = int(_tail.strip())
     # Tên người giao / người nộp (cho nhãn trạng thái workflow)
     try:
         from bot_core.config import USER_NAMES
@@ -47,7 +56,7 @@ def _build_order_row(r) -> dict:
         giao_by = nop_by = ""
     inv = j.get("invoice") or []
     invoice_items = [{"sp": it.get("sp", "?"), "sl": it.get("sl", it.get("quantity", it.get("sl1pc", 0)) or 0), "price": int(it.get("price", 0) or 0)} for it in inv]
-    return {"key": r["firebase_key"], "thread_id": r["thread_id"], "channel_id": r["channel_id"], "message_id": r["message_id"], "customer": customer, "total": total, "paid": paid, "remaining": max(0, raw_total - paid), "phone": pc.get("sdt", ""), "date": date, "status": j.get("trang_thai", ""), "soan": j.get("soan", False), "giao": j.get("giao", False), "nop": j.get("nop", False), "nhan": j.get("nhan", False), "nhan_tien_note": (ts.get("nhan_tien", {}) or {}).get("note", ""), "done_after_20250124": j.get("done_after_20250124", False), "updated_at": r["updated_at"], "hd_code": hd_code, "creator": creator, "giao_by": giao_by, "nop_by": nop_by, "nop_note": nop_note, "task_icons": task_icons, "text": (j.get("text") or j.get("text_raw") or ""), "created": j.get("created"), "topic_name": j.get("topic_name", ""), "invoice_count": len(inv), "invoice_summary": [{"sp": it["sp"], "sl": it["sl"]} for it in invoice_items[:5]], "invoice_items": invoice_items, "vat": int(j.get("vat", 0) or 0), "pvc": int(j.get("pvc", 0) or 0), "discount": int(j.get("discount", 0) or 0), "no_truoc": pc.get("no_truoc", ""), "kh_debt": (j.get("khDebt") if j.get("khDebt") is not None else j.get("invoice_debt_snapshot")), "tongtienhang": pc.get("tongtienhang", ""), "ngay_giao": j.get("ngay_giao") or "", "giao_done": bool((ts.get("giao_hang") or {}).get("done"))}
+    return {"key": r["firebase_key"], "thread_id": r["thread_id"], "channel_id": r["channel_id"], "message_id": r["message_id"], "customer": customer, "total": total, "paid": paid, "remaining": max(0, raw_total - paid), "phone": pc.get("sdt", ""), "date": date, "status": j.get("trang_thai", ""), "soan": j.get("soan", False), "giao": j.get("giao", False), "nop": j.get("nop", False), "nhan": j.get("nhan", False), "nhan_tien_note": (ts.get("nhan_tien", {}) or {}).get("note", ""), "done_after_20250124": j.get("done_after_20250124", False), "updated_at": r["updated_at"], "hd_code": hd_code, "creator": creator, "giao_by": giao_by, "nop_by": nop_by, "nop_note": nop_note, "task_icons": task_icons, "text": (j.get("text") or j.get("text_raw") or ""), "created": j.get("created"), "topic_name": j.get("topic_name", ""), "invoice_count": len(inv), "invoice_summary": [{"sp": it["sp"], "sl": it["sl"]} for it in invoice_items[:5]], "invoice_items": invoice_items, "vat": int(j.get("vat", 0) or 0), "pvc": int(j.get("pvc", 0) or 0), "discount": int(j.get("discount", 0) or 0), "no_truoc": pc.get("no_truoc", ""), "kh_debt": (j.get("khDebt") if j.get("khDebt") is not None else j.get("invoice_debt_snapshot")), "tongtienhang": pc.get("tongtienhang", ""), "ngay_giao": j.get("ngay_giao") or "", "giao_done": bool((ts.get("giao_hang") or {}).get("done")), "soan_img_ids": soan_img_ids, "nop_img_id": nop_img_id}
 
 
 def _attach_thumbs(conn, orders: list[dict]) -> None:
@@ -70,8 +79,18 @@ def _attach_thumbs(conn, orders: list[dict]) -> None:
             m = {}
     for o in orders:
         lst = m.get(o.get("thread_id"), [])
-        o["thumb_image_id"] = lst[0] if lst else None
-        o["thumb_image_ids"] = lst[:2]
+        present = set(lst)
+        # Ưu tiên thumb: ảnh soạn hàng trước → ảnh nộp tiền → còn lại (mới nhất).
+        pref: list[int] = []
+        for iid in (o.get("soan_img_ids") or []):
+            if iid in present and iid not in pref:
+                pref.append(iid)
+        nid = o.get("nop_img_id")
+        if nid and nid in present and nid not in pref:
+            pref.append(nid)
+        ordered = pref + [i for i in lst if i not in pref]
+        o["thumb_image_id"] = ordered[0] if ordered else None
+        o["thumb_image_ids"] = ordered[:2]
         o["image_count"] = len(lst)
 
 
