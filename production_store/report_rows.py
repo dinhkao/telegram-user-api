@@ -95,6 +95,40 @@ def replace_report_rows(conn, thread_id, bang) -> int:
     return n
 
 
+def dashboard(conn, dfrom: str | None = None, dto: str | None = None) -> dict:
+    """Tổng hợp cho dashboard: tổng, theo thợ, theo ngày, theo SP. Lọc theo report_ymd
+    (YYYY-MM-DD) nếu có dfrom/dto. Chỉ tính dòng có sản lượng (tong_calc > 0)."""
+    ensure_report_rows_schema(conn)
+    where = "WHERE tong_calc > 0"
+    args: list = []
+    if dfrom:
+        where += " AND report_ymd >= ?"
+        args.append(dfrom)
+    if dto:
+        where += " AND report_ymd <= ?"
+        args.append(dto)
+    T = "production_report_rows"
+    tot = conn.execute(
+        f"SELECT COALESCE(SUM(tong_calc),0), COUNT(DISTINCT thread_id), COUNT(DISTINCT worker_name) FROM {T} {where}",
+        args).fetchone()
+    by_worker = conn.execute(
+        f"SELECT worker_name, ROUND(SUM(tong_calc),1), COUNT(DISTINCT thread_id), ROUND(SUM(so_mam),1) "
+        f"FROM {T} {where} GROUP BY worker_name ORDER BY SUM(tong_calc) DESC", args).fetchall()
+    by_day = conn.execute(
+        f"SELECT report_ymd, ROUND(SUM(tong_calc),1), COUNT(DISTINCT thread_id) "
+        f"FROM {T} {where} AND report_ymd IS NOT NULL GROUP BY report_ymd ORDER BY report_ymd DESC LIMIT 60",
+        args).fetchall()
+    by_product = conn.execute(
+        f"SELECT product_code, ROUND(SUM(tong_calc),1), COUNT(DISTINCT thread_id) "
+        f"FROM {T} {where} GROUP BY product_code ORDER BY SUM(tong_calc) DESC", args).fetchall()
+    return {
+        "totals": {"tong": tot[0] or 0, "phieu": tot[1] or 0, "tho": tot[2] or 0},
+        "by_worker": [{"name": r[0], "tong": r[1] or 0, "phieu": r[2], "mam": r[3] or 0} for r in by_worker],
+        "by_day": [{"ymd": r[0], "tong": r[1] or 0, "phieu": r[2]} for r in by_day],
+        "by_product": [{"code": r[0] or "?", "tong": r[1] or 0, "phieu": r[2]} for r in by_product],
+    }
+
+
 def backfill_report_rows(conn) -> int:
     """Nạp lại toàn bộ từ blob `bang` hiện có (chạy 1 lần khi thêm bảng). Trả số phiếu."""
     ensure_report_rows_schema(conn)

@@ -140,6 +140,8 @@ def create_app():
     r.add_get("/api/production/catalog", production_catalog_handler)
     r.add_get("/api/production", production_list_handler)
     r.add_post("/api/production", production_create_handler)
+    from server_app.production_dashboard_routes import production_report_dashboard_handler
+    r.add_get("/api/production/report-dashboard", production_report_dashboard_handler)  # TRƯỚC {thread_id}
     r.add_get("/api/production/{thread_id}", production_detail_handler)
     r.add_delete("/api/production/{thread_id}", production_delete_handler)
     r.add_post("/api/production/{thread_id}/product", production_set_product_handler)
