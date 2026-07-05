@@ -819,8 +819,16 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* Sửa báo cáo SX — ảnh nền để dò (phủ lên bảng, chỉnh độ mờ) */
 .wr-bg-ctrl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 8px; }
 .wr-bg-lbl { font-size: .82rem; font-weight: 600; color: var(--muted); }
-.wr-bg-slider { flex: 1; min-width: 120px; accent-color: var(--primary); }
-.wr-bg-pct { min-width: 34px; text-align: right; }
+/* Nút tròn GIỮ-để-xem ảnh: cố định giữa màn hình, ngay trên bottom-nav */
+.wr-peek-btn { position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px)); z-index: 40;
+  width: 60px; height: 60px; border-radius: 50%; border: none;
+  background: var(--primary); color: #fff; font-size: 1.7rem; line-height: 1;
+  box-shadow: 0 6px 20px rgba(0,0,0,.28); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent; transition: transform .1s, background .1s; }
+.wr-peek-btn.on { background: var(--ok); transform: translateX(-50%) scale(1.12); }
 .wr-scroll.has-bg { position: relative; }
 /* Ảnh phủ KÍN bảng, kéo giãn cả 2 chiều (fill). Div dùng inset top/left/right +
    bottom (inline = cao dòng TỔNG CỘNG) nên hộp giãn tới đúng vùng; img fill hộp →
