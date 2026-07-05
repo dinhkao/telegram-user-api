@@ -807,3 +807,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .quy-note { font-size: .9rem; color: var(--ink); margin-top: 2px; word-break: break-word; }
 .quy-del { border: none; background: none; font-size: 1rem; cursor: pointer; padding: 4px; border-radius: 8px; opacity: .6; }
 .quy-del:active { background: var(--bg); opacity: 1; }
+
+/* Sổ quỹ — lọc kỳ */
+.quy-sum-period-lbl { text-align: center; font-size: .78rem; color: var(--muted); margin: 6px 0 6px; }
+.quy-sum-cell.net { background: var(--accent-wash); } .quy-sum-cell.net b { color: var(--primary); }
+.quy-periods { display: flex; gap: 6px; margin-bottom: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.quy-periods .qf { flex: 0 0 auto; }
+.quy-custom { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.quy-date { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; font-size: .9rem; min-width: 0; }

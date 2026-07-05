@@ -41,6 +41,13 @@ def _actor(request) -> str:
     return request.get("web_user") or request.remote or ""
 
 
+def _clean_date(v):
+    """Chỉ nhận 'YYYY-MM-DD' (khớp cột date); còn lại -> None (bỏ lọc)."""
+    import re
+    s = (v or "").strip()
+    return s if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s) else None
+
+
 def _emit():
     from server_app.realtime import emit_quy_changed
     emit_quy_changed()
@@ -60,22 +67,28 @@ async def quy_list_handler(request: web.Request):
     if type_filter not in ("thu", "chi"):
         type_filter = None
     q = (request.query.get("q") or "").strip() or None
+    from_date = _clean_date(request.query.get("from"))
+    to_date = _clean_date(request.query.get("to"))
     offset = (page - 1) * limit
 
     def _run():
         conn = _conn()
         try:
-            total = count_receipts(conn, type_filter=type_filter, q=q)
-            rows = list_receipts(conn, limit=limit, offset=offset, type_filter=type_filter, q=q)
-            summ = summary(conn)
+            total = count_receipts(conn, type_filter=type_filter, q=q, from_date=from_date, to_date=to_date)
+            rows = list_receipts(conn, limit=limit, offset=offset, type_filter=type_filter,
+                                 q=q, from_date=from_date, to_date=to_date)
+            summ = summary(conn)  # số dư quỹ THẬT (toàn sổ)
+            period = summary(conn, from_date=from_date, to_date=to_date) if (from_date or to_date) else summ
         finally:
             conn.close()
-        return rows, total, summ
+        return rows, total, summ, period
 
-    rows, total, summ = await asyncio.to_thread(_run)
+    rows, total, summ, period = await asyncio.to_thread(_run)
     return web.json_response({
         "ok": True, "receipts": rows, "total": total, "page": page, "limit": limit,
-        "total_pages": max(1, (total + limit - 1) // limit), "summary": summ,
+        "total_pages": max(1, (total + limit - 1) // limit),
+        "summary": summ, "period": period,
+        "from": from_date, "to": to_date,
     })
 
 
