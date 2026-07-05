@@ -545,6 +545,22 @@ body.pv-open { overflow: hidden; }
 
 .prod-report-table tr.prod-row-off td { color: var(--muted); }
 
+/* Bảng nhập báo cáo thợ trực tiếp */
+.wr-edit td, .wr-edit th { padding: 3px; }
+.wr-in { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 6px; font-size: .85rem; background: var(--bg); color: inherit; text-align: center; }
+.wr-in:focus { outline: none; border-color: var(--primary); }
+.wr-name { min-width: 62px; text-align: left; }
+.wr-note { min-width: 66px; text-align: left; }
+.wr-num { width: 46px; }
+.wr-calc { text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
+.wr-calc.strong { color: inherit; }
+.wr-del { padding: 3px 8px; color: var(--danger); border-color: var(--border); }
+.wr-meta { width: 82px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px;
+  padding: 3px 5px; font-size: .8rem; background: var(--bg); color: inherit; }
+.wr-time { width: 56px; }
+.prod-report-meta label { display: inline-flex; align-items: center; gap: 3px; }
+
 /* số lượng nhận — danh sách có thời gian + người + ghi chú */
 .prod-numbers { flex-direction: column; align-items: stretch; }
 .prod-num-row { display: flex; align-items: baseline; gap: 10px; background: #f7f7f7; }
