@@ -545,21 +545,41 @@ body.pv-open { overflow: hidden; }
 
 .prod-report-table tr.prod-row-off td { color: var(--muted); }
 
-/* Bảng nhập báo cáo thợ trực tiếp */
-.wr-edit td, .wr-edit th { padding: 3px; }
-.wr-in { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px;
-  padding: 6px 6px; font-size: .85rem; background: var(--bg); color: inherit; text-align: center; }
-.wr-in:focus { outline: none; border-color: var(--primary); }
-.wr-name { min-width: 62px; text-align: left; }
-.wr-note { min-width: 66px; text-align: left; }
-.wr-num { width: 46px; }
-.wr-calc { text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
-.wr-calc.strong { color: inherit; }
-.wr-del { padding: 3px 8px; color: var(--danger); border-color: var(--border); }
-.wr-meta { width: 82px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px;
-  padding: 3px 5px; font-size: .8rem; background: var(--bg); color: inherit; }
-.wr-time { width: 56px; }
-.prod-report-meta label { display: inline-flex; align-items: center; gap: 3px; }
+/* Bảng nhập báo cáo thợ — sạch, giống spreadsheet */
+.wr-edit { border-collapse: separate; border-spacing: 0; width: 100%; }
+.wr-edit th, .wr-edit td { border: none; }
+.wr-edit thead th { position: sticky; top: 0; z-index: 1; background: var(--card);
+  font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+  color: var(--muted); padding: 7px 4px; text-align: center; border-bottom: 1.5px solid var(--border); }
+.wr-edit thead th:first-child { text-align: left; padding-left: 8px; }
+.wr-edit tbody td { padding: 1px 2px; vertical-align: middle; border-bottom: 1px solid var(--border); }
+.wr-edit tbody tr:nth-child(even) td { background: rgba(0, 0, 0, .015); }
+.wr-in { width: 100%; box-sizing: border-box; border: 1px solid transparent; border-radius: 7px;
+  padding: 8px 6px; font-size: .9rem; background: transparent; color: var(--ink); text-align: center;
+  transition: background .12s, border-color .12s, box-shadow .12s; }
+.wr-in::placeholder { color: var(--muted); opacity: .55; font-weight: 400; }
+.wr-in:hover { background: var(--accent-wash); }
+.wr-in:focus { outline: none; border-color: var(--primary); background: var(--bg);
+  box-shadow: 0 0 0 3px var(--accent-wash); }
+.wr-name { min-width: 64px; text-align: left; font-weight: 600; }
+.wr-note { min-width: 62px; text-align: left; color: var(--muted); }
+.wr-num { width: 48px; font-variant-numeric: tabular-nums; }
+.wr-calc { text-align: center; color: var(--muted); font-variant-numeric: tabular-nums;
+  font-size: .88rem; padding: 0 4px; }
+.wr-calc.strong { color: var(--ink); font-weight: 700; }
+.wr-edit tfoot td { border: none; border-top: 2px solid var(--border); background: transparent;
+  padding: 9px 6px; font-weight: 700; font-size: .8rem; letter-spacing: .02em; }
+.wr-edit tfoot td:first-child { text-align: right; color: var(--muted); }
+.wr-edit tfoot td.strong { color: var(--primary); font-size: .95rem; text-align: center; }
+.wr-del { padding: 5px 8px; color: var(--muted); background: transparent; border: none;
+  font-size: .9rem; line-height: 1; }
+.wr-del:hover { color: var(--danger); background: var(--danger-wash); }
+.prod-row-off .wr-in, .prod-row-off .wr-calc { opacity: .5; }
+.wr-meta { width: 90px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 8px; font-size: .82rem; background: var(--bg); color: var(--ink); }
+.wr-time { width: 62px; text-align: center; }
+.prod-report-meta { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 4px 0 12px; }
+.prod-report-meta label { display: inline-flex; align-items: center; gap: 4px; }
 
 /* số lượng nhận — danh sách có thời gian + người + ghi chú */
 .prod-numbers { flex-direction: column; align-items: stretch; }
