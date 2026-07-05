@@ -589,12 +589,12 @@ body.pv-open { overflow: hidden; }
   .wr-editcard { padding-left: 10px; padding-right: 10px; }
   .wr-edit thead th { font-size: .58rem; padding: 6px 1px; letter-spacing: 0; }
   .wr-edit tbody td { padding: 1px 1px; }
-  .wr-in { padding: 6px 3px; font-size: .8rem; border-radius: 5px; }
-  .wr-name { min-width: 84px; font-size: .78rem; padding-left: 5px; padding-right: 2px; }
-  .wr-note { min-width: 40px; }
-  .wr-num { width: 30px; }
-  .wr-calc { font-size: .74rem; padding: 0 1px; }
-  .wr-del { padding: 4px 2px; font-size: .76rem; }
+  .wr-in { padding: 6px 2px; font-size: .8rem; border-radius: 5px; }
+  .wr-name { min-width: 108px; font-size: .76rem; padding-left: 5px; padding-right: 2px; }
+  .wr-note { min-width: 34px; }
+  .wr-num { width: 26px; }
+  .wr-calc { font-size: .72rem; padding: 0 1px; }
+  .wr-del { padding: 4px 1px; font-size: .74rem; }
   .wr-edit tfoot td { padding: 8px 3px; font-size: .74rem; }
 }
 
