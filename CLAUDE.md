@@ -45,11 +45,18 @@ system; for Python work you usually only need `server.py`.
 
 ---
 
-## 3. Architecture — ONE process, ONE user client, three roles
+## 3. Architecture — ONE process, TWO Telethon clients, three roles
 
-`bootstrap.main()` creates a **single** Telethon `TelegramClient` (the user account)
-and mounts three formerly-separate apps onto it. There is no longer a separate
-`bot-don-hang` process — it was merged in. Do not assume multiple processes.
+`bootstrap.main()` runs everything in a **single process** and creates a Telethon
+`TelegramClient` for the **user account** that hosts the web server, command
+handlers, and #don_hang indexer. There is no longer a separate `bot-don-hang`
+process — it was merged in — but it still uses its **own second client**: the merged
+bot role (`bot_bootstrap.start_bot`) starts a **distinct `TelegramClient("bot_session")`
+with `BOT_TOKEN`** (a real bot account). So: one process, **two clients**. The bot
+can't post as the user or attach inline keyboards to user-account messages, so its
+order-topic sends go through the user client's REST (`/api/tg/send-file`) and
+production inline buttons go via the bot client (`get_bot_client`). Do not assume the
+bot role shares the user client.
 
 ```
 server.py → server_app.bootstrap.main()
@@ -343,6 +350,11 @@ runners.
   atomic — otherwise concurrent writers lose updates. `set_task_status` /
   `clear_task_status` already do; new mutation sites should too. See
   `docs/senior-review.md` for the phased plan to replace the blob with a typed model.
+  ⚠ **Known offenders that skip `transaction()`** (fix if you touch them): several
+  `order_commands_v3.py` handlers (`on_comma_invoice`, `vat`/`pvc`, `fix`, `bo no`,
+  `detect invoice`), `mirror_channel.sync_order_to_mirror`, and the bot flow
+  `bot_flows/invoice_create._save_order_field` (raw SQL, no transaction) — all do
+  bare RMW on the blob and can clobber concurrent writes.
 - **Layering pattern (copy this).** New/changed order logic goes in 3 layers:
   **store** (`order_store/tasks.py`, `payment_store/…`) = transaction + IO only →
   **domain** (`order_store/domain.py`, `payment_store/domain.py`) = pure rules, no
