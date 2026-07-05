@@ -919,3 +919,5 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .wl-name { flex: 1; min-width: 0; font-weight: 600; }
 .wr-tho-link { color: var(--primary); text-decoration: none; font-weight: 600; }
 .wr-tho-link:active { opacity: .6; }
+.wl-link { text-decoration: none; color: var(--ink); display: flex; align-items: center; justify-content: space-between; }
+.wl-arrow { color: var(--muted); font-size: 1.1rem; }

@@ -94,7 +94,9 @@ export function WorkerList() {
                   title={w.is_default ? "Bỏ khỏi mẫu mặc định" : "Thêm vào mẫu mặc định"}
                   onClick={() => toggleDef(w)}
                 >{w.is_default ? "⭐" : "☆"}</button>
-                <span class="wl-name">{w.name}</span>
+                <a class="wl-name wl-link" href={`#/sx-tho/${encodeURIComponent(w.name)}`}>
+                  {w.name} <span class="wl-arrow">›</span>
+                </a>
                 <button class="btn small" title="Xoá thợ" onClick={() => remove(w)}>🗑</button>
               </li>
             ))}
