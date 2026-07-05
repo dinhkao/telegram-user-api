@@ -937,3 +937,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .nt-photo-hint { font-size: .95rem; margin: 2px 0 4px; }
 .nt-back { align-self: flex-start; }
 .nt-cancel { margin-top: 2px; }
+/* Camera trong popup nộp tiền: giới hạn chiều cao để nút chụp (cam-bar) luôn thấy */
+.nt-sheet { overflow-y: auto; }
+.nt-sheet .cambox { margin-top: 0; }
+.nt-sheet .cam-view { aspect-ratio: auto; height: 46vh; }
