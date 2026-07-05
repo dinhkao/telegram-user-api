@@ -528,6 +528,21 @@ export function OrdersList() {
     return () => io.disconnect();
   }, []);
 
+  // Tự LẤP ĐẦY: nếu trang chưa đủ cao (sentinel còn trong tầm) mà còn trang → tải tiếp.
+  // IntersectionObserver chỉ bắn khi ĐỔI trạng thái; view siêu gọn ngắn nên sentinel hiện
+  // sẵn từ đầu → observer bắn 1 lần lúc totalPages chưa kịp cập nhật rồi thôi. Effect này
+  // chạy lại mỗi khi orders/totalPages/view/loading đổi để nạp tới khi kín màn hình.
+  useEffect(() => {
+    const { page: p, totalPages: tp, loading: ld, search: q, filter: f } = st.current;
+    if (ld || p >= tp) return;
+    const el = sentinel.current;
+    if (el && el.getBoundingClientRect().top < window.innerHeight + 300) {
+      const next = p + 1;
+      setPage(next);
+      load(next, q, f, true);
+    }
+  }, [orders, totalPages, view, loading]);
+
   const onSearch = (q: string) => {
     setSearch(q);
     setPage(1);
