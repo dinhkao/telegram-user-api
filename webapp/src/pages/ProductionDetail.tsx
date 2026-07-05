@@ -127,7 +127,8 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   const boxed = slip.total || 0;                          // tổng nhập thùng
   const reported = Number(slip.bang?.grand_total || 0);   // tổng báo cáo theo thợ
   const diff = Math.round((boxed - reported) * 100) / 100;
-  const match = diff === 0;
+  const pctOff = reported > 0 ? Math.abs(diff) / reported * 100 : (diff === 0 ? 0 : 100);
+  const match = pctOff <= 0.5;                             // cho phép lệch ≤ 0.5%
   const hasReport = reported > 0 || (slip.bang?.rows?.length || 0) > 0;
 
   return (
@@ -154,7 +155,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
           <div class="pc-val">{soVN(reported)}</div>
         </div>
         <div class="pc-verdict">
-          {!hasReport ? "— chưa báo cáo" : match ? "✅ Khớp" : `⚠️ Lệch ${soVN(Math.abs(diff))}`}
+          {!hasReport ? "— chưa báo cáo" : match ? "✅ Khớp" : `⚠️ Lệch ${soVN(Math.abs(diff))} (${pctOff.toFixed(1)}%)`}
         </div>
       </div>
 
