@@ -7,6 +7,10 @@ import { Loading, EmptyState } from "../ui/states";
 
 const PAGE_SIZE = 30;
 
+// Cache toàn bộ list đã tải (module scope) → quay lại giữ nguyên list + vị trí cuộn
+// (hệ cuộn trung tâm main.tsx khôi phục ngay, khỏi refetch/nhảy trang).
+let custCache: { customers: any[]; page: number; totalPages: number; search: string } | null = null;
+
 export function Customers() {
   const [search, setSearch] = useState("");
   const [customers, setCustomers] = useState<any[]>([]);
@@ -18,6 +22,8 @@ export function Customers() {
   const sentinel = useRef<HTMLDivElement>(null);
   const st = useRef({ page: 1, totalPages: 1, loading: false, search: "" });
   st.current = { page, totalPages, loading, search };
+  const snap = useRef<any>(null);
+  snap.current = { customers, page, totalPages, search };
 
   const load = async (p: number, q: string, append: boolean) => {
     const seq = ++reqSeq.current;
@@ -39,8 +45,17 @@ export function Customers() {
   };
 
   useEffect(() => {
+    if (custCache) {   // quay lại → dựng lại list đã tải (đủ cao cho hệ cuộn khôi phục)
+      setCustomers(custCache.customers);
+      setPage(custCache.page);
+      setTotalPages(custCache.totalPages);
+      setSearch(custCache.search);
+      return;
+    }
     load(1, "", false);
   }, []);
+  // Lưu snapshot khi rời trang
+  useEffect(() => () => { if (snap.current?.customers?.length) custCache = { ...snap.current }; }, []);
 
   useEffect(() => {
     const el = sentinel.current;

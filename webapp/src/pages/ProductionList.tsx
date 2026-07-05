@@ -15,6 +15,9 @@ import { onRealtime } from "../realtime";
 import { ProductPicker } from "../detail/ProductPicker";
 import { Loading, EmptyState } from "../ui/states";
 
+// Cache list đã tải → quay lại giữ nguyên + hệ cuộn khôi phục vị trí (khỏi tải lại).
+let prodCache: { slips: ProdSlip[]; page: number; totalPages: number } | null = null;
+
 export function ProductionList() {
   const [slips, setSlips] = useState<ProdSlip[]>([]);
   const [catalog, setCatalog] = useState<ProdCatalogItem[]>([]);
@@ -45,8 +48,20 @@ export function ProductionList() {
   };
 
   useEffect(() => {
-    load(1, false);
+    if (prodCache) {   // quay lại → dựng lại list đã tải (đủ cao cho hệ cuộn khôi phục)
+      setSlips(prodCache.slips);
+      st.current.page = prodCache.page;
+      st.current.totalPages = prodCache.totalPages;
+    } else {
+      load(1, false);
+    }
     productionCatalog().then(setCatalog).catch(() => {});
+  }, []);
+  // Lưu snapshot khi rời trang
+  const slipsRef = useRef<ProdSlip[]>([]);
+  slipsRef.current = slips;
+  useEffect(() => () => {
+    if (slipsRef.current.length) prodCache = { slips: slipsRef.current, page: st.current.page, totalPages: st.current.totalPages };
   }, []);
 
   // Realtime

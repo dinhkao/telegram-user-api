@@ -1,15 +1,20 @@
 // Trang lịch sử thao tác TOÀN BỘ (#/lich-su) — gộp mọi đơn/phiếu SX/thùng.
 // Data: GET /api/activity?page=N. Mỗi dòng link tới trang chi tiết tương ứng.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { getActivity } from "../api";
 import { fmtTime } from "../format";
 import { Loading } from "../ui/states";
+
+// Cache list đã tải → quay lại giữ nguyên + hệ cuộn khôi phục vị trí (khỏi tải lại).
+let actCache: { items: any[]; before: number | null; hasMore: boolean } | null = null;
 
 export function ActivityLog() {
   const [items, setItems] = useState<any[]>([]);
   const [before, setBefore] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const snap = useRef<any>(null);
+  snap.current = { items, before, hasMore };
 
   const load = async (cursor: number | null) => {
     setLoading(true);
@@ -24,7 +29,14 @@ export function ActivityLog() {
       setLoading(false);
     }
   };
-  useEffect(() => { load(null); }, []);
+  useEffect(() => {
+    if (actCache) {   // quay lại → dựng lại list đã tải
+      setItems(actCache.items); setBefore(actCache.before); setHasMore(actCache.hasMore); setLoading(false);
+      return;
+    }
+    load(null);
+  }, []);
+  useEffect(() => () => { if (snap.current?.items?.length) actCache = { ...snap.current }; }, []);
 
   return (
     <div>
