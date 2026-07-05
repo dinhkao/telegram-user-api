@@ -547,9 +547,9 @@ body.pv-open { overflow: hidden; }
 
 /* Bảng nhập báo cáo thợ — GRID cố định, input LIỀN Ô (chữ dùng hết bề rộng ô) */
 .wr-edit { border-collapse: collapse; width: 100%; table-layout: fixed; }
-.wr-edit col.c-num { width: 30px; }
-.wr-edit col.c-calc { width: 26px; }
-.wr-edit col.c-note { width: 42px; }
+.wr-edit col.c-num { width: 29px; }
+.wr-edit col.c-calc { width: 32px; }
+.wr-edit col.c-note { width: 40px; }
 .wr-edit col.c-del { width: 24px; }
 /* cột Thợ (col đầu, không class) = auto → chiếm phần còn lại */
 .wr-edit th, .wr-edit td { border: 1px solid var(--border); padding: 0; }
