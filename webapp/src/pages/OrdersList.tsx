@@ -127,12 +127,32 @@ let listCache: {
   filter: FilterKey; page: number; totalPages: number;
 } | null = null;
 
-/** No-op giữ lại cho tương thích: giờ dashboard LUÔN refetch trang 1 khi remount
- *  (giữ nguyên search/filter/scroll từ cache), nên không cần xoá cache sau mutation
- *  — làm vậy sẽ mất filter đang chọn. Freshness do refetch lo. */
+/** No-op giữ lại cho tương thích. Freshness của cache khi danh sách ĐANG UNMOUNT
+ *  (người dùng ở trang chi tiết) do subscriber cấp-module bên dưới lo. */
 export function invalidateListCache() {
   /* no-op */
 }
+
+// FIX: khi ở trang chi tiết, OrdersList unmount nên handler realtime của nó KHÔNG
+// nhận event → sửa task (vd nhận tiền) xong quay lại vẫn thấy dữ liệu cũ (cache).
+// Subscriber cấp-module này LUÔN sống → vá listCache dù danh sách đang unmount, nên
+// khi quay lại vẽ từ cache đã là dòng mới. (Lúc mounted, component tự vá state; đây
+// chỉ đồng bộ cache — hội tụ cùng giá trị.)
+onRealtime((e) => {
+  if (e.type === "orders_changed" || e.type === "resync") {
+    listCache = null; // buộc tải lại lần remount sau (đơn mới/xoá/đồng bộ)
+    return;
+  }
+  if (e.type !== "order_changed" || !listCache) return;
+  const idx = listCache.orders.findIndex((o) => String(o.thread_id) === e.thread_id);
+  if (e.row === null) {
+    if (idx >= 0) listCache = { ...listCache, orders: listCache.orders.filter((_, i) => i !== idx) };
+  } else if (idx >= 0) {
+    const next = listCache.orders.slice();
+    next[idx] = e.row as OrderRow;
+    listCache = { ...listCache, orders: next };
+  }
+});
 
 /** Bấm tab Đơn khi ĐANG ở trang Đơn → cuộn lên đầu (hashchange không xảy ra nên hệ
  *  cuộn trung tâm không tự lo). Điều hướng bình thường do main.tsx quản. */
