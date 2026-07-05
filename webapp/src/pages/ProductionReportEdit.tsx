@@ -32,13 +32,12 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const [msg, setMsg] = useState("");
   const seeded = useRef(false);
   const draftTimer = useRef<any>(null);
-  // Ảnh nền để DÒ (phủ lên bảng, chỉnh độ mờ) — cục bộ, không lưu server.
+  // Ảnh nền để DÒ — lưu VĨNH VIỄN trong localStorage (data URL) theo phiếu. Mặc định
+  // ẩn; GIỮ nút tròn để hiện (thả ra ẩn). Cục bộ, không upload/không lưu server.
   const [bgUrl, setBgUrl] = useState<string | null>(null);
-  const [bgOpacity, setBgOpacity] = useState(55);
+  const [bgShow, setBgShow] = useState(false);   // đang giữ nút → hiện ảnh
   const [bgLoading, setBgLoading] = useState(false);
   const bgInput = useRef<HTMLInputElement>(null);
-  const bgUrlRef = useRef<string | null>(null);
-  bgUrlRef.current = bgUrl;
   const tfootRef = useRef<HTMLTableSectionElement>(null);
   const [footH, setFootH] = useState(0);   // cao dòng TỔNG CỘNG → ảnh dừng trên nó
 
@@ -113,8 +112,12 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const selAll = (e: any) => e.target.select();   // bấm vào ô → chọn hết nội dung, gõ đè ngay
 
   // ── Ảnh nền để dò: chọn ảnh (camera/thư viện) → nén bằng engine như trang đơn
-  // (processImage: co ~1600px, tôn trọng EXIF, HEIC ok) → phủ lên bảng. Slider chỉnh
-  // độ mờ để đọc ảnh rồi gõ. Không upload/không lưu — chỉ hỗ trợ nhập.
+  // (processImage: co ~1600px, EXIF, HEIC ok) → lưu data URL vào localStorage theo
+  // phiếu (bền qua reload). Giữ nút tròn để hiện; thả ra ẩn. Không upload server.
+  const bgKey = `wr-bg:${threadId}`;
+  useEffect(() => {          // nạp ảnh đã lưu của phiếu này khi vào trang
+    try { const s = localStorage.getItem(bgKey); setBgUrl(s || null); } catch { /* im */ }
+  }, [threadId]);
   const onPickBg = async (e: any) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -122,19 +125,30 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     setBgLoading(true);
     try {
       const p = await processImage(file);
-      const url = URL.createObjectURL(p.full);
-      setBgUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
-      if (bgOpacity <= 0) setBgOpacity(55);
+      const dataUrl: string = await new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(String(fr.result));
+        fr.onerror = () => rej(new Error("đọc ảnh thất bại"));
+        fr.readAsDataURL(p.full);
+      });
+      try {
+        // chỉ giữ ảnh của phiếu HIỆN TẠI (dọn ảnh phiếu khác cho gọn localStorage)
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith("wr-bg:") && k !== bgKey) localStorage.removeItem(k);
+        }
+        localStorage.setItem(bgKey, dataUrl);
+      } catch { setMsg("⚠️ Ảnh quá lớn để lưu — vẫn dùng được lần này."); }
+      setBgUrl(dataUrl);
     } catch (err: any) {
       setMsg(err?.message || "Không đọc được ảnh");
     } finally {
       setBgLoading(false);
     }
   };
-  const clearBg = () => setBgUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
-  useEffect(() => () => { if (bgUrlRef.current) URL.revokeObjectURL(bgUrlRef.current); }, []);
+  const clearBg = () => { try { localStorage.removeItem(bgKey); } catch { /* im */ } setBgUrl(null); setBgShow(false); };
   // Đo chiều cao dòng TỔNG CỘNG (tfoot) để ảnh phủ chừa nó lại (dừng trên dòng tổng).
-  useEffect(() => { setFootH(tfootRef.current?.offsetHeight || 0); }, [bgUrl, wrows.length, readOnly]);
+  useEffect(() => { setFootH(tfootRef.current?.offsetHeight || 0); }, [bgUrl, bgShow, wrows.length, readOnly]);
 
   const buildText = (): string => {
     const CODE = (slip?.sp_name || "").toUpperCase();
@@ -189,7 +203,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         </div>
         {scm <= 0 && <div class="prod-save-msg">⚠️ SP chưa có số cây 1 mâm — chọn mã SP để tính tổng.</div>}
 
-        {/* Ảnh nền để dò — phủ lên bảng, kéo slider chỉnh độ mờ rồi gõ */}
+        {/* Ảnh nền để dò — lưu bền; GIỮ nút tròn 👁️ (giữa màn hình, trên nav) để hiện */}
         <div class="wr-bg-ctrl">
           <input ref={bgInput} type="file" accept="image/*" hidden onChange={onPickBg} />
           {!bgUrl ? (
@@ -198,19 +212,16 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
             </button>
           ) : (
             <>
-              <span class="wr-bg-lbl">🖼️ Độ mờ ảnh</span>
-              <input class="wr-bg-slider" type="range" min={0} max={100} value={bgOpacity}
-                onInput={(e: any) => setBgOpacity(+e.target.value)} />
-              <span class="muted small wr-bg-pct">{bgOpacity}%</span>
-              <button class="btn small" onClick={() => bgInput.current?.click()} disabled={bgLoading} title="Đổi ảnh">🔁</button>
-              <button class="btn small" onClick={clearBg} title="Bỏ ảnh">✕</button>
+              <span class="wr-bg-lbl">🖼️ Giữ nút 👁️ để xem ảnh</span>
+              <button class="btn small" onClick={() => bgInput.current?.click()} disabled={bgLoading} title="Đổi ảnh">🔁 Đổi</button>
+              <button class="btn small" onClick={clearBg} title="Bỏ ảnh">✕ Bỏ</button>
             </>
           )}
         </div>
 
-        <div class={"prod-report-scroll wr-scroll" + (bgUrl ? " has-bg" : "")}>
-          {bgUrl && (
-            <div class="wr-bg-overlay" style={{ opacity: bgOpacity / 100, bottom: footH + "px" }}>
+        <div class={"prod-report-scroll wr-scroll" + (bgUrl && bgShow ? " has-bg" : "")}>
+          {bgUrl && bgShow && (
+            <div class="wr-bg-overlay" style={{ bottom: footH + "px" }}>
               <img src={bgUrl} alt="" />
             </div>
           )}
@@ -258,6 +269,19 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         )}
         {msg && <div class="prod-save-msg">{msg}</div>}
       </section>
+
+      {/* Nút tròn cố định giữa màn hình, trên nav — GIỮ để hiện ảnh, thả ra ẩn */}
+      {bgUrl && (
+        <button
+          class={"wr-peek-btn" + (bgShow ? " on" : "")}
+          onPointerDown={(e: any) => { e.preventDefault(); setBgShow(true); }}
+          onPointerUp={() => setBgShow(false)}
+          onPointerLeave={() => setBgShow(false)}
+          onPointerCancel={() => setBgShow(false)}
+          onContextMenu={(e: any) => e.preventDefault()}
+          title="Giữ để xem ảnh"
+        >👁️</button>
+      )}
     </div>
   );
 }
