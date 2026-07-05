@@ -6,6 +6,7 @@ import { BackLink } from "../nav";
 import { boxDetail, updateBox, setBoxDisabled, soVN, type InvBoxDetail, type InvBox } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
+import { confirmDialog } from "../ui/feedback";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
@@ -93,6 +94,8 @@ export function BoxDetail({ boxId }: { boxId: string }) {
     if (next) {
       reason = (prompt("Lý do vô hiệu thùng này?") || "").trim();
       if (!reason) return; // huỷ hoặc bỏ trống → không làm gì
+    } else if (!(await confirmDialog(`Kích hoạt lại thùng ${d.box.box_code}? Thùng sẽ tính lại vào tồn kho + phiếu SX.`))) {
+      return; // huỷ kích hoạt lại
     }
     setDisBusy(true);
     setErr("");
