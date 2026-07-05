@@ -150,6 +150,20 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     try { const imgs = await listMediaImages(bgBase); for (const o of imgs) await deleteMediaImage(bgBase, o.id); }
     catch { /* im */ }
   };
+  // Desktop: phím 'k' bật/tắt ảnh nền (bỏ qua khi đang gõ trong ô nhập)
+  useEffect(() => {
+    if (!bgUrl) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "k" && e.key !== "K") return;
+      const t = e.target as HTMLElement;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      e.preventDefault();
+      setBgShow((s) => !s);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [bgUrl]);
 
   const buildText = (): string => {
     const CODE = (slip?.sp_name || "").toUpperCase();
@@ -213,7 +227,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
             </button>
           ) : (
             <>
-              <span class="wr-bg-lbl">🖼️ Giữ nút 👁️ để xem ảnh</span>
+              <span class="wr-bg-lbl">🖼️ Giữ 👁️ (hoặc phím K) để xem ảnh</span>
               <button class="btn small" onClick={() => bgInput.current?.click()} disabled={bgLoading} title="Đổi ảnh">🔁 Đổi</button>
               <button class="btn small" onClick={clearBg} title="Bỏ ảnh">✕ Bỏ</button>
             </>
