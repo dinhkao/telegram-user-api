@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, getJSON, invoiceHtmlUrl, postJSON, refreshOrderDebt, setOrderNgayGiao } from "../api";
 import { onRealtime } from "../realtime";
-import { money, invoiceTotal, paidTotal, fmtNgayGiao } from "../format";
+import { money, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
@@ -243,7 +243,10 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           {editText === null && <button class="btn small" onClick={() => setEditText(j.text || j.text_raw || "")}>Sửa</button>}
         </div>
         {editText === null ? (
-          <pre class="order-text">{j.text || j.text_raw || "(trống)"}</pre>
+          <>
+            <pre class="order-text">{j.text || j.text_raw || "(trống)"}</pre>
+            {j.created && <div class="muted small od-created">🕒 Tạo lúc {fmtDateTimeVN(j.created)} · {fmtRelative(j.created)}</div>}
+          </>
         ) : (
           <div>
             <textarea rows={6} value={editText} onInput={(e: any) => setEditText(e.target.value)} />

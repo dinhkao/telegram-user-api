@@ -842,3 +842,4 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* Chi tiết đơn — thanh điều hướng nhanh (dưới nội dung đơn) */
 .od-quicknav { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
 .od-quicknav .qn { flex: 1; min-width: 96px; white-space: nowrap; }
+.od-created { margin-top: 6px; }
