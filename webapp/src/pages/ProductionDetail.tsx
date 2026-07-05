@@ -1,5 +1,5 @@
-// Chi tiết 1 phiếu sản xuất — GET /api/production/:id. Sửa SP / mục tiêu SX,
-// nhập số lượng (ProductionNumbers), báo cáo theo thợ (ProductionReport), xoá.
+// Chi tiết 1 phiếu sản xuất — GET /api/production/:id. Sửa SP, ghi chú,
+// nhập thùng (ProductionBoxes), báo cáo theo thợ (ProductionReport), xoá.
 // Realtime: production_changed đúng thread / resync → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
@@ -7,7 +7,6 @@ import {
   getProduction,
   productionCatalog,
   setProductionProduct,
-  setProductionTarget,
   setProductionNote,
   deleteProduction,
   soVN,
@@ -23,7 +22,6 @@ import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
 import { ProductPicker } from "../detail/ProductPicker";
 import { confirmDialog } from "../ui/feedback";
-import { parseMoney } from "../format";
 import { Loading } from "../ui/states";
 
 export function ProductionDetail({ threadId, focus }: { threadId: string; focus?: string }) {
@@ -31,7 +29,6 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   const [catalog, setCatalog] = useState<ProdCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [targetInput, setTargetInput] = useState("");
   const [noteInput, setNoteInput] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
   const reloadTimer = useRef<any>(null);
@@ -40,7 +37,6 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
     try {
       const s = await getProduction(threadId);
       setSlip(s);
-      if (s?.sx_target != null) setTargetInput(String(s.sx_target));
       setNoteInput(s?.ghi_chu || "");
     } catch (e: any) {
       setErr(e?.message || "Lỗi tải phiếu");
@@ -103,21 +99,6 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
     }
   };
 
-  const saveTarget = async () => {
-    const n = parseMoney(targetInput);
-    if (!n) {
-      setErr("Mục tiêu SX không hợp lệ");
-      return;
-    }
-    setErr("");
-    try {
-      await setProductionTarget(threadId, n);
-      reload();
-    } catch (e: any) {
-      setErr(e?.message || "Lỗi cập nhật mục tiêu");
-    }
-  };
-
   const saveNote = async () => {
     setErr("");
     try {
@@ -144,9 +125,6 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   if (!slip) return <div class="muted">Không tìm thấy phiếu. <a href="#/san_xuat">← Danh sách</a></div>;
 
   const total = slip.total || 0;
-  const target = slip.sx_target ?? null;
-  const pct = target ? Math.min(Math.round((total / target) * 100), 100) : null;
-  const done = target != null && total >= target;
 
   return (
     <div class="prod-detail">
@@ -161,34 +139,13 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
       {err && <div class="error-banner">{err}</div>}
 
       <div class="prod-summary">
-        <span class={done ? "prod-total done" : "prod-total"}>✅ Nhận: {soVN(total)}</span>
-        <span class="prod-target">🎯 SX: {target != null ? soVN(target) : "—"}</span>
-        {pct != null && <span class="prod-pct">{pct}%</span>}
+        <span class="prod-total">📦 Tổng SP: {soVN(total)}</span>
       </div>
-      {pct != null && (
-        <div class="prod-bar">
-          <div class={done ? "prod-bar-fill done" : "prod-bar-fill"} style={{ width: `${pct}%` }} />
-        </div>
-      )}
 
       <section class="card">
         <label class="card-label">Sản phẩm</label>
         <ProductPicker catalog={catalog} value={slip.sp_name || ""} onPick={changeProduct} placeholder="🔍 Tìm mã SP" />
         {slip.sp_mam != null && <div class="muted small">🌿 Số cây 1 mâm: {slip.sp_mam}</div>}
-      </section>
-
-      <section class="card">
-        <label class="card-label">Mục tiêu SX</label>
-        <div class="row">
-          <input
-            type="text"
-            inputMode="numeric"
-            value={targetInput}
-            onInput={(e) => setTargetInput((e.target as HTMLInputElement).value)}
-            placeholder="Số lượng mục tiêu"
-          />
-          <button class="btn" onClick={saveTarget}>Lưu</button>
-        </div>
       </section>
 
       <section class="card">
