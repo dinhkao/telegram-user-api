@@ -63,7 +63,7 @@ body { font-family: system-ui, -apple-system, Roboto, sans-serif; background: va
 
 /* Phản hồi dùng chung — toast + hộp xác nhận (ui/feedback.tsx) */
 .toast-host { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 400; display: grid; place-items: center; gap: 8px; padding: 24px; pointer-events: none; }
-.toast-item { pointer-events: auto; background: #23262e; color: #fff; padding: 10px 16px; border-radius: 14px; font-size: .9rem; font-weight: 500; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,.24); animation: fb-toast-in .2s ease both; max-width: 100%; text-align: center; }
+.toast-item { pointer-events: auto; background: #23262e; color: #fff; padding: 10px 16px; border-radius: 14px; font-size: .9rem; font-weight: 500; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,.24); animation: fb-toast-in .2s ease both; max-width: 100%; text-align: center; white-space: pre-line; }
 .toast-item.ok { background: var(--ok); }
 .toast-item.err { background: var(--danger); }
 @keyframes fb-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -289,9 +289,6 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .hc-arrow { color: var(--muted); }
 .hc-new { color: var(--text, inherit); font-weight: 600; }
 
-/* Popup báo thao tác mới (trượt xuống từ trên) */
-.toast { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); z-index: 60; max-width: 92%; background: #1f2328; color: #fff; padding: 10px 16px; border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.28); font-size: .9rem; cursor: pointer; animation: toast-in .25s ease-out; white-space: pre-line; text-align: left; line-height: 1.4; }
-@keyframes toast-in { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
 /* Nháy sáng card khi đơn vừa có thao tác (realtime) */
 .order-card.flash { animation: card-flash 1.6s ease-out; }
@@ -415,9 +412,6 @@ body.pv-open { overflow: hidden; }
 .pv-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pv-thumb.active { opacity: 1; border-color: #fff; transform: translateY(-3px); box-shadow: 0 3px 10px rgba(0,0,0,.55); }
 
-/* Toast nhỏ (đã copy / đang tải) */
-.pv-toast { position: fixed; left: 50%; top: calc(50% - 20px); transform: translate(-50%,-50%); z-index: 103; background: rgba(0,0,0,.82); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: .9rem; pointer-events: none; animation: pv-toast-in .2s ease; }
-@keyframes pv-toast-in { from { opacity: 0; transform: translate(-50%,-40%); } to { opacity: 1; transform: translate(-50%,-50%); } }
 
 /* ─── Phiếu sản xuất (production) ─────────────────────────────────────────── */
 .prod-list { padding: 8px; }

@@ -14,7 +14,7 @@ import { History } from "../detail/History";
 import { Images } from "../detail/Images";
 import { OrderStock } from "../detail/OrderStock";
 import { invalidateListCache, markLastOrder } from "./OrdersList";
-import { confirmDialog } from "../ui/feedback";
+import { confirmDialog, toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
 
 // Nhớ vị trí cuộn theo từng đơn — quay lại đơn cũ về đúng chỗ đang xem
@@ -27,7 +27,6 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [busy, setBusy] = useState(false);
   const [editText, setEditText] = useState<string | null>(null);
   const [changingCust, setChangingCust] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const [nggDate, setNggDate] = useState("");   // ngày giao (YYYY-MM-DD)
   const [nggTime, setNggTime] = useState("");   // giờ giao (HH:MM) — tách riêng
   const [savingNg, setSavingNg] = useState(false);
@@ -136,7 +135,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   }, [threadId]);
 
   useEffect(() => {
-    let t: any, tt: any, hide: any;
+    let t: any, tt: any;
     const line = (h: any) => `• ${h.actor || "?"}: ${h.action}${h.detail ? ` — ${h.detail}` : ""}`;
     const off = onRealtime((e) => {
       if (e.type === "resync") {
@@ -158,13 +157,12 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
             const msg = fresh.length === 1
               ? `🔔 ${fresh[0].actor || "?"}: ${fresh[0].action}${fresh[0].detail ? ` — ${fresh[0].detail}` : ""}`
               : [`🔔 ${fresh.length} thao tác mới`, ...fresh.slice(0, 4).map(line), fresh.length > 4 ? `… +${fresh.length - 4} nữa` : ""].filter(Boolean).join("\n");
-            setToast(msg);
-            clearTimeout(hide); hide = setTimeout(() => setToast(null), Math.min(10000, 4000 + fresh.length * 1200));
+            toast(msg, "info");
           } catch { /* ignore */ }
         }, 600);
       }
     });
-    return () => { off(); clearTimeout(t); clearTimeout(tt); clearTimeout(hide); };
+    return () => { off(); clearTimeout(t); clearTimeout(tt); };
   }, [threadId]);
 
   if (err && !detail) return <ErrorState msg={err} onRetry={reload} />;
@@ -260,7 +258,6 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
 
   return (
     <div class="detail">
-      {toast && <div class="toast" onClick={() => setToast(null)}>{toast}</div>}
       <header class="od-appbar">
         <BackLink fallback="#/orders" className="od-back" />
         <div class="od-appttl">Đơn <span class="od-id">#{threadId}</span></div>

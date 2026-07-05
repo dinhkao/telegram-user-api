@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { orderImageUrl, type OrderImage } from "../api";
 import { fmtTime } from "../format";
+import { toast } from "../ui/feedback";
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 8;
@@ -25,11 +26,10 @@ export function PhotoViewer({
   onClose: () => void;
 }) {
   const [idx, setIdx] = useState(start);
-  const [toast, setToast] = useState("");
   const imgRef = useRef<HTMLImageElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const thumbsRef = useRef<HTMLDivElement>(null);
-  const flash = (m: string) => setToast(m);
+  const flash = (m: string) => toast(m, "info");
 
   // Trạng thái biến đổi + cử chỉ giữ trong ref (không re-render mỗi frame)
   const g = useRef({
@@ -247,13 +247,6 @@ export function PhotoViewer({
     if (s.scale <= 1.01) reset(true);
   };
 
-  // Toast tự tắt
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(""), 1700);
-    return () => clearTimeout(t);
-  }, [toast]);
-
   const cur = images[idx];
 
   // Copy ảnh vào clipboard (đổi sang PNG vì clipboard chỉ chắc ăn với PNG).
@@ -384,8 +377,6 @@ export function PhotoViewer({
         <button class="btn" disabled={images.length <= 1 || idx === 0} onClick={() => go(-1)}>‹</button>
         <button class="btn" disabled={images.length <= 1 || idx === images.length - 1} onClick={() => go(1)}>›</button>
       </div>
-
-      {toast ? <div class="pv-toast">{toast}</div> : null}
     </div>
   );
 }
