@@ -184,7 +184,9 @@ const _WD = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 function groupOrdersByDay(orders: OrderRow[]): { key: string; label: string; orders: OrderRow[] }[] {
   const out: { key: string; label: string; orders: OrderRow[] }[] = [];
   for (const o of orders) {
-    const key = (fmtDateTimeVN(o.created).split(" ")[0]) || "?";   // "DD/MM/YYYY" (giờ VN)
+    // trích DD/MM/YYYY từ chuỗi giờ VN (định dạng vi-VN có thể kèm dấu phẩy / đảo thứ tự)
+    const mm = fmtDateTimeVN(o.created).match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    const key = mm ? `${mm[1]}/${mm[2]}/${mm[3]}` : "?";
     const last = out[out.length - 1];
     if (last && last.key === key) last.orders.push(o);
     else out.push({ key, label: orderDayLabel(key), orders: [o] });
