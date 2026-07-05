@@ -134,6 +134,21 @@ def get_activity(before: int | None = None, per: int = _PER):
                 })
                 if len(out) >= per:
                     break
+        # Với dòng scope=order: lấy SNEAK PEEK nội dung đơn (1 query gộp) thay cho #id
+        order_ids = [row["entity_id"] for row in out if row["scope"] == "order" and row["entity_id"] is not None]
+        if order_ids:
+            peek: dict = {}
+            ph = ",".join("?" * len(order_ids))
+            for tr in conn.execute(f"SELECT thread_id, json FROM orders WHERE thread_id IN ({ph})", tuple(order_ids)).fetchall():
+                try:
+                    j = json.loads(tr["json"] or "{}")
+                    txt = " ".join((j.get("text") or j.get("text_raw") or "").split())
+                    peek[int(tr["thread_id"])] = txt[:60]
+                except Exception:
+                    pass
+            for row in out:
+                if row["scope"] == "order" and row["entity_id"] in peek:
+                    row["peek"] = peek[row["entity_id"]]
         return out, cursor, not exhausted
     except Exception:
         return [], None, False

@@ -58,7 +58,9 @@ export function ActivityLog() {
                   <div>
                     <span class="act-scope">{h.scope_label}</span> <b>{h.action}</b>
                     {h.detail ? <span> — {h.detail}</span> : null}
-                    {h.entity_id ? <span class="muted small"> #{h.entity_id}</span> : null}
+                    {h.peek
+                      ? <span class="muted small act-peek"> · {h.peek}…</span>
+                      : (h.entity_id ? <span class="muted small"> #{h.entity_id}</span> : null)}
                     {h.ok === false ? <span class="owe"> ✗ lỗi</span> : null}
                   </div>
                   {Array.isArray(h.changes) && h.changes.length > 0 ? (
