@@ -341,12 +341,12 @@ export function OrdersList() {
     if (v === "compact" || v === "ultra" || v === "full") return v;
     return localStorage.getItem("dash_compact") === "1" ? "compact" : "full"; // back-compat
   });
-  const cycleView = () => setView((v) => {
-    const next = v === "full" ? "compact" : v === "compact" ? "ultra" : "full";
-    localStorage.setItem("dash_view", next);
-    return next;
-  });
-  const _VIEW_ICON = { full: "☰", compact: "⊟", ultra: "≣" } as const;
+  const setViewMode = (m: "full" | "compact" | "ultra") => { localStorage.setItem("dash_view", m); setView(m); };
+  const _VIEWS = [
+    { m: "full" as const, ic: "☰", t: "Chi tiết" },
+    { m: "compact" as const, ic: "≣", t: "Gọn" },
+    { m: "ultra" as const, ic: "▬", t: "Siêu gọn" },
+  ];
   const [sort, setSort] = useState<"created" | "updated">(() => (localStorage.getItem("dash_sort") === "updated" ? "updated" : "created"));
   const sortRef = useRef(sort); // đọc trong load (tránh stale closure)
   const changeSort = (s: "created" | "updated") => {
@@ -552,7 +552,11 @@ export function OrdersList() {
             value={search}
             onInput={(e: any) => onSearch(e.target.value)}
           />
-          <button class="btn small clear-filter" title="Đổi kiểu xem (chi tiết · gọn · siêu gọn)" onClick={cycleView}>{_VIEW_ICON[view]}</button>
+          <div class="view-slider" role="group" aria-label="Kiểu xem">
+            {_VIEWS.map((v) => (
+              <button key={v.m} class={view === v.m ? "vs-seg on" : "vs-seg"} title={v.t} aria-pressed={view === v.m} onClick={() => setViewMode(v.m)}>{v.ic}</button>
+            ))}
+          </div>
         </div>
         {anyFilter && (
           <div class="filter-active-bar">

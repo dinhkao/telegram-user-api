@@ -195,6 +195,10 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .topbar-row { display: flex; align-items: center; gap: 8px; }
 .topbar-row .search { flex: 1; }
 .clear-filter { white-space: nowrap; flex-shrink: 0; }
+/* Slider 3 điểm đổi kiểu xem (chi tiết · gọn · siêu gọn) — kiểu segmented control */
+.view-slider { display: flex; flex: 0 0 auto; background: var(--border); border-radius: 999px; padding: 2px; }
+.view-slider .vs-seg { border: none; background: none; width: 32px; height: 30px; border-radius: 999px; font-size: 1rem; line-height: 1; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; transition: background .15s ease, color .15s ease; }
+.view-slider .vs-seg.on { background: var(--card); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,.18); font-weight: 700; }
 
 /* Danh sách món trên card đơn (dashboard) */
 .items { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
