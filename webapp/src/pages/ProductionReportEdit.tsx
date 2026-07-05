@@ -176,7 +176,11 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
                     <td><input class="wr-in wr-num" inputMode="decimal" value={r.le} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { le: e.target.value })} /></td>
                     <td class="wr-calc">{soVN(c.soMam)}</td>
                     <td class="wr-calc strong">{soVN(c.tong)}</td>
-                    <td><input class="wr-in wr-note" value={r.note} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { note: e.target.value })} placeholder="—" /></td>
+                    <td><textarea class="wr-in wr-note" rows={1} value={r.note} disabled={readOnly}
+                      onFocus={selAll}
+                      ref={(el: any) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }}
+                      onInput={(e: any) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; setRow(i, { note: e.target.value }); }}
+                      placeholder="—" /></td>
                     {!readOnly && <td><button class="btn small wr-del" title="Xoá dòng" onClick={() => delRow(i)}>✕</button></td>}
                   </tr>
                 );
