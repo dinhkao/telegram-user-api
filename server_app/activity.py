@@ -51,12 +51,13 @@ def _row_meta(r):
     source = r["source"] or ""
     if not (source.startswith("POST ") or source.startswith("DELETE ")):
         return None
-    # order: cả event có scope='order' (mới) lẫn event CŨ scope=NULL nhưng path là /api/order
+    # order: cả event có scope='order' (mới) lẫn event CŨ scope=NULL nhưng path là /api/order.
+    # Hiện TẤT CẢ mutation (whitelist → nhãn đẹp; còn lại → nhãn generic) để không sót +
+    # phân trang không bị hụt.
     if scope == "order" or (scope is None and "/api/order/" in source):
         norm = _order_norm(source.split(" ", 1)[1].split("?")[0])
-        label = _ORDER_LABELS.get(norm)
-        if not label:
-            return None
+        method, key, path = _ent_norm(source)
+        label = _ORDER_LABELS.get(norm) or _ent_label(key, method, path)
         eid = tid
         if eid is None:
             m = _ORDER_ID.search(source)
