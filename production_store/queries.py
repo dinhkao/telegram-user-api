@@ -103,7 +103,14 @@ def set_total(conn, thread_id, total) -> bool:
 
 
 def set_bang(conn, thread_id, bang) -> bool:
-    return upsert_slip(conn, thread_id, bang=bang)
+    ok = upsert_slip(conn, thread_id, bang=bang)
+    # Ghi thêm vào bảng QUAN HỆ production_report_rows (cho dashboard). Phụ — không chặn.
+    try:
+        from production_store.report_rows import replace_report_rows
+        replace_report_rows(conn, thread_id, bang)
+    except Exception:
+        pass
+    return ok
 
 
 def delete_slip(conn, thread_id) -> bool:
