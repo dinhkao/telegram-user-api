@@ -852,6 +852,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .qa:disabled { opacity: .45; cursor: default; }
 .qa-ic { font-size: 26px; line-height: 1; }
 .qa-lb { font-size: 12px; font-weight: 600; text-align: center; line-height: 1.15; color: var(--ink); }
+/* Chừa chỗ cho app-bar dính (44px) khi cuộn tới mục — khỏi bị che đầu */
+#od-invoice, #od-payments, #od-tasks, #od-camera { scroll-margin-top: 56px; }
 .img-strip { display: flex; gap: 6px; overflow-x: auto; margin: 0 0 8px; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
 .img-strip-tile { flex: 0 0 auto; width: 64px; height: 64px; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); cursor: pointer; }
 .img-strip-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
