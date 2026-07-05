@@ -22,6 +22,7 @@ import { ProductionReportEdit } from "./pages/ProductionReportEdit";
 import { ProductionDashboard } from "./pages/ProductionDashboard";
 import { ProductionWorkerDetail } from "./pages/ProductionWorkerDetail";
 import { QuyList } from "./pages/QuyList";
+import { WorkerList } from "./pages/WorkerList";
 import { Users } from "./pages/Users";
 import { NotifCenter } from "./NotifCenter";
 import { InventoryList } from "./pages/InventoryList";
@@ -193,6 +194,7 @@ function App() {
   else if (hash.startsWith("#/kho")) page = <InventoryList />;
   else if (hash.startsWith("#/quy")) page = <QuyList />;
   else if (hash.startsWith("#/users")) page = <Users />;
+  else if (hash.startsWith("#/tho")) page = <WorkerList />;
   else if (hash.startsWith("#/lich-su")) page = <ActivityLog />;
   else if (hash.startsWith("#/lich")) page = <DeliveryCalendar />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
@@ -235,6 +237,7 @@ function App() {
             <div class="modal-head">Mục khác</div>
             <a class="menu-item" href="#/quy" onClick={() => setMenuOpen(false)}>💵 Sổ quỹ (thu/chi)</a>
             <a class="menu-item" href="#/sx-bang" onClick={() => setMenuOpen(false)}>📊 Dashboard sản xuất</a>
+            <a class="menu-item" href="#/tho" onClick={() => setMenuOpen(false)}>🧑‍🏭 Danh sách thợ</a>
             <a class="menu-item" href="#/lich-su" onClick={() => setMenuOpen(false)}>🕘 Lịch sử thao tác</a>
             <a class="menu-item" href="#/bang-gia" onClick={() => setMenuOpen(false)}>💰 Bảng giá chung</a>
             {user?.role === "admin" && <a class="menu-item" href="#/users" onClick={() => setMenuOpen(false)}>👥 Quản lý user</a>}

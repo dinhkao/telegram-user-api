@@ -172,6 +172,15 @@ def create_app():
     r.add_post("/api/production/{thread_id}/report/unlock", production_report_unlock_handler)
     r.add_post("/api/production/{thread_id}/report/draft", production_report_draft_handler)
     r.add_post("/api/production/{thread_id}/report", production_report_save_handler)
+
+    # ─── danh sách thợ (template báo cáo) ────────────────────────────────────
+    from server_app.worker_routes import (
+        workers_list_handler, workers_add_handler, workers_update_handler, workers_delete_handler,
+    )
+    r.add_get("/api/workers", workers_list_handler)
+    r.add_post("/api/workers", workers_add_handler)
+    r.add_post("/api/workers/{id}", workers_update_handler)
+    r.add_delete("/api/workers/{id}", workers_delete_handler)
     # ─── kho thùng (inventory) ───────────────────────────────────────────────
     r.add_get("/api/inventory", inventory_list_handler)
     r.add_get("/api/inventory/box/{box_id}", box_detail_handler)

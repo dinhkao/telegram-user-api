@@ -1,0 +1,90 @@
+"""CRUD danh sách thợ (production_workers) — IO + transaction, không logic thuần.
+
+1 row = 1 thợ. name UNIQUE (không phân biệt hoa/thường). is_default = thợ có trong
+mẫu báo cáo mặc định. sort_order để sắp thứ tự chèn. Nối: utils.db.
+"""
+from __future__ import annotations
+
+from utils.db import transaction
+
+
+def ensure_table(conn) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS production_workers (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            name       TEXT NOT NULL COLLATE NOCASE,
+            is_default INTEGER DEFAULT 0,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+        """
+    )
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_worker_name ON production_workers(name)")
+    conn.commit()
+
+
+def _row(r) -> dict:
+    return {"id": r["id"], "name": r["name"], "is_default": bool(r["is_default"]), "sort_order": r["sort_order"]}
+
+
+def list_workers(conn) -> list[dict]:
+    rows = conn.execute(
+        "SELECT id, name, is_default, sort_order FROM production_workers "
+        "ORDER BY sort_order ASC, name COLLATE NOCASE ASC"
+    ).fetchall()
+    return [_row(r) for r in rows]
+
+
+def default_names(conn) -> list[str]:
+    """Tên các thợ mặc định (đúng thứ tự) — dùng làm template báo cáo."""
+    rows = conn.execute(
+        "SELECT name FROM production_workers WHERE is_default = 1 "
+        "ORDER BY sort_order ASC, name COLLATE NOCASE ASC"
+    ).fetchall()
+    return [r["name"] for r in rows]
+
+
+def add_worker(conn, name: str, is_default: bool = False) -> dict:
+    nm = (name or "").strip()
+    if not nm:
+        raise ValueError("Tên thợ trống")
+    with transaction(conn):
+        dup = conn.execute("SELECT id FROM production_workers WHERE name = ? COLLATE NOCASE", (nm,)).fetchone()
+        if dup:
+            raise ValueError("Thợ đã có trong danh sách")
+        mx = conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM production_workers").fetchone()["m"]
+        cur = conn.execute(
+            "INSERT INTO production_workers (name, is_default, sort_order) VALUES (?, ?, ?)",
+            (nm, 1 if is_default else 0, int(mx) + 1),
+        )
+        wid = cur.lastrowid
+    return {"id": wid, "name": nm, "is_default": bool(is_default), "sort_order": int(mx) + 1}
+
+
+def update_worker(conn, worker_id: int, *, name: str | None = None, is_default: bool | None = None) -> dict | None:
+    with transaction(conn):
+        cur = conn.execute("SELECT id, name, is_default, sort_order FROM production_workers WHERE id = ?", (worker_id,)).fetchone()
+        if not cur:
+            return None
+        new_name = cur["name"] if name is None else (name or "").strip()
+        if not new_name:
+            raise ValueError("Tên thợ trống")
+        if name is not None and new_name.lower() != cur["name"].lower():
+            dup = conn.execute(
+                "SELECT id FROM production_workers WHERE name = ? COLLATE NOCASE AND id <> ?", (new_name, worker_id)
+            ).fetchone()
+            if dup:
+                raise ValueError("Thợ đã có trong danh sách")
+        new_def = cur["is_default"] if is_default is None else (1 if is_default else 0)
+        conn.execute(
+            "UPDATE production_workers SET name = ?, is_default = ? WHERE id = ?",
+            (new_name, new_def, worker_id),
+        )
+    return {"id": worker_id, "name": new_name, "is_default": bool(new_def), "sort_order": cur["sort_order"]}
+
+
+def delete_worker(conn, worker_id: int) -> bool:
+    with transaction(conn):
+        cur = conn.execute("DELETE FROM production_workers WHERE id = ?", (worker_id,))
+        return cur.rowcount > 0

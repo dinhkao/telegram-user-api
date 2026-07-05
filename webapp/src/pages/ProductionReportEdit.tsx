@@ -4,7 +4,7 @@
 // lock/unlock/draft + saveProductionReport. Khoá + nháp: server_app/production_routes.py.
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { getProduction, saveProductionReport, lockReport, unlockReport, pushReportDraft, currentUser, soVN, listMediaImages, mediaImageUrl, deleteMediaImage, postForm, type ProdSlip, type ProdReport } from "../api";
+import { getProduction, saveProductionReport, lockReport, unlockReport, pushReportDraft, currentUser, soVN, listMediaImages, mediaImageUrl, deleteMediaImage, postForm, listWorkers, type ProdSlip, type ProdReport } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { confirmDialog } from "../ui/feedback";
@@ -15,10 +15,15 @@ type Wrow = { name: string; gach: string; tru: string; le: string; note: string 
 const _num = (s: string): number => { const n = parseFloat((s || "").trim().replace(",", ".")); return isFinite(n) ? n : 0; };
 const round2 = (x: number) => Math.round(x * 100) / 100;
 const todayVN = (): string => { const d = new Date(); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; };
-const rowsFromReport = (rep: ProdReport | null): Wrow[] =>
+const blankRow = (name = ""): Wrow => ({ name, gach: "", tru: "", le: "", note: "" });
+// Seed bảng: có báo cáo đã lưu → dùng nó; trống → tự điền thợ mặc định (template);
+// không có template → 1 dòng trống.
+const rowsFromReport = (rep: ProdReport | null, defaults: string[] = []): Wrow[] =>
   rep?.rows?.length
     ? rep.rows.map((r) => ({ name: r.name, gach: r.so_gach ? String(r.so_gach) : "", tru: r.so_tru ? String(r.so_tru) : "", le: r.so_cay_le ? String(r.so_cay_le) : "", note: r.note || "" }))
-    : [{ name: "", gach: "", tru: "", le: "", note: "" }];
+    : defaults.length
+      ? defaults.map((n) => blankRow(n))
+      : [blankRow()];
 
 export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const me = useMemo(() => { const u = currentUser(); return u?.display_name || u?.username || ""; }, []);
@@ -32,6 +37,11 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const [msg, setMsg] = useState("");
   const seeded = useRef(false);
   const draftTimer = useRef<any>(null);
+  // Danh sách thợ (picker) + thợ mặc định (template tự điền). defaultsRef để seed
+  // đúng lúc (nạp thợ TRƯỚC khi seed bảng, tránh race với loadSlip).
+  const [workerNames, setWorkerNames] = useState<string[]>([]);
+  const [defaults, setDefaults] = useState<string[]>([]);
+  const defaultsRef = useRef<string[]>([]);
   // Ảnh nền để DÒ — lưu VĨNH VIỄN trên SERVER (DB + đĩa) theo phiếu, scope report_bg
   // (1 ảnh/phiếu, còn mãi + chung mọi máy). Mặc định ẩn; GIỮ nút tròn để hiện (thả ra ẩn).
   const [bgUrl, setBgUrl] = useState<string | null>(null);
@@ -45,16 +55,38 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const loadSlip = async () => {
     const s = await getProduction(threadId);
     setSlip(s);
-    if (s && !seeded.current) {                // seed 1 lần từ báo cáo đã lưu
+    if (s && !seeded.current) {                // seed 1 lần từ báo cáo đã lưu / template
       const rep = s.bang as ProdReport | null;
-      setWrows(rowsFromReport(rep));
+      setWrows(rowsFromReport(rep, defaultsRef.current));
       if ((rep as any)?.date) setDate((rep as any).date);
       if ((rep as any)?.start) setStart((rep as any).start);
       if ((rep as any)?.end) setEnd((rep as any).end);
       seeded.current = true;
     }
   };
-  useEffect(() => { loadSlip(); }, [threadId]);
+  // Nạp danh sách thợ TRƯỚC (để có template), rồi mới seed bảng từ slip.
+  useEffect(() => {
+    (async () => {
+      try {
+        const w = await listWorkers();
+        defaultsRef.current = w.defaults;
+        setWorkerNames(w.workers.map((x) => x.name));
+        setDefaults(w.defaults);
+      } catch { /* im — không có thợ thì bảng 1 dòng trống */ }
+      loadSlip();
+    })();
+  }, [threadId]);
+
+  // Chèn thợ mặc định (template) — thêm các thợ chưa có vào bảng
+  const insertDefaults = () => {
+    const have = new Set(wrows.map((r) => r.name.trim().toLowerCase()).filter(Boolean));
+    const toAdd = defaults.filter((n) => !have.has(n.toLowerCase())).map((n) => blankRow(n));
+    if (!toAdd.length) return;
+    setWrows((rs) => {
+      const only = rs.length === 1 && !rs[0].name.trim() && !rs[0].gach && !rs[0].tru && !rs[0].le;
+      return only ? toAdd : [...rs, ...toAdd];   // bảng đang trống → thay; có rồi → nối
+    });
+  };
 
   // Khoá: xin lúc vào + heartbeat 20s; nhả khi rời trang
   useEffect(() => {
@@ -237,6 +269,11 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
           )}
         </div>
 
+        {/* Gợi ý chọn thợ từ danh sách chung (gõ để lọc) */}
+        <datalist id="wr-worker-list">
+          {workerNames.map((n) => <option value={n} key={n} />)}
+        </datalist>
+
         <div class="prod-report-scroll wr-scroll">
           <table class="prod-report-table wr-edit">
             <colgroup>
@@ -252,7 +289,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
                 const c = calc(r);
                 return (
                   <tr key={i} class={c.tong > 0 ? "" : "prod-row-off"}>
-                    <td><input class="wr-in wr-name" value={r.name} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { name: e.target.value })} placeholder="Tên" /></td>
+                    <td><input class="wr-in wr-name" list="wr-worker-list" value={r.name} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { name: e.target.value })} placeholder="Tên" /></td>
                     <td><input class="wr-in wr-num" inputMode="decimal" value={r.gach} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { gach: e.target.value })} /></td>
                     <td><input class="wr-in wr-num" inputMode="decimal" value={r.tru} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { tru: e.target.value })} /></td>
                     <td><input class="wr-in wr-num" inputMode="decimal" value={r.le} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { le: e.target.value })} /></td>
@@ -277,6 +314,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         {!readOnly && (
           <div class="row">
             <button class="btn" onClick={addRow}>➕ Thêm thợ</button>
+            {defaults.length > 0 && <button class="btn" onClick={insertDefaults} title="Chèn các thợ mặc định">👥 Chèn thợ mặc định</button>}
             <button class="btn primary" disabled={busy} onClick={save}>💾 Lưu báo cáo</button>
           </div>
         )}

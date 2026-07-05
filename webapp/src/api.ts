@@ -476,6 +476,24 @@ export async function deleteProduction(id: string | number): Promise<any> {
   return delJSON(`/api/production/${id}`);
 }
 
+// ── Danh sách thợ (template báo cáo) ──
+export type Worker = { id: number; name: string; is_default: boolean; sort_order: number };
+export async function listWorkers(): Promise<{ workers: Worker[]; defaults: string[] }> {
+  const d = await getJSON("/api/workers", { cache: false });
+  return { workers: d.workers || [], defaults: d.defaults || [] };
+}
+export async function addWorker(name: string, isDefault: boolean): Promise<Worker> {
+  const d = await postJSON("/api/workers", { name, is_default: isDefault });
+  return d.worker;
+}
+export async function updateWorker(id: number, patch: { name?: string; is_default?: boolean }): Promise<Worker> {
+  const d = await postJSON(`/api/workers/${id}`, patch);
+  return d.worker;
+}
+export async function deleteWorker(id: number): Promise<any> {
+  return delJSON(`/api/workers/${id}`);
+}
+
 const _actor = () => { const u = currentUser(); return u?.display_name || u?.username || ""; };
 
 /** Khoá sửa báo cáo (1 người/phiếu). Trả {holder, mine}. Gọi lặp lại = heartbeat gia hạn. */
