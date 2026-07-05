@@ -5,7 +5,7 @@ import { listMediaImages, mediaImageUrl, type OrderImage } from "../api";
 import { onRealtime, eventMatchesBase } from "../realtime";
 import { PhotoViewer } from "./PhotoViewer";
 
-export function ImageStrip({ base }: { base: string }) {
+export function ImageStrip({ base, onCamera }: { base: string; onCamera?: () => void }) {
   const [images, setImages] = useState<OrderImage[]>([]);
   const [lightbox, setLightbox] = useState<OrderImage | null>(null);
 
@@ -23,8 +23,6 @@ export function ImageStrip({ base }: { base: string }) {
     return () => { clearTimeout(t); off(); };
   }, [base]);
 
-  if (!images.length) return null;
-
   return (
     <div class="img-strip">
       {images.map((img) => (
@@ -32,6 +30,9 @@ export function ImageStrip({ base }: { base: string }) {
           <img src={mediaImageUrl(base, img.id, "thumb")} loading="lazy" alt="" />
         </button>
       ))}
+      {onCamera && (
+        <button class="img-strip-tile img-strip-cam" onClick={onCamera} title="Chụp ảnh">📸</button>
+      )}
       {lightbox && (
         <PhotoViewer
           images={images}

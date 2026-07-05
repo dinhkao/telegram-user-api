@@ -261,13 +261,12 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
 
       {/* Thanh điều hướng nhanh — cuộn tới camera/hoá đơn, in nhanh nếu có HĐ KiotViet */}
       <div class="od-quicknav">
-        <button class="btn small qn" onClick={goCamera}>📸 Chụp ảnh</button>
         {hasInvoice && <button class="btn small qn" disabled={busy} onClick={doPrint}>🖨️ In hoá đơn</button>}
         <button class="btn small qn" onClick={goInvoice}>🧾 Hoá đơn</button>
       </div>
 
-      {/* Xem trước ảnh — bấm mở lightbox; bấm 📸 để thêm */}
-      <ImageStrip base={`/api/order/${threadId}`} />
+      {/* Xem trước ảnh — bấm thumb mở lightbox; ô 📸 cuối cùng để chụp/thêm */}
+      <ImageStrip base={`/api/order/${threadId}`} onCamera={goCamera} />
 
       <div class="card">
         <div class="row space">
