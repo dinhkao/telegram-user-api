@@ -17,6 +17,7 @@ from server_app.entity_history import _ACTION_LABELS, _SKIP, _label as _ent_labe
 
 _PER = 40
 _SCOPE_LABEL = {"order": "Đơn", "production": "Phiếu SX", "box": "Thùng"}
+_ORDER_ID = re.compile(r"/api/order/(-?\d+)")
 _CREATED_SCOPE = {"order.created": "order", "production.created": "production", "box.created": "box"}
 
 
@@ -50,12 +51,17 @@ def _row_meta(r):
     source = r["source"] or ""
     if not (source.startswith("POST ") or source.startswith("DELETE ")):
         return None
-    if scope == "order":
+    # order: cả event có scope='order' (mới) lẫn event CŨ scope=NULL nhưng path là /api/order
+    if scope == "order" or (scope is None and "/api/order/" in source):
         norm = _order_norm(source.split(" ", 1)[1].split("?")[0])
         label = _ORDER_LABELS.get(norm)
         if not label:
             return None
-        return "order", tid, label, _order_detail(norm, _body(r["payload_json"]))
+        eid = tid
+        if eid is None:
+            m = _ORDER_ID.search(source)
+            eid = int(m.group(1)) if m else None
+        return "order", eid, label, _order_detail(norm, _body(r["payload_json"]))
     if scope in ("production", "box"):
         method, key, path = _ent_norm(source)
         if key in _SKIP:
@@ -72,9 +78,11 @@ def get_activity(page: int = 1, per: int = _PER):
     try:
         rows = conn.execute(
             "SELECT ts, actor_id, action, source, scope, thread_id, payload_json, result_json "
-            "FROM audit_events WHERE scope IN ('order','production','box') AND ("
+            "FROM audit_events WHERE ("
             " action IN ('order.created','production.created','box.created','order.image_added')"
             " OR (action='http.request' AND (source LIKE 'POST %' OR source LIKE 'DELETE %'))) "
+            "AND (scope IN ('order','production','box') "
+            "     OR (scope IS NULL AND (source LIKE 'POST /api/order/%' OR source LIKE 'DELETE /api/order/%'))) "
             "ORDER BY id DESC LIMIT ? OFFSET ?",
             (per + 1, off),
         ).fetchall()
