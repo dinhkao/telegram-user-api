@@ -10,6 +10,11 @@ from server_app.customer_routes import customer_detail_handler, customer_refresh
 from server_app.price_list_routes import price_lists_handler, price_list_detail_handler, price_list_save_handler, price_one_save_handler, price_list_history_handler
 from server_app.donhang_routes import donhang_handler, donhang_msg_handler, donhang_page_handler, donhang_stats_handler
 from server_app.image_routes import images_delete_handler, images_file_handler, images_list_handler, images_upload_handler
+from server_app.entity_media_routes import (
+    comments_add_handler as em_comments_add, comments_list_handler as em_comments_list,
+    images_delete_handler as em_images_delete, images_file_handler as em_images_file,
+    images_list_handler as em_images_list, images_upload_handler as em_images_upload,
+)
 from server_app.order_api_auto import auto_parse_handler, order_preview_handler, customer_price_list_handler
 from server_app.order_api_create import order_create_handler
 from server_app.order_api_mutations import api_assign_customer_handler, api_fix_handler, api_invoice_update_handler, api_refresh_handler, api_reply_handler, api_set_ngay_giao_handler
@@ -116,6 +121,13 @@ def create_app():
     r.add_post("/api/order/{thread_id}/images", images_upload_handler)
     r.add_delete("/api/order/{thread_id}/images/{image_id}", images_delete_handler)
     r.add_get("/api/order/{thread_id}/images/{image_id}/file", images_file_handler)
+    # ─── media dùng chung (comments+ảnh) cho production slip / box (web-only) ──
+    r.add_get("/api/media/{scope}/{entity_id}/comments", em_comments_list)
+    r.add_post("/api/media/{scope}/{entity_id}/comments", em_comments_add)
+    r.add_get("/api/media/{scope}/{entity_id}/images", em_images_list)
+    r.add_post("/api/media/{scope}/{entity_id}/images", em_images_upload)
+    r.add_delete("/api/media/{scope}/{entity_id}/images/{image_id}", em_images_delete)
+    r.add_get("/api/media/{scope}/{entity_id}/images/{image_id}/file", em_images_file)
     # ─── phiếu sản xuất (production) ─────────────────────────────────────────
     # catalog + create đăng ký TRƯỚC /{thread_id} để không bị route động nuốt
     r.add_get("/api/production/catalog", production_catalog_handler)
