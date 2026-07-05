@@ -42,7 +42,10 @@ export function ActivityLog() {
   // Realtime: bất kỳ thao tác nào (đơn/SX/thùng…) → làm mới đầu danh sách (mới nhất trước)
   useEffect(() => {
     let t: any;
-    const off = onRealtime(() => { clearTimeout(t); t = setTimeout(() => { actCache = null; load(null); }, 800); });
+    const off = onRealtime((e) => {
+      if (e.type === "report_draft" || e.type === "report_lock") return;   // sự kiện tạm, không phải thao tác
+      clearTimeout(t); t = setTimeout(() => { actCache = null; load(null); }, 800);
+    });
     return () => { off(); clearTimeout(t); };
   }, []);
 
