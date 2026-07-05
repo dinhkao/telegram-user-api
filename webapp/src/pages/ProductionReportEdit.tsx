@@ -7,6 +7,7 @@ import { BackLink } from "../nav";
 import { getProduction, saveProductionReport, lockReport, unlockReport, pushReportDraft, currentUser, soVN, type ProdSlip, type ProdReport } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
+import { confirmDialog } from "../ui/feedback";
 
 type Wrow = { name: string; gach: string; tru: string; le: string; note: string };
 
@@ -94,7 +95,12 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
 
   const setRow = (i: number, patch: Partial<Wrow>) => setWrows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)));
   const addRow = () => setWrows((rs) => [...rs, { name: "", gach: "", tru: "", le: "", note: "" }]);
-  const delRow = (i: number) => setWrows((rs) => (rs.length > 1 ? rs.filter((_, k) => k !== i) : rs));
+  const delRow = async (i: number) => {
+    const nm = wrows[i]?.name?.trim();
+    if (nm && !(await confirmDialog(`Xoá dòng thợ "${nm}"?`, { danger: true }))) return;
+    setWrows((rs) => (rs.length > 1 ? rs.filter((_, k) => k !== i) : rs));
+  };
+  const selAll = (e: any) => e.target.select();   // bấm vào ô → chọn hết nội dung, gõ đè ngay
 
   const buildText = (): string => {
     const CODE = (slip?.sp_name || "").toUpperCase();
@@ -152,7 +158,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         <div class="prod-report-scroll">
           <table class="prod-report-table wr-edit">
             <colgroup>
-              <col /><col class="c-num" /><col class="c-num" /><col class="c-num" />
+              <col class="c-name" /><col class="c-num" /><col class="c-num" /><col class="c-num" />
               <col class="c-calc" /><col class="c-calc" /><col class="c-note" />
               {!readOnly && <col class="c-del" />}
             </colgroup>
@@ -164,13 +170,13 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
                 const c = calc(r);
                 return (
                   <tr key={i} class={c.tong > 0 ? "" : "prod-row-off"}>
-                    <td><input class="wr-in wr-name" value={r.name} disabled={readOnly} onInput={(e: any) => setRow(i, { name: e.target.value })} placeholder="Tên" /></td>
-                    <td><input class="wr-in wr-num" inputMode="decimal" value={r.gach} disabled={readOnly} onInput={(e: any) => setRow(i, { gach: e.target.value })} /></td>
-                    <td><input class="wr-in wr-num" inputMode="decimal" value={r.tru} disabled={readOnly} onInput={(e: any) => setRow(i, { tru: e.target.value })} /></td>
-                    <td><input class="wr-in wr-num" inputMode="decimal" value={r.le} disabled={readOnly} onInput={(e: any) => setRow(i, { le: e.target.value })} /></td>
+                    <td><input class="wr-in wr-name" value={r.name} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { name: e.target.value })} placeholder="Tên" /></td>
+                    <td><input class="wr-in wr-num" inputMode="decimal" value={r.gach} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { gach: e.target.value })} /></td>
+                    <td><input class="wr-in wr-num" inputMode="decimal" value={r.tru} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { tru: e.target.value })} /></td>
+                    <td><input class="wr-in wr-num" inputMode="decimal" value={r.le} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { le: e.target.value })} /></td>
                     <td class="wr-calc">{soVN(c.soMam)}</td>
                     <td class="wr-calc strong">{soVN(c.tong)}</td>
-                    <td><input class="wr-in wr-note" value={r.note} disabled={readOnly} onInput={(e: any) => setRow(i, { note: e.target.value })} placeholder="—" /></td>
+                    <td><input class="wr-in wr-note" value={r.note} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { note: e.target.value })} placeholder="—" /></td>
                     {!readOnly && <td><button class="btn small wr-del" title="Xoá dòng" onClick={() => delRow(i)}>✕</button></td>}
                   </tr>
                 );
