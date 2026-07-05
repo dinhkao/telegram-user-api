@@ -573,6 +573,29 @@ export async function deleteQuy(id: number | string): Promise<any> {
   return delJSON(`/api/quy/${id}`);
 }
 
+// ── Quản lý user (chỉ admin) ──────────────────────────────────────────────────
+
+export type WebUser = { username: string; display_name: string; role: string; disabled: boolean };
+
+export async function listUsers(): Promise<{ users: WebUser[]; roles: string[] }> {
+  const d = await getJSON("/api/users", { cache: false });
+  return { users: d.users || [], roles: d.roles || ["staff", "van_phong", "admin"] };
+}
+export async function createUser(username: string, pin: string, display_name: string, role: string): Promise<any> {
+  return postJSON("/api/users", { username, pin, display_name, role });
+}
+export async function setUserRole(username: string, role: string): Promise<any> {
+  return postJSON(`/api/users/${encodeURIComponent(username)}/role`, { role });
+}
+export async function setUserDisabled(username: string, disabled: boolean): Promise<any> {
+  return postJSON(`/api/users/${encodeURIComponent(username)}/disabled`, { disabled });
+}
+export async function setUserPin(username: string, pin: string): Promise<any> {
+  return postJSON(`/api/users/${encodeURIComponent(username)}/pin`, { pin });
+}
+
+export const ROLE_LABEL: Record<string, string> = { admin: "Admin", van_phong: "Văn phòng", staff: "Nhân viên" };
+
 // ── Kho thùng (inventory) ─────────────────────────────────────────────────────
 
 export type InvBox = {

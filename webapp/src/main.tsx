@@ -22,6 +22,7 @@ import { ProductionReportEdit } from "./pages/ProductionReportEdit";
 import { ProductionDashboard } from "./pages/ProductionDashboard";
 import { ProductionWorkerDetail } from "./pages/ProductionWorkerDetail";
 import { QuyList } from "./pages/QuyList";
+import { Users } from "./pages/Users";
 import { InventoryList } from "./pages/InventoryList";
 import { InventoryDetail } from "./pages/InventoryDetail";
 import { BoxDetail } from "./pages/BoxDetail";
@@ -190,6 +191,7 @@ function App() {
   else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;
   else if (hash.startsWith("#/kho")) page = <InventoryList />;
   else if (hash.startsWith("#/quy")) page = <QuyList />;
+  else if (hash.startsWith("#/users")) page = <Users />;
   else if (hash.startsWith("#/lich-su")) page = <ActivityLog />;
   else if (hash.startsWith("#/lich")) page = <DeliveryCalendar />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
@@ -233,6 +235,7 @@ function App() {
             <a class="menu-item" href="#/sx-bang" onClick={() => setMenuOpen(false)}>📊 Dashboard sản xuất</a>
             <a class="menu-item" href="#/lich-su" onClick={() => setMenuOpen(false)}>🕘 Lịch sử thao tác</a>
             <a class="menu-item" href="#/bang-gia" onClick={() => setMenuOpen(false)}>💰 Bảng giá chung</a>
+            {user?.role === "admin" && <a class="menu-item" href="#/users" onClick={() => setMenuOpen(false)}>👥 Quản lý user</a>}
           </div>
         </div>
       )}
