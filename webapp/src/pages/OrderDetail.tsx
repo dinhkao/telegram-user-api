@@ -169,6 +169,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const goPay = () => scrollTo("od-payments");
   const goTasks = () => scrollTo("od-tasks");
   const goImages = () => scrollTo("od-camera");
+  const goStock = () => scrollTo("od-stock");
+  const goChat = () => scrollTo("od-chat");
 
   const doPrint = async () => {
     if (!(await confirmDialog("In 2 hoá đơn + phiếu giao?"))) return;
@@ -289,6 +291,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           <button class="qa" onClick={goInvoice}><span class="qa-ic">🧾</span><span class="qa-lb">Hoá đơn</span></button>
           <button class="qa" onClick={goPay}><span class="qa-ic">💰</span><span class="qa-lb">Thanh toán</span></button>
           <button class="qa" onClick={goTasks}><span class="qa-ic">✅</span><span class="qa-lb">Tiến độ</span></button>
+          <button class="qa" onClick={goStock}><span class="qa-ic">📦</span><span class="qa-lb">Xuất kho</span></button>
+          <button class="qa" onClick={goChat}><span class="qa-ic">💬</span><span class="qa-lb">Trao đổi</span></button>
           <button class="qa" onClick={goImages}><span class="qa-ic">🖼️</span><span class="qa-lb">Ảnh</span></button>
         </div>
       </div>
@@ -360,7 +364,9 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         debtLocked={!!j.kiotvietInvoiceID}
       />
       </div>{/* #od-invoice */}
+      <div id="od-stock">
       <OrderStock threadId={threadId} invoice={j.invoice || []} />
+      </div>
       <div id="od-payments">
       <Payments threadId={threadId} payments={j.payments || []} suggest={invoiceTotal(j.invoice)} onChanged={changed} />
       </div>
@@ -369,7 +375,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>
       </div>{/* .dmain */}
 
-      <aside class="dside">
+      <aside class="dside" id="od-chat">
         <Comments base={`/api/order/${threadId}`} chatMessages={detail.chat_messages || []} />
       </aside>
       </div>{/* .detail-grid */}
