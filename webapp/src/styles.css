@@ -841,8 +841,17 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .wr-bg-overlay img { display: block; width: 100%; height: 100%; object-fit: contain; }
 
 /* Chi tiết đơn — thanh điều hướng nhanh (dưới nội dung đơn) */
-.od-quicknav { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
-.od-quicknav .qn { flex: 1; min-width: 96px; white-space: nowrap; }
+.od-quick { margin: 8px 0; }
+.od-quick-ttl { display: block; margin-bottom: 8px; }
+.qa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.qa { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); cursor: pointer;
+  transition: background .12s, border-color .12s, transform .05s; }
+.qa:hover { border-color: var(--accent); }
+.qa:active { transform: scale(.96); }
+.qa:disabled { opacity: .45; cursor: default; }
+.qa-ic { font-size: 26px; line-height: 1; }
+.qa-lb { font-size: 12px; font-weight: 600; text-align: center; line-height: 1.15; color: var(--ink); }
 .img-strip { display: flex; gap: 6px; overflow-x: auto; margin: 0 0 8px; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
 .img-strip-tile { flex: 0 0 auto; width: 64px; height: 64px; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); cursor: pointer; }
 .img-strip-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
