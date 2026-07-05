@@ -828,7 +828,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
   box-shadow: 0 6px 20px rgba(0,0,0,.28); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   touch-action: none; user-select: none; -webkit-user-select: none;
-  -webkit-tap-highlight-color: transparent; transition: transform .1s, background .1s; }
+  -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  transition: transform .1s, background .1s; }
 .wr-peek-btn.on { background: var(--ok); transform: translateX(-50%) scale(1.12); }
 /* Ảnh phủ CỐ ĐỊNH theo màn hình (KHÔNG trôi theo cuộn — sửa lỗi ảnh lệch theo vị trí
    cuộn). Che từ dưới app-bar (44px) tới trên bottom-nav; trong cột app (max 640px,
