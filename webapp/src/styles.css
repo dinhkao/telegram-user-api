@@ -855,3 +855,20 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .usr-locked { color: var(--danger); font-weight: 600; }
 .usr-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .usr-actions .usr-role { flex: 1; min-width: 120px; }
+
+/* Notification center — chuông + badge + panel */
+.notif-bell { position: relative; }
+.notif-badge { position: absolute; top: 2px; right: 0; min-width: 16px; height: 16px;
+  padding: 0 4px; border-radius: 8px; background: var(--danger); color: #fff;
+  font-size: .66rem; font-weight: 700; line-height: 16px; text-align: center; box-sizing: border-box; }
+.notif-panel { max-height: 78vh; display: flex; flex-direction: column; }
+.notif-empty { padding: 24px 12px; text-align: center; }
+.notif-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
+.notif-item { display: flex; gap: 10px; padding: 11px 6px; border-top: 1px solid var(--border); align-items: flex-start; }
+.notif-item:first-child { border-top: none; }
+.notif-item.tappable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.notif-item.tappable:active { background: var(--bg); }
+.notif-ico { font-size: 1.25rem; line-height: 1.2; flex: 0 0 auto; }
+.notif-body { flex: 1; min-width: 0; }
+.notif-title { font-weight: 700; font-size: .92rem; }
+.notif-text { font-size: .9rem; color: var(--ink); word-break: break-word; margin: 1px 0 2px; }

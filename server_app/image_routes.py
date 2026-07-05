@@ -178,9 +178,9 @@ async def images_upload_handler(request: web.Request):
 
     from server_app.realtime import emit_order_changed
     emit_order_changed(thread_id)
-    # Push FCM cho app (best-effort, tắt nếu FCM_ENABLED=false)
-    from server_app.fcm import notify_bg
-    notify_bg("🖼 Ảnh mới", f"{uploaded_by} thêm ảnh vào đơn", {"thread_id": str(thread_id), "type": "image", "image_id": str(image["id"])})
+    # Ghi notification center + push FCM (1 chỗ → luôn khớp)
+    from server_app.notify import push_bg
+    push_bg("🖼 Ảnh mới", f"{uploaded_by} thêm ảnh vào đơn", {"thread_id": str(thread_id), "type": "image", "image_id": str(image["id"])})
     # Ghi vào lịch sử thao tác (kèm id ảnh để hiện thumbnail)
     from server_app.tasks import spawn_tracked
     from audit_log import async_log_event

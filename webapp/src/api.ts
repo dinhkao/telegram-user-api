@@ -596,6 +596,23 @@ export async function setUserPin(username: string, pin: string): Promise<any> {
 
 export const ROLE_LABEL: Record<string, string> = { admin: "Admin", van_phong: "Văn phòng", staff: "Nhân viên" };
 
+// ── Notification center ───────────────────────────────────────────────────────
+
+export type Notif = {
+  id: number;
+  type: string;
+  title: string;
+  body: string;
+  thread_id?: number | null;
+  focus?: string | null;
+  created_at?: string | null;
+};
+
+export async function listNotifications(limit = 30): Promise<{ notifications: Notif[]; latest_id: number }> {
+  const d = await getJSON(`/api/notifications?limit=${limit}`, { cache: false });
+  return { notifications: d.notifications || [], latest_id: d.latest_id || 0 };
+}
+
 // ── Kho thùng (inventory) ─────────────────────────────────────────────────────
 
 export type InvBox = {

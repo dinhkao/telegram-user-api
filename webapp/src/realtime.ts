@@ -14,6 +14,7 @@ export type RealtimeEvent =
   | { type: "box_changed"; box_id: string | null }
   | { type: "price_lists_changed" }
   | { type: "quy_changed" }
+  | { type: "notif_added"; notif: any }
   | { type: "report_lock"; thread_id: string | null; holder: string | null }
   | { type: "report_draft"; thread_id: string | null; draft: any }
   | { type: "resync" };
@@ -22,7 +23,7 @@ export type RealtimeEvent =
 const _SERVER_EVENTS = new Set([
   "order_changed", "orders_changed", "production_changed", "productions_changed",
   "customer_changed", "inventory_changed", "box_changed", "price_lists_changed",
-  "quy_changed", "report_lock", "report_draft",
+  "quy_changed", "notif_added", "report_lock", "report_draft",
 ]);
 
 type Handler = (e: RealtimeEvent) => void;
