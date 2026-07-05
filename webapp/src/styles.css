@@ -598,6 +598,22 @@ body.pv-open { overflow: hidden; }
   .wr-edit thead th { font-size: .56rem; }
 }
 
+/* Dashboard sản xuất */
+.db-page { display: flex; flex-direction: column; gap: 12px; }
+.db-period { display: flex; gap: 6px; }
+.db-seg { flex: 1; padding: 9px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--ink); font-size: .85rem; font-weight: 600; }
+.db-seg.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+.db-cards { display: flex; gap: 8px; }
+.db-card { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 6px; text-align: center; }
+.db-card-num { display: block; font-size: 1.35rem; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
+.db-card-lbl { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.db-row { margin: 9px 0; }
+.db-row-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.db-name { font-weight: 600; font-size: .9rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.db-val { font-variant-numeric: tabular-nums; flex: none; }
+.db-bar { height: 8px; background: var(--accent-wash); border-radius: 999px; overflow: hidden; margin: 4px 0 2px; }
+.db-bar-fill { height: 100%; background: var(--primary); border-radius: 999px; }
+
 /* số lượng nhận — danh sách có thời gian + người + ghi chú */
 .prod-numbers { flex-direction: column; align-items: stretch; }
 .prod-num-row { display: flex; align-items: baseline; gap: 10px; background: #f7f7f7; }

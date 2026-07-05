@@ -19,6 +19,7 @@ import { ActivityLog } from "./pages/ActivityLog";
 import { ProductionList } from "./pages/ProductionList";
 import { ProductionDetail } from "./pages/ProductionDetail";
 import { ProductionReportEdit } from "./pages/ProductionReportEdit";
+import { ProductionDashboard } from "./pages/ProductionDashboard";
 import { InventoryList } from "./pages/InventoryList";
 import { InventoryDetail } from "./pages/InventoryDetail";
 import { BoxDetail } from "./pages/BoxDetail";
@@ -178,6 +179,7 @@ function App() {
   if (showLogin) page = <Login />;
   else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} focus={focusEl} />;
   else if (prodEditMatch) page = <ProductionReportEdit threadId={prodEditMatch[1]} />;
+  else if (hash.startsWith("#/sx-bang")) page = <ProductionDashboard />;
   else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} focus={focusEl} />;
   else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;
   else if (boxMatch) page = <BoxDetail boxId={boxMatch[1]} />;
@@ -222,6 +224,7 @@ function App() {
         <div class="modal-overlay" onClick={() => setMenuOpen(false)}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head">Mục khác</div>
+            <a class="menu-item" href="#/sx-bang" onClick={() => setMenuOpen(false)}>📊 Dashboard sản xuất</a>
             <a class="menu-item" href="#/lich-su" onClick={() => setMenuOpen(false)}>🕘 Lịch sử thao tác</a>
             <a class="menu-item" href="#/bang-gia" onClick={() => setMenuOpen(false)}>💰 Bảng giá chung</a>
           </div>

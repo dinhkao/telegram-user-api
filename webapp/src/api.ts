@@ -479,6 +479,20 @@ export async function lockReport(id: string | number): Promise<{ ok: boolean; ho
 export async function unlockReport(id: string | number): Promise<any> {
   return postJSON(`/api/production/${id}/report/unlock`, { user: _actor() });
 }
+export type ProdDashboard = {
+  totals: { tong: number; phieu: number; tho: number };
+  by_worker: { name: string; tong: number; phieu: number; mam: number }[];
+  by_day: { ymd: string; tong: number; phieu: number }[];
+  by_product: { code: string; tong: number; phieu: number }[];
+};
+export async function getProductionDashboard(from?: string, to?: string): Promise<ProdDashboard> {
+  const qs = new URLSearchParams();
+  if (from) qs.set("from", from);
+  if (to) qs.set("to", to);
+  const q = qs.toString();
+  return getJSON(`/api/production/report-dashboard${q ? "?" + q : ""}`, { cache: false });
+}
+
 /** Gửi bản nháp bảng (người đang sửa) → người xem thấy trực tiếp. Không lưu. */
 export async function pushReportDraft(id: string | number, draft: { rows: any[]; date?: string; start?: string; end?: string }): Promise<any> {
   return postJSON(`/api/production/${id}/report/draft`, { ...draft, user: _actor() });
