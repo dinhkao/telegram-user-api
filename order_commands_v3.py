@@ -367,9 +367,22 @@ async def _process_create_invoice_core(thread_id: int, user_id: int | None) -> d
     if not _save_order(db_conn, thread_id, order):
         result["error"] = "Lỗi lưu hoá đơn vào database"; return result
     set_task_status(db_conn, thread_id, "ban_hd", user_id)
-    if old_debt is not None:
-        from order_db import update_customer_debt
-        update_customer_debt(db_conn, str(kh_id_fb), old_debt)
+    # Cập nhật CÔNG NỢ khách sau khi tạo HĐ (HĐ chưa thu → nợ tăng). Lấy nợ MỚI từ
+    # KiotViet (đã gồm HĐ vừa tạo) → lưu vào khách; fallback dùng old_debt nếu lỗi.
+    from order_db import update_customer_debt
+    try:
+        det_new = await asyncio.get_running_loop().run_in_executor(None, get_customer_debt_kv, kv_id)
+        new_debt = det_new.get("debt")
+    except Exception as e:
+        log.warning("Không lấy được nợ mới sau tạo HĐ cho khách %s: %s", kv_id, e)
+        new_debt = None
+    debt_to_store = new_debt if new_debt is not None else old_debt
+    if debt_to_store is not None:
+        update_customer_debt(db_conn, str(kh_id_fb), debt_to_store)
+    # Đẩy realtime → trang Khách (công nợ) + dashboard cập nhật ngay
+    from server_app.realtime import emit_customer_changed, emit_order_changed
+    emit_order_changed(thread_id)
+    emit_customer_changed(str(kh_id_fb))
     result.update(success=True, kv_code=invoice_code, kv_id=invoice_id, old_debt=snapshot_debt)
     return result
 
