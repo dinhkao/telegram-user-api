@@ -148,7 +148,17 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Cuộn mượt tự viết (~240ms) — nhanh hơn behavior:smooth mặc định; chừa 56px cho app-bar
+    const start = window.scrollY;
+    const target = start + el.getBoundingClientRect().top - 56;
+    const dur = 240, t0 = performance.now();
+    const ease = (p: number) => 1 - Math.pow(1 - p, 3);   // easeOutCubic
+    const step = (now: number) => {
+      const p = Math.min(1, (now - t0) / dur);
+      window.scrollTo(0, start + (target - start) * ease(p));
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
     el.classList.remove("flash-target");
     void el.offsetWidth;               // reflow → chạy lại animation nếu bấm liên tiếp
     el.classList.add("flash-target");
