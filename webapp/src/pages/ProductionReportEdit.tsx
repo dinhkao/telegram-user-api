@@ -155,7 +155,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         </div>
         {scm <= 0 && <div class="prod-save-msg">⚠️ SP chưa có số cây 1 mâm — chọn mã SP để tính tổng.</div>}
 
-        <div class="prod-report-scroll">
+        <div class="prod-report-scroll wr-scroll">
           <table class="prod-report-table wr-edit">
             <colgroup>
               <col class="c-name" /><col class="c-num" /><col class="c-num" /><col class="c-num" />

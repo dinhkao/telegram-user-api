@@ -533,6 +533,8 @@ body.pv-open { overflow: hidden; }
 .prod-report-input { font-family: monospace; font-size: .8rem; }
 .prod-report-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: .85rem; color: #555; margin: 10px 0; }
 .prod-report-scroll { overflow-x: auto; }
+/* Trang sửa: KHÔNG tạo scroll container (để header sticky bám theo cuộn TRANG). Bảng đã vừa. */
+.wr-scroll { overflow: visible; }
 .prod-report-table { border-collapse: collapse; width: 100%; font-size: .85rem; }
 .prod-report-table th, .prod-report-table td { border: 1px solid #eee; padding: 5px 8px; text-align: right; white-space: nowrap; }
 .prod-report-table th:first-child, .prod-report-table td:first-child { text-align: left; }
@@ -554,9 +556,11 @@ body.pv-open { overflow: hidden; }
 .wr-edit col.c-note { width: 48px; }
 .wr-edit col.c-del { width: 22px; }
 .wr-edit th, .wr-edit td { border: 1px solid var(--border); padding: 0; }
+/* Header ĐÓNG BĂNG khi cuộn (dính dưới app-bar 44px). Cần wrapper overflow:visible (.wr-scroll). */
 .wr-edit thead th { border: none; border-bottom: 1.5px solid var(--border); background: var(--card);
-  font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .01em; color: var(--muted);
-  padding: 6px 1px; text-align: center; position: sticky; top: 0; z-index: 1; }
+  box-shadow: 0 1px 0 var(--border); font-size: .6rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .01em; color: var(--muted); padding: 6px 1px; text-align: center;
+  position: sticky; top: 44px; z-index: 6; }
 .wr-edit thead th:first-child { text-align: left; padding-left: 7px; }
 .wr-edit tbody tr:nth-child(even) td { background: rgba(0, 0, 0, .02); }
 .wr-edit .wr-in { width: 100%; box-sizing: border-box; border: none; -webkit-appearance: none; appearance: none;
