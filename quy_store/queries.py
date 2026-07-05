@@ -54,7 +54,7 @@ def get_receipt(conn, receipt_id) -> dict | None:
     return dict(row) if row else None
 
 
-def _where(type_filter: str | None, q: str | None):
+def _where(type_filter: str | None, q: str | None, from_date=None, to_date=None):
     clauses, params = [], []
     if type_filter in ("thu", "chi"):
         clauses.append("type = ?")
@@ -62,12 +62,18 @@ def _where(type_filter: str | None, q: str | None):
     if q:
         clauses.append("(note LIKE ? OR customer_name LIKE ?)")
         params += [f"%{q}%", f"%{q}%"]
+    if from_date:
+        clauses.append("date >= ?")
+        params.append(from_date)
+    if to_date:
+        clauses.append("date <= ?")
+        params.append(to_date)
     sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     return sql, params
 
 
-def list_receipts(conn, *, limit=20, offset=0, type_filter=None, q=None) -> list[dict]:
-    where, params = _where(type_filter, q)
+def list_receipts(conn, *, limit=20, offset=0, type_filter=None, q=None, from_date=None, to_date=None) -> list[dict]:
+    where, params = _where(type_filter, q, from_date, to_date)
     rows = conn.execute(
         f"SELECT * FROM quy_receipts{where} ORDER BY id DESC LIMIT ? OFFSET ?",
         (*params, limit, offset),
@@ -75,22 +81,25 @@ def list_receipts(conn, *, limit=20, offset=0, type_filter=None, q=None) -> list
     return [dict(r) for r in rows]
 
 
-def count_receipts(conn, *, type_filter=None, q=None) -> int:
-    where, params = _where(type_filter, q)
+def count_receipts(conn, *, type_filter=None, q=None, from_date=None, to_date=None) -> int:
+    where, params = _where(type_filter, q, from_date, to_date)
     row = conn.execute(f"SELECT COUNT(*) AS c FROM quy_receipts{where}", params).fetchone()
     return int(row["c"]) if row else 0
 
 
-def summary(conn) -> dict:
-    """Tổng thu / chi / số dư trên TOÀN sổ (không lọc trang)."""
+def summary(conn, *, from_date=None, to_date=None) -> dict:
+    """Tổng thu / chi / số dư. Không truyền from/to = TOÀN sổ (số dư quỹ thật);
+    có from/to = tổng trong kỳ (không lọc loại/tìm kiếm — chỉ theo ngày)."""
+    where, params = _where(None, None, from_date, to_date)
     row = conn.execute(
-        """
+        f"""
         SELECT
             COALESCE(SUM(CASE WHEN type='thu' THEN amount ELSE 0 END), 0) AS thu,
             COALESCE(SUM(CASE WHEN type='chi' THEN amount ELSE 0 END), 0) AS chi,
             COUNT(*) AS count
-        FROM quy_receipts
-        """
+        FROM quy_receipts{where}
+        """,
+        params,
     ).fetchone()
     thu, chi, cnt = int(row["thu"]), int(row["chi"]), int(row["count"])
     return {"thu": thu, "chi": chi, "balance": thu - chi, "count": cnt}

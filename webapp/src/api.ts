@@ -525,25 +525,35 @@ export type QuyReceipt = {
   date?: string | null;
 };
 export type QuySummary = { thu: number; chi: number; balance: number; count: number };
+export type QuyRange = { from?: string; to?: string };
 export type QuyListResp = {
   receipts: QuyReceipt[];
   total: number;
   page: number;
   total_pages: number;
-  summary: QuySummary;
+  summary: QuySummary; // toàn sổ (số dư quỹ thật)
+  period: QuySummary;  // tổng trong kỳ đang lọc (= summary nếu không lọc ngày)
+  from: string | null;
+  to: string | null;
 };
 
-export async function listQuy(page = 1, type?: "thu" | "chi", q?: string): Promise<QuyListResp> {
+export async function listQuy(page = 1, type?: "thu" | "chi", range?: QuyRange, q?: string): Promise<QuyListResp> {
   const qs = new URLSearchParams({ page: String(page) });
   if (type) qs.set("type", type);
   if (q) qs.set("q", q);
+  if (range?.from) qs.set("from", range.from);
+  if (range?.to) qs.set("to", range.to);
   const d = await getJSON(`/api/quy?${qs.toString()}`, { cache: false });
+  const empty = { thu: 0, chi: 0, balance: 0, count: 0 };
   return {
     receipts: d.receipts || [],
     total: d.total || 0,
     page: d.page || 1,
     total_pages: d.total_pages || 1,
-    summary: d.summary || { thu: 0, chi: 0, balance: 0, count: 0 },
+    summary: d.summary || empty,
+    period: d.period || d.summary || empty,
+    from: d.from ?? null,
+    to: d.to ?? null,
   };
 }
 
