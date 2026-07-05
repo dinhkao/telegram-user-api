@@ -462,11 +462,26 @@ export async function saveProductionReport(
   id: string | number,
   text: string
 ): Promise<ProdReport & { sheet?: SheetStatus }> {
-  return postJSON(`/api/production/${id}/report`, { text });
+  const u = currentUser();
+  return postJSON(`/api/production/${id}/report`, { text, user: u?.display_name || u?.username || "" });
 }
 
 export async function deleteProduction(id: string | number): Promise<any> {
   return delJSON(`/api/production/${id}`);
+}
+
+const _actor = () => { const u = currentUser(); return u?.display_name || u?.username || ""; };
+
+/** Khoá sửa báo cáo (1 người/phiếu). Trả {holder, mine}. Gọi lặp lại = heartbeat gia hạn. */
+export async function lockReport(id: string | number): Promise<{ ok: boolean; holder: string | null; mine: boolean }> {
+  return postJSON(`/api/production/${id}/report/lock`, { user: _actor() });
+}
+export async function unlockReport(id: string | number): Promise<any> {
+  return postJSON(`/api/production/${id}/report/unlock`, { user: _actor() });
+}
+/** Gửi bản nháp bảng (người đang sửa) → người xem thấy trực tiếp. Không lưu. */
+export async function pushReportDraft(id: string | number, draft: { rows: any[]; date?: string; start?: string; end?: string }): Promise<any> {
+  return postJSON(`/api/production/${id}/report/draft`, { ...draft, user: _actor() });
 }
 
 // ── Kho thùng (inventory) ─────────────────────────────────────────────────────

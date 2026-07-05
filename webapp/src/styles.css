@@ -580,6 +580,9 @@ body.pv-open { overflow: hidden; }
 .wr-time { width: 62px; text-align: center; }
 .prod-report-meta { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 4px 0 12px; }
 .prod-report-meta label { display: inline-flex; align-items: center; gap: 4px; }
+.wr-lock-alert { background: var(--warn-wash); color: var(--warn); border: 1px solid var(--warn);
+  border-radius: 10px; padding: 11px 13px; font-size: .86rem; margin: 6px 0 12px; line-height: 1.45; }
+.wr-editcard .wr-in:disabled, .wr-editcard .wr-meta:disabled { opacity: .85; -webkit-text-fill-color: currentColor; }
 
 /* số lượng nhận — danh sách có thời gian + người + ghi chú */
 .prod-numbers { flex-direction: column; align-items: stretch; }

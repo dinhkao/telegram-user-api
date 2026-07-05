@@ -35,6 +35,9 @@ from server_app.production_routes import (
     production_set_note_handler,
     production_report_parse_handler,
     production_report_save_handler,
+    production_report_lock_handler,
+    production_report_unlock_handler,
+    production_report_draft_handler,
     production_set_product_handler,
     production_set_target_handler,
 )
@@ -146,6 +149,9 @@ def create_app():
     r.add_post("/api/production/{thread_id}/boxes", production_add_boxes_handler)
     r.add_get("/api/production/{thread_id}/boxes", production_boxes_list_handler)
     r.add_post("/api/production/{thread_id}/report/parse", production_report_parse_handler)
+    r.add_post("/api/production/{thread_id}/report/lock", production_report_lock_handler)
+    r.add_post("/api/production/{thread_id}/report/unlock", production_report_unlock_handler)
+    r.add_post("/api/production/{thread_id}/report/draft", production_report_draft_handler)
     r.add_post("/api/production/{thread_id}/report", production_report_save_handler)
     # ─── kho thùng (inventory) ───────────────────────────────────────────────
     r.add_get("/api/inventory", inventory_list_handler)

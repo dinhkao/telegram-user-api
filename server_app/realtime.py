@@ -137,3 +137,17 @@ def emit_price_lists_changed() -> None:
     """Bảng giá chung đổi (lưu giá) → trang bảng giá + khách refetch."""
     from server_app.tasks import spawn_tracked
     spawn_tracked("realtime.price_lists_changed", _broadcast({"type": "price_lists_changed"}, "price_lists_changed"))
+
+
+def emit_report_lock(thread_id, holder) -> None:
+    """Khoá sửa báo cáo phiếu SX đổi chủ (ai đang giữ / None = nhả) → client khác đổi UI."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.report_lock",
+                  _broadcast({"type": "report_lock", "thread_id": None if thread_id is None else str(thread_id), "holder": holder}, "report_lock"))
+
+
+def emit_report_draft(thread_id, draft: dict) -> None:
+    """Bản nháp bảng báo cáo (người đang sửa gõ) → người xem thấy trực tiếp. Không lưu DB."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.report_draft",
+                  _broadcast({"type": "report_draft", "thread_id": None if thread_id is None else str(thread_id), "draft": draft}, "report_draft"))
