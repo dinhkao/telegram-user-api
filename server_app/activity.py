@@ -114,14 +114,22 @@ def get_activity(before: int | None = None, per: int = _PER):
                 if not meta:
                     continue
                 sc, eid, label, detail = meta
+                payload = {}
+                try:
+                    payload = json.loads(r["payload_json"] or "{}")
+                except Exception:
+                    payload = {}
                 try:
                     status = json.loads(r["result_json"] or "{}").get("status")
                 except Exception:
                     status = None
+                changes = payload.get("changes") if isinstance(payload.get("changes"), list) else []
                 out.append({
                     "ts": r["ts"], "actor": _actor_display(r["actor_id"], names),
                     "action": label, "detail": detail, "scope": sc, "scope_label": _SCOPE_LABEL.get(sc, sc),
                     "entity_id": eid, "href": _href(sc, eid),
+                    "changes": changes,                          # diff từng trường (VAT/SP/…)
+                    "method": (r["source"] or "").split(" ", 1)[0],  # POST/DELETE
                     "ok": status is None or (isinstance(status, int) and 200 <= status < 300),
                 })
                 if len(out) >= per:

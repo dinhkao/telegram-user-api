@@ -2,7 +2,7 @@
 // Data: GET /api/activity?page=N. Mỗi dòng link tới trang chi tiết tương ứng.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getActivity } from "../api";
-import { fmtTime } from "../format";
+import { fmtDateTimeVN, fmtRelative } from "../format";
 import { Loading } from "../ui/states";
 import { onRealtime } from "../realtime";
 
@@ -54,14 +54,26 @@ export function ActivityLog() {
           {items.map((h, i) => (
             <li key={i} class={h.ok === false ? "hist-fail" : ""}>
               <a class="act-item" href={h.href || undefined}>
-                <div>
+                <div class="act-body">
                   <div>
                     <span class="act-scope">{h.scope_label}</span> <b>{h.action}</b>
                     {h.detail ? <span> — {h.detail}</span> : null}
                     {h.entity_id ? <span class="muted small"> #{h.entity_id}</span> : null}
-                    {h.ok === false ? <span class="owe"> ✗</span> : null}
+                    {h.ok === false ? <span class="owe"> ✗ lỗi</span> : null}
                   </div>
-                  <div class="muted small">{h.actor || "?"} · {fmtTime(h.ts)}</div>
+                  {Array.isArray(h.changes) && h.changes.length > 0 ? (
+                    <ul class="hist-changes">
+                      {h.changes.map((c: any, ci: number) => (
+                        <li key={ci}>
+                          <span class="hc-label">{c.label}:</span>{" "}
+                          {c.old ? <span class="hc-old">{c.old}</span> : null}
+                          {c.old && c.new ? <span class="hc-arrow"> → </span> : null}
+                          {c.new ? <span class="hc-new">{c.new}</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  <div class="muted small">👤 {h.actor || "?"} · 🕒 {fmtDateTimeVN(h.ts)} ({fmtRelative(h.ts)})</div>
                 </div>
                 {h.href ? <span class="act-go muted">›</span> : null}
               </a>

@@ -466,9 +466,10 @@ body.pv-open { overflow: hidden; }
 .filter-active-bar .fab-clear { flex: 0 0 auto; border: none; background: var(--warn); color: #fff; font-weight: 700; font-size: .82rem; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
 .filter-active-bar .fab-clear:active { opacity: .85; }
 /* Trang lịch sử thao tác toàn bộ — dòng link tới chi tiết + badge loại */
-.act-item { display: flex; align-items: center; gap: 8px; justify-content: space-between; text-decoration: none; color: inherit; padding: 2px 0; }
+.act-item { display: flex; align-items: flex-start; gap: 8px; justify-content: space-between; text-decoration: none; color: inherit; padding: 4px 0; }
+.act-item .act-body { flex: 1; min-width: 0; }
 .act-scope { display: inline-block; font-size: .68rem; font-weight: 700; color: var(--primary); background: var(--accent-wash); padding: 1px 7px; border-radius: 999px; vertical-align: middle; }
-.act-go { flex: 0 0 auto; font-weight: 700; }
+.act-go { flex: 0 0 auto; font-weight: 700; align-self: center; }
 /* Lịch giao — lưới tháng 7 cột + ô ngày có chấm số đơn */
 .cal { padding-bottom: 24px; }
 .cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 2px 12px; }
