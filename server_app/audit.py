@@ -9,6 +9,9 @@ from aiohttp import web
 from audit_log import async_log_event, new_request_id
 from server_app import order_diff
 
+# Endpoint TẠM (không phải ghi dữ liệu) — KHÔNG audit: nháp báo cáo (mỗi phím gõ),
+# khoá/nhả, xem trước. Nếu ghi sẽ ngập "draft" trong lịch sử thao tác.
+_NO_AUDIT = re.compile(r"/report/(draft|lock|unlock|parse)$")
 _ORDER_PATH = re.compile(r"^/api/order/(-?\d+)")
 _PRODUCTION_PATH = re.compile(r"^/api/production/(-?\d+)")
 _MEDIA_PATH = re.compile(r"^/api/media/(production|box)/(-?\d+)")
@@ -61,6 +64,8 @@ def _scope_entity(path: str, body_text: str | None):
 async def audit_middleware(request: web.Request, handler):
     request_id = new_request_id()
     request["request_id"] = request_id
+    if _NO_AUDIT.search(request.path):   # endpoint tạm → chạy thẳng, không ghi audit
+        return await handler(request)
     start = time.perf_counter()
     body_text = None
     if request.path == "/api/auth/login":
