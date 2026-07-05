@@ -3,6 +3,7 @@
 // đây khớp push. Realtime notif_added → cập nhật tức thì. Chưa đọc = id > seen (lưu
 // localStorage). Bấm 1 thông báo → deep-link #/order/<id>?focus=<type>:<id>.
 import { useEffect, useRef, useState } from "preact/hooks";
+import { createPortal } from "preact/compat";
 import { listNotifications, type Notif } from "./api";
 import { onRealtime } from "./realtime";
 import { fmtRelative } from "./format";
@@ -48,7 +49,9 @@ export function NotifCenter() {
   const go = (n: Notif) => {
     setOpen(false);
     if (n.thread_id) {
-      const f = n.focus ? `?focus=${encodeURIComponent(n.focus)}` : "";
+      // KHÔNG encode: main.tsx bắt focus=<type>:<id> với dấu ':' nguyên; encodeURIComponent
+      // biến ':' → '%3A' làm regex trượt → không cuộn tới đích. n.focus toàn ký tự an toàn.
+      const f = n.focus ? `?focus=${n.focus}` : "";
       window.location.hash = `#/order/${n.thread_id}${f}`;
     }
   };
@@ -60,7 +63,7 @@ export function NotifCenter() {
       <button class="icon-btn notif-bell" title="Thông báo" onClick={openPanel}>
         🔔{unread > 0 && <span class="notif-badge">{unread > 9 ? "9+" : unread}</span>}
       </button>
-      {open && (
+      {open && createPortal(
         <div class="modal-overlay" onClick={() => setOpen(false)}>
           <div class="modal-sheet notif-panel" ref={panelRef} onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head">🔔 Thông báo</div>
@@ -81,7 +84,8 @@ export function NotifCenter() {
               </ul>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
