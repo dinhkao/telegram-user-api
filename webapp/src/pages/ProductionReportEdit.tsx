@@ -151,6 +151,11 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
 
         <div class="prod-report-scroll">
           <table class="prod-report-table wr-edit">
+            <colgroup>
+              <col /><col class="c-num" /><col class="c-num" /><col class="c-num" />
+              <col class="c-calc" /><col class="c-calc" /><col class="c-note" />
+              {!readOnly && <col class="c-del" />}
+            </colgroup>
             <thead>
               <tr><th>Thợ</th><th>Gạch</th><th>Trừ</th><th>Lẻ</th><th>Mâm</th><th>Tổng</th><th>Ghi chú</th>{!readOnly && <th></th>}</tr>
             </thead>
