@@ -4,7 +4,7 @@
 // lock/unlock/draft + saveProductionReport. Khoá + nháp: server_app/production_routes.py.
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { getProduction, saveProductionReport, lockReport, unlockReport, pushReportDraft, currentUser, soVN, type ProdSlip, type ProdReport } from "../api";
+import { getProduction, saveProductionReport, lockReport, unlockReport, pushReportDraft, currentUser, soVN, listMediaImages, mediaImageUrl, deleteMediaImage, postForm, type ProdSlip, type ProdReport } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { confirmDialog } from "../ui/feedback";
@@ -32,8 +32,8 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const [msg, setMsg] = useState("");
   const seeded = useRef(false);
   const draftTimer = useRef<any>(null);
-  // Ảnh nền để DÒ — lưu VĨNH VIỄN trong localStorage (data URL) theo phiếu. Mặc định
-  // ẩn; GIỮ nút tròn để hiện (thả ra ẩn). Cục bộ, không upload/không lưu server.
+  // Ảnh nền để DÒ — lưu VĨNH VIỄN trên SERVER (DB + đĩa) theo phiếu, scope report_bg
+  // (1 ảnh/phiếu, còn mãi + chung mọi máy). Mặc định ẩn; GIỮ nút tròn để hiện (thả ra ẩn).
   const [bgUrl, setBgUrl] = useState<string | null>(null);
   const [bgShow, setBgShow] = useState(false);   // đang giữ nút → hiện ảnh
   const [bgLoading, setBgLoading] = useState(false);
@@ -110,12 +110,21 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const selAll = (e: any) => e.target.select();   // bấm vào ô → chọn hết nội dung, gõ đè ngay
 
   // ── Ảnh nền để dò: chọn ảnh (camera/thư viện) → nén bằng engine như trang đơn
-  // (processImage: co ~1600px, EXIF, HEIC ok) → lưu data URL vào localStorage theo
-  // phiếu (bền qua reload). Giữ nút tròn để hiện; thả ra ẩn. Không upload server.
-  const bgKey = `wr-bg:${threadId}`;
-  useEffect(() => {          // nạp ảnh đã lưu của phiếu này khi vào trang
-    try { const s = localStorage.getItem(bgKey); setBgUrl(s || null); } catch { /* im */ }
-  }, [threadId]);
+  // (processImage: co ~1600px, EXIF, HEIC ok) → upload lên SERVER scope report_bg
+  // theo phiếu → lưu bền (DB + đĩa), còn mãi + chung mọi máy. 1 ảnh/phiếu: upload
+  // ảnh mới thì xoá ảnh cũ. Giữ nút tròn để hiện; thả ra ẩn.
+  const bgBase = `/api/media/report_bg/${threadId}`;
+  const refreshBg = async () => {
+    try {
+      const imgs = await listMediaImages(bgBase);   // sắp mới→cũ
+      if (imgs.length) {
+        // chỉ giữ ảnh MỚI nhất làm ảnh nền; dọn ảnh cũ (nếu có) cho gọn
+        for (const o of imgs.slice(1)) deleteMediaImage(bgBase, o.id).catch(() => {});
+        setBgUrl(mediaImageUrl(bgBase, imgs[0].id, "full"));
+      } else setBgUrl(null);
+    } catch { /* mất mạng → giữ nguyên */ }
+  };
+  useEffect(() => { refreshBg(); }, [threadId]);   // nạp ảnh nền đã lưu khi vào trang
   const onPickBg = async (e: any) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -123,28 +132,24 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     setBgLoading(true);
     try {
       const p = await processImage(file);
-      const dataUrl: string = await new Promise((res, rej) => {
-        const fr = new FileReader();
-        fr.onload = () => res(String(fr.result));
-        fr.onerror = () => rej(new Error("đọc ảnh thất bại"));
-        fr.readAsDataURL(p.full);
-      });
-      try {
-        // chỉ giữ ảnh của phiếu HIỆN TẠI (dọn ảnh phiếu khác cho gọn localStorage)
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-          const k = localStorage.key(i);
-          if (k && k.startsWith("wr-bg:") && k !== bgKey) localStorage.removeItem(k);
-        }
-        localStorage.setItem(bgKey, dataUrl);
-      } catch { setMsg("⚠️ Ảnh quá lớn để lưu — vẫn dùng được lần này."); }
-      setBgUrl(dataUrl);
+      const fd = new FormData();
+      fd.append("photo", p.full, `photo${p.ext}`);
+      fd.append("thumb", p.thumb, `thumb${p.ext}`);
+      fd.append("width", String(p.width));
+      fd.append("height", String(p.height));
+      await postForm(`${bgBase}/images`, fd);
+      await refreshBg();     // lấy ảnh mới + tự dọn ảnh cũ
     } catch (err: any) {
-      setMsg(err?.message || "Không đọc được ảnh");
+      setMsg(err?.message || "Không tải được ảnh");
     } finally {
       setBgLoading(false);
     }
   };
-  const clearBg = () => { try { localStorage.removeItem(bgKey); } catch { /* im */ } setBgUrl(null); setBgShow(false); };
+  const clearBg = async () => {
+    setBgUrl(null); setBgShow(false);
+    try { const imgs = await listMediaImages(bgBase); for (const o of imgs) await deleteMediaImage(bgBase, o.id); }
+    catch { /* im */ }
+  };
 
   const buildText = (): string => {
     const CODE = (slip?.sp_name || "").toUpperCase();
