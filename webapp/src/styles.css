@@ -548,10 +548,10 @@ body.pv-open { overflow: hidden; }
 /* Bảng nhập báo cáo thợ — GRID cố định, input LIỀN Ô (chữ dùng hết bề rộng ô) */
 /* width auto + mọi cột CỐ ĐỊNH → bảng = tổng cột (cột Thợ KHÔNG phình to, vẫn đủ hẹp) */
 .wr-edit { border-collapse: collapse; width: auto; table-layout: fixed; }
-.wr-edit col.c-name { width: 80px; }
+.wr-edit col.c-name { width: 78px; }
 .wr-edit col.c-num { width: 28px; }
-.wr-edit col.c-calc { width: 31px; }
-.wr-edit col.c-note { width: 50px; }
+.wr-edit col.c-calc { width: 35px; }
+.wr-edit col.c-note { width: 48px; }
 .wr-edit col.c-del { width: 22px; }
 .wr-edit th, .wr-edit td { border: 1px solid var(--border); padding: 0; }
 .wr-edit thead th { border: none; border-bottom: 1.5px solid var(--border); background: var(--card);
@@ -569,8 +569,8 @@ body.pv-open { overflow: hidden; }
 .wr-edit .wr-note { text-align: left; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere;
   word-break: break-word; resize: none; overflow: hidden; line-height: 1.2; padding: 4px 3px; margin: 0;
   display: block; vertical-align: middle; }
-.wr-calc { text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .8rem; padding: 2px 1px; }
-.wr-calc.strong { color: var(--ink); font-weight: 700; }
+.wr-edit .wr-calc { text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .8rem; padding: 2px 5px; }
+.wr-edit .wr-calc.strong { color: var(--ink); font-weight: 700; }
 .wr-edit tfoot td { border: none; border-top: 2px solid var(--border); padding: 9px 3px; font-weight: 700; font-size: .74rem; }
 .wr-edit tfoot td:first-child { text-align: right; color: var(--muted); }
 .wr-edit tfoot td.strong { color: var(--primary); font-size: .92rem; text-align: center; }
