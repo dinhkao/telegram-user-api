@@ -1,19 +1,27 @@
-// Popup chọn ảnh soạn hàng — bấm "Xong" ở task Soạn hàng phải chọn ≥1 ảnh từ POOL
-// ảnh sẵn có của đơn. Không có ảnh → KHÔNG soạn xong được. Lưu id ảnh đã chọn vào
-// note task (imgs:<id,id>). Data: GET /api/order/{id}/images, POST /api/order/task.
+// Popup soạn hàng — bấm "Xong" ở task Soạn hàng.
+// - Đơn ĐÃ CÓ ảnh gắn loại "soạn hàng" → hiện thẳng để XÁC NHẬN (không bắt chọn tay).
+// - Chưa có ảnh soạn hàng → chọn ≥1 ảnh từ POOL ảnh của đơn (như cũ).
+// Lưu id ảnh đã dùng vào note task (imgs:<id,id>). Data: GET /api/order/{id}/images,
+// POST /api/order/task.
 import { useEffect, useState } from "preact/hooks";
 import { listMediaImages, mediaImageUrl, postJSON, type OrderImage } from "../api";
 import { toast } from "../ui/feedback";
+import { kindOf } from "./imageKinds";
 
 export function SoanHangPicker({ threadId, onClose, onDone }: { threadId: string; onClose: () => void; onDone: () => void }) {
   const base = `/api/order/${threadId}`;
   const [images, setImages] = useState<OrderImage[] | null>(null);
   const [sel, setSel] = useState<Set<number>>(new Set());
+  const [manual, setManual] = useState(false);   // ép chọn tay dù đã có ảnh soạn hàng
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     listMediaImages(base).then(setImages).catch(() => setImages([]));
   }, [base]);
+
+  const soanImgs = (images || []).filter((x) => kindOf(x) === "soan_hang");
+  // Chế độ xác nhận: có ảnh soạn hàng sẵn + chưa ép chọn tay
+  const confirmMode = soanImgs.length > 0 && !manual;
 
   const toggle = (id: number) => setSel((s) => {
     const n = new Set(s);
@@ -21,13 +29,12 @@ export function SoanHangPicker({ threadId, onClose, onDone }: { threadId: string
     return n;
   });
 
-  const confirm = async () => {
-    if (!sel.size) return;
+  const save = async (ids: number[]) => {
+    if (!ids.length) return;
     setBusy(true);
     try {
-      const note = `imgs:${[...sel].join(",")}`;
-      await postJSON("/api/order/task", { thread_id: Number(threadId), type: "soan_hang", note, done: true });
-      toast(`✅ Soạn hàng · ${sel.size} ảnh`, "ok");
+      await postJSON("/api/order/task", { thread_id: Number(threadId), type: "soan_hang", note: `imgs:${ids.join(",")}`, done: true });
+      toast(`✅ Soạn hàng · ${ids.length} ảnh`, "ok");
       onDone();
       onClose();
     } catch (e: any) {
@@ -41,10 +48,25 @@ export function SoanHangPicker({ threadId, onClose, onDone }: { threadId: string
   return (
     <div class="modal-overlay" onClick={busy ? undefined : onClose}>
       <div class="modal-sheet sh-sheet" onClick={(e: any) => e.stopPropagation()}>
-        <div class="modal-head">📦 Chọn ảnh soạn hàng {busy && "· ⏳"}</div>
+        <div class="modal-head">📦 {confirmMode ? "Xác nhận soạn hàng" : "Chọn ảnh soạn hàng"} {busy && "· ⏳"}</div>
 
         {images === null ? (
           <p class="muted small">Đang tải ảnh…</p>
+        ) : confirmMode ? (
+          <>
+            <p class="muted small">Xác nhận những hình ảnh sau đây của soạn hàng:</p>
+            <div class="sh-grid">
+              {soanImgs.map((img) => (
+                <div class="sh-tile on static" key={img.id}>
+                  <img src={mediaImageUrl(base, img.id, "thumb")} loading="lazy" alt="" />
+                </div>
+              ))}
+            </div>
+            <button class="btn primary block" disabled={busy} onClick={() => save(soanImgs.map((x) => x.id))}>
+              {busy ? "⏳ Đang lưu…" : `✅ Xác nhận (${soanImgs.length} ảnh)`}
+            </button>
+            <button class="btn block" disabled={busy} onClick={() => { setManual(true); setSel(new Set(soanImgs.map((x) => x.id))); }}>Chọn ảnh khác</button>
+          </>
         ) : images.length === 0 ? (
           <>
             <p class="sh-empty">⚠️ Đơn chưa có ảnh. Phải thêm ảnh trước khi soạn xong.</p>
@@ -66,7 +88,7 @@ export function SoanHangPicker({ threadId, onClose, onDone }: { threadId: string
                 </button>
               ))}
             </div>
-            <button class="btn primary block" disabled={busy || !sel.size} onClick={confirm}>
+            <button class="btn primary block" disabled={busy || !sel.size} onClick={() => save([...sel])}>
               {busy ? "⏳ Đang lưu…" : `✅ Xong (${sel.size} ảnh)`}
             </button>
           </>
