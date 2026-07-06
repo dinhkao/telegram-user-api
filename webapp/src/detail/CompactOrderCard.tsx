@@ -4,26 +4,17 @@
 import { orderImageUrl } from "../api";
 import { fmtDateTimeVN, fmtRelative, fmtNgayGiao } from "../format";
 import { Icon } from "../ui/Icon";
-import { StepDot, type StepState } from "../ui/StepDot";
 
 const TASK_LABELS = ["HĐ", "Soạn", "Giao", "Nộp", "Nhận"];
 
-function iconToState(ch: string | undefined, fb: boolean): StepState {
-  if (ch === "✅" || ch === "📄") return "done";
-  if (ch === "🟨") return "wait";
-  if (ch === "🔘") return "skip";
-  if (ch === "❌") return "pending";
-  return fb ? "done" : "pending";
-}
-
 export function TaskBadges({ o }: { o: any }) {
-  const icons = [...(o.task_icons || "").replace(/[\uFE0F\u200D]/g, "")];
+  const icons = [...(o.task_icons || "")];
   const fallback: boolean[] = [false, o.soan, o.giao, o.nop, o.nhan];
   return (
     <span class="badges">
       {TASK_LABELS.map((label, i) => (
         <span class="tstat" key={label}>
-          <span class="tico"><StepDot state={iconToState(icons[i], fallback[i])} size={18} /></span>
+          <span class="tico">{icons[i] || (fallback[i] ? "✅" : "❌")}</span>
           <span class="tlbl">{label}</span>
         </span>
       ))}
