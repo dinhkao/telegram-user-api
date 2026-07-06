@@ -3,7 +3,7 @@
 // GET /api/inventory/box/:id.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { boxDetail, updateBox, setBoxDisabled, soVN, type InvBoxDetail, type InvBox } from "../api";
+import { boxDetail, updateBox, setBoxDisabled, listPlaces, createPlace, setBoxPlace, soVN, type InvBoxDetail, type InvBox, type Place } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { confirmDialog } from "../ui/feedback";
@@ -30,6 +30,28 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   const [noteSaved, setNoteSaved] = useState(false);
   const [mfgInput, setMfgInput] = useState("");
   const [disBusy, setDisBusy] = useState(false);
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [newPlace, setNewPlace] = useState<string | null>(null);   // đang tạo vị trí mới
+  useEffect(() => { listPlaces().then(setPlaces).catch(() => {}); }, []);
+
+  const pickPlace = async (val: string) => {
+    if (val === "__new") { setNewPlace(""); return; }
+    try {
+      const b = await setBoxPlace(boxId, val ? Number(val) : null);
+      if (b && d) setD({ ...d, box: b });
+    } catch { /* im */ }
+  };
+  const saveNewPlace = async () => {
+    const name = (newPlace || "").trim();
+    if (!name) { setNewPlace(null); return; }
+    try {
+      const p = await createPlace(name);
+      setPlaces((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]));
+      const b = await setBoxPlace(boxId, p.id);
+      if (b && d) setD({ ...d, box: b });
+    } catch { /* im */ }
+    setNewPlace(null);
+  };
 
   const reload = (showLoading: boolean) => {
     if (showLoading) setLoading(true);
@@ -159,6 +181,24 @@ export function BoxDetail({ boxId }: { boxId: string }) {
             {soVN(remaining)}
           </span>
           {used > 0 ? <span class="muted small">đã xuất {soVN(used)}</span> : null}
+        </div>
+        <div class="box-kv">
+          <span class="box-k">Vị trí</span>
+          {newPlace === null ? (
+            <select class="box-place" value={b.place_id ?? ""} onChange={(e: any) => pickPlace(e.target.value)}>
+              <option value="">— Chưa xếp —</option>
+              {places.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              <option value="__new">➕ Tạo vị trí mới…</option>
+            </select>
+          ) : (
+            <span class="row" style={{ gap: "6px" }}>
+              <input class="box-place" autofocus placeholder="Tên vị trí (vd Kho A)" value={newPlace}
+                onInput={(e: any) => setNewPlace(e.target.value)}
+                onKeyDown={(e: any) => { if (e.key === "Enter") saveNewPlace(); if (e.key === "Escape") setNewPlace(null); }} />
+              <button class="btn small primary" onClick={saveNewPlace}>Lưu</button>
+              <button class="btn small" onClick={() => setNewPlace(null)}>✕</button>
+            </span>
+          )}
         </div>
         <div class="box-kv">
           <span class="box-k">Ngày SX</span>

@@ -63,9 +63,9 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
     if active_only:
         where.append("(b.disabled IS NULL OR b.disabled = 0)")
     sql = (
-        "SELECT b.*, "
+        "SELECT b.*, p.name AS place_name, "
         "COALESCE((SELECT SUM(a.quantity) FROM box_allocations a WHERE a.box_id=b.id),0) AS allocated "
-        "FROM inventory_boxes b"
+        "FROM inventory_boxes b LEFT JOIN inventory_places p ON p.id = b.place_id"
     )
     if where:
         sql += " WHERE " + " AND ".join(where)
@@ -110,11 +110,15 @@ def product_summary(conn) -> list[dict]:
 
 
 def get_box(conn, box_id) -> dict | None:
-    row = conn.execute("SELECT * FROM inventory_boxes WHERE id = ?", (box_id,)).fetchone()
+    row = conn.execute(
+        "SELECT b.*, p.name AS place_name FROM inventory_boxes b "
+        "LEFT JOIN inventory_places p ON p.id = b.place_id WHERE b.id = ?",
+        (box_id,),
+    ).fetchone()
     return dict(row) if row else None
 
 
-def update_box(conn, box_id, *, quantity=None, note=None, mfg_date=None) -> bool:
+def update_box(conn, box_id, *, quantity=None, note=None, mfg_date=None, place_id=None, clear_place=False) -> bool:
     sets, params = [], []
     if quantity is not None:
         sets.append("quantity = ?"); params.append(float(quantity))
@@ -122,11 +126,43 @@ def update_box(conn, box_id, *, quantity=None, note=None, mfg_date=None) -> bool
         sets.append("note = ?"); params.append(note)
     if mfg_date is not None:
         sets.append("mfg_date = ?"); params.append(mfg_date or None)
+    if clear_place:
+        sets.append("place_id = NULL")
+    elif place_id is not None:
+        sets.append("place_id = ?"); params.append(int(place_id))
     if not sets:
         return False
     params.append(box_id)
     with transaction(conn):
         conn.execute(f"UPDATE inventory_boxes SET {', '.join(sets)} WHERE id = ?", params)
+    return True
+
+
+# ─── Vị trí kho (inventory_places) ───────────────────────────────────────────
+def list_places(conn) -> list[dict]:
+    rows = conn.execute(
+        "SELECT p.id, p.name, p.note, "
+        "(SELECT COUNT(*) FROM inventory_boxes b WHERE b.place_id = p.id) AS box_count "
+        "FROM inventory_places p ORDER BY p.name"
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_place(conn, name: str, note: str = "") -> dict | None:
+    name = (name or "").strip()
+    if not name:
+        return None
+    with transaction(conn):
+        conn.execute("INSERT OR IGNORE INTO inventory_places (name, note) VALUES (?, ?)", (name, note or ""))
+    row = conn.execute("SELECT id, name, note FROM inventory_places WHERE name = ?", (name,)).fetchone()
+    return dict(row) if row else None
+
+
+def delete_place(conn, place_id) -> bool:
+    """Xoá 1 vị trí — thùng đang ở đó bị gỡ liên kết (place_id → NULL)."""
+    with transaction(conn):
+        conn.execute("UPDATE inventory_boxes SET place_id = NULL WHERE place_id = ?", (int(place_id),))
+        conn.execute("DELETE FROM inventory_places WHERE id = ?", (int(place_id),))
     return True
 
 

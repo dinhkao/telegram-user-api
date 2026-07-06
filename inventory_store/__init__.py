@@ -14,6 +14,9 @@ from .queries import (
     update_box,
     set_disabled,
     delete_box,
+    list_places,
+    add_place,
+    delete_place,
 )
 from .allocations import (
     create_allocations_table,
@@ -37,6 +40,9 @@ __all__ = [
     "update_box",
     "set_disabled",
     "delete_box",
+    "list_places",
+    "add_place",
+    "delete_place",
     "create_allocations_table",
     "migrate_legacy_allocations",
     "allocate_picks",

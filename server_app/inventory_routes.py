@@ -24,6 +24,9 @@ from inventory_store import (
     get_box,
     update_box,
     set_disabled,
+    list_places,
+    add_place,
+    delete_place,
     allocate_picks,
     list_order_allocations,
     list_box_allocations,
@@ -196,8 +199,68 @@ async def all_boxes_handler(request: web.Request):
         "quantity": b.get("quantity") or 0, "remaining": b.get("remaining") or 0,
         "allocated": b.get("allocated") or 0, "disabled": bool(b.get("disabled")),
         "note": b.get("note") or "", "mfg_date": b.get("mfg_date"), "created_at": b.get("created_at"),
+        "place_id": b.get("place_id"), "place_name": b.get("place_name"),
     } for b in boxes]
     return web.json_response({"ok": True, "boxes": out})
+
+
+async def places_list_handler(request: web.Request):
+    """Danh sách vị trí kho (Kho A, Kho B…) + số thùng ở mỗi vị trí."""
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            return list_places(conn)
+        finally:
+            conn.close()
+    return web.json_response({"ok": True, "places": await asyncio.to_thread(_run)})
+
+
+async def place_create_handler(request: web.Request):
+    """Tạo vị trí kho mới. Body {name, note?}."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    name = (body.get("name") or "").strip()
+    if not name:
+        return web.json_response({"ok": False, "error": "Thiếu tên vị trí"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            return add_place(conn, name, body.get("note") or "")
+        finally:
+            conn.close()
+    place = await asyncio.to_thread(_run)
+    from server_app.realtime import emit_inventory_changed
+    emit_inventory_changed()
+    return web.json_response({"ok": True, "place": place})
+
+
+async def place_delete_handler(request: web.Request):
+    """Xoá 1 vị trí kho — CHỈ admin. Thùng đang ở đó gỡ liên kết."""
+    from server_app.order_api_common import is_admin_request
+    if not await is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin mới được xoá vị trí"}, status=403)
+    try:
+        pid = int(request.match_info.get("place_id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "place_id không hợp lệ"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            delete_place(conn, pid)
+        finally:
+            conn.close()
+    await asyncio.to_thread(_run)
+    from server_app.realtime import emit_inventory_changed, emit_box_changed
+    emit_inventory_changed()
+    emit_box_changed()
+    return web.json_response({"ok": True})
 
 
 async def box_detail_handler(request: web.Request):
@@ -251,6 +314,15 @@ async def box_update_handler(request: web.Request):
         kwargs["note"] = str(note)
     if mfg_date is not None:
         kwargs["mfg_date"] = str(mfg_date).strip()
+    if "place_id" in body:                       # đặt/gỡ vị trí kho
+        pid = body.get("place_id")
+        if pid is None or pid == "":
+            kwargs["clear_place"] = True
+        else:
+            try:
+                kwargs["place_id"] = int(pid)
+            except (TypeError, ValueError):
+                return web.json_response({"ok": False, "error": "place_id không hợp lệ"}, status=400)
     if quantity is not None:
         try:
             q = float(quantity)

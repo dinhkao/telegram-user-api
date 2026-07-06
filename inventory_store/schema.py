@@ -31,6 +31,17 @@ def create_inventory_table(conn):
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_inv_box_code ON inventory_boxes(box_code)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_inv_product_status ON inventory_boxes(product_code, status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_inv_order ON inventory_boxes(order_thread_id)")
+    # Vị trí kho (Kho A, Kho B…) — bảng riêng, thùng link qua place_id.
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS inventory_places (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name        TEXT NOT NULL UNIQUE,
+            note        TEXT,
+            created_at  TEXT DEFAULT (datetime('now'))
+        )
+        """
+    )
     conn.commit()
 
 
@@ -45,8 +56,14 @@ def migrate_inventory_table(conn):
         "created_by": "TEXT",
         "allocated_at": "TEXT",
         "allocated_by": "TEXT",
+        "place_id": "INTEGER",   # → inventory_places.id (vị trí kho)
     }
     for name, typ in adds.items():
         if name not in cols:
             conn.execute(f"ALTER TABLE inventory_boxes ADD COLUMN {name} {typ}")
+    # đảm bảo bảng places tồn tại (DB cũ)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS inventory_places (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "name TEXT NOT NULL UNIQUE, note TEXT, created_at TEXT DEFAULT (datetime('now')))"
+    )
     conn.commit()

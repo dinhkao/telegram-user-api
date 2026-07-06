@@ -800,6 +800,13 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-lbl .bl-q { display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; }
 .box-lbl .bl-num { font-family: var(--mono); font-size: .58rem; text-align: center; padding: 2px; border-top: 1.5px solid; opacity: .75; }
 .box-lbl .bl-dot { position: absolute; top: 21px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.box-lbl .bl-place { position: absolute; top: 2px; left: 2px; z-index: 1; background: var(--accent); color: #fff; font-size: .5rem; font-weight: 700; line-height: 1; padding: 2px 4px; border-radius: 5px; max-width: 72%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Chip lọc vị trí kho */
+.place-chips { display: flex; gap: 6px; overflow-x: auto; margin: 8px 0 2px; padding-bottom: 2px; scrollbar-width: none; }
+.place-chips::-webkit-scrollbar { display: none; }
+.place-chips .chip { flex: 0 0 auto; padding: 5px 11px; font-size: .8rem; }
+/* Select vị trí ở chi tiết thùng */
+.box-place { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: .95rem; min-width: 140px; background: var(--card); color: var(--ink); }
 /* Màu theo trạng thái — nền wash + viền + chữ cùng tông */
 .box-lbl.in { background: var(--ok-wash); border-color: #bfe3c8; color: var(--ok); }
 .box-lbl.in .bl-code, .box-lbl.in .bl-num { border-color: #bfe3c8; }

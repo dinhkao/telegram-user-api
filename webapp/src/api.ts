@@ -674,7 +674,28 @@ export type InvBox = {
   created_by?: string;
   allocated?: number; // tổng đã xuất cho các đơn
   remaining?: number; // còn lại = quantity - allocated
+  place_id?: number | null;
+  place_name?: string | null;
 };
+
+export type Place = { id: number; name: string; note?: string; box_count?: number };
+/** Danh sách vị trí kho (Kho A, Kho B…). */
+export async function listPlaces(): Promise<Place[]> {
+  const d = await getJSON("/api/places", { cache: false });
+  return d.places || [];
+}
+export async function createPlace(name: string, note = ""): Promise<Place> {
+  const d = await postJSON("/api/places", { name, note }, { queueable: false });
+  return d.place;
+}
+export async function deletePlace(id: number): Promise<any> {
+  return delJSON(`/api/places/${id}`);
+}
+/** Đặt/gỡ vị trí kho cho 1 thùng (placeId=null → gỡ). */
+export async function setBoxPlace(boxId: number, placeId: number | null): Promise<InvBox | null> {
+  const d = await postJSON(`/api/inventory/box/${boxId}`, { place_id: placeId }, { queueable: false });
+  return d.ok ? d.box : null;
+}
 
 export type Allocation = {
   allocation_id: number;
@@ -741,7 +762,7 @@ export async function inventoryList(): Promise<InvProductSummary[]> {
   return d.products || [];
 }
 
-export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string };
+export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null };
 /** Kho hàng: MỌI thùng của MỌI sản phẩm (dashboard kho trực quan). */
 export async function allBoxes(): Promise<KhoBox[]> {
   const d = await getJSON("/api/inventory/boxes", { cache: false });
