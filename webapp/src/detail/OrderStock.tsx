@@ -87,21 +87,23 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
             </div>
 
             {mine.length > 0 && (
-              <ul class="inv-box-list">
-                {mine.map((a) => (
-                  <li key={a.allocation_id} id={`box-${a.box_id}`}>
-                    <a class="box-link" href={`#/thung/${a.box_id}`} title="Chi tiết thùng">
-                      <code>{a.box_code}</code>
-                    </a>{" "}
-                    · lấy {soVN(a.quantity)}
-                    {a.box_quantity ? <span class="muted small"> /{soVN(a.box_quantity)}</span> : null}
-                    <button class="link-btn" disabled={busy} onClick={() => doRelease(a)} title="Thu hồi">
-                      {" "}
-                      <Icon name="close" size={16} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <div class="box-grid lbl-grid">
+                {mine.map((a) => {
+                  const num = (a.box_code || "").split("-").pop() || a.box_code;
+                  return (
+                    <a key={a.allocation_id} id={`box-${a.box_id}`} class="box-lbl in" href={`#/thung/${a.box_id}`}
+                      title={`${a.box_code} · lấy ${soVN(a.quantity)}${a.box_quantity ? `/${soVN(a.box_quantity)}` : ""}`}>
+                      <button class="bl-x" disabled={busy} title="Thu hồi"
+                        onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); doRelease(a); }}>
+                        <Icon name="close" size={12} />
+                      </button>
+                      <span class="bl-code">{code}</span>
+                      <span class="bl-q">{soVN(a.quantity)}</span>
+                      <span class="bl-num">{num}</span>
+                    </a>
+                  );
+                })}
+              </div>
             )}
           </div>
         );
