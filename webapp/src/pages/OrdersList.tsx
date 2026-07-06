@@ -10,6 +10,7 @@ import { InvoiceTable } from "../detail/InvoiceTable";
 import { orderImageUrl, listOrderImages, type OrderImage } from "../api";
 import { PhotoViewer } from "../detail/PhotoViewer";
 import { Loading, EmptyState } from "../ui/states";
+import { fastScrollTop } from "../scroll";
 
 type OrderRow = {
   thread_id: number;
@@ -167,7 +168,7 @@ onRealtime((e) => {
 /** Bấm tab Đơn khi ĐANG ở trang Đơn → cuộn lên đầu (hashchange không xảy ra nên hệ
  *  cuộn trung tâm không tự lo). Điều hướng bình thường do main.tsx quản. */
 export function resetOrdersScroll() {
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  fastScrollTop();
 }
 
 // Đơn cuối cùng người dùng mở — để tô sáng trên dashboard khi quay lại.

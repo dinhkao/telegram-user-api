@@ -7,6 +7,7 @@ import { useEffect, useState } from "preact/hooks";
 import { listMediaImages, mediaImageUrl, postJSON, type OrderImage } from "../api";
 import { toast } from "../ui/feedback";
 import { kindOf } from "./imageKinds";
+import { fastScrollToEl } from "../scroll";
 
 export function SoanHangPicker({ threadId, onClose, onDone }: { threadId: string; onClose: () => void; onDone: () => void }) {
   const base = `/api/order/${threadId}`;
@@ -43,7 +44,7 @@ export function SoanHangPicker({ threadId, onClose, onDone }: { threadId: string
     }
   };
 
-  const goAddPhoto = () => { onClose(); document.getElementById("od-camera")?.scrollIntoView({ behavior: "smooth", block: "start" }); };
+  const goAddPhoto = () => { onClose(); const el = document.getElementById("od-camera"); if (el) fastScrollToEl(el, "start"); };
 
   return (
     <div class="modal-overlay" onClick={busy ? undefined : onClose}>

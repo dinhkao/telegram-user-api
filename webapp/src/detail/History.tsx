@@ -4,12 +4,13 @@ import { useEffect, useState } from "preact/hooks";
 import { getJSON, mediaImageUrl } from "../api";
 import { fmtTime } from "../format";
 import { onRealtime, eventMatchesBase } from "../realtime";
+import { fastScrollToEl } from "../scroll";
 
 // Cuộn tới ảnh trong khối Ảnh + nháy sáng (tái dùng cơ chế deep-link)
 function focusImage(id: number) {
   const el = document.getElementById(`image-${id}`);
   if (!el) return;
-  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  fastScrollToEl(el, "center");
   el.classList.add("flash-target");
   setTimeout(() => el.classList.remove("flash-target"), 2400);
 }

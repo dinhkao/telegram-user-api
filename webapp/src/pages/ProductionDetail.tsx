@@ -23,6 +23,7 @@ import { History } from "../detail/History";
 import { ProductPicker } from "../detail/ProductPicker";
 import { confirmDialog } from "../ui/feedback";
 import { Loading } from "../ui/states";
+import { fastScrollToEl } from "../scroll";
 
 export function ProductionDetail({ threadId, focus }: { threadId: string; focus?: string }) {
   const [slip, setSlip] = useState<ProdSlip | null>(null);
@@ -74,7 +75,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
       const el = document.getElementById(focus);
       if (el) {
         clearInterval(iv);
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        fastScrollToEl(el, "center");
         el.classList.add("flash-target");
         flashT = setTimeout(() => el.classList.remove("flash-target"), 2400);
         history.replaceState(null, "", `#/san_xuat/${threadId}`);

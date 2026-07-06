@@ -17,6 +17,7 @@ import { OrderStock } from "../detail/OrderStock";
 import { invalidateListCache, markLastOrder, filterNeighbors } from "./OrdersList";
 import { confirmDialog, toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
+import { fastScrollToEl, fastScrollTop } from "../scroll";
 
 export function OrderDetail({ threadId, focus }: { threadId: string; focus?: string }) {
   const [detail, setDetail] = useState<any>(null);
@@ -103,7 +104,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       const el = document.getElementById(focus);
       if (el) {
         clearInterval(iv);
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        fastScrollToEl(el, "center");
         el.classList.add("flash-target");
         flashT = setTimeout(() => el.classList.remove("flash-target"), 2400);
         history.replaceState(null, "", `#/order/${threadId}`); // xoá ?focus khỏi URL
@@ -111,7 +112,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         let n = 0;
         settleIv = setInterval(() => {
           const e2 = document.getElementById(focus);
-          if (e2) e2.scrollIntoView({ behavior: "smooth", block: "center" });
+          if (e2) fastScrollToEl(e2, "center");
           if (++n >= 5 || !e2) clearInterval(settleIv);
         }, 320);
       } else if (++tries > 50) {
@@ -208,23 +209,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   };
   const ts = j.task_status || {};
 
-  // Điều hướng nhanh trong trang
+  // Điều hướng nhanh trong trang — cuộn NHANH dùng chung + nháy sáng mục đích
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
-    // Cuộn mượt tự viết (~240ms) — nhanh hơn behavior:smooth mặc định; đặt mục đích
-    // GIỮA màn hình (không dính đỉnh). Clamp âm do window.scrollTo tự lo.
-    const start = window.scrollY;
-    const rect = el.getBoundingClientRect();
-    const target = start + rect.top - Math.max(56, (window.innerHeight - rect.height) / 2);
-    const dur = 240, t0 = performance.now();
-    const ease = (p: number) => 1 - Math.pow(1 - p, 3);   // easeOutCubic
-    const step = (now: number) => {
-      const p = Math.min(1, (now - t0) / dur);
-      window.scrollTo(0, start + (target - start) * ease(p));
-      if (p < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
+    fastScrollToEl(el, "center");
     el.classList.remove("flash-target");
     void el.offsetWidth;               // reflow → chạy lại animation nếu bấm liên tiếp
     el.classList.add("flash-target");
@@ -334,7 +323,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       <header class={"od-appbar" + (showBar ? " summary" : "")}>
         <BackLink fallback="#/orders" className="od-back" />
         {showBar ? (
-          <div class="od-summary" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} title="Lên đầu">
+          <div class="od-summary" onClick={() => fastScrollTop()} title="Lên đầu">
             <div class="od-sb-status">
               {TASK_STEPS.map(([tt, lbl]) => (
                 <button class="od-sb-ic" key={tt} onClick={(e: any) => { e.stopPropagation(); scrollTo(`task-${tt}`); }} title={lbl}>

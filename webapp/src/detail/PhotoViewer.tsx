@@ -6,6 +6,7 @@ import { mediaImageUrl, type OrderImage } from "../api";
 import { fmtTime } from "../format";
 import { toast } from "../ui/feedback";
 import { ImageInfoPanel } from "./ImageInfoPanel";
+import { fastScrollLeft } from "../scroll";
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 8;
@@ -84,7 +85,7 @@ export function PhotoViewer({
       const sr = strip.getBoundingClientRect();
       const er = el.getBoundingClientRect();
       const delta = er.left + er.width / 2 - (sr.left + sr.width / 2);
-      strip.scrollTo({ left: strip.scrollLeft + delta, behavior: "smooth" });
+      fastScrollLeft(strip, strip.scrollLeft + delta);
     }
   }, [idx]);
 
