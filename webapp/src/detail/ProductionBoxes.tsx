@@ -140,35 +140,33 @@ export function ProductionBoxes({
       {myBoxes.length > 0 && (
         <div class="inv-summary">
           <div class="inv-total">Thùng nhập ở phiếu này ({myBoxes.length})</div>
-          <div class="inv-detail-list">
+          {/* Trực quan: mỗi thùng = 1 ô vuông, màu theo trạng thái; tap → chi tiết thùng */}
+          <div class="box-grid">
             {myBoxes.map((b) => {
               const rem = b.remaining ?? b.quantity;
               const used = b.allocated ?? 0;
+              const st = b.disabled ? "off" : used > 0 ? "alloc" : "in";
+              const code = (b.box_code || "").split("-").pop() || b.box_code;
+              const status = b.disabled ? "vô hiệu" : used > 0 ? `đã xuất ${soVN(used)}/${soVN(b.quantity)}` : "trong kho";
               return (
                 <a
                   key={b.id}
                   id={`box-${b.id}`}
-                  class={b.disabled ? "inv-detail-row link box-off" : "inv-detail-row link"}
+                  class={`box-sq ${st}`}
                   href={`#/thung/${b.id}`}
+                  title={`${b.box_code} · ${soVN(rem)} cây · ${status}${b.note ? ` · ${b.note}` : ""}`}
                 >
-                  <code class="inv-bc">{b.box_code}</code>
-                  <span class="inv-q">
-                    {soVN(rem)}
-                    {used > 0 ? <span class="muted">/{soVN(b.quantity)}</span> : ""}
-                  </span>
-                  {b.note && <span class="inv-note muted small"><Icon name="note" size={12} /> {b.note}</span>}
-                  {b.disabled ? (
-                    <span class="inv-status disabled" title={b.disabled_reason || undefined}>
-                      Vô hiệu
-                    </span>
-                  ) : used > 0 ? (
-                    <span class="inv-status alloc">đã xuất {soVN(used)}</span>
-                  ) : (
-                    <span class="inv-status in">Trong kho</span>
-                  )}
+                  {b.note && <span class="bs-dot" />}
+                  <span class="bs-q">{soVN(rem)}</span>
+                  <span class="bs-code">{code}</span>
                 </a>
               );
             })}
+          </div>
+          <div class="box-legend">
+            <span><i class="bl in" />Trong kho</span>
+            <span><i class="bl alloc" />Đã xuất</span>
+            <span><i class="bl off" />Vô hiệu</span>
           </div>
         </div>
       )}
