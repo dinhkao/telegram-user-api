@@ -471,6 +471,16 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
     except Exception as e:
         log.warning("Receipt sending failed: %s", e)
 
+    # 11b. Lưu ảnh phiếu thu vào gallery webapp (kind nộp tiền) — để thanh toán từ
+    # Telegram cũng hiện phiếu thu trong app, giống luồng web.
+    try:
+        from server_app.receipt_image import add_receipt_image_to_gallery
+        client.loop.create_task(add_receipt_image_to_gallery(
+            thread_id=thread_id, customer_name=kh_name, payment_amount=amount,
+            old_debt=old_debt, new_debt=new_debt))
+    except Exception as e:
+        log.warning("Receipt gallery save failed: %s", e)
+
     # 12. Refresh order main message (debounced via batcher)
     try:
         channel_id = order.get("channel_id")

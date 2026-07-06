@@ -96,8 +96,17 @@ async def _payment_handler(request: web.Request, method: str):
         return web.json_response({"ok": False, "error": str(e)}, status=500)
     if not result["success"]:
         return web.json_response({"ok": False, "error": result["error"]}, status=400)
-    # Render + gửi phiếu thu PNG vào topic đơn — GIỐNG luồng Telegram (_handle_payment
-    # bước 11). Web trước đây bỏ qua bước này. Chạy nền, không chặn response.
+    # Render phiếu thu PNG (chạy nền, không chặn response):
+    #  1) lưu vào GALLERY webapp (kind nộp tiền) — luôn làm, không cần Telegram client.
+    #  2) gửi vào topic Telegram của đơn — GIỐNG luồng Telegram (_handle_payment bước 11).
+    try:
+        from server_app.receipt_image import add_receipt_image_to_gallery
+        spawn_tracked("payment.receipt.gallery", add_receipt_image_to_gallery(
+            thread_id=result["thread_id"], customer_name=result["kh_name"],
+            payment_amount=result["amount"], old_debt=result["old_debt"], new_debt=result["new_debt"]),
+            {"thread_id": result["thread_id"]})
+    except Exception as e:  # noqa: BLE001 — lưu gallery lỗi không được làm hỏng thanh toán
+        log.warning("Lưu phiếu thu gallery (web) lỗi thread=%s: %s", result["thread_id"], e)
     if state._client is not None:
         try:
             from receipt_print import send_payment_receipt
