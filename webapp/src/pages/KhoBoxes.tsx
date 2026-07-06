@@ -28,12 +28,10 @@ export function KhoBoxes() {
   if (!boxes) return <Loading />;
 
   const nq = foldVN(q.trim());
-  const shown = nq ? boxes.filter((b) => foldVN(b.product_code).includes(nq)) : boxes;
-
-  // Gom theo mã SP
-  const groups: Record<string, KhoBox[]> = {};
-  for (const b of shown) (groups[b.product_code] ||= []).push(b);
-  const codes = Object.keys(groups).sort();
+  // Phẳng — MỌI thùng cạnh nhau (không gom nhóm). Sắp theo mã SP rồi mã thùng.
+  const shown = (nq ? boxes.filter((b) => foldVN(b.product_code).includes(nq)) : boxes)
+    .slice()
+    .sort((a, b) => a.product_code.localeCompare(b.product_code) || a.box_code.localeCompare(b.box_code));
 
   return (
     <div class="inv-dash">
@@ -44,38 +42,27 @@ export function KhoBoxes() {
       <input class="inv-search" type="search" placeholder="Tìm mã sản phẩm…" value={q}
         onInput={(e: any) => setQ(e.target.value)} />
 
-      {codes.length === 0 ? (
-        <EmptyState>{boxes.length ? "Không có mã khớp." : "Kho trống. Nhập thùng ở phiếu SX (🏭 SX)."}</EmptyState>
+      {shown.length === 0 ? (
+        <EmptyState>{boxes.length ? "Không có mã khớp." : "Kho trống. Nhập thùng ở phiếu SX."}</EmptyState>
       ) : (
-        codes.map((code) => {
-          const bs = groups[code];
-          const rem = bs.reduce((s, b) => s + (b.disabled ? 0 : b.remaining), 0);
-          return (
-            <section class="kho-group" key={code}>
-              <a class="kho-group-head" href={`#/kho/${encodeURIComponent(code)}`}>
-                <span class="kg-code">{code}</span>
-                <span class="kg-stat"><b>{soVN(rem)}</b> tồn · {bs.length} thùng</span>
-                <Icon name="chevronRight" size={16} class="kg-arrow" />
+        <div class="box-grid lbl-grid">
+          {shown.map((b) => {
+            const rm = b.remaining ?? b.quantity;
+            const used = b.allocated ?? 0;
+            const st = b.disabled ? "off" : used > 0 ? "alloc" : "in";
+            const num = (b.box_code || "").split("-").pop() || b.box_code;
+            const status = b.disabled ? "vô hiệu" : used > 0 ? `đã xuất ${soVN(used)}/${soVN(b.quantity)}` : "trong kho";
+            return (
+              <a key={b.id} class={`box-lbl ${st}`} href={`#/thung/${b.id}`}
+                title={`${b.box_code} · ${soVN(rm)} cây · ${status}${b.note ? ` · ${b.note}` : ""}`}>
+                {b.note && <span class="bl-dot" />}
+                <span class="bl-code">{b.product_code}</span>
+                <span class="bl-q">{soVN(rm)}</span>
+                <span class="bl-num">{num}</span>
               </a>
-              <div class="box-grid">
-                {bs.map((b) => {
-                  const rm = b.remaining ?? b.quantity;
-                  const used = b.allocated ?? 0;
-                  const st = b.disabled ? "off" : used > 0 ? "alloc" : "in";
-                  const status = b.disabled ? "vô hiệu" : used > 0 ? `đã xuất ${soVN(used)}/${soVN(b.quantity)}` : "trong kho";
-                  return (
-                    <a key={b.id} class={`box-sq ${st}`} href={`#/thung/${b.id}`}
-                      title={`${b.box_code} · ${soVN(rm)} cây · ${status}${b.note ? ` · ${b.note}` : ""}`}>
-                      {b.note && <span class="bs-dot" />}
-                      <span class="bs-q">{soVN(rm)}</span>
-                      <span class="bs-code">{b.box_code}</span>
-                    </a>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })
+            );
+          })}
+        </div>
       )}
     </div>
   );

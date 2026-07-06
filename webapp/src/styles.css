@@ -791,6 +791,18 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .kg-arrow { color: var(--muted-2); flex: none; }
 /* Lưới ≥5 ô/hàng (auto-fill: tối thiểu 5 trên mobile, nhiều hơn trên màn rộng) */
 .box-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 6px; margin-top: 8px; }
+.lbl-grid { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 7px; }
+/* Nhãn thùng (kiểu tem dán): mã SP trên · số cây to giữa · số thùng dưới, viền đậm */
+.box-lbl { position: relative; aspect-ratio: 1; display: grid; grid-template-rows: auto 1fr auto; border: 1.5px solid var(--ink); border-radius: 10px; background: var(--card); overflow: hidden; text-decoration: none; color: var(--ink); transition: transform var(--dur) var(--ease); }
+.box-lbl:active { transform: scale(.94); }
+.box-lbl .bl-code { font-family: var(--mono); font-weight: 700; font-size: .56rem; letter-spacing: -.02em; text-align: center; padding: 3px 2px; border-bottom: 1.5px solid var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.box-lbl .bl-q { display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.box-lbl .bl-num { font-family: var(--mono); font-size: .58rem; text-align: center; padding: 2px; border-top: 1.5px solid var(--ink); color: var(--muted); }
+.box-lbl .bl-dot { position: absolute; top: 21px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+.box-lbl.alloc .bl-q { color: var(--warn); }
+.box-lbl.off { border-color: var(--muted-2); border-style: dashed; color: var(--muted-2); }
+.box-lbl.off .bl-code, .box-lbl.off .bl-num { border-color: var(--muted-2); }
+.box-lbl.off .bl-q { text-decoration: line-through; }
 .box-sq { position: relative; width: 100%; min-width: 0; aspect-ratio: 1; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-decoration: none; border: 1px solid; box-sizing: border-box; overflow: hidden; transition: transform var(--dur) var(--ease); }
 .box-sq:active { transform: scale(.93); }
 .box-sq .bs-q { font-weight: 800; font-size: 1.05rem; line-height: 1; font-variant-numeric: tabular-nums; }
