@@ -8,52 +8,29 @@ import { money, parseMoney } from "../format";
 import { InvoiceTable } from "./InvoiceTable";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
+import { PickerPopup } from "../ui/PickerPopup";
 
 export type EditorRow = { sp: string; sl: number; price: number; note?: string };
 export type EditorPayload = { invoice: EditorRow[]; discount: number; pvc: number; vat: number };
 
-// ── Ô nhập mã SP + gợi ý (autocomplete) ──────────────────────────────────
+// ── Ô nhập mã SP + gợi ý (autocomplete) — popup neo đỉnh, cho mã tự do ────────
 function ProductInput({ value, onChange, onCommit }: {
   value: string;
-  onChange: (code: string) => void;      // gõ tới đâu cập nhật tới đó (cho phép mã tự do)
-  onCommit: (code: string) => void;      // chọn gợi ý / rời ô → parent lấy giá
+  onChange: (code: string) => void;      // cập nhật mã (cho phép mã tự do)
+  onCommit: (code: string) => void;      // chọn gợi ý → parent lấy giá
 }) {
-  const [q, setQ] = useState(value);
-  const [sug, setSug] = useState<{ code: string; name: string }[]>([]);
-  const [open, setOpen] = useState(false);
-  const seq = useRef(0);
-  useEffect(() => setQ(value), [value]);
-
-  // Không debounce — gõ/bấm là gọi ngay; seq chặn kết quả cũ đè kết quả mới
-  const fetchSug = async (val: string) => {
-    const s = ++seq.current;
-    const r = await searchProducts(val).catch(() => []);
-    if (s !== seq.current) return;
-    setSug(r);
-    setOpen(r.length > 0);
-  };
-  const input = (val: string) => { setQ(val); onChange(val); fetchSug(val); };
-  const pick = (code: string) => { setQ(code); setOpen(false); setSug([]); onChange(code); onCommit(code); };
-
   return (
-    <div class="ac">
-      <input
-        value={q}
-        placeholder="Mã SP"
-        onInput={(e: any) => input(e.target.value)}
-        onFocus={() => fetchSug(q)}
-        onBlur={() => { setTimeout(() => setOpen(false), 150); onCommit(q); }}
-      />
-      {open && (
-        <ul class="ac-list">
-          {sug.map((s) => (
-            <li key={s.code} onMouseDown={() => pick(s.code)}>
-              <b>{s.code}</b>{s.name ? ` · ${s.name}` : ""}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <PickerPopup
+      value={value}
+      placeholder="Mã SP"
+      allowFreeText
+      class="ie-sp"
+      onSearch={async (v) => {
+        const r = await searchProducts(v).catch(() => []);
+        return r.map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }));
+      }}
+      onPick={(o) => { onChange(o.key); onCommit(o.key); }}
+    />
   );
 }
 

@@ -11,6 +11,7 @@ import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
 import { Icon } from "../ui/Icon";
+import { SelectPopup } from "../ui/SelectPopup";
 
 const isDisabled = (b: InvBox) => !!b.disabled;
 
@@ -31,46 +32,35 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   const [mfgInput, setMfgInput] = useState("");
   const [disBusy, setDisBusy] = useState(false);
   const [places, setPlaces] = useState<Place[]>([]);
-  const [newPlace, setNewPlace] = useState<string | null>(null);   // đang tạo vị trí mới
   useEffect(() => { listPlaces().then(setPlaces).catch(() => {}); }, []);
   const [units, setUnits] = useState<Unit[]>([]);
-  const [newUnit, setNewUnit] = useState<string | null>(null);
   useEffect(() => { listUnits().then(setUnits).catch(() => {}); }, []);
 
   const pickUnit = async (val: string) => {
-    if (val === "__new") { setNewUnit(""); return; }
     if (!val) return;
     try { const b = await setBoxUnit(boxId, Number(val)); if (b && d) setD({ ...d, box: b }); } catch { /* im */ }
   };
-  const saveNewUnit = async () => {
-    const name = (newUnit || "").trim();
-    if (!name) { setNewUnit(null); return; }
+  const createUnitAssign = async (name: string) => {
     try {
       const u = await createUnit(name);
       setUnits((prev) => (prev.some((x) => x.id === u.id) ? prev : [...prev, u]));
       const b = await setBoxUnit(boxId, u.id);
       if (b && d) setD({ ...d, box: b });
     } catch { /* im */ }
-    setNewUnit(null);
   };
-
   const pickPlace = async (val: string) => {
-    if (val === "__new") { setNewPlace(""); return; }
     try {
       const b = await setBoxPlace(boxId, val ? Number(val) : null);
       if (b && d) setD({ ...d, box: b });
     } catch { /* im */ }
   };
-  const saveNewPlace = async () => {
-    const name = (newPlace || "").trim();
-    if (!name) { setNewPlace(null); return; }
+  const createPlaceAssign = async (name: string) => {
     try {
       const p = await createPlace(name);
       setPlaces((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]));
       const b = await setBoxPlace(boxId, p.id);
       if (b && d) setD({ ...d, box: b });
     } catch { /* im */ }
-    setNewPlace(null);
   };
 
   const reload = (showLoading: boolean) => {
@@ -204,39 +194,16 @@ export function BoxDetail({ boxId }: { boxId: string }) {
         </div>
         <div class="box-kv">
           <span class="box-k">Đơn vị</span>
-          {newUnit === null ? (
-            <select class="box-place" value={b.unit_id ?? ""} onChange={(e: any) => pickUnit(e.target.value)}>
-              {b.unit_id == null && <option value="">Thùng (mặc định)</option>}
-              {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-              <option value="__new">➕ Đơn vị mới…</option>
-            </select>
-          ) : (
-            <span class="row" style={{ gap: "6px" }}>
-              <input class="box-place" autofocus placeholder="Tên đơn vị (vd Bọc, Kiện)" value={newUnit}
-                onInput={(e: any) => setNewUnit(e.target.value)}
-                onKeyDown={(e: any) => { if (e.key === "Enter") saveNewUnit(); if (e.key === "Escape") setNewUnit(null); }} />
-              <button class="btn small primary" onClick={saveNewUnit}>Lưu</button>
-              <button class="btn small" onClick={() => setNewUnit(null)}>✕</button>
-            </span>
-          )}
+          <SelectPopup title="Đơn vị chứa" placeholder="Thùng (mặc định)" searchable onCreate={createUnitAssign}
+            value={b.unit_id ?? ""} options={units.map((u) => ({ value: u.id, label: u.name }))}
+            onChange={pickUnit} />
         </div>
         <div class="box-kv">
           <span class="box-k">Vị trí</span>
-          {newPlace === null ? (
-            <select class="box-place" value={b.place_id ?? ""} onChange={(e: any) => pickPlace(e.target.value)}>
-              <option value="">— Chưa xếp —</option>
-              {places.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              <option value="__new">➕ Tạo vị trí mới…</option>
-            </select>
-          ) : (
-            <span class="row" style={{ gap: "6px" }}>
-              <input class="box-place" autofocus placeholder="Tên vị trí (vd Kho A)" value={newPlace}
-                onInput={(e: any) => setNewPlace(e.target.value)}
-                onKeyDown={(e: any) => { if (e.key === "Enter") saveNewPlace(); if (e.key === "Escape") setNewPlace(null); }} />
-              <button class="btn small primary" onClick={saveNewPlace}>Lưu</button>
-              <button class="btn small" onClick={() => setNewPlace(null)}>✕</button>
-            </span>
-          )}
+          <SelectPopup title="Vị trí kho" placeholder="— Chưa xếp —" searchable onCreate={createPlaceAssign}
+            value={b.place_id ?? ""}
+            options={[{ value: "", label: "— Chưa xếp —" }, ...places.map((p) => ({ value: p.id, label: p.name }))]}
+            onChange={pickPlace} />
         </div>
         <div class="box-kv">
           <span class="box-k">Ngày SX</span>

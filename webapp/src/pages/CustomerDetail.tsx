@@ -14,6 +14,7 @@ import { CompactOrderCard } from "../detail/CompactOrderCard";
 import { onRealtime } from "../realtime";
 import { Loading, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
+import { SelectPopup } from "../ui/SelectPopup";
 
 type Row = { sp: string; price: string };
 
@@ -187,13 +188,9 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
 
       <section class="card">
         <label class="card-label">Bảng giá chung (gán cho khách)</label>
-        <select class="pl-select" disabled={savingPl} value={String(cust.price_list ?? "")}
-          onChange={(e: any) => changePriceList(e.target.value)}>
-          <option value="">— Không gắn —</option>
-          {priceLists.map((pl) => (
-            <option key={pl.id} value={pl.id}>{pl.name} ({pl.product_count} SP)</option>
-          ))}
-        </select>
+        <SelectPopup class="pl-select" title="Bảng giá chung" searchable disabled={savingPl}
+          value={String(cust.price_list ?? "")} onChange={changePriceList}
+          options={[{ value: "", label: "— Không gắn —" }, ...priceLists.map((pl) => ({ value: pl.id, label: pl.name, sub: `${pl.product_count} SP` }))]} />
         {savingPl && <p class="muted small">Đang lưu…</p>}
       </section>
 

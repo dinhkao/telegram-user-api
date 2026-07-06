@@ -9,6 +9,7 @@ import {
 import { Loading, EmptyState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
+import { SelectPopup } from "../ui/SelectPopup";
 
 export function Users() {
   const me = currentUser();
@@ -102,9 +103,8 @@ export function Users() {
               <input class="quy-input" placeholder="username" value={nu} onInput={(e: any) => setNu(e.currentTarget.value)} />
               <input class="quy-input" placeholder="Tên hiển thị" value={nn} onInput={(e: any) => setNn(e.currentTarget.value)} />
               <input class="quy-input" placeholder="PIN" value={np} onInput={(e: any) => setNp(e.currentTarget.value)} />
-              <select class="usr-role" value={nr} onChange={(e: any) => setNr(e.currentTarget.value)}>
-                {roles.map((r) => <option value={r} key={r}>{ROLE_LABEL[r] || r}</option>)}
-              </select>
+              <SelectPopup class="usr-role" title="Vai trò" value={nr} onChange={setNr}
+                options={roles.map((r) => ({ value: r, label: ROLE_LABEL[r] || r }))} />
               <button class="btn primary" disabled={adding} onClick={doAdd}>{adding ? "Đang tạo…" : <><Icon name="plus" size={16} /> Tạo</>}</button>
             </div>
           </section>
@@ -122,10 +122,9 @@ export function Users() {
                         {u.disabled && <span class="usr-locked"> <Icon name="lock" size={13} /> khoá</span>}
                       </div>
                       <div class="usr-actions">
-                        <select class="usr-role" value={u.role} disabled={busy === u.username}
-                          onChange={(e: any) => changeRole(u, e.currentTarget.value)}>
-                          {roles.map((r) => <option value={r} key={r}>{ROLE_LABEL[r] || r}</option>)}
-                        </select>
+                        <SelectPopup class="usr-role" title="Đổi vai trò" value={u.role} disabled={busy === u.username}
+                          onChange={(v) => changeRole(u, v)}
+                          options={roles.map((r) => ({ value: r, label: ROLE_LABEL[r] || r }))} />
                         <button class="btn small" disabled={busy === u.username} onClick={() => resetPin(u)}><Icon name="key" size={14} /> PIN</button>
                         <button class="btn small" disabled={busy === u.username} onClick={() => toggleDisabled(u)}>
                           {u.disabled ? "Mở" : "Khoá"}

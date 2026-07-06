@@ -807,6 +807,26 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .place-chips .chip { flex: 0 0 auto; padding: 5px 11px; font-size: .8rem; }
 /* Select vị trí ở chi tiết thùng */
 .box-place { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: .95rem; min-width: 140px; background: var(--card); color: var(--ink); }
+
+/* ── SelectPopup / PickerPopup: dropdown dạng POPUP neo ĐỈNH màn (bàn phím không che) ── */
+.sp-trigger { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 140px; max-width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--ink); font-size: .95rem; text-align: left; cursor: pointer; }
+.sp-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-trigger:disabled { opacity: .5; }
+.sp-trigger .ic { flex: none; color: var(--muted-2); }
+.sp-overlay { position: fixed; inset: 0; z-index: 320; background: rgba(0,0,0,.42); display: flex; flex-direction: column; align-items: center; padding: 8vh 14px 0; overscroll-behavior: contain; }
+.sp-sheet { width: 100%; max-width: 440px; display: flex; flex-direction: column; max-height: 78vh; background: var(--card); border-radius: 15px; box-shadow: var(--e3); overflow: hidden; }
+.sp-title { padding: 13px 16px 8px; font-weight: 700; font-size: 1rem; }
+.sp-search { border: none; border-bottom: 1px solid var(--border); padding: 13px 16px; font-size: 1rem; outline: none; background: var(--card); color: var(--ink); }
+.sp-list { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.sp-opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 13px 16px; border: none; border-bottom: 1px solid var(--border); background: none; font-size: .98rem; text-align: left; color: var(--ink); cursor: pointer; }
+.sp-opt:last-child { border-bottom: none; }
+.sp-opt > span { overflow: hidden; text-overflow: ellipsis; }
+.sp-opt.on { color: var(--accent); font-weight: 600; }
+.sp-opt.on .ic { color: var(--accent); flex: none; }
+.sp-opt.create { color: var(--accent); font-weight: 600; }
+.sp-opt:active { background: var(--bg); }
+.sp-empty { padding: 18px 16px; text-align: center; font-size: .92rem; }
+.sp-close { padding: 13px; border: none; border-top: 1px solid var(--border); background: var(--bg); color: var(--muted); font-size: .95rem; font-weight: 600; cursor: pointer; }
 /* Màu theo trạng thái — nền wash + viền + chữ cùng tông */
 .box-lbl.in { background: var(--ok-wash); border-color: #bfe3c8; color: var(--ok); }
 .box-lbl.in .bl-code, .box-lbl.in .bl-num { border-color: #bfe3c8; }

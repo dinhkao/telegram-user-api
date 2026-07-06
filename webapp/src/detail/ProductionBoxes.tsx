@@ -5,6 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { addProductionBoxes, slipBoxes, listUnits, createUnit, soVN, type ProdSlip, type InvBox, type Unit } from "../api";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
+import { SelectPopup } from "../ui/SelectPopup";
 
 function todayLocal(): string {
   const d = new Date();
@@ -31,21 +32,13 @@ export function ProductionBoxes({
   const [myBoxes, setMyBoxes] = useState<InvBox[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitId, setUnitId] = useState<number | null>(null);   // đơn vị chứa cho đợt nhập
-  const [newUnit, setNewUnit] = useState<string | null>(null);
   useEffect(() => { listUnits().then((u) => { setUnits(u); if (u[0] && unitId == null) setUnitId(u[0].id); }).catch(() => {}); }, []);
-  const pickUnit = async (val: string) => {
-    if (val === "__new") { setNewUnit(""); return; }
-    setUnitId(val ? Number(val) : null);
-  };
-  const saveNewUnit = async () => {
-    const name = (newUnit || "").trim();
-    if (!name) { setNewUnit(null); return; }
+  const createUnitPick = async (name: string) => {
     try {
       const u = await createUnit(name);
       setUnits((prev) => (prev.some((x) => x.id === u.id) ? prev : [...prev, u]));
       setUnitId(u.id);
     } catch { /* im */ }
-    setNewUnit(null);
   };
 
   const loadMine = async () => {
@@ -119,20 +112,9 @@ export function ProductionBoxes({
       </div>
       <div class="row">
         <label class="inline-label"><Icon name="box" size={16} /> Đơn vị</label>
-        {newUnit === null ? (
-          <select class="box-place" value={unitId ?? ""} disabled={!hasSp} onChange={(e: any) => pickUnit(e.target.value)}>
-            {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            <option value="__new">➕ Đơn vị mới…</option>
-          </select>
-        ) : (
-          <span class="row" style={{ gap: "6px" }}>
-            <input class="box-place" autofocus placeholder="Tên đơn vị (vd Bọc, Kiện)" value={newUnit}
-              onInput={(e: any) => setNewUnit(e.target.value)}
-              onKeyDown={(e: any) => { if (e.key === "Enter") saveNewUnit(); if (e.key === "Escape") setNewUnit(null); }} />
-            <button class="btn small primary" onClick={saveNewUnit}>Lưu</button>
-            <button class="btn small" onClick={() => setNewUnit(null)}>✕</button>
-          </span>
-        )}
+        <SelectPopup title="Đơn vị chứa" searchable onCreate={createUnitPick} disabled={!hasSp}
+          value={unitId ?? ""} options={units.map((u) => ({ value: u.id, label: u.name }))}
+          onChange={(v) => setUnitId(v ? Number(v) : null)} />
       </div>
       <div class="row">
         <input
