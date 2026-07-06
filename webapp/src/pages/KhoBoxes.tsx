@@ -2,11 +2,12 @@
 // quan. Ô lọc theo mã sản phẩm. Tap ô → chi tiết thùng; tap header → chi tiết SP.
 // Data: GET /api/inventory/boxes. Realtime: box/inventory/production_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
-import { allBoxes, soVN, type KhoBox } from "../api";
+import { allBoxes, type KhoBox } from "../api";
 import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
+import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 
 export function KhoBoxes() {
   const [boxes, setBoxes] = useState<KhoBox[] | null>(null);
@@ -49,7 +50,10 @@ export function KhoBoxes() {
     <div class="inv-dash">
       <div class="row space">
         <h2 class="page-h"><Icon name="box" size={18} /> Kho hàng <span class="muted small">({shown.length} thùng)</span></h2>
-        <a class="btn small" href="#/san-pham"><Icon name="tag" size={15} /> Sản phẩm</a>
+        <span class="row" style={{ gap: "6px" }}>
+          <a class="btn small" href="#/vi-tri"><Icon name="box" size={15} /> Vị trí</a>
+          <a class="btn small" href="#/san-pham"><Icon name="tag" size={15} /> Sản phẩm</a>
+        </span>
       </div>
       <input class="inv-search" type="search" placeholder="Tìm mã sản phẩm / vị trí…" value={q}
         onInput={(e: any) => setQ(e.target.value)} />
@@ -66,25 +70,7 @@ export function KhoBoxes() {
       {shown.length === 0 ? (
         <EmptyState>{boxes.length ? "Không có mã khớp." : "Kho trống. Nhập thùng ở phiếu SX."}</EmptyState>
       ) : (
-        <div class="box-grid lbl-grid">
-          {shown.map((b) => {
-            const rm = b.remaining ?? b.quantity;
-            const used = b.allocated ?? 0;
-            const st = b.disabled ? "off" : used > 0 ? "alloc" : "in";
-            const num = (b.box_code || "").split("-").pop() || b.box_code;
-            const status = b.disabled ? "vô hiệu" : used > 0 ? `đã xuất ${soVN(used)}/${soVN(b.quantity)}` : "trong kho";
-            return (
-              <a key={b.id} class={`box-lbl ${st}`} href={`#/thung/${b.id}`}
-                title={`${b.box_code} · ${soVN(rm)} cây · ${status}${b.note ? ` · ${b.note}` : ""}`}>
-                {b.note && <span class="bl-dot" />}
-                {b.place_name && <span class="bl-place">{b.place_name}</span>}
-                <span class="bl-code">{b.product_code}</span>
-                <span class="bl-q">{soVN(rm)}</span>
-                <span class="bl-num">{b.unit_name && b.unit_name !== "Thùng" ? `${b.unit_name} ` : ""}{num}</span>
-              </a>
-            );
-          })}
-        </div>
+        <BoxLabelGrid boxes={shown} />
       )}
     </div>
   );

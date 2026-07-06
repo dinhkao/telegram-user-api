@@ -27,6 +27,7 @@ from inventory_store import (
     delete_box,
     list_places,
     add_place,
+    rename_place,
     delete_place,
     list_units,
     add_unit,
@@ -304,6 +305,34 @@ async def place_create_handler(request: web.Request):
     place = await asyncio.to_thread(_run)
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
+    return web.json_response({"ok": True, "place": place})
+
+
+async def place_rename_handler(request: web.Request):
+    """Đổi tên 1 vị trí kho. Body {name}."""
+    try:
+        pid = int(request.match_info.get("place_id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "place_id không hợp lệ"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    name = (body.get("name") or "").strip()
+    if not name:
+        return web.json_response({"ok": False, "error": "Thiếu tên vị trí"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            return rename_place(conn, pid, name)
+        finally:
+            conn.close()
+    place = await asyncio.to_thread(_run)
+    from server_app.realtime import emit_inventory_changed, emit_box_changed
+    emit_inventory_changed()
+    emit_box_changed()
     return web.json_response({"ok": True, "place": place})
 
 

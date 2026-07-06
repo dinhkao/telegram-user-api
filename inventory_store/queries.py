@@ -163,6 +163,17 @@ def add_place(conn, name: str, note: str = "") -> dict | None:
     return dict(row) if row else None
 
 
+def rename_place(conn, place_id, name: str) -> dict | None:
+    """Đổi tên 1 vị trí kho. Trả row sau khi đổi (None nếu tên trống)."""
+    name = (name or "").strip()
+    if not name:
+        return None
+    with transaction(conn):
+        conn.execute("UPDATE inventory_places SET name = ? WHERE id = ?", (name, int(place_id)))
+    row = conn.execute("SELECT id, name, note FROM inventory_places WHERE id = ?", (int(place_id),)).fetchone()
+    return dict(row) if row else None
+
+
 def delete_place(conn, place_id) -> bool:
     """Xoá 1 vị trí — thùng đang ở đó bị gỡ liên kết (place_id → NULL)."""
     with transaction(conn):

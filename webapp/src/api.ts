@@ -713,6 +713,10 @@ export async function createPlace(name: string, note = ""): Promise<Place> {
   const d = await postJSON("/api/places", { name, note }, { queueable: false });
   return d.place;
 }
+export async function renamePlace(id: number, name: string): Promise<Place> {
+  const d = await postJSON(`/api/places/${id}`, { name }, { queueable: false });
+  return d.place;
+}
 export async function deletePlace(id: number): Promise<any> {
   return delJSON(`/api/places/${id}`);
 }
