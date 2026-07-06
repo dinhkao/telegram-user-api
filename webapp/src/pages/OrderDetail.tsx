@@ -189,9 +189,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
-    // Cuộn mượt tự viết (~240ms) — nhanh hơn behavior:smooth mặc định; chừa 56px cho app-bar
+    // Cuộn mượt tự viết (~240ms) — nhanh hơn behavior:smooth mặc định; đặt mục đích
+    // GIỮA màn hình (không dính đỉnh). Clamp âm do window.scrollTo tự lo.
     const start = window.scrollY;
-    const target = start + el.getBoundingClientRect().top - 56;
+    const rect = el.getBoundingClientRect();
+    const target = start + rect.top - Math.max(56, (window.innerHeight - rect.height) / 2);
     const dur = 240, t0 = performance.now();
     const ease = (p: number) => 1 - Math.pow(1 - p, 3);   // easeOutCubic
     const step = (now: number) => {
