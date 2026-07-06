@@ -6,6 +6,7 @@ import { currentUser, replayQueue, netOk, onNetStatus } from "./api";
 import { getQueue } from "./offline";
 import { getStatus, onStatus, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
+import { Icon } from "./ui/Icon";
 import { Customers } from "./pages/Customers";
 import { CustomerDetail } from "./pages/CustomerDetail";
 import { PriceLists } from "./pages/PriceLists";
@@ -217,17 +218,32 @@ function App() {
   else page = <OrdersList />;
 
   const tab = (h: string) => (hash.startsWith(h) ? "tab active" : "tab");
+  // Tiêu đề app-bar theo route (thay tiêu đề cố định "Đơn hàng" mọi trang)
+  const isHome = !showLogin && (hash === "" || hash === "#/" || hash.startsWith("#/orders")) && !orderMatch;
+  const pageTitle =
+    orderMatch ? "Chi tiết đơn"
+    : (hash.startsWith("#/customers") || khachMatch) ? "Khách hàng"
+    : hash.startsWith("#/create") ? "Tạo đơn"
+    : (hash.startsWith("#/san_xuat") || hash.startsWith("#/sx-") || prodMatch || prodEditMatch || shtMatch) ? "Sản xuất"
+    : (hash.startsWith("#/kho") || khoMatch || boxMatch) ? "Kho hàng"
+    : hash.startsWith("#/quy") ? "Sổ quỹ"
+    : hash.startsWith("#/users") ? "Người dùng"
+    : hash.startsWith("#/tho") ? "Thợ"
+    : hash.startsWith("#/lich-su") ? "Lịch sử thao tác"
+    : hash.startsWith("#/lich") ? "Lịch giao"
+    : (hash.startsWith("#/bang-gia") || bangGiaMatch) ? "Bảng giá"
+    : "Đơn hàng";
   return (
     <div class="app">
       <FeedbackHost />
       {!showLogin && (
         <header class="app-bar">
-          <span class="app-title">🍬 Đơn hàng</span>
+          <span class="app-title">{isHome && <span class="app-logo" aria-hidden="true">🍬</span>}{pageTitle}</span>
           <div class="app-bar-right">
             <RealtimeDot />
             <NotifCenter />
-            <button class="icon-btn" title="Tải lại" onClick={() => window.location.reload()}>🔄</button>
-            <a class="icon-btn" href="#/login" title="Cài đặt">⚙️</a>
+            <button class="icon-btn" title="Tải lại" onClick={() => window.location.reload()}><Icon name="refresh" size={19} /></button>
+            <a class="icon-btn" href="#/login" title="Cài đặt"><Icon name="settings" size={19} /></a>
           </div>
         </header>
       )}
@@ -235,12 +251,12 @@ function App() {
       <main class="page">{page}</main>
       {!showLogin && (
         <nav class="bottom-nav">
-          <a class={hash === "#/orders" || orderMatch ? "tab active" : "tab"} href="#/orders" onClick={() => resetOrdersScroll()}><span class="tab-ico">📋</span><span class="tab-lbl">Đơn</span></a>
-          <a class={tab("#/customers")} href="#/customers"><span class="tab-ico">👤</span><span class="tab-lbl">Khách</span></a>
-          <a class={tab("#/create")} href="#/create"><span class="tab-ico">➕</span><span class="tab-lbl">Tạo</span></a>
-          <a class={tab("#/san_xuat")} href="#/san_xuat"><span class="tab-ico">🏭</span><span class="tab-lbl">SX</span></a>
-          <a class={tab("#/kho")} href="#/kho"><span class="tab-ico">📦</span><span class="tab-lbl">Kho</span></a>
-          <button class={hash.startsWith("#/bang-gia") ? "tab nav-more active" : "tab nav-more"} onClick={() => setMenuOpen(true)} title="Thêm"><span class="tab-ico">☰</span><span class="tab-lbl">Thêm</span></button>
+          <a class={hash === "#/orders" || orderMatch ? "tab active" : "tab"} href="#/orders" onClick={() => resetOrdersScroll()}><Icon name="clipboard" size={22} class="tab-ico" /><span class="tab-lbl">Đơn</span></a>
+          <a class={tab("#/customers")} href="#/customers"><Icon name="user" size={22} class="tab-ico" /><span class="tab-lbl">Khách</span></a>
+          <a class={tab("#/create")} href="#/create"><Icon name="plus" size={22} class="tab-ico" /><span class="tab-lbl">Tạo</span></a>
+          <a class={tab("#/san_xuat")} href="#/san_xuat"><Icon name="factory" size={22} class="tab-ico" /><span class="tab-lbl">SX</span></a>
+          <a class={tab("#/kho")} href="#/kho"><Icon name="box" size={22} class="tab-ico" /><span class="tab-lbl">Kho</span></a>
+          <button class={hash.startsWith("#/bang-gia") ? "tab nav-more active" : "tab nav-more"} onClick={() => setMenuOpen(true)} title="Thêm"><Icon name="menu" size={22} class="tab-ico" /><span class="tab-lbl">Thêm</span></button>
         </nav>
       )}
       {menuOpen && !showLogin && (
