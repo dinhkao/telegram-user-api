@@ -26,7 +26,7 @@ export function CustomerPicker({ onPick, placeholder }: {
   const pick = (c: any) => { setQ(c.name); setOpen(false); onPick({ key: c.key, name: c.name }); };
   return (
     <div class="ac">
-      <input value={q} placeholder={placeholder || "🔍 Tìm khách hàng"} onInput={(e: any) => input(e.target.value)} onBlur={() => setTimeout(() => setOpen(false), 150)} />
+      <input value={q} placeholder={placeholder || "Tìm khách hàng"} onInput={(e: any) => input(e.target.value)} onBlur={() => setTimeout(() => setOpen(false), 150)} />
       {open && (
         <ul class="ac-list">
           {sug.map((c) => (

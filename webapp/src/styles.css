@@ -1005,7 +1005,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .wl-defcheck { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: .88rem; color: var(--muted); }
 .wl-list { list-style: none; margin: 6px 0; padding: 0; }
 .wl-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
-.wl-star { flex: 0 0 auto; border: none; background: none; font-size: 1.25rem; line-height: 1; cursor: pointer; padding: 2px; -webkit-tap-highlight-color: transparent; }
+.wl-star { flex: 0 0 auto; border: none; background: none; line-height: 1; cursor: pointer; padding: 2px; color: var(--muted-2); -webkit-tap-highlight-color: transparent; }
+.wl-star.on { color: #f5a623; }
+.wl-star.on .ic { fill: #f5a623; }
 .wl-name { flex: 1; min-width: 0; font-weight: 600; }
 .wr-tho-link { color: var(--primary); text-decoration: none; font-weight: 600; }
 .wr-tho-link:active { opacity: .6; }

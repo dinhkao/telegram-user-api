@@ -6,6 +6,7 @@ import { postJSON, postForm } from "../api";
 import { processImage } from "./imageProcess";
 import { CameraBox, cameraSupported } from "./CameraBox";
 import { toast } from "../ui/feedback";
+import { Icon } from "../ui/Icon";
 
 // note giống bot để dữ liệu khớp Telegram
 type Branch = { note: string; label: string; photo: boolean; done: boolean; hint?: string };
@@ -68,16 +69,16 @@ export function NopTienWizard({ threadId, onClose, onDone }: { threadId: string;
   return (
     <div class="modal-overlay" onClick={busy ? undefined : onClose}>
       <div class="modal-sheet nt-sheet" onClick={(e: any) => e.stopPropagation()}>
-        <div class="modal-head">💵 Nộp tiền {busy && "· ⏳"}</div>
+        <div class="modal-head"><Icon name="wallet" size={18} /> Nộp tiền {busy && "· ⏳"}</div>
 
         {step === "type" && (
           <>
             <button class="nt-opt" disabled={busy} onClick={() => pickPhoto({ note: "tra_tien_mat", label: "Báo khách trả đủ", photo: true, done: true })}>
-              💰 Báo khách <b>trả đủ</b>
+              <Icon name="banknote" size={16} /> Báo khách <b>trả đủ</b>
               <span class="nt-sub">→ gửi ảnh tiền mặt + toa</span>
             </button>
             <button class="nt-opt" disabled={busy} onClick={() => setStep("kytoa")}>
-              📝 Báo khách <b>nợ</b>
+              <Icon name="edit" size={16} /> Báo khách <b>nợ</b>
               <span class="nt-sub">→ chọn tình trạng ký toa</span>
             </button>
           </>
@@ -86,13 +87,13 @@ export function NopTienWizard({ threadId, onClose, onDone }: { threadId: string;
         {step === "kytoa" && (
           <>
             <button class="nt-opt" disabled={busy} onClick={() => pickPhoto({ note: "co_ky_toa", label: "Nợ · có ký toa", photo: true, done: true })}>
-              ✍️ Có ký toa <span class="nt-sub">→ gửi ảnh toa có chữ ký</span>
+              <Icon name="edit" size={16} /> Có ký toa <span class="nt-sub">→ gửi ảnh toa có chữ ký</span>
             </button>
             <button class="nt-opt" disabled={busy} onClick={() => pickNoPhoto({ note: "khong_ky_toa", label: "Nợ · không ký toa", photo: false, done: true })}>
-              🚫 Không ký toa <span class="nt-sub">→ ghi nhận, không cần ảnh</span>
+              <Icon name="ban" size={16} /> Không ký toa <span class="nt-sub">→ ghi nhận, không cần ảnh</span>
             </button>
             <button class="nt-opt" disabled={busy} onClick={() => pickNoPhoto({ note: "chieu_lay_tien", label: "Nợ · chiều lấy tiền", photo: false, done: false })}>
-              🕒 Chiều lấy tiền <span class="nt-sub">→ chưa xong, còn chờ thu</span>
+              <Icon name="clock" size={16} /> Chiều lấy tiền <span class="nt-sub">→ chưa xong, còn chờ thu</span>
             </button>
             <button class="btn small nt-back" disabled={busy} onClick={() => setStep("type")}>← Quay lại</button>
           </>
@@ -111,7 +112,7 @@ export function NopTienWizard({ threadId, onClose, onDone }: { threadId: string;
               <>
                 <input ref={fileInput} type="file" accept="image/*" capture="environment" hidden onChange={onFile} />
                 <button class="btn primary block" disabled={busy} onClick={() => fileInput.current?.click()}>
-                  {busy ? "⏳ Đang gửi…" : "📷 Chụp / Chọn ảnh"}
+                  {busy ? "⏳ Đang gửi…" : <><Icon name="camera" size={16} /> Chụp / Chọn ảnh</>}
                 </button>
               </>
             )}

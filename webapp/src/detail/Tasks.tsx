@@ -7,6 +7,7 @@ import { fmtTime } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 import { NopTienWizard } from "./NopTienWizard";
 import { SoanHangPicker } from "./SoanHangPicker";
+import { Icon } from "../ui/Icon";
 
 const TASKS: [string, string][] = [
   ["ban_hd", "Bán HĐ"],
@@ -154,7 +155,7 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
                 ) : (
                   <button class="btn small primary" disabled={busy === ct.id} onClick={() => mark(ct.id)}>Xong</button>
                 )}
-                <button class="btn small" title="Xoá việc" disabled={busy === ct.id} onClick={() => removeCustom(ct.id)}>🗑</button>
+                <button class="btn small" title="Xoá việc" disabled={busy === ct.id} onClick={() => removeCustom(ct.id)}><Icon name="trash" size={14} /></button>
               </span>
             </li>
           );
@@ -166,10 +167,10 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
                 onInput={(e: any) => setLabel(e.target.value)}
                 onKeyDown={(e: any) => { if (e.key === "Enter") addCustom(); if (e.key === "Escape") { setAdding(false); setLabel(""); } }} />
               <button class="btn small primary" disabled={busy === "__add" || !label.trim()} onClick={addCustom}>Thêm</button>
-              <button class="btn small" disabled={busy === "__add"} onClick={() => { setAdding(false); setLabel(""); }}>✕</button>
+              <button class="btn small" disabled={busy === "__add"} onClick={() => { setAdding(false); setLabel(""); }}><Icon name="close" size={14} /></button>
             </span>
           ) : (
-            <button class="btn small" onClick={() => setAdding(true)}>➕ Thêm việc</button>
+            <button class="btn small" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> Thêm việc</button>
           )}
         </li>
       </ul>

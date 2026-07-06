@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { inventoryDetail, soVN, type InvBox } from "../api";
 import { onRealtime } from "../realtime";
 import { useScrollLock } from "../useScrollLock";
+import { Icon } from "../ui/Icon";
 
 function fmtDate(s?: string | null): string {
   if (!s) return "";
@@ -96,7 +97,7 @@ export function StockPickerModal({
         <div class="modal-head">
           <b>Chọn thùng — {productCode}</b>
           <button class="link-btn" onClick={onClose}>
-            ✕
+            <Icon name="close" size={18} />
           </button>
         </div>
         <div class="muted small">

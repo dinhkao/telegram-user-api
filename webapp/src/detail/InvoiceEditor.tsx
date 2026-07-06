@@ -7,6 +7,7 @@ import { fetchCustomerPrice, previewOrder, searchProducts, type PriceInfo, type 
 import { money, parseMoney } from "../format";
 import { InvoiceTable } from "./InvoiceTable";
 import { toast } from "../ui/feedback";
+import { Icon } from "../ui/Icon";
 
 export type EditorRow = { sp: string; sl: number; price: number; note?: string };
 export type EditorPayload = { invoice: EditorRow[]; discount: number; pvc: number; vat: number };
@@ -197,13 +198,13 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       ) : null}
       {hasInvoice ? (
         <div class="inv-btns">
-          {onView ? <button class="btn small" onClick={onView}>👁️ Xem</button> : null}
-          {onPrint ? <button class="btn small" disabled={busy} title="In HĐ + phiếu giao" onClick={() => run(onPrint)}>🖨️ In</button> : null}
-          {canDelete && onDelete ? <button class="btn small danger" disabled={busy} onClick={() => run(onDelete)}>🗑️ Xoá</button> : null}
+          {onView ? <button class="btn small" onClick={onView}><Icon name="eye" size={16} /> Xem</button> : null}
+          {onPrint ? <button class="btn small" disabled={busy} title="In HĐ + phiếu giao" onClick={() => run(onPrint)}><Icon name="printer" size={16} /> In</button> : null}
+          {canDelete && onDelete ? <button class="btn small danger" disabled={busy} onClick={() => run(onDelete)}><Icon name="trash" size={16} /> Xoá</button> : null}
         </div>
       ) : (
         canCreate && onCreateInvoice ? (
-          <button class="btn primary wide" disabled={busy} onClick={() => run(onCreateInvoice)}>🧾 Tạo HĐ KiotViet</button>
+          <button class="btn primary wide" disabled={busy} onClick={() => run(onCreateInvoice)}><Icon name="receipt" size={16} /> Tạo HĐ KiotViet</button>
         ) : null
       )}
     </div>
@@ -214,16 +215,16 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
     // Nút khoá 🔒 / cập nhật nợ — render NGAY cạnh chữ "Nợ trước" trong bảng
     const debtCtl = customerId
       ? (debtLocked
-          ? <button class="lock-chip" onClick={() => toast("🔒 Nợ đã chốt tại thời điểm tạo hoá đơn KiotViet — không kéo nợ mới được. Xoá HĐ nếu cần cập nhật lại.", "info")}>🔒 đã chốt</button>
-          : (onRefreshDebt ? <button class="btn small" title="Kéo nợ KiotViet mới nhất" onClick={onRefreshDebt}>🔄 Cập nhật nợ</button> : null))
+          ? <button class="lock-chip" onClick={() => toast("🔒 Nợ đã chốt tại thời điểm tạo hoá đơn KiotViet — không kéo nợ mới được. Xoá HĐ nếu cần cập nhật lại.", "info")}><Icon name="lock" size={16} /> đã chốt</button>
+          : (onRefreshDebt ? <button class="btn small" title="Kéo nợ KiotViet mới nhất" onClick={onRefreshDebt}><Icon name="refresh" size={16} /> Cập nhật nợ</button> : null))
       : null;
     return (
       <div class="card">
         <div class="row space">
           <b>Hoá đơn ({rows.length} món)</b>
           {hasInvoice
-            ? <button class="lock-chip" onClick={() => toast("🔒 Đơn đã tạo hoá đơn KiotViet nên không sửa sản phẩm được nữa. Muốn sửa phải xoá HĐ trước.", "info")}>🔒 Đã chốt</button>
-            : <button class="btn small" onClick={() => setEditing(true)}>✏️ Sửa</button>}
+            ? <button class="lock-chip" onClick={() => toast("🔒 Đơn đã tạo hoá đơn KiotViet nên không sửa sản phẩm được nữa. Muốn sửa phải xoá HĐ trước.", "info")}><Icon name="lock" size={16} /> Đã chốt</button>
+            : <button class="btn small" onClick={() => setEditing(true)}><Icon name="edit" size={16} /> Sửa</button>}
         </div>
         {rows.length === 0 ? (
           <p class="muted small">Chưa có sản phẩm. Bấm ✏️ Sửa để thêm.</p>
@@ -246,7 +247,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
           <div class="edit-row" key={i}>
             <div class="edit-top">
               <ProductInput value={it.sp} onChange={(c) => setRow(i, "sp", c)} onCommit={(c) => autoPrice(i, c)} />
-              <button class="btn small danger" onClick={() => removeRow(i)}>✕</button>
+              <button class="btn small danger" onClick={() => removeRow(i)}><Icon name="close" size={16} /></button>
             </div>
             <div class="edit-mid">
               <label class="fld sl">SL<input inputMode="numeric" value={it.sl} onInput={(e: any) => setRow(i, "sl", parseMoney(e.target.value))} /></label>
@@ -261,7 +262,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
           </div>
         ))}
       </div>
-      <button class="btn wide" onClick={addRow}>+ Thêm dòng</button>
+      <button class="btn wide" onClick={addRow}><Icon name="plus" size={16} /> Thêm dòng</button>
 
       {/* Thêm nhanh bằng text — như tab Nhanh ở trang tạo đơn (kèm xem trước + gợi ý) */}
       <div class="quick-add">
@@ -301,7 +302,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
         />
         <div class="row">
           <button class="btn small" disabled={quickBusy || !quickText.trim()} onClick={quickAdd}>
-            {quickBusy ? "Đang thêm…" : "⚡ Thêm nhanh"}
+            {quickBusy ? "Đang thêm…" : <><Icon name="zap" size={15} /> Thêm nhanh</>}
           </button>
           {quickMsg && <span class="muted small">{quickMsg}</span>}
         </div>
@@ -326,7 +327,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       </div>
 
       <div class="row">
-        <button class="btn primary" disabled={busy} onClick={save}>{busy ? "Đang lưu…" : createMode ? "💾 Lưu & tạo đơn" : "💾 Lưu"}</button>
+        <button class="btn primary" disabled={busy} onClick={save}>{busy ? "Đang lưu…" : createMode ? <><Icon name="save" size={16} /> Lưu & tạo đơn</> : <><Icon name="save" size={16} /> Lưu</>}</button>
         {!createMode && <button class="btn" disabled={busy} onClick={cancel}>Huỷ</button>}
       </div>
     </div>

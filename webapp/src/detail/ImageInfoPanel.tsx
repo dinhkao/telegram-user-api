@@ -9,6 +9,7 @@ import {
 import { KIND_ORDER, KIND_LABEL, KIND_ICON, kindOf } from "./imageKinds";
 import { fmtRelative } from "../format";
 import { toast } from "../ui/feedback";
+import { Icon } from "../ui/Icon";
 
 export function ImageInfoPanel({
   base, image, onKindChange,
@@ -91,7 +92,7 @@ export function ImageInfoPanel({
               <div class="pv-cmt-head">
                 <b>{c.username}</b>
                 <span class="muted small">{fmtRelative(c.created_at)}</span>
-                <button class="pv-cmt-del" title="Xoá" onClick={() => del(c)}>×</button>
+                <button class="pv-cmt-del" title="Xoá" onClick={() => del(c)}><Icon name="trash" size={14} /></button>
               </div>
               <div class="pv-cmt-text">{c.text}</div>
             </div>

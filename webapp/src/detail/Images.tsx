@@ -8,6 +8,7 @@ import { processImage } from "./imageProcess";
 import { PhotoViewer } from "./PhotoViewer";
 import { CameraBox, cameraSupported } from "./CameraBox";
 import { confirmDialog } from "../ui/feedback";
+import { Icon } from "../ui/Icon";
 import { KIND_ORDER, KIND_LABEL, KIND_ICON, kindOf, isOrderBase } from "./imageKinds";
 
 type Pending = { key: number; url: string };
@@ -151,9 +152,9 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
       ) : (
         <div class="img-actions">
           {cameraSupported() && (
-            <button class="btn cam-primary" onClick={() => setCamOpen(true)}>🎥 Mở camera</button>
+            <button class="btn cam-primary" onClick={() => setCamOpen(true)}><Icon name="camera" size={16} /> Mở camera</button>
           )}
-          <button class="btn" onClick={() => fileInput.current?.click()}>📁 Chọn ảnh</button>
+          <button class="btn" onClick={() => fileInput.current?.click()}><Icon name="image" size={16} /> Chọn ảnh</button>
         </div>
       )}
 
@@ -176,7 +177,7 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
       )}
 
       {count === 0 ? (
-        <p class="muted small">Chưa có ảnh. Bấm 📸 Chụp hoặc 📁 Chọn để thêm.</p>
+        <p class="muted small">Chưa có ảnh. Bấm <Icon name="camera" size={14} /> Chụp hoặc <Icon name="image" size={14} /> Chọn để thêm.</p>
       ) : shown.length === 0 && pending.length === 0 ? (
         <p class="muted small">Không có ảnh loại này.</p>
       ) : (
@@ -195,7 +196,7 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
                 alt=""
                 onClick={() => setLightbox(img)}
               />
-              <button class="img-del" title="Xoá" onClick={() => remove(img)}>×</button>
+              <button class="img-del" title="Xoá" onClick={() => remove(img)}><Icon name="trash" size={14} /></button>
               {isOrder && (
                 <span class="img-kind" title={KIND_LABEL[kindOf(img)]}>{KIND_ICON[kindOf(img)]} {KIND_LABEL[kindOf(img)]}</span>
               )}

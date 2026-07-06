@@ -20,7 +20,7 @@ export function ProductPicker({ catalog, value, onPick, placeholder }: {
     <div class="ac">
       <input
         value={q}
-        placeholder={placeholder || "🔍 Tìm mã SP"}
+        placeholder={placeholder || "Tìm mã SP"}
         onInput={(e: any) => { setQ(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}

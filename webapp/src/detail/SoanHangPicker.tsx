@@ -6,6 +6,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { listMediaImages, mediaImageUrl, postJSON, type OrderImage } from "../api";
 import { toast } from "../ui/feedback";
+import { Icon } from "../ui/Icon";
 import { kindOf } from "./imageKinds";
 import { fastScrollToEl } from "../scroll";
 
@@ -49,7 +50,7 @@ export function SoanHangPicker({ threadId, onClose, onDone }: { threadId: string
   return (
     <div class="modal-overlay" onClick={busy ? undefined : onClose}>
       <div class="modal-sheet sh-sheet" onClick={(e: any) => e.stopPropagation()}>
-        <div class="modal-head">📦 {confirmMode ? "Xác nhận soạn hàng" : "Chọn ảnh soạn hàng"} {busy && "· ⏳"}</div>
+        <div class="modal-head"><Icon name="box" size={18} /> {confirmMode ? "Xác nhận soạn hàng" : "Chọn ảnh soạn hàng"} {busy && "· ⏳"}</div>
 
         {images === null ? (
           <p class="muted small">Đang tải ảnh…</p>
@@ -71,7 +72,7 @@ export function SoanHangPicker({ threadId, onClose, onDone }: { threadId: string
         ) : images.length === 0 ? (
           <>
             <p class="sh-empty">⚠️ Đơn chưa có ảnh. Phải thêm ảnh trước khi soạn xong.</p>
-            <button class="btn primary block" onClick={goAddPhoto}>📷 Thêm ảnh cho đơn</button>
+            <button class="btn primary block" onClick={goAddPhoto}><Icon name="camera" size={16} /> Thêm ảnh cho đơn</button>
           </>
         ) : (
           <>

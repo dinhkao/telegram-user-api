@@ -6,6 +6,7 @@ import { mediaImageUrl, type OrderImage } from "../api";
 import { fmtTime } from "../format";
 import { toast } from "../ui/feedback";
 import { ImageInfoPanel } from "./ImageInfoPanel";
+import { Icon } from "../ui/Icon";
 import { fastScrollLeft } from "../scroll";
 
 const MIN_SCALE = 1;
@@ -358,11 +359,11 @@ export function PhotoViewer({
       {/* Thanh trên: loại+bình luận / copy / tải / đóng */}
       <div class="pv-topbar">
         {editable && (
-          <button class={"pv-tbtn" + (panelOpen ? " on" : "")} title="Loại & bình luận" onClick={() => setPanelOpen((v) => !v)}>💬</button>
+          <button class={"pv-tbtn" + (panelOpen ? " on" : "")} title="Loại & bình luận" onClick={() => setPanelOpen((v) => !v)}><Icon name="chat" size={16} /></button>
         )}
-        <button class="pv-tbtn" title="Copy ảnh" onClick={copyImage}>⧉</button>
-        <button class="pv-tbtn" title="Tải / chia sẻ ảnh" onClick={downloadImage}>⤓</button>
-        <button class="pv-tbtn" title="Đóng" onClick={onClose}>✕</button>
+        <button class="pv-tbtn" title="Copy ảnh" onClick={copyImage}><Icon name="copy" size={16} /></button>
+        <button class="pv-tbtn" title="Tải / chia sẻ ảnh" onClick={downloadImage}><Icon name="download" size={16} /></button>
+        <button class="pv-tbtn" title="Đóng" onClick={onClose}><Icon name="close" size={16} /></button>
       </div>
 
       {/* Bảng loại + bình luận ảnh (chỉ ảnh đơn) */}

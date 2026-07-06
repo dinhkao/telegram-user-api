@@ -188,7 +188,7 @@ function LastAction({ o }: { o: OrderRow }) {
   const ch = Array.isArray(o.last_changes) ? o.last_changes : [];
   return (
     <div class="last-act">
-      <div class="la-head">⚡ <b>{o.last_action}</b>{o.last_detail ? <span> — {o.last_detail}</span> : null}</div>
+      <div class="la-head"><Icon name="zap" size={13} /> <b>{o.last_action}</b>{o.last_detail ? <span> — {o.last_detail}</span> : null}</div>
       {ch.length > 0 && (
         <ul class="la-changes">
           {ch.slice(0, 4).map((c, ci) => (
@@ -290,13 +290,13 @@ function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }: {
       <div class="card-content">
         <div class="cc-measure" ref={contentRef}>
           {o.text
-            ? <div class="order-text wrap-badges"><TaskBadges o={o} />{o.ngay_giao && <span class="od-deliver">🚚 {fmtNgayGiao(o.ngay_giao)}</span>}<span class="ot-text"><Highlight text={o.text} q={search} /></span></div>
-            : <div class="order-text muted wrap-badges"><TaskBadges o={o} />{o.ngay_giao && <span class="od-deliver">🚚 {fmtNgayGiao(o.ngay_giao)}</span>}<span class="ot-text">(không có nội dung)</span></div>}
+            ? <div class="order-text wrap-badges"><TaskBadges o={o} />{o.ngay_giao && <span class="od-deliver"><Icon name="truck" size={14} /> {fmtNgayGiao(o.ngay_giao)}</span>}<span class="ot-text"><Highlight text={o.text} q={search} /></span></div>
+            : <div class="order-text muted wrap-badges"><TaskBadges o={o} />{o.ngay_giao && <span class="od-deliver"><Icon name="truck" size={14} /> {fmtNgayGiao(o.ngay_giao)}</span>}<span class="ot-text">(không có nội dung)</span></div>}
           <div class="row space">
             <b class="cust">{isNew && <span class="tag-new">Mới</span>} <Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} />
-              {o.customer ? <button class="cust-filter" title={`Lọc đơn của ${o.customer}`} onClick={(e) => filterByCustomer(e, o.customer)}>🔎</button> : null}</b>
+              {o.customer ? <button class="cust-filter" title={`Lọc đơn của ${o.customer}`} onClick={(e) => filterByCustomer(e, o.customer)}><Icon name="search" size={14} /></button> : null}</b>
             <span class="muted small order-when">
-              {o.created ? <>🕒 {fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
+              {o.created ? <><Icon name="clock" size={13} /> {fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
             </span>
           </div>
           <div class="row space">
@@ -355,14 +355,14 @@ function CompactBody({ o, search, sort, flashMsg, isNew, openThumb }: {
           {flashMsg && <div class="flash-msg">🔔 {flashMsg}</div>}
           <div class="order-text wrap-badges">
             <TaskBadges o={o} />
-            {o.ngay_giao && <span class="od-deliver">🚚 {fmtNgayGiao(o.ngay_giao)}</span>}
+            {o.ngay_giao && <span class="od-deliver"><Icon name="truck" size={14} /> {fmtNgayGiao(o.ngay_giao)}</span>}
             <span class="ot-text">
               {isNew && <span class="tag-new">Mới</span>}
               {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
             </span>
           </div>
           <div class="order-when muted small">
-            🕒 {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
+            <Icon name="clock" size={13} /> {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
           </div>
         </div>
       </div>
@@ -654,7 +654,7 @@ export function OrdersList() {
           <input
             class="search"
             type="search"
-            placeholder="🔍 Tìm khách, sản phẩm…"
+            placeholder="Tìm khách, sản phẩm…"
             value={search}
             onInput={(e: any) => onSearch(e.target.value)}
           />
@@ -667,7 +667,7 @@ export function OrdersList() {
         {anyFilter && (
           <div class="filter-active-bar">
             <span class="fab-txt">
-              🔍 Đang lọc:{" "}
+              <Icon name="search" size={14} /> Đang lọc:{" "}
               {filter !== "all" ? <b>{FILTER_LABELS[filter] || filter}</b> : null}
               {filter !== "all" && search.trim() ? " · " : null}
               {search.trim() ? <b>“{search.trim()}”</b> : null}

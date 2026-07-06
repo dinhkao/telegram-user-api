@@ -8,6 +8,7 @@ import { getProduction, saveProductionReport, lockReport, unlockReport, pushRepo
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { confirmDialog } from "../ui/feedback";
+import { Icon } from "../ui/Icon";
 import { processImage } from "../detail/imageProcess";
 
 type Wrow = { name: string; gach: string; tru: string; le: string; note: string };
@@ -234,22 +235,22 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
       <div class="prod-detail-head">
         <BackLink fallback={`#/san_xuat/${threadId}`} />
         <div>
-          <div class="prod-sp">✏️ Sửa báo cáo — {slip.sp_name || "?"}</div>
+          <div class="prod-sp"><Icon name="edit" size={18} /> Sửa báo cáo — {slip.sp_name || "?"}</div>
           <div class="muted small">Phiếu #{threadId}{scm > 0 ? ` · 🌿 ${scm}/mâm` : ""}</div>
         </div>
       </div>
 
       {readOnly && (
         <div class="wr-lock-alert">
-          🔒 <b>{holder}</b> đang chỉnh sửa báo cáo này. Bạn đang <b>xem trực tiếp</b> — chỉ 1 người sửa cùng lúc.
+          <Icon name="lock" size={16} /> <b>{holder}</b> đang chỉnh sửa báo cáo này. Bạn đang <b>xem trực tiếp</b> — chỉ 1 người sửa cùng lúc.
         </div>
       )}
 
       <section class="card wr-editcard">
         <div class="prod-report-meta">
-          {slip.sp_name && <span>📦 {slip.sp_name}</span>}
-          <label>📅 <input class="wr-meta" value={date} disabled={readOnly} onInput={(e: any) => setDate(e.target.value)} placeholder="d/m/yyyy" /></label>
-          <label>🕒 <input class="wr-meta wr-time" value={start} disabled={readOnly} onInput={(e: any) => setStart(e.target.value)} placeholder="bắt đầu" />–<input class="wr-meta wr-time" value={end} disabled={readOnly} onInput={(e: any) => setEnd(e.target.value)} placeholder="xong" /></label>
+          {slip.sp_name && <span><Icon name="box" size={14} /> {slip.sp_name}</span>}
+          <label><Icon name="calendar" size={14} /> <input class="wr-meta" value={date} disabled={readOnly} onInput={(e: any) => setDate(e.target.value)} placeholder="d/m/yyyy" /></label>
+          <label><Icon name="clock" size={14} /> <input class="wr-meta wr-time" value={start} disabled={readOnly} onInput={(e: any) => setStart(e.target.value)} placeholder="bắt đầu" />–<input class="wr-meta wr-time" value={end} disabled={readOnly} onInput={(e: any) => setEnd(e.target.value)} placeholder="xong" /></label>
         </div>
         {scm <= 0 && <div class="prod-save-msg">⚠️ SP chưa có số cây 1 mâm — chọn mã SP để tính tổng.</div>}
 
@@ -258,13 +259,13 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
           <input ref={bgInput} type="file" accept="image/*" hidden onChange={onPickBg} />
           {!bgUrl ? (
             <button class="btn small" disabled={bgLoading} onClick={() => bgInput.current?.click()}>
-              {bgLoading ? "⏳ Đang mở ảnh…" : "🖼️ Ảnh nền để dò"}
+              {bgLoading ? "⏳ Đang mở ảnh…" : <><Icon name="image" size={16} /> Ảnh nền để dò</>}
             </button>
           ) : (
             <>
-              <span class="wr-bg-lbl">🖼️ Giữ 👁️ (hoặc phím K) để xem ảnh</span>
-              <button class="btn small" onClick={() => bgInput.current?.click()} disabled={bgLoading} title="Đổi ảnh">🔁 Đổi</button>
-              <button class="btn small" onClick={clearBg} title="Bỏ ảnh">✕ Bỏ</button>
+              <span class="wr-bg-lbl"><Icon name="image" size={14} /> Giữ <Icon name="eye" size={14} /> (hoặc phím K) để xem ảnh</span>
+              <button class="btn small" onClick={() => bgInput.current?.click()} disabled={bgLoading} title="Đổi ảnh"><Icon name="refresh" size={16} /> Đổi</button>
+              <button class="btn small" onClick={clearBg} title="Bỏ ảnh"><Icon name="close" size={16} /> Bỏ</button>
             </>
           )}
         </div>
@@ -300,7 +301,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
                       ref={(el: any) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }}
                       onInput={(e: any) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; setRow(i, { note: e.target.value }); }}
                       placeholder="—" /></td>
-                    {!readOnly && <td><button class="btn small wr-del" title="Xoá dòng" onClick={() => delRow(i)}>✕</button></td>}
+                    {!readOnly && <td><button class="btn small wr-del" title="Xoá dòng" onClick={() => delRow(i)}><Icon name="close" size={16} /></button></td>}
                   </tr>
                 );
               })}
@@ -313,9 +314,9 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
 
         {!readOnly && (
           <div class="row">
-            <button class="btn" onClick={addRow}>➕ Thêm thợ</button>
-            {defaults.length > 0 && <button class="btn" onClick={insertDefaults} title="Chèn các thợ mặc định">👥 Chèn thợ mặc định</button>}
-            <button class="btn primary" disabled={busy} onClick={save}>💾 Lưu báo cáo</button>
+            <button class="btn" onClick={addRow}><Icon name="plus" size={16} /> Thêm thợ</button>
+            {defaults.length > 0 && <button class="btn" onClick={insertDefaults} title="Chèn các thợ mặc định"><Icon name="users" size={16} /> Chèn thợ mặc định</button>}
+            <button class="btn primary" disabled={busy} onClick={save}><Icon name="save" size={16} /> Lưu báo cáo</button>
           </div>
         )}
         {msg && <div class="prod-save-msg">{msg}</div>}
@@ -339,7 +340,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
           onPointerCancel={() => setBgShow(false)}
           onContextMenu={(e: any) => e.preventDefault()}
           title="Giữ để xem ảnh"
-        >👁️</button>
+        ><Icon name="eye" size={20} /></button>
       )}
     </div>
   );

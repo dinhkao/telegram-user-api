@@ -119,14 +119,14 @@ export function Users() {
                       <div class="usr-name">
                         {u.display_name || u.username} <span class="muted small">@{u.username}</span>
                         {u.username === me?.username && <span class="muted small"> (bạn)</span>}
-                        {u.disabled && <span class="usr-locked"> 🔒 khoá</span>}
+                        {u.disabled && <span class="usr-locked"> <Icon name="lock" size={13} /> khoá</span>}
                       </div>
                       <div class="usr-actions">
                         <select class="usr-role" value={u.role} disabled={busy === u.username}
                           onChange={(e: any) => changeRole(u, e.currentTarget.value)}>
                           {roles.map((r) => <option value={r} key={r}>{ROLE_LABEL[r] || r}</option>)}
                         </select>
-                        <button class="btn small" disabled={busy === u.username} onClick={() => resetPin(u)}>🔑 PIN</button>
+                        <button class="btn small" disabled={busy === u.username} onClick={() => resetPin(u)}><Icon name="key" size={14} /> PIN</button>
                         <button class="btn small" disabled={busy === u.username} onClick={() => toggleDisabled(u)}>
                           {u.disabled ? "Mở" : "Khoá"}
                         </button>

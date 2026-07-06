@@ -2,6 +2,7 @@
 // tab cố định. Nếu đã điều hướng trong app (có lịch sử) → history.back(); nếu vào
 // LẠNH (deep-link từ thông báo / mở thẳng) → về fallback hash cho từng màn.
 // Dùng bởi: các trang chi tiết (OrderDetail, BoxDetail, CustomerDetail…).
+import { Icon } from "./ui/Icon";
 
 let navCount = 0;
 if (typeof window !== "undefined") {
@@ -23,7 +24,7 @@ export function BackLink({ fallback, label, className = "back" }: {
       href={fallback}
       onClick={(e: any) => { e.preventDefault(); goBack(fallback); }}
     >
-      {label ?? "←"}
+      {label ?? <Icon name="back" size={18} />}
     </a>
   );
 }

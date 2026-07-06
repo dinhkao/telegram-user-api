@@ -82,7 +82,7 @@ export function WorkerList() {
       <div class="card">
         <div class="row space">
           <b>Thợ ({workers.length})</b>
-          <span class="muted small">⭐ mặc định: {defCount}</span>
+          <span class="muted small"><Icon name="star" size={13} /> mặc định: {defCount}</span>
         </div>
         {workers.length === 0 ? (
           <p class="muted small">Chưa có thợ nào. Thêm ở trên.</p>
@@ -94,7 +94,7 @@ export function WorkerList() {
                   class={"wl-star" + (w.is_default ? " on" : "")}
                   title={w.is_default ? "Bỏ khỏi mẫu mặc định" : "Thêm vào mẫu mặc định"}
                   onClick={() => toggleDef(w)}
-                >{w.is_default ? "⭐" : "☆"}</button>
+                ><Icon name="star" size={17} /></button>
                 <a class="wl-name wl-link" href={`#/sx-tho/${encodeURIComponent(w.name)}`}>
                   {w.name} <span class="wl-arrow">›</span>
                 </a>
@@ -103,7 +103,7 @@ export function WorkerList() {
             ))}
           </ul>
         )}
-        <p class="muted small">⭐ = có trong mẫu báo cáo mặc định. Sửa báo cáo phiếu SX sẽ tự điền các thợ này.</p>
+        <p class="muted small"><Icon name="star" size={13} /> = có trong mẫu báo cáo mặc định. Sửa báo cáo phiếu SX sẽ tự điền các thợ này.</p>
       </div>
     </div>
   );

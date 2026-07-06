@@ -3,6 +3,7 @@
 // chi tiết khách (list đơn của khách). Nhận sẵn 1 order row (shape _build_order_row).
 import { orderImageUrl } from "../api";
 import { fmtDateTimeVN, fmtRelative, fmtNgayGiao } from "../format";
+import { Icon } from "../ui/Icon";
 
 const TASK_LABELS = ["HĐ", "Soạn", "Giao", "Nộp", "Nhận"];
 
@@ -35,11 +36,11 @@ export function CompactOrderCard({ o }: { o: any }) {
       <div class="compact-right">
         <div class="order-text wrap-badges">
           <TaskBadges o={o} />
-          {o.ngay_giao && <span class="od-deliver">🚚 {fmtNgayGiao(o.ngay_giao)}</span>}
+          {o.ngay_giao && <span class="od-deliver"><Icon name="truck" size={14} /> {fmtNgayGiao(o.ngay_giao)}</span>}
           <span class="ot-text">{o.text || <span class="muted">(không có nội dung)</span>}</span>
         </div>
         <div class="order-when muted small">
-          🕒 {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
+          <Icon name="clock" size={14} /> {o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
         </div>
       </div>
     </a>

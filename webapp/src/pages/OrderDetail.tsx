@@ -351,7 +351,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         {editText === null ? (
           <>
             <pre class="order-text">{j.text || j.text_raw || "(trống)"}</pre>
-            {j.created && <div class="muted small od-created">🕒 Tạo lúc {fmtDateTimeVN(j.created)} · {fmtRelative(j.created)}</div>}
+            {j.created && <div class="muted small od-created"><Icon name="clock" size={13} /> Tạo lúc {fmtDateTimeVN(j.created)} · {fmtRelative(j.created)}</div>}
           </>
         ) : (
           <div>
@@ -413,7 +413,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         ) : (
           <div>
             {!(j.customer_name || j.khach_hang_id) && <p class="muted small">⚠️ Đơn chưa có khách — tìm và gán để lấy giá + tạo HĐ.</p>}
-            <CustomerPicker onPick={assignCustomer} placeholder="🔍 Tìm khách để gán" />
+            <CustomerPicker onPick={assignCustomer} placeholder="Tìm khách để gán" />
             {changingCust && <button class="btn small" onClick={() => setChangingCust(false)}>Huỷ</button>}
           </div>
         )}
@@ -421,7 +421,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
 
       <div class="card">
         <div class="row space">
-          <b>🚚 Ngày giao</b>
+          <b><Icon name="truck" size={16} /> Ngày giao</b>
           {j.ngay_giao && j.ngay_giao_auto ? <span class="muted small">tự đặt khi tạo đơn</span> : null}
         </div>
         <div class="row ngg-row">

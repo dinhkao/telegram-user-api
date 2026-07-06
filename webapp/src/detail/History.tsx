@@ -5,6 +5,7 @@ import { getJSON, mediaImageUrl } from "../api";
 import { fmtTime } from "../format";
 import { onRealtime, eventMatchesBase } from "../realtime";
 import { fastScrollToEl } from "../scroll";
+import { Icon } from "../ui/Icon";
 
 // Cuộn tới ảnh trong khối Ảnh + nháy sáng (tái dùng cơ chế deep-link)
 function focusImage(id: number) {
@@ -37,7 +38,7 @@ export function History({ base }: { base: string }) {
 
   return (
     <div class="card">
-      <b>🕘 Lịch sử thao tác</b>
+      <b><Icon name="history" size={16} /> Lịch sử thao tác</b>
       {items.length ? (
         <ul class="hist">
           {items.map((h, i) => (

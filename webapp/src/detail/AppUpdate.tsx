@@ -6,6 +6,7 @@
 // "Đã cài xong" (lưu versionCode vào localStorage).
 import { useEffect, useState } from "preact/hooks";
 import { getApkVersion, type ApkVersion } from "../api";
+import { Icon } from "../ui/Icon";
 
 const LS_KEY = "apk_installed_vc"; // proxy khi KHÔNG có cầu native
 
@@ -50,8 +51,8 @@ export function AppUpdate() {
   return (
     <div class="card">
       <div class="row space">
-        <b>📲 Cập nhật ứng dụng</b>
-        <button class="btn small" disabled={checking} onClick={check}>{checking ? "Đang kiểm tra…" : "🔄 Kiểm tra"}</button>
+        <b><Icon name="download" size={16} /> Cập nhật ứng dụng</b>
+        <button class="btn small" disabled={checking} onClick={check}>{checking ? "Đang kiểm tra…" : <><Icon name="refresh" size={14} /> Kiểm tra</>}</button>
       </div>
 
       {err && <p class="error">{err}</p>}
@@ -66,19 +67,19 @@ export function AppUpdate() {
             Bản mới nhất: <b>{latest.versionName || `v${latest.versionCode}`}</b> (#{latest.versionCode})
             {installed != null && <> · Đang cài: v{installed}</>}
           </p>
-          {upToDate && <p class="paid-ok">✅ Bạn đang dùng bản mới nhất.</p>}
-          {outdated && <p class="owe">🔔 Có bản mới hơn bản bạn đang cài!</p>}
+          {upToDate && <p class="paid-ok"><Icon name="check" size={14} /> Bạn đang dùng bản mới nhất.</p>}
+          {outdated && <p class="owe"><Icon name="bell" size={14} /> Có bản mới hơn bản bạn đang cài!</p>}
           {installed == null && !hasBridge && <p class="muted small">Chưa rõ bản đang cài — tải & cài rồi bấm "Đã cài xong".</p>}
 
           {hasBridge ? (
             // 1 chạm: native tải APK + mở trình cài (chỉ còn hộp xác nhận Android)
             <button class="btn primary wide" onClick={() => { try { bridge.updateNow(); } catch { /* ignore */ } }}>
-              ⬆️ Cập nhật ngay (1 chạm)
+              <Icon name="download" size={16} /> Cập nhật ngay (1 chạm)
             </button>
           ) : (
             <div class="row">
-              <a class="btn primary" href="/app/update/app.apk">⬇️ Tải & cài bản mới</a>
-              <button class="btn" onClick={markInstalled}>✔️ Đã cài xong bản này</button>
+              <a class="btn primary" href="/app/update/app.apk"><Icon name="download" size={16} /> Tải & cài bản mới</a>
+              <button class="btn" onClick={markInstalled}><Icon name="check" size={16} /> Đã cài xong bản này</button>
             </div>
           )}
         </>

@@ -6,6 +6,7 @@ import { orderAllocations, allocatePicks, releaseAllocations, soVN, type Allocat
 import { StockPickerModal } from "./StockPickerModal";
 import { confirmDialog } from "../ui/feedback";
 import { onRealtime } from "../realtime";
+import { Icon } from "../ui/Icon";
 
 type Line = { sp: string; sl: number | string };
 
@@ -68,7 +69,7 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
 
   return (
     <section class="card">
-      <label class="card-label">📦 Xuất kho cho đơn</label>
+      <label class="card-label"><Icon name="box" size={16} /> Xuất kho cho đơn</label>
       {products.map(({ code, need }) => {
         const mine = allocs.filter((a) => a.product_code === code);
         const got = mine.reduce((s, a) => s + a.quantity, 0);
@@ -96,7 +97,7 @@ export function OrderStock({ threadId, invoice }: { threadId: string; invoice: L
                     {a.box_quantity ? <span class="muted small"> /{soVN(a.box_quantity)}</span> : null}
                     <button class="link-btn" disabled={busy} onClick={() => doRelease(a)} title="Thu hồi">
                       {" "}
-                      ✕
+                      <Icon name="close" size={16} />
                     </button>
                   </li>
                 ))}

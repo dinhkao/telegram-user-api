@@ -60,7 +60,7 @@ export function ProductionDashboard() {
 
   return (
     <div class="db-page">
-      <h2 class="page-h">📊 Dashboard sản xuất</h2>
+      <h2 class="page-h"><Icon name="chart" size={18} /> Dashboard sản xuất</h2>
       <div class="db-period">
         {(["all", "month", "week"] as Period[]).map((p) => (
           <button key={p} class={period === p ? "db-seg on" : "db-seg"} onClick={() => setPeriod(p)}>

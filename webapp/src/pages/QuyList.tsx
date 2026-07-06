@@ -214,8 +214,8 @@ export function QuyList() {
       {/* Form tạo phiếu */}
       <div class="quy-create">
         <div class="quy-type-toggle">
-          <button class={ftype === "thu" ? "qt thu active" : "qt"} onClick={() => setFtype("thu")}>➕ Thu</button>
-          <button class={ftype === "chi" ? "qt chi active" : "qt"} onClick={() => setFtype("chi")}>➖ Chi</button>
+          <button class={ftype === "thu" ? "qt thu active" : "qt"} onClick={() => setFtype("thu")}><Icon name="plus" size={14} /> Thu</button>
+          <button class={ftype === "chi" ? "qt chi active" : "qt"} onClick={() => setFtype("chi")}><Icon name="minus" size={14} /> Chi</button>
         </div>
         <input class="quy-input" type="tel" inputMode="numeric" placeholder="Số tiền"
           value={amount} onInput={(e: any) => setAmount(e.currentTarget.value)} />

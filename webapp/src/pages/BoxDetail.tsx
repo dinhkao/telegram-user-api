@@ -236,7 +236,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
                 disabled={disBusy || blocked}
                 onClick={toggleDisabled}
               >
-                {disBusy ? "…" : disabled ? "✅ Kích hoạt lại thùng" : "🚫 Vô hiệu hoá thùng"}
+                {disBusy ? "…" : disabled ? <><Icon name="check" size={16} /> Kích hoạt lại thùng</> : <><Icon name="ban" size={16} /> Vô hiệu hoá thùng</>}
               </button>
               {blocked && (
                 <div class="muted small">Thùng đã phân bổ vào đơn — thu hồi khỏi đơn trước khi vô hiệu.</div>

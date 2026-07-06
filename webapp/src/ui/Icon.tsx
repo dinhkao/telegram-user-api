@@ -46,6 +46,11 @@ const PATHS: Record<string, JSX.Element> = {
   banknote: <><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" /></>,
   bank: <><path d="M3 21h18M4 21V9l8-5 8 5v12M9 21v-6h6v6" /></>,
   history: <><path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /><path d="M12 7v5l4 2" /></>,
+  chart: <><path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" /></>,
+  note: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></>,
+  ban: <><circle cx="12" cy="12" r="9" /><path d="m5 5 14 14" /></>,
+  zap: <><path d="M13 2 3 14h7l-1 8 10-12h-7Z" /></>,
+  leaf: <><path d="M11 20A7 7 0 0 1 4 13c0-6 5-9 16-9 0 9-4 14-9 14-2 0-4-1-5-3" /><path d="M2 22c4-4 6-6 8-6" /></>,
 };
 
 export function Icon({ name, size = 20, class: cls = "", strokeWidth = 2 }:

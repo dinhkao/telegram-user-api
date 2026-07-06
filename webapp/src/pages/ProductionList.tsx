@@ -204,7 +204,7 @@ function ProdCard({ slip }: { slip: ProdSlip }) {
       <div class="prod-card-stat">
         <span class="prod-total"><Icon name="box" size={14} /> {soVN(total)}</span>
       </div>
-      {slip.ghi_chu && <div class="prod-card-note">📝 {slip.ghi_chu}</div>}
+      {slip.ghi_chu && <div class="prod-card-note"><Icon name="note" size={13} /> {slip.ghi_chu}</div>}
     </a>
   );
 }

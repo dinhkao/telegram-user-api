@@ -264,7 +264,7 @@ function App() {
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head">Mục khác</div>
             <a class="menu-item" href="#/quy" onClick={() => setMenuOpen(false)}>💵 Sổ quỹ (thu/chi)</a>
-            <a class="menu-item" href="#/sx-bang" onClick={() => setMenuOpen(false)}>📊 Dashboard sản xuất</a>
+            <a class="menu-item" href="#/sx-bang" onClick={() => setMenuOpen(false)}><Icon name="chart" size={16} /> Dashboard sản xuất</a>
             <a class="menu-item" href="#/tho" onClick={() => setMenuOpen(false)}>🧑‍🏭 Danh sách thợ</a>
             <a class="menu-item" href="#/lich-su" onClick={() => setMenuOpen(false)}>🕘 Lịch sử thao tác</a>
             <a class="menu-item" href="#/bang-gia" onClick={() => setMenuOpen(false)}>💰 Bảng giá chung</a>

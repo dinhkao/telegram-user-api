@@ -1,6 +1,7 @@
 // Báo cáo sản xuất theo thợ — CHỈ XEM ở trang chi tiết, LUÔN hiện (không thu gọn).
 // Sửa → trang riêng (#/san_xuat/:id/bao-cao, ProductionReportEdit) khoá 1 người sửa.
 import { soVN, type ProdSlip, type ProdReport } from "../api";
+import { Icon } from "../ui/Icon";
 
 export function ProductionReport({ threadId, slip }: { threadId: string; slip: ProdSlip }) {
   const rep = slip.bang as ProdReport | null;
@@ -9,17 +10,17 @@ export function ProductionReport({ threadId, slip }: { threadId: string; slip: P
   return (
     <section class="card">
       <div class="row space" style={{ alignItems: "center", marginBottom: "8px" }}>
-        <label class="card-label" style={{ margin: 0 }}>📊 Báo cáo theo thợ</label>
-        <a class="btn primary small" href={`#/san_xuat/${threadId}/bao-cao`}>✏️ Sửa</a>
+        <label class="card-label" style={{ margin: 0 }}><Icon name="chart" size={16} /> Báo cáo theo thợ</label>
+        <a class="btn primary small" href={`#/san_xuat/${threadId}/bao-cao`}><Icon name="edit" size={16} /> Sửa</a>
       </div>
 
       {rows.length > 0 ? (
         <>
           <div class="prod-report-meta">
-            {rep?.product_code && <span>📦 {rep.product_code}</span>}
+            {rep?.product_code && <span><Icon name="box" size={14} /> {rep.product_code}</span>}
             {rep && rep.so_cay_1_mam > 0 && <span>🌿 {rep.so_cay_1_mam}/mâm</span>}
-            {rep?.date && <span>📅 {rep.date}</span>}
-            {rep?.start && rep?.end && <span>🕒 {rep.start}–{rep.end}</span>}
+            {rep?.date && <span><Icon name="calendar" size={14} /> {rep.date}</span>}
+            {rep?.start && rep?.end && <span><Icon name="clock" size={14} /> {rep.start}–{rep.end}</span>}
             <span>· Tổng <b>{soVN(rep!.grand_total)}</b></span>
           </div>
           <div class="prod-report-scroll">

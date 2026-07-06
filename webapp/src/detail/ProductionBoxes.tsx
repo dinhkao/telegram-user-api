@@ -4,6 +4,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { addProductionBoxes, slipBoxes, soVN, type ProdSlip, type InvBox } from "../api";
 import { onRealtime } from "../realtime";
+import { Icon } from "../ui/Icon";
 
 function todayLocal(): string {
   const d = new Date();
@@ -86,11 +87,11 @@ export function ProductionBoxes({
 
   return (
     <section class="card">
-      <label class="card-label">📦 Nhập thùng {slip.sp_name ? `(${slip.sp_name})` : ""}</label>
+      <label class="card-label"><Icon name="box" size={16} /> Nhập thùng {slip.sp_name ? `(${slip.sp_name})` : ""}</label>
       {!hasSp && <div class="muted small">Chọn sản phẩm trước khi nhập.</div>}
 
       <div class="row">
-        <label class="inline-label">📅 NSX</label>
+        <label class="inline-label"><Icon name="calendar" size={16} /> NSX</label>
         <input
           type="date"
           value={mfgDate}
@@ -131,7 +132,7 @@ export function ProductionBoxes({
           placeholder="Ghi chú (tuỳ chọn)"
         />
         <button class="btn primary" disabled={!hasSp || busy} onClick={submit}>
-          {busy ? "…" : "＋"}
+          {busy ? "…" : <Icon name="plus" size={16} />}
         </button>
       </div>
       {msg && <div class="muted small">{msg}</div>}
@@ -155,7 +156,7 @@ export function ProductionBoxes({
                     {soVN(rem)}
                     {used > 0 ? <span class="muted">/{soVN(b.quantity)}</span> : ""}
                   </span>
-                  {b.note && <span class="inv-note muted small">📝 {b.note}</span>}
+                  {b.note && <span class="inv-note muted small"><Icon name="note" size={12} /> {b.note}</span>}
                   {b.disabled ? (
                     <span class="inv-status disabled" title={b.disabled_reason || undefined}>
                       Vô hiệu

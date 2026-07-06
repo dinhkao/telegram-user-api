@@ -4,6 +4,7 @@ import { useEffect, useState } from "preact/hooks";
 import { listMediaImages, mediaImageUrl, type OrderImage } from "../api";
 import { onRealtime, eventMatchesBase } from "../realtime";
 import { PhotoViewer } from "./PhotoViewer";
+import { Icon } from "../ui/Icon";
 import { isOrderBase, KIND_ICON, KIND_LABEL, kindOf } from "./imageKinds";
 
 export function ImageStrip({ base, onCamera }: { base: string; onCamera?: () => void }) {
@@ -36,7 +37,7 @@ export function ImageStrip({ base, onCamera }: { base: string; onCamera?: () => 
         </button>
       ))}
       {onCamera && (
-        <button class="img-strip-tile img-strip-cam" onClick={onCamera} title="Chụp ảnh">📸</button>
+        <button class="img-strip-tile img-strip-cam" onClick={onCamera} title="Chụp ảnh"><Icon name="camera" size={20} /></button>
       )}
       {lightbox && (
         <PhotoViewer
