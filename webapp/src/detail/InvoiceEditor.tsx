@@ -215,7 +215,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
     // Nút khoá 🔒 / cập nhật nợ — render NGAY cạnh chữ "Nợ trước" trong bảng
     const debtCtl = customerId
       ? (debtLocked
-          ? <button class="lock-chip" onClick={() => toast("🔒 Nợ đã chốt tại thời điểm tạo hoá đơn KiotViet — không kéo nợ mới được. Xoá HĐ nếu cần cập nhật lại.", "info")}><Icon name="lock" size={16} /> đã chốt</button>
+          ? <button class="lock-chip" title="Nợ đã chốt" onClick={() => toast("🔒 Nợ đã chốt tại thời điểm tạo hoá đơn KiotViet — không kéo nợ mới được. Xoá HĐ nếu cần cập nhật lại.", "info")}><Icon name="lock" size={16} /></button>
           : (onRefreshDebt ? <button class="btn small" title="Kéo nợ KiotViet mới nhất" onClick={onRefreshDebt}><Icon name="refresh" size={16} /> Cập nhật nợ</button> : null))
       : null;
     return (
@@ -223,7 +223,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
         <div class="row space">
           <b>Hoá đơn ({rows.length} món)</b>
           {hasInvoice
-            ? <button class="lock-chip" onClick={() => toast("🔒 Đơn đã tạo hoá đơn KiotViet nên không sửa sản phẩm được nữa. Muốn sửa phải xoá HĐ trước.", "info")}><Icon name="lock" size={16} /> Đã chốt</button>
+            ? <button class="lock-chip" title="Đã chốt sản phẩm" onClick={() => toast("🔒 Đơn đã tạo hoá đơn KiotViet nên không sửa sản phẩm được nữa. Muốn sửa phải xoá HĐ trước.", "info")}><Icon name="lock" size={16} /></button>
             : <button class="btn small" onClick={() => setEditing(true)}><Icon name="edit" size={16} /> Sửa</button>}
         </div>
         {rows.length === 0 ? (
