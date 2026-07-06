@@ -133,8 +133,8 @@ async def import_sent_image(thread_id, file_bytes: bytes, tg_message_id, uploade
     mark_self_sent(int(tg_message_id))  # phòng NewMessage có bắn thì cũng bỏ qua
     from server_app.realtime import emit_order_changed
     emit_order_changed(int(thread_id))
-    from server_app.fcm import notify_bg
-    notify_bg("🖼 Ảnh mới", f"{uploaded_by} thêm ảnh", {"thread_id": str(thread_id), "type": "image", "image_id": str(img["id"])})
+    from server_app.notify import push_bg  # ghi notification center + FCM từ 1 chỗ
+    push_bg("🖼 Ảnh mới", f"{uploaded_by} thêm ảnh", {"thread_id": str(thread_id), "type": "image", "image_id": str(img["id"])})
     from audit_log import async_log_event
     await async_log_event("order.image_added", actor_type="telegram", actor_id=uploaded_by,
                           thread_id=int(thread_id), payload={"image_id": img["id"]})
@@ -209,8 +209,8 @@ def register_inbound_photo_sync(client) -> None:
             return
         from server_app.realtime import emit_order_changed
         emit_order_changed(int(thread_id))
-        from server_app.fcm import notify_bg
-        notify_bg("🖼 Ảnh mới", f"{who} thêm ảnh (Telegram)", {"thread_id": str(thread_id), "type": "image", "image_id": str(saved["id"])})
+        from server_app.notify import push_bg  # ghi notification center + FCM từ 1 chỗ
+        push_bg("🖼 Ảnh mới", f"{who} thêm ảnh (Telegram)", {"thread_id": str(thread_id), "type": "image", "image_id": str(saved["id"])})
         # Ghi vào lịch sử thao tác (kèm id ảnh để hiện thumbnail)
         from audit_log import async_log_event
         await async_log_event("order.image_added", actor_type="telegram", actor_id=who,
