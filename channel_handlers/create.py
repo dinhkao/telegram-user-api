@@ -86,8 +86,10 @@ async def process_new_order(client, msg) -> int | None:
         actor_type="system", source="order.created", payload={"message_id": msg.id}))
     from server_app.realtime import emit_orders_changed
     emit_orders_changed()  # đơn mới → dashboard refetch (chạy nền)
-    from server_app.fcm import notify_bg
-    notify_bg("🆕 Đơn hàng mới", (order_text or "").strip()[:120], {"thread_id": str(thread_id)})
+    # push_bg (KHÔNG notify_bg): vừa GHI notification-center row + realtime, vừa push FCM —
+    # để đơn mới hiện trong chuông 🔔 in-app (notify_bg cũ chỉ đẩy FCM, không ghi row).
+    from server_app.notify import push_bg
+    push_bg("🆕 Đơn hàng mới", (order_text or "").strip()[:120], {"thread_id": str(thread_id), "type": "order"})
     try:
         sent = await client.send_message(ORDER_GROUP_ID, msg.text, reply_to=thread_id)
         pin_msg_id = sent.id

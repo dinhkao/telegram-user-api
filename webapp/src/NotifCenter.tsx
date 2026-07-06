@@ -12,7 +12,7 @@ const SEEN_KEY = "notif_seen_id";
 const getSeen = (): number => { try { return Number(localStorage.getItem(SEEN_KEY) || "0") || 0; } catch { return 0; } };
 const setSeen = (id: number) => { try { localStorage.setItem(SEEN_KEY, String(id)); } catch { /* im */ } };
 
-const ICON: Record<string, string> = { comment: "💬", image: "🖼", info: "🔔" };
+const ICON: Record<string, string> = { comment: "💬", image: "🖼", order: "🆕", info: "🔔" };
 
 export function NotifCenter() {
   const [open, setOpen] = useState(false);
