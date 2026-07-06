@@ -28,10 +28,16 @@ export function KhoBoxes() {
   if (!boxes) return <Loading />;
 
   const nq = foldVN(q.trim());
-  // Phẳng — MỌI thùng cạnh nhau (không gom nhóm). Sắp theo mã SP rồi mã thùng.
+  // Phẳng — MỌI thùng cạnh nhau. Sắp: CÒN DÙNG ĐƯỢC (không vô hiệu + còn hàng)
+  // lên trước; trong mỗi nhóm, MỚI TẠO lên trước (created_at giảm dần).
+  const usable = (b: KhoBox) => (!b.disabled && (b.remaining ?? b.quantity) > 0 ? 1 : 0);
   const shown = (nq ? boxes.filter((b) => foldVN(b.product_code).includes(nq)) : boxes)
     .slice()
-    .sort((a, b) => a.product_code.localeCompare(b.product_code) || a.box_code.localeCompare(b.box_code));
+    .sort((a, b) =>
+      usable(b) - usable(a) ||
+      (b.created_at || "").localeCompare(a.created_at || "") ||
+      b.box_code.localeCompare(a.box_code)
+    );
 
   return (
     <div class="inv-dash">
