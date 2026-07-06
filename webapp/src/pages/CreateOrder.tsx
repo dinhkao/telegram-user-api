@@ -30,6 +30,38 @@ export function CreateOrder() {
   };
   useScrollLock(plOpen); // khoá cuộn nền khi popup bảng giá mở
   const seq = useRef(0);
+  const [showHint, setShowHint] = useState(false);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  // Ô nhập CHỮ TO — trống thì cực to, gõ nhiều thì tự thu nhỏ font để vừa màn hình
+  // (không đẩy preview/nút ra ngoài). Dùng visualViewport để né bàn phím mobile.
+  const fitFont = () => {
+    const ta = taRef.current;
+    if (!ta || mode !== "quick") return;
+    const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    const top = ta.getBoundingClientRect().top;
+    const reserve = 96;                                  // chừa nút "Tạo đơn" + đệm
+    const maxH = Math.max(120, vh - top - reserve);
+    ta.style.height = maxH + "px";
+    let fs = 42;                                         // super to khi trống
+    ta.style.fontSize = fs + "px";
+    while (ta.scrollHeight > ta.clientHeight && fs > 17) { fs -= 1; ta.style.fontSize = fs + "px"; }
+  };
+  useEffect(() => {
+    const r = requestAnimationFrame(fitFont);
+    return () => cancelAnimationFrame(r);
+  }, [text, mode, preview, showHint]);
+  useEffect(() => {
+    const on = () => requestAnimationFrame(fitFont);
+    window.addEventListener("resize", on);
+    window.visualViewport?.addEventListener("resize", on);
+    window.visualViewport?.addEventListener("scroll", on);
+    return () => {
+      window.removeEventListener("resize", on);
+      window.visualViewport?.removeEventListener("resize", on);
+      window.visualViewport?.removeEventListener("scroll", on);
+    };
+  }, []);
 
   // Khách vừa nhận diện → kéo nợ MỚI từ KiotViet 1 lần (theo id, không mỗi phím)
   useEffect(() => {
@@ -104,9 +136,9 @@ export function CreateOrder() {
             )}
           </div>
 
-          {/* Xem trước Ở TRÊN ô nhập → bàn phím mobile không che */}
+          {/* Xem trước Ở TRÊN ô nhập, DÍNH ĐỈNH → luôn thấy khi gõ (bàn phím không che) */}
           {(text.trim() || picked) && (
-            <div class="preview-box">
+            <div class="preview-box co-preview">
               <div class="preview-head">
                 🔎 Xem trước {previewing && <span class="muted small">đang phân tích…</span>}
               </div>
@@ -171,10 +203,13 @@ export function CreateOrder() {
             </div>
           )}
 
-          <textarea rows={8} placeholder={"ví dụ:\nlp\nk2l 1t\nk1l 1t 30\nkdxdb 2t\nkddt 1b\ndm180 1t 50 25000"} value={text} onInput={(e: any) => setText(e.target.value)} />
+          <textarea ref={taRef} class="co-input" placeholder={"Gõ đơn ở đây…\nlp\nk2l 1t\nk1l 1t 30\ndm180 1t 50 25000"} value={text} onInput={(e: any) => setText(e.target.value)} />
 
+          <button class="btn small hint-toggle" onClick={() => setShowHint((v) => !v)}>
+            💡 Cách nhận diện {showHint ? "▲" : "▼"}
+          </button>
+          {showHint && (
           <div class="muted small hint">
-            💡 <b>Cách nhận diện:</b>
             <ul class="hint-list">
               <li><b>Khách:</b> tên khách (tự gán nếu khớp cao — kèm nợ &amp; bảng giá), hoặc chọn ở ô trên.</li>
               <li><b>Sản phẩm:</b> mỗi dòng <code>&lt;mã SP&gt; &lt;số lượng&gt;</code> — mã trước, SL sau (số đứng trước mã bị bỏ qua).</li>
@@ -191,9 +226,10 @@ export function CreateOrder() {
               <li><b>Giá:</b> tự lấy theo bảng giá khách; nhập số sau SL để <b>ghi đè giá</b>, vd <code>K2L 10 25000</code> = 10 cái, giá 25.000.</li>
             </ul>
           </div>
+          )}
 
           {err && <p class={err.startsWith("✅") ? "ok-msg" : "error"}>{err}</p>}
-          <button class="btn primary wide" disabled={busy} onClick={submitQuick}>{busy ? "Đang tạo…" : "Tạo đơn"}</button>
+          <button class="btn primary wide co-submit" disabled={busy} onClick={submitQuick}>{busy ? "Đang tạo…" : "Tạo đơn"}</button>
         </div>
       ) : (
         <div>
