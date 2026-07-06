@@ -313,7 +313,7 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 /* 5 task icon (giống main message Telegram) */
 .badges { display: flex; gap: 6px; }
 .tstat { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
-.tico { font-size: .95rem; }
+.tico { display: inline-flex; align-items: center; justify-content: center; height: 20px; }
 .tlbl { font-size: .6rem; color: var(--muted); }
 
 /* Chế độ xem gọn dashboard */
@@ -326,7 +326,7 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .ultra-row { display: flex; align-items: center; gap: 8px; }
 .ultra-row .badges { flex: 0 0 auto; gap: 4px; }
 .ultra-row .tlbl { display: none; }        /* ẩn nhãn HĐ/Soạn… — chỉ còn 5 icon */
-.ultra-row .tico { font-size: .9rem; }
+.ultra-row .tico { height: 18px; }
 .ultra-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .85rem; font-weight: 500; }
 .order-card.compact { display: flex; align-items: stretch; gap: 10px; padding: 6px 10px; margin: 3px 0; }
 .order-card.compact .order-text { flex: 1; margin: 0; font-size: .85rem; font-weight: 500; white-space: pre-wrap; word-break: break-word; }
@@ -1062,15 +1062,21 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* 5 icon trạng thái ở trang chi tiết đơn */
 /* Tóm tắt trong header dính (khi cuộn) — 5 icon + nội dung đơn rút gọn */
 .od-sb-status { flex: 0 0 auto; display: flex; gap: 1px; }
-.od-sb-ic { border: none; background: transparent; font-size: 1.05rem; line-height: 1; padding: 2px; cursor: pointer; }
+.od-sb-ic { border: none; background: transparent; line-height: 1; padding: 2px; cursor: pointer; display: inline-flex; align-items: center; }
 .od-sb-ic:active { transform: scale(.9); }
 .od-sb-text { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .85rem; font-weight: 600; color: var(--ink); }
+/* Chấm trạng thái bước đơn (StepDot) — thay ✅❌ emoji */
+.stepdot { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; box-sizing: border-box; flex: none; }
+.stepdot.done { background: var(--ok); color: #fff; }
+.stepdot.skip { background: var(--muted-2); color: #fff; }
+.stepdot.pending { border: 2px solid var(--border); background: var(--card); }
+.stepdot.wait { border: 2px solid var(--warn); background: var(--warn-wash); }
 .od-status { display: flex; gap: 2px; margin: 8px 0 0; }
 .od-status .ods-cell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 7px 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--card);
   cursor: pointer; color: var(--ink); -webkit-tap-highlight-color: transparent; }
 .od-status .ods-cell:active { transform: scale(.94); }
-.od-status .ods-ic { font-size: 1.15rem; line-height: 1; }
+.od-status .ods-ic { line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
 .od-status .ods-lb { font-size: .64rem; color: var(--muted); font-weight: 600; }
 .task-list li[id^="task-"] { scroll-margin-top: 56px; }
 /* Nút Thao tác nhanh chưa dùng được (vd chưa có HĐ để in) — xám nhưng vẫn bấm được (toast) */

@@ -11,6 +11,7 @@ import { orderImageUrl, listOrderImages, type OrderImage } from "../api";
 import { PhotoViewer } from "../detail/PhotoViewer";
 import { Loading, EmptyState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
+import { StepDot, type StepState } from "../ui/StepDot";
 import { fastScrollTop } from "../scroll";
 
 type OrderRow = {
@@ -370,14 +371,22 @@ function CompactBody({ o, search, sort, flashMsg, isNew, openThumb }: {
   );
 }
 
+// Emoji trạng thái từ server (task_icons) → StepState cho StepDot.
+function iconToState(ch: string | undefined, fb: boolean): StepState {
+  if (ch === "✅" || ch === "📄") return "done";
+  if (ch === "🟨") return "wait";
+  if (ch === "🔘") return "skip";
+  if (ch === "❌") return "pending";
+  return fb ? "done" : "pending";
+}
 function TaskBadges({ o }: { o: OrderRow }) {
-  const icons = [...(o.task_icons || "")];
+  const icons = [...(o.task_icons || "").replace(/[\uFE0F\u200D]/g, "")];
   const fallback: boolean[] = [false, o.soan, o.giao, o.nop, o.nhan];
   return (
     <span class="badges">
       {TASK_LABELS.map((label, i) => (
         <span class="tstat" key={label}>
-          <span class="tico">{icons[i] || (fallback[i] ? "✅" : "❌")}</span>
+          <span class="tico"><StepDot state={iconToState(icons[i], fallback[i])} size={18} /></span>
           <span class="tlbl">{label}</span>
         </span>
       ))}
