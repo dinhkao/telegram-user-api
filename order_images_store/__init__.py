@@ -15,9 +15,15 @@ from order_images_store.images import (
     set_tg_message_id,
     update_kind,
 )
+from order_images_store.comments import (
+    add_image_comment,
+    delete_image_comment,
+    list_image_comments,
+)
 
 __all__ = [
     "KINDS", "DEFAULT_KIND", "norm_kind", "update_kind",
     "add_image", "delete_image", "get_image", "has_tg_message",
     "list_images", "set_tg_message_id",
+    "add_image_comment", "delete_image_comment", "list_image_comments",
 ]

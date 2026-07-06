@@ -8,15 +8,10 @@ import { processImage } from "./imageProcess";
 import { PhotoViewer } from "./PhotoViewer";
 import { CameraBox, cameraSupported } from "./CameraBox";
 import { confirmDialog, toast } from "../ui/feedback";
+import { KIND_ORDER, KIND_LABEL, KIND_ICON, kindOf, isOrderBase } from "./imageKinds";
 
 type Pending = { key: number; url: string };
 let _pk = 0;
-
-// Phân loại ảnh đơn (chỉ dùng khi base là đơn hàng). Nhãn + icon hiển thị.
-const KIND_ORDER = ["soan_hang", "nop_tien", "hoa_don", "khac"] as const;
-const KIND_LABEL: Record<string, string> = { soan_hang: "Soạn hàng", nop_tien: "Nộp tiền", hoa_don: "Hoá đơn", khac: "Khác" };
-const KIND_ICON: Record<string, string> = { soan_hang: "📦", nop_tien: "💵", hoa_don: "🧾", khac: "🏷️" };
-const kindOf = (img: OrderImage) => (img.kind && KIND_LABEL[img.kind] ? img.kind : "khac");
 
 export function Images({ base, anchorId, openSignal }: { base: string; anchorId?: string; openSignal?: number }) {
   const [images, setImages] = useState<OrderImage[]>([]);
@@ -28,7 +23,7 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
   const fileInput = useRef<HTMLInputElement>(null);
 
   // Phân loại chỉ áp dụng cho ảnh ĐƠN HÀNG (không cho thùng/phiếu SX).
-  const isOrder = base.startsWith("/api/order/");
+  const isOrder = isOrderBase(base);
   const [uploadKind, setUploadKind] = useState<string>("soan_hang");  // loại gán cho ảnh sắp tải
   const [filter, setFilter] = useState<string>("all");                // lọc lưới theo loại
   const [kindMenuFor, setKindMenuFor] = useState<number | null>(null); // ảnh đang mở menu đổi loại
@@ -238,6 +233,8 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
           images={images}
           start={Math.max(0, images.findIndex((x) => x.id === lightbox.id))}
           base={base}
+          editable={isOrder}
+          onKindChange={(id, kind) => setImages((prev) => prev.map((x) => (x.id === id ? { ...x, kind } : x)))}
           onClose={() => setLightbox(null)}
         />
       )}

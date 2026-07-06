@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { mediaImageUrl, type OrderImage } from "../api";
 import { fmtTime } from "../format";
 import { toast } from "../ui/feedback";
+import { ImageInfoPanel } from "./ImageInfoPanel";
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 8;
@@ -18,14 +19,19 @@ export function PhotoViewer({
   images,
   start,
   base,
+  editable,
+  onKindChange,
   onClose,
 }: {
   images: OrderImage[];
   start: number;
   base: string;
+  editable?: boolean;                                   // ảnh đơn → cho đổi loại + bình luận
+  onKindChange?: (id: number, kind: string) => void;
   onClose: () => void;
 }) {
   const [idx, setIdx] = useState(start);
+  const [panelOpen, setPanelOpen] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const thumbsRef = useRef<HTMLDivElement>(null);
@@ -131,7 +137,7 @@ export function PhotoViewer({
   };
 
   const onDown = (e: PointerEvent) => {
-    if ((e.target as HTMLElement).closest(".pv-controls, .pv-thumbs, .pv-topbar")) return; // để nút/thumbnail bấm được
+    if ((e.target as HTMLElement).closest(".pv-controls, .pv-thumbs, .pv-topbar, .pv-panel")) return; // để nút/thumbnail/panel bấm được
     overlayRef.current?.setPointerCapture(e.pointerId);
     const s = g.current;
     s.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -348,12 +354,20 @@ export function PhotoViewer({
     >
       <img ref={imgRef} class="pv-img" src={mediaImageUrl(base, cur.id, "full")} draggable={false} alt="" />
 
-      {/* Thanh trên: copy / tải / đóng */}
+      {/* Thanh trên: loại+bình luận / copy / tải / đóng */}
       <div class="pv-topbar">
+        {editable && (
+          <button class={"pv-tbtn" + (panelOpen ? " on" : "")} title="Loại & bình luận" onClick={() => setPanelOpen((v) => !v)}>💬</button>
+        )}
         <button class="pv-tbtn" title="Copy ảnh" onClick={copyImage}>⧉</button>
         <button class="pv-tbtn" title="Tải / chia sẻ ảnh" onClick={downloadImage}>⤓</button>
         <button class="pv-tbtn" title="Đóng" onClick={onClose}>✕</button>
       </div>
+
+      {/* Bảng loại + bình luận ảnh (chỉ ảnh đơn) */}
+      {editable && panelOpen && (
+        <ImageInfoPanel base={base} image={cur} onKindChange={onKindChange} />
+      )}
 
       {/* Dải thumbnail các ảnh cùng đơn — chạm để nhảy, cuộn ngang, tô sáng ảnh đang xem */}
       {images.length > 1 ? (

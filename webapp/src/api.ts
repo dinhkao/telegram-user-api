@@ -343,6 +343,21 @@ export async function setImageKind(base: string, imageId: number, kind: string):
   return postJSON(`${base}/images/${imageId}/kind`, { kind }, { queueable: false });
 }
 
+export type ImageComment = { id: number; image_id: number; username: string; text: string; created_at: number };
+
+/** Bình luận của 1 ảnh (cũ→mới). base = '/api/order/<id>'. */
+export async function listImageComments(base: string, imageId: number): Promise<ImageComment[]> {
+  const d = await getJSON(`${base}/images/${imageId}/comments`, { cache: false });
+  return d.comments || [];
+}
+export async function addImageComment(base: string, imageId: number, text: string): Promise<ImageComment> {
+  const d = await postJSON(`${base}/images/${imageId}/comments`, { text }, { queueable: false });
+  return d.comment;
+}
+export async function deleteImageComment(base: string, imageId: number, commentId: number): Promise<any> {
+  return delJSON(`${base}/images/${imageId}/comments/${commentId}`);
+}
+
 // ── Media DÙNG CHUNG (comments+ảnh) — base là gốc API, vd '/api/order/123' hoặc
 //    '/api/media/production/123' / '/api/media/box/5'. Dùng bởi Comments/Images/… ──
 export function mediaImageUrl(base: string, imageId: number, size: "thumb" | "full" = "full"): string {

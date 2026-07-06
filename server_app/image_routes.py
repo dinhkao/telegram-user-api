@@ -19,7 +19,10 @@ import uuid
 
 from aiohttp import web
 
-from order_images_store import add_image, delete_image, get_image, list_images, update_kind
+from order_images_store import (
+    add_image, add_image_comment, delete_image, delete_image_comment,
+    get_image, list_image_comments, list_images, update_kind,
+)
 from utils.paths import ORDER_MEDIA_DIR
 
 log = logging.getLogger("image_routes")
@@ -250,6 +253,58 @@ async def images_kind_handler(request: web.Request):
     from server_app.realtime import emit_order_changed
     emit_order_changed(thread_id)
     return web.json_response({"ok": True, "image": row})
+
+
+def _image_id(request: web.Request) -> int | None:
+    try:
+        return int(request.match_info.get("image_id", ""))
+    except (ValueError, TypeError):
+        return None
+
+
+async def image_comments_list_handler(request: web.Request):
+    """Bình luận của 1 ảnh (cũ→mới)."""
+    thread_id, image_id = _thread_id(request), _image_id(request)
+    if thread_id is None or image_id is None:
+        return web.json_response({"ok": False, "error": "tham số không hợp lệ"}, status=400)
+    rows = await asyncio.to_thread(list_image_comments, image_id)
+    return web.json_response({"ok": True, "comments": rows})
+
+
+async def image_comments_add_handler(request: web.Request):
+    """Thêm bình luận cho 1 ảnh. Body {text, user?}."""
+    thread_id, image_id = _thread_id(request), _image_id(request)
+    if thread_id is None or image_id is None:
+        return web.json_response({"ok": False, "error": "tham số không hợp lệ"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    username = str(request.get("web_user") or body.get("user") or "?")
+    try:
+        row = await asyncio.to_thread(add_image_comment, image_id, thread_id, username, str(body.get("text") or ""))
+    except ValueError as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=400)
+    from server_app.realtime import emit_order_changed
+    emit_order_changed(thread_id)   # gallery/viewer máy khác tải lại
+    return web.json_response({"ok": True, "comment": row})
+
+
+async def image_comments_delete_handler(request: web.Request):
+    """Xoá 1 bình luận ảnh."""
+    thread_id, image_id = _thread_id(request), _image_id(request)
+    if thread_id is None or image_id is None:
+        return web.json_response({"ok": False, "error": "tham số không hợp lệ"}, status=400)
+    try:
+        comment_id = int(request.match_info.get("comment_id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "comment_id không hợp lệ"}, status=400)
+    ok = await asyncio.to_thread(delete_image_comment, comment_id, image_id)
+    if not ok:
+        return web.json_response({"ok": False, "error": "không tìm thấy bình luận"}, status=404)
+    from server_app.realtime import emit_order_changed
+    emit_order_changed(thread_id)
+    return web.json_response({"ok": True})
 
 
 async def images_file_handler(request: web.Request):
