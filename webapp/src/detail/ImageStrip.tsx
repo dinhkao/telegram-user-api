@@ -4,7 +4,7 @@ import { useEffect, useState } from "preact/hooks";
 import { listMediaImages, mediaImageUrl, type OrderImage } from "../api";
 import { onRealtime, eventMatchesBase } from "../realtime";
 import { PhotoViewer } from "./PhotoViewer";
-import { isOrderBase } from "./imageKinds";
+import { isOrderBase, KIND_ICON, KIND_LABEL, kindOf } from "./imageKinds";
 
 export function ImageStrip({ base, onCamera }: { base: string; onCamera?: () => void }) {
   const [images, setImages] = useState<OrderImage[]>([]);
@@ -24,11 +24,15 @@ export function ImageStrip({ base, onCamera }: { base: string; onCamera?: () => 
     return () => { clearTimeout(t); off(); };
   }, [base]);
 
+  const order = isOrderBase(base);
   return (
     <div class="img-strip">
       {images.map((img) => (
         <button class="img-strip-tile" key={img.id} onClick={() => setLightbox(img)}>
           <img src={mediaImageUrl(base, img.id, "thumb")} loading="lazy" alt="" />
+          {order && (
+            <span class="img-strip-kind" title={KIND_LABEL[kindOf(img)]}>{KIND_ICON[kindOf(img)]} {KIND_LABEL[kindOf(img)]}</span>
+          )}
         </button>
       ))}
       {onCamera && (

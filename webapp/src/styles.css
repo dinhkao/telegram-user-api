@@ -401,10 +401,8 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .img-filter { margin-top: 8px; }
 .kchip { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 999px; padding: 5px 10px; font-size: .82rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .kchip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
-.img-kind { position: absolute; left: 3px; bottom: 3px; max-width: calc(100% - 6px); border: none; border-radius: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: .72rem; font-weight: 600; line-height: 1; padding: 4px 6px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.img-kindmenu { position: absolute; left: 3px; bottom: 3px; z-index: 5; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.25); overflow: hidden; }
-.img-kindmenu button { border: none; background: transparent; color: var(--text); text-align: left; font-size: .82rem; padding: 8px 12px; cursor: pointer; white-space: nowrap; }
-.img-kindmenu button.on { background: var(--primary); color: #fff; }
+/* Nhãn loại trên tile — CHỈ XEM (đổi loại làm trong trình xem ảnh) */
+.img-kind { position: absolute; left: 3px; bottom: 3px; max-width: calc(100% - 6px); border-radius: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: .72rem; font-weight: 600; line-height: 1; padding: 4px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
 
 /* Camera trực tiếp trong khung (CameraBox) */
 .cambox { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #000; }
@@ -441,6 +439,9 @@ body.pv-open { overflow: hidden; }
 .pv-panel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 105; max-height: 64vh; display: flex; flex-direction: column; background: #14161a; color: #e8e8e8; border-top-left-radius: 16px; border-top-right-radius: 16px; box-shadow: 0 -8px 24px rgba(0,0,0,.5); padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
 .pv-panel .muted { color: #9aa0a6; }
 .pv-kind { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,.1); }
+/* Chip trong panel tối: viền/nền sáng để đọc được (đừng dựa var(--bg) theo theme) */
+.pv-kind .kchip { background: rgba(255,255,255,.12); color: #e8e8e8; border-color: rgba(255,255,255,.3); }
+.pv-kind .kchip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
 .pv-cmts { flex: 1 1 auto; overflow-y: auto; padding: 10px 2px; display: flex; flex-direction: column; gap: 10px; min-height: 44px; }
 .pv-cmt-empty { color: #9aa0a6 !important; text-align: center; margin: 8px 0; }
 .pv-cmt { background: rgba(255,255,255,.06); border-radius: 10px; padding: 8px 10px; }
@@ -908,9 +909,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* Chừa chỗ cho app-bar dính (44px) khi cuộn tới mục — khỏi bị che đầu */
 #od-invoice, #od-payments, #od-tasks, #od-camera, #od-stock, #od-chat { scroll-margin-top: 56px; }
 .img-strip { display: flex; gap: 6px; overflow-x: auto; margin: 0 0 8px; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
-.img-strip-tile { flex: 0 0 auto; width: 64px; height: 64px; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); cursor: pointer; }
+.img-strip-tile { position: relative; flex: 0 0 auto; width: 64px; height: 64px; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); cursor: pointer; }
 .img-strip-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .img-strip-cam { display: flex; align-items: center; justify-content: center; font-size: 24px; border-style: dashed; }
+/* Nhãn loại trên dải xem nhanh — CHỈ XEM */
+.img-strip-kind { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 2px; background: rgba(0,0,0,.62); color: #fff; font-size: .56rem; font-weight: 600; line-height: 1.3; padding: 2px 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
 .od-created { margin-top: 6px; }
 
 /* Quản lý user */

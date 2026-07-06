@@ -2,12 +2,12 @@
 // multipart, lưới thumbnail tải lười + xem phóng to (lightbox), xoá ảnh.
 // Data: GET/POST/DELETE {base}/images (base vd /api/order/123 hoặc /api/media/box/5).
 import { useEffect, useRef, useState } from "preact/hooks";
-import { deleteMediaImage, listMediaImages, mediaImageUrl, postForm, setImageKind, type OrderImage } from "../api";
+import { deleteMediaImage, listMediaImages, mediaImageUrl, postForm, type OrderImage } from "../api";
 import { onRealtime, eventMatchesBase } from "../realtime";
 import { processImage } from "./imageProcess";
 import { PhotoViewer } from "./PhotoViewer";
 import { CameraBox, cameraSupported } from "./CameraBox";
-import { confirmDialog, toast } from "../ui/feedback";
+import { confirmDialog } from "../ui/feedback";
 import { KIND_ORDER, KIND_LABEL, KIND_ICON, kindOf, isOrderBase } from "./imageKinds";
 
 type Pending = { key: number; url: string };
@@ -26,7 +26,6 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
   const isOrder = isOrderBase(base);
   const [uploadKind, setUploadKind] = useState<string>("soan_hang");  // loại gán cho ảnh sắp tải
   const [filter, setFilter] = useState<string>("all");                // lọc lưới theo loại
-  const [kindMenuFor, setKindMenuFor] = useState<number | null>(null); // ảnh đang mở menu đổi loại
 
   // Chẩn đoán trên máy: hiện từng bước để biết ảnh gallery hỏng ở đâu
   const logDbg = (m: string) => setDbg((p) => [...p.slice(-11), m]);
@@ -118,18 +117,6 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
     }
   };
 
-  const changeKind = async (img: OrderImage, kind: string) => {
-    setKindMenuFor(null);
-    if (kindOf(img) === kind) return;
-    setImages((prev) => prev.map((x) => (x.id === img.id ? { ...x, kind } : x)));  // lạc quan
-    try {
-      await setImageKind(base, img.id, kind);
-    } catch (ex: any) {
-      toast(ex?.message || "Đổi loại thất bại");
-      load();  // khôi phục nếu lỗi
-    }
-  };
-
   // Lưới hiển thị (đã lọc theo loại nếu đang chọn); đếm theo loại cho chip lọc.
   const shown = isOrder && filter !== "all" ? images.filter((x) => kindOf(x) === filter) : images;
   const kindCounts: Record<string, number> = {};
@@ -210,18 +197,7 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
               />
               <button class="img-del" title="Xoá" onClick={() => remove(img)}>×</button>
               {isOrder && (
-                <button class="img-kind" title="Đổi loại" onClick={() => setKindMenuFor(kindMenuFor === img.id ? null : img.id)}>
-                  {KIND_ICON[kindOf(img)]} {KIND_LABEL[kindOf(img)]}
-                </button>
-              )}
-              {isOrder && kindMenuFor === img.id && (
-                <div class="img-kindmenu" onClick={(e: any) => e.stopPropagation()}>
-                  {KIND_ORDER.map((k) => (
-                    <button key={k} class={kindOf(img) === k ? "on" : ""} onClick={() => changeKind(img, k)}>
-                      {KIND_ICON[k]} {KIND_LABEL[k]}
-                    </button>
-                  ))}
-                </div>
+                <span class="img-kind" title={KIND_LABEL[kindOf(img)]}>{KIND_ICON[kindOf(img)]} {KIND_LABEL[kindOf(img)]}</span>
               )}
             </div>
           ))}
