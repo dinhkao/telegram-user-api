@@ -36,9 +36,22 @@ def resolve_payment_target(order: dict | None, customer: dict | None) -> tuple:
     return kh_id_fb, kv_id, kh_name, None
 
 
-def build_payment_record(amount: int, method: str, kv_res: dict, actor_name: str) -> dict:
-    """The SQLite payment row payload. Matches the original inline dict."""
-    return {"amount": amount, "method": method, "kiotvietData": kv_res, "createdBy": actor_name}
+def build_payment_record(amount: int, method: str, kv_res: dict, actor_name: str,
+                         *, old_debt: int | None = None, new_debt: int | None = None,
+                         created_at: int | None = None) -> dict:
+    """The SQLite payment row payload.
+
+    old_debt/new_debt = công nợ khách TRƯỚC và SAU phiếu thu này (để section Thanh
+    toán hiện 'nợ chuyển từ X sang Y'). created_at = epoch giây lúc tạo phiếu.
+    Bản ghi cũ không có các field này → UI tự ẩn dòng."""
+    rec = {"amount": amount, "method": method, "kiotvietData": kv_res, "createdBy": actor_name}
+    if old_debt is not None:
+        rec["old_debt"] = old_debt
+    if new_debt is not None:
+        rec["new_debt"] = new_debt
+    if created_at is not None:
+        rec["created_at"] = created_at
+    return rec
 
 
 def compute_debt(order: dict) -> dict:

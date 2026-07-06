@@ -269,8 +269,13 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
 
     result["kv_code"] = kv_res.get("code", "N/A")
 
-    # 4. Save payment to SQLite
-    payment_record = build_payment_record(amount, method, kv_res, actor_name)
+    # 4. Save payment to SQLite — kèm nợ trước/sau + thời điểm cho section Thanh toán.
+    # new_debt = old_debt − amount (nợ dương = còn nợ; KiotViet cập nhật trễ nên tính
+    # tại chỗ cho chắc). old_debt None (lỗi lấy nợ) → bỏ qua before/after.
+    record_new_debt = (old_debt - amount) if old_debt is not None else None
+    payment_record = build_payment_record(
+        amount, method, kv_res, actor_name,
+        old_debt=old_debt, new_debt=record_new_debt, created_at=int(time.time()))
     ok, payment_msg = add_payment(db_conn, thread_id, payment_record)
     if not ok:
         log.error("Failed to save payment to SQLite: %s", payment_msg)

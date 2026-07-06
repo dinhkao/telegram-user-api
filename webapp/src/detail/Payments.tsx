@@ -2,7 +2,7 @@
 // POST /api/order/payment/tm|ck — cần mạng, không queue (chạm KiotViet + nợ).
 import { useState } from "preact/hooks";
 import { currentUser, isOffice, postJSON } from "../api";
-import { money, parseMoney } from "../format";
+import { money, parseMoney, fmtDateTimeVN } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 
 export function Payments({ threadId, payments, suggest, onChanged }: { threadId: string; payments: any[]; suggest?: number; onChanged: () => void }) {
@@ -53,12 +53,22 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
       {payments.length > 0 ? (
         <ul class="payment-list">
           {payments.map((p, i) => (
-            <li class="row space" key={i}>
-              <span>{p.code || p.method || "?"} <span class="muted small">{p.createdBy ? `· ${p.createdBy}` : ""}</span></span>
-              <span class="row" style="gap:6px;align-items:center">
-                <b>{money(p.amount)}đ</b>
-                {isAdmin && p.id ? <button class="btn small danger" disabled={busy} title="Xoá thanh toán" onClick={() => del(p)}>🗑️</button> : null}
-              </span>
+            <li class="payment-item" key={i}>
+              <div class="row space">
+                <span>{p.code || p.method || "?"}</span>
+                <span class="row" style="gap:6px;align-items:center">
+                  <b>{money(p.amount)}đ</b>
+                  {isAdmin && p.id ? <button class="btn small danger" disabled={busy} title="Xoá thanh toán" onClick={() => del(p)}>🗑️</button> : null}
+                </span>
+              </div>
+              {(p.createdBy || p.created_at) && (
+                <div class="muted small">
+                  {p.createdBy || "?"}{p.created_at ? ` · ${fmtDateTimeVN(p.created_at)}` : ""}
+                </div>
+              )}
+              {p.old_debt != null && p.new_debt != null && (
+                <div class="pay-debt small">Nợ: {money(p.old_debt)}đ → <b>{money(p.new_debt)}đ</b></div>
+              )}
             </li>
           ))}
         </ul>
