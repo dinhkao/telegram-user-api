@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { getProductionDashboard, soVN, type ProdDashboard } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
+import { Icon } from "../ui/Icon";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -86,14 +87,14 @@ export function ProductionDashboard() {
           </section>
 
           <section class="card">
-            <label class="card-label">📅 Theo ngày</label>
+            <label class="card-label"><Icon name="calendar" size={16} /> Theo ngày</label>
             {data.by_day.length ? data.by_day.map((x) => (
               <Bar key={x.ymd} label={dmy(x.ymd)} sub={`${x.phieu} phiếu`} val={x.tong} max={maxD} />
             )) : <p class="muted small">Chưa có dữ liệu kỳ này.</p>}
           </section>
 
           <section class="card">
-            <label class="card-label">📦 Theo sản phẩm</label>
+            <label class="card-label"><Icon name="box" size={16} /> Theo sản phẩm</label>
             {data.by_product.length ? data.by_product.map((p) => (
               <Bar key={p.code} label={p.code} sub={`${p.phieu} phiếu`} val={p.tong} max={maxP} />
             )) : <p class="muted small">Chưa có dữ liệu kỳ này.</p>}

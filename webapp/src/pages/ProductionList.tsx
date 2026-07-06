@@ -14,6 +14,7 @@ import {
 import { onRealtime } from "../realtime";
 import { ProductPicker } from "../detail/ProductPicker";
 import { Loading, EmptyState } from "../ui/states";
+import { Icon } from "../ui/Icon";
 
 // Cache list đã tải → quay lại giữ nguyên + hệ cuộn khôi phục vị trí (khỏi tải lại).
 let prodCache: { slips: ProdSlip[]; page: number; totalPages: number } | null = null;
@@ -136,9 +137,9 @@ export function ProductionList() {
   return (
     <div class="prod-list">
       <div class="prod-create">
-        <ProductPicker catalog={catalog} value={newCode} onPick={setNewCode} placeholder="🔍 Tìm mã SP (tuỳ chọn)" />
+        <ProductPicker catalog={catalog} value={newCode} onPick={setNewCode} placeholder="Tìm mã SP (tuỳ chọn)" />
         <button class="btn primary" disabled={creating} onClick={doCreate}>
-          {creating ? "Đang tạo…" : "➕ Tạo phiếu"}
+          {creating ? "Đang tạo…" : <><Icon name="plus" size={16} /> Tạo phiếu</>}
         </button>
       </div>
 
@@ -198,10 +199,10 @@ function ProdCard({ slip }: { slip: ProdSlip }) {
     <a class="prod-card" href={`#/san_xuat/${slip.thread_id}`}>
       <div class="prod-card-top">
         <span class="prod-sp">{slip.sp_name || "Chưa có SP"}</span>
-        <span class="prod-date">🕒 {(() => { const c = prodCreated(slip); return c.includes(" ") ? c.split(" ")[1] : c; })()}</span>
+        <span class="prod-date"><Icon name="clock" size={14} /> {(() => { const c = prodCreated(slip); return c.includes(" ") ? c.split(" ")[1] : c; })()}</span>
       </div>
       <div class="prod-card-stat">
-        <span class="prod-total">📦 {soVN(total)}</span>
+        <span class="prod-total"><Icon name="box" size={14} /> {soVN(total)}</span>
       </div>
       {slip.ghi_chu && <div class="prod-card-note">📝 {slip.ghi_chu}</div>}
     </a>

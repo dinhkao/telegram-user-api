@@ -23,6 +23,7 @@ import { History } from "../detail/History";
 import { ProductPicker } from "../detail/ProductPicker";
 import { confirmDialog } from "../ui/feedback";
 import { Loading } from "../ui/states";
+import { Icon } from "../ui/Icon";
 import { fastScrollToEl } from "../scroll";
 
 export function ProductionDetail({ threadId, focus }: { threadId: string; focus?: string }) {
@@ -138,7 +139,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
         <BackLink fallback="#/san_xuat" />
         <div>
           <div class="prod-sp big">{slip.sp_name || "Chưa có SP"}</div>
-          <div class="prod-date muted">📅 Tạo: {prodCreated(slip)}</div>
+          <div class="prod-date muted"><Icon name="calendar" size={14} /> Tạo: {prodCreated(slip)}</div>
         </div>
       </div>
 
@@ -147,12 +148,12 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
       {/* So sánh: tổng nhập thùng vs tổng báo cáo theo thợ (khớp/lệch) */}
       <div class={"prod-compare" + (!hasReport ? " none" : match ? " ok" : " warn")}>
         <div class="pc-cell">
-          <div class="pc-lb">📦 Nhập thùng</div>
+          <div class="pc-lb"><Icon name="box" size={14} /> Nhập thùng</div>
           <div class="pc-val">{soVN(boxed)}</div>
         </div>
         <div class="pc-sep">vs</div>
         <div class="pc-cell">
-          <div class="pc-lb">📋 Báo cáo thợ</div>
+          <div class="pc-lb"><Icon name="clipboard" size={14} /> Báo cáo thợ</div>
           <div class="pc-val">{soVN(reported)}</div>
         </div>
         <div class="pc-verdict">
@@ -162,7 +163,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
 
       <section class="card">
         <label class="card-label">Sản phẩm</label>
-        <ProductPicker catalog={catalog} value={slip.sp_name || ""} onPick={changeProduct} placeholder="🔍 Tìm mã SP" />
+        <ProductPicker catalog={catalog} value={slip.sp_name || ""} onPick={changeProduct} placeholder="Tìm mã SP" />
         {slip.sp_mam != null && <div class="muted small">🌿 Số cây 1 mâm: {slip.sp_mam}</div>}
       </section>
 
@@ -185,7 +186,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
       <Comments base={`/api/media/production/${threadId}`} />
       <History base={`/api/media/production/${threadId}`} />
 
-      <button class="btn danger block" onClick={doDelete}>🗑 Xoá phiếu</button>
+      <button class="btn danger block" onClick={doDelete}><Icon name="trash" size={16} /> Xoá phiếu</button>
     </div>
   );
 }

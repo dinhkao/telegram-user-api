@@ -7,6 +7,7 @@ import { createPortal } from "preact/compat";
 import { listNotifications, type Notif } from "./api";
 import { onRealtime } from "./realtime";
 import { fmtRelative } from "./format";
+import { Icon } from "./ui/Icon";
 
 const SEEN_KEY = "notif_seen_id";
 const getSeen = (): number => { try { return Number(localStorage.getItem(SEEN_KEY) || "0") || 0; } catch { return 0; } };
@@ -61,12 +62,12 @@ export function NotifCenter() {
   return (
     <>
       <button class="icon-btn notif-bell" title="Thông báo" onClick={openPanel}>
-        🔔{unread > 0 && <span class="notif-badge">{unread > 9 ? "9+" : unread}</span>}
+        <Icon name="bell" size={19} />{unread > 0 && <span class="notif-badge">{unread > 9 ? "9+" : unread}</span>}
       </button>
       {open && createPortal(
         <div class="modal-overlay" onClick={() => setOpen(false)}>
           <div class="modal-sheet notif-panel" ref={panelRef} onClick={(e: any) => e.stopPropagation()}>
-            <div class="modal-head">🔔 Thông báo</div>
+            <div class="modal-head"><Icon name="bell" size={18} /> Thông báo</div>
             {items.length === 0 ? (
               <div class="notif-empty muted small">Chưa có thông báo nào.</div>
             ) : (

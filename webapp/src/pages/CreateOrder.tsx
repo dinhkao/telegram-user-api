@@ -9,6 +9,7 @@ import { money } from "../format";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
 import { useScrollLock } from "../useScrollLock";
+import { Icon } from "../ui/Icon";
 
 export function CreateOrder() {
   const [mode, setMode] = useState<"advanced" | "quick">("quick");
@@ -107,7 +108,7 @@ export function CreateOrder() {
 
   return (
     <div>
-      <h2>➕ Tạo đơn mới</h2>
+      <h2><Icon name="plus" size={18} /> Tạo đơn mới</h2>
       <div class="chips">
         <button class={mode === "quick" ? "chip active" : "chip"} onClick={() => setMode("quick")}>Nhanh (text)</button>
         <button class={mode === "advanced" ? "chip active" : "chip"} onClick={() => setMode("advanced")}>Nâng cao</button>
@@ -119,7 +120,7 @@ export function CreateOrder() {
           <div class="quick-cust">
             {picked ? (
               <div class="picked-cust">
-                ✓ <b>{picked.name}</b>
+                <Icon name="check" size={15} /> <b>{picked.name}</b>
                 <button class="btn small" onClick={() => setPicked(null)}>Đổi</button>
               </div>
             ) : (
@@ -134,14 +135,14 @@ export function CreateOrder() {
           {(text.trim() || picked) && (
             <div class="preview-box co-preview">
               <div class="preview-head">
-                🔎 Xem trước {previewing && <span class="muted small">đang phân tích…</span>}
+                <Icon name="eye" size={15} /> Xem trước {previewing && <span class="muted small">đang phân tích…</span>}
               </div>
               {preview && (
                 <>
                   <div class="preview-cust">
                     {preview.customer ? (
                       <>
-                        👤 <b>{preview.customer.name || picked?.name || "Khách"}</b>{" "}
+                        <Icon name="user" size={14} /> <b>{preview.customer.name || picked?.name || "Khách"}</b>{" "}
                         <span class="muted small">{preview.customer.manual ? "(chọn tay)" : `(${preview.customer.score}%)`}</span>
                         {(() => {
                           const isLive = liveDebt?.id === preview.customer!.id;
@@ -154,15 +155,15 @@ export function CreateOrder() {
                         })()}
                         {preview.customer.price_list_name && (
                           <div class="muted small">
-                            📋 Bảng giá: {preview.customer.price_list_name}{" "}
+                            <Icon name="clipboard" size={13} /> Bảng giá: {preview.customer.price_list_name}{" "}
                             <button class="btn small" onClick={(e: any) => { e.preventDefault(); openPriceList(preview.customer!.id); }}>Xem giá</button>
                           </div>
                         )}
                       </>
                     ) : preview.candidates.length ? (
-                      <span class="muted small">🔍 Có thể: {preview.candidates.map((c) => `${c.name} (${c.score}%)`).join(" · ")}</span>
+                      <span class="muted small"><Icon name="search" size={13} /> Có thể: {preview.candidates.map((c) => `${c.name} (${c.score}%)`).join(" · ")}</span>
                     ) : (
-                      <span class="muted small">👤 Chưa nhận ra khách hàng</span>
+                      <span class="muted small"><Icon name="user" size={13} /> Chưa nhận ra khách hàng</span>
                     )}
                   </div>
                   {preview.invoice.length ? (
@@ -232,7 +233,7 @@ export function CreateOrder() {
           <div class="card">
             <label>Khách hàng</label>
             <CustomerPicker onPick={setCustomer} />
-            {customer ? <p class="muted small">✓ {customer.name}</p> : <p class="muted small">Chọn khách để tự lấy giá theo bảng giá.</p>}
+            {customer ? <p class="muted small"><Icon name="check" size={14} /> {customer.name}</p> : <p class="muted small">Chọn khách để tự lấy giá theo bảng giá.</p>}
           </div>
           <InvoiceEditor customerId={customer?.key} invoice={[]} onSave={createAdvanced} createMode />
           <p class="muted small">Bấm 💾 Lưu để tạo đơn; sang trang chi tiết bấm 🧾 Tạo HĐ KiotViet.</p>
@@ -244,8 +245,8 @@ export function CreateOrder() {
         <div class="modal-backdrop" onClick={() => setPlOpen(false)}>
           <div class="modal" onClick={(e: any) => e.stopPropagation()}>
             <div class="row space">
-              <b>📋 Bảng giá{priceList?.name ? `: ${priceList.name}` : ""}</b>
-              <button class="btn small" onClick={() => setPlOpen(false)}>✕</button>
+              <b><Icon name="clipboard" size={15} /> Bảng giá{priceList?.name ? `: ${priceList.name}` : ""}</b>
+              <button class="btn small" onClick={() => setPlOpen(false)}><Icon name="close" size={14} /></button>
             </div>
             {!priceList ? (
               <p class="muted small">Đang tải…</p>

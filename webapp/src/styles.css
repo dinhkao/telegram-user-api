@@ -73,6 +73,13 @@ body.modal-open { overflow: hidden; touch-action: none; overscroll-behavior: non
 .bottom-nav .tab.active .tab-ico { transform: translateY(-1px); }
 
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin: 8px 0; box-shadow: var(--e1); }
+/* Skeleton loaders — nhấp nháy dịu khi tải danh sách */
+.skel-list { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+.skel-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--e1); }
+.skel-line { height: 12px; border-radius: 6px; background: linear-gradient(90deg, #edeff2 25%, #f6f7f9 37%, #edeff2 63%); background-size: 400% 100%; animation: skel 1.3s ease infinite; }
+.skel-line.w40 { width: 40%; } .skel-line.w60 { width: 60%; } .skel-line.w80 { width: 80%; }
+@keyframes skel { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .skel-line { animation: none; } }
 .row { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
 .row.space { justify-content: space-between; }
 .center { text-align: center; }

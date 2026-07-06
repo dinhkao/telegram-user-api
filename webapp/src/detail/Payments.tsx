@@ -4,6 +4,7 @@ import { useState } from "preact/hooks";
 import { currentUser, isOffice, postJSON } from "../api";
 import { money, parseMoney, fmtDateTimeVN } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
+import { Icon } from "../ui/Icon";
 
 export function Payments({ threadId, payments, suggest, onChanged }: { threadId: string; payments: any[]; suggest?: number; onChanged: () => void }) {
   const [amount, setAmount] = useState("");
@@ -58,7 +59,7 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
                 <span>{p.code || p.method || "?"}</span>
                 <span class="row" style="gap:6px;align-items:center">
                   <b>{money(p.amount)}đ</b>
-                  {isAdmin && p.id ? <button class="btn small danger" disabled={busy} title="Xoá thanh toán" onClick={() => del(p)}>🗑️</button> : null}
+                  {isAdmin && p.id ? <button class="btn small danger" disabled={busy} title="Xoá thanh toán" onClick={() => del(p)}><Icon name="trash" size={14} /></button> : null}
                 </span>
               </div>
               {(p.createdBy || p.created_at) && (
@@ -86,8 +87,8 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
             </button>
           ) : null}
           <div class="pay-btns">
-            <button class="btn primary" disabled={busy} onClick={() => pay("tm")}>💵 TM</button>
-            <button class="btn primary" disabled={busy} onClick={() => pay("ck")}>🏦 CK</button>
+            <button class="btn primary" disabled={busy} onClick={() => pay("tm")}><Icon name="banknote" size={16} /> TM</button>
+            <button class="btn primary" disabled={busy} onClick={() => pay("ck")}><Icon name="bank" size={16} /> CK</button>
           </div>
         </div>
       ) : (

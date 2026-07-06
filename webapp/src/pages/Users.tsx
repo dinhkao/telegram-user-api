@@ -8,6 +8,7 @@ import {
 } from "../api";
 import { Loading, EmptyState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
+import { Icon } from "../ui/Icon";
 
 export function Users() {
   const me = currentUser();
@@ -89,7 +90,7 @@ export function Users() {
     <div class="detail users-page">
       <header class="od-appbar">
         <BackLink fallback="#/orders" className="od-back" />
-        <div class="od-appttl">👥 Quản lý user</div>
+        <div class="od-appttl"><Icon name="users" size={18} /> Quản lý user</div>
       </header>
 
       {err && <div class="error-banner">{err}</div>}
@@ -104,7 +105,7 @@ export function Users() {
               <select class="usr-role" value={nr} onChange={(e: any) => setNr(e.currentTarget.value)}>
                 {roles.map((r) => <option value={r} key={r}>{ROLE_LABEL[r] || r}</option>)}
               </select>
-              <button class="btn primary" disabled={adding} onClick={doAdd}>{adding ? "Đang tạo…" : "➕ Tạo"}</button>
+              <button class="btn primary" disabled={adding} onClick={doAdd}>{adding ? "Đang tạo…" : <><Icon name="plus" size={16} /> Tạo</>}</button>
             </div>
           </section>
 

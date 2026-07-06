@@ -6,6 +6,7 @@ import { BackLink } from "../nav";
 import { listWorkers, addWorker, updateWorker, deleteWorker, type Worker } from "../api";
 import { Loading, ErrorState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
+import { Icon } from "../ui/Icon";
 
 export function WorkerList() {
   const [workers, setWorkers] = useState<Worker[] | null>(null);
@@ -70,7 +71,7 @@ export function WorkerList() {
             onKeyDown={(e: any) => { if (e.key === "Enter") add(); }}
             style="flex:1"
           />
-          <button class="btn primary" disabled={busy || !name.trim()} onClick={add}>＋ Thêm</button>
+          <button class="btn primary" disabled={busy || !name.trim()} onClick={add}><Icon name="plus" size={16} /> Thêm</button>
         </div>
         <label class="wl-defcheck">
           <input type="checkbox" checked={isDef} onChange={(e: any) => setIsDef(e.target.checked)} />
@@ -97,7 +98,7 @@ export function WorkerList() {
                 <a class="wl-name wl-link" href={`#/sx-tho/${encodeURIComponent(w.name)}`}>
                   {w.name} <span class="wl-arrow">›</span>
                 </a>
-                <button class="btn small" title="Xoá thợ" onClick={() => remove(w)}>🗑</button>
+                <button class="btn small" title="Xoá thợ" onClick={() => remove(w)}><Icon name="trash" size={15} /></button>
               </li>
             ))}
           </ul>

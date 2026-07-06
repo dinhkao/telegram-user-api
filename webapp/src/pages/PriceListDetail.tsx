@@ -8,6 +8,7 @@ import { getPriceList, savePriceOne, getPriceHistory, type PriceListFull, type P
 import { money, parseMoney } from "../format";
 import { onRealtime } from "../realtime";
 import { Loading, ErrorState } from "../ui/states";
+import { Icon } from "../ui/Icon";
 
 function fmtMs(ms: number): string {
   try { return new Date(ms).toLocaleString("vi-VN"); } catch { return String(ms); }
@@ -82,7 +83,7 @@ export function PriceListDetail({ listId }: { listId: string }) {
       {err && <p class="error">{err}</p>}
 
       <section class="card">
-        <input class="search" type="search" placeholder="🔍 Tìm mã SP…" value={filter} onInput={(e: any) => setFilter(e.target.value)} />
+        <input class="search" type="search" placeholder="Tìm mã SP…" value={filter} onInput={(e: any) => setFilter(e.target.value)} />
         <table class="invoice-table">
           <tbody>
             {items.map((it) => (
@@ -92,16 +93,16 @@ export function PriceListDetail({ listId }: { listId: string }) {
                   <>
                     <td class="num"><input class="num-inp" type="text" inputMode="numeric" value={editVal} autofocus onFocus={(e: any) => e.target.select()} onInput={(e: any) => setEditVal(e.target.value)} /></td>
                     <td>
-                      <button class="btn small primary" disabled={saving} onClick={() => saveEdit(it.sp)}>{saving ? "…" : "💾"}</button>
-                      <button class="btn small" onClick={cancelEdit}>✕</button>
+                      <button class="btn small primary" disabled={saving} onClick={() => saveEdit(it.sp)}>{saving ? "…" : <Icon name="save" size={14} />}</button>
+                      <button class="btn small" onClick={cancelEdit}><Icon name="close" size={14} /></button>
                     </td>
                   </>
                 ) : (
                   <>
                     <td class="num"><b>{money(it.price)}đ</b></td>
                     <td>
-                      <button class="btn small" title="Sửa giá" onClick={() => startEdit(it.sp, it.price)}>✏️</button>
-                      <button class="btn small" title="Lịch sử SP này" onClick={() => loadHistory(it.sp)}>🕐</button>
+                      <button class="btn small" title="Sửa giá" onClick={() => startEdit(it.sp, it.price)}><Icon name="edit" size={14} /></button>
+                      <button class="btn small" title="Lịch sử SP này" onClick={() => loadHistory(it.sp)}><Icon name="clock" size={14} /></button>
                     </td>
                   </>
                 )}
@@ -141,7 +142,7 @@ export function PriceListDetail({ listId }: { listId: string }) {
         ) : (
           <ul class="order-list">
             {list.customers.map((c) => (
-              <li key={c.key}><a class="order-card" href={`#/khach/${encodeURIComponent(c.key)}`}>👤 {c.name} <span class="muted small">· {c.key}</span></a></li>
+              <li key={c.key}><a class="order-card" href={`#/khach/${encodeURIComponent(c.key)}`}><Icon name="user" size={14} /> {c.name} <span class="muted small">· {c.key}</span></a></li>
             ))}
           </ul>
         )}

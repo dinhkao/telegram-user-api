@@ -5,6 +5,7 @@ import { getDeliveryOrders } from "../api";
 import { CompactOrderCard } from "../detail/CompactOrderCard";
 import { Loading } from "../ui/states";
 import { onRealtime } from "../realtime";
+import { Icon } from "../ui/Icon";
 
 const WEEKDAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]; // tuần bắt đầu Thứ 2
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -106,7 +107,7 @@ export function DeliveryCalendar() {
       </div>
 
       <div class="cal-day-head">
-        🚚 Ngày {selD}/{selM}{sel === todayIso ? " (hôm nay)" : ""}{selOrders.length ? ` · ${selOrders.length} đơn` : ""}
+        <Icon name="truck" size={16} /> Ngày {selD}/{selM}{sel === todayIso ? " (hôm nay)" : ""}{selOrders.length ? ` · ${selOrders.length} đơn` : ""}
       </div>
       {loading ? (
         <Loading />

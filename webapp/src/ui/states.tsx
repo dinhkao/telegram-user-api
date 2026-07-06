@@ -15,6 +15,22 @@ export function EmptyState({ children, icon }: { children: any; icon?: string })
   );
 }
 
+/** Khung xương (skeleton) nhấp nháy khi tải danh sách — thay chữ "Đang tải…".
+ *  rows = số card giả. Dùng: {!data ? <SkeletonList/> : …}. */
+export function SkeletonList({ rows = 5 }: { rows?: number }) {
+  return (
+    <div class="skel-list" aria-busy="true" aria-label="Đang tải">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div class="skel-card" key={i}>
+          <div class="skel-line w60" />
+          <div class="skel-line w40" />
+          <div class="skel-line w80" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ErrorState({ msg, onRetry }: { msg?: string; onRetry?: () => void }) {
   return (
     <div class="state-error">

@@ -6,6 +6,7 @@ import { BackLink } from "../nav";
 import { getWorkerReport, soVN, type WorkerReport, type WorkerReportRow } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
+import { Icon } from "../ui/Icon";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -56,7 +57,7 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
       <div class="prod-detail-head">
         <BackLink fallback="#/sx-bang" />
         <div>
-          <div class="prod-sp">👤 {name}</div>
+          <div class="prod-sp"><Icon name="user" size={18} /> {name}</div>
           {data && <div class="muted small">Tổng <b>{soVN(data.total)}</b> SP · {soVN(data.total_mam)} mâm · {data.phieu} phiếu</div>}
         </div>
       </div>
@@ -77,7 +78,7 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
         days.map((g) => (
           <section class="card" key={g.ymd || g.date}>
             <div class="row space wd-day-head">
-              <label class="card-label" style={{ margin: 0 }}>📅 {dmy(g.ymd) !== "?" ? dmy(g.ymd) : g.date}</label>
+              <label class="card-label" style={{ margin: 0 }}><Icon name="calendar" size={16} /> {dmy(g.ymd) !== "?" ? dmy(g.ymd) : g.date}</label>
               <b>{soVN(g.tong)} SP</b>
             </div>
             {g.rows.map((r, i) => (

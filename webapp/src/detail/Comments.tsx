@@ -5,6 +5,7 @@ import { getJSON, postJSON, currentUser } from "../api";
 import { fmtTime } from "../format";
 import { toast } from "../ui/feedback";
 import { onRealtime, eventMatchesBase } from "../realtime";
+import { Icon } from "../ui/Icon";
 
 type Item = { who: string; text: string; at: number; source: "web" | "tg"; id?: number };
 
@@ -80,7 +81,7 @@ export function Comments({ base, chatMessages = [] }: { base: string; chatMessag
         {items.map((it, i) => (
           <li key={it.id ? `w${it.id}` : `t${it.source}-${it.at}-${i}`} id={it.id ? `comment-${it.id}` : undefined} class={it.source === "web" ? "comment web" : "comment tg"}>
             <div class="muted small">
-              {it.source === "tg" ? "✈️ " : "💬 "}
+              {it.source === "tg" ? "✈️" : <Icon name="chat" size={12} />}{" "}
               {it.who} · {fmtTime(it.at)}
             </div>
             <div>{it.text}</div>

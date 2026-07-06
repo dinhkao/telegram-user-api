@@ -9,7 +9,8 @@ import { onRealtime } from "../realtime";
 import { InvoiceTable } from "../detail/InvoiceTable";
 import { orderImageUrl, listOrderImages, type OrderImage } from "../api";
 import { PhotoViewer } from "../detail/PhotoViewer";
-import { Loading, EmptyState } from "../ui/states";
+import { Loading, EmptyState, SkeletonList } from "../ui/states";
+import { Icon } from "../ui/Icon";
 import { fastScrollTop } from "../scroll";
 
 type OrderRow = {
@@ -689,10 +690,11 @@ export function OrdersList() {
         <span class="sort-lbl">Sắp xếp:</span>
         <button class={sort === "created" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("created")}>Mới tạo</button>
         <button class={sort === "updated" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("updated")}>Mới cập nhật</button>
-        <a class="sort-opt cal-chip" href="#/lich" title="Lịch giao hàng">📅 Lịch giao</a>
+        <a class="sort-opt cal-chip" href="#/lich" title="Lịch giao hàng"><Icon name="calendar" size={15} /> Lịch giao</a>
       </div>
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {err && <p class="error">{err}</p>}
+      {loading && !visible.length && <SkeletonList rows={5} />}
       <ul class="order-list">
         {view === "ultra" && groupOrdersByDay(visible).map((g) => (
           <li key={`g-${g.key}`} class="order-day-group">
@@ -735,7 +737,7 @@ export function OrdersList() {
           );
         })}
       </ul>
-      {loading && <Loading />}
+      {loading && visible.length > 0 && <Loading />}
       {/* sentinel cho infinite scroll — observer tải trang kế khi lọt khung nhìn */}
       <div ref={sentinel} style="height:1px" />
       {!loading && page >= totalPages && visible.length > 0 && (

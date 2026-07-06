@@ -4,6 +4,7 @@ import { useEffect, useState } from "preact/hooks";
 import { getPriceLists, type PriceListSummary } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading, EmptyState } from "../ui/states";
+import { Icon } from "../ui/Icon";
 
 export function PriceLists() {
   const [lists, setLists] = useState<PriceListSummary[] | null>(null);
@@ -28,7 +29,7 @@ export function PriceLists() {
 
   return (
     <div>
-      <h2>💰 Bảng giá chung</h2>
+      <h2><Icon name="wallet" size={18} /> Bảng giá chung</h2>
       {err && <p class="error">{err}</p>}
       {!lists ? (
         <Loading />

@@ -5,6 +5,7 @@ import { getActivity } from "../api";
 import { fmtDateTimeVN, fmtRelative } from "../format";
 import { Loading } from "../ui/states";
 import { onRealtime } from "../realtime";
+import { Icon } from "../ui/Icon";
 
 // Cache list đã tải → quay lại giữ nguyên + hệ cuộn khôi phục vị trí (khỏi tải lại).
 let actCache: { items: any[]; before: number | null; hasMore: boolean } | null = null;
@@ -59,7 +60,7 @@ export function ActivityLog() {
 
   return (
     <div>
-      <h2 class="page-h">🕘 Lịch sử thao tác</h2>
+      <h2 class="page-h"><Icon name="clock" size={18} /> Lịch sử thao tác</h2>
       {items.length ? (
         <ul class="hist act-log">
           {items.map((h, i) => (
@@ -86,7 +87,7 @@ export function ActivityLog() {
                       ))}
                     </ul>
                   ) : null}
-                  <div class="muted small">👤 {h.actor || "?"} · 🕒 {fmtDateTimeVN(h.ts)} ({fmtRelative(h.ts)})</div>
+                  <div class="muted small"><Icon name="user" size={13} /> {h.actor || "?"} · <Icon name="clock" size={13} /> {fmtDateTimeVN(h.ts)} ({fmtRelative(h.ts)})</div>
                 </div>
                 {h.href ? <span class="act-go muted">›</span> : null}
               </a>

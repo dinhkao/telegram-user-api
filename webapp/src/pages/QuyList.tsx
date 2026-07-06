@@ -14,6 +14,7 @@ import {
 import { onRealtime } from "../realtime";
 import { Loading, EmptyState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
+import { Icon } from "../ui/Icon";
 
 type Filter = "all" | "thu" | "chi";
 type PeriodKey = "all" | "today" | "7d" | "month" | "custom";
@@ -199,7 +200,7 @@ export function QuyList() {
       {/* Header số dư */}
       <div class="quy-summary">
         <div class="quy-sum-balance">
-          <div class="quy-sum-lbl">💼 Số dư quỹ (toàn sổ)</div>
+          <div class="quy-sum-lbl"><Icon name="wallet" size={16} /> Số dư quỹ (toàn sổ)</div>
           <div class={"quy-sum-val " + (summary.balance < 0 ? "neg" : "")}>{soVN(summary.balance)}đ</div>
         </div>
         <div class="quy-sum-period-lbl">Trong kỳ: <b>{plabel}</b></div>
@@ -281,21 +282,21 @@ function QuyRow({ r, onDelete }: { r: QuyReceipt; onDelete: (r: QuyReceipt) => v
         <div class="quy-row-top">
           <span class={"quy-amt " + (thu ? "thu" : "chi")}>{thu ? "+" : "−"}{soVN(r.amount)}đ</span>
           {r.source === "order" && r.order_thread_id != null && (
-            <a class="quy-order-link" href={`#/order/${r.order_thread_id}`}>🧾 Đơn #{r.order_thread_id}</a>
+            <a class="quy-order-link" href={`#/order/${r.order_thread_id}`}><Icon name="receipt" size={13} /> Đơn #{r.order_thread_id}</a>
           )}
-          {time && <span class="quy-time muted small">🕒 {time}</span>}
+          {time && <span class="quy-time muted small"><Icon name="clock" size={13} /> {time}</span>}
         </div>
         {r.note && <div class="quy-note">{r.note}</div>}
         {(r.customer_name || r.created_by) && (
           <div class="muted small">
-            {r.customer_name ? `👤 ${r.customer_name}` : ""}
+            {r.customer_name && <span><Icon name="user" size={12} /> {r.customer_name}</span>}
             {r.customer_name && r.created_by ? " · " : ""}
-            {r.created_by ? `✍️ ${r.created_by}` : ""}
+            {r.created_by && <span><Icon name="edit" size={12} /> {r.created_by}</span>}
           </div>
         )}
       </div>
       {r.source !== "order" && (
-        <button class="quy-del" title="Xoá" onClick={() => onDelete(r)}>🗑️</button>
+        <button class="quy-del" title="Xoá" onClick={() => onDelete(r)}><Icon name="trash" size={16} /></button>
       )}
     </div>
   );
