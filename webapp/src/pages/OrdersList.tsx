@@ -746,6 +746,8 @@ export function OrdersList() {
           images={viewer.images}
           start={viewer.start}
           base={`/api/order/${viewer.threadId}`}
+          editable
+          onKindChange={(id, kind) => setViewer((v: any) => v && ({ ...v, images: v.images.map((x: any) => (x.id === id ? { ...x, kind } : x)) }))}
           onClose={() => setViewer(null)}
         />
       )}
