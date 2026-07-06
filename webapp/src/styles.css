@@ -972,9 +972,12 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* 5 icon trạng thái ở trang chi tiết đơn */
 .od-status { display: flex; gap: 6px; margin: 8px 0 0; }
 .od-status .ods-cell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 7px 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+  padding: 7px 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--card);
+  cursor: pointer; color: var(--ink); -webkit-tap-highlight-color: transparent; }
+.od-status .ods-cell:active { transform: scale(.94); }
 .od-status .ods-ic { font-size: 1.15rem; line-height: 1; }
 .od-status .ods-lb { font-size: .64rem; color: var(--muted); font-weight: 600; }
+.task-list li[id^="task-"] { scroll-margin-top: 56px; }
 /* Nút Thao tác nhanh chưa dùng được (vd chưa có HĐ để in) — xám nhưng vẫn bấm được (toast) */
 .qa.qa-off { opacity: .45; }
 .qa.qa-off .qa-lb { color: var(--muted); }

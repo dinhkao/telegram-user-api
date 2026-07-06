@@ -326,10 +326,10 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       {/* 5 icon trạng thái (như main message Telegram) — trên Thao tác nhanh */}
       <div class="od-status">
         {TASK_STEPS.map(([tt, lbl]) => (
-          <div class="ods-cell" key={tt}>
+          <button class="ods-cell" key={tt} onClick={() => scrollTo(`task-${tt}`)} title={`Tới bước ${lbl} ở Tiến độ`}>
             <span class="ods-ic">{stepIcon(tt, ts[tt] || {})}</span>
             <span class="ods-lb">{lbl}</span>
-          </div>
+          </button>
         ))}
       </div>
 

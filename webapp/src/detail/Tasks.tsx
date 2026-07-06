@@ -121,7 +121,7 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
           const done = !!st.done;
           const locked = type === "nhan_tien" && !office;   // nhận tiền: chỉ văn phòng
           return (
-            <li class="row space" key={type}>
+            <li class="row space" id={`task-${type}`} key={type}>
               <span>
                 {done ? "✅" : "⬜"} {lbl}
                 {meta(st, type)}
