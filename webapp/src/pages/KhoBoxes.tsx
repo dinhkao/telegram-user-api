@@ -80,7 +80,7 @@ export function KhoBoxes() {
                 {b.place_name && <span class="bl-place">{b.place_name}</span>}
                 <span class="bl-code">{b.product_code}</span>
                 <span class="bl-q">{soVN(rm)}</span>
-                <span class="bl-num">{num}</span>
+                <span class="bl-num">{b.unit_name && b.unit_name !== "Thùng" ? `${b.unit_name} ` : ""}{num}</span>
               </a>
             );
           })}

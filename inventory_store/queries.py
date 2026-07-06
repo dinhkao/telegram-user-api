@@ -17,7 +17,7 @@ def _now() -> str:
     return datetime.now(_VN_TZ).isoformat(timespec="seconds")
 
 
-def add_boxes(conn, product_code, quantities, *, source_thread_id=None, by=None, note=None, mfg_date=None) -> list[dict]:
+def add_boxes(conn, product_code, quantities, *, source_thread_id=None, by=None, note=None, mfg_date=None, unit_id=None) -> list[dict]:
     """Tạo N thùng mới cho product (mã tự sinh tuần tự, nguyên tử). Trả list box dict."""
     code = str(product_code).strip().upper()
     created: list[dict] = []
@@ -32,9 +32,9 @@ def add_boxes(conn, product_code, quantities, *, source_thread_id=None, by=None,
             existing.append(box_code)
             cur = conn.execute(
                 "INSERT INTO inventory_boxes "
-                "(product_code, box_code, quantity, status, source_thread_id, note, mfg_date, created_at, created_by) "
-                "VALUES (?,?,?,?,?,?,?,?,?)",
-                (code, box_code, float(q), "in_stock", source_thread_id, note or "", mfg_date or None, now, by or ""),
+                "(product_code, box_code, quantity, status, source_thread_id, note, mfg_date, unit_id, created_at, created_by) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (code, box_code, float(q), "in_stock", source_thread_id, note or "", mfg_date or None, unit_id, now, by or ""),
             )
             created.append({
                 "id": cur.lastrowid, "product_code": code, "box_code": box_code,
@@ -63,9 +63,11 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
     if active_only:
         where.append("(b.disabled IS NULL OR b.disabled = 0)")
     sql = (
-        "SELECT b.*, p.name AS place_name, "
+        "SELECT b.*, p.name AS place_name, u.name AS unit_name, "
         "COALESCE((SELECT SUM(a.quantity) FROM box_allocations a WHERE a.box_id=b.id),0) AS allocated "
-        "FROM inventory_boxes b LEFT JOIN inventory_places p ON p.id = b.place_id"
+        "FROM inventory_boxes b "
+        "LEFT JOIN inventory_places p ON p.id = b.place_id "
+        "LEFT JOIN inventory_units u ON u.id = b.unit_id"
     )
     if where:
         sql += " WHERE " + " AND ".join(where)
@@ -111,14 +113,15 @@ def product_summary(conn) -> list[dict]:
 
 def get_box(conn, box_id) -> dict | None:
     row = conn.execute(
-        "SELECT b.*, p.name AS place_name FROM inventory_boxes b "
-        "LEFT JOIN inventory_places p ON p.id = b.place_id WHERE b.id = ?",
+        "SELECT b.*, p.name AS place_name, u.name AS unit_name FROM inventory_boxes b "
+        "LEFT JOIN inventory_places p ON p.id = b.place_id "
+        "LEFT JOIN inventory_units u ON u.id = b.unit_id WHERE b.id = ?",
         (box_id,),
     ).fetchone()
     return dict(row) if row else None
 
 
-def update_box(conn, box_id, *, quantity=None, note=None, mfg_date=None, place_id=None, clear_place=False) -> bool:
+def update_box(conn, box_id, *, quantity=None, note=None, mfg_date=None, place_id=None, clear_place=False, unit_id=None) -> bool:
     sets, params = [], []
     if quantity is not None:
         sets.append("quantity = ?"); params.append(float(quantity))
@@ -130,6 +133,8 @@ def update_box(conn, box_id, *, quantity=None, note=None, mfg_date=None, place_i
         sets.append("place_id = NULL")
     elif place_id is not None:
         sets.append("place_id = ?"); params.append(int(place_id))
+    if unit_id is not None:
+        sets.append("unit_id = ?"); params.append(int(unit_id))
     if not sets:
         return False
     params.append(box_id)
@@ -163,6 +168,34 @@ def delete_place(conn, place_id) -> bool:
     with transaction(conn):
         conn.execute("UPDATE inventory_boxes SET place_id = NULL WHERE place_id = ?", (int(place_id),))
         conn.execute("DELETE FROM inventory_places WHERE id = ?", (int(place_id),))
+    return True
+
+
+# ─── Đơn vị chứa (inventory_units: Thùng/Bọc/Cây/Kiện/Kệ…) ────────────────────
+def list_units(conn) -> list[dict]:
+    rows = conn.execute(
+        "SELECT u.id, u.name, "
+        "(SELECT COUNT(*) FROM inventory_boxes b WHERE b.unit_id = u.id) AS box_count "
+        "FROM inventory_units u ORDER BY u.id"
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_unit(conn, name: str) -> dict | None:
+    name = (name or "").strip()
+    if not name:
+        return None
+    with transaction(conn):
+        conn.execute("INSERT OR IGNORE INTO inventory_units (name) VALUES (?)", (name,))
+    row = conn.execute("SELECT id, name FROM inventory_units WHERE name = ?", (name,)).fetchone()
+    return dict(row) if row else None
+
+
+def delete_unit(conn, unit_id) -> bool:
+    """Xoá 1 đơn vị — thùng dùng nó gỡ về NULL (mặc định Thùng khi hiển thị)."""
+    with transaction(conn):
+        conn.execute("UPDATE inventory_boxes SET unit_id = NULL WHERE unit_id = ?", (int(unit_id),))
+        conn.execute("DELETE FROM inventory_units WHERE id = ?", (int(unit_id),))
     return True
 
 

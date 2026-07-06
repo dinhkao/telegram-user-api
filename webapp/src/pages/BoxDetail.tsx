@@ -3,7 +3,7 @@
 // GET /api/inventory/box/:id.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { boxDetail, updateBox, setBoxDisabled, listPlaces, createPlace, setBoxPlace, soVN, type InvBoxDetail, type InvBox, type Place } from "../api";
+import { boxDetail, updateBox, setBoxDisabled, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, soVN, type InvBoxDetail, type InvBox, type Place, type Unit } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { confirmDialog } from "../ui/feedback";
@@ -33,6 +33,26 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   const [places, setPlaces] = useState<Place[]>([]);
   const [newPlace, setNewPlace] = useState<string | null>(null);   // đang tạo vị trí mới
   useEffect(() => { listPlaces().then(setPlaces).catch(() => {}); }, []);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [newUnit, setNewUnit] = useState<string | null>(null);
+  useEffect(() => { listUnits().then(setUnits).catch(() => {}); }, []);
+
+  const pickUnit = async (val: string) => {
+    if (val === "__new") { setNewUnit(""); return; }
+    if (!val) return;
+    try { const b = await setBoxUnit(boxId, Number(val)); if (b && d) setD({ ...d, box: b }); } catch { /* im */ }
+  };
+  const saveNewUnit = async () => {
+    const name = (newUnit || "").trim();
+    if (!name) { setNewUnit(null); return; }
+    try {
+      const u = await createUnit(name);
+      setUnits((prev) => (prev.some((x) => x.id === u.id) ? prev : [...prev, u]));
+      const b = await setBoxUnit(boxId, u.id);
+      if (b && d) setD({ ...d, box: b });
+    } catch { /* im */ }
+    setNewUnit(null);
+  };
 
   const pickPlace = async (val: string) => {
     if (val === "__new") { setNewPlace(""); return; }
@@ -181,6 +201,24 @@ export function BoxDetail({ boxId }: { boxId: string }) {
             {soVN(remaining)}
           </span>
           {used > 0 ? <span class="muted small">đã xuất {soVN(used)}</span> : null}
+        </div>
+        <div class="box-kv">
+          <span class="box-k">Đơn vị</span>
+          {newUnit === null ? (
+            <select class="box-place" value={b.unit_id ?? ""} onChange={(e: any) => pickUnit(e.target.value)}>
+              {b.unit_id == null && <option value="">Thùng (mặc định)</option>}
+              {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              <option value="__new">➕ Đơn vị mới…</option>
+            </select>
+          ) : (
+            <span class="row" style={{ gap: "6px" }}>
+              <input class="box-place" autofocus placeholder="Tên đơn vị (vd Bọc, Kiện)" value={newUnit}
+                onInput={(e: any) => setNewUnit(e.target.value)}
+                onKeyDown={(e: any) => { if (e.key === "Enter") saveNewUnit(); if (e.key === "Escape") setNewUnit(null); }} />
+              <button class="btn small primary" onClick={saveNewUnit}>Lưu</button>
+              <button class="btn small" onClick={() => setNewUnit(null)}>✕</button>
+            </span>
+          )}
         </div>
         <div class="box-kv">
           <span class="box-k">Vị trí</span>

@@ -27,6 +27,9 @@ from inventory_store import (
     list_places,
     add_place,
     delete_place,
+    list_units,
+    add_unit,
+    delete_unit,
     allocate_picks,
     list_order_allocations,
     list_box_allocations,
@@ -98,6 +101,10 @@ async def production_add_boxes_handler(request: web.Request):
         quantities.append(q)
     note = str(body.get("note") or "").strip()
     mfg_date = str(body.get("mfg_date") or "").strip() or None
+    try:
+        unit_id = int(body["unit_id"]) if body.get("unit_id") else None
+    except (TypeError, ValueError):
+        unit_id = None
     actor = _web_actor(request, body)
 
     def _run():
@@ -108,7 +115,7 @@ async def production_add_boxes_handler(request: web.Request):
             if not slip or not slip.get("sp_name"):
                 return None, None
             code = str(slip["sp_name"]).strip().upper()
-            created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date)
+            created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=unit_id)
             # đồng bộ slip.total/numbers/progress: 1 entry/thùng (note = mã thùng)
             total = slip.get("total") or 0
             for box in created:
@@ -200,8 +207,68 @@ async def all_boxes_handler(request: web.Request):
         "allocated": b.get("allocated") or 0, "disabled": bool(b.get("disabled")),
         "note": b.get("note") or "", "mfg_date": b.get("mfg_date"), "created_at": b.get("created_at"),
         "place_id": b.get("place_id"), "place_name": b.get("place_name"),
+        "unit_id": b.get("unit_id"), "unit_name": b.get("unit_name"),
     } for b in boxes]
     return web.json_response({"ok": True, "boxes": out})
+
+
+async def units_list_handler(request: web.Request):
+    """Danh sách đơn vị chứa (Thùng/Bọc/Cây/Kiện/Kệ…) + số thùng dùng mỗi đơn vị."""
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            return list_units(conn)
+        finally:
+            conn.close()
+    return web.json_response({"ok": True, "units": await asyncio.to_thread(_run)})
+
+
+async def unit_create_handler(request: web.Request):
+    """Tạo đơn vị mới. Body {name}."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    name = (body.get("name") or "").strip()
+    if not name:
+        return web.json_response({"ok": False, "error": "Thiếu tên đơn vị"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            return add_unit(conn, name)
+        finally:
+            conn.close()
+    unit = await asyncio.to_thread(_run)
+    from server_app.realtime import emit_inventory_changed
+    emit_inventory_changed()
+    return web.json_response({"ok": True, "unit": unit})
+
+
+async def unit_delete_handler(request: web.Request):
+    """Xoá 1 đơn vị — CHỈ admin."""
+    from server_app.order_api_common import is_admin_request
+    if not await is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin mới được xoá đơn vị"}, status=403)
+    try:
+        uid = int(request.match_info.get("unit_id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "unit_id không hợp lệ"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            delete_unit(conn, uid)
+        finally:
+            conn.close()
+    await asyncio.to_thread(_run)
+    from server_app.realtime import emit_inventory_changed, emit_box_changed
+    emit_inventory_changed()
+    emit_box_changed()
+    return web.json_response({"ok": True})
 
 
 async def places_list_handler(request: web.Request):
@@ -323,6 +390,11 @@ async def box_update_handler(request: web.Request):
                 kwargs["place_id"] = int(pid)
             except (TypeError, ValueError):
                 return web.json_response({"ok": False, "error": "place_id không hợp lệ"}, status=400)
+    if body.get("unit_id"):                       # đổi đơn vị chứa
+        try:
+            kwargs["unit_id"] = int(body["unit_id"])
+        except (TypeError, ValueError):
+            return web.json_response({"ok": False, "error": "unit_id không hợp lệ"}, status=400)
     if quantity is not None:
         try:
             q = float(quantity)

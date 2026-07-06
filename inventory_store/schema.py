@@ -42,6 +42,12 @@ def create_inventory_table(conn):
         )
         """
     )
+    # Đơn vị chứa (Thùng, Bọc, Cây, Kiện, Kệ…) — user tự định nghĩa; thùng link unit_id.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS inventory_units (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "name TEXT NOT NULL UNIQUE, created_at TEXT DEFAULT (datetime('now')))"
+    )
+    conn.execute("INSERT OR IGNORE INTO inventory_units (name) VALUES ('Thùng')")  # mặc định
     conn.commit()
 
 
@@ -57,13 +63,19 @@ def migrate_inventory_table(conn):
         "allocated_at": "TEXT",
         "allocated_by": "TEXT",
         "place_id": "INTEGER",   # → inventory_places.id (vị trí kho)
+        "unit_id": "INTEGER",    # → inventory_units.id (đơn vị chứa)
     }
     for name, typ in adds.items():
         if name not in cols:
             conn.execute(f"ALTER TABLE inventory_boxes ADD COLUMN {name} {typ}")
-    # đảm bảo bảng places tồn tại (DB cũ)
+    # đảm bảo bảng places/units tồn tại (DB cũ)
     conn.execute(
         "CREATE TABLE IF NOT EXISTS inventory_places (id INTEGER PRIMARY KEY AUTOINCREMENT, "
         "name TEXT NOT NULL UNIQUE, note TEXT, created_at TEXT DEFAULT (datetime('now')))"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS inventory_units (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "name TEXT NOT NULL UNIQUE, created_at TEXT DEFAULT (datetime('now')))"
+    )
+    conn.execute("INSERT OR IGNORE INTO inventory_units (name) VALUES ('Thùng')")
     conn.commit()

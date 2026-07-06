@@ -56,6 +56,9 @@ from server_app.inventory_routes import (
     places_list_handler,
     place_create_handler,
     place_delete_handler,
+    units_list_handler,
+    unit_create_handler,
+    unit_delete_handler,
     inventory_detail_handler,
     product_orders_handler,
     box_detail_handler,
@@ -207,6 +210,9 @@ def create_app():
     r.add_get("/api/places", places_list_handler)
     r.add_post("/api/places", place_create_handler)
     r.add_delete("/api/places/{place_id}", place_delete_handler)
+    r.add_get("/api/units", units_list_handler)
+    r.add_post("/api/units", unit_create_handler)
+    r.add_delete("/api/units/{unit_id}", unit_delete_handler)
     r.add_get("/api/inventory/box/{box_id}", box_detail_handler)
     r.add_post("/api/inventory/box/{box_id}", box_update_handler)
     r.add_post("/api/inventory/box/{box_id}/disable", box_disable_handler)

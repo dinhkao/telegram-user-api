@@ -2,7 +2,7 @@
 // (K2L-001). POST .../boxes (queueable, gửi mảng {quantity} × số thùng). onChanged()
 // để phiếu tải lại tổng. Liệt kê thùng đã nhập ở phiếu này — tap → chi tiết thùng.
 import { useEffect, useState } from "preact/hooks";
-import { addProductionBoxes, slipBoxes, soVN, type ProdSlip, type InvBox } from "../api";
+import { addProductionBoxes, slipBoxes, listUnits, createUnit, soVN, type ProdSlip, type InvBox, type Unit } from "../api";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 
@@ -29,6 +29,24 @@ export function ProductionBoxes({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [myBoxes, setMyBoxes] = useState<InvBox[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [unitId, setUnitId] = useState<number | null>(null);   // đơn vị chứa cho đợt nhập
+  const [newUnit, setNewUnit] = useState<string | null>(null);
+  useEffect(() => { listUnits().then((u) => { setUnits(u); if (u[0] && unitId == null) setUnitId(u[0].id); }).catch(() => {}); }, []);
+  const pickUnit = async (val: string) => {
+    if (val === "__new") { setNewUnit(""); return; }
+    setUnitId(val ? Number(val) : null);
+  };
+  const saveNewUnit = async () => {
+    const name = (newUnit || "").trim();
+    if (!name) { setNewUnit(null); return; }
+    try {
+      const u = await createUnit(name);
+      setUnits((prev) => (prev.some((x) => x.id === u.id) ? prev : [...prev, u]));
+      setUnitId(u.id);
+    } catch { /* im */ }
+    setNewUnit(null);
+  };
 
   const loadMine = async () => {
     try {
@@ -67,7 +85,7 @@ export function ProductionBoxes({
     setMsg("");
     try {
       const picks = Array.from({ length: c }, () => ({ quantity: n }));  // c thùng giống nhau
-      const r = await addProductionBoxes(threadId, picks, note.trim(), mfgDate);
+      const r = await addProductionBoxes(threadId, picks, note.trim(), mfgDate, unitId);
       setAmount("");
       setCount("1");
       setNote("");
@@ -98,6 +116,23 @@ export function ProductionBoxes({
           disabled={!hasSp}
           onInput={(e) => setMfgDate((e.target as HTMLInputElement).value)}
         />
+      </div>
+      <div class="row">
+        <label class="inline-label"><Icon name="box" size={16} /> Đơn vị</label>
+        {newUnit === null ? (
+          <select class="box-place" value={unitId ?? ""} disabled={!hasSp} onChange={(e: any) => pickUnit(e.target.value)}>
+            {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            <option value="__new">➕ Đơn vị mới…</option>
+          </select>
+        ) : (
+          <span class="row" style={{ gap: "6px" }}>
+            <input class="box-place" autofocus placeholder="Tên đơn vị (vd Bọc, Kiện)" value={newUnit}
+              onInput={(e: any) => setNewUnit(e.target.value)}
+              onKeyDown={(e: any) => { if (e.key === "Enter") saveNewUnit(); if (e.key === "Escape") setNewUnit(null); }} />
+            <button class="btn small primary" onClick={saveNewUnit}>Lưu</button>
+            <button class="btn small" onClick={() => setNewUnit(null)}>✕</button>
+          </span>
+        )}
       </div>
       <div class="row">
         <input

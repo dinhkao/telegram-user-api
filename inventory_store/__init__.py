@@ -17,6 +17,9 @@ from .queries import (
     list_places,
     add_place,
     delete_place,
+    list_units,
+    add_unit,
+    delete_unit,
 )
 from .allocations import (
     create_allocations_table,
@@ -43,6 +46,9 @@ __all__ = [
     "list_places",
     "add_place",
     "delete_place",
+    "list_units",
+    "add_unit",
+    "delete_unit",
     "create_allocations_table",
     "migrate_legacy_allocations",
     "allocate_picks",
