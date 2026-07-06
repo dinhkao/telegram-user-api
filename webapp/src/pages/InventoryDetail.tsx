@@ -10,6 +10,7 @@ import { money } from "../format";
 import { onRealtime } from "../realtime";
 import { Loading, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
+import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 import { usePopupBack } from "../ui/usePopupBack";
 
 function fmtWhen(iso?: string): string {
@@ -221,37 +222,7 @@ export function InventoryDetail({ code }: { code: string }) {
         {all.length === 0 ? (
           <div class="muted small">Chưa có thùng nào.</div>
         ) : (
-          <div class="inv-detail-list">
-            {all.map((b) => {
-              const rem = b.remaining ?? b.quantity;
-              const used = b.allocated ?? 0;
-              // Tap thùng → trang chi tiết thùng (phiếu nguồn + đơn phân bổ)
-              return (
-                <a
-                  key={b.id}
-                  class={b.disabled ? "inv-detail-row link box-off" : "inv-detail-row link"}
-                  href={`#/thung/${b.id}`}
-                >
-                  <code class="inv-bc">{b.box_code}</code>
-                  <span class="inv-q">
-                    {soVN(rem)}
-                    {used > 0 ? <span class="muted">/{soVN(b.quantity)}</span> : ""}
-                  </span>
-                  {b.note && <span class="inv-note muted small"><Icon name="edit" size={16} /> {b.note}</span>}
-                  {b.disabled ? (
-                    <span class="inv-status disabled" title={b.disabled_reason || undefined}>
-                      Vô hiệu
-                    </span>
-                  ) : used > 0 ? (
-                    <span class="inv-status alloc">đã xuất {soVN(used)}</span>
-                  ) : (
-                    <span class="inv-status in">Trong kho</span>
-                  )}
-                  <span class="inv-when muted small">{fmtWhen(b.created_at)}</span>
-                </a>
-              );
-            })}
-          </div>
+          <BoxLabelGrid boxes={all as any} />
         )}
       </section>
 
