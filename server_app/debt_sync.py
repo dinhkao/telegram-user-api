@@ -17,13 +17,37 @@ from utils.paths import SHARED_DB_PATH
 log = logging.getLogger("debt_sync")
 
 
-def schedule_debt_resync(firebase_key: str, delay: float = 6.0) -> None:
+def _patch_payment_new_debt(thread_id: int, payment_id: str, new_debt) -> None:
+    """Ghi nợ SAU (từ KiotViet) vào 1 phiếu thu theo id — KHÔNG tính tay."""
+    from order_db import _get_connection, get_order_by_thread_id, _save_order
+    conn = _get_connection()
+    try:
+        order = get_order_by_thread_id(conn, int(thread_id))
+        if not order:
+            return
+        changed = False
+        for p in order.get("payments", []):
+            if p.get("id") == payment_id:
+                if p.get("new_debt") != new_debt:
+                    p["new_debt"] = new_debt
+                    changed = True
+                break
+        if changed:
+            _save_order(conn, int(thread_id), order)
+    finally:
+        conn.close()
+
+
+def schedule_debt_resync(firebase_key: str, delay: float = 6.0,
+                         thread_id: int | None = None, payment_id: str | None = None) -> None:
     """Fetch lại debt SAU `delay` giây (nền, không chặn).
 
     KiotViet cập nhật công nợ khách kiểu eventual-consistency: GET /customers/{id}
     NGAY sau khi tạo hoá đơn/thanh toán có thể vẫn trả debt CŨ (chưa gộp giao dịch
     vừa tạo). Các core đã cập nhật debt tức thì; hàm này lên lịch fetch lại 1 lần nữa
-    để bắt giá trị mới → tránh công nợ khách bị trễ 1 nhịp. Gọi từ invoice/payment core.
+    (VẪN từ KiotViet, không tính tay) để bắt giá trị mới → tránh công nợ khách bị trễ.
+    Nếu có thread_id+payment_id → vá luôn nợ SAU của phiếu thu đó. Gọi từ invoice/
+    payment core.
     """
     if not firebase_key:
         return
@@ -36,6 +60,10 @@ def schedule_debt_resync(firebase_key: str, delay: float = 6.0) -> None:
             if data is not None:
                 from server_app.realtime import emit_customer_changed
                 emit_customer_changed(str(firebase_key))
+                if thread_id and payment_id and data.get("debt") is not None:
+                    await asyncio.to_thread(_patch_payment_new_debt, int(thread_id), str(payment_id), data.get("debt"))
+                    from server_app.realtime import emit_order_changed
+                    emit_order_changed(int(thread_id))
         except Exception as e:  # noqa: BLE001 — nền, không được làm hỏng luồng gọi
             log.warning("debt resync failed key=%s: %s", firebase_key, e)
 

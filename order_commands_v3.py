@@ -269,14 +269,12 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
 
     result["kv_code"] = kv_res.get("code", "N/A")
 
-    # 4. Save payment to SQLite — kèm nợ trước/sau + thời điểm cho section Thanh toán.
-    # new_debt = old_debt − amount (nợ dương = còn nợ; KiotViet cập nhật trễ nên tính
-    # tại chỗ cho chắc). old_debt None (lỗi lấy nợ) → bỏ qua before/after.
-    record_new_debt = (old_debt - amount) if old_debt is not None else None
-    payment_record = build_payment_record(
-        amount, method, kv_res, actor_name,
-        old_debt=old_debt, new_debt=record_new_debt, created_at=int(time.time()))
+    # 4. Save payment to SQLite. old_debt = nợ TRƯỚC (đã fetch KiotViet ở bước 2).
+    # new_debt (nợ SAU) KHÔNG tính tay — sẽ fetch từ KiotViet ở bước 7 rồi vá vào
+    # phiếu này theo id. (add_payment tự set id + created_at.)
+    payment_record = build_payment_record(amount, method, kv_res, actor_name, old_debt=old_debt)
     ok, payment_msg = add_payment(db_conn, thread_id, payment_record)
+    payment_id = payment_record.get("id")   # add_payment vừa gán
     if not ok:
         log.error("Failed to save payment to SQLite: %s", payment_msg)
 
@@ -301,17 +299,24 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     except Exception as e:
         log.warning("Firebase full sync failed: %s", e)
 
-    # 7. Fetch new debt from KiotViet
+    # 7. Fetch new debt from KiotViet (nợ SAU — từ KiotViet, KHÔNG tính tay)
     new_debt = None
     try:
         det = get_customer_debt_kv(kv_id)
         new_debt = det.get("debt")
         result["new_debt"] = new_debt
         if new_debt is not None:
-            from order_db import update_customer_debt
+            from order_db import update_customer_debt, _save_order
             kh_id_fb = order.get("khach_hang_id") or order.get("khID")
             if kh_id_fb:
                 update_customer_debt(db_conn, str(kh_id_fb), new_debt)
+            # Vá nợ SAU vào phiếu thu vừa tạo (theo id) — nguồn KiotViet, không tính tay
+            if payment_id:
+                for p in order.get("payments", []):
+                    if p.get("id") == payment_id:
+                        p["new_debt"] = new_debt
+                        break
+                _save_order(db_conn, thread_id, order)
     except Exception as e:
         log.warning("Could not fetch new debt for customer %d: %s", kv_id, e)
 
@@ -321,9 +326,10 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     kh_id_fb2 = order.get("khach_hang_id") or order.get("khID")
     if kh_id_fb2:
         emit_customer_changed(str(kh_id_fb2))   # công nợ khách đổi → trang Khách cập nhật
-        # KiotViet cập nhật debt trễ → fetch lại 1 nhịp sau để chắc ăn số mới nhất
+        # KiotViet cập nhật debt trễ → fetch lại 1 nhịp sau (từ KiotViet) để chắc ăn số
+        # mới nhất, đồng thời vá lại nợ SAU của phiếu thu này.
         from server_app.debt_sync import schedule_debt_resync
-        schedule_debt_resync(str(kh_id_fb2))
+        schedule_debt_resync(str(kh_id_fb2), thread_id=thread_id, payment_id=payment_id)
     result["success"] = True
     return result
 
