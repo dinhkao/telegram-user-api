@@ -70,25 +70,28 @@ def _attach_thumbs(conn, orders: list[dict]) -> None:
         try:
             ph = ",".join("?" * len(ids))
             rows = conn.execute(
-                f"SELECT thread_id, id FROM order_images WHERE thread_id IN ({ph}) ORDER BY thread_id, id DESC",
+                f"SELECT thread_id, id, kind FROM order_images WHERE thread_id IN ({ph}) ORDER BY thread_id, id DESC",
                 ids,
             ).fetchall()
             for row in rows:
-                m.setdefault(row["thread_id"], []).append(row["id"])
+                m.setdefault(row["thread_id"], []).append((row["id"], row["kind"]))
         except Exception:
             m = {}
     for o in orders:
-        lst = m.get(o.get("thread_id"), [])
-        present = set(lst)
-        # Ưu tiên thumb: ảnh soạn hàng trước → ảnh nộp tiền → còn lại (mới nhất).
-        pref: list[int] = []
-        for iid in (o.get("soan_img_ids") or []):
-            if iid in present and iid not in pref:
-                pref.append(iid)
-        nid = o.get("nop_img_id")
-        if nid and nid in present and nid not in pref:
-            pref.append(nid)
-        ordered = pref + [i for i in lst if i not in pref]
+        lst = m.get(o.get("thread_id"), [])   # [(id, kind)] mới→cũ
+        # Ưu tiên thumb theo LOẠI ảnh: soạn hàng → nhận tiền (nop_tien) → còn lại.
+        # Kèm ảnh đã chọn ở task soạn/nộp (note) vào đúng nhóm. Giữ thứ tự mới→cũ.
+        soan_note = set(o.get("soan_img_ids") or [])
+        nop_note = o.get("nop_img_id")
+        soan, nop, rest = [], [], []
+        for iid, kind in lst:
+            if kind == "soan_hang" or iid in soan_note:
+                soan.append(iid)
+            elif kind == "nop_tien" or iid == nop_note:
+                nop.append(iid)
+            else:
+                rest.append(iid)
+        ordered = soan + nop + rest
         o["thumb_image_id"] = ordered[0] if ordered else None
         o["thumb_image_ids"] = ordered[:2]
         o["image_count"] = len(lst)
