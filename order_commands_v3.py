@@ -316,6 +316,9 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     kh_id_fb2 = order.get("khach_hang_id") or order.get("khID")
     if kh_id_fb2:
         emit_customer_changed(str(kh_id_fb2))   # công nợ khách đổi → trang Khách cập nhật
+        # KiotViet cập nhật debt trễ → fetch lại 1 nhịp sau để chắc ăn số mới nhất
+        from server_app.debt_sync import schedule_debt_resync
+        schedule_debt_resync(str(kh_id_fb2))
     result["success"] = True
     return result
 
@@ -383,6 +386,9 @@ async def _process_create_invoice_core(thread_id: int, user_id: int | None) -> d
     from server_app.realtime import emit_customer_changed, emit_order_changed
     emit_order_changed(thread_id)
     emit_customer_changed(str(kh_id_fb))
+    # KiotViet cập nhật debt trễ → fetch lại 1 nhịp sau để chắc ăn số mới nhất
+    from server_app.debt_sync import schedule_debt_resync
+    schedule_debt_resync(str(kh_id_fb))
     result.update(success=True, kv_code=invoice_code, kv_id=invoice_id, old_debt=snapshot_debt)
     return result
 
