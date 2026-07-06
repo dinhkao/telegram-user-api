@@ -10,6 +10,17 @@ import time
 
 from utils.db import get_connection
 
+# Loại ảnh của đơn (phân loại thủ công + tự động cho hoá đơn). 'khac' = mặc định.
+KINDS = ("soan_hang", "nop_tien", "hoa_don", "khac")
+DEFAULT_KIND = "khac"
+
+
+def norm_kind(kind: str | None) -> str:
+    """Chuẩn hoá về 1 loại hợp lệ; giá trị lạ → mặc định."""
+    k = (kind or "").strip().lower()
+    return k if k in KINDS else DEFAULT_KIND
+
+
 _CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS order_images (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,13 +32,14 @@ CREATE TABLE IF NOT EXISTS order_images (
     width INTEGER NOT NULL DEFAULT 0,
     height INTEGER NOT NULL DEFAULT 0,
     uploaded_by TEXT NOT NULL DEFAULT '?',
+    kind TEXT NOT NULL DEFAULT 'khac',
     tg_message_id INTEGER,
     created_at INTEGER NOT NULL
 )
 """
 _CREATE_IDX = "CREATE INDEX IF NOT EXISTS idx_order_images_thread ON order_images(thread_id, created_at)"
 
-_COLS = "id, thread_id, filename, thumb, mime, size, width, height, uploaded_by, tg_message_id, created_at"
+_COLS = "id, thread_id, filename, thumb, mime, size, width, height, uploaded_by, kind, tg_message_id, created_at"
 
 _ensured: set[str] = set()   # DDL chạy 1 lần mỗi path mỗi process — không tốn schema lock mỗi request
 
@@ -43,6 +55,11 @@ def _conn(path: str | None = None):
         if "tg_message_id" not in cols:
             try:
                 conn.execute("ALTER TABLE order_images ADD COLUMN tg_message_id INTEGER")
+            except Exception:  # noqa: BLE001 — cột đã có ở process khác thì bỏ qua
+                pass
+        if "kind" not in cols:
+            try:
+                conn.execute("ALTER TABLE order_images ADD COLUMN kind TEXT NOT NULL DEFAULT 'khac'")
             except Exception:  # noqa: BLE001 — cột đã có ở process khác thì bỏ qua
                 pass
         # Backstop chống nhập trùng: 1 tin Telegram (tg_message_id non-NULL) chỉ 1 ảnh/đơn.
@@ -68,18 +85,20 @@ def add_image(
     width: int = 0,
     height: int = 0,
     uploaded_by: str = "?",
+    kind: str | None = None,
     tg_message_id: int | None = None,
     db_path: str | None = None,
 ) -> dict:
     """Ghi 1 dòng metadata ảnh; trả về dict đầy đủ (kèm id)."""
     now = int(time.time())
+    kind = norm_kind(kind)
     conn = _conn(db_path)
     try:
         cur = conn.execute(
-            "INSERT OR IGNORE INTO order_images (thread_id, filename, thumb, mime, size, width, height, uploaded_by, tg_message_id, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO order_images (thread_id, filename, thumb, mime, size, width, height, uploaded_by, kind, tg_message_id, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (int(thread_id), filename, thumb, mime, int(size), int(width), int(height),
-             uploaded_by or "?", tg_message_id, now),
+             uploaded_by or "?", kind, tg_message_id, now),
         )
         if cur.rowcount == 0 and tg_message_id is not None:
             # đã có ảnh cho tin Telegram này (race) → trả về dòng sẵn có, không tạo trùng
@@ -92,8 +111,24 @@ def add_image(
         return {
             "id": cur.lastrowid, "thread_id": int(thread_id), "filename": filename, "thumb": thumb,
             "mime": mime, "size": int(size), "width": int(width), "height": int(height),
-            "uploaded_by": uploaded_by or "?", "tg_message_id": tg_message_id, "created_at": now,
+            "uploaded_by": uploaded_by or "?", "kind": kind, "tg_message_id": tg_message_id, "created_at": now,
         }
+    finally:
+        conn.close()
+
+
+def update_kind(image_id: int, thread_id: int, kind: str, *, db_path: str | None = None) -> dict | None:
+    """Đổi loại ảnh (soạn hàng / nộp tiền / hoá đơn / khác). Trả về dòng đã cập nhật, None nếu không có."""
+    conn = _conn(db_path)
+    try:
+        cur = conn.execute(
+            "UPDATE order_images SET kind = ? WHERE id = ? AND thread_id = ?",
+            (norm_kind(kind), int(image_id), int(thread_id)),
+        )
+        if cur.rowcount == 0:
+            return None
+        row = conn.execute(f"SELECT {_COLS} FROM order_images WHERE id = ?", (int(image_id),)).fetchone()
+        return dict(row) if row else None
     finally:
         conn.close()
 

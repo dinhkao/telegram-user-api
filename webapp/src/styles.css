@@ -396,6 +396,16 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .img-spin { position: absolute; top: 50%; left: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border: 3px solid rgba(0,0,0,.15); border-top-color: var(--primary); border-radius: 50%; animation: img-spin .7s linear infinite; }
 @keyframes img-spin { to { transform: rotate(360deg); } }
 
+/* Phân loại ảnh đơn: chip chọn loại tải + lọc, nhãn loại trên tile, menu đổi loại */
+.img-kindpick, .img-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+.img-filter { margin-top: 8px; }
+.kchip { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 999px; padding: 5px 10px; font-size: .82rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.kchip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.img-kind { position: absolute; left: 3px; bottom: 3px; max-width: calc(100% - 6px); border: none; border-radius: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: .72rem; font-weight: 600; line-height: 1; padding: 4px 6px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.img-kindmenu { position: absolute; left: 3px; bottom: 3px; z-index: 5; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.25); overflow: hidden; }
+.img-kindmenu button { border: none; background: transparent; color: var(--text); text-align: left; font-size: .82rem; padding: 8px 12px; cursor: pointer; white-space: nowrap; }
+.img-kindmenu button.on { background: var(--primary); color: #fff; }
+
 /* Camera trực tiếp trong khung (CameraBox) */
 .cambox { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #000; }
 .cam-view { position: relative; width: 100%; aspect-ratio: 3 / 4; background: #000; }

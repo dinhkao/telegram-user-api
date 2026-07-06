@@ -19,7 +19,7 @@ import uuid
 
 from aiohttp import web
 
-from order_images_store import add_image, delete_image, get_image, list_images
+from order_images_store import add_image, delete_image, get_image, list_images, update_kind
 from utils.paths import ORDER_MEDIA_DIR
 
 log = logging.getLogger("image_routes")
@@ -71,6 +71,7 @@ async def persist_order_image(
     width: int = 0,
     height: int = 0,
     uploaded_by: str = "?",
+    kind: str | None = None,
     tg_message_id: int | None = None,
 ) -> dict:
     """Ghi file (full + thumb) xuống ORDER_MEDIA_DIR/<thread_id>/ + 1 dòng metadata.
@@ -96,7 +97,7 @@ async def persist_order_image(
     return await asyncio.to_thread(
         add_image, thread_id, fname, tname, mime,
         size=len(full_bytes), width=width, height=height,
-        uploaded_by=uploaded_by, tg_message_id=tg_message_id,
+        uploaded_by=uploaded_by, kind=kind, tg_message_id=tg_message_id,
     )
 
 
@@ -166,11 +167,12 @@ async def images_upload_handler(request: web.Request):
 
     width, height = _to_int(data.get("width")), _to_int(data.get("height"))
     uploaded_by = str(request.get("web_user") or data.get("user") or "?")
+    kind = data.get("kind")   # soan_hang | nop_tien | hoa_don | khac (add_image tự chuẩn hoá)
 
     try:
         image = await persist_order_image(
             thread_id, photo_bytes, photo_mime, ext, thumb_bytes, thumb_ext,
-            width=width, height=height, uploaded_by=uploaded_by,
+            width=width, height=height, uploaded_by=uploaded_by, kind=kind,
         )
     except Exception as e:  # noqa: BLE001
         log.error("ghi file ảnh lỗi: %s", e)
@@ -227,6 +229,27 @@ async def images_delete_handler(request: web.Request):
     from server_app.realtime import emit_order_changed
     emit_order_changed(thread_id)
     return web.json_response({"ok": True})
+
+
+async def images_kind_handler(request: web.Request):
+    """Đổi loại ảnh (soạn hàng / nộp tiền / hoá đơn / khác). Body {kind}."""
+    thread_id = _thread_id(request)
+    if thread_id is None:
+        return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
+    try:
+        image_id = int(request.match_info.get("image_id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "image_id không hợp lệ"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    row = await asyncio.to_thread(update_kind, image_id, thread_id, str(body.get("kind") or ""))
+    if not row:
+        return web.json_response({"ok": False, "error": "không tìm thấy ảnh"}, status=404)
+    from server_app.realtime import emit_order_changed
+    emit_order_changed(thread_id)
+    return web.json_response({"ok": True, "image": row})
 
 
 async def images_file_handler(request: web.Request):

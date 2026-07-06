@@ -9,7 +9,7 @@ from server_app.comment_routes import comments_add_handler, comments_list_handle
 from server_app.customer_routes import customer_detail_handler, customer_refresh_debt_handler, customers_search_handler, customer_update_handler, customer_orders_handler
 from server_app.price_list_routes import price_lists_handler, price_list_detail_handler, price_list_save_handler, price_one_save_handler, price_list_history_handler
 from server_app.donhang_routes import donhang_handler, donhang_msg_handler, donhang_page_handler, donhang_stats_handler
-from server_app.image_routes import images_delete_handler, images_file_handler, images_list_handler, images_upload_handler
+from server_app.image_routes import images_delete_handler, images_file_handler, images_kind_handler, images_list_handler, images_upload_handler
 from server_app.entity_media_routes import (
     comments_add_handler as em_comments_add, comments_list_handler as em_comments_list,
     images_delete_handler as em_images_delete, images_file_handler as em_images_file,
@@ -139,6 +139,7 @@ def create_app():
     r.add_get("/api/order/{thread_id}/images", images_list_handler)
     r.add_post("/api/order/{thread_id}/images", images_upload_handler)
     r.add_delete("/api/order/{thread_id}/images/{image_id}", images_delete_handler)
+    r.add_post("/api/order/{thread_id}/images/{image_id}/kind", images_kind_handler)
     r.add_get("/api/order/{thread_id}/images/{image_id}/file", images_file_handler)
     # ─── media dùng chung (comments+ảnh) cho production slip / box (web-only) ──
     r.add_get("/api/media/{scope}/{entity_id}/comments", em_comments_list)

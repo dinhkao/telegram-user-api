@@ -71,7 +71,7 @@ async def add_invoice_image_to_gallery(thread_id: int, uploaded_by: str = "KiotV
         from server_app.image_routes import persist_order_image
         img = await persist_order_image(
             int(thread_id), full_b, mime, full_ext, thumb_b, thumb_ext,
-            width=w, height=h, uploaded_by=uploaded_by,
+            width=w, height=h, uploaded_by=uploaded_by, kind="hoa_don",
         )
         from server_app.realtime import emit_order_changed
         emit_order_changed(int(thread_id))

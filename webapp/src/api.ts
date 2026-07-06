@@ -336,7 +336,12 @@ export function orderImageUrl(threadId: string | number, imageId: number, size: 
   return `${serverUrl()}/api/order/${Number(threadId)}/images/${imageId}/file${q}`;
 }
 
-export type OrderImage = { id: number; width: number; height: number; size: number; uploaded_by: string; created_at: number };
+export type OrderImage = { id: number; width: number; height: number; size: number; uploaded_by: string; kind?: string; created_at: number };
+
+/** Đổi loại ảnh đơn (soạn hàng / nộp tiền / hoá đơn / khác). base = '/api/order/<id>'. */
+export async function setImageKind(base: string, imageId: number, kind: string): Promise<any> {
+  return postJSON(`${base}/images/${imageId}/kind`, { kind }, { queueable: false });
+}
 
 // ── Media DÙNG CHUNG (comments+ảnh) — base là gốc API, vd '/api/order/123' hoặc
 //    '/api/media/production/123' / '/api/media/box/5'. Dùng bởi Comments/Images/… ──

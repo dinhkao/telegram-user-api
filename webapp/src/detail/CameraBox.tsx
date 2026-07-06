@@ -30,10 +30,12 @@ function camError(ex: any): string {
 
 export function CameraBox({
   base,
+  kind,
   onClose,
   onUploaded,
 }: {
   base: string;
+  kind?: string;                       // loại ảnh đơn (soạn hàng/nộp tiền…) — gắn cho mỗi tấm
   onClose: () => void;
   onUploaded: (image?: any) => void;   // truyền ảnh vừa upload (id…) cho caller cần
 }) {
@@ -100,6 +102,7 @@ export function CameraBox({
       fd.append("thumb", p.thumb, `thumb${p.ext}`);
       fd.append("width", String(p.width));
       fd.append("height", String(p.height));
+      if (kind) fd.append("kind", kind);
       const res = await postForm(`${base}/images`, fd);
       setShots((n) => n + 1);
       onUploaded(res?.image);

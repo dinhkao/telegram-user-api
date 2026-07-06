@@ -2,15 +2,21 @@
 // multipart, lưới thumbnail tải lười + xem phóng to (lightbox), xoá ảnh.
 // Data: GET/POST/DELETE {base}/images (base vd /api/order/123 hoặc /api/media/box/5).
 import { useEffect, useRef, useState } from "preact/hooks";
-import { deleteMediaImage, listMediaImages, mediaImageUrl, postForm, type OrderImage } from "../api";
+import { deleteMediaImage, listMediaImages, mediaImageUrl, postForm, setImageKind, type OrderImage } from "../api";
 import { onRealtime, eventMatchesBase } from "../realtime";
 import { processImage } from "./imageProcess";
 import { PhotoViewer } from "./PhotoViewer";
 import { CameraBox, cameraSupported } from "./CameraBox";
-import { confirmDialog } from "../ui/feedback";
+import { confirmDialog, toast } from "../ui/feedback";
 
 type Pending = { key: number; url: string };
 let _pk = 0;
+
+// Phân loại ảnh đơn (chỉ dùng khi base là đơn hàng). Nhãn + icon hiển thị.
+const KIND_ORDER = ["soan_hang", "nop_tien", "hoa_don", "khac"] as const;
+const KIND_LABEL: Record<string, string> = { soan_hang: "Soạn hàng", nop_tien: "Nộp tiền", hoa_don: "Hoá đơn", khac: "Khác" };
+const KIND_ICON: Record<string, string> = { soan_hang: "📦", nop_tien: "💵", hoa_don: "🧾", khac: "🏷️" };
+const kindOf = (img: OrderImage) => (img.kind && KIND_LABEL[img.kind] ? img.kind : "khac");
 
 export function Images({ base, anchorId, openSignal }: { base: string; anchorId?: string; openSignal?: number }) {
   const [images, setImages] = useState<OrderImage[]>([]);
@@ -20,6 +26,12 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
   const [lightbox, setLightbox] = useState<OrderImage | null>(null);
   const [camOpen, setCamOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  // Phân loại chỉ áp dụng cho ảnh ĐƠN HÀNG (không cho thùng/phiếu SX).
+  const isOrder = base.startsWith("/api/order/");
+  const [uploadKind, setUploadKind] = useState<string>("soan_hang");  // loại gán cho ảnh sắp tải
+  const [filter, setFilter] = useState<string>("all");                // lọc lưới theo loại
+  const [kindMenuFor, setKindMenuFor] = useState<number | null>(null); // ảnh đang mở menu đổi loại
 
   // Chẩn đoán trên máy: hiện từng bước để biết ảnh gallery hỏng ở đâu
   const logDbg = (m: string) => setDbg((p) => [...p.slice(-11), m]);
@@ -65,6 +77,7 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
       fd.append("thumb", p.thumb, `thumb${p.ext}`);
       fd.append("width", String(p.width));
       fd.append("height", String(p.height));
+      if (isOrder) fd.append("kind", uploadKind);
       await postForm(`${base}/images`, fd);
       return true;
     } catch (ex: any) {
@@ -110,6 +123,22 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
     }
   };
 
+  const changeKind = async (img: OrderImage, kind: string) => {
+    setKindMenuFor(null);
+    if (kindOf(img) === kind) return;
+    setImages((prev) => prev.map((x) => (x.id === img.id ? { ...x, kind } : x)));  // lạc quan
+    try {
+      await setImageKind(base, img.id, kind);
+    } catch (ex: any) {
+      toast(ex?.message || "Đổi loại thất bại");
+      load();  // khôi phục nếu lỗi
+    }
+  };
+
+  // Lưới hiển thị (đã lọc theo loại nếu đang chọn); đếm theo loại cho chip lọc.
+  const shown = isOrder && filter !== "all" ? images.filter((x) => kindOf(x) === filter) : images;
+  const kindCounts: Record<string, number> = {};
+  if (isOrder) for (const x of images) kindCounts[kindOf(x)] = (kindCounts[kindOf(x)] || 0) + 1;
   const count = images.length + pending.length;
 
   return (
@@ -123,8 +152,20 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
 
       {/* Camera trực tiếp trong khung (nhanh, chụp liên tiếp). Nút mở camera chỉ
           hiện khi có HTTPS; nếu không → chỉ còn nút Chọn ảnh từ máy. */}
+      {/* Loại ảnh sắp tải (chỉ đơn hàng) — ảnh mới sẽ gắn loại này. */}
+      {isOrder && !camOpen && (
+        <div class="img-kindpick">
+          <span class="muted small">Loại:</span>
+          {KIND_ORDER.map((k) => (
+            <button key={k} class={"kchip" + (uploadKind === k ? " on" : "")} onClick={() => setUploadKind(k)}>
+              {KIND_ICON[k]} {KIND_LABEL[k]}
+            </button>
+          ))}
+        </div>
+      )}
+
       {camOpen ? (
-        <CameraBox base={base} onUploaded={load} onClose={() => setCamOpen(false)} />
+        <CameraBox base={base} kind={isOrder ? uploadKind : undefined} onUploaded={load} onClose={() => setCamOpen(false)} />
       ) : (
         <div class="img-actions">
           {cameraSupported() && (
@@ -140,8 +181,22 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
         <pre class="img-dbg" onClick={() => setDbg([])}>{dbg.join("\n")}</pre>
       )}
 
+      {/* Lọc theo loại (chỉ đơn hàng, khi đã có ảnh). */}
+      {isOrder && images.length > 0 && (
+        <div class="img-filter">
+          <button class={"kchip" + (filter === "all" ? " on" : "")} onClick={() => setFilter("all")}>Tất cả ({images.length})</button>
+          {KIND_ORDER.filter((k) => kindCounts[k]).map((k) => (
+            <button key={k} class={"kchip" + (filter === k ? " on" : "")} onClick={() => setFilter(k)}>
+              {KIND_ICON[k]} {KIND_LABEL[k]} ({kindCounts[k]})
+            </button>
+          ))}
+        </div>
+      )}
+
       {count === 0 ? (
         <p class="muted small">Chưa có ảnh. Bấm 📸 Chụp hoặc 📁 Chọn để thêm.</p>
+      ) : shown.length === 0 && pending.length === 0 ? (
+        <p class="muted small">Không có ảnh loại này.</p>
       ) : (
         <div class="img-grid">
           {pending.map((p) => (
@@ -150,7 +205,7 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
               <span class="img-spin" />
             </div>
           ))}
-          {images.map((img) => (
+          {shown.map((img) => (
             <div class="img-tile" id={`image-${img.id}`} key={img.id}>
               <img
                 src={mediaImageUrl(base, img.id, "thumb")}
@@ -159,6 +214,20 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
                 onClick={() => setLightbox(img)}
               />
               <button class="img-del" title="Xoá" onClick={() => remove(img)}>×</button>
+              {isOrder && (
+                <button class="img-kind" title="Đổi loại" onClick={() => setKindMenuFor(kindMenuFor === img.id ? null : img.id)}>
+                  {KIND_ICON[kindOf(img)]} {KIND_LABEL[kindOf(img)]}
+                </button>
+              )}
+              {isOrder && kindMenuFor === img.id && (
+                <div class="img-kindmenu" onClick={(e: any) => e.stopPropagation()}>
+                  {KIND_ORDER.map((k) => (
+                    <button key={k} class={kindOf(img) === k ? "on" : ""} onClick={() => changeKind(img, k)}>
+                      {KIND_ICON[k]} {KIND_LABEL[k]}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
