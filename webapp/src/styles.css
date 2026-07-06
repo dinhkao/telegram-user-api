@@ -953,7 +953,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .qa:hover { border-color: var(--accent); }
 .qa:active { transform: scale(.96); }
 .qa:disabled { opacity: .45; cursor: default; }
-.qa-ic { font-size: 26px; line-height: 1; }
+.qa-ic { color: var(--primary); }
 .qa-lb { font-size: 12px; font-weight: 600; text-align: center; line-height: 1.15; color: var(--ink); }
 /* Chừa chỗ cho app-bar dính (44px) khi cuộn tới mục — khỏi bị che đầu */
 #od-invoice, #od-payments, #od-tasks, #od-camera, #od-stock, #od-chat { scroll-margin-top: 56px; }

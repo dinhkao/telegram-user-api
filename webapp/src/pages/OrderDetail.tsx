@@ -18,6 +18,7 @@ import { invalidateListCache, markLastOrder, filterNeighbors } from "./OrdersLis
 import { confirmDialog, toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
 import { fastScrollToEl, fastScrollTop } from "../scroll";
+import { Icon } from "../ui/Icon";
 
 export function OrderDetail({ threadId, focus }: { threadId: string; focus?: string }) {
   const [detail, setDetail] = useState<any>(null);
@@ -377,17 +378,17 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       <div class="card od-quick">
         <b class="od-quick-ttl">Thao tác nhanh</b>
         <div class="qa-grid">
-          <button class="qa" onClick={goCamera}><span class="qa-ic">📸</span><span class="qa-lb">Chụp ảnh</span></button>
+          <button class="qa" onClick={goCamera}><Icon name="camera" size={22} class="qa-ic" /><span class="qa-lb">Chụp ảnh</span></button>
           <button class={"qa" + (hasInvoice ? "" : " qa-off")} disabled={busy}
             onClick={hasInvoice ? doPrint : () => toast("Chưa có hoá đơn để in", "info")}>
-            <span class="qa-ic">🖨️</span><span class="qa-lb">In hoá đơn</span>
+            <Icon name="printer" size={22} class="qa-ic" /><span class="qa-lb">In hoá đơn</span>
           </button>
-          <button class="qa" onClick={goInvoice}><span class="qa-ic">🧾</span><span class="qa-lb">Hoá đơn</span></button>
-          <button class="qa" onClick={goPay}><span class="qa-ic">💰</span><span class="qa-lb">Thanh toán</span></button>
-          <button class="qa" onClick={goTasks}><span class="qa-ic">✅</span><span class="qa-lb">Tiến độ</span></button>
-          <button class="qa" onClick={goStock}><span class="qa-ic">📦</span><span class="qa-lb">Xuất kho</span></button>
-          <button class="qa" onClick={goChat}><span class="qa-ic">💬</span><span class="qa-lb">Trao đổi</span></button>
-          <button class="qa" onClick={goImages}><span class="qa-ic">🖼️</span><span class="qa-lb">Ảnh</span></button>
+          <button class="qa" onClick={goInvoice}><Icon name="receipt" size={22} class="qa-ic" /><span class="qa-lb">Hoá đơn</span></button>
+          <button class="qa" onClick={goPay}><Icon name="wallet" size={22} class="qa-ic" /><span class="qa-lb">Thanh toán</span></button>
+          <button class="qa" onClick={goTasks}><Icon name="check" size={22} class="qa-ic" /><span class="qa-lb">Tiến độ</span></button>
+          <button class="qa" onClick={goStock}><Icon name="box" size={22} class="qa-ic" /><span class="qa-lb">Xuất kho</span></button>
+          <button class="qa" onClick={goChat}><Icon name="chat" size={22} class="qa-ic" /><span class="qa-lb">Trao đổi</span></button>
+          <button class="qa" onClick={goImages}><Icon name="image" size={22} class="qa-ic" /><span class="qa-lb">Ảnh</span></button>
         </div>
       </div>
 
