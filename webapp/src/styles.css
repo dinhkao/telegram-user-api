@@ -782,10 +782,10 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .inv-bc { font-family: monospace; font-weight: 700; }
 /* Thùng dạng ô vuông (visualize kho) — xếp cạnh nhau, màu theo trạng thái */
 .box-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.box-sq { position: relative; flex: 0 0 auto; width: 58px; height: 58px; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-decoration: none; border: 1px solid; box-sizing: border-box; transition: transform var(--dur) var(--ease); }
+.box-sq { position: relative; flex: 0 0 auto; width: auto; min-width: 60px; height: 60px; padding: 0 8px; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; border: 1px solid; box-sizing: border-box; transition: transform var(--dur) var(--ease); }
 .box-sq:active { transform: scale(.93); }
 .box-sq .bs-q { font-weight: 800; font-size: 1.1rem; line-height: 1; font-variant-numeric: tabular-nums; }
-.box-sq .bs-code { font-family: var(--mono); font-size: .6rem; opacity: .75; letter-spacing: -.02em; }
+.box-sq .bs-code { font-family: var(--mono); font-size: .64rem; font-weight: 600; opacity: .78; letter-spacing: -.02em; white-space: nowrap; }
 .box-sq .bs-dot { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .55; }
 .box-sq.in { background: var(--ok-wash); border-color: #bfe3c8; color: var(--ok); }
 .box-sq.alloc { background: var(--warn-wash); border-color: #ecd8a6; color: var(--warn); }

@@ -146,7 +146,6 @@ export function ProductionBoxes({
               const rem = b.remaining ?? b.quantity;
               const used = b.allocated ?? 0;
               const st = b.disabled ? "off" : used > 0 ? "alloc" : "in";
-              const code = (b.box_code || "").split("-").pop() || b.box_code;
               const status = b.disabled ? "vô hiệu" : used > 0 ? `đã xuất ${soVN(used)}/${soVN(b.quantity)}` : "trong kho";
               return (
                 <a
@@ -158,7 +157,7 @@ export function ProductionBoxes({
                 >
                   {b.note && <span class="bs-dot" />}
                   <span class="bs-q">{soVN(rem)}</span>
-                  <span class="bs-code">{code}</span>
+                  <span class="bs-code">{b.box_code}</span>
                 </a>
               );
             })}
