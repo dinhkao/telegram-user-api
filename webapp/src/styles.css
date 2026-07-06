@@ -737,6 +737,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .inv-card-stat { display: flex; flex-direction: column; }
 .inv-card-total { font-size: 1.15rem; font-weight: 700; color: var(--ok); }
 .inv-card-tags { margin-left: auto; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+.inv-search { width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: .95rem; margin-bottom: 4px; }
+.inv-card-main { flex: 1 1 auto; min-width: 0; }
+.inv-card-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inv-card-total.zero { color: var(--muted); }
+.inv-unlinked { font-size: .8rem; }
 .inv-tag { font-size: .74rem; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 .inv-tag.alloc { background: #fff3e0; color: #a15c00; border: 1px solid #f0d9b0; }
 .inv-tag.ship { background: #eef; color: #337; border: 1px solid #ccd; }

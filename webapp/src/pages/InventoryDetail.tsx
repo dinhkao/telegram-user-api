@@ -1,9 +1,9 @@
 // Chi tiết kho 1 product — danh sách mọi thùng + tình trạng (Trong kho / Đã xuất
 // đơn #x / Đã giao). GET /api/inventory/:code (all_boxes). Nhóm tồn theo size ở đầu.
 // Thùng đã xuất link tới đơn. Realtime production_changed → tải lại.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { inventoryDetail, syncKiotvietProducts, currentUser, soVN, type InvDetail, type InvBox } from "../api";
+import { inventoryDetail, productOrders, syncKiotvietProducts, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef } from "../api";
 import { money } from "../format";
 import { onRealtime } from "../realtime";
 import { toast } from "../ui/feedback";
@@ -22,6 +22,47 @@ export function InventoryDetail({ code }: { code: string }) {
   const [err, setErr] = useState("");
   const [syncing, setSyncing] = useState(false);
   const isAdmin = currentUser()?.role === "admin";
+
+  // Đơn có SP này — LAZY: chỉ tải khi cuộn tới khối, phân trang "Xem thêm"
+  const [ords, setOrds] = useState<InvOrderRef[]>([]);
+  const [ordTotal, setOrdTotal] = useState(0);
+  const [ordMore, setOrdMore] = useState(false);
+  const [ordLoading, setOrdLoading] = useState(false);
+  const ordStarted = useRef(false);
+  const ordSecRef = useRef<HTMLElement>(null);
+
+  const loadOrders = async (reset: boolean) => {
+    setOrdLoading(true);
+    const offset = reset ? 0 : ords.length;
+    try {
+      const r = await productOrders(code, offset, 20);
+      setOrds((prev) => (reset ? r.orders : [...prev, ...r.orders]));
+      setOrdTotal(r.total);
+      setOrdMore(r.has_more);
+    } catch { /* im */ } finally {
+      setOrdLoading(false);
+    }
+  };
+
+  // Đổi mã SP → reset khối đơn.
+  useEffect(() => {
+    ordStarted.current = false;
+    setOrds([]); setOrdTotal(0); setOrdMore(false);
+  }, [code]);
+
+  // Gắn IntersectionObserver SAU khi khối render (inv đã tải) → tự tải lần đầu khi lộ.
+  useEffect(() => {
+    const el = ordSecRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting && !ordStarted.current) {
+        ordStarted.current = true;
+        loadOrders(true);
+      }
+    }, { rootMargin: "200px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [inv, code]);
 
   const doSync = async () => {
     setSyncing(true);
@@ -49,7 +90,10 @@ export function InventoryDetail({ code }: { code: string }) {
   useEffect(
     () =>
       onRealtime((e) => {
-        if (e.type === "resync" || e.type === "production_changed" || e.type === "inventory_changed" || e.type === "box_changed" || e.type === "order_changed") load();
+        if (e.type === "resync" || e.type === "production_changed" || e.type === "inventory_changed" || e.type === "box_changed" || e.type === "order_changed") {
+          load();
+          if (ordStarted.current) loadOrders(true);   // đơn có SP có thể đổi
+        }
       }),
     [code]
   );
@@ -140,21 +184,30 @@ export function InventoryDetail({ code }: { code: string }) {
         )}
       </section>
 
-      <section class="card">
-        <label class="card-label">Đơn có sản phẩm này ({inv.orders.length})</label>
-        {inv.orders.length === 0 ? (
+      <section class="card" ref={ordSecRef}>
+        <label class="card-label">Đơn có sản phẩm này{ordStarted.current ? ` (${ordTotal})` : ""}</label>
+        {!ordStarted.current || (ordLoading && ords.length === 0) ? (
+          <div class="muted small">Đang tải…</div>
+        ) : ords.length === 0 ? (
           <div class="muted small">Chưa có đơn nào chứa mã này.</div>
         ) : (
-          <div class="inv-detail-list">
-            {inv.orders.map((o) => (
-              <a key={o.thread_id} class="inv-detail-row link" href={`#/order/${o.thread_id}`}>
-                <code class="inv-bc">#{o.thread_id}</code>
-                <span class="prod-ord-text">{o.text || "(trống)"}</span>
-                {o.sl != null && <span class="inv-q">×{soVN(o.sl)}</span>}
-                {o.price != null && o.price > 0 && <span class="muted small">{money(o.price)}đ</span>}
-              </a>
-            ))}
-          </div>
+          <>
+            <div class="inv-detail-list">
+              {ords.map((o) => (
+                <a key={o.thread_id} class="inv-detail-row link" href={`#/order/${o.thread_id}`}>
+                  <code class="inv-bc">#{o.thread_id}</code>
+                  <span class="prod-ord-text">{o.text || "(trống)"}</span>
+                  {o.sl != null && <span class="inv-q">×{soVN(o.sl)}</span>}
+                  {o.price != null && o.price > 0 && <span class="muted small">{money(o.price)}đ</span>}
+                </a>
+              ))}
+            </div>
+            {ordMore && (
+              <button class="btn small block" style={{ marginTop: "8px" }} disabled={ordLoading} onClick={() => loadOrders(false)}>
+                {ordLoading ? "⏳ Đang tải…" : `Xem thêm (${ordTotal - ords.length})`}
+              </button>
+            )}
+          </>
         )}
       </section>
     </div>

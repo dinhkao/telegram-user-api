@@ -700,10 +700,11 @@ export type InvDetail = {
   boxes: InvBox[]; // in_stock
   all_boxes: InvBox[]; // mọi status
   product: InvProductLink | null; // liên kết KiotViet + tên danh mục
-  orders: InvOrderRef[];          // các đơn có mã SP này
 };
 export type InvProductSummary = {
   product_code: string;
+  name?: string;
+  linked?: boolean;
   in_stock_total: number;
   in_stock_count: number;
   allocated_count: number;
@@ -751,8 +752,13 @@ export async function inventoryDetail(code: string): Promise<InvDetail> {
     boxes: d.boxes || [],
     all_boxes: d.all_boxes || [],
     product: d.product || null,
-    orders: d.orders || [],
   };
+}
+
+/** Lazy: các đơn có mã SP này (phân trang). */
+export async function productOrders(code: string, offset = 0, limit = 20): Promise<{ orders: InvOrderRef[]; total: number; has_more: boolean }> {
+  const d = await getJSON(`/api/inventory/${encodeURIComponent(code)}/orders?offset=${offset}&limit=${limit}`, { cache: false });
+  return { orders: d.orders || [], total: d.total || 0, has_more: !!d.has_more };
 }
 
 /** Đồng bộ danh mục KiotViet → products (liên kết code↔KiotViet). Trả {fetched, synced}. */

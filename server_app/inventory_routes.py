@@ -150,14 +150,31 @@ async def production_boxes_list_handler(request: web.Request):
 
 # ─── xem tồn kho ──────────────────────────────────────────────────────────────
 async def inventory_list_handler(request: web.Request):
-    """Dashboard kho: mỗi product tồn (in_stock) + số thùng đã xuất/đã giao."""
+    """Dashboard kho: MỌI mã SP (từ product_store) — có thùng thì kèm tồn/đếm, chưa có
+    thì tồn 0. Kèm tên danh mục + cờ liên kết KiotViet. Sắp: có tồn trước, rồi A→Z."""
     def _run():
         conn = _conn()
         try:
             _ensure(conn)
-            return product_summary(conn)
+            summ = product_summary(conn)   # chỉ product CÓ thùng
+            from product_store.queries import get_all_products
+            prods = get_all_products(conn)
         finally:
             conn.close()
+        by_code = {s["product_code"]: dict(s) for s in summ}
+        meta = {p["code"]: (p.get("name") or p.get("kv_full_name") or "", bool(p.get("kv_id"))) for p in prods}
+        # thêm product chưa có thùng (tồn 0)
+        for p in prods:
+            by_code.setdefault(p["code"], {
+                "product_code": p["code"], "in_stock_total": 0, "in_stock_count": 0,
+                "allocated_count": 0, "shipped_count": 0, "total_count": 0,
+            })
+        rows = []
+        for code, s in by_code.items():
+            name, linked = meta.get(code, ("", False))
+            rows.append({**s, "name": name, "linked": linked})
+        rows.sort(key=lambda r: (-(r.get("in_stock_total") or 0), r["product_code"]))
+        return rows
     products = await asyncio.to_thread(_run)
     return web.json_response({"ok": True, "products": products})
 
@@ -312,13 +329,10 @@ async def inventory_detail_handler(request: web.Request):
             # Liên kết KiotViet + tên danh mục (product_store)
             from product_store.queries import get_product
             prod = get_product(conn, code)
-            # Các đơn có chứa mã SP này (mới→cũ)
-            from order_store.product_orders import orders_containing_product
-            orders = orders_containing_product(conn, code, limit=100)
         finally:
             conn.close()
-        return all_boxes, prod, orders
-    all_boxes, prod, orders = await asyncio.to_thread(_run)
+        return all_boxes, prod
+    all_boxes, prod = await asyncio.to_thread(_run)
     # khả dụng phân bổ = thùng còn hiệu lực + còn lại > 0 (giữ quantity gốc + remaining)
     avail = [b for b in all_boxes if not b.get("disabled") and b.get("remaining", 0) > 0]
     # tồn = tổng CÒN LẠI → gộp theo remaining
@@ -334,7 +348,35 @@ async def inventory_detail_handler(request: web.Request):
         }
     return web.json_response({
         "ok": True, "product_code": code, "boxes": avail, "all_boxes": all_boxes,
-        "product": product, "orders": orders, **summary,
+        "product": product, **summary,
+    })
+
+
+async def product_orders_handler(request: web.Request):
+    """Lazy-load: các ĐƠN có mã SP này (phân trang). GET ?offset=&limit=.
+    Trả {orders, total, has_more}. Lọc: invoice[].sp == code (kể cả invoice_items cũ)."""
+    code = _product_code(request)
+    if not code:
+        return web.json_response({"ok": False, "error": "Thiếu mã sản phẩm"}, status=400)
+    try:
+        offset = max(0, int(request.query.get("offset", "0")))
+        limit = max(1, min(50, int(request.query.get("limit", "20"))))
+    except (ValueError, TypeError):
+        offset, limit = 0, 20
+
+    def _run():
+        conn = _conn()
+        try:
+            from order_store.product_orders import orders_containing_product, count_orders_containing_product
+            total = count_orders_containing_product(conn, code)
+            orders = orders_containing_product(conn, code, limit=limit, offset=offset)
+        finally:
+            conn.close()
+        return orders, total
+    orders, total = await asyncio.to_thread(_run)
+    return web.json_response({
+        "ok": True, "product_code": code, "orders": orders, "total": total,
+        "has_more": offset + len(orders) < total,
     })
 
 

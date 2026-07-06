@@ -50,6 +50,7 @@ from server_app.inventory_routes import (
     production_boxes_list_handler,
     inventory_list_handler,
     inventory_detail_handler,
+    product_orders_handler,
     box_detail_handler,
     box_update_handler,
     box_disable_handler,
@@ -194,6 +195,7 @@ def create_app():
     r.add_get("/api/inventory/box/{box_id}", box_detail_handler)
     r.add_post("/api/inventory/box/{box_id}", box_update_handler)
     r.add_post("/api/inventory/box/{box_id}/disable", box_disable_handler)
+    r.add_get("/api/inventory/{product_code}/orders", product_orders_handler)
     r.add_get("/api/inventory/{product_code}", inventory_detail_handler)
     r.add_get("/api/order/{thread_id}/allocations", order_allocations_handler)
     r.add_post("/api/order/{thread_id}/allocate", order_allocate_handler)
