@@ -1,9 +1,10 @@
 // Khách hàng — tìm kiếm + công nợ + infinite scroll. GET /api/customers?search=&sort=recent&page=.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { getJSON } from "../api";
+import { getJSON, createCustomer } from "../api";
 import { money, fmtTime } from "../format";
 import { onRealtime } from "../realtime";
 import { Loading, EmptyState } from "../ui/states";
+import { toast } from "../ui/feedback";
 
 const PAGE_SIZE = 30;
 
@@ -118,9 +119,29 @@ export function Customers() {
     load(1, q, false);
   };
 
+  // Tạo khách mới
+  const [creating, setCreating] = useState(false);
+  const [nName, setNName] = useState("");
+  const [nPhone, setNPhone] = useState("");
+  const [nAddr, setNAddr] = useState("");
+  const [saving, setSaving] = useState(false);
+  const submitNew = async () => {
+    const name = nName.trim();
+    if (!name) return;
+    setSaving(true);
+    try {
+      const c = await createCustomer({ name, contactNumber: nPhone.trim(), address: nAddr.trim() });
+      toast(`✅ Đã tạo khách: ${c.name}`, "ok");
+      setCreating(false); setNName(""); setNPhone(""); setNAddr("");
+      window.location.hash = `#/khach/${encodeURIComponent(c.key)}`;
+    } catch (e: any) {
+      toast(e?.message || "Lỗi tạo khách", "err");
+    } finally { setSaving(false); }
+  };
+
   return (
     <div>
-      <header class="topbar">
+      <header class="topbar cust-topbar">
         <input
           class="search"
           type="search"
@@ -128,7 +149,28 @@ export function Customers() {
           value={search}
           onInput={(e: any) => onSearch(e.target.value)}
         />
+        <button class="btn primary cust-add" onClick={() => setCreating(true)} title="Tạo khách mới">＋</button>
       </header>
+
+      {creating && (
+        <div class="modal-overlay" onClick={saving ? undefined : () => setCreating(false)}>
+          <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
+            <div class="modal-head">➕ Tạo khách hàng mới {saving && "· ⏳"}</div>
+            <input class="cust-in" placeholder="Tên khách (bắt buộc)" value={nName} autofocus
+              onInput={(e: any) => setNName(e.target.value)}
+              onKeyDown={(e: any) => { if (e.key === "Enter" && nName.trim()) submitNew(); }} />
+            <input class="cust-in" placeholder="Số điện thoại (tuỳ chọn)" inputMode="tel" value={nPhone}
+              onInput={(e: any) => setNPhone(e.target.value)} />
+            <input class="cust-in" placeholder="Địa chỉ (tuỳ chọn)" value={nAddr}
+              onInput={(e: any) => setNAddr(e.target.value)} />
+            <p class="muted small">Tạo trên KiotViet + mở topic khách. Có thể thêm bảng giá riêng sau.</p>
+            <button class="btn primary block" disabled={saving || !nName.trim()} onClick={submitNew}>
+              {saving ? "⏳ Đang tạo…" : "✅ Tạo khách"}
+            </button>
+            {!saving && <button class="btn" onClick={() => setCreating(false)}>Huỷ</button>}
+          </div>
+        </div>
+      )}
       {err && <p class="error">{err}</p>}
       <ul class="order-list">
         {customers.map((c) => (

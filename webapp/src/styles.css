@@ -981,3 +981,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* Nút Thao tác nhanh chưa dùng được (vd chưa có HĐ để in) — xám nhưng vẫn bấm được (toast) */
 .qa.qa-off { opacity: .45; }
 .qa.qa-off .qa-lb { color: var(--muted); }
+
+/* Tạo khách mới (dashboard khách) */
+.cust-topbar { display: flex; gap: 8px; align-items: center; }
+.cust-topbar .search { flex: 1; }
+.cust-add { flex: 0 0 auto; width: 42px; height: 42px; font-size: 1.4rem; line-height: 1; padding: 0; border-radius: 10px; }
+.cust-in { width: 100%; box-sizing: border-box; padding: 11px; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; }

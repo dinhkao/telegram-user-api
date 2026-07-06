@@ -206,6 +206,8 @@ def create_app():
     r.add_get("/api/quy/{id}", quy_detail_handler)
     r.add_delete("/api/quy/{id}", quy_delete_handler)
     r.add_get("/api/customers", customers_search_handler)
+    from server_app.customer_create import customer_create_handler
+    r.add_post("/api/customers/new", customer_create_handler)   # TRƯỚC {key} POST
     r.add_get("/api/customers/{key}", customer_detail_handler)
     r.add_post("/api/customers/{key}", customer_update_handler)
     r.add_get("/api/customers/{key}/orders", customer_orders_handler)

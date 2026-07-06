@@ -225,6 +225,11 @@ export async function updateCustomer(
 }
 
 /** Đơn của 1 khách (lọc theo khach_hang_id) — row compact như dashboard, phân trang. */
+/** Tạo khách mới (KiotViet + topic + lưu). Trả customer {key,name,kh_id,...}. */
+export async function createCustomer(input: { name: string; contactNumber?: string; address?: string }): Promise<any> {
+  const d = await postJSON("/api/customers/new", input);
+  return d.customer;
+}
 export async function getCustomerOrders(key: string, page = 1): Promise<{ orders: any[]; page: number; total_pages: number; total: number }> {
   return getJSON(`/api/customers/${encodeURIComponent(key)}/orders?page=${page}`, { cache: false });
 }
