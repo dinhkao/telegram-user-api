@@ -52,6 +52,7 @@ from server_app.inventory_routes import (
     production_add_boxes_handler,
     production_boxes_list_handler,
     inventory_list_handler,
+    all_boxes_handler,
     inventory_detail_handler,
     product_orders_handler,
     box_detail_handler,
@@ -199,6 +200,7 @@ def create_app():
     r.add_delete("/api/workers/{id}", workers_delete_handler)
     # ─── kho thùng (inventory) ───────────────────────────────────────────────
     r.add_get("/api/inventory", inventory_list_handler)
+    r.add_get("/api/inventory/boxes", all_boxes_handler)
     r.add_get("/api/inventory/box/{box_id}", box_detail_handler)
     r.add_post("/api/inventory/box/{box_id}", box_update_handler)
     r.add_post("/api/inventory/box/{box_id}/disable", box_disable_handler)

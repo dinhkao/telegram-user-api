@@ -179,6 +179,27 @@ async def inventory_list_handler(request: web.Request):
     return web.json_response({"ok": True, "products": products})
 
 
+async def all_boxes_handler(request: web.Request):
+    """Kho hàng: MỌI thùng của MỌI sản phẩm (để dashboard kho trực quan + lọc theo mã).
+    Trả list gọn; client gom nhóm theo product_code + lọc."""
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            boxes = list_boxes(conn)   # không lọc = tất cả
+        finally:
+            conn.close()
+        return boxes
+    boxes = await asyncio.to_thread(_run)
+    out = [{
+        "id": b["id"], "product_code": b["product_code"], "box_code": b["box_code"],
+        "quantity": b.get("quantity") or 0, "remaining": b.get("remaining") or 0,
+        "allocated": b.get("allocated") or 0, "disabled": bool(b.get("disabled")),
+        "note": b.get("note") or "", "mfg_date": b.get("mfg_date"), "created_at": b.get("created_at"),
+    } for b in boxes]
+    return web.json_response({"ok": True, "boxes": out})
+
+
 async def box_detail_handler(request: web.Request):
     """Chi tiết 1 thùng: info + phiếu SX nguồn (sp_name, ngày) + đơn đã xuất (nếu có)."""
     try:

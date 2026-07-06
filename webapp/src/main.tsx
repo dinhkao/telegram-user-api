@@ -28,6 +28,7 @@ import { Users } from "./pages/Users";
 import { NotifCenter } from "./NotifCenter";
 import { InventoryList } from "./pages/InventoryList";
 import { InventoryDetail } from "./pages/InventoryDetail";
+import { KhoBoxes } from "./pages/KhoBoxes";
 import { BoxDetail } from "./pages/BoxDetail";
 import "./styles.css";
 
@@ -204,7 +205,8 @@ function App() {
   else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;
   else if (boxMatch) page = <BoxDetail boxId={boxMatch[1]} />;
   else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;
-  else if (hash.startsWith("#/kho")) page = <InventoryList />;
+  else if (hash.startsWith("#/san-pham")) page = <InventoryList />;
+  else if (hash.startsWith("#/kho")) page = <KhoBoxes />;
   else if (hash.startsWith("#/quy")) page = <QuyList />;
   else if (hash.startsWith("#/users")) page = <Users />;
   else if (hash.startsWith("#/tho")) page = <WorkerList />;
@@ -225,6 +227,7 @@ function App() {
     : (hash.startsWith("#/customers") || khachMatch) ? "Khách hàng"
     : hash.startsWith("#/create") ? "Tạo đơn"
     : (hash.startsWith("#/san_xuat") || hash.startsWith("#/sx-") || prodMatch || prodEditMatch || shtMatch) ? "Sản xuất"
+    : hash.startsWith("#/san-pham") ? "Sản phẩm"
     : (hash.startsWith("#/kho") || khoMatch || boxMatch) ? "Kho hàng"
     : hash.startsWith("#/quy") ? "Sổ quỹ"
     : hash.startsWith("#/users") ? "Người dùng"
@@ -267,7 +270,8 @@ function App() {
             <a class="menu-item" href="#/sx-bang" onClick={() => setMenuOpen(false)}><Icon name="chart" size={17} /> Dashboard sản xuất</a>
             <a class="menu-item" href="#/tho" onClick={() => setMenuOpen(false)}><Icon name="users" size={17} /> Danh sách thợ</a>
             <a class="menu-item" href="#/lich-su" onClick={() => setMenuOpen(false)}><Icon name="history" size={17} /> Lịch sử thao tác</a>
-            <a class="menu-item" href="#/bang-gia" onClick={() => setMenuOpen(false)}><Icon name="tag" size={17} /> Bảng giá chung</a>
+            <a class="menu-item" href="#/san-pham" onClick={() => setMenuOpen(false)}><Icon name="tag" size={17} /> Sản phẩm (danh mục)</a>
+            <a class="menu-item" href="#/bang-gia" onClick={() => setMenuOpen(false)}><Icon name="receipt" size={17} /> Bảng giá chung</a>
             {user?.role === "admin" && <a class="menu-item" href="#/users" onClick={() => setMenuOpen(false)}><Icon name="lock" size={17} /> Quản lý user</a>}
           </div>
         </div>

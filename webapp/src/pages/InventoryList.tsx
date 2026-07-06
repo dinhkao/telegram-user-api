@@ -65,7 +65,7 @@ export function InventoryList() {
   return (
     <div class="inv-dash">
       <div class="row space">
-        <h2 class="page-h"><Icon name="box" size={18} /> Kho hàng <span class="muted small">({products.length} mã)</span></h2>
+        <h2 class="page-h"><Icon name="tag" size={18} /> Sản phẩm <span class="muted small">({products.length} mã)</span></h2>
         <button class="btn small primary" onClick={() => setCreateOpen(true)}><Icon name="plus" size={16} /> Tạo mã</button>
       </div>
       <input class="inv-search" type="search" placeholder="Tìm mã / tên sản phẩm…" value={q}

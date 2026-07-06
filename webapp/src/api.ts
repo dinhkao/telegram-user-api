@@ -741,6 +741,13 @@ export async function inventoryList(): Promise<InvProductSummary[]> {
   return d.products || [];
 }
 
+export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string };
+/** Kho hàng: MỌI thùng của MỌI sản phẩm (dashboard kho trực quan). */
+export async function allBoxes(): Promise<KhoBox[]> {
+  const d = await getJSON("/api/inventory/boxes", { cache: false });
+  return d.boxes || [];
+}
+
 /** Tồn 1 product: tổng + nhóm size + thùng in_stock (boxes) + mọi thùng (all_boxes). */
 export async function inventoryDetail(code: string): Promise<InvDetail> {
   const d = await getJSON(`/api/inventory/${encodeURIComponent(code)}`);
