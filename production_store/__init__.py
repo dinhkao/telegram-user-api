@@ -10,6 +10,7 @@ from .queries import (
     set_note,
     add_number,
     set_total,
+    remove_number_by_note,
     set_bang,
     delete_slip,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "set_note",
     "add_number",
     "set_total",
+    "remove_number_by_note",
     "set_bang",
     "delete_slip",
 ]

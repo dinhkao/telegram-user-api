@@ -24,6 +24,7 @@ from inventory_store import (
     get_box,
     update_box,
     set_disabled,
+    delete_box,
     list_places,
     add_place,
     delete_place,
@@ -37,7 +38,7 @@ from inventory_store import (
     delete_allocation,
     summarize,
 )
-from production_store import get_slip, add_number, set_total
+from production_store import get_slip, add_number, set_total, remove_number_by_note
 from order_store.serialization import get_order_by_thread_id
 from server_app.production_routes import _web_actor
 from utils.db import get_connection
@@ -327,6 +328,48 @@ async def place_delete_handler(request: web.Request):
     from server_app.realtime import emit_inventory_changed, emit_box_changed
     emit_inventory_changed()
     emit_box_changed()
+    return web.json_response({"ok": True})
+
+
+async def box_delete_handler(request: web.Request):
+    """Xoá HẲN 1 thùng — CHỈ admin. Cấm nếu đã xuất phần nào cho đơn (thu hồi trước)."""
+    from server_app.order_api_common import is_admin_request
+    if not await is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin mới được xoá thùng"}, status=403)
+    try:
+        box_id = int(request.match_info.get("box_id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "box_id không hợp lệ"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            box = get_box(conn, box_id)
+            if not box:
+                return "notfound", None
+            if list_box_allocations(conn, box_id):
+                return "allocated", None
+            src = box.get("source_thread_id")
+            box_code = box.get("box_code")
+            delete_box(conn, box_id)
+            # Gỡ entry numbers của thùng khỏi phiếu SX nguồn → total tính lại đúng
+            # (numbers là nguồn thật; note nhập lúc tạo = '📦 <box_code>').
+            if src and box_code:
+                remove_number_by_note(conn, src, f"📦 {box_code}")
+            return "ok", src
+        finally:
+            conn.close()
+    status, src = await asyncio.to_thread(_run)
+    if status == "notfound":
+        return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
+    if status == "allocated":
+        return web.json_response({"ok": False, "error": "Thùng đã xuất cho đơn — thu hồi khỏi đơn trước khi xoá"}, status=400)
+    from server_app.realtime import emit_inventory_changed, emit_box_changed, emit_production_changed
+    emit_inventory_changed()
+    emit_box_changed()
+    if src:
+        emit_production_changed(src)
     return web.json_response({"ok": True})
 
 

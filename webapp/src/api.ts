@@ -693,6 +693,10 @@ export async function createUnit(name: string): Promise<Unit> {
 export async function deleteUnit(id: number): Promise<any> {
   return delJSON(`/api/units/${id}`);
 }
+/** Xoá HẲN 1 thùng (chỉ admin; cấm nếu đã xuất cho đơn). */
+export async function deleteBox(id: number | string): Promise<any> {
+  return delJSON(`/api/inventory/box/${id}`);
+}
 /** Đổi đơn vị chứa của 1 thùng. */
 export async function setBoxUnit(boxId: number, unitId: number): Promise<InvBox | null> {
   const d = await postJSON(`/api/inventory/box/${boxId}`, { unit_id: unitId }, { queueable: false });

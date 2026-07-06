@@ -102,6 +102,22 @@ def set_total(conn, thread_id, total) -> bool:
     return upsert_slip(conn, thread_id, total=total)
 
 
+def remove_number_by_note(conn, thread_id, note) -> float:
+    """Gỡ 1 entry numbers theo note (vd '📦 K2L-004' khi xoá thùng) → total tính lại
+    từ danh sách còn lại (numbers là nguồn thật, set_total bị add_number ghi đè)."""
+    slip = get_slip(conn, thread_id)
+    if not slip:
+        return 0.0
+    numbers = slip.get("numbers") or []
+    for i, it in enumerate(numbers):
+        if (it.get("note") or "") == note:
+            numbers.pop(i)
+            break
+    total = sum(item.get("amount", 0) for item in numbers)
+    upsert_slip(conn, thread_id, numbers=numbers, total=total)
+    return total
+
+
 def set_bang(conn, thread_id, bang) -> bool:
     ok = upsert_slip(conn, thread_id, bang=bang)
     # Ghi thêm vào bảng QUAN HỆ production_report_rows (cho dashboard). Phụ — không chặn.

@@ -3,7 +3,7 @@
 // GET /api/inventory/box/:id.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { boxDetail, updateBox, setBoxDisabled, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, soVN, type InvBoxDetail, type InvBox, type Place, type Unit } from "../api";
+import { boxDetail, updateBox, setBoxDisabled, deleteBox, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, currentUser, soVN, type InvBoxDetail, type InvBox, type Place, type Unit } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { confirmDialog } from "../ui/feedback";
@@ -117,6 +117,24 @@ export function BoxDetail({ boxId }: { boxId: string }) {
       if (b) setD({ ...d, box: b });
     } catch (e: any) {
       setErr(e?.message || "Lỗi lưu ngày SX");
+    }
+  };
+
+  const isAdmin = currentUser()?.role === "admin";
+  const doDelete = async () => {
+    if (!d) return;
+    if (d.allocations.length > 0) {
+      setErr("Thùng đã xuất cho đơn — thu hồi trước khi xoá."); return;
+    }
+    if (!(await confirmDialog(`Xoá HẲN thùng ${d.box.box_code}? Không thể hoàn tác.`, { danger: true, okLabel: "Xoá" }))) return;
+    setDisBusy(true); setErr("");
+    try {
+      await deleteBox(boxId);
+      const code = d.box.product_code;
+      window.location.hash = `#/kho/${encodeURIComponent(code)}`;
+    } catch (e: any) {
+      setErr(e?.message || "Lỗi xoá thùng");
+      setDisBusy(false);
     }
   };
 
@@ -290,6 +308,15 @@ export function BoxDetail({ boxId }: { boxId: string }) {
           );
         })()}
       </section>
+
+      {isAdmin && (
+        <section class="card">
+          <button class="btn danger block" disabled={disBusy || d.allocations.length > 0} onClick={doDelete}>
+            <Icon name="trash" size={16} /> Xoá thùng (admin)
+          </button>
+          {d.allocations.length > 0 && <div class="muted small">Đã xuất cho đơn — thu hồi trước khi xoá.</div>}
+        </section>
+      )}
     </div>
   );
 }
