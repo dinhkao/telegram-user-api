@@ -263,12 +263,12 @@ function App() {
         <div class="modal-overlay" onClick={() => setMenuOpen(false)}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head">Mục khác</div>
-            <a class="menu-item" href="#/quy" onClick={() => setMenuOpen(false)}>💵 Sổ quỹ (thu/chi)</a>
-            <a class="menu-item" href="#/sx-bang" onClick={() => setMenuOpen(false)}><Icon name="chart" size={16} /> Dashboard sản xuất</a>
-            <a class="menu-item" href="#/tho" onClick={() => setMenuOpen(false)}>🧑‍🏭 Danh sách thợ</a>
-            <a class="menu-item" href="#/lich-su" onClick={() => setMenuOpen(false)}>🕘 Lịch sử thao tác</a>
-            <a class="menu-item" href="#/bang-gia" onClick={() => setMenuOpen(false)}>💰 Bảng giá chung</a>
-            {user?.role === "admin" && <a class="menu-item" href="#/users" onClick={() => setMenuOpen(false)}>👥 Quản lý user</a>}
+            <a class="menu-item" href="#/quy" onClick={() => setMenuOpen(false)}><Icon name="wallet" size={17} /> Sổ quỹ (thu/chi)</a>
+            <a class="menu-item" href="#/sx-bang" onClick={() => setMenuOpen(false)}><Icon name="chart" size={17} /> Dashboard sản xuất</a>
+            <a class="menu-item" href="#/tho" onClick={() => setMenuOpen(false)}><Icon name="users" size={17} /> Danh sách thợ</a>
+            <a class="menu-item" href="#/lich-su" onClick={() => setMenuOpen(false)}><Icon name="history" size={17} /> Lịch sử thao tác</a>
+            <a class="menu-item" href="#/bang-gia" onClick={() => setMenuOpen(false)}><Icon name="tag" size={17} /> Bảng giá chung</a>
+            {user?.role === "admin" && <a class="menu-item" href="#/users" onClick={() => setMenuOpen(false)}><Icon name="lock" size={17} /> Quản lý user</a>}
           </div>
         </div>
       )}
