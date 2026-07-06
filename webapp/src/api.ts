@@ -783,6 +783,10 @@ export async function unlinkProductKiotviet(code: string): Promise<InvProductLin
   const d = await postJSON(`/api/products/${encodeURIComponent(code)}/unlink`, {}, { queueable: false });
   return d.product;
 }
+/** Xoá 1 mã SP khỏi danh mục local (admin). */
+export async function deleteProduct(code: string): Promise<any> {
+  return delJSON(`/api/products/${encodeURIComponent(code)}`);
+}
 
 export type InvSourceSlip = { thread_id: number; date?: string | null; sp_name?: string | null };
 export type InvBoxDetail = { box: InvBox; source_slip: InvSourceSlip | null; allocations: Allocation[] };

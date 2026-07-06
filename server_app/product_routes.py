@@ -12,7 +12,7 @@ import logging
 from aiohttp import web
 
 from order_db import _get_connection
-from product_store.queries import get_all_products, get_product, upsert_product, set_kiotviet_link, clear_kiotviet_link
+from product_store.queries import get_all_products, get_product, upsert_product, delete_product, set_kiotviet_link, clear_kiotviet_link
 from vn import vn_normalize
 
 log = logging.getLogger("server")
@@ -102,6 +102,32 @@ async def product_unlink_handler(request: web.Request):
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
     return web.json_response({"ok": True, "product": product})
+
+
+async def product_delete_handler(request: web.Request):
+    """Xoá 1 mã SP khỏi danh mục local — CHỈ admin. Không đụng đơn/thùng đã có."""
+    from server_app.order_api_common import is_admin_request
+    if not await is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin mới được xoá mã SP"}, status=403)
+    code = _code(request)
+    if not code:
+        return web.json_response({"ok": False, "error": "Thiếu mã SP"}, status=400)
+
+    def _run():
+        conn = _get_connection()
+        try:
+            if not get_product(conn, code):
+                return False
+            delete_product(conn, code)
+            return True
+        finally:
+            conn.close()
+    ok = await asyncio.to_thread(_run)
+    if not ok:
+        return web.json_response({"ok": False, "error": "Không tìm thấy mã SP"}, status=404)
+    from server_app.realtime import emit_inventory_changed
+    emit_inventory_changed()
+    return web.json_response({"ok": True})
 
 
 async def products_search_handler(request: web.Request):

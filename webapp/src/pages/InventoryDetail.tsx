@@ -3,7 +3,7 @@
 // Thùng đã xuất link tới đơn. Realtime production_changed → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct } from "../api";
+import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, deleteProduct, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct } from "../api";
 import { confirmDialog, toast } from "../ui/feedback";
 import { useScrollLock } from "../useScrollLock";
 import { money } from "../format";
@@ -105,6 +105,16 @@ export function InventoryDetail({ code }: { code: string }) {
       toast(e?.message || "Lỗi", "err");
     }
   };
+  const doDelete = async () => {
+    if (!(await confirmDialog(`Xoá mã "${code}" khỏi danh mục?\n(Không ảnh hưởng đơn/thùng đã có)`, { danger: true }))) return;
+    try {
+      await deleteProduct(code);
+      toast(`🗑️ Đã xoá mã ${code}`, "ok");
+      window.location.hash = "#/kho";
+    } catch (e: any) {
+      toast(e?.message || "Xoá lỗi", "err");
+    }
+  };
 
   const load = async () => {
     try {
@@ -157,9 +167,12 @@ export function InventoryDetail({ code }: { code: string }) {
             <span class="kv-badge off">⚠️ Chưa liên kết KiotViet</span>
           )}
           {isAdmin && (
-            inv.product?.linked
-              ? <button class="btn small" onClick={doUnlink}>Bỏ liên kết</button>
-              : <button class="btn small primary" onClick={openLink}>🔗 Liên kết KiotViet</button>
+            <span class="row" style={{ gap: "6px" }}>
+              {inv.product?.linked
+                ? <button class="btn small" onClick={doUnlink}>Bỏ liên kết</button>
+                : <button class="btn small primary" onClick={openLink}>🔗 Liên kết KiotViet</button>}
+              {inv.product && <button class="btn small danger" title="Xoá mã khỏi danh mục" onClick={doDelete}>🗑️</button>}
+            </span>
           )}
         </div>
       </section>
