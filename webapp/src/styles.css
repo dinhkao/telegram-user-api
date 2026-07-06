@@ -1069,7 +1069,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
    Chú ý dồn vào VIỆC CẦN LÀM: chưa tới = đỏ đặc (nổi bật), xong = viền xanh (yên). */
 .stepdot { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; box-sizing: border-box; flex: none; }
 .stepdot.done { background: transparent; color: var(--ok); border: 2px solid var(--ok); }   /* đã xong — nhẹ */
-.stepdot.pending { background: var(--danger); color: #fff; }  /* CẦN LÀM — đỏ đặc nổi bật */
+.stepdot.pending { background: transparent; border: 2px solid var(--danger); }  /* CẦN LÀM — viền đỏ */
 .stepdot.skip { background: transparent; color: var(--muted-2); border: 2px solid var(--border); }       /* bỏ qua */
 .stepdot.wait { background: var(--warn); color: #fff; }                                                   /* chờ (chiều lấy tiền) */
 .od-status { display: flex; gap: 2px; margin: 8px 0 0; }
