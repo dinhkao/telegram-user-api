@@ -1017,6 +1017,14 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .od-nav-lb { font-size: .62rem; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
 
 /* 5 icon trạng thái ở trang chi tiết đơn */
+/* Thanh dính tóm tắt đơn — hiện khi cuộn qua 5 icon trạng thái (dưới app-bar 44px) */
+.od-stickybar { position: fixed; top: 44px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 640px; box-sizing: border-box; z-index: 15; display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--card); border-bottom: 1px solid var(--border); box-shadow: 0 3px 10px rgba(0,0,0,.09); animation: od-sb-in .16s ease; }
+@keyframes od-sb-in { from { transform: translate(-50%, -8px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+.od-sb-back { flex: 0 0 auto; font-size: 1.4rem; text-decoration: none; color: inherit; padding: 0 2px; }
+.od-sb-status { flex: 0 0 auto; display: flex; gap: 2px; }
+.od-sb-ic { border: none; background: transparent; font-size: 1.05rem; line-height: 1; padding: 3px; cursor: pointer; }
+.od-sb-ic:active { transform: scale(.9); }
+.od-sb-text { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .85rem; font-weight: 600; color: var(--ink); }
 .od-status { display: flex; gap: 6px; margin: 8px 0 0; }
 .od-status .ods-cell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 7px 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--card);

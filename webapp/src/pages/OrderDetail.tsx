@@ -30,6 +30,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [savingNg, setSavingNg] = useState(false);
   const [camSignal, setCamSignal] = useState(0);   // tăng để mở camera ở khối Ảnh
   const [custIds, setCustIds] = useState<number[]>([]);   // thread_id mọi đơn cùng khách (mới→cũ)
+  const [showBar, setShowBar] = useState(false);          // hiện thanh dính (cuộn qua 5 icon)
+  const statusRef = useRef<HTMLDivElement>(null);         // 5 icon trạng thái — mốc quan sát
   const seenTs = useRef<string | null>(null); // ts mới nhất đã báo — chặn báo lại lịch sử cũ
   const saveTimer = useRef<any>(null);
   useEffect(() => () => clearTimeout(saveTimer.current), []); // huỷ timer "sửa text" khi unmount
@@ -160,6 +162,18 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     });
     return () => { off(); clearTimeout(t); clearTimeout(tt); };
   }, [threadId]);
+
+  // Cuộn qua 5 icon trạng thái → hiện thanh dính tóm tắt ở đỉnh
+  useEffect(() => {
+    const el = statusRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([e]) => setShowBar(!e.isIntersecting && e.boundingClientRect.top < 60),
+      { rootMargin: "-44px 0px 0px 0px", threshold: 0 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [detail]);
 
   if (err && !detail) return <ErrorState msg={err} onRetry={reload} />;
   if (!detail) return <Loading />;
@@ -319,6 +333,21 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         <BackLink fallback="#/orders" className="od-back" />
         <div class="od-appttl">Đơn <span class="od-id">#{threadId}</span></div>
       </header>
+
+      {/* Thanh dính: hiện khi cuộn qua 5 icon — back + 5 icon + nội dung đơn (rút gọn) */}
+      {showBar && (
+        <div class="od-stickybar">
+          <BackLink fallback="#/orders" className="od-sb-back" />
+          <div class="od-sb-status">
+            {TASK_STEPS.map(([tt, lbl]) => (
+              <button class="od-sb-ic" key={tt} onClick={() => scrollTo(`task-${tt}`)} title={lbl}>
+                {stepIcon(tt, ts[tt] || {})}
+              </button>
+            ))}
+          </div>
+          <div class="od-sb-text" title={j.text || j.text_raw || ""}>{j.text || j.text_raw || `#${threadId}`}</div>
+        </div>
+      )}
       {detail._stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {msg && <p class="notice" onClick={() => setMsg("")}>{msg}</p>}
 
@@ -346,7 +375,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       </div>
 
       {/* 5 icon trạng thái (như main message Telegram) — trên Thao tác nhanh */}
-      <div class="od-status">
+      <div class="od-status" ref={statusRef}>
         {TASK_STEPS.map(([tt, lbl]) => (
           <button class="ods-cell" key={tt} onClick={() => scrollTo(`task-${tt}`)} title={`Tới bước ${lbl} ở Tiến độ`}>
             <span class="ods-ic">{stepIcon(tt, ts[tt] || {})}</span>
