@@ -955,3 +955,16 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* Thumbnail ảnh soạn hàng hiện ở dòng task */
 .task-thumbs { display: inline-flex; gap: 4px; vertical-align: middle; margin-left: 6px; }
 .task-thumb { width: 26px; height: 26px; object-fit: cover; border-radius: 5px; border: 1px solid var(--border); }
+
+/* Thanh điều hướng đơn↔đơn (dính đáy, trên bottom-nav) */
+.od-navbar { position: sticky; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); z-index: 12;
+  display: flex; gap: 8px; margin-top: 14px; padding: 7px;
+  background: rgba(255,255,255,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,.12); }
+.od-nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 7px 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg);
+  color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.od-nav-btn:active:not(:disabled) { transform: scale(.95); }
+.od-nav-btn:disabled { opacity: .32; cursor: default; }
+.od-nav-ar { font-size: 1.3rem; font-weight: 800; line-height: 1; }
+.od-nav-lb { font-size: .62rem; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }

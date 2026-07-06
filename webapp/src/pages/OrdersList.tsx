@@ -133,6 +133,16 @@ export function invalidateListCache() {
   /* no-op */
 }
 
+/** Đơn liền trước/sau trong DANH SÁCH đang lọc (cache module) — cho thanh điều hướng
+ *  ở trang chi tiết. Null nếu chưa có cache (mở đơn qua deep-link, không từ danh sách). */
+export function filterNeighbors(threadId: string | number): { prev: number | null; next: number | null } {
+  if (!listCache) return { prev: null, next: null };
+  const ids = listCache.orders.map((o) => o.thread_id);
+  const i = ids.findIndex((id) => String(id) === String(threadId));
+  if (i < 0) return { prev: null, next: null };
+  return { prev: i > 0 ? ids[i - 1] : null, next: i < ids.length - 1 ? ids[i + 1] : null };
+}
+
 // FIX: khi ở trang chi tiết, OrdersList unmount nên handler realtime của nó KHÔNG
 // nhận event → sửa task (vd nhận tiền) xong quay lại vẫn thấy dữ liệu cũ (cache).
 // Subscriber cấp-module này LUÔN sống → vá listCache dù danh sách đang unmount, nên

@@ -2,7 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, getJSON, invoiceHtmlUrl, postJSON, refreshOrderDebt, setOrderNgayGiao } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, getCustomerOrders, getJSON, invoiceHtmlUrl, postJSON, refreshOrderDebt, setOrderNgayGiao } from "../api";
 import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
@@ -14,7 +14,7 @@ import { History } from "../detail/History";
 import { Images } from "../detail/Images";
 import { ImageStrip } from "../detail/ImageStrip";
 import { OrderStock } from "../detail/OrderStock";
-import { invalidateListCache, markLastOrder } from "./OrdersList";
+import { invalidateListCache, markLastOrder, filterNeighbors } from "./OrdersList";
 import { confirmDialog, toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
 
@@ -29,6 +29,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [nggTime, setNggTime] = useState("");   // giờ giao (HH:MM) — tách riêng
   const [savingNg, setSavingNg] = useState(false);
   const [camSignal, setCamSignal] = useState(0);   // tăng để mở camera ở khối Ảnh
+  const [custIds, setCustIds] = useState<number[]>([]);   // thread_id mọi đơn cùng khách (mới→cũ)
   const seenTs = useRef<string | null>(null); // ts mới nhất đã báo — chặn báo lại lịch sử cũ
   const saveTimer = useRef<any>(null);
   useEffect(() => () => clearTimeout(saveTimer.current), []); // huỷ timer "sửa text" khi unmount
@@ -64,6 +65,27 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     markLastOrder(threadId); // ghi nhận đơn vừa mở → dashboard tô sáng khi quay lại
     reload();
   }, [threadId]);
+
+  // Tải danh sách đơn CÙNG KHÁCH (mọi trang) cho thanh điều hướng ⏮/⏭ — chỉ khi có khách
+  const custKey = detail?.data?.khach_hang_id;
+  useEffect(() => {
+    if (!custKey) { setCustIds([]); return; }
+    let alive = true;
+    (async () => {
+      const ids: number[] = [];
+      let page = 1, pages = 1;
+      do {
+        try {
+          const d = await getCustomerOrders(String(custKey), page);
+          ids.push(...(d.orders || []).map((o: any) => o.thread_id));
+          pages = d.total_pages || 1;
+        } catch { break; }
+        page++;
+      } while (page <= pages && page <= 10);
+      if (alive) setCustIds(ids);
+    })();
+    return () => { alive = false; };
+  }, [custKey]);
 
   // (Vị trí cuộn do hệ trung tâm ở main.tsx quản: mở đơn = forward → lên đầu;
   //  quay lại danh sách = back → khôi phục. Deep-link ?focus xử lý riêng bên dưới.)
@@ -143,6 +165,13 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const paid = paidTotal(j.payments);
   const remaining = Math.max(0, computedTotal - paid);
   const hasInvoice = !!j.kiotvietInvoiceID;
+
+  // Điều hướng đơn↔đơn: liền kề trong DANH SÁCH lọc + liền kề CÙNG KHÁCH (mới→cũ)
+  const fil = filterNeighbors(threadId);
+  const ci = custIds.findIndex((id) => String(id) === String(threadId));
+  const custPrev = ci > 0 ? custIds[ci - 1] : null;
+  const custNext = ci >= 0 && ci < custIds.length - 1 ? custIds[ci + 1] : null;
+  const gotoOrder = (id: number | null) => { if (id) window.location.hash = `#/order/${id}`; };
 
   // Điều hướng nhanh trong trang
   const scrollTo = (id: string) => {
@@ -379,6 +408,23 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         <Comments base={`/api/order/${threadId}`} chatMessages={detail.chat_messages || []} />
       </aside>
       </div>{/* .detail-grid */}
+
+      {/* Thanh điều hướng đơn↔đơn (dính đáy): «« đơn trước KHÁCH · « đơn trước LỌC ·
+          đơn sau LỌC » · đơn sau KHÁCH »» */}
+      <div class="od-navbar">
+        <button class="od-nav-btn" disabled={!custPrev} onClick={() => gotoOrder(custPrev)} title="Đơn trước của khách này">
+          <span class="od-nav-ar">«</span><span class="od-nav-lb">khách</span>
+        </button>
+        <button class="od-nav-btn" disabled={!fil.prev} onClick={() => gotoOrder(fil.prev)} title="Đơn trước trong danh sách">
+          <span class="od-nav-ar">‹</span><span class="od-nav-lb">lọc</span>
+        </button>
+        <button class="od-nav-btn" disabled={!fil.next} onClick={() => gotoOrder(fil.next)} title="Đơn sau trong danh sách">
+          <span class="od-nav-ar">›</span><span class="od-nav-lb">lọc</span>
+        </button>
+        <button class="od-nav-btn" disabled={!custNext} onClick={() => gotoOrder(custNext)} title="Đơn sau của khách này">
+          <span class="od-nav-ar">»</span><span class="od-nav-lb">khách</span>
+        </button>
+      </div>
     </div>
   );
 }
