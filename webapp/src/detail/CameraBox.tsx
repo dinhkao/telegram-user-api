@@ -7,8 +7,10 @@
 // Controlled: cha (Images) mount component này khi mở, gọi onClose để đóng.
 // Data: POST /api/order/{thread_id}/images. onUploaded() để Images tải lại lưới.
 import { useEffect, useRef, useState } from "preact/hooks";
+import { createPortal } from "preact/compat";
 import { postForm } from "../api";
 import { processSource } from "./imageProcess";
+import { useScrollLock } from "../useScrollLock";
 
 /** Trình duyệt/WebView có API camera trực tiếp không (cần HTTPS). */
 export function cameraSupported(): boolean {
@@ -113,23 +115,29 @@ export function CameraBox({
     }
   };
 
-  return (
-    <div class="cambox">
-      <div class="cam-view">
-        <video ref={videoRef} autoPlay playsInline muted />
-        {flash && <div class="cam-flash" />}
-        {shots > 0 && <span class="cam-count">✓ {shots}</span>}
+  useScrollLock(true);   // mount = camera đang mở → khoá cuộn nền
+
+  // Popup toàn màn (portal ra body) — không nhúng trong khung/thẻ nữa.
+  return createPortal(
+    <div class="cam-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div class="cambox">
+        <div class="cam-view">
+          <video ref={videoRef} autoPlay playsInline muted />
+          {flash && <div class="cam-flash" />}
+          {shots > 0 && <span class="cam-count">✓ {shots}</span>}
+        </div>
+        <div class="cam-bar">
+          <button class="btn" onClick={onClose}>
+            Xong{shots > 0 ? ` · ${shots} ảnh` : ""}
+          </button>
+          <button class="cam-shot" disabled={busy} onClick={shoot} aria-label="Chụp">
+            {busy && <span class="img-spin" />}
+          </button>
+          <span class="muted small">Chạm để chụp</span>
+        </div>
+        {err && <p class="error small">{err}</p>}
       </div>
-      <div class="cam-bar">
-        <button class="btn" onClick={onClose}>
-          Xong{shots > 0 ? ` · ${shots} ảnh` : ""}
-        </button>
-        <button class="cam-shot" disabled={busy} onClick={shoot} aria-label="Chụp">
-          {busy && <span class="img-spin" />}
-        </button>
-        <span class="muted small">Chạm để chụp</span>
-      </div>
-      {err && <p class="error small">{err}</p>}
-    </div>
+    </div>,
+    document.body,
   );
 }

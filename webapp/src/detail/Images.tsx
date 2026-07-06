@@ -136,7 +136,7 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
       {/* Camera trực tiếp trong khung (nhanh, chụp liên tiếp). Nút mở camera chỉ
           hiện khi có HTTPS; nếu không → chỉ còn nút Chọn ảnh từ máy. */}
       {/* Loại ảnh sắp tải (chỉ đơn hàng) — ảnh mới sẽ gắn loại này. */}
-      {isOrder && !camOpen && (
+      {isOrder && (
         <div class="img-kindpick">
           <span class="muted small">Loại:</span>
           {KIND_ORDER.map((k) => (
@@ -147,16 +147,14 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
         </div>
       )}
 
-      {camOpen ? (
-        <CameraBox base={base} kind={isOrder ? uploadKind : undefined} onUploaded={load} onClose={() => setCamOpen(false)} />
-      ) : (
-        <div class="img-actions">
-          {cameraSupported() && (
-            <button class="btn cam-primary" onClick={() => setCamOpen(true)}><Icon name="camera" size={16} /> Mở camera</button>
-          )}
-          <button class="btn" onClick={() => fileInput.current?.click()}><Icon name="image" size={16} /> Chọn ảnh</button>
-        </div>
-      )}
+      <div class="img-actions">
+        {cameraSupported() && (
+          <button class="btn cam-primary" onClick={() => setCamOpen(true)}><Icon name="camera" size={16} /> Mở camera</button>
+        )}
+        <button class="btn" onClick={() => fileInput.current?.click()}><Icon name="image" size={16} /> Chọn ảnh</button>
+      </div>
+      {/* Camera = popup (portal ra body) */}
+      {camOpen && <CameraBox base={base} kind={isOrder ? uploadKind : undefined} onUploaded={load} onClose={() => setCamOpen(false)} />}
 
       {err && <p class="error small">{err}</p>}
 
