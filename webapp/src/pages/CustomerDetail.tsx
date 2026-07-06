@@ -13,6 +13,7 @@ import { money, parseMoney } from "../format";
 import { CompactOrderCard } from "../detail/CompactOrderCard";
 import { onRealtime } from "../realtime";
 import { Loading, ErrorState } from "../ui/states";
+import { Icon } from "../ui/Icon";
 
 type Row = { sp: string; price: string };
 
@@ -144,7 +145,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
 
       {cust.note ? (
         <section class="card cust-note">
-          <label class="card-label">📝 Ghi chú</label>
+          <label class="card-label"><Icon name="edit" size={16} /> Ghi chú</label>
           <p class="cust-note-text">{cust.note}</p>
         </section>
       ) : null}
@@ -157,7 +158,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
           </span>
         </div>
         <button class="btn small" disabled={debtBusy} onClick={doRefreshDebt}>
-          {debtBusy ? "Đang lấy…" : "🔄 Cập nhật nợ KiotViet"}
+          {debtBusy ? "Đang lấy…" : <><Icon name="refresh" size={16} /> Cập nhật nợ KiotViet</>}
         </button>
       </section>
 
@@ -172,15 +173,15 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
               <tr key={i}>
                 <td><input value={r.sp} placeholder="Mã SP" onInput={(e: any) => setRow(i, "sp", e.target.value)} /></td>
                 <td class="num"><input class="num-inp" type="text" inputMode="numeric" value={r.price} placeholder="Giá" onFocus={(e: any) => e.target.select()} onInput={(e: any) => setRow(i, "price", e.target.value)} /></td>
-                <td><button class="btn small" onClick={() => delRow(i)}>✕</button></td>
+                <td><button class="btn small" onClick={() => delRow(i)}><Icon name="close" size={16} /></button></td>
               </tr>
             ))}
             {!rows.length && <tr><td colSpan={3} class="muted small">Chưa có giá riêng — thêm dòng bên dưới.</td></tr>}
           </tbody>
         </table>
         <div class="row">
-          <button class="btn small" onClick={addRow}>➕ Thêm SP</button>
-          <button class="btn primary" disabled={savingP} onClick={savePrices}>{savingP ? "Đang lưu…" : "💾 Lưu bảng giá"}</button>
+          <button class="btn small" onClick={addRow}><Icon name="plus" size={16} /> Thêm SP</button>
+          <button class="btn primary" disabled={savingP} onClick={savePrices}>{savingP ? "Đang lưu…" : <><Icon name="save" size={16} /> Lưu bảng giá</>}</button>
         </div>
       </section>
 
@@ -225,7 +226,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
       <section class="card">
         <label class="card-label">Pattern nhận diện (cách nhau dấu phẩy)</label>
         <textarea rows={3} value={patterns} placeholder="vd: loan phu, chị loàn, lp" onInput={(e: any) => setPatterns(e.target.value)} />
-        <button class="btn primary" disabled={savingPat} onClick={savePatterns}>{savingPat ? "Đang lưu…" : "💾 Lưu pattern"}</button>
+        <button class="btn primary" disabled={savingPat} onClick={savePatterns}>{savingPat ? "Đang lưu…" : <><Icon name="save" size={16} /> Lưu pattern</>}</button>
       </section>
 
       <section class="card">

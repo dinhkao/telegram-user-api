@@ -10,6 +10,7 @@ import { confirmDialog } from "../ui/feedback";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
+import { Icon } from "../ui/Icon";
 
 const isDisabled = (b: InvBox) => !!b.disabled;
 
@@ -194,7 +195,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
         <label class="card-label">Nguồn — Phiếu sản xuất</label>
         {d.source_slip ? (
           <a class="box-jump" href={`#/san_xuat/${d.source_slip.thread_id}?focus=box:${b.id}`}>
-            🏭 {d.source_slip.sp_name || b.product_code}
+            <Icon name="factory" size={16} /> {d.source_slip.sp_name || b.product_code}
             {d.source_slip.date ? ` · ${d.source_slip.date}` : ""} →
           </a>
         ) : (
@@ -211,7 +212,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
             {d.allocations.map((a) => (
               <li key={a.allocation_id}>
                 <a class="box-jump" href={`#/order/${a.order_thread_id}?focus=box:${b.id}`}>
-                  📋 Đơn #{a.order_thread_id} · lấy {soVN(a.quantity)}
+                  <Icon name="clipboard" size={16} /> Đơn #{a.order_thread_id} · lấy {soVN(a.quantity)}
                   {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
                 </a>
                 {a.order_text ? <div class="box-alloc-peek">{a.order_text}</div> : null}

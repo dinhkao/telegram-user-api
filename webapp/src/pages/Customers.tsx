@@ -5,6 +5,7 @@ import { money, fmtTime } from "../format";
 import { onRealtime } from "../realtime";
 import { Loading, EmptyState } from "../ui/states";
 import { toast } from "../ui/feedback";
+import { Icon } from "../ui/Icon";
 
 const PAGE_SIZE = 30;
 
@@ -145,17 +146,17 @@ export function Customers() {
         <input
           class="search"
           type="search"
-          placeholder="🔍 Tìm khách hàng…"
+          placeholder="Tìm khách hàng…"
           value={search}
           onInput={(e: any) => onSearch(e.target.value)}
         />
-        <button class="btn primary cust-add" onClick={() => setCreating(true)} title="Tạo khách mới">＋</button>
+        <button class="btn primary cust-add" onClick={() => setCreating(true)} title="Tạo khách mới"><Icon name="plus" size={16} /></button>
       </header>
 
       {creating && (
         <div class="modal-overlay" onClick={saving ? undefined : () => setCreating(false)}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
-            <div class="modal-head">➕ Tạo khách hàng mới {saving && "· ⏳"}</div>
+            <div class="modal-head"><Icon name="plus" size={18} /> Tạo khách hàng mới {saving && "· ⏳"}</div>
             <input class="cust-in" placeholder="Tên khách (bắt buộc)" value={nName} autofocus
               onInput={(e: any) => setNName(e.target.value)}
               onKeyDown={(e: any) => { if (e.key === "Enter" && nName.trim()) submitNew(); }} />
@@ -189,9 +190,9 @@ export function Customers() {
                   {c.kh_id ? `KV: ${c.kh_id} · ` : ""}
                   {c.key}
                 </span>
-                {c.last_order_at && <span class="muted small">📦 {fmtTime(c.last_order_at)}</span>}
+                {c.last_order_at && <span class="muted small"><Icon name="box" size={16} /> {fmtTime(c.last_order_at)}</span>}
               </div>
-              <span class="muted small">✏️ Sửa bảng giá · pattern · xem đơn →</span>
+              <span class="muted small"><Icon name="edit" size={16} /> Sửa bảng giá · pattern · xem đơn →</span>
             </a>
           </li>
         ))}

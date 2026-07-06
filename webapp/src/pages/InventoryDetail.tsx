@@ -9,6 +9,7 @@ import { useScrollLock } from "../useScrollLock";
 import { money } from "../format";
 import { onRealtime } from "../realtime";
 import { Loading, ErrorState } from "../ui/states";
+import { Icon } from "../ui/Icon";
 
 function fmtWhen(iso?: string): string {
   if (!iso) return "";
@@ -161,7 +162,7 @@ export function InventoryDetail({ code }: { code: string }) {
         <div class="row space">
           {inv.product?.linked ? (
             <span class="kv-badge on" title={inv.product.kv_full_name || undefined}>
-              🔗 Đã liên kết KiotViet{inv.product.kv_id ? ` #${inv.product.kv_id}` : ""}
+              <Icon name="link" size={16} /> Đã liên kết KiotViet{inv.product.kv_id ? ` #${inv.product.kv_id}` : ""}
             </span>
           ) : (
             <span class="kv-badge off">⚠️ Chưa liên kết KiotViet</span>
@@ -170,8 +171,8 @@ export function InventoryDetail({ code }: { code: string }) {
             <span class="row" style={{ gap: "6px" }}>
               {inv.product?.linked
                 ? <button class="btn small" onClick={doUnlink}>Bỏ liên kết</button>
-                : <button class="btn small primary" onClick={openLink}>🔗 Liên kết KiotViet</button>}
-              {inv.product && <button class="btn small danger" title="Xoá mã khỏi danh mục" onClick={doDelete}>🗑️</button>}
+                : <button class="btn small primary" onClick={openLink}><Icon name="link" size={16} /> Liên kết KiotViet</button>}
+              {inv.product && <button class="btn small danger" title="Xoá mã khỏi danh mục" onClick={doDelete}><Icon name="trash" size={16} /></button>}
             </span>
           )}
         </div>
@@ -180,8 +181,8 @@ export function InventoryDetail({ code }: { code: string }) {
       {linkOpen && (
         <div class="modal-overlay" onClick={() => setLinkOpen(false)}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
-            <div class="modal-head">🔗 Liên kết {code} với KiotViet</div>
-            <input class="inv-search" type="search" autofocus placeholder="🔎 Tìm SP KiotViet (tên/mã)…"
+            <div class="modal-head"><Icon name="link" size={18} /> Liên kết {code} với KiotViet</div>
+            <input class="inv-search" type="search" autofocus placeholder="Tìm SP KiotViet (tên/mã)…"
               value={kvQ} onInput={(e: any) => setKvQ(e.target.value)} />
             {kvLoading ? (
               <p class="muted small">Đang tìm…</p>
@@ -234,7 +235,7 @@ export function InventoryDetail({ code }: { code: string }) {
                     {soVN(rem)}
                     {used > 0 ? <span class="muted">/{soVN(b.quantity)}</span> : ""}
                   </span>
-                  {b.note && <span class="inv-note muted small">📝 {b.note}</span>}
+                  {b.note && <span class="inv-note muted small"><Icon name="edit" size={16} /> {b.note}</span>}
                   {b.disabled ? (
                     <span class="inv-status disabled" title={b.disabled_reason || undefined}>
                       Vô hiệu

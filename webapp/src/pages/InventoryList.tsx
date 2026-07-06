@@ -8,6 +8,7 @@ import { onRealtime } from "../realtime";
 import { toast } from "../ui/feedback";
 import { useScrollLock } from "../useScrollLock";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
+import { Icon } from "../ui/Icon";
 
 export function InventoryList() {
   const [products, setProducts] = useState<InvProductSummary[] | null>(null);
@@ -64,16 +65,16 @@ export function InventoryList() {
   return (
     <div class="inv-dash">
       <div class="row space">
-        <h2 class="page-h">📦 Kho hàng <span class="muted small">({products.length} mã)</span></h2>
-        <button class="btn small primary" onClick={() => setCreateOpen(true)}>➕ Tạo mã</button>
+        <h2 class="page-h"><Icon name="box" size={18} /> Kho hàng <span class="muted small">({products.length} mã)</span></h2>
+        <button class="btn small primary" onClick={() => setCreateOpen(true)}><Icon name="plus" size={16} /> Tạo mã</button>
       </div>
-      <input class="inv-search" type="search" placeholder="🔎 Tìm mã / tên sản phẩm…" value={q}
+      <input class="inv-search" type="search" placeholder="Tìm mã / tên sản phẩm…" value={q}
         onInput={(e: any) => setQ(e.target.value)} />
 
       {createOpen && (
         <div class="modal-overlay" onClick={() => setCreateOpen(false)}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
-            <div class="modal-head">➕ Tạo mã sản phẩm</div>
+            <div class="modal-head"><Icon name="plus" size={18} /> Tạo mã sản phẩm</div>
             <input class="inv-search" autofocus placeholder="Mã SP (vd K2L)" value={nCode}
               onInput={(e: any) => setNCode(e.target.value)} onKeyDown={(e: any) => { if (e.key === "Enter") doCreate(); }} />
             <input class="inv-search" placeholder="Tên (tuỳ chọn)" value={nName}
