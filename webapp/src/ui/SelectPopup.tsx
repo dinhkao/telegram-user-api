@@ -1,7 +1,7 @@
 // Chọn 1 giá trị qua POPUP neo ĐỈNH màn hình (danh sách + ô tìm nằm TRÊN, bàn phím
 // dưới không che). Thay <select> tĩnh khắp app. Cho autocomplete động dùng PickerPopup.
 // Nối: ui/Icon, useScrollLock, format.foldVN. Portal ra body → không bị cắt bởi overflow.
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { useScrollLock } from "../useScrollLock";
 import { Icon } from "./Icon";
@@ -25,6 +25,9 @@ export function SelectPopup({
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   useScrollLock(open);
+  const searchRef = useRef<HTMLInputElement>(null);
+  // Focus ô tìm khi mở (autofocus attr không đáng tin trên portal/WebView)
+  useEffect(() => { if (open) requestAnimationFrame(() => searchRef.current?.focus()); }, [open]);
 
   const cur = options.find((o) => String(o.value) === String(value ?? ""));
   const nq = foldVN(q.trim());
@@ -43,7 +46,7 @@ export function SelectPopup({
           <div class="sp-sheet">
             {title && <div class="sp-title">{title}</div>}
             {(searchable || onCreate) && (
-              <input class="sp-search" autofocus placeholder="Tìm…" value={q}
+              <input ref={searchRef} class="sp-search" placeholder="Tìm…" value={q}
                 onInput={(e: any) => setQ(e.target.value)} />
             )}
             <div class="sp-list">

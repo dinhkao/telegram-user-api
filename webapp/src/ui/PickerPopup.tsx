@@ -23,7 +23,10 @@ export function PickerPopup({
   const [q, setQ] = useState("");
   const [list, setList] = useState<PickOpt[]>([]);
   const seq = useRef(0);
+  const searchRef = useRef<HTMLInputElement>(null);
   useScrollLock(open);
+  // Focus ô tìm khi mở (autofocus attr không đáng tin trên portal/WebView)
+  useEffect(() => { if (open) requestAnimationFrame(() => searchRef.current?.focus()); }, [open]);
 
   const run = async (v: string) => {
     const my = ++seq.current;
@@ -45,7 +48,7 @@ export function PickerPopup({
       {open && createPortal(
         <div class="sp-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) close(); }}>
           <div class="sp-sheet">
-            <input class="sp-search" autofocus placeholder={placeholder || "Tìm…"} value={q}
+            <input ref={searchRef} class="sp-search" placeholder={placeholder || "Tìm…"} value={q}
               onInput={(e: any) => onInput(e.target.value)} />
             <div class="sp-list">
               {allowFreeText && q.trim() && !list.some((o) => o.key === q.trim()) && (
