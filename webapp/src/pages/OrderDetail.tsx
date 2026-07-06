@@ -90,11 +90,13 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   // (Vị trí cuộn do hệ trung tâm ở main.tsx quản: mở đơn = forward → lên đầu;
   //  quay lại danh sách = back → khôi phục. Deep-link ?focus xử lý riêng bên dưới.)
 
-  // Deep-link notification: đợi phần tử (bình luận/ảnh) render rồi cuộn tới + nháy sáng
+  // Deep-link notification: đợi phần tử (bình luận/ảnh) render rồi cuộn tới + nháy sáng.
+  // Ảnh nằm CUỐI trang; Bình luận/Lịch sử ở trên tải bất đồng bộ SAU khi đã cuộn →
+  // đẩy vị trí trôi đi. Nên cuộn lại nhiều lần trong ~1.6s để bám đúng vị trí.
   useEffect(() => {
     if (!focus) return;
     let tries = 0;
-    let flashT: any;
+    let flashT: any, settleIv: any;
     const iv = setInterval(() => {
       const el = document.getElementById(focus);
       if (el) {
@@ -103,11 +105,18 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         el.classList.add("flash-target");
         flashT = setTimeout(() => el.classList.remove("flash-target"), 2400);
         history.replaceState(null, "", `#/order/${threadId}`); // xoá ?focus khỏi URL
+        // Cuộn lại vài lần để chống trôi khi nội dung phía trên (bình luận/lịch sử) vừa tải xong
+        let n = 0;
+        settleIv = setInterval(() => {
+          const e2 = document.getElementById(focus);
+          if (e2) e2.scrollIntoView({ behavior: "smooth", block: "center" });
+          if (++n >= 5 || !e2) clearInterval(settleIv);
+        }, 320);
       } else if (++tries > 50) {
         clearInterval(iv); // ~5s không thấy → thôi
       }
     }, 100);
-    return () => { clearInterval(iv); clearTimeout(flashT); };
+    return () => { clearInterval(iv); clearInterval(settleIv); clearTimeout(flashT); };
   }, [focus, threadId]);
 
   // Realtime: đơn này đổi (task/thanh toán/bình luận…) hoặc vừa nối lại → tải lại.
