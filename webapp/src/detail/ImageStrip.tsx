@@ -4,6 +4,7 @@ import { useEffect, useState } from "preact/hooks";
 import { listMediaImages, mediaImageUrl, type OrderImage } from "../api";
 import { onRealtime, eventMatchesBase } from "../realtime";
 import { PhotoViewer } from "./PhotoViewer";
+import { isOrderBase } from "./imageKinds";
 
 export function ImageStrip({ base, onCamera }: { base: string; onCamera?: () => void }) {
   const [images, setImages] = useState<OrderImage[]>([]);
@@ -38,6 +39,8 @@ export function ImageStrip({ base, onCamera }: { base: string; onCamera?: () => 
           images={images}
           start={Math.max(0, images.findIndex((x) => x.id === lightbox.id))}
           base={base}
+          editable={isOrderBase(base)}
+          onKindChange={(id, kind) => setImages((prev) => prev.map((x) => (x.id === id ? { ...x, kind } : x)))}
           onClose={() => setLightbox(null)}
         />
       )}
