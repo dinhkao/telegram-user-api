@@ -338,7 +338,10 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         <b class="od-quick-ttl">Thao tác nhanh</b>
         <div class="qa-grid">
           <button class="qa" onClick={goCamera}><span class="qa-ic">📸</span><span class="qa-lb">Chụp ảnh</span></button>
-          {hasInvoice && <button class="qa" disabled={busy} onClick={doPrint}><span class="qa-ic">🖨️</span><span class="qa-lb">In hoá đơn</span></button>}
+          <button class={"qa" + (hasInvoice ? "" : " qa-off")} disabled={busy}
+            onClick={hasInvoice ? doPrint : () => toast("Chưa có hoá đơn để in", "info")}>
+            <span class="qa-ic">🖨️</span><span class="qa-lb">In hoá đơn</span>
+          </button>
           <button class="qa" onClick={goInvoice}><span class="qa-ic">🧾</span><span class="qa-lb">Hoá đơn</span></button>
           <button class="qa" onClick={goPay}><span class="qa-ic">💰</span><span class="qa-lb">Thanh toán</span></button>
           <button class="qa" onClick={goTasks}><span class="qa-ic">✅</span><span class="qa-lb">Tiến độ</span></button>

@@ -975,3 +975,6 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
   padding: 7px 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
 .od-status .ods-ic { font-size: 1.15rem; line-height: 1; }
 .od-status .ods-lb { font-size: .64rem; color: var(--muted); font-weight: 600; }
+/* Nút Thao tác nhanh chưa dùng được (vd chưa có HĐ để in) — xám nhưng vẫn bấm được (toast) */
+.qa.qa-off { opacity: .45; }
+.qa.qa-off .qa-lb { color: var(--muted); }
