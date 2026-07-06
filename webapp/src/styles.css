@@ -968,3 +968,10 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .od-nav-btn:disabled { opacity: .32; cursor: default; }
 .od-nav-ar { font-size: 1.3rem; font-weight: 800; line-height: 1; }
 .od-nav-lb { font-size: .62rem; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+
+/* 5 icon trạng thái ở trang chi tiết đơn */
+.od-status { display: flex; gap: 6px; margin: 8px 0 0; }
+.od-status .ods-cell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 7px 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+.od-status .ods-ic { font-size: 1.15rem; line-height: 1; }
+.od-status .ods-lb { font-size: .64rem; color: var(--muted); font-weight: 600; }

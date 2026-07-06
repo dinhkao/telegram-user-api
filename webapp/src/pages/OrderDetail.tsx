@@ -173,6 +173,18 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const custNext = ci >= 0 && ci < custIds.length - 1 ? custIds[ci + 1] : null;
   const gotoOrder = (id: number | null) => { if (id) window.location.hash = `#/order/${id}`; };
 
+  // 5 icon trạng thái (khớp renderers.order_parts.status_icons / main message Telegram)
+  const TASK_STEPS: [string, string][] = [["ban_hd", "Bán HĐ"], ["soan_hang", "Soạn"], ["giao_hang", "Giao"], ["nop_tien", "Nộp"], ["nhan_tien", "Nhận"]];
+  const stepIcon = (tt: string, st: any): string => {
+    const note = String(st?.note || "").toLowerCase();
+    if (tt === "nhan_tien" && st?.done && note === "gtr") return "📄";
+    if (tt === "nop_tien" && !st?.done && note === "chieu_lay_tien") return "🟨";
+    if (st?.done && st?.skip) return "🔘";
+    if (st?.done) return "✅";
+    return "❌";
+  };
+  const ts = j.task_status || {};
+
   // Điều hướng nhanh trong trang
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
@@ -309,6 +321,16 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
             </div>
           </div>
         )}
+      </div>
+
+      {/* 5 icon trạng thái (như main message Telegram) — trên Thao tác nhanh */}
+      <div class="od-status">
+        {TASK_STEPS.map(([tt, lbl]) => (
+          <div class="ods-cell" key={tt}>
+            <span class="ods-ic">{stepIcon(tt, ts[tt] || {})}</span>
+            <span class="ods-lb">{lbl}</span>
+          </div>
+        ))}
       </div>
 
       {/* Thao tác nhanh — nút vuông nhảy tới các mục hay dùng, khỏi cuộn tìm */}
