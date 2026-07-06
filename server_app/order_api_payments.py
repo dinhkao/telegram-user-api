@@ -94,7 +94,21 @@ async def _payment_handler(request: web.Request, method: str):
     except Exception as e:
         log.error("Payment API error: %s", e, exc_info=True)
         return web.json_response({"ok": False, "error": str(e)}, status=500)
-    return web.json_response({"ok": True, "thread_id": result["thread_id"], "amount": result["amount"], "method": result["method"], "method_label": result["method_label"], "kv_code": result["kv_code"], "old_debt": result["old_debt"], "new_debt": result["new_debt"]}) if result["success"] else web.json_response({"ok": False, "error": result["error"]}, status=400)
+    if not result["success"]:
+        return web.json_response({"ok": False, "error": result["error"]}, status=400)
+    # Render + gửi phiếu thu PNG vào topic đơn — GIỐNG luồng Telegram (_handle_payment
+    # bước 11). Web trước đây bỏ qua bước này. Chạy nền, không chặn response.
+    if state._client is not None:
+        try:
+            from receipt_print import send_payment_receipt
+            spawn_tracked("payment.receipt", send_payment_receipt(
+                client=state._client, thread_id=result["thread_id"],
+                customer_name=result["kh_name"], payment_amount=result["amount"],
+                old_debt=result["old_debt"], new_debt=result["new_debt"]),
+                {"thread_id": result["thread_id"]})
+        except Exception as e:  # noqa: BLE001 — phiếu thu lỗi không được làm hỏng thanh toán
+            log.warning("Gửi phiếu thu (web) lỗi thread=%s: %s", result["thread_id"], e)
+    return web.json_response({"ok": True, "thread_id": result["thread_id"], "amount": result["amount"], "method": result["method"], "method_label": result["method_label"], "kv_code": result["kv_code"], "old_debt": result["old_debt"], "new_debt": result["new_debt"]})
 
 
 async def payment_tm_handler(request: web.Request):
