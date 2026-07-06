@@ -1065,12 +1065,13 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .od-sb-ic { border: none; background: transparent; line-height: 1; padding: 2px; cursor: pointer; display: inline-flex; align-items: center; }
 .od-sb-ic:active { transform: scale(.9); }
 .od-sb-text { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .85rem; font-weight: 600; color: var(--ink); }
-/* Chấm trạng thái bước đơn (StepDot) — thay ✅❌ emoji */
+/* Chấm trạng thái bước đơn (StepDot) — thay ✅❌ emoji.
+   Chú ý dồn vào VIỆC CẦN LÀM: chưa tới = đỏ đặc (nổi bật), xong = viền xanh (yên). */
 .stepdot { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; box-sizing: border-box; flex: none; }
-.stepdot.done { background: var(--ok); color: #fff; }
-.stepdot.skip { background: var(--muted-2); color: #fff; }
-.stepdot.pending { border: 2px solid var(--border); background: var(--card); }
-.stepdot.wait { border: 2px solid var(--warn); background: var(--warn-wash); }
+.stepdot.done { background: transparent; color: var(--ok); border: 2px solid var(--ok); }   /* đã xong — nhẹ */
+.stepdot.pending { background: var(--danger); color: #fff; }  /* CẦN LÀM — đỏ đặc nổi bật */
+.stepdot.skip { background: transparent; color: var(--muted-2); border: 2px solid var(--border); }       /* bỏ qua */
+.stepdot.wait { background: var(--warn); color: #fff; }                                                   /* chờ (chiều lấy tiền) */
 .od-status { display: flex; gap: 2px; margin: 8px 0 0; }
 .od-status .ods-cell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 7px 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--card);
