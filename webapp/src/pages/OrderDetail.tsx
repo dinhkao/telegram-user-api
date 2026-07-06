@@ -168,8 +168,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     const el = statusRef.current;
     if (!el) return;
     const io = new IntersectionObserver(
-      ([e]) => setShowBar(!e.isIntersecting && e.boundingClientRect.top < 60),
-      { rootMargin: "-44px 0px 0px 0px", threshold: 0 },
+      ([e]) => setShowBar(!e.isIntersecting && e.boundingClientRect.top < 80),
+      { rootMargin: "-76px 0px 0px 0px", threshold: 0 },  // app-bar 44 + header dính ~32
     );
     io.observe(el);
     return () => io.disconnect();
@@ -329,25 +329,25 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
 
   return (
     <div class="detail">
-      <header class="od-appbar">
+      {/* Header DÍNH: bình thường = back + mã đơn; cuộn qua 5 icon → gộp thành
+          back + 5 icon + nội dung đơn (rút gọn). Bấm vào phần tóm tắt = lên đầu. */}
+      <header class={"od-appbar" + (showBar ? " summary" : "")}>
         <BackLink fallback="#/orders" className="od-back" />
-        <div class="od-appttl">Đơn <span class="od-id">#{threadId}</span></div>
-      </header>
-
-      {/* Thanh dính: hiện khi cuộn qua 5 icon — back + 5 icon + nội dung đơn (rút gọn) */}
-      {showBar && (
-        <div class="od-stickybar">
-          <BackLink fallback="#/orders" className="od-sb-back" />
-          <div class="od-sb-status">
-            {TASK_STEPS.map(([tt, lbl]) => (
-              <button class="od-sb-ic" key={tt} onClick={() => scrollTo(`task-${tt}`)} title={lbl}>
-                {stepIcon(tt, ts[tt] || {})}
-              </button>
-            ))}
+        {showBar ? (
+          <div class="od-summary" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} title="Lên đầu">
+            <div class="od-sb-status">
+              {TASK_STEPS.map(([tt, lbl]) => (
+                <button class="od-sb-ic" key={tt} onClick={(e: any) => { e.stopPropagation(); scrollTo(`task-${tt}`); }} title={lbl}>
+                  {stepIcon(tt, ts[tt] || {})}
+                </button>
+              ))}
+            </div>
+            <div class="od-sb-text" title={j.text || j.text_raw || ""}>{j.text || j.text_raw || `#${threadId}`}</div>
           </div>
-          <div class="od-sb-text" title={j.text || j.text_raw || ""}>{j.text || j.text_raw || `#${threadId}`}</div>
-        </div>
-      )}
+        ) : (
+          <div class="od-appttl">Đơn <span class="od-id">#{threadId}</span></div>
+        )}
+      </header>
       {detail._stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {msg && <p class="notice" onClick={() => setMsg("")}>{msg}</p>}
 

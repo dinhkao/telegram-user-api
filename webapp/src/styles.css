@@ -87,9 +87,12 @@ body.modal-open { overflow: hidden; touch-action: none; overscroll-behavior: non
 .state-error { padding: 16px 12px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
 /* ── Redesign Chi tiết đơn: app bar + header tóm tắt + stepper + action bar ── */
-.od-appbar { display: flex; align-items: center; gap: 4px; padding: 0 0 4px; }
+/* Header DÍNH dưới app-bar (44px) — gộp cả tóm tắt khi cuộn */
+.od-appbar { position: sticky; top: 44px; z-index: 15; display: flex; align-items: center; gap: 4px; padding: 4px 0; background: var(--bg); }
+.od-appbar.summary { border-bottom: 1px solid var(--border); box-shadow: 0 3px 10px rgba(0,0,0,.07); }
 .od-back { font-size: 1.15rem; text-decoration: none; color: inherit; padding: 2px 6px; }
 .od-appttl { font-weight: 600; font-size: .9rem; }
+.od-summary { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .od-id { font-family: ui-monospace, monospace; color: var(--muted); font-weight: 500; font-size: .9rem; }
 .od-sum { display: flex; margin-top: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .od-sum .od-s { flex: 1; padding: 9px 11px; border-right: 1px solid var(--border); }
@@ -1017,15 +1020,12 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .od-nav-lb { font-size: .62rem; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
 
 /* 5 icon trạng thái ở trang chi tiết đơn */
-/* Thanh dính tóm tắt đơn — hiện khi cuộn qua 5 icon trạng thái (dưới app-bar 44px) */
-.od-stickybar { position: fixed; top: 44px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 640px; box-sizing: border-box; z-index: 15; display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--card); border-bottom: 1px solid var(--border); box-shadow: 0 3px 10px rgba(0,0,0,.09); animation: od-sb-in .16s ease; }
-@keyframes od-sb-in { from { transform: translate(-50%, -8px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
-.od-sb-back { flex: 0 0 auto; font-size: 1.4rem; text-decoration: none; color: inherit; padding: 0 2px; }
-.od-sb-status { flex: 0 0 auto; display: flex; gap: 2px; }
-.od-sb-ic { border: none; background: transparent; font-size: 1.05rem; line-height: 1; padding: 3px; cursor: pointer; }
+/* Tóm tắt trong header dính (khi cuộn) — 5 icon + nội dung đơn rút gọn */
+.od-sb-status { flex: 0 0 auto; display: flex; gap: 1px; }
+.od-sb-ic { border: none; background: transparent; font-size: 1.05rem; line-height: 1; padding: 2px; cursor: pointer; }
 .od-sb-ic:active { transform: scale(.9); }
 .od-sb-text { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .85rem; font-weight: 600; color: var(--ink); }
-.od-status { display: flex; gap: 6px; margin: 8px 0 0; }
+.od-status { display: flex; gap: 2px; margin: 8px 0 0; }
 .od-status .ods-cell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 7px 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--card);
   cursor: pointer; color: var(--ink); -webkit-tap-highlight-color: transparent; }
