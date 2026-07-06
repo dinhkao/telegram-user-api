@@ -28,7 +28,10 @@ from server_app.order_api_custom_tasks import add_custom_task_handler, remove_cu
 from server_app.order_api_invoice import api_create_invoice_handler, api_delete_invoice_handler, api_invoice_html_handler, api_refresh_debt_handler
 from server_app.order_history import order_history_handler
 from server_app.orders_api import order_detail_handler, orders_api_handler, orders_delivery_handler
-from server_app.product_routes import products_search_handler, products_sync_kiotviet_handler
+from server_app.product_routes import (
+    products_search_handler, product_create_handler, product_kiotviet_search_handler,
+    product_link_handler, product_unlink_handler,
+)
 from server_app.production_routes import (
     production_add_number_handler,
     production_catalog_handler,
@@ -130,7 +133,10 @@ def create_app():
     r.add_post("/api/order/refresh-debt", api_refresh_debt_handler)
     r.add_get("/api/order/{thread_id}/invoice-html", api_invoice_html_handler)
     r.add_get("/api/products", products_search_handler)
-    r.add_post("/api/products/sync-kiotviet", products_sync_kiotviet_handler)
+    r.add_post("/api/products", product_create_handler)
+    r.add_get("/api/products/kiotviet", product_kiotviet_search_handler)
+    r.add_post("/api/products/{code}/link", product_link_handler)
+    r.add_post("/api/products/{code}/unlink", product_unlink_handler)
     r.add_post("/api/order/reply", api_reply_handler)
     r.add_post("/api/customer/price", api_customer_price_handler)
     r.add_post("/api/order/{id}/task_status/clear", api_task_status_clear_handler)

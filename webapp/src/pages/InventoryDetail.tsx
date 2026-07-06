@@ -3,10 +3,11 @@
 // Thùng đã xuất link tới đơn. Realtime production_changed → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { inventoryDetail, productOrders, syncKiotvietProducts, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef } from "../api";
+import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct } from "../api";
+import { confirmDialog, toast } from "../ui/feedback";
+import { useScrollLock } from "../useScrollLock";
 import { money } from "../format";
 import { onRealtime } from "../realtime";
-import { toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
 
 function fmtWhen(iso?: string): string {
@@ -20,8 +21,27 @@ function fmtWhen(iso?: string): string {
 export function InventoryDetail({ code }: { code: string }) {
   const [inv, setInv] = useState<InvDetail | null>(null);
   const [err, setErr] = useState("");
-  const [syncing, setSyncing] = useState(false);
   const isAdmin = currentUser()?.role === "admin";
+  // Liên kết KiotViet từng cái (modal tìm + chọn)
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [kvQ, setKvQ] = useState("");
+  const [kvRes, setKvRes] = useState<KvProduct[]>([]);
+  const [kvLoading, setKvLoading] = useState(false);
+  useScrollLock(linkOpen);
+  useEffect(() => {
+    if (!linkOpen) return;
+    const q = kvQ.trim();
+    if (q.length < 2) { setKvRes([]); return; }
+    let alive = true;
+    setKvLoading(true);
+    const t = setTimeout(() => {
+      searchKiotvietProducts(q)
+        .then((r) => { if (alive) setKvRes(r); })
+        .catch(() => { if (alive) setKvRes([]); })
+        .finally(() => { if (alive) setKvLoading(false); });
+    }, 300);
+    return () => { alive = false; clearTimeout(t); };
+  }, [kvQ, linkOpen]);
 
   // Đơn có SP này — LAZY: chỉ tải khi cuộn tới khối, phân trang "Xem thêm"
   const [ords, setOrds] = useState<InvOrderRef[]>([]);
@@ -64,16 +84,25 @@ export function InventoryDetail({ code }: { code: string }) {
     return () => io.disconnect();
   }, [inv, code]);
 
-  const doSync = async () => {
-    setSyncing(true);
+  const openLink = () => { setKvQ(inv?.product?.name || code); setLinkOpen(true); };
+  const doLink = async (kv: KvProduct) => {
     try {
-      const r = await syncKiotvietProducts();
-      toast(`✅ Đồng bộ KiotViet: ${r.synced}/${r.fetched} SP`, "ok");
+      await linkProductKiotviet(code, kv.id, kv.full_name);
+      toast(`✅ Liên kết ${code} → ${kv.full_name}`, "ok");
+      setLinkOpen(false);
       await load();
     } catch (e: any) {
-      toast(e?.message || "Đồng bộ lỗi", "err");
-    } finally {
-      setSyncing(false);
+      toast(e?.message || "Liên kết lỗi", "err");
+    }
+  };
+  const doUnlink = async () => {
+    if (!(await confirmDialog("Bỏ liên kết KiotViet của mã này?"))) return;
+    try {
+      await unlinkProductKiotviet(code);
+      toast("Đã bỏ liên kết", "ok");
+      await load();
+    } catch (e: any) {
+      toast(e?.message || "Lỗi", "err");
     }
   };
 
@@ -121,19 +150,45 @@ export function InventoryDetail({ code }: { code: string }) {
         {inv.product?.name && <div class="prod-link-name">{inv.product.name}</div>}
         <div class="row space">
           {inv.product?.linked ? (
-            <span class="kv-badge on" title={inv.product.kv_synced_at ? `Đồng bộ: ${fmtWhen(inv.product.kv_synced_at)}` : undefined}>
+            <span class="kv-badge on" title={inv.product.kv_full_name || undefined}>
               🔗 Đã liên kết KiotViet{inv.product.kv_id ? ` #${inv.product.kv_id}` : ""}
             </span>
           ) : (
             <span class="kv-badge off">⚠️ Chưa liên kết KiotViet</span>
           )}
           {isAdmin && (
-            <button class="btn small" disabled={syncing} onClick={doSync}>
-              {syncing ? "⏳ Đang đồng bộ…" : "🔄 Đồng bộ"}
-            </button>
+            inv.product?.linked
+              ? <button class="btn small" onClick={doUnlink}>Bỏ liên kết</button>
+              : <button class="btn small primary" onClick={openLink}>🔗 Liên kết KiotViet</button>
           )}
         </div>
       </section>
+
+      {linkOpen && (
+        <div class="modal-overlay" onClick={() => setLinkOpen(false)}>
+          <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
+            <div class="modal-head">🔗 Liên kết {code} với KiotViet</div>
+            <input class="inv-search" type="search" autofocus placeholder="🔎 Tìm SP KiotViet (tên/mã)…"
+              value={kvQ} onInput={(e: any) => setKvQ(e.target.value)} />
+            {kvLoading ? (
+              <p class="muted small">Đang tìm…</p>
+            ) : kvRes.length === 0 ? (
+              <p class="muted small">{kvQ.trim().length < 2 ? "Gõ ≥2 ký tự để tìm." : "Không thấy SP KiotViet."}</p>
+            ) : (
+              <div class="inv-detail-list kv-list">
+                {kvRes.map((kv) => (
+                  <button class="inv-detail-row link kv-row" key={kv.id} onClick={() => doLink(kv)}>
+                    <code class="inv-bc">{kv.code}</code>
+                    <span class="prod-ord-text">{kv.full_name}</span>
+                    <span class="muted small">#{kv.id}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button class="btn block" style={{ marginTop: "8px" }} onClick={() => setLinkOpen(false)}>Đóng</button>
+          </div>
+        </div>
+      )}
 
       {inv.groups.length > 0 && (
         <div class="inv-groups" style={{ margin: "6px 0 12px" }}>

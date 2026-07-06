@@ -53,35 +53,35 @@ def upsert_product(conn, code: str, name: str = None, cost_price: int = None, no
     conn.commit(); _invalidate_products_cache(); return True
 
 
-def sync_kiotviet_products(conn, kv_products: list[dict]) -> int:
-    """Nhập/ghi đè liên kết KiotViet vào products theo mã (code).
-    kv_products: [{code, id, full_name}]. Sản phẩm chưa có → tạo (name từ KiotViet).
-    Đã có → gắn kv_id/kv_full_name/kv_synced_at (KHÔNG đụng cost_price/note local).
-    Trả số dòng xử lý. Đây là điểm liên kết code↔KiotViet (mã trùng = valid trên KV)."""
+def set_kiotviet_link(conn, code: str, kv_id: int, full_name: str = "") -> Optional[dict]:
+    """Liên kết 1 mã SP local với 1 sản phẩm KiotViet (từng cái). KHÔNG đụng
+    cost_price/note; điền name nếu đang trống. Trả product đã cập nhật, None nếu
+    mã không tồn tại."""
+    code = code.upper().strip()
+    if not code or not kv_id or not get_product(conn, code):
+        return None
     now = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
-    count = 0
-    for p in kv_products:
-        code = (p.get("code") or "").upper().strip()
-        kv_id = p.get("id")
-        if not code or not kv_id:
-            continue
-        full = p.get("full_name") or p.get("fullName") or p.get("name") or ""
-        existing = get_product(conn, code)
-        if existing:
-            conn.execute(
-                "UPDATE products SET kv_id = ?, kv_full_name = ?, kv_synced_at = ?, "
-                "name = COALESCE(NULLIF(name, ''), ?), updated_at = ? WHERE code = ?",
-                (kv_id, full, now, full, now, code),
-            )
-        else:
-            conn.execute(
-                "INSERT INTO products (code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at) "
-                "VALUES (?, ?, 0, '', ?, ?, ?, ?, ?)",
-                (code, full, kv_id, full, now, now, now),
-            )
-        count += 1
+    conn.execute(
+        "UPDATE products SET kv_id = ?, kv_full_name = ?, kv_synced_at = ?, "
+        "name = COALESCE(NULLIF(name, ''), ?), updated_at = ? WHERE code = ?",
+        (int(kv_id), full_name or "", now, full_name or "", now, code),
+    )
     conn.commit(); _invalidate_products_cache()
-    return count
+    return get_product(conn, code)
+
+
+def clear_kiotviet_link(conn, code: str) -> Optional[dict]:
+    """Bỏ liên kết KiotViet của 1 mã SP."""
+    code = code.upper().strip()
+    if not get_product(conn, code):
+        return None
+    now = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+    conn.execute(
+        "UPDATE products SET kv_id = NULL, kv_full_name = NULL, kv_synced_at = NULL, updated_at = ? WHERE code = ?",
+        (now, code),
+    )
+    conn.commit(); _invalidate_products_cache()
+    return get_product(conn, code)
 
 
 def delete_product(conn, code: str) -> bool:

@@ -761,10 +761,27 @@ export async function productOrders(code: string, offset = 0, limit = 20): Promi
   return { orders: d.orders || [], total: d.total || 0, has_more: !!d.has_more };
 }
 
-/** Đồng bộ danh mục KiotViet → products (liên kết code↔KiotViet). Trả {fetched, synced}. */
-export async function syncKiotvietProducts(): Promise<{ fetched: number; synced: number }> {
-  const d = await postJSON("/api/products/sync-kiotviet", {}, { queueable: false });
-  return { fetched: d.fetched || 0, synced: d.synced || 0 };
+export type KvProduct = { id: number; code: string; full_name: string };
+
+/** Tạo mã SP mới (danh mục local). */
+export async function createProduct(code: string, name = ""): Promise<{ product: InvProductLink; existed: boolean }> {
+  const d = await postJSON("/api/products", { code, name }, { queueable: false });
+  return { product: d.product, existed: !!d.existed };
+}
+/** Tìm sản phẩm KiotViet để liên kết (từng cái). */
+export async function searchKiotvietProducts(q: string): Promise<KvProduct[]> {
+  const d = await getJSON(`/api/products/kiotviet?q=${encodeURIComponent(q)}`, { cache: false });
+  return d.products || [];
+}
+/** Liên kết 1 mã SP với 1 sản phẩm KiotViet. */
+export async function linkProductKiotviet(code: string, kvId: number, fullName: string): Promise<InvProductLink> {
+  const d = await postJSON(`/api/products/${encodeURIComponent(code)}/link`, { kv_id: kvId, kv_full_name: fullName }, { queueable: false });
+  return d.product;
+}
+/** Bỏ liên kết KiotViet. */
+export async function unlinkProductKiotviet(code: string): Promise<InvProductLink> {
+  const d = await postJSON(`/api/products/${encodeURIComponent(code)}/unlink`, {}, { queueable: false });
+  return d.product;
 }
 
 export type InvSourceSlip = { thread_id: number; date?: string | null; sp_name?: string | null };

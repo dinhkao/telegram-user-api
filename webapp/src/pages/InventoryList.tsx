@@ -2,15 +2,38 @@
 // Tap card → #/kho/:code (chi tiết thùng). GET /api/inventory. Realtime: box mới
 // phát production_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
-import { inventoryList, soVN, type InvProductSummary } from "../api";
+import { inventoryList, createProduct, soVN, type InvProductSummary } from "../api";
 import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
+import { toast } from "../ui/feedback";
+import { useScrollLock } from "../useScrollLock";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 
 export function InventoryList() {
   const [products, setProducts] = useState<InvProductSummary[] | null>(null);
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [nCode, setNCode] = useState("");
+  const [nName, setNName] = useState("");
+  const [creating, setCreating] = useState(false);
+  useScrollLock(createOpen);
+
+  const doCreate = async () => {
+    const code = nCode.trim().toUpperCase();
+    if (!code) return;
+    setCreating(true);
+    try {
+      const r = await createProduct(code, nName.trim());
+      toast(r.existed ? `Mã ${code} đã có` : `✅ Tạo mã ${code}`, "ok");
+      setCreateOpen(false); setNCode(""); setNName("");
+      window.location.hash = `#/kho/${encodeURIComponent(code)}`;
+    } catch (e: any) {
+      toast(e?.message || "Tạo lỗi", "err");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const load = async () => {
     try {
@@ -40,9 +63,30 @@ export function InventoryList() {
 
   return (
     <div class="inv-dash">
-      <h2 class="page-h">📦 Kho hàng <span class="muted small">({products.length} mã)</span></h2>
+      <div class="row space">
+        <h2 class="page-h">📦 Kho hàng <span class="muted small">({products.length} mã)</span></h2>
+        <button class="btn small primary" onClick={() => setCreateOpen(true)}>➕ Tạo mã</button>
+      </div>
       <input class="inv-search" type="search" placeholder="🔎 Tìm mã / tên sản phẩm…" value={q}
         onInput={(e: any) => setQ(e.target.value)} />
+
+      {createOpen && (
+        <div class="modal-overlay" onClick={() => setCreateOpen(false)}>
+          <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
+            <div class="modal-head">➕ Tạo mã sản phẩm</div>
+            <input class="inv-search" autofocus placeholder="Mã SP (vd K2L)" value={nCode}
+              onInput={(e: any) => setNCode(e.target.value)} onKeyDown={(e: any) => { if (e.key === "Enter") doCreate(); }} />
+            <input class="inv-search" placeholder="Tên (tuỳ chọn)" value={nName}
+              onInput={(e: any) => setNName(e.target.value)} onKeyDown={(e: any) => { if (e.key === "Enter") doCreate(); }} />
+            <div class="row" style={{ gap: "8px", marginTop: "8px" }}>
+              <button class="btn primary" style={{ flex: 1 }} disabled={creating || !nCode.trim()} onClick={doCreate}>
+                {creating ? "⏳…" : "Tạo"}
+              </button>
+              <button class="btn" onClick={() => setCreateOpen(false)}>Huỷ</button>
+            </div>
+          </div>
+        </div>
+      )}
       {!products.length ? (
         <EmptyState>Kho trống. Nhập thùng ở phiếu SX (🏭 SX).</EmptyState>
       ) : !shown.length ? (

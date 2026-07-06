@@ -12,32 +12,96 @@ import logging
 from aiohttp import web
 
 from order_db import _get_connection
-from product_store.queries import get_all_products, sync_kiotviet_products
+from product_store.queries import get_all_products, get_product, upsert_product, set_kiotviet_link, clear_kiotviet_link
 from vn import vn_normalize
 
 log = logging.getLogger("server")
 
 
-async def products_sync_kiotviet_handler(request: web.Request):
-    """Đồng bộ danh mục KiotViet → products (liên kết code↔KiotViet). POST, không body.
-    Kéo toàn bộ sản phẩm KiotViet rồi upsert kv_id/tên. Trả số dòng đã đồng bộ."""
+async def product_create_handler(request: web.Request):
+    """Tạo mã SP mới (danh mục local). Body {code, name?}. Trùng mã → trả mã sẵn có."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    code = (body.get("code") or "").upper().strip()
+    if not code:
+        return web.json_response({"ok": False, "error": "Thiếu mã SP"}, status=400)
+    name = (body.get("name") or "").strip()
+
     def _run():
-        from integrations.kiotviet import list_all_products_kv
-        kv = list_all_products_kv()
         conn = _get_connection()
         try:
-            n = sync_kiotviet_products(conn, kv)
+            existed = get_product(conn, code) is not None
+            upsert_product(conn, code, name=name or None)
+            return get_product(conn, code), existed
         finally:
             conn.close()
-        return len(kv), n
-    try:
-        fetched, synced = await asyncio.to_thread(_run)
-    except Exception as e:  # noqa: BLE001
-        log.error("Đồng bộ KiotViet products lỗi: %s", e, exc_info=True)
-        return web.json_response({"ok": False, "error": str(e)}, status=500)
+    product, existed = await asyncio.to_thread(_run)
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
-    return web.json_response({"ok": True, "fetched": fetched, "synced": synced})
+    return web.json_response({"ok": True, "product": product, "existed": existed})
+
+
+async def product_kiotviet_search_handler(request: web.Request):
+    """Tìm sản phẩm KiotViet để liên kết (từng cái). GET ?q= → [{id, code, full_name}]."""
+    q = (request.query.get("q") or "").strip()
+    if len(q) < 2:
+        return web.json_response({"ok": True, "products": []})
+    try:
+        from integrations.kiotviet import search_products_kv
+        products = await asyncio.to_thread(search_products_kv, q, 20)
+    except Exception as e:  # noqa: BLE001
+        log.error("Tìm SP KiotViet lỗi: %s", e)
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+    return web.json_response({"ok": True, "products": products})
+
+
+def _code(request):
+    return (request.match_info.get("code") or "").upper().strip()
+
+
+async def product_link_handler(request: web.Request):
+    """Liên kết 1 mã SP với 1 sản phẩm KiotViet. Body {kv_id, kv_full_name?}."""
+    code = _code(request)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    kv_id = body.get("kv_id")
+    if not code or not kv_id:
+        return web.json_response({"ok": False, "error": "Thiếu code / kv_id"}, status=400)
+
+    def _run():
+        conn = _get_connection()
+        try:
+            return set_kiotviet_link(conn, code, int(kv_id), body.get("kv_full_name") or "")
+        finally:
+            conn.close()
+    product = await asyncio.to_thread(_run)
+    if not product:
+        return web.json_response({"ok": False, "error": "Không tìm thấy mã SP"}, status=404)
+    from server_app.realtime import emit_inventory_changed
+    emit_inventory_changed()
+    return web.json_response({"ok": True, "product": product})
+
+
+async def product_unlink_handler(request: web.Request):
+    """Bỏ liên kết KiotViet của 1 mã SP."""
+    code = _code(request)
+
+    def _run():
+        conn = _get_connection()
+        try:
+            return clear_kiotviet_link(conn, code)
+        finally:
+            conn.close()
+    product = await asyncio.to_thread(_run)
+    if not product:
+        return web.json_response({"ok": False, "error": "Không tìm thấy mã SP"}, status=404)
+    from server_app.realtime import emit_inventory_changed
+    emit_inventory_changed()
+    return web.json_response({"ok": True, "product": product})
 
 
 async def products_search_handler(request: web.Request):
