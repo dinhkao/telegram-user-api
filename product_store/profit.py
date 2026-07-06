@@ -32,14 +32,23 @@ def calculate_order_profit(conn, order: dict) -> dict:
 
 
 def freeze_invoice_cost_prices(conn, invoice: list) -> list:
+    """Choke point CHUNG cho mọi đường lưu invoice (web + Telegram). Mỗi dòng:
+    - đông giá vốn 1 lần (cost_price) từ product_store;
+    - gắn TÊN sản phẩm (snapshot từ danh mục) + cờ `known` (mã có trong products?).
+    known=False → mã lạ (danh mục/KiotViet không có) → UI cảnh báo. Tên là bản chụp
+    (không join sống) vì đơn là bản ghi lịch sử."""
     out = []
     for item in invoice:
-        if "cost_price" not in item:
-            code = (item.get("sp") or "").upper().strip()
-            if code:
-                product = get_product(conn, code)
-                if product and product.get("cost_price", 0) > 0:
-                    item = {**item, "cost_price": product["cost_price"]}
+        code = (item.get("sp") or "").upper().strip()
+        product = get_product(conn, code) if code else None
+        item = {**item}
+        if "cost_price" not in item and product and product.get("cost_price", 0) > 0:
+            item["cost_price"] = product["cost_price"]
+        # Tên hiển thị: ưu tiên tên danh mục local, rồi tên KiotViet
+        name = (product or {}).get("name") or (product or {}).get("kv_full_name")
+        if name:
+            item["name"] = name
+        item["known"] = product is not None
         out.append(item)
     return out
 

@@ -309,16 +309,32 @@ async def inventory_detail_handler(request: web.Request):
         try:
             _ensure(conn)
             all_boxes = list_boxes(conn, product_code=code)
+            # Liên kết KiotViet + tên danh mục (product_store)
+            from product_store.queries import get_product
+            prod = get_product(conn, code)
+            # Các đơn có chứa mã SP này (mới→cũ)
+            from order_store.product_orders import orders_containing_product
+            orders = orders_containing_product(conn, code, limit=100)
         finally:
             conn.close()
-        return all_boxes
-    all_boxes = await asyncio.to_thread(_run)
+        return all_boxes, prod, orders
+    all_boxes, prod, orders = await asyncio.to_thread(_run)
     # khả dụng phân bổ = thùng còn hiệu lực + còn lại > 0 (giữ quantity gốc + remaining)
     avail = [b for b in all_boxes if not b.get("disabled") and b.get("remaining", 0) > 0]
     # tồn = tổng CÒN LẠI → gộp theo remaining
     summary = summarize([{**b, "quantity": b["remaining"]} for b in avail])
+    product = None
+    if prod:
+        product = {
+            "code": prod["code"], "name": prod.get("name") or prod.get("kv_full_name") or "",
+            "cost_price": prod.get("cost_price") or 0,
+            "kv_id": prod.get("kv_id"), "kv_full_name": prod.get("kv_full_name"),
+            "kv_synced_at": prod.get("kv_synced_at"),
+            "linked": bool(prod.get("kv_id")),
+        }
     return web.json_response({
-        "ok": True, "product_code": code, "boxes": avail, "all_boxes": all_boxes, **summary,
+        "ok": True, "product_code": code, "boxes": avail, "all_boxes": all_boxes,
+        "product": product, "orders": orders, **summary,
     })
 
 

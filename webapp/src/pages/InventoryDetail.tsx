@@ -3,8 +3,10 @@
 // Thùng đã xuất link tới đơn. Realtime production_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { inventoryDetail, soVN, type InvDetail, type InvBox } from "../api";
+import { inventoryDetail, syncKiotvietProducts, currentUser, soVN, type InvDetail, type InvBox } from "../api";
+import { money } from "../format";
 import { onRealtime } from "../realtime";
+import { toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
 
 function fmtWhen(iso?: string): string {
@@ -18,6 +20,21 @@ function fmtWhen(iso?: string): string {
 export function InventoryDetail({ code }: { code: string }) {
   const [inv, setInv] = useState<InvDetail | null>(null);
   const [err, setErr] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const isAdmin = currentUser()?.role === "admin";
+
+  const doSync = async () => {
+    setSyncing(true);
+    try {
+      const r = await syncKiotvietProducts();
+      toast(`✅ Đồng bộ KiotViet: ${r.synced}/${r.fetched} SP`, "ok");
+      await load();
+    } catch (e: any) {
+      toast(e?.message || "Đồng bộ lỗi", "err");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const load = async () => {
     try {
@@ -54,6 +71,25 @@ export function InventoryDetail({ code }: { code: string }) {
           <span class="inv-stock-lbl">tồn kho</span>
         </div>
       </div>
+
+      {/* Tên danh mục + liên kết KiotViet */}
+      <section class="card prod-link">
+        {inv.product?.name && <div class="prod-link-name">{inv.product.name}</div>}
+        <div class="row space">
+          {inv.product?.linked ? (
+            <span class="kv-badge on" title={inv.product.kv_synced_at ? `Đồng bộ: ${fmtWhen(inv.product.kv_synced_at)}` : undefined}>
+              🔗 Đã liên kết KiotViet{inv.product.kv_id ? ` #${inv.product.kv_id}` : ""}
+            </span>
+          ) : (
+            <span class="kv-badge off">⚠️ Chưa liên kết KiotViet</span>
+          )}
+          {isAdmin && (
+            <button class="btn small" disabled={syncing} onClick={doSync}>
+              {syncing ? "⏳ Đang đồng bộ…" : "🔄 Đồng bộ"}
+            </button>
+          )}
+        </div>
+      </section>
 
       {inv.groups.length > 0 && (
         <div class="inv-groups" style={{ margin: "6px 0 12px" }}>
@@ -100,6 +136,24 @@ export function InventoryDetail({ code }: { code: string }) {
                 </a>
               );
             })}
+          </div>
+        )}
+      </section>
+
+      <section class="card">
+        <label class="card-label">Đơn có sản phẩm này ({inv.orders.length})</label>
+        {inv.orders.length === 0 ? (
+          <div class="muted small">Chưa có đơn nào chứa mã này.</div>
+        ) : (
+          <div class="inv-detail-list">
+            {inv.orders.map((o) => (
+              <a key={o.thread_id} class="inv-detail-row link" href={`#/order/${o.thread_id}`}>
+                <code class="inv-bc">#{o.thread_id}</code>
+                <span class="prod-ord-text">{o.text || "(trống)"}</span>
+                {o.sl != null && <span class="inv-q">×{soVN(o.sl)}</span>}
+                {o.price != null && o.price > 0 && <span class="muted small">{money(o.price)}đ</span>}
+              </a>
+            ))}
           </div>
         )}
       </section>

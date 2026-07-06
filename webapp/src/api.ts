@@ -690,6 +690,8 @@ export type Allocation = {
   order_text?: string; // dòng đầu nội dung đơn (sneak peek, chỉ trang chi tiết thùng)
 };
 export type InvGroup = { quantity: number; count: number; total: number; box_codes: string[] };
+export type InvProductLink = { code: string; name: string; cost_price: number; kv_id: number | null; kv_full_name: string | null; kv_synced_at: string | null; linked: boolean };
+export type InvOrderRef = { thread_id: number; text: string; sl: number | null; price: number | null; created: string | null };
 export type InvDetail = {
   product_code: string;
   total: number;
@@ -697,6 +699,8 @@ export type InvDetail = {
   groups: InvGroup[];
   boxes: InvBox[]; // in_stock
   all_boxes: InvBox[]; // mọi status
+  product: InvProductLink | null; // liên kết KiotViet + tên danh mục
+  orders: InvOrderRef[];          // các đơn có mã SP này
 };
 export type InvProductSummary = {
   product_code: string;
@@ -746,7 +750,15 @@ export async function inventoryDetail(code: string): Promise<InvDetail> {
     groups: d.groups || [],
     boxes: d.boxes || [],
     all_boxes: d.all_boxes || [],
+    product: d.product || null,
+    orders: d.orders || [],
   };
+}
+
+/** Đồng bộ danh mục KiotViet → products (liên kết code↔KiotViet). Trả {fetched, synced}. */
+export async function syncKiotvietProducts(): Promise<{ fetched: number; synced: number }> {
+  const d = await postJSON("/api/products/sync-kiotviet", {}, { queueable: false });
+  return { fetched: d.fetched || 0, synced: d.synced || 0 };
 }
 
 export type InvSourceSlip = { thread_id: number; date?: string | null; sp_name?: string | null };

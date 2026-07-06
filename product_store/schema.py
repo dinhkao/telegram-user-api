@@ -8,12 +8,15 @@ def create_products_table(conn):
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS products (
-            code        TEXT PRIMARY KEY,
-            name        TEXT,
-            cost_price  INTEGER DEFAULT 0,
-            note        TEXT,
-            created_at  TEXT DEFAULT (datetime('now')),
-            updated_at  TEXT DEFAULT (datetime('now'))
+            code          TEXT PRIMARY KEY,
+            name          TEXT,
+            cost_price    INTEGER DEFAULT 0,
+            note          TEXT,
+            kv_id         INTEGER,
+            kv_full_name  TEXT,
+            kv_synced_at  TEXT,
+            created_at    TEXT DEFAULT (datetime('now')),
+            updated_at    TEXT DEFAULT (datetime('now'))
         )
         """
     )
@@ -32,6 +35,12 @@ def migrate_products_table(conn):
         conn.execute("ALTER TABLE products ADD COLUMN created_at TEXT DEFAULT (datetime('now'))")
     if "updated_at" not in columns:
         conn.execute("ALTER TABLE products ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))")
+    if "kv_id" not in columns:
+        conn.execute("ALTER TABLE products ADD COLUMN kv_id INTEGER")
+    if "kv_full_name" not in columns:
+        conn.execute("ALTER TABLE products ADD COLUMN kv_full_name TEXT")
+    if "kv_synced_at" not in columns:
+        conn.execute("ALTER TABLE products ADD COLUMN kv_synced_at TEXT")
     conn.commit()
 
 
