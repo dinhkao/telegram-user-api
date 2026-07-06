@@ -869,7 +869,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* Chi tiết đơn — thanh điều hướng nhanh (dưới nội dung đơn) */
 .od-quick { margin: 8px 0; }
 .od-quick-ttl { display: block; margin-bottom: 8px; }
-.qa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.qa-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .qa { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
   padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); cursor: pointer;
   transition: background .12s, border-color .12s, transform .05s; }
