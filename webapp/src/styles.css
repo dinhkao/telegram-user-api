@@ -800,7 +800,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .preview-box { margin: 8px 0; border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: #fafbfc; }
 /* Tạo đơn: preview DÍNH ĐỈNH (luôn trên màn hình khi gõ) + ô nhập CHỮ TO tự thu nhỏ */
 .co-preview { position: sticky; top: 0; z-index: 3; max-height: 34vh; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
-.co-input { width: 100%; box-sizing: border-box; resize: none; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; line-height: 1.25; font-weight: 600; letter-spacing: .2px; }
+/* Chiều cao ổn định (không phụ thuộc bàn phím) → không giật; font do JS thu nhỏ vừa ô */
+.co-input { width: 100%; box-sizing: border-box; resize: none; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; line-height: 1.25; font-weight: 600; letter-spacing: .2px; height: 40vh; min-height: 150px; max-height: 46vh; overflow-y: auto; }
 .co-input::placeholder { font-weight: 500; opacity: .5; }
 .hint-toggle { margin: 8px 0 0; background: transparent; border: none; color: var(--primary); padding: 4px 0; }
 .co-submit { margin-top: 10px; }

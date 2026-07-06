@@ -33,34 +33,27 @@ export function CreateOrder() {
   const [showHint, setShowHint] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
-  // Ô nhập CHỮ TO — trống thì cực to, gõ nhiều thì tự thu nhỏ font để vừa màn hình
-  // (không đẩy preview/nút ra ngoài). Dùng visualViewport để né bàn phím mobile.
+  // Ô nhập CHỮ TO — trống thì cực to, gõ nhiều thì tự thu nhỏ font để vừa ô.
+  // Chiều cao ô do CSS quản (ổn định, KHÔNG đo viewport) → không giật khi bàn phím
+  // bật/tắt. Chỉ đo nội dung so với chiều cao CSS của ô rồi giảm font.
   const fitFont = () => {
     const ta = taRef.current;
     if (!ta || mode !== "quick") return;
-    const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-    const top = ta.getBoundingClientRect().top;
-    const reserve = 96;                                  // chừa nút "Tạo đơn" + đệm
-    const maxH = Math.max(120, vh - top - reserve);
-    ta.style.height = maxH + "px";
     let fs = 42;                                         // super to khi trống
     ta.style.fontSize = fs + "px";
-    while (ta.scrollHeight > ta.clientHeight && fs > 17) { fs -= 1; ta.style.fontSize = fs + "px"; }
+    while (ta.scrollHeight > ta.clientHeight && fs > 18) { fs -= 1; ta.style.fontSize = fs + "px"; }
   };
+  // Chỉ chạy khi NỘI DUNG đổi (gõ) — không bám sự kiện bàn phím/cuộn (nguồn gây giật).
   useEffect(() => {
     const r = requestAnimationFrame(fitFont);
     return () => cancelAnimationFrame(r);
-  }, [text, mode, preview, showHint]);
+  }, [text, mode]);
+  // Xoay màn hình → cân lại 1 lần (debounce), không nghe visualViewport.
   useEffect(() => {
-    const on = () => requestAnimationFrame(fitFont);
-    window.addEventListener("resize", on);
-    window.visualViewport?.addEventListener("resize", on);
-    window.visualViewport?.addEventListener("scroll", on);
-    return () => {
-      window.removeEventListener("resize", on);
-      window.visualViewport?.removeEventListener("resize", on);
-      window.visualViewport?.removeEventListener("scroll", on);
-    };
+    let t: any;
+    const on = () => { clearTimeout(t); t = setTimeout(() => requestAnimationFrame(fitFont), 200); };
+    window.addEventListener("orientationchange", on);
+    return () => { clearTimeout(t); window.removeEventListener("orientationchange", on); };
   }, []);
 
   // Khách vừa nhận diện → kéo nợ MỚI từ KiotViet 1 lần (theo id, không mỗi phím)
