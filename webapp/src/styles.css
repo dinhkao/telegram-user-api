@@ -804,6 +804,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* Chiều cao ổn định (không phụ thuộc bàn phím) → không giật; font do JS thu nhỏ vừa ô */
 .co-input { width: 100%; box-sizing: border-box; resize: none; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; line-height: 1.25; font-weight: 600; letter-spacing: .2px; height: 40vh; min-height: 150px; max-height: 46vh; overflow-y: auto; }
 .co-input::placeholder { font-weight: 500; opacity: .5; }
+/* Đang gõ (bàn phím bật) → preview hiện FULL (khỏi cuộn trong hộp nhỏ), ô nhập nhỏ lại */
+.co-typing .co-preview { max-height: none; }
+.co-typing .co-input { height: 24vh; min-height: 110px; }
 .hint-toggle { margin: 8px 0 0; background: transparent; border: none; color: var(--primary); padding: 4px 0; }
 .co-submit { margin-top: 10px; }
 .preview-head { font-size: .85rem; font-weight: 600; margin-bottom: 6px; }

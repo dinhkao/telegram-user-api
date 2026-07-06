@@ -31,6 +31,7 @@ export function CreateOrder() {
   useScrollLock(plOpen); // khoá cuộn nền khi popup bảng giá mở
   const seq = useRef(0);
   const [showHint, setShowHint] = useState(false);
+  const [typing, setTyping] = useState(false);   // ô nhập đang focus (bàn phím bật)
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   // Ô nhập CHỮ TO — trống thì cực to, gõ nhiều thì tự thu nhỏ font để vừa ô.
@@ -47,7 +48,7 @@ export function CreateOrder() {
   useEffect(() => {
     const r = requestAnimationFrame(fitFont);
     return () => cancelAnimationFrame(r);
-  }, [text, mode]);
+  }, [text, mode, typing]);
   // Xoay màn hình → cân lại 1 lần (debounce), không nghe visualViewport.
   useEffect(() => {
     let t: any;
@@ -113,7 +114,7 @@ export function CreateOrder() {
       </div>
 
       {mode === "quick" ? (
-        <div class="card">
+        <div class={"card" + (typing ? " co-typing" : "")}>
           {/* Chọn khách (tùy chọn) — đè lên tự nhận diện từ text */}
           <div class="quick-cust">
             {picked ? (
@@ -196,7 +197,9 @@ export function CreateOrder() {
             </div>
           )}
 
-          <textarea ref={taRef} class="co-input" placeholder={"Gõ đơn ở đây…\nlp\nk2l 1t\nk1l 1t 30\ndm180 1t 50 25000"} value={text} onInput={(e: any) => setText(e.target.value)} />
+          <textarea ref={taRef} class="co-input" placeholder={"Gõ đơn ở đây…\nlp\nk2l 1t\nk1l 1t 30\ndm180 1t 50 25000"} value={text}
+            onFocus={() => setTyping(true)} onBlur={() => setTyping(false)}
+            onInput={(e: any) => setText(e.target.value)} />
 
           <button class="btn small hint-toggle" onClick={() => setShowHint((v) => !v)}>
             💡 Cách nhận diện {showHint ? "▲" : "▼"}
