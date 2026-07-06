@@ -10,6 +10,7 @@ import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
 import { useScrollLock } from "../useScrollLock";
 import { Icon } from "../ui/Icon";
+import { usePopupBack } from "../ui/usePopupBack";
 
 export function CreateOrder() {
   const [mode, setMode] = useState<"advanced" | "quick">("quick");
@@ -30,6 +31,7 @@ export function CreateOrder() {
     try { setPriceList(await getCustomerPriceList(key)); } catch { /* ignore */ }
   };
   useScrollLock(plOpen); // khoá cuộn nền khi popup bảng giá mở
+  usePopupBack(plOpen, () => setPlOpen(false));
   const seq = useRef(0);
   const [showHint, setShowHint] = useState(false);
   const [typing, setTyping] = useState(false);   // ô nhập đang focus (bàn phím bật)

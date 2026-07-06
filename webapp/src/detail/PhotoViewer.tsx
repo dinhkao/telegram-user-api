@@ -7,6 +7,7 @@ import { fmtTime } from "../format";
 import { toast } from "../ui/feedback";
 import { ImageInfoPanel } from "./ImageInfoPanel";
 import { Icon } from "../ui/Icon";
+import { usePopupBack } from "../ui/usePopupBack";
 import { fastScrollLeft } from "../scroll";
 
 const MIN_SCALE = 1;
@@ -32,6 +33,7 @@ export function PhotoViewer({
   onKindChange?: (id: number, kind: string) => void;
   onClose: () => void;
 }) {
+  usePopupBack(true, onClose);   // back → đóng ảnh trước
   const [idx, setIdx] = useState(start);
   const [panelOpen, setPanelOpen] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);

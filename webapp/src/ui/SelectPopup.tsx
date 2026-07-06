@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { useScrollLock } from "../useScrollLock";
+import { usePopupBack } from "./usePopupBack";
 import { Icon } from "./Icon";
 import { foldVN } from "../format";
 
@@ -33,6 +34,7 @@ export function SelectPopup({
   const nq = foldVN(q.trim());
   const filtered = nq ? options.filter((o) => foldVN(`${o.label} ${o.sub || ""}`).includes(nq)) : options;
   const close = () => { setOpen(false); setQ(""); };
+  usePopupBack(open, close);
   const pick = (v: string | number) => { onChange(String(v)); close(); };
 
   return (

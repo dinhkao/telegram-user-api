@@ -6,6 +6,7 @@ import { onRealtime } from "../realtime";
 import { Loading, EmptyState } from "../ui/states";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
+import { usePopupBack } from "../ui/usePopupBack";
 
 const PAGE_SIZE = 30;
 
@@ -122,6 +123,7 @@ export function Customers() {
 
   // Tạo khách mới
   const [creating, setCreating] = useState(false);
+  usePopupBack(creating, () => setCreating(false));
   const [nName, setNName] = useState("");
   const [nPhone, setNPhone] = useState("");
   const [nAddr, setNAddr] = useState("");

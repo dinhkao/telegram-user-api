@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { useScrollLock } from "../useScrollLock";
+import { usePopupBack } from "./usePopupBack";
 import { Icon } from "./Icon";
 
 export type PickOpt = { key: string; label: string; sub?: string };
@@ -37,6 +38,7 @@ export function PickerPopup({
   useEffect(() => { if (open) run(q); }, [open]);   // mở → chạy tìm với q hiện tại
   const onInput = (v: string) => { setQ(v); run(v); };
   const close = () => { setOpen(false); setQ(""); };
+  usePopupBack(open, close);
   const pick = (o: PickOpt) => { onPick(o); close(); };
 
   return (

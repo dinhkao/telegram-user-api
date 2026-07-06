@@ -11,6 +11,7 @@ import { createPortal } from "preact/compat";
 import { postForm } from "../api";
 import { processSource } from "./imageProcess";
 import { useScrollLock } from "../useScrollLock";
+import { usePopupBack } from "../ui/usePopupBack";
 
 /** Trình duyệt/WebView có API camera trực tiếp không (cần HTTPS). */
 export function cameraSupported(): boolean {
@@ -116,6 +117,7 @@ export function CameraBox({
   };
 
   useScrollLock(true);   // mount = camera đang mở → khoá cuộn nền
+  usePopupBack(true, onClose);   // back → đóng camera trước
 
   // Popup toàn màn (portal ra body) — không nhúng trong khung/thẻ nữa.
   return createPortal(

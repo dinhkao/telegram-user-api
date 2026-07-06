@@ -9,6 +9,7 @@ import { toast } from "../ui/feedback";
 import { useScrollLock } from "../useScrollLock";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
+import { usePopupBack } from "../ui/usePopupBack";
 
 export function InventoryList() {
   const [products, setProducts] = useState<InvProductSummary[] | null>(null);
@@ -19,6 +20,7 @@ export function InventoryList() {
   const [nName, setNName] = useState("");
   const [creating, setCreating] = useState(false);
   useScrollLock(createOpen);
+  usePopupBack(createOpen, () => setCreateOpen(false));
 
   const doCreate = async () => {
     const code = nCode.trim().toUpperCase();

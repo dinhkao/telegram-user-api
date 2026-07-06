@@ -7,6 +7,7 @@ import { getQueue } from "./offline";
 import { getStatus, onStatus, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
 import { Icon } from "./ui/Icon";
+import { usePopupBack } from "./ui/usePopupBack";
 import { Customers } from "./pages/Customers";
 import { CustomerDetail } from "./pages/CustomerDetail";
 import { PriceLists } from "./pages/PriceLists";
@@ -153,6 +154,7 @@ function RealtimeDot() {
 function App() {
   const hash = useHash();
   const [menuOpen, setMenuOpen] = useState(false);
+  usePopupBack(menuOpen, () => setMenuOpen(false));
   const user = currentUser();
   // Webapp luôn cùng origin với server (APK nạp URL từ xa qua Tailscale) nên không
   // còn màn hình cài server_url — chỉ cần đăng nhập.

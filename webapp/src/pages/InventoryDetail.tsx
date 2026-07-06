@@ -10,6 +10,7 @@ import { money } from "../format";
 import { onRealtime } from "../realtime";
 import { Loading, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
+import { usePopupBack } from "../ui/usePopupBack";
 
 function fmtWhen(iso?: string): string {
   if (!iso) return "";
@@ -29,6 +30,7 @@ export function InventoryDetail({ code }: { code: string }) {
   const [kvRes, setKvRes] = useState<KvProduct[]>([]);
   const [kvLoading, setKvLoading] = useState(false);
   useScrollLock(linkOpen);
+  usePopupBack(linkOpen, () => setLinkOpen(false));
   useEffect(() => {
     if (!linkOpen) return;
     const q = kvQ.trim();

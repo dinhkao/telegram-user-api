@@ -7,10 +7,12 @@ import { useEffect, useState } from "preact/hooks";
 import { listMediaImages, mediaImageUrl, postJSON, type OrderImage } from "../api";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
+import { usePopupBack } from "../ui/usePopupBack";
 import { kindOf } from "./imageKinds";
 import { fastScrollToEl } from "../scroll";
 
 export function SoanHangPicker({ threadId, onClose, onDone }: { threadId: string; onClose: () => void; onDone: () => void }) {
+  usePopupBack(true, onClose);   // back → đóng popup trước
   const base = `/api/order/${threadId}`;
   const [images, setImages] = useState<OrderImage[] | null>(null);
   const [sel, setSel] = useState<Set<number>>(new Set());

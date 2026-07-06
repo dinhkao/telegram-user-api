@@ -7,11 +7,13 @@ import { processImage } from "./imageProcess";
 import { CameraBox, cameraSupported } from "./CameraBox";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
+import { usePopupBack } from "../ui/usePopupBack";
 
 // note giống bot để dữ liệu khớp Telegram
 type Branch = { note: string; label: string; photo: boolean; done: boolean; hint?: string };
 
 export function NopTienWizard({ threadId, onClose, onDone }: { threadId: string; onClose: () => void; onDone: () => void }) {
+  usePopupBack(true, onClose);   // back → đóng wizard trước
   const [step, setStep] = useState<"type" | "kytoa" | "photo">("type");
   const [branch, setBranch] = useState<Branch | null>(null);
   const [busy, setBusy] = useState(false);

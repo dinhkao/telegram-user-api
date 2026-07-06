@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { inventoryDetail, soVN, type InvBox } from "../api";
 import { onRealtime } from "../realtime";
 import { useScrollLock } from "../useScrollLock";
+import { usePopupBack } from "../ui/usePopupBack";
 import { Icon } from "../ui/Icon";
 
 function fmtDate(s?: string | null): string {
@@ -27,6 +28,7 @@ export function StockPickerModal({
   onPick: (picks: { box_id: number; quantity: number }[]) => Promise<void>;
 }) {
   useScrollLock(true);
+  usePopupBack(true, onClose);
   const [boxes, setBoxes] = useState<InvBox[] | null>(null);
   const [sel, setSel] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);

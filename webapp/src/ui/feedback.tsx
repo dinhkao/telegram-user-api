@@ -6,6 +6,7 @@
 // context). CSS: .toast-host/.toast-item + .cf-* trong styles.css.
 import { useEffect, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
+import { usePopupBack } from "./usePopupBack";
 
 type Kind = "ok" | "err" | "info";
 type Toast = { id: number; msg: string; kind: Kind };
@@ -47,6 +48,7 @@ export function FeedbackHost() {
     return () => { toastSubs.delete(setTs); cfSubs.delete(setCf); };
   }, []);
   const close = (v: boolean) => { if (current) { current.resolve(v); current = null; emitCf(); } };
+  usePopupBack(!!cf, () => close(false));   // back → huỷ hộp xác nhận
   // Render THẲNG vào <body> (portal) → thoát mọi ancestor có transform/filter tạo
   // containing-block cho position:fixed, nên toast/hộp xác nhận luôn center theo viewport.
   const ui = (
