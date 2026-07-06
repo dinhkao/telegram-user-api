@@ -87,9 +87,9 @@ body.modal-open { overflow: hidden; touch-action: none; overscroll-behavior: non
 .state-error { padding: 16px 12px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
 /* ── Redesign Chi tiết đơn: app bar + header tóm tắt + stepper + action bar ── */
-.od-appbar { display: flex; align-items: center; gap: 8px; padding: 4px 0 8px; }
-.od-back { font-size: 1.5rem; text-decoration: none; color: inherit; padding: 4px 8px; }
-.od-appttl { font-weight: 600; font-size: 1rem; }
+.od-appbar { display: flex; align-items: center; gap: 4px; padding: 0 0 4px; }
+.od-back { font-size: 1.15rem; text-decoration: none; color: inherit; padding: 2px 6px; }
+.od-appttl { font-weight: 600; font-size: .9rem; }
 .od-id { font-family: ui-monospace, monospace; color: var(--muted); font-weight: 500; font-size: .9rem; }
 .od-sum { display: flex; margin-top: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .od-sum .od-s { flex: 1; padding: 9px 11px; border-right: 1px solid var(--border); }
