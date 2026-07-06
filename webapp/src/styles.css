@@ -77,6 +77,8 @@ body.modal-open { overflow: hidden; touch-action: none; overscroll-behavior: non
 @keyframes cf-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes cf-pop { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: scale(1); } }
 .cf-msg { font-size: 1rem; line-height: 1.5; color: var(--ink); margin-bottom: 18px; }
+/* Ảnh xem trước trong hộp xác nhận (vd hoá đơn trước khi in) */
+.cf-img { display: block; width: 100%; max-height: 56vh; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); background: #fff; margin-bottom: 16px; }
 .cf-actions { display: flex; gap: 10px; }
 .cf-actions .btn { flex: 1; min-height: 44px; }
 /* Trạng thái màn dùng chung (ui/states.tsx) */

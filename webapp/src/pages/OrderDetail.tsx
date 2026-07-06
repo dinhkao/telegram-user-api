@@ -224,8 +224,19 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const goStock = () => scrollTo("od-stock");
   const goChat = () => scrollTo("od-chat");
 
+  // URL ảnh PNG hoá đơn trong gallery (kind hoa_don, hoặc ảnh cũ uploaded_by
+  // "KiotViet HĐ"); null nếu chưa render / chưa tạo HĐ.
+  const findInvoiceImageUrl = async (): Promise<string | null> => {
+    try {
+      const imgs = await listOrderImages(threadId);
+      const inv = imgs.find((x) => x.kind === "hoa_don" || x.uploaded_by === "KiotViet HĐ");
+      return inv ? orderImageUrl(threadId, inv.id, "full") : null;
+    } catch { return null; }
+  };
+
   const doPrint = async () => {
-    if (!(await confirmDialog("In 2 hoá đơn + phiếu giao?"))) return;
+    const imgUrl = await findInvoiceImageUrl();   // xem lại hoá đơn trước khi in
+    if (!(await confirmDialog("In 2 hoá đơn + phiếu giao?", { okLabel: "In", imageUrl: imgUrl || undefined }))) return;
     setBusy(true);
     try {
       const r = await postJSON("/api/order/print-giao", { thread_id: Number(threadId) });
@@ -421,17 +432,10 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         hasInvoice={!!j.kiotvietInvoiceID}
         debt={j.khDebt ?? j.invoice_debt_snapshot}
         onView={async () => {
-          // Mở ảnh PNG hoá đơn (đã render khi tạo HĐ, nằm trong gallery với
-          // uploaded_by="KiotViet HĐ"); không có thì fallback HTML sống.
+          // Mở ảnh PNG hoá đơn (đã render khi tạo HĐ); không có thì fallback HTML sống.
           const win = window.open("", "_blank");   // mở ngay trong user-gesture → khỏi bị chặn popup
           const go = (u: string) => { if (win) win.location.href = u; else window.open(u, "_blank"); };
-          try {
-            const imgs = await listOrderImages(threadId);
-            const inv = imgs.find((x) => x.uploaded_by === "KiotViet HĐ");
-            go(inv ? orderImageUrl(threadId, inv.id, "full") : invoiceHtmlUrl(threadId));
-          } catch {
-            go(invoiceHtmlUrl(threadId));
-          }
+          go((await findInvoiceImageUrl()) || invoiceHtmlUrl(threadId));
         }}
         onDelete={deleteHD}
         onPrint={doPrint}
