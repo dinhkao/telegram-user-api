@@ -2,7 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, getCustomerOrders, getJSON, invoiceHtmlUrl, postJSON, refreshOrderDebt, setOrderNgayGiao } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, getCustomerOrders, getJSON, invoiceHtmlUrl, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao } from "../api";
 import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
@@ -411,7 +411,19 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         canCreate={isAdmin}
         hasInvoice={!!j.kiotvietInvoiceID}
         debt={j.khDebt ?? j.invoice_debt_snapshot}
-        onView={() => window.open(invoiceHtmlUrl(threadId), "_blank")}
+        onView={async () => {
+          // Mở ảnh PNG hoá đơn (đã render khi tạo HĐ, nằm trong gallery với
+          // uploaded_by="KiotViet HĐ"); không có thì fallback HTML sống.
+          const win = window.open("", "_blank");   // mở ngay trong user-gesture → khỏi bị chặn popup
+          const go = (u: string) => { if (win) win.location.href = u; else window.open(u, "_blank"); };
+          try {
+            const imgs = await listOrderImages(threadId);
+            const inv = imgs.find((x) => x.uploaded_by === "KiotViet HĐ");
+            go(inv ? orderImageUrl(threadId, inv.id, "full") : invoiceHtmlUrl(threadId));
+          } catch {
+            go(invoiceHtmlUrl(threadId));
+          }
+        }}
         onDelete={deleteHD}
         onPrint={doPrint}
         canDelete={isAdmin}
