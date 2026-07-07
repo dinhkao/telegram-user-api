@@ -1,12 +1,15 @@
 // Quản lý danh sách thợ (#/tho) — thêm/xoá thợ, tick ⭐ "mặc định" (có trong template
 // báo cáo), KÉO-THẢ / ↑↓ sắp thứ tự = thứ tự tự điền cho bảng báo cáo phiếu SX mới.
 // Dùng chung ReorderList (giống popup chọn/sắp thợ). Data: /api/workers (+ reorder).
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { createPortal } from "preact/compat";
 import { BackLink } from "../nav";
 import { listWorkers, addWorker, updateWorker, deleteWorker, reorderWorkers, type Worker } from "../api";
 import { Loading, ErrorState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
+import { useScrollLock } from "../useScrollLock";
+import { usePopupBack } from "../ui/usePopupBack";
 import { ReorderList } from "../detail/ReorderList";
 
 export function WorkerList() {
@@ -16,6 +19,11 @@ export function WorkerList() {
   const [isDef, setIsDef] = useState(true);
   const [busy, setBusy] = useState(false);
   const [seed, setSeed] = useState(0);   // bump → ReorderList seed lại (thêm/xoá thợ)
+  const [addOpen, setAddOpen] = useState(false);
+  const addInput = useRef<HTMLInputElement>(null);
+  useScrollLock(addOpen);
+  usePopupBack(addOpen, () => setAddOpen(false));
+  useEffect(() => { if (addOpen) requestAnimationFrame(() => addInput.current?.focus()); }, [addOpen]);
 
   const load = async () => {
     try { setWorkers((await listWorkers()).workers); setErr(""); setSeed((s) => s + 1); }
@@ -27,7 +35,7 @@ export function WorkerList() {
     const nm = name.trim();
     if (!nm) return;
     setBusy(true);
-    try { await addWorker(nm, isDef); setName(""); await load(); }
+    try { await addWorker(nm, isDef); setName(""); setAddOpen(false); await load(); toast("Đã thêm thợ", "ok"); }
     catch (e: any) { toast(e?.message || "Lỗi thêm thợ", "err"); }
     finally { setBusy(false); }
   };
@@ -60,21 +68,8 @@ export function WorkerList() {
       <header class="od-appbar">
         <BackLink fallback="#/san_xuat" className="od-back" />
         <div class="od-appttl">Danh sách thợ</div>
+        <button class="btn primary od-appadd" onClick={() => setAddOpen(true)}><Icon name="plus" size={16} /> Thêm thợ</button>
       </header>
-
-      <div class="card">
-        <div class="row space"><b>Thêm thợ</b></div>
-        <div class="row">
-          <input type="text" value={name} placeholder="Tên thợ" style="flex:1"
-            onInput={(e: any) => setName(e.target.value)}
-            onKeyDown={(e: any) => { if (e.key === "Enter") add(); }} />
-          <button class="btn primary" disabled={busy || !name.trim()} onClick={add}><Icon name="plus" size={16} /> Thêm</button>
-        </div>
-        <label class="wl-defcheck">
-          <input type="checkbox" checked={isDef} onChange={(e: any) => setIsDef(e.target.checked)} />
-          Thêm vào mẫu mặc định (tự điền khi báo cáo trống)
-        </label>
-      </div>
 
       <div class="card">
         <div class="row space">
@@ -101,6 +96,28 @@ export function WorkerList() {
         )}
         <p class="muted small"><Icon name="star" size={13} /> = có trong mẫu báo cáo mặc định, theo đúng thứ tự này.</p>
       </div>
+
+      {addOpen && createPortal(
+        <div class="sp-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setAddOpen(false); }}>
+          <div class="sp-sheet">
+            <div class="sp-title"><Icon name="plus" size={16} /> Thêm thợ</div>
+            <div style="padding:12px 16px 6px">
+              <input ref={addInput} class="cust-in" type="text" value={name} placeholder="Tên thợ"
+                onInput={(e: any) => setName(e.target.value)}
+                onKeyDown={(e: any) => { if (e.key === "Enter") add(); }} />
+              <label class="wl-defcheck" style="margin-top:10px">
+                <input type="checkbox" checked={isDef} onChange={(e: any) => setIsDef(e.target.checked)} />
+                Thêm vào mẫu mặc định (tự điền khi báo cáo trống)
+              </label>
+            </div>
+            <div class="wo-foot">
+              <button class="btn" onClick={() => setAddOpen(false)}>Đóng</button>
+              <button class="btn primary" disabled={busy || !name.trim()} onClick={add}><Icon name="plus" size={16} /> Thêm</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
