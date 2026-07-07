@@ -322,6 +322,7 @@ async def all_boxes_handler(request: web.Request):
         "place_id": b.get("place_id"), "place_name": b.get("place_name"),
         "unit_id": b.get("unit_id"), "unit_name": b.get("unit_name"),
         "product_unit": b.get("product_unit") or "cây",
+        "source_thread_id": b.get("source_thread_id"),
     } for b in boxes]
     return web.json_response({"ok": True, "boxes": out})
 

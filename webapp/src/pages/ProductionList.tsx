@@ -8,11 +8,14 @@ import {
   productionCatalog,
   soVN,
   prodCreated,
+  allBoxes,
   type ProdSlip,
   type ProdCatalogItem,
+  type KhoBox,
 } from "../api";
 import { onRealtime } from "../realtime";
 import { ProductPicker } from "../detail/ProductPicker";
+import { BoxMiniGrid } from "../detail/BoxMiniGrid";
 import { Loading, EmptyState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
@@ -46,6 +49,23 @@ export function ProductionList() {
   const [total, setTotal] = useState(0);
   const st = useRef({ page: 1, totalPages: 1, loading: false });
   const sentinel = useRef<HTMLDivElement>(null);
+  // Thùng theo phiếu (source_thread_id) — 1 lần gọi allBoxes, gom nhóm
+  const [boxesByThread, setBoxesByThread] = useState<Record<number, KhoBox[]>>({});
+  const loadBoxes = async () => {
+    try {
+      const all = await allBoxes();
+      const g: Record<number, KhoBox[]> = {};
+      for (const b of all) if (b.source_thread_id != null) (g[b.source_thread_id] ||= []).push(b);
+      for (const k in g) g[k].sort((a, b) => a.box_code.localeCompare(b.box_code));
+      setBoxesByThread(g);
+    } catch { /* im */ }
+  };
+  useEffect(() => {
+    loadBoxes();
+    return onRealtime((e) => {
+      if (e.type === "box_changed" || e.type === "inventory_changed" || e.type === "production_changed" || e.type === "resync") loadBoxes();
+    });
+  }, []);
 
   const load = async (page: number, append: boolean) => {
     if (st.current.loading) return;
@@ -151,7 +171,7 @@ export function ProductionList() {
         {groupByDay(slips).map((g) => (
           <div class="prod-group" key={g.key}>
             <div class="prod-group-head">{g.label} <span class="muted small">({g.slips.length})</span></div>
-            {g.slips.map((s) => <ProdCard key={s.thread_id} slip={s} />)}
+            {g.slips.map((s) => <ProdCard key={s.thread_id} slip={s} boxes={boxesByThread[s.thread_id] || []} />)}
           </div>
         ))}
       </div>
@@ -193,7 +213,7 @@ function dayLabel(key: string): string {
   return `${wd} · ${key}`;
 }
 
-function ProdCard({ slip }: { slip: ProdSlip }) {
+function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
   const total = slip.total || 0;
   return (
     <a class="prod-card" href={`#/san_xuat/${slip.thread_id}`}>
@@ -203,7 +223,9 @@ function ProdCard({ slip }: { slip: ProdSlip }) {
       </div>
       <div class="prod-card-stat">
         <span class="prod-total"><Icon name="box" size={14} /> {soVN(total)}</span>
+        {boxes.length > 0 && <span class="muted small">· {boxes.length} thùng</span>}
       </div>
+      {boxes.length > 0 && <BoxMiniGrid boxes={boxes} />}
       {slip.ghi_chu && <div class="prod-card-note"><Icon name="note" size={13} /> {slip.ghi_chu}</div>}
     </a>
   );

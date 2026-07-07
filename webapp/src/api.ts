@@ -798,7 +798,7 @@ export async function inventoryList(): Promise<InvProductSummary[]> {
   return d.products || [];
 }
 
-export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null; unit_id?: number | null; unit_name?: string | null; product_unit?: string };
+export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null; unit_id?: number | null; unit_name?: string | null; product_unit?: string; source_thread_id?: number | null };
 
 // ── Công thức sản xuất (BOM): SP cần nguyên liệu theo tỉ lệ ──
 export type RecipeLine = { id: number; ingredient_code: string; ratio: number; optional?: boolean; stock?: number; unit?: string };
