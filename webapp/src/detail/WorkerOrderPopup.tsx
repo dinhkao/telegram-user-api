@@ -28,6 +28,7 @@ export function WorkerOrderPopup({
   const [dropTo, setDropTo] = useState<number>(0);               // sẽ chèn TRƯỚC index này (0..len)
   const [dy, setDy] = useState(0);                               // lệch Y để thả nổi
   const [rowH, setRowH] = useState(0);                           // cao 1 hàng (đo lúc grab) → dịch khe
+  const [settling, setSettling] = useState(false);              // đang GLIDE về chỗ sau khi nhả
   const dragRef = useRef<number | null>(null);
   const dropRef = useRef<number>(0);               // chỗ chèn HIỆN TẠI (đọc lúc nhả, khỏi stale)
   const midsRef = useRef<number[]>([]);            // trung điểm Y GỐC mỗi hàng (chốt lúc grab)
@@ -66,10 +67,12 @@ export function WorkerOrderPopup({
     const rects = rowRefs.current.map((el) => el?.getBoundingClientRect() || null);
     midsRef.current = rects.map((r) => (r ? r.top + r.height / 2 : Infinity));
     setRowH(rects[i]?.height || 0); setDragIdx(i); setDropTo(i); setDy(0);
+    navigator.vibrate?.(8);                 // rung nhẹ "nhấc lên" (máy hỗ trợ)
   };
   const onGripMove = (e: any) => {
     if (dragRef.current == null) return;
     const to = targetFromY(e.clientY);
+    if (to !== dropRef.current) navigator.vibrate?.(4);   // rung tick mỗi lần khe nhảy
     dropRef.current = to;
     setDy(e.clientY - startY.current);
     setDropTo(to);
@@ -77,17 +80,23 @@ export function WorkerOrderPopup({
   const onGripUp = () => {
     const from = dragRef.current;
     dragRef.current = null;
-    if (from != null) {
-      const to = dropRef.current;
+    if (from == null) return;
+    const to = dropRef.current;
+    const ins = to > from ? to - 1 : to;                 // vị trí cuối sau khi bỏ chính nó
+    navigator.vibrate?.(12);                             // rung "thả xuống"
+    // GLIDE: cho dòng đang giữ trượt về đúng khe (transition bật), rồi mới dời list
+    // thật khi xong → không giật (nhấc tay là về slot mượt, không nhảy).
+    setSettling(true);
+    setDy((ins - from) * rowH);
+    window.setTimeout(() => {
       setList((l) => {
         const n = l.slice();
         const [it] = n.splice(from, 1);
-        const ins = to > from ? to - 1 : to;           // bù chỉ số sau khi bỏ chính nó
         n.splice(Math.max(0, Math.min(ins, n.length)), 0, it);
         return n;
       });
-    }
-    setDragIdx(null); setDy(0);
+      setDragIdx(null); setSettling(false); setDy(0);
+    }, 180);
   };
 
   // Dịch từng hàng: hàng đang giữ theo ngón; hàng giữa khe trượt ±1 hàng để mở chỗ.
@@ -108,10 +117,10 @@ export function WorkerOrderPopup({
         <div class="sp-list wo-list">
           {list.length === 0 && <div class="muted small" style="padding:14px 16px">Chưa có thợ nào trong bảng.</div>}
           {list.map((it, i) => (
-            <div class={"wo-row" + (dragIdx === i ? " floating" : "")}
+            <div class={"wo-row" + (dragIdx === i ? " floating" : "") + (dragIdx === i && settling ? " settling" : "")}
               key={it.id}
               ref={(el: any) => { rowRefs.current[i] = el; }}
-              style={`transform:translateY(${rowTy(i)}px)`}>
+              style={`transform:translateY(${rowTy(i)}px)` + (dragIdx === i && !settling ? " scale(1.03)" : "")}>
               <span class="wo-grip" title="Kéo để đổi chỗ"
                 onPointerDown={onGripDown(i)} onPointerMove={onGripMove}
                 onPointerUp={onGripUp} onPointerCancel={onGripUp}>
