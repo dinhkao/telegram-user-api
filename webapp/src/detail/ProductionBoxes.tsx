@@ -262,6 +262,7 @@ export function ProductionBoxes({
                     <span class="pb-blsp">{b.product_code}</span>
                     <span class="pb-blq">{soVN(rm)}{used > 0 ? <span class="muted">/{soVN(b.quantity)}</span> : ""} <span class="muted small">{b.product_unit || "cây"}</span></span>
                     {b.place_name && <span class="pb-blplace">{b.place_name}</span>}
+                    {b.created_by && <span class="pb-blby muted small"><Icon name="user" size={12} /> {b.created_by}</span>}
                     {b.disabled ? <span class="pb-bloff">vô hiệu</span> : null}
                   </a>
                 );
