@@ -527,7 +527,29 @@ export function OrdersList() {
     }, 400);
   };
 
+  // Deep-link chip lọc: #/orders?filter=chua_nop (banner "đơn chưa nộp") → mở đúng
+  // chip. Trả về true nếu đã áp — mount effect bên dưới khỏi khôi phục cache đè lên.
+  const applyHashFilter = (): boolean => {
+    const fm = window.location.hash.match(/^#\/orders\?filter=([a-z_]+)$/);
+    if (!fm || !(fm[1] in FILTER_LABELS)) return false;
+    history.replaceState(null, "", "#/orders"); // xoá query — back/refresh không ép lọc lại
+    const f = fm[1] as FilterKey;
+    listCache = null;
+    setSearch("");
+    setFilter(f);
+    setPage(1);
+    load(1, "", f, false);
+    return true;
+  };
+  // Đang MỞ sẵn trang đơn mà bấm link banner → không remount, chỉ có hashchange
   useEffect(() => {
+    const onHash = () => { applyHashFilter(); };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  useEffect(() => {
+    if (applyHashFilter()) return; // vào thẳng từ banner/deep-link
     // Customers page có thể gửi sẵn từ khoá qua pending_search
     const pending = localStorage.getItem("pending_search") || "";
     if (pending) {

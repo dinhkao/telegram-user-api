@@ -83,7 +83,7 @@ export function Comments({ base, chatMessages = [] }: { base: string; chatMessag
     return () => off();
   }, []);
   const pinOf = (it: Item) =>
-    pins.find((p) => (p.href || "") === hrefFromBase(base) && p.text === `${it.who}: ${it.text}`);
+    pins.find((p) => (p.href || "").split("?")[0] === hrefFromBase(base) && p.text === `${it.who}: ${it.text}`);
   const togglePin = async (it: Item) => {
     const cur = pinOf(it);
     try {
@@ -93,7 +93,9 @@ export function Comments({ base, chatMessages = [] }: { base: string; chatMessag
         toast("Đã gỡ khỏi bảng tin", "ok");
       } else {
         if (!(await confirmDialog(`Đưa lên bảng tin 24 giờ?\n“${it.text}”`, { okLabel: "Đưa lên" }))) return;
-        await postJSON("/api/banner/pin", { text: `${it.who}: ${it.text}`, href: hrefFromBase(base) });
+        // Comment web có id → kèm ?focus để bấm dòng trên banner cuộn thẳng tới comment
+        const href = hrefFromBase(base) + (it.source === "web" && it.id ? `?focus=comment:${it.id}` : "");
+        await postJSON("/api/banner/pin", { text: `${it.who}: ${it.text}`, href });
         toast("📢 Đã đưa lên bảng tin (24h)", "ok");
       }
       loadPins();

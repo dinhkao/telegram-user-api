@@ -150,7 +150,7 @@ function NopBanner() {
   // trên nền trắng (luôn có, ít quan trọng hơn). Mỗi mẩu tự là link về nguồn.
   const parts: { text: string; href: string; pin?: boolean }[] = [];
   for (const p of pins) parts.push({ text: `📢 ${p.text}`, href: p.href || "#/orders", pin: true });
-  if (n > 0) parts.push({ text: `💰 ${n} đơn chưa nộp tiền`, href: "#/orders" });
+  if (n > 0) parts.push({ text: `💰 ${n} đơn chưa nộp tiền`, href: "#/orders?filter=chua_nop" });
   if (boxes > 0) parts.push({ text: `📦 ${boxes} thùng chưa xếp kho`, href: "#/kho" });
   // Tốc độ CỐ ĐỊNH (~50px/s) dù nội dung dài ngắn: thời gian tỉ lệ độ rộng nửa
   // track (ước lượng ~7px/ký tự + 48px đệm/mẩu, nửa track = 3 lượt parts).
