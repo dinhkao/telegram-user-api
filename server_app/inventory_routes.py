@@ -139,6 +139,8 @@ async def production_add_boxes_handler(request: web.Request):
                         except (TypeError, ValueError):
                             pass
                 for nd in needs:
+                    if nd.get("optional"):
+                        continue   # nguyên liệu không bắt buộc → không ép chọn
                     if got.get(nd["code"], 0.0) + 1e-6 < nd["amount"]:
                         return "short", nd["code"], nd["amount"]
             created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=unit_id)
@@ -204,6 +206,7 @@ async def recipe_set_handler(request: web.Request):
         body = {}
     ic = str(body.get("ingredient_code") or "").strip().upper()
     ratio = body.get("ratio")
+    optional = bool(body.get("optional"))
     if not ic:
         return web.json_response({"ok": False, "error": "Thiếu mã nguyên liệu"}, status=400)
 
@@ -211,7 +214,7 @@ async def recipe_set_handler(request: web.Request):
         conn = _conn()
         try:
             _ensure(conn)
-            return set_recipe_line(conn, code, ic, ratio)
+            return set_recipe_line(conn, code, ic, ratio, optional=optional)
         finally:
             conn.close()
     line = await asyncio.to_thread(_run)

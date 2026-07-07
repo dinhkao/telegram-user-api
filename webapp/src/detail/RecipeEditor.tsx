@@ -12,6 +12,7 @@ export function RecipeEditor({ productCode }: { productCode: string }) {
   const [lines, setLines] = useState<RecipeLine[]>([]);
   const [ing, setIng] = useState("");
   const [ratio, setRatio] = useState("");
+  const [optional, setOptional] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = async () => { try { setLines(await getRecipe(productCode)); } catch { /* im */ } };
@@ -25,9 +26,13 @@ export function RecipeEditor({ productCode }: { productCode: string }) {
     if (!isFinite(r) || r <= 0) { toast("Tỉ lệ phải > 0", "err"); return; }
     if (code === productCode.toUpperCase()) { toast("Không tự làm nguyên liệu", "err"); return; }
     setBusy(true);
-    try { await setRecipeLine(productCode, code, r); setIng(""); setRatio(""); await load(); toast("✅ Đã lưu", "ok"); }
+    try { await setRecipeLine(productCode, code, r, optional); setIng(""); setRatio(""); setOptional(false); await load(); toast("✅ Đã lưu", "ok"); }
     catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
     finally { setBusy(false); }
+  };
+  const toggleOptional = async (l: RecipeLine) => {
+    try { await setRecipeLine(productCode, l.ingredient_code, l.ratio, !l.optional); await load(); }
+    catch (e: any) { toast(e?.message || "Lỗi", "err"); }
   };
   const del = async (l: RecipeLine) => {
     if (!(await confirmDialog(`Bỏ nguyên liệu ${l.ingredient_code}?`, { danger: true }))) return;
@@ -53,6 +58,10 @@ export function RecipeEditor({ productCode }: { productCode: string }) {
               <code class="inv-bc">{l.ingredient_code}</code>
               <span class="inv-q">× {l.ratio}</span>
               <span class="muted small">tồn {soVN(l.stock ?? 0)}</span>
+              <button class={"chip" + (l.optional ? "" : " active")} style={{ padding: "3px 9px", fontSize: ".72rem" }}
+                onClick={() => toggleOptional(l)} title="Bấm để đổi bắt buộc / không bắt buộc">
+                {l.optional ? "Không bắt buộc" : "Bắt buộc"}
+              </button>
               <button class="link-btn" onClick={() => del(l)} title="Bỏ"><Icon name="trash" size={15} /></button>
             </div>
           ))}
@@ -63,11 +72,15 @@ export function RecipeEditor({ productCode }: { productCode: string }) {
         <span style={{ flex: 1 }}>
           <PickerPopup value={ing} placeholder="Nguyên liệu" onSearch={search} onPick={(o) => setIng(o.key)} />
         </span>
-        <input class="pb-amount" type="text" inputMode="decimal" style={{ width: "88px" }} placeholder="Tỉ lệ"
+        <input class="pb-amount" type="text" inputMode="decimal" style={{ width: "72px" }} placeholder="Tỉ lệ"
           value={ratio} onFocus={(e) => (e.target as HTMLInputElement).select()}
           onInput={(e: any) => setRatio(e.target.value)} />
         <button class="btn primary" disabled={busy} onClick={add}><Icon name="plus" size={16} /></button>
       </div>
+      <label class="row" style={{ gap: "6px", marginTop: "6px", fontSize: ".85rem" }}>
+        <input type="checkbox" checked={optional} onChange={(e: any) => setOptional(e.target.checked)} />
+        <span class="muted">Không bắt buộc (SX được mà không cần nguyên liệu này)</span>
+      </label>
     </section>
   );
 }
