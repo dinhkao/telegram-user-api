@@ -8,6 +8,7 @@ import { Icon } from "../ui/Icon";
 import { SelectPopup } from "../ui/SelectPopup";
 import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
 import { StockPickerModal } from "./StockPickerModal";
+import { BoxLabelGrid } from "./BoxLabelGrid";
 
 function todayLocal(): string {
   const d = new Date();
@@ -247,33 +248,7 @@ export function ProductionBoxes({
       {myBoxes.length > 0 && (
         <div class="inv-summary">
           <div class="inv-total">Thùng nhập ở phiếu này ({myBoxes.length})</div>
-          {/* Trực quan: mỗi thùng = 1 ô vuông, màu theo trạng thái; tap → chi tiết thùng */}
-          <div class="box-grid">
-            {myBoxes.map((b) => {
-              const rem = b.remaining ?? b.quantity;
-              const used = b.allocated ?? 0;
-              const st = b.disabled ? "off" : used > 0 ? "alloc" : "in";
-              const status = b.disabled ? "vô hiệu" : used > 0 ? `đã xuất ${soVN(used)}/${soVN(b.quantity)}` : "trong kho";
-              return (
-                <a
-                  key={b.id}
-                  id={`box-${b.id}`}
-                  class={`box-sq ${st}`}
-                  href={`#/thung/${b.id}`}
-                  title={`${b.box_code} · ${soVN(rem)} ${b.product_unit || "cây"} · ${status}${b.note ? ` · ${b.note}` : ""}`}
-                >
-                  {b.note && <span class="bs-dot" />}
-                  <span class="bs-q">{soVN(rem)}</span>
-                  <span class="bs-code">{b.box_code}</span>
-                </a>
-              );
-            })}
-          </div>
-          <div class="box-legend">
-            <span><i class="bl in" />Trong kho</span>
-            <span><i class="bl alloc" />Đã xuất</span>
-            <span><i class="bl off" />Vô hiệu</span>
-          </div>
+          <BoxLabelGrid boxes={myBoxes as any} />
         </div>
       )}
     </section>
