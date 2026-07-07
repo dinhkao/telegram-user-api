@@ -59,6 +59,8 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const [v, setV] = useState(0);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(!!createMode || !!startEditing);
+  // Đã có HĐ KiotViet → KHOÁ, không cho sửa (kể cả khi state cũ còn sót do điều hướng)
+  useEffect(() => { if (hasInvoice && !createMode) setEditing(false); }, [hasInvoice, createMode]);
   const [quickText, setQuickText] = useState("");
   const [quickBusy, setQuickBusy] = useState(false);
   const [quickMsg, setQuickMsg] = useState("");
