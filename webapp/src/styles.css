@@ -800,8 +800,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-lbl::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--fill, 100%); background: var(--fill-bg, var(--ok-wash)); z-index: 0; transition: width var(--dur) var(--ease); }
 .box-lbl > * { position: relative; z-index: 1; }
 .box-lbl .bl-code { font-family: var(--mono); font-weight: 700; font-size: .56rem; letter-spacing: -.02em; text-align: center; padding: 3px 2px; border-bottom: 1.5px solid; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.box-lbl .bl-q { display: flex; align-items: baseline; justify-content: center; font-weight: 800; font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; }
-.box-lbl .bl-q-tot { font-size: .42em; font-weight: 600; opacity: .55; margin-left: 1px; }
+.box-lbl .bl-q { display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.box-lbl .bl-q-tot { align-self: flex-end; font-size: .42em; font-weight: 600; opacity: .55; margin-left: 1px; padding-bottom: .12em; }
 .box-lbl .bl-num { font-family: var(--mono); font-size: .82rem; font-weight: 800; letter-spacing: -.01em; text-align: center; padding: 3px 2px; border-top: 1.5px solid; }
 .box-lbl .bl-num .bl-unit { font-size: .62rem; font-weight: 500; opacity: .72; }
 .box-lbl .bl-dot { position: absolute; top: 21px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
