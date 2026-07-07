@@ -821,6 +821,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-lbl.mini .bl-q { font-size: .66rem; }
 .box-lbl.mini .bl-num { font-size: .4rem; font-weight: 800; padding: 1px; }
 .box-lbl.mini .bl-num .bl-unit { font-size: .78em; }
+/* Thùng đã cạn (xuất/tiêu hao hết) trên card phiếu SX — mờ nhưng vẫn đọc được */
+.box-lbl.mini.drained { opacity: .45; }
 .box-mini::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--fill, 100%); background: var(--fill-bg, var(--ok-wash)); z-index: -1; }
 .box-mini.in { --fill-bg: var(--ok-wash); border-color: #bfe3c8; color: var(--ok); }
 .box-mini.off { --fill-bg: var(--bg); border-color: var(--border); border-style: dashed; color: var(--muted-2); }
