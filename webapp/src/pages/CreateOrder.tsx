@@ -15,11 +15,22 @@ import { usePopupBack } from "../ui/usePopupBack";
 
 const initial = (name: string) => (name.trim().charAt(0) || "?").toUpperCase();
 
+// Giá rút gọn cho cột hẹp (chia đôi màn hình): 17000 → "17k", 25500 → "25,5k".
+const moneyK = (v: number) =>
+  v >= 1000 && v % 100 === 0 ? `${(v / 1000).toLocaleString("vi-VN")}k` : money(v);
+
+// Nháp — text + khách đã chọn sống qua rời trang / reload app (localStorage).
+// Xoá khi tạo đơn xong hoặc khi người dùng tự xoá hết.
+const DRAFT_KEY = "co_draft";
+const loadDraft = (): { text?: string; picked?: { key: string; name: string } | null } => {
+  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null") || {}; } catch { return {}; }
+};
+
 export function CreateOrder() {
   const [mode, setMode] = useState<"advanced" | "quick">("quick");
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => loadDraft().text || "");
   const [customer, setCustomer] = useState<{ key: string; name: string } | null>(null);
-  const [picked, setPicked] = useState<{ key: string; name: string } | null>(null); // khách chọn tay ở tab Nhanh
+  const [picked, setPicked] = useState<{ key: string; name: string } | null>(() => loadDraft().picked || null); // khách chọn tay ở tab Nhanh
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [preview, setPreview] = useState<OrderPreview | null>(null);
@@ -68,6 +79,12 @@ export function CreateOrder() {
     return () => vv.removeEventListener("resize", onResize);
   }, [typing]);
 
+  // Lưu nháp mỗi lần đổi — rời trang / thoát app giữa chừng thì quay lại gõ tiếp.
+  useEffect(() => {
+    if (!text.trim() && !picked) localStorage.removeItem(DRAFT_KEY);
+    else localStorage.setItem(DRAFT_KEY, JSON.stringify({ text, picked }));
+  }, [text, picked]);
+
   // Khách vừa nhận diện → kéo nợ MỚI từ KiotViet 1 lần (theo id, không mỗi phím)
   useEffect(() => {
     const id = preview?.customer?.id;
@@ -100,6 +117,7 @@ export function CreateOrder() {
     try {
       // Đăng vào kênh #don_hang → tạo topic Telegram + đơn (như gõ tay trên Telegram)
       const r = await postJSON("/api/order/create", { text: text.trim() });
+      localStorage.removeItem(DRAFT_KEY); // đơn đã tạo → bỏ nháp
       if (r.thread_id) window.location.hash = `#/order/${r.thread_id}`;
       else { setErr("✅ Đã gửi vào #don_hang — đang tạo đơn, sẽ hiện ở danh sách."); window.location.hash = "#/"; }
     } catch (ex: any) { setErr(ex.message); } finally { setBusy(false); }
@@ -204,7 +222,9 @@ export function CreateOrder() {
                       <tbody>
                         {preview.invoice.map((it, i) => (
                           <tr key={i}>
-                            <td>{it.sp}</td>
+                            {/* .co-pmini: giá rút gọn cạnh mã SP — CHỈ hiện ở chế độ
+                                chia đôi (cột đơn giá bị ẩn cho hẹp, xem styles.css) */}
+                            <td>{it.sp} <span class="co-pmini">·{moneyK(it.price)}</span></td>
                             <td class="num">x{it.sl}</td>
                             <td class="num">
                               {money(it.price)}đ
