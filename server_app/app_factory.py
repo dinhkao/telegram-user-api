@@ -65,6 +65,9 @@ from server_app.inventory_routes import (
     box_detail_handler,
     box_update_handler,
     box_delete_handler,
+    recipe_get_handler,
+    recipe_set_handler,
+    recipe_delete_handler,
     box_disable_handler,
     order_allocations_handler,
     order_allocate_handler,
@@ -147,6 +150,9 @@ def create_app():
     r.add_post("/api/products/{code}/link", product_link_handler)
     r.add_post("/api/products/{code}/unlink", product_unlink_handler)
     r.add_delete("/api/products/{code}", product_delete_handler)
+    r.add_get("/api/products/{product_code}/recipe", recipe_get_handler)
+    r.add_post("/api/products/{product_code}/recipe", recipe_set_handler)
+    r.add_delete("/api/products/{product_code}/recipe/{line_id}", recipe_delete_handler)
     r.add_post("/api/order/reply", api_reply_handler)
     r.add_post("/api/customer/price", api_customer_price_handler)
     r.add_post("/api/order/{id}/task_status/clear", api_task_status_clear_handler)

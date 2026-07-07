@@ -11,6 +11,7 @@ import { onRealtime } from "../realtime";
 import { Loading, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
+import { RecipeEditor } from "../detail/RecipeEditor";
 import { usePopupBack } from "../ui/usePopupBack";
 
 function fmtWhen(iso?: string): string {
@@ -225,6 +226,8 @@ export function InventoryDetail({ code }: { code: string }) {
           <BoxLabelGrid boxes={all as any} />
         )}
       </section>
+
+      <RecipeEditor productCode={code} />
 
       <section class="card" ref={ordSecRef}>
         <label class="card-label">Đơn có sản phẩm này{ordStarted.current ? ` (${ordTotal})` : ""}</label>

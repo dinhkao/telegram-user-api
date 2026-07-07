@@ -267,20 +267,24 @@ export function BoxDetail({ boxId }: { boxId: string }) {
       </section>
 
       <section class="card">
-        <label class="card-label">Đã xuất cho đơn</label>
+        <label class="card-label">Đã xuất / tiêu hao</label>
         {d.allocations.length === 0 ? (
           <div class="muted small">Chưa xuất cho đơn nào — còn trong kho.</div>
         ) : (
           <ul class="box-alloc-list">
-            {d.allocations.map((a) => (
-              <li key={a.allocation_id}>
-                <a class="box-jump" href={`#/order/${a.order_thread_id}?focus=box:${b.id}`}>
-                  <Icon name="clipboard" size={16} /> Đơn #{a.order_thread_id} · lấy {soVN(a.quantity)}
-                  {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
-                </a>
-                {a.order_text ? <div class="box-alloc-peek">{a.order_text}</div> : null}
-              </li>
-            ))}
+            {d.allocations.map((a) => {
+              const prod = (a as any).kind === "production";
+              return (
+                <li key={a.allocation_id}>
+                  <a class="box-jump" href={`${prod ? "#/san_xuat" : "#/order"}/${a.order_thread_id}?focus=box:${b.id}`}>
+                    <Icon name={prod ? "factory" : "clipboard"} size={16} />{" "}
+                    {prod ? "Phiếu SX" : "Đơn"} #{a.order_thread_id} · {prod ? "tiêu hao" : "lấy"} {soVN(a.quantity)}
+                    {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
+                  </a>
+                  {a.order_text ? <div class="box-alloc-peek">{a.order_text}</div> : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

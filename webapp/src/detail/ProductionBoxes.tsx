@@ -2,10 +2,11 @@
 // (K2L-001). POST .../boxes (queueable, gửi mảng {quantity} × số thùng). onChanged()
 // để phiếu tải lại tổng. Liệt kê thùng đã nhập ở phiếu này — tap → chi tiết thùng.
 import { useEffect, useState } from "preact/hooks";
-import { addProductionBoxes, slipBoxes, listUnits, createUnit, soVN, type ProdSlip, type InvBox, type Unit } from "../api";
+import { addProductionBoxes, slipBoxes, listUnits, createUnit, getRecipe, soVN, type ProdSlip, type InvBox, type Unit, type RecipeLine } from "../api";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { SelectPopup } from "../ui/SelectPopup";
+import { StockPickerModal } from "./StockPickerModal";
 
 function todayLocal(): string {
   const d = new Date();
@@ -33,6 +34,16 @@ export function ProductionBoxes({
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitId, setUnitId] = useState<number | null>(null);   // đơn vị chứa cho đợt nhập
   useEffect(() => { listUnits().then((u) => { setUnits(u); if (u[0] && unitId == null) setUnitId(u[0].id); }).catch(() => {}); }, []);
+  // Công thức nguyên liệu của SP này + thùng NL người dùng chọn để tiêu hao
+  const [recipe, setRecipe] = useState<RecipeLine[]>([]);
+  const [consumePicks, setConsumePicks] = useState<Record<string, { box_id: number; quantity: number }[]>>({});
+  const [pickIng, setPickIng] = useState<string | null>(null);   // mã NL đang mở popup chọn thùng
+  useEffect(() => { if (slip.sp_name) getRecipe(slip.sp_name).then(setRecipe).catch(() => setRecipe([])); else setRecipe([]); }, [slip.sp_name]);
+  const produced = (() => {
+    const n = parseFloat((amount || "").replace(",", ".")), c = Math.floor(parseFloat((count || "").replace(",", ".")));
+    return isFinite(n) && n > 0 && isFinite(c) && c > 0 ? n * c : 0;
+  })();
+  const chosenOf = (code: string) => (consumePicks[code] || []).reduce((s, p) => s + p.quantity, 0);
   const createUnitPick = async (name: string) => {
     try {
       const u = await createUnit(name);
@@ -78,14 +89,17 @@ export function ProductionBoxes({
     setMsg("");
     try {
       const picks = Array.from({ length: c }, () => ({ quantity: n }));  // c thùng giống nhau
-      const r = await addProductionBoxes(threadId, picks, note.trim(), mfgDate, unitId);
+      const consume = Object.values(consumePicks).flat();               // thùng NL đã chọn
+      const r = await addProductionBoxes(threadId, picks, note.trim(), mfgDate, unitId, consume);
       setAmount("");
       setCount("1");
       setNote("");
+      setConsumePicks({});
       if (r?._queued) {
         setMsg("⏳ Đã lưu tạm (mất mạng), sẽ gửi lại");
       } else {
-        setMsg(`✅ Đã nhập ${c} thùng`);
+        const nc = (r.consumed || []).length;
+        setMsg(`✅ Đã nhập ${c} thùng${nc ? ` · trừ ${nc} phần nguyên liệu` : ""}`);
         onChanged();
         loadMine();
       }
@@ -140,6 +154,26 @@ export function ProductionBoxes({
           placeholder="Số cây / thùng"
         />
       </div>
+      {recipe.length > 0 && (
+        <div class="recipe-consume">
+          <div class="card-label"><Icon name="leaf" size={15} /> Nguyên liệu cần trừ {produced > 0 ? `(SX ${soVN(produced)} cây)` : ""}</div>
+          {produced <= 0 && <div class="muted small">Nhập số thùng × số cây trước để tính nguyên liệu.</div>}
+          {recipe.map((l) => {
+            const need = +(l.ratio * produced).toFixed(3);
+            const chosen = chosenOf(l.ingredient_code);
+            const enough = need > 0 && chosen >= need;
+            return (
+              <div class="stock-head" key={l.ingredient_code}>
+                <b>{l.ingredient_code}</b>
+                <span class={enough ? "inv-pick-sum ok" : "inv-pick-sum"}>{soVN(chosen)}/{soVN(need)}</span>
+                <span class="muted small">tồn {soVN(l.stock ?? 0)}</span>
+                <button class="btn small" disabled={!hasSp || produced <= 0} onClick={() => setPickIng(l.ingredient_code)}>Chọn thùng</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div class="row">
         <input
           type="text"
@@ -153,6 +187,16 @@ export function ProductionBoxes({
         </button>
       </div>
       {msg && <div class="muted small">{msg}</div>}
+
+      {pickIng && (
+        <StockPickerModal
+          productCode={pickIng}
+          need={+(((recipe.find((l) => l.ingredient_code === pickIng)?.ratio || 0) * produced).toFixed(3))}
+          got={chosenOf(pickIng)}
+          onClose={() => setPickIng(null)}
+          onPick={async (picks) => { const code = pickIng; setConsumePicks((prev) => ({ ...prev, [code]: picks })); }}
+        />
+      )}
 
       {myBoxes.length > 0 && (
         <div class="inv-summary">

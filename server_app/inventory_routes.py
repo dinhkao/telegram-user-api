@@ -33,12 +33,14 @@ from inventory_store import (
     add_unit,
     delete_unit,
     allocate_picks,
+    fifo_consume,
     list_order_allocations,
     list_box_allocations,
     get_allocation,
     delete_allocation,
     summarize,
 )
+from recipe_store import create_recipe_table, list_recipe, set_recipe_line, delete_recipe_line, recipe_needs
 from production_store import get_slip, add_number, set_total, remove_number_by_note
 from order_store.serialization import get_order_by_thread_id
 from server_app.production_routes import _web_actor
@@ -66,6 +68,7 @@ def _ensure(conn):
     migrate_inventory_table(conn)
     create_allocations_table(conn)
     migrate_legacy_allocations(conn)
+    create_recipe_table(conn)
 
 
 def _thread_id(request: web.Request) -> int | None:
@@ -115,17 +118,22 @@ async def production_add_boxes_handler(request: web.Request):
             _ensure(conn)
             slip = get_slip(conn, thread_id)
             if not slip or not slip.get("sp_name"):
-                return None, None
+                return None, None, None
             code = str(slip["sp_name"]).strip().upper()
             created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=unit_id)
             # đồng bộ slip.total/numbers/progress: 1 entry/thùng (note = mã thùng)
             total = slip.get("total") or 0
             for box in created:
                 total = add_number(conn, thread_id, box["quantity"], f"📦 {box['box_code']}", by=actor)
-            return created, total
+            # Trừ kho nguyên liệu theo thùng NGƯỜI DÙNG CHỌN (kind='production').
+            # body.consume = [{box_id, quantity}] (client tính theo công thức + chọn thùng).
+            raw_picks = body.get("consume") if isinstance(body.get("consume"), list) else []
+            picks = [p for p in raw_picks if isinstance(p, dict) and p.get("box_id")]
+            consume = allocate_picks(conn, picks, thread_id, by=actor, kind="production") if picks else []
+            return created, total, consume
         finally:
             conn.close()
-    created, total = await asyncio.to_thread(_run)
+    created, total, consume = await asyncio.to_thread(_run)
     if created is None:
         return web.json_response({"ok": False, "error": "Chưa có sản phẩm, chưa nhập thùng được"}, status=400)
     from server_app.realtime import emit_inventory_changed, emit_production_changed
@@ -140,7 +148,78 @@ async def production_add_boxes_handler(request: web.Request):
             actor_type="web_user" if request.get("web_user") else "http_client",
             actor_id=actor, source="box.created",
             payload={"box_code": box.get("box_code"), "quantity": box.get("quantity"), "from_slip": thread_id}))
-    return web.json_response({"ok": True, "boxes": created, "total": total})
+    # Các phần nguyên liệu đã tiêu hao (allocate_picks kind='production') — client hiện tóm tắt
+    return web.json_response({"ok": True, "boxes": created, "total": total, "consumed": consume or []})
+
+
+async def recipe_get_handler(request: web.Request):
+    """Công thức (nguyên liệu) của 1 SP + tồn hiện tại của từng nguyên liệu."""
+    code = _product_code(request)
+
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            lines = list_recipe(conn, code)
+            # gắn tồn hiện tại (remaining) của mỗi nguyên liệu
+            for ln in lines:
+                rem = conn.execute(
+                    "SELECT COALESCE(SUM(b.quantity - COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0)),0) "
+                    "FROM inventory_boxes b WHERE b.product_code = ? AND (b.disabled IS NULL OR b.disabled=0)",
+                    (ln["ingredient_code"],),
+                ).fetchone()[0]
+                ln["stock"] = rem
+            return lines
+        finally:
+            conn.close()
+    return web.json_response({"ok": True, "recipe": await asyncio.to_thread(_run)})
+
+
+async def recipe_set_handler(request: web.Request):
+    """Thêm/sửa 1 nguyên liệu. Body {ingredient_code, ratio}."""
+    code = _product_code(request)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    ic = str(body.get("ingredient_code") or "").strip().upper()
+    ratio = body.get("ratio")
+    if not ic:
+        return web.json_response({"ok": False, "error": "Thiếu mã nguyên liệu"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            return set_recipe_line(conn, code, ic, ratio)
+        finally:
+            conn.close()
+    line = await asyncio.to_thread(_run)
+    if not line:
+        return web.json_response({"ok": False, "error": "Nguyên liệu/tỉ lệ không hợp lệ (không tự làm nguyên liệu, tỉ lệ > 0)"}, status=400)
+    from server_app.realtime import emit_inventory_changed
+    emit_inventory_changed()
+    return web.json_response({"ok": True, "line": line})
+
+
+async def recipe_delete_handler(request: web.Request):
+    """Xoá 1 dòng công thức theo id."""
+    try:
+        lid = int(request.match_info.get("line_id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "line_id không hợp lệ"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            delete_recipe_line(conn, lid)
+        finally:
+            conn.close()
+    await asyncio.to_thread(_run)
+    from server_app.realtime import emit_inventory_changed
+    emit_inventory_changed()
+    return web.json_response({"ok": True})
 
 
 async def production_boxes_list_handler(request: web.Request):
