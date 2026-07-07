@@ -794,10 +794,10 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .lbl-grid { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 7px; }
 /* Nhãn thùng (kiểu tem dán): mã SP trên · số cây to giữa · số thùng dưới.
    Layout 3 tầng như tem; MÀU NỀN theo trạng thái (xanh/hổ phách/xám). */
-.box-lbl { position: relative; aspect-ratio: 3 / 4; display: grid; grid-template-rows: auto 1fr auto; border: 1.5px solid; border-radius: 10px; overflow: hidden; text-decoration: none; background: var(--card); transition: transform var(--dur) var(--ease); }
+.box-lbl { position: relative; aspect-ratio: 1; display: grid; grid-template-rows: auto 1fr auto; border: 1.5px solid; border-radius: 10px; overflow: hidden; text-decoration: none; background: var(--card); transition: transform var(--dur) var(--ease); }
 .box-lbl:active { transform: scale(.94); }
-/* Mức "bình chứa": nền đổ đầy từ ĐÁY theo --fill (remaining/gốc) */
-.box-lbl::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--fill, 100%); background: var(--fill-bg, var(--ok-wash)); z-index: 0; transition: height var(--dur) var(--ease); }
+/* Mức "bình chứa": nền đổ đầy từ TRÁI theo --fill (remaining/gốc) */
+.box-lbl::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--fill, 100%); background: var(--fill-bg, var(--ok-wash)); z-index: 0; transition: width var(--dur) var(--ease); }
 .box-lbl > * { position: relative; z-index: 1; }
 .box-lbl .bl-code { font-family: var(--mono); font-weight: 700; font-size: .56rem; letter-spacing: -.02em; text-align: center; padding: 3px 2px; border-bottom: 1.5px solid; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .box-lbl .bl-q { display: flex; align-items: baseline; justify-content: center; font-weight: 800; font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; }
