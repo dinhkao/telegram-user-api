@@ -418,6 +418,7 @@ export type ProdSlip = {
   sx_target?: number | null;
   total: number;
   ghi_chu?: string | null;
+  kind?: "san_xuat" | "dong_goi";
   numbers?: { amount: number; note?: string; at?: string; by?: string }[];
   bang?: any | null;
   updated_at?: string;
@@ -468,6 +469,9 @@ export async function setProductionTarget(id: string | number, target: number): 
   return postJSON(`/api/production/${id}/target`, { target });
 }
 
+export async function setProductionKind(id: string | number, kind: "san_xuat" | "dong_goi"): Promise<any> {
+  return postJSON(`/api/production/${id}/kind`, { kind });
+}
 export async function setProductionNote(id: string | number, note: string): Promise<any> {
   return postJSON(`/api/production/${id}/note`, { note });
 }

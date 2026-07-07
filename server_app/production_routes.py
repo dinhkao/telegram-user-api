@@ -26,6 +26,7 @@ from production_store import (
     set_sp,
     set_target,
     set_note,
+    set_kind,
     add_number,
     set_bang,
     delete_slip,
@@ -250,6 +251,28 @@ async def production_set_note_handler(request: web.Request):
     await asyncio.to_thread(_run)
     _emit(thread_id)
     return web.json_response({"ok": True})
+
+
+async def production_set_kind_handler(request: web.Request):
+    """Đổi loại phiếu: 'san_xuat' (có bảng báo cáo thợ) | 'dong_goi' (không)."""
+    thread_id = _thread_id(request)
+    if thread_id is None:
+        return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    kind = str(body.get("kind") or "san_xuat")
+
+    def _run():
+        conn = _conn()
+        try:
+            set_kind(conn, thread_id, kind)
+        finally:
+            conn.close()
+    await asyncio.to_thread(_run)
+    _emit(thread_id)
+    return web.json_response({"ok": True, "kind": "dong_goi" if kind == "dong_goi" else "san_xuat"})
 
 
 async def production_add_number_handler(request: web.Request):

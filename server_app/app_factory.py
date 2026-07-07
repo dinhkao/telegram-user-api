@@ -42,6 +42,7 @@ from server_app.production_routes import (
     production_detail_handler,
     production_list_handler,
     production_set_note_handler,
+    production_set_kind_handler,
     production_report_parse_handler,
     production_report_save_handler,
     production_report_lock_handler,
@@ -203,6 +204,7 @@ def create_app():
     r.add_post("/api/production/{thread_id}/product", production_set_product_handler)
     r.add_post("/api/production/{thread_id}/target", production_set_target_handler)
     r.add_post("/api/production/{thread_id}/note", production_set_note_handler)
+    r.add_post("/api/production/{thread_id}/kind", production_set_kind_handler)
     r.add_post("/api/production/{thread_id}/number", production_add_number_handler)
     r.add_post("/api/production/{thread_id}/boxes", production_add_boxes_handler)
     r.add_get("/api/production/{thread_id}/boxes", production_boxes_list_handler)

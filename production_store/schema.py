@@ -18,6 +18,7 @@ def create_production_table(conn):
             numbers     TEXT,
             bang        TEXT,
             ghi_chu     TEXT,
+            kind        TEXT DEFAULT 'san_xuat',
             updated_at  TEXT DEFAULT (datetime('now'))
         )
         """
@@ -51,6 +52,8 @@ def migrate_production_table(conn):
         conn.execute("ALTER TABLE production_slips ADD COLUMN bang TEXT")
     if "ghi_chu" not in columns:
         conn.execute("ALTER TABLE production_slips ADD COLUMN ghi_chu TEXT")
+    if "kind" not in columns:
+        conn.execute("ALTER TABLE production_slips ADD COLUMN kind TEXT DEFAULT 'san_xuat'")
     if "updated_at" not in columns:
         conn.execute("ALTER TABLE production_slips ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))")
     conn.commit()

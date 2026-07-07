@@ -18,6 +18,7 @@ _COLUMNS = (
     "numbers",
     "bang",
     "ghi_chu",
+    "kind",
     "updated_at",
 )
 _JSON_COLUMNS = {"numbers", "bang"}
@@ -43,7 +44,7 @@ def list_slips(conn, limit: int = 20, offset: int = 0) -> list[dict]:
     """Slips theo NGÀY TẠO mới→cũ (date_code lúc tạo), phân trang. Row nhẹ."""
     rows = conn.execute(
         "SELECT thread_id, date, date_code, sp_name, sp_mam, sx_target, total, "
-        "ghi_chu, updated_at FROM production_slips "
+        "ghi_chu, kind, updated_at FROM production_slips "
         "ORDER BY date_code DESC, thread_id DESC LIMIT ? OFFSET ?",
         (limit, offset),
     ).fetchall()
@@ -77,6 +78,12 @@ def set_sp(conn, thread_id, name, mam, luong) -> bool:
 
 def set_target(conn, thread_id, sx_target) -> bool:
     return upsert_slip(conn, thread_id, sx_target=sx_target)
+
+
+def set_kind(conn, thread_id, kind) -> bool:
+    """Loại phiếu: 'san_xuat' (có bảng báo cáo thợ) | 'dong_goi' (không có)."""
+    k = "dong_goi" if str(kind) == "dong_goi" else "san_xuat"
+    return upsert_slip(conn, thread_id, kind=k)
 
 
 def set_note(conn, thread_id, ghi_chu) -> bool:

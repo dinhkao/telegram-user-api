@@ -8,6 +8,7 @@ import {
   productionCatalog,
   setProductionProduct,
   setProductionNote,
+  setProductionKind,
   deleteProduction,
   soVN,
   prodCreated,
@@ -113,6 +114,13 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
     }
   };
 
+  const changeKind = async (k: "san_xuat" | "dong_goi") => {
+    if (!slip || (slip.kind || "san_xuat") === k) return;
+    setSlip((s) => (s ? { ...s, kind: k } : s));   // optimistic
+    try { await setProductionKind(threadId, k); }
+    catch (e: any) { setErr(e?.message || "Lỗi đổi loại phiếu"); reload(); }
+  };
+
   const doDelete = async () => {
     if (!(await confirmDialog("Xoá phiếu sản xuất này?", { danger: true }))) return;
     try {
@@ -132,6 +140,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   const pctOff = reported > 0 ? Math.abs(diff) / reported * 100 : (diff === 0 ? 0 : 100);
   const match = pctOff <= 0.5;                             // cho phép lệch ≤ 0.5%
   const hasReport = reported > 0 || (slip.bang?.rows?.length || 0) > 0;
+  const isSX = (slip.kind || "san_xuat") === "san_xuat";   // sản xuất → có bảng báo cáo thợ
 
   return (
     <div class="prod-detail">
@@ -145,8 +154,14 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
 
       {err && <div class="error-banner">{err}</div>}
 
-      {/* So sánh: tổng nhập thùng vs tổng báo cáo theo thợ (khớp/lệch) */}
-      <div class={"prod-compare" + (!hasReport ? " none" : match ? " ok" : " warn")}>
+      {/* Loại phiếu: Sản xuất (có bảng báo cáo thợ) ↔ Đóng gói (không) */}
+      <div class="pk-seg">
+        <button class={"pk-opt" + (isSX ? " on" : "")} onClick={() => changeKind("san_xuat")}><Icon name="factory" size={15} /> Sản xuất</button>
+        <button class={"pk-opt" + (!isSX ? " on" : "")} onClick={() => changeKind("dong_goi")}><Icon name="box" size={15} /> Đóng gói</button>
+      </div>
+
+      {/* So sánh: tổng nhập thùng vs tổng báo cáo theo thợ (khớp/lệch) — chỉ phiếu SX */}
+      {isSX && <div class={"prod-compare" + (!hasReport ? " none" : match ? " ok" : " warn")}>
         <div class="pc-cell">
           <div class="pc-lb"><Icon name="box" size={14} /> Nhập thùng</div>
           <div class="pc-val">{soVN(boxed)}</div>
@@ -159,7 +174,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
         <div class="pc-verdict">
           {!hasReport ? "— chưa báo cáo" : match ? "✅ Khớp" : `⚠️ Lệch ${soVN(Math.abs(diff))} (${pctOff.toFixed(1)}%)`}
         </div>
-      </div>
+      </div>}
 
       <section class="card">
         <label class="card-label">Sản phẩm</label>
@@ -180,7 +195,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
 
       <ProductionBoxes threadId={threadId} slip={slip} onChanged={reload} />
 
-      <ProductionReport threadId={threadId} slip={slip} />
+      {isSX && <ProductionReport threadId={threadId} slip={slip} />}
 
       <Images base={`/api/media/production/${threadId}`} />
       <Comments base={`/api/media/production/${threadId}`} />

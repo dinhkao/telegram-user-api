@@ -1344,3 +1344,8 @@ body.co-kbd .bottom-nav { display: none; }
 
 /* Nút "Thêm thợ" ở app-bar trang Danh sách thợ */
 .od-appadd { margin-left: auto; flex: 0 0 auto; }
+
+/* Toggle loại phiếu SX (Sản xuất ↔ Đóng gói) — segmented control */
+.pk-seg { display: flex; gap: 4px; padding: 4px; background: var(--card2, #f0f1f3); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; }
+.pk-opt { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 9px 6px; border: none; background: transparent; color: var(--muted); font-weight: 600; font-size: .9rem; border-radius: 9px; cursor: pointer; transition: background .12s, color .12s; }
+.pk-opt.on { background: var(--card, #fff); color: var(--primary); box-shadow: var(--e1, 0 1px 3px rgba(0,0,0,.12)); }
