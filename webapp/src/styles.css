@@ -956,9 +956,16 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .co-cust-picked .btn { margin-left: auto; }
 .co-cust-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .co-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--primary); color: #fff; font-weight: 700; font-size: .9rem; display: flex; align-items: center; justify-content: center; flex: none; }
-/* Preview — dính DƯỚI app-bar (44px); top:0 sẽ nấp sau header (z-index 20) */
-.co-preview { position: sticky; top: 46px; z-index: 6; max-height: 36vh; overflow-y: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 10px 12px 8px; margin: 8px 0; box-shadow: var(--e2); }
-.co-typing .co-preview { max-height: none; }
+/* Preview — bình thường nằm trong luồng (không đè ô nhập khi cuộn); đang gõ thì
+   DÍNH dưới app-bar (44px — top:0 sẽ nấp sau header z-index 20) và bị CAP chiều
+   cao (cuộn bên trong) để KHÔNG đẩy ô nhập xuống dưới bàn phím. */
+.co-preview { max-height: 36vh; overflow-y: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 10px 12px 8px; margin: 8px 0; box-shadow: var(--e2); }
+.co-typing .co-preview { position: sticky; top: 46px; z-index: 6; max-height: 30vh; }
+/* Đang gõ → giấu phần DƯỚI ô nhập (nút to/hint/ghi chú — đã có nút Tạo mini trong
+   preview) để ô nhập luôn còn chỗ trên bàn phím; blur thì hiện lại, không giật. */
+.co-typing .co-submit, .co-typing .co-hint-toggle, .co-typing .co-hint, .co-typing .co-note { display: none; }
+/* Bàn phím bật (trang Tạo đơn) → giấu bottom-nav, nhường chỗ cho ô nhập */
+body.co-kbd .bottom-nav { display: none; }
 .co-prev-head { display: flex; align-items: center; gap: 6px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); min-height: 30px; }
 .co-prev-go { margin-left: auto; border: none; background: var(--primary); color: #fff; font-size: .8rem; font-weight: 700; border-radius: var(--r-pill); padding: 6px 14px; min-height: 30px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .co-prev-go:active { transform: scale(.96); }
@@ -983,7 +990,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .co-input { width: 100%; box-sizing: border-box; resize: none; background: var(--card); border: 1.5px solid var(--border); border-radius: var(--r-lg); padding: 12px 14px; line-height: 1.25; font-weight: 600; letter-spacing: .2px; height: 40vh; min-height: 150px; max-height: 46vh; overflow-y: auto; transition: border-color var(--dur) var(--ease); }
 .co-input:focus { outline: none; border-color: var(--primary); }
 .co-input::placeholder { font-weight: 500; opacity: .45; }
-.co-typing .co-input { height: 24vh; min-height: 110px; }
+.co-typing .co-input { height: 20vh; min-height: 96px; }
 .co-submit { margin-top: 10px; min-height: 50px; font-size: 1rem; }
 .err-msg { color: var(--danger); background: var(--danger-wash); padding: 8px 10px; border-radius: 8px; font-size: .9rem; margin: 6px 0; }
 /* Hướng dẫn cú pháp — gọn, thu gọn được */

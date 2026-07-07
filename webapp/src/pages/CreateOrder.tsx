@@ -55,6 +55,12 @@ export function CreateOrder() {
     const r = requestAnimationFrame(fitFont);
     return () => cancelAnimationFrame(r);
   }, [text, mode, typing]);
+  // Đang gõ (bàn phím bật) → giấu bottom-nav (body.co-kbd, styles.css) cho ô nhập
+  // khỏi bị nav đè trên màn thấp; blur thì nav hiện lại.
+  useEffect(() => {
+    document.body.classList.toggle("co-kbd", typing);
+    return () => document.body.classList.remove("co-kbd");
+  }, [typing]);
   // Xoay màn hình → cân lại 1 lần (debounce), không nghe visualViewport.
   useEffect(() => {
     let t: any;
@@ -253,6 +259,7 @@ export function CreateOrder() {
             </ul>
           </div>
           )}
+          <p class="co-note muted small">📨 Đơn tạo từ web sẽ đăng vào kênh #don_hang và tạo topic Telegram như gõ tay.</p>
         </div>
       ) : (
         <div>
@@ -273,9 +280,9 @@ export function CreateOrder() {
           </div>
           <InvoiceEditor customerId={customer?.key} invoice={[]} onSave={createAdvanced} createMode />
           <p class="muted small">Bấm 💾 Lưu để tạo đơn; sang trang chi tiết bấm 🧾 Tạo HĐ KiotViet.</p>
+          <p class="co-note muted small">📨 Đơn tạo từ web sẽ đăng vào kênh #don_hang và tạo topic Telegram như gõ tay.</p>
         </div>
       )}
-      <p class="co-note muted small">📨 Đơn tạo từ web sẽ đăng vào kênh #don_hang và tạo topic Telegram như gõ tay.</p>
 
       {plOpen && (
         <div class="modal-backdrop" onClick={() => setPlOpen(false)}>
