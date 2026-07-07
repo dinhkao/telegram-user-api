@@ -123,7 +123,7 @@ export function CreateOrder() {
   useEffect(() => {
     if (mode !== "quick") { setPreview(null); return; }
     const t = text.trim();
-    if (!t && !picked) { setPreview(null); setPreviewing(false); return; }
+    if (!t && !picked) { seq.current++; setPreview(null); setPreviewing(false); return; } // ++ huỷ kết quả đang bay — xoá hết text không bị preview cũ đè lại
     const my = ++seq.current;
     setPreviewing(true);
     previewOrder(t, picked?.key)
@@ -173,15 +173,19 @@ export function CreateOrder() {
     const debt = isLive ? liveDebt!.debt : c.debt;
     return (
       <div class="co-prev-cust">
-        <span class="co-avatar" aria-hidden="true">{initial(name)}</span>
-        <div class="co-prev-cinfo">
-          <b>{name}</b>
-          <span class="muted small">
-            {c.manual ? "Chọn tay" : `Khớp ${c.score}%`}
-            {c.price_list_name && <> · {c.price_list_name}{" "}
-              <button class="co-link" onClick={(e: any) => { e.preventDefault(); openPriceList(c.id); }}>Xem giá</button></>}
-          </span>
-        </div>
+        {/* Avatar + tên = link sang trang khách. Nút "Xem giá" nằm TRONG link nên
+            phải stopPropagation + preventDefault để bấm nó KHÔNG điều hướng. */}
+        <a class="co-cust-link" href={`#/khach/${encodeURIComponent(c.id)}`}>
+          <span class="co-avatar" aria-hidden="true">{initial(name)}</span>
+          <div class="co-prev-cinfo">
+            <span class="co-cust-line"><b>{name}</b><Icon name="chevronRight" size={14} class="co-cust-chev" /></span>
+            <span class="muted small">
+              {c.manual ? "Chọn tay" : `Khớp ${c.score}%`}
+              {c.price_list_name && <> · {c.price_list_name}{" "}
+                <button class="co-link" onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); openPriceList(c.id); }}>Xem giá</button></>}
+            </span>
+          </div>
+        </a>
         {debtBusy && !isLive
           ? <span class="co-debt wait">Nợ…</span>
           : debt != null && <span class={"co-debt" + (debt > 0 ? " owe" : "")}>Nợ {money(debt)}đ{isLive ? " 🟢" : ""}</span>}
@@ -211,8 +215,12 @@ export function CreateOrder() {
           <div class="co-cust">
             {picked ? (
               <div class="co-cust-picked">
-                <span class="co-avatar" aria-hidden="true">{initial(picked.name)}</span>
-                <b class="co-cust-name">{picked.name}</b>
+                {/* Avatar + tên = link sang trang khách; nút Đổi để NGOÀI link */}
+                <a class="co-cust-link" href={`#/khach/${encodeURIComponent(picked.key)}`}>
+                  <span class="co-avatar" aria-hidden="true">{initial(picked.name)}</span>
+                  <b class="co-cust-name">{picked.name}</b>
+                  <Icon name="chevronRight" size={14} class="co-cust-chev" />
+                </a>
                 <button class="btn small ghost" onClick={() => setPicked(null)}>Đổi</button>
               </div>
             ) : (

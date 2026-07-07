@@ -1016,6 +1016,12 @@ body.co-kbd .bottom-nav { display: none; }
 .co-prev-cust { display: flex; align-items: center; gap: 10px; padding: 6px 0 8px; }
 .co-prev-cinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
 .co-prev-cinfo b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Link khách (avatar + tên) trong preview / chip khách đã chọn — không xanh,
+   không gạch chân; chevron mờ nhỏ sau tên làm dấu hiệu "bấm được". */
+.co-cust-link { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; color: inherit; text-decoration: none; }
+.co-cust-line { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.co-cust-line b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-cust-chev { flex: none; color: var(--muted); }
 .co-prev-nocust { padding: 6px 0; }
 .co-link { border: none; background: none; color: var(--primary); font-size: inherit; font-weight: 600; padding: 0 2px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .co-debt { flex: none; font-size: .74rem; font-weight: 700; padding: 4px 9px; border-radius: var(--r-pill); background: var(--bg); color: var(--muted); font-variant-numeric: tabular-nums; }
