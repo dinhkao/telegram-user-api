@@ -8,7 +8,8 @@ export function BoxLabelGrid({ boxes }: { boxes: KhoBox[] }) {
       {boxes.map((b) => {
         const rm = b.remaining ?? b.quantity;
         const used = b.allocated ?? 0;
-        const st = b.disabled ? "off" : used > 0 ? "alloc" : "in";
+        // Luôn XANH (như đầy); mức nền thể hiện phần còn lại. Chỉ vô hiệu mới khác màu.
+        const st = b.disabled ? "off" : "in";
         const num = (b.box_code || "").split("-").pop() || b.box_code;
         const status = b.disabled ? "vô hiệu" : used > 0 ? `đã xuất ${soVN(used)}/${soVN(b.quantity)}` : "trong kho";
         // Mức "bình chứa": nền đổ đầy theo remaining/gốc
