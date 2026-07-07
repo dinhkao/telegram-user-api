@@ -303,7 +303,29 @@ function App() {
     document.addEventListener("focusin", onIn);
     document.addEventListener("focusout", onOut);
     setKbd();
-    return () => { document.removeEventListener("focusin", onIn); document.removeEventListener("focusout", onOut); document.body.classList.remove("kbd-open"); };
+
+    // Người ẩn bàn phím (nút xuống Android) KHÔNG tự blur ô → ô còn focus, nav vẫn ẩn.
+    // Dò bàn phím ĐÓNG qua visualViewport nở lại → blur ô đang focus (→ focusout → nav về).
+    const vv = window.visualViewport;
+    let maxH = vv?.height || 0, wasOpen = false;
+    const onVV = () => {
+      if (!vv) return;
+      if (vv.height > maxH) maxH = vv.height;
+      if (vv.height < maxH - 100) wasOpen = true;            // bàn phím đang mở
+      else if (wasOpen) {                                    // nở lại = bàn phím đóng
+        wasOpen = false;
+        const a = document.activeElement as HTMLElement | null;
+        if (isField(a)) a?.blur();
+      }
+    };
+    vv?.addEventListener("resize", onVV);
+
+    return () => {
+      document.removeEventListener("focusin", onIn);
+      document.removeEventListener("focusout", onOut);
+      vv?.removeEventListener("resize", onVV);
+      document.body.classList.remove("kbd-open");
+    };
   }, []);
 
   let page;
