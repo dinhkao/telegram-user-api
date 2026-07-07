@@ -122,6 +122,22 @@ const FILTER_LABELS: Record<string, string> = {
   chua_soan: "Chưa soạn", chua_giao: "Chưa giao", chua_nop: "Chưa nộp", chua_nhan: "Chưa nhận",
 };
 
+// Dòng còn KHỚP chip lọc đang chọn không? Khớp đúng semantics server
+// (server_app/orders_api.py): chua_* theo cờ workflow, pending/done theo
+// done_after_20250124. Dùng khi vá dòng realtime: đơn flip trạng thái →
+// không còn khớp filter → phải RÚT khỏi danh sách (không chỉ vá tại chỗ).
+function rowMatchesFilter(o: OrderRow, f: FilterKey): boolean {
+  switch (f) {
+    case "chua_soan": return !o.soan;
+    case "chua_giao": return !o.giao;
+    case "chua_nop": return !o.nop;
+    case "chua_nhan": return !o.nhan;
+    case "pending": return !o.done_after_20250124;
+    case "done": return !!o.done_after_20250124;
+    default: return true; // "all"
+  }
+}
+
 // Cache toàn danh sách + vị trí cuộn — sống ở module scope nên vẫn còn khi
 // rời trang chi tiết rồi quay lại (mount lại). Reset khi có search mới.
 let listCache: {
@@ -160,9 +176,15 @@ onRealtime((e) => {
   if (e.row === null) {
     if (idx >= 0) listCache = { ...listCache, orders: listCache.orders.filter((_, i) => i !== idx) };
   } else if (idx >= 0) {
-    const next = listCache.orders.slice();
-    next[idx] = e.row as OrderRow;
-    listCache = { ...listCache, orders: next };
+    // Dòng đổi có thể HẾT khớp chip lọc đang cache (vd lọc "Chưa nhận" mà đơn
+    // vừa được nhận ở trang chi tiết) → rút khỏi danh sách thay vì vá tại chỗ.
+    if (rowMatchesFilter(e.row as OrderRow, listCache.filter)) {
+      const next = listCache.orders.slice();
+      next[idx] = e.row as OrderRow;
+      listCache = { ...listCache, orders: next };
+    } else {
+      listCache = { ...listCache, orders: listCache.orders.filter((_, i) => i !== idx) };
+    }
   }
 });
 
@@ -526,6 +548,9 @@ export function OrdersList() {
       setFilter(c.filter);
       setPage(c.page);
       setTotalPages(c.totalPages);
+      // Số đếm chip trong cache có thể đã lệch (đơn flip trạng thái lúc trang
+      // unmount) → làm mới nhẹ nền (không đụng danh sách/vị trí cuộn).
+      refreshStats();
       return;
     }
     load(1, "", "all", false);
@@ -562,9 +587,13 @@ export function OrdersList() {
           if (idx < 0) return prev;
           next = prev.filter((_, i) => i !== idx); // đơn bị xoá
         } else if (idx >= 0) {
-          next = prev.slice();
-          next[idx] = e.row as OrderRow; // vá dòng đã đổi
-          patched = true;
+          if (rowMatchesFilter(e.row as OrderRow, st.current.filter)) {
+            next = prev.slice();
+            next[idx] = e.row as OrderRow; // vá dòng đã đổi
+            patched = true;
+          } else {
+            next = prev.filter((_, i) => i !== idx); // hết khớp chip lọc → rút khỏi list
+          }
         } else {
           return prev; // chưa có trong danh sách hiện tại → hiện ở lần tải sau
         }
