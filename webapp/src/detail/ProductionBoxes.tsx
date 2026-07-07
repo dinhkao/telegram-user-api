@@ -185,7 +185,6 @@ export function ProductionBoxes({
             onFocus={(e) => (e.target as HTMLInputElement).select()}
             onInput={(e) => setAmount((e.target as HTMLInputElement).value)}
             placeholder={`Số ${prodUnit}`} />
-          <span class="pb-unit muted">{prodUnit}/{unitLow}</span>
         </div>
 
         <span class="pb-lb"><Icon name="note" size={15} /> Ghi chú</span>
