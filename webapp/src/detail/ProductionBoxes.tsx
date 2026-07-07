@@ -140,63 +140,64 @@ export function ProductionBoxes({
     }
   };
 
+  const cnt = Math.max(1, Math.floor(parseFloat((count || "1").replace(",", ".")) || 1));
   return (
     <section class="card">
       <label class="card-label"><Icon name="box" size={16} /> Nhập {unitLow}</label>
-      <div class="row">
-        <label class="inline-label"><Icon name="tag" size={16} /> Sản phẩm</label>
-        <PickerPopup value={prodCode} placeholder="Chọn SP" allowFreeText
-          onSearch={async (q): Promise<PickOpt[]> => (await searchProducts(q).catch(() => [])).map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }))}
-          onPick={(o) => setProdCode(o.key)} />
-      </div>
-      {!hasSp && <div class="muted small">Chọn sản phẩm trước khi nhập.</div>}
 
-      <div class="row">
-        <label class="inline-label"><Icon name="calendar" size={16} /> NSX</label>
-        <input
-          type="date"
-          value={mfgDate}
-          disabled={!hasSp}
-          onInput={(e) => setMfgDate((e.target as HTMLInputElement).value)}
-        />
+      <div class="pb-form">
+        <span class="pb-lb"><Icon name="tag" size={15} /> Sản phẩm</span>
+        <div class="pb-ctl">
+          <PickerPopup value={prodCode} placeholder="Chọn SP" allowFreeText
+            onSearch={async (q): Promise<PickOpt[]> => (await searchProducts(q).catch(() => [])).map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }))}
+            onPick={(o) => setProdCode(o.key)} />
+        </div>
+
+        <span class="pb-lb"><Icon name="calendar" size={15} /> NSX</span>
+        <div class="pb-ctl">
+          <input type="date" value={mfgDate} disabled={!hasSp}
+            onInput={(e) => setMfgDate((e.target as HTMLInputElement).value)} />
+        </div>
+
+        <span class="pb-lb"><Icon name="box" size={15} /> Đơn vị</span>
+        <div class="pb-ctl">
+          <SelectPopup title="Đơn vị chứa" searchable onCreate={createUnitPick} disabled={!hasSp}
+            value={unitId ?? ""} options={units.map((u) => ({ value: u.id, label: u.name }))}
+            onChange={(v) => setUnitId(v ? Number(v) : null)} />
+        </div>
+
+        <span class="pb-lb"><Icon name="tag" size={15} /> Vị trí</span>
+        <div class="pb-ctl">
+          <SelectPopup title="Vị trí kho" placeholder="— Chưa xếp —" searchable onCreate={createPlacePick} disabled={!hasSp}
+            value={placeId ?? ""}
+            options={[{ value: "", label: "— Chưa xếp —" }, ...places.map((p) => ({ value: p.id, label: p.name }))]}
+            onChange={(v) => setPlaceId(v ? Number(v) : null)} />
+        </div>
+
+        <span class="pb-lb"><Icon name="clipboard" size={15} /> Số lượng</span>
+        <div class="pb-ctl pb-qty">
+          <input type="text" inputMode="numeric" class="pb-count" value={count} disabled={!hasSp}
+            onFocus={(e) => (e.target as HTMLInputElement).select()}
+            onInput={(e) => setCount((e.target as HTMLInputElement).value)}
+            placeholder="1" title={`Số ${unitLow} giống nhau`} />
+          <span class="pb-x">×</span>
+          <input type="text" inputMode="decimal" class="pb-amount" value={amount} disabled={!hasSp}
+            onFocus={(e) => (e.target as HTMLInputElement).select()}
+            onInput={(e) => setAmount((e.target as HTMLInputElement).value)}
+            placeholder={`Số ${prodUnit}`} />
+          <span class="pb-unit muted">{prodUnit}/{unitLow}</span>
+        </div>
+
+        <span class="pb-lb"><Icon name="note" size={15} /> Ghi chú</span>
+        <div class="pb-ctl">
+          <input type="text" value={note} disabled={!hasSp}
+            onInput={(e) => setNote((e.target as HTMLInputElement).value)}
+            placeholder="Tuỳ chọn" />
+        </div>
       </div>
-      <div class="row">
-        <label class="inline-label"><Icon name="box" size={16} /> Đơn vị</label>
-        <SelectPopup title="Đơn vị chứa" searchable onCreate={createUnitPick} disabled={!hasSp}
-          value={unitId ?? ""} options={units.map((u) => ({ value: u.id, label: u.name }))}
-          onChange={(v) => setUnitId(v ? Number(v) : null)} />
-      </div>
-      <div class="row">
-        <label class="inline-label"><Icon name="box" size={16} /> Vị trí</label>
-        <SelectPopup title="Vị trí kho" placeholder="— Chưa xếp —" searchable onCreate={createPlacePick} disabled={!hasSp}
-          value={placeId ?? ""}
-          options={[{ value: "", label: "— Chưa xếp —" }, ...places.map((p) => ({ value: p.id, label: p.name }))]}
-          onChange={(v) => setPlaceId(v ? Number(v) : null)} />
-      </div>
-      <div class="row">
-        <input
-          type="text"
-          inputMode="numeric"
-          class="pb-count"
-          value={count}
-          disabled={!hasSp}
-          onFocus={(e) => (e.target as HTMLInputElement).select()}
-          onInput={(e) => setCount((e.target as HTMLInputElement).value)}
-          placeholder={`Số ${unitLow}`}
-          title={`Số ${unitLow} giống nhau`}
-        />
-        <span class="pb-x">{unitLow} ×</span>
-        <input
-          type="text"
-          inputMode="decimal"
-          class="pb-amount"
-          value={amount}
-          disabled={!hasSp}
-          onFocus={(e) => (e.target as HTMLInputElement).select()}
-          onInput={(e) => setAmount((e.target as HTMLInputElement).value)}
-          placeholder={`Số ${prodUnit} / ${unitLow}`}
-        />
-      </div>
+
+      {!hasSp && <div class="muted small pb-hint">Chọn sản phẩm trước khi nhập.</div>}
+
       {recipe.length > 0 && (
         <div class="recipe-consume">
           <div class="card-label"><Icon name="leaf" size={15} /> Nguyên liệu cần trừ {produced > 0 ? `(SX ${soVN(produced)} ${prodUnit})` : ""}</div>
@@ -218,23 +219,14 @@ export function ProductionBoxes({
         </div>
       )}
 
-      <div class="row">
-        <input
-          type="text"
-          value={note}
-          disabled={!hasSp}
-          onInput={(e) => setNote((e.target as HTMLInputElement).value)}
-          placeholder="Ghi chú (tuỳ chọn)"
-        />
-        <button class="btn primary" disabled={!hasSp || busy || !recipeOk} onClick={submit}
-          title={!recipeOk ? "Chọn đủ thùng nguyên liệu trước" : undefined}>
-          {busy ? "…" : <Icon name="plus" size={16} />}
-        </button>
-      </div>
+      <button class="btn primary block pb-submit" disabled={!hasSp || busy || !recipeOk} onClick={submit}
+        title={!recipeOk ? "Chọn đủ thùng nguyên liệu trước" : undefined}>
+        <Icon name="plus" size={16} /> {busy ? "Đang nhập…" : `Nhập ${cnt} ${unitLow}${produced > 0 ? ` · ${soVN(produced * cnt)} ${prodUnit}` : ""}`}
+      </button>
       {recipe.length > 0 && produced > 0 && !recipeOk && (
-        <div class="muted small">⚠ Cần chọn đủ thùng nguyên liệu mới tạo được thùng.</div>
+        <div class="muted small pb-hint">⚠ Cần chọn đủ thùng nguyên liệu mới tạo được thùng.</div>
       )}
-      {msg && <div class="muted small">{msg}</div>}
+      {msg && <div class="muted small pb-hint">{msg}</div>}
 
       {pickIng && (
         <StockPickerModal
