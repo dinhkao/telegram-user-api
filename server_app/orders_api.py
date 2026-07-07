@@ -240,9 +240,15 @@ async def orders_api_handler(request: web.Request):
         if _stage:
             e = f"json_extract(o.json, '$.{_stage}')"
             not_done = f"{e} IS DISTINCT FROM 'true'" if IS_POSTGRES else f"{e} IS NOT 1"
+            # "Chưa nộp" chỉ tính đơn ĐÃ GIAO rồi (giao xong mới tới lượt nộp tiền).
+            extra = ""
+            if filt == "chua_nop":
+                g = "json_extract(o.json, '$.giao')"
+                giao_done = f"{g} IS NOT DISTINCT FROM 'true'" if IS_POSTGRES else f"{g} IS 1"
+                extra = f" AND ({giao_done})"
             # Chỉ đơn tạo sau 01/06/2026 — data cũ cờ soạn/giao/nộp/nhận lộn xộn.
             # order_created là ISO ('2026-07-01T…') nên so sánh chuỗi là đúng thứ tự.
-            where.append(f"({has_data}) AND ({not_done}) AND (o.order_created >= '2026-06-01')")
+            where.append(f"({has_data}) AND ({not_done}){extra} AND (o.order_created >= '2026-06-01')")
     where_clause = " AND ".join(where)
     sort = request.query.get("sort", "created").strip()
     if sort == "date":
@@ -277,7 +283,11 @@ async def orders_api_handler(request: web.Request):
             def _nd(fld):
                 e = f"json_extract(o.json, '$.{fld}')"
                 return f"{e} IS DISTINCT FROM 'true'" if IS_POSTGRES else f"{e} IS NOT 1"
-            stg = conn.execute(f"SELECT COUNT(CASE WHEN {_nd('soan')} THEN 1 END) s, COUNT(CASE WHEN {_nd('giao')} THEN 1 END) g, COUNT(CASE WHEN {_nd('nop')} THEN 1 END) n, COUNT(CASE WHEN {_nd('nhan')} THEN 1 END) nh FROM orders o WHERE o.deleted_at IS NULL AND ({has_data}) AND o.order_created >= '2026-06-01'").fetchone()
+            def _dn(fld):  # bước ĐÃ xong
+                e = f"json_extract(o.json, '$.{fld}')"
+                return f"{e} IS NOT DISTINCT FROM 'true'" if IS_POSTGRES else f"{e} IS 1"
+            # chua_nop = chưa nộp NHƯNG đã giao (khớp filter ở trên)
+            stg = conn.execute(f"SELECT COUNT(CASE WHEN {_nd('soan')} THEN 1 END) s, COUNT(CASE WHEN {_nd('giao')} THEN 1 END) g, COUNT(CASE WHEN {_nd('nop')} AND {_dn('giao')} THEN 1 END) n, COUNT(CASE WHEN {_nd('nhan')} THEN 1 END) nh FROM orders o WHERE o.deleted_at IS NULL AND ({has_data}) AND o.order_created >= '2026-06-01'").fetchone()
             if stg:
                 stats.update({"chua_soan": stg["s"] or 0, "chua_giao": stg["g"] or 0, "chua_nop": stg["n"] or 0, "chua_nhan": stg["nh"] or 0})
         return web.json_response({"orders": orders, "total": total, "page": page, "limit": limit, "total_pages": max(1, (total + limit - 1) // limit), "stats": stats})

@@ -130,7 +130,7 @@ function rowMatchesFilter(o: OrderRow, f: FilterKey): boolean {
   switch (f) {
     case "chua_soan": return !o.soan;
     case "chua_giao": return !o.giao;
-    case "chua_nop": return !o.nop;
+    case "chua_nop": return !o.nop && !!o.giao; // chưa nộp = ĐÃ giao nhưng chưa nộp
     case "chua_nhan": return !o.nhan;
     case "pending": return !o.done_after_20250124;
     case "done": return !!o.done_after_20250124;
