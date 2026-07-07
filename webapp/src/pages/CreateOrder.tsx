@@ -40,34 +40,33 @@ export function CreateOrder() {
   const [typing, setTyping] = useState(false);   // ô nhập đang focus (bàn phím bật)
   const taRef = useRef<HTMLTextAreaElement>(null);
 
-  // Ô nhập CHỮ TO — trống thì cực to, gõ nhiều thì tự thu nhỏ font để vừa ô.
-  // Chiều cao ô do CSS quản (ổn định, KHÔNG đo viewport) → không giật khi bàn phím
-  // bật/tắt. Chỉ đo nội dung so với chiều cao CSS của ô rồi giảm font.
-  const fitFont = () => {
-    const ta = taRef.current;
-    if (!ta || mode !== "quick") return;
-    let fs = 42;                                         // super to khi trống
-    ta.style.fontSize = fs + "px";
-    while (ta.scrollHeight > ta.clientHeight && fs > 18) { fs -= 1; ta.style.fontSize = fs + "px"; }
-  };
-  // Chỉ chạy khi NỘI DUNG đổi (gõ) — không bám sự kiện bàn phím/cuộn (nguồn gây giật).
-  useEffect(() => {
-    const r = requestAnimationFrame(fitFont);
-    return () => cancelAnimationFrame(r);
-  }, [text, mode, typing]);
   // Đang gõ (bàn phím bật) → giấu bottom-nav (body.co-kbd, styles.css) cho ô nhập
   // khỏi bị nav đè trên màn thấp; blur thì nav hiện lại.
   useEffect(() => {
     document.body.classList.toggle("co-kbd", typing);
     return () => document.body.classList.remove("co-kbd");
   }, [typing]);
-  // Xoay màn hình → cân lại 1 lần (debounce), không nghe visualViewport.
+  // Android WebView: bấm BACK khi bàn phím mở → bàn phím đóng nhưng KHÔNG có
+  // popstate, textarea vẫn focus → layout chia đôi (.co-typing) kẹt lại dù bàn
+  // phím đã tắt. Fix: khi đang gõ, nghe visualViewport resize CHỈ để phát hiện
+  // bàn phím đóng (viewport cao TRỞ LẠI đáng kể) rồi blur() → typing=false, layout
+  // gộp lại. KHÔNG dùng viewport để đo/đặt kích thước gì (chiều cao vẫn do CSS
+  // quản — tránh giật, xem chú thích styles.css). Guard: chỉ blur khi viewport đã
+  // từng THU NHỎ (hMin, lúc bàn phím bật) rồi cao lại >20% + >120px — chiều thu
+  // nhỏ chỉ cập nhật hMin nên mở bàn phím / reflow chia cột không kích nhầm.
   useEffect(() => {
-    let t: any;
-    const on = () => { clearTimeout(t); t = setTimeout(() => requestAnimationFrame(fitFont), 200); };
-    window.addEventListener("orientationchange", on);
-    return () => { clearTimeout(t); window.removeEventListener("orientationchange", on); };
-  }, []);
+    if (!typing) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let hMin = vv.height; // thấp nhất từng thấy trong phiên gõ này (bàn phím bật)
+    const onResize = () => {
+      const h = vv.height;
+      if (h <= hMin) { hMin = h; return; }               // đang thu nhỏ → chỉ ghi nhớ
+      if (h - hMin > 120 && h > hMin * 1.2) taRef.current?.blur(); // cao lại rõ rệt = bàn phím đóng
+    };
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, [typing]);
 
   // Khách vừa nhận diện → kéo nợ MỚI từ KiotViet 1 lần (theo id, không mỗi phím)
   useEffect(() => {
@@ -153,7 +152,10 @@ export function CreateOrder() {
 
   return (
     <div>
-      {/* Chọn chế độ — segmented control */}
+      {/* Chọn chế độ — segmented control. Giấu khi đang gõ (typing) để nhường
+          chỗ dọc cho 2 cột chia đôi (chiều cao cột trong CSS đã trừ ít đi
+          tương ứng — xem .co-typing .co-split trong styles.css). */}
+      {!typing && (
       <div class="seg" role="tablist">
         <button class={mode === "quick" ? "seg-btn active" : "seg-btn"} onClick={() => setMode("quick")}>
           <Icon name="zap" size={15} /> Nhanh
@@ -162,6 +164,7 @@ export function CreateOrder() {
           <Icon name="clipboard" size={15} /> Nâng cao
         </button>
       </div>
+      )}
 
       {mode === "quick" ? (
         <div class={typing ? "co-typing" : ""}>
