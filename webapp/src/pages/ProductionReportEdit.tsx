@@ -93,16 +93,21 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     });
   };
 
-  // Áp thứ tự thợ MỚI (từ popup) vào bảng: dòng có tên sắp theo `order`, dòng lạ/rỗng
-  // dồn cuối. Đồng thời lưu BỀN sort_order toàn cục (best-effort) để template sau đúng.
-  const applyWorkerOrder = (order: string[]) => {
-    const rank = new Map(order.map((n, i) => [n.trim().toLowerCase(), i] as const));
-    const rk = (nm: string) => rank.has(nm.trim().toLowerCase()) ? (rank.get(nm.trim().toLowerCase()) as number) : 1e9;
-    setWrows((rs) => {
-      const named = rs.filter((r) => r.name.trim()).sort((a, b) => rk(a.name) - rk(b.name));
-      const rest = rs.filter((r) => !r.name.trim());   // dòng trống giữ ở cuối
-      return [...named, ...rest];
-    });
+  // Áp CHỌN + THỨ TỰ thợ (từ popup) → DỰNG LẠI bảng theo đúng thợ đã chọn & thứ tự:
+  //  • giữ nguyên số liệu thợ đang có; thợ mới chọn = dòng trống; thợ bỏ chọn = gỡ khỏi bảng.
+  //  • bỏ thợ ĐÃ NHẬP số liệu → hỏi xác nhận (khỏi mất oan).
+  //  • lưu BỀN sort_order toàn cục cho thợ khớp id (template sau đúng thứ tự).
+  const applyWorkerSelection = async (order: string[]) => {
+    const chosen = new Set(order.map((n) => n.trim().toLowerCase()));
+    const dropped = wrows.filter((r) => r.name.trim() && !chosen.has(r.name.trim().toLowerCase())
+      && (r.gach || r.tru || r.le || r.note));
+    if (dropped.length) {
+      const nm = dropped.map((r) => r.name.trim()).join(", ");
+      if (!(await confirmDialog(`Bỏ ${dropped.length} thợ đã nhập số liệu khỏi bảng (${nm})? Số liệu của họ sẽ mất.`, { danger: true }))) return;
+    }
+    const byName = new Map(wrows.filter((r) => r.name.trim()).map((r) => [r.name.trim().toLowerCase(), r] as const));
+    const next = order.map((n) => byName.get(n.trim().toLowerCase()) || blankRow(n));
+    setWrows(next.length ? next : [blankRow()]);
     const idByName = new Map(workers.map((w) => [w.name.trim().toLowerCase(), w.id] as const));
     const ids = order.map((n) => idByName.get(n.trim().toLowerCase())).filter((x): x is number => typeof x === "number");
     if (ids.length)
@@ -110,7 +115,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         setWorkers(w.workers); setWorkerNames(w.workers.map((x) => x.name));
         defaultsRef.current = w.defaults; setDefaults(w.defaults);
       }).catch(() => {});
-    toast("Đã sắp thứ tự thợ");
+    toast("Đã cập nhật thợ trong bảng");
   };
 
   // Khoá: xin lúc vào + heartbeat 20s; nhả khi rời trang
@@ -340,7 +345,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
           <div class="row">
             <button class="btn" onClick={addRow}><Icon name="plus" size={16} /> Thêm thợ</button>
             {defaults.length > 0 && <button class="btn" onClick={insertDefaults} title="Chèn các thợ mặc định"><Icon name="users" size={16} /> Chèn thợ mặc định</button>}
-            <button class="btn" onClick={() => setOrderPop(true)} title="Sắp thứ tự thợ trong bảng"><Icon name="settings" size={16} /> Sắp thứ tự</button>
+            <button class="btn" onClick={() => setOrderPop(true)} title="Chọn thợ & sắp thứ tự"><Icon name="settings" size={16} /> Chọn/sắp thợ</button>
             <button class="btn primary" disabled={busy} onClick={save}><Icon name="save" size={16} /> Lưu báo cáo</button>
           </div>
         )}
@@ -370,9 +375,17 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
 
       <WorkerOrderPopup
         open={orderPop}
-        names={wrows.filter((r) => r.name.trim()).map((r) => r.name.trim())}
+        entries={(() => {
+          // MỌI thợ: thợ đang trong bảng (on) trước — giữ thứ tự bảng; rồi thợ chung chưa dùng (off)
+          const tableNames = wrows.map((r) => r.name.trim()).filter(Boolean);
+          const seen = new Set(tableNames.map((n) => n.toLowerCase()));
+          return [
+            ...tableNames.map((n) => ({ name: n, on: true })),
+            ...workers.map((w) => w.name).filter((n) => !seen.has(n.toLowerCase())).map((n) => ({ name: n, on: false })),
+          ];
+        })()}
         onClose={() => setOrderPop(false)}
-        onApply={applyWorkerOrder}
+        onApply={applyWorkerSelection}
       />
     </div>
   );
