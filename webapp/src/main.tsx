@@ -15,6 +15,7 @@ import { PriceListDetail } from "./pages/PriceListDetail";
 import { Login } from "./pages/Login";
 import { FeedbackHost } from "./ui/feedback";
 import { OrderDetail } from "./pages/OrderDetail";
+import { OrderInvoiceEdit } from "./pages/OrderInvoiceEdit";
 import { OrdersList, resetOrdersScroll } from "./pages/OrdersList";
 import { DeliveryCalendar } from "./pages/DeliveryCalendar";
 import { ActivityLog } from "./pages/ActivityLog";
@@ -188,6 +189,7 @@ function App() {
   }, []);
 
   let page;
+  const invEditMatch = hash.match(/^#\/order\/(-?\d+)\/hoa-don/);
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
   const prodEditMatch = hash.match(/^#\/san_xuat\/(-?\d+)\/bao-cao/);
   const shtMatch = hash.match(/^#\/sx-tho\/([^?]+)/);
@@ -202,6 +204,7 @@ function App() {
   const focusEl = focusMatch ? `${focusMatch[1]}-${focusMatch[2]}` : undefined;
   useScrollMemory(hash, !!focusEl);
   if (showLogin) page = <Login />;
+  else if (invEditMatch) page = <OrderInvoiceEdit threadId={invEditMatch[1]} />;
   else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} focus={focusEl} />;
   else if (prodEditMatch) page = <ProductionReportEdit threadId={prodEditMatch[1]} />;
   else if (shtMatch) page = <ProductionWorkerDetail name={decodeURIComponent(shtMatch[1])} />;
@@ -230,7 +233,8 @@ function App() {
   // Tiêu đề app-bar theo route (thay tiêu đề cố định "Đơn hàng" mọi trang)
   const isHome = !showLogin && (hash === "" || hash === "#/" || hash.startsWith("#/orders")) && !orderMatch;
   const pageTitle =
-    orderMatch ? "Chi tiết đơn"
+    invEditMatch ? "Sửa hoá đơn"
+    : orderMatch ? "Chi tiết đơn"
     : (hash.startsWith("#/customers") || khachMatch) ? "Khách hàng"
     : hash.startsWith("#/create") ? "Tạo đơn"
     : (hash.startsWith("#/san_xuat") || hash.startsWith("#/sx-") || prodMatch || prodEditMatch || shtMatch) ? "Sản xuất"

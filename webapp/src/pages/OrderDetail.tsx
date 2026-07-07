@@ -6,7 +6,7 @@ import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder,
 import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
-import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
+import { InvoiceTable } from "../detail/InvoiceTable";
 import { CustomerPicker } from "../detail/CustomerPicker";
 import { Payments } from "../detail/Payments";
 import { Tasks } from "../detail/Tasks";
@@ -275,43 +275,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     }
   };
 
-  const saveInvoice = async (payload: EditorPayload) => {
-    await postJSON("/api/order/invoice/update", { thread_id: Number(threadId), ...payload });
-    setMsg("✅ Đã lưu hoá đơn");
-    changed();
-  };
-
-  const createHD = async () => {
-    if (!(await confirmDialog("Tạo hoá đơn KiotViet cho đơn này?"))) return;
-    try {
-      const r = await createKiotVietInvoice(threadId);
-      setMsg(`🧾 Đã tạo HĐ ${r.kv_code || ""}${r.old_debt ? ` · nợ cũ ${money(r.old_debt)}đ` : ""}`);
-      changed();
-    } catch (ex: any) {
-      setMsg(`❌ ${ex.message}`);
-    }
-  };
-
-  const refreshDebt = async () => {
-    try {
-      const r = await refreshOrderDebt(threadId);
-      setMsg(`💰 Đã cập nhật nợ KiotViet: ${money(r.debt)}đ`);
-      changed();
-    } catch (ex: any) {
-      setMsg(`❌ ${ex.message}`);
-    }
-  };
-
-  const deleteHD = async () => {
-    if (!(await confirmDialog("XOÁ hoá đơn KiotViet của đơn này? Không thể hoàn tác.", { danger: true }))) return;
-    try {
-      await deleteKiotVietInvoice(threadId);
-      setMsg("🗑️ Đã xoá hoá đơn KiotViet");
-      changed();
-    } catch (ex: any) {
-      setMsg(`❌ ${ex.message}`);
-    }
-  };
+  // (Sửa/Tạo/Xoá/Kéo-nợ hoá đơn đã chuyển sang trang riêng: pages/OrderInvoiceEdit.)
 
   const saveText = async () => {
     if (editText === null) return;
@@ -450,30 +414,15 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       <Tasks threadId={threadId} taskStatus={j.task_status || {}} customTasks={j.custom_tasks || []} userNames={detail.user_names || {}} onChanged={changed} />
       </div>
       <div id="od-invoice">
-      <InvoiceEditor
-        customerId={j.khach_hang_id || j.khID}
-        invoice={j.invoice || []}
-        discount={j.discount}
-        pvc={j.pvc}
-        vat={j.vat}
-        onSave={saveInvoice}
-        onCreateInvoice={createHD}
-        canCreate={isAdmin}
-        hasInvoice={!!j.kiotvietInvoiceID}
-        debt={j.khDebt ?? j.invoice_debt_snapshot}
-        onView={async () => {
-          // Mở ảnh PNG hoá đơn (đã render khi tạo HĐ); không có thì fallback HTML sống.
-          const win = window.open("", "_blank");   // mở ngay trong user-gesture → khỏi bị chặn popup
-          const go = (u: string) => { if (win) win.location.href = u; else window.open(u, "_blank"); };
-          go((await findInvoiceImageUrl()) || invoiceHtmlUrl(threadId));
-        }}
-        onDelete={deleteHD}
-        onPrint={doPrint}
-        canDelete={isAdmin}
-        invoiceCode={j.kiotvietInvoiceCode || j.kiotvietInvoiceID}
-        onRefreshDebt={refreshDebt}
-        debtLocked={!!j.kiotvietInvoiceID}
-      />
+      <section class="card">
+        <div class="row space">
+          <b>Hoá đơn ({(j.invoice || []).length} món){j.kiotvietInvoiceCode ? ` · HĐ ${j.kiotvietInvoiceCode}` : ""}</b>
+          <a class="btn small primary" href={`#/order/${threadId}/hoa-don`}><Icon name="edit" size={15} /> Sửa hoá đơn</a>
+        </div>
+        {(j.invoice || []).length > 0
+          ? <InvoiceTable items={j.invoice} discount={j.discount} pvc={j.pvc} vat={j.vat} debt={j.khDebt ?? j.invoice_debt_snapshot} total={pc.tongthanhtoan || undefined} />
+          : <div class="muted small">Chưa có sản phẩm. Bấm "Sửa hoá đơn".</div>}
+      </section>
       </div>{/* #od-invoice */}
       <div id="od-stock">
       <OrderStock threadId={threadId} invoice={j.invoice || []} />
