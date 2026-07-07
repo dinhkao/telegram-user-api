@@ -31,6 +31,7 @@ export function WorkerOrderPopup({
   const [dy, setDy] = useState(0);
   const [rowH, setRowH] = useState(0);
   const [settling, setSettling] = useState(false);
+  const [noFx, setNoFx] = useState(false);          // tắt transition 1 frame lúc commit (khỏi re-animate)
   const dragRef = useRef<number | null>(null);
   const dropRef = useRef<number>(0);
   const midsRef = useRef<number[]>([]);
@@ -83,6 +84,9 @@ export function WorkerOrderPopup({
     setSettling(true);
     setDy((ins - from) * rowH);
     window.setTimeout(() => {
+      // list dời về ĐÚNG thứ tự + transform reset 0 = layout cuối đã đúng; tắt transition
+      // 1 frame để KHÔNG re-animate cái reset (các hàng đang lệch ±rowH về 0).
+      setNoFx(true);
       setList((l) => {
         const n = l.slice();
         const [it] = n.splice(from, 1);
@@ -90,6 +94,7 @@ export function WorkerOrderPopup({
         return n;
       });
       setDragIdx(null); setSettling(false); setDy(0);
+      requestAnimationFrame(() => requestAnimationFrame(() => setNoFx(false)));
     }, 180);
   };
 
@@ -113,7 +118,7 @@ export function WorkerOrderPopup({
         <div class="sp-list wo-list">
           {list.length === 0 && <div class="muted small" style="padding:14px 16px">Chưa có thợ nào.</div>}
           {list.map((it, i) => (
-            <div class={"wo-row" + (it.on ? "" : " off") + (dragIdx === i ? " floating" : "") + (dragIdx === i && settling ? " settling" : "")}
+            <div class={"wo-row" + (it.on ? "" : " off") + (noFx ? " wo-nofx" : "") + (dragIdx === i ? " floating" : "") + (dragIdx === i && settling ? " settling" : "")}
               key={it.id}
               ref={(el: any) => { rowRefs.current[i] = el; }}
               style={`transform:translateY(${rowTy(i)}px)` + (dragIdx === i && !settling ? " scale(1.03)" : "")}>

@@ -1313,6 +1313,8 @@ body.co-kbd .bottom-nav { display: none; }
 .wo-row.floating { z-index: 5; box-shadow: var(--e3); border-radius: 10px; opacity: .98; transition: box-shadow .15s ease; }
 .wo-row.floating:not(.settling) { transition: none; }
 .wo-row.floating.settling { transition: transform .18s cubic-bezier(.2,.8,.25,1), box-shadow .18s ease; }
+/* commit sau khi thả: snap transform về 0 tức thì, khỏi re-animate (đã đúng chỗ) */
+.wo-row.wo-nofx { transition: none !important; }
 .wo-grip { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; color: var(--muted); cursor: grab; touch-action: none; user-select: none; }
 .wo-grip:active { cursor: grabbing; }
 .wo-hint { padding: 0 16px 8px; display: flex; align-items: center; gap: 4px; }
