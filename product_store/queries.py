@@ -5,13 +5,14 @@ from typing import Optional
 from .schema import _PRODUCTS_CACHE_TTL, _invalidate_products_cache, _products_cache
 
 
-_COLS = "code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit"
+_COLS = "code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material"
 
 
 def _row(r) -> dict:
     return {"code": r[0], "name": r[1], "cost_price": r[2] or 0, "note": r[3],
             "kv_id": r[4], "kv_full_name": r[5], "kv_synced_at": r[6],
-            "created_at": r[7], "updated_at": r[8], "unit": r[9] or "cây"}
+            "created_at": r[7], "updated_at": r[8], "unit": r[9] or "cây",
+            "is_material": bool(r[10])}
 
 
 def get_product(conn, code: str) -> Optional[dict]:
@@ -30,7 +31,17 @@ def get_all_products(conn, *, _use_cache: bool = True) -> list[dict]:
     return result
 
 
-def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None) -> bool:
+def set_material(conn, code: str, flag: bool) -> bool:
+    """Đánh dấu SP là nguyên liệu (dùng làm thành phần đóng gói). Chỉ update nếu SP có."""
+    code = code.upper().strip()
+    if not code or not get_product(conn, code):
+        return False
+    now = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+    conn.execute("UPDATE products SET is_material = ?, updated_at = ? WHERE code = ?", (1 if flag else 0, now, code))
+    conn.commit(); _invalidate_products_cache(); return True
+
+
+def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, is_material: bool = None) -> bool:
     code = code.upper().strip()
     if not code:
         return False
@@ -46,6 +57,8 @@ def upsert_product(conn, code: str, name: str = None, cost_price: int = None, no
             updates.append("note = ?"); params.append(note)
         if unit is not None:
             updates.append("unit = ?"); params.append(unit.strip() or "cây")
+        if is_material is not None:
+            updates.append("is_material = ?"); params.append(1 if is_material else 0)
         if not updates:
             return True
         updates.append("updated_at = ?"); params.extend([now, code])

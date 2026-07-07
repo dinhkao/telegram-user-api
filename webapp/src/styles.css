@@ -1383,3 +1383,9 @@ body.co-kbd .bottom-nav { display: none; }
 
 /* tên người nhập trong list view "Đã nhập ở phiếu này" */
 .pb-blby { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+
+/* Toggle "Là nguyên liệu" (chi tiết SP) — switch dạng gạt */
+.mat-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px; border: 1px solid var(--border); border-radius: 20px; background: var(--card2, #f0f1f3); color: var(--muted); font-size: .85rem; font-weight: 600; cursor: pointer; }
+.mat-toggle .mat-knob { width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+.mat-toggle.on { background: rgba(38,128,255,.14); border-color: var(--primary, #2680ff); color: var(--primary, #2680ff); }
+.mat-toggle.on .mat-knob { background: var(--primary, #2680ff); transform: translateX(2px); }

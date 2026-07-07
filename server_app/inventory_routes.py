@@ -127,6 +127,9 @@ async def production_add_boxes_handler(request: web.Request):
             code = req_code or str((slip or {}).get("sp_name") or "").strip().upper()
             if not slip or not code:
                 return None, None, None
+            # Loại phiếu: đóng gói → MỌI nguyên liệu bắt buộc (kể cả optional);
+            # sản xuất → SP đầu ra là NGUYÊN LIỆU (đánh dấu is_material).
+            kind = (slip or {}).get("kind") or "san_xuat"
             # Thùng NL người dùng chọn để tiêu hao (body.consume = [{box_id, quantity}]).
             raw_picks = body.get("consume") if isinstance(body.get("consume"), list) else []
             picks = [p for p in raw_picks if isinstance(p, dict) and p.get("box_id")]
@@ -143,11 +146,15 @@ async def production_add_boxes_handler(request: web.Request):
                         except (TypeError, ValueError):
                             pass
                 for nd in needs:
-                    if nd.get("optional"):
-                        continue   # nguyên liệu không bắt buộc → không ép chọn
+                    if nd.get("optional") and kind != "dong_goi":
+                        continue   # sản xuất: optional không ép; đóng gói: MỌI NL bắt buộc
                     if got.get(nd["code"], 0.0) + 1e-6 < nd["amount"]:
                         return "short", nd["code"], nd["amount"]
             created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=unit_id, place_id=place_id)
+            # Phiếu SẢN XUẤT: SP vừa làm ra là nguyên liệu → đánh dấu để đóng gói dùng
+            if kind == "san_xuat":
+                from product_store import set_material
+                set_material(conn, code, True)
             # đồng bộ slip.total/numbers/progress: 1 entry/thùng (note = mã thùng)
             total = slip.get("total") or 0
             for box in created:
@@ -714,6 +721,7 @@ async def inventory_detail_handler(request: web.Request):
             "kv_id": prod.get("kv_id"), "kv_full_name": prod.get("kv_full_name"),
             "kv_synced_at": prod.get("kv_synced_at"),
             "linked": bool(prod.get("kv_id")),
+            "is_material": bool(prod.get("is_material")),
         }
     return web.json_response({
         "ok": True, "product_code": code, "boxes": avail, "all_boxes": all_boxes,

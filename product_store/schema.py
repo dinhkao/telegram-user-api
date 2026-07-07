@@ -16,7 +16,8 @@ def create_products_table(conn):
             kv_full_name  TEXT,
             kv_synced_at  TEXT,
             created_at    TEXT DEFAULT (datetime('now')),
-            updated_at    TEXT DEFAULT (datetime('now'))
+            updated_at    TEXT DEFAULT (datetime('now')),
+            is_material   INTEGER DEFAULT 0
         )
         """
     )
@@ -43,6 +44,8 @@ def migrate_products_table(conn):
         conn.execute("ALTER TABLE products ADD COLUMN kv_synced_at TEXT")
     if "unit" not in columns:   # đơn vị đếm của SP (cây/kg/cái…) — mặc định 'cây'
         conn.execute("ALTER TABLE products ADD COLUMN unit TEXT DEFAULT 'cây'")
+    if "is_material" not in columns:   # SP là NGUYÊN LIỆU (dùng làm thành phần đóng gói)
+        conn.execute("ALTER TABLE products ADD COLUMN is_material INTEGER DEFAULT 0")
     conn.commit()
 
 

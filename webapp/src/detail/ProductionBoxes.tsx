@@ -57,9 +57,11 @@ export function ProductionBoxes({
     return isFinite(n) && n > 0 && isFinite(c) && c > 0 ? n * c : 0;
   })();
   const chosenOf = (code: string) => (consumePicks[code] || []).reduce((s, p) => s + p.quantity, 0);
-  // BẮT BUỘC chọn đủ thùng NL trước khi tạo thùng — CHỈ nguyên liệu bắt buộc.
-  // Nguyên liệu "không bắt buộc" (optional) có thể chọn hoặc không.
-  const requiredLines = recipe.filter((l) => !l.optional);
+  // Phiếu ĐÓNG GÓI → MỌI nguyên liệu bắt buộc (kể cả optional). Phiếu SẢN XUẤT →
+  // chỉ nguyên liệu bắt buộc; optional tuỳ chọn.
+  const packing = (slip.kind || "san_xuat") === "dong_goi";
+  const isReqLine = (l: RecipeLine) => packing || !l.optional;
+  const requiredLines = recipe.filter(isReqLine);
   const recipeOk = requiredLines.length === 0 || (produced > 0 && requiredLines.every((l) => chosenOf(l.ingredient_code) + 1e-6 >= l.ratio * produced));
   const createUnitPick = async (name: string) => {
     try {
@@ -212,8 +214,8 @@ export function ProductionBoxes({
             return (
               <div class="stock-head" key={l.ingredient_code}>
                 <b>{l.ingredient_code}</b>
-                <span class={"req-tag " + (l.optional ? "opt" : "req")}>{l.optional ? "Không bắt buộc" : "Bắt buộc"}</span>
-                <span class={l.optional || enough ? "inv-pick-sum ok" : "inv-pick-sum"}>{soVN(chosen)}/{soVN(need)}</span>
+                <span class={"req-tag " + (isReqLine(l) ? "req" : "opt")}>{isReqLine(l) ? "Bắt buộc" : "Không bắt buộc"}</span>
+                <span class={!isReqLine(l) || enough ? "inv-pick-sum ok" : "inv-pick-sum"}>{soVN(chosen)}/{soVN(need)}</span>
                 <span class="muted small">tồn {soVN(l.stock ?? 0)}</span>
                 <button class="btn small" disabled={!hasSp || produced <= 0} onClick={() => setPickIng(l.ingredient_code)}>Chọn thùng</button>
               </div>
