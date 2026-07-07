@@ -6,20 +6,35 @@ nên bản Telegram và webapp không lệch nhau. Unit-test ở tests/test_inve
 from __future__ import annotations
 
 
+_B36 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _to_base36(n: int) -> str:
+    """Số nguyên → chuỗi base36 (0-9A-Z). 0 → '0'."""
+    if n <= 0:
+        return "0"
+    out = ""
+    while n:
+        n, r = divmod(n, 36)
+        out = _B36[r] + out
+    return out
+
+
 def parse_box_seq(box_code: str, product_code: str) -> int:
-    """Số thứ tự trong mã thùng: 'K2L-007' + 'K2L' → 7. 0 nếu không khớp."""
+    """Số thứ tự trong mã thùng (BASE36): 'K2L-00A' + 'K2L' → 10. 0 nếu không khớp.
+    Base36 để mã gọn lâu: 3 ký tự chứa 46656 thùng/SP trước khi cần 4 ký tự."""
     prefix = f"{product_code}-"
     if not box_code or not box_code.startswith(prefix):
         return 0
     try:
-        return int(box_code[len(prefix):])
+        return int(box_code[len(prefix):], 36)   # base36; mã cũ (thập phân) vẫn parse duy nhất
     except ValueError:
         return 0
 
 
 def format_box_code(product_code: str, seq: int) -> str:
-    """'K2L' + 7 → 'K2L-007' (đệm 3 số, tràn thì dài hơn)."""
-    return f"{product_code}-{seq:03d}"
+    """'K2L' + 10 → 'K2L-00A' (base36, đệm 3 ký tự; tràn 46656 thì dài hơn)."""
+    return f"{product_code}-{_to_base36(seq).rjust(3, '0')}"
 
 
 def next_box_code(product_code: str, existing_codes) -> str:
