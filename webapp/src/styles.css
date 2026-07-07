@@ -905,6 +905,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .stock-pick-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 4px 0; }
 .stock-pick-row { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid #eee; border-radius: 8px; }
 .stock-pick-row.on { background: #f0f7ff; border-color: #b9d6f5; }
+.stock-pick-row.off { opacity: .45; }   /* hết ngân sách → không chọn thêm */
 .stock-pick-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
 .stock-pick-main input[type="checkbox"] { width: 20px; height: 20px; flex: none; margin: 0; }
 .stock-pick-info { display: flex; flex-direction: column; min-width: 0; }

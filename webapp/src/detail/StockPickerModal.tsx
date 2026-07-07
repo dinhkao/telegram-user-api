@@ -50,26 +50,37 @@ export function StockPickerModal({
     return () => { off(); clearTimeout(t); };
   }, [productCode]);
 
-  const remaining = Math.max(need - got, 0);
+  const remaining = Math.max(need - got, 0);   // NGÂN SÁCH: không được chọn quá số này
 
   const avail = (b: InvBox) => (b.remaining != null ? b.remaining : b.quantity);
+  const parseN = (v: any) => { const n = parseFloat(String(v).replace(",", ".")); return isFinite(n) && n > 0 ? n : 0; };
+  // tổng đã chọn ở các thùng KHÁC id → phần ngân sách còn lại cho thùng này
+  const sumExcept = (id: number) => Object.entries(sel).reduce((t, [k, v]) => t + (Number(k) === id ? 0 : parseN(v)), 0);
+  // trần lấy từ 1 thùng = min(còn trong thùng, ngân sách còn lại)
+  const maxFor = (b: InvBox) => Math.max(0, Math.min(avail(b), remaining - sumExcept(b.id)));
+
   const toggle = (b: InvBox) =>
     setSel((s) => {
       const n = { ...s };
-      if (b.id in n) delete n[b.id];
-      else n[b.id] = String(avail(b));
+      if (b.id in n) { delete n[b.id]; return n; }
+      const others = Object.entries(s).reduce((t, [k, v]) => t + (Number(k) === b.id ? 0 : parseN(v)), 0);
+      const cap = Math.max(0, Math.min(avail(b), remaining - others));   // chỉ điền phần còn thiếu
+      if (cap <= 0) return n;   // hết ngân sách → không thêm
+      n[b.id] = String(cap);
       return n;
     });
-  const setQty = (id: number, v: string) => setSel((s) => ({ ...s, [id]: v }));
+  const setQty = (id: number, v: string) =>
+    setSel((s) => {
+      const b = boxes?.find((x) => x.id === id);
+      const others = Object.entries(s).reduce((t, [k, vv]) => t + (Number(k) === id ? 0 : parseN(vv)), 0);
+      const cap = b ? Math.max(0, Math.min(avail(b), remaining - others)) : remaining - others;
+      const n = parseN(v);
+      // kẹp: không cho vượt trần; giữ chuỗi rỗng khi đang gõ
+      return { ...s, [id]: v === "" ? "" : n > cap ? String(cap) : v };
+    });
 
-  const pickedSum = useMemo(
-    () =>
-      Object.values(sel).reduce((t, v) => {
-        const n = parseFloat(String(v).replace(",", "."));
-        return t + (isFinite(n) && n > 0 ? n : 0);
-      }, 0),
-    [sel]
-  );
+  const pickedSum = useMemo(() => Object.values(sel).reduce((t, v) => t + parseN(v), 0), [sel]);
+  const full = pickedSum + 1e-6 >= remaining;   // đã chọn đủ ngân sách
 
   const submit = async () => {
     const picks: { box_id: number; quantity: number }[] = [];
@@ -114,10 +125,11 @@ export function StockPickerModal({
           <div class="stock-pick-list">
             {boxes.map((b) => {
               const checked = b.id in sel;
+              const blocked = !checked && full;   // hết ngân sách → không cho chọn thêm
               return (
-                <div class={checked ? "stock-pick-row on" : "stock-pick-row"} key={b.id}>
+                <div class={checked ? "stock-pick-row on" : blocked ? "stock-pick-row off" : "stock-pick-row"} key={b.id}>
                   <label class="stock-pick-main">
-                    <input type="checkbox" checked={checked} onChange={() => toggle(b)} />
+                    <input type="checkbox" checked={checked} disabled={blocked} onChange={() => toggle(b)} />
                     <span class="stock-pick-info">
                       <code>{b.box_code}</code>
                       <span class="muted small">
@@ -147,11 +159,11 @@ export function StockPickerModal({
 
         {err && <div class="error-banner">{err}</div>}
         <div class="modal-foot">
-          <span class={pickedSum >= remaining && remaining > 0 ? "inv-pick-sum ok" : "inv-pick-sum"}>
-            Chọn {soVN(pickedSum)}
+          <span class={full && remaining > 0 ? "inv-pick-sum ok" : "inv-pick-sum"}>
+            Chọn {soVN(pickedSum)}/{soVN(remaining)}
           </span>
           <button class="btn primary" disabled={busy || !pickedSum} onClick={submit}>
-            {busy ? "…" : "Xuất kho"}
+            {busy ? "…" : "Xong"}
           </button>
         </div>
       </div>
