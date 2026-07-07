@@ -72,6 +72,7 @@ def build_production_row(thread_id) -> dict | None:
         "sx_target": slip.get("sx_target"),
         "total": slip.get("total") or 0,
         "ghi_chu": slip.get("ghi_chu"),
+        "kind": slip.get("kind") or "san_xuat",
         "updated_at": slip.get("updated_at"),
         **_progress(slip),
     }
