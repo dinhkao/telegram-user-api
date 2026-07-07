@@ -503,14 +503,28 @@ async def _handle_payment(client, msg, thread_id: int, amount: int, user_id: int
 
 
 def _auto_complete_tasks_core(db_conn, thread_id: int, user_id: int | None):
-    """Auto-complete nhan_tien + nop_tien tasks for the order (DB only)."""
-    for task_type in ("nhan_tien", "nop_tien"):
-        try:
-            ok = set_task_status(db_conn, thread_id, task_type, user_id)
-            if ok:
-                log.info("Auto-completed task %s for thread %d", task_type, thread_id)
-        except Exception as e:
-            log.warning("Failed to auto-complete %s for thread %d: %s", task_type, thread_id, e)
+    """Auto-complete tasks khi tạo thanh toán (DB only).
+
+    - nhan_tien: LUÔN đánh dấu xong.
+    - nop_tien: CHỈ đánh dấu nếu CHƯA xong. Nếu đã có người nộp (done) thì GIỮ NGUYÊN
+      (không ghi đè người/thời điểm nộp trước đó).
+    """
+    # nhan_tien — luôn xong
+    try:
+        if set_task_status(db_conn, thread_id, "nhan_tien", user_id):
+            log.info("Auto-completed task nhan_tien for thread %d", thread_id)
+    except Exception as e:
+        log.warning("Failed to auto-complete nhan_tien for thread %d: %s", thread_id, e)
+    # nop_tien — chỉ khi chưa xong
+    try:
+        order = get_order_by_thread_id(db_conn, thread_id)
+        nop = ((order or {}).get("task_status") or {}).get("nop_tien") or {}
+        if nop.get("done"):
+            log.info("Skip nop_tien for thread %d — đã nộp, giữ nguyên", thread_id)
+        elif set_task_status(db_conn, thread_id, "nop_tien", user_id):
+            log.info("Auto-completed task nop_tien for thread %d", thread_id)
+    except Exception as e:
+        log.warning("Failed to auto-complete nop_tien for thread %d: %s", thread_id, e)
 
 
 def _auto_complete_tasks(client, db_conn, thread_id: int, user_id: int | None, chat_id: int):
