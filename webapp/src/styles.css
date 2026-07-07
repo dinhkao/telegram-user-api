@@ -1324,6 +1324,9 @@ body.co-kbd .bottom-nav { display: none; }
 .wo-check.on { background: var(--primary, #2680ff); border-color: var(--primary, #2680ff); }
 /* thợ chưa chọn: mờ tên (vẫn kéo/tick được) */
 .wo-row.off .wo-name { opacity: .45; }
+/* link mở chi tiết thợ (trang quản lý) */
+.wo-open { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 26px; height: 30px; color: var(--muted); font-size: 1.4rem; line-height: 1; text-decoration: none; }
+.wo-del { flex: 0 0 auto; }
 .wo-idx { flex: 0 0 22px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .9rem; }
 .wo-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wo-mv { flex: 0 0 auto; width: 38px; height: 34px; padding: 0; }
