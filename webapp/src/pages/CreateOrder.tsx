@@ -2,7 +2,8 @@
 //  • Nhanh: gõ text tự do → /api/order/create (backend tự parse, như Telegram).
 //  • Nâng cao: chọn khách → nhập từng dòng SP (tự lấy giá) + VAT/PVC/CK → tạo đơn
 //    rồi lưu hoá đơn, chuyển sang trang chi tiết để bấm "Tạo HĐ KiotViet".
-// Cần mạng (không queue).
+// Cần mạng (không queue). Bàn phím: preview DÍNH ĐỈNH + nút Tạo mini trong preview
+// nên mọi thứ quan trọng luôn ở NỬA TRÊN màn hình (bàn phím không che).
 import { useState, useEffect, useRef } from "preact/hooks";
 import { postJSON, previewOrder, refreshCustomerDebt, getCustomerPriceList, type OrderPreview, type CustomerPriceList } from "../api";
 import { money } from "../format";
@@ -11,6 +12,8 @@ import { CustomerPicker } from "../detail/CustomerPicker";
 import { useScrollLock } from "../useScrollLock";
 import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
+
+const initial = (name: string) => (name.trim().charAt(0) || "?").toUpperCase();
 
 export function CreateOrder() {
   const [mode, setMode] = useState<"advanced" | "quick">("quick");
@@ -108,68 +111,85 @@ export function CreateOrder() {
     window.location.hash = `#/order/${tid}`;
   };
 
+  // Khối khách trong preview — avatar + tên + độ khớp + nợ (pill) + bảng giá
+  const previewCustomer = () => {
+    if (!preview) return null;
+    const c = preview.customer;
+    if (!c) {
+      return (
+        <div class="co-prev-nocust muted small">
+          {preview.candidates.length
+            ? <><Icon name="search" size={13} /> Có thể: {preview.candidates.map((x) => `${x.name} (${x.score}%)`).join(" · ")}</>
+            : <><Icon name="user" size={13} /> Chưa nhận ra khách hàng</>}
+        </div>
+      );
+    }
+    const name = c.name || picked?.name || "Khách";
+    const isLive = liveDebt?.id === c.id;
+    const debt = isLive ? liveDebt!.debt : c.debt;
+    return (
+      <div class="co-prev-cust">
+        <span class="co-avatar" aria-hidden="true">{initial(name)}</span>
+        <div class="co-prev-cinfo">
+          <b>{name}</b>
+          <span class="muted small">
+            {c.manual ? "Chọn tay" : `Khớp ${c.score}%`}
+            {c.price_list_name && <> · {c.price_list_name}{" "}
+              <button class="co-link" onClick={(e: any) => { e.preventDefault(); openPriceList(c.id); }}>Xem giá</button></>}
+          </span>
+        </div>
+        {debtBusy && !isLive
+          ? <span class="co-debt wait">Nợ…</span>
+          : debt != null && <span class={"co-debt" + (debt > 0 ? " owe" : "")}>Nợ {money(debt)}đ{isLive ? " 🟢" : ""}</span>}
+      </div>
+    );
+  };
+
   return (
     <div>
-      <h2><Icon name="plus" size={18} /> Tạo đơn mới</h2>
-      <div class="chips">
-        <button class={mode === "quick" ? "chip active" : "chip"} onClick={() => setMode("quick")}>Nhanh (text)</button>
-        <button class={mode === "advanced" ? "chip active" : "chip"} onClick={() => setMode("advanced")}>Nâng cao</button>
+      {/* Chọn chế độ — segmented control */}
+      <div class="seg" role="tablist">
+        <button class={mode === "quick" ? "seg-btn active" : "seg-btn"} onClick={() => setMode("quick")}>
+          <Icon name="zap" size={15} /> Nhanh
+        </button>
+        <button class={mode === "advanced" ? "seg-btn active" : "seg-btn"} onClick={() => setMode("advanced")}>
+          <Icon name="clipboard" size={15} /> Nâng cao
+        </button>
       </div>
 
       {mode === "quick" ? (
-        <div class={"card" + (typing ? " co-typing" : "")}>
+        <div class={typing ? "co-typing" : ""}>
           {/* Chọn khách (tùy chọn) — đè lên tự nhận diện từ text */}
-          <div class="quick-cust">
+          <div class="co-cust">
             {picked ? (
-              <div class="picked-cust">
-                <Icon name="check" size={15} /> <b>{picked.name}</b>
-                <button class="btn small" onClick={() => setPicked(null)}>Đổi</button>
+              <div class="co-cust-picked">
+                <span class="co-avatar" aria-hidden="true">{initial(picked.name)}</span>
+                <b class="co-cust-name">{picked.name}</b>
+                <button class="btn small ghost" onClick={() => setPicked(null)}>Đổi</button>
               </div>
             ) : (
-              <>
-                <label>Khách hàng (tùy chọn — để trống thì tự nhận từ text)</label>
-                <CustomerPicker onPick={setPicked} />
-              </>
+              <CustomerPicker onPick={setPicked} placeholder="Khách hàng (tùy chọn — tự nhận từ text)" />
             )}
           </div>
 
-          {/* Xem trước Ở TRÊN ô nhập, DÍNH ĐỈNH → luôn thấy khi gõ (bàn phím không che) */}
+          {/* Xem trước Ở TRÊN ô nhập, DÍNH ĐỈNH → luôn thấy khi gõ (bàn phím không che).
+              Nút "Tạo" mini nằm ngay trong header preview → tạo được đơn không cần cuộn. */}
           {(text.trim() || picked) && (
-            <div class="preview-box co-preview">
-              <div class="preview-head">
-                <Icon name="eye" size={15} /> Xem trước {previewing && <span class="muted small">đang phân tích…</span>}
+            <div class="co-preview">
+              <div class="co-prev-head">
+                <Icon name="eye" size={13} /> Xem trước
+                {previewing && <span class="co-spin" aria-label="đang phân tích" />}
+                {text.trim() !== "" && (
+                  <button class="co-prev-go" disabled={busy} onClick={submitQuick}>
+                    {busy ? "Đang tạo…" : "Tạo đơn ▸"}
+                  </button>
+                )}
               </div>
               {preview && (
                 <>
-                  <div class="preview-cust">
-                    {preview.customer ? (
-                      <>
-                        <Icon name="user" size={14} /> <b>{preview.customer.name || picked?.name || "Khách"}</b>{" "}
-                        <span class="muted small">{preview.customer.manual ? "(chọn tay)" : `(${preview.customer.score}%)`}</span>
-                        {(() => {
-                          const isLive = liveDebt?.id === preview.customer!.id;
-                          const debt = isLive ? liveDebt!.debt : preview.customer!.debt;
-                          if (debtBusy && !isLive) return <span class="muted small"> · Nợ: đang lấy KiotViet…</span>;
-                          if (debt == null) return null;
-                          return (
-                            <span class={debt > 0 ? "owe" : "muted small"}> · Nợ: {money(debt)}đ {isLive ? "🟢" : ""}</span>
-                          );
-                        })()}
-                        {preview.customer.price_list_name && (
-                          <div class="muted small">
-                            <Icon name="clipboard" size={13} /> Bảng giá: {preview.customer.price_list_name}{" "}
-                            <button class="btn small" onClick={(e: any) => { e.preventDefault(); openPriceList(preview.customer!.id); }}>Xem giá</button>
-                          </div>
-                        )}
-                      </>
-                    ) : preview.candidates.length ? (
-                      <span class="muted small"><Icon name="search" size={13} /> Có thể: {preview.candidates.map((c) => `${c.name} (${c.score}%)`).join(" · ")}</span>
-                    ) : (
-                      <span class="muted small"><Icon name="user" size={13} /> Chưa nhận ra khách hàng</span>
-                    )}
-                  </div>
+                  {previewCustomer()}
                   {preview.invoice.length ? (
-                    <table class="invoice-table">
+                    <table class="invoice-table co-items">
                       <tbody>
                         {preview.invoice.map((it, i) => (
                           <tr key={i}>
@@ -185,15 +205,15 @@ export function CreateOrder() {
                           </tr>
                         ))}
                       </tbody>
-                      <tfoot>
-                        <tr>
-                          <td colSpan={3}>Tổng cộng</td>
-                          <td class="num"><b class="money">{money(preview.total)}đ</b></td>
-                        </tr>
-                      </tfoot>
                     </table>
                   ) : (
-                    <p class="muted small">Chưa nhận ra sản phẩm nào — kiểm tra tên/mã SP.</p>
+                    <p class="co-prev-empty muted small">Chưa nhận ra sản phẩm nào — kiểm tra tên/mã SP.</p>
+                  )}
+                  {preview.invoice.length > 0 && (
+                    <div class="co-total">
+                      <span>Tổng cộng · {preview.invoice.length} SP</span>
+                      <b>{money(preview.total)}đ</b>
+                    </div>
                   )}
                 </>
               )}
@@ -204,11 +224,18 @@ export function CreateOrder() {
             onFocus={() => setTyping(true)} onBlur={() => setTyping(false)}
             onInput={(e: any) => setText(e.target.value)} />
 
-          <button class="btn small hint-toggle" onClick={() => setShowHint((v) => !v)}>
-            💡 Cách nhận diện {showHint ? "▲" : "▼"}
+          {err && <p class={err.startsWith("✅") ? "ok-msg" : "err-msg"}>{err}</p>}
+          <button class="btn primary wide co-submit" disabled={busy || !text.trim()} onClick={submitQuick}>
+            {busy ? "Đang tạo…" : preview?.invoice.length
+              ? `Tạo đơn · ${preview.invoice.length} SP · ${money(preview.total)}đ`
+              : "Tạo đơn"}
+          </button>
+
+          <button class="co-hint-toggle" onClick={() => setShowHint((v) => !v)}>
+            <Icon name="info" size={14} /> Cách nhận diện <Icon name="chevronDown" size={13} class={"co-hint-chev" + (showHint ? " flip" : "")} />
           </button>
           {showHint && (
-          <div class="muted small hint">
+          <div class="co-hint muted">
             <ul class="hint-list">
               <li><b>Khách:</b> tên khách (tự gán nếu khớp cao — kèm nợ &amp; bảng giá), hoặc chọn ở ô trên.</li>
               <li><b>Sản phẩm:</b> mỗi dòng <code>&lt;mã SP&gt; &lt;số lượng&gt;</code> — mã trước, SL sau (số đứng trước mã bị bỏ qua).</li>
@@ -226,22 +253,29 @@ export function CreateOrder() {
             </ul>
           </div>
           )}
-
-          {err && <p class={err.startsWith("✅") ? "ok-msg" : "error"}>{err}</p>}
-          <button class="btn primary wide co-submit" disabled={busy} onClick={submitQuick}>{busy ? "Đang tạo…" : "Tạo đơn"}</button>
         </div>
       ) : (
         <div>
-          <div class="card">
+          <div class="co-cust card">
             <label>Khách hàng</label>
-            <CustomerPicker onPick={setCustomer} />
-            {customer ? <p class="muted small"><Icon name="check" size={14} /> {customer.name}</p> : <p class="muted small">Chọn khách để tự lấy giá theo bảng giá.</p>}
+            {customer ? (
+              <div class="co-cust-picked">
+                <span class="co-avatar" aria-hidden="true">{initial(customer.name)}</span>
+                <b class="co-cust-name">{customer.name}</b>
+                <button class="btn small ghost" onClick={() => setCustomer(null)}>Đổi</button>
+              </div>
+            ) : (
+              <>
+                <CustomerPicker onPick={setCustomer} />
+                <p class="muted small">Chọn khách để tự lấy giá theo bảng giá.</p>
+              </>
+            )}
           </div>
           <InvoiceEditor customerId={customer?.key} invoice={[]} onSave={createAdvanced} createMode />
           <p class="muted small">Bấm 💾 Lưu để tạo đơn; sang trang chi tiết bấm 🧾 Tạo HĐ KiotViet.</p>
         </div>
       )}
-      <p class="muted small">📨 Đơn tạo từ web sẽ đăng vào kênh #don_hang và tạo topic Telegram như gõ tay.</p>
+      <p class="co-note muted small">📨 Đơn tạo từ web sẽ đăng vào kênh #don_hang và tạo topic Telegram như gõ tay.</p>
 
       {plOpen && (
         <div class="modal-backdrop" onClick={() => setPlOpen(false)}>

@@ -941,31 +941,60 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* Đơn vừa mở gần nhất — tô sáng khi quay lại dashboard */
 .order-card.last-visited { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(26,115,232,.28); background: #f0f6ff; }
 
-/* Xem trước đơn (tab Nhanh) */
-.preview-box { margin: 8px 0; border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: #fafbfc; }
-/* Tạo đơn: preview DÍNH ĐỈNH (luôn trên màn hình khi gõ) + ô nhập CHỮ TO tự thu nhỏ */
-/* Dính DƯỚI app-bar (cao 44px) — top:0 sẽ nấp sau header (z-index 20) → bị input che */
-.co-preview { position: sticky; top: 44px; z-index: 6; max-height: 34vh; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
-/* Chiều cao ổn định (không phụ thuộc bàn phím) → không giật; font do JS thu nhỏ vừa ô */
-.co-input { width: 100%; box-sizing: border-box; resize: none; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; line-height: 1.25; font-weight: 600; letter-spacing: .2px; height: 40vh; min-height: 150px; max-height: 46vh; overflow-y: auto; }
-.co-input::placeholder { font-weight: 500; opacity: .5; }
-/* Đang gõ (bàn phím bật) → preview hiện FULL (khỏi cuộn trong hộp nhỏ), ô nhập nhỏ lại */
+/* ── Tạo đơn mới (CreateOrder) ─────────────────────────────────────────────
+   Bàn phím: preview DÍNH ĐỈNH dưới app-bar + nút "Tạo ▸" mini trong header
+   preview → mọi thứ quan trọng ở NỬA TRÊN màn hình, bàn phím không che.
+   Chiều cao ô nhập do CSS quản (không đo viewport) → không giật khi bàn phím
+   bật/tắt; đang gõ (.co-typing) thì ô nhập thu nhỏ nhường chỗ preview. */
+/* Segmented control chọn chế độ */
+.seg { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-md); padding: 3px; margin: 2px 0 10px; }
+.seg-btn { flex: 1; min-height: 38px; border: none; background: transparent; border-radius: 9px; font-size: .9rem; font-weight: 600; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; -webkit-tap-highlight-color: transparent; transition: background var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.seg-btn.active { background: var(--card); color: var(--primary); box-shadow: var(--e1); }
+/* Khách đã chọn — chip avatar */
+.co-cust { margin-bottom: 8px; }
+.co-cust-picked { display: flex; align-items: center; gap: 10px; background: var(--accent-wash); border: 1px solid #cfe0fb; border-radius: var(--r-md); padding: 8px 10px; margin-top: 4px; }
+.co-cust-picked .btn { margin-left: auto; }
+.co-cust-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--primary); color: #fff; font-weight: 700; font-size: .9rem; display: flex; align-items: center; justify-content: center; flex: none; }
+/* Preview — dính DƯỚI app-bar (44px); top:0 sẽ nấp sau header (z-index 20) */
+.co-preview { position: sticky; top: 46px; z-index: 6; max-height: 36vh; overflow-y: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 10px 12px 8px; margin: 8px 0; box-shadow: var(--e2); }
 .co-typing .co-preview { max-height: none; }
+.co-prev-head { display: flex; align-items: center; gap: 6px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); min-height: 30px; }
+.co-prev-go { margin-left: auto; border: none; background: var(--primary); color: #fff; font-size: .8rem; font-weight: 700; border-radius: var(--r-pill); padding: 6px 14px; min-height: 30px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.co-prev-go:active { transform: scale(.96); }
+.co-prev-go:disabled { opacity: .55; }
+.co-spin { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); animation: co-pulse 1s ease infinite; }
+@keyframes co-pulse { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+.co-prev-cust { display: flex; align-items: center; gap: 10px; padding: 6px 0 8px; }
+.co-prev-cinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.co-prev-cinfo b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-prev-nocust { padding: 6px 0; }
+.co-link { border: none; background: none; color: var(--primary); font-size: inherit; font-weight: 600; padding: 0 2px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.co-debt { flex: none; font-size: .74rem; font-weight: 700; padding: 4px 9px; border-radius: var(--r-pill); background: var(--bg); color: var(--muted); font-variant-numeric: tabular-nums; }
+.co-debt.owe { background: var(--danger-wash); color: var(--danger); }
+.co-debt.wait { font-weight: 500; }
+.co-items { margin-top: 0; }
+.co-items td { font-size: .88rem; }
+.co-items tr:last-child td { border-bottom: none; }
+.co-prev-empty { padding: 6px 0; }
+.co-total { display: flex; align-items: center; justify-content: space-between; background: var(--accent-wash); border-radius: 10px; padding: 8px 12px; margin: 8px 0 4px; font-size: .85rem; color: var(--muted); font-weight: 600; }
+.co-total b { color: var(--primary); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+/* Ô nhập CHỮ TO — cao ổn định, font do JS thu nhỏ vừa ô */
+.co-input { width: 100%; box-sizing: border-box; resize: none; background: var(--card); border: 1.5px solid var(--border); border-radius: var(--r-lg); padding: 12px 14px; line-height: 1.25; font-weight: 600; letter-spacing: .2px; height: 40vh; min-height: 150px; max-height: 46vh; overflow-y: auto; transition: border-color var(--dur) var(--ease); }
+.co-input:focus { outline: none; border-color: var(--primary); }
+.co-input::placeholder { font-weight: 500; opacity: .45; }
 .co-typing .co-input { height: 24vh; min-height: 110px; }
-.hint-toggle { margin: 8px 0 0; background: transparent; border: none; color: var(--primary); padding: 4px 0; }
-.co-submit { margin-top: 10px; }
-.preview-head { font-size: .85rem; font-weight: 600; margin-bottom: 6px; }
-.preview-cust { margin-bottom: 6px; font-size: .9rem; }
-
-.hint { margin: 8px 0 4px; line-height: 1.5; }
-.hint code { background: #eef1f4; border-radius: 4px; padding: 1px 5px; font-size: .8rem; }
-
-.quick-cust { margin-bottom: 8px; }
-.picked-cust { display: flex; align-items: center; gap: 10px; font-size: .95rem; background: #eef6ff; border-radius: 8px; padding: 8px 10px; }
-.picked-cust .btn { margin-left: auto; }
-
-.hint-list { margin: 4px 0 0 0; padding-left: 18px; }
-.hint-list li { margin: 3px 0; }
+.co-submit { margin-top: 10px; min-height: 50px; font-size: 1rem; }
+.err-msg { color: var(--danger); background: var(--danger-wash); padding: 8px 10px; border-radius: 8px; font-size: .9rem; margin: 6px 0; }
+/* Hướng dẫn cú pháp — gọn, thu gọn được */
+.co-hint-toggle { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; background: none; border: none; color: var(--muted); font-size: .82rem; font-weight: 600; padding: 10px 2px 6px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.co-hint-chev { transition: transform var(--dur) var(--ease); }
+.co-hint-chev.flip { transform: rotate(180deg); }
+.co-hint { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px 12px; font-size: .8rem; line-height: 1.55; }
+.co-hint code { background: #eef1f4; border-radius: 4px; padding: 1px 5px; font-size: .78rem; }
+.hint-list { margin: 0; padding-left: 16px; }
+.hint-list li { margin: 4px 0; }
+.co-note { text-align: center; padding: 8px 4px 2px; }
 
 .quick-add { margin: 8px 0; padding: 8px; background: #f7f9fb; border: 1px dashed var(--border); border-radius: 8px; }
 .quick-add textarea { font-size: .9rem; }
