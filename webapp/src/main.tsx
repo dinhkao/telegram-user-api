@@ -1,10 +1,10 @@
 // Entry — hash router (#/orders, #/order/:id, #/create, #/customers, #/login)
 // + thanh nav dưới + banner offline/hàng đợi. Connects to: pages/*, api.ts.
 import { render } from "preact";
-import { useEffect, useState } from "preact/hooks";
-import { currentUser, replayQueue, netOk, onNetStatus } from "./api";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { currentUser, getJSON, replayQueue, netOk, onNetStatus } from "./api";
 import { getQueue } from "./offline";
-import { getStatus, onStatus, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
+import { getStatus, onStatus, onRealtime, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
 import { Icon } from "./ui/Icon";
 import { usePopupBack } from "./ui/usePopupBack";
@@ -102,6 +102,40 @@ function useHash(): string {
     return () => window.removeEventListener("hashchange", onChange);
   }, []);
   return hash;
+}
+
+// Banner DÍNH dưới app-bar — chữ chạy ngang (marquee): "<N> đơn chưa nộp".
+// Số lấy từ chip stats /api/orders (page=1&limit=1, query nhẹ); cập nhật khi có
+// realtime order_changed/orders_changed (gộp 3s) + poll 2 phút. N=0 → ẩn banner.
+function NopBanner() {
+  const [n, setN] = useState(0);
+  const t = useRef<any>(null);
+  useEffect(() => {
+    const load = () =>
+      getJSON("/api/orders?page=1&limit=1", { cache: false })
+        .then((d) => setN(Number(d.stats?.chua_nop) || 0))
+        .catch(() => {});
+    load();
+    const poll = setInterval(load, 120000);
+    const off = onRealtime((e) => {
+      if (e.type !== "order_changed" && e.type !== "orders_changed") return;
+      clearTimeout(t.current);
+      t.current = setTimeout(load, 3000);
+    });
+    return () => { clearInterval(poll); clearTimeout(t.current); off(); };
+  }, []);
+  // Banner chiếm ~28px dưới app-bar → các sticky khác (topbar tìm kiếm, header
+  // chi tiết đơn, preview tạo đơn…) phải tụt xuống theo (body.has-nop, styles.css)
+  useEffect(() => {
+    document.body.classList.toggle("has-nop", n > 0);
+    return () => document.body.classList.remove("has-nop");
+  }, [n > 0]);
+  if (!n) return null;
+  return (
+    <a class="nop-banner" href="#/orders" title="Xem danh sách đơn">
+      <span class="nop-marquee">💰 {n} đơn chưa nộp tiền</span>
+    </a>
+  );
 }
 
 function OfflineBanner() {
@@ -263,6 +297,7 @@ function App() {
         </header>
       )}
       <OfflineBanner />
+      {!showLogin && <NopBanner />}
       <main class="page">{page}</main>
       {!showLogin && (
         <nav class="bottom-nav">
