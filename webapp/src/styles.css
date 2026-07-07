@@ -267,6 +267,9 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .edit-mid .fld input { padding: 6px; font-size: .95rem; }
 .edit-mid .times { align-self: flex-end; padding-bottom: 8px; }
 .edit-mid .eq { margin-left: auto; align-self: flex-end; padding-bottom: 6px; white-space: nowrap; }
+/* Nút đặt lại giá về giá bảng của khách (hiện khi giá ≠ giá định sẵn) */
+.edit-mid .price-reset { align-self: flex-end; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--warn, #c8901f); border-radius: 7px; background: var(--warn-wash, #fbf3e0); color: var(--warn, #a5730f); cursor: pointer; }
+.edit-mid .price-reset:active { opacity: .7; }
 .edit-bot { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .edit-bot .note-inp { flex: 1; margin-top: 0; }
 .pricetag { display: inline-block; }

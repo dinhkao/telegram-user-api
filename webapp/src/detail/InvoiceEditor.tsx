@@ -230,6 +230,15 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
               <label class="fld sl">SL<input inputMode="numeric" value={it.sl} onInput={(e: any) => setRow(i, "sl", parseMoney(e.target.value))} /></label>
               <span class="times">×</span>
               <label class="fld price">Giá<input inputMode="numeric" value={it.price} onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} /></label>
+              {(() => {
+                const info = listPrices[(it.sp || "").trim().toUpperCase()];
+                return info && info.price && Number(it.price) !== info.price ? (
+                  <button type="button" class="price-reset" title={`Đặt lại giá bảng: ${money(info.price)}đ`}
+                    onClick={() => setRow(i, "price", info.price)}>
+                    <Icon name="refresh" size={15} />
+                  </button>
+                ) : null;
+              })()}
               <span class="eq">= <b>{money((it.price || 0) * (it.sl || 0))}đ</b></span>
             </div>
             <div class="edit-bot">
