@@ -1,5 +1,4 @@
 from __future__ import annotations
-import os
 
 from .core import _request
 
@@ -26,25 +25,34 @@ def get_product_by_code(product_code: str) -> dict | None:
     return data[0] if data else None
 
 
-def create_product_kv(code: str, name: str, *, unit: str = "", base_price: float = 0,
-                      category_id: int | None = None) -> dict:
-    """Tạo SP MỚI trên KiotViet (POST /products). Trả {id, code, full_name}.
-    category_id lấy từ env KIOTVIET_DEFAULT_CATEGORY_ID nếu không truyền (KiotViet
-    thường bắt buộc categoryId). Ném RuntimeError nếu KiotViet từ chối."""
+def list_categories_kv(limit: int = 100) -> list[dict]:
+    """Danh sách nhóm hàng KiotViet (để chọn khi tạo SP). Trả [{id, name}]."""
+    result = _request("GET", "/categories", query_params={"pageSize": limit})
+    out = []
+    for c in result.get("data", []):
+        out.append({"id": c.get("categoryId") or c.get("id"),
+                    "name": c.get("categoryName") or c.get("name") or ""})
+    return out
+
+
+def create_product_kv(code: str, name: str, *, category_id: int, unit: str = "",
+                      base_price: float = 0) -> dict:
+    """Tạo SP MỚI trên KiotViet (POST /products). Bắt buộc name/code/categoryId/
+    allowsSale/unit (theo Public API). Trả {id, code, full_name}. Ném RuntimeError nếu
+    KiotViet từ chối (vd nhóm hàng không tồn tại)."""
     code = (code or "").strip().upper()
     name = (name or code).strip()
     if not code:
         raise RuntimeError("Thiếu mã SP")
-    if category_id is None:
-        env_cat = os.getenv("KIOTVIET_DEFAULT_CATEGORY_ID")
-        category_id = int(env_cat) if env_cat and env_cat.strip().isdigit() else None
-    body: dict = {"code": code, "name": name, "fullName": name}
-    if unit:
-        body["unit"] = unit
+    if not category_id:
+        raise RuntimeError("Thiếu nhóm hàng (categoryId)")
+    body: dict = {
+        "code": code, "name": name, "fullName": name,
+        "categoryId": int(category_id), "allowsSale": True,
+        "unit": unit or "cái",
+    }
     if base_price:
         body["basePrice"] = base_price
-    if category_id:
-        body["categoryId"] = category_id
     res = _request("POST", "/products", body=body)
     return {
         "id": res.get("id"),

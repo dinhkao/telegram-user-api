@@ -849,9 +849,15 @@ export async function updateProduct(code: string, patch: { unit?: string; name?:
   const d = await postJSON(`/api/products/${encodeURIComponent(code)}`, patch, { queueable: false });
   return d.ok ? d.product : null;
 }
+export type KvCategory = { id: number; name: string };
+/** Nhóm hàng KiotViet (chọn khi tạo SP mới). */
+export async function kiotvietCategories(): Promise<KvCategory[]> {
+  const d = await getJSON("/api/kiotviet/categories", { cache: false });
+  return d.categories || [];
+}
 /** Tạo SP MỚI trên KiotViet từ mã local (tên/đơn vị local) rồi liên kết. Admin. */
-export async function createKiotvietProduct(code: string, patch?: { name?: string; unit?: string; base_price?: number }): Promise<InvProductLink | null> {
-  const d = await postJSON(`/api/products/${encodeURIComponent(code)}/kiotviet-create`, patch || {}, { queueable: false });
+export async function createKiotvietProduct(code: string, patch: { category_id: number; name?: string; unit?: string; base_price?: number }): Promise<InvProductLink | null> {
+  const d = await postJSON(`/api/products/${encodeURIComponent(code)}/kiotviet-create`, patch, { queueable: false });
   return d.ok ? d.product : null;
 }
 /** Tìm sản phẩm KiotViet để liên kết (từng cái). */

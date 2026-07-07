@@ -3,7 +3,8 @@
 // Thùng đã xuất link tới đơn. Realtime production_changed → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, createKiotvietProduct, deleteProduct, updateProduct, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct } from "../api";
+import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, createKiotvietProduct, kiotvietCategories, deleteProduct, updateProduct, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct, type KvCategory } from "../api";
+import { SelectPopup } from "../ui/SelectPopup";
 import { confirmDialog, toast } from "../ui/feedback";
 import { useScrollLock } from "../useScrollLock";
 import { money } from "../format";
@@ -112,13 +113,25 @@ export function InventoryDetail({ code }: { code: string }) {
     }
   };
   const [kvCreating, setKvCreating] = useState(false);
+  const [kvCatOpen, setKvCatOpen] = useState(false);
+  const [kvCats, setKvCats] = useState<KvCategory[]>([]);
+  const [kvCatId, setKvCatId] = useState("");
+  useScrollLock(kvCatOpen);
+  usePopupBack(kvCatOpen, () => setKvCatOpen(false));
+  const openKvCreate = async () => {
+    setKvCatOpen(true);
+    if (!kvCats.length) {
+      try { setKvCats(await kiotvietCategories()); }
+      catch (e: any) { toast(e?.message || "Không lấy được nhóm hàng", "err"); }
+    }
+  };
   const doKvCreate = async () => {
-    const nm = inv?.product?.name || code;
-    if (!(await confirmDialog(`Tạo sản phẩm "${nm}" (mã ${code}) trên KiotViet rồi liên kết?`))) return;
+    if (!kvCatId) { toast("Chọn nhóm hàng", "err"); return; }
     setKvCreating(true);
     try {
-      const p = await createKiotvietProduct(code);
+      const p = await createKiotvietProduct(code, { category_id: Number(kvCatId) });
       if (p && inv) setInv({ ...inv, product: p });
+      setKvCatOpen(false);
       toast("✅ Đã tạo + liên kết KiotViet", "ok");
     } catch (e: any) {
       toast(e?.message || "Lỗi tạo KiotViet", "err");
@@ -210,7 +223,7 @@ export function InventoryDetail({ code }: { code: string }) {
                 ? <button class="btn small" onClick={doUnlink}>Bỏ liên kết</button>
                 : <>
                     <button class="btn small primary" onClick={openLink}><Icon name="link" size={16} /> Liên kết</button>
-                    <button class="btn small" disabled={kvCreating} onClick={doKvCreate}><Icon name="plus" size={15} /> Tạo trên KiotViet</button>
+                    <button class="btn small" disabled={kvCreating} onClick={openKvCreate}><Icon name="plus" size={15} /> Tạo trên KiotViet</button>
                   </>}
               {inv.product && <button class="btn small danger" title="Xoá mã khỏi danh mục" onClick={doDelete}><Icon name="trash" size={16} /></button>}
             </span>
@@ -240,6 +253,29 @@ export function InventoryDetail({ code }: { code: string }) {
               </div>
             )}
             <button class="btn block" style={{ marginTop: "8px" }} onClick={() => setLinkOpen(false)}>Đóng</button>
+          </div>
+        </div>
+      )}
+
+      {kvCatOpen && (
+        <div class="modal-overlay" onClick={() => setKvCatOpen(false)}>
+          <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
+            <div class="modal-head"><Icon name="plus" size={18} /> Tạo {code} trên KiotViet</div>
+            <div class="muted small" style={{ marginBottom: "8px" }}>
+              Tên: {inv.product?.name || code} · Đơn vị: {inv.product?.unit || "cây"}
+            </div>
+            <div class="box-kv">
+              <span class="box-k">Nhóm hàng</span>
+              <SelectPopup title="Chọn nhóm hàng KiotViet" searchable placeholder={kvCats.length ? "Chọn nhóm hàng" : "Đang tải…"}
+                value={kvCatId} options={kvCats.map((c) => ({ value: c.id, label: c.name }))}
+                onChange={setKvCatId} />
+            </div>
+            <div class="row" style={{ gap: "8px", marginTop: "10px" }}>
+              <button class="btn primary" style={{ flex: 1 }} disabled={kvCreating || !kvCatId} onClick={doKvCreate}>
+                {kvCreating ? "⏳ Đang tạo…" : "Tạo + liên kết"}
+              </button>
+              <button class="btn" onClick={() => setKvCatOpen(false)}>Huỷ</button>
+            </div>
           </div>
         </div>
       )}

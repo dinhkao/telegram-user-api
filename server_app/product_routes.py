@@ -92,6 +92,17 @@ def _code(request):
     return (request.match_info.get("code") or "").upper().strip()
 
 
+async def kiotviet_categories_handler(request: web.Request):
+    """Danh sách nhóm hàng KiotViet (để chọn khi tạo SP mới). GET → [{id, name}]."""
+    try:
+        from integrations.kiotviet import list_categories_kv
+        cats = await asyncio.to_thread(list_categories_kv, 100)
+    except Exception as e:  # noqa: BLE001
+        log.error("Lấy nhóm hàng KiotViet lỗi: %s", e)
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+    return web.json_response({"ok": True, "categories": cats})
+
+
 async def product_kv_create_handler(request: web.Request):
     """Tạo SP MỚI trên KiotViet từ mã local (dùng tên/đơn vị local) rồi LIÊN KẾT.
     CHỈ admin. Body {name?, unit?} ghi đè; giá cơ bản {base_price?}."""
@@ -120,13 +131,19 @@ async def product_kv_create_handler(request: web.Request):
     name = (body.get("name") or local.get("name") or code).strip()
     unit = (body.get("unit") or local.get("unit") or "").strip()
     try:
+        category_id = int(body.get("category_id") or 0)
+    except (TypeError, ValueError):
+        category_id = 0
+    if not category_id:
+        return web.json_response({"ok": False, "error": "Chọn nhóm hàng KiotViet trước"}, status=400)
+    try:
         base_price = float(body.get("base_price") or local.get("cost_price") or 0)
     except (TypeError, ValueError):
         base_price = 0
     # 1) tạo trên KiotViet
     try:
         from integrations.kiotviet import create_product_kv
-        kv = await asyncio.to_thread(create_product_kv, code, name, unit=unit, base_price=base_price)
+        kv = await asyncio.to_thread(create_product_kv, code, name, category_id=category_id, unit=unit, base_price=base_price)
     except Exception as e:  # noqa: BLE001
         log.error("Tạo SP KiotViet lỗi: %s", e)
         return web.json_response({"ok": False, "error": f"KiotViet từ chối: {e}"}, status=502)
