@@ -1349,3 +1349,8 @@ body.co-kbd .bottom-nav { display: none; }
 .pk-seg { display: flex; gap: 4px; padding: 4px; background: var(--card2, #f0f1f3); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; }
 .pk-opt { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 9px 6px; border: none; background: transparent; color: var(--muted); font-weight: 600; font-size: .9rem; border-radius: 9px; cursor: pointer; transition: background .12s, color .12s; }
 .pk-opt.on { background: var(--card, #fff); color: var(--primary); box-shadow: var(--e1, 0 1px 3px rgba(0,0,0,.12)); }
+
+/* Nhãn loại phiếu trên card danh sách SX */
+.pk-badge { display: inline-flex; align-items: center; gap: 3px; margin-left: 7px; padding: 1px 7px; border-radius: 20px; font-size: .68rem; font-weight: 600; vertical-align: middle; white-space: nowrap; }
+.pk-badge.sx { background: rgba(38,128,255,.12); color: var(--primary, #2680ff); }
+.pk-badge.pack { background: rgba(240,150,20,.15); color: #b5730a; }

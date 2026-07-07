@@ -218,7 +218,12 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
   return (
     <a class="prod-card" href={`#/san_xuat/${slip.thread_id}`}>
       <div class="prod-card-top">
-        <span class="prod-sp">{slip.sp_name || "Chưa có SP"}</span>
+        <span class="prod-sp">
+          {slip.sp_name || "Chưa có SP"}
+          {(slip.kind || "san_xuat") === "dong_goi"
+            ? <span class="pk-badge pack"><Icon name="box" size={12} /> Đóng gói</span>
+            : <span class="pk-badge sx"><Icon name="factory" size={12} /> Sản xuất</span>}
+        </span>
         <span class="prod-date"><Icon name="clock" size={14} /> {(() => { const c = prodCreated(slip); return c.includes(" ") ? c.split(" ")[1] : c; })()}</span>
       </div>
       <div class="prod-card-stat">
