@@ -139,6 +139,12 @@ def emit_notif_added(notif: dict) -> None:
     spawn_tracked("realtime.notif_added", _broadcast({"type": "notif_added", "notif": notif}, "notif_added"))
 
 
+def emit_banner_changed() -> None:
+    """Bảng tin banner đổi (ghim/gỡ bình luận) → client tải lại banner."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.banner_changed", _broadcast({"type": "banner_changed"}, "banner_changed"))
+
+
 def emit_quy_changed() -> None:
     """Sổ quỹ đổi (tạo/xoá phiếu thu/chi, thanh toán tiền mặt của đơn) → trang Quỹ refetch."""
     from server_app.tasks import spawn_tracked

@@ -51,6 +51,7 @@ const PATHS: Record<string, JSX.Element> = {
   ban: <><circle cx="12" cy="12" r="9" /><path d="m5 5 14 14" /></>,
   zap: <><path d="M13 2 3 14h7l-1 8 10-12h-7Z" /></>,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.01" /></>,
+  megaphone: <><path d="m3 11 18-5v12L3 13v-2Z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></>,
   leaf: <><path d="M11 20A7 7 0 0 1 4 13c0-6 5-9 16-9 0 9-4 14-9 14-2 0-4-1-5-3" /><path d="M2 22c4-4 6-6 8-6" /></>,
 };
 

@@ -63,13 +63,17 @@ body.modal-open { overflow: hidden; touch-action: none; overscroll-behavior: non
 .icon-btn:active { background: var(--bg); }
 .search { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; }
 
-/* Banner chữ chạy "<N> đơn chưa nộp" — DÍNH dưới app-bar (44px), trên mọi trang */
-.nop-banner { position: sticky; top: 44px; z-index: 18; display: block; overflow: hidden; white-space: nowrap; background: var(--warn-wash); color: var(--warn); border-bottom: 1px solid #ecd8a6; font-size: .82rem; font-weight: 700; text-decoration: none; height: 28px; line-height: 27px; }
+/* Banner chữ chạy (bảng tin) — DÍNH dưới app-bar (44px), trên mọi trang.
+   Nền TRẮNG; số liệu thường = chữ mộc (ít quan trọng), bình luận ghim = chip ĐỎ. */
+.nop-banner { position: sticky; top: 44px; z-index: 18; display: block; overflow: hidden; white-space: nowrap; background: var(--card); color: var(--warn); border-bottom: 1px solid var(--border); font-size: .82rem; font-weight: 700; height: 28px; line-height: 27px; }
+.nop-seg { color: inherit; text-decoration: none; }
+.nop-seg.pin { background: var(--danger); color: #fff; border-radius: var(--r-pill); padding: 3px 10px; margin-right: 48px; line-height: 1; align-self: center; }
 /* LUÔN chạy — animation ghi đè cả prefers-reduced-motion (Android bật tiết kiệm
    pin/tắt hiệu ứng → WebView báo reduce, nhưng banner này yêu cầu luôn cuộn).
    Ghi rõ duration ở đây vì :root thu --dur về .001s khi reduce. */
-.nop-marquee { display: inline-flex; animation: nop-slide 24s linear infinite !important; will-change: transform; }
+.nop-marquee { display: inline-flex; align-items: center; height: 27px; animation: nop-slide 24s linear infinite !important; will-change: transform; }
 .nop-seg { padding-right: 48px; flex: none; }
+.nop-seg.pin { padding-right: 10px; }
 @keyframes nop-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 /* Có banner (~28px) → các sticky khác neo top 44px phải tụt xuống 72px */
 body.has-nop .topbar, body.has-nop .od-appbar { top: 72px; }
@@ -210,6 +214,10 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .pay-debt b { color: var(--ink); }
 .task-list li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
 .comment { padding: 6px 8px; border-radius: 8px; margin: 4px 0; background: var(--bg); }
+/* Nút 📢 đưa bình luận lên bảng tin — cuối dòng header của comment */
+.cmt-head { display: flex; align-items: center; gap: 4px; }
+.cmt-pin { margin-left: auto; border: none; background: none; color: var(--muted-2); padding: 2px 4px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.cmt-pin:active { color: var(--danger); }
 .comment.web { background: #e8f0fe; }
 
 .offline-banner { background: #fef7e0; color: #7a5c00; text-align: center; padding: 6px; font-size: .85rem; position: sticky; top: 0; z-index: 10; }

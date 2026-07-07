@@ -111,6 +111,7 @@ function useHash(): string {
 function NopBanner() {
   const [n, setN] = useState(0);        // đơn đã giao chưa nộp
   const [boxes, setBoxes] = useState(0); // thùng chưa gán vị trí kho
+  const [pins, setPins] = useState<{ id: number; text: string; href?: string }[]>([]); // bình luận ghim 24h
   const t = useRef<any>(null);
   useEffect(() => {
     const load = () => {
@@ -120,18 +121,22 @@ function NopBanner() {
       getJSON("/api/inventory/unplaced-count", { cache: false })
         .then((d) => setBoxes(Number(d.count) || 0))
         .catch(() => {});
+      getJSON("/api/banner/pins", { cache: false })
+        .then((d) => setPins(d.pins || []))
+        .catch(() => {});
     };
     load();
     const poll = setInterval(load, 120000);
     const off = onRealtime((e) => {
       if (e.type !== "order_changed" && e.type !== "orders_changed" &&
-          e.type !== "inventory_changed" && e.type !== "box_changed") return;
+          e.type !== "inventory_changed" && e.type !== "box_changed" &&
+          e.type !== "banner_changed") return;
       clearTimeout(t.current);
-      t.current = setTimeout(load, 3000);
+      t.current = setTimeout(load, e.type === "banner_changed" ? 200 : 3000);
     });
     return () => { clearInterval(poll); clearTimeout(t.current); off(); };
   }, []);
-  const show = n > 0 || boxes > 0;
+  const show = n > 0 || boxes > 0 || pins.length > 0;
   // Banner chiếm ~28px dưới app-bar → các sticky khác (topbar tìm kiếm, header
   // chi tiết đơn, preview tạo đơn…) phải tụt xuống theo (body.has-nop, styles.css)
   useEffect(() => {
@@ -141,15 +146,21 @@ function NopBanner() {
   if (!show) return null;
   // Chạy LIÊN TỤC phải→trái không hở: track = 2 nửa giống hệt (lặp chuỗi tin ×6),
   // animation dịch đúng −50% rồi lặp → nối liền mạch, không thấy khoảng trống.
-  const parts: string[] = [];
-  if (n > 0) parts.push(`💰 ${n} đơn chưa nộp tiền`);
-  if (boxes > 0) parts.push(`📦 ${boxes} thùng chưa xếp kho`);
+  // Bình luận ghim = chip ĐỎ (quan trọng, tự hết sau 24h); số liệu thường = chữ
+  // trên nền trắng (luôn có, ít quan trọng hơn). Mỗi mẩu tự là link về nguồn.
+  const parts: { text: string; href: string; pin?: boolean }[] = [];
+  for (const p of pins) parts.push({ text: `📢 ${p.text}`, href: p.href || "#/orders", pin: true });
+  if (n > 0) parts.push({ text: `💰 ${n} đơn chưa nộp tiền`, href: "#/orders" });
+  if (boxes > 0) parts.push({ text: `📦 ${boxes} thùng chưa xếp kho`, href: "#/kho" });
   return (
-    <a class="nop-banner" href={n > 0 ? "#/orders" : "#/kho"} title={parts.join(" · ")} aria-label={parts.join(" · ")}>
+    <div class="nop-banner" aria-label={parts.map((p) => p.text).join(" · ")}>
       <span class="nop-marquee">
-        {[0, 1, 2, 3, 4, 5].flatMap((i) => parts.map((m, j) => <span class="nop-seg" key={`${i}-${j}`}>{m}</span>))}
+        {[0, 1, 2, 3, 4, 5].flatMap((i) =>
+          parts.map((p, j) => (
+            <a class={"nop-seg" + (p.pin ? " pin" : "")} key={`${i}-${j}`} href={p.href}>{p.text}</a>
+          )))}
       </span>
-    </a>
+    </div>
   );
 }
 

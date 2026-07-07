@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { getJSON, postJSON, currentUser } from "../api";
 import { fmtTime } from "../format";
-import { toast } from "../ui/feedback";
+import { toast, confirmDialog } from "../ui/feedback";
 import { onRealtime, eventMatchesBase } from "../realtime";
 import { Icon } from "../ui/Icon";
 
@@ -15,6 +15,17 @@ function toEpoch(v: any): number {
   if (typeof v === "number") return v;
   const t = Date.parse(String(v || "").replace(" ", "T") + "Z");
   return isNaN(t) ? 0 : Math.floor(t / 1000);
+}
+
+// Link về trang nguồn từ base API — để bấm dòng ghim trên banner nhảy đúng chỗ
+function hrefFromBase(b: string): string {
+  let m = b.match(/\/api\/order\/(-?\d+)/);
+  if (m) return `#/order/${m[1]}`;
+  m = b.match(/\/api\/media\/box\/(\d+)/);
+  if (m) return `#/thung/${m[1]}`;
+  m = b.match(/\/api\/media\/production\/(-?\d+)/);
+  if (m) return `#/san_xuat/${m[1]}`;
+  return "";
 }
 
 export function Comments({ base, chatMessages = [] }: { base: string; chatMessages?: any[] }) {
@@ -62,6 +73,15 @@ export function Comments({ base, chatMessages = [] }: { base: string; chatMessag
     }
   };
 
+  // Ghim bình luận lên banner chạy chữ (24h, nền đỏ) — mọi máy thấy ngay (realtime)
+  const pinToBanner = async (it: Item) => {
+    if (!(await confirmDialog(`Đưa lên bảng tin 24 giờ?\n“${it.text}”`, { okLabel: "Đưa lên" }))) return;
+    try {
+      await postJSON("/api/banner/pin", { text: `${it.who}: ${it.text}`, href: hrefFromBase(base) });
+      toast("📢 Đã đưa lên bảng tin (24h)", "ok");
+    } catch (ex: any) { toast(ex.message, "err"); }
+  };
+
   // useMemo: không re-sort cả log chat dài theo từng phím gõ vào ô comment
   const items: Item[] = useMemo(
     () =>
@@ -80,9 +100,12 @@ export function Comments({ base, chatMessages = [] }: { base: string; chatMessag
       <ul class="comment-list">
         {items.map((it, i) => (
           <li key={it.id ? `w${it.id}` : `t${it.source}-${it.at}-${i}`} id={it.id ? `comment-${it.id}` : undefined} class={it.source === "web" ? "comment web" : "comment tg"}>
-            <div class="muted small">
+            <div class="muted small cmt-head">
               {it.source === "tg" ? "✈️" : <Icon name="chat" size={12} />}{" "}
               {it.who} · {fmtTime(it.at)}
+              <button class="cmt-pin" title="Đưa lên bảng tin (24h)" onClick={() => pinToBanner(it)}>
+                <Icon name="megaphone" size={13} />
+              </button>
             </div>
             <div>{it.text}</div>
           </li>

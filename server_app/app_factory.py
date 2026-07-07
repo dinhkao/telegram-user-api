@@ -50,6 +50,7 @@ from server_app.production_routes import (
     production_set_product_handler,
     production_set_target_handler,
 )
+from server_app.banner_routes import banner_pins_handler, banner_pin_create_handler, banner_pin_delete_handler
 from server_app.inventory_routes import (
     production_add_boxes_handler,
     production_boxes_list_handler,
@@ -223,6 +224,9 @@ def create_app():
     r.add_get("/api/inventory", inventory_list_handler)
     r.add_get("/api/inventory/boxes", all_boxes_handler)
     r.add_get("/api/inventory/unplaced-count", unplaced_count_handler)
+    r.add_get("/api/banner/pins", banner_pins_handler)
+    r.add_post("/api/banner/pin", banner_pin_create_handler)
+    r.add_delete("/api/banner/pin/{pin_id}", banner_pin_delete_handler)
     r.add_get("/api/places", places_list_handler)
     r.add_post("/api/places", place_create_handler)
     r.add_post("/api/places/{place_id}", place_rename_handler)
