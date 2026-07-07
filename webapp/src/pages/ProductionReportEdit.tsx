@@ -176,6 +176,18 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     setWrows((rs) => (rs.length > 1 ? rs.filter((_, k) => k !== i) : rs));
   };
   const selAll = (e: any) => e.target.select();   // bấm vào ô → chọn hết nội dung, gõ đè ngay
+  // Enter trong 1 ô → nhảy focus xuống ĐÚNG CỘT hàng dưới; hàng cuối thì thêm hàng mới.
+  const tableRef = useRef<HTMLTableElement>(null);
+  const focusCell = (col: string, row: number): boolean => {
+    const el = tableRef.current?.querySelector(`[data-col="${col}"][data-row="${row}"]`) as HTMLInputElement | null;
+    if (!el) return false;
+    el.focus(); el.select?.(); return true;
+  };
+  const onCellKey = (col: string, row: number) => (e: any) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();                     // chặn xuống dòng / submit
+    if (!focusCell(col, row + 1)) { addRow(); requestAnimationFrame(() => focusCell(col, row + 1)); }
+  };
 
   // ── Ảnh nền để dò: chọn ảnh (camera/thư viện) → nén bằng engine như trang đơn
   // (processImage: co ~1600px, EXIF, HEIC ok) → upload lên SERVER scope report_bg
@@ -311,7 +323,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         </datalist>
 
         <div class="prod-report-scroll wr-scroll">
-          <table class="prod-report-table wr-edit">
+          <table class="prod-report-table wr-edit" ref={tableRef}>
             <colgroup>
               <col class="c-name" /><col class="c-num" /><col class="c-num" /><col class="c-num" />
               <col class="c-calc" /><col class="c-calc" /><col class="c-note" />
@@ -325,10 +337,10 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
                 const c = calc(r);
                 return (
                   <tr key={i} class={c.tong > 0 ? "" : "prod-row-off"}>
-                    <td><input class="wr-in wr-name" list="wr-worker-list" value={r.name} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { name: e.target.value })} placeholder="Tên" /></td>
-                    <td><input class="wr-in wr-num" inputMode="decimal" value={r.gach} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { gach: e.target.value })} /></td>
-                    <td><input class="wr-in wr-num" inputMode="decimal" value={r.tru} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { tru: e.target.value })} /></td>
-                    <td><input class="wr-in wr-num" inputMode="decimal" value={r.le} disabled={readOnly} onFocus={selAll} onInput={(e: any) => setRow(i, { le: e.target.value })} /></td>
+                    <td><input class="wr-in wr-name" list="wr-worker-list" data-col="name" data-row={i} value={r.name} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("name", i)} onInput={(e: any) => setRow(i, { name: e.target.value })} placeholder="Tên" /></td>
+                    <td><input class="wr-in wr-num" inputMode="decimal" data-col="gach" data-row={i} value={r.gach} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("gach", i)} onInput={(e: any) => setRow(i, { gach: e.target.value })} /></td>
+                    <td><input class="wr-in wr-num" inputMode="decimal" data-col="tru" data-row={i} value={r.tru} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("tru", i)} onInput={(e: any) => setRow(i, { tru: e.target.value })} /></td>
+                    <td><input class="wr-in wr-num" inputMode="decimal" data-col="le" data-row={i} value={r.le} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("le", i)} onInput={(e: any) => setRow(i, { le: e.target.value })} /></td>
                     <td class="wr-calc">{soVN(c.soMam)}</td>
                     <td class="wr-calc strong">{soVN(c.tong)}</td>
                     <td><textarea class="wr-in wr-note" rows={1} value={r.note} disabled={readOnly}
