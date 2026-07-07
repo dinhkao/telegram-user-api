@@ -4,7 +4,7 @@
 // Kéo = THẢ NỔI dòng (translateY theo ngón) + gạch chỉ chỗ chèn; CHỈ dời khi nhả tay
 // → không splice mỗi frame (khỏi lag) và không remount dòng đang giữ (key theo id bền).
 // Neo đỉnh (sp-overlay/sp-sheet), usePopupBack + useScrollLock như mọi popup.
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
@@ -32,9 +32,9 @@ export function WorkerOrderPopup({
   const rowRefs = useRef<(HTMLElement | null)[]>([]);
   useScrollLock(open);
   usePopupBack(open, onClose);
-  // Mở lại → seed lại từ bảng hiện tại (names đổi giữa các lần mở)
-  const [seed, setSeed] = useState<string[]>(names);
-  if (open && seed !== names) { setSeed(names); setList(toItems(names)); }
+  // Seed CHỈ lúc mở (open false→true) — KHÔNG mỗi render, vì `names` là mảng mới
+  // mỗi lần cha render → nếu seed theo tham chiếu sẽ ghi đè mọi lần đổi chỗ.
+  useEffect(() => { if (open) setList(toItems(names)); }, [open]);   // eslint-disable-line
   if (!open) return null;
 
   const swap = (i: number, d: -1 | 1) => setList((l) => {
