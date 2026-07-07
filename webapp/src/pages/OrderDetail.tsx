@@ -415,13 +415,16 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       </div>
       <div id="od-invoice">
       <section class="card">
-        <div class="row space">
-          <b>Hoá đơn ({(j.invoice || []).length} món){j.kiotvietInvoiceCode ? ` · HĐ ${j.kiotvietInvoiceCode}` : ""}</b>
-          <a class="btn small primary" href={`#/order/${threadId}/hoa-don`}><Icon name="edit" size={15} /> Sửa hoá đơn</a>
-        </div>
+        <b>Hoá đơn ({(j.invoice || []).length} món){j.kiotvietInvoiceCode ? ` · HĐ ${j.kiotvietInvoiceCode}` : ""}</b>
         {(j.invoice || []).length > 0
           ? <InvoiceTable items={j.invoice} discount={j.discount} pvc={j.pvc} vat={j.vat} debt={j.khDebt ?? j.invoice_debt_snapshot} total={pc.tongthanhtoan || undefined} />
-          : <div class="muted small">Chưa có sản phẩm. Bấm "Sửa hoá đơn".</div>}
+          : <div class="muted small">Chưa có sản phẩm.</div>}
+        <button class={"btn block primary" + (hasInvoice ? " faded" : "")} style={{ marginTop: "8px" }}
+          onClick={() => hasInvoice
+            ? toast("Đã tạo hoá đơn KiotViet — không sửa được. Xoá HĐ trước nếu cần.", "info")
+            : (window.location.hash = `#/order/${threadId}/hoa-don`)}>
+          <Icon name="edit" size={16} /> Sửa hoá đơn
+        </button>
       </section>
       </div>{/* #od-invoice */}
       <div id="od-stock">

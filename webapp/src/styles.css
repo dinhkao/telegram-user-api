@@ -631,6 +631,7 @@ body.pv-open { overflow: hidden; }
 .prod-report-table td.strong, .prod-report-table .strong { font-weight: 700; }
 .prod-report-table tfoot td { background: #faf3e0; font-weight: 700; }
 .btn.block { width: 100%; }
+.btn.faded { opacity: .5; }   /* nút vẫn bấm được (hiện toast) nhưng mờ = không dùng được */
 .btn.danger { background: var(--danger); color: #fff; border: none; }
 .error-banner { background: var(--danger-wash); color: var(--danger); padding: 8px 12px; border-radius: 8px; font-size: .9rem; }
 .muted.small, .small { font-size: .8rem; }
