@@ -2,10 +2,11 @@
 // (K2L-001). POST .../boxes (queueable, gửi mảng {quantity} × số thùng). onChanged()
 // để phiếu tải lại tổng. Liệt kê thùng đã nhập ở phiếu này — tap → chi tiết thùng.
 import { useEffect, useState } from "preact/hooks";
-import { addProductionBoxes, slipBoxes, listUnits, createUnit, getRecipe, soVN, type ProdSlip, type InvBox, type Unit, type RecipeLine } from "../api";
+import { addProductionBoxes, slipBoxes, listUnits, createUnit, getRecipe, searchProducts, soVN, type ProdSlip, type InvBox, type Unit, type RecipeLine } from "../api";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { SelectPopup } from "../ui/SelectPopup";
+import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
 import { StockPickerModal } from "./StockPickerModal";
 
 function todayLocal(): string {
@@ -23,7 +24,11 @@ export function ProductionBoxes({
   slip: ProdSlip;
   onChanged: () => void;
 }) {
-  const hasSp = !!slip.sp_name;
+  // SP để tạo thùng — mặc định sp_name của phiếu, nhưng CHỌN được SP khác (1 phiếu
+  // SX tạo thùng cho nhiều SP).
+  const [prodCode, setProdCode] = useState(slip.sp_name || "");
+  useEffect(() => { if (slip.sp_name && !prodCode) setProdCode(slip.sp_name); }, [slip.sp_name]);
+  const hasSp = !!prodCode;
   const [amount, setAmount] = useState("");
   const [count, setCount] = useState("1");
   const [note, setNote] = useState("");
@@ -38,7 +43,7 @@ export function ProductionBoxes({
   const [recipe, setRecipe] = useState<RecipeLine[]>([]);
   const [consumePicks, setConsumePicks] = useState<Record<string, { box_id: number; quantity: number }[]>>({});
   const [pickIng, setPickIng] = useState<string | null>(null);   // mã NL đang mở popup chọn thùng
-  useEffect(() => { if (slip.sp_name) getRecipe(slip.sp_name).then(setRecipe).catch(() => setRecipe([])); else setRecipe([]); }, [slip.sp_name]);
+  useEffect(() => { if (prodCode) getRecipe(prodCode).then(setRecipe).catch(() => setRecipe([])); else setRecipe([]); }, [prodCode]);
   const produced = (() => {
     const n = parseFloat((amount || "").replace(",", ".")), c = Math.floor(parseFloat((count || "").replace(",", ".")));
     return isFinite(n) && n > 0 && isFinite(c) && c > 0 ? n * c : 0;
@@ -96,7 +101,7 @@ export function ProductionBoxes({
     try {
       const picks = Array.from({ length: c }, () => ({ quantity: n }));  // c thùng giống nhau
       const consume = Object.values(consumePicks).flat();               // thùng NL đã chọn
-      const r = await addProductionBoxes(threadId, picks, note.trim(), mfgDate, unitId, consume);
+      const r = await addProductionBoxes(threadId, picks, note.trim(), mfgDate, unitId, consume, prodCode);
       setAmount("");
       setCount("1");
       setNote("");
@@ -118,7 +123,13 @@ export function ProductionBoxes({
 
   return (
     <section class="card">
-      <label class="card-label"><Icon name="box" size={16} /> Nhập thùng {slip.sp_name ? `(${slip.sp_name})` : ""}</label>
+      <label class="card-label"><Icon name="box" size={16} /> Nhập thùng</label>
+      <div class="row">
+        <label class="inline-label"><Icon name="tag" size={16} /> Sản phẩm</label>
+        <PickerPopup value={prodCode} placeholder="Chọn SP" allowFreeText
+          onSearch={async (q): Promise<PickOpt[]> => (await searchProducts(q).catch(() => [])).map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }))}
+          onPick={(o) => setProdCode(o.key)} />
+      </div>
       {!hasSp && <div class="muted small">Chọn sản phẩm trước khi nhập.</div>}
 
       <div class="row">

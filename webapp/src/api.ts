@@ -771,13 +771,14 @@ export async function addProductionBoxes(
   note = "",
   mfgDate = "",
   unitId?: number | null,
-  consume?: { box_id: number; quantity: number }[]
+  consume?: { box_id: number; quantity: number }[],
+  productCode?: string
 ): Promise<{ boxes: InvBox[]; total: number; consumed?: any[]; _queued?: boolean }> {
   const u = currentUser();
   const user = u?.display_name || u?.username || "";
   const d = await postJSON(
     `/api/production/${id}/boxes`,
-    { boxes, note, mfg_date: mfgDate, user, unit_id: unitId || null, consume: consume || [] },
+    { boxes, note, mfg_date: mfgDate, user, unit_id: unitId || null, consume: consume || [], product_code: productCode || null },
     { queueable: true }
   );
   return { boxes: d.boxes || [], total: d.total, consumed: d.consumed, _queued: d._queued };

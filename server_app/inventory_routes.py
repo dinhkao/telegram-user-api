@@ -117,9 +117,12 @@ async def production_add_boxes_handler(request: web.Request):
         try:
             _ensure(conn)
             slip = get_slip(conn, thread_id)
-            if not slip or not slip.get("sp_name"):
+            # Cho phép nhập thùng cho SP BẤT KỲ (không chỉ sp_name của phiếu) → 1 phiếu
+            # SX có thể tạo thùng cho nhiều SP. Mặc định = sp_name của phiếu.
+            req_code = str(body.get("product_code") or "").strip().upper()
+            code = req_code or str((slip or {}).get("sp_name") or "").strip().upper()
+            if not slip or not code:
                 return None, None, None
-            code = str(slip["sp_name"]).strip().upper()
             # Thùng NL người dùng chọn để tiêu hao (body.consume = [{box_id, quantity}]).
             raw_picks = body.get("consume") if isinstance(body.get("consume"), list) else []
             picks = [p for p in raw_picks if isinstance(p, dict) and p.get("box_id")]
