@@ -206,7 +206,7 @@ export function ProductionBoxes({
             return (
               <div class="stock-head" key={l.ingredient_code}>
                 <b>{l.ingredient_code}</b>
-                {l.optional && <span class="muted small">tuỳ chọn</span>}
+                <span class={"req-tag " + (l.optional ? "opt" : "req")}>{l.optional ? "Không bắt buộc" : "Bắt buộc"}</span>
                 <span class={l.optional || enough ? "inv-pick-sum ok" : "inv-pick-sum"}>{soVN(chosen)}/{soVN(need)}</span>
                 <span class="muted small">tồn {soVN(l.stock ?? 0)}</span>
                 <button class="btn small" disabled={!hasSp || produced <= 0} onClick={() => setPickIng(l.ingredient_code)}>Chọn thùng</button>

@@ -872,6 +872,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .recipe-consume { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--ok-wash); }
 .recipe-consume .stock-head { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
 .recipe-consume .stock-head b { min-width: 54px; }
+.req-tag { font-size: .68rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.req-tag.req { background: var(--danger-wash); color: var(--danger); }
+.req-tag.opt { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
 /* Chi tiết SP: tên danh mục + liên kết KiotViet + tên đơn trong danh sách đơn */
 .prod-link { margin-bottom: 10px; }
 .prod-link-name { font-weight: 600; margin-bottom: 6px; }
