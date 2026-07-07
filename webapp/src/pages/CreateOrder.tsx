@@ -178,8 +178,10 @@ export function CreateOrder() {
             )}
           </div>
 
-          {/* Xem trước Ở TRÊN ô nhập, DÍNH ĐỈNH → luôn thấy khi gõ (bàn phím không che).
-              Nút "Tạo" mini nằm ngay trong header preview → tạo được đơn không cần cuộn. */}
+          {/* Bình thường: preview TRÊN ô nhập. Đang gõ: chia đôi màn hình — ô nhập
+              TRÁI + preview PHẢI, cả hai cao hết chỗ trên bàn phím, cuộn riêng
+              từng ô → không bị cắt. Nút "Tạo" mini trong header preview. */}
+          <div class="co-split">
           {(text.trim() || picked) && (
             <div class="co-preview">
               <div class="co-prev-head">
@@ -229,6 +231,7 @@ export function CreateOrder() {
           <textarea ref={taRef} class="co-input" placeholder={"Gõ đơn ở đây…\nlp\nk2l 1t\nk1l 1t 30\ndm180 1t 50 25000"} value={text}
             onFocus={() => setTyping(true)} onBlur={() => setTyping(false)}
             onInput={(e: any) => setText(e.target.value)} />
+          </div>
 
           {err && <p class={err.startsWith("✅") ? "ok-msg" : "err-msg"}>{err}</p>}
           <button class="btn primary wide co-submit" disabled={busy || !text.trim()} onClick={submitQuick}>
