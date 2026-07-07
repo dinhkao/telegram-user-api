@@ -104,40 +104,50 @@ function useHash(): string {
   return hash;
 }
 
-// Banner DÍNH dưới app-bar — chữ chạy ngang (marquee): "<N> đơn chưa nộp".
-// Số lấy từ chip stats /api/orders (page=1&limit=1, query nhẹ); cập nhật khi có
-// realtime order_changed/orders_changed (gộp 3s) + poll 2 phút. N=0 → ẩn banner.
+// Banner DÍNH dưới app-bar — chữ chạy ngang (marquee): "<N> đơn chưa nộp" +
+// "<N> thùng chưa xếp kho". Số từ chip stats /api/orders + /api/inventory/
+// unplaced-count (2 query nhẹ); cập nhật khi có realtime tương ứng (gộp 3s)
+// + poll 2 phút. Cả hai = 0 → ẩn banner.
 function NopBanner() {
-  const [n, setN] = useState(0);
+  const [n, setN] = useState(0);        // đơn đã giao chưa nộp
+  const [boxes, setBoxes] = useState(0); // thùng chưa gán vị trí kho
   const t = useRef<any>(null);
   useEffect(() => {
-    const load = () =>
+    const load = () => {
       getJSON("/api/orders?page=1&limit=1", { cache: false })
         .then((d) => setN(Number(d.stats?.chua_nop) || 0))
         .catch(() => {});
+      getJSON("/api/inventory/unplaced-count", { cache: false })
+        .then((d) => setBoxes(Number(d.count) || 0))
+        .catch(() => {});
+    };
     load();
     const poll = setInterval(load, 120000);
     const off = onRealtime((e) => {
-      if (e.type !== "order_changed" && e.type !== "orders_changed") return;
+      if (e.type !== "order_changed" && e.type !== "orders_changed" &&
+          e.type !== "inventory_changed" && e.type !== "box_changed") return;
       clearTimeout(t.current);
       t.current = setTimeout(load, 3000);
     });
     return () => { clearInterval(poll); clearTimeout(t.current); off(); };
   }, []);
+  const show = n > 0 || boxes > 0;
   // Banner chiếm ~28px dưới app-bar → các sticky khác (topbar tìm kiếm, header
   // chi tiết đơn, preview tạo đơn…) phải tụt xuống theo (body.has-nop, styles.css)
   useEffect(() => {
-    document.body.classList.toggle("has-nop", n > 0);
+    document.body.classList.toggle("has-nop", show);
     return () => document.body.classList.remove("has-nop");
-  }, [n > 0]);
-  if (!n) return null;
-  // Chạy LIÊN TỤC phải→trái không hở: track = 2 nửa giống hệt (mỗi nửa 3 bản),
+  }, [show]);
+  if (!show) return null;
+  // Chạy LIÊN TỤC phải→trái không hở: track = 2 nửa giống hệt (lặp chuỗi tin ×6),
   // animation dịch đúng −50% rồi lặp → nối liền mạch, không thấy khoảng trống.
-  const msg = `💰 ${n} đơn chưa nộp tiền`;
+  const parts: string[] = [];
+  if (n > 0) parts.push(`💰 ${n} đơn chưa nộp tiền`);
+  if (boxes > 0) parts.push(`📦 ${boxes} thùng chưa xếp kho`);
   return (
-    <a class="nop-banner" href="#/orders" title="Xem danh sách đơn" aria-label={msg}>
+    <a class="nop-banner" href={n > 0 ? "#/orders" : "#/kho"} title={parts.join(" · ")} aria-label={parts.join(" · ")}>
       <span class="nop-marquee">
-        {[0, 1, 2, 3, 4, 5].map((i) => <span class="nop-seg" key={i}>{msg}</span>)}
+        {[0, 1, 2, 3, 4, 5].flatMap((i) => parts.map((m, j) => <span class="nop-seg" key={`${i}-${j}`}>{m}</span>))}
       </span>
     </a>
   );

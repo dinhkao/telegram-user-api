@@ -302,6 +302,25 @@ async def inventory_list_handler(request: web.Request):
     return web.json_response({"ok": True, "products": products})
 
 
+async def unplaced_count_handler(request: web.Request):
+    """Đếm thùng CHƯA XẾP KHO (chưa gán vị trí): active + còn hàng + place_id NULL.
+    Query nhẹ cho banner chạy chữ ở webapp (main.tsx NopBanner)."""
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            row = conn.execute(
+                "SELECT COUNT(*) FROM inventory_boxes b "
+                "WHERE COALESCE(b.disabled,0)=0 AND b.place_id IS NULL "
+                "AND (b.quantity - COALESCE((SELECT SUM(a.quantity) FROM box_allocations a WHERE a.box_id=b.id),0)) > 0"
+            ).fetchone()
+            return int(row[0] or 0)
+        finally:
+            conn.close()
+    n = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, "count": n})
+
+
 async def all_boxes_handler(request: web.Request):
     """Kho hàng: MỌI thùng của MỌI sản phẩm (để dashboard kho trực quan + lọc theo mã).
     Trả list gọn; client gom nhóm theo product_code + lọc."""

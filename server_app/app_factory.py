@@ -55,6 +55,7 @@ from server_app.inventory_routes import (
     production_boxes_list_handler,
     inventory_list_handler,
     all_boxes_handler,
+    unplaced_count_handler,
     places_list_handler,
     place_create_handler,
     place_rename_handler,
@@ -221,6 +222,7 @@ def create_app():
     # ─── kho thùng (inventory) ───────────────────────────────────────────────
     r.add_get("/api/inventory", inventory_list_handler)
     r.add_get("/api/inventory/boxes", all_boxes_handler)
+    r.add_get("/api/inventory/unplaced-count", unplaced_count_handler)
     r.add_get("/api/places", places_list_handler)
     r.add_post("/api/places", place_create_handler)
     r.add_post("/api/places/{place_id}", place_rename_handler)
