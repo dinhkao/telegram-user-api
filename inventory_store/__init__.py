@@ -8,6 +8,7 @@ from .schema import create_inventory_table, migrate_inventory_table
 from .queries import (
     add_boxes,
     list_boxes,
+    count_boxes_by_source,
     product_totals,
     product_summary,
     get_box,
@@ -40,6 +41,7 @@ __all__ = [
     "migrate_inventory_table",
     "add_boxes",
     "list_boxes",
+    "count_boxes_by_source",
     "product_totals",
     "product_summary",
     "get_box",

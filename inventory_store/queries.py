@@ -44,6 +44,14 @@ def add_boxes(conn, product_code, quantities, *, source_thread_id=None, by=None,
     return created
 
 
+def count_boxes_by_source(conn, source_thread_id) -> int:
+    """Số thùng đã TẠO RA từ 1 phiếu SX (mọi thùng, kể cả vô hiệu). Dùng để cấm xoá phiếu."""
+    row = conn.execute(
+        "SELECT COUNT(*) FROM inventory_boxes WHERE source_thread_id = ?", (source_thread_id,)
+    ).fetchone()
+    return int(row[0]) if row else 0
+
+
 def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
                order_thread_id=None, active_only=False) -> list[dict]:
     """Liệt kê thùng theo bộ lọc (product/status/slip nguồn/đơn). Sắp theo mã thùng.

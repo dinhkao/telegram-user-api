@@ -374,10 +374,21 @@ async def production_delete_handler(request: web.Request):
     def _run():
         conn = _conn()
         try:
+            # CẤM xoá nếu phiếu đã tạo ra thùng (còn nguồn gốc kho) — gỡ thùng trước.
+            from inventory_store import count_boxes_by_source
+            n = count_boxes_by_source(conn, thread_id)
+            if n > 0:
+                return n
             delete_slip(conn, thread_id)
+            return 0
         finally:
             conn.close()
-    await asyncio.to_thread(_run)
+    n_boxes = await asyncio.to_thread(_run)
+    if n_boxes:
+        return web.json_response(
+            {"ok": False, "error": f"Không xoá được — phiếu đã tạo {n_boxes} thùng. Xoá các thùng đó trước."},
+            status=400,
+        )
     from server_app.realtime import emit_productions_changed
     emit_productions_changed()
     return web.json_response({"ok": True})
