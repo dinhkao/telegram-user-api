@@ -803,6 +803,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-lbl .bl-q { display: flex; align-items: baseline; justify-content: center; font-weight: 800; font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; }
 .box-lbl .bl-q-tot { font-size: .42em; font-weight: 600; opacity: .55; margin-left: 1px; }
 .box-lbl .bl-num { font-family: var(--mono); font-size: .82rem; font-weight: 800; letter-spacing: -.01em; text-align: center; padding: 3px 2px; border-top: 1.5px solid; }
+.box-lbl .bl-num .bl-unit { font-size: .62rem; font-weight: 500; opacity: .72; }
 .box-lbl .bl-dot { position: absolute; top: 21px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 /* Nút thu hồi (×) trên ô thùng đã xuất cho đơn */
 .box-lbl .bl-x { position: absolute; top: 2px; right: 2px; z-index: 2; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 0 9px 0 8px; background: var(--danger); color: #fff; cursor: pointer; }

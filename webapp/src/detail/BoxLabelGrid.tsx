@@ -21,7 +21,7 @@ export function BoxLabelGrid({ boxes }: { boxes: KhoBox[] }) {
             {b.place_name && <span class="bl-place">{b.place_name}</span>}
             <span class="bl-code">{b.product_code}</span>
             <span class="bl-q">{soVN(rm)}{used > 0 ? <span class="bl-q-tot">/{soVN(b.quantity)}</span> : ""}</span>
-            <span class="bl-num">{b.unit_name && b.unit_name !== "Thùng" ? `${b.unit_name} ` : ""}{num}</span>
+            <span class="bl-num"><span class="bl-unit">{b.unit_name || "Thùng"}</span> {num}</span>
           </a>
         );
       })}
