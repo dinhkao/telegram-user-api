@@ -1152,7 +1152,7 @@ body.co-kbd .bottom-nav { display: none; }
 .wr-bg-lbl { font-size: .82rem; font-weight: 600; color: var(--muted); }
 /* Nút tròn GIỮ-để-xem ảnh: cố định giữa màn hình, ngay trên bottom-nav */
 .wr-peek-btn { position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(74px + env(safe-area-inset-bottom, 0px)); z-index: 40;
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px)); z-index: 350;
   width: 60px; height: 60px; border-radius: 50%; border: none;
   background: var(--primary); color: #fff; font-size: 1.7rem; line-height: 1;
   box-shadow: 0 6px 20px rgba(0,0,0,.28); cursor: pointer;
@@ -1168,7 +1168,7 @@ body.co-kbd .bottom-nav { display: none; }
 .wr-bg-overlay { position: fixed; top: 44px;
   bottom: calc(58px + env(safe-area-inset-bottom, 0px));
   left: 50%; transform: translateX(-50%); width: 100%; max-width: 640px;
-  pointer-events: none; z-index: 30; overflow: hidden; background: #000; }
+  pointer-events: none; z-index: 340; overflow: hidden; background: #000; }
 .wr-bg-overlay img { display: block; width: 100%; height: 100%; object-fit: contain; }
 
 /* Chi tiết đơn — thanh điều hướng nhanh (dưới nội dung đơn) */
