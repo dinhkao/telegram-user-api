@@ -82,6 +82,7 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
         vat={j.vat}
         onSave={saveInvoice}
         onCreateInvoice={createHD}
+        startEditing
         canCreate={isAdmin}
         hasInvoice={!!j.kiotvietInvoiceID}
         debt={j.khDebt ?? j.invoice_debt_snapshot}

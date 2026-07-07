@@ -34,7 +34,7 @@ function ProductInput({ value, onChange, onCommit }: {
   );
 }
 
-export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCreateInvoice, canCreate, hasInvoice, createMode, debt, onView, onDelete, onPrint, canDelete, invoiceCode, onRefreshDebt, debtLocked }: {
+export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCreateInvoice, canCreate, hasInvoice, createMode, startEditing, debt, onView, onDelete, onPrint, canDelete, invoiceCode, onRefreshDebt, debtLocked }: {
   customerId?: string;
   invoice: any[];
   discount?: number; pvc?: number; vat?: number;
@@ -51,13 +51,14 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   invoiceCode?: string | number;
   onRefreshDebt?: () => void;          // kéo nợ KiotViet mới nhất
   debtLocked?: boolean;                // đã tạo HĐ → nợ chốt, không kéo được
+  startEditing?: boolean;              // mở thẳng chế độ sửa (trang Sửa hoá đơn riêng)
 }) {
   const [rows, setRows] = useState<EditorRow[]>([]);
   const [disc, setDisc] = useState(0);
   const [p, setP] = useState(0);
   const [v, setV] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState(!!createMode);
+  const [editing, setEditing] = useState(!!createMode || !!startEditing);
   const [quickText, setQuickText] = useState("");
   const [quickBusy, setQuickBusy] = useState(false);
   const [quickMsg, setQuickMsg] = useState("");
