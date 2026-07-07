@@ -180,7 +180,7 @@ export function ProductionBoxes({
             onFocus={(e) => (e.target as HTMLInputElement).select()}
             onInput={(e) => setCount((e.target as HTMLInputElement).value)}
             placeholder="1" title={`Số ${unitLow} giống nhau`} />
-          <span class="pb-x">×</span>
+          <span class="pb-x">{unitLow} ×</span>
           <input type="text" inputMode="decimal" class="pb-amount" value={amount} disabled={!hasSp}
             onFocus={(e) => (e.target as HTMLInputElement).select()}
             onInput={(e) => setAmount((e.target as HTMLInputElement).value)}
