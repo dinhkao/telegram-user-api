@@ -2,7 +2,7 @@
 // tự thêm (custom). Đánh dấu / huỷ: POST /api/order/task (queueable offline) +
 // /task_status/clear. Thêm/xoá việc tự thêm: /api/order/{id}/custom-task[/remove].
 import { useState } from "preact/hooks";
-import { postJSON, isOffice, mediaImageUrl } from "../api";
+import { postJSON, isOffice, currentUser, mediaImageUrl } from "../api";
 import { fmtTime } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 import { NopTienWizard } from "./NopTienWizard";
@@ -34,6 +34,7 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
   const [nopOpen, setNopOpen] = useState(false);   // wizard nộp tiền
   const [soanOpen, setSoanOpen] = useState(false); // popup chọn ảnh soạn hàng
   const office = isOffice();   // chỉ văn phòng được đánh dấu/huỷ "nhận tiền"
+  const isAdmin = currentUser()?.role === "admin";   // admin: xong ngay, bỏ qua yêu cầu
   const nameOf = (by: any) => (by == null ? "" : (userNames && userNames[String(by)]) || String(by));
 
   const mark = async (type: string) => {
@@ -131,9 +132,15 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
               {locked ? null : done ? (
                 <button class="btn small" disabled={busy === type} onClick={() => clear(type)}>Huỷ</button>
               ) : type === "nop_tien" ? (
-                <button class="btn small primary" onClick={() => setNopOpen(true)}>Xong</button>
+                <span class="row" style="gap:6px">
+                  <button class="btn small primary" onClick={() => setNopOpen(true)}>Xong</button>
+                  {isAdmin && <button class="btn small" title="Admin: xong ngay, không cần ảnh" disabled={busy === type} onClick={() => mark(type)}><Icon name="zap" size={14} /></button>}
+                </span>
               ) : type === "soan_hang" ? (
-                <button class="btn small primary" onClick={() => setSoanOpen(true)}>Xong</button>
+                <span class="row" style="gap:6px">
+                  <button class="btn small primary" onClick={() => setSoanOpen(true)}>Xong</button>
+                  {isAdmin && <button class="btn small" title="Admin: xong ngay, không cần ảnh" disabled={busy === type} onClick={() => mark(type)}><Icon name="zap" size={14} /></button>}
+                </span>
               ) : (
                 <button class="btn small primary" disabled={busy === type} onClick={() => mark(type)}>Xong</button>
               )}
