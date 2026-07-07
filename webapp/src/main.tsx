@@ -152,9 +152,13 @@ function NopBanner() {
   for (const p of pins) parts.push({ text: `📢 ${p.text}`, href: p.href || "#/orders", pin: true });
   if (n > 0) parts.push({ text: `💰 ${n} đơn chưa nộp tiền`, href: "#/orders" });
   if (boxes > 0) parts.push({ text: `📦 ${boxes} thùng chưa xếp kho`, href: "#/kho" });
+  // Tốc độ CỐ ĐỊNH (~50px/s) dù nội dung dài ngắn: thời gian tỉ lệ độ rộng nửa
+  // track (ước lượng ~7px/ký tự + 48px đệm/mẩu, nửa track = 3 lượt parts).
+  const halfPx = 3 * parts.reduce((s, p) => s + p.text.length * 7 + 48, 0);
+  const durSec = Math.max(12, Math.round(halfPx / 50));
   return (
     <div class="nop-banner" aria-label={parts.map((p) => p.text).join(" · ")}>
-      <span class="nop-marquee">
+      <span class="nop-marquee" style={{ animationDuration: `${durSec}s` }}>
         {[0, 1, 2, 3, 4, 5].flatMap((i) =>
           parts.map((p, j) => (
             <a class={"nop-seg" + (p.pin ? " pin" : "")} key={`${i}-${j}`} href={p.href}>{p.text}</a>

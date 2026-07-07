@@ -24,7 +24,7 @@ export type RealtimeEvent =
 const _SERVER_EVENTS = new Set([
   "order_changed", "orders_changed", "production_changed", "productions_changed",
   "customer_changed", "inventory_changed", "box_changed", "price_lists_changed",
-  "quy_changed", "notif_added", "report_lock", "report_draft",
+  "quy_changed", "notif_added", "report_lock", "report_draft", "banner_changed",
 ]);
 
 type Handler = (e: RealtimeEvent) => void;
