@@ -88,6 +88,9 @@ body.has-nop .topbar, body.has-nop .od-appbar { top: 72px; }
 body.has-nop .notice { top: 76px; }
 
 .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 25; display: flex; background: var(--card); border-top: 1px solid var(--border); max-width: 640px; margin: 0 auto; padding-bottom: env(safe-area-inset-bottom, 0px); }
+/* bàn phím mềm bật → ẩn nav dưới + thu gọn khoảng đệm trang (khỏi hụt chỗ) */
+body.kbd-open .bottom-nav { display: none; }
+body.kbd-open .page { padding-bottom: 10px; }
 /* Tab bar chuẩn: icon trên, nhãn nhỏ dưới, 6 ô đều nhau */
 .bottom-nav .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 7px 2px 6px; text-decoration: none; color: var(--muted); border: none; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color .15s; }
 .bottom-nav .tab .tab-ico { line-height: 1; transition: transform .15s; }

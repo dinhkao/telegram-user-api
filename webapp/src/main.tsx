@@ -283,6 +283,25 @@ function App() {
     return () => { mo.disconnect(); document.body.classList.remove("modal-open"); };
   }, []);
 
+  // ẨN NAV DƯỚI khi bàn phím MỀM bật — visualViewport co lại >120px = bàn phím mở;
+  // không có visualViewport (desktop cũ) → fallback theo focus input/textarea.
+  useEffect(() => {
+    const setKbd = (on: boolean) => document.body.classList.toggle("kbd-open", on);
+    const vv = window.visualViewport;
+    if (vv) {
+      const onVV = () => setKbd((window.innerHeight - vv.height) > 120);
+      vv.addEventListener("resize", onVV);
+      onVV();
+      return () => { vv.removeEventListener("resize", onVV); setKbd(false); };
+    }
+    const isField = (t: any) => t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+    const onIn = (e: any) => { if (isField(e.target)) setKbd(true); };
+    const onOut = () => setKbd(false);
+    document.addEventListener("focusin", onIn);
+    document.addEventListener("focusout", onOut);
+    return () => { document.removeEventListener("focusin", onIn); document.removeEventListener("focusout", onOut); setKbd(false); };
+  }, []);
+
   let page;
   const invEditMatch = hash.match(/^#\/order\/(-?\d+)\/hoa-don/);
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
