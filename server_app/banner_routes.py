@@ -81,10 +81,7 @@ async def banner_pin_create_handler(request: web.Request):
 
 
 async def banner_pin_delete_handler(request: web.Request):
-    """Gỡ 1 pin trước hạn — chỉ admin."""
-    from server_app.order_api_common import is_admin_request
-    if not await is_admin_request(request):
-        return web.json_response({"ok": False, "error": "Chỉ admin mới được gỡ khỏi bảng tin"}, status=403)
+    """Gỡ 1 pin trước hạn — ai cũng gỡ được (nhóm nhỏ; pin tự hết sau 24h)."""
     pin_id = request.match_info.get("pin_id", "")
     if not pin_id.isdigit():
         return web.json_response({"ok": False, "error": "pin_id không hợp lệ"}, status=400)

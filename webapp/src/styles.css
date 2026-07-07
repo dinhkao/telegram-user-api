@@ -218,6 +218,7 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .cmt-head { display: flex; align-items: center; gap: 4px; }
 .cmt-pin { margin-left: auto; border: none; background: none; color: var(--muted-2); padding: 2px 4px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .cmt-pin:active { color: var(--danger); }
+.cmt-pin.on { color: var(--danger); background: var(--danger-wash); border-radius: 6px; }
 .comment.web { background: #e8f0fe; }
 
 .offline-banner { background: #fef7e0; color: #7a5c00; text-align: center; padding: 6px; font-size: .85rem; position: sticky; top: 0; z-index: 10; }

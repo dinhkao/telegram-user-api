@@ -1,7 +1,7 @@
 // Khối trao đổi — bình luận web (web_comments, queueable offline) + log chat
 // Telegram của topic (order_chat_messages, chỉ đọc), trộn theo thời gian.
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { getJSON, postJSON, currentUser } from "../api";
+import { getJSON, postJSON, delJSON, currentUser } from "../api";
 import { fmtTime } from "../format";
 import { toast, confirmDialog } from "../ui/feedback";
 import { onRealtime, eventMatchesBase } from "../realtime";
@@ -73,12 +73,30 @@ export function Comments({ base, chatMessages = [] }: { base: string; chatMessag
     }
   };
 
-  // Ghim bình luận lên banner chạy chữ (24h, nền đỏ) — mọi máy thấy ngay (realtime)
-  const pinToBanner = async (it: Item) => {
-    if (!(await confirmDialog(`Đưa lên bảng tin 24 giờ?\n“${it.text}”`, { okLabel: "Đưa lên" }))) return;
+  // Ghim/gỡ bình luận trên banner chạy chữ (24h, nền đỏ) — nút 📢 là TOGGLE:
+  // đang ghim (khớp text+href trong /api/banner/pins) thì bấm lần nữa để gỡ.
+  const [pins, setPins] = useState<{ id: number; text: string; href?: string }[]>([]);
+  const loadPins = () => getJSON("/api/banner/pins", { cache: false }).then((d) => setPins(d.pins || [])).catch(() => {});
+  useEffect(() => {
+    loadPins();
+    const off = onRealtime((e) => { if (e.type === "banner_changed") loadPins(); });
+    return () => off();
+  }, []);
+  const pinOf = (it: Item) =>
+    pins.find((p) => (p.href || "") === hrefFromBase(base) && p.text === `${it.who}: ${it.text}`);
+  const togglePin = async (it: Item) => {
+    const cur = pinOf(it);
     try {
-      await postJSON("/api/banner/pin", { text: `${it.who}: ${it.text}`, href: hrefFromBase(base) });
-      toast("📢 Đã đưa lên bảng tin (24h)", "ok");
+      if (cur) {
+        if (!(await confirmDialog("Gỡ khỏi bảng tin?", { okLabel: "Gỡ", danger: true }))) return;
+        await delJSON(`/api/banner/pin/${cur.id}`);
+        toast("Đã gỡ khỏi bảng tin", "ok");
+      } else {
+        if (!(await confirmDialog(`Đưa lên bảng tin 24 giờ?\n“${it.text}”`, { okLabel: "Đưa lên" }))) return;
+        await postJSON("/api/banner/pin", { text: `${it.who}: ${it.text}`, href: hrefFromBase(base) });
+        toast("📢 Đã đưa lên bảng tin (24h)", "ok");
+      }
+      loadPins();
     } catch (ex: any) { toast(ex.message, "err"); }
   };
 
@@ -103,7 +121,9 @@ export function Comments({ base, chatMessages = [] }: { base: string; chatMessag
             <div class="muted small cmt-head">
               {it.source === "tg" ? "✈️" : <Icon name="chat" size={12} />}{" "}
               {it.who} · {fmtTime(it.at)}
-              <button class="cmt-pin" title="Đưa lên bảng tin (24h)" onClick={() => pinToBanner(it)}>
+              <button class={"cmt-pin" + (pinOf(it) ? " on" : "")}
+                title={pinOf(it) ? "Đang trên bảng tin — bấm để gỡ" : "Đưa lên bảng tin (24h)"}
+                onClick={() => togglePin(it)}>
                 <Icon name="megaphone" size={13} />
               </button>
             </div>
