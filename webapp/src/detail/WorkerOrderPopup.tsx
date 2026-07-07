@@ -27,6 +27,7 @@ export function WorkerOrderPopup({
   const [dropTo, setDropTo] = useState<number>(0);               // sẽ chèn TRƯỚC index này (0..len)
   const [dy, setDy] = useState(0);                               // lệch Y để thả nổi
   const dragRef = useRef<number | null>(null);
+  const dropRef = useRef<number>(0);               // chỗ chèn HIỆN TẠI (đọc lúc nhả, khỏi stale)
   const startY = useRef(0);
   const rowRefs = useRef<(HTMLElement | null)[]>([]);
   useScrollLock(open);
@@ -56,19 +57,21 @@ export function WorkerOrderPopup({
   };
   const onGripDown = (i: number) => (e: any) => {
     e.currentTarget.setPointerCapture?.(e.pointerId);
-    dragRef.current = i; startY.current = e.clientY;
+    dragRef.current = i; dropRef.current = i; startY.current = e.clientY;
     setDragIdx(i); setDropTo(i); setDy(0);
   };
   const onGripMove = (e: any) => {
     if (dragRef.current == null) return;
+    const to = targetFromY(e.clientY);
+    dropRef.current = to;
     setDy(e.clientY - startY.current);
-    setDropTo(targetFromY(e.clientY));
+    setDropTo(to);
   };
   const onGripUp = () => {
     const from = dragRef.current;
     dragRef.current = null;
     if (from != null) {
-      const to = dropTo;
+      const to = dropRef.current;
       setList((l) => {
         const n = l.slice();
         const [it] = n.splice(from, 1);
