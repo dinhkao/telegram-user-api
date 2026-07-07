@@ -89,13 +89,16 @@ async def production_list_handler(request: web.Request):
     except (ValueError, TypeError):
         limit = 20
     offset = (page - 1) * limit
+    kind = request.query.get("kind") or None
+    if kind not in ("san_xuat", "dong_goi"):
+        kind = None
 
     def _run():
         conn = _conn()
         try:
             create_production_table(conn)
-            total = count_slips(conn)
-            slips = list_slips(conn, limit=limit, offset=offset)
+            total = count_slips(conn, kind=kind)
+            slips = list_slips(conn, limit=limit, offset=offset, kind=kind)
         finally:
             conn.close()
         for s in slips:

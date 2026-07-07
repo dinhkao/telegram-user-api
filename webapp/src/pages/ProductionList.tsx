@@ -20,7 +20,8 @@ import { Loading, EmptyState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
 // Cache list đã tải → quay lại giữ nguyên + hệ cuộn khôi phục vị trí (khỏi tải lại).
-let prodCache: { slips: ProdSlip[]; page: number; totalPages: number } | null = null;
+let prodCache: { slips: ProdSlip[]; page: number; totalPages: number; kind: string } | null = null;
+type KindF = "" | "san_xuat" | "dong_goi";
 
 // FIX realtime khi trang ĐANG UNMOUNT (ở trang khác): handler trong component chết nên
 // bỏ lỡ event → quay lại thấy cache cũ. Subscriber cấp-module này LUÔN sống, VÁ prodCache
@@ -47,6 +48,8 @@ export function ProductionList() {
   const [newCode, setNewCode] = useState("");
   const [err, setErr] = useState("");
   const [total, setTotal] = useState(0);
+  const [kindF, setKindF] = useState<KindF>("");   // lọc loại phiếu
+  const kindFRef = useRef<KindF>("");
   const st = useRef({ page: 1, totalPages: 1, loading: false });
   const sentinel = useRef<HTMLDivElement>(null);
   // Thùng theo phiếu (source_thread_id) — 1 lần gọi allBoxes, gom nhóm
@@ -72,7 +75,7 @@ export function ProductionList() {
     st.current.loading = true;
     if (!append) setLoading(true);
     try {
-      const r = await listProduction(page);
+      const r = await listProduction(page, kindFRef.current || undefined);
       st.current.page = r.page;
       st.current.totalPages = r.total_pages;
       setTotal(r.total);
@@ -86,7 +89,8 @@ export function ProductionList() {
   };
 
   useEffect(() => {
-    if (prodCache) {   // quay lại → dựng lại list đã tải (đủ cao cho hệ cuộn khôi phục)
+    if (prodCache) {   // quay lại → dựng lại list đã tải (giữ đúng bộ lọc đã xem)
+      kindFRef.current = prodCache.kind as KindF; setKindF(prodCache.kind as KindF);
       setSlips(prodCache.slips);
       st.current.page = prodCache.page;
       st.current.totalPages = prodCache.totalPages;
@@ -99,8 +103,15 @@ export function ProductionList() {
   const slipsRef = useRef<ProdSlip[]>([]);
   slipsRef.current = slips;
   useEffect(() => () => {
-    if (slipsRef.current.length) prodCache = { slips: slipsRef.current, page: st.current.page, totalPages: st.current.totalPages };
+    if (slipsRef.current.length) prodCache = { slips: slipsRef.current, page: st.current.page, totalPages: st.current.totalPages, kind: kindFRef.current };
   }, []);
+
+  const applyFilter = (k: KindF) => {
+    if (k === kindFRef.current) return;
+    kindFRef.current = k; setKindF(k); prodCache = null;
+    setSlips([]); st.current.page = 1; st.current.totalPages = 1;
+    load(1, false);
+  };
 
   // Realtime
   useEffect(() => {
@@ -114,12 +125,16 @@ export function ProductionList() {
       setSlips((prev) => {
         const idx = prev.findIndex((s) => String(s.thread_id) === tid);
         if (e.row === null) return idx >= 0 ? prev.filter((_, i) => i !== idx) : prev;
+        // tôn trọng bộ lọc: phiếu đổi loại rời khỏi lọc → gỡ; loại khác thêm mới → bỏ qua
+        const f = kindFRef.current;
+        const matches = !f || ((e.row as ProdSlip).kind || "san_xuat") === f;
         if (idx >= 0) {
+          if (!matches) return prev.filter((_, i) => i !== idx);
           const next = prev.slice();
           next[idx] = { ...next[idx], ...(e.row as ProdSlip) };
           return next;
         }
-        return [e.row as ProdSlip, ...prev];
+        return matches ? [e.row as ProdSlip, ...prev] : prev;
       });
     });
   }, []);
@@ -161,6 +176,12 @@ export function ProductionList() {
         <button class="btn primary" disabled={creating} onClick={doCreate}>
           {creating ? "Đang tạo…" : <><Icon name="plus" size={16} /> Tạo phiếu</>}
         </button>
+      </div>
+
+      <div class="prod-filter">
+        <button class={"pf-chip" + (kindF === "" ? " on" : "")} onClick={() => applyFilter("")}>Tất cả</button>
+        <button class={"pf-chip" + (kindF === "san_xuat" ? " on" : "")} onClick={() => applyFilter("san_xuat")}><Icon name="factory" size={14} /> Sản xuất</button>
+        <button class={"pf-chip" + (kindF === "dong_goi" ? " on" : "")} onClick={() => applyFilter("dong_goi")}><Icon name="box" size={14} /> Đóng gói</button>
       </div>
 
       {err && <div class="error-banner">{err}</div>}

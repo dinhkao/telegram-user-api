@@ -40,19 +40,31 @@ def get_slip(conn, thread_id) -> dict | None:
     return data
 
 
-def list_slips(conn, limit: int = 20, offset: int = 0) -> list[dict]:
-    """Slips theo NGÀY TẠO mới→cũ (date_code lúc tạo), phân trang. Row nhẹ."""
+def _kind_clause(kind):
+    """(where_sql, params) lọc theo loại phiếu; kind None/'' = mọi phiếu.
+    Coi kind rỗng/NULL trong DB là 'san_xuat' (mặc định cũ)."""
+    if kind == "dong_goi":
+        return " WHERE kind = 'dong_goi'", ()
+    if kind == "san_xuat":
+        return " WHERE (kind IS NULL OR kind = '' OR kind = 'san_xuat')", ()
+    return "", ()
+
+
+def list_slips(conn, limit: int = 20, offset: int = 0, kind: str | None = None) -> list[dict]:
+    """Slips theo NGÀY TẠO mới→cũ (date_code lúc tạo), phân trang. Row nhẹ. Lọc theo kind."""
+    where, wp = _kind_clause(kind)
     rows = conn.execute(
         "SELECT thread_id, date, date_code, sp_name, sp_mam, sx_target, total, "
-        "ghi_chu, kind, updated_at FROM production_slips "
-        "ORDER BY date_code DESC, thread_id DESC LIMIT ? OFFSET ?",
-        (limit, offset),
+        "ghi_chu, kind, updated_at FROM production_slips" + where +
+        " ORDER BY date_code DESC, thread_id DESC LIMIT ? OFFSET ?",
+        (*wp, limit, offset),
     ).fetchall()
     return [dict(r) for r in rows]
 
 
-def count_slips(conn) -> int:
-    return int(conn.execute("SELECT COUNT(*) FROM production_slips").fetchone()[0])
+def count_slips(conn, kind: str | None = None) -> int:
+    where, wp = _kind_clause(kind)
+    return int(conn.execute("SELECT COUNT(*) FROM production_slips" + where, wp).fetchone()[0])
 
 
 def upsert_slip(conn, thread_id, **fields) -> bool:
