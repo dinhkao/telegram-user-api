@@ -201,6 +201,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 - `order_images_store/` — `order_images` table in `app.db`: metadata for photos
   attached to an order (filename, thumb, size, dims, uploader, `tg_message_id`).
   Image bytes live on disk under `ORDER_MEDIA_DIR/<thread_id>/`, not in the DB.
+- `recipe_store/` — `product_recipes` table (`app.db`): công thức/BOM sản xuất, 1 SP
+  cần các nguyên liệu (product khác) theo tỉ lệ (`ratio` = số cây NL / 1 cây thành
+  phẩm). Tỉ lệ định nghĩa ở trang chi tiết SP (`detail/RecipeEditor.tsx`). Khi nhập
+  thùng ở phiếu SX, người dùng CHỌN thùng nguyên liệu → trừ kho qua
+  `inventory_store.allocate_picks(kind='production')` (cột `kind` phân biệt xuất-đơn ↔
+  tiêu-hao-SX; `remaining` = quantity − Σ mọi allocation nên tồn NL giảm đúng).
 - `chat_log/` — logs new/edited/deleted Telegram messages to DB.
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
 
