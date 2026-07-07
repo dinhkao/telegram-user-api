@@ -17,7 +17,7 @@ def _now() -> str:
     return datetime.now(_VN_TZ).isoformat(timespec="seconds")
 
 
-def add_boxes(conn, product_code, quantities, *, source_thread_id=None, by=None, note=None, mfg_date=None, unit_id=None) -> list[dict]:
+def add_boxes(conn, product_code, quantities, *, source_thread_id=None, by=None, note=None, mfg_date=None, unit_id=None, place_id=None) -> list[dict]:
     """Tạo N thùng mới cho product (mã tự sinh tuần tự, nguyên tử). Trả list box dict."""
     code = str(product_code).strip().upper()
     created: list[dict] = []
@@ -32,9 +32,9 @@ def add_boxes(conn, product_code, quantities, *, source_thread_id=None, by=None,
             existing.append(box_code)
             cur = conn.execute(
                 "INSERT INTO inventory_boxes "
-                "(product_code, box_code, quantity, status, source_thread_id, note, mfg_date, unit_id, created_at, created_by) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?)",
-                (code, box_code, float(q), "in_stock", source_thread_id, note or "", mfg_date or None, unit_id, now, by or ""),
+                "(product_code, box_code, quantity, status, source_thread_id, note, mfg_date, unit_id, place_id, created_at, created_by) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (code, box_code, float(q), "in_stock", source_thread_id, note or "", mfg_date or None, unit_id, place_id, now, by or ""),
             )
             created.append({
                 "id": cur.lastrowid, "product_code": code, "box_code": box_code,

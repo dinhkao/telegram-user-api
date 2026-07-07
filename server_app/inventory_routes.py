@@ -110,6 +110,10 @@ async def production_add_boxes_handler(request: web.Request):
         unit_id = int(body["unit_id"]) if body.get("unit_id") else None
     except (TypeError, ValueError):
         unit_id = None
+    try:
+        place_id = int(body["place_id"]) if body.get("place_id") else None
+    except (TypeError, ValueError):
+        place_id = None
     actor = _web_actor(request, body)
 
     def _run():
@@ -143,7 +147,7 @@ async def production_add_boxes_handler(request: web.Request):
                         continue   # nguyên liệu không bắt buộc → không ép chọn
                     if got.get(nd["code"], 0.0) + 1e-6 < nd["amount"]:
                         return "short", nd["code"], nd["amount"]
-            created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=unit_id)
+            created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=unit_id, place_id=place_id)
             # đồng bộ slip.total/numbers/progress: 1 entry/thùng (note = mã thùng)
             total = slip.get("total") or 0
             for box in created:

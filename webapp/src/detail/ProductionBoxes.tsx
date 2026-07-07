@@ -2,7 +2,7 @@
 // (K2L-001). POST .../boxes (queueable, gửi mảng {quantity} × số thùng). onChanged()
 // để phiếu tải lại tổng. Liệt kê thùng đã nhập ở phiếu này — tap → chi tiết thùng.
 import { useEffect, useState } from "preact/hooks";
-import { addProductionBoxes, slipBoxes, listUnits, createUnit, getRecipe, searchProducts, soVN, type ProdSlip, type InvBox, type Unit, type RecipeLine } from "../api";
+import { addProductionBoxes, slipBoxes, listUnits, createUnit, listPlaces, createPlace, getRecipe, searchProducts, soVN, type ProdSlip, type InvBox, type Unit, type Place, type RecipeLine } from "../api";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { SelectPopup } from "../ui/SelectPopup";
@@ -64,6 +64,16 @@ export function ProductionBoxes({
       setUnitId(u.id);
     } catch { /* im */ }
   };
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [placeId, setPlaceId] = useState<number | null>(null);   // vị trí kho cho thùng mới
+  useEffect(() => { listPlaces().then(setPlaces).catch(() => {}); }, []);
+  const createPlacePick = async (name: string) => {
+    try {
+      const p = await createPlace(name);
+      setPlaces((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]));
+      setPlaceId(p.id);
+    } catch { /* im */ }
+  };
 
   const loadMine = async () => {
     try {
@@ -107,7 +117,7 @@ export function ProductionBoxes({
     try {
       const picks = Array.from({ length: c }, () => ({ quantity: n }));  // c thùng giống nhau
       const consume = Object.values(consumePicks).flat();               // thùng NL đã chọn
-      const r = await addProductionBoxes(threadId, picks, note.trim(), mfgDate, unitId, consume, prodCode);
+      const r = await addProductionBoxes(threadId, picks, note.trim(), mfgDate, unitId, consume, prodCode, placeId);
       setAmount("");
       setCount("1");
       setNote("");
@@ -152,6 +162,13 @@ export function ProductionBoxes({
         <SelectPopup title="Đơn vị chứa" searchable onCreate={createUnitPick} disabled={!hasSp}
           value={unitId ?? ""} options={units.map((u) => ({ value: u.id, label: u.name }))}
           onChange={(v) => setUnitId(v ? Number(v) : null)} />
+      </div>
+      <div class="row">
+        <label class="inline-label"><Icon name="box" size={16} /> Vị trí</label>
+        <SelectPopup title="Vị trí kho" placeholder="— Chưa xếp —" searchable onCreate={createPlacePick} disabled={!hasSp}
+          value={placeId ?? ""}
+          options={[{ value: "", label: "— Chưa xếp —" }, ...places.map((p) => ({ value: p.id, label: p.name }))]}
+          onChange={(v) => setPlaceId(v ? Number(v) : null)} />
       </div>
       <div class="row">
         <input
