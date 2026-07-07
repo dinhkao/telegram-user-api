@@ -42,14 +42,6 @@ export function ReorderList({
     onToggle?.(n[i].id, n[i].on);
     return n;
   });
-  const swap = (i: number, d: -1 | 1) => setList((l) => {
-    const j = i + d;
-    if (j < 0 || j >= l.length) return l;
-    const n = l.slice();
-    [n[i], n[j]] = [n[j], n[i]];
-    onReorder(ids(n));
-    return n;
-  });
   const del = (i: number) => setList((l) => {
     const it = l[i];
     onDelete?.(it.id);
@@ -122,8 +114,6 @@ export function ReorderList({
           </button>
           <span class="wo-name" onClick={() => toggle(i)}>{it.name}</span>
           {trailing?.(it)}
-          <button class="btn small wo-mv" disabled={i === 0} title="Lên" onClick={() => swap(i, -1)}><Icon name="chevronDown" class="wo-up" size={16} /></button>
-          <button class="btn small wo-mv" disabled={i === list.length - 1} title="Xuống" onClick={() => swap(i, 1)}><Icon name="chevronDown" size={16} /></button>
           {onDelete && <button class="btn small wo-del" title="Xoá" onClick={() => del(i)}><Icon name="trash" size={15} /></button>}
           <span class="wo-grip" title="Kéo để đổi chỗ"
             onPointerDown={onGripDown(i)} onPointerMove={onGripMove}
