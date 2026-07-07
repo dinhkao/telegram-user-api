@@ -263,6 +263,30 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     }
   };
 
+  // Thao tác HĐ KiotViet ngay tại khối Hoá đơn (trang Sửa hoá đơn bị khoá khi đã
+  // có HĐ nên Tạo/Xem/Xoá phải có ở đây, như trước khi tách trang).
+  const createHD = async () => {
+    if (!(await confirmDialog("Tạo hoá đơn KiotViet cho đơn này?"))) return;
+    setBusy(true);
+    try {
+      const r = await createKiotVietInvoice(threadId);
+      setMsg(`🧾 Đã tạo HĐ ${r.kv_code || ""}${r.old_debt ? ` · nợ cũ ${money(r.old_debt)}đ` : ""}`);
+      changed();
+    } catch (ex: any) { setMsg(`❌ ${ex.message}`); } finally { setBusy(false); }
+  };
+  const deleteHD = async () => {
+    if (!(await confirmDialog("XOÁ hoá đơn KiotViet của đơn này? Không thể hoàn tác.", { danger: true }))) return;
+    setBusy(true);
+    try { await deleteKiotVietInvoice(threadId); setMsg("🗑️ Đã xoá hoá đơn KiotViet"); changed(); }
+    catch (ex: any) { setMsg(`❌ ${ex.message}`); } finally { setBusy(false); }
+  };
+  const viewHD = async () => {
+    // Mở tab TRƯỚC khi await (Safari/WebView chặn window.open sau async)
+    const win = window.open("", "_blank");
+    const go = (u: string) => { if (win) win.location.href = u; else window.open(u, "_blank"); };
+    go((await findInvoiceImageUrl()) || invoiceHtmlUrl(threadId));
+  };
+
   const assignCustomer = async (c: { key: string; name: string } | null) => {
     if (!c) return;
     try {
@@ -425,6 +449,20 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
             : (window.location.hash = `#/order/${threadId}/hoa-don`)}>
           <Icon name="edit" size={16} /> Sửa hoá đơn
         </button>
+        {/* Thao tác HĐ KiotViet — chưa có HĐ: Tạo (admin); có HĐ: Xem/In/Xoá */}
+        {hasInvoice ? (
+          <div class="row" style={{ marginTop: "8px" }}>
+            <button class="btn small" onClick={viewHD}><Icon name="eye" size={16} /> Xem HĐ</button>
+            <button class="btn small" disabled={busy} onClick={doPrint}><Icon name="printer" size={16} /> In</button>
+            {isAdmin && <button class="btn small danger" disabled={busy} onClick={deleteHD}><Icon name="trash" size={16} /> Xoá HĐ</button>}
+          </div>
+        ) : (
+          isAdmin && (j.invoice || []).length > 0 && (
+            <button class="btn block" style={{ marginTop: "8px" }} disabled={busy} onClick={createHD}>
+              <Icon name="receipt" size={16} /> {busy ? "Đang tạo…" : "Tạo HĐ KiotViet"}
+            </button>
+          )
+        )}
       </section>
       </div>{/* #od-invoice */}
       <div id="od-stock">
