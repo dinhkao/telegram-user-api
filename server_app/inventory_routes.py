@@ -183,18 +183,23 @@ async def recipe_get_handler(request: web.Request):
         try:
             _ensure(conn)
             lines = list_recipe(conn, code)
-            # gắn tồn hiện tại (remaining) của mỗi nguyên liệu
+            # gắn tồn hiện tại (remaining) + đơn vị của mỗi nguyên liệu
             for ln in lines:
-                rem = conn.execute(
-                    "SELECT COALESCE(SUM(b.quantity - COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0)),0) "
+                row = conn.execute(
+                    "SELECT COALESCE(SUM(b.quantity - COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0)),0) AS rem, "
+                    "(SELECT unit FROM products WHERE code = ?) AS iu "
                     "FROM inventory_boxes b WHERE b.product_code = ? AND (b.disabled IS NULL OR b.disabled=0)",
-                    (ln["ingredient_code"],),
-                ).fetchone()[0]
-                ln["stock"] = rem
-            return lines
+                    (ln["ingredient_code"], ln["ingredient_code"]),
+                ).fetchone()
+                ln["stock"] = row[0]
+                ln["unit"] = row[1] or "cây"
+            from product_store.queries import get_product
+            prod = get_product(conn, code)
+            return lines, (prod.get("unit") if prod else None) or "cây"
         finally:
             conn.close()
-    return web.json_response({"ok": True, "recipe": await asyncio.to_thread(_run)})
+    lines, unit = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, "recipe": lines, "unit": unit})
 
 
 async def recipe_set_handler(request: web.Request):
@@ -312,6 +317,7 @@ async def all_boxes_handler(request: web.Request):
         "note": b.get("note") or "", "mfg_date": b.get("mfg_date"), "created_at": b.get("created_at"),
         "place_id": b.get("place_id"), "place_name": b.get("place_name"),
         "unit_id": b.get("unit_id"), "unit_name": b.get("unit_name"),
+        "product_unit": b.get("product_unit") or "cây",
     } for b in boxes]
     return web.json_response({"ok": True, "boxes": out})
 

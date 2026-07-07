@@ -138,7 +138,7 @@ export function StockPickerModal({
                       <code>{b.box_code}</code>
                       <span class="muted small">
                         còn {soVN(avail(b))}
-                        {b.remaining != null && b.remaining !== b.quantity ? `/${soVN(b.quantity)}` : ""} cây
+                        {b.remaining != null && b.remaining !== b.quantity ? `/${soVN(b.quantity)}` : ""} {(b as any).product_unit || "cây"}
                         {b.mfg_date ? ` · NSX ${fmtDate(b.mfg_date)}` : ""}
                         {b.note ? ` · 📝 ${b.note}` : ""}
                       </span>

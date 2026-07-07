@@ -200,7 +200,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
 
       <section class="card">
         <div class="box-kv">
-          <span class="box-k">Số cây</span>
+          <span class="box-k">Số {b.product_unit || "cây"}</span>
           <span class="box-v big">{soVN(b.quantity)}</span>
         </div>
         <div class="box-kv">

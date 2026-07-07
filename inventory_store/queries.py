@@ -63,11 +63,12 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
     if active_only:
         where.append("(b.disabled IS NULL OR b.disabled = 0)")
     sql = (
-        "SELECT b.*, p.name AS place_name, u.name AS unit_name, "
+        "SELECT b.*, p.name AS place_name, u.name AS unit_name, pr.unit AS product_unit, "
         "COALESCE((SELECT SUM(a.quantity) FROM box_allocations a WHERE a.box_id=b.id),0) AS allocated "
         "FROM inventory_boxes b "
         "LEFT JOIN inventory_places p ON p.id = b.place_id "
-        "LEFT JOIN inventory_units u ON u.id = b.unit_id"
+        "LEFT JOIN inventory_units u ON u.id = b.unit_id "
+        "LEFT JOIN products pr ON pr.code = b.product_code"
     )
     if where:
         sql += " WHERE " + " AND ".join(where)
@@ -113,9 +114,10 @@ def product_summary(conn) -> list[dict]:
 
 def get_box(conn, box_id) -> dict | None:
     row = conn.execute(
-        "SELECT b.*, p.name AS place_name, u.name AS unit_name FROM inventory_boxes b "
+        "SELECT b.*, p.name AS place_name, u.name AS unit_name, pr.unit AS product_unit FROM inventory_boxes b "
         "LEFT JOIN inventory_places p ON p.id = b.place_id "
-        "LEFT JOIN inventory_units u ON u.id = b.unit_id WHERE b.id = ?",
+        "LEFT JOIN inventory_units u ON u.id = b.unit_id "
+        "LEFT JOIN products pr ON pr.code = b.product_code WHERE b.id = ?",
         (box_id,),
     ).fetchone()
     return dict(row) if row else None

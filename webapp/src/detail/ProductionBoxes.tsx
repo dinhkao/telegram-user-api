@@ -43,7 +43,11 @@ export function ProductionBoxes({
   const [recipe, setRecipe] = useState<RecipeLine[]>([]);
   const [consumePicks, setConsumePicks] = useState<Record<string, { box_id: number; quantity: number }[]>>({});
   const [pickIng, setPickIng] = useState<string | null>(null);   // mã NL đang mở popup chọn thùng
-  useEffect(() => { if (prodCode) getRecipe(prodCode).then(setRecipe).catch(() => setRecipe([])); else setRecipe([]); }, [prodCode]);
+  const [prodUnit, setProdUnit] = useState("cây");                 // đơn vị của SP đang nhập
+  useEffect(() => {
+    if (prodCode) getRecipe(prodCode).then((r) => { setRecipe(r.recipe); setProdUnit(r.unit); }).catch(() => { setRecipe([]); setProdUnit("cây"); });
+    else { setRecipe([]); setProdUnit("cây"); }
+  }, [prodCode]);
   const produced = (() => {
     const n = parseFloat((amount || "").replace(",", ".")), c = Math.floor(parseFloat((count || "").replace(",", ".")));
     return isFinite(n) && n > 0 && isFinite(c) && c > 0 ? n * c : 0;
@@ -86,7 +90,7 @@ export function ProductionBoxes({
   const submit = async () => {
     const n = parseFloat(amount.replace(",", "."));
     if (!isFinite(n) || n <= 0) {
-      setMsg("Số cây không hợp lệ");
+      setMsg(`Số ${prodUnit} không hợp lệ`);
       return;
     }
     const c = Math.floor(parseFloat(count.replace(",", ".")));
@@ -170,13 +174,13 @@ export function ProductionBoxes({
           disabled={!hasSp}
           onFocus={(e) => (e.target as HTMLInputElement).select()}
           onInput={(e) => setAmount((e.target as HTMLInputElement).value)}
-          placeholder="Số cây / thùng"
+          placeholder={`Số ${prodUnit} / thùng`}
         />
       </div>
       {recipe.length > 0 && (
         <div class="recipe-consume">
-          <div class="card-label"><Icon name="leaf" size={15} /> Nguyên liệu cần trừ {produced > 0 ? `(SX ${soVN(produced)} cây)` : ""}</div>
-          {produced <= 0 && <div class="muted small">Nhập số thùng × số cây trước để tính nguyên liệu.</div>}
+          <div class="card-label"><Icon name="leaf" size={15} /> Nguyên liệu cần trừ {produced > 0 ? `(SX ${soVN(produced)} ${prodUnit})` : ""}</div>
+          {produced <= 0 && <div class="muted small">Nhập số thùng × số {prodUnit} trước để tính nguyên liệu.</div>}
           {recipe.map((l) => {
             const need = +(l.ratio * produced).toFixed(3);
             const chosen = chosenOf(l.ingredient_code);
@@ -239,7 +243,7 @@ export function ProductionBoxes({
                   id={`box-${b.id}`}
                   class={`box-sq ${st}`}
                   href={`#/thung/${b.id}`}
-                  title={`${b.box_code} · ${soVN(rem)} cây · ${status}${b.note ? ` · ${b.note}` : ""}`}
+                  title={`${b.box_code} · ${soVN(rem)} ${b.product_unit || "cây"} · ${status}${b.note ? ` · ${b.note}` : ""}`}
                 >
                   {b.note && <span class="bs-dot" />}
                   <span class="bs-q">{soVN(rem)}</span>

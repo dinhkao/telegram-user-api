@@ -14,8 +14,9 @@ export function RecipeEditor({ productCode }: { productCode: string }) {
   const [ratio, setRatio] = useState("");
   const [optional, setOptional] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [unit, setUnit] = useState("cây");
 
-  const load = async () => { try { setLines(await getRecipe(productCode)); } catch { /* im */ } };
+  const load = async () => { try { const r = await getRecipe(productCode); setLines(r.recipe); setUnit(r.unit); } catch { /* im */ } };
   useEffect(() => { load(); }, [productCode]);
   useEffect(() => onRealtime((e) => { if (e.type === "inventory_changed" || e.type === "resync") load(); }), [productCode]);
 
@@ -47,7 +48,7 @@ export function RecipeEditor({ productCode }: { productCode: string }) {
   return (
     <section class="card">
       <label class="card-label"><Icon name="leaf" size={16} /> Công thức — nguyên liệu</label>
-      <div class="muted small" style={{ marginBottom: "6px" }}>Tỉ lệ = số cây nguyên liệu cho 1 cây {productCode}. Khi nhập thùng sẽ tự trừ kho (chọn thùng nguyên liệu lúc nhập).</div>
+      <div class="muted small" style={{ marginBottom: "6px" }}>Tỉ lệ = lượng nguyên liệu cho 1 {unit} {productCode}. Khi nhập thùng sẽ tự trừ kho (chọn thùng nguyên liệu lúc nhập).</div>
 
       {lines.length === 0 ? (
         <div class="muted small">Chưa có nguyên liệu. Thêm bên dưới.</div>
@@ -57,7 +58,7 @@ export function RecipeEditor({ productCode }: { productCode: string }) {
             <div class="inv-detail-row" key={l.id}>
               <code class="inv-bc">{l.ingredient_code}</code>
               <span class="inv-q">× {l.ratio}</span>
-              <span class="muted small">tồn {soVN(l.stock ?? 0)}</span>
+              <span class="muted small">tồn {soVN(l.stock ?? 0)} {l.unit || ""}</span>
               <button class={"chip" + (l.optional ? "" : " active")} style={{ padding: "3px 9px", fontSize: ".72rem" }}
                 onClick={() => toggleOptional(l)} title="Bấm để đổi bắt buộc / không bắt buộc">
                 {l.optional ? "Không bắt buộc" : "Bắt buộc"}

@@ -13,7 +13,7 @@ export function BoxLabelGrid({ boxes }: { boxes: KhoBox[] }) {
         const status = b.disabled ? "vô hiệu" : used > 0 ? `đã xuất ${soVN(used)}/${soVN(b.quantity)}` : "trong kho";
         return (
           <a key={b.id} class={`box-lbl ${st}`} href={`#/thung/${b.id}`}
-            title={`${b.box_code} · ${soVN(rm)} cây · ${status}${b.place_name ? ` · ${b.place_name}` : ""}${b.note ? ` · ${b.note}` : ""}`}>
+            title={`${b.box_code} · ${soVN(rm)} ${b.product_unit || "cây"} · ${status}${b.place_name ? ` · ${b.place_name}` : ""}${b.note ? ` · ${b.note}` : ""}`}>
             {b.note && <span class="bl-dot" />}
             {b.place_name && <span class="bl-place">{b.place_name}</span>}
             <span class="bl-code">{b.product_code}</span>
