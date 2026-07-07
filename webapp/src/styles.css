@@ -957,6 +957,15 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .seg { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-md); padding: 3px; margin: 2px 0 10px; }
 .seg-btn { flex: 1; min-height: 38px; border: none; background: transparent; border-radius: 9px; font-size: .9rem; font-weight: 600; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; -webkit-tap-highlight-color: transparent; transition: background var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
 .seg-btn.active { background: var(--card); color: var(--primary); box-shadow: var(--e1); }
+/* Nâng cao — flow 2 bước đánh số: 1 khách hàng → 2 sản phẩm/hoá đơn */
+.co-adv .co-adv-step { padding: 12px; }
+.co-step-head { display: flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 8px; }
+.co-step-head.outside { margin: 14px 2px 0; }
+.co-step-n { width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #fff; font-size: .78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; }
+.co-step-n.off { background: var(--border); color: var(--muted); }
+.co-adv-locked { display: flex; align-items: flex-start; gap: 8px; padding: 14px; line-height: 1.5; }
+.co-cust-picked.adv .co-prev-cinfo { flex: 1; min-width: 0; }
+.co-cust-picked.adv .btn, .co-cust-picked.adv .co-debt { flex: none; margin-left: 0; }
 /* Khách đã chọn — chip avatar */
 .co-cust { margin-bottom: 8px; }
 .co-cust-picked { display: flex; align-items: center; gap: 10px; background: var(--accent-wash); border: 1px solid #cfe0fb; border-radius: var(--r-md); padding: 8px 10px; margin-top: 4px; }

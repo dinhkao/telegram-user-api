@@ -79,6 +79,27 @@ export function CreateOrder() {
     return () => vv.removeEventListener("resize", onResize);
   }, [typing]);
 
+  // Nâng cao: chọn khách xong → kéo nợ + bảng giá (cùng đường với tab Nhanh:
+  // previewOrder text rỗng + key khách trả về customer đầy đủ, rồi kéo nợ KV mới).
+  const [advCust, setAdvCust] = useState<OrderPreview["customer"]>(null);
+  useEffect(() => {
+    if (mode !== "advanced" || !customer) { setAdvCust(null); return; }
+    let alive = true;
+    previewOrder("", customer.key)
+      .then((r) => { if (alive) setAdvCust(r.customer); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [mode, customer?.key]);
+  useEffect(() => {
+    const id = advCust?.id;
+    if (!id) return;
+    let alive = true;
+    refreshCustomerDebt(id)
+      .then((c) => { if (alive) setAdvCust((p) => (p && p.id === id ? { ...p, debt: c.debt } : p)); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [advCust?.id]);
+
   // Lưu nháp mỗi lần đổi — rời trang / thoát app giữa chừng thì quay lại gõ tiếp.
   useEffect(() => {
     if (!text.trim() && !picked) localStorage.removeItem(DRAFT_KEY);
@@ -288,24 +309,45 @@ export function CreateOrder() {
           <p class="co-note muted small">📨 Đơn tạo từ web sẽ đăng vào kênh #don_hang và tạo topic Telegram như gõ tay.</p>
         </div>
       ) : (
-        <div>
-          <div class="co-cust card">
-            <label>Khách hàng</label>
+        <div class="co-adv">
+          {/* Bước 1 — khách hàng: chip avatar + nợ KiotViet + bảng giá (như tab Nhanh) */}
+          <div class="card co-adv-step">
+            <div class="co-step-head"><span class="co-step-n">1</span> Khách hàng</div>
             {customer ? (
-              <div class="co-cust-picked">
+              <div class="co-cust-picked adv">
                 <span class="co-avatar" aria-hidden="true">{initial(customer.name)}</span>
-                <b class="co-cust-name">{customer.name}</b>
+                <div class="co-prev-cinfo">
+                  <b>{customer.name}</b>
+                  <span class="muted small">
+                    {advCust?.price_list_name
+                      ? <>Bảng giá: {advCust.price_list_name}{" "}
+                          <button class="co-link" onClick={() => openPriceList(advCust!.id)}>Xem giá</button></>
+                      : "Giá chung"}
+                  </span>
+                </div>
+                {advCust?.debt != null && (
+                  <span class={"co-debt" + (advCust.debt > 0 ? " owe" : "")}>Nợ {money(advCust.debt)}đ</span>
+                )}
                 <button class="btn small ghost" onClick={() => setCustomer(null)}>Đổi</button>
               </div>
             ) : (
               <>
                 <CustomerPicker onPick={setCustomer} />
-                <p class="muted small">Chọn khách để tự lấy giá theo bảng giá.</p>
+                <p class="muted small">Giá từng sản phẩm sẽ tự lấy theo bảng giá của khách.</p>
               </>
             )}
           </div>
-          <InvoiceEditor customerId={customer?.key} invoice={[]} onSave={createAdvanced} createMode />
-          <p class="muted small">Bấm 💾 Lưu để tạo đơn; sang trang chi tiết bấm 🧾 Tạo HĐ KiotViet.</p>
+
+          {/* Bước 2 — sản phẩm & hoá đơn: chỉ mở khi đã có khách (khỏi nhập xong mới báo lỗi) */}
+          <div class="co-step-head outside"><span class={"co-step-n" + (customer ? "" : " off")}>2</span> Sản phẩm &amp; hoá đơn</div>
+          {customer ? (
+            <InvoiceEditor customerId={customer.key} invoice={[]} onSave={createAdvanced} createMode />
+          ) : (
+            <div class="card co-adv-locked muted small">
+              <Icon name="lock" size={14} /> Chọn khách hàng ở bước 1 trước — bấm 💾 Lưu &amp; tạo đơn khi xong,
+              sang trang chi tiết sẽ có nút 🧾 Tạo HĐ KiotViet.
+            </div>
+          )}
           <p class="co-note muted small">📨 Đơn tạo từ web sẽ đăng vào kênh #don_hang và tạo topic Telegram như gõ tay.</p>
         </div>
       )}
