@@ -131,9 +131,14 @@ function NopBanner() {
     return () => document.body.classList.remove("has-nop");
   }, [n > 0]);
   if (!n) return null;
+  // Chạy LIÊN TỤC phải→trái không hở: track = 2 nửa giống hệt (mỗi nửa 3 bản),
+  // animation dịch đúng −50% rồi lặp → nối liền mạch, không thấy khoảng trống.
+  const msg = `💰 ${n} đơn chưa nộp tiền`;
   return (
-    <a class="nop-banner" href="#/orders" title="Xem danh sách đơn">
-      <span class="nop-marquee">💰 {n} đơn chưa nộp tiền</span>
+    <a class="nop-banner" href="#/orders" title="Xem danh sách đơn" aria-label={msg}>
+      <span class="nop-marquee">
+        {[0, 1, 2, 3, 4, 5].map((i) => <span class="nop-seg" key={i}>{msg}</span>)}
+      </span>
     </a>
   );
 }
