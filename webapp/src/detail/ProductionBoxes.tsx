@@ -216,7 +216,8 @@ export function ProductionBoxes({
         <StockPickerModal
           productCode={pickIng}
           need={+(((recipe.find((l) => l.ingredient_code === pickIng)?.ratio || 0) * produced).toFixed(3))}
-          got={chosenOf(pickIng)}
+          got={0}
+          initial={consumePicks[pickIng] || []}
           onClose={() => setPickIng(null)}
           onPick={async (picks) => { const code = pickIng; setConsumePicks((prev) => ({ ...prev, [code]: picks })); }}
         />

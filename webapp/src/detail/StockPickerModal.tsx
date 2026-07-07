@@ -20,17 +20,21 @@ export function StockPickerModal({
   got,
   onClose,
   onPick,
+  initial,
 }: {
   productCode: string;
   need: number;
   got: number;
   onClose: () => void;
   onPick: (picks: { box_id: number; quantity: number }[]) => Promise<void>;
+  initial?: { box_id: number; quantity: number }[];   // seed sẵn (sửa lại lựa chọn cũ)
 }) {
   useScrollLock(true);
   usePopupBack(true, onClose);
   const [boxes, setBoxes] = useState<InvBox[] | null>(null);
-  const [sel, setSel] = useState<Record<number, string>>({});
+  const [sel, setSel] = useState<Record<number, string>>(
+    () => Object.fromEntries((initial || []).map((p) => [p.box_id, String(p.quantity)]))
+  );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
