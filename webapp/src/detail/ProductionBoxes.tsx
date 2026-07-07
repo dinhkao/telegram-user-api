@@ -44,7 +44,9 @@ export function ProductionBoxes({
   const [recipe, setRecipe] = useState<RecipeLine[]>([]);
   const [consumePicks, setConsumePicks] = useState<Record<string, { box_id: number; quantity: number }[]>>({});
   const [pickIng, setPickIng] = useState<string | null>(null);   // mã NL đang mở popup chọn thùng
-  const [prodUnit, setProdUnit] = useState("cây");                 // đơn vị của SP đang nhập
+  const [prodUnit, setProdUnit] = useState("cây");                 // đơn vị SP (cây/gói…)
+  const unitName = units.find((u) => u.id === unitId)?.name || "Thùng";   // đơn vị chứa (Thùng/Kiện/Hũ)
+  const unitLow = unitName.toLowerCase();
   useEffect(() => {
     if (prodCode) getRecipe(prodCode).then((r) => { setRecipe(r.recipe); setProdUnit(r.unit); }).catch(() => { setRecipe([]); setProdUnit("cây"); });
     else { setRecipe([]); setProdUnit("cây"); }
@@ -106,7 +108,7 @@ export function ProductionBoxes({
     }
     const c = Math.floor(parseFloat(count.replace(",", ".")));
     if (!isFinite(c) || c <= 0) {
-      setMsg("Số thùng không hợp lệ");
+      setMsg(`Số ${unitLow} không hợp lệ`);
       return;
     }
     if (!recipeOk) {
@@ -127,7 +129,7 @@ export function ProductionBoxes({
         setMsg("⏳ Đã lưu tạm (mất mạng), sẽ gửi lại");
       } else {
         const nc = (r.consumed || []).length;
-        setMsg(`✅ Đã nhập ${c} thùng${nc ? ` · trừ ${nc} phần nguyên liệu` : ""}`);
+        setMsg(`✅ Đã nhập ${c} ${unitLow}${nc ? ` · trừ ${nc} phần nguyên liệu` : ""}`);
         onChanged();
         loadMine();
       }
@@ -140,7 +142,7 @@ export function ProductionBoxes({
 
   return (
     <section class="card">
-      <label class="card-label"><Icon name="box" size={16} /> Nhập thùng</label>
+      <label class="card-label"><Icon name="box" size={16} /> Nhập {unitLow}</label>
       <div class="row">
         <label class="inline-label"><Icon name="tag" size={16} /> Sản phẩm</label>
         <PickerPopup value={prodCode} placeholder="Chọn SP" allowFreeText
@@ -180,10 +182,10 @@ export function ProductionBoxes({
           disabled={!hasSp}
           onFocus={(e) => (e.target as HTMLInputElement).select()}
           onInput={(e) => setCount((e.target as HTMLInputElement).value)}
-          placeholder="Số thùng"
-          title="Số thùng giống nhau"
+          placeholder={`Số ${unitLow}`}
+          title={`Số ${unitLow} giống nhau`}
         />
-        <span class="pb-x">thùng ×</span>
+        <span class="pb-x">{unitLow} ×</span>
         <input
           type="text"
           inputMode="decimal"
@@ -192,13 +194,13 @@ export function ProductionBoxes({
           disabled={!hasSp}
           onFocus={(e) => (e.target as HTMLInputElement).select()}
           onInput={(e) => setAmount((e.target as HTMLInputElement).value)}
-          placeholder={`Số ${prodUnit} / thùng`}
+          placeholder={`Số ${prodUnit} / ${unitLow}`}
         />
       </div>
       {recipe.length > 0 && (
         <div class="recipe-consume">
           <div class="card-label"><Icon name="leaf" size={15} /> Nguyên liệu cần trừ {produced > 0 ? `(SX ${soVN(produced)} ${prodUnit})` : ""}</div>
-          {produced <= 0 && <div class="muted small">Nhập số thùng × số {prodUnit} trước để tính nguyên liệu.</div>}
+          {produced <= 0 && <div class="muted small">Nhập số {unitLow} × số {prodUnit} trước để tính nguyên liệu.</div>}
           {recipe.map((l) => {
             const need = +(l.ratio * produced).toFixed(3);
             const chosen = chosenOf(l.ingredient_code);
@@ -247,7 +249,7 @@ export function ProductionBoxes({
 
       {myBoxes.length > 0 && (
         <div class="inv-summary">
-          <div class="inv-total">Thùng nhập ở phiếu này ({myBoxes.length})</div>
+          <div class="inv-total">Đã nhập ở phiếu này ({myBoxes.length})</div>
           <BoxLabelGrid boxes={myBoxes as any} />
         </div>
       )}
