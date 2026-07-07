@@ -24,6 +24,8 @@ WEB_AUTH_ENABLED = os.getenv("WEB_AUTH_ENABLED", "false").strip().lower() in ("1
 WEB_AUTH_TOKEN_TTL = int(os.getenv("WEB_AUTH_TOKEN_TTL", 30 * 24 * 3600))  # 30 ngày
 # Web user được phép xoá hoá đơn KiotViet (chỉ Duy). Đổi qua env nếu cần.
 ADMIN_WEB_USER = os.getenv("ADMIN_WEB_USER", "duy")
+# Đẩy báo cáo thợ (phiếu SX) lên Google Sheet — TẮT mặc định (bật lại: =true).
+PRODUCTION_SHEET_SYNC = os.getenv("PRODUCTION_SHEET_SYNC", "false").strip().lower() in ("1", "true", "yes")
 # CORS allowlist cho web app (WebView APK + dev); thêm origin qua env, phẩy ngăn cách.
 WEB_CORS_ORIGINS = tuple(
     o.strip() for o in os.getenv(

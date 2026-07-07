@@ -329,9 +329,13 @@ async def production_report_save_handler(request: web.Request):
             conn.close()
     await asyncio.to_thread(_run)
     _emit(thread_id)
-    # Đẩy báo cáo lên Google Sheet (tab theo ngày) — CHỜ kết quả để báo rõ cho user
-    from server_app.production_sheets import push_report
-    sheet = await push_report(thread_id, text)
+    # Đẩy báo cáo lên Google Sheet (tab theo ngày) — TẮT mặc định (config.PRODUCTION_SHEET_SYNC)
+    from server_app.config import PRODUCTION_SHEET_SYNC
+    if PRODUCTION_SHEET_SYNC:
+        from server_app.production_sheets import push_report
+        sheet = await push_report(thread_id, text)
+    else:
+        sheet = {"disabled": True}
     return web.json_response({"ok": True, "sheet": sheet, **result})
 
 

@@ -186,7 +186,8 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     el.focus(); el.select?.(); return true;
   };
   const onCellKey = (col: string, row: number) => (e: any) => {
-    if (e.key !== "Enter") return;
+    // Enter/Go/Next: bàn phím mobile báo key khác nhau → nhận cả keyCode 13
+    if (e.key !== "Enter" && e.keyCode !== 13 && e.which !== 13) return;
     e.preventDefault();                     // chặn xuống dòng / submit
     if (!focusCell(col, row + 1)) { addRow(); requestAnimationFrame(() => focusCell(col, row + 1)); }
   };
@@ -350,10 +351,10 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
                 const c = calc(r);
                 return (
                   <tr key={i} class={c.tong > 0 ? "" : "prod-row-off"}>
-                    <td><input class="wr-in wr-name" list="wr-worker-list" data-col="name" data-row={i} value={r.name} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("name", i)} onInput={(e: any) => setRow(i, { name: e.target.value })} placeholder="Tên" /></td>
-                    <td><input class="wr-in wr-num" inputMode="decimal" data-col="gach" data-row={i} value={r.gach} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("gach", i)} onInput={(e: any) => setRow(i, { gach: e.target.value })} /></td>
-                    <td><input class="wr-in wr-num" inputMode="decimal" data-col="tru" data-row={i} value={r.tru} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("tru", i)} onInput={(e: any) => setRow(i, { tru: e.target.value })} /></td>
-                    <td><input class="wr-in wr-num" inputMode="decimal" data-col="le" data-row={i} value={r.le} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("le", i)} onInput={(e: any) => setRow(i, { le: e.target.value })} /></td>
+                    <td><input class="wr-in wr-name" list="wr-worker-list" data-col="name" data-row={i} enterKeyHint="next" value={r.name} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("name", i)} onInput={(e: any) => setRow(i, { name: e.target.value })} placeholder="Tên" /></td>
+                    <td><input class="wr-in wr-num" inputMode="decimal" data-col="gach" data-row={i} enterKeyHint="next" value={r.gach} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("gach", i)} onInput={(e: any) => setRow(i, { gach: e.target.value })} /></td>
+                    <td><input class="wr-in wr-num" inputMode="decimal" data-col="tru" data-row={i} enterKeyHint="next" value={r.tru} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("tru", i)} onInput={(e: any) => setRow(i, { tru: e.target.value })} /></td>
+                    <td><input class="wr-in wr-num" inputMode="decimal" data-col="le" data-row={i} enterKeyHint="next" value={r.le} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("le", i)} onInput={(e: any) => setRow(i, { le: e.target.value })} /></td>
                     <td class="wr-calc">{soVN(c.soMam)}</td>
                     <td class="wr-calc strong">{soVN(c.tong)}</td>
                     <td><textarea class="wr-in wr-note" rows={1} value={r.note} disabled={readOnly}
