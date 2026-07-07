@@ -68,7 +68,7 @@ body.modal-open { overflow: hidden; touch-action: none; overscroll-behavior: non
 /* LUÔN chạy — animation ghi đè cả prefers-reduced-motion (Android bật tiết kiệm
    pin/tắt hiệu ứng → WebView báo reduce, nhưng banner này yêu cầu luôn cuộn).
    Ghi rõ duration ở đây vì :root thu --dur về .001s khi reduce. */
-.nop-marquee { display: inline-flex; animation: nop-slide 9s linear infinite !important; will-change: transform; }
+.nop-marquee { display: inline-flex; animation: nop-slide 24s linear infinite !important; will-change: transform; }
 .nop-seg { padding-right: 48px; flex: none; }
 @keyframes nop-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 /* Có banner (~28px) → các sticky khác neo top 44px phải tụt xuống 72px */
