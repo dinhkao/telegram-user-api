@@ -741,7 +741,7 @@ export type Allocation = {
   order_text?: string; // dòng đầu nội dung đơn (sneak peek, chỉ trang chi tiết thùng)
 };
 export type InvGroup = { quantity: number; count: number; total: number; box_codes: string[] };
-export type InvProductLink = { code: string; name: string; cost_price: number; kv_id: number | null; kv_full_name: string | null; kv_synced_at: string | null; linked: boolean };
+export type InvProductLink = { code: string; name: string; cost_price: number; unit?: string; kv_id: number | null; kv_full_name: string | null; kv_synced_at: string | null; linked: boolean };
 export type InvOrderRef = { thread_id: number; text: string; sl: number | null; price: number | null; created: string | null };
 export type InvDetail = {
   product_code: string;
@@ -761,6 +761,7 @@ export type InvProductSummary = {
   allocated_count: number;
   shipped_count: number;
   total_count: number;
+  unit?: string;
 };
 
 /** Nhập 1 đợt = N thùng (mỗi thùng số cây tự do). Mã tự sinh. Queueable (offline). */
@@ -838,9 +839,14 @@ export async function productOrders(code: string, offset = 0, limit = 20): Promi
 export type KvProduct = { id: number; code: string; full_name: string };
 
 /** Tạo mã SP mới (danh mục local). */
-export async function createProduct(code: string, name = ""): Promise<{ product: InvProductLink; existed: boolean }> {
-  const d = await postJSON("/api/products", { code, name }, { queueable: false });
+export async function createProduct(code: string, name = "", unit = ""): Promise<{ product: InvProductLink; existed: boolean }> {
+  const d = await postJSON("/api/products", { code, name, unit }, { queueable: false });
   return { product: d.product, existed: !!d.existed };
+}
+/** Sửa SP (đơn vị / tên / ghi chú). */
+export async function updateProduct(code: string, patch: { unit?: string; name?: string; note?: string }): Promise<InvProductLink | null> {
+  const d = await postJSON(`/api/products/${encodeURIComponent(code)}`, patch, { queueable: false });
+  return d.ok ? d.product : null;
 }
 /** Tìm sản phẩm KiotViet để liên kết (từng cái). */
 export async function searchKiotvietProducts(q: string): Promise<KvProduct[]> {

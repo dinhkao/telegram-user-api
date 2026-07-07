@@ -3,7 +3,7 @@
 // Thùng đã xuất link tới đơn. Realtime production_changed → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, deleteProduct, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct } from "../api";
+import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, deleteProduct, updateProduct, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct } from "../api";
 import { confirmDialog, toast } from "../ui/feedback";
 import { useScrollLock } from "../useScrollLock";
 import { money } from "../format";
@@ -26,6 +26,17 @@ export function InventoryDetail({ code }: { code: string }) {
   const [inv, setInv] = useState<InvDetail | null>(null);
   const [err, setErr] = useState("");
   const isAdmin = currentUser()?.role === "admin";
+  const [unitInput, setUnitInput] = useState("");
+  const [unitSaved, setUnitSaved] = useState(false);
+  useEffect(() => { setUnitInput(inv?.product?.unit || "cây"); }, [inv?.product?.unit]);
+  const saveUnit = async () => {
+    const u = unitInput.trim() || "cây";
+    if (!inv?.product || u === (inv.product.unit || "cây")) return;
+    try {
+      const p = await updateProduct(code, { unit: u });
+      if (p && inv) { setInv({ ...inv, product: p }); setUnitSaved(true); setTimeout(() => setUnitSaved(false), 1500); }
+    } catch { /* im */ }
+  };
   // Liên kết KiotViet từng cái (modal tìm + chọn)
   const [linkOpen, setLinkOpen] = useState(false);
   const [kvQ, setKvQ] = useState("");
@@ -163,6 +174,12 @@ export function InventoryDetail({ code }: { code: string }) {
       {/* Tên danh mục + liên kết KiotViet */}
       <section class="card prod-link">
         {inv.product?.name && <div class="prod-link-name">{inv.product.name}</div>}
+        <div class="box-kv">
+          <span class="box-k">Đơn vị {unitSaved && <span class="muted small">✓</span>}</span>
+          <input class="box-place" style={{ minWidth: "110px" }} value={unitInput} placeholder="cây"
+            onInput={(e: any) => setUnitInput(e.target.value)} onBlur={saveUnit}
+            onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+        </div>
         <div class="row space">
           {inv.product?.linked ? (
             <span class="kv-badge on" title={inv.product.kv_full_name || undefined}>

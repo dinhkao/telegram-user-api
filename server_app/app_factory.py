@@ -30,7 +30,7 @@ from server_app.order_history import order_history_handler
 from server_app.orders_api import order_detail_handler, orders_api_handler, orders_delivery_handler
 from server_app.product_routes import (
     products_search_handler, product_create_handler, product_kiotviet_search_handler,
-    product_link_handler, product_unlink_handler, product_delete_handler,
+    product_link_handler, product_unlink_handler, product_delete_handler, product_update_handler,
 )
 from server_app.production_routes import (
     production_add_number_handler,
@@ -150,6 +150,7 @@ def create_app():
     r.add_post("/api/products/{code}/link", product_link_handler)
     r.add_post("/api/products/{code}/unlink", product_unlink_handler)
     r.add_delete("/api/products/{code}", product_delete_handler)
+    r.add_post("/api/products/{code}", product_update_handler)
     r.add_get("/api/products/{product_code}/recipe", recipe_get_handler)
     r.add_post("/api/products/{product_code}/recipe", recipe_set_handler)
     r.add_delete("/api/products/{product_code}/recipe/{line_id}", recipe_delete_handler)

@@ -5,13 +5,13 @@ from typing import Optional
 from .schema import _PRODUCTS_CACHE_TTL, _invalidate_products_cache, _products_cache
 
 
-_COLS = "code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at"
+_COLS = "code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit"
 
 
 def _row(r) -> dict:
     return {"code": r[0], "name": r[1], "cost_price": r[2] or 0, "note": r[3],
             "kv_id": r[4], "kv_full_name": r[5], "kv_synced_at": r[6],
-            "created_at": r[7], "updated_at": r[8]}
+            "created_at": r[7], "updated_at": r[8], "unit": r[9] or "cây"}
 
 
 def get_product(conn, code: str) -> Optional[dict]:
@@ -30,7 +30,7 @@ def get_all_products(conn, *, _use_cache: bool = True) -> list[dict]:
     return result
 
 
-def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None) -> bool:
+def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None) -> bool:
     code = code.upper().strip()
     if not code:
         return False
@@ -44,12 +44,15 @@ def upsert_product(conn, code: str, name: str = None, cost_price: int = None, no
             updates.append("cost_price = ?"); params.append(cost_price)
         if note is not None:
             updates.append("note = ?"); params.append(note)
+        if unit is not None:
+            updates.append("unit = ?"); params.append(unit.strip() or "cây")
         if not updates:
             return True
         updates.append("updated_at = ?"); params.extend([now, code])
         conn.execute(f"UPDATE products SET {', '.join(updates)} WHERE code = ?", params)
     else:
-        conn.execute("INSERT INTO products (code, name, cost_price, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)", (code, name or "", cost_price or 0, note or "", now, now))
+        conn.execute("INSERT INTO products (code, name, cost_price, note, unit, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                     (code, name or "", cost_price or 0, note or "", (unit or "cây").strip() or "cây", now, now))
     conn.commit(); _invalidate_products_cache(); return True
 
 

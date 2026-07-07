@@ -270,7 +270,7 @@ async def inventory_list_handler(request: web.Request):
         finally:
             conn.close()
         by_code = {s["product_code"]: dict(s) for s in summ}
-        meta = {p["code"]: (p.get("name") or p.get("kv_full_name") or "", bool(p.get("kv_id"))) for p in prods}
+        meta = {p["code"]: (p.get("name") or p.get("kv_full_name") or "", bool(p.get("kv_id")), p.get("unit") or "cây") for p in prods}
         # thêm product chưa có thùng (tồn 0)
         for p in prods:
             by_code.setdefault(p["code"], {
@@ -279,8 +279,8 @@ async def inventory_list_handler(request: web.Request):
             })
         rows = []
         for code, s in by_code.items():
-            name, linked = meta.get(code, ("", False))
-            rows.append({**s, "name": name, "linked": linked})
+            name, linked, unit = meta.get(code, ("", False, "cây"))
+            rows.append({**s, "name": name, "linked": linked, "unit": unit})
         rows.sort(key=lambda r: (-(r.get("in_stock_total") or 0), r["product_code"]))
         return rows
     products = await asyncio.to_thread(_run)
@@ -674,7 +674,7 @@ async def inventory_detail_handler(request: web.Request):
     if prod:
         product = {
             "code": prod["code"], "name": prod.get("name") or prod.get("kv_full_name") or "",
-            "cost_price": prod.get("cost_price") or 0,
+            "cost_price": prod.get("cost_price") or 0, "unit": prod.get("unit") or "cây",
             "kv_id": prod.get("kv_id"), "kv_full_name": prod.get("kv_full_name"),
             "kv_synced_at": prod.get("kv_synced_at"),
             "linked": bool(prod.get("kv_id")),

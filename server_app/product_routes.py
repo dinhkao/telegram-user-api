@@ -28,12 +28,13 @@ async def product_create_handler(request: web.Request):
     if not code:
         return web.json_response({"ok": False, "error": "Thiếu mã SP"}, status=400)
     name = (body.get("name") or "").strip()
+    unit = (body.get("unit") or "").strip()
 
     def _run():
         conn = _get_connection()
         try:
             existed = get_product(conn, code) is not None
-            upsert_product(conn, code, name=name or None)
+            upsert_product(conn, code, name=name or None, unit=unit or None)
             return get_product(conn, code), existed
         finally:
             conn.close()
@@ -41,6 +42,36 @@ async def product_create_handler(request: web.Request):
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
     return web.json_response({"ok": True, "product": product, "existed": existed})
+
+
+async def product_update_handler(request: web.Request):
+    """Sửa SP (đơn vị / tên / ghi chú). Body {unit?, name?, note?}."""
+    code = (request.match_info.get("code") or "").upper().strip()
+    if not code:
+        return web.json_response({"ok": False, "error": "Thiếu mã SP"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    def _run():
+        conn = _get_connection()
+        try:
+            if not get_product(conn, code):
+                return None
+            upsert_product(conn, code,
+                           name=body.get("name") if body.get("name") is not None else None,
+                           note=body.get("note") if body.get("note") is not None else None,
+                           unit=body.get("unit") if body.get("unit") is not None else None)
+            return get_product(conn, code)
+        finally:
+            conn.close()
+    product = await asyncio.to_thread(_run)
+    if not product:
+        return web.json_response({"ok": False, "error": "Mã SP không tồn tại"}, status=404)
+    from server_app.realtime import emit_inventory_changed
+    emit_inventory_changed()
+    return web.json_response({"ok": True, "product": product})
 
 
 async def product_kiotviet_search_handler(request: web.Request):

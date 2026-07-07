@@ -18,6 +18,7 @@ export function InventoryList() {
   const [createOpen, setCreateOpen] = useState(false);
   const [nCode, setNCode] = useState("");
   const [nName, setNName] = useState("");
+  const [nUnit, setNUnit] = useState("cây");
   const [creating, setCreating] = useState(false);
   useScrollLock(createOpen);
   usePopupBack(createOpen, () => setCreateOpen(false));
@@ -27,9 +28,9 @@ export function InventoryList() {
     if (!code) return;
     setCreating(true);
     try {
-      const r = await createProduct(code, nName.trim());
+      const r = await createProduct(code, nName.trim(), nUnit.trim());
       toast(r.existed ? `Mã ${code} đã có` : `✅ Tạo mã ${code}`, "ok");
-      setCreateOpen(false); setNCode(""); setNName("");
+      setCreateOpen(false); setNCode(""); setNName(""); setNUnit("cây");
       window.location.hash = `#/kho/${encodeURIComponent(code)}`;
     } catch (e: any) {
       toast(e?.message || "Tạo lỗi", "err");
@@ -81,6 +82,8 @@ export function InventoryList() {
               onInput={(e: any) => setNCode(e.target.value)} onKeyDown={(e: any) => { if (e.key === "Enter") doCreate(); }} />
             <input class="inv-search" placeholder="Tên (tuỳ chọn)" value={nName}
               onInput={(e: any) => setNName(e.target.value)} onKeyDown={(e: any) => { if (e.key === "Enter") doCreate(); }} />
+            <input class="inv-search" placeholder="Đơn vị (vd cây, kg)" value={nUnit}
+              onInput={(e: any) => setNUnit(e.target.value)} onKeyDown={(e: any) => { if (e.key === "Enter") doCreate(); }} />
             <div class="row" style={{ gap: "8px", marginTop: "8px" }}>
               <button class="btn primary" style={{ flex: 1 }} disabled={creating || !nCode.trim()} onClick={doCreate}>
                 {creating ? "⏳…" : "Tạo"}
