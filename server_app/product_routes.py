@@ -92,6 +92,59 @@ def _code(request):
     return (request.match_info.get("code") or "").upper().strip()
 
 
+async def product_kv_create_handler(request: web.Request):
+    """Tạo SP MỚI trên KiotViet từ mã local (dùng tên/đơn vị local) rồi LIÊN KẾT.
+    CHỈ admin. Body {name?, unit?} ghi đè; giá cơ bản {base_price?}."""
+    from server_app.order_api_common import is_admin_request
+    if not await is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin mới được tạo SP KiotViet"}, status=403)
+    code = _code(request)
+    if not code:
+        return web.json_response({"ok": False, "error": "Thiếu mã SP"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    def _local():
+        conn = _get_connection()
+        try:
+            return get_product(conn, code)
+        finally:
+            conn.close()
+    local = await asyncio.to_thread(_local)
+    if not local:
+        return web.json_response({"ok": False, "error": "Mã SP chưa có trong danh mục"}, status=404)
+    if local.get("kv_id"):
+        return web.json_response({"ok": False, "error": "Mã đã liên kết KiotViet rồi"}, status=400)
+    name = (body.get("name") or local.get("name") or code).strip()
+    unit = (body.get("unit") or local.get("unit") or "").strip()
+    try:
+        base_price = float(body.get("base_price") or local.get("cost_price") or 0)
+    except (TypeError, ValueError):
+        base_price = 0
+    # 1) tạo trên KiotViet
+    try:
+        from integrations.kiotviet import create_product_kv
+        kv = await asyncio.to_thread(create_product_kv, code, name, unit=unit, base_price=base_price)
+    except Exception as e:  # noqa: BLE001
+        log.error("Tạo SP KiotViet lỗi: %s", e)
+        return web.json_response({"ok": False, "error": f"KiotViet từ chối: {e}"}, status=502)
+    if not kv.get("id"):
+        return web.json_response({"ok": False, "error": "KiotViet không trả id SP"}, status=502)
+    # 2) liên kết mã local ↔ KiotViet
+    def _link():
+        conn = _get_connection()
+        try:
+            return set_kiotviet_link(conn, code, int(kv["id"]), kv.get("full_name") or name)
+        finally:
+            conn.close()
+    product = await asyncio.to_thread(_link)
+    from server_app.realtime import emit_inventory_changed
+    emit_inventory_changed()
+    return web.json_response({"ok": True, "product": product, "kv": kv})
+
+
 async def product_link_handler(request: web.Request):
     """Liên kết 1 mã SP với 1 sản phẩm KiotViet. Body {kv_id, kv_full_name?}."""
     code = _code(request)

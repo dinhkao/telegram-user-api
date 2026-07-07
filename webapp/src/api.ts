@@ -848,6 +848,11 @@ export async function updateProduct(code: string, patch: { unit?: string; name?:
   const d = await postJSON(`/api/products/${encodeURIComponent(code)}`, patch, { queueable: false });
   return d.ok ? d.product : null;
 }
+/** Tạo SP MỚI trên KiotViet từ mã local (tên/đơn vị local) rồi liên kết. Admin. */
+export async function createKiotvietProduct(code: string, patch?: { name?: string; unit?: string; base_price?: number }): Promise<InvProductLink | null> {
+  const d = await postJSON(`/api/products/${encodeURIComponent(code)}/kiotviet-create`, patch || {}, { queueable: false });
+  return d.ok ? d.product : null;
+}
 /** Tìm sản phẩm KiotViet để liên kết (từng cái). */
 export async function searchKiotvietProducts(q: string): Promise<KvProduct[]> {
   const d = await getJSON(`/api/products/kiotviet?q=${encodeURIComponent(q)}`, { cache: false });

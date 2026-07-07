@@ -3,7 +3,7 @@
 // Thùng đã xuất link tới đơn. Realtime production_changed → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, deleteProduct, updateProduct, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct } from "../api";
+import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, createKiotvietProduct, deleteProduct, updateProduct, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct } from "../api";
 import { confirmDialog, toast } from "../ui/feedback";
 import { useScrollLock } from "../useScrollLock";
 import { money } from "../format";
@@ -111,6 +111,22 @@ export function InventoryDetail({ code }: { code: string }) {
       toast(e?.message || "Liên kết lỗi", "err");
     }
   };
+  const [kvCreating, setKvCreating] = useState(false);
+  const doKvCreate = async () => {
+    const nm = inv?.product?.name || code;
+    if (!(await confirmDialog(`Tạo sản phẩm "${nm}" (mã ${code}) trên KiotViet rồi liên kết?`))) return;
+    setKvCreating(true);
+    try {
+      const p = await createKiotvietProduct(code);
+      if (p && inv) setInv({ ...inv, product: p });
+      toast("✅ Đã tạo + liên kết KiotViet", "ok");
+    } catch (e: any) {
+      toast(e?.message || "Lỗi tạo KiotViet", "err");
+    } finally {
+      setKvCreating(false);
+    }
+  };
+
   const doUnlink = async () => {
     if (!(await confirmDialog("Bỏ liên kết KiotViet của mã này?"))) return;
     try {
@@ -192,7 +208,10 @@ export function InventoryDetail({ code }: { code: string }) {
             <span class="row" style={{ gap: "6px" }}>
               {inv.product?.linked
                 ? <button class="btn small" onClick={doUnlink}>Bỏ liên kết</button>
-                : <button class="btn small primary" onClick={openLink}><Icon name="link" size={16} /> Liên kết KiotViet</button>}
+                : <>
+                    <button class="btn small primary" onClick={openLink}><Icon name="link" size={16} /> Liên kết</button>
+                    <button class="btn small" disabled={kvCreating} onClick={doKvCreate}><Icon name="plus" size={15} /> Tạo trên KiotViet</button>
+                  </>}
               {inv.product && <button class="btn small danger" title="Xoá mã khỏi danh mục" onClick={doDelete}><Icon name="trash" size={16} /></button>}
             </span>
           )}
