@@ -39,6 +39,8 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const [msg, setMsg] = useState("");
   const seeded = useRef(false);
   const draftTimer = useRef<any>(null);
+  const autoTimer = useRef<any>(null);
+  const [saveState, setSaveState] = useState<"" | "saving" | "saved" | "error">("");
   // Danh sách thợ (picker) + thợ mặc định (template tự điền). defaultsRef để seed
   // đúng lúc (nạp thợ TRƯỚC khi seed bảng, tránh race với loadSlip).
   const [workerNames, setWorkerNames] = useState<string[]>([]);
@@ -261,18 +263,29 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     return ["thợ;gạch;trừ;lẻ;ghi chú", ...lines].join("\n");
   };
 
-  const save = async () => {
-    if (!wrows.some((r) => r.name.trim())) { setMsg("Chưa nhập thợ nào."); return; }
-    setBusy(true); setMsg("");
-    try {
-      const r = await saveProductionReport(threadId, buildText());
-      const s = r.sheet;
-      const sheetMsg = s?.ok ? `+ Google Sheet (${s.tab})` : s?.disabled ? "(chưa cấu hình Sheet)" : `❌ Sheet: ${s?.error || "?"}`;
-      setMsg(`✅ Đã lưu ${sheetMsg}`);
-      setTimeout(() => { window.location.hash = `#/san_xuat/${threadId}`; }, 700);
-    } catch (e: any) {
-      setMsg(e?.message || "Lỗi lưu báo cáo");
-    } finally { setBusy(false); }
+  // TỰ LƯU: gõ xong ~1.5s là lưu (không cần bấm). Chỉ khi TÔI đang sửa + đã seed +
+  // có ít nhất 1 thợ. Server tự đẩy Google Sheet. Không điều hướng, chỉ hiện trạng thái.
+  useEffect(() => {
+    if (!mine || !seeded.current) return;
+    if (!wrows.some((r) => r.name.trim())) return;
+    clearTimeout(autoTimer.current);
+    autoTimer.current = setTimeout(async () => {
+      setSaveState("saving");
+      try { await saveProductionReport(threadId, buildText()); setSaveState("saved"); }
+      catch { setSaveState("error"); }
+    }, 1500);
+    return () => clearTimeout(autoTimer.current);
+  }, [wrows, date, start, end, mine]);   // eslint-disable-line
+
+  // Nút "Xong": lưu ngay (bỏ debounce) rồi quay về chi tiết phiếu.
+  const finishEdit = async () => {
+    clearTimeout(autoTimer.current);
+    if (wrows.some((r) => r.name.trim())) {
+      setBusy(true);
+      try { await saveProductionReport(threadId, buildText()); } catch { /* im — đã tự lưu trước đó */ }
+      setBusy(false);
+    }
+    window.location.hash = `#/san_xuat/${threadId}`;
   };
 
   if (!slip) return <div class="prod-detail"><BackLink fallback={`#/san_xuat/${threadId}`} /><Loading /></div>;
@@ -364,7 +377,10 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
             <button class="btn" onClick={addRow}><Icon name="plus" size={16} /> Thêm thợ</button>
             {defaults.length > 0 && <button class="btn" onClick={insertDefaults} title="Chèn các thợ mặc định"><Icon name="users" size={16} /> Chèn thợ mặc định</button>}
             <button class="btn" onClick={() => setOrderPop(true)} title="Chọn thợ & sắp thứ tự"><Icon name="settings" size={16} /> Chọn/sắp thợ</button>
-            <button class="btn primary" disabled={busy} onClick={save}><Icon name="save" size={16} /> Lưu báo cáo</button>
+            <span class="wr-autosave" data-st={saveState}>
+              {saveState === "saving" ? "⏳ Đang lưu…" : saveState === "saved" ? "✓ Đã lưu tự động" : saveState === "error" ? "⚠ Lỗi lưu — thử lại" : "Tự lưu khi gõ"}
+            </span>
+            <button class="btn primary" disabled={busy} onClick={finishEdit}><Icon name="check" size={16} /> Xong</button>
           </div>
         )}
         {msg && <div class="prod-save-msg">{msg}</div>}

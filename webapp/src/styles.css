@@ -1330,3 +1330,8 @@ body.co-kbd .bottom-nav { display: none; }
 .wo-mv:disabled { opacity: .3; }
 .wo-up { transform: rotate(180deg); }
 .wo-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--border); }
+
+/* Trạng thái tự-lưu ở trang sửa báo cáo SX */
+.wr-autosave { margin-left: auto; font-size: .82rem; color: var(--muted); align-self: center; white-space: nowrap; }
+.wr-autosave[data-st="saved"] { color: var(--ok, #1a9d5a); }
+.wr-autosave[data-st="error"] { color: var(--danger, #d23b3b); }
