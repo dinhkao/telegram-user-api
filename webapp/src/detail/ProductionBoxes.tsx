@@ -37,6 +37,7 @@ export function ProductionBoxes({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [myBoxes, setMyBoxes] = useState<InvBox[]>([]);
+  const [mineView, setMineView] = useState<"grid" | "list">("grid");
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitId, setUnitId] = useState<number | null>(null);   // đơn vị chứa cho đợt nhập
   useEffect(() => { listUnits().then((u) => { setUnits(u); if (u[0] && unitId == null) setUnitId(u[0].id); }).catch(() => {}); }, []);
@@ -243,8 +244,30 @@ export function ProductionBoxes({
 
       {myBoxes.length > 0 && (
         <div class="inv-summary">
-          <div class="inv-total">Đã nhập ở phiếu này ({myBoxes.length})</div>
-          <BoxLabelGrid boxes={myBoxes as any} />
+          <div class="inv-total pb-mine-head">
+            <span>Đã nhập ở phiếu này ({myBoxes.length})</span>
+            <div class="pb-viewtog">
+              <button class={"pb-vt" + (mineView === "grid" ? " on" : "")} title="Lưới tem" onClick={() => setMineView("grid")}><Icon name="box" size={15} /></button>
+              <button class={"pb-vt" + (mineView === "list" ? " on" : "")} title="Danh sách" onClick={() => setMineView("list")}><Icon name="menu" size={15} /></button>
+            </div>
+          </div>
+          {mineView === "grid" ? <BoxLabelGrid boxes={myBoxes as any} /> : (
+            <div class="pb-boxlist">
+              {myBoxes.map((b) => {
+                const rm = b.remaining ?? b.quantity;
+                const used = b.allocated ?? 0;
+                return (
+                  <a class={"pb-blrow" + (b.disabled ? " off" : "")} href={`#/thung/${b.id}`} key={b.id}>
+                    <span class="pb-blcode">{b.box_code}</span>
+                    <span class="pb-blsp">{b.product_code}</span>
+                    <span class="pb-blq">{soVN(rm)}{used > 0 ? <span class="muted">/{soVN(b.quantity)}</span> : ""} <span class="muted small">{b.product_unit || "cây"}</span></span>
+                    {b.place_name && <span class="pb-blplace">{b.place_name}</span>}
+                    {b.disabled ? <span class="pb-bloff">vô hiệu</span> : null}
+                  </a>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </section>

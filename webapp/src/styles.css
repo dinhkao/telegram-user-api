@@ -1363,3 +1363,18 @@ body.co-kbd .bottom-nav { display: none; }
 .pk-badge { display: inline-flex; align-items: center; gap: 3px; margin-left: 7px; padding: 1px 7px; border-radius: 20px; font-size: .68rem; font-weight: 600; vertical-align: middle; white-space: nowrap; }
 .pk-badge.sx { background: rgba(38,128,255,.12); color: var(--primary, #2680ff); }
 .pk-badge.pack { background: rgba(240,150,20,.15); color: #b5730a; }
+
+/* Toggle lưới/danh sách + list view cho "Đã nhập ở phiếu này" */
+.pb-mine-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pb-viewtog { display: inline-flex; gap: 2px; padding: 2px; background: var(--card2, #f0f1f3); border: 1px solid var(--border); border-radius: 9px; }
+.pb-vt { display: flex; align-items: center; justify-content: center; width: 30px; height: 26px; padding: 0; border: none; background: transparent; color: var(--muted); border-radius: 7px; cursor: pointer; }
+.pb-vt.on { background: var(--card, #fff); color: var(--primary); box-shadow: var(--e1, 0 1px 2px rgba(0,0,0,.12)); }
+.pb-boxlist { display: flex; flex-direction: column; margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.pb-blrow { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-bottom: 1px solid var(--border); text-decoration: none; color: var(--ink); font-size: .9rem; }
+.pb-blrow:last-child { border-bottom: 0; }
+.pb-blrow.off { opacity: .5; }
+.pb-blcode { font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+.pb-blsp { color: var(--muted); flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-blq { flex: 0 0 auto; font-weight: 600; white-space: nowrap; }
+.pb-blplace { flex: 0 0 auto; font-size: .74rem; padding: 1px 7px; border-radius: 20px; background: rgba(38,128,255,.1); color: var(--primary); white-space: nowrap; }
+.pb-bloff { flex: 0 0 auto; font-size: .74rem; color: var(--danger, #d23b3b); }
