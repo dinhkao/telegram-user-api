@@ -137,6 +137,8 @@ function NopBanner() {
     return () => { clearInterval(poll); clearTimeout(t.current); off(); };
   }, []);
   const show = n > 0 || boxes > 0 || pins.length > 0;
+  const [open, setOpen] = useState(false); // sheet liệt kê mọi tin trên banner
+  usePopupBack(open, () => setOpen(false));
   // Banner chiếm ~28px dưới app-bar → các sticky khác (topbar tìm kiếm, header
   // chi tiết đơn, preview tạo đơn…) phải tụt xuống theo (body.has-nop, styles.css)
   useEffect(() => {
@@ -147,24 +149,53 @@ function NopBanner() {
   // Chạy LIÊN TỤC phải→trái không hở: track = 2 nửa giống hệt (lặp chuỗi tin ×6),
   // animation dịch đúng −50% rồi lặp → nối liền mạch, không thấy khoảng trống.
   // Bình luận ghim = chip ĐỎ (quan trọng, tự hết sau 24h); số liệu thường = chữ
-  // trên nền trắng (luôn có, ít quan trọng hơn). Mỗi mẩu tự là link về nguồn.
-  const parts: { text: string; href: string; pin?: boolean }[] = [];
-  for (const p of pins) parts.push({ text: `📢 ${p.text}`, href: p.href || "#/orders", pin: true });
-  if (n > 0) parts.push({ text: `💰 ${n} đơn chưa nộp tiền`, href: "#/orders?filter=chua_nop" });
-  if (boxes > 0) parts.push({ text: `📦 ${boxes} thùng chưa xếp kho`, href: "#/kho" });
+  // trên nền trắng (luôn có, ít quan trọng hơn).
+  const hLeft = (exp: number) => {
+    const h = (exp * 1000 - Date.now()) / 3600e3;
+    return h >= 1 ? `còn ${Math.round(h)}h` : `còn ${Math.max(1, Math.round(h * 60))}p`;
+  };
+  const parts: { text: string; href: string; pin?: boolean; sub?: string }[] = [];
+  for (const p of pins) parts.push({
+    text: `📢 ${p.text}`, href: p.href || "#/orders", pin: true,
+    sub: `${(p as any).created_by ? `${(p as any).created_by} ghim · ` : ""}${hLeft((p as any).expires_at)}`,
+  });
+  if (n > 0) parts.push({ text: `💰 ${n} đơn chưa nộp tiền`, href: "#/orders?filter=chua_nop", sub: "bấm để lọc Chưa nộp" });
+  if (boxes > 0) parts.push({ text: `📦 ${boxes} thùng chưa xếp kho`, href: "#/kho", sub: "bấm để mở Kho hàng" });
   // Tốc độ CỐ ĐỊNH (~50px/s) dù nội dung dài ngắn: thời gian tỉ lệ độ rộng nửa
   // track (ước lượng ~7px/ký tự + 48px đệm/mẩu, nửa track = 3 lượt parts).
   const halfPx = 3 * parts.reduce((s, p) => s + p.text.length * 7 + 48, 0);
   const durSec = Math.max(12, Math.round(halfPx / 50));
+  // Bấm BẤT KỲ đâu trên banner → mở sheet liệt kê đủ mọi tin (khỏi chờ chữ chạy
+  // qua); bấm từng dòng mới đi tới đích. Chữ chạy chỉ để hiển thị.
   return (
-    <div class="nop-banner" aria-label={parts.map((p) => p.text).join(" · ")}>
-      <span class="nop-marquee" style={{ animationDuration: `${durSec}s` }}>
-        {[0, 1, 2, 3, 4, 5].flatMap((i) =>
-          parts.map((p, j) => (
-            <a class={"nop-seg" + (p.pin ? " pin" : "")} key={`${i}-${j}`} href={p.href}>{p.text}</a>
-          )))}
-      </span>
-    </div>
+    <>
+      <button class="nop-banner" aria-label={parts.map((p) => p.text).join(" · ")} onClick={() => setOpen(true)}>
+        <span class="nop-marquee" style={{ animationDuration: `${durSec}s` }}>
+          {[0, 1, 2, 3, 4, 5].flatMap((i) =>
+            parts.map((p, j) => (
+              <span class={"nop-seg" + (p.pin ? " pin" : "")} key={`${i}-${j}`}>{p.text}</span>
+            )))}
+        </span>
+      </button>
+      {open && (
+        <div class="modal-overlay" onClick={() => setOpen(false)}>
+          <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
+            <div class="modal-head"><b>📋 Bảng tin</b>
+              <button class="btn small" onClick={() => setOpen(false)}><Icon name="close" size={14} /></button>
+            </div>
+            <div class="nop-pop-list">
+              {parts.map((p, i) => (
+                <a class={"nop-pop-item" + (p.pin ? " pin" : "")} key={i} href={p.href} onClick={() => setOpen(false)}>
+                  <span class="nop-pop-text">{p.text}</span>
+                  {p.sub && <span class="muted small">{p.sub}</span>}
+                  <Icon name="chevronRight" size={16} class="nop-pop-chev" />
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
