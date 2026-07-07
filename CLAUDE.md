@@ -171,33 +171,39 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   app (PIN hash in `pin.py`, CLI: `tools/add_web_user.py`).
 - `comment_store/` — `web_comments` table in `app.db`: web-app comments on orders
   (separate from `order_chat_messages` = read-only Telegram log).
-- `inventory_store/` — kho thùng theo đơn vị (`app.db`). Hai bảng:
+- `inventory_store/` — kho thùng (`app.db`). Bảng:
   - `inventory_boxes` (`schema.py`+`queries.py`): 1 row = 1 thùng vật lý, mã tự sinh
-    `K2L-001`, pool tồn gom theo `product_code` (gộp mọi phiếu SX). Cột: `quantity`
-    (số cây gốc), `mfg_date` (ngày SX), `note`, `disabled`+`disabled_reason`,
-    `source_thread_id` (phiếu SX nguồn). (Cột `status`/`order_thread_id` là **legacy**
-    — xuất kho đời mới KHÔNG dùng chúng.)
-  - `box_allocations` (`allocations.py`): 1 row = 1 **phần** thùng xuất cho 1 đơn.
-    Thùng **KHÔNG tách** khi lấy 1 phần; `remaining = quantity − Σ allocations`; tồn =
-    Σ remaining. Xuất `allocate_picks(picks=[{box_id,quantity?}])` (thiếu qty = lấy hết
-    còn lại); thu hồi = `delete_allocation`. `migrate_legacy_allocations` chuyển thùng
-    xuất kiểu cũ (status allocated) sang bảng này.
-  - `domain.py` (pure, unit-tested `tests/test_inventory_domain.py`) = sinh mã +
-    gộp nhóm theo size. Thùng có thể **vô hiệu** (cần lý do) → loại khỏi tồn/phân bổ,
-    trừ khỏi tổng phiếu SX; cấm vô hiệu nếu đã xuất phần nào.
-  - API `server_app/inventory_routes.py` (`_ensure` = create+migrate cả 2 bảng mọi
-    handler): `/api/inventory` (dashboard summary), `/api/inventory/{code}` (tồn +
-    all_boxes), `/api/inventory/box/{id}` GET/POST (chi tiết + sửa note/qty/mfg_date)
-    + `/disable`, nhập thùng `POST /api/production/{id}/boxes` (+GET list thùng phiếu),
-    xuất `POST /api/order/{id}/allocate|release`, `GET /api/order/{id}/allocations`.
-  - UI: tab **📦 Kho** (`#/kho`) → `pages/InventoryList.tsx` (dashboard/product) →
-    `InventoryDetail.tsx` (list thùng) → `pages/BoxDetail.tsx` (`#/thung/:id`, info hub:
-    còn lại, NSX, ghi chú, phiếu nguồn, các đơn đã xuất — kèm **sneak peek dòng đầu
-    nội dung đơn** (`order_text`, `box_detail_handler` enrich qua get_order_by_thread_id)
-    — deep-link cuộn+nháy 2 chiều thùng↔đơn↔phiếu qua `?focus=box:<id>`). Nhập:
-    `detail/ProductionBoxes.tsx`. Xuất:
-    `detail/OrderStock.tsx` + `detail/StockPickerModal.tsx` (popup chọn thùng, lấy 1
-    phần, hiện "còn X/Y").
+    `K2L-001` **BASE36** (`domain._to_base36`, 3 ký tự chứa 46656 thùng/SP rồi mới 4;
+    mã cũ toàn-số round-trip nguyên vẹn). Pool tồn gom theo `product_code`. Cột:
+    `quantity`, `mfg_date`, `note`, `disabled`+`disabled_reason`, `source_thread_id`
+    (phiếu SX nguồn), **`unit_id`** → `inventory_units` (đơn vị chứa: Thùng/Kiện/Hũ…),
+    **`place_id`** → `inventory_places` (vị trí kho Kho A/B…). (`status`/`order_thread_id`
+    legacy.) `list_boxes`/`get_box` join thêm `place_name`, `unit_name`, `product_unit`
+    (đơn vị đếm của SP từ `products.unit` — cây/gói…).
+  - `inventory_units` (đơn vị chứa) + `inventory_places` (vị trí kho): bảng user-định-nghĩa,
+    CRUD `list/add/rename/delete_*`. API `/api/units`, `/api/places` (rename/delete admin).
+  - `box_allocations` (`allocations.py`): 1 row = 1 **phần** thùng đã lấy. `remaining =
+    quantity − Σ allocations`; tồn = Σ remaining. Cột **`kind`**: `'order'` (xuất cho đơn)
+    | `'production'` (tiêu hao nguyên liệu khi SX — xem `recipe_store`). Xuất
+    `allocate_picks(picks, thread_id, kind=)`; thu hồi = `delete_allocation`;
+    `list_order_allocations(kind=)` lọc.
+  - `domain.py` (pure, unit-tested) = sinh mã base36 + gộp nhóm size. Thùng **vô hiệu**
+    → loại khỏi tồn/phân bổ. Admin **xoá thùng** (`box_delete_handler`, cấm nếu đã xuất) +
+    gỡ entry khỏi phiếu SX (`production_store.remove_number_by_note`).
+  - API `server_app/inventory_routes.py` (`_ensure` = create+migrate mọi bảng): `/api/inventory`
+    (summary), `/api/inventory/boxes` (MỌI thùng), `/api/inventory/{code}` (chi tiết SP),
+    `/api/inventory/box/{id}` GET/POST/DELETE, nhập `POST /api/production/{id}/boxes`
+    (nhận `product_code`/`unit_id`/`place_id`/`consume` = thùng NL tiêu hao),
+    xuất `POST /api/order/{id}/allocate|release`.
+  - UI (**ô thùng dùng chung `detail/BoxLabelGrid.tsx`** = nhãn tem: mã SP · số +/gốc ·
+    đơn vị+mã thùng · **nền "bình chứa" fill ngang theo remaining** · badge vị trí; bản nhỏ
+    `BoxMiniGrid` cho card phiếu SX): tab **📦 Kho** = `pages/KhoBoxes.tsx` (`#/kho`, MỌI
+    thùng phẳng + lọc mã/vị trí) · `pages/PlacesList.tsx` (`#/vi-tri`) → `PlaceDetail.tsx`
+    (`#/vi-tri/:id`) · `pages/InventoryList.tsx` = **"Sản phẩm"** (`#/san-pham`, danh mục) →
+    `InventoryDetail.tsx` (`#/kho/:code`, thùng + KiotViet link + `RecipeEditor`) →
+    `pages/BoxDetail.tsx` (`#/thung/:id`). Nhập: `detail/ProductionBoxes.tsx` (chọn SP/đơn
+    vị/vị trí/nguyên liệu). Xuất: `detail/OrderStock.tsx` + `StockPickerModal.tsx` (popup
+    chọn thùng — **cap không cho vượt số cần**, seed lựa chọn cũ).
 - `order_images_store/` — `order_images` table in `app.db`: metadata for photos
   attached to an order (filename, thumb, size, dims, uploader, `tg_message_id`).
   Image bytes live on disk under `ORDER_MEDIA_DIR/<thread_id>/`, not in the DB.
@@ -260,18 +266,27 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   chú, auto-computes Mâm+Tổng from `slip.sp_mam`; builds `;`-text → existing save endpoint),
   with the lock overlay + live draft view. **Dashboard `pages/ProductionDashboard.tsx`**
   (`#/sx-bang`, in ☰ Thêm) → tap a thợ → `pages/ProductionWorkerDetail.tsx` (`#/sx-tho/:name`,
-  per-day phiếu/SP breakdown). Chọn mã SP dùng **`detail/ProductPicker.tsx`** (autocomplete,
-  chung CSS `.ac`/`.ac-list` với `CustomerPicker`).
+  per-day phiếu/SP breakdown). Chọn mã SP dùng **`detail/ProductPicker.tsx`**.
+  - **Công thức/BOM** (`recipe_store`): SP có thể cần nguyên liệu (product khác) theo tỉ lệ,
+    đánh dấu **bắt buộc / không bắt buộc**. Định nghĩa ở chi tiết SP (`detail/RecipeEditor.tsx`).
+    Khi nhập thùng → phải chọn thùng NL (bắt buộc) → trừ kho (`allocate_picks kind='production'`).
 
 **Web app for phones (orders management, 5-6 internal users)**
 - `webapp/` — Vite + Preact + TS mobile UI (Vietnamese). Hash router `main.tsx`, nav
   bottom **📋 Đơn · 👤 Khách · ➕ Tạo · 🏭 SX · 📦 Kho** + ⚙️ cài đặt ở top bar
   (đăng xuất). Trang: orders list/detail, tasks, payments, comments, create order,
-  customers/debt, **photos (camera + gallery, 2-way Telegram sync)**, **phiếu sản
-  xuất (🏭 SX)** + **sửa báo cáo thợ (khoá 1 người + xem nháp trực tiếp)** + **dashboard SX
-  + xem theo thợ** (☰ Thêm → 📊 Dashboard sản xuất), **kho thùng (📦 Kho → chi tiết SP →
-  chi tiết thùng)**, lịch giao (`#/lich`), lịch sử thao tác toàn cục (`#/lich-su`, kèm diff
-  từng trường + sneak-peek nội dung đơn). Nhớ vị trí cuộn **trung tâm** (`useScrollMemory`
+  **sửa hoá đơn = trang riêng `pages/OrderInvoiceEdit.tsx` (`#/order/:id/hoa-don`,
+  mở thẳng edit; KHOÁ nếu đã có HĐ KiotViet; order detail chỉ hiện tóm tắt + nút)**,
+  customers/debt (bảng giá riêng `personal_price_list`), **photos (camera in-page HTTPS +
+  gallery, 2-way Telegram sync)**, **phiếu sản xuất (🏭 SX)** + sửa báo cáo thợ + dashboard SX,
+  **kho (📦 Kho: thùng/vị trí/sản phẩm — xem `inventory_store`)**, lịch giao (`#/lich`),
+  lịch sử thao tác (`#/lich-su`).
+  - **Admin xoá**: đơn (`order_api_delete.py`, cấm nếu còn HĐ KiotViet/phân bổ kho), thùng, SP,
+    vị trí, HĐ KiotViet. **Đơn vị SP** (`products.unit`) sửa ở chi tiết SP; hiện đúng khắp nơi.
+  - **UI dùng chung (đừng tự chế lại)**: `ui/SelectPopup` (chọn tĩnh) + `ui/PickerPopup`
+    (autocomplete) = mọi dropdown/select là **popup neo đỉnh** (bàn phím không che); mọi
+    popup gọi `ui/usePopupBack` (nút BACK đóng popup trước) + `useScrollLock`. Ô thùng =
+    `detail/BoxLabelGrid`. Toast/confirm = `ui/feedback`. Cuộn = `scroll.ts`. Nhớ vị trí cuộn **trung tâm** (`useScrollMemory`
   trong `main.tsx`: back→khôi phục, forward→top; trang lazy-load cache list ở module scope
   để về đúng vị trí tức thì, khỏi refetch). **Camera cần HTTPS** (WebView phải load URL
   `https://…/app` qua tailscale serve :443 — nếu load `http://…:8090` thì nút Mở camera ẩn;
