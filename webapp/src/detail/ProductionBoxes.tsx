@@ -80,7 +80,10 @@ export function ProductionBoxes({
 
   const loadMine = async () => {
     try {
-      setMyBoxes(await slipBoxes(threadId));
+      const bs = await slipBoxes(threadId);
+      // sắp theo NGÀY TẠO mới→cũ (created_at; id làm mốc phụ)
+      bs.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "") || (b.id - a.id));
+      setMyBoxes(bs);
     } catch {
       /* im lặng */
     }
