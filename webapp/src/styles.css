@@ -797,7 +797,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-lbl { position: relative; aspect-ratio: 1; display: grid; grid-template-rows: auto 1fr auto; border: 1.5px solid; border-radius: 10px; overflow: hidden; text-decoration: none; transition: transform var(--dur) var(--ease); }
 .box-lbl:active { transform: scale(.94); }
 .box-lbl .bl-code { font-family: var(--mono); font-weight: 700; font-size: .56rem; letter-spacing: -.02em; text-align: center; padding: 3px 2px; border-bottom: 1.5px solid; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.box-lbl .bl-q { display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.box-lbl .bl-q { display: flex; align-items: baseline; justify-content: center; font-weight: 800; font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.box-lbl .bl-q-tot { font-size: .42em; font-weight: 600; opacity: .55; margin-left: 1px; }
 .box-lbl .bl-num { font-family: var(--mono); font-size: .58rem; text-align: center; padding: 2px; border-top: 1.5px solid; opacity: .75; }
 .box-lbl .bl-dot { position: absolute; top: 21px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 /* Nút thu hồi (×) trên ô thùng đã xuất cho đơn */
