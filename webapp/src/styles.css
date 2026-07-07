@@ -947,9 +947,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-link:active { opacity: .6; }
 
 /* chi tiết 1 thùng */
-.box-kv { display: flex; align-items: baseline; gap: 12px; padding: 6px 0; border-bottom: 1px solid #f2f2f2; }
+.box-kv { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid #f2f2f2; }
 .box-kv:last-child { border-bottom: none; }
-.box-k { min-width: 96px; color: var(--muted); font-size: .85rem; }
+.box-k { flex: 0 0 96px; color: var(--muted); font-size: .85rem; }
+/* ô sửa (đơn vị/vị trí/ngày SX) lấp đầy cột phải, canh đều nhau — hết lệch xấu */
+.box-kv > .sp-trigger, .box-kv > input { flex: 1 1 auto; width: 100%; min-width: 0; }
 .box-v { font-size: .95rem; }
 .box-v.big { font-size: 1.2rem; font-weight: 700; }
 .box-jump { display: inline-block; text-decoration: none; color: #2456b8; font-weight: 600; padding: 4px 0; }
@@ -964,7 +966,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-detail.is-disabled .box-kv, .box-detail.is-disabled .prod-sp { opacity: .6; }
 .box-disabled-banner { background: #f3f3f3; color: var(--muted); border: 1px dashed #ccc; padding: 8px 12px; border-radius: 8px; font-size: .88rem; margin-bottom: 4px; }
 .box-disabled-reason { margin-top: 4px; color: #555; font-weight: 600; }
-.box-mfg { max-width: 170px; }
+.box-mfg { max-width: none; }
 .inline-label { align-self: center; font-size: .85rem; color: #666; white-space: nowrap; }
 
 /* popup chọn thùng xuất kho */
