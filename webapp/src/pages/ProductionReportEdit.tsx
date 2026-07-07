@@ -118,6 +118,10 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     toast("Đã cập nhật thợ trong bảng");
   };
 
+  // holderRef = bản đồng bộ của `holder` cho listener realtime (deps không đổi → khỏi stale).
+  const holderRef = useRef<string | null>(null);
+  useEffect(() => { holderRef.current = holder; }, [holder]);
+
   // Khoá: xin lúc vào + heartbeat 20s; nhả khi rời trang
   useEffect(() => {
     let alive = true;
@@ -134,7 +138,9 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         if (e.holder && e.holder !== me) setHolder(e.holder);
         else if (!e.holder) lockReport(threadId).then((r) => setHolder(r.mine ? null : r.holder)).catch(() => {}); // nhả → tôi giành
       } else if (e.type === "report_draft" && e.thread_id === String(threadId)) {
-        if (e.draft?.by && e.draft.by !== me) {          // chỉ nhận nháp NGƯỜI KHÁC
+        // CHỈ người XEM (đang bị người khác giữ khoá) mới nhận nháp; người ĐANG SỬA bỏ
+        // qua — kẻo echo/nháp cũ đè lên phím vừa gõ → số vừa nhập biến mất.
+        if (holderRef.current && e.draft?.by && e.draft.by !== me) {
           if (Array.isArray(e.draft.rows) && e.draft.rows.length) setWrows(e.draft.rows);
           if (e.draft.date != null) setDate(e.draft.date);
           if (e.draft.start != null) setStart(e.draft.start);
