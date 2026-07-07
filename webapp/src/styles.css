@@ -812,7 +812,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-lbl .bl-place { position: absolute; top: 2px; left: 2px; z-index: 1; background: var(--accent); color: #fff; font-size: .5rem; font-weight: 700; line-height: 1; padding: 2px 4px; border-radius: 5px; max-width: 72%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Ô thùng SIÊU NHỎ (card phiếu SX) — ~8/hàng, nền bình chứa theo mức còn */
 .box-mini-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; margin-top: 6px; }
-.box-mini { position: relative; aspect-ratio: 1; border: 1px solid; border-radius: 5px; overflow: hidden; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: .5rem; font-weight: 700; background: var(--card); }
+.box-mini { position: relative; aspect-ratio: 1; border: 1px solid; border-radius: 5px; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; padding: 1px; font-family: var(--mono); background: var(--card); }
+.box-mini .bm-code { max-width: 100%; font-size: .38rem; font-weight: 600; opacity: .72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.box-mini .bm-q { font-size: .68rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .box-mini::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--fill, 100%); background: var(--fill-bg, var(--ok-wash)); z-index: -1; }
 .box-mini.in { --fill-bg: var(--ok-wash); border-color: #bfe3c8; color: var(--ok); }
 .box-mini.off { --fill-bg: var(--bg); border-color: var(--border); border-style: dashed; color: var(--muted-2); }
