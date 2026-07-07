@@ -84,6 +84,17 @@ def update_worker(conn, worker_id: int, *, name: str | None = None, is_default: 
     return {"id": worker_id, "name": new_name, "is_default": bool(new_def), "sort_order": cur["sort_order"]}
 
 
+def reorder_workers(conn, ids: list[int]) -> None:
+    """Đặt lại sort_order theo đúng thứ tự `ids` truyền vào (0, 1, 2, …).
+    id không tồn tại được bỏ qua (UPDATE không khớp = no-op)."""
+    with transaction(conn):
+        for i, wid in enumerate(ids):
+            conn.execute(
+                "UPDATE production_workers SET sort_order = ? WHERE id = ?",
+                (i, int(wid)),
+            )
+
+
 def delete_worker(conn, worker_id: int) -> bool:
     with transaction(conn):
         cur = conn.execute("DELETE FROM production_workers WHERE id = ?", (worker_id,))

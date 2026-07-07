@@ -4,12 +4,13 @@
 // lock/unlock/draft + saveProductionReport. Khoá + nháp: server_app/production_routes.py.
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { getProduction, saveProductionReport, lockReport, unlockReport, pushReportDraft, currentUser, soVN, listMediaImages, mediaImageUrl, deleteMediaImage, postForm, listWorkers, type ProdSlip, type ProdReport } from "../api";
+import { getProduction, saveProductionReport, lockReport, unlockReport, pushReportDraft, currentUser, soVN, listMediaImages, mediaImageUrl, deleteMediaImage, postForm, listWorkers, reorderWorkers, type ProdSlip, type ProdReport, type Worker } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
-import { confirmDialog } from "../ui/feedback";
+import { confirmDialog, toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 import { processImage } from "../detail/imageProcess";
+import { WorkerOrderPopup } from "../detail/WorkerOrderPopup";
 
 type Wrow = { name: string; gach: string; tru: string; le: string; note: string };
 
@@ -41,8 +42,10 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   // Danh sách thợ (picker) + thợ mặc định (template tự điền). defaultsRef để seed
   // đúng lúc (nạp thợ TRƯỚC khi seed bảng, tránh race với loadSlip).
   const [workerNames, setWorkerNames] = useState<string[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]);   // full (id+name) → map tên↔id khi lưu thứ tự
   const [defaults, setDefaults] = useState<string[]>([]);
   const defaultsRef = useRef<string[]>([]);
+  const [orderPop, setOrderPop] = useState(false);        // popup sắp thứ tự thợ
   // Ảnh nền để DÒ — lưu VĨNH VIỄN trên SERVER (DB + đĩa) theo phiếu, scope report_bg
   // (1 ảnh/phiếu, còn mãi + chung mọi máy). Mặc định ẩn; GIỮ nút tròn để hiện (thả ra ẩn).
   const [bgUrl, setBgUrl] = useState<string | null>(null);
@@ -71,6 +74,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
       try {
         const w = await listWorkers();
         defaultsRef.current = w.defaults;
+        setWorkers(w.workers);
         setWorkerNames(w.workers.map((x) => x.name));
         setDefaults(w.defaults);
       } catch { /* im — không có thợ thì bảng 1 dòng trống */ }
@@ -87,6 +91,26 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
       const only = rs.length === 1 && !rs[0].name.trim() && !rs[0].gach && !rs[0].tru && !rs[0].le;
       return only ? toAdd : [...rs, ...toAdd];   // bảng đang trống → thay; có rồi → nối
     });
+  };
+
+  // Áp thứ tự thợ MỚI (từ popup) vào bảng: dòng có tên sắp theo `order`, dòng lạ/rỗng
+  // dồn cuối. Đồng thời lưu BỀN sort_order toàn cục (best-effort) để template sau đúng.
+  const applyWorkerOrder = (order: string[]) => {
+    const rank = new Map(order.map((n, i) => [n.trim().toLowerCase(), i] as const));
+    const rk = (nm: string) => rank.has(nm.trim().toLowerCase()) ? (rank.get(nm.trim().toLowerCase()) as number) : 1e9;
+    setWrows((rs) => {
+      const named = rs.filter((r) => r.name.trim()).sort((a, b) => rk(a.name) - rk(b.name));
+      const rest = rs.filter((r) => !r.name.trim());   // dòng trống giữ ở cuối
+      return [...named, ...rest];
+    });
+    const idByName = new Map(workers.map((w) => [w.name.trim().toLowerCase(), w.id] as const));
+    const ids = order.map((n) => idByName.get(n.trim().toLowerCase())).filter((x): x is number => typeof x === "number");
+    if (ids.length)
+      reorderWorkers(ids).then((w) => {
+        setWorkers(w.workers); setWorkerNames(w.workers.map((x) => x.name));
+        defaultsRef.current = w.defaults; setDefaults(w.defaults);
+      }).catch(() => {});
+    toast("Đã sắp thứ tự thợ");
   };
 
   // Khoá: xin lúc vào + heartbeat 20s; nhả khi rời trang
@@ -316,6 +340,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
           <div class="row">
             <button class="btn" onClick={addRow}><Icon name="plus" size={16} /> Thêm thợ</button>
             {defaults.length > 0 && <button class="btn" onClick={insertDefaults} title="Chèn các thợ mặc định"><Icon name="users" size={16} /> Chèn thợ mặc định</button>}
+            <button class="btn" onClick={() => setOrderPop(true)} title="Sắp thứ tự thợ trong bảng"><Icon name="settings" size={16} /> Sắp thứ tự</button>
             <button class="btn primary" disabled={busy} onClick={save}><Icon name="save" size={16} /> Lưu báo cáo</button>
           </div>
         )}
@@ -342,6 +367,13 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
           title="Giữ để xem ảnh"
         ><Icon name="eye" size={20} /></button>
       )}
+
+      <WorkerOrderPopup
+        open={orderPop}
+        names={wrows.filter((r) => r.name.trim()).map((r) => r.name.trim())}
+        onClose={() => setOrderPop(false)}
+        onApply={applyWorkerOrder}
+      />
     </div>
   );
 }

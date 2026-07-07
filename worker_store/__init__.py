@@ -8,6 +8,7 @@ from .store import (
     default_names,
     add_worker,
     update_worker,
+    reorder_workers,
     delete_worker,
 )
 
@@ -17,5 +18,6 @@ __all__ = [
     "default_names",
     "add_worker",
     "update_worker",
+    "reorder_workers",
     "delete_worker",
 ]

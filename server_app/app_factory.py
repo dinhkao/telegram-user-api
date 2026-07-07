@@ -215,9 +215,11 @@ def create_app():
     # ─── danh sách thợ (template báo cáo) ────────────────────────────────────
     from server_app.worker_routes import (
         workers_list_handler, workers_add_handler, workers_update_handler, workers_delete_handler,
+        workers_reorder_handler,
     )
     r.add_get("/api/workers", workers_list_handler)
     r.add_post("/api/workers", workers_add_handler)
+    r.add_post("/api/workers/reorder", workers_reorder_handler)   # TRƯỚC {id} kẻo bị nuốt
     r.add_post("/api/workers/{id}", workers_update_handler)
     r.add_delete("/api/workers/{id}", workers_delete_handler)
     # ─── kho thùng (inventory) ───────────────────────────────────────────────

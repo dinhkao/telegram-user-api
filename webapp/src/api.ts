@@ -523,6 +523,11 @@ export async function updateWorker(id: number, patch: { name?: string; is_defaul
 export async function deleteWorker(id: number): Promise<any> {
   return delJSON(`/api/workers/${id}`);
 }
+// Sắp lại thứ tự thợ (sort_order) theo mảng ids → ảnh hưởng template báo cáo
+export async function reorderWorkers(ids: number[]): Promise<{ workers: Worker[]; defaults: string[] }> {
+  const d = await postJSON("/api/workers/reorder", { ids });
+  return { workers: d.workers || [], defaults: d.defaults || [] };
+}
 
 const _actor = () => { const u = currentUser(); return u?.display_name || u?.username || ""; };
 

@@ -9,7 +9,7 @@ import asyncio
 from aiohttp import web
 
 from utils.db import get_connection
-from worker_store import add_worker, delete_worker, ensure_table, list_workers, update_worker
+from worker_store import add_worker, delete_worker, ensure_table, list_workers, reorder_workers, update_worker
 
 
 def _conn():
@@ -85,6 +85,33 @@ async def workers_update_handler(request: web.Request):
     if worker is None:
         return web.json_response({"ok": False, "error": "không tìm thấy thợ"}, status=404)
     return web.json_response({"ok": True, "worker": worker})
+
+
+async def workers_reorder_handler(request: web.Request):
+    """POST /api/workers/reorder {ids:[...]} — đặt lại sort_order theo thứ tự ids.
+    Trả về danh sách thợ + defaults MỚI (đã sắp lại) như /api/workers."""
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    raw = body.get("ids") or []
+    try:
+        ids = [int(x) for x in raw]
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "ids không hợp lệ"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            ensure_table(conn)
+            reorder_workers(conn, ids)
+            return list_workers(conn)
+        finally:
+            conn.close()
+
+    workers = await asyncio.to_thread(_run)
+    defaults = [w["name"] for w in workers if w["is_default"]]
+    return web.json_response({"ok": True, "workers": workers, "defaults": defaults})
 
 
 async def workers_delete_handler(request: web.Request):

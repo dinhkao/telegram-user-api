@@ -1302,3 +1302,14 @@ body.co-kbd .bottom-nav { display: none; }
 .cust-topbar .search { flex: 1; }
 .cust-add { flex: 0 0 auto; width: 42px; height: 42px; font-size: 1.4rem; line-height: 1; padding: 0; border-radius: 10px; }
 .cust-in { width: 100%; box-sizing: border-box; padding: 11px; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; }
+
+/* Popup SẮP THỨ TỰ thợ (WorkerOrderPopup) — trang sửa báo cáo phiếu SX */
+.wo-list { padding: 4px 0; }
+.wo-row { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.wo-row:last-child { border-bottom: 0; }
+.wo-idx { flex: 0 0 22px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .9rem; }
+.wo-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wo-mv { flex: 0 0 auto; width: 38px; height: 34px; padding: 0; }
+.wo-mv:disabled { opacity: .3; }
+.wo-up { transform: rotate(180deg); }
+.wo-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--border); }
