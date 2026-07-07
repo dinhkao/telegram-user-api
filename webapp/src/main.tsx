@@ -283,23 +283,27 @@ function App() {
     return () => { mo.disconnect(); document.body.classList.remove("modal-open"); };
   }, []);
 
-  // ẨN NAV DƯỚI khi bàn phím MỀM bật — visualViewport co lại >120px = bàn phím mở;
-  // không có visualViewport (desktop cũ) → fallback theo focus input/textarea.
+  // ẨN NAV DƯỚI khi bàn phím MỀM bật. Dò theo FOCUS ô nhập (đáng tin trên Android
+  // WebView + iOS): visualViewport không dùng được vì WebView co cả innerHeight theo
+  // bàn phím → hiệu số ~0. kbd-open = đang focus ô gõ được (text/số/textarea/CE),
+  // loại checkbox/nút. focusout đợi 1 nhịp rồi soi activeElement (khỏi nháy khi nhảy ô).
   useEffect(() => {
-    const setKbd = (on: boolean) => document.body.classList.toggle("kbd-open", on);
-    const vv = window.visualViewport;
-    if (vv) {
-      const onVV = () => setKbd((window.innerHeight - vv.height) > 120);
-      vv.addEventListener("resize", onVV);
-      onVV();
-      return () => { vv.removeEventListener("resize", onVV); setKbd(false); };
-    }
-    const isField = (t: any) => t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
-    const onIn = (e: any) => { if (isField(e.target)) setKbd(true); };
-    const onOut = () => setKbd(false);
+    const NOKBD = new Set(["checkbox", "radio", "button", "submit", "reset", "file", "range", "color", "image"]);
+    const isField = (t: any): boolean => {
+      if (!t) return false;
+      if (t.isContentEditable) return true;
+      if (t.tagName === "TEXTAREA") return true;
+      if (t.tagName === "INPUT") return !NOKBD.has(String(t.type || "text").toLowerCase());
+      return false;
+    };
+    const setKbd = () => document.body.classList.toggle("kbd-open", isField(document.activeElement));
+    let t: any;
+    const onIn = () => { clearTimeout(t); setKbd(); };
+    const onOut = () => { clearTimeout(t); t = setTimeout(setKbd, 60); };
     document.addEventListener("focusin", onIn);
     document.addEventListener("focusout", onOut);
-    return () => { document.removeEventListener("focusin", onIn); document.removeEventListener("focusout", onOut); setKbd(false); };
+    setKbd();
+    return () => { document.removeEventListener("focusin", onIn); document.removeEventListener("focusout", onOut); document.body.classList.remove("kbd-open"); };
   }, []);
 
   let page;
