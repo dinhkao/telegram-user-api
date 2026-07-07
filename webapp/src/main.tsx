@@ -288,6 +288,9 @@ function App() {
   // bàn phím → hiệu số ~0. kbd-open = đang focus ô gõ được (text/số/textarea/CE),
   // loại checkbox/nút. focusout đợi 1 nhịp rồi soi activeElement (khỏi nháy khi nhảy ô).
   useEffect(() => {
+    // CHỈ mobile/cảm ứng — desktop (chuột) không ẩn nav khi bấm ô nhập.
+    const isTouch = (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches) || (navigator.maxTouchPoints || 0) > 0;
+    if (!isTouch) return;
     const NOKBD = new Set(["checkbox", "radio", "button", "submit", "reset", "file", "range", "color", "image"]);
     const isField = (t: any): boolean => {
       if (!t) return false;
