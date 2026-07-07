@@ -1305,8 +1305,11 @@ body.co-kbd .bottom-nav { display: none; }
 
 /* Popup SẮP THỨ TỰ thợ (WorkerOrderPopup) — trang sửa báo cáo phiếu SX */
 .wo-list { padding: 4px 0; }
-.wo-row { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.wo-row { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--card); transition: background .12s; }
 .wo-row:last-child { border-bottom: 0; }
+.wo-row.dragging { background: var(--accent-weak, rgba(0,120,255,.1)); box-shadow: var(--e2); }
+.wo-grip { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; color: var(--muted); cursor: grab; touch-action: none; user-select: none; }
+.wo-grip:active { cursor: grabbing; }
 .wo-idx { flex: 0 0 22px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .9rem; }
 .wo-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wo-mv { flex: 0 0 auto; width: 38px; height: 34px; padding: 0; }
