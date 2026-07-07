@@ -2,7 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, getCustomerOrders, getJSON, invoiceHtmlUrl, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, getCustomerOrders, getJSON, invoiceHtmlUrl, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
@@ -13,6 +13,7 @@ import { Tasks } from "../detail/Tasks";
 import { History } from "../detail/History";
 import { Images } from "../detail/Images";
 import { ImageStrip } from "../detail/ImageStrip";
+import { PhotoViewer } from "../detail/PhotoViewer";
 import { OrderStock } from "../detail/OrderStock";
 import { invalidateListCache, markLastOrder, filterNeighbors } from "./OrdersList";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -280,11 +281,16 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     try { await deleteKiotVietInvoice(threadId); setMsg("🗑️ Đã xoá hoá đơn KiotViet"); changed(); }
     catch (ex: any) { setMsg(`❌ ${ex.message}`); } finally { setBusy(false); }
   };
+  // Xem HĐ: mở ảnh hoá đơn trong PhotoViewer (zoom/pan như ảnh đơn);
+  // chưa có ảnh (HĐ chưa render xong) thì mới fallback mở HTML tab mới.
+  const [invViewer, setInvViewer] = useState<OrderImage | null>(null);
   const viewHD = async () => {
-    // Mở tab TRƯỚC khi await (Safari/WebView chặn window.open sau async)
-    const win = window.open("", "_blank");
-    const go = (u: string) => { if (win) win.location.href = u; else window.open(u, "_blank"); };
-    go((await findInvoiceImageUrl()) || invoiceHtmlUrl(threadId));
+    try {
+      const imgs = await listOrderImages(threadId);
+      const inv = imgs.find((x) => x.kind === "hoa_don" || x.uploaded_by === "KiotViet HĐ");
+      if (inv) { setInvViewer(inv); return; }
+    } catch { /* rơi xuống fallback */ }
+    window.open(invoiceHtmlUrl(threadId), "_blank");
   };
 
   const assignCustomer = async (c: { key: string; name: string } | null) => {
@@ -462,6 +468,10 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
               <Icon name="receipt" size={16} /> {busy ? "Đang tạo…" : "Tạo HĐ KiotViet"}
             </button>
           )
+        )}
+        {invViewer && (
+          <PhotoViewer images={[invViewer]} start={0} base={`/api/order/${threadId}`}
+            editable onClose={() => setInvViewer(null)} />
         )}
       </section>
       </div>{/* #od-invoice */}
