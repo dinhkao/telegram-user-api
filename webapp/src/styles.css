@@ -816,6 +816,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-lbl .bl-place { position: absolute; top: 2px; left: 2px; z-index: 1; background: var(--accent); color: #fff; font-size: .5rem; font-weight: 700; line-height: 1; padding: 2px 4px; border-radius: 5px; max-width: 72%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Ô thùng NHỎ (card phiếu SX) — giống nhãn tem gốc, thu nhỏ. 8/hàng */
 .box-mini-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; margin-top: 6px; }
+/* Lưới trộn nhiều SP (còn dòng mã trên ô) → 6/hàng cho mã dài đủ chỗ */
+.box-mini-grid.mixed { grid-template-columns: repeat(6, 1fr); }
 .box-lbl.mini { border-radius: 6px; }
 .box-lbl.mini .bl-code { font-size: .34rem; padding: 1px 1px; }
 .box-lbl.mini .bl-q { font-size: .66rem; }
@@ -823,6 +825,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-lbl.mini .bl-num .bl-unit { font-size: .78em; }
 /* Thùng đã cạn (xuất/tiêu hao hết) trên card phiếu SX — mờ nhưng vẫn đọc được */
 .box-lbl.mini.drained { opacity: .45; }
+/* Lưới 1 mã SP (card đã ghi tên SP) → ô bỏ dòng mã, chỉ còn số + mã thùng */
+.box-lbl.mini.nc { grid-template-rows: 1fr auto; }
+.box-lbl.mini.nc .bl-q { font-size: .8rem; }
 .box-mini::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--fill, 100%); background: var(--fill-bg, var(--ok-wash)); z-index: -1; }
 .box-mini.in { --fill-bg: var(--ok-wash); border-color: #bfe3c8; color: var(--ok); }
 .box-mini.off { --fill-bg: var(--bg); border-color: var(--border); border-style: dashed; color: var(--muted-2); }

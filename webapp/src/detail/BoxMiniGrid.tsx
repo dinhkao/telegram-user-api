@@ -4,8 +4,12 @@ import { soVN, type KhoBox } from "../api";
 
 export function BoxMiniGrid({ boxes }: { boxes: KhoBox[] }) {
   if (!boxes.length) return null;
+  // Cả lưới cùng 1 mã SP (card đã ghi tên SP ở tiêu đề) → BỎ dòng mã trên từng ô
+  // (mã dài kiểu K10LV87-KOTEM bị cắt ở cỡ mini); chỉ lưới trộn nhiều SP mới giữ.
+  const oneCode = new Set(boxes.map((b) => b.product_code)).size === 1;
   return (
-    <div class="box-mini-grid">
+    // Lưới trộn nhiều SP giữ dòng mã → 6 ô/hàng (ô rộng hơn, mã dài không bị cắt)
+    <div class={"box-mini-grid" + (oneCode ? "" : " mixed")}>
       {boxes.map((b) => {
         const rm = b.remaining ?? b.quantity;
         const st = b.disabled ? "off" : "in";
@@ -16,9 +20,9 @@ export function BoxMiniGrid({ boxes }: { boxes: KhoBox[] }) {
         // CÒN LẠI thể hiện bằng nền fill + mờ ô khi đã cạn (.drained).
         const drained = !b.disabled && rm <= 0;
         return (
-          <span key={b.id} class={`box-lbl mini ${st}${drained ? " drained" : ""}`} style={{ "--fill": `${fill}%` } as any}
+          <span key={b.id} class={`box-lbl mini${oneCode ? " nc" : ""} ${st}${drained ? " drained" : ""}`} style={{ "--fill": `${fill}%` } as any}
             title={`${b.box_code} · còn ${soVN(rm)}/${soVN(b.quantity)} ${b.product_unit || ""}`}>
-            <span class="bl-code">{b.product_code}</span>
+            {!oneCode && <span class="bl-code">{b.product_code}</span>}
             <span class="bl-q">{soVN(b.quantity)}</span>
             <span class="bl-num"><span class="bl-unit">{b.unit_name || "Thùng"}</span> {num}</span>
           </span>
