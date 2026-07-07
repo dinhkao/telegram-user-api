@@ -2,7 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, getCustomerOrders, getJSON, invoiceHtmlUrl, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, getCustomerOrders, getJSON, invoiceHtmlUrl, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao } from "../api";
 import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
@@ -190,6 +190,17 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const paid = paidTotal(j.payments);
   const remaining = Math.max(0, computedTotal - paid);
   const hasInvoice = !!j.kiotvietInvoiceID;
+  const doDeleteOrder = async () => {
+    if (!(await confirmDialog(`Xoá đơn #${threadId}? Không thể hoàn tác.`, { danger: true, okLabel: "Xoá đơn" }))) return;
+    try {
+      await deleteOrder(threadId);
+      invalidateListCache();
+      toast("Đã xoá đơn", "ok");
+      window.location.hash = "#/orders";
+    } catch (e: any) {
+      toast(e?.message || "Lỗi xoá đơn", "err");
+    }
+  };
 
   // Điều hướng đơn↔đơn: liền kề trong DANH SÁCH lọc + liền kề CÙNG KHÁCH (mới→cũ)
   const fil = filterNeighbors(threadId);
@@ -473,6 +484,17 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       <Images base={`/api/order/${threadId}`} anchorId="od-camera" openSignal={camSignal} />
       <History base={`/api/order/${threadId}`} />
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>
+
+      {isAdmin && (
+        <section class="card" style={{ marginTop: "10px" }}>
+          <button class="btn danger block" disabled={hasInvoice} onClick={doDeleteOrder}>
+            <Icon name="trash" size={16} /> Xoá đơn (admin)
+          </button>
+          <div class="muted small">
+            {hasInvoice ? "Còn HĐ KiotViet — xoá hoá đơn trước khi xoá đơn." : "Chỉ xoá được khi không có HĐ KiotViet + không còn phân bổ kho."}
+          </div>
+        </section>
+      )}
       </div>{/* .dmain */}
 
       <aside class="dside" id="od-chat">

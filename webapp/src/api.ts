@@ -271,6 +271,11 @@ export async function refreshOrderDebt(threadId: string | number): Promise<any> 
   return postJSON("/api/order/refresh-debt", { thread_id: Number(threadId) });
 }
 
+/** Xoá đơn (admin) — chỉ được khi KHÔNG có HĐ KiotViet + KHÔNG còn phân bổ kho. */
+export async function deleteOrder(threadId: string | number): Promise<any> {
+  return delJSON(`/api/order/${threadId}`);
+}
+
 /** Lịch sử thao tác toàn bộ (mọi đơn/phiếu/thùng), cursor theo id (before). */
 export async function getActivity(before?: number | null): Promise<{ items: any[]; has_more: boolean; next_before: number | null }> {
   return getJSON(`/api/activity${before ? `?before=${before}` : ""}`, { cache: false });

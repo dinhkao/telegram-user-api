@@ -20,6 +20,7 @@ from server_app.entity_media_routes import (
 )
 from server_app.order_api_auto import auto_parse_handler, order_preview_handler, customer_price_list_handler
 from server_app.order_api_create import order_create_handler
+from server_app.order_api_delete import order_delete_handler
 from server_app.order_api_mutations import api_assign_customer_handler, api_fix_handler, api_invoice_update_handler, api_refresh_handler, api_reply_handler, api_set_ngay_giao_handler
 from server_app.order_api_payments import api_customer_price_handler, order_totals_handler, payment_ck_handler, payment_delete_handler, payment_tm_handler
 from server_app.order_api_print import api_print_giao_handler
@@ -118,6 +119,7 @@ def create_app():
     r.add_get("/api/orders", orders_api_handler)
     r.add_get("/api/orders/delivery", orders_delivery_handler)
     r.add_get("/api/order/{thread_id}", order_detail_handler)
+    r.add_delete("/api/order/{thread_id}", order_delete_handler)
     r.add_static("/static/", "static")
     register_webapp_routes(r)
     get_client = lambda: state._tg_gateway or state._client
