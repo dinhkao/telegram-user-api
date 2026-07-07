@@ -1,11 +1,12 @@
-// Trình nhập hoá đơn nâng cao — dùng chung cho OrderDetail (sửa) và CreateOrder
-// (tạo mới). Dòng SP có autocomplete + tự lấy giá theo khách (/api/customer/price),
-// điều chỉnh Chiết khấu/PVC/VAT (nút VAT 8%), tổng sống, nút Lưu + Tạo HĐ KiotViet.
-// Parent quyết định onSave làm gì (invoice/update hay create-flow) và onCreateInvoice.
+// Trình NHẬP hoá đơn — thuần chỉnh sửa, dùng cho trang Sửa hoá đơn
+// (OrderInvoiceEdit) và tab Nâng cao trang tạo đơn (CreateOrder, createMode).
+// Dòng SP có autocomplete + tự lấy giá theo khách (/api/customer/price),
+// Thêm nhanh bằng text, điều chỉnh Chiết khấu/PVC/VAT, tổng sống.
+// KHÔNG còn chế độ xem / nút HĐ KiotViet — phần đó nằm ở khối Hoá đơn của
+// OrderDetail. Parent quyết định onSave làm gì và điều hướng sau khi lưu.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { fetchCustomerPrice, previewOrder, searchProducts, type PriceInfo, type OrderPreview } from "../api";
 import { money, parseMoney } from "../format";
-import { InvoiceTable } from "./InvoiceTable";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 import { PickerPopup } from "../ui/PickerPopup";
@@ -34,33 +35,19 @@ function ProductInput({ value, onChange, onCommit }: {
   );
 }
 
-export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCreateInvoice, canCreate, hasInvoice, createMode, startEditing, debt, onView, onDelete, onPrint, canDelete, invoiceCode, onRefreshDebt, debtLocked }: {
+export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave, onCancel, createMode }: {
   customerId?: string;
   invoice: any[];
   discount?: number; pvc?: number; vat?: number;
   onSave: (payload: EditorPayload) => Promise<void> | void;
-  onCreateInvoice?: () => Promise<void> | void;
-  canCreate?: boolean;                 // chỉ admin mới thấy nút tạo HĐ
-  hasInvoice?: boolean;
-  createMode?: boolean;   // form tạo đơn → luôn ở chế độ sửa, không có nút xem
-  debt?: number | null;                // nợ khách (cho bảng xem, giống dashboard)
-  onView?: () => void;                 // xem HĐ KiotViet
-  onDelete?: () => Promise<void> | void; // xoá HĐ KiotViet
-  onPrint?: () => Promise<void> | void;  // in HĐ + phiếu giao
-  canDelete?: boolean;                 // chỉ admin
-  invoiceCode?: string | number;
-  onRefreshDebt?: () => void;          // kéo nợ KiotViet mới nhất
-  debtLocked?: boolean;                // đã tạo HĐ → nợ chốt, không kéo được
-  startEditing?: boolean;              // mở thẳng chế độ sửa (trang Sửa hoá đơn riêng)
+  onCancel?: () => void;   // trang sửa: Huỷ → quay về chi tiết; createMode không cần
+  createMode?: boolean;    // form tạo đơn → nhãn nút "Lưu & tạo đơn"
 }) {
   const [rows, setRows] = useState<EditorRow[]>([]);
   const [disc, setDisc] = useState(0);
   const [p, setP] = useState(0);
   const [v, setV] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState(!!createMode || !!startEditing);
-  // Đã có HĐ KiotViet → KHOÁ, không cho sửa (kể cả khi state cũ còn sót do điều hướng)
-  useEffect(() => { if (hasInvoice && !createMode) setEditing(false); }, [hasInvoice, createMode]);
   const [quickText, setQuickText] = useState("");
   const [quickBusy, setQuickBusy] = useState(false);
   const [quickMsg, setQuickMsg] = useState("");
@@ -70,12 +57,12 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   // Xem trước tức thời khi gõ ở ô Thêm nhanh (giá theo khách của đơn)
   useEffect(() => {
     const t = quickText.trim();
-    if (!editing || !t) { setQuickPreview(null); return; }
+    if (!t) { setQuickPreview(null); return; }
     const my = ++quickSeq.current;
     previewOrder(t, customerId)
       .then((r) => { if (my === quickSeq.current) setQuickPreview(r); })
       .catch(() => { if (my === quickSeq.current) setQuickPreview(null); });
-  }, [quickText, customerId, editing]);
+  }, [quickText, customerId]);
   // Giá + bảng giá theo mã SP (đã hoa) — để ghi rõ giá lấy từ bảng giá nào
   const [listPrices, setListPrices] = useState<Record<string, PriceInfo>>({});
   const listRef = useRef<Record<string, PriceInfo>>({});
@@ -147,18 +134,11 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
     if (price) setRows((prev) => prev.map((r, idx) => (idx === i && !r.price ? { ...r, price } : r)));
   };
 
-  const run = async (fn: () => Promise<void> | void) => {
+  const save = async () => {
     setBusy(true);
-    try { await fn(); } catch (e: any) { toast(e?.message || "Lỗi", "err"); } finally { setBusy(false); }
-  };
-  const save = () => run(async () => {
-    await onSave({ invoice: rows.filter((r) => (r.sp || "").trim()), discount: disc, pvc: p, vat: v });
-    if (!createMode) setEditing(false);   // chi tiết: lưu xong về chế độ xem
-  });
-  const cancel = () => {
-    setRows((invoice || []).map((it) => ({ sp: it.sp || "", sl: Number(it.sl ?? it.quantity ?? 0) || 0, price: Number(it.price) || 0, note: it.note || "" })));
-    setDisc(Number(discount) || 0); setP(Number(pvc) || 0); setV(Number(vat) || 0);
-    setEditing(false);
+    try { await onSave({ invoice: rows.filter((r) => (r.sp || "").trim()), discount: disc, pvc: p, vat: v }); }
+    catch (e: any) { toast(e?.message || "Lỗi", "err"); }
+    finally { setBusy(false); }
   };
 
   const priceTag = (sp: string, price: number) => {
@@ -170,57 +150,11 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       : <span class="pricetag">{name}: {money(info.price)}</span>;
   };
 
-  // Nút liên quan hoá đơn KiotViet — gom chung ở đây (chưa có HĐ → Tạo; có HĐ → Xem/Xoá)
-  const invActions = (
-    <div class="inv-actions">
-      {hasInvoice && invoiceCode ? (
-        <div class="inv-created">✅ Đã tạo hoá đơn KiotViet · Mã <b>{invoiceCode}</b></div>
-      ) : null}
-      {hasInvoice ? (
-        <div class="inv-btns">
-          {onView ? <button class="btn small" onClick={onView}><Icon name="eye" size={16} /> Xem</button> : null}
-          {onPrint ? <button class="btn small" disabled={busy} title="In HĐ + phiếu giao" onClick={() => run(onPrint)}><Icon name="printer" size={16} /> In</button> : null}
-          {canDelete && onDelete ? <button class="btn small danger" disabled={busy} onClick={() => run(onDelete)}><Icon name="trash" size={16} /> Xoá</button> : null}
-        </div>
-      ) : (
-        canCreate && onCreateInvoice ? (
-          <button class="btn primary wide" disabled={busy} onClick={() => run(onCreateInvoice)}><Icon name="receipt" size={16} /> Tạo HĐ KiotViet</button>
-        ) : null
-      )}
-    </div>
-  );
-
-  // ── Chế độ XEM (mặc định ở trang chi tiết) ──────────────────────────────
-  if (!editing) {
-    // Nút khoá 🔒 / cập nhật nợ — render NGAY cạnh chữ "Nợ trước" trong bảng
-    const debtCtl = customerId
-      ? (debtLocked
-          ? <button class="lock-chip" title="Nợ đã chốt" onClick={() => toast("🔒 Nợ đã chốt tại thời điểm tạo hoá đơn KiotViet — không kéo nợ mới được. Xoá HĐ nếu cần cập nhật lại.", "info")}><Icon name="lock" size={16} /></button>
-          : (onRefreshDebt ? <button class="btn small" title="Kéo nợ KiotViet mới nhất" onClick={onRefreshDebt}><Icon name="refresh" size={16} /> Cập nhật nợ</button> : null))
-      : null;
-    return (
-      <div class="card">
-        <div class="row space">
-          <b>Hoá đơn ({rows.length} món)</b>
-          {hasInvoice
-            ? <button class="lock-chip" title="Đã chốt sản phẩm" onClick={() => toast("🔒 Đơn đã tạo hoá đơn KiotViet nên không sửa sản phẩm được nữa. Muốn sửa phải xoá HĐ trước.", "info")}><Icon name="lock" size={16} /></button>
-            : <button class="btn small" onClick={() => setEditing(true)}><Icon name="edit" size={16} /> Sửa</button>}
-        </div>
-        {rows.length === 0 ? (
-          <p class="muted small">Chưa có sản phẩm. Bấm ✏️ Sửa để thêm.</p>
-        ) : (
-          <InvoiceTable items={rows} discount={disc} pvc={p} vat={v} debt={debt} debtCtl={debtCtl} />
-        )}
-        {invActions}
-      </div>
-    );
-  }
-
-  // ── Chế độ SỬA — mỗi món là 1 khối, canh gọn trên mobile ────────────────
+  // ── Chỉnh sửa — mỗi món là 1 khối, canh gọn trên mobile ─────────────────
   return (
     <div class="card">
       <div class="row space">
-        <b>{createMode ? "Sản phẩm" : "Sửa hoá đơn"} ({rows.length} món)</b>
+        <b>Sản phẩm ({rows.length} món)</b>
       </div>
       <div class="inv-edit">
         {rows.map((it, i) => (
@@ -316,8 +250,8 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       </div>
 
       <div class="row">
-        <button class="btn primary" disabled={busy} onClick={save}>{busy ? "Đang lưu…" : createMode ? <><Icon name="save" size={16} /> Lưu & tạo đơn</> : <><Icon name="save" size={16} /> Lưu</>}</button>
-        {!createMode && <button class="btn" disabled={busy} onClick={cancel}>Huỷ</button>}
+        <button class="btn primary" disabled={busy} onClick={save}>{busy ? "Đang lưu…" : createMode ? <><Icon name="save" size={16} /> Lưu &amp; tạo đơn</> : <><Icon name="save" size={16} /> Lưu</>}</button>
+        {onCancel && <button class="btn" disabled={busy} onClick={onCancel}>Huỷ</button>}
       </div>
     </div>
   );

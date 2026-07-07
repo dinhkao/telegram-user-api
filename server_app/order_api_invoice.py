@@ -23,7 +23,7 @@ log = logging.getLogger("server")
 
 
 async def _is_admin(request: web.Request) -> bool:
-    """Chỉ-admin cho tạo/xoá HĐ — dùng chung is_admin_request (order_api_common)."""
+    """Chỉ-admin cho XOÁ HĐ — dùng chung is_admin_request (order_api_common)."""
     from server_app.order_api_common import is_admin_request
     return await is_admin_request(request)
 
@@ -34,8 +34,10 @@ async def api_create_invoice_handler(request: web.Request):
     except Exception:
         return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
     apply_web_actor(request, body)
-    if not await _is_admin(request):
-        return web.json_response({"ok": False, "error": "Chỉ admin mới được tạo hoá đơn KiotViet"}, status=403)
+    # TẠO hoá đơn: văn phòng (admin/van_phong); XOÁ vẫn chỉ admin (handler dưới)
+    from server_app.order_api_common import is_office_request
+    if not await is_office_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được tạo hoá đơn KiotViet"}, status=403)
     thread_id, user_id = body.get("thread_id"), body.get("user_id")
     if not thread_id:
         return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)

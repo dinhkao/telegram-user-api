@@ -2,7 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, getCustomerOrders, getJSON, invoiceHtmlUrl, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, type OrderImage } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, getCustomerOrders, getJSON, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
@@ -293,6 +293,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     window.open(invoiceHtmlUrl(threadId), "_blank");
   };
 
+  const refreshDebt = async () => {
+    try { const r = await refreshOrderDebt(threadId); setMsg(`💰 Đã cập nhật nợ KiotViet: ${money(r.debt)}đ`); changed(); }
+    catch (ex: any) { setMsg(`❌ ${ex.message}`); }
+  };
+
   const assignCustomer = async (c: { key: string; name: string } | null) => {
     if (!c) return;
     try {
@@ -447,27 +452,35 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       <section class="card">
         <b>Hoá đơn ({(j.invoice || []).length} món){j.kiotvietInvoiceCode ? ` · HĐ ${j.kiotvietInvoiceCode}` : ""}</b>
         {(j.invoice || []).length > 0
-          ? <InvoiceTable items={j.invoice} discount={j.discount} pvc={j.pvc} vat={j.vat} debt={j.khDebt ?? j.invoice_debt_snapshot} total={pc.tongthanhtoan || undefined} />
+          ? <InvoiceTable items={j.invoice} discount={j.discount} pvc={j.pvc} vat={j.vat}
+              debt={j.khDebt ?? j.invoice_debt_snapshot} total={pc.tongthanhtoan || undefined}
+              debtCtl={!hasInvoice && (j.khach_hang_id || j.khID)
+                ? <button class="btn small" title="Kéo nợ KiotViet mới nhất" onClick={refreshDebt}><Icon name="refresh" size={14} /></button>
+                : undefined} />
           : <div class="muted small">Chưa có sản phẩm.</div>}
-        <button class={"btn block primary" + (hasInvoice ? " faded" : "")} style={{ marginTop: "8px" }}
-          onClick={() => hasInvoice
-            ? toast("Đã tạo hoá đơn KiotViet — không sửa được. Xoá HĐ trước nếu cần.", "info")
-            : (window.location.hash = `#/order/${threadId}/hoa-don`)}>
-          <Icon name="edit" size={16} /> Sửa hoá đơn
-        </button>
-        {/* Thao tác HĐ KiotViet — chưa có HĐ: Tạo (admin); có HĐ: Xem/In/Xoá */}
+        {/* Chưa có HĐ: Sửa (trang riêng, thuần sửa) + Tạo HĐ (văn phòng).
+            Có HĐ: chốt — chỉ Xem/In (+ Xoá admin), không còn nút Sửa. */}
         {hasInvoice ? (
-          <div class="row" style={{ marginTop: "8px" }}>
-            <button class="btn small" onClick={viewHD}><Icon name="eye" size={16} /> Xem HĐ</button>
-            <button class="btn small" disabled={busy} onClick={doPrint}><Icon name="printer" size={16} /> In</button>
-            {isAdmin && <button class="btn small danger" disabled={busy} onClick={deleteHD}><Icon name="trash" size={16} /> Xoá HĐ</button>}
-          </div>
+          <>
+            <div class="row" style={{ marginTop: "8px" }}>
+              <button class="btn" style={{ flex: 1 }} onClick={viewHD}><Icon name="eye" size={16} /> Xem HĐ</button>
+              <button class="btn" style={{ flex: 1 }} disabled={busy} onClick={doPrint}><Icon name="printer" size={16} /> In</button>
+              {isAdmin && <button class="btn danger" style={{ flex: 1 }} disabled={busy} onClick={deleteHD}><Icon name="trash" size={16} /> Xoá HĐ</button>}
+            </div>
+            <div class="muted small" style={{ marginTop: "6px" }}>🔒 Đã tạo HĐ KiotViet — muốn sửa sản phẩm phải xoá HĐ trước.</div>
+          </>
         ) : (
-          isAdmin && (j.invoice || []).length > 0 && (
-            <button class="btn block" style={{ marginTop: "8px" }} disabled={busy} onClick={createHD}>
-              <Icon name="receipt" size={16} /> {busy ? "Đang tạo…" : "Tạo HĐ KiotViet"}
+          <>
+            <button class="btn block primary" style={{ marginTop: "8px" }}
+              onClick={() => (window.location.hash = `#/order/${threadId}/hoa-don`)}>
+              <Icon name="edit" size={16} /> Sửa hoá đơn
             </button>
-          )
+            {isOffice() && (j.invoice || []).length > 0 && (
+              <button class="btn block" style={{ marginTop: "8px" }} disabled={busy} onClick={createHD}>
+                <Icon name="receipt" size={16} /> {busy ? "Đang tạo…" : "Tạo HĐ KiotViet"}
+              </button>
+            )}
+          </>
         )}
         {invViewer && (
           <PhotoViewer images={[invViewer]} start={0} base={`/api/order/${threadId}`}
