@@ -65,14 +65,12 @@ body.modal-open { overflow: hidden; touch-action: none; overscroll-behavior: non
 
 /* Banner chữ chạy "<N> đơn chưa nộp" — DÍNH dưới app-bar (44px), trên mọi trang */
 .nop-banner { position: sticky; top: 44px; z-index: 18; display: block; overflow: hidden; white-space: nowrap; background: var(--warn-wash); color: var(--warn); border-bottom: 1px solid #ecd8a6; font-size: .82rem; font-weight: 700; text-decoration: none; height: 28px; line-height: 27px; }
-.nop-marquee { display: inline-flex; animation: nop-slide 9s linear infinite; will-change: transform; }
+/* LUÔN chạy — animation ghi đè cả prefers-reduced-motion (Android bật tiết kiệm
+   pin/tắt hiệu ứng → WebView báo reduce, nhưng banner này yêu cầu luôn cuộn).
+   Ghi rõ duration ở đây vì :root thu --dur về .001s khi reduce. */
+.nop-marquee { display: inline-flex; animation: nop-slide 9s linear infinite !important; will-change: transform; }
 .nop-seg { padding-right: 48px; flex: none; }
 @keyframes nop-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-/* Giảm chuyển động → chữ đứng yên (1 bản), không chạy */
-@media (prefers-reduced-motion: reduce) {
-  .nop-marquee { animation: none; padding-left: 12px; }
-  .nop-seg:not(:first-child) { display: none; }
-}
 /* Có banner (~28px) → các sticky khác neo top 44px phải tụt xuống 72px */
 body.has-nop .topbar, body.has-nop .od-appbar { top: 72px; }
 body.has-nop .notice { top: 76px; }
