@@ -120,15 +120,30 @@ async def production_add_boxes_handler(request: web.Request):
             if not slip or not slip.get("sp_name"):
                 return None, None, None
             code = str(slip["sp_name"]).strip().upper()
+            # Thùng NL người dùng chọn để tiêu hao (body.consume = [{box_id, quantity}]).
+            raw_picks = body.get("consume") if isinstance(body.get("consume"), list) else []
+            picks = [p for p in raw_picks if isinstance(p, dict) and p.get("box_id")]
+            # BẮT BUỘC: nếu SP có công thức → phải chọn đủ thùng NL cho từng nguyên liệu
+            # TRƯỚC khi tạo thùng. Kiểm tra theo tổng cây dự kiến của đợt này.
+            needs = recipe_needs(conn, code, sum(quantities))
+            if needs:
+                got: dict = {}
+                for p in picks:
+                    row = conn.execute("SELECT product_code FROM inventory_boxes WHERE id = ?", (p.get("box_id"),)).fetchone()
+                    if row:
+                        try:
+                            got[row[0]] = got.get(row[0], 0.0) + float(p.get("quantity") or 0)
+                        except (TypeError, ValueError):
+                            pass
+                for nd in needs:
+                    if got.get(nd["code"], 0.0) + 1e-6 < nd["amount"]:
+                        return "short", nd["code"], nd["amount"]
             created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=unit_id)
             # đồng bộ slip.total/numbers/progress: 1 entry/thùng (note = mã thùng)
             total = slip.get("total") or 0
             for box in created:
                 total = add_number(conn, thread_id, box["quantity"], f"📦 {box['box_code']}", by=actor)
-            # Trừ kho nguyên liệu theo thùng NGƯỜI DÙNG CHỌN (kind='production').
-            # body.consume = [{box_id, quantity}] (client tính theo công thức + chọn thùng).
-            raw_picks = body.get("consume") if isinstance(body.get("consume"), list) else []
-            picks = [p for p in raw_picks if isinstance(p, dict) and p.get("box_id")]
+            # Trừ kho NL (kind='production') — đã validate đủ ở trên.
             consume = allocate_picks(conn, picks, thread_id, by=actor, kind="production") if picks else []
             return created, total, consume
         finally:
@@ -136,6 +151,8 @@ async def production_add_boxes_handler(request: web.Request):
     created, total, consume = await asyncio.to_thread(_run)
     if created is None:
         return web.json_response({"ok": False, "error": "Chưa có sản phẩm, chưa nhập thùng được"}, status=400)
+    if created == "short":
+        return web.json_response({"ok": False, "error": f"Chưa chọn đủ thùng nguyên liệu {total} (cần {consume:g})"}, status=400)
     from server_app.realtime import emit_inventory_changed, emit_production_changed
     emit_production_changed(thread_id)
     emit_inventory_changed()

@@ -44,6 +44,8 @@ export function ProductionBoxes({
     return isFinite(n) && n > 0 && isFinite(c) && c > 0 ? n * c : 0;
   })();
   const chosenOf = (code: string) => (consumePicks[code] || []).reduce((s, p) => s + p.quantity, 0);
+  // BẮT BUỘC chọn đủ thùng NL trước khi tạo thùng (nếu SP có công thức)
+  const recipeOk = recipe.length === 0 || (produced > 0 && recipe.every((l) => chosenOf(l.ingredient_code) + 1e-6 >= l.ratio * produced));
   const createUnitPick = async (name: string) => {
     try {
       const u = await createUnit(name);
@@ -83,6 +85,10 @@ export function ProductionBoxes({
     const c = Math.floor(parseFloat(count.replace(",", ".")));
     if (!isFinite(c) || c <= 0) {
       setMsg("Số thùng không hợp lệ");
+      return;
+    }
+    if (!recipeOk) {
+      setMsg("⚠ Chọn đủ thùng nguyên liệu trước khi tạo thùng");
       return;
     }
     setBusy(true);
@@ -182,10 +188,14 @@ export function ProductionBoxes({
           onInput={(e) => setNote((e.target as HTMLInputElement).value)}
           placeholder="Ghi chú (tuỳ chọn)"
         />
-        <button class="btn primary" disabled={!hasSp || busy} onClick={submit}>
+        <button class="btn primary" disabled={!hasSp || busy || !recipeOk} onClick={submit}
+          title={!recipeOk ? "Chọn đủ thùng nguyên liệu trước" : undefined}>
           {busy ? "…" : <Icon name="plus" size={16} />}
         </button>
       </div>
+      {recipe.length > 0 && produced > 0 && !recipeOk && (
+        <div class="muted small">⚠ Cần chọn đủ thùng nguyên liệu mới tạo được thùng.</div>
+      )}
       {msg && <div class="muted small">{msg}</div>}
 
       {pickIng && (
