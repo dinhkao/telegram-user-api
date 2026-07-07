@@ -1,8 +1,9 @@
 // Popup SẮP THỨ TỰ thợ trong bảng báo cáo — mở từ nút ⚙️ ở trang sửa báo cáo.
 // KÉO tay (grip ≡, pointer-events → cảm ứng+chuột) hoặc bấm ↑↓ để đổi chỗ; "Áp dụng"
 // → trả thứ tự MỚI cho trang (áp vào bảng) + lưu bền sort_order thợ toàn cục.
-// Kéo = THẢ NỔI dòng (translateY theo ngón) + gạch chỉ chỗ chèn; CHỈ dời khi nhả tay
-// → không splice mỗi frame (khỏi lag) và không remount dòng đang giữ (key theo id bền).
+// Kéo = THẢ NỔI dòng đang giữ (translateY theo ngón), các dòng KHÁC TRƯỢT ±1 hàng để
+// mở khe (transition CSS → mượt kiểu iOS); CHỈ dời list thật khi nhả tay → không splice
+// mỗi frame (khỏi lag) và không remount dòng đang giữ (key theo id bền).
 // Neo đỉnh (sp-overlay/sp-sheet), usePopupBack + useScrollLock như mọi popup.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
@@ -26,8 +27,10 @@ export function WorkerOrderPopup({
   const [dragIdx, setDragIdx] = useState<number | null>(null);   // dòng đang kéo (vị trí gốc)
   const [dropTo, setDropTo] = useState<number>(0);               // sẽ chèn TRƯỚC index này (0..len)
   const [dy, setDy] = useState(0);                               // lệch Y để thả nổi
+  const [rowH, setRowH] = useState(0);                           // cao 1 hàng (đo lúc grab) → dịch khe
   const dragRef = useRef<number | null>(null);
   const dropRef = useRef<number>(0);               // chỗ chèn HIỆN TẠI (đọc lúc nhả, khỏi stale)
+  const midsRef = useRef<number[]>([]);            // trung điểm Y GỐC mỗi hàng (chốt lúc grab)
   const startY = useRef(0);
   const rowRefs = useRef<(HTMLElement | null)[]>([]);
   useScrollLock(open);
@@ -47,18 +50,22 @@ export function WorkerOrderPopup({
 
   // ── Kéo: grip bắt pointer → mọi move/up về grip đó. KHÔNG dời list khi kéo, chỉ
   // tính chỗ chèn (dropTo) + lệch Y (thả nổi). Dời thật khi nhả (onGripUp).
+  // Chỗ chèn tính theo trung điểm GỐC (chốt lúc grab) — KHÔNG đọc rect đang bị dịch
+  // (rect đang translate → vòng lặp phản hồi, giật).
   const targetFromY = (y: number): number => {
-    const rects = rowRefs.current.map((el) => el?.getBoundingClientRect());
-    for (let k = 0; k < rects.length; k++) {
-      const r = rects[k];
-      if (r && y < r.top + r.height / 2) return k;
+    const mids = midsRef.current;
+    for (let k = 0; k < mids.length; k++) {
+      if (y < mids[k]) return k;
     }
-    return list.length;
+    return mids.length;
   };
   const onGripDown = (i: number) => (e: any) => {
     e.currentTarget.setPointerCapture?.(e.pointerId);
     dragRef.current = i; dropRef.current = i; startY.current = e.clientY;
-    setDragIdx(i); setDropTo(i); setDy(0);
+    // chốt cao hàng + trung điểm GỐC mọi hàng NGAY (trước khi transform áp vào)
+    const rects = rowRefs.current.map((el) => el?.getBoundingClientRect() || null);
+    midsRef.current = rects.map((r) => (r ? r.top + r.height / 2 : Infinity));
+    setRowH(rects[i]?.height || 0); setDragIdx(i); setDropTo(i); setDy(0);
   };
   const onGripMove = (e: any) => {
     if (dragRef.current == null) return;
@@ -83,6 +90,15 @@ export function WorkerOrderPopup({
     setDragIdx(null); setDy(0);
   };
 
+  // Dịch từng hàng: hàng đang giữ theo ngón; hàng giữa khe trượt ±1 hàng để mở chỗ.
+  const rowTy = (i: number): number => {
+    if (dragIdx == null) return 0;
+    if (i === dragIdx) return dy;
+    if (dragIdx < dropTo && i > dragIdx && i < dropTo) return -rowH;   // kéo xuống → trượt lên
+    if (dropTo < dragIdx && i >= dropTo && i < dragIdx) return rowH;   // kéo lên → trượt xuống
+    return 0;
+  };
+
   const apply = () => { onApply(list.map((it) => it.name)); onClose(); };
 
   return createPortal(
@@ -92,10 +108,10 @@ export function WorkerOrderPopup({
         <div class="sp-list wo-list">
           {list.length === 0 && <div class="muted small" style="padding:14px 16px">Chưa có thợ nào trong bảng.</div>}
           {list.map((it, i) => (
-            <div class={"wo-row" + (dragIdx === i ? " floating" : "") + (dragIdx != null && dropTo === i ? " drop" : "") + (dragIdx != null && dropTo === list.length && i === list.length - 1 ? " drop-end" : "")}
+            <div class={"wo-row" + (dragIdx === i ? " floating" : "")}
               key={it.id}
               ref={(el: any) => { rowRefs.current[i] = el; }}
-              style={dragIdx === i ? `transform:translateY(${dy}px)` : ""}>
+              style={`transform:translateY(${rowTy(i)}px)`}>
               <span class="wo-grip" title="Kéo để đổi chỗ"
                 onPointerDown={onGripDown(i)} onPointerMove={onGripMove}
                 onPointerUp={onGripUp} onPointerCancel={onGripUp}>

@@ -1305,14 +1305,10 @@ body.co-kbd .bottom-nav { display: none; }
 
 /* Popup SẮP THỨ TỰ thợ (WorkerOrderPopup) — trang sửa báo cáo phiếu SX */
 .wo-list { padding: 4px 0; }
-.wo-row { position: relative; display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--card); }
+.wo-row { position: relative; display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--card); will-change: transform; transition: transform .17s cubic-bezier(.2,.8,.25,1); }
 .wo-row:last-child { border-bottom: 0; }
-/* dòng đang kéo: nổi lên trên, theo ngón (translateY set inline), không nhận pointer khác */
-.wo-row.floating { z-index: 5; box-shadow: var(--e3); border-radius: 10px; opacity: .96; }
-/* gạch xanh báo chỗ sẽ chèn: trước dòng .drop, hoặc sau dòng cuối .drop-end */
-.wo-row.drop::before, .wo-row.drop-end::after { content: ""; position: absolute; left: 10px; right: 10px; height: 3px; border-radius: 2px; background: var(--primary, #2680ff); }
-.wo-row.drop::before { top: -2px; }
-.wo-row.drop-end::after { bottom: -2px; }
+/* dòng đang giữ: theo ngón TỨC THÌ (không transition), nổi trên các hàng đang trượt */
+.wo-row.floating { z-index: 5; box-shadow: var(--e3); border-radius: 10px; opacity: .97; transition: none; }
 .wo-grip { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; color: var(--muted); cursor: grab; touch-action: none; user-select: none; }
 .wo-grip:active { cursor: grabbing; }
 .wo-idx { flex: 0 0 22px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .9rem; }
