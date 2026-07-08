@@ -819,6 +819,10 @@ body.pv-open { overflow: hidden; }
    phát sinh nợ lại; không rõ = nét đứt xám */
 .feed-ropes line.dl-owe { stroke: var(--danger); opacity: .5; }
 .feed-ropes line.dl-na { stroke: #c9ced6; stroke-dasharray: 3 7; }
+/* SỐ 0 LẶP LẠI ngay dưới biến động làm nợ ≠ 0 trở lại — cùng mặt chữ số nợ */
+.feed-ropes g.rep0 circle { fill: var(--ok); opacity: 1; stroke: var(--bg); stroke-width: 2; }
+.feed-ropes g.rep0 text { fill: #4b5563; font-size: .73rem; font-weight: 700;
+  font-variant-numeric: tabular-nums; text-anchor: end; dominant-baseline: central; }
 /* chừa chỗ cho số nợ ĐẦU TIÊN (nằm trên card đầu) */
 .cf-body.has-items .order-list { padding-top: 12px; }
 /* view ultra: payment 1 dòng; đơn = badge dòng 1 + nội dung dòng 2 (chừa cột nợ) */

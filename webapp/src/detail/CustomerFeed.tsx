@@ -220,6 +220,9 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   const [ropes, setRopes] = useState<Rope[]>([]);
   // đoạn line tiến trình nợ (chấm-tới-chấm, màu theo mốc DƯỚI = trạng thái của khoảng đó)
   const [debtSegs, setDebtSegs] = useState<{ x: number; y1: number; y2: number; st: string }[]>([]);
+  // SỐ 0 LẶP LẠI ngay dưới biến động làm nợ ≠ 0 trở lại — đóng khung quãng sạch
+  // nợ ở cả 2 đầu (mốc 0 gốc dưới + bản lặp trên). Vẽ SVG text+circle, tĩnh.
+  const [repZeros, setRepZeros] = useState<{ x: number; y: number; t: string }[]>([]);
   // render lại <line> (sau measure) đè y tĩnh lên attr đã dịch → áp lại ngay
   useLayoutEffect(() => { applyBeads(); }, [debtSegs]);
   useLayoutEffect(() => {
@@ -279,10 +282,12 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
         .sort((a, b) => a.y - b.y);
       const dl: { x: number; y1: number; y2: number; st: string }[] = [];
       const segMeta: { topEl: HTMLElement; botEl: HTMLElement; y1: number; y2: number }[] = [];
+      const repz: { x: number; y: number; t: string }[] = [];
       for (let i = 0; i < pts.length - 1; i++) {
-        // Mốc nợ = 0 → CẮT line, nhưng CHỈ đúng quãng thật sự sạch nợ: từ mốc 0
-        // lên tới BIẾN ĐỘNG gần nhất phía trên nó (sự kiện làm nợ ≠ 0 trở lại) —
-        // từ đó trở lên nợ đã treo lại → vẽ tiếp từ dot trên xuống sát biến động.
+        // Mốc nợ = 0 → CẮT line, chỉ đúng quãng thật sự sạch nợ: từ mốc 0 lên tới
+        // BIẾN ĐỘNG gần nhất phía trên (sự kiện làm nợ ≠ 0 trở lại) — từ đó trở
+        // lên nợ treo lại → vẽ tiếp; và LẶP LẠI SỐ 0 ngay dưới biến động đó
+        // (ngay-trước-biến-động nợ vẫn 0) để đóng khung quãng sạch ở cả 2 đầu.
         // dl/segMeta push CÙNG NHAU để index khớp node <line> (line bám chấm).
         if (pts[i + 1].st === "ok") {
           const span = deltas.filter((d) => d.y > pts[i].y + 1 && d.y < pts[i + 1].y - 1);
@@ -291,12 +296,16 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
             const st = pts[i].st === "na" ? "na" : "owe";
             dl.push({ x, y1: pts[i].y, y2: low.y - 8, st });
             segMeta.push({ topEl: pts[i].el, botEl: low.el, y1: pts[i].y, y2: low.y - 8 });
+            // quãng sạch đủ dài mới lặp (sát nhau thì số 0 gốc ngay đó rồi)
+            if (pts[i + 1].y - low.y > 70)
+              repz.push({ x, y: low.y + 18, t: pts[i + 1].el.textContent || "0" });
           }
           continue;
         }
         dl.push({ x, y1: pts[i].y, y2: pts[i + 1].y, st: pts[i + 1].st });
         segMeta.push({ topEl: pts[i].el, botEl: pts[i + 1].el, y1: pts[i].y, y2: pts[i + 1].y });
       }
+      setRepZeros(repz);
       segMetaRef.current = segMeta;
       lineNodesRef.current = null;   // node <line> render lại sau setState → requery
       setDebtSegs(dl);
@@ -372,6 +381,12 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
           <svg class="feed-ropes" aria-hidden="true">
             {debtSegs.map((s, i) => (
               <line key={`d${i}`} class={`dl-${s.st}`} x1={s.x} x2={s.x} y1={s.y1} y2={s.y2} />
+            ))}
+            {repZeros.map((z, i) => (
+              <g key={`z${i}`} class="rep0">
+                <circle cx={z.x} cy={z.y} r="4" />
+                <text x={z.x - 9.5} y={z.y}>{z.t}</text>
+              </g>
             ))}
             {ropes.map((r, i) => (
               <g key={i}>
