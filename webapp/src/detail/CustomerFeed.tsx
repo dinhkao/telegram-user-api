@@ -30,8 +30,9 @@ const payMethod = (p: PayItem) => PAY_METHOD_VI[(p.method || "").toLowerCase()] 
 // data-debt trên số nợ → lượt đo SVG vẽ ĐOẠN line chấm-tới-chấm đúng màu
 // (đỏ đang nợ / xanh sạch / xám không rõ) — không đứt ở header ngày, đổi màu
 // CHÍNH XÁC tại chấm.
-function Rail({ delta, deltaCls, debt, est }: {
+function Rail({ delta, deltaCls, debt, est, debtInGap }: {
   delta: string | null; deltaCls?: string; debt: number | null | undefined; est?: boolean;
+  debtInGap?: boolean;   // số đã TRÔI trong khe phía trên (fg-debt) → đây chỉ giữ CHẤM mốc
 }) {
   return (
     <span class="feed-rail">
@@ -39,10 +40,12 @@ function Rail({ delta, deltaCls, debt, est }: {
           est = số TÍNH LẠI từ chuỗi neo mốc KV (bản ghi cũ thiếu số) → hiện ≈ */}
       {debt == null
         ? <span class="fd-gap fd-na" data-debt="na" title="Không đủ mốc để tính">—</span>
-        : <span class="fd-gap" data-debt={Number(debt) > 0 ? "owe" : "ok"}
-            title={est ? "Số tính lại từ lịch sử (bản ghi cũ không lưu số nợ)" : undefined}>
-            {est ? "≈" : ""}{money(Number(debt))}
-          </span>}
+        : debtInGap
+          ? <span class="fd-gap fd-dotonly" data-debt={Number(debt) > 0 ? "owe" : "ok"} />
+          : <span class="fd-gap" data-debt={Number(debt) > 0 ? "owe" : "ok"}
+              title={est ? "Số tính lại từ lịch sử (bản ghi cũ không lưu số nợ)" : undefined}>
+              {est ? "≈" : ""}{money(Number(debt))}
+            </span>}
       {delta && <span class={"feed-delta " + (deltaCls || "")}>{delta}</span>}
     </span>
   );
@@ -59,12 +62,13 @@ const gapDays = (newer?: number, older?: number): number =>
   newer && older ? Math.round((newer - older) / 86400) : 0;
 const gapLabel = (d: number) =>
   d >= 60 ? `${Math.round(d / 30)} tháng` : d >= 14 ? `${Math.round(d / 7)} tuần` : `${d} ngày`;
-// MỌI khe thời gian → SỐ NỢ TREO suốt khoảng nghỉ (= nợ sau sự kiện cũ ở đáy khe)
-// TRÔI THEO CUỘN trong khe (sticky, kẹp 2 đầu) — cuộn giữa đoạn trống vẫn biết
-// đang treo bao nhiêu. Chấm + số gốc ở đáy khe giữ nguyên làm mốc.
+// Khe đủ chỗ trượt (≥5 ngày ≈ 70px): SỐ NỢ của khe (= nợ sau sự kiện cũ ở đáy)
+// chuyển HẲN vào khe làm số trượt DUY NHẤT (sticky, kẹp 2 đầu, đáp xuống cạnh
+// chấm mốc ở đáy — item dưới chỉ giữ chấm, không lặp số). Khe nhỏ: số ở đáy như cũ.
+const GAP_SLIDE_MIN_D = 5;
 const gapSpacer = (d: number, key: string, debt?: number | null, est?: boolean) => (
   <li key={key} class="feed-gap-li" style={{ height: `${Math.min(d * 14, 1400)}px` }} aria-hidden="true">
-    {debt != null && (
+    {debt != null && d >= GAP_SLIDE_MIN_D && (
       <span class="fg-debt">{est ? "≈" : ""}{money(Number(debt))}</span>
     )}
     <span class="fg-label">· {gapLabel(d)} ·</span>
@@ -91,7 +95,7 @@ type Rope = { d: string; x0: number; y1: number; y2: number };
 export function renderFeedItem(it: CustFeedItem, h: {
   openThumb: (e: Event, o: OrderRow, atId?: number) => void;
   jumpToOrder: (tid: number) => void;
-}) {
+}, debtInGap = false) {
     if (it.kind === "payment") {
       const debt = it.debt_after != null ? Number(it.debt_after) : null;
       return (
@@ -105,7 +109,7 @@ export function renderFeedItem(it: CustFeedItem, h: {
             {/* dòng 2 — cao ĐỒNG BỘ với card đơn (badges + text) */}
             <div class="fu-text muted">{it.by || "\u00a0"}</div>
           </button>
-          <Rail delta={`−${money(it.amount)}`} deltaCls="d-ok" debt={debt} est={it.debt_est} />
+          <Rail delta={`−${money(it.amount)}`} deltaCls="d-ok" debt={debt} est={it.debt_est} debtInGap={debtInGap} />
         </li>
       );
     }
@@ -128,7 +132,7 @@ export function renderFeedItem(it: CustFeedItem, h: {
             </div>
           </div>
         </a>
-        <Rail delta={o.total ? `+${o.total}` : null} deltaCls="d-owe" debt={it.debt_after} est={it.debt_est} />
+        <Rail delta={o.total ? `+${o.total}` : null} deltaCls="d-owe" debt={it.debt_after} est={it.debt_est} debtInGap={debtInGap} />
       </li>
     );
 }
@@ -255,8 +259,6 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     } catch { /* im */ }
   };
 
-  const renderItem = (it: CustFeedItem) => renderFeedItem(it, { openThumb, jumpToOrder });
-
   const hasRopes = ropes.length > 0;
   return (
     <section class="cust-feed">
@@ -295,7 +297,10 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
               if (it.ts < DEBT_FEATURE_TS && (i === 0 || items[i - 1].ts >= DEBT_FEATURE_TS)) nodes.push(debtFeatureNote);
               const d = i > 0 ? gapDays(items[i - 1].ts, it.ts) : 0;
               // nợ treo trong khe = nợ SAU sự kiện CŨ hơn (item dưới khe) = it.debt_after
-              if (d >= 2) nodes.push(gapSpacer(d, `gap-${i}`, it.debt_after != null ? Number(it.debt_after) : null, it.debt_est));
+              const debtVal = it.debt_after != null ? Number(it.debt_after) : null;
+              // số chuyển vào khe làm số trượt → item dưới chỉ giữ chấm (không lặp)
+              const slid = d >= 2 && debtVal != null && d >= GAP_SLIDE_MIN_D;
+              if (d >= 2) nodes.push(gapSpacer(d, `gap-${i}`, debtVal, it.debt_est));
               // header NGÀY dạng divider phẳng — sau khe, trước item đầu của ngày
               const day = dayOf(it);
               if (i === 0 || dayOf(items[i - 1]) !== day) {
@@ -305,7 +310,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
                   </li>
                 );
               }
-              nodes.push(renderItem(it));
+              nodes.push(renderFeedItem(it, { openThumb, jumpToOrder }, slid));
               return nodes;
             });
           })()}

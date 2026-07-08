@@ -735,8 +735,9 @@ body.pv-open { overflow: hidden; }
    card — không tràn vào cột rail nợ bên phải (gạch chân/nhãn không đè số nợ) */
 .cust-feed .feed-day-li { margin-right: 87px; }
 /* khe = block (không flex) để 2 phần tử sticky bên trong trượt HẾT chiều cao khe;
-   padding-bottom chặn số trôi dừng sớm ~26px — khỏi đè lên số nợ thật ở đáy khe */
-.feed-gap-li { display: block; position: relative; margin-right: 87px; padding-bottom: 26px; }
+   padding-bottom nhỏ → số trượt ĐÁP sát cạnh chấm mốc ở đáy khe (số duy nhất,
+   item dưới chỉ giữ chấm — fd-dotonly) */
+.feed-gap-li { display: block; position: relative; margin-right: 87px; padding-bottom: 4px; }
 .fg-label { display: block; width: fit-content; margin: 0 auto;
   font-size: .7rem; color: var(--muted); background: var(--bg); padding: 0 6px;
   position: sticky; top: 50vh; }   /* khe dài (cả trăm px) — nhãn dính giữa màn khi cuộn qua */
@@ -748,7 +749,10 @@ body.pv-open { overflow: hidden; }
   position: sticky; top: 44vh; z-index: 1;
   font-size: .73rem; font-weight: 700; font-variant-numeric: tabular-nums;
   white-space: nowrap; color: #4b5563; background: var(--bg); border-radius: 4px;
-  padding: 1px 4px; }
+  padding: 1px 4px;
+  transform: translateZ(0); will-change: transform; }   /* layer riêng — cuộn không repaint SVG (đỡ lag máy cũ) */
+/* item có số đã trôi trong khe phía trên → chỉ giữ CHẤM mốc, không lặp số */
+.fd-gap.fd-dotonly { padding: 0; background: none; }
 /* ── Lịch tháng biến động (CustomerCalendar) ── */
 .cust-cal { margin: 4px 0 14px; }
 /* ── lịch LIỀN MẠCH kiểu macOS: indicator tháng dính + tháng active nổi bật ── */
