@@ -12,6 +12,7 @@ export type SPOption = { value: string | number; label: string; sub?: string };
 
 export function SelectPopup({
   value, options, onChange, placeholder = "Chọn…", searchable, onCreate, disabled, title, class: cls,
+  open: openProp, onClose,
 }: {
   value?: string | number | null;
   options: SPOption[];
@@ -22,8 +23,14 @@ export function SelectPopup({
   disabled?: boolean;
   title?: string;                       // tiêu đề popup
   class?: string;
+  /** CONTROLLED mode: truyền `open` + `onClose` → popup mở/đóng từ ngoài, KHÔNG
+   *  render trigger (dùng khi nút mở là nút riêng, vd "Chuyển kho"). */
+  open?: boolean;
+  onClose?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const controlled = openProp !== undefined;
+  const [selfOpen, setSelfOpen] = useState(false);
+  const open = controlled ? !!openProp : selfOpen;
   const [q, setQ] = useState("");
   useScrollLock(open);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -33,16 +40,18 @@ export function SelectPopup({
   const cur = options.find((o) => String(o.value) === String(value ?? ""));
   const nq = foldVN(q.trim());
   const filtered = nq ? options.filter((o) => foldVN(`${o.label} ${o.sub || ""}`).includes(nq)) : options;
-  const close = () => { setOpen(false); setQ(""); };
+  const close = () => { if (controlled) onClose?.(); else setSelfOpen(false); setQ(""); };
   usePopupBack(open, close);
   const pick = (v: string | number) => { onChange(String(v)); close(); };
 
   return (
     <>
-      <button type="button" class={"sp-trigger " + (cls || "")} disabled={disabled} onClick={() => setOpen(true)}>
-        <span class={cur ? "" : "muted"}>{cur ? cur.label : placeholder}</span>
-        <Icon name="chevronDown" size={16} />
-      </button>
+      {!controlled && (
+        <button type="button" class={"sp-trigger " + (cls || "")} disabled={disabled} onClick={() => setSelfOpen(true)}>
+          <span class={cur ? "" : "muted"}>{cur ? cur.label : placeholder}</span>
+          <Icon name="chevronDown" size={16} />
+        </button>
+      )}
       {open && createPortal(
         <div class="sp-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) close(); }}>
           <div class="sp-sheet">

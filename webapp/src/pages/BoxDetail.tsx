@@ -48,18 +48,26 @@ export function BoxDetail({ boxId }: { boxId: string }) {
       if (b && d) setD({ ...d, box: b });
     } catch { /* im */ }
   };
-  const pickPlace = async (val: string) => {
+  // CHUYỂN KHO — hành động rõ ràng (không phải "sửa field"): nút mở popup chọn
+  // kho đích → chuyển → toast "001: Kho A → Kho B". Ghi lịch sử thao tác (audit).
+  const [movePop, setMovePop] = useState(false);
+  const doMove = async (val: string) => {
+    if (!d) return;
+    const from = d.box.place_name || "Chưa xếp";
+    if (String(d.box.place_id ?? "") === val) { toast(`Thùng đang ở ${from} rồi`, "info"); return; }
     try {
       const b = await setBoxPlace(boxId, val ? Number(val) : null);
-      if (b && d) setD({ ...d, box: b });
-    } catch { /* im */ }
+      if (b) {
+        setD({ ...d, box: b });
+        toast(`Đã chuyển thùng ${b.box_code}: ${from} → ${b.place_name || "Chưa xếp"}`, "ok");
+      }
+    } catch (e: any) { toast(e?.message || "Lỗi chuyển kho", "err"); }
   };
   const createPlaceAssign = async (name: string) => {
     try {
       const p = await createPlace(name);
       setPlaces((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]));
-      const b = await setBoxPlace(boxId, p.id);
-      if (b && d) setD({ ...d, box: b });
+      await doMove(String(p.id));
     } catch { /* im */ }
   };
 
@@ -214,11 +222,18 @@ export function BoxDetail({ boxId }: { boxId: string }) {
         </div>
         <div class="box-kv">
           <span class="box-k">Vị trí</span>
-          <SelectPopup title="Vị trí kho" placeholder="— Chưa xếp —" searchable onCreate={createPlaceAssign}
-            value={b.place_id ?? ""}
-            options={[{ value: "", label: "— Chưa xếp —" }, ...places.map((p) => ({ value: p.id, label: p.name }))]}
-            onChange={pickPlace} />
+          <span class={"box-v box-place" + (b.place_name ? "" : " muted")}>
+            <Icon name="tag" size={14} /> {b.place_name || "Chưa xếp"}
+          </span>
+          <button class="btn small box-move-btn" onClick={() => setMovePop(true)}>
+            <Icon name="truck" size={14} /> Chuyển kho
+          </button>
         </div>
+        <SelectPopup open={movePop} onClose={() => setMovePop(false)}
+          title={`Chuyển thùng ${b.box_code} tới…`} searchable onCreate={createPlaceAssign}
+          value={b.place_id ?? ""}
+          options={[{ value: "", label: "— Chưa xếp —" }, ...places.map((p) => ({ value: p.id, label: p.name }))]}
+          onChange={doMove} />
         <div class="box-kv">
           <span class="box-k">Ngày SX</span>
           <input

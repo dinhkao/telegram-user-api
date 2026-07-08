@@ -975,6 +975,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 
 /* chi tiết 1 thùng */
 .box-kv { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid #f2f2f2; }
+/* Vị trí + nút Chuyển kho (BoxDetail): vị trí hiện to rõ, nút hành động neo phải */
+.box-place { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+.box-move-btn { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; flex: none; }
 .box-kv:last-child { border-bottom: none; }
 .box-k { flex: 0 0 96px; color: var(--muted); font-size: .85rem; }
 /* ô sửa (đơn vị/vị trí/ngày SX) lấp đầy cột phải, canh đều nhau — hết lệch xấu */

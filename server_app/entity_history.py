@@ -34,6 +34,24 @@ _SOURCE_LABELS = {
 _SKIP = {"POST /api/production/{id}/report/parse"}   # xem trước, không phải ghi
 
 
+def _box_update_action(bd: dict, places: dict) -> tuple[str, str] | None:
+    """(label, detail) cho POST /api/inventory/box/{id} theo BODY — 1 endpoint sửa
+    nhiều thứ nên phân loại để lịch sử đọc được: Chuyển kho / Ghi chú / NSX / Đơn vị."""
+    if not isinstance(bd, dict):
+        return None
+    if "place_id" in bd:
+        pid = bd.get("place_id")
+        name = places.get(int(pid)) if isinstance(pid, (int, float, str)) and str(pid).strip().isdigit() else None
+        return "Chuyển kho", f"→ {name or 'Chưa xếp'}"
+    if "unit_id" in bd:
+        return "Đổi đơn vị chứa", ""
+    if "mfg_date" in bd:
+        return "Sửa ngày SX", str(bd.get("mfg_date") or "")[:20]
+    if "note" in bd:
+        return "Sửa ghi chú", str(bd.get("note") or "")[:50]
+    return None
+
+
 def _report_detail(text: str) -> str:
     """Tóm tắt báo cáo thợ cho lịch sử: '14 thợ · tổng 489,5 · 1/7/2026' thay vì
     dump 50 ký tự đầu của text dạng ';' (nhìn như rác)."""
@@ -84,6 +102,10 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
             (scope, int(entity_id)),
         ).fetchall()
         names = _load_names()
+        try:   # map vị trí kho cho label "Chuyển kho → Kho B" (bảng có thể chưa tạo)
+            places = {r[0]: r[1] for r in conn.execute("SELECT id, name FROM inventory_places").fetchall()}
+        except Exception:
+            places = {}
         out: list[dict] = []
         for r in rows:
             act = r["action"]
@@ -99,12 +121,17 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
                     continue
                 is_report = path.endswith("/report")
                 detail = ""
+                label_override = None
                 try:
                     b = json.loads(r["payload_json"] or "{}").get("body")
                     if isinstance(b, str) and b.strip().startswith("{"):
                         bd = json.loads(b)
                         if is_report:
                             detail = _report_detail(str(bd.get("text") or ""))
+                        elif key == "POST /api/inventory/box/{id}":
+                            la = _box_update_action(bd, places)
+                            if la:
+                                label_override, detail = la
                         else:
                             detail = str(bd.get("text") or bd.get("note") or "")[:50]
                 except Exception:
@@ -120,7 +147,7 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
                 if is_report and ok and out and out[-1].get("_rk") == (actor,):
                     continue
                 out.append({"ts": r["ts"], "actor": actor,
-                            "action": _label(key, method, path), "detail": detail, "changes": [],
+                            "action": label_override or _label(key, method, path), "detail": detail, "changes": [],
                             "ok": ok, **({"_rk": (actor,)} if is_report and ok else {})})
             else:
                 continue
