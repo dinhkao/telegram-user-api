@@ -6,6 +6,7 @@ import { onRealtime } from "../realtime";
 import { Loading, EmptyState } from "../ui/states";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
+import { SearchBar } from "../ui/SearchBar";
 import { usePopupBack } from "../ui/usePopupBack";
 
 const PAGE_SIZE = 30;
@@ -145,13 +146,7 @@ export function Customers() {
   return (
     <div>
       <header class="topbar cust-topbar">
-        <input
-          class="search"
-          type="search"
-          placeholder="Tìm khách hàng…"
-          value={search}
-          onInput={(e: any) => onSearch(e.target.value)}
-        />
+        <SearchBar value={search} onInput={onSearch} placeholder="Tìm khách hàng…" />
         <button class="btn primary cust-add" onClick={() => setCreating(true)} title="Tạo khách mới"><Icon name="plus" size={16} /></button>
       </header>
 

@@ -13,6 +13,7 @@ import {
 } from "../detail/OrderCards";
 import { Loading, EmptyState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
+import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
 import { fastScrollTop } from "../scroll";
 
 
@@ -407,13 +408,7 @@ export function OrdersList() {
     <div>
       <header class="topbar">
         <div class="topbar-row">
-          <input
-            class="search"
-            type="search"
-            placeholder="Tìm khách, sản phẩm…"
-            value={search}
-            onInput={(e: any) => onSearch(e.target.value)}
-          />
+          <SearchBar value={search} onInput={onSearch} placeholder="Tìm khách, sản phẩm…" />
           <div class="view-slider" role="group" aria-label="Kiểu xem">
             {_VIEWS.map((v) => (
               <button key={v.m} class={view === v.m ? "vs-seg on" : "vs-seg"} title={v.t} aria-pressed={view === v.m} onClick={() => setViewMode(v.m)}>{v.ic}</button>
@@ -422,17 +417,14 @@ export function OrdersList() {
           </div>
         </div>
         {anyFilter && (
-          <div class="filter-active-bar">
-            <span class="fab-txt">
-              <Icon name="search" size={14} /> Đang lọc:{" "}
-              {filter !== "all" ? <b>{FILTER_LABELS[filter] || filter}</b> : null}
-              {filter === "chua_giao" ? <span class="muted"> · ẩn đơn hẹn giao tương lai</span> : null}
-              {filter !== "all" && search.trim() ? " · " : null}
-              {search.trim() ? <b>“{search.trim()}”</b> : null}
-              {filter !== "all" && stats && (stats as any)[filter] != null ? <span class="fab-count"> · {(stats as any)[filter]} đơn</span> : null}
-            </span>
-            <button class="fab-clear" onClick={clearFilters}>✕ Bỏ lọc</button>
-          </div>
+          <FilterActiveBar
+            parts={[
+              filter !== "all" && (FILTER_LABELS[filter] || filter),
+              filter === "chua_giao" && "ẩn đơn hẹn giao tương lai",
+              search.trim() && `“${search.trim()}”`,
+            ]}
+            count={filter !== "all" && stats ? (stats as any)[filter] : null}
+            onClear={clearFilters} />
         )}
       </header>
       {stats && (

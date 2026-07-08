@@ -3,7 +3,7 @@
 // tại chỗ, hạn đỏ khi quá, chip đơn link #/order), tạo việc (sheet: tiêu đề/
 // ghi chú/giao cho/hạn/link đơn qua search), LỊCH (ScrollCalendar theo hạn).
 // Data: /api/tasks*. Realtime: tasks_changed.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
   createTask, currentUser, getJSON, listTasks, taskAssignees, taskDay, taskDays,
   updateTask, type Task, type TaskCounts,
@@ -14,6 +14,7 @@ import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
 import { SelectPopup } from "../ui/SelectPopup";
 import { Icon } from "../ui/Icon";
+import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
 import { toast } from "../ui/feedback";
 import { EmptyState, SkeletonList } from "../ui/states";
 
@@ -68,8 +69,10 @@ export function TasksBoard() {
   const [loading, setLoading] = useState(true);
   const [names, setNames] = useState<Record<string, string>>({});
   const [q, setQ] = useState("");
+  const fltRef = useRef("open");   // closure-safe cho debounce search
+  const changeFlt = (f: string) => { fltRef.current = f; setFlt(f); };
 
-  const load = async (f = flt, p = 1, qq = q) => {
+  const load = async (f = fltRef.current, p = 1, qq = q) => {
     setLoading(true);
     try {
       const d = await listTasks(f, p, qq.trim());
@@ -78,10 +81,20 @@ export function TasksBoard() {
     } catch (e: any) { toast(e?.message || "Lỗi tải việc"); }
     setLoading(false);
   };
-  useEffect(() => { load("open", 1); }, []);
-  // search: gõ → debounce 300ms tải lại
   useEffect(() => {
-    const t = setTimeout(() => load(flt, 1, q), 300);
+    // deep-link #/viec?filter=… (badge app bar → Của tôi)
+    const fm = window.location.hash.match(/[?&]filter=([a-z_]+)/);
+    const f = fm && FLT.some((x) => x.k === fm[1]) ? fm[1] : "open";
+    if (fm) history.replaceState(null, "", "#/viec");
+    changeFlt(f);
+    load(f, 1);
+  }, []);
+  // search: gõ → debounce 300ms tải lại (bỏ lần mount đầu — khỏi đè deep-link;
+  // đọc filter qua ref để không dính closure cũ)
+  const qFirst = useRef(true);
+  useEffect(() => {
+    if (qFirst.current) { qFirst.current = false; return; }
+    const t = setTimeout(() => load(fltRef.current, 1, q), 300);
     return () => clearTimeout(t);
   }, [q]);
   useEffect(() => {
@@ -90,7 +103,7 @@ export function TasksBoard() {
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
-      if (e.type === "tasks_changed") { clearTimeout(t); t = setTimeout(() => load(flt, 1), 400); }
+      if (e.type === "tasks_changed") { clearTimeout(t); t = setTimeout(() => load(fltRef.current, 1), 400); }
     });
     return () => { off(); clearTimeout(t); };
   }, [flt]);
@@ -135,13 +148,16 @@ export function TasksBoard() {
       {mode === "list" && (
         <>
           <div class="search-row">
-            <input class="input tk-search" type="search" placeholder="Tìm việc, đơn, người làm…"
-              value={q} onInput={(e: any) => setQ(e.target.value)} />
+            <SearchBar value={q} onInput={setQ} placeholder="Tìm việc, đơn, người làm…" />
           </div>
+          <FilterActiveBar
+            parts={[flt !== "open" && (FLT.find((f) => f.k === flt)?.t || flt), q.trim() && `“${q.trim()}”`]}
+            count={tasks.length}
+            onClear={() => { setQ(""); changeFlt("open"); load("open", 1, ""); }} />
           <div class="chips">
             {FLT.map((f) => (
               <button key={f.k} class={"chip" + (flt === f.k ? " active" : "") + (f.k === "overdue" && counts?.overdue ? " chip-danger" : "")}
-                onClick={() => { setFlt(f.k); load(f.k, 1); }}>
+                onClick={() => { changeFlt(f.k); load(f.k, 1); }}>
                 {f.t}{counts && f.c != null ? ` (${counts[f.c]})` : ""}
               </button>
             ))}

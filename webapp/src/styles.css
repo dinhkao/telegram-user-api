@@ -1693,3 +1693,15 @@ body.kbd-open .od-navbar { display: none; }
 
 .tk-search { width: 100%; }
 .tasks-page .search-row { margin-bottom: 8px; }
+
+/* ── SEARCH BAR CHUẨN (ui/SearchBar) — mọi trang list dùng chung ── */
+.sbar { position: relative; display: flex; align-items: center; flex: 1; min-width: 0; }
+.sbar-ic { position: absolute; left: 10px; color: var(--muted-2); pointer-events: none; }
+.sbar-in { width: 100%; border: 1px solid var(--border); border-radius: 10px; background: var(--card);
+  padding: 9px 32px 9px 32px; font-size: .92rem; }
+.sbar-in:focus { outline: none; border-color: var(--primary); }
+.sbar-in::-webkit-search-cancel-button { display: none; }
+.sbar-x { position: absolute; right: 6px; display: flex; padding: 5px; border: none; background: none; color: var(--muted); }
+
+.task-bell { position: relative; display: flex; }
+.tb-badge { background: var(--primary); }

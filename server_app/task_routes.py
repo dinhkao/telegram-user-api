@@ -40,7 +40,9 @@ async def _ensure_backfill():
 
 
 def _me(request: web.Request) -> str:
-    return str(request.get("web_user") or "")
+    # web_auth tắt (mặc định, Tailscale-only) → server không biết user từ token;
+    # client gửi kèm ?me=<username> làm fallback (chỉ để lọc/đếm 'Của tôi')
+    return str(request.get("web_user") or request.query.get("me") or "")
 
 
 def _emit():
@@ -69,6 +71,9 @@ async def tasks_list_handler(request: web.Request):
     await _ensure_backfill()
     from task_store import counts, day_counts, day_tasks, list_tasks
     q = request.query
+    if q.get("counts"):
+        from task_store import counts as _counts
+        return web.json_response({"ok": True, "counts": await asyncio.to_thread(_counts, _me(request), _today_vn())})
     if q.get("days"):
         return web.json_response({"ok": True, "days": await asyncio.to_thread(day_counts)})
     if q.get("day"):

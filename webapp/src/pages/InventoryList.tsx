@@ -9,6 +9,7 @@ import { toast } from "../ui/feedback";
 import { useScrollLock } from "../useScrollLock";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
+import { SearchBar } from "../ui/SearchBar";
 import { usePopupBack } from "../ui/usePopupBack";
 
 export function InventoryList() {
@@ -71,8 +72,7 @@ export function InventoryList() {
         <h2 class="page-h"><Icon name="tag" size={18} /> Sản phẩm <span class="muted small">({products.length} mã)</span></h2>
         <button class="btn small primary" onClick={() => setCreateOpen(true)}><Icon name="plus" size={16} /> Tạo mã</button>
       </div>
-      <input class="inv-search" type="search" placeholder="Tìm mã / tên sản phẩm…" value={q}
-        onInput={(e: any) => setQ(e.target.value)} />
+      <SearchBar value={q} onInput={setQ} placeholder="Tìm mã / tên sản phẩm…" />
 
       {createOpen && (
         <div class="modal-overlay" onClick={() => setCreateOpen(false)}>

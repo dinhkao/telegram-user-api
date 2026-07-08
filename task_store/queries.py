@@ -112,9 +112,10 @@ def list_tasks(*, flt: str = "open", assignee: str = "", me: str = "", page: int
         where.append("assignee = ?")
         params.append(assignee)
     if q:
-        # tìm trong tiêu đề / ghi chú / nhãn đơn / người được giao
-        where.append("(title LIKE ? OR note LIKE ? OR order_label LIKE ? OR assignee LIKE ?)")
-        params.extend([f"%{q}%"] * 4)
+        # tìm KHÔNG DẤU (vn_normalize như search đơn) trong tiêu đề/ghi chú/nhãn đơn/người giao
+        from vn import vn_normalize
+        where.append("vnfold(title || ' ' || note || ' ' || order_label || ' ' || assignee) LIKE ?")
+        params.append(f"%{vn_normalize(q)}%")
     w = " AND ".join(where)
     # sắp xếp: MỚI TẠO trước
     order = "ORDER BY done ASC, created_at DESC, id DESC"
@@ -122,6 +123,9 @@ def list_tasks(*, flt: str = "open", assignee: str = "", me: str = "", page: int
         order = "ORDER BY done_at DESC"
     conn = conn_tasks()
     try:
+        if q:
+            from vn import vn_normalize
+            conn.create_function("vnfold", 1, lambda t: vn_normalize(t or ""))
         total = conn.execute(f"SELECT COUNT(*) FROM web_tasks WHERE {w}", params).fetchone()[0]
         rows = conn.execute(
             f"SELECT {COLS} FROM web_tasks WHERE {w} {order} LIMIT ? OFFSET ?",

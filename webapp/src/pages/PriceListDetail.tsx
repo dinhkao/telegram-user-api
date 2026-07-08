@@ -8,6 +8,7 @@ import { getPriceList, savePriceOne, getPriceHistory, type PriceListFull, type P
 import { money, parseMoney } from "../format";
 import { onRealtime } from "../realtime";
 import { Loading, ErrorState } from "../ui/states";
+import { SearchBar } from "../ui/SearchBar";
 import { Icon } from "../ui/Icon";
 
 function fmtMs(ms: number): string {
@@ -83,7 +84,7 @@ export function PriceListDetail({ listId }: { listId: string }) {
       {err && <p class="error">{err}</p>}
 
       <section class="card">
-        <input class="search" type="search" placeholder="Tìm mã SP…" value={filter} onInput={(e: any) => setFilter(e.target.value)} />
+        <SearchBar value={filter} onInput={setFilter} placeholder="Tìm mã SP…" />
         <table class="invoice-table">
           <tbody>
             {items.map((it) => (

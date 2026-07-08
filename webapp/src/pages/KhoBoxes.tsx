@@ -6,6 +6,7 @@ import { allBoxes, type KhoBox } from "../api";
 import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
+import { SearchBar } from "../ui/SearchBar";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 
@@ -55,8 +56,7 @@ export function KhoBoxes() {
           <a class="btn small" href="#/san-pham"><Icon name="tag" size={15} /> Sản phẩm</a>
         </span>
       </div>
-      <input class="inv-search" type="search" placeholder="Tìm mã sản phẩm / vị trí…" value={q}
-        onInput={(e: any) => setQ(e.target.value)} />
+      <SearchBar value={q} onInput={setQ} placeholder="Tìm mã sản phẩm / vị trí…" />
       {(placeNames.length > 0 || hasUnplaced) && (
         <div class="place-chips">
           <button class={"chip" + (place === "" ? " active" : "")} onClick={() => setPlace("")}>Tất cả</button>

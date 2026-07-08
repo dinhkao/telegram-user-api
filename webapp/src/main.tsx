@@ -31,6 +31,7 @@ import { QuyList } from "./pages/QuyList";
 import { WorkerList } from "./pages/WorkerList";
 import { Users } from "./pages/Users";
 import { NotifCenter } from "./NotifCenter";
+import { TaskBell } from "./TaskBell";
 import { InventoryList } from "./pages/InventoryList";
 import { InventoryDetail } from "./pages/InventoryDetail";
 import { KhoBoxes } from "./pages/KhoBoxes";
@@ -408,6 +409,7 @@ function App() {
           <span class="app-title">{isHome && <span class="app-logo" aria-hidden="true">🍬</span>}{pageTitle}</span>
           <div class="app-bar-right">
             <RealtimeDot />
+            <TaskBell />
             <NotifCenter />
             <button class="icon-btn" title="Tải lại" onClick={() => window.location.reload()}><Icon name="refresh" size={19} /></button>
             <a class="icon-btn" href="#/login" title="Cài đặt"><Icon name="settings" size={19} /></a>
