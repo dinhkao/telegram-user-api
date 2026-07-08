@@ -81,8 +81,8 @@ export function CustomerCalendar({ ckey, renderItem }: {
               <span class="cc-d">{d}</span>
               {c && (
                 <span class="cc-dots">
-                  {c.o > 0 && <span class="cc-dot o" />}
-                  {c.p > 0 && <span class="cc-dot p" />}
+                  {Array.from({ length: c.o }, (_, j) => <span key={`o${j}`} class="cc-dot o" />)}
+                  {Array.from({ length: c.p }, (_, j) => <span key={`p${j}`} class="cc-dot p" />)}
                 </span>
               )}
             </button>
