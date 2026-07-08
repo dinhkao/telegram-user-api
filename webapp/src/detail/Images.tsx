@@ -187,14 +187,17 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
             </div>
           ))}
           {shown.map((img) => (
-            <div class="img-tile" id={`image-${img.id}`} key={img.id}>
+            <div class={"img-tile" + (img.deleted_at ? " img-deleted" : "")} id={`image-${img.id}`} key={img.id}>
               <img
                 src={mediaImageUrl(base, img.id, "thumb")}
                 loading="lazy"
                 alt=""
                 onClick={() => setLightbox(img)}
               />
-              <button class="img-del" title="Xoá" onClick={() => remove(img)}><Icon name="trash" size={14} /></button>
+              {/* xoá MỀM: ảnh vẫn hiện, X đỏ đè lên (CSS .img-x-mark) */}
+              {img.deleted_at ? <span class="img-x-mark" title={`Đã xoá${img.deleted_by ? ` bởi ${img.deleted_by}` : ""}`} /> : (
+                <button class="img-del" title="Xoá" onClick={() => remove(img)}><Icon name="trash" size={14} /></button>
+              )}
               {isOrder && (
                 <span class="img-kind" title={KIND_LABEL[kindOf(img)]}>{KIND_ICON[kindOf(img)]} {KIND_LABEL[kindOf(img)]}</span>
               )}

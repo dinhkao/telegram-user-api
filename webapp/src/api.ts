@@ -367,7 +367,9 @@ export function orderImageUrl(threadId: string | number, imageId: number, size: 
   return `${serverUrl()}/api/order/${Number(threadId)}/images/${imageId}/file${q}`;
 }
 
-export type OrderImage = { id: number; width: number; height: number; size: number; uploaded_by: string; kind?: string; created_at: number };
+export type OrderImage = { id: number; width: number; height: number; size: number; uploaded_by: string; kind?: string; created_at: number   /** xoá mềm: vẫn hiển thị, webapp vẽ dấu X đè lên */
+  deleted_at?: number | null; deleted_by?: string | null;
+};
 
 /** Đổi loại ảnh đơn (soạn hàng / nộp tiền / hoá đơn / khác). base = '/api/order/<id>'. */
 export async function setImageKind(base: string, imageId: number, kind: string): Promise<any> {

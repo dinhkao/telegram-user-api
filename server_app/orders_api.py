@@ -77,7 +77,7 @@ def _attach_thumbs(conn, orders: list[dict]) -> None:
         try:
             ph = ",".join("?" * len(ids))
             rows = conn.execute(
-                f"SELECT thread_id, id, kind FROM order_images WHERE thread_id IN ({ph}) ORDER BY thread_id, id DESC",
+                f"SELECT thread_id, id, kind FROM order_images WHERE thread_id IN ({ph}) AND deleted_at IS NULL ORDER BY thread_id, id DESC",
                 ids,
             ).fetchall()
             for row in rows:

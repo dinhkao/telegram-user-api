@@ -213,24 +213,20 @@ async def images_delete_handler(request: web.Request):
     except (ValueError, TypeError):
         return web.json_response({"ok": False, "error": "image_id không hợp lệ"}, status=400)
 
-    row = await asyncio.to_thread(delete_image, image_id, thread_id)
+    deleted_by = str(request.get("web_user") or "?")
+    # XOÁ MỀM: giữ dòng + file, đánh dấu deleted — ảnh vẫn hiện kèm dấu X
+    row = await asyncio.to_thread(delete_image, image_id, thread_id, by=deleted_by)
     if not row:
-        return web.json_response({"ok": False, "error": "không tìm thấy ảnh"}, status=404)
+        return web.json_response({"ok": False, "error": "không tìm thấy ảnh (hoặc đã xoá)"}, status=404)
 
-    def _unlink():
-        for name in (row.get("filename"), row.get("thumb")):
-            if not name:
-                continue
-            p = _safe_path(thread_id, name)
-            if p and os.path.isfile(p):
-                try:
-                    os.unlink(p)
-                except OSError as e:
-                    log.warning("xoá file %s lỗi: %s", p, e)
-
-    await asyncio.to_thread(_unlink)
     from server_app.realtime import emit_order_changed
     emit_order_changed(thread_id)
+    # Lịch sử thao tác (kèm id ảnh để hiện thumbnail)
+    from server_app.tasks import spawn_tracked
+    from audit_log import async_log_event
+    spawn_tracked("audit.image_deleted", async_log_event(
+        "order.image_deleted", actor_type="web", actor_id=deleted_by,
+        thread_id=thread_id, payload={"image_id": image_id}))
     return web.json_response({"ok": True})
 
 

@@ -29,8 +29,9 @@ export function ImageStrip({ base, onCamera }: { base: string; onCamera?: () => 
   return (
     <div class="img-strip">
       {images.map((img) => (
-        <button class="img-strip-tile" key={img.id} onClick={() => setLightbox(img)}>
+        <button class={"img-strip-tile" + ((img as any).deleted_at ? " img-deleted" : "")} key={img.id} onClick={() => setLightbox(img)}>
           <img src={mediaImageUrl(base, img.id, "thumb")} loading="lazy" alt="" />
+          {(img as any).deleted_at ? <span class="img-x-mark" /> : null}
           {order && (
             <span class="img-strip-kind" title={KIND_LABEL[kindOf(img)]}>{KIND_ICON[kindOf(img)]} {KIND_LABEL[kindOf(img)]}</span>
           )}

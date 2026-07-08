@@ -1634,3 +1634,13 @@ body.kbd-open .od-navbar { display: none; }
 .prod-filter { display: flex; gap: 6px; margin: 6px 0 10px; }
 .pf-chip { display: inline-flex; align-items: center; gap: 4px; padding: 6px 13px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); color: var(--muted); font-size: .85rem; font-weight: 600; cursor: pointer; }
 .pf-chip.on { background: var(--primary, #2680ff); border-color: var(--primary, #2680ff); color: #fff; }
+
+/* ── ảnh XOÁ MỀM: vẫn hiển thị, X đỏ 2 đường chéo phủ toàn ảnh (mọi nơi) ── */
+.img-deleted { position: relative; }
+.img-deleted img { filter: grayscale(.65) opacity(.7); }
+.img-x-mark { position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background:
+    linear-gradient(to top right, transparent calc(50% - 1.5px), #dc2626 calc(50% - 1.5px), #dc2626 calc(50% + 1.5px), transparent calc(50% + 1.5px)),
+    linear-gradient(to bottom right, transparent calc(50% - 1.5px), #dc2626 calc(50% - 1.5px), #dc2626 calc(50% + 1.5px), transparent calc(50% + 1.5px)); }
+/* trong PhotoViewer: X theo đúng khung ẢNH (pv-img contain giữa màn) */
+.img-x-mark.pv-x { position: fixed; inset: 0; }

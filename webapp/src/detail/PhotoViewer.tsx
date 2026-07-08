@@ -357,6 +357,7 @@ export function PhotoViewer({
       }}
     >
       <img ref={imgRef} class="pv-img" src={mediaImageUrl(base, cur.id, "full")} draggable={false} alt="" />
+      {(cur as any).deleted_at ? <span class="img-x-mark pv-x" title="Ảnh đã xoá" /> : null}
 
       {/* Thanh trên: loại+bình luận / copy / tải / đóng */}
       <div class="pv-topbar">
@@ -378,8 +379,9 @@ export function PhotoViewer({
         <div class="pv-thumbs" ref={thumbsRef}>
           <div class="pv-thumbs-inner">
             {images.map((im, i) => (
-              <button key={im.id} class={`pv-thumb${i === idx ? " active" : ""}`} onClick={() => setIdx(i)} aria-label={`Ảnh ${i + 1}`}>
+              <button key={im.id} class={`pv-thumb${i === idx ? " active" : ""}${(im as any).deleted_at ? " img-deleted" : ""}`} onClick={() => setIdx(i)} aria-label={`Ảnh ${i + 1}`}>
                 <img src={mediaImageUrl(base, im.id, "thumb")} loading="lazy" alt="" />
+                {(im as any).deleted_at ? <span class="img-x-mark" /> : null}
               </button>
             ))}
           </div>

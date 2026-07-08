@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS order_images (
 """
 _CREATE_IDX = "CREATE INDEX IF NOT EXISTS idx_order_images_thread ON order_images(thread_id, created_at)"
 
-_COLS = "id, thread_id, filename, thumb, mime, size, width, height, uploaded_by, kind, tg_message_id, created_at"
+_COLS = "id, thread_id, filename, thumb, mime, size, width, height, uploaded_by, kind, tg_message_id, created_at, deleted_at, deleted_by"
 
 _ensured: set[str] = set()   # DDL chạy 1 lần mỗi path mỗi process — không tốn schema lock mỗi request
 
@@ -56,6 +56,12 @@ def _conn(path: str | None = None):
             try:
                 conn.execute("ALTER TABLE order_images ADD COLUMN tg_message_id INTEGER")
             except Exception:  # noqa: BLE001 — cột đã có ở process khác thì bỏ qua
+                pass
+        if "deleted_at" not in cols:
+            try:
+                conn.execute("ALTER TABLE order_images ADD COLUMN deleted_at INTEGER")
+                conn.execute("ALTER TABLE order_images ADD COLUMN deleted_by TEXT")
+            except Exception:  # noqa: BLE001
                 pass
         if "kind" not in cols:
             try:
@@ -179,17 +185,22 @@ def set_tg_message_id(image_id: int, tg_message_id: int, *, db_path: str | None 
         conn.close()
 
 
-def delete_image(image_id: int, thread_id: int, *, db_path: str | None = None) -> dict | None:
-    """Xoá dòng nếu đúng thread_id; trả về dòng vừa xoá (để caller xoá file), None nếu không có."""
+def delete_image(image_id: int, thread_id: int, *, by: str = "?", db_path: str | None = None) -> dict | None:
+    """XOÁ MỀM (2026-07-08): không xoá dòng/file — đánh dấu deleted_at/deleted_by,
+    ảnh VẪN hiển thị khắp nơi kèm dấu X đè lên (webapp vẽ). Trả dòng nếu đánh
+    dấu được, None nếu không có hoặc đã xoá rồi."""
     conn = _conn(db_path)
     try:
         row = conn.execute(
-            "SELECT id, thread_id, filename, thumb FROM order_images WHERE id = ? AND thread_id = ?",
+            f"SELECT {_COLS} FROM order_images WHERE id = ? AND thread_id = ? AND deleted_at IS NULL",
             (int(image_id), int(thread_id)),
         ).fetchone()
         if not row:
             return None
-        conn.execute("DELETE FROM order_images WHERE id = ?", (int(image_id),))
+        conn.execute(
+            "UPDATE order_images SET deleted_at = ?, deleted_by = ? WHERE id = ?",
+            (int(time.time()), by or "?", int(image_id)),
+        )
         return dict(row)
     finally:
         conn.close()

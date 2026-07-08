@@ -48,6 +48,8 @@ def _row_meta(r):
         return _CREATED_SCOPE[act], tid, _ACTION_LABELS[act], ""
     if act == "order.image_added":
         return "order", tid, "Thêm ảnh", ""
+    if act == "order.image_deleted":
+        return "order", tid, "Xoá ảnh", ""
     if act != "http.request":
         return None
     source = r["source"] or ""
@@ -79,7 +81,7 @@ def _row_meta(r):
 
 _BASE_WHERE = (
     "WHERE ("
-    " action IN ('order.created','production.created','box.created','order.image_added')"
+    " action IN ('order.created','production.created','box.created','order.image_added','order.image_deleted')"
     " OR (action='http.request' AND (source LIKE 'POST %' OR source LIKE 'DELETE %'))) "
     "AND (scope IN ('order','production','box') "
     "     OR (scope IS NULL AND (source LIKE 'POST /api/order/%' OR source LIKE 'DELETE /api/order/%')))"
