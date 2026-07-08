@@ -109,8 +109,8 @@ def list_tasks(*, flt: str = "open", assignee: str = "", me: str = "", page: int
         where.append("assignee = ?")
         params.append(assignee)
     w = " AND ".join(where)
-    # sắp xếp: có hạn trước (hạn gần lên đầu), rồi mới tạo trước
-    order = "ORDER BY done ASC, CASE WHEN due_at IS NULL THEN 1 ELSE 0 END, due_at ASC, created_at DESC"
+    # sắp xếp: MỚI TẠO trước
+    order = "ORDER BY done ASC, created_at DESC, id DESC"
     if flt == "done":
         order = "ORDER BY done_at DESC"
     conn = conn_tasks()
