@@ -578,13 +578,13 @@ body.pv-open { overflow: hidden; }
 .prod-bar { height: 6px; background: #eee; border-radius: 3px; margin-top: 8px; overflow: hidden; }
 .prod-bar-fill { height: 100%; background: #f0a500; border-radius: 3px; transition: width .3s; }
 .prod-bar-fill.done { background: var(--ok); }
-/* Mini chart báo cáo thợ trên card SX — SIÊU GỌN: lưới 2 cột, thanh 4px */
-.prod-mini-chart { margin-top: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 1px 12px; }
-.pmc-row { display: flex; align-items: center; gap: 4px; font-size: .64rem; line-height: 1.35; }
-.pmc-name { flex: 0 0 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #666; }
-.pmc-bar-wrap { flex: 1; height: 4px; background: #f0f2f5; border-radius: 2px; overflow: hidden; }
-.pmc-bar { display: block; height: 100%; background: var(--primary, #2680ff); border-radius: 2px; opacity: .8; }
-.pmc-val { flex: 0 0 auto; min-width: 24px; text-align: right; font-weight: 600; color: #444; font-variant-numeric: tabular-nums; }
+/* Mini chart báo cáo thợ trên card SX — cột dọc SIÊU THẤP, tên thợ nghiêng */
+.prod-mini-chart { margin-top: 6px; display: flex; align-items: flex-end; gap: 2px; padding-bottom: 12px; overflow: hidden; }
+.pmc-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.pmc-val { font-size: .56rem; font-weight: 600; color: #444; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pmc-bar { display: block; width: 60%; max-width: 12px; background: var(--primary, #2680ff); border-radius: 2px 2px 0 0; opacity: .8; }
+.pmc-name { font-size: .52rem; color: #888; white-space: nowrap; height: 10px; max-width: 44px;
+  transform: rotate(-30deg) translateX(-4px); transform-origin: center top; }
 
 /* So sánh nhập thùng vs báo cáo thợ */
 .prod-compare { display: flex; align-items: stretch; gap: 8px; padding: 10px 12px;

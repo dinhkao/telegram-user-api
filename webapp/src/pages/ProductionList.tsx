@@ -267,16 +267,16 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
   );
 }
 
-/** Mini chart báo cáo thợ: 1 dòng/thợ, thanh ngang theo tổng số SP (max = 100%). */
+/** Mini chart báo cáo thợ: CỘT dọc siêu thấp — số trên đầu cột, tên thợ nghiêng dưới chân. */
 function WorkerMiniChart({ workers }: { workers: { name: string; tong: number }[] }) {
   const max = Math.max(...workers.map((w) => w.tong), 1);
   return (
     <div class="prod-mini-chart">
       {workers.map((w) => (
-        <div class="pmc-row" key={w.name}>
-          <span class="pmc-name">{w.name}</span>
-          <span class="pmc-bar-wrap"><span class="pmc-bar" style={{ width: `${Math.max(2, Math.round((w.tong / max) * 100))}%` }} /></span>
+        <div class="pmc-col" key={w.name}>
           <span class="pmc-val">{soVN(w.tong)}</span>
+          <span class="pmc-bar" style={{ height: `${Math.max(2, Math.round((w.tong / max) * 20))}px` }} />
+          <span class="pmc-name">{w.name}</span>
         </div>
       ))}
     </div>
