@@ -604,7 +604,7 @@ body.pv-open { overflow: hidden; }
 .pl-select { width: 100%; cursor: pointer; }
 /* Thanh báo ĐANG LỌC ở dashboard — nổi bật (nền vàng) để dễ thấy đang lọc */
 .filter-active-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 12px; background: var(--warn-wash); border: 1px solid #f0d890; border-left: 4px solid var(--warn); border-radius: 10px; font-size: .9rem; }
-.filter-active-bar .fab-txt { color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filter-active-bar .fab-txt { display: inline; min-width: 0; font-size: .82rem; line-height: 1.45; }
 .filter-active-bar .fab-count { color: var(--muted); font-weight: 600; }
 .filter-active-bar .fab-clear { flex: 0 0 auto; border: none; background: var(--warn); color: #fff; font-weight: 700; font-size: .82rem; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
 .filter-active-bar .fab-clear:active { opacity: .85; }

@@ -27,10 +27,19 @@ const FILTER_LABELS: Record<string, string> = {
 // (server_app/orders_api.py): chua_* theo cờ workflow, pending/done theo
 // done_after_20250124. Dùng khi vá dòng realtime: đơn flip trạng thái →
 // không còn khớp filter → phải RÚT khỏi danh sách (không chỉ vá tại chỗ).
+/** Ngày giao ≤ hôm nay (hoặc chưa hẹn) — khớp rule 'Chưa giao' của server. */
+function giaoDue(o: OrderRow): boolean {
+  const ng = ((o as any).ngay_giao || "").slice(0, 10);
+  if (!ng) return true;
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return ng <= today;
+}
+
 function rowMatchesFilter(o: OrderRow, f: FilterKey): boolean {
   switch (f) {
     case "chua_soan": return !o.soan;
-    case "chua_giao": return !o.giao;
+    case "chua_giao": return !o.giao && giaoDue(o);   // bỏ đơn hẹn giao tương lai
     case "chua_nop": return !o.nop && !!o.giao; // chưa nộp = ĐÃ giao nhưng chưa nộp
     case "chua_nhan": return !o.nhan;
     case "pending": return !o.done_after_20250124;
@@ -417,6 +426,7 @@ export function OrdersList() {
             <span class="fab-txt">
               <Icon name="search" size={14} /> Đang lọc:{" "}
               {filter !== "all" ? <b>{FILTER_LABELS[filter] || filter}</b> : null}
+              {filter === "chua_giao" ? <span class="muted"> · ẩn đơn hẹn giao tương lai</span> : null}
               {filter !== "all" && search.trim() ? " · " : null}
               {search.trim() ? <b>“{search.trim()}”</b> : null}
               {filter !== "all" && stats && (stats as any)[filter] != null ? <span class="fab-count"> · {(stats as any)[filter]} đơn</span> : null}

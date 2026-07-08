@@ -66,6 +66,15 @@ def _build_order_row(r) -> dict:
     return {"key": r["firebase_key"], "thread_id": r["thread_id"], "channel_id": r["channel_id"], "message_id": r["message_id"], "customer": customer, "total": total, "paid": paid, "remaining": max(0, raw_total - paid), "phone": pc.get("sdt", ""), "date": date, "status": j.get("trang_thai", ""), "soan": j.get("soan", False), "giao": j.get("giao", False), "nop": j.get("nop", False), "nhan": j.get("nhan", False), "nhan_tien_note": (ts.get("nhan_tien", {}) or {}).get("note", ""), "done_after_20250124": j.get("done_after_20250124", False), "updated_at": r["updated_at"], "hd_code": hd_code, "creator": creator, "giao_by": giao_by, "nop_by": nop_by, "nop_note": nop_note, "task_icons": task_icons, "task_bys": task_bys, "text": (j.get("text") or j.get("text_raw") or ""), "created": j.get("created"), "topic_name": j.get("topic_name", ""), "invoice_count": len(inv), "invoice_summary": [{"sp": it["sp"], "sl": it["sl"]} for it in invoice_items[:5]], "invoice_items": invoice_items, "vat": int(j.get("vat", 0) or 0), "pvc": int(j.get("pvc", 0) or 0), "discount": int(j.get("discount", 0) or 0), "no_truoc": pc.get("no_truoc", ""), "kh_debt": (j.get("khDebt") if j.get("khDebt") is not None else j.get("invoice_debt_snapshot")), "tongtienhang": pc.get("tongtienhang", ""), "ngay_giao": j.get("ngay_giao") or "", "giao_done": bool((ts.get("giao_hang") or {}).get("done")), "soan_img_ids": soan_img_ids, "nop_img_id": nop_img_id}
 
 
+def _ngay_giao_due() -> str:
+    """SQL: đơn TỚI HẠN giao — chưa hẹn ngày giao, hoặc ngày giao ≤ hôm nay (VN).
+    Đơn hẹn giao tương lai không tính vào 'Chưa giao' (dashboard đỡ nhiễu)."""
+    from datetime import datetime, timezone, timedelta
+    today = datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d")
+    ng = "json_extract(o.json, '$.ngay_giao')"
+    return f"{ng} IS NULL OR {ng} = '' OR substr({ng}, 1, 10) <= '{today}'"
+
+
 def _attach_thumbs(conn, orders: list[dict]) -> None:
     """Gắn 2 ảnh mới nhất (thumb_image_ids) + ảnh mới nhất (thumb_image_id) + tổng số
     ảnh (image_count) của mỗi đơn — 1 truy vấn gộp cho cả trang. image_count để card
@@ -253,6 +262,9 @@ async def orders_api_handler(request: web.Request):
                 g = "json_extract(o.json, '$.giao')"
                 giao_done = f"{g} IS NOT DISTINCT FROM 'true'" if IS_POSTGRES else f"{g} IS 1"
                 extra = f" AND ({giao_done})"
+            # "Chưa giao" bỏ đơn HẸN GIAO TƯƠNG LAI (ngày giao ≤ hôm nay hoặc chưa hẹn)
+            if filt == "chua_giao":
+                extra = f" AND ({_ngay_giao_due()})"
             # Chỉ đơn tạo sau 01/06/2026 — data cũ cờ soạn/giao/nộp/nhận lộn xộn.
             # order_created là ISO ('2026-07-01T…') nên so sánh chuỗi là đúng thứ tự.
             where.append(f"({has_data}) AND ({not_done}){extra} AND (o.order_created >= '2026-06-01')")
@@ -294,7 +306,8 @@ async def orders_api_handler(request: web.Request):
                 e = f"json_extract(o.json, '$.{fld}')"
                 return f"{e} IS NOT DISTINCT FROM 'true'" if IS_POSTGRES else f"{e} IS 1"
             # chua_nop = chưa nộp NHƯNG đã giao (khớp filter ở trên)
-            stg = conn.execute(f"SELECT COUNT(CASE WHEN {_nd('soan')} THEN 1 END) s, COUNT(CASE WHEN {_nd('giao')} THEN 1 END) g, COUNT(CASE WHEN {_nd('nop')} AND {_dn('giao')} THEN 1 END) n, COUNT(CASE WHEN {_nd('nhan')} THEN 1 END) nh FROM orders o WHERE o.deleted_at IS NULL AND ({has_data}) AND o.order_created >= '2026-06-01'").fetchone()
+            # chua_giao = chưa giao VÀ tới hạn (ngày giao ≤ hôm nay / chưa hẹn) — khớp filter
+            stg = conn.execute(f"SELECT COUNT(CASE WHEN {_nd('soan')} THEN 1 END) s, COUNT(CASE WHEN {_nd('giao')} AND ({_ngay_giao_due()}) THEN 1 END) g, COUNT(CASE WHEN {_nd('nop')} AND {_dn('giao')} THEN 1 END) n, COUNT(CASE WHEN {_nd('nhan')} THEN 1 END) nh FROM orders o WHERE o.deleted_at IS NULL AND ({has_data}) AND o.order_created >= '2026-06-01'").fetchone()
             if stg:
                 stats.update({"chua_soan": stg["s"] or 0, "chua_giao": stg["g"] or 0, "chua_nop": stg["n"] or 0, "chua_nhan": stg["nh"] or 0})
         return web.json_response({"orders": orders, "total": total, "page": page, "limit": limit, "total_pages": max(1, (total + limit - 1) // limit), "stats": stats})
