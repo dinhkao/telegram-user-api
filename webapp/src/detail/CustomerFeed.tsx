@@ -294,11 +294,13 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
           const low = span.length ? span[span.length - 1] : null;   // biến động THẤP NHẤT trong quãng
           if (low) {
             const st = pts[i].st === "na" ? "na" : "owe";
-            dl.push({ x, y1: pts[i].y, y2: low.y - 8, st });
-            segMeta.push({ topEl: pts[i].el, botEl: low.el, y1: pts[i].y, y2: low.y - 8 });
-            // quãng sạch đủ dài mới lặp (sát nhau thì số 0 gốc ngay đó rồi)
-            if (pts[i + 1].y - low.y > 70)
-              repz.push({ x, y: low.y + 18, t: pts[i + 1].el.textContent || "0" });
+            // quãng sạch đủ dài mới lặp (sát nhau thì số 0 gốc ngay đó rồi);
+            // có chấm lặp → line kéo xuống ĐÚNG TÂM chấm (nối liền, không hụt)
+            const rep = pts[i + 1].y - low.y > 70;
+            const yEnd = rep ? low.y + 18 : low.y - 8;
+            dl.push({ x, y1: pts[i].y, y2: yEnd, st });
+            segMeta.push({ topEl: pts[i].el, botEl: low.el, y1: pts[i].y, y2: yEnd });
+            if (rep) repz.push({ x, y: low.y + 18, t: pts[i + 1].el.textContent || "0" });
           }
           continue;
         }
