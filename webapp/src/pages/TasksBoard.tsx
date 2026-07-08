@@ -120,13 +120,20 @@ export function TasksBoard() {
     const t = setTimeout(() => load(fltRef.current, 1, q), 300);
     return () => clearTimeout(t);
   }, [q]);
-  useEffect(() => {
-    taskAssignees().then((us) => setNames(Object.fromEntries(us.map((u) => [u.username, u.display_name])))).catch(() => {});
-  }, []);
+  // người làm: tên + SỐ VIỆC CHƯA XONG (vòng avatar đỏ/xanh theo còn việc hay không)
+  const [openBy, setOpenBy] = useState<Record<string, number>>({});
+  const loadPeople = () => taskAssignees().then((us) => {
+    setNames(Object.fromEntries(us.map((u) => [u.username, u.display_name])));
+    setOpenBy(Object.fromEntries(us.map((u) => [u.username, u.open || 0])));
+  }).catch(() => {});
+  useEffect(() => { loadPeople(); }, []);
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
-      if (e.type === "tasks_changed") { clearTimeout(t); t = setTimeout(() => load(fltRef.current, 1), 400); }
+      if (e.type === "tasks_changed") {
+        clearTimeout(t);
+        t = setTimeout(() => { load(fltRef.current, 1); loadPeople(); }, 400);
+      }
     });
     return () => { off(); clearTimeout(t); };
   }, [flt]);
@@ -135,7 +142,7 @@ export function TasksBoard() {
     try {
       const nt = await updateTask(t.id, { done: !t.done });
       setTasks((prev) => prev.map((x) => (x.id === t.id ? nt : x)));
-      load(flt, 1);
+      load(flt, 1); loadPeople();
     } catch (e: any) { toast(e?.message || "Lỗi"); }
   };
 
@@ -240,11 +247,13 @@ export function TasksBoard() {
           {Object.keys(names).length > 0 && (
             <div class="tk-people">
               {Object.entries(names).sort((a, b) => a[1].localeCompare(b[1], "vi")).map(([u, n]) => {
-                const c = avaColor(n);
+                // 2 màu: ĐỎ còn việc chưa xong / XANH hết việc; trong vòng = SỐ việc
+                const nOpen = openBy[u] || 0;
+                const c = nOpen > 0 ? "var(--danger)" : "var(--ok)";
                 const on = who === u || (u === me && flt === "mine");
                 return (
                   <button key={u} class={"tk-person" + (on ? " on" : "")} onClick={() => pickWho(u)}>
-                    <span class="tk-person-a" style={{ background: c, boxShadow: on ? `0 0 0 2px var(--card), 0 0 0 4px ${c}` : "none" }}>{n[0]}</span>
+                    <span class="tk-person-a" style={{ background: c, boxShadow: on ? `0 0 0 2px var(--card), 0 0 0 4px ${c}` : "none" }}>{nOpen}</span>
                     <span class="tk-person-n" style={on ? { color: c } : undefined}>{n}</span>
                   </button>
                 );

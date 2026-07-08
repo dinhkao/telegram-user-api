@@ -156,6 +156,19 @@ def counts(me: str, today: str) -> dict:
         conn.close()
 
 
+def open_counts_by_assignee() -> dict:
+    """Số việc CHƯA XONG theo người được giao — hàng avatar dashboard việc."""
+    conn = conn_tasks()
+    try:
+        rows = conn.execute(
+            "SELECT assignee, COUNT(*) n FROM web_tasks"
+            " WHERE deleted_at IS NULL AND done = 0 AND assignee != ''"
+            " GROUP BY assignee").fetchall()
+        return {r["assignee"]: int(r["n"]) for r in rows}
+    finally:
+        conn.close()
+
+
 def day_counts() -> list[dict]:
     """Đếm việc theo NGÀY HẠN cho lịch: [{d, o: chưa xong, p: đã xong}]."""
     conn = conn_tasks()

@@ -54,10 +54,13 @@ def _emit():
 
 
 async def task_assignees_handler(request: web.Request):
-    """Danh sách user để PHÂN CÔNG (username + tên) — không cần admin (chỉ tên)."""
+    """Danh sách user để PHÂN CÔNG (username + tên + số việc chưa xong) — không cần admin."""
     def _run():
+        from task_store import open_counts_by_assignee
         from user_store import list_users
-        return [{"username": u["username"], "display_name": u.get("display_name") or u["username"]}
+        cnt = open_counts_by_assignee()
+        return [{"username": u["username"], "display_name": u.get("display_name") or u["username"],
+                 "open": cnt.get(u["username"], 0)}
                 for u in list_users() if not u.get("disabled")]
     try:
         users = await asyncio.to_thread(_run)

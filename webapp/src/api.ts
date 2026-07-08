@@ -1025,6 +1025,6 @@ export async function taskDays(): Promise<{ d: string; o: number; p: number }[]>
 export async function taskDay(day: string): Promise<Task[]> {
   return (await getJSON(`/api/tasks?day=${encodeURIComponent(day)}`, { cache: false })).tasks || [];
 }
-export async function taskAssignees(): Promise<{ username: string; display_name: string }[]> {
+export async function taskAssignees(): Promise<{ username: string; display_name: string; open: number }[]> {
   return (await getJSON("/api/tasks/assignees", { cache: false })).users || [];
 }
