@@ -172,8 +172,15 @@ export function TasksBoard() {
   const [creating, setCreating] = useState(false);
 
   // chạm avatar = lọc việc CHƯA XONG của người đó (chạm lại = bỏ);
-  // "Của tôi" là assignee=me sẵn nên chọn avatar thì về flt open cho khỏi chồng
+  // avatar CỦA MÌNH = chính filter "Của tôi" (1 trạng thái, sáng cả 2 nơi)
+  const me = currentUser()?.username || "";
   const pickWho = (u: string) => {
+    if (u === me) {
+      const nf = fltRef.current === "mine" ? "open" : "mine";
+      changeWho("");
+      changeFlt(nf); load(nf, 1, q, "");
+      return;
+    }
     const nw = who === u ? "" : u;
     changeWho(nw);
     if (nw && (fltRef.current === "mine" || fltRef.current === "done")) changeFlt("open");
@@ -234,7 +241,7 @@ export function TasksBoard() {
             <div class="tk-people">
               {Object.entries(names).sort((a, b) => a[1].localeCompare(b[1], "vi")).map(([u, n]) => {
                 const c = avaColor(n);
-                const on = who === u;
+                const on = who === u || (u === me && flt === "mine");
                 return (
                   <button key={u} class={"tk-person" + (on ? " on" : "")} onClick={() => pickWho(u)}>
                     <span class="tk-person-a" style={{ background: c, boxShadow: on ? `0 0 0 2px var(--card), 0 0 0 4px ${c}` : "none" }}>{n[0]}</span>
