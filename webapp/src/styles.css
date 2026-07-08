@@ -706,16 +706,21 @@ body.pv-open { overflow: hidden; }
   padding-right: 13px; }
 .feed-delta { font-size: .72rem; font-weight: 600; color: var(--muted);
   font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+/* số nợ căn PHẢI đúng mép với delta (right 13px, không padding ngang → không lệch) */
 .fd-gap { position: absolute; right: 13px; top: 0; transform: translateY(-58%);
   font-size: .73rem; font-weight: 700; font-variant-numeric: tabular-nums;
-  white-space: nowrap; background: var(--bg); padding: 0 2px; border-radius: 4px; }
+  white-space: nowrap; background: var(--bg); border-radius: 4px; }
 /* chấm của SỐ NỢ trên đường tiến trình (màu theo trạng thái nợ) */
 .fd-gap::after { content: ""; position: absolute; right: -9.5px; top: 50%;
   transform: translateY(-50%); width: 8px; height: 8px; border-radius: 50%;
   background: currentColor; box-shadow: 0 0 0 2px var(--bg); }
-/* đường thẳng dọc nối các số nợ (tiến trình theo thời gian) — mép phải cột nợ */
-.cf-body.has-items::after { content: ""; position: absolute; right: 6.5px; top: 4px;
-  bottom: 12px; width: 2px; border-radius: 2px; background: #c9ced6; }
+/* đường tiến trình = TỪNG ĐOẠN theo li, MÀU theo trạng thái nợ của khoảng thời
+   gian đó (đỏ đang nợ / xanh sạch nợ / xám không rõ). Đoạn phủ cả khe trên/dưới
+   để nối liền mạch với đoạn kế. */
+.feed-rail::before { content: ""; position: absolute; right: 6.5px; top: -14px;
+  bottom: -10px; width: 2px; border-radius: 2px; background: #c9ced6; }
+.feed-rail.line-owe::before { background: var(--danger); opacity: .5; }
+.feed-rail.line-ok::before { background: var(--ok); opacity: .55; }
 /* chừa chỗ cho số nợ ĐẦU TIÊN (nằm trên card đầu) */
 .cf-body.has-items .order-list { padding-top: 12px; }
 /* view ultra: payment 1 dòng; đơn = badge dòng 1 + nội dung dòng 2 (chừa cột nợ) */

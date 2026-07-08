@@ -37,9 +37,14 @@ const payMethod = (p: PayItem) => PAY_METHOD_VI[(p.method || "").toLowerCase()] 
 // đơn / −tiền thu); Ở KHE giữa card này và card TRÊN = SỐ NỢ SAU sự kiện (đỏ
 // khi >0, xanh khi 0, '—' xám khi bản ghi cũ thiếu số — KHÔNG bịa 0).
 // (feed mới→cũ nên "sau sự kiện" = phía trên card — đọc từ dưới lên đúng dòng thời gian)
-function Rail({ delta, debt }: { delta: string | null; debt: number | null | undefined }) {
+// lineDebt = nợ của KHOẢNG thời gian dọc card này (= nợ-sau của sự kiện CŨ hơn
+// ngay dưới) → tô màu đoạn line: đỏ đang nợ / xanh sạch nợ / xám không rõ.
+function Rail({ delta, debt, lineDebt }: {
+  delta: string | null; debt: number | null | undefined; lineDebt: number | null | undefined;
+}) {
+  const lineCls = lineDebt == null ? "" : Number(lineDebt) > 0 ? " line-owe" : " line-ok";
   return (
-    <span class="feed-rail">
+    <span class={"feed-rail" + lineCls}>
       {debt == null
         ? <span class="fd-gap muted" title="Bản ghi cũ — không lưu số nợ lúc đó">—</span>
         : <span class={"fd-gap " + (Number(debt) > 0 ? "owe" : "paid-ok")}>{money(Number(debt))}</span>}
@@ -47,6 +52,12 @@ function Rail({ delta, debt }: { delta: string | null; debt: number | null | und
     </span>
   );
 }
+
+/** Nợ-sau của 1 item (đơn → debt_after; thanh toán → new_debt). */
+const debtOf = (it: CustFeedItem | undefined): number | null =>
+  it == null ? null
+    : it.kind === "order" ? (it.debt_after != null ? Number(it.debt_after) : null)
+    : (it.new_debt != null ? Number(it.new_debt) : null);
 
 // Card thanh toán — kích thước ĐỒNG BỘ với card đơn của view (cùng radius/padding/
 // nhịp margin). Chip "đơn #id" → cuộn tới card đơn.
@@ -199,10 +210,15 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     } catch { /* im */ }
   };
 
+  // lineDebt của item i = nợ-sau của items[i+1] (sự kiện cũ hơn liền dưới):
+  // khoảng giữa 2 mốc nợ chính là thời kỳ mang trạng thái đó.
+  const lineDebtAt = new Map<CustFeedItem, number | null>();
+  items.forEach((it, i) => lineDebtAt.set(it, debtOf(items[i + 1])));
   const renderItem = (it: CustFeedItem) => {
+    const lineDebt = lineDebtAt.get(it);
     if (it.kind === "payment") {
       const debt = it.new_debt != null ? Number(it.new_debt) : null;
-      const rail = <Rail delta={`−${money(it.amount)}`} debt={debt} />;
+      const rail = <Rail delta={`−${money(it.amount)}`} debt={debt} lineDebt={lineDebt} />;
       if (view === "ultra") {
         return (
           <li key={`p-${it.thread_id}-${it.ts}`} class="feed-item" data-pay-tid={it.thread_id}>
@@ -225,7 +241,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     }
     const o = it.order as OrderRow;
     const isNew = isRecent(o.created, NEW_ORDER_SEC);
-    const rail = <Rail delta={o.total ? `+${o.total}` : null} debt={it.debt_after} />;
+    const rail = <Rail delta={o.total ? `+${o.total}` : null} debt={it.debt_after} lineDebt={lineDebt} />;
     if (view === "ultra") {
       // ultra: badge 5 bước dòng 1 (tiền đơn nằm NGOÀI card, trên rail phải), nội dung dòng 2
       const text = (o.text || o.topic_name || `#${o.thread_id}`).replace(/\s+/g, " ").trim();
