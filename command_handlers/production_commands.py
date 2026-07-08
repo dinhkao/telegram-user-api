@@ -300,9 +300,14 @@ def register_production_commands(client):
             await _update_tin_nhan(client, conn, thread_id)
             return
 
-        # DEL (admin)
+        # DEL (admin) — cấm xoá nếu phiếu đã tạo thùng (giống webapp, 1 rule chung)
         if processed == "DEL":
             if is_admin(getattr(msg, "sender_id", None)):
+                from inventory_store import count_boxes_by_source
+                n = count_boxes_by_source(conn, thread_id)
+                if n > 0:
+                    await reply(msg, f"❌ Không xoá được — phiếu đã tạo {n} thùng. Xoá các thùng đó trước.")
+                    return
                 delete_slip(conn, thread_id)
                 await reply(msg, "Đã xóa phiếu")
             return
