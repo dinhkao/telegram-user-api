@@ -273,13 +273,27 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
       // Luật line (đi TỪ DƯỚI LÊN): mốc nợ>0 → đoạn trên nó ĐỎ LIỀN; chạm mốc
       // nợ=0 → CẮT (không vẽ — hết nợ treo) tới khi phát sinh nợ lại;
       // không rõ → đứt xám. Kiểu nét/màu do CSS theo st (dl-owe/dl-na).
+      // vị trí các SỐ PHÁT SINH (delta) — mốc "biến động" để vẽ lại line sau khi cắt
+      const deltas = Array.from(ul.querySelectorAll<HTMLElement>(".feed-delta"))
+        .map((el) => { const r = el.getBoundingClientRect(); return { el, y: (r.top + r.bottom) / 2 - box.top }; })
+        .sort((a, b) => a.y - b.y);
       const dl: { x: number; y1: number; y2: number; st: string }[] = [];
       const segMeta: { topEl: HTMLElement; botEl: HTMLElement; y1: number; y2: number }[] = [];
       for (let i = 0; i < pts.length - 1; i++) {
-        // mốc nợ = 0 → CẮT line phía trên nó (hết nợ treo, không vẽ gì
-        // tới sự kiện kế) — bỏ hẳn đoạn xanh nét đứt cũ. dl/segMeta skip
-        // CÙNG NHAU để index khớp node <line> (cơ chế line bám chấm).
-        if (pts[i + 1].st === "ok") continue;
+        // Mốc nợ = 0 → CẮT line, nhưng CHỈ đúng quãng thật sự sạch nợ: từ mốc 0
+        // lên tới BIẾN ĐỘNG gần nhất phía trên nó (sự kiện làm nợ ≠ 0 trở lại) —
+        // từ đó trở lên nợ đã treo lại → vẽ tiếp từ dot trên xuống sát biến động.
+        // dl/segMeta push CÙNG NHAU để index khớp node <line> (line bám chấm).
+        if (pts[i + 1].st === "ok") {
+          const span = deltas.filter((d) => d.y > pts[i].y + 1 && d.y < pts[i + 1].y - 1);
+          const low = span.length ? span[span.length - 1] : null;   // biến động THẤP NHẤT trong quãng
+          if (low) {
+            const st = pts[i].st === "na" ? "na" : "owe";
+            dl.push({ x, y1: pts[i].y, y2: low.y - 8, st });
+            segMeta.push({ topEl: pts[i].el, botEl: low.el, y1: pts[i].y, y2: low.y - 8 });
+          }
+          continue;
+        }
         dl.push({ x, y1: pts[i].y, y2: pts[i + 1].y, st: pts[i + 1].st });
         segMeta.push({ topEl: pts[i].el, botEl: pts[i + 1].el, y1: pts[i].y, y2: pts[i + 1].y });
       }
