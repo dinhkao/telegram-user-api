@@ -1191,8 +1191,13 @@ body.co-kbd .bottom-nav { display: none; }
   display: flex; align-items: center; justify-content: center;
   touch-action: none; user-select: none; -webkit-user-select: none;
   -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  -webkit-user-drag: none;
   transition: transform .1s, background .1s; }
+/* Giữ lâu không được rung/chọn chữ: icon bên trong không nhận sự kiện, không select */
+.wr-peek-btn * { pointer-events: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .wr-peek-btn.on { background: var(--ok); transform: translateX(-50%) scale(1.12); }
+/* Bàn phím mở → bottom-nav ẩn (body.kbd-open) → hạ nút xuống sát đáy khả dụng */
+body.kbd-open .wr-peek-btn { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
 /* Ảnh phủ CỐ ĐỊNH theo màn hình (KHÔNG trôi theo cuộn — sửa lỗi ảnh lệch theo vị trí
    cuộn). Che từ dưới app-bar (44px) tới trên bottom-nav; trong cột app (max 640px,
    canh giữa). z dưới nút 👁️ (40) để nút nổi trên ảnh. object-fit contain giữ nguyên

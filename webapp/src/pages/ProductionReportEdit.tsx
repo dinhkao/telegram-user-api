@@ -421,7 +421,10 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
           onPointerUp={() => setBgShow(false)}
           onPointerLeave={() => setBgShow(false)}
           onPointerCancel={() => setBgShow(false)}
-          onContextMenu={(e: any) => e.preventDefault()}
+          // chặn long-press của Android (rung + chọn chữ/menu): touchstart phải
+          // preventDefault ở CHÍNH nút — contextmenu một mình không đủ trên WebView
+          onTouchStart={(e: any) => e.preventDefault()}
+          onContextMenu={(e: any) => { e.preventDefault(); return false; }}
           title="Giữ để xem ảnh"
         ><Icon name="eye" size={20} /></button>
       )}
