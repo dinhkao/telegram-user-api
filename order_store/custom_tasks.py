@@ -39,6 +39,8 @@ def add_custom_task(conn, thread_id: int, label: str, user_id: int | None) -> st
     if saved:
         from task_store import mirror_order_tasks_safe
         mirror_order_tasks_safe(thread_id, d)
+        from order_store.tasks import _emit_tasks_changed_safe
+        _emit_tasks_changed_safe()
         return task_id
     return None
 
@@ -69,6 +71,8 @@ def apply_customer_default_tasks(conn, thread_id: int, firebase_key: str, user_i
     if saved:
         from task_store import mirror_order_tasks_safe
         mirror_order_tasks_safe(thread_id, d)
+        from order_store.tasks import _emit_tasks_changed_safe
+        _emit_tasks_changed_safe()
         log.info("customer default tasks: thread=%s +%d (%s)", thread_id, len(todo), ", ".join(todo))
         return todo
     return []
@@ -86,4 +90,6 @@ def remove_custom_task(conn, thread_id: int, task_id: str) -> bool:
         ok = _save_order(conn, thread_id, d)
     from task_store import mirror_order_tasks_safe
     mirror_order_tasks_safe(thread_id, d)
+    from order_store.tasks import _emit_tasks_changed_safe
+    _emit_tasks_changed_safe()
     return ok

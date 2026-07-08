@@ -62,6 +62,10 @@ function periodLabel(p: PeriodKey, r: Range): string {
 
 // Cache list đã tải → quay lại giữ nguyên (hệ cuộn khôi phục vị trí).
 let quyCache: { receipts: QuyReceipt[]; page: number; totalPages: number; filter: Filter; period: PeriodKey; cFrom: string; cTo: string } | null = null;
+// Quỹ đổi LÚC VẮNG MẶT (handler trong component đã chết) → bỏ cache, quay lại tải mới
+onRealtime((e) => {
+  if (e.type === "quy_changed" || e.type === "resync") quyCache = null;
+});
 
 export function QuyList() {
   const [receipts, setReceipts] = useState<QuyReceipt[]>([]);

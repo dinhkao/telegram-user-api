@@ -27,8 +27,10 @@ let custCache: {
 // giữ nguyên list đã tải + vị trí cuộn. Riêng customer_changed KHÔNG key (= đổi cấu
 // trúc: xoá khách) → BỎ cache hẳn (vá tại chỗ không gỡ được khách đã xoá).
 let custDirty = false;
+const custDirtyKeys = new Set<string>();   // khách đổi LÚC VẮNG MẶT → remount vá từng con
 onRealtime((e) => {
   if (e.type === "customer_changed" && !(e as any).key) { custCache = null; return; }
+  if (e.type === "customer_changed" && (e as any).key) custDirtyKeys.add(String((e as any).key));
   if (e.type === "customer_changed" || e.type === "order_changed" || e.type === "orders_changed" || e.type === "resync") custDirty = true;
 });
 
@@ -73,6 +75,9 @@ export function Customers() {
   useEffect(() => {
     if (custCache) {   // quay lại → state đã dựng từ cache (đủ cao cho hệ cuộn khôi phục)
       if (custDirty) { custDirty = false; refreshMerge(); }   // đổi lúc vắng mặt → vá tại chỗ (giữ cuộn)
+      // khách đổi lúc vắng mặt NGOÀI page 1 (vd sửa nợ từ trang chi tiết) → vá từng con
+      custDirtyKeys.forEach((k) => patchOne(k));
+      custDirtyKeys.clear();
       return;
     }
     load(1, "", false);

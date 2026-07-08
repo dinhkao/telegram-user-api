@@ -36,12 +36,21 @@ def set_task_status(conn, thread_id: int, task_type: str, user_id: int | None, *
     if task_type == "giao_hang" and done and not skip:
         try:
             from task_store import auto_assign_nop_tien
-            if auto_assign_nop_tien(thread_id, user_id):
-                from server_app.realtime import emit_tasks_changed
-                emit_tasks_changed()
+            auto_assign_nop_tien(thread_id, user_id)
         except Exception as e:  # noqa: BLE001 — best-effort, không hỏng flow đơn
             log.warning("auto_assign_nop_tien lỗi thread=%s: %s", thread_id, e)
+    _emit_tasks_changed_safe()   # dashboard VIỆC thấy mirror đổi (đánh dấu từ trang đơn)
     return ok
+
+
+def _emit_tasks_changed_safe() -> None:
+    """Báo dashboard VIỆC (webapp) mirror task vừa đổi — best-effort, không có
+    loop/aiohttp (script, test) thì im lặng bỏ qua."""
+    try:
+        from server_app.realtime import emit_tasks_changed
+        emit_tasks_changed()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def clear_task_status(conn, thread_id: int, task_type: str, user_id: int | None) -> bool:
@@ -55,6 +64,7 @@ def clear_task_status(conn, thread_id: int, task_type: str, user_id: int | None)
         ok = _save_order(conn, thread_id, d)
     from task_store import mirror_order_tasks_safe
     mirror_order_tasks_safe(thread_id, d)
+    _emit_tasks_changed_safe()
     return ok
 
 
