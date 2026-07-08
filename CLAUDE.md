@@ -131,6 +131,26 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   navigates straight to it. **No more DB-only web orders** (the old negative-thread_id
   `flow_version:"web"` path is gone). Client: `webapp/src/pages/CreateOrder.tsx`.
 - `donhang_indexer_pkg/` — live + backfill indexing of `#don_hang` → `donhang_store`.
+- **Feed khách (`server_app/customer_feed.py`)** — GET `/api/customers/{key}/feed`:
+  đơn + thanh toán 1 dòng thời gian (rail nợ, dây SVG nối payment↔đơn). Nợ sau mỗi
+  sự kiện: số KiotViet gốc, hoặc **SỐ TÍNH LẠI có kiểm chứng** (nội suy neo mốc KV,
+  chỉ hiện khi đoạn CÂN ±1đ — est hiện `≈`; xem memory debt-recalc-permitted-feed).
+  Mode `?days=1`/`?day=` cho trang lịch khách (`#/khach/:key/lich`).
+- **VIỆC / task list (`task_store/` + `server_app/task_routes.py`)** — bảng
+  **`web_tasks`** (bảng `tasks` là sync Firebase legacy 18k row, CẤM đụng). kind:
+  `free` (việc tự tạo, link đơn tuỳ chọn) | `order_step`/`order_custom` = **MIRROR
+  dual-write từ blob đơn** (blob vẫn là nguồn sự thật; hook ở `order_store/tasks.py`
+  + `custom_tasks.py`; done từ dashboard ghi ngược qua `api_task_handler_impl`;
+  backfill 1 lần/process, đơn từ 2026-06-01). API `/api/tasks` (+`?days/?day` lịch,
+  `?counts=1` badge, `/assignees`); media trao đổi/ảnh scope `task`
+  (`entity_media_routes`, thêm cả scope này vào production/box/report_bg). UI:
+  `#/viec` (TasksBoard — chips lọc + search không dấu vnfold + lazy scroll + lịch)
+  + `#/viec/:id` (TaskDetail) + `TaskBell` badge app-bar (số việc của tôi).
+- **Lịch giao (`orders_delivery_handler`)** — `?days=1` (đếm pending/done + NHÃN
+  text từng đơn theo ngày giao, mọi tháng) + `?day=` (đơn 1 ngày) + `?month=` cũ.
+  Filter **Chưa giao** của dashboard chỉ tính đơn TỚI HẠN (`_ngay_giao_due`: chưa
+  hẹn hoặc ngày giao ≤ hôm nay VN) — filter, chip đếm, matcher realtime client
+  cùng rule.
 - **Orders list load (`server_app/orders_api.py`)** — `GET /api/orders` paginates
   20/page over the `orders` blob table; `_build_order_row` is the single source of
   the list-row shape (reused by realtime). Kept fast by SQLite VIRTUAL generated
@@ -149,7 +169,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   topic:** a web upload is forwarded into the order's topic (`ORDER_GROUP_ID`,
   `reply_to=thread_id`, photo preview); a photo posted in the topic is pulled back
   into the gallery (inbound `NewMessage` handler registered in
-  `command_bootstrap.py`). **Bot-forwarded photos** (session photo → topic via
+  `command_bootstrap.py`). **Xoá ảnh = XOÁ MỀM** (2026-07-08): cột
+  `deleted_at/deleted_by`, dòng + file GIỮ NGUYÊN — webapp vẫn hiện ảnh kèm dấu X
+  đỏ phủ chéo (`.img-x-mark`, mọi nơi: grid/strip/PhotoViewer); xoá HĐ KiotViet
+  tự xoá mềm ảnh `kind='hoa_don'` của đơn. Kinds: soan_hang / nop_tien (nhận
+  tiền) / **nop_tien_task (nộp tiền — wizard nộp gắn mặc định)** / hoa_don / khac. **Bot-forwarded photos** (session photo → topic via
   `POST /api/tg/send-file`) are imported directly in `send_file_handler` because
   Telethon fires no `NewMessage` for the client's own sends —
   `order_photo_sync.import_sent_image`. Loop-prevention: self-sent message-ids
@@ -278,7 +302,8 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 **Web app for phones (orders management, 5-6 internal users)**
 - `webapp/` — Vite + Preact + TS mobile UI (Vietnamese). Hash router `main.tsx`, nav
   bottom **📋 Đơn · 👤 Khách · ➕ Tạo · 🏭 SX · 📦 Kho** + ⚙️ cài đặt ở top bar
-  (đăng xuất). Trang: orders list/detail, tasks, payments, comments, create order,
+  (đăng xuất; kèm `TaskBell` badge việc-của-tôi + chuông thông báo). Dashboard Đơn:
+  view-slider 4 ô (chi tiết/gọn/siêu gọn/**📅 lịch giao**). Menu ☰ Thêm có **Việc**. Trang: orders list/detail, tasks, payments, comments, create order,
   **sửa hoá đơn = trang riêng `pages/OrderInvoiceEdit.tsx` (`#/order/:id/hoa-don`,
   mở thẳng edit; KHOÁ nếu đã có HĐ KiotViet; order detail chỉ hiện tóm tắt + nút)**,
   customers/debt (bảng giá riêng `personal_price_list`), **photos (camera in-page HTTPS +
@@ -290,7 +315,15 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   - **UI dùng chung (đừng tự chế lại)**: `ui/SelectPopup` (chọn tĩnh) + `ui/PickerPopup`
     (autocomplete) = mọi dropdown/select là **popup neo đỉnh** (bàn phím không che); mọi
     popup gọi `ui/usePopupBack` (nút BACK đóng popup trước) + `useScrollLock`. Ô thùng =
-    `detail/BoxLabelGrid`. Toast/confirm = `ui/feedback`. Cuộn = `scroll.ts`. Nhớ vị trí cuộn **trung tâm** (`useScrollMemory`
+    `detail/BoxLabelGrid`. Toast/confirm = `ui/feedback`. Cuộn = `scroll.ts`.
+    **`ui/SearchBar`** = search bar chuẩn mọi trang list (+ `FilterActiveBar` panel
+    "Đang lọc"). **`detail/ScrollCalendar`** = lịch cuộn liền mạch kiểu macOS dùng
+    chung (lịch giao `#/lich` [text đơn trong ô, đỏ chưa giao/xanh đã giao], lịch
+    khách `#/khach/:key/lich`, lịch việc): vô hạn 2 chiều kể cả tháng trống, tháng
+    active nổi bật khi lướt, nút Hôm nay, chấm/dòng đúng số lượng; prepend có bù
+    scroll + `overflow-anchor:none` (không thì Chrome bù đôi → nhảy tháng).
+    Dải ảnh `ImageStrip` tràn màn tự CUỘN VÒNG (rAF scrollLeft — chạm là dừng, yên
+    3s chạy tiếp); popup camera `CameraBox` có nút Chọn ảnh từ máy. Nhớ vị trí cuộn **trung tâm** (`useScrollMemory`
   trong `main.tsx`: back→khôi phục, forward→top; trang lazy-load cache list ở module scope
   để về đúng vị trí tức thì, khỏi refetch). **Camera cần HTTPS** (WebView phải load URL
   `https://…/app` qua tailscale serve :443 — nếu load `http://…:8090` thì nút Mở camera ẩn;
