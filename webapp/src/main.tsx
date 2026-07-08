@@ -10,6 +10,7 @@ import { Icon } from "./ui/Icon";
 import { usePopupBack } from "./ui/usePopupBack";
 import { Customers } from "./pages/Customers";
 import { CustomerDetail } from "./pages/CustomerDetail";
+import { CustomerCalendarPage } from "./pages/CustomerCalendarPage";
 import { PriceLists } from "./pages/PriceLists";
 import { PriceListDetail } from "./pages/PriceListDetail";
 import { Login } from "./pages/Login";
@@ -340,6 +341,7 @@ function App() {
   const khoMatch = hash.match(/^#\/kho\/([^?]+)/);
   const placeMatch = hash.match(/^#\/vi-tri\/(\d+)/);
   const boxMatch = hash.match(/^#\/thung\/(\d+)/);
+  const khachLichMatch = hash.match(/^#\/khach\/([^/?]+)\/lich/);
   const khachMatch = hash.match(/^#\/khach\/([^?]+)/);
   const bangGiaMatch = hash.match(/^#\/bang-gia\/([^?]+)/);
   // Deep-link từ notification: ?focus=comment:123 / ?focus=image:45 → cuộn + nháy
@@ -366,6 +368,7 @@ function App() {
   else if (hash.startsWith("#/lich-su")) page = <ActivityLog />;
   else if (hash.startsWith("#/lich")) page = <DeliveryCalendar />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
+  else if (khachLichMatch) page = <CustomerCalendarPage ckey={decodeURIComponent(khachLichMatch[1])} />;
   else if (khachMatch) page = <CustomerDetail ckey={decodeURIComponent(khachMatch[1])} />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
   else if (bangGiaMatch) page = <PriceListDetail listId={decodeURIComponent(bangGiaMatch[1])} />;
