@@ -9,7 +9,8 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { postForm } from "../api";
-import { processSource } from "./imageProcess";
+import { processSource, processImage } from "./imageProcess";
+import { Icon } from "../ui/Icon";
 import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
 
@@ -44,6 +45,7 @@ export function CameraBox({
 }) {
   const [busy, setBusy] = useState(false);
   const [shots, setShots] = useState(0);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [flash, setFlash] = useState(false);
   const [err, setErr] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -116,6 +118,33 @@ export function CameraBox({
     }
   };
 
+  // CHỌN ẢNH TỪ MÁY ngay trong popup camera (thay chỗ chữ "Chạm để chụp"):
+  // cùng pipeline nén/upload với ảnh chụp, chọn được nhiều tấm 1 lượt
+  const pickFiles = async (files: FileList | null) => {
+    if (!files || !files.length || busy) return;
+    setBusy(true);
+    try {
+      for (const f of Array.from(files)) {
+        if (!f.type.startsWith("image/")) continue;
+        const p = await processImage(f);
+        const fd = new FormData();
+        fd.append("photo", p.full, `photo${p.ext}`);
+        fd.append("thumb", p.thumb, `thumb${p.ext}`);
+        fd.append("width", String(p.width));
+        fd.append("height", String(p.height));
+        if (kind) fd.append("kind", kind);
+        const res = await postForm(`${base}/images`, fd);
+        setShots((n) => n + 1);
+        onUploaded(res?.image);
+      }
+    } catch (ex: any) {
+      setErr(ex?.message || "Tải ảnh lỗi");
+    } finally {
+      setBusy(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  };
+
   useScrollLock(true);   // mount = camera đang mở → khoá cuộn nền
   usePopupBack(true, onClose);   // back → đóng camera trước
 
@@ -135,7 +164,11 @@ export function CameraBox({
           <button class="cam-shot" disabled={busy} onClick={shoot} aria-label="Chụp">
             {busy && <span class="img-spin" />}
           </button>
-          <span class="muted small">Chạm để chụp</span>
+          <button class="btn cam-pick" disabled={busy} onClick={() => fileInput.current?.click()}>
+            <Icon name="image" size={16} /> Chọn ảnh
+          </button>
+          <input ref={fileInput} type="file" accept="image/*" multiple hidden
+            onChange={(e: any) => pickFiles(e.target.files)} />
         </div>
         {err && <p class="error small">{err}</p>}
       </div>

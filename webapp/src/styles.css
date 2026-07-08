@@ -1649,3 +1649,6 @@ body.kbd-open .od-navbar { display: none; }
     linear-gradient(to bottom right, transparent calc(50% - 1.5px), #dc2626 calc(50% - 1.5px), #dc2626 calc(50% + 1.5px), transparent calc(50% + 1.5px)); }
 /* trong PhotoViewer: X theo đúng khung ẢNH (pv-img contain giữa màn) */
 .img-x-mark.pv-x { position: fixed; inset: 0; }
+
+/* nút chọn ảnh từ máy trong popup camera (thay chữ 'Chạm để chụp') */
+.cam-pick { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
