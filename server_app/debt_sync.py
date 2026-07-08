@@ -34,19 +34,30 @@ def _ts(v) -> float:
         return 0.0
 
 
-def derive_batch_new_debt(amounts: list, kv_debt) -> list | None:
+def derive_batch_new_debt(amounts: list, kv_debt, old_debts: list | None = None) -> list | None:
     """[amount phiếu thu theo thời gian TĂNG] + nợ KV cuối → new_debt từng phiếu.
 
     Phiếu CUỐI = số KV; phiếu trước = new_debt phiếu sau + amount phiếu sau
-    (phân bổ 1 số thật ngược lên, không tính nợ ngoài KV). None nếu lòi số âm —
-    dấu hiệu có HĐ chen giữa loạt → không phân bổ (chỉ vá phiếu cuối). Pure, có test.
+    (phân bổ 1 số thật ngược lên, không tính nợ ngoài KV). None (= không phân bổ,
+    chỉ vá phiếu cuối) khi loạt KHÔNG KIỂM CHỨNG ĐƯỢC:
+    • lòi số âm, HOẶC
+    • lệch old_debt: mỗi phiếu (trừ phiếu cuối — số KV thắng) phải có
+      derived[i] ≈ old_debt[i] − amount[i] (±1đ; old_debt None thì bỏ qua phiếu đó).
+      Bắt được HĐ chen giữa loạt mà không lòi số âm (thu A → xuất HĐ B → thu B).
+    Pure, có test.
     """
     out = [0.0] * len(amounts)
     run = float(kv_debt)
     for i in range(len(amounts) - 1, -1, -1):
         out[i] = run
         run += float(amounts[i] or 0)
-    return None if any(v < -1.0 for v in out) else out
+    if any(v < -1.0 for v in out):
+        return None
+    for i in range(len(amounts) - 1):   # phiếu cuối miễn — neo KV
+        od = old_debts[i] if old_debts else None
+        if od is not None and abs(out[i] - (float(od) - float(amounts[i] or 0))) > 1.0:
+            return None
+    return out
 
 
 _BATCH_WINDOW_S = 180.0   # loạt = các phiếu thu trong 3 phút gần nhất
@@ -67,20 +78,21 @@ def _patch_batch_new_debt(firebase_key: str, kv_debt) -> list[int]:
     try:
         rows = conn.execute(
             "SELECT o.thread_id tid, json_extract(p.value,'$.id') pid,"
-            " json_extract(p.value,'$.amount') amt, json_extract(p.value,'$.created_at') at"
+            " json_extract(p.value,'$.amount') amt, json_extract(p.value,'$.created_at') at,"
+            " json_extract(p.value,'$.old_debt') od"
             " FROM orders o, json_each(o.json,'$.payments') p"
             " WHERE CAST(json_extract(o.json,'$.khach_hang_id') AS TEXT) = ?"
             " AND o.deleted_at IS NULL",
             (str(firebase_key),)).fetchall()
         cutoff = _time.time() - _BATCH_WINDOW_S
         batch = sorted(
-            ({"tid": r["tid"], "pid": r["pid"], "amt": float(r["amt"] or 0), "ts": _ts(r["at"])}
+            ({"tid": r["tid"], "pid": r["pid"], "amt": float(r["amt"] or 0), "ts": _ts(r["at"]), "od": r["od"]}
              for r in rows if r["pid"] and _ts(r["at"]) >= cutoff),
             key=lambda x: x["ts"])
         if not batch:
             return []
-        targets = derive_batch_new_debt([b["amt"] for b in batch], kv_debt)
-        if targets is None:   # có HĐ chen giữa loạt → chỉ vá phiếu cuối như cũ
+        targets = derive_batch_new_debt([b["amt"] for b in batch], kv_debt, [b["od"] for b in batch])
+        if targets is None:   # loạt không kiểm chứng được (HĐ chen giữa…) → chỉ vá phiếu cuối
             batch, targets = batch[-1:], [float(kv_debt)]
         want = {}   # thread_id → {payment_id: new_debt}
         for b, nd in zip(batch, targets):
@@ -106,7 +118,8 @@ def _patch_batch_new_debt(firebase_key: str, kv_debt) -> list[int]:
 
 
 def schedule_debt_resync(firebase_key: str, delay: float = 6.0,
-                         thread_id: int | None = None, payment_id: str | None = None) -> None:
+                         thread_id: int | None = None, payment_id: str | None = None,
+                         followup_delay: float | None = 30.0) -> None:
     """Fetch lại debt SAU `delay` giây (nền, không chặn).
 
     KiotViet cập nhật công nợ khách kiểu eventual-consistency: GET /customers/{id}
@@ -115,7 +128,9 @@ def schedule_debt_resync(firebase_key: str, delay: float = 6.0,
     (VẪN từ KiotViet, không tính tay) để bắt giá trị mới → tránh công nợ khách bị trễ.
     Nếu có thread_id+payment_id (resync do PHIẾU THU) → vá nợ SAU cho cả LOẠT phiếu
     thu gần đây (_patch_batch_new_debt — thu liền tay nhiều phiếu chỉ có 1 số KV
-    cuối, phân bổ ngược). Gọi từ invoice/payment core.
+    cuối, phân bổ ngược), rồi lên lịch thêm 1 lượt CHỐT ở +followup_delay giây:
+    vá loạt là last-writer-wins từ 1 số KV nên lượt sau tự sửa nếu lượt +6s vẫn
+    dính KV trễ (>6s). Gọi từ invoice/payment core.
     """
     if not firebase_key:
         return
@@ -133,6 +148,10 @@ def schedule_debt_resync(firebase_key: str, delay: float = 6.0,
                     from server_app.realtime import emit_order_changed
                     for tid in changed:
                         emit_order_changed(tid)
+                    if followup_delay and followup_delay > delay:
+                        schedule_debt_resync(str(firebase_key), delay=followup_delay - delay,
+                                             thread_id=thread_id, payment_id=payment_id,
+                                             followup_delay=None)   # chốt 1 lần, không lặp vô hạn
         except Exception as e:  # noqa: BLE001 — nền, không được làm hỏng luồng gọi
             log.warning("debt resync failed key=%s: %s", firebase_key, e)
 

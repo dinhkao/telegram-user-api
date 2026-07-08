@@ -65,3 +65,27 @@ class DeriveBatchNewDebtTests:
     def test_negative_means_invoice_interleaved(self):
         # phân bổ lòi số âm = có HĐ chen giữa loạt → None (caller chỉ vá phiếu cuối)
         assert derive_batch_new_debt([100_000], -200_000) is None
+
+    def test_old_debt_crosscheck_passes_when_consistent(self):
+        # old_debt cascade khớp (kịch bản trang cửa 3) → phân bổ bình thường
+        assert derive_batch_new_debt(
+            [800_000, 310_000, 170_000], 0,
+            old_debts=[1_280_000, 480_000, 170_000]) == [480_000, 170_000, 0]
+
+    def test_old_debt_crosscheck_catches_positive_interleave(self):
+        # thu A (500k→400k) → xuất HĐ B +200k (→600k) → thu B 100k (→500k):
+        # phân bổ ngược cho phiếu A ra 600k (dương, âm-check không bắt) nhưng
+        # old_debt A = 500k → 500k−100k=400k ≠ 600k → None (không ghi số sai)
+        assert derive_batch_new_debt(
+            [100_000, 100_000], 500_000,
+            old_debts=[500_000, 600_000]) is None
+
+    def test_old_debt_none_skips_check(self):
+        # phiếu cũ không có old_debt → không kiểm được → vẫn phân bổ (như trước)
+        assert derive_batch_new_debt(
+            [800_000, 170_000], 0, old_debts=[None, None]) == [170_000, 0]
+
+    def test_last_payment_exempt_from_crosscheck(self):
+        # phiếu CUỐI neo số KV — old_debt cuối lệch (stale) không chặn phân bổ
+        assert derive_batch_new_debt(
+            [100_000], 700_000, old_debts=[123_000]) == [700_000]
