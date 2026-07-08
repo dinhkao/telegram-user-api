@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, ensureInvoiceImage, getCustomerOrders, getJSON, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
-import { money, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
+import { money, initial, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
 import { InvoiceTable } from "../detail/InvoiceTable";
 import { CustomerPicker } from "../detail/CustomerPicker";
@@ -351,9 +351,42 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
             <div class="od-sb-text" title={j.text || j.text_raw || ""}>{j.text || j.text_raw || `#${threadId}`}</div>
           </div>
         ) : (
-          <div class="od-appttl">Đơn <span class="od-id">#{threadId}</span></div>
+          <>
+            <div class="od-appttl">Đơn <span class="od-id">#{threadId}</span></div>
+            {/* Khách hàng — chip phải appbar, giống box khách ở Tạo đơn (avatar +
+                tên + ›). Chưa có khách → nút Gán khách; Đổi/Gán mở hàng picker dưới. */}
+            <div class="od-cust">
+              {(j.customer_name || j.khach_hang_id) ? (
+                <>
+                  {j.khach_hang_id ? (
+                    <a class="od-cust-chip" href={`#/khach/${encodeURIComponent(j.khach_hang_id)}`}>
+                      <span class="co-avatar" aria-hidden="true">{initial(j.customer_name || pc.kh || "?")}</span>
+                      <b class="od-cust-name">{j.customer_name || pc.kh}</b>
+                      <Icon name="chevronRight" size={14} class="co-cust-chev" />
+                    </a>
+                  ) : (
+                    <span class="od-cust-chip">
+                      <span class="co-avatar" aria-hidden="true">{initial(j.customer_name || pc.kh || "?")}</span>
+                      <b class="od-cust-name">{j.customer_name || pc.kh}</b>
+                    </span>
+                  )}
+                  <button class="btn small ghost od-cust-btn" onClick={() => setChangingCust((v: boolean) => !v)}>Đổi</button>
+                </>
+              ) : (
+                <button class="od-cust-add" onClick={() => setChangingCust((v: boolean) => !v)}>
+                  <Icon name="user" size={15} /> Gán khách
+                </button>
+              )}
+            </div>
+          </>
         )}
       </header>
+      {changingCust && (
+        <div class="od-cust-pickrow">
+          <CustomerPicker onPick={assignCustomer} placeholder="Tìm khách để gán" />
+          <button class="btn small" onClick={() => setChangingCust(false)}>Huỷ</button>
+        </div>
+      )}
       {detail._stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {msg && <p class="notice" onClick={() => setMsg("")}>{msg}</p>}
 
@@ -410,30 +443,6 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
 
       {/* Xem trước ảnh — bấm thumb mở lightbox; ô 📸 cuối cùng để chụp/thêm */}
       <ImageStrip base={`/api/order/${threadId}`} onCamera={goCamera} />
-
-      <div class="card">
-        <div class="row space">
-          <span>Khách hàng</span>
-          {(j.customer_name || j.khach_hang_id) && !changingCust && (
-            <button class="btn small" onClick={() => setChangingCust(true)}>Đổi</button>
-          )}
-        </div>
-        {(j.customer_name || j.khach_hang_id) && !changingCust ? (
-          j.khach_hang_id ? (
-            <a class="cust-link" href={`#/khach/${encodeURIComponent(j.khach_hang_id)}`}>
-              <b>{j.customer_name || pc.kh}</b> <span class="cust-link-arrow">›</span>
-            </a>
-          ) : (
-            <b>{j.customer_name || pc.kh}</b>
-          )
-        ) : (
-          <div>
-            {!(j.customer_name || j.khach_hang_id) && <p class="muted small">⚠️ Đơn chưa có khách — tìm và gán để lấy giá + tạo HĐ.</p>}
-            <CustomerPicker onPick={assignCustomer} placeholder="Tìm khách để gán" />
-            {changingCust && <button class="btn small" onClick={() => setChangingCust(false)}>Huỷ</button>}
-          </div>
-        )}
-      </div>
 
       <div class="card">
         <div class="row space">

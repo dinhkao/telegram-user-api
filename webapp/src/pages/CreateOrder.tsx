@@ -6,14 +6,12 @@
 // nên mọi thứ quan trọng luôn ở NỬA TRÊN màn hình (bàn phím không che).
 import { useState, useEffect, useRef } from "preact/hooks";
 import { postJSON, previewOrder, refreshCustomerDebt, getCustomerPriceList, type OrderPreview, type CustomerPriceList } from "../api";
-import { money } from "../format";
+import { money, initial } from "../format";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
 import { useScrollLock } from "../useScrollLock";
 import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
-
-const initial = (name: string) => (name.trim().charAt(0) || "?").toUpperCase();
 
 // Giá rút gọn cho cột hẹp (chia đôi màn hình): 17000 → "17k", 25500 → "25,5k".
 const moneyK = (v: number) =>

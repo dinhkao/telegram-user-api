@@ -140,7 +140,17 @@ body.kbd-open .page { padding-bottom: 10px; }
 .od-appbar { position: sticky; top: 44px; z-index: 15; display: flex; align-items: center; gap: 4px; padding: 4px 0; background: var(--bg); }
 .od-appbar.summary { border-bottom: 1px solid var(--border); box-shadow: 0 3px 10px rgba(0,0,0,.07); }
 .od-back { font-size: 1.15rem; text-decoration: none; color: inherit; padding: 2px 6px; }
-.od-appttl { font-weight: 600; font-size: .9rem; }
+.od-appttl { font-weight: 600; font-size: .9rem; flex: none; }
+/* Khách hàng trong od-appbar (OrderDetail) — nhìn giống box khách ở Tạo đơn
+   (.co-cust-picked): avatar tròn + tên + ›, nền accent-wash. Neo phải appbar. */
+.od-cust { margin-left: auto; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.od-cust-chip { display: flex; align-items: center; gap: 7px; background: var(--accent-wash); border: 1px solid #cfe0fb; border-radius: var(--r-md); padding: 4px 8px; color: inherit; text-decoration: none; min-width: 0; }
+.od-cust-chip .co-avatar { width: 24px; height: 24px; font-size: .78rem; }
+.od-cust-name { min-width: 0; max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; }
+.od-cust-btn { flex: none; }
+.od-cust-add { display: flex; align-items: center; gap: 6px; background: var(--warn-wash); border: 1px dashed #d8b64a; border-radius: var(--r-md); padding: 6px 10px; font-size: .88rem; font-weight: 600; color: var(--ink); }
+.od-cust-pickrow { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+.od-cust-pickrow > :first-child { flex: 1; }
 .od-summary { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .od-id { font-family: ui-monospace, monospace; color: var(--muted); font-weight: 500; font-size: .9rem; }
 .od-sum { display: flex; margin-top: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }

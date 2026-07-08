@@ -20,6 +20,9 @@ export function foldVN(s: string): string {
   return out;
 }
 
+/** Chữ cái đầu tên (avatar tròn khách hàng — CreateOrder/OrderDetail). */
+export const initial = (name: string) => ((name || "").trim().charAt(0) || "?").toUpperCase();
+
 export function money(n: number | string): string {
   const v = typeof n === "string" ? parseInt(n.replace(/\./g, ""), 10) || 0 : n || 0;
   return v.toLocaleString("vi-VN");
