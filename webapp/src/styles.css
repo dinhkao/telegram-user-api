@@ -578,13 +578,16 @@ body.pv-open { overflow: hidden; }
 .prod-bar { height: 6px; background: #eee; border-radius: 3px; margin-top: 8px; overflow: hidden; }
 .prod-bar-fill { height: 100%; background: #f0a500; border-radius: 3px; transition: width .3s; }
 .prod-bar-fill.done { background: var(--ok); }
-/* Mini chart báo cáo thợ trên card SX — cột dọc SIÊU THẤP, tên thợ nghiêng */
-.prod-mini-chart { margin-top: 6px; display: flex; align-items: flex-end; gap: 2px; padding-bottom: 12px; overflow: hidden; }
-.pmc-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-.pmc-val { font-size: .56rem; font-weight: 600; color: #444; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pmc-bar { display: block; width: 60%; max-width: 12px; background: var(--primary, #2680ff); border-radius: 2px 2px 0 0; opacity: .8; }
-.pmc-name { font-size: .52rem; color: #888; white-space: nowrap; height: 10px; max-width: 44px;
-  transform: rotate(-30deg) translateX(-4px); transform-origin: center top; }
+/* Mini chart báo cáo thợ trên card SX — cột dọc SIÊU THẤP + SIÊU SÁT, chỉ chiếm 1 góc card */
+.prod-mini-chart { margin-top: 6px; display: flex; align-items: flex-end; width: max-content; max-width: 100%; padding: 8px 8px 15px 14px; overflow: hidden; }
+.pmc-col { flex: 0 0 15px; width: 15px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.pmc-val { font-size: .5rem; font-weight: 600; color: #444; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap;
+  align-self: flex-start; transform: rotate(-50deg) translateX(3px); transform-origin: left bottom; height: 8px; }
+.pmc-bar { display: block; width: 3px; background: var(--primary, #2680ff); border-radius: 1px 1px 0 0; opacity: .85; }
+.pmc-name { font-size: .48rem; color: #888; white-space: nowrap; height: 9px;
+  /* neo ĐUÔI tên vào chân cột: hộp rộng 0 tại tâm cột, chữ dồn về cuối rồi xoay quanh mép phải */
+  width: 0; display: flex; justify-content: flex-end; overflow: visible;
+  transform: rotate(-50deg); transform-origin: right top; }
 
 /* So sánh nhập thùng vs báo cáo thợ */
 .prod-compare { display: flex; align-items: stretch; gap: 8px; padding: 10px 12px;
