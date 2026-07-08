@@ -24,9 +24,11 @@ let custCache: {
 
 // FIX realtime khi trang ĐANG UNMOUNT: đánh dấu "bẩn" nếu khách/công nợ đổi lúc vắng
 // mặt → mount lại VÁ TẠI CHỖ (refreshMerge) thay vì hiện cache cũ. KHÔNG bỏ cache nên
-// giữ nguyên list đã tải + vị trí cuộn.
+// giữ nguyên list đã tải + vị trí cuộn. Riêng customer_changed KHÔNG key (= đổi cấu
+// trúc: xoá khách) → BỎ cache hẳn (vá tại chỗ không gỡ được khách đã xoá).
 let custDirty = false;
 onRealtime((e) => {
+  if (e.type === "customer_changed" && !(e as any).key) { custCache = null; return; }
   if (e.type === "customer_changed" || e.type === "order_changed" || e.type === "orders_changed" || e.type === "resync") custDirty = true;
 });
 
@@ -119,9 +121,28 @@ export function Customers() {
     setPage(1);
     load(1, st.current.search, false, ow);
   };
+  // Vá 1 khách theo key — hoạt động cả khi khách KHÔNG nằm trong page 1 hiện tại
+  // (vd đang lọc Đang nợ mà khách vừa trả hết); 404 = đã xoá → gỡ khỏi list.
+  const patchOne = async (key: string) => {
+    try {
+      const c = await getJSON(`/api/customers/${encodeURIComponent(key)}`, { cache: false });
+      setCustomers((prev) => prev.map((x) => (x.key === key ? { ...x, ...c.customer } : x)));
+    } catch {
+      setCustomers((prev) => prev.filter((x) => x.key !== key));
+    }
+  };
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
+      if (e.type === "customer_changed") {
+        const k = (e as any).key;
+        if (!k) {   // đổi cấu trúc (xoá khách) → tải lại hẳn trang 1
+          clearTimeout(t);
+          t = setTimeout(() => { setPage(1); load(1, st.current.search, false); }, 200);
+          return;
+        }
+        patchOne(String(k));
+      }
       if (e.type === "resync" || e.type === "order_changed" || e.type === "orders_changed" || e.type === "customer_changed") {
         clearTimeout(t);
         t = setTimeout(refreshMerge, 300);

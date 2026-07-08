@@ -329,5 +329,5 @@ async def customer_delete_handler(request: web.Request):
     if res == "linked":
         return web.json_response({"ok": False, "error": "Khách đang liên kết KiotViet — bỏ liên kết trước rồi mới xoá"}, status=400)
     from server_app.realtime import emit_customer_changed
-    emit_customer_changed(key)
+    emit_customer_changed(None)   # key=None = đổi CẤU TRÚC (xoá) → dashboard tải lại hẳn
     return web.json_response({"ok": True})
