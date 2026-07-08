@@ -87,9 +87,9 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  // list ↔ lịch tháng (nhớ lựa chọn)
-  const [mode, setMode] = useState<"list" | "cal">(() => (localStorage.getItem("cust_feed_mode") === "cal" ? "cal" : "list"));
-  const setFeedMode = (m: "list" | "cal") => { setMode(m); localStorage.setItem("cust_feed_mode", m); };
+  // list ↔ lịch tháng — STREAM luôn là mặc định khi vào trang (không nhớ)
+  const [mode, setMode] = useState<"list" | "cal">("list");
+  const setFeedMode = setMode;
   const seq = useRef(0);
 
   const load = async (p: number, replace = false) => {
@@ -181,7 +181,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     const ro = new ResizeObserver(measure);
     ro.observe(ul);
     return () => ro.disconnect();
-  }, [items]);
+  }, [items, mode]);
 
   const jumpToOrder = (tid: number) => {
     const el = listRef.current?.querySelector<HTMLElement>(`a[data-oid="${tid}"]`);
