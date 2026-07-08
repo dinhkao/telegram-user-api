@@ -199,6 +199,8 @@ def create_app():
         task_delete_handler, task_get_handler, task_update_handler,
         tasks_create_handler, tasks_list_handler,
     )
+    from server_app.task_routes import task_assignees_handler
+    r.add_get("/api/tasks/assignees", task_assignees_handler)   # TRƯỚC /{task_id}
     r.add_get("/api/tasks", tasks_list_handler)
     r.add_post("/api/tasks", tasks_create_handler)
     r.add_get("/api/tasks/{task_id}", task_get_handler)

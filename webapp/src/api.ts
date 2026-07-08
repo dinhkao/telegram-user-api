@@ -988,3 +988,42 @@ export async function releaseAllocations(id: string | number, allocationIds: num
   const d = await postJSON(`/api/order/${id}/release`, { allocation_ids: allocationIds });
   return d.allocations || [];
 }
+
+// ── VIỆC (task list — bảng web_tasks + mirror task đơn) ──
+export type Task = {
+  id: number; kind: "free" | "order_step" | "order_custom";
+  thread_id?: number | null; step_key?: string | null;
+  title: string; note: string; order_label: string;
+  assignee: string; due_at?: string | null;
+  done: boolean; done_by?: string | null; done_at?: number | null;
+  created_by: string; created_at: number; updated_at: number;
+};
+export type TaskCounts = { open: number; free: number; order: number; mine: number; overdue: number; done: number };
+
+export async function listTasks(filter: string, page = 1): Promise<{ tasks: Task[]; total: number; total_pages: number; counts: TaskCounts; today: string }> {
+  const d = await getJSON(`/api/tasks?filter=${encodeURIComponent(filter)}&page=${page}`, { cache: false });
+  return { tasks: d.tasks || [], total: d.total || 0, total_pages: d.total_pages || 1, counts: d.counts, today: d.today || "" };
+}
+export async function getTask(id: number): Promise<Task> {
+  return (await getJSON(`/api/tasks/${id}`, { cache: false })).task;
+}
+export async function createTask(body: { title: string; note?: string; assignee?: string; due_at?: string; thread_id?: number }): Promise<Task> {
+  return (await postJSON("/api/tasks", body)).task;
+}
+export async function updateTask(id: number, body: any): Promise<Task> {
+  return (await postJSON(`/api/tasks/${id}`, body)).task;
+}
+export async function deleteTask(id: number): Promise<void> {
+  const res = await fetch(`/api/tasks/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${getToken()}` } });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(d.error || "Xoá thất bại");
+}
+export async function taskDays(): Promise<{ d: string; o: number; p: number }[]> {
+  return (await getJSON("/api/tasks?days=1", { cache: false })).days || [];
+}
+export async function taskDay(day: string): Promise<Task[]> {
+  return (await getJSON(`/api/tasks?day=${encodeURIComponent(day)}`, { cache: false })).tasks || [];
+}
+export async function taskAssignees(): Promise<{ username: string; display_name: string }[]> {
+  return (await getJSON("/api/tasks/assignees", { cache: false })).users || [];
+}

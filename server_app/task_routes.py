@@ -51,6 +51,20 @@ def _emit():
         pass
 
 
+async def task_assignees_handler(request: web.Request):
+    """Danh sách user để PHÂN CÔNG (username + tên) — không cần admin (chỉ tên)."""
+    def _run():
+        from user_store import list_users
+        return [{"username": u["username"], "display_name": u.get("display_name") or u["username"]}
+                for u in list_users() if not u.get("disabled")]
+    try:
+        users = await asyncio.to_thread(_run)
+    except Exception as e:  # noqa: BLE001
+        log.warning("assignees lỗi: %s", e)
+        users = []
+    return web.json_response({"ok": True, "users": users})
+
+
 async def tasks_list_handler(request: web.Request):
     await _ensure_backfill()
     from task_store import counts, day_counts, day_tasks, list_tasks

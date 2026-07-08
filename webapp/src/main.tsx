@@ -11,6 +11,8 @@ import { usePopupBack } from "./ui/usePopupBack";
 import { Customers } from "./pages/Customers";
 import { CustomerDetail } from "./pages/CustomerDetail";
 import { CustomerCalendarPage } from "./pages/CustomerCalendarPage";
+import { TasksBoard } from "./pages/TasksBoard";
+import { TaskDetail } from "./pages/TaskDetail";
 import { PriceLists } from "./pages/PriceLists";
 import { PriceListDetail } from "./pages/PriceListDetail";
 import { Login } from "./pages/Login";
@@ -341,6 +343,7 @@ function App() {
   const khoMatch = hash.match(/^#\/kho\/([^?]+)/);
   const placeMatch = hash.match(/^#\/vi-tri\/(\d+)/);
   const boxMatch = hash.match(/^#\/thung\/(\d+)/);
+  const viecMatch = hash.match(/^#\/viec\/(\d+)/);
   const khachLichMatch = hash.match(/^#\/khach\/([^/?]+)\/lich/);
   const khachMatch = hash.match(/^#\/khach\/([^?]+)/);
   const bangGiaMatch = hash.match(/^#\/bang-gia\/([^?]+)/);
@@ -368,6 +371,8 @@ function App() {
   else if (hash.startsWith("#/lich-su")) page = <ActivityLog />;
   else if (hash.startsWith("#/lich")) page = <DeliveryCalendar />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
+  else if (viecMatch) page = <TaskDetail id={Number(viecMatch[1])} />;
+  else if (hash.startsWith("#/viec")) page = <TasksBoard />;
   else if (khachLichMatch) page = <CustomerCalendarPage ckey={decodeURIComponent(khachLichMatch[1])} />;
   else if (khachMatch) page = <CustomerDetail ckey={decodeURIComponent(khachMatch[1])} />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
@@ -387,6 +392,7 @@ function App() {
     : hash.startsWith("#/san-pham") ? "Sản phẩm"
     : (hash.startsWith("#/vi-tri") || placeMatch) ? "Vị trí kho"
     : (hash.startsWith("#/kho") || khoMatch || boxMatch) ? "Kho hàng"
+    : hash.startsWith("#/viec") ? "Việc"
     : hash.startsWith("#/quy") ? "Sổ quỹ"
     : hash.startsWith("#/users") ? "Người dùng"
     : hash.startsWith("#/tho") ? "Thợ"
@@ -425,6 +431,7 @@ function App() {
         <div class="modal-overlay" onClick={() => setMenuOpen(false)}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head">Mục khác</div>
+            <a class="menu-item" href="#/viec" onClick={() => setMenuOpen(false)}><Icon name="check" size={17} /> Việc (task list)</a>
             <a class="menu-item" href="#/quy" onClick={() => setMenuOpen(false)}><Icon name="wallet" size={17} /> Sổ quỹ (thu/chi)</a>
             <a class="menu-item" href="#/sx-bang" onClick={() => setMenuOpen(false)}><Icon name="chart" size={17} /> Dashboard sản xuất</a>
             <a class="menu-item" href="#/tho" onClick={() => setMenuOpen(false)}><Icon name="users" size={17} /> Danh sách thợ</a>
