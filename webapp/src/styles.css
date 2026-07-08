@@ -743,7 +743,8 @@ body.pv-open { overflow: hidden; }
 .cc-wd { text-align: center; font-size: .68rem; font-weight: 700; color: var(--muted); text-transform: uppercase; }
 .cc-cell { position: relative; aspect-ratio: 1; border: 1px solid var(--border); border-radius: 9px;
   background: var(--card); display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 3px; padding: 0; }
+  justify-content: center; gap: 3px; padding: 0; overflow: hidden; }
+.cc-more { font-size: .56rem; color: var(--muted); line-height: 1; font-weight: 700; }
 .cc-cell.empty { border: none; background: transparent; }
 .cc-cell:disabled { opacity: .45; }
 .cc-cell.has { border-color: #c8d4e8; background: var(--accent-wash); }
@@ -757,11 +758,14 @@ body.pv-open { overflow: hidden; }
 .cc-dot.p { background: var(--ok); }
 .cc-legend { display: flex; gap: 14px; margin-top: 8px; align-items: center; }
 .cc-legend span { display: inline-flex; align-items: center; gap: 5px; }
-.cc-sheet { max-height: 78vh; overflow-y: auto; }
+/* .modal-sheet gốc là flex-col overflow:hidden → vùng CUỘN là LIST BÊN TRONG
+   (sheet tự cuộn sẽ bị overflow:hidden của base — định nghĩa sau — đè mất) */
+.cc-sheet { max-height: 78vh; }
 /* header popup: icon + tiêu đề trái, nút ✕ neo phải cùng hàng (hết đè chữ) */
-.cc-sheet .modal-head { display: flex; align-items: center; gap: 7px; }
+.cc-sheet .modal-head { display: flex; align-items: center; gap: 7px; flex: none; }
 .cc-sheet .cc-x { margin-left: auto; flex: none; display: flex; padding: 4px; }
-.cc-list { margin-top: 8px; }
+.cc-sheet .cc-list { margin-top: 8px; overflow-y: auto; flex: 1; min-height: 0;
+  -webkit-overflow-scrolling: touch; }
 /* dòng lưu ý mốc 6/7/2026 — trước đó phiếu thu CHƯA lưu số nợ (chèn tại điểm
    feed vượt qua mốc khi cuộn về quá khứ). margin-right 87px = thẳng mép card
    (rail 80 + gap 7) — line nợ bên phải KHÔNG đè lên box. */

@@ -103,6 +103,11 @@ export function ScrollCalendar({ days, legend, onPick }: {
               const k = keyOf(y, m, d);
               const c = days.get(k);
               const has = !!c && (c.o > 0 || c.p > 0);
+              // CAP chấm hiển thị (ngày quá nhiều biến động làm ô phình vỡ lưới):
+              // tối đa 4 đỏ + 4 xanh, phần dư gộp thành "+n"
+              const oShow = has ? Math.min(c!.o, 4) : 0;
+              const pShow = has ? Math.min(c!.p, 4) : 0;
+              const extra = has ? c!.o + c!.p - oShow - pShow : 0;
               return (
                 <button key={k} class={"cc-cell" + (has ? " has" : "") + (k === todayKey ? " today" : "")}
                   disabled={!has} onClick={() => onPick(k)}
@@ -110,8 +115,9 @@ export function ScrollCalendar({ days, legend, onPick }: {
                   <span class="cc-d">{d}</span>
                   {has && (
                     <span class="cc-dots">
-                      {Array.from({ length: c!.o }, (_, j) => <span key={`o${j}`} class="cc-dot o" />)}
-                      {Array.from({ length: c!.p }, (_, j) => <span key={`p${j}`} class="cc-dot p" />)}
+                      {Array.from({ length: oShow }, (_, j) => <span key={`o${j}`} class="cc-dot o" />)}
+                      {Array.from({ length: pShow }, (_, j) => <span key={`p${j}`} class="cc-dot p" />)}
+                      {extra > 0 && <span class="cc-more">+{extra}</span>}
                     </span>
                   )}
                 </button>
