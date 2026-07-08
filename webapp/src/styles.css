@@ -1681,8 +1681,10 @@ body.kbd-open .od-navbar { display: none; }
 .tk-stat-l { display: inline-flex; align-items: center; gap: 3px; font-size: .66rem; font-weight: 650; color: var(--muted); white-space: nowrap; }
 .tk-stat.on { background: var(--stw); border-color: var(--st); }
 .tk-stat.on .tk-stat-l { color: var(--st); }
-/* hàng avatar người làm — chạm = lọc việc chưa xong của người đó, active = vòng màu */
-.tk-people { display: flex; gap: 12px; overflow-x: auto; padding: 3px 2px 6px; margin-bottom: 4px;
+/* hàng avatar người làm — chạm = lọc việc chưa xong của người đó, active = vòng màu.
+   Vòng = box-shadow tràn 4px NGOÀI avatar → padding ≥5px mọi phía kẻo overflow-x cắt;
+   margin âm bù lại cho avatar thẳng mép nội dung. */
+.tk-people { display: flex; gap: 12px; overflow-x: auto; padding: 5px 5px 7px; margin: -2px -5px 2px;
   scrollbar-width: none; }
 .tk-people::-webkit-scrollbar { display: none; }
 .tk-person { flex: none; display: flex; flex-direction: column; align-items: center; gap: 3px;
