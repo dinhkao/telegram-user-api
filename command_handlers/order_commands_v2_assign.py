@@ -15,6 +15,10 @@ async def assign_customer(client, msg, db_conn, thread_id: int, kh_id: str):
     if not customer:
         await client.send_message(msg.chat_id, f"❌ Không tìm thấy khách hàng ID: {kh_id}", reply_to=msg.id)
         return
+    # HĐ KiotViet đã tạo theo khách cũ — đổi khách làm HĐ/nợ lệch → cấm (xoá HĐ trước)
+    if order.get("kiotvietInvoiceID"):
+        await client.send_message(msg.chat_id, "❌ Đơn đã có hoá đơn KiotViet — không đổi khách được. Xoá hoá đơn trước.", reply_to=msg.id)
+        return
     order["khach_hang_id"], order["customer_name"] = kh_id, customer.get("name", "N/A")
     from order_db import touch_customer_last_order
     touch_customer_last_order(db_conn, kh_id)

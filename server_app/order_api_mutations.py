@@ -58,6 +58,11 @@ async def api_assign_customer_handler(request: web.Request):
         order = get_order_by_thread_id(conn, thread_id)
         if not order:
             return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+        # HĐ KiotViet đã tạo theo khách cũ — đổi khách làm HĐ/nợ lệch → cấm (xoá HĐ trước)
+        if order.get("kiotvietInvoiceID"):
+            return web.json_response(
+                {"ok": False, "error": "Đơn đã có hoá đơn KiotViet — không đổi khách được. Xoá hoá đơn trước."},
+                status=400)
         order["khach_hang_id"] = str(customer_key)
         order["customer_name"] = customer.get("name", "")
         if not _save_order(conn, thread_id, order):

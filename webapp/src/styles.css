@@ -153,6 +153,7 @@ body.kbd-open .page { padding-bottom: 10px; }
 .od-cust-name { min-width: 0; max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; }
 .od-cust-btn { flex: none; }
 .od-cust-add { display: flex; align-items: center; gap: 6px; background: var(--warn-wash); border: 1px dashed #d8b64a; border-radius: var(--r-md); padding: 9px 13px; font-size: .95rem; font-weight: 600; color: var(--ink); }
+.od-cust-add.faded { opacity: .5; }
 .od-cust-pickrow { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
 .od-cust-pickrow > :first-child { flex: 1; }
 .od-summary { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; cursor: pointer; }

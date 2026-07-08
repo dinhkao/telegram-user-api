@@ -191,6 +191,12 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const paid = paidTotal(j.payments);
   const remaining = Math.max(0, computedTotal - paid);
   const hasInvoice = !!j.kiotvietInvoiceID;
+  // Đổi/Gán khách bị KHOÁ khi đơn đã có HĐ KiotViet (HĐ tạo theo khách cũ) —
+  // pattern nút khoá: mờ + toast lý do, server cũng chặn 400.
+  const toggleCust = () => {
+    if (hasInvoice) { toast("Đơn đã có hoá đơn KiotViet — không đổi khách được. Xoá hoá đơn trước.", "info"); return; }
+    setChangingCust((v: boolean) => !v);
+  };
   // Lý do khoá xoá đơn biết được từ blob (HĐ, thanh toán); phân bổ kho server chặn nốt
   const delOrderLock = hasInvoice
     ? "Còn HĐ KiotViet — xoá hoá đơn trước khi xoá đơn"
@@ -375,10 +381,14 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
                       <b class="od-cust-name">{j.customer_name || pc.kh}</b>
                     </span>
                   )}
-                  <button class="btn small ghost od-cust-btn" onClick={() => setChangingCust((v: boolean) => !v)}>Đổi</button>
+                  <button class={"btn small ghost od-cust-btn" + (hasInvoice ? " faded" : "")}
+                    title={hasInvoice ? "Đã có HĐ KiotViet — không đổi khách được" : undefined}
+                    onClick={toggleCust}>Đổi</button>
                 </>
               ) : (
-                <button class="od-cust-add" onClick={() => setChangingCust((v: boolean) => !v)}>
+                <button class={"od-cust-add" + (hasInvoice ? " faded" : "")}
+                  title={hasInvoice ? "Đã có HĐ KiotViet — không đổi khách được" : undefined}
+                  onClick={toggleCust}>
                   <Icon name="user" size={15} /> Gán khách
                 </button>
               )}

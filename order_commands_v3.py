@@ -767,7 +767,8 @@ async def _auto_parse_fix(client, conn, thread_id: int, text: str):
             return
         kh_id = order.get("khach_hang_id") or order.get("khID")
         detection = detect_customer_free_text(conn, text)
-        if detection.get("autoAssign"):
+        # Đơn đã có HĐ KiotViet → KHÔNG tự đổi khách theo text mới (HĐ theo khách cũ)
+        if detection.get("autoAssign") and not order.get("kiotvietInvoiceID"):
             cust = detection["autoAssign"]
             order["khach_hang_id"] = cust["customerID"]
             order["customer_name"] = cust["customerName"]
@@ -783,7 +784,7 @@ async def _auto_parse_fix(client, conn, thread_id: int, text: str):
             _firebase_refresh_async(client, conn, thread_id, order)
             log.info("auto-parse (fix): thread=%d items=%d", thread_id, len(invoice))
 
-        if detection.get("autoAssign"):
+        if detection.get("autoAssign") and not order.get("kiotvietInvoiceID"):
             if not invoice:
                 _save_order(conn, thread_id, order)   # lưu gán khách dù chưa nhận ra SP nào
             from order_store.custom_tasks import apply_customer_default_tasks
