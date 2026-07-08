@@ -733,7 +733,10 @@ body.pv-open { overflow: hidden; }
   position: sticky; top: 50vh; }   /* khe dài (cả trăm px) — nhãn dính giữa màn khi cuộn qua */
 /* ── Lịch tháng biến động (CustomerCalendar) ── */
 .cust-cal { margin: 4px 0 14px; }
-.cc-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cc-block { margin-bottom: 18px; }
+/* header tháng DÍNH dưới app-bar khi cuộn qua tháng đó */
+.cc-month-head { position: sticky; top: 44px; z-index: 5; background: var(--bg);
+  padding: 6px 2px; }
 .cc-month { font-size: .95rem; }
 .cc-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .cc-head { margin-bottom: 4px; }

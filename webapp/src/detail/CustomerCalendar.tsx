@@ -11,6 +11,24 @@ import { EmptyState } from "../ui/states";
 
 const _WD = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const _MONTH = (y: number, m: number) => `Tháng ${m + 1}/${y}`;
+
+/** Dãy tháng (MỚI → CŨ) từ tháng hiện tại về tháng có biến động sớm nhất. */
+function monthRange(days: Map<string, unknown>, now: Date): { y: number; m: number }[] {
+  let earliest = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+  for (const k of days.keys()) {
+    const ym = k.slice(0, 7);
+    if (ym < earliest) earliest = ym;
+  }
+  const out: { y: number; m: number }[] = [];
+  let y = now.getFullYear(), m = now.getMonth();
+  for (let i = 0; i < 120; i++) {   // trần 10 năm — chống vòng lặp dữ liệu hỏng
+    out.push({ y, m });
+    if (`${y}-${pad(m + 1)}` <= earliest) break;
+    m -= 1;
+    if (m < 0) { m = 11; y -= 1; }
+  }
+  return out;
+}
 const pad = (n: number) => String(n).padStart(2, "0");
 const keyOf = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
 
@@ -32,7 +50,6 @@ export function CustomerCalendar({ ckey, renderItem }: {
 }) {
   const [days, setDays] = useState<Map<string, { o: number; p: number }>>(new Map());
   const now = new Date();
-  const [ym, setYm] = useState<{ y: number; m: number }>({ y: now.getFullYear(), m: now.getMonth() });
   const [pick, setPick] = useState<string | null>(null);          // ngày đang mở popup
   const [dayItems, setDayItems] = useState<CustFeedItem[] | null>(null);
 
@@ -51,44 +68,41 @@ export function CustomerCalendar({ ckey, renderItem }: {
   useScrollLock(!!pick);
   usePopupBack(!!pick, closeDay);
 
-  const shift = (dm: number) => setYm(({ y, m }) => {
-    const t = new Date(y, m + dm, 1);
-    return { y: t.getFullYear(), m: t.getMonth() };
-  });
-
   const todayKey = keyOf(now.getFullYear(), now.getMonth(), now.getDate());
   const pickLabel = pick ? `${_WD[(new Date(pick).getDay() + 6) % 7]} · ${pick.slice(8)}/${pick.slice(5, 7)}/${pick.slice(0, 4)}` : "";
 
   return (
     <div class="cust-cal">
-      <div class="cc-nav">
-        <button class="btn small" onClick={() => shift(-1)}><Icon name="back" size={16} /></button>
-        <b class="cc-month">{_MONTH(ym.y, ym.m)}</b>
-        <button class="btn small" onClick={() => shift(1)}><Icon name="chevronRight" size={16} /></button>
-      </div>
-      <div class="cc-grid cc-head">
-        {_WD.map((w) => <span key={w} class="cc-wd">{w}</span>)}
-      </div>
-      <div class="cc-grid">
-        {monthCells(ym.y, ym.m).map((d, i) => {
-          if (d == null) return <span key={`e${i}`} class="cc-cell empty" />;
-          const k = keyOf(ym.y, ym.m, d);
-          const c = days.get(k);
-          return (
-            <button key={k} class={"cc-cell" + (c ? " has" : "") + (k === todayKey ? " today" : "")}
-              disabled={!c} onClick={() => openDay(k)}
-              title={c ? `${c.o ? `${c.o} đơn` : ""}${c.o && c.p ? " · " : ""}${c.p ? `${c.p} phiếu thu` : ""}` : undefined}>
-              <span class="cc-d">{d}</span>
-              {c && (
-                <span class="cc-dots">
-                  {Array.from({ length: c.o }, (_, j) => <span key={`o${j}`} class="cc-dot o" />)}
-                  {Array.from({ length: c.p }, (_, j) => <span key={`p${j}`} class="cc-dot p" />)}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {/* CUỘN DỌC liên tục: tháng hiện tại trên cùng → cuộn xuống là về quá khứ
+          (cùng chiều với feed); header tháng DÍNH khi cuộn */}
+      {monthRange(days, now).map(({ y, m }) => (
+        <div class="cc-block" key={`${y}-${m}`}>
+          <div class="cc-month-head"><b class="cc-month">{_MONTH(y, m)}</b></div>
+          <div class="cc-grid cc-head">
+            {_WD.map((w) => <span key={w} class="cc-wd">{w}</span>)}
+          </div>
+          <div class="cc-grid">
+            {monthCells(y, m).map((d, i) => {
+              if (d == null) return <span key={`e${i}`} class="cc-cell empty" />;
+              const k = keyOf(y, m, d);
+              const c = days.get(k);
+              return (
+                <button key={k} class={"cc-cell" + (c ? " has" : "") + (k === todayKey ? " today" : "")}
+                  disabled={!c} onClick={() => openDay(k)}
+                  title={c ? `${c.o ? `${c.o} đơn` : ""}${c.o && c.p ? " · " : ""}${c.p ? `${c.p} phiếu thu` : ""}` : undefined}>
+                  <span class="cc-d">{d}</span>
+                  {c && (
+                    <span class="cc-dots">
+                      {Array.from({ length: c.o }, (_, j) => <span key={`o${j}`} class="cc-dot o" />)}
+                      {Array.from({ length: c.p }, (_, j) => <span key={`p${j}`} class="cc-dot p" />)}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
       <div class="cc-legend muted small">
         <span><span class="cc-dot o" /> đơn hàng</span>
         <span><span class="cc-dot p" /> thanh toán</span>
