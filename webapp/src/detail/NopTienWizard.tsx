@@ -112,7 +112,7 @@ export function NopTienWizard({ threadId, onClose, onDone, adminQuick }: {
             </p>
             {cameraSupported() ? (
               // Cùng camera engine với khối Ảnh (in-page getUserMedia). Chụp 1 tấm → ghi task.
-              <CameraBox base={`/api/order/${threadId}`} onUploaded={onPhotoUploaded} onClose={onClose} />
+              <CameraBox base={`/api/order/${threadId}`} kind="nop_tien_task" onUploaded={onPhotoUploaded} onClose={onClose} />
             ) : (
               // Fallback không HTTPS: input capture của máy
               <>

@@ -94,7 +94,7 @@ def _attach_thumbs(conn, orders: list[dict]) -> None:
         for iid, kind in lst:
             if kind == "soan_hang" or iid in soan_note:
                 soan.append(iid)
-            elif kind == "nop_tien" or iid == nop_note:
+            elif kind in ("nop_tien", "nop_tien_task") or iid == nop_note:
                 nop.append(iid)
             else:
                 rest.append(iid)

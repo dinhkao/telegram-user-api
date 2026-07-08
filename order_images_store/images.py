@@ -11,7 +11,7 @@ import time
 from utils.db import get_connection
 
 # Loại ảnh của đơn (phân loại thủ công + tự động cho hoá đơn). 'khac' = mặc định.
-KINDS = ("soan_hang", "nop_tien", "hoa_don", "khac")
+KINDS = ("soan_hang", "nop_tien", "nop_tien_task", "hoa_don", "khac")   # nop_tien = ảnh NHẬN tiền; nop_tien_task = ảnh NỘP tiền (wizard nộp)
 DEFAULT_KIND = "khac"
 
 
