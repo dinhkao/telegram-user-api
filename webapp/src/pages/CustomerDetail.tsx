@@ -1,17 +1,19 @@
-// Chi tiết 1 khách (#/khach/:key) — sửa bảng giá riêng (personal_price_list) +
-// pattern nhận diện (detectPatterns) + list đơn của khách (compact, bấm → đơn).
-// API: getCustomer / updateCustomer / getCustomerOrders / refreshCustomerDebt.
-import { useEffect, useRef, useState } from "preact/hooks";
+// Chi tiết 1 khách (#/khach/:key) — TRỌNG TÂM là feed ĐƠN + THANH TOÁN (3 kiểu xem
+// như dashboard, detail/CustomerFeed). Dưới: ghi chú (sửa được), khối GIÁ BÁN gộp
+// (bảng giá chung + giá riêng đè + giá hiệu lực), việc mặc định, pattern nhận diện.
+// API: getCustomer / updateCustomer / getCustomerFeed / refreshCustomerDebt.
+import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import {
-  getCustomer, updateCustomer, getCustomerOrders, refreshCustomerDebt,
+  getCustomer, updateCustomer, refreshCustomerDebt,
   getCustomerPriceList, type CustomerPriceList,
   getPriceLists, type PriceListSummary,
   type CustomerDetail as Cust,
 } from "../api";
-import { money, parseMoney } from "../format";
-import { CompactOrderCard } from "../detail/CompactOrderCard";
+import { money, parseMoney, initial } from "../format";
+import { CustomerFeed } from "../detail/CustomerFeed";
 import { onRealtime } from "../realtime";
+import { toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { SelectPopup } from "../ui/SelectPopup";
@@ -23,85 +25,69 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
   const [err, setErr] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [patterns, setPatterns] = useState("");
+  const [noteInput, setNoteInput] = useState("");
+  const [noteSaved, setNoteSaved] = useState(false);
   const [savingP, setSavingP] = useState(false);
   const [savingPat, setSavingPat] = useState(false);
-  const [msg, setMsg] = useState("");
   const [debtBusy, setDebtBusy] = useState(false);
   const [effective, setEffective] = useState<CustomerPriceList | null>(null);
   const [priceLists, setPriceLists] = useState<PriceListSummary[]>([]);
   const [savingPl, setSavingPl] = useState(false);
-
-  const [orders, setOrders] = useState<any[]>([]);
-  const [oPage, setOPage] = useState(1);
-  const [oTotalPages, setOTotalPages] = useState(1);
-  const [oTotal, setOTotal] = useState(0);
-  const [oLoading, setOLoading] = useState(false);
-  const seq = useRef(0);
 
   const hydrate = (c: Cust) => {
     setCust(c);
     const ppl = c.personal_price_list || {};
     setRows(Object.keys(ppl).map((sp) => ({ sp, price: String(ppl[sp]) })));
     setPatterns((c.detectPatterns || []).join(", "));
+    setNoteInput(c.note || "");
     setDefTasks(c.default_tasks || []);
   };
 
-  const loadOrders = async (page: number) => {
-    const my = ++seq.current;
-    setOLoading(true);
-    try {
-      const r = await getCustomerOrders(ckey, page);
-      if (my !== seq.current) return;
-      setOTotalPages(r.total_pages || 1);
-      setOTotal(r.total || 0);
-      setOrders((prev) => (page === 1 ? r.orders : [...prev, ...r.orders]));
-      setOPage(r.page || page);
-    } finally {
-      if (my === seq.current) setOLoading(false);
-    }
-  };
-
   const loadEffective = () => getCustomerPriceList(ckey).then(setEffective).catch(() => setEffective(null));
-
   const reload = () => {
     getCustomer(ckey).then(hydrate).catch((e) => setErr(e.message));
-    loadOrders(1);
     loadEffective();
   };
 
   useEffect(() => { getPriceLists().then(setPriceLists).catch(() => {}); }, []);
+  useEffect(() => { reload(); }, [ckey]);
 
-  // Gán khách vào 1 bảng giá chung (hoặc bỏ gán) → lưu + tải lại giá hiệu lực
-  const changePriceList = async (id: string) => {
-    setSavingPl(true); setErr(""); setMsg("");
-    try {
-      hydrate(await updateCustomer(ckey, { price_list: id || null }));
-      loadEffective();
-      setMsg("✅ Đã đổi bảng giá chung");
-    } catch (e: any) { setErr(e.message); } finally { setSavingPl(false); }
-  };
-
-  useEffect(() => {
-    reload();
-  }, [ckey]);
-
+  // Realtime: thông tin khách / bảng giá đổi → tải lại (feed tự lo phần đơn)
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
-      const rel = e.type === "resync" || e.type === "order_changed" || e.type === "price_lists_changed" ||
+      const rel = e.type === "resync" || e.type === "price_lists_changed" ||
         (e.type === "customer_changed" && (e.key == null || e.key === String(ckey)));
       if (rel) { clearTimeout(t); t = setTimeout(reload, 300); }
     });
     return () => { off(); clearTimeout(t); };
   }, [ckey]);
 
+  // ── Ghi chú khách: sửa trực tiếp, tự lưu khi rời ô ──
+  const saveNote = async () => {
+    if (!cust || noteInput === (cust.note || "")) return;
+    try {
+      hydrate(await updateCustomer(ckey, { note: noteInput }));
+      setNoteSaved(true);
+      setTimeout(() => setNoteSaved(false), 1500);
+    } catch (e: any) { toast(e.message || "Lỗi lưu ghi chú", "err"); }
+  };
+
+  // ── Giá bán ──
+  const changePriceList = async (id: string) => {
+    setSavingPl(true);
+    try {
+      hydrate(await updateCustomer(ckey, { price_list: id || null }));
+      loadEffective();
+      toast("Đã đổi bảng giá chung", "ok");
+    } catch (e: any) { toast(e.message, "err"); } finally { setSavingPl(false); }
+  };
   const setRow = (i: number, k: keyof Row, v: string) =>
     setRows((rs) => rs.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
   const addRow = () => setRows((rs) => [...rs, { sp: "", price: "" }]);
   const delRow = (i: number) => setRows((rs) => rs.filter((_, j) => j !== i));
-
   const savePrices = async () => {
-    setSavingP(true); setErr(""); setMsg("");
+    setSavingP(true);
     const ppl: Record<string, number> = {};
     for (const r of rows) {
       const sp = r.sp.trim();
@@ -111,21 +97,20 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
     try {
       hydrate(await updateCustomer(ckey, { personal_price_list: ppl }));
       loadEffective();
-      setMsg("✅ Đã lưu bảng giá");
-    } catch (e: any) { setErr(e.message); } finally { setSavingP(false); }
+      toast("Đã lưu giá riêng", "ok");
+    } catch (e: any) { toast(e.message, "err"); } finally { setSavingP(false); }
   };
 
-  // Việc mặc định: auto-thêm vào MỌI đơn gán khách này (dưới 5 việc chuẩn).
-  // Thêm/xoá LƯU NGAY (mỗi thao tác 1 lần gọi) — khỏi quên bấm Lưu.
+  // ── Việc mặc định: auto-thêm vào MỌI đơn gán khách này. Thêm/xoá LƯU NGAY ──
   const [defTasks, setDefTasks] = useState<string[]>([]);
   const [newTask, setNewTask] = useState("");
   const [savingTasks, setSavingTasks] = useState(false);
   const saveDefTasks = async (list: string[]) => {
-    setSavingTasks(true); setErr(""); setMsg("");
+    setSavingTasks(true);
     try {
       hydrate(await updateCustomer(ckey, { default_tasks: list }));
-      setMsg("✅ Đã lưu việc mặc định");
-    } catch (e: any) { setErr(e.message); } finally { setSavingTasks(false); }
+      toast("Đã lưu việc mặc định", "ok");
+    } catch (e: any) { toast(e.message, "err"); } finally { setSavingTasks(false); }
   };
   const addDefTask = () => {
     const s = newTask.trim();
@@ -137,12 +122,12 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
   const delDefTask = (i: number) => saveDefTasks(defTasks.filter((_, j) => j !== i));
 
   const savePatterns = async () => {
-    setSavingPat(true); setErr(""); setMsg("");
+    setSavingPat(true);
     const list = patterns.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
     try {
       hydrate(await updateCustomer(ckey, { detectPatterns: list }));
-      setMsg("✅ Đã lưu pattern nhận diện");
-    } catch (e: any) { setErr(e.message); } finally { setSavingPat(false); }
+      toast("Đã lưu pattern nhận diện", "ok");
+    } catch (e: any) { toast(e.message, "err"); } finally { setSavingPat(false); }
   };
 
   const doRefreshDebt = async () => {
@@ -150,46 +135,55 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
     try {
       const { debt } = await refreshCustomerDebt(ckey);
       setCust((c) => (c ? { ...c, debt } : c));
-    } catch { /* ignore */ } finally { setDebtBusy(false); }
+      toast("Đã cập nhật nợ KiotViet", "ok");
+    } catch (e: any) { toast(e?.message || "Lỗi lấy nợ", "err"); } finally { setDebtBusy(false); }
   };
 
   if (err && !cust) return <div class="prod-detail"><BackLink fallback="#/customers" /><ErrorState msg={err} onRetry={reload} /></div>;
   if (!cust) return <div class="prod-detail"><Loading /></div>;
 
+  const owes = Number(cust.debt) > 0;
   return (
-    <div class="prod-detail">
-      <div class="prod-detail-head">
+    <div class="prod-detail cust-page">
+      {/* Header gọn: avatar + tên + KV · nợ + nút cập nhật — 1 khối, không chiếm chỗ feed */}
+      <div class="prod-detail-head cust-head">
         <BackLink fallback="#/customers" />
-        <div>
+        <span class="co-avatar cust-av" aria-hidden="true">{initial(cust.name)}</span>
+        <div class="cust-head-main">
           <div class="prod-sp">{cust.name}</div>
-          <div class="muted small">{cust.kh_id ? `KV: ${cust.kh_id} · ` : ""}{cust.key}</div>
+          <div class="muted small">{cust.kh_id ? `KV ${cust.kh_id} · ` : ""}{cust.key}</div>
         </div>
+        <button class="cust-debt-chip" disabled={debtBusy} onClick={doRefreshDebt}
+          title="Công nợ KiotViet — bấm để cập nhật">
+          <span class="cdc-lb">Công nợ</span>
+          <b class={owes ? "owe" : "paid-ok"}>{cust.debt != null ? `${money(Number(cust.debt) || 0)}đ` : "—"}</b>
+          <Icon name="refresh" size={13} class={debtBusy ? "spin" : undefined} />
+        </button>
       </div>
 
-      {cust.note ? (
-        <section class="card cust-note">
-          <label class="card-label"><Icon name="edit" size={16} /> Ghi chú</label>
-          <p class="cust-note-text">{cust.note}</p>
-        </section>
-      ) : null}
-
-      <section class="card">
-        <div class="row space">
-          <b>Công nợ</b>
-          <span class={Number(cust.debt) > 0 ? "owe" : "muted"}>
-            {cust.debt != null ? `${money(Number(cust.debt) || 0)}đ` : "—"}
-          </span>
-        </div>
-        <button class="btn small" disabled={debtBusy} onClick={doRefreshDebt}>
-          {debtBusy ? "Đang lấy…" : <><Icon name="refresh" size={16} /> Cập nhật nợ KiotViet</>}
-        </button>
+      {/* Ghi chú dặn dò — nổi vàng khi CÓ nội dung, sửa trực tiếp, tự lưu khi rời ô */}
+      <section class={"card cust-note-card" + (noteInput.trim() ? " has-note" : "")}>
+        <label class="card-label"><Icon name="edit" size={15} /> Ghi chú khách {noteSaved && <span class="muted small">✓ đã lưu</span>}</label>
+        <textarea rows={noteInput.trim() ? 2 : 1} value={noteInput} placeholder="Dặn dò giao hàng, lưu ý riêng… (tự lưu)"
+          onInput={(e: any) => setNoteInput(e.target.value)} onBlur={saveNote} />
       </section>
 
-      {msg && <p class="muted small">{msg}</p>}
-      {err && <p class="error">{err}</p>}
+      {/* ⭐ TRỌNG TÂM: đơn + thanh toán xen kẽ theo thời gian, 3 kiểu xem như dashboard */}
+      <CustomerFeed ckey={ckey} />
 
+      {/* ── GIÁ BÁN: 1 khối duy nhất — bảng chung → giá riêng đè → giá hiệu lực ── */}
       <section class="card">
-        <label class="card-label">Bảng giá riêng (đè bảng giá chung)</label>
+        <label class="card-label"><Icon name="tag" size={16} /> Giá bán</label>
+        <div class="pb-form">
+          <span class="pb-lb">Bảng giá chung</span>
+          <div class="pb-ctl">
+            <SelectPopup class="pl-select" title="Bảng giá chung" searchable disabled={savingPl}
+              value={String(cust.price_list ?? "")} onChange={changePriceList}
+              options={[{ value: "", label: "— Không gắn —" }, ...priceLists.map((pl) => ({ value: pl.id, label: pl.name, sub: `${pl.product_count} SP` }))]} />
+          </div>
+        </div>
+
+        <div class="cust-ppl-head muted small">Giá riêng của khách (ĐÈ lên bảng giá chung):</div>
         <table class="invoice-table">
           <tbody>
             {rows.map((r, i) => (
@@ -199,48 +193,40 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
                 <td><button class="btn small" onClick={() => delRow(i)}><Icon name="close" size={16} /></button></td>
               </tr>
             ))}
-            {!rows.length && <tr><td colSpan={3} class="muted small">Chưa có giá riêng — thêm dòng bên dưới.</td></tr>}
+            {!rows.length && <tr><td colSpan={3} class="muted small">Chưa có giá riêng — dùng nguyên bảng giá chung.</td></tr>}
           </tbody>
         </table>
         <div class="row">
           <button class="btn small" onClick={addRow}><Icon name="plus" size={16} /> Thêm SP</button>
-          <button class="btn primary" disabled={savingP} onClick={savePrices}>{savingP ? "Đang lưu…" : <><Icon name="save" size={16} /> Lưu bảng giá</>}</button>
+          <button class="btn primary" disabled={savingP} onClick={savePrices}>{savingP ? "Đang lưu…" : <><Icon name="save" size={16} /> Lưu giá riêng</>}</button>
         </div>
-      </section>
 
-      <section class="card">
-        <label class="card-label">Bảng giá chung (gán cho khách)</label>
-        <SelectPopup class="pl-select" title="Bảng giá chung" searchable disabled={savingPl}
-          value={String(cust.price_list ?? "")} onChange={changePriceList}
-          options={[{ value: "", label: "— Không gắn —" }, ...priceLists.map((pl) => ({ value: pl.id, label: pl.name, sub: `${pl.product_count} SP` }))]} />
-        {savingPl && <p class="muted small">Đang lưu…</p>}
+        <details class="collapse-card cust-eff">
+          <summary class="card-label collapse-sum">
+            Giá hiệu lực đang áp dụng{effective?.name ? ` — ${effective.name}` : ""}
+            {effective?.items?.length ? <span class="muted small"> ({effective.items.length} SP)</span> : null}
+          </summary>
+          {!effective ? (
+            <p class="muted small">Đang tải…</p>
+          ) : effective.items.length ? (
+            <table class="invoice-table">
+              <tbody>
+                {effective.items.map((it) => {
+                  const rieng = !!(cust.personal_price_list && it.sp in cust.personal_price_list);
+                  return (
+                    <tr key={it.sp}>
+                      <td>{it.sp} {rieng ? <span class="tag-new">riêng</span> : <span class="muted small">chung</span>}</td>
+                      <td class="num">{money(it.price)}đ</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <p class="muted small">Khách chưa gắn bảng giá chung nào.</p>
+          )}
+        </details>
       </section>
-
-      <details class="card collapse-card">
-        <summary class="card-label collapse-sum">
-          Bảng giá hiệu lực{effective?.name ? ` — ${effective.name}` : ""}
-          {effective?.items?.length ? <span class="muted small"> ({effective.items.length} SP)</span> : null}
-        </summary>
-        {!effective ? (
-          <p class="muted small">Đang tải…</p>
-        ) : effective.items.length ? (
-          <table class="invoice-table">
-            <tbody>
-              {effective.items.map((it) => {
-                const rieng = !!(cust.personal_price_list && it.sp in cust.personal_price_list);
-                return (
-                  <tr key={it.sp}>
-                    <td>{it.sp} {rieng ? <span class="tag-new">riêng</span> : <span class="muted small">chung</span>}</td>
-                    <td class="num">{money(it.price)}đ</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        ) : (
-          <p class="muted small">Khách chưa gắn bảng giá chung nào.</p>
-        )}
-      </details>
 
       <section class="card">
         <label class="card-label"><Icon name="check" size={16} /> Việc mặc định cho đơn</label>
@@ -265,23 +251,11 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
         </div>
       </section>
 
-      <section class="card">
-        <label class="card-label">Pattern nhận diện (cách nhau dấu phẩy)</label>
+      <details class="card collapse-card">
+        <summary class="card-label collapse-sum">Pattern nhận diện khách trong text đơn</summary>
         <textarea rows={3} value={patterns} placeholder="vd: loan phu, chị loàn, lp" onInput={(e: any) => setPatterns(e.target.value)} />
         <button class="btn primary" disabled={savingPat} onClick={savePatterns}>{savingPat ? "Đang lưu…" : <><Icon name="save" size={16} /> Lưu pattern</>}</button>
-      </section>
-
-      <section class="card">
-        <label class="card-label">Đơn của khách {oTotal > 0 ? `(${oTotal})` : ""}</label>
-        <ul class="order-list">
-          {orders.map((o) => <li key={o.thread_id}><CompactOrderCard o={o} /></li>)}
-        </ul>
-        {!oLoading && !orders.length && <p class="muted small">Chưa có đơn nào của khách này.</p>}
-        {oLoading && <p class="muted center small">Đang tải…</p>}
-        {!oLoading && oPage < oTotalPages && (
-          <button class="btn small wide" onClick={() => loadOrders(oPage + 1)}>Tải thêm đơn</button>
-        )}
-      </section>
+      </details>
     </div>
   );
 }

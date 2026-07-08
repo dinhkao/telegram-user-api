@@ -7,6 +7,7 @@ from server_app.config import PORT
 from server_app.cors import cors_middleware
 from server_app.comment_routes import comments_add_handler, comments_list_handler
 from server_app.customer_routes import customer_detail_handler, customer_refresh_debt_handler, customers_search_handler, customer_update_handler, customer_orders_handler
+from server_app.customer_feed import customer_feed_handler
 from server_app.price_list_routes import price_lists_handler, price_list_detail_handler, price_list_save_handler, price_one_save_handler, price_list_history_handler
 from server_app.donhang_routes import donhang_handler, donhang_msg_handler, donhang_page_handler, donhang_stats_handler
 from server_app.image_routes import (
@@ -271,6 +272,7 @@ def create_app():
     r.add_get("/api/customers/{key}", customer_detail_handler)
     r.add_post("/api/customers/{key}", customer_update_handler)
     r.add_get("/api/customers/{key}/orders", customer_orders_handler)
+    r.add_get("/api/customers/{key}/feed", customer_feed_handler)
     r.add_post("/api/customers/{key}/refresh-debt", customer_refresh_debt_handler)
     r.add_get("/api/price-lists", price_lists_handler)
     r.add_get("/api/price-lists/{id}", price_list_detail_handler)

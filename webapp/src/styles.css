@@ -661,6 +661,31 @@ body.pv-open { overflow: hidden; }
 /* Ghi chú khách (chỉ đọc) — nền vàng nhạt để nổi bật dặn dò giao hàng */
 .cust-note { background: var(--warn-wash); border: 1px solid #f0e0b0; }
 .cust-note-text { margin: 0; white-space: pre-line; line-height: 1.45; color: var(--ink); }
+/* ── Trang chi tiết khách (redesign 2026-07-08): header gọn + feed là trọng tâm ── */
+.cust-head { margin-bottom: 10px; }
+.cust-av { width: 38px; height: 38px; font-size: 1rem; }
+.cust-head-main { flex: 1; min-width: 0; }
+.cust-head-main .prod-sp { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cust-debt-chip { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; }
+.cust-debt-chip .cdc-lb { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .02em; }
+.cust-debt-chip b { font-size: .95rem; display: inline-flex; align-items: center; gap: 4px; }
+/* Ghi chú sửa được: có nội dung → nền vàng nổi như cũ */
+.cust-note-card textarea { border: none; background: transparent; padding: 4px 0; resize: vertical; }
+.cust-note-card.has-note { background: var(--warn-wash); border: 1px solid #f0e0b0; }
+/* Feed đơn + thanh toán */
+.cust-feed { margin: 4px 0 14px; }
+.cf-head { margin: 4px 0 8px; align-items: center; }
+.cf-title { display: inline-flex; align-items: center; gap: 6px; }
+.feed-pay { display: flex; align-items: center; gap: 9px; background: var(--ok-wash);
+  border: 1px solid #cfe6d4; border-left: 3px solid var(--ok); border-radius: 10px;
+  padding: 8px 11px; margin: 6px 0; text-decoration: none; color: inherit; }
+.feed-pay-ic { color: var(--ok); display: flex; }
+.feed-pay-main { flex: 1; min-width: 0; }
+.feed-pay-amt { color: var(--ok); }
+.feed-pay-when { flex: none; }
+.cust-ppl-head { margin: 12px 0 4px; }
+.cust-eff { margin-top: 10px; }
 /* Việc mặc định của khách (CustomerDetail) — auto-thêm vào đơn khi gán khách */
 .deftask-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .deftask-row { display: flex; align-items: center; gap: 8px; background: #f5f5f5; border-radius: 8px; padding: 6px 6px 6px 12px; }

@@ -207,8 +207,19 @@ export type CustomerDetail = {
   personal_price_list?: Record<string, number> | null;
   detectPatterns?: string[];
   default_tasks?: string[];   // việc mặc định — auto-thêm vào đơn khi gán khách
-  note?: string;   // ghi chú khách (vd dặn giao hàng) — chỉ đọc, đồng bộ từ Firebase/Node
+  note?: string;   // ghi chú khách (vd dặn giao hàng) — sửa được từ web
 };
+
+/** 1 mục trong feed đơn+thanh toán của khách (xen kẽ theo thời gian giảm dần). */
+export type CustFeedItem =
+  | { kind: "order"; ts: number; order: any }
+  | { kind: "payment"; ts: number; thread_id: number; amount: number; method: string; code?: string; by?: string; at?: string };
+
+/** Feed đơn + thanh toán của 1 khách, gộp 1 dòng thời gian (trang chi tiết khách). */
+export async function getCustomerFeed(key: string, page = 1): Promise<{ items: CustFeedItem[]; page: number; total_pages: number; total: number }> {
+  const d = await getJSON(`/api/customers/${encodeURIComponent(key)}/feed?page=${page}`, { cache: false });
+  return { items: d.items || [], page: d.page || page, total_pages: d.total_pages || 1, total: d.total || 0 };
+}
 
 /** Chi tiết 1 khách (bảng giá riêng + pattern nhận diện). */
 export async function getCustomer(key: string): Promise<CustomerDetail> {
@@ -216,10 +227,10 @@ export async function getCustomer(key: string): Promise<CustomerDetail> {
   return d.customer;
 }
 
-/** Sửa khách: bảng giá riêng (personal_price_list {SP:giá}), detectPatterns[] và/hoặc default_tasks[]. */
+/** Sửa khách: bảng giá riêng, detectPatterns[], default_tasks[] và/hoặc note (ghi chú). */
 export async function updateCustomer(
   key: string,
-  patch: { personal_price_list?: Record<string, number>; detectPatterns?: string[]; price_list?: string | null; default_tasks?: string[] },
+  patch: { personal_price_list?: Record<string, number>; detectPatterns?: string[]; price_list?: string | null; default_tasks?: string[]; note?: string },
 ): Promise<CustomerDetail> {
   const d = await postJSON(`/api/customers/${encodeURIComponent(key)}`, patch);
   return d.customer;
