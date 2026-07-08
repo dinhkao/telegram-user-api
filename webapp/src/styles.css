@@ -585,8 +585,9 @@ body.pv-open { overflow: hidden; }
   font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 3px; }
 .pmc-bar { display: flex; align-items: flex-start; justify-content: center; width: 13px;
   background: var(--primary, #2680ff); border-radius: 3px 3px 0 0; opacity: .85; }
-/* Thợ không có sản lượng nhưng có ghi chú (vd "Kim vít") — dòng gọn dưới chart */
-.pmc-notes { margin-top: 2px; font-size: .68rem; color: #8a6d1a; background: #fff8e1; border-radius: 5px; padding: 2px 6px; width: fit-content; }
+/* Thợ không có sản lượng nhưng có ghi chú (vd "Kim vít") — dưới chart, 2 cột, 1 dòng/thợ */
+.pmc-notes { margin-top: 1px; display: grid; grid-template-columns: repeat(2, max-content); gap: 0 14px; width: fit-content; }
+.pmc-note { font-size: .48rem; line-height: 1.25; color: #8a6d1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
 .pmc-name { font-size: .48rem; color: #888; white-space: nowrap; height: 9px;
   /* neo ĐUÔI tên vào chân cột: hộp rộng 0 tại tâm cột, chữ dồn về cuối rồi xoay quanh mép phải */
   width: 0; display: flex; justify-content: flex-end; overflow: visible;

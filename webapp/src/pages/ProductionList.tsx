@@ -263,7 +263,9 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
       {workers.length > 0 && <WorkerMiniChart workers={workers} />}
       {isSX && (slip.report_notes || []).length > 0 && (
         <div class="pmc-notes">
-          {(slip.report_notes || []).map((n) => `${n.name} ${n.note}`).join(" · ")}
+          {(slip.report_notes || []).map((n) => (
+            <div class="pmc-note" key={n.name}>{n.name} {n.note}</div>
+          ))}
         </div>
       )}
       {boxes.length > 0 && <BoxMiniGrid boxes={boxes} />}
