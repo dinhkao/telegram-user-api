@@ -60,6 +60,10 @@ def build_production_row(thread_id) -> dict | None:
     conn = _conn()
     try:
         slip = get_slip(conn, thread_id)
+        rep = {}
+        if slip:
+            from production_store.report_rows import report_summaries
+            rep = report_summaries(conn, [thread_id]).get(slip["thread_id"]) or {}
     finally:
         conn.close()
     if not slip:
@@ -74,6 +78,9 @@ def build_production_row(thread_id) -> dict | None:
         "ghi_chu": slip.get("ghi_chu"),
         "kind": slip.get("kind") or "san_xuat",
         "updated_at": slip.get("updated_at"),
+        # báo cáo thợ (card SX): luôn có mặt để realtime patch GHI ĐÈ giá trị cũ
+        "report_total": rep.get("total") or 0,
+        "report_workers": rep.get("workers") or [],
         **_progress(slip),
     }
 
@@ -99,10 +106,15 @@ async def production_list_handler(request: web.Request):
             create_production_table(conn)
             total = count_slips(conn, kind=kind)
             slips = list_slips(conn, limit=limit, offset=offset, kind=kind)
+            from production_store.report_rows import report_summaries
+            reports = report_summaries(conn, [s["thread_id"] for s in slips])
         finally:
             conn.close()
         for s in slips:
             s.update(_progress(s))
+            rep = reports.get(s["thread_id"]) or {}
+            s["report_total"] = rep.get("total") or 0
+            s["report_workers"] = rep.get("workers") or []
         return slips, total
     slips, total = await asyncio.to_thread(_run)
     return web.json_response({

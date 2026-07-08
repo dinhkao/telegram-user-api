@@ -95,6 +95,26 @@ def replace_report_rows(conn, thread_id, bang) -> int:
     return n
 
 
+def report_summaries(conn, thread_ids) -> dict:
+    """Tóm tắt báo cáo thợ cho 1 trang phiếu: {thread_id: {"total", "workers":
+    [{"name","tong"}]}} (workers sắp tổng giảm dần). Cho card danh sách + realtime row."""
+    ids = [int(t) for t in thread_ids if t is not None]
+    if not ids:
+        return {}
+    ensure_report_rows_schema(conn)
+    q = ",".join("?" * len(ids))
+    rows = conn.execute(
+        f"SELECT thread_id, worker_name, ROUND(SUM(tong_calc),1) FROM production_report_rows "
+        f"WHERE thread_id IN ({q}) AND tong_calc > 0 GROUP BY thread_id, worker_name "
+        f"ORDER BY thread_id, SUM(tong_calc) DESC", ids).fetchall()
+    out: dict = {}
+    for tid, name, tong in rows:
+        d = out.setdefault(tid, {"total": 0.0, "workers": []})
+        d["workers"].append({"name": name, "tong": tong or 0})
+        d["total"] = round(d["total"] + (tong or 0), 1)
+    return out
+
+
 def dashboard(conn, dfrom: str | None = None, dto: str | None = None) -> dict:
     """Tổng hợp cho dashboard: tổng, theo thợ, theo ngày, theo SP. Lọc theo report_ymd
     (YYYY-MM-DD) nếu có dfrom/dto. Chỉ tính dòng có sản lượng (tong_calc > 0)."""

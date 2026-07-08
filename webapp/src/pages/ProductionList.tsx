@@ -236,23 +236,49 @@ function dayLabel(key: string): string {
 
 function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
   const total = slip.total || 0;
+  const isSX = (slip.kind || "san_xuat") !== "dong_goi";
+  const workers = (isSX && slip.report_workers) || [];
   return (
     <a class="prod-card" href={`#/san_xuat/${slip.thread_id}`}>
       <div class="prod-card-top">
         <span class="prod-sp">
           {slip.sp_name || "Chưa có SP"}
-          {(slip.kind || "san_xuat") === "dong_goi"
-            ? <span class="pk-badge pack"><Icon name="box" size={12} /> Đóng gói</span>
-            : <span class="pk-badge sx"><Icon name="factory" size={12} /> Sản xuất</span>}
+          {isSX
+            ? <span class="pk-badge sx"><Icon name="factory" size={12} /> Sản xuất</span>
+            : <span class="pk-badge pack"><Icon name="box" size={12} /> Đóng gói</span>}
         </span>
         <span class="prod-date"><Icon name="clock" size={14} /> {(() => { const c = prodCreated(slip); return c.includes(" ") ? c.split(" ")[1] : c; })()}</span>
       </div>
       <div class="prod-card-stat">
-        <span class="prod-total"><Icon name="box" size={14} /> {soVN(total)}</span>
+        {isSX ? (
+          <>
+            <span class="prod-total"><Icon name="box" size={14} /> Nhập thùng <b>{soVN(total)}</b></span>
+            <span class="prod-total"><Icon name="users" size={14} /> Báo cáo <b>{soVN(slip.report_total || 0)}</b></span>
+          </>
+        ) : (
+          <span class="prod-total"><Icon name="box" size={14} /> {soVN(total)}</span>
+        )}
         {boxes.length > 0 && <span class="muted small">· {boxes.length} thùng</span>}
       </div>
+      {workers.length > 0 && <WorkerMiniChart workers={workers} />}
       {boxes.length > 0 && <BoxMiniGrid boxes={boxes} />}
       {slip.ghi_chu && <div class="prod-card-note"><Icon name="note" size={13} /> {slip.ghi_chu}</div>}
     </a>
+  );
+}
+
+/** Mini chart báo cáo thợ: 1 dòng/thợ, thanh ngang theo tổng số SP (max = 100%). */
+function WorkerMiniChart({ workers }: { workers: { name: string; tong: number }[] }) {
+  const max = Math.max(...workers.map((w) => w.tong), 1);
+  return (
+    <div class="prod-mini-chart">
+      {workers.map((w) => (
+        <div class="pmc-row" key={w.name}>
+          <span class="pmc-name">{w.name}</span>
+          <span class="pmc-bar-wrap"><span class="pmc-bar" style={{ width: `${Math.max(2, Math.round((w.tong / max) * 100))}%` }} /></span>
+          <span class="pmc-val">{soVN(w.tong)}</span>
+        </div>
+      ))}
+    </div>
   );
 }
