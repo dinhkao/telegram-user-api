@@ -106,6 +106,16 @@ const gapSpacer = (d: number, key: string) => (
   </li>
 );
 
+// Mốc 6/7/2026 00:00 VN — trước đó phiếu thu CHƯA lưu số nợ (tính năng thêm
+// 6/7/2026): chèn 1 dòng lưu ý tại điểm feed vượt qua mốc này khi cuộn.
+const DEBT_FEATURE_TS = new Date("2026-07-06T00:00:00+07:00").getTime() / 1000;
+const debtFeatureNote = (
+  <li key="debt-note" class="feed-note" aria-hidden="true">
+    ⚠️ Từ đây trở về trước (trước 6/7/2026): số nợ theo phiếu có thể thiếu hoặc là
+    số ước lượng (≈) — tính năng lưu nợ tại thời điểm thu mới có từ 6/7/2026.
+  </li>
+);
+
 type Rope = { d: string; x0: number; y1: number; y2: number };
 
 export function CustomerFeed({ ckey }: { ckey: string }) {
@@ -344,8 +354,13 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
         )}
         <ul class="order-list" ref={listRef}>
           {items.flatMap((it, i) => {
+            const nodes = [];
+            // dòng lưu ý tại điểm vượt mốc 6/7/2026 (item đầu tiên CŨ hơn mốc)
+            if (it.ts < DEBT_FEATURE_TS && (i === 0 || items[i - 1].ts >= DEBT_FEATURE_TS)) nodes.push(debtFeatureNote);
             const d = i > 0 ? gapDays(items[i - 1].ts, it.ts) : 0;
-            return d >= 2 ? [gapSpacer(d, `gap-${i}`), renderItem(it)] : [renderItem(it)];
+            if (d >= 2) nodes.push(gapSpacer(d, `gap-${i}`));
+            nodes.push(renderItem(it));
+            return nodes;
           })}
         </ul>
       </div>
