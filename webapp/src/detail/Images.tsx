@@ -107,8 +107,10 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
   };
 
   const remove = async (img: OrderImage) => {
-    if (!(await confirmDialog("Xoá ảnh này?", { danger: true }))) return;
-    setImages((prev) => prev.filter((x) => x.id !== img.id)); // lạc quan
+    if (!(await confirmDialog("Xoá ảnh này? Ảnh vẫn hiển thị nhưng bị gạch X.", { danger: true }))) return;
+    // XOÁ MỀM: đánh dấu tại chỗ (hiện X ngay) — KHÔNG rút khỏi danh sách
+    setImages((prev) => prev.map((x) => (x.id === img.id
+      ? { ...x, deleted_at: Math.floor(Date.now() / 1000) } : x)));
     if (lightbox?.id === img.id) setLightbox(null);
     try {
       await deleteMediaImage(base, img.id);
