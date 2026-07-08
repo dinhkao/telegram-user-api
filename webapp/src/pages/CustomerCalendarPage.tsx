@@ -1,7 +1,7 @@
 // Trang LỊCH biến động của 1 khách (#/khach/:key/lich) — ScrollCalendar dùng
 // chung (cũ→mới, mở ở đáy, lazy 2 chiều). Bấm ngày → popup liệt kê biến động
 // ngày đó, card tái dùng renderFeedItem (y hệt feed, kèm rail nợ).
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import {
   getCustomer, getCustomerFeedDays, getCustomerFeedDay, listOrderImages,
@@ -13,6 +13,7 @@ import { PhotoViewer } from "../detail/PhotoViewer";
 import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
 import { Icon } from "../ui/Icon";
+import { onRealtime } from "../realtime";
 import { EmptyState } from "../ui/states";
 import type { OrderRow } from "../detail/OrderCards";
 
@@ -23,15 +24,35 @@ const dayLabel = (d: string) =>
 export function CustomerCalendarPage({ ckey }: { ckey: string }) {
   const [name, setName] = useState("");
   const [days, setDays] = useState<CalDays>(new Map());
-  useEffect(() => {
-    getCustomer(ckey).then((c) => setName(c.name || "")).catch(() => {});
+  const loadDays = () => {
     getCustomerFeedDays(ckey)
       .then((list) => setDays(new Map(list.map((x) => [x.d, { o: x.o, p: x.p }]))))
       .catch(() => {});
+  };
+  useEffect(() => {
+    getCustomer(ckey).then((c) => setName(c.name || "")).catch(() => {});
+    loadDays();
+  }, [ckey]);
+  // Realtime: đơn/thanh toán/khách đổi → chấm lịch + popup ngày đang mở cập nhật
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => {
+      const rel = e.type === "order_changed" || e.type === "orders_changed" ||
+        e.type === "customer_changed" || e.type === "quy_changed" || e.type === "resync";
+      if (!rel) return;
+      clearTimeout(t);
+      t = setTimeout(() => {
+        loadDays();
+        if (pickRef.current) getCustomerFeedDay(ckey, pickRef.current).then(setItems).catch(() => {});
+      }, 400);
+    });
+    return () => { off(); clearTimeout(t); };
   }, [ckey]);
 
   // popup biến động 1 ngày
   const [pick, setPick] = useState<string | null>(null);
+  const pickRef = useRef<string | null>(null);
+  useEffect(() => { pickRef.current = pick; }, [pick]);
   const [items, setItems] = useState<CustFeedItem[] | null>(null);
   const openDay = (d: string) => {
     setPick(d);

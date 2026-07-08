@@ -33,8 +33,12 @@ function Bar({ label, sub, val, max, href }: { label: string; sub?: string; val:
   return href ? <a class="db-row db-link" href={href}>{inner}</a> : <div class="db-row">{inner}</div>;
 }
 
+// Nhớ kỳ đã chọn khi rời trang (module scope)
+let memPeriod: Period = "month";
+
 export function ProductionDashboard() {
-  const [period, setPeriod] = useState<Period>("month");
+  const [period, setPeriod] = useState<Period>(memPeriod);
+  useEffect(() => { memPeriod = period; }, [period]);
   const [data, setData] = useState<ProdDashboard | null>(null);
   const [loading, setLoading] = useState(true);
 

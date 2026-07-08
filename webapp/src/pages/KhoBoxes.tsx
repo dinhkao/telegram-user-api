@@ -10,11 +10,16 @@ import { SearchBar } from "../ui/SearchBar";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 
+// Nhớ filter khi rời trang (module scope)
+let memQ = "";
+let memPlace = "";
+
 export function KhoBoxes() {
   const [boxes, setBoxes] = useState<KhoBox[] | null>(null);
   const [err, setErr] = useState("");
-  const [q, setQ] = useState("");
-  const [place, setPlace] = useState<string>("");   // "" = tất cả · tên vị trí · "__none"
+  const [q, setQ] = useState(memQ);
+  const [place, setPlace] = useState<string>(memPlace);   // "" = tất cả · tên vị trí · "__none"
+  useEffect(() => { memQ = q; memPlace = place; }, [q, place]);
 
   const load = async () => {
     try { setBoxes(await allBoxes()); } catch (e: any) { setErr(e?.message || "Lỗi tải kho"); }

@@ -139,7 +139,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     let t: any, tt: any;
     const line = (h: any) => `• ${h.actor || "?"}: ${h.action}${h.detail ? ` — ${h.detail}` : ""}`;
     const off = onRealtime((e) => {
-      if (e.type === "resync") {
+      if (e.type === "resync" || e.type === "customer_changed") {
         clearTimeout(t); t = setTimeout(reload, 250);
         return;
       }

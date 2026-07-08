@@ -14,6 +14,8 @@ export type RealtimeEvent =
   | { type: "box_changed"; box_id: string | null }
   | { type: "price_lists_changed" }
   | { type: "quy_changed" }
+  | { type: "tasks_changed" }
+  | { type: "workers_changed" }
   | { type: "banner_changed" }
   | { type: "notif_added"; notif: any }
   | { type: "report_lock"; thread_id: string | null; holder: string | null }

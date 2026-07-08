@@ -12,10 +12,14 @@ import { Icon } from "../ui/Icon";
 import { SearchBar } from "../ui/SearchBar";
 import { usePopupBack } from "../ui/usePopupBack";
 
+// Nhớ ô tìm khi rời trang (module scope) — quay lại giữ nguyên filter
+let memQ = "";
+
 export function InventoryList() {
   const [products, setProducts] = useState<InvProductSummary[] | null>(null);
   const [err, setErr] = useState("");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(memQ);
+  useEffect(() => { memQ = q; }, [q]);
   const [createOpen, setCreateOpen] = useState(false);
   const [nCode, setNCode] = useState("");
   const [nName, setNName] = useState("");

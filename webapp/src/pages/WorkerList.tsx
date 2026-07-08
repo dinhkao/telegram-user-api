@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { BackLink } from "../nav";
 import { listWorkers, addWorker, updateWorker, deleteWorker, reorderWorkers, type Worker } from "../api";
+import { onRealtime } from "../realtime";
 import { Loading, ErrorState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
@@ -30,6 +31,10 @@ export function WorkerList() {
     catch (e: any) { setErr(e?.message || "Lỗi tải danh sách thợ"); }
   };
   useEffect(() => { load(); }, []);
+  // Realtime: thợ đổi từ máy khác (thêm/sửa/xoá/sắp) → tải lại
+  useEffect(() => onRealtime((e) => {
+    if (e.type === "workers_changed" || e.type === "resync") load();
+  }), []);
 
   const add = async () => {
     const nm = name.trim();

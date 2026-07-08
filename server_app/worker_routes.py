@@ -12,6 +12,11 @@ from utils.db import get_connection
 from worker_store import add_worker, delete_worker, ensure_table, list_workers, reorder_workers, update_worker
 
 
+def _emit_workers() -> None:
+    from server_app.realtime import emit_workers_changed
+    emit_workers_changed()
+
+
 def _conn():
     return get_connection()
 
@@ -51,6 +56,7 @@ async def workers_add_handler(request: web.Request):
         worker = await asyncio.to_thread(_run)
     except ValueError as e:
         return web.json_response({"ok": False, "error": str(e)}, status=400)
+    _emit_workers()
     return web.json_response({"ok": True, "worker": worker})
 
 
@@ -84,6 +90,7 @@ async def workers_update_handler(request: web.Request):
         return web.json_response({"ok": False, "error": str(e)}, status=400)
     if worker is None:
         return web.json_response({"ok": False, "error": "không tìm thấy thợ"}, status=404)
+    _emit_workers()
     return web.json_response({"ok": True, "worker": worker})
 
 
@@ -111,6 +118,7 @@ async def workers_reorder_handler(request: web.Request):
 
     workers = await asyncio.to_thread(_run)
     defaults = [w["name"] for w in workers if w["is_default"]]
+    _emit_workers()
     return web.json_response({"ok": True, "workers": workers, "defaults": defaults})
 
 
@@ -131,4 +139,5 @@ async def workers_delete_handler(request: web.Request):
     ok = await asyncio.to_thread(_run)
     if not ok:
         return web.json_response({"ok": False, "error": "không tìm thấy thợ"}, status=404)
+    _emit_workers()
     return web.json_response({"ok": True})

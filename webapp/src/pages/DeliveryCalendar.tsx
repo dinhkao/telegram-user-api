@@ -16,9 +16,13 @@ const _WD = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const dayLabel = (d: string) =>
   `${_WD[(new Date(d).getDay() + 6) % 7]} · ${d.slice(8)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 
+// Nhớ toggle khi rời trang (module scope)
+let memHide = true;
+
 export function DeliveryCalendar() {
   const [raw, setRaw] = useState<{ d: string; pending: number; done: number; items?: { t: string; done: boolean }[] }[]>([]);
-  const [hideDelivered, setHideDelivered] = useState(true);   // mặc định ẩn đơn đã giao
+  const [hideDelivered, setHideDelivered] = useState(memHide);   // mặc định ẩn đơn đã giao
+  useEffect(() => { memHide = hideDelivered; }, [hideDelivered]);
 
   const load = () =>
     getJSON("/api/orders/delivery?days=1", { cache: false })
