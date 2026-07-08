@@ -21,6 +21,7 @@ const FLT: { k: string; t: string; c?: keyof TaskCounts }[] = [
   { k: "open", t: "Đang mở", c: "open" },
   { k: "mine", t: "Của tôi", c: "mine" },
   { k: "free", t: "Việc tự do", c: "free" },
+  { k: "extra", t: "Việc thêm", c: "extra" },   // KHÔNG phải 5 bước mặc định của đơn
   { k: "order", t: "Từ đơn", c: "order" },
   { k: "overdue", t: "Quá hạn", c: "overdue" },
   { k: "done", t: "Xong", c: "done" },

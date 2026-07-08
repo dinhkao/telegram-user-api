@@ -96,6 +96,9 @@ def list_tasks(*, flt: str = "open", assignee: str = "", me: str = "", page: int
         where.append("kind = 'free' AND done = 0")
     elif flt == "order":
         where.append("kind != 'free' AND done = 0")
+    elif flt == "extra":
+        # KHÔNG phải 5 bước mặc định của đơn: việc tự do + việc thêm trong đơn
+        where.append("kind != 'order_step' AND done = 0")
     elif flt == "mine":
         # me rỗng (chưa đăng nhập) không được khớp các task chưa-phân-công ('')
         where.append("assignee = ? AND assignee != '' AND done = 0")
@@ -133,11 +136,13 @@ def counts(me: str, today: str) -> dict:
             "SELECT SUM(CASE WHEN done=0 THEN 1 ELSE 0 END) open,"
             " SUM(CASE WHEN done=0 AND kind='free' THEN 1 ELSE 0 END) free,"
             " SUM(CASE WHEN done=0 AND kind!='free' THEN 1 ELSE 0 END) ord,"
+            " SUM(CASE WHEN done=0 AND kind!='order_step' THEN 1 ELSE 0 END) extra,"
             " SUM(CASE WHEN done=0 AND assignee=? AND assignee!='' THEN 1 ELSE 0 END) mine,"
             " SUM(CASE WHEN done=0 AND due_at IS NOT NULL AND due_at<? THEN 1 ELSE 0 END) overdue,"
             " SUM(CASE WHEN done=1 THEN 1 ELSE 0 END) done"
             " FROM web_tasks WHERE deleted_at IS NULL", (me, today)).fetchone()
         return {"open": r["open"] or 0, "free": r["free"] or 0, "order": r["ord"] or 0,
+                "extra": r["extra"] or 0,
                 "mine": r["mine"] or 0, "overdue": r["overdue"] or 0, "done": r["done"] or 0}
     finally:
         conn.close()

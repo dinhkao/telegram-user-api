@@ -998,7 +998,7 @@ export type Task = {
   done: boolean; done_by?: string | null; done_at?: number | null;
   created_by: string; created_at: number; updated_at: number;
 };
-export type TaskCounts = { open: number; free: number; order: number; mine: number; overdue: number; done: number };
+export type TaskCounts = { open: number; free: number; order: number; extra: number; mine: number; overdue: number; done: number };
 
 export async function listTasks(filter: string, page = 1): Promise<{ tasks: Task[]; total: number; total_pages: number; counts: TaskCounts; today: string }> {
   const d = await getJSON(`/api/tasks?filter=${encodeURIComponent(filter)}&page=${page}`, { cache: false });
