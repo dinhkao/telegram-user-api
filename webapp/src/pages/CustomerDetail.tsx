@@ -43,6 +43,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
     const ppl = c.personal_price_list || {};
     setRows(Object.keys(ppl).map((sp) => ({ sp, price: String(ppl[sp]) })));
     setPatterns((c.detectPatterns || []).join(", "));
+    setDefTasks(c.default_tasks || []);
   };
 
   const loadOrders = async (page: number) => {
@@ -113,6 +114,27 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
       setMsg("✅ Đã lưu bảng giá");
     } catch (e: any) { setErr(e.message); } finally { setSavingP(false); }
   };
+
+  // Việc mặc định: auto-thêm vào MỌI đơn gán khách này (dưới 5 việc chuẩn).
+  // Thêm/xoá LƯU NGAY (mỗi thao tác 1 lần gọi) — khỏi quên bấm Lưu.
+  const [defTasks, setDefTasks] = useState<string[]>([]);
+  const [newTask, setNewTask] = useState("");
+  const [savingTasks, setSavingTasks] = useState(false);
+  const saveDefTasks = async (list: string[]) => {
+    setSavingTasks(true); setErr(""); setMsg("");
+    try {
+      hydrate(await updateCustomer(ckey, { default_tasks: list }));
+      setMsg("✅ Đã lưu việc mặc định");
+    } catch (e: any) { setErr(e.message); } finally { setSavingTasks(false); }
+  };
+  const addDefTask = () => {
+    const s = newTask.trim();
+    if (!s) return;
+    if (defTasks.some((t) => t.toLowerCase() === s.toLowerCase())) { setNewTask(""); return; }
+    setNewTask("");
+    saveDefTasks([...defTasks, s]);
+  };
+  const delDefTask = (i: number) => saveDefTasks(defTasks.filter((_, j) => j !== i));
 
   const savePatterns = async () => {
     setSavingPat(true); setErr(""); setMsg("");
@@ -219,6 +241,29 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
           <p class="muted small">Khách chưa gắn bảng giá chung nào.</p>
         )}
       </details>
+
+      <section class="card">
+        <label class="card-label"><Icon name="check" size={16} /> Việc mặc định cho đơn</label>
+        <p class="muted small">Đơn nào gán khách này sẽ tự có các việc dưới đây (sau 5 việc chuẩn).</p>
+        {defTasks.length > 0 && (
+          <ul class="deftask-list">
+            {defTasks.map((t, i) => (
+              <li key={`${t}-${i}`} class="deftask-row">
+                <span class="deftask-lb">{t}</span>
+                <button class="btn small" disabled={savingTasks} title="Xoá việc" onClick={() => delDefTask(i)}><Icon name="close" size={14} /></button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div class="row">
+          <input value={newTask} placeholder="vd: Gọi trước khi giao" maxLength={60}
+            onInput={(e: any) => setNewTask(e.target.value)}
+            onKeyDown={(e: any) => { if (e.key === "Enter") { e.preventDefault(); addDefTask(); } }} />
+          <button class="btn primary" disabled={savingTasks || !newTask.trim()} onClick={addDefTask}>
+            {savingTasks ? "…" : <><Icon name="plus" size={16} /> Thêm</>}
+          </button>
+        </div>
+      </section>
 
       <section class="card">
         <label class="card-label">Pattern nhận diện (cách nhau dấu phẩy)</label>

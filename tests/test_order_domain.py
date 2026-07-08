@@ -80,3 +80,30 @@ class DomainTaskRules(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MissingCustomLabels(unittest.TestCase):
+    """missing_custom_labels — dedupe việc mặc định của khách vs custom_tasks đơn."""
+
+    def _order(self, labels):
+        return Order.from_dict({
+            "custom_tasks": [{"id": f"custom_{i}", "label": lb} for i, lb in enumerate(labels, 1)]
+        })
+
+    def test_empty_order_returns_all(self):
+        from order_store.domain import missing_custom_labels
+        self.assertEqual(missing_custom_labels(Order.from_dict({}), ["Gọi trước", "Chụp ảnh"]),
+                         ["Gọi trước", "Chụp ảnh"])
+
+    def test_existing_labels_skipped_case_insensitive(self):
+        from order_store.domain import missing_custom_labels
+        order = self._order(["gọi trước"])
+        self.assertEqual(missing_custom_labels(order, ["Gọi Trước", "Chụp ảnh"]), ["Chụp ảnh"])
+
+    def test_duplicate_input_labels_collapse(self):
+        from order_store.domain import missing_custom_labels
+        self.assertEqual(missing_custom_labels(Order.from_dict({}), ["A", "a ", " A"]), ["A"])
+
+    def test_blank_and_none_ignored(self):
+        from order_store.domain import missing_custom_labels
+        self.assertEqual(missing_custom_labels(Order.from_dict({}), ["", None, "  ", "X"]), ["X"])

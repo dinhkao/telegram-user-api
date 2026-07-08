@@ -62,6 +62,9 @@ async def api_assign_customer_handler(request: web.Request):
         order["customer_name"] = customer.get("name", "")
         if not _save_order(conn, thread_id, order):
             return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
+    # Việc mặc định của khách → auto-thêm vào đơn (transaction riêng, trước refresh)
+    from order_store.custom_tasks import apply_customer_default_tasks
+    apply_customer_default_tasks(conn, thread_id, str(customer_key))
     if order.get("channel_id") and order.get("message_id") and state._client is not None:
         spawn_tracked("order.refresh", refresh_order_bg(conn, thread_id, order["channel_id"], order["message_id"]), {"thread_id": thread_id})
     return web.json_response({"ok": True, "customer_name": customer.get("name", ""), "customer_key": str(customer_key)})

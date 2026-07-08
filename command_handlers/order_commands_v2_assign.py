@@ -26,6 +26,9 @@ async def assign_customer(client, msg, db_conn, thread_id: int, kh_id: str):
     if not _save_order(db_conn, thread_id, order):
         await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
         return
+    # Việc mặc định của khách → auto-thêm vào đơn (dưới 5 việc chuẩn)
+    from order_store.custom_tasks import apply_customer_default_tasks
+    apply_customer_default_tasks(db_conn, thread_id, kh_id)
     lines = [f"✅ Đã gán khách hàng: <b>{order['customer_name']}</b>"]
     phone = customer.get("so_dien_thoai") or customer.get("contactNumber") or ""
     if phone:

@@ -206,6 +206,7 @@ export type CustomerDetail = {
   last_order_at?: any; price_list?: string | number | null;
   personal_price_list?: Record<string, number> | null;
   detectPatterns?: string[];
+  default_tasks?: string[];   // việc mặc định — auto-thêm vào đơn khi gán khách
   note?: string;   // ghi chú khách (vd dặn giao hàng) — chỉ đọc, đồng bộ từ Firebase/Node
 };
 
@@ -215,10 +216,10 @@ export async function getCustomer(key: string): Promise<CustomerDetail> {
   return d.customer;
 }
 
-/** Sửa khách: bảng giá riêng (personal_price_list {SP:giá}) và/hoặc detectPatterns[]. */
+/** Sửa khách: bảng giá riêng (personal_price_list {SP:giá}), detectPatterns[] và/hoặc default_tasks[]. */
 export async function updateCustomer(
   key: string,
-  patch: { personal_price_list?: Record<string, number>; detectPatterns?: string[]; price_list?: string | null },
+  patch: { personal_price_list?: Record<string, number>; detectPatterns?: string[]; price_list?: string | null; default_tasks?: string[] },
 ): Promise<CustomerDetail> {
   const d = await postJSON(`/api/customers/${encodeURIComponent(key)}`, patch);
   return d.customer;

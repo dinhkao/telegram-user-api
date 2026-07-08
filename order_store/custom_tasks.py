@@ -13,7 +13,7 @@ import time
 from .schema import transaction
 from .serialization import _save_order, get_order_by_thread_id
 from .model import Order
-from .domain import add_custom_task as _add, remove_custom_task as _remove, next_custom_task_id
+from .domain import add_custom_task as _add, remove_custom_task as _remove, next_custom_task_id, missing_custom_labels
 
 log = logging.getLogger("order_db")
 
@@ -37,6 +37,33 @@ def add_custom_task(conn, thread_id: int, label: str, user_id: int | None) -> st
         if _save_order(conn, thread_id, order.to_dict()):
             return task_id
         return None
+
+
+def apply_customer_default_tasks(conn, thread_id: int, firebase_key: str, user_id: int | None = None) -> list[str]:
+    """Việc mặc định của khách (customer JSON `default_tasks`) → auto-thêm vào đơn
+    (dưới 5 việc chuẩn, cùng cơ chế custom task). Bỏ label đã có trên đơn nên gán
+    lại khách / parse lại KHÔNG nhân đôi. Gọi ở MỌI chỗ gán khách vào đơn
+    (auto-parse, fix, web assign, lệnh Telegram). Trả list label vừa thêm."""
+    from .customers import get_customer_by_key
+    cust = get_customer_by_key(conn, str(firebase_key)) if firebase_key else None
+    labels = [str(x).strip()[:MAX_LABEL_LEN] for x in ((cust or {}).get("default_tasks") or []) if str(x or "").strip()]
+    if not labels:
+        return []
+    with transaction(conn):
+        data = get_order_by_thread_id(conn, thread_id)
+        if data is None:
+            return []
+        order = Order.from_dict(data)
+        todo = missing_custom_labels(order, labels)
+        if not todo:
+            return []
+        now_iso = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+        for lb in todo:
+            _add(order, next_custom_task_id(order), lb, user_id, now_iso)
+        if _save_order(conn, thread_id, order.to_dict()):
+            log.info("customer default tasks: thread=%s +%d (%s)", thread_id, len(todo), ", ".join(todo))
+            return todo
+        return []
 
 
 def remove_custom_task(conn, thread_id: int, task_id: str) -> bool:

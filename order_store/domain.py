@@ -50,6 +50,20 @@ def next_custom_task_id(order: Order) -> str:
     return f"custom_{n}"
 
 
+def missing_custom_labels(order: Order, labels) -> list[str]:
+    """Labels chưa có trong custom_tasks của đơn — so KHÔNG phân biệt hoa/thường,
+    strip; label trùng nhau trong input cũng chỉ lấy 1. Dùng để auto-thêm việc mặc
+    định của khách: gán lại khách / parse lại không nhân đôi việc. Pure."""
+    existing = {str(t.get("label") or "").strip().casefold() for t in (order.data.get("custom_tasks") or [])}
+    out: list[str] = []
+    for lb in labels or []:
+        s = str(lb or "").strip()
+        if s and s.casefold() not in existing:
+            existing.add(s.casefold())
+            out.append(s)
+    return out
+
+
 def add_custom_task(order: Order, task_id: str, label: str, user_id: int | None, now_iso: str) -> Order:
     """Append a user-defined custom task definition (id + label) to the order.
     Its done-status lives in task_status[id] like a default step. Pure."""

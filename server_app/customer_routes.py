@@ -68,13 +68,22 @@ async def customer_detail_handler(request: web.Request):
     data = await asyncio.to_thread(_run)
     if data is None:
         return web.json_response({"ok": False, "error": "không thấy khách hàng"}, status=404)
-    return web.json_response({"ok": True, "customer": {**_summary(data, key), "note": data.get("note") or data.get("ghi_chu") or "", "price_list": data.get("price_list"), "personal_price_list": data.get("personal_price_list"), "detectPatterns": data.get("detectPatterns") or data.get("patterns") or []}})
+    return web.json_response({"ok": True, "customer": _detail(data, key)})
+
+
+def _detail(data: dict, key: str) -> dict:
+    """Payload chi tiết khách cho GET + sau update (1 chỗ, khỏi lệch)."""
+    return {**_summary(data, key), "note": data.get("note") or data.get("ghi_chu") or "",
+            "price_list": data.get("price_list"), "personal_price_list": data.get("personal_price_list"),
+            "detectPatterns": data.get("detectPatterns") or data.get("patterns") or [],
+            "default_tasks": data.get("default_tasks") or []}
 
 
 async def customer_update_handler(request: web.Request):
-    """Sửa khách từ web: bảng giá riêng (personal_price_list) và/hoặc pattern nhận
-    diện (detectPatterns). Chỉ ghi field có trong body. Ghi cả cục JSON qua
-    update_customer (tự xoá cache pattern)."""
+    """Sửa khách từ web: bảng giá riêng (personal_price_list), pattern nhận diện
+    (detectPatterns) và/hoặc việc mặc định (default_tasks — auto-thêm vào đơn khi
+    gán khách). Chỉ ghi field có trong body. Ghi cả cục JSON qua update_customer
+    (tự xoá cache pattern)."""
     key = request.match_info.get("key", "").strip()
     if not key:
         return web.json_response({"ok": False, "error": "thiếu key"}, status=400)
@@ -107,6 +116,16 @@ async def customer_update_handler(request: web.Request):
                 # Gán bảng giá chung (id trong kv_store['bang_gia_moi']); "" / None = bỏ gán
                 pl = body["price_list"]
                 data["price_list"] = str(pl).strip() if pl not in (None, "") else None
+            if "default_tasks" in body and isinstance(body["default_tasks"], list):
+                # Việc mặc định cho MỌI đơn của khách — strip, bỏ trùng (không phân
+                # biệt hoa/thường), cắt 60 ký tự / việc, tối đa 15 việc
+                seen, clean = set(), []
+                for t in body["default_tasks"]:
+                    s = str(t or "").strip()[:60]
+                    if s and s.casefold() not in seen:
+                        seen.add(s.casefold())
+                        clean.append(s)
+                data["default_tasks"] = clean[:15]
             ok, msg = update_customer(conn, key, data)
             return (data, ok, msg)
         finally:
@@ -120,7 +139,7 @@ async def customer_update_handler(request: web.Request):
         return web.json_response({"ok": False, "error": msg}, status=500)
     from server_app.realtime import emit_customer_changed
     emit_customer_changed(key)
-    return web.json_response({"ok": True, "customer": {**_summary(data, key), "note": data.get("note") or data.get("ghi_chu") or "", "price_list": data.get("price_list"), "personal_price_list": data.get("personal_price_list"), "detectPatterns": data.get("detectPatterns") or data.get("patterns") or []}})
+    return web.json_response({"ok": True, "customer": _detail(data, key)})
 
 
 async def customer_orders_handler(request: web.Request):

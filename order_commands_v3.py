@@ -783,6 +783,14 @@ async def _auto_parse_fix(client, conn, thread_id: int, text: str):
             _firebase_refresh_async(client, conn, thread_id, order)
             log.info("auto-parse (fix): thread=%d items=%d", thread_id, len(invoice))
 
+        if detection.get("autoAssign"):
+            if not invoice:
+                _save_order(conn, thread_id, order)   # lưu gán khách dù chưa nhận ra SP nào
+            from order_store.custom_tasks import apply_customer_default_tasks
+            apply_customer_default_tasks(conn, thread_id, kh_id)
+
+        if invoice:
+
             # Generate picking sheet (phiếu soạn hàng) — same as new order auto-parse
             try:
                 from picking_sheet import generate_picking_sheet
