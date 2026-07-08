@@ -23,25 +23,21 @@ function monthCells(y: number, m: number): (number | null)[] {
   return cells;
 }
 
-/** Dãy tháng (CŨ → MỚI): từ tháng có biến động sớm nhất tới MAX(tháng hiện tại,
- *  tháng có dữ liệu muộn nhất) — lịch giao có ngày giao TƯƠNG LAI vẫn hiện. */
-function monthRange(days: CalDays, now: Date): { y: number; m: number }[] {
-  const cur = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
-  let earliest = cur, latest = cur;
-  for (const k of days.keys()) {
-    const ym = k.slice(0, 7);
-    if (ym < earliest) earliest = ym;
-    if (ym > latest) latest = ym;
+type Ym = { y: number; m: number };
+const addMonths = ({ y, m }: Ym, dm: number): Ym => {
+  const t = new Date(y, m + dm, 1);
+  return { y: t.getFullYear(), m: t.getMonth() };
+};
+const ymLte = (a: Ym, b: Ym) => a.y < b.y || (a.y === b.y && a.m <= b.m);
+/** Liệt kê tháng từ `from` tới `to` (CŨ → MỚI, kể cả tháng KHÔNG có dữ liệu). */
+function enumerate(from: Ym, to: Ym): Ym[] {
+  const out: Ym[] = [];
+  let cur = from;
+  for (let i = 0; i < 600 && ymLte(cur, to); i++) {   // trần 50 năm
+    out.push(cur);
+    cur = addMonths(cur, 1);
   }
-  const out: { y: number; m: number }[] = [];
-  let y = Number(latest.slice(0, 4)), m = Number(latest.slice(5, 7)) - 1;
-  for (let i = 0; i < 120; i++) {   // trần 10 năm — chống dữ liệu hỏng
-    out.push({ y, m });
-    if (`${y}-${pad(m + 1)}` <= earliest) break;
-    m -= 1;
-    if (m < 0) { m = 11; y -= 1; }
-  }
-  return out.reverse();
+  return out;
 }
 
 export function ScrollCalendar({ days, legend, onPick }: {
@@ -50,48 +46,52 @@ export function ScrollCalendar({ days, legend, onPick }: {
   onPick: (day: string) => void;
 }) {
   const now = new Date();
-  // LAZY 2 CHIỀU: chỉ render cửa sổ [start..end]; sentinel trên/dưới nới dần
-  const [win, setWin] = useState<{ start: number; end: number } | null>(null);
+  // LAZY VÔ HẠN 2 CHIỀU: cửa sổ [from..to] mở rộng mãi — hiện CẢ tháng trống
+  // (quá khứ lẫn tương lai), không phụ thuộc dữ liệu.
+  const curYm: Ym = { y: now.getFullYear(), m: now.getMonth() };
+  const [win, setWin] = useState<{ from: Ym; to: Ym }>({ from: addMonths(curYm, -3), to: curYm });
   const topRef = useRef<HTMLDivElement>(null);
   const botRef = useRef<HTMLDivElement>(null);
-  const monthsAll = monthRange(days, now);
 
-  // days đổi (nạp xong / realtime) → init cửa sổ 4 tháng cuối + cuộn xuống ĐÁY
-  const inited = useRef(false);
+  // mở tại ĐÁY (tháng hiện tại) — cuộn LÊN là về quá khứ
   useEffect(() => {
-    if (!days.size || inited.current) return;
-    inited.current = true;
-    const n = monthRange(days, new Date()).length;
-    setWin({ start: Math.max(0, n - 4), end: n - 1 });
     requestAnimationFrame(() =>
       window.scrollTo(0, document.documentElement.scrollHeight));
+  }, []);
+  // dữ liệu có tháng TƯƠNG LAI (vd ngày giao đặt trước) → nới cửa sổ tới đó
+  useEffect(() => {
+    let latest = curYm;
+    for (const k of days.keys()) {
+      const ym: Ym = { y: Number(k.slice(0, 4)), m: Number(k.slice(5, 7)) - 1 };
+      if (!ymLte(ym, latest)) latest = ym;
+    }
+    if (!ymLte(latest, win.to)) setWin((w) => ({ ...w, to: latest }));
   }, [days]);
 
   useEffect(() => {
-    if (!win) return;
     const io = new IntersectionObserver((ents) => {
       for (const en of ents) {
         if (!en.isIntersecting) continue;
-        if (en.target === topRef.current && win.start > 0) {
+        if (en.target === topRef.current) {
           const before = document.documentElement.scrollHeight;
-          setWin((w) => w && ({ ...w, start: Math.max(0, w.start - 4) }));
+          setWin((w) => ({ ...w, from: addMonths(w.from, -4) }));
           requestAnimationFrame(() =>
             window.scrollBy(0, document.documentElement.scrollHeight - before));
-        } else if (en.target === botRef.current && win.end < monthsAll.length - 1) {
-          setWin((w) => w && ({ ...w, end: Math.min(monthsAll.length - 1, w.end + 4) }));
+        } else if (en.target === botRef.current) {
+          setWin((w) => ({ ...w, to: addMonths(w.to, 4) }));
         }
       }
-    }, { rootMargin: "300px 0px" });
+    }, { rootMargin: "200px 0px" });
     if (topRef.current) io.observe(topRef.current);
     if (botRef.current) io.observe(botRef.current);
     return () => io.disconnect();
-  }, [win?.start, win?.end, monthsAll.length]);
+  }, [win.from.y, win.from.m, win.to.y, win.to.m]);
 
   const todayKey = keyOf(now.getFullYear(), now.getMonth(), now.getDate());
   return (
     <div class="cust-cal">
       <div ref={topRef} style="height:1px" />
-      {(win ? monthsAll.slice(win.start, win.end + 1) : []).map(({ y, m }) => (
+      {enumerate(win.from, win.to).map(({ y, m }) => (
         <div class="cc-block" key={`${y}-${m}`}>
           <div class="cc-month-head"><b class="cc-month">{_MONTH(y, m)}</b></div>
           <div class="cc-grid cc-head">
