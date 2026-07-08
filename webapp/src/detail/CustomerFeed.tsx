@@ -1,11 +1,15 @@
 // Feed ĐƠN + THANH TOÁN của 1 khách (trang chi tiết khách) — trọng tâm của trang.
 // 3 kiểu xem y dashboard Đơn (full/compact/ultra — card dùng chung detail/OrderCards)
-// + dòng thanh toán 💵 xen kẽ đúng thứ tự thời gian, nhóm theo ngày ở view ultra.
-// Data: GET /api/customers/{key}/feed (server_app/customer_feed.py).
-import { useEffect, useRef, useState } from "preact/hooks";
+// + card thanh toán 💵 xen kẽ đúng thứ tự thời gian, nhóm theo ngày ở view ultra.
+// Mỗi card chốt SỔ NỢ: đơn = +tổng → nợ sau; thanh toán = −tiền → nợ sau.
+// DÂY LIÊN KẾT: payment ↔ đơn của nó (cùng trong feed) nối bằng rail dọc bên trái
+// (đo vị trí thật bằng ResizeObserver, chia lane tránh đè nhau) — bấm chip đơn trên
+// payment card cuộn + nháy card đơn. Data: GET /api/customers/{key}/feed.
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { getCustomerFeed, listOrderImages, type CustFeedItem, type OrderImage } from "../api";
-import { money, fmtDateTimeVN, fmtRelative, isRecent } from "../format";
+import { money, fmtRelative, isRecent } from "../format";
 import { onRealtime } from "../realtime";
+import { fastScrollToEl } from "../scroll";
 import { Icon } from "../ui/Icon";
 import { Loading, EmptyState, SkeletonList } from "../ui/states";
 import { PhotoViewer } from "./PhotoViewer";
@@ -26,25 +30,49 @@ const PAY_METHOD_VI: Record<string, string> = {
   ck: "chuyển khoản", transfer: "chuyển khoản", banktransfer: "chuyển khoản",
 };
 
-// Dòng thanh toán trong feed — nổi bật kiểu "biên lai": link sang đơn tương ứng
-function PaymentRow({ p }: { p: Extract<CustFeedItem, { kind: "payment" }> }) {
-  const method = PAY_METHOD_VI[(p.method || "").toLowerCase()] || p.code || p.method || "";
+type PayItem = Extract<CustFeedItem, { kind: "payment" }>;
+const payMethod = (p: PayItem) => PAY_METHOD_VI[(p.method || "").toLowerCase()] || p.code || p.method || "";
+
+// Chốt sổ cuối card: bên trái = biến động của sự kiện, bên phải = NỢ SAU sự kiện
+function LedgerFoot({ delta, deltaCls, debtAfter }: { delta: string; deltaCls: string; debtAfter: number | null | undefined }) {
   return (
-    <a class="feed-pay" href={`#/order/${p.thread_id}`}>
-      <span class="feed-pay-ic"><Icon name="wallet" size={16} /></span>
-      <span class="feed-pay-main">
-        <b class="feed-pay-amt">+{money(p.amount)}đ</b>
-        {method && <span class="feed-pay-m"> · {method}</span>}
-        <span class="muted small"> · đơn #{p.thread_id}</span>
-      </span>
-      <span class="muted small feed-pay-when">
-        {p.by ? `${p.by} · ` : ""}{p.at ? fmtRelative(p.at) : ""}
-      </span>
-    </a>
+    <div class="feed-ledger">
+      <span class={`fl-delta ${deltaCls}`}>{delta}</span>
+      {debtAfter != null && (
+        <span class="fl-debt">Nợ sau: <b class={Number(debtAfter) > 0 ? "owe" : "paid-ok"}>{money(Number(debtAfter))}đ</b></span>
+      )}
+    </div>
   );
 }
 
-/** Nhóm feed theo NGÀY (dùng cho view ultra) — đơn lấy created, payment lấy at. */
+// Card thanh toán — kích thước ĐỒNG BỘ với card đơn của view (cùng radius/padding/
+// nhịp margin); nội dung 1 dòng + chốt sổ. Chip "đơn #id" → cuộn tới card đơn.
+function PaymentCard({ p, hasOrderInFeed, onJump }: {
+  p: PayItem; hasOrderInFeed: boolean; onJump: (tid: number) => void;
+}) {
+  const m = payMethod(p);
+  return (
+    <div class="order-card feed-pay" data-pay-tid={p.thread_id}>
+      <div class="feed-pay-row">
+        <span class="feed-pay-ic"><Icon name="wallet" size={16} /></span>
+        <span class="feed-pay-main">
+          <b class="feed-pay-amt">Thanh toán {money(p.amount)}đ</b>
+          {m && <span class="muted"> · {m}</span>}
+        </span>
+        <button class={"feed-pay-link" + (hasOrderInFeed ? " in-feed" : "")}
+          title={hasOrderInFeed ? "Cuộn tới đơn trong danh sách" : "Mở đơn"}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onJump(p.thread_id); }}>
+          <Icon name="link" size={12} /> đơn #{p.thread_id}
+        </button>
+      </div>
+      <LedgerFoot delta={`−${money(p.amount)}đ`} deltaCls="paid-ok"
+        debtAfter={p.new_debt != null ? Number(p.new_debt) : null} />
+      <div class="feed-pay-meta muted small">{p.by ? `${p.by} · ` : ""}{p.at ? fmtRelative(p.at) : ""}</div>
+    </div>
+  );
+}
+
+/** Nhóm feed theo NGÀY (view ultra) — đơn lấy created, payment lấy at. */
 function groupFeedByDay(items: CustFeedItem[]): { key: string; label: string; items: CustFeedItem[] }[] {
   const out: { key: string; label: string; items: CustFeedItem[] }[] = [];
   for (const it of items) {
@@ -55,6 +83,8 @@ function groupFeedByDay(items: CustFeedItem[]): { key: string; label: string; it
   }
   return out;
 }
+
+type Rope = { top: number; height: number; lane: number };
 
 export function CustomerFeed({ ckey }: { ckey: string }) {
   const [items, setItems] = useState<CustFeedItem[]>([]);
@@ -84,7 +114,6 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   };
   useEffect(() => { load(1, true); }, [ckey]);
 
-  // Realtime: đơn/thanh toán của khách đổi → tải lại trang 1 (giữ các trang sau nếu đã tải? đơn giản: reset)
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
@@ -96,6 +125,54 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   }, [ckey]);
 
   const setViewMode = (m: View) => { setView(m); localStorage.setItem("cust_view", m); };
+
+  // ── DÂY LIÊN KẾT payment ↔ đơn: đo vị trí card thật → rail dọc bên trái ──
+  const listRef = useRef<HTMLUListElement>(null);
+  const [ropes, setRopes] = useState<Rope[]>([]);
+  const orderIdsInFeed = new Set(items.filter((i) => i.kind === "order").map((i: any) => i.order.thread_id));
+  useLayoutEffect(() => {
+    const ul = listRef.current;
+    if (!ul) { setRopes([]); return; }
+    const measure = () => {
+      const base = ul.getBoundingClientRect().top;
+      const segs: { top: number; bottom: number }[] = [];
+      for (const payEl of Array.from(ul.querySelectorAll<HTMLElement>("[data-pay-tid]"))) {
+        const tid = payEl.getAttribute("data-pay-tid");
+        const orderEl = ul.querySelector<HTMLElement>(`a[data-oid="${tid}"]`);
+        if (!orderEl) continue;
+        const a = payEl.getBoundingClientRect(), b = orderEl.getBoundingClientRect();
+        const top = Math.min(a.top, b.top) + Math.min(a.height, 40) / 2 - base;
+        const bottom = Math.max(a.bottom, b.bottom) - Math.min(b.height, 40) / 2 - base;
+        if (bottom - top > 8) segs.push({ top, bottom });
+      }
+      // chia lane: 2 dây giao nhau thì nằm lane khác (tối đa 3, xoay vòng)
+      segs.sort((x, y) => x.top - y.top);
+      const laneEnds: number[] = [];
+      const out: Rope[] = [];
+      for (const s of segs) {
+        let lane = laneEnds.findIndex((end) => end <= s.top);
+        if (lane === -1) { lane = laneEnds.length < 3 ? laneEnds.length : out.length % 3; laneEnds.push(0); }
+        laneEnds[lane] = s.bottom;
+        out.push({ top: s.top, height: s.bottom - s.top, lane });
+      }
+      setRopes(out);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(ul);
+    return () => ro.disconnect();
+  }, [items, view]);
+
+  const jumpToOrder = (tid: number) => {
+    const el = listRef.current?.querySelector<HTMLElement>(`a[data-oid="${tid}"]`);
+    if (el) {
+      fastScrollToEl(el, "center");
+      el.classList.add("flash-target");
+      setTimeout(() => el.classList.remove("flash-target"), 2000);
+    } else {
+      window.location.hash = `#/order/${tid}`;   // đơn chưa nằm trong trang đã tải → mở thẳng
+    }
+  };
 
   // PhotoViewer khi bấm thumbnail card (giống dashboard)
   const [viewer, setViewer] = useState<{ threadId: string; images: OrderImage[]; start: number } | null>(null);
@@ -110,14 +187,37 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   };
 
   const renderItem = (it: CustFeedItem) => {
-    if (it.kind === "payment") return <li key={`p-${it.thread_id}-${it.ts}`}><PaymentRow p={it} /></li>;
+    if (it.kind === "payment") {
+      if (view === "ultra") {
+        return (
+          <li key={`p-${it.thread_id}-${it.ts}`} data-pay-tid={it.thread_id}>
+            <button class="order-card ultra feed-pay-ultra" onClick={() => jumpToOrder(it.thread_id)}>
+              <div class="ultra-row">
+                <span class="feed-pay-ic"><Icon name="wallet" size={13} /></span>
+                <span class="ultra-text"><b class="feed-pay-amt">+{money(it.amount)}đ</b>{payMethod(it) ? ` · ${payMethod(it)}` : ""}</span>
+              </div>
+              {it.new_debt != null && <span class="ultra-debt">nợ {money(Number(it.new_debt))}đ</span>}
+            </button>
+          </li>
+        );
+      }
+      return (
+        <li key={`p-${it.thread_id}-${it.ts}`}>
+          <PaymentCard p={it} hasOrderInFeed={orderIdsInFeed.has(it.thread_id)} onJump={jumpToOrder} />
+        </li>
+      );
+    }
     const o = it.order as OrderRow;
     const isNew = isRecent(o.created, NEW_ORDER_SEC);
+    const ledger = it.debt_after != null || o.total ? (
+      <LedgerFoot delta={o.total ? `+${o.total}đ` : ""} deltaCls="owe" debtAfter={it.debt_after} />
+    ) : null;
     if (view === "ultra") {
       return (
         <li key={o.thread_id}>
           <a data-oid={o.thread_id} class="order-card ultra" href={`#/order/${o.thread_id}`}>
             <UltraBody o={o} search="" />
+            {it.debt_after != null && <span class="ultra-debt">nợ {money(Number(it.debt_after))}đ</span>}
           </a>
         </li>
       );
@@ -125,25 +225,28 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     if (view === "compact") {
       return (
         <li key={o.thread_id}>
-          <a data-oid={o.thread_id} class={`order-card compact${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
+          <a data-oid={o.thread_id} class={`order-card compact feed-card${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
             <CompactBody o={o} search="" sort="created" isNew={isNew} openThumb={openThumb} />
+            {ledger}
           </a>
         </li>
       );
     }
     return (
       <li key={o.thread_id}>
-        <a data-oid={o.thread_id} class={`order-card two-col${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
+        <a data-oid={o.thread_id} class={`order-card two-col feed-card${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
           <div class="card-main">
             <LastAction o={o} />
             <CardBody o={o} search="" stt={statusLabel(o)} isNew={isNew} openThumb={openThumb} />
           </div>
           <div class="card-inv"><InvoiceMini o={o} /></div>
+          {ledger}
         </a>
       </li>
     );
   };
 
+  const hasRopes = ropes.length > 0;
   return (
     <section class="cust-feed">
       <div class="row space cf-head">
@@ -156,16 +259,22 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
       </div>
 
       {loading && !items.length && <SkeletonList rows={4} />}
-      <ul class="order-list">
-        {view === "ultra"
-          ? groupFeedByDay(items).map((g) => (
-              <li key={`g-${g.key}`} class="order-day-group">
-                <div class="order-day-head">{g.label} <span class="muted small">({g.items.length})</span></div>
-                <ul class="order-list">{g.items.map(renderItem)}</ul>
-              </li>
-            ))
-          : items.map(renderItem)}
-      </ul>
+      <div class={"cf-body" + (hasRopes ? " has-ropes" : "")}>
+        {/* rail dọc nối payment ↔ đơn của nó (đo vị trí thật, chia lane) */}
+        {ropes.map((r, i) => (
+          <span key={i} class="feed-rope" style={{ top: `${r.top}px`, height: `${r.height}px`, left: `${2 + r.lane * 5}px` }} />
+        ))}
+        <ul class="order-list" ref={listRef}>
+          {view === "ultra"
+            ? groupFeedByDay(items).map((g) => (
+                <li key={`g-${g.key}`} class="order-day-group">
+                  <div class="order-day-head">{g.label} <span class="muted small">({g.items.length})</span></div>
+                  <ul class="order-list">{g.items.map(renderItem)}</ul>
+                </li>
+              ))
+            : items.map(renderItem)}
+        </ul>
+      </div>
       {loading && items.length > 0 && <Loading />}
       {!loading && page < totalPages && (
         <button class="btn small wide" onClick={() => load(page + 1)}>Tải thêm</button>

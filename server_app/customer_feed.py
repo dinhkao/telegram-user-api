@@ -66,6 +66,10 @@ def _build_feed(conn, key: str, page: int):
                 "code": p.get("code") or "",
                 "by": p.get("createdBy") or p.get("by") or "",
                 "at": p.get("created_at"),
+                # nợ TRƯỚC/SAU phiếu thu — số KiotViet lưu lúc thu (resync nền vá lại);
+                # bản ghi cũ không có → None, client tự ẩn
+                "old_debt": p.get("old_debt"),
+                "new_debt": p.get("new_debt"),
             }))
     idx.sort(key=lambda t: t[0], reverse=True)
     total = len(idx)
@@ -88,7 +92,15 @@ def _build_feed(conn, key: str, page: int):
         if kind == "order":
             row = rows_by_id.get(payload)
             if row:
-                items.append({"kind": "order", "ts": ts, "order": row})
+                # Nợ SAU đơn = nợ trước (snapshot KiotViet lúc tạo HĐ, row.kh_debt)
+                # + tổng đơn — đúng bút toán KV (HĐ cộng toàn bộ tổng vào nợ,
+                # phiếu thu trừ lại sau). Thiếu snapshot (chưa HĐ) → None, ẩn.
+                debt_after = None
+                kh_debt = row.get("kh_debt")
+                digits = str(row.get("total") or "").replace(".", "")
+                if kh_debt is not None and digits.isdigit() and int(digits) > 0:
+                    debt_after = int(kh_debt) + int(digits)
+                items.append({"kind": "order", "ts": ts, "order": row, "debt_after": debt_after})
         else:
             items.append({"kind": "payment", "ts": ts, **payload})
     return items, total

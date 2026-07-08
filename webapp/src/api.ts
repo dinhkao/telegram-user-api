@@ -210,10 +210,11 @@ export type CustomerDetail = {
   note?: string;   // ghi chú khách (vd dặn giao hàng) — sửa được từ web
 };
 
-/** 1 mục trong feed đơn+thanh toán của khách (xen kẽ theo thời gian giảm dần). */
+/** 1 mục trong feed đơn+thanh toán của khách (xen kẽ theo thời gian giảm dần).
+ *  debt_after = nợ SAU đơn (snapshot KV + tổng đơn); old/new_debt = nợ trước/sau phiếu thu. */
 export type CustFeedItem =
-  | { kind: "order"; ts: number; order: any }
-  | { kind: "payment"; ts: number; thread_id: number; amount: number; method: string; code?: string; by?: string; at?: string };
+  | { kind: "order"; ts: number; order: any; debt_after?: number | null }
+  | { kind: "payment"; ts: number; thread_id: number; amount: number; method: string; code?: string; by?: string; at?: string; old_debt?: number | null; new_debt?: number | null };
 
 /** Feed đơn + thanh toán của 1 khách, gộp 1 dòng thời gian (trang chi tiết khách). */
 export async function getCustomerFeed(key: string, page = 1): Promise<{ items: CustFeedItem[]; page: number; total_pages: number; total: number }> {

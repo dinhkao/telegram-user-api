@@ -677,13 +677,37 @@ body.pv-open { overflow: hidden; }
 .cust-feed { margin: 4px 0 14px; }
 .cf-head { margin: 4px 0 8px; align-items: center; }
 .cf-title { display: inline-flex; align-items: center; gap: 6px; }
-.feed-pay { display: flex; align-items: center; gap: 9px; background: var(--ok-wash);
-  border: 1px solid #cfe6d4; border-left: 3px solid var(--ok); border-radius: 10px;
-  padding: 8px 11px; margin: 6px 0; text-decoration: none; color: inherit; }
-.feed-pay-ic { color: var(--ok); display: flex; }
-.feed-pay-main { flex: 1; min-width: 0; }
+/* Card thanh toán — đồng nhịp với card đơn (cùng radius/margin của .order-card),
+   nội dung 1 dòng + chốt sổ + meta; viền trái xanh phân biệt loại biên lai */
+.feed-pay { background: var(--ok-wash); border: 1px solid #cfe6d4; border-left: 3px solid var(--ok); }
+.feed-pay-row { display: flex; align-items: center; gap: 9px; }
+.feed-pay-ic { color: var(--ok); display: flex; flex: none; }
+.feed-pay-main { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .feed-pay-amt { color: var(--ok); }
-.feed-pay-when { flex: none; }
+.feed-pay-link { flex: none; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #bcd9c4;
+  background: #fff; border-radius: 999px; padding: 3px 9px; font-size: .74rem; font-weight: 600; color: var(--ink); }
+.feed-pay-link.in-feed { border-color: var(--ok); color: var(--ok); }
+.feed-pay-meta { margin-top: 3px; }
+/* Chốt sổ cuối card: trái = biến động (+tổng đơn / −tiền thu), phải = NỢ SAU */
+.feed-ledger { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 7px; padding-top: 6px; border-top: 1px dashed var(--border); font-size: .84rem; }
+.fl-delta { font-weight: 700; font-variant-numeric: tabular-nums; }
+.fl-debt { color: var(--muted); }
+.fl-debt b { font-variant-numeric: tabular-nums; }
+/* view ultra: payment cùng nhịp 2 dòng như đơn (dòng 1 nội dung, dòng 2 nợ) */
+.feed-pay-ultra { display: block; width: 100%; text-align: left; }
+.feed-pay-ultra .ultra-row { display: flex; align-items: center; gap: 6px; }
+.order-card.ultra .ultra-debt { display: block; margin-top: 2px; font-size: .72rem;
+  color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Dây liên kết payment ↔ đơn: rail dọc trái, chia lane; chừa gutter khi có dây */
+.cf-body { position: relative; }
+.cf-body.has-ropes .order-list { padding-left: 16px; }
+.feed-rope { position: absolute; width: 3px; border-radius: 3px; background: var(--ok);
+  opacity: .38; pointer-events: none; }
+.feed-rope::before, .feed-rope::after { content: ""; position: absolute; left: -2.5px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--ok); }
+.feed-rope::before { top: -3px; }
+.feed-rope::after { bottom: -3px; }
 .cust-ppl-head { margin: 12px 0 4px; }
 .cust-eff { margin-top: 10px; }
 /* Việc mặc định của khách (CustomerDetail) — auto-thêm vào đơn khi gán khách */
