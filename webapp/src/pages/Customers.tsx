@@ -160,26 +160,19 @@ export function Customers() {
 
   return (
     <div>
-      {/* KPI khách — chạm "Đang nợ" = lọc khách còn nợ, sort nợ nhiều nhất trước */}
-      <div class="tk-stats cu-stats">
-        <div class="tk-stat st-blue">
-          <span class="tk-stat-n">{stats ? stats.total : "–"}</span>
-          <span class="tk-stat-l"><Icon name="users" size={12} /> Tổng khách</span>
-        </div>
-        <button class={"tk-stat st-red" + (owing ? " on" : "")} onClick={toggleOwing}>
-          <span class="tk-stat-n">{stats ? stats.owing : "–"}</span>
-          <span class="tk-stat-l"><Icon name="wallet" size={12} /> Đang nợ</span>
-        </button>
-        <div class="tk-stat st-red cu-stat-sum">
-          <span class="tk-stat-n">{stats ? money(Math.round(stats.debt_sum)) : "–"}</span>
-          <span class="tk-stat-l"><Icon name="banknote" size={12} /> Tổng nợ</span>
-        </div>
-      </div>
-
       <header class="topbar cust-topbar">
         <SearchBar value={search} onInput={onSearch} placeholder="Tìm khách hàng…" />
         <button class="btn primary cust-add" onClick={() => setCreating(true)} title="Tạo khách mới"><Icon name="plus" size={16} /></button>
       </header>
+      {/* chips lọc kiểu dashboard Đơn — Đang nợ = khách còn nợ, sort nợ nhiều nhất trước */}
+      <div class="chips">
+        <button class={!owing ? "chip active" : "chip"} onClick={() => owing && toggleOwing()}>
+          Tất cả {stats ? `(${stats.total})` : ""}
+        </button>
+        <button class={owing ? "chip active" : "chip"} onClick={() => !owing && toggleOwing()}>
+          Đang nợ {stats ? `(${stats.owing})` : ""}
+        </button>
+      </div>
       <FilterActiveBar
         parts={[owing && "Đang nợ (nợ nhiều nhất trước)", search.trim() && `“${search.trim()}”`]}
         count={customers.length}

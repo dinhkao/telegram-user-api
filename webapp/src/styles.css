@@ -1575,12 +1575,7 @@ body.kbd-open .od-navbar { display: none; }
 .cust-topbar .search { flex: 1; }
 .cust-add { flex: 0 0 auto; width: 42px; height: 42px; font-size: 1.4rem; line-height: 1; padding: 0; border-radius: 10px; }
 .cust-in { width: 100%; box-sizing: border-box; padding: 11px; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; }
-/* ── DASHBOARD KHÁCH: KPI 3 ô (tái dùng tk-stat) + card khách ── */
-.cu-stats { margin: 2px 0 4px; grid-template-columns: 1fr 1fr 1.4fr; }
-.cu-stats div.tk-stat { cursor: default; }
-.cu-stats div.tk-stat:active { transform: none; }
-/* Tổng nợ = chuỗi tiền dài → chữ nhỏ hơn nhưng CAO DÒNG khớp số to bên cạnh */
-.cu-stats .cu-stat-sum .tk-stat-n { font-size: .98rem; line-height: 1.55; }
+/* ── DASHBOARD KHÁCH: card khách ── */
 .cust-list { list-style: none; margin: 8px 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .cust-card { display: flex; align-items: center; gap: 11px; background: var(--card);
   border: 1px solid var(--border); border-radius: 12px; padding: 11px 12px;
