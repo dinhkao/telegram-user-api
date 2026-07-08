@@ -168,17 +168,36 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   // frame cuộn chỉ tính clamp + translateY (compositor — không reflow). ──
   const beadsRef = useRef<{ el: HTMLElement; nat: number; top: number; bot: number }[]>([]);
   const ulTopRef = useRef(0);   // toạ độ tài liệu của ul lúc đo
+  // đoạn LINE nợ bám theo chấm: meta đo tĩnh (el 2 đầu + y gốc) + cache node <line>
+  const segMetaRef = useRef<{ topEl: HTMLElement; botEl: HTMLElement; y1: number; y2: number }[]>([]);
+  const lineNodesRef = useRef<SVGLineElement[] | null>(null);
   const applyBeads = () => {
     // đường ghim = GIỮA MÀN HÌNH — hạt bắt đầu trượt khi tới giữa màn,
     // không phải lúc sắp trôi khỏi mép trên
     const pin = window.innerHeight * 0.45;
     const s = window.scrollY + pin - ulTopRef.current;   // đường ghim trong toạ độ ul
     let floor = -Infinity;   // hạt không được vượt/đè hạt TRÊN nó (xếp hàng dọc dây)
+    const tOf = new Map<HTMLElement, number>();
     for (const b of beadsRef.current) {
       const target = Math.min(Math.max(Math.min(Math.max(s, b.top), b.bot), floor), b.bot);
       floor = target + 20;
       const t = target - b.nat;
+      tOf.set(b.el, t);
       b.el.style.transform = t ? `translateY(${t}px)` : "";
+    }
+    // ── line bám chấm: đầu đoạn dịch đúng bằng translate của chấm đó ──
+    const metas = segMetaRef.current;
+    let nodes = lineNodesRef.current;
+    if (!nodes || nodes.length !== metas.length) {
+      const svg = listRef.current?.parentElement?.querySelector("svg.feed-ropes");
+      nodes = svg ? (Array.from(svg.querySelectorAll("line")) as SVGLineElement[]) : [];
+      lineNodesRef.current = nodes;
+    }
+    const n = Math.min(nodes.length, metas.length);
+    for (let i = 0; i < n; i++) {
+      const m = metas[i];
+      nodes[i].setAttribute("y1", String(m.y1 + (tOf.get(m.topEl) || 0)));
+      nodes[i].setAttribute("y2", String(m.y2 + (tOf.get(m.botEl) || 0)));
     }
   };
   useEffect(() => {
@@ -201,6 +220,8 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   const [ropes, setRopes] = useState<Rope[]>([]);
   // đoạn line tiến trình nợ (chấm-tới-chấm, màu theo mốc DƯỚI = trạng thái của khoảng đó)
   const [debtSegs, setDebtSegs] = useState<{ x: number; y1: number; y2: number; st: string }[]>([]);
+  // render lại <line> (sau measure) đè y tĩnh lên attr đã dịch → áp lại ngay
+  useLayoutEffect(() => { applyBeads(); }, [debtSegs]);
   useLayoutEffect(() => {
     const ul = listRef.current;
     if (!ul) { setRopes([]); return; }
@@ -243,7 +264,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
       setRopes(out);
       // ── line tiến trình nợ: nối các chấm số nợ theo đúng vị trí đo được ──
       const pts = Array.from(ul.querySelectorAll<HTMLElement>(".fd-gap"))
-        .map((el) => { const r = el.getBoundingClientRect(); return { y: (r.top + r.bottom) / 2 - box.top, st: el.getAttribute("data-debt") || "na" }; })
+        .map((el) => { const r = el.getBoundingClientRect(); return { el, y: (r.top + r.bottom) / 2 - box.top, st: el.getAttribute("data-debt") || "na" }; })
         .sort((a, b) => a.y - b.y);
       const x = box.width - 7.5;   // tâm cột chấm (chấm ::after right 3.5px + bán kính 4)
       // Luật màu: đi TỪ DƯỚI LÊN (đúng dòng thời gian cũ→mới) — qua chấm đỏ thì
@@ -253,8 +274,13 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
       // nợ=0 → đoạn trên nó NÉT ĐỨT (không còn nợ treo) tới khi phát sinh nợ
       // lại; không rõ → đứt xám. Kiểu nét/màu do CSS theo st (dl-owe/dl-ok/dl-na).
       const dl: { x: number; y1: number; y2: number; st: string }[] = [];
-      for (let i = 0; i < pts.length - 1; i++)
+      const segMeta: { topEl: HTMLElement; botEl: HTMLElement; y1: number; y2: number }[] = [];
+      for (let i = 0; i < pts.length - 1; i++) {
         dl.push({ x, y1: pts[i].y, y2: pts[i + 1].y, st: pts[i + 1].st });
+        segMeta.push({ topEl: pts[i].el, botEl: pts[i + 1].el, y1: pts[i].y, y2: pts[i + 1].y });
+      }
+      segMetaRef.current = segMeta;
+      lineNodesRef.current = null;   // node <line> render lại sau setState → requery
       setDebtSegs(dl);
       // ── mốc HẠT NỢ TRƯỢT: hạt k chạy giữa delta TRÊN nó ↔ delta DƯỚI nó ──
       const rail: { debt: boolean; el: HTMLElement; y: number }[] = [];
