@@ -457,7 +457,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       </div>
 
       {/* Xem trước ảnh — bấm thumb mở lightbox; ô 📸 cuối cùng để chụp/thêm */}
-      <ImageStrip base={`/api/order/${threadId}`} onCamera={goCamera} />
+      <ImageStrip base={`/api/order/${threadId}`} />
 
       <div class="card">
         <div class="row space">
