@@ -607,13 +607,11 @@ async def box_update_handler(request: web.Request):
         except (TypeError, ValueError):
             return web.json_response({"ok": False, "error": "unit_id không hợp lệ"}, status=400)
     if quantity is not None:
-        try:
-            q = float(quantity)
-        except (TypeError, ValueError):
-            return web.json_response({"ok": False, "error": "Số cây không hợp lệ"}, status=400)
-        if q <= 0:
-            return web.json_response({"ok": False, "error": "Số cây phải > 0"}, status=400)
-        kwargs["quantity"] = q
+        # ⛔ TẮT sửa số cây trực tiếp (2026-07-08): hàng chỉ 2 đường — nhập từ phiếu
+        # SX, xuất bằng đơn. Sửa tay = lỗ hổng thất thoát (UI cũng không có nút này).
+        return web.json_response(
+            {"ok": False, "error": "Không sửa được số lượng thùng — hàng chỉ nhập từ phiếu SX và xuất bằng đơn"},
+            status=400)
     if not kwargs:
         return web.json_response({"ok": False, "error": "Không có gì để sửa"}, status=400)
 
@@ -638,7 +636,10 @@ async def box_update_handler(request: web.Request):
 
 async def box_disable_handler(request: web.Request):
     """Vô hiệu / kích hoạt lại 1 thùng. Vô hiệu = không tính tồn, không phân bổ đơn,
-    trừ khỏi tổng phiếu SX nguồn (kích hoạt lại thì cộng vào). Vẫn hiển thị."""
+    trừ khỏi tổng phiếu SX nguồn (kích hoạt lại thì cộng vào). Vẫn hiển thị.
+
+    ⛔ TẠM TẮT chiều VÔ HIỆU (2026-07-08): hàng chỉ có 2 đường đi — nhập từ phiếu
+    SX, xuất bằng đơn. Chỉ còn cho KÍCH HOẠT LẠI thùng đã vô hiệu từ trước."""
     try:
         box_id = int(request.match_info.get("box_id", ""))
     except (ValueError, TypeError):
@@ -649,8 +650,10 @@ async def box_disable_handler(request: web.Request):
         body = {}
     disabled = bool(body.get("disabled", True))
     reason = str(body.get("reason") or "").strip()
-    if disabled and not reason:
-        return web.json_response({"ok": False, "error": "Nhập lý do vô hiệu thùng"}, status=400)
+    if disabled:
+        return web.json_response(
+            {"ok": False, "error": "Tính năng vô hiệu thùng đã tắt — hàng chỉ nhập từ phiếu SX và xuất bằng đơn"},
+            status=400)
 
     def _run():
         conn = _conn()

@@ -6,7 +6,7 @@ import { BackLink } from "../nav";
 import { boxDetail, updateBox, setBoxDisabled, deleteBox, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, currentUser, soVN, type InvBoxDetail, type InvBox, type Place, type Unit } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
-import { confirmDialog } from "../ui/feedback";
+import { confirmDialog, toast } from "../ui/feedback";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
@@ -123,8 +123,9 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   const isAdmin = currentUser()?.role === "admin";
   const doDelete = async () => {
     if (!d) return;
+    // Đã xuất/tiêu hao → nút mờ, bấm chỉ toast lý do (server cũng chặn)
     if (d.allocations.length > 0) {
-      setErr("Thùng đã xuất cho đơn — thu hồi trước khi xoá."); return;
+      toast("Thùng đã xuất cho đơn — thu hồi trước khi xoá", "info"); return;
     }
     if (!(await confirmDialog(`Xoá HẲN thùng ${d.box.box_code}? Không thể hoàn tác.`, { danger: true, okLabel: "Xoá" }))) return;
     setDisBusy(true); setErr("");
@@ -138,20 +139,15 @@ export function BoxDetail({ boxId }: { boxId: string }) {
     }
   };
 
-  const toggleDisabled = async () => {
+  // Tính năng VÔ HIỆU thùng đã TẮT (hàng chỉ 2 đường: nhập phiếu SX / xuất đơn).
+  // Chỉ còn KÍCH HOẠT LẠI cho thùng đã vô hiệu từ trước (server chặn chiều vô hiệu).
+  const reactivate = async () => {
     if (!d) return;
-    const next = !isDisabled(d.box);
-    let reason = "";
-    if (next) {
-      reason = (prompt("Lý do vô hiệu thùng này?") || "").trim();
-      if (!reason) return; // huỷ hoặc bỏ trống → không làm gì
-    } else if (!(await confirmDialog(`Kích hoạt lại thùng ${d.box.box_code}? Thùng sẽ tính lại vào tồn kho + phiếu SX.`))) {
-      return; // huỷ kích hoạt lại
-    }
+    if (!(await confirmDialog(`Kích hoạt lại thùng ${d.box.box_code}? Thùng sẽ tính lại vào tồn kho + phiếu SX.`))) return;
     setDisBusy(true);
     setErr("");
     try {
-      const b2 = await setBoxDisabled(boxId, next, reason);
+      const b2 = await setBoxDisabled(boxId, false, "");
       if (b2) setD({ ...d, box: b2 });
     } catch (e: any) {
       setErr(e?.message || "Lỗi cập nhật");
@@ -293,29 +289,19 @@ export function BoxDetail({ boxId }: { boxId: string }) {
       <Comments base={`/api/media/box/${b.id}`} />
       <History base={`/api/media/box/${b.id}`} />
 
-      <section class="card">
-        {(() => {
-          const blocked = !disabled && d.allocations.length > 0; // đã xuất đơn → cấm vô hiệu
-          return (
-            <>
-              <button
-                class={disabled ? "btn block" : "btn danger block"}
-                disabled={disBusy || blocked}
-                onClick={toggleDisabled}
-              >
-                {disBusy ? "…" : disabled ? <><Icon name="check" size={16} /> Kích hoạt lại thùng</> : <><Icon name="ban" size={16} /> Vô hiệu hoá thùng</>}
-              </button>
-              {blocked && (
-                <div class="muted small">Thùng đã phân bổ vào đơn — thu hồi khỏi đơn trước khi vô hiệu.</div>
-              )}
-            </>
-          );
-        })()}
-      </section>
+      {/* Vô hiệu thùng đã TẮT — chỉ còn kích hoạt lại thùng vô hiệu từ trước */}
+      {disabled && (
+        <section class="card">
+          <button class="btn block" disabled={disBusy} onClick={reactivate}>
+            {disBusy ? "…" : <><Icon name="check" size={16} /> Kích hoạt lại thùng</>}
+          </button>
+        </section>
+      )}
 
       {isAdmin && (
         <section class="card">
-          <button class="btn danger block" disabled={disBusy || d.allocations.length > 0} onClick={doDelete}>
+          <button class={"btn danger block" + (d.allocations.length > 0 ? " faded" : "")} disabled={disBusy} onClick={doDelete}
+            title={d.allocations.length > 0 ? "Đã xuất cho đơn — thu hồi trước khi xoá" : undefined}>
             <Icon name="trash" size={16} /> Xoá thùng (admin)
           </button>
           {d.allocations.length > 0 && <div class="muted small">Đã xuất cho đơn — thu hồi trước khi xoá.</div>}

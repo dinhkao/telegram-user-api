@@ -191,7 +191,12 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const paid = paidTotal(j.payments);
   const remaining = Math.max(0, computedTotal - paid);
   const hasInvoice = !!j.kiotvietInvoiceID;
+  // Lý do khoá xoá đơn biết được từ blob (HĐ, thanh toán); phân bổ kho server chặn nốt
+  const delOrderLock = hasInvoice
+    ? "Còn HĐ KiotViet — xoá hoá đơn trước khi xoá đơn"
+    : (j.payments?.length ? `Còn ${j.payments.length} thanh toán — xoá thanh toán trước khi xoá đơn` : "");
   const doDeleteOrder = async () => {
+    if (delOrderLock) { toast(delOrderLock, "info"); return; }
     if (!(await confirmDialog(`Xoá đơn #${threadId}? Không thể hoàn tác.`, { danger: true, okLabel: "Xoá đơn" }))) return;
     try {
       await deleteOrder(threadId);
@@ -515,11 +520,12 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
 
       {isAdmin && (
         <section class="card" style={{ marginTop: "10px" }}>
-          <button class="btn danger block" disabled={hasInvoice} onClick={doDeleteOrder}>
+          <button class={"btn danger block" + (delOrderLock ? " faded" : "")} onClick={doDeleteOrder}
+            title={delOrderLock || undefined}>
             <Icon name="trash" size={16} /> Xoá đơn (admin)
           </button>
           <div class="muted small">
-            {hasInvoice ? "Còn HĐ KiotViet — xoá hoá đơn trước khi xoá đơn." : "Chỉ xoá được khi không có HĐ KiotViet + không còn phân bổ kho."}
+            {delOrderLock ? delOrderLock : "Chỉ xoá được khi không có HĐ KiotViet, không thanh toán, không còn phân bổ kho."}
           </div>
         </section>
       )}
