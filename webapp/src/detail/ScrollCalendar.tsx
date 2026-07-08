@@ -49,6 +49,7 @@ export function ScrollCalendar({ days, legend, onPick, headExtra }: {
   const topRef = useRef<HTMLDivElement>(null);
   const botRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const flyRef = useRef(false);   // đang bay về hôm nay — khoá recompute/prepend
 
   // vừa vào → FOCUS THẲNG tháng này: ô hôm nay giữa màn hình (nhảy tức thì,
   // không animation lúc mở), indicator = tháng hiện tại ngay
@@ -74,6 +75,7 @@ export function ScrollCalendar({ days, legend, onPick, headExtra }: {
       for (const en of ents) {
         if (!en.isIntersecting) continue;
         if (en.target === topRef.current) {
+          if (flyRef.current) continue;   // đang bay: prepend sẽ giật — bỏ qua
           const before = document.documentElement.scrollHeight;
           setWin((w) => ({ ...w, from: addMonths(w.from, -4) }));
           requestAnimationFrame(() =>
@@ -95,6 +97,7 @@ export function ScrollCalendar({ days, legend, onPick, headExtra }: {
   useEffect(() => {
     let raf = 0;
     const onScroll = () => {
+      if (flyRef.current) return;   // đang bay về hôm nay — indicator đã đặt sẵn
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const marks = gridRef.current?.querySelectorAll<HTMLElement>("[data-fom]");
@@ -115,12 +118,22 @@ export function ScrollCalendar({ days, legend, onPick, headExtra }: {
   const todayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   const [aY, aM] = activeYm.split("-").map(Number);
 
-  // VỀ HÔM NAY: cửa sổ luôn CHỨA tháng hiện tại (chỉ nở, không thu) → ô hôm
-  // nay luôn có trong DOM — cuộn êm tới nó là đủ
+  // VỀ HÔM NAY: cửa sổ luôn CHỨA tháng hiện tại → ô hôm nay luôn có trong DOM.
+  // MƯỢT: xa quá thì TELEPORT tức thời tới cách ~1.2 màn rồi mới lướt êm đoạn
+  // cuối (bay cả chục nghìn px trong 240ms = mỗi frame nhảy ~700px, tháng flip
+  // liên tục — giật); khi bay khoá đổi-tháng + prepend (flyRef).
   const goToday = () => {
     const el = gridRef.current?.querySelector(".cc-cell.today");
-    if (el) fastScrollToEl(el, "center");
+    if (!el) return;
     setActiveYm(ymStr(curYm));
+    flyRef.current = true;
+    const vh = window.innerHeight;
+    const r = el.getBoundingClientRect();
+    const target = window.scrollY + r.top - Math.max(56, (vh - r.height) / 2);
+    const dist = target - window.scrollY;
+    if (Math.abs(dist) > 2.5 * vh) window.scrollTo(0, target - Math.sign(dist) * 1.2 * vh);
+    fastScrollToEl(el, "center");
+    setTimeout(() => { flyRef.current = false; }, 320);
   };
 
   return (
