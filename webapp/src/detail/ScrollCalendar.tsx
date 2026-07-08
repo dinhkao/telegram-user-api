@@ -51,6 +51,16 @@ export function ScrollCalendar({ days, legend, onPick, headExtra }: {
   const gridRef = useRef<HTMLDivElement>(null);
   const flyRef = useRef(false);   // đang bay về hôm nay — khoá recompute/prepend
 
+  // TẮT scroll-anchoring khi lịch mount: prepend tháng cũ mình TỰ bù scroll;
+  // để anchoring bật thì Chrome bù thêm lần nữa (double) → mỗi lần nạp quá khứ
+  // bị NHẢY TỚI TRƯỚC ~4 tháng (bug indicator "tháng tiếp theo" khi lướt lên)
+  useEffect(() => {
+    const el = document.documentElement;
+    const prev = el.style.overflowAnchor;
+    el.style.overflowAnchor = "none";
+    return () => { el.style.overflowAnchor = prev; };
+  }, []);
+
   // vừa vào → FOCUS THẲNG tháng này: ô hôm nay giữa màn hình (nhảy tức thì,
   // không animation lúc mở), indicator = tháng hiện tại ngay
   useEffect(() => {
@@ -76,10 +86,14 @@ export function ScrollCalendar({ days, legend, onPick, headExtra }: {
         if (!en.isIntersecting) continue;
         if (en.target === topRef.current) {
           if (flyRef.current) continue;   // đang bay: prepend sẽ giật — bỏ qua
-          const before = document.documentElement.scrollHeight;
+          // neo vào ô ngày-1 đầu tiên đang có: bù đúng bằng độ dịch của NÓ
+          // (đo scrollHeight lệch nếu đáy cũng append trong cùng frame)
+          const anchor = gridRef.current?.querySelector<HTMLElement>("[data-fom]");
+          const beforeTop = anchor ? anchor.getBoundingClientRect().top : 0;
           setWin((w) => ({ ...w, from: addMonths(w.from, -4) }));
-          requestAnimationFrame(() =>
-            window.scrollBy(0, document.documentElement.scrollHeight - before));
+          requestAnimationFrame(() => {
+            if (anchor) window.scrollBy(0, anchor.getBoundingClientRect().top - beforeTop);
+          });
         } else if (en.target === botRef.current) {
           setWin((w) => ({ ...w, to: addMonths(w.to, 4) }));
         }
