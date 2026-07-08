@@ -58,13 +58,8 @@ function Rail({ delta, deltaCls, debt, est }: {
   );
 }
 
-/** "HH:mm · DD/MM" từ chuỗi thời gian bất kỳ (dựa fmtDateTimeVN). */
-const hmd = (v?: string | null): string => {
-  const s = fmtDateTimeVN(v || "");
-  const t = (s.match(/\d{2}:\d{2}/) || [""])[0];
-  const d = (s.match(/\d{2}\/\d{2}/) || [""])[0];
-  return t && d ? `${t} · ${d}` : t || d;
-};
+/** Giờ HH:mm (ngày đã có header ngày lo — card chỉ cần giờ). */
+const hmd = (v?: string | null): string => (fmtDateTimeVN(v || "").match(/\d{2}:\d{2}/) || [""])[0];
 
 // Card thanh toán — kích thước ĐỒNG BỘ với card đơn của view (cùng radius/padding/
 // nhịp margin). Chip "đơn #id" → cuộn tới card đơn.
