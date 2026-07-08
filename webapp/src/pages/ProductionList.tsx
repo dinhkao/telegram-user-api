@@ -260,33 +260,41 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
         )}
         {boxes.length > 0 && <span class="muted small">· {boxes.length} thùng</span>}
       </div>
-      {workers.length > 0 && <WorkerMiniChart workers={workers} />}
-      {isSX && (slip.report_notes || []).length > 0 && (
-        <div class="pmc-notes">
-          {(slip.report_notes || []).map((n) => (
-            <div class="pmc-note" key={n.name}>{n.name} {n.note}</div>
-          ))}
-        </div>
-      )}
+      {workers.length > 0 && <WorkerMiniChart workers={workers} notes={isSX ? slip.report_notes || [] : []} />}
       {boxes.length > 0 && <BoxMiniGrid boxes={boxes} />}
       {slip.ghi_chu && <div class="prod-card-note"><Icon name="note" size={13} /> {slip.ghi_chu}</div>}
     </a>
   );
 }
 
-/** Mini chart báo cáo thợ: cột dọc thấp — số nằm DỌC TRONG cột, tên thợ nghiêng dưới chân. */
-function WorkerMiniChart({ workers }: { workers: { name: string; tong: number }[] }) {
+/** Mini chart báo cáo thợ: thanh NGANG (tên | thanh + số trong thanh), ghi chú thợ 0 sản
+ * lượng đứng CẠNH chart — cả cụm chỉ chiếm 50% bề ngang card. */
+function WorkerMiniChart({ workers, notes }: {
+  workers: { name: string; tong: number }[];
+  notes: { name: string; note: string }[];
+}) {
   const max = Math.max(...workers.map((w) => w.tong), 1);
   return (
     <div class="prod-mini-chart">
-      {workers.map((w) => (
-        <div class="pmc-col" key={w.name}>
-          <span class="pmc-bar" style={{ minHeight: `${Math.max(16, Math.round((w.tong / max) * 38))}px` }}>
-            <span class="pmc-val">{soVN(w.tong)}</span>
-          </span>
-          <span class="pmc-name">{w.name}</span>
+      <div class="pmc-chart">
+        {workers.map((w) => (
+          <div class="pmc-row" key={w.name}>
+            <span class="pmc-name">{w.name}</span>
+            <span class="pmc-track">
+              <span class="pmc-bar" style={{ width: `${Math.max(12, Math.round((w.tong / max) * 100))}%` }}>
+                <span class="pmc-val">{soVN(w.tong)}</span>
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+      {notes.length > 0 && (
+        <div class="pmc-notes">
+          {notes.map((n) => (
+            <div class="pmc-note" key={n.name}>{n.name} {n.note}</div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }

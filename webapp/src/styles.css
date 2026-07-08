@@ -578,20 +578,21 @@ body.pv-open { overflow: hidden; }
 .prod-bar { height: 6px; background: #eee; border-radius: 3px; margin-top: 8px; overflow: hidden; }
 .prod-bar-fill { height: 100%; background: #f0a500; border-radius: 3px; transition: width .3s; }
 .prod-bar-fill.done { background: var(--ok); }
-/* Mini chart báo cáo thợ trên card SX — cột dọc SIÊU THẤP + SIÊU SÁT, chỉ chiếm 1 góc card */
-.prod-mini-chart { margin-top: 6px; display: flex; align-items: flex-end; width: max-content; max-width: 100%; padding: 2px 8px 15px 14px; overflow: hidden; }
-.pmc-col { flex: 0 0 17px; width: 17px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-.pmc-val { writing-mode: vertical-rl; font-size: .48rem; font-weight: 600; color: #fff; line-height: 1;
-  font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 3px; }
-.pmc-bar { display: flex; align-items: flex-start; justify-content: center; width: 13px;
-  background: var(--primary, #2680ff); border-radius: 3px 3px 0 0; opacity: .85; }
-/* Thợ không có sản lượng nhưng có ghi chú (vd "Kim vít") — dưới chart, 2 cột, 1 dòng/thợ */
-.pmc-notes { margin-top: 1px; display: grid; grid-template-columns: repeat(2, max-content); gap: 0 14px; width: fit-content; }
-.pmc-note { font-size: .48rem; line-height: 1.25; color: #8a6d1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
-.pmc-name { font-size: .48rem; color: #888; white-space: nowrap; height: 9px;
-  /* neo ĐUÔI tên vào chân cột: hộp rộng 0 tại tâm cột, chữ dồn về cuối rồi xoay quanh mép phải */
-  width: 0; display: flex; justify-content: flex-end; overflow: visible;
-  transform: rotate(-50deg); transform-origin: right top; }
+/* Mini chart báo cáo thợ trên card SX — thanh NGANG + ghi chú đứng cạnh, cả cụm 50% card */
+.prod-mini-chart { margin-top: 6px; display: flex; align-items: flex-start; gap: 8px; width: 50%; }
+.pmc-chart { flex: 1 1 62%; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pmc-row { display: flex; align-items: center; gap: 3px; }
+.pmc-name { flex: 0 0 32px; font-size: .48rem; line-height: 1.3; color: #777; text-align: right;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pmc-track { flex: 1; min-width: 0; }
+.pmc-bar { display: flex; align-items: center; justify-content: flex-end; height: 8px; min-width: 13px;
+  padding-right: 2px; box-sizing: border-box; background: var(--primary, #2680ff);
+  border-radius: 0 2px 2px 0; opacity: .85; }
+.pmc-val { font-size: .44rem; font-weight: 600; color: #fff; line-height: 1;
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Thợ không có sản lượng nhưng có ghi chú (vd "Kim vít") — cột dọc cạnh chart */
+.pmc-notes { flex: 1 1 38%; min-width: 0; display: flex; flex-direction: column; }
+.pmc-note { font-size: .48rem; line-height: 1.3; color: #8a6d1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* So sánh nhập thùng vs báo cáo thợ */
 .prod-compare { display: flex; align-items: stretch; gap: 8px; padding: 10px 12px;
