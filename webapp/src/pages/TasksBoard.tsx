@@ -90,11 +90,15 @@ export function TasksBoard() {
   const [q, setQ] = useState("");
   const fltRef = useRef("open");   // closure-safe cho debounce search
   const changeFlt = (f: string) => { fltRef.current = f; setFlt(f); };
+  // lọc theo NGƯỜI LÀM (avatar row) — ref để lazy-load/realtime/debounce khỏi dính closure cũ
+  const [who, setWho] = useState("");
+  const whoRef = useRef("");
+  const changeWho = (w: string) => { whoRef.current = w; setWho(w); };
 
-  const load = async (f = fltRef.current, p = 1, qq = q) => {
+  const load = async (f = fltRef.current, p = 1, qq = q, w = whoRef.current) => {
     setLoading(true);
     try {
-      const d = await listTasks(f, p, qq.trim());
+      const d = await listTasks(f, p, qq.trim(), w);
       setTasks(p === 1 ? d.tasks : (prev => [...prev, ...d.tasks])(tasks));
       setCounts(d.counts); setToday(d.today); setTotalPages(d.total_pages); setPage(p);
     } catch (e: any) { toast(e?.message || "Lỗi tải việc"); }
@@ -167,6 +171,15 @@ export function TasksBoard() {
   // ── tạo việc ──
   const [creating, setCreating] = useState(false);
 
+  // chạm avatar = lọc việc CHƯA XONG của người đó (chạm lại = bỏ);
+  // "Của tôi" là assignee=me sẵn nên chọn avatar thì về flt open cho khỏi chồng
+  const pickWho = (u: string) => {
+    const nw = who === u ? "" : u;
+    changeWho(nw);
+    if (nw && (fltRef.current === "mine" || fltRef.current === "done")) changeFlt("open");
+    load(fltRef.current, 1, q, nw);
+  };
+
   // ── chia mục theo ngày (list liền mạch với thứ tự backend: chưa xong =
   // created DESC, filter "xong" = done_at DESC → nhóm luôn liền khối) ──
   const secOf = (t: Task): string => {
@@ -207,12 +220,30 @@ export function TasksBoard() {
           <div class="tk-stats">
             {STAT.map((s) => (
               <button key={s.k} class={`tk-stat ${s.cls}` + (flt === s.k ? " on" : "")}
-                onClick={() => { changeFlt(s.k); load(s.k, 1); }}>
+                onClick={() => {
+                  // "Của tôi" = assignee=me sẵn — đang chọn avatar thì bỏ cho khỏi chồng
+                  if (s.k === "mine" && whoRef.current) changeWho("");
+                  changeFlt(s.k); load(s.k, 1);
+                }}>
                 <span class="tk-stat-n">{counts ? counts[s.c] : "–"}</span>
                 <span class="tk-stat-l"><Icon name={s.icon} size={12} /> {s.t}</span>
               </button>
             ))}
           </div>
+          {Object.keys(names).length > 0 && (
+            <div class="tk-people">
+              {Object.entries(names).sort((a, b) => a[1].localeCompare(b[1], "vi")).map(([u, n]) => {
+                const c = avaColor(n);
+                const on = who === u;
+                return (
+                  <button key={u} class={"tk-person" + (on ? " on" : "")} onClick={() => pickWho(u)}>
+                    <span class="tk-person-a" style={{ background: c, boxShadow: on ? `0 0 0 2px var(--card), 0 0 0 4px ${c}` : "none" }}>{n[0]}</span>
+                    <span class="tk-person-n" style={on ? { color: c } : undefined}>{n}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <div class="search-row">
             <SearchBar value={q} onInput={setQ} placeholder="Tìm việc, đơn, người làm…" />
           </div>
@@ -225,9 +256,10 @@ export function TasksBoard() {
             ))}
           </div>
           <FilterActiveBar
-            parts={[flt !== "open" && (FLT.find((f) => f.k === flt)?.t || flt), q.trim() && `“${q.trim()}”`]}
+            parts={[flt !== "open" && (FLT.find((f) => f.k === flt)?.t || flt),
+              who && `Việc của ${names[who] || who}`, q.trim() && `“${q.trim()}”`]}
             count={tasks.length}
-            onClear={() => { setQ(""); changeFlt("open"); load("open", 1, ""); }} />
+            onClear={() => { setQ(""); changeWho(""); changeFlt("open"); load("open", 1, "", ""); }} />
           {loading && !tasks.length ? <SkeletonList rows={5} /> : null}
           {!loading && !tasks.length ? <EmptyState>Không có việc nào</EmptyState> : null}
           <ul class="task-list">{rows}</ul>

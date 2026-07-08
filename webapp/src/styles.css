@@ -1681,6 +1681,19 @@ body.kbd-open .od-navbar { display: none; }
 .tk-stat-l { display: inline-flex; align-items: center; gap: 3px; font-size: .66rem; font-weight: 650; color: var(--muted); white-space: nowrap; }
 .tk-stat.on { background: var(--stw); border-color: var(--st); }
 .tk-stat.on .tk-stat-l { color: var(--st); }
+/* hàng avatar người làm — chạm = lọc việc chưa xong của người đó, active = vòng màu */
+.tk-people { display: flex; gap: 12px; overflow-x: auto; padding: 3px 2px 6px; margin-bottom: 4px;
+  scrollbar-width: none; }
+.tk-people::-webkit-scrollbar { display: none; }
+.tk-person { flex: none; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: none; border: none; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.tk-person:active .tk-person-a { transform: scale(.92); }
+.tk-person-a { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+  border-radius: 50%; color: #fff; font-size: 1rem; font-weight: 700; text-transform: uppercase;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.tk-person-n { max-width: 52px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: .66rem; font-weight: 600; color: var(--muted); }
+.tk-person.on .tk-person-n { font-weight: 750; }
 /* chips loại việc — badge số trong chip */
 .tk-kinds { margin-bottom: 2px; }
 .chip-n { display: inline-block; min-width: 18px; text-align: center; margin-left: 5px; padding: 0 5px;
