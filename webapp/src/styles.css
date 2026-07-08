@@ -584,6 +584,9 @@ body.pv-open { overflow: hidden; }
 .prod-card-boxes { flex: 1 1 auto; min-width: 0; }
 .pcb-head { display: flex; align-items: center; gap: 3px; font-size: .82rem; font-weight: 700; color: #333; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pcb-head svg { color: var(--muted); }
+.pcb-head.right { justify-content: flex-end; }   /* tổng báo cáo dồn phải, kề tổng nhập → dễ so */
+.pcb-head.ok, .pcb-head.ok svg { color: var(--ok); }       /* khớp — như panel so sánh chi tiết */
+.pcb-head.warn, .pcb-head.warn svg { color: var(--warn); } /* lệch */
 .prod-card-body.with-chart .box-mini-grid { grid-template-columns: repeat(4, 1fr); }
 .prod-card-body.with-chart .box-mini-grid.mixed { grid-template-columns: repeat(3, 1fr); }
 /* Mini chart báo cáo thợ trên card SX — thanh NGANG + ghi chú đứng cạnh, cả cụm 50% card */

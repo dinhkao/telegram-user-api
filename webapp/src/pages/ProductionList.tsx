@@ -238,6 +238,10 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
   const total = slip.total || 0;
   const isSX = (slip.kind || "san_xuat") !== "dong_goi";
   const workers = (isSX && slip.report_workers) || [];
+  // Khớp/lệch nhập thùng vs báo cáo — CÙNG RULE panel so sánh trang chi tiết (lệch ≤0.5% = khớp)
+  const repTotal = slip.report_total || 0;
+  const pctOff = repTotal > 0 ? (Math.abs(total - repTotal) / repTotal) * 100 : total === 0 ? 0 : 100;
+  const cmpCls = workers.length > 0 ? (pctOff <= 0.5 ? " ok" : " warn") : "";
   return (
     <a class="prod-card" href={`#/san_xuat/${slip.thread_id}`}>
       <div class="prod-card-top">
@@ -252,13 +256,13 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
       <div class={"prod-card-body" + (workers.length > 0 ? " with-chart" : "")}>
         {workers.length > 0 && (
           <div class="pcb-chart">
-            <div class="pcb-head"><Icon name="users" size={12} /> {soVN(slip.report_total || 0)}</div>
+            <div class={"pcb-head right" + cmpCls}><Icon name="users" size={12} /> {soVN(repTotal)}</div>
             <WorkerMiniChart workers={workers} notes={isSX ? slip.report_notes || [] : []} />
           </div>
         )}
         {(boxes.length > 0 || total > 0) && (
           <div class="prod-card-boxes">
-            <div class="pcb-head"><Icon name="box" size={12} /> {soVN(total)}</div>
+            <div class={"pcb-head" + cmpCls}><Icon name="box" size={12} /> {soVN(total)}</div>
             {boxes.length > 0 && <BoxMiniGrid boxes={boxes} />}
           </div>
         )}
