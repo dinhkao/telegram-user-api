@@ -261,10 +261,12 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
             <WorkerMiniChart workers={workers} notes={isSX ? slip.report_notes || [] : []} />
           </div>
         )}
-        {(boxes.length > 0 || total > 0) && (
+        {(workers.length > 0 || boxes.length > 0 || total > 0) && (
           <div class="prod-card-boxes">
             <div class={"pcb-head" + cmpCls}><Icon name="box" size={12} /> {soVN(total)}</div>
-            {boxes.length > 0 && <BoxMiniGrid boxes={boxes} />}
+            {boxes.length > 0
+              ? <BoxMiniGrid boxes={boxes} />
+              : <div class="pcb-empty">Chưa nhận sản phẩm</div>}
           </div>
         )}
       </div>
