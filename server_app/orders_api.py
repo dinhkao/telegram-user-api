@@ -313,12 +313,12 @@ async def orders_delivery_handler(request: web.Request):
     try:
         if days_mode:
             # Lịch cuộn: theo NGÀY GIAO cho MỌI tháng — đếm pending/done + NHÃN
-            # từng đơn (tên khách) để ô lịch hiện text (đỏ chưa giao trên,
+            # từng đơn (TEXT nội dung đơn) để ô lịch hiện text (đỏ chưa giao trên,
             # xanh đã giao dưới).
             rows = conn.execute(
                 "SELECT substr(json_extract(o.json,'$.ngay_giao'),1,10) AS d, "
-                "COALESCE(NULLIF(json_extract(o.json,'$.hoadon.print_content.kh'),''), "
-                "         NULLIF(json_extract(o.json,'$.customer_name'),''), "
+                "COALESCE(NULLIF(json_extract(o.json,'$.text'),''), "
+                "         NULLIF(json_extract(o.json,'$.text_raw'),''), "
                 "         NULLIF(json_extract(o.json,'$.topic_name'),''), CAST(o.thread_id AS TEXT)) AS label, "
                 "CASE WHEN COALESCE(json_extract(o.json,'$.task_status.giao_hang.done'),0) IN (1,'true') THEN 1 ELSE 0 END AS done "
                 "FROM orders o WHERE json_extract(o.json,'$.ngay_giao') IS NOT NULL AND o.deleted_at IS NULL "

@@ -161,10 +161,10 @@ export function ScrollCalendar({ days, legend, onPick, headExtra }: {
               <span class="cc-d">{t.getDate()}</span>
               {has && c!.items ? (
                 <span class="cc-lines">
-                  {c!.items.slice(0, 5).map((it, j) => (
+                  {c!.items.slice(0, 7).map((it, j) => (
                     <span key={j} class={"cc-line" + (it.done ? " dn" : " pend")}>{it.t}</span>
                   ))}
-                  {c!.items.length > 5 && <span class="cc-line more">+{c!.items.length - 5}</span>}
+                  {c!.items.length > 7 && <span class="cc-line more">+{c!.items.length - 7}</span>}
                 </span>
               ) : has ? (
                 <span class="cc-dots">
