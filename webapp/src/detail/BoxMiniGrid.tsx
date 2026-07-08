@@ -24,7 +24,7 @@ export function BoxMiniGrid({ boxes }: { boxes: KhoBox[] }) {
             title={`${b.box_code} · còn ${soVN(rm)}/${soVN(b.quantity)} ${b.product_unit || ""}`}>
             {!oneCode && <span class="bl-code">{b.product_code}</span>}
             <span class="bl-q">{soVN(b.quantity)}</span>
-            <span class="bl-num"><span class="bl-unit">{b.unit_name || "Thùng"}</span> {num}</span>
+            <span class="bl-num">{num}</span>
           </span>
         );
       })}
