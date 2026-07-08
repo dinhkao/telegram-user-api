@@ -17,23 +17,90 @@ from utils.paths import SHARED_DB_PATH
 log = logging.getLogger("debt_sync")
 
 
-def _patch_payment_new_debt(thread_id: int, payment_id: str, new_debt) -> None:
-    """Ghi nợ SAU (từ KiotViet) vào 1 phiếu thu theo id — KHÔNG tính tay."""
+def _ts(v) -> float:
+    """ISO / epoch (s|ms) → epoch giây (0 nếu rỗng) — so cửa sổ loạt phiếu thu."""
+    if v is None:
+        return 0.0
+    if isinstance(v, (int, float)):
+        x = float(v)
+        return x / 1000.0 if x > 1e12 else x
+    s = str(v).strip()
+    if not s:
+        return 0.0
+    try:
+        from datetime import datetime
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return 0.0
+
+
+def derive_batch_new_debt(amounts: list, kv_debt) -> list | None:
+    """[amount phiếu thu theo thời gian TĂNG] + nợ KV cuối → new_debt từng phiếu.
+
+    Phiếu CUỐI = số KV; phiếu trước = new_debt phiếu sau + amount phiếu sau
+    (phân bổ 1 số thật ngược lên, không tính nợ ngoài KV). None nếu lòi số âm —
+    dấu hiệu có HĐ chen giữa loạt → không phân bổ (chỉ vá phiếu cuối). Pure, có test.
+    """
+    out = [0.0] * len(amounts)
+    run = float(kv_debt)
+    for i in range(len(amounts) - 1, -1, -1):
+        out[i] = run
+        run += float(amounts[i] or 0)
+    return None if any(v < -1.0 for v in out) else out
+
+
+_BATCH_WINDOW_S = 180.0   # loạt = các phiếu thu trong 3 phút gần nhất
+
+
+def _patch_batch_new_debt(firebase_key: str, kv_debt) -> list[int]:
+    """Vá nợ SAU cho LOẠT phiếu thu gần đây (≤3 phút) của khách bằng 1 số KV mới.
+
+    Thu nhiều phiếu liền tay → resync +6s của TỪNG phiếu đều đọc ra cùng số nợ
+    CUỐI từ KiotViet → mọi phiếu bị ghi trùng số cuối (sai). Sửa: neo số KV vào
+    phiếu CUỐI, phân bổ ngược lên các phiếu trước (derive_batch_new_debt). Loạt
+    1 phiếu = hành vi cũ (vá đúng phiếu đó). Trả list thread_id có blob đổi.
+    """
+    import time as _time
     from order_db import _get_connection, get_order_by_thread_id, _save_order
+    from order_store.schema import transaction
     conn = _get_connection()
     try:
-        order = get_order_by_thread_id(conn, int(thread_id))
-        if not order:
-            return
-        changed = False
-        for p in order.get("payments", []):
-            if p.get("id") == payment_id:
-                if p.get("new_debt") != new_debt:
-                    p["new_debt"] = new_debt
-                    changed = True
-                break
-        if changed:
-            _save_order(conn, int(thread_id), order)
+        rows = conn.execute(
+            "SELECT o.thread_id tid, json_extract(p.value,'$.id') pid,"
+            " json_extract(p.value,'$.amount') amt, json_extract(p.value,'$.created_at') at"
+            " FROM orders o, json_each(o.json,'$.payments') p"
+            " WHERE CAST(json_extract(o.json,'$.khach_hang_id') AS TEXT) = ?"
+            " AND o.deleted_at IS NULL",
+            (str(firebase_key),)).fetchall()
+        cutoff = _time.time() - _BATCH_WINDOW_S
+        batch = sorted(
+            ({"tid": r["tid"], "pid": r["pid"], "amt": float(r["amt"] or 0), "ts": _ts(r["at"])}
+             for r in rows if r["pid"] and _ts(r["at"]) >= cutoff),
+            key=lambda x: x["ts"])
+        if not batch:
+            return []
+        targets = derive_batch_new_debt([b["amt"] for b in batch], kv_debt)
+        if targets is None:   # có HĐ chen giữa loạt → chỉ vá phiếu cuối như cũ
+            batch, targets = batch[-1:], [float(kv_debt)]
+        want = {}   # thread_id → {payment_id: new_debt}
+        for b, nd in zip(batch, targets):
+            want.setdefault(b["tid"], {})[b["pid"]] = nd
+        changed_tids: list[int] = []
+        for tid, by_pid in want.items():
+            with transaction(conn):
+                order = get_order_by_thread_id(conn, int(tid))
+                if not order:
+                    continue
+                changed = False
+                for p in order.get("payments", []):
+                    nd = by_pid.get(p.get("id"))
+                    if nd is not None and p.get("new_debt") != nd:
+                        p["new_debt"] = nd
+                        changed = True
+                if changed:
+                    _save_order(conn, int(tid), order)
+                    changed_tids.append(int(tid))
+        return changed_tids
     finally:
         conn.close()
 
@@ -46,8 +113,9 @@ def schedule_debt_resync(firebase_key: str, delay: float = 6.0,
     NGAY sau khi tạo hoá đơn/thanh toán có thể vẫn trả debt CŨ (chưa gộp giao dịch
     vừa tạo). Các core đã cập nhật debt tức thì; hàm này lên lịch fetch lại 1 lần nữa
     (VẪN từ KiotViet, không tính tay) để bắt giá trị mới → tránh công nợ khách bị trễ.
-    Nếu có thread_id+payment_id → vá luôn nợ SAU của phiếu thu đó. Gọi từ invoice/
-    payment core.
+    Nếu có thread_id+payment_id (resync do PHIẾU THU) → vá nợ SAU cho cả LOẠT phiếu
+    thu gần đây (_patch_batch_new_debt — thu liền tay nhiều phiếu chỉ có 1 số KV
+    cuối, phân bổ ngược). Gọi từ invoice/payment core.
     """
     if not firebase_key:
         return
@@ -61,9 +129,10 @@ def schedule_debt_resync(firebase_key: str, delay: float = 6.0,
                 from server_app.realtime import emit_customer_changed
                 emit_customer_changed(str(firebase_key))
                 if thread_id and payment_id and data.get("debt") is not None:
-                    await asyncio.to_thread(_patch_payment_new_debt, int(thread_id), str(payment_id), data.get("debt"))
+                    changed = await asyncio.to_thread(_patch_batch_new_debt, str(firebase_key), data.get("debt"))
                     from server_app.realtime import emit_order_changed
-                    emit_order_changed(int(thread_id))
+                    for tid in changed:
+                        emit_order_changed(tid)
         except Exception as e:  # noqa: BLE001 — nền, không được làm hỏng luồng gọi
             log.warning("debt resync failed key=%s: %s", firebase_key, e)
 

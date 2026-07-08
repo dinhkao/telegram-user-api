@@ -88,6 +88,26 @@ def _fill_debt_chain(events: list[dict], current_debt) -> None:
     Mốc = stored + mốc ảo cuối (current_debt). Tiến giữa các mốc, lùi trước mốc đầu.
     """
     n = len(events)
+    _TOL = 1.0   # sai số làm tròn cho phép khi đối chiếu 2 mốc
+
+    # TIỀN XỬ LÝ — loạt phiếu thu dính nợ TRÙNG (bug resync: thu nhiều phiếu liền
+    # tay → resync +6s của từng phiếu đều đọc ra cùng số nợ CUỐI từ KV → các phiếu
+    # trước bị ghi trùng). Nợ sau 2 khoản thu >0 liên tiếp KHÔNG THỂ bằng nhau nếu
+    # không có gì cộng nợ chen giữa → số của phiếu TRƯỚC là rác → bỏ (stored=None)
+    # cho nội suy neo mốc điền lại (có kiểm chứng cân đoạn như thường).
+    last_pay = None        # index phiếu thu gần nhất còn stored
+    pos_delta_since = False   # có sự kiện cộng nợ chen giữa từ phiếu đó tới đây?
+    for i, e in enumerate(events):
+        if e.get("delta", 0) > 0:
+            pos_delta_since = True
+        if e.get("kind") != "payment" or e.get("stored") is None:
+            continue
+        if (last_pay is not None and not pos_delta_since and e.get("delta", 0) < 0
+                and abs(float(events[last_pay]["stored"]) - float(e["stored"])) <= _TOL):
+            events[last_pay]["stored"] = None
+        last_pay = i
+        pos_delta_since = False
+
     for e in events:
         s = e.get("stored")
         e["debt_after"] = float(s) if s is not None else None
@@ -95,8 +115,6 @@ def _fill_debt_chain(events: list[dict], current_debt) -> None:
     stored_idx = [i for i, e in enumerate(events) if not e["est"]]
     if not stored_idx and current_debt is None:
         return   # không có mốc nào — để None hết ('—')
-
-    _TOL = 1.0   # sai số làm tròn cho phép khi đối chiếu 2 mốc
 
     # GIỮA 2 mốc lưu: chỉ điền khi đoạn CÂN — mốc_trước + Σdelta == mốc_sau.
     # Không cân = có biến động ngoài app (chỉnh nợ tay KV, HĐ ngoài, xoá HĐ…)
