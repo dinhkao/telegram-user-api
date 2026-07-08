@@ -1304,6 +1304,8 @@ body.kbd-open .wr-peek-btn { bottom: calc(12px + env(safe-area-inset-bottom, 0px
 .task-thumb { width: 26px; height: 26px; object-fit: cover; border-radius: 5px; border: 1px solid var(--border); }
 
 /* Thanh điều hướng đơn↔đơn (dính đáy, trên bottom-nav) */
+/* Bàn phím mở → ẩn như bottom-nav (kẻo che ô đang gõ trên màn thấp) */
+body.kbd-open .od-navbar { display: none; }
 .od-navbar { position: sticky; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); z-index: 12;
   display: flex; gap: 8px; margin-top: 14px; padding: 7px;
   background: rgba(255,255,255,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
