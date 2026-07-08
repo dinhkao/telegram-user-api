@@ -157,10 +157,14 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
         let lane = laneEnds.findIndex((end) => end <= s.y1);
         if (lane === -1) { lane = laneEnds.length < 3 ? laneEnds.length : out.length % 3; laneEnds.push(0); }
         laneEnds[lane] = s.y2;
-        // đường cong: từ dưới-trái card trên → vòng ra lề trái (xg) → vào trên-trái card dưới
-        const xg = 1 + lane * 3;
-        const r = Math.max(2, Math.min(7, s.x0 - xg - 1, (s.y2 - s.y1) / 2));
-        const d = `M ${s.x0} ${s.y1} H ${xg + r} Q ${xg} ${s.y1} ${xg} ${s.y1 + r} V ${s.y2 - r} Q ${xg} ${s.y2} ${xg + r} ${s.y2} H ${s.x0}`;
+        // Đường cong MỀM (không gãy khúc): lượn từ dưới-trái card trên ra bụng
+        // cong ở lề (xg ÂM = tràn vào padding trang, sát mép màn hình) rồi lượn
+        // vào trên-trái card dưới. bend lớn → cong thoải, hết nhìn "vuông".
+        const xg = -9 + lane * 3;
+        const bend = Math.min(18, (s.y2 - s.y1) / 2);
+        const d = `M ${s.x0} ${s.y1} Q ${xg} ${s.y1} ${xg} ${s.y1 + bend}`
+          + (s.y2 - bend > s.y1 + bend ? ` V ${s.y2 - bend}` : "")
+          + ` Q ${xg} ${s.y2} ${s.x0} ${s.y2}`;
         out.push({ d, x0: s.x0, y1: s.y1, y2: s.y2 });
       }
       setRopes(out);

@@ -699,10 +699,10 @@ body.pv-open { overflow: hidden; }
 .feed-pay-ultra .ultra-row { display: flex; align-items: center; gap: 6px; }
 .order-card.ultra .ultra-debt { display: block; margin-top: 2px; font-size: .72rem;
   color: var(--muted); font-variant-numeric: tabular-nums; }
-/* Dây liên kết payment ↔ đơn: ĐƯỜNG CONG SVG sát lề trái (gutter tối thiểu) —
-   từ dưới-trái card trên vòng ra lề rồi cong vào trên-trái card dưới */
+/* Dây liên kết payment ↔ đơn: ĐƯỜNG CONG SVG — card KHÔNG thụt lề (padding 0),
+   bụng cong TRÀN vào padding 10px của .page (xg âm) nên dây nằm sát mép màn hình */
 .cf-body { position: relative; }
-.cf-body.has-ropes .order-list { padding-left: 10px; }
+.cf-body.has-ropes .order-list { padding-left: 0; }
 .feed-ropes { position: absolute; inset: 0; width: 100%; height: 100%;
   overflow: visible; pointer-events: none; z-index: 0; }
 .feed-ropes path { fill: none; stroke: var(--ok); stroke-width: 2; opacity: .45; stroke-linecap: round; }
