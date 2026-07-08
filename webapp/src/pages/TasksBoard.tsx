@@ -1,8 +1,8 @@
 // Dashboard VIỆC (#/viec) — task list toàn cục: việc tự do + việc mirror từ đơn.
-// Chips lọc (đang mở/của tôi/tự do/từ đơn/quá hạn/xong), card việc (check xong
-// tại chỗ, hạn đỏ khi quá, chip đơn link #/order), tạo việc (sheet: tiêu đề/
-// ghi chú/giao cho/hạn/link đơn qua search), LỊCH (ScrollCalendar theo hạn).
-// Data: /api/tasks*. Realtime: tasks_changed.
+// KPI 4 ô (đang mở/của tôi/quá hạn/xong — chạm = lọc), chips loại việc (tự do/
+// thêm/từ đơn) kèm số, list chia mục theo ngày (Hôm nay/Hôm qua/…), card việc
+// (check xong tại chỗ, hạn đỏ khi quá, chip đơn link #/order), tạo việc (sheet),
+// LỊCH (ScrollCalendar theo hạn). Data: /api/tasks*. Realtime: tasks_changed.
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   createTask, currentUser, getJSON, listTasks, taskAssignees, taskDay, taskDays,
@@ -19,17 +19,26 @@ import { toast } from "../ui/feedback";
 import { EmptyState, SkeletonList } from "../ui/states";
 import { fmtRelative } from "../format";
 
-const FLT: { k: string; t: string; c?: keyof TaskCounts }[] = [
-  { k: "open", t: "Đang mở", c: "open" },
-  { k: "mine", t: "Của tôi", c: "mine" },
+// 4 KPI tile (trạng thái) + chips loại việc — cùng 1 không gian filter `flt`
+const STAT: { k: string; t: string; c: keyof TaskCounts; icon: string; cls: string }[] = [
+  { k: "open", t: "Đang mở", c: "open", icon: "clock", cls: "st-blue" },
+  { k: "mine", t: "Của tôi", c: "mine", icon: "user", cls: "st-warn" },
+  { k: "overdue", t: "Quá hạn", c: "overdue", icon: "bell", cls: "st-red" },
+  { k: "done", t: "Xong", c: "done", icon: "check", cls: "st-ok" },
+];
+const KIND: { k: string; t: string; c: keyof TaskCounts }[] = [
   { k: "free", t: "Việc tự do", c: "free" },
   { k: "extra", t: "Việc thêm", c: "extra" },   // KHÔNG phải 5 bước mặc định của đơn
   { k: "order", t: "Từ đơn", c: "order" },
-  { k: "overdue", t: "Quá hạn", c: "overdue" },
-  { k: "done", t: "Xong", c: "done" },
 ];
+const FLT = [...STAT, ...KIND];
 
 const dmy = (d?: string | null) => (d ? `${d.slice(8)}/${d.slice(5, 7)}` : "");
+
+// màu avatar theo tên (ổn định) — nhận diện người nhanh trong list dài
+const AVA_COLORS = ["#1a73e8", "#188038", "#b26b00", "#7b3ff2", "#c2185b", "#00838f"];
+const avaColor = (s: string) =>
+  AVA_COLORS[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % AVA_COLORS.length];
 
 /** Card 1 việc — dùng chung list + popup lịch. Accent trái theo trạng thái
  *  (đỏ quá hạn / xanh dương đang mở / xanh lá xong), checkbox tròn, note 1 dòng. */
@@ -59,7 +68,7 @@ export function TaskCard({ t, today, names, onToggle }: {
           ) : null}
           {t.due_at ? <span class={"tk-chip tk-due" + (overdue ? " od" : "")}><Icon name="calendar" size={11} /> {overdue ? "Quá hạn " : ""}{dmy(t.due_at)}</span> : null}
           {who ? (
-            <span class="tk-chip tk-who"><span class="tk-ava">{who[0]}</span> {who}</span>
+            <span class="tk-chip tk-who"><span class="tk-ava" style={{ background: avaColor(who) }}>{who[0]}</span> {who}</span>
           ) : null}
           {t.done && t.done_by ? <span class="tk-chip tk-by">✓ {names[t.done_by] || t.done_by}</span> : null}
         </span>
@@ -158,41 +167,70 @@ export function TasksBoard() {
   // ── tạo việc ──
   const [creating, setCreating] = useState(false);
 
+  // ── chia mục theo ngày (list liền mạch với thứ tự backend: chưa xong =
+  // created DESC, filter "xong" = done_at DESC → nhóm luôn liền khối) ──
+  const secOf = (t: Task): string => {
+    if (!today) return "";
+    const ts = flt === "done" && t.done_at ? t.done_at : t.created_at;
+    const d = new Date(ts * 1000);
+    const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (ymd >= today) return "Hôm nay";
+    const diff = Math.round((+new Date(today) - +new Date(ymd)) / 864e5);
+    if (diff === 1) return "Hôm qua";
+    if (diff <= 7) return "7 ngày qua";
+    if (diff <= 30) return "30 ngày qua";
+    return "Cũ hơn";
+  };
+  const rows: any[] = [];
+  {
+    let prev = "";
+    for (const t of tasks) {
+      const s = secOf(t);
+      if (s && s !== prev) { rows.push(<li class="tk-sec" key={`sec-${s}`}>{s}</li>); prev = s; }
+      rows.push(<TaskCard key={t.id} t={t} today={today} names={names} onToggle={toggle} />);
+    }
+  }
+
   return (
     <div class="tasks-page">
+      {/* app-bar đã đề "Việc" — header trang chỉ còn slider view + nút thêm */}
       <div class="row space tk-head">
-        <b class="page-title"><Icon name="check" size={18} /> Việc</b>
-        <span class="img-head-act">
-          <div class="view-slider" role="group">
-            <button class={mode === "list" ? "vs-seg on" : "vs-seg"} onClick={() => setMode("list")} title="Danh sách"><Icon name="menu" size={15} /></button>
-            <button class={mode === "cal" ? "vs-seg on" : "vs-seg"} onClick={() => setMode("cal")} title="Lịch"><Icon name="calendar" size={15} /></button>
-          </div>
-          <button class="btn small primary" onClick={() => setCreating(true)}><Icon name="plus" size={15} /> Thêm việc</button>
-        </span>
+        <div class="view-slider" role="group">
+          <button class={mode === "list" ? "vs-seg on" : "vs-seg"} onClick={() => setMode("list")} title="Danh sách"><Icon name="menu" size={15} /></button>
+          <button class={mode === "cal" ? "vs-seg on" : "vs-seg"} onClick={() => setMode("cal")} title="Lịch"><Icon name="calendar" size={15} /></button>
+        </div>
+        <button class="btn small primary" onClick={() => setCreating(true)}><Icon name="plus" size={15} /> Thêm việc</button>
       </div>
 
       {mode === "list" && (
         <>
+          <div class="tk-stats">
+            {STAT.map((s) => (
+              <button key={s.k} class={`tk-stat ${s.cls}` + (flt === s.k ? " on" : "")}
+                onClick={() => { changeFlt(s.k); load(s.k, 1); }}>
+                <span class="tk-stat-n">{counts ? counts[s.c] : "–"}</span>
+                <span class="tk-stat-l"><Icon name={s.icon} size={12} /> {s.t}</span>
+              </button>
+            ))}
+          </div>
           <div class="search-row">
             <SearchBar value={q} onInput={setQ} placeholder="Tìm việc, đơn, người làm…" />
+          </div>
+          <div class="chips tk-kinds">
+            {KIND.map((f) => (
+              <button key={f.k} class={"chip" + (flt === f.k ? " active" : "")}
+                onClick={() => { changeFlt(f.k); load(f.k, 1); }}>
+                {f.t}{counts ? <span class="chip-n">{counts[f.c]}</span> : null}
+              </button>
+            ))}
           </div>
           <FilterActiveBar
             parts={[flt !== "open" && (FLT.find((f) => f.k === flt)?.t || flt), q.trim() && `“${q.trim()}”`]}
             count={tasks.length}
             onClear={() => { setQ(""); changeFlt("open"); load("open", 1, ""); }} />
-          <div class="chips">
-            {FLT.map((f) => (
-              <button key={f.k} class={"chip" + (flt === f.k ? " active" : "") + (f.k === "overdue" && counts?.overdue ? " chip-danger" : "")}
-                onClick={() => { changeFlt(f.k); load(f.k, 1); }}>
-                {f.t}{counts && f.c != null ? ` (${counts[f.c]})` : ""}
-              </button>
-            ))}
-          </div>
           {loading && !tasks.length ? <SkeletonList rows={5} /> : null}
           {!loading && !tasks.length ? <EmptyState>Không có việc nào</EmptyState> : null}
-          <ul class="task-list">
-            {tasks.map((t) => <TaskCard key={t.id} t={t} today={today} names={names} onToggle={toggle} />)}
-          </ul>
+          <ul class="task-list">{rows}</ul>
           {page < totalPages && <div ref={moreRef} class="tk-more-sentinel">{loading ? "Đang tải…" : ""}</div>}
         </>
       )}

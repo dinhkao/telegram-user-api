@@ -239,7 +239,7 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .payment-item { display: flex; flex-direction: column; gap: 2px; }
 .pay-debt { color: var(--muted); }
 .pay-debt b { color: var(--ink); }
-.task-list li { padding: 2px 0; border-bottom: 1px dashed var(--border); }
+.task-list li:not(.task-card):not(.tk-sec) { padding: 2px 0; border-bottom: 1px dashed var(--border); }
 .comment { padding: 6px 8px; border-radius: 8px; margin: 4px 0; background: var(--bg); }
 /* Nút 📢 đưa bình luận lên bảng tin — cuối dòng header của comment */
 .cmt-head { display: flex; align-items: center; gap: 4px; }
@@ -1665,6 +1665,31 @@ body.kbd-open .od-navbar { display: none; }
 /* ── VIỆC (task list) ── */
 .tasks-page { padding-bottom: 20px; }
 .tk-head { margin-bottom: 8px; }
+/* KPI 4 ô — số to màu ngữ nghĩa, chạm = lọc, ô active tô wash + viền màu */
+.tk-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 2px 0 10px; }
+.tk-stat { --st: var(--muted); --stw: var(--bg);
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 9px 4px 7px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md);
+  box-shadow: var(--e1); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease); }
+.tk-stat:active { transform: scale(.96); }
+.tk-stat.st-blue { --st: var(--primary); --stw: var(--accent-wash); }
+.tk-stat.st-warn { --st: var(--warn); --stw: var(--warn-wash); }
+.tk-stat.st-red { --st: var(--danger); --stw: var(--danger-wash); }
+.tk-stat.st-ok { --st: var(--ok); --stw: var(--ok-wash); }
+.tk-stat-n { font-size: 1.32rem; font-weight: 750; line-height: 1.15; color: var(--st); font-variant-numeric: tabular-nums; }
+.tk-stat-l { display: inline-flex; align-items: center; gap: 3px; font-size: .66rem; font-weight: 650; color: var(--muted); white-space: nowrap; }
+.tk-stat.on { background: var(--stw); border-color: var(--st); }
+.tk-stat.on .tk-stat-l { color: var(--st); }
+/* chips loại việc — badge số trong chip */
+.tk-kinds { margin-bottom: 2px; }
+.chip-n { display: inline-block; min-width: 18px; text-align: center; margin-left: 5px; padding: 0 5px;
+  border-radius: 999px; background: rgba(31,35,40,.08); font-size: .7rem; font-variant-numeric: tabular-nums; }
+.chip.active .chip-n { background: rgba(255,255,255,.28); }
+/* đầu mục theo ngày trong list */
+.tk-sec { font-size: .7rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--muted-2); margin: 8px 2px -2px; }
+.tk-sec:first-child { margin-top: 0; }
 .task-list { list-style: none; margin: 8px 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 /* card việc: ACCENT TRÁI theo trạng thái — đỏ quá hạn / xanh dương mở / xanh lá xong */
 .task-card { display: flex; align-items: flex-start; gap: 10px; background: var(--card); border: 1px solid var(--border);
