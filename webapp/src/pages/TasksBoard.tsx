@@ -33,6 +33,18 @@ const KIND: { k: string; t: string; c: keyof TaskCounts }[] = [
 ];
 const FLT = [...STAT, ...KIND];
 
+// Cache module scope (như OrdersList): rời trang chi tiết quay lại → vẽ NGAY từ
+// cache (giữ filter/người/search/số trang) → trang đủ cao, hệ cuộn trung tâm
+// khôi phục vị trí 1 phát, KHÔNG refetch. Task đổi lúc board unmount → bỏ cache.
+let boardCache: {
+  tasks: Task[]; counts: TaskCounts | null; today: string; flt: string; who: string;
+  q: string; page: number; totalPages: number;
+  names: Record<string, string>; openBy: Record<string, number>;
+} | null = null;
+onRealtime((e) => {
+  if (e.type === "tasks_changed" || e.type === "resync") boardCache = null;
+});
+
 const dmy = (d?: string | null) => (d ? `${d.slice(8)}/${d.slice(5, 7)}` : "");
 
 // màu avatar theo tên (ổn định) — nhận diện người nhanh trong list dài
@@ -79,21 +91,22 @@ export function TaskCard({ t, today, names, onToggle }: {
 }
 
 export function TasksBoard() {
+  const c0 = boardCache;   // snapshot cache lúc mount — init state khôi phục ngay
   const [mode, setMode] = useState<"list" | "cal">("list");
-  const [flt, setFlt] = useState("open");
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [counts, setCounts] = useState<TaskCounts | null>(null);
-  const [today, setToday] = useState("");
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [names, setNames] = useState<Record<string, string>>({});
-  const [q, setQ] = useState("");
-  const fltRef = useRef("open");   // closure-safe cho debounce search
+  const [flt, setFlt] = useState(c0?.flt || "open");
+  const [tasks, setTasks] = useState<Task[]>(c0?.tasks || []);
+  const [counts, setCounts] = useState<TaskCounts | null>(c0?.counts || null);
+  const [today, setToday] = useState(c0?.today || "");
+  const [page, setPage] = useState(c0?.page || 1);
+  const [totalPages, setTotalPages] = useState(c0?.totalPages || 1);
+  const [loading, setLoading] = useState(!c0);
+  const [names, setNames] = useState<Record<string, string>>(c0?.names || {});
+  const [q, setQ] = useState(c0?.q || "");
+  const fltRef = useRef(c0?.flt || "open");   // closure-safe cho debounce search
   const changeFlt = (f: string) => { fltRef.current = f; setFlt(f); };
   // lọc theo NGƯỜI LÀM (avatar row) — ref để lazy-load/realtime/debounce khỏi dính closure cũ
-  const [who, setWho] = useState("");
-  const whoRef = useRef("");
+  const [who, setWho] = useState(c0?.who || "");
+  const whoRef = useRef(c0?.who || "");
   const changeWho = (w: string) => { whoRef.current = w; setWho(w); };
 
   const load = async (f = fltRef.current, p = 1, qq = q, w = whoRef.current) => {
@@ -106,14 +119,20 @@ export function TasksBoard() {
     setLoading(false);
   };
   useEffect(() => {
-    // deep-link #/viec?filter=… (badge app bar → Của tôi)
+    // deep-link #/viec?filter=… (badge app bar → Của tôi) — thắng cache
     const fm = window.location.hash.match(/[?&]filter=([a-z_]+)/);
-    const f = fm && FLT.some((x) => x.k === fm[1]) ? fm[1] : "open";
+    const f = fm && FLT.some((x) => x.k === fm[1]) ? fm[1] : "";
     if (fm) history.replaceState(null, "", "#/viec");
-    changeFlt(f);
-    load(f, 1);
+    if (f) {
+      boardCache = null;
+      setQ(""); changeWho(""); changeFlt(f);
+      load(f, 1, "", "");
+      return;
+    }
+    if (boardCache) return;   // đã khôi phục qua useState init — khỏi refetch
+    load("open", 1);
   }, []);
-  // search: gõ → debounce 300ms tải lại (bỏ lần mount đầu — khỏi đè deep-link;
+  // search: gõ → debounce 300ms tải lại (bỏ lần mount đầu — khỏi đè deep-link/cache;
   // đọc filter qua ref để không dính closure cũ)
   const qFirst = useRef(true);
   useEffect(() => {
@@ -122,7 +141,7 @@ export function TasksBoard() {
     return () => clearTimeout(t);
   }, [q]);
   // người làm: tên + SỐ VIỆC CHƯA XONG (vòng avatar đỏ/xanh theo còn việc hay không)
-  const [openBy, setOpenBy] = useState<Record<string, number>>({});
+  const [openBy, setOpenBy] = useState<Record<string, number>>(c0?.openBy || {});
   const loadPeople = () => taskAssignees().then((us) => {
     setNames(Object.fromEntries(us.map((u) => [u.username, u.display_name])));
     setOpenBy(Object.fromEntries(us.map((u) => [u.username, u.open || 0])));
@@ -164,6 +183,14 @@ export function TasksBoard() {
   const moreRef = useRef<HTMLDivElement>(null);
   const pgRef = useRef({ page: 1, totalPages: 1, loading: false, q: "" });
   pgRef.current = { page, totalPages, loading, q };
+
+  // Snapshot khi rời trang (unmount) — quay lại vẽ ngay từ cache (như OrdersList)
+  const snap = useRef<any>({});
+  snap.current = { tasks, counts, today, flt, who, q, page, totalPages, names, openBy };
+  useEffect(() => () => {
+    const s = snap.current;
+    if (s.tasks?.length) boardCache = { ...s };
+  }, []);
   useEffect(() => {
     const el = moreRef.current;
     if (!el) return;
