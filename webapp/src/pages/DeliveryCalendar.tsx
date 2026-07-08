@@ -62,12 +62,13 @@ export function DeliveryCalendar() {
       <div class="prod-detail-head">
         <div class="prod-sp"><Icon name="truck" size={18} /> Lịch giao</div>
       </div>
-      <label class="cal-toggle">
-        <input type="checkbox" checked={hideDelivered} onChange={(e: any) => setHideDelivered(e.target.checked)} />
-        <span>Ẩn đơn đã giao rồi</span>
-      </label>
-
-      <ScrollCalendar days={days} legend={{ o: "chưa giao", p: "đã giao" }} onPick={openDay} />
+      <ScrollCalendar days={days} legend={{ o: "chưa giao", p: "đã giao" }} onPick={openDay}
+        headExtra={
+          <label class="cal-toggle cc-ht">
+            <input type="checkbox" checked={hideDelivered} onChange={(e: any) => setHideDelivered(e.target.checked)} />
+            <span>Ẩn đã giao</span>
+          </label>
+        } />
 
       {pick && (
         <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) closeDay(); }}>

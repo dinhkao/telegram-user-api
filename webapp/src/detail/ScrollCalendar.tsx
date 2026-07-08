@@ -6,6 +6,7 @@
 // có nhãn tháng nhỏ để định vị. Chấm ĐỎ (o) / XANH (p) đúng số lượng (cap 4+4
 // + "+n"). Bấm ngày → onPick (parent lo popup).
 import { useEffect, useRef, useState } from "preact/hooks";
+import { fastScrollToEl } from "../scroll";
 
 const _WD = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -33,10 +34,11 @@ function contDays(from: Ym, to: Ym): Date[] {
   return out;
 }
 
-export function ScrollCalendar({ days, legend, onPick }: {
+export function ScrollCalendar({ days, legend, onPick, headExtra }: {
   days: CalDays;
   legend: { o: string; p: string };   // nhãn chú giải chấm đỏ / chấm xanh
   onPick: (day: string) => void;
+  headExtra?: any;                    // control riêng của trang (vd toggle ẩn đã giao)
 }) {
   const now = new Date();
   const curYm: Ym = { y: now.getFullYear(), m: now.getMonth() };
@@ -106,11 +108,25 @@ export function ScrollCalendar({ days, legend, onPick }: {
   const todayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   const [aY, aM] = activeYm.split("-").map(Number);
 
+  // VỀ HÔM NAY: cửa sổ luôn CHỨA tháng hiện tại (chỉ nở, không thu) → ô hôm
+  // nay luôn có trong DOM — cuộn êm tới nó là đủ
+  const goToday = () => {
+    const el = gridRef.current?.querySelector(".cc-cell.today");
+    if (el) fastScrollToEl(el, "center");
+    setActiveYm(ymStr(curYm));
+  };
+
   return (
     <div class="cust-cal cc-cont">
-      {/* indicator tháng + hàng thứ — DÍNH trên đầu; đổi tháng → animation trượt */}
+      {/* indicator tháng + control + hàng thứ — DÍNH trên đầu */}
       <div class="cc-cont-head">
-        <b class="cc-mind" key={activeYm}>Tháng {aM}/{aY}</b>
+        <div class="cc-mind-row">
+          <b class="cc-mind" key={activeYm}>Tháng {aM}/{aY}</b>
+          {headExtra}
+          {activeYm !== ymStr(curYm) && (
+            <button class="btn small cc-today-btn" onClick={goToday}>Hôm nay</button>
+          )}
+        </div>
         <div class="cc-grid cc-head">
           {_WD.map((w) => <span key={w} class="cc-wd">{w}</span>)}
         </div>

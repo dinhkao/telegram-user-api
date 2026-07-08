@@ -737,8 +737,11 @@ body.pv-open { overflow: hidden; }
 /* ── lịch LIỀN MẠCH kiểu macOS: indicator tháng dính + tháng active nổi bật ── */
 .cc-cont-head { position: sticky; top: 44px; z-index: 6; background: var(--bg);
   padding: 4px 0 6px; }
-.cc-mind { display: block; font-size: 1.05rem; font-weight: 800; margin-bottom: 4px;
+.cc-mind-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.cc-mind { display: block; font-size: 1.05rem; font-weight: 800;
   animation: cc-mind-in .28s ease; }
+.cc-today-btn { margin-left: auto; flex: none; }
+.cc-ht { margin: 0; font-size: .78rem; white-space: nowrap; }
 @keyframes cc-mind-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
 .cc-cont-grid { row-gap: 4px; }
 /* tháng KHÔNG active mờ hẳn + xám; tháng ACTIVE sáng rõ cả ngày trống —
