@@ -93,6 +93,19 @@ function groupFeedByDay(items: CustFeedItem[]): { key: string; label: string; it
   return out;
 }
 
+// ── KHOẢNG TRỐNG THỜI GIAN giữa 2 sự kiện cách nhau ≥2 ngày: khe rộng theo BẬC
+// (2-3d nhỏ / 4-7d vừa / >7d lớn) + nhãn số ngày; đoạn line nợ đi qua khe vẽ NÉT
+// ĐỨT (nợ vẫn treo suốt khoảng nghỉ — màu giữ nguyên). ts = epoch giây từ server.
+const gapDays = (newer?: number, older?: number): number =>
+  newer && older ? Math.round((newer - older) / 86400) : 0;
+const gapLabel = (d: number) =>
+  d >= 60 ? `${Math.round(d / 30)} tháng` : d >= 14 ? `${Math.round(d / 7)} tuần` : `${d} ngày`;
+const gapSpacer = (d: number, key: string) => (
+  <li key={key} class={"feed-gap-li " + (d <= 3 ? "g1" : d <= 7 ? "g2" : "g3")} aria-hidden="true">
+    <span class="fg-label">· {gapLabel(d)} ·</span>
+  </li>
+);
+
 type Rope = { d: string; x0: number; y1: number; y2: number };
 
 export function CustomerFeed({ ckey }: { ckey: string }) {
@@ -139,7 +152,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   const listRef = useRef<HTMLUListElement>(null);
   const [ropes, setRopes] = useState<Rope[]>([]);
   // đoạn line tiến trình nợ (chấm-tới-chấm, màu theo mốc DƯỚI = trạng thái của khoảng đó)
-  const [debtSegs, setDebtSegs] = useState<{ x: number; y1: number; y2: number; st: string }[]>([]);
+  const [debtSegs, setDebtSegs] = useState<{ x: number; y1: number; y2: number; st: string; dash: boolean }[]>([]);
   const orderIdsInFeed = new Set(items.filter((i) => i.kind === "order").map((i: any) => i.order.thread_id));
   useLayoutEffect(() => {
     const ul = listRef.current;
@@ -187,9 +200,13 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
       // Luật màu: đi TỪ DƯỚI LÊN (đúng dòng thời gian cũ→mới) — qua chấm đỏ thì
       // line ĐỎ cho tới khi gặp chấm xanh thì chuyển XANH, và cứ thế
       // (đoạn TRÊN mỗi chấm = màu chấm đó, tới chấm kế trên thì đổi).
-      const dl: { x: number; y1: number; y2: number; st: string }[] = [];
+      // đoạn đi ngang qua KHE THỜI GIAN → nét đứt (thời gian trôi, không sự kiện)
+      const gapYs = Array.from(ul.querySelectorAll<HTMLElement>(".feed-gap-li"))
+        .map((el) => { const r = el.getBoundingClientRect(); return (r.top + r.bottom) / 2 - box.top; });
+      const dl: { x: number; y1: number; y2: number; st: string; dash: boolean }[] = [];
       for (let i = 0; i < pts.length - 1; i++)
-        dl.push({ x, y1: pts[i].y, y2: pts[i + 1].y, st: pts[i + 1].st });
+        dl.push({ x, y1: pts[i].y, y2: pts[i + 1].y, st: pts[i + 1].st,
+                  dash: gapYs.some((gy) => gy > pts[i].y && gy < pts[i + 1].y) });
       setDebtSegs(dl);
     };
     measure();
@@ -315,7 +332,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
         {(hasRopes || debtSegs.length > 0) && (
           <svg class="feed-ropes" aria-hidden="true">
             {debtSegs.map((s, i) => (
-              <line key={`d${i}`} class={`dl-${s.st}`} x1={s.x} x2={s.x} y1={s.y1} y2={s.y2} />
+              <line key={`d${i}`} class={`dl-${s.st}`} x1={s.x} x2={s.x} y1={s.y1} y2={s.y2} stroke-dasharray={s.dash ? "3 6" : undefined} />
             ))}
             {ropes.map((r, i) => (
               <g key={i}>
@@ -328,13 +345,30 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
         )}
         <ul class="order-list" ref={listRef}>
           {view === "ultra"
-            ? groupFeedByDay(items).map((g) => (
-                <li key={`g-${g.key}`} class="order-day-group">
-                  <div class="order-day-head">{g.label} <span class="muted small">({g.items.length})</span></div>
-                  <ul class="order-list">{g.items.map(renderItem)}</ul>
-                </li>
-              ))
-            : items.map(renderItem)}
+            ? (() => {
+                // spacer thời gian chèn GIỮA các nhóm ngày (khoảng cách = item cuối
+                // nhóm trên ↔ item đầu nhóm dưới)
+                const groups = groupFeedByDay(items);
+                return groups.flatMap((g, gi) => {
+                  const nodes = [];
+                  if (gi > 0) {
+                    const prev = groups[gi - 1].items;
+                    const d = gapDays(prev[prev.length - 1].ts, g.items[0].ts);
+                    if (d >= 2) nodes.push(gapSpacer(d, `gap-g${gi}`));
+                  }
+                  nodes.push(
+                    <li key={`g-${g.key}`} class="order-day-group">
+                      <div class="order-day-head">{g.label} <span class="muted small">({g.items.length})</span></div>
+                      <ul class="order-list">{g.items.map(renderItem)}</ul>
+                    </li>
+                  );
+                  return nodes;
+                });
+              })()
+            : items.flatMap((it, i) => {
+                const d = i > 0 ? gapDays(items[i - 1].ts, it.ts) : 0;
+                return d >= 2 ? [gapSpacer(d, `gap-${i}`), renderItem(it)] : [renderItem(it)];
+              })}
         </ul>
       </div>
       {loading && items.length > 0 && <Loading />}
