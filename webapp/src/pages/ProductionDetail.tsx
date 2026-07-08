@@ -145,7 +145,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   if (loading) return <Loading />;
   if (!slip) return <div class="muted">Không tìm thấy phiếu. <a href="#/san_xuat">← Danh sách</a></div>;
 
-  const boxed = slip.total || 0;                          // tổng nhập thùng
+  const boxed = slip.boxed_total ?? 0;                    // tổng nhập thùng (chỉ thùng từ UI, bỏ nhập tay)
   const reported = Number(slip.bang?.grand_total || 0);   // tổng báo cáo theo thợ
   const diff = Math.round((boxed - reported) * 100) / 100;
   const pctOff = reported > 0 ? Math.abs(diff) / reported * 100 : (diff === 0 ? 0 : 100);

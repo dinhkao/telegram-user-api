@@ -59,6 +59,19 @@ def count_boxes_by_source(conn, source_thread_id) -> int:
     return int(row[0]) if row else 0
 
 
+def sum_boxes_by_source(conn, thread_ids) -> dict:
+    """{thread_id: Σ quantity} thùng tạo từ mỗi phiếu SX — tổng 'Nhập thùng' của card/so
+    sánh (CHỈ thùng nhập qua UI web, không tính số nhập tay trong numbers)."""
+    ids = [int(t) for t in thread_ids if t is not None]
+    if not ids:
+        return {}
+    q = ",".join("?" * len(ids))
+    rows = conn.execute(
+        f"SELECT source_thread_id, COALESCE(SUM(quantity), 0) FROM inventory_boxes "
+        f"WHERE source_thread_id IN ({q}) GROUP BY source_thread_id", ids).fetchall()
+    return {r[0]: r[1] or 0 for r in rows}
+
+
 def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
                order_thread_id=None, active_only=False) -> list[dict]:
     """Liệt kê thùng theo bộ lọc (product/status/slip nguồn/đơn). Sắp theo mã thùng.

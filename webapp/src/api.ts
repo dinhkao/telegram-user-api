@@ -477,6 +477,7 @@ export type ProdSlip = {
   report_total?: number;                                // tổng SP theo báo cáo thợ
   report_workers?: { name: string; tong: number }[];    // tổng SP từng thợ (giảm dần)
   report_notes?: { name: string; note: string }[];      // thợ 0 sản lượng nhưng có ghi chú
+  boxed_total?: number;                                 // Σ quantity thùng nhập từ UI (bỏ số nhập tay)
   numbers?: { amount: number; note?: string; at?: string; by?: string }[];
   bang?: any | null;
   updated_at?: string;

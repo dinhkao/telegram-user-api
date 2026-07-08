@@ -61,9 +61,12 @@ def build_production_row(thread_id) -> dict | None:
     try:
         slip = get_slip(conn, thread_id)
         rep = {}
+        boxed = 0
         if slip:
             from production_store.report_rows import report_summaries
+            from inventory_store import sum_boxes_by_source
             rep = report_summaries(conn, [thread_id]).get(slip["thread_id"]) or {}
+            boxed = sum_boxes_by_source(conn, [thread_id]).get(slip["thread_id"]) or 0
     finally:
         conn.close()
     if not slip:
@@ -82,6 +85,7 @@ def build_production_row(thread_id) -> dict | None:
         "report_total": rep.get("total") or 0,
         "report_workers": rep.get("workers") or [],
         "report_notes": rep.get("notes") or [],
+        "boxed_total": boxed,   # tổng NHẬP THÙNG thật (Σ quantity thùng từ phiếu, bỏ số nhập tay)
         **_progress(slip),
     }
 
@@ -108,7 +112,10 @@ async def production_list_handler(request: web.Request):
             total = count_slips(conn, kind=kind)
             slips = list_slips(conn, limit=limit, offset=offset, kind=kind)
             from production_store.report_rows import report_summaries
-            reports = report_summaries(conn, [s["thread_id"] for s in slips])
+            from inventory_store import sum_boxes_by_source
+            _ids = [s["thread_id"] for s in slips]
+            reports = report_summaries(conn, _ids)
+            boxed_sums = sum_boxes_by_source(conn, _ids)
         finally:
             conn.close()
         for s in slips:
@@ -117,6 +124,7 @@ async def production_list_handler(request: web.Request):
             s["report_total"] = rep.get("total") or 0
             s["report_workers"] = rep.get("workers") or []
             s["report_notes"] = rep.get("notes") or []
+            s["boxed_total"] = boxed_sums.get(s["thread_id"]) or 0
         return slips, total
     slips, total = await asyncio.to_thread(_run)
     return web.json_response({
@@ -136,8 +144,9 @@ async def production_detail_handler(request: web.Request):
             slip = get_slip(conn, thread_id)
             if slip:
                 # số thùng đã tạo từ phiếu — UI khoá đổi loại + chặn xoá theo nó
-                from inventory_store import count_boxes_by_source
+                from inventory_store import count_boxes_by_source, sum_boxes_by_source
                 slip["box_count"] = count_boxes_by_source(conn, thread_id)
+                slip["boxed_total"] = sum_boxes_by_source(conn, [thread_id]).get(thread_id) or 0
             return slip
         finally:
             conn.close()

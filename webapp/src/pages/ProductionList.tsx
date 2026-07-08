@@ -235,7 +235,8 @@ function dayLabel(key: string): string {
 }
 
 function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
-  const total = slip.total || 0;
+  // Tổng NHẬP THÙNG = Σ quantity thùng tạo từ phiếu (UI web) — KHÔNG tính số nhập tay
+  const total = slip.boxed_total ?? 0;
   const isSX = (slip.kind || "san_xuat") !== "dong_goi";
   const workers = (isSX && slip.report_workers) || [];
   // Khớp/lệch nhập thùng vs báo cáo — CÙNG RULE panel so sánh trang chi tiết (lệch ≤1% = khớp)
