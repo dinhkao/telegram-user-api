@@ -173,6 +173,12 @@ def _build_feed(conn, key: str, page: int):
         })
         for p in data.get("payments") or []:
             nd = p.get("new_debt")
+            by = str(p.get("createdBy") or p.get("by") or "")
+            try:   # id thô (vd '6730500620') → tên hiển thị
+                from bot_core.config import USER_NAMES
+                by = USER_NAMES.get(by, by)
+            except Exception:
+                pass
             events.append({
                 "ts": _ts_key(p.get("created_at")), "kind": "payment", "tid": tid,
                 "delta": -float(p.get("amount") or 0),
@@ -182,7 +188,7 @@ def _build_feed(conn, key: str, page: int):
                     "amount": p.get("amount") or 0,
                     "method": p.get("method") or "",
                     "code": p.get("code") or "",
-                    "by": p.get("createdBy") or p.get("by") or "",
+                    "by": by,
                     "at": p.get("created_at"),
                     "old_debt": p.get("old_debt"),
                     "new_debt": nd,

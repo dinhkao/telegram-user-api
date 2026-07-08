@@ -756,8 +756,8 @@ body.pv-open { overflow: hidden; }
 .fu-time { position: absolute; top: 3px; right: 7px; font-size: .64rem;
   color: var(--muted); font-variant-numeric: tabular-nums; pointer-events: none; }
 .feed-pay-ultra { position: relative; }
-/* card hẹp hơn (nhường cột nợ) → badge 5 bước chỉ icon, khỏi bẻ chữ nhãn */
-.feed-card .badges .tlbl { display: none; }
+/* feed khách: badge 5 bước CHỈ ICON (mọi view — không tên, không nhãn) */
+.cust-feed .badges .tlbl { display: none; }
 /* tên người hoàn thành trên badge — cắt gọn, không bẻ chữ */
 .badges .tlbl.tby { max-width: 44px; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; }

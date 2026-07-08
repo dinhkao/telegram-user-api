@@ -263,6 +263,8 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
                 <span class="feed-pay-ic"><Icon name="wallet" size={13} /></span>
                 <span class="ultra-text"><b class="feed-pay-amt">−{money(it.amount)}</b>{payMethod(it) ? ` · ${payMethod(it)}` : ""}</span>
               </div>
+              {/* dòng 2 — cao ĐỒNG BỘ với card đơn (badges + text) của view ultra */}
+              <div class="fu-text muted">{it.by || "\u00a0"}</div>
             </button>
             {rail}
           </li>
