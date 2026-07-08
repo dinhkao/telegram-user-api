@@ -66,12 +66,16 @@ const gapLabel = (d: number) =>
 // chuyển HẲN vào khe làm số trượt DUY NHẤT (sticky, kẹp 2 đầu, đáp xuống cạnh
 // chấm mốc ở đáy — item dưới chỉ giữ chấm, không lặp số). Khe nhỏ: số ở đáy như cũ.
 const GAP_SLIDE_MIN_D = 5;
-const gapSpacer = (d: number, key: string, debt?: number | null, est?: boolean) => (
+// tail = header ngày / warning box HÚT VÀO ĐÁY KHE (absolute, cột trái) — không
+// đứng chen giữa khe và card nữa nên KHÔNG chặn đường trượt của số bên cột phải.
+const gapSpacer = (d: number, key: string, debt?: number | null, est?: boolean, tail?: any) => (
   <li key={key} class="feed-gap-li" style={{ height: `${Math.min(d * 14, 1400)}px` }} aria-hidden="true">
     {debt != null && d >= GAP_SLIDE_MIN_D && (
-      <span class="fg-debt">{est ? "≈" : ""}{money(Number(debt))}</span>
+      // số + CHẤM đi cùng nhau (chấm = ::after màu theo data-debt), trượt hết khe
+      <span class="fg-debt" data-debt={Number(debt) > 0 ? "owe" : "ok"}>{est ? "≈" : ""}{money(Number(debt))}</span>
     )}
-    <span class="fg-label">· {gapLabel(d)} ·</span>
+    <div class="fg-lt"><span class="fg-label">· {gapLabel(d)} ·</span></div>
+    {tail && <div class="fg-tail">{tail}</div>}
   </li>
 );
 
@@ -81,12 +85,8 @@ const DEBT_FEATURE_TS = new Date("2026-07-06T00:00:00+07:00").getTime() / 1000;
 
 /** Ngày (DD/MM/YYYY) của 1 item feed. */
 const dayOf = (it: CustFeedItem): string => dayKeyOf(it.kind === "order" ? it.order.created : it.at);
-const debtFeatureNote = (
-  <li key="debt-note" class="feed-note" aria-hidden="true">
-    ⚠️ Từ đây trở về trước (trước 6/7/2026): số nợ theo phiếu có thể thiếu hoặc là
-    số ước lượng (≈) — tính năng lưu nợ tại thời điểm thu mới có từ 6/7/2026.
-  </li>
-);
+const DEBT_NOTE_TEXT = "⚠️ Từ đây trở về trước (trước 6/7/2026): số nợ theo phiếu có thể thiếu hoặc là "
+  + "số ước lượng (≈) — tính năng lưu nợ tại thời điểm thu mới có từ 6/7/2026.";
 
 type Rope = { d: string; x0: number; y1: number; y2: number };
 
@@ -294,21 +294,25 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
             return items.flatMap((it, i) => {
               const nodes = [];
               // dòng lưu ý tại điểm vượt mốc 6/7/2026 (item đầu tiên CŨ hơn mốc)
-              if (it.ts < DEBT_FEATURE_TS && (i === 0 || items[i - 1].ts >= DEBT_FEATURE_TS)) nodes.push(debtFeatureNote);
+              const showNote = it.ts < DEBT_FEATURE_TS && (i === 0 || items[i - 1].ts >= DEBT_FEATURE_TS);
               const d = i > 0 ? gapDays(items[i - 1].ts, it.ts) : 0;
               // nợ treo trong khe = nợ SAU sự kiện CŨ hơn (item dưới khe) = it.debt_after
               const debtVal = it.debt_after != null ? Number(it.debt_after) : null;
               // số chuyển vào khe làm số trượt → item dưới chỉ giữ chấm (không lặp)
               const slid = d >= 2 && debtVal != null && d >= GAP_SLIDE_MIN_D;
-              if (d >= 2) nodes.push(gapSpacer(d, `gap-${i}`, debtVal, it.debt_est));
-              // header NGÀY dạng divider phẳng — sau khe, trước item đầu của ngày
               const day = dayOf(it);
-              if (i === 0 || dayOf(items[i - 1]) !== day) {
-                nodes.push(
-                  <li key={`day-${day}-${i}`} class="feed-day-li">
-                    <div class="order-day-head">{orderDayLabel(day)} <span class="muted small">({dayCount.get(day)})</span></div>
-                  </li>
-                );
+              const newDay = i === 0 || dayOf(items[i - 1]) !== day;
+              const header = newDay
+                ? <div class="order-day-head">{orderDayLabel(day)} <span class="muted small">({dayCount.get(day)})</span></div>
+                : null;
+              const note = showNote ? <div class="feed-note">{DEBT_NOTE_TEXT}</div> : null;
+              if (d >= 2) {
+                // header/note ĐI VÀO đáy khe (fg-tail) — không chặn đường trượt của số
+                nodes.push(gapSpacer(d, `gap-${i}`, debtVal, it.debt_est,
+                  (note || header) ? <>{note}{header}</> : null));
+              } else {
+                if (note) nodes.push(<li key={`note-${i}`} class="feed-note-li">{note}</li>);
+                if (header) nodes.push(<li key={`day-${day}-${i}`} class="feed-day-li">{header}</li>);
               }
               nodes.push(renderFeedItem(it, { openThumb, jumpToOrder }, slid));
               return nodes;
