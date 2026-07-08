@@ -1,6 +1,7 @@
 """DELETE /api/order/{thread_id} — admin xoá đơn (soft-delete) CHỈ KHI đơn KHÔNG có
-hoá đơn KiotViet và KHÔNG còn phân bổ hàng trong kho. Nối: order_store.delete_order,
-inventory_store.list_order_allocations, realtime.emit_orders_changed.
+hoá đơn KiotViet, KHÔNG còn thanh toán nào, và KHÔNG còn phân bổ hàng trong kho.
+Nối: order_store.delete_order, inventory_store.list_order_allocations,
+realtime.emit_orders_changed.
 """
 from __future__ import annotations
 import asyncio
@@ -34,6 +35,8 @@ async def order_delete_handler(request: web.Request):
                 return "notfound", None
             if order.get("kiotvietInvoiceID"):
                 return "invoice", None
+            if order.get("payments"):
+                return "payment", len(order["payments"])
             allocs = list_order_allocations(conn, thread_id, kind="order")
             if allocs:
                 return "alloc", len(allocs)
@@ -53,6 +56,8 @@ async def order_delete_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Không tìm thấy đơn"}, status=404)
     if status == "invoice":
         return web.json_response({"ok": False, "error": "Đơn còn hoá đơn KiotViet — xoá hoá đơn trước khi xoá đơn"}, status=400)
+    if status == "payment":
+        return web.json_response({"ok": False, "error": f"Đơn còn {extra} thanh toán — xoá thanh toán trước khi xoá đơn"}, status=400)
     if status == "alloc":
         return web.json_response({"ok": False, "error": f"Đơn còn phân bổ kho ({extra} thùng) — thu hồi hàng về kho trước"}, status=400)
     if status == "err":

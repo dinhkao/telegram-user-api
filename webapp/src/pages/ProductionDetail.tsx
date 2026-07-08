@@ -10,6 +10,7 @@ import {
   setProductionNote,
   setProductionKind,
   deleteProduction,
+  currentUser,
   soVN,
   prodCreated,
   type ProdSlip,
@@ -201,7 +202,9 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
       <Comments base={`/api/media/production/${threadId}`} />
       <History base={`/api/media/production/${threadId}`} />
 
-      <button class="btn danger block" onClick={doDelete}><Icon name="trash" size={16} /> Xoá phiếu</button>
+      {currentUser()?.role === "admin" && (
+        <button class="btn danger block" onClick={doDelete}><Icon name="trash" size={16} /> Xoá phiếu (admin)</button>
+      )}
     </div>
   );
 }

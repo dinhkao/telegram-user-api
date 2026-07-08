@@ -367,6 +367,10 @@ async def production_report_save_handler(request: web.Request):
 
 
 async def production_delete_handler(request: web.Request):
+    """Xoá phiếu SX — CHỈ admin, và CHỈ khi phiếu không còn thùng nào tạo từ nó."""
+    from server_app.order_api_common import is_admin_request
+    if not await is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin mới được xoá phiếu sản xuất"}, status=403)
     thread_id = _thread_id(request)
     if thread_id is None:
         return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
