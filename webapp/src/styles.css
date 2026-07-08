@@ -1665,16 +1665,30 @@ body.kbd-open .od-navbar { display: none; }
 /* ── VIỆC (task list) ── */
 .tasks-page { padding-bottom: 20px; }
 .tk-head { margin-bottom: 8px; }
-.task-list { list-style: none; margin: 8px 0 10px; padding: 0; display: flex; flex-direction: column; gap: 7px; }
-.task-card { display: flex; align-items: flex-start; gap: 9px; background: var(--card); border: 1px solid var(--border);
-  border-radius: 11px; padding: 9px 10px; }
-.task-card.tk-done { opacity: .55; }
-.tk-check { flex: none; width: 24px; height: 24px; border-radius: 7px; border: 2px solid #c8d0dc; background: var(--bg);
-  display: flex; align-items: center; justify-content: center; padding: 0; margin-top: 1px; color: #fff; }
+.task-list { list-style: none; margin: 8px 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* card việc: ACCENT TRÁI theo trạng thái — đỏ quá hạn / xanh dương mở / xanh lá xong */
+.task-card { display: flex; align-items: flex-start; gap: 10px; background: var(--card); border: 1px solid var(--border);
+  border-left-width: 4px; border-radius: 12px; padding: 10px 11px; box-shadow: 0 1px 2px rgba(16,24,40,.04);
+  transition: opacity .15s ease; }
+.task-card.tks-open { border-left-color: var(--primary); }
+.task-card.tks-od { border-left-color: var(--danger); background: linear-gradient(0deg, var(--danger-wash), var(--danger-wash)), var(--card); }
+.task-card.tks-done { border-left-color: var(--ok); opacity: .6; }
+.tk-check { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #c8d0dc; background: var(--bg);
+  display: flex; align-items: center; justify-content: center; padding: 0; margin-top: 2px; color: #fff;
+  transition: background .15s ease, border-color .15s ease; }
+.tk-check:active { transform: scale(.92); }
 .tk-check.on { background: var(--ok); border-color: var(--ok); }
 .tk-main { flex: 1; min-width: 0; text-decoration: none; color: inherit; display: block; }
-.tk-title { display: block; font-weight: 600; font-size: .92rem; line-height: 1.3; }
-.tk-done .tk-title { text-decoration: line-through; }
+.tk-row1 { display: flex; align-items: baseline; gap: 8px; }
+.tk-title { flex: 1; min-width: 0; font-weight: 650; font-size: .93rem; line-height: 1.35; }
+.tk-time { flex: none; font-size: .68rem; color: var(--muted-2); }
+.tk-note { display: block; font-size: .8rem; color: var(--muted); margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tks-done .tk-title { text-decoration: line-through; font-weight: 500; }
+.tk-ava { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px;
+  border-radius: 50%; background: var(--primary); color: #fff; font-size: .6rem; font-weight: 700; text-transform: uppercase; }
+.tk-chip.tk-who { padding-left: 4px; }
+.tk-more-sentinel { height: 32px; text-align: center; color: var(--muted); font-size: .8rem; }
 .tk-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
 .tk-chip { display: inline-flex; align-items: center; gap: 4px; font-size: .72rem; font-weight: 600;
   border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; background: var(--bg); color: var(--muted); }

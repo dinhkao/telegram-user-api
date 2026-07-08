@@ -17,6 +17,7 @@ import { Icon } from "../ui/Icon";
 import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
 import { toast } from "../ui/feedback";
 import { EmptyState, SkeletonList } from "../ui/states";
+import { fmtRelative } from "../format";
 
 const FLT: { k: string; t: string; c?: keyof TaskCounts }[] = [
   { k: "open", t: "Đang mở", c: "open" },
@@ -30,27 +31,36 @@ const FLT: { k: string; t: string; c?: keyof TaskCounts }[] = [
 
 const dmy = (d?: string | null) => (d ? `${d.slice(8)}/${d.slice(5, 7)}` : "");
 
-/** Card 1 việc — dùng chung list + popup lịch. */
+/** Card 1 việc — dùng chung list + popup lịch. Accent trái theo trạng thái
+ *  (đỏ quá hạn / xanh dương đang mở / xanh lá xong), checkbox tròn, note 1 dòng. */
 export function TaskCard({ t, today, names, onToggle }: {
   t: Task; today: string; names: Record<string, string>;
   onToggle: (t: Task) => void;
 }) {
   const overdue = !t.done && t.due_at && t.due_at < today;
+  const state = t.done ? "done" : overdue ? "od" : "open";
+  const who = t.assignee ? (names[t.assignee] || t.assignee) : "";
   return (
-    <li class={"task-card" + (t.done ? " tk-done" : "")}>
+    <li class={`task-card tks-${state}`}>
       <button class={"tk-check" + (t.done ? " on" : "")} onClick={() => onToggle(t)} aria-label="Xong">
-        {t.done ? <Icon name="check" size={15} /> : null}
+        {t.done ? <Icon name="check" size={14} /> : null}
       </button>
       <a class="tk-main" href={`#/viec/${t.id}`}>
-        <span class="tk-title">{t.title}</span>
+        <span class="tk-row1">
+          <span class="tk-title">{t.title}</span>
+          <span class="tk-time">{fmtRelative(new Date(t.created_at * 1000).toISOString())}</span>
+        </span>
+        {t.note ? <span class="tk-note">{t.note}</span> : null}
         <span class="tk-meta">
           {t.kind !== "free" && t.thread_id ? (
             <span class="tk-chip tk-order" onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); window.location.hash = `#/order/${t.thread_id}`; }}>
               <Icon name="clipboard" size={11} /> {t.order_label && t.order_label !== "?" ? t.order_label : `#${t.thread_id}`}
             </span>
           ) : null}
-          {t.assignee ? <span class="tk-chip"><Icon name="user" size={11} /> {names[t.assignee] || t.assignee}</span> : null}
-          {t.due_at ? <span class={"tk-chip tk-due" + (overdue ? " od" : "")}><Icon name="calendar" size={11} /> {dmy(t.due_at)}</span> : null}
+          {t.due_at ? <span class={"tk-chip tk-due" + (overdue ? " od" : "")}><Icon name="calendar" size={11} /> {overdue ? "Quá hạn " : ""}{dmy(t.due_at)}</span> : null}
+          {who ? (
+            <span class="tk-chip tk-who"><span class="tk-ava">{who[0]}</span> {who}</span>
+          ) : null}
           {t.done && t.done_by ? <span class="tk-chip tk-by">✓ {names[t.done_by] || t.done_by}</span> : null}
         </span>
       </a>
@@ -129,6 +139,22 @@ export function TasksBoard() {
   useScrollLock(!!pick);
   usePopupBack(!!pick, closeDay);
 
+  // ── LAZY LOAD: chạm đáy danh sách → tự tải trang kế ──
+  const moreRef = useRef<HTMLDivElement>(null);
+  const pgRef = useRef({ page: 1, totalPages: 1, loading: false, q: "" });
+  pgRef.current = { page, totalPages, loading, q };
+  useEffect(() => {
+    const el = moreRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((ents) => {
+      const st = pgRef.current;
+      if (ents.some((x) => x.isIntersecting) && !st.loading && st.page < st.totalPages)
+        load(fltRef.current, st.page + 1, st.q);
+    }, { rootMargin: "300px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [tasks.length, mode]);
+
   // ── tạo việc ──
   const [creating, setCreating] = useState(false);
 
@@ -167,9 +193,7 @@ export function TasksBoard() {
           <ul class="task-list">
             {tasks.map((t) => <TaskCard key={t.id} t={t} today={today} names={names} onToggle={toggle} />)}
           </ul>
-          {page < totalPages && (
-            <button class="btn block" onClick={() => load(flt, page + 1)} disabled={loading}>Tải thêm</button>
-          )}
+          {page < totalPages && <div ref={moreRef} class="tk-more-sentinel">{loading ? "Đang tải…" : ""}</div>}
         </>
       )}
 
