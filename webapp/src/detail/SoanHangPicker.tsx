@@ -11,10 +11,12 @@ import { usePopupBack } from "../ui/usePopupBack";
 import { kindOf } from "./imageKinds";
 import { fastScrollToEl } from "../scroll";
 
-export function SoanHangPicker({ threadId, onClose, onDone, adminQuick }: {
+export function SoanHangPicker({ threadId, onClose, onDone, adminQuick, onAddPhoto }: {
   threadId: string; onClose: () => void; onDone: () => void;
   /** admin: đánh dấu xong ngay bỏ qua ảnh — hiện nút phụ ở chân popup */
   adminQuick?: () => void;
+  /** 'Thêm ảnh cho đơn' → hành xử Y HỆT nút Chụp ảnh ở Thao tác nhanh (cuộn + MỞ camera) */
+  onAddPhoto?: () => void;
 }) {
   usePopupBack(true, onClose);   // back → đóng popup trước
   const base = `/api/order/${threadId}`;
@@ -51,7 +53,14 @@ export function SoanHangPicker({ threadId, onClose, onDone, adminQuick }: {
     }
   };
 
-  const goAddPhoto = () => { onClose(); const el = document.getElementById("od-camera"); if (el) fastScrollToEl(el, "start"); };
+  // Y HỆT nút Chụp ảnh ở Thao tác nhanh: cuộn tới khối Ảnh + MỞ CAMERA luôn
+  // (onAddPhoto = goCamera của OrderDetail). Fallback cũ: chỉ cuộn.
+  const goAddPhoto = () => {
+    onClose();
+    if (onAddPhoto) { onAddPhoto(); return; }
+    const el = document.getElementById("od-camera");
+    if (el) fastScrollToEl(el, "start");
+  };
 
   return (
     <div class="modal-overlay" onClick={busy ? undefined : onClose}>

@@ -28,7 +28,7 @@ const NOP_NOTE_LABEL: Record<string, string> = {
 
 type CustomTask = { id: string; label: string };
 
-export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged }: { threadId: string; taskStatus: any; customTasks?: CustomTask[]; userNames?: Record<string, string>; onChanged: () => void }) {
+export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged, onAddPhoto }: { threadId: string; taskStatus: any; customTasks?: CustomTask[]; userNames?: Record<string, string>; onChanged: () => void; onAddPhoto?: () => void }) {
   const [busy, setBusy] = useState("");
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
@@ -197,6 +197,7 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
       {nopOpen && <NopTienWizard threadId={threadId} onClose={() => setNopOpen(false)} onDone={onChanged}
         adminQuick={isAdmin ? () => { setNopOpen(false); mark("nop_tien"); } : undefined} />}
       {soanOpen && <SoanHangPicker threadId={threadId} onClose={() => setSoanOpen(false)} onDone={onChanged}
+        onAddPhoto={onAddPhoto}
         adminQuick={isAdmin ? () => { setSoanOpen(false); mark("soan_hang"); } : undefined} />}
       {viewer && (
         <PhotoViewer images={viewer.images} start={viewer.start} base={`/api/order/${threadId}`} editable
