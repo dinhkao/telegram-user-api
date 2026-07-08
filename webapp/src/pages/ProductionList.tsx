@@ -263,7 +263,7 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
         )}
         {(workers.length > 0 || boxes.length > 0 || total > 0) && (
           <div class="prod-card-boxes">
-            <div class={"pcb-head" + cmpCls}><Icon name="box" size={12} /> {soVN(total)}</div>
+            <div class={"pcb-head" + cmpCls}>{soVN(total)} <Icon name="box" size={12} /></div>
             {boxes.length > 0
               ? <BoxMiniGrid boxes={boxes} />
               : <div class="pcb-empty">Chưa nhận sản phẩm</div>}
