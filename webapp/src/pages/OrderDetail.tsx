@@ -2,7 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, getCustomerOrders, getJSON, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, type OrderImage } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, ensureInvoiceImage, getCustomerOrders, getJSON, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
 import { money, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
@@ -282,14 +282,20 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     catch (ex: any) { setMsg(`❌ ${ex.message}`); } finally { setBusy(false); }
   };
   // Xem HĐ: mở ảnh hoá đơn trong PhotoViewer (zoom/pan như ảnh đơn);
-  // chưa có ảnh (HĐ chưa render xong) thì mới fallback mở HTML tab mới.
+  // chưa có ảnh → gọi server render PNG ngay rồi mở; lỗi mới fallback HTML tab.
   const [invViewer, setInvViewer] = useState<OrderImage | null>(null);
   const viewHD = async () => {
     try {
       const imgs = await listOrderImages(threadId);
       const inv = imgs.find((x) => x.kind === "hoa_don" || x.uploaded_by === "KiotViet HĐ");
       if (inv) { setInvViewer(inv); return; }
-    } catch { /* rơi xuống fallback */ }
+    } catch { /* thử render bên dưới */ }
+    try {
+      setMsg("⏳ Đang tạo ảnh hoá đơn…");
+      const img = await ensureInvoiceImage(threadId);
+      setMsg("");
+      if (img) { setInvViewer(img); return; }
+    } catch { setMsg(""); /* rơi xuống fallback */ }
     window.open(invoiceHtmlUrl(threadId), "_blank");
   };
 

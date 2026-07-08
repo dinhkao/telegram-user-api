@@ -389,6 +389,12 @@ export async function deleteOrderImage(threadId: string | number, imageId: numbe
   return delJSON(`/api/order/${Number(threadId)}/images/${imageId}`);
 }
 
+/** Bảo đảm gallery có ảnh HĐ KiotViet — chưa có thì server render PNG ngay (~2s). */
+export async function ensureInvoiceImage(threadId: string | number): Promise<OrderImage> {
+  const d = await postJSON(`/api/order/${Number(threadId)}/invoice-image/ensure`, {});
+  return d.image;
+}
+
 // ── Phiếu sản xuất (production) ───────────────────────────────────────────────
 
 /** Số kiểu vi-VN (dấu chấm ngăn nghìn) — khớp _so() phía server. */

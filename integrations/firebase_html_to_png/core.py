@@ -6,7 +6,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 from PIL import Image
 
-_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="html_to_png")
+# 1 worker DUY NHẤT: Playwright sync API trói browser vào thread khởi tạo nó —
+# nhiều worker → job rơi thread khác ném "Cannot switch to a different thread".
+_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="html_to_png")
 _playwright = None
 _browser = None
 

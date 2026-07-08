@@ -139,6 +139,33 @@ async def api_refresh_debt_handler(request: web.Request):
     return web.json_response({"ok": True, "thread_id": int(thread_id), "debt": debt})
 
 
+async def api_ensure_invoice_image_handler(request: web.Request):
+    """POST /api/order/{thread_id}/invoice-image/ensure — bảo đảm gallery có ảnh HĐ.
+
+    Nút 'Xem HĐ' gọi: đã có ảnh kind='hoa_don' → trả ngay; chưa có (render nền từng
+    lỗi/HĐ tạo qua Telegram) → render PNG + lưu gallery NGAY (đợi xong) rồi trả ảnh."""
+    thread_id = request.match_info.get("thread_id", "").strip()
+    if not thread_id.lstrip("-").isdigit():
+        return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
+    tid = int(thread_id)
+    conn = _get_connection()
+    order = get_order_by_thread_id(conn, tid)
+    if not order:
+        return web.json_response({"ok": False, "error": "Không tìm thấy đơn"}, status=404)
+    if not order.get("kiotvietInvoiceID"):
+        return web.json_response({"ok": False, "error": "Đơn chưa có hoá đơn KiotViet"}, status=400)
+    from order_images_store import list_images
+    imgs = await asyncio.to_thread(list_images, tid)
+    have = [i for i in imgs if i.get("kind") == "hoa_don" or i.get("uploaded_by") == "KiotViet HĐ"]
+    if have:
+        return web.json_response({"ok": True, "image": have[0], "created": False})   # list mới nhất trước
+    from server_app.invoice_image import add_invoice_image_to_gallery
+    img = await add_invoice_image_to_gallery(tid)
+    if not img:
+        return web.json_response({"ok": False, "error": "Render ảnh hoá đơn lỗi — thử lại"}, status=502)
+    return web.json_response({"ok": True, "image": img, "created": True})
+
+
 async def api_invoice_html_handler(request: web.Request):
     """Trả HTML hoá đơn KiotViet đã render để webapp mở xem (tương đương 'get html').
     Fetch invoice từ KiotViet nên chạy trong thread để không chặn event loop."""

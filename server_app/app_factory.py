@@ -26,7 +26,7 @@ from server_app.order_api_payments import api_customer_price_handler, order_tota
 from server_app.order_api_print import api_print_giao_handler
 from server_app.order_api_tasks import _make_task_handler, api_task_handler, api_task_status_clear_handler
 from server_app.order_api_custom_tasks import add_custom_task_handler, remove_custom_task_handler
-from server_app.order_api_invoice import api_create_invoice_handler, api_delete_invoice_handler, api_invoice_html_handler, api_refresh_debt_handler
+from server_app.order_api_invoice import api_create_invoice_handler, api_delete_invoice_handler, api_ensure_invoice_image_handler, api_invoice_html_handler, api_refresh_debt_handler
 from server_app.order_history import order_history_handler
 from server_app.orders_api import order_detail_handler, orders_api_handler, orders_delivery_handler
 from server_app.product_routes import (
@@ -150,6 +150,7 @@ def create_app():
     r.add_post("/api/order/invoice/delete-kiotviet", api_delete_invoice_handler)
     r.add_post("/api/order/refresh-debt", api_refresh_debt_handler)
     r.add_get("/api/order/{thread_id}/invoice-html", api_invoice_html_handler)
+    r.add_post("/api/order/{thread_id}/invoice-image/ensure", api_ensure_invoice_image_handler)
     r.add_get("/api/products", products_search_handler)
     r.add_post("/api/products", product_create_handler)
     r.add_get("/api/products/kiotviet", product_kiotviet_search_handler)
