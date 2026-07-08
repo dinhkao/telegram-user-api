@@ -222,8 +222,8 @@ export function BoxDetail({ boxId }: { boxId: string }) {
         </div>
         <div class="box-kv">
           <span class="box-k">Vị trí</span>
-          <span class={"box-v box-place" + (b.place_name ? "" : " muted")}>
-            <Icon name="tag" size={14} /> {b.place_name || "Chưa xếp"}
+          <span class={"box-v bd-place" + (b.place_name ? "" : " muted")}>
+            <Icon name="tag" size={14} /> <span class="bd-place-name">{b.place_name || "Chưa xếp"}</span>
           </span>
           <button class="btn small box-move-btn" onClick={() => setMovePop(true)}>
             <Icon name="truck" size={14} /> Chuyển kho
