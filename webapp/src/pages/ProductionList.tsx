@@ -260,8 +260,12 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
         )}
         {boxes.length > 0 && <span class="muted small">· {boxes.length} thùng</span>}
       </div>
-      {workers.length > 0 && <WorkerMiniChart workers={workers} notes={isSX ? slip.report_notes || [] : []} />}
-      {boxes.length > 0 && <BoxMiniGrid boxes={boxes} />}
+      {(workers.length > 0 || boxes.length > 0) && (
+        <div class={"prod-card-body" + (workers.length > 0 ? " with-chart" : "")}>
+          {workers.length > 0 && <WorkerMiniChart workers={workers} notes={isSX ? slip.report_notes || [] : []} />}
+          {boxes.length > 0 && <div class="prod-card-boxes"><BoxMiniGrid boxes={boxes} /></div>}
+        </div>
+      )}
       {slip.ghi_chu && <div class="prod-card-note"><Icon name="note" size={13} /> {slip.ghi_chu}</div>}
     </a>
   );
