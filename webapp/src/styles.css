@@ -738,6 +738,9 @@ body.pv-open { overflow: hidden; }
 .feed-pay-ultra { position: relative; }
 /* card hẹp hơn (nhường cột nợ) → badge 5 bước chỉ icon, khỏi bẻ chữ nhãn */
 .feed-card .badges .tlbl { display: none; }
+/* tên người hoàn thành trên badge — cắt gọn, không bẻ chữ */
+.badges .tlbl.tby { max-width: 44px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; }
 /* Dây liên kết payment ↔ đơn: ĐƯỜNG CONG SVG — card KHÔNG thụt lề (padding 0),
    bụng cong TRÀN vào padding 10px của .page (xg âm) nên dây nằm sát mép màn hình */
 .cf-body { position: relative; }

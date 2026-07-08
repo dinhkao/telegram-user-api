@@ -182,9 +182,11 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
         .map((el) => { const r = el.getBoundingClientRect(); return { y: (r.top + r.bottom) / 2 - box.top, st: el.getAttribute("data-debt") || "na" }; })
         .sort((a, b) => a.y - b.y);
       const x = box.width - 7.5;   // tâm cột chấm (chấm ::after right 3.5px + bán kính 4)
+      // Luật màu: quét TỪ TRÊN XUỐNG — qua chấm đỏ thì line ĐỎ cho tới khi gặp
+      // chấm xanh thì chuyển XANH, và cứ thế (đoạn dưới mỗi chấm = màu chấm đó).
       const dl: { x: number; y1: number; y2: number; st: string }[] = [];
       for (let i = 0; i < pts.length - 1; i++)
-        dl.push({ x, y1: pts[i].y, y2: pts[i + 1].y, st: pts[i + 1].st });
+        dl.push({ x, y1: pts[i].y, y2: pts[i + 1].y, st: pts[i].st });
       setDebtSegs(dl);
     };
     measure();

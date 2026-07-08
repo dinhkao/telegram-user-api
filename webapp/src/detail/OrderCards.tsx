@@ -50,6 +50,7 @@ export type OrderRow = {
   last_action_ts?: string | null;
   soan_img_ids?: number[];   // ảnh chốt soạn hàng — ưu tiên làm thumbnail
   nop_img_id?: number | null;
+  task_bys?: string[];   // tên người HOÀN THÀNH từng bước (badge hiện tên thay nhãn)
 };
 
 // Mã ghi chú nộp tiền → tiếng Việt đầy đủ
@@ -314,12 +315,16 @@ export function TaskBadges({ o }: { o: OrderRow }) {
   const fallback: boolean[] = [false, o.soan, o.giao, o.nop, o.nhan];
   return (
     <span class="badges">
-      {TASK_LABELS.map((label, i) => (
-        <span class="tstat" key={label}>
-          <span class="tico">{icons[i] || (fallback[i] ? "✅" : "❌")}</span>
-          <span class="tlbl">{label}</span>
-        </span>
-      ))}
+      {TASK_LABELS.map((label, i) => {
+        // bước ĐÃ XONG → hiện TÊN người làm (thay nhãn); chưa xong → nhãn bước như cũ
+        const by = (o.task_bys || [])[i];
+        return (
+          <span class="tstat" key={label}>
+            <span class="tico">{icons[i] || (fallback[i] ? "✅" : "❌")}</span>
+            <span class={"tlbl" + (by ? " tby" : "")}>{by || label}</span>
+          </span>
+        );
+      })}
     </span>
   );
 }
