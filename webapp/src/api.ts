@@ -223,6 +223,18 @@ export async function getCustomerFeed(key: string, page = 1): Promise<{ items: C
   return { items: d.items || [], page: d.page || page, total_pages: d.total_pages || 1, total: d.total || 0 };
 }
 
+/** Lịch tháng: số biến động theo ngày của khách [{d:'YYYY-MM-DD', o: đơn, p: phiếu thu}]. */
+export async function getCustomerFeedDays(key: string): Promise<{ d: string; o: number; p: number }[]> {
+  const r = await getJSON(`/api/customers/${encodeURIComponent(key)}/feed?days=1`, { cache: false });
+  return r.days || [];
+}
+
+/** Mọi biến động của 1 ngày (popup lịch) — giảm dần thời gian. */
+export async function getCustomerFeedDay(key: string, day: string): Promise<CustFeedItem[]> {
+  const r = await getJSON(`/api/customers/${encodeURIComponent(key)}/feed?day=${encodeURIComponent(day)}`, { cache: false });
+  return r.items || [];
+}
+
 /** Chi tiết 1 khách (bảng giá riêng + pattern nhận diện). */
 export async function getCustomer(key: string): Promise<CustomerDetail> {
   const d = await getJSON(`/api/customers/${encodeURIComponent(key)}`, { cache: false });

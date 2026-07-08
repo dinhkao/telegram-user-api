@@ -731,6 +731,31 @@ body.pv-open { overflow: hidden; }
 .feed-gap-li { display: flex; align-items: center; justify-content: center; margin-right: 87px; }
 .fg-label { font-size: .7rem; color: var(--muted); background: var(--bg); padding: 0 6px;
   position: sticky; top: 50vh; }   /* khe dài (cả trăm px) — nhãn dính giữa màn khi cuộn qua */
+/* ── Lịch tháng biến động (CustomerCalendar) ── */
+.cust-cal { margin: 4px 0 14px; }
+.cc-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cc-month { font-size: .95rem; }
+.cc-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cc-head { margin-bottom: 4px; }
+.cc-wd { text-align: center; font-size: .68rem; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+.cc-cell { position: relative; aspect-ratio: 1; border: 1px solid var(--border); border-radius: 9px;
+  background: var(--card); display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 3px; padding: 0; }
+.cc-cell.empty { border: none; background: transparent; }
+.cc-cell:disabled { opacity: .45; }
+.cc-cell.has { border-color: #c8d4e8; background: var(--accent-wash); }
+.cc-cell.today { box-shadow: inset 0 0 0 2px var(--primary); }
+.cc-d { font-size: .82rem; font-weight: 600; line-height: 1; }
+.cc-dots { display: flex; gap: 3px; height: 6px; }
+.cc-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.cc-dot.o { background: var(--danger); }
+.cc-dot.p { background: var(--ok); }
+.cc-legend { display: flex; gap: 14px; margin-top: 8px; align-items: center; }
+.cc-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.cc-sheet { max-height: 78vh; overflow-y: auto; }
+.cc-sheet .modal-head { position: relative; }
+.cc-sheet .cc-x { position: absolute; right: 0; top: 0; }
+.cc-list { margin-top: 8px; }
 /* dòng lưu ý mốc 6/7/2026 — trước đó phiếu thu CHƯA lưu số nợ (chèn tại điểm
    feed vượt qua mốc khi cuộn về quá khứ). margin-right 87px = thẳng mép card
    (rail 80 + gap 7) — line nợ bên phải KHÔNG đè lên box. */

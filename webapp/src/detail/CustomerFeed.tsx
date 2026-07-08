@@ -14,6 +14,7 @@ import { Icon } from "../ui/Icon";
 import { Loading, EmptyState, SkeletonList } from "../ui/states";
 import { PhotoViewer } from "./PhotoViewer";
 import { type OrderRow, TaskBadges, dayKeyOf, orderDayLabel } from "./OrderCards";
+import { CustomerCalendar } from "./CustomerCalendar";
 
 const PAY_METHOD_VI: Record<string, string> = {
   tm: "tiền mặt", cash: "tiền mặt",
@@ -86,6 +87,9 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  // list ↔ lịch tháng (nhớ lựa chọn)
+  const [mode, setMode] = useState<"list" | "cal">(() => (localStorage.getItem("cust_feed_mode") === "cal" ? "cal" : "list"));
+  const setFeedMode = (m: "list" | "cal") => { setMode(m); localStorage.setItem("cust_feed_mode", m); };
   const seq = useRef(0);
 
   const load = async (p: number, replace = false) => {
@@ -251,8 +255,15 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     <section class="cust-feed">
       <div class="row space cf-head">
         <b class="cf-title"><Icon name="clipboard" size={16} /> Đơn & thanh toán {total > 0 ? <span class="muted small">({total})</span> : null}</b>
+        <div class="view-slider" role="group" aria-label="Kiểu xem">
+          <button class={mode === "list" ? "vs-seg on" : "vs-seg"} title="Dòng thời gian" onClick={() => setFeedMode("list")}><Icon name="menu" size={15} /></button>
+          <button class={mode === "cal" ? "vs-seg on" : "vs-seg"} title="Lịch tháng" onClick={() => setFeedMode("cal")}><Icon name="calendar" size={15} /></button>
+        </div>
       </div>
 
+      {mode === "cal" ? (
+        <CustomerCalendar ckey={ckey} renderItem={renderItem} />
+      ) : (<>
       {loading && !items.length && <SkeletonList rows={4} />}
       <div class={"cf-body" + (hasRopes ? " has-ropes" : "") + (items.length ? " has-items" : "")}>
         {/* dây cong nối payment ↔ đơn: dưới-trái card trên → vòng lề trái → trên-trái card dưới */}
@@ -301,6 +312,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
         <button class="btn small wide" onClick={() => load(page + 1)}>Tải thêm</button>
       )}
       {!loading && !items.length && <EmptyState>Chưa có đơn nào của khách này</EmptyState>}
+      </>)}
 
       {viewer && (
         <PhotoViewer images={viewer.images} start={viewer.start} base={`/api/order/${viewer.threadId}`} editable

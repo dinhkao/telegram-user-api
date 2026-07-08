@@ -140,8 +140,53 @@ def _fill_debt_chain(events: list[dict], current_debt) -> None:
                     events[i]["debt_after"] = vals2[j]
 
 
-def _build_feed(conn, key: str, page: int):
+_VN = None
+
+
+def _vn_day(ts: float) -> str:
+    """Ngày VN (YYYY-MM-DD) của 1 epoch — cho lịch tháng."""
+    global _VN
+    if _VN is None:
+        from datetime import timezone, timedelta
+        _VN = timezone(timedelta(hours=7))
+    return datetime.fromtimestamp(ts, _VN).strftime("%Y-%m-%d")
+
+
+def _load_events(conn, key: str) -> list[dict]:
+    """Toàn bộ sự kiện của khách (TĂNG dần thời gian) + debt_after đã điền."""
+    events = _collect_events(conn, key)
+    events.sort(key=lambda e: e["ts"])
+    _fill_debt_chain(events, _current_debt(conn, key))
+    return events
+
+
+def _items_from_events(conn, chunk: list[dict]) -> list[dict]:
+    """Sự kiện → item trả cho client (row đơn như dashboard + payment + nợ)."""
     from server_app.orders_api import _ROW_COLUMNS, _build_order_row, _attach_thumbs
+    order_ids = [e["tid"] for e in chunk if e["kind"] == "order"]
+    rows_by_id = {}
+    if order_ids:
+        qs = ",".join("?" * len(order_ids))
+        rows = conn.execute(
+            f"SELECT {_ROW_COLUMNS} FROM orders o WHERE o.thread_id IN ({qs})", order_ids
+        ).fetchall()
+        built = [_build_order_row(r) for r in rows]
+        _attach_thumbs(conn, built)
+        rows_by_id = {o["thread_id"]: o for o in built}
+    items = []
+    for e in chunk:
+        da = e.get("debt_after")
+        base = {"ts": e["ts"], "debt_after": da, "debt_est": bool(e.get("est")) if da is not None else False}
+        if e["kind"] == "order":
+            row = rows_by_id.get(e["tid"])
+            if row:
+                items.append({"kind": "order", "order": row, **base})
+        else:
+            items.append({"kind": "payment", **e["pay"], **base})
+    return items
+
+
+def _collect_events(conn, key: str) -> list[dict]:
     # 1) sự kiện: mọi đơn (ts=created) + mọi payment trong blob (ts=created_at)
     # CAST AS TEXT: khach_hang_id trong blob khi là số (8) khi là chữ ('8')
     events: list[dict] = []
@@ -195,37 +240,33 @@ def _build_feed(conn, key: str, page: int):
                 },
             })
 
-    # 2) chuỗi nợ: sắp TĂNG dần thời gian, neo mốc, điền debt_after (est cho số tính lại)
-    events.sort(key=lambda e: e["ts"])
-    _fill_debt_chain(events, _current_debt(conn, key))
+    return events
 
-    # 3) phân trang theo thời gian GIẢM dần
+
+def _build_feed(conn, key: str, page: int):
+    """Trang feed (GIẢM dần thời gian)."""
+    events = _load_events(conn, key)
     events.reverse()
     total = len(events)
     chunk = events[(page - 1) * _PAGE: (page - 1) * _PAGE + _PAGE]
+    return _items_from_events(conn, chunk), total
 
-    order_ids = [e["tid"] for e in chunk if e["kind"] == "order"]
-    rows_by_id = {}
-    if order_ids:
-        qs = ",".join("?" * len(order_ids))
-        rows = conn.execute(
-            f"SELECT {_ROW_COLUMNS} FROM orders o WHERE o.thread_id IN ({qs})", order_ids
-        ).fetchall()
-        built = [_build_order_row(r) for r in rows]
-        _attach_thumbs(conn, built)
-        rows_by_id = {o["thread_id"]: o for o in built}
 
-    items = []
-    for e in chunk:
-        da = e.get("debt_after")
-        base = {"ts": e["ts"], "debt_after": da, "debt_est": bool(e.get("est")) if da is not None else False}
-        if e["kind"] == "order":
-            row = rows_by_id.get(e["tid"])
-            if row:
-                items.append({"kind": "order", "order": row, **base})
-        else:
-            items.append({"kind": "payment", **e["pay"], **base})
-    return items, total
+def _build_days(conn, key: str) -> list[dict]:
+    """Đếm biến động theo NGÀY (lịch tháng): [{d:'YYYY-MM-DD', o: số đơn, p: số phiếu thu}]."""
+    counts: dict[str, dict] = {}
+    for e in _load_events(conn, key):
+        d = _vn_day(e["ts"])
+        c = counts.setdefault(d, {"d": d, "o": 0, "p": 0})
+        c["o" if e["kind"] == "order" else "p"] += 1
+    return sorted(counts.values(), key=lambda c: c["d"])
+
+
+def _build_day_items(conn, key: str, day: str) -> list[dict]:
+    """Mọi biến động của 1 ngày (popup lịch) — GIẢM dần thời gian."""
+    events = [e for e in _load_events(conn, key) if _vn_day(e["ts"]) == day]
+    events.reverse()
+    return _items_from_events(conn, events)
 
 
 async def customer_feed_handler(request: web.Request):
@@ -237,15 +278,27 @@ async def customer_feed_handler(request: web.Request):
     except ValueError:
         page = 1
 
+    days_mode = request.query.get("days")
+    day = (request.query.get("day") or "").strip()
+
     def _run():
         from server_app.orders_db import get_orders_conn
         conn = get_orders_conn()
         try:
-            return _build_feed(conn, key, page)
+            if days_mode:
+                return ("days", _build_days(conn, key))
+            if day:
+                return ("day", _build_day_items(conn, key, day))
+            return ("page", _build_feed(conn, key, page))
         finally:
             conn.close()
 
-    items, total = await asyncio.to_thread(_run)
+    mode, res = await asyncio.to_thread(_run)
+    if mode == "days":
+        return web.json_response({"ok": True, "days": res})
+    if mode == "day":
+        return web.json_response({"ok": True, "items": res})
+    items, total = res
     total_pages = max(1, -(-total // _PAGE))
     return web.json_response({"ok": True, "items": items, "page": page,
                               "total_pages": total_pages, "total": total})
