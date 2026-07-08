@@ -383,10 +383,12 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
             {debtSegs.map((s, i) => (
               <line key={`d${i}`} class={`dl-${s.st}`} x1={s.x} x2={s.x} y1={s.y1} y2={s.y2} />
             ))}
+            {/* r=5 + stroke 2 (viền ăn vào trong) → lõi xanh r4 + ring nền 2px
+                = y hệt chấm CSS (8px + shadow 2px ngoài); chữ cách chấm 5.5px như fd-gap */}
             {repZeros.map((z, i) => (
               <g key={`z${i}`} class="rep0">
-                <circle cx={z.x} cy={z.y} r="4" />
-                <text x={z.x - 9.5} y={z.y}>{z.t}</text>
+                <circle cx={z.x} cy={z.y} r="5" />
+                <text x={z.x - 5.5} y={z.y}>{z.t}</text>
               </g>
             ))}
             {ropes.map((r, i) => (
