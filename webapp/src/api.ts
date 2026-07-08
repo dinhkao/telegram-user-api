@@ -272,6 +272,26 @@ export async function refreshCustomerDebt(key: string): Promise<{ debt: number |
   return { debt: d.customer?.debt ?? null };
 }
 
+/** Tìm khách TRÊN KiotViet (liên kết kh_id) — trang chi tiết khách. */
+export type KvCustomer = { id: number; code: string; name: string; debt: number | null; phone?: string | null };
+export async function searchKiotvietCustomers(q: string): Promise<KvCustomer[]> {
+  const d = await getJSON(`/api/customers/kiotviet?q=${encodeURIComponent(q)}`, { cache: false });
+  return d.customers || [];
+}
+/** Gắn khách local ↔ khách KiotViet (admin) — kéo nợ ngay. */
+export async function linkCustomerKiotviet(key: string, kvId: number): Promise<CustomerDetail> {
+  const d = await postJSON(`/api/customers/${encodeURIComponent(key)}/link-kiotviet`, { kv_id: kvId }, { queueable: false });
+  return d.customer;
+}
+export async function unlinkCustomerKiotviet(key: string): Promise<CustomerDetail> {
+  const d = await postJSON(`/api/customers/${encodeURIComponent(key)}/unlink-kiotviet`, {}, { queueable: false });
+  return d.customer;
+}
+/** Xoá mềm khách (admin) — server chặn nếu còn liên kết KiotViet. */
+export async function deleteCustomer(key: string): Promise<void> {
+  await delJSON(`/api/customers/${encodeURIComponent(key)}`);
+}
+
 export type PriceInfo = { price: number; source: "personal" | "shared" | null; list_name: string | null };
 
 /** Giá SP theo khách + bảng giá nào (price 0 nếu không có). */

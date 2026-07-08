@@ -8,8 +8,11 @@ import {
   getCustomer, updateCustomer, refreshCustomerDebt,
   getCustomerPriceList, type CustomerPriceList,
   getPriceLists, type PriceListSummary,
-  type CustomerDetail as Cust,
+  searchKiotvietCustomers, linkCustomerKiotviet, unlinkCustomerKiotviet, type KvCustomer,
+  deleteCustomer, currentUser, type CustomerDetail as Cust,
 } from "../api";
+import { usePopupBack } from "../ui/usePopupBack";
+import { confirmDialog } from "../ui/feedback";
 import { money, parseMoney, initial } from "../format";
 import { CustomerFeed } from "../detail/CustomerFeed";
 import { onRealtime } from "../realtime";
@@ -139,6 +142,52 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
     } catch (e: any) { toast(e?.message || "Lỗi lấy nợ", "err"); } finally { setDebtBusy(false); }
   };
 
+  // ── Liên kết KiotViet (như trang chi tiết SP): badge trạng thái + tìm/gắn/gỡ ──
+  const isAdmin = currentUser()?.role === "admin";
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [kvQ, setKvQ] = useState("");
+  const [kvRes, setKvRes] = useState<KvCustomer[]>([]);
+  const [kvLoading, setKvLoading] = useState(false);
+  usePopupBack(linkOpen, () => setLinkOpen(false));
+  useEffect(() => {
+    if (!linkOpen) return;
+    const q = kvQ.trim();
+    if (q.length < 2) { setKvRes([]); return; }
+    let alive = true;
+    setKvLoading(true);
+    const t = setTimeout(() => {
+      searchKiotvietCustomers(q)
+        .then((r) => { if (alive) setKvRes(r); })
+        .catch(() => { if (alive) setKvRes([]); })
+        .finally(() => { if (alive) setKvLoading(false); });
+    }, 300);
+    return () => { alive = false; clearTimeout(t); };
+  }, [kvQ, linkOpen]);
+  const doLink = async (kv: KvCustomer) => {
+    try {
+      hydrate(await linkCustomerKiotviet(ckey, kv.id));
+      toast(`✅ Đã liên kết → ${kv.name} #${kv.id}`, "ok");
+      setLinkOpen(false);
+    } catch (e: any) { toast(e?.message || "Liên kết lỗi", "err"); }
+  };
+  const doUnlink = async () => {
+    if (!(await confirmDialog(`Bỏ liên kết KiotViet #${cust?.kh_id}? Nợ sẽ không tự cập nhật nữa.`, { danger: true, okLabel: "Bỏ liên kết" }))) return;
+    try {
+      hydrate(await unlinkCustomerKiotviet(ckey));
+      toast("Đã bỏ liên kết KiotViet", "ok");
+    } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
+  };
+  // Xoá khách (admin) — CHỈ khi chưa liên kết KiotViet; đã liên kết = nút mờ + toast lý do
+  const doDelete = async () => {
+    if (cust?.kh_id) { toast("Khách đang liên kết KiotViet — bỏ liên kết trước rồi mới xoá", "err"); return; }
+    if (!(await confirmDialog(`Xoá khách "${cust?.name}"? (xoá mềm — đơn cũ giữ nguyên)`, { danger: true, okLabel: "Xoá khách" }))) return;
+    try {
+      await deleteCustomer(ckey);
+      toast("Đã xoá khách", "ok");
+      window.location.hash = "#/customers";
+    } catch (e: any) { toast(e?.message || "Lỗi xoá khách", "err"); }
+  };
+
   if (err && !cust) return <div class="prod-detail"><BackLink fallback="#/customers" /><ErrorState msg={err} onRetry={reload} /></div>;
   if (!cust) return <div class="prod-detail"><Loading /></div>;
 
@@ -160,6 +209,54 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
           <Icon name="refresh" size={13} class={debtBusy ? "spin" : undefined} />
         </button>
       </div>
+
+      {/* Trạng thái đồng bộ KiotViet — như trang chi tiết SP */}
+      <div class="row space cust-kv-row">
+        {cust.kh_id ? (
+          <span class="kv-badge on" title="Nợ đồng bộ từ KiotViet theo kh_id này">
+            <Icon name="link" size={16} /> Đã liên kết KiotViet #{cust.kh_id}
+          </span>
+        ) : (
+          <span class="kv-badge off">⚠️ Chưa liên kết KiotViet — nợ không tự cập nhật</span>
+        )}
+        {isAdmin && (
+          <span class="row" style={{ gap: "6px", marginTop: 0 }}>
+            {cust.kh_id
+              ? <button class="btn small" onClick={doUnlink}>Bỏ liên kết</button>
+              : <button class="btn small primary" onClick={() => { setKvQ(cust.name || ""); setLinkOpen(true); }}>
+                  <Icon name="link" size={16} /> Liên kết
+                </button>}
+            <button class={"btn small danger" + (cust.kh_id ? " faded" : "")} title="Xoá khách (chỉ khi chưa liên kết KiotViet)"
+              onClick={doDelete}><Icon name="trash" size={16} /></button>
+          </span>
+        )}
+      </div>
+
+      {linkOpen && (
+        <div class="modal-overlay" onClick={() => setLinkOpen(false)}>
+          <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
+            <div class="modal-head"><Icon name="link" size={18} /> Liên kết khách với KiotViet</div>
+            <input class="inv-search" type="search" autofocus placeholder="Tìm khách KiotViet (tên/mã)…"
+              value={kvQ} onInput={(e: any) => setKvQ(e.target.value)} />
+            {kvLoading ? (
+              <p class="muted small">Đang tìm…</p>
+            ) : kvRes.length === 0 ? (
+              <p class="muted small">{kvQ.trim().length < 2 ? "Gõ ≥2 ký tự để tìm." : "Không thấy khách KiotViet."}</p>
+            ) : (
+              <div class="inv-detail-list kv-list">
+                {kvRes.map((kv) => (
+                  <button class="inv-detail-row link kv-row" key={kv.id} onClick={() => doLink(kv)}>
+                    <span class="prod-ord-text">{kv.name}{kv.phone ? ` · ${kv.phone}` : ""}</span>
+                    <span class={Number(kv.debt) > 0 ? "owe" : "muted small"}>{kv.debt != null ? money(Number(kv.debt)) : ""}</span>
+                    <span class="muted small">#{kv.id}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button class="btn block" style={{ marginTop: "8px" }} onClick={() => setLinkOpen(false)}>Đóng</button>
+          </div>
+        </div>
+      )}
 
       {/* Ghi chú dặn dò — nổi vàng khi CÓ nội dung, sửa trực tiếp, tự lưu khi rời ô */}
       <section class={"card cust-note-card" + (noteInput.trim() ? " has-note" : "")}>

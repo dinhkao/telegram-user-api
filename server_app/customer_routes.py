@@ -204,3 +204,130 @@ async def customer_refresh_debt_handler(request: web.Request):
     from server_app.realtime import emit_customer_changed
     emit_customer_changed(key)
     return web.json_response({"ok": True, "customer": _summary(data, key)})
+
+
+async def customer_kv_search_handler(request: web.Request):
+    """GET /api/customers/kiotviet?q= — tìm khách TRÊN KiotViet (để liên kết)."""
+    q = request.query.get("q", "").strip()
+    if len(q) < 2:
+        return web.json_response({"ok": True, "customers": []})
+    from integrations.kiotviet.customers import search_customers_kv
+    try:
+        res = await asyncio.to_thread(search_customers_kv, q, 15)
+    except Exception as e:  # noqa: BLE001
+        return web.json_response({"ok": False, "error": str(e)}, status=502)
+    return web.json_response({"ok": True, "customers": [
+        {"id": c.get("id"), "code": c.get("code"), "name": c.get("name"),
+         "debt": c.get("debt"), "phone": c.get("contactNumber")}
+        for c in res if c.get("id")]})
+
+
+def _save_customer_blob(conn, key: str, data: dict) -> None:
+    import json as _json
+    import time as _time
+    now_ms = int(_time.time() * 1000)
+    conn.execute("UPDATE customers SET json = ?, updated_at = ? WHERE firebase_key = ?",
+                 (_json.dumps(data, ensure_ascii=False), now_ms, key))
+    conn.commit()
+
+
+async def customer_kv_link_handler(request: web.Request):
+    """POST /api/customers/{key}/link-kiotviet {kv_id} — admin: gắn kh_id + kéo nợ ngay."""
+    from server_app.order_api_common import is_admin_request
+    if not await is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin được liên kết KiotViet"}, status=403)
+    key = request.match_info.get("key", "").strip()
+    try:
+        body = await request.json()
+        kv_id = int(body.get("kv_id"))
+    except (TypeError, ValueError, Exception):  # noqa: BLE001
+        return web.json_response({"ok": False, "error": "kv_id không hợp lệ"}, status=400)
+
+    def _run():
+        import time as _time
+        from integrations.kiotviet.customers import get_customer_debt_kv
+        det = get_customer_debt_kv(kv_id)   # ném lỗi nếu id không tồn tại
+        conn = _get_connection()
+        try:
+            data = get_customer_by_key(conn, key)
+            if data is None:
+                return None
+            data["kh_id"] = kv_id
+            data["debt"] = det.get("debt")
+            data["debt_updated_at"] = int(_time.time() * 1000)
+            _save_customer_blob(conn, key, data)
+            return data
+        finally:
+            conn.close()
+
+    try:
+        data = await asyncio.to_thread(_run)
+    except Exception as e:  # noqa: BLE001
+        return web.json_response({"ok": False, "error": f"KiotViet: {e}"}, status=502)
+    if data is None:
+        return web.json_response({"ok": False, "error": "không thấy khách hàng"}, status=404)
+    from server_app.realtime import emit_customer_changed
+    emit_customer_changed(key)
+    return web.json_response({"ok": True, "customer": _detail(data, key)})
+
+
+async def customer_kv_unlink_handler(request: web.Request):
+    """POST /api/customers/{key}/unlink-kiotviet — admin: gỡ kh_id (giữ nợ đã lưu)."""
+    from server_app.order_api_common import is_admin_request
+    if not await is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin được bỏ liên kết"}, status=403)
+    key = request.match_info.get("key", "").strip()
+
+    def _run():
+        conn = _get_connection()
+        try:
+            data = get_customer_by_key(conn, key)
+            if data is None:
+                return None
+            data.pop("kh_id", None)
+            _save_customer_blob(conn, key, data)
+            return data
+        finally:
+            conn.close()
+
+    data = await asyncio.to_thread(_run)
+    if data is None:
+        return web.json_response({"ok": False, "error": "không thấy khách hàng"}, status=404)
+    from server_app.realtime import emit_customer_changed
+    emit_customer_changed(key)
+    return web.json_response({"ok": True, "customer": _detail(data, key)})
+
+
+async def customer_delete_handler(request: web.Request):
+    """DELETE /api/customers/{key} — admin XOÁ MỀM khách, CHỈ khi chưa liên kết
+    KiotViet (kh_id) — khách đã liên kết phải bỏ liên kết trước (chống xoá nhầm
+    khách thật đang theo dõi nợ)."""
+    from server_app.order_api_common import is_admin_request
+    if not await is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin được xoá khách"}, status=403)
+    key = request.match_info.get("key", "").strip()
+
+    def _run():
+        import time as _time
+        conn = _get_connection()
+        try:
+            data = get_customer_by_key(conn, key)
+            if data is None:
+                return "notfound"
+            if data.get("kh_id"):
+                return "linked"
+            conn.execute("UPDATE customers SET deleted_at = ?, updated_at = ? WHERE firebase_key = ?",
+                         (int(_time.time() * 1000), int(_time.time() * 1000), key))
+            conn.commit()
+            return "ok"
+        finally:
+            conn.close()
+
+    res = await asyncio.to_thread(_run)
+    if res == "notfound":
+        return web.json_response({"ok": False, "error": "không thấy khách hàng"}, status=404)
+    if res == "linked":
+        return web.json_response({"ok": False, "error": "Khách đang liên kết KiotViet — bỏ liên kết trước rồi mới xoá"}, status=400)
+    from server_app.realtime import emit_customer_changed
+    emit_customer_changed(key)
+    return web.json_response({"ok": True})
