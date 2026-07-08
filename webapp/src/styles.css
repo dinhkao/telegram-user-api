@@ -469,6 +469,11 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 
 .img-actions { display: flex; gap: 8px; margin-top: 10px; }
 .img-actions .btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 11px 12px; font-size: .95rem; font-weight: 600; }
+/* header section Ảnh: nút hành động gọn trên cùng, đề mục nhóm theo loại */
+.img-head-act { display: flex; gap: 6px; }
+.img-head-act .btn { display: inline-flex; align-items: center; gap: 5px; }
+.img-hint { margin: 6px 0 0; }
+.img-sec-h { margin: 12px 0 4px; font-size: .8rem; font-weight: 700; color: var(--muted); }
 .btn.cam-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
 .btn.cam-primary:active { filter: brightness(.94); }
 /* Chỉ hiện khi có lỗi — nhẹ nhàng, không chói */

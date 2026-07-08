@@ -94,6 +94,23 @@ async def api_delete_invoice_handler(request: web.Request):
     order.pop("kiotvietInvoiceCode", None)
     from order_db import _save_order
     _save_order(conn, int(thread_id), order)
+    # Xoá MỀM luôn ảnh HOÁ ĐƠN của đơn (render từ HĐ vừa xoá — giữ lại chỉ gạch X)
+    def _soft_del_hoadon_imgs():
+        from order_images_store import list_images, delete_image
+        by = str(request.get("web_user") or body.get("user_id") or "?")
+        ids = []
+        for im in list_images(int(thread_id)):
+            if im.get("kind") == "hoa_don" and not im.get("deleted_at"):
+                if delete_image(im["id"], int(thread_id), by=by):
+                    ids.append(im["id"])
+        return by, ids
+    by, img_ids = await asyncio.to_thread(_soft_del_hoadon_imgs)
+    if img_ids:
+        from audit_log import async_log_event
+        for iid in img_ids:
+            spawn_tracked("audit.image_deleted", async_log_event(
+                "order.image_deleted", actor_type="web", actor_id=by,
+                thread_id=int(thread_id), payload={"image_id": iid, "reason": "xoá HĐ KiotViet"}))
     if order.get("channel_id") and order.get("message_id") and state._client is not None:
         spawn_tracked("invoice.refresh", refresh_order_bg(conn, int(thread_id), order["channel_id"], order["message_id"]), {"thread_id": int(thread_id)})
     return web.json_response({"ok": True, "thread_id": int(thread_id)})

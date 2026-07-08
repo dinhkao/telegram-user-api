@@ -25,8 +25,10 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
 
   // Phân loại chỉ áp dụng cho ảnh ĐƠN HÀNG (không cho thùng/phiếu SX).
   const isOrder = isOrderBase(base);
-  const [uploadKind, setUploadKind] = useState<string>("soan_hang");  // loại gán cho ảnh sắp tải
-  const [filter, setFilter] = useState<string>("all");                // lọc lưới theo loại
+  // 1 hàng chip duy nhất: LỌC lưới + kiêm LOẠI cho ảnh sắp tải
+  // (đang xem "Soạn hàng" → ảnh mới gắn soạn hàng; "Tất cả" → mặc định soạn hàng)
+  const [filter, setFilter] = useState<string>("all");
+  const uploadKind = filter !== "all" ? filter : "soan_hang";
 
   // Chẩn đoán trên máy: hiện từng bước để biết ảnh gallery hỏng ở đâu
   const logDbg = (m: string) => setDbg((p) => [...p.slice(-11), m]);
@@ -126,45 +128,37 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
   if (isOrder) for (const x of images) kindCounts[kindOf(x)] = (kindCounts[kindOf(x)] || 0) + 1;
   const count = images.length + pending.length;
 
+  // grid nhóm theo LOẠI (khi xem Tất cả): mỗi loại 1 đề mục nhỏ — hết lộn xộn
+  const tile = (img: OrderImage) => (
+    <div class={"img-tile" + (img.deleted_at ? " img-deleted" : "")} id={`image-${img.id}`} key={img.id}>
+      <img src={mediaImageUrl(base, img.id, "thumb")} loading="lazy" alt="" onClick={() => setLightbox(img)} />
+      {/* xoá MỀM: ảnh vẫn hiện, X đỏ đè lên (CSS .img-x-mark) */}
+      {img.deleted_at ? <span class="img-x-mark" title={`Đã xoá${img.deleted_by ? ` bởi ${img.deleted_by}` : ""}`} /> : (
+        <button class="img-del" title="Xoá" onClick={() => remove(img)}><Icon name="trash" size={14} /></button>
+      )}
+    </div>
+  );
+  const groups = isOrder && filter === "all"
+    ? KIND_ORDER.map((k) => ({ k, list: shown.filter((x) => kindOf(x) === k) })).filter((g) => g.list.length)
+    : [{ k: filter, list: shown }];
+
   return (
     <div class="card" id={anchorId}>
-      <div class="row space">
+      {/* header gọn: tiêu đề + 2 nút hành động cùng hàng */}
+      <div class="row space img-head">
         <b>Ảnh {count > 0 && <span class="muted small">({count})</span>}</b>
+        <span class="img-head-act">
+          {cameraSupported() && (
+            <button class="btn small cam-primary" onClick={() => setCamOpen(true)}><Icon name="camera" size={15} /> Chụp</button>
+          )}
+          <button class="btn small" onClick={() => fileInput.current?.click()}><Icon name="image" size={15} /> Chọn</button>
+        </span>
       </div>
       {/* multiple: chọn nhiều ảnh 1 lượt. APK dùng gallery THUẦN (không trộn camera)
           cho input này nên chọn-nhiều chạy ổn; trình duyệt xử lý natively. */}
       <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={onPick} />
 
-      {/* Camera trực tiếp trong khung (nhanh, chụp liên tiếp). Nút mở camera chỉ
-          hiện khi có HTTPS; nếu không → chỉ còn nút Chọn ảnh từ máy. */}
-      {/* Loại ảnh sắp tải (chỉ đơn hàng) — ảnh mới sẽ gắn loại này. */}
-      {isOrder && (
-        <div class="img-kindpick">
-          <span class="muted small">Loại:</span>
-          {KIND_ORDER.map((k) => (
-            <button key={k} class={"kchip" + (uploadKind === k ? " on" : "")} onClick={() => setUploadKind(k)}>
-              {KIND_ICON[k]} {KIND_LABEL[k]}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div class="img-actions">
-        {cameraSupported() && (
-          <button class="btn cam-primary" onClick={() => setCamOpen(true)}><Icon name="camera" size={16} /> Mở camera</button>
-        )}
-        <button class="btn" onClick={() => fileInput.current?.click()}><Icon name="image" size={16} /> Chọn ảnh</button>
-      </div>
-      {/* Camera = popup (portal ra body) */}
-      {camOpen && <CameraBox base={base} kind={isOrder ? uploadKind : undefined} onUploaded={load} onClose={() => setCamOpen(false)} />}
-
-      {err && <p class="error small">{err}</p>}
-
-      {dbg.length > 0 && (
-        <pre class="img-dbg" onClick={() => setDbg([])}>{dbg.join("\n")}</pre>
-      )}
-
-      {/* Lọc theo loại (chỉ đơn hàng, khi đã có ảnh). */}
+      {/* 1 hàng chip duy nhất: lọc lưới + KIÊM loại cho ảnh sắp tải */}
       {isOrder && images.length > 0 && (
         <div class="img-filter">
           <button class={"kchip" + (filter === "all" ? " on" : "")} onClick={() => setFilter("all")}>Tất cả ({images.length})</button>
@@ -175,37 +169,43 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
           ))}
         </div>
       )}
+      {isOrder && filter !== "all" && (
+        <p class="muted small img-hint">Ảnh mới sẽ gắn loại {KIND_ICON[filter]} {KIND_LABEL[filter]}</p>
+      )}
+
+      {/* Camera = popup (portal ra body) */}
+      {camOpen && <CameraBox base={base} kind={isOrder ? uploadKind : undefined} onUploaded={load} onClose={() => setCamOpen(false)} />}
+
+      {err && <p class="error small">{err}</p>}
+      {dbg.length > 0 && (
+        <pre class="img-dbg" onClick={() => setDbg([])}>{dbg.join("\n")}</pre>
+      )}
 
       {count === 0 ? (
         <p class="muted small">Chưa có ảnh. Bấm <Icon name="camera" size={14} /> Chụp hoặc <Icon name="image" size={14} /> Chọn để thêm.</p>
       ) : shown.length === 0 && pending.length === 0 ? (
         <p class="muted small">Không có ảnh loại này.</p>
       ) : (
-        <div class="img-grid">
-          {pending.map((p) => (
-            <div class="img-tile uploading" key={`p${p.key}`}>
-              <img src={p.url} alt="" />
-              <span class="img-spin" />
+        <>
+          {pending.length > 0 && (
+            <div class="img-grid">
+              {pending.map((p) => (
+                <div class="img-tile uploading" key={`p${p.key}`}>
+                  <img src={p.url} alt="" />
+                  <span class="img-spin" />
+                </div>
+              ))}
+            </div>
+          )}
+          {groups.map((g) => (
+            <div key={g.k}>
+              {isOrder && filter === "all" && groups.length > 1 && (
+                <div class="img-sec-h">{KIND_ICON[g.k]} {KIND_LABEL[g.k]} <span class="muted">({g.list.length})</span></div>
+              )}
+              <div class="img-grid">{g.list.map(tile)}</div>
             </div>
           ))}
-          {shown.map((img) => (
-            <div class={"img-tile" + (img.deleted_at ? " img-deleted" : "")} id={`image-${img.id}`} key={img.id}>
-              <img
-                src={mediaImageUrl(base, img.id, "thumb")}
-                loading="lazy"
-                alt=""
-                onClick={() => setLightbox(img)}
-              />
-              {/* xoá MỀM: ảnh vẫn hiện, X đỏ đè lên (CSS .img-x-mark) */}
-              {img.deleted_at ? <span class="img-x-mark" title={`Đã xoá${img.deleted_by ? ` bởi ${img.deleted_by}` : ""}`} /> : (
-                <button class="img-del" title="Xoá" onClick={() => remove(img)}><Icon name="trash" size={14} /></button>
-              )}
-              {isOrder && (
-                <span class="img-kind" title={KIND_LABEL[kindOf(img)]}>{KIND_ICON[kindOf(img)]} {KIND_LABEL[kindOf(img)]}</span>
-              )}
-            </div>
-          ))}
-        </div>
+        </>
       )}
 
       {lightbox && (
