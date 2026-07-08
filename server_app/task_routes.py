@@ -72,7 +72,7 @@ async def task_assignees_handler(request: web.Request):
 
 async def tasks_list_handler(request: web.Request):
     await _ensure_backfill()
-    from task_store import counts, day_counts, day_tasks, list_tasks
+    from task_store import attach_order_text, counts, day_counts, day_tasks, list_tasks
     q = request.query
     if q.get("counts"):
         from task_store import counts as _counts
@@ -80,7 +80,7 @@ async def tasks_list_handler(request: web.Request):
     if q.get("days"):
         return web.json_response({"ok": True, "days": await asyncio.to_thread(day_counts)})
     if q.get("day"):
-        items = await asyncio.to_thread(day_tasks, q["day"].strip())
+        items = await asyncio.to_thread(lambda: attach_order_text(day_tasks(q["day"].strip())))
         return web.json_response({"ok": True, "tasks": items})
     try:
         page = max(1, int(q.get("page", "1")))
@@ -93,7 +93,7 @@ async def tasks_list_handler(request: web.Request):
     def _run():
         items, total = list_tasks(flt=flt, assignee=(q.get("assignee") or "").strip(),
                                   me=me, page=page, today=today, q=(q.get("q") or "").strip())
-        return items, total, counts(me, today)
+        return attach_order_text(items), total, counts(me, today)
 
     items, total, cnt = await asyncio.to_thread(_run)
     return web.json_response({"ok": True, "tasks": items, "total": total, "page": page,
@@ -210,8 +210,13 @@ async def task_get_handler(request: web.Request):
         task_id = int(request.match_info["task_id"])
     except (ValueError, KeyError):
         return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
-    from task_store import get_task
-    task = await asyncio.to_thread(get_task, task_id)
+    from task_store import attach_order_text, get_task
+
+    def _run():
+        t = get_task(task_id)
+        return attach_order_text([t])[0] if t else None
+
+    task = await asyncio.to_thread(_run)
     if not task or task.get("deleted_at"):
         return web.json_response({"ok": False, "error": "Không tìm thấy việc"}, status=404)
     return web.json_response({"ok": True, "task": task})

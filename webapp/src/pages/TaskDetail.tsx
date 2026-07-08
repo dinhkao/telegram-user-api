@@ -66,7 +66,8 @@ export function TaskDetail({ id }: { id: number }) {
         </button>
         {t.kind !== "free" && t.thread_id ? (
           <a class="tk-chip tk-order tk-d-order" href={`#/order/${t.thread_id}`}>
-            <Icon name="clipboard" size={13} /> Đơn: {t.order_label || `#${t.thread_id}`}
+            <Icon name="clipboard" size={13} />
+            <span class="tk-otxt">Đơn: {t.order_text || t.order_label || `#${t.thread_id}`}</span>
           </a>
         ) : null}
       </div>

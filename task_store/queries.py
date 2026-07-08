@@ -156,6 +156,28 @@ def counts(me: str, today: str) -> dict:
         conn.close()
 
 
+def attach_order_text(items: list[dict]) -> list[dict]:
+    """Gắn `order_text` (nội dung đơn, gọn 1 dòng ≤120 ký tự) cho task từ đơn —
+    card việc hiện text đơn thay tên khách. orders cùng app.db với web_tasks."""
+    ids = {int(t["thread_id"]) for t in items if t.get("thread_id") and t.get("kind") != "free"}
+    if not ids:
+        return items
+    conn = conn_tasks()
+    try:
+        qs = ",".join("?" * len(ids))
+        rows = conn.execute(
+            f"SELECT thread_id, json_extract(json, '$.text') t FROM orders WHERE thread_id IN ({qs})",
+            list(ids)).fetchall()
+        m = {r["thread_id"]: " ".join((r["t"] or "").split()) for r in rows}
+        for t in items:
+            txt = m.get(t.get("thread_id") and int(t["thread_id"]))
+            if txt and t.get("kind") != "free":
+                t["order_text"] = txt[:120]
+    finally:
+        conn.close()
+    return items
+
+
 def open_counts_by_assignee() -> dict:
     """Số việc CHƯA XONG theo người được giao — hàng avatar dashboard việc."""
     conn = conn_tasks()

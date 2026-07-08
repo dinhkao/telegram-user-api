@@ -993,7 +993,7 @@ export async function releaseAllocations(id: string | number, allocationIds: num
 export type Task = {
   id: number; kind: "free" | "order_step" | "order_custom";
   thread_id?: number | null; step_key?: string | null;
-  title: string; note: string; order_label: string;
+  title: string; note: string; order_label: string; order_text?: string;
   assignee: string; due_at?: string | null;
   done: boolean; done_by?: string | null; done_at?: number | null;
   created_by: string; created_at: number; updated_at: number;

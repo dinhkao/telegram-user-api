@@ -63,7 +63,8 @@ export function TaskCard({ t, today, names, onToggle }: {
         <span class="tk-meta">
           {t.kind !== "free" && t.thread_id ? (
             <span class="tk-chip tk-order" onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); window.location.hash = `#/order/${t.thread_id}`; }}>
-              <Icon name="clipboard" size={11} /> {t.order_label && t.order_label !== "?" ? t.order_label : `#${t.thread_id}`}
+              <Icon name="clipboard" size={11} />
+              <span class="tk-otxt">{t.order_text || (t.order_label && t.order_label !== "?" ? t.order_label : `#${t.thread_id}`)}</span>
             </span>
           ) : null}
           {t.due_at ? <span class={"tk-chip tk-due" + (overdue ? " od" : "")}><Icon name="calendar" size={11} /> {overdue ? "Quá hạn " : ""}{dmy(t.due_at)}</span> : null}
