@@ -286,22 +286,26 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
       segMetaRef.current = segMeta;
       lineNodesRef.current = null;   // node <line> render lại sau setState → requery
       setDebtSegs(dl);
-      // ── mốc HẠT NỢ TRƯỢT: hạt k chạy giữa delta TRÊN nó ↔ delta DƯỚI nó ──
-      const rail: { debt: boolean; el: HTMLElement; y: number }[] = [];
+      // ── mốc HẠT NỢ TRƯỢT: chỉ số ĐANG NỢ (đỏ) trượt, chạy giữa 2 NÚT kề nó.
+      // Nút chặn = số phát sinh (delta) + mốc nợ=0 (đứng yên tại chỗ — sổ đã
+      // tất toán là điểm chết trên dây, hạt khác không xuyên qua). '—' bỏ hẳn. ──
+      const rail: { bead: boolean; el: HTMLElement; y: number }[] = [];
       for (const el of Array.from(ul.querySelectorAll<HTMLElement>(".fd-gap, .feed-delta"))) {
-        if (el.classList.contains("fd-na")) continue;   // '—' không có thông tin → đứng yên
+        const isDebt = el.classList.contains("fd-gap");
+        if (isDebt && el.classList.contains("fd-na")) continue;   // '—' không có thông tin → đứng yên
         const r = el.getBoundingClientRect();
-        rail.push({ debt: el.classList.contains("fd-gap"), el, y: (r.top + r.bottom) / 2 - box.top });
+        rail.push({ bead: isDebt && el.getAttribute("data-debt") === "owe",
+          el, y: (r.top + r.bottom) / 2 - box.top });
       }
       rail.sort((a, b) => a.y - b.y);
       const beads: { el: HTMLElement; nat: number; top: number; bot: number }[] = [];
-      let prevDelta: number | null = null;
+      let prevKnot: number | null = null;
       for (let i = 0; i < rail.length; i++) {
-        if (!rail[i].debt) { prevDelta = rail[i].y; continue; }
-        const next = rail.slice(i + 1).find((x) => !x.debt);
+        if (!rail[i].bead) { prevKnot = rail[i].y; continue; }
+        const next = rail.slice(i + 1).find((x) => !x.bead);
         const nat = rail[i].y;
-        const top = prevDelta != null ? prevDelta + 16 : nat;   // sát dưới số phát sinh trên
-        const bot = next ? Math.max(top, next.y - 16) : nat;    // sát trên số phát sinh dưới
+        const top = prevKnot != null ? prevKnot + 16 : nat;     // sát dưới nút trên
+        const bot = next ? Math.max(top, next.y - 16) : nat;    // sát trên nút dưới
         beads.push({ el: rail[i].el, nat, top, bot });
       }
       beadsRef.current = beads;
