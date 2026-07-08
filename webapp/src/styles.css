@@ -758,9 +758,12 @@ body.pv-open { overflow: hidden; }
 .cc-line.pend { color: #b91c1c; }
 .cc-line.dn { color: #15803d; }
 .cc-line.more { color: var(--muted); }
-/* tháng KHÔNG active mờ hẳn + xám; tháng ACTIVE sáng rõ cả ngày trống */
-.cc-cell.cont { transition: opacity .3s ease, filter .3s ease, background .3s ease; }
-.cc-cell.cont.dim { opacity: .16; filter: grayscale(.6); }
+/* tháng KHÔNG active mờ hẳn; tháng ACTIVE sáng rõ cả ngày trống.
+   PERF: chỉ transition OPACITY (GPU-composite) — filter/grayscale + background
+   transition trên hàng trăm ô gây repaint storm mỗi lần đổi tháng (lag);
+   contain khoanh vùng repaint từng ô. */
+.cc-cell.cont { transition: opacity .18s ease; contain: layout paint style; }
+.cc-cell.cont.dim { opacity: .16; }
 .cc-cont .cc-cell.cont:not(.dim) { border-color: var(--border); background: var(--card); }
 .cc-cont .cc-cell.cont:not(.dim):disabled { opacity: .92; }   /* ngày trống tháng active vẫn rõ */
 .cc-cont .cc-cell.cont:not(.dim) .cc-d { color: var(--ink); }
