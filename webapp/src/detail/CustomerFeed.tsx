@@ -168,9 +168,11 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   // frame cuộn chỉ tính clamp + translateY (compositor — không reflow). ──
   const beadsRef = useRef<{ el: HTMLElement; nat: number; top: number; bot: number }[]>([]);
   const ulTopRef = useRef(0);   // toạ độ tài liệu của ul lúc đo
-  const BEAD_PIN = 90;          // đường ghim: dưới app-bar 44px + banner ~40px
   const applyBeads = () => {
-    const s = window.scrollY + BEAD_PIN - ulTopRef.current;   // đường ghim trong toạ độ ul
+    // đường ghim = GIỮA MÀN HÌNH — hạt bắt đầu trượt khi tới giữa màn,
+    // không phải lúc sắp trôi khỏi mép trên
+    const pin = window.innerHeight * 0.45;
+    const s = window.scrollY + pin - ulTopRef.current;   // đường ghim trong toạ độ ul
     let floor = -Infinity;   // hạt không được vượt/đè hạt TRÊN nó (xếp hàng dọc dây)
     for (const b of beadsRef.current) {
       const target = Math.min(Math.max(Math.min(Math.max(s, b.top), b.bot), floor), b.bot);
@@ -180,8 +182,16 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     }
   };
   useEffect(() => {
-    let raf = 0;
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; applyBeads(); }); };
+    // vòng rAF LIÊN TỤC khi đang cuộn (scroll event trên WebView Android thưa
+    // lúc fling → hạt giật): đọc scrollY mỗi frame, đứng yên ~20 frame thì nghỉ
+    let raf = 0, running = false, lastY = -1, idle = 0;
+    const tick = () => {
+      const y = window.scrollY;
+      if (y !== lastY) { lastY = y; idle = 0; applyBeads(); }
+      else if (++idle > 20) { running = false; return; }
+      raf = requestAnimationFrame(tick);
+    };
+    const onScroll = () => { if (!running) { running = true; idle = 0; raf = requestAnimationFrame(tick); } };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
   }, []);
