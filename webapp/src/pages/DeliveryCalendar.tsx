@@ -1,122 +1,92 @@
-// Lịch giao (#/lich) — lưới tháng 7 cột, chấm số đơn theo ngày giao; chạm 1 ngày →
-// list đơn giao ngày đó. Data: GET /api/orders/delivery?month=YYYY-MM (rows compact).
+// Lịch giao (#/lich) — DÙNG CHUNG ScrollCalendar (cũ→mới, mở ở đáy, lazy 2
+// chiều): chấm ĐỎ = đơn CHƯA giao, XANH = đã giao, đúng số lượng. Bấm ngày →
+// popup list đơn giao ngày đó (CompactOrderCard). Toggle ẩn đơn đã giao.
+// Data: GET /api/orders/delivery?days=1 (đếm) + ?day=YYYY-MM-DD (chi tiết).
 import { useEffect, useState } from "preact/hooks";
-import { getDeliveryOrders } from "../api";
+import { getJSON } from "../api";
+import { ScrollCalendar, type CalDays } from "../detail/ScrollCalendar";
 import { CompactOrderCard } from "../detail/CompactOrderCard";
-import { Loading } from "../ui/states";
+import { useScrollLock } from "../useScrollLock";
+import { usePopupBack } from "../ui/usePopupBack";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
+import { EmptyState } from "../ui/states";
 
-const WEEKDAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]; // tuần bắt đầu Thứ 2
-const pad = (n: number) => String(n).padStart(2, "0");
-const iso = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
+const _WD = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+const dayLabel = (d: string) =>
+  `${_WD[(new Date(d).getDay() + 6) % 7]} · ${d.slice(8)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 
 export function DeliveryCalendar() {
-  const now = new Date();
-  const todayIso = iso(now.getFullYear(), now.getMonth(), now.getDate());
-  const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() }); // m: 0-based
-  const [orders, setOrders] = useState<any[]>([]);
-  const [hideDelivered, setHideDelivered] = useState(true); // mặc định ẩn đơn đã giao rồi
-  const [loading, setLoading] = useState(true);
-  const [sel, setSel] = useState(todayIso);
+  const [raw, setRaw] = useState<{ d: string; pending: number; done: number }[]>([]);
+  const [hideDelivered, setHideDelivered] = useState(true);   // mặc định ẩn đơn đã giao
 
-  const monthStr = `${ym.y}-${pad(ym.m + 1)}`;
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    getDeliveryOrders(monthStr)
-      .then(({ orders }) => { if (alive) setOrders(orders); })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [monthStr]);
+  const load = () =>
+    getJSON("/api/orders/delivery?days=1", { cache: false })
+      .then((r) => setRaw(r.days || []))
+      .catch(() => {});
+  useEffect(() => { load(); }, []);
 
-  // Realtime: đơn đổi (đặt/đổi ngày giao, đánh dấu giao…) → tải lại tháng đang xem
+  // Realtime: đặt/đổi ngày giao, đánh dấu giao… → tải lại đếm
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
       if (e.type === "order_changed" || e.type === "orders_changed" || e.type === "resync") {
-        clearTimeout(t);
-        t = setTimeout(() => { getDeliveryOrders(monthStr).then(({ orders }) => setOrders(orders)).catch(() => {}); }, 400);
+        clearTimeout(t); t = setTimeout(load, 400);
       }
     });
     return () => { off(); clearTimeout(t); };
-  }, [monthStr]);
+  }, []);
 
-  // Gom theo ngày (áp bộ lọc "đã giao rồi" nếu bật) — tính lại mỗi render, rẻ.
-  const byDay: Record<string, any[]> = {};
-  for (const o of orders) {
-    if (hideDelivered && o.giao_done) continue;
-    const d = (o.ngay_giao || "").slice(0, 10);
-    if (d) (byDay[d] = byDay[d] || []).push(o);
-  }
+  // chấm đỏ = chưa giao; xanh = đã giao (ẩn nếu bật toggle)
+  const days: CalDays = new Map(
+    raw.map((x) => [x.d, { o: x.pending, p: hideDelivered ? 0 : x.done }]),
+  );
 
-  const daysInMonth = new Date(ym.y, ym.m + 1, 0).getDate();
-  const firstOffset = (new Date(ym.y, ym.m, 1).getDay() + 6) % 7; // ô trống đầu (T2 = 0)
-  const cells: (number | null)[] = [
-    ...Array(firstOffset).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
-  const shiftMonth = (delta: number) =>
-    setYm(({ y, m }) => {
-      const t = m + delta;
-      return { y: y + Math.floor(t / 12), m: ((t % 12) + 12) % 12 };
-    });
+  // popup đơn giao 1 ngày
+  const [pick, setPick] = useState<string | null>(null);
+  const [items, setItems] = useState<any[] | null>(null);
+  const openDay = (d: string) => {
+    setPick(d);
+    setItems(null);
+    getJSON(`/api/orders/delivery?day=${encodeURIComponent(d)}`, { cache: false })
+      .then((r) => setItems(r.orders || []))
+      .catch(() => setItems([]));
+  };
+  const closeDay = () => { setPick(null); setItems(null); };
+  useScrollLock(!!pick);
+  usePopupBack(!!pick, closeDay);
 
-  const selOrders = byDay[sel] || [];
-  const [, selM, selD] = sel.split("-");
-  const monthTotal = Object.values(byDay).reduce((s, a) => s + a.length, 0);
-  const deliveredCount = orders.filter((o) => o.giao_done && (o.ngay_giao || "").slice(0, 10)).length;
-
+  const shown = (items || []).filter((o) => !hideDelivered || !o.giao_done);
   return (
     <div class="cal">
-      <div class="cal-head">
-        <button class="btn small" title="Tháng trước" onClick={() => shiftMonth(-1)}>‹</button>
-        <b>Tháng {ym.m + 1} / {ym.y}{monthTotal ? <span class="muted small"> · {monthTotal} đơn</span> : null}</b>
-        <button class="btn small" title="Tháng sau" onClick={() => shiftMonth(1)}>›</button>
+      <div class="prod-detail-head">
+        <div class="prod-sp"><Icon name="truck" size={18} /> Lịch giao</div>
       </div>
-
       <label class="cal-toggle">
         <input type="checkbox" checked={hideDelivered} onChange={(e: any) => setHideDelivered(e.target.checked)} />
-        <span>Ẩn đơn đã giao rồi{deliveredCount ? ` (${deliveredCount})` : ""}</span>
+        <span>Ẩn đơn đã giao rồi</span>
       </label>
 
-      <div class="cal-grid cal-wd">
-        {WEEKDAYS.map((w) => <span class="cal-wd-cell" key={w}>{w}</span>)}
-      </div>
-      <div class="cal-grid">
-        {cells.map((d, i) => {
-          if (d === null) return <span class="cal-cell empty" key={`e${i}`} />;
-          const ds = iso(ym.y, ym.m, d);
-          const dayOrders = byDay[ds] || [];
-          const n = dayOrders.length;
-          const cls = ["cal-cell", ds === sel ? "sel" : "", ds === todayIso ? "today" : "", n ? "has" : ""].filter(Boolean).join(" ");
-          return (
-            <button class={cls} key={ds} onClick={() => setSel(ds)}>
-              <span class="cal-d">{d}</span>
-              {n > 0 && (
-                <span class="cal-names">
-                  {dayOrders.slice(0, 2).map((o) => (
-                    <span class="cal-nm" key={o.thread_id}>{o.customer || o.topic_name || `#${o.thread_id}`}</span>
-                  ))}
-                  {n > 2 && <span class="cal-more">+{n - 2}</span>}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <ScrollCalendar days={days} legend={{ o: "chưa giao", p: "đã giao" }} onPick={openDay} />
 
-      <div class="cal-day-head">
-        <Icon name="truck" size={16} /> Ngày {selD}/{selM}{sel === todayIso ? " (hôm nay)" : ""}{selOrders.length ? ` · ${selOrders.length} đơn` : ""}
-      </div>
-      {loading ? (
-        <Loading />
-      ) : selOrders.length ? (
-        <ul class="order-list">
-          {selOrders.map((o) => <li key={o.thread_id}><CompactOrderCard o={o} /></li>)}
-        </ul>
-      ) : (
-        <p class="muted small">Không có đơn giao ngày này.</p>
+      {pick && (
+        <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) closeDay(); }}>
+          <div class="modal-sheet cc-sheet" onClick={(e: any) => e.stopPropagation()}>
+            <div class="modal-head"><Icon name="truck" size={16} /> Giao {dayLabel(pick)}
+              {items && <span class="muted small"> · {shown.length} đơn</span>}
+              <button class="link-btn cc-x" onClick={closeDay}><Icon name="close" size={18} /></button>
+            </div>
+            {items == null ? (
+              <p class="muted small">Đang tải…</p>
+            ) : shown.length ? (
+              <ul class="order-list cc-list">
+                {shown.map((o) => <li key={o.thread_id}><CompactOrderCard o={o} /></li>)}
+              </ul>
+            ) : (
+              <EmptyState>Không có đơn giao ngày này</EmptyState>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

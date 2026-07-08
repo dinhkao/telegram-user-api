@@ -307,10 +307,37 @@ async def orders_delivery_handler(request: web.Request):
     Trả rows compact (shape _build_order_row, đã gắn thumb) để webapp gom theo ngày."""
     import re
     month = (request.query.get("month") or "").strip()
-    if not re.match(r"^\d{4}-\d{2}$", month):
-        return web.json_response({"ok": False, "error": "month phải dạng YYYY-MM"}, status=400)
+    day = (request.query.get("day") or "").strip()
+    days_mode = request.query.get("days")
     conn = get_orders_conn()
     try:
+        if days_mode:
+            # Lịch cuộn: đếm đơn theo NGÀY GIAO cho MỌI tháng — pending (chưa giao)
+            # vs done (đã giao) để lịch chấm đỏ/xanh.
+            rows = conn.execute(
+                "SELECT substr(json_extract(o.json,'$.ngay_giao'),1,10) AS d, "
+                "SUM(CASE WHEN COALESCE(json_extract(o.json,'$.task_status.giao_hang.done'),0) IN (1,'true') THEN 0 ELSE 1 END) AS pending, "
+                "SUM(CASE WHEN COALESCE(json_extract(o.json,'$.task_status.giao_hang.done'),0) IN (1,'true') THEN 1 ELSE 0 END) AS done "
+                "FROM orders o WHERE json_extract(o.json,'$.ngay_giao') IS NOT NULL AND o.deleted_at IS NULL "
+                "GROUP BY d ORDER BY d"
+            ).fetchall()
+            return web.json_response({"ok": True, "days": [
+                {"d": r["d"], "pending": r["pending"] or 0, "done": r["done"] or 0}
+                for r in rows if r["d"]]})
+        if day:
+            if not re.match(r"^\d{4}-\d{2}-\d{2}$", day):
+                return web.json_response({"ok": False, "error": "day phải dạng YYYY-MM-DD"}, status=400)
+            rows = conn.execute(
+                f"SELECT {_ROW_COLUMNS} FROM orders o "
+                "WHERE substr(json_extract(o.json, '$.ngay_giao'), 1, 10) = ? AND o.deleted_at IS NULL "
+                "ORDER BY json_extract(o.json, '$.ngay_giao')",
+                (day,),
+            ).fetchall()
+            orders = [_build_order_row(r) for r in rows]
+            _attach_thumbs(conn, orders)
+            return web.json_response({"ok": True, "day": day, "orders": orders})
+        if not re.match(r"^\d{4}-\d{2}$", month):
+            return web.json_response({"ok": False, "error": "month phải dạng YYYY-MM"}, status=400)
         rows = conn.execute(
             f"SELECT {_ROW_COLUMNS} FROM orders o "
             "WHERE substr(json_extract(o.json, '$.ngay_giao'), 1, 7) = ? AND o.deleted_at IS NULL "
