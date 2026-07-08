@@ -725,13 +725,17 @@ body.pv-open { overflow: hidden; }
 .fd-gap[data-debt="na"]::after { background: #b6bcc6; }
 /* KHE THỜI GIAN giữa 2 sự kiện xa ngày — cao theo bậc, nhãn số ngày ở giữa;
    line nợ đi qua khe tự chuyển nét đứt (đo trong measure) */
-.feed-gap-li { display: flex; align-items: center; justify-content: center; }
+/* các phần tử CỘT NỘI DUNG của feed (header ngày, khe thời gian) dừng đúng mép
+   card — không tràn vào cột rail nợ bên phải (gạch chân/nhãn không đè số nợ) */
+.cust-feed .feed-day-li { margin-right: 87px; }
+.feed-gap-li { display: flex; align-items: center; justify-content: center; margin-right: 87px; }
 .fg-label { font-size: .7rem; color: var(--muted); background: var(--bg); padding: 0 6px;
   position: sticky; top: 50vh; }   /* khe dài (cả trăm px) — nhãn dính giữa màn khi cuộn qua */
 /* dòng lưu ý mốc 6/7/2026 — trước đó phiếu thu CHƯA lưu số nợ (chèn tại điểm
-   feed vượt qua mốc khi cuộn về quá khứ) */
+   feed vượt qua mốc khi cuộn về quá khứ). margin-right 87px = thẳng mép card
+   (rail 80 + gap 7) — line nợ bên phải KHÔNG đè lên box. */
 .feed-note { background: var(--warn-wash); border: 1px dashed #d8b64a; border-radius: 10px;
-  padding: 8px 11px; margin: 8px 0; font-size: .78rem; line-height: 1.45; color: #7a5b00; }
+  padding: 8px 11px; margin: 8px 87px 8px 0; font-size: .78rem; line-height: 1.45; color: #7a5b00; }
 /* đường tiến trình nợ = SVG nối CHẤM-TỚI-CHẤM (đo vị trí thật) — liền mạch qua
    header ngày, đổi màu CHÍNH XÁC tại chấm. Màu = trạng thái nợ của khoảng đó. */
 .feed-ropes line { stroke-width: 2.5; stroke-linecap: round; }
