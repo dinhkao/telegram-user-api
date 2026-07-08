@@ -35,11 +35,13 @@ function camError(ex: any): string {
 export function CameraBox({
   base,
   kind,
+  extraBases,
   onClose,
   onUploaded,
 }: {
   base: string;
   kind?: string;                       // loại ảnh đơn (soạn hàng/nộp tiền…) — gắn cho mỗi tấm
+  extraBases?: string[];               // mỗi tấm còn lưu THÊM vào các entity này (vd mọi thùng vừa tạo)
   onClose: () => void;
   onUploaded: (image?: any) => void;   // truyền ảnh vừa upload (id…) cho caller cần
 }) {
@@ -90,6 +92,17 @@ export function CameraBox({
     };
   }, []);
 
+  // Upload 1 ảnh đã nén tới 1 base; withKind chỉ gắn kind cho base chính (ảnh đơn)
+  const uploadTo = (b: string, p: { full: Blob; thumb: Blob; ext: string; width: number; height: number }, withKind: boolean) => {
+    const fd = new FormData();
+    fd.append("photo", p.full, `photo${p.ext}`);
+    fd.append("thumb", p.thumb, `thumb${p.ext}`);
+    fd.append("width", String(p.width));
+    fd.append("height", String(p.height));
+    if (withKind && kind) fd.append("kind", kind);
+    return postForm(`${b}/images`, fd);
+  };
+
   const shoot = async () => {
     const v = videoRef.current;
     if (!v || busy || !v.videoWidth) return;
@@ -102,13 +115,8 @@ export function CameraBox({
       canvas.height = v.videoHeight;
       canvas.getContext("2d")!.drawImage(v, 0, 0);
       const p = await processSource(canvas, canvas.width, canvas.height);
-      const fd = new FormData();
-      fd.append("photo", p.full, `photo${p.ext}`);
-      fd.append("thumb", p.thumb, `thumb${p.ext}`);
-      fd.append("width", String(p.width));
-      fd.append("height", String(p.height));
-      if (kind) fd.append("kind", kind);
-      const res = await postForm(`${base}/images`, fd);
+      const res = await uploadTo(base, p, true);
+      await Promise.allSettled((extraBases || []).map((b) => uploadTo(b, p, false)));
       setShots((n) => n + 1);
       onUploaded(res?.image);
     } catch (ex: any) {
@@ -127,13 +135,8 @@ export function CameraBox({
       for (const f of Array.from(files)) {
         if (!f.type.startsWith("image/")) continue;
         const p = await processImage(f);
-        const fd = new FormData();
-        fd.append("photo", p.full, `photo${p.ext}`);
-        fd.append("thumb", p.thumb, `thumb${p.ext}`);
-        fd.append("width", String(p.width));
-        fd.append("height", String(p.height));
-        if (kind) fd.append("kind", kind);
-        const res = await postForm(`${base}/images`, fd);
+        const res = await uploadTo(base, p, true);
+        await Promise.allSettled((extraBases || []).map((b) => uploadTo(b, p, false)));
         setShots((n) => n + 1);
         onUploaded(res?.image);
       }

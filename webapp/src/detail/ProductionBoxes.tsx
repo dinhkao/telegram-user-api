@@ -4,6 +4,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { addProductionBoxes, slipBoxes, listUnits, createUnit, listPlaces, createPlace, getRecipe, searchProducts, soVN, type ProdSlip, type InvBox, type Unit, type Place, type RecipeLine } from "../api";
 import { onRealtime } from "../realtime";
+import { confirmDialog } from "../ui/feedback";
+import { CameraBox, cameraSupported } from "./CameraBox";
 import { Icon } from "../ui/Icon";
 import { SelectPopup } from "../ui/SelectPopup";
 import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
@@ -37,6 +39,8 @@ export function ProductionBoxes({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [myBoxes, setMyBoxes] = useState<InvBox[]>([]);
+  // Sau khi tạo thùng xong → mở camera; ảnh lưu vào PHIẾU + MỌI thùng vừa tạo
+  const [camBases, setCamBases] = useState<string[] | null>(null);
   const [mineView, setMineView] = useState<"grid" | "list">("grid");
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitId, setUnitId] = useState<number | null>(null);   // đơn vị chứa cho đợt nhập
@@ -121,6 +125,8 @@ export function ProductionBoxes({
       setMsg("⚠ Chọn đủ thùng nguyên liệu trước khi tạo thùng");
       return;
     }
+    // Xác nhận lại trước khi tạo (tạo xong sẽ mở camera chụp ảnh lưu phiếu + thùng)
+    if (!(await confirmDialog(`Nhập ${c} ${unitLow} × ${soVN(n)} ${prodUnit} ${prodCode}?`))) return;
     setBusy(true);
     setMsg("");
     try {
@@ -138,6 +144,13 @@ export function ProductionBoxes({
         setMsg(`✅ Đã nhập ${c} ${unitLow}${nc ? ` · trừ ${nc} phần nguyên liệu` : ""}`);
         onChanged();
         loadMine();
+        // Mở camera: ảnh lưu vào phiếu SX + từng thùng mới (cần HTTPS mới có camera)
+        if (cameraSupported()) {
+          setCamBases([
+            `/api/media/production/${threadId}`,
+            ...(r.boxes || []).map((b) => `/api/media/box/${b.id}`),
+          ]);
+        }
       }
     } catch (e: any) {
       setMsg(e?.message || "Lỗi nhập thùng");
@@ -232,6 +245,11 @@ export function ProductionBoxes({
         <div class="muted small pb-hint">⚠ Cần chọn đủ thùng nguyên liệu mới tạo được thùng.</div>
       )}
       {msg && <div class="muted small pb-hint">{msg}</div>}
+
+      {camBases && (
+        <CameraBox base={camBases[0]} extraBases={camBases.slice(1)}
+          onUploaded={() => {}} onClose={() => setCamBases(null)} />
+      )}
 
       {pickIng && (
         <StockPickerModal
