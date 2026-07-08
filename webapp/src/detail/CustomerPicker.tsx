@@ -16,7 +16,7 @@ export function CustomerPicker({ onPick, placeholder }: {
     const d = await getJSON(`/api/customers?search=${encodeURIComponent(v)}&limit=10`, { cache: false })
       .catch(() => ({ customers: [] }));
     return (d.customers || []).map((c: any) => ({
-      key: c.key, label: c.name, sub: c.debt ? `nợ ${money(c.debt)}đ` : undefined,
+      key: c.key, label: c.name, sub: c.debt ? `nợ ${money(c.debt)}` : undefined,
     }));
   };
   return (

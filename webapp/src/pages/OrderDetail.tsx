@@ -282,7 +282,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     setBusy(true);
     try {
       const r = await createKiotVietInvoice(threadId);
-      setMsg(`🧾 Đã tạo HĐ ${r.kv_code || ""}${r.old_debt ? ` · nợ cũ ${money(r.old_debt)}đ` : ""}`);
+      setMsg(`🧾 Đã tạo HĐ ${r.kv_code || ""}${r.old_debt ? ` · nợ cũ ${money(r.old_debt)}` : ""}`);
       changed();
     } catch (ex: any) { setMsg(`❌ ${ex.message}`); } finally { setBusy(false); }
   };
@@ -311,7 +311,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   };
 
   const refreshDebt = async () => {
-    try { const r = await refreshOrderDebt(threadId); setMsg(`💰 Đã cập nhật nợ KiotViet: ${money(r.debt)}đ`); changed(); }
+    try { const r = await refreshOrderDebt(threadId); setMsg(`💰 Đã cập nhật nợ KiotViet: ${money(r.debt)}`); changed(); }
     catch (ex: any) { setMsg(`❌ ${ex.message}`); }
   };
 

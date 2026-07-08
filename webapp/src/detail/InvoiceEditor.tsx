@@ -170,13 +170,13 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
               {(() => {
                 const info = listPrices[(it.sp || "").trim().toUpperCase()];
                 return info && info.price && Number(it.price) !== info.price ? (
-                  <button type="button" class="price-reset" title={`Đặt lại giá bảng: ${money(info.price)}đ`}
+                  <button type="button" class="price-reset" title={`Đặt lại giá bảng: ${money(info.price)}`}
                     onClick={() => setRow(i, "price", info.price)}>
                     <Icon name="refresh" size={15} />
                   </button>
                 ) : null;
               })()}
-              <span class="eq">= <b>{money((it.price || 0) * (it.sl || 0))}đ</b></span>
+              <span class="eq">= <b>{money((it.price || 0) * (it.sl || 0))}</b></span>
             </div>
             <div class="edit-bot">
               {priceTag(it.sp, it.price)}
@@ -199,17 +199,17 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
                     <td>{it.sp}</td>
                     <td class="num">x{it.sl}</td>
                     <td class="num">
-                      {money(it.price)}đ
+                      {money(it.price)}
                       {it.list_price != null && it.list_price > 0 && it.list_price !== it.price && (
-                        <div class="old-price">{money(it.list_price)}đ</div>
+                        <div class="old-price">{money(it.list_price)}</div>
                       )}
                     </td>
-                    <td class="num"><b>{money(it.sub)}đ</b></td>
+                    <td class="num"><b>{money(it.sub)}</b></td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr><td colSpan={3}>Tổng thêm</td><td class="num"><b class="money">{money(quickPreview.total)}đ</b></td></tr>
+                <tr><td colSpan={3}>Tổng thêm</td><td class="num"><b class="money">{money(quickPreview.total)}</b></td></tr>
               </tfoot>
             </table>
           ) : (
@@ -237,7 +237,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       </div>
 
       <div class="adj">
-        <label>Tiền hàng<b class="num">{money(tienHang)}đ</b></label>
+        <label>Tiền hàng<b class="num">{money(tienHang)}</b></label>
         <label>Chiết khấu<input class="narrow" inputMode="numeric" value={disc} onInput={(e: any) => setDisc(parseMoney(e.target.value))} /></label>
         <label>PVC (ship)<input class="narrow" inputMode="numeric" value={p} onInput={(e: any) => setP(parseMoney(e.target.value))} /></label>
         <label>VAT
@@ -246,7 +246,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
             <button class="btn small" onClick={() => setV(Math.round(tienHang * 0.08))}>8%</button>
           </span>
         </label>
-        <div class="row space total"><b>Tổng thanh toán</b><b class="money">{money(tong)}đ</b></div>
+        <div class="row space total"><b>Tổng thanh toán</b><b class="money">{money(tong)}</b></div>
       </div>
 
       <div class="row">

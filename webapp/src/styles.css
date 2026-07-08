@@ -694,11 +694,34 @@ body.pv-open { overflow: hidden; }
 .fl-delta { font-weight: 700; font-variant-numeric: tabular-nums; }
 .fl-debt { color: var(--muted); }
 .fl-debt b { font-variant-numeric: tabular-nums; }
-/* view ultra: payment cùng nhịp 2 dòng như đơn (dòng 1 nội dung, dòng 2 nợ) */
-.feed-pay-ultra { display: block; width: 100%; text-align: left; }
+/* Mỗi item feed = [card co giãn | SỐ NỢ ngoài card, mép phải] — lướt dọc mép
+   phải là đọc được nợ theo thời gian; ô trống giữ cột thẳng hàng */
+.feed-item { display: flex; align-items: center; gap: 7px; }
+.feed-item > :first-child { flex: 1 1 auto; min-width: 0; }
+/* CỐ ĐỊNH bề rộng cột nợ → mọi card cùng width, không biến dạng theo độ dài số */
+.feed-debt-out { flex: none; width: 80px; box-sizing: border-box; text-align: right;
+  font-size: .72rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  line-height: 1.2; overflow-wrap: anywhere;
+  position: relative; padding-right: 13px; }
+/* chấm trên đường tiến trình nợ — màu theo trạng thái (đỏ nợ / xanh 0 / xám không rõ) */
+.feed-debt-out::after { content: ""; position: absolute; right: 3.5px; top: 50%;
+  transform: translateY(-50%); width: 8px; height: 8px; border-radius: 50%;
+  background: currentColor; box-shadow: 0 0 0 2px var(--bg); }
+/* đường thẳng dọc nối các số nợ (tiến trình theo thời gian) — mép phải cột nợ */
+.cf-body.has-items::after { content: ""; position: absolute; right: 6.5px; top: 12px;
+  bottom: 12px; width: 2px; border-radius: 2px; background: #c9ced6; }
+/* view ultra: payment 1 dòng; đơn = badge dòng 1 + nội dung dòng 2 (chừa cột nợ) */
+.feed-pay-ultra { display: block; text-align: left; }
 .feed-pay-ultra .ultra-row { display: flex; align-items: center; gap: 6px; }
-.order-card.ultra .ultra-debt { display: block; margin-top: 2px; font-size: .72rem;
-  color: var(--muted); font-variant-numeric: tabular-nums; }
+.feed-ultra { display: block; }
+/* dòng 1: badge 5 bước TRÁI + tổng tiền đơn PHẢI (giá trị đơn → ra số nợ bên phải) */
+.feed-ultra .fu-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.feed-ultra .fu-total { flex: none; font-size: .76rem; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: var(--danger); }
+.feed-ultra .fu-text { margin-top: 2px; font-size: .82rem; line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* card hẹp hơn (nhường cột nợ) → badge 5 bước chỉ icon, khỏi bẻ chữ nhãn */
+.feed-card .badges .tlbl { display: none; }
 /* Dây liên kết payment ↔ đơn: ĐƯỜNG CONG SVG — card KHÔNG thụt lề (padding 0),
    bụng cong TRÀN vào padding 10px của .page (xg âm) nên dây nằm sát mép màn hình */
 .cf-body { position: relative; }

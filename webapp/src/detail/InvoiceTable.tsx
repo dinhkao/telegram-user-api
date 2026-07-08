@@ -62,7 +62,7 @@ export function InvoiceTable({ items, discount, pvc, vat, debt, total, q, debtCt
           </tr>
         ))}
         {!hasFees && d === 0 && !debtCtl ? (
-          <tr class="tot"><td colSpan={3} class="lbl">Tổng</td><td class="num">{money(tongTT)}đ</td></tr>
+          <tr class="tot"><td colSpan={3} class="lbl">Tổng</td><td class="num">{money(tongTT)}</td></tr>
         ) : (
           <>
             <tr class="sub"><td colSpan={3} class="lbl">Tổng tiền hàng</td><td class="num">{money(tienHang)}</td></tr>
@@ -71,7 +71,7 @@ export function InvoiceTable({ items, discount, pvc, vat, debt, total, q, debtCt
             {disc ? <tr class="sub"><td colSpan={3} class="lbl">Giảm giá</td><td class="num">−{money(disc)}</td></tr> : null}
             {d !== 0 && hasFees ? <tr class="sub"><td colSpan={3} class="lbl">Tổng đơn này</td><td class="num">{money(tongDon)}</td></tr> : null}
             {(d !== 0 || debtCtl) ? <tr class="sub"><td colSpan={3} class="lbl">Nợ trước{debtCtl ? <span class="debt-ctl">{debtCtl}</span> : null}</td><td class="num">{d !== 0 ? money(d) : <span class="muted">—</span>}</td></tr> : null}
-            <tr class="tot"><td colSpan={3} class="lbl">Tổng thanh toán</td><td class="num">{money(tongTT)}đ</td></tr>
+            <tr class="tot"><td colSpan={3} class="lbl">Tổng thanh toán</td><td class="num">{money(tongTT)}</td></tr>
           </>
         )}
       </tbody>

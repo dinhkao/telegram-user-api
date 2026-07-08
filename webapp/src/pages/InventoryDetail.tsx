@@ -330,7 +330,7 @@ export function InventoryDetail({ code }: { code: string }) {
                   <code class="inv-bc">#{o.thread_id}</code>
                   <span class="prod-ord-text">{o.text || "(trống)"}</span>
                   {o.sl != null && <span class="inv-q">×{soVN(o.sl)}</span>}
-                  {o.price != null && o.price > 0 && <span class="muted small">{money(o.price)}đ</span>}
+                  {o.price != null && o.price > 0 && <span class="muted small">{money(o.price)}</span>}
                 </a>
               ))}
             </div>

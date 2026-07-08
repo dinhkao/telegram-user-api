@@ -14,7 +14,7 @@ function fmtMs(ms: number): string {
   try { return new Date(ms).toLocaleString("vi-VN"); } catch { return String(ms); }
 }
 function priceLabel(p: number | null): string {
-  return p == null ? "—" : `${money(p)}đ`;
+  return p == null ? "—" : `${money(p)}`;
 }
 
 export function PriceListDetail({ listId }: { listId: string }) {
@@ -99,7 +99,7 @@ export function PriceListDetail({ listId }: { listId: string }) {
                   </>
                 ) : (
                   <>
-                    <td class="num"><b>{money(it.price)}đ</b></td>
+                    <td class="num"><b>{money(it.price)}</b></td>
                     <td>
                       <button class="btn small" title="Sửa giá" onClick={() => startEdit(it.sp, it.price)}><Icon name="edit" size={14} /></button>
                       <button class="btn small" title="Lịch sử SP này" onClick={() => loadHistory(it.sp)}><Icon name="clock" size={14} /></button>

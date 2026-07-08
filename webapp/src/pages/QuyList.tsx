@@ -181,7 +181,7 @@ export function QuyList() {
       toast("Phiếu gắn đơn — xoá bằng cách xoá thanh toán trong đơn", "info");
       return;
     }
-    if (!(await confirmDialog(`Xoá phiếu ${r.type === "thu" ? "thu" : "chi"} ${soVN(r.amount)}đ?`, { danger: true, okLabel: "Xoá" })))
+    if (!(await confirmDialog(`Xoá phiếu ${r.type === "thu" ? "thu" : "chi"} ${soVN(r.amount)}?`, { danger: true, okLabel: "Xoá" })))
       return;
     try {
       await deleteQuy(r.id);
@@ -201,13 +201,13 @@ export function QuyList() {
       <div class="quy-summary">
         <div class="quy-sum-balance">
           <div class="quy-sum-lbl"><Icon name="wallet" size={16} /> Số dư quỹ (toàn sổ)</div>
-          <div class={"quy-sum-val " + (summary.balance < 0 ? "neg" : "")}>{soVN(summary.balance)}đ</div>
+          <div class={"quy-sum-val " + (summary.balance < 0 ? "neg" : "")}>{soVN(summary.balance)}</div>
         </div>
         <div class="quy-sum-period-lbl">Trong kỳ: <b>{plabel}</b></div>
         <div class="quy-sum-row">
-          <div class="quy-sum-cell thu"><span>Thu</span><b>+{soVN(period.thu)}đ</b></div>
-          <div class="quy-sum-cell chi"><span>Chi</span><b>−{soVN(period.chi)}đ</b></div>
-          <div class="quy-sum-cell net"><span>Chênh</span><b>{period.balance >= 0 ? "+" : "−"}{soVN(Math.abs(period.balance))}đ</b></div>
+          <div class="quy-sum-cell thu"><span>Thu</span><b>+{soVN(period.thu)}</b></div>
+          <div class="quy-sum-cell chi"><span>Chi</span><b>−{soVN(period.chi)}</b></div>
+          <div class="quy-sum-cell net"><span>Chênh</span><b>{period.balance >= 0 ? "+" : "−"}{soVN(Math.abs(period.balance))}</b></div>
         </div>
       </div>
 
@@ -280,7 +280,7 @@ function QuyRow({ r, onDelete }: { r: QuyReceipt; onDelete: (r: QuyReceipt) => v
     <div class={"quy-row " + (thu ? "thu" : "chi")}>
       <div class="quy-row-main">
         <div class="quy-row-top">
-          <span class={"quy-amt " + (thu ? "thu" : "chi")}>{thu ? "+" : "−"}{soVN(r.amount)}đ</span>
+          <span class={"quy-amt " + (thu ? "thu" : "chi")}>{thu ? "+" : "−"}{soVN(r.amount)}</span>
           {r.source === "order" && r.order_thread_id != null && (
             <a class="quy-order-link" href={`#/order/${r.order_thread_id}`}><Icon name="receipt" size={13} /> Đơn #{r.order_thread_id}</a>
           )}

@@ -16,12 +16,12 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
   // Xoá 1 thanh toán — chỉ admin. Payment cũ không có id thì xoá bằng lệnh Telegram.
   const del = async (p: any) => {
     if (!p.id) { toast("Thanh toán cũ không có id — xoá bằng lệnh Telegram /del_payment_", "err"); return; }
-    if (!(await confirmDialog(`Xoá thanh toán ${money(p.amount)}đ?\n(Xoá khỏi đơn; KiotViet có thể phải xoá tay)`, { danger: true }))) return;
+    if (!(await confirmDialog(`Xoá thanh toán ${money(p.amount)}?\n(Xoá khỏi đơn; KiotViet có thể phải xoá tay)`, { danger: true }))) return;
     setBusy(true);
     setMsg("");
     try {
       const r = await postJSON("/api/order/payment/delete", { thread_id: Number(threadId), payment_id: p.id });
-      setMsg(r.kv_warning ? `🗑️ Đã xoá (local) ${money(p.amount)}đ · ⚠️ ${r.kv_warning}` : `🗑️ Đã xoá thanh toán ${money(p.amount)}đ`);
+      setMsg(r.kv_warning ? `🗑️ Đã xoá (local) ${money(p.amount)} · ⚠️ ${r.kv_warning}` : `🗑️ Đã xoá thanh toán ${money(p.amount)}`);
       onChanged();
     } catch (ex: any) {
       setMsg(`❌ ${ex.message}`);
@@ -33,12 +33,12 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
   const pay = async (method: "tm" | "ck") => {
     const value = parseMoney(amount);
     if (!value) { toast("Nhập số tiền", "err"); return; }
-    if (!(await confirmDialog(`Thu ${money(value)}đ (${method === "tm" ? "tiền mặt" : "chuyển khoản"})?`))) return;
+    if (!(await confirmDialog(`Thu ${money(value)} (${method === "tm" ? "tiền mặt" : "chuyển khoản"})?`))) return;
     setBusy(true);
     setMsg("");
     try {
       const r = await postJSON(`/api/order/payment/${method}`, { thread_id: Number(threadId), amount: value });
-      setMsg(`✅ ${r.method_label || ""} ${money(r.amount)}đ · nợ: ${money(r.old_debt)} → ${money(r.new_debt)}`);
+      setMsg(`✅ ${r.method_label || ""} ${money(r.amount)} · nợ: ${money(r.old_debt)} → ${money(r.new_debt)}`);
       setAmount("");
       onChanged();
     } catch (ex: any) {
@@ -58,7 +58,7 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
               <div class="row space">
                 <span>{p.code || p.method || "?"}</span>
                 <span class="row" style="gap:6px;align-items:center">
-                  <b>{money(p.amount)}đ</b>
+                  <b>{money(p.amount)}</b>
                   {isAdmin && p.id ? <button class="btn small danger" disabled={busy} title="Xoá thanh toán" onClick={() => del(p)}><Icon name="trash" size={14} /></button> : null}
                 </span>
               </div>
@@ -68,7 +68,7 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
                 </div>
               )}
               {p.old_debt != null && p.new_debt != null && (
-                <div class="pay-debt small">Nợ: {money(p.old_debt)}đ → <b>{money(p.new_debt)}đ</b></div>
+                <div class="pay-debt small">Nợ: {money(p.old_debt)} → <b>{money(p.new_debt)}</b></div>
               )}
             </li>
           ))}
@@ -83,7 +83,7 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
           {suggest ? (
             <button type="button" class="pay-suggest" title="Điền tổng tiền hàng"
               onClick={() => setAmount(String(suggest))}>
-              Tổng tiền hàng: {money(suggest)}đ
+              Tổng tiền hàng: {money(suggest)}
             </button>
           ) : null}
           <div class="pay-btns">

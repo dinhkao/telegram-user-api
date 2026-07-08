@@ -186,7 +186,7 @@ export function CreateOrder() {
         </a>
         {debtBusy && !isLive
           ? <span class="co-debt wait">Nợ…</span>
-          : debt != null && <span class={"co-debt" + (debt > 0 ? " owe" : "")}>Nợ {money(debt)}đ{isLive ? " 🟢" : ""}</span>}
+          : debt != null && <span class={"co-debt" + (debt > 0 ? " owe" : "")}>Nợ {money(debt)}{isLive ? " 🟢" : ""}</span>}
       </div>
     );
   };
@@ -254,12 +254,12 @@ export function CreateOrder() {
                             <td>{it.sp} <span class="co-pmini">·{moneyK(it.price)}</span></td>
                             <td class="num">x{it.sl}</td>
                             <td class="num">
-                              {money(it.price)}đ
+                              {money(it.price)}
                               {it.list_price != null && it.list_price > 0 && it.list_price !== it.price && (
-                                <div class="old-price">{money(it.list_price)}đ</div>
+                                <div class="old-price">{money(it.list_price)}</div>
                               )}
                             </td>
-                            <td class="num"><b>{money(it.sub)}đ</b></td>
+                            <td class="num"><b>{money(it.sub)}</b></td>
                           </tr>
                         ))}
                       </tbody>
@@ -270,7 +270,7 @@ export function CreateOrder() {
                   {preview.invoice.length > 0 && (
                     <div class="co-total">
                       <span>Tổng cộng · {preview.invoice.length} SP</span>
-                      <b>{money(preview.total)}đ</b>
+                      <b>{money(preview.total)}</b>
                     </div>
                   )}
                 </>
@@ -286,7 +286,7 @@ export function CreateOrder() {
           {err && <p class={err.startsWith("✅") ? "ok-msg" : "err-msg"}>{err}</p>}
           <button class="btn primary wide co-submit" disabled={busy || !text.trim()} onClick={submitQuick}>
             {busy ? "Đang tạo…" : preview?.invoice.length
-              ? `Tạo đơn · ${preview.invoice.length} SP · ${money(preview.total)}đ`
+              ? `Tạo đơn · ${preview.invoice.length} SP · ${money(preview.total)}`
               : "Tạo đơn"}
           </button>
 
@@ -332,7 +332,7 @@ export function CreateOrder() {
                   </span>
                 </div>
                 {advCust?.debt != null && (
-                  <span class={"co-debt" + (advCust.debt > 0 ? " owe" : "")}>Nợ {money(advCust.debt)}đ</span>
+                  <span class={"co-debt" + (advCust.debt > 0 ? " owe" : "")}>Nợ {money(advCust.debt)}</span>
                 )}
                 <button class="btn small ghost" onClick={() => setCustomer(null)}>Đổi</button>
               </div>
@@ -372,7 +372,7 @@ export function CreateOrder() {
                 <table class="invoice-table">
                   <tbody>
                     {priceList.items.map((it) => (
-                      <tr key={it.sp}><td>{it.sp}</td><td class="num">{money(it.price)}đ</td></tr>
+                      <tr key={it.sp}><td>{it.sp}</td><td class="num">{money(it.price)}</td></tr>
                     ))}
                   </tbody>
                 </table>

@@ -14,7 +14,7 @@ import { Icon } from "../ui/Icon";
 import { Loading, EmptyState, SkeletonList } from "../ui/states";
 import { PhotoViewer } from "./PhotoViewer";
 import {
-  type OrderRow, statusLabel, LastAction, CardBody, CompactBody, UltraBody,
+  type OrderRow, statusLabel, LastAction, CardBody, CompactBody, TaskBadges,
   InvoiceMini, dayKeyOf, orderDayLabel, NEW_ORDER_SEC,
 } from "./OrderCards";
 
@@ -33,20 +33,17 @@ const PAY_METHOD_VI: Record<string, string> = {
 type PayItem = Extract<CustFeedItem, { kind: "payment" }>;
 const payMethod = (p: PayItem) => PAY_METHOD_VI[(p.method || "").toLowerCase()] || p.code || p.method || "";
 
-// Chốt sổ cuối card: bên trái = biến động của sự kiện, bên phải = NỢ SAU sự kiện
-function LedgerFoot({ delta, deltaCls, debtAfter }: { delta: string; deltaCls: string; debtAfter: number | null | undefined }) {
-  return (
-    <div class="feed-ledger">
-      <span class={`fl-delta ${deltaCls}`}>{delta}</span>
-      {debtAfter != null && (
-        <span class="fl-debt">Nợ sau: <b class={Number(debtAfter) > 0 ? "owe" : "paid-ok"}>{money(Number(debtAfter))}đ</b></span>
-      )}
-    </div>
-  );
+// Số nợ SAU sự kiện — RAIL PHẢI NGOÀI card: lướt dọc mép phải là thấy nợ theo
+// thời gian. 3 trạng thái: >0 đỏ · =0 xanh "0đ" · không có số (bản ghi cũ thiếu
+// snapshot) → "—" mờ, KHÔNG bịa 0 (nguyên tắc nợ chỉ lấy từ số KiotViet đã lưu).
+function DebtOut({ v }: { v: number | null | undefined }) {
+  if (v == null) return <span class="feed-debt-out muted" title="Bản ghi cũ — không lưu số nợ lúc đó">—</span>;
+  const n = Number(v);
+  return <span class={"feed-debt-out " + (n > 0 ? "owe" : "paid-ok")}>{money(n)}</span>;
 }
 
 // Card thanh toán — kích thước ĐỒNG BỘ với card đơn của view (cùng radius/padding/
-// nhịp margin); nội dung 1 dòng + chốt sổ. Chip "đơn #id" → cuộn tới card đơn.
+// nhịp margin). Chip "đơn #id" → cuộn tới card đơn.
 function PaymentCard({ p, hasOrderInFeed, onJump }: {
   p: PayItem; hasOrderInFeed: boolean; onJump: (tid: number) => void;
 }) {
@@ -56,17 +53,15 @@ function PaymentCard({ p, hasOrderInFeed, onJump }: {
       <div class="feed-pay-row">
         <span class="feed-pay-ic"><Icon name="wallet" size={16} /></span>
         <span class="feed-pay-main">
-          <b class="feed-pay-amt">Thanh toán {money(p.amount)}đ</b>
+          <b class="feed-pay-amt">−{money(p.amount)}</b>
           {m && <span class="muted"> · {m}</span>}
         </span>
         <button class={"feed-pay-link" + (hasOrderInFeed ? " in-feed" : "")}
           title={hasOrderInFeed ? "Cuộn tới đơn trong danh sách" : "Mở đơn"}
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onJump(p.thread_id); }}>
-          <Icon name="link" size={12} /> đơn #{p.thread_id}
+          <Icon name="link" size={12} /> #{p.thread_id}
         </button>
       </div>
-      <LedgerFoot delta={`−${money(p.amount)}đ`} deltaCls="paid-ok"
-        debtAfter={p.new_debt != null ? Number(p.new_debt) : null} />
       <div class="feed-pay-meta muted small">{p.by ? `${p.by} · ` : ""}{p.at ? fmtRelative(p.at) : ""}</div>
     </div>
   );
@@ -200,60 +195,65 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
 
   const renderItem = (it: CustFeedItem) => {
     if (it.kind === "payment") {
+      const debt = it.new_debt != null ? Number(it.new_debt) : null;
       if (view === "ultra") {
         return (
-          <li key={`p-${it.thread_id}-${it.ts}`} data-pay-tid={it.thread_id}>
+          <li key={`p-${it.thread_id}-${it.ts}`} class="feed-item" data-pay-tid={it.thread_id}>
             <button class="order-card ultra feed-pay-ultra" onClick={() => jumpToOrder(it.thread_id)}>
               <div class="ultra-row">
                 <span class="feed-pay-ic"><Icon name="wallet" size={13} /></span>
-                <span class="ultra-text"><b class="feed-pay-amt">+{money(it.amount)}đ</b>{payMethod(it) ? ` · ${payMethod(it)}` : ""}</span>
+                <span class="ultra-text"><b class="feed-pay-amt">−{money(it.amount)}</b>{payMethod(it) ? ` · ${payMethod(it)}` : ""}</span>
               </div>
-              {it.new_debt != null && <span class="ultra-debt">nợ {money(Number(it.new_debt))}đ</span>}
             </button>
+            <DebtOut v={debt} />
           </li>
         );
       }
       return (
-        <li key={`p-${it.thread_id}-${it.ts}`}>
+        <li key={`p-${it.thread_id}-${it.ts}`} class="feed-item">
           <PaymentCard p={it} hasOrderInFeed={orderIdsInFeed.has(it.thread_id)} onJump={jumpToOrder} />
+          <DebtOut v={debt} />
         </li>
       );
     }
     const o = it.order as OrderRow;
     const isNew = isRecent(o.created, NEW_ORDER_SEC);
-    const ledger = it.debt_after != null || o.total ? (
-      <LedgerFoot delta={o.total ? `+${o.total}đ` : ""} deltaCls="owe" debtAfter={it.debt_after} />
-    ) : null;
     if (view === "ultra") {
+      // ultra: badge 5 bước dòng 1 (chừa chỗ cột nợ phải), nội dung xuống dòng 2
+      const text = (o.text || o.topic_name || `#${o.thread_id}`).replace(/\s+/g, " ").trim();
       return (
-        <li key={o.thread_id}>
-          <a data-oid={o.thread_id} class="order-card ultra" href={`#/order/${o.thread_id}`}>
-            <UltraBody o={o} search="" />
-            {it.debt_after != null && <span class="ultra-debt">nợ {money(Number(it.debt_after))}đ</span>}
+        <li key={o.thread_id} class="feed-item">
+          <a data-oid={o.thread_id} class="order-card ultra feed-ultra" href={`#/order/${o.thread_id}`}>
+            <div class="fu-head">
+              <TaskBadges o={o} />
+              {o.total && <b class="fu-total">+{o.total}</b>}
+            </div>
+            <div class="fu-text">{text}</div>
           </a>
+          <DebtOut v={it.debt_after} />
         </li>
       );
     }
     if (view === "compact") {
       return (
-        <li key={o.thread_id}>
+        <li key={o.thread_id} class="feed-item">
           <a data-oid={o.thread_id} class={`order-card compact feed-card${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
             <CompactBody o={o} search="" sort="created" isNew={isNew} openThumb={openThumb} />
-            {ledger}
           </a>
+          <DebtOut v={it.debt_after} />
         </li>
       );
     }
     return (
-      <li key={o.thread_id}>
+      <li key={o.thread_id} class="feed-item">
         <a data-oid={o.thread_id} class={`order-card two-col feed-card${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
           <div class="card-main">
             <LastAction o={o} />
             <CardBody o={o} search="" stt={statusLabel(o)} isNew={isNew} openThumb={openThumb} />
           </div>
           <div class="card-inv"><InvoiceMini o={o} /></div>
-          {ledger}
         </a>
+        <DebtOut v={it.debt_after} />
       </li>
     );
   };
@@ -271,7 +271,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
       </div>
 
       {loading && !items.length && <SkeletonList rows={4} />}
-      <div class={"cf-body" + (hasRopes ? " has-ropes" : "")}>
+      <div class={"cf-body" + (hasRopes ? " has-ropes" : "") + (items.length ? " has-items" : "")}>
         {/* dây cong nối payment ↔ đơn: dưới-trái card trên → vòng lề trái → trên-trái card dưới */}
         {hasRopes && (
           <svg class="feed-ropes" aria-hidden="true">

@@ -156,7 +156,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
         <button class="cust-debt-chip" disabled={debtBusy} onClick={doRefreshDebt}
           title="Công nợ KiotViet — bấm để cập nhật">
           <span class="cdc-lb">Công nợ</span>
-          <b class={owes ? "owe" : "paid-ok"}>{cust.debt != null ? `${money(Number(cust.debt) || 0)}đ` : "—"}</b>
+          <b class={owes ? "owe" : "paid-ok"}>{cust.debt != null ? `${money(Number(cust.debt) || 0)}` : "—"}</b>
           <Icon name="refresh" size={13} class={debtBusy ? "spin" : undefined} />
         </button>
       </div>
@@ -216,7 +216,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
                   return (
                     <tr key={it.sp}>
                       <td>{it.sp} {rieng ? <span class="tag-new">riêng</span> : <span class="muted small">chung</span>}</td>
-                      <td class="num">{money(it.price)}đ</td>
+                      <td class="num">{money(it.price)}</td>
                     </tr>
                   );
                 })}

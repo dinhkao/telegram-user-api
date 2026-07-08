@@ -238,7 +238,7 @@ export function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }:
           </div>
           <div class="row space">
             <span>
-              {o.total && <b class="money">{o.total}đ</b>}
+              {o.total && <b class="money">{o.total}</b>}
               {stt && <span class={stt.includes("đã nộp") ? "paid-ok" : "owe"}> · {stt}</span>}
             </span>
           </div>

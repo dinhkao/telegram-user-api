@@ -183,7 +183,7 @@ export function Customers() {
                 <b>{c.name}</b>
                 {c.debt != null && (
                   <span class={Number(c.debt) > 0 ? "owe" : "muted"}>
-                    nợ {money(Number(c.debt) || 0)}đ
+                    nợ {money(Number(c.debt) || 0)}
                   </span>
                 )}
               </div>
