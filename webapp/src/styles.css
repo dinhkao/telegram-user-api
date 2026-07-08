@@ -1426,13 +1426,13 @@ body.kbd-open .wr-peek-btn { bottom: calc(12px + env(safe-area-inset-bottom, 0px
 .img-strip { display: flex; gap: 6px; margin: 0 0 8px; padding-bottom: 2px; align-items: flex-start; }
 /* dải ảnh: vùng cuộn chiếm chỗ còn lại, nút camera đứng yên bên phải */
 .img-strip-view { flex: 1; min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.img-strip-view.rolling { overflow: hidden; }
-.img-strip-roll { display: flex; }
+/* rolling = JS tự cuộn scrollLeft (chạm thì dừng, yên 3s chạy tiếp) — vẫn cuộn
+   tay native được; giấu scrollbar cho gọn */
+.img-strip-view.rolling { scrollbar-width: none; }
+.img-strip-view.rolling::-webkit-scrollbar { display: none; }
+.img-strip-roll { display: flex; width: max-content; }
 .img-strip-set { display: flex; gap: 6px; flex: none; }
 .img-strip-view.rolling .img-strip-set { padding-right: 6px; }
-/* tràn màn → tự cuộn vòng như banner (duration inline theo độ rộng, px/s đều) */
-.img-strip-view.rolling .img-strip-roll { width: max-content; animation: strip-slide 12s linear infinite; will-change: transform; }
-@keyframes strip-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .img-strip-tile { position: relative; flex: 0 0 auto; width: 84px; height: 84px; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); cursor: pointer; }
 .img-strip-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .img-strip-cam { display: flex; align-items: center; justify-content: center; font-size: 24px; border-style: dashed; }
