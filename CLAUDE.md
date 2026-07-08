@@ -241,6 +241,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   thùng ở phiếu SX, người dùng CHỌN thùng nguyên liệu → trừ kho qua
   `inventory_store.allocate_picks(kind='production')` (cột `kind` phân biệt xuất-đơn ↔
   tiêu-hao-SX; `remaining` = quantity − Σ mọi allocation nên tồn NL giảm đúng).
+- `settings_store/` — cài đặt hệ thống (blob `kv_store['app_settings']`, app.db):
+  toggle rule vận hành, sửa từ trang Cài đặt webapp (admin, `server_app/settings_routes.py`).
+  Hiện có `soan_hang_require_stock` (mặc định BẬT): task **soạn hàng** chỉ đánh dấu
+  xong khi đơn **đã chốt xuất kho** (`$.stock_confirmed`, POST `/api/order/{id}/stock-confirm`
+  — xuất đủ mới chốt, chốt xong khoá allocate/release trừ admin,
+  `server_app/order_stock_lock.py`) **và có ảnh `soan_hang`** — rule ở
+  `order_store/guards.py`, chặn cả web API lẫn lệnh Telegram `soan`.
 - `chat_log/` — logs new/edited/deleted Telegram messages to DB.
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
 
