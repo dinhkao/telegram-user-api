@@ -12,7 +12,11 @@ import { usePopupBack } from "../ui/usePopupBack";
 // note giống bot để dữ liệu khớp Telegram
 type Branch = { note: string; label: string; photo: boolean; done: boolean; hint?: string };
 
-export function NopTienWizard({ threadId, onClose, onDone }: { threadId: string; onClose: () => void; onDone: () => void }) {
+export function NopTienWizard({ threadId, onClose, onDone, adminQuick }: {
+  threadId: string; onClose: () => void; onDone: () => void;
+  /** admin: đánh dấu xong ngay bỏ qua ảnh — hiện nút phụ ở chân wizard */
+  adminQuick?: () => void;
+}) {
   usePopupBack(true, onClose);   // back → đóng wizard trước
   const [step, setStep] = useState<"type" | "kytoa" | "photo">("type");
   const [branch, setBranch] = useState<Branch | null>(null);
@@ -122,6 +126,11 @@ export function NopTienWizard({ threadId, onClose, onDone }: { threadId: string;
           </>
         )}
 
+        {step === "type" && !busy && adminQuick && (
+          <button class="btn small wz-admin" onClick={adminQuick} title="Admin: đánh dấu xong ngay, không cần ảnh">
+            <Icon name="zap" size={14} /> Xong ngay — bỏ qua ảnh (admin)
+          </button>
+        )}
         {step !== "photo" && !busy && <button class="btn nt-cancel" onClick={onClose}>Huỷ</button>}
       </div>
     </div>

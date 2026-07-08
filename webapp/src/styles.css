@@ -1325,6 +1325,11 @@ body.kbd-open .wr-peek-btn { bottom: calc(12px + env(safe-area-inset-bottom, 0px
 .task-meta { margin: 2px 0 0 26px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; line-height: 1.35; overflow-wrap: anywhere; }
 .task-meta .task-thumbs { margin-left: 0; }
 .task-act { flex: none; display: flex; gap: 6px; align-items: center; padding-top: 2px; }
+/* Nút lối tắt admin trong wizard nộp tiền / picker soạn hàng — hành động PHỤ,
+   nằm chân popup, kiểu mờ viền đứt để không tranh chỗ nút chính */
+.wz-admin { display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; margin-top: 10px; color: var(--muted); background: transparent;
+  border: 1px dashed var(--border); }
 
 /* Thanh điều hướng đơn↔đơn (dính đáy, trên bottom-nav) */
 /* Bàn phím mở → ẩn như bottom-nav (kẻo che ô đang gõ trên màn thấp) */

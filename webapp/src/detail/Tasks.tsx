@@ -133,18 +133,12 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
               <div class="task-act">
                 {locked ? null : done ? (
                   <button class="btn small" disabled={busy === type} onClick={() => clear(type)}>Huỷ</button>
+                ) : type === "nop_tien" ? (
+                  <button class="btn small primary" onClick={() => setNopOpen(true)}>Xong</button>
+                ) : type === "soan_hang" ? (
+                  <button class="btn small primary" onClick={() => setSoanOpen(true)}>Xong</button>
                 ) : (
-                  <>
-                    {type === "nop_tien" ? (
-                      <button class="btn small primary" onClick={() => setNopOpen(true)}>Xong</button>
-                    ) : type === "soan_hang" ? (
-                      <button class="btn small primary" onClick={() => setSoanOpen(true)}>Xong</button>
-                    ) : (
-                      <button class="btn small primary" disabled={busy === type} onClick={() => mark(type)}>Xong</button>
-                    )}
-                    {isAdmin && (type === "nop_tien" || type === "soan_hang") &&
-                      <button class="btn small" title="Admin: xong ngay, không cần ảnh" disabled={busy === type} onClick={() => mark(type)}><Icon name="zap" size={14} /></button>}
-                  </>
+                  <button class="btn small primary" disabled={busy === type} onClick={() => mark(type)}>Xong</button>
                 )}
               </div>
             </li>
@@ -184,8 +178,11 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
           )}
         </li>
       </ul>
-      {nopOpen && <NopTienWizard threadId={threadId} onClose={() => setNopOpen(false)} onDone={onChanged} />}
-      {soanOpen && <SoanHangPicker threadId={threadId} onClose={() => setSoanOpen(false)} onDone={onChanged} />}
+      {/* Lối tắt admin (xong ngay bỏ qua ảnh) nằm TRONG popup — hàng task chỉ 1 nút Xong */}
+      {nopOpen && <NopTienWizard threadId={threadId} onClose={() => setNopOpen(false)} onDone={onChanged}
+        adminQuick={isAdmin ? () => { setNopOpen(false); mark("nop_tien"); } : undefined} />}
+      {soanOpen && <SoanHangPicker threadId={threadId} onClose={() => setSoanOpen(false)} onDone={onChanged}
+        adminQuick={isAdmin ? () => { setSoanOpen(false); mark("soan_hang"); } : undefined} />}
     </div>
   );
 }

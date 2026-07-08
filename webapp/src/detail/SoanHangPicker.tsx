@@ -11,7 +11,11 @@ import { usePopupBack } from "../ui/usePopupBack";
 import { kindOf } from "./imageKinds";
 import { fastScrollToEl } from "../scroll";
 
-export function SoanHangPicker({ threadId, onClose, onDone }: { threadId: string; onClose: () => void; onDone: () => void }) {
+export function SoanHangPicker({ threadId, onClose, onDone, adminQuick }: {
+  threadId: string; onClose: () => void; onDone: () => void;
+  /** admin: đánh dấu xong ngay bỏ qua ảnh — hiện nút phụ ở chân popup */
+  adminQuick?: () => void;
+}) {
   usePopupBack(true, onClose);   // back → đóng popup trước
   const base = `/api/order/${threadId}`;
   const [images, setImages] = useState<OrderImage[] | null>(null);
@@ -98,6 +102,11 @@ export function SoanHangPicker({ threadId, onClose, onDone }: { threadId: string
           </>
         )}
 
+        {!busy && adminQuick && (
+          <button class="btn small wz-admin" onClick={adminQuick} title="Admin: đánh dấu xong ngay, không cần ảnh">
+            <Icon name="zap" size={14} /> Xong ngay — bỏ qua ảnh (admin)
+          </button>
+        )}
         {!busy && <button class="btn sh-cancel" onClick={onClose}>Huỷ</button>}
       </div>
     </div>
