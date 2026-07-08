@@ -32,6 +32,7 @@ class AuditLogDatabaseTests(unittest.TestCase):
                         "action",
                         "direction",
                         "source",
+                        "scope",
                         "chat_id",
                         "thread_id",
                         "message_id",
