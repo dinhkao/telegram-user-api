@@ -508,10 +508,11 @@ export type SheetStatus = {
 /** Lưu báo cáo. Trả kèm trạng thái đẩy Google Sheet (sheet). */
 export async function saveProductionReport(
   id: string | number,
-  text: string
+  text: string,
+  sid?: string,
 ): Promise<ProdReport & { sheet?: SheetStatus }> {
   const u = currentUser();
-  return postJSON(`/api/production/${id}/report`, { text, user: u?.display_name || u?.username || "" });
+  return postJSON(`/api/production/${id}/report`, { text, user: u?.display_name || u?.username || "", sid: sid || "" });
 }
 
 export async function deleteProduction(id: string | number): Promise<any> {
@@ -544,11 +545,17 @@ export async function reorderWorkers(ids: number[]): Promise<{ workers: Worker[]
 const _actor = () => { const u = currentUser(); return u?.display_name || u?.username || ""; };
 
 /** Khoá sửa báo cáo (1 người/phiếu). Trả {holder, mine}. Gọi lặp lại = heartbeat gia hạn. */
-export async function lockReport(id: string | number): Promise<{ ok: boolean; holder: string | null; mine: boolean }> {
-  return postJSON(`/api/production/${id}/report/lock`, { user: _actor() });
+// sid = mã phiên mỗi tab/máy — cùng tài khoản mở 2 máy vẫn chỉ 1 máy giữ khoá sửa
+export async function lockReport(id: string | number, sid: string): Promise<{ ok: boolean; holder: string | null; mine: boolean }> {
+  return postJSON(`/api/production/${id}/report/lock`, { user: _actor(), sid });
 }
-export async function unlockReport(id: string | number): Promise<any> {
-  return postJSON(`/api/production/${id}/report/unlock`, { user: _actor() });
+export async function unlockReport(id: string | number, sid: string): Promise<any> {
+  return postJSON(`/api/production/${id}/report/unlock`, { user: _actor(), sid });
+}
+/** Ai đang giữ khoá sửa báo cáo (không xin khoá) — badge ở trang chi tiết phiếu. */
+export async function reportLockStatus(id: string | number): Promise<string | null> {
+  const d = await getJSON(`/api/production/${id}/report/lock`, { cache: false });
+  return d.holder ?? null;
 }
 export type ProdDashboard = {
   totals: { tong: number; phieu: number; tho: number };
@@ -575,8 +582,8 @@ export async function getWorkerReport(name: string, from?: string, to?: string):
 }
 
 /** Gửi bản nháp bảng (người đang sửa) → người xem thấy trực tiếp. Không lưu. */
-export async function pushReportDraft(id: string | number, draft: { rows: any[]; date?: string; start?: string; end?: string }): Promise<any> {
-  return postJSON(`/api/production/${id}/report/draft`, { ...draft, user: _actor() });
+export async function pushReportDraft(id: string | number, draft: { rows: any[]; date?: string; start?: string; end?: string }, sid?: string): Promise<any> {
+  return postJSON(`/api/production/${id}/report/draft`, { ...draft, user: _actor(), sid: sid || "" });
 }
 
 // ── Sổ quỹ (cash book) ────────────────────────────────────────────────────────

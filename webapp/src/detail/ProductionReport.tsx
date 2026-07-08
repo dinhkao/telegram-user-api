@@ -1,16 +1,28 @@
 // Báo cáo sản xuất theo thợ — CHỈ XEM ở trang chi tiết, LUÔN hiện (không thu gọn).
 // Sửa → trang riêng (#/san_xuat/:id/bao-cao, ProductionReportEdit) khoá 1 người sửa.
-import { soVN, type ProdSlip, type ProdReport } from "../api";
+// Badge "✏️ X đang sửa" khi có người giữ khoá (poll status lúc mở + realtime report_lock).
+import { useEffect, useState } from "preact/hooks";
+import { soVN, reportLockStatus, type ProdSlip, type ProdReport } from "../api";
+import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 
 export function ProductionReport({ threadId, slip }: { threadId: string; slip: ProdSlip }) {
   const rep = slip.bang as ProdReport | null;
   const rows = rep?.rows || [];
+  // Ai đang giữ khoá sửa báo cáo này (null = không ai) — hiện badge cạnh nút Sửa
+  const [editor, setEditor] = useState<string | null>(null);
+  useEffect(() => {
+    reportLockStatus(threadId).then(setEditor).catch(() => {});
+    return onRealtime((e) => {
+      if (e.type === "report_lock" && e.thread_id === String(threadId)) setEditor(e.holder || null);
+    });
+  }, [threadId]);
 
   return (
     <section class="card">
       <div class="row space" style={{ alignItems: "center", marginBottom: "8px" }}>
         <label class="card-label" style={{ margin: 0 }}><Icon name="chart" size={16} /> Báo cáo theo thợ</label>
+        {editor && <span class="wr-lockpill other"><Icon name="edit" size={12} /> {editor} đang sửa</span>}
         <a class="btn primary small" href={`#/san_xuat/${threadId}/bao-cao`}><Icon name="edit" size={16} /> Sửa</a>
       </div>
 

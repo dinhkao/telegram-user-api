@@ -35,12 +35,17 @@ const rowsFromReport = (rep: ProdReport | null, defaults: string[] = []): Wrow[]
 
 export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const me = useMemo(() => { const u = currentUser(); return u?.display_name || u?.username || ""; }, []);
+  // sid = mã phiên NGẪU NHIÊN mỗi lần mở trang — danh tính khoá là (tên, sid) nên
+  // cùng tài khoản mở 2 máy vẫn chỉ 1 máy được sửa (trước so mỗi tên → đè nhau).
+  const sid = useMemo(() => Math.random().toString(36).slice(2) + Date.now().toString(36), []);
   const [slip, setSlip] = useState<ProdSlip | null>(null);
-  const [wrows, setWrows] = useState<Wrow[]>([{ name: "", gach: "", tru: "", le: "", note: "" }]);
+  const [wrows, setWrows] = useState<Wrow[]>([blankRow()]);
   const [date, setDate] = useState(todayVN());
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
-  const [holder, setHolder] = useState<string | null>(null);   // null = tôi đang giữ / chưa ai giữ
+  // Khoá sửa 3 trạng thái: wait = đang xin (chưa cho gõ) · mine = tôi giữ · other = người khác
+  const [holder, setHolder] = useState<string | null>(null);
+  const [lockState, setLockState] = useState<"wait" | "mine" | "other">("wait");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const seeded = useRef(false);
@@ -61,8 +66,8 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const [bgLoading, setBgLoading] = useState(false);
   const bgInput = useRef<HTMLInputElement>(null);
 
-  const mine = !holder;                       // tôi được sửa khi không ai khác giữ
-  const readOnly = !!holder;                  // người khác giữ → chỉ xem
+  const mine = lockState === "mine";          // CHỈ sửa được khi đã cầm khoá xác nhận
+  const readOnly = !mine;                     // gồm cả lúc đang xin khoá (wait)
 
   const loadSlip = async () => {
     const s = await getProduction(threadId);
@@ -126,33 +131,44 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     toast("Đã cập nhật thợ trong bảng");
   };
 
-  // holderRef = bản đồng bộ của `holder` cho listener realtime (deps không đổi → khỏi stale).
-  const holderRef = useRef<string | null>(null);
-  useEffect(() => { holderRef.current = holder; }, [holder]);
+  // mineRef = bản đồng bộ của lockState cho listener realtime (deps không đổi → khỏi stale).
+  const mineRef = useRef(false);
+  useEffect(() => { mineRef.current = mine; }, [mine]);
 
-  // Khoá: xin lúc vào + heartbeat 20s; nhả khi rời trang
+  // Xin/gia hạn khoá — cập nhật cả holder lẫn lockState (dùng chung mọi chỗ)
+  const aliveRef = useRef(true);
+  const acquire = async () => {
+    try {
+      const r = await lockReport(threadId, sid);
+      if (!aliveRef.current) return;
+      setHolder(r.mine ? null : r.holder);
+      setLockState(r.mine ? "mine" : "other");
+    } catch { /* mất mạng → giữ trạng thái hiện tại, heartbeat sẽ thử lại */ }
+  };
+
+  // Khoá: xin lúc vào + heartbeat 20s; nhả khi rời trang (đúng phiên sid)
   useEffect(() => {
-    let alive = true;
-    const acquire = async () => { try { const r = await lockReport(threadId); if (alive) setHolder(r.mine ? null : r.holder); } catch { /* im */ } };
+    aliveRef.current = true;
     acquire();
     const hb = setInterval(acquire, 20000);
-    return () => { alive = false; clearInterval(hb); unlockReport(threadId).catch(() => {}); };
+    return () => { aliveRef.current = false; clearInterval(hb); unlockReport(threadId, sid).catch(() => {}); };
   }, [threadId]);
 
   // Realtime: đổi chủ khoá / nhận nháp của người đang sửa / báo cáo đã lưu
   useEffect(() => {
     return onRealtime((e) => {
       if (e.type === "report_lock" && e.thread_id === String(threadId)) {
-        if (e.holder && e.holder !== me) setHolder(e.holder);
-        else if (!e.holder) lockReport(threadId).then((r) => setHolder(r.mine ? null : r.holder)).catch(() => {}); // nhả → tôi giành
+        // Mọi thay đổi chủ khoá → hỏi lại server bằng sid (event chỉ mang TÊN,
+        // không phân biệt được 2 máy cùng tài khoản). lock idempotent, không cướp.
+        acquire();
       } else if (e.type === "report_draft" && e.thread_id === String(threadId)) {
-        // CHỈ người XEM (đang bị người khác giữ khoá) mới nhận nháp; người ĐANG SỬA bỏ
-        // qua — kẻo echo/nháp cũ đè lên phím vừa gõ → số vừa nhập biến mất.
-        if (holderRef.current && e.draft?.by && e.draft.by !== me) {
-          if (Array.isArray(e.draft.rows) && e.draft.rows.length) setWrows(e.draft.rows);
-          if (e.draft.date != null) setDate(e.draft.date);
-          if (e.draft.start != null) setStart(e.draft.start);
-          if (e.draft.end != null) setEnd(e.draft.end);
+        // CHỈ người XEM nhận nháp; phiên ĐANG SỬA bỏ qua (so sid — cùng tên khác
+        // máy vẫn lọc đúng) — kẻo echo/nháp cũ đè lên phím vừa gõ.
+        if (!mineRef.current && e.draft?.sid !== sid) {
+          if (Array.isArray(e.draft?.rows) && e.draft.rows.length) setWrows(e.draft.rows);
+          if (e.draft?.date != null) setDate(e.draft.date);
+          if (e.draft?.start != null) setStart(e.draft.start);
+          if (e.draft?.end != null) setEnd(e.draft.end);
         }
       } else if ((e.type === "production_changed" || e.type === "resync") && String((e as any).thread_id || "") === String(threadId)) {
         loadSlip();
@@ -164,7 +180,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   useEffect(() => {
     if (!mine || !seeded.current) return;
     clearTimeout(draftTimer.current);
-    draftTimer.current = setTimeout(() => { pushReportDraft(threadId, { rows: wrows, date, start, end }).catch(() => {}); }, 500);
+    draftTimer.current = setTimeout(() => { pushReportDraft(threadId, { rows: wrows, date, start, end }, sid).catch(() => {}); }, 500);
     return () => clearTimeout(draftTimer.current);
   }, [wrows, date, start, end, mine]);
 
@@ -284,7 +300,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     clearTimeout(autoTimer.current);
     autoTimer.current = setTimeout(async () => {
       setSaveState("saving");
-      try { await saveProductionReport(threadId, buildText()); setSaveState("saved"); }
+      try { await saveProductionReport(threadId, buildText(), sid); setSaveState("saved"); }
       catch { setSaveState("error"); }
     }, 1500);
     return () => clearTimeout(autoTimer.current);
@@ -295,7 +311,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     clearTimeout(autoTimer.current);
     if (wrows.some((r) => r.name.trim())) {
       setBusy(true);
-      try { await saveProductionReport(threadId, buildText()); } catch { /* im — đã tự lưu trước đó */ }
+      try { await saveProductionReport(threadId, buildText(), sid); } catch { /* im — đã tự lưu trước đó */ }
       setBusy(false);
     }
     // BACK (history.back) thay vì gán hash: gán hash = điều hướng FORWARD → hệ
@@ -314,11 +330,17 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
           <div class="prod-sp"><Icon name="edit" size={18} /> Sửa báo cáo — {slip.sp_name || "?"}</div>
           <div class="muted small">Phiếu #{threadId}{scm > 0 ? ` · 🌿 ${scm}/mâm` : ""}</div>
         </div>
+        {/* Indicator quyền sửa — luôn hiện 1 trong 3 trạng thái */}
+        <span class={"wr-lockpill " + lockState}>
+          {lockState === "mine" ? <><Icon name="check" size={12} /> Bạn đang sửa</>
+            : lockState === "other" ? <><Icon name="lock" size={12} /> {holder} đang sửa</>
+            : "⏳ Xin quyền sửa…"}
+        </span>
       </div>
 
-      {readOnly && (
+      {lockState === "other" && (
         <div class="wr-lock-alert">
-          <Icon name="lock" size={16} /> <b>{holder}</b> đang chỉnh sửa báo cáo này. Bạn đang <b>xem trực tiếp</b> — chỉ 1 người sửa cùng lúc.
+          <Icon name="lock" size={16} /> <b>{holder}</b> đang chỉnh sửa báo cáo này. Bạn đang <b>xem trực tiếp</b> — khi họ xong bạn sẽ tự được quyền sửa.
         </div>
       )}
 
