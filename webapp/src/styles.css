@@ -1690,3 +1690,6 @@ body.kbd-open .od-navbar { display: none; }
 .tk-hit { text-align: left; border: 1px solid var(--border); background: var(--bg); border-radius: 8px; padding: 7px 9px; }
 .tk-d-head { min-width: 0; }
 .tk-d-order { margin-top: 9px; text-decoration: none; display: inline-flex; }
+
+.tk-search { width: 100%; }
+.tasks-page .search-row { margin-bottom: 8px; }

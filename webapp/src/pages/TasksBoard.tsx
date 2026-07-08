@@ -67,17 +67,23 @@ export function TasksBoard() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [names, setNames] = useState<Record<string, string>>({});
+  const [q, setQ] = useState("");
 
-  const load = async (f = flt, p = 1) => {
+  const load = async (f = flt, p = 1, qq = q) => {
     setLoading(true);
     try {
-      const d = await listTasks(f, p);
+      const d = await listTasks(f, p, qq.trim());
       setTasks(p === 1 ? d.tasks : (prev => [...prev, ...d.tasks])(tasks));
       setCounts(d.counts); setToday(d.today); setTotalPages(d.total_pages); setPage(p);
     } catch (e: any) { toast(e?.message || "Lỗi tải việc"); }
     setLoading(false);
   };
   useEffect(() => { load("open", 1); }, []);
+  // search: gõ → debounce 300ms tải lại
+  useEffect(() => {
+    const t = setTimeout(() => load(flt, 1, q), 300);
+    return () => clearTimeout(t);
+  }, [q]);
   useEffect(() => {
     taskAssignees().then((us) => setNames(Object.fromEntries(us.map((u) => [u.username, u.display_name])))).catch(() => {});
   }, []);
@@ -128,6 +134,10 @@ export function TasksBoard() {
 
       {mode === "list" && (
         <>
+          <div class="search-row">
+            <input class="input tk-search" type="search" placeholder="Tìm việc, đơn, người làm…"
+              value={q} onInput={(e: any) => setQ(e.target.value)} />
+          </div>
           <div class="chips">
             {FLT.map((f) => (
               <button key={f.k} class={"chip" + (flt === f.k ? " active" : "") + (f.k === "overdue" && counts?.overdue ? " chip-danger" : "")}

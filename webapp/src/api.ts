@@ -1000,8 +1000,8 @@ export type Task = {
 };
 export type TaskCounts = { open: number; free: number; order: number; extra: number; mine: number; overdue: number; done: number };
 
-export async function listTasks(filter: string, page = 1): Promise<{ tasks: Task[]; total: number; total_pages: number; counts: TaskCounts; today: string }> {
-  const d = await getJSON(`/api/tasks?filter=${encodeURIComponent(filter)}&page=${page}`, { cache: false });
+export async function listTasks(filter: string, page = 1, q = ""): Promise<{ tasks: Task[]; total: number; total_pages: number; counts: TaskCounts; today: string }> {
+  const d = await getJSON(`/api/tasks?filter=${encodeURIComponent(filter)}&page=${page}${q ? `&q=${encodeURIComponent(q)}` : ""}`, { cache: false });
   return { tasks: d.tasks || [], total: d.total || 0, total_pages: d.total_pages || 1, counts: d.counts, today: d.today || "" };
 }
 export async function getTask(id: number): Promise<Task> {

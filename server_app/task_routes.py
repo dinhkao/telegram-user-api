@@ -84,7 +84,7 @@ async def tasks_list_handler(request: web.Request):
 
     def _run():
         items, total = list_tasks(flt=flt, assignee=(q.get("assignee") or "").strip(),
-                                  me=me, page=page, today=today)
+                                  me=me, page=page, today=today, q=(q.get("q") or "").strip())
         return items, total, counts(me, today)
 
     items, total, cnt = await asyncio.to_thread(_run)

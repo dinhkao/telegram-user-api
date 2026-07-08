@@ -86,7 +86,7 @@ def soft_delete(task_id: int) -> bool:
 
 
 def list_tasks(*, flt: str = "open", assignee: str = "", me: str = "", page: int = 1,
-               per_page: int = 30, today: str = "") -> tuple[list[dict], int]:
+               per_page: int = 30, today: str = "", q: str = "") -> tuple[list[dict], int]:
     """Danh sách theo filter: open (chưa xong) | free (việc tự tạo) | order (từ đơn)
     | mine (phân công cho tôi, chưa xong) | overdue (quá hạn) | done | all."""
     where, params = ["deleted_at IS NULL"], []
@@ -111,6 +111,10 @@ def list_tasks(*, flt: str = "open", assignee: str = "", me: str = "", page: int
     if assignee:
         where.append("assignee = ?")
         params.append(assignee)
+    if q:
+        # tìm trong tiêu đề / ghi chú / nhãn đơn / người được giao
+        where.append("(title LIKE ? OR note LIKE ? OR order_label LIKE ? OR assignee LIKE ?)")
+        params.extend([f"%{q}%"] * 4)
     w = " AND ".join(where)
     # sắp xếp: MỚI TẠO trước
     order = "ORDER BY done ASC, created_at DESC, id DESC"
