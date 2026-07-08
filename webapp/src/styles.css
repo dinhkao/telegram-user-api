@@ -741,9 +741,13 @@ body.pv-open { overflow: hidden; }
   animation: cc-mind-in .28s ease; }
 @keyframes cc-mind-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
 .cc-cont-grid { row-gap: 4px; }
-/* tháng KHÔNG active mờ đi — transition êm khi lướt (hiệu ứng nổi bật tháng) */
-.cc-cell.cont { transition: opacity .3s ease, background .3s ease; }
-.cc-cell.cont.dim { opacity: .3; }
+/* tháng KHÔNG active mờ hẳn + xám; tháng ACTIVE sáng rõ cả ngày trống —
+   tương phản mạnh, lướt là thấy "khối sáng" của tháng đang xem */
+.cc-cell.cont { transition: opacity .3s ease, filter .3s ease, background .3s ease; }
+.cc-cell.cont.dim { opacity: .16; filter: grayscale(.6); }
+.cc-cont .cc-cell.cont:not(.dim) { border-color: #c7d0de; background: var(--card); }
+.cc-cont .cc-cell.cont:not(.dim):disabled { opacity: .92; }   /* ngày trống tháng active vẫn rõ */
+.cc-cont .cc-cell.cont:not(.dim) .cc-d { color: var(--ink); }
 /* nhãn tháng nhỏ ở ô NGÀY 1 — định vị ranh giới tháng trong lưới liền mạch */
 .cc-mlabel { position: absolute; top: 2px; left: 4px; font-size: .54rem; font-weight: 800;
   color: var(--primary); text-transform: uppercase; line-height: 1; }
