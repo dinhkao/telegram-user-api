@@ -163,7 +163,8 @@ async def customer_orders_handler(request: web.Request):
         from server_app.orders_db import get_orders_conn
         conn = get_orders_conn()
         try:
-            where = "WHERE json_extract(o.json, '$.khach_hang_id') = ? AND o.deleted_at IS NULL"
+            # CAST: khach_hang_id trong blob khi số khi chữ — so thẳng bỏ sót đơn lưu dạng số
+            where = "WHERE CAST(json_extract(o.json, '$.khach_hang_id') AS TEXT) = ? AND o.deleted_at IS NULL"
             total = conn.execute(f"SELECT COUNT(*) FROM orders o {where}", (key,)).fetchone()[0]
             rows = conn.execute(
                 f"SELECT {_ROW_COLUMNS} FROM orders o {where} ORDER BY o.thread_id DESC LIMIT ? OFFSET ?",

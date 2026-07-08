@@ -43,12 +43,16 @@ def _build_feed(conn, key: str, page: int):
     from server_app.orders_api import _ROW_COLUMNS, _build_order_row, _attach_thumbs
     # 1) index gộp: mọi đơn (ts=created) + mọi payment trong blob đơn (ts=created_at)
     idx: list[tuple[float, str, object]] = []
+    # CAST AS TEXT: khach_hang_id trong blob khi là số (8) khi là chữ ('8') — so
+    # thẳng = ? bỏ sót các đơn lưu dạng số (vd Loan Phú có 8 đơn kiểu integer).
     for r in conn.execute(
         "SELECT o.thread_id, o.json FROM orders o "
-        "WHERE json_extract(o.json, '$.khach_hang_id') = ? AND o.deleted_at IS NULL",
+        "WHERE CAST(json_extract(o.json, '$.khach_hang_id') AS TEXT) = ? AND o.deleted_at IS NULL",
         (key,),
     ).fetchall():
         tid = r["thread_id"]
+        if tid is None:
+            continue   # row hỏng/di sản — không dựng được card lẫn link
         try:
             data = json.loads(r["json"])
         except (TypeError, ValueError):
