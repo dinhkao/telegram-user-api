@@ -3,7 +3,7 @@
 // nhưng VẪN thấy bảng đang sửa TRỰC TIẾP (nháp phát realtime). Data: getProduction +
 // lock/unlock/draft + saveProductionReport. Khoá + nháp: server_app/production_routes.py.
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { BackLink, goBack } from "../nav";
 import { getProduction, saveProductionReport, lockReport, unlockReport, pushReportDraft, currentUser, soVN, listMediaImages, mediaImageUrl, deleteMediaImage, postForm, listWorkers, reorderWorkers, type ProdSlip, type ProdReport, type Worker } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
@@ -286,7 +286,10 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
       try { await saveProductionReport(threadId, buildText()); } catch { /* im — đã tự lưu trước đó */ }
       setBusy(false);
     }
-    window.location.hash = `#/san_xuat/${threadId}`;
+    // BACK (history.back) thay vì gán hash: gán hash = điều hướng FORWARD → hệ
+    // scroll trung tâm (main.tsx useScrollMemory) đưa detail về ĐẦU trang thay vì
+    // khôi phục vị trí cũ. goBack → popstate → khôi phục đúng chỗ đang đứng.
+    goBack(`#/san_xuat/${threadId}`);
   };
 
   if (!slip) return <div class="prod-detail"><BackLink fallback={`#/san_xuat/${threadId}`} /><Loading /></div>;
