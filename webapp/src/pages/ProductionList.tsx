@@ -249,23 +249,14 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
         </span>
         <span class="prod-date"><Icon name="clock" size={14} /> {(() => { const c = prodCreated(slip); return c.includes(" ") ? c.split(" ")[1] : c; })()}</span>
       </div>
-      <div class="prod-card-stat">
-        {isSX ? (
-          <>
-            <span class="prod-total"><Icon name="box" size={14} /> Nhập thùng <b>{soVN(total)}</b></span>
-            <span class="prod-total"><Icon name="users" size={14} /> Báo cáo <b>{soVN(slip.report_total || 0)}</b></span>
-          </>
-        ) : (
-          <span class="prod-total"><Icon name="box" size={14} /> {soVN(total)}</span>
-        )}
-        {boxes.length > 0 && <span class="muted small">· {boxes.length} thùng</span>}
-      </div>
-      {(workers.length > 0 || boxes.length > 0) && (
-        <div class={"prod-card-body" + (workers.length > 0 ? " with-chart" : "")}>
-          {workers.length > 0 && <WorkerMiniChart workers={workers} notes={isSX ? slip.report_notes || [] : []} />}
-          {boxes.length > 0 && <div class="prod-card-boxes"><BoxMiniGrid boxes={boxes} /></div>}
+      <div class={"prod-card-body" + (workers.length > 0 ? " with-chart" : "")}>
+        {workers.length > 0 && <WorkerMiniChart workers={workers} notes={isSX ? slip.report_notes || [] : []} />}
+        {boxes.length > 0 && <div class="prod-card-boxes"><BoxMiniGrid boxes={boxes} /></div>}
+        <div class="prod-card-tot">
+          <span class="pct-item" title="Nhập thùng"><Icon name="box" size={12} /> {soVN(total)}</span>
+          {isSX && <span class="pct-item" title="Báo cáo thợ"><Icon name="users" size={12} /> {soVN(slip.report_total || 0)}</span>}
         </div>
-      )}
+      </div>
       {slip.ghi_chu && <div class="prod-card-note"><Icon name="note" size={13} /> {slip.ghi_chu}</div>}
     </a>
   );
