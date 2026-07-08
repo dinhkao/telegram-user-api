@@ -30,22 +30,21 @@ const payMethod = (p: PayItem) => PAY_METHOD_VI[(p.method || "").toLowerCase()] 
 // data-debt trên số nợ → lượt đo SVG vẽ ĐOẠN line chấm-tới-chấm đúng màu
 // (đỏ đang nợ / xanh sạch / xám không rõ) — không đứt ở header ngày, đổi màu
 // CHÍNH XÁC tại chấm.
-function Rail({ delta, deltaCls, debt, est, debtInGap }: {
+function Rail({ delta, deltaCls, debt, est }: {
   delta: string | null; deltaCls?: string; debt: number | null | undefined; est?: boolean;
-  debtInGap?: boolean;   // số đã TRÔI trong khe phía trên (fg-debt) → đây chỉ giữ CHẤM mốc
 }) {
   return (
     <span class="feed-rail">
       {/* SỐ nợ = XÁM đậm (lượng); trạng thái ở chấm + line màu (data-debt).
-          est = số TÍNH LẠI từ chuỗi neo mốc KV (bản ghi cũ thiếu số) → hiện ≈ */}
+          est = số TÍNH LẠI từ chuỗi neo mốc KV (bản ghi cũ thiếu số) → hiện ≈.
+          Số + chấm là HẠT TRƯỢT: JS (applyBeads) translateY nó chạy giữa 2 số
+          phát sinh kề nó theo chiều cuộn — xem khối HẠT NỢ trong CustomerFeed. */}
       {debt == null
         ? <span class="fd-gap fd-na" data-debt="na" title="Không đủ mốc để tính">—</span>
-        : debtInGap
-          ? <span class="fd-gap fd-dotonly" data-debt={Number(debt) > 0 ? "owe" : "ok"} />
-          : <span class="fd-gap" data-debt={Number(debt) > 0 ? "owe" : "ok"}
-              title={est ? "Số tính lại từ lịch sử (bản ghi cũ không lưu số nợ)" : undefined}>
-              {est ? "≈" : ""}{money(Number(debt))}
-            </span>}
+        : <span class="fd-gap" data-debt={Number(debt) > 0 ? "owe" : "ok"}
+            title={est ? "Số tính lại từ lịch sử (bản ghi cũ không lưu số nợ)" : undefined}>
+            {est ? "≈" : ""}{money(Number(debt))}
+          </span>}
       {delta && <span class={"feed-delta " + (deltaCls || "")}>{delta}</span>}
     </span>
   );
@@ -65,17 +64,9 @@ const gapLabel = (d: number) =>
 // Khe đủ chỗ trượt (≥5 ngày ≈ 70px): SỐ NỢ của khe (= nợ sau sự kiện cũ ở đáy)
 // chuyển HẲN vào khe làm số trượt DUY NHẤT (sticky, kẹp 2 đầu, đáp xuống cạnh
 // chấm mốc ở đáy — item dưới chỉ giữ chấm, không lặp số). Khe nhỏ: số ở đáy như cũ.
-const GAP_SLIDE_MIN_D = 5;
-// tail = header ngày / warning box HÚT VÀO ĐÁY KHE (absolute, cột trái) — không
-// đứng chen giữa khe và card nữa nên KHÔNG chặn đường trượt của số bên cột phải.
-const gapSpacer = (d: number, key: string, debt?: number | null, est?: boolean, tail?: any) => (
+const gapSpacer = (d: number, key: string) => (
   <li key={key} class="feed-gap-li" style={{ height: `${Math.min(d * 14, 1400)}px` }} aria-hidden="true">
-    {debt != null && d >= GAP_SLIDE_MIN_D && (
-      // số + CHẤM đi cùng nhau (chấm = ::after màu theo data-debt), trượt hết khe
-      <span class="fg-debt" data-debt={Number(debt) > 0 ? "owe" : "ok"}>{est ? "≈" : ""}{money(Number(debt))}</span>
-    )}
-    <div class="fg-lt"><span class="fg-label">· {gapLabel(d)} ·</span></div>
-    {tail && <div class="fg-tail">{tail}</div>}
+    <span class="fg-label">· {gapLabel(d)} ·</span>
   </li>
 );
 
@@ -95,7 +86,7 @@ type Rope = { d: string; x0: number; y1: number; y2: number };
 export function renderFeedItem(it: CustFeedItem, h: {
   openThumb: (e: Event, o: OrderRow, atId?: number) => void;
   jumpToOrder: (tid: number) => void;
-}, debtInGap = false) {
+}) {
     if (it.kind === "payment") {
       const debt = it.debt_after != null ? Number(it.debt_after) : null;
       return (
@@ -109,7 +100,7 @@ export function renderFeedItem(it: CustFeedItem, h: {
             {/* dòng 2 — cao ĐỒNG BỘ với card đơn (badges + text) */}
             <div class="fu-text muted">{it.by || "\u00a0"}</div>
           </button>
-          <Rail delta={`−${money(it.amount)}`} deltaCls="d-ok" debt={debt} est={it.debt_est} debtInGap={debtInGap} />
+          <Rail delta={`−${money(it.amount)}`} deltaCls="d-ok" debt={debt} est={it.debt_est} />
         </li>
       );
     }
@@ -132,7 +123,7 @@ export function renderFeedItem(it: CustFeedItem, h: {
             </div>
           </div>
         </a>
-        <Rail delta={o.total ? `+${o.total}` : null} deltaCls="d-owe" debt={it.debt_after} est={it.debt_est} debtInGap={debtInGap} />
+        <Rail delta={o.total ? `+${o.total}` : null} deltaCls="d-owe" debt={it.debt_after} est={it.debt_est} />
       </li>
     );
 }
@@ -171,6 +162,30 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     return () => { off(); clearTimeout(t); };
   }, [ckey]);
 
+  // ── HẠT NỢ TRƯỢT: số nợ đen + chấm (fd-gap) trượt dọc line giữa 2 SỐ PHÁT
+  // SINH kề nó (delta trên ↔ delta dưới) theo chiều cuộn. CSS sticky không làm
+  // được (đoạn trượt vượt ranh giới li) → JS: đo mốc 1 lần (trong measure), mỗi
+  // frame cuộn chỉ tính clamp + translateY (compositor — không reflow). ──
+  const beadsRef = useRef<{ el: HTMLElement; nat: number; top: number; bot: number }[]>([]);
+  const ulTopRef = useRef(0);   // toạ độ tài liệu của ul lúc đo
+  const BEAD_PIN = 90;          // đường ghim: dưới app-bar 44px + banner ~40px
+  const applyBeads = () => {
+    const s = window.scrollY + BEAD_PIN - ulTopRef.current;   // đường ghim trong toạ độ ul
+    let floor = -Infinity;   // hạt không được vượt/đè hạt TRÊN nó (xếp hàng dọc dây)
+    for (const b of beadsRef.current) {
+      const target = Math.min(Math.max(Math.min(Math.max(s, b.top), b.bot), floor), b.bot);
+      floor = target + 20;
+      const t = target - b.nat;
+      b.el.style.transform = t ? `translateY(${t}px)` : "";
+    }
+  };
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; applyBeads(); }); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
+  }, []);
+
   // ── DÂY LIÊN KẾT payment ↔ đơn: đo vị trí card thật → rail dọc bên trái ──
   const listRef = useRef<HTMLUListElement>(null);
   const [ropes, setRopes] = useState<Rope[]>([]);
@@ -180,6 +195,8 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     const ul = listRef.current;
     if (!ul) { setRopes([]); return; }
     const measure = () => {
+      // đo ở TRẠNG THÁI GỐC — transform của hạt làm sai getBoundingClientRect
+      for (const b of beadsRef.current) b.el.style.transform = "";
       const box = ul.getBoundingClientRect();
       // (card TRÊN = payment vì feed sắp mới→cũ; card DƯỚI = đơn của nó)
       const segs: { x0: number; y1: number; y2: number }[] = [];
@@ -229,6 +246,27 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
       for (let i = 0; i < pts.length - 1; i++)
         dl.push({ x, y1: pts[i].y, y2: pts[i + 1].y, st: pts[i + 1].st });
       setDebtSegs(dl);
+      // ── mốc HẠT NỢ TRƯỢT: hạt k chạy giữa delta TRÊN nó ↔ delta DƯỚI nó ──
+      const rail: { debt: boolean; el: HTMLElement; y: number }[] = [];
+      for (const el of Array.from(ul.querySelectorAll<HTMLElement>(".fd-gap, .feed-delta"))) {
+        if (el.classList.contains("fd-na")) continue;   // '—' không có thông tin → đứng yên
+        const r = el.getBoundingClientRect();
+        rail.push({ debt: el.classList.contains("fd-gap"), el, y: (r.top + r.bottom) / 2 - box.top });
+      }
+      rail.sort((a, b) => a.y - b.y);
+      const beads: { el: HTMLElement; nat: number; top: number; bot: number }[] = [];
+      let prevDelta: number | null = null;
+      for (let i = 0; i < rail.length; i++) {
+        if (!rail[i].debt) { prevDelta = rail[i].y; continue; }
+        const next = rail.slice(i + 1).find((x) => !x.debt);
+        const nat = rail[i].y;
+        const top = prevDelta != null ? prevDelta + 16 : nat;   // sát dưới số phát sinh trên
+        const bot = next ? Math.max(top, next.y - 16) : nat;    // sát trên số phát sinh dưới
+        beads.push({ el: rail[i].el, nat, top, bot });
+      }
+      beadsRef.current = beads;
+      ulTopRef.current = box.top + window.scrollY;
+      applyBeads();
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -294,27 +332,20 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
             return items.flatMap((it, i) => {
               const nodes = [];
               // dòng lưu ý tại điểm vượt mốc 6/7/2026 (item đầu tiên CŨ hơn mốc)
-              const showNote = it.ts < DEBT_FEATURE_TS && (i === 0 || items[i - 1].ts >= DEBT_FEATURE_TS);
+              if (it.ts < DEBT_FEATURE_TS && (i === 0 || items[i - 1].ts >= DEBT_FEATURE_TS))
+                nodes.push(<li key={`note-${i}`} class="feed-note">{DEBT_NOTE_TEXT}</li>);
               const d = i > 0 ? gapDays(items[i - 1].ts, it.ts) : 0;
-              // nợ treo trong khe = nợ SAU sự kiện CŨ hơn (item dưới khe) = it.debt_after
-              const debtVal = it.debt_after != null ? Number(it.debt_after) : null;
-              // số chuyển vào khe làm số trượt → item dưới chỉ giữ chấm (không lặp)
-              const slid = d >= 2 && debtVal != null && d >= GAP_SLIDE_MIN_D;
+              if (d >= 2) nodes.push(gapSpacer(d, `gap-${i}`));
+              // header NGÀY dạng divider phẳng — sau khe, trước item đầu của ngày
               const day = dayOf(it);
-              const newDay = i === 0 || dayOf(items[i - 1]) !== day;
-              const header = newDay
-                ? <div class="order-day-head">{orderDayLabel(day)} <span class="muted small">({dayCount.get(day)})</span></div>
-                : null;
-              const note = showNote ? <div class="feed-note">{DEBT_NOTE_TEXT}</div> : null;
-              if (d >= 2) {
-                // header/note ĐI VÀO đáy khe (fg-tail) — không chặn đường trượt của số
-                nodes.push(gapSpacer(d, `gap-${i}`, debtVal, it.debt_est,
-                  (note || header) ? <>{note}{header}</> : null));
-              } else {
-                if (note) nodes.push(<li key={`note-${i}`} class="feed-note-li">{note}</li>);
-                if (header) nodes.push(<li key={`day-${day}-${i}`} class="feed-day-li">{header}</li>);
+              if (i === 0 || dayOf(items[i - 1]) !== day) {
+                nodes.push(
+                  <li key={`day-${day}-${i}`} class="feed-day-li">
+                    <div class="order-day-head">{orderDayLabel(day)} <span class="muted small">({dayCount.get(day)})</span></div>
+                  </li>
+                );
               }
-              nodes.push(renderFeedItem(it, { openThumb, jumpToOrder }, slid));
+              nodes.push(renderFeedItem(it, { openThumb, jumpToOrder }));
               return nodes;
             });
           })()}
