@@ -271,11 +271,15 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
       // line ĐỎ cho tới khi gặp chấm xanh thì chuyển XANH, và cứ thế
       // (đoạn TRÊN mỗi chấm = màu chấm đó, tới chấm kế trên thì đổi).
       // Luật line (đi TỪ DƯỚI LÊN): mốc nợ>0 → đoạn trên nó ĐỎ LIỀN; chạm mốc
-      // nợ=0 → đoạn trên nó NÉT ĐỨT (không còn nợ treo) tới khi phát sinh nợ
-      // lại; không rõ → đứt xám. Kiểu nét/màu do CSS theo st (dl-owe/dl-ok/dl-na).
+      // nợ=0 → CẮT (không vẽ — hết nợ treo) tới khi phát sinh nợ lại;
+      // không rõ → đứt xám. Kiểu nét/màu do CSS theo st (dl-owe/dl-na).
       const dl: { x: number; y1: number; y2: number; st: string }[] = [];
       const segMeta: { topEl: HTMLElement; botEl: HTMLElement; y1: number; y2: number }[] = [];
       for (let i = 0; i < pts.length - 1; i++) {
+        // mốc nợ = 0 → CẮT line phía trên nó (hết nợ treo, không vẽ gì
+        // tới sự kiện kế) — bỏ hẳn đoạn xanh nét đứt cũ. dl/segMeta skip
+        // CÙNG NHAU để index khớp node <line> (cơ chế line bám chấm).
+        if (pts[i + 1].st === "ok") continue;
         dl.push({ x, y1: pts[i].y, y2: pts[i + 1].y, st: pts[i + 1].st });
         segMeta.push({ topEl: pts[i].el, botEl: pts[i + 1].el, y1: pts[i].y, y2: pts[i + 1].y });
       }

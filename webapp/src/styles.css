@@ -818,7 +818,6 @@ body.pv-open { overflow: hidden; }
 /* luật line: đang nợ = ĐỎ LIỀN; sạch nợ (chạm mốc 0) = NÉT ĐỨT xanh nhạt tới khi
    phát sinh nợ lại; không rõ = nét đứt xám */
 .feed-ropes line.dl-owe { stroke: var(--danger); opacity: .5; }
-.feed-ropes line.dl-ok { stroke: var(--ok); opacity: .45; stroke-dasharray: 3 7; }
 .feed-ropes line.dl-na { stroke: #c9ced6; stroke-dasharray: 3 7; }
 /* chừa chỗ cho số nợ ĐẦU TIÊN (nằm trên card đầu) */
 .cf-body.has-items .order-list { padding-top: 12px; }
