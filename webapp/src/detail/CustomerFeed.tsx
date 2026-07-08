@@ -15,7 +15,7 @@ import { Loading, EmptyState, SkeletonList } from "../ui/states";
 import { PhotoViewer } from "./PhotoViewer";
 import {
   type OrderRow, statusLabel, LastAction, CardBody, CompactBody, TaskBadges,
-  InvoiceMini, NEW_ORDER_SEC,
+  InvoiceMini, dayKeyOf, orderDayLabel, NEW_ORDER_SEC,
 } from "./OrderCards";
 
 type View = "full" | "compact" | "ultra";
@@ -109,6 +109,9 @@ const gapSpacer = (d: number, key: string) => (
 // Mốc 6/7/2026 00:00 VN — trước đó phiếu thu CHƯA lưu số nợ (tính năng thêm
 // 6/7/2026): chèn 1 dòng lưu ý tại điểm feed vượt qua mốc này khi cuộn.
 const DEBT_FEATURE_TS = new Date("2026-07-06T00:00:00+07:00").getTime() / 1000;
+
+/** Ngày (DD/MM/YYYY) của 1 item feed. */
+const dayOf = (it: CustFeedItem): string => dayKeyOf(it.kind === "order" ? it.order.created : it.at);
 const debtFeatureNote = (
   <li key="debt-note" class="feed-note" aria-hidden="true">
     ⚠️ Từ đây trở về trước (trước 6/7/2026): số nợ theo phiếu có thể thiếu hoặc là
@@ -353,15 +356,29 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
           </svg>
         )}
         <ul class="order-list" ref={listRef}>
-          {items.flatMap((it, i) => {
-            const nodes = [];
-            // dòng lưu ý tại điểm vượt mốc 6/7/2026 (item đầu tiên CŨ hơn mốc)
-            if (it.ts < DEBT_FEATURE_TS && (i === 0 || items[i - 1].ts >= DEBT_FEATURE_TS)) nodes.push(debtFeatureNote);
-            const d = i > 0 ? gapDays(items[i - 1].ts, it.ts) : 0;
-            if (d >= 2) nodes.push(gapSpacer(d, `gap-${i}`));
-            nodes.push(renderItem(it));
-            return nodes;
-          })}
+          {(() => {
+            // đếm số item mỗi ngày (trong phần đã tải) cho header
+            const dayCount = new Map<string, number>();
+            for (const it of items) { const k = dayOf(it); dayCount.set(k, (dayCount.get(k) || 0) + 1); }
+            return items.flatMap((it, i) => {
+              const nodes = [];
+              // dòng lưu ý tại điểm vượt mốc 6/7/2026 (item đầu tiên CŨ hơn mốc)
+              if (it.ts < DEBT_FEATURE_TS && (i === 0 || items[i - 1].ts >= DEBT_FEATURE_TS)) nodes.push(debtFeatureNote);
+              const d = i > 0 ? gapDays(items[i - 1].ts, it.ts) : 0;
+              if (d >= 2) nodes.push(gapSpacer(d, `gap-${i}`));
+              // header NGÀY dạng divider phẳng — sau khe, trước item đầu của ngày
+              const day = dayOf(it);
+              if (i === 0 || dayOf(items[i - 1]) !== day) {
+                nodes.push(
+                  <li key={`day-${day}-${i}`} class="feed-day-li">
+                    <div class="order-day-head">{orderDayLabel(day)} <span class="muted small">({dayCount.get(day)})</span></div>
+                  </li>
+                );
+              }
+              nodes.push(renderItem(it));
+              return nodes;
+            });
+          })()}
         </ul>
       </div>
       {loading && items.length > 0 && <Loading />}
