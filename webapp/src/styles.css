@@ -579,9 +579,10 @@ body.pv-open { overflow: hidden; }
 .prod-bar-fill { height: 100%; background: #f0a500; border-radius: 3px; transition: width .3s; }
 .prod-bar-fill.done { background: var(--ok); }
 /* Thân card SX: trái = chart thợ (50%, tổng báo cáo trên đầu), phải = lưới ô thùng (tổng nhập trên đầu) */
-.prod-card-body { display: flex; align-items: flex-start; gap: 8px; margin-top: 6px; }
-.pcb-chart { flex: 0 0 50%; min-width: 0; }
-.prod-card-boxes { flex: 1 1 auto; min-width: 0; }
+.prod-card-body { display: flex; align-items: flex-start; gap: 0; margin-top: 6px; }
+.pcb-chart { flex: 1 1 0; min-width: 0; }
+.prod-card-boxes { flex: 1 1 0; min-width: 0; }
+.prod-card-body.with-chart .pcb-chart { padding-right: 8px; }
 .prod-card-body.with-chart .prod-card-boxes { border-left: 1px solid var(--border); padding-left: 8px; align-self: stretch; }
 .pcb-head { display: flex; align-items: center; gap: 3px; font-size: .82rem; font-weight: 700; color: #333; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pcb-head svg { color: var(--muted); }
