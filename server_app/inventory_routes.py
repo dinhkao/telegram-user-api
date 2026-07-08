@@ -805,6 +805,11 @@ async def order_allocate_handler(request: web.Request):
         else:
             return web.json_response({"ok": False, "error": "Chưa chọn thùng"}, status=400)
     actor = _web_actor(request, body)
+    # Đơn đã CHỐT xuất kho → khoá (trừ admin)
+    from server_app.order_stock_lock import stock_locked_error
+    locked = await stock_locked_error(request, thread_id)
+    if locked:
+        return locked
 
     def _run():
         conn = _conn()
@@ -842,6 +847,11 @@ async def order_release_handler(request: web.Request):
         ids = [int(x) for x in ids]
     except (TypeError, ValueError):
         return web.json_response({"ok": False, "error": "allocation_ids không hợp lệ"}, status=400)
+    # Đơn đã CHỐT xuất kho → khoá thu hồi (trừ admin)
+    from server_app.order_stock_lock import stock_locked_error
+    locked = await stock_locked_error(request, thread_id)
+    if locked:
+        return locked
 
     def _run():
         conn = _conn()

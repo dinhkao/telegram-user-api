@@ -519,7 +519,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       </section>
       </div>{/* #od-invoice */}
       <div id="od-stock">
-      <OrderStock threadId={threadId} invoice={j.invoice || []} />
+      <OrderStock threadId={threadId} invoice={j.invoice || []} stockConfirmed={j.stock_confirmed || null} />
       </div>
       <div id="od-payments">
       <Payments threadId={threadId} payments={j.payments || []} suggest={invoiceTotal(j.invoice)} onChanged={changed} />

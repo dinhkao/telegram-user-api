@@ -846,6 +846,11 @@ export type InvProductSummary = {
 };
 
 /** Nhập 1 đợt = N thùng (mỗi thùng số cây tự do). Mã tự sinh. Queueable (offline). */
+/** Chốt/huỷ chốt xuất kho cho đơn (huỷ = admin). */
+export async function stockConfirmOrder(id: string | number, confirm: boolean): Promise<{ stock_confirmed: { at?: string; by?: string } | null }> {
+  return postJSON(`/api/order/${id}/stock-confirm`, { confirm });
+}
+
 export async function addProductionBoxes(
   id: string | number,
   boxes: { quantity: number }[],

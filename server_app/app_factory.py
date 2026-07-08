@@ -268,6 +268,8 @@ def create_app():
     r.add_get("/api/order/{thread_id}/allocations", order_allocations_handler)
     r.add_post("/api/order/{thread_id}/allocate", order_allocate_handler)
     r.add_post("/api/order/{thread_id}/release", order_release_handler)
+    from server_app.order_stock_lock import order_stock_confirm_handler
+    r.add_post("/api/order/{thread_id}/stock-confirm", order_stock_confirm_handler)
 
     # ─── notification center ─────────────────────────────────────────────────
     from server_app.notify import notifications_list_handler
