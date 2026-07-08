@@ -579,11 +579,12 @@ body.pv-open { overflow: hidden; }
 .prod-bar-fill { height: 100%; background: #f0a500; border-radius: 3px; transition: width .3s; }
 .prod-bar-fill.done { background: var(--ok); }
 /* Mini chart báo cáo thợ trên card SX — cột dọc SIÊU THẤP + SIÊU SÁT, chỉ chiếm 1 góc card */
-.prod-mini-chart { margin-top: 6px; display: flex; align-items: flex-end; width: max-content; max-width: 100%; padding: 8px 8px 15px 14px; overflow: hidden; }
-.pmc-col { flex: 0 0 15px; width: 15px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-.pmc-val { font-size: .5rem; font-weight: 600; color: #444; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap;
-  align-self: flex-start; transform: rotate(-50deg) translateX(3px); transform-origin: left bottom; height: 8px; }
-.pmc-bar { display: block; width: 3px; background: var(--primary, #2680ff); border-radius: 1px 1px 0 0; opacity: .85; }
+.prod-mini-chart { margin-top: 6px; display: flex; align-items: flex-end; width: max-content; max-width: 100%; padding: 2px 8px 15px 14px; overflow: hidden; }
+.pmc-col { flex: 0 0 17px; width: 17px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.pmc-val { writing-mode: vertical-rl; font-size: .48rem; font-weight: 600; color: #fff; line-height: 1;
+  font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 3px; }
+.pmc-bar { display: flex; align-items: flex-start; justify-content: center; width: 13px;
+  background: var(--primary, #2680ff); border-radius: 3px 3px 0 0; opacity: .85; }
 .pmc-name { font-size: .48rem; color: #888; white-space: nowrap; height: 9px;
   /* neo ĐUÔI tên vào chân cột: hộp rộng 0 tại tâm cột, chữ dồn về cuối rồi xoay quanh mép phải */
   width: 0; display: flex; justify-content: flex-end; overflow: visible;
