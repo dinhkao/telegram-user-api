@@ -40,14 +40,19 @@ const payMethod = (p: PayItem) => PAY_METHOD_VI[(p.method || "").toLowerCase()] 
 // data-debt trên số nợ → lượt đo SVG vẽ ĐOẠN line chấm-tới-chấm đúng màu
 // (đỏ đang nợ / xanh sạch / xám không rõ) — không đứt ở header ngày, đổi màu
 // CHÍNH XÁC tại chấm.
-function Rail({ delta, deltaCls, debt }: { delta: string | null; deltaCls?: string; debt: number | null | undefined }) {
+function Rail({ delta, deltaCls, debt, est }: {
+  delta: string | null; deltaCls?: string; debt: number | null | undefined; est?: boolean;
+}) {
   return (
     <span class="feed-rail">
-      {/* SỐ nợ = XÁM đậm (lượng, trung tính — khỏi lộn với delta đỏ phát sinh);
-          TRẠNG THÁI thể hiện bằng chấm + line màu (data-debt) */}
+      {/* SỐ nợ = XÁM đậm (lượng); trạng thái ở chấm + line màu (data-debt).
+          est = số TÍNH LẠI từ chuỗi neo mốc KV (bản ghi cũ thiếu số) → hiện ≈ */}
       {debt == null
-        ? <span class="fd-gap fd-na" data-debt="na" title="Bản ghi cũ — không lưu số nợ lúc đó">—</span>
-        : <span class="fd-gap" data-debt={Number(debt) > 0 ? "owe" : "ok"}>{money(Number(debt))}</span>}
+        ? <span class="fd-gap fd-na" data-debt="na" title="Không đủ mốc để tính">—</span>
+        : <span class="fd-gap" data-debt={Number(debt) > 0 ? "owe" : "ok"}
+            title={est ? "Số tính lại từ lịch sử (bản ghi cũ không lưu số nợ)" : undefined}>
+            {est ? "≈" : ""}{money(Number(debt))}
+          </span>}
       {delta && <span class={"feed-delta " + (deltaCls || "")}>{delta}</span>}
     </span>
   );
@@ -147,7 +152,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   const listRef = useRef<HTMLUListElement>(null);
   const [ropes, setRopes] = useState<Rope[]>([]);
   // đoạn line tiến trình nợ (chấm-tới-chấm, màu theo mốc DƯỚI = trạng thái của khoảng đó)
-  const [debtSegs, setDebtSegs] = useState<{ x: number; y1: number; y2: number; st: string; dash: boolean }[]>([]);
+  const [debtSegs, setDebtSegs] = useState<{ x: number; y1: number; y2: number; st: string }[]>([]);
   const orderIdsInFeed = new Set(items.filter((i) => i.kind === "order").map((i: any) => i.order.thread_id));
   useLayoutEffect(() => {
     const ul = listRef.current;
@@ -195,13 +200,12 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
       // Luật màu: đi TỪ DƯỚI LÊN (đúng dòng thời gian cũ→mới) — qua chấm đỏ thì
       // line ĐỎ cho tới khi gặp chấm xanh thì chuyển XANH, và cứ thế
       // (đoạn TRÊN mỗi chấm = màu chấm đó, tới chấm kế trên thì đổi).
-      // đoạn đi ngang qua KHE THỜI GIAN → nét đứt (thời gian trôi, không sự kiện)
-      const gapYs = Array.from(ul.querySelectorAll<HTMLElement>(".feed-gap-li"))
-        .map((el) => { const r = el.getBoundingClientRect(); return (r.top + r.bottom) / 2 - box.top; });
-      const dl: { x: number; y1: number; y2: number; st: string; dash: boolean }[] = [];
+      // Luật line (đi TỪ DƯỚI LÊN): mốc nợ>0 → đoạn trên nó ĐỎ LIỀN; chạm mốc
+      // nợ=0 → đoạn trên nó NÉT ĐỨT (không còn nợ treo) tới khi phát sinh nợ
+      // lại; không rõ → đứt xám. Kiểu nét/màu do CSS theo st (dl-owe/dl-ok/dl-na).
+      const dl: { x: number; y1: number; y2: number; st: string }[] = [];
       for (let i = 0; i < pts.length - 1; i++)
-        dl.push({ x, y1: pts[i].y, y2: pts[i + 1].y, st: pts[i + 1].st,
-                  dash: gapYs.some((gy) => gy > pts[i].y && gy < pts[i + 1].y) });
+        dl.push({ x, y1: pts[i].y, y2: pts[i + 1].y, st: pts[i + 1].st });
       setDebtSegs(dl);
     };
     measure();
@@ -235,8 +239,8 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
 
   const renderItem = (it: CustFeedItem) => {
     if (it.kind === "payment") {
-      const debt = it.new_debt != null ? Number(it.new_debt) : null;
-      const rail = <Rail delta={`−${money(it.amount)}`} deltaCls="d-ok" debt={debt} />;
+      const debt = it.debt_after != null ? Number(it.debt_after) : null;
+      const rail = <Rail delta={`−${money(it.amount)}`} deltaCls="d-ok" debt={debt} est={it.debt_est} />;
       if (view === "ultra") {
         return (
           <li key={`p-${it.thread_id}-${it.ts}`} class="feed-item" data-pay-tid={it.thread_id}>
@@ -260,7 +264,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     }
     const o = it.order as OrderRow;
     const isNew = isRecent(o.created, NEW_ORDER_SEC);
-    const rail = <Rail delta={o.total ? `+${o.total}` : null} deltaCls="d-owe" debt={it.debt_after} />;
+    const rail = <Rail delta={o.total ? `+${o.total}` : null} deltaCls="d-owe" debt={it.debt_after} est={it.debt_est} />;
     if (view === "ultra") {
       // ultra: thumb (ưu tiên ảnh SOẠN HÀNG) trước khối badges+text; giờ HH:mm góc phải-trên
       const text = (o.text || o.topic_name || `#${o.thread_id}`).replace(/\s+/g, " ").trim();
@@ -327,7 +331,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
         {(hasRopes || debtSegs.length > 0) && (
           <svg class="feed-ropes" aria-hidden="true">
             {debtSegs.map((s, i) => (
-              <line key={`d${i}`} class={`dl-${s.st}`} x1={s.x} x2={s.x} y1={s.y1} y2={s.y2} stroke-dasharray={s.dash ? "3 6" : undefined} />
+              <line key={`d${i}`} class={`dl-${s.st}`} x1={s.x} x2={s.x} y1={s.y1} y2={s.y2} />
             ))}
             {ropes.map((r, i) => (
               <g key={i}>

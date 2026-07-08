@@ -1,11 +1,27 @@
 """Feed ĐƠN + THANH TOÁN của 1 khách, gộp 1 dòng thời gian (trang chi tiết khách).
 
 GET /api/customers/{key}/feed?page= → items xen kẽ theo thời gian giảm dần:
-  {kind:'order', ts, order:<row như dashboard>} |
-  {kind:'payment', ts, thread_id, amount, method, code, by, at}
-Đơn của 1 khách ít (vài chục~trăm) nên dựng index gộp trong RAM rồi phân trang;
+  {kind:'order', ts, order:<row như dashboard>, debt_after, debt_est} |
+  {kind:'payment', ts, thread_id, amount, method, code, by, at,
+   old_debt, new_debt, debt_after, debt_est}
+
+── SỐ NỢ SAU MỖI SỰ KIỆN (debt_after) — 2 nguồn ─────────────────────────────────
+1. SỐ GỐC (debt_est=False): số KiotViet ĐÃ LƯU tại thời điểm sự kiện —
+   payment.new_debt (ghi lúc thu, resync nền vá), hoặc snapshot HĐ + tổng đơn.
+2. SỐ TÍNH LẠI (debt_est=True — user cho phép 2026-07-08 cho BẢN GHI CŨ thiếu số,
+   "nhớ note kỹ"): nội suy NEO VÀO MỐC THẬT — quy tắc:
+   • Delta mỗi sự kiện: đơn CÓ HĐ KiotViet → +tổng đơn; đơn KHÔNG HĐ → 0 (không
+     đụng nợ KV); thanh toán → −amount.
+   • MỐC = sự kiện có số gốc + 1 mốc ảo "hiện tại" = công nợ KV đang lưu của khách.
+   • Giữa 2 mốc: chạy TIẾN từ mốc trước (cộng dồn delta); gặp mốc sau thì RESET
+     về số gốc của mốc đó (số thật luôn thắng số tính). Trước mốc đầu: chạy LÙI.
+   • Sự kiện KV bị chỉnh tay giữa 2 mốc → số est trong đoạn đó lệch, nhưng tự
+     re-anchor ở mốc kế → sai số không lan. UI hiện '≈' trước số est để phân biệt.
+
+Đơn của 1 khách ít (vài chục~trăm) nên dựng cả chuỗi trong RAM rồi phân trang;
 row đơn dựng bằng _build_order_row + thumbs — y hệt dashboard để client tái dùng
-card. Nối: server_app.orders_api, server_app.orders_db. Đăng ký ở app_factory.
+card. Nối: server_app.orders_api, server_app.orders_db, bảng customers (mốc ảo).
+Đăng ký ở app_factory.
 """
 from __future__ import annotations
 
@@ -39,12 +55,96 @@ def _ts_key(v) -> float:
         return 0.0
 
 
+def _order_total_num(data: dict) -> int:
+    """Tổng đơn dạng số — cùng nguồn với row dashboard (print_content.tongthanhtoan,
+    fallback Σ sl×giá của invoice)."""
+    pc = (data.get("hoadon") or {}).get("print_content") or {}
+    t = str(pc.get("tongthanhtoan") or "").replace(".", "")
+    if t.isdigit() and int(t) > 0:
+        return int(t)
+    try:
+        return sum(int(it.get("price", 0) or 0) * int(it.get("sl", it.get("quantity", 0)) or 0)
+                   for it in data.get("invoice") or [])
+    except (TypeError, ValueError):
+        return 0
+
+
+def _current_debt(conn, key: str):
+    """Công nợ KiotViet HIỆN TẠI của khách (mốc ảo cuối chuỗi). None nếu không có."""
+    try:
+        row = conn.execute(
+            "SELECT json_extract(json, '$.debt') FROM customers WHERE firebase_key = ? AND deleted_at IS NULL",
+            (key,),
+        ).fetchone()
+        return float(row[0]) if row and row[0] is not None else None
+    except Exception:
+        return None
+
+
+def _fill_debt_chain(events: list[dict], current_debt) -> None:
+    """Điền debt_after cho MỌI sự kiện (events theo thời gian TĂNG dần, mutate).
+
+    Mỗi event: {delta, stored (số gốc hoặc None)} → gắn thêm debt_after + est.
+    Mốc = stored + mốc ảo cuối (current_debt). Tiến giữa các mốc, lùi trước mốc đầu.
+    """
+    n = len(events)
+    for e in events:
+        s = e.get("stored")
+        e["debt_after"] = float(s) if s is not None else None
+        e["est"] = s is None
+    stored_idx = [i for i, e in enumerate(events) if not e["est"]]
+    if not stored_idx and current_debt is None:
+        return   # không có mốc nào — để None hết ('—')
+
+    _TOL = 1.0   # sai số làm tròn cho phép khi đối chiếu 2 mốc
+
+    # GIỮA 2 mốc lưu: chỉ điền khi đoạn CÂN — mốc_trước + Σdelta == mốc_sau.
+    # Không cân = có biến động ngoài app (chỉnh nợ tay KV, HĐ ngoài, xoá HĐ…)
+    # → số nội suy trong đoạn đó KHÔNG tin được → giữ '—' (không hiện số sai).
+    for a, b in zip(stored_idx, stored_idx[1:]):
+        expected = events[a]["debt_after"] + sum(events[k]["delta"] for k in range(a + 1, b + 1))
+        if abs(expected - events[b]["debt_after"]) <= _TOL:
+            running = events[a]["debt_after"]
+            for k in range(a + 1, b):
+                running += events[k]["delta"]
+                events[k]["debt_after"] = running
+        # lệch → bỏ trống cả đoạn (est giữ None)
+
+    # ĐUÔI (sau mốc lưu cuối): LÙI từ mốc ảo "hiện tại" (nợ KV đang có). Có mốc lưu
+    # cuối để đối chiếu → cũng phải CÂN mới điền; không có mốc lưu nào → điền thẳng
+    # nhưng bỏ nếu lòi số ÂM (nợ âm = chuỗi chắc chắn thiếu sự kiện).
+    if current_debt is not None:
+        last = stored_idx[-1] if stored_idx else -1
+        vals: list[float] = []
+        running = float(current_debt)
+        for i in range(n - 1, last, -1):
+            vals.append(running)
+            running -= events[i]["delta"]
+        ok = (abs(running - events[last]["debt_after"]) <= _TOL) if last >= 0 else all(v >= 0 for v in vals)
+        if ok:
+            for j, i in enumerate(range(n - 1, last, -1)):
+                events[i]["debt_after"] = vals[j]
+
+    # ĐẦU (trước mốc đầu): LÙI một phía, không có gì đối chiếu → chỉ điền khi
+    # không lòi số âm.
+    first = stored_idx[0] if stored_idx else n
+    if first > 0 and first < n and events[first]["debt_after"] is not None:
+        vals2: list[float] = []
+        running = events[first]["debt_after"]
+        for i in range(first - 1, -1, -1):
+            running = running - events[i + 1]["delta"]
+            vals2.append(running)
+        if all(v >= 0 for v in vals2):
+            for j, i in enumerate(range(first - 1, -1, -1)):
+                if events[i]["debt_after"] is None:
+                    events[i]["debt_after"] = vals2[j]
+
+
 def _build_feed(conn, key: str, page: int):
     from server_app.orders_api import _ROW_COLUMNS, _build_order_row, _attach_thumbs
-    # 1) index gộp: mọi đơn (ts=created) + mọi payment trong blob đơn (ts=created_at)
-    idx: list[tuple[float, str, object]] = []
-    # CAST AS TEXT: khach_hang_id trong blob khi là số (8) khi là chữ ('8') — so
-    # thẳng = ? bỏ sót các đơn lưu dạng số (vd Loan Phú có 8 đơn kiểu integer).
+    # 1) sự kiện: mọi đơn (ts=created) + mọi payment trong blob (ts=created_at)
+    # CAST AS TEXT: khach_hang_id trong blob khi là số (8) khi là chữ ('8')
+    events: list[dict] = []
     for r in conn.execute(
         "SELECT o.thread_id, o.json FROM orders o "
         "WHERE CAST(json_extract(o.json, '$.khach_hang_id') AS TEXT) = ? AND o.deleted_at IS NULL",
@@ -52,31 +152,53 @@ def _build_feed(conn, key: str, page: int):
     ).fetchall():
         tid = r["thread_id"]
         if tid is None:
-            continue   # row hỏng/di sản — không dựng được card lẫn link
+            continue   # row hỏng/di sản
         try:
             data = json.loads(r["json"])
         except (TypeError, ValueError):
             continue
-        idx.append((_ts_key(data.get("created")) or float(tid), "order", tid))
+        total_num = _order_total_num(data)
+        # đơn "có HĐ" (đã cộng vào nợ KV): field mới kiotvietInvoiceID, HOẶC dấu vết
+        # HĐ đời cũ (hoadon.hd_code / kiotvietInvoiceCode / print_content có tổng)
+        hd = data.get("hoadon") or {}
+        has_kv = bool(data.get("kiotvietInvoiceID") or data.get("kiotvietInvoiceCode")
+                      or hd.get("hd_code") or (hd.get("print_content") or {}).get("tongthanhtoan"))
+        snapshot = data.get("khDebt", data.get("invoice_debt_snapshot"))
+        stored = (float(snapshot) + total_num) if (snapshot is not None and has_kv and total_num) else None
+        events.append({
+            "ts": _ts_key(data.get("created")) or float(tid), "kind": "order", "tid": tid,
+            # đơn KHÔNG có HĐ KiotViet không đụng nợ KV → delta 0
+            "delta": float(total_num) if has_kv else 0.0,
+            "stored": stored,
+        })
         for p in data.get("payments") or []:
-            idx.append((_ts_key(p.get("created_at")), "payment", {
-                "thread_id": tid,
-                "amount": p.get("amount") or 0,
-                "method": p.get("method") or "",
-                "code": p.get("code") or "",
-                "by": p.get("createdBy") or p.get("by") or "",
-                "at": p.get("created_at"),
-                # nợ TRƯỚC/SAU phiếu thu — số KiotViet lưu lúc thu (resync nền vá lại);
-                # bản ghi cũ không có → None, client tự ẩn
-                "old_debt": p.get("old_debt"),
-                "new_debt": p.get("new_debt"),
-            }))
-    idx.sort(key=lambda t: t[0], reverse=True)
-    total = len(idx)
-    chunk = idx[(page - 1) * _PAGE: (page - 1) * _PAGE + _PAGE]
+            nd = p.get("new_debt")
+            events.append({
+                "ts": _ts_key(p.get("created_at")), "kind": "payment", "tid": tid,
+                "delta": -float(p.get("amount") or 0),
+                "stored": float(nd) if nd is not None else None,
+                "pay": {
+                    "thread_id": tid,
+                    "amount": p.get("amount") or 0,
+                    "method": p.get("method") or "",
+                    "code": p.get("code") or "",
+                    "by": p.get("createdBy") or p.get("by") or "",
+                    "at": p.get("created_at"),
+                    "old_debt": p.get("old_debt"),
+                    "new_debt": nd,
+                },
+            })
 
-    # 2) dựng row dashboard cho các đơn trong trang này
-    order_ids = [t[2] for t in chunk if t[1] == "order"]
+    # 2) chuỗi nợ: sắp TĂNG dần thời gian, neo mốc, điền debt_after (est cho số tính lại)
+    events.sort(key=lambda e: e["ts"])
+    _fill_debt_chain(events, _current_debt(conn, key))
+
+    # 3) phân trang theo thời gian GIẢM dần
+    events.reverse()
+    total = len(events)
+    chunk = events[(page - 1) * _PAGE: (page - 1) * _PAGE + _PAGE]
+
+    order_ids = [e["tid"] for e in chunk if e["kind"] == "order"]
     rows_by_id = {}
     if order_ids:
         qs = ",".join("?" * len(order_ids))
@@ -88,21 +210,15 @@ def _build_feed(conn, key: str, page: int):
         rows_by_id = {o["thread_id"]: o for o in built}
 
     items = []
-    for ts, kind, payload in chunk:
-        if kind == "order":
-            row = rows_by_id.get(payload)
+    for e in chunk:
+        da = e.get("debt_after")
+        base = {"ts": e["ts"], "debt_after": da, "debt_est": bool(e.get("est")) if da is not None else False}
+        if e["kind"] == "order":
+            row = rows_by_id.get(e["tid"])
             if row:
-                # Nợ SAU đơn = nợ trước (snapshot KiotViet lúc tạo HĐ, row.kh_debt)
-                # + tổng đơn — đúng bút toán KV (HĐ cộng toàn bộ tổng vào nợ,
-                # phiếu thu trừ lại sau). Thiếu snapshot (chưa HĐ) → None, ẩn.
-                debt_after = None
-                kh_debt = row.get("kh_debt")
-                digits = str(row.get("total") or "").replace(".", "")
-                if kh_debt is not None and digits.isdigit() and int(digits) > 0:
-                    debt_after = int(kh_debt) + int(digits)
-                items.append({"kind": "order", "ts": ts, "order": row, "debt_after": debt_after})
+                items.append({"kind": "order", "order": row, **base})
         else:
-            items.append({"kind": "payment", "ts": ts, **payload})
+            items.append({"kind": "payment", **e["pay"], **base})
     return items, total
 
 
