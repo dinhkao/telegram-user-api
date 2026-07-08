@@ -1,8 +1,8 @@
 // Xuất kho cho đơn: mỗi mã SP trong hoá đơn → nút "Chọn thùng" mở popup chọn thùng
 // (lấy 1 phần được, nhiều thùng — thùng KHÔNG tách, chỉ giảm phần còn lại). Hiện các
 // phần đã xuất + thu hồi. Tap mã thùng → chi tiết thùng.
-// CHỐT xuất kho: xuất đủ mọi mã → bấm Chốt → KHOÁ sửa/thu hồi (server cũng chặn);
-// chỉ admin còn sửa được + huỷ chốt. Nút bị khoá = mờ + toast lý do.
+// CHỐT xuất kho: xuất đủ mọi mã → bấm Chốt → KHOÁ sửa/thu hồi VỚI TẤT CẢ (server
+// cũng chặn); admin muốn sửa phải bấm Huỷ chốt. Nút bị khoá = mờ + toast lý do.
 import { useEffect, useState } from "preact/hooks";
 import { orderAllocations, allocatePicks, releaseAllocations, stockConfirmOrder, currentUser, soVN, type Allocation } from "../api";
 import { StockPickerModal } from "./StockPickerModal";
@@ -32,7 +32,7 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
   useEffect(() => { setLocalSt(null); }, [stockConfirmed]);
   const confirmed: Confirmed = localSt === "cleared" ? null : (localSt as Confirmed) || stockConfirmed || null;
   const isAdmin = currentUser()?.role === "admin";
-  const locked = !!confirmed && !isAdmin;
+  const locked = !!confirmed;   // chốt = khoá VỚI TẤT CẢ — admin phải Huỷ chốt mới sửa
 
   const load = async () => {
     try {
@@ -69,7 +69,7 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
   const gotOf = (code: string) => allocs.filter((a) => a.product_code === code).reduce((s, a) => s + a.quantity, 0);
   const allEnough = allocs.length > 0 && products.every((p) => gotOf(p.code) + 1e-6 >= p.need);
 
-  const lockedToast = () => toast("Đã chốt xuất kho — chỉ admin sửa/thu hồi được", "info");
+  const lockedToast = () => toast(isAdmin ? "Đã chốt xuất kho — bấm Huỷ chốt để sửa" : "Đã chốt xuất kho — chỉ admin mở khoá được", "info");
 
   const doRelease = async (a: Allocation) => {
     if (locked) return lockedToast();

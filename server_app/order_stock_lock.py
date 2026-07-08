@@ -2,8 +2,8 @@
 
 Chốt = ghi {at, by} vào $.stock_confirmed của blob đơn (orders, app.db). Điều kiện
 chốt: mọi mã SP trong hoá đơn đã xuất ĐỦ số. Sau chốt, allocate/release bị KHOÁ
-trừ admin (inventory_routes gọi stock_locked_error trước khi ghi); huỷ chốt cũng
-chỉ admin. Nối: order_store.serialization, inventory_store, utils.db,
+với MỌI NGƯỜI (inventory_routes gọi stock_locked_error trước khi ghi); admin muốn
+sửa phải HUỶ CHỐT trước (huỷ chốt = admin-only). Nối: order_store.serialization, inventory_store, utils.db,
 server_app.realtime, server_app.order_api_common (is_admin_request), audit_log.
 """
 from __future__ import annotations
@@ -27,8 +27,8 @@ def _get_confirmed(conn, thread_id: int) -> dict | None:
 
 
 async def stock_locked_error(request: web.Request, thread_id: int) -> web.Response | None:
-    """Đơn đã chốt xuất kho + người gọi KHÔNG phải admin → trả lỗi 403 (chặn
-    allocate/release). None = được phép ghi tiếp."""
+    """Đơn đã chốt xuất kho → chặn allocate/release với MỌI NGƯỜI (403) — admin
+    muốn sửa phải HUỶ CHỐT trước (nút Huỷ chốt, admin-only). None = được ghi."""
     def _read():
         conn = get_connection()
         try:
@@ -38,11 +38,8 @@ async def stock_locked_error(request: web.Request, thread_id: int) -> web.Respon
     confirmed = await asyncio.to_thread(_read)
     if not confirmed:
         return None
-    from server_app.order_api_common import is_admin_request
-    if await is_admin_request(request):
-        return None
     return web.json_response(
-        {"ok": False, "error": "Đã chốt xuất kho — chỉ admin sửa/thu hồi được", "locked": True},
+        {"ok": False, "error": "Đã chốt xuất kho — admin bấm Huỷ chốt mới sửa được", "locked": True},
         status=403,
     )
 
