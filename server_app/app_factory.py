@@ -270,6 +270,9 @@ def create_app():
     r.add_post("/api/order/{thread_id}/release", order_release_handler)
     from server_app.order_stock_lock import order_stock_confirm_handler
     r.add_post("/api/order/{thread_id}/stock-confirm", order_stock_confirm_handler)
+    from server_app.settings_routes import settings_get_handler, settings_set_handler
+    r.add_get("/api/settings", settings_get_handler)
+    r.add_post("/api/settings", settings_set_handler)
 
     # ─── notification center ─────────────────────────────────────────────────
     from server_app.notify import notifications_list_handler

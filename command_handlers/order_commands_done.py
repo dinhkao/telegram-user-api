@@ -33,6 +33,13 @@ def register_order_commands_done(client, db_conn):
             return
         sender_id = getattr(msg, "sender_id", None)
         user_name = await resolve_user_name(client, sender_id)
+        # Soạn hàng: cần chốt xuất kho + ảnh soạn hàng (rule tắt/bật ở Cài đặt webapp)
+        if task_type == "soan_hang" and order:
+            from order_store.guards import soan_hang_block_reason
+            reason = soan_hang_block_reason(db_conn, thread_id, order)
+            if reason:
+                await client.send_message(msg.chat_id, f"⛔ {reason}", reply_to=msg.id)
+                return
         if set_task_status(db_conn, thread_id, task_type, sender_id):
             if task_type == "giao_hang":
                 from nop_tien_reminder import start_reminder

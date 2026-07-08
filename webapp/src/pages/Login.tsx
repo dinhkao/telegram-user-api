@@ -1,8 +1,40 @@
 // Trang đăng nhập. Webapp cùng origin với server (APK nạp URL từ xa qua Tailscale)
 // nên không cần nhập server URL nữa — gọi API bằng đường dẫn tương đối.
-import { useState } from "preact/hooks";
-import { currentUser, login, setAuth } from "../api";
+// Đã đăng nhập → trang CÀI ĐẶT (thông tin + đăng xuất; admin thêm toggle hệ thống).
+import { useEffect, useState } from "preact/hooks";
+import { currentUser, login, setAuth, getAppSettings, setAppSetting, type AppSettings } from "../api";
 import { AppUpdate } from "../detail/AppUpdate";
+import { toast } from "../ui/feedback";
+
+/** Cài đặt hệ thống (admin): toggle rule vận hành, lưu server (kv_store). */
+function AdminSettings() {
+  const [st, setSt] = useState<AppSettings | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { getAppSettings().then(setSt).catch(() => setSt({})); }, []);
+  if (!st) return null;
+  const flip = async (key: string) => {
+    setBusy(true);
+    try {
+      const next = await setAppSetting(key, !st[key]);
+      setSt(next);
+      toast(next[key] ? "Đã BẬT" : "Đã TẮT", "ok");
+    } catch (e: any) {
+      toast(e?.message || "Lỗi lưu cài đặt", "err");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div class="card">
+      <label class="card-label">⚙️ Cài đặt hệ thống (admin)</label>
+      <label class="set-row">
+        <input type="checkbox" checked={!!st.soan_hang_require_stock} disabled={busy}
+          onChange={() => flip("soan_hang_require_stock")} />
+        <span>Soạn hàng cần <b>chốt xuất kho</b> + <b>ảnh soạn hàng</b> mới đánh dấu xong được</span>
+      </label>
+    </div>
+  );
+}
 
 export function Login() {
   const [username, setUsername] = useState("");
@@ -39,6 +71,7 @@ export function Login() {
               <button class="btn danger" onClick={() => { setAuth("", null); window.location.reload(); }}>Đăng xuất</button>
             </div>
           </div>
+          {user.role === "admin" && <AdminSettings />}
           <AppUpdate />
         </>
       ) : (

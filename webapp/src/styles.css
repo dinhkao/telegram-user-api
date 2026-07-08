@@ -500,6 +500,10 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .cam-overlay { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); overscroll-behavior: contain; }
 .cam-overlay .cambox { margin: 0; width: 100%; max-width: 460px; box-shadow: var(--e3); }
 .cam-overlay .cam-view { aspect-ratio: 3 / 4; max-height: 74vh; }
+/* Cài đặt hệ thống (trang Cài đặt, admin) */
+.set-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; font-size: .92rem; line-height: 1.45; cursor: pointer; }
+.set-row input { width: 20px; height: 20px; margin-top: 1px; flex: 0 0 auto; }
+
 /* Chốt xuất kho cho đơn — banner khoá + nút chốt */
 .stock-locked { display: flex; align-items: center; gap: 6px; background: var(--ok-wash); border: 1px solid #bfe3c8; color: var(--ok); border-radius: 8px; padding: 7px 10px; font-weight: 700; font-size: .85rem; margin: 6px 0 8px; }
 .stock-locked .stock-unlock { margin-left: auto; }

@@ -67,6 +67,13 @@ async def api_task_handler_impl(body: dict):
     if internal_type not in _VALID_TASK_TYPES and internal_type not in custom_labels:
         return web.json_response({"ok": False, "error": f"Loại task không hợp lệ: {task_type}"}, status=400)
     task_names = {"soan_hang": "soạn hàng", "ban_hd": "bán HĐ", "giao_hang": "giao hàng", "nop_tien": "nộp tiền", "nhan_tien": "nhận tiền", **custom_labels}
+    # Soạn hàng chỉ đánh dấu XONG được khi đã chốt xuất kho + có ảnh soạn hàng
+    # (rule bật/tắt ở Cài đặt: soan_hang_require_stock)
+    if internal_type == "soan_hang" and done:
+        from order_store.guards import soan_hang_block_reason
+        reason = soan_hang_block_reason(conn, int(thread_id), order)
+        if reason:
+            return web.json_response({"ok": False, "error": reason}, status=400)
     set_task_status(conn, thread_id, internal_type, user_id, done=done, note=note)
     if internal_type == "giao_hang":
         from nop_tien_reminder import start_reminder, stop_reminder

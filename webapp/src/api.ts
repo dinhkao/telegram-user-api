@@ -846,6 +846,17 @@ export type InvProductSummary = {
 };
 
 /** Nhập 1 đợt = N thùng (mỗi thùng số cây tự do). Mã tự sinh. Queueable (offline). */
+// ── Cài đặt hệ thống (admin toggle) ──
+export type AppSettings = Record<string, boolean>;
+export async function getAppSettings(): Promise<AppSettings> {
+  const d = await getJSON("/api/settings", { cache: false });
+  return d.settings || {};
+}
+export async function setAppSetting(key: string, value: boolean): Promise<AppSettings> {
+  const d = await postJSON("/api/settings", { key, value });
+  return d.settings || {};
+}
+
 /** Chốt/huỷ chốt xuất kho cho đơn (huỷ = admin). */
 export async function stockConfirmOrder(id: string | number, confirm: boolean): Promise<{ stock_confirmed: { at?: string; by?: string } | null }> {
   return postJSON(`/api/order/${id}/stock-confirm`, { confirm });
