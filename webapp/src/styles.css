@@ -1571,10 +1571,32 @@ body.kbd-open .od-navbar { display: none; }
 .qa.qa-off .qa-lb { color: var(--muted); }
 
 /* Tạo khách mới (dashboard khách) */
-.cust-topbar { display: flex; gap: 8px; align-items: center; }
+.cust-topbar { display: flex; flex-direction: row; gap: 8px; align-items: center; }   /* .topbar chung là column */
 .cust-topbar .search { flex: 1; }
 .cust-add { flex: 0 0 auto; width: 42px; height: 42px; font-size: 1.4rem; line-height: 1; padding: 0; border-radius: 10px; }
 .cust-in { width: 100%; box-sizing: border-box; padding: 11px; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; }
+/* ── DASHBOARD KHÁCH: KPI 3 ô (tái dùng tk-stat) + card khách ── */
+.cu-stats { margin: 2px 0 4px; grid-template-columns: 1fr 1fr 1.4fr; }
+.cu-stats div.tk-stat { cursor: default; }
+.cu-stats div.tk-stat:active { transform: none; }
+/* Tổng nợ = chuỗi tiền dài → chữ nhỏ hơn nhưng CAO DÒNG khớp số to bên cạnh */
+.cu-stats .cu-stat-sum .tk-stat-n { font-size: .98rem; line-height: 1.55; }
+.cust-list { list-style: none; margin: 8px 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cust-card { display: flex; align-items: center; gap: 11px; background: var(--card);
+  border: 1px solid var(--border); border-radius: 12px; padding: 11px 12px;
+  text-decoration: none; color: inherit; box-shadow: var(--e1); }
+.cust-card:active { background: var(--bg); }
+.cu-ava { flex: none; display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 50%; color: #fff; font-size: 1.05rem;
+  font-weight: 700; text-transform: uppercase; }
+.cu-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cu-name { font-size: .95rem; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cu-meta { font-size: .74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cu-right { flex: none; display: flex; align-items: center; gap: 4px; }
+.cu-debt { color: var(--danger); font-size: .92rem; font-variant-numeric: tabular-nums; }
+.cu-clean { display: inline-flex; align-items: center; gap: 3px; font-size: .72rem; font-weight: 650;
+  color: var(--ok); background: var(--ok-wash); border-radius: 999px; padding: 2px 8px; }
+.cu-chev { color: var(--muted-2); }
 
 /* Popup SẮP THỨ TỰ thợ (WorkerOrderPopup) — trang sửa báo cáo phiếu SX */
 .wo-list { padding: 4px 0; }

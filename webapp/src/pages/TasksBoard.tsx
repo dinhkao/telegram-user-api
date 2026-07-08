@@ -15,6 +15,7 @@ import { usePopupBack } from "../ui/usePopupBack";
 import { SelectPopup } from "../ui/SelectPopup";
 import { Icon } from "../ui/Icon";
 import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
+import { avaColor } from "../ui/avatar";
 import { toast } from "../ui/feedback";
 import { EmptyState, SkeletonList } from "../ui/states";
 import { fmtRelative } from "../format";
@@ -46,11 +47,6 @@ onRealtime((e) => {
 });
 
 const dmy = (d?: string | null) => (d ? `${d.slice(8)}/${d.slice(5, 7)}` : "");
-
-// màu avatar theo tên (ổn định) — nhận diện người nhanh trong list dài
-const AVA_COLORS = ["#1a73e8", "#188038", "#b26b00", "#7b3ff2", "#c2185b", "#00838f"];
-const avaColor = (s: string) =>
-  AVA_COLORS[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % AVA_COLORS.length];
 
 /** Card 1 việc — dùng chung list + popup lịch. Accent trái theo trạng thái
  *  (đỏ quá hạn / xanh dương đang mở / xanh lá xong), checkbox tròn, note 1 dòng. */

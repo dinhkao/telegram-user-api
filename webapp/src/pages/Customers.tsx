@@ -1,4 +1,6 @@
-// Khách hàng — tìm kiếm + công nợ + infinite scroll. GET /api/customers?search=&sort=recent&page=.
+// Khách hàng — KPI 3 ô (tổng/đang nợ/tổng nợ — chạm Đang nợ = lọc + sort nợ),
+// tìm kiếm, card khách (avatar màu + nợ nổi bật + lần đặt gần nhất), infinite
+// scroll. GET /api/customers?search=&sort=&owing=&page= (+stats ở trang 1).
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON, createCustomer } from "../api";
 import { money, fmtTime } from "../format";
@@ -6,14 +8,19 @@ import { onRealtime } from "../realtime";
 import { Loading, EmptyState } from "../ui/states";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
-import { SearchBar } from "../ui/SearchBar";
+import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
 import { usePopupBack } from "../ui/usePopupBack";
+import { avaColor } from "../ui/avatar";
 
 const PAGE_SIZE = 30;
+type CustStats = { total: number; owing: number; debt_sum: number };
 
 // Cache toàn bộ list đã tải (module scope) → quay lại giữ nguyên list + vị trí cuộn
 // (hệ cuộn trung tâm main.tsx khôi phục ngay, khỏi refetch/nhảy trang).
-let custCache: { customers: any[]; page: number; totalPages: number; search: string } | null = null;
+let custCache: {
+  customers: any[]; page: number; totalPages: number; search: string;
+  owing: boolean; stats: CustStats | null;
+} | null = null;
 
 // FIX realtime khi trang ĐANG UNMOUNT: đánh dấu "bẩn" nếu khách/công nợ đổi lúc vắng
 // mặt → mount lại VÁ TẠI CHỖ (refreshMerge) thay vì hiện cache cũ. KHÔNG bỏ cache nên
@@ -24,30 +31,35 @@ onRealtime((e) => {
 });
 
 export function Customers() {
-  const [search, setSearch] = useState("");
-  const [customers, setCustomers] = useState<any[]>([]);
+  const c0 = custCache;
+  const [search, setSearch] = useState(c0?.search || "");
+  const [customers, setCustomers] = useState<any[]>(c0?.customers || []);
+  const [stats, setStats] = useState<CustStats | null>(c0?.stats || null);
+  const [owing, setOwing] = useState(c0?.owing || false);   // lọc ĐANG NỢ (KPI tile)
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(c0?.page || 1);
+  const [totalPages, setTotalPages] = useState(c0?.totalPages || 1);
   const reqSeq = useRef(0);
   const sentinel = useRef<HTMLDivElement>(null);
-  const st = useRef({ page: 1, totalPages: 1, loading: false, search: "" });
-  st.current = { page, totalPages, loading, search };
+  const st = useRef({ page: 1, totalPages: 1, loading: false, search: "", owing: false });
+  st.current = { page, totalPages, loading, search, owing };
   const snap = useRef<any>(null);
-  snap.current = { customers, page, totalPages, search };
+  snap.current = { customers, page, totalPages, search, owing, stats };
 
-  const load = async (p: number, q: string, append: boolean) => {
+  // đang nợ → sort nợ nhiều nhất trước; bình thường → hoạt động gần nhất trước
+  const qUrl = (p: number, q: string, ow: boolean) =>
+    `/api/customers?search=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&page=${p}&sort=${ow ? "debt" : "recent"}${ow ? "&owing=1" : ""}`;
+
+  const load = async (p: number, q: string, append: boolean, ow = st.current.owing) => {
     const seq = ++reqSeq.current;
     setLoading(true);
     setErr("");
     try {
-      const r = await getJSON(
-        `/api/customers?search=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&page=${p}&sort=recent`,
-        { cache: false },
-      );
+      const r = await getJSON(qUrl(p, q, ow), { cache: false });
       if (seq !== reqSeq.current) return;
       setTotalPages(r.total_pages || 1);
+      if (r.stats) setStats(r.stats);
       setCustomers((prev) => (append ? [...prev, ...(r.customers || [])] : r.customers || []));
     } catch (ex: any) {
       if (seq === reqSeq.current) setErr(ex.message);
@@ -57,11 +69,7 @@ export function Customers() {
   };
 
   useEffect(() => {
-    if (custCache) {   // quay lại → dựng lại list đã tải (đủ cao cho hệ cuộn khôi phục)
-      setCustomers(custCache.customers);
-      setPage(custCache.page);
-      setTotalPages(custCache.totalPages);
-      setSearch(custCache.search);
+    if (custCache) {   // quay lại → state đã dựng từ cache (đủ cao cho hệ cuộn khôi phục)
       if (custDirty) { custDirty = false; refreshMerge(); }   // đổi lúc vắng mặt → vá tại chỗ (giữ cuộn)
       return;
     }
@@ -92,9 +100,9 @@ export function Customers() {
   // rồi VÁ tại chỗ theo key (giữ nguyên các trang đã cuộn + vị trí), chèn khách mới lên đầu.
   const refreshMerge = async () => {
     try {
-      const q = st.current.search;
-      const r = await getJSON(`/api/customers?search=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&page=1&sort=recent`, { cache: false });
+      const r = await getJSON(qUrl(1, st.current.search, st.current.owing), { cache: false });
       const fresh: any[] = r.customers || [];
+      if (r.stats) setStats(r.stats);
       const byKey = new Map(fresh.map((c) => [c.key, c]));
       setCustomers((prev) => {
         const seen = new Set(prev.map((c) => c.key));
@@ -103,6 +111,13 @@ export function Customers() {
         return added.length ? [...added, ...patched] : patched;
       });
     } catch { /* im lặng */ }
+  };
+
+  const toggleOwing = () => {
+    const ow = !owing;
+    setOwing(ow);
+    setPage(1);
+    load(1, st.current.search, false, ow);
   };
   useEffect(() => {
     let t: any;
@@ -145,10 +160,30 @@ export function Customers() {
 
   return (
     <div>
+      {/* KPI khách — chạm "Đang nợ" = lọc khách còn nợ, sort nợ nhiều nhất trước */}
+      <div class="tk-stats cu-stats">
+        <div class="tk-stat st-blue">
+          <span class="tk-stat-n">{stats ? stats.total : "–"}</span>
+          <span class="tk-stat-l"><Icon name="users" size={12} /> Tổng khách</span>
+        </div>
+        <button class={"tk-stat st-red" + (owing ? " on" : "")} onClick={toggleOwing}>
+          <span class="tk-stat-n">{stats ? stats.owing : "–"}</span>
+          <span class="tk-stat-l"><Icon name="wallet" size={12} /> Đang nợ</span>
+        </button>
+        <div class="tk-stat st-red cu-stat-sum">
+          <span class="tk-stat-n">{stats ? money(Math.round(stats.debt_sum)) : "–"}</span>
+          <span class="tk-stat-l"><Icon name="banknote" size={12} /> Tổng nợ</span>
+        </div>
+      </div>
+
       <header class="topbar cust-topbar">
         <SearchBar value={search} onInput={onSearch} placeholder="Tìm khách hàng…" />
         <button class="btn primary cust-add" onClick={() => setCreating(true)} title="Tạo khách mới"><Icon name="plus" size={16} /></button>
       </header>
+      <FilterActiveBar
+        parts={[owing && "Đang nợ (nợ nhiều nhất trước)", search.trim() && `“${search.trim()}”`]}
+        count={customers.length}
+        onClear={() => { setSearch(""); setOwing(false); setPage(1); load(1, "", false, false); }} />
 
       {creating && (
         <div class="modal-overlay" onClick={saving ? undefined : () => setCreating(false)}>
@@ -170,29 +205,30 @@ export function Customers() {
         </div>
       )}
       {err && <p class="error">{err}</p>}
-      <ul class="order-list">
-        {customers.map((c) => (
-          <li key={c.key}>
-            <a class="order-card" href={`#/khach/${encodeURIComponent(c.key)}`}>
-              <div class="row space">
-                <b>{c.name}</b>
-                {c.debt != null && (
-                  <span class={Number(c.debt) > 0 ? "owe" : "muted"}>
-                    nợ {money(Number(c.debt) || 0)}
+      <ul class="cust-list">
+        {customers.map((c) => {
+          const debt = c.debt != null ? Number(c.debt) || 0 : null;
+          return (
+            <li key={c.key}>
+              <a class="cust-card" href={`#/khach/${encodeURIComponent(c.key)}`}>
+                <span class="cu-ava" style={{ background: avaColor(c.name || c.key) }}>{(c.name || c.key)[0]}</span>
+                <span class="cu-main">
+                  <b class="cu-name">{c.name}</b>
+                  <span class="cu-meta">
+                    {c.kh_id ? `KV ${c.kh_id}` : c.key}
+                    {c.last_order_at ? ` · đặt ${fmtTime(c.last_order_at)}` : ""}
                   </span>
-                )}
-              </div>
-              <div class="row space">
-                <span class="muted small">
-                  {c.kh_id ? `KV: ${c.kh_id} · ` : ""}
-                  {c.key}
                 </span>
-                {c.last_order_at && <span class="muted small"><Icon name="box" size={16} /> {fmtTime(c.last_order_at)}</span>}
-              </div>
-              <span class="muted small"><Icon name="edit" size={16} /> Sửa bảng giá · pattern · xem đơn →</span>
-            </a>
-          </li>
-        ))}
+                <span class="cu-right">
+                  {debt != null && (debt > 0
+                    ? <b class="cu-debt">{money(debt)}</b>
+                    : <span class="cu-clean"><Icon name="check" size={12} /> Sạch nợ</span>)}
+                  <Icon name="chevronRight" size={16} class="cu-chev" />
+                </span>
+              </a>
+            </li>
+          );
+        })}
       </ul>
       <div ref={sentinel} style="height:1px" />
       {loading && <Loading />}

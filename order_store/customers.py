@@ -22,13 +22,21 @@ def _recent_key(v) -> float:
     return 0.0
 
 
+def _debt_num(data: dict) -> float:
+    try:
+        return float(data.get("debt") or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def search_customers(conn, name: str, limit: int = 20, *, sort: str = "name",
-                     offset: int = 0) -> tuple[list[dict], int]:
+                     offset: int = 0, owing: bool = False) -> tuple[list[dict], int]:
     """Return (customers, total_count), phân trang offset.
 
     Tìm KHÔNG DẤU (vn_normalize) như ô tìm dashboard: gõ 'loan phu' khớp 'Loàn
     Phú'. Khớp trên tên/ten/firebase_key/mẫu nhận diện. 343 khách → quét toàn bộ
-    trong bộ nhớ rất nhanh."""
+    trong bộ nhớ rất nhanh. owing=True → chỉ khách ĐANG NỢ (debt > 0);
+    sort='debt' → nợ nhiều nhất trước."""
     q = vn_normalize(name.strip()) if name and name.strip() else ""
     matched: list[dict] = []
     for firebase_key, json_text in conn.execute(
@@ -37,6 +45,8 @@ def search_customers(conn, name: str, limit: int = 20, *, sort: str = "name",
         try:
             data = json.loads(json_text)
         except json.JSONDecodeError:
+            continue
+        if owing and _debt_num(data) <= 0:
             continue
         if q:
             pats = data.get("detectPatterns") or data.get("patterns") or []
@@ -50,10 +60,29 @@ def search_customers(conn, name: str, limit: int = 20, *, sort: str = "name",
         matched.append(data)
     if sort == "recent":
         matched.sort(key=lambda d: _recent_key(d.get("last_order_at")), reverse=True)
+    elif sort == "debt":
+        matched.sort(key=_debt_num, reverse=True)
     else:
         matched.sort(key=lambda d: vn_normalize(str(d.get("name") or d.get("ten") or d.get("_firebase_key") or "")))
     total = len(matched)
     return matched[offset:offset + limit], total
+
+
+def customer_stats(conn) -> dict:
+    """Tổng quan khách cho KPI dashboard khách: tổng số, số đang nợ, tổng nợ."""
+    total = owing = 0
+    debt_sum = 0.0
+    for (json_text,) in conn.execute("SELECT json FROM customers WHERE deleted_at IS NULL"):
+        try:
+            data = json.loads(json_text)
+        except json.JSONDecodeError:
+            continue
+        total += 1
+        d = _debt_num(data)
+        if d > 0:
+            owing += 1
+            debt_sum += d
+    return {"total": total, "owing": owing, "debt_sum": debt_sum}
 
 
 def add_customer(conn, customer_data: dict) -> tuple[bool, str]:

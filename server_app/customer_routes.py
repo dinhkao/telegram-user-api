@@ -28,8 +28,9 @@ def _summary(data: dict, firebase_key: str) -> dict:
 async def customers_search_handler(request: web.Request):
     search = request.query.get("search", "").strip()
     sort = request.query.get("sort", "name")
-    if sort not in ("name", "recent"):
+    if sort not in ("name", "recent", "debt"):
         sort = "name"
+    owing = request.query.get("owing", "").strip() in ("1", "true")
     try:
         limit = max(1, min(50, int(request.query.get("limit", "20"))))
     except ValueError:
@@ -41,16 +42,23 @@ async def customers_search_handler(request: web.Request):
     offset = (page - 1) * limit
 
     def _run():
+        from order_db import customer_stats
         conn = _get_connection()
         try:
-            return search_customers(conn, search, limit=limit, sort=sort, offset=offset)
+            res = search_customers(conn, search, limit=limit, sort=sort, offset=offset, owing=owing)
+            # KPI dashboard khách — chỉ tính kèm ở trang 1 (đỡ quét lại mỗi trang cuộn)
+            stats = customer_stats(conn) if page == 1 else None
+            return res, stats
         finally:
             conn.close()
 
-    results, total = await asyncio.to_thread(_run)
+    (results, total), stats = await asyncio.to_thread(_run)
     total_pages = max(1, -(-total // limit))
-    return web.json_response({"ok": True, "customers": [_summary(c, c.get("_firebase_key", "")) for c in results],
-                              "page": page, "total_pages": total_pages, "total": total})
+    body = {"ok": True, "customers": [_summary(c, c.get("_firebase_key", "")) for c in results],
+            "page": page, "total_pages": total_pages, "total": total}
+    if stats is not None:
+        body["stats"] = stats
+    return web.json_response(body)
 
 
 async def customer_detail_handler(request: web.Request):

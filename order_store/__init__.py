@@ -4,7 +4,7 @@ from .serialization import get_order_by_thread_id, _get_order_firebase_key, _sav
 from .orders import delete_order, get_order_html, set_order_flag, save_order_invoice
 from .tasks import _all_steps_done, set_task_status, clear_task_status, get_all_tasks, sort_tasks
 from .custom_tasks import add_custom_task, remove_custom_task
-from .customers import search_customers, add_customer, update_customer, get_customer_kv_id, get_customer_by_key, touch_customer_last_order, update_customer_debt
+from .customers import customer_stats, search_customers, add_customer, update_customer, get_customer_kv_id, get_customer_by_key, touch_customer_last_order, update_customer_debt
 from .search import search_products, get_customer_price_list, _invalidate_customer_patterns_cache
 from .comma_parser import _parse_no_qc, _parse_qc, parse_comma_text
 from .free_text import parse_invoice_free_text
@@ -35,7 +35,7 @@ __all__ = [
     "delete_all_tasks",
     "sort_tasks",
     "migrate_tasks_to_v2",
-    "search_customers",
+    "customer_stats", "search_customers",
     "add_customer",
     "update_customer",
     "get_customer_kv_id",
