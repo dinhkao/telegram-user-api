@@ -409,6 +409,7 @@ export function OrdersList() {
             {_VIEWS.map((v) => (
               <button key={v.m} class={view === v.m ? "vs-seg on" : "vs-seg"} title={v.t} aria-pressed={view === v.m} onClick={() => setViewMode(v.m)}>{v.ic}</button>
             ))}
+            <a class="vs-seg" title="Lịch giao" href="#/lich"><Icon name="calendar" size={14} /></a>
           </div>
         </div>
         {anyFilter && (
@@ -437,7 +438,6 @@ export function OrdersList() {
         <span class="sort-lbl">Sắp xếp:</span>
         <button class={sort === "created" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("created")}>Mới tạo</button>
         <button class={sort === "updated" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("updated")}>Mới cập nhật</button>
-        <a class="sort-opt cal-chip" href="#/lich" title="Lịch giao hàng"><Icon name="calendar" size={15} /> Lịch giao</a>
       </div>
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {err && <p class="error">{err}</p>}
