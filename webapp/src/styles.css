@@ -85,6 +85,7 @@ body.modal-open { overflow: hidden; touch-action: none; overscroll-behavior: non
 @keyframes nop-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 /* Có banner (~28px) → các sticky khác neo top 44px phải tụt xuống 72px */
 body.has-nop .topbar, body.has-nop .od-appbar { top: 72px; }
+body.has-nop .cc-cont-head { top: 72px; }
 body.has-nop .notice { top: 76px; }
 
 .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 25; display: flex; background: var(--card); border-top: 1px solid var(--border); max-width: 640px; margin: 0 auto; padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -733,11 +734,19 @@ body.pv-open { overflow: hidden; }
   position: sticky; top: 50vh; }   /* khe dài (cả trăm px) — nhãn dính giữa màn khi cuộn qua */
 /* ── Lịch tháng biến động (CustomerCalendar) ── */
 .cust-cal { margin: 4px 0 14px; }
-.cc-block { margin-bottom: 18px; }
-/* header tháng DÍNH dưới app-bar khi cuộn qua tháng đó */
-.cc-month-head { position: sticky; top: 44px; z-index: 5; background: var(--bg);
-  padding: 6px 2px; }
-.cc-month { font-size: .95rem; }
+/* ── lịch LIỀN MẠCH kiểu macOS: indicator tháng dính + tháng active nổi bật ── */
+.cc-cont-head { position: sticky; top: 44px; z-index: 6; background: var(--bg);
+  padding: 4px 0 6px; }
+.cc-mind { display: block; font-size: 1.05rem; font-weight: 800; margin-bottom: 4px;
+  animation: cc-mind-in .28s ease; }
+@keyframes cc-mind-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+.cc-cont-grid { row-gap: 4px; }
+/* tháng KHÔNG active mờ đi — transition êm khi lướt (hiệu ứng nổi bật tháng) */
+.cc-cell.cont { transition: opacity .3s ease, background .3s ease; }
+.cc-cell.cont.dim { opacity: .3; }
+/* nhãn tháng nhỏ ở ô NGÀY 1 — định vị ranh giới tháng trong lưới liền mạch */
+.cc-mlabel { position: absolute; top: 2px; left: 4px; font-size: .54rem; font-weight: 800;
+  color: var(--primary); text-transform: uppercase; line-height: 1; }
 .cc-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .cc-head { margin-bottom: 4px; }
 .cc-wd { text-align: center; font-size: .68rem; font-weight: 700; color: var(--muted); text-transform: uppercase; }

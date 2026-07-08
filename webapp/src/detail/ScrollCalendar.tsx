@@ -1,27 +1,16 @@
-// Lịch tháng CUỘN DỌC dùng chung (lịch khách #/khach/:key/lich + lịch giao #/lich):
-// tháng xếp CŨ→MỚI (đúng chiều thời gian), mở sẵn Ở ĐÁY (tháng hiện tại), cuộn
-// LÊN là về quá khứ; LAZY 2 CHIỀU (cửa sổ 4 tháng, sentinel trên prepend + BÙ
-// scroll, sentinel dưới nới về phía mới). Ngày có biến động: chấm ĐỎ (o) / XANH
-// (p) theo ĐÚNG SỐ LƯỢNG. Bấm ngày → onPick (parent lo popup).
+// Lịch CUỘN LIỀN MẠCH kiểu macOS (dùng chung: lịch khách + lịch giao #/lich):
+// KHÔNG header tháng — mọi ngày nối nhau thành 1 lưới tuần liên tục, CŨ trên →
+// MỚI dưới, mở tại tháng hiện tại, LAZY VÔ HẠN 2 CHIỀU (kể cả tháng trống).
+// Lướt tới tháng nào → ngày tháng đó NỔI BẬT (tháng khác mờ đi, transition êm),
+// indicator "Tháng N/YYYY" dính trên đầu đổi theo (animation trượt); ô ngày 1
+// có nhãn tháng nhỏ để định vị. Chấm ĐỎ (o) / XANH (p) đúng số lượng (cap 4+4
+// + "+n"). Bấm ngày → onPick (parent lo popup).
 import { useEffect, useRef, useState } from "preact/hooks";
 
 const _WD = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-const _MONTH = (y: number, m: number) => `Tháng ${m + 1}/${y}`;
 const pad = (n: number) => String(n).padStart(2, "0");
-const keyOf = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
 
 export type CalDays = Map<string, { o: number; p: number }>;
-
-/** Các ô của 1 tháng (Thứ 2 đầu tuần): null = ô trống đầu/cuối lưới. */
-function monthCells(y: number, m: number): (number | null)[] {
-  const first = new Date(y, m, 1);
-  const lead = (first.getDay() + 6) % 7;   // CN=0 → 6; T2=1 → 0
-  const days = new Date(y, m + 1, 0).getDate();
-  const cells: (number | null)[] = Array(lead).fill(null);
-  for (let d = 1; d <= days; d++) cells.push(d);
-  while (cells.length % 7) cells.push(null);
-  return cells;
-}
 
 type Ym = { y: number; m: number };
 const addMonths = ({ y, m }: Ym, dm: number): Ym => {
@@ -29,14 +18,18 @@ const addMonths = ({ y, m }: Ym, dm: number): Ym => {
   return { y: t.getFullYear(), m: t.getMonth() };
 };
 const ymLte = (a: Ym, b: Ym) => a.y < b.y || (a.y === b.y && a.m <= b.m);
-/** Liệt kê tháng từ `from` tới `to` (CŨ → MỚI, kể cả tháng KHÔNG có dữ liệu). */
-function enumerate(from: Ym, to: Ym): Ym[] {
-  const out: Ym[] = [];
-  let cur = from;
-  for (let i = 0; i < 600 && ymLte(cur, to); i++) {   // trần 50 năm
-    out.push(cur);
-    cur = addMonths(cur, 1);
-  }
+const ymStr = ({ y, m }: Ym) => `${y}-${pad(m + 1)}`;
+
+/** Dãy NGÀY liền mạch: từ Thứ 2 đầu tuần chứa 1/from → CN cuối tuần chứa ngày
+ *  cuối của to — lưới tuần nối nhau xuyên tháng, không ô trống giữa chừng. */
+function contDays(from: Ym, to: Ym): Date[] {
+  const start = new Date(from.y, from.m, 1);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));   // lùi về Thứ 2
+  const end = new Date(to.y, to.m + 1, 0);
+  end.setDate(end.getDate() + (7 - 1 - ((end.getDay() + 6) % 7)));   // tiến tới CN
+  const out: Date[] = [];
+  for (let t = new Date(start); t <= end && out.length < 20000; t.setDate(t.getDate() + 1))
+    out.push(new Date(t));
   return out;
 }
 
@@ -46,19 +39,19 @@ export function ScrollCalendar({ days, legend, onPick }: {
   onPick: (day: string) => void;
 }) {
   const now = new Date();
-  // LAZY VÔ HẠN 2 CHIỀU: cửa sổ [from..to] mở rộng mãi — hiện CẢ tháng trống
-  // (quá khứ lẫn tương lai), không phụ thuộc dữ liệu.
   const curYm: Ym = { y: now.getFullYear(), m: now.getMonth() };
+  // LAZY VÔ HẠN 2 CHIỀU — hiện CẢ tháng trống, không phụ thuộc dữ liệu
   const [win, setWin] = useState<{ from: Ym; to: Ym }>({ from: addMonths(curYm, -3), to: curYm });
   const topRef = useRef<HTMLDivElement>(null);
   const botRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   // mở tại ĐÁY (tháng hiện tại) — cuộn LÊN là về quá khứ
   useEffect(() => {
     requestAnimationFrame(() =>
       window.scrollTo(0, document.documentElement.scrollHeight));
   }, []);
-  // dữ liệu có tháng TƯƠNG LAI (vd ngày giao đặt trước) → nới cửa sổ tới đó
+  // dữ liệu có tháng TƯƠNG LAI (ngày giao đặt trước) → nới cửa sổ tới đó
   useEffect(() => {
     let latest = curYm;
     for (const k of days.keys()) {
@@ -87,45 +80,73 @@ export function ScrollCalendar({ days, legend, onPick }: {
     return () => io.disconnect();
   }, [win.from.y, win.from.m, win.to.y, win.to.m]);
 
-  const todayKey = keyOf(now.getFullYear(), now.getMonth(), now.getDate());
+  // ── THÁNG ACTIVE theo vị trí cuộn (kiểu macOS): mốc = ô NGÀY 1 mỗi tháng;
+  // tháng active = mốc CUỐI CÙNG đã vượt lên trên ~45% màn hình ──
+  const [activeYm, setActiveYm] = useState(ymStr(curYm));
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const marks = gridRef.current?.querySelectorAll<HTMLElement>("[data-fom]");
+        if (!marks || !marks.length) return;
+        const mid = window.innerHeight * 0.45;
+        let act: string | null = null;
+        marks.forEach((el) => {
+          if (el.getBoundingClientRect().top <= mid) act = el.getAttribute("data-fom");
+        });
+        if (act) setActiveYm((prev) => (prev === act ? prev : act!));
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
+  }, [win.from.y, win.from.m, win.to.y, win.to.m]);
+
+  const todayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const [aY, aM] = activeYm.split("-").map(Number);
+
   return (
-    <div class="cust-cal">
-      <div ref={topRef} style="height:1px" />
-      {enumerate(win.from, win.to).map(({ y, m }) => (
-        <div class="cc-block" key={`${y}-${m}`}>
-          <div class="cc-month-head"><b class="cc-month">{_MONTH(y, m)}</b></div>
-          <div class="cc-grid cc-head">
-            {_WD.map((w) => <span key={w} class="cc-wd">{w}</span>)}
-          </div>
-          <div class="cc-grid">
-            {monthCells(y, m).map((d, i) => {
-              if (d == null) return <span key={`e${i}`} class="cc-cell empty" />;
-              const k = keyOf(y, m, d);
-              const c = days.get(k);
-              const has = !!c && (c.o > 0 || c.p > 0);
-              // CAP chấm hiển thị (ngày quá nhiều biến động làm ô phình vỡ lưới):
-              // tối đa 4 đỏ + 4 xanh, phần dư gộp thành "+n"
-              const oShow = has ? Math.min(c!.o, 4) : 0;
-              const pShow = has ? Math.min(c!.p, 4) : 0;
-              const extra = has ? c!.o + c!.p - oShow - pShow : 0;
-              return (
-                <button key={k} class={"cc-cell" + (has ? " has" : "") + (k === todayKey ? " today" : "")}
-                  disabled={!has} onClick={() => onPick(k)}
-                  title={has ? `${c!.o ? `${c!.o} ${legend.o}` : ""}${c!.o && c!.p ? " · " : ""}${c!.p ? `${c!.p} ${legend.p}` : ""}` : undefined}>
-                  <span class="cc-d">{d}</span>
-                  {has && (
-                    <span class="cc-dots">
-                      {Array.from({ length: oShow }, (_, j) => <span key={`o${j}`} class="cc-dot o" />)}
-                      {Array.from({ length: pShow }, (_, j) => <span key={`p${j}`} class="cc-dot p" />)}
-                      {extra > 0 && <span class="cc-more">+{extra}</span>}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+    <div class="cust-cal cc-cont">
+      {/* indicator tháng + hàng thứ — DÍNH trên đầu; đổi tháng → animation trượt */}
+      <div class="cc-cont-head">
+        <b class="cc-mind" key={activeYm}>Tháng {aM}/{aY}</b>
+        <div class="cc-grid cc-head">
+          {_WD.map((w) => <span key={w} class="cc-wd">{w}</span>)}
         </div>
-      ))}
+      </div>
+
+      <div ref={topRef} style="height:1px" />
+      <div class="cc-grid cc-cont-grid" ref={gridRef}>
+        {contDays(win.from, win.to).map((t) => {
+          const k = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+          const ym = k.slice(0, 7);
+          const c = days.get(k);
+          const has = !!c && (c.o > 0 || c.p > 0);
+          // cap chấm: tối đa 4 đỏ + 4 xanh, dư gộp "+n" (ngày quá bận không phình ô)
+          const oShow = has ? Math.min(c!.o, 4) : 0;
+          const pShow = has ? Math.min(c!.p, 4) : 0;
+          const extra = has ? c!.o + c!.p - oShow - pShow : 0;
+          const first = t.getDate() === 1;
+          return (
+            <button key={k}
+              class={"cc-cell cont" + (has ? " has" : "") + (k === todayKey ? " today" : "") + (ym !== activeYm ? " dim" : "")}
+              data-fom={first ? ym : undefined}
+              disabled={!has} onClick={() => onPick(k)}
+              title={has ? `${c!.o ? `${c!.o} ${legend.o}` : ""}${c!.o && c!.p ? " · " : ""}${c!.p ? `${c!.p} ${legend.p}` : ""}` : undefined}>
+              {first && <span class="cc-mlabel">Th{t.getMonth() + 1}</span>}
+              <span class="cc-d">{t.getDate()}</span>
+              {has && (
+                <span class="cc-dots">
+                  {Array.from({ length: oShow }, (_, j) => <span key={`o${j}`} class="cc-dot o" />)}
+                  {Array.from({ length: pShow }, (_, j) => <span key={`p${j}`} class="cc-dot p" />)}
+                  {extra > 0 && <span class="cc-more">+{extra}</span>}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
       <div ref={botRef} style="height:1px" />
       <div class="cc-legend muted small">
         <span><span class="cc-dot o" /> {legend.o}</span>
