@@ -704,8 +704,12 @@ body.pv-open { overflow: hidden; }
 .feed-rail { flex: none; width: 80px; box-sizing: border-box; position: relative;
   align-self: stretch; display: flex; align-items: center; justify-content: flex-end;
   padding-right: 13px; }
+/* delta theo kế toán: đơn (+, tăng nợ) ĐỎ · thanh toán (−, giảm nợ) XANH —
+   nhạt hơn số nợ (số nợ ở khe vẫn là trọng tâm) */
 .feed-delta { font-size: .72rem; font-weight: 600; color: var(--muted);
   font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.feed-delta.d-owe { color: var(--danger); opacity: .75; }
+.feed-delta.d-ok { color: var(--ok); opacity: .8; }
 /* số nợ căn PHẢI đúng mép với delta (right 13px, không padding ngang → không lệch) */
 .fd-gap { position: absolute; right: 13px; top: 0; transform: translateY(-58%);
   font-size: .73rem; font-weight: 700; font-variant-numeric: tabular-nums;

@@ -40,13 +40,13 @@ const payMethod = (p: PayItem) => PAY_METHOD_VI[(p.method || "").toLowerCase()] 
 // data-debt trên số nợ → lượt đo SVG vẽ ĐOẠN line chấm-tới-chấm đúng màu
 // (đỏ đang nợ / xanh sạch / xám không rõ) — không đứt ở header ngày, đổi màu
 // CHÍNH XÁC tại chấm.
-function Rail({ delta, debt }: { delta: string | null; debt: number | null | undefined }) {
+function Rail({ delta, deltaCls, debt }: { delta: string | null; deltaCls?: string; debt: number | null | undefined }) {
   return (
     <span class="feed-rail">
       {debt == null
         ? <span class="fd-gap muted" data-debt="na" title="Bản ghi cũ — không lưu số nợ lúc đó">—</span>
         : <span class={"fd-gap " + (Number(debt) > 0 ? "owe" : "paid-ok")} data-debt={Number(debt) > 0 ? "owe" : "ok"}>{money(Number(debt))}</span>}
-      {delta && <span class="feed-delta">{delta}</span>}
+      {delta && <span class={"feed-delta " + (deltaCls || "")}>{delta}</span>}
     </span>
   );
 }
@@ -222,7 +222,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   const renderItem = (it: CustFeedItem) => {
     if (it.kind === "payment") {
       const debt = it.new_debt != null ? Number(it.new_debt) : null;
-      const rail = <Rail delta={`−${money(it.amount)}`} debt={debt} />;
+      const rail = <Rail delta={`−${money(it.amount)}`} deltaCls="d-ok" debt={debt} />;
       if (view === "ultra") {
         return (
           <li key={`p-${it.thread_id}-${it.ts}`} class="feed-item" data-pay-tid={it.thread_id}>
@@ -246,7 +246,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     }
     const o = it.order as OrderRow;
     const isNew = isRecent(o.created, NEW_ORDER_SEC);
-    const rail = <Rail delta={o.total ? `+${o.total}` : null} debt={it.debt_after} />;
+    const rail = <Rail delta={o.total ? `+${o.total}` : null} deltaCls="d-owe" debt={it.debt_after} />;
     if (view === "ultra") {
       // ultra: thumb (ưu tiên ảnh SOẠN HÀNG) trước khối badges+text; giờ HH:mm góc phải-trên
       const text = (o.text || o.topic_name || `#${o.thread_id}`).replace(/\s+/g, " ").trim();
