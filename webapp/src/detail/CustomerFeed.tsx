@@ -15,7 +15,7 @@ import { Loading, EmptyState, SkeletonList } from "../ui/states";
 import { PhotoViewer } from "./PhotoViewer";
 import {
   type OrderRow, statusLabel, LastAction, CardBody, CompactBody, TaskBadges,
-  InvoiceMini, dayKeyOf, orderDayLabel, NEW_ORDER_SEC,
+  InvoiceMini, NEW_ORDER_SEC,
 } from "./OrderCards";
 
 type View = "full" | "compact" | "ultra";
@@ -53,8 +53,13 @@ function Rail({ delta, deltaCls, debt }: { delta: string | null; deltaCls?: stri
   );
 }
 
-/** Giờ HH:mm từ chuỗi thời gian bất kỳ (dựa fmtDateTimeVN). */
-const hm = (v?: string | null): string => (fmtDateTimeVN(v || "").match(/\d{2}:\d{2}/) || [""])[0];
+/** "HH:mm · DD/MM" từ chuỗi thời gian bất kỳ (dựa fmtDateTimeVN). */
+const hmd = (v?: string | null): string => {
+  const s = fmtDateTimeVN(v || "");
+  const t = (s.match(/\d{2}:\d{2}/) || [""])[0];
+  const d = (s.match(/\d{2}\/\d{2}/) || [""])[0];
+  return t && d ? `${t} · ${d}` : t || d;
+};
 
 // Card thanh toán — kích thước ĐỒNG BỘ với card đơn của view (cùng radius/padding/
 // nhịp margin). Chip "đơn #id" → cuộn tới card đơn.
@@ -64,6 +69,7 @@ function PaymentCard({ p, hasOrderInFeed, onJump }: {
   const m = payMethod(p);
   return (
     <div class="order-card feed-pay" data-pay-tid={p.thread_id}>
+      <span class="fu-time">{hmd(p.at)}</span>
       <div class="feed-pay-row">
         <span class="feed-pay-ic"><Icon name="wallet" size={16} /></span>
         <span class="feed-pay-main">
@@ -81,27 +87,16 @@ function PaymentCard({ p, hasOrderInFeed, onJump }: {
   );
 }
 
-/** Nhóm feed theo NGÀY (view ultra) — đơn lấy created, payment lấy at. */
-function groupFeedByDay(items: CustFeedItem[]): { key: string; label: string; items: CustFeedItem[] }[] {
-  const out: { key: string; label: string; items: CustFeedItem[] }[] = [];
-  for (const it of items) {
-    const key = dayKeyOf(it.kind === "order" ? it.order.created : it.at);
-    const last = out[out.length - 1];
-    if (last && last.key === key) last.items.push(it);
-    else out.push({ key, label: orderDayLabel(key), items: [it] });
-  }
-  return out;
-}
-
-// ── KHOẢNG TRỐNG THỜI GIAN giữa 2 sự kiện cách nhau ≥2 ngày: khe rộng theo BẬC
-// (2-3d nhỏ / 4-7d vừa / >7d lớn) + nhãn số ngày; đoạn line nợ đi qua khe vẽ NÉT
-// ĐỨT (nợ vẫn treo suốt khoảng nghỉ — màu giữ nguyên). ts = epoch giây từ server.
+// ── KHOẢNG TRỐNG THỜI GIAN = TUYẾN TÍNH THẬT: cao 14px/ngày (2 ngày = 28px,
+// 1 tháng ≈ 420px — chấp nhận kéo dài để trung thực; cap an toàn 1400px ≈ 100
+// ngày, nhãn vẫn nói số thật). Đoạn line nợ qua khe vẽ NÉT ĐỨT, màu giữ nguyên
+// (nợ vẫn treo suốt khoảng nghỉ). ts = epoch giây từ server.
 const gapDays = (newer?: number, older?: number): number =>
   newer && older ? Math.round((newer - older) / 86400) : 0;
 const gapLabel = (d: number) =>
   d >= 60 ? `${Math.round(d / 30)} tháng` : d >= 14 ? `${Math.round(d / 7)} tuần` : `${d} ngày`;
 const gapSpacer = (d: number, key: string) => (
-  <li key={key} class={"feed-gap-li " + (d <= 3 ? "g1" : d <= 7 ? "g2" : "g3")} aria-hidden="true">
+  <li key={key} class="feed-gap-li" style={{ height: `${Math.min(d * 14, 1400)}px` }} aria-hidden="true">
     <span class="fg-label">· {gapLabel(d)} ·</span>
   </li>
 );
@@ -246,7 +241,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
         return (
           <li key={`p-${it.thread_id}-${it.ts}`} class="feed-item" data-pay-tid={it.thread_id}>
             <button class="order-card ultra feed-pay-ultra" onClick={() => jumpToOrder(it.thread_id)}>
-              <span class="fu-time">{hm(it.at)}</span>
+              <span class="fu-time">{hmd(it.at)}</span>
               <div class="ultra-row">
                 <span class="feed-pay-ic"><Icon name="wallet" size={13} /></span>
                 <span class="ultra-text"><b class="feed-pay-amt">−{money(it.amount)}</b>{payMethod(it) ? ` · ${payMethod(it)}` : ""}</span>
@@ -274,7 +269,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
       return (
         <li key={o.thread_id} class="feed-item">
           <a data-oid={o.thread_id} class="order-card ultra feed-ultra" href={`#/order/${o.thread_id}`}>
-            <span class="fu-time">{hm(o.created)}</span>
+            <span class="fu-time">{hmd(o.created)}</span>
             <div class="fu-row">
               {thumbId ? (
                 <img class="fu-thumb" src={orderImageUrl(o.thread_id, thumbId, "thumb")} loading="lazy" alt=""
@@ -344,31 +339,10 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
           </svg>
         )}
         <ul class="order-list" ref={listRef}>
-          {view === "ultra"
-            ? (() => {
-                // spacer thời gian chèn GIỮA các nhóm ngày (khoảng cách = item cuối
-                // nhóm trên ↔ item đầu nhóm dưới)
-                const groups = groupFeedByDay(items);
-                return groups.flatMap((g, gi) => {
-                  const nodes = [];
-                  if (gi > 0) {
-                    const prev = groups[gi - 1].items;
-                    const d = gapDays(prev[prev.length - 1].ts, g.items[0].ts);
-                    if (d >= 2) nodes.push(gapSpacer(d, `gap-g${gi}`));
-                  }
-                  nodes.push(
-                    <li key={`g-${g.key}`} class="order-day-group">
-                      <div class="order-day-head">{g.label} <span class="muted small">({g.items.length})</span></div>
-                      <ul class="order-list">{g.items.map(renderItem)}</ul>
-                    </li>
-                  );
-                  return nodes;
-                });
-              })()
-            : items.flatMap((it, i) => {
-                const d = i > 0 ? gapDays(items[i - 1].ts, it.ts) : 0;
-                return d >= 2 ? [gapSpacer(d, `gap-${i}`), renderItem(it)] : [renderItem(it)];
-              })}
+          {items.flatMap((it, i) => {
+            const d = i > 0 ? gapDays(items[i - 1].ts, it.ts) : 0;
+            return d >= 2 ? [gapSpacer(d, `gap-${i}`), renderItem(it)] : [renderItem(it)];
+          })}
         </ul>
       </div>
       {loading && items.length > 0 && <Loading />}

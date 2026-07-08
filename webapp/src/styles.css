@@ -679,7 +679,7 @@ body.pv-open { overflow: hidden; }
 .cf-title { display: inline-flex; align-items: center; gap: 6px; }
 /* Card thanh toán — đồng nhịp với card đơn (cùng radius/margin của .order-card),
    nội dung 1 dòng + chốt sổ + meta; viền trái xanh phân biệt loại biên lai */
-.feed-pay { background: var(--ok-wash); border: 1px solid #cfe6d4; border-left: 3px solid var(--ok); }
+.feed-pay { background: var(--ok-wash); border: 1px solid #cfe6d4; border-left: 3px solid var(--ok); position: relative; }
 .feed-pay-row { display: flex; align-items: center; gap: 9px; }
 .feed-pay-ic { color: var(--ok); display: flex; flex: none; }
 .feed-pay-main { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -726,10 +726,8 @@ body.pv-open { overflow: hidden; }
 /* KHE THỜI GIAN giữa 2 sự kiện xa ngày — cao theo bậc, nhãn số ngày ở giữa;
    line nợ đi qua khe tự chuyển nét đứt (đo trong measure) */
 .feed-gap-li { display: flex; align-items: center; justify-content: center; }
-.feed-gap-li.g1 { height: 28px; }
-.feed-gap-li.g2 { height: 44px; }
-.feed-gap-li.g3 { height: 60px; }
-.fg-label { font-size: .7rem; color: var(--muted); background: var(--bg); padding: 0 6px; }
+.fg-label { font-size: .7rem; color: var(--muted); background: var(--bg); padding: 0 6px;
+  position: sticky; top: 50vh; }   /* khe dài (cả trăm px) — nhãn dính giữa màn khi cuộn qua */
 /* đường tiến trình nợ = SVG nối CHẤM-TỚI-CHẤM (đo vị trí thật) — liền mạch qua
    header ngày, đổi màu CHÍNH XÁC tại chấm. Màu = trạng thái nợ của khoảng đó. */
 .feed-ropes line { stroke-width: 2.5; stroke-linecap: round; }
