@@ -43,9 +43,11 @@ const payMethod = (p: PayItem) => PAY_METHOD_VI[(p.method || "").toLowerCase()] 
 function Rail({ delta, deltaCls, debt }: { delta: string | null; deltaCls?: string; debt: number | null | undefined }) {
   return (
     <span class="feed-rail">
+      {/* SỐ nợ = XÁM đậm (lượng, trung tính — khỏi lộn với delta đỏ phát sinh);
+          TRẠNG THÁI thể hiện bằng chấm + line màu (data-debt) */}
       {debt == null
-        ? <span class="fd-gap muted" data-debt="na" title="Bản ghi cũ — không lưu số nợ lúc đó">—</span>
-        : <span class={"fd-gap " + (Number(debt) > 0 ? "owe" : "paid-ok")} data-debt={Number(debt) > 0 ? "owe" : "ok"}>{money(Number(debt))}</span>}
+        ? <span class="fd-gap fd-na" data-debt="na" title="Bản ghi cũ — không lưu số nợ lúc đó">—</span>
+        : <span class="fd-gap" data-debt={Number(debt) > 0 ? "owe" : "ok"}>{money(Number(debt))}</span>}
       {delta && <span class={"feed-delta " + (deltaCls || "")}>{delta}</span>}
     </span>
   );
