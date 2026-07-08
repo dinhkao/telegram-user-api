@@ -33,13 +33,19 @@ const PAY_METHOD_VI: Record<string, string> = {
 type PayItem = Extract<CustFeedItem, { kind: "payment" }>;
 const payMethod = (p: PayItem) => PAY_METHOD_VI[(p.method || "").toLowerCase()] || p.code || p.method || "";
 
-// Số nợ SAU sự kiện — RAIL PHẢI NGOÀI card: lướt dọc mép phải là thấy nợ theo
-// thời gian. 3 trạng thái: >0 đỏ · =0 xanh "0đ" · không có số (bản ghi cũ thiếu
-// snapshot) → "—" mờ, KHÔNG bịa 0 (nguyên tắc nợ chỉ lấy từ số KiotViet đã lưu).
-function DebtOut({ v }: { v: number | null | undefined }) {
-  if (v == null) return <span class="feed-debt-out muted" title="Bản ghi cũ — không lưu số nợ lúc đó">—</span>;
-  const n = Number(v);
-  return <span class={"feed-debt-out " + (n > 0 ? "owe" : "paid-ok")}>{money(n)}</span>;
+// RAIL PHẢI NGOÀI card — sổ cái dọc: NGANG card = số tiền sự kiện (xám, +tổng
+// đơn / −tiền thu); Ở KHE giữa card này và card TRÊN = SỐ NỢ SAU sự kiện (đỏ
+// khi >0, xanh khi 0, '—' xám khi bản ghi cũ thiếu số — KHÔNG bịa 0).
+// (feed mới→cũ nên "sau sự kiện" = phía trên card — đọc từ dưới lên đúng dòng thời gian)
+function Rail({ delta, debt }: { delta: string | null; debt: number | null | undefined }) {
+  return (
+    <span class="feed-rail">
+      {debt == null
+        ? <span class="fd-gap muted" title="Bản ghi cũ — không lưu số nợ lúc đó">—</span>
+        : <span class={"fd-gap " + (Number(debt) > 0 ? "owe" : "paid-ok")}>{money(Number(debt))}</span>}
+      {delta && <span class="feed-delta">{delta}</span>}
+    </span>
+  );
 }
 
 // Card thanh toán — kích thước ĐỒNG BỘ với card đơn của view (cùng radius/padding/
@@ -196,6 +202,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   const renderItem = (it: CustFeedItem) => {
     if (it.kind === "payment") {
       const debt = it.new_debt != null ? Number(it.new_debt) : null;
+      const rail = <Rail delta={`−${money(it.amount)}`} debt={debt} />;
       if (view === "ultra") {
         return (
           <li key={`p-${it.thread_id}-${it.ts}`} class="feed-item" data-pay-tid={it.thread_id}>
@@ -205,32 +212,30 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
                 <span class="ultra-text"><b class="feed-pay-amt">−{money(it.amount)}</b>{payMethod(it) ? ` · ${payMethod(it)}` : ""}</span>
               </div>
             </button>
-            <DebtOut v={debt} />
+            {rail}
           </li>
         );
       }
       return (
         <li key={`p-${it.thread_id}-${it.ts}`} class="feed-item">
           <PaymentCard p={it} hasOrderInFeed={orderIdsInFeed.has(it.thread_id)} onJump={jumpToOrder} />
-          <DebtOut v={debt} />
+          {rail}
         </li>
       );
     }
     const o = it.order as OrderRow;
     const isNew = isRecent(o.created, NEW_ORDER_SEC);
+    const rail = <Rail delta={o.total ? `+${o.total}` : null} debt={it.debt_after} />;
     if (view === "ultra") {
-      // ultra: badge 5 bước dòng 1 (chừa chỗ cột nợ phải), nội dung xuống dòng 2
+      // ultra: badge 5 bước dòng 1 (tiền đơn nằm NGOÀI card, trên rail phải), nội dung dòng 2
       const text = (o.text || o.topic_name || `#${o.thread_id}`).replace(/\s+/g, " ").trim();
       return (
         <li key={o.thread_id} class="feed-item">
           <a data-oid={o.thread_id} class="order-card ultra feed-ultra" href={`#/order/${o.thread_id}`}>
-            <div class="fu-head">
-              <TaskBadges o={o} />
-              {o.total && <b class="fu-total">+{o.total}</b>}
-            </div>
+            <TaskBadges o={o} />
             <div class="fu-text">{text}</div>
           </a>
-          <DebtOut v={it.debt_after} />
+          {rail}
         </li>
       );
     }
@@ -240,7 +245,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
           <a data-oid={o.thread_id} class={`order-card compact feed-card${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
             <CompactBody o={o} search="" sort="created" isNew={isNew} openThumb={openThumb} />
           </a>
-          <DebtOut v={it.debt_after} />
+          {rail}
         </li>
       );
     }
@@ -253,7 +258,7 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
           </div>
           <div class="card-inv"><InvoiceMini o={o} /></div>
         </a>
-        <DebtOut v={it.debt_after} />
+        {rail}
       </li>
     );
   };

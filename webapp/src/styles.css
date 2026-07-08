@@ -698,26 +698,30 @@ body.pv-open { overflow: hidden; }
    phải là đọc được nợ theo thời gian; ô trống giữ cột thẳng hàng */
 .feed-item { display: flex; align-items: center; gap: 7px; }
 .feed-item > :first-child { flex: 1 1 auto; min-width: 0; }
-/* CỐ ĐỊNH bề rộng cột nợ → mọi card cùng width, không biến dạng theo độ dài số */
-.feed-debt-out { flex: none; width: 80px; box-sizing: border-box; text-align: right;
-  font-size: .72rem; font-weight: 700; font-variant-numeric: tabular-nums;
-  line-height: 1.2; overflow-wrap: anywhere;
-  position: relative; padding-right: 13px; }
-/* chấm trên đường tiến trình nợ — màu theo trạng thái (đỏ nợ / xanh 0 / xám không rõ) */
-.feed-debt-out::after { content: ""; position: absolute; right: 3.5px; top: 50%;
+/* RAIL nợ phải — CỐ ĐỊNH 80px → mọi card cùng width, không biến dạng theo số.
+   NGANG card = delta xám (+tổng đơn / −tiền thu); Ở KHE trên card = SỐ NỢ SAU
+   (đỏ/xanh/—) kèm chấm trên đường tiến trình. */
+.feed-rail { flex: none; width: 80px; box-sizing: border-box; position: relative;
+  align-self: stretch; display: flex; align-items: center; justify-content: flex-end;
+  padding-right: 13px; }
+.feed-delta { font-size: .72rem; font-weight: 600; color: var(--muted);
+  font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.fd-gap { position: absolute; right: 13px; top: 0; transform: translateY(-58%);
+  font-size: .73rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  white-space: nowrap; background: var(--bg); padding: 0 2px; border-radius: 4px; }
+/* chấm của SỐ NỢ trên đường tiến trình (màu theo trạng thái nợ) */
+.fd-gap::after { content: ""; position: absolute; right: -9.5px; top: 50%;
   transform: translateY(-50%); width: 8px; height: 8px; border-radius: 50%;
   background: currentColor; box-shadow: 0 0 0 2px var(--bg); }
 /* đường thẳng dọc nối các số nợ (tiến trình theo thời gian) — mép phải cột nợ */
-.cf-body.has-items::after { content: ""; position: absolute; right: 6.5px; top: 12px;
+.cf-body.has-items::after { content: ""; position: absolute; right: 6.5px; top: 4px;
   bottom: 12px; width: 2px; border-radius: 2px; background: #c9ced6; }
+/* chừa chỗ cho số nợ ĐẦU TIÊN (nằm trên card đầu) */
+.cf-body.has-items .order-list { padding-top: 12px; }
 /* view ultra: payment 1 dòng; đơn = badge dòng 1 + nội dung dòng 2 (chừa cột nợ) */
 .feed-pay-ultra { display: block; text-align: left; }
 .feed-pay-ultra .ultra-row { display: flex; align-items: center; gap: 6px; }
 .feed-ultra { display: block; }
-/* dòng 1: badge 5 bước TRÁI + tổng tiền đơn PHẢI (giá trị đơn → ra số nợ bên phải) */
-.feed-ultra .fu-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.feed-ultra .fu-total { flex: none; font-size: .76rem; font-weight: 700;
-  font-variant-numeric: tabular-nums; color: var(--danger); }
 .feed-ultra .fu-text { margin-top: 2px; font-size: .82rem; line-height: 1.35;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* card hẹp hơn (nhường cột nợ) → badge 5 bước chỉ icon, khỏi bẻ chữ nhãn */
