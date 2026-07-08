@@ -128,6 +128,11 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   };
 
   const doDelete = async () => {
+    // Còn thùng tạo từ phiếu → nút mờ, bấm chỉ hiện toast (server cũng chặn 400)
+    if ((slip?.box_count || 0) > 0) {
+      toast(`Phiếu đã tạo ${slip!.box_count} thùng — xoá các thùng đó trước`, "info");
+      return;
+    }
     if (!(await confirmDialog("Xoá phiếu sản xuất này?", { danger: true }))) return;
     try {
       await deleteProduction(threadId);
@@ -210,7 +215,10 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
       <History base={`/api/media/production/${threadId}`} />
 
       {currentUser()?.role === "admin" && (
-        <button class="btn danger block" onClick={doDelete}><Icon name="trash" size={16} /> Xoá phiếu (admin)</button>
+        <button class={"btn danger block" + ((slip.box_count || 0) > 0 ? " faded" : "")} onClick={doDelete}
+          title={(slip.box_count || 0) > 0 ? "Phiếu đã tạo thùng — xoá thùng trước" : undefined}>
+          <Icon name="trash" size={16} /> Xoá phiếu (admin)
+        </button>
       )}
     </div>
   );
