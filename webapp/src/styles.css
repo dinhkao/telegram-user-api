@@ -714,21 +714,28 @@ body.pv-open { overflow: hidden; }
 .fd-gap::after { content: ""; position: absolute; right: -9.5px; top: 50%;
   transform: translateY(-50%); width: 8px; height: 8px; border-radius: 50%;
   background: currentColor; box-shadow: 0 0 0 2px var(--bg); }
-/* đường tiến trình = TỪNG ĐOẠN theo li, MÀU theo trạng thái nợ của khoảng thời
-   gian đó (đỏ đang nợ / xanh sạch nợ / xám không rõ). Đoạn phủ cả khe trên/dưới
-   để nối liền mạch với đoạn kế. */
-.feed-rail::before { content: ""; position: absolute; right: 6.5px; top: -14px;
-  bottom: -10px; width: 2px; border-radius: 2px; background: #c9ced6; }
-.feed-rail.line-owe::before { background: var(--danger); opacity: .5; }
-.feed-rail.line-ok::before { background: var(--ok); opacity: .55; }
+/* đường tiến trình nợ = SVG nối CHẤM-TỚI-CHẤM (đo vị trí thật) — liền mạch qua
+   header ngày, đổi màu CHÍNH XÁC tại chấm. Màu = trạng thái nợ của khoảng đó. */
+.feed-ropes line { stroke-width: 2.5; stroke-linecap: round; }
+.feed-ropes line.dl-owe { stroke: var(--danger); opacity: .5; }
+.feed-ropes line.dl-ok { stroke: var(--ok); opacity: .55; }
+.feed-ropes line.dl-na { stroke: #c9ced6; }
 /* chừa chỗ cho số nợ ĐẦU TIÊN (nằm trên card đầu) */
 .cf-body.has-items .order-list { padding-top: 12px; }
 /* view ultra: payment 1 dòng; đơn = badge dòng 1 + nội dung dòng 2 (chừa cột nợ) */
 .feed-pay-ultra { display: block; text-align: left; }
 .feed-pay-ultra .ultra-row { display: flex; align-items: center; gap: 6px; }
-.feed-ultra { display: block; }
+.feed-ultra { display: block; position: relative; }
+.feed-ultra .fu-row { display: flex; align-items: center; gap: 8px; }
+.feed-ultra .fu-thumb { flex: none; width: 46px; height: 46px; border-radius: 8px;
+  object-fit: cover; border: 1px solid var(--border); }
+.feed-ultra .fu-main { flex: 1; min-width: 0; }
 .feed-ultra .fu-text { margin-top: 2px; font-size: .82rem; line-height: 1.35;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* giờ tạo HH:mm — góc phải-trên card (cả đơn lẫn payment view ultra) */
+.fu-time { position: absolute; top: 3px; right: 7px; font-size: .64rem;
+  color: var(--muted); font-variant-numeric: tabular-nums; pointer-events: none; }
+.feed-pay-ultra { position: relative; }
 /* card hẹp hơn (nhường cột nợ) → badge 5 bước chỉ icon, khỏi bẻ chữ nhãn */
 .feed-card .badges .tlbl { display: none; }
 /* Dây liên kết payment ↔ đơn: ĐƯỜNG CONG SVG — card KHÔNG thụt lề (padding 0),

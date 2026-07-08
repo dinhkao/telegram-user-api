@@ -6,8 +6,8 @@
 // (đo vị trí thật bằng ResizeObserver, chia lane tránh đè nhau) — bấm chip đơn trên
 // payment card cuộn + nháy card đơn. Data: GET /api/customers/{key}/feed.
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-import { getCustomerFeed, listOrderImages, type CustFeedItem, type OrderImage } from "../api";
-import { money, fmtRelative, isRecent } from "../format";
+import { getCustomerFeed, listOrderImages, orderImageUrl, type CustFeedItem, type OrderImage } from "../api";
+import { money, fmtRelative, fmtDateTimeVN, isRecent } from "../format";
 import { onRealtime } from "../realtime";
 import { fastScrollToEl } from "../scroll";
 import { Icon } from "../ui/Icon";
@@ -37,27 +37,22 @@ const payMethod = (p: PayItem) => PAY_METHOD_VI[(p.method || "").toLowerCase()] 
 // đơn / −tiền thu); Ở KHE giữa card này và card TRÊN = SỐ NỢ SAU sự kiện (đỏ
 // khi >0, xanh khi 0, '—' xám khi bản ghi cũ thiếu số — KHÔNG bịa 0).
 // (feed mới→cũ nên "sau sự kiện" = phía trên card — đọc từ dưới lên đúng dòng thời gian)
-// lineDebt = nợ của KHOẢNG thời gian dọc card này (= nợ-sau của sự kiện CŨ hơn
-// ngay dưới) → tô màu đoạn line: đỏ đang nợ / xanh sạch nợ / xám không rõ.
-function Rail({ delta, debt, lineDebt }: {
-  delta: string | null; debt: number | null | undefined; lineDebt: number | null | undefined;
-}) {
-  const lineCls = lineDebt == null ? "" : Number(lineDebt) > 0 ? " line-owe" : " line-ok";
+// data-debt trên số nợ → lượt đo SVG vẽ ĐOẠN line chấm-tới-chấm đúng màu
+// (đỏ đang nợ / xanh sạch / xám không rõ) — không đứt ở header ngày, đổi màu
+// CHÍNH XÁC tại chấm.
+function Rail({ delta, debt }: { delta: string | null; debt: number | null | undefined }) {
   return (
-    <span class={"feed-rail" + lineCls}>
+    <span class="feed-rail">
       {debt == null
-        ? <span class="fd-gap muted" title="Bản ghi cũ — không lưu số nợ lúc đó">—</span>
-        : <span class={"fd-gap " + (Number(debt) > 0 ? "owe" : "paid-ok")}>{money(Number(debt))}</span>}
+        ? <span class="fd-gap muted" data-debt="na" title="Bản ghi cũ — không lưu số nợ lúc đó">—</span>
+        : <span class={"fd-gap " + (Number(debt) > 0 ? "owe" : "paid-ok")} data-debt={Number(debt) > 0 ? "owe" : "ok"}>{money(Number(debt))}</span>}
       {delta && <span class="feed-delta">{delta}</span>}
     </span>
   );
 }
 
-/** Nợ-sau của 1 item (đơn → debt_after; thanh toán → new_debt). */
-const debtOf = (it: CustFeedItem | undefined): number | null =>
-  it == null ? null
-    : it.kind === "order" ? (it.debt_after != null ? Number(it.debt_after) : null)
-    : (it.new_debt != null ? Number(it.new_debt) : null);
+/** Giờ HH:mm từ chuỗi thời gian bất kỳ (dựa fmtDateTimeVN). */
+const hm = (v?: string | null): string => (fmtDateTimeVN(v || "").match(/\d{2}:\d{2}/) || [""])[0];
 
 // Card thanh toán — kích thước ĐỒNG BỘ với card đơn của view (cùng radius/padding/
 // nhịp margin). Chip "đơn #id" → cuộn tới card đơn.
@@ -141,6 +136,8 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
   // ── DÂY LIÊN KẾT payment ↔ đơn: đo vị trí card thật → rail dọc bên trái ──
   const listRef = useRef<HTMLUListElement>(null);
   const [ropes, setRopes] = useState<Rope[]>([]);
+  // đoạn line tiến trình nợ (chấm-tới-chấm, màu theo mốc DƯỚI = trạng thái của khoảng đó)
+  const [debtSegs, setDebtSegs] = useState<{ x: number; y1: number; y2: number; st: string }[]>([]);
   const orderIdsInFeed = new Set(items.filter((i) => i.kind === "order").map((i: any) => i.order.thread_id));
   useLayoutEffect(() => {
     const ul = listRef.current;
@@ -180,6 +177,15 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
         out.push({ d, x0: s.x0, y1: s.y1, y2: s.y2 });
       }
       setRopes(out);
+      // ── line tiến trình nợ: nối các chấm số nợ theo đúng vị trí đo được ──
+      const pts = Array.from(ul.querySelectorAll<HTMLElement>(".fd-gap"))
+        .map((el) => { const r = el.getBoundingClientRect(); return { y: (r.top + r.bottom) / 2 - box.top, st: el.getAttribute("data-debt") || "na" }; })
+        .sort((a, b) => a.y - b.y);
+      const x = box.width - 7.5;   // tâm cột chấm (chấm ::after right 3.5px + bán kính 4)
+      const dl: { x: number; y1: number; y2: number; st: string }[] = [];
+      for (let i = 0; i < pts.length - 1; i++)
+        dl.push({ x, y1: pts[i].y, y2: pts[i + 1].y, st: pts[i + 1].st });
+      setDebtSegs(dl);
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -210,19 +216,15 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     } catch { /* im */ }
   };
 
-  // lineDebt của item i = nợ-sau của items[i+1] (sự kiện cũ hơn liền dưới):
-  // khoảng giữa 2 mốc nợ chính là thời kỳ mang trạng thái đó.
-  const lineDebtAt = new Map<CustFeedItem, number | null>();
-  items.forEach((it, i) => lineDebtAt.set(it, debtOf(items[i + 1])));
   const renderItem = (it: CustFeedItem) => {
-    const lineDebt = lineDebtAt.get(it);
     if (it.kind === "payment") {
       const debt = it.new_debt != null ? Number(it.new_debt) : null;
-      const rail = <Rail delta={`−${money(it.amount)}`} debt={debt} lineDebt={lineDebt} />;
+      const rail = <Rail delta={`−${money(it.amount)}`} debt={debt} />;
       if (view === "ultra") {
         return (
           <li key={`p-${it.thread_id}-${it.ts}`} class="feed-item" data-pay-tid={it.thread_id}>
             <button class="order-card ultra feed-pay-ultra" onClick={() => jumpToOrder(it.thread_id)}>
+              <span class="fu-time">{hm(it.at)}</span>
               <div class="ultra-row">
                 <span class="feed-pay-ic"><Icon name="wallet" size={13} /></span>
                 <span class="ultra-text"><b class="feed-pay-amt">−{money(it.amount)}</b>{payMethod(it) ? ` · ${payMethod(it)}` : ""}</span>
@@ -241,15 +243,26 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     }
     const o = it.order as OrderRow;
     const isNew = isRecent(o.created, NEW_ORDER_SEC);
-    const rail = <Rail delta={o.total ? `+${o.total}` : null} debt={it.debt_after} lineDebt={lineDebt} />;
+    const rail = <Rail delta={o.total ? `+${o.total}` : null} debt={it.debt_after} />;
     if (view === "ultra") {
-      // ultra: badge 5 bước dòng 1 (tiền đơn nằm NGOÀI card, trên rail phải), nội dung dòng 2
+      // ultra: thumb (ưu tiên ảnh SOẠN HÀNG) trước khối badges+text; giờ HH:mm góc phải-trên
       const text = (o.text || o.topic_name || `#${o.thread_id}`).replace(/\s+/g, " ").trim();
+      const thumbId = (o.soan_img_ids && o.soan_img_ids[0])
+        || (o.thumb_image_ids && o.thumb_image_ids[0]) || o.thumb_image_id;
       return (
         <li key={o.thread_id} class="feed-item">
           <a data-oid={o.thread_id} class="order-card ultra feed-ultra" href={`#/order/${o.thread_id}`}>
-            <TaskBadges o={o} />
-            <div class="fu-text">{text}</div>
+            <span class="fu-time">{hm(o.created)}</span>
+            <div class="fu-row">
+              {thumbId ? (
+                <img class="fu-thumb" src={orderImageUrl(o.thread_id, thumbId, "thumb")} loading="lazy" alt=""
+                  onClick={(e) => openThumb(e, o, thumbId as number)} />
+              ) : null}
+              <div class="fu-main">
+                <TaskBadges o={o} />
+                <div class="fu-text">{text}</div>
+              </div>
+            </div>
           </a>
           {rail}
         </li>
@@ -294,8 +307,11 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
       {loading && !items.length && <SkeletonList rows={4} />}
       <div class={"cf-body" + (hasRopes ? " has-ropes" : "") + (items.length ? " has-items" : "")}>
         {/* dây cong nối payment ↔ đơn: dưới-trái card trên → vòng lề trái → trên-trái card dưới */}
-        {hasRopes && (
+        {(hasRopes || debtSegs.length > 0) && (
           <svg class="feed-ropes" aria-hidden="true">
+            {debtSegs.map((s, i) => (
+              <line key={`d${i}`} class={`dl-${s.st}`} x1={s.x} x2={s.x} y1={s.y1} y2={s.y2} />
+            ))}
             {ropes.map((r, i) => (
               <g key={i}>
                 <path d={r.d} />

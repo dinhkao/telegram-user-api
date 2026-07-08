@@ -48,6 +48,8 @@ export type OrderRow = {
   last_changes?: { label: string; old: string; new: string }[];
   last_actor?: string | null;
   last_action_ts?: string | null;
+  soan_img_ids?: number[];   // ảnh chốt soạn hàng — ưu tiên làm thumbnail
+  nop_img_id?: number | null;
 };
 
 // Mã ghi chú nộp tiền → tiếng Việt đầy đủ
