@@ -1314,6 +1314,17 @@ body.kbd-open .wr-peek-btn { bottom: calc(12px + env(safe-area-inset-bottom, 0px
 /* Thumbnail ảnh soạn hàng hiện ở dòng task */
 .task-thumbs { display: inline-flex; gap: 4px; vertical-align: middle; margin-left: 6px; }
 .task-thumb { width: 26px; height: 26px; object-fit: cover; border-radius: 5px; border: 1px solid var(--border); }
+/* Tiến độ (Tasks) — 2 CỘT: nội dung co giãn TRÁI, nút hành động neo PHẢI cột riêng
+   (meta dài xuống dòng dưới tên, KHÔNG đẩy nút rớt hàng). */
+.task-list .task-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f1f1; }
+.task-list .task-row:last-child { border-bottom: none; }
+.task-main { flex: 1; min-width: 0; }
+.task-head { line-height: 1.45; }
+.task-lbl { font-weight: 600; }
+.task-row.done .task-lbl { color: var(--muted); font-weight: 500; }
+.task-meta { margin: 2px 0 0 26px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; line-height: 1.35; overflow-wrap: anywhere; }
+.task-meta .task-thumbs { margin-left: 0; }
+.task-act { flex: none; display: flex; gap: 6px; align-items: center; padding-top: 2px; }
 
 /* Thanh điều hướng đơn↔đơn (dính đáy, trên bottom-nav) */
 /* Bàn phím mở → ẩn như bottom-nav (kẻo che ô đang gõ trên màn thấp) */

@@ -93,24 +93,26 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
   };
 
   const thumb = (id: string) => <img class="task-thumb" key={id} src={mediaImageUrl(`/api/order/${threadId}`, Number(id), "thumb")} loading="lazy" alt="" />;
-  const meta = (st: any, type?: string) => {
+  // Meta = DÒNG RIÊNG dưới tên việc (người · giờ · ghi chú, rồi ảnh) — text dài
+  // không đẩy nút hành động (nút neo phải, cột riêng).
+  const meta = (st: any, type?: string, extra?: string) => {
     const note: string = typeof st.note === "string" ? st.note : "";
     // soạn hàng: 'imgs:1,2' — chọn từ pool. nộp tiền: '<code>;img:5' — chụp mới.
     const soanIds = type === "soan_hang" && note.startsWith("imgs:") ? note.slice(5).split(",").filter(Boolean) : null;
     let nopCode: string | null = null, nopImg: string | null = null;
     if (type === "nop_tien" && note) { const [c, rest] = note.split(";img:"); nopCode = c; nopImg = rest || null; }
+    const bits: string[] = [];
+    if (st.done && st.by) bits.push(`${nameOf(st.by)}${fmtTime(st.at) ? ` · ${fmtTime(st.at)}` : ""}`);
+    if (nopCode) bits.push(NOP_NOTE_LABEL[nopCode] || nopCode);
+    else if (note && !soanIds && !nopCode) bits.push(NOP_NOTE_LABEL[note] || note);
+    if (extra) bits.push(extra);
+    const thumbs = soanIds || (nopImg ? [nopImg] : null);
+    if (!bits.length && !thumbs) return null;
     return (
-      <>
-        {st.done && st.by && <span class="muted small"> — {nameOf(st.by)}{fmtTime(st.at) ? `, ${fmtTime(st.at)}` : ""}</span>}
-        {soanIds ? (
-          <span class="task-thumbs">{soanIds.map((id: string) => thumb(id))}</span>
-        ) : nopCode ? (
-          <>
-            <span class="muted small"> ({NOP_NOTE_LABEL[nopCode] || nopCode})</span>
-            {nopImg && <span class="task-thumbs">{thumb(nopImg)}</span>}
-          </>
-        ) : note ? <span class="muted small"> ({NOP_NOTE_LABEL[note] || note})</span> : null}
-      </>
+      <div class="task-meta">
+        {bits.length > 0 && <span class="muted small">{bits.join(" · ")}</span>}
+        {thumbs && <span class="task-thumbs">{thumbs.map((id: string) => thumb(id))}</span>}
+      </div>
     );
   };
 
@@ -123,27 +125,28 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
           const done = !!st.done;
           const locked = type === "nhan_tien" && !office;   // nhận tiền: chỉ văn phòng
           return (
-            <li class="row space" id={`task-${type}`} key={type}>
-              <span>
-                {done ? "✅" : "⬜"} {lbl}
-                {meta(st, type)}
-                {locked && <span class="muted small"> 🔒 chỉ văn phòng</span>}
-              </span>
-              {locked ? null : done ? (
-                <button class="btn small" disabled={busy === type} onClick={() => clear(type)}>Huỷ</button>
-              ) : type === "nop_tien" ? (
-                <span class="row" style="gap:6px">
-                  <button class="btn small primary" onClick={() => setNopOpen(true)}>Xong</button>
-                  {isAdmin && <button class="btn small" title="Admin: xong ngay, không cần ảnh" disabled={busy === type} onClick={() => mark(type)}><Icon name="zap" size={14} /></button>}
-                </span>
-              ) : type === "soan_hang" ? (
-                <span class="row" style="gap:6px">
-                  <button class="btn small primary" onClick={() => setSoanOpen(true)}>Xong</button>
-                  {isAdmin && <button class="btn small" title="Admin: xong ngay, không cần ảnh" disabled={busy === type} onClick={() => mark(type)}><Icon name="zap" size={14} /></button>}
-                </span>
-              ) : (
-                <button class="btn small primary" disabled={busy === type} onClick={() => mark(type)}>Xong</button>
-              )}
+            <li class={"task-row" + (done ? " done" : "")} id={`task-${type}`} key={type}>
+              <div class="task-main">
+                <div class="task-head">{done ? "✅" : "⬜"} <span class="task-lbl">{lbl}</span></div>
+                {meta(st, type, locked ? "🔒 chỉ văn phòng" : undefined)}
+              </div>
+              <div class="task-act">
+                {locked ? null : done ? (
+                  <button class="btn small" disabled={busy === type} onClick={() => clear(type)}>Huỷ</button>
+                ) : (
+                  <>
+                    {type === "nop_tien" ? (
+                      <button class="btn small primary" onClick={() => setNopOpen(true)}>Xong</button>
+                    ) : type === "soan_hang" ? (
+                      <button class="btn small primary" onClick={() => setSoanOpen(true)}>Xong</button>
+                    ) : (
+                      <button class="btn small primary" disabled={busy === type} onClick={() => mark(type)}>Xong</button>
+                    )}
+                    {isAdmin && (type === "nop_tien" || type === "soan_hang") &&
+                      <button class="btn small" title="Admin: xong ngay, không cần ảnh" disabled={busy === type} onClick={() => mark(type)}><Icon name="zap" size={14} /></button>}
+                  </>
+                )}
+              </div>
             </li>
           );
         })}
@@ -151,23 +154,23 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
           const st = taskStatus[ct.id] || {};
           const done = !!st.done;
           return (
-            <li class="row space" key={ct.id}>
-              <span>
-                {done ? "✅" : "⬜"} {ct.label}
+            <li class={"task-row" + (done ? " done" : "")} key={ct.id}>
+              <div class="task-main">
+                <div class="task-head">{done ? "✅" : "⬜"} <span class="task-lbl">{ct.label}</span></div>
                 {meta(st)}
-              </span>
-              <span class="row" style="gap:6px">
+              </div>
+              <div class="task-act">
                 {done ? (
                   <button class="btn small" disabled={busy === ct.id} onClick={() => clear(ct.id)}>Huỷ</button>
                 ) : (
                   <button class="btn small primary" disabled={busy === ct.id} onClick={() => mark(ct.id)}>Xong</button>
                 )}
-                <button class="btn small" title="Xoá việc" disabled={busy === ct.id} onClick={() => removeCustom(ct.id)}><Icon name="trash" size={14} /></button>
-              </span>
+                <button class="btn small task-del" title="Xoá việc" disabled={busy === ct.id} onClick={() => removeCustom(ct.id)}><Icon name="trash" size={14} /></button>
+              </div>
             </li>
           );
         })}
-        <li class="row space">
+        <li class="task-row task-addrow">
           {adding ? (
             <span class="row" style="gap:6px;width:100%">
               <input class="narrow" style="flex:1" value={label} placeholder="Tên việc mới…" autofocus
