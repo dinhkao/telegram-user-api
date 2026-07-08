@@ -34,9 +34,13 @@ def add_custom_task(conn, thread_id: int, label: str, user_id: int | None) -> st
         task_id = next_custom_task_id(order)
         now_iso = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
         _add(order, task_id, label, user_id, now_iso)
-        if _save_order(conn, thread_id, order.to_dict()):
-            return task_id
-        return None
+        d = order.to_dict()
+        saved = _save_order(conn, thread_id, d)
+    if saved:
+        from task_store import mirror_order_tasks_safe
+        mirror_order_tasks_safe(thread_id, d)
+        return task_id
+    return None
 
 
 def apply_customer_default_tasks(conn, thread_id: int, firebase_key: str, user_id: int | None = None) -> list[str]:
@@ -60,10 +64,14 @@ def apply_customer_default_tasks(conn, thread_id: int, firebase_key: str, user_i
         now_iso = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
         for lb in todo:
             _add(order, next_custom_task_id(order), lb, user_id, now_iso)
-        if _save_order(conn, thread_id, order.to_dict()):
-            log.info("customer default tasks: thread=%s +%d (%s)", thread_id, len(todo), ", ".join(todo))
-            return todo
-        return []
+        d = order.to_dict()
+        saved = _save_order(conn, thread_id, d)
+    if saved:
+        from task_store import mirror_order_tasks_safe
+        mirror_order_tasks_safe(thread_id, d)
+        log.info("customer default tasks: thread=%s +%d (%s)", thread_id, len(todo), ", ".join(todo))
+        return todo
+    return []
 
 
 def remove_custom_task(conn, thread_id: int, task_id: str) -> bool:
@@ -74,4 +82,8 @@ def remove_custom_task(conn, thread_id: int, task_id: str) -> bool:
             log.warning("remove_custom_task: order not found thread=%s", thread_id)
             return False
         order = _remove(Order.from_dict(data), task_id)
-        return _save_order(conn, thread_id, order.to_dict())
+        d = order.to_dict()
+        ok = _save_order(conn, thread_id, d)
+    from task_store import mirror_order_tasks_safe
+    mirror_order_tasks_safe(thread_id, d)
+    return ok

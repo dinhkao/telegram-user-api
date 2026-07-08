@@ -1,0 +1,128 @@
+"""MIRROR task của ĐƠN → bảng `tasks` (dual-write, blob vẫn là nguồn sự thật).
+
+Gọi từ order_store.tasks (set/clear_task_status) + order_store.custom_tasks
+(thêm/xoá) — best-effort: mirror lỗi KHÔNG được làm hỏng flow đơn (try/except ở
+caller). Backfill 1 lần cho đơn có sẵn (order_created >= 2026-06-01, khớp mốc
+dữ liệu sạch của dashboard). Nối: task_store.schema/queries, bảng orders.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import time
+
+from .schema import conn_tasks
+
+log = logging.getLogger("task_store")
+
+STEP_LABELS = {
+    "ban_hd": "Bán HĐ", "soan_hang": "Soạn hàng", "giao_hang": "Giao hàng",
+    "nop_tien": "Nộp tiền", "nhan_tien": "Nhận tiền",
+}
+
+
+def order_label_of(data: dict) -> str:
+    """Nhãn đơn ngắn cho list việc (khỏi join): khách trên HĐ > tên khách > topic."""
+    pc = (data.get("hoadon") or {}).get("print_content") or {}
+    return (pc.get("kh") or data.get("customer_name") or data.get("topic_name")
+            or (data.get("text") or "")[:40] or "?")
+
+
+def _iso_epoch(v) -> int | None:
+    if not v:
+        return None
+    try:
+        from datetime import datetime
+        return int(datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp())
+    except ValueError:
+        return None
+
+
+def _upsert(kind: str, thread_id: int, step_key: str, title: str, *, done: bool,
+            done_by: str | None, done_at, order_label: str) -> None:
+    now = int(time.time())
+    conn = conn_tasks()
+    try:
+        conn.execute(
+            "INSERT INTO web_tasks (kind, thread_id, step_key, title, note, order_label, done, done_by, done_at,"
+            " created_by, created_at, updated_at)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
+            " ON CONFLICT(kind, thread_id, step_key) WHERE step_key IS NOT NULL DO UPDATE SET"
+            " title = excluded.title, order_label = excluded.order_label, done = excluded.done,"
+            " done_by = excluded.done_by, done_at = excluded.done_at, updated_at = excluded.updated_at,"
+            " deleted_at = NULL",
+            (kind, int(thread_id), step_key, title, "", order_label,
+             1 if done else 0, done_by, _iso_epoch(done_at) if isinstance(done_at, str) else done_at,
+             "", now, now),
+        )
+    finally:
+        conn.close()
+
+
+def mirror_order_tasks(thread_id: int, data: dict) -> None:
+    """Đồng bộ MỌI task của 1 đơn (5 bước + custom) từ blob → bảng tasks.
+    Gọi sau mỗi lần blob đổi task — idempotent (upsert theo mirror key)."""
+    label = order_label_of(data)
+    ts = data.get("task_status") or {}
+    for key, title in STEP_LABELS.items():
+        st = ts.get(key) or {}
+        _upsert("order_step", thread_id, key, title,
+                done=bool(st.get("done")), done_by=str(st.get("by") or "") or None,
+                done_at=st.get("at"), order_label=label)
+    live_ids = set()
+    for t in data.get("custom_tasks") or []:
+        tid = t.get("id")
+        if not tid:
+            continue
+        live_ids.add(str(tid))
+        st = ts.get(tid) or {}
+        _upsert("order_custom", thread_id, str(tid), t.get("label") or "?",
+                done=bool(st.get("done")), done_by=str(st.get("by") or "") or None,
+                done_at=st.get("at"), order_label=label)
+    # custom bị xoá khỏi đơn → soft-delete mirror tương ứng
+    conn = conn_tasks()
+    try:
+        rows = conn.execute(
+            "SELECT id, step_key FROM web_tasks WHERE kind='order_custom' AND thread_id=? AND deleted_at IS NULL",
+            (int(thread_id),)).fetchall()
+        for r in rows:
+            if r["step_key"] not in live_ids:
+                conn.execute("UPDATE web_tasks SET deleted_at=? WHERE id=?", (int(time.time()), r["id"]))
+    finally:
+        conn.close()
+
+
+def mirror_order_tasks_safe(thread_id: int, data: dict) -> None:
+    """Bản bọc try/except — mirror không bao giờ làm hỏng flow đơn."""
+    try:
+        mirror_order_tasks(int(thread_id), data or {})
+    except Exception as e:  # noqa: BLE001
+        log.warning("mirror tasks lỗi thread=%s: %s", thread_id, e)
+
+
+_BACKFILL_DONE = False
+
+
+def backfill_from_orders() -> int:
+    """1 lần mỗi process: mirror mọi đơn từ 2026-06-01 (idempotent — chạy lại vô hại)."""
+    global _BACKFILL_DONE
+    if _BACKFILL_DONE:
+        return 0
+    _BACKFILL_DONE = True
+    from utils.db import get_connection
+    conn = get_connection(readonly=True)
+    n = 0
+    try:
+        rows = conn.execute(
+            "SELECT thread_id, json FROM orders WHERE deleted_at IS NULL"
+            " AND order_created >= '2026-06-01' AND thread_id IS NOT NULL").fetchall()
+        for r in rows:
+            try:
+                mirror_order_tasks(r["thread_id"], json.loads(r["json"]))
+                n += 1
+            except Exception:  # noqa: BLE001 — 1 đơn hỏng không chặn cả đợt
+                continue
+    finally:
+        conn.close()
+    log.info("backfill tasks: %d đơn", n)
+    return n

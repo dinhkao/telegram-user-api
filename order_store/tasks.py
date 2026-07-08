@@ -27,7 +27,12 @@ def set_task_status(conn, thread_id: int, task_type: str, user_id: int | None, *
             return False
         now_iso = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
         order = mark_task(Order.from_dict(data), task_type, user_id, done=done, skip=skip, note=note, now_iso=now_iso)
-        return _save_order(conn, thread_id, order.to_dict())
+        d = order.to_dict()
+        ok = _save_order(conn, thread_id, d)
+    # MIRROR sang bảng tasks (task list) — best-effort, NGOÀI transaction
+    from task_store import mirror_order_tasks_safe
+    mirror_order_tasks_safe(thread_id, d)
+    return ok
 
 
 def clear_task_status(conn, thread_id: int, task_type: str, user_id: int | None) -> bool:
@@ -37,7 +42,11 @@ def clear_task_status(conn, thread_id: int, task_type: str, user_id: int | None)
             log.warning("clear_task_status: order not found thread=%d", thread_id)
             return False
         order = clear_task(Order.from_dict(data), task_type)
-        return _save_order(conn, thread_id, order.to_dict())
+        d = order.to_dict()
+        ok = _save_order(conn, thread_id, d)
+    from task_store import mirror_order_tasks_safe
+    mirror_order_tasks_safe(thread_id, d)
+    return ok
 
 
 def get_all_tasks(conn) -> list[dict]:

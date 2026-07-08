@@ -151,6 +151,12 @@ def emit_quy_changed() -> None:
     spawn_tracked("realtime.quy_changed", _broadcast({"type": "quy_changed"}, "quy_changed"))
 
 
+def emit_tasks_changed() -> None:
+    """Việc (task list) đổi → trang Việc refetch."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.tasks_changed", _broadcast({"type": "tasks_changed"}, "tasks_changed"))
+
+
 def emit_price_lists_changed() -> None:
     """Bảng giá chung đổi (lưu giá) → trang bảng giá + khách refetch."""
     from server_app.tasks import spawn_tracked

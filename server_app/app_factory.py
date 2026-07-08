@@ -194,6 +194,16 @@ def create_app():
     r.add_get("/api/media/{scope}/{entity_id}/history", entity_history_handler)
     from server_app.activity import activity_handler
     r.add_get("/api/activity", activity_handler)
+    # ─── VIỆC (task list — bảng tasks + mirror task đơn) ────────────────────
+    from server_app.task_routes import (
+        task_delete_handler, task_get_handler, task_update_handler,
+        tasks_create_handler, tasks_list_handler,
+    )
+    r.add_get("/api/tasks", tasks_list_handler)
+    r.add_post("/api/tasks", tasks_create_handler)
+    r.add_get("/api/tasks/{task_id}", task_get_handler)
+    r.add_post("/api/tasks/{task_id}", task_update_handler)
+    r.add_delete("/api/tasks/{task_id}", task_delete_handler)
     # ─── phiếu sản xuất (production) ─────────────────────────────────────────
     # catalog + create đăng ký TRƯỚC /{thread_id} để không bị route động nuốt
     r.add_get("/api/production/catalog", production_catalog_handler)
