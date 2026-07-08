@@ -39,7 +39,8 @@ def _iso_epoch(v) -> int | None:
 
 
 def _upsert(kind: str, thread_id: int, step_key: str, title: str, *, done: bool,
-            done_by: str | None, done_at, order_label: str) -> None:
+            done_by: str | None, done_at, order_label: str, created_at: int | None = None) -> None:
+    """created_at = NGÀY TẠO ĐƠN (mirror) — sort 'mới tạo' của dashboard việc mới đúng."""
     now = int(time.time())
     conn = conn_tasks()
     try:
@@ -50,10 +51,10 @@ def _upsert(kind: str, thread_id: int, step_key: str, title: str, *, done: bool,
             " ON CONFLICT(kind, thread_id, step_key) WHERE step_key IS NOT NULL DO UPDATE SET"
             " title = excluded.title, order_label = excluded.order_label, done = excluded.done,"
             " done_by = excluded.done_by, done_at = excluded.done_at, updated_at = excluded.updated_at,"
-            " deleted_at = NULL",
+            " created_at = excluded.created_at, deleted_at = NULL",
             (kind, int(thread_id), step_key, title, "", order_label,
              1 if done else 0, done_by, _iso_epoch(done_at) if isinstance(done_at, str) else done_at,
-             "", now, now),
+             "", created_at or now, now),
         )
     finally:
         conn.close()
@@ -63,12 +64,13 @@ def mirror_order_tasks(thread_id: int, data: dict) -> None:
     """Đồng bộ MỌI task của 1 đơn (5 bước + custom) từ blob → bảng tasks.
     Gọi sau mỗi lần blob đổi task — idempotent (upsert theo mirror key)."""
     label = order_label_of(data)
+    created = _iso_epoch(data.get("created"))   # ngày tạo ĐƠN
     ts = data.get("task_status") or {}
     for key, title in STEP_LABELS.items():
         st = ts.get(key) or {}
         _upsert("order_step", thread_id, key, title,
                 done=bool(st.get("done")), done_by=str(st.get("by") or "") or None,
-                done_at=st.get("at"), order_label=label)
+                done_at=st.get("at"), order_label=label, created_at=created)
     live_ids = set()
     for t in data.get("custom_tasks") or []:
         tid = t.get("id")
@@ -78,7 +80,7 @@ def mirror_order_tasks(thread_id: int, data: dict) -> None:
         st = ts.get(tid) or {}
         _upsert("order_custom", thread_id, str(tid), t.get("label") or "?",
                 done=bool(st.get("done")), done_by=str(st.get("by") or "") or None,
-                done_at=st.get("at"), order_label=label)
+                done_at=st.get("at"), order_label=label, created_at=created)
     # custom bị xoá khỏi đơn → soft-delete mirror tương ứng
     conn = conn_tasks()
     try:
