@@ -1237,11 +1237,11 @@ body.kbd-open .wr-peek-btn { bottom: calc(12px + env(safe-area-inset-bottom, 0px
 /* Chừa chỗ cho app-bar dính (44px) khi cuộn tới mục — khỏi bị che đầu */
 #od-invoice, #od-payments, #od-tasks, #od-camera, #od-stock, #od-chat { scroll-margin-top: 56px; }
 .img-strip { display: flex; gap: 6px; overflow-x: auto; margin: 0 0 8px; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
-.img-strip-tile { position: relative; flex: 0 0 auto; width: 64px; height: 64px; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); cursor: pointer; }
+.img-strip-tile { position: relative; flex: 0 0 auto; width: 84px; height: 84px; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); cursor: pointer; }
 .img-strip-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .img-strip-cam { display: flex; align-items: center; justify-content: center; font-size: 24px; border-style: dashed; }
 /* Nhãn loại trên dải xem nhanh — CHỈ XEM */
-.img-strip-kind { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 2px; background: rgba(0,0,0,.62); color: #fff; font-size: .56rem; font-weight: 600; line-height: 1.3; padding: 2px 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+.img-strip-kind { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 2px; background: rgba(0,0,0,.62); color: #fff; font-size: .62rem; font-weight: 600; line-height: 1.3; padding: 2px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
 .od-created { margin-top: 6px; }
 
 /* Quản lý user */
