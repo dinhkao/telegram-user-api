@@ -734,9 +734,21 @@ body.pv-open { overflow: hidden; }
 /* các phần tử CỘT NỘI DUNG của feed (header ngày, khe thời gian) dừng đúng mép
    card — không tràn vào cột rail nợ bên phải (gạch chân/nhãn không đè số nợ) */
 .cust-feed .feed-day-li { margin-right: 87px; }
-.feed-gap-li { display: flex; align-items: center; justify-content: center; margin-right: 87px; }
-.fg-label { font-size: .7rem; color: var(--muted); background: var(--bg); padding: 0 6px;
+/* khe = block (không flex) để 2 phần tử sticky bên trong trượt HẾT chiều cao khe;
+   padding-bottom chặn số trôi dừng sớm ~26px — khỏi đè lên số nợ thật ở đáy khe */
+.feed-gap-li { display: block; position: relative; margin-right: 87px; padding-bottom: 26px; }
+.fg-label { display: block; width: fit-content; margin: 0 auto;
+  font-size: .7rem; color: var(--muted); background: var(--bg); padding: 0 6px;
   position: sticky; top: 50vh; }   /* khe dài (cả trăm px) — nhãn dính giữa màn khi cuộn qua */
+/* SỐ NỢ TREO trôi theo cuộn trong khe lớn — cùng cột, cùng mặt chữ với số nợ
+   thật (fd-gap): xám đậm, nền che line nét đứt chạy sau. Kẹp trong khe: sticky
+   chỉ chạy giữa mép trên khe ↔ đáy khe (trừ padding). margin-right âm bù
+   margin-right 87px của khe để mép phải thẳng hàng số nợ thật (right 13px). */
+.fg-debt { display: block; width: fit-content; margin-left: auto; margin-right: -74px;
+  position: sticky; top: 44vh; z-index: 1;
+  font-size: .73rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  white-space: nowrap; color: #4b5563; background: var(--bg); border-radius: 4px;
+  padding: 1px 4px; }
 /* ── Lịch tháng biến động (CustomerCalendar) ── */
 .cust-cal { margin: 4px 0 14px; }
 /* ── lịch LIỀN MẠCH kiểu macOS: indicator tháng dính + tháng active nổi bật ── */

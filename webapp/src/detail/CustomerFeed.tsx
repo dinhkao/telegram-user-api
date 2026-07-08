@@ -59,8 +59,14 @@ const gapDays = (newer?: number, older?: number): number =>
   newer && older ? Math.round((newer - older) / 86400) : 0;
 const gapLabel = (d: number) =>
   d >= 60 ? `${Math.round(d / 30)} tháng` : d >= 14 ? `${Math.round(d / 7)} tuần` : `${d} ngày`;
-const gapSpacer = (d: number, key: string) => (
+// Khe LỚN (≥10 ngày ≈ 140px) → SỐ NỢ TREO suốt khoảng nghỉ (= nợ sau sự kiện cũ
+// ở đáy khe) TRÔI THEO CUỘN trong khe (sticky, kẹp 2 đầu) — cuộn giữa đoạn trống
+// dài vẫn biết đang treo bao nhiêu. Chấm + số gốc ở đáy khe giữ nguyên làm mốc.
+const gapSpacer = (d: number, key: string, debt?: number | null, est?: boolean) => (
   <li key={key} class="feed-gap-li" style={{ height: `${Math.min(d * 14, 1400)}px` }} aria-hidden="true">
+    {debt != null && d >= 10 && (
+      <span class="fg-debt">{est ? "≈" : ""}{money(Number(debt))}</span>
+    )}
     <span class="fg-label">· {gapLabel(d)} ·</span>
   </li>
 );
@@ -288,7 +294,8 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
               // dòng lưu ý tại điểm vượt mốc 6/7/2026 (item đầu tiên CŨ hơn mốc)
               if (it.ts < DEBT_FEATURE_TS && (i === 0 || items[i - 1].ts >= DEBT_FEATURE_TS)) nodes.push(debtFeatureNote);
               const d = i > 0 ? gapDays(items[i - 1].ts, it.ts) : 0;
-              if (d >= 2) nodes.push(gapSpacer(d, `gap-${i}`));
+              // nợ treo trong khe = nợ SAU sự kiện CŨ hơn (item dưới khe) = it.debt_after
+              if (d >= 2) nodes.push(gapSpacer(d, `gap-${i}`, it.debt_after != null ? Number(it.debt_after) : null, it.debt_est));
               // header NGÀY dạng divider phẳng — sau khe, trước item đầu của ngày
               const day = dayOf(it);
               if (i === 0 || dayOf(items[i - 1]) !== day) {
