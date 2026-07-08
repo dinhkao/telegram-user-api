@@ -18,6 +18,11 @@ async def execute_print_giao(conn, order, user_id=None) -> dict:
     Returns:
         {"ok": True} on success, {"error": "..."} on failure
     """
+    # Ràng buộc quy trình: giao hàng xong mới in HĐ giao (toggle Cài đặt webapp)
+    from order_store.guards import print_giao_block_reason
+    _reason = print_giao_block_reason(order or {})
+    if _reason:
+        return {"error": _reason, "blocked": True}
     from order_db import get_customer_by_key
     from inhoadon import generate_invoice_html
     from delivery_ticket import _enqueue_html_for_print, generate_delivery_ticket_html

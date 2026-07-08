@@ -14,7 +14,7 @@ from settings_store import get_all, set_value
 
 # key → mô tả (trả kèm cho UI); default xử lý ở nơi ĐỌC (get_bool(key, default))
 _ALLOWED_KEYS = {
-    "soan_hang_require_stock": "Soạn hàng cần chốt xuất kho + ảnh soạn hàng",
+    "soan_hang_require_stock": "Ràng buộc quy trình: chốt kho + ảnh → soạn hàng → giao hàng → in HĐ giao",
 }
 _DEFAULTS = {"soan_hang_require_stock": True}
 

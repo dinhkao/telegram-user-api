@@ -28,7 +28,8 @@ async def api_print_giao_handler(request: web.Request):
         return web.json_response({"error": "Order not found"}, status=404)
     result = await execute_print_giao(conn, order, body.get("user_id"))
     if result.get("error"):
-        return web.json_response(result, status=409 if "No KiotViet" in result["error"] else 500)
+        status = 400 if result.get("blocked") else (409 if "No KiotViet" in result["error"] else 500)
+        return web.json_response(result, status=status)
     if state._client:
         printed_by = await resolve_name(body.get("user_id")) if body.get("user_id") else "Hệ thống"
         spawn_tracked("print_giao.notification", tg_send_message(ORDER_GROUP_ID, f"🖨️ {printed_by} đã in 2 hóa đơn (không QR) và Phiếu giao hàng", reply_to=thread_id), {"thread_id": thread_id, "user_id": body.get("user_id")})

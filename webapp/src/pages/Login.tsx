@@ -30,7 +30,7 @@ function AdminSettings() {
       <label class="set-row">
         <input type="checkbox" checked={!!st.soan_hang_require_stock} disabled={busy}
           onChange={() => flip("soan_hang_require_stock")} />
-        <span>Soạn hàng cần <b>chốt xuất kho</b> + <b>ảnh soạn hàng</b> mới đánh dấu xong được</span>
+        <span>Ràng buộc quy trình đơn: <b>chốt xuất kho + ảnh</b> → soạn hàng → <b>soạn xong</b> → giao hàng → <b>giao xong</b> → in hoá đơn giao</span>
       </label>
     </div>
   );
