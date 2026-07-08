@@ -578,16 +578,16 @@ body.pv-open { overflow: hidden; }
 .prod-bar { height: 6px; background: #eee; border-radius: 3px; margin-top: 8px; overflow: hidden; }
 .prod-bar-fill { height: 100%; background: #f0a500; border-radius: 3px; transition: width .3s; }
 .prod-bar-fill.done { background: var(--ok); }
-/* Thân card SX: trái = chart thợ (50%), giữa = lưới ô thùng, phải = 2 tổng số */
-.prod-card-body { display: flex; align-items: flex-start; gap: 8px; margin-top: 4px; }
+/* Thân card SX: trái = chart thợ (50%, tổng báo cáo trên đầu), phải = lưới ô thùng (tổng nhập trên đầu) */
+.prod-card-body { display: flex; align-items: flex-start; gap: 8px; margin-top: 6px; }
+.pcb-chart { flex: 0 0 50%; min-width: 0; }
 .prod-card-boxes { flex: 1 1 auto; min-width: 0; }
-.prod-card-tot { flex: 0 0 auto; margin-left: auto; display: flex; flex-direction: column; gap: 3px; align-items: flex-end; padding-top: 4px; }
-.pct-item { display: flex; align-items: center; gap: 3px; font-size: .82rem; font-weight: 700; color: #333; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.pct-item svg { color: var(--muted); }
+.pcb-head { display: flex; align-items: center; gap: 3px; font-size: .82rem; font-weight: 700; color: #333; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pcb-head svg { color: var(--muted); }
 .prod-card-body.with-chart .box-mini-grid { grid-template-columns: repeat(4, 1fr); }
 .prod-card-body.with-chart .box-mini-grid.mixed { grid-template-columns: repeat(3, 1fr); }
 /* Mini chart báo cáo thợ trên card SX — thanh NGANG + ghi chú đứng cạnh, cả cụm 50% card */
-.prod-mini-chart { margin-top: 6px; display: flex; align-items: flex-start; gap: 8px; flex: 0 0 50%; min-width: 0; }
+.prod-mini-chart { margin-top: 4px; display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
 .pmc-chart { flex: 1 1 62%; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .pmc-row { display: flex; align-items: center; gap: 3px; }
 .pmc-name { flex: 0 0 32px; font-size: .48rem; line-height: 1.3; color: #777; text-align: right;
