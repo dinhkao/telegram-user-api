@@ -17,7 +17,7 @@ const dayLabel = (d: string) =>
   `${_WD[(new Date(d).getDay() + 6) % 7]} · ${d.slice(8)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 
 export function DeliveryCalendar() {
-  const [raw, setRaw] = useState<{ d: string; pending: number; done: number }[]>([]);
+  const [raw, setRaw] = useState<{ d: string; pending: number; done: number; items?: { t: string; done: boolean }[] }[]>([]);
   const [hideDelivered, setHideDelivered] = useState(true);   // mặc định ẩn đơn đã giao
 
   const load = () =>
@@ -37,9 +37,12 @@ export function DeliveryCalendar() {
     return () => { off(); clearTimeout(t); };
   }, []);
 
-  // chấm đỏ = chưa giao; xanh = đã giao (ẩn nếu bật toggle)
+  // dòng text mỗi đơn: ĐỎ chưa giao (trên), XANH đã giao (dưới, ẩn nếu toggle)
   const days: CalDays = new Map(
-    raw.map((x) => [x.d, { o: x.pending, p: hideDelivered ? 0 : x.done }]),
+    raw.map((x) => {
+      const items = (x.items || []).filter((it) => !hideDelivered || !it.done);
+      return [x.d, { o: x.pending, p: hideDelivered ? 0 : x.done, items }];
+    }),
   );
 
   // popup đơn giao 1 ngày

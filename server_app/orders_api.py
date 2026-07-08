@@ -312,18 +312,26 @@ async def orders_delivery_handler(request: web.Request):
     conn = get_orders_conn()
     try:
         if days_mode:
-            # Lịch cuộn: đếm đơn theo NGÀY GIAO cho MỌI tháng — pending (chưa giao)
-            # vs done (đã giao) để lịch chấm đỏ/xanh.
+            # Lịch cuộn: theo NGÀY GIAO cho MỌI tháng — đếm pending/done + NHÃN
+            # từng đơn (tên khách) để ô lịch hiện text (đỏ chưa giao trên,
+            # xanh đã giao dưới).
             rows = conn.execute(
                 "SELECT substr(json_extract(o.json,'$.ngay_giao'),1,10) AS d, "
-                "SUM(CASE WHEN COALESCE(json_extract(o.json,'$.task_status.giao_hang.done'),0) IN (1,'true') THEN 0 ELSE 1 END) AS pending, "
-                "SUM(CASE WHEN COALESCE(json_extract(o.json,'$.task_status.giao_hang.done'),0) IN (1,'true') THEN 1 ELSE 0 END) AS done "
+                "COALESCE(NULLIF(json_extract(o.json,'$.hoadon.print_content.kh'),''), "
+                "         NULLIF(json_extract(o.json,'$.customer_name'),''), "
+                "         NULLIF(json_extract(o.json,'$.topic_name'),''), CAST(o.thread_id AS TEXT)) AS label, "
+                "CASE WHEN COALESCE(json_extract(o.json,'$.task_status.giao_hang.done'),0) IN (1,'true') THEN 1 ELSE 0 END AS done "
                 "FROM orders o WHERE json_extract(o.json,'$.ngay_giao') IS NOT NULL AND o.deleted_at IS NULL "
-                "GROUP BY d ORDER BY d"
+                "ORDER BY d, done, o.thread_id"
             ).fetchall()
-            return web.json_response({"ok": True, "days": [
-                {"d": r["d"], "pending": r["pending"] or 0, "done": r["done"] or 0}
-                for r in rows if r["d"]]})
+            by_day: dict = {}
+            for r in rows:
+                if not r["d"]:
+                    continue
+                c = by_day.setdefault(r["d"], {"d": r["d"], "pending": 0, "done": 0, "items": []})
+                c["done" if r["done"] else "pending"] += 1
+                c["items"].append({"t": r["label"], "done": bool(r["done"])})
+            return web.json_response({"ok": True, "days": sorted(by_day.values(), key=lambda c: c["d"])})
         if day:
             if not re.match(r"^\d{4}-\d{2}-\d{2}$", day):
                 return web.json_response({"ok": False, "error": "day phải dạng YYYY-MM-DD"}, status=400)

@@ -11,7 +11,9 @@ import { fastScrollToEl } from "../scroll";
 const _WD = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const pad = (n: number) => String(n).padStart(2, "0");
 
-export type CalDays = Map<string, { o: number; p: number }>;
+/** o = số đỏ (chưa giao/đơn), p = số xanh; items (tuỳ chọn) = NHÃN từng mục —
+ *  có items thì ô hiện TEXT mỗi mục 1 dòng (đỏ trên, xanh dưới) thay vì chấm. */
+export type CalDays = Map<string, { o: number; p: number; items?: { t: string; done: boolean }[] }>;
 
 type Ym = { y: number; m: number };
 const addMonths = ({ y, m }: Ym, dm: number): Ym => {
@@ -157,13 +159,20 @@ export function ScrollCalendar({ days, legend, onPick, headExtra }: {
               title={has ? `${c!.o ? `${c!.o} ${legend.o}` : ""}${c!.o && c!.p ? " · " : ""}${c!.p ? `${c!.p} ${legend.p}` : ""}` : undefined}>
               {first && <span class="cc-mlabel">Th{t.getMonth() + 1}</span>}
               <span class="cc-d">{t.getDate()}</span>
-              {has && (
+              {has && c!.items ? (
+                <span class="cc-lines">
+                  {c!.items.slice(0, 5).map((it, j) => (
+                    <span key={j} class={"cc-line" + (it.done ? " dn" : " pend")}>{it.t}</span>
+                  ))}
+                  {c!.items.length > 5 && <span class="cc-line more">+{c!.items.length - 5}</span>}
+                </span>
+              ) : has ? (
                 <span class="cc-dots">
                   {Array.from({ length: oShow }, (_, j) => <span key={`o${j}`} class="cc-dot o" />)}
                   {Array.from({ length: pShow }, (_, j) => <span key={`p${j}`} class="cc-dot p" />)}
                   {extra > 0 && <span class="cc-more">+{extra}</span>}
                 </span>
-              )}
+              ) : null}
             </button>
           );
         })}
