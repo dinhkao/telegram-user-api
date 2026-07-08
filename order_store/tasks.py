@@ -32,6 +32,15 @@ def set_task_status(conn, thread_id: int, task_type: str, user_id: int | None, *
     # MIRROR sang bảng tasks (task list) — best-effort, NGOÀI transaction
     from task_store import mirror_order_tasks_safe
     mirror_order_tasks_safe(thread_id, d)
+    # GIAO HÀNG xong → tự giao 'Nộp tiền' cho người giao, hạn 17:00 cùng ngày
+    if task_type == "giao_hang" and done and not skip:
+        try:
+            from task_store import auto_assign_nop_tien
+            if auto_assign_nop_tien(thread_id, user_id):
+                from server_app.realtime import emit_tasks_changed
+                emit_tasks_changed()
+        except Exception as e:  # noqa: BLE001 — best-effort, không hỏng flow đơn
+            log.warning("auto_assign_nop_tien lỗi thread=%s: %s", thread_id, e)
     return ok
 
 

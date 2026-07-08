@@ -94,6 +94,33 @@ def mirror_order_tasks(thread_id: int, data: dict) -> None:
         conn.close()
 
 
+def auto_assign_nop_tien(thread_id: int, by) -> bool:
+    """GIAO HÀNG xong → tự giao việc 'Nộp tiền' của đơn cho người vừa giao,
+    hạn CÙNG NGÀY (due_at = ngày VN; giờ 17:00 ghi ở note — cột due_at chỉ chứa
+    ngày). Chỉ khi nộp tiền chưa xong + chưa ai được giao (không đè phân công tay).
+    `by` phải là username web (Telegram id số không map được → bỏ qua)."""
+    u = str(by or "").strip()
+    if not u or u.isdigit():
+        return False
+    from user_store import get_user
+    if not get_user(u):
+        return False
+    from datetime import datetime, timedelta, timezone
+    today = datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d")
+    now = int(time.time())
+    conn = conn_tasks()
+    try:
+        cur = conn.execute(
+            "UPDATE web_tasks SET assignee = ?, due_at = ?,"
+            " note = CASE WHEN note = '' THEN ? ELSE note END, updated_at = ?"
+            " WHERE kind = 'order_step' AND thread_id = ? AND step_key = 'nop_tien'"
+            " AND deleted_at IS NULL AND done = 0 AND assignee = ''",
+            (u, today, "⏰ Hạn 17:00 hôm nay (tự giao sau Giao hàng)", now, int(thread_id)))
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
 def mirror_order_tasks_safe(thread_id: int, data: dict) -> None:
     """Bản bọc try/except — mirror không bao giờ làm hỏng flow đơn."""
     try:
