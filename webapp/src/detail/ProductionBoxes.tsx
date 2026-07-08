@@ -4,6 +4,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { addProductionBoxes, slipBoxes, listUnits, createUnit, listPlaces, createPlace, getRecipe, searchProducts, soVN, type ProdSlip, type InvBox, type Unit, type Place, type RecipeLine } from "../api";
 import { onRealtime } from "../realtime";
+import { usePopupBack } from "../ui/usePopupBack";
 import { confirmDialog } from "../ui/feedback";
 import { CameraBox, cameraSupported } from "./CameraBox";
 import { Icon } from "../ui/Icon";
@@ -39,8 +40,12 @@ export function ProductionBoxes({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [myBoxes, setMyBoxes] = useState<InvBox[]>([]);
-  // Sau khi tạo thùng xong → mở camera; ảnh lưu vào PHIẾU + MỌI thùng vừa tạo
+  // Sau khi tạo thùng xong → mở camera; ảnh lưu vào PHIẾU + MỌI thùng vừa tạo.
+  // Camera đóng → popup nhắc GHI MÃ lên thùng (liệt kê ô thùng mới).
   const [camBases, setCamBases] = useState<string[] | null>(null);
+  const [newBoxes, setNewBoxes] = useState<InvBox[]>([]);
+  const [codeBoxes, setCodeBoxes] = useState<InvBox[] | null>(null);
+  usePopupBack(!!codeBoxes, () => setCodeBoxes(null));
   const [mineView, setMineView] = useState<"grid" | "list">("grid");
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitId, setUnitId] = useState<number | null>(null);   // đơn vị chứa cho đợt nhập
@@ -144,12 +149,16 @@ export function ProductionBoxes({
         setMsg(`✅ Đã nhập ${c} ${unitLow}${nc ? ` · trừ ${nc} phần nguyên liệu` : ""}`);
         onChanged();
         loadMine();
-        // Mở camera: ảnh lưu vào phiếu SX + từng thùng mới (cần HTTPS mới có camera)
+        // Mở camera: ảnh lưu vào phiếu SX + từng thùng mới (cần HTTPS mới có camera).
+        // Không có camera → nhảy thẳng popup nhắc ghi mã.
+        setNewBoxes(r.boxes || []);
         if (cameraSupported()) {
           setCamBases([
             `/api/media/production/${threadId}`,
             ...(r.boxes || []).map((b) => `/api/media/box/${b.id}`),
           ]);
+        } else if ((r.boxes || []).length) {
+          setCodeBoxes(r.boxes || []);
         }
       }
     } catch (e: any) {
@@ -248,7 +257,18 @@ export function ProductionBoxes({
 
       {camBases && (
         <CameraBox base={camBases[0]} extraBases={camBases.slice(1)}
-          onUploaded={() => {}} onClose={() => setCamBases(null)} />
+          onUploaded={() => {}}
+          onClose={() => { setCamBases(null); if (newBoxes.length) setCodeBoxes(newBoxes); }} />
+      )}
+
+      {codeBoxes && (
+        <div class="cam-overlay">
+          <div class="pb-codes-pop">
+            <div class="pb-codes-title">✍️ Hãy ghi lên thùng trước khi đóng popup này</div>
+            <BoxLabelGrid boxes={codeBoxes as any} />
+            <button class="btn primary block" onClick={() => setCodeBoxes(null)}>Đã ghi xong</button>
+          </div>
+        </div>
       )}
 
       {pickIng && (

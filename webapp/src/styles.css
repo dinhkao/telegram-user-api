@@ -500,6 +500,10 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .cam-overlay { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); overscroll-behavior: contain; }
 .cam-overlay .cambox { margin: 0; width: 100%; max-width: 460px; box-shadow: var(--e3); }
 .cam-overlay .cam-view { aspect-ratio: 3 / 4; max-height: 74vh; }
+/* Popup nhắc GHI MÃ lên thùng sau khi nhập/chụp xong */
+.pb-codes-pop { background: #fff; border-radius: 14px; padding: 16px; width: min(360px, 94vw); display: flex; flex-direction: column; gap: 12px; box-shadow: var(--e3); }
+.pb-codes-title { font-weight: 800; font-size: 1rem; text-align: center; line-height: 1.35; }
+.pb-codes-pop .box-grid { margin-top: 0; }
 .cambox { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #000; }
 .cam-view { position: relative; width: 100%; aspect-ratio: 3 / 4; background: #000; }
 .cam-view video { width: 100%; height: 100%; object-fit: cover; display: block; }
