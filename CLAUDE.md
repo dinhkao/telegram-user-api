@@ -172,9 +172,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 - `comment_store/` — `web_comments` table in `app.db`: web-app comments on orders
   (separate from `order_chat_messages` = read-only Telegram log).
 - `inventory_store/` — kho thùng (`app.db`). Bảng:
-  - `inventory_boxes` (`schema.py`+`queries.py`): 1 row = 1 thùng vật lý, mã tự sinh
-    `K2L-001` **BASE36** (`domain._to_base36`, 3 ký tự chứa 46656 thùng/SP rồi mới 4;
-    mã cũ toàn-số round-trip nguyên vẹn). Pool tồn gom theo `product_code`. Cột:
+  - `inventory_boxes` (`schema.py`+`queries.py`): 1 row = 1 thùng vật lý. Mã thùng =
+    **SỐ GỌI 3 chữ số `001`–`999` TOÀN KHO, xoay vòng** (`domain.next_call_numbers`:
+    tiếp từ số cấp gần nhất, nhảy qua số của thùng còn hàng/vô hiệu, hết 999 quay về
+    001 — ngoài kho chỉ hô "thùng 347"). Số TÁI DÙNG khi thùng hết hàng → `box_code`
+    KHÔNG unique; danh tính bất biến = `id` (lịch sử/link đều theo id). Mã cũ kiểu
+    `K2L-001`/base36 vẫn parse (`code_call_number`) + chiếm số tới khi xuất hết.
+    Pool tồn gom theo `product_code`. Cột:
     `quantity`, `mfg_date`, `note`, `disabled`+`disabled_reason`, `source_thread_id`
     (phiếu SX nguồn), **`unit_id`** → `inventory_units` (đơn vị chứa: Thùng/Kiện/Hũ…),
     **`place_id`** → `inventory_places` (vị trí kho Kho A/B…). (`status`/`order_thread_id`

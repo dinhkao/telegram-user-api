@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 
 from utils.db import transaction
-from .domain import next_box_code
+from .domain import call_code, code_call_number, next_call_numbers
 
 _VN_TZ = timezone(timedelta(hours=7))
 
@@ -18,18 +18,25 @@ def _now() -> str:
 
 
 def add_boxes(conn, product_code, quantities, *, source_thread_id=None, by=None, note=None, mfg_date=None, unit_id=None, place_id=None) -> list[dict]:
-    """Tạo N thùng mới cho product (mã tự sinh tuần tự, nguyên tử). Trả list box dict."""
+    """Tạo N thùng mới cho product — SỐ GỌI 3 chữ số toàn kho, xoay vòng, nguyên tử.
+
+    Số bị chiếm = số của thùng còn hàng hoặc vô hiệu (nhãn còn dán trên thùng thật).
+    Điểm xoay = số gọi của thùng TẠO gần nhất (kể cả đã hết hàng). >999 thùng đang
+    hoạt động → ValueError (caller trả lỗi). Trả list box dict."""
     code = str(product_code).strip().upper()
     created: list[dict] = []
     with transaction(conn):
-        rows = conn.execute(
-            "SELECT box_code FROM inventory_boxes WHERE product_code = ?", (code,)
+        taken_rows = conn.execute(
+            "SELECT b.box_code FROM inventory_boxes b WHERE b.disabled = 1 OR b.quantity > "
+            "COALESCE((SELECT SUM(a.quantity) FROM box_allocations a WHERE a.box_id = b.id), 0)"
         ).fetchall()
-        existing = [r[0] for r in rows]
+        taken = {code_call_number(r[0]) for r in taken_rows}
+        last_row = conn.execute("SELECT box_code FROM inventory_boxes ORDER BY id DESC LIMIT 1").fetchone()
+        last = code_call_number(last_row[0]) if last_row else 0
+        nums = next_call_numbers(last, taken, len(quantities))
         now = _now()
-        for q in quantities:
-            box_code = next_box_code(code, existing)
-            existing.append(box_code)
+        for q, n in zip(quantities, nums):
+            box_code = call_code(n)
             cur = conn.execute(
                 "INSERT INTO inventory_boxes "
                 "(product_code, box_code, quantity, status, source_thread_id, note, mfg_date, unit_id, place_id, created_at, created_by) "

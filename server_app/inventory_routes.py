@@ -150,7 +150,10 @@ async def production_add_boxes_handler(request: web.Request):
                         continue   # sản xuất: optional không ép; đóng gói: MỌI NL bắt buộc
                     if got.get(nd["code"], 0.0) + 1e-6 < nd["amount"]:
                         return "short", nd["code"], nd["amount"]
-            created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=unit_id, place_id=place_id)
+            try:
+                created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=unit_id, place_id=place_id)
+            except ValueError as e:   # hết 999 số gọi đang hoạt động (thực tế khó xảy ra)
+                return "full", str(e), None
             # Phiếu SẢN XUẤT: SP vừa làm ra là nguyên liệu → đánh dấu để đóng gói dùng
             if kind == "san_xuat":
                 from product_store import set_material
@@ -169,6 +172,8 @@ async def production_add_boxes_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Chưa có sản phẩm, chưa nhập thùng được"}, status=400)
     if created == "short":
         return web.json_response({"ok": False, "error": f"Chưa chọn đủ thùng nguyên liệu {total} (cần {consume:g})"}, status=400)
+    if created == "full":
+        return web.json_response({"ok": False, "error": total}, status=400)
     from server_app.realtime import emit_inventory_changed, emit_production_changed
     emit_production_changed(thread_id)
     emit_inventory_changed()
@@ -522,7 +527,9 @@ async def box_delete_handler(request: web.Request):
             box_code = box.get("box_code")
             delete_box(conn, box_id)
             # Gỡ entry numbers của thùng khỏi phiếu SX nguồn → total tính lại đúng
-            # (numbers là nguồn thật; note nhập lúc tạo = '📦 <box_code>').
+            # (numbers là nguồn thật; note nhập lúc tạo = '📦 <box_code>'). Số gọi
+            # tái dùng toàn kho nhưng TRONG 1 phiếu không thể trùng (<999 thùng/phiếu)
+            # nên match theo note trong phạm vi phiếu vẫn an toàn.
             if src and box_code:
                 remove_number_by_note(conn, src, f"📦 {box_code}")
             return "ok", src

@@ -28,7 +28,10 @@ def create_inventory_table(conn):
         )
         """
     )
-    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_inv_box_code ON inventory_boxes(box_code)")
+    # box_code = SỐ GỌI xoay vòng (tái dùng khi thùng hết hàng) → KHÔNG unique;
+    # danh tính bất biến là id. Unique chỉ áp trong đám thùng đang hoạt động
+    # (app-level, trong transaction add_boxes).
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_inv_box_code_nu ON inventory_boxes(box_code)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_inv_product_status ON inventory_boxes(product_code, status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_inv_order ON inventory_boxes(order_thread_id)")
     # Vị trí kho (Kho A, Kho B…) — bảng riêng, thùng link qua place_id.
@@ -68,6 +71,9 @@ def migrate_inventory_table(conn):
     for name, typ in adds.items():
         if name not in cols:
             conn.execute(f"ALTER TABLE inventory_boxes ADD COLUMN {name} {typ}")
+    # Hệ số gọi xoay vòng: bỏ UNIQUE cũ trên box_code (số được tái dùng), thay index thường
+    conn.execute("DROP INDEX IF EXISTS idx_inv_box_code")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_inv_box_code_nu ON inventory_boxes(box_code)")
     # đảm bảo bảng places/units tồn tại (DB cũ)
     conn.execute(
         "CREATE TABLE IF NOT EXISTS inventory_places (id INTEGER PRIMARY KEY AUTOINCREMENT, "
