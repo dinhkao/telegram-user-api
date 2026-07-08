@@ -97,7 +97,8 @@ def replace_report_rows(conn, thread_id, bang) -> int:
 
 def report_summaries(conn, thread_ids) -> dict:
     """Tóm tắt báo cáo thợ cho 1 trang phiếu: {thread_id: {"total", "workers":
-    [{"name","tong"}]}} (workers sắp tổng giảm dần). Cho card danh sách + realtime row."""
+    [{"name","tong"}], "notes": [{"name","note"}]}} (workers sắp tổng giảm dần;
+    notes = thợ KHÔNG có sản lượng nhưng có ghi chú, vd 'Kim vít'). Cho card + realtime."""
     ids = [int(t) for t in thread_ids if t is not None]
     if not ids:
         return {}
@@ -109,9 +110,16 @@ def report_summaries(conn, thread_ids) -> dict:
         f"ORDER BY thread_id, SUM(tong_calc) DESC", ids).fetchall()
     out: dict = {}
     for tid, name, tong in rows:
-        d = out.setdefault(tid, {"total": 0.0, "workers": []})
+        d = out.setdefault(tid, {"total": 0.0, "workers": [], "notes": []})
         d["workers"].append({"name": name, "tong": tong or 0})
         d["total"] = round(d["total"] + (tong or 0), 1)
+    note_rows = conn.execute(
+        f"SELECT thread_id, worker_name, TRIM(note) FROM production_report_rows "
+        f"WHERE thread_id IN ({q}) AND COALESCE(tong_calc, 0) <= 0 "
+        f"AND TRIM(COALESCE(note, '')) != '' ORDER BY thread_id, worker_name", ids).fetchall()
+    for tid, name, note in note_rows:
+        d = out.setdefault(tid, {"total": 0.0, "workers": [], "notes": []})
+        d["notes"].append({"name": name, "note": note})
     return out
 
 

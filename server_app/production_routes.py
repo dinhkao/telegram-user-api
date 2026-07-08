@@ -81,6 +81,7 @@ def build_production_row(thread_id) -> dict | None:
         # báo cáo thợ (card SX): luôn có mặt để realtime patch GHI ĐÈ giá trị cũ
         "report_total": rep.get("total") or 0,
         "report_workers": rep.get("workers") or [],
+        "report_notes": rep.get("notes") or [],
         **_progress(slip),
     }
 
@@ -115,6 +116,7 @@ async def production_list_handler(request: web.Request):
             rep = reports.get(s["thread_id"]) or {}
             s["report_total"] = rep.get("total") or 0
             s["report_workers"] = rep.get("workers") or []
+            s["report_notes"] = rep.get("notes") or []
         return slips, total
     slips, total = await asyncio.to_thread(_run)
     return web.json_response({

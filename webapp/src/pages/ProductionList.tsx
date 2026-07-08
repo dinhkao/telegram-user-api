@@ -261,6 +261,11 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
         {boxes.length > 0 && <span class="muted small">· {boxes.length} thùng</span>}
       </div>
       {workers.length > 0 && <WorkerMiniChart workers={workers} />}
+      {isSX && (slip.report_notes || []).length > 0 && (
+        <div class="pmc-notes">
+          {(slip.report_notes || []).map((n) => `${n.name} ${n.note}`).join(" · ")}
+        </div>
+      )}
       {boxes.length > 0 && <BoxMiniGrid boxes={boxes} />}
       {slip.ghi_chu && <div class="prod-card-note"><Icon name="note" size={13} /> {slip.ghi_chu}</div>}
     </a>
