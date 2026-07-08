@@ -2,11 +2,12 @@
 // tự thêm (custom). Đánh dấu / huỷ: POST /api/order/task (queueable offline) +
 // /task_status/clear. Thêm/xoá việc tự thêm: /api/order/{id}/custom-task[/remove].
 import { useState } from "preact/hooks";
-import { postJSON, isOffice, currentUser, mediaImageUrl } from "../api";
+import { postJSON, isOffice, currentUser, mediaImageUrl, listMediaImages, type OrderImage } from "../api";
 import { fmtTime } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 import { NopTienWizard } from "./NopTienWizard";
 import { SoanHangPicker } from "./SoanHangPicker";
+import { PhotoViewer } from "./PhotoViewer";
 import { Icon } from "../ui/Icon";
 
 const TASKS: [string, string][] = [
@@ -92,7 +93,21 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
     }
   };
 
-  const thumb = (id: string) => <img class="task-thumb" key={id} src={mediaImageUrl(`/api/order/${threadId}`, Number(id), "thumb")} loading="lazy" alt="" />;
+  // Bấm thumbnail → mở PhotoViewer (tải list ảnh đơn để vuốt qua lại như gallery)
+  const [viewer, setViewer] = useState<{ images: OrderImage[]; start: number } | null>(null);
+  const openImage = async (id: string) => {
+    try {
+      const imgs = await listMediaImages(`/api/order/${threadId}`);
+      const i = imgs.findIndex((x) => x.id === Number(id));
+      if (i >= 0) setViewer({ images: imgs, start: i });
+      else toast("Ảnh không còn trong đơn", "info");
+    } catch (e: any) { toast(e?.message || "Lỗi tải ảnh", "err"); }
+  };
+  const thumb = (id: string) => (
+    <button class="task-thumb-btn" key={id} title="Xem ảnh" onClick={() => openImage(id)}>
+      <img class="task-thumb" src={mediaImageUrl(`/api/order/${threadId}`, Number(id), "thumb")} loading="lazy" alt="" />
+    </button>
+  );
   // Meta = DÒNG RIÊNG dưới tên việc (người · giờ · ghi chú, rồi ảnh) — text dài
   // không đẩy nút hành động (nút neo phải, cột riêng).
   const meta = (st: any, type?: string, extra?: string) => {
@@ -183,6 +198,11 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged 
         adminQuick={isAdmin ? () => { setNopOpen(false); mark("nop_tien"); } : undefined} />}
       {soanOpen && <SoanHangPicker threadId={threadId} onClose={() => setSoanOpen(false)} onDone={onChanged}
         adminQuick={isAdmin ? () => { setSoanOpen(false); mark("soan_hang"); } : undefined} />}
+      {viewer && (
+        <PhotoViewer images={viewer.images} start={viewer.start} base={`/api/order/${threadId}`} editable
+          onKindChange={(id, kind) => setViewer((v) => (v ? { ...v, images: v.images.map((x) => (x.id === id ? { ...x, kind } : x)) } : v))}
+          onClose={() => setViewer(null)} />
+      )}
     </div>
   );
 }

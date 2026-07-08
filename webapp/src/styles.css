@@ -1313,6 +1313,7 @@ body.kbd-open .wr-peek-btn { bottom: calc(12px + env(safe-area-inset-bottom, 0px
 .sh-cancel { margin-top: 2px; }
 /* Thumbnail ảnh soạn hàng hiện ở dòng task */
 .task-thumbs { display: inline-flex; gap: 4px; vertical-align: middle; margin-left: 6px; }
+.task-thumb-btn { padding: 0; border: none; background: none; line-height: 0; cursor: pointer; }
 .task-thumb { width: 26px; height: 26px; object-fit: cover; border-radius: 5px; border: 1px solid var(--border); }
 /* Tiến độ (Tasks) — 2 CỘT: nội dung co giãn TRÁI, nút hành động neo PHẢI cột riêng
    (meta dài xuống dòng dưới tên, KHÔNG đẩy nút rớt hàng). */
