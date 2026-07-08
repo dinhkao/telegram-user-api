@@ -84,7 +84,7 @@ function groupFeedByDay(items: CustFeedItem[]): { key: string; label: string; it
   return out;
 }
 
-type Rope = { top: number; height: number; lane: number };
+type Rope = { d: string; x0: number; y1: number; y2: number };
 
 export function CustomerFeed({ ckey }: { ckey: string }) {
   const [items, setItems] = useState<CustFeedItem[]>([]);
@@ -134,26 +134,34 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
     const ul = listRef.current;
     if (!ul) { setRopes([]); return; }
     const measure = () => {
-      const base = ul.getBoundingClientRect().top;
-      const segs: { top: number; bottom: number }[] = [];
+      const box = ul.getBoundingClientRect();
+      // (card TRÊN = payment vì feed sắp mới→cũ; card DƯỚI = đơn của nó)
+      const segs: { x0: number; y1: number; y2: number }[] = [];
       for (const payEl of Array.from(ul.querySelectorAll<HTMLElement>("[data-pay-tid]"))) {
         const tid = payEl.getAttribute("data-pay-tid");
         const orderEl = ul.querySelector<HTMLElement>(`a[data-oid="${tid}"]`);
         if (!orderEl) continue;
         const a = payEl.getBoundingClientRect(), b = orderEl.getBoundingClientRect();
-        const top = Math.min(a.top, b.top) + Math.min(a.height, 40) / 2 - base;
-        const bottom = Math.max(a.bottom, b.bottom) - Math.min(b.height, 40) / 2 - base;
-        if (bottom - top > 8) segs.push({ top, bottom });
+        const up = a.top <= b.top ? a : b, down = a.top <= b.top ? b : a;
+        segs.push({
+          x0: Math.min(up.left, down.left) - box.left,   // mép trái card
+          y1: up.bottom - box.top - 9,                   // DƯỚI-trái card trên
+          y2: down.top - box.top + 9,                    // TRÊN-trái card dưới
+        });
       }
-      // chia lane: 2 dây giao nhau thì nằm lane khác (tối đa 3, xoay vòng)
-      segs.sort((x, y) => x.top - y.top);
+      // chia lane: 2 dây giao nhau thì bụng cong ở lane khác (tối đa 3, xoay vòng)
+      segs.sort((x, y) => x.y1 - y.y1);
       const laneEnds: number[] = [];
       const out: Rope[] = [];
       for (const s of segs) {
-        let lane = laneEnds.findIndex((end) => end <= s.top);
+        let lane = laneEnds.findIndex((end) => end <= s.y1);
         if (lane === -1) { lane = laneEnds.length < 3 ? laneEnds.length : out.length % 3; laneEnds.push(0); }
-        laneEnds[lane] = s.bottom;
-        out.push({ top: s.top, height: s.bottom - s.top, lane });
+        laneEnds[lane] = s.y2;
+        // đường cong: từ dưới-trái card trên → vòng ra lề trái (xg) → vào trên-trái card dưới
+        const xg = 1 + lane * 3;
+        const r = Math.max(2, Math.min(7, s.x0 - xg - 1, (s.y2 - s.y1) / 2));
+        const d = `M ${s.x0} ${s.y1} H ${xg + r} Q ${xg} ${s.y1} ${xg} ${s.y1 + r} V ${s.y2 - r} Q ${xg} ${s.y2} ${xg + r} ${s.y2} H ${s.x0}`;
+        out.push({ d, x0: s.x0, y1: s.y1, y2: s.y2 });
       }
       setRopes(out);
     };
@@ -260,10 +268,18 @@ export function CustomerFeed({ ckey }: { ckey: string }) {
 
       {loading && !items.length && <SkeletonList rows={4} />}
       <div class={"cf-body" + (hasRopes ? " has-ropes" : "")}>
-        {/* rail dọc nối payment ↔ đơn của nó (đo vị trí thật, chia lane) */}
-        {ropes.map((r, i) => (
-          <span key={i} class="feed-rope" style={{ top: `${r.top}px`, height: `${r.height}px`, left: `${2 + r.lane * 5}px` }} />
-        ))}
+        {/* dây cong nối payment ↔ đơn: dưới-trái card trên → vòng lề trái → trên-trái card dưới */}
+        {hasRopes && (
+          <svg class="feed-ropes" aria-hidden="true">
+            {ropes.map((r, i) => (
+              <g key={i}>
+                <path d={r.d} />
+                <circle cx={r.x0} cy={r.y1} r="2.6" />
+                <circle cx={r.x0} cy={r.y2} r="2.6" />
+              </g>
+            ))}
+          </svg>
+        )}
         <ul class="order-list" ref={listRef}>
           {view === "ultra"
             ? groupFeedByDay(items).map((g) => (
