@@ -59,12 +59,12 @@ const gapDays = (newer?: number, older?: number): number =>
   newer && older ? Math.round((newer - older) / 86400) : 0;
 const gapLabel = (d: number) =>
   d >= 60 ? `${Math.round(d / 30)} tháng` : d >= 14 ? `${Math.round(d / 7)} tuần` : `${d} ngày`;
-// Khe LỚN (≥10 ngày ≈ 140px) → SỐ NỢ TREO suốt khoảng nghỉ (= nợ sau sự kiện cũ
-// ở đáy khe) TRÔI THEO CUỘN trong khe (sticky, kẹp 2 đầu) — cuộn giữa đoạn trống
-// dài vẫn biết đang treo bao nhiêu. Chấm + số gốc ở đáy khe giữ nguyên làm mốc.
+// MỌI khe thời gian → SỐ NỢ TREO suốt khoảng nghỉ (= nợ sau sự kiện cũ ở đáy khe)
+// TRÔI THEO CUỘN trong khe (sticky, kẹp 2 đầu) — cuộn giữa đoạn trống vẫn biết
+// đang treo bao nhiêu. Chấm + số gốc ở đáy khe giữ nguyên làm mốc.
 const gapSpacer = (d: number, key: string, debt?: number | null, est?: boolean) => (
   <li key={key} class="feed-gap-li" style={{ height: `${Math.min(d * 14, 1400)}px` }} aria-hidden="true">
-    {debt != null && d >= 10 && (
+    {debt != null && (
       <span class="fg-debt">{est ? "≈" : ""}{money(Number(debt))}</span>
     )}
     <span class="fg-label">· {gapLabel(d)} ·</span>
