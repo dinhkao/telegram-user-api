@@ -48,10 +48,14 @@ export function ScrollCalendar({ days, legend, onPick, headExtra }: {
   const botRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // mở tại ĐÁY (tháng hiện tại) — cuộn LÊN là về quá khứ
+  // vừa vào → FOCUS THẲNG tháng này: ô hôm nay giữa màn hình (nhảy tức thì,
+  // không animation lúc mở), indicator = tháng hiện tại ngay
   useEffect(() => {
-    requestAnimationFrame(() =>
-      window.scrollTo(0, document.documentElement.scrollHeight));
+    requestAnimationFrame(() => {
+      const el = gridRef.current?.querySelector(".cc-cell.today");
+      if (el) el.scrollIntoView({ block: "center" });
+      else window.scrollTo(0, document.documentElement.scrollHeight);
+    });
   }, []);
   // dữ liệu có tháng TƯƠNG LAI (ngày giao đặt trước) → nới cửa sổ tới đó
   useEffect(() => {
@@ -83,7 +87,8 @@ export function ScrollCalendar({ days, legend, onPick, headExtra }: {
   }, [win.from.y, win.from.m, win.to.y, win.to.m]);
 
   // ── THÁNG ACTIVE theo vị trí cuộn (kiểu macOS): mốc = ô NGÀY 1 mỗi tháng;
-  // tháng active = mốc CUỐI CÙNG đã vượt lên trên ~45% màn hình ──
+  // tháng active = mốc CUỐI CÙNG vượt lên trên 55% màn (tháng mới chiếm ~nửa
+  // dưới màn là activate — vào trang, hôm nay giữa màn → tháng này active ngay) ──
   const [activeYm, setActiveYm] = useState(ymStr(curYm));
   useEffect(() => {
     let raf = 0;
@@ -92,7 +97,7 @@ export function ScrollCalendar({ days, legend, onPick, headExtra }: {
       raf = requestAnimationFrame(() => {
         const marks = gridRef.current?.querySelectorAll<HTMLElement>("[data-fom]");
         if (!marks || !marks.length) return;
-        const mid = window.innerHeight * 0.45;
+        const mid = window.innerHeight * 0.55;
         let act: string | null = null;
         marks.forEach((el) => {
           if (el.getBoundingClientRect().top <= mid) act = el.getAttribute("data-fom");
