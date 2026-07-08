@@ -25,12 +25,32 @@ _SOURCE_LABELS = {
     "POST /api/production/{id}/note": "Sửa ghi chú",
     "POST /api/production/{id}/number": "Thêm số",
     "POST /api/production/{id}/boxes": "Nhập thùng",
-    "POST /api/production/{id}/report": "Lưu báo cáo",
+    "POST /api/production/{id}/report": "Lưu báo cáo thợ",
+    "POST /api/production/{id}/kind": "Đổi loại phiếu",
     "DELETE /api/production/{id}": "Xoá phiếu",
     "POST /api/inventory/box/{id}": "Sửa thùng",
     "POST /api/inventory/box/{id}/disable": "Vô hiệu / kích hoạt thùng",
 }
 _SKIP = {"POST /api/production/{id}/report/parse"}   # xem trước, không phải ghi
+
+
+def _report_detail(text: str) -> str:
+    """Tóm tắt báo cáo thợ cho lịch sử: '14 thợ · tổng 489,5 · 1/7/2026' thay vì
+    dump 50 ký tự đầu của text dạng ';' (nhìn như rác)."""
+    try:
+        from production_store.domain import parse_report
+        p = parse_report(text)
+        rows = [r for r in p.get("rows", []) if str(r.get("name") or "").strip()]
+        if not rows:
+            return ""
+        total = sum(r.get("tong_sheet") or 0 for r in rows)
+        total_s = f"{total:g}".replace(".", ",")
+        parts = [f"{len(rows)} thợ", f"tổng {total_s}"]
+        if p.get("date"):
+            parts.append(str(p["date"]))
+        return " · ".join(parts)
+    except Exception:
+        return ""
 
 
 def _norm(source: str):
@@ -77,25 +97,37 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
                 method, key, path = _norm(source)
                 if key in _SKIP:
                     continue
+                is_report = path.endswith("/report")
                 detail = ""
                 try:
                     b = json.loads(r["payload_json"] or "{}").get("body")
                     if isinstance(b, str) and b.strip().startswith("{"):
                         bd = json.loads(b)
-                        detail = str(bd.get("text") or bd.get("note") or "")[:50]
+                        if is_report:
+                            detail = _report_detail(str(bd.get("text") or ""))
+                        else:
+                            detail = str(bd.get("text") or bd.get("note") or "")[:50]
                 except Exception:
                     detail = ""
                 try:
                     status = json.loads(r["result_json"] or "{}").get("status")
                 except Exception:
                     status = None
-                out.append({"ts": r["ts"], "actor": _actor_display(r["actor_id"], names),
+                actor = _actor_display(r["actor_id"], names)
+                ok = status is None or (isinstance(status, int) and 200 <= status < 300)
+                # Tự-lưu báo cáo mỗi ~1.5s → hàng chục event liền nhau. Gộp các lần
+                # "Lưu báo cáo thợ" LIÊN TIẾP của cùng người: giữ bản MỚI nhất.
+                if is_report and ok and out and out[-1].get("_rk") == (actor,):
+                    continue
+                out.append({"ts": r["ts"], "actor": actor,
                             "action": _label(key, method, path), "detail": detail, "changes": [],
-                            "ok": status is None or (isinstance(status, int) and 200 <= status < 300)})
+                            "ok": ok, **({"_rk": (actor,)} if is_report and ok else {})})
             else:
                 continue
             if len(out) >= limit:
                 break
+        for e in out:
+            e.pop("_rk", None)   # khoá nội bộ để gộp — không trả ra ngoài
         return out
     except Exception:
         return []

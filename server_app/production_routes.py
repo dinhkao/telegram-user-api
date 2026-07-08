@@ -119,7 +119,12 @@ async def production_detail_handler(request: web.Request):
     def _run():
         conn = _conn()
         try:
-            return get_slip(conn, thread_id)
+            slip = get_slip(conn, thread_id)
+            if slip:
+                # số thùng đã tạo từ phiếu — UI khoá đổi loại + chặn xoá theo nó
+                from inventory_store import count_boxes_by_source
+                slip["box_count"] = count_boxes_by_source(conn, thread_id)
+            return slip
         finally:
             conn.close()
     slip = await asyncio.to_thread(_run)
@@ -258,7 +263,9 @@ async def production_set_note_handler(request: web.Request):
 
 
 async def production_set_kind_handler(request: web.Request):
-    """Đổi loại phiếu: 'san_xuat' (có bảng báo cáo thợ) | 'dong_goi' (không)."""
+    """Đổi loại phiếu: 'san_xuat' (có bảng báo cáo thợ) | 'dong_goi' (không).
+    KHOÁ khi phiếu đã nhập ≥1 thùng — loại chi phối logic nguyên liệu lúc tạo thùng
+    (đóng gói ép chọn MỌI NL), đổi sau khi đã tạo thùng làm dữ liệu tiêu hao vô nghĩa."""
     thread_id = _thread_id(request)
     if thread_id is None:
         return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
@@ -271,10 +278,18 @@ async def production_set_kind_handler(request: web.Request):
     def _run():
         conn = _conn()
         try:
+            from inventory_store import count_boxes_by_source
+            n = count_boxes_by_source(conn, thread_id)
+            if n > 0:
+                return n
             set_kind(conn, thread_id, kind)
+            return 0
         finally:
             conn.close()
-    await asyncio.to_thread(_run)
+    n_boxes = await asyncio.to_thread(_run)
+    if n_boxes:
+        return web.json_response(
+            {"ok": False, "error": f"Phiếu đã nhập {n_boxes} thùng — không đổi loại được nữa"}, status=400)
     _emit(thread_id)
     return web.json_response({"ok": True, "kind": "dong_goi" if kind == "dong_goi" else "san_xuat"})
 

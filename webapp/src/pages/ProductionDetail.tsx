@@ -23,7 +23,7 @@ import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
 import { ProductPicker } from "../detail/ProductPicker";
-import { confirmDialog } from "../ui/feedback";
+import { confirmDialog, toast } from "../ui/feedback";
 import { Loading } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { fastScrollToEl } from "../scroll";
@@ -117,6 +117,11 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
 
   const changeKind = async (k: "san_xuat" | "dong_goi") => {
     if (!slip || (slip.kind || "san_xuat") === k) return;
+    // Đã nhập thùng → loại bị KHOÁ (loại quyết định logic trừ nguyên liệu lúc tạo thùng)
+    if ((slip.box_count || 0) > 0) {
+      toast(`Phiếu đã nhập ${slip.box_count} thùng — không đổi loại được nữa`, "info");
+      return;
+    }
     setSlip((s) => (s ? { ...s, kind: k } : s));   // optimistic
     try { await setProductionKind(threadId, k); }
     catch (e: any) { setErr(e?.message || "Lỗi đổi loại phiếu"); reload(); }
@@ -155,11 +160,13 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
 
       {err && <div class="error-banner">{err}</div>}
 
-      {/* Loại phiếu: Sản xuất (có bảng báo cáo thợ) ↔ Đóng gói (không) */}
+      {/* Loại phiếu: Sản xuất (có bảng báo cáo thợ) ↔ Đóng gói (không).
+          Đã nhập ≥1 thùng → KHOÁ (mờ nút kia; bấm hiện toast lý do). */}
       <div class="pk-seg">
-        <button class={"pk-opt" + (isSX ? " on" : "")} onClick={() => changeKind("san_xuat")}><Icon name="factory" size={15} /> Sản xuất</button>
-        <button class={"pk-opt" + (!isSX ? " on" : "")} onClick={() => changeKind("dong_goi")}><Icon name="box" size={15} /> Đóng gói</button>
+        <button class={"pk-opt" + (isSX ? " on" : (slip.box_count || 0) > 0 ? " faded" : "")} onClick={() => changeKind("san_xuat")}><Icon name="factory" size={15} /> Sản xuất</button>
+        <button class={"pk-opt" + (!isSX ? " on" : (slip.box_count || 0) > 0 ? " faded" : "")} onClick={() => changeKind("dong_goi")}><Icon name="box" size={15} /> Đóng gói</button>
       </div>
+      {(slip.box_count || 0) > 0 && <div class="muted small pk-lock-hint"><Icon name="lock" size={12} /> Đã nhập thùng — loại phiếu bị khoá</div>}
 
       {/* So sánh: tổng nhập thùng vs tổng báo cáo theo thợ (khớp/lệch) — chỉ phiếu SX */}
       {isSX && <div class={"prod-compare" + (!hasReport ? " none" : match ? " ok" : " warn")}>

@@ -426,6 +426,7 @@ export type ProdSlip = {
   total: number;
   ghi_chu?: string | null;
   kind?: "san_xuat" | "dong_goi";
+  box_count?: number;   // số thùng đã tạo từ phiếu — >0 thì khoá đổi loại + cấm xoá
   numbers?: { amount: number; note?: string; at?: string; by?: string }[];
   bang?: any | null;
   updated_at?: string;
