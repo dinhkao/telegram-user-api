@@ -12,17 +12,23 @@ import { Icon } from "../ui/Icon";
 import { processImage } from "../detail/imageProcess";
 import { WorkerOrderPopup } from "../detail/WorkerOrderPopup";
 
-type Wrow = { name: string; gach: string; tru: string; le: string; note: string };
+// spDe/mamDe = 2 cột ĐÈ như sheet (F "Số SP đè" / G "Số mâm đè"): mâm đè thay công
+// thức gạch×5−trừ−lẻ; SP đè thay toàn bộ tổng. Rỗng = không đè (ISBLANK sheet).
+type Wrow = { name: string; gach: string; tru: string; le: string; note: string; spDe: string; mamDe: string };
 
 const _num = (s: string): number => { const n = parseFloat((s || "").trim().replace(",", ".")); return isFinite(n) ? n : 0; };
 const round2 = (x: number) => Math.round(x * 100) / 100;
 const todayVN = (): string => { const d = new Date(); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; };
-const blankRow = (name = ""): Wrow => ({ name, gach: "", tru: "", le: "", note: "" });
+const blankRow = (name = ""): Wrow => ({ name, gach: "", tru: "", le: "", note: "", spDe: "", mamDe: "" });
 // Seed bảng: có báo cáo đã lưu → dùng nó; trống → tự điền thợ mặc định (template);
 // không có template → 1 dòng trống.
 const rowsFromReport = (rep: ProdReport | null, defaults: string[] = []): Wrow[] =>
   rep?.rows?.length
-    ? rep.rows.map((r) => ({ name: r.name, gach: r.so_gach ? String(r.so_gach) : "", tru: r.so_tru ? String(r.so_tru) : "", le: r.so_cay_le ? String(r.so_cay_le) : "", note: r.note || "" }))
+    ? rep.rows.map((r) => ({
+        name: r.name, gach: r.so_gach ? String(r.so_gach) : "", tru: r.so_tru ? String(r.so_tru) : "",
+        le: r.so_cay_le ? String(r.so_cay_le) : "", note: r.note || "",
+        spDe: r.sp_de != null ? String(r.sp_de) : "", mamDe: r.mam_de != null ? String(r.mam_de) : "",
+      }))
     : defaults.length
       ? defaults.map((n) => blankRow(n))
       : [blankRow()];
@@ -163,15 +169,19 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   }, [wrows, date, start, end, mine]);
 
   const scm = Number((slip?.bang as ProdReport)?.so_cay_1_mam || slip?.sp_mam || 0);
+  // Logic = sheet "Nhập kẹo": mâm = mâm đè ?? gạch×5−trừ−(lẻ>0?1:0);
+  // tổng = SP đè ?? scm×mâm+lẻ. Ô đè rỗng = không đè (0 VẪN là đè, như ISBLANK).
   const calc = (r: Wrow) => {
     const g = _num(r.gach), t = _num(r.tru), l = _num(r.le);
-    const soMam = Math.max(g * 5 - t - (l > 0 ? 1 : 0), 0);
-    return { soMam, tong: scm > 0 ? round2(scm * soMam + l) : 0 };
+    const mamDeSet = (r.mamDe || "").trim() !== "", spDeSet = (r.spDe || "").trim() !== "";
+    const soMam = mamDeSet ? _num(r.mamDe) : Math.max(g * 5 - t - (l > 0 ? 1 : 0), 0);
+    const tong = spDeSet ? round2(_num(r.spDe)) : scm > 0 ? round2(scm * soMam + l) : 0;
+    return { soMam, tong, mamDeSet, spDeSet };
   };
   const grand = useMemo(() => round2(wrows.reduce((s, r) => s + calc(r).tong, 0)), [wrows, scm]);
 
   const setRow = (i: number, patch: Partial<Wrow>) => setWrows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)));
-  const addRow = () => setWrows((rs) => [...rs, { name: "", gach: "", tru: "", le: "", note: "" }]);
+  const addRow = () => setWrows((rs) => [...rs, blankRow()]);
   const delRow = async (i: number) => {
     const nm = wrows[i]?.name?.trim();
     if (nm && !(await confirmDialog(`Xoá dòng thợ "${nm}"?`, { danger: true }))) return;
@@ -257,8 +267,10 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
       const { soMam, tong } = calc(r);
       const c = Array(20).fill("");
       c[0] = r.name.trim(); c[1] = r.gach.trim(); c[2] = r.tru.trim(); c[3] = r.le.trim(); c[4] = r.note.trim();
-      c[5] = tong ? String(tong) : ""; c[13] = CODE; c[14] = date.trim();
-      c[17] = soMam ? String(soMam) : ""; c[18] = start.trim(); c[19] = end.trim();
+      // cột 5/17 = kết quả CUỐI (đã gồm đè, như Text view sheet); cột 6/7 = đè thô
+      c[5] = String(tong); c[6] = r.spDe.trim(); c[7] = r.mamDe.trim();
+      c[13] = CODE; c[14] = date.trim();
+      c[17] = String(soMam); c[18] = start.trim(); c[19] = end.trim();
       return c.join(";");
     });
     return ["thợ;gạch;trừ;lẻ;ghi chú", ...lines].join("\n");
@@ -343,11 +355,12 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
           <table class="prod-report-table wr-edit" ref={tableRef}>
             <colgroup>
               <col class="c-name" /><col class="c-num" /><col class="c-num" /><col class="c-num" />
+              <col class="c-num" /><col class="c-num" />
               <col class="c-calc" /><col class="c-calc" /><col class="c-note" />
               {!readOnly && <col class="c-del" />}
             </colgroup>
             <thead>
-              <tr><th>Thợ</th><th>Gạch</th><th>Trừ</th><th>Lẻ</th><th>Mâm</th><th>Tổng</th><th>Ghi chú</th>{!readOnly && <th></th>}</tr>
+              <tr><th>Thợ</th><th>Gạch</th><th>Trừ</th><th>Lẻ</th><th>SP đè</th><th>Mâm đè</th><th>Mâm</th><th>Tổng</th><th>Ghi chú</th>{!readOnly && <th></th>}</tr>
             </thead>
             <tbody>
               {wrows.map((r, i) => {
@@ -358,8 +371,10 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
                     <td><input class="wr-in wr-num" inputMode="decimal" data-col="gach" data-row={i} enterKeyHint="next" value={r.gach} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("gach", i)} onInput={(e: any) => setRow(i, { gach: e.target.value })} /></td>
                     <td><input class="wr-in wr-num" inputMode="decimal" data-col="tru" data-row={i} enterKeyHint="next" value={r.tru} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("tru", i)} onInput={(e: any) => setRow(i, { tru: e.target.value })} /></td>
                     <td><input class="wr-in wr-num" inputMode="decimal" data-col="le" data-row={i} enterKeyHint="next" value={r.le} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("le", i)} onInput={(e: any) => setRow(i, { le: e.target.value })} /></td>
-                    <td class="wr-calc">{soVN(c.soMam)}</td>
-                    <td class="wr-calc strong">{soVN(c.tong)}</td>
+                    <td><input class={"wr-in wr-num" + (c.spDeSet ? " wr-ovr-in" : "")} inputMode="decimal" data-col="spDe" data-row={i} enterKeyHint="next" title="Số SP đè — đè toàn bộ tổng" value={r.spDe} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("spDe", i)} onInput={(e: any) => setRow(i, { spDe: e.target.value })} /></td>
+                    <td><input class={"wr-in wr-num" + (c.mamDeSet ? " wr-ovr-in" : "")} inputMode="decimal" data-col="mamDe" data-row={i} enterKeyHint="next" title="Số mâm đè — thay công thức gạch" value={r.mamDe} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("mamDe", i)} onInput={(e: any) => setRow(i, { mamDe: e.target.value })} /></td>
+                    <td class={"wr-calc" + (c.mamDeSet ? " wr-ovr" : "")}>{soVN(c.soMam)}</td>
+                    <td class={"wr-calc strong" + (c.spDeSet ? " wr-ovr" : "")}>{soVN(c.tong)}</td>
                     <td><textarea class="wr-in wr-note" rows={1} value={r.note} disabled={readOnly}
                       onFocus={selAll}
                       ref={(el: any) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }}
@@ -371,7 +386,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
               })}
             </tbody>
             <tfoot>
-              <tr><td colSpan={5}>TỔNG CỘNG</td><td class="strong">{soVN(grand)}</td><td colSpan={readOnly ? 1 : 2}></td></tr>
+              <tr><td colSpan={7}>TỔNG CỘNG</td><td class="strong">{soVN(grand)}</td><td colSpan={readOnly ? 1 : 2}></td></tr>
             </tfoot>
           </table>
         </div>

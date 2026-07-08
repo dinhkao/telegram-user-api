@@ -134,3 +134,35 @@ def test_compute_falls_back_to_sheet_total_when_no_yield():
     by_name = {r["name"]: r["tong_calc"] for r in result["rows"]}
     assert by_name["Hiền"] == 77
     assert result["grand_total"] == 489.5
+
+
+# ── Cột đè (webapp ghi cột 6 = SP đè, cột 7 = mâm đè — sheet F/G) ──────────────
+BLOCK_DE = """Hiền;2;2;3;;24;;;;;;;;K10LT;8/7/2026;2;;7;08:00;09:00
+Mai;2;2;3;;500;500;;;;;;;K10LT;8/7/2026;2;;7;08:00;09:00
+Sáu;;;2;;32;;10;;;;;;K10LT;8/7/2026;2;;10;08:00;09:00
+"""
+
+
+def test_compute_sp_de_overrides_total():
+    # Mai: SP đè 500 (cột 6) → tổng = 500 bất chấp gạch/mâm
+    result = compute_report(parse_report(BLOCK_DE), so_cay_1_mam=3)
+    by_name = {r["name"]: r["tong_calc"] for r in result["rows"]}
+    assert by_name["Hiền"] == 24      # không đè — như cũ
+    assert by_name["Mai"] == 500      # SP đè thắng tất
+    assert result["grand_total"] == 24 + 500 + 32
+
+
+def test_compute_mam_de_overrides_so_mam():
+    # Sáu: gạch trống, mâm đè 10 (cột 7) → mâm = 10, tổng = 3×10 + 2 = 32
+    result = compute_report(parse_report(BLOCK_DE), so_cay_1_mam=3)
+    sau = next(r for r in result["rows"] if r["name"] == "Sáu")
+    assert sau["so_mam"] == 10
+    assert sau["tong_calc"] == 32
+
+
+def test_compute_sheet_total_trusted_when_baked():
+    # Dán từ sheet: F đè đã bake vào cột 5 (cột 6/7 trống) — sheet ghi tổng 999
+    # trong khi công thức ra khác → tin cột 5 (sheet là nguồn chuẩn).
+    block = "Hiền;2;2;3;;999;;;;;;;;K10LT;8/7/2026;2;;7;08:00;09:00\nLệ;;;;nghỉ;0;;;;;;;;K10LT;8/7/2026;2;;0;08:00;09:00\n"
+    result = compute_report(parse_report(block), so_cay_1_mam=3)
+    assert result["rows"][0]["tong_calc"] == 999

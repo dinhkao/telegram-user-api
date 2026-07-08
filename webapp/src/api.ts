@@ -442,7 +442,7 @@ export type ProdReport = {
   start?: string | null;
   end?: string | null;
   grand_total: number;
-  rows: { name: string; so_gach: number; so_tru: number; so_cay_le: number; note: string; so_mam: number; tong_calc: number }[];
+  rows: { name: string; so_gach: number; so_tru: number; so_cay_le: number; note: string; so_mam: number; tong_calc: number; sp_de?: number | null; mam_de?: number | null }[];
 };
 
 export type ProdListResp = { slips: ProdSlip[]; total: number; page: number; total_pages: number };

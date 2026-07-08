@@ -3,12 +3,15 @@
 No IO. Backs BOTH the Telegram handler (command_handlers/production_commands.py)
 and the webapp endpoint (server_app/production_routes.py) so the two never drift.
 
-Real-world data is semicolon-delimited, one line per worker, columns:
+Real-world data is semicolon-delimited, one line per worker, columns (khớp cột
+Text view của Google Sheet "Nhập kẹo"):
     0 name | 1 số gạch | 2 số trừ | 3 số cây lẻ | 4 note(nghỉ/vít/vô kẹo/Q.kẹo)
-    5 tổng sp(sheet) | ... | 13 mã SP | 14 date | 15 số cây 1 mâm | 16 ? | 17 số mâm
-    18 giờ bắt đầu | 19 giờ kết thúc
-Also tolerates the older comma/tab formats with a "thợ" header (no note column
-→ tổng at index 4). Decimals may use comma (``3,5``).
+    5 tổng sp CUỐI (sheet J — đã gồm SP đè) | 6 SP đè | 7 mâm đè | ... | 12 số giờ TL
+    | 13 mã SP | 14 date | 15 STT | 16 số chảo | 17 số mâm CUỐI (sheet I — đã gồm
+    mâm đè) | 18 giờ bắt đầu | 19 giờ kết thúc
+Cột 6/7 (đè thô) do webapp ghi thêm — sheet text view để trống nhưng đã bake kết
+quả vào cột 5/17. Also tolerates the older comma/tab formats with a "thợ" header
+(no note column → tổng at index 4). Decimals may use comma (``3,5``).
 """
 from __future__ import annotations
 
@@ -20,6 +23,8 @@ _C_LE = 3
 _C_NOTE = 4
 _C_TONG_SEMI = 5   # tổng sp when a note column is present (semicolon layout)
 _C_TONG_COMMA = 4  # tổng sp in the legacy comma/tab layout (no note column)
+_C_SP_DE = 6       # Số SP đè (sheet cột F) — đè TOÀN BỘ tổng của dòng
+_C_MAM_DE = 7      # Số mâm đè (sheet cột G) — đè số mâm tính từ gạch
 _C_CODE = 13
 _C_DATE = 14
 _C_SOMAM = 17  # số mâm đã tính sẵn trong sheet (nguồn chuẩn cho tổng SP)
@@ -41,6 +46,14 @@ def _num(val) -> float:
         return float(s)
     except ValueError:
         return 0.0
+
+
+def _num_opt(cells: list[str], idx: int) -> float | None:
+    """Ô số CÓ-hay-KHÔNG: None nếu dòng thiếu cột / ô trống ("0" vẫn là 0.0 —
+    giống ISBLANK của sheet: 0 KHÔNG phải blank nên vẫn tính là đè)."""
+    if len(cells) <= idx or not str(cells[idx]).strip():
+        return None
+    return _num(cells[idx])
 
 
 def _is_num_cell(val: str) -> bool:
@@ -107,13 +120,18 @@ def parse_report(text: str) -> dict:
             continue
         note = cells[_C_NOTE] if has_note_col and len(cells) > _C_NOTE else ""
         tong_idx = _C_TONG_SEMI if has_note_col else _C_TONG_COMMA
+        tong_opt = _num_opt(cells, tong_idx)
         rows.append({
             "name": cells[_C_NAME],
             "so_gach": _num(cells[_C_GACH]),
             "so_tru": _num(cells[_C_TRU]),
             "so_cay_le": _num(cells[_C_LE]),
             "note": note,
-            "tong_sheet": _num(cells[tong_idx]) if len(cells) > tong_idx else 0.0,
+            "tong_sheet": tong_opt if tong_opt is not None else 0.0,
+            "has_tong_sheet": tong_opt is not None,   # phân biệt "0" với ô trống
+            # cột đè thô (webapp ghi; sheet để trống vì đã bake vào cột 5/17)
+            "sp_de": _num_opt(cells, _C_SP_DE) if has_note_col else None,
+            "mam_de": _num_opt(cells, _C_MAM_DE) if has_note_col else None,
             # số mâm sheet đã tính (None nếu dòng không có cột 17) — nguồn chuẩn
             "so_mam_sheet": _num(cells[_C_SOMAM]) if len(cells) > _C_SOMAM else None,
         })
@@ -133,13 +151,12 @@ def _round2(x: float) -> float:
 
 
 def compute_report(parsed: dict, so_cay_1_mam: float) -> dict:
-    """Apply the yield formula to parsed rows.
+    """Apply the yield formula to parsed rows — đúng logic sheet "Nhập kẹo":
 
-    total = số_cây_1_mâm × số_mâm + lẻ
-    Số mâm ưu tiên lấy từ cột 17 của sheet (đã tính sẵn — đúng cho cả kiểu nhập
-    trực tiếp số mâm như KDDT lẫn kiểu nhập gạch). Nếu dòng không có cột 17 thì
-    suy ra từ gạch: max(gạch×5 − trừ − (1 if lẻ>0 else 0), 0).
-    Khi số cây 1 mâm chưa biết (0/None) → dùng cột tổng của sheet.
+    số mâm  I = mâm đè (cột 7) nếu có; không thì cột 17 (sheet đã tính); không
+                nữa thì suy từ gạch: max(gạch×5 − trừ − (1 if lẻ>0 else 0), 0).
+    tổng    J = SP đè (cột 6) nếu có — đè TOÀN BỘ; không thì cột 5 (tổng sheet
+                đã bake mọi đè); không nữa thì scm × số_mâm + lẻ.
     Note-rows (nghỉ/vít/…) không có số liệu → tự nhiên bằng 0.
     """
     scm = float(so_cay_1_mam or 0)
@@ -148,15 +165,21 @@ def compute_report(parsed: dict, so_cay_1_mam: float) -> dict:
     for row in parsed.get("rows", []):
         gach, tru, le = row["so_gach"], row["so_tru"], row["so_cay_le"]
         somam_sheet = row.get("so_mam_sheet")
-        if scm > 0:
-            if somam_sheet is not None:
-                so_mam = somam_sheet
-            else:
-                so_mam = max(gach * 5 - tru - (1 if le > 0 else 0), 0)
+        mam_de, sp_de = row.get("mam_de"), row.get("sp_de")
+        if mam_de is not None:
+            so_mam = mam_de
+        elif somam_sheet is not None:
+            so_mam = somam_sheet
+        else:
+            so_mam = max(gach * 5 - tru - (1 if le > 0 else 0), 0)
+        if sp_de is not None:
+            total = sp_de
+        elif row.get("has_tong_sheet"):
+            total = row.get("tong_sheet", 0.0)   # cột 5 = J sheet, đã gồm mọi đè
+        elif scm > 0:
             total = scm * so_mam + le
         else:
-            so_mam = somam_sheet or 0.0
-            total = row.get("tong_sheet", 0.0)
+            total = 0.0
         total = _round2(total)
         if total > 0:
             grand_total += total

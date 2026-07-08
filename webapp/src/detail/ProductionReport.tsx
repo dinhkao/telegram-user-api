@@ -35,8 +35,8 @@ export function ProductionReport({ threadId, slip }: { threadId: string; slip: P
                     <td>{soVN(r.so_gach)}</td>
                     <td>{soVN(r.so_tru)}</td>
                     <td>{soVN(r.so_cay_le)}</td>
-                    <td>{soVN(r.so_mam)}</td>
-                    <td class="strong">{soVN(r.tong_calc)}</td>
+                    <td class={r.mam_de != null ? "wr-ovr" : ""} title={r.mam_de != null ? "Mâm đè" : undefined}>{soVN(r.so_mam)}</td>
+                    <td class={"strong" + (r.sp_de != null ? " wr-ovr" : "")} title={r.sp_de != null ? "SP đè" : undefined}>{soVN(r.tong_calc)}</td>
                     <td>{r.note || ""}</td>
                   </tr>
                 ))}

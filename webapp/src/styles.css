@@ -685,19 +685,19 @@ body.pv-open { overflow: hidden; }
 .prod-report-table tr.prod-row-off td { color: var(--muted); }
 
 /* Bảng nhập báo cáo thợ — GRID cố định, input LIỀN Ô (chữ dùng hết bề rộng ô) */
-/* width auto + mọi cột CỐ ĐỊNH → bảng = tổng cột (cột Thợ KHÔNG phình to, vẫn đủ hẹp) */
-.wr-edit { border-collapse: collapse; width: auto; table-layout: fixed; }
-.wr-edit col.c-name { width: 78px; }
-.wr-edit col.c-num { width: 28px; }
-.wr-edit col.c-calc { width: 35px; }
-.wr-edit col.c-note { width: 48px; }
-.wr-edit col.c-del { width: 22px; }
+/* width 100% + table-layout fixed: cột SỐ cố định px, cột Thợ ăn phần còn lại
+   (9 cột số vẫn vừa màn 390 — không tràn ngang trang). */
+.wr-edit { border-collapse: collapse; width: 100%; table-layout: fixed; }
+.wr-edit col.c-num { width: 26px; }
+.wr-edit col.c-calc { width: 30px; }
+.wr-edit col.c-note { width: 40px; }
+.wr-edit col.c-del { width: 20px; }
 .wr-edit th, .wr-edit td { border: 1px solid var(--border); padding: 0; }
 /* Header ĐÓNG BĂNG khi cuộn (dính dưới app-bar 44px). Cần wrapper overflow:visible (.wr-scroll). */
 .wr-edit thead th { border: none; border-bottom: 1.5px solid var(--border); background: var(--card);
   box-shadow: 0 1px 0 var(--border); font-size: .6rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: .01em; color: var(--muted); padding: 6px 1px; text-align: center;
-  position: sticky; top: 44px; z-index: 6; }
+  position: sticky; top: 44px; z-index: 6; white-space: normal; line-height: 1.15; }
 .wr-edit thead th:first-child { text-align: left; padding-left: 7px; }
 .wr-edit tbody tr:nth-child(even) td { background: rgba(0, 0, 0, .02); }
 .wr-edit .wr-in { width: 100%; box-sizing: border-box; border: none; -webkit-appearance: none; appearance: none;
@@ -712,6 +712,9 @@ body.pv-open { overflow: hidden; }
   display: block; vertical-align: middle; }
 .wr-edit .wr-calc { text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .8rem; padding: 2px 5px; }
 .wr-edit .wr-calc.strong { color: var(--ink); font-weight: 700; }
+/* Ô ĐÈ (SP đè / mâm đè — như sheet): ô nhập có đè nền xanh nhạt; số bị đè tô xanh */
+.wr-ovr { color: var(--primary) !important; }
+.wr-ovr-in { background: var(--accent-wash); }
 .wr-edit tfoot td { border: none; border-top: 2px solid var(--border); padding: 9px 3px; font-weight: 700; font-size: .74rem; }
 .wr-edit tfoot td:first-child { text-align: right; color: var(--muted); }
 .wr-edit tfoot td.strong { color: var(--primary); font-size: .92rem; text-align: center; }
@@ -730,8 +733,9 @@ body.pv-open { overflow: hidden; }
 .wr-editcard .wr-in:disabled, .wr-editcard .wr-meta:disabled { opacity: .9; -webkit-text-fill-color: currentColor; }
 /* màn rất hẹp: co thêm chút cho đủ */
 @media (max-width: 380px) {
-  .wr-edit col.c-num { width: 27px; }
-  .wr-edit col.c-note { width: 38px; }
+  .wr-edit col.c-num { width: 24px; }
+  .wr-edit col.c-calc { width: 27px; }
+  .wr-edit col.c-note { width: 34px; }
   .wr-edit .wr-in { font-size: .78rem; padding: 8px 1px; }
   .wr-edit thead th { font-size: .56rem; }
 }
