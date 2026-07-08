@@ -238,10 +238,10 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
   const total = slip.total || 0;
   const isSX = (slip.kind || "san_xuat") !== "dong_goi";
   const workers = (isSX && slip.report_workers) || [];
-  // Khớp/lệch nhập thùng vs báo cáo — CÙNG RULE panel so sánh trang chi tiết (lệch ≤0.5% = khớp)
+  // Khớp/lệch nhập thùng vs báo cáo — CÙNG RULE panel so sánh trang chi tiết (lệch ≤1% = khớp)
   const repTotal = slip.report_total || 0;
   const pctOff = repTotal > 0 ? (Math.abs(total - repTotal) / repTotal) * 100 : total === 0 ? 0 : 100;
-  const cmpCls = workers.length > 0 ? (pctOff <= 0.5 ? " ok" : " warn") : "";
+  const cmpCls = workers.length > 0 ? (pctOff <= 1 ? " ok" : " warn") : "";
   return (
     <a class="prod-card" href={`#/san_xuat/${slip.thread_id}`}>
       <div class="prod-card-top">

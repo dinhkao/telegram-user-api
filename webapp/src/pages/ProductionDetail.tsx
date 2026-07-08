@@ -149,7 +149,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   const reported = Number(slip.bang?.grand_total || 0);   // tổng báo cáo theo thợ
   const diff = Math.round((boxed - reported) * 100) / 100;
   const pctOff = reported > 0 ? Math.abs(diff) / reported * 100 : (diff === 0 ? 0 : 100);
-  const match = pctOff <= 0.5;                             // cho phép lệch ≤ 0.5%
+  const match = pctOff <= 1;                               // cho phép lệch ≤ 1%
   const hasReport = reported > 0 || (slip.bang?.rows?.length || 0) > 0;
   const isSX = (slip.kind || "san_xuat") === "san_xuat";   // sản xuất → có bảng báo cáo thợ
 
