@@ -1476,6 +1476,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .sp-code { flex: 0 0 auto; min-width: 30px; font-family: monospace; font-weight: 800; font-size: .96rem; color: var(--ink); }
 .sp-qty { flex: 0 0 auto; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
 .sp-qty i { font-style: normal; font-weight: 400; color: var(--muted); font-size: .7rem; margin-left: 1px; }
+.sp-after { margin-left: 3px; font-size: .82rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.sp-after.done { color: var(--ok); font-weight: 800; }   /* lấy hết = dọn sạch thùng */
 .sp-meta { flex: 1 1 auto; min-width: 0; font-size: .74rem; color: var(--muted);
   display: flex; justify-content: flex-end; align-items: center; gap: 6px; overflow: hidden; }
 .sp-meta > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

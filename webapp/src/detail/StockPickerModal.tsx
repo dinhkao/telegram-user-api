@@ -139,6 +139,7 @@ export function StockPickerModal({
               const blocked = !checked && full;   // hết ngân sách → không cho chọn thêm
               const num = (b.box_code || "").split("-").pop() || b.box_code;
               const unit = (b as any).product_unit || "cây";
+              const after = Math.max(0, avail(b) - parseN(sel[b.id] || ""));   // còn lại SAU khi lấy
               const place = (b as any).place_name as string | undefined;
               const nsx = b.mfg_date ? fmtDate(b.mfg_date) : "";
               return (
@@ -146,7 +147,11 @@ export function StockPickerModal({
                   <div class="sp-tap" onClick={() => { if (!blocked) toggle(b); }} title={b.box_code}>
                     <span class="sp-check">{checked ? <Icon name="check" size={13} /> : <span class="sp-dot" />}</span>
                     <span class="sp-code">{num}</span>
-                    <span class="sp-qty">{soVN(avail(b))}<i>{unit}</i></span>
+                    <span class="sp-qty">{soVN(avail(b))}
+                      {checked
+                        ? <span class={"sp-after" + (after <= 0 ? " done" : "")}>→ {after <= 0 ? "hết" : soVN(after)}</span>
+                        : <i>{unit}</i>}
+                    </span>
                     {/* chọn → CSS xếp vị trí & NSX thành 2 dòng để không bị cắt */}
                     <span class="sp-meta">
                       {place ? <span>📍 {place}</span> : null}
