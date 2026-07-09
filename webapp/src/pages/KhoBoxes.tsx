@@ -50,6 +50,29 @@ function ProdChips({ prods }: { prods: { code: string; qty: number }[] }) {
   );
 }
 
+// Card 1 vị trí kho: thumbnail ảnh mới nhất + mã SP·SL tồn. Tap → chi tiết kho.
+function LocCard({ p, bs }: { p: Place; bs: KhoBox[] }) {
+  const total = bs.reduce((s, b) => s + rem(b), 0);
+  return (
+    <a class="kho-loc-card" href={`#/vi-tri/${p.id}`}>
+      {p.thumb_image_id != null ? (
+        <img class="kho-loc-thumb" loading="lazy" alt=""
+          src={mediaImageUrl(`/api/media/place/${p.id}`, p.thumb_image_id, "thumb")} />
+      ) : (
+        <div class="kho-loc-thumb ph"><Icon name="box" size={26} /></div>
+      )}
+      <div class="kho-loc-main">
+        <div class="kho-loc-head">
+          <span class="kho-loc-name"><Icon name="box" size={16} /> {p.name}</span>
+          <span class={"kho-loc-tot" + (total > 0 ? "" : " zero")}>{soVN(total)}<span class="muted small"> tồn · {bs.length} thùng</span></span>
+        </div>
+        <ProdChips prods={prodAgg(bs)} />
+      </div>
+      <Icon name="chevronRight" size={18} class="kg-arrow" />
+    </a>
+  );
+}
+
 export function KhoBoxes() {
   const [places, setPlaces] = useState<Place[] | null>(null);
   const [boxes, setBoxes] = useState<KhoBox[]>([]);
@@ -77,38 +100,48 @@ export function KhoBoxes() {
   const searching = nq !== "";
   const unplaced = boxes.filter((b) => !b.place_id);
   const sortedPlaces = places.slice().sort((a, b) => a.name.localeCompare(b.name));
-  // code → tên SP + tổng tồn kho (để search khớp cả TÊN + hiện danh sách mã SP khớp)
+  // code → tên SP + tổng tồn kho (search khớp cả TÊN SP + hiện mã SP khớp)
   const sumByCode = new Map(prodSum.map((s) => [s.product_code, s]));
   const fname = (code: string) => foldVN(sumByCode.get(code)?.name || "");
-  const match = (b: KhoBox) => matchQ(b, nq, fname(b.product_code));
+  // Khớp: mã/tên SP (matchName) · ô thùng (thêm số gọi) · TÊN VỊ TRÍ (matchPlaceName)
+  const matchName = (b: KhoBox) => foldVN(b.product_code).includes(nq) || fname(b.product_code).includes(nq);
+  const matchBox = (b: KhoBox) => matchName(b) || foldVN(b.box_code).includes(nq);
+  const matchPlaceName = (p: Place) => foldVN(p.name).includes(nq);
+  const matchedPlaces = searching ? sortedPlaces.filter(matchPlaceName) : [];
+  const matchedPlaceIds = new Set(matchedPlaces.map((p) => p.id));
+  const countBoxes = boxes.filter((b) => matchBox(b) || (b.place_id != null && matchedPlaceIds.has(b.place_id))).length;
 
   const header = (
     <div class="row space">
       <h2 class="page-h"><Icon name="box" size={18} /> Kho hàng{" "}
-        <span class="muted small">({searching ? `${boxes.filter(match).length} thùng` : `${places.length} vị trí`})</span>
+        <span class="muted small">({searching ? `${countBoxes} thùng` : `${places.length} vị trí`})</span>
       </h2>
       <a class="btn small" href="#/san-pham"><Icon name="tag" size={15} /> Sản phẩm</a>
     </div>
   );
   const search = <SearchBar value={q} onInput={setQ} placeholder="Tìm mã SP / số thùng / vị trí…" />;
 
-  // ── SEARCH: mã SP khớp (tên + tổng tồn) + lưới ô thùng GOM THEO VỊ TRÍ ────
+  // ── SEARCH: mã SP khớp + VỊ TRÍ khớp (card) + lưới ô thùng gom theo vị trí ─
   if (searching) {
-    const matched = boxes.filter(match);
-    // Mã SP khớp: tổng tồn kho toàn kho của nó (từ summary), tồn giảm dần
-    const spHits = Array.from(new Set(matched.map((b) => b.product_code))).map((code) => {
+    // Mã SP khớp (theo mã/tên): tổng tồn kho toàn kho của nó, tồn giảm dần
+    const nameMatched = boxes.filter(matchName);
+    const spHits = Array.from(new Set(nameMatched.map((b) => b.product_code))).map((code) => {
       const s = sumByCode.get(code);
-      const total = s?.in_stock_total ?? matched.filter((b) => b.product_code === code).reduce((x, b) => x + rem(b), 0);
+      const total = s?.in_stock_total ?? nameMatched.filter((b) => b.product_code === code).reduce((x, b) => x + rem(b), 0);
       return { code, name: s?.name || "", unit: s?.unit || "", total };
     }).sort((a, b) => b.total - a.total || a.code.localeCompare(b.code));
 
+    // Ô thùng khớp mã/tên/số gọi, gom theo vị trí — BỎ vị trí đã hiện dạng CARD
     const groups: { key: string; name: string; href?: string; list: KhoBox[] }[] = [];
     for (const p of sortedPlaces) {
-      const list = boxes.filter((b) => b.place_id === p.id && match(b)).sort(sortBoxes);
+      if (matchedPlaceIds.has(p.id)) continue;
+      const list = boxes.filter((b) => b.place_id === p.id && matchBox(b)).sort(sortBoxes);
       if (list.length) groups.push({ key: `p${p.id}`, name: p.name, href: `#/vi-tri/${p.id}`, list });
     }
-    const un = unplaced.filter(match).sort(sortBoxes);
+    const un = unplaced.filter(matchBox).sort(sortBoxes);
     if (un.length) groups.push({ key: "none", name: "Chưa xếp vị trí", list: un });
+
+    const nothing = spHits.length === 0 && matchedPlaces.length === 0 && groups.length === 0;
 
     return (
       <div class="inv-dash">
@@ -128,9 +161,17 @@ export function KhoBoxes() {
             ))}
           </div>
         )}
-        {groups.length === 0 ? (
-          <EmptyState>Không có thùng khớp “{q.trim()}”.</EmptyState>
-        ) : (
+        {matchedPlaces.length > 0 && (
+          <div class="kho-loc-list">
+            <div class="kho-sec-lbl muted small">Vị trí khớp</div>
+            {matchedPlaces.map((p) => (
+              <LocCard key={p.id} p={p} bs={boxes.filter((b) => b.place_id === p.id)} />
+            ))}
+          </div>
+        )}
+        {nothing ? (
+          <EmptyState>Không có gì khớp “{q.trim()}”.</EmptyState>
+        ) : groups.length > 0 ? (
           <div class="kho-groups">
             {groups.map((g) => (
               <section class="kho-group" key={g.key}>
@@ -149,7 +190,7 @@ export function KhoBoxes() {
               </section>
             ))}
           </div>
-        )}
+        ) : null}
       </div>
     );
   }
@@ -162,28 +203,9 @@ export function KhoBoxes() {
         <EmptyState>Chưa có vị trí kho. Tạo ở <a href="#/vi-tri">Vị trí kho</a>.</EmptyState>
       ) : (
         <div class="kho-loc-list">
-          {sortedPlaces.map((p) => {
-            const bs = boxes.filter((b) => b.place_id === p.id);
-            const total = bs.reduce((s, b) => s + rem(b), 0);
-            return (
-              <a class="kho-loc-card" href={`#/vi-tri/${p.id}`} key={p.id}>
-                {p.thumb_image_id != null ? (
-                  <img class="kho-loc-thumb" loading="lazy" alt=""
-                    src={mediaImageUrl(`/api/media/place/${p.id}`, p.thumb_image_id, "thumb")} />
-                ) : (
-                  <div class="kho-loc-thumb ph"><Icon name="box" size={26} /></div>
-                )}
-                <div class="kho-loc-main">
-                  <div class="kho-loc-head">
-                    <span class="kho-loc-name"><Icon name="box" size={16} /> {p.name}</span>
-                    <span class={"kho-loc-tot" + (total > 0 ? "" : " zero")}>{soVN(total)}<span class="muted small"> tồn · {bs.length} thùng</span></span>
-                  </div>
-                  <ProdChips prods={prodAgg(bs)} />
-                </div>
-                <Icon name="chevronRight" size={18} class="kg-arrow" />
-              </a>
-            );
-          })}
+          {sortedPlaces.map((p) => (
+            <LocCard key={p.id} p={p} bs={boxes.filter((b) => b.place_id === p.id)} />
+          ))}
 
           {unplaced.length > 0 && (
             <div class="kho-loc-card unplaced" onClick={() => setOpenUnplaced((v) => !v)}>
@@ -205,12 +227,4 @@ export function KhoBoxes() {
       )}
     </div>
   );
-}
-
-// Khớp tìm kiếm: mã SP / TÊN SP (foldedName) / số gọi thùng / tên vị trí
-function matchQ(b: KhoBox, nq: string, foldedName: string): boolean {
-  return foldVN(b.product_code).includes(nq)
-    || foldedName.includes(nq)
-    || foldVN(b.box_code).includes(nq)
-    || foldVN(b.place_name || "").includes(nq);
 }
