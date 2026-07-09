@@ -1,6 +1,9 @@
 # Plan: Product ID cố định — mã SP chỉ là nhãn hiển thị, đổi tự do
 
-> Trạng thái: **ĐÃ DUYỆT 2026-07-09 — ĐANG THỰC HIỆN.**
+> Trạng thái: **ĐÃ HOÀN THÀNH 2026-07-09** (7 phase, 7 commit, deploy + verify sống
+> từng phase). E2E thật: đổi `K10LV85 → K10LV85T → K10LV85` (SP link KiotViet,
+> 31 thùng, 1414 đơn) — kho/đơn/bảng giá/search/KiotViet đều đúng, giá giữ nguyên.
+> Backfill: 27.592/27.616 item đơn (99,9%) gắn sp_id; 310 khách bảng giá diff=0.
 > Yêu cầu chốt (user): đổi mã SP sẽ diễn ra **thường xuyên**; khi đổi, **mọi nơi**
 > (đơn cũ, kho, bảng giá, khách, invoice…) hiển thị mã mới ngay; toàn DB tham chiếu
 > bằng `product_id`, mã chỉ để hiển thị/nhập liệu. Không đi đường tắt.

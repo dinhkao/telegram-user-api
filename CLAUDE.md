@@ -191,6 +191,24 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 - `donhang_store/` — `#don_hang` index DB (schema, reads, writes, migrations, api).
 - `order_store/`, `product_store/`, `payment_store/`, `bang_gia_store/`,
   `note_store/`, `production_store/` — domain tables in the shared `app.db`.
+- **PRODUCT ID = danh tính bất biến (2026-07-09).** `products.id` INTEGER PK; `code`
+  chỉ là NHÃN UNIQUE **đổi tự do** (admin, ô "Mã SP" ở `#/kho/:code`; cấm mã toàn
+  chữ số). Mọi liên kết nội bộ theo id: `inventory_boxes.product_id`,
+  `product_recipes.product_id/ingredient_id`, `production_slips.product_id`,
+  `production_report_rows.product_id`, bảng giá key = `str(id)`
+  (`price_list_store/keys.py`), item đơn/trả hàng có `sp_id` (backfilled 99,9%,
+  choke = `freeze_invoice_cost_prices`). Mã cũ ghi `product_code_history` → alias:
+  parser nhận mã cũ, URL cũ redirect, search mở rộng, đơn-theo-SP không đứt
+  (`product_store/resolve.py`). HIỂN THỊ mã/tên luôn resolve bản hiện hành, fallback
+  snapshot khi SP xoá (`order_store/display.py`, cache 30s); GIÁ/giá vốn là snapshot
+  vĩnh viễn — không resolve lại. **KiotViet giao tiếp bằng `productId`** (`kv_id`
+  trong invoiceDetails — spike xác nhận), đổi mã local không ảnh hưởng; rename đẩy
+  code mới sang KiotViet best-effort (`update_product_code_kv`). Đổi mã =
+  `product_store.rename_product` (UPDATE 1 ô + history + refresh cột mã snapshot +
+  emit realtime + audit `product.renamed`). Migration/backfill chạy ở boot:
+  `server_app/db_migrate.py` (idempotent, marker kv_store). SP_INFO (mâm/lượng SX)
+  port vào cột `prod_mam`/`prod_luong` (fallback config, `production_store/defaults.py`).
+  Plan: `docs/plan-product-id.md`.
 - `user_store/` — `web_users` table in `app.db`: login accounts for the orders web
   app (PIN hash in `pin.py`, CLI: `tools/add_web_user.py`).
 - `comment_store/` — `web_comments` table in `app.db`: web-app comments on orders
