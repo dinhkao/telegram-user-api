@@ -1478,8 +1478,10 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .sp-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }
 .sp-row:last-child { border-bottom: none; }
 .sp-row.off { opacity: .38; }
-.sp-tap { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 7px 6px; cursor: pointer;
+.sp-tap { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 7px 6px; cursor: pointer;
   border-left: 3px solid transparent; }
+.sp-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sp-notel { font-size: .72rem; color: var(--muted); padding-left: 26px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-row.on { background: var(--accent-wash, #eef4ff); border-radius: 9px; border-bottom-color: transparent; }
 .sp-row.on .sp-tap { border-left-color: var(--primary, #2563eb); border-radius: 9px 0 0 9px; }
 .sp-row.on .sp-tap:active, .sp-tap:active { background: var(--bg); }

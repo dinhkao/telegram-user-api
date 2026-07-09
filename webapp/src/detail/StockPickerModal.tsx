@@ -148,19 +148,21 @@ export function StockPickerModal({
               return (
                 <div class={"sp-row" + (checked ? " on" : "") + (blocked ? " off" : "")} key={b.id}>
                   <div class="sp-tap" onClick={() => { if (!blocked) toggle(b); }} title={b.box_code}>
-                    <span class="sp-check">{checked ? <Icon name="check" size={13} /> : <span class="sp-dot" />}</span>
-                    <span class="sp-code">{num}</span>
-                    <span class="sp-qty">{soVN(avail(b))}
-                      {checked
-                        ? <span class={"sp-after" + (after <= 0 ? " done" : "")}>→ {after <= 0 ? "hết" : soVN(after)}</span>
-                        : <i>{unit}</i>}
-                    </span>
-                    {/* chọn → CSS xếp vị trí & NSX thành 2 dòng để không bị cắt */}
-                    <span class="sp-meta">
-                      {place ? <span>📍 {place}</span> : null}
-                      {nsx ? <span>NSX {nsx}</span> : null}
-                      {b.note ? <span class="sp-note" title={b.note}>📝</span> : null}
-                    </span>
+                    <div class="sp-main">
+                      <span class="sp-check">{checked ? <Icon name="check" size={13} /> : <span class="sp-dot" />}</span>
+                      <span class="sp-code">{num}</span>
+                      <span class="sp-qty">{soVN(avail(b))}
+                        {checked
+                          ? <span class={"sp-after" + (after <= 0 ? " done" : "")}>→ {after <= 0 ? "hết" : soVN(after)}</span>
+                          : <i>{unit}</i>}
+                      </span>
+                      {/* chọn → CSS xếp vị trí & NSX thành 2 dòng để không bị cắt */}
+                      <span class="sp-meta">
+                        {place ? <span>📍 {place}</span> : null}
+                        {nsx ? <span>NSX {nsx}</span> : null}
+                      </span>
+                    </div>
+                    {b.note ? <div class="sp-notel" title={b.note}>📝 {b.note}</div> : null}
                   </div>
                   {checked && (
                     <label class="sp-takewrap" title="Số lấy từ thùng này">
