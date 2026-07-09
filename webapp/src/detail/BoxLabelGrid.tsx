@@ -18,7 +18,6 @@ export function BoxLabelGrid({ boxes }: { boxes: KhoBox[] }) {
           <a key={b.id} class={`box-lbl ${st}`} href={`#/thung/${b.id}`} style={{ "--fill": `${fillPct}%` } as any}
             title={`${b.box_code} · ${soVN(rm)} ${b.product_unit || "cây"} · ${status}${b.place_name ? ` · ${b.place_name}` : ""}${b.note ? ` · ${b.note}` : ""}`}>
             {b.note && <span class="bl-dot" />}
-            {b.place_name && <span class="bl-place">{b.place_name}</span>}
             <span class="bl-code">{b.product_code}</span>
             <span class="bl-q">{soVN(rm)}{used > 0 ? <span class="bl-q-tot">/{soVN(b.quantity)}</span> : ""}</span>
             <span class="bl-num">{num}</span>
