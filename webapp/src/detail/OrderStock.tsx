@@ -149,20 +149,20 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
             </div>
 
             {mine.length > 0 && (
-              <div class="box-grid lbl-grid">
+              <div class="sk-chips">
                 {mine.map((a) => {
                   const num = (a.box_code || "").split("-").pop() || a.box_code;
                   return (
-                    <a key={a.allocation_id} id={`box-${a.box_id}`} class="box-lbl in" href={`#/thung/${a.box_id}`}
-                      title={`${a.box_code} · lấy ${soVN(a.quantity)}${a.box_quantity ? `/${soVN(a.box_quantity)}` : ""}`}>
-                      <button class={"bl-x" + (locked ? " faded" : "")} disabled={busy} title="Thu hồi"
+                    <span class="sk-chip" id={`box-${a.box_id}`} key={a.allocation_id}>
+                      <a class="sk-chip-main" href={`#/thung/${a.box_id}`}
+                        title={`${a.box_code} · lấy ${soVN(a.quantity)}${a.box_quantity ? `/${soVN(a.box_quantity)}` : ""}`}>
+                        <span class="sk-num">{num}</span><span class="sk-q">{soVN(a.quantity)}</span>
+                      </a>
+                      <button class={"sk-x" + (locked ? " faded" : "")} disabled={busy} title="Thu hồi"
                         onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); doRelease(a); }}>
                         <Icon name="close" size={12} />
                       </button>
-                      <span class="bl-code">{code}</span>
-                      <span class="bl-q">{soVN(a.quantity)}</span>
-                      <span class="bl-num">{num}</span>
-                    </a>
+                    </span>
                   );
                 })}
               </div>
