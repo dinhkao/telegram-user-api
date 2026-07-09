@@ -19,6 +19,16 @@ function todayLocal(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+// NHÁP form nhập thùng theo PHIẾU (module scope): thoát trang quay lại vẫn nhập tiếp
+// (kể cả thùng NL đã chọn). Nháp = gương của state nên nhập xong đợt nào form reset
+// gì nháp theo nấy; sống trong phiên app, reload thì mất.
+type BoxDraft = {
+  prodCode: string; amount: string; count: string; note: string; mfgDate: string;
+  unitId: number | null; placeId: number | null;
+  consumePicks: Record<string, { box_id: number; quantity: number }[]>;
+};
+const boxDrafts = new Map<string, BoxDraft>();
+
 export function ProductionBoxes({
   threadId,
   slip,
@@ -29,14 +39,15 @@ export function ProductionBoxes({
   onChanged: () => void;
 }) {
   // SP để tạo thùng — mặc định sp_name của phiếu, nhưng CHỌN được SP khác (1 phiếu
-  // SX tạo thùng cho nhiều SP).
-  const [prodCode, setProdCode] = useState(slip.sp_name || "");
+  // SX tạo thùng cho nhiều SP). Có nháp cũ (thoát ra vào lại) → khôi phục từ nháp.
+  const draft = boxDrafts.get(threadId);
+  const [prodCode, setProdCode] = useState(draft?.prodCode || slip.sp_name || "");
   useEffect(() => { if (slip.sp_name && !prodCode) setProdCode(slip.sp_name); }, [slip.sp_name]);
   const hasSp = !!prodCode;
-  const [amount, setAmount] = useState("");
-  const [count, setCount] = useState("1");
-  const [note, setNote] = useState("");
-  const [mfgDate, setMfgDate] = useState(todayLocal());
+  const [amount, setAmount] = useState(draft?.amount || "");
+  const [count, setCount] = useState(draft?.count || "1");
+  const [note, setNote] = useState(draft?.note || "");
+  const [mfgDate, setMfgDate] = useState(draft?.mfgDate || todayLocal());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [myBoxes, setMyBoxes] = useState<InvBox[]>([]);
@@ -48,11 +59,11 @@ export function ProductionBoxes({
   usePopupBack(!!codeBoxes, () => setCodeBoxes(null));
   const [mineView, setMineView] = useState<"grid" | "list">("grid");
   const [units, setUnits] = useState<Unit[]>([]);
-  const [unitId, setUnitId] = useState<number | null>(null);   // đơn vị chứa cho đợt nhập
+  const [unitId, setUnitId] = useState<number | null>(draft?.unitId ?? null);   // đơn vị chứa cho đợt nhập
   useEffect(() => { listUnits().then((u) => { setUnits(u); if (u[0] && unitId == null) setUnitId(u[0].id); }).catch(() => {}); }, []);
   // Công thức nguyên liệu của SP này + thùng NL người dùng chọn để tiêu hao
   const [recipe, setRecipe] = useState<RecipeLine[]>([]);
-  const [consumePicks, setConsumePicks] = useState<Record<string, { box_id: number; quantity: number }[]>>({});
+  const [consumePicks, setConsumePicks] = useState<Record<string, { box_id: number; quantity: number }[]>>(draft?.consumePicks || {});
   const [pickIng, setPickIng] = useState<string | null>(null);   // mã NL đang mở popup chọn thùng
   const [prodUnit, setProdUnit] = useState("cây");                 // đơn vị SP (cây/gói…)
   const unitName = units.find((u) => u.id === unitId)?.name || "Thùng";   // đơn vị chứa (Thùng/Kiện/Hũ)
@@ -79,7 +90,11 @@ export function ProductionBoxes({
     } catch { /* im */ }
   };
   const [places, setPlaces] = useState<Place[]>([]);
-  const [placeId, setPlaceId] = useState<number | null>(null);   // vị trí kho cho thùng mới
+  const [placeId, setPlaceId] = useState<number | null>(draft?.placeId ?? null);   // vị trí kho cho thùng mới
+  // Lưu nháp mỗi khi form đổi — thoát trang quay lại là nhập tiếp
+  useEffect(() => {
+    boxDrafts.set(threadId, { prodCode, amount, count, note, mfgDate, unitId, placeId, consumePicks });
+  }, [threadId, prodCode, amount, count, note, mfgDate, unitId, placeId, consumePicks]);
   useEffect(() => { listPlaces().then(setPlaces).catch(() => {}); }, []);
   const createPlacePick = async (name: string) => {
     try {
