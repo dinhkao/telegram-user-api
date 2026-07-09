@@ -418,10 +418,13 @@ async def production_delete_handler(request: web.Request):
         conn = _conn()
         try:
             # CẤM xoá nếu phiếu đã tạo ra thùng (còn nguồn gốc kho) — gỡ thùng trước.
-            from inventory_store import count_boxes_by_source
+            from inventory_store import count_boxes_by_source, release_production_consumption
             n = count_boxes_by_source(conn, thread_id)
             if n > 0:
                 return n
+            # Hoàn nốt nguyên liệu còn trừ cho phiếu này (residue sau khi xoá từng
+            # thùng — không hoàn thì allocation mồ côi, NL mất kho vĩnh viễn)
+            release_production_consumption(conn, thread_id)
             delete_slip(conn, thread_id)
             return 0
         finally:

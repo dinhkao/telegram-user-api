@@ -325,6 +325,8 @@ def register_production_commands(client):
                 if n > 0:
                     await reply(msg, f"❌ Không xoá được — phiếu đã tạo {n} thùng. Xoá các thùng đó trước.")
                     return
+                from inventory_store import release_production_consumption
+                release_production_consumption(conn, thread_id)  # hoàn NL còn trừ cho phiếu
                 delete_slip(conn, thread_id)
                 _emit_prod()  # xoá phiếu → dashboard webapp refetch
                 await reply(msg, "Đã xóa phiếu")
