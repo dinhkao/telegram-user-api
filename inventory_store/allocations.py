@@ -157,6 +157,37 @@ def release_production_consumption(conn, ref_thread_id) -> int:
         return cur.rowcount
 
 
+def release_production_amount(conn, ref_thread_id, product_code, amount) -> float:
+    """Hoàn lại `amount` nguyên liệu (mã product_code) đã tiêu cho 1 phiếu SX — dùng
+    khi XOÁ 1 thùng thành phẩm của phiếu đóng gói (hoàn phần NL tương ứng thùng đó,
+    ratio × số cây). Gỡ allocation kind='production' MỚI NHẤT trước (LIFO); dòng
+    cuối gỡ 1 phần (giảm quantity). Trả tổng đã hoàn (kẹp theo tổng đã tiêu)."""
+    code = str(product_code or "").strip().upper()
+    left = float(amount or 0)
+    if not code or left <= 0:
+        return 0.0
+    released = 0.0
+    with transaction(conn):
+        rows = conn.execute(
+            "SELECT a.id, a.quantity FROM box_allocations a JOIN inventory_boxes b ON b.id = a.box_id "
+            "WHERE a.order_thread_id = ? AND COALESCE(a.kind,'order') = 'production' AND b.product_code = ? "
+            "ORDER BY a.id DESC",
+            (ref_thread_id, code),
+        ).fetchall()
+        for aid, q in rows:
+            if left <= 1e-9:
+                break
+            q = float(q or 0)
+            take = min(q, left)
+            if take >= q - 1e-9:
+                conn.execute("DELETE FROM box_allocations WHERE id = ?", (aid,))
+            else:
+                conn.execute("UPDATE box_allocations SET quantity = quantity - ? WHERE id = ?", (take, aid))
+            left -= take
+            released += take
+    return released
+
+
 def list_order_allocations(conn, order_thread_id, *, kind="order") -> list[dict]:
     """Các phần thùng đã xuất cho 1 đơn (kèm info thùng + còn lại của thùng).
     kind='production' → tiêu hao nguyên liệu của 1 phiếu SX."""

@@ -534,6 +534,18 @@ async def box_delete_handler(request: web.Request):
                 return "allocated", None
             src = box.get("source_thread_id")
             box_code = box.get("box_code")
+            # Phiếu ĐÓNG GÓI: hoàn nguyên liệu đã trừ tương ứng thùng này (ratio × số
+            # cây thùng, kẹp theo tổng đã tiêu của phiếu) — allocation NL gắn PHIẾU chứ
+            # không gắn thùng, nên phải hoàn theo tỉ lệ công thức lúc xoá từng thùng.
+            restored = []
+            if src:
+                slip = get_slip(conn, src)
+                if slip and (slip.get("kind") or "san_xuat") == "dong_goi":
+                    from inventory_store import release_production_amount
+                    for nd in recipe_needs(conn, box.get("product_code"), box.get("quantity") or 0):
+                        got = release_production_amount(conn, src, nd["code"], nd["amount"])
+                        if got > 0:
+                            restored.append({"code": nd["code"], "amount": round(got, 3)})
             delete_box(conn, box_id)
             # Gỡ entry numbers của thùng khỏi phiếu SX nguồn → total tính lại đúng
             # (numbers là nguồn thật; note nhập lúc tạo = '📦 <box_code>'). Số gọi
@@ -541,20 +553,21 @@ async def box_delete_handler(request: web.Request):
             # nên match theo note trong phạm vi phiếu vẫn an toàn.
             if src and box_code:
                 remove_number_by_note(conn, src, f"📦 {box_code}")
-            return "ok", src
+            return "ok", (src, restored)
         finally:
             conn.close()
-    status, src = await asyncio.to_thread(_run)
+    status, res = await asyncio.to_thread(_run)
     if status == "notfound":
         return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
     if status == "allocated":
         return web.json_response({"ok": False, "error": "Thùng đã xuất cho đơn — thu hồi khỏi đơn trước khi xoá"}, status=400)
+    src, restored = res or (None, [])
     from server_app.realtime import emit_inventory_changed, emit_box_changed, emit_production_changed
     emit_inventory_changed()
     emit_box_changed()
     if src:
         emit_production_changed(src)
-    return web.json_response({"ok": True})
+    return web.json_response({"ok": True, "restored_materials": restored})
 
 
 async def box_detail_handler(request: web.Request):
