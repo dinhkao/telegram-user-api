@@ -151,9 +151,12 @@ export function OrdersList() {
     { m: "compact" as const, ic: "≣", t: "Gọn" },
     { m: "ultra" as const, ic: "▬", t: "Siêu gọn" },
   ];
-  const [sort, setSort] = useState<"created" | "updated">(() => (localStorage.getItem("dash_sort") === "updated" ? "updated" : "created"));
+  const [sort, setSort] = useState<"created" | "updated" | "ngay_giao">(() => {
+    const s = localStorage.getItem("dash_sort");
+    return s === "updated" || s === "ngay_giao" ? s : "created";
+  });
   const sortRef = useRef(sort); // đọc trong load (tránh stale closure)
-  const changeSort = (s: "created" | "updated") => {
+  const changeSort = (s: "created" | "updated" | "ngay_giao") => {
     if (s === sortRef.current) return;
     sortRef.current = s;
     localStorage.setItem("dash_sort", s);
@@ -203,7 +206,7 @@ export function OrdersList() {
     try {
       // filter=all → không gửi (server mặc định all). Lọc pending/done server-side.
       const fp = f && f !== "all" ? `&filter=${f}` : "";
-      const sp = sortRef.current === "updated" ? "&sort=updated" : "";
+      const sp = sortRef.current !== "created" ? `&sort=${sortRef.current}` : "";
       // chỉ cache trang không search — kết quả theo phím gõ không rác localStorage
       const data = await getJSON(`/api/orders?page=${p}&limit=${PAGE_SIZE}&search=${encodeURIComponent(q)}${fp}${sp}`, { cache: !q });
       if (seq !== reqSeq.current) return; // đã có query mới hơn → bỏ kết quả cũ (chống race)
@@ -383,6 +386,13 @@ export function OrdersList() {
   const onFilter = (f: FilterKey) => {
     setFilter(f);
     setPage(1);
+    // Lọc "Chưa giao" → tự sắp theo NGÀY GIAO (đổi lại được ở thanh Sắp xếp).
+    // Không ghi localStorage — auto-switch chỉ trong phiên, không đổi mặc định của user.
+    if (f === "chua_giao" && sortRef.current !== "ngay_giao") {
+      sortRef.current = "ngay_giao";
+      setSort("ngay_giao");
+      listCache = null;
+    }
     load(1, search, f, false);
   };
 
@@ -441,6 +451,7 @@ export function OrdersList() {
         <span class="sort-lbl">Sắp xếp:</span>
         <button class={sort === "created" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("created")}>Mới tạo</button>
         <button class={sort === "updated" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("updated")}>Mới cập nhật</button>
+        <button class={sort === "ngay_giao" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("ngay_giao")}>Ngày giao</button>
       </div>
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {err && <p class="error">{err}</p>}

@@ -288,6 +288,12 @@ async def orders_api_handler(request: web.Request):
     elif sort == "updated":
         # 'Mới cập nhật': theo lần sửa gần nhất. Khớp idx_orders_updated_tid → <1ms.
         order_by = "o.updated_at DESC, o.thread_id DESC"
+    elif sort == "ngay_giao":
+        # 'Ngày giao': có hẹn trước — trễ hạn/sớm nhất lên đầu (ASC); chưa hẹn xuống
+        # dưới (mới tạo trước). ngay_giao là ISO nên so sánh chuỗi đúng thứ tự.
+        ng = "json_extract(o.json, '$.ngay_giao')"
+        has_ng = f"({ng} IS NOT NULL AND {ng} != '')"
+        order_by = f"CASE WHEN {has_ng} THEN 0 ELSE 1 END ASC, CASE WHEN {has_ng} THEN {ng} END ASC, {created_expr} DESC, o.thread_id DESC"
     else:
         order_by = f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, o.updated_at DESC, o.thread_id DESC"
     try:
