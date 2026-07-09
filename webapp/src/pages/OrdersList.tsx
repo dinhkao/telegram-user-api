@@ -37,6 +37,11 @@ function giaoDue(o: OrderRow): boolean {
   return ng <= today;
 }
 
+/** Số trên ô lọc: gọn cho số lớn (15973 → "16k") để 5 ô luôn vừa 1 hàng. */
+function fmtChipCount(n: number): string {
+  return n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
+}
+
 function rowMatchesFilter(o: OrderRow, f: FilterKey): boolean {
   switch (f) {
     case "chua_soan": return !o.soan;
@@ -456,12 +461,19 @@ export function OrdersList() {
         )}
       </header>
       {stats && (
-        <div class="chips">
-          <button class={filter === "all" ? "chip active" : "chip"} onClick={() => onFilter("all")}>Tất cả</button>
-          <button class={filter === "chua_soan" ? "chip active" : "chip"} onClick={() => onFilter("chua_soan")}>Chưa soạn {stats.chua_soan != null ? `(${stats.chua_soan})` : ""}</button>
-          <button class={filter === "chua_giao" ? "chip active" : "chip"} onClick={() => onFilter("chua_giao")}>Chưa giao {stats.chua_giao != null ? `(${stats.chua_giao})` : ""}</button>
-          <button class={filter === "chua_nop" ? "chip active" : "chip"} onClick={() => onFilter("chua_nop")}>Chưa nộp {stats.chua_nop != null ? `(${stats.chua_nop})` : ""}</button>
-          <button class={filter === "chua_nhan" ? "chip active" : "chip"} onClick={() => onFilter("chua_nhan")}>Chưa nhận {stats.chua_nhan != null ? `(${stats.chua_nhan})` : ""}</button>
+        <div class="of-tabs">
+          {([
+            ["all", "Tất cả", stats.total_orders],
+            ["chua_soan", "Chưa soạn", stats.chua_soan],
+            ["chua_giao", "Chưa giao", stats.chua_giao],
+            ["chua_nop", "Chưa nộp", stats.chua_nop],
+            ["chua_nhan", "Chưa nhận", stats.chua_nhan],
+          ] as [FilterKey, string, number | undefined][]).map(([k, lbl, n]) => (
+            <button key={k} class={"of-tab" + (filter === k ? " on" : "")} aria-pressed={filter === k} onClick={() => onFilter(k)}>
+              <b class={"of-n" + (k !== "all" && n ? " hot" : "")}>{n != null ? fmtChipCount(n) : "–"}</b>
+              <span class="of-lbl">{lbl}</span>
+            </button>
+          ))}
         </div>
       )}
       <div class="sort-row">

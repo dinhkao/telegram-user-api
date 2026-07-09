@@ -211,6 +211,19 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .chips { display: flex; gap: 6px; padding: 4px 0; overflow-x: auto; }
 .chip { border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 6px 12px; font-size: .85rem; font-weight: 600; color: var(--muted); white-space: nowrap; cursor: pointer; transition: background var(--dur) var(--ease), color var(--dur) var(--ease); -webkit-tap-highlight-color: transparent; }
 .chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+/* Ô lọc dashboard Đơn — 5 ô stat-tab đều nhau, luôn vừa 1 hàng (hết cuộn ngang):
+   số to trên (đỏ khi còn việc), nhãn nhỏ dưới. */
+.of-tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 4px 0; }
+.of-tab { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0;
+  padding: 7px 2px 6px; border: 1px solid var(--border); background: var(--card); border-radius: 12px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+.of-tab .of-n { font-size: .95rem; font-weight: 800; line-height: 1.15; color: var(--text); font-variant-numeric: tabular-nums; }
+.of-tab .of-n.hot { color: var(--danger); }
+.of-tab .of-lbl { font-size: .6rem; font-weight: 600; color: var(--muted); letter-spacing: .01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.of-tab.on { background: var(--primary); border-color: var(--primary); }
+.of-tab.on .of-n, .of-tab.on .of-n.hot, .of-tab.on .of-lbl { color: #fff; }
 /* Chọn kiểu sắp xếp danh sách đơn */
 .sort-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 2px; }
 .sort-lbl { font-size: .8rem; color: var(--muted); }
