@@ -139,7 +139,10 @@ export function PlaceDetail({ id }: { id: string }) {
                     <a class="pd-csp" href={`#/kho/${encodeURIComponent(pcode)}`}>{pcode}</a>
                     <span class="pd-cboxes">
                       {bs.slice().sort((a, b) => num(a).localeCompare(num(b))).map((b) => (
-                        <a class="pd-cbox" key={b.id} href={`#/thung/${b.id}`}>{num(b)}</a>
+                        <a class="pd-cbox" key={b.id} href={`#/thung/${b.id}`}
+                          title={`Thùng ${num(b)} · còn ${soVN(remOf(b))} ${(b as any).product_unit || "cây"}`}>
+                          <span class="pd-cbn">{num(b)}</span><span class="pd-cq">{soVN(remOf(b))}</span>
+                        </a>
                       ))}
                     </span>
                   </div>

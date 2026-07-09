@@ -1204,9 +1204,12 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pd-csp { font-weight: 700; text-decoration: none; color: inherit; flex: 0 0 auto; }
 .pd-csp::after { content: " :"; color: var(--muted); }
 .pd-cboxes { display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 auto; }
-.pd-cbox { font-family: monospace; font-size: .82rem; background: var(--bg); border: 1px solid var(--border);
-  border-radius: 6px; padding: 1px 6px; text-decoration: none; color: inherit; }
-.pd-cbox:active { background: var(--card); }
+.pd-cbox { display: inline-flex; align-items: stretch; font-size: .82rem; border: 1px solid var(--border);
+  border-radius: 6px; overflow: hidden; text-decoration: none; color: inherit; }
+.pd-cbox:active { opacity: .7; }
+.pd-cbn { font-family: monospace; font-weight: 600; padding: 1px 5px; background: var(--bg); }
+.pd-cq { padding: 1px 5px; color: var(--ok); font-variant-numeric: tabular-nums; background: var(--card);
+  border-left: 1px solid var(--border); }
 .pt-inl.in { color: var(--ok); }
 .pt-inl.out { color: var(--danger); }
 .pt-dot.mix { border-color: var(--muted); }
