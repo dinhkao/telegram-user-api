@@ -371,6 +371,14 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
               ))}
             </div>
             <div class="od-sb-text" title={j.text || j.text_raw || ""}>{j.text || j.text_raw || `#${threadId}`}</div>
+            {/* Khách — avatar bấm được (giữ ngữ cảnh khách khi cuộn); chạm = mở khách,
+                không cuộn lên đầu. Chưa có khách thì bỏ. */}
+            {j.khach_hang_id && (
+              <a class="od-sb-cust" href={`#/khach/${encodeURIComponent(j.khach_hang_id)}`}
+                onClick={(e: any) => e.stopPropagation()} title={j.customer_name || pc.kh || "Khách"}>
+                <span class="co-avatar" aria-hidden="true">{initial(j.customer_name || pc.kh || "?")}</span>
+              </a>
+            )}
           </div>
         ) : (
           <>
