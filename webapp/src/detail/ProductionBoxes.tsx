@@ -227,7 +227,7 @@ export function ProductionBoxes({
       {!hasSp && <div class="muted small pb-hint">Chọn sản phẩm trước khi nhập.</div>}
 
       {packing && recipe.length > 0 && (
-        <div class="recipe-consume">
+        <div class={"recipe-consume" + (recipeOk && produced > 0 ? " ok" : "")}>
           <div class="card-label"><Icon name="leaf" size={15} /> Nguyên liệu cần trừ {produced > 0 ? `(SX ${soVN(produced)} ${prodUnit})` : ""}</div>
           {produced <= 0 && <div class="muted small">Nhập số {unitLow} × số {prodUnit} trước để tính nguyên liệu.</div>}
           {recipe.map((l) => {

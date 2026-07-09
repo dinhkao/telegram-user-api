@@ -1235,7 +1235,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-legend i.bl.alloc { background: var(--warn-wash); border-color: #ecd8a6; }
 .box-legend i.bl.off { background: var(--bg); border-color: var(--border); border-style: dashed; }
 /* Nguyên liệu cần trừ khi nhập thùng (công thức BOM) */
-.recipe-consume { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--ok-wash); }
+/* Mặc định NÂU (chưa chọn đủ thùng NL) → .ok XANH khi đã chọn đủ hết */
+.recipe-consume { margin: 8px 0; padding: 8px 10px; border: 1px solid #e0c9a6; border-radius: 10px; background: var(--warn-wash); transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+.recipe-consume.ok { background: var(--ok-wash); border-color: #b7dfc0; }
 .recipe-consume .stock-head { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
 .recipe-consume .stock-head b { min-width: 54px; }
 .req-tag { font-size: .68rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
