@@ -106,7 +106,9 @@ export function KhoBoxes() {
   const nq = foldVN(q.trim());
   const searching = nq !== "";
   const unplaced = boxes.filter((b) => !b.place_id);
-  const sortedPlaces = places.slice().sort((a, b) => a.name.localeCompare(b.name));
+  // Sắp kho theo NHIỀU THÙNG (còn hàng) nhất lên trước
+  const boxCountAt = (pid: number) => boxes.filter((b) => b.place_id === pid && hasStock(b)).length;
+  const sortedPlaces = places.slice().sort((a, b) => boxCountAt(b.id) - boxCountAt(a.id) || a.name.localeCompare(b.name));
   // code → tên SP + tổng tồn kho (search khớp cả TÊN SP + hiện mã SP khớp)
   const sumByCode = new Map(prodSum.map((s) => [s.product_code, s]));
   const fname = (code: string) => foldVN(sumByCode.get(code)?.name || "");

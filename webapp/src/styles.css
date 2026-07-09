@@ -1140,8 +1140,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .kho-loc-card { display: flex; align-items: stretch; gap: 12px; padding: 10px; background: var(--card);
   border: 1px solid var(--border); border-radius: 14px; text-decoration: none; color: inherit; cursor: pointer; }
 .kho-loc-card:active { background: var(--bg); }
-.kho-loc-thumb { flex: 0 0 33%; width: 33%; align-self: stretch; min-height: 96px; border-radius: 10px; object-fit: cover;
-  background: var(--bg); border: 1px solid var(--border); }
+.kho-loc-thumb { flex: 0 0 33%; width: 33%; aspect-ratio: 1 / 1; align-self: flex-start; border-radius: 10px;
+  object-fit: cover; background: var(--bg); border: 1px solid var(--border); }
 .kho-loc-thumb.ph { display: flex; align-items: center; justify-content: center; color: var(--muted); }
 .kho-loc-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; }
 .kho-loc-name { font-weight: 700; font-size: 1rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
