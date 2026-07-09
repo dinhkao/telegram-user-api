@@ -371,7 +371,8 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 /* Chế độ xem gọn dashboard */
 /* Nhóm đơn theo ngày tạo (kiểu siêu gọn) */
 .order-day-group { list-style: none; }
-.order-day-head { padding: 8px 2px 4px; font-weight: 700; font-size: .85rem; color: var(--muted); border-bottom: 1px solid var(--border); margin: 6px 0 4px; }
+.order-day-head { position: sticky; top: 107px; z-index: 3; background: var(--bg); padding: 8px 2px 4px; font-weight: 700; font-size: .85rem; color: var(--muted); border-bottom: 1px solid var(--border); margin: 6px 0 4px; }   /* dính dưới app-bar(44) + topbar(63) */
+body.has-nop .order-day-head { top: 135px; }   /* banner 28px đẩy xuống */
 .order-day-group:first-child .order-day-head { margin-top: 0; }
 /* Kiểu SIÊU GỌN — 1 dòng: 5 icon trạng thái + nội dung đơn (không xuống dòng) */
 .order-card.ultra { display: block; padding: 6px 10px; margin: 2px 0; }
