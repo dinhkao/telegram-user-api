@@ -19,7 +19,11 @@ def calculate_order_profit(conn, order: dict) -> dict:
         if frozen_cost is not None:
             cost_price, is_frozen = int(frozen_cost), True
         else:
-            product = get_product(conn, code)
+            from .queries import get_product_by_id
+            from .resolve import resolve_code
+            product = get_product_by_id(conn, item.get("sp_id")) if item.get("sp_id") else None
+            if product is None:
+                product = resolve_code(conn, code)  # đơn cũ: mã có thể là mã cũ
             cost_price, is_frozen = (product.get("cost_price", 0) if product else 0), False
         cost = qty * cost_price
         profit = (revenue - cost) if cost_price > 0 else 0
@@ -33,15 +37,20 @@ def calculate_order_profit(conn, order: dict) -> dict:
 
 def freeze_invoice_cost_prices(conn, invoice: list) -> list:
     """Choke point CHUNG cho mọi đường lưu invoice (web + Telegram). Mỗi dòng:
+    - gắn `sp_id` = danh tính SP bất biến + CHUẨN HOÁ `sp` về mã hiện hành
+      (gõ mã cũ vẫn nhận qua history — đổi mã SP không vỡ liên kết);
     - đông giá vốn 1 lần (cost_price) từ product_store;
-    - gắn TÊN sản phẩm (snapshot từ danh mục) + cờ `known` (mã có trong products?).
-    known=False → mã lạ (danh mục/KiotViet không có) → UI cảnh báo. Tên là bản chụp
-    (không join sống) vì đơn là bản ghi lịch sử."""
+    - gắn TÊN sản phẩm (snapshot) + cờ `known` (có trong danh mục?).
+    known=False → mã lạ → UI cảnh báo. Giá là bản chụp lịch sử, KHÔNG resolve lại."""
+    from .resolve import resolve_code
     out = []
     for item in invoice:
         code = (item.get("sp") or "").upper().strip()
-        product = get_product(conn, code) if code else None
+        product = resolve_code(conn, code) if code else None
         item = {**item}
+        if product:
+            item["sp"] = product["code"]
+            item["sp_id"] = product["id"]
         if "cost_price" not in item and product and product.get("cost_price", 0) > 0:
             item["cost_price"] = product["cost_price"]
         # Tên hiển thị: ưu tiên tên danh mục local, rồi tên KiotViet

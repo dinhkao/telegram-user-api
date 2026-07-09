@@ -15,6 +15,79 @@ from utils.db import transaction
 log = logging.getLogger("server")
 
 _PRICE_KEYS_MARKER = "pid_price_keys_migrated"
+_ORDERS_SPID_MARKER = "pid_orders_spid_backfilled"
+
+
+def _backfill_orders_sp_id(conn) -> None:
+    """1 LẦN: gắn `sp_id` cho MỌI item hoá đơn trong 16k+ blob đơn lịch sử.
+
+    Thời điểm vàng = TRƯỚC lần đổi mã đầu tiên (mã↔SP còn 1-1). Chỉ THÊM sp_id —
+    `sp`/giá/tên snapshot giữ nguyên tại chỗ (không xoá dấu vết). Mã không resolve
+    được (SP đã xoá khỏi danh mục) giữ nguyên không sp_id → hiển thị fallback.
+    Batch 500 đơn/transaction; idempotent (marker + item đã có sp_id thì bỏ qua);
+    chạy TRƯỚC khi server nhận request nên không đụng writer nào."""
+    row = conn.execute("SELECT value FROM kv_store WHERE path = ?", (_ORDERS_SPID_MARKER,)).fetchone()
+    if row and row[0]:
+        return
+    from product_store import resolve_code
+    cache: dict[str, int | None] = {}
+
+    def _rid(code) -> int | None:
+        c = str(code or "").strip().upper()
+        if not c:
+            return None
+        if c not in cache:
+            p = resolve_code(conn, c)
+            cache[c] = int(p["id"]) if p else None
+        return cache[c]
+
+    t0 = time.monotonic()
+    last, scanned, changed, items_set, items_orphan = 0, 0, 0, 0, 0
+    while True:
+        # lặp theo rowid (KHÔNG theo thread_id — có row rác thread_id NULL sẽ bị sót)
+        rows = conn.execute(
+            "SELECT rowid, json FROM orders WHERE rowid > ? AND json IS NOT NULL "
+            "ORDER BY rowid LIMIT 500",
+            (last,),
+        ).fetchall()
+        if not rows:
+            break
+        with transaction(conn):
+            for tid, jtext in rows:
+                scanned += 1
+                try:
+                    j = json.loads(jtext)
+                except Exception:
+                    continue
+                dirty = False
+                for arr in ("invoice", "invoice_items"):
+                    val = j.get(arr)
+                    if not isinstance(val, list):  # blob hỏng legacy (int/dict) — bỏ qua
+                        continue
+                    for it in val:
+                        if not isinstance(it, dict) or it.get("sp_id") is not None:
+                            continue
+                        pid = _rid(it.get("sp"))
+                        if pid is not None:
+                            it["sp_id"] = pid
+                            items_set += 1
+                            dirty = True
+                        elif it.get("sp"):
+                            items_orphan += 1
+                if dirty:
+                    # KHÔNG đụng updated_at — backfill không phải thao tác nghiệp vụ
+                    conn.execute("UPDATE orders SET json = ? WHERE rowid = ?",
+                                 (json.dumps(j, ensure_ascii=False), tid))
+                    changed += 1
+        last = rows[-1][0]
+    conn.execute(
+        "INSERT INTO kv_store (path, value, updated_at) VALUES (?, '1', ?) "
+        "ON CONFLICT(path) DO UPDATE SET value = '1', updated_at = excluded.updated_at",
+        (_ORDERS_SPID_MARKER, int(time.time() * 1000)),
+    )
+    conn.commit()
+    log.info("backfill sp_id: %d/%d đơn cập nhật, %d item gắn id, %d item mã mồ côi, %.1fs",
+             changed, scanned, items_set, items_orphan, time.monotonic() - t0)
 
 
 def _migrate_price_list_keys(conn) -> None:
@@ -109,4 +182,9 @@ def run_boot_migrations() -> None:
         _migrate_price_list_keys(conn)
     except Exception:  # noqa: BLE001 — reader hiểu cả 2 format, không chặn boot
         log.exception("migrate price keys thất bại — GIỮ format cũ, hệ vẫn chạy")
+    # đơn hàng: backfill sp_id toàn bộ blob lịch sử (1 lần; fail = hiển thị fallback mã)
+    try:
+        _backfill_orders_sp_id(conn)
+    except Exception:  # noqa: BLE001 — thiếu sp_id chỉ mất tra-cứu-theo-id, không sai số
+        log.exception("backfill sp_id thất bại — chạy lại ở boot sau")
     log.info("boot migrations OK (products.id + history + inventory/recipe/production product_id + SP_INFO + price keys)")

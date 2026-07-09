@@ -14,7 +14,9 @@ def build_order_main_message_html(order: dict, thread_id: int) -> str:
     kh_id = order.get("khach_hang_id") or order.get("khID")
     customer = customer_name(order, kh_id, order.get("customer_name") or "")
     customer_line = f'👤 <b><a href="tg://privatepost?channel={internal_group_id(_CUSTOMER_GROUP_ID)}&post={kh_id}">{esc(customer)}</a></b> #KH{kh_id} #don_hang' if customer else ""
-    invoice_total, invoice_lines = invoice_block(order.get("invoice") or [])
+    # mã/tên SP trong tin nhắn = bản HIỆN HÀNH (re-render sau đổi mã tự cập nhật)
+    from order_store.display import resolve_invoice_display
+    invoice_total, invoice_lines = invoice_block(resolve_invoice_display(order.get("invoice") or []))
     discount = int(order.get("discount", 0))
     pvc = int(order.get("pvc", 0))
     vat = int(order.get("vat", 0))

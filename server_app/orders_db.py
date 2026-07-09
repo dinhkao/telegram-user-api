@@ -120,7 +120,16 @@ def _fts_content(json_text: str) -> str | None:
         j = json.loads(json_text)
         # Chỉ index: tên khách + nội dung đơn + mã SP. KHÔNG index số đơn/mã HĐ KiotViet
         # (tìm theo mấy cái đó vô dụng, gây nhiễu + kết quả không tô sáng được).
-        raw = " ".join([j.get("customer_name", ""), j.get("text", ""), j.get("text_raw", ""), " ".join(it.get("sp", "") for it in (j.get("invoice") or []))])
+        # Mã SP index CẢ snapshot lẫn mã HIỆN HÀNH (resolve theo sp_id) → sau đổi mã,
+        # tìm bằng mã mới lẫn mã cũ đều ra đơn lịch sử.
+        inv = j.get("invoice") or []
+        sp_terms = {str(it.get("sp") or "") for it in inv}
+        try:
+            from order_store.display import resolve_invoice_display
+            sp_terms |= {str(it.get("sp") or "") for it in resolve_invoice_display(inv)}
+        except Exception:
+            pass
+        raw = " ".join([j.get("customer_name", ""), j.get("text", ""), j.get("text_raw", ""), " ".join(sorted(sp_terms))])
         return vn_normalize(raw)
     except Exception:
         return None
@@ -175,11 +184,35 @@ def _sync_orders_fts(conn):
         log.warning("orders_fts sync failed: %s", e)
 
 
+def _expand_search_terms(query: str) -> list[str]:
+    """Query trùng 1 mã SP (hiện hành/cũ) → tìm bằng MỌI mã của SP đó."""
+    q = (query or "").strip()
+    terms = {q}
+    try:
+        from order_store.display import display_maps
+        maps = display_maps()
+        qu = q.upper()
+        prod = maps["by_code"].get(qu) or maps["alias"].get(qu)
+        if prod:
+            terms.add(str(prod["code"]))
+            for old, p in maps["alias"].items():
+                if p.get("id") == prod.get("id"):
+                    terms.add(old)
+    except Exception:
+        pass
+    return sorted(terms)
+
+
 def search_orders_fts(conn, query: str):
     if not _orders_fts_ready:
         return None
     try:
-        rows = conn.execute("SELECT thread_id FROM orders_fts WHERE content LIKE ? ORDER BY thread_id DESC LIMIT 2000", (f"%{vn_normalize(query)}%",)).fetchall()
+        terms = _expand_search_terms(query)
+        where = " OR ".join(["content LIKE ?"] * len(terms))
+        rows = conn.execute(
+            f"SELECT thread_id FROM orders_fts WHERE {where} ORDER BY thread_id DESC LIMIT 2000",
+            [f"%{vn_normalize(t)}%" for t in terms],
+        ).fetchall()
         return [r["thread_id"] for r in rows] if rows else [-1]
     except Exception as e:
         log.warning("orders_fts search failed: %s", e)

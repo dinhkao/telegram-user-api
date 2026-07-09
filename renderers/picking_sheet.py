@@ -61,7 +61,10 @@ async def generate_picking_sheet(client, conn, thread_id: int) -> bool:
         if not order:
             log.warning("picking_sheet: order not found thread=%d", thread_id)
             return False
-        html = generate_picking_sheet_html(thread_id, order.get("text", ""), order.get("invoice") or [], order.get("channel_id"), order.get("message_id"))
+        from order_store.display import resolve_invoice_display
+        html = generate_picking_sheet_html(thread_id, order.get("text", ""),
+                                           resolve_invoice_display(order.get("invoice") or [], conn),
+                                           order.get("channel_id"), order.get("message_id"))
         try:
             await _enqueue_picking_html_for_print(html)
             await client.send_message(ORDER_GROUP_ID, "🖨️ Đã gửi lệnh in phiếu soạn hàng", reply_to=thread_id, link_preview=False)

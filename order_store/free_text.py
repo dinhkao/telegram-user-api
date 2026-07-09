@@ -24,6 +24,15 @@ def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None, *, 
     valid_codes = {p["code"].upper() for p in all_products} if all_products else set()
     if not valid_codes:
         return []
+    # MÃ CŨ (đã đổi) vẫn nhận: map mã_cũ → mã hiện hành, item lưu mã hiện hành
+    from product_store import code_alias_map
+    by_id = {p["id"]: p["code"].upper() for p in all_products if p.get("id") is not None}
+    alias_codes = {}
+    try:
+        alias_codes = {old: by_id[pid] for old, pid in code_alias_map(conn).items() if pid in by_id}
+    except Exception:  # noqa: BLE001 — thiếu bảng history (DB test cũ) thì bỏ qua
+        pass
+    valid_codes |= set(alias_codes)
     price_list = get_customer_price_list(conn, kh_id) if kh_id else {}
     cleaned = re.sub(r"[,\n]+", " ", text)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
@@ -32,7 +41,8 @@ def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None, *, 
     while i < len(tokens):
         token_upper = tokens[i].upper()
         if token_upper in valid_codes:
-            sp, i = token_upper, i + 1
+            # mã cũ → chuẩn hoá về mã hiện hành ngay lúc parse
+            sp, i = alias_codes.get(token_upper, token_upper), i + 1
             if i >= len(tokens):
                 i += 1
                 continue

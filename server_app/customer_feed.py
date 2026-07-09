@@ -262,6 +262,7 @@ def _collect_events(conn, key: str) -> list[dict]:
 
     # 2) phiếu TRẢ HÀNG (return_slips) — giảm nợ, mốc = debt_after (resync vá)
     try:
+        from order_store.display import resolve_invoice_display
         from return_store import list_returns
         for rt in list_returns(conn, key):
             has_kv = bool(rt.get("kv_invoice_id"))
@@ -272,7 +273,9 @@ def _collect_events(conn, key: str) -> list[dict]:
                 "stored": float(rt["debt_after"]) if (has_kv and rt.get("debt_after") is not None) else None,
                 "ret": {
                     "id": rt["id"], "total": rt.get("total") or 0, "note": rt.get("note") or "",
-                    "items": rt.get("items") or [], "code": rt.get("kv_invoice_code") or "",
+                    # mã SP hiển thị = mã hiện hành
+                    "items": resolve_invoice_display(rt.get("items") or [], conn),
+                    "code": rt.get("kv_invoice_code") or "",
                     "by": rt.get("created_by") or "", "at": rt.get("created_at"),
                     "thread_id": rt.get("thread_id"),
                 },

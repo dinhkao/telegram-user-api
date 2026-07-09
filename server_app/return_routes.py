@@ -28,6 +28,28 @@ def _actor(request: web.Request) -> str:
     return str(u or "web")
 
 
+def _normalize_items(conn, items: list[dict]) -> list[dict]:
+    """Gắn sp_id + chuẩn hoá mã về hiện hành (nhận cả mã cũ) — như freeze của đơn."""
+    from product_store import resolve_code
+    out = []
+    for it in items:
+        it = dict(it)
+        prod = resolve_code(conn, it.get("sp"))
+        if prod:
+            it["sp"] = prod["code"]
+            it["sp_id"] = prod["id"]
+        out.append(it)
+    return out
+
+
+def _items_display(conn, row: dict | None) -> dict | None:
+    """Mã/tên item hiển thị = bản hiện hành (fallback snapshot)."""
+    if row and row.get("items"):
+        from order_store.display import resolve_invoice_display
+        row = {**row, "items": resolve_invoice_display(row["items"], conn)}
+    return row
+
+
 def _parse_items(body: dict) -> tuple[list[dict], float] | None:
     """[{sp, sl, price}] (giá DƯƠNG) → (items chuẩn hoá, tổng). None = không hợp lệ."""
     items = []
@@ -57,7 +79,8 @@ async def returns_all_handler(request: web.Request):
     def _run():
         conn = get_connection()
         try:
-            return list_all_returns(conn, limit=limit, offset=(page - 1) * limit), count_all_returns(conn)
+            rows = [_items_display(conn, r) for r in list_all_returns(conn, limit=limit, offset=(page - 1) * limit)]
+            return rows, count_all_returns(conn)
         finally:
             conn.close()
     rows, total = await asyncio.to_thread(_run)
@@ -71,7 +94,13 @@ async def return_detail_handler(request: web.Request):
         rid = int(request.match_info.get("id", ""))
     except (TypeError, ValueError):
         return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
-    row = await asyncio.to_thread(lambda: get_return_full(get_connection(), rid))
+    def _get():
+        conn = get_connection()
+        try:
+            return _items_display(conn, get_return_full(conn, rid))
+        finally:
+            conn.close()
+    row = await asyncio.to_thread(_get)
     if not row:
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
     return web.json_response({"ok": True, "return": row})
@@ -81,7 +110,13 @@ async def returns_list_handler(request: web.Request):
     key = request.match_info.get("key", "").strip()
     if not key:
         return web.json_response({"ok": False, "error": "thiếu key"}, status=400)
-    rows = await asyncio.to_thread(lambda: list_returns(get_connection(), key))
+    def _list():
+        conn = get_connection()
+        try:
+            return [_items_display(conn, r) for r in list_returns(conn, key)]
+        finally:
+            conn.close()
+    rows = await asyncio.to_thread(_list)
     return web.json_response({"ok": True, "returns": rows})
 
 
@@ -108,7 +143,7 @@ async def returns_create_handler(request: web.Request):
     def _save():
         conn = get_connection()
         try:
-            return add_return(conn, key, items, total, note=note, thread_id=thread_id, by=actor)
+            return add_return(conn, key, _normalize_items(conn, items), total, note=note, thread_id=thread_id, by=actor)
         finally:
             conn.close()
     row = await asyncio.to_thread(_save)
@@ -150,7 +185,13 @@ async def return_update_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
     if row.get("kv_invoice_id"):
         return web.json_response({"ok": False, "error": "Phiếu đã có HĐ KiotViet — xoá HĐ mới sửa được", "locked": True}, status=400)
-    await asyncio.to_thread(lambda: update_return_items(get_connection(), rid, items, total, note))
+    def _upd():
+        conn = get_connection()
+        try:
+            update_return_items(conn, rid, _normalize_items(conn, items), total, note)
+        finally:
+            conn.close()
+    await asyncio.to_thread(_upd)
     from server_app.realtime import emit_customer_changed, emit_return_changed
     emit_return_changed(rid)
     emit_customer_changed(str(row["customer_key"]))
