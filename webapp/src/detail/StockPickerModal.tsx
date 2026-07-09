@@ -57,11 +57,12 @@ export function StockPickerModal({
   const remaining = Math.max(need - got, 0);   // NGÂN SÁCH: không được chọn quá số này
 
   const avail = (b: InvBox) => (b.remaining != null ? b.remaining : b.quantity);
-  // Sắp: còn hàng trước → NSX CŨ NHẤT trước (FIFO, không NSX xuống cuối) → mã thùng
+  // Sắp: còn hàng trước → NSX CŨ NHẤT trước (FEFO) → CÒN ÍT NHẤT trước (dọn thùng lẻ) → mã
   const mfgKey = (b: InvBox) => b.mfg_date || "9999-99-99";
   const sortPick = (a: InvBox, b: InvBox) =>
     (avail(b) > 0 ? 1 : 0) - (avail(a) > 0 ? 1 : 0)
     || mfgKey(a).localeCompare(mfgKey(b))
+    || avail(a) - avail(b)
     || (a.box_code || "").localeCompare(b.box_code || "");
   const parseN = (v: any) => { const n = parseFloat(String(v).replace(",", ".")); return isFinite(n) && n > 0 ? n : 0; };
   // tổng đã chọn ở các thùng KHÁC id → phần ngân sách còn lại cho thùng này
