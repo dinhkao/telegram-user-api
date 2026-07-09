@@ -1198,6 +1198,32 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-line-txt { flex: 1 1 auto; min-width: 0; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pt-inl { color: inherit; text-decoration: underline; text-decoration-color: var(--border); }
 .hist-place-lnk { color: var(--accent, #2563eb); text-decoration: underline; font-weight: 600; }
+
+/* ── Bảng giá chung (#/bang-gia/:id) — redesign ── */
+.pl-toolbar-row { display: flex; gap: 8px; align-items: center; }
+.pl-add-toggle { flex: 0 0 auto; white-space: nowrap; }
+.pl-add-toggle.on { background: var(--bg); color: var(--ink); border: 1px solid var(--border); }
+.pl-add { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.pl-add-sp { flex: 1 1 auto; min-width: 0; }
+.pl-add-price, .pl-edit-inp { padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; font-size: .95rem;
+  text-align: right; font-variant-numeric: tabular-nums; box-sizing: border-box; }
+.pl-add-price { flex: 0 0 108px; width: 108px; }
+.pl-edit-inp { width: 112px; }
+.pl-list { display: flex; flex-direction: column; }
+.pl-row { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--border); }
+.pl-row:last-child { border-bottom: none; }
+.pl-row.editing { background: var(--bg); border-radius: 8px; border-bottom-color: transparent; }
+.pl-sp { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-sp code { font-family: monospace; font-weight: 700; font-size: .95rem; color: var(--ink); }
+.pl-actions { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.pl-price { font-weight: 800; font-size: 1.05rem; font-variant-numeric: tabular-nums; color: var(--ink); margin-right: 4px; }
+.pl-actions .icon-btn { width: 32px; height: 32px; color: var(--muted); }
+.pl-empty { padding: 16px 4px; text-align: center; }
+.pl-new { color: var(--ok); }
+.pl-cust { display: flex; flex-wrap: wrap; gap: 6px; }
+.pl-cust-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 999px; text-decoration: none; color: inherit; font-size: .85rem; }
+.pl-cust-chip:active { opacity: .7; }
 /* Chi tiết vị trí — view GỌN: "Mã SP : 001 002 003…" */
 .pd-compact { display: flex; flex-direction: column; gap: 8px; }
 .pd-crow { display: flex; flex-direction: column; gap: 4px; padding: 4px 2px 8px; border-bottom: 1px solid var(--border); }
