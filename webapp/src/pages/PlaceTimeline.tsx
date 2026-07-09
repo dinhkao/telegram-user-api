@@ -129,11 +129,13 @@ export function PlaceTimeline({ placeId }: { placeId: string }) {
     const older = items[i + 1];
     if (older) {
       const dsec = Math.max(0, it.ts - older.ts);
-      const gap = dsec > GROUP_SEC;
-      const gh = gap ? Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX)) : 0;
       const cross = dayKeyOf(it.at) !== dayKeyOf(older.at);
-      rows.push(<Junction key={`j-${i}`} height={gh} label={gap && !cross ? gapLabel(dsec) : null}
-        onDot={() => openState(older.at, stateList(states[i + 1]))} />);
+      // CHẤM chỉ ở RANH GIỚI 2 NHÓM (cách > 5 phút) — trong 1 cụm các dòng xếp sát, không chấm
+      if (dsec > GROUP_SEC) {
+        const gh = Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX));
+        rows.push(<Junction key={`j-${i}`} height={gh} label={cross ? null : gapLabel(dsec)}
+          onDot={() => openState(older.at, stateList(states[i + 1]))} />);
+      }
       if (cross) rows.push(<li key={`d-${i}`} class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(older.at))}</div></li>);
     } else {
       rows.push(<Junction key="j-bot" height={0} label={null}
