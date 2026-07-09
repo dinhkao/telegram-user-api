@@ -70,14 +70,6 @@ export function InventoryDetail({ code }: { code: string }) {
       if (p && inv) { setInv({ ...inv, product: p }); setNameSaved(true); setTimeout(() => setNameSaved(false), 1500); }
     } catch { /* im */ }
   };
-  const toggleMaterial = async () => {
-    if (!inv?.product) return;
-    const next = !inv.product.is_material;
-    try {
-      const p = await updateProduct(code, { is_material: next });
-      if (p && inv) setInv({ ...inv, product: p });
-    } catch { /* im */ }
-  };
   // Liên kết KiotViet từng cái (modal tìm + chọn)
   const [linkOpen, setLinkOpen] = useState(false);
   const [kvQ, setKvQ] = useState("");
@@ -285,13 +277,6 @@ export function InventoryDetail({ code }: { code: string }) {
           <input class="box-place" style={{ minWidth: "110px" }} value={unitInput} placeholder="cây"
             onInput={(e: any) => setUnitInput(e.target.value)} onBlur={saveUnit}
             onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
-        </div>
-        <div class="box-kv">
-          <span class="box-k">Là nguyên liệu</span>
-          <button class={"mat-toggle" + (inv.product?.is_material ? " on" : "")} onClick={toggleMaterial}
-            title="SP là nguyên liệu (dùng làm thành phần khi đóng gói)">
-            <span class="mat-knob" /><span class="mat-txt">{inv.product?.is_material ? "Có" : "Không"}</span>
-          </button>
         </div>
         <div class="row space">
           {inv.product?.linked ? (

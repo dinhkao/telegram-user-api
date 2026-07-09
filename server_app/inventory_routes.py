@@ -157,10 +157,6 @@ async def production_add_boxes_handler(request: web.Request):
                 created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=unit_id, place_id=place_id)
             except ValueError as e:   # hết 999 số gọi đang hoạt động (thực tế khó xảy ra)
                 return "full", str(e), None
-            # Phiếu SẢN XUẤT: SP vừa làm ra là nguyên liệu → đánh dấu để đóng gói dùng
-            if kind == "san_xuat":
-                from product_store import set_material
-                set_material(conn, code, True)
             # đồng bộ slip.total/numbers/progress: 1 entry/thùng (note = mã thùng)
             total = slip.get("total") or 0
             for box in created:
@@ -817,7 +813,6 @@ async def inventory_detail_handler(request: web.Request):
             "kv_id": prod.get("kv_id"), "kv_full_name": prod.get("kv_full_name"),
             "kv_synced_at": prod.get("kv_synced_at"),
             "linked": bool(prod.get("kv_id")),
-            "is_material": bool(prod.get("is_material")),
         }
     return web.json_response({
         # mã hiện hành (URL có thể mang MÃ CŨ — client tự cập nhật theo mã này)

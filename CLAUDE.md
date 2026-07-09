@@ -347,7 +347,7 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   per-day phiếu/SP breakdown). Chọn mã SP dùng **`detail/ProductPicker.tsx`**.
   - **Công thức/BOM** (`recipe_store`): SP có thể cần nguyên liệu (product khác) theo tỉ lệ.
     Định nghĩa ở chi tiết SP (`detail/RecipeEditor.tsx`). Nhu cầu theo LOẠI PHIẾU: sản xuất
-    = không cần NL (SP đầu ra tự đánh dấu `is_material`); đóng gói = bắt buộc công thức +
+    = không cần NL; đóng gói = bắt buộc công thức +
     chọn đủ thùng NL mọi nguyên liệu → trừ kho (`allocate_picks kind='production'`).
 
 **Web app for phones (orders management, 5-6 internal users)**

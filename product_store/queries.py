@@ -43,17 +43,7 @@ def get_all_products(conn, *, _use_cache: bool = True) -> list[dict]:
     return result
 
 
-def set_material(conn, code: str, flag: bool) -> bool:
-    """Đánh dấu SP là nguyên liệu (dùng làm thành phần đóng gói). Chỉ update nếu SP có."""
-    code = code.upper().strip()
-    if not code or not get_product(conn, code):
-        return False
-    now = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
-    conn.execute("UPDATE products SET is_material = ?, updated_at = ? WHERE code = ?", (1 if flag else 0, now, code))
-    conn.commit(); _invalidate_products_cache(); return True
-
-
-def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, is_material: bool = None, prod_mam: float = None, prod_luong: float = None) -> bool:
+def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, prod_mam: float = None, prod_luong: float = None) -> bool:
     code = code.upper().strip()
     if not code:
         return False
@@ -69,8 +59,6 @@ def upsert_product(conn, code: str, name: str = None, cost_price: int = None, no
             updates.append("note = ?"); params.append(note)
         if unit is not None:
             updates.append("unit = ?"); params.append(unit.strip() or "cây")
-        if is_material is not None:
-            updates.append("is_material = ?"); params.append(1 if is_material else 0)
         if prod_mam is not None:
             updates.append("prod_mam = ?"); params.append(float(prod_mam) if prod_mam != "" else None)
         if prod_luong is not None:
