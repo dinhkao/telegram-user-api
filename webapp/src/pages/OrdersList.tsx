@@ -463,15 +463,15 @@ export function OrdersList() {
       {stats && (
         <div class="of-tabs">
           {([
-            ["all", "Tất cả", stats.total_orders],
+            ["all", "Tất cả", undefined],
             ["chua_soan", "Chưa soạn", stats.chua_soan],
             ["chua_giao", "Chưa giao", stats.chua_giao],
             ["chua_nop", "Chưa nộp", stats.chua_nop],
             ["chua_nhan", "Chưa nhận", stats.chua_nhan],
           ] as [FilterKey, string, number | undefined][]).map(([k, lbl, n]) => (
             <button key={k} class={"of-tab" + (filter === k ? " on" : "")} aria-pressed={filter === k} onClick={() => onFilter(k)}>
-              <b class={"of-n" + (k !== "all" && n ? " hot" : "")}>{n != null ? fmtChipCount(n) : "–"}</b>
-              <span class="of-lbl">{lbl}</span>
+              {k !== "all" && <b class={"of-n" + (n ? " hot" : "")}>{n != null ? fmtChipCount(n) : "–"}</b>}
+              <span class={"of-lbl" + (k === "all" ? " of-lbl-all" : "")}>{lbl}</span>
             </button>
           ))}
         </div>

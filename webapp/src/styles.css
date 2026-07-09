@@ -214,7 +214,8 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 /* Ô lọc dashboard Đơn — 5 ô stat-tab đều nhau, luôn vừa 1 hàng (hết cuộn ngang):
    số to trên (đỏ khi còn việc), nhãn nhỏ dưới. */
 .of-tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 4px 0; }
-.of-tab { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0;
+.of-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  min-width: 0; min-height: 47px;
   padding: 7px 2px 6px; border: 1px solid var(--border); background: var(--card); border-radius: 12px;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
@@ -222,6 +223,7 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .of-tab .of-n.hot { color: var(--danger); }
 .of-tab .of-lbl { font-size: .6rem; font-weight: 600; color: var(--muted); letter-spacing: .01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.of-tab .of-lbl-all { font-size: .78rem; font-weight: 700; color: var(--text); } /* ô Tất cả: chỉ nhãn, không số */
 .of-tab.on { background: var(--primary); border-color: var(--primary); }
 .of-tab.on .of-n, .of-tab.on .of-n.hot, .of-tab.on .of-lbl { color: #fff; }
 /* Chọn kiểu sắp xếp danh sách đơn */
@@ -691,7 +693,8 @@ body.pv-open { overflow: hidden; }
 .pl-select { width: 100%; cursor: pointer; }
 /* Thanh báo ĐANG LỌC ở dashboard — nổi bật (nền vàng) để dễ thấy đang lọc */
 .filter-active-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 12px; background: var(--warn-wash); border: 1px solid #f0d890; border-left: 4px solid var(--warn); border-radius: 10px; font-size: .9rem; }
-.filter-active-bar .fab-txt { display: inline; min-width: 0; font-size: .82rem; line-height: 1.45; }
+/* Height CỐ ĐỊNH: text 1 dòng cắt lửng (…) — banner không nở 2 dòng khi ghi chú lọc dài */
+.filter-active-bar .fab-txt { display: block; flex: 1 1 auto; min-width: 0; font-size: .82rem; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .filter-active-bar .fab-count { color: var(--muted); font-weight: 600; }
 .filter-active-bar .fab-clear { flex: 0 0 auto; border: none; background: var(--warn); color: #fff; font-weight: 700; font-size: .82rem; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
 .filter-active-bar .fab-clear:active { opacity: .85; }
