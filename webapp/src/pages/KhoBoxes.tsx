@@ -193,22 +193,39 @@ export function KhoBoxes() {
               <button class={"chip" + (boxView === "compact" ? " active" : "")} onClick={() => setBoxView("compact")}>Gọn</button>
             </div>
             <div class="kho-groups">
-              {groups.map((g) => (
-                <section class="kho-group" key={g.key}>
-                  {g.href ? (
-                    <a class="kho-group-h" href={g.href}>
-                      <b><Icon name="box" size={15} /> {g.name}</b>
-                      <span class="muted small">{soVN(g.list.reduce((s, x) => s + rem(x), 0))} tồn · {g.list.length} thùng →</span>
-                    </a>
-                  ) : (
-                    <div class="kho-group-h">
-                      <b>{g.name}</b>
-                      <span class="muted small">{soVN(g.list.reduce((s, x) => s + rem(x), 0))} tồn · {g.list.length} thùng</span>
-                    </div>
-                  )}
-                  {boxView === "compact" ? <CompactBoxList boxes={g.list} /> : <BoxLabelGrid boxes={g.list} />}
-                </section>
-              ))}
+              {groups.map((g) => {
+                const tot = g.list.reduce((s, x) => s + rem(x), 0);
+                const meta = `${g.list.length} thùng · ${soVN(tot)} tồn`;
+                return (
+                  <section class={"kho-group" + (boxView === "compact" ? " compact" : "")} key={g.key}>
+                    {boxView === "compact" ? (
+                      // Header vị trí GỌN: thanh nền tint, tách bạch rõ với header mã SP bên dưới
+                      g.href ? (
+                        <a class="kho-cmp-loc" href={g.href}>
+                          <span class="kho-cmp-loc-name"><Icon name="tag" size={13} /> {g.name}</span>
+                          <span class="kho-cmp-loc-meta">{meta} <Icon name="chevronRight" size={13} /></span>
+                        </a>
+                      ) : (
+                        <div class="kho-cmp-loc">
+                          <span class="kho-cmp-loc-name">{g.name}</span>
+                          <span class="kho-cmp-loc-meta">{meta}</span>
+                        </div>
+                      )
+                    ) : g.href ? (
+                      <a class="kho-group-h" href={g.href}>
+                        <b><Icon name="box" size={15} /> {g.name}</b>
+                        <span class="muted small">{soVN(tot)} tồn · {g.list.length} thùng →</span>
+                      </a>
+                    ) : (
+                      <div class="kho-group-h">
+                        <b>{g.name}</b>
+                        <span class="muted small">{soVN(tot)} tồn · {g.list.length} thùng</span>
+                      </div>
+                    )}
+                    {boxView === "compact" ? <CompactBoxList boxes={g.list} /> : <BoxLabelGrid boxes={g.list} />}
+                  </section>
+                );
+              })}
             </div>
           </>
         ) : null}
