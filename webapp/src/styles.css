@@ -1229,8 +1229,12 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-delta { font-size: .72rem; font-weight: 600; }
 .pt-delta.in { color: var(--ok); }
 .pt-delta.out { color: var(--danger); }
-.pt-day { margin-right: 28px; }
-.pt-gap { margin-right: 28px; display: flex; align-items: center; justify-content: center; }
+/* Line dọc chạy XUYÊN qua khe thời gian + header ngày (timeline liền mạch) */
+.pt-day, .pt-gap { position: relative; }
+.pt-day::after, .pt-gap::after { content: ""; position: absolute; top: 0; bottom: 0; right: 9px; width: 2px; background: var(--border); }
+.pt-day > .order-day-head { margin-right: 28px; }
+.pt-gap { display: flex; align-items: center; justify-content: center; }
+.pt-gap .fg-label { position: relative; z-index: 1; margin-right: 28px; }
 .pt-trunc { text-align: center; margin: 8px 0; }
 
 .inv-tag { font-size: .74rem; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }

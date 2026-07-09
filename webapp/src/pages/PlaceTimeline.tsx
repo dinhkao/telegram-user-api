@@ -14,10 +14,19 @@ import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { dayKeyOf, orderDayLabel } from "../detail/OrderCards";
 
 const GROUP_SEC = 300;   // gom thao tác trong vòng 5 phút vào 1 card
+// Khoảng cách dòng TỈ LỆ THUẬN thời gian thực: cao = giây × PXPS, kẹp trần GAP_MAX
+// (~10px/giờ → 1 ngày ≈ 240px). Nhãn khi cách ≥ 30 phút.
+const GAP_PXPS = 0.00278, GAP_MAX = 300;
 const hm = (v?: string) => (fmtDateTimeVN(v || "").match(/\d{2}:\d{2}/) || [""])[0];
-const gapDays = (a?: number, b?: number) => (a && b ? Math.round((a - b) / 86400) : 0);
-const gapLabel = (d: number) =>
-  d >= 60 ? `${Math.round(d / 30)} tháng` : d >= 14 ? `${Math.round(d / 7)} tuần` : `${d} ngày`;
+function gapLabel(sec: number): string {
+  const d = sec / 86400;
+  if (d >= 60) return `${Math.round(d / 30)} tháng`;
+  if (d >= 14) return `${Math.round(d / 7)} tuần`;
+  if (d >= 1) return `${Math.round(d)} ngày`;
+  const h = sec / 3600;
+  if (h >= 1) return `${Math.round(h)} giờ`;
+  return `${Math.max(1, Math.round(sec / 60))} phút`;
+}
 
 type Card = {
   dir: "in" | "out"; idx: number; ts: number; at: string;
@@ -141,10 +150,11 @@ export function PlaceTimeline({ placeId }: { placeId: string }) {
         <ul class="pt-list">
           {cards.flatMap((c, i) => {
             const nodes: any[] = [];
-            const gd = i > 0 ? gapDays(cards[i - 1].ts, c.ts) : 0;
-            if (gd >= 2) nodes.push(
-              <li key={`g-${i}`} class="pt-gap" style={{ height: `${Math.min(gd * 12, 240)}px` }}>
-                <span class="fg-label">· {gapLabel(gd)} ·</span>
+            const dsec = i > 0 ? Math.max(0, cards[i - 1].ts - c.ts) : 0;
+            const gh = Math.min(dsec * GAP_PXPS, GAP_MAX);
+            if (gh >= 6) nodes.push(
+              <li key={`g-${i}`} class="pt-gap" style={{ height: `${Math.round(gh)}px` }}>
+                {dsec >= 1800 ? <span class="fg-label">· {gapLabel(dsec)} ·</span> : null}
               </li>);
             const day = dayKeyOf(c.at);
             if (i === 0 || dayKeyOf(cards[i - 1].at) !== day)
