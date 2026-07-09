@@ -1,28 +1,35 @@
 """Timeline biến động của 1 VỊ TRÍ KHO — GET /api/places/{id}/timeline.
 
-Đọc audit_events scope='place' (ghi bởi server_app/inventory_audit), gắn nhãn +
-chi tiết như lịch sử (entity_history._inv_entry), tính DELTA (+nhập / −xuất) và
-TỒN KHO CHẠY (total_after) bằng cách lấy tồn HIỆN TẠI của kho rồi đi ngược thời
-gian trừ dần từng biến động — làm "sổ kho" cho timeline (rail tồn giống rail nợ
-của customer feed). Best-effort: bản ghi cũ trước khi có tracking → tồn có thể lệch.
+Rút gọn còn 2 loại: THÙNG VÀO / THÙNG RA. Đọc audit_events scope='place' (ghi bởi
+server_app/inventory_audit), tính DELTA (+vào / −ra) + TỒN CHẠY (total_after) bằng
+cách lấy tồn HIỆN TẠI rồi đi ngược thời gian. Trả thêm current_by_product (tồn theo
+SP hiện tại) → client dựng lại "kho chứa gì" tại mỗi mốc khi bấm chấm tròn. Mỗi item
+kèm box_id để card link tới lịch sử thao tác của thùng đó. Best-effort với bản ghi cũ.
 """
 from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 
 from aiohttp import web
 
 from order_db import _get_connection
-from server_app.entity_history import _INV_ACTIONS, _inv_entry, _load_names
-from server_app.order_history import _actor_display
 
-_CAP = 500   # số biến động tối đa dựng lại (đủ cho 1 timeline; cũ hơn hiếm cần)
+_CAP = 500
+
+_DIR_IN = {"box.created", "box.moved_in", "box.released", "box.transfer_in"}
+_DIR_OUT = {"box.allocated", "box.moved_out", "box.deleted", "box.transfer_out"}
+_INV_ACTIONS = _DIR_IN | _DIR_OUT
+_REASON = {
+    "box.created": "nhập kho", "box.moved_in": "chuyển đến", "box.released": "trả về đơn",
+    "box.transfer_in": "nhận chuyển", "box.allocated": "xuất cho đơn", "box.moved_out": "chuyển đi",
+    "box.deleted": "xoá thùng", "box.transfer_out": "chuyển sang thùng khác",
+}
 
 
 def _delta(action: str, p: dict) -> float:
-    """Ảnh hưởng của 1 biến động lên TỒN (Σ remaining) của kho — dấu + (vào) / − (ra)."""
+    """Ảnh hưởng lên TỒN (Σ remaining) của kho — + (vào) / − (ra)."""
     q = float(p.get("quantity") or 0)
     rem = p.get("remaining")
     rem = float(rem) if rem is not None else q
@@ -40,8 +47,12 @@ def _epoch(ts: str) -> int:
         return 0
 
 
+def _boxnum(code) -> str:
+    s = str(code or "")
+    return s.split("-")[-1] or s
+
+
 def _place_stock(conn, place_id: int) -> tuple[float, int]:
-    """(tổng tồn hiện tại = Σ remaining, số thùng còn hiệu lực) của kho."""
     row = conn.execute(
         "SELECT COALESCE(SUM(b.quantity - COALESCE("
         "(SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0)),0) AS rem, "
@@ -50,6 +61,18 @@ def _place_stock(conn, place_id: int) -> tuple[float, int]:
         (place_id,),
     ).fetchone()
     return float(row[0] or 0), int(row[1] or 0)
+
+
+def _stock_by_product(conn, place_id: int) -> list[dict]:
+    rows = conn.execute(
+        "SELECT COALESCE(pr.code, b.product_code) AS code, "
+        "SUM(b.quantity - COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0)) AS qty "
+        "FROM inventory_boxes b LEFT JOIN products pr ON pr.id = b.product_id "
+        "WHERE b.place_id = ? AND (b.disabled IS NULL OR b.disabled = 0) "
+        "GROUP BY code HAVING qty > 0.0001 ORDER BY qty DESC",
+        (place_id,),
+    ).fetchall()
+    return [{"code": r[0], "qty": round(float(r[1] or 0), 3)} for r in rows]
 
 
 def place_timeline(place_id: int) -> dict:
@@ -65,9 +88,8 @@ def place_timeline(place_id: int) -> dict:
             "ORDER BY id DESC LIMIT ?" % ",".join("?" * len(_INV_ACTIONS)),
             (place_id, *sorted(_INV_ACTIONS), _CAP),
         ).fetchall()
-        names = _load_names()
         items = []
-        running = current   # đi từ MỚI → CŨ: total_after của mốc mới nhất = tồn hiện tại
+        running = current
         for r in rows:
             act = r["action"]
             try:
@@ -75,19 +97,19 @@ def place_timeline(place_id: int) -> dict:
                 p = p if isinstance(p, dict) else {}
             except Exception:
                 p = {}
-            ent = _inv_entry(act, "place", p)
-            if not ent:
-                continue
             delta = _delta(act, p)
+            pc = p.get("product_code") or ""
+            bn = _boxnum(p.get("box_code"))
             items.append({
-                "ts": _epoch(r["ts"]), "at": r["ts"], "kind": act.replace("box.", ""),
-                "action": ent[0], "detail": ent[1], "delta": round(delta, 3),
-                "total_after": round(running, 3), "actor": _actor_display(r["actor_id"], names),
-                "order_thread_id": p.get("order_thread_id"), "order_text": p.get("order_text"),
+                "ts": _epoch(r["ts"]), "at": r["ts"], "dir": "in" if act in _DIR_IN else "out",
+                "reason": _REASON.get(act, ""), "product_code": pc, "box_id": p.get("box_id"),
+                "box_code": p.get("box_code"), "box_num": bn, "delta": round(delta, 3),
+                "total_after": round(running, 3), "actor": str(r["actor_id"] or "?"),
             })
-            running -= delta   # lùi 1 bước: tồn TRƯỚC mốc này
+            running -= delta
         return {"ok": True, "place": {"id": place_id, "name": prow[0]},
                 "current_total": round(current, 3), "box_count": box_count,
+                "current_by_product": _stock_by_product(conn, place_id),
                 "items": items, "truncated": len(rows) >= _CAP}
     finally:
         conn.close()

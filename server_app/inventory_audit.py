@@ -36,8 +36,9 @@ def _emit(action: str, scope: str, thread_id, actor, actor_type: str, payload: d
 
 def _box_and_place(action: str, snap: dict, actor, actor_type: str, extra: dict | None = None) -> None:
     """Ghi CÙNG 1 event cho cả thùng lẫn vị trí chứa nó."""
-    pl = {"box_code": snap.get("box_code"), "product_code": snap.get("product_code"),
-          "quantity": snap.get("quantity"), "remaining": snap.get("remaining"), **(extra or {})}
+    pl = {"box_id": snap.get("box_id"), "box_code": snap.get("box_code"),
+          "product_code": snap.get("product_code"), "quantity": snap.get("quantity"),
+          "remaining": snap.get("remaining"), **(extra or {})}
     _emit(action, "box", snap.get("box_id"), actor, actor_type, pl)
     _emit(action, "place", snap.get("place_id"), actor, actor_type, pl)
 
@@ -65,9 +66,9 @@ def log_boxes_released(items: list[dict], *, actor, actor_type: str) -> None:
 def log_box_moved(snap: dict, *, from_place_id, from_name, to_place_id, to_name, actor, actor_type: str) -> None:
     """Chuyển kho: ghi vị trí lịch sử cho CẢ kho cũ (thùng rời) + kho mới (thùng đến).
     Lịch sử THÙNG đã có event 'Chuyển kho' từ middleware (POST /box/{id})."""
-    base = {"box_code": snap.get("box_code"), "product_code": snap.get("product_code"),
-            "quantity": snap.get("quantity"), "remaining": snap.get("remaining"),
-            "from_name": from_name, "to_name": to_name}
+    base = {"box_id": snap.get("box_id"), "box_code": snap.get("box_code"),
+            "product_code": snap.get("product_code"), "quantity": snap.get("quantity"),
+            "remaining": snap.get("remaining"), "from_name": from_name, "to_name": to_name}
     _emit("box.moved_out", "place", from_place_id, actor, actor_type, base)
     _emit("box.moved_in", "place", to_place_id, actor, actor_type, base)
 
@@ -76,13 +77,16 @@ def log_box_deleted(snap: dict, *, actor, actor_type: str) -> None:
     """Xoá thùng: ghi vào lịch sử VỊ TRÍ (thùng biến mất khỏi kho). Lịch sử thùng
     đã có event 'Xoá' từ middleware (DELETE /box/{id})."""
     _emit("box.deleted", "place", snap.get("place_id"), actor, actor_type,
-          {"box_code": snap.get("box_code"), "product_code": snap.get("product_code"),
-           "quantity": snap.get("quantity")})
+          {"box_id": snap.get("box_id"), "box_code": snap.get("box_code"),
+           "product_code": snap.get("product_code"), "quantity": snap.get("quantity")})
 
 
 def log_transfer_places(from_snap: dict, to_snap: dict, quantity, *, actor, actor_type: str) -> None:
     """Chuyển hàng giữa 2 thùng: ghi vị trí lịch sử 2 bên (nếu có vị trí)."""
-    base = {"product_code": from_snap.get("product_code"), "quantity": quantity,
-            "from_box": from_snap.get("box_code"), "to_box": to_snap.get("box_code")}
-    _emit("box.transfer_out", "place", from_snap.get("place_id"), actor, actor_type, base)
-    _emit("box.transfer_in", "place", to_snap.get("place_id"), actor, actor_type, base)
+    pc = from_snap.get("product_code")
+    _emit("box.transfer_out", "place", from_snap.get("place_id"), actor, actor_type,
+          {"box_id": from_snap.get("box_id"), "box_code": from_snap.get("box_code"),
+           "product_code": pc, "quantity": quantity, "to_box": to_snap.get("box_code")})
+    _emit("box.transfer_in", "place", to_snap.get("place_id"), actor, actor_type,
+          {"box_id": to_snap.get("box_id"), "box_code": to_snap.get("box_code"),
+           "product_code": pc, "quantity": quantity, "from_box": from_snap.get("box_code")})

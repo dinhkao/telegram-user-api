@@ -830,15 +830,16 @@ export async function listPlaces(): Promise<Place[]> {
   return d.places || [];
 }
 
-// ── Timeline biến động 1 vị trí kho (nhập/xuất/chuyển/xoá) + tồn kho chạy ──
+// ── Timeline biến động 1 vị trí kho — 2 loại: thùng VÀO / thùng RA + tồn kho chạy ──
 export type PlaceTLItem = {
-  ts: number; at: string; kind: string; action: string; detail: string;
+  ts: number; at: string; dir: "in" | "out"; reason: string;
+  product_code: string; box_id?: number | null; box_code?: string | null; box_num?: string;
   delta: number; total_after: number; actor: string;
-  order_thread_id?: number | null; order_text?: string | null;
 };
+export type PlaceStockLine = { code: string; qty: number };
 export type PlaceTimeline = {
   place: { id: number; name: string }; current_total: number; box_count: number;
-  items: PlaceTLItem[]; truncated: boolean;
+  current_by_product: PlaceStockLine[]; items: PlaceTLItem[]; truncated: boolean;
 };
 export async function getPlaceTimeline(placeId: string | number): Promise<PlaceTimeline | null> {
   const d = await getJSON(`/api/places/${Number(placeId)}/timeline`, { cache: false });

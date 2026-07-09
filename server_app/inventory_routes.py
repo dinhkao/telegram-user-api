@@ -533,7 +533,7 @@ async def box_delete_handler(request: web.Request):
                 return "notfound", None
             if list_box_allocations(conn, box_id):
                 return "allocated", None
-            del_snap.update(place_id=box.get("place_id"), box_code=box.get("box_code"),
+            del_snap.update(box_id=box_id, place_id=box.get("place_id"), box_code=box.get("box_code"),
                             product_code=box.get("product_code"), quantity=box.get("quantity"))
             src = box.get("source_thread_id")
             box_code = box.get("box_code")
