@@ -343,7 +343,15 @@ export function BoxDetail({ boxId }: { boxId: string }) {
               placeholder={`≤ ${soVN(remaining)}`} value={xferQty}
               onFocus={(e: any) => (e.target as HTMLInputElement).select()}
               onInput={(e: any) => setXferQty(e.target.value)} />
-            <button class="btn primary" disabled={xferBusy || !xferTo} onClick={doTransfer}>Chuyển</button>
+            {(() => {
+              // Chưa đủ điều kiện (thiếu đích / số sai / vượt còn lại) → FADE, bấm toast lý do
+              const q = parseFloat((xferQty || "").replace(",", "."));
+              const ok = !!xferTo && isFinite(q) && q > 0 && q <= remaining;
+              return (
+                <button class={"btn primary" + (ok ? "" : " faded")} disabled={xferBusy} onClick={doTransfer}
+                  title={ok ? undefined : "Chọn thùng đích + số lượng hợp lệ"}>Chuyển</button>
+              );
+            })()}
           </div>
           {(() => {
             // Preview còn lại NGAY khi gõ: bên này giảm, bên nhận tăng — đúng đơn vị từng bên
