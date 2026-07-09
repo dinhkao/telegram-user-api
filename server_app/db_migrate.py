@@ -18,6 +18,36 @@ _PRICE_KEYS_MARKER = "pid_price_keys_migrated"
 _ORDERS_SPID_MARKER = "pid_orders_spid_backfilled"
 
 
+def _backfill_return_items_sp_id(conn) -> None:
+    """Gắn sp_id cho item phiếu TRẢ HÀNG cũ (tạo trước 2026-07-09). Vài row —
+    quét mỗi boot, chỉ đụng phiếu còn item thiếu sp_id. Mã chết giữ nguyên."""
+    from product_store import resolve_code
+    rows = conn.execute(
+        "SELECT DISTINCT r.id FROM return_slips r, json_each(r.items) je "
+        "WHERE json_extract(je.value, '$.sp_id') IS NULL"
+    ).fetchall()
+    if not rows:
+        return
+    n = 0
+    with transaction(conn):
+        for (rid,) in rows:
+            items = json.loads(conn.execute(
+                "SELECT items FROM return_slips WHERE id = ?", (rid,)).fetchone()[0] or "[]")
+            dirty = False
+            for it in items:
+                if isinstance(it, dict) and it.get("sp_id") is None:
+                    prod = resolve_code(conn, it.get("sp"))
+                    if prod:
+                        it["sp_id"] = prod["id"]
+                        dirty = True
+            if dirty:
+                conn.execute("UPDATE return_slips SET items = ? WHERE id = ?",
+                             (json.dumps(items, ensure_ascii=False), rid))
+                n += 1
+    if n:
+        log.info("backfill sp_id phiếu trả hàng: %d phiếu", n)
+
+
 def _backfill_orders_sp_id(conn) -> None:
     """1 LẦN: gắn `sp_id` cho MỌI item hoá đơn trong 16k+ blob đơn lịch sử.
 
@@ -187,4 +217,16 @@ def run_boot_migrations() -> None:
         _backfill_orders_sp_id(conn)
     except Exception:  # noqa: BLE001 — thiếu sp_id chỉ mất tra-cứu-theo-id, không sai số
         log.exception("backfill sp_id thất bại — chạy lại ở boot sau")
+    # phiếu trả hàng: item cũ thiếu sp_id (rẻ — vài row, WHERE lọc sẵn, chạy mỗi boot vô hại)
+    try:
+        _backfill_return_items_sp_id(conn)
+    except Exception:  # noqa: BLE001
+        log.exception("backfill sp_id phiếu trả thất bại (bỏ qua)")
+    # price_history: cột product_id + backfill (nằm trong create_price_history_table)
+    try:
+        from price_list_store.history import create_price_history_table
+        create_price_history_table(conn)
+        conn.commit()
+    except Exception:  # noqa: BLE001
+        log.exception("migrate price_history product_id thất bại (bỏ qua)")
     log.info("boot migrations OK (products.id + history + inventory/recipe/production product_id + SP_INFO + price keys)")
