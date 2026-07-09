@@ -29,6 +29,8 @@ import { ProductionReportEdit } from "./pages/ProductionReportEdit";
 import { ProductionDashboard } from "./pages/ProductionDashboard";
 import { ProductionWorkerDetail } from "./pages/ProductionWorkerDetail";
 import { QuyList } from "./pages/QuyList";
+import { ReturnsList } from "./pages/ReturnsList";
+import { ReturnDetail } from "./pages/ReturnDetail";
 import { WorkerList } from "./pages/WorkerList";
 import { Users } from "./pages/Users";
 import { NotifCenter } from "./NotifCenter";
@@ -346,6 +348,7 @@ function App() {
   const placeMatch = hash.match(/^#\/vi-tri\/(\d+)/);
   const boxMatch = hash.match(/^#\/thung\/(\d+)/);
   const viecMatch = hash.match(/^#\/viec\/(\d+)/);
+  const retMatch = hash.match(/^#\/tra-hang\/(\d+)/);
   const khachLichMatch = hash.match(/^#\/khach\/([^/?]+)\/lich/);
   const khachMatch = hash.match(/^#\/khach\/([^?]+)/);
   const bangGiaMatch = hash.match(/^#\/bang-gia\/([^?]+)/);
@@ -375,6 +378,8 @@ function App() {
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
   else if (viecMatch) page = <TaskDetail id={Number(viecMatch[1])} />;
   else if (hash.startsWith("#/viec")) page = <TasksBoard />;
+  else if (retMatch) page = <ReturnDetail id={retMatch[1]} />;
+  else if (hash.startsWith("#/tra-hang")) page = <ReturnsList />;
   else if (khachLichMatch) page = <CustomerCalendarPage ckey={decodeURIComponent(khachLichMatch[1])} />;
   else if (khachMatch) page = <CustomerDetail ckey={decodeURIComponent(khachMatch[1])} />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
@@ -388,6 +393,7 @@ function App() {
   const pageTitle =
     invEditMatch ? "Sửa hoá đơn"
     : orderMatch ? "Chi tiết đơn"
+    : hash.startsWith("#/tra-hang") ? "Trả hàng"
     : (hash.startsWith("#/customers") || khachMatch) ? "Khách hàng"
     : hash.startsWith("#/create") ? "Tạo đơn"
     : (hash.startsWith("#/san_xuat") || hash.startsWith("#/sx-") || prodMatch || prodEditMatch || shtMatch) ? "Sản xuất"
@@ -436,6 +442,7 @@ function App() {
             <div class="modal-head">Mục khác</div>
             <a class="menu-item" href="#/viec" onClick={() => setMenuOpen(false)}><Icon name="check" size={17} /> Việc (task list)</a>
             <a class="menu-item" href="#/quy" onClick={() => setMenuOpen(false)}><Icon name="wallet" size={17} /> Sổ quỹ (thu/chi)</a>
+            <a class="menu-item" href="#/tra-hang" onClick={() => setMenuOpen(false)}><Icon name="refresh" size={17} /> Trả hàng</a>
             <a class="menu-item" href="#/sx-bang" onClick={() => setMenuOpen(false)}><Icon name="chart" size={17} /> Dashboard sản xuất</a>
             <a class="menu-item" href="#/tho" onClick={() => setMenuOpen(false)}><Icon name="users" size={17} /> Danh sách thợ</a>
             <a class="menu-item" href="#/lich-su" onClick={() => setMenuOpen(false)}><Icon name="history" size={17} /> Lịch sử thao tác</a>

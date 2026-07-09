@@ -13,7 +13,8 @@ import logging
 
 from aiohttp import web
 
-from return_store import add_return, get_return, list_returns, soft_delete_return
+from return_store import (add_return, count_all_returns, get_return, get_return_full,
+                          list_all_returns, list_returns, soft_delete_return)
 from utils.db import get_connection
 
 log = logging.getLogger("return_routes")
@@ -42,6 +43,37 @@ def _parse_items(body: dict) -> tuple[list[dict], float] | None:
         items.append({"sp": sp, "sl": sl, "price": price})
         total += sl * price
     return (items, total) if items and total > 0 else None
+
+
+async def returns_all_handler(request: web.Request):
+    """GET /api/returns?page= — dashboard trả hàng (mọi khách, 20/trang)."""
+    try:
+        page = max(1, int(request.query.get("page", "1")))
+    except ValueError:
+        page = 1
+    limit = 20
+
+    def _run():
+        conn = get_connection()
+        try:
+            return list_all_returns(conn, limit=limit, offset=(page - 1) * limit), count_all_returns(conn)
+        finally:
+            conn.close()
+    rows, total = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, "returns": rows, "page": page,
+                              "total": total, "total_pages": max(1, (total + limit - 1) // limit)})
+
+
+async def return_detail_handler(request: web.Request):
+    """GET /api/returns/{id} — chi tiết 1 phiếu trả."""
+    try:
+        rid = int(request.match_info.get("id", ""))
+    except (TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
+    row = await asyncio.to_thread(lambda: get_return_full(get_connection(), rid))
+    if not row:
+        return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
+    return web.json_response({"ok": True, "return": row})
 
 
 async def returns_list_handler(request: web.Request):

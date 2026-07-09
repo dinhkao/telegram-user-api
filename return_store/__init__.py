@@ -84,6 +84,32 @@ def list_returns(conn, customer_key: str, include_deleted: bool = False) -> list
     return [_row_to_dict(r) for r in rows]
 
 
+def list_all_returns(conn, limit: int = 20, offset: int = 0) -> list[dict]:
+    """MỌI phiếu trả (mọi khách) mới→cũ, kèm tên khách — dashboard trả hàng."""
+    ensure_returns_schema(conn)
+    rows = conn.execute(
+        "SELECT r.*, json_extract(c.json, '$.name') AS customer_name"
+        " FROM return_slips r LEFT JOIN customers c ON c.firebase_key = r.customer_key"
+        " WHERE r.deleted_at IS NULL ORDER BY r.created_at DESC, r.id DESC LIMIT ? OFFSET ?",
+        (limit, offset)).fetchall()
+    return [_row_to_dict(r) for r in rows]
+
+
+def count_all_returns(conn) -> int:
+    ensure_returns_schema(conn)
+    return int(conn.execute("SELECT COUNT(*) FROM return_slips WHERE deleted_at IS NULL").fetchone()[0])
+
+
+def get_return_full(conn, return_id: int) -> dict | None:
+    """1 phiếu kèm tên khách (trang chi tiết)."""
+    ensure_returns_schema(conn)
+    r = conn.execute(
+        "SELECT r.*, json_extract(c.json, '$.name') AS customer_name"
+        " FROM return_slips r LEFT JOIN customers c ON c.firebase_key = r.customer_key"
+        " WHERE r.id = ?", (return_id,)).fetchone()
+    return _row_to_dict(r) if r else None
+
+
 def set_return_debt_after(conn, return_id: int, debt_after: float) -> bool:
     """Resync nền vá nợ-sau (KV eventual-consistent — như payment.new_debt)."""
     ensure_returns_schema(conn)

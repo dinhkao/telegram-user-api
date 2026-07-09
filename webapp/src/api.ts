@@ -222,6 +222,22 @@ export type CustFeedItem =
 export async function createReturn(key: string, items: { sp: string; sl: number; price: number }[], note = ""): Promise<any> {
   return postJSON(`/api/customers/${encodeURIComponent(key)}/returns`, { items, note });
 }
+export type ReturnSlip = {
+  id: number; customer_key: string; customer_name?: string | null;
+  thread_id?: number | null; kv_invoice_id?: number | null; kv_invoice_code?: string | null;
+  items: { sp: string; sl: number; price: number }[]; total: number; note?: string;
+  debt_before?: number | null; debt_after?: number | null;
+  created_by?: string; created_at?: string;
+};
+/** Dashboard trả hàng — mọi khách, 20/trang. */
+export async function listAllReturns(page = 1): Promise<{ returns: ReturnSlip[]; page: number; total_pages: number; total: number }> {
+  const d = await getJSON(`/api/returns?page=${page}`, { cache: false });
+  return { returns: d.returns || [], page: d.page || page, total_pages: d.total_pages || 1, total: d.total || 0 };
+}
+export async function getReturn(id: string | number): Promise<ReturnSlip> {
+  const d = await getJSON(`/api/returns/${id}`, { cache: false });
+  return d.return;
+}
 /** Xoá phiếu trả (admin) — xoá HĐ KV âm + gỡ khỏi feed. */
 export async function deleteReturn(id: number): Promise<any> {
   return postJSON(`/api/returns/${id}/delete`, {});

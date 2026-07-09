@@ -513,6 +513,20 @@ body.has-nop .order-day-head { top: 135px; }   /* banner 28px đẩy xuống */
 .ret-price { width: 90px; }
 .ret-total { font-size: .95rem; text-align: right; color: #b5730a; }
 
+/* Dashboard + chi tiết trả hàng */
+.ret-list { display: flex; flex-direction: column; gap: 8px; }
+.ret-card { display: block; background: #fff; border: 1px solid #e5e5e5; border-left: 3px solid #b5730a; border-radius: 10px; padding: 10px 12px; text-decoration: none; color: inherit; }
+.ret-card-top { display: flex; justify-content: space-between; align-items: baseline; }
+.ret-cust { font-weight: 700; }
+.ret-amt { font-weight: 800; color: #b5730a; font-variant-numeric: tabular-nums; }
+.ret-card-sub { margin-top: 2px; }
+.ret-card-note { margin-top: 6px; font-size: .8rem; color: #555; background: #fffbe6; border-radius: 6px; padding: 4px 8px; }
+.ret-cust-link { font-weight: 700; text-decoration: none; color: var(--primary, #2680ff); }
+.ret-items { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.ret-items th, .ret-items td { padding: 6px 4px; text-align: right; border-bottom: 1px solid var(--border); }
+.ret-items th:first-child, .ret-items td:first-child { text-align: left; }
+.ret-items .ret-sum td { font-weight: 700; color: #b5730a; border-bottom: none; }
+
 /* Cài đặt hệ thống (trang Cài đặt, admin) */
 .set-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; font-size: .92rem; line-height: 1.45; cursor: pointer; }
 .set-row input { width: 20px; height: 20px; margin-top: 1px; flex: 0 0 auto; }
