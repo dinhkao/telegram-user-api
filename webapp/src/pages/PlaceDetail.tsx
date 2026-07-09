@@ -2,6 +2,8 @@
 // 'place'), xoá (admin), lưới thùng đang ở vị trí này.
 // Data: listPlaces (tìm theo id) + allBoxes (lọc place_id). Realtime reload.
 import { useEffect, useState } from "preact/hooks";
+
+let memView: "grid" | "compact" = "grid";   // nhớ kiểu xem thùng khi rời trang
 import { listPlaces, allBoxes, renamePlace, setPlaceNote, deletePlace, currentUser, soVN, type Place, type KhoBox } from "../api";
 import { onRealtime } from "../realtime";
 import { BackLink } from "../nav";
@@ -46,6 +48,8 @@ export function PlaceDetail({ id }: { id: string }) {
   };
   // Ghi chú vị trí — sửa tại chỗ, lưu khi bấm
   const [noteEdit, setNoteEdit] = useState<string | null>(null); // null = đang xem
+  const [view, setView] = useState<"grid" | "compact">(memView);
+  useEffect(() => { memView = view; }, [view]);
   const saveNote = async () => {
     if (noteEdit === null) return;
     setBusy(true);
@@ -119,22 +123,42 @@ export function PlaceDetail({ id }: { id: string }) {
         for (const b of live) { const a = g.get(b.product_code); if (a) a.push(b); else g.set(b.product_code, [b]); }
         const sumRem = (bs: typeof live) => bs.reduce((s, b) => s + remOf(b), 0);
         const groups = [...g.entries()].sort((a, b) => sumRem(b[1]) - sumRem(a[1]) || a[0].localeCompare(b[0]));
-        return boxes.length === 0 ? (
-          <EmptyState>Chưa có thùng ở vị trí này. Gán vị trí ở chi tiết thùng.</EmptyState>
-        ) : live.length === 0 ? (
-          <EmptyState>Kho này không còn thùng nào có hàng.</EmptyState>
-        ) : (
-          <div class="kho-groups">
-            {groups.map(([pcode, bs]) => (
-              <section class="kho-group" key={pcode}>
-                <a class="kho-group-h" href={`#/kho/${encodeURIComponent(pcode)}`}>
-                  <b>{pcode}</b>
-                  <span class="muted small">{soVN(sumRem(bs))} tồn · {bs.length} thùng →</span>
-                </a>
-                <BoxLabelGrid boxes={bs} />
-              </section>
-            ))}
-          </div>
+        const num = (b: any) => (b.box_code || "").split("-").pop() || b.box_code;
+        if (boxes.length === 0) return <EmptyState>Chưa có thùng ở vị trí này. Gán vị trí ở chi tiết thùng.</EmptyState>;
+        if (live.length === 0) return <EmptyState>Kho này không còn thùng nào có hàng.</EmptyState>;
+        return (
+          <>
+            <div class="row" style={{ justifyContent: "flex-end", gap: "6px", marginBottom: "6px" }}>
+              <button class={"chip" + (view === "grid" ? " active" : "")} onClick={() => setView("grid")}>Ô thùng</button>
+              <button class={"chip" + (view === "compact" ? " active" : "")} onClick={() => setView("compact")}>Gọn</button>
+            </div>
+            {view === "compact" ? (
+              <div class="pd-compact">
+                {groups.map(([pcode, bs]) => (
+                  <div class="pd-crow" key={pcode}>
+                    <a class="pd-csp" href={`#/kho/${encodeURIComponent(pcode)}`}>{pcode}</a>
+                    <span class="pd-cboxes">
+                      {bs.slice().sort((a, b) => num(a).localeCompare(num(b))).map((b) => (
+                        <a class="pd-cbox" key={b.id} href={`#/thung/${b.id}`}>{num(b)}</a>
+                      ))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div class="kho-groups">
+                {groups.map(([pcode, bs]) => (
+                  <section class="kho-group" key={pcode}>
+                    <a class="kho-group-h" href={`#/kho/${encodeURIComponent(pcode)}`}>
+                      <b>{pcode}</b>
+                      <span class="muted small">{soVN(sumRem(bs))} tồn · {bs.length} thùng →</span>
+                    </a>
+                    <BoxLabelGrid boxes={bs} />
+                  </section>
+                ))}
+              </div>
+            )}
+          </>
         );
       })()}
 

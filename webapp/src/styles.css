@@ -1198,6 +1198,15 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-line-txt { flex: 1 1 auto; min-width: 0; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pt-inl { color: inherit; text-decoration: underline; text-decoration-color: var(--border); }
 .hist-place-lnk { color: var(--accent, #2563eb); text-decoration: underline; font-weight: 600; }
+/* Chi tiết vị trí — view GỌN: "Mã SP : 001 002 003…" */
+.pd-compact { display: flex; flex-direction: column; gap: 4px; }
+.pd-crow { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; padding: 5px 2px; border-bottom: 1px solid var(--border); }
+.pd-csp { font-weight: 700; text-decoration: none; color: inherit; flex: 0 0 auto; }
+.pd-csp::after { content: " :"; color: var(--muted); }
+.pd-cboxes { display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 auto; }
+.pd-cbox { font-family: monospace; font-size: .82rem; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 1px 6px; text-decoration: none; color: inherit; }
+.pd-cbox:active { background: var(--card); }
 .pt-inl.in { color: var(--ok); }
 .pt-inl.out { color: var(--danger); }
 .pt-dot.mix { border-color: var(--muted); }
