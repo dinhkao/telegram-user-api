@@ -12,6 +12,7 @@ import { onRealtime } from "../realtime";
 import { Loading, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
+import { CompactBoxList } from "../detail/CompactBoxList";
 import { RecipeEditor } from "../detail/RecipeEditor";
 import { usePopupBack } from "../ui/usePopupBack";
 
@@ -22,6 +23,8 @@ function fmtWhen(iso?: string): string {
   const [, , mo, d, hh, mi] = m;
   return `${d}/${mo} ${hh}:${mi}`;
 }
+
+let memInvView: "grid" | "compact" = "compact";   // nhớ kiểu xem thùng ở chi tiết SP
 
 export function InventoryDetail({ code }: { code: string }) {
   const [inv, setInv] = useState<InvDetail | null>(null);
@@ -146,6 +149,8 @@ export function InventoryDetail({ code }: { code: string }) {
   };
   const [kvCreating, setKvCreating] = useState(false);
   const [showEmpty, setShowEmpty] = useState(false);   // thùng đã hết: mặc định ẩn, có nút bật
+  const [invView, setInvView] = useState<"grid" | "compact">(memInvView);
+  useEffect(() => { memInvView = invView; }, [invView]);
   const [kvCatOpen, setKvCatOpen] = useState(false);
   const [kvCats, setKvCats] = useState<KvCategory[]>([]);
   const [kvCatId, setKvCatId] = useState("");
@@ -368,11 +373,19 @@ export function InventoryDetail({ code }: { code: string }) {
           const shown = showEmpty ? all : stocked;
           return (
             <>
-              <label class="card-label">Danh sách thùng ({stocked.length}{emptied.length ? ` + ${emptied.length} đã hết` : ""})</label>
+              <div class="row space" style={{ alignItems: "center" }}>
+                <label class="card-label" style={{ margin: 0 }}>Danh sách thùng ({stocked.length}{emptied.length ? ` + ${emptied.length} đã hết` : ""})</label>
+                <span class="row" style={{ gap: "6px" }}>
+                  <button class={"chip" + (invView === "grid" ? " active" : "")} onClick={() => setInvView("grid")}>Ô thùng</button>
+                  <button class={"chip" + (invView === "compact" ? " active" : "")} onClick={() => setInvView("compact")}>Gọn</button>
+                </span>
+              </div>
               {all.length === 0 ? (
                 <div class="muted small">Chưa có thùng nào.</div>
               ) : shown.length === 0 ? (
                 <div class="muted small">Không còn thùng nào có hàng.</div>
+              ) : invView === "compact" ? (
+                <CompactBoxList boxes={shown as any} flat />
               ) : (
                 <BoxLabelGrid boxes={shown as any} />
               )}
