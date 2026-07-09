@@ -28,6 +28,7 @@ const _SERVER_EVENTS = new Set([
   "order_changed", "orders_changed", "production_changed", "productions_changed",
   "customer_changed", "inventory_changed", "box_changed", "price_lists_changed",
   "quy_changed", "notif_added", "report_lock", "report_draft", "banner_changed",
+  "tasks_changed", "workers_changed", "return_changed",
 ]);
 
 type Handler = (e: RealtimeEvent) => void;
