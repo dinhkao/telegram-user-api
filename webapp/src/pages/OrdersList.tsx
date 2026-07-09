@@ -56,6 +56,10 @@ let listCache: {
   filter: FilterKey; page: number; totalPages: number;
 } | null = null;
 
+// Sort trước khi chip "Chưa giao" auto-chuyển sang ngày giao — rời filter thì trả lại.
+// Module-scope để sống qua unmount (vào chi tiết rồi quay lại vẫn nhớ).
+let autoSortPrev: "created" | "updated" | null = null;
+
 /** No-op giữ lại cho tương thích. Freshness của cache khi danh sách ĐANG UNMOUNT
  *  (người dùng ở trang chi tiết) do subscriber cấp-module bên dưới lo. */
 export function invalidateListCache() {
@@ -158,6 +162,7 @@ export function OrdersList() {
   const sortRef = useRef(sort); // đọc trong load (tránh stale closure)
   const changeSort = (s: "created" | "updated" | "ngay_giao") => {
     if (s === sortRef.current) return;
+    autoSortPrev = null; // user tự chọn sort → thôi auto-trả-lại khi rời "Chưa giao"
     sortRef.current = s;
     localStorage.setItem("dash_sort", s);
     setSort(s);
@@ -386,11 +391,17 @@ export function OrdersList() {
   const onFilter = (f: FilterKey) => {
     setFilter(f);
     setPage(1);
-    // Lọc "Chưa giao" → tự sắp theo NGÀY GIAO (đổi lại được ở thanh Sắp xếp).
+    // Lọc "Chưa giao" → tự sắp theo NGÀY GIAO; RỜI filter này → trả lại sort trước đó.
     // Không ghi localStorage — auto-switch chỉ trong phiên, không đổi mặc định của user.
     if (f === "chua_giao" && sortRef.current !== "ngay_giao") {
+      autoSortPrev = sortRef.current === "updated" ? "updated" : "created";
       sortRef.current = "ngay_giao";
       setSort("ngay_giao");
+      listCache = null;
+    } else if (f !== "chua_giao" && autoSortPrev && sortRef.current === "ngay_giao") {
+      sortRef.current = autoSortPrev;
+      setSort(autoSortPrev);
+      autoSortPrev = null;
       listCache = null;
     }
     load(1, search, f, false);
@@ -402,6 +413,12 @@ export function OrdersList() {
     setSearch("");
     setFilter("all");
     setPage(1);
+    if (autoSortPrev && sortRef.current === "ngay_giao") { // bỏ lọc = rời "Chưa giao" → trả sort cũ
+      sortRef.current = autoSortPrev;
+      setSort(autoSortPrev);
+      autoSortPrev = null;
+      listCache = null;
+    }
     load(1, "", "all", false);
   };
 
