@@ -141,14 +141,18 @@ export function StockPickerModal({
               const unit = (b as any).product_unit || "cây";
               const place = (b as any).place_name as string | undefined;
               const nsx = b.mfg_date ? fmtDate(b.mfg_date) : "";
-              const meta = [place ? `📍 ${place}` : "", nsx ? `NSX ${nsx}` : ""].filter(Boolean).join(" · ");
               return (
                 <div class={"sp-row" + (checked ? " on" : "") + (blocked ? " off" : "")} key={b.id}>
                   <div class="sp-tap" onClick={() => { if (!blocked) toggle(b); }} title={b.box_code}>
                     <span class="sp-check">{checked ? <Icon name="check" size={13} /> : <span class="sp-dot" />}</span>
                     <span class="sp-code">{num}</span>
                     <span class="sp-qty">{soVN(avail(b))}<i>{unit}</i></span>
-                    <span class="sp-meta">{meta}{b.note ? <span class="sp-note" title={b.note}> 📝</span> : null}</span>
+                    {/* chọn → CSS xếp vị trí & NSX thành 2 dòng để không bị cắt */}
+                    <span class="sp-meta">
+                      {place ? <span>📍 {place}</span> : null}
+                      {nsx ? <span>NSX {nsx}</span> : null}
+                      {b.note ? <span class="sp-note" title={b.note}>📝</span> : null}
+                    </span>
                   </div>
                   {checked && (
                     <label class="sp-takewrap" title="Số lấy từ thùng này">

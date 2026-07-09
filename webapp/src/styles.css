@@ -1476,7 +1476,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .sp-code { flex: 0 0 auto; min-width: 30px; font-family: monospace; font-weight: 800; font-size: .96rem; color: var(--ink); }
 .sp-qty { flex: 0 0 auto; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
 .sp-qty i { font-style: normal; font-weight: 400; color: var(--muted); font-size: .7rem; margin-left: 1px; }
-.sp-meta { flex: 1 1 auto; min-width: 0; font-size: .74rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.sp-meta { flex: 1 1 auto; min-width: 0; font-size: .74rem; color: var(--muted);
+  display: flex; justify-content: flex-end; align-items: center; gap: 6px; overflow: hidden; }
+.sp-meta > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Chọn: xếp vị trí + NSX thành 2 dòng (canh phải) — không bị ô "lấy" cắt mất */
+.sp-row.on .sp-meta { flex-direction: column; align-items: flex-end; gap: 0; line-height: 1.25; }
 .sp-takewrap { flex: 0 0 auto; align-self: center; display: inline-flex; align-items: center; gap: 5px; margin: 0 6px; }
 .sp-takel { font-size: .7rem; color: var(--muted); }
 .sp-take { width: 54px; text-align: center; padding: 5px 6px; border: 1.5px solid var(--primary, #1a73e8); border-radius: 8px;
