@@ -57,6 +57,12 @@ export function StockPickerModal({
   const remaining = Math.max(need - got, 0);   // NGÂN SÁCH: không được chọn quá số này
 
   const avail = (b: InvBox) => (b.remaining != null ? b.remaining : b.quantity);
+  // Sắp: còn hàng trước → NSX CŨ NHẤT trước (FIFO, không NSX xuống cuối) → mã thùng
+  const mfgKey = (b: InvBox) => b.mfg_date || "9999-99-99";
+  const sortPick = (a: InvBox, b: InvBox) =>
+    (avail(b) > 0 ? 1 : 0) - (avail(a) > 0 ? 1 : 0)
+    || mfgKey(a).localeCompare(mfgKey(b))
+    || (a.box_code || "").localeCompare(b.box_code || "");
   const parseN = (v: any) => { const n = parseFloat(String(v).replace(",", ".")); return isFinite(n) && n > 0 ? n : 0; };
   // tổng đã chọn ở các thùng KHÁC id → phần ngân sách còn lại cho thùng này
   const sumExcept = (id: number) => Object.entries(sel).reduce((t, [k, v]) => t + (Number(k) === id ? 0 : parseN(v)), 0);
@@ -127,7 +133,7 @@ export function StockPickerModal({
           <div class="muted small">Kho hết thùng {productCode}.</div>
         ) : (
           <div class="stock-pick-list">
-            {boxes.slice().sort((a, b) => (avail(b) > 0 ? 1 : 0) - (avail(a) > 0 ? 1 : 0)).map((b) => {
+            {boxes.slice().sort(sortPick).map((b) => {
               const checked = b.id in sel;
               const blocked = !checked && full;   // hết ngân sách → không cho chọn thêm
               return (
@@ -139,6 +145,7 @@ export function StockPickerModal({
                       <span class="muted small">
                         còn {soVN(avail(b))}
                         {b.remaining != null && b.remaining !== b.quantity ? `/${soVN(b.quantity)}` : ""} {(b as any).product_unit || "cây"}
+                        {(b as any).place_name ? ` · 📍 ${(b as any).place_name}` : ""}
                         {b.mfg_date ? ` · NSX ${fmtDate(b.mfg_date)}` : ""}
                         {b.note ? ` · 📝 ${b.note}` : ""}
                       </span>
