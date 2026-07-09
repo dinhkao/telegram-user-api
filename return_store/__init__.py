@@ -120,6 +120,16 @@ def set_return_invoice(conn, return_id: int, kv_id, kv_code, debt_before, debt_a
     return True
 
 
+def clear_return_invoice(conn, return_id: int) -> bool:
+    """Gỡ HĐ KiotViet khỏi phiếu (sau khi xoá HĐ trên KV) → phiếu về NHÁP."""
+    ensure_returns_schema(conn)
+    conn.execute(
+        "UPDATE return_slips SET kv_invoice_id = NULL, kv_invoice_code = NULL,"
+        " debt_before = NULL, debt_after = NULL WHERE id = ?", (return_id,))
+    conn.commit()
+    return True
+
+
 def update_return_items(conn, return_id: int, items: list[dict], total: float, note: str) -> bool:
     """Sửa hàng trả/ghi chú — CHỈ khi phiếu còn NHÁP (chưa gắn HĐ KV, caller kiểm)."""
     ensure_returns_schema(conn)

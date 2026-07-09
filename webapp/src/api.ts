@@ -246,7 +246,11 @@ export async function updateReturn(id: number, items: { sp: string; sl: number; 
 export async function invoiceReturn(id: number): Promise<any> {
   return postJSON(`/api/returns/${id}/invoice`, {});
 }
-/** Xoá phiếu trả (admin) — xoá HĐ KV âm + gỡ khỏi feed. */
+/** Xoá HĐ KiotViet của phiếu trả (admin) — hoàn nợ, phiếu về nháp. */
+export async function deleteReturnInvoice(id: number): Promise<any> {
+  return postJSON(`/api/returns/${id}/delete-invoice`, {});
+}
+/** Xoá phiếu trả (admin) — CHỈ khi đã xoá HĐ KV (phiếu nháp). */
 export async function deleteReturn(id: number): Promise<any> {
   return postJSON(`/api/returns/${id}/delete`, {});
 }

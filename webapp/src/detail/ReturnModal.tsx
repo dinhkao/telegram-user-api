@@ -3,6 +3,7 @@
 // (server tạo HĐ KiotViet GIÁ ÂM → trừ nợ). Cha (CustomerDetail) mount khi mở.
 import { useState } from "preact/hooks";
 import { createReturn, searchProducts, soVN } from "../api";
+import { CustomerPicker } from "./CustomerPicker";
 import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
 import { confirmDialog, toast } from "../ui/feedback";
 import { usePopupBack } from "../ui/usePopupBack";
@@ -12,10 +13,11 @@ import { Icon } from "../ui/Icon";
 type Line = { sp: string; sl: string; price: string };
 
 export function ReturnModal({ ckey, onClose, onCreated }: {
-  ckey: string;
+  ckey?: string;                 // thiếu → chọn khách ngay trong popup (mở từ dashboard)
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const [pickedKey, setPickedKey] = useState<string>(ckey || "");
   const [lines, setLines] = useState<Line[]>([{ sp: "", sl: "1", price: "" }]);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,11 +32,12 @@ export function ReturnModal({ ckey, onClose, onCreated }: {
   const total = parsed.reduce((s, l) => s + l.sl * l.price, 0);
 
   const submit = async () => {
+    if (!pickedKey) return toast("Chọn khách hàng trước", "info");
     if (!parsed.length) return toast("Nhập ít nhất 1 dòng hàng trả (SP + SL + giá)", "info");
     if (!(await confirmDialog(`Tạo phiếu trả hàng −${soVN(total)}đ? (NHÁP — chưa trừ nợ; vào phiếu bấm 'Tạo HĐ KiotViet' mới trừ)`))) return;
     setBusy(true);
     try {
-      const r = await createReturn(ckey, parsed, note.trim());
+      const r = await createReturn(pickedKey, parsed, note.trim());
       toast("Đã tạo phiếu trả (nháp)", "ok");
       onCreated();
       onClose();
@@ -50,6 +53,7 @@ export function ReturnModal({ ckey, onClose, onCreated }: {
     <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
       <div class="modal-sheet ret-sheet" onClick={(e: any) => e.stopPropagation()}>
         <div class="modal-head"><Icon name="refresh" size={16} /> Trả hàng</div>
+        {!ckey && <CustomerPicker placeholder="Chọn khách trả hàng" onPick={(c) => setPickedKey(c?.key || "")} />}
         {lines.map((l, i) => (
           <div class="ret-line" key={i}>
             <div class="ret-sp">

@@ -19,7 +19,7 @@ _NUM = re.compile(r"/-?\d+(?=/|$)")
 
 _ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo phiếu SX", "box.created": "Tạo thùng",
                   "return.created": "Tạo phiếu trả", "return.invoiced": "Tạo HĐ KiotViet (trừ nợ)",
-                  "return.deleted": "Xoá phiếu trả"}
+                  "return.invoice_deleted": "Xoá HĐ KiotViet (hoàn nợ)", "return.deleted": "Xoá phiếu trả"}
 
 _SOURCE_LABELS = {
     "POST /api/production/{id}/product": "Đổi sản phẩm",
@@ -38,7 +38,8 @@ _SOURCE_LABELS = {
 }
 _SKIP = {"POST /api/production/{id}/report/parse",   # xem trước, không phải ghi
          "POST /api/returns/{id}/invoice",           # đã có event return.invoiced
-         "POST /api/returns/{id}/delete"}            # đã có event return.deleted
+         "POST /api/returns/{id}/delete",            # đã có event return.deleted
+         "POST /api/returns/{id}/delete-invoice"}    # đã có event return.invoice_deleted
 
 
 def _box_update_action(bd: dict, places: dict) -> tuple[str, str] | None:

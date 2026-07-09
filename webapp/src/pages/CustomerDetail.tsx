@@ -9,12 +9,11 @@ import {
   getCustomerPriceList, type CustomerPriceList,
   getPriceLists, type PriceListSummary,
   searchKiotvietCustomers, linkCustomerKiotviet, unlinkCustomerKiotviet, type KvCustomer,
-  deleteCustomer, currentUser, type CustomerDetail as Cust, isOffice } from "../api";
+  deleteCustomer, currentUser, type CustomerDetail as Cust } from "../api";
 import { usePopupBack } from "../ui/usePopupBack";
 import { confirmDialog } from "../ui/feedback";
 import { money, parseMoney, initial } from "../format";
 import { CustomerFeed } from "../detail/CustomerFeed";
-import { ReturnModal } from "../detail/ReturnModal";
 import { onRealtime } from "../realtime";
 import { toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
@@ -24,7 +23,6 @@ import { SelectPopup } from "../ui/SelectPopup";
 type Row = { sp: string; price: string };
 
 export function CustomerDetail({ ckey }: { ckey: string }) {
-  const [retOpen, setRetOpen] = useState(false);
   const [cust, setCust] = useState<Cust | null>(null);
   const [err, setErr] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
@@ -267,13 +265,6 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
       </section>
 
       {/* ⭐ TRỌNG TÂM: đơn + thanh toán xen kẽ theo thời gian, 3 kiểu xem như dashboard */}
-      {isOffice() && (
-        <button class="btn block ret-open" onClick={() => setRetOpen(true)}>
-          <Icon name="refresh" size={15} /> Trả hàng (giảm nợ)
-        </button>
-      )}
-      {retOpen && <ReturnModal ckey={ckey} onClose={() => setRetOpen(false)} onCreated={() => { /* realtime customer_changed tự vá feed */ }} />}
-
       <CustomerFeed ckey={ckey} />
 
       {/* ── GIÁ BÁN: 1 khối duy nhất — bảng chung → giá riêng đè → giá hiệu lực ── */}

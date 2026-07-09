@@ -3,7 +3,10 @@
 // (tạo/xoá phiếu trả emit customer_changed). Cache module — quay lại giữ vị trí.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { listAllReturns, soVN, type ReturnSlip } from "../api";
+import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
+import { ReturnModal } from "../detail/ReturnModal";
+import { SearchBar } from "../ui/SearchBar";
 import { Loading, EmptyState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
@@ -25,8 +28,14 @@ function dayLabel(k: string): string {
   return `${lbl}/${k.slice(0, 4)}`;
 }
 
+// Nhớ ô tìm khi rời trang
+let memQ = "";
+
 export function ReturnsList() {
   const [rows, setRows] = useState<ReturnSlip[]>(retCache?.rows || []);
+  const [q, setQ] = useState(memQ);
+  useEffect(() => { memQ = q; }, [q]);
+  const [createOpen, setCreateOpen] = useState(false);
   const [loading, setLoading] = useState(!retCache);
   const [total, setTotal] = useState(0);
   const st = useRef({ page: retCache?.page || 1, totalPages: retCache?.totalPages || 1, loading: false });
@@ -70,9 +79,15 @@ export function ReturnsList() {
     return () => io.disconnect();
   }, []);
 
+  // lọc client-side (số phiếu ít): khách / mã HĐ / SP / ghi chú / người tạo
+  const fq = foldVN(q.trim());
+  const visible = !fq ? rows : rows.filter((r) => foldVN(
+    `${r.customer_name || ""} ${r.customer_key} ${r.kv_invoice_code || ""} ${(r.items || []).map((x) => x.sp).join(" ")} ${r.note || ""} ${r.created_by || ""}`
+  ).includes(fq));
+
   // nhóm theo ngày
   const groups: { key: string; items: ReturnSlip[] }[] = [];
-  for (const r of rows) {
+  for (const r of visible) {
     const k = dayKey(r.created_at);
     const last = groups[groups.length - 1];
     if (last && last.key === k) last.items.push(r);
@@ -81,8 +96,16 @@ export function ReturnsList() {
 
   return (
     <div class="ret-list">
+      <div class="ret-toolbar">
+        <SearchBar value={q} onInput={setQ} placeholder="Tìm khách, SP, mã HĐ…" />
+        <button class="btn primary" onClick={() => setCreateOpen(true)}>
+          <Icon name="plus" size={16} /> Tạo phiếu
+        </button>
+      </div>
+      {createOpen && <ReturnModal onClose={() => setCreateOpen(false)} onCreated={() => load(1, false)} />}
       {loading && !rows.length && <Loading />}
       {!loading && !rows.length && <EmptyState>Chưa có phiếu trả hàng nào.</EmptyState>}
+      {!loading && rows.length > 0 && !visible.length && <EmptyState>Không có phiếu khớp "{q}".</EmptyState>}
       {groups.map((g) => (
         <div class="prod-group" key={g.key}>
           <div class="prod-group-head">{dayLabel(g.key)} <span class="muted small">({g.items.length})</span></div>
@@ -106,7 +129,7 @@ export function ReturnsList() {
         </div>
       ))}
       <div ref={sentinel} style={{ height: "1px" }} />
-      {rows.length > 0 && <div class="muted small" style={{ textAlign: "center", padding: "10px" }}>{rows.length}/{total} phiếu</div>}
+      {visible.length > 0 && <div class="muted small" style={{ textAlign: "center", padding: "10px" }}>{visible.length}/{total} phiếu</div>}
     </div>
   );
 }

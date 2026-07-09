@@ -4,7 +4,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import {
-  getReturn, deleteReturn, updateReturn, invoiceReturn, searchProducts,
+  getReturn, deleteReturn, deleteReturnInvoice, updateReturn, invoiceReturn, searchProducts,
   currentUser, isOffice, soVN, type ReturnSlip,
 } from "../api";
 import { onRealtime } from "../realtime";
@@ -86,12 +86,23 @@ export function ReturnDetail({ id }: { id: string }) {
     } finally { setBusy(false); }
   };
 
+  const doDeleteInvoice = async () => {
+    if (!isAdmin) return toast("Chỉ admin mới được xoá HĐ KiotViet", "info");
+    if (!(await confirmDialog("Xoá HĐ KiotViet giá âm? Công nợ khách sẽ CỘNG lại và phiếu về NHÁP (sửa/xoá được).", { danger: true }))) return;
+    setBusy(true);
+    try {
+      await deleteReturnInvoice(Number(id));
+      toast("Đã xoá HĐ KiotViet — phiếu về nháp", "ok");
+      load();
+    } catch (e: any) {
+      toast(e?.message || "Lỗi xoá HĐ", "err");
+    } finally { setBusy(false); }
+  };
+
   const doDelete = async () => {
     if (!isAdmin) return toast("Chỉ admin mới được xoá phiếu trả", "info");
-    const msg = invoiced
-      ? "Xoá phiếu trả? HĐ KiotViet giá âm sẽ bị XOÁ và công nợ khách CỘNG lại."
-      : "Xoá phiếu trả nháp này?";
-    if (!(await confirmDialog(msg, { danger: true }))) return;
+    if (invoiced) return toast("Phiếu còn HĐ KiotViet — xoá HĐ trước rồi mới xoá phiếu", "info");
+    if (!(await confirmDialog("Xoá phiếu trả nháp này?", { danger: true }))) return;
     setBusy(true);
     try {
       await deleteReturn(Number(id));
@@ -204,6 +215,12 @@ export function ReturnDetail({ id }: { id: string }) {
         <section class="card">
           <label class="card-label"><Icon name="receipt" size={15} /> Hoá đơn KiotViet (giá âm)</label>
           <div>{r.kv_invoice_code} <span class="muted small">· #{r.kv_invoice_id}</span></div>
+          {!deleted && (
+            <button class={"btn danger block" + (isAdmin ? "" : " faded")} disabled={busy}
+              style={{ marginTop: "8px" }} onClick={doDeleteInvoice}>
+              <Icon name="trash" size={14} /> Xoá HĐ KiotViet (hoàn nợ)
+            </button>
+          )}
         </section>
       )}
 
@@ -212,8 +229,9 @@ export function ReturnDetail({ id }: { id: string }) {
       <History base={`/api/media/return/${id}`} />
 
       {!deleted && (
-        <button class={"btn danger block" + (isAdmin ? "" : " faded")} disabled={busy} onClick={doDelete}>
-          <Icon name="trash" size={15} /> {busy ? "Đang xoá…" : invoiced ? "Xoá phiếu trả (hoàn nợ)" : "Xoá phiếu nháp"}
+        <button class={"btn danger block" + (isAdmin && !invoiced ? "" : " faded")} disabled={busy} onClick={doDelete}
+          title={invoiced ? "Xoá HĐ KiotViet trước rồi mới xoá phiếu" : undefined}>
+          <Icon name="trash" size={15} /> {busy ? "Đang xoá…" : "Xoá phiếu trả"}
         </button>
       )}
     </div>

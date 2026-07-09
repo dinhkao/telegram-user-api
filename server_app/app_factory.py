@@ -280,6 +280,8 @@ def create_app():
     from server_app.return_routes import return_update_handler, return_invoice_handler
     r.add_post("/api/returns/{id}/update", return_update_handler)
     r.add_post("/api/returns/{id}/invoice", return_invoice_handler)
+    from server_app.return_routes import return_invoice_delete_handler
+    r.add_post("/api/returns/{id}/delete-invoice", return_invoice_delete_handler)
     from server_app.settings_routes import settings_get_handler, settings_set_handler
     r.add_get("/api/settings", settings_get_handler)
     r.add_post("/api/settings", settings_set_handler)
