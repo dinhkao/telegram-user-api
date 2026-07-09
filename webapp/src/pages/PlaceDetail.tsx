@@ -136,7 +136,7 @@ export function PlaceDetail({ id }: { id: string }) {
               <div class="pd-compact">
                 {groups.map(([pcode, bs]) => (
                   <div class="pd-crow" key={pcode}>
-                    <a class="pd-csp" href={`#/kho/${encodeURIComponent(pcode)}`}>{pcode}</a>
+                    <a class="pd-csp" href={`#/kho/${encodeURIComponent(pcode)}`}>{pcode} <span class="pd-cn">({bs.length})</span></a>
                     <span class="pd-cboxes">
                       {bs.slice().sort((a, b) => num(a).localeCompare(num(b))).map((b) => (
                         <a class="pd-cbox" key={b.id} href={`#/thung/${b.id}`}
