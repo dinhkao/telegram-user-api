@@ -14,9 +14,9 @@ import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { dayKeyOf, orderDayLabel } from "../detail/OrderCards";
 
 const GROUP_SEC = 300;   // gom thao tác trong vòng 5 phút vào 1 card
-// Khoảng cách dòng TỈ LỆ THUẬN thời gian thực: cao = giây × PXPS, kẹp trần GAP_MAX
-// (~10px/giờ → 1 ngày ≈ 240px). Nhãn khi cách ≥ 30 phút.
-const GAP_PXPS = 0.00278, GAP_MAX = 300;
+// Khoảng cách dòng TỈ LỆ THUẬN thời gian thực — CHÍNH XÁC TỚI PHÚT: cao = giây × PXPS
+// (~2px/phút → 1 giờ ≈ 120px, 1 ngày ≈ 2880px), kẹp trần GAP_MAX. Nhãn khi cách ≥ 2 phút.
+const GAP_PXPS = 0.0333, GAP_MAX = 4000;
 const hm = (v?: string) => (fmtDateTimeVN(v || "").match(/\d{2}:\d{2}/) || [""])[0];
 function gapLabel(sec: number): string {
   const d = sec / 86400;
@@ -152,9 +152,9 @@ export function PlaceTimeline({ placeId }: { placeId: string }) {
             const nodes: any[] = [];
             const dsec = i > 0 ? Math.max(0, cards[i - 1].ts - c.ts) : 0;
             const gh = Math.min(dsec * GAP_PXPS, GAP_MAX);
-            if (gh >= 6) nodes.push(
+            if (gh >= 3) nodes.push(
               <li key={`g-${i}`} class="pt-gap" style={{ height: `${Math.round(gh)}px` }}>
-                {dsec >= 1800 ? <span class="fg-label">· {gapLabel(dsec)} ·</span> : null}
+                {dsec >= 120 ? <span class="fg-label">· {gapLabel(dsec)} ·</span> : null}
               </li>);
             const day = dayKeyOf(c.at);
             if (i === 0 || dayKeyOf(cards[i - 1].at) !== day)
