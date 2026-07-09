@@ -20,6 +20,7 @@ import { FeedbackHost } from "./ui/feedback";
 import { OrderDetail } from "./pages/OrderDetail";
 import { OrderInvoiceEdit } from "./pages/OrderInvoiceEdit";
 import { OrdersList, resetOrdersScroll } from "./pages/OrdersList";
+import { fastScrollTop } from "./scroll";
 import { DeliveryCalendar } from "./pages/DeliveryCalendar";
 import { ActivityLog } from "./pages/ActivityLog";
 import { ProductionList } from "./pages/ProductionList";
@@ -422,10 +423,10 @@ function App() {
       {!showLogin && (
         <nav class="bottom-nav">
           <a class={hash === "#/orders" || orderMatch ? "tab active" : "tab"} href="#/orders" onClick={() => resetOrdersScroll()}><Icon name="clipboard" size={22} class="tab-ico" /><span class="tab-lbl">Đơn</span></a>
-          <a class={tab("#/customers")} href="#/customers"><Icon name="user" size={22} class="tab-ico" /><span class="tab-lbl">Khách</span></a>
-          <a class={tab("#/create")} href="#/create"><Icon name="plus" size={22} class="tab-ico" /><span class="tab-lbl">Tạo</span></a>
-          <a class={tab("#/san_xuat")} href="#/san_xuat"><Icon name="factory" size={22} class="tab-ico" /><span class="tab-lbl">SX</span></a>
-          <a class={tab("#/kho")} href="#/kho"><Icon name="box" size={22} class="tab-ico" /><span class="tab-lbl">Kho</span></a>
+          <a class={tab("#/customers")} href="#/customers" onClick={() => fastScrollTop()}><Icon name="user" size={22} class="tab-ico" /><span class="tab-lbl">Khách</span></a>
+          <a class={tab("#/create")} href="#/create" onClick={() => fastScrollTop()}><Icon name="plus" size={22} class="tab-ico" /><span class="tab-lbl">Tạo</span></a>
+          <a class={tab("#/san_xuat")} href="#/san_xuat" onClick={() => fastScrollTop()}><Icon name="factory" size={22} class="tab-ico" /><span class="tab-lbl">SX</span></a>
+          <a class={tab("#/kho")} href="#/kho" onClick={() => fastScrollTop()}><Icon name="box" size={22} class="tab-ico" /><span class="tab-lbl">Kho</span></a>
           <button class={hash.startsWith("#/bang-gia") ? "tab nav-more active" : "tab nav-more"} onClick={() => setMenuOpen(true)} title="Thêm"><Icon name="menu" size={22} class="tab-ico" /><span class="tab-lbl">Thêm</span></button>
         </nav>
       )}
