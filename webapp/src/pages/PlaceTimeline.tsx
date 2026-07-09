@@ -90,7 +90,6 @@ function CardRow({ c, onDot }: { c: Card; onDot: (c: Card) => void }) {
       <span class="pt-rail">
         <button class={"pt-dot " + c.dir} title="Xem kho lúc này chứa gì" onClick={() => onDot(c)} />
         <span class={"pt-total " + (c.total_after > 0 ? "pos" : "zero")}>{soVN(c.total_after)}</span>
-        <span class={"pt-delta " + c.dir}>{c.net > 0 ? "+" : "−"}{soVN(Math.abs(c.net))}</span>
       </span>
     </li>
   );
