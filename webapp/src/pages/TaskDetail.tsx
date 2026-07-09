@@ -43,7 +43,15 @@ export function TaskDetail({ id }: { id: number }) {
   const patch = async (body: any) => {
     try { setT(await updateTask(t.id, body)); } catch (e: any) { toast(e?.message || "Lỗi lưu"); }
   };
-  const toggle = () => patch({ done: !t.done });
+  const toggle = () => {
+    // Bước mặc định của đơn → hoàn thành ở trang đơn (rule chặn nằm ở đó)
+    if (t.kind === "order_step" && t.thread_id) {
+      toast("Hoàn thành bước này ở trang đơn", "info");
+      window.location.hash = `#/order/${t.thread_id}?focus=od-tasks`;
+      return;
+    }
+    patch({ done: !t.done });
+  };
   const remove = async () => {
     if (!(await confirmDialog("Xoá việc này?", { danger: true }))) return;
     try { await deleteTask(t.id); window.location.hash = "#/viec"; } catch (e: any) { toast(e?.message || "Lỗi"); }

@@ -155,6 +155,13 @@ export function TasksBoard() {
   }, [flt]);
 
   const toggle = async (t: Task) => {
+    // 5 bước mặc định của đơn: KHÔNG đánh dấu từ dashboard — nhảy về đúng vị trí
+    // task trong chi tiết đơn (nơi có rule chặn: chốt kho, ảnh soạn hàng…)
+    if (t.kind === "order_step" && t.thread_id) {
+      toast("Hoàn thành bước này ở trang đơn", "info");
+      window.location.hash = `#/order/${t.thread_id}?focus=od-tasks`;
+      return;
+    }
     try {
       const nt = await updateTask(t.id, { done: !t.done });
       setTasks((prev) => prev.map((x) => (x.id === t.id ? nt : x)));
