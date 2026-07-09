@@ -38,6 +38,18 @@ export function InventoryDetail({ code }: { code: string }) {
       if (p && inv) { setInv({ ...inv, product: p }); setUnitSaved(true); setTimeout(() => setUnitSaved(false), 1500); }
     } catch { /* im */ }
   };
+  // Tên SP — sửa tại chỗ như Đơn vị (blur là lưu)
+  const [nameInput, setNameInput] = useState("");
+  const [nameSaved, setNameSaved] = useState(false);
+  useEffect(() => { setNameInput(inv?.product?.name || ""); }, [inv?.product?.name]);
+  const saveName = async () => {
+    const n = nameInput.trim();
+    if (!inv?.product || n === (inv.product.name || "")) return;
+    try {
+      const p = await updateProduct(code, { name: n });
+      if (p && inv) { setInv({ ...inv, product: p }); setNameSaved(true); setTimeout(() => setNameSaved(false), 1500); }
+    } catch { /* im */ }
+  };
   const toggleMaterial = async () => {
     if (!inv?.product) return;
     const next = !inv.product.is_material;
@@ -210,7 +222,14 @@ export function InventoryDetail({ code }: { code: string }) {
 
       {/* Tên danh mục + liên kết KiotViet */}
       <section class="card prod-link">
-        {inv.product?.name && <div class="prod-link-name">{inv.product.name}</div>}
+        {inv.product && (
+          <div class="box-kv">
+            <span class="box-k">Tên {nameSaved && <span class="muted small">✓</span>}</span>
+            <input class="box-place" style={{ flex: 1, minWidth: "150px" }} value={nameInput} placeholder={code}
+              onInput={(e: any) => setNameInput(e.target.value)} onBlur={saveName}
+              onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+          </div>
+        )}
         <div class="box-kv">
           <span class="box-k">Đơn vị {unitSaved && <span class="muted small">✓</span>}</span>
           <input class="box-place" style={{ minWidth: "110px" }} value={unitInput} placeholder="cây"
