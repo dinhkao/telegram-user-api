@@ -102,6 +102,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     if (!focus) return;
     let tries = 0;
     let flashT: any, settleIv: any;
+    // User đụng vào (cuộn/chạm/phím) → thôi bám vị trí, trả quyền cuộn cho user
+    let userTouched = false;
+    const onUser = () => { userTouched = true; clearInterval(settleIv); };
+    const evs: (keyof WindowEventMap)[] = ["wheel", "touchstart", "pointerdown", "keydown"];
+    evs.forEach((ev) => window.addEventListener(ev, onUser, { passive: true }));
     const iv = setInterval(() => {
       const el = document.getElementById(focus);
       if (el) {
@@ -110,18 +115,24 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         el.classList.add("flash-target");
         flashT = setTimeout(() => el.classList.remove("flash-target"), 2400);
         history.replaceState(null, "", `#/order/${threadId}`); // xoá ?focus khỏi URL
-        // Cuộn lại vài lần để chống trôi khi nội dung phía trên (bình luận/lịch sử) vừa tải xong
+        // Chống trôi khi nội dung phía trên (bình luận/lịch sử) vừa tải xong:
+        // CHỈ cuộn lại khi lệch thật (>8px) và user chưa đụng vào
         let n = 0;
         settleIv = setInterval(() => {
           const e2 = document.getElementById(focus);
-          if (e2) fastScrollToEl(e2, "center");
-          if (++n >= 5 || !e2) clearInterval(settleIv);
+          if (!e2 || userTouched || ++n > 5) return clearInterval(settleIv);
+          const r = e2.getBoundingClientRect();
+          const want = Math.max(56, (window.innerHeight - r.height) / 2);
+          if (Math.abs(r.top - want) > 8) fastScrollToEl(e2, "center");
         }, 320);
       } else if (++tries > 50) {
         clearInterval(iv); // ~5s không thấy → thôi
       }
     }, 100);
-    return () => { clearInterval(iv); clearInterval(settleIv); clearTimeout(flashT); };
+    return () => {
+      clearInterval(iv); clearInterval(settleIv); clearTimeout(flashT);
+      evs.forEach((ev) => window.removeEventListener(ev, onUser));
+    };
   }, [focus, threadId]);
 
   // Realtime: đơn này đổi (task/thanh toán/bình luận…) hoặc vừa nối lại → tải lại.

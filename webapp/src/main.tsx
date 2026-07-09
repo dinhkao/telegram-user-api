@@ -88,11 +88,11 @@ function useScrollMemory(hash: string, hasFocus: boolean) {
     const cleanup = () => { cancelAnimationFrame(raf); evs.forEach((ev) => window.removeEventListener(ev, onUser)); };
     const step = () => {
       if (cancelled) return cleanup();
-      window.scrollTo(0, target);
+      const reached = Math.abs(window.scrollY - target) <= 2;
+      if (!reached) window.scrollTo(0, target); // chỉ ép khi lệch — ép mỗi frame gây giật cuộn
       const now = performance.now();
       const h = document.documentElement.scrollHeight;
       if (h !== lastH) { lastH = h; stableAt = now; }  // trang còn cao lên (nội dung tải trễ)
-      const reached = Math.abs(window.scrollY - target) <= 2;
       if ((reached && now - stableAt > 400) || now - start > 6000) return cleanup();
       raf = requestAnimationFrame(step);
     };
