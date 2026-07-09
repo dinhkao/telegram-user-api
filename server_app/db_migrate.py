@@ -16,4 +16,11 @@ def run_boot_migrations() -> None:
     # products: id INTEGER PK (danh tính bất biến) + bảng product_code_history
     create_products_table(conn)
     migrate_products_table(conn)
-    log.info("boot migrations OK (products.id + product_code_history)")
+    # kho + công thức: cột product_id/ingredient_id + backfill theo mã (idempotent —
+    # cũng chạy lazily trong inventory_routes._ensure, gọi ở đây cho chắc lúc boot)
+    from inventory_store.schema import create_inventory_table, migrate_inventory_table
+    from recipe_store.schema import create_recipe_table
+    create_inventory_table(conn)
+    migrate_inventory_table(conn)
+    create_recipe_table(conn)
+    log.info("boot migrations OK (products.id + code_history + inventory/recipe product_id)")

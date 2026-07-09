@@ -76,10 +76,14 @@ def allocate_picks(conn, picks, order_thread_id, *, by=None, kind="order") -> li
                 bid = int(p.get("box_id"))
             except (TypeError, ValueError, AttributeError):
                 continue
-            row = conn.execute("SELECT * FROM inventory_boxes WHERE id = ?", (bid,)).fetchone()
+            row = conn.execute(
+                "SELECT b.*, COALESCE(pr.code, b.product_code) AS product_code_live "
+                "FROM inventory_boxes b LEFT JOIN products pr ON pr.id = b.product_id "
+                "WHERE b.id = ?", (bid,)).fetchone()
             if not row:
                 continue
             box = dict(row)
+            box["product_code"] = box.pop("product_code_live") or box.get("product_code")
             if box.get("disabled"):
                 continue
             allocated = conn.execute(
@@ -113,19 +117,21 @@ def fifo_consume(conn, ref_thread_id, needs, *, by=None) -> list[dict]:
     thùng CŨ NHẤT (created_at) còn hàng cho đủ amount (thùng cuối lấy 1 phần). Ghi
     allocation kind='production', ref_thread_id = phiếu SX. Trả tóm tắt tiêu hao/thiếu.
     """
+    from .queries import _pid_filter
     summary: list[dict] = []
     for nd in needs:
         code = str(nd.get("code") or "").strip().upper()
         need = float(nd.get("amount") or 0)
         if not code or need <= 0:
             continue
-        # thùng còn hàng của nguyên liệu, cũ nhất trước
+        # thùng còn hàng của nguyên liệu, cũ nhất trước (lọc theo product_id — nhận cả mã cũ)
+        frag, ps = _pid_filter(conn, code)
         rows = conn.execute(
             "SELECT b.id, b.box_code, b.quantity - COALESCE("
             "(SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0) AS rem "
-            "FROM inventory_boxes b WHERE b.product_code = ? AND (b.disabled IS NULL OR b.disabled = 0) "
+            f"FROM inventory_boxes b WHERE {frag} AND (b.disabled IS NULL OR b.disabled = 0) "
             "ORDER BY b.created_at, b.box_code",
-            (code,),
+            ps,
         ).fetchall()
         left = need
         picks = []
@@ -163,6 +169,7 @@ def release_production_amount(conn, ref_thread_id, product_code, amount) -> tupl
     ratio × số cây). Gỡ allocation kind='production' MỚI NHẤT trước (LIFO); dòng
     cuối gỡ 1 phần (giảm quantity). Trả (tổng đã hoàn — kẹp theo tổng đã tiêu,
     chi tiết [{box_id, box_code, amount}] từng thùng NL nhận lại)."""
+    from .queries import _pid_filter
     code = str(product_code or "").strip().upper()
     left = float(amount or 0)
     if not code or left <= 0:
@@ -170,12 +177,13 @@ def release_production_amount(conn, ref_thread_id, product_code, amount) -> tupl
     released = 0.0
     details: list[dict] = []
     with transaction(conn):
+        frag, ps = _pid_filter(conn, code)
         rows = conn.execute(
             "SELECT a.id, a.quantity, b.id AS box_id, b.box_code FROM box_allocations a "
             "JOIN inventory_boxes b ON b.id = a.box_id "
-            "WHERE a.order_thread_id = ? AND COALESCE(a.kind,'order') = 'production' AND b.product_code = ? "
+            f"WHERE a.order_thread_id = ? AND COALESCE(a.kind,'order') = 'production' AND {frag} "
             "ORDER BY a.id DESC",
-            (ref_thread_id, code),
+            (ref_thread_id, *ps),
         ).fetchall()
         for r in rows:
             if left <= 1e-9:
@@ -225,7 +233,10 @@ def transfer_between_boxes(conn, from_id, to_id, quantity, *, by=None) -> tuple[
             return None, "Không tìm thấy thùng"
         if src.get("disabled") or dst.get("disabled"):
             return None, "Thùng vô hiệu — kích hoạt lại trước khi chuyển"
-        if str(src.get("product_code") or "").upper() != str(dst.get("product_code") or "").upper():
+        # Cùng SP = cùng product_id (danh tính bất biến); thùng chưa backfill id → so mã
+        same = (src.get("product_id") == dst.get("product_id")) if (src.get("product_id") and dst.get("product_id")) \
+            else str(src.get("product_code") or "").upper() == str(dst.get("product_code") or "").upper()
+        if not same:
             return None, "Hai thùng phải cùng mã sản phẩm"
         allocated = conn.execute(
             "SELECT COALESCE(SUM(quantity),0) FROM box_allocations WHERE box_id = ?", (fid,)
@@ -251,9 +262,11 @@ def list_order_allocations(conn, order_thread_id, *, kind="order") -> list[dict]
     kind='production' → tiêu hao nguyên liệu của 1 phiếu SX."""
     rows = conn.execute(
         "SELECT a.id AS allocation_id, a.quantity AS quantity, a.allocated_by, a.allocated_at, a.kind, "
-        "b.id AS box_id, b.box_code, b.product_code, b.quantity AS box_quantity, b.mfg_date, "
+        "b.id AS box_id, b.box_code, COALESCE(pr.code, b.product_code) AS product_code, "
+        "b.quantity AS box_quantity, b.mfg_date, "
         "(b.quantity - COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0)) AS box_remaining "
         "FROM box_allocations a JOIN inventory_boxes b ON b.id = a.box_id "
+        "LEFT JOIN products pr ON pr.id = b.product_id "
         "WHERE a.order_thread_id = ? AND COALESCE(a.kind,'order') = ? ORDER BY b.box_code",
         (order_thread_id, kind),
     ).fetchall()

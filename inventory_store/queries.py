@@ -22,8 +22,15 @@ def add_boxes(conn, product_code, quantities, *, source_thread_id=None, by=None,
 
     Số bị chiếm = số của thùng còn hàng hoặc vô hiệu (nhãn còn dán trên thùng thật).
     Điểm xoay = số gọi của thùng TẠO gần nhất (kể cả đã hết hàng). >999 thùng đang
-    hoạt động → ValueError (caller trả lỗi). Trả list box dict."""
+    hoạt động → ValueError (caller trả lỗi). Trả list box dict.
+    Ghi CẢ product_id (danh tính bất biến) + product_code (snapshot mã hiện hành —
+    nhận cả mã cũ, tự chuẩn hoá về mã hiện tại)."""
+    from product_store import resolve_code
     code = str(product_code).strip().upper()
+    prod = resolve_code(conn, code)
+    pid = prod["id"] if prod else None
+    if prod:
+        code = prod["code"]  # chuẩn hoá: gõ mã cũ vẫn lưu mã hiện hành
     created: list[dict] = []
     with transaction(conn):
         taken_rows = conn.execute(
@@ -39,12 +46,12 @@ def add_boxes(conn, product_code, quantities, *, source_thread_id=None, by=None,
             box_code = call_code(n)
             cur = conn.execute(
                 "INSERT INTO inventory_boxes "
-                "(product_code, box_code, quantity, status, source_thread_id, note, mfg_date, unit_id, place_id, created_at, created_by) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                (code, box_code, float(q), "in_stock", source_thread_id, note or "", mfg_date or None, unit_id, place_id, now, by or ""),
+                "(product_id, product_code, box_code, quantity, status, source_thread_id, note, mfg_date, unit_id, place_id, created_at, created_by) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (pid, code, box_code, float(q), "in_stock", source_thread_id, note or "", mfg_date or None, unit_id, place_id, now, by or ""),
             )
             created.append({
-                "id": cur.lastrowid, "product_code": code, "box_code": box_code,
+                "id": cur.lastrowid, "product_id": pid, "product_code": code, "box_code": box_code,
                 "quantity": float(q), "status": "in_stock", "mfg_date": mfg_date or None,
                 "source_thread_id": source_thread_id, "created_at": now, "created_by": by or "",
             })
@@ -72,16 +79,29 @@ def sum_boxes_by_source(conn, thread_ids) -> dict:
     return {r[0]: r[1] or 0 for r in rows}
 
 
+def _pid_filter(conn, product_code) -> tuple[str, list]:
+    """(mảnh WHERE, params) lọc thùng theo SP: ưu tiên product_id (nhận cả MÃ CŨ
+    qua resolve); mã lạ → fallback so mã snapshot như cũ."""
+    from product_store import resolve_code
+    code = str(product_code).strip().upper()
+    prod = resolve_code(conn, code)
+    if prod:
+        return "(b.product_id = ? OR (b.product_id IS NULL AND UPPER(b.product_code) = ?))", [prod["id"], prod["code"]]
+    return "UPPER(b.product_code) = ?", [code]
+
+
 def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
                order_thread_id=None, active_only=False) -> list[dict]:
     """Liệt kê thùng theo bộ lọc (product/status/slip nguồn/đơn). Sắp theo mã thùng.
 
     active_only=True → chỉ thùng còn hiệu lực (bỏ thùng bị vô hiệu) — dùng cho tồn
     kho / khả dụng phân bổ. Mặc định trả cả thùng vô hiệu (để hiển thị mờ).
-    """
+    `product_code` trả về = MÃ HIỆN HÀNH (join products theo product_id; SP đã xoá
+    → fallback mã snapshot trong row)."""
     where, params = [], []
     if product_code:
-        where.append("b.product_code = ?"); params.append(str(product_code).strip().upper())
+        frag, ps = _pid_filter(conn, product_code)
+        where.append(frag); params.extend(ps)
     if status:
         where.append("b.status = ?"); params.append(status)
     if source_thread_id is not None:
@@ -92,11 +112,12 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
         where.append("(b.disabled IS NULL OR b.disabled = 0)")
     sql = (
         "SELECT b.*, p.name AS place_name, u.name AS unit_name, pr.unit AS product_unit, "
+        "COALESCE(pr.code, b.product_code) AS product_code_live, "
         "COALESCE((SELECT SUM(a.quantity) FROM box_allocations a WHERE a.box_id=b.id),0) AS allocated "
         "FROM inventory_boxes b "
         "LEFT JOIN inventory_places p ON p.id = b.place_id "
         "LEFT JOIN inventory_units u ON u.id = b.unit_id "
-        "LEFT JOIN products pr ON pr.code = b.product_code"
+        "LEFT JOIN products pr ON pr.id = b.product_id"
     )
     if where:
         sql += " WHERE " + " AND ".join(where)
@@ -104,16 +125,20 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
     out = []
     for r in conn.execute(sql, params).fetchall():
         d = dict(r)
+        d["product_code"] = d.pop("product_code_live") or d.get("product_code")
         d["remaining"] = float(d.get("quantity") or 0) - float(d.get("allocated") or 0)
         out.append(d)
     return out
 
 
 def product_totals(conn, *, status="in_stock") -> list[dict]:
-    """Tổng tồn + số thùng theo từng product (cho trang danh mục kho)."""
+    """Tổng tồn + số thùng theo từng product (cho trang danh mục kho).
+    Gom theo MÃ HIỆN HÀNH (join products theo product_id, fallback snapshot)."""
     rows = conn.execute(
-        "SELECT product_code, COUNT(*) AS box_count, COALESCE(SUM(quantity),0) AS total "
-        "FROM inventory_boxes WHERE status = ? GROUP BY product_code ORDER BY product_code",
+        "SELECT COALESCE(pr.code, b.product_code) AS product_code, COUNT(*) AS box_count, "
+        "COALESCE(SUM(b.quantity),0) AS total "
+        "FROM inventory_boxes b LEFT JOIN products pr ON pr.id = b.product_id "
+        "WHERE b.status = ? GROUP BY COALESCE(pr.code, b.product_code) ORDER BY product_code",
         (status,),
     ).fetchall()
     return [dict(r) for r in rows]
@@ -126,7 +151,8 @@ def product_summary(conn) -> list[dict]:
     for b in list_boxes(conn):
         code = b["product_code"]
         g = agg.setdefault(code, {
-            "product_code": code, "in_stock_total": 0.0, "in_stock_count": 0,
+            "product_code": code, "product_id": b.get("product_id"),
+            "in_stock_total": 0.0, "in_stock_count": 0,
             "allocated_count": 0, "shipped_count": 0, "disabled_count": 0, "total_count": 0,
         })
         g["total_count"] += 1
@@ -142,13 +168,18 @@ def product_summary(conn) -> list[dict]:
 
 def get_box(conn, box_id) -> dict | None:
     row = conn.execute(
-        "SELECT b.*, p.name AS place_name, u.name AS unit_name, pr.unit AS product_unit FROM inventory_boxes b "
+        "SELECT b.*, p.name AS place_name, u.name AS unit_name, pr.unit AS product_unit, "
+        "COALESCE(pr.code, b.product_code) AS product_code_live FROM inventory_boxes b "
         "LEFT JOIN inventory_places p ON p.id = b.place_id "
         "LEFT JOIN inventory_units u ON u.id = b.unit_id "
-        "LEFT JOIN products pr ON pr.code = b.product_code WHERE b.id = ?",
+        "LEFT JOIN products pr ON pr.id = b.product_id WHERE b.id = ?",
         (box_id,),
     ).fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    d = dict(row)
+    d["product_code"] = d.pop("product_code_live") or d.get("product_code")
+    return d
 
 
 def update_box(conn, box_id, *, quantity=None, note=None, mfg_date=None, place_id=None, clear_place=False, unit_id=None) -> bool:

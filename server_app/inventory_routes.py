@@ -141,7 +141,10 @@ async def production_add_boxes_handler(request: web.Request):
                     return "norecipe", code, None
                 got: dict = {}
                 for p in picks:
-                    row = conn.execute("SELECT product_code FROM inventory_boxes WHERE id = ?", (p.get("box_id"),)).fetchone()
+                    row = conn.execute(
+                        "SELECT COALESCE(pr.code, b.product_code) FROM inventory_boxes b "
+                        "LEFT JOIN products pr ON pr.id = b.product_id WHERE b.id = ?",
+                        (p.get("box_id"),)).fetchone()
                     if row:
                         try:
                             got[row[0]] = got.get(row[0], 0.0) + float(p.get("quantity") or 0)
@@ -201,18 +204,20 @@ async def recipe_get_handler(request: web.Request):
         try:
             _ensure(conn)
             lines = list_recipe(conn, code)
-            # gắn tồn hiện tại (remaining) + đơn vị của mỗi nguyên liệu
+            # gắn tồn hiện tại (remaining) + đơn vị của mỗi nguyên liệu (lọc theo product_id)
+            from inventory_store.queries import _pid_filter
+            from product_store import resolve_code
             for ln in lines:
+                frag, ps = _pid_filter(conn, ln["ingredient_code"])
                 row = conn.execute(
-                    "SELECT COALESCE(SUM(b.quantity - COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0)),0) AS rem, "
-                    "(SELECT unit FROM products WHERE code = ?) AS iu "
-                    "FROM inventory_boxes b WHERE b.product_code = ? AND (b.disabled IS NULL OR b.disabled=0)",
-                    (ln["ingredient_code"], ln["ingredient_code"]),
+                    "SELECT COALESCE(SUM(b.quantity - COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0)),0) AS rem "
+                    f"FROM inventory_boxes b WHERE {frag} AND (b.disabled IS NULL OR b.disabled=0)",
+                    ps,
                 ).fetchone()
                 ln["stock"] = row[0]
-                ln["unit"] = row[1] or "cây"
-            from product_store.queries import get_product
-            prod = get_product(conn, code)
+                ing = resolve_code(conn, ln["ingredient_code"])
+                ln["unit"] = (ing.get("unit") if ing else None) or "cây"
+            prod = resolve_code(conn, code)
             return lines, (prod.get("unit") if prod else None) or "cây"
         finally:
             conn.close()
@@ -302,7 +307,8 @@ async def inventory_list_handler(request: web.Request):
         # thêm product chưa có thùng (tồn 0)
         for p in prods:
             by_code.setdefault(p["code"], {
-                "product_code": p["code"], "in_stock_total": 0, "in_stock_count": 0,
+                "product_code": p["code"], "product_id": p.get("id"),
+                "in_stock_total": 0, "in_stock_count": 0,
                 "allocated_count": 0, "shipped_count": 0, "total_count": 0,
             })
         rows = []
@@ -791,9 +797,9 @@ async def inventory_detail_handler(request: web.Request):
         try:
             _ensure(conn)
             all_boxes = list_boxes(conn, product_code=code)
-            # Liên kết KiotViet + tên danh mục (product_store)
-            from product_store.queries import get_product
-            prod = get_product(conn, code)
+            # Liên kết KiotViet + tên danh mục — resolve nhận cả MÃ CŨ trong URL
+            from product_store import resolve_code
+            prod = resolve_code(conn, code)
         finally:
             conn.close()
         return all_boxes, prod
@@ -805,6 +811,7 @@ async def inventory_detail_handler(request: web.Request):
     product = None
     if prod:
         product = {
+            "id": prod.get("id"),
             "code": prod["code"], "name": prod.get("name") or prod.get("kv_full_name") or "",
             "cost_price": prod.get("cost_price") or 0, "unit": prod.get("unit") or "cây",
             "kv_id": prod.get("kv_id"), "kv_full_name": prod.get("kv_full_name"),
@@ -813,7 +820,9 @@ async def inventory_detail_handler(request: web.Request):
             "is_material": bool(prod.get("is_material")),
         }
     return web.json_response({
-        "ok": True, "product_code": code, "boxes": avail, "all_boxes": all_boxes,
+        # mã hiện hành (URL có thể mang MÃ CŨ — client tự cập nhật theo mã này)
+        "ok": True, "product_code": (prod or {}).get("code") or code,
+        "boxes": avail, "all_boxes": all_boxes,
         "product": product, **summary,
     })
 

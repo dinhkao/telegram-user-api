@@ -1,6 +1,7 @@
 """CRUD công thức (product_recipes) + tính nhu cầu nguyên liệu. IO + transaction.
-Nối: utils.db. Trừ kho thực hiện ở inventory_store.allocate_picks(kind='production').
-"""
+Danh tính theo product_id/ingredient_id (nhận cả mã cũ qua resolve); mã trả về
+luôn là MÃ HIỆN HÀNH. Nối: utils.db, product_store (resolve). Trừ kho thực hiện
+ở inventory_store.allocate_picks(kind='production')."""
 from __future__ import annotations
 
 from utils.db import transaction
@@ -10,36 +11,77 @@ def _code(x) -> str:
     return str(x or "").strip().upper()
 
 
+def _resolve(conn, code):
+    from product_store import resolve_code
+    return resolve_code(conn, _code(code))
+
+
 def list_recipe(conn, product_code) -> list[dict]:
-    """Các nguyên liệu của 1 sản phẩm: [{id, ingredient_code, ratio}]."""
+    """Các nguyên liệu của 1 sản phẩm: [{id, ingredient_id, ingredient_code, ratio}].
+    ingredient_code = mã hiện hành (join products theo id, fallback snapshot)."""
+    prod = _resolve(conn, product_code)
+    if prod:
+        where, params = "(r.product_id = ? OR (r.product_id IS NULL AND r.product_code = ?))", [prod["id"], prod["code"]]
+    else:
+        where, params = "r.product_code = ?", [_code(product_code)]
     rows = conn.execute(
-        "SELECT id, ingredient_code, ratio "
-        "FROM product_recipes WHERE product_code = ? ORDER BY ingredient_code",
-        (_code(product_code),),
+        "SELECT r.id, r.ingredient_id, COALESCE(pi.code, r.ingredient_code) AS ingredient_code, r.ratio "
+        "FROM product_recipes r LEFT JOIN products pi ON pi.id = r.ingredient_id "
+        f"WHERE {where} ORDER BY ingredient_code",
+        params,
     ).fetchall()
     return [dict(r) for r in rows]
 
 
 def set_recipe_line(conn, product_code, ingredient_code, ratio) -> dict | None:
     """Thêm/sửa 1 nguyên liệu (upsert theo cặp). ratio > 0. Không cho tự làm
-    nguyên liệu. Nhu cầu NL do LOẠI PHIẾU quyết định (chỉ đóng gói mới bắt buộc)."""
-    pc, ic = _code(product_code), _code(ingredient_code)
+    nguyên liệu. Ghi CẢ id (danh tính) + mã hiện hành (snapshot, tự chuẩn hoá
+    khi gõ mã cũ). Nhu cầu NL do LOẠI PHIẾU quyết định (chỉ đóng gói bắt buộc)."""
+    prod, ing = _resolve(conn, product_code), _resolve(conn, ingredient_code)
+    pc = prod["code"] if prod else _code(product_code)
+    ic = ing["code"] if ing else _code(ingredient_code)
+    pid = prod["id"] if prod else None
+    iid = ing["id"] if ing else None
     try:
         r = float(ratio)
     except (TypeError, ValueError):
         return None
-    if not pc or not ic or ic == pc or r <= 0:
+    if not pc or not ic or ic == pc or (pid and iid and pid == iid) or r <= 0:
         return None
     with transaction(conn):
-        conn.execute(
-            "INSERT INTO product_recipes (product_code, ingredient_code, ratio) VALUES (?,?,?) "
-            "ON CONFLICT(product_code, ingredient_code) DO UPDATE SET ratio = excluded.ratio",
-            (pc, ic, r),
-        )
+        # Upsert theo DANH TÍNH (id) trước — mã snapshot của dòng cũ có thể chưa
+        # refresh sau đổi mã, match theo mã sẽ tạo dòng đôi. Tiện thể refresh snapshot.
+        existing = None
+        if pid and iid:
+            existing = conn.execute(
+                "SELECT id FROM product_recipes WHERE product_id = ? AND ingredient_id = ?",
+                (pid, iid),
+            ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE product_recipes SET ratio = ?, product_code = ?, ingredient_code = ? WHERE id = ?",
+                (r, pc, ic, existing[0]),
+            )
+            line_id = existing[0]
+        else:
+            cur = conn.execute(
+                "INSERT INTO product_recipes (product_id, ingredient_id, product_code, ingredient_code, ratio) "
+                "VALUES (?,?,?,?,?) "
+                "ON CONFLICT(product_code, ingredient_code) DO UPDATE SET "
+                "ratio = excluded.ratio, product_id = excluded.product_id, ingredient_id = excluded.ingredient_id",
+                (pid, iid, pc, ic, r),
+            )
+            line_id = cur.lastrowid
     row = conn.execute(
-        "SELECT id, ingredient_code, ratio FROM product_recipes WHERE product_code = ? AND ingredient_code = ?",
-        (pc, ic),
+        "SELECT id, ingredient_id, ingredient_code, ratio FROM product_recipes WHERE id = ?",
+        (line_id,),
     ).fetchone()
+    if not row:  # nhánh ON CONFLICT: lastrowid không trỏ dòng update → tra theo cặp mã
+        row = conn.execute(
+            "SELECT id, ingredient_id, ingredient_code, ratio FROM product_recipes "
+            "WHERE product_code = ? AND ingredient_code = ?",
+            (pc, ic),
+        ).fetchone()
     return dict(row) if row else None
 
 
@@ -51,8 +93,9 @@ def delete_recipe_line(conn, line_id) -> bool:
 
 def recipe_needs(conn, product_code, produced_qty) -> list[dict]:
     """Nhu cầu nguyên liệu khi làm produced_qty cây thành phẩm:
-    [{code, amount}] với amount = ratio × produced_qty. Rỗng nếu chưa có công thức.
-    Chỉ phiếu ĐÓNG GÓI mới bắt buộc đáp ứng đủ (validate ở inventory_routes)."""
+    [{code, amount}] với amount = ratio × produced_qty; code = mã NL hiện hành.
+    Rỗng nếu chưa có công thức. Chỉ phiếu ĐÓNG GÓI mới bắt buộc đáp ứng đủ
+    (validate ở inventory_routes)."""
     q = float(produced_qty or 0)
     if q <= 0:
         return []

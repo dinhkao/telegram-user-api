@@ -11,6 +11,7 @@ def create_inventory_table(conn):
         """
         CREATE TABLE IF NOT EXISTS inventory_boxes (
             id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id       INTEGER,
             product_code     TEXT NOT NULL,
             box_code         TEXT NOT NULL,
             quantity         REAL DEFAULT 0,
@@ -67,10 +68,18 @@ def migrate_inventory_table(conn):
         "allocated_by": "TEXT",
         "place_id": "INTEGER",   # → inventory_places.id (vị trí kho)
         "unit_id": "INTEGER",    # → inventory_units.id (đơn vị chứa)
+        "product_id": "INTEGER",  # → products.id (danh tính SP bất biến; product_code = snapshot hiển thị)
     }
     for name, typ in adds.items():
         if name not in cols:
             conn.execute(f"ALTER TABLE inventory_boxes ADD COLUMN {name} {typ}")
+    # Backfill product_id theo mã (idempotent — chỉ row còn NULL); index cho filter theo id
+    conn.execute(
+        "UPDATE inventory_boxes SET product_id = "
+        "(SELECT p.id FROM products p WHERE p.code = inventory_boxes.product_code) "
+        "WHERE product_id IS NULL"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_inv_pid ON inventory_boxes(product_id)")
     # Hệ số gọi xoay vòng: bỏ UNIQUE cũ trên box_code (số được tái dùng), thay index thường
     conn.execute("DROP INDEX IF EXISTS idx_inv_box_code")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_inv_box_code_nu ON inventory_boxes(box_code)")
