@@ -249,6 +249,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `server_app/order_stock_lock.py`) **và có ảnh `soan_hang`**; tiếp chuỗi:
   giao hàng cần soạn xong, in HĐ giao cần giao xong. Rule ở
   `order_store/guards.py`, chặn cả web API, lệnh Telegram lẫn `print_service`.
+- `return_store/` — phiếu TRẢ HÀNG (`return_slips`, app.db). KiotViet public API
+  KHÔNG có POST /returns → cơ chế: **HĐ KiotViet GIÁ ÂM** (sl dương × giá âm — KV
+  nhận, trừ thẳng nợ; sl âm bị chặn, phụ thu âm bị ép 0). API
+  `server_app/return_routes.py` (tạo = văn phòng, xoá = admin, resync nợ qua
+  `debt_sync` return_id); hiện trong feed khách (`customer_feed`, kind='return');
+  UI nút '↩ Trả hàng' + `detail/ReturnModal.tsx` ở chi tiết khách.
 - `chat_log/` — logs new/edited/deleted Telegram messages to DB.
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
 
