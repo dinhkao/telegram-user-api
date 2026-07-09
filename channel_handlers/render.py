@@ -53,6 +53,10 @@ async def fetch_debt_and_rerender(client, thread_id: int, message_id: int, kh_id
             update_customer_debt(conn2, kh_id_fb, debt_val)
         finally:
             conn2.close()
+        # Nợ vừa về blob → báo webapp (OrderDetail đang mở hiện "Nợ trước —" tới khi có event)
+        from server_app.realtime import emit_customer_changed, emit_order_changed
+        emit_order_changed(thread_id)
+        emit_customer_changed(str(kh_id_fb))
         conn3 = _get_connection()
         try:
             updated_order = get_order_by_thread_id(conn3, thread_id)
