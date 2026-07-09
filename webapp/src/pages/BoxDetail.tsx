@@ -180,11 +180,14 @@ export function BoxDetail({ boxId }: { boxId: string }) {
     if (!isFinite(q) || q <= 0) { toast("Số lượng phải > 0", "err"); return; }
     if (q > rem) { toast(`Thùng chỉ còn ${soVN(rem)}`, "err"); return; }
     const tgt = xferTargets.find((x) => x.id === xferTo);
-    if (!(await confirmDialog(`Chuyển ${soVN(q)} ${d.box.product_code} từ thùng ${d.box.box_code} → thùng ${tgt?.box_code || xferTo}?`))) return;
+    const uThis = (d.box.unit_name || "thùng").toLowerCase();
+    const uTgt = (tgt?.unit_name || "thùng").toLowerCase();
+    const pu = d.box.product_unit || "cây";
+    if (!(await confirmDialog(`Chuyển ${soVN(q)} ${pu} ${d.box.product_code} từ ${uThis} ${d.box.box_code} → ${uTgt} ${tgt?.box_code || xferTo}?`))) return;
     setXferBusy(true);
     try {
       const r = await transferBox(boxId, xferTo, q);
-      toast(`✅ Đã chuyển ${soVN(q)} sang thùng ${r?.to_code || tgt?.box_code}`, "ok");
+      toast(`✅ Đã chuyển ${soVN(q)} ${pu} sang ${uTgt} ${r?.to_code || tgt?.box_code}`, "ok");
       setXferQty(""); setXferTo(null);
       reload(false);
     } catch (e: any) {
@@ -326,14 +329,14 @@ export function BoxDetail({ boxId }: { boxId: string }) {
 
       {!disabled && remaining > 0 && (
         <section class="card">
-          <label class="card-label"><Icon name="truck" size={15} /> Chuyển hàng sang thùng khác</label>
+          <label class="card-label"><Icon name="truck" size={15} /> Chuyển hàng sang {(b.unit_name || "thùng").toLowerCase()} khác</label>
           <div class="row" style={{ gap: "6px" }}>
             <span style={{ flex: 1 }}>
-              <SelectPopup title={`Chuyển ${b.product_code} tới thùng…`} searchable placeholder="Chọn thùng đích (cùng SP)"
+              <SelectPopup title={`Chuyển ${b.product_code} tới…`} searchable placeholder="Chọn nơi nhận (cùng SP)"
                 value={xferTo ?? ""} onChange={(v: string) => setXferTo(v ? Number(v) : null)}
                 options={xferTargets.map((x) => ({
                   value: x.id,
-                  label: `Thùng ${(x.box_code || "").split("-").pop()} · còn ${soVN(x.remaining)}${x.place_name ? ` · ${x.place_name}` : ""}`,
+                  label: `${x.unit_name || "Thùng"} ${(x.box_code || "").split("-").pop()} · còn ${soVN(x.remaining)} ${x.product_unit || "cây"}${x.place_name ? ` · ${x.place_name}` : ""}`,
                 }))} />
             </span>
             <input class="pb-amount" style={{ width: "84px" }} type="text" inputMode="decimal"
@@ -342,9 +345,28 @@ export function BoxDetail({ boxId }: { boxId: string }) {
               onInput={(e: any) => setXferQty(e.target.value)} />
             <button class="btn primary" disabled={xferBusy || !xferTo} onClick={doTransfer}>Chuyển</button>
           </div>
-          <div class="muted small" style={{ marginTop: "4px" }}>
-            Chuyển hàng thật giữa 2 thùng cùng mã SP — tồn kho tổng không đổi, có lịch sử 2 chiều.
-          </div>
+          {(() => {
+            // Preview còn lại NGAY khi gõ: bên này giảm, bên nhận tăng — đúng đơn vị từng bên
+            const q = parseFloat((xferQty || "").replace(",", "."));
+            const uThis = (b.unit_name || "Thùng");
+            const pu = b.product_unit || "cây";
+            if (!isFinite(q) || q <= 0) return (
+              <div class="muted small" style={{ marginTop: "4px" }}>
+                Chuyển hàng thật giữa 2 {uThis.toLowerCase()}/kệ cùng mã SP — tồn kho tổng không đổi, có lịch sử 2 chiều.
+              </div>
+            );
+            const after = remaining - q;
+            const tgt = xferTargets.find((x) => x.id === xferTo);
+            return (
+              <div class="small" style={{ marginTop: "4px", color: after < 0 ? "var(--danger)" : "var(--muted)" }}>
+                {after < 0
+                  ? `⚠ Vượt số còn lại — ${uThis.toLowerCase()} này chỉ còn ${soVN(remaining)} ${pu}`
+                  : <>{uThis} này còn <b style={{ color: "var(--text)" }}>{soVN(after)} {pu}</b>
+                      {tgt ? <> · {(tgt.unit_name || "thùng").toLowerCase()} {(tgt.box_code || "").split("-").pop()} thành <b style={{ color: "var(--text)" }}>{soVN((tgt.remaining || 0) + q)} {tgt.product_unit || pu}</b></> : null}
+                    </>}
+              </div>
+            );
+          })()}
         </section>
       )}
 
