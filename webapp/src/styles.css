@@ -1185,7 +1185,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-list { list-style: none; margin: 6px 0 0; padding: 0; }
 .pt-item { display: flex; align-items: center; gap: 8px; }
 .pt-item > :first-child { flex: 1 1 auto; min-width: 0; }
-.pt-line { display: flex; align-items: baseline; gap: 7px; padding: 6px 2px; text-decoration: none; color: inherit; min-width: 0; }
+.pt-line { display: flex; align-items: baseline; gap: 7px; padding: 0 2px; line-height: 1.25; text-decoration: none; color: inherit; min-width: 0; }
 .pt-line:active { background: var(--bg); }
 .pt-time { flex: 0 0 auto; font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .pt-tag { flex: 0 0 auto; font-size: .74rem; font-weight: 700; }
