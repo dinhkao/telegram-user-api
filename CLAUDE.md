@@ -318,8 +318,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `looks_like_report`, unit-tested) shared by the Telegram handler AND the webapp so they
   never drift. `command_handlers/production_commands.py` = the group bot.
   - **`production_store/report_rows.py` — relational mirror `production_report_rows`**
-    (1 row per thợ per phiếu: worker_name, product_code, report_date + normalized
-    `report_ymd`, so_gach/so_tru/so_cay_le/so_mam/tong_calc, note; indexed). Dual-written:
+    (1 row per thợ per phiếu: **worker_id → production_workers.id (danh tính bất
+    biến; worker_name = snapshot)**, product_id/product_code, report_date + normalized
+    `report_ymd`, so_gach/so_tru/so_cay_le/so_mam/tong_calc, note; indexed). Đổi tên
+    thợ (worker_store.update_worker) CASCADE cùng transaction: mirror rows + blob
+    `bang` mọi phiếu → dashboard/chi tiết thợ không tách lịch sử. Dual-written:
     `set_bang` also does delete+insert here so it's queryable for the dashboard (the `bang`
     blob stays the source for current UI reads). Has `dashboard()` + `worker_detail()`
     aggregation queries + `backfill_report_rows()`.
