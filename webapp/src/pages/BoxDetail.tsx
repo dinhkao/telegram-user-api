@@ -227,6 +227,9 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   const used = b.allocated ?? 0;
   const remaining = b.remaining ?? b.quantity;
   const disabled = isDisabled(b);
+  // Thùng ĐÃ XUẤT HẾT (remaining ≤ 0) = read-only: chỉ trao đổi (bình luận/ảnh),
+  // cấm sửa ghi chú/ngày SX/đơn vị/CHUYỂN KHO/chuyển hàng. Server cũng chặn.
+  const soldOut = remaining <= 0;
 
   return (
     <div class={disabled ? "box-detail is-disabled" : "box-detail"}>
@@ -252,6 +255,13 @@ export function BoxDetail({ boxId }: { boxId: string }) {
         </div>
       )}
 
+      {!disabled && soldOut && (
+        <div class="box-disabled-banner">
+          ✅ Thùng đã xuất hết — chỉ trao đổi (bình luận/ảnh). Không sửa ghi chú/ngày
+          SX/đơn vị, không chuyển kho, không chuyển hàng.
+        </div>
+      )}
+
       <section class="card">
         <div class="box-kv">
           <span class="box-k">Số {b.product_unit || "cây"}</span>
@@ -266,33 +276,45 @@ export function BoxDetail({ boxId }: { boxId: string }) {
         </div>
         <div class="box-kv">
           <span class="box-k">Đơn vị</span>
-          <SelectPopup title="Đơn vị chứa" placeholder="Thùng (mặc định)" searchable onCreate={createUnitAssign}
-            value={b.unit_id ?? ""} options={units.map((u) => ({ value: u.id, label: u.name }))}
-            onChange={pickUnit} />
+          {soldOut ? (
+            <span class="box-v">{b.unit_name || "Thùng"}</span>
+          ) : (
+            <SelectPopup title="Đơn vị chứa" placeholder="Thùng (mặc định)" searchable onCreate={createUnitAssign}
+              value={b.unit_id ?? ""} options={units.map((u) => ({ value: u.id, label: u.name }))}
+              onChange={pickUnit} />
+          )}
         </div>
         <div class="box-kv">
           <span class="box-k">Vị trí</span>
           <span class={"box-v bd-place" + (b.place_name ? "" : " muted")}>
             <Icon name="tag" size={14} /> <span class="bd-place-name">{b.place_name || "Chưa xếp"}</span>
           </span>
-          <button class="btn small box-move-btn" onClick={() => setMovePop(true)}>
-            <Icon name="truck" size={14} /> Chuyển kho
-          </button>
+          {!soldOut && (
+            <button class="btn small box-move-btn" onClick={() => setMovePop(true)}>
+              <Icon name="truck" size={14} /> Chuyển kho
+            </button>
+          )}
         </div>
-        <SelectPopup open={movePop} onClose={() => setMovePop(false)}
-          title={`Chuyển thùng ${b.box_code} tới…`} searchable onCreate={createPlaceAssign}
-          value={b.place_id ?? ""}
-          options={[{ value: "", label: "— Chưa xếp —" }, ...places.map((p) => ({ value: p.id, label: p.name }))]}
-          onChange={doMove} />
+        {!soldOut && (
+          <SelectPopup open={movePop} onClose={() => setMovePop(false)}
+            title={`Chuyển thùng ${b.box_code} tới…`} searchable onCreate={createPlaceAssign}
+            value={b.place_id ?? ""}
+            options={[{ value: "", label: "— Chưa xếp —" }, ...places.map((p) => ({ value: p.id, label: p.name }))]}
+            onChange={doMove} />
+        )}
         <div class="box-kv">
           <span class="box-k">Ngày SX</span>
-          <input
-            class="box-mfg"
-            type="date"
-            value={mfgInput}
-            onInput={(e) => setMfgInput((e.target as HTMLInputElement).value)}
-            onChange={(e) => saveMfg((e.target as HTMLInputElement).value)}
-          />
+          {soldOut ? (
+            <span class="box-v">{mfgInput || "—"}</span>
+          ) : (
+            <input
+              class="box-mfg"
+              type="date"
+              value={mfgInput}
+              onInput={(e) => setMfgInput((e.target as HTMLInputElement).value)}
+              onChange={(e) => saveMfg((e.target as HTMLInputElement).value)}
+            />
+          )}
         </div>
         <div class="box-kv">
           <span class="box-k">Người nhập</span>
@@ -306,13 +328,17 @@ export function BoxDetail({ boxId }: { boxId: string }) {
 
       <section class="card">
         <label class="card-label">Ghi chú {noteSaved && <span class="muted small">✓ đã lưu</span>}</label>
-        <textarea
-          rows={2}
-          value={noteInput}
-          onInput={(e) => setNoteInput((e.target as HTMLTextAreaElement).value)}
-          onBlur={saveNote}
-          placeholder="Ghi chú cho thùng (tự lưu khi rời ô)…"
-        />
+        {soldOut ? (
+          <div class={b.note ? "" : "muted small"}>{b.note || "Không có ghi chú"}</div>
+        ) : (
+          <textarea
+            rows={2}
+            value={noteInput}
+            onInput={(e) => setNoteInput((e.target as HTMLTextAreaElement).value)}
+            onBlur={saveNote}
+            placeholder="Ghi chú cho thùng (tự lưu khi rời ô)…"
+          />
+        )}
       </section>
 
       <section class="card">

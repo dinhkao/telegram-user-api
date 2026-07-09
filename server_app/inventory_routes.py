@@ -707,13 +707,23 @@ async def box_update_handler(request: web.Request):
         conn = _conn()
         try:
             _ensure(conn)
-            if not get_box(conn, box_id):
-                return None
+            box = get_box(conn, box_id)
+            if not box:
+                return None, None
+            # ⛔ Thùng ĐÃ XUẤT HẾT (remaining ≤ 0) = read-only: chỉ trao đổi (bình
+            # luận/ảnh) được, cấm sửa ghi chú/ngày SX/đơn vị/CHUYỂN KHO (place_id).
+            used = sum((a.get("quantity") or 0) for a in list_box_allocations(conn, box_id))
+            if float(box.get("quantity") or 0) - used <= 1e-9:
+                return None, "locked"
             update_box(conn, box_id, **kwargs)
-            return get_box(conn, box_id)
+            return get_box(conn, box_id), None
         finally:
             conn.close()
-    box = await asyncio.to_thread(_run)
+    box, err = await asyncio.to_thread(_run)
+    if err == "locked":
+        return web.json_response(
+            {"ok": False, "error": "Thùng đã xuất hết — chỉ trao đổi được, không sửa/chuyển kho"},
+            status=400)
     if not box:
         return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
     from server_app.realtime import emit_box_changed, emit_inventory_changed
