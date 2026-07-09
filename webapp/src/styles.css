@@ -1204,7 +1204,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pd-csp { font-weight: 700; text-decoration: none; color: inherit; }
 .pd-cn { font-weight: 400; color: var(--muted); font-size: .82rem; }
 .pd-cboxes { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; }
-.pd-cbox { display: inline-flex; align-items: stretch; flex: 1 0 auto; min-width: 60px; font-size: .82rem;
+.pd-cbox { display: inline-flex; align-items: stretch; flex: 0 0 auto; width: 74px; font-size: .82rem;
   border: 1px solid var(--border); border-radius: 6px; overflow: hidden; text-decoration: none; color: inherit; }
 .pd-cbox:active { opacity: .7; }
 .pd-cbn { flex: 1 1 auto; font-family: monospace; font-weight: 600; padding: 1px 5px; background: var(--bg); }
