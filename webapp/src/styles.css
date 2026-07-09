@@ -1193,15 +1193,15 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
   border-radius: 6px; background: var(--bg); color: var(--muted); flex: 0 0 auto; }
 .pt-ic.in { background: #e8f5e9; color: var(--ok); }
 .pt-ic.out { background: #fdecea; color: var(--danger); }
-.pt-rail { flex: 0 0 auto; width: 74px; box-sizing: border-box; position: relative; padding-left: 17px;
-  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; }
-.pt-rail::before { content: ""; position: absolute; left: 4px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+.pt-rail { flex: 0 0 auto; width: 20px; box-sizing: border-box; position: relative;
+  display: flex; align-items: center; justify-content: center; }
+.pt-rail::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--border); }
 .pt-item:first-of-type .pt-rail::before { top: 50%; }
 .pt-item:last-of-type .pt-rail::before { bottom: 50%; }
-.pt-dot { position: absolute; left: -1.5px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px;
+.pt-dot { position: relative; z-index: 1; width: 13px; height: 13px;
   border-radius: 50%; background: var(--card); border: 3px solid var(--muted); box-sizing: border-box;
   padding: 0; cursor: pointer; -webkit-appearance: none; appearance: none; }
-.pt-dot:active { transform: translateY(-50%) scale(1.25); }
+.pt-dot:active { transform: scale(1.25); }
 .pt-dot.in { border-color: var(--ok); }
 .pt-dot.out { border-color: var(--danger); }
 .pt-card-link { text-decoration: none; color: inherit; display: block; }
@@ -1221,8 +1221,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-delta { font-size: .72rem; font-weight: 600; }
 .pt-delta.in { color: var(--ok); }
 .pt-delta.out { color: var(--danger); }
-.pt-day { margin-right: 82px; }
-.pt-gap { margin-right: 82px; display: flex; align-items: center; justify-content: center; }
+.pt-day { margin-right: 28px; }
+.pt-gap { margin-right: 28px; display: flex; align-items: center; justify-content: center; }
 .pt-trunc { text-align: center; margin: 8px 0; }
 
 .inv-tag { font-size: .74rem; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
