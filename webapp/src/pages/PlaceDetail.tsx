@@ -11,6 +11,7 @@ import { Icon } from "../ui/Icon";
 import { toast, confirmDialog } from "../ui/feedback";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
+import { CompactBoxList } from "../detail/CompactBoxList";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
@@ -123,7 +124,6 @@ export function PlaceDetail({ id }: { id: string }) {
         for (const b of live) { const a = g.get(b.product_code); if (a) a.push(b); else g.set(b.product_code, [b]); }
         const sumRem = (bs: typeof live) => bs.reduce((s, b) => s + remOf(b), 0);
         const groups = [...g.entries()].sort((a, b) => sumRem(b[1]) - sumRem(a[1]) || a[0].localeCompare(b[0]));
-        const num = (b: any) => (b.box_code || "").split("-").pop() || b.box_code;
         if (boxes.length === 0) return <EmptyState>Chưa có thùng ở vị trí này. Gán vị trí ở chi tiết thùng.</EmptyState>;
         if (live.length === 0) return <EmptyState>Kho này không còn thùng nào có hàng.</EmptyState>;
         return (
@@ -133,21 +133,7 @@ export function PlaceDetail({ id }: { id: string }) {
               <button class={"chip" + (view === "compact" ? " active" : "")} onClick={() => setView("compact")}>Gọn</button>
             </div>
             {view === "compact" ? (
-              <div class="pd-compact">
-                {groups.map(([pcode, bs]) => (
-                  <div class="pd-crow" key={pcode}>
-                    <a class="pd-csp" href={`#/kho/${encodeURIComponent(pcode)}`}>{pcode} <span class="pd-cn">({bs.length})</span></a>
-                    <span class="pd-cboxes">
-                      {bs.slice().sort((a, b) => num(a).localeCompare(num(b))).map((b) => (
-                        <a class="pd-cbox" key={b.id} href={`#/thung/${b.id}`}
-                          title={`Thùng ${num(b)} · còn ${soVN(remOf(b))} ${(b as any).product_unit || "cây"}`}>
-                          <span class="pd-cbn">{num(b)}</span><span class="pd-cq">{soVN(remOf(b))}</span>
-                        </a>
-                      ))}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <CompactBoxList boxes={live} />
             ) : (
               <div class="kho-groups">
                 {groups.map(([pcode, bs]) => (

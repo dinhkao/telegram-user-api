@@ -10,8 +10,10 @@ import { Icon } from "../ui/Icon";
 import { SearchBar } from "../ui/SearchBar";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
+import { CompactBoxList } from "../detail/CompactBoxList";
 
 let memQ = "";                 // nhớ search khi rời trang
+let memBoxView: "grid" | "compact" = "compact";   // kiểu xem ô thùng ở search (mặc định GỌN)
 const MAX_CHIPS = 8;           // số mã SP hiện trên 1 card (còn lại gộp "+k")
 
 // Tồn dùng được của 1 thùng (vô hiệu = 0)
@@ -81,6 +83,8 @@ export function KhoBoxes() {
   const [prodSum, setProdSum] = useState<InvProductSummary[]>([]);   // code → tên + tổng tồn
   const [err, setErr] = useState("");
   const [q, setQ] = useState(memQ);
+  const [boxView, setBoxView] = useState<"grid" | "compact">(memBoxView);
+  useEffect(() => { memBoxView = boxView; }, [boxView]);
   const [openUnplaced, setOpenUnplaced] = useState(false);
   useEffect(() => { memQ = q; }, [q]);
 
@@ -180,24 +184,30 @@ export function KhoBoxes() {
         {nothing ? (
           <EmptyState>Không có gì khớp “{q.trim()}”.</EmptyState>
         ) : groups.length > 0 ? (
-          <div class="kho-groups">
-            {groups.map((g) => (
-              <section class="kho-group" key={g.key}>
-                {g.href ? (
-                  <a class="kho-group-h" href={g.href}>
-                    <b><Icon name="box" size={15} /> {g.name}</b>
-                    <span class="muted small">{soVN(g.list.reduce((s, x) => s + rem(x), 0))} tồn · {g.list.length} thùng →</span>
-                  </a>
-                ) : (
-                  <div class="kho-group-h">
-                    <b>{g.name}</b>
-                    <span class="muted small">{soVN(g.list.reduce((s, x) => s + rem(x), 0))} tồn · {g.list.length} thùng</span>
-                  </div>
-                )}
-                <BoxLabelGrid boxes={g.list} />
-              </section>
-            ))}
-          </div>
+          <>
+            <div class="row" style={{ justifyContent: "flex-end", gap: "6px", marginBottom: "4px" }}>
+              <button class={"chip" + (boxView === "grid" ? " active" : "")} onClick={() => setBoxView("grid")}>Ô thùng</button>
+              <button class={"chip" + (boxView === "compact" ? " active" : "")} onClick={() => setBoxView("compact")}>Gọn</button>
+            </div>
+            <div class="kho-groups">
+              {groups.map((g) => (
+                <section class="kho-group" key={g.key}>
+                  {g.href ? (
+                    <a class="kho-group-h" href={g.href}>
+                      <b><Icon name="box" size={15} /> {g.name}</b>
+                      <span class="muted small">{soVN(g.list.reduce((s, x) => s + rem(x), 0))} tồn · {g.list.length} thùng →</span>
+                    </a>
+                  ) : (
+                    <div class="kho-group-h">
+                      <b>{g.name}</b>
+                      <span class="muted small">{soVN(g.list.reduce((s, x) => s + rem(x), 0))} tồn · {g.list.length} thùng</span>
+                    </div>
+                  )}
+                  {boxView === "compact" ? <CompactBoxList boxes={g.list} /> : <BoxLabelGrid boxes={g.list} />}
+                </section>
+              ))}
+            </div>
+          </>
         ) : null}
       </div>
     );
