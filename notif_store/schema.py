@@ -16,9 +16,18 @@ def create_notif_table(conn):
             body        TEXT,
             thread_id   INTEGER,            -- đơn liên quan (nullable)
             focus       TEXT,               -- 'comment:123' cho deep-link (nullable)
+            image_id    INTEGER,            -- ảnh liên quan → thumbnail ở popup/FCM (nullable)
             created_at  TEXT DEFAULT (datetime('now'))
         )
         """
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_notif_id ON notifications(id DESC)")
+    _migrate(conn)
     conn.commit()
+
+
+def _migrate(conn):
+    """Thêm cột mới cho bảng cũ (idempotent). image_id: thumbnail thông báo ảnh."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(notifications)").fetchall()}
+    if "image_id" not in cols:
+        conn.execute("ALTER TABLE notifications ADD COLUMN image_id INTEGER")

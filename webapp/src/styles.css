@@ -1574,6 +1574,8 @@ body.kbd-open .wr-peek-btn { bottom: calc(12px + env(safe-area-inset-bottom, 0px
 .notif-body { flex: 1; min-width: 0; }
 .notif-title { font-weight: 700; font-size: .92rem; }
 .notif-text { font-size: .9rem; color: var(--ink); word-break: break-word; margin: 1px 0 2px; }
+.notif-thumb { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 8px; object-fit: cover;
+  background: var(--bg); border: 1px solid var(--border); }
 
 /* Quản lý danh sách thợ (#/tho) */
 .wl-defcheck { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: .88rem; color: var(--muted); }

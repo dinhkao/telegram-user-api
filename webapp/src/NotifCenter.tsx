@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { usePopupBack } from "./ui/usePopupBack";
 import { createPortal } from "preact/compat";
-import { listNotifications, type Notif } from "./api";
+import { listNotifications, orderImageUrl, type Notif } from "./api";
 import { onRealtime } from "./realtime";
 import { fmtRelative } from "./format";
 import { Icon } from "./ui/Icon";
@@ -82,6 +82,10 @@ export function NotifCenter() {
                       <div class="notif-text">{n.body}</div>
                       <div class="muted small">{fmtRelative(n.created_at)}</div>
                     </div>
+                    {n.image_id && n.thread_id ? (
+                      <img class="notif-thumb" loading="lazy"
+                        src={orderImageUrl(n.thread_id, n.image_id, "thumb")} alt="" />
+                    ) : null}
                   </li>
                 ))}
               </ul>

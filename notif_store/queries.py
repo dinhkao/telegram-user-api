@@ -9,10 +9,12 @@ def _now_iso() -> str:
 
 
 def add_notification(conn, *, type: str, title: str, body: str,
-                     thread_id: int | None = None, focus: str | None = None) -> dict:
+                     thread_id: int | None = None, focus: str | None = None,
+                     image_id: int | None = None) -> dict:
     cur = conn.execute(
-        "INSERT INTO notifications (type, title, body, thread_id, focus, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-        (type, title, body, thread_id, focus, _now_iso()),
+        "INSERT INTO notifications (type, title, body, thread_id, focus, image_id, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (type, title, body, thread_id, focus, image_id, _now_iso()),
     )
     conn.commit()
     return get_notification(conn, cur.lastrowid)

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 
 from aiohttp import web
 
@@ -29,6 +30,30 @@ def _focus(data: dict | None) -> str | None:
     return None
 
 
+def _order_peek(conn, thread_id: int | None) -> str:
+    """Dòng đầu nội dung đơn (≤80 ký tự) để thông báo ghi rõ 'vào đơn <text>'."""
+    if not thread_id:
+        return ""
+    try:
+        from order_store.serialization import get_order_by_thread_id
+        o = get_order_by_thread_id(conn, thread_id)
+        if not o:
+            return ""
+        txt = (o.get("text") or o.get("text_raw") or "").strip()
+        return txt.split("\n", 1)[0].strip()[:80] if txt else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _fcm_image_url(thread_id: int | None, image_id: int | None) -> str | None:
+    """URL tuyệt đối tới ảnh đơn cho FCM big-picture (Android). Cần WEBAPP_URL +
+    máy nhận truy cập được (Tailscale). Không có config → None (bỏ ảnh, push thường)."""
+    base = os.getenv("WEBAPP_URL", "").rstrip("/")
+    if not base or not thread_id or not image_id:
+        return None
+    return f"{base}/api/order/{thread_id}/images/{image_id}/file?size=full"
+
+
 async def _push(title: str, body: str, data: dict | None) -> None:
     focus = _focus(data)
     thread_id = None
@@ -37,28 +62,40 @@ async def _push(title: str, body: str, data: dict | None) -> None:
     except (ValueError, TypeError):
         thread_id = None
     ntype = (data or {}).get("type") or "info"
+    image_id = None
+    try:
+        image_id = int(data["image_id"]) if data and data.get("image_id") else None
+    except (ValueError, TypeError):
+        image_id = None
 
     def _w():
         conn = get_connection()
         try:
+            # Thông báo ảnh: ghi rõ đơn nào — nối dòng đầu nội dung đơn vào body
+            fb = body
+            if ntype == "image":
+                peek = _order_peek(conn, thread_id)
+                if peek:
+                    fb = f"{body} {peek}"
             from notif_store import create_notif_table, add_notification, prune_old
             create_notif_table(conn)
-            row = add_notification(conn, type=ntype, title=title, body=body,
-                                   thread_id=thread_id, focus=focus)
+            row = add_notification(conn, type=ntype, title=title, body=fb,
+                                   thread_id=thread_id, focus=focus, image_id=image_id)
             prune_old(conn)
-            return row
+            return row, fb
         finally:
             conn.close()
 
+    final_body = body
     try:
-        row = await asyncio.to_thread(_w)
+        row, final_body = await asyncio.to_thread(_w)
         from server_app.realtime import emit_notif_added
         emit_notif_added(row)
     except Exception as e:  # noqa: BLE001
         log.warning("Ghi notification lỗi: %s", e)
-    # Push FCM (best-effort, tự bỏ qua nếu FCM_ENABLED=false)
+    # Push FCM (best-effort, tự bỏ qua nếu FCM_ENABLED=false). Ảnh → kèm big-picture.
     from server_app.fcm import notify_bg
-    notify_bg(title, body, data)
+    notify_bg(title, final_body, data, image_url=_fcm_image_url(thread_id, image_id) if ntype == "image" else None)
 
 
 def push_bg(title: str, body: str, data: dict | None = None) -> None:

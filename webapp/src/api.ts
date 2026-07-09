@@ -766,6 +766,7 @@ export type Notif = {
   body: string;
   thread_id?: number | null;
   focus?: string | null;
+  image_id?: number | null;   // ảnh liên quan → thumbnail ở popup
   created_at?: string | null;
 };
 
