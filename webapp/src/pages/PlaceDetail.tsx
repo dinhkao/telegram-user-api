@@ -112,14 +112,29 @@ export function PlaceDetail({ id }: { id: string }) {
       </section>
 
       {(() => {
-        // Chi tiết kho: CHỈ hiện thùng còn hàng (thùng đã hết xem ở chi tiết SP)
+        // Chi tiết kho: CHỈ hiện thùng còn hàng (thùng đã hết xem ở chi tiết SP), GOM THEO SP
         const live = boxes.filter((b) => (b.remaining ?? b.quantity ?? 0) > 0);
+        const remOf = (b: any) => Math.max(0, b.remaining ?? b.quantity ?? 0);
+        const g = new Map<string, typeof live>();
+        for (const b of live) { const a = g.get(b.product_code); if (a) a.push(b); else g.set(b.product_code, [b]); }
+        const sumRem = (bs: typeof live) => bs.reduce((s, b) => s + remOf(b), 0);
+        const groups = [...g.entries()].sort((a, b) => sumRem(b[1]) - sumRem(a[1]) || a[0].localeCompare(b[0]));
         return boxes.length === 0 ? (
           <EmptyState>Chưa có thùng ở vị trí này. Gán vị trí ở chi tiết thùng.</EmptyState>
         ) : live.length === 0 ? (
           <EmptyState>Kho này không còn thùng nào có hàng.</EmptyState>
         ) : (
-          <BoxLabelGrid boxes={live} />
+          <div class="kho-groups">
+            {groups.map(([pcode, bs]) => (
+              <section class="kho-group" key={pcode}>
+                <a class="kho-group-h" href={`#/kho/${encodeURIComponent(pcode)}`}>
+                  <b>{pcode}</b>
+                  <span class="muted small">{soVN(sumRem(bs))} tồn · {bs.length} thùng →</span>
+                </a>
+                <BoxLabelGrid boxes={bs} />
+              </section>
+            ))}
+          </div>
         );
       })()}
 
