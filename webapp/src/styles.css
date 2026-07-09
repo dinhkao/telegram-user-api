@@ -152,7 +152,8 @@ body.kbd-open .page { padding-bottom: 10px; }
 .od-cust { margin-left: auto; display: flex; align-items: center; gap: 6px; min-width: 0; }
 .od-cust-chip { display: flex; align-items: center; gap: 9px; background: var(--accent-wash); border: 1px solid #cfe0fb; border-radius: var(--r-md); padding: 7px 12px; color: inherit; text-decoration: none; min-width: 0; }
 .od-cust-chip .co-avatar { width: 30px; height: 30px; font-size: .88rem; }
-.od-cust-name { min-width: 0; max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; }
+.od-cust-name { min-width: 0; max-width: 46vw; font-size: .92rem; line-height: 1.15; word-break: break-word;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .od-cust-btn { flex: none; }
 .od-cust-add { display: flex; align-items: center; gap: 6px; background: var(--warn-wash); border: 1px dashed #d8b64a; border-radius: var(--r-md); padding: 9px 13px; font-size: .95rem; font-weight: 600; color: var(--ink); }
 .od-cust-add.faded { opacity: .5; }
