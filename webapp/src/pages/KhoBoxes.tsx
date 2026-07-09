@@ -69,10 +69,8 @@ function LocCard({ p, bs }: { p: Place; bs: KhoBox[] }) {
         <div class="kho-loc-thumb ph"><Icon name="box" size={26} /></div>
       )}
       <div class="kho-loc-main">
-        <div class="kho-loc-head">
-          <span class="kho-loc-name"><Icon name="box" size={16} /> {p.name}</span>
-          <span class={"kho-loc-tot" + (total > 0 ? "" : " zero")}>{soVN(total)}<span class="muted small"> tồn · {bs.length} thùng</span></span>
-        </div>
+        <div class="kho-loc-name">{p.name}</div>
+        <div class="kho-loc-meta"><b>{bs.length}</b> thùng · <b class={total > 0 ? "kho-loc-t" : ""}>{soVN(total)}</b> tồn</div>
         <ProdChips prods={prodAgg(bs)} />
       </div>
       <Icon name="chevronRight" size={18} class="kg-arrow" />
@@ -232,10 +230,8 @@ export function KhoBoxes() {
             <div class="kho-loc-card unplaced" onClick={() => setOpenUnplaced((v) => !v)}>
               <div class="kho-loc-thumb ph"><Icon name="box" size={26} /></div>
               <div class="kho-loc-main">
-                <div class="kho-loc-head">
-                  <span class="kho-loc-name muted">Chưa xếp vị trí</span>
-                  <span class="kho-loc-tot">{soVN(unplaced.reduce((s, b) => s + rem(b), 0))}<span class="muted small"> tồn · {unplaced.length} thùng</span></span>
-                </div>
+                <div class="kho-loc-name muted">Chưa xếp vị trí</div>
+                <div class="kho-loc-meta"><b>{unplaced.length}</b> thùng · <b class="kho-loc-t">{soVN(unplaced.reduce((s, b) => s + rem(b), 0))}</b> tồn</div>
                 <ProdChips prods={prodAgg(unplaced)} />
               </div>
               <Icon name="chevronRight" size={18} class={"kg-arrow" + (openUnplaced ? " open" : "")} />

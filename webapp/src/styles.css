@@ -1143,17 +1143,17 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .kho-loc-thumb { flex: 0 0 33%; width: 33%; align-self: stretch; min-height: 96px; border-radius: 10px; object-fit: cover;
   background: var(--bg); border: 1px solid var(--border); }
 .kho-loc-thumb.ph { display: flex; align-items: center; justify-content: center; color: var(--muted); }
-.kho-loc-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
-.kho-loc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.kho-loc-name { font-weight: 700; font-size: 1rem; display: inline-flex; align-items: center; gap: 5px; }
-.kho-loc-tot { font-weight: 700; font-size: 1.05rem; color: var(--ok); white-space: nowrap; }
-.kho-loc-tot.zero { color: var(--muted); font-weight: 400; }
-.kho-loc-tot .small { font-weight: 400; font-size: .78rem; }
-.kho-loc-prods { display: flex; flex-direction: column; gap: 2px; }
-.kho-loc-pline { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: .85rem; }
+.kho-loc-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.kho-loc-name { font-weight: 700; font-size: 1rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kho-loc-meta { font-size: .78rem; color: var(--muted); margin: 1px 0 5px; }
+.kho-loc-meta b { color: var(--ink); font-weight: 700; }
+.kho-loc-t { color: var(--ok) !important; }
+.kho-loc-prods { display: flex; flex-direction: column; }
+.kho-loc-pline { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: .85rem;
+  padding: 3px 0; border-top: 1px solid var(--border); }
 .kho-loc-pcode { font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kho-loc-pqty { color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
-.kho-loc-pmore { font-size: .8rem; color: var(--muted); margin-top: 1px; }
+.kho-loc-pqty { color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+.kho-loc-pmore { font-size: .78rem; color: var(--muted); padding: 3px 0 0; border-top: 1px solid var(--border); }
 .kho-loc-empty { color: var(--muted); font-size: .85rem; }
 .kho-loc-card .kg-arrow { align-self: center; flex: 0 0 auto; color: var(--muted); transition: transform .15s; }
 .kho-loc-card .kg-arrow.open { transform: rotate(90deg); }
