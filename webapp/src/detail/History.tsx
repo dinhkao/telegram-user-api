@@ -79,6 +79,11 @@ export function History({ base, focusTs }: { base: string; focusTs?: number }) {
                     {h.move ? (
                       <span> · từ {placeLink(h.move.from, h.ts)} → {placeLink(h.move.to, h.ts)}</span>
                     ) : h.detail ? <span> — {h.detail}</span> : null}
+                    {h.order ? (
+                      <span> · <a class="hist-order-lnk"
+                        href={`#/order/${h.order.thread_id}${h.order.box_id ? `?focus=box:${h.order.box_id}` : ""}`}
+                        >"{h.order.text}"</a></span>
+                    ) : null}
                     {h.ok === false ? <span class="owe"> ✗</span> : null}
                   </div>
                   {Array.isArray(h.changes) && h.changes.length > 0 ? (

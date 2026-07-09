@@ -51,10 +51,9 @@ def _inv_entry(act: str, scope: str, p: dict) -> tuple[str, str] | None:
         return ("Nhập thùng vào kho" if scope == "place" else "Tạo thùng"), join(f"{q} cây" if q else "")
     if act in ("box.allocated", "box.released"):
         taken = _numv(p.get("taken"))
-        ot = p.get("order_text")
         verb = "lấy" if act == "box.allocated" else "trả"
-        extra = " · ".join(x for x in [f"{verb} {taken}" if taken else "", f'"{ot}"' if ot else ""] if x)
-        return ("Xuất cho đơn" if act == "box.allocated" else "Thu hồi về kho"), join(extra)
+        # order_text KHÔNG nhét vào detail — History render nó thành LINK tới đơn (item['order'])
+        return ("Xuất cho đơn" if act == "box.allocated" else "Thu hồi về kho"), join(f"{verb} {taken}" if taken else "")
     if act == "box.moved":   # lịch sử THÙNG — ghi rõ TỪ → ĐẾN
         return "Chuyển kho", join(f"từ {p.get('from_name') or 'Chưa xếp'} → {p.get('to_name') or 'Chưa xếp'}")
     if act == "box.moved_out":
@@ -181,6 +180,10 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
                 if act == "box.moved":   # link tên kho → timeline kho tương ứng
                     item["move"] = {"from": {"id": pl.get("from_place_id"), "name": pl.get("from_name")},
                                     "to": {"id": pl.get("to_place_id"), "name": pl.get("to_name")}}
+                if act in ("box.allocated", "box.released") and pl.get("order_thread_id") and pl.get("order_text"):
+                    # link text đơn → mở đơn + cuộn/nháy đúng thùng (focus=box:<box_id>)
+                    item["order"] = {"thread_id": pl.get("order_thread_id"), "box_id": pl.get("box_id"),
+                                     "text": pl.get("order_text")}
                 out.append(item)
             elif act in _ACTION_LABELS:
                 out.append({"ts": r["ts"], "actor": _actor_display(r["actor_id"], names),
