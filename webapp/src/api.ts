@@ -989,6 +989,11 @@ export async function updateProduct(code: string, patch: { unit?: string; name?:
   const d = await postJSON(`/api/products/${encodeURIComponent(code)}`, patch, { queueable: false });
   return d.ok ? d.product : null;
 }
+/** Đổi MÃ SP (admin) — mọi liên kết theo id tự đúng; KiotViet đổi theo best-effort. */
+export async function renameProduct(code: string, newCode: string): Promise<{ product: InvProductLink & { code: string }; kiotviet?: string | null }> {
+  const d = await postJSON(`/api/products/${encodeURIComponent(code)}/rename`, { new_code: newCode }, { queueable: false });
+  return { product: d.product, kiotviet: d.kiotviet };
+}
 export type KvCategory = { id: number; name: string };
 /** Nhóm hàng KiotViet (chọn khi tạo SP mới). */
 export async function kiotvietCategories(): Promise<KvCategory[]> {

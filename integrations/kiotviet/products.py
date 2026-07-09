@@ -35,6 +35,23 @@ def list_categories_kv(limit: int = 100) -> list[dict]:
     return out
 
 
+def update_product_code_kv(kv_id: int, new_code: str) -> dict:
+    """Đổi CODE của 1 SP trên KiotViet (PUT /products/{id}) — giữ nguyên tên/nhóm/
+    đơn vị/giá (đọc bản hiện tại rồi PUT lại với code mới). Spike 2026-07-09 xác
+    nhận PUT đổi code được. Ném RuntimeError nếu KiotViet từ chối."""
+    cur = _request("GET", f"/products/{int(kv_id)}")
+    body: dict = {
+        "code": str(new_code or "").strip().upper(),
+        "name": cur.get("name") or cur.get("fullName") or str(new_code),
+        "categoryId": cur.get("categoryId"),
+        "allowsSale": cur.get("allowsSale", True),
+        "unit": cur.get("unit") or "cây",
+    }
+    if cur.get("basePrice"):
+        body["basePrice"] = cur["basePrice"]
+    return _request("PUT", f"/products/{int(kv_id)}", body=body)
+
+
 def create_product_kv(code: str, name: str, *, category_id: int, unit: str = "",
                       base_price: float = 0) -> dict:
     """Tạo SP MỚI trên KiotViet (POST /products). Bắt buộc name/code/categoryId/

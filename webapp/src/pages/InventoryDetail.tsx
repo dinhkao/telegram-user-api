@@ -3,7 +3,7 @@
 // Thùng đã xuất link tới đơn. Realtime production_changed → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, createKiotvietProduct, kiotvietCategories, deleteProduct, updateProduct, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct, type KvCategory } from "../api";
+import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, createKiotvietProduct, kiotvietCategories, deleteProduct, updateProduct, renameProduct, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct, type KvCategory } from "../api";
 import { SelectPopup } from "../ui/SelectPopup";
 import { confirmDialog, toast } from "../ui/feedback";
 import { useScrollLock } from "../useScrollLock";
@@ -37,6 +37,26 @@ export function InventoryDetail({ code }: { code: string }) {
       const p = await updateProduct(code, { unit: u });
       if (p && inv) { setInv({ ...inv, product: p }); setUnitSaved(true); setTimeout(() => setUnitSaved(false), 1500); }
     } catch { /* im */ }
+  };
+  // Mã SP — đổi TỰ DO (admin): mọi liên kết theo products.id nên chỉ đổi nhãn;
+  // mã cũ thành alias (gõ vẫn nhận, link cũ redirect). Có confirm vì đổi cả KiotViet.
+  const [codeInput, setCodeInput] = useState("");
+  useEffect(() => { setCodeInput(inv?.product_code || code); }, [inv?.product_code]);
+  const saveCode = async () => {
+    const nc = codeInput.trim().toUpperCase();
+    if (!inv || !nc || nc === (inv.product_code || code)) { setCodeInput(inv?.product_code || code); return; }
+    const ok = await confirmDialog(
+      `Đổi mã "${inv.product_code}" → "${nc}"?\nĐơn cũ, kho, bảng giá, SX sẽ hiện mã mới ngay.` +
+      (inv.product?.linked ? "\nMã bên KiotViet cũng được đổi theo." : ""));
+    if (!ok) { setCodeInput(inv.product_code || code); return; }
+    try {
+      const r = await renameProduct(inv.product_code || code, nc);
+      toast(`✅ Đã đổi mã → ${r.product.code}` + (r.kiotviet ? `\n${r.kiotviet}` : ""), "ok");
+      window.location.replace(`#/kho/${encodeURIComponent(r.product.code)}`);
+    } catch (e: any) {
+      toast(e?.message || "Đổi mã lỗi", "err");
+      setCodeInput(inv.product_code || code);
+    }
   };
   // Tên SP — sửa tại chỗ như Đơn vị (blur là lưu)
   const [nameInput, setNameInput] = useState("");
@@ -183,7 +203,13 @@ export function InventoryDetail({ code }: { code: string }) {
 
   const load = async () => {
     try {
-      setInv(await inventoryDetail(code));
+      const r = await inventoryDetail(code);
+      // URL mang MÃ CŨ (đã đổi) → server resolve, mình thay URL sang mã hiện hành
+      if (r.product_code && r.product_code !== code) {
+        window.location.replace(`#/kho/${encodeURIComponent(r.product_code)}`);
+        return;
+      }
+      setInv(r);
     } catch (e: any) {
       setErr(e?.message || "Lỗi tải");
     }
@@ -222,6 +248,15 @@ export function InventoryDetail({ code }: { code: string }) {
 
       {/* Tên danh mục + liên kết KiotViet */}
       <section class="card prod-link">
+        {inv.product && isAdmin && (
+          <div class="box-kv">
+            <span class="box-k">Mã SP</span>
+            <input class="box-place" style={{ minWidth: "130px", fontWeight: 700, textTransform: "uppercase" }}
+              value={codeInput}
+              onInput={(e: any) => setCodeInput(e.target.value)} onBlur={saveCode}
+              onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+          </div>
+        )}
         {inv.product && (
           <div class="box-kv">
             <span class="box-k">Tên {nameSaved && <span class="muted small">✓</span>}</span>

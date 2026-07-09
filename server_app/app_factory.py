@@ -37,7 +37,7 @@ from server_app.order_history import order_history_handler
 from server_app.orders_api import order_detail_handler, orders_api_handler, orders_delivery_handler
 from server_app.product_routes import (
     products_search_handler, product_create_handler, product_kiotviet_search_handler,
-    product_link_handler, product_unlink_handler, product_delete_handler, product_update_handler,
+    product_link_handler, product_unlink_handler, product_delete_handler, product_update_handler, product_rename_handler,
     product_kv_create_handler, kiotviet_categories_handler,
 )
 from server_app.production_routes import (
@@ -164,6 +164,7 @@ def create_app():
     r.add_get("/api/products/kiotviet", product_kiotviet_search_handler)
     r.add_get("/api/kiotviet/categories", kiotviet_categories_handler)
     r.add_post("/api/products/{code}/kiotviet-create", product_kv_create_handler)
+    r.add_post("/api/products/{code}/rename", product_rename_handler)
     r.add_post("/api/products/{code}/link", product_link_handler)
     r.add_post("/api/products/{code}/unlink", product_unlink_handler)
     r.add_delete("/api/products/{code}", product_delete_handler)

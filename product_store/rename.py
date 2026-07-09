@@ -1,80 +1,68 @@
-"""Đổi MÃ sản phẩm (admin) — cascade mọi dữ liệu VẬN HÀNH trong app.db cùng 1
-transaction: products (PK), product_recipes (cả cột SP lẫn nguyên liệu),
-inventory_boxes, bảng giá CHUNG (kv_store 'bang_gia_moi') + bảng giá RIÊNG từng
-khách (customers.$.personal_price_list), production_slips.sp_name,
-production_report_rows.product_code. ĐƠN HÀNG CŨ giữ mã cũ (bản ghi lịch sử,
-tên đã snapshot — không đụng). Nối: utils.db, .schema (cache).
-"""
+"""Đổi MÃ sản phẩm theo DANH TÍNH (products.id bất biến) — mã chỉ là nhãn.
+
+= UPDATE 1 ô code + ghi product_code_history (alias mã cũ) + refresh các cột mã
+SNAPSHOT hiển thị (kho/công thức/SX — thuần cosmetic, mọi liên kết đã theo id
+nên lệch cũng không sai logic). Bảng giá/đơn hàng KHÔNG cần đụng (key/sp_id theo
+id, hiển thị resolve sống). Đẩy mã mới sang KiotViet làm best-effort ở route.
+Nối: utils.db, .queries, .resolve, .schema (cache), order_store.display."""
 from __future__ import annotations
 
-import json
+import re
 import sqlite3
 import time
 
 from utils.db import transaction
 
+from .queries import get_product
+from .resolve import record_code_change
 from .schema import _invalidate_products_cache
 
-
-def _code(x) -> str:
-    return str(x or "").strip().upper()
+_CODE_RE = re.compile(r"^[A-Z0-9][A-Z0-9._-]*$")
 
 
-def rename_product_code(conn, old_code, new_code) -> tuple[dict | None, str | None]:
+def rename_product(conn, old_code, new_code, by: str = "") -> tuple[dict | None, str | None]:
     """Trả (product sau khi đổi, None) hoặc (None, lý do lỗi)."""
-    old, new = _code(old_code), _code(new_code)
+    old = str(old_code or "").strip().upper()
+    new = str(new_code or "").strip().upper()
     if not old or not new:
         return None, "Thiếu mã"
-    if old == new:
+    if new == old:
         return None, "Mã mới trùng mã cũ"
-    if conn.execute("SELECT 1 FROM products WHERE code = ?", (new,)).fetchone():
-        return None, f"Mã {new} đã tồn tại trong danh mục"
-    if not conn.execute("SELECT 1 FROM products WHERE code = ?", (old,)).fetchone():
+    if len(new) > 30:
+        return None, "Mã quá dài (tối đa 30 ký tự)"
+    if new.isdigit():
+        return None, "Mã SP không được toàn chữ số"
+    if not _CODE_RE.match(new):
+        return None, "Mã chỉ gồm chữ/số và . _ - (bắt đầu bằng chữ/số)"
+    prod = get_product(conn, old)
+    if not prod:
         return None, f"Mã {old} không có trong danh mục"
+    if get_product(conn, new):
+        return None, f"Mã {new} đã tồn tại trong danh mục"
+    pid = int(prod["id"])
     now = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
     try:
         with transaction(conn):
-            conn.execute("UPDATE products SET code = ?, updated_at = ? WHERE code = ?", (new, now, old))
-            # Công thức: SP này là thành phẩm + SP này là nguyên liệu của SP khác
-            conn.execute("UPDATE product_recipes SET product_code = ? WHERE product_code = ?", (new, old))
-            conn.execute("UPDATE product_recipes SET ingredient_code = ? WHERE ingredient_code = ?", (new, old))
-            conn.execute("UPDATE inventory_boxes SET product_code = ? WHERE product_code = ?", (new, old))
-            # Phiếu SX (bảng có thể chưa tạo trên DB test → bỏ qua nếu thiếu)
+            conn.execute("UPDATE products SET code = ?, updated_at = ? WHERE id = ?", (new, now, pid))
+            record_code_change(conn, pid, old, new, by)
+            # refresh mã snapshot hiển thị nhanh (bảng có thể chưa tạo trên DB test)
             for sql in (
-                "UPDATE production_slips SET sp_name = ? WHERE UPPER(COALESCE(sp_name,'')) = ?",
-                "UPDATE production_report_rows SET product_code = ? WHERE UPPER(COALESCE(product_code,'')) = ?",
+                "UPDATE inventory_boxes SET product_code = ? WHERE product_id = ?",
+                "UPDATE product_recipes SET product_code = ? WHERE product_id = ?",
+                "UPDATE product_recipes SET ingredient_code = ? WHERE ingredient_id = ?",
+                "UPDATE production_slips SET sp_name = ? WHERE product_id = ?",
+                "UPDATE production_report_rows SET product_code = ? WHERE product_id = ?",
             ):
                 try:
-                    conn.execute(sql, (new, old))
+                    conn.execute(sql, (new, pid))
                 except sqlite3.OperationalError:
                     pass
-            # Bảng giá CHUNG: kv_store['bang_gia_moi'] = {id: {price_list: {CODE: giá}}}
-            row = conn.execute("SELECT value FROM kv_store WHERE path = 'bang_gia_moi'").fetchone()
-            if row and row["value"]:
-                data = json.loads(row["value"])
-                changed = False
-                for pl in data.values():
-                    prices = (pl or {}).get("price_list") or {}
-                    if old in prices:
-                        prices[new] = prices.pop(old)
-                        changed = True
-                if changed:
-                    conn.execute("UPDATE kv_store SET value = ? WHERE path = 'bang_gia_moi'",
-                                 (json.dumps(data, ensure_ascii=False),))
-            # Bảng giá RIÊNG từng khách (JSON blob customers)
-            for r in conn.execute(
-                "SELECT firebase_key, json FROM customers WHERE deleted_at IS NULL "
-                "AND json_extract(json, '$.personal_price_list') IS NOT NULL"
-            ).fetchall():
-                cust = json.loads(r["json"])
-                personal = cust.get("personal_price_list") or {}
-                if old in personal:
-                    personal[new] = personal.pop(old)
-                    cust["personal_price_list"] = personal
-                    conn.execute("UPDATE customers SET json = ? WHERE firebase_key = ?",
-                                 (json.dumps(cust, ensure_ascii=False), r["firebase_key"]))
     except sqlite3.Error as e:
         return None, f"Lỗi DB khi đổi mã: {e}"
     _invalidate_products_cache()
-    from .queries import get_product
+    try:
+        from order_store.display import invalidate_display_maps
+        invalidate_display_maps()
+    except Exception:  # noqa: BLE001
+        pass
     return get_product(conn, new), None

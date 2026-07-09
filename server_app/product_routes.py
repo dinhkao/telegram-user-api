@@ -209,6 +209,62 @@ async def product_unlink_handler(request: web.Request):
     return web.json_response({"ok": True, "product": product})
 
 
+async def product_rename_handler(request: web.Request):
+    """Đổi MÃ SP — CHỈ admin. Body {new_code}. Mọi liên kết nội bộ theo products.id
+    tự đúng (kho/bảng giá/SX/đơn cũ hiện mã mới ngay); mã cũ thành alias (gõ vẫn
+    nhận, link cũ redirect). SP có link KiotViet → đẩy mã mới sang KiotViet
+    best-effort (fail chỉ cảnh báo — hoá đơn đã gửi bằng productId nên không vỡ)."""
+    from server_app.order_api_common import is_admin_request
+    if not await is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin mới được đổi mã SP"}, status=403)
+    code = _code(request)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    new_code = str(body.get("new_code") or "").strip()
+    if not code or not new_code:
+        return web.json_response({"ok": False, "error": "Thiếu mã mới"}, status=400)
+    user = request.get("web_user")
+    actor = str((user or {}).get("display_name") or (user or {}).get("username") or "web") if isinstance(user, dict) else str(user or "web")
+
+    def _run():
+        conn = _get_connection()
+        try:
+            from product_store import rename_product
+            return rename_product(conn, code, new_code, by=actor)
+        finally:
+            conn.close()
+    product, err = await asyncio.to_thread(_run)
+    if err:
+        return web.json_response({"ok": False, "error": err}, status=400)
+    # KiotViet: đổi code bên đó cho khớp báo cáo — best-effort, không chặn
+    kv_note = None
+    if product.get("kv_id"):
+        try:
+            from integrations.kiotviet.products import update_product_code_kv
+            await asyncio.to_thread(update_product_code_kv, product["kv_id"], product["code"])
+            kv_note = "Đã đổi mã bên KiotViet"
+        except Exception as e:  # noqa: BLE001
+            log.warning("KiotViet rename push lỗi (%s → %s): %s", code, new_code, e)
+            kv_note = f"KiotViet CHƯA đổi được mã ({e}) — hoá đơn vẫn tạo bình thường (gửi theo productId)"
+    from server_app.realtime import (
+        emit_inventory_changed, emit_orders_changed, emit_price_lists_changed, emit_productions_changed,
+    )
+    emit_inventory_changed()
+    emit_price_lists_changed()
+    emit_productions_changed()
+    emit_orders_changed()
+    from audit_log import async_log_event
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("audit.product_renamed", async_log_event(
+        "product.renamed", scope="product", thread_id=product.get("id"),
+        actor_type="web_user" if request.get("web_user") else "http_client",
+        actor_id=actor, source="product.renamed",
+        payload={"old_code": code, "new_code": product["code"], "kv": kv_note}))
+    return web.json_response({"ok": True, "product": product, "kiotviet": kv_note})
+
+
 async def product_delete_handler(request: web.Request):
     """Xoá 1 mã SP khỏi danh mục local — CHỈ admin. Không đụng đơn/thùng đã có."""
     from server_app.order_api_common import is_admin_request

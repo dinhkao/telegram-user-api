@@ -169,5 +169,40 @@ class KvInvoiceByProductId(Base):
         self.assertEqual(m, {"K10": 427881})
 
 
+class RenameProduct(Base):
+    """Phase 5: đổi mã = UPDATE 1 ô + history; validation chặt."""
+
+    def setUp(self):
+        super().setUp()
+        create_products_table(self.conn)
+        migrate_products_table(self.conn)
+        upsert_product(self.conn, "K10", name="Kẹo 10")
+        self.pid = get_product(self.conn, "K10")["id"]
+
+    def test_validations(self):
+        from product_store import rename_product
+        for bad, why in [("K10", "trùng"), ("12345", "toàn số"), ("A B", "ký tự lạ"), ("", "rỗng")]:
+            p, err = rename_product(self.conn, "K10", bad)
+            self.assertIsNone(p, why)
+            self.assertTrue(err, why)
+        p, err = rename_product(self.conn, "KHONGCO", "KX")
+        self.assertIsNone(p)
+        upsert_product(self.conn, "K2L", name="Kẹo 2L")
+        p, err = rename_product(self.conn, "K10", "K2L")   # mã đích đã tồn tại
+        self.assertIsNone(p)
+
+    def test_rename_flow(self):
+        from product_store import rename_product
+        p, err = rename_product(self.conn, "K10", "k10x", by="duy")
+        self.assertIsNone(err)
+        self.assertEqual(p["code"], "K10X")
+        self.assertEqual(p["id"], self.pid)                          # danh tính không đổi
+        self.assertEqual(resolve_code(self.conn, "K10")["id"], self.pid)  # alias
+        h = self.conn.execute(
+            "SELECT old_code, new_code, changed_by FROM product_code_history WHERE product_id = ?",
+            (self.pid,)).fetchone()
+        self.assertEqual((h[0], h[1], h[2]), ("K10", "K10X", "duy"))
+
+
 if __name__ == "__main__":
     unittest.main()
