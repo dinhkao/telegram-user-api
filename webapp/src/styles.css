@@ -1140,7 +1140,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .kho-loc-card { display: flex; align-items: stretch; gap: 12px; padding: 10px; background: var(--card);
   border: 1px solid var(--border); border-radius: 14px; text-decoration: none; color: inherit; cursor: pointer; }
 .kho-loc-card:active { background: var(--bg); }
-.kho-loc-thumb { flex: 0 0 auto; width: 76px; height: 76px; border-radius: 10px; object-fit: cover;
+.kho-loc-thumb { flex: 0 0 33%; width: 33%; align-self: stretch; min-height: 96px; border-radius: 10px; object-fit: cover;
   background: var(--bg); border: 1px solid var(--border); }
 .kho-loc-thumb.ph { display: flex; align-items: center; justify-content: center; color: var(--muted); }
 .kho-loc-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
@@ -1149,11 +1149,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .kho-loc-tot { font-weight: 700; font-size: 1.05rem; color: var(--ok); white-space: nowrap; }
 .kho-loc-tot.zero { color: var(--muted); font-weight: 400; }
 .kho-loc-tot .small { font-weight: 400; font-size: .78rem; }
-.kho-loc-prods { display: flex; flex-wrap: wrap; gap: 5px; }
-.kho-loc-prod { font-size: .8rem; background: var(--bg); border: 1px solid var(--border); border-radius: 999px;
-  padding: 2px 9px; white-space: nowrap; }
-.kho-loc-prod b { font-weight: 700; }
-.kho-loc-prod.more { color: var(--muted); }
+.kho-loc-prods { display: flex; flex-direction: column; gap: 2px; }
+.kho-loc-pline { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: .85rem; }
+.kho-loc-pcode { font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kho-loc-pqty { color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+.kho-loc-pmore { font-size: .8rem; color: var(--muted); margin-top: 1px; }
 .kho-loc-empty { color: var(--muted); font-size: .85rem; }
 .kho-loc-card .kg-arrow { align-self: center; flex: 0 0 auto; color: var(--muted); transition: transform .15s; }
 .kho-loc-card .kg-arrow.open { transform: rotate(90deg); }

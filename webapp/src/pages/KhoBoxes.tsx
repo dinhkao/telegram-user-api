@@ -14,7 +14,7 @@ import { CompactBoxList } from "../detail/CompactBoxList";
 
 let memQ = "";                 // nhớ search khi rời trang
 let memBoxView: "grid" | "compact" = "compact";   // kiểu xem ô thùng ở search (mặc định GỌN)
-const MAX_CHIPS = 8;           // số mã SP hiện trên 1 card (còn lại gộp "+k")
+const MAX_LINES = 6;           // số dòng SP hiện trên 1 card (còn lại gộp "+k")
 
 // Tồn dùng được của 1 thùng (vô hiệu = 0)
 const rem = (b: KhoBox) => (b.disabled ? 0 : Math.max(0, b.remaining ?? b.quantity ?? 0));
@@ -42,14 +42,17 @@ function prodAgg(bs: KhoBox[]): { code: string; qty: number }[] {
 
 function ProdChips({ prods }: { prods: { code: string; qty: number }[] }) {
   if (!prods.length) return <div class="kho-loc-empty">Trống — chưa có hàng</div>;
-  const head = prods.slice(0, MAX_CHIPS);
+  const head = prods.slice(0, MAX_LINES);
   const more = prods.length - head.length;
   return (
     <div class="kho-loc-prods">
       {head.map((p) => (
-        <span class="kho-loc-prod" key={p.code}><b>{p.code}</b> {soVN(p.qty)}</span>
+        <div class="kho-loc-pline" key={p.code}>
+          <span class="kho-loc-pcode">{p.code}</span>
+          <span class="kho-loc-pqty">{soVN(p.qty)}</span>
+        </div>
       ))}
-      {more > 0 && <span class="kho-loc-prod more">+{more} mã</span>}
+      {more > 0 && <div class="kho-loc-pmore">+{more} mã khác</div>}
     </div>
   );
 }
