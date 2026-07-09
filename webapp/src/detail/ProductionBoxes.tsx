@@ -1,12 +1,12 @@
 // Nhập thùng cho phiếu SX: 1 đợt = N thùng GIỐNG NHAU (cùng số cây), mã tự sinh
 // (K2L-001). POST .../boxes (queueable, gửi mảng {quantity} × số thùng). onChanged()
 // để phiếu tải lại tổng. Liệt kê thùng đã nhập ở phiếu này — tap → chi tiết thùng.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { addProductionBoxes, slipBoxes, listUnits, createUnit, listPlaces, createPlace, getRecipe, searchProducts, soVN, type ProdSlip, type InvBox, type Unit, type Place, type RecipeLine } from "../api";
 import { onRealtime } from "../realtime";
 import { usePopupBack } from "../ui/usePopupBack";
 import { confirmDialog } from "../ui/feedback";
-import { CameraBox, cameraSupported } from "./CameraBox";
+import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "./CameraBox";
 import { Icon } from "../ui/Icon";
 import { SelectPopup } from "../ui/SelectPopup";
 import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
@@ -51,10 +51,15 @@ export function ProductionBoxes({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [myBoxes, setMyBoxes] = useState<InvBox[]>([]);
-  // Sau khi tạo thùng xong → mở camera; ảnh lưu vào PHIẾU + MỌI thùng vừa tạo.
-  // Camera đóng → popup nhắc GHI MÃ lên thùng (liệt kê ô thùng mới).
+  // Ảnh BẮT BUỘC: bấm "Nhập" mở camera ở chế độ COLLECT (chụp trước — buffer), ĐÓNG
+  // camera có ≥1 ảnh mới TẠO thùng rồi upload ảnh vào PHIẾU + mọi thùng; 0 ảnh → không
+  // tạo gì. Xong → popup nhắc GHI MÃ lên thùng (liệt kê ô thùng mới).
   const [camBases, setCamBases] = useState<string[] | null>(null);
-  const [newBoxes, setNewBoxes] = useState<InvBox[]>([]);
+  const capturedRef = useRef<Processed[]>([]);           // ảnh đã chụp/chọn chờ upload
+  const [pendingCreate, setPendingCreate] = useState<null | {
+    picks: { quantity: number }[]; note: string; mfgDate: string; unitId: number | null;
+    consume: { box_id: number; quantity: number }[]; prodCode: string; placeId: number | null; count: number;
+  }>(null);
   const [codeBoxes, setCodeBoxes] = useState<InvBox[] | null>(null);
   usePopupBack(!!codeBoxes, () => setCodeBoxes(null));
   const [mineView, setMineView] = useState<"grid" | "list">("grid");
@@ -129,6 +134,44 @@ export function ProductionBoxes({
     return () => { off(); clearTimeout(t); };
   }, [threadId]);
 
+  // TẠO thùng SAU khi đã có ảnh (buffer từ camera). caps rỗng + requirePhoto ⇒ không
+  // tạo gì (chống thùng "trắng"). Không camera (HTTP) gọi requirePhoto=false → tạo như cũ.
+  const finalizeCreate = async (caps: Processed[], requirePhoto = true) => {
+    const pc = pendingCreate;
+    if (!pc) return;
+    setPendingCreate(null);
+    setCamBases(null);
+    if (requirePhoto && caps.length === 0) {
+      setMsg("Chưa chụp ảnh — chưa tạo thùng. Bấm “Nhập” để làm lại.");
+      return;
+    }
+    setBusy(true);
+    setMsg("");
+    try {
+      const r = await addProductionBoxes(threadId, pc.picks, pc.note, pc.mfgDate, pc.unitId, pc.consume, pc.prodCode, pc.placeId);
+      setAmount(""); setCount("1"); setNote(""); setConsumePicks({});
+      if (r?._queued) {
+        setMsg("⏳ Đã lưu tạm (mất mạng), sẽ gửi lại");
+        return;
+      }
+      const boxes = r.boxes || [];
+      // Upload ảnh đã buffer vào PHIẾU + từng thùng mới
+      if (caps.length && boxes.length) {
+        const bases = [`/api/media/production/${threadId}`, ...boxes.map((b) => `/api/media/box/${b.id}`)];
+        for (const p of caps) await Promise.allSettled(bases.map((b) => uploadProcessed(b, p)));
+      }
+      const nc = (r.consumed || []).length;
+      setMsg(`✅ Đã nhập ${pc.count} ${unitLow}${caps.length ? ` · ${caps.length} ảnh` : ""}${nc ? ` · trừ ${nc} phần nguyên liệu` : ""}`);
+      onChanged();
+      loadMine();
+      if (boxes.length) setCodeBoxes(boxes);
+    } catch (e: any) {
+      setMsg(e?.message || "Lỗi nhập thùng");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submit = async () => {
     const n = parseFloat(amount.replace(",", "."));
     if (!isFinite(n) || n <= 0) {
@@ -146,41 +189,19 @@ export function ProductionBoxes({
         : "⚠ Chọn đủ thùng nguyên liệu trước khi tạo thùng");
       return;
     }
-    // Xác nhận lại trước khi tạo (tạo xong sẽ mở camera chụp ảnh lưu phiếu + thùng)
-    if (!(await confirmDialog(`Nhập ${c} ${unitLow} × ${soVN(n)} ${prodUnit} ${prodCode}?`))) return;
-    setBusy(true);
+    // Ảnh BẮT BUỘC: xác nhận rồi mở camera CHỤP TRƯỚC (buffer). ĐÓNG camera có ≥1 ảnh
+    // mới TẠO thùng (finalizeCreate); bấm quay lại / xong mà chưa chụp → KHÔNG tạo gì.
+    if (!(await confirmDialog(`Nhập ${c} ${unitLow} × ${soVN(n)} ${prodUnit} ${prodCode}?\nBước sau chụp ảnh thùng — chưa chụp thì chưa tạo.`))) return;
+    const picks = Array.from({ length: c }, () => ({ quantity: n }));  // c thùng giống nhau
+    const consume = Object.values(consumePicks).flat();               // thùng NL đã chọn
+    capturedRef.current = [];
+    setPendingCreate({ picks, note: note.trim(), mfgDate, unitId, consume, prodCode, placeId, count: c });
     setMsg("");
-    try {
-      const picks = Array.from({ length: c }, () => ({ quantity: n }));  // c thùng giống nhau
-      const consume = Object.values(consumePicks).flat();               // thùng NL đã chọn
-      const r = await addProductionBoxes(threadId, picks, note.trim(), mfgDate, unitId, consume, prodCode, placeId);
-      setAmount("");
-      setCount("1");
-      setNote("");
-      setConsumePicks({});
-      if (r?._queued) {
-        setMsg("⏳ Đã lưu tạm (mất mạng), sẽ gửi lại");
-      } else {
-        const nc = (r.consumed || []).length;
-        setMsg(`✅ Đã nhập ${c} ${unitLow}${nc ? ` · trừ ${nc} phần nguyên liệu` : ""}`);
-        onChanged();
-        loadMine();
-        // Mở camera: ảnh lưu vào phiếu SX + từng thùng mới (cần HTTPS mới có camera).
-        // Không có camera → nhảy thẳng popup nhắc ghi mã.
-        setNewBoxes(r.boxes || []);
-        if (cameraSupported()) {
-          setCamBases([
-            `/api/media/production/${threadId}`,
-            ...(r.boxes || []).map((b) => `/api/media/box/${b.id}`),
-          ]);
-        } else if ((r.boxes || []).length) {
-          setCodeBoxes(r.boxes || []);
-        }
-      }
-    } catch (e: any) {
-      setMsg(e?.message || "Lỗi nhập thùng");
-    } finally {
-      setBusy(false);
+    if (cameraSupported()) {
+      setCamBases([`/api/media/production/${threadId}`]);   // COLLECT: base chỉ để mở khung, upload ở finalize
+    } else {
+      // Không có camera (HTTP) → không ép ảnh được; tạo luôn như cũ (không ảnh).
+      await finalizeCreate([], false);
     }
   };
 
@@ -274,9 +295,10 @@ export function ProductionBoxes({
       {msg && <div class="muted small pb-hint">{msg}</div>}
 
       {camBases && (
-        <CameraBox base={camBases[0]} extraBases={camBases.slice(1)}
+        <CameraBox base={camBases[0]}
+          onCapture={(p) => { capturedRef.current.push(p); }}
           onUploaded={() => {}}
-          onClose={() => { setCamBases(null); if (newBoxes.length) setCodeBoxes(newBoxes); }} />
+          onClose={() => finalizeCreate(capturedRef.current)} />
       )}
 
       {codeBoxes && (
