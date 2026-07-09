@@ -401,14 +401,15 @@ export function BoxDetail({ boxId }: { boxId: string }) {
                 );
               }
               const prod = kind === "production";
+              // Đơn: hiện TEXT đơn (dòng đầu) thay vì #id — dễ nhận ra đơn nào
+              const label = !prod && a.order_text ? `"${a.order_text}"` : `#${a.order_thread_id}`;
               return (
                 <li key={a.allocation_id}>
                   <a class="box-jump" href={`${prod ? "#/san_xuat" : "#/order"}/${a.order_thread_id}?focus=box:${b.id}`}>
                     <Icon name={prod ? "factory" : "clipboard"} size={16} />{" "}
-                    {prod ? "Phiếu SX" : "Đơn"} #{a.order_thread_id} · {prod ? "tiêu hao" : "lấy"} {soVN(a.quantity)}
+                    {prod ? "Phiếu SX" : "Đơn"} {label} · {prod ? "tiêu hao" : "lấy"} {soVN(a.quantity)}
                     {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
                   </a>
-                  {a.order_text ? <div class="box-alloc-peek">{a.order_text}</div> : null}
                 </li>
               );
             })}
