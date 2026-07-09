@@ -53,6 +53,24 @@ def old_codes_of(conn, product_id) -> list[str]:
     return [r[0] for r in rows if r[0]]
 
 
+def kv_ids_for_items(conn, items) -> dict[str, int]:
+    """{MÃ_UPPER: kv_id} cho các item hoá đơn có SP link KiotViet — để
+    create_kiotviet_invoice gửi productId thay productCode. Ưu tiên item['sp_id']
+    (đơn từ phase 4), fallback resolve mã (nhận cả mã cũ qua history)."""
+    out: dict[str, int] = {}
+    for it in items or []:
+        it = it or {}
+        code = str(it.get("sp") or "").strip().upper()
+        if not code or code in out:
+            continue
+        p = get_product_by_id(conn, it.get("sp_id")) if it.get("sp_id") else None
+        if not p:
+            p = resolve_code(conn, code)
+        if p and p.get("kv_id"):
+            out[code] = int(p["kv_id"])
+    return out
+
+
 def record_code_change(conn, product_id, old_code, new_code, by: str = "") -> None:
     """Ghi 1 dòng nhật ký đổi mã (caller tự bọc transaction cùng UPDATE code)."""
     now = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())

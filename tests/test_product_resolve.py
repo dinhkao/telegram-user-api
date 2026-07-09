@@ -134,5 +134,40 @@ class Resolver(Base):
         self.assertEqual(resolve_code_to_id(self.conn, "K10X"), self.pid)
 
 
+class KvInvoiceByProductId(Base):
+    """Phase 0.5: gửi KiotViet bằng productId — map kv_ids + build payload."""
+
+    def setUp(self):
+        super().setUp()
+        create_products_table(self.conn)
+        migrate_products_table(self.conn)
+        upsert_product(self.conn, "K10", name="Kẹo 10")
+        from product_store import set_kiotviet_link
+        set_kiotviet_link(self.conn, "K10", 427881, "Kẹo 10 KV")
+        upsert_product(self.conn, "NOKV", name="Chưa link")
+
+    def test_map_and_payload(self):
+        from integrations.kiotviet.invoices import build_invoice_details
+        from product_store import kv_ids_for_items
+        items = [{"sp": "K10", "sl": 2, "price": 1000}, {"sp": "NOKV", "sl": 1, "price": 500}]
+        m = kv_ids_for_items(self.conn, items)
+        self.assertEqual(m, {"K10": 427881})
+        details = build_invoice_details(items, m)
+        self.assertEqual(details[0], {"quantity": 2, "price": 1000, "note": "", "productId": 427881})
+        self.assertEqual(details[1]["productCode"], "NOKV")
+        self.assertNotIn("productId", details[1])
+
+    def test_old_code_still_maps(self):
+        from product_store import kv_ids_for_items, record_code_change
+        pid = get_product(self.conn, "K10")["id"]
+        self.conn.execute("UPDATE products SET code = 'K10X' WHERE id = ?", (pid,))
+        record_code_change(self.conn, pid, "K10", "K10X")
+        self.conn.commit()
+        _invalidate_products_cache()
+        # đơn cũ còn mang mã K10 → vẫn resolve ra kv_id
+        m = kv_ids_for_items(self.conn, [{"sp": "K10", "sl": 1, "price": 1}])
+        self.assertEqual(m, {"K10": 427881})
+
+
 if __name__ == "__main__":
     unittest.main()

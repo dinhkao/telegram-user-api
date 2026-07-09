@@ -49,8 +49,13 @@ async def handle_tao_hd(bot, event, s):
     from kiotviet import get_customer_debt_kv, create_kiotviet_invoice
     loop = asyncio.get_running_loop()
     debt_future = loop.run_in_executor(None, get_customer_debt_kv, kv_id)
-    result = await loop.run_in_executor(None, lambda: create_kiotviet_invoice(
-        customer_id=kv_id, invoice_items=invoice, discount=discount, pvc=pvc, vat=vat))
+    def _create():
+        from order_db import _get_connection
+        from product_store import kv_ids_for_items
+        return create_kiotviet_invoice(
+            customer_id=kv_id, invoice_items=invoice, discount=discount, pvc=pvc, vat=vat,
+            kv_ids=kv_ids_for_items(_get_connection(), invoice))
+    result = await loop.run_in_executor(None, _create)
     old_debt = None
     try:
         old_debt = (await debt_future).get("debt")

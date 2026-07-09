@@ -359,7 +359,9 @@ async def _process_create_invoice_core(thread_id: int, user_id: int | None) -> d
     # Nợ cũ lấy song song (thread) trong lúc tạo HĐ
     old_debt_future = asyncio.get_running_loop().run_in_executor(None, get_customer_debt_kv, kv_id)
     try:
-        inv = create_kiotviet_invoice(customer_id=kv_id, invoice_items=invoice, discount=discount, pvc=pvc, vat=vat)
+        from product_store import kv_ids_for_items
+        inv = create_kiotviet_invoice(customer_id=kv_id, invoice_items=invoice, discount=discount,
+                                      pvc=pvc, vat=vat, kv_ids=kv_ids_for_items(db_conn, invoice))
     except Exception as e:
         log.error("KiotViet create invoice failed: %s", e)
         result["error"] = f"Lỗi tạo hoá đơn KiotViet: {e}"; return result

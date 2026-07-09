@@ -196,9 +196,17 @@ async def return_invoice_handler(request: web.Request):
         debt_before = (await asyncio.to_thread(get_customer_debt_kv, kh_id)).get("debt")
     except Exception:
         debt_before = None
+    def _kv_map():
+        from product_store import kv_ids_for_items
+        conn = get_connection()
+        try:
+            return kv_ids_for_items(conn, kv_items)
+        finally:
+            conn.close()
+    kv_map = await asyncio.to_thread(_kv_map)
     try:
         inv = await asyncio.to_thread(
-            create_kiotviet_invoice, customer_id=int(kh_id), invoice_items=kv_items)
+            create_kiotviet_invoice, customer_id=int(kh_id), invoice_items=kv_items, kv_ids=kv_map)
     except Exception as e:
         log.error("return invoice failed id=%s: %s", rid, e)
         return web.json_response({"ok": False, "error": f"Lỗi tạo HĐ trả hàng KiotViet: {e}"}, status=502)

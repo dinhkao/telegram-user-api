@@ -243,5 +243,5 @@ async def products_search_handler(request: web.Request):
     if q:
         products = [p for p in products
                     if q in vn_normalize(p["code"]) or q in vn_normalize(p.get("name") or "")]
-    out = [{"code": p["code"], "name": p.get("name") or ""} for p in products[:limit]]
+    out = [{"id": p.get("id"), "code": p["code"], "name": p.get("name") or ""} for p in products[:limit]]
     return web.json_response({"ok": True, "products": out})

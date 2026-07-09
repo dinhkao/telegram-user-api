@@ -22,17 +22,33 @@ def delete_invoice_kv(invoice_id: int) -> bool:
     return True
 
 
-def create_kiotviet_invoice(customer_id: int, invoice_items: list[dict], discount: int = 0,
-                            pvc: int = 0, vat: int = 0, branch_id: int = 1133,
-                            sold_by_id: int = 186250) -> dict:
-    invoice_details = []
+def build_invoice_details(invoice_items: list[dict], kv_ids: dict | None = None) -> list[dict]:
+    """Item hoá đơn → invoiceDetails KiotViet. kv_ids = {MÃ_UPPER: kv_product_id}
+    (product_store.kv_ids_for_items): SP đã link gửi productId (danh tính KiotViet
+    BẤT BIẾN — đổi mã local không ảnh hưởng, spike 2026-07-09 xác nhận); SP chưa
+    link / thiếu map → fallback productCode như cũ."""
+    kv_ids = kv_ids or {}
+    details = []
     for item in invoice_items:
-        invoice_details.append({
-            "productCode": item.get("sp") or item.get("productCode", "test"),
+        code = str(item.get("sp") or item.get("productCode") or "").strip().upper()
+        detail = {
             "quantity": int(item.get("sl", item.get("quantity", 1))),
             "price": int(item.get("price", 0)),
             "note": str(item.get("note", "")) if item.get("note") else "",
-        })
+        }
+        pid = kv_ids.get(code)
+        if pid:
+            detail["productId"] = int(pid)
+        else:
+            detail["productCode"] = code or "test"
+        details.append(detail)
+    return details
+
+
+def create_kiotviet_invoice(customer_id: int, invoice_items: list[dict], discount: int = 0,
+                            pvc: int = 0, vat: int = 0, branch_id: int = 1133,
+                            sold_by_id: int = 186250, kv_ids: dict | None = None) -> dict:
+    invoice_details = build_invoice_details(invoice_items, kv_ids)
     payload = {
         "branchId": branch_id,
         "soldById": sold_by_id,
