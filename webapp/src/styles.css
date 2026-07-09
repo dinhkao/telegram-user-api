@@ -1171,6 +1171,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .kho-sp-hit-tot.zero { color: var(--muted); font-weight: 400; }
 .kho-sp-hit-tot .small { font-weight: 400; }
 .kho-sec-lbl { padding: 2px 2px 0; font-weight: 600; }
+.kho-sp-hit-code { display: inline-flex; align-items: center; gap: 7px; }
+.kho-filt-btn { display: inline-flex; align-items: center; justify-content: center; width: 25px; height: 25px;
+  border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--muted);
+  cursor: pointer; padding: 0; flex: 0 0 auto; }
+.kho-filt-btn:active { background: var(--card); color: var(--ink); }
 
 .inv-tag { font-size: .74rem; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 .inv-tag.alloc { background: #fff3e0; color: #a15c00; border: 1px solid #f0d9b0; }

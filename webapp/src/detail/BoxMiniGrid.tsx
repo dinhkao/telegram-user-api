@@ -2,15 +2,19 @@
 // hơn (class .mini). KHÔNG phải link (card đã link tới phiếu) → dùng <span>. 8/hàng.
 import { soVN, type KhoBox } from "../api";
 
+// Thùng CÒN HÀNG (không vô hiệu + còn > 0) luôn xếp TRƯỚC (sort ổn định, giữ thứ tự phụ)
+const stocked = (b: KhoBox) => (!b.disabled && (b.remaining ?? b.quantity ?? 0) > 0 ? 1 : 0);
+
 export function BoxMiniGrid({ boxes }: { boxes: KhoBox[] }) {
   if (!boxes.length) return null;
   // Cả lưới cùng 1 mã SP (card đã ghi tên SP ở tiêu đề) → BỎ dòng mã trên từng ô
   // (mã dài kiểu K10LV87-KOTEM bị cắt ở cỡ mini); chỉ lưới trộn nhiều SP mới giữ.
   const oneCode = new Set(boxes.map((b) => b.product_code)).size === 1;
+  const ordered = boxes.slice().sort((a, b) => stocked(b) - stocked(a));
   return (
     // Lưới trộn nhiều SP giữ dòng mã → 6 ô/hàng (ô rộng hơn, mã dài không bị cắt)
     <div class={"box-mini-grid" + (oneCode ? "" : " mixed")}>
-      {boxes.map((b) => {
+      {ordered.map((b) => {
         const rm = b.remaining ?? b.quantity;
         const st = b.disabled ? "off" : "in";
         const num = (b.box_code || "").split("-").pop() || b.box_code;

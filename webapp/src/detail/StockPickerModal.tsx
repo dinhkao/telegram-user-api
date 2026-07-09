@@ -127,7 +127,7 @@ export function StockPickerModal({
           <div class="muted small">Kho hết thùng {productCode}.</div>
         ) : (
           <div class="stock-pick-list">
-            {boxes.map((b) => {
+            {boxes.slice().sort((a, b) => (avail(b) > 0 ? 1 : 0) - (avail(a) > 0 ? 1 : 0)).map((b) => {
               const checked = b.id in sel;
               const blocked = !checked && full;   // hết ngân sách → không cho chọn thêm
               return (

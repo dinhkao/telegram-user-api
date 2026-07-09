@@ -2,10 +2,15 @@
 // ở KhoBoxes (mọi thùng) + PlaceDetail (thùng 1 vị trí). Tap ô → chi tiết thùng.
 import { soVN, type KhoBox } from "../api";
 
+// Thùng CÒN HÀNG (không vô hiệu + còn > 0) luôn xếp TRƯỚC — áp cho MỌI view dùng
+// lưới này. Sort ổn định nên giữ nguyên thứ tự phụ mà caller đã sắp.
+const stocked = (b: KhoBox) => (!b.disabled && (b.remaining ?? b.quantity ?? 0) > 0 ? 1 : 0);
+
 export function BoxLabelGrid({ boxes }: { boxes: KhoBox[] }) {
+  const ordered = boxes.slice().sort((a, b) => stocked(b) - stocked(a));
   return (
     <div class="box-grid lbl-grid">
-      {boxes.map((b) => {
+      {ordered.map((b) => {
         const rm = b.remaining ?? b.quantity;
         const used = b.allocated ?? 0;
         // Luôn XANH (như đầy); mức nền thể hiện phần còn lại. Chỉ vô hiệu mới khác màu.

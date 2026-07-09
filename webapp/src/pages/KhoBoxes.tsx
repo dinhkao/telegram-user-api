@@ -151,7 +151,13 @@ export function KhoBoxes() {
             {spHits.map((s) => (
               <a class="kho-sp-hit" href={`#/kho/${encodeURIComponent(s.code)}`} key={s.code}>
                 <span class="kho-sp-hit-l">
-                  <b>{s.code}</b>
+                  <span class="kho-sp-hit-code">
+                    <b>{s.code}</b>
+                    <button class="kho-filt-btn" title={`Chỉ lọc mã ${s.code}`}
+                      onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); setQ(s.code); }}>
+                      <Icon name="filter" size={14} />
+                    </button>
+                  </span>
                   {s.name ? <span class="muted small">{s.name}</span> : null}
                 </span>
                 <span class={"kho-sp-hit-tot" + (s.total > 0 ? "" : " zero")}>
