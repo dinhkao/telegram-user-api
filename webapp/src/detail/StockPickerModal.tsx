@@ -133,35 +133,28 @@ export function StockPickerModal({
         ) : boxes.length === 0 ? (
           <div class="muted small">Kho hết thùng {productCode}.</div>
         ) : (
-          <div class="stock-pick-list">
+          <div class="sp-list">
             {boxes.slice().sort(sortPick).map((b) => {
               const checked = b.id in sel;
               const blocked = !checked && full;   // hết ngân sách → không cho chọn thêm
+              const num = (b.box_code || "").split("-").pop() || b.box_code;
+              const unit = (b as any).product_unit || "cây";
+              const place = (b as any).place_name as string | undefined;
+              const nsx = b.mfg_date ? fmtDate(b.mfg_date) : "";
+              const meta = [place ? `📍 ${place}` : "", nsx ? `NSX ${nsx}` : ""].filter(Boolean).join(" · ");
               return (
-                <div class={checked ? "stock-pick-row on" : blocked ? "stock-pick-row off" : "stock-pick-row"} key={b.id}>
-                  <label class="stock-pick-main">
-                    <input type="checkbox" checked={checked} disabled={blocked} onChange={() => toggle(b)} />
-                    <span class="stock-pick-info">
-                      <code>{b.box_code}</code>
-                      <span class="muted small">
-                        còn {soVN(avail(b))}
-                        {b.remaining != null && b.remaining !== b.quantity ? `/${soVN(b.quantity)}` : ""} {(b as any).product_unit || "cây"}
-                        {(b as any).place_name ? ` · 📍 ${(b as any).place_name}` : ""}
-                        {b.mfg_date ? ` · NSX ${fmtDate(b.mfg_date)}` : ""}
-                        {b.note ? ` · 📝 ${b.note}` : ""}
-                      </span>
-                    </span>
-                  </label>
+                <div class={"sp-row" + (checked ? " on" : "") + (blocked ? " off" : "")} key={b.id}>
+                  <div class="sp-tap" onClick={() => { if (!blocked) toggle(b); }} title={b.box_code}>
+                    <span class="sp-check">{checked ? <Icon name="check" size={13} /> : <span class="sp-dot" />}</span>
+                    <span class="sp-code">{num}</span>
+                    <span class="sp-qty">{soVN(avail(b))}<i>{unit}</i></span>
+                    <span class="sp-meta">{meta}{b.note ? <span class="sp-note" title={b.note}> 📝</span> : null}</span>
+                  </div>
                   {checked && (
-                    <input
-                      class="stock-pick-qty"
-                      type="text"
-                      inputMode="decimal"
-                      value={sel[b.id]}
+                    <input class="sp-take" type="text" inputMode="decimal" value={sel[b.id]}
                       onFocus={(e) => (e.target as HTMLInputElement).select()}
                       onInput={(e) => setQty(b.id, (e.target as HTMLInputElement).value)}
-                      title="Số cây lấy từ thùng này"
-                    />
+                      title="Số cây lấy từ thùng này" />
                   )}
                 </div>
               );

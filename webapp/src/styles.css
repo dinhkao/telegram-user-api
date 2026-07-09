@@ -1462,16 +1462,23 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .modal-sheet { background: var(--card, #fff); width: 100%; max-width: 640px; max-height: 85vh; border-radius: 14px 14px 0 0; padding: 14px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; }
 .modal-head b { font-size: 1.05rem; }
-.stock-pick-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 4px 0; }
-.stock-pick-row { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid #eee; border-radius: 8px; }
-.stock-pick-row.on { background: #f0f7ff; border-color: #b9d6f5; }
-.stock-pick-row.off { opacity: .45; }   /* hết ngân sách → không chọn thêm */
-.stock-pick-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
-.stock-pick-main input[type="checkbox"] { width: 20px; height: 20px; flex: none; margin: 0; }
-.stock-pick-info { display: flex; flex-direction: column; min-width: 0; }
-.stock-pick-info code { font-weight: 700; }
-.stock-pick-info .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.stock-pick-qty { width: 84px; flex: none; text-align: right; }
+/* Popup chọn thùng xuất kho — hàng "phiếu nhặt" 1 dòng, dày đặc, chạm để chọn */
+.sp-list { overflow-y: auto; max-height: 62vh; margin: 6px -4px 2px; }
+.sp-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }
+.sp-row:last-child { border-bottom: none; }
+.sp-row.off { opacity: .38; }
+.sp-tap { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 7px 6px; cursor: pointer;
+  border-left: 3px solid transparent; }
+.sp-row.on .sp-tap { background: var(--accent-wash, #eef4ff); border-left-color: var(--primary, #2563eb); }
+.sp-row.on .sp-tap:active, .sp-tap:active { background: var(--bg); }
+.sp-check { flex: 0 0 18px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; color: var(--primary, #2563eb); }
+.sp-dot { width: 15px; height: 15px; border: 1.5px solid var(--border); border-radius: 5px; }
+.sp-code { flex: 0 0 auto; min-width: 30px; font-family: monospace; font-weight: 800; font-size: .96rem; color: var(--ink); }
+.sp-qty { flex: 0 0 auto; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
+.sp-qty i { font-style: normal; font-weight: 400; color: var(--muted); font-size: .7rem; margin-left: 1px; }
+.sp-meta { flex: 1 1 auto; min-width: 0; font-size: .74rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.sp-take { flex: 0 0 auto; align-self: center; width: 60px; text-align: right; padding: 5px 7px; margin-right: 4px;
+  border: 1px solid var(--primary, #2563eb); border-radius: 7px; font-size: .92rem; font-variant-numeric: tabular-nums; box-sizing: border-box; }
 .modal-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid #eee; }
 
 .prod-card-note { margin-top: 8px; font-size: .82rem; color: #555; background: #fffbe6; border-radius: 6px; padding: 5px 8px; }
