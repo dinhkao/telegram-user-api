@@ -115,6 +115,7 @@ async def production_add_boxes_handler(request: web.Request):
     except (TypeError, ValueError):
         place_id = None
     actor = _web_actor(request, body)
+    snaps: list = []   # ảnh chụp thùng mới (cho audit box + place)
 
     def _run():
         conn = _conn()
@@ -163,6 +164,8 @@ async def production_add_boxes_handler(request: web.Request):
                 total = add_number(conn, thread_id, box["quantity"], f"📦 {box['box_code']}", by=actor)
             # Trừ kho NL (kind='production') — đã validate đủ ở trên.
             consume = allocate_picks(conn, picks, thread_id, by=actor, kind="production") if picks else []
+            from server_app.inventory_audit import box_snapshot
+            snaps.extend(s for b in created if (s := box_snapshot(conn, b.get("id"))))
             return created, total, consume
         finally:
             conn.close()
@@ -178,15 +181,10 @@ async def production_add_boxes_handler(request: web.Request):
     from server_app.realtime import emit_inventory_changed, emit_production_changed
     emit_production_changed(thread_id)
     emit_inventory_changed()
-    # Log lịch sử thao tác: mỗi thùng mới → 1 event box.created (hiện ở lịch sử thùng)
-    from audit_log import async_log_event
-    from server_app.tasks import spawn_tracked
-    for box in created:
-        spawn_tracked("audit.box_created", async_log_event(
-            "box.created", scope="box", thread_id=box.get("id"),
-            actor_type="web_user" if request.get("web_user") else "http_client",
-            actor_id=actor, source="box.created",
-            payload={"box_code": box.get("box_code"), "quantity": box.get("quantity"), "from_slip": thread_id}))
+    # Lịch sử: mỗi thùng mới → event box.created (lịch sử THÙNG + lịch sử VỊ TRÍ)
+    from server_app.inventory_audit import log_boxes_created
+    log_boxes_created(snaps, actor=actor,
+                      actor_type="web_user" if request.get("web_user") else "http_client")
     # Các phần nguyên liệu đã tiêu hao (allocate_picks kind='production') — client hiện tóm tắt
     return web.json_response({"ok": True, "boxes": created, "total": total, "consumed": consume or []})
 
@@ -524,6 +522,7 @@ async def box_delete_handler(request: web.Request):
         box_id = int(request.match_info.get("box_id", ""))
     except (ValueError, TypeError):
         return web.json_response({"ok": False, "error": "box_id không hợp lệ"}, status=400)
+    del_snap: dict = {}   # ảnh chụp thùng bị xoá → ghi lịch sử vị trí
 
     def _run():
         conn = _conn()
@@ -534,6 +533,8 @@ async def box_delete_handler(request: web.Request):
                 return "notfound", None
             if list_box_allocations(conn, box_id):
                 return "allocated", None
+            del_snap.update(place_id=box.get("place_id"), box_code=box.get("box_code"),
+                            product_code=box.get("product_code"), quantity=box.get("quantity"))
             src = box.get("source_thread_id")
             box_code = box.get("box_code")
             # Phiếu ĐÓNG GÓI: hoàn nguyên liệu đã trừ tương ứng thùng này (ratio × số
@@ -569,6 +570,11 @@ async def box_delete_handler(request: web.Request):
     emit_box_changed()
     if src:
         emit_production_changed(src)
+    # Lịch sử VỊ TRÍ: thùng bị admin xoá khỏi kho (lịch sử thùng: middleware DELETE)
+    if del_snap.get("place_id"):
+        from server_app.inventory_audit import log_box_deleted
+        log_box_deleted(del_snap, actor=request.get("web_user") or request.remote,
+                        actor_type="web_user" if request.get("web_user") else "http_client")
     return web.json_response({"ok": True, "restored_materials": restored})
 
 
@@ -614,6 +620,19 @@ async def box_transfer_handler(request: web.Request):
     emit_box_changed(res["from_id"])
     emit_box_changed(res["to_id"])
     emit_inventory_changed()
+
+    # Lịch sử VỊ TRÍ 2 kho (nếu thùng có xếp vị trí) — chuyển hàng giữa 2 thùng
+    def _places():
+        conn = _conn()
+        try:
+            from server_app.inventory_audit import box_snapshot
+            return box_snapshot(conn, res["from_id"]), box_snapshot(conn, res["to_id"])
+        finally:
+            conn.close()
+    fs, ts = await asyncio.to_thread(_places)
+    if fs and ts and (fs.get("place_id") or ts.get("place_id")):
+        from server_app.inventory_audit import log_transfer_places
+        log_transfer_places(fs, ts, res["quantity"], actor=actor, actor_type=actor_type)
     return web.json_response({"ok": True, "transfer": res})
 
 
@@ -702,6 +721,8 @@ async def box_update_handler(request: web.Request):
             status=400)
     if not kwargs:
         return web.json_response({"ok": False, "error": "Không có gì để sửa"}, status=400)
+    actor = _web_actor(request, body)
+    move: dict = {}   # CHUYỂN KHO → ghi lịch sử vị trí (cũ + mới)
 
     def _run():
         conn = _conn()
@@ -716,7 +737,14 @@ async def box_update_handler(request: web.Request):
             if float(box.get("quantity") or 0) - used <= 1e-9:
                 return None, "locked"
             update_box(conn, box_id, **kwargs)
-            return get_box(conn, box_id), None
+            after = get_box(conn, box_id)
+            if ("place_id" in kwargs or kwargs.get("clear_place")) and after and \
+               (box.get("place_id") or None) != (after.get("place_id") or None):
+                move.update(from_place_id=box.get("place_id"), from_name=box.get("place_name"),
+                            to_place_id=after.get("place_id"), to_name=after.get("place_name"),
+                            snap={"box_code": after.get("box_code"), "product_code": after.get("product_code"),
+                                  "quantity": after.get("quantity")})
+            return after, None
         finally:
             conn.close()
     box, err = await asyncio.to_thread(_run)
@@ -729,6 +757,11 @@ async def box_update_handler(request: web.Request):
     from server_app.realtime import emit_box_changed, emit_inventory_changed
     emit_box_changed(box_id)
     emit_inventory_changed()
+    if move:   # lịch sử VỊ TRÍ: thùng rời kho cũ + đến kho mới (lịch sử thùng: middleware)
+        from server_app.inventory_audit import log_box_moved
+        log_box_moved(move["snap"], from_place_id=move["from_place_id"], from_name=move["from_name"],
+                      to_place_id=move["to_place_id"], to_name=move["to_name"], actor=actor,
+                      actor_type="web_user" if request.get("web_user") else "http_client")
     return web.json_response({"ok": True, "box": box})
 
 
@@ -909,10 +942,18 @@ async def order_allocate_handler(request: web.Request):
         try:
             _ensure(conn)
             allocated = allocate_picks(conn, picks, thread_id, by=actor)
-            return list_order_allocations(conn, thread_id), allocated
+            order_text = _order_first_line(conn, thread_id)
+            from server_app.inventory_audit import box_snapshot
+            aud = []
+            for a in allocated:
+                s = box_snapshot(conn, a.get("box_id"))
+                if s:
+                    s.update(order_thread_id=thread_id, order_text=order_text, taken=a.get("quantity"))
+                    aud.append(s)
+            return list_order_allocations(conn, thread_id), allocated, aud
         finally:
             conn.close()
-    allocs, allocated = await asyncio.to_thread(_run)
+    allocs, allocated, aud = await asyncio.to_thread(_run)
     from server_app.realtime import emit_box_changed, emit_inventory_changed, emit_order_changed
     emit_order_changed(thread_id)   # picking của đơn đổi → chi tiết đơn + OrderStock
     emit_inventory_changed()        # tồn kho đổi → trang Kho / thùng
@@ -921,6 +962,10 @@ async def order_allocate_handler(request: web.Request):
             emit_box_changed(int(pk.get("box_id")))
         except (TypeError, ValueError):
             pass
+    # Lịch sử: xuất cho đơn (lịch sử THÙNG + lịch sử VỊ TRÍ)
+    from server_app.inventory_audit import log_boxes_allocated
+    log_boxes_allocated(aud, actor=actor,
+                        actor_type="web_user" if request.get("web_user") else "http_client")
     return web.json_response({"ok": True, "allocated": allocated, "allocations": allocs})
 
 
@@ -936,6 +981,7 @@ async def order_release_handler(request: web.Request):
     ids = body.get("allocation_ids")
     if not isinstance(ids, list) or not ids:
         return web.json_response({"ok": False, "error": "Chưa chọn phần thùng"}, status=400)
+    actor = _web_actor(request, body)
     try:
         ids = [int(x) for x in ids]
     except (TypeError, ValueError):
@@ -950,17 +996,30 @@ async def order_release_handler(request: web.Request):
         conn = _conn()
         try:
             _ensure(conn)
+            from server_app.inventory_audit import box_snapshot
+            order_text = _order_first_line(conn, thread_id)
             released = []
+            aud = []
             for aid in ids:
                 a = get_allocation(conn, aid)
                 if a and a.get("order_thread_id") == thread_id:
+                    s = box_snapshot(conn, a.get("box_id"))
                     delete_allocation(conn, aid)
+                    if s:
+                        # remaining SAU khi hoàn = trước (còn allocation) + phần vừa trả
+                        s["remaining"] = (s.get("remaining") or 0) + float(a.get("quantity") or 0)
+                        s.update(order_thread_id=thread_id, order_text=order_text, taken=a.get("quantity"))
+                        aud.append(s)
                     released.append(aid)
-            return list_order_allocations(conn, thread_id), released
+            return list_order_allocations(conn, thread_id), released, aud
         finally:
             conn.close()
-    allocs, released = await asyncio.to_thread(_run)
+    allocs, released, aud = await asyncio.to_thread(_run)
     from server_app.realtime import emit_inventory_changed, emit_order_changed
     emit_order_changed(thread_id)   # picking của đơn đổi
     emit_inventory_changed()        # tồn kho trả lại → trang Kho / thùng
+    # Lịch sử: thu hồi về kho (lịch sử THÙNG + lịch sử VỊ TRÍ)
+    from server_app.inventory_audit import log_boxes_released
+    log_boxes_released(aud, actor=actor,
+                       actor_type="web_user" if request.get("web_user") else "http_client")
     return web.json_response({"ok": True, "released": released, "allocations": allocs})

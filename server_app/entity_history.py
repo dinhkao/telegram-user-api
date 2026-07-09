@@ -17,10 +17,57 @@ from server_app.order_history import _actor_display, _load_names
 
 _NUM = re.compile(r"/-?\d+(?=/|$)")
 
-_ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo phiếu SX", "box.created": "Tạo thùng",
+_ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo phiếu SX",
                   "return.created": "Tạo phiếu trả", "return.invoiced": "Tạo HĐ KiotViet (trừ nợ)",
-                  "return.invoice_deleted": "Xoá HĐ KiotViet (hoàn nợ)", "return.deleted": "Xoá phiếu trả",
-                  "box.transfer_out": "Chuyển hàng sang thùng khác", "box.transfer_in": "Nhận hàng từ thùng khác"}
+                  "return.invoice_deleted": "Xoá HĐ KiotViet (hoàn nợ)", "return.deleted": "Xoá phiếu trả"}
+
+# Biến động KHO (server_app/inventory_audit) — nhãn theo SCOPE + chi tiết từ payload.
+_INV_ACTIONS = {"box.created", "box.allocated", "box.released", "box.moved_out",
+                "box.moved_in", "box.deleted", "box.transfer_out", "box.transfer_in"}
+
+
+def _numv(v) -> str:
+    try:
+        return f"{float(v):g}".replace(".", ",")
+    except (TypeError, ValueError):
+        return ""
+
+
+def _boxnum(code) -> str:
+    """Số gọi ngắn của thùng: 'K2L-347' → '347'."""
+    s = str(code or "")
+    return s.split("-")[-1] or s
+
+
+def _inv_entry(act: str, scope: str, p: dict) -> tuple[str, str] | None:
+    """(nhãn, chi tiết) cho 1 event biến động kho, theo scope (box/place) + payload."""
+    p = p or {}
+    pc = p.get("product_code") or ""
+    bc = _boxnum(p.get("box_code"))
+    q = _numv(p.get("quantity"))
+    head = " · ".join(x for x in [pc, f"thùng {bc}" if bc else ""] if x)
+    join = lambda extra: " · ".join(x for x in [head, extra] if x)  # noqa: E731
+    if act == "box.created":
+        return ("Nhập thùng vào kho" if scope == "place" else "Tạo thùng"), join(f"{q} cây" if q else "")
+    if act in ("box.allocated", "box.released"):
+        taken = _numv(p.get("taken"))
+        ot = p.get("order_text")
+        verb = "lấy" if act == "box.allocated" else "trả"
+        extra = " · ".join(x for x in [f"{verb} {taken}" if taken else "", f'"{ot}"' if ot else ""] if x)
+        return ("Xuất cho đơn" if act == "box.allocated" else "Thu hồi về kho"), join(extra)
+    if act == "box.moved_out":
+        return "Thùng chuyển đi", join(f"→ {p.get('to_name') or 'Chưa xếp'}")
+    if act == "box.moved_in":
+        return "Thùng chuyển đến", join(f"từ {p.get('from_name') or 'Chưa xếp'}")
+    if act == "box.deleted":
+        return "Xoá thùng khỏi kho", join("")
+    if act in ("box.transfer_out", "box.transfer_in"):
+        out = act == "box.transfer_out"
+        peer = _boxnum(p.get("to_box") or p.get("to_code") if out else p.get("from_box") or p.get("from_code"))
+        arrow = f"{'→' if out else 'từ'} thùng {peer}" if peer else ""
+        extra = " · ".join(x for x in [arrow, q] if x)
+        return ("Chuyển hàng sang thùng khác" if out else "Nhận hàng từ thùng khác"), join(extra)
+    return None
 
 _SOURCE_LABELS = {
     "POST /api/production/{id}/product": "Đổi sản phẩm",
@@ -118,7 +165,17 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
         out: list[dict] = []
         for r in rows:
             act = r["action"]
-            if act in _ACTION_LABELS:
+            if act in _INV_ACTIONS:
+                try:
+                    pl = json.loads(r["payload_json"] or "{}")
+                except Exception:
+                    pl = {}
+                ent = _inv_entry(act, scope, pl if isinstance(pl, dict) else {})
+                if not ent:
+                    continue
+                out.append({"ts": r["ts"], "actor": _actor_display(r["actor_id"], names),
+                            "action": ent[0], "detail": ent[1], "changes": [], "ok": True})
+            elif act in _ACTION_LABELS:
                 out.append({"ts": r["ts"], "actor": _actor_display(r["actor_id"], names),
                             "action": _ACTION_LABELS[act], "detail": "", "changes": [], "ok": True})
             elif act == "http.request":
