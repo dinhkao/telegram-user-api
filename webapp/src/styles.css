@@ -1469,7 +1469,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .sp-row.off { opacity: .38; }
 .sp-tap { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 7px 6px; cursor: pointer;
   border-left: 3px solid transparent; }
-.sp-row.on .sp-tap { background: var(--accent-wash, #eef4ff); border-left-color: var(--primary, #2563eb); }
+.sp-row.on .sp-tap { background: var(--accent-wash, #eef4ff); border-left-color: var(--primary, #2563eb); border-radius: 9px; }
 .sp-row.on .sp-tap:active, .sp-tap:active { background: var(--bg); }
 .sp-check { flex: 0 0 18px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; color: var(--primary, #2563eb); }
 .sp-dot { width: 15px; height: 15px; border: 1.5px solid var(--border); border-radius: 5px; }
