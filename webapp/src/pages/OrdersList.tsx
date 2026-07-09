@@ -42,7 +42,7 @@ function rowMatchesFilter(o: OrderRow, f: FilterKey): boolean {
     case "chua_soan": return !o.soan;
     case "chua_giao": return !o.giao && giaoDue(o);   // bỏ đơn hẹn giao tương lai
     case "chua_nop": return !o.nop && !!o.giao; // chưa nộp = ĐÃ giao nhưng chưa nộp
-    case "chua_nhan": return !o.nhan;
+    case "chua_nhan": return !o.nhan && !!o.nop; // chưa nhận = ĐÃ nộp nhưng chưa nhận
     case "pending": return !o.done_after_20250124;
     case "done": return !!o.done_after_20250124;
     default: return true; // "all"
@@ -421,6 +421,7 @@ export function OrdersList() {
             parts={[
               filter !== "all" && (FILTER_LABELS[filter] || filter),
               filter === "chua_giao" && "ẩn đơn hẹn giao tương lai",
+              filter === "chua_nhan" && "đã nộp, chờ nhận",
               search.trim() && `“${search.trim()}”`,
             ]}
             count={filter !== "all" && stats ? (stats as any)[filter] : null}

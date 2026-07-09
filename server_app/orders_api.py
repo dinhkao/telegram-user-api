@@ -262,6 +262,11 @@ async def orders_api_handler(request: web.Request):
                 g = "json_extract(o.json, '$.giao')"
                 giao_done = f"{g} IS NOT DISTINCT FROM 'true'" if IS_POSTGRES else f"{g} IS 1"
                 extra = f" AND ({giao_done})"
+            # "Chưa nhận" = ĐÃ NỘP rồi nhưng chưa nhận (nộp xong mới tới lượt nhận tiền).
+            if filt == "chua_nhan":
+                np = "json_extract(o.json, '$.nop')"
+                nop_done = f"{np} IS NOT DISTINCT FROM 'true'" if IS_POSTGRES else f"{np} IS 1"
+                extra = f" AND ({nop_done})"
             # "Chưa giao" bỏ đơn HẸN GIAO TƯƠNG LAI (ngày giao ≤ hôm nay hoặc chưa hẹn)
             if filt == "chua_giao":
                 extra = f" AND ({_ngay_giao_due()})"
@@ -306,8 +311,9 @@ async def orders_api_handler(request: web.Request):
                 e = f"json_extract(o.json, '$.{fld}')"
                 return f"{e} IS NOT DISTINCT FROM 'true'" if IS_POSTGRES else f"{e} IS 1"
             # chua_nop = chưa nộp NHƯNG đã giao (khớp filter ở trên)
+            # chua_nhan = ĐÃ NỘP nhưng chưa nhận (khớp filter ở trên)
             # chua_giao = chưa giao VÀ tới hạn (ngày giao ≤ hôm nay / chưa hẹn) — khớp filter
-            stg = conn.execute(f"SELECT COUNT(CASE WHEN {_nd('soan')} THEN 1 END) s, COUNT(CASE WHEN {_nd('giao')} AND ({_ngay_giao_due()}) THEN 1 END) g, COUNT(CASE WHEN {_nd('nop')} AND {_dn('giao')} THEN 1 END) n, COUNT(CASE WHEN {_nd('nhan')} THEN 1 END) nh FROM orders o WHERE o.deleted_at IS NULL AND ({has_data}) AND o.order_created >= '2026-06-01'").fetchone()
+            stg = conn.execute(f"SELECT COUNT(CASE WHEN {_nd('soan')} THEN 1 END) s, COUNT(CASE WHEN {_nd('giao')} AND ({_ngay_giao_due()}) THEN 1 END) g, COUNT(CASE WHEN {_nd('nop')} AND {_dn('giao')} THEN 1 END) n, COUNT(CASE WHEN {_nd('nhan')} AND {_dn('nop')} THEN 1 END) nh FROM orders o WHERE o.deleted_at IS NULL AND ({has_data}) AND o.order_created >= '2026-06-01'").fetchone()
             if stg:
                 stats.update({"chua_soan": stg["s"] or 0, "chua_giao": stg["g"] or 0, "chua_nop": stg["n"] or 0, "chua_nhan": stg["nh"] or 0})
         return web.json_response({"orders": orders, "total": total, "page": page, "limit": limit, "total_pages": max(1, (total + limit - 1) // limit), "stats": stats})
