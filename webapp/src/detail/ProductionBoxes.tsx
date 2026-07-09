@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { addProductionBoxes, slipBoxes, listUnits, createUnit, listPlaces, createPlace, getRecipe, searchProducts, soVN, type ProdSlip, type InvBox, type Unit, type Place, type RecipeLine } from "../api";
 import { onRealtime } from "../realtime";
 import { usePopupBack } from "../ui/usePopupBack";
-import { confirmDialog } from "../ui/feedback";
+import { confirmDialog, toast } from "../ui/feedback";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "./CameraBox";
 import { Icon } from "../ui/Icon";
 import { SelectPopup } from "../ui/SelectPopup";
@@ -143,6 +143,7 @@ export function ProductionBoxes({
     setCamBases(null);
     if (requirePhoto && caps.length === 0) {
       setMsg("Chưa chụp ảnh — chưa tạo thùng. Bấm “Nhập” để làm lại.");
+      toast("⚠ Chưa chụp ảnh — thùng CHƯA được tạo", "err");
       return;
     }
     setBusy(true);
