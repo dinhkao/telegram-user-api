@@ -10,6 +10,8 @@ import {
   setProductionNote,
   setProductionKind,
   deleteProduction,
+  lockProductionSlip,
+  unlockProductionSlip,
   currentUser,
   soVN,
   prodCreated,
@@ -92,8 +94,20 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
     };
   }, [focus, threadId]);
 
+  const locked = !!slip?.locked;
+  const lockedToast = () => toast("Phiếu đã khoá — chỉ trao đổi được. Nhờ admin mở khoá.", "info");
+  const toggleLock = async () => {
+    if (!slip) return;
+    try {
+      if (locked) await unlockProductionSlip(threadId); else await lockProductionSlip(threadId);
+      toast(locked ? "✅ Đã mở khoá phiếu" : "🔒 Đã khoá phiếu", "ok");
+      reload();
+    } catch (e: any) { toast(e?.message || "Lỗi khoá/mở", "err"); }
+  };
+
   const changeProduct = async (code: string) => {
     if (!code) return;
+    if (locked) return lockedToast();
     setErr("");
     try {
       await setProductionProduct(threadId, code);
@@ -104,6 +118,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   };
 
   const saveNote = async () => {
+    if (locked) { setNoteInput(slip?.ghi_chu || ""); return lockedToast(); }
     setErr("");
     try {
       await setProductionNote(threadId, noteInput.trim());
@@ -117,6 +132,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
 
   const changeKind = async (k: "san_xuat" | "dong_goi") => {
     if (!slip || (slip.kind || "san_xuat") === k) return;
+    if (locked) return lockedToast();
     // Đã nhập thùng → loại bị KHOÁ (loại quyết định logic trừ nguyên liệu lúc tạo thùng)
     if ((slip.box_count || 0) > 0) {
       toast(`Phiếu đã nhập ${slip.box_count} thùng — không đổi loại được nữa`, "info");
@@ -165,11 +181,18 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
 
       {err && <div class="error-banner">{err}</div>}
 
+      {locked && (
+        <div class="prod-lock-banner">
+          <Icon name="lock" size={15} /> Phiếu đã khoá{slip.lock_override === "locked" ? " (admin khoá)" : " (quá 24h)"} — chỉ trao đổi (bình luận/ảnh) được.
+          {currentUser()?.role === "admin" && <span class="muted small"> Admin có thể mở khoá bên dưới.</span>}
+        </div>
+      )}
+
       {/* Loại phiếu: Sản xuất (có bảng báo cáo thợ) ↔ Đóng gói (không).
           Đã nhập ≥1 thùng → KHOÁ (mờ nút kia; bấm hiện toast lý do). */}
       <div class="pk-seg">
-        <button class={"pk-opt" + (isSX ? " on" : (slip.box_count || 0) > 0 ? " faded" : "")} onClick={() => changeKind("san_xuat")}><Icon name="factory" size={15} /> Sản xuất</button>
-        <button class={"pk-opt" + (!isSX ? " on" : (slip.box_count || 0) > 0 ? " faded" : "")} onClick={() => changeKind("dong_goi")}><Icon name="box" size={15} /> Đóng gói</button>
+        <button class={"pk-opt" + (isSX ? " on" : (locked || (slip.box_count || 0) > 0) ? " faded" : "")} onClick={() => changeKind("san_xuat")}><Icon name="factory" size={15} /> Sản xuất</button>
+        <button class={"pk-opt" + (!isSX ? " on" : (locked || (slip.box_count || 0) > 0) ? " faded" : "")} onClick={() => changeKind("dong_goi")}><Icon name="box" size={15} /> Đóng gói</button>
       </div>
       {(slip.box_count || 0) > 0 && <div class="muted small pk-lock-hint"><Icon name="lock" size={12} /> Đã nhập thùng — loại phiếu bị khoá</div>}
 
@@ -191,34 +214,43 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
 
       <section class="card">
         <label class="card-label">Sản phẩm</label>
-        <ProductPicker catalog={catalog} value={slip.sp_name || ""} onPick={changeProduct} placeholder="Tìm mã SP" />
+        {locked
+          ? <div class="prod-ro"><Icon name="tag" size={14} /> {slip.sp_name || "Chưa có SP"}</div>
+          : <ProductPicker catalog={catalog} value={slip.sp_name || ""} onPick={changeProduct} placeholder="Tìm mã SP" />}
         {slip.sp_mam != null && <div class="muted small">🌿 Số cây 1 mâm: {slip.sp_mam}</div>}
       </section>
 
       <section class="card">
         <label class="card-label">Ghi chú {noteSaved && <span class="muted small">✓ đã lưu</span>}</label>
-        <textarea
-          rows={2}
-          value={noteInput}
-          onInput={(e) => setNoteInput((e.target as HTMLTextAreaElement).value)}
-          onBlur={saveNote}
-          placeholder="Ghi chú cho phiếu (tự lưu khi rời ô)…"
-        />
+        {locked
+          ? <div class="prod-ro">{slip.ghi_chu || <span class="muted small">Không có ghi chú</span>}</div>
+          : <textarea
+              rows={2}
+              value={noteInput}
+              onInput={(e) => setNoteInput((e.target as HTMLTextAreaElement).value)}
+              onBlur={saveNote}
+              placeholder="Ghi chú cho phiếu (tự lưu khi rời ô)…"
+            />}
       </section>
 
-      <ProductionBoxes threadId={threadId} slip={slip} onChanged={reload} />
+      <ProductionBoxes threadId={threadId} slip={slip} onChanged={reload} locked={locked} />
 
-      {isSX && <ProductionReport threadId={threadId} slip={slip} />}
+      {isSX && <ProductionReport threadId={threadId} slip={slip} locked={locked} />}
 
       <Images base={`/api/media/production/${threadId}`} />
       <Comments base={`/api/media/production/${threadId}`} />
       <History base={`/api/media/production/${threadId}`} />
 
       {currentUser()?.role === "admin" && (
-        <button class={"btn danger block" + ((slip.box_count || 0) > 0 ? " faded" : "")} onClick={doDelete}
-          title={(slip.box_count || 0) > 0 ? "Phiếu đã tạo thùng — xoá thùng trước" : undefined}>
-          <Icon name="trash" size={16} /> Xoá phiếu (admin)
-        </button>
+        <>
+          <button class="btn block prod-lockbtn" onClick={toggleLock}>
+            <Icon name={locked ? "key" : "lock"} size={16} /> {locked ? "Mở khoá phiếu (admin)" : "Khoá phiếu ngay (admin)"}
+          </button>
+          <button class={"btn danger block" + ((slip.box_count || 0) > 0 ? " faded" : "")} onClick={doDelete}
+            title={(slip.box_count || 0) > 0 ? "Phiếu đã tạo thùng — xoá thùng trước" : undefined}>
+            <Icon name="trash" size={16} /> Xoá phiếu (admin)
+          </button>
+        </>
       )}
     </div>
   );

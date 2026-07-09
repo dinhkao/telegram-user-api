@@ -521,6 +521,8 @@ export type ProdSlip = {
   updated_at?: string;
   target?: number | null;
   pct?: number | null;
+  locked?: boolean;                 // phiếu khoá (tự 24h / admin) → chỉ trao đổi
+  lock_override?: "locked" | "unlocked" | null;
 };
 
 export type ProdCatalogItem = { code: string; mam: number | null; luong: number | null; cay_1_chao: number | null };
@@ -568,6 +570,13 @@ export async function setProductionTarget(id: string | number, target: number): 
 
 export async function setProductionKind(id: string | number, kind: "san_xuat" | "dong_goi"): Promise<any> {
   return postJSON(`/api/production/${id}/kind`, { kind });
+}
+/** Admin khoá/mở khoá phiếu SX (khoá = chỉ trao đổi, cấm mọi sửa). */
+export async function lockProductionSlip(id: string | number): Promise<any> {
+  return postJSON(`/api/production/${id}/slip-lock`, {}, { queueable: false });
+}
+export async function unlockProductionSlip(id: string | number): Promise<any> {
+  return postJSON(`/api/production/${id}/slip-unlock`, {}, { queueable: false });
 }
 export async function setProductionNote(id: string | number, note: string): Promise<any> {
   return postJSON(`/api/production/${id}/note`, { note });

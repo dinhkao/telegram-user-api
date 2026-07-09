@@ -57,6 +57,8 @@ from server_app.production_routes import (
     production_report_draft_handler,
     production_set_product_handler,
     production_set_target_handler,
+    production_slip_lock_handler,
+    production_slip_unlock_handler,
 )
 from server_app.banner_routes import banner_pins_handler, banner_pin_create_handler, banner_pin_delete_handler
 from server_app.inventory_routes import (
@@ -227,6 +229,8 @@ def create_app():
     r.add_post("/api/production/{thread_id}/target", production_set_target_handler)
     r.add_post("/api/production/{thread_id}/note", production_set_note_handler)
     r.add_post("/api/production/{thread_id}/kind", production_set_kind_handler)
+    r.add_post("/api/production/{thread_id}/slip-lock", production_slip_lock_handler)
+    r.add_post("/api/production/{thread_id}/slip-unlock", production_slip_unlock_handler)
     r.add_post("/api/production/{thread_id}/number", production_add_number_handler)
     r.add_post("/api/production/{thread_id}/boxes", production_add_boxes_handler)
     r.add_get("/api/production/{thread_id}/boxes", production_boxes_list_handler)

@@ -33,10 +33,12 @@ export function ProductionBoxes({
   threadId,
   slip,
   onChanged,
+  locked,
 }: {
   threadId: string;
   slip: ProdSlip;
   onChanged: () => void;
+  locked?: boolean;
 }) {
   // SP để tạo thùng — mặc định sp_name của phiếu, nhưng CHỌN được SP khác (1 phiếu
   // SX tạo thùng cho nhiều SP). Có nháp cũ (thoát ra vào lại) → khôi phục từ nháp.
@@ -209,6 +211,10 @@ export function ProductionBoxes({
   const cnt = Math.max(1, Math.floor(parseFloat((count || "1").replace(",", ".")) || 1));
   return (
     <section class="card">
+      {locked ? (
+        <div class="muted small pb-lock"><Icon name="lock" size={14} /> Phiếu đã khoá — không nhập thùng mới. Chỉ trao đổi được.</div>
+      ) : (
+      <>
       <label class="card-label"><Icon name="box" size={16} /> Nhập {unitLow}</label>
 
       <div class="pb-form">
@@ -294,6 +300,8 @@ export function ProductionBoxes({
         <div class="muted small pb-hint">⚠ Cần chọn đủ thùng nguyên liệu mới tạo được thùng.</div>
       )}
       {msg && <div class="muted small pb-hint">{msg}</div>}
+      </>
+      )}
 
       {camBases && (
         <CameraBox base={camBases[0]}

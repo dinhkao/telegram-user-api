@@ -6,7 +6,7 @@ import { soVN, reportLockStatus, type ProdSlip, type ProdReport } from "../api";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 
-export function ProductionReport({ threadId, slip }: { threadId: string; slip: ProdSlip }) {
+export function ProductionReport({ threadId, slip, locked }: { threadId: string; slip: ProdSlip; locked?: boolean }) {
   const rep = slip.bang as ProdReport | null;
   const rows = rep?.rows || [];
   // Ai đang giữ khoá sửa báo cáo này (null = không ai) — hiện badge cạnh nút Sửa
@@ -23,7 +23,9 @@ export function ProductionReport({ threadId, slip }: { threadId: string; slip: P
       <div class="row space" style={{ alignItems: "center", marginBottom: "8px" }}>
         <label class="card-label" style={{ margin: 0 }}><Icon name="chart" size={16} /> Báo cáo theo thợ</label>
         {editor && <span class="wr-lockpill other"><Icon name="edit" size={12} /> {editor} đang sửa</span>}
-        <a class="btn primary small" href={`#/san_xuat/${threadId}/bao-cao`}><Icon name="edit" size={16} /> Sửa</a>
+        {locked
+          ? <span class="muted small"><Icon name="lock" size={13} /> đã khoá</span>
+          : <a class="btn primary small" href={`#/san_xuat/${threadId}/bao-cao`}><Icon name="edit" size={16} /> Sửa</a>}
       </div>
 
       {rows.length > 0 ? (

@@ -30,8 +30,10 @@ from production_store import (
     add_number,
     set_bang,
     delete_slip,
+    set_lock_override,
 )
 from production_store.domain import parse_report, compute_report
+from server_app.production_lock import is_locked as _prod_is_locked, locked_error as _prod_locked_error
 from utils.db import get_connection
 
 _VN_TZ = timezone(timedelta(hours=7))
@@ -81,6 +83,9 @@ def build_production_row(thread_id) -> dict | None:
         "ghi_chu": slip.get("ghi_chu"),
         "kind": slip.get("kind") or "san_xuat",
         "updated_at": slip.get("updated_at"),
+        # Khoá phiếu: tự khoá 24h sau khi tạo; admin ghi đè. locked = hiệu lực cuối.
+        "locked": _prod_is_locked(slip),
+        "lock_override": slip.get("lock_override"),
         # báo cáo thợ (card SX): luôn có mặt để realtime patch GHI ĐÈ giá trị cũ
         "report_total": rep.get("total") or 0,
         "report_workers": rep.get("workers") or [],
@@ -147,6 +152,7 @@ async def production_detail_handler(request: web.Request):
                 from inventory_store import count_boxes_by_source, sum_boxes_by_source
                 slip["box_count"] = count_boxes_by_source(conn, thread_id)
                 slip["boxed_total"] = sum_boxes_by_source(conn, [thread_id]).get(thread_id) or 0
+                slip["locked"] = _prod_is_locked(slip)   # khoá phiếu (24h / admin) cho UI
             return slip
         finally:
             conn.close()
@@ -247,6 +253,9 @@ async def production_set_product_handler(request: web.Request):
     code = str(body.get("product") or "").strip().upper()
     if not code:
         return web.json_response({"ok": False, "error": "Thiếu mã sản phẩm"}, status=400)
+    lk = await _prod_locked_error(request, thread_id)
+    if lk:
+        return lk
 
     def _run():
         conn = _conn()
@@ -270,6 +279,9 @@ async def production_set_target_handler(request: web.Request):
         target = int(body.get("target"))
     except (Exception, TypeError, ValueError):
         return web.json_response({"ok": False, "error": "Mục tiêu SX không hợp lệ"}, status=400)
+    lk = await _prod_locked_error(request, thread_id)
+    if lk:
+        return lk
 
     def _run():
         conn = _conn()
@@ -291,6 +303,9 @@ async def production_set_note_handler(request: web.Request):
     except Exception:
         body = {}
     note = str(body.get("note") or "")
+    lk = await _prod_locked_error(request, thread_id)
+    if lk:
+        return lk
 
     def _run():
         conn = _conn()
@@ -316,6 +331,9 @@ async def production_set_kind_handler(request: web.Request):
     except Exception:
         body = {}
     kind = str(body.get("kind") or "san_xuat")
+    lk = await _prod_locked_error(request, thread_id)
+    if lk:
+        return lk
 
     def _run():
         conn = _conn()
@@ -347,6 +365,9 @@ async def production_add_number_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Số lượng không hợp lệ"}, status=400)
     note = str(body.get("note") or "").strip()
     actor = _web_actor(request, body)
+    lk = await _prod_locked_error(request, thread_id)
+    if lk:
+        return lk
 
     def _run():
         conn = _conn()
@@ -388,6 +409,9 @@ async def production_report_save_handler(request: web.Request):
     except Exception:
         body = {}
     me = _web_actor(request, body)
+    plk = await _prod_locked_error(request, thread_id)   # phiếu đã khoá 24h → cấm lưu báo cáo
+    if plk:
+        return plk
     lk = _lock_info(thread_id)
     if lk and not _is_lock_mine(lk, me, str(body.get("sid") or "")):   # phiên khác giữ khoá → chặn ghi đè
         return web.json_response({"ok": False, "error": f"Đang được {lk['user']} chỉnh sửa", "holder": lk["user"]}, status=409)
@@ -478,6 +502,36 @@ def _compute(thread_id, text: str) -> dict:
 def _emit(thread_id) -> None:
     from server_app.realtime import emit_production_changed
     emit_production_changed(thread_id)
+
+
+async def _set_slip_lock(request: web.Request, value: str):
+    """Admin đặt lock_override cho phiếu ('locked' | 'unlocked')."""
+    thread_id = _thread_id(request)
+    if thread_id is None:
+        return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
+    from server_app.order_api_common import is_admin_request
+    if not await is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin khoá/mở phiếu được"}, status=403)
+
+    def _run():
+        conn = _conn()
+        try:
+            set_lock_override(conn, thread_id, value)
+        finally:
+            conn.close()
+    await asyncio.to_thread(_run)
+    _emit(thread_id)
+    return web.json_response({"ok": True, "locked": value == "locked"})
+
+
+async def production_slip_lock_handler(request: web.Request):
+    """Admin KHOÁ phiếu SX (cấm sửa, chỉ trao đổi). POST /api/production/{id}/slip-lock."""
+    return await _set_slip_lock(request, "locked")
+
+
+async def production_slip_unlock_handler(request: web.Request):
+    """Admin MỞ KHOÁ phiếu SX (cho sửa lại). POST /api/production/{id}/slip-unlock."""
+    return await _set_slip_lock(request, "unlocked")
 
 
 def _web_actor(request: web.Request, body: dict | None = None) -> str:

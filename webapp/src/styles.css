@@ -1199,6 +1199,12 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-line-txt { flex: 1 1 auto; min-width: 0; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pt-inl { color: inherit; text-decoration: underline; text-decoration-color: var(--border); }
 .hist-place-lnk { color: var(--accent, #2563eb); text-decoration: underline; font-weight: 600; }
+/* Khoá phiếu SX */
+.prod-lock-banner { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 12px;
+  background: var(--warn-wash, #fff8e6); border: 1px solid #ecd28a; border-radius: 10px; font-size: .88rem; color: #7a5a00; }
+.prod-ro { padding: 8px 10px; background: var(--bg); border-radius: 8px; display: flex; align-items: center; gap: 6px; }
+.pb-lock { display: flex; align-items: center; gap: 6px; padding: 4px 2px; }
+.prod-lockbtn { color: var(--ink); }
 
 /* ── Bảng giá chung (#/bang-gia/:id) — redesign ── */
 .pl-toolbar-row { display: flex; gap: 8px; align-items: center; }

@@ -21,6 +21,7 @@ _COLUMNS = (
     "kind",
     "updated_at",
     "product_id",
+    "lock_override",
 )
 _JSON_COLUMNS = {"numbers", "bang"}
 
@@ -116,6 +117,12 @@ def set_kind(conn, thread_id, kind) -> bool:
 
 def set_note(conn, thread_id, ghi_chu) -> bool:
     return upsert_slip(conn, thread_id, ghi_chu=ghi_chu)
+
+
+def set_lock_override(conn, thread_id, value) -> bool:
+    """Admin ghi đè khoá phiếu: 'locked' | 'unlocked' | None (về tự-động 24h)."""
+    v = value if value in ("locked", "unlocked") else None
+    return upsert_slip(conn, thread_id, lock_override=v)
 
 
 def add_number(conn, thread_id, amount, note, by=None, at=None) -> float:

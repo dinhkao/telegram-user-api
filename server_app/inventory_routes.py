@@ -88,6 +88,10 @@ async def production_add_boxes_handler(request: web.Request):
     thread_id = _thread_id(request)
     if thread_id is None:
         return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
+    from server_app.production_lock import locked_error as _prod_locked_error
+    lk = await _prod_locked_error(request, thread_id)   # phiếu khoá 24h → cấm nhập thùng
+    if lk:
+        return lk
     try:
         body = await request.json()
     except Exception:
