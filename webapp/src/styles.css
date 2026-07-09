@@ -1207,9 +1207,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pd-cbox { display: inline-flex; align-items: stretch; flex: 0 0 auto; font-size: .82rem;
   border: 1px solid var(--border); border-radius: 6px; overflow: hidden; text-decoration: none; color: inherit; }
 .pd-cbox:active { opacity: .7; }
-.pd-cbn { font-family: monospace; font-weight: 600; padding: 1px 5px; background: var(--bg); }
-.pd-cq { padding: 1px 5px; color: var(--ok); font-variant-numeric: tabular-nums; background: var(--card);
-  border-left: 1px solid var(--border); }
+.pd-cbn { font-family: monospace; font-weight: 800; font-size: .9rem; color: var(--ink); padding: 1px 6px; background: var(--bg); }
+.pd-cq { padding: 1px 5px; font-size: .72rem; font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums;
+  background: var(--card); border-left: 1px solid var(--border); align-self: center; }
 .pt-inl.in { color: var(--ok); }
 .pt-inl.out { color: var(--danger); }
 .pt-dot.mix { border-color: var(--muted); }
