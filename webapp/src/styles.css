@@ -1223,7 +1223,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-box-chip { font-size: .76rem; background: var(--bg); border: 1px solid var(--border); border-radius: 999px;
   padding: 2px 9px; text-decoration: none; color: inherit; white-space: nowrap; }
 .pt-box-chip:active { background: var(--card); }
-.pt-snap { max-width: 340px; }
+.pt-snap { max-width: min(94vw, 460px); }
+.pt-snap-grid { max-height: 58vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.pt-snap-grid .kho-group-h { display: flex; align-items: baseline; gap: 8px; padding: 2px 2px 4px; }
 .pt-snap-tot { margin: 2px 0 8px; font-size: 1.05rem; }
 .pt-snap-list { list-style: none; margin: 0; padding: 0; max-height: 52vh; overflow-y: auto; }
 .pt-snap-list li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 2px; border-top: 1px solid var(--border); }

@@ -75,6 +75,23 @@ def _stock_by_product(conn, place_id: int) -> list[dict]:
     return [{"code": r[0], "qty": round(float(r[1] or 0), 3)} for r in rows]
 
 
+def _current_boxes(conn, place_id: int) -> list[dict]:
+    """Thùng HIỆN CÓ ở kho (đủ field cho BoxLabelGrid + dựng lại lịch sử box set)."""
+    rows = conn.execute(
+        "SELECT b.id, b.box_code, COALESCE(pr.code, b.product_code) AS product_code, b.quantity, "
+        "b.quantity - COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0) AS remaining, "
+        "COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0) AS allocated, "
+        "COALESCE(pr.unit,'cây') AS product_unit, b.note "
+        "FROM inventory_boxes b LEFT JOIN products pr ON pr.id = b.product_id "
+        "WHERE b.place_id = ? AND (b.disabled IS NULL OR b.disabled = 0)",
+        (place_id,),
+    ).fetchall()
+    return [{"id": r["id"], "box_code": r["box_code"], "product_code": r["product_code"],
+             "quantity": float(r["quantity"] or 0), "remaining": float(r["remaining"] or 0),
+             "allocated": float(r["allocated"] or 0), "product_unit": r["product_unit"],
+             "note": r["note"], "disabled": False} for r in rows]
+
+
 def place_timeline(place_id: int) -> dict:
     conn = _get_connection()
     try:
@@ -102,14 +119,16 @@ def place_timeline(place_id: int) -> dict:
             bn = _boxnum(p.get("box_code"))
             items.append({
                 "ts": _epoch(r["ts"]), "at": r["ts"], "dir": "in" if act in _DIR_IN else "out",
-                "reason": _REASON.get(act, ""), "product_code": pc, "box_id": p.get("box_id"),
-                "box_code": p.get("box_code"), "box_num": bn, "delta": round(delta, 3),
+                "kind": act.replace("box.", ""), "reason": _REASON.get(act, ""), "product_code": pc,
+                "box_id": p.get("box_id"), "box_code": p.get("box_code"), "box_num": bn,
+                "quantity": p.get("quantity"), "delta": round(delta, 3),
                 "total_after": round(running, 3), "actor": str(r["actor_id"] or "?"),
             })
             running -= delta
         return {"ok": True, "place": {"id": place_id, "name": prow[0]},
                 "current_total": round(current, 3), "box_count": box_count,
                 "current_by_product": _stock_by_product(conn, place_id),
+                "current_boxes": _current_boxes(conn, place_id),
                 "items": items, "truncated": len(rows) >= _CAP}
     finally:
         conn.close()

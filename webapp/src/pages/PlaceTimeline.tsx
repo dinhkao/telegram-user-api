@@ -4,7 +4,7 @@
 // chạy + CHẤM TRÒN bấm được → popup "kho lúc đó chứa gì" (tồn theo SP). Nhóm theo ngày
 // + khe thời gian. Data: getPlaceTimeline.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { getPlaceTimeline, soVN, type PlaceTLItem, type PlaceStockLine, type PlaceTimeline as PT } from "../api";
+import { getPlaceTimeline, soVN, type PlaceTLItem, type PlaceBox, type PlaceTimeline as PT } from "../api";
 import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
 import { fastScrollToEl } from "../scroll";
@@ -13,6 +13,7 @@ import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { dayKeyOf, orderDayLabel } from "../detail/OrderCards";
+import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 
 const GROUP_SEC = 300;   // gom thao tác trong vòng 5 phút vào 1 card
 // Khoảng cách dòng TỈ LỆ THUẬN thời gian thực — CHÍNH XÁC TỚI PHÚT: cao = giây × PXPS
@@ -29,25 +30,42 @@ function gapLabel(sec: number): string {
   return `${Math.max(1, Math.round(sec / 60))} phút`;
 }
 
-// Dựng lại tồn theo SP tại MỖI mốc: từ tồn hiện tại đi ngược thời gian (undo delta).
-function buildStates(items: PlaceTLItem[], current: PlaceStockLine[]): Map<string, number>[] {
-  const running = new Map<string, number>();
-  for (const l of current) running.set(l.code, l.qty);
-  const out: Map<string, number>[] = [];
-  for (const it of items) {
-    out.push(new Map(running));                 // trạng thái NGAY SAU mốc này
-    const q = running.get(it.product_code) || 0;
-    running.set(it.product_code, q - it.delta); // lùi 1 bước → trạng thái trước mốc
+const boxLabel = (e: PlaceTLItem) => `${e.product_code} · ${e.box_num}`;
+const sumRem = (bs: PlaceBox[]) => bs.reduce((s, b) => s + Math.max(0, b.remaining), 0);
+
+// Undo 1 biến động: đưa BỘ THÙNG từ trạng thái SAU mốc → TRƯỚC mốc (đi ngược thời gian).
+// vào(created/moved_in) = thùng mới có mặt → gỡ; ra(moved_out/deleted) = thùng đã rời → thêm
+// lại (remaining = phần đã rời = |delta|); còn lại chỉ đổi remaining (allocate/trả/chuyển hàng).
+function undoEvent(m: Map<number, PlaceBox>, it: PlaceTLItem): void {
+  const id = it.box_id;
+  if (id == null) return;
+  if (it.kind === "created" || it.kind === "moved_in") {
+    m.delete(id);
+  } else if (it.kind === "moved_out" || it.kind === "deleted") {
+    const q = Math.abs(it.delta);
+    m.set(id, { id, box_code: it.box_code || String(id), product_code: it.product_code,
+      quantity: it.quantity ?? q, remaining: q, allocated: (it.quantity ?? q) - q,
+      product_unit: "cây", disabled: false });
+  } else {
+    const b = m.get(id);
+    if (b) { const rem = b.remaining - it.delta; m.set(id, { ...b, remaining: rem, allocated: b.quantity - rem }); }
   }
-  return out;
 }
 
-const stateList = (m: Map<string, number> | undefined): PlaceStockLine[] =>
-  m ? [...m.entries()].filter(([, q]) => q > 0.0001).map(([code, qty]) => ({ code, qty: Math.round(qty * 1000) / 1000 }))
-    .sort((a, b) => b.qty - a.qty) : [];
+// Bộ thùng của kho NGAY SAU biến động thứ targetIdx (0 = hiện tại; n = trước biến động cũ nhất).
+function boxesAt(items: PlaceTLItem[], current: PlaceBox[], targetIdx: number): PlaceBox[] {
+  const m = new Map<number, PlaceBox>();
+  for (const b of current) m.set(b.id, { ...b });
+  for (let i = 0; i < targetIdx; i++) undoEvent(m, items[i]);   // gỡ các biến động MỚI hơn targetIdx
+  return [...m.values()].filter((b) => b.remaining > 0.0001);
+}
 
-const boxLabel = (e: PlaceTLItem) => `${e.product_code} · ${e.box_num}`;
-const sumQty = (ls: PlaceStockLine[]) => ls.reduce((s, l) => s + l.qty, 0);
+// Gom thùng theo mã SP (tồn giảm dần) cho popup grid
+function groupByProduct(bs: PlaceBox[]): [string, PlaceBox[]][] {
+  const g = new Map<string, PlaceBox[]>();
+  for (const b of bs) { const a = g.get(b.product_code); if (a) a.push(b); else g.set(b.product_code, [b]); }
+  return [...g.entries()].sort((a, b) => sumRem(b[1]) - sumRem(a[1]) || a[0].localeCompare(b[0]));
+}
 
 // MỖI biến động = 1 DÒNG (giờ · Vào/Ra · SP·thùng · lý do). KHÔNG có chấm — chấm nằm
 // ở JUNCTION giữa các biến động. Bấm dòng → lịch sử thao tác của thùng.
@@ -83,7 +101,7 @@ export function PlaceTimeline({ placeId, focus }: { placeId: string; focus?: str
   const [d, setD] = useState<PT | null>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
-  const [snap, setSnap] = useState<{ when: string; total: number; lines: PlaceStockLine[]; note?: string } | null>(null);
+  const [snap, setSnap] = useState<{ when: string; boxes: PlaceBox[]; note?: string } | null>(null);
   usePopupBack(!!snap, () => setSnap(null));
   // Deep-link từ lịch sử thùng: ?focus=biendong:<ts> → cuộn + nháy biến động ts gần nhất
   const focusTs = focus?.startsWith("biendong-") ? Number(focus.slice(9)) : undefined;
@@ -124,25 +142,17 @@ export function PlaceTimeline({ placeId, focus }: { placeId: string; focus?: str
   if (loading && !d) return <Loading />;
   if (err || !d) return <ErrorState msg={err || "Không tìm thấy"} onRetry={load} />;
 
-  const states = buildStates(d.items, d.current_by_product);
   const items = d.items;
-  const openState = (when: string, lines: PlaceStockLine[], note?: string) =>
-    setSnap({ when, total: sumQty(lines), lines, note });
+  // Bấm chấm → dựng lại BỘ THÙNG của kho tại thời điểm đó (state sau biến động targetIdx)
+  const openBoxes = (when: string, targetIdx: number, note?: string) =>
+    setSnap({ when, boxes: boxesAt(items, d.current_boxes, targetIdx), note });
 
-  // Trạng thái BAN ĐẦU (trước biến động cũ nhất) = state sau biến động cũ nhất, undo delta của nó
-  let initLines: PlaceStockLine[] = [];
-  if (items.length) {
-    const li = items.length - 1, m = new Map(states[li]);
-    m.set(items[li].product_code, (m.get(items[li].product_code) || 0) - items[li].delta);
-    initLines = stateList(m);
-  }
-
-  // Xen kẽ: [ngày] [chấm trạng thái] [biến động] [chấm ...] … — chấm ở GIỮA các biến động
+  // Xen kẽ: [ngày] [chấm trạng thái] [biến động] [chấm ...] … — chấm ở GIỮA các nhóm biến động
   const rows: any[] = [];
   if (items.length) {
     rows.push(<li key="d-top" class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(items[0].at))}</div></li>);
     rows.push(<Junction key="j-top" height={0} label={null}
-      onDot={() => openState(items[0].at, stateList(states[0]), "hiện tại")} />);
+      onDot={() => openBoxes(items[0].at, 0, "hiện tại")} />);
   }
   items.forEach((it, i) => {
     rows.push(<EventRow key={`e-${i}`} it={it} idx={i} />);
@@ -154,12 +164,12 @@ export function PlaceTimeline({ placeId, focus }: { placeId: string; focus?: str
       if (dsec > GROUP_SEC) {
         const gh = Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX));
         rows.push(<Junction key={`j-${i}`} height={gh} label={cross ? null : gapLabel(dsec)}
-          onDot={() => openState(older.at, stateList(states[i + 1]))} />);
+          onDot={() => openBoxes(older.at, i + 1)} />);
       }
       if (cross) rows.push(<li key={`d-${i}`} class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(older.at))}</div></li>);
     } else {
       rows.push(<Junction key="j-bot" height={0} label={null}
-        onDot={() => openState(it.at, initLines, "trước biến động đầu")} />);
+        onDot={() => openBoxes(it.at, items.length, "trước biến động đầu")} />);
     }
   });
 
@@ -192,13 +202,18 @@ export function PlaceTimeline({ placeId, focus }: { placeId: string; focus?: str
         <div class="modal-overlay" onClick={() => setSnap(null)}>
           <div class="modal-sheet pt-snap" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><Icon name="box" size={16} /> {d.place.name}{snap.note ? ` · ${snap.note}` : ""}</div>
-            <div class="pt-snap-tot"><b>{soVN(snap.total)}</b> <span class="muted small">tồn · lúc {fmtDateTimeVN(snap.when)}</span></div>
-            {snap.lines.length ? (
-              <ul class="pt-snap-list">
-                {snap.lines.map((l) => (
-                  <li key={l.code}><b>{l.code}</b><span class="pt-snap-q">{soVN(l.qty)}</span></li>
+            <div class="pt-snap-tot"><b>{soVN(sumRem(snap.boxes))}</b>
+              <span class="muted small"> tồn · {snap.boxes.length} thùng · lúc {fmtDateTimeVN(snap.when)}</span></div>
+            {snap.boxes.length ? (
+              <div class="pt-snap-grid">
+                {groupByProduct(snap.boxes).map(([code, bs]) => (
+                  <section class="kho-group" key={code}>
+                    <div class="kho-group-h"><b>{code}</b>
+                      <span class="muted small">{soVN(sumRem(bs))} tồn · {bs.length} thùng</span></div>
+                    <BoxLabelGrid boxes={bs as any} />
+                  </section>
                 ))}
-              </ul>
+              </div>
             ) : <p class="muted small">Kho trống lúc này.</p>}
             <button class="btn block" onClick={() => setSnap(null)}>Đóng</button>
           </div>
