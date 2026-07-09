@@ -40,6 +40,7 @@ import { InventoryDetail } from "./pages/InventoryDetail";
 import { KhoBoxes } from "./pages/KhoBoxes";
 import { PlacesList } from "./pages/PlacesList";
 import { PlaceDetail } from "./pages/PlaceDetail";
+import { PlaceTimeline } from "./pages/PlaceTimeline";
 import { BoxDetail } from "./pages/BoxDetail";
 import "./styles.css";
 
@@ -345,6 +346,7 @@ function App() {
   const shtMatch = hash.match(/^#\/sx-tho\/([^?]+)/);
   const prodMatch = hash.match(/^#\/san_xuat\/(-?\d+)/);
   const khoMatch = hash.match(/^#\/kho\/([^?]+)/);
+  const placeTLMatch = hash.match(/^#\/vi-tri\/(\d+)\/timeline/);
   const placeMatch = hash.match(/^#\/vi-tri\/(\d+)/);
   const boxMatch = hash.match(/^#\/thung\/(\d+)/);
   const viecMatch = hash.match(/^#\/viec\/(\d+)/);
@@ -365,6 +367,7 @@ function App() {
   else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} focus={focusEl} />;
   else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;
   else if (boxMatch) page = <BoxDetail boxId={boxMatch[1]} />;
+  else if (placeTLMatch) page = <PlaceTimeline placeId={placeTLMatch[1]} />;
   else if (placeMatch) page = <PlaceDetail id={placeMatch[1]} />;
   else if (hash.startsWith("#/vi-tri")) page = <PlacesList />;
   else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;

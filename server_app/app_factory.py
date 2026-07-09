@@ -255,6 +255,8 @@ def create_app():
     r.add_post("/api/banner/pin", banner_pin_create_handler)
     r.add_delete("/api/banner/pin/{pin_id}", banner_pin_delete_handler)
     r.add_get("/api/places", places_list_handler)
+    from server_app.place_timeline import place_timeline_handler
+    r.add_get("/api/places/{place_id}/timeline", place_timeline_handler)
     r.add_post("/api/places", place_create_handler)
     r.add_post("/api/places/{place_id}", place_rename_handler)
     r.add_delete("/api/places/{place_id}", place_delete_handler)

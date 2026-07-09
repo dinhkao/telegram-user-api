@@ -1177,6 +1177,41 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
   cursor: pointer; padding: 0; flex: 0 0 auto; }
 .kho-filt-btn:active { background: var(--card); color: var(--ink); }
 
+/* ── Timeline biến động VỊ TRÍ KHO (#/vi-tri/:id/timeline) — rail tồn chạy ── */
+.pt-open-btn { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 8px 0; }
+.pt-head { display: flex; align-items: center; justify-content: space-between; }
+.pt-total-big { font-size: 1.5rem; font-weight: 800; color: var(--ok); font-variant-numeric: tabular-nums; }
+.pt-total-big.zero { color: var(--muted); }
+.pt-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.pt-item { display: flex; align-items: stretch; gap: 8px; }
+.pt-item > :first-child { flex: 1 1 auto; min-width: 0; }
+.pt-link { text-decoration: none; color: inherit; display: block; }
+.pt-card { position: relative; border: 1px solid var(--border); border-radius: 10px; background: var(--card); margin: 3px 0; }
+.pt-card:active { background: var(--bg); }
+.pt-sub { font-size: .76rem; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-ic { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px;
+  border-radius: 6px; background: var(--bg); color: var(--muted); flex: 0 0 auto; }
+.pt-ic.in { background: #e8f5e9; color: var(--ok); }
+.pt-ic.out { background: #fdecea; color: var(--danger); }
+.pt-rail { flex: 0 0 auto; width: 74px; box-sizing: border-box; position: relative; padding-left: 17px;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; }
+.pt-rail::before { content: ""; position: absolute; left: 4px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+.pt-item:first-of-type .pt-rail::before { top: 50%; }
+.pt-item:last-of-type .pt-rail::before { bottom: 50%; }
+.pt-dot { position: absolute; left: -0.5px; top: 50%; transform: translateY(-50%); width: 11px; height: 11px;
+  border-radius: 50%; background: var(--card); border: 2.5px solid var(--muted); box-sizing: border-box; }
+.pt-dot.in { border-color: var(--ok); }
+.pt-dot.out { border-color: var(--danger); }
+.pt-total { font-weight: 700; font-variant-numeric: tabular-nums; font-size: .95rem; line-height: 1.1; }
+.pt-total.pos { color: var(--ok); }
+.pt-total.zero { color: var(--muted); font-weight: 500; }
+.pt-delta { font-size: .72rem; font-weight: 600; }
+.pt-delta.in { color: var(--ok); }
+.pt-delta.out { color: var(--danger); }
+.pt-day { margin-right: 82px; }
+.pt-gap { margin-right: 82px; display: flex; align-items: center; justify-content: center; }
+.pt-trunc { text-align: center; margin: 8px 0; }
+
 .inv-tag { font-size: .74rem; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 .inv-tag.alloc { background: #fff3e0; color: #a15c00; border: 1px solid #f0d9b0; }
 .inv-tag.ship { background: #eef; color: #337; border: 1px solid #ccd; }

@@ -829,6 +829,21 @@ export async function listPlaces(): Promise<Place[]> {
   const d = await getJSON("/api/places", { cache: false });
   return d.places || [];
 }
+
+// ── Timeline biến động 1 vị trí kho (nhập/xuất/chuyển/xoá) + tồn kho chạy ──
+export type PlaceTLItem = {
+  ts: number; at: string; kind: string; action: string; detail: string;
+  delta: number; total_after: number; actor: string;
+  order_thread_id?: number | null; order_text?: string | null;
+};
+export type PlaceTimeline = {
+  place: { id: number; name: string }; current_total: number; box_count: number;
+  items: PlaceTLItem[]; truncated: boolean;
+};
+export async function getPlaceTimeline(placeId: string | number): Promise<PlaceTimeline | null> {
+  const d = await getJSON(`/api/places/${Number(placeId)}/timeline`, { cache: false });
+  return d.ok ? d : null;
+}
 export async function createPlace(name: string, note = ""): Promise<Place> {
   const d = await postJSON("/api/places", { name, note }, { queueable: false });
   return d.place;

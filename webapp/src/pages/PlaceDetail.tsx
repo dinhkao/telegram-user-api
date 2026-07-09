@@ -87,6 +87,10 @@ export function PlaceDetail({ id }: { id: string }) {
         </div>
       </div>
 
+      <a class="btn block pt-open-btn" href={`#/vi-tri/${pid}/timeline`}>
+        <Icon name="history" size={16} /> Timeline biến động kho →
+      </a>
+
       <section class="card">
         <label class="card-label"><Icon name="edit" size={15} /> Ghi chú</label>
         {noteEdit === null ? (

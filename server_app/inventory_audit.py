@@ -66,7 +66,8 @@ def log_box_moved(snap: dict, *, from_place_id, from_name, to_place_id, to_name,
     """Chuyển kho: ghi vị trí lịch sử cho CẢ kho cũ (thùng rời) + kho mới (thùng đến).
     Lịch sử THÙNG đã có event 'Chuyển kho' từ middleware (POST /box/{id})."""
     base = {"box_code": snap.get("box_code"), "product_code": snap.get("product_code"),
-            "quantity": snap.get("quantity"), "from_name": from_name, "to_name": to_name}
+            "quantity": snap.get("quantity"), "remaining": snap.get("remaining"),
+            "from_name": from_name, "to_name": to_name}
     _emit("box.moved_out", "place", from_place_id, actor, actor_type, base)
     _emit("box.moved_in", "place", to_place_id, actor, actor_type, base)
 

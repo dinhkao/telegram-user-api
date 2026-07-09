@@ -740,10 +740,10 @@ async def box_update_handler(request: web.Request):
             after = get_box(conn, box_id)
             if ("place_id" in kwargs or kwargs.get("clear_place")) and after and \
                (box.get("place_id") or None) != (after.get("place_id") or None):
+                from server_app.inventory_audit import box_snapshot
                 move.update(from_place_id=box.get("place_id"), from_name=box.get("place_name"),
                             to_place_id=after.get("place_id"), to_name=after.get("place_name"),
-                            snap={"box_code": after.get("box_code"), "product_code": after.get("product_code"),
-                                  "quantity": after.get("quantity")})
+                            snap=box_snapshot(conn, box_id))   # có remaining cho timeline
             return after, None
         finally:
             conn.close()
