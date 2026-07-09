@@ -11,7 +11,7 @@ import { Icon } from "../ui/Icon";
 function fmtDate(s?: string | null): string {
   if (!s) return "";
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
+  return m ? `${m[3]}/${m[2]}` : s;   // NSX gọn: DD/MM
 }
 
 export function StockPickerModal({
