@@ -1190,6 +1190,10 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .place-chips { display: flex; gap: 6px; overflow-x: auto; margin: 8px 0 2px; padding-bottom: 2px; scrollbar-width: none; }
 .place-chips::-webkit-scrollbar { display: none; }
 .place-chips .chip { flex: 0 0 auto; padding: 5px 11px; font-size: .8rem; }
+/* Kho hàng: gom theo SP */
+.kho-groups { display: flex; flex-direction: column; gap: 14px; }
+.kho-group-h { display: flex; align-items: baseline; gap: 8px; padding: 2px 2px 6px; color: var(--ink); text-decoration: none; }
+.kho-group-h b { font-size: 1rem; }
 /* Select vị trí ở chi tiết thùng */
 .box-place { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: .95rem; min-width: 140px; background: var(--card); color: var(--ink); }
 
