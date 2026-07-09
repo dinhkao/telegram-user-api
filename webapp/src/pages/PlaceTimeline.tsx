@@ -60,33 +60,25 @@ const boxLabel = (e: PlaceTLItem) => `${e.product_code} · ${e.box_num}`;
 function CardRow({ c, onDot }: { c: Card; onDot: (c: Card) => void }) {
   const inn = c.dir === "in";
   const single = c.entries.length === 1;
-  const title = <><b>Thùng {inn ? "vào" : "ra"}</b>{single ? "" : ` ×${c.entries.length}`}</>;
-  const body = (
-    <div class={"pt-card pt-" + c.dir}>
-      <span class="fu-time">{hm(c.at)}</span>
-      <div class="ultra-row">
-        <span class={"pt-ic " + c.dir}><Icon name={inn ? "download" : "truck"} size={13} /></span>
-        <span class="ultra-text">{title}
-          {single ? <span class="muted"> · {boxLabel(c.entries[0])} · {c.entries[0].reason}</span> : null}
-        </span>
-      </div>
+  const inner = (
+    <>
+      <span class="pt-time">{hm(c.at)}</span>
+      <span class={"pt-tag " + c.dir}>{inn ? "Vào" : "Ra"}</span>
       {single ? (
-        <div class="pt-sub muted">{c.entries[0].actor || "?"}</div>
+        <span class="pt-line-txt">{boxLabel(c.entries[0])} <span class="muted">· {c.entries[0].reason}</span></span>
       ) : (
-        <div class="pt-boxes">
-          {c.entries.map((e, i) => (
-            <a class="pt-box-chip" key={i} href={e.box_id ? `#/thung/${e.box_id}` : undefined}
-              title={`${boxLabel(e)} · ${e.reason}`}>{e.product_code} · {e.box_num}</a>
-          ))}
-        </div>
+        <span class="pt-line-txt">×{c.entries.length}: {c.entries.map((e, i) => (
+          <span key={i}>{i ? ", " : ""}<a class="pt-inl" href={e.box_id ? `#/thung/${e.box_id}` : undefined}
+            title={`${boxLabel(e)} · ${e.reason}`}>{e.product_code}·{e.box_num}</a></span>
+        ))}</span>
       )}
-    </div>
+    </>
   );
   return (
     <li class="pt-item">
       {single && c.entries[0].box_id
-        ? <a class="pt-card-link" href={`#/thung/${c.entries[0].box_id}`}>{body}</a>
-        : body}
+        ? <a class="pt-line" href={`#/thung/${c.entries[0].box_id}`}>{inner}</a>
+        : <div class="pt-line">{inner}</div>}
       <span class="pt-rail">
         <button class={"pt-dot " + c.dir} title="Xem kho lúc này chứa gì" onClick={() => onDot(c)} />
       </span>
