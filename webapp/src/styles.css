@@ -1199,16 +1199,15 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-inl { color: inherit; text-decoration: underline; text-decoration-color: var(--border); }
 .hist-place-lnk { color: var(--accent, #2563eb); text-decoration: underline; font-weight: 600; }
 /* Chi tiết vị trí — view GỌN: "Mã SP : 001 002 003…" */
-.pd-compact { display: flex; flex-direction: column; gap: 4px; }
-.pd-crow { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; padding: 5px 2px; border-bottom: 1px solid var(--border); }
-.pd-csp { font-weight: 700; text-decoration: none; color: inherit; flex: 0 0 auto; }
-.pd-csp::after { content: " :"; color: var(--muted); }
+.pd-compact { display: flex; flex-direction: column; gap: 8px; }
+.pd-crow { display: flex; flex-direction: column; gap: 4px; padding: 4px 2px 8px; border-bottom: 1px solid var(--border); }
+.pd-csp { font-weight: 700; text-decoration: none; color: inherit; }
 .pd-cn { font-weight: 400; color: var(--muted); font-size: .82rem; }
-.pd-cboxes { display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 auto; }
-.pd-cbox { display: inline-flex; align-items: stretch; font-size: .82rem; border: 1px solid var(--border);
-  border-radius: 6px; overflow: hidden; text-decoration: none; color: inherit; }
+.pd-cboxes { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; }
+.pd-cbox { display: inline-flex; align-items: stretch; flex: 1 0 auto; min-width: 60px; font-size: .82rem;
+  border: 1px solid var(--border); border-radius: 6px; overflow: hidden; text-decoration: none; color: inherit; }
 .pd-cbox:active { opacity: .7; }
-.pd-cbn { font-family: monospace; font-weight: 600; padding: 1px 5px; background: var(--bg); }
+.pd-cbn { flex: 1 1 auto; font-family: monospace; font-weight: 600; padding: 1px 5px; background: var(--bg); }
 .pd-cq { padding: 1px 5px; color: var(--ok); font-variant-numeric: tabular-nums; background: var(--card);
   border-left: 1px solid var(--border); }
 .pt-inl.in { color: var(--ok); }

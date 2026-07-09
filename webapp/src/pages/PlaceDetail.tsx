@@ -3,7 +3,7 @@
 // Data: listPlaces (tìm theo id) + allBoxes (lọc place_id). Realtime reload.
 import { useEffect, useState } from "preact/hooks";
 
-let memView: "grid" | "compact" = "grid";   // nhớ kiểu xem thùng khi rời trang
+let memView: "grid" | "compact" = "compact";   // nhớ kiểu xem thùng khi rời trang (mặc định GỌN)
 import { listPlaces, allBoxes, renamePlace, setPlaceNote, deletePlace, currentUser, soVN, type Place, type KhoBox } from "../api";
 import { onRealtime } from "../realtime";
 import { BackLink } from "../nav";
