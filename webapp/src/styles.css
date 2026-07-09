@@ -1183,8 +1183,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-total-big { font-size: 1.5rem; font-weight: 800; color: var(--ok); font-variant-numeric: tabular-nums; }
 .pt-total-big.zero { color: var(--muted); }
 .pt-list { list-style: none; margin: 6px 0 0; padding: 0; }
-.pt-item { display: flex; align-items: center; gap: 8px; }
+.pt-item { display: flex; align-items: stretch; gap: 8px; }
 .pt-item > :first-child { flex: 1 1 auto; min-width: 0; }
+/* Chấm TRẠNG THÁI nằm ở JUNCTION giữa các biến động; khe cao → chấm chính giữa */
+.pt-junc { display: flex; align-items: stretch; gap: 8px; position: relative; min-height: 16px; }
+.pt-junc-mid { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: center; }
 .pt-line { display: flex; align-items: baseline; gap: 7px; padding: 0 2px; line-height: 1.25; text-decoration: none; color: inherit; min-width: 0; }
 .pt-line:active { background: var(--bg); }
 .pt-time { flex: 0 0 auto; font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -1208,8 +1211,6 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-rail { flex: 0 0 auto; width: 20px; box-sizing: border-box; position: relative;
   display: flex; align-items: center; justify-content: center; }
 .pt-rail::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--border); }
-.pt-item:first-of-type .pt-rail::before { top: 50%; }
-.pt-item:last-of-type .pt-rail::before { bottom: 50%; }
 .pt-dot { position: relative; z-index: 1; width: 13px; height: 13px;
   border-radius: 50%; background: var(--card); border: 3px solid var(--muted); box-sizing: border-box;
   padding: 0; cursor: pointer; -webkit-appearance: none; appearance: none; }

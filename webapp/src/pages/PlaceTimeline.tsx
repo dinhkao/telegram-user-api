@@ -46,24 +46,33 @@ const stateList = (m: Map<string, number> | undefined): PlaceStockLine[] =>
     .sort((a, b) => b.qty - a.qty) : [];
 
 const boxLabel = (e: PlaceTLItem) => `${e.product_code} · ${e.box_num}`;
+const sumQty = (ls: PlaceStockLine[]) => ls.reduce((s, l) => s + l.qty, 0);
 
-// MỖI biến động = 1 DÒNG (giờ · Vào/Ra · SP·thùng · lý do) + 1 chấm trên rail.
-// Bấm dòng → lịch sử thao tác của thùng; bấm chấm → kho lúc đó chứa gì.
-function EventRow({ it, onDot }: { it: PlaceTLItem; onDot: () => void }) {
-  const inn = it.dir === "in";
+// MỖI biến động = 1 DÒNG (giờ · Vào/Ra · SP·thùng · lý do). KHÔNG có chấm — chấm nằm
+// ở JUNCTION giữa các biến động. Bấm dòng → lịch sử thao tác của thùng.
+function EventRow({ it }: { it: PlaceTLItem }) {
   const inner = (
     <>
       <span class="pt-time">{hm(it.at)}</span>
-      <span class={"pt-tag " + it.dir}>{inn ? "Vào" : "Ra"}</span>
+      <span class={"pt-tag " + it.dir}>{it.dir === "in" ? "Vào" : "Ra"}</span>
       <span class="pt-line-txt">{boxLabel(it)} <span class="muted">· {it.reason}</span></span>
     </>
   );
   return (
     <li class="pt-item">
       {it.box_id ? <a class="pt-line" href={`#/thung/${it.box_id}`}>{inner}</a> : <div class="pt-line">{inner}</div>}
-      <span class="pt-rail">
-        <button class={"pt-dot " + it.dir} title="Xem kho lúc này chứa gì" onClick={onDot} />
-      </span>
+      <span class="pt-rail" />
+    </li>
+  );
+}
+
+// CHẤM TRẠNG THÁI ở giữa 2 biến động/cụm — bấm → kho tại thời điểm đó chứa gì. Khe cao
+// TỈ LỆ thời gian (khi cách > 5 phút): chấm nằm CHÍNH GIỮA khe.
+function Junction({ height, label, onDot }: { height: number; label: string | null; onDot: () => void }) {
+  return (
+    <li class="pt-junc" style={height ? { height: `${height}px` } : undefined}>
+      <span class="pt-junc-mid">{label ? <span class="fg-label">· {label} ·</span> : null}</span>
+      <span class="pt-rail"><button class="pt-dot" title="Xem kho lúc này chứa gì" onClick={onDot} /></span>
     </li>
   );
 }
@@ -72,7 +81,7 @@ export function PlaceTimeline({ placeId }: { placeId: string }) {
   const [d, setD] = useState<PT | null>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
-  const [snap, setSnap] = useState<{ when: string; total: number; lines: PlaceStockLine[] } | null>(null);
+  const [snap, setSnap] = useState<{ when: string; total: number; lines: PlaceStockLine[]; note?: string } | null>(null);
   usePopupBack(!!snap, () => setSnap(null));
 
   const load = () => {
@@ -97,6 +106,40 @@ export function PlaceTimeline({ placeId }: { placeId: string }) {
 
   const states = buildStates(d.items, d.current_by_product);
   const items = d.items;
+  const openState = (when: string, lines: PlaceStockLine[], note?: string) =>
+    setSnap({ when, total: sumQty(lines), lines, note });
+
+  // Trạng thái BAN ĐẦU (trước biến động cũ nhất) = state sau biến động cũ nhất, undo delta của nó
+  let initLines: PlaceStockLine[] = [];
+  if (items.length) {
+    const li = items.length - 1, m = new Map(states[li]);
+    m.set(items[li].product_code, (m.get(items[li].product_code) || 0) - items[li].delta);
+    initLines = stateList(m);
+  }
+
+  // Xen kẽ: [ngày] [chấm trạng thái] [biến động] [chấm ...] … — chấm ở GIỮA các biến động
+  const rows: any[] = [];
+  if (items.length) {
+    rows.push(<li key="d-top" class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(items[0].at))}</div></li>);
+    rows.push(<Junction key="j-top" height={0} label={null}
+      onDot={() => openState(items[0].at, stateList(states[0]), "hiện tại")} />);
+  }
+  items.forEach((it, i) => {
+    rows.push(<EventRow key={`e-${i}`} it={it} />);
+    const older = items[i + 1];
+    if (older) {
+      const dsec = Math.max(0, it.ts - older.ts);
+      const gap = dsec > GROUP_SEC;
+      const gh = gap ? Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX)) : 0;
+      const cross = dayKeyOf(it.at) !== dayKeyOf(older.at);
+      rows.push(<Junction key={`j-${i}`} height={gh} label={gap && !cross ? gapLabel(dsec) : null}
+        onDot={() => openState(older.at, stateList(states[i + 1]))} />);
+      if (cross) rows.push(<li key={`d-${i}`} class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(older.at))}</div></li>);
+    } else {
+      rows.push(<Junction key="j-bot" height={0} label={null}
+        onDot={() => openState(it.at, initLines, "trước biến động đầu")} />);
+    }
+  });
 
   return (
     <div class="place-tl">
@@ -119,35 +162,15 @@ export function PlaceTimeline({ placeId }: { placeId: string }) {
       {items.length === 0 ? (
         <EmptyState>Kho này chưa có biến động nào được ghi.</EmptyState>
       ) : (
-        <ul class="pt-list">
-          {items.flatMap((it, i) => {
-            const nodes: any[] = [];
-            // GOM: các biến động cách nhau ≤ 5 phút xếp SÁT (cùng 1 cụm, không khe).
-            // Cách > 5 phút → chèn khe cao TỈ LỆ THUẬN thời gian thực + nhãn.
-            const dsec = i > 0 ? Math.max(0, items[i - 1].ts - it.ts) : 0;
-            if (i > 0 && dsec > GROUP_SEC) {
-              const gh = Math.min(dsec * GAP_PXPS, GAP_MAX);
-              nodes.push(
-                <li key={`g-${i}`} class="pt-gap" style={{ height: `${Math.round(gh)}px` }}>
-                  <span class="fg-label">· {gapLabel(dsec)} ·</span>
-                </li>);
-            }
-            const day = dayKeyOf(it.at);
-            if (i === 0 || dayKeyOf(items[i - 1].at) !== day)
-              nodes.push(<li key={`d-${day}-${i}`} class="pt-day"><div class="order-day-head">{orderDayLabel(day)}</div></li>);
-            nodes.push(<EventRow key={`${it.ts}-${i}`} it={it}
-              onDot={() => setSnap({ when: it.at, total: it.total_after, lines: stateList(states[i]) })} />);
-            return nodes;
-          })}
-        </ul>
+        <ul class="pt-list">{rows}</ul>
       )}
       {d.truncated && <div class="muted small pt-trunc">Chỉ hiện {items.length} biến động gần nhất.</div>}
 
       {snap && (
         <div class="modal-overlay" onClick={() => setSnap(null)}>
           <div class="modal-sheet pt-snap" onClick={(e: any) => e.stopPropagation()}>
-            <div class="modal-head"><Icon name="box" size={16} /> {d.place.name} · {fmtDateTimeVN(snap.when)}</div>
-            <div class="pt-snap-tot"><b>{soVN(snap.total)}</b> <span class="muted small">tồn lúc này</span></div>
+            <div class="modal-head"><Icon name="box" size={16} /> {d.place.name}{snap.note ? ` · ${snap.note}` : ""}</div>
+            <div class="pt-snap-tot"><b>{soVN(snap.total)}</b> <span class="muted small">tồn · lúc {fmtDateTimeVN(snap.when)}</span></div>
             {snap.lines.length ? (
               <ul class="pt-snap-list">
                 {snap.lines.map((l) => (
