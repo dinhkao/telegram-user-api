@@ -3,10 +3,11 @@
 // (hoặc chip thùng) → lịch sử thao tác của thùng đó (#/thung/:id). RAIL phải: tồn kho
 // chạy + CHẤM TRÒN bấm được → popup "kho lúc đó chứa gì" (tồn theo SP). Nhóm theo ngày
 // + khe thời gian. Data: getPlaceTimeline.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { getPlaceTimeline, soVN, type PlaceTLItem, type PlaceStockLine, type PlaceTimeline as PT } from "../api";
 import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
+import { fastScrollToEl } from "../scroll";
 import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
@@ -50,7 +51,7 @@ const sumQty = (ls: PlaceStockLine[]) => ls.reduce((s, l) => s + l.qty, 0);
 
 // MỖI biến động = 1 DÒNG (giờ · Vào/Ra · SP·thùng · lý do). KHÔNG có chấm — chấm nằm
 // ở JUNCTION giữa các biến động. Bấm dòng → lịch sử thao tác của thùng.
-function EventRow({ it }: { it: PlaceTLItem }) {
+function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
   const inner = (
     <>
       <span class="pt-time">{hm(it.at)}</span>
@@ -58,9 +59,10 @@ function EventRow({ it }: { it: PlaceTLItem }) {
       <span class="pt-line-txt">{boxLabel(it)} <span class="muted">· {it.reason}</span></span>
     </>
   );
+  // Bấm → chi tiết thùng + cuộn/nháy đúng thao tác đó trong Lịch sử (?focus=hist:<ts>)
   return (
-    <li class="pt-item">
-      {it.box_id ? <a class="pt-line" href={`#/thung/${it.box_id}`}>{inner}</a> : <div class="pt-line">{inner}</div>}
+    <li class="pt-item" id={`pev-${idx}`}>
+      {it.box_id ? <a class="pt-line" href={`#/thung/${it.box_id}?focus=hist:${it.ts}`}>{inner}</a> : <div class="pt-line">{inner}</div>}
       <span class="pt-rail" />
     </li>
   );
@@ -77,12 +79,30 @@ function Junction({ height, label, onDot }: { height: number; label: string | nu
   );
 }
 
-export function PlaceTimeline({ placeId }: { placeId: string }) {
+export function PlaceTimeline({ placeId, focus }: { placeId: string; focus?: string }) {
   const [d, setD] = useState<PT | null>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
   const [snap, setSnap] = useState<{ when: string; total: number; lines: PlaceStockLine[]; note?: string } | null>(null);
   usePopupBack(!!snap, () => setSnap(null));
+  // Deep-link từ lịch sử thùng: ?focus=biendong:<ts> → cuộn + nháy biến động ts gần nhất
+  const focusTs = focus?.startsWith("biendong-") ? Number(focus.slice(9)) : undefined;
+  const focusedRef = useRef(false);
+  useEffect(() => {
+    if (!focusTs || !d?.items?.length || focusedRef.current) return;
+    let best = -1, bestD = Infinity;
+    d.items.forEach((it, i) => { const dd = Math.abs(it.ts - focusTs); if (dd < bestD) { bestD = dd; best = i; } });
+    if (best < 0) return;
+    focusedRef.current = true;
+    const t = setTimeout(() => {
+      const el = document.getElementById(`pev-${best}`);
+      if (!el) return;
+      fastScrollToEl(el, "center");
+      el.classList.add("flash-target");
+      setTimeout(() => el.classList.remove("flash-target"), 2400);
+    }, 160);
+    return () => clearTimeout(t);
+  }, [d, focusTs]);
 
   const load = () => {
     getPlaceTimeline(placeId)
@@ -125,7 +145,7 @@ export function PlaceTimeline({ placeId }: { placeId: string }) {
       onDot={() => openState(items[0].at, stateList(states[0]), "hiện tại")} />);
   }
   items.forEach((it, i) => {
-    rows.push(<EventRow key={`e-${i}`} it={it} />);
+    rows.push(<EventRow key={`e-${i}`} it={it} idx={i} />);
     const older = items[i + 1];
     if (older) {
       const dsec = Math.max(0, it.ts - older.ts);

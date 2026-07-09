@@ -23,7 +23,9 @@ function fmtWhen(iso?: string | null): string {
   return `${d}/${mo}/${y} ${hh}:${mi}`;
 }
 
-export function BoxDetail({ boxId }: { boxId: string }) {
+export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
+  // Deep-link từ timeline kho: ?focus=hist:<ts> → History cuộn + nháy thao tác đó
+  const focusTs = focus?.startsWith("hist-") ? Number(focus.slice(5)) : undefined;
   const [d, setD] = useState<InvBoxDetail | null>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
@@ -445,7 +447,7 @@ export function BoxDetail({ boxId }: { boxId: string }) {
 
       <Images base={`/api/media/box/${b.id}`} />
       <Comments base={`/api/media/box/${b.id}`} />
-      <History base={`/api/media/box/${b.id}`} />
+      <History base={`/api/media/box/${b.id}`} focusTs={focusTs} />
 
       {/* Vô hiệu thùng đã TẮT — chỉ còn kích hoạt lại thùng vô hiệu từ trước */}
       {disabled && (

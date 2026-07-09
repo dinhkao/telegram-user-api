@@ -366,8 +366,8 @@ function App() {
   else if (hash.startsWith("#/sx-bang")) page = <ProductionDashboard />;
   else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} focus={focusEl} />;
   else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;
-  else if (boxMatch) page = <BoxDetail boxId={boxMatch[1]} />;
-  else if (placeTLMatch) page = <PlaceTimeline placeId={placeTLMatch[1]} />;
+  else if (boxMatch) page = <BoxDetail boxId={boxMatch[1]} focus={focusEl} />;
+  else if (placeTLMatch) page = <PlaceTimeline placeId={placeTLMatch[1]} focus={focusEl} />;
   else if (placeMatch) page = <PlaceDetail id={placeMatch[1]} />;
   else if (hash.startsWith("#/vi-tri")) page = <PlacesList />;
   else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;

@@ -68,7 +68,8 @@ def log_box_moved(snap: dict, *, from_place_id, from_name, to_place_id, to_name,
     Lịch sử THÙNG đã có event 'Chuyển kho' từ middleware (POST /box/{id})."""
     base = {"box_id": snap.get("box_id"), "box_code": snap.get("box_code"),
             "product_code": snap.get("product_code"), "quantity": snap.get("quantity"),
-            "remaining": snap.get("remaining"), "from_name": from_name, "to_name": to_name}
+            "remaining": snap.get("remaining"), "from_place_id": from_place_id, "from_name": from_name,
+            "to_place_id": to_place_id, "to_name": to_name}
     # Lịch sử THÙNG: 1 event box.moved ghi rõ TỪ kho nào → ĐẾN kho nào (middleware chỉ
     # thấy place mới nên bị bỏ ở entity_history, event này thay thế).
     _emit("box.moved", "box", snap.get("box_id"), actor, actor_type, base)

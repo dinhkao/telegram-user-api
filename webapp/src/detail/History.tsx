@@ -1,11 +1,21 @@
 // Lịch sử thao tác dùng chung — GET {base}/history (từ audit_events). base vd
 // /api/order/{id} hoặc /api/media/production|box/{id}. Tự cập nhật realtime.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON, mediaImageUrl } from "../api";
 import { fmtTime } from "../format";
 import { onRealtime, eventMatchesBase } from "../realtime";
 import { fastScrollToEl } from "../scroll";
 import { Icon } from "../ui/Icon";
+
+const epoch = (iso?: string) => Math.floor(Date.parse(iso || "") / 1000) || 0;
+
+// Tên kho trong dòng "Chuyển kho" → link tới timeline kho đó, nháy biến động tương ứng
+function placeLink(p: { id?: number | null; name?: string | null } | undefined, ts: string) {
+  const name = p?.name || "Chưa xếp";
+  return p?.id
+    ? <a class="hist-place-lnk" href={`#/vi-tri/${p.id}/timeline?focus=biendong:${epoch(ts)}`}>{name}</a>
+    : <span>{name}</span>;
+}
 
 // Cuộn tới ảnh trong khối Ảnh + nháy sáng (tái dùng cơ chế deep-link)
 function focusImage(id: number) {
@@ -16,9 +26,11 @@ function focusImage(id: number) {
   setTimeout(() => el.classList.remove("flash-target"), 2400);
 }
 
-export function History({ base }: { base: string }) {
+export function History({ base, focusTs }: { base: string; focusTs?: number }) {
   const [items, setItems] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const listRef = useRef<HTMLUListElement>(null);
+  const focusedRef = useRef(false);
 
   const load = () =>
     getJSON(`${base}/history`, { cache: false })
@@ -26,6 +38,23 @@ export function History({ base }: { base: string }) {
       .catch(() => {});
 
   useEffect(() => { load(); }, [base]);
+
+  // Deep-link: cuộn tới + nháy thao tác có ts GẦN NHẤT focusTs (khớp theo giây)
+  useEffect(() => {
+    if (!focusTs || !items.length || focusedRef.current) return;
+    let best = -1, bestD = Infinity;
+    items.forEach((h, i) => { const dd = Math.abs(epoch(h.ts) - focusTs); if (dd < bestD) { bestD = dd; best = i; } });
+    if (best < 0) return;
+    focusedRef.current = true;
+    const t = setTimeout(() => {
+      const el = listRef.current?.children[best] as HTMLElement | undefined;
+      if (!el) return;
+      fastScrollToEl(el, "center");
+      el.classList.add("flash-target");
+      setTimeout(() => el.classList.remove("flash-target"), 2400);
+    }, 140);
+    return () => clearTimeout(t);
+  }, [loaded, focusTs, items]);
 
   // Realtime: thao tác mới trên CÙNG thực thể → tải lại lịch sử (đợi audit ghi xong)
   useEffect(() => {
@@ -40,13 +69,16 @@ export function History({ base }: { base: string }) {
     <div class="card">
       <b><Icon name="history" size={16} /> Lịch sử thao tác</b>
       {items.length ? (
-        <ul class="hist">
+        <ul class="hist" ref={listRef}>
           {items.map((h, i) => (
             <li key={`${h.ts}-${h.action}-${h.image_id ?? h.detail ?? i}`} class={h.ok === false ? "hist-fail" : ""}>
               <div class="hist-row">
                 <div>
                   <div>
-                    <b>{h.action}</b>{h.detail ? <span> — {h.detail}</span> : null}
+                    <b>{h.action}</b>
+                    {h.move ? (
+                      <span> · từ {placeLink(h.move.from, h.ts)} → {placeLink(h.move.to, h.ts)}</span>
+                    ) : h.detail ? <span> — {h.detail}</span> : null}
                     {h.ok === false ? <span class="owe"> ✗</span> : null}
                   </div>
                   {Array.isArray(h.changes) && h.changes.length > 0 ? (

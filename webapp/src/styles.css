@@ -1197,6 +1197,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-tag.mix { color: var(--muted); }
 .pt-line-txt { flex: 1 1 auto; min-width: 0; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pt-inl { color: inherit; text-decoration: underline; text-decoration-color: var(--border); }
+.hist-place-lnk { color: var(--accent, #2563eb); text-decoration: underline; font-weight: 600; }
 .pt-inl.in { color: var(--ok); }
 .pt-inl.out { color: var(--danger); }
 .pt-dot.mix { border-color: var(--muted); }
