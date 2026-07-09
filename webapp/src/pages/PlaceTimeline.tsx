@@ -28,11 +28,6 @@ function gapLabel(sec: number): string {
   return `${Math.max(1, Math.round(sec / 60))} phút`;
 }
 
-type Card = {
-  dir: "in" | "out" | "mix"; idx: number; ts: number; at: string;
-  entries: PlaceTLItem[]; net: number; total_after: number; state: PlaceStockLine[];
-};
-
 // Dựng lại tồn theo SP tại MỖI mốc: từ tồn hiện tại đi ngược thời gian (undo delta).
 function buildStates(items: PlaceTLItem[], current: PlaceStockLine[]): Map<string, number>[] {
   const running = new Map<string, number>();
@@ -50,54 +45,24 @@ const stateList = (m: Map<string, number> | undefined): PlaceStockLine[] =>
   m ? [...m.entries()].filter(([, q]) => q > 0.0001).map(([code, qty]) => ({ code, qty: Math.round(qty * 1000) / 1000 }))
     .sort((a, b) => b.qty - a.qty) : [];
 
-function buildCards(items: PlaceTLItem[], states: Map<string, number>[]): Card[] {
-  const cards: Card[] = [];
-  items.forEach((it, i) => {
-    const last = cards[cards.length - 1];
-    // Gom MỌI biến động (vào lẫn ra) cách mốc mới nhất của card ≤ 5 phút
-    if (last && last.ts - it.ts <= GROUP_SEC) {
-      last.entries.push(it); last.net += it.delta;
-    } else {
-      cards.push({ dir: it.dir, idx: i, ts: it.ts, at: it.at, entries: [it], net: it.delta,
-                   total_after: it.total_after, state: stateList(states[i]) });
-    }
-  });
-  for (const c of cards) {
-    const dirs = new Set(c.entries.map((e) => e.dir));
-    c.dir = dirs.size > 1 ? "mix" : (c.entries[0].dir);
-  }
-  return cards;
-}
-
 const boxLabel = (e: PlaceTLItem) => `${e.product_code} · ${e.box_num}`;
 
-function CardRow({ c, onDot }: { c: Card; onDot: (c: Card) => void }) {
-  const single = c.entries.length === 1;
-  const e0 = c.entries[0];
-  const tag = single ? (e0.dir === "in" ? "Vào" : "Ra")
-    : c.dir === "mix" ? `${c.entries.length} biến động`
-    : `${c.dir === "in" ? "Vào" : "Ra"} ×${c.entries.length}`;
+// MỖI biến động = 1 DÒNG (giờ · Vào/Ra · SP·thùng · lý do) + 1 chấm trên rail.
+// Bấm dòng → lịch sử thao tác của thùng; bấm chấm → kho lúc đó chứa gì.
+function EventRow({ it, onDot }: { it: PlaceTLItem; onDot: () => void }) {
+  const inn = it.dir === "in";
   const inner = (
     <>
-      <span class="pt-time">{hm(c.at)}</span>
-      <span class={"pt-tag " + c.dir}>{tag}</span>
-      {single ? (
-        <span class="pt-line-txt">{boxLabel(e0)} <span class="muted">· {e0.reason}</span></span>
-      ) : (
-        <span class="pt-line-txt">{c.entries.map((e, i) => (
-          <span key={i}>{i ? ", " : ""}<a class={"pt-inl " + e.dir} href={e.box_id ? `#/thung/${e.box_id}` : undefined}
-            title={`${e.dir === "in" ? "Vào" : "Ra"} · ${boxLabel(e)} · ${e.reason}`}>{e.product_code}·{e.box_num}</a></span>
-        ))}</span>
-      )}
+      <span class="pt-time">{hm(it.at)}</span>
+      <span class={"pt-tag " + it.dir}>{inn ? "Vào" : "Ra"}</span>
+      <span class="pt-line-txt">{boxLabel(it)} <span class="muted">· {it.reason}</span></span>
     </>
   );
   return (
     <li class="pt-item">
-      {single && e0.box_id
-        ? <a class="pt-line" href={`#/thung/${e0.box_id}`}>{inner}</a>
-        : <div class="pt-line">{inner}</div>}
+      {it.box_id ? <a class="pt-line" href={`#/thung/${it.box_id}`}>{inner}</a> : <div class="pt-line">{inner}</div>}
       <span class="pt-rail">
-        <button class={"pt-dot " + c.dir} title="Xem kho lúc này chứa gì" onClick={() => onDot(c)} />
+        <button class={"pt-dot " + it.dir} title="Xem kho lúc này chứa gì" onClick={onDot} />
       </span>
     </li>
   );
@@ -131,8 +96,7 @@ export function PlaceTimeline({ placeId }: { placeId: string }) {
   if (err || !d) return <ErrorState msg={err || "Không tìm thấy"} onRetry={load} />;
 
   const states = buildStates(d.items, d.current_by_product);
-  const cards = buildCards(d.items, states);
-  const openDot = (c: Card) => setSnap({ when: c.at, total: c.total_after, lines: c.state });
+  const items = d.items;
 
   return (
     <div class="place-tl">
@@ -149,30 +113,35 @@ export function PlaceTimeline({ placeId }: { placeId: string }) {
           <div class={"pt-total-big" + (d.current_total > 0 ? "" : " zero")}>{soVN(d.current_total)}</div>
           <div class="muted small">tồn hiện tại · {d.box_count} thùng · {d.current_by_product.length} mã SP</div>
         </div>
-        <span class="muted small">{cards.length} đợt{d.truncated ? " (mới nhất)" : ""}</span>
+        <span class="muted small">{items.length} biến động{d.truncated ? " (mới nhất)" : ""}</span>
       </div>
 
-      {cards.length === 0 ? (
+      {items.length === 0 ? (
         <EmptyState>Kho này chưa có biến động nào được ghi.</EmptyState>
       ) : (
         <ul class="pt-list">
-          {cards.flatMap((c, i) => {
+          {items.flatMap((it, i) => {
             const nodes: any[] = [];
-            const dsec = i > 0 ? Math.max(0, cards[i - 1].ts - c.ts) : 0;
-            const gh = Math.min(dsec * GAP_PXPS, GAP_MAX);
-            if (gh >= 3) nodes.push(
-              <li key={`g-${i}`} class="pt-gap" style={{ height: `${Math.round(gh)}px` }}>
-                {dsec >= 120 ? <span class="fg-label">· {gapLabel(dsec)} ·</span> : null}
-              </li>);
-            const day = dayKeyOf(c.at);
-            if (i === 0 || dayKeyOf(cards[i - 1].at) !== day)
+            // GOM: các biến động cách nhau ≤ 5 phút xếp SÁT (cùng 1 cụm, không khe).
+            // Cách > 5 phút → chèn khe cao TỈ LỆ THUẬN thời gian thực + nhãn.
+            const dsec = i > 0 ? Math.max(0, items[i - 1].ts - it.ts) : 0;
+            if (i > 0 && dsec > GROUP_SEC) {
+              const gh = Math.min(dsec * GAP_PXPS, GAP_MAX);
+              nodes.push(
+                <li key={`g-${i}`} class="pt-gap" style={{ height: `${Math.round(gh)}px` }}>
+                  <span class="fg-label">· {gapLabel(dsec)} ·</span>
+                </li>);
+            }
+            const day = dayKeyOf(it.at);
+            if (i === 0 || dayKeyOf(items[i - 1].at) !== day)
               nodes.push(<li key={`d-${day}-${i}`} class="pt-day"><div class="order-day-head">{orderDayLabel(day)}</div></li>);
-            nodes.push(<CardRow key={`${c.ts}-${i}`} c={c} onDot={openDot} />);
+            nodes.push(<EventRow key={`${it.ts}-${i}`} it={it}
+              onDot={() => setSnap({ when: it.at, total: it.total_after, lines: stateList(states[i]) })} />);
             return nodes;
           })}
         </ul>
       )}
-      {d.truncated && <div class="muted small pt-trunc">Chỉ hiện {cards.length} đợt gần nhất.</div>}
+      {d.truncated && <div class="muted small pt-trunc">Chỉ hiện {items.length} biến động gần nhất.</div>}
 
       {snap && (
         <div class="modal-overlay" onClick={() => setSnap(null)}>
