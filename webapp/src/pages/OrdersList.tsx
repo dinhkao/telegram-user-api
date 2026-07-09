@@ -457,7 +457,7 @@ export function OrdersList() {
       {err && <p class="error">{err}</p>}
       {loading && !visible.length && <SkeletonList rows={5} />}
       <ul class="order-list">
-        {view === "ultra" && groupOrdersByDay(visible).map((g) => (
+        {view === "ultra" && groupOrdersByDay(visible, sort).map((g) => (
           <li key={`g-${g.key}`} class="order-day-group">
             <div class="order-day-head">{g.label} <span class="muted small">({g.orders.length})</span></div>
             <ul class="order-list">

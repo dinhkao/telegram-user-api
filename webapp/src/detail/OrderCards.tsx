@@ -151,14 +151,25 @@ export function dayKeyOf(created?: string): string {
   return mm ? `${mm[1]}/${mm[2]}/${mm[3]}` : "?";
 }
 
-/** Nhóm đơn theo NGÀY tạo (giữ thứ tự hiện có; gộp liên tiếp cùng ngày). */
-export function groupOrdersByDay(orders: OrderRow[]): { key: string; label: string; orders: OrderRow[] }[] {
+/** Nhóm đơn theo NGÀY của trường đang SORT (giữ thứ tự hiện có; gộp liên tiếp cùng
+ *  ngày): created (mặc định) | ngay_giao (chưa hẹn → nhóm "Chưa hẹn giao") | updated. */
+export function groupOrdersByDay(orders: OrderRow[], by: "created" | "ngay_giao" | "updated" = "created"): { key: string; label: string; orders: OrderRow[] }[] {
   const out: { key: string; label: string; orders: OrderRow[] }[] = [];
   for (const o of orders) {
-    const key = dayKeyOf(o.created);
+    let key: string, label: string | null = null;
+    if (by === "ngay_giao") {
+      // ngay_giao là ISO 'YYYY-MM-DD(THH:MM)' → lấy thẳng, khỏi vòng qua Date (lệch múi giờ)
+      const m = (o.ngay_giao || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) key = `${m[3]}/${m[2]}/${m[1]}`;
+      else { key = "none"; label = "Chưa hẹn giao"; }
+    } else if (by === "updated") {
+      key = dayKeyOf(o.updated_at as any);
+    } else {
+      key = dayKeyOf(o.created);
+    }
     const last = out[out.length - 1];
     if (last && last.key === key) last.orders.push(o);
-    else out.push({ key, label: orderDayLabel(key), orders: [o] });
+    else out.push({ key, label: label ?? orderDayLabel(key), orders: [o] });
   }
   return out;
 }
@@ -173,6 +184,7 @@ export function orderDayLabel(key: string): string {
   const dm = key.slice(0, 5); // DD/MM
   if (diff === 0) return `Hôm nay · ${wd} ${dm}`;
   if (diff === 1) return `Hôm qua · ${wd} ${dm}`;
+  if (diff === -1) return `Ngày mai · ${wd} ${dm}`;
   return `${wd} · ${key}`;
 }
 
