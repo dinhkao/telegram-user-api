@@ -1462,6 +1462,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .modal-sheet { background: var(--card, #fff); width: 100%; max-width: 640px; max-height: 85vh; border-radius: 14px 14px 0 0; padding: 14px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; }
 .modal-head b { font-size: 1.05rem; }
+/* Tổng đang chọn / cần — góc phải header popup xuất */
+.sp-total { margin-left: auto; margin-right: 10px; font-size: .92rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sp-total b { color: var(--ink); font-weight: 800; }
+.sp-total-sep { margin: 0 1px; }
+.sp-total.ok b { color: var(--ok); }
 /* Popup chọn thùng xuất kho — hàng "phiếu nhặt" 1 dòng, dày đặc, chạm để chọn */
 .sp-list { overflow-y: auto; max-height: 62vh; margin: 6px -4px 2px; }
 .sp-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }

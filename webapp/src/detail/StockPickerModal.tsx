@@ -120,6 +120,9 @@ export function StockPickerModal({
       <div class="modal-sheet" onClick={(e) => e.stopPropagation()}>
         <div class="modal-head">
           <b>Chọn thùng — {productCode}</b>
+          <span class={"sp-total" + (full && remaining > 0 ? " ok" : "")}>
+            <b>{soVN(pickedSum)}</b><span class="sp-total-sep">/</span>{soVN(remaining)}
+          </span>
           <button class="link-btn" onClick={onClose}>
             <Icon name="close" size={18} />
           </button>
