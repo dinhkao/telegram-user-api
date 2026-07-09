@@ -157,7 +157,8 @@ def _patch_invoice_snapshot(firebase_key: str, thread_id: int, kv_debt) -> bool:
 def schedule_debt_resync(firebase_key: str, delay: float = 6.0,
                          thread_id: int | None = None, payment_id: str | None = None,
                          followup_delay: float | None = 30.0,
-                         invoice_thread_id: int | None = None) -> None:
+                         invoice_thread_id: int | None = None,
+                         return_id: int | None = None) -> None:
     """Fetch lại debt SAU `delay` giây (nền, không chặn).
 
     KiotViet cập nhật công nợ khách kiểu eventual-consistency: GET /customers/{id}
@@ -190,6 +191,16 @@ def schedule_debt_resync(firebase_key: str, delay: float = 6.0,
                         schedule_debt_resync(str(firebase_key), delay=followup_delay - delay,
                                              thread_id=thread_id, payment_id=payment_id,
                                              followup_delay=None)   # chốt 1 lần, không lặp vô hạn
+                if return_id and data.get("debt") is not None:
+                    # vá nợ-sau của phiếu TRẢ HÀNG vừa tạo (số KV thật thay số suy)
+                    def _patch_ret():
+                        from return_store import set_return_debt_after
+                        from utils.db import get_connection as _gc
+                        set_return_debt_after(_gc(), int(return_id), data.get("debt"))
+                    await asyncio.to_thread(_patch_ret)
+                    if followup_delay and followup_delay > delay:
+                        schedule_debt_resync(str(firebase_key), delay=followup_delay - delay,
+                                             return_id=return_id, followup_delay=None)
                 if invoice_thread_id and data.get("debt") is not None:
                     # vá snapshot nợ của đơn vừa tạo HĐ (xoá-tạo-lại dính KV trễ)
                     if await asyncio.to_thread(_patch_invoice_snapshot, str(firebase_key),

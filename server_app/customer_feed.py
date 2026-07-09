@@ -199,6 +199,8 @@ def _items_from_events(conn, chunk: list[dict]) -> list[dict]:
             row = rows_by_id.get(e["tid"])
             if row:
                 items.append({"kind": "order", "order": row, **base})
+        elif e["kind"] == "return":
+            items.append({"kind": "return", **e["ret"], **base})
         else:
             items.append({"kind": "payment", **e["pay"], **base})
     return items
@@ -257,6 +259,24 @@ def _collect_events(conn, key: str) -> list[dict]:
                     "new_debt": nd,
                 },
             })
+
+    # 2) phiếu TRẢ HÀNG (return_slips) — giảm nợ, mốc = debt_after (resync vá)
+    try:
+        from return_store import list_returns
+        for rt in list_returns(conn, key):
+            events.append({
+                "ts": _ts_key(rt.get("created_at")), "kind": "return", "tid": rt.get("thread_id"),
+                "delta": -float(rt.get("total") or 0),
+                "stored": float(rt["debt_after"]) if rt.get("debt_after") is not None else None,
+                "ret": {
+                    "id": rt["id"], "total": rt.get("total") or 0, "note": rt.get("note") or "",
+                    "items": rt.get("items") or [], "code": rt.get("kv_invoice_code") or "",
+                    "by": rt.get("created_by") or "", "at": rt.get("created_at"),
+                    "thread_id": rt.get("thread_id"),
+                },
+            })
+    except Exception:
+        pass   # bảng chưa có → bỏ qua
 
     return events
 

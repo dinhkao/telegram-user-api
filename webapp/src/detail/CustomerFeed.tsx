@@ -87,6 +87,23 @@ export function renderFeedItem(it: CustFeedItem, h: {
   openThumb: (e: Event, o: OrderRow, atId?: number) => void;
   jumpToOrder: (tid: number) => void;
 }) {
+    if (it.kind === "return") {
+      const debt = it.debt_after != null ? Number(it.debt_after) : null;
+      const summary = (it.items || []).map((x) => `${x.sp} ×${x.sl}`).join(", ");
+      return (
+        <li key={`r-${it.id}`} class="feed-item">
+          <div class="order-card ultra feed-pay-ultra feed-return">
+            <span class="fu-time">{hmd(it.at)}</span>
+            <div class="ultra-row">
+              <span class="feed-ret-ic"><Icon name="refresh" size={13} /></span>
+              <span class="ultra-text"><b class="feed-ret-amt">↩ Trả hàng −{money(it.total)}</b>{it.code ? ` · ${it.code}` : ""}</span>
+            </div>
+            <div class="fu-text muted">{summary}{it.note ? ` — ${it.note}` : ""}{it.by ? ` · ${it.by}` : ""}</div>
+          </div>
+          <Rail delta={`−${money(it.total)}`} deltaCls="d-ok" debt={debt} est={it.debt_est} />
+        </li>
+      );
+    }
     if (it.kind === "payment") {
       const debt = it.debt_after != null ? Number(it.debt_after) : null;
       return (

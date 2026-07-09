@@ -501,6 +501,18 @@ body.has-nop .order-day-head { top: 135px; }   /* banner 28px đẩy xuống */
 .cam-overlay { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); overscroll-behavior: contain; }
 .cam-overlay .cambox { margin: 0; width: 100%; max-width: 460px; box-shadow: var(--e3); }
 .cam-overlay .cam-view { aspect-ratio: 3 / 4; max-height: 74vh; }
+/* Phiếu trả hàng — card feed + popup tạo */
+.feed-return { text-align: left; }
+.feed-ret-ic { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; align-items: center; justify-content: center; background: rgba(240,150,20,.15); color: #b5730a; flex: 0 0 auto; }
+.feed-ret-amt { color: #b5730a; }
+.ret-open { margin: 8px 0; }
+.ret-sheet { display: flex; flex-direction: column; gap: 8px; }
+.ret-line { display: flex; gap: 6px; align-items: center; }
+.ret-sp { flex: 1; min-width: 0; }
+.ret-sl { width: 52px; }
+.ret-price { width: 90px; }
+.ret-total { font-size: .95rem; text-align: right; color: #b5730a; }
+
 /* Cài đặt hệ thống (trang Cài đặt, admin) */
 .set-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; font-size: .92rem; line-height: 1.45; cursor: pointer; }
 .set-row input { width: 20px; height: 20px; margin-top: 1px; flex: 0 0 auto; }

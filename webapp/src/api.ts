@@ -215,7 +215,17 @@ export type CustomerDetail = {
  *  thật — bản ghi cũ không lưu số; UI hiện ≈), false → số KiotViet gốc đã lưu. */
 export type CustFeedItem =
   | { kind: "order"; ts: number; order: any; debt_after?: number | null; debt_est?: boolean }
-  | { kind: "payment"; ts: number; thread_id: number; amount: number; method: string; code?: string; by?: string; at?: string; old_debt?: number | null; new_debt?: number | null; debt_after?: number | null; debt_est?: boolean };
+  | { kind: "payment"; ts: number; thread_id: number; amount: number; method: string; code?: string; by?: string; at?: string; old_debt?: number | null; new_debt?: number | null; debt_after?: number | null; debt_est?: boolean }
+  | { kind: "return"; ts: number; id: number; total: number; note?: string; items: { sp: string; sl: number; price: number }[]; code?: string; by?: string; at?: string; thread_id?: number | null; debt_after?: number | null; debt_est?: boolean };
+
+/** Tạo phiếu TRẢ HÀNG (văn phòng) — HĐ KiotViet giá âm, giảm nợ khách. */
+export async function createReturn(key: string, items: { sp: string; sl: number; price: number }[], note = ""): Promise<any> {
+  return postJSON(`/api/customers/${encodeURIComponent(key)}/returns`, { items, note });
+}
+/** Xoá phiếu trả (admin) — xoá HĐ KV âm + gỡ khỏi feed. */
+export async function deleteReturn(id: number): Promise<any> {
+  return postJSON(`/api/returns/${id}/delete`, {});
+}
 
 /** Feed đơn + thanh toán của 1 khách, gộp 1 dòng thời gian (trang chi tiết khách). */
 export async function getCustomerFeed(key: string, page = 1): Promise<{ items: CustFeedItem[]; page: number; total_pages: number; total: number }> {
