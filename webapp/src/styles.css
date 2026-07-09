@@ -1396,7 +1396,10 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
    (min-width 140 + border) — đây dùng tên riêng .bd-place kẻo dính style + tràn ngang. */
 .bd-place { flex: 1 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
 .bd-place-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.box-move-btn { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+.bd-place-link { text-decoration: none; color: inherit; }
+.bd-place-link:active { opacity: .6; }
+.bd-place-arrow { flex: 0 0 auto; color: var(--muted); margin-left: auto; }
+.box-move-btn { display: inline-flex; align-items: center; justify-content: center; flex: none; padding: 5px 8px; }
 .box-kv:last-child { border-bottom: none; }
 .box-k { flex: 0 0 96px; color: var(--muted); font-size: .85rem; }
 /* ô sửa (đơn vị/vị trí/ngày SX) lấp đầy cột phải, canh đều nhau — hết lệch xấu */

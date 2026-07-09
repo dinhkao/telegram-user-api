@@ -288,12 +288,17 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
         </div>
         <div class="box-kv">
           <span class="box-k">Vị trí</span>
-          <span class={"box-v bd-place" + (b.place_name ? "" : " muted")}>
-            <Icon name="tag" size={14} /> <span class="bd-place-name">{b.place_name || "Chưa xếp"}</span>
-          </span>
+          {b.place_id ? (
+            <a class="box-v bd-place bd-place-link" href={`#/vi-tri/${b.place_id}`} title={b.place_name || ""}>
+              <Icon name="box" size={14} /> <span class="bd-place-name">{b.place_name || `Kho #${b.place_id}`}</span>
+              <Icon name="chevronRight" size={15} class="bd-place-arrow" />
+            </a>
+          ) : (
+            <span class="box-v bd-place muted"><Icon name="tag" size={14} /> <span class="bd-place-name">Chưa xếp</span></span>
+          )}
           {!soldOut && (
-            <button class="btn small box-move-btn" onClick={() => setMovePop(true)}>
-              <Icon name="truck" size={14} /> Chuyển kho
+            <button class="btn small box-move-btn" onClick={() => setMovePop(true)} title="Chuyển kho khác">
+              <Icon name="truck" size={16} />
             </button>
           )}
         </div>
