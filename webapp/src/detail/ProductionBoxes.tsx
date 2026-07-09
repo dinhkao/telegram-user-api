@@ -66,12 +66,11 @@ export function ProductionBoxes({
     return isFinite(n) && n > 0 && isFinite(c) && c > 0 ? n * c : 0;
   })();
   const chosenOf = (code: string) => (consumePicks[code] || []).reduce((s, p) => s + p.quantity, 0);
-  // Phiếu ĐÓNG GÓI → MỌI nguyên liệu bắt buộc (kể cả optional). Phiếu SẢN XUẤT →
-  // chỉ nguyên liệu bắt buộc; optional tuỳ chọn.
+  // Nguyên liệu theo LOẠI PHIẾU: SẢN XUẤT → không cần NL (ẩn luôn phần chọn);
+  // ĐÓNG GÓI → bắt buộc có công thức + chọn đủ thùng cho MỌI nguyên liệu.
   const packing = (slip.kind || "san_xuat") === "dong_goi";
-  const isReqLine = (l: RecipeLine) => packing || !l.optional;
-  const requiredLines = recipe.filter(isReqLine);
-  const recipeOk = requiredLines.length === 0 || (produced > 0 && requiredLines.every((l) => chosenOf(l.ingredient_code) + 1e-6 >= l.ratio * produced));
+  const recipeOk = !packing
+    || (recipe.length > 0 && produced > 0 && recipe.every((l) => chosenOf(l.ingredient_code) + 1e-6 >= l.ratio * produced));
   const createUnitPick = async (name: string) => {
     try {
       const u = await createUnit(name);
@@ -127,7 +126,9 @@ export function ProductionBoxes({
       return;
     }
     if (!recipeOk) {
-      setMsg("⚠ Chọn đủ thùng nguyên liệu trước khi tạo thùng");
+      setMsg(recipe.length === 0
+        ? "⚠ Phiếu đóng gói bắt buộc trừ nguyên liệu — SP chưa có công thức"
+        : "⚠ Chọn đủ thùng nguyên liệu trước khi tạo thùng");
       return;
     }
     // Xác nhận lại trước khi tạo (tạo xong sẽ mở camera chụp ảnh lưu phiếu + thùng)
@@ -225,7 +226,7 @@ export function ProductionBoxes({
 
       {!hasSp && <div class="muted small pb-hint">Chọn sản phẩm trước khi nhập.</div>}
 
-      {recipe.length > 0 && (
+      {packing && recipe.length > 0 && (
         <div class="recipe-consume">
           <div class="card-label"><Icon name="leaf" size={15} /> Nguyên liệu cần trừ {produced > 0 ? `(SX ${soVN(produced)} ${prodUnit})` : ""}</div>
           {produced <= 0 && <div class="muted small">Nhập số {unitLow} × số {prodUnit} trước để tính nguyên liệu.</div>}
@@ -236,8 +237,7 @@ export function ProductionBoxes({
             return (
               <div class="stock-head" key={l.ingredient_code}>
                 <b>{l.ingredient_code}</b>
-                <span class={"req-tag " + (isReqLine(l) ? "req" : "opt")}>{isReqLine(l) ? "Bắt buộc" : "Không bắt buộc"}</span>
-                <span class={!isReqLine(l) || enough ? "inv-pick-sum ok" : "inv-pick-sum"}>{soVN(chosen)}/{soVN(need)}</span>
+                <span class={enough ? "inv-pick-sum ok" : "inv-pick-sum"}>{soVN(chosen)}/{soVN(need)}</span>
                 <span class="muted small">tồn {soVN(l.stock ?? 0)}</span>
                 <button class="btn small" disabled={!hasSp || produced <= 0} onClick={() => setPickIng(l.ingredient_code)}>Chọn thùng</button>
               </div>
@@ -245,12 +245,15 @@ export function ProductionBoxes({
           })}
         </div>
       )}
+      {packing && hasSp && recipe.length === 0 && (
+        <div class="muted small pb-hint">⚠ Phiếu đóng gói bắt buộc trừ nguyên liệu — {prodCode} chưa có công thức. Thêm ở trang chi tiết sản phẩm.</div>
+      )}
 
       <button class="btn primary block pb-submit" disabled={!hasSp || busy || !recipeOk} onClick={submit}
         title={!recipeOk ? "Chọn đủ thùng nguyên liệu trước" : undefined}>
         <Icon name="plus" size={16} /> {busy ? "Đang nhập…" : `Nhập ${cnt} ${unitLow}${produced > 0 ? ` · ${soVN(produced * cnt)} ${prodUnit}` : ""}`}
       </button>
-      {recipe.length > 0 && produced > 0 && !recipeOk && (
+      {packing && recipe.length > 0 && produced > 0 && !recipeOk && (
         <div class="muted small pb-hint">⚠ Cần chọn đủ thùng nguyên liệu mới tạo được thùng.</div>
       )}
       {msg && <div class="muted small pb-hint">{msg}</div>}

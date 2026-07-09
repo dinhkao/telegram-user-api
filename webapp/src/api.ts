@@ -935,13 +935,13 @@ export async function inventoryList(): Promise<InvProductSummary[]> {
 export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null; unit_id?: number | null; unit_name?: string | null; product_unit?: string; source_thread_id?: number | null };
 
 // ── Công thức sản xuất (BOM): SP cần nguyên liệu theo tỉ lệ ──
-export type RecipeLine = { id: number; ingredient_code: string; ratio: number; optional?: boolean; stock?: number; unit?: string };
+export type RecipeLine = { id: number; ingredient_code: string; ratio: number; stock?: number; unit?: string };
 export async function getRecipe(code: string): Promise<{ recipe: RecipeLine[]; unit: string }> {
   const d = await getJSON(`/api/products/${encodeURIComponent(code)}/recipe`, { cache: false });
   return { recipe: d.recipe || [], unit: d.unit || "cây" };
 }
-export async function setRecipeLine(code: string, ingredientCode: string, ratio: number, optional = false): Promise<RecipeLine> {
-  const d = await postJSON(`/api/products/${encodeURIComponent(code)}/recipe`, { ingredient_code: ingredientCode, ratio, optional }, { queueable: false });
+export async function setRecipeLine(code: string, ingredientCode: string, ratio: number): Promise<RecipeLine> {
+  const d = await postJSON(`/api/products/${encodeURIComponent(code)}/recipe`, { ingredient_code: ingredientCode, ratio }, { queueable: false });
   return d.line;
 }
 export async function deleteRecipeLine(code: string, id: number): Promise<any> {

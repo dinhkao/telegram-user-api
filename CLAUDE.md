@@ -237,8 +237,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   Image bytes live on disk under `ORDER_MEDIA_DIR/<thread_id>/`, not in the DB.
 - `recipe_store/` — `product_recipes` table (`app.db`): công thức/BOM sản xuất, 1 SP
   cần các nguyên liệu (product khác) theo tỉ lệ (`ratio` = số cây NL / 1 cây thành
-  phẩm). Tỉ lệ định nghĩa ở trang chi tiết SP (`detail/RecipeEditor.tsx`). Khi nhập
-  thùng ở phiếu SX, người dùng CHỌN thùng nguyên liệu → trừ kho qua
+  phẩm). Tỉ lệ định nghĩa ở trang chi tiết SP (`detail/RecipeEditor.tsx`). Nhu cầu NL
+  theo **LOẠI PHIẾU** (bỏ cờ bắt buộc/optional per-NL 2026-07-09): phiếu **sản xuất**
+  = KHÔNG cần NL; phiếu **đóng gói** = BẮT BUỘC có công thức + chọn đủ thùng NL cho
+  MỌI nguyên liệu → trừ kho qua
   `inventory_store.allocate_picks(kind='production')` (cột `kind` phân biệt xuất-đơn ↔
   tiêu-hao-SX; `remaining` = quantity − Σ mọi allocation nên tồn NL giảm đúng).
 - `settings_store/` — cài đặt hệ thống (blob `kv_store['app_settings']`, app.db):
@@ -313,9 +315,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   with the lock overlay + live draft view. **Dashboard `pages/ProductionDashboard.tsx`**
   (`#/sx-bang`, in ☰ Thêm) → tap a thợ → `pages/ProductionWorkerDetail.tsx` (`#/sx-tho/:name`,
   per-day phiếu/SP breakdown). Chọn mã SP dùng **`detail/ProductPicker.tsx`**.
-  - **Công thức/BOM** (`recipe_store`): SP có thể cần nguyên liệu (product khác) theo tỉ lệ,
-    đánh dấu **bắt buộc / không bắt buộc**. Định nghĩa ở chi tiết SP (`detail/RecipeEditor.tsx`).
-    Khi nhập thùng → phải chọn thùng NL (bắt buộc) → trừ kho (`allocate_picks kind='production'`).
+  - **Công thức/BOM** (`recipe_store`): SP có thể cần nguyên liệu (product khác) theo tỉ lệ.
+    Định nghĩa ở chi tiết SP (`detail/RecipeEditor.tsx`). Nhu cầu theo LOẠI PHIẾU: sản xuất
+    = không cần NL (SP đầu ra tự đánh dấu `is_material`); đóng gói = bắt buộc công thức +
+    chọn đủ thùng NL mọi nguyên liệu → trừ kho (`allocate_picks kind='production'`).
 
 **Web app for phones (orders management, 5-6 internal users)**
 - `webapp/` — Vite + Preact + TS mobile UI (Vietnamese). Hash router `main.tsx`, nav

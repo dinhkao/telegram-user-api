@@ -288,7 +288,8 @@ async def production_set_note_handler(request: web.Request):
 async def production_set_kind_handler(request: web.Request):
     """Đổi loại phiếu: 'san_xuat' (có bảng báo cáo thợ) | 'dong_goi' (không).
     KHOÁ khi phiếu đã nhập ≥1 thùng — loại chi phối logic nguyên liệu lúc tạo thùng
-    (đóng gói ép chọn MỌI NL), đổi sau khi đã tạo thùng làm dữ liệu tiêu hao vô nghĩa."""
+    (sản xuất: KHÔNG cần NL; đóng gói: BẮT BUỘC công thức + đủ NL), đổi sau khi đã
+    tạo thùng làm dữ liệu tiêu hao vô nghĩa."""
     thread_id = _thread_id(request)
     if thread_id is None:
         return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)

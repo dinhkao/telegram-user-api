@@ -127,16 +127,18 @@ async def production_add_boxes_handler(request: web.Request):
             code = req_code or str((slip or {}).get("sp_name") or "").strip().upper()
             if not slip or not code:
                 return None, None, None
-            # Loại phiếu: đóng gói → MỌI nguyên liệu bắt buộc (kể cả optional);
-            # sản xuất → SP đầu ra là NGUYÊN LIỆU (đánh dấu is_material).
+            # Nguyên liệu theo LOẠI PHIẾU: sản xuất → KHÔNG cần NL (SP đầu ra là
+            # nguyên liệu, đánh dấu is_material); đóng gói → BẮT BUỘC có công thức
+            # và chọn đủ thùng NL cho MỌI nguyên liệu TRƯỚC khi tạo thùng.
             kind = (slip or {}).get("kind") or "san_xuat"
             # Thùng NL người dùng chọn để tiêu hao (body.consume = [{box_id, quantity}]).
             raw_picks = body.get("consume") if isinstance(body.get("consume"), list) else []
             picks = [p for p in raw_picks if isinstance(p, dict) and p.get("box_id")]
-            # BẮT BUỘC: nếu SP có công thức → phải chọn đủ thùng NL cho từng nguyên liệu
-            # TRƯỚC khi tạo thùng. Kiểm tra theo tổng cây dự kiến của đợt này.
-            needs = recipe_needs(conn, code, sum(quantities))
-            if needs:
+            if kind == "dong_goi":
+                # Kiểm tra theo tổng cây dự kiến của đợt này.
+                needs = recipe_needs(conn, code, sum(quantities))
+                if not needs:
+                    return "norecipe", code, None
                 got: dict = {}
                 for p in picks:
                     row = conn.execute("SELECT product_code FROM inventory_boxes WHERE id = ?", (p.get("box_id"),)).fetchone()
@@ -146,8 +148,6 @@ async def production_add_boxes_handler(request: web.Request):
                         except (TypeError, ValueError):
                             pass
                 for nd in needs:
-                    if nd.get("optional") and kind != "dong_goi":
-                        continue   # sản xuất: optional không ép; đóng gói: MỌI NL bắt buộc
                     if got.get(nd["code"], 0.0) + 1e-6 < nd["amount"]:
                         return "short", nd["code"], nd["amount"]
             try:
@@ -172,6 +172,8 @@ async def production_add_boxes_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Chưa có sản phẩm, chưa nhập thùng được"}, status=400)
     if created == "short":
         return web.json_response({"ok": False, "error": f"Chưa chọn đủ thùng nguyên liệu {total} (cần {consume:g})"}, status=400)
+    if created == "norecipe":
+        return web.json_response({"ok": False, "error": f"Phiếu đóng gói bắt buộc trừ nguyên liệu — {total} chưa có công thức. Thêm công thức ở trang chi tiết sản phẩm."}, status=400)
     if created == "full":
         return web.json_response({"ok": False, "error": total}, status=400)
     from server_app.realtime import emit_inventory_changed, emit_production_changed
@@ -227,7 +229,6 @@ async def recipe_set_handler(request: web.Request):
         body = {}
     ic = str(body.get("ingredient_code") or "").strip().upper()
     ratio = body.get("ratio")
-    optional = bool(body.get("optional"))
     if not ic:
         return web.json_response({"ok": False, "error": "Thiếu mã nguyên liệu"}, status=400)
 
@@ -235,7 +236,7 @@ async def recipe_set_handler(request: web.Request):
         conn = _conn()
         try:
             _ensure(conn)
-            return set_recipe_line(conn, code, ic, ratio, optional=optional)
+            return set_recipe_line(conn, code, ic, ratio)
         finally:
             conn.close()
     line = await asyncio.to_thread(_run)

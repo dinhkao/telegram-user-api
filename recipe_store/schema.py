@@ -14,7 +14,6 @@ def create_recipe_table(conn):
             product_code    TEXT NOT NULL,
             ingredient_code TEXT NOT NULL,
             ratio           REAL NOT NULL DEFAULT 0,
-            optional        INTEGER DEFAULT 0,
             created_at      TEXT DEFAULT (datetime('now'))
         )
         """
@@ -22,8 +21,9 @@ def create_recipe_table(conn):
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_recipe_pair ON product_recipes(product_code, ingredient_code)"
     )
-    # migrate DB cũ: thêm cột optional (0 = bắt buộc, 1 = không bắt buộc)
+    # migrate DB cũ: BỎ cột optional (bắt buộc/không bắt buộc) — nhu cầu NL giờ do
+    # LOẠI PHIẾU quyết định: sản xuất = không cần NL, đóng gói = cần đủ MỌI NL.
     cols = {r[1] for r in conn.execute("PRAGMA table_info(product_recipes)").fetchall()}
-    if "optional" not in cols:
-        conn.execute("ALTER TABLE product_recipes ADD COLUMN optional INTEGER DEFAULT 0")
+    if "optional" in cols:
+        conn.execute("ALTER TABLE product_recipes DROP COLUMN optional")
     conn.commit()
