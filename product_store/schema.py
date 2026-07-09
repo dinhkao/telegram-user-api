@@ -20,7 +20,9 @@ _PRODUCT_COLS_SQL = """
             created_at    TEXT DEFAULT (datetime('now')),
             updated_at    TEXT DEFAULT (datetime('now')),
             unit          TEXT DEFAULT 'cây',
-            is_material   INTEGER DEFAULT 0
+            is_material   INTEGER DEFAULT 0,
+            prod_mam      REAL,
+            prod_luong    REAL
 """
 
 
@@ -69,6 +71,10 @@ def migrate_products_table(conn):
         conn.execute("ALTER TABLE products ADD COLUMN unit TEXT DEFAULT 'cây'")
     if "is_material" not in columns:   # SP là NGUYÊN LIỆU (dùng làm thành phần đóng gói)
         conn.execute("ALTER TABLE products ADD COLUMN is_material INTEGER DEFAULT 0")
+    if "prod_mam" not in columns:      # SX: số cây / 1 mâm (port từ SP_INFO config cứng)
+        conn.execute("ALTER TABLE products ADD COLUMN prod_mam REAL")
+    if "prod_luong" not in columns:    # SX: lượng mặc định (port từ SP_INFO)
+        conn.execute("ALTER TABLE products ADD COLUMN prod_luong REAL")
     if "id" not in columns:
         _rebuild_with_id(conn)
     _create_history_table(conn)
@@ -85,10 +91,10 @@ def _rebuild_with_id(conn):
         conn.execute(f"CREATE TABLE products_new ({_PRODUCT_COLS_SQL})")
         conn.execute(
             "INSERT INTO products_new (code, name, cost_price, note, kv_id, kv_full_name, "
-            "kv_synced_at, created_at, updated_at, unit, is_material) "
+            "kv_synced_at, created_at, updated_at, unit, is_material, prod_mam, prod_luong) "
             "SELECT code, name, COALESCE(cost_price, 0), note, kv_id, kv_full_name, "
             "kv_synced_at, created_at, updated_at, COALESCE(unit, 'cây'), "
-            "COALESCE(is_material, 0) FROM products ORDER BY code"
+            "COALESCE(is_material, 0), prod_mam, prod_luong FROM products ORDER BY code"
         )
         conn.execute("DROP TABLE products")
         conn.execute("ALTER TABLE products_new RENAME TO products")

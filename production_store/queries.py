@@ -20,15 +20,20 @@ _COLUMNS = (
     "ghi_chu",
     "kind",
     "updated_at",
+    "product_id",
 )
 _JSON_COLUMNS = {"numbers", "bang"}
 
 
 def get_slip(conn, thread_id) -> dict | None:
-    row = conn.execute("SELECT * FROM production_slips WHERE thread_id = ?", (thread_id,)).fetchone()
+    row = conn.execute(
+        "SELECT s.*, COALESCE(pr.code, s.sp_name) AS sp_name_live "
+        "FROM production_slips s LEFT JOIN products pr ON pr.id = s.product_id "
+        "WHERE s.thread_id = ?", (thread_id,)).fetchone()
     if not row:
         return None
     data = dict(row)
+    data["sp_name"] = data.pop("sp_name_live") or data.get("sp_name")
     try:
         data["numbers"] = json.loads(data["numbers"]) if data.get("numbers") else []
     except (TypeError, ValueError):
@@ -53,10 +58,14 @@ def _kind_clause(kind):
 def list_slips(conn, limit: int = 20, offset: int = 0, kind: str | None = None) -> list[dict]:
     """Slips theo NGÀY TẠO mới→cũ (date_code lúc tạo), phân trang. Row nhẹ. Lọc theo kind."""
     where, wp = _kind_clause(kind)
+    if where:
+        where = where.replace("kind", "s.kind")
     rows = conn.execute(
-        "SELECT thread_id, date, date_code, sp_name, sp_mam, sx_target, total, "
-        "ghi_chu, kind, updated_at FROM production_slips" + where +
-        " ORDER BY date_code DESC, thread_id DESC LIMIT ? OFFSET ?",
+        "SELECT s.thread_id, s.date, s.date_code, s.product_id, "
+        "COALESCE(pr.code, s.sp_name) AS sp_name, s.sp_mam, s.sx_target, s.total, "
+        "s.ghi_chu, s.kind, s.updated_at FROM production_slips s "
+        "LEFT JOIN products pr ON pr.id = s.product_id" + where +
+        " ORDER BY s.date_code DESC, s.thread_id DESC LIMIT ? OFFSET ?",
         (*wp, limit, offset),
     ).fetchall()
     return [dict(r) for r in rows]
@@ -85,7 +94,14 @@ def upsert_slip(conn, thread_id, **fields) -> bool:
 
 
 def set_sp(conn, thread_id, name, mam, luong) -> bool:
-    return upsert_slip(conn, thread_id, sp_name=name, sp_mam=mam, sp_luong=luong)
+    """Gán SP cho phiếu: ghi CẢ product_id (danh tính) + sp_name (snapshot mã hiện
+    hành — gõ mã cũ tự chuẩn hoá). Tên không phải mã SP → product_id NULL."""
+    from product_store import resolve_code
+    prod = resolve_code(conn, name)
+    if prod:
+        return upsert_slip(conn, thread_id, sp_name=prod["code"], sp_mam=mam, sp_luong=luong,
+                           product_id=prod["id"])
+    return upsert_slip(conn, thread_id, sp_name=name, sp_mam=mam, sp_luong=luong, product_id=None)
 
 
 def set_target(conn, thread_id, sx_target) -> bool:

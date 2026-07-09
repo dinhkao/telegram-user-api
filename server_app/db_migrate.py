@@ -23,4 +23,22 @@ def run_boot_migrations() -> None:
     create_inventory_table(conn)
     migrate_inventory_table(conn)
     create_recipe_table(conn)
-    log.info("boot migrations OK (products.id + code_history + inventory/recipe product_id)")
+    # sản xuất: product_id trên slip + report_rows (backfill theo sp_name/mã)
+    from production_store.schema import create_production_table, migrate_production_table
+    from production_store.report_rows import ensure_report_rows_schema
+    create_production_table(conn)
+    migrate_production_table(conn)
+    ensure_report_rows_schema(conn)
+    # port SP_INFO (mâm/lượng mặc định) vào products — chỉ điền chỗ còn trống
+    try:
+        from bot_core.config import SP_INFO
+        for code, info in SP_INFO.items():
+            conn.execute(
+                "UPDATE products SET prod_mam = COALESCE(prod_mam, ?), prod_luong = COALESCE(prod_luong, ?) "
+                "WHERE code = ?",
+                (info.get("mam"), info.get("luong"), str(code).upper()),
+            )
+        conn.commit()
+    except Exception:  # noqa: BLE001 — SP_INFO legacy, thiếu cũng không chặn boot
+        log.exception("seed SP_INFO -> products thất bại (bỏ qua)")
+    log.info("boot migrations OK (products.id + history + inventory/recipe/production product_id + SP_INFO)")

@@ -56,4 +56,12 @@ def migrate_production_table(conn):
         conn.execute("ALTER TABLE production_slips ADD COLUMN kind TEXT DEFAULT 'san_xuat'")
     if "updated_at" not in columns:
         conn.execute("ALTER TABLE production_slips ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))")
+    if "product_id" not in columns:  # → products.id (danh tính SP bất biến; sp_name = snapshot mã)
+        conn.execute("ALTER TABLE production_slips ADD COLUMN product_id INTEGER")
+    # Backfill product_id theo sp_name (idempotent — chỉ row còn NULL; tên không phải mã giữ NULL)
+    conn.execute(
+        "UPDATE production_slips SET product_id = "
+        "(SELECT p.id FROM products p WHERE p.code = UPPER(TRIM(COALESCE(production_slips.sp_name,'')))) "
+        "WHERE product_id IS NULL"
+    )
     conn.commit()

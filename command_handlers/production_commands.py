@@ -87,7 +87,15 @@ def _fmt_num(n) -> str:
 
 
 def _is_product_code(s: str) -> bool:
-    return s in SP_INFO or s in PRODUCT_CODES
+    if s in SP_INFO or s in PRODUCT_CODES:
+        return True
+    # danh mục DB là nguồn chính (nhận cả mã cũ qua history)
+    try:
+        from order_db import _get_connection
+        from product_store import resolve_code
+        return resolve_code(_get_connection(), s) is not None
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def _topic_link(thread_id) -> str:
@@ -291,8 +299,9 @@ def register_production_commands(client):
 
         # product code update
         if _is_product_code(upper):
-            info = SP_INFO.get(upper, {})
-            set_sp(conn, thread_id, upper, info.get("mam"), info.get("luong"))
+            from production_store.defaults import production_defaults
+            mam, luong = production_defaults(conn, upper)
+            set_sp(conn, thread_id, upper, mam, luong)
             _emit_prod(thread_id)
             out = f"Cập nhật sp thành {upper}"
             if upper in CAY_TRONG_1_CHAO:
@@ -406,7 +415,8 @@ def register_production_commands(client):
             slip = get_slip(conn, thread_id)
             if slip and slip.get("sp_name"):
                 product_code = slip["sp_name"].upper()
-        so_cay_1_mam = SP_INFO.get(product_code, {}).get("mam", 0) if product_code else 0
+        from production_store.defaults import production_defaults
+        so_cay_1_mam = (production_defaults(conn, product_code)[0] or 0) if product_code else 0
 
         report = compute_report({**parsed, "product_code": product_code}, so_cay_1_mam)
 

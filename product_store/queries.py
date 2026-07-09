@@ -5,7 +5,7 @@ from typing import Optional
 from .schema import _PRODUCTS_CACHE_TTL, _invalidate_products_cache, _products_cache
 
 
-_COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material"
+_COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material, prod_mam, prod_luong"
 _FIELDS = tuple(c.strip() for c in _COLS.split(","))
 
 
@@ -53,7 +53,7 @@ def set_material(conn, code: str, flag: bool) -> bool:
     conn.commit(); _invalidate_products_cache(); return True
 
 
-def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, is_material: bool = None) -> bool:
+def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, is_material: bool = None, prod_mam: float = None, prod_luong: float = None) -> bool:
     code = code.upper().strip()
     if not code:
         return False
@@ -71,13 +71,20 @@ def upsert_product(conn, code: str, name: str = None, cost_price: int = None, no
             updates.append("unit = ?"); params.append(unit.strip() or "cây")
         if is_material is not None:
             updates.append("is_material = ?"); params.append(1 if is_material else 0)
+        if prod_mam is not None:
+            updates.append("prod_mam = ?"); params.append(float(prod_mam) if prod_mam != "" else None)
+        if prod_luong is not None:
+            updates.append("prod_luong = ?"); params.append(float(prod_luong) if prod_luong != "" else None)
         if not updates:
             return True
         updates.append("updated_at = ?"); params.extend([now, code])
         conn.execute(f"UPDATE products SET {', '.join(updates)} WHERE code = ?", params)
     else:
-        conn.execute("INSERT INTO products (code, name, cost_price, note, unit, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                     (code, name or "", cost_price or 0, note or "", (unit or "cây").strip() or "cây", now, now))
+        conn.execute(
+            "INSERT INTO products (code, name, cost_price, note, unit, prod_mam, prod_luong, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (code, name or "", cost_price or 0, note or "", (unit or "cây").strip() or "cây",
+             prod_mam, prod_luong, now, now))
     conn.commit(); _invalidate_products_cache(); return True
 
 

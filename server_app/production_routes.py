@@ -158,18 +158,34 @@ async def production_detail_handler(request: web.Request):
 
 
 async def production_catalog_handler(request: web.Request):
-    """Danh mục sản phẩm cho UI (chọn SP khi tạo/sửa phiếu)."""
-    products = [
-        {"code": code, "mam": info.get("mam"), "luong": info.get("luong"),
-         "cay_1_chao": CAY_TRONG_1_CHAO.get(code)}
-        for code, info in SP_INFO.items()
-    ]
-    # kèm các mã chỉ có trong PRODUCT_CODES (chưa có SP_INFO)
-    known = {p["code"] for p in products}
-    for code in PRODUCT_CODES:
-        if code not in known:
-            products.append({"code": code, "mam": None, "luong": None,
-                             "cay_1_chao": CAY_TRONG_1_CHAO.get(code)})
+    """Danh mục sản phẩm cho UI (chọn SP khi tạo/sửa phiếu) — nguồn chính = bảng
+    products (mam/lượng từ cột prod_mam/prod_luong, fallback SP_INFO); kèm mã
+    legacy chỉ có trong SP_INFO/PRODUCT_CODES (chưa vào danh mục)."""
+    def _run():
+        conn = _conn()
+        try:
+            from product_store import get_all_products
+            prods = get_all_products(conn)
+        finally:
+            conn.close()
+        out = []
+        for p in prods:
+            info = SP_INFO.get(p["code"], {})
+            out.append({
+                "id": p.get("id"), "code": p["code"], "name": p.get("name") or "",
+                "mam": p.get("prod_mam") if p.get("prod_mam") is not None else info.get("mam"),
+                "luong": p.get("prod_luong") if p.get("prod_luong") is not None else info.get("luong"),
+                "cay_1_chao": CAY_TRONG_1_CHAO.get(p["code"]),
+            })
+        known = {p["code"] for p in out}
+        for code in list(SP_INFO.keys()) + list(PRODUCT_CODES):
+            if code not in known:
+                known.add(code)
+                info = SP_INFO.get(code, {})
+                out.append({"id": None, "code": code, "name": "", "mam": info.get("mam"),
+                            "luong": info.get("luong"), "cay_1_chao": CAY_TRONG_1_CHAO.get(code)})
+        return out
+    products = await asyncio.to_thread(_run)
     return web.json_response({"ok": True, "products": products})
 
 
@@ -200,8 +216,9 @@ async def production_create_handler(request: web.Request):
             create_production_table(conn)
             upsert_slip(conn, thread_id, date=now.strftime("%d/%m/%Y %H:%M"), date_code=date_code)
             if product:
-                info = SP_INFO.get(product, {})
-                set_sp(conn, thread_id, product, info.get("mam"), info.get("luong"))
+                from production_store.defaults import production_defaults
+                mam, luong = production_defaults(conn, product)
+                set_sp(conn, thread_id, product, mam, luong)
         finally:
             conn.close()
     await asyncio.to_thread(_run)
@@ -234,8 +251,9 @@ async def production_set_product_handler(request: web.Request):
     def _run():
         conn = _conn()
         try:
-            info = SP_INFO.get(code, {})
-            set_sp(conn, thread_id, code, info.get("mam"), info.get("luong"))
+            from production_store.defaults import production_defaults
+            mam, luong = production_defaults(conn, code)
+            set_sp(conn, thread_id, code, mam, luong)
         finally:
             conn.close()
     await asyncio.to_thread(_run)
@@ -444,15 +462,16 @@ async def production_delete_handler(request: web.Request):
 def _compute(thread_id, text: str) -> dict:
     parsed = parse_report(text)
     product_code = parsed.get("product_code")
-    if not product_code and thread_id is not None:
-        conn = _conn()
-        try:
+    conn = _conn()
+    try:
+        if not product_code and thread_id is not None:
             slip = get_slip(conn, thread_id)
-        finally:
-            conn.close()
-        if slip and slip.get("sp_name"):
-            product_code = slip["sp_name"].upper()
-    so_cay_1_mam = SP_INFO.get(product_code, {}).get("mam", 0) if product_code else 0
+            if slip and slip.get("sp_name"):
+                product_code = slip["sp_name"].upper()
+        from production_store.defaults import production_defaults
+        so_cay_1_mam = (production_defaults(conn, product_code)[0] or 0) if product_code else 0
+    finally:
+        conn.close()
     return compute_report({**parsed, "product_code": product_code}, so_cay_1_mam)
 
 
