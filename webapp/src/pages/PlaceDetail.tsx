@@ -1,13 +1,17 @@
-// Chi tiết 1 vị trí kho — đổi tên, xoá (admin), lưới thùng đang ở vị trí này.
+// Chi tiết 1 vị trí kho — đổi tên, ghi chú, ảnh + trao đổi + lịch sử (media scope
+// 'place'), xoá (admin), lưới thùng đang ở vị trí này.
 // Data: listPlaces (tìm theo id) + allBoxes (lọc place_id). Realtime reload.
 import { useEffect, useState } from "preact/hooks";
-import { listPlaces, allBoxes, renamePlace, deletePlace, currentUser, soVN, type Place, type KhoBox } from "../api";
+import { listPlaces, allBoxes, renamePlace, setPlaceNote, deletePlace, currentUser, soVN, type Place, type KhoBox } from "../api";
 import { onRealtime } from "../realtime";
 import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
 import { toast, confirmDialog } from "../ui/feedback";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
+import { Images } from "../detail/Images";
+import { Comments } from "../detail/Comments";
+import { History } from "../detail/History";
 
 export function PlaceDetail({ id }: { id: string }) {
   const pid = Number(id);
@@ -38,6 +42,15 @@ export function PlaceDetail({ id }: { id: string }) {
     setBusy(true);
     try { const p = await renamePlace(pid, n); setPlace(p); setEditing(false); toast("✅ Đã đổi tên", "ok"); }
     catch (e: any) { toast(e?.message || "Lỗi đổi tên", "err"); }
+    finally { setBusy(false); }
+  };
+  // Ghi chú vị trí — sửa tại chỗ, lưu khi bấm
+  const [noteEdit, setNoteEdit] = useState<string | null>(null); // null = đang xem
+  const saveNote = async () => {
+    if (noteEdit === null) return;
+    setBusy(true);
+    try { const p = await setPlaceNote(pid, noteEdit.trim()); setPlace(p); setNoteEdit(null); toast("✅ Đã lưu ghi chú", "ok"); }
+    catch (e: any) { toast(e?.message || "Lỗi lưu ghi chú", "err"); }
     finally { setBusy(false); }
   };
   const doDelete = async () => {
@@ -74,11 +87,35 @@ export function PlaceDetail({ id }: { id: string }) {
         </div>
       </div>
 
+      <section class="card">
+        <label class="card-label"><Icon name="edit" size={15} /> Ghi chú</label>
+        {noteEdit === null ? (
+          <div onClick={() => setNoteEdit(place.note || "")} style={{ cursor: "pointer" }}>
+            {place.note
+              ? <p style={{ whiteSpace: "pre-wrap", margin: "4px 0" }}>{place.note}</p>
+              : <p class="muted small" style={{ margin: "4px 0" }}>Chưa có ghi chú — bấm để thêm.</p>}
+          </div>
+        ) : (
+          <>
+            <textarea class="inv-search" rows={3} style={{ width: "100%", resize: "vertical" }} autofocus
+              value={noteEdit} onInput={(e: any) => setNoteEdit(e.target.value)} />
+            <div class="row" style={{ gap: "6px", marginTop: "6px" }}>
+              <button class="btn small primary" disabled={busy} onClick={saveNote}>Lưu</button>
+              <button class="btn small" onClick={() => setNoteEdit(null)}>✕ Huỷ</button>
+            </div>
+          </>
+        )}
+      </section>
+
       {boxes.length === 0 ? (
         <EmptyState>Chưa có thùng ở vị trí này. Gán vị trí ở chi tiết thùng.</EmptyState>
       ) : (
         <BoxLabelGrid boxes={boxes} />
       )}
+
+      <Images base={`/api/media/place/${pid}`} />
+      <Comments base={`/api/media/place/${pid}`} />
+      <History base={`/api/media/place/${pid}`} />
 
       {isAdmin && (
         <section class="card" style={{ marginTop: "14px" }}>

@@ -1,7 +1,7 @@
 // Dashboard vị trí kho — mỗi Kho (A/B…) 1 card: số thùng + tồn. Tap → chi tiết kho.
 // Tạo vị trí mới ngay đây. Data: listPlaces + allBoxes (gộp thống kê). Realtime reload.
 import { useEffect, useState } from "preact/hooks";
-import { listPlaces, allBoxes, createPlace, soVN, type Place, type KhoBox } from "../api";
+import { listPlaces, allBoxes, createPlace, mediaImageUrl, soVN, type Place, type KhoBox } from "../api";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { toast } from "../ui/feedback";
@@ -64,8 +64,13 @@ export function PlacesList() {
           const s = stat(p.id);
           return (
             <a class="inv-card" href={`#/vi-tri/${p.id}`} key={p.id}>
+              {p.thumb_image_id != null && (
+                <img class="place-thumb" loading="lazy" alt=""
+                  src={mediaImageUrl(`/api/media/place/${p.id}`, p.thumb_image_id, "thumb")} />
+              )}
               <div class="inv-card-main">
                 <div class="inv-card-code"><Icon name="box" size={15} /> {p.name}</div>
+                {p.note ? <div class="muted small" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "160px" }}>{p.note}</div> : null}
               </div>
               <div class="inv-card-stat">
                 <span class={"inv-card-total" + (s.rem > 0 ? "" : " zero")}>{soVN(s.rem)}</span>

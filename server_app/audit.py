@@ -14,7 +14,7 @@ from server_app import order_diff
 _NO_AUDIT = re.compile(r"/report/(draft|lock|unlock|parse)$")
 _ORDER_PATH = re.compile(r"^/api/order/(-?\d+)")
 _PRODUCTION_PATH = re.compile(r"^/api/production/(-?\d+)")
-_MEDIA_PATH = re.compile(r"^/api/media/(production|box|return|task)/(-?\d+)")
+_MEDIA_PATH = re.compile(r"^/api/media/(production|box|return|task|place)/(-?\d+)")
 _RETURN_PATH = re.compile(r"^/api/returns/(\d+)")
 _INV_BOX_PATH = re.compile(r"^/api/inventory/box/(-?\d+)")
 

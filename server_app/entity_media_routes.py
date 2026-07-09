@@ -1,5 +1,5 @@
 """HTTP handlers bình luận + ảnh DÙNG CHUNG cho production slip / box…
-Đường dẫn: /api/media/{scope}/{entity_id}/comments|images[...]. scope ∈ {production, box, report_bg, task}.
+Đường dẫn: /api/media/{scope}/{entity_id}/comments|images[...]. scope ∈ {production, box, report_bg, task, return, place}.
 report_bg = ảnh nền "để dò" của trang sửa báo cáo phiếu SX (1 ảnh/phiếu, thay khi upload mới).
 
 Web-only: KHÔNG sync Telegram, KHÔNG FCM/audit (khác order). Ảnh lưu xuống
@@ -21,7 +21,7 @@ from utils.paths import ORDER_MEDIA_DIR
 
 log = logging.getLogger("entity_media_routes")
 
-_ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return"}
+_ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return", "place"}
 _MAX_BYTES = 20 * 1024 * 1024
 _EXT_BY_MIME = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 _MIME_BY_EXT = {v: k for k, v in _EXT_BY_MIME.items()}
@@ -70,6 +70,9 @@ def _emit(scope: str, entity_id: int) -> None:
         elif scope == "return":
             from server_app.realtime import emit_return_changed
             emit_return_changed(entity_id)
+        elif scope == "place":
+            from server_app.realtime import emit_inventory_changed
+            emit_inventory_changed()   # trang Vị trí nghe inventory_changed
     except Exception:  # noqa: BLE001
         pass
 

@@ -209,7 +209,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     legacy.) `list_boxes`/`get_box` join thêm `place_name`, `unit_name`, `product_unit`
     (đơn vị đếm của SP từ `products.unit` — cây/gói…).
   - `inventory_units` (đơn vị chứa) + `inventory_places` (vị trí kho): bảng user-định-nghĩa,
-    CRUD `list/add/rename/delete_*`. API `/api/units`, `/api/places` (rename/delete admin).
+    CRUD `list/add/rename/delete_*`. API `/api/units`, `/api/places` (sửa tên/ghi chú qua
+    POST `{name?, note?}`; delete admin). Vị trí có **ảnh/trao đổi/lịch sử** (entity media
+    scope `place`); list trả `thumb_image_id` (ảnh mới nhất, `entity_media_store.latest_image_ids`)
+    → thumbnail card ở dashboard `#/vi-tri`.
   - `box_allocations` (`allocations.py`): 1 row = 1 **phần** thùng đã lấy. `remaining =
     quantity − Σ allocations`; tồn = Σ remaining. Cột **`kind`**: `'order'` (xuất cho đơn)
     | `'production'` (tiêu hao nguyên liệu khi SX — xem `recipe_store`). Xuất

@@ -172,7 +172,7 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
 
 async def entity_history_handler(request: web.Request):
     scope = request.match_info.get("scope", "")
-    if scope not in ("production", "box", "return", "task"):
+    if scope not in ("production", "box", "return", "task", "place"):
         return web.json_response({"ok": False, "error": "scope không hợp lệ"}, status=400)
     try:
         entity_id = int(request.match_info.get("entity_id", ""))

@@ -419,14 +419,19 @@ async def unit_delete_handler(request: web.Request):
 
 
 async def places_list_handler(request: web.Request):
-    """Danh sách vị trí kho (Kho A, Kho B…) + số thùng ở mỗi vị trí."""
+    """Danh sách vị trí kho (Kho A, Kho B…) + số thùng + ảnh mới nhất (thumb card)."""
     def _run():
         conn = _conn()
         try:
             _ensure(conn)
-            return list_places(conn)
+            places = list_places(conn)
         finally:
             conn.close()
+        from entity_media_store import latest_image_ids
+        thumbs = latest_image_ids("place", [p["id"] for p in places])
+        for p in places:
+            p["thumb_image_id"] = thumbs.get(p["id"])
+        return places
     return web.json_response({"ok": True, "places": await asyncio.to_thread(_run)})
 
 
@@ -454,7 +459,7 @@ async def place_create_handler(request: web.Request):
 
 
 async def place_rename_handler(request: web.Request):
-    """Đổi tên 1 vị trí kho. Body {name}."""
+    """Sửa 1 vị trí kho: tên và/hoặc ghi chú. Body {name?, note?}."""
     try:
         pid = int(request.match_info.get("place_id", ""))
     except (ValueError, TypeError):
@@ -463,15 +468,18 @@ async def place_rename_handler(request: web.Request):
         body = await request.json()
     except Exception:
         body = {}
-    name = (body.get("name") or "").strip()
-    if not name:
+    name = (body.get("name") or "").strip() if "name" in body else None
+    note = str(body.get("note") or "") if "note" in body else None
+    if "name" in body and not name:
         return web.json_response({"ok": False, "error": "Thiếu tên vị trí"}, status=400)
+    if name is None and note is None:
+        return web.json_response({"ok": False, "error": "Không có gì để sửa"}, status=400)
 
     def _run():
         conn = _conn()
         try:
             _ensure(conn)
-            return rename_place(conn, pid, name)
+            return rename_place(conn, pid, name=name, note=note)
         finally:
             conn.close()
     place = await asyncio.to_thread(_run)

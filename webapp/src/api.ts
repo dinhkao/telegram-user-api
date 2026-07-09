@@ -822,7 +822,7 @@ export async function setBoxUnit(boxId: number, unitId: number): Promise<InvBox 
   return d.ok ? d.box : null;
 }
 
-export type Place = { id: number; name: string; note?: string; box_count?: number };
+export type Place = { id: number; name: string; note?: string; box_count?: number; thumb_image_id?: number | null };
 /** Danh sách vị trí kho (Kho A, Kho B…). */
 export async function listPlaces(): Promise<Place[]> {
   const d = await getJSON("/api/places", { cache: false });
@@ -834,6 +834,10 @@ export async function createPlace(name: string, note = ""): Promise<Place> {
 }
 export async function renamePlace(id: number, name: string): Promise<Place> {
   const d = await postJSON(`/api/places/${id}`, { name }, { queueable: false });
+  return d.place;
+}
+export async function setPlaceNote(id: number, note: string): Promise<Place> {
+  const d = await postJSON(`/api/places/${id}`, { note }, { queueable: false });
   return d.place;
 }
 export async function deletePlace(id: number): Promise<any> {

@@ -193,13 +193,21 @@ def add_place(conn, name: str, note: str = "") -> dict | None:
     return dict(row) if row else None
 
 
-def rename_place(conn, place_id, name: str) -> dict | None:
-    """Đổi tên 1 vị trí kho. Trả row sau khi đổi (None nếu tên trống)."""
-    name = (name or "").strip()
-    if not name:
+def rename_place(conn, place_id, name: str | None = None, note: str | None = None) -> dict | None:
+    """Sửa 1 vị trí kho: tên (không cho trống) và/hoặc ghi chú. Trả row sau khi đổi
+    (None nếu không có gì để sửa)."""
+    sets, params = [], []
+    if name is not None:
+        name = name.strip()
+        if not name:
+            return None
+        sets.append("name = ?"); params.append(name)
+    if note is not None:
+        sets.append("note = ?"); params.append(note.strip())
+    if not sets:
         return None
     with transaction(conn):
-        conn.execute("UPDATE inventory_places SET name = ? WHERE id = ?", (name, int(place_id)))
+        conn.execute(f"UPDATE inventory_places SET {', '.join(sets)} WHERE id = ?", [*params, int(place_id)])
     row = conn.execute("SELECT id, name, note FROM inventory_places WHERE id = ?", (int(place_id),)).fetchone()
     return dict(row) if row else None
 

@@ -71,6 +71,24 @@ def list_images(scope: str, entity_id: int, *, db_path: str | None = None) -> li
         conn.close()
 
 
+def latest_image_ids(scope: str, entity_ids: list[int], *, db_path: str | None = None) -> dict[int, int]:
+    """Ảnh MỚI NHẤT của từng entity trong 1 scope: {entity_id: image_id} — cho
+    thumbnail card ngoài dashboard (1 query gộp)."""
+    if not entity_ids:
+        return {}
+    conn = _conn(db_path)
+    try:
+        qs = ",".join("?" * len(entity_ids))
+        rows = conn.execute(
+            f"SELECT entity_id, MAX(id) AS image_id FROM entity_images"
+            f" WHERE scope = ? AND entity_id IN ({qs}) GROUP BY entity_id",
+            [scope, *[int(x) for x in entity_ids]],
+        ).fetchall()
+        return {int(r["entity_id"]): int(r["image_id"]) for r in rows}
+    finally:
+        conn.close()
+
+
 def get_image(image_id: int, *, db_path: str | None = None) -> dict | None:
     conn = _conn(db_path)
     try:
