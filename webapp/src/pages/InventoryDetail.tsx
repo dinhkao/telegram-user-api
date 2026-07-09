@@ -3,7 +3,7 @@
 // Thùng đã xuất link tới đơn. Realtime production_changed → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, createKiotvietProduct, kiotvietCategories, deleteProduct, updateProduct, renameProduct, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct, type KvCategory } from "../api";
+import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, createKiotvietProduct, createProduct, kiotvietCategories, deleteProduct, updateProduct, renameProduct, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct, type KvCategory } from "../api";
 import { SelectPopup } from "../ui/SelectPopup";
 import { confirmDialog, toast } from "../ui/feedback";
 import { useScrollLock } from "../useScrollLock";
@@ -248,6 +248,21 @@ export function InventoryDetail({ code }: { code: string }) {
 
       {/* Tên danh mục + liên kết KiotViet */}
       <section class="card prod-link">
+        {!inv.product && (
+          <div class="box-kv" style={{ alignItems: "center" }}>
+            <span class="muted small" style={{ flex: 1 }}>
+              Mã "{code}" chưa có trong danh mục SP (thùng tạo bằng mã gõ tự do) — thêm vào
+              danh mục để sửa tên/đơn vị/đổi mã/liên kết KiotViet.
+            </span>
+            <button class="btn small" onClick={async () => {
+              try {
+                await createProduct(code);
+                toast(`✅ Đã thêm ${code} vào danh mục`, "ok");
+                await load();
+              } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
+            }}>➕ Thêm vào danh mục</button>
+          </div>
+        )}
         {inv.product && isAdmin && (
           <div class="box-kv">
             <span class="box-k">Mã SP</span>

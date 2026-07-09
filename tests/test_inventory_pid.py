@@ -96,6 +96,20 @@ class BoxesById(Base):
         self.assertEqual(boxes[0]["product_code"], "K10X")  # lưu mã hiện hành
         self.assertEqual(boxes[0]["product_id"], self.pid)
 
+    def test_new_product_adopts_orphan_boxes(self):
+        # thùng tạo bằng mã GÕ TỰ DO (không có trong danh mục) → product_id NULL
+        boxes = add_boxes(self.conn, "85 K TEM", [10])
+        self.assertIsNone(boxes[0]["product_id"])
+        # thêm mã vào danh mục → thùng mồ côi được "nhận nuôi" ngay
+        upsert_product(self.conn, "85 K TEM", name="Kẹo 85 tem")
+        from product_store import get_product
+        pid = get_product(self.conn, "85 K TEM")["id"]
+        row = self.conn.execute(
+            "SELECT product_id FROM inventory_boxes WHERE id = ?", (boxes[0]["id"],)).fetchone()
+        self.assertEqual(row[0], pid)
+        # trang chi tiết lọc theo mã giờ thấy thùng qua id
+        self.assertEqual(len(list_boxes(self.conn, product_code="85 K TEM")), 1)
+
 
 class RecipesById(Base):
     def setUp(self):

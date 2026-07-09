@@ -80,12 +80,32 @@ def upsert_product(conn, code: str, name: str = None, cost_price: int = None, no
         updates.append("updated_at = ?"); params.extend([now, code])
         conn.execute(f"UPDATE products SET {', '.join(updates)} WHERE code = ?", params)
     else:
-        conn.execute(
+        cur = conn.execute(
             "INSERT INTO products (code, name, cost_price, note, unit, prod_mam, prod_luong, created_at, updated_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (code, name or "", cost_price or 0, note or "", (unit or "cây").strip() or "cây",
              prod_mam, prod_luong, now, now))
+        _adopt_orphan_snapshots(conn, cur.lastrowid, code)
     conn.commit(); _invalidate_products_cache(); return True
+
+
+def _adopt_orphan_snapshots(conn, product_id, code: str) -> None:
+    """SP MỚI vào danh mục 'nhận nuôi' các row mồ côi trùng mã — thùng/công thức/
+    phiếu SX/lịch sử giá từng tạo bằng mã gõ tự do (product_id NULL) nay có danh
+    tính. Nhờ đó trang chi tiết SP sửa/đổi mã được ngay. Bảng thiếu (DB test) bỏ qua."""
+    import sqlite3 as _sq
+    for sql in (
+        "UPDATE inventory_boxes SET product_id = ? WHERE product_id IS NULL AND UPPER(TRIM(product_code)) = ?",
+        "UPDATE product_recipes SET product_id = ? WHERE product_id IS NULL AND UPPER(TRIM(product_code)) = ?",
+        "UPDATE product_recipes SET ingredient_id = ? WHERE ingredient_id IS NULL AND UPPER(TRIM(ingredient_code)) = ?",
+        "UPDATE production_slips SET product_id = ? WHERE product_id IS NULL AND UPPER(TRIM(COALESCE(sp_name,''))) = ?",
+        "UPDATE production_report_rows SET product_id = ? WHERE product_id IS NULL AND UPPER(TRIM(COALESCE(product_code,''))) = ?",
+        "UPDATE price_history SET product_id = ? WHERE product_id IS NULL AND UPPER(TRIM(sp)) = ?",
+    ):
+        try:
+            conn.execute(sql, (product_id, code))
+        except _sq.OperationalError:
+            pass
 
 
 def set_kiotviet_link(conn, code: str, kv_id: int, full_name: str = "") -> Optional[dict]:
