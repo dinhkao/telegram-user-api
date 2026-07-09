@@ -91,6 +91,10 @@ async def workers_update_handler(request: web.Request):
     if worker is None:
         return web.json_response({"ok": False, "error": "không tìm thấy thợ"}, status=404)
     _emit_workers()
+    if name is not None:
+        # đổi tên cascade vào báo cáo các phiếu → card/dashboard SX cần refresh
+        from server_app.realtime import emit_productions_changed
+        emit_productions_changed()
     return web.json_response({"ok": True, "worker": worker})
 
 

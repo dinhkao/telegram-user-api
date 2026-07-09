@@ -63,6 +63,10 @@ def add_worker(conn, name: str, is_default: bool = False) -> dict:
 
 
 def update_worker(conn, worker_id: int, *, name: str | None = None, is_default: bool | None = None) -> dict | None:
+    """Sửa thợ. ĐỔI TÊN = cascade cùng transaction: production_report_rows (dòng
+    đã gán worker_id đổi nhãn; dòng cổ trùng tên cũ được GÁN id + nhãn mới) + blob
+    `bang` các phiếu SX (tên thợ trong báo cáo đã lưu) — lịch sử dashboard/chi tiết
+    thợ KHÔNG tách đôi khi sửa tên."""
     with transaction(conn):
         cur = conn.execute("SELECT id, name, is_default, sort_order FROM production_workers WHERE id = ?", (worker_id,)).fetchone()
         if not cur:
@@ -70,7 +74,8 @@ def update_worker(conn, worker_id: int, *, name: str | None = None, is_default: 
         new_name = cur["name"] if name is None else (name or "").strip()
         if not new_name:
             raise ValueError("Tên thợ trống")
-        if name is not None and new_name.lower() != cur["name"].lower():
+        renaming = name is not None and new_name != cur["name"]
+        if renaming and new_name.lower() != cur["name"].lower():
             dup = conn.execute(
                 "SELECT id FROM production_workers WHERE name = ? COLLATE NOCASE AND id <> ?", (new_name, worker_id)
             ).fetchone()
@@ -81,7 +86,51 @@ def update_worker(conn, worker_id: int, *, name: str | None = None, is_default: 
             "UPDATE production_workers SET name = ?, is_default = ? WHERE id = ?",
             (new_name, new_def, worker_id),
         )
+        if renaming:
+            _cascade_rename(conn, worker_id, cur["name"], new_name)
     return {"id": worker_id, "name": new_name, "is_default": bool(new_def), "sort_order": cur["sort_order"]}
+
+
+def _cascade_rename(conn, worker_id: int, old_name: str, new_name: str) -> None:
+    """Đổi nhãn tên thợ ở mọi nơi đang lưu snapshot (bảng mirror + blob bang)."""
+    import json
+    try:
+        conn.execute(
+            "UPDATE production_report_rows SET worker_name = ? WHERE worker_id = ?",
+            (new_name, worker_id),
+        )
+        # dòng cổ chưa gán id nhưng trùng tên cũ → nhận danh tính luôn
+        conn.execute(
+            "UPDATE production_report_rows SET worker_id = ?, worker_name = ? "
+            "WHERE worker_id IS NULL AND TRIM(worker_name) = TRIM(?) COLLATE NOCASE",
+            (worker_id, new_name, old_name),
+        )
+    except Exception:  # noqa: BLE001 — bảng chưa tạo (DB test)
+        pass
+    try:
+        old_cf = old_name.strip().casefold()
+        rows = conn.execute(
+            "SELECT thread_id, bang FROM production_slips WHERE bang IS NOT NULL AND bang != ''"
+        ).fetchall()
+        for tid, btext in rows:
+            try:
+                bang = json.loads(btext)
+            except Exception:  # noqa: BLE001
+                continue
+            if not isinstance(bang, dict):
+                continue
+            dirty = False
+            for r in bang.get("rows") or []:
+                if isinstance(r, dict) and str(r.get("name") or "").strip().casefold() == old_cf:
+                    r["name"] = new_name
+                    dirty = True
+            if dirty:
+                conn.execute(
+                    "UPDATE production_slips SET bang = ? WHERE thread_id = ?",
+                    (json.dumps(bang, ensure_ascii=False), tid),
+                )
+    except Exception:  # noqa: BLE001 — bảng chưa tạo (DB test)
+        pass
 
 
 def reorder_workers(conn, ids: list[int]) -> None:

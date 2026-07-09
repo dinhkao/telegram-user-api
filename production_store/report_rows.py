@@ -16,7 +16,8 @@ _SCHEMA = """
 CREATE TABLE IF NOT EXISTS production_report_rows (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     thread_id    INTEGER NOT NULL,          -- phiếu SX (= forum topic id)
-    worker_name  TEXT    NOT NULL,          -- tên thợ
+    worker_id    INTEGER,                   -- → production_workers.id (danh tính bất biến)
+    worker_name  TEXT    NOT NULL,          -- tên thợ snapshot (hiển thị fallback)
     product_id   INTEGER,                   -- → products.id (danh tính bất biến)
     product_code TEXT,                      -- mã SP snapshot (hiển thị fallback)
     report_date  TEXT,                      -- ngày báo cáo gốc (d/m/yyyy)
@@ -36,11 +37,18 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_prr_ymd     ON production_report_rows(report_ymd)",
     "CREATE INDEX IF NOT EXISTS idx_prr_product ON production_report_rows(product_code)",
     "CREATE INDEX IF NOT EXISTS idx_prr_pid     ON production_report_rows(product_id)",
+    "CREATE INDEX IF NOT EXISTS idx_prr_wid     ON production_report_rows(worker_id)",
 ]
 
 
 def ensure_report_rows_schema(conn) -> None:
     conn.executescript(_SCHEMA)
+    # reads join production_workers (tên thợ sống) → đảm bảo bảng tồn tại
+    try:
+        from worker_store import ensure_table as _ensure_workers
+        _ensure_workers(conn)
+    except Exception:  # noqa: BLE001
+        pass
     cols = {r[1] for r in conn.execute("PRAGMA table_info(production_report_rows)").fetchall()}
     if "product_id" not in cols:  # migrate DB cũ + backfill theo mã snapshot
         conn.execute("ALTER TABLE production_report_rows ADD COLUMN product_id INTEGER")
@@ -48,9 +56,29 @@ def ensure_report_rows_schema(conn) -> None:
             "UPDATE production_report_rows SET product_id = "
             "(SELECT p.id FROM products p WHERE p.code = UPPER(TRIM(COALESCE(production_report_rows.product_code,''))))"
         )
+    if "worker_id" not in cols:  # migrate DB cũ + backfill theo tên (production_workers)
+        conn.execute("ALTER TABLE production_report_rows ADD COLUMN worker_id INTEGER")
+        try:
+            conn.execute(
+                "UPDATE production_report_rows SET worker_id = "
+                "(SELECT w.id FROM production_workers w WHERE w.name = TRIM(production_report_rows.worker_name) COLLATE NOCASE)"
+            )
+        except Exception:  # noqa: BLE001 — production_workers chưa tạo (DB test)
+            pass
     for sql in _INDEXES:
         conn.execute(sql)
     conn.commit()
+
+
+def _worker_id_map(conn) -> dict[str, int]:
+    """{tên thường: worker_id} để resolve khi ghi báo cáo. Rỗng nếu chưa có bảng."""
+    try:
+        return {
+            str(r[1]).strip().lower(): int(r[0])
+            for r in conn.execute("SELECT id, name FROM production_workers").fetchall()
+        }
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 def _num(v) -> float:
@@ -92,6 +120,7 @@ def replace_report_rows(conn, thread_id, bang) -> int:
     rdate = bang.get("date")
     rymd = _parse_ymd(rdate)
     conn.execute("DELETE FROM production_report_rows WHERE thread_id = ?", (thread_id,))
+    wmap = _worker_id_map(conn)
     n = 0
     for r in bang.get("rows") or []:
         name = (r.get("name") or "").strip()
@@ -99,10 +128,10 @@ def replace_report_rows(conn, thread_id, bang) -> int:
             continue
         conn.execute(
             """INSERT INTO production_report_rows
-               (thread_id, worker_name, product_id, product_code, report_date, report_ymd,
+               (thread_id, worker_id, worker_name, product_id, product_code, report_date, report_ymd,
                 so_gach, so_tru, so_cay_le, so_mam, tong_calc, note)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (thread_id, name, pid, product, rdate, rymd,
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (thread_id, wmap.get(name.lower()), name, pid, product, rdate, rymd,
              _num(r.get("so_gach")), _num(r.get("so_tru")), _num(r.get("so_cay_le")),
              _num(r.get("so_mam")), _num(r.get("tong_calc")), r.get("note") or ""),
         )
@@ -120,19 +149,23 @@ def report_summaries(conn, thread_ids) -> dict:
         return {}
     ensure_report_rows_schema(conn)
     q = ",".join("?" * len(ids))
+    # tên hiển thị = tên HIỆN HÀNH của thợ (join worker_id), fallback snapshot
     rows = conn.execute(
-        f"SELECT thread_id, worker_name, ROUND(SUM(tong_calc),1) FROM production_report_rows "
-        f"WHERE thread_id IN ({q}) AND tong_calc > 0 GROUP BY thread_id, worker_name "
-        f"ORDER BY thread_id, SUM(tong_calc) DESC", ids).fetchall()
+        f"SELECT t.thread_id, COALESCE(w.name, t.worker_name), ROUND(SUM(t.tong_calc),1) "
+        f"FROM production_report_rows t LEFT JOIN production_workers w ON w.id = t.worker_id "
+        f"WHERE t.thread_id IN ({q}) AND t.tong_calc > 0 "
+        f"GROUP BY t.thread_id, COALESCE(w.name, t.worker_name) "
+        f"ORDER BY t.thread_id, SUM(t.tong_calc) DESC", ids).fetchall()
     out: dict = {}
     for tid, name, tong in rows:
         d = out.setdefault(tid, {"total": 0.0, "workers": [], "notes": []})
         d["workers"].append({"name": name, "tong": tong or 0})
         d["total"] = round(d["total"] + (tong or 0), 1)
     note_rows = conn.execute(
-        f"SELECT thread_id, worker_name, TRIM(note) FROM production_report_rows "
-        f"WHERE thread_id IN ({q}) AND COALESCE(tong_calc, 0) <= 0 "
-        f"AND TRIM(COALESCE(note, '')) != '' ORDER BY thread_id, worker_name", ids).fetchall()
+        f"SELECT t.thread_id, COALESCE(w.name, t.worker_name), TRIM(t.note) "
+        f"FROM production_report_rows t LEFT JOIN production_workers w ON w.id = t.worker_id "
+        f"WHERE t.thread_id IN ({q}) AND COALESCE(t.tong_calc, 0) <= 0 "
+        f"AND TRIM(COALESCE(t.note, '')) != '' ORDER BY t.thread_id, COALESCE(w.name, t.worker_name)", ids).fetchall()
     for tid, name, note in note_rows:
         d = out.setdefault(tid, {"total": 0.0, "workers": [], "notes": []})
         d["notes"].append({"name": name, "note": note})
@@ -156,8 +189,11 @@ def dashboard(conn, dfrom: str | None = None, dto: str | None = None) -> dict:
         f"SELECT COALESCE(SUM(tong_calc),0), COUNT(DISTINCT thread_id), COUNT(DISTINCT worker_name) FROM {T} {where}",
         args).fetchone()
     by_worker = conn.execute(
-        f"SELECT worker_name, ROUND(SUM(tong_calc),1), COUNT(DISTINCT thread_id), ROUND(SUM(so_mam),1) "
-        f"FROM {T} {where} GROUP BY worker_name ORDER BY SUM(tong_calc) DESC", args).fetchall()
+        f"SELECT COALESCE(w.name, t.worker_name), ROUND(SUM(t.tong_calc),1), "
+        f"COUNT(DISTINCT t.thread_id), ROUND(SUM(t.so_mam),1) "
+        f"FROM {T} t LEFT JOIN production_workers w ON w.id = t.worker_id "
+        f"{where.replace('tong_calc', 't.tong_calc').replace('report_ymd', 't.report_ymd')} "
+        f"GROUP BY COALESCE(w.name, t.worker_name) ORDER BY SUM(t.tong_calc) DESC", args).fetchall()
     by_day = conn.execute(
         f"SELECT report_ymd, ROUND(SUM(tong_calc),1), COUNT(DISTINCT thread_id) "
         f"FROM {T} {where} AND report_ymd IS NOT NULL GROUP BY report_ymd ORDER BY report_ymd DESC LIMIT 60",
@@ -176,22 +212,35 @@ def dashboard(conn, dfrom: str | None = None, dto: str | None = None) -> dict:
 
 
 def worker_detail(conn, name: str, dfrom: str | None = None, dto: str | None = None) -> dict:
-    """Chi tiết 1 thợ: mỗi ngày làm phiếu nào, SP gì, bao nhiêu. Sắp theo ngày mới→cũ."""
+    """Chi tiết 1 thợ: mỗi ngày làm phiếu nào, SP gì, bao nhiêu. Sắp theo ngày mới→cũ.
+    Khớp theo DANH TÍNH (worker_id) khi tên có trong danh sách thợ — dòng cổ mang
+    tên cũ vẫn ra; tên lạ fallback so tên snapshot."""
     ensure_report_rows_schema(conn)
-    where = "WHERE worker_name = ?"
-    args: list = [name]
+    wid = None
+    try:
+        r = conn.execute(
+            "SELECT id FROM production_workers WHERE name = TRIM(?) COLLATE NOCASE", (name,)
+        ).fetchone()
+        wid = int(r[0]) if r else None
+    except Exception:  # noqa: BLE001
+        pass
+    if wid is not None:
+        where = "WHERE (t.worker_id = ? OR (t.worker_id IS NULL AND t.worker_name = TRIM(?) COLLATE NOCASE))"
+        args: list = [wid, name]
+    else:
+        where = "WHERE t.worker_name = TRIM(?) COLLATE NOCASE"
+        args = [name]
     if dfrom:
-        where += " AND report_ymd >= ?"
+        where += " AND t.report_ymd >= ?"
         args.append(dfrom)
     if dto:
-        where += " AND report_ymd <= ?"
+        where += " AND t.report_ymd <= ?"
         args.append(dto)
     rows = conn.execute(
         f"SELECT t.thread_id, COALESCE(pr.code, t.product_code), t.report_date, t.report_ymd, "
         f"t.so_gach, t.so_tru, t.so_cay_le, t.so_mam, t.tong_calc, t.note "
         f"FROM production_report_rows t LEFT JOIN products pr ON pr.id = t.product_id "
-        f"{where.replace('worker_name', 't.worker_name').replace('report_ymd', 't.report_ymd')} "
-        f"ORDER BY t.report_ymd DESC, t.thread_id DESC", args).fetchall()
+        f"{where} ORDER BY t.report_ymd DESC, t.thread_id DESC", args).fetchall()
     total = round(sum(r[8] or 0 for r in rows), 1)
     total_mam = round(sum(r[7] or 0 for r in rows), 1)
     phieu = len({r[0] for r in rows if (r[8] or 0) > 0})

@@ -32,6 +32,9 @@ def main() -> int:
     p_role = sub.add_parser("role")
     p_role.add_argument("username")
     p_role.add_argument("role", choices=list(ROLES))
+    p_ren = sub.add_parser("rename", help="đổi username (cascade việc/bình luận, an toàn)")
+    p_ren.add_argument("old_username")
+    p_ren.add_argument("new_username")
     sub.add_parser("list")
     for name in ("pin", "disable", "enable"):
         p = sub.add_parser(name)
@@ -63,6 +66,17 @@ def main() -> int:
         print("OK" if set_pin(args.username, pin) else f"Không thấy user '{args.username}'")
     elif args.cmd == "role":
         print(f"OK → {args.role}" if set_role(args.username, args.role) else f"Không thấy user '{args.username}'")
+    elif args.cmd == "rename":
+        from user_store import rename_user
+        try:
+            counts = rename_user(args.old_username, args.new_username)
+        except ValueError as exc:
+            print(f"Lỗi: {exc}", file=sys.stderr)
+            return 1
+        for label, n in counts.items():
+            if n:
+                print(f"  {label}: {n} dòng")
+        print(f"OK: {args.old_username} → {args.new_username}. User này phải ĐĂNG NHẬP LẠI (token cũ hết hiệu lực).")
     else:
         changed = set_disabled(args.username, args.cmd == "disable")
         print("OK" if changed else f"Không thấy user '{args.username}'")

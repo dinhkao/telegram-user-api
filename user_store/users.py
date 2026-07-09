@@ -49,6 +49,54 @@ def add_user(username: str, pin: str, display_name: str = "", role: str = "staff
     return _row_to_dict(row)
 
 
+def rename_user(old_username: str, new_username: str, *, db_path: str | None = None) -> dict:
+    """Đổi username AN TOÀN — cascade cùng 1 transaction sang mọi bảng dùng
+    username làm KHOÁ THAM CHIẾU: web_tasks (assignee/done_by/created_by),
+    web_comments/entity_comments/order_image_comments (username). Các cột *_by
+    kiểu LOG/audit (actor snapshot, lẫn tên hiển thị/IP) CỐ Ý giữ nguyên — đó là
+    sự thật tại thời điểm đó. Token đăng nhập cũ hết hiệu lực (chứa username cũ)
+    → user đăng nhập lại. Trả {counts theo bảng}."""
+    old = (old_username or "").strip().lower()
+    new = (new_username or "").strip().lower()
+    if not old or not new:
+        raise ValueError("username trống")
+    if new == old:
+        raise ValueError("username mới trùng username cũ")
+    if new.isdigit():
+        raise ValueError("username không được toàn số — thêm chữ cái")
+    conn = get_users_conn(db_path)
+    try:
+        if not conn.execute("SELECT 1 FROM web_users WHERE username = ?", (old,)).fetchone():
+            raise ValueError(f"username '{old}' không tồn tại")
+        if conn.execute("SELECT 1 FROM web_users WHERE username = ?", (new,)).fetchone():
+            raise ValueError(f"username '{new}' đã tồn tại")
+        counts: dict[str, int] = {}
+        cascades = [
+            ("web_users", "UPDATE web_users SET username = ? WHERE username = ?"),
+            ("web_tasks.assignee", "UPDATE web_tasks SET assignee = ? WHERE assignee = ?"),
+            ("web_tasks.done_by", "UPDATE web_tasks SET done_by = ? WHERE done_by = ?"),
+            ("web_tasks.created_by", "UPDATE web_tasks SET created_by = ? WHERE created_by = ?"),
+            ("web_comments", "UPDATE web_comments SET username = ? WHERE username = ?"),
+            ("entity_comments", "UPDATE entity_comments SET username = ? WHERE username = ?"),
+            ("order_image_comments", "UPDATE order_image_comments SET username = ? WHERE username = ?"),
+        ]
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            for label, sql in cascades:
+                try:
+                    cur = conn.execute(sql, (new, old))
+                    counts[label] = cur.rowcount
+                except Exception:  # noqa: BLE001 — bảng chưa tạo (DB test/tối giản)
+                    counts[label] = 0
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+    return counts
+
+
 def get_user(username: str, *, db_path: str | None = None) -> dict | None:
     conn = get_users_conn(db_path)
     try:

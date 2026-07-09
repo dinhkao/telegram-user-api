@@ -86,19 +86,45 @@ def customer_stats(conn) -> dict:
 
 
 def add_customer(conn, customer_data: dict) -> tuple[bool, str]:
+    """Thêm khách MỚI. Key = danh tính BẤT BIẾN, KHÔNG suy từ tên (lỗi cũ: key =
+    slug tên + ON CONFLICT DO UPDATE → 2 khách trùng tên ĐÈ NHAU im lặng, mất data).
+    - data có sẵn `firebase_key` → upsert theo key đó (ý định sửa rõ ràng).
+    - không có → sinh key epoch-ms duy nhất; trùng tên với khách sẵn có vẫn tạo
+      KHÁCH MỚI riêng, chỉ cảnh báo trong message."""
     name = customer_data.get("name") or customer_data.get("ten") or "unknown"
-    firebase_key = name.lower().replace(" ", "_")
     now = int(datetime.now(UTC).timestamp() * 1000)  # cột updated_at = epoch ms (bigint)
+    explicit_key = str(customer_data.get("firebase_key") or "").strip()
     try:
+        if explicit_key:
+            conn.execute(
+                """INSERT INTO customers (firebase_key, json, updated_at)
+                   VALUES (?, ?, ?)
+                   ON CONFLICT(firebase_key) DO UPDATE SET json=excluded.json, updated_at=excluded.updated_at""",
+                (explicit_key, json.dumps(customer_data, ensure_ascii=False), now),
+            )
+            conn.commit()
+            _invalidate_customer_patterns_cache()
+            return True, f"✅ Đã thêm/sửa khách hàng: {name} (key {explicit_key})"
+        key_ms = now
+        key = str(key_ms)
+        while conn.execute("SELECT 1 FROM customers WHERE firebase_key = ?", (key,)).fetchone():
+            key_ms += 1
+            key = str(key_ms)
+        dup = conn.execute(
+            "SELECT firebase_key FROM customers WHERE deleted_at IS NULL "
+            "AND LOWER(COALESCE(json_extract(json, '$.name'), json_extract(json, '$.ten'), '')) = LOWER(?)",
+            (str(name),),
+        ).fetchone()
         conn.execute(
-            """INSERT INTO customers (firebase_key, json, updated_at)
-               VALUES (?, ?, ?)
-               ON CONFLICT(firebase_key) DO UPDATE SET json=excluded.json, updated_at=excluded.updated_at""",
-            (firebase_key, json.dumps(customer_data, ensure_ascii=False), now),
+            "INSERT INTO customers (firebase_key, json, updated_at) VALUES (?, ?, ?)",
+            (key, json.dumps(customer_data, ensure_ascii=False), now),
         )
         conn.commit()
         _invalidate_customer_patterns_cache()
-        return True, f"✅ Đã thêm/sửa khách hàng: {name}"
+        msg = f"✅ Đã thêm khách hàng: {name} (key {key})"
+        if dup:
+            msg += f"\n⚠️ Trùng tên với khách sẵn có (key {dup[0]}) — đây là KHÁCH MỚI riêng, không đè."
+        return True, msg
     except Exception as e:
         return False, f"❌ Lỗi thêm khách hàng: {e}"
 
