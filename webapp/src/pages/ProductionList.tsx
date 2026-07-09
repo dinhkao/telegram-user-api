@@ -33,10 +33,20 @@ onRealtime((e) => {
   const idx = prodCache.slips.findIndex((s) => String(s.thread_id) === e.thread_id);
   if (e.row === null) {
     if (idx >= 0) prodCache = { ...prodCache, slips: prodCache.slips.filter((_, i) => i !== idx) };
-  } else if (idx >= 0) {
-    const next = prodCache.slips.slice();
-    next[idx] = { ...next[idx], ...(e.row as ProdSlip) };
-    prodCache = { ...prodCache, slips: next };
+    return;
+  }
+  // Tôn trọng bộ lọc kind của cache (như listener in-page): đổi loại rời khỏi lọc → gỡ;
+  // phiếu chưa có trong cache mà khớp lọc → CHÈN đầu (vd: tạo phiếu rồi bật 'đóng gói'
+  // ở trang detail — event tới khi list unmount, thiếu nhánh chèn là quay lại dashboard
+  // không thấy phiếu, phải reload).
+  const row = e.row as ProdSlip;
+  const matches = !prodCache.kind || (row.kind || "san_xuat") === prodCache.kind;
+  if (idx >= 0) {
+    prodCache = matches
+      ? { ...prodCache, slips: prodCache.slips.map((s, i) => (i === idx ? { ...s, ...row } : s)) }
+      : { ...prodCache, slips: prodCache.slips.filter((_, i) => i !== idx) };
+  } else if (matches) {
+    prodCache = { ...prodCache, slips: [row, ...prodCache.slips] };
   }
 });
 

@@ -45,6 +45,20 @@ from .thread_utils import extract_thread_id
 log = logging.getLogger("production")
 from utils.paths import SHARED_DB_PATH
 from utils.db import get_connection
+
+
+def _emit_prod(thread_id=None):
+    """Đẩy realtime cho webapp (list + dashboard SX) sau mutation từ Telegram —
+    best-effort; không có loop/aiohttp (script, test) thì im lặng bỏ qua.
+    thread_id=None → productions_changed (tạo/xoá phiếu), có → production_changed."""
+    try:
+        from server_app.realtime import emit_production_changed, emit_productions_changed
+        if thread_id is None:
+            emit_productions_changed()
+        else:
+            emit_production_changed(thread_id)
+    except Exception:  # noqa: BLE001
+        pass
 # Base URL của webapp (Tailscale/LAN). Trống = chưa cấu hình → chỉ dùng link topic
 # Telegram (luôn hoạt động). Đặt WEBAPP_URL để hiện link web /app/#/san_xuat/<id>.
 # (Bỏ railway finaltelegram — không dùng nữa.)
@@ -202,6 +216,7 @@ def register_production_commands(client):
             date=now.strftime("%d/%m/%Y %H:%M"), date_code=date_code,
             text=(msg.text or ""),
         )
+        _emit_prod()  # phiếu mới → dashboard webapp refetch
         web = _web_link(thread_id)
         if web:
             try:
@@ -278,6 +293,7 @@ def register_production_commands(client):
         if _is_product_code(upper):
             info = SP_INFO.get(upper, {})
             set_sp(conn, thread_id, upper, info.get("mam"), info.get("luong"))
+            _emit_prod(thread_id)
             out = f"Cập nhật sp thành {upper}"
             if upper in CAY_TRONG_1_CHAO:
                 out += f"\n🌿 Cây trong 1 chảo: {CAY_TRONG_1_CHAO[upper]}"
@@ -296,6 +312,7 @@ def register_production_commands(client):
                 await reply(msg, "❌ Số lượng SX không hợp lệ")
                 return
             set_target(conn, thread_id, sx)
+            _emit_prod(thread_id)
             await reply(msg, "Cập nhật thành công")
             await _update_tin_nhan(client, conn, thread_id)
             return
@@ -309,6 +326,7 @@ def register_production_commands(client):
                     await reply(msg, f"❌ Không xoá được — phiếu đã tạo {n} thùng. Xoá các thùng đó trước.")
                     return
                 delete_slip(conn, thread_id)
+                _emit_prod()  # xoá phiếu → dashboard webapp refetch
                 await reply(msg, "Đã xóa phiếu")
             return
 
@@ -328,6 +346,7 @@ def register_production_commands(client):
             remaining = sx_target - current_total
             add_number(conn, thread_id, remaining, "Hoàn thành tất cả nhiệm vụ", by=await _sender_name(msg))
             set_total(conn, thread_id, sx_target)
+            _emit_prod(thread_id)
             await reply(
                 msg,
                 f"✅ Đã hoàn thành tất cả nhiệm vụ!\n"
@@ -347,6 +366,7 @@ def register_production_commands(client):
             return
         note = " ".join(words[1:])
         total = add_number(conn, thread_id, amount, note, by=await _sender_name(msg))
+        _emit_prod(thread_id)
         await reply(msg, f"Cập nhật số lượng thành công, tổng hiện tại: {_fmt_num(total)}")
         await _update_tin_nhan(client, conn, thread_id)
 
@@ -418,3 +438,4 @@ def register_production_commands(client):
                 "grand_total": report["grand_total"],
                 "updated_at": datetime.now(_VN_TZ).isoformat(),
             })
+            _emit_prod(thread_id)  # báo cáo đổi → list card + dashboard SX refetch
