@@ -22,7 +22,7 @@ _ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo p
                   "return.invoice_deleted": "Xoá HĐ KiotViet (hoàn nợ)", "return.deleted": "Xoá phiếu trả"}
 
 # Biến động KHO (server_app/inventory_audit) — nhãn theo SCOPE + chi tiết từ payload.
-_INV_ACTIONS = {"box.created", "box.allocated", "box.released", "box.moved_out",
+_INV_ACTIONS = {"box.created", "box.allocated", "box.released", "box.moved", "box.moved_out",
                 "box.moved_in", "box.deleted", "box.transfer_out", "box.transfer_in"}
 
 
@@ -55,6 +55,8 @@ def _inv_entry(act: str, scope: str, p: dict) -> tuple[str, str] | None:
         verb = "lấy" if act == "box.allocated" else "trả"
         extra = " · ".join(x for x in [f"{verb} {taken}" if taken else "", f'"{ot}"' if ot else ""] if x)
         return ("Xuất cho đơn" if act == "box.allocated" else "Thu hồi về kho"), join(extra)
+    if act == "box.moved":   # lịch sử THÙNG — ghi rõ TỪ → ĐẾN
+        return "Chuyển kho", join(f"từ {p.get('from_name') or 'Chưa xếp'} → {p.get('to_name') or 'Chưa xếp'}")
     if act == "box.moved_out":
         return "Thùng chuyển đi", join(f"→ {p.get('to_name') or 'Chưa xếp'}")
     if act == "box.moved_in":
@@ -188,6 +190,7 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
                 is_report = path.endswith("/report")
                 detail = ""
                 label_override = None
+                skip_row = False
                 try:
                     b = json.loads(r["payload_json"] or "{}").get("body")
                     if isinstance(b, str) and b.strip().startswith("{"):
@@ -195,13 +198,19 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
                         if is_report:
                             detail = _report_detail(str(bd.get("text") or ""))
                         elif key == "POST /api/inventory/box/{id}":
-                            la = _box_update_action(bd, places)
-                            if la:
-                                label_override, detail = la
+                            # Chuyển kho: bỏ dòng này — đã có event box.moved (ghi TỪ → ĐẾN)
+                            if "place_id" in bd or bd.get("clear_place"):
+                                skip_row = True
+                            else:
+                                la = _box_update_action(bd, places)
+                                if la:
+                                    label_override, detail = la
                         else:
                             detail = str(bd.get("text") or bd.get("note") or "")[:50]
                 except Exception:
                     detail = ""
+                if skip_row:
+                    continue
                 try:
                     status = json.loads(r["result_json"] or "{}").get("status")
                 except Exception:
