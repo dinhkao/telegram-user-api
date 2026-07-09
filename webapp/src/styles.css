@@ -1158,6 +1158,18 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .kho-loc-card .kg-arrow { align-self: center; flex: 0 0 auto; color: var(--muted); transition: transform .15s; }
 .kho-loc-card .kg-arrow.open { transform: rotate(90deg); }
 .kho-unplaced-grid { padding: 2px 2px 6px; }
+/* Search: danh sách mã SP khớp (tên + tổng tồn kho) trên đầu lưới ô thùng */
+.kho-sp-hits { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 8px; }
+.kho-sp-hit { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 8px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  text-decoration: none; color: inherit; }
+.kho-sp-hit:active { background: var(--bg); }
+.kho-sp-hit-l { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.kho-sp-hit-l b { font-size: .98rem; }
+.kho-sp-hit-l .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62vw; }
+.kho-sp-hit-tot { font-weight: 700; color: var(--ok); white-space: nowrap; }
+.kho-sp-hit-tot.zero { color: var(--muted); font-weight: 400; }
+.kho-sp-hit-tot .small { font-weight: 400; }
 
 .inv-tag { font-size: .74rem; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 .inv-tag.alloc { background: #fff3e0; color: #a15c00; border: 1px solid #f0d9b0; }

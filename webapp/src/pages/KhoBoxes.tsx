@@ -3,7 +3,7 @@
 // đổi sang lưới Ô THÙNG vuông, GOM THEO VỊ TRÍ. Data: listPlaces + allBoxes.
 // Realtime: box/inventory/production_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
-import { listPlaces, allBoxes, mediaImageUrl, soVN, type Place, type KhoBox } from "../api";
+import { listPlaces, allBoxes, inventoryList, mediaImageUrl, soVN, type Place, type KhoBox, type InvProductSummary } from "../api";
 import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
@@ -53,6 +53,7 @@ function ProdChips({ prods }: { prods: { code: string; qty: number }[] }) {
 export function KhoBoxes() {
   const [places, setPlaces] = useState<Place[] | null>(null);
   const [boxes, setBoxes] = useState<KhoBox[]>([]);
+  const [prodSum, setProdSum] = useState<InvProductSummary[]>([]);   // code → tên + tổng tồn
   const [err, setErr] = useState("");
   const [q, setQ] = useState(memQ);
   const [openUnplaced, setOpenUnplaced] = useState(false);
@@ -60,8 +61,8 @@ export function KhoBoxes() {
 
   const load = async () => {
     try {
-      const [pl, bx] = await Promise.all([listPlaces(), allBoxes()]);
-      setPlaces(pl); setBoxes(bx);
+      const [pl, bx, ps] = await Promise.all([listPlaces(), allBoxes(), inventoryList()]);
+      setPlaces(pl); setBoxes(bx); setProdSum(ps);
     } catch (e: any) { setErr(e?.message || "Lỗi tải kho"); }
   };
   useEffect(() => { load(); }, []);
@@ -76,30 +77,57 @@ export function KhoBoxes() {
   const searching = nq !== "";
   const unplaced = boxes.filter((b) => !b.place_id);
   const sortedPlaces = places.slice().sort((a, b) => a.name.localeCompare(b.name));
+  // code → tên SP + tổng tồn kho (để search khớp cả TÊN + hiện danh sách mã SP khớp)
+  const sumByCode = new Map(prodSum.map((s) => [s.product_code, s]));
+  const fname = (code: string) => foldVN(sumByCode.get(code)?.name || "");
+  const match = (b: KhoBox) => matchQ(b, nq, fname(b.product_code));
 
   const header = (
     <div class="row space">
       <h2 class="page-h"><Icon name="box" size={18} /> Kho hàng{" "}
-        <span class="muted small">({searching ? `${boxes.filter((b) => matchQ(b, nq)).length} thùng` : `${places.length} vị trí`})</span>
+        <span class="muted small">({searching ? `${boxes.filter(match).length} thùng` : `${places.length} vị trí`})</span>
       </h2>
       <a class="btn small" href="#/san-pham"><Icon name="tag" size={15} /> Sản phẩm</a>
     </div>
   );
   const search = <SearchBar value={q} onInput={setQ} placeholder="Tìm mã SP / số thùng / vị trí…" />;
 
-  // ── SEARCH: lưới ô thùng, GOM THEO VỊ TRÍ ────────────────────────────────
+  // ── SEARCH: mã SP khớp (tên + tổng tồn) + lưới ô thùng GOM THEO VỊ TRÍ ────
   if (searching) {
+    const matched = boxes.filter(match);
+    // Mã SP khớp: tổng tồn kho toàn kho của nó (từ summary), tồn giảm dần
+    const spHits = Array.from(new Set(matched.map((b) => b.product_code))).map((code) => {
+      const s = sumByCode.get(code);
+      const total = s?.in_stock_total ?? matched.filter((b) => b.product_code === code).reduce((x, b) => x + rem(b), 0);
+      return { code, name: s?.name || "", unit: s?.unit || "", total };
+    }).sort((a, b) => b.total - a.total || a.code.localeCompare(b.code));
+
     const groups: { key: string; name: string; href?: string; list: KhoBox[] }[] = [];
     for (const p of sortedPlaces) {
-      const list = boxes.filter((b) => b.place_id === p.id && matchQ(b, nq)).sort(sortBoxes);
+      const list = boxes.filter((b) => b.place_id === p.id && match(b)).sort(sortBoxes);
       if (list.length) groups.push({ key: `p${p.id}`, name: p.name, href: `#/vi-tri/${p.id}`, list });
     }
-    const un = unplaced.filter((b) => matchQ(b, nq)).sort(sortBoxes);
+    const un = unplaced.filter(match).sort(sortBoxes);
     if (un.length) groups.push({ key: "none", name: "Chưa xếp vị trí", list: un });
 
     return (
       <div class="inv-dash">
         {header}{search}
+        {spHits.length > 0 && (
+          <div class="kho-sp-hits">
+            {spHits.map((s) => (
+              <a class="kho-sp-hit" href={`#/kho/${encodeURIComponent(s.code)}`} key={s.code}>
+                <span class="kho-sp-hit-l">
+                  <b>{s.code}</b>
+                  {s.name ? <span class="muted small">{s.name}</span> : null}
+                </span>
+                <span class={"kho-sp-hit-tot" + (s.total > 0 ? "" : " zero")}>
+                  {soVN(s.total)}<span class="muted small"> {s.unit || ""} tồn →</span>
+                </span>
+              </a>
+            ))}
+          </div>
+        )}
         {groups.length === 0 ? (
           <EmptyState>Không có thùng khớp “{q.trim()}”.</EmptyState>
         ) : (
@@ -179,9 +207,10 @@ export function KhoBoxes() {
   );
 }
 
-// Khớp tìm kiếm: mã SP / số gọi thùng / tên vị trí
-function matchQ(b: KhoBox, nq: string): boolean {
+// Khớp tìm kiếm: mã SP / TÊN SP (foldedName) / số gọi thùng / tên vị trí
+function matchQ(b: KhoBox, nq: string, foldedName: string): boolean {
   return foldVN(b.product_code).includes(nq)
+    || foldedName.includes(nq)
     || foldVN(b.box_code).includes(nq)
     || foldVN(b.place_name || "").includes(nq);
 }
