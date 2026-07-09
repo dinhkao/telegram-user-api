@@ -111,11 +111,17 @@ export function PlaceDetail({ id }: { id: string }) {
         )}
       </section>
 
-      {boxes.length === 0 ? (
-        <EmptyState>Chưa có thùng ở vị trí này. Gán vị trí ở chi tiết thùng.</EmptyState>
-      ) : (
-        <BoxLabelGrid boxes={boxes} />
-      )}
+      {(() => {
+        // Chi tiết kho: CHỈ hiện thùng còn hàng (thùng đã hết xem ở chi tiết SP)
+        const live = boxes.filter((b) => (b.remaining ?? b.quantity ?? 0) > 0);
+        return boxes.length === 0 ? (
+          <EmptyState>Chưa có thùng ở vị trí này. Gán vị trí ở chi tiết thùng.</EmptyState>
+        ) : live.length === 0 ? (
+          <EmptyState>Kho này không còn thùng nào có hàng.</EmptyState>
+        ) : (
+          <BoxLabelGrid boxes={live} />
+        );
+      })()}
 
       <Images base={`/api/media/place/${pid}`} />
       <Comments base={`/api/media/place/${pid}`} />

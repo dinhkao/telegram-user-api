@@ -145,6 +145,7 @@ export function InventoryDetail({ code }: { code: string }) {
     }
   };
   const [kvCreating, setKvCreating] = useState(false);
+  const [showEmpty, setShowEmpty] = useState(false);   // thùng đã hết: mặc định ẩn, có nút bật
   const [kvCatOpen, setKvCatOpen] = useState(false);
   const [kvCats, setKvCats] = useState<KvCategory[]>([]);
   const [kvCatId, setKvCatId] = useState("");
@@ -360,12 +361,29 @@ export function InventoryDetail({ code }: { code: string }) {
       )}
 
       <section class="card">
-        <label class="card-label">Danh sách thùng ({all.length})</label>
-        {all.length === 0 ? (
-          <div class="muted small">Chưa có thùng nào.</div>
-        ) : (
-          <BoxLabelGrid boxes={all as any} />
-        )}
+        {(() => {
+          const rem = (b: InvBox) => (b.remaining ?? b.quantity ?? 0);
+          const stocked = all.filter((b) => rem(b) > 0);
+          const emptied = all.filter((b) => rem(b) <= 0);
+          const shown = showEmpty ? all : stocked;
+          return (
+            <>
+              <label class="card-label">Danh sách thùng ({stocked.length}{emptied.length ? ` + ${emptied.length} đã hết` : ""})</label>
+              {all.length === 0 ? (
+                <div class="muted small">Chưa có thùng nào.</div>
+              ) : shown.length === 0 ? (
+                <div class="muted small">Không còn thùng nào có hàng.</div>
+              ) : (
+                <BoxLabelGrid boxes={shown as any} />
+              )}
+              {emptied.length > 0 && (
+                <button class="btn small block" style={{ marginTop: "8px" }} onClick={() => setShowEmpty((v) => !v)}>
+                  {showEmpty ? "Ẩn thùng đã hết" : `Hiện ${emptied.length} thùng đã hết`}
+                </button>
+              )}
+            </>
+          );
+        })()}
       </section>
 
       <RecipeEditor productCode={code} />
