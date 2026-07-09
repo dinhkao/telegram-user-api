@@ -31,13 +31,14 @@ export function ReturnModal({ ckey, onClose, onCreated }: {
 
   const submit = async () => {
     if (!parsed.length) return toast("Nhập ít nhất 1 dòng hàng trả (SP + SL + giá)", "info");
-    if (!(await confirmDialog(`Tạo phiếu trả hàng −${soVN(total)}đ? Sẽ tạo HĐ KiotViet giá âm và TRỪ công nợ khách.`))) return;
+    if (!(await confirmDialog(`Tạo phiếu trả hàng −${soVN(total)}đ? (NHÁP — chưa trừ nợ; vào phiếu bấm 'Tạo HĐ KiotViet' mới trừ)`))) return;
     setBusy(true);
     try {
-      await createReturn(ckey, parsed, note.trim());
-      toast("Đã tạo phiếu trả hàng", "ok");
+      const r = await createReturn(ckey, parsed, note.trim());
+      toast("Đã tạo phiếu trả (nháp)", "ok");
       onCreated();
       onClose();
+      if (r?.return?.id) window.location.hash = `#/tra-hang/${r.return.id}`;
     } catch (e: any) {
       toast(e?.message || "Lỗi tạo phiếu trả", "err");
     } finally {

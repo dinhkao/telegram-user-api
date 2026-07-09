@@ -16,6 +16,7 @@ export type RealtimeEvent =
   | { type: "quy_changed" }
   | { type: "tasks_changed" }
   | { type: "workers_changed" }
+  | { type: "return_changed"; id: string }
   | { type: "banner_changed" }
   | { type: "notif_added"; notif: any }
   | { type: "report_lock"; thread_id: string | null; holder: string | null }
@@ -37,6 +38,7 @@ export function eventMatchesBase(base: string, e: RealtimeEvent): boolean {
   if (e.type === "resync") return true;
   if ((e.type === "order_changed" || e.type === "production_changed") && e.thread_id) return base.endsWith("/" + e.thread_id);
   if (e.type === "box_changed" && e.box_id) return base.endsWith("/" + e.box_id);
+  if (e.type === "return_changed" && e.id) return base.includes("/return/") && base.endsWith("/" + e.id);
   return false;
 }
 

@@ -110,6 +110,26 @@ def get_return_full(conn, return_id: int) -> dict | None:
     return _row_to_dict(r) if r else None
 
 
+def set_return_invoice(conn, return_id: int, kv_id, kv_code, debt_before, debt_after) -> bool:
+    """Gắn HĐ KiotViet (giá âm) vào phiếu nháp + snapshot nợ."""
+    ensure_returns_schema(conn)
+    conn.execute(
+        "UPDATE return_slips SET kv_invoice_id = ?, kv_invoice_code = ?, debt_before = ?, debt_after = ? WHERE id = ?",
+        (kv_id, kv_code, debt_before, debt_after, return_id))
+    conn.commit()
+    return True
+
+
+def update_return_items(conn, return_id: int, items: list[dict], total: float, note: str) -> bool:
+    """Sửa hàng trả/ghi chú — CHỈ khi phiếu còn NHÁP (chưa gắn HĐ KV, caller kiểm)."""
+    ensure_returns_schema(conn)
+    conn.execute(
+        "UPDATE return_slips SET items = ?, total = ?, note = ? WHERE id = ?",
+        (json.dumps(items, ensure_ascii=False), float(total), note or "", return_id))
+    conn.commit()
+    return True
+
+
 def set_return_debt_after(conn, return_id: int, debt_after: float) -> bool:
     """Resync nền vá nợ-sau (KV eventual-consistent — như payment.new_debt)."""
     ensure_returns_schema(conn)

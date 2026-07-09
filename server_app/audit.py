@@ -14,7 +14,8 @@ from server_app import order_diff
 _NO_AUDIT = re.compile(r"/report/(draft|lock|unlock|parse)$")
 _ORDER_PATH = re.compile(r"^/api/order/(-?\d+)")
 _PRODUCTION_PATH = re.compile(r"^/api/production/(-?\d+)")
-_MEDIA_PATH = re.compile(r"^/api/media/(production|box)/(-?\d+)")
+_MEDIA_PATH = re.compile(r"^/api/media/(production|box|return|task)/(-?\d+)")
+_RETURN_PATH = re.compile(r"^/api/returns/(\d+)")
 _INV_BOX_PATH = re.compile(r"^/api/inventory/box/(-?\d+)")
 
 
@@ -41,6 +42,9 @@ def _scope_entity(path: str, body_text: str | None):
     m = _MEDIA_PATH.match(path)
     if m:
         return m.group(1), int(m.group(2))
+    m = _RETURN_PATH.match(path)
+    if m:
+        return "return", int(m.group(1))
     m = _INV_BOX_PATH.match(path)
     if m:
         return "box", int(m.group(1))

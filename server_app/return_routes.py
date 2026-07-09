@@ -14,7 +14,8 @@ import logging
 from aiohttp import web
 
 from return_store import (add_return, count_all_returns, get_return, get_return_full,
-                          list_all_returns, list_returns, soft_delete_return)
+                          list_all_returns, list_returns, set_return_invoice,
+                          soft_delete_return, update_return_items)
 from utils.db import get_connection
 
 log = logging.getLogger("return_routes")
@@ -102,6 +103,77 @@ async def returns_create_handler(request: web.Request):
     thread_id = body.get("thread_id")
     actor = _actor(request)
 
+    # NHÁP: chỉ ghi sổ app, CHƯA đụng KiotViet — bấm 'Tạo HĐ KiotViet' ở trang
+    # chi tiết mới trừ nợ (giống đơn: tạo đơn trước, bán HĐ sau)
+    def _save():
+        conn = get_connection()
+        try:
+            return add_return(conn, key, items, total, note=note, thread_id=thread_id, by=actor)
+        finally:
+            conn.close()
+    row = await asyncio.to_thread(_save)
+
+    from server_app.realtime import emit_customer_changed, emit_return_changed
+    emit_customer_changed(key)
+    emit_return_changed(row["id"])
+    from audit_log import async_log_event
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("audit.return_created", async_log_event(
+        "return.created", scope="return", thread_id=row["id"],
+        actor_type="web_user" if request.get("web_user") else "http_client",
+        actor_id=actor, source="return.created",
+        payload={"customer_key": key, "total": total}))
+    return web.json_response({"ok": True, "return": row})
+
+
+async def return_update_handler(request: web.Request):
+    """POST /api/returns/{id}/update (văn phòng) — sửa hàng trả/ghi chú, CHỈ khi
+    còn NHÁP (đã gắn HĐ KV thì khoá — xoá HĐ mới sửa được)."""
+    from server_app.order_api_common import is_office_request
+    if not await is_office_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được sửa phiếu trả"}, status=403)
+    try:
+        rid = int(request.match_info.get("id", ""))
+    except (TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    parsed = _parse_items(body)
+    if not parsed:
+        return web.json_response({"ok": False, "error": "Danh sách hàng trả không hợp lệ"}, status=400)
+    items, total = parsed
+    note = str(body.get("note") or "").strip()
+    row = await asyncio.to_thread(lambda: get_return(get_connection(), rid))
+    if not row or row.get("deleted_at"):
+        return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
+    if row.get("kv_invoice_id"):
+        return web.json_response({"ok": False, "error": "Phiếu đã có HĐ KiotViet — xoá HĐ mới sửa được", "locked": True}, status=400)
+    await asyncio.to_thread(lambda: update_return_items(get_connection(), rid, items, total, note))
+    from server_app.realtime import emit_customer_changed, emit_return_changed
+    emit_return_changed(rid)
+    emit_customer_changed(str(row["customer_key"]))
+    return web.json_response({"ok": True})
+
+
+async def return_invoice_handler(request: web.Request):
+    """POST /api/returns/{id}/invoice (văn phòng) — tạo HĐ KiotViet GIÁ ÂM cho
+    phiếu nháp → trừ công nợ khách. Idempotent: đã có HĐ thì trả lỗi."""
+    from server_app.order_api_common import is_office_request
+    if not await is_office_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được tạo HĐ trả hàng"}, status=403)
+    try:
+        rid = int(request.match_info.get("id", ""))
+    except (TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
+    row = await asyncio.to_thread(lambda: get_return(get_connection(), rid))
+    if not row or row.get("deleted_at"):
+        return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
+    if row.get("kv_invoice_id"):
+        return web.json_response({"ok": False, "error": "Phiếu đã có HĐ KiotViet rồi"}, status=400)
+    key = str(row["customer_key"])
+
     def _kh_id():
         conn = get_connection()
         try:
@@ -115,9 +187,10 @@ async def returns_create_handler(request: web.Request):
     if not kh_id:
         return web.json_response({"ok": False, "error": "Khách chưa liên kết KiotViet"}, status=400)
 
-    # HĐ KV GIÁ ÂM: sl giữ dương, price đổi dấu → tổng HĐ âm, KV trừ thẳng nợ
     from integrations.kiotviet.customers import get_customer_debt_kv
     from integrations.kiotviet.invoices import create_kiotviet_invoice
+    items = row.get("items") or []
+    total = float(row.get("total") or 0)
     kv_items = [{"sp": it["sp"], "sl": int(it["sl"]), "price": -int(it["price"])} for it in items]
     try:
         debt_before = (await asyncio.to_thread(get_customer_debt_kv, kh_id)).get("debt")
@@ -127,39 +200,36 @@ async def returns_create_handler(request: web.Request):
         inv = await asyncio.to_thread(
             create_kiotviet_invoice, customer_id=int(kh_id), invoice_items=kv_items)
     except Exception as e:
-        log.error("create return invoice failed key=%s: %s", key, e)
+        log.error("return invoice failed id=%s: %s", rid, e)
         return web.json_response({"ok": False, "error": f"Lỗi tạo HĐ trả hàng KiotViet: {e}"}, status=502)
-
     debt_after = (float(debt_before) - total) if debt_before is not None else None
 
-    def _save():
+    def _apply():
         conn = get_connection()
         try:
-            row = add_return(conn, key, items, total, note=note, thread_id=thread_id,
-                             kv_invoice_id=inv.get("id"), kv_invoice_code=inv.get("code"),
-                             debt_before=debt_before, debt_after=debt_after, by=actor)
+            set_return_invoice(conn, rid, inv.get("id"), inv.get("code"), debt_before, debt_after)
             if debt_after is not None:
                 from order_db import update_customer_debt
                 update_customer_debt(conn, key, debt_after)
-            return row
         finally:
             conn.close()
-    row = await asyncio.to_thread(_save)
+    await asyncio.to_thread(_apply)
 
-    # resync nền: lấy nợ KV thật (+6s/+30s) vá debt_after + customers.debt
     from server_app.debt_sync import schedule_debt_resync
-    schedule_debt_resync(key, return_id=row["id"])
-    from server_app.realtime import emit_customer_changed
+    schedule_debt_resync(key, return_id=rid)
+    from server_app.realtime import emit_customer_changed, emit_return_changed
+    emit_return_changed(rid)
     emit_customer_changed(key)
+    actor = _actor(request)
     from audit_log import async_log_event
     from server_app.tasks import spawn_tracked
-    spawn_tracked("audit.return_created", async_log_event(
-        "return.created", scope="customer", thread_id=int(thread_id or 0),
+    spawn_tracked("audit.return_invoiced", async_log_event(
+        "return.invoiced", scope="return", thread_id=rid,
         actor_type="web_user" if request.get("web_user") else "http_client",
-        actor_id=actor, source="return.created",
-        payload={"customer_key": key, "return_id": row["id"], "total": total,
-                 "kv_code": inv.get("code")}))
-    return web.json_response({"ok": True, "return": row})
+        actor_id=actor, source="return.invoiced",
+        payload={"customer_key": key, "total": total, "kv_code": inv.get("code")}))
+    return web.json_response({"ok": True, "kv_code": inv.get("code"), "kv_id": inv.get("id"),
+                              "debt_before": debt_before, "debt_after": debt_after})
 
 
 async def returns_delete_handler(request: web.Request):
@@ -189,8 +259,10 @@ async def returns_delete_handler(request: web.Request):
     emit_customer_changed(str(row["customer_key"]))
     from audit_log import async_log_event
     from server_app.tasks import spawn_tracked
+    from server_app.realtime import emit_return_changed
+    emit_return_changed(rid)
     spawn_tracked("audit.return_deleted", async_log_event(
-        "return.deleted", scope="customer", thread_id=int(row.get("thread_id") or 0),
+        "return.deleted", scope="return", thread_id=rid,
         actor_type="web_user", actor_id=actor, source="return.deleted",
-        payload={"customer_key": row["customer_key"], "return_id": rid, "kv_code": row.get("kv_invoice_code")}))
+        payload={"customer_key": row["customer_key"], "kv_code": row.get("kv_invoice_code")}))
     return web.json_response({"ok": True})

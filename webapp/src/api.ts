@@ -238,6 +238,14 @@ export async function getReturn(id: string | number): Promise<ReturnSlip> {
   const d = await getJSON(`/api/returns/${id}`, { cache: false });
   return d.return;
 }
+/** Sửa phiếu trả NHÁP (văn phòng) — items/ghi chú, khoá khi đã có HĐ KV. */
+export async function updateReturn(id: number, items: { sp: string; sl: number; price: number }[], note = ""): Promise<any> {
+  return postJSON(`/api/returns/${id}/update`, { items, note });
+}
+/** Tạo HĐ KiotViet giá âm cho phiếu nháp (văn phòng) — TRỪ công nợ khách. */
+export async function invoiceReturn(id: number): Promise<any> {
+  return postJSON(`/api/returns/${id}/invoice`, {});
+}
 /** Xoá phiếu trả (admin) — xoá HĐ KV âm + gỡ khỏi feed. */
 export async function deleteReturn(id: number): Promise<any> {
   return postJSON(`/api/returns/${id}/delete`, {});

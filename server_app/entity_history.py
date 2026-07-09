@@ -17,7 +17,9 @@ from server_app.order_history import _actor_display, _load_names
 
 _NUM = re.compile(r"/-?\d+(?=/|$)")
 
-_ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo phiếu SX", "box.created": "Tạo thùng"}
+_ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo phiếu SX", "box.created": "Tạo thùng",
+                  "return.created": "Tạo phiếu trả", "return.invoiced": "Tạo HĐ KiotViet (trừ nợ)",
+                  "return.deleted": "Xoá phiếu trả"}
 
 _SOURCE_LABELS = {
     "POST /api/production/{id}/product": "Đổi sản phẩm",
@@ -30,8 +32,13 @@ _SOURCE_LABELS = {
     "DELETE /api/production/{id}": "Xoá phiếu",
     "POST /api/inventory/box/{id}": "Sửa thùng",
     "POST /api/inventory/box/{id}/disable": "Vô hiệu / kích hoạt thùng",
+    "POST /api/returns/{id}/update": "Sửa hàng trả",
+    "POST /api/returns/{id}/invoice": "Tạo HĐ KiotViet (trừ nợ)",
+    "POST /api/returns/{id}/delete": "Xoá phiếu trả",
 }
-_SKIP = {"POST /api/production/{id}/report/parse"}   # xem trước, không phải ghi
+_SKIP = {"POST /api/production/{id}/report/parse",   # xem trước, không phải ghi
+         "POST /api/returns/{id}/invoice",           # đã có event return.invoiced
+         "POST /api/returns/{id}/delete"}            # đã có event return.deleted
 
 
 def _box_update_action(bd: dict, places: dict) -> tuple[str, str] | None:
@@ -164,7 +171,7 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
 
 async def entity_history_handler(request: web.Request):
     scope = request.match_info.get("scope", "")
-    if scope not in ("production", "box"):
+    if scope not in ("production", "box", "return", "task"):
         return web.json_response({"ok": False, "error": "scope không hợp lệ"}, status=400)
     try:
         entity_id = int(request.match_info.get("entity_id", ""))

@@ -96,7 +96,7 @@ export function renderFeedItem(it: CustFeedItem, h: {
             <span class="fu-time">{hmd(it.at)}</span>
             <div class="ultra-row">
               <span class="feed-ret-ic"><Icon name="refresh" size={13} /></span>
-              <span class="ultra-text"><b class="feed-ret-amt">↩ Trả hàng −{money(it.total)}</b>{it.code ? ` · ${it.code}` : ""}</span>
+              <span class="ultra-text"><b class="feed-ret-amt">↩ Trả hàng −{money(it.total)}</b>{it.code ? ` · ${it.code}` : " · Nháp"}</span>
             </div>
             <div class="fu-text muted">{summary}{it.note ? ` — ${it.note}` : ""}{it.by ? ` · ${it.by}` : ""}</div>
           </div>

@@ -157,6 +157,13 @@ def emit_tasks_changed() -> None:
     spawn_tracked("realtime.tasks_changed", _broadcast({"type": "tasks_changed"}, "tasks_changed"))
 
 
+def emit_return_changed(return_id) -> None:
+    """Phiếu trả hàng đổi (sửa/tạo HĐ/ảnh/bình luận) → chi tiết + dashboard trả hàng."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.return_changed",
+                  _broadcast({"type": "return_changed", "id": str(return_id)}, "return_changed"))
+
+
 def emit_workers_changed() -> None:
     """Danh sách thợ đổi (thêm/sửa/xoá/sắp thứ tự) → trang Thợ refetch."""
     from server_app.tasks import spawn_tracked

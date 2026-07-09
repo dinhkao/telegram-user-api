@@ -526,6 +526,7 @@ body.has-nop .order-day-head { top: 135px; }   /* banner 28px đẩy xuống */
 .ret-items th, .ret-items td { padding: 6px 4px; text-align: right; border-bottom: 1px solid var(--border); }
 .ret-items th:first-child, .ret-items td:first-child { text-align: left; }
 .ret-items .ret-sum td { font-weight: 700; color: #b5730a; border-bottom: none; }
+.ret-edit { margin-left: auto; }
 
 /* Cài đặt hệ thống (trang Cài đặt, admin) */
 .set-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; font-size: .92rem; line-height: 1.45; cursor: pointer; }

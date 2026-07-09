@@ -264,10 +264,12 @@ def _collect_events(conn, key: str) -> list[dict]:
     try:
         from return_store import list_returns
         for rt in list_returns(conn, key):
+            has_kv = bool(rt.get("kv_invoice_id"))
             events.append({
                 "ts": _ts_key(rt.get("created_at")), "kind": "return", "tid": rt.get("thread_id"),
-                "delta": -float(rt.get("total") or 0),
-                "stored": float(rt["debt_after"]) if rt.get("debt_after") is not None else None,
+                # NHÁP (chưa HĐ KV) không đụng nợ → delta 0 (giống đơn không HĐ)
+                "delta": -float(rt.get("total") or 0) if has_kv else 0.0,
+                "stored": float(rt["debt_after"]) if (has_kv and rt.get("debt_after") is not None) else None,
                 "ret": {
                     "id": rt["id"], "total": rt.get("total") or 0, "note": rt.get("note") or "",
                     "items": rt.get("items") or [], "code": rt.get("kv_invoice_code") or "",

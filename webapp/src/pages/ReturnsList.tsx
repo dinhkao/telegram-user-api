@@ -9,7 +9,7 @@ import { Icon } from "../ui/Icon";
 
 let retCache: { rows: ReturnSlip[]; page: number; totalPages: number } | null = null;
 onRealtime((e) => {
-  if (e.type === "customer_changed" || e.type === "resync") retCache = null;
+  if (e.type === "customer_changed" || e.type === "return_changed" || e.type === "resync") retCache = null;
 });
 
 const dayKey = (at?: string) => (at || "").slice(0, 10);
@@ -55,7 +55,7 @@ export function ReturnsList() {
     if (rowsRef.current.length) retCache = { rows: rowsRef.current, page: st.current.page, totalPages: st.current.totalPages };
   }, []);
   useEffect(() => onRealtime((e) => {
-    if (e.type === "customer_changed" || e.type === "resync") load(1, false);
+    if (e.type === "customer_changed" || e.type === "return_changed" || e.type === "resync") load(1, false);
   }), []);
   useEffect(() => {
     const el = sentinel.current;
@@ -89,7 +89,9 @@ export function ReturnsList() {
           {g.items.map((r) => (
             <a class="ret-card" href={`#/tra-hang/${r.id}`} key={r.id}>
               <div class="ret-card-top">
-                <span class="ret-cust">{r.customer_name || r.customer_key}</span>
+                <span class="ret-cust">{r.customer_name || r.customer_key}
+                  {!r.kv_invoice_code && <span class="pk-badge pack"><Icon name="edit" size={11} /> Nháp</span>}
+                </span>
                 <span class="ret-amt">−{soVN(r.total)}</span>
               </div>
               <div class="ret-card-sub muted small">
