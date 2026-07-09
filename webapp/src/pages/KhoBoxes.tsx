@@ -1,9 +1,9 @@
-// Kho hàng — MỌI thùng của MỌI sản phẩm, ô vuông trực quan. Tìm theo mã SP / SỐ
-// THÙNG (số gọi) / vị trí. 2 chế độ xem: phẳng (mặc định) ↔ GOM THEO SP (toggle,
-// nhớ lựa chọn). Tap ô → chi tiết thùng; tap header nhóm → chi tiết SP.
-// Data: GET /api/inventory/boxes. Realtime: box/inventory/production_changed → tải lại.
+// Dashboard KHO HÀNG (#/kho). MẶC ĐỊNH: mỗi VỊ TRÍ kho = 1 card (thumbnail ảnh mới
+// nhất + mã SP kèm số lượng tồn tại vị trí đó) → tap mở chi tiết kho. KHI GÕ SEARCH:
+// đổi sang lưới Ô THÙNG vuông, GOM THEO VỊ TRÍ. Data: listPlaces + allBoxes.
+// Realtime: box/inventory/production_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
-import { allBoxes, soVN, type KhoBox } from "../api";
+import { listPlaces, allBoxes, mediaImageUrl, soVN, type Place, type KhoBox } from "../api";
 import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
@@ -11,110 +11,177 @@ import { SearchBar } from "../ui/SearchBar";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 
-// Nhớ filter + chế độ xem khi rời trang (module scope)
-let memQ = "";
-let memPlace = "";
-let memGroup = false;
+let memQ = "";                 // nhớ search khi rời trang
+const MAX_CHIPS = 8;           // số mã SP hiện trên 1 card (còn lại gộp "+k")
+
+// Tồn dùng được của 1 thùng (vô hiệu = 0)
+const rem = (b: KhoBox) => (b.disabled ? 0 : Math.max(0, b.remaining ?? b.quantity ?? 0));
+// Sắp ô thùng: còn dùng được lên trước, rồi mới tạo trước
+const usable = (b: KhoBox) => (!b.disabled && (b.remaining ?? b.quantity) > 0 ? 1 : 0);
+const sortBoxes = (a: KhoBox, b: KhoBox) =>
+  usable(b) - usable(a) ||
+  (b.created_at || "").localeCompare(a.created_at || "") ||
+  a.box_code.localeCompare(b.box_code);
+
+// Gộp mã SP + tổng tồn trong 1 nhóm thùng (tồn giảm dần)
+function prodAgg(bs: KhoBox[]): { code: string; qty: number }[] {
+  const m = new Map<string, number>();
+  for (const b of bs) {
+    const r = rem(b);
+    if (r <= 0) continue;
+    m.set(b.product_code, (m.get(b.product_code) || 0) + r);
+  }
+  return Array.from(m.entries())
+    .map(([code, qty]) => ({ code, qty }))
+    .sort((a, b) => b.qty - a.qty || a.code.localeCompare(b.code));
+}
+
+function ProdChips({ prods }: { prods: { code: string; qty: number }[] }) {
+  if (!prods.length) return <div class="kho-loc-empty">Trống — chưa có hàng</div>;
+  const head = prods.slice(0, MAX_CHIPS);
+  const more = prods.length - head.length;
+  return (
+    <div class="kho-loc-prods">
+      {head.map((p) => (
+        <span class="kho-loc-prod" key={p.code}><b>{p.code}</b> {soVN(p.qty)}</span>
+      ))}
+      {more > 0 && <span class="kho-loc-prod more">+{more} mã</span>}
+    </div>
+  );
+}
 
 export function KhoBoxes() {
-  const [boxes, setBoxes] = useState<KhoBox[] | null>(null);
+  const [places, setPlaces] = useState<Place[] | null>(null);
+  const [boxes, setBoxes] = useState<KhoBox[]>([]);
   const [err, setErr] = useState("");
   const [q, setQ] = useState(memQ);
-  const [place, setPlace] = useState<string>(memPlace);   // "" = tất cả · tên vị trí · "__none"
-  const [group, setGroup] = useState(memGroup);           // gom theo SP
-  useEffect(() => { memQ = q; memPlace = place; memGroup = group; }, [q, place, group]);
+  const [openUnplaced, setOpenUnplaced] = useState(false);
+  useEffect(() => { memQ = q; }, [q]);
 
   const load = async () => {
-    try { setBoxes(await allBoxes()); } catch (e: any) { setErr(e?.message || "Lỗi tải kho"); }
+    try {
+      const [pl, bx] = await Promise.all([listPlaces(), allBoxes()]);
+      setPlaces(pl); setBoxes(bx);
+    } catch (e: any) { setErr(e?.message || "Lỗi tải kho"); }
   };
   useEffect(() => { load(); }, []);
-  useEffect(
-    () => onRealtime((e) => {
-      if (e.type === "resync" || e.type === "box_changed" || e.type === "inventory_changed" || e.type === "production_changed") load();
-    }),
-    []
-  );
+  useEffect(() => onRealtime((e) => {
+    if (e.type === "resync" || e.type === "box_changed" || e.type === "inventory_changed" || e.type === "production_changed") load();
+  }), []);
 
   if (err) return <ErrorState msg={err} onRetry={load} />;
-  if (!boxes) return <Loading />;
+  if (!places) return <Loading />;
 
   const nq = foldVN(q.trim());
-  // Các vị trí kho đang có (cho chip lọc)
-  const placeNames = Array.from(new Set(boxes.map((b) => b.place_name).filter(Boolean))).sort() as string[];
-  const hasUnplaced = boxes.some((b) => !b.place_name);
-  // Sắp: CÒN DÙNG ĐƯỢC (không vô hiệu + còn hàng) lên trước; trong mỗi nhóm,
-  // MỚI TẠO lên trước (created_at giảm dần).
-  const usable = (b: KhoBox) => (!b.disabled && (b.remaining ?? b.quantity) > 0 ? 1 : 0);
-  const shown = boxes
-    .filter((b) =>
-      !nq ||
-      foldVN(b.product_code).includes(nq) ||
-      foldVN(b.box_code).includes(nq) ||          // số gọi thùng: gõ "347" ra thùng 347
-      foldVN(b.place_name || "").includes(nq))
-    .filter((b) => !place || (place === "__none" ? !b.place_name : b.place_name === place))
-    .slice()
-    .sort((a, b) =>
-      usable(b) - usable(a) ||
-      (b.created_at || "").localeCompare(a.created_at || "") ||
-      b.box_code.localeCompare(a.box_code)
-    );
+  const searching = nq !== "";
+  const unplaced = boxes.filter((b) => !b.place_id);
+  const sortedPlaces = places.slice().sort((a, b) => a.name.localeCompare(b.name));
 
-  // Gom theo SP: giữ nguyên thứ tự thùng trong nhóm; nhóm sắp theo TỒN giảm dần rồi mã
-  const rem = (b: KhoBox) => (b.disabled ? 0 : Math.max(0, b.remaining ?? b.quantity ?? 0));
-  const groups = new Map<string, KhoBox[]>();
-  if (group) {
-    for (const b of shown) {
-      const k = b.product_code || "?";
-      const arr = groups.get(k);
-      if (arr) arr.push(b); else groups.set(k, [b]);
+  const header = (
+    <div class="row space">
+      <h2 class="page-h"><Icon name="box" size={18} /> Kho hàng{" "}
+        <span class="muted small">({searching ? `${boxes.filter((b) => matchQ(b, nq)).length} thùng` : `${places.length} vị trí`})</span>
+      </h2>
+      <a class="btn small" href="#/san-pham"><Icon name="tag" size={15} /> Sản phẩm</a>
+    </div>
+  );
+  const search = <SearchBar value={q} onInput={setQ} placeholder="Tìm mã SP / số thùng / vị trí…" />;
+
+  // ── SEARCH: lưới ô thùng, GOM THEO VỊ TRÍ ────────────────────────────────
+  if (searching) {
+    const groups: { key: string; name: string; href?: string; list: KhoBox[] }[] = [];
+    for (const p of sortedPlaces) {
+      const list = boxes.filter((b) => b.place_id === p.id && matchQ(b, nq)).sort(sortBoxes);
+      if (list.length) groups.push({ key: `p${p.id}`, name: p.name, href: `#/vi-tri/${p.id}`, list });
     }
-  }
-  const sections = Array.from(groups.entries()).sort((a, b) => {
-    const ta = a[1].reduce((s, x) => s + rem(x), 0);
-    const tb = b[1].reduce((s, x) => s + rem(x), 0);
-    return tb - ta || a[0].localeCompare(b[0]);
-  });
+    const un = unplaced.filter((b) => matchQ(b, nq)).sort(sortBoxes);
+    if (un.length) groups.push({ key: "none", name: "Chưa xếp vị trí", list: un });
 
+    return (
+      <div class="inv-dash">
+        {header}{search}
+        {groups.length === 0 ? (
+          <EmptyState>Không có thùng khớp “{q.trim()}”.</EmptyState>
+        ) : (
+          <div class="kho-groups">
+            {groups.map((g) => (
+              <section class="kho-group" key={g.key}>
+                {g.href ? (
+                  <a class="kho-group-h" href={g.href}>
+                    <b><Icon name="box" size={15} /> {g.name}</b>
+                    <span class="muted small">{soVN(g.list.reduce((s, x) => s + rem(x), 0))} tồn · {g.list.length} thùng →</span>
+                  </a>
+                ) : (
+                  <div class="kho-group-h">
+                    <b>{g.name}</b>
+                    <span class="muted small">{soVN(g.list.reduce((s, x) => s + rem(x), 0))} tồn · {g.list.length} thùng</span>
+                  </div>
+                )}
+                <BoxLabelGrid boxes={g.list} />
+              </section>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── MẶC ĐỊNH: card từng vị trí kho ──────────────────────────────────────
   return (
     <div class="inv-dash">
-      <div class="row space">
-        <h2 class="page-h"><Icon name="box" size={18} /> Kho hàng <span class="muted small">({shown.length} thùng)</span></h2>
-        <span class="row" style={{ gap: "6px" }}>
-          <a class="btn small" href="#/vi-tri"><Icon name="box" size={15} /> Vị trí</a>
-          <a class="btn small" href="#/san-pham"><Icon name="tag" size={15} /> Sản phẩm</a>
-        </span>
-      </div>
-      <SearchBar value={q} onInput={setQ} placeholder="Tìm mã SP / số thùng / vị trí…" />
-      <div class="place-chips">
-        <button class={"chip" + (group ? " active" : "")} onClick={() => setGroup(!group)}>
-          Gom theo SP
-        </button>
-        <button class={"chip" + (place === "" ? " active" : "")} onClick={() => setPlace("")}>Tất cả</button>
-        {placeNames.map((p) => (
-          <button key={p} class={"chip" + (place === p ? " active" : "")} onClick={() => setPlace(p)}>{p}</button>
-        ))}
-        {hasUnplaced && <button class={"chip" + (place === "__none" ? " active" : "")} onClick={() => setPlace("__none")}>Chưa xếp</button>}
-      </div>
-
-      {shown.length === 0 ? (
-        <EmptyState>{boxes.length ? "Không có mã khớp." : "Kho trống. Nhập thùng ở phiếu SX."}</EmptyState>
-      ) : group ? (
-        <div class="kho-groups">
-          {sections.map(([code, list]) => (
-            <section class="kho-group" key={code}>
-              <a class="kho-group-h" href={`#/kho/${encodeURIComponent(code)}`}>
-                <b>{code}</b>
-                <span class="muted small">
-                  {soVN(list.reduce((s, x) => s + rem(x), 0))} tồn · {list.length} thùng →
-                </span>
-              </a>
-              <BoxLabelGrid boxes={list} />
-            </section>
-          ))}
-        </div>
+      {header}{search}
+      {places.length === 0 && unplaced.length === 0 ? (
+        <EmptyState>Chưa có vị trí kho. Tạo ở <a href="#/vi-tri">Vị trí kho</a>.</EmptyState>
       ) : (
-        <BoxLabelGrid boxes={shown} />
+        <div class="kho-loc-list">
+          {sortedPlaces.map((p) => {
+            const bs = boxes.filter((b) => b.place_id === p.id);
+            const total = bs.reduce((s, b) => s + rem(b), 0);
+            return (
+              <a class="kho-loc-card" href={`#/vi-tri/${p.id}`} key={p.id}>
+                {p.thumb_image_id != null ? (
+                  <img class="kho-loc-thumb" loading="lazy" alt=""
+                    src={mediaImageUrl(`/api/media/place/${p.id}`, p.thumb_image_id, "thumb")} />
+                ) : (
+                  <div class="kho-loc-thumb ph"><Icon name="box" size={26} /></div>
+                )}
+                <div class="kho-loc-main">
+                  <div class="kho-loc-head">
+                    <span class="kho-loc-name"><Icon name="box" size={16} /> {p.name}</span>
+                    <span class={"kho-loc-tot" + (total > 0 ? "" : " zero")}>{soVN(total)}<span class="muted small"> tồn · {bs.length} thùng</span></span>
+                  </div>
+                  <ProdChips prods={prodAgg(bs)} />
+                </div>
+                <Icon name="chevronRight" size={18} class="kg-arrow" />
+              </a>
+            );
+          })}
+
+          {unplaced.length > 0 && (
+            <div class="kho-loc-card unplaced" onClick={() => setOpenUnplaced((v) => !v)}>
+              <div class="kho-loc-thumb ph"><Icon name="box" size={26} /></div>
+              <div class="kho-loc-main">
+                <div class="kho-loc-head">
+                  <span class="kho-loc-name muted">Chưa xếp vị trí</span>
+                  <span class="kho-loc-tot">{soVN(unplaced.reduce((s, b) => s + rem(b), 0))}<span class="muted small"> tồn · {unplaced.length} thùng</span></span>
+                </div>
+                <ProdChips prods={prodAgg(unplaced)} />
+              </div>
+              <Icon name="chevronRight" size={18} class={"kg-arrow" + (openUnplaced ? " open" : "")} />
+            </div>
+          )}
+          {openUnplaced && unplaced.length > 0 && (
+            <div class="kho-unplaced-grid"><BoxLabelGrid boxes={unplaced.slice().sort(sortBoxes)} /></div>
+          )}
+        </div>
       )}
     </div>
   );
+}
+
+// Khớp tìm kiếm: mã SP / số gọi thùng / tên vị trí
+function matchQ(b: KhoBox, nq: string): boolean {
+  return foldVN(b.product_code).includes(nq)
+    || foldVN(b.box_code).includes(nq)
+    || foldVN(b.place_name || "").includes(nq);
 }
