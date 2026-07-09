@@ -5,19 +5,31 @@ from typing import Optional
 from .schema import _PRODUCTS_CACHE_TTL, _invalidate_products_cache, _products_cache
 
 
-_COLS = "code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material"
+_COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material"
+_FIELDS = tuple(c.strip() for c in _COLS.split(","))
 
 
 def _row(r) -> dict:
-    return {"code": r[0], "name": r[1], "cost_price": r[2] or 0, "note": r[3],
-            "kv_id": r[4], "kv_full_name": r[5], "kv_synced_at": r[6],
-            "created_at": r[7], "updated_at": r[8], "unit": r[9] or "cây",
-            "is_material": bool(r[10])}
+    d = dict(zip(_FIELDS, r))
+    d["cost_price"] = d["cost_price"] or 0
+    d["unit"] = d["unit"] or "cây"
+    d["is_material"] = bool(d["is_material"])
+    return d
 
 
 def get_product(conn, code: str) -> Optional[dict]:
     row = conn.execute(
         f"SELECT {_COLS} FROM products WHERE code = ?", (code.upper().strip(),),
+    ).fetchone()
+    return _row(row) if row else None
+
+
+def get_product_by_id(conn, product_id) -> Optional[dict]:
+    """Tra theo danh tính BẤT BIẾN (products.id) — dùng cho mọi liên kết nội bộ."""
+    if product_id is None:
+        return None
+    row = conn.execute(
+        f"SELECT {_COLS} FROM products WHERE id = ?", (int(product_id),),
     ).fetchone()
     return _row(row) if row else None
 

@@ -1,14 +1,16 @@
+"""Schema + migration bảng products (id INTEGER PK bất biến — mọi liên kết nội bộ
+dùng id; code = nhãn UNIQUE đổi tự do) và product_code_history (nhật ký đổi mã,
+kiêm alias mã cũ cho parser/route). Nối: utils.db."""
 from __future__ import annotations
+
+from utils.db import transaction
 
 _products_cache: dict = {"data": None, "ts": 0}
 _PRODUCTS_CACHE_TTL = 60
 
-
-def create_products_table(conn):
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS products (
-            code          TEXT PRIMARY KEY,
+_PRODUCT_COLS_SQL = """
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            code          TEXT NOT NULL UNIQUE,
             name          TEXT,
             cost_price    INTEGER DEFAULT 0,
             note          TEXT,
@@ -17,11 +19,32 @@ def create_products_table(conn):
             kv_synced_at  TEXT,
             created_at    TEXT DEFAULT (datetime('now')),
             updated_at    TEXT DEFAULT (datetime('now')),
+            unit          TEXT DEFAULT 'cây',
             is_material   INTEGER DEFAULT 0
+"""
+
+
+def create_products_table(conn):
+    conn.execute(f"CREATE TABLE IF NOT EXISTS products ({_PRODUCT_COLS_SQL})")
+    _create_history_table(conn)
+    conn.commit()
+
+
+def _create_history_table(conn):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS product_code_history (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id  INTEGER NOT NULL,
+            old_code    TEXT NOT NULL,
+            new_code    TEXT NOT NULL,
+            changed_at  TEXT NOT NULL,
+            changed_by  TEXT DEFAULT ''
         )
         """
     )
-    conn.commit()
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pch_old ON product_code_history(old_code)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pch_pid ON product_code_history(product_id)")
 
 
 def migrate_products_table(conn):
@@ -46,7 +69,29 @@ def migrate_products_table(conn):
         conn.execute("ALTER TABLE products ADD COLUMN unit TEXT DEFAULT 'cây'")
     if "is_material" not in columns:   # SP là NGUYÊN LIỆU (dùng làm thành phần đóng gói)
         conn.execute("ALTER TABLE products ADD COLUMN is_material INTEGER DEFAULT 0")
+    if "id" not in columns:
+        _rebuild_with_id(conn)
+    _create_history_table(conn)
     conn.commit()
+    _invalidate_products_cache()
+
+
+def _rebuild_with_id(conn):
+    """Bảng cũ có code TEXT PRIMARY KEY — SQLite không đổi PK tại chỗ được.
+    Tạo bảng mới (id PK, code UNIQUE) → copy → swap, trong 1 transaction.
+    id gán theo thứ tự mã (ổn định); chạy lại vô hại (guard 'id' ở migrate)."""
+    with transaction(conn):
+        conn.execute("DROP TABLE IF EXISTS products_new")
+        conn.execute(f"CREATE TABLE products_new ({_PRODUCT_COLS_SQL})")
+        conn.execute(
+            "INSERT INTO products_new (code, name, cost_price, note, kv_id, kv_full_name, "
+            "kv_synced_at, created_at, updated_at, unit, is_material) "
+            "SELECT code, name, COALESCE(cost_price, 0), note, kv_id, kv_full_name, "
+            "kv_synced_at, created_at, updated_at, COALESCE(unit, 'cây'), "
+            "COALESCE(is_material, 0) FROM products ORDER BY code"
+        )
+        conn.execute("DROP TABLE products")
+        conn.execute("ALTER TABLE products_new RENAME TO products")
 
 
 def _invalidate_products_cache():

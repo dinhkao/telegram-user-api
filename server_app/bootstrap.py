@@ -29,6 +29,8 @@ async def main():
     set_gateway(gateway)
     gateway.install()
     init_audit_db()
+    from server_app.db_migrate import run_boot_migrations
+    run_boot_migrations()
     me = await client.get_me()
     set_duy_user_id(me.id)
     log.info("Logged in as %s (id=%d)", me.first_name, me.id)
