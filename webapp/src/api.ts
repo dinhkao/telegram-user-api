@@ -1021,12 +1021,20 @@ export async function deleteProduct(code: string): Promise<any> {
 }
 
 export type InvSourceSlip = { thread_id: number; date?: string | null; sp_name?: string | null };
-export type InvBoxDetail = { box: InvBox; source_slip: InvSourceSlip | null; allocations: Allocation[] };
+export type InvBoxDetail = { box: InvBox; source_slip: InvSourceSlip | null; allocations: Allocation[];
+  packed_materials?: { code: string; amount: number }[] };
 
 /** Chi tiết 1 thùng: info + còn lại + phiếu SX nguồn + các đơn đã xuất. */
 export async function boxDetail(id: string | number): Promise<InvBoxDetail | null> {
   const d = await getJSON(`/api/inventory/box/${id}`);
-  return d.ok ? { box: d.box, source_slip: d.source_slip, allocations: d.allocations || [] } : null;
+  return d.ok ? { box: d.box, source_slip: d.source_slip, allocations: d.allocations || [],
+    packed_materials: d.packed_materials || [] } : null;
+}
+
+/** Chuyển hàng giữa 2 thùng CÙNG mã SP (bút toán kép — tồn tổng không đổi). */
+export async function transferBox(fromId: number | string, toId: number, quantity: number): Promise<any> {
+  const d = await postJSON(`/api/inventory/box/${fromId}/transfer`, { to_box_id: toId, quantity }, { queueable: false });
+  return d.transfer;
 }
 
 /** Vô hiệu / kích hoạt lại 1 thùng (vô hiệu cần lý do). */

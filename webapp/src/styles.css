@@ -131,7 +131,7 @@ body.kbd-open .page { padding-bottom: 10px; }
 .cf-box { background: var(--card); border-radius: 16px; padding: 20px 20px 16px; width: 100%; max-width: 340px; box-shadow: 0 12px 40px rgba(0,0,0,.28); transform-origin: center; animation: cf-pop .17s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes cf-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes cf-pop { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: scale(1); } }
-.cf-msg { font-size: 1rem; line-height: 1.5; color: var(--ink); margin-bottom: 18px; }
+.cf-msg { font-size: 1rem; line-height: 1.5; color: var(--ink); margin-bottom: 18px; white-space: pre-line; }
 /* Ảnh xem trước trong hộp xác nhận (vd hoá đơn trước khi in) */
 .cf-img { display: block; width: 100%; max-height: 56vh; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); background: #fff; margin-bottom: 16px; }
 .cf-actions { display: flex; gap: 10px; }

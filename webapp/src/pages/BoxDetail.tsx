@@ -3,7 +3,7 @@
 // GET /api/inventory/box/:id.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { boxDetail, updateBox, setBoxDisabled, deleteBox, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, currentUser, soVN, type InvBoxDetail, type InvBox, type Place, type Unit } from "../api";
+import { boxDetail, updateBox, setBoxDisabled, deleteBox, transferBox, allBoxes, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, currentUser, soVN, type InvBoxDetail, type InvBox, type KhoBox, type Place, type Unit } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -131,19 +131,66 @@ export function BoxDetail({ boxId }: { boxId: string }) {
   const isAdmin = currentUser()?.role === "admin";
   const doDelete = async () => {
     if (!d) return;
-    // Đã xuất/tiêu hao → nút mờ, bấm chỉ toast lý do (server cũng chặn)
+    // Đã xuất/tiêu hao/chuyển → nút mờ, bấm chỉ toast lý do (server cũng chặn)
     if (d.allocations.length > 0) {
-      toast("Thùng đã xuất cho đơn — thu hồi trước khi xoá", "info"); return;
+      toast("Thùng có lịch sử xuất/chuyển — không xoá được", "info"); return;
     }
-    if (!(await confirmDialog(`Xoá HẲN thùng ${d.box.box_code}? Không thể hoàn tác.`, { danger: true, okLabel: "Xoá" }))) return;
+    // Thùng ĐÓNG GÓI từ nguyên liệu → nói rõ xoá sẽ hoàn NL gì, bao nhiêu
+    const packed = d.packed_materials || [];
+    const cfMsg = packed.length
+      ? `Thùng ${d.box.box_code} được đóng gói từ: ${packed.map((p) => `${soVN(p.amount)} ${p.code}`).join(", ")}.\n`
+        + `Xoá thùng sẽ HOÀN TRẢ số nguyên liệu này về kho.\nXoá thùng ${d.box.box_code}?`
+      : `Xoá HẲN thùng ${d.box.box_code}? Không thể hoàn tác.`;
+    if (!(await confirmDialog(cfMsg, { danger: true, okLabel: "Xoá" }))) return;
     setDisBusy(true); setErr("");
     try {
-      await deleteBox(boxId);
+      const r = await deleteBox(boxId);
+      // Báo rõ NL hoàn về THÙNG NÀO (mã gọi + id) để ngoài kho tìm đúng thùng
+      const rest: { code: string; amount: number; boxes?: { box_id: number; box_code: string; amount: number }[] }[]
+        = r?.restored_materials || [];
+      if (rest.length) {
+        const lines = rest.flatMap((m) => (m.boxes || []).map(
+          (bx) => `• ${soVN(bx.amount)} ${m.code} → thùng ${bx.box_code} (id ${bx.box_id})`));
+        await confirmDialog(`✅ Đã hoàn nguyên liệu về kho:\n${lines.join("\n")}`, { okLabel: "OK", cancelLabel: "Đóng" });
+      }
       const code = d.box.product_code;
       window.location.hash = `#/kho/${encodeURIComponent(code)}`;
     } catch (e: any) {
       setErr(e?.message || "Lỗi xoá thùng");
       setDisBusy(false);
+    }
+  };
+
+  // Chuyển hàng sang thùng khác cùng SP
+  const [xferTargets, setXferTargets] = useState<KhoBox[]>([]);
+  const [xferTo, setXferTo] = useState<number | null>(null);
+  const [xferQty, setXferQty] = useState("");
+  const [xferBusy, setXferBusy] = useState(false);
+  useEffect(() => {
+    if (!d) return;
+    allBoxes().then((bs) => setXferTargets(
+      bs.filter((x) => x.product_code === d.box.product_code && x.id !== d.box.id && !x.disabled),
+    )).catch(() => {});
+  }, [d?.box?.id, d?.box?.product_code]);
+  const doTransfer = async () => {
+    if (!d) return;
+    const q = parseFloat((xferQty || "").replace(",", "."));
+    const rem = d.box.remaining ?? d.box.quantity;
+    if (!xferTo) { toast("Chọn thùng đích", "err"); return; }
+    if (!isFinite(q) || q <= 0) { toast("Số lượng phải > 0", "err"); return; }
+    if (q > rem) { toast(`Thùng chỉ còn ${soVN(rem)}`, "err"); return; }
+    const tgt = xferTargets.find((x) => x.id === xferTo);
+    if (!(await confirmDialog(`Chuyển ${soVN(q)} ${d.box.product_code} từ thùng ${d.box.box_code} → thùng ${tgt?.box_code || xferTo}?`))) return;
+    setXferBusy(true);
+    try {
+      const r = await transferBox(boxId, xferTo, q);
+      toast(`✅ Đã chuyển ${soVN(q)} sang thùng ${r?.to_code || tgt?.box_code}`, "ok");
+      setXferQty(""); setXferTo(null);
+      reload(false);
+    } catch (e: any) {
+      toast(e?.message || "Lỗi chuyển hàng", "err");
+    } finally {
+      setXferBusy(false);
     }
   };
 
@@ -277,14 +324,53 @@ export function BoxDetail({ boxId }: { boxId: string }) {
         )}
       </section>
 
+      {!disabled && remaining > 0 && (
+        <section class="card">
+          <label class="card-label"><Icon name="truck" size={15} /> Chuyển hàng sang thùng khác</label>
+          <div class="row" style={{ gap: "6px" }}>
+            <span style={{ flex: 1 }}>
+              <SelectPopup title={`Chuyển ${b.product_code} tới thùng…`} searchable placeholder="Chọn thùng đích (cùng SP)"
+                value={xferTo ?? ""} onChange={(v: string) => setXferTo(v ? Number(v) : null)}
+                options={xferTargets.map((x) => ({
+                  value: x.id,
+                  label: `Thùng ${(x.box_code || "").split("-").pop()} · còn ${soVN(x.remaining)}${x.place_name ? ` · ${x.place_name}` : ""}`,
+                }))} />
+            </span>
+            <input class="pb-amount" style={{ width: "84px" }} type="text" inputMode="decimal"
+              placeholder={`≤ ${soVN(remaining)}`} value={xferQty}
+              onFocus={(e: any) => (e.target as HTMLInputElement).select()}
+              onInput={(e: any) => setXferQty(e.target.value)} />
+            <button class="btn primary" disabled={xferBusy || !xferTo} onClick={doTransfer}>Chuyển</button>
+          </div>
+          <div class="muted small" style={{ marginTop: "4px" }}>
+            Chuyển hàng thật giữa 2 thùng cùng mã SP — tồn kho tổng không đổi, có lịch sử 2 chiều.
+          </div>
+        </section>
+      )}
+
       <section class="card">
-        <label class="card-label">Đã xuất / tiêu hao</label>
+        <label class="card-label">Đã xuất / tiêu hao / chuyển</label>
         {d.allocations.length === 0 ? (
           <div class="muted small">Chưa xuất cho đơn nào — còn trong kho.</div>
         ) : (
           <ul class="box-alloc-list">
             {d.allocations.map((a) => {
-              const prod = (a as any).kind === "production";
+              const kind = (a as any).kind || "order";
+              if (kind === "transfer_out" || kind === "transfer_in") {
+                const out = kind === "transfer_out";
+                const peer = (a as any).peer_box_code;
+                return (
+                  <li key={a.allocation_id}>
+                    <a class="box-jump" href={`#/thung/${a.order_thread_id}`}>
+                      <Icon name="truck" size={16} />{" "}
+                      {out ? "Chuyển sang" : "Nhận từ"} thùng {peer ? (peer.split("-").pop() || peer) : `#${a.order_thread_id}`}
+                      {" · "}{out ? "−" : "+"}{soVN(Math.abs(a.quantity))}
+                      {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
+                    </a>
+                  </li>
+                );
+              }
+              const prod = kind === "production";
               return (
                 <li key={a.allocation_id}>
                   <a class="box-jump" href={`${prod ? "#/san_xuat" : "#/order"}/${a.order_thread_id}?focus=box:${b.id}`}>

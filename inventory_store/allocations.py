@@ -157,27 +157,30 @@ def release_production_consumption(conn, ref_thread_id) -> int:
         return cur.rowcount
 
 
-def release_production_amount(conn, ref_thread_id, product_code, amount) -> float:
+def release_production_amount(conn, ref_thread_id, product_code, amount) -> tuple[float, list[dict]]:
     """Hoàn lại `amount` nguyên liệu (mã product_code) đã tiêu cho 1 phiếu SX — dùng
     khi XOÁ 1 thùng thành phẩm của phiếu đóng gói (hoàn phần NL tương ứng thùng đó,
     ratio × số cây). Gỡ allocation kind='production' MỚI NHẤT trước (LIFO); dòng
-    cuối gỡ 1 phần (giảm quantity). Trả tổng đã hoàn (kẹp theo tổng đã tiêu)."""
+    cuối gỡ 1 phần (giảm quantity). Trả (tổng đã hoàn — kẹp theo tổng đã tiêu,
+    chi tiết [{box_id, box_code, amount}] từng thùng NL nhận lại)."""
     code = str(product_code or "").strip().upper()
     left = float(amount or 0)
     if not code or left <= 0:
-        return 0.0
+        return 0.0, []
     released = 0.0
+    details: list[dict] = []
     with transaction(conn):
         rows = conn.execute(
-            "SELECT a.id, a.quantity FROM box_allocations a JOIN inventory_boxes b ON b.id = a.box_id "
+            "SELECT a.id, a.quantity, b.id AS box_id, b.box_code FROM box_allocations a "
+            "JOIN inventory_boxes b ON b.id = a.box_id "
             "WHERE a.order_thread_id = ? AND COALESCE(a.kind,'order') = 'production' AND b.product_code = ? "
             "ORDER BY a.id DESC",
             (ref_thread_id, code),
         ).fetchall()
-        for aid, q in rows:
+        for r in rows:
             if left <= 1e-9:
                 break
-            q = float(q or 0)
+            aid, q = r["id"], float(r["quantity"] or 0)
             take = min(q, left)
             if take >= q - 1e-9:
                 conn.execute("DELETE FROM box_allocations WHERE id = ?", (aid,))
@@ -185,7 +188,62 @@ def release_production_amount(conn, ref_thread_id, product_code, amount) -> floa
                 conn.execute("UPDATE box_allocations SET quantity = quantity - ? WHERE id = ?", (take, aid))
             left -= take
             released += take
-    return released
+            details.append({"box_id": r["box_id"], "box_code": r["box_code"], "amount": round(take, 3)})
+    return released, details
+
+
+def transfer_between_boxes(conn, from_id, to_id, quantity, *, by=None) -> tuple[dict | None, str | None]:
+    """Chuyển `quantity` cây từ thùng from → thùng to (BẮT BUỘC cùng mã SP).
+
+    Bút toán KÉP trong box_allocations, ghi CÙNG 1 transaction nên tổng tồn kho
+    bảo toàn tuyệt đối (không thể ghi được vế này mà mất vế kia):
+      • 'transfer_out' quantity = +q trên thùng nguồn  → remaining nguồn GIẢM q
+      • 'transfer_in'  quantity = −q trên thùng đích   → remaining đích TĂNG q
+        (mọi công thức remaining = quantity − SUM(allocations) tự đúng với số âm)
+    `order_thread_id` = id thùng ĐỐI TÁC (dấu vết 2 chiều). `quantity` gốc của cả
+    2 thùng KHÔNG đổi → boxed_total phiếu SX nguồn không lệch. Thùng còn dòng
+    transfer bị chặn xoá (guard sẵn có) nên lịch sử không mất.
+    Trả (result, None) hoặc (None, lý do lỗi)."""
+    try:
+        fid, tid = int(from_id), int(to_id)
+    except (TypeError, ValueError):
+        return None, "Thùng không hợp lệ"
+    try:
+        q = float(quantity)
+    except (TypeError, ValueError):
+        return None, "Số lượng không hợp lệ"
+    if fid == tid:
+        return None, "Thùng nguồn và thùng đích phải khác nhau"
+    if q <= 0:
+        return None, "Số lượng phải > 0"
+    now = _now()
+    with transaction(conn):
+        rows = {int(r["id"]): dict(r) for r in conn.execute(
+            "SELECT * FROM inventory_boxes WHERE id IN (?, ?)", (fid, tid)).fetchall()}
+        src, dst = rows.get(fid), rows.get(tid)
+        if not src or not dst:
+            return None, "Không tìm thấy thùng"
+        if src.get("disabled") or dst.get("disabled"):
+            return None, "Thùng vô hiệu — kích hoạt lại trước khi chuyển"
+        if str(src.get("product_code") or "").upper() != str(dst.get("product_code") or "").upper():
+            return None, "Hai thùng phải cùng mã sản phẩm"
+        allocated = conn.execute(
+            "SELECT COALESCE(SUM(quantity),0) FROM box_allocations WHERE box_id = ?", (fid,)
+        ).fetchone()[0]
+        remaining = float(src["quantity"] or 0) - float(allocated or 0)
+        if q > remaining + 1e-9:
+            return None, f"Thùng nguồn chỉ còn {remaining:g}"
+        conn.execute(
+            "INSERT INTO box_allocations (box_id, order_thread_id, quantity, allocated_at, allocated_by, kind) "
+            "VALUES (?,?,?,?,?,?)", (fid, tid, q, now, by or "", "transfer_out"))
+        conn.execute(
+            "INSERT INTO box_allocations (box_id, order_thread_id, quantity, allocated_at, allocated_by, kind) "
+            "VALUES (?,?,?,?,?,?)", (tid, fid, -q, now, by or "", "transfer_in"))
+    return {
+        "from_id": fid, "to_id": tid, "quantity": q,
+        "from_code": src.get("box_code"), "to_code": dst.get("box_code"),
+        "from_remaining": round(remaining - q, 3),
+    }, None
 
 
 def list_order_allocations(conn, order_thread_id, *, kind="order") -> list[dict]:

@@ -19,7 +19,8 @@ _NUM = re.compile(r"/-?\d+(?=/|$)")
 
 _ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo phiếu SX", "box.created": "Tạo thùng",
                   "return.created": "Tạo phiếu trả", "return.invoiced": "Tạo HĐ KiotViet (trừ nợ)",
-                  "return.invoice_deleted": "Xoá HĐ KiotViet (hoàn nợ)", "return.deleted": "Xoá phiếu trả"}
+                  "return.invoice_deleted": "Xoá HĐ KiotViet (hoàn nợ)", "return.deleted": "Xoá phiếu trả",
+                  "box.transfer_out": "Chuyển hàng sang thùng khác", "box.transfer_in": "Nhận hàng từ thùng khác"}
 
 _SOURCE_LABELS = {
     "POST /api/production/{id}/product": "Đổi sản phẩm",

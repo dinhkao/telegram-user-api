@@ -543,9 +543,9 @@ async def box_delete_handler(request: web.Request):
                 if slip and (slip.get("kind") or "san_xuat") == "dong_goi":
                     from inventory_store import release_production_amount
                     for nd in recipe_needs(conn, box.get("product_code"), box.get("quantity") or 0):
-                        got = release_production_amount(conn, src, nd["code"], nd["amount"])
+                        got, into = release_production_amount(conn, src, nd["code"], nd["amount"])
                         if got > 0:
-                            restored.append({"code": nd["code"], "amount": round(got, 3)})
+                            restored.append({"code": nd["code"], "amount": round(got, 3), "boxes": into})
             delete_box(conn, box_id)
             # Gỡ entry numbers của thùng khỏi phiếu SX nguồn → total tính lại đúng
             # (numbers là nguồn thật; note nhập lúc tạo = '📦 <box_code>'). Số gọi
@@ -570,6 +570,51 @@ async def box_delete_handler(request: web.Request):
     return web.json_response({"ok": True, "restored_materials": restored})
 
 
+async def box_transfer_handler(request: web.Request):
+    """POST /api/inventory/box/{box_id}/transfer — chuyển hàng sang thùng khác CÙNG SP.
+    Body {to_box_id, quantity}. Bút toán kép box_allocations (transfer_out/+q trên
+    nguồn, transfer_in/−q trên đích, cùng transaction) — tổng tồn bảo toàn, quantity
+    gốc 2 thùng không đổi. Xem inventory_store.transfer_between_boxes."""
+    try:
+        box_id = int(request.match_info.get("box_id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "box_id không hợp lệ"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    actor = _web_actor(request, body)
+
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            from inventory_store import transfer_between_boxes
+            return transfer_between_boxes(conn, box_id, body.get("to_box_id"), body.get("quantity"), by=actor)
+        finally:
+            conn.close()
+    res, terr = await asyncio.to_thread(_run)
+    if terr:
+        return web.json_response({"ok": False, "error": terr}, status=400)
+    # Lịch sử thao tác cho CẢ 2 thùng + realtime
+    from audit_log import async_log_event
+    from server_app.tasks import spawn_tracked
+    actor_type = "web_user" if request.get("web_user") else "http_client"
+    spawn_tracked("audit.box_transfer", async_log_event(
+        "box.transfer_out", scope="box", thread_id=res["from_id"], actor_type=actor_type,
+        actor_id=actor, source="box.transfer",
+        payload={"to_box_id": res["to_id"], "to_code": res["to_code"], "quantity": res["quantity"]}))
+    spawn_tracked("audit.box_transfer", async_log_event(
+        "box.transfer_in", scope="box", thread_id=res["to_id"], actor_type=actor_type,
+        actor_id=actor, source="box.transfer",
+        payload={"from_box_id": res["from_id"], "from_code": res["from_code"], "quantity": res["quantity"]}))
+    from server_app.realtime import emit_box_changed, emit_inventory_changed
+    emit_box_changed(res["from_id"])
+    emit_box_changed(res["to_id"])
+    emit_inventory_changed()
+    return web.json_response({"ok": True, "transfer": res})
+
+
 async def box_detail_handler(request: web.Request):
     """Chi tiết 1 thùng: info + phiếu SX nguồn (sp_name, ngày) + đơn đã xuất (nếu có)."""
     try:
@@ -583,15 +628,26 @@ async def box_detail_handler(request: web.Request):
             _ensure(conn)
             box = get_box(conn, box_id)
             if not box:
-                return None, None, None
+                return None, None, None, None
             allocs = list_box_allocations(conn, box_id)
             for a in allocs:
-                a["order_text"] = _order_first_line(conn, a.get("order_thread_id"))
+                kind = a.get("kind") or "order"
+                if kind in ("transfer_out", "transfer_in"):
+                    # order_thread_id = id thùng đối tác → gắn mã gọi để UI hiện đẹp
+                    peer = get_box(conn, a.get("order_thread_id"))
+                    a["peer_box_code"] = (peer or {}).get("box_code")
+                else:
+                    a["order_text"] = _order_first_line(conn, a.get("order_thread_id"))
             slip = get_slip(conn, box["source_thread_id"]) if box.get("source_thread_id") else None
-            return box, slip, allocs
+            # Thùng của phiếu ĐÓNG GÓI: liệt kê NL đã tiêu cho thùng này (ratio × số cây)
+            # → client hiện popup xoá "đóng gói từ …, xoá sẽ hoàn NL".
+            packed = []
+            if slip and (slip.get("kind") or "san_xuat") == "dong_goi":
+                packed = recipe_needs(conn, box.get("product_code"), box.get("quantity") or 0)
+            return box, slip, allocs, packed
         finally:
             conn.close()
-    box, slip, allocs = await asyncio.to_thread(_run)
+    box, slip, allocs, packed = await asyncio.to_thread(_run)
     if not box:
         return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
     used = sum(a.get("quantity") or 0 for a in allocs)
@@ -600,7 +656,8 @@ async def box_detail_handler(request: web.Request):
     source = None
     if slip:
         source = {"thread_id": slip["thread_id"], "date": slip.get("date"), "sp_name": slip.get("sp_name")}
-    return web.json_response({"ok": True, "box": box, "source_slip": source, "allocations": allocs})
+    return web.json_response({"ok": True, "box": box, "source_slip": source, "allocations": allocs,
+                              "packed_materials": packed})
 
 
 async def box_update_handler(request: web.Request):

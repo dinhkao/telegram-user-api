@@ -215,9 +215,15 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     → thumbnail card ở dashboard `#/vi-tri`.
   - `box_allocations` (`allocations.py`): 1 row = 1 **phần** thùng đã lấy. `remaining =
     quantity − Σ allocations`; tồn = Σ remaining. Cột **`kind`**: `'order'` (xuất cho đơn)
-    | `'production'` (tiêu hao nguyên liệu khi SX — xem `recipe_store`). Xuất
+    | `'production'` (tiêu hao nguyên liệu khi SX — xem `recipe_store`)
+    | `'transfer_out'`/`'transfer_in'` (**chuyển hàng giữa 2 thùng cùng SP** — bút toán
+    kép ±q cùng transaction qua `transfer_between_boxes`, dòng `transfer_in` quantity ÂM
+    nên mọi công thức remaining tự đúng; `quantity` gốc 2 thùng KHÔNG đổi, tồn tổng bảo
+    toàn; API `POST /api/inventory/box/{id}/transfer`, UI ở chi tiết thùng). Xuất
     `allocate_picks(picks, thread_id, kind=)`; thu hồi = `delete_allocation`;
-    `list_order_allocations(kind=)` lọc.
+    `list_order_allocations(kind=)` lọc. **Xoá thùng thành phẩm phiếu ĐÓNG GÓI** hoàn NL
+    theo ratio × số cây (`release_production_amount`, LIFO, trả chi tiết thùng NL nhận);
+    xoá cả phiếu hoàn nốt residue (`release_production_consumption`).
   - `domain.py` (pure, unit-tested) = sinh mã base36 + gộp nhóm size. Thùng **vô hiệu**
     → loại khỏi tồn/phân bổ. Admin **xoá thùng** (`box_delete_handler`, cấm nếu đã xuất) +
     gỡ entry khỏi phiếu SX (`production_store.remove_number_by_note`).
