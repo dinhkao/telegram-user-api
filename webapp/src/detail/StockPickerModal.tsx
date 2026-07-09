@@ -151,10 +151,12 @@ export function StockPickerModal({
                     <span class="sp-meta">{meta}{b.note ? <span class="sp-note" title={b.note}> 📝</span> : null}</span>
                   </div>
                   {checked && (
-                    <input class="sp-take" type="text" inputMode="decimal" value={sel[b.id]}
-                      onFocus={(e) => (e.target as HTMLInputElement).select()}
-                      onInput={(e) => setQty(b.id, (e.target as HTMLInputElement).value)}
-                      title="Số cây lấy từ thùng này" />
+                    <label class="sp-takewrap" title="Số lấy từ thùng này">
+                      <span class="sp-takel">lấy</span>
+                      <input class="sp-take" type="text" inputMode="decimal" value={sel[b.id]}
+                        onFocus={(e) => (e.target as HTMLInputElement).select()}
+                        onInput={(e) => setQty(b.id, (e.target as HTMLInputElement).value)} />
+                    </label>
                   )}
                 </div>
               );
