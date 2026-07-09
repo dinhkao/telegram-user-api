@@ -29,7 +29,7 @@ function gapLabel(sec: number): string {
 }
 
 type Card = {
-  dir: "in" | "out"; idx: number; ts: number; at: string;
+  dir: "in" | "out" | "mix"; idx: number; ts: number; at: string;
   entries: PlaceTLItem[]; net: number; total_after: number; state: PlaceStockLine[];
 };
 
@@ -54,39 +54,47 @@ function buildCards(items: PlaceTLItem[], states: Map<string, number>[]): Card[]
   const cards: Card[] = [];
   items.forEach((it, i) => {
     const last = cards[cards.length - 1];
-    if (last && last.dir === it.dir && last.ts - it.ts <= GROUP_SEC) {
+    // Gom MỌI biến động (vào lẫn ra) cách mốc mới nhất của card ≤ 5 phút
+    if (last && last.ts - it.ts <= GROUP_SEC) {
       last.entries.push(it); last.net += it.delta;
     } else {
       cards.push({ dir: it.dir, idx: i, ts: it.ts, at: it.at, entries: [it], net: it.delta,
                    total_after: it.total_after, state: stateList(states[i]) });
     }
   });
+  for (const c of cards) {
+    const dirs = new Set(c.entries.map((e) => e.dir));
+    c.dir = dirs.size > 1 ? "mix" : (c.entries[0].dir);
+  }
   return cards;
 }
 
 const boxLabel = (e: PlaceTLItem) => `${e.product_code} · ${e.box_num}`;
 
 function CardRow({ c, onDot }: { c: Card; onDot: (c: Card) => void }) {
-  const inn = c.dir === "in";
   const single = c.entries.length === 1;
+  const e0 = c.entries[0];
+  const tag = single ? (e0.dir === "in" ? "Vào" : "Ra")
+    : c.dir === "mix" ? `${c.entries.length} biến động`
+    : `${c.dir === "in" ? "Vào" : "Ra"} ×${c.entries.length}`;
   const inner = (
     <>
       <span class="pt-time">{hm(c.at)}</span>
-      <span class={"pt-tag " + c.dir}>{inn ? "Vào" : "Ra"}</span>
+      <span class={"pt-tag " + c.dir}>{tag}</span>
       {single ? (
-        <span class="pt-line-txt">{boxLabel(c.entries[0])} <span class="muted">· {c.entries[0].reason}</span></span>
+        <span class="pt-line-txt">{boxLabel(e0)} <span class="muted">· {e0.reason}</span></span>
       ) : (
-        <span class="pt-line-txt">×{c.entries.length}: {c.entries.map((e, i) => (
-          <span key={i}>{i ? ", " : ""}<a class="pt-inl" href={e.box_id ? `#/thung/${e.box_id}` : undefined}
-            title={`${boxLabel(e)} · ${e.reason}`}>{e.product_code}·{e.box_num}</a></span>
+        <span class="pt-line-txt">{c.entries.map((e, i) => (
+          <span key={i}>{i ? ", " : ""}<a class={"pt-inl " + e.dir} href={e.box_id ? `#/thung/${e.box_id}` : undefined}
+            title={`${e.dir === "in" ? "Vào" : "Ra"} · ${boxLabel(e)} · ${e.reason}`}>{e.product_code}·{e.box_num}</a></span>
         ))}</span>
       )}
     </>
   );
   return (
     <li class="pt-item">
-      {single && c.entries[0].box_id
-        ? <a class="pt-line" href={`#/thung/${c.entries[0].box_id}`}>{inner}</a>
+      {single && e0.box_id
+        ? <a class="pt-line" href={`#/thung/${e0.box_id}`}>{inner}</a>
         : <div class="pt-line">{inner}</div>}
       <span class="pt-rail">
         <button class={"pt-dot " + c.dir} title="Xem kho lúc này chứa gì" onClick={() => onDot(c)} />

@@ -1191,8 +1191,12 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-tag { flex: 0 0 auto; font-size: .74rem; font-weight: 700; }
 .pt-tag.in { color: var(--ok); }
 .pt-tag.out { color: var(--danger); }
+.pt-tag.mix { color: var(--muted); }
 .pt-line-txt { flex: 1 1 auto; min-width: 0; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pt-inl { color: inherit; text-decoration: underline; text-decoration-color: var(--border); }
+.pt-inl.in { color: var(--ok); }
+.pt-inl.out { color: var(--danger); }
+.pt-dot.mix { border-color: var(--muted); }
 .pt-link { text-decoration: none; color: inherit; display: block; }
 .pt-card { position: relative; border: 1px solid var(--border); border-radius: 10px; background: var(--card); margin: 3px 0; }
 .pt-card:active { background: var(--bg); }
