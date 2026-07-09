@@ -117,9 +117,47 @@ def _patch_batch_new_debt(firebase_key: str, kv_debt) -> list[int]:
         conn.close()
 
 
+def _patch_invoice_snapshot(firebase_key: str, thread_id: int, kv_debt) -> bool:
+    """Vá snapshot nợ của ĐƠN vừa tạo HĐ bằng số KV mới: khDebt = nợ_mới − tổng_đơn.
+
+    Tạo HĐ ngay sau khi XOÁ HĐ cũ (sửa rồi tạo lại) → GET nợ lúc tạo dính
+    eventual-consistency: còn CỘNG tổng HĐ vừa xoá → khDebt/invoice_debt_snapshot
+    cao hơn thật → mốc neo feed khách sai vĩnh viễn. Sau khi KV chốt số (resync
+    +6s/+30s), suy ngược nợ-trước-HĐ = nợ_mới − tổng_đơn. CHỈ vá khi đơn chưa có
+    thanh toán (có phiếu thu = nợ_mới đã trừ tiền thu, suy ngược sai). Trả True nếu blob đổi.
+    """
+    from order_db import _get_connection, get_order_by_thread_id, _save_order
+    from order_store.schema import transaction
+    conn = _get_connection()
+    try:
+        with transaction(conn):
+            order = get_order_by_thread_id(conn, int(thread_id))
+            if not order or not order.get("kiotvietInvoiceID"):
+                return False
+            if order.get("payments"):
+                return False
+            if str(order.get("khach_hang_id") or order.get("khID") or "") != str(firebase_key):
+                return False
+            from server_app.customer_feed import _order_total_num
+            total = _order_total_num(order)
+            if not total:
+                return False
+            want = float(kv_debt) - float(total)
+            cur = order.get("khDebt")
+            if cur is not None and abs(float(cur) - want) <= 1.0:
+                return False   # đã đúng
+            order["khDebt"] = want
+            order["invoice_debt_snapshot"] = want
+            _save_order(conn, int(thread_id), order)
+            return True
+    finally:
+        conn.close()
+
+
 def schedule_debt_resync(firebase_key: str, delay: float = 6.0,
                          thread_id: int | None = None, payment_id: str | None = None,
-                         followup_delay: float | None = 30.0) -> None:
+                         followup_delay: float | None = 30.0,
+                         invoice_thread_id: int | None = None) -> None:
     """Fetch lại debt SAU `delay` giây (nền, không chặn).
 
     KiotViet cập nhật công nợ khách kiểu eventual-consistency: GET /customers/{id}
@@ -152,6 +190,16 @@ def schedule_debt_resync(firebase_key: str, delay: float = 6.0,
                         schedule_debt_resync(str(firebase_key), delay=followup_delay - delay,
                                              thread_id=thread_id, payment_id=payment_id,
                                              followup_delay=None)   # chốt 1 lần, không lặp vô hạn
+                if invoice_thread_id and data.get("debt") is not None:
+                    # vá snapshot nợ của đơn vừa tạo HĐ (xoá-tạo-lại dính KV trễ)
+                    if await asyncio.to_thread(_patch_invoice_snapshot, str(firebase_key),
+                                               int(invoice_thread_id), data.get("debt")):
+                        from server_app.realtime import emit_order_changed
+                        emit_order_changed(int(invoice_thread_id))
+                    if followup_delay and followup_delay > delay:
+                        schedule_debt_resync(str(firebase_key), delay=followup_delay - delay,
+                                             invoice_thread_id=invoice_thread_id,
+                                             followup_delay=None)
         except Exception as e:  # noqa: BLE001 — nền, không được làm hỏng luồng gọi
             log.warning("debt resync failed key=%s: %s", firebase_key, e)
 

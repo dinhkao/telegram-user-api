@@ -398,8 +398,9 @@ async def _process_create_invoice_core(thread_id: int, user_id: int | None) -> d
     emit_order_changed(thread_id)
     emit_customer_changed(str(kh_id_fb))
     # KiotViet cập nhật debt trễ → fetch lại 1 nhịp sau để chắc ăn số mới nhất
+    # (kèm vá khDebt/invoice_debt_snapshot của đơn — xoá HĐ rồi tạo lại hay dính số cũ)
     from server_app.debt_sync import schedule_debt_resync
-    schedule_debt_resync(str(kh_id_fb))
+    schedule_debt_resync(str(kh_id_fb), invoice_thread_id=thread_id)
     result.update(success=True, kv_code=invoice_code, kv_id=invoice_id, old_debt=snapshot_debt)
     return result
 
