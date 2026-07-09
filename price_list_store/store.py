@@ -51,14 +51,16 @@ def list_all() -> list[dict]:
 
 
 def get_one(list_id: str) -> dict | None:
-    """1 bảng giá: {id, name, items:[{sp,price}]} — items sort theo mã SP."""
+    """1 bảng giá: {id, name, items:[{sp,price}]} — items sort theo mã SP.
+    Key lưu = product_id → sp hiển thị là MÃ HIỆN HÀNH (đổi mã tự cập nhật)."""
     conn = get_connection()
     try:
         blob = _load_blob(conn)
         v = blob.get(str(list_id))
         if v is None:
             return None
-        pl = v.get("price_list") or {}
+        from price_list_store.keys import effective_code_prices
+        pl = effective_code_prices(conn, v.get("price_list") or {}, aliases=False)
         items = [{"sp": sp, "price": int(pl[sp] or 0)} for sp in sorted(pl.keys())]
         return {"id": str(list_id), "name": v.get("name") or f"Bảng giá {list_id}", "items": items}
     finally:
@@ -71,27 +73,28 @@ def save_prices(list_id: str, items: list[dict], actor: str, *, name: str | None
     conn = get_connection()
     try:
         create_price_history_table(conn)
+        from price_list_store.keys import effective_code_prices, to_pid_key
         with transaction(conn):
             blob = _load_blob(conn)
             v = blob.get(str(list_id))
             if v is None:
                 return None
-            old = {k: int(val or 0) for k, val in (v.get("price_list") or {}).items()}
+            # diff trên KHÔNG GIAN MÃ hiển thị (history dễ đọc); lưu trữ theo pid key
+            old = effective_code_prices(conn, v.get("price_list") or {}, aliases=False)
             new: dict[str, int] = {}
             for it in items:
-                sp = str(it.get("sp") or "").strip()
+                sp = str(it.get("sp") or "").strip().upper()
                 try:
                     p = int(it.get("price"))
                 except (TypeError, ValueError):
                     continue
                 if sp and p > 0:
                     new[sp] = p
-            # diff → history
             for sp in set(old) | set(new):
                 o, n = old.get(sp), new.get(sp)
                 if o != n:
                     record_change(conn, list_id, sp, o, n, actor)
-            v["price_list"] = new
+            v["price_list"] = {to_pid_key(conn, sp): p for sp, p in new.items()}
             if name is not None and name.strip():
                 v["name"] = name.strip()
             blob[str(list_id)] = v
@@ -114,16 +117,18 @@ def set_price(list_id: str, sp: str, price, actor: str) -> dict | None:
     conn = get_connection()
     try:
         create_price_history_table(conn)
+        from price_list_store.keys import to_pid_key
         with transaction(conn):
             blob = _load_blob(conn)
             v = blob.get(str(list_id))
             if v is None:
                 return None
             pl = v.get("price_list") or {}
-            old = int(pl[sp]) if sp in pl and pl[sp] is not None else None
+            key = to_pid_key(conn, sp)
+            old = int(pl[key]) if key in pl and pl[key] is not None else None
             if old != p:
-                record_change(conn, list_id, sp, old, p, actor)
-                pl[sp] = p
+                record_change(conn, list_id, str(sp).strip().upper(), old, p, actor)
+                pl[key] = p
                 v["price_list"] = pl
                 blob[str(list_id)] = v
                 _save_blob(conn, blob)

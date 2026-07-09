@@ -27,6 +27,9 @@ async def product_create_handler(request: web.Request):
     code = (body.get("code") or "").upper().strip()
     if not code:
         return web.json_response({"ok": False, "error": "Thiếu mã SP"}, status=400)
+    if code.isdigit():
+        # mã toàn chữ số đụng key product_id trong bảng giá — cấm để phân biệt được
+        return web.json_response({"ok": False, "error": "Mã SP không được toàn chữ số"}, status=400)
     name = (body.get("name") or "").strip()
     unit = (body.get("unit") or "").strip()
 

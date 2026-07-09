@@ -69,7 +69,10 @@ async def customer_detail_handler(request: web.Request):
     def _run():
         conn = _get_connection()
         try:
-            return get_customer_by_key(conn, key)
+            data = get_customer_by_key(conn, key)
+            if data is not None:
+                data = _with_display_prices(conn, data)
+            return data
         finally:
             conn.close()
 
@@ -77,6 +80,15 @@ async def customer_detail_handler(request: web.Request):
     if data is None:
         return web.json_response({"ok": False, "error": "không thấy khách hàng"}, status=404)
     return web.json_response({"ok": True, "customer": _detail(data, key)})
+
+
+def _with_display_prices(conn, data: dict) -> dict:
+    """Bảng giá riêng lưu key = product_id → dịch về {MÃ HIỆN HÀNH: giá} cho UI."""
+    raw = data.get("personal_price_list")
+    if isinstance(raw, dict) and raw:
+        from price_list_store.keys import effective_code_prices
+        data = {**data, "personal_price_list": effective_code_prices(conn, raw, aliases=False)}
+    return data
 
 
 def _detail(data: dict, key: str) -> dict:
@@ -107,7 +119,9 @@ async def customer_update_handler(request: web.Request):
             if data is None:
                 return None
             if "personal_price_list" in body and isinstance(body["personal_price_list"], dict):
-                # {SP: giá int} — bỏ dòng trống / giá không hợp lệ
+                # {SP: giá int} — bỏ dòng trống / giá không hợp lệ.
+                # Lưu key theo product_id (đổi mã SP không vỡ giá riêng); mã lạ giữ legacy.
+                from price_list_store.keys import to_pid_key
                 clean = {}
                 for sp, price in body["personal_price_list"].items():
                     sp = str(sp).strip()
@@ -116,7 +130,7 @@ async def customer_update_handler(request: web.Request):
                     except (TypeError, ValueError):
                         continue
                     if sp and p > 0:
-                        clean[sp] = p
+                        clean[to_pid_key(conn, sp)] = p
                 data["personal_price_list"] = clean
             if "detectPatterns" in body and isinstance(body["detectPatterns"], list):
                 data["detectPatterns"] = [str(p).strip() for p in body["detectPatterns"] if str(p).strip()]
@@ -138,7 +152,7 @@ async def customer_update_handler(request: web.Request):
                         clean.append(s)
                 data["default_tasks"] = clean[:15]
             ok, msg = update_customer(conn, key, data)
-            return (data, ok, msg)
+            return (_with_display_prices(conn, data), ok, msg)
         finally:
             conn.close()
 

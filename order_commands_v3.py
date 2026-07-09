@@ -1471,6 +1471,10 @@ def register_order_commands_v3(client):
         if not price_list or not isinstance(price_list, dict):
             await client.send_message(msg.chat_id, f"❌ Bảng giá ID {price_list_id} không có dữ liệu hợp lệ.", reply_to=msg.id)
             return
+        # key lưu = product_id → dịch về {MÃ HIỆN HÀNH: giá} (kèm alias mã cũ để
+        # item đơn cũ còn mang mã cũ vẫn khớp giá)
+        from price_list_store.keys import effective_code_prices
+        price_list = effective_code_prices(db_conn, price_list)
 
         matched_count = 0
         changed_count = 0

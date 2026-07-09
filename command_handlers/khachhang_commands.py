@@ -53,8 +53,9 @@ def register_khachhang_commands(client):
                 if not customer:
                     await client.send_message(msg.chat_id, "❌ Không tìm thấy thông tin khách hàng.", reply_to=msg.id)
                     return
+                from price_list_store.keys import to_pid_key
                 personal = customer.get("personal_price_list") or {}
-                personal[code] = int(price_str)
+                personal[to_pid_key(db_conn, code)] = int(price_str)
                 customer["personal_price_list"] = personal
                 ok, _ = update_customer(db_conn, str(thread_id), customer)
                 await client.send_message(msg.chat_id, f"Đã cập nhật giá riêng cho sản phẩm <b>{code}</b> thành <b>{int(price_str):,}</b>." if ok else "❌ Lỗi lưu giá riêng.", reply_to=msg.id, parse_mode="html")
