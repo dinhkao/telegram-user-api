@@ -45,6 +45,7 @@ export function ProductionBoxes({
   const draft = boxDrafts.get(threadId);
   const [prodCode, setProdCode] = useState(draft?.prodCode || slip.sp_name || "");
   useEffect(() => { if (slip.sp_name && !prodCode) setProdCode(slip.sp_name); }, [slip.sp_name]);
+  const dirRef = useRef<Map<string, boolean>>(new Map());   // code → SX trực tiếp được (lọc theo loại phiếu)
   const hasSp = !!prodCode;
   const [amount, setAmount] = useState(draft?.amount || "");
   const [count, setCount] = useState(draft?.count || "1");
@@ -221,8 +222,18 @@ export function ProductionBoxes({
         <span class="pb-lb"><Icon name="tag" size={15} /> Sản phẩm</span>
         <div class="pb-ctl">
           <PickerPopup value={prodCode} placeholder="Chọn SP" allowFreeText
-            onSearch={async (q): Promise<PickOpt[]> => (await searchProducts(q).catch(() => [])).map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }))}
-            onPick={(o) => setProdCode(o.key)} />
+            onSearch={async (q): Promise<PickOpt[]> => (await searchProducts(q).catch(() => [])).map((s) => {
+              dirRef.current.set(s.code, s.can_produce_directly !== false);
+              const bad = !packing && s.can_produce_directly === false;   // phiếu SX + SP chỉ đóng gói
+              return { key: s.code, label: s.code, sub: bad ? "⚠ chỉ đóng gói — không hợp phiếu SX" : (s.name || undefined) };
+            })}
+            onPick={(o) => {
+              if (!packing && dirRef.current.get(o.key) === false) {
+                toast("SP này chỉ ĐÓNG GÓI — đổi loại phiếu sang Đóng gói, hoặc bật 'SX trực tiếp' ở chi tiết SP", "err");
+                return;
+              }
+              setProdCode(o.key);
+            }} />
         </div>
 
         <span class="pb-lb"><Icon name="calendar" size={15} /> NSX</span>

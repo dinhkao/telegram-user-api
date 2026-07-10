@@ -155,7 +155,7 @@ export async function login(username: string, pin: string): Promise<any> {
 // ── Helpers cho trình nhập hoá đơn nâng cao ──────────────────────────────
 
 /** Autocomplete mã/tên SP. Không cache (kết quả theo phím gõ). */
-export async function searchProducts(q: string): Promise<{ code: string; name: string }[]> {
+export async function searchProducts(q: string): Promise<{ code: string; name: string; can_produce_directly?: boolean }[]> {
   const d = await getJSON(`/api/products?search=${encodeURIComponent(q)}&limit=15`, { cache: false });
   return d.products || [];
 }
