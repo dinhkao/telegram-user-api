@@ -70,7 +70,7 @@ function Junction({ height, label, amount }: { height: number; label: string | n
     <li class="pt-junc" style={height ? { height: `${height}px` } : undefined}>
       <span class="pt-junc-mid">{label ? <span class="fg-label">· {label} ·</span> : null}</span>
       <span class="pt-rail">
-        {amount != null && <span class="pt-dot-amt">còn {soVN(amount)}</span>}
+        {amount != null && <span class="pt-dot-amt">{soVN(amount)}</span>}
         <span class="pt-dot pt-dot-static" />
       </span>
     </li>
