@@ -109,6 +109,7 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
   const rows: any[] = [];
   if (items.length) {
     rows.push(<li key="d-top" class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(items[0].at))}</div></li>);
+    rows.push(<Junction key="j-top" height={0} label={null} amount={d.box.remaining} />);   // tồn HIỆN TẠI
   }
   items.forEach((it, i) => {
     rows.push(<EventRow key={`e-${i}`} it={it} idx={i} srcSlip={src} />);
