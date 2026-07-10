@@ -522,7 +522,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           <>
             <button class={"btn block primary" + (j.stock_confirmed ? " faded" : "")} style={{ marginTop: "8px" }}
               onClick={() => j.stock_confirmed
-                ? setMsg("🔒 Đã chốt xuất kho — admin huỷ chốt mới sửa được số lượng/SP")
+                ? toast("Đã chốt xuất kho — admin huỷ chốt mới sửa được số lượng/SP", "info")
                 : (window.location.hash = `#/order/${threadId}/hoa-don`)}>
               <Icon name="edit" size={16} /> Sửa hoá đơn
             </button>
