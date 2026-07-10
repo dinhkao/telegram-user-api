@@ -99,11 +99,13 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
       <span class="pt-time">{hm(it.at)}</span>
       <span class={"pt-tag " + it.dir}>{it.dir === "in" ? "+" : "−"}</span>
       <span class="pt-line-txt">
-        <b class="pt-sp">{it.product_code}</b> {chip(it.box_num)}{" "}
-        {it.actor && it.actor !== "?" ? <><b class="pt-who">{it.actor}</b> </> : null}
-        {act}
-        {before != null ? <span class="muted"> · thùng còn <span class="pt-prog">{soVN(before)}→<b>{soVN(rem!)}</b></span></span>
-          : isMove && rem != null ? <span class="muted"> · thùng còn <b class="pt-prog">{soVN(rem)}</b></span> : null}
+        <span class="pt-act">
+          <b class="pt-sp">{it.product_code}</b> {chip(it.box_num)}{" "}
+          {it.actor && it.actor !== "?" ? <><b class="pt-who">{it.actor}</b> </> : null}
+          {act}
+        </span>
+        {before != null ? <span class="pt-ton">thùng còn <span class="pt-prog">{soVN(before)}→<b>{soVN(rem!)}</b></span></span>
+          : isMove && rem != null ? <span class="pt-ton">thùng còn <b class="pt-prog">{soVN(rem)}</b></span> : null}
       </span>
     </>
   );
