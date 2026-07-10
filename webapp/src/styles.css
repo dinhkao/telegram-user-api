@@ -1191,22 +1191,21 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* Chấm TRẠNG THÁI nằm ở JUNCTION giữa các biến động; khe cao → chấm chính giữa */
 .pt-junc { display: flex; align-items: stretch; gap: 8px; position: relative; min-height: 16px; }
 .pt-junc-mid { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: center; }
-.pt-line { display: flex; align-items: baseline; gap: 7px; padding: 0 2px; line-height: 1.25; text-decoration: none; color: inherit; min-width: 0; }
+.pt-line { display: flex; align-items: flex-start; gap: 7px; padding: 0 2px; line-height: 1.25; text-decoration: none; color: inherit; min-width: 0; }
 .pt-line:active { background: var(--bg); }
-.pt-time { flex: 0 0 auto; font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-.pt-tag { flex: 0 0 auto; width: 12px; text-align: center; font-size: 1.05rem; font-weight: 800; line-height: 1; }
+.pt-time { flex: 0 0 auto; font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.4; }
+.pt-tag { flex: 0 0 auto; width: 12px; text-align: center; font-size: 1.05rem; font-weight: 800; line-height: 1.2; }
 .pt-tag.in { color: var(--ok); }
 .pt-tag.out { color: var(--danger); }
 .pt-tag.mix { color: var(--muted); }
-.pt-line-txt { flex: 1 1 auto; min-width: 0; font-size: .85rem; line-height: 1.5;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-line-txt { flex: 1 1 auto; min-width: 0; font-size: .85rem; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .pt-sp { font-weight: 700; color: var(--ink); }
 .pt-bchip { display: inline-flex; align-items: center; vertical-align: middle; border: 1px solid var(--border);
   border-radius: 6px; overflow: hidden; font-size: .76rem; line-height: 1.3; }
 .pt-bn { padding: 0 5px; font-family: monospace; font-weight: 800; background: var(--card); color: var(--ink); }
 .pt-bq { padding: 0 5px; color: var(--muted); background: var(--bg); border-left: 1px solid var(--border); }
-.pt-otext { display: inline-block; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  vertical-align: bottom; color: var(--muted); }
+.pt-otext { color: var(--muted); }
 .pt-prog { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pt-actor { font-size: .8rem; }
 .pt-inl { color: inherit; text-decoration: underline; text-decoration-color: var(--border); }

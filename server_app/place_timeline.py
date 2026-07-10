@@ -128,6 +128,7 @@ def place_timeline(place_id: int) -> dict:
                 # chi tiết thêm cho UI: tồn thùng SAU biến động, đơn (xuất/thu), thùng chuyển sang/nhận
                 "remaining": p.get("remaining"), "order_thread_id": p.get("order_thread_id"),
                 "order_text": p.get("order_text"), "peer_box": _boxnum(p.get("to_box") or p.get("from_box")),
+                "from_name": p.get("from_name"), "to_name": p.get("to_name"),   # kho nguồn/đích khi chuyển
                 "total_after": round(running, 3), "actor": str(r["actor_id"] or "?"),
             })
             running -= delta

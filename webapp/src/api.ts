@@ -862,6 +862,7 @@ export type PlaceTLItem = {
   product_code: string; box_id?: number | null; box_code?: string | null; box_num?: string;
   quantity?: number | null; remaining?: number | null; amount?: number; delta: number; total_after: number; actor: string;
   order_thread_id?: number | null; order_text?: string | null; peer_box?: string;   // chi tiết
+  from_name?: string | null; to_name?: string | null;   // kho nguồn/đích khi chuyển kho
 };
 export type PlaceStockLine = { code: string; qty: number };
 export type PlaceBox = {
