@@ -9,6 +9,7 @@ import {
 import { BackLink } from "../nav";
 import { Comments } from "../detail/Comments";
 import { Images } from "../detail/Images";
+import { History } from "../detail/History";
 import { onRealtime } from "../realtime";
 import { SelectPopup } from "../ui/SelectPopup";
 import { Icon } from "../ui/Icon";
@@ -109,6 +110,7 @@ export function TaskDetail({ id }: { id: number }) {
       {/* Trao đổi + ảnh — media dùng chung scope 'task' */}
       <Images base={`/api/media/task/${t.id}`} />
       <Comments base={`/api/media/task/${t.id}`} />
+      <History base={`/api/media/task/${t.id}`} />
 
       {t.kind === "free" && isAdmin && (
         <button class="btn danger block" onClick={remove}><Icon name="trash" size={15} /> Xoá việc</button>

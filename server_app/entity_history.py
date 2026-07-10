@@ -19,7 +19,13 @@ _NUM = re.compile(r"/-?\d+(?=/|$)")
 
 _ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo phiếu SX",
                   "return.created": "Tạo phiếu trả", "return.invoiced": "Tạo HĐ KiotViet (trừ nợ)",
-                  "return.invoice_deleted": "Xoá HĐ KiotViet (hoàn nợ)", "return.deleted": "Xoá phiếu trả"}
+                  "return.invoice_deleted": "Xoá HĐ KiotViet (hoàn nợ)", "return.deleted": "Xoá phiếu trả",
+                  # sản phẩm (event tường minh — mang id bất biến)
+                  "product.created": "Tạo sản phẩm", "product.renamed": "Đổi mã SP",
+                  "product.deleted": "Xoá sản phẩm", "product.linked": "Liên kết KiotViet",
+                  "product.unlinked": "Gỡ liên kết KiotViet", "product.updated": "Sửa sản phẩm",
+                  # quỹ (đã có event tường minh sẵn)
+                  "quy.created": "Thu/chi quỹ", "quy.deleted": "Xoá phiếu quỹ"}
 
 # Biến động KHO (server_app/inventory_audit) — nhãn theo SCOPE + chi tiết từ payload.
 _INV_ACTIONS = {"box.created", "box.allocated", "box.released", "box.moved", "box.moved_out",
@@ -86,6 +92,26 @@ _SOURCE_LABELS = {
     "POST /api/returns/{id}/update": "Sửa hàng trả",
     "POST /api/returns/{id}/invoice": "Tạo HĐ KiotViet (trừ nợ)",
     "POST /api/returns/{id}/delete": "Xoá phiếu trả",
+    # sản phẩm / phiếu SX bổ sung
+    "POST /api/production/{id}/slip-lock": "Khoá phiếu (admin)",
+    "POST /api/production/{id}/slip-unlock": "Mở khoá phiếu (admin)",
+    "POST /api/products/{id}": "Sửa sản phẩm",
+    "DELETE /api/products/{id}": "Xoá sản phẩm",
+    # khách hàng (POST update phân loại theo body ở dưới)
+    "POST /api/customers/{id}/link-kiotviet": "Liên kết KiotViet",
+    "POST /api/customers/{id}/unlink-kiotviet": "Gỡ liên kết KiotViet",
+    "DELETE /api/customers/{id}": "Xoá khách",
+    # việc (POST update phân loại theo body ở dưới)
+    "DELETE /api/tasks/{id}": "Xoá việc",
+    # vị trí (POST update phân loại theo body ở dưới)
+    "DELETE /api/places/{id}": "Xoá vị trí",
+    # đơn vị chứa / thợ / bảng giá
+    "DELETE /api/units/{id}": "Xoá đơn vị chứa",
+    "POST /api/workers/{id}": "Sửa thợ",
+    "DELETE /api/workers/{id}": "Xoá thợ",
+    "POST /api/workers/reorder": "Sắp xếp thợ",
+    "POST /api/price-lists/{id}": "Lưu bảng giá",
+    "POST /api/price-lists/{id}/price": "Sửa 1 giá SP",
 }
 _SKIP = {"POST /api/production/{id}/report/parse",   # xem trước, không phải ghi
          "POST /api/returns/{id}/invoice",           # đã có event return.invoiced
@@ -109,6 +135,45 @@ def _box_update_action(bd: dict, places: dict) -> tuple[str, str] | None:
     if "note" in bd:
         return "Sửa ghi chú", str(bd.get("note") or "")[:50]
     return None
+
+
+def _customer_update_action(bd: dict) -> tuple[str, str] | None:
+    """POST /api/customers/{id} sửa nhiều thứ → phân loại theo body."""
+    if not isinstance(bd, dict):
+        return None
+    if "personal_price_list" in bd:
+        return "Sửa bảng giá riêng", ""
+    if "detectPatterns" in bd or "patterns" in bd:
+        return "Sửa từ khoá nhận diện", ""
+    if "default_tasks" in bd:
+        return "Sửa việc mặc định", ""
+    if "note" in bd or "ghi_chu" in bd:
+        return "Sửa ghi chú khách", str(bd.get("note") or bd.get("ghi_chu") or "")[:50]
+    if "price_list" in bd:
+        return "Đổi bảng giá", ""
+    return "Sửa khách", ""
+
+
+def _task_update_action(bd: dict) -> tuple[str, str] | None:
+    if not isinstance(bd, dict):
+        return None
+    if "done" in bd:
+        return ("Đánh dấu xong" if bd.get("done") else "Mở lại việc"), ""
+    if "assignee" in bd:
+        return "Giao việc", str(bd.get("assignee") or "")[:30]
+    if any(k in bd for k in ("title", "note", "due_at")):
+        return "Sửa việc", str(bd.get("title") or "")[:40]
+    return "Cập nhật việc", ""
+
+
+def _place_update_action(bd: dict) -> tuple[str, str] | None:
+    if not isinstance(bd, dict):
+        return None
+    if "name" in bd:
+        return "Đổi tên vị trí", str(bd.get("name") or "")[:40]
+    if "note" in bd:
+        return "Sửa ghi chú vị trí", str(bd.get("note") or "")[:50]
+    return "Sửa vị trí", ""
 
 
 def _report_detail(text: str) -> str:
@@ -224,6 +289,18 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
                                 la = _box_update_action(bd, places)
                                 if la:
                                     label_override, detail = la
+                        elif key == "POST /api/customers/{id}":
+                            la = _customer_update_action(bd)
+                            if la:
+                                label_override, detail = la
+                        elif key == "POST /api/tasks/{id}":
+                            la = _task_update_action(bd)
+                            if la:
+                                label_override, detail = la
+                        elif key == "POST /api/places/{id}":
+                            la = _place_update_action(bd)
+                            if la:
+                                label_override, detail = la
                         else:
                             detail = str(bd.get("text") or bd.get("note") or "")[:50]
                 except Exception:
@@ -258,7 +335,8 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
 
 async def entity_history_handler(request: web.Request):
     scope = request.match_info.get("scope", "")
-    if scope not in ("production", "box", "return", "task", "place"):
+    if scope not in ("production", "box", "return", "task", "place",
+                     "customer", "product", "unit", "worker", "price", "quy"):
         return web.json_response({"ok": False, "error": "scope không hợp lệ"}, status=400)
     try:
         entity_id = int(request.match_info.get("entity_id", ""))

@@ -14,6 +14,7 @@ import { usePopupBack } from "../ui/usePopupBack";
 import { confirmDialog } from "../ui/feedback";
 import { money, parseMoney, initial } from "../format";
 import { CustomerFeed } from "../detail/CustomerFeed";
+import { History } from "../detail/History";
 import { onRealtime } from "../realtime";
 import { toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
@@ -352,6 +353,8 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
         <textarea rows={3} value={patterns} placeholder="vd: loan phu, chị loàn, lp" onInput={(e: any) => setPatterns(e.target.value)} />
         <button class="btn primary" disabled={savingPat} onClick={savePatterns}>{savingPat ? "Đang lưu…" : <><Icon name="save" size={16} /> Lưu pattern</>}</button>
       </details>
+
+      {/^\d+$/.test(String(ckey)) && <History base={`/api/media/customer/${ckey}`} />}
     </div>
   );
 }

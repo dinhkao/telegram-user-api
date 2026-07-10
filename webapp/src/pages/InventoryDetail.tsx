@@ -14,6 +14,7 @@ import { Icon } from "../ui/Icon";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 import { CompactBoxList } from "../detail/CompactBoxList";
 import { RecipeEditor } from "../detail/RecipeEditor";
+import { History } from "../detail/History";
 import { usePopupBack } from "../ui/usePopupBack";
 
 function fmtWhen(iso?: string): string {
@@ -423,6 +424,8 @@ export function InventoryDetail({ code }: { code: string }) {
       </section>
 
       <RecipeEditor productCode={code} />
+
+      {inv.product?.id ? <History base={`/api/media/product/${inv.product.id}`} /> : null}
 
       <section class="card" ref={ordSecRef}>
         <label class="card-label">Đơn có sản phẩm này{ordStarted.current ? ` (${ordTotal})` : ""}</label>

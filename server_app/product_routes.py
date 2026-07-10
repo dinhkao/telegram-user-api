@@ -18,6 +18,23 @@ from vn import vn_normalize
 log = logging.getLogger("server")
 
 
+def _actor(request: web.Request) -> str:
+    u = request.get("web_user")
+    return str((u or {}).get("display_name") or (u or {}).get("username") or "web") if isinstance(u, dict) else str(u or "web")
+
+
+def _audit_product(action: str, product: dict | None, actor: str, **extra) -> None:
+    """Ghi event lịch sử SP (scope='product', khoá theo id bất biến). No-op nếu thiếu id."""
+    if not product or not product.get("id"):
+        return
+    from audit_log import async_log_event
+    from server_app.tasks import spawn_tracked
+    spawn_tracked(f"audit.{action}", async_log_event(
+        action, scope="product", thread_id=product.get("id"),
+        actor_type="web_user", actor_id=actor, source=action,
+        payload={"code": product.get("code"), **extra}))
+
+
 async def product_create_handler(request: web.Request):
     """Tạo mã SP mới (danh mục local). Body {code, name?}. Trùng mã → trả mã sẵn có."""
     try:
@@ -44,6 +61,8 @@ async def product_create_handler(request: web.Request):
     product, existed = await asyncio.to_thread(_run)
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
+    if not existed:
+        _audit_product("product.created", product, _actor(request), name=name)
     return web.json_response({"ok": True, "product": product, "existed": existed})
 
 
@@ -74,6 +93,8 @@ async def product_update_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Mã SP không tồn tại"}, status=404)
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
+    _fields = ", ".join(k for k in ("name", "unit", "note") if body.get(k) is not None)
+    _audit_product("product.updated", product, _actor(request), fields=_fields)
     return web.json_response({"ok": True, "product": product})
 
 
@@ -187,6 +208,7 @@ async def product_link_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Không tìm thấy mã SP"}, status=404)
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
+    _audit_product("product.linked", product, _actor(request), kv_id=int(kv_id), kv_name=body.get("kv_full_name") or "")
     return web.json_response({"ok": True, "product": product})
 
 
@@ -205,6 +227,7 @@ async def product_unlink_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Không tìm thấy mã SP"}, status=404)
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
+    _audit_product("product.unlinked", product, _actor(request))
     return web.json_response({"ok": True, "product": product})
 
 
@@ -276,17 +299,19 @@ async def product_delete_handler(request: web.Request):
     def _run():
         conn = _get_connection()
         try:
-            if not get_product(conn, code):
-                return False
+            p = get_product(conn, code)
+            if not p:
+                return None
             delete_product(conn, code)
-            return True
+            return p
         finally:
             conn.close()
-    ok = await asyncio.to_thread(_run)
-    if not ok:
+    product = await asyncio.to_thread(_run)
+    if not product:
         return web.json_response({"ok": False, "error": "Không tìm thấy mã SP"}, status=404)
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
+    _audit_product("product.deleted", product, _actor(request))
     return web.json_response({"ok": True})
 
 

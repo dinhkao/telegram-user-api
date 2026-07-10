@@ -14,9 +14,19 @@ from server_app import order_diff
 _NO_AUDIT = re.compile(r"/report/(draft|lock|unlock|parse)$|/api/inventory/box/-?\d+/transfer$")
 _ORDER_PATH = re.compile(r"^/api/order/(-?\d+)")
 _PRODUCTION_PATH = re.compile(r"^/api/production/(-?\d+)")
-_MEDIA_PATH = re.compile(r"^/api/media/(production|box|return|task|place)/(-?\d+)")
+_MEDIA_PATH = re.compile(r"^/api/media/(production|box|return|task|place|customer|product)/(-?\d+)")
 _RETURN_PATH = re.compile(r"^/api/returns/(\d+)")
 _INV_BOX_PATH = re.compile(r"^/api/inventory/box/(-?\d+)")
+# Thực thể khoá số nguyên: khách (firebase_key số) / việc / vị trí / đơn vị / thợ / bảng giá.
+# → gắn scope để lịch sử thao tác từng thực thể thấy được (trước đây scope=None → vô hình).
+_KEYED_PATHS = [
+    (re.compile(r"^/api/customers/(\d+)"), "customer"),
+    (re.compile(r"^/api/tasks/(\d+)"), "task"),
+    (re.compile(r"^/api/places/(\d+)"), "place"),
+    (re.compile(r"^/api/units/(\d+)"), "unit"),
+    (re.compile(r"^/api/workers/(\d+)"), "worker"),
+    (re.compile(r"^/api/price-lists/(\d+)"), "price"),
+]
 
 
 def _load_order_snapshot(thread_id):
@@ -54,6 +64,10 @@ def _scope_entity(path: str, body_text: str | None):
     m = _ORDER_PATH.match(path)
     if m:
         return "order", int(m.group(1))
+    for rx, sc in _KEYED_PATHS:
+        m = rx.match(path)
+        if m:
+            return sc, int(m.group(1))
     if body_text:
         try:
             tid = json.loads(body_text).get("thread_id")

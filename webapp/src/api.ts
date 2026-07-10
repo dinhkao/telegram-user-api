@@ -919,7 +919,7 @@ export type Allocation = {
   order_text?: string; // dòng đầu nội dung đơn (sneak peek, chỉ trang chi tiết thùng)
 };
 export type InvGroup = { quantity: number; count: number; total: number; box_codes: string[] };
-export type InvProductLink = { code: string; name: string; cost_price: number; unit?: string; kv_id: number | null; kv_full_name: string | null; kv_synced_at: string | null; linked: boolean };
+export type InvProductLink = { id?: number; code: string; name: string; cost_price: number; unit?: string; kv_id: number | null; kv_full_name: string | null; kv_synced_at: string | null; linked: boolean };
 export type InvOrderRef = { thread_id: number; text: string; sl: number | null; price: number | null; created: string | null };
 export type InvDetail = {
   product_code: string;
