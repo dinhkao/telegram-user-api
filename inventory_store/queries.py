@@ -113,7 +113,8 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
     sql = (
         "SELECT b.*, p.name AS place_name, u.name AS unit_name, pr.unit AS product_unit, "
         "COALESCE(pr.code, b.product_code) AS product_code_live, "
-        "COALESCE((SELECT SUM(a.quantity) FROM box_allocations a WHERE a.box_id=b.id),0) AS allocated "
+        "COALESCE((SELECT SUM(a.quantity) FROM box_allocations a WHERE a.box_id=b.id),0) AS allocated, "
+        "COALESCE((SELECT SUM(-a.quantity) FROM box_allocations a WHERE a.box_id=b.id AND a.quantity<0),0) AS transferred_in "
         "FROM inventory_boxes b "
         "LEFT JOIN inventory_places p ON p.id = b.place_id "
         "LEFT JOIN inventory_units u ON u.id = b.unit_id "
@@ -127,6 +128,8 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
         d = dict(r)
         d["product_code"] = d.pop("product_code_live") or d.get("product_code")
         d["remaining"] = float(d.get("quantity") or 0) - float(d.get("allocated") or 0)
+        # capacity = SX gốc + hàng nhận qua transfer_in → mốc "đầy" cho thanh fill
+        d["capacity"] = float(d.get("quantity") or 0) + float(d.get("transferred_in") or 0)
         out.append(d)
     return out
 
@@ -169,7 +172,9 @@ def product_summary(conn) -> list[dict]:
 def get_box(conn, box_id) -> dict | None:
     row = conn.execute(
         "SELECT b.*, p.name AS place_name, u.name AS unit_name, pr.unit AS product_unit, "
-        "COALESCE(pr.code, b.product_code) AS product_code_live FROM inventory_boxes b "
+        "COALESCE(pr.code, b.product_code) AS product_code_live, "
+        "COALESCE((SELECT SUM(-a.quantity) FROM box_allocations a WHERE a.box_id=b.id AND a.quantity<0),0) AS transferred_in "
+        "FROM inventory_boxes b "
         "LEFT JOIN inventory_places p ON p.id = b.place_id "
         "LEFT JOIN inventory_units u ON u.id = b.unit_id "
         "LEFT JOIN products pr ON pr.id = b.product_id WHERE b.id = ?",
@@ -179,6 +184,8 @@ def get_box(conn, box_id) -> dict | None:
         return None
     d = dict(row)
     d["product_code"] = d.pop("product_code_live") or d.get("product_code")
+    # capacity = SX gốc + hàng nhận transfer_in → mốc "đầy" cho thanh fill
+    d["capacity"] = float(d.get("quantity") or 0) + float(d.get("transferred_in") or 0)
     return d
 
 

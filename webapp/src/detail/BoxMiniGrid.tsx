@@ -18,7 +18,8 @@ export function BoxMiniGrid({ boxes }: { boxes: KhoBox[] }) {
         const rm = b.remaining ?? b.quantity;
         const st = b.disabled ? "off" : "in";
         const num = (b.box_code || "").split("-").pop() || b.box_code;
-        const fill = b.quantity > 0 ? Math.max(0, Math.min(100, (rm / b.quantity) * 100)) : 100;
+        const cap = (b as any).capacity ?? b.quantity;   // SX gốc + hàng nhận chuyển → không tràn
+        const fill = cap > 0 ? Math.max(0, Math.min(100, (rm / cap) * 100)) : 100;
         // Thẻ phiếu SX = ghi nhận SẢN XUẤT → số to là số cây NHẬP của thùng
         // (khớp "· N thùng" trên card, không nhảy 0 / 3,04 theo tồn kho); phần
         // CÒN LẠI thể hiện bằng nền fill + mờ ô khi đã cạn (.drained).
