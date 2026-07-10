@@ -6,10 +6,11 @@ import { soVN, type KhoBox } from "../api";
 // lưới này. Sort ổn định nên giữ nguyên thứ tự phụ mà caller đã sắp.
 const stocked = (b: KhoBox) => (!b.disabled && (b.remaining ?? b.quantity ?? 0) > 0 ? 1 : 0);
 
-export function BoxLabelGrid({ boxes }: { boxes: KhoBox[] }) {
+// hideCode: bỏ mã SP trên ô (khi lưới đã group theo SP). dense: ô nhỏ hơn.
+export function BoxLabelGrid({ boxes, hideCode, dense }: { boxes: KhoBox[]; hideCode?: boolean; dense?: boolean }) {
   const ordered = boxes.slice().sort((a, b) => stocked(b) - stocked(a));
   return (
-    <div class="box-grid lbl-grid">
+    <div class={"box-grid lbl-grid" + (dense ? " dense" : "") + (hideCode ? " no-code" : "")}>
       {ordered.map((b) => {
         const rm = b.remaining ?? b.quantity;
         const used = b.allocated ?? 0;
@@ -23,7 +24,7 @@ export function BoxLabelGrid({ boxes }: { boxes: KhoBox[] }) {
           <a key={b.id} class={`box-lbl ${st}`} href={`#/thung/${b.id}`} style={{ "--fill": `${fillPct}%` } as any}
             title={`${b.box_code} · ${soVN(rm)} ${b.product_unit || "cây"} · ${status}${b.place_name ? ` · ${b.place_name}` : ""}${b.note ? ` · ${b.note}` : ""}`}>
             {b.note && <span class="bl-dot" />}
-            <span class="bl-code">{b.product_code}</span>
+            {!hideCode && <span class="bl-code">{b.product_code}</span>}
             <span class="bl-q">{soVN(rm)}{used > 0 ? <span class="bl-q-tot">/{soVN(b.quantity)}</span> : ""}</span>
             <span class="bl-num">{num}</span>
           </a>

@@ -3,7 +3,7 @@
 // Data: listPlaces (tìm theo id) + allBoxes (lọc place_id). Realtime reload.
 import { useEffect, useState } from "preact/hooks";
 
-let memView: "grid" | "compact" = "compact";   // nhớ kiểu xem thùng khi rời trang (mặc định GỌN)
+let memView: "grid" | "compact" = "grid";   // nhớ kiểu xem thùng khi rời trang (mặc định Ô THÙNG)
 import { listPlaces, allBoxes, renamePlace, setPlaceNote, deletePlace, currentUser, soVN, type Place, type KhoBox } from "../api";
 import { onRealtime } from "../realtime";
 import { BackLink } from "../nav";
@@ -143,7 +143,7 @@ export function PlaceDetail({ id }: { id: string }) {
                       <b>{pcode}</b>
                       <span class="muted small">{soVN(sumRem(bs))} tồn · {bs.length} thùng →</span>
                     </a>
-                    <BoxLabelGrid boxes={bs} />
+                    <BoxLabelGrid boxes={bs} hideCode dense />
                   </section>
                 ))}
               </div>

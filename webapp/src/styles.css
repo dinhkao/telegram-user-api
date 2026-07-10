@@ -1336,6 +1336,13 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-lbl .bl-q-tot { align-self: flex-end; font-size: .42em; font-weight: 600; opacity: .55; margin-left: 1px; padding-bottom: .12em; }
 .box-lbl .bl-num { font-family: var(--mono); font-size: .82rem; font-weight: 800; letter-spacing: -.01em; text-align: center; padding: 3px 2px; border-top: 1.5px solid; }
 .box-lbl .bl-dot { position: absolute; top: 21px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+/* no-code: bỏ hàng mã SP (lưới đã group theo SP). dense: ô nhỏ hơn. */
+.lbl-grid.no-code .box-lbl { grid-template-rows: 1fr auto; }
+.lbl-grid.no-code .box-lbl .bl-dot { top: 4px; }
+.lbl-grid.dense { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; }
+.lbl-grid.dense .box-lbl { border-radius: 8px; }
+.lbl-grid.dense .box-lbl .bl-q { font-size: 1.15rem; }
+.lbl-grid.dense .box-lbl .bl-num { font-size: .64rem; padding: 2px 1px; }
 /* Nút thu hồi (×) trên ô thùng đã xuất cho đơn */
 .box-lbl .bl-x { position: absolute; top: 2px; right: 2px; z-index: 2; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 0 9px 0 8px; background: var(--danger); color: #fff; cursor: pointer; }
 .box-lbl .bl-x:active { opacity: .7; }
