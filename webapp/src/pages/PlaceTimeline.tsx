@@ -76,22 +76,24 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
   const isMove = it.kind === "moved_in" || it.kind === "moved_out";
   const before = rem != null && !isMove ? Math.round((it.dir === "out" ? rem + amt : rem - amt) * 1000) / 1000 : null;
   const chip = (num?: string) => <span class="pt-bchip"><span class="pt-bn">{num}</span></span>;
-  // Cắt order text để "thùng còn…" (info sau) không bị clamp 2 dòng nuốt mất
   const otxt = it.order_text ? (it.order_text.length > 30 ? it.order_text.slice(0, 30).trimEnd() + "…" : it.order_text) : "";
-  const ord = otxt ? <> · đơn "<span class="pt-otext">{otxt}</span>"</> : null;
+  const ord = otxt ? <> đơn "<span class="pt-otext">{otxt}</span>"</> : null;
   const u = it.unit ? " " + it.unit : "";   // đơn vị SP sau số lượng
+  // "thùng <mã SP> <số>" lồng vào câu (thay cho prefix) → câu tự nhiên, actor đứng đầu
+  const boxRef = <>thùng <b class="pt-sp">{it.product_code}</b> {chip(it.box_num)}</>;
   // Mô tả rõ: LÀM GÌ + bao nhiêu (+ đơn / thùng đích)
+  const peer = <>thùng <b class="pt-sp">{it.product_code}</b> {chip(it.peer_box)}</>;
   const act = (() => {
     switch (it.kind) {
-      case "allocated": return <>xuất <b>{soVN(amt)}</b>{u} cho{ord}</>;
-      case "released": return <>trả <b>{soVN(amt)}</b>{u} về từ{ord}</>;
-      case "created": return <>nhập mới <b>{soVN(amt)}</b>{u}</>;
-      case "moved_in": return <>nhận <b>{soVN(amt)}</b>{u} chuyển từ kho <b>{it.from_name || "khác"}</b></>;
-      case "moved_out": return <>chuyển <b>{soVN(amt)}</b>{u} sang kho <b>{it.to_name || "khác"}</b></>;
-      case "deleted": return <>xoá thùng ({soVN(amt)}{u})</>;
-      case "transfer_out": return <>chuyển <b>{soVN(amt)}</b>{u} sang thùng {chip(it.peer_box)}</>;
-      case "transfer_in": return <>nhận <b>{soVN(amt)}</b>{u} từ thùng {chip(it.peer_box)}</>;
-      default: return <>{it.reason}</>;
+      case "allocated": return <>xuất <b>{soVN(amt)}</b>{u} từ {boxRef} cho{ord}</>;
+      case "released": return <>trả <b>{soVN(amt)}</b>{u} về {boxRef} từ{ord}</>;
+      case "created": return <>nhập mới <b>{soVN(amt)}</b>{u} vào {boxRef}</>;
+      case "moved_in": return <>nhận {boxRef} chuyển từ kho <b>{it.from_name || "khác"}</b></>;
+      case "moved_out": return <>chuyển {boxRef} sang kho <b>{it.to_name || "khác"}</b></>;
+      case "deleted": return <>xoá {boxRef} ({soVN(amt)}{u})</>;
+      case "transfer_out": return <>đã chuyển <b>{soVN(amt)}</b>{u} từ {boxRef} sang {peer}{it.to_name ? <> ở <b>{it.to_name}</b></> : null}</>;
+      case "transfer_in": return <>đã chuyển <b>{soVN(amt)}</b>{u} từ {peer}{it.from_name ? <> ở <b>{it.from_name}</b></> : null} sang {boxRef}</>;
+      default: return <>{boxRef} {it.reason}</>;
     }
   })();
   const inner = (
@@ -99,7 +101,6 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
       <span class="pt-time">{hm(it.at)}</span>
       <span class={"pt-tag " + it.dir}>{it.dir === "in" ? "+" : "−"}</span>
       <span class="pt-line-txt">
-        <b class="pt-sp">{it.product_code}</b> {chip(it.box_num)}{" "}
         {it.actor && it.actor !== "?" ? <><b class="pt-who">{it.actor}</b> </> : null}
         {act}
       </span>

@@ -91,8 +91,8 @@ def log_transfer_places(from_snap: dict, to_snap: dict, quantity, *, actor, acto
     _emit("box.transfer_out", "place", from_snap.get("place_id"), actor, actor_type,
           {"box_id": from_snap.get("box_id"), "box_code": from_snap.get("box_code"),
            "product_code": pc, "quantity": quantity, "remaining": from_snap.get("remaining"),
-           "to_box": to_snap.get("box_code")})
+           "to_box": to_snap.get("box_code"), "to_name": to_snap.get("place_name")})   # kho thùng ĐÍCH
     _emit("box.transfer_in", "place", to_snap.get("place_id"), actor, actor_type,
           {"box_id": to_snap.get("box_id"), "box_code": to_snap.get("box_code"),
            "product_code": pc, "quantity": quantity, "remaining": to_snap.get("remaining"),
-           "from_box": from_snap.get("box_code")})
+           "from_box": from_snap.get("box_code"), "from_name": from_snap.get("place_name")})   # kho thùng NGUỒN
