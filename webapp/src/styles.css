@@ -1198,10 +1198,10 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-tag.in { color: var(--ok); }
 .pt-tag.out { color: var(--danger); }
 .pt-tag.mix { color: var(--muted); }
-.pt-line-txt { flex: 1 1 auto; min-width: 0; font-size: .85rem; line-height: 1.4; }
-/* action clamp 2 dòng; "thùng còn…" tách dòng riêng nên KHÔNG bao giờ bị cắt */
-.pt-act { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.pt-ton { display: block; color: var(--muted); font-size: .82rem; white-space: nowrap; }
+.pt-line-txt { flex: 1 1 auto; min-width: 0; font-size: .85rem; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* "còn X→Y" = CỘT cố định bên phải (không nằm trong vùng clamp) → luôn hiện, tổng vẫn 2 dòng */
+.pt-ton { flex: 0 0 auto; align-self: flex-start; color: var(--muted); font-size: .8rem; white-space: nowrap; }
 .pt-sp { font-weight: 700; color: var(--ink); }
 .pt-bchip { display: inline-flex; align-items: center; vertical-align: middle; border: 1px solid var(--border);
   border-radius: 6px; overflow: hidden; font-size: .76rem; line-height: 1.3; }
