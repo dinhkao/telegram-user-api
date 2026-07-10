@@ -27,6 +27,7 @@ _RESERVED_SUBQUERY = (
     "COALESCE((SELECT 1 FROM box_allocations ra "
     "JOIN orders ro ON ro.thread_id = ra.order_thread_id "
     "WHERE ra.box_id = b.id AND COALESCE(ra.kind,'order') = 'order' AND ra.quantity > 0 "
+    "AND ro.deleted_at IS NULL "
     "AND json_extract(ro.json, '$.stock_confirmed') IS NULL LIMIT 1), 0) AS reserved_pending"
 )
 

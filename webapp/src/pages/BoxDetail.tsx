@@ -261,7 +261,7 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
         </div>
       )}
 
-      {!disabled && soldOut && (
+      {!disabled && soldOut && !b.reserved && (
         <div class="box-disabled-banner">
           ✅ Thùng đã xuất hết — chỉ trao đổi (bình luận/ảnh). Không sửa ghi chú/ngày
           SX/đơn vị, không chuyển kho, không chuyển hàng.

@@ -91,11 +91,14 @@ def _unit_map(conn, codes: set) -> dict:
 
 def _current_boxes(conn, place_id: int) -> list[dict]:
     """Thùng HIỆN CÓ ở kho (đủ field cho BoxLabelGrid + dựng lại lịch sử box set)."""
+    # `reserved` = tạm chiếm chỗ cho đơn CHƯA chốt → ô thùng NÂU (dùng chung fragment
+    # với inventory_store.queries để không lệch định nghĩa; guard sẵn khi thiếu orders).
+    from inventory_store.queries import _reserved_fragment
     rows = conn.execute(
         "SELECT b.id, b.box_code, COALESCE(pr.code, b.product_code) AS product_code, b.quantity, "
         "b.quantity - COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0) AS remaining, "
         "COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0) AS allocated, "
-        "COALESCE(pr.unit,'cây') AS product_unit, b.note "
+        "COALESCE(pr.unit,'cây') AS product_unit, b.note, " + _reserved_fragment(conn) + " "
         "FROM inventory_boxes b LEFT JOIN products pr ON pr.id = b.product_id "
         "WHERE b.place_id = ? AND (b.disabled IS NULL OR b.disabled = 0)",
         (place_id,),
@@ -103,7 +106,7 @@ def _current_boxes(conn, place_id: int) -> list[dict]:
     return [{"id": r["id"], "box_code": r["box_code"], "product_code": r["product_code"],
              "quantity": float(r["quantity"] or 0), "remaining": float(r["remaining"] or 0),
              "allocated": float(r["allocated"] or 0), "product_unit": r["product_unit"],
-             "note": r["note"], "disabled": False} for r in rows]
+             "note": r["note"], "disabled": False, "reserved": bool(r["reserved_pending"])} for r in rows]
 
 
 def place_timeline(place_id: int) -> dict:

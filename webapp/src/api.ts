@@ -872,7 +872,7 @@ export type PlaceTLItem = {
 export type PlaceStockLine = { code: string; qty: number };
 export type PlaceBox = {
   id: number; box_code: string; product_code: string; quantity: number; remaining: number;
-  allocated: number; product_unit?: string; note?: string | null; disabled?: boolean;
+  allocated: number; product_unit?: string; note?: string | null; disabled?: boolean; reserved?: boolean;
 };
 export type PlaceTimeline = {
   place: { id: number; name: string }; current_total: number; box_count: number;
