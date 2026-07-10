@@ -73,7 +73,14 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
 
   const doRelease = async (a: Allocation) => {
     if (locked) return lockedToast();
-    if (!(await confirmDialog(`Thu hồi ${soVN(a.quantity)} từ thùng ${a.box_code} khỏi đơn về kho?`, { danger: true }))) return;
+    const place = a.place_name || "kho Chưa xếp vị trí";
+    // Còn hàng trong thùng (box_remaining>0) = số này là 1 PHẦN của thùng vẫn trong kho
+    // → trả về đúng thùng đó; ngược lại trả về kho trước đó của thùng.
+    const partOfBox = (a.box_remaining ?? 0) > 0;
+    const dest = partOfBox ? `thùng ${a.box_code} trong ${place}` : `${place}`;
+    if (!(await confirmDialog(
+      `⚠️ Hãy đảm bảo thùng này CHƯA được giao cho khách.\n\nThu hồi ${soVN(a.quantity)} — số hàng sẽ được trả về ${dest}.`,
+      { danger: true, okLabel: "Thu hồi" }))) return;
     setBusy(true);
     setMsg("");
     try {
