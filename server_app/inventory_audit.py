@@ -86,13 +86,16 @@ def log_box_deleted(snap: dict, *, actor, actor_type: str) -> None:
 
 
 def log_transfer_places(from_snap: dict, to_snap: dict, quantity, *, actor, actor_type: str) -> None:
-    """Chuyển hàng giữa 2 thùng: ghi vị trí lịch sử 2 bên (nếu có vị trí)."""
+    """Chuyển hàng giữa 2 thùng: ghi lịch sử cho CẢ vị trí LẪN thùng 2 bên."""
     pc = from_snap.get("product_code")
-    _emit("box.transfer_out", "place", from_snap.get("place_id"), actor, actor_type,
-          {"box_id": from_snap.get("box_id"), "box_code": from_snap.get("box_code"),
-           "product_code": pc, "quantity": quantity, "remaining": from_snap.get("remaining"),
-           "to_box": to_snap.get("box_code"), "to_name": to_snap.get("place_name")})   # kho thùng ĐÍCH
-    _emit("box.transfer_in", "place", to_snap.get("place_id"), actor, actor_type,
-          {"box_id": to_snap.get("box_id"), "box_code": to_snap.get("box_code"),
-           "product_code": pc, "quantity": quantity, "remaining": to_snap.get("remaining"),
-           "from_box": from_snap.get("box_code"), "from_name": from_snap.get("place_name")})   # kho thùng NGUỒN
+    out_pl = {"box_id": from_snap.get("box_id"), "box_code": from_snap.get("box_code"),
+              "product_code": pc, "quantity": quantity, "remaining": from_snap.get("remaining"),
+              "to_box": to_snap.get("box_code"), "to_name": to_snap.get("place_name")}   # kho thùng ĐÍCH
+    in_pl = {"box_id": to_snap.get("box_id"), "box_code": to_snap.get("box_code"),
+             "product_code": pc, "quantity": quantity, "remaining": to_snap.get("remaining"),
+             "from_box": from_snap.get("box_code"), "from_name": from_snap.get("place_name")}   # kho thùng NGUỒN
+    _emit("box.transfer_out", "place", from_snap.get("place_id"), actor, actor_type, out_pl)
+    _emit("box.transfer_in", "place", to_snap.get("place_id"), actor, actor_type, in_pl)
+    # lịch sử THÙNG (box scope) — để box detail + timeline thùng thấy chuyển hàng
+    _emit("box.transfer_out", "box", from_snap.get("box_id"), actor, actor_type, out_pl)
+    _emit("box.transfer_in", "box", to_snap.get("box_id"), actor, actor_type, in_pl)

@@ -248,6 +248,10 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
         </div>
       </div>
 
+      <a class="btn block pt-open-btn" href={`#/thung/${b.id}/timeline`}>
+        <Icon name="history" size={16} /> Timeline biến động thùng →
+      </a>
+
       {disabled && (
         <div class="box-disabled-banner">
           🚫 Thùng đã bị vô hiệu — không tính tồn kho, không phân bổ đơn, không tính vào phiếu SX.

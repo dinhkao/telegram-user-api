@@ -43,6 +43,7 @@ import { PlacesList } from "./pages/PlacesList";
 import { PlaceDetail } from "./pages/PlaceDetail";
 import { PlaceTimeline } from "./pages/PlaceTimeline";
 import { BoxDetail } from "./pages/BoxDetail";
+import { BoxTimeline } from "./pages/BoxTimeline";
 import "./styles.css";
 
 // Nhớ vị trí cuộn theo hash cho các trang KHÔNG tự quản (OrdersList/OrderDetail đã
@@ -362,6 +363,7 @@ function App() {
   const khoMatch = hash.match(/^#\/kho\/([^?]+)/);
   const placeTLMatch = hash.match(/^#\/vi-tri\/(\d+)\/timeline/);
   const placeMatch = hash.match(/^#\/vi-tri\/(\d+)/);
+  const boxTLMatch = hash.match(/^#\/thung\/(\d+)\/timeline/);
   const boxMatch = hash.match(/^#\/thung\/(\d+)/);
   const viecMatch = hash.match(/^#\/viec\/(\d+)/);
   const retMatch = hash.match(/^#\/tra-hang\/(\d+)/);
@@ -380,6 +382,7 @@ function App() {
   else if (hash.startsWith("#/sx-bang")) page = <ProductionDashboard />;
   else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} focus={focusEl} />;
   else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;
+  else if (boxTLMatch) page = <BoxTimeline boxId={boxTLMatch[1]} />;
   else if (boxMatch) page = <BoxDetail boxId={boxMatch[1]} focus={focusEl} />;
   else if (placeTLMatch) page = <PlaceTimeline placeId={placeTLMatch[1]} focus={focusEl} />;
   else if (placeMatch) page = <PlaceDetail id={placeMatch[1]} />;

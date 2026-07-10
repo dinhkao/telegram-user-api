@@ -269,6 +269,8 @@ def create_app():
     r.add_get("/api/units", units_list_handler)
     r.add_post("/api/units", unit_create_handler)
     r.add_delete("/api/units/{unit_id}", unit_delete_handler)
+    from server_app.box_timeline import box_timeline_handler
+    r.add_get("/api/inventory/box/{box_id}/timeline", box_timeline_handler)
     r.add_get("/api/inventory/box/{box_id}", box_detail_handler)
     r.add_post("/api/inventory/box/{box_id}", box_update_handler)
     r.add_delete("/api/inventory/box/{box_id}", box_delete_handler)
