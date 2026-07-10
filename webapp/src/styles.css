@@ -1208,6 +1208,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-otext { color: var(--muted); }
 .pt-prog { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pt-actor { font-size: .8rem; }
+.pt-who { color: var(--ink); font-weight: 600; }
 .pt-inl { color: inherit; text-decoration: underline; text-decoration-color: var(--border); }
 .hist-place-lnk { color: var(--accent, #2563eb); text-decoration: underline; font-weight: 600; }
 .hist-order-lnk { color: var(--accent, #2563eb); text-decoration: underline; }

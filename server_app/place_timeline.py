@@ -15,6 +15,7 @@ from datetime import datetime
 from aiohttp import web
 
 from order_db import _get_connection
+from server_app.order_history import _actor_display, _load_names
 
 _CAP = 500
 
@@ -110,6 +111,7 @@ def place_timeline(place_id: int) -> dict:
         ).fetchall()
         items = []
         running = current
+        names = _load_names()   # username → tên hiển thị (Thảo, Duy…)
         for r in rows:
             act = r["action"]
             try:
@@ -129,7 +131,7 @@ def place_timeline(place_id: int) -> dict:
                 "remaining": p.get("remaining"), "order_thread_id": p.get("order_thread_id"),
                 "order_text": p.get("order_text"), "peer_box": _boxnum(p.get("to_box") or p.get("from_box")),
                 "from_name": p.get("from_name"), "to_name": p.get("to_name"),   # kho nguồn/đích khi chuyển
-                "total_after": round(running, 3), "actor": str(r["actor_id"] or "?"),
+                "total_after": round(running, 3), "actor": _actor_display(r["actor_id"], names),
             })
             running -= delta
         return {"ok": True, "place": {"id": place_id, "name": prow[0]},

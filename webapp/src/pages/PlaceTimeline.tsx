@@ -95,9 +95,9 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
       <span class={"pt-tag " + it.dir}>{it.dir === "in" ? "+" : "−"}</span>
       <span class="pt-line-txt">
         <b class="pt-sp">{it.product_code}</b> {chip(it.box_num)}{" "}
+        {it.actor && it.actor !== "?" ? <><b class="pt-who">{it.actor}</b> </> : null}
         {act}
         {before != null ? <span class="muted"> · thùng còn <span class="pt-prog">{soVN(before)}→<b>{soVN(rem!)}</b></span></span> : null}
-        {it.actor && it.actor !== "?" ? <span class="pt-actor muted"> · {it.actor}</span> : null}
       </span>
     </>
   );
