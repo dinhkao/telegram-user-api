@@ -88,8 +88,8 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
       case "allocated": return <>xuất <b>{soVN(amt)}</b>{u} từ {boxRef} cho{ord}</>;
       case "released": return <>trả <b>{soVN(amt)}</b>{u} về {boxRef} từ{ord}</>;
       case "created": return <>nhập mới {boxRef} <b>{soVN(amt)}</b>{u} từ phiếu sản xuất</>;
-      case "moved_in": return <>nhận {boxRef} chuyển từ kho <b>{it.from_name || "khác"}</b></>;
-      case "moved_out": return <>chuyển {boxRef} sang kho <b>{it.to_name || "khác"}</b></>;
+      case "moved_in": return <>chuyển {boxRef} từ kho <b>{it.from_name || "khác"}</b> đến đây</>;
+      case "moved_out": return <>chuyển {boxRef} từ đây sang kho <b>{it.to_name || "khác"}</b></>;
       case "deleted": return <>xoá {boxRef} ({soVN(amt)}{u})</>;
       case "transfer_out": return <>đã chuyển <b>{soVN(amt)}</b>{u} từ {boxRef} sang {peer}{it.to_name ? <> ở <b>{it.to_name}</b></> : null}</>;
       case "transfer_in": return <>đã chuyển <b>{soVN(amt)}</b>{u} từ {peer}{it.from_name ? <> ở <b>{it.from_name}</b></> : null} sang {boxRef}</>;
