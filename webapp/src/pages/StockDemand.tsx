@@ -53,7 +53,17 @@ function packInfo(p: StockDemandLine) {
   const leftover = ings.map((g) => ({ code: g.code, unit: g.unit, rem: r3(g.stock - g.need) }));
   // NL còn thiếu (để đóng gói ĐỦ phần thiếu): cần làm thêm ít nhất g.shortfall mỗi NL
   const shortIngs = ings.filter((g) => !g.enough).map((g) => ({ code: g.code, unit: g.unit, need: g.shortfall }));
-  return { S, packable, enough, stillShort, bn, leftover, shortIngs };
+  // "thêm bao nhiêu để đạt TỒN TỐI THIỂU của cả SP lẫn NL":
+  // total NL cần = r×thiếu (đóng gói đủ) + r×min_SP (kê SP lên mức tối thiểu) + min_NL (kê NL lên mức tối thiểu).
+  // extra = max(0, total − tồn_NL) − phần "đóng gói đủ" (g.shortfall). Chỉ giữ NL có extra > 0.
+  const minP = p.min_stock || 0;
+  const minIngs = ings.map((g) => {
+    const r = g.ratio != null ? g.ratio : (S > 0 ? g.need / S : 0);
+    const total = g.need + r * minP + (g.min_stock || 0);
+    const extra = r3(Math.max(0, total - g.stock) - g.shortfall);
+    return { code: g.code, unit: g.unit, extra };
+  }).filter((x) => x.extra > 1e-9);
+  return { S, packable, enough, stillShort, bn, leftover, shortIngs, minIngs };
 }
 
 // ĐOẠN PHÂN TÍCH (luôn hiện với SP có công thức NL) — giải thích cụ thể bằng số: NL nút thắt
@@ -72,7 +82,14 @@ function PackAnalysis({ p }: { p: StockDemandLine }) {
           {pi.packable > 0 ? <>, chỉ đủ đóng gói <b>{soVN(pi.packable)}</b> {u}.</> : <>.</>}
           {" "}Cần sản xuất thêm ít nhất{" "}
           {pi.shortIngs.map((g, i) => <span key={g.code}>{i ? " + " : ""}<b class="nd-calc-x">{soVN(g.need)}{g.unit ? ` ${g.unit}` : ""} {g.code}</b></span>)}
-          {" "}để đóng gói đủ.
+          {" "}để đóng gói đủ
+          {pi.minIngs.length > 0 && (
+            <>, và thêm{" "}
+              {pi.minIngs.map((g, i) => <span key={g.code}>{i ? " + " : ""}<b>{soVN(g.extra)}{g.unit ? ` ${g.unit}` : ""}{pi.minIngs.length > 1 ? ` ${g.code}` : ""}</b></span>)}
+              {" "}để đạt tồn kho tối thiểu của cả <b>{p.code}</b> và{" "}
+              {pi.minIngs.map((g, i) => <span key={g.code}>{i ? ", " : ""}<b>{g.code}</b></span>)}
+            </>
+          )}.
           {p.can_direct !== false && <> Hoặc sản xuất thêm <b>{p.code}</b> <b>{soVN(pi.stillShort)}</b> {u} trực tiếp.</>}
         </>
       )}

@@ -46,11 +46,12 @@ def _delivered(j: dict) -> bool:
     return bool((ts.get("giao_hang") or {}).get("done"))
 
 
-def _ingredients(conn, code, produced_qty, stock, names, depth=0, seen=None) -> list:
+def _ingredients(conn, code, produced_qty, stock, names, mins, depth=0, seen=None) -> list:
     """Cây gợi ý NGUYÊN LIỆU (BOM) để LÀM `produced_qty` cây `code`.
     NL cần = ratio × produced_qty (0 nếu chỉ để tham khảo tồn). NL nào CÒN THIẾU
     (need > tồn) + có công thức riêng → đệ quy gợi ý NL cấp dưới (children). Chặn
-    vòng lặp bằng `seen`, giới hạn 5 tầng. Trả [] nếu SP không có công thức."""
+    vòng lặp bằng `seen`, giới hạn 5 tầng. Trả [] nếu SP không có công thức.
+    `ratio` + `min_stock` kèm theo để client tính "thêm bao nhiêu để đạt tồn tối thiểu"."""
     from recipe_store import list_recipe
     seen = seen or set()
     key = str(code or "").upper()
@@ -60,15 +61,17 @@ def _ingredients(conn, code, produced_qty, stock, names, depth=0, seen=None) -> 
     out = []
     for rl in list_recipe(conn, code):
         iid = rl.get("ingredient_id")
-        m_need = round(float(rl.get("ratio") or 0) * float(produced_qty or 0), 3)
+        ratio = float(rl.get("ratio") or 0)
+        m_need = round(ratio * float(produced_qty or 0), 3)
         m_stock = round(float(stock.get(iid, 0.0)), 3) if iid is not None else 0.0
         inm, iunit = names.get(iid, ("", "")) if iid is not None else ("", "")
         m_short = round(max(0.0, m_need - m_stock), 3)
         # NL cũng thiếu → phải LÀM m_short cái NL này → gợi ý NL cấp dưới
-        children = _ingredients(conn, rl.get("ingredient_code"), m_short, stock, names, depth + 1, seen) if m_short > 1e-9 else []
+        children = _ingredients(conn, rl.get("ingredient_code"), m_short, stock, names, mins, depth + 1, seen) if m_short > 1e-9 else []
         out.append({
             "code": rl.get("ingredient_code"), "name": inm or "", "unit": iunit or "",
-            "need": m_need, "stock": m_stock,
+            "need": m_need, "stock": m_stock, "ratio": round(ratio, 6),
+            "min_stock": round(float(mins.get(iid, 0.0)), 3) if iid is not None else 0.0,
             "enough": m_stock + 1e-9 >= m_need, "shortfall": m_short, "children": children,
         })
     return out
@@ -172,11 +175,12 @@ def _compute(conn) -> dict:
     ).fetchall():
         stock[s["pid"]] = float(s["rem"] or 0)
 
-    # tên/đơn vị + có SX trực tiếp được không, theo product_id hiện hành
-    names, candirect = {}, {}
-    for r in conn.execute("SELECT id, name, unit, can_produce_directly FROM products").fetchall():
+    # tên/đơn vị + có SX trực tiếp được không + tồn tối thiểu, theo product_id hiện hành
+    names, candirect, mins = {}, {}, {}
+    for r in conn.execute("SELECT id, name, unit, can_produce_directly, min_stock FROM products").fetchall():
         names[r["id"]] = (r["name"], r["unit"])
         candirect[r["id"]] = (r["can_produce_directly"] != 0)
+        mins[r["id"]] = float(r["min_stock"] or 0)
 
     products = []
     for key, need in net.items():
@@ -190,7 +194,7 @@ def _compute(conn) -> dict:
         # Gợi ý NGUYÊN LIỆU: LUÔN hiện nếu SP có công thức (kể cả SP đủ hàng — tồn NL
         # ảnh hưởng quyết định). NL cần = ratio × phần thiếu (0 khi đủ → chỉ xem tồn).
         # Đệ quy: NL cũng thiếu → gợi ý NL cấp dưới.
-        ingredients = _ingredients(conn, d["code"], short, stock, names)
+        ingredients = _ingredients(conn, d["code"], short, stock, names, mins)
         # Số cây 1 mâm → quy phần thiếu ra "≈ N mâm" (tiếng nghề, thợ hiểu ngay)
         cpm = 0.0
         if short > 1e-9:
@@ -206,6 +210,7 @@ def _compute(conn) -> dict:
             "orders": len(d["orders"]), "orders_detail": porders.get(key, []),
             "ingredients": ingredients, "cay_per_mam": round(cpm, 3),
             "can_direct": candirect.get(pid, True) if pid is not None else True,
+            "min_stock": round(float(mins.get(pid, 0.0)), 3) if pid is not None else 0.0,
         })
     products.sort(key=lambda p: (-p["shortfall"], -p["need"], p["code"]))
 
