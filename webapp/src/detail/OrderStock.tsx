@@ -165,22 +165,24 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
             </div>
 
             {mine.length > 0 && (
-              <div class="sk-chips">
+              <div class="box-grid lbl-grid dense no-code sk-grid">
                 {mine.map((a) => {
                   const num = (a.box_code || "").split("-").pop() || a.box_code;
                   // Bấm → chi tiết thùng + cuộn/nháy đúng event xuất-kho này trong Lịch sử
                   const hts = a.allocated_at ? Math.floor(Date.parse(a.allocated_at) / 1000) : 0;
+                  const bq = a.box_quantity || 0;
+                  const fill = bq > 0 ? Math.max(0, Math.min(100, (a.quantity / bq) * 100)) : 100;
                   return (
-                    <span class="sk-chip" id={`box-${a.box_id}`} key={a.allocation_id}>
-                      <a class="sk-chip-main" href={`#/thung/${a.box_id}${hts ? `?focus=hist:${hts}` : ""}`}
-                        title={`${a.box_code} · lấy ${soVN(a.quantity)}${a.box_quantity ? `/${soVN(a.box_quantity)}` : ""}`}>
-                        <span class="sk-num">{num}</span><span class="sk-q">{soVN(a.quantity)}</span>
-                      </a>
-                      <button class={"sk-x" + (locked ? " faded" : "")} disabled={busy} title="Thu hồi"
+                    <a class="box-lbl in" id={`box-${a.box_id}`} key={a.allocation_id}
+                      href={`#/thung/${a.box_id}${hts ? `?focus=hist:${hts}` : ""}`} style={{ "--fill": `${fill}%` } as any}
+                      title={`${a.box_code} · lấy ${soVN(a.quantity)}${bq ? `/${soVN(bq)}` : ""}${a.place_name ? ` · ${a.place_name}` : ""}`}>
+                      <button class={"bl-x" + (locked ? " faded" : "")} disabled={busy} title="Thu hồi"
                         onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); doRelease(a); }}>
                         <Icon name="close" size={12} />
                       </button>
-                    </span>
+                      <span class="bl-q">{soVN(a.quantity)}{bq ? <span class="bl-q-tot">/{soVN(bq)}</span> : ""}</span>
+                      <span class="bl-num">{num}</span>
+                    </a>
                   );
                 })}
               </div>

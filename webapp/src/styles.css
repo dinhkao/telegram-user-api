@@ -1344,6 +1344,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .lbl-grid.dense .box-lbl .bl-q { font-size: 1.7rem; }
 .lbl-grid.dense .box-lbl .bl-num { font-size: .64rem; padding: 1px 1px; }
 .lbl-grid.dense .box-lbl .bl-code { padding: 1px 2px; }
+.lbl-grid.dense .box-lbl .bl-x { width: 17px; height: 17px; border-radius: 0 7px 0 7px; }
+.sk-grid { margin-top: 7px; }
 /* Nút thu hồi (×) trên ô thùng đã xuất cho đơn */
 .box-lbl .bl-x { position: absolute; top: 2px; right: 2px; z-index: 2; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 0 9px 0 8px; background: var(--danger); color: #fff; cursor: pointer; }
 .box-lbl .bl-x:active { opacity: .7; }
