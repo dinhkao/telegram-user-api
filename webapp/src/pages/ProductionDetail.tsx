@@ -30,6 +30,15 @@ import { Loading } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { fastScrollToEl } from "../scroll";
 
+// "còn X giờ Y phút" tới lúc tự khoá (từ ISO lock_at); null nếu đã qua/không có
+function untilLock(iso?: string | null): string | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso) - Date.now();
+  if (!(ms > 0)) return null;
+  const h = Math.floor(ms / 3600e3), m = Math.floor((ms % 3600e3) / 60000);
+  return h > 0 ? `${h} giờ ${m} phút` : `${m} phút`;
+}
+
 export function ProductionDetail({ threadId, focus }: { threadId: string; focus?: string }) {
   const [slip, setSlip] = useState<ProdSlip | null>(null);
   const [catalog, setCatalog] = useState<ProdCatalogItem[]>([]);
@@ -37,6 +46,8 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   const [err, setErr] = useState("");
   const [noteInput, setNoteInput] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
+  const [, setTick] = useState(0);   // nhịp phút để đếm ngược tự khoá cập nhật
+  useEffect(() => { const t = setInterval(() => setTick((x) => x + 1), 60000); return () => clearInterval(t); }, []);
   const reloadTimer = useRef<any>(null);
 
   const reload = async () => {
@@ -185,6 +196,12 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
         <div class="prod-lock-banner">
           <Icon name="lock" size={15} /> Phiếu đã khoá{slip.lock_override === "locked" ? " (admin khoá)" : " (quá 24h)"} — chỉ trao đổi (bình luận/ảnh) được.
           {currentUser()?.role === "admin" && <span class="muted small"> Admin có thể mở khoá bên dưới.</span>}
+        </div>
+      )}
+
+      {!locked && untilLock(slip.lock_at) && (
+        <div class="prod-lock-hint">
+          <Icon name="clock" size={14} /> Tự khoá sau <b>{untilLock(slip.lock_at)}</b> nữa — sửa được tới lúc đó.
         </div>
       )}
 

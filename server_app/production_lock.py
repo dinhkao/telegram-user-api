@@ -36,6 +36,21 @@ def is_locked(slip: dict | None) -> bool:
     return datetime.now(_VN_TZ) - dt >= timedelta(hours=_LOCK_HOURS)
 
 
+def lock_at(slip: dict | None) -> str | None:
+    """ISO thời điểm phiếu TỰ khoá (tạo + 24h) khi CÒN đếm ngược; None nếu đã khoá,
+    override, hoặc không rõ ngày tạo. Client dùng để hiện 'còn X giờ nữa khoá'."""
+    ov = (slip or {}).get("lock_override")
+    if ov in ("unlocked", "locked"):
+        return None
+    dt = _created((slip or {}).get("date_code"))
+    if dt is None:
+        return None
+    deadline = dt + timedelta(hours=_LOCK_HOURS)
+    if datetime.now(_VN_TZ) >= deadline:
+        return None
+    return deadline.isoformat()
+
+
 def _load_slip(thread_id: int) -> dict | None:
     from production_store import get_slip
     from utils.db import get_connection

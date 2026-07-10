@@ -540,6 +540,7 @@ export type ProdSlip = {
   pct?: number | null;
   locked?: boolean;                 // phiếu khoá (tự 24h / admin) → chỉ trao đổi
   lock_override?: "locked" | "unlocked" | null;
+  lock_at?: string | null;          // ISO tạo+24h khi còn đếm ngược tự khoá
 };
 
 export type ProdCatalogItem = { code: string; mam: number | null; luong: number | null; cay_1_chao: number | null };

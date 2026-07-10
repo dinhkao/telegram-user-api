@@ -33,7 +33,7 @@ from production_store import (
     set_lock_override,
 )
 from production_store.domain import parse_report, compute_report
-from server_app.production_lock import is_locked as _prod_is_locked, locked_error as _prod_locked_error
+from server_app.production_lock import is_locked as _prod_is_locked, locked_error as _prod_locked_error, lock_at as _prod_lock_at
 from utils.db import get_connection
 
 _VN_TZ = timezone(timedelta(hours=7))
@@ -86,6 +86,7 @@ def build_production_row(thread_id) -> dict | None:
         # Khoá phiếu: tự khoá 24h sau khi tạo; admin ghi đè. locked = hiệu lực cuối.
         "locked": _prod_is_locked(slip),
         "lock_override": slip.get("lock_override"),
+        "lock_at": _prod_lock_at(slip),   # ISO tạo+24h khi còn đếm ngược (else None)
         # báo cáo thợ (card SX): luôn có mặt để realtime patch GHI ĐÈ giá trị cũ
         "report_total": rep.get("total") or 0,
         "report_workers": rep.get("workers") or [],
