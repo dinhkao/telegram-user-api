@@ -72,7 +72,9 @@ function groupByProduct(bs: PlaceBox[]): [string, PlaceBox[]][] {
 function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
   const amt = it.amount ?? Math.abs(it.delta);
   const rem = it.remaining;                       // tồn thùng SAU biến động
-  const before = rem != null ? Math.round((it.dir === "out" ? rem + amt : rem - amt) * 1000) / 1000 : null;
+  // Chuyển KHO: cả thùng đổi vị trí, số lượng KHÔNG đổi → không có before→after
+  const isMove = it.kind === "moved_in" || it.kind === "moved_out";
+  const before = rem != null && !isMove ? Math.round((it.dir === "out" ? rem + amt : rem - amt) * 1000) / 1000 : null;
   const chip = (num?: string) => <span class="pt-bchip"><span class="pt-bn">{num}</span></span>;
   // Cắt order text để "thùng còn…" (info sau) không bị clamp 2 dòng nuốt mất
   const otxt = it.order_text ? (it.order_text.length > 30 ? it.order_text.slice(0, 30).trimEnd() + "…" : it.order_text) : "";
@@ -99,7 +101,8 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
         <b class="pt-sp">{it.product_code}</b> {chip(it.box_num)}{" "}
         {it.actor && it.actor !== "?" ? <><b class="pt-who">{it.actor}</b> </> : null}
         {act}
-        {before != null ? <span class="muted"> · thùng còn <span class="pt-prog">{soVN(before)}→<b>{soVN(rem!)}</b></span></span> : null}
+        {before != null ? <span class="muted"> · thùng còn <span class="pt-prog">{soVN(before)}→<b>{soVN(rem!)}</b></span></span>
+          : isMove && rem != null ? <span class="muted"> · thùng còn <b class="pt-prog">{soVN(rem)}</b></span> : null}
       </span>
     </>
   );
