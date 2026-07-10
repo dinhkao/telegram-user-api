@@ -1052,6 +1052,14 @@ export async function stockDemand(): Promise<StockDemandResult> {
   return { since: d.since, products: d.products || [], no_products: d.no_products || [], totals: d.totals || {} };
 }
 
+// ── Bản đồ SỐ GỌI thùng (001..999): số nào đang chiếm vs còn trống ──
+export type CallNumberBox = { n: number; code: string; box_id: number; box_code: string; remaining: number; disabled: boolean; product_code: string; product_name: string; place_name: string; mfg_date: string };
+export type CallMapResult = { total: number; occupied: CallNumberBox[]; last: number; next: number | null; counts: { occupied: number; free: number; in_stock: number; disabled: number; collisions: number } };
+export async function callNumbers(): Promise<CallMapResult> {
+  const d = await getJSON("/api/inventory/call-numbers", { cache: false });
+  return { total: d.total || 999, occupied: d.occupied || [], last: d.last || 0, next: d.next ?? null, counts: d.counts || {} };
+}
+
 export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; capacity?: number; reserved?: boolean; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null; unit_id?: number | null; unit_name?: string | null; product_unit?: string; source_thread_id?: number | null };
 
 // ── Công thức sản xuất (BOM): SP cần nguyên liệu theo tỉ lệ ──
