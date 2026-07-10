@@ -2,7 +2,7 @@
 // + thanh nav dưới + banner offline/hàng đợi. Connects to: pages/*, api.ts.
 import { render } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { currentUser, getJSON, replayQueue, netOk, onNetStatus } from "./api";
+import { currentUser, getJSON, replayQueue, netOk, onNetStatus, refreshMe } from "./api";
 import { getQueue } from "./offline";
 import { getStatus, onStatus, onRealtime, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
@@ -266,6 +266,14 @@ function App() {
   // còn màn hình cài server_url — chỉ cần đăng nhập.
   const showLogin = hash === "#/login" || !user;
   const authed = !!user;
+
+  // Đồng bộ role từ server lúc mở app — role cache lúc login có thể CŨ (admin đổi
+  // role sau đó, vd cấp quyền văn phòng). Role đổi → ép render lại để nút theo quyền hiện đúng.
+  const [, bumpRole] = useState(0);
+  useEffect(() => {
+    if (!authed) return;
+    refreshMe().then((changed) => { if (changed) bumpRole((x) => x + 1); }).catch(() => {});
+  }, [authed]);
 
   // Chuẩn hoá URL hash về #/login khi cần đăng nhập — làm trong effect,
   // KHÔNG sửa location trong lúc render (gây trắng trang lần đầu, phải reload).

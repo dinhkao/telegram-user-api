@@ -41,6 +41,23 @@ export function currentUser(): { username: string; display_name: string; role: s
   }
 }
 
+/** Đồng bộ hồ sơ user (role…) từ server — role cache lúc login có thể CŨ (admin đổi
+ *  role sau đó). Gọi lúc mở app để role/quyền luôn đúng, khỏi phải đăng nhập lại.
+ *  Trả true nếu role đổi so với cache. */
+export async function refreshMe(): Promise<boolean> {
+  const tok = getToken();
+  if (!tok) return false;
+  try {
+    const d = await getJSON("/api/auth/me", { cache: false });
+    if (!d?.user) return false;
+    const old = currentUser();
+    setAuth(tok, { username: d.user.username, display_name: d.user.display_name, role: d.user.role });
+    return (old?.role || "") !== (d.user.role || "");
+  } catch {
+    return false;   // offline → giữ cache
+  }
+}
+
 /** Văn phòng = role admin hoặc van_phong. Chỉ văn phòng được: nhận tiền + tạo thanh toán. */
 export function isOffice(): boolean {
   const r = currentUser()?.role;
