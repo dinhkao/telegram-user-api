@@ -62,10 +62,15 @@ function EventRow({ it, idx, srcSlip }: { it: BoxTLItem; idx: number; srcSlip?: 
 function Junction({ height, label, amount }: { height: number; label: string | null; amount?: number | null }) {
   return (
     <li class="pt-junc" style={height ? { height: `${height}px` } : undefined}>
-      <span class="pt-junc-mid">{label ? <span class="fg-label">· {label} ·</span> : null}</span>
+      <span class="pt-junc-mid" />
       <span class="pt-rail">
         <span class="pt-bead">
-          {amount != null && <span class="pt-dot-amt">{soVN(amount)}</span>}
+          {(label || amount != null) && (
+            <span class="pt-bead-info">
+              {label && <span class="pt-bead-gap">{label}</span>}
+              {amount != null && <span class="pt-dot-amt">{soVN(amount)}</span>}
+            </span>
+          )}
           <span class="pt-dot pt-dot-static" />
         </span>
       </span>

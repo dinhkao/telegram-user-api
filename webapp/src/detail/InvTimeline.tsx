@@ -104,10 +104,15 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
 function Junction({ height, label, amount, onDot }: { height: number; label: string | null; amount?: number | null; onDot: () => void }) {
   return (
     <li class="pt-junc" style={height ? { height: `${height}px` } : undefined}>
-      <span class="pt-junc-mid">{label ? <span class="fg-label">· {label} ·</span> : null}</span>
+      <span class="pt-junc-mid" />
       <span class="pt-rail">
         <span class="pt-bead">
-          {amount != null && <span class="pt-dot-amt">{soVN(amount)}</span>}
+          {(label || amount != null) && (
+            <span class="pt-bead-info">
+              {label && <span class="pt-bead-gap">{label}</span>}
+              {amount != null && <span class="pt-dot-amt">{soVN(amount)}</span>}
+            </span>
+          )}
           <button class="pt-dot" title="Xem lúc này có những thùng nào" onClick={onDot} />
         </span>
       </span>

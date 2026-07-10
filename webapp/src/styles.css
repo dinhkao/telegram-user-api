@@ -1290,8 +1290,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* chấm tồn TRƯỢT trong khe theo cuộn (JS đặt top; -50% để canh giữa) */
 .pt-bead { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
   display: flex; align-items: center; justify-content: center; }
-.pt-dot-amt { position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
-  font-size: .74rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
+/* nhãn cạnh chấm (số tồn + khoảng thời gian) — TRƯỢT cùng chấm vì nằm trong .pt-bead */
+.pt-bead-info { position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; gap: 8px; white-space: nowrap; pointer-events: none; }
+.pt-dot-amt { font-size: .74rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.pt-bead-gap { font-size: .72rem; font-style: italic; color: var(--muted-2); white-space: nowrap; }
 .pt-dot.in { border-color: var(--ok); }
 .pt-dot.out { border-color: var(--danger); }
 .pt-card-link { text-decoration: none; color: inherit; display: block; }
