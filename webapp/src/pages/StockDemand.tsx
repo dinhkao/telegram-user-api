@@ -1,11 +1,30 @@
 // Nhu cầu kho hôm nay vs tồn (#/nhu-cau). Tổng hàng các đơn TẠO HÔM NAY chưa xuất
 // kho còn cần, đối chiếu tồn hiện tại → đủ / thiếu theo từng SP. Data: stockDemand().
 import { useEffect, useState } from "preact/hooks";
-import { stockDemand, soVN, type StockDemandResult } from "../api";
+import { stockDemand, soVN, type StockDemandResult, type StockDemandIngredient } from "../api";
 import { onRealtime } from "../realtime";
 import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
+
+// 1 dòng nguyên liệu (đệ quy: NL thiếu → NL cấp dưới, thụt lề theo tầng)
+function IngRow({ g, depth }: { g: StockDemandIngredient; depth: number }) {
+  const hasNeed = g.need > 0;
+  return (
+    <>
+      <a class="sd-ing" href={`#/kho/${encodeURIComponent(g.code)}`} style={{ marginLeft: `${depth * 14}px` }}>
+        <span class="sd-ing-main">
+          <span class="sd-ing-code">{depth > 0 ? <span class="sd-ing-tick">└ </span> : null}<b>{g.code}</b>{g.name ? <span class="muted small"> · {g.name}</span> : null}</span>
+          <span class="sd-ing-nums">{hasNeed ? <>cần <b>{soVN(g.need)}</b>{g.unit ? ` ${g.unit}` : ""} · </> : null}tồn {soVN(g.stock)}{g.unit ? ` ${g.unit}` : ""}</span>
+        </span>
+        {hasNeed
+          ? <span class={"sd-badge " + (g.enough ? "ok" : "short")}>{g.enough ? "đủ" : `thiếu ${soVN(g.shortfall)}`}</span>
+          : <span class="sd-ing-have">còn hàng</span>}
+      </a>
+      {(g.children || []).map((c) => <IngRow g={c} depth={depth + 1} key={c.code} />)}
+    </>
+  );
+}
 
 export function StockDemand() {
   const [data, setData] = useState<StockDemandResult | null>(null);
@@ -91,16 +110,8 @@ export function StockDemand() {
                       </a>
                       {p.ingredients && p.ingredients.length > 0 && (
                         <div class="sd-ings">
-                          <div class="sd-ings-h">🧪 Nguyên liệu để bù thiếu {soVN(p.shortfall)}{p.unit ? ` ${p.unit}` : ""}</div>
-                          {p.ingredients.map((g) => (
-                            <a class="sd-ing" href={`#/kho/${encodeURIComponent(g.code)}`} key={g.code}>
-                              <span class="sd-ing-main">
-                                <span class="sd-ing-code"><b>{g.code}</b>{g.name ? <span class="muted small"> · {g.name}</span> : null}</span>
-                                <span class="sd-ing-nums">cần <b>{soVN(g.need)}</b>{g.unit ? ` ${g.unit}` : ""} · tồn {soVN(g.stock)}</span>
-                              </span>
-                              <span class={"sd-badge " + (g.enough ? "ok" : "short")}>{g.enough ? "đủ" : `thiếu ${soVN(g.shortfall)}`}</span>
-                            </a>
-                          ))}
+                          <div class="sd-ings-h">🧪 Nguyên liệu{p.shortfall > 0 ? ` để bù thiếu ${soVN(p.shortfall)}${p.unit ? ` ${p.unit}` : ""}` : " (tham khảo tồn)"}</div>
+                          {p.ingredients.map((g) => <IngRow g={g} depth={0} key={g.code} />)}
                         </div>
                       )}
                     </div>
