@@ -136,6 +136,7 @@ def _compute(conn) -> dict:
     names = {r["id"]: (r["name"], r["unit"]) for r in conn.execute(
         "SELECT id, name, unit FROM products").fetchall()}
 
+    from recipe_store import list_recipe
     products = []
     for key, need in net.items():
         if need <= 1e-9:
@@ -145,11 +146,28 @@ def _compute(conn) -> dict:
         st = stock.get(pid, 0.0) if pid is not None else 0.0
         nm, unit = names.get(pid, ("", "")) if pid is not None else ("", "")
         short = max(0.0, need - st)
+        # Gợi ý NGUYÊN LIỆU để bù phần thiếu: SP có công thức → NL cần = ratio × thiếu,
+        # đối chiếu tồn NL (cùng map tồn theo product_id). Rỗng nếu SP không có công thức.
+        ingredients = []
+        if short > 1e-9:
+            for rl in list_recipe(conn, d["code"]):
+                iid = rl.get("ingredient_id")
+                m_need = round(float(rl.get("ratio") or 0) * short, 3)
+                if m_need <= 0:
+                    continue
+                m_stock = round(float(stock.get(iid, 0.0)), 3) if iid is not None else 0.0
+                inm, iunit = names.get(iid, ("", "")) if iid is not None else ("", "")
+                ingredients.append({
+                    "code": rl.get("ingredient_code"), "name": inm or "", "unit": iunit or "",
+                    "need": m_need, "stock": m_stock,
+                    "enough": m_stock + 1e-9 >= m_need, "shortfall": round(max(0.0, m_need - m_stock), 3),
+                })
         products.append({
             "code": d["code"], "name": nm or "", "unit": unit or "",
             "need": round(need, 3), "stock": round(st, 3),
             "enough": st + 1e-9 >= need, "shortfall": round(short, 3),
             "orders": len(d["orders"]), "orders_detail": porders.get(key, []),
+            "ingredients": ingredients,
         })
     products.sort(key=lambda p: (-p["shortfall"], -p["need"], p["code"]))
 

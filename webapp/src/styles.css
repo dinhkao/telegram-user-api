@@ -1377,6 +1377,14 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .sd-ord-lbl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; }
 .sd-ord-need { flex: 0 0 auto; font-size: .84rem; font-weight: 700; white-space: nowrap; }
 .sd-ord-sp { background: var(--card); }
+/* Gợi ý nguyên liệu (BOM) cho SP thiếu hàng */
+.sd-ings { background: var(--card); border-top: 2px solid var(--border); padding: 8px 12px 4px; }
+.sd-ings-h { font-size: .8rem; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+.sd-ing { display: flex; align-items: center; gap: 10px; padding: 7px 8px; margin-bottom: 4px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); text-decoration: none; color: inherit; }
+.sd-ing:active { background: rgba(0, 0, 0, .04); }
+.sd-ing-main { flex: 1 1 auto; min-width: 0; }
+.sd-ing-code { display: block; font-size: .9rem; }
+.sd-ing-nums { display: block; font-size: .82rem; color: var(--muted); margin-top: 1px; }
 /* Nút thu hồi (×) trên ô thùng đã xuất cho đơn */
 .box-lbl .bl-x { position: absolute; top: 2px; right: 2px; z-index: 2; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 0 9px 0 8px; background: var(--danger); color: #fff; cursor: pointer; }
 .box-lbl .bl-x:active { opacity: .7; }

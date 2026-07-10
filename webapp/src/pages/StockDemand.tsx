@@ -89,6 +89,20 @@ export function StockDemand() {
                         <span class="sd-ord-lbl muted">Chi tiết SP {p.code}</span>
                         <span class="sd-ord-need muted">→</span>
                       </a>
+                      {p.ingredients && p.ingredients.length > 0 && (
+                        <div class="sd-ings">
+                          <div class="sd-ings-h">🧪 Nguyên liệu để bù thiếu {soVN(p.shortfall)}{p.unit ? ` ${p.unit}` : ""}</div>
+                          {p.ingredients.map((g) => (
+                            <a class="sd-ing" href={`#/kho/${encodeURIComponent(g.code)}`} key={g.code}>
+                              <span class="sd-ing-main">
+                                <span class="sd-ing-code"><b>{g.code}</b>{g.name ? <span class="muted small"> · {g.name}</span> : null}</span>
+                                <span class="sd-ing-nums">cần <b>{soVN(g.need)}</b>{g.unit ? ` ${g.unit}` : ""} · tồn {soVN(g.stock)}</span>
+                              </span>
+                              <span class={"sd-badge " + (g.enough ? "ok" : "short")}>{g.enough ? "đủ" : `thiếu ${soVN(g.shortfall)}`}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
