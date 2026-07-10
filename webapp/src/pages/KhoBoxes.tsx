@@ -86,7 +86,6 @@ export function KhoBoxes() {
   const [q, setQ] = useState(memQ);
   const [boxView, setBoxView] = useState<"grid" | "compact">(memBoxView);
   useEffect(() => { memBoxView = boxView; }, [boxView]);
-  const [openUnplaced, setOpenUnplaced] = useState(false);
   useEffect(() => { memQ = q; }, [q]);
 
   const load = async () => {
@@ -240,26 +239,26 @@ export function KhoBoxes() {
       {places.length === 0 && unplaced.length === 0 ? (
         <EmptyState>Chưa có vị trí kho. Tạo ở <a href="#/vi-tri">Vị trí kho</a>.</EmptyState>
       ) : (
-        <div class="kho-loc-list">
-          {sortedPlaces.map((p) => (
-            <LocCard key={p.id} p={p} bs={boxes.filter((b) => b.place_id === p.id)} />
-          ))}
-
-          {unplaced.length > 0 && (
-            <div class="kho-loc-card unplaced" onClick={() => setOpenUnplaced((v) => !v)}>
-              <div class="kho-loc-thumb ph"><Icon name="box" size={26} /></div>
-              <div class="kho-loc-main">
-                <div class="kho-loc-name muted">Chưa xếp vị trí</div>
-                <div class="kho-loc-meta"><b>{unplaced.length}</b> thùng · <b class="kho-loc-t">{soVN(unplaced.reduce((s, b) => s + rem(b), 0))}</b> tồn</div>
-                <ProdChips prods={prodAgg(unplaced)} />
-              </div>
-              <Icon name="chevronRight" size={18} class={"kg-arrow" + (openUnplaced ? " open" : "")} />
-            </div>
-          )}
-          {openUnplaced && unplaced.length > 0 && (
-            <div class="kho-unplaced-grid"><BoxLabelGrid boxes={unplaced.filter(hasStock).sort(sortBoxes)} /></div>
-          )}
-        </div>
+        <>
+          {/* Thùng CHƯA XẾP kho lên ĐẦU (dạng chip) — nhắc xếp vào vị trí */}
+          {(() => {
+            const un = unplaced.filter(hasStock);
+            if (!un.length) return null;
+            return (
+              <section class="card kho-unplaced-top">
+                <div class="kho-unplaced-lbl"><Icon name="box" size={15} /> Chưa xếp kho
+                  <span class="muted small"> · {un.length} thùng · {soVN(un.reduce((s, b) => s + rem(b), 0))} tồn</span>
+                </div>
+                <CompactBoxList boxes={un} />
+              </section>
+            );
+          })()}
+          <div class="kho-loc-list">
+            {sortedPlaces.map((p) => (
+              <LocCard key={p.id} p={p} bs={boxes.filter((b) => b.place_id === p.id)} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

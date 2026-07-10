@@ -1155,6 +1155,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .kho-loc-pqty { color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
 .kho-loc-pmore { font-size: .78rem; color: var(--muted); padding: 3px 0 0; border-top: 1px solid var(--border); }
 .kho-loc-empty { color: var(--muted); font-size: .85rem; }
+/* Thùng chưa xếp kho — section nổi bật ở đầu dashboard kho */
+.kho-unplaced-top { border-color: #ecd28a; background: var(--warn-wash, #fff8e6); margin-bottom: 10px; }
+.kho-unplaced-lbl { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: .92rem; color: #7a5a00; margin-bottom: 8px; }
 .kho-loc-card .kg-arrow { align-self: center; flex: 0 0 auto; color: var(--muted); transition: transform .15s; }
 .kho-loc-card .kg-arrow.open { transform: rotate(90deg); }
 .kho-unplaced-grid { padding: 2px 2px 6px; }
