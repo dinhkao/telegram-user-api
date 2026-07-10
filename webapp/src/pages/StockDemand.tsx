@@ -41,10 +41,11 @@ function dueInfo(iso?: string): { text: string; urgent: boolean } | null {
 // Thanh TỒN KHO: full = tổng tồn của SP; mỗi ĐƠN chiếm 1 khúc % theo tồn.
 // Đơn vượt tồn (thiếu) → khúc tràn qua vạch tồn, vùng vượt gạch đỏ.
 const SB_PAL = ["#4C9AFF", "#57D9A3", "#B37FEB", "#F78C6C", "#00B8D9", "#FFAB00"];
-function StockBar({ stock, need, orders }: { stock: number; need: number; orders?: StockDemandOrder[] }) {
+function StockBar({ stock, need, orders, showNum = true }: { stock: number; need: number; orders?: StockDemandOrder[]; showNum?: boolean }) {
   const scale = Math.max(stock, need, 0.0001);
   const stockPct = Math.min(100, (stock / scale) * 100);
   const over = need > stock + 1e-6;
+  const rem = Math.round((stock - need) * 1000) / 1000;
   const segs = orders && orders.length ? orders : (need > 0 ? [{ thread_id: 0, need, label: "" } as StockDemandOrder] : []);
   let acc = 0;
   return (
@@ -58,6 +59,11 @@ function StockBar({ stock, need, orders }: { stock: number; need: number; orders
       })}
       {over && <span class="sb-over" style={{ left: `${stockPct}%` }} />}
       {over && <span class="sb-line" style={{ left: `${stockPct}%` }} />}
+      {showNum && (
+        <span class={"sb-num" + (rem > 0 ? " ok" : rem === 0 ? " zero" : " neg")}>
+          {rem > 0 ? <>còn <b>{soVN(rem)}</b></> : rem === 0 ? "hết" : <>thiếu <b>{soVN(-rem)}</b></>}
+        </span>
+      )}
     </div>
   );
 }
@@ -146,7 +152,7 @@ function MakeTicket({ p, i }: { p: StockDemandLine; i: number }) {
         <span class="nd-def-unit">{p.unit || "cây"}</span>
         <span class="nd-def-ctx">tồn {soVN(p.stock)} · cần {soVN(p.need)} · {p.orders} đơn</span>
       </div>
-      <StockBar stock={p.stock} need={p.need} orders={det} />
+      <StockBar stock={p.stock} need={p.need} orders={det} showNum={false} />
 
       <MakeVerdict p={p} state={state} />
 
@@ -259,20 +265,15 @@ export function StockDemand() {
             </button>
             {openOk && (
               <div class="nd-ok-list">
-                {okList.map((p) => {
-                  const rem = Math.round((p.stock - p.need) * 1000) / 1000;
-                  const tight = rem <= 0;
-                  return (
-                    <a class="nd-ok-row" href={`#/kho/${encodeURIComponent(p.code)}`} key={p.code}>
-                      <div class="nd-ok-top">
-                        <span class="nd-ok-code">{p.code}{p.name ? <span class="nd-dim"> {p.name}</span> : null}</span>
-                        <span class={"nd-rem" + (tight ? " tight" : "")}>{rem > 0 ? <>còn <b>{soVN(rem)}</b> sau đơn</> : "hết sạch sau đơn"}</span>
-                      </div>
-                      <StockBar stock={p.stock} need={p.need} orders={p.orders_detail} />
-                      <div class="nd-ok-foot">cần {soVN(p.need)}{p.unit ? ` ${p.unit}` : ""} · tồn {soVN(p.stock)}</div>
-                    </a>
-                  );
-                })}
+                {okList.map((p) => (
+                  <a class="nd-ok-row" href={`#/kho/${encodeURIComponent(p.code)}`} key={p.code}>
+                    <div class="nd-ok-top">
+                      <span class="nd-ok-code">{p.code}{p.name ? <span class="nd-dim"> {p.name}</span> : null}</span>
+                      <span class="nd-ok-foot">cần {soVN(p.need)}{p.unit ? ` ${p.unit}` : ""} · tồn {soVN(p.stock)}</span>
+                    </div>
+                    <StockBar stock={p.stock} need={p.need} orders={p.orders_detail} />
+                  </a>
+                ))}
               </div>
             )}
           </section>
