@@ -7,6 +7,27 @@ import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 
+// Bar trực quan: chiều dài = tồn kho (hoặc tổng cần nếu cần > tồn). Mỗi ĐƠN = 1 khúc
+// màu chiếm % theo bar; vạch đứt = mốc hết tồn; phần vượt mốc = gạch đỏ (thiếu).
+const DB_PALETTE = ["#4C9AFF", "#57D9A3", "#FFAB00", "#F78C6C", "#B37FEB", "#00B8D9", "#FF8F73", "#4FD1C5"];
+function DemandBar({ stock, need, orders }: { stock: number; need: number; orders: { thread_id: number; need: number; label: string }[] }) {
+  const scale = Math.max(stock, need, 0.0001);
+  const stockPct = Math.min(100, (stock / scale) * 100);
+  const over = need > stock + 1e-6;
+  return (
+    <div class="db-wrap">
+      <div class="db-bar">
+        {orders.map((o, i) => (
+          <div class="db-seg" key={o.thread_id} title={`${o.label}: cần ${soVN(o.need)}`}
+            style={{ width: `${(o.need / scale) * 100}%`, background: DB_PALETTE[i % DB_PALETTE.length] }} />
+        ))}
+        {over && <div class="db-short-ov" style={{ left: `${stockPct}%` }} />}
+        <div class="db-stock-line" style={{ left: `${stockPct}%` }} title={`Hết tồn ở đây (${soVN(stock)})`} />
+      </div>
+    </div>
+  );
+}
+
 // 1 dòng nguyên liệu (đệ quy: NL thiếu → NL cấp dưới, thụt lề theo tầng)
 function IngRow({ g, depth }: { g: StockDemandIngredient; depth: number }) {
   const hasNeed = g.need > 0;
@@ -77,13 +98,11 @@ export function StockDemand() {
 
           <div class="sd-list">
             {products.map((p) => {
-              const pct = p.need > 0 ? Math.max(0, Math.min(100, (p.stock / p.need) * 100)) : 100;
               const det = p.orders_detail || [];
               const isOpen = open.has(p.code);
               return (
                 <div class={"sd-item " + (p.enough ? "ok" : "short")} key={p.code}>
-                  <button class={"sd-row " + (p.enough ? "ok" : "short")} onClick={() => toggle(p.code)}
-                    style={{ "--sd-fill": `${pct}%` } as any}>
+                  <button class={"sd-row " + (p.enough ? "ok" : "short")} onClick={() => toggle(p.code)}>
                     <Icon name={isOpen ? "chevronDown" : "chevronRight"} size={16} class="sd-chev" />
                     <div class="sd-main">
                       <div class="sd-code"><b>{p.code}</b>{p.name ? <span class="muted small"> · {p.name}</span> : null}</div>
@@ -91,6 +110,7 @@ export function StockDemand() {
                         cần <b>{soVN(p.need)}</b>{p.unit ? ` ${p.unit}` : ""} · tồn <b>{soVN(p.stock)}</b>
                         <span class="muted small"> · {p.orders} đơn</span>
                       </div>
+                      <DemandBar stock={p.stock} need={p.need} orders={det} />
                     </div>
                     <div class={"sd-badge " + (p.enough ? "ok" : "short")}>
                       {p.enough ? "đủ" : `thiếu ${soVN(p.shortfall)}`}

@@ -1370,6 +1370,15 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .sd-badge { flex: 0 0 auto; padding: 4px 10px; border-radius: 999px; font-size: .82rem; font-weight: 800; white-space: nowrap; }
 .sd-badge.ok { background: var(--ok); color: #fff; }
 .sd-badge.short { background: var(--danger); color: #fff; }
+/* Bar trực quan nhu cầu: khúc màu = từng đơn, vạch = mốc hết tồn, gạch đỏ = thiếu */
+.db-wrap { margin-top: 6px; }
+.db-bar { position: relative; display: flex; height: 15px; border-radius: 5px; overflow: hidden;
+  background: var(--ok-wash); border: 1px solid var(--border); }
+.db-seg { height: 100%; min-width: 2px; box-shadow: inset -1px 0 0 rgba(255, 255, 255, .65); }
+.db-short-ov { position: absolute; top: 0; bottom: 0; right: 0; pointer-events: none;
+  background: repeating-linear-gradient(45deg, rgba(224, 49, 49, 0) 0 3px, rgba(224, 49, 49, .45) 3px 7px); }
+.db-stock-line { position: absolute; top: -1px; bottom: -1px; width: 0; pointer-events: none;
+  border-left: 2px dashed var(--ink); }
 .sd-orders { border-top: 1px solid var(--border); background: var(--bg); }
 .sd-ord { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px 9px 34px; text-decoration: none; color: inherit; border-bottom: 1px solid var(--border); }
 .sd-ord:last-child { border-bottom: none; }
