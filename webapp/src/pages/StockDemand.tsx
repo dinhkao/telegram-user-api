@@ -243,6 +243,17 @@ function ProductCard({ p, i, defaultOpen, openOverride }: { p: StockDemandLine; 
   );
 }
 
+// ── hàng GỌN (view compact): chỉ mã SP + số cần làm, viền trái theo mức độ ───
+function CompactRow({ p }: { p: StockDemandLine }) {
+  const u = p.unit || "cây";
+  return (
+    <a class={"nd-crow " + sevOf(p)} href={`#/kho/${enc(p.code)}`}>
+      <span class="nd-crow-code">{p.code}</span>
+      <span class="nd-crow-sf">thiếu <b>{soVN(p.shortfall)}</b> {u}</span>
+    </a>
+  );
+}
+
 // gộp thống kê 1 vùng: số mã + Σ thiếu + đơn vị chung (khác đơn vị → "cây")
 function bucketStat(list: StockDemandLine[]) {
   const sum = r3(list.reduce((s, p) => s + p.shortfall, 0));
@@ -256,6 +267,8 @@ export function StockDemand() {
   const [err, setErr] = useState("");
   const [goAllOpen, setGoAllOpen] = useState<boolean | null>(null);   // "Mở hết / Ẩn hết" vùng LÀM ĐƯỢC
   const [showOk, setShowOk] = useState<boolean | null>(null);          // gập vùng ĐỦ HÀNG (mặc định mở)
+  const [view, setView] = useState<"full" | "compact">(() => localStorage.getItem("nd_view") === "compact" ? "compact" : "full");
+  const setViewMode = (m: "full" | "compact") => { try { localStorage.setItem("nd_view", m); } catch { /* ignore */ } setView(m); };
 
   const load = async () => {
     try { setData(await stockDemand()); setErr(""); }
@@ -278,6 +291,10 @@ export function StockDemand() {
       <div class="nd-head-t">
         <div class="nd-head-title">Cần làm hàng</div>
         <div class="nd-head-sub">Đơn đang chờ, chưa xuất kho</div>
+      </div>
+      <div class="view-slider" role="group" aria-label="Kiểu xem">
+        <button class={view === "full" ? "vs-seg on" : "vs-seg"} title="Chi tiết" aria-pressed={view === "full"} onClick={() => setViewMode("full")}>☰</button>
+        <button class={view === "compact" ? "vs-seg on" : "vs-seg"} title="Gọn" aria-pressed={view === "compact"} onClick={() => setViewMode("compact")}>≣</button>
       </div>
     </div>
   );
@@ -342,8 +359,12 @@ export function StockDemand() {
             <span class="nd-sec-title decide"><Icon name="ban" size={15} /> CẦN QUYẾT ĐỊNH</span>
             <span class="nd-sec-stat">{ds.n} mã · thiếu {soVN(ds.sum)} {ds.u}</span>
           </div>
-          <div class="nd-sec-sub">Phải làm / mua nguyên liệu trước, hoặc cấu hình cách SX</div>
-          {decide.map((p, i) => <ProductCard p={p} i={i} defaultOpen key={p.code} />)}
+          {view === "compact"
+            ? <div class="nd-clist">{decide.map((p) => <CompactRow p={p} key={p.code} />)}</div>
+            : <>
+                <div class="nd-sec-sub">Phải làm / mua nguyên liệu trước, hoặc cấu hình cách SX</div>
+                {decide.map((p, i) => <ProductCard p={p} i={i} defaultOpen key={p.code} />)}
+              </>}
         </section>
       )}
 
@@ -354,11 +375,15 @@ export function StockDemand() {
             <span class="nd-sec-title go"><Icon name="check" size={15} /> LÀM ĐƯỢC</span>
             <span class="nd-sec-right">
               <span class="nd-sec-stat">{gs.n} mã · thiếu {soVN(gs.sum)}</span>
-              <button class="nd-sec-toggle" onClick={() => setGoAllOpen((x) => x !== true)}>{goAllOpen ? "Ẩn hết" : "Mở hết"}</button>
+              {view === "full" && <button class="nd-sec-toggle" onClick={() => setGoAllOpen((x) => x !== true)}>{goAllOpen ? "Ẩn hết" : "Mở hết"}</button>}
             </span>
           </div>
-          <div class="nd-sec-sub">Sẵn sàng — SX trực tiếp hoặc đóng gói</div>
-          {go.map((p, i) => <ProductCard p={p} i={i} defaultOpen={false} openOverride={goAllOpen} key={p.code} />)}
+          {view === "compact"
+            ? <div class="nd-clist">{go.map((p) => <CompactRow p={p} key={p.code} />)}</div>
+            : <>
+                <div class="nd-sec-sub">Sẵn sàng — SX trực tiếp hoặc đóng gói</div>
+                {go.map((p, i) => <ProductCard p={p} i={i} defaultOpen={false} openOverride={goAllOpen} key={p.code} />)}
+              </>}
         </section>
       )}
 

@@ -1376,6 +1376,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .nd-head-t { min-width: 0; }
 .nd-head-title { font-size: 1.18rem; font-weight: 800; letter-spacing: -.01em; }
 .nd-head-sub { font-size: .78rem; color: var(--muted); }
+.nd-head .view-slider { margin-left: auto; }
 
 /* VERDICT — câu phán mở đầu */
 .nd-verdict { display: flex; gap: 12px; padding: 14px 16px; border-radius: 16px; margin-bottom: 16px; animation: nd-in .3s var(--ease, ease) both; }
@@ -1408,6 +1409,16 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .nd-sec-right { display: inline-flex; align-items: center; gap: 10px; }
 .nd-sec-toggle { border: none; background: none; font: inherit; font-size: .76rem; font-weight: 700; color: var(--primary); cursor: pointer; padding: 2px 0; }
 .nd-sec-sub { font-size: .74rem; color: var(--muted); margin: 0 2px 10px; }
+/* view GỌN: 1 hàng = mã SP + số cần làm, viền trái theo mức độ */
+.nd-clist { display: flex; flex-direction: column; gap: 5px; }
+.nd-crow { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--border); text-decoration: none; color: inherit; }
+.nd-crow.blocked, .nd-crow.stuck { border-left-color: var(--danger); }
+.nd-crow.fallback { border-left-color: var(--nd-amber); }
+.nd-crow.makeable { border-left-color: var(--ok); }
+.nd-crow:active { background: var(--bg); }
+.nd-crow-code { flex: 1 1 auto; min-width: 0; font-family: var(--mono); font-weight: 800; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd-crow-sf { flex: 0 0 auto; font-size: .82rem; color: var(--danger); font-variant-numeric: tabular-nums; }
+.nd-crow-sf b { font-size: 1.25rem; font-weight: 800; }
 
 /* THẺ SP CẦN LÀM — top band màu = mức độ; 3 dòng luôn hiện + phần mở rộng */
 .nd-card { position: relative; background: var(--card); border: 1px solid var(--border); border-top-width: 3px;
