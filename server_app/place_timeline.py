@@ -122,6 +122,9 @@ def place_timeline(place_id: int) -> dict:
                 "kind": act.replace("box.", ""), "reason": _REASON.get(act, ""), "product_code": pc,
                 "box_id": p.get("box_id"), "box_code": p.get("box_code"), "box_num": bn,
                 "quantity": p.get("quantity"), "delta": round(delta, 3),
+                # chi tiết thêm cho UI: tồn thùng SAU biến động, đơn (xuất/thu), thùng chuyển sang/nhận
+                "remaining": p.get("remaining"), "order_thread_id": p.get("order_thread_id"),
+                "order_text": p.get("order_text"), "peer_box": _boxnum(p.get("to_box") or p.get("from_box")),
                 "total_after": round(running, 3), "actor": str(r["actor_id"] or "?"),
             })
             running -= delta

@@ -74,7 +74,16 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
     <>
       <span class="pt-time">{hm(it.at)}</span>
       <span class={"pt-tag " + it.dir}>{it.dir === "in" ? "Vào" : "Ra"}</span>
-      <span class="pt-line-txt">{boxLabel(it)} <span class="muted">· {it.reason}</span></span>
+      <span class="pt-line-txt">
+        <b class="pt-sp">{it.product_code}</b>{" "}
+        <span class="pt-bchip">
+          <span class="pt-bn">{it.box_num}</span>
+          {it.remaining != null ? <span class="pt-bq">{soVN(it.remaining)}</span> : null}
+        </span>
+        <span class="muted"> · {it.reason}</span>
+        {it.peer_box ? <span class="muted"> → <span class="pt-bchip"><span class="pt-bn">{it.peer_box}</span></span></span> : null}
+        {it.order_text ? <span class="pt-otext"> · "{it.order_text}"</span> : null}
+      </span>
     </>
   );
   // Bấm → chi tiết thùng + cuộn/nháy đúng thao tác đó trong Lịch sử (?focus=hist:<ts>)

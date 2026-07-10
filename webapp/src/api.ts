@@ -860,7 +860,8 @@ export async function listPlaces(): Promise<Place[]> {
 export type PlaceTLItem = {
   ts: number; at: string; dir: "in" | "out"; kind: string; reason: string;
   product_code: string; box_id?: number | null; box_code?: string | null; box_num?: string;
-  quantity?: number | null; delta: number; total_after: number; actor: string;
+  quantity?: number | null; remaining?: number | null; delta: number; total_after: number; actor: string;
+  order_thread_id?: number | null; order_text?: string | null; peer_box?: string;   // chi tiết
 };
 export type PlaceStockLine = { code: string; qty: number };
 export type PlaceBox = {

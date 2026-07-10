@@ -1198,7 +1198,13 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-tag.in { color: var(--ok); }
 .pt-tag.out { color: var(--danger); }
 .pt-tag.mix { color: var(--muted); }
-.pt-line-txt { flex: 1 1 auto; min-width: 0; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-line-txt { flex: 1 1 auto; min-width: 0; font-size: .85rem; line-height: 1.4; word-break: break-word; }
+.pt-sp { font-weight: 700; color: var(--ink); }
+.pt-bchip { display: inline-flex; align-items: stretch; vertical-align: -2px; border: 1px solid var(--border);
+  border-radius: 6px; overflow: hidden; font-size: .76rem; }
+.pt-bn { padding: 0 5px; font-family: monospace; font-weight: 800; background: var(--card); color: var(--ink); }
+.pt-bq { padding: 0 5px; color: var(--muted); background: var(--bg); border-left: 1px solid var(--border); }
+.pt-otext { color: var(--muted); }
 .pt-inl { color: inherit; text-decoration: underline; text-decoration-color: var(--border); }
 .hist-place-lnk { color: var(--accent, #2563eb); text-decoration: underline; font-weight: 600; }
 .hist-order-lnk { color: var(--accent, #2563eb); text-decoration: underline; }
