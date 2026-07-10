@@ -10,6 +10,8 @@ import { Loading, EmptyState, ErrorState } from "../ui/states";
 export function StockDemand() {
   const [data, setData] = useState<StockDemandResult | null>(null);
   const [err, setErr] = useState("");
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const toggle = (code: string) => setOpen((s) => { const n = new Set(s); n.has(code) ? n.delete(code) : n.add(code); return n; });
 
   const load = async () => {
     try { setData(await stockDemand()); setErr(""); }
@@ -57,20 +59,39 @@ export function StockDemand() {
           <div class="sd-list">
             {products.map((p) => {
               const pct = p.need > 0 ? Math.max(0, Math.min(100, (p.stock / p.need) * 100)) : 100;
+              const det = p.orders_detail || [];
+              const isOpen = open.has(p.code);
               return (
-                <a class={"sd-row " + (p.enough ? "ok" : "short")} href={`#/kho/${encodeURIComponent(p.code)}`} key={p.code}
-                  style={{ "--sd-fill": `${pct}%` } as any}>
-                  <div class="sd-main">
-                    <div class="sd-code"><b>{p.code}</b>{p.name ? <span class="muted small"> · {p.name}</span> : null}</div>
-                    <div class="sd-nums">
-                      cần <b>{soVN(p.need)}</b>{p.unit ? ` ${p.unit}` : ""} · tồn <b>{soVN(p.stock)}</b>
-                      <span class="muted small"> · {p.orders} đơn</span>
+                <div class={"sd-item " + (p.enough ? "ok" : "short")} key={p.code}>
+                  <button class={"sd-row " + (p.enough ? "ok" : "short")} onClick={() => toggle(p.code)}
+                    style={{ "--sd-fill": `${pct}%` } as any}>
+                    <Icon name={isOpen ? "chevronDown" : "chevronRight"} size={16} class="sd-chev" />
+                    <div class="sd-main">
+                      <div class="sd-code"><b>{p.code}</b>{p.name ? <span class="muted small"> · {p.name}</span> : null}</div>
+                      <div class="sd-nums">
+                        cần <b>{soVN(p.need)}</b>{p.unit ? ` ${p.unit}` : ""} · tồn <b>{soVN(p.stock)}</b>
+                        <span class="muted small"> · {p.orders} đơn</span>
+                      </div>
                     </div>
-                  </div>
-                  <div class={"sd-badge " + (p.enough ? "ok" : "short")}>
-                    {p.enough ? "đủ" : `thiếu ${soVN(p.shortfall)}`}
-                  </div>
-                </a>
+                    <div class={"sd-badge " + (p.enough ? "ok" : "short")}>
+                      {p.enough ? "đủ" : `thiếu ${soVN(p.shortfall)}`}
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div class="sd-orders">
+                      {det.map((o) => (
+                        <a class="sd-ord" href={`#/order/${o.thread_id}`} key={o.thread_id}>
+                          <span class="sd-ord-lbl">{o.label}</span>
+                          <span class="sd-ord-need">cần {soVN(o.need)}{p.unit ? ` ${p.unit}` : ""} →</span>
+                        </a>
+                      ))}
+                      <a class="sd-ord sd-ord-sp" href={`#/kho/${encodeURIComponent(p.code)}`}>
+                        <span class="sd-ord-lbl muted">Chi tiết SP {p.code}</span>
+                        <span class="sd-ord-need muted">→</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

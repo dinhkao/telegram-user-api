@@ -43,6 +43,16 @@ def _delivered(j: dict) -> bool:
     return bool((ts.get("giao_hang") or {}).get("done"))
 
 
+def _order_label(j: dict, tid) -> str:
+    hd = j.get("hoadon") or {}
+    pc = (hd.get("print_content") or {}) if isinstance(hd, dict) else {}
+    cust = pc.get("kh") or j.get("customer_name") or j.get("topic_name") or ""
+    if not cust:
+        txt = (j.get("text") or j.get("text_raw") or "").strip()
+        cust = txt.split("\n", 1)[0][:24] if txt else f"#{tid}"
+    return str(cust)
+
+
 def compute_stock_demand() -> dict:
     conn = _get_connection()
     try:
@@ -65,6 +75,7 @@ def _compute(conn) -> dict:
     codemap: dict = {}                 # mã → product dict (cache resolve)
     demand: dict = {}                  # key → {code,name,pid,orders:set}
     per_order: dict = {}               # (tid, key) → Σ sl gross
+    order_label: dict = {}             # tid → nhãn đơn (khách / dòng đầu text)
     for r in rows:
         try:
             j = json.loads(r["json"] or "{}")
@@ -73,6 +84,7 @@ def _compute(conn) -> dict:
         if not isinstance(j, dict) or _delivered(j):
             continue                   # đã giao → hàng đã ra, không tính
         tid = r["thread_id"]
+        order_label[tid] = _order_label(j, tid)
         for it in (j.get("invoice") or j.get("invoice_items") or []):
             code = str(it.get("sp") or "").strip().upper()
             if not code:
@@ -102,11 +114,18 @@ def _compute(conn) -> dict:
         ).fetchall():
             alloc[(a["tid"], a["pid"])] = float(a["q"] or 0)
 
-    # nhu cầu ròng theo SP = Σ max(0, gross − đã xuất) từng đơn
+    # nhu cầu ròng theo SP = Σ max(0, gross − đã xuất) từng đơn; kèm breakdown theo đơn
     net: dict = {}
+    porders: dict = {}                 # key → [{thread_id, need, label}] (đơn còn cần SP này)
     for (tid, key), gross in per_order.items():
         got = alloc.get((tid, key), 0.0) if isinstance(key, int) else 0.0
-        net[key] = net.get(key, 0.0) + max(0.0, gross - got)
+        un = max(0.0, gross - got)
+        net[key] = net.get(key, 0.0) + un
+        if un > 1e-9:
+            porders.setdefault(key, []).append(
+                {"thread_id": tid, "need": round(un, 3), "label": order_label.get(tid, f"#{tid}")})
+    for lst in porders.values():
+        lst.sort(key=lambda o: -o["need"])
 
     # tồn theo product_id (thùng còn hiệu lực)
     stock: dict = {}
@@ -134,7 +153,7 @@ def _compute(conn) -> dict:
             "code": d["code"], "name": nm or "", "unit": unit or "",
             "need": round(need, 3), "stock": round(st, 3),
             "enough": st + 1e-9 >= need, "shortfall": round(short, 3),
-            "orders": len(d["orders"]),
+            "orders": len(d["orders"]), "orders_detail": porders.get(key, []),
         })
     products.sort(key=lambda p: (-p["shortfall"], -p["need"], p["code"]))
 
