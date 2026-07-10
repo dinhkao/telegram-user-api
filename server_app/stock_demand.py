@@ -95,7 +95,8 @@ def _compute(conn) -> dict:
     rows = conn.execute(
         "SELECT thread_id, json FROM orders "
         "WHERE json_extract(json,'$.created') >= ? "
-        "AND json_extract(json,'$.stock_confirmed') IS NULL",
+        "AND json_extract(json,'$.stock_confirmed') IS NULL "
+        "AND deleted_at IS NULL",   # bỏ đơn đã xoá mềm (bấm vào sẽ 404)
         (threshold,),
     ).fetchall()
 
