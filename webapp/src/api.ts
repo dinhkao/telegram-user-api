@@ -863,6 +863,7 @@ export type PlaceTLItem = {
   quantity?: number | null; remaining?: number | null; amount?: number; delta: number; total_after: number; actor: string;
   order_thread_id?: number | null; order_text?: string | null; peer_box?: string;   // chi tiết
   from_name?: string | null; to_name?: string | null;   // kho nguồn/đích khi chuyển kho
+  unit?: string;   // đơn vị đếm SP (cây/gói…) hiện sau số lượng
 };
 export type PlaceStockLine = { code: string; qty: number };
 export type PlaceBox = {

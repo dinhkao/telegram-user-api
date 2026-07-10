@@ -79,6 +79,15 @@ def _stock_by_product(conn, place_id: int) -> list[dict]:
     return [{"code": r[0], "qty": round(float(r[1] or 0), 3)} for r in rows]
 
 
+def _unit_map(conn, codes: set) -> dict:
+    """mã SP → đơn vị đếm (cây/gói…) để hiện sau số lượng. Fallback '' khi không rõ."""
+    codes = {c for c in codes if c}
+    if not codes:
+        return {}
+    q = "SELECT code, COALESCE(unit,'') FROM products WHERE code IN (%s)" % ",".join("?" * len(codes))
+    return {r[0]: (r[1] or "") for r in conn.execute(q, tuple(sorted(codes))).fetchall()}
+
+
 def _current_boxes(conn, place_id: int) -> list[dict]:
     """Thùng HIỆN CÓ ở kho (đủ field cho BoxLabelGrid + dựng lại lịch sử box set)."""
     rows = conn.execute(
@@ -134,6 +143,9 @@ def place_timeline(place_id: int) -> dict:
                 "total_after": round(running, 3), "actor": _actor_display(r["actor_id"], names),
             })
             running -= delta
+        umap = _unit_map(conn, {i["product_code"] for i in items})
+        for i in items:
+            i["unit"] = umap.get(i["product_code"], "")
         return {"ok": True, "place": {"id": place_id, "name": prow[0]},
                 "current_total": round(current, 3), "box_count": box_count,
                 "current_by_product": _stock_by_product(conn, place_id),
