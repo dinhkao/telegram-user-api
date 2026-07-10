@@ -139,7 +139,10 @@ async def production_add_boxes_handler(request: web.Request):
             # Thùng NL người dùng chọn để tiêu hao (body.consume = [{box_id, quantity}]).
             raw_picks = body.get("consume") if isinstance(body.get("consume"), list) else []
             picks = [p for p in raw_picks if isinstance(p, dict) and p.get("box_id")]
-            if kind == "dong_goi":
+            # Admin bật: cho nhập trực tiếp SP đóng gói KHÔNG bắt buộc trừ NL → bỏ mọi gate NL.
+            from settings_store import get_bool
+            allow_no_mat = get_bool("pack_allow_no_material", False)
+            if kind == "dong_goi" and not allow_no_mat:
                 # Kiểm tra theo tổng cây dự kiến của đợt này.
                 needs = recipe_needs(conn, code, sum(quantities))
                 if not needs:
@@ -158,7 +161,7 @@ async def production_add_boxes_handler(request: web.Request):
                 for nd in needs:
                     if got.get(nd["code"], 0.0) + 1e-6 < nd["amount"]:
                         return "short", nd["code"], nd["amount"]
-            elif kind == "san_xuat":
+            elif kind == "san_xuat" and not allow_no_mat:
                 # phiếu SẢN XUẤT chỉ nhập được SP có thể SX trực tiếp (can_produce_directly)
                 from product_store import get_product
                 prod = get_product(conn, code)

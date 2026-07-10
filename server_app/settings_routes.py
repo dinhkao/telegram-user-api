@@ -15,8 +15,9 @@ from settings_store import get_all, set_value
 # key → mô tả (trả kèm cho UI); default xử lý ở nơi ĐỌC (get_bool(key, default))
 _ALLOWED_KEYS = {
     "soan_hang_require_stock": "Ràng buộc quy trình: chốt kho + ảnh → soạn hàng → giao hàng → in HĐ giao",
+    "pack_allow_no_material": "Cho phép nhập trực tiếp SP đóng gói không bắt buộc trừ nguyên liệu",
 }
-_DEFAULTS = {"soan_hang_require_stock": True}
+_DEFAULTS = {"soan_hang_require_stock": True, "pack_allow_no_material": False}
 
 
 async def settings_get_handler(request: web.Request):

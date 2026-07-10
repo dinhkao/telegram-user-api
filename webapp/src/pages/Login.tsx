@@ -32,6 +32,11 @@ function AdminSettings() {
           onChange={() => flip("soan_hang_require_stock")} />
         <span>Ràng buộc quy trình đơn: <b>chốt xuất kho + ảnh</b> → soạn hàng → <b>soạn xong</b> → giao hàng → <b>giao xong</b> → in hoá đơn giao</span>
       </label>
+      <label class="set-row">
+        <input type="checkbox" checked={!!st.pack_allow_no_material} disabled={busy}
+          onChange={() => flip("pack_allow_no_material")} />
+        <span>Cho phép <b>nhập trực tiếp SP đóng gói</b> không bắt buộc trừ nguyên liệu (bỏ qua kiểm tra công thức + loại phiếu khi nhập thùng)</span>
+      </label>
     </div>
   );
 }
