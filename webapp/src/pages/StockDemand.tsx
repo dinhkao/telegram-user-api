@@ -14,13 +14,19 @@ function DemandBar({ stock, need, orders }: { stock: number; need: number; order
   const scale = Math.max(stock, need, 0.0001);
   const stockPct = Math.min(100, (stock / scale) * 100);
   const over = need > stock + 1e-6;
+  let acc = 0;   // vị trí dồn trái của từng khúc đơn
   return (
     <div class="db-wrap">
       <div class="db-bar">
-        {orders.map((o, i) => (
-          <div class="db-seg" key={o.thread_id} title={`${o.label}: cần ${soVN(o.need)}`}
-            style={{ width: `${(o.need / scale) * 100}%`, background: DB_PALETTE[i % DB_PALETTE.length] }} />
-        ))}
+        {orders.map((o, i) => {
+          const left = (acc / scale) * 100;
+          const w = (o.need / scale) * 100;
+          acc += o.need;
+          return (
+            <div class="db-seg" key={o.thread_id} title={`${o.label}: cần ${soVN(o.need)}`}
+              style={{ left: `${left}%`, width: `${w}%`, background: DB_PALETTE[i % DB_PALETTE.length] }} />
+          );
+        })}
         {over && <div class="db-short-ov" style={{ left: `${stockPct}%` }} />}
         {over && <div class="db-stock-line" style={{ left: `${stockPct}%` }} title={`Hết tồn ở đây (${soVN(stock)})`} />}
       </div>
