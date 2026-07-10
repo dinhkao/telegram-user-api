@@ -65,11 +65,14 @@ function EventRow({ it, idx, srcSlip }: { it: BoxTLItem; idx: number; srcSlip?: 
   );
 }
 
-function Junction({ height, label }: { height: number; label: string | null }) {
+function Junction({ height, label, amount }: { height: number; label: string | null; amount?: number | null }) {
   return (
     <li class="pt-junc" style={height ? { height: `${height}px` } : undefined}>
       <span class="pt-junc-mid">{label ? <span class="fg-label">· {label} ·</span> : null}</span>
-      <span class="pt-rail"><span class="pt-dot pt-dot-static" /></span>
+      <span class="pt-rail">
+        {amount != null && <span class="pt-dot-amt">còn {soVN(amount)}</span>}
+        <span class="pt-dot pt-dot-static" />
+      </span>
     </li>
   );
 }
@@ -116,7 +119,7 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
       if (dsec > GROUP_SEC) {
         // khác ngày → KHÔNG giãn (day header đã ngăn cách); cùng ngày → giãn theo thời gian
         const gh = cross ? 0 : Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX));
-        rows.push(<Junction key={`j-${i}`} height={gh} label={cross ? null : gapLabel(dsec)} />);
+        rows.push(<Junction key={`j-${i}`} height={gh} label={cross ? null : gapLabel(dsec)} amount={older.remaining} />);
       }
       if (cross) rows.push(<li key={`d-${i}`} class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(older.at))}</div></li>);
     }
