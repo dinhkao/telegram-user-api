@@ -40,6 +40,7 @@ import { InventoryDetail } from "./pages/InventoryDetail";
 import { KhoBoxes } from "./pages/KhoBoxes";
 import { StockDemand } from "./pages/StockDemand";
 import { CallNumbers } from "./pages/CallNumbers";
+import { ProductTimeline } from "./pages/ProductTimeline";
 import { PlacesList } from "./pages/PlacesList";
 import { PlaceDetail } from "./pages/PlaceDetail";
 import { PlaceTimeline } from "./pages/PlaceTimeline";
@@ -361,6 +362,7 @@ function App() {
   const prodEditMatch = hash.match(/^#\/san_xuat\/(-?\d+)\/bao-cao/);
   const shtMatch = hash.match(/^#\/sx-tho\/([^?]+)/);
   const prodMatch = hash.match(/^#\/san_xuat\/(-?\d+)/);
+  const khoTLMatch = hash.match(/^#\/kho\/([^/?]+)\/timeline/);
   const khoMatch = hash.match(/^#\/kho\/([^?]+)/);
   const placeTLMatch = hash.match(/^#\/vi-tri\/(\d+)\/timeline/);
   const placeMatch = hash.match(/^#\/vi-tri\/(\d+)/);
@@ -388,6 +390,7 @@ function App() {
   else if (placeTLMatch) page = <PlaceTimeline placeId={placeTLMatch[1]} focus={focusEl} />;
   else if (placeMatch) page = <PlaceDetail id={placeMatch[1]} />;
   else if (hash.startsWith("#/vi-tri")) page = <PlacesList />;
+  else if (khoTLMatch) page = <ProductTimeline code={decodeURIComponent(khoTLMatch[1])} focus={focusEl} />;
   else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;
   else if (hash.startsWith("#/san-pham")) page = <InventoryList />;
   else if (hash.startsWith("#/nhu-cau")) page = <StockDemand />;
@@ -424,6 +427,7 @@ function App() {
     : hash.startsWith("#/nhu-cau") ? "Cần làm hàng"
     : hash.startsWith("#/so-thung") ? "Số thùng"
     : (hash.startsWith("#/vi-tri") || placeMatch) ? "Vị trí kho"
+    : khoTLMatch ? "Biến động tồn"
     : (hash.startsWith("#/kho") || khoMatch || boxMatch) ? "Kho hàng"
     : hash.startsWith("#/viec") ? "Việc"
     : hash.startsWith("#/quy") ? "Sổ quỹ"

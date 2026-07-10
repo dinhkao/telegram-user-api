@@ -266,6 +266,10 @@ export function InventoryDetail({ code }: { code: string }) {
         </div>
       </div>
 
+      <a class="btn block pt-open-btn" href={`#/kho/${encodeURIComponent(code)}/timeline`}>
+        <Icon name="history" size={16} /> Timeline biến động tồn →
+      </a>
+
       {/* Tên danh mục + liên kết KiotViet */}
       <section class="card prod-link">
         {!inv.product && (

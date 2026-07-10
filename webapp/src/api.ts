@@ -911,6 +911,18 @@ export async function getPlaceTimeline(placeId: string | number): Promise<PlaceT
   return d.ok ? d : null;
 }
 
+// ── Timeline biến động TỒN 1 SẢN PHẨM (gộp mọi thùng của SP) ──
+export type ProductPlaceLine = { place: string; qty: number };
+export type ProductTimeline = {
+  product: { id: number; code: string; name: string; unit: string; min_stock: number };
+  current_total: number; box_count: number;
+  current_by_place: ProductPlaceLine[]; current_boxes: PlaceBox[]; items: PlaceTLItem[]; truncated: boolean;
+};
+export async function getProductTimeline(code: string): Promise<ProductTimeline | null> {
+  const d = await getJSON(`/api/inventory/${encodeURIComponent(code)}/timeline`, { cache: false });
+  return d.ok ? d : null;
+}
+
 // ── Timeline biến động 1 THÙNG ──
 export type BoxTLItem = {
   ts: number; at: string; dir: "in" | "out" | "neutral"; kind: string; reason: string;

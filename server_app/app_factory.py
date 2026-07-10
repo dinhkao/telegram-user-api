@@ -259,6 +259,8 @@ def create_app():
     r.add_get("/api/inventory/demand", stock_demand_handler)
     from server_app.inventory_call_map import call_map_handler
     r.add_get("/api/inventory/call-numbers", call_map_handler)
+    from server_app.product_timeline import product_timeline_handler
+    r.add_get("/api/inventory/{code}/timeline", product_timeline_handler)
     r.add_get("/api/banner/pins", banner_pins_handler)
     r.add_post("/api/banner/pin", banner_pin_create_handler)
     r.add_delete("/api/banner/pin/{pin_id}", banner_pin_delete_handler)
