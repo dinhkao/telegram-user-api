@@ -74,13 +74,17 @@ function StockBar({ stock, need, orders, showNum = true, legend = false }: { sto
       </div>
       {legend && withId.length > 0 && (
         <div class="sb-legend">
-          {withId.map(({ o, color }) => (
-            <a class="sb-lg" href={`#/order/${o.thread_id}`} key={o.thread_id}>
-              <span class="sb-lg-dot" style={{ background: color }} />
-              <span class="sb-lg-txt">{o.label}</span>
-              <span class="sb-lg-need">cần <b>{soVN(o.need)}</b> ›</span>
-            </a>
-          ))}
+          {withId.map(({ o, color }) => {
+            const due = dueInfo(o.ngay_giao);
+            return (
+              <a class="sb-lg" href={`#/order/${o.thread_id}`} key={o.thread_id}>
+                <span class="sb-lg-dot" style={{ background: color }} />
+                <span class="sb-lg-txt">{o.label}</span>
+                {due && <span class={"nd-due" + (due.urgent ? " urgent" : "")}>{due.text}</span>}
+                <span class="sb-lg-need">cần <b>{soVN(o.need)}</b> ›</span>
+              </a>
+            );
+          })}
         </div>
       )}
     </>
@@ -107,54 +111,23 @@ function IngTree({ g, depth }: { g: StockDemandIngredient; depth: number }) {
   );
 }
 
-// verdict "làm được không" — dải quyết định của phiếu
+// verdict "làm được không" — 1 dòng headline (chi tiết NL hiện đầy đủ bên dưới)
 function MakeVerdict({ p, state }: { p: StockDemandLine; state: MakeState }) {
   if (state === "none") {
     return <div class="nd-mk none"><Icon name="factory" size={15} /> Làm trực tiếp — không có công thức nguyên liệu</div>;
   }
-  const blockers = (p.ingredients || []).filter((g) => !g.enough);
   if (state === "makeable") {
-    const names = (p.ingredients || []).map((g) => g.code).join(", ");
-    return (
-      <div class="nd-mk ok">
-        <div class="nd-mk-head"><Icon name="check" size={15} /> Đủ nguyên liệu để làm <b>{soVN(p.shortfall)}</b></div>
-        <div class="nd-mk-sub">{names}</div>
-      </div>
-    );
+    return <div class="nd-mk ok"><div class="nd-mk-head"><Icon name="check" size={15} /> Đủ nguyên liệu để làm <b>{soVN(p.shortfall)}</b></div></div>;
   }
-  return (
-    <div class="nd-mk bad">
-      <div class="nd-mk-head"><span class="nd-mk-warn">⚠</span> Thiếu nguyên liệu — phải bổ sung</div>
-      {blockers.map((g) => (
-        <a class="nd-mk-block" href={`#/kho/${encodeURIComponent(g.code)}`} key={g.code}>
-          <b>{g.code}</b><span class="nd-dim"> cần {soVN(g.need)} · tồn {soVN(g.stock)}</span>
-          <span class="nd-tag bad">thiếu {soVN(g.shortfall)}</span>
-        </a>
-      ))}
-    </div>
-  );
+  return <div class="nd-mk bad"><div class="nd-mk-head"><span class="nd-mk-warn">⚠</span> Thiếu nguyên liệu — cần bổ sung</div></div>;
 }
 
-// đơn đang chờ mã này (phần mở rộng)
-function AffectedOrder({ o, unit }: { o: StockDemandOrder; unit: string }) {
-  const due = dueInfo(o.ngay_giao);
-  return (
-    <a class="nd-ord" href={`#/order/${o.thread_id}`}>
-      <span class="nd-ord-txt">{o.label}</span>
-      <span class="nd-ord-right">
-        {due && <span class={"nd-due" + (due.urgent ? " urgent" : "")}>{due.text}</span>}
-        <span class="nd-ord-need">{soVN(o.need)}{unit ? ` ${unit}` : ""} ›</span>
-      </span>
-    </a>
-  );
-}
-
-// ── phiếu cần làm (mã thiếu hàng) ───────────────────────────────────────
+// ── phiếu cần làm (mã thiếu hàng) — MỌI chi tiết luôn hiện, không ẩn ─────
 function MakeTicket({ p, i }: { p: StockDemandLine; i: number }) {
-  const [open, setOpen] = useState(false);
   const state = makeState(p);
   const det = p.orders_detail || [];
   const mam = mamText(p.shortfall, p.cay_per_mam);
+  const ings = p.ingredients || [];
   return (
     <article class={"nd-tk " + state} style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
       <div class="nd-tk-top">
@@ -171,24 +144,14 @@ function MakeTicket({ p, i }: { p: StockDemandLine; i: number }) {
         <span class="nd-def-unit">{p.unit || "cây"}</span>
         <span class="nd-def-ctx">tồn {soVN(p.stock)} · cần {soVN(p.need)} · {p.orders} đơn</span>
       </div>
-      <StockBar stock={p.stock} need={p.need} orders={det} showNum={false} />
+      <StockBar stock={p.stock} need={p.need} orders={det} showNum={false} legend />
 
       <MakeVerdict p={p} state={state} />
 
-      <button class="nd-tk-more" onClick={() => setOpen((v) => !v)}>
-        <Icon name={open ? "chevronDown" : "chevronRight"} size={15} />
-        {open ? "Ẩn chi tiết" : `${p.orders} đơn chờ · nguyên liệu`}
-      </button>
-      {open && (
+      {ings.length > 0 && (
         <div class="nd-tk-detail">
-          <div class="nd-sub-h">Đơn đang chờ</div>
-          {det.map((o) => <AffectedOrder o={o} unit={p.unit} key={o.thread_id} />)}
-          {(p.ingredients || []).length > 0 && (
-            <>
-              <div class="nd-sub-h">Nguyên liệu (đệ quy)</div>
-              {(p.ingredients || []).map((g) => <IngTree g={g} depth={0} key={g.code} />)}
-            </>
-          )}
+          <div class="nd-sub-h">Nguyên liệu</div>
+          {ings.map((g) => <IngTree g={g} depth={0} key={g.code} />)}
         </div>
       )}
     </article>
@@ -275,7 +238,7 @@ export function StockDemand() {
 
       {/* ĐỦ HÀNG — vẫn cần thấy TỒN CÒN LẠI SAU ĐƠN để quyết định nhập thêm */}
       {okList.length > 0 && (() => {
-        const openOk = showOk === null ? short.length === 0 : showOk;
+        const openOk = showOk === null ? true : showOk;   // luôn hiện chi tiết, đừng ẩn (vẫn cho gập tay)
         return (
           <section class="nd-ok">
             <button class="nd-ok-h" onClick={() => setShowOk(!openOk)}>
