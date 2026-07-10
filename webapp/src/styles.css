@@ -1358,9 +1358,10 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .sd-item { border: 1.5px solid var(--border); border-radius: 12px; background: var(--card); overflow: hidden; }
 .sd-item.short { border-color: #ecc9a6; }
 .sd-row { position: relative; display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; border: none; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; overflow: hidden; }
-.sd-row::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--sd-fill, 100%); z-index: 0; transition: width var(--dur) var(--ease); }
-.sd-row.ok::before { background: var(--ok-wash); }
-.sd-row.short::before { background: var(--warn-wash, #fdf0e3); }
+/* dải màu trạng thái mảnh bên trái thay cho nền phủ full (bar chi tiết = DemandBar) */
+.sd-row::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; z-index: 0; }
+.sd-row.ok::before { background: var(--ok); }
+.sd-row.short::before { background: var(--danger); }
 .sd-row > * { position: relative; z-index: 1; }
 .sd-row:active { background: rgba(0, 0, 0, .03); }
 .sd-chev { flex: 0 0 auto; color: var(--muted); }
