@@ -1372,9 +1372,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .sd-badge.short { background: var(--danger); color: #fff; }
 /* Bar trực quan nhu cầu: khúc màu = từng đơn, vạch = mốc hết tồn, gạch đỏ = thiếu */
 .db-wrap { margin-top: 6px; }
+/* nền TRUNG TÍNH = tồn kho (khoảng trống = tồn còn dư); khúc màu = từng đơn dùng */
 .db-bar { position: relative; display: flex; height: 15px; border-radius: 5px; overflow: hidden;
-  background: var(--ok-wash); border: 1px solid var(--border); }
+  background: var(--bg); border: 1px solid var(--border); }
 .db-seg { height: 100%; min-width: 2px; box-shadow: inset -1px 0 0 rgba(255, 255, 255, .65); }
+.db-cap { font-size: .74rem; margin-top: 2px; }
 .db-short-ov { position: absolute; top: 0; bottom: 0; right: 0; pointer-events: none;
   background: repeating-linear-gradient(45deg, rgba(224, 49, 49, 0) 0 3px, rgba(224, 49, 49, .45) 3px 7px); }
 .db-stock-line { position: absolute; top: -1px; bottom: -1px; width: 0; pointer-events: none;

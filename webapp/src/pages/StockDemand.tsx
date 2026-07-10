@@ -22,8 +22,9 @@ function DemandBar({ stock, need, orders }: { stock: number; need: number; order
             style={{ width: `${(o.need / scale) * 100}%`, background: DB_PALETTE[i % DB_PALETTE.length] }} />
         ))}
         {over && <div class="db-short-ov" style={{ left: `${stockPct}%` }} />}
-        <div class="db-stock-line" style={{ left: `${stockPct}%` }} title={`Hết tồn ở đây (${soVN(stock)})`} />
+        {over && <div class="db-stock-line" style={{ left: `${stockPct}%` }} title={`Hết tồn ở đây (${soVN(stock)})`} />}
       </div>
+      <div class="db-cap muted">{over ? `Vượt tồn — thiếu ${soVN(need - stock)}` : `dùng ${soVN(need)} / tồn ${soVN(stock)}`}</div>
     </div>
   );
 }
