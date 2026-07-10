@@ -105,7 +105,7 @@ function Junction({ height, label, amount, onDot }: { height: number; label: str
   return (
     <li class="pt-junc" style={height ? { height: `${height}px` } : undefined}>
       <span class="pt-junc-mid">
-        {label && <span class="pt-gap pt-slide"><span class="fg-label">· {label} ·</span></span>}
+        {label && <span class="pt-gaplbl pt-slide"><span class="fg-label">· {label} ·</span></span>}
       </span>
       <span class="pt-rail">
         <span class="pt-bead pt-slide">
