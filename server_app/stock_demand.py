@@ -20,6 +20,9 @@ from aiohttp import web
 from order_db import _get_connection
 
 _VN = timezone(timedelta(hours=7))
+# Mốc bắt đầu tính nhu cầu: đơn tạo TỪ 07/07/2026 (giờ VN) trở đi — flow kho bắt đầu
+# từ đây; đơn cũ hơn chưa qua flow kho nên bỏ. (00:00 VN 07/07 = 17:00 UTC 06/07)
+_SINCE_ISO = "2026-07-06T17:00:00.000Z"
 
 
 def _num(v) -> float:
@@ -87,8 +90,8 @@ def compute_stock_demand() -> dict:
 
 def _compute(conn) -> dict:
     from product_store import resolve_code
-    threshold = _today_vn_utc_iso()
-    # đơn ứng viên: tạo từ hôm nay, chưa chốt xuất kho (đơn đã chốt = đã phân bổ đủ)
+    threshold = _SINCE_ISO
+    # đơn ứng viên: tạo TỪ 07/07/2026, chưa chốt xuất kho (đơn đã chốt = đã phân bổ đủ)
     rows = conn.execute(
         "SELECT thread_id, json FROM orders "
         "WHERE json_extract(json,'$.created') >= ? "
