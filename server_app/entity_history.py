@@ -52,8 +52,10 @@ def _inv_entry(act: str, scope: str, p: dict) -> tuple[str, str] | None:
     if act in ("box.allocated", "box.released"):
         taken = _numv(p.get("taken"))
         verb = "lấy" if act == "box.allocated" else "trả"
+        rem = _numv(p.get("remaining")) if p.get("remaining") is not None else ""
         # order_text KHÔNG nhét vào detail — History render nó thành LINK tới đơn (item['order'])
-        return ("Xuất cho đơn" if act == "box.allocated" else "Thu hồi về kho"), join(f"{verb} {taken}" if taken else "")
+        extra = " · ".join(x for x in [f"{verb} {taken}" if taken else "", f"thùng còn {rem}" if rem != "" else ""] if x)
+        return ("Xuất cho đơn" if act == "box.allocated" else "Thu hồi về kho"), join(extra)
     if act == "box.moved":   # lịch sử THÙNG — ghi rõ TỪ → ĐẾN
         return "Chuyển kho", join(f"từ {p.get('from_name') or 'Chưa xếp'} → {p.get('to_name') or 'Chưa xếp'}")
     if act == "box.moved_out":
