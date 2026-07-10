@@ -100,6 +100,7 @@ def _compute(conn) -> dict:
     demand: dict = {}                  # key → {code,name,pid,orders:set}
     per_order: dict = {}               # (tid, key) → Σ sl gross
     order_label: dict = {}             # tid → nhãn đơn (khách / dòng đầu text)
+    order_ngay: dict = {}              # tid → ngày giao (ISO) để xếp gấp
     for r in rows:
         try:
             j = json.loads(r["json"] or "{}")
@@ -109,6 +110,7 @@ def _compute(conn) -> dict:
             continue                   # đã giao → hàng đã ra, không tính
         tid = r["thread_id"]
         order_label[tid] = _order_label(j, tid)
+        order_ngay[tid] = str(j.get("ngay_giao") or "")
         for it in (j.get("invoice") or j.get("invoice_items") or []):
             code = str(it.get("sp") or "").strip().upper()
             if not code:
@@ -147,7 +149,8 @@ def _compute(conn) -> dict:
         net[key] = net.get(key, 0.0) + un
         if un > 1e-9:
             porders.setdefault(key, []).append(
-                {"thread_id": tid, "need": round(un, 3), "label": order_label.get(tid, f"#{tid}")})
+                {"thread_id": tid, "need": round(un, 3), "label": order_label.get(tid, f"#{tid}"),
+                 "ngay_giao": order_ngay.get(tid, "")})
     for lst in porders.values():
         lst.sort(key=lambda o: -o["need"])
 
@@ -177,12 +180,20 @@ def _compute(conn) -> dict:
         # ảnh hưởng quyết định). NL cần = ratio × phần thiếu (0 khi đủ → chỉ xem tồn).
         # Đệ quy: NL cũng thiếu → gợi ý NL cấp dưới.
         ingredients = _ingredients(conn, d["code"], short, stock, names)
+        # Số cây 1 mâm → quy phần thiếu ra "≈ N mâm" (tiếng nghề, thợ hiểu ngay)
+        cpm = 0.0
+        if short > 1e-9:
+            try:
+                from production_store.defaults import production_defaults
+                cpm = float(production_defaults(conn, d["code"])[0] or 0)
+            except Exception:
+                cpm = 0.0
         products.append({
             "code": d["code"], "name": nm or "", "unit": unit or "",
             "need": round(need, 3), "stock": round(st, 3),
             "enough": st + 1e-9 >= need, "shortfall": round(short, 3),
             "orders": len(d["orders"]), "orders_detail": porders.get(key, []),
-            "ingredients": ingredients,
+            "ingredients": ingredients, "cay_per_mam": round(cpm, 3),
         })
     products.sort(key=lambda p: (-p["shortfall"], -p["need"], p["code"]))
 

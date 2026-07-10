@@ -992,9 +992,9 @@ export async function inventoryList(): Promise<InvProductSummary[]> {
 }
 
 // ── Nhu cầu kho hôm nay vs tồn (đơn tạo từ hôm nay, chưa xuất kho) ──
-export type StockDemandOrder = { thread_id: number; need: number; label: string };
+export type StockDemandOrder = { thread_id: number; need: number; label: string; ngay_giao?: string };
 export type StockDemandIngredient = { code: string; name: string; unit: string; need: number; stock: number; enough: boolean; shortfall: number; children?: StockDemandIngredient[] };
-export type StockDemandLine = { code: string; name: string; unit: string; need: number; stock: number; enough: boolean; shortfall: number; orders: number; orders_detail?: StockDemandOrder[]; ingredients?: StockDemandIngredient[] };
+export type StockDemandLine = { code: string; name: string; unit: string; need: number; stock: number; enough: boolean; shortfall: number; orders: number; orders_detail?: StockDemandOrder[]; ingredients?: StockDemandIngredient[]; cay_per_mam?: number };
 export type StockDemandResult = {
   since: string; products: StockDemandLine[];
   totals: { orders: number; product_lines: number; short_products: number; total_need: number; total_shortfall: number; all_enough: boolean };
