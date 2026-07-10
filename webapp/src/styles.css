@@ -1291,11 +1291,14 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-bead { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
   display: flex; align-items: center; justify-content: center; }
 .pt-dot-amt { position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
-  font-size: .74rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
+  font-size: .74rem; font-weight: 700; color: var(--muted); white-space: nowrap;
+  background: var(--bg); padding: 4px 7px; border-radius: 7px; }
 /* nhãn khoảng thời gian: GIỮ vị trí giữa khe như cũ, nhưng TRƯỢT dọc cùng chấm (.pt-slide).
    Tên riêng .pt-gaplbl (KHÔNG dùng .pt-gap — class chết cũ, position:relative sẽ ghi đè). */
 .pt-gaplbl { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
   display: flex; justify-content: center; pointer-events: none; }
+/* padding trên/dưới cho nhãn thời gian — CHỈ trong timeline (fg-label dùng chung feed khách) */
+.pt-gaplbl .fg-label { padding-top: 4px; padding-bottom: 4px; border-radius: 7px; }
 .pt-dot.in { border-color: var(--ok); }
 .pt-dot.out { border-color: var(--danger); }
 .pt-card-link { text-decoration: none; color: inherit; display: block; }
