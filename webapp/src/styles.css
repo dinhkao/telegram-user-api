@@ -1419,6 +1419,27 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .nd-crow-code { flex: 1 1 auto; min-width: 0; font-family: var(--mono); font-weight: 800; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nd-crow-sf { flex: 0 0 auto; font-size: .82rem; color: var(--danger); font-variant-numeric: tabular-nums; }
 .nd-crow-sf b { font-size: 1.25rem; font-weight: 800; }
+.nd-crow-code { font-family: var(--mono, ui-monospace, monospace); }
+/* view SƠ ĐỒ: mũi tên nguyên liệu → sản phẩm (đồ thị BOM, cuộn ngang) */
+.nd-flow-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: .76rem; color: var(--muted); margin: 0 2px 10px; }
+.nd-flow-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.nd-flow-hint { margin-left: auto; font-style: italic; }
+.nd-fdot { width: 11px; height: 11px; border-radius: 3px; border: 2px solid; }
+.nd-fdot.mat { border-color: var(--ok); background: var(--ok-wash); }
+.nd-fdot.prod { border-color: var(--danger); background: var(--nd-red-wash); }
+.nd-flow-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); padding: 4px; }
+.nd-flow-canvas { position: relative; }
+.nd-flow-edges { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.nd-fedge { fill: none; stroke: var(--muted-2); stroke-width: 1.6; opacity: .7; }
+.nd-fnode { position: absolute; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 9px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--border); text-decoration: none; color: inherit; box-shadow: 0 1px 2px rgba(0,0,0,.06); overflow: hidden; }
+.nd-fnode:active { background: var(--bg); }
+.nd-fnode.material.ok { border-left-color: var(--ok); }
+.nd-fnode.material.short { border-left-color: var(--nd-amber); }
+.nd-fnode.product { border-left-color: var(--danger); background: var(--nd-red-wash); }
+.nd-fn-code { font-family: var(--mono, ui-monospace, monospace); font-weight: 800; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nd-fn-stat { font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nd-fnode.product .nd-fn-stat { color: var(--danger); }
+.nd-fnode.material.short .nd-fn-stat { color: var(--nd-amber); }
 
 /* THẺ SP CẦN LÀM — top band màu = mức độ; 3 dòng luôn hiện + phần mở rộng */
 .nd-card { position: relative; background: var(--card); border: 1px solid var(--border); border-top-width: 3px;

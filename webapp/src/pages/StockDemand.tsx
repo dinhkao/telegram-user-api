@@ -9,6 +9,7 @@ import { onRealtime } from "../realtime";
 import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
+import { StockFlow } from "../detail/StockFlow";
 
 const enc = encodeURIComponent;
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
@@ -267,8 +268,11 @@ export function StockDemand() {
   const [err, setErr] = useState("");
   const [goAllOpen, setGoAllOpen] = useState<boolean | null>(null);   // "Mở hết / Ẩn hết" vùng LÀM ĐƯỢC
   const [showOk, setShowOk] = useState<boolean | null>(null);          // gập vùng ĐỦ HÀNG (mặc định mở)
-  const [view, setView] = useState<"full" | "compact">(() => localStorage.getItem("nd_view") === "compact" ? "compact" : "full");
-  const setViewMode = (m: "full" | "compact") => { try { localStorage.setItem("nd_view", m); } catch { /* ignore */ } setView(m); };
+  const [view, setView] = useState<"full" | "compact" | "flow">(() => {
+    const v = localStorage.getItem("nd_view");
+    return v === "compact" || v === "flow" ? v : "full";
+  });
+  const setViewMode = (m: "full" | "compact" | "flow") => { try { localStorage.setItem("nd_view", m); } catch { /* ignore */ } setView(m); };
 
   const load = async () => {
     try { setData(await stockDemand()); setErr(""); }
@@ -295,6 +299,7 @@ export function StockDemand() {
       <div class="view-slider" role="group" aria-label="Kiểu xem">
         <button class={view === "full" ? "vs-seg on" : "vs-seg"} title="Chi tiết" aria-pressed={view === "full"} onClick={() => setViewMode("full")}>☰</button>
         <button class={view === "compact" ? "vs-seg on" : "vs-seg"} title="Gọn" aria-pressed={view === "compact"} onClick={() => setViewMode("compact")}>≣</button>
+        <button class={view === "flow" ? "vs-seg on" : "vs-seg"} title="Sơ đồ" aria-pressed={view === "flow"} onClick={() => setViewMode("flow")}><Icon name="share2" size={15} /></button>
       </div>
     </div>
   );
@@ -352,8 +357,13 @@ export function StockDemand() {
         </div>
       )}
 
+      {/* SƠ ĐỒ — mũi tên nguyên liệu → sản phẩm cần (thay 2 vùng) */}
+      {view === "flow" && short.length > 0 && (
+        <section class="nd-sec"><StockFlow products={short} /></section>
+      )}
+
       {/* VÙNG A — CẦN QUYẾT ĐỊNH (thẻ mở sẵn) */}
-      {decide.length > 0 && (
+      {view !== "flow" && decide.length > 0 && (
         <section class="nd-sec">
           <div class="nd-sec-h">
             <span class="nd-sec-title decide"><Icon name="ban" size={15} /> CẦN QUYẾT ĐỊNH</span>
@@ -369,7 +379,7 @@ export function StockDemand() {
       )}
 
       {/* VÙNG B — LÀM ĐƯỢC (thẻ gập, có "Mở hết / Ẩn hết") */}
-      {go.length > 0 && (
+      {view !== "flow" && go.length > 0 && (
         <section class="nd-sec">
           <div class="nd-sec-h">
             <span class="nd-sec-title go"><Icon name="check" size={15} /> LÀM ĐƯỢC</span>
@@ -388,7 +398,7 @@ export function StockDemand() {
       )}
 
       {/* ĐỦ HÀNG — vẫn cần thấy TỒN CÒN LẠI SAU ĐƠN để quyết định nhập thêm */}
-      {okList.length > 0 && (() => {
+      {view !== "flow" && okList.length > 0 && (() => {
         const openOk = showOk === null ? true : showOk;
         return (
           <section class="nd-ok">
