@@ -16,8 +16,8 @@ export function BoxMiniGrid({ boxes }: { boxes: KhoBox[] }) {
     <div class={"box-mini-grid" + (oneCode ? "" : " mixed")}>
       {ordered.map((b) => {
         const rm = b.remaining ?? b.quantity;
-        // XANH (còn kho) / NÂU (tạm chiếm chỗ cho đơn chưa chốt) / mờ (vô hiệu).
-        const st = b.disabled ? "off" : b.reserved ? "resv" : "in";
+        // XANH (còn kho) / mờ (vô hiệu).
+        const st = b.disabled ? "off" : "in";
         const num = (b.box_code || "").split("-").pop() || b.box_code;
         const cap = (b as any).capacity ?? b.quantity;   // SX gốc + hàng nhận chuyển → không tràn
         const fill = cap > 0 ? Math.max(0, Math.min(100, (rm / cap) * 100)) : 100;

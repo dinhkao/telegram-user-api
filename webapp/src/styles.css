@@ -1623,9 +1623,6 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-lbl.in .bl-code, .box-lbl.in .bl-num { border-color: #bfe3c8; }
 .box-lbl.alloc { --fill-bg: var(--warn-wash); border-color: #ecd8a6; color: var(--warn); }
 .box-lbl.alloc .bl-code, .box-lbl.alloc .bl-num { border-color: #ecd8a6; }
-/* NÂU = tạm chiếm chỗ cho đơn CHƯA chốt xuất kho (dùng ở mọi ô thùng) */
-.box-lbl.resv { --fill-bg: var(--brown-wash); border-color: #d0b492; color: var(--brown); }
-.box-lbl.resv .bl-code, .box-lbl.resv .bl-num { border-color: #d0b492; }
 .box-lbl.off { --fill-bg: var(--bg); border-color: var(--border); border-style: dashed; color: var(--muted-2); }
 .box-lbl.off .bl-code, .box-lbl.off .bl-num { border-color: var(--border); }
 .box-lbl.off .bl-q { text-decoration: line-through; }
