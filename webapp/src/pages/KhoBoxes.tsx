@@ -126,7 +126,7 @@ export function KhoBoxes() {
         <span class="muted small">({searching ? `${countBoxes} thùng` : `${places.length} vị trí`})</span>
       </h2>
       <span class="row" style={{ gap: "6px" }}>
-        <a class="btn small" href="#/nhu-cau"><Icon name="chart" size={15} /> Nhu cầu</a>
+        <a class="btn small" href="#/nhu-cau"><Icon name="chart" size={15} /> Cần làm</a>
         <a class="btn small" href="#/san-pham"><Icon name="tag" size={15} /> Sản phẩm</a>
       </span>
     </div>

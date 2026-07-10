@@ -227,7 +227,7 @@ export function StockDemand() {
 
   const load = async () => {
     try { setData(await stockDemand()); setErr(""); }
-    catch (e: any) { setErr(e?.message || "Lỗi tải nhu cầu kho"); }
+    catch (e: any) { setErr(e?.message || "Lỗi tải Cần làm hàng"); }
   };
   useEffect(() => { load(); }, []);
   useEffect(() => {
@@ -244,8 +244,8 @@ export function StockDemand() {
     <div class="nd-head">
       <BackLink fallback="#/kho" />
       <div class="nd-head-t">
-        <div class="nd-head-title">Nhu cầu hôm nay</div>
-        <div class="nd-head-sub">Đơn tạo hôm nay chưa xuất kho</div>
+        <div class="nd-head-title">Cần làm hàng</div>
+        <div class="nd-head-sub">Đơn đang chờ, chưa xuất kho</div>
       </div>
     </div>
   );
@@ -257,7 +257,7 @@ export function StockDemand() {
   const noProd = data.no_products || [];
   const warn = noProd.length > 0 ? (
     <div class="nd-warn">
-      <div class="nd-warn-h"><span class="nd-warn-i">⚠️</span> Có <b>{noProd.length}</b> đơn chưa nhập sản phẩm — kết quả nhu cầu có thể KHÔNG chính xác.</div>
+      <div class="nd-warn-h"><span class="nd-warn-i">⚠️</span> Có <b>{noProd.length}</b> đơn chưa nhập sản phẩm — kết quả có thể KHÔNG chính xác.</div>
       <div class="nd-warn-chips">
         {noProd.map((o) => <a class="nd-warn-chip" href={`#/order/${o.thread_id}`} key={o.thread_id}>{o.label} ›</a>)}
       </div>
@@ -266,7 +266,7 @@ export function StockDemand() {
   if (products.length === 0) {
     return (
       <div class="nd-page">{head}{warn}
-        <EmptyState icon="check">Chưa có đơn mới nào cần hàng hôm nay.</EmptyState>
+        <EmptyState icon="check">Chưa có đơn nào cần làm hàng.</EmptyState>
       </div>
     );
   }
@@ -284,7 +284,7 @@ export function StockDemand() {
         <div class="nd-verdict clear">
           <Icon name="check" size={26} />
           <div>
-            <div class="nd-v-line">Kho đủ cho mọi đơn hôm nay</div>
+            <div class="nd-v-line">Kho đủ cho mọi đơn đang chờ</div>
             <div class="nd-v-sub">{totals.orders} đơn · {products.length} mã đều có sẵn</div>
           </div>
         </div>
@@ -292,8 +292,8 @@ export function StockDemand() {
         <div class="nd-verdict alert">
           <div class="nd-v-count">{short.length}</div>
           <div class="nd-v-main">
-            <div class="nd-v-line">mã cần bổ sung</div>
-            <div class="nd-v-sub">{totals.orders} đơn hôm nay chưa đủ hàng</div>
+            <div class="nd-v-line">mã cần làm thêm</div>
+            <div class="nd-v-sub">{totals.orders} đơn chưa đủ hàng</div>
             <div class="nd-v-chips">{short.map((p) => <a class="nd-chip" href={`#/kho/${encodeURIComponent(p.code)}`} key={p.code}>{p.code}</a>)}</div>
           </div>
         </div>

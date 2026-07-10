@@ -172,7 +172,7 @@ function NopBanner() {
     text: `📢 ${p.text}`, href: p.href || "#/orders", pin: true,
     sub: `${(p as any).created_by ? `${(p as any).created_by} ghim · ` : ""}${hLeft((p as any).expires_at)}`,
   });
-  if (short.n > 0) parts.push({ text: `⚠️ Thiếu hàng: ${short.n} mã (thiếu ${soVN(short.total)})`, href: "#/nhu-cau", pin: true, sub: "bấm để xem Nhu cầu kho" });
+  if (short.n > 0) parts.push({ text: `⚠️ Thiếu hàng: ${short.n} mã (thiếu ${soVN(short.total)})`, href: "#/nhu-cau", pin: true, sub: "bấm để xem Cần làm hàng" });
   if (n > 0) parts.push({ text: `💰 ${n} đơn chưa nộp tiền`, href: "#/orders?filter=chua_nop", sub: "bấm để lọc Chưa nộp" });
   if (boxes > 0) parts.push({ text: `📦 ${boxes} thùng chưa xếp kho`, href: "#/kho", sub: "bấm để mở Kho hàng" });
   // Tốc độ CỐ ĐỊNH (~50px/s) dù nội dung dài ngắn: thời gian tỉ lệ độ rộng nửa
@@ -416,7 +416,7 @@ function App() {
     : hash.startsWith("#/create") ? "Tạo đơn"
     : (hash.startsWith("#/san_xuat") || hash.startsWith("#/sx-") || prodMatch || prodEditMatch || shtMatch) ? "Sản xuất"
     : hash.startsWith("#/san-pham") ? "Sản phẩm"
-    : hash.startsWith("#/nhu-cau") ? "Nhu cầu kho"
+    : hash.startsWith("#/nhu-cau") ? "Cần làm hàng"
     : (hash.startsWith("#/vi-tri") || placeMatch) ? "Vị trí kho"
     : (hash.startsWith("#/kho") || khoMatch || boxMatch) ? "Kho hàng"
     : hash.startsWith("#/viec") ? "Việc"
