@@ -141,6 +141,7 @@ function IngTree({ g, depth }: { g: StockDemandIngredient; depth: number }) {
 function MakeVerdict({ p }: { p: StockDemandLine }) {
   const { ings, hasRecipe, matsEnough, canDirect } = planOf(p);
   const mam = mamText(p.shortfall, p.cay_per_mam);
+  const u = p.unit || "cây";
   const both = canDirect && hasRecipe;
   if (!canDirect && !hasRecipe) {
     return <div class="nd-mk bad"><div class="nd-mk-head"><span class="nd-mk-warn">⚠</span> Chưa cấu hình cách SX — bật "SX trực tiếp" hoặc thêm công thức NL ở chi tiết SP</div></div>;
@@ -151,7 +152,7 @@ function MakeVerdict({ p }: { p: StockDemandLine }) {
       {canDirect && (
         <div class={"nd-opt direct" + (both && !matsEnough ? " rec" : "")}>
           <Icon name="factory" size={15} />
-          <span class="nd-opt-t"><b>Làm trực tiếp</b>{mam ? <span class="nd-dim"> · {mam}</span> : null}</span>
+          <span class="nd-opt-t"><b>Cần sản xuất trực tiếp {soVN(p.shortfall)} {u}</b>{mam ? <span class="nd-dim"> · {mam}</span> : null}</span>
           {both && !matsEnough && <span class="nd-opt-rec">nên chọn</span>}
         </div>
       )}
@@ -253,9 +254,18 @@ export function StockDemand() {
   if (!data) return <div class="nd-page">{head}<Loading /></div>;
 
   const { products, totals } = data;
+  const noProd = data.no_products || [];
+  const warn = noProd.length > 0 ? (
+    <div class="nd-warn">
+      <div class="nd-warn-h"><span class="nd-warn-i">⚠️</span> Có <b>{noProd.length}</b> đơn chưa nhập sản phẩm — kết quả nhu cầu có thể KHÔNG chính xác.</div>
+      <div class="nd-warn-chips">
+        {noProd.map((o) => <a class="nd-warn-chip" href={`#/order/${o.thread_id}`} key={o.thread_id}>{o.label} ›</a>)}
+      </div>
+    </div>
+  ) : null;
   if (products.length === 0) {
     return (
-      <div class="nd-page">{head}
+      <div class="nd-page">{head}{warn}
         <EmptyState icon="check">Chưa có đơn mới nào cần hàng hôm nay.</EmptyState>
       </div>
     );
@@ -267,6 +277,7 @@ export function StockDemand() {
   return (
     <div class="nd-page">
       {head}
+      {warn}
 
       {/* VERDICT — câu phán, không phải bảng số */}
       {short.length === 0 ? (

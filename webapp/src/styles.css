@@ -1377,6 +1377,13 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .nd-v-sub { font-size: .82rem; color: var(--muted); margin-top: 1px; }
 .nd-v-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .nd-chip { font-family: var(--mono); font-weight: 700; font-size: .78rem; padding: 3px 9px; border-radius: 999px; background: #fff; color: var(--danger); border: 1px solid #f0c9c9; text-decoration: none; }
+/* cảnh báo đơn chưa nhập SP */
+.nd-warn { background: var(--warn-wash, #fff8e6); border: 1px solid #ecd28a; border-radius: 12px; padding: 11px 13px; margin-bottom: 14px; }
+.nd-warn-h { font-size: .88rem; color: #7a5a00; font-weight: 600; line-height: 1.4; }
+.nd-warn-h b { color: #6b4e00; }
+.nd-warn-i { margin-right: 3px; }
+.nd-warn-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.nd-warn-chip { font-size: .8rem; max-width: 100%; padding: 4px 10px; border-radius: 999px; background: #fff; border: 1px solid #ecd28a; color: #7a5a00; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* SECTION */
 .nd-sec { margin-bottom: 18px; }

@@ -105,6 +105,7 @@ def _compute(conn) -> dict:
     per_order: dict = {}               # (tid, key) → Σ sl gross
     order_label: dict = {}             # tid → nhãn đơn (khách / dòng đầu text)
     order_ngay: dict = {}              # tid → ngày giao (ISO) để xếp gấp
+    empty_orders: list = []            # đơn (đã qua lọc) CHƯA nhập SP nào → cảnh báo
     for r in rows:
         try:
             j = json.loads(r["json"] or "{}")
@@ -115,6 +116,7 @@ def _compute(conn) -> dict:
         tid = r["thread_id"]
         order_label[tid] = _order_label(j, tid)
         order_ngay[tid] = str(j.get("ngay_giao") or "")
+        had_item = False
         for it in (j.get("invoice") or j.get("invoice_items") or []):
             code = str(it.get("sp") or "").strip().upper()
             if not code:
@@ -122,6 +124,7 @@ def _compute(conn) -> dict:
             sl = _num(it.get("sl") or it.get("quantity") or it.get("sl1pc") or 0)
             if sl <= 0:
                 continue
+            had_item = True
             if code not in codemap:
                 codemap[code] = resolve_code(conn, code)
             prod = codemap[code]
@@ -130,6 +133,8 @@ def _compute(conn) -> dict:
             d = demand.setdefault(key, {"code": (prod["code"] if prod else code),
                                         "pid": (prod["id"] if prod else None), "orders": set()})
             d["orders"].add(tid)
+        if not had_item:               # đơn chưa nhập SP nào → nhu cầu có thể thiếu
+            empty_orders.append({"thread_id": tid, "label": order_label[tid]})
 
     tids = [r["thread_id"] for r in rows]
     # đã xuất kho cho các đơn này, theo (đơn, product_id)
@@ -209,6 +214,7 @@ def _compute(conn) -> dict:
                  if max(0.0, g - (alloc.get((tid, key), 0.0) if isinstance(key, int) else 0.0)) > 1e-9}
     return {
         "ok": True, "since": threshold, "products": products,
+        "no_products": empty_orders,   # đơn qua lọc nhưng chưa nhập SP → cảnh báo
         "totals": {
             "orders": len(order_ids),
             "product_lines": len(products),
@@ -216,6 +222,7 @@ def _compute(conn) -> dict:
             "total_need": round(sum(p["need"] for p in products), 3),
             "total_shortfall": round(sum(p["shortfall"] for p in products), 3),
             "all_enough": len(short_products) == 0,
+            "orders_no_products": len(empty_orders),
         },
     }
 
