@@ -74,7 +74,9 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
   const rem = it.remaining;                       // tồn thùng SAU biến động
   const before = rem != null ? Math.round((it.dir === "out" ? rem + amt : rem - amt) * 1000) / 1000 : null;
   const chip = (num?: string) => <span class="pt-bchip"><span class="pt-bn">{num}</span></span>;
-  const ord = it.order_text ? <> · đơn "<span class="pt-otext">{it.order_text}</span>"</> : null;
+  // Cắt order text để "thùng còn…" (info sau) không bị clamp 2 dòng nuốt mất
+  const otxt = it.order_text ? (it.order_text.length > 30 ? it.order_text.slice(0, 30).trimEnd() + "…" : it.order_text) : "";
+  const ord = otxt ? <> · đơn "<span class="pt-otext">{otxt}</span>"</> : null;
   // Mô tả rõ: LÀM GÌ + bao nhiêu (+ đơn / thùng đích)
   const act = (() => {
     switch (it.kind) {
