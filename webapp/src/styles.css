@@ -1435,6 +1435,13 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .nd-vl-txt { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nd-act { flex: 0 0 auto; margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: .76rem; font-weight: 700; color: var(--primary); background: var(--card); border: 1px solid var(--border); padding: 3px 9px; border-radius: 999px; text-decoration: none; white-space: nowrap; }
 .nd-act:active { opacity: .6; }
+/* ĐOẠN PHÂN TÍCH — số liệu cụ thể (NL nút thắt → đóng gói mấy cây → thiếu/dư), luôn hiện */
+.nd-calc { margin-top: 9px; padding: 8px 11px; border-radius: 9px; font-size: .82rem; line-height: 1.5; }
+.nd-calc.ok { background: var(--ok-wash); }
+.nd-calc.bad { background: var(--nd-red-wash); }
+.nd-calc b { color: var(--ink); }
+.nd-calc .nd-calc-x { color: var(--danger); }
+.nd-calc svg { vertical-align: -2px; margin-right: 2px; color: var(--muted); }
 /* phần mở rộng */
 .nd-card-detail { margin-top: 4px; }
 .nd-card-how { margin-top: 4px; }

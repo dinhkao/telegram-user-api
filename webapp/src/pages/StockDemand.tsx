@@ -38,16 +38,46 @@ const needsDecision = (p: StockDemandLine) => { const s = sevOf(p); return s ===
 const cmpLine = (a: StockDemandLine, b: StockDemandLine) =>
   SEV_PRIO[sevOf(a)] - SEV_PRIO[sevOf(b)] || b.shortfall - a.shortfall || b.orders - a.orders;
 
-// Phân tích ĐÓNG GÓI: NL nào là nút thắt + NL nào còn thiếu để đóng gói đủ phần thiếu.
+// Phân tích ĐÓNG GÓI: tồn NL đóng gói được thêm bao nhiêu thành phẩm? (need_i = ratio_i×thiếu
+// → NL đủ đóng gói full thiếu ⟺ stock_i≥need_i. packable = thiếu × min(stock_i/need_i)).
+// bn = NL nút thắt; leftover = NL dư sau khi đóng gói; shortIngs = NL còn thiếu để đóng đủ.
 function packInfo(p: StockDemandLine) {
   const S = p.shortfall;
   const ings = (p.ingredients || []).filter((g) => g.need > 0);
   if (S <= 0 || !ings.length) return null;
   let ratio = Infinity, bn = ings[0];
   for (const g of ings) { const rr = g.stock / g.need; if (rr < ratio) { ratio = rr; bn = g; } }
+  const enough = ings.every((g) => g.stock + 1e-9 >= g.need);
+  const packable = enough ? S : Math.floor(S * ratio);   // số thành phẩm nguyên (cây) đóng được ngay
+  const stillShort = r3(S - packable);
+  const leftover = ings.map((g) => ({ code: g.code, unit: g.unit, rem: r3(g.stock - g.need) }));
   // NL còn thiếu (để đóng gói ĐỦ phần thiếu): cần làm thêm ít nhất g.shortfall mỗi NL
   const shortIngs = ings.filter((g) => !g.enough).map((g) => ({ code: g.code, unit: g.unit, need: g.shortfall }));
-  return { bn, shortIngs };
+  return { S, packable, enough, stillShort, bn, leftover, shortIngs };
+}
+
+// ĐOẠN PHÂN TÍCH (luôn hiện với SP có công thức NL) — giải thích cụ thể bằng số: NL nút thắt
+// còn bao nhiêu → đóng gói được mấy cây → còn thiếu bao nhiêu / dư gì → lối SX trực tiếp thay thế.
+function PackAnalysis({ p }: { p: StockDemandLine }) {
+  const pi = packInfo(p);
+  if (!pi) return null;
+  const u = p.unit || "cây";
+  return (
+    <div class={"nd-calc " + (pi.enough ? "ok" : "bad")}>
+      <Icon name="box" size={13} /> Nguyên liệu <b>{pi.bn.code}</b> còn <b>{soVN(pi.bn.stock)}</b>{pi.bn.unit ? ` ${pi.bn.unit}` : ""}
+      {pi.enough ? (
+        <> — đủ đóng gói <b>{soVN(pi.S)}</b> {u}. Sau đó NL còn: {pi.leftover.map((l, i) => <span key={l.code}>{i ? ", " : ""}{l.code} <b>{soVN(l.rem)}</b>{l.unit ? ` ${l.unit}` : ""}</span>)}.</>
+      ) : (
+        <>
+          {pi.packable > 0 ? <>, chỉ đủ đóng gói <b>{soVN(pi.packable)}</b> {u}.</> : <>.</>}
+          {" "}Cần sản xuất thêm ít nhất{" "}
+          {pi.shortIngs.map((g, i) => <span key={g.code}>{i ? " + " : ""}<b class="nd-calc-x">{soVN(g.need)}{g.unit ? ` ${g.unit}` : ""} {g.code}</b></span>)}
+          {" "}để đóng gói đủ.
+          {p.can_direct !== false && <> Hoặc sản xuất thêm <b>{p.code}</b> <b>{soVN(pi.stillShort)}</b> {u} trực tiếp.</>}
+        </>
+      )}
+    </div>
+  );
 }
 
 function mamText(shortfall: number, cpm?: number): string | null {
@@ -245,6 +275,9 @@ function ProductCard({ p, i, defaultOpen, openOverride }: { p: StockDemandLine; 
         <span class="nd-vl-txt">{v.text}</span>
         {v.resolve && <a class="nd-act" href={v.resolve.href}>{v.resolve.label} ›</a>}
       </div>
+
+      {/* ĐOẠN PHÂN TÍCH — số liệu cụ thể, luôn hiện (chỉ SP có công thức NL) */}
+      <PackAnalysis p={p} />
 
       {open && (
         <div class="nd-card-detail">
