@@ -27,8 +27,6 @@ const chip = (num?: string) => <span class="pt-bchip"><span class="pt-bn">{num}<
 
 function EventRow({ it, idx, srcSlip }: { it: BoxTLItem; idx: number; srcSlip?: number | null }) {
   const amt = it.amount;
-  const rem = it.remaining;
-  const before = rem != null ? Math.round((rem - it.delta) * 1000) / 1000 : null;
   const u = it.unit ? " " + it.unit : "";
   const otxt = it.order_text ? (it.order_text.length > 34 ? it.order_text.slice(0, 34).trimEnd() + "…" : it.order_text) : "";
   const ord = it.order_thread_id
@@ -45,10 +43,6 @@ function EventRow({ it, idx, srcSlip }: { it: BoxTLItem; idx: number; srcSlip?: 
       default: return <>{it.reason}</>;
     }
   })();
-  const noChange = it.delta === 0;
-  const ton = noChange
-    ? (rem != null ? <span class="pt-ton">còn <b class="pt-prog">{soVN(rem)}</b></span> : null)
-    : (before != null ? <span class="pt-ton">còn <span class="pt-prog">{soVN(before)}→<b>{soVN(rem!)}</b></span></span> : null);
   return (
     <li class="pt-item" id={`bev-${idx}`}>
       <div class="pt-line">
@@ -58,7 +52,6 @@ function EventRow({ it, idx, srcSlip }: { it: BoxTLItem; idx: number; srcSlip?: 
           {it.actor && it.actor !== "?" ? <><b class="pt-who">{it.actor}</b> </> : null}
           {act}
         </span>
-        {ton}
       </div>
       <span class="pt-rail" />
     </li>
@@ -70,8 +63,10 @@ function Junction({ height, label, amount }: { height: number; label: string | n
     <li class="pt-junc" style={height ? { height: `${height}px` } : undefined}>
       <span class="pt-junc-mid">{label ? <span class="fg-label">· {label} ·</span> : null}</span>
       <span class="pt-rail">
-        {amount != null && <span class="pt-dot-amt">{soVN(amount)}</span>}
-        <span class="pt-dot pt-dot-static" />
+        <span class="pt-bead">
+          {amount != null && <span class="pt-dot-amt">{soVN(amount)}</span>}
+          <span class="pt-dot pt-dot-static" />
+        </span>
       </span>
     </li>
   );
@@ -82,6 +77,35 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
   const focusedRef = useRef(false);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // Chấm tồn TRƯỢT theo cuộn (như hạt nợ ở feed khách): mỗi khe (junction) có 1 chấm
+  // trượt trong phạm vi khe theo đường ghim ~45% màn hình. rAF khi đang cuộn.
+  useEffect(() => {
+    const apply = () => {
+      const juncs = listRef.current?.querySelectorAll<HTMLElement>(".pt-junc");
+      if (!juncs) return;
+      const pin = window.innerHeight * 0.45;
+      juncs.forEach((j) => {
+        const bead = j.querySelector<HTMLElement>(".pt-bead");
+        if (!bead) return;
+        const r = j.getBoundingClientRect();
+        const off = Math.min(Math.max(pin - r.top, 0), r.height);
+        bead.style.top = `${off}px`;
+      });
+    };
+    let raf = 0, running = false, lastY = -1, idle = 0;
+    const tick = () => {
+      const y = window.scrollY;
+      if (y !== lastY) { lastY = y; idle = 0; apply(); }
+      else if (++idle > 20) { running = false; return; }
+      raf = requestAnimationFrame(tick);
+    };
+    const onScroll = () => { if (!running) { running = true; idle = 0; raf = requestAnimationFrame(tick); } };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    const t = setTimeout(apply, 60);   // đặt vị trí ban đầu sau render
+    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); clearTimeout(t); };
+  }, [d]);
 
   const load = () => {
     getBoxTimeline(boxId)
@@ -147,7 +171,7 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
       {items.length === 0 ? (
         <EmptyState>Thùng này chưa có biến động nào được ghi.</EmptyState>
       ) : (
-        <ul class="pt-list">{rows}</ul>
+        <ul class="pt-list" ref={listRef}>{rows}</ul>
       )}
       {d.truncated && <div class="muted small pt-trunc">Chỉ hiện {items.length} biến động gần nhất.</div>}
     </div>

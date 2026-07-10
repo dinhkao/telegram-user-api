@@ -1280,7 +1280,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
   padding: 0; cursor: pointer; -webkit-appearance: none; appearance: none; }
 .pt-dot:active { transform: scale(1.25); }
 .pt-dot-static { cursor: default; }
-/* tồn của thùng tại thời điểm chấm (giữa 2 biến động) */
+/* chấm tồn TRƯỢT trong khe theo cuộn (JS đặt top; -50% để canh giữa) */
+.pt-bead { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center; }
 .pt-dot-amt { position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
   font-size: .74rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
 .pt-dot.in { border-color: var(--ok); }
