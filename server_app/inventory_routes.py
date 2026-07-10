@@ -629,24 +629,14 @@ async def box_transfer_handler(request: web.Request):
     res, terr = await asyncio.to_thread(_run)
     if terr:
         return web.json_response({"ok": False, "error": terr}, status=400)
-    # Lịch sử thao tác cho CẢ 2 thùng + realtime
-    from audit_log import async_log_event
-    from server_app.tasks import spawn_tracked
     actor_type = "web_user" if request.get("web_user") else "http_client"
-    spawn_tracked("audit.box_transfer", async_log_event(
-        "box.transfer_out", scope="box", thread_id=res["from_id"], actor_type=actor_type,
-        actor_id=actor, source="box.transfer",
-        payload={"to_box_id": res["to_id"], "to_code": res["to_code"], "quantity": res["quantity"]}))
-    spawn_tracked("audit.box_transfer", async_log_event(
-        "box.transfer_in", scope="box", thread_id=res["to_id"], actor_type=actor_type,
-        actor_id=actor, source="box.transfer",
-        payload={"from_box_id": res["from_id"], "from_code": res["from_code"], "quantity": res["quantity"]}))
     from server_app.realtime import emit_box_changed, emit_inventory_changed
     emit_box_changed(res["from_id"])
     emit_box_changed(res["to_id"])
     emit_inventory_changed()
 
-    # Lịch sử VỊ TRÍ 2 kho (nếu thùng có xếp vị trí) — chuyển hàng giữa 2 thùng
+    # Lịch sử THÙNG (cả 2) + VỊ TRÍ (nếu có xếp) — 1 nguồn duy nhất log_transfer_places,
+    # payload giàu (mã+số thùng đối tác, tên kho, tồn) để timeline/History hiện đủ.
     def _places():
         conn = _conn()
         try:
@@ -655,7 +645,7 @@ async def box_transfer_handler(request: web.Request):
         finally:
             conn.close()
     fs, ts = await asyncio.to_thread(_places)
-    if fs and ts and (fs.get("place_id") or ts.get("place_id")):
+    if fs and ts:
         from server_app.inventory_audit import log_transfer_places
         log_transfer_places(fs, ts, res["quantity"], actor=actor, actor_type=actor_type)
     return web.json_response({"ok": True, "transfer": res})

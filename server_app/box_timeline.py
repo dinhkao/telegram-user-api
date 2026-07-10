@@ -91,7 +91,7 @@ def box_timeline(box_id: int) -> dict:
                 "amount": round(abs(delta), 3), "delta": round(delta, 3),
                 "remaining": p.get("remaining"),   # tồn của THÙNG sau biến động
                 "order_thread_id": p.get("order_thread_id"), "order_text": p.get("order_text"),
-                "peer_box": _boxnum(p.get("to_box") or p.get("from_box")),
+                "peer_box": _boxnum(p.get("to_box") or p.get("from_box") or p.get("to_code") or p.get("from_code")),
                 "from_name": p.get("from_name"), "to_name": p.get("to_name"),
                 "target_code": p.get("target_code"), "slip_id": p.get("slip_id"),   # tiêu hao đóng gói
                 "unit": unit, "actor": _actor_display(r["actor_id"], names),
