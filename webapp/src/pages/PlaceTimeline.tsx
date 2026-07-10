@@ -92,7 +92,7 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
   const inner = (
     <>
       <span class="pt-time">{hm(it.at)}</span>
-      <span class={"pt-tag " + it.dir}>{it.dir === "in" ? "Vào" : "Ra"}</span>
+      <span class={"pt-tag " + it.dir}>{it.dir === "in" ? "+" : "−"}</span>
       <span class="pt-line-txt">
         <b class="pt-sp">{it.product_code}</b> {chip(it.box_num)}{" "}
         {act}
