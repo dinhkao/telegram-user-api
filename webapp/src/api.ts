@@ -673,6 +673,20 @@ export async function reportLockStatus(id: string | number): Promise<string | nu
   const d = await getJSON(`/api/production/${id}/report/lock`, { cache: false });
   return d.holder ?? null;
 }
+
+/** Khoá CHỌN THÙNG xuất kho cho (đơn, mã SP) — 1 người mở popup cùng lúc. Gọi lặp = heartbeat.
+ * Trả {holder, mine}: mine=false = người khác đang chọn mã này. */
+export async function lockStockPick(id: string | number, code: string): Promise<{ ok: boolean; holder: string | null; mine: boolean }> {
+  return postJSON(`/api/order/${id}/stock-pick/lock`, { user: _actor(), code });
+}
+export async function unlockStockPick(id: string | number, code: string): Promise<any> {
+  return postJSON(`/api/order/${id}/stock-pick/unlock`, { user: _actor(), code });
+}
+/** {CODE: holder} các mã đang có người chọn thùng cho đơn (nạp lúc mở để làm mờ nút). */
+export async function stockPickStatus(id: string | number): Promise<Record<string, string>> {
+  const d = await getJSON(`/api/order/${id}/stock-pick/lock`, { cache: false });
+  return d.locks || {};
+}
 export type ProdDashboard = {
   totals: { tong: number; phieu: number; tho: number };
   by_worker: { name: string; tong: number; phieu: number; mam: number }[];

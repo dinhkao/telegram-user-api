@@ -4,7 +4,7 @@
 // CHỐT xuất kho: xuất đủ mọi mã → bấm Chốt → KHOÁ sửa/thu hồi VỚI TẤT CẢ (server
 // cũng chặn); admin muốn sửa phải bấm Huỷ chốt. Nút bị khoá = mờ + toast lý do.
 import { useEffect, useState } from "preact/hooks";
-import { orderAllocations, allocatePicks, releaseAllocations, stockConfirmOrder, currentUser, soVN, type Allocation } from "../api";
+import { orderAllocations, allocatePicks, releaseAllocations, stockConfirmOrder, currentUser, soVN, lockStockPick, unlockStockPick, stockPickStatus, type Allocation } from "../api";
 import { StockPickerModal } from "./StockPickerModal";
 import { confirmDialog, toast } from "../ui/feedback";
 import { onRealtime } from "../realtime";
@@ -33,6 +33,9 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
   const confirmed: Confirmed = localSt === "cleared" ? null : (localSt as Confirmed) || stockConfirmed || null;
   const isAdmin = currentUser()?.role === "admin";
   const locked = !!confirmed;   // chốt = khoá VỚI TẤT CẢ — admin phải Huỷ chốt mới sửa
+  const myName = currentUser()?.display_name || currentUser()?.username || "";
+  // {CODE: holder} mã đang có NGƯỜI KHÁC mở popup chọn thùng → làm mờ nút "Chọn thùng" mã đó
+  const [pickLocks, setPickLocks] = useState<Record<string, string>>({});
 
   const load = async () => {
     try {
@@ -43,18 +46,49 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
   };
   useEffect(() => {
     load();
+    stockPickStatus(threadId).then(setPickLocks).catch(() => {});   // ai đang chọn thùng lúc mở
   }, [threadId]);
 
-  // Realtime: xuất/thu hồi thùng cho đơn này (từ máy khác) hoặc kho đổi → tải lại phần đã xuất
+  // Realtime: xuất/thu hồi thùng cho đơn này (từ máy khác) hoặc kho đổi → tải lại phần đã xuất.
+  // stock_pick_lock = có người mở/đóng popup chọn thùng mã nào đó → mờ/bỏ mờ nút mã đó.
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
+      if (e.type === "stock_pick_lock" && e.thread_id === String(threadId)) {
+        setPickLocks((m) => {
+          const n = { ...m };
+          if (e.holder) n[e.code] = e.holder; else delete n[e.code];
+          return n;
+        });
+        return;
+      }
       const rel = e.type === "resync" || e.type === "inventory_changed" || e.type === "box_changed" ||
         (e.type === "order_changed" && e.thread_id === String(threadId));
       if (rel) { clearTimeout(t); t = setTimeout(load, 250); }
     });
     return () => { off(); clearTimeout(t); };
   }, [threadId]);
+
+  // Đang mở popup chọn thùng cho mã nào → GIỮ khoá mã đó (heartbeat 20s), nhả khi đóng.
+  // Nếu người khác giành trước (mine=false) → đóng popup + báo.
+  useEffect(() => {
+    if (!pickCode) return;
+    let alive = true;
+    let t: any;
+    const beat = async () => {
+      try {
+        const r = await lockStockPick(threadId, pickCode);
+        if (alive && r && r.mine === false) {
+          toast(`Đang được ${r.holder} chọn thùng — chờ họ xong`, "info");
+          setPickCode("");
+          return;
+        }
+      } catch { /* im lặng — thử lại nhịp sau */ }
+      if (alive) t = setTimeout(beat, 20000);
+    };
+    beat();
+    return () => { alive = false; clearTimeout(t); unlockStockPick(threadId, pickCode).catch(() => {}); };
+  }, [pickCode, threadId]);
 
   // gộp nhu cầu theo mã SP (SL cộng dồn)
   const needs = new Map<string, number>();
@@ -151,6 +185,8 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
         const mine = allocs.filter((a) => a.product_code === code);
         const got = mine.reduce((s, a) => s + a.quantity, 0);
         const enough = got >= need;
+        const pickBy = pickLocks[code];                       // ai đang chọn thùng mã này
+        const heldByOther = !!pickBy && pickBy !== myName;    // NGƯỜI KHÁC đang chọn → khoá nút
         return (
           <div class="stock-line" key={code}>
             <div class="stock-head">
@@ -158,9 +194,11 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
               <span class={enough ? "inv-pick-sum ok" : "inv-pick-sum"}>
                 Đã xuất {soVN(got)}/{soVN(need)}
               </span>
-              <button class={"btn small" + (locked ? " faded" : "")}
-                onClick={() => (locked ? lockedToast() : setPickCode(code))}>
-                Chọn thùng
+              <button class={"btn small" + (locked || heldByOther ? " faded" : "")}
+                onClick={() => (locked ? lockedToast()
+                  : heldByOther ? toast(`Đang được ${pickBy} chọn thùng — chờ họ xong`, "info")
+                  : setPickCode(code))}>
+                {heldByOther ? `${pickBy} đang chọn…` : "Chọn thùng"}
               </button>
             </div>
 

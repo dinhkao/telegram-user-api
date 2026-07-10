@@ -283,6 +283,11 @@ def create_app():
     r.add_post("/api/order/{thread_id}/release", order_release_handler)
     from server_app.order_stock_lock import order_stock_confirm_handler
     r.add_post("/api/order/{thread_id}/stock-confirm", order_stock_confirm_handler)
+    from server_app.stock_pick_lock import (stock_pick_lock_handler, stock_pick_lock_status_handler,
+                                            stock_pick_unlock_handler)
+    r.add_post("/api/order/{thread_id}/stock-pick/lock", stock_pick_lock_handler)
+    r.add_get("/api/order/{thread_id}/stock-pick/lock", stock_pick_lock_status_handler)
+    r.add_post("/api/order/{thread_id}/stock-pick/unlock", stock_pick_unlock_handler)
     from server_app.return_routes import (returns_list_handler, returns_create_handler,
                                           returns_delete_handler, returns_all_handler, return_detail_handler)
     r.add_get("/api/customers/{key}/returns", returns_list_handler)

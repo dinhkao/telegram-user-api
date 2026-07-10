@@ -176,6 +176,14 @@ def emit_price_lists_changed() -> None:
     spawn_tracked("realtime.price_lists_changed", _broadcast({"type": "price_lists_changed"}, "price_lists_changed"))
 
 
+def emit_stock_pick_lock(thread_id, code, holder) -> None:
+    """Khoá chọn thùng xuất kho cho (đơn, mã SP) đổi chủ (holder / None = nhả) → client khác
+    làm mờ hoặc bỏ mờ nút 'Chọn thùng' của mã đó."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.stock_pick_lock",
+                  _broadcast({"type": "stock_pick_lock", "thread_id": None if thread_id is None else str(thread_id), "code": code, "holder": holder}, "stock_pick_lock"))
+
+
 def emit_report_lock(thread_id, holder) -> None:
     """Khoá sửa báo cáo phiếu SX đổi chủ (ai đang giữ / None = nhả) → client khác đổi UI."""
     from server_app.tasks import spawn_tracked
