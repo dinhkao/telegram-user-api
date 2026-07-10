@@ -5,7 +5,7 @@ from typing import Optional
 from .schema import _PRODUCTS_CACHE_TTL, _invalidate_products_cache, _products_cache
 
 
-_COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material, prod_mam, prod_luong"
+_COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material, prod_mam, prod_luong, can_produce_directly"
 _FIELDS = tuple(c.strip() for c in _COLS.split(","))
 
 
@@ -14,6 +14,7 @@ def _row(r) -> dict:
     d["cost_price"] = d["cost_price"] or 0
     d["unit"] = d["unit"] or "cây"
     d["is_material"] = bool(d["is_material"])
+    d["can_produce_directly"] = d.get("can_produce_directly") != 0   # SX trực tiếp được (mặc định True)
     return d
 
 
@@ -43,7 +44,7 @@ def get_all_products(conn, *, _use_cache: bool = True) -> list[dict]:
     return result
 
 
-def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, prod_mam: float = None, prod_luong: float = None) -> bool:
+def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, prod_mam: float = None, prod_luong: float = None, can_produce_directly: bool = None) -> bool:
     code = code.upper().strip()
     if not code:
         return False
@@ -63,6 +64,8 @@ def upsert_product(conn, code: str, name: str = None, cost_price: int = None, no
             updates.append("prod_mam = ?"); params.append(float(prod_mam) if prod_mam != "" else None)
         if prod_luong is not None:
             updates.append("prod_luong = ?"); params.append(float(prod_luong) if prod_luong != "" else None)
+        if can_produce_directly is not None:
+            updates.append("can_produce_directly = ?"); params.append(1 if can_produce_directly else 0)
         if not updates:
             return True
         updates.append("updated_at = ?"); params.extend([now, code])

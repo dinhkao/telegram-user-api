@@ -74,6 +74,15 @@ export function InventoryDetail({ code }: { code: string }) {
       if (p && inv) { setInv({ ...inv, product: p }); setNameSaved(true); setTimeout(() => setNameSaved(false), 1500); }
     } catch { /* im */ }
   };
+  // SX trực tiếp được không → gate loại phiếu nhập thùng (san_xuat vs dong_goi)
+  const toggleDirect = async () => {
+    if (!inv?.product) return;
+    const next = !inv.product.can_produce_directly;
+    try {
+      const p = await updateProduct(code, { can_produce_directly: next });
+      if (p && inv) { setInv({ ...inv, product: p }); toast(next ? "✅ SP sản xuất trực tiếp được" : "📦 Chỉ đóng gói từ nguyên liệu", "ok"); }
+    } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
+  };
   // Liên kết KiotViet từng cái (modal tìm + chọn)
   const [linkOpen, setLinkOpen] = useState(false);
   const [kvQ, setKvQ] = useState("");
@@ -285,6 +294,26 @@ export function InventoryDetail({ code }: { code: string }) {
             onInput={(e: any) => setUnitInput(e.target.value)} onBlur={saveUnit}
             onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
         </div>
+        {inv.product && isAdmin && (
+          <div class="box-kv">
+            <span class="box-k">Cách sản xuất</span>
+            <div class="cpd-seg" role="group">
+              <button class={"cpd-opt" + (inv.product.can_produce_directly ? " sel" : "")} disabled={inv.product.can_produce_directly} onClick={() => { if (!inv.product!.can_produce_directly) toggleDirect(); }}>
+                <Icon name="factory" size={14} /> Sản xuất trực tiếp
+              </button>
+              <button class={"cpd-opt" + (!inv.product.can_produce_directly ? " sel" : "")} disabled={!inv.product.can_produce_directly} onClick={() => { if (inv.product!.can_produce_directly) toggleDirect(); }}>
+                <Icon name="box" size={14} /> Đóng gói từ NL
+              </button>
+            </div>
+          </div>
+        )}
+        {inv.product && isAdmin && (
+          <div class="muted small" style={{ margin: "-2px 0 6px" }}>
+            {inv.product.can_produce_directly
+              ? "Nhập thùng từ phiếu SẢN XUẤT (không trừ NL). Có công thức thì cũng đóng gói được."
+              : "Chỉ nhập thùng từ phiếu ĐÓNG GÓI — bắt buộc trừ nguyên liệu."}
+          </div>
+        )}
         <div class="row space">
           {inv.product?.linked ? (
             <span class="kv-badge on" title={inv.product.kv_full_name || undefined}>

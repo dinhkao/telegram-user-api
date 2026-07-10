@@ -1349,6 +1349,13 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .lbl-grid.dense .box-lbl .bl-x { width: 17px; height: 17px; border-radius: 0 7px 0 7px; }
 .sk-grid { margin-top: 7px; }
 
+/* SP: cách sản xuất (segmented toggle) */
+.cpd-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+.cpd-opt { display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border: none; background: var(--card); color: var(--muted); font: inherit; font-size: .85rem; cursor: pointer; }
+.cpd-opt + .cpd-opt { border-left: 1px solid var(--border); }
+.cpd-opt.sel { background: var(--accent, #2563eb); color: #fff; font-weight: 700; }
+.cpd-opt:disabled:not(.sel) { opacity: .5; }
+
 /* ══ Nhu cầu kho — bảng điều phối sản xuất (#/nhu-cau) ══
    Triage: câu phán → phiếu cần làm (số thiếu mono đỏ + ≈mâm + verdict NL) → đủ hàng gộp gọn.
    Đỏ = KHAN HIẾM, chỉ dùng cho thiếu thật. */
@@ -1378,8 +1385,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* PHIẾU CẦN LÀM — signature */
 .nd-tk { position: relative; background: var(--card); border: 1px solid var(--border); border-left-width: 5px;
   border-radius: 14px; padding: 13px 15px 11px; margin-bottom: 11px; animation: nd-in .32s var(--ease, ease) both; }
-.nd-tk.blocked { border-left-color: var(--danger); }
-.nd-tk.none { border-left-color: var(--nd-amber); }
+.nd-tk.blocked, .nd-tk.stuck { border-left-color: var(--danger); }
+.nd-tk.fallback { border-left-color: var(--nd-amber); }
 .nd-tk.makeable { border-left-color: var(--ok); }
 .nd-tk-top { display: flex; align-items: flex-start; gap: 10px; }
 .nd-tk-id { flex: 1 1 auto; min-width: 0; }
@@ -1430,6 +1437,19 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .nd-mk-sub { color: var(--muted); font-size: .78rem; margin-top: 3px; font-family: var(--mono); }
 .nd-mk-block { display: flex; align-items: center; gap: 8px; margin-top: 7px; padding: 7px 9px; border-radius: 9px; background: #fff; text-decoration: none; color: inherit; font-size: .84rem; }
 .nd-mk-block .nd-tag { margin-left: auto; }
+/* plan: 1–2 cách làm (SX trực tiếp / đóng gói từ NL) */
+.nd-plan { margin-top: 11px; }
+.nd-plan-lb { font-size: .74rem; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+.nd-plan-or { text-align: center; font-size: .7rem; font-weight: 700; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin: 6px 0; }
+.nd-opt { border-radius: 11px; padding: 9px 11px; font-size: .86rem; }
+.nd-opt.direct { display: flex; align-items: center; gap: 8px; background: var(--ok-wash); color: var(--ok); }
+.nd-opt.direct .nd-opt-t b { color: var(--ink); }
+.nd-opt-t { flex: 1 1 auto; min-width: 0; }
+.nd-opt-rec { flex: 0 0 auto; font-size: .7rem; font-weight: 800; background: var(--nd-amber); color: #fff; padding: 2px 9px; border-radius: 999px; }
+.nd-opt.pack.ok { background: var(--ok-wash); }
+.nd-opt.pack.bad { background: var(--nd-red-wash); }
+.nd-opt-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; color: var(--ink); }
+.nd-opt-h .nd-opt-t { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
 
 /* pill trạng thái nhỏ (nguyên liệu) */
 .nd-tag { flex: 0 0 auto; padding: 2px 9px; border-radius: 999px; font-size: .75rem; font-weight: 700; white-space: nowrap; }

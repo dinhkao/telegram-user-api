@@ -163,9 +163,11 @@ def _compute(conn) -> dict:
     ).fetchall():
         stock[s["pid"]] = float(s["rem"] or 0)
 
-    # tên/đơn vị hiện hành
-    names = {r["id"]: (r["name"], r["unit"]) for r in conn.execute(
-        "SELECT id, name, unit FROM products").fetchall()}
+    # tên/đơn vị + có SX trực tiếp được không, theo product_id hiện hành
+    names, candirect = {}, {}
+    for r in conn.execute("SELECT id, name, unit, can_produce_directly FROM products").fetchall():
+        names[r["id"]] = (r["name"], r["unit"])
+        candirect[r["id"]] = (r["can_produce_directly"] != 0)
 
     products = []
     for key, need in net.items():
@@ -194,6 +196,7 @@ def _compute(conn) -> dict:
             "enough": st + 1e-9 >= need, "shortfall": round(short, 3),
             "orders": len(d["orders"]), "orders_detail": porders.get(key, []),
             "ingredients": ingredients, "cay_per_mam": round(cpm, 3),
+            "can_direct": candirect.get(pid, True) if pid is not None else True,
         })
     products.sort(key=lambda p: (-p["shortfall"], -p["need"], p["code"]))
 

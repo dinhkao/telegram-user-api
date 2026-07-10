@@ -158,6 +158,12 @@ async def production_add_boxes_handler(request: web.Request):
                 for nd in needs:
                     if got.get(nd["code"], 0.0) + 1e-6 < nd["amount"]:
                         return "short", nd["code"], nd["amount"]
+            elif kind == "san_xuat":
+                # phiếu SẢN XUẤT chỉ nhập được SP có thể SX trực tiếp (can_produce_directly)
+                from product_store import get_product
+                prod = get_product(conn, code)
+                if prod is not None and not prod.get("can_produce_directly"):
+                    return "notdirect", code, None
             try:
                 created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=unit_id, place_id=place_id)
             except ValueError as e:   # hết 999 số gọi đang hoạt động (thực tế khó xảy ra)
@@ -180,6 +186,8 @@ async def production_add_boxes_handler(request: web.Request):
         return web.json_response({"ok": False, "error": f"Chưa chọn đủ thùng nguyên liệu {total} (cần {consume:g})"}, status=400)
     if created == "norecipe":
         return web.json_response({"ok": False, "error": f"Phiếu đóng gói bắt buộc trừ nguyên liệu — {total} chưa có công thức. Thêm công thức ở trang chi tiết sản phẩm."}, status=400)
+    if created == "notdirect":
+        return web.json_response({"ok": False, "error": f"SP {total} không sản xuất trực tiếp — chỉ nhập được qua phiếu ĐÓNG GÓI (trừ nguyên liệu). Đổi loại phiếu, hoặc bật 'SX trực tiếp' ở chi tiết SP."}, status=400)
     if created == "full":
         return web.json_response({"ok": False, "error": total}, status=400)
     from server_app.realtime import emit_inventory_changed, emit_production_changed
@@ -856,6 +864,7 @@ async def inventory_detail_handler(request: web.Request):
         product = {
             "id": prod.get("id"),
             "code": prod["code"], "name": prod.get("name") or prod.get("kv_full_name") or "",
+            "can_produce_directly": bool(prod.get("can_produce_directly")),
             "cost_price": prod.get("cost_price") or 0, "unit": prod.get("unit") or "cây",
             "kv_id": prod.get("kv_id"), "kv_full_name": prod.get("kv_full_name"),
             "kv_synced_at": prod.get("kv_synced_at"),

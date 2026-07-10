@@ -10,15 +10,24 @@ import { Icon } from "../ui/Icon";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 
 // ── helpers ─────────────────────────────────────────────────────────────
-type MakeState = "none" | "makeable" | "blocked";   // không công thức / đủ NL / thiếu NL
-
-function makeState(p: StockDemandLine): MakeState {
+// 2 trục: SX trực tiếp được không (can_direct) × có công thức NL không (hasRecipe).
+function planOf(p: StockDemandLine) {
   const ings = p.ingredients || [];
-  if (!ings.length) return "none";
-  return ings.every((g) => g.enough) ? "makeable" : "blocked";
+  const hasRecipe = ings.length > 0;
+  const matsEnough = hasRecipe && ings.every((g) => g.enough);
+  const canDirect = p.can_direct !== false;
+  return { ings, hasRecipe, matsEnough, canDirect };
 }
-// ưu tiên phiếu: thiếu NL (phải mua) → làm trực tiếp → đủ NL; cùng nhóm thì thiếu nhiều lên trước
-const PRIO: Record<MakeState, number> = { blocked: 0, none: 1, makeable: 2 };
+// mức độ (rail + ưu tiên): blocked=phải mua NL, không lối khác; fallback=đóng gói thiếu NL
+// nhưng làm trực tiếp được; makeable=làm ngay được; stuck=chưa cấu hình cách SX.
+type Sev = "makeable" | "fallback" | "blocked" | "stuck";
+function sevOf(p: StockDemandLine): Sev {
+  const { hasRecipe, matsEnough, canDirect } = planOf(p);
+  if (canDirect) return hasRecipe && !matsEnough ? "fallback" : "makeable";
+  if (!hasRecipe) return "stuck";
+  return matsEnough ? "makeable" : "blocked";
+}
+const SEV_PRIO: Record<Sev, number> = { blocked: 0, stuck: 0, fallback: 1, makeable: 2 };
 
 function mamText(shortfall: number, cpm?: number): string | null {
   if (!cpm || cpm <= 0) return null;
@@ -111,31 +120,51 @@ function IngTree({ g, depth }: { g: StockDemandIngredient; depth: number }) {
   );
 }
 
-// verdict "làm được không" — 1 dòng headline (chi tiết NL hiện đầy đủ bên dưới)
-function MakeVerdict({ p, state }: { p: StockDemandLine; state: MakeState }) {
-  if (state === "none") {
-    return <div class="nd-mk none"><Icon name="factory" size={15} /> Làm trực tiếp — không có công thức nguyên liệu</div>;
+// Cách làm bù phần thiếu — có thể là 2 lựa chọn (SX trực tiếp / đóng gói từ NL).
+function MakeVerdict({ p }: { p: StockDemandLine }) {
+  const { ings, hasRecipe, matsEnough, canDirect } = planOf(p);
+  const mam = mamText(p.shortfall, p.cay_per_mam);
+  const both = canDirect && hasRecipe;
+  if (!canDirect && !hasRecipe) {
+    return <div class="nd-mk bad"><div class="nd-mk-head"><span class="nd-mk-warn">⚠</span> Chưa cấu hình cách SX — bật "SX trực tiếp" hoặc thêm công thức NL ở chi tiết SP</div></div>;
   }
-  if (state === "makeable") {
-    return <div class="nd-mk ok"><div class="nd-mk-head"><Icon name="check" size={15} /> Đủ nguyên liệu để làm <b>{soVN(p.shortfall)}</b></div></div>;
-  }
-  return <div class="nd-mk bad"><div class="nd-mk-head"><span class="nd-mk-warn">⚠</span> Thiếu nguyên liệu — cần bổ sung</div></div>;
+  return (
+    <div class="nd-plan">
+      {both && <div class="nd-plan-lb">{matsEnough ? "Chọn 1 trong 2 cách:" : "Cách làm:"}</div>}
+      {canDirect && (
+        <div class={"nd-opt direct" + (both && !matsEnough ? " rec" : "")}>
+          <Icon name="factory" size={15} />
+          <span class="nd-opt-t"><b>Làm trực tiếp</b>{mam ? <span class="nd-dim"> · {mam}</span> : null}</span>
+          {both && !matsEnough && <span class="nd-opt-rec">nên chọn</span>}
+        </div>
+      )}
+      {both && <div class="nd-plan-or">hoặc</div>}
+      {hasRecipe && (
+        <div class={"nd-opt pack " + (matsEnough ? "ok" : "bad")}>
+          <div class="nd-opt-h">
+            <span class="nd-opt-t"><Icon name="box" size={15} /> <b>Đóng gói từ nguyên liệu</b></span>
+            <span class={"nd-tag " + (matsEnough ? "ok" : "bad")}>{matsEnough ? "đủ NL" : "thiếu NL"}</span>
+          </div>
+          {ings.map((g) => <IngTree g={g} depth={0} key={g.code} />)}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── phiếu cần làm (mã thiếu hàng) — MỌI chi tiết luôn hiện, không ẩn ─────
 function MakeTicket({ p, i }: { p: StockDemandLine; i: number }) {
-  const state = makeState(p);
+  const sev = sevOf(p);
   const det = p.orders_detail || [];
   const mam = mamText(p.shortfall, p.cay_per_mam);
-  const ings = p.ingredients || [];
   return (
-    <article class={"nd-tk " + state} style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
+    <article class={"nd-tk " + sev} style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}>
       <div class="nd-tk-top">
         <div class="nd-tk-id">
           <span class="nd-tk-code">{p.code}</span>
           {p.name ? <span class="nd-tk-name">{p.name}</span> : null}
         </div>
-        {mam && <span class="nd-mam">{mam}</span>}
+        {mam && planOf(p).canDirect && <span class="nd-mam">{mam}</span>}
       </div>
 
       <div class="nd-def">
@@ -146,14 +175,7 @@ function MakeTicket({ p, i }: { p: StockDemandLine; i: number }) {
       </div>
       <StockBar stock={p.stock} need={p.need} orders={det} showNum={false} legend />
 
-      <MakeVerdict p={p} state={state} />
-
-      {ings.length > 0 && (
-        <div class="nd-tk-detail">
-          <div class="nd-sub-h">Nguyên liệu</div>
-          {ings.map((g) => <IngTree g={g} depth={0} key={g.code} />)}
-        </div>
-      )}
+      <MakeVerdict p={p} />
     </article>
   );
 }
@@ -201,7 +223,7 @@ export function StockDemand() {
     );
   }
 
-  const short = products.filter((p) => !p.enough).sort((a, b) => PRIO[makeState(a)] - PRIO[makeState(b)] || b.shortfall - a.shortfall);
+  const short = products.filter((p) => !p.enough).sort((a, b) => SEV_PRIO[sevOf(a)] - SEV_PRIO[sevOf(b)] || b.shortfall - a.shortfall);
   const okList = products.filter((p) => p.enough);
 
   return (

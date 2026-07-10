@@ -22,7 +22,8 @@ _PRODUCT_COLS_SQL = """
             unit          TEXT DEFAULT 'cây',
             is_material   INTEGER DEFAULT 0,
             prod_mam      REAL,
-            prod_luong    REAL
+            prod_luong    REAL,
+            can_produce_directly INTEGER DEFAULT 1
 """
 
 
@@ -75,6 +76,8 @@ def migrate_products_table(conn):
         conn.execute("ALTER TABLE products ADD COLUMN prod_mam REAL")
     if "prod_luong" not in columns:    # SX: lượng mặc định (port từ SP_INFO)
         conn.execute("ALTER TABLE products ADD COLUMN prod_luong REAL")
+    if "can_produce_directly" not in columns:   # SX TRỰC TIẾP được không (phiếu kind=san_xuat).
+        conn.execute("ALTER TABLE products ADD COLUMN can_produce_directly INTEGER DEFAULT 1")  # backfill 0 cho SP có công thức ở db_migrate
     if "id" not in columns:
         _rebuild_with_id(conn)
     _create_history_table(conn)
