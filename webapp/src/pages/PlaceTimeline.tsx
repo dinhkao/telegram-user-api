@@ -193,7 +193,8 @@ export function PlaceTimeline({ placeId, focus }: { placeId: string; focus?: str
       const cross = dayKeyOf(it.at) !== dayKeyOf(older.at);
       // CHẤM chỉ ở RANH GIỚI 2 NHÓM (cách > 5 phút) — trong 1 cụm các dòng xếp sát, không chấm
       if (dsec > GROUP_SEC) {
-        const gh = Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX));
+        // khác ngày → KHÔNG giãn (day header đã ngăn cách); cùng ngày → giãn theo thời gian
+        const gh = cross ? 0 : Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX));
         rows.push(<Junction key={`j-${i}`} height={gh} label={cross ? null : gapLabel(dsec)}
           onDot={() => openBoxes(older.at, i + 1)} />);
       }

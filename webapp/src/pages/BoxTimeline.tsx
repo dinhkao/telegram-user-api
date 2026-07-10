@@ -114,7 +114,8 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
       const dsec = Math.max(0, it.ts - older.ts);
       const cross = dayKeyOf(it.at) !== dayKeyOf(older.at);
       if (dsec > GROUP_SEC) {
-        const gh = Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX));
+        // khác ngày → KHÔNG giãn (day header đã ngăn cách); cùng ngày → giãn theo thời gian
+        const gh = cross ? 0 : Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX));
         rows.push(<Junction key={`j-${i}`} height={gh} label={cross ? null : gapLabel(dsec)} />);
       }
       if (cross) rows.push(<li key={`d-${i}`} class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(older.at))}</div></li>);
