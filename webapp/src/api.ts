@@ -687,6 +687,20 @@ export async function stockPickStatus(id: string | number): Promise<Record<strin
   const d = await getJSON(`/api/order/${id}/stock-pick/lock`, { cache: false });
   return d.locks || {};
 }
+
+/** Khoá SỬA HOÁ ĐƠN của đơn — 1 người mở trang sửa cùng lúc. Gọi lặp = heartbeat.
+ * Trả {holder, mine}: mine=false = người khác đang sửa hoá đơn đơn này. */
+export async function lockInvoiceEdit(id: string | number): Promise<{ ok: boolean; holder: string | null; mine: boolean }> {
+  return postJSON(`/api/order/${id}/invoice-edit/lock`, { user: _actor() });
+}
+export async function unlockInvoiceEdit(id: string | number): Promise<any> {
+  return postJSON(`/api/order/${id}/invoice-edit/unlock`, { user: _actor() });
+}
+/** Ai đang sửa hoá đơn đơn này (không xin khoá) — làm mờ nút 'Sửa hoá đơn' ở chi tiết đơn. */
+export async function invoiceEditStatus(id: string | number): Promise<string | null> {
+  const d = await getJSON(`/api/order/${id}/invoice-edit/lock`, { cache: false });
+  return d.holder ?? null;
+}
 export type ProdDashboard = {
   totals: { tong: number; phieu: number; tho: number };
   by_worker: { name: string; tong: number; phieu: number; mam: number }[];

@@ -288,6 +288,11 @@ def create_app():
     r.add_post("/api/order/{thread_id}/stock-pick/lock", stock_pick_lock_handler)
     r.add_get("/api/order/{thread_id}/stock-pick/lock", stock_pick_lock_status_handler)
     r.add_post("/api/order/{thread_id}/stock-pick/unlock", stock_pick_unlock_handler)
+    from server_app.invoice_edit_lock import (invoice_edit_lock_handler, invoice_edit_lock_status_handler,
+                                              invoice_edit_unlock_handler)
+    r.add_post("/api/order/{thread_id}/invoice-edit/lock", invoice_edit_lock_handler)
+    r.add_get("/api/order/{thread_id}/invoice-edit/lock", invoice_edit_lock_status_handler)
+    r.add_post("/api/order/{thread_id}/invoice-edit/unlock", invoice_edit_unlock_handler)
     from server_app.return_routes import (returns_list_handler, returns_create_handler,
                                           returns_delete_handler, returns_all_handler, return_detail_handler)
     r.add_get("/api/customers/{key}/returns", returns_list_handler)

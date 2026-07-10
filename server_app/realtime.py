@@ -184,6 +184,14 @@ def emit_stock_pick_lock(thread_id, code, holder) -> None:
                   _broadcast({"type": "stock_pick_lock", "thread_id": None if thread_id is None else str(thread_id), "code": code, "holder": holder}, "stock_pick_lock"))
 
 
+def emit_invoice_edit_lock(thread_id, holder) -> None:
+    """Khoá sửa hoá đơn của đơn đổi chủ (holder / None = nhả) → client khác làm mờ hoặc bỏ mờ
+    nút 'Sửa hoá đơn' và trang sửa hiện/ẩn banner 'X đang sửa'."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.invoice_edit_lock",
+                  _broadcast({"type": "invoice_edit_lock", "thread_id": None if thread_id is None else str(thread_id), "holder": holder}, "invoice_edit_lock"))
+
+
 def emit_report_lock(thread_id, holder) -> None:
     """Khoá sửa báo cáo phiếu SX đổi chủ (ai đang giữ / None = nhả) → client khác đổi UI."""
     from server_app.tasks import spawn_tracked

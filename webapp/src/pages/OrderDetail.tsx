@@ -2,7 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, ensureInvoiceImage, getCustomerOrders, getJSON, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, type OrderImage } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, ensureInvoiceImage, getCustomerOrders, getJSON, invoiceEditStatus, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
 import { money, initial, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
@@ -34,6 +34,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [camSignal, setCamSignal] = useState(0);   // tăng để mở camera ở khối Ảnh
   const [custIds, setCustIds] = useState<number[]>([]);   // thread_id mọi đơn cùng khách (mới→cũ)
   const [showBar, setShowBar] = useState(false);          // hiện thanh dính (cuộn qua 5 icon)
+  const [invEditBy, setInvEditBy] = useState<string | null>(null);   // ai đang sửa hoá đơn đơn này
   const statusRef = useRef<HTMLDivElement>(null);         // 5 icon trạng thái — mốc quan sát
   const seenTs = useRef<string | null>(null); // ts mới nhất đã báo — chặn báo lại lịch sử cũ
   const saveTimer = useRef<any>(null);
@@ -146,12 +147,22 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       .catch(() => {});
   }, [threadId]);
 
+  // Lúc mở đơn: ai đang sửa hoá đơn (để làm mờ nút 'Sửa hoá đơn' ngay)
+  useEffect(() => {
+    setInvEditBy(null);
+    invoiceEditStatus(threadId).then(setInvEditBy).catch(() => {});
+  }, [threadId]);
+
   useEffect(() => {
     let t: any, tt: any;
     const line = (h: any) => `• ${h.actor || "?"}: ${h.action}${h.detail ? ` — ${h.detail}` : ""}`;
     const off = onRealtime((e) => {
       if (e.type === "resync" || e.type === "customer_changed") {
         clearTimeout(t); t = setTimeout(reload, 250);
+        return;
+      }
+      if (e.type === "invoice_edit_lock" && e.thread_id === String(threadId)) {
+        setInvEditBy(e.holder);   // ai đang sửa hoá đơn (null = nhả) → làm mờ/bỏ mờ nút
         return;
       }
       if (e.type === "order_changed" && e.thread_id === String(threadId)) {
@@ -195,6 +206,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const j = detail.data || {};
   const pc = (j.hoadon || {}).print_content || {};
   const isAdmin = currentUser()?.role === "admin";
+  const myName = currentUser()?.display_name || currentUser()?.username || "";
+  const invLockedByOther = !!invEditBy && invEditBy !== myName;   // người khác đang sửa hoá đơn
   // ưu tiên tổng từ hoá đơn in (đã gồm mọi điều chỉnh); tự tính thì phải cộng trừ
   // discount/pvc/vat như /api/order/totals — không thì lệch với Telegram
   const computedTotal = invoiceTotal(j.invoice) - (Number(j.discount) || 0) + (Number(j.pvc) || 0) + (Number(j.vat) || 0);
@@ -520,11 +533,13 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           </>
         ) : (
           <>
-            <button class={"btn block primary" + (j.stock_confirmed ? " faded" : "")} style={{ marginTop: "8px" }}
+            <button class={"btn block primary" + (j.stock_confirmed || invLockedByOther ? " faded" : "")} style={{ marginTop: "8px" }}
               onClick={() => j.stock_confirmed
                 ? toast("Đã chốt xuất kho — admin huỷ chốt mới sửa được số lượng/SP", "info")
+                : invLockedByOther
+                ? toast(`${invEditBy} đang sửa hoá đơn — chờ họ xong`, "info")
                 : (window.location.hash = `#/order/${threadId}/hoa-don`)}>
-              <Icon name="edit" size={16} /> Sửa hoá đơn
+              <Icon name="edit" size={16} /> {invLockedByOther ? `${invEditBy} đang sửa…` : "Sửa hoá đơn"}
             </button>
             {isOffice() && (j.invoice || []).length > 0 && (
               <button class="btn block" style={{ marginTop: "8px" }} disabled={busy} onClick={createHD}>
