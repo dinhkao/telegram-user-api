@@ -84,6 +84,9 @@ export function History({ base, focusTs }: { base: string; focusTs?: number }) {
                         href={`#/order/${h.order.thread_id}${h.order.box_id ? `?focus=box:${h.order.box_id}` : ""}`}
                         >"{h.order.text}"</a></span>
                     ) : null}
+                    {h.source_slip ? (
+                      <span> · <a class="hist-place-lnk" href={`#/san_xuat/${h.source_slip.thread_id}`}>Phiếu SX →</a></span>
+                    ) : null}
                     {h.ok === false ? <span class="owe"> ✗</span> : null}
                   </div>
                   {Array.isArray(h.changes) && h.changes.length > 0 ? (

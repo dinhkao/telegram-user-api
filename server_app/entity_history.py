@@ -165,6 +165,13 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
             places = {r[0]: r[1] for r in conn.execute("SELECT id, name FROM inventory_places").fetchall()}
         except Exception:
             places = {}
+        box_src = None   # phiếu SX tạo ra thùng này (chỉ scope box) → link ở event "Tạo thùng"
+        if scope == "box":
+            try:
+                rr = conn.execute("SELECT source_thread_id FROM inventory_boxes WHERE id = ?", (int(entity_id),)).fetchone()
+                box_src = rr[0] if rr else None
+            except Exception:
+                box_src = None
         out: list[dict] = []
         for r in rows:
             act = r["action"]
@@ -179,6 +186,8 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
                     continue
                 item = {"ts": r["ts"], "actor": _actor_display(r["actor_id"], names),
                         "action": ent[0], "detail": ent[1], "changes": [], "ok": True}
+                if act == "box.created" and box_src:   # link → phiếu SX nguồn
+                    item["source_slip"] = {"thread_id": box_src}
                 if act == "box.moved":   # link tên kho → timeline kho tương ứng
                     item["move"] = {"from": {"id": pl.get("from_place_id"), "name": pl.get("from_name")},
                                     "to": {"id": pl.get("to_place_id"), "name": pl.get("to_name")}}
