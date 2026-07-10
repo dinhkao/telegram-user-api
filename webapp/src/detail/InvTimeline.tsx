@@ -61,9 +61,6 @@ function groupByProduct(bs: PlaceBox[]): [string, PlaceBox[]][] {
 // MỖI biến động = 1 DÒNG. Bấm dòng → lịch sử thao tác của thùng (?focus=hist:<ts>).
 function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
   const amt = it.amount ?? Math.abs(it.delta);
-  const rem = it.remaining;                       // tồn thùng SAU biến động
-  const isMove = it.kind === "moved_in" || it.kind === "moved_out";
-  const before = rem != null && !isMove ? Math.round((it.dir === "out" ? rem + amt : rem - amt) * 1000) / 1000 : null;
   const chip = (num?: string) => <span class="pt-bchip"><span class="pt-bn">{num}</span></span>;
   const otxt = it.order_text ? (it.order_text.length > 30 ? it.order_text.slice(0, 30).trimEnd() + "…" : it.order_text) : "";
   const ord = otxt ? <> đơn "<span class="pt-otext">{otxt}</span>"</> : null;
@@ -92,8 +89,6 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
         {it.actor && it.actor !== "?" ? <><b class="pt-who">{it.actor}</b> </> : null}
         {act}
       </span>
-      {before != null ? <span class="pt-ton">còn <span class="pt-prog">{soVN(before)}→<b>{soVN(rem!)}</b></span></span>
-        : isMove && rem != null ? <span class="pt-ton">còn <b class="pt-prog">{soVN(rem)}</b></span> : null}
     </>
   );
   return (
@@ -104,22 +99,58 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
   );
 }
 
-// CHẤM ở giữa 2 biến động — bấm → xem lúc đó có những thùng nào. Khe cao tỉ lệ thời gian.
-function Junction({ height, label, onDot }: { height: number; label: string | null; onDot: () => void }) {
+// CHẤM ở giữa 2 biến động: hiện SỐ TỒN tại thời điểm đó (trượt theo cuộn) + bấm → xem
+// lúc đó có những thùng nào. Khe cao tỉ lệ thời gian.
+function Junction({ height, label, amount, onDot }: { height: number; label: string | null; amount?: number | null; onDot: () => void }) {
   return (
     <li class="pt-junc" style={height ? { height: `${height}px` } : undefined}>
       <span class="pt-junc-mid">{label ? <span class="fg-label">· {label} ·</span> : null}</span>
-      <span class="pt-rail"><button class="pt-dot" title="Xem lúc này có những thùng nào" onClick={onDot} /></span>
+      <span class="pt-rail">
+        <span class="pt-bead">
+          {amount != null && <span class="pt-dot-amt">{soVN(amount)}</span>}
+          <button class="pt-dot" title="Xem lúc này có những thùng nào" onClick={onDot} />
+        </span>
+      </span>
     </li>
   );
 }
 
 // snapTitle = tên hiện ở popup (tên kho / mã SP). emptyText = câu khi chưa có biến động.
-export function InvTimelineBody({ items, currentBoxes, snapTitle, emptyText, focus }: {
-  items: PlaceTLItem[]; currentBoxes: PlaceBox[]; snapTitle: string; emptyText: string; focus?: string;
+// currentTotal = tồn hiện tại (số ở chấm trên cùng).
+export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, emptyText, focus }: {
+  items: PlaceTLItem[]; currentBoxes: PlaceBox[]; currentTotal: number; snapTitle: string; emptyText: string; focus?: string;
 }) {
   const [snap, setSnap] = useState<{ when: string; boxes: PlaceBox[]; note?: string } | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   usePopupBack(!!snap, () => setSnap(null));
+
+  // Chấm tồn TRƯỢT theo cuộn (giống timeline thùng): mỗi khe có 1 chấm trượt trong phạm
+  // vi khe theo đường ghim ~45% màn hình. rAF khi đang cuộn.
+  useEffect(() => {
+    const apply = () => {
+      const juncs = listRef.current?.querySelectorAll<HTMLElement>(".pt-junc");
+      if (!juncs) return;
+      const pin = window.innerHeight * 0.45;
+      juncs.forEach((j) => {
+        const bead = j.querySelector<HTMLElement>(".pt-bead");
+        if (!bead) return;
+        const r = j.getBoundingClientRect();
+        const off = Math.min(Math.max(pin - r.top, 0), r.height);
+        bead.style.top = `${off}px`;
+      });
+    };
+    let raf = 0, running = false, lastY = -1, idle = 0;
+    const tick = () => {
+      const y = window.scrollY;
+      if (y !== lastY) { lastY = y; idle = 0; apply(); }
+      else if (++idle > 20) { running = false; return; }
+      raf = requestAnimationFrame(tick);
+    };
+    const onScroll = () => { if (!running) { running = true; idle = 0; raf = requestAnimationFrame(tick); } };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    const t = setTimeout(apply, 60);
+    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); clearTimeout(t); };
+  }, [items]);
   // Deep-link từ lịch sử thùng: ?focus=biendong-<ts> → cuộn + nháy biến động gần nhất
   const focusTs = focus?.startsWith("biendong-") ? Number(focus.slice(9)) : undefined;
   const focusedRef = useRef(false);
@@ -146,7 +177,7 @@ export function InvTimelineBody({ items, currentBoxes, snapTitle, emptyText, foc
 
   const rows: any[] = [];
   rows.push(<li key="d-top" class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(items[0].at))}</div></li>);
-  rows.push(<Junction key="j-top" height={0} label={null} onDot={() => openBoxes(items[0].at, 0, "hiện tại")} />);
+  rows.push(<Junction key="j-top" height={0} label={null} amount={currentTotal} onDot={() => openBoxes(items[0].at, 0, "hiện tại")} />);
   items.forEach((it, i) => {
     rows.push(<EventRow key={`e-${i}`} it={it} idx={i} />);
     const older = items[i + 1];
@@ -155,17 +186,19 @@ export function InvTimelineBody({ items, currentBoxes, snapTitle, emptyText, foc
       const cross = dayKeyOf(it.at) !== dayKeyOf(older.at);
       if (dsec > GROUP_SEC) {
         const gh = cross ? 0 : Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX));
-        rows.push(<Junction key={`j-${i}`} height={gh} label={cross ? null : gapLabel(dsec)} onDot={() => openBoxes(older.at, i + 1)} />);
+        // tồn tại khe này = tổng SAU biến động cũ hơn (giữ nguyên tới biến động mới hơn)
+        rows.push(<Junction key={`j-${i}`} height={gh} label={cross ? null : gapLabel(dsec)} amount={older.total_after} onDot={() => openBoxes(older.at, i + 1)} />);
       }
       if (cross) rows.push(<li key={`d-${i}`} class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(older.at))}</div></li>);
     } else {
-      rows.push(<Junction key="j-bot" height={0} label={null} onDot={() => openBoxes(it.at, items.length, "trước biến động đầu")} />);
+      // chấm cuối = tồn TRƯỚC biến động đầu tiên (tổng sau nó trừ đi delta của nó)
+      rows.push(<Junction key="j-bot" height={0} label={null} amount={Math.round((it.total_after - it.delta) * 1000) / 1000} onDot={() => openBoxes(it.at, items.length, "trước biến động đầu")} />);
     }
   });
 
   return (
     <>
-      <ul class="pt-list">{rows}</ul>
+      <ul class="pt-list" ref={listRef}>{rows}</ul>
       {snap && (
         <div class="modal-overlay" onClick={() => setSnap(null)}>
           <div class="modal-sheet pt-snap" onClick={(e: any) => e.stopPropagation()}>

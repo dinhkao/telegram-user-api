@@ -51,7 +51,7 @@ export function PlaceTimeline({ placeId, focus }: { placeId: string; focus?: str
         <span class="muted small">{d.items.length} biến động{d.truncated ? " (mới nhất)" : ""}</span>
       </div>
 
-      <InvTimelineBody items={d.items} currentBoxes={d.current_boxes} snapTitle={d.place.name}
+      <InvTimelineBody items={d.items} currentBoxes={d.current_boxes} currentTotal={d.current_total} snapTitle={d.place.name}
         emptyText="Kho này chưa có biến động nào được ghi." focus={focus} />
       {d.truncated && <div class="muted small pt-trunc">Chỉ hiện {d.items.length} biến động gần nhất.</div>}
     </div>

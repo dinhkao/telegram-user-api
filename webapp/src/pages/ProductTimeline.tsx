@@ -66,7 +66,7 @@ export function ProductTimeline({ code, focus }: { code: string; focus?: string 
         </div>
       )}
 
-      <InvTimelineBody items={d.items} currentBoxes={d.current_boxes} snapTitle={p.code}
+      <InvTimelineBody items={d.items} currentBoxes={d.current_boxes} currentTotal={d.current_total} snapTitle={p.code}
         emptyText="Sản phẩm này chưa có biến động kho nào được ghi." focus={focus} />
       {d.truncated && <div class="muted small pt-trunc">Chỉ hiện {d.items.length} biến động gần nhất.</div>}
     </div>
