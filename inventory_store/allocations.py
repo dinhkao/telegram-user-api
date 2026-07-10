@@ -263,7 +263,7 @@ def list_order_allocations(conn, order_thread_id, *, kind="order") -> list[dict]
     rows = conn.execute(
         "SELECT a.id AS allocation_id, a.quantity AS quantity, a.allocated_by, a.allocated_at, a.kind, "
         "b.id AS box_id, b.box_code, COALESCE(pr.code, b.product_code) AS product_code, "
-        "b.quantity AS box_quantity, b.mfg_date, pl.name AS place_name, "
+        "b.quantity AS box_quantity, b.mfg_date, b.place_id, pl.name AS place_name, "
         "(b.quantity - COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0)) AS box_remaining "
         "FROM box_allocations a JOIN inventory_boxes b ON b.id = a.box_id "
         "LEFT JOIN products pr ON pr.id = b.product_id "

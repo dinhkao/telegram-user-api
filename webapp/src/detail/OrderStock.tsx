@@ -74,13 +74,22 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
   const doRelease = async (a: Allocation) => {
     if (locked) return lockedToast();
     const place = a.place_name || "kho Chưa xếp vị trí";
-    // Còn hàng trong thùng (box_remaining>0) = số này là 1 PHẦN của thùng vẫn trong kho
-    // → trả về đúng thùng đó; ngược lại trả về kho trước đó của thùng.
-    const partOfBox = (a.box_remaining ?? 0) > 0;
-    const dest = partOfBox ? `thùng ${a.box_code} trong ${place}` : `${place}`;
-    if (!(await confirmDialog(
-      `⚠️ Hãy đảm bảo thùng này CHƯA được giao cho khách.\n\nThu hồi ${soVN(a.quantity)} — số hàng sẽ được trả về ${dest}.`,
-      { danger: true, okLabel: "Thu hồi" }))) return;
+    const num = (a.box_code || "").split("-").pop() || a.box_code;
+    // chip thùng + vị trí = LINK (bấm để kiểm tra trước; sẽ đóng hộp rồi điều hướng)
+    const content = (
+      <span>
+        Thu hồi thùng{" "}
+        <a class="rl-chip" href={`#/thung/${a.box_id}`}>
+          <span class="rl-cn">{num}</span><span class="rl-cq">{soVN(a.quantity)}</span>
+        </a>{" "}
+        sẽ được trả về{" "}
+        {a.place_id
+          ? <a class="rl-place" href={`#/vi-tri/${a.place_id}`}>{place}</a>
+          : <b>{place}</b>}.
+        <div class="muted small" style={{ marginTop: "8px" }}>⚠️ Hãy đảm bảo thùng này CHƯA được giao cho khách.</div>
+      </span>
+    );
+    if (!(await confirmDialog("", { danger: true, okLabel: "Thu hồi", content }))) return;
     setBusy(true);
     setMsg("");
     try {

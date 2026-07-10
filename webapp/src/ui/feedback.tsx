@@ -10,7 +10,7 @@ import { usePopupBack } from "./usePopupBack";
 
 type Kind = "ok" | "err" | "info";
 type Toast = { id: number; msg: string; kind: Kind };
-type Confirm = { msg: string; okLabel: string; cancelLabel: string; danger: boolean; imageUrl?: string; resolve: (v: boolean) => void };
+type Confirm = { msg: string; content?: any; okLabel: string; cancelLabel: string; danger: boolean; imageUrl?: string; resolve: (v: boolean) => void };
 
 let _id = 0;
 let toasts: Toast[] = [];
@@ -31,11 +31,11 @@ const emitCf = () => cfSubs.forEach((f) => f(current));
 
 /** Hộp xác nhận tuỳ biến → Promise<boolean>. Thay confirm() native.
  *  imageUrl: kèm ảnh xem trước (vd ảnh hoá đơn trước khi in). */
-export function confirmDialog(msg: string, opts: { okLabel?: string; cancelLabel?: string; danger?: boolean; imageUrl?: string } = {}): Promise<boolean> {
+export function confirmDialog(msg: string, opts: { okLabel?: string; cancelLabel?: string; danger?: boolean; imageUrl?: string; content?: any } = {}): Promise<boolean> {
   return new Promise((resolve) => {
     // Nếu đang có hộp khác → huỷ hộp cũ (trả false) để không kẹt.
     if (current) current.resolve(false);
-    current = { msg, okLabel: opts.okLabel ?? "Đồng ý", cancelLabel: opts.cancelLabel ?? "Huỷ", danger: !!opts.danger, imageUrl: opts.imageUrl, resolve };
+    current = { msg, content: opts.content, okLabel: opts.okLabel ?? "Đồng ý", cancelLabel: opts.cancelLabel ?? "Huỷ", danger: !!opts.danger, imageUrl: opts.imageUrl, resolve };
     emitCf();
   });
 }
@@ -60,8 +60,12 @@ export function FeedbackHost() {
       )}
       {cf && (
         <div class="cf-backdrop" onClick={() => close(false)}>
-          <div class="cf-box" onClick={(e: any) => e.stopPropagation()}>
-            <p class="cf-msg">{cf.msg}</p>
+          <div class="cf-box" onClick={(e: any) => {
+            e.stopPropagation();
+            // Bấm link trong nội dung (chip thùng / vị trí) → đóng hộp rồi để link điều hướng
+            if ((e.target as HTMLElement).closest?.("a")) close(false);
+          }}>
+            {cf.content ? <div class="cf-msg">{cf.content}</div> : <p class="cf-msg">{cf.msg}</p>}
             {cf.imageUrl && <img class="cf-img" src={cf.imageUrl} alt="Xem trước" />}
             <div class="cf-actions">
               <button class="btn" onClick={() => close(false)}>{cf.cancelLabel}</button>

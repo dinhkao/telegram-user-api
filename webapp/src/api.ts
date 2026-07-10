@@ -905,6 +905,7 @@ export type Allocation = {
   box_quantity?: number;
   kind?: string;   // 'order' | 'production' (tiêu hao nguyên liệu)
   box_remaining?: number;
+  place_id?: number | null;
   place_name?: string | null;   // vị trí kho của thùng (thu hồi trả về đây)
   mfg_date?: string | null;
   order_thread_id?: number;

@@ -1511,6 +1511,12 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
   background: var(--bg); color: var(--danger); cursor: pointer; }
 .sk-x:active { background: var(--card); }
 .sk-x.faded { opacity: .4; }
+/* Popup thu hồi thùng: chip thùng + vị trí = link */
+.rl-chip { display: inline-flex; align-items: stretch; vertical-align: middle; border: 1px solid var(--border);
+  border-radius: 7px; overflow: hidden; text-decoration: none; color: inherit; }
+.rl-cn { padding: 1px 6px; font-family: monospace; font-weight: 800; background: var(--card); color: var(--ink); }
+.rl-cq { padding: 1px 6px; font-size: .8rem; color: var(--muted); background: var(--bg); border-left: 1px solid var(--border); }
+.rl-place { color: var(--accent, #1a73e8); text-decoration: underline; font-weight: 700; }
 .sp-takewrap { flex: 0 0 auto; align-self: center; display: inline-flex; align-items: center; gap: 5px; margin: 0 6px; }
 .sp-takel { font-size: .7rem; color: var(--muted); }
 .sp-take { width: 54px; text-align: center; padding: 5px 6px; border: 1.5px solid var(--primary, #1a73e8); border-radius: 8px;
