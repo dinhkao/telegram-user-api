@@ -41,30 +41,49 @@ function dueInfo(iso?: string): { text: string; urgent: boolean } | null {
 // Thanh TỒN KHO: full = tổng tồn của SP; mỗi ĐƠN chiếm 1 khúc % theo tồn.
 // Đơn vượt tồn (thiếu) → khúc tràn qua vạch tồn, vùng vượt gạch đỏ.
 const SB_PAL = ["#4C9AFF", "#57D9A3", "#B37FEB", "#F78C6C", "#00B8D9", "#FFAB00"];
-function StockBar({ stock, need, orders, showNum = true }: { stock: number; need: number; orders?: StockDemandOrder[]; showNum?: boolean }) {
+function StockBar({ stock, need, orders, showNum = true, legend = false }: { stock: number; need: number; orders?: StockDemandOrder[]; showNum?: boolean; legend?: boolean }) {
   const scale = Math.max(stock, need, 0.0001);
   const stockPct = Math.min(100, (stock / scale) * 100);
   const over = need > stock + 1e-6;
   const rem = Math.round((stock - need) * 1000) / 1000;
   const segs = orders && orders.length ? orders : (need > 0 ? [{ thread_id: 0, need, label: "" } as StockDemandOrder] : []);
   let acc = 0;
+  const items = segs.map((o, i) => {
+    const left = (acc / scale) * 100;
+    const w = (o.need / scale) * 100;
+    acc += o.need;
+    return { o, left, w, color: SB_PAL[i % SB_PAL.length] };
+  });
+  const withId = items.filter((x) => x.o.thread_id);
   return (
-    <div class="sb">
-      {segs.map((o, i) => {
-        const left = (acc / scale) * 100;
-        const w = (o.need / scale) * 100;
-        acc += o.need;
-        return <span class="sb-seg" key={o.thread_id} title={o.label ? `${o.label}: ${soVN(o.need)}` : undefined}
-          style={{ left: `${left}%`, width: `${w}%`, background: SB_PAL[i % SB_PAL.length] }} />;
-      })}
-      {over && <span class="sb-over" style={{ left: `${stockPct}%` }} />}
-      {over && <span class="sb-line" style={{ left: `${stockPct}%` }} />}
-      {showNum && (
-        <span class={"sb-num" + (rem > 0 ? " ok" : rem === 0 ? " zero" : " neg")}>
-          {rem > 0 ? <>còn <b>{soVN(rem)}</b></> : rem === 0 ? "hết" : <>thiếu <b>{soVN(-rem)}</b></>}
-        </span>
+    <>
+      <div class="sb">
+        {items.map(({ o, left, w, color }) => (
+          <span class="sb-seg" key={o.thread_id} title={o.label ? `${o.label}: ${soVN(o.need)}` : undefined}
+            style={{ left: `${left}%`, width: `${w}%`, background: color }}>
+            {w >= 13 && <span class="sb-seg-n">{soVN(o.need)}</span>}
+          </span>
+        ))}
+        {over && <span class="sb-over" style={{ left: `${stockPct}%` }} />}
+        {over && <span class="sb-line" style={{ left: `${stockPct}%` }} />}
+        {showNum && (
+          <span class={"sb-num" + (rem > 0 ? " ok" : rem === 0 ? " zero" : " neg")}>
+            {rem > 0 ? <>còn <b>{soVN(rem)}</b></> : rem === 0 ? "hết" : <>thiếu <b>{soVN(-rem)}</b></>}
+          </span>
+        )}
+      </div>
+      {legend && withId.length > 0 && (
+        <div class="sb-legend">
+          {withId.map(({ o, color }) => (
+            <a class="sb-lg" href={`#/order/${o.thread_id}`} key={o.thread_id}>
+              <span class="sb-lg-dot" style={{ background: color }} />
+              <span class="sb-lg-txt">{o.label}</span>
+              <span class="sb-lg-need">cần <b>{soVN(o.need)}</b> ›</span>
+            </a>
+          ))}
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -266,13 +285,13 @@ export function StockDemand() {
             {openOk && (
               <div class="nd-ok-list">
                 {okList.map((p) => (
-                  <a class="nd-ok-row" href={`#/kho/${encodeURIComponent(p.code)}`} key={p.code}>
+                  <div class="nd-ok-row" key={p.code}>
                     <div class="nd-ok-top">
-                      <span class="nd-ok-code">{p.code}{p.name ? <span class="nd-dim"> {p.name}</span> : null}</span>
+                      <a class="nd-ok-code" href={`#/kho/${encodeURIComponent(p.code)}`}>{p.code}{p.name ? <span class="nd-dim"> {p.name}</span> : null}</a>
                       <span class="nd-ok-foot">cần {soVN(p.need)}{p.unit ? ` ${p.unit}` : ""} · tồn {soVN(p.stock)}</span>
                     </div>
-                    <StockBar stock={p.stock} need={p.need} orders={p.orders_detail} />
-                  </a>
+                    <StockBar stock={p.stock} need={p.need} orders={p.orders_detail} legend />
+                  </div>
                 ))}
               </div>
             )}
