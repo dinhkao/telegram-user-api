@@ -200,10 +200,12 @@ function MakeTicket({ p, i }: { p: StockDemandLine; i: number }) {
             {pi.enough ? (
               <> — đủ đóng gói <b>{soVN(pi.S)}</b> {u}. Sau đó NL còn: {pi.leftover.map((l, i) => <span key={l.code}>{i ? ", " : ""}{l.code} <b>{soVN(l.rem)}</b>{l.unit ? ` ${l.unit}` : ""}</span>)}.</>
             ) : (
-              <>, chỉ đủ đóng gói <b>{soVN(pi.packable)}</b> {u}. Cần sản xuất thêm ít nhất{" "}
+              <>
+                {pi.packable > 0 ? <>, chỉ đủ đóng gói <b>{soVN(pi.packable)}</b> {u}.</> : <>.</>}
+                {" "}Cần sản xuất thêm ít nhất{" "}
                 {pi.shortIngs.map((g, i) => <span key={g.code}>{i ? " + " : ""}<b class="nd-calc-x">{soVN(g.need)}{g.unit ? ` ${g.unit}` : ""} {g.code}</b></span>)}
                 {" "}để đóng gói đủ.
-                {p.can_direct !== false && <> Hoặc sản xuất trực tiếp <b>{soVN(pi.stillShort)}</b> {u} {p.code}.</>}
+                {p.can_direct !== false && <> Hoặc sản xuất thêm <b>{p.code}</b> <b>{soVN(pi.stillShort)}</b> {u} trực tiếp.</>}
               </>
             )}
           </div>
