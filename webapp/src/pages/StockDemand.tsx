@@ -4,7 +4,7 @@
 //   • LÀM ĐƯỢC (SX trực tiếp / đóng gói đủ) — thẻ gập, mỗi thẻ 1 dòng "phán": làm gì.
 // Mã đủ tồn gộp gọn cuối trang. Data: stockDemand(); triage/BOM tính ở client.
 import { useEffect, useState } from "preact/hooks";
-import { stockDemand, soVN, type StockDemandResult, type StockDemandLine, type StockDemandIngredient, type StockDemandOrder } from "../api";
+import { stockDemand, soVN, type StockDemandResult, type StockDemandLine, type StockDemandOrder } from "../api";
 import { onRealtime } from "../realtime";
 import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
@@ -173,70 +173,6 @@ function StockBar({ stock, need, orders, showNum = true, legend = false }: { sto
   );
 }
 
-// ── cây nguyên liệu (đệ quy, dùng trong phần mở rộng) ───────────────────
-function IngTree({ g, depth }: { g: StockDemandIngredient; depth: number }) {
-  const hasNeed = g.need > 0;
-  return (
-    <>
-      <a class="nd-ing" href={`#/kho/${enc(g.code)}`} style={{ paddingLeft: `${10 + depth * 16}px` }}>
-        {depth > 0 && <span class="nd-ing-tick">└</span>}
-        <span class="nd-ing-body">
-          <span class="nd-ing-code"><b>{g.code}</b>{g.name ? <span class="nd-dim"> {g.name}</span> : null}</span>
-          <span class="nd-ing-nums">{hasNeed ? <>cần <b>{soVN(g.need)}</b> · </> : null}tồn {soVN(g.stock)}{g.unit ? ` ${g.unit}` : ""}</span>
-        </span>
-        {hasNeed
-          ? <span class={"nd-tag " + (g.enough ? "ok" : "bad")}>{g.enough ? "đủ" : `thiếu ${soVN(g.shortfall)}`}</span>
-          : <span class="nd-tag calm">còn hàng</span>}
-      </a>
-      {(g.children || []).map((c) => <IngTree g={c} depth={depth + 1} key={c.code} />)}
-    </>
-  );
-}
-
-// ── phần mở rộng: "Cách làm" — GỘP 1 khối duy nhất (không lặp math NL) ────
-function HowToMake({ p }: { p: StockDemandLine }) {
-  const { ings, hasRecipe, matsEnough, canDirect } = planOf(p);
-  const mam = mamText(p.shortfall, p.cay_per_mam);
-  const u = p.unit || "cây";
-  const both = canDirect && hasRecipe;
-  // SX trực tiếp thuần (không công thức) → dòng phán đã nói đủ, khỏi lặp lại.
-  if (!hasRecipe && canDirect) return null;
-  if (!hasRecipe) {   // !canDirect && !hasRecipe = kẹt (chưa cấu hình)
-    return (
-      <div class="nd-card-how">
-        <div class="nd-sub-h">Cách làm</div>
-        <div class="nd-mk bad">
-          <div class="nd-mk-head"><Icon name="ban" size={15} /> Chưa cấu hình cách SX</div>
-          <div class="nd-mk-sub">Bật "SX trực tiếp" hoặc thêm công thức nguyên liệu ở chi tiết SP.</div>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div class="nd-card-how">
-      <div class="nd-sub-h">Cách làm</div>
-      {both && <div class="nd-plan-lb">{matsEnough ? "Chọn 1 trong 2 cách:" : "Cách làm:"}</div>}
-      {canDirect && (
-        <div class={"nd-opt direct" + (both && !matsEnough ? " rec" : "")}>
-          <Icon name="factory" size={15} />
-          <span class="nd-opt-t"><b>Sản xuất trực tiếp {soVN(p.shortfall)} {u}</b>{mam ? <span class="nd-dim"> · {mam}</span> : null}</span>
-          {both && !matsEnough && <span class="nd-opt-rec">nên chọn</span>}
-        </div>
-      )}
-      {both && <div class="nd-plan-or">hoặc</div>}
-      {hasRecipe && (
-        <div class={"nd-opt pack " + (matsEnough ? "ok" : "bad")}>
-          <div class="nd-opt-h">
-            <span class="nd-opt-t"><Icon name="box" size={15} /> <b>Đóng gói từ nguyên liệu</b></span>
-            <span class={"nd-tag " + (matsEnough ? "ok" : "bad")}>{matsEnough ? "đủ NL" : "thiếu NL"}</span>
-          </div>
-          {ings.map((g) => <IngTree g={g} depth={0} key={g.code} />)}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── thẻ SP cần làm — Line1 định danh · Line2 thiếu · Line3 dòng phán · mở rộng ─
 function ProductCard({ p, i, defaultOpen, openOverride }: { p: StockDemandLine; i: number; defaultOpen: boolean; openOverride?: boolean | null }) {
   const sev = sevOf(p);
@@ -274,15 +210,10 @@ function ProductCard({ p, i, defaultOpen, openOverride }: { p: StockDemandLine; 
       {/* ĐOẠN PHÂN TÍCH — số liệu cụ thể, luôn hiện (chỉ SP có công thức NL) */}
       <PackAnalysis p={p} />
 
-      {open && (
+      {open && hasBar && (
         <div class="nd-card-detail">
-          {hasBar && (
-            <>
-              <div class="nd-sub-h">Tồn kho theo đơn</div>
-              <StockBar stock={p.stock} need={p.need} orders={p.orders_detail} showNum={false} legend />
-            </>
-          )}
-          <HowToMake p={p} />
+          <div class="nd-sub-h">Tồn kho theo đơn</div>
+          <StockBar stock={p.stock} need={p.need} orders={p.orders_detail} showNum={false} legend />
         </div>
       )}
 

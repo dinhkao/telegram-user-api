@@ -1444,7 +1444,6 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .nd-calc svg { vertical-align: -2px; margin-right: 2px; color: var(--muted); }
 /* phần mở rộng */
 .nd-card-detail { margin-top: 4px; }
-.nd-card-how { margin-top: 4px; }
 .nd-card-more { display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%; margin-top: 10px; padding: 9px 0 8px; border: none; border-top: 1px solid var(--border);
   background: none; color: var(--muted); font: inherit; font-size: .82rem; cursor: pointer; }
 .nd-card-more:active { color: var(--ink); }
@@ -1473,45 +1472,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .sb-lg-need { flex: 0 0 auto; font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .sb-lg-need b { color: var(--ink); }
 
-/* khối "chưa cấu hình cách SX" (trong phần Cách làm khi SP bị kẹt) */
-.nd-mk { border-radius: 11px; padding: 9px 11px; font-size: .85rem; }
-.nd-mk.bad { background: var(--nd-red-wash); }
-.nd-mk-head { display: flex; align-items: center; gap: 7px; font-weight: 800; color: var(--ink); }
-.nd-mk.bad .nd-mk-head { color: var(--danger); }
-.nd-mk-sub { color: var(--muted); font-size: .78rem; margin-top: 3px; line-height: 1.4; }
-/* plan: 1–2 cách làm (SX trực tiếp / đóng gói từ NL) */
-.nd-plan { margin-top: 11px; }
-.nd-plan-lb { font-size: .74rem; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
-.nd-plan-or { text-align: center; font-size: .7rem; font-weight: 700; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin: 6px 0; }
-.nd-opt { border-radius: 11px; padding: 9px 11px; font-size: .86rem; }
-.nd-opt.direct { display: flex; align-items: center; gap: 8px; background: var(--ok-wash); color: var(--ok); }
-.nd-opt.direct .nd-opt-t b { color: var(--ink); }
-.nd-opt-t { flex: 1 1 auto; min-width: 0; }
-.nd-opt-rec { flex: 0 0 auto; font-size: .7rem; font-weight: 800; background: var(--nd-amber); color: #fff; padding: 2px 9px; border-radius: 999px; }
-.nd-opt.pack.ok { background: var(--ok-wash); }
-.nd-opt.pack.bad { background: var(--nd-red-wash); }
-.nd-opt-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; color: var(--ink); }
-.nd-opt-h .nd-opt-t { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
-
-/* pill trạng thái nhỏ (nguyên liệu) */
-.nd-tag { flex: 0 0 auto; padding: 2px 9px; border-radius: 999px; font-size: .75rem; font-weight: 700; white-space: nowrap; }
-.nd-tag.ok { background: var(--ok); color: #fff; }
-.nd-tag.bad { background: var(--danger); color: #fff; }
-.nd-tag.calm { background: var(--bg); color: var(--ok); }
-
-/* nhãn nhóm trong phần mở rộng (Tồn kho theo đơn · Cách làm) */
+/* nhãn nhóm trong phần mở rộng (Tồn kho theo đơn) */
 .nd-sub-h { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 12px 0 5px; }
 /* cờ tới hạn (dùng ở Line 1 thẻ + legend thanh tồn) */
 .nd-due { display: inline-flex; align-items: center; gap: 3px; font-size: .72rem; font-weight: 700; color: var(--muted); padding: 2px 7px; border-radius: 999px; background: var(--card); white-space: nowrap; }
 .nd-due.urgent { color: #fff; background: var(--danger); }
-
-/* cây nguyên liệu */
-.nd-ing { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 9px; background: var(--bg); margin-bottom: 4px; text-decoration: none; color: inherit; }
-.nd-ing-tick { color: var(--muted); font-family: var(--mono); flex: 0 0 auto; margin-left: -4px; }
-.nd-ing-body { flex: 1 1 auto; min-width: 0; }
-.nd-ing-code { display: block; font-size: .88rem; }
-.nd-ing-code b { font-family: var(--mono); }
-.nd-ing-nums { display: block; font-size: .78rem; color: var(--muted); margin-top: 1px; font-variant-numeric: tabular-nums; }
 
 /* ĐỦ HÀNG — gộp gọn, yên tĩnh */
 .nd-ok { border: 1px solid var(--border); border-radius: 13px; overflow: hidden; background: var(--card); }
