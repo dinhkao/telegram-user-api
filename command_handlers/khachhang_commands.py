@@ -58,4 +58,12 @@ def register_khachhang_commands(client):
                 personal[to_pid_key(db_conn, code)] = int(price_str)
                 customer["personal_price_list"] = personal
                 ok, _ = update_customer(db_conn, str(thread_id), customer)
+                if ok:   # ghi Lịch sử thao tác khách (best-effort, không chặn lệnh)
+                    try:
+                        from audit_log import async_log_event
+                        await async_log_event("customer.edited", scope="customer", thread_id=int(thread_id),
+                                              actor_type="telegram", actor_id=str(getattr(msg, "sender_id", "") or "?"),
+                                              source="telegram:price", payload={"detail": f"giá riêng {code} = {int(price_str):,}"})
+                    except Exception:  # noqa: BLE001
+                        pass
                 await client.send_message(msg.chat_id, f"Đã cập nhật giá riêng cho sản phẩm <b>{code}</b> thành <b>{int(price_str):,}</b>." if ok else "❌ Lỗi lưu giá riêng.", reply_to=msg.id, parse_mode="html")

@@ -59,6 +59,19 @@ def _emit_prod(thread_id=None):
             emit_production_changed(thread_id)
     except Exception:  # noqa: BLE001
         pass
+
+
+async def _audit_prod_tg(action, thread_id, msg, detail=""):
+    """Ghi audit thao tác phiếu SX từ Telegram → hiện ở Lịch sử thao tác web.
+    Best-effort: lỗi audit KHÔNG được chặn lệnh Telegram."""
+    try:
+        from audit_log import async_log_event
+        name = await _sender_name(msg) or str(getattr(msg, "sender_id", "") or "?")
+        await async_log_event(action, scope="production", thread_id=thread_id,
+                              actor_type="telegram", actor_id=name,
+                              source=f"telegram:{action}", payload={"detail": detail})
+    except Exception:  # noqa: BLE001
+        pass
 # Base URL của webapp (Tailscale/LAN). Trống = chưa cấu hình → chỉ dùng link topic
 # Telegram (luôn hoạt động). Đặt WEBAPP_URL để hiện link web /app/#/san_xuat/<id>.
 # (Bỏ railway finaltelegram — không dùng nữa.)
@@ -303,6 +316,7 @@ def register_production_commands(client):
             mam, luong = production_defaults(conn, upper)
             set_sp(conn, thread_id, upper, mam, luong)
             _emit_prod(thread_id)
+            await _audit_prod_tg("production.sp_changed", thread_id, msg, upper)
             out = f"Cập nhật sp thành {upper}"
             if upper in CAY_TRONG_1_CHAO:
                 out += f"\n🌿 Cây trong 1 chảo: {CAY_TRONG_1_CHAO[upper]}"
@@ -322,6 +336,7 @@ def register_production_commands(client):
                 return
             set_target(conn, thread_id, sx)
             _emit_prod(thread_id)
+            await _audit_prod_tg("production.target_changed", thread_id, msg, f"SX {sx}")
             await reply(msg, "Cập nhật thành công")
             await _update_tin_nhan(client, conn, thread_id)
             return
@@ -338,6 +353,7 @@ def register_production_commands(client):
                 release_production_consumption(conn, thread_id)  # hoàn NL còn trừ cho phiếu
                 delete_slip(conn, thread_id)
                 _emit_prod()  # xoá phiếu → dashboard webapp refetch
+                await _audit_prod_tg("production.deleted_tg", thread_id, msg)
                 await reply(msg, "Đã xóa phiếu")
             return
 
@@ -451,3 +467,6 @@ def register_production_commands(client):
                 "updated_at": datetime.now(_VN_TZ).isoformat(),
             })
             _emit_prod(thread_id)  # báo cáo đổi → list card + dashboard SX refetch
+            _rows = [r for r in report["rows"] if str(r.get("name") or "").strip()]
+            await _audit_prod_tg("production.report_saved", thread_id, msg,
+                                 f"{len(_rows)} thợ · tổng {_fmt_num(report['grand_total'])}")
