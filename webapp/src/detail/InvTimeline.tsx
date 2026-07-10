@@ -104,15 +104,12 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
 function Junction({ height, label, amount, onDot }: { height: number; label: string | null; amount?: number | null; onDot: () => void }) {
   return (
     <li class="pt-junc" style={height ? { height: `${height}px` } : undefined}>
-      <span class="pt-junc-mid" />
+      <span class="pt-junc-mid">
+        {label && <span class="pt-gap pt-slide"><span class="fg-label">· {label} ·</span></span>}
+      </span>
       <span class="pt-rail">
-        <span class="pt-bead">
-          {(label || amount != null) && (
-            <span class="pt-bead-info">
-              {label && <span class="pt-bead-gap">{label}</span>}
-              {amount != null && <span class="pt-dot-amt">{soVN(amount)}</span>}
-            </span>
-          )}
+        <span class="pt-bead pt-slide">
+          {amount != null && <span class="pt-dot-amt">{soVN(amount)}</span>}
           <button class="pt-dot" title="Xem lúc này có những thùng nào" onClick={onDot} />
         </span>
       </span>
@@ -137,11 +134,9 @@ export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, 
       if (!juncs) return;
       const pin = window.innerHeight * 0.45;
       juncs.forEach((j) => {
-        const bead = j.querySelector<HTMLElement>(".pt-bead");
-        if (!bead) return;
         const r = j.getBoundingClientRect();
         const off = Math.min(Math.max(pin - r.top, 0), r.height);
-        bead.style.top = `${off}px`;
+        j.querySelectorAll<HTMLElement>(".pt-slide").forEach((el) => { el.style.top = `${off}px`; });
       });
     };
     let raf = 0, running = false, lastY = -1, idle = 0;

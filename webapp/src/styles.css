@@ -1197,7 +1197,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-item > :first-child { flex: 1 1 auto; min-width: 0; }
 /* Chấm TRẠNG THÁI nằm ở JUNCTION giữa các biến động; khe cao → chấm chính giữa */
 .pt-junc { display: flex; align-items: stretch; gap: 8px; position: relative; min-height: 16px; }
-.pt-junc-mid { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: center; }
+.pt-junc-mid { flex: 1 1 auto; min-width: 0; position: relative; display: flex; align-items: center; justify-content: center; }
 .pt-line { display: flex; align-items: flex-start; gap: 7px; padding: 0 2px; line-height: 1.25; text-decoration: none; color: inherit; min-width: 0; }
 .pt-line:active { background: var(--bg); }
 .pt-time { flex: 0 0 auto; font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.4; }
@@ -1290,11 +1290,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* chấm tồn TRƯỢT trong khe theo cuộn (JS đặt top; -50% để canh giữa) */
 .pt-bead { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
   display: flex; align-items: center; justify-content: center; }
-/* nhãn cạnh chấm (số tồn + khoảng thời gian) — TRƯỢT cùng chấm vì nằm trong .pt-bead */
-.pt-bead-info { position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
-  display: flex; align-items: center; gap: 8px; white-space: nowrap; pointer-events: none; }
-.pt-dot-amt { font-size: .74rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
-.pt-bead-gap { font-size: .72rem; font-style: italic; color: var(--muted-2); white-space: nowrap; }
+.pt-dot-amt { position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
+  font-size: .74rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
+/* nhãn khoảng thời gian: GIỮ vị trí giữa khe như cũ, nhưng TRƯỢT dọc cùng chấm (.pt-slide) */
+.pt-gap { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+  display: flex; justify-content: center; pointer-events: none; }
 .pt-dot.in { border-color: var(--ok); }
 .pt-dot.out { border-color: var(--danger); }
 .pt-card-link { text-decoration: none; color: inherit; display: block; }
