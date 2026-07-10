@@ -29,6 +29,23 @@ function sevOf(p: StockDemandLine): Sev {
 }
 const SEV_PRIO: Record<Sev, number> = { blocked: 0, stuck: 0, fallback: 1, makeable: 2 };
 
+// Phân tích ĐÓNG GÓI: tồn NL đóng gói được thêm bao nhiêu thành phẩm? (need_i = ratio_i×thiếu
+// → NL đủ đóng gói full thiếu ⟺ stock_i≥need_i. packable = thiếu × min(stock_i/need_i)).
+function packInfo(p: StockDemandLine) {
+  const S = p.shortfall;
+  const ings = (p.ingredients || []).filter((g) => g.need > 0);
+  if (S <= 0 || !ings.length) return null;
+  let ratio = Infinity, bn = ings[0];
+  for (const g of ings) { const r = g.stock / g.need; if (r < ratio) { ratio = r; bn = g; } }
+  const enough = ings.every((g) => g.stock + 1e-9 >= g.need);
+  const packable = enough ? S : Math.floor(S * ratio);   // số thành phẩm nguyên (cây)
+  const stillShort = Math.round((S - packable) * 1000) / 1000;
+  const leftover = ings.map((g) => ({ code: g.code, unit: g.unit, rem: Math.round((g.stock - g.need) * 1000) / 1000 }));
+  // NL còn thiếu (để đóng gói ĐỦ phần thiếu): cần làm thêm ít nhất g.shortfall mỗi NL
+  const shortIngs = ings.filter((g) => !g.enough).map((g) => ({ code: g.code, unit: g.unit, need: g.shortfall }));
+  return { S, packable, enough, stillShort, bn, leftover, shortIngs };
+}
+
 function mamText(shortfall: number, cpm?: number): string | null {
   if (!cpm || cpm <= 0) return null;
   return `≈ ${Math.max(1, Math.ceil(shortfall / cpm))} mâm`;   // làm nguyên mâm → làm tròn LÊN
@@ -173,6 +190,25 @@ function MakeTicket({ p, i }: { p: StockDemandLine; i: number }) {
         <span class="nd-def-unit">{p.unit || "cây"}</span>
         <span class="nd-def-ctx">tồn {soVN(p.stock)} · cần {soVN(p.need)} · {p.orders} đơn</span>
       </div>
+      {(() => {
+        const pi = packInfo(p);
+        if (!pi) return null;
+        const u = p.unit || "cây";
+        return (
+          <div class={"nd-calc " + (pi.enough ? "ok" : "bad")}>
+            <Icon name="box" size={13} /> Nguyên liệu <b>{pi.bn.code}</b> còn <b>{soVN(pi.bn.stock)}</b>{pi.bn.unit ? ` ${pi.bn.unit}` : ""}
+            {pi.enough ? (
+              <> — đủ đóng gói <b>{soVN(pi.S)}</b> {u}. Sau đó NL còn: {pi.leftover.map((l, i) => <span key={l.code}>{i ? ", " : ""}{l.code} <b>{soVN(l.rem)}</b>{l.unit ? ` ${l.unit}` : ""}</span>)}.</>
+            ) : (
+              <>, chỉ đủ đóng gói <b>{soVN(pi.packable)}</b> {u}. Cần sản xuất thêm ít nhất{" "}
+                {pi.shortIngs.map((g, i) => <span key={g.code}>{i ? " + " : ""}<b class="nd-calc-x">{soVN(g.need)}{g.unit ? ` ${g.unit}` : ""} {g.code}</b></span>)}
+                {" "}để đóng gói đủ.
+                {p.can_direct !== false && <> Hoặc sản xuất trực tiếp <b>{soVN(pi.stillShort)}</b> {u} {p.code}.</>}
+              </>
+            )}
+          </div>
+        );
+      })()}
       <StockBar stock={p.stock} need={p.need} orders={det} showNum={false} legend />
 
       <MakeVerdict p={p} />
