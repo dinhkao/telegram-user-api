@@ -2,7 +2,7 @@
 // + thanh nav dưới + banner offline/hàng đợi. Connects to: pages/*, api.ts.
 import { render } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { currentUser, getJSON, replayQueue, netOk, onNetStatus, refreshMe } from "./api";
+import { currentUser, getJSON, replayQueue, netOk, onNetStatus, refreshMe, soVN } from "./api";
 import { getQueue } from "./offline";
 import { getStatus, onStatus, onRealtime, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
@@ -120,6 +120,7 @@ function useHash(): string {
 function NopBanner() {
   const [n, setN] = useState(0);        // đơn đã giao chưa nộp
   const [boxes, setBoxes] = useState(0); // thùng chưa gán vị trí kho
+  const [short, setShort] = useState({ n: 0, total: 0 }); // SP thiếu hàng cho đơn hôm nay
   const [pins, setPins] = useState<{ id: number; text: string; href?: string }[]>([]); // bình luận ghim 24h
   const t = useRef<any>(null);
   useEffect(() => {
@@ -133,6 +134,9 @@ function NopBanner() {
       getJSON("/api/banner/pins", { cache: false })
         .then((d) => setPins(d.pins || []))
         .catch(() => {});
+      getJSON("/api/inventory/demand", { cache: false })
+        .then((d) => setShort({ n: Number(d.totals?.short_products) || 0, total: Number(d.totals?.total_shortfall) || 0 }))
+        .catch(() => {});
     };
     load();
     const poll = setInterval(load, 120000);
@@ -145,7 +149,7 @@ function NopBanner() {
     });
     return () => { clearInterval(poll); clearTimeout(t.current); off(); };
   }, []);
-  const show = n > 0 || boxes > 0 || pins.length > 0;
+  const show = n > 0 || boxes > 0 || pins.length > 0 || short.n > 0;
   const [open, setOpen] = useState(false); // sheet liệt kê mọi tin trên banner
   usePopupBack(open, () => setOpen(false));
   // Banner chiếm ~28px dưới app-bar → các sticky khác (topbar tìm kiếm, header
@@ -168,6 +172,7 @@ function NopBanner() {
     text: `📢 ${p.text}`, href: p.href || "#/orders", pin: true,
     sub: `${(p as any).created_by ? `${(p as any).created_by} ghim · ` : ""}${hLeft((p as any).expires_at)}`,
   });
+  if (short.n > 0) parts.push({ text: `⚠️ Thiếu hàng: ${short.n} mã (thiếu ${soVN(short.total)})`, href: "#/nhu-cau", pin: true, sub: "bấm để xem Nhu cầu kho" });
   if (n > 0) parts.push({ text: `💰 ${n} đơn chưa nộp tiền`, href: "#/orders?filter=chua_nop", sub: "bấm để lọc Chưa nộp" });
   if (boxes > 0) parts.push({ text: `📦 ${boxes} thùng chưa xếp kho`, href: "#/kho", sub: "bấm để mở Kho hàng" });
   // Tốc độ CỐ ĐỊNH (~50px/s) dù nội dung dài ngắn: thời gian tỉ lệ độ rộng nửa
