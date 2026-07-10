@@ -866,6 +866,7 @@ export type PlaceTLItem = {
   order_thread_id?: number | null; order_text?: string | null; peer_box?: string;   // chi tiết
   from_name?: string | null; to_name?: string | null;   // kho nguồn/đích khi chuyển kho
   unit?: string;   // đơn vị đếm SP (cây/gói…) hiện sau số lượng
+  target_code?: string | null; slip_id?: number | null;   // tiêu hao đóng gói
 };
 export type PlaceStockLine = { code: string; qty: number };
 export type PlaceBox = {
@@ -887,6 +888,7 @@ export type BoxTLItem = {
   quantity?: number | null; taken?: number | null; amount: number; delta: number; remaining?: number | null;
   order_thread_id?: number | null; order_text?: string | null; peer_box?: string;
   from_name?: string | null; to_name?: string | null; unit?: string; actor: string;
+  target_code?: string | null; slip_id?: number | null;   // tiêu hao đóng gói
 };
 export type BoxTimeline = {
   box: { id: number; box_code: string; box_num: string; product_code: string; unit: string;

@@ -35,7 +35,7 @@ _ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo p
 
 # Biến động KHO (server_app/inventory_audit) — nhãn theo SCOPE + chi tiết từ payload.
 _INV_ACTIONS = {"box.created", "box.allocated", "box.released", "box.moved", "box.moved_out",
-                "box.moved_in", "box.deleted", "box.transfer_out", "box.transfer_in"}
+                "box.moved_in", "box.deleted", "box.transfer_out", "box.transfer_in", "box.consumed"}
 
 
 def _numv(v) -> str:
@@ -74,6 +74,11 @@ def _inv_entry(act: str, scope: str, p: dict) -> tuple[str, str] | None:
         return "Thùng chuyển đi", join(f"→ {p.get('to_name') or 'Chưa xếp'}")
     if act == "box.moved_in":
         return "Thùng chuyển đến", join(f"từ {p.get('from_name') or 'Chưa xếp'}")
+    if act == "box.consumed":
+        taken = _numv(p.get("taken"))
+        tgt = p.get("target_code") or ""
+        extra = " · ".join(x for x in [f"tiêu hao {taken}" if taken else "", f"đóng gói {tgt}" if tgt else ""] if x)
+        return "Tiêu hao đóng gói", join(extra)
     if act == "box.deleted":
         return "Xoá thùng khỏi kho", join("")
     if act in ("box.transfer_out", "box.transfer_in"):
@@ -259,6 +264,8 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
                         "action": ent[0], "detail": ent[1], "changes": [], "ok": True}
                 if act == "box.created" and box_src:   # link → phiếu SX nguồn
                     item["source_slip"] = {"thread_id": box_src}
+                if act == "box.consumed" and pl.get("slip_id"):   # link → phiếu SX đóng gói
+                    item["source_slip"] = {"thread_id": pl.get("slip_id")}
                 if act == "box.moved":   # link tên kho → timeline kho tương ứng
                     item["move"] = {"from": {"id": pl.get("from_place_id"), "name": pl.get("from_name")},
                                     "to": {"id": pl.get("to_place_id"), "name": pl.get("to_name")}}

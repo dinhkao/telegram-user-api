@@ -119,7 +119,9 @@ async def production_add_boxes_handler(request: web.Request):
     except (TypeError, ValueError):
         place_id = None
     actor = _web_actor(request, body)
-    snaps: list = []   # ảnh chụp thùng mới (cho audit box + place)
+    snaps: list = []       # ảnh chụp thùng mới (cho audit box + place)
+    mat_snaps: list = []   # ảnh chụp thùng NL đã tiêu hao (cho audit tiêu hao)
+    pack_ctx: dict = {}    # {code} = SP thành phẩm đóng gói (cho event tiêu hao)
 
     def _run():
         conn = _conn()
@@ -179,6 +181,12 @@ async def production_add_boxes_handler(request: web.Request):
             consume = allocate_picks(conn, picks, thread_id, by=actor, kind="production") if picks else []
             from server_app.inventory_audit import box_snapshot
             snaps.extend(s for b in created if (s := box_snapshot(conn, b.get("id"))))
+            # ảnh chụp thùng NL đã tiêu hao (remaining SAU trừ) → ghi lịch sử thùng NL
+            for p in picks:
+                if (ms := box_snapshot(conn, p.get("box_id"))):
+                    ms["consumed_amount"] = float(p.get("quantity") or 0)
+                    mat_snaps.append(ms)
+            pack_ctx["code"] = code
             return created, total, consume
         finally:
             conn.close()
@@ -197,9 +205,11 @@ async def production_add_boxes_handler(request: web.Request):
     emit_production_changed(thread_id)
     emit_inventory_changed()
     # Lịch sử: mỗi thùng mới → event box.created (lịch sử THÙNG + lịch sử VỊ TRÍ)
-    from server_app.inventory_audit import log_boxes_created
-    log_boxes_created(snaps, actor=actor,
-                      actor_type="web_user" if request.get("web_user") else "http_client")
+    from server_app.inventory_audit import log_boxes_created, log_boxes_consumed
+    _atype = "web_user" if request.get("web_user") else "http_client"
+    log_boxes_created(snaps, actor=actor, actor_type=_atype)
+    if mat_snaps:   # NL tiêu hao để đóng gói → lịch sử thùng NL + vị trí NL
+        log_boxes_consumed(mat_snaps, target_code=pack_ctx.get("code"), slip_id=thread_id, actor=actor, actor_type=_atype)
     # Các phần nguyên liệu đã tiêu hao (allocate_picks kind='production') — client hiện tóm tắt
     return web.json_response({"ok": True, "boxes": created, "total": total, "consumed": consume or []})
 

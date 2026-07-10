@@ -63,6 +63,14 @@ def log_boxes_released(items: list[dict], *, actor, actor_type: str) -> None:
             "taken": s.get("taken")})
 
 
+def log_boxes_consumed(snaps: list[dict], *, target_code, slip_id, actor, actor_type: str) -> None:
+    """NL bị TIÊU HAO để ĐÓNG GÓI sp khác (allocate_picks kind='production'). Ghi lịch
+    sử thùng NL + vị trí NL. slip_id = phiếu SX đóng gói, target_code = SP thành phẩm."""
+    for s in snaps:
+        _box_and_place("box.consumed", s, actor, actor_type, extra={
+            "taken": s.get("consumed_amount"), "target_code": target_code, "slip_id": slip_id})
+
+
 def log_box_moved(snap: dict, *, from_place_id, from_name, to_place_id, to_name, actor, actor_type: str) -> None:
     """Chuyển kho: ghi vị trí lịch sử cho CẢ kho cũ (thùng rời) + kho mới (thùng đến).
     Lịch sử THÙNG đã có event 'Chuyển kho' từ middleware (POST /box/{id})."""

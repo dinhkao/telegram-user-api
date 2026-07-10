@@ -93,6 +93,7 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
       case "deleted": return <>xoá {boxRef} ({soVN(amt)}{u})</>;
       case "transfer_out": return <>đã chuyển <b>{soVN(amt)}</b>{u} từ {boxRef} sang {peer}{it.to_name ? <> ở <b>{it.to_name}</b></> : null}</>;
       case "transfer_in": return <>đã chuyển <b>{soVN(amt)}</b>{u} từ {peer}{it.from_name ? <> ở <b>{it.from_name}</b></> : null} sang {boxRef}</>;
+      case "consumed": return <>tiêu hao <b>{soVN(amt)}</b>{u} từ {boxRef} để đóng gói <b class="pt-sp">{it.target_code}</b>{it.slip_id ? <> <a class="pt-inl" href={`#/san_xuat/${it.slip_id}`}>(phiếu SX)</a></> : null}</>;
       default: return <>{boxRef} {it.reason}</>;
     }
   })();
