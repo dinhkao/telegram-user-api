@@ -819,6 +819,7 @@ export type InvBox = {
   created_by?: string;
   allocated?: number; // tổng đã xuất cho các đơn
   remaining?: number; // còn lại = quantity - allocated
+  capacity?: number; // SX gốc + hàng nhận chuyển (mốc "đầy" thanh fill)
   place_id?: number | null;
   place_name?: string | null;
   unit_id?: number | null;

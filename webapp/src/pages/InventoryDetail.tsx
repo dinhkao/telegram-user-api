@@ -24,7 +24,7 @@ function fmtWhen(iso?: string): string {
   return `${d}/${mo} ${hh}:${mi}`;
 }
 
-let memInvView: "grid" | "compact" = "compact";   // nhớ kiểu xem thùng ở chi tiết SP
+let memInvView: "grid" | "compact" = "grid";   // nhớ kiểu xem thùng ở chi tiết SP (mặc định Ô THÙNG)
 
 export function InventoryDetail({ code }: { code: string }) {
   const [inv, setInv] = useState<InvDetail | null>(null);
@@ -386,9 +386,32 @@ export function InventoryDetail({ code }: { code: string }) {
                 <div class="muted small">Không còn thùng nào có hàng.</div>
               ) : invView === "compact" ? (
                 <CompactBoxList boxes={shown as any} flat />
-              ) : (
-                <BoxLabelGrid boxes={shown as any} />
-              )}
+              ) : (() => {
+                // Ô thùng GOM THEO VỊ TRÍ KHO (SP chỉ 1 mã → ẩn mã trên ô, ô nhỏ)
+                const g = new Map<string, InvBox[]>();
+                for (const b of shown) { const k = b.place_name || "Chưa xếp vị trí"; const a = g.get(k); if (a) a.push(b); else g.set(k, [b]); }
+                const sumRem = (bs: InvBox[]) => bs.reduce((s, b) => s + Math.max(0, rem(b)), 0);
+                const groups = [...g.entries()].sort((a, b) => sumRem(b[1]) - sumRem(a[1]) || a[0].localeCompare(b[0]));
+                return (
+                  <div class="kho-groups">
+                    {groups.map(([pname, bs]) => {
+                      const pid = bs.find((x) => x.place_id)?.place_id;
+                      return (
+                        <section class="kho-group" key={pname}>
+                          {pid ? (
+                            <a class="kho-group-h" href={`#/vi-tri/${pid}`}>
+                              <b>{pname}</b><span class="muted small">{soVN(sumRem(bs))} tồn · {bs.length} thùng →</span>
+                            </a>
+                          ) : (
+                            <div class="kho-group-h"><b>{pname}</b><span class="muted small">{soVN(sumRem(bs))} tồn · {bs.length} thùng</span></div>
+                          )}
+                          <BoxLabelGrid boxes={bs as any} hideCode dense />
+                        </section>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
               {emptied.length > 0 && (
                 <button class="btn small block" style={{ marginTop: "8px" }} onClick={() => setShowEmpty((v) => !v)}>
                   {showEmpty ? "Ẩn thùng đã hết" : `Hiện ${emptied.length} thùng đã hết`}
