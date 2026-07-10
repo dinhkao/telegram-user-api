@@ -25,7 +25,8 @@ def _make_task_handler(task_type: str):
             return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
         body["type"] = task_type
         apply_web_actor(request, body)
-        return await api_task_handler_impl(body)
+        from server_app.order_api_common import is_admin_request
+        return await api_task_handler_impl(body, await is_admin_request(request))
     return handler
 
 
@@ -49,10 +50,11 @@ async def api_task_handler(request: web.Request):
     if deny:
         return deny
     apply_web_actor(request, body)
-    return await api_task_handler_impl(body)
+    from server_app.order_api_common import is_admin_request
+    return await api_task_handler_impl(body, await is_admin_request(request))
 
 
-async def api_task_handler_impl(body: dict):
+async def api_task_handler_impl(body: dict, is_admin: bool = False):
     thread_id, task_type, user_id, note = body.get("thread_id"), body.get("type"), body.get("user_id"), (body.get("note") or "").strip()
     done = body.get("done") if "done" in body else True
     if not thread_id or not task_type:
@@ -73,7 +75,7 @@ async def api_task_handler_impl(body: dict):
         from order_store.guards import giao_hang_block_reason, soan_hang_block_reason
         reason = None
         if internal_type == "soan_hang":
-            reason = soan_hang_block_reason(conn, int(thread_id), order)
+            reason = soan_hang_block_reason(conn, int(thread_id), order, is_admin=is_admin)
         elif internal_type == "giao_hang":
             reason = giao_hang_block_reason(order)
         if reason:

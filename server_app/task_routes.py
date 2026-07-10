@@ -163,9 +163,10 @@ async def task_update_handler(request: web.Request):
             # ghi về NGUỒN SỰ THẬT (blob đơn) — dùng đúng flow /api/order/task
             # (cờ legacy, reminder, notify topic, refresh, realtime, mirror lại)
             from server_app.order_api_tasks import api_task_handler_impl
+            from server_app.order_api_common import is_admin_request
             fwd = {"thread_id": task["thread_id"], "type": task["step_key"], "done": done}
             apply_web_actor(request, fwd)
-            resp = await api_task_handler_impl(fwd)
+            resp = await api_task_handler_impl(fwd, await is_admin_request(request))
             if getattr(resp, "status", 200) != 200:
                 return resp
             task = await asyncio.to_thread(get_task, task_id)

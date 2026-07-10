@@ -18,9 +18,12 @@ def _step_done(order: dict, step: str) -> bool:
     return bool(st.get("done") or st.get("skip"))
 
 
-def soan_hang_block_reason(conn, thread_id: int, order: dict) -> str | None:
-    """Lý do CHẶN đánh dấu 'soạn hàng' xong (None = cho phép)."""
-    if not _rule_on():
+def soan_hang_block_reason(conn, thread_id: int, order: dict, is_admin: bool = False) -> str | None:
+    """Lý do CHẶN đánh dấu 'soạn hàng' xong (None = cho phép).
+
+    Admin bỏ qua rule (nút 'xong ngay' — chốt kho + ảnh không bắt buộc).
+    """
+    if is_admin or not _rule_on():
         return None
     sc = order.get("stock_confirmed")
     if not (isinstance(sc, dict) and sc):
