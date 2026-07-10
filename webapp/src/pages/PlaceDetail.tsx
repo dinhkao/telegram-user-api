@@ -70,6 +70,7 @@ export function PlaceDetail({ id }: { id: string }) {
   if (place === null) return <div class="muted">Không tìm thấy vị trí. <a href="#/vi-tri">← Vị trí kho</a></div>;
 
   const rem = boxes.reduce((s, b) => s + (b.disabled ? 0 : b.remaining), 0);
+  const nStock = boxes.filter((b) => (b.remaining ?? b.quantity ?? 0) > 0).length;   // đếm thùng còn hàng
 
   return (
     <div class="inv-dash">
@@ -88,7 +89,7 @@ export function PlaceDetail({ id }: { id: string }) {
               <Icon name="box" size={18} /> {place.name} <Icon name="edit" size={15} class="kg-arrow" />
             </div>
           )}
-          <div class="prod-date muted">{soVN(rem)} tồn · {boxes.length} thùng</div>
+          <div class="prod-date muted">{soVN(rem)} tồn · {nStock} thùng</div>
         </div>
       </div>
 

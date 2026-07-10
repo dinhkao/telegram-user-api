@@ -70,19 +70,34 @@ function groupByProduct(bs: PlaceBox[]): [string, PlaceBox[]][] {
 // MỖI biến động = 1 DÒNG (giờ · Vào/Ra · SP·thùng · lý do). KHÔNG có chấm — chấm nằm
 // ở JUNCTION giữa các biến động. Bấm dòng → lịch sử thao tác của thùng.
 function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
+  const amt = it.amount ?? Math.abs(it.delta);
+  const rem = it.remaining;                       // tồn thùng SAU biến động
+  const before = rem != null ? Math.round((it.dir === "out" ? rem + amt : rem - amt) * 1000) / 1000 : null;
+  const chip = (num?: string) => <span class="pt-bchip"><span class="pt-bn">{num}</span></span>;
+  const ord = it.order_text ? <> · đơn "<span class="pt-otext">{it.order_text}</span>"</> : null;
+  // Mô tả rõ: LÀM GÌ + bao nhiêu (+ đơn / thùng đích)
+  const act = (() => {
+    switch (it.kind) {
+      case "allocated": return <>xuất <b>{soVN(amt)}</b> cho{ord}</>;
+      case "released": return <>trả <b>{soVN(amt)}</b> về từ{ord}</>;
+      case "created": return <>nhập mới <b>{soVN(amt)}</b></>;
+      case "moved_in": return <>chuyển đến (kho khác) <b>{soVN(amt)}</b></>;
+      case "moved_out": return <>chuyển đi (kho khác) <b>{soVN(amt)}</b></>;
+      case "deleted": return <>xoá thùng ({soVN(amt)})</>;
+      case "transfer_out": return <>chuyển <b>{soVN(amt)}</b> sang thùng {chip(it.peer_box)}</>;
+      case "transfer_in": return <>nhận <b>{soVN(amt)}</b> từ thùng {chip(it.peer_box)}</>;
+      default: return <>{it.reason}</>;
+    }
+  })();
   const inner = (
     <>
       <span class="pt-time">{hm(it.at)}</span>
       <span class={"pt-tag " + it.dir}>{it.dir === "in" ? "Vào" : "Ra"}</span>
       <span class="pt-line-txt">
-        <b class="pt-sp">{it.product_code}</b>{" "}
-        <span class="pt-bchip">
-          <span class="pt-bn">{it.box_num}</span>
-          {it.remaining != null ? <span class="pt-bq">{soVN(it.remaining)}</span> : null}
-        </span>
-        <span class="muted"> · {it.reason}</span>
-        {it.peer_box ? <span class="muted"> → <span class="pt-bchip"><span class="pt-bn">{it.peer_box}</span></span></span> : null}
-        {it.order_text ? <span class="pt-otext"> · "{it.order_text}"</span> : null}
+        <b class="pt-sp">{it.product_code}</b> {chip(it.box_num)}{" "}
+        {act}
+        {before != null ? <span class="muted"> · thùng còn <span class="pt-prog">{soVN(before)}→<b>{soVN(rem!)}</b></span></span> : null}
+        {it.actor && it.actor !== "?" ? <span class="pt-actor muted"> · {it.actor}</span> : null}
       </span>
     </>
   );

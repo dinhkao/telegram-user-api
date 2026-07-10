@@ -37,12 +37,13 @@ export function PlacesList() {
   if (err) return <ErrorState msg={err} onRetry={load} />;
   if (!places) return <Loading />;
 
+  const hasStock = (b: KhoBox) => (b.remaining ?? b.quantity ?? 0) > 0;   // thùng còn hàng
   const stat = (pid: number) => {
     const bs = boxes.filter((b) => b.place_id === pid);
     const rem = bs.reduce((s, b) => s + (b.disabled ? 0 : b.remaining), 0);
-    return { count: bs.length, rem };
+    return { count: bs.filter(hasStock).length, rem };   // đếm chỉ thùng còn hàng (rỗng đã ẩn)
   };
-  const unplaced = boxes.filter((b) => !b.place_id).length;
+  const unplaced = boxes.filter((b) => !b.place_id && hasStock(b)).length;
 
   return (
     <div class="inv-dash">

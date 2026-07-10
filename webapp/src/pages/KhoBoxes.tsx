@@ -60,6 +60,7 @@ function ProdChips({ prods }: { prods: { code: string; qty: number }[] }) {
 // Card 1 vị trí kho: thumbnail ảnh mới nhất + mã SP·SL tồn. Tap → chi tiết kho.
 function LocCard({ p, bs }: { p: Place; bs: KhoBox[] }) {
   const total = bs.reduce((s, b) => s + rem(b), 0);
+  const nStock = bs.filter(hasStock).length;   // đếm CHỈ thùng còn hàng (thùng rỗng đã ẩn)
   return (
     <a class="kho-loc-card" href={`#/vi-tri/${p.id}`}>
       {p.thumb_image_id != null ? (
@@ -70,7 +71,7 @@ function LocCard({ p, bs }: { p: Place; bs: KhoBox[] }) {
       )}
       <div class="kho-loc-main">
         <div class="kho-loc-name">{p.name}</div>
-        <div class="kho-loc-meta"><b>{bs.length}</b> thùng · <b class={total > 0 ? "kho-loc-t" : ""}>{soVN(total)}</b> tồn</div>
+        <div class="kho-loc-meta"><b>{nStock}</b> thùng · <b class={total > 0 ? "kho-loc-t" : ""}>{soVN(total)}</b> tồn</div>
         <ProdChips prods={prodAgg(bs)} />
       </div>
       <Icon name="chevronRight" size={18} class="kg-arrow" />

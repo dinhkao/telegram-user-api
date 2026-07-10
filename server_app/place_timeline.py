@@ -53,11 +53,14 @@ def _boxnum(code) -> str:
 
 
 def _place_stock(conn, place_id: int) -> tuple[float, int]:
+    # box_count = CHỈ thùng CÒN HÀNG (thùng đã xuất hết / chuyển hết = rỗng, ẩn khỏi kho
+    # nên không đếm — khớp danh sách hiển thị, khỏi phình số "thùng ma").
     row = conn.execute(
-        "SELECT COALESCE(SUM(b.quantity - COALESCE("
-        "(SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0)),0) AS rem, "
-        "COUNT(*) AS c FROM inventory_boxes b "
-        "WHERE b.place_id = ? AND (b.disabled IS NULL OR b.disabled = 0)",
+        "SELECT COALESCE(SUM(rem),0) AS total, "
+        "SUM(CASE WHEN rem > 0.0001 THEN 1 ELSE 0 END) AS c FROM ("
+        "  SELECT b.quantity - COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0) AS rem "
+        "  FROM inventory_boxes b WHERE b.place_id = ? AND (b.disabled IS NULL OR b.disabled = 0)"
+        ")",
         (place_id,),
     ).fetchone()
     return float(row[0] or 0), int(row[1] or 0)
@@ -121,7 +124,7 @@ def place_timeline(place_id: int) -> dict:
                 "ts": _epoch(r["ts"]), "at": r["ts"], "dir": "in" if act in _DIR_IN else "out",
                 "kind": act.replace("box.", ""), "reason": _REASON.get(act, ""), "product_code": pc,
                 "box_id": p.get("box_id"), "box_code": p.get("box_code"), "box_num": bn,
-                "quantity": p.get("quantity"), "delta": round(delta, 3),
+                "quantity": p.get("quantity"), "delta": round(delta, 3), "amount": round(abs(delta), 3),
                 # chi tiết thêm cho UI: tồn thùng SAU biến động, đơn (xuất/thu), thùng chuyển sang/nhận
                 "remaining": p.get("remaining"), "order_thread_id": p.get("order_thread_id"),
                 "order_text": p.get("order_text"), "peer_box": _boxnum(p.get("to_box") or p.get("from_box")),
