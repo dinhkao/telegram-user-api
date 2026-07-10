@@ -152,9 +152,11 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
               <div class="sk-chips">
                 {mine.map((a) => {
                   const num = (a.box_code || "").split("-").pop() || a.box_code;
+                  // Bấm → chi tiết thùng + cuộn/nháy đúng event xuất-kho này trong Lịch sử
+                  const hts = a.allocated_at ? Math.floor(Date.parse(a.allocated_at) / 1000) : 0;
                   return (
                     <span class="sk-chip" id={`box-${a.box_id}`} key={a.allocation_id}>
-                      <a class="sk-chip-main" href={`#/thung/${a.box_id}`}
+                      <a class="sk-chip-main" href={`#/thung/${a.box_id}${hts ? `?focus=hist:${hts}` : ""}`}
                         title={`${a.box_code} · lấy ${soVN(a.quantity)}${a.box_quantity ? `/${soVN(a.box_quantity)}` : ""}`}>
                         <span class="sk-num">{num}</span><span class="sk-q">{soVN(a.quantity)}</span>
                       </a>

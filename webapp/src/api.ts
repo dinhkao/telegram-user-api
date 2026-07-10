@@ -908,6 +908,7 @@ export type Allocation = {
   mfg_date?: string | null;
   order_thread_id?: number;
   allocated_by?: string;
+  allocated_at?: string;   // ISO lúc xuất — deep-link focus event trong lịch sử thùng
   order_text?: string; // dòng đầu nội dung đơn (sneak peek, chỉ trang chi tiết thùng)
 };
 export type InvGroup = { quantity: number; count: number; total: number; box_codes: string[] };
