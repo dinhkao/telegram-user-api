@@ -7,11 +7,13 @@
   --danger: #d93025;
   --ok: #188038;
   --warn: #b26b00;
+  --brown: #7c4a21;   /* thùng tạm chiếm chỗ (đơn chưa chốt xuất kho) */
   /* Nền dịu cho trạng thái (wash) */
   --accent-wash: #e8f0fe;
   --danger-wash: #fdecea;
   --ok-wash: #e6f4ea;
   --warn-wash: #fef7e0;
+  --brown-wash: #ece1d3;
   /* Surfaces + text (3 cấp) */
   --bg: #f5f6f8;
   --card: #fff;
@@ -1579,6 +1581,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-lbl.in .bl-code, .box-lbl.in .bl-num { border-color: #bfe3c8; }
 .box-lbl.alloc { --fill-bg: var(--warn-wash); border-color: #ecd8a6; color: var(--warn); }
 .box-lbl.alloc .bl-code, .box-lbl.alloc .bl-num { border-color: #ecd8a6; }
+/* NÂU = tạm chiếm chỗ cho đơn CHƯA chốt xuất kho (dùng ở mọi ô thùng) */
+.box-lbl.resv { --fill-bg: var(--brown-wash); border-color: #d0b492; color: var(--brown); }
+.box-lbl.resv .bl-code, .box-lbl.resv .bl-num { border-color: #d0b492; }
 .box-lbl.off { --fill-bg: var(--bg); border-color: var(--border); border-style: dashed; color: var(--muted-2); }
 .box-lbl.off .bl-code, .box-lbl.off .bl-num { border-color: var(--border); }
 .box-lbl.off .bl-q { text-decoration: line-through; }
@@ -1652,6 +1657,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .box-detail.is-disabled .box-kv, .box-detail.is-disabled .prod-sp { opacity: .6; }
 .box-disabled-banner { background: #f3f3f3; color: var(--muted); border: 1px dashed #ccc; padding: 8px 12px; border-radius: 8px; font-size: .88rem; margin-bottom: 4px; }
 .box-disabled-reason { margin-top: 4px; color: #555; font-weight: 600; }
+.box-reserved-banner { background: var(--brown-wash); color: var(--brown); border: 1px solid #d0b492; padding: 9px 12px; border-radius: 10px; font-size: .85rem; font-weight: 600; margin: 6px 0; }
 .box-mfg { max-width: none; }
 .inline-label { align-self: center; font-size: .85rem; color: #666; white-space: nowrap; }
 

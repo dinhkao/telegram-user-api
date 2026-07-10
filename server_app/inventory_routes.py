@@ -375,6 +375,7 @@ async def all_boxes_handler(request: web.Request):
         "id": b["id"], "product_code": b["product_code"], "box_code": b["box_code"],
         "quantity": b.get("quantity") or 0, "remaining": b.get("remaining") or 0,
         "allocated": b.get("allocated") or 0, "disabled": bool(b.get("disabled")),
+        "reserved": bool(b.get("reserved")),   # tạm chiếm chỗ cho đơn chưa chốt → ô NÂU
         "note": b.get("note") or "", "mfg_date": b.get("mfg_date"), "created_at": b.get("created_at"),
         "place_id": b.get("place_id"), "place_name": b.get("place_name"),
         "unit_id": b.get("unit_id"), "unit_name": b.get("unit_name"),

@@ -821,6 +821,7 @@ export type InvBox = {
   allocated?: number; // tổng đã xuất cho các đơn
   remaining?: number; // còn lại = quantity - allocated
   capacity?: number; // SX gốc + hàng nhận chuyển (mốc "đầy" thanh fill)
+  reserved?: boolean; // tạm chiếm chỗ cho đơn CHƯA chốt xuất kho → ô thùng màu NÂU
   place_id?: number | null;
   place_name?: string | null;
   unit_id?: number | null;
@@ -1023,7 +1024,7 @@ export async function stockDemand(): Promise<StockDemandResult> {
   return { since: d.since, products: d.products || [], no_products: d.no_products || [], totals: d.totals || {} };
 }
 
-export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; capacity?: number; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null; unit_id?: number | null; unit_name?: string | null; product_unit?: string; source_thread_id?: number | null };
+export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; capacity?: number; reserved?: boolean; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null; unit_id?: number | null; unit_name?: string | null; product_unit?: string; source_thread_id?: number | null };
 
 // ── Công thức sản xuất (BOM): SP cần nguyên liệu theo tỉ lệ ──
 export type RecipeLine = { id: number; ingredient_code: string; ratio: number; stock?: number; unit?: string };

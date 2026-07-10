@@ -268,6 +268,13 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
         </div>
       )}
 
+      {!disabled && b.reserved && (
+        <div class="box-reserved-banner">
+          🟤 Thùng đang TẠM giữ cho đơn chưa chốt xuất kho — vẫn có thể thu hồi lại
+          (ô thùng hiện màu nâu ở mọi nơi cho tới khi đơn chốt).
+        </div>
+      )}
+
       <section class="card">
         <div class="box-kv">
           <span class="box-k">Số {b.product_unit || "cây"}</span>

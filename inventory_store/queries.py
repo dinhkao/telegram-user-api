@@ -17,6 +17,34 @@ def _now() -> str:
     return datetime.now(_VN_TZ).isoformat(timespec="seconds")
 
 
+# Thùng "tạm chiếm chỗ": có phần XUẤT cho 1 ĐƠN mà đơn đó CHƯA chốt xuất kho
+# ($.stock_confirmed rỗng/null). Chỉ xét allocation kind='order' (bỏ qua tiêu hao SX
+# 'production' + bút toán chuyển 'transfer_*'). Ô thùng sẽ hiện màu NÂU thay vì XANH.
+# json_extract trả NULL khi key vắng mặt HOẶC giá trị là JSON null (= chưa chốt);
+# khi đã chốt giá trị là object {at,by} → không NULL. Alias ra/ro riêng, không đụng
+# các subquery allocated/transferred_in dùng alias a.
+_RESERVED_SUBQUERY = (
+    "COALESCE((SELECT 1 FROM box_allocations ra "
+    "JOIN orders ro ON ro.thread_id = ra.order_thread_id "
+    "WHERE ra.box_id = b.id AND COALESCE(ra.kind,'order') = 'order' AND ra.quantity > 0 "
+    "AND json_extract(ro.json, '$.stock_confirmed') IS NULL LIMIT 1), 0) AS reserved_pending"
+)
+
+
+def _reserved_fragment(conn) -> str:
+    """Mảnh SELECT tính cờ `reserved_pending`. Bảng `orders` nằm cùng app.db nên
+    thường luôn có; nhưng test kho cô lập (chỉ dựng bảng inventory) hoặc engine
+    không phải SQLite thì không có → trả `0` để list_boxes/get_box vẫn chạy được
+    (tính năng ô-thùng-nâu tắt, không crash)."""
+    try:
+        has_orders = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='orders' LIMIT 1"
+        ).fetchone()
+    except Exception:
+        has_orders = None
+    return _RESERVED_SUBQUERY if has_orders else "0 AS reserved_pending"
+
+
 def add_boxes(conn, product_code, quantities, *, source_thread_id=None, by=None, note=None, mfg_date=None, unit_id=None, place_id=None) -> list[dict]:
     """Tạo N thùng mới cho product — SỐ GỌI 3 chữ số toàn kho, xoay vòng, nguyên tử.
 
@@ -114,8 +142,9 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
         "SELECT b.*, p.name AS place_name, u.name AS unit_name, pr.unit AS product_unit, "
         "COALESCE(pr.code, b.product_code) AS product_code_live, "
         "COALESCE((SELECT SUM(a.quantity) FROM box_allocations a WHERE a.box_id=b.id),0) AS allocated, "
-        "COALESCE((SELECT SUM(-a.quantity) FROM box_allocations a WHERE a.box_id=b.id AND a.quantity<0),0) AS transferred_in "
-        "FROM inventory_boxes b "
+        "COALESCE((SELECT SUM(-a.quantity) FROM box_allocations a WHERE a.box_id=b.id AND a.quantity<0),0) AS transferred_in, "
+        + _reserved_fragment(conn) +
+        " FROM inventory_boxes b "
         "LEFT JOIN inventory_places p ON p.id = b.place_id "
         "LEFT JOIN inventory_units u ON u.id = b.unit_id "
         "LEFT JOIN products pr ON pr.id = b.product_id"
@@ -130,6 +159,8 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
         d["remaining"] = float(d.get("quantity") or 0) - float(d.get("allocated") or 0)
         # capacity = SX gốc + hàng nhận qua transfer_in → mốc "đầy" cho thanh fill
         d["capacity"] = float(d.get("quantity") or 0) + float(d.get("transferred_in") or 0)
+        # reserved = tạm chiếm chỗ cho đơn CHƯA chốt xuất kho (ô thùng hiện màu NÂU)
+        d["reserved"] = bool(d.pop("reserved_pending", 0))
         out.append(d)
     return out
 
@@ -173,8 +204,9 @@ def get_box(conn, box_id) -> dict | None:
     row = conn.execute(
         "SELECT b.*, p.name AS place_name, u.name AS unit_name, pr.unit AS product_unit, "
         "COALESCE(pr.code, b.product_code) AS product_code_live, "
-        "COALESCE((SELECT SUM(-a.quantity) FROM box_allocations a WHERE a.box_id=b.id AND a.quantity<0),0) AS transferred_in "
-        "FROM inventory_boxes b "
+        "COALESCE((SELECT SUM(-a.quantity) FROM box_allocations a WHERE a.box_id=b.id AND a.quantity<0),0) AS transferred_in, "
+        + _reserved_fragment(conn) +
+        " FROM inventory_boxes b "
         "LEFT JOIN inventory_places p ON p.id = b.place_id "
         "LEFT JOIN inventory_units u ON u.id = b.unit_id "
         "LEFT JOIN products pr ON pr.id = b.product_id WHERE b.id = ?",
@@ -186,6 +218,8 @@ def get_box(conn, box_id) -> dict | None:
     d["product_code"] = d.pop("product_code_live") or d.get("product_code")
     # capacity = SX gốc + hàng nhận transfer_in → mốc "đầy" cho thanh fill
     d["capacity"] = float(d.get("quantity") or 0) + float(d.get("transferred_in") or 0)
+    # reserved = tạm chiếm chỗ cho đơn CHƯA chốt xuất kho (ô thùng hiện màu NÂU)
+    d["reserved"] = bool(d.pop("reserved_pending", 0))
     return d
 
 

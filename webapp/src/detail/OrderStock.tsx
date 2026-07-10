@@ -173,7 +173,8 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
                   const bq = a.box_quantity || 0;
                   const fill = bq > 0 ? Math.max(0, Math.min(100, (a.quantity / bq) * 100)) : 100;
                   return (
-                    <a class="box-lbl in" id={`box-${a.box_id}`} key={a.allocation_id}
+                    // Đơn CHƯA chốt xuất kho → ô NÂU (tạm chiếm chỗ); chốt rồi → XANH (đã cố định)
+                    <a class={"box-lbl " + (confirmed ? "in" : "resv")} id={`box-${a.box_id}`} key={a.allocation_id}
                       href={`#/thung/${a.box_id}${hts ? `?focus=hist:${hts}` : ""}`} style={{ "--fill": `${fill}%` } as any}
                       title={`${a.box_code} · lấy ${soVN(a.quantity)}${bq ? `/${soVN(bq)}` : ""}${a.place_name ? ` · ${a.place_name}` : ""}`}>
                       <button class={"bl-x" + (locked ? " faded" : "")} disabled={busy} title="Thu hồi"

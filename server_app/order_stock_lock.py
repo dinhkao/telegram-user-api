@@ -67,6 +67,9 @@ async def order_stock_confirm_handler(request: web.Request):
         if not await is_admin_request(request):
             return web.json_response({"ok": False, "error": "Chỉ admin huỷ chốt được"}, status=403)
 
+    # Các thùng đang xuất cho đơn này → emit box_changed để ô thùng đổi màu (NÂU↔XANH)
+    box_ids: list[int] = []
+
     def _run():
         conn = get_connection()
         try:
@@ -74,6 +77,9 @@ async def order_stock_confirm_handler(request: web.Request):
             order = get_order_by_thread_id(conn, thread_id)
             if not order:
                 return "notfound", None
+            from inventory_store import list_order_allocations
+            allocs = list_order_allocations(conn, thread_id)
+            box_ids[:] = [a["box_id"] for a in allocs if a.get("box_id") is not None]
             if not confirm:
                 _update_order_json_field(conn, thread_id, "$.stock_confirmed", None)
                 conn.commit()
@@ -91,9 +97,8 @@ async def order_stock_confirm_handler(request: web.Request):
                         pass
             if not needs:
                 return "empty", None
-            from inventory_store import list_order_allocations
             got: dict[str, float] = {}
-            for a in list_order_allocations(conn, thread_id):
+            for a in allocs:
                 got[a["product_code"]] = got.get(a["product_code"], 0.0) + (a.get("quantity") or 0)
             short = [c for c, need in needs.items() if got.get(c, 0.0) + 1e-6 < need]
             if short:
@@ -114,8 +119,11 @@ async def order_stock_confirm_handler(request: web.Request):
         return web.json_response(
             {"ok": False, "error": f"Chưa xuất đủ: {', '.join(payload)} — xuất đủ mới chốt được"}, status=400)
 
-    from server_app.realtime import emit_order_changed
+    from server_app.realtime import emit_order_changed, emit_inventory_changed, emit_box_changed
     emit_order_changed(thread_id)
+    emit_inventory_changed()          # trang Kho / SP tải lại → ô thùng đổi màu NÂU↔XANH
+    for bid in box_ids:               # chi tiết từng thùng đang xuất cho đơn
+        emit_box_changed(bid)
     from audit_log import async_log_event
     from server_app.tasks import spawn_tracked
     spawn_tracked("audit.stock_confirm", async_log_event(

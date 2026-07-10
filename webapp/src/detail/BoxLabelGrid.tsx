@@ -14,10 +14,10 @@ export function BoxLabelGrid({ boxes, hideCode, dense }: { boxes: KhoBox[]; hide
       {ordered.map((b) => {
         const rm = b.remaining ?? b.quantity;
         const used = b.allocated ?? 0;
-        // Luôn XANH (như đầy); mức nền thể hiện phần còn lại. Chỉ vô hiệu mới khác màu.
-        const st = b.disabled ? "off" : "in";
+        // XANH (còn kho) / NÂU (tạm chiếm chỗ cho đơn CHƯA chốt xuất kho) / mờ (vô hiệu).
+        const st = b.disabled ? "off" : b.reserved ? "resv" : "in";
         const num = (b.box_code || "").split("-").pop() || b.box_code;
-        const status = b.disabled ? "vô hiệu" : used > 0 ? `đã xuất ${soVN(used)}/${soVN(b.quantity)}` : "trong kho";
+        const status = b.disabled ? "vô hiệu" : b.reserved ? "tạm giữ cho đơn chưa chốt" : used > 0 ? `đã xuất ${soVN(used)}/${soVN(b.quantity)}` : "trong kho";
         // Mức "bình chứa": remaining / capacity (= SX gốc + hàng nhận chuyển) → không tràn
         const cap = b.capacity ?? b.quantity;
         const fillPct = cap > 0 ? Math.max(0, Math.min(100, (rm / cap) * 100)) : 100;
