@@ -197,8 +197,10 @@ function ProductCard({ p, i, defaultOpen, openOverride }: { p: StockDemandLine; 
       </button>
 
       <div class="nd-card-def">
-        <b class="nd-sf">thiếu {soVN(p.shortfall)} {u}</b>
-        <span class="nd-card-ctx">· tồn {soVN(p.stock)} · cần {soVN(p.need)} · {p.orders} đơn</span>
+        <span class="nd-sf-lb">thiếu</span>
+        <span class="nd-sf-num">{soVN(p.shortfall)}</span>
+        <span class="nd-sf-unit">{u}</span>
+        <span class="nd-card-ctx">tồn {soVN(p.stock)} · cần {soVN(p.need)} · {p.orders} đơn</span>
       </div>
 
       <div class={"nd-verdict-line " + v.tone}>
