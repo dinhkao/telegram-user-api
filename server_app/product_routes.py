@@ -85,7 +85,8 @@ async def product_update_handler(request: web.Request):
                            name=body.get("name") if body.get("name") is not None else None,
                            note=body.get("note") if body.get("note") is not None else None,
                            unit=body.get("unit") if body.get("unit") is not None else None,
-                           can_produce_directly=bool(body.get("can_produce_directly")) if body.get("can_produce_directly") is not None else None)
+                           can_produce_directly=bool(body.get("can_produce_directly")) if body.get("can_produce_directly") is not None else None,
+                           min_stock=body.get("min_stock") if body.get("min_stock") is not None else None)
             return get_product(conn, code)
         finally:
             conn.close()

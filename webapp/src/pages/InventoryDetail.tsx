@@ -42,6 +42,18 @@ export function InventoryDetail({ code }: { code: string }) {
       if (p && inv) { setInv({ ...inv, product: p }); setUnitSaved(true); setTimeout(() => setUnitSaved(false), 1500); }
     } catch { /* im */ }
   };
+  // Tồn kho tối thiểu (ngưỡng cảnh báo) — sửa như Đơn vị (blur là lưu)
+  const [minInput, setMinInput] = useState("");
+  const [minSaved, setMinSaved] = useState(false);
+  useEffect(() => { setMinInput(inv?.product?.min_stock ? String(inv.product.min_stock) : ""); }, [inv?.product?.min_stock]);
+  const saveMin = async () => {
+    const v = minInput.trim() === "" ? 0 : Number(minInput);
+    if (!inv?.product || isNaN(v) || v === (inv.product.min_stock || 0)) return;
+    try {
+      const p = await updateProduct(code, { min_stock: v });
+      if (p && inv) { setInv({ ...inv, product: p }); setMinSaved(true); setTimeout(() => setMinSaved(false), 1500); }
+    } catch { /* im */ }
+  };
   // Mã SP — đổi TỰ DO (admin): mọi liên kết theo products.id nên chỉ đổi nhãn;
   // mã cũ thành alias (gõ vẫn nhận, link cũ redirect). Có confirm vì đổi cả KiotViet.
   const [codeInput, setCodeInput] = useState("");
@@ -293,6 +305,13 @@ export function InventoryDetail({ code }: { code: string }) {
           <input class="box-place" style={{ minWidth: "110px" }} value={unitInput} placeholder="cây"
             onInput={(e: any) => setUnitInput(e.target.value)} onBlur={saveUnit}
             onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+        </div>
+        <div class="box-kv">
+          <span class="box-k">Tồn tối thiểu {minSaved && <span class="muted small">✓</span>}</span>
+          <input class="box-place" style={{ minWidth: "90px" }} type="number" inputMode="decimal" value={minInput} placeholder="0"
+            onInput={(e: any) => setMinInput(e.target.value)} onBlur={saveMin}
+            onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+          <span class="muted small">{inv.product?.unit || "cây"}{inv.product && (inv.product.min_stock || 0) > 0 && (inv.total || 0) < (inv.product.min_stock || 0) ? <span class="min-below"> · ⚠ tồn {soVN(inv.total || 0)} dưới mức</span> : null}</span>
         </div>
         {inv.product && isAdmin && (
           <div class="box-kv">

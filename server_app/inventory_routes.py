@@ -865,6 +865,7 @@ async def inventory_detail_handler(request: web.Request):
             "id": prod.get("id"),
             "code": prod["code"], "name": prod.get("name") or prod.get("kv_full_name") or "",
             "can_produce_directly": bool(prod.get("can_produce_directly")),
+            "min_stock": float(prod.get("min_stock") or 0),
             "cost_price": prod.get("cost_price") or 0, "unit": prod.get("unit") or "cây",
             "kv_id": prod.get("kv_id"), "kv_full_name": prod.get("kv_full_name"),
             "kv_synced_at": prod.get("kv_synced_at"),

@@ -2282,3 +2282,5 @@ body.kbd-open .od-navbar { display: none; }
 
 .task-bell { position: relative; display: flex; }
 .tb-badge { background: var(--primary); }
+
+.min-below { color: var(--danger); font-weight: 600; }

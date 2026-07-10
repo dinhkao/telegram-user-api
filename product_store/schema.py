@@ -23,7 +23,8 @@ _PRODUCT_COLS_SQL = """
             is_material   INTEGER DEFAULT 0,
             prod_mam      REAL,
             prod_luong    REAL,
-            can_produce_directly INTEGER DEFAULT 1
+            can_produce_directly INTEGER DEFAULT 1,
+            min_stock     REAL DEFAULT 0
 """
 
 
@@ -78,6 +79,8 @@ def migrate_products_table(conn):
         conn.execute("ALTER TABLE products ADD COLUMN prod_luong REAL")
     if "can_produce_directly" not in columns:   # SX TRỰC TIẾP được không (phiếu kind=san_xuat).
         conn.execute("ALTER TABLE products ADD COLUMN can_produce_directly INTEGER DEFAULT 1")  # backfill 0 cho SP có công thức ở db_migrate
+    if "min_stock" not in columns:      # tồn kho tối thiểu (ngưỡng cảnh báo)
+        conn.execute("ALTER TABLE products ADD COLUMN min_stock REAL DEFAULT 0")
     if "id" not in columns:
         _rebuild_with_id(conn)
     _create_history_table(conn)
