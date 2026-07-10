@@ -255,6 +255,8 @@ def create_app():
     r.add_get("/api/inventory", inventory_list_handler)
     r.add_get("/api/inventory/boxes", all_boxes_handler)
     r.add_get("/api/inventory/unplaced-count", unplaced_count_handler)
+    from server_app.stock_demand import stock_demand_handler
+    r.add_get("/api/inventory/demand", stock_demand_handler)
     r.add_get("/api/banner/pins", banner_pins_handler)
     r.add_post("/api/banner/pin", banner_pin_create_handler)
     r.add_delete("/api/banner/pin/{pin_id}", banner_pin_delete_handler)

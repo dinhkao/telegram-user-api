@@ -990,6 +990,17 @@ export async function inventoryList(): Promise<InvProductSummary[]> {
   return d.products || [];
 }
 
+// ── Nhu cầu kho hôm nay vs tồn (đơn tạo từ hôm nay, chưa xuất kho) ──
+export type StockDemandLine = { code: string; name: string; unit: string; need: number; stock: number; enough: boolean; shortfall: number; orders: number };
+export type StockDemandResult = {
+  since: string; products: StockDemandLine[];
+  totals: { orders: number; product_lines: number; short_products: number; total_need: number; total_shortfall: number; all_enough: boolean };
+};
+export async function stockDemand(): Promise<StockDemandResult> {
+  const d = await getJSON("/api/inventory/demand", { cache: false });
+  return { since: d.since, products: d.products || [], totals: d.totals || {} };
+}
+
 export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; capacity?: number; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null; unit_id?: number | null; unit_name?: string | null; product_unit?: string; source_thread_id?: number | null };
 
 // ── Công thức sản xuất (BOM): SP cần nguyên liệu theo tỉ lệ ──

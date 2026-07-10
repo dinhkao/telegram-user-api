@@ -1346,6 +1346,26 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .lbl-grid.dense .box-lbl .bl-code { padding: 1px 2px; }
 .lbl-grid.dense .box-lbl .bl-x { width: 17px; height: 17px; border-radius: 0 7px 0 7px; }
 .sk-grid { margin-top: 7px; }
+
+/* ── Nhu cầu kho hôm nay (#/nhu-cau) ── */
+.sd-banner { display: flex; align-items: center; gap: 8px; padding: 11px 13px; border-radius: 12px; font-size: .92rem; margin: 4px 0 12px; border: 1.5px solid; }
+.sd-banner.ok { background: var(--ok-wash); border-color: #bfe3c8; color: var(--ok); }
+.sd-banner.short { background: var(--warn-wash, #fdf0e3); border-color: #ecc9a6; color: var(--danger); }
+.sd-warn { font-size: 1.15rem; line-height: 1; }
+.sd-list { display: flex; flex-direction: column; gap: 8px; }
+.sd-row { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 12px; background: var(--card); text-decoration: none; color: inherit; overflow: hidden; }
+.sd-row::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--sd-fill, 100%); z-index: 0; transition: width var(--dur) var(--ease); }
+.sd-row.ok::before { background: var(--ok-wash); }
+.sd-row.short { border-color: #ecc9a6; }
+.sd-row.short::before { background: var(--warn-wash, #fdf0e3); }
+.sd-row > * { position: relative; z-index: 1; }
+.sd-row:active { transform: scale(.99); }
+.sd-main { flex: 1 1 auto; min-width: 0; }
+.sd-code { font-size: .98rem; }
+.sd-nums { font-size: .84rem; margin-top: 2px; }
+.sd-badge { flex: 0 0 auto; padding: 4px 10px; border-radius: 999px; font-size: .82rem; font-weight: 800; white-space: nowrap; }
+.sd-badge.ok { background: var(--ok); color: #fff; }
+.sd-badge.short { background: var(--danger); color: #fff; }
 /* Nút thu hồi (×) trên ô thùng đã xuất cho đơn */
 .box-lbl .bl-x { position: absolute; top: 2px; right: 2px; z-index: 2; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 0 9px 0 8px; background: var(--danger); color: #fff; cursor: pointer; }
 .box-lbl .bl-x:active { opacity: .7; }

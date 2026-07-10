@@ -38,6 +38,7 @@ import { TaskBell } from "./TaskBell";
 import { InventoryList } from "./pages/InventoryList";
 import { InventoryDetail } from "./pages/InventoryDetail";
 import { KhoBoxes } from "./pages/KhoBoxes";
+import { StockDemand } from "./pages/StockDemand";
 import { PlacesList } from "./pages/PlacesList";
 import { PlaceDetail } from "./pages/PlaceDetail";
 import { PlaceTimeline } from "./pages/PlaceTimeline";
@@ -380,6 +381,7 @@ function App() {
   else if (hash.startsWith("#/vi-tri")) page = <PlacesList />;
   else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;
   else if (hash.startsWith("#/san-pham")) page = <InventoryList />;
+  else if (hash.startsWith("#/nhu-cau")) page = <StockDemand />;
   else if (hash.startsWith("#/kho")) page = <KhoBoxes />;
   else if (hash.startsWith("#/quy")) page = <QuyList />;
   else if (hash.startsWith("#/users")) page = <Users />;
@@ -409,6 +411,7 @@ function App() {
     : hash.startsWith("#/create") ? "Tạo đơn"
     : (hash.startsWith("#/san_xuat") || hash.startsWith("#/sx-") || prodMatch || prodEditMatch || shtMatch) ? "Sản xuất"
     : hash.startsWith("#/san-pham") ? "Sản phẩm"
+    : hash.startsWith("#/nhu-cau") ? "Nhu cầu kho"
     : (hash.startsWith("#/vi-tri") || placeMatch) ? "Vị trí kho"
     : (hash.startsWith("#/kho") || khoMatch || boxMatch) ? "Kho hàng"
     : hash.startsWith("#/viec") ? "Việc"

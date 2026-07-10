@@ -125,7 +125,10 @@ export function KhoBoxes() {
       <h2 class="page-h"><Icon name="box" size={18} /> Kho hàng{" "}
         <span class="muted small">({searching ? `${countBoxes} thùng` : `${places.length} vị trí`})</span>
       </h2>
-      <a class="btn small" href="#/san-pham"><Icon name="tag" size={15} /> Sản phẩm</a>
+      <span class="row" style={{ gap: "6px" }}>
+        <a class="btn small" href="#/nhu-cau"><Icon name="chart" size={15} /> Nhu cầu</a>
+        <a class="btn small" href="#/san-pham"><Icon name="tag" size={15} /> Sản phẩm</a>
+      </span>
     </div>
   );
   const search = <SearchBar value={q} onInput={setQ} placeholder="Tìm mã SP / số thùng / vị trí…" />;
