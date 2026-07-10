@@ -212,8 +212,6 @@ function HowToMake({ p }: { p: StockDemandLine }) {
       </div>
     );
   }
-  const pi = packInfo(p);
-  const shortIngs = pi ? pi.shortIngs : [];
   return (
     <div class="nd-card-how">
       <div class="nd-sub-h">Cách làm</div>
@@ -232,9 +230,6 @@ function HowToMake({ p }: { p: StockDemandLine }) {
             <span class="nd-opt-t"><Icon name="box" size={15} /> <b>Đóng gói từ nguyên liệu</b></span>
             <span class={"nd-tag " + (matsEnough ? "ok" : "bad")}>{matsEnough ? "đủ NL" : "thiếu NL"}</span>
           </div>
-          {!matsEnough && shortIngs.length > 0 && (
-            <div class="nd-need-line">Cần làm thêm: {shortIngs.map((g, i) => <span key={g.code}>{i ? " · " : ""}<b>{soVN(g.need)}{g.unit ? ` ${g.unit}` : ""} {g.code}</b></span>)}</div>
-          )}
           {ings.map((g) => <IngTree g={g} depth={0} key={g.code} />)}
         </div>
       )}

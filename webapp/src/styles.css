@@ -1445,8 +1445,6 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* phần mở rộng */
 .nd-card-detail { margin-top: 4px; }
 .nd-card-how { margin-top: 4px; }
-.nd-need-line { font-size: .82rem; line-height: 1.5; color: var(--ink); margin: 6px 0 2px; }
-.nd-need-line b { font-variant-numeric: tabular-nums; }
 .nd-card-more { display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%; margin-top: 10px; padding: 9px 0 8px; border: none; border-top: 1px solid var(--border);
   background: none; color: var(--muted); font: inherit; font-size: .82rem; cursor: pointer; }
 .nd-card-more:active { color: var(--ink); }
