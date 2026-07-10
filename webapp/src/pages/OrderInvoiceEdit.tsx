@@ -32,7 +32,9 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
   if (err) return <ErrorState msg={err} onRetry={reload} />;
   if (!detail) return <Loading />;
   const j = detail.data || {};
-  const locked = !!j.kiotvietInvoiceID;
+  const hasInvoice = !!j.kiotvietInvoiceID;
+  const stockLocked = !!j.stock_confirmed;   // đã chốt xuất kho → khoá dù đã xoá HĐ
+  const locked = hasInvoice || stockLocked;
 
   return (
     <div>
@@ -42,8 +44,10 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
       </div>
       {locked ? (
         <div class="card co-adv-locked muted small">
-          <Icon name="lock" size={14} /> Đơn đã tạo hoá đơn KiotViet ({j.kiotvietInvoiceCode || j.kiotvietInvoiceID}) —
-          không sửa được. Muốn sửa phải xoá HĐ ở trang chi tiết trước.
+          <Icon name="lock" size={14} />{" "}
+          {hasInvoice
+            ? <>Đơn đã tạo hoá đơn KiotViet ({j.kiotvietInvoiceCode || j.kiotvietInvoiceID}) — không sửa được. Muốn sửa phải xoá HĐ ở trang chi tiết trước.</>
+            : <>Đơn đã <b>chốt xuất kho</b> — không sửa hoá đơn được. Admin bấm <b>Huỷ chốt</b> ở khối Xuất kho mới sửa được.</>}
         </div>
       ) : (
         <InvoiceEditor

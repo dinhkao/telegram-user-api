@@ -111,6 +111,13 @@ async def api_invoice_update_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
     if invoice is not None and not isinstance(invoice, list):
         return web.json_response({"ok": False, "error": "invoice must be a list"}, status=400)
+    # Đơn đã CHỐT xuất kho → cấm sửa SP hoá đơn (SL/thêm bớt) — kể cả sau khi xoá HĐ
+    # KiotViet; admin phải Huỷ chốt trước. (chỉ khoá khi thực sự SỬA invoice)
+    if invoice is not None:
+        from server_app.order_stock_lock import stock_locked_error
+        locked = await stock_locked_error(request, thread_id)
+        if locked:
+            return locked
     conn = _get_connection()
     with transaction(conn):   # atomic RMW; the async refresh runs AFTER, outside the lock
         order = get_order_by_thread_id(conn, thread_id)
