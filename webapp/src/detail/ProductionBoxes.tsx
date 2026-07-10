@@ -2,7 +2,7 @@
 // (K2L-001). POST .../boxes (queueable, gửi mảng {quantity} × số thùng). onChanged()
 // để phiếu tải lại tổng. Liệt kê thùng đã nhập ở phiếu này — tap → chi tiết thùng.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { addProductionBoxes, slipBoxes, listUnits, createUnit, listPlaces, createPlace, getRecipe, searchProducts, soVN, type ProdSlip, type InvBox, type Unit, type Place, type RecipeLine } from "../api";
+import { addProductionBoxes, slipBoxes, listUnits, createUnit, listPlaces, createPlace, getRecipe, searchProducts, getAppSettings, soVN, type ProdSlip, type InvBox, type Unit, type Place, type RecipeLine } from "../api";
 import { onRealtime } from "../realtime";
 import { usePopupBack } from "../ui/usePopupBack";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -46,6 +46,8 @@ export function ProductionBoxes({
   const [prodCode, setProdCode] = useState(draft?.prodCode || slip.sp_name || "");
   useEffect(() => { if (slip.sp_name && !prodCode) setProdCode(slip.sp_name); }, [slip.sp_name]);
   const dirRef = useRef<Map<string, boolean>>(new Map());   // code → SX trực tiếp được (lọc theo loại phiếu)
+  const [allowNoMat, setAllowNoMat] = useState(false);      // admin bật: nhập SP đóng gói không trừ NL
+  useEffect(() => { getAppSettings().then((s) => setAllowNoMat(!!s.pack_allow_no_material)).catch(() => {}); }, []);
   const hasSp = !!prodCode;
   const [amount, setAmount] = useState(draft?.amount || "");
   const [count, setCount] = useState(draft?.count || "1");
@@ -88,7 +90,7 @@ export function ProductionBoxes({
   // Nguyên liệu theo LOẠI PHIẾU: SẢN XUẤT → không cần NL (ẩn luôn phần chọn);
   // ĐÓNG GÓI → bắt buộc có công thức + chọn đủ thùng cho MỌI nguyên liệu.
   const packing = (slip.kind || "san_xuat") === "dong_goi";
-  const recipeOk = !packing
+  const recipeOk = allowNoMat || !packing
     || (recipe.length > 0 && produced > 0 && recipe.every((l) => chosenOf(l.ingredient_code) + 1e-6 >= l.ratio * produced));
   const createUnitPick = async (name: string) => {
     try {
@@ -224,11 +226,11 @@ export function ProductionBoxes({
           <PickerPopup value={prodCode} placeholder="Chọn SP" allowFreeText
             onSearch={async (q): Promise<PickOpt[]> => (await searchProducts(q).catch(() => [])).map((s) => {
               dirRef.current.set(s.code, s.can_produce_directly !== false);
-              const bad = !packing && s.can_produce_directly === false;   // phiếu SX + SP chỉ đóng gói
+              const bad = !allowNoMat && !packing && s.can_produce_directly === false;   // phiếu SX + SP chỉ đóng gói
               return { key: s.code, label: s.code, sub: bad ? "⚠ chỉ đóng gói — không hợp phiếu SX" : (s.name || undefined) };
             })}
             onPick={(o) => {
-              if (!packing && dirRef.current.get(o.key) === false) {
+              if (!allowNoMat && !packing && dirRef.current.get(o.key) === false) {
                 toast("SP này chỉ ĐÓNG GÓI — đổi loại phiếu sang Đóng gói, hoặc bật 'SX trực tiếp' ở chi tiết SP", "err");
                 return;
               }
@@ -299,7 +301,7 @@ export function ProductionBoxes({
           })}
         </div>
       )}
-      {packing && hasSp && recipe.length === 0 && (
+      {packing && hasSp && recipe.length === 0 && !allowNoMat && (
         <div class="muted small pb-hint">⚠ Phiếu đóng gói bắt buộc trừ nguyên liệu — {prodCode} chưa có công thức. Thêm ở trang chi tiết sản phẩm.</div>
       )}
 
