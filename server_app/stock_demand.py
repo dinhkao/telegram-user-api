@@ -44,13 +44,9 @@ def _delivered(j: dict) -> bool:
 
 
 def _order_label(j: dict, tid) -> str:
-    hd = j.get("hoadon") or {}
-    pc = (hd.get("print_content") or {}) if isinstance(hd, dict) else {}
-    cust = pc.get("kh") or j.get("customer_name") or j.get("topic_name") or ""
-    if not cust:
-        txt = (j.get("text") or j.get("text_raw") or "").strip()
-        cust = txt.split("\n", 1)[0][:24] if txt else f"#{tid}"
-    return str(cust)
+    # Nhãn đơn = TEXT đơn (gộp xuống dòng thành khoảng trắng, cắt gọn), fallback #id
+    txt = (j.get("text") or j.get("text_raw") or "").strip()
+    return " ".join(txt.split())[:60] if txt else f"#{tid}"
 
 
 def compute_stock_demand() -> dict:
