@@ -340,7 +340,7 @@ export function TaskBadges({ o }: { o: OrderRow }) {
       {icons[5] && (
         <span class="tstat" key="no">
           <span class="tico">{icons[5]}</span>
-          <span class="tlbl">Nợ</span>
+          <span class="tlbl">{icons[5] === "😡" ? "Nợ" : "Tiền"}</span>
         </span>
       )}
     </span>
