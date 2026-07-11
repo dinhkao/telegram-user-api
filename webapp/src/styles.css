@@ -1066,6 +1066,11 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .wd-meta { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wd-sp { font-variant-numeric: tabular-nums; color: var(--primary); flex: none; }
 .wd-sp.muted { color: var(--muted); }
+/* Tiền công (chỉ văn phòng) */
+.wd-total-money { font-size: .82rem; color: var(--ok); margin-top: 2px; }
+.wd-total-money b { font-size: .95rem; font-variant-numeric: tabular-nums; }
+.wd-day-money { color: var(--ok); font-variant-numeric: tabular-nums; }
+.wd-money { flex: none; color: var(--ok); font-variant-numeric: tabular-nums; font-size: .86rem; min-width: 62px; text-align: right; }
 
 /* số lượng nhận — danh sách có thời gian + người + ghi chú */
 .prod-numbers { flex-direction: column; align-items: stretch; }

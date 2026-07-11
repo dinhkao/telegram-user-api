@@ -715,8 +715,8 @@ export async function getProductionDashboard(from?: string, to?: string): Promis
   return getJSON(`/api/production/report-dashboard${q ? "?" + q : ""}`, { cache: false });
 }
 
-export type WorkerReportRow = { thread_id: number; product_code: string; date: string; ymd: string; so_mam: number; tong_calc: number; note: string };
-export type WorkerReport = { name: string; total: number; total_mam: number; phieu: number; rows: WorkerReportRow[] };
+export type WorkerReportRow = { thread_id: number; product_code: string; date: string; ymd: string; so_mam: number; tong_calc: number; note: string; money?: number; wage?: number };
+export type WorkerReport = { name: string; total: number; total_mam: number; phieu: number; rows: WorkerReportRow[]; total_money?: number; can_money?: boolean };
 export async function getWorkerReport(name: string, from?: string, to?: string): Promise<WorkerReport> {
   const qs = new URLSearchParams();
   if (from) qs.set("from", from);

@@ -23,14 +23,22 @@ _VN = timezone(timedelta(hours=7))
 _DEFAULT_DAYS = 45
 
 
+def is_office_username(username: str | None) -> bool:
+    """username có phải văn phòng (admin/van_phong) không — tra role web_users."""
+    from user_store import get_user, is_office
+    if not username:
+        return False
+    row = get_user(username)
+    return bool(row and is_office(row.get("role")))
+
+
 def office_user(request: web.Request) -> dict | None:
     """User văn phòng (admin/van_phong) từ token đã giải; None nếu thiếu/không đủ quyền."""
-    from user_store import get_user, is_office
+    from user_store import get_user
     username = request.get("web_user")
-    if not username:
+    if not username or not is_office_username(username):
         return None
-    row = get_user(username)
-    return row if row and is_office(row.get("role")) else None
+    return get_user(username)
 
 
 def _today_vn() -> str:

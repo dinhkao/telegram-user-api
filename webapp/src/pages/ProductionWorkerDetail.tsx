@@ -3,7 +3,7 @@
 // API: getWorkerReport. Realtime production_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { getWorkerReport, soVN, type WorkerReport, type WorkerReportRow } from "../api";
+import { getWorkerReport, isOffice, soVN, type WorkerReport, type WorkerReportRow } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { Icon } from "../ui/Icon";
@@ -11,6 +11,7 @@ import { Icon } from "../ui/Icon";
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const dmy = (ymd: string) => { if (!ymd) return "?"; const [y, m, d] = ymd.split("-"); return `${d}/${m}/${y}`; };
+const money = (n: number) => soVN(Math.round(n)) + "đ";
 
 type Period = "all" | "month" | "week";
 function rangeFor(p: Period): { from?: string; to?: string } {
@@ -43,13 +44,16 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
     return () => { off(); clearTimeout(t); };
   }, [name, period]);
 
+  // Tiền công CHỈ cho văn phòng (server chỉ đính kèm khi office; client gate thêm)
+  const showMoney = isOffice() && !!data?.can_money;
   // Gộp rows theo ngày (giữ thứ tự mới→cũ từ server)
-  const days: { ymd: string; date: string; rows: WorkerReportRow[]; tong: number }[] = [];
+  const days: { ymd: string; date: string; rows: WorkerReportRow[]; tong: number; money: number }[] = [];
   for (const r of data?.rows || []) {
     let g = days.find((x) => x.ymd === r.ymd);
-    if (!g) { g = { ymd: r.ymd, date: r.date || dmy(r.ymd), rows: [], tong: 0 }; days.push(g); }
+    if (!g) { g = { ymd: r.ymd, date: r.date || dmy(r.ymd), rows: [], tong: 0, money: 0 }; days.push(g); }
     g.rows.push(r);
     g.tong += r.tong_calc;
+    g.money += r.money || 0;
   }
 
   return (
@@ -59,6 +63,7 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
         <div>
           <div class="prod-sp"><Icon name="user" size={18} /> {name}</div>
           {data && <div class="muted small">Tổng <b>{soVN(data.total)}</b> SP · {soVN(data.total_mam)} mâm · {data.phieu} phiếu</div>}
+          {data && showMoney && <div class="wd-total-money">Tiền công: <b>{money(data.total_money || 0)}</b></div>}
         </div>
       </div>
 
@@ -79,12 +84,13 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
           <section class="card" key={g.ymd || g.date}>
             <div class="row space wd-day-head">
               <label class="card-label" style={{ margin: 0 }}><Icon name="calendar" size={16} /> {dmy(g.ymd) !== "?" ? dmy(g.ymd) : g.date}</label>
-              <b>{soVN(g.tong)} SP</b>
+              <b>{soVN(g.tong)} SP{showMoney ? <span class="wd-day-money"> · {money(g.money)}</span> : null}</b>
             </div>
             {g.rows.map((r, i) => (
               <a key={i} class="wd-row" href={`#/san_xuat/${r.thread_id}`}>
                 <span class="wd-prod">{r.product_code}</span>
                 <span class="wd-meta muted small">{soVN(r.so_mam)} mâm{r.note ? ` · ${r.note}` : ""}</span>
+                {showMoney && r.money != null && <b class="wd-money">{money(r.money)}</b>}
                 <b class={r.tong_calc > 0 ? "wd-sp" : "wd-sp muted"}>{soVN(r.tong_calc)}</b>
               </a>
             ))}
