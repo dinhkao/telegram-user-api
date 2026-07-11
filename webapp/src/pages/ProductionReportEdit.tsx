@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { BackLink, goBack } from "../nav";
 import { getProduction, saveProductionReport, lockReport, unlockReport, pushReportDraft, currentUser, soVN, listMediaImages, mediaImageUrl, deleteMediaImage, postForm, listWorkers, reorderWorkers, type ProdSlip, type ProdReport, type Worker } from "../api";
 import { onRealtime } from "../realtime";
+import { rNum as _num, round2, calcRow, type Wrow } from "../detail/reportCalc";
 import { Loading } from "../ui/states";
 import { confirmDialog, toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
@@ -14,10 +15,6 @@ import { WorkerOrderPopup } from "../detail/WorkerOrderPopup";
 
 // spDe/mamDe = 2 cột ĐÈ như sheet (F "Số SP đè" / G "Số mâm đè"): mâm đè thay công
 // thức gạch×5−trừ−lẻ; SP đè thay toàn bộ tổng. Rỗng = không đè (ISBLANK sheet).
-type Wrow = { name: string; gach: string; tru: string; le: string; note: string; spDe: string; mamDe: string };
-
-const _num = (s: string): number => { const n = parseFloat((s || "").trim().replace(",", ".")); return isFinite(n) ? n : 0; };
-const round2 = (x: number) => Math.round(x * 100) / 100;
 const todayVN = (): string => { const d = new Date(); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; };
 const blankRow = (name = ""): Wrow => ({ name, gach: "", tru: "", le: "", note: "", spDe: "", mamDe: "" });
 // Seed bảng: có báo cáo đã lưu → dùng nó; trống → tự điền thợ mặc định (template);
@@ -185,15 +182,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   }, [wrows, date, start, end, mine]);
 
   const scm = Number((slip?.bang as ProdReport)?.so_cay_1_mam || slip?.sp_mam || 0);
-  // Logic = sheet "Nhập kẹo": mâm = mâm đè ?? gạch×5−trừ−(lẻ>0?1:0);
-  // tổng = SP đè ?? scm×mâm+lẻ. Ô đè rỗng = không đè (0 VẪN là đè, như ISBLANK).
-  const calc = (r: Wrow) => {
-    const g = _num(r.gach), t = _num(r.tru), l = _num(r.le);
-    const mamDeSet = (r.mamDe || "").trim() !== "", spDeSet = (r.spDe || "").trim() !== "";
-    const soMam = mamDeSet ? _num(r.mamDe) : Math.max(g * 5 - t - (l > 0 ? 1 : 0), 0);
-    const tong = spDeSet ? round2(_num(r.spDe)) : scm > 0 ? round2(scm * soMam + l) : 0;
-    return { soMam, tong, mamDeSet, spDeSet };
-  };
+  const calc = (r: Wrow) => calcRow(r, scm);   // logic dùng chung ở detail/reportCalc
   const grand = useMemo(() => round2(wrows.reduce((s, r) => s + calc(r).tong, 0)), [wrows, scm]);
 
   const setRow = (i: number, patch: Partial<Wrow>) => setWrows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)));

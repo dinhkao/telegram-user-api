@@ -2114,6 +2114,11 @@ body.kbd-open .wr-peek-btn { bottom: calc(12px + env(safe-area-inset-bottom, 0px
 .wl-name { flex: 1; min-width: 0; font-weight: 600; }
 .wr-tho-link { color: var(--primary); text-decoration: none; font-weight: 600; }
 .wr-tho-link:active { opacity: .6; }
+/* nút "X đang nhập…" (khoá sửa báo cáo, giống khoá chọn thùng) + chỉ báo nhập trực tiếp */
+.wr-editing { margin-left: auto; }
+.wr-live { display: inline-flex; align-items: center; gap: 5px; color: var(--ok); font-weight: 600; }
+.wr-live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); animation: wr-pulse 1.1s ease-in-out infinite; }
+@keyframes wr-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
 .wl-link { text-decoration: none; color: var(--ink); display: flex; align-items: center; justify-content: space-between; }
 .wl-arrow { color: var(--muted); font-size: 1.1rem; }
 
