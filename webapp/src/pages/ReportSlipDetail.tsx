@@ -15,6 +15,13 @@ import { WorkerChips } from "../detail/WorkerChips";
 const dmy = (ymd: string) => (ymd && ymd.length >= 10 ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}` : ymd);
 const dm = (ymd: string) => (ymd && ymd.length >= 10 ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}` : ymd);
 const money = (n: number) => soVN(Math.round(n)) + "đ";
+// "7:00" / "7h" / "7" → "07:00"; giữ nguyên nếu không parse được
+const hhmm = (s: string) => {
+  const m = String(s || "").trim().match(/^(\d{1,2})(?:[:hg.](\d{1,2})?)?$/i);
+  if (!m) return s;
+  const h = m[1].padStart(2, "0"), mi = (m[2] || "0").padStart(2, "0");
+  return `${h}:${mi}`;
+};
 
 export function ReportSlipDetail({ id }: { id: string }) {
   const [slip, setSlip] = useState<ReportSlip | null>(null);
@@ -183,7 +190,7 @@ export function ReportSlipDetail({ id }: { id: string }) {
                             {d.items.map((it, i) => (
                               <div class="wg-item" key={i}>
                                 {(it.start || it.end) && (
-                                  <span class="rs-item-time muted small">{it.start || "?"}–{it.end || "?"}</span>
+                                  <span class="rs-item-time muted small">{it.start ? hhmm(it.start) : "?"}–{it.end ? hhmm(it.end) : "?"}</span>
                                 )}
                                 <span class="wg-item-code">{it.code || "?"}</span>
                                 <span class="wg-item-calc muted small">{soVN(it.cay)} SP × {soVN(it.wage)}đ</span>
