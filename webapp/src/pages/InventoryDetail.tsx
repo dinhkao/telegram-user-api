@@ -314,7 +314,7 @@ export function InventoryDetail({ code }: { code: string }) {
               options={(["cây", "kg", "gói", "bịch", "hũ", "cái", "hộp", "lốc", "thùng", "kiện"].includes(unitInput)
                 ? ["cây", "kg", "gói", "bịch", "hũ", "cái", "hộp", "lốc", "thùng", "kiện"]
                 : [unitInput, "cây", "kg", "gói", "bịch", "hũ", "cái", "hộp", "lốc", "thùng", "kiện"].filter(Boolean))
-                .map((u) => ({ value: u, label: u }))}
+                .map((u) => ({ value: u, label: u, sub: (u === "thùng" || u === "kiện") ? "⚠ SP nguyên kiện — bán theo thùng, nhập theo số thùng" : undefined }))}
               onChange={(v: string) => saveUnit(v)} />
           </div>
         </div>
