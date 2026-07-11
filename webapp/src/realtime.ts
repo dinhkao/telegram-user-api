@@ -16,6 +16,7 @@ export type RealtimeEvent =
   | { type: "quy_changed" }
   | { type: "tasks_changed" }
   | { type: "workers_changed" }
+  | { type: "report_slips_changed" }
   | { type: "return_changed"; id: string }
   | { type: "banner_changed" }
   | { type: "notif_added"; notif: any }
@@ -31,7 +32,7 @@ const _SERVER_EVENTS = new Set([
   "order_changed", "orders_changed", "production_changed", "productions_changed",
   "customer_changed", "inventory_changed", "box_changed", "price_lists_changed",
   "quy_changed", "notif_added", "report_lock", "report_draft", "banner_changed",
-  "tasks_changed", "workers_changed", "return_changed", "stock_pick_lock", "invoice_edit_lock",
+  "tasks_changed", "workers_changed", "report_slips_changed", "return_changed", "stock_pick_lock", "invoice_edit_lock",
   "app_reload",
 ]);
 

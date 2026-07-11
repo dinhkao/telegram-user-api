@@ -170,6 +170,12 @@ def emit_workers_changed() -> None:
     spawn_tracked("realtime.workers_changed", _broadcast({"type": "workers_changed"}, "workers_changed"))
 
 
+def emit_report_slips_changed() -> None:
+    """Phiếu báo cáo SX đổi (tạo/xoá) → trang Báo cáo refetch."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.report_slips_changed", _broadcast({"type": "report_slips_changed"}, "report_slips_changed"))
+
+
 def emit_price_lists_changed() -> None:
     """Bảng giá chung đổi (lưu giá) → trang bảng giá + khách refetch."""
     from server_app.tasks import spawn_tracked

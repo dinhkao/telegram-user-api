@@ -29,6 +29,7 @@ const GROUPS: Group[] = [
     { label: "Dashboard SX", href: "#/sx-bang", icon: "chart" },
     { label: "Danh sách thợ", href: "#/tho", icon: "users" },
     { label: "Tiền công thợ", href: "#/tien-cong", icon: "wallet", office: true },
+    { label: "Báo cáo sản xuất", href: "#/bao-cao", icon: "receipt", office: true },
   ] },
   { title: "Tài chính", icon: "wallet", items: [
     { label: "Sổ quỹ", href: "#/quy", icon: "wallet" },

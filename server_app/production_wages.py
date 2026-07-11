@@ -66,7 +66,9 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
             "LEFT JOIN products pr ON pr.id = t.product_id "
             "WHERE t.report_ymd IS NOT NULL "   # BỎ lọc tong>0 → hiện cả thợ làm 0 SP
             "  AND t.report_ymd >= ? AND t.report_ymd <= ? "
-            "GROUP BY t.report_ymd, worker, code "
+            # GROUP BY biểu thức đầy đủ — tên trần "code" resolve về pr.code (NULL khi
+            # thiếu product_id) → các mã SP của dòng cổ bị gộp nhầm làm một
+            "GROUP BY t.report_ymd, COALESCE(w.name, t.worker_name), COALESCE(pr.code, t.product_code) "
             "ORDER BY t.report_ymd DESC",
             (dfrom, dto),
         ).fetchall()

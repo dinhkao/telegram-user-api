@@ -349,6 +349,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     Định nghĩa ở chi tiết SP (`detail/RecipeEditor.tsx`). Nhu cầu theo LOẠI PHIẾU: sản xuất
     = không cần NL; đóng gói = bắt buộc công thức +
     chọn đủ thùng NL mọi nguyên liệu → trừ kho (`allocate_picks kind='production'`).
+  - **Phiếu BÁO CÁO SX** (`production_store/report_slips.py` + `server_app/report_slip_routes.py`,
+    office-only — tiền lương): văn phòng tạo phiếu chọn khoảng ngày (`production_report_slips`);
+    nội dung TÍNH LIVE mỗi lần xem (tổng SP + tiền theo THỢ, tiền TỪNG PHIẾU SX, tổng cộng —
+    cây × đơn giá wages + phụ cấp 1 lần/(phiếu, thợ)). UI `#/bao-cao` (`pages/ReportSlips.tsx`
+    list+tạo, preset Tuần này/trước) → `#/bao-cao/:id` (`ReportSlipDetail.tsx`); xoá = admin.
+    Realtime `report_slips_changed`. ⚠ GROUP BY trên cột alias (`code`) bị SQLite resolve về
+    `pr.code` — luôn GROUP BY biểu thức COALESCE đầy đủ (đã sửa ở cả `compute_wages`).
 
 **Web app for phones (orders management, 5-6 internal users)**
 - `webapp/` — Vite + Preact + TS mobile UI (Vietnamese). Hash router `main.tsx`, nav

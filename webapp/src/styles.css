@@ -1559,6 +1559,35 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .wg-wk-pc { flex: none; color: var(--ok); font-size: .74rem; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .wg-item-pc-inline { color: var(--ok); font-weight: 600; }
 
+/* PHIẾU BÁO CÁO SX (#/bao-cao) — list + tạo + chi tiết */
+.rs-create { margin-bottom: 14px; }
+.rs-dates { display: flex; gap: 10px; margin-bottom: 8px; }
+.rs-date-f { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.rs-date-f input { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; font: inherit; background: var(--bg); min-height: 42px; }
+.rs-presets { display: flex; gap: 8px; margin-bottom: 8px; }
+.rs-preset { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.rs-preset:active { background: var(--accent-wash); }
+.rs-note { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; font: inherit; margin-bottom: 10px; }
+.rs-create-btn { width: 100%; }
+.rs-row { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; margin-bottom: 10px; }
+.rs-row-main { flex: 1; min-width: 0; }
+.rs-row-range { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rs-row-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-row-nums { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.rs-row-money { color: var(--ok); font-variant-numeric: tabular-nums; }
+.rs-sec { margin-bottom: 16px; }
+.rs-sec-h { display: flex; align-items: center; gap: 6px; font-size: .84rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); padding: 0 2px 7px; }
+.rs-list { padding: 8px 10px; }
+.rs-wk-link { display: inline-block; font-size: .8rem; font-weight: 600; color: var(--primary); text-decoration: none; padding: 4px 0 2px; }
+.rs-ph-row { display: flex; align-items: center; gap: 9px; padding: 9px 2px; border-top: 1px solid var(--border); text-decoration: none; color: inherit; }
+.rs-ph-row:first-child { border-top: none; }
+.rs-ph-row:active { background: var(--accent-wash); }
+.rs-ph-date { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 44px; }
+.rs-ph-code { flex: none; font-weight: 700; font-size: .88rem; max-width: 32%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-ph-meta { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-ph-money { flex: none; color: var(--ok); font-variant-numeric: tabular-nums; }
+.rs-del { color: var(--danger); }
+
 /* THẺ SP CẦN LÀM — top band màu = mức độ; 3 dòng luôn hiện + phần mở rộng */
 .nd-card { position: relative; background: var(--card); border: 1px solid var(--border); border-top-width: 3px;
   border-radius: 14px; padding: 13px 15px 5px; margin-bottom: 11px; box-shadow: var(--e1); animation: nd-in .3s var(--ease, ease) both; }

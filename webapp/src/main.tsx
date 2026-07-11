@@ -44,6 +44,8 @@ import { StockDemand } from "./pages/StockDemand";
 import { CallNumbers } from "./pages/CallNumbers";
 import { ProductTimeline } from "./pages/ProductTimeline";
 import { WagesDashboard } from "./pages/WagesDashboard";
+import { ReportSlips } from "./pages/ReportSlips";
+import { ReportSlipDetail } from "./pages/ReportSlipDetail";
 import { BulkMove } from "./pages/BulkMove";
 import { PlacesList } from "./pages/PlacesList";
 import { PlaceDetail } from "./pages/PlaceDetail";
@@ -362,6 +364,7 @@ function App() {
   const invEditMatch = hash.match(/^#\/order\/(-?\d+)\/hoa-don/);
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
   const prodEditMatch = hash.match(/^#\/san_xuat\/(-?\d+)\/bao-cao/);
+  const baoCaoMatch = hash.match(/^#\/bao-cao\/(\d+)/);
   const shtMatch = hash.match(/^#\/sx-tho\/([^?]+)/);
   const prodMatch = hash.match(/^#\/san_xuat\/(-?\d+)/);
   const khoTLMatch = hash.match(/^#\/kho\/([^/?]+)\/timeline/);
@@ -386,6 +389,8 @@ function App() {
   else if (shtMatch) page = <ProductionWorkerDetail name={decodeURIComponent(shtMatch[1])} />;
   else if (hash.startsWith("#/sx-bang")) page = <ProductionDashboard />;
   else if (hash.startsWith("#/tien-cong")) page = <WagesDashboard />;
+  else if (baoCaoMatch) page = <ReportSlipDetail id={baoCaoMatch[1]} />;
+  else if (hash.startsWith("#/bao-cao")) page = <ReportSlips />;
   else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} focus={focusEl} />;
   else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;
   else if (boxTLMatch) page = <BoxTimeline boxId={boxTLMatch[1]} />;
@@ -430,6 +435,7 @@ function App() {
     : hash.startsWith("#/create") ? "Tạo đơn"
     : hash.startsWith("#/home") ? "Trang chủ"
     : hash.startsWith("#/tien-cong") ? "Tiền công"
+    : hash.startsWith("#/bao-cao") ? "Báo cáo SX"
     : (hash.startsWith("#/san_xuat") || hash.startsWith("#/sx-") || prodMatch || prodEditMatch || shtMatch) ? "Sản xuất"
     : hash.startsWith("#/san-pham") ? "Sản phẩm"
     : hash.startsWith("#/nhu-cau") ? "Cần làm hàng"

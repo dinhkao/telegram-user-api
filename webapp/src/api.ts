@@ -662,6 +662,36 @@ export async function reorderWorkers(ids: number[]): Promise<{ workers: Worker[]
   return { workers: d.workers || [], defaults: d.defaults || [] };
 }
 
+// ── Phiếu báo cáo SX (office-only — tiền lương) ──
+export type ReportSlipTotals = { cay: number; money: number; allowance: number };
+export type ReportSlip = {
+  id: number; from_ymd: string; to_ymd: string; note: string;
+  created_by: string; created_at: string;
+  totals?: ReportSlipTotals; worker_count?: number; phieu_count?: number;
+  report?: {
+    workers: { name: string; cay: number; money: number; allowance: number;
+               items: { code: string; cay: number; wage: number; money: number }[] }[];
+    phieus: { thread_id: number; ymd: string; codes: string[]; cay: number; money: number; workers: number }[];
+    totals: ReportSlipTotals;
+    missing_wage: string[];
+  };
+};
+export async function listReportSlips(): Promise<ReportSlip[]> {
+  const d = await getJSON("/api/report-slips", { cache: false });
+  return d.slips || [];
+}
+export async function createReportSlip(from: string, to: string, note: string): Promise<ReportSlip> {
+  const d = await postJSON("/api/report-slips", { from, to, note });
+  return d.slip;
+}
+export async function getReportSlip(id: string | number): Promise<ReportSlip> {
+  const d = await getJSON(`/api/report-slips/${id}`, { cache: false });
+  return d.slip;
+}
+export async function deleteReportSlip(id: string | number): Promise<any> {
+  return delJSON(`/api/report-slips/${id}`);
+}
+
 const _actor = () => { const u = currentUser(); return u?.display_name || u?.username || ""; };
 
 /** Khoá sửa báo cáo (1 người/phiếu). Trả {holder, mine}. Gọi lặp lại = heartbeat gia hạn. */

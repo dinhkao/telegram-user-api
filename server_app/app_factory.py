@@ -248,6 +248,16 @@ def create_app():
     r.add_get("/api/production/{thread_id}/wages", phieu_wages_handler)          # tiền + phụ cấp (office)
     r.add_post("/api/production/{thread_id}/allowance", set_allowance_handler)   # đặt phụ cấp (office)
 
+    # ─── phiếu báo cáo SX (office-only — tiền lương) ─────────────────────────
+    from server_app.report_slip_routes import (
+        report_slips_list_handler, report_slips_create_handler,
+        report_slip_detail_handler, report_slip_delete_handler,
+    )
+    r.add_get("/api/report-slips", report_slips_list_handler)
+    r.add_post("/api/report-slips", report_slips_create_handler)
+    r.add_get("/api/report-slips/{id}", report_slip_detail_handler)
+    r.add_delete("/api/report-slips/{id}", report_slip_delete_handler)
+
     # ─── danh sách thợ (template báo cáo) ────────────────────────────────────
     from server_app.worker_routes import (
         workers_list_handler, workers_add_handler, workers_update_handler, workers_delete_handler,
