@@ -15,6 +15,9 @@ import { BoxLabelGrid } from "./BoxLabelGrid";
 const GROUP_SEC = 300;   // gom thao tác trong vòng 5 phút vào 1 cụm
 // Khoảng cách dòng TỈ LỆ thời gian: cao = giây × PXPS (~2px/phút), kẹp trần GAP_MAX.
 const GAP_PXPS = 0.0333, GAP_MAX = 4000;
+// Khe CÓ chấm/nhãn phải cao tối thiểu để nhãn không tràn đè dòng biến động; SLIDE_M =
+// lề trên/dưới khi chấm trượt (nửa chiều cao nhãn) → chấm luôn nằm GỌN trong khe.
+const MIN_JUNC = 34, SLIDE_M = 15;
 const hm = (v?: string) => (fmtDateTimeVN(v || "").match(/\d{2}:\d{2}/) || [""])[0];
 function gapLabel(sec: number): string {
   const d = sec / 86400;
@@ -135,7 +138,9 @@ export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, 
       const pin = window.innerHeight * 0.45;
       juncs.forEach((j) => {
         const r = j.getBoundingClientRect();
-        const off = Math.min(Math.max(pin - r.top, 0), r.height);
+        // kẹp trong [SLIDE_M, height−SLIDE_M] → chấm/nhãn không tràn ra dòng biến động;
+        // khe quá ngắn (≤ 2·lề) → đặt giữa.
+        const off = r.height <= SLIDE_M * 2 ? r.height / 2 : Math.min(Math.max(pin - r.top, SLIDE_M), r.height - SLIDE_M);
         j.querySelectorAll<HTMLElement>(".pt-slide").forEach((el) => { el.style.top = `${off}px`; });
       });
     };
@@ -177,7 +182,7 @@ export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, 
 
   const rows: any[] = [];
   rows.push(<li key="d-top" class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(items[0].at))}</div></li>);
-  rows.push(<Junction key="j-top" height={0} label={null} amount={currentTotal} onDot={() => openBoxes(items[0].at, 0, "hiện tại")} />);
+  rows.push(<Junction key="j-top" height={MIN_JUNC} label={null} amount={currentTotal} onDot={() => openBoxes(items[0].at, 0, "hiện tại")} />);
   items.forEach((it, i) => {
     rows.push(<EventRow key={`e-${i}`} it={it} idx={i} />);
     const older = items[i + 1];
@@ -185,14 +190,15 @@ export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, 
       const dsec = Math.max(0, it.ts - older.ts);
       const cross = dayKeyOf(it.at) !== dayKeyOf(older.at);
       if (dsec > GROUP_SEC) {
-        const gh = cross ? 0 : Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX));
+        // cao tỉ lệ thời gian nhưng KHÔNG dưới MIN_JUNC (đủ chỗ cho nhãn, không đè dòng)
+        const gh = Math.max(MIN_JUNC, cross ? 0 : Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX)));
         // tồn tại khe này = tổng SAU biến động cũ hơn (giữ nguyên tới biến động mới hơn)
         rows.push(<Junction key={`j-${i}`} height={gh} label={cross ? null : gapLabel(dsec)} amount={older.total_after} onDot={() => openBoxes(older.at, i + 1)} />);
       }
       if (cross) rows.push(<li key={`d-${i}`} class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(older.at))}</div></li>);
     } else {
       // chấm cuối = tồn TRƯỚC biến động đầu tiên (tổng sau nó trừ đi delta của nó)
-      rows.push(<Junction key="j-bot" height={0} label={null} amount={Math.round((it.total_after - it.delta) * 1000) / 1000} onDot={() => openBoxes(it.at, items.length, "trước biến động đầu")} />);
+      rows.push(<Junction key="j-bot" height={MIN_JUNC} label={null} amount={Math.round((it.total_after - it.delta) * 1000) / 1000} onDot={() => openBoxes(it.at, items.length, "trước biến động đầu")} />);
     }
   });
 

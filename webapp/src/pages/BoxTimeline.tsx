@@ -13,6 +13,8 @@ import { dayKeyOf, orderDayLabel } from "../detail/OrderCards";
 
 const GROUP_SEC = 300;
 const GAP_PXPS = 0.0333, GAP_MAX = 4000;
+// Khe có chấm phải cao tối thiểu + kẹp lề khi trượt → số tồn không tràn đè dòng biến động.
+const MIN_JUNC = 34, SLIDE_M = 15;
 const hm = (v?: string) => (fmtDateTimeVN(v || "").match(/\d{2}:\d{2}/) || [""])[0];
 function gapLabel(sec: number): string {
   const d = sec / 86400;
@@ -91,7 +93,7 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
       const pin = window.innerHeight * 0.45;
       juncs.forEach((j) => {
         const r = j.getBoundingClientRect();
-        const off = Math.min(Math.max(pin - r.top, 0), r.height);
+        const off = r.height <= SLIDE_M * 2 ? r.height / 2 : Math.min(Math.max(pin - r.top, SLIDE_M), r.height - SLIDE_M);
         j.querySelectorAll<HTMLElement>(".pt-slide").forEach((el) => { el.style.top = `${off}px`; });
       });
     };
@@ -134,7 +136,7 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
   const rows: any[] = [];
   if (items.length) {
     rows.push(<li key="d-top" class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(items[0].at))}</div></li>);
-    rows.push(<Junction key="j-top" height={0} label={null} amount={d.box.remaining} />);   // tồn HIỆN TẠI
+    rows.push(<Junction key="j-top" height={MIN_JUNC} label={null} amount={d.box.remaining} />);   // tồn HIỆN TẠI
   }
   items.forEach((it, i) => {
     rows.push(<EventRow key={`e-${i}`} it={it} idx={i} srcSlip={src} />);
@@ -143,8 +145,8 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
       const dsec = Math.max(0, it.ts - older.ts);
       const cross = dayKeyOf(it.at) !== dayKeyOf(older.at);
       if (dsec > GROUP_SEC) {
-        // khác ngày → KHÔNG giãn (day header đã ngăn cách); cùng ngày → giãn theo thời gian
-        const gh = cross ? 0 : Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX));
+        // cao tỉ lệ thời gian nhưng KHÔNG dưới MIN_JUNC → số tồn đủ chỗ, không đè dòng
+        const gh = Math.max(MIN_JUNC, cross ? 0 : Math.round(Math.min(dsec * GAP_PXPS, GAP_MAX)));
         rows.push(<Junction key={`j-${i}`} height={gh} label={cross ? null : gapLabel(dsec)} amount={older.remaining} />);
       }
       if (cross) rows.push(<li key={`d-${i}`} class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(older.at))}</div></li>);
