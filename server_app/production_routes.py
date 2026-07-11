@@ -124,16 +124,35 @@ async def production_list_handler(request: web.Request):
             total = count_slips(conn, kind=kind, day=day)
             slips = list_slips(conn, limit=limit, offset=offset, kind=kind, day=day)
             from production_store.report_rows import report_summaries
-            from inventory_store import sum_boxes_by_source, codes_by_source, consumed_materials_by_source
+            from inventory_store import (sum_boxes_by_source, codes_by_source,
+                                         consumed_materials_by_source, boxed_by_source_product)
             _ids = [s["thread_id"] for s in slips]
             reports = report_summaries(conn, _ids)
             boxed_sums = sum_boxes_by_source(conn, _ids)
             # phiếu CHƯA chọn SP → lấy mã SP các thùng đã nhập để hiện ở title
             _need = [s["thread_id"] for s in slips if not (s.get("sp_name") or "").strip()]
             codes_map = codes_by_source(conn, _need) if _need else {}
-            # phiếu ĐÓNG GÓI: NL đã tiêu hao + người đóng gói (dòng tóm tắt trên card)
+            # phiếu ĐÓNG GÓI: TÁCH theo từng SP thành phẩm, mỗi SP kèm NL của nó.
+            # 1 SP → NL thật (tiêu hao); nhiều SP → NL theo công thức từng SP (allocation
+            # gắn phiếu chứ không gắn SP nên không tách thật được).
+            from recipe_store import recipe_needs
             _pack = [s["thread_id"] for s in slips if (s.get("kind") or "san_xuat") == "dong_goi"]
-            pack_map = consumed_materials_by_source(conn, _pack) if _pack else {}
+            pack_boxes = boxed_by_source_product(conn, _pack) if _pack else {}
+            pack_actual = consumed_materials_by_source(conn, _pack) if _pack else {}
+            pack_items_map: dict = {}
+            for tid in _pack:
+                items = pack_boxes.get(tid) or []
+                act = pack_actual.get(tid) or {}
+                if len(items) == 1:
+                    mats = act.get("materials") or []
+                    out_items = [{"product": items[0]["code"], "qty": items[0]["qty"], "materials": mats}]
+                else:
+                    out_items = []
+                    for it in items:
+                        needs = recipe_needs(conn, it["code"], it["qty"])
+                        out_items.append({"product": it["code"], "qty": it["qty"],
+                                          "materials": [{"code": n["code"], "amount": n["amount"]} for n in needs]})
+                pack_items_map[tid] = {"by": act.get("by"), "items": out_items}
         finally:
             conn.close()
         for s in slips:
@@ -146,9 +165,9 @@ async def production_list_handler(request: web.Request):
             if not (s.get("sp_name") or "").strip():
                 s["boxed_codes"] = codes_map.get(s["thread_id"]) or []
             if (s.get("kind") or "san_xuat") == "dong_goi":
-                pk = pack_map.get(s["thread_id"]) or {}
+                pk = pack_items_map.get(s["thread_id"]) or {}
                 s["pack_by"] = pk.get("by")
-                s["pack_materials"] = pk.get("materials") or []
+                s["pack_items"] = pk.get("items") or []
         return slips, total
     slips, total = await asyncio.to_thread(_run)
     return web.json_response({

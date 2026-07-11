@@ -114,6 +114,27 @@ def codes_by_source(conn, thread_ids) -> dict:
     return out
 
 
+def boxed_by_source_product(conn, thread_ids) -> dict:
+    """{thread_id: [{code, qty}]} — Σ quantity thùng thành phẩm tạo từ mỗi phiếu, GỘP
+    theo mã SP hiện hành. 1 phiếu đóng gói có thể tạo NHIỀU SP → mỗi SP 1 mục. Giữ thứ
+    tự thùng đầu tiên. Dùng cho dòng 'đóng gói N SP từ NL …' (tách theo từng SP)."""
+    ids = [int(t) for t in thread_ids if t is not None]
+    if not ids:
+        return {}
+    q = ",".join("?" * len(ids))
+    rows = conn.execute(
+        f"SELECT b.source_thread_id AS tid, COALESCE(pr.code, b.product_code) AS code, "
+        f"COALESCE(SUM(b.quantity),0) AS qty FROM inventory_boxes b "
+        f"LEFT JOIN products pr ON pr.id = b.product_id "
+        f"WHERE b.source_thread_id IN ({q}) "
+        f"AND COALESCE(pr.code, b.product_code) IS NOT NULL AND COALESCE(pr.code, b.product_code) != '' "
+        f"GROUP BY b.source_thread_id, code ORDER BY b.source_thread_id, MIN(b.id)", ids).fetchall()
+    out: dict = {}
+    for r in rows:
+        out.setdefault(r["tid"], []).append({"code": r["code"], "qty": r["qty"] or 0})
+    return out
+
+
 def sum_boxes_by_source(conn, thread_ids) -> dict:
     """{thread_id: Σ quantity} thùng tạo từ mỗi phiếu SX — tổng 'Nhập thùng' của card/so
     sánh (CHỈ thùng nhập qua UI web, không tính số nhập tay trong numbers)."""
