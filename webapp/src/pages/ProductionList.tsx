@@ -281,6 +281,13 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
   const repTotal = slip.report_total || 0;
   const pctOff = repTotal > 0 ? (Math.abs(total - repTotal) / repTotal) * 100 : total === 0 ? 0 : 100;
   const cmpCls = workers.length > 0 ? (pctOff <= 1 ? " ok" : " warn") : "";
+  // Phiếu ĐÓNG GÓI: dòng tóm tắt "<người> đóng gói <N> <SP> từ nguyên liệu <NL…>"
+  const mats = slip.pack_materials || [];
+  const packLine = (!isSX && mats.length > 0) ? {
+    who: slip.pack_by || "",
+    product: slip.sp_name || (slip.boxed_codes && slip.boxed_codes[0]) || "SP",
+    mats: mats.map((m) => `${soVN(m.amount)} ${m.code}`).join(", "),
+  } : null;
   return (
     <a class="prod-card" href={`#/san_xuat/${slip.thread_id}`}>
       <div class="prod-card-top">
@@ -292,6 +299,12 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
         </span>
         <span class="prod-date"><Icon name="clock" size={14} /> {(() => { const c = prodCreated(slip); return c.includes(" ") ? c.split(" ")[1] : c; })()}</span>
       </div>
+      {packLine && (
+        <div class="prod-pack-line">
+          <Icon name="box" size={12} />{" "}
+          {packLine.who && <b>{packLine.who}</b>} đóng gói <b>{soVN(total)} {packLine.product}</b> từ nguyên liệu <b>{packLine.mats}</b>
+        </div>
+      )}
       <div class={"prod-card-body" + (workers.length > 0 ? " with-chart" : "")}>
         {workers.length > 0 && (
           <div class="pcb-chart">

@@ -127,6 +127,30 @@ def sum_boxes_by_source(conn, thread_ids) -> dict:
     return {r[0]: r[1] or 0 for r in rows}
 
 
+def consumed_materials_by_source(conn, thread_ids) -> dict:
+    """{thread_id: {"by": người, "materials": [{code, amount}]}} — nguyên liệu đã TIÊU
+    HAO (allocation kind='production') cho mỗi phiếu ĐÓNG GÓI, gộp theo mã NL hiện hành.
+    Dùng cho dòng tóm tắt 'X đóng gói N SP từ nguyên liệu …' trên card phiếu đóng gói."""
+    ids = [int(t) for t in thread_ids if t is not None]
+    if not ids:
+        return {}
+    q = ",".join("?" * len(ids))
+    rows = conn.execute(
+        f"SELECT a.order_thread_id AS tid, COALESCE(pr.code, b.product_code) AS code, "
+        f"SUM(a.quantity) AS amt, MAX(a.allocated_by) AS by_ "
+        f"FROM box_allocations a JOIN inventory_boxes b ON b.id = a.box_id "
+        f"LEFT JOIN products pr ON pr.id = b.product_id "
+        f"WHERE COALESCE(a.kind,'order') = 'production' AND a.order_thread_id IN ({q}) "
+        f"GROUP BY a.order_thread_id, code ORDER BY a.order_thread_id, MIN(a.id)", ids).fetchall()
+    out: dict = {}
+    for r in rows:
+        e = out.setdefault(r["tid"], {"by": None, "materials": []})
+        e["materials"].append({"code": r["code"], "amount": r["amt"] or 0})
+        if r["by_"] and not e["by"]:
+            e["by"] = r["by_"]
+    return out
+
+
 def _pid_filter(conn, product_code) -> tuple[str, list]:
     """(mảnh WHERE, params) lọc thùng theo SP: ưu tiên product_id (nhận cả MÃ CŨ
     qua resolve); mã lạ → fallback so mã snapshot như cũ."""

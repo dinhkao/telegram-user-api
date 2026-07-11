@@ -124,13 +124,16 @@ async def production_list_handler(request: web.Request):
             total = count_slips(conn, kind=kind, day=day)
             slips = list_slips(conn, limit=limit, offset=offset, kind=kind, day=day)
             from production_store.report_rows import report_summaries
-            from inventory_store import sum_boxes_by_source, codes_by_source
+            from inventory_store import sum_boxes_by_source, codes_by_source, consumed_materials_by_source
             _ids = [s["thread_id"] for s in slips]
             reports = report_summaries(conn, _ids)
             boxed_sums = sum_boxes_by_source(conn, _ids)
             # phiếu CHƯA chọn SP → lấy mã SP các thùng đã nhập để hiện ở title
             _need = [s["thread_id"] for s in slips if not (s.get("sp_name") or "").strip()]
             codes_map = codes_by_source(conn, _need) if _need else {}
+            # phiếu ĐÓNG GÓI: NL đã tiêu hao + người đóng gói (dòng tóm tắt trên card)
+            _pack = [s["thread_id"] for s in slips if (s.get("kind") or "san_xuat") == "dong_goi"]
+            pack_map = consumed_materials_by_source(conn, _pack) if _pack else {}
         finally:
             conn.close()
         for s in slips:
@@ -142,6 +145,10 @@ async def production_list_handler(request: web.Request):
             s["boxed_total"] = boxed_sums.get(s["thread_id"]) or 0
             if not (s.get("sp_name") or "").strip():
                 s["boxed_codes"] = codes_map.get(s["thread_id"]) or []
+            if (s.get("kind") or "san_xuat") == "dong_goi":
+                pk = pack_map.get(s["thread_id"]) or {}
+                s["pack_by"] = pk.get("by")
+                s["pack_materials"] = pk.get("materials") or []
         return slips, total
     slips, total = await asyncio.to_thread(_run)
     return web.json_response({
