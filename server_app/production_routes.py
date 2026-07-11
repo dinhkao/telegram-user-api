@@ -136,6 +136,13 @@ async def production_list_handler(request: web.Request):
             # 1 SP → NL thật (tiêu hao); nhiều SP → NL theo công thức từng SP (allocation
             # gắn phiếu chứ không gắn SP nên không tách thật được).
             from recipe_store import recipe_needs
+            from product_store import resolve_code
+            _unit_cache: dict = {}
+            def _unit(code):   # đơn vị của 1 mã SP/NL (cache trong request)
+                if code not in _unit_cache:
+                    p = resolve_code(conn, code)
+                    _unit_cache[code] = (p.get("unit") if p else None) or "cây"
+                return _unit_cache[code]
             _pack = [s["thread_id"] for s in slips if (s.get("kind") or "san_xuat") == "dong_goi"]
             pack_boxes = boxed_by_source_product(conn, _pack) if _pack else {}
             pack_actual = consumed_materials_by_source(conn, _pack) if _pack else {}
@@ -144,14 +151,16 @@ async def production_list_handler(request: web.Request):
                 items = pack_boxes.get(tid) or []
                 act = pack_actual.get(tid) or {}
                 if len(items) == 1:
-                    mats = act.get("materials") or []
-                    out_items = [{"product": items[0]["code"], "qty": items[0]["qty"], "materials": mats}]
+                    mats = [{"code": m["code"], "amount": m["amount"], "unit": _unit(m["code"])}
+                            for m in (act.get("materials") or [])]
+                    out_items = [{"product": items[0]["code"], "qty": items[0]["qty"],
+                                  "unit": _unit(items[0]["code"]), "materials": mats}]
                 else:
                     out_items = []
                     for it in items:
                         needs = recipe_needs(conn, it["code"], it["qty"])
-                        out_items.append({"product": it["code"], "qty": it["qty"],
-                                          "materials": [{"code": n["code"], "amount": n["amount"]} for n in needs]})
+                        out_items.append({"product": it["code"], "qty": it["qty"], "unit": _unit(it["code"]),
+                                          "materials": [{"code": n["code"], "amount": n["amount"], "unit": _unit(n["code"])} for n in needs]})
                 pack_items_map[tid] = {"by": act.get("by"), "items": out_items}
         finally:
             conn.close()

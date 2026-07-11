@@ -30,6 +30,16 @@ function slipDayCode(s: ProdSlip): string {
   return p.length === 3 ? p[2] + p[1].padStart(2, "0") + p[0].padStart(2, "0") : "";
 }
 const dayToCode = (d: string) => d.replace(/-/g, "");   // "YYYY-MM-DD" → "YYYYMMDD"
+
+// Lưu bộ lọc (kind + ngày) vào localStorage → NHỚ qua cả reload / mở lại app.
+const PROD_FILTER_KEY = "prod_filter_v1";
+function loadFilter(): { kind: KindF; day: string } {
+  try { const j = JSON.parse(localStorage.getItem(PROD_FILTER_KEY) || "{}"); return { kind: (j.kind || "") as KindF, day: j.day || "" }; }
+  catch { return { kind: "", day: "" }; }
+}
+function saveFilter(kind: KindF, day: string) {
+  try { localStorage.setItem(PROD_FILTER_KEY, JSON.stringify({ kind, day })); } catch { /* im */ }
+}
 const dayVN = (d: string) => { const [, m, dd] = d.split("-"); return dd && m ? `${dd}/${m}` : d; };   // nhãn ngắn
 
 // FIX realtime khi trang ĐANG UNMOUNT (ở trang khác): handler trong component chết nên
@@ -118,6 +128,9 @@ export function ProductionList() {
       st.current.page = prodCache.page;
       st.current.totalPages = prodCache.totalPages;
     } else {
+      const f = loadFilter();   // nhớ bộ lọc qua reload / mở lại app
+      kindFRef.current = f.kind; setKindF(f.kind);
+      dayFRef.current = f.day; setDayF(f.day);
       load(1, false);
     }
     productionCatalog().then(setCatalog).catch(() => {});
@@ -132,12 +145,14 @@ export function ProductionList() {
   const applyFilter = (k: KindF) => {
     if (k === kindFRef.current) return;
     kindFRef.current = k; setKindF(k); prodCache = null;
+    saveFilter(k, dayFRef.current);
     setSlips([]); st.current.page = 1; st.current.totalPages = 1;
     load(1, false);
   };
   const applyDayFilter = (day: string) => {
     if (day === dayFRef.current) return;
     dayFRef.current = day; setDayF(day); prodCache = null;
+    saveFilter(kindFRef.current, day);
     setSlips([]); st.current.page = 1; st.current.totalPages = 1;
     load(1, false);
   };
@@ -302,8 +317,8 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
           {packItems.map((it, i) => (
             <span key={it.product}>
               {i > 0 && <span class="pp-sep"> · </span>}
-              <b>{soVN(it.qty)} {it.product}</b>
-              {it.materials.length > 0 && <> từ nguyên liệu <b>{it.materials.map((m) => `${soVN(m.amount)} ${m.code}`).join(", ")}</b></>}
+              <b>{soVN(it.qty)} {it.unit ? it.unit + " " : ""}{it.product}</b>
+              {it.materials.length > 0 && <> từ nguyên liệu <b>{it.materials.map((m) => `${soVN(m.amount)} ${m.unit ? m.unit + " " : ""}${m.code}`).join(", ")}</b></>}
             </span>
           ))}
         </div>

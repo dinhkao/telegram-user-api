@@ -535,8 +535,8 @@ export type ProdSlip = {
   report_notes?: { name: string; note: string }[];      // thợ 0 sản lượng nhưng có ghi chú
   boxed_total?: number;                                 // Σ quantity thùng nhập từ UI (bỏ số nhập tay)
   pack_by?: string | null;                              // (đóng gói) người đóng gói
-  // (đóng gói) TÁCH theo từng SP thành phẩm: mỗi SP kèm số + NL của riêng nó
-  pack_items?: { product: string; qty: number; materials: { code: string; amount: number }[] }[];
+  // (đóng gói) TÁCH theo từng SP thành phẩm: mỗi SP kèm số + đơn vị + NL của riêng nó
+  pack_items?: { product: string; qty: number; unit?: string; materials: { code: string; amount: number; unit?: string }[] }[];
   numbers?: { amount: number; note?: string; at?: string; by?: string }[];
   bang?: any | null;
   updated_at?: string;
