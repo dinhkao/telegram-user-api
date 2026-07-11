@@ -136,13 +136,12 @@ export function KhoBoxes() {
 
   // ── SEARCH: mã SP khớp + VỊ TRÍ khớp (card) + lưới ô thùng gom theo vị trí ─
   if (searching) {
-    // Mã SP khớp (theo mã/tên): tổng tồn kho toàn kho của nó, tồn giảm dần
-    const nameMatched = boxes.filter(matchName);
-    const spHits = Array.from(new Set(nameMatched.map((b) => b.product_code))).map((code) => {
-      const s = sumByCode.get(code);
-      const total = s?.in_stock_total ?? nameMatched.filter((b) => b.product_code === code).reduce((x, b) => x + rem(b), 0);
-      return { code, name: s?.name || "", unit: s?.unit || "", total };
-    }).sort((a, b) => b.total - a.total || a.code.localeCompare(b.code));
+    // Mã SP khớp (theo mã/tên) — dựng từ DANH MỤC (prodSum) nên SP TỒN 0 (chưa có
+    // thùng nào) VẪN hiện; tồn giảm dần.
+    const spHits = prodSum
+      .filter((s) => foldVN(s.product_code).includes(nq) || foldVN(s.name || "").includes(nq))
+      .map((s) => ({ code: s.product_code, name: s.name || "", unit: s.unit || "", total: s.in_stock_total || 0 }))
+      .sort((a, b) => b.total - a.total || a.code.localeCompare(b.code));
 
     // Ô thùng khớp mã/tên/số gọi, gom theo vị trí — BỎ vị trí đã hiện dạng CARD
     const groups: { key: string; name: string; href?: string; list: KhoBox[] }[] = [];
