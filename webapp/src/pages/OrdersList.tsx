@@ -9,7 +9,7 @@ import { listOrderImages, type OrderImage } from "../api";
 import { PhotoViewer } from "../detail/PhotoViewer";
 import {
   type OrderRow, statusLabel, Highlight, InvoiceMini, LastAction,
-  groupOrdersByDay, UltraBody, CardBody, CompactBody, NEW_ORDER_SEC,
+  groupOrdersByDay, UltraBody, CardBody, CompactBody, NEW_ORDER_SEC, orderAllDone,
 } from "../detail/OrderCards";
 import { Loading, EmptyState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
@@ -492,7 +492,7 @@ export function OrdersList() {
             <ul class="order-list">
               {g.orders.map((o) => (
                 <li key={o.thread_id}>
-                  <a data-oid={o.thread_id} class={`order-card ultra${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
+                  <a data-oid={o.thread_id} class={`order-card ultra${orderAllDone(o) ? " all-done" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
                     <UltraBody o={o} search={search} />
                   </a>
                 </li>
@@ -504,7 +504,7 @@ export function OrdersList() {
           const isNew = isRecent(o.created, NEW_ORDER_SEC);
           return (
           <li key={o.thread_id}>
-            <a data-oid={o.thread_id} class={`order-card compact${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
+            <a data-oid={o.thread_id} class={`order-card compact${orderAllDone(o) ? " all-done" : ""}${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               <CompactBody o={o} search={search} sort={sort} flashMsg={flashing[String(o.thread_id)]} isNew={isNew} openThumb={openThumb} />
             </a>
           </li>
@@ -515,7 +515,7 @@ export function OrdersList() {
           const isNew = isRecent(o.created, NEW_ORDER_SEC);
           return (
           <li key={o.thread_id}>
-            <a data-oid={o.thread_id} class={`order-card two-col${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
+            <a data-oid={o.thread_id} class={`order-card two-col${orderAllDone(o) ? " all-done" : ""}${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               <div class="card-main">
                 {sort === "updated" && <LastAction o={o} />}
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}

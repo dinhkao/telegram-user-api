@@ -2041,7 +2041,10 @@ body.co-kbd .bottom-nav { display: none; }
 
 .order-card.compact .order-when { margin-top: auto; text-align: right; }
 
-/* Đơn mới tạo (≤5 phút) — tô vàng + tag "Mới" */
+/* Đơn HOÀN TẤT (đủ 5 bước + đã thanh toán, không nợ) — nền xanh lá nhạt */
+.order-card.all-done { background: #edf9ee; border-color: #bfe6c3; }
+
+/* Đơn mới tạo (≤5 phút) — tô vàng + tag "Mới" (ưu tiên hơn all-done) */
 .order-card.new-order { background: #fff8dc; border-color: #f0c000; box-shadow: 0 0 0 2px rgba(240,192,0,.25); }
 .tag-new { display: inline-block; background: #f0c000; color: #4a3800; font-size: .65rem; font-weight: 700; padding: 1px 6px; border-radius: 6px; margin-right: 4px; vertical-align: middle; }
 

@@ -118,6 +118,14 @@ export function InvoiceMini({ o, q }: { o: OrderRow; q?: string }) {
 
 // 5 task icon y hệt main message Telegram: HĐ · Soạn · Giao · Nộp · Nhận
 const TASK_LABELS = ["HĐ", "Soạn", "Giao", "Nộp", "Nhận"];
+
+// Đơn HOÀN TẤT: đủ 5 bước done (✅/🔘 skip/📄 gtr) + đã có thanh toán (💰, không nợ)
+// → dashboard tô nền xanh lá nhạt (.order-card.all-done)
+const DONE_ICONS = new Set(["✅", "🔘", "📄"]);
+export function orderAllDone(o: OrderRow): boolean {
+  const icons = [...(o.task_icons || "")];
+  return icons.length >= 6 && icons[5] === "💰" && icons.slice(0, 5).every((ic) => DONE_ICONS.has(ic));
+}
 // Dòng "thao tác mới nhất" trên card (view Mới cập nhật) — giàu như Lịch sử thao tác
 export function LastAction({ o }: { o: OrderRow }) {
   if (!o.last_action) return null;
