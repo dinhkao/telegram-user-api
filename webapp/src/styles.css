@@ -1369,6 +1369,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pt-day::after { content: ""; position: absolute; top: 0; bottom: 0; right: 9px; width: 2px; background: var(--border); }
 .pt-day > .order-day-head { margin-right: 28px; }
 .pt-trunc { text-align: center; margin: 8px 0; }
+.pt-more { text-align: center; padding: 14px 0; list-style: none; }
 
 .inv-tag { font-size: .74rem; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 .inv-tag.alloc { background: #fff3e0; color: #a15c00; border: 1px solid #f0d9b0; }

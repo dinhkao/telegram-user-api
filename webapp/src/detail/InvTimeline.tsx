@@ -18,6 +18,8 @@ const GAP_PXPS = 0.0333, GAP_MAX = 4000;
 // Khe CÓ chấm/nhãn phải cao tối thiểu để nhãn không tràn đè dòng biến động; SLIDE_M =
 // lề trên/dưới khi chấm trượt (nửa chiều cao nhãn) → chấm luôn nằm GỌN trong khe.
 const MIN_JUNC = 34, SLIDE_M = 15;
+// Lazy-load theo cuộn: render LAZY_INITIAL biến động đầu, thêm LAZY_BATCH khi chạm đáy.
+const LAZY_INITIAL = 25, LAZY_BATCH = 25;
 const hm = (v?: string) => (fmtDateTimeVN(v || "").match(/\d{2}:\d{2}/) || [""])[0];
 function gapLabel(sec: number): string {
   const d = sec / 86400;
@@ -131,6 +133,20 @@ export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, 
   const listRef = useRef<HTMLUListElement>(null);
   usePopupBack(!!snap, () => setSnap(null));
 
+  // Lazy-load: chỉ render `shown` biến động đầu; chạm sentinel gần đáy → tải thêm.
+  const [shown, setShown] = useState(LAZY_INITIAL);
+  const moreRef = useRef<HTMLLIElement>(null);
+  useEffect(() => { setShown(LAZY_INITIAL); }, [items]);   // dữ liệu mới → render lại từ đầu
+  useEffect(() => {
+    const el = moreRef.current;
+    if (!el || shown >= items.length) return;
+    const io = new IntersectionObserver((es) => {
+      if (es.some((e) => e.isIntersecting)) setShown((s) => Math.min(items.length, s + LAZY_BATCH));
+    }, { rootMargin: "800px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [shown, items.length]);
+
   // Chấm tồn TRƯỢT theo cuộn (giống timeline thùng): mỗi khe có 1 chấm trượt trong phạm
   // vi khe theo đường ghim ~45% màn hình. rAF khi đang cuộn.
   useEffect(() => {
@@ -157,7 +173,7 @@ export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, 
     window.addEventListener("scroll", onScroll, { passive: true });
     const t = setTimeout(apply, 60);
     return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); clearTimeout(t); };
-  }, [items]);
+  }, [items, shown]);
   // Deep-link từ lịch sử thùng: ?focus=biendong-<ts> → cuộn + nháy biến động gần nhất
   const focusTs = focus?.startsWith("biendong-") ? Number(focus.slice(9)) : undefined;
   const focusedRef = useRef(false);
@@ -167,13 +183,14 @@ export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, 
     items.forEach((it, i) => { const dd = Math.abs(it.ts - focusTs); if (dd < bestD) { bestD = dd; best = i; } });
     if (best < 0) return;
     focusedRef.current = true;
+    setShown((s) => Math.max(s, best + 5));   // đảm bảo biến động cần focus đã render
     const t = setTimeout(() => {
       const el = document.getElementById(`pev-${best}`);
       if (!el) return;
       fastScrollToEl(el, "center");
       el.classList.add("flash-target");
       setTimeout(() => el.classList.remove("flash-target"), 2400);
-    }, 160);
+    }, 220);
     return () => clearTimeout(t);
   }, [items, focusTs]);
 
@@ -182,13 +199,15 @@ export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, 
   const openBoxes = (when: string, targetIdx: number, note?: string) =>
     setSnap({ when, boxes: boxesAt(items, currentBoxes, targetIdx), note });
 
+  const lim = Math.min(shown, items.length);
   const rows: any[] = [];
   rows.push(<li key="d-top" class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(items[0].at))}</div></li>);
   rows.push(<Junction key="j-top" height={MIN_JUNC} label={null} amount={currentTotal} onDot={() => openBoxes(items[0].at, 0, "hiện tại")} />);
-  items.forEach((it, i) => {
+  for (let i = 0; i < lim; i++) {
+    const it = items[i];
     rows.push(<EventRow key={`e-${i}`} it={it} idx={i} />);
     const older = items[i + 1];
-    if (older) {
+    if (older && i + 1 < lim) {   // khe chỉ vẽ khi cả 2 đầu đã render (còn lại để sentinel)
       const dsec = Math.max(0, it.ts - older.ts);
       const cross = dayKeyOf(it.at) !== dayKeyOf(older.at);
       if (dsec > GROUP_SEC) {
@@ -198,11 +217,12 @@ export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, 
         rows.push(<Junction key={`j-${i}`} height={gh} label={cross ? null : gapLabel(dsec)} amount={older.total_after} onDot={() => openBoxes(older.at, i + 1)} />);
       }
       if (cross) rows.push(<li key={`d-${i}`} class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(older.at))}</div></li>);
-    } else {
+    } else if (!older) {
       // chấm cuối = tồn TRƯỚC biến động đầu tiên (tổng sau nó trừ đi delta của nó)
       rows.push(<Junction key="j-bot" height={MIN_JUNC} label={null} amount={Math.round((it.total_after - it.delta) * 1000) / 1000} onDot={() => openBoxes(it.at, items.length, "trước biến động đầu")} />);
     }
-  });
+  }
+  if (lim < items.length) rows.push(<li key="more" ref={moreRef} class="pt-more"><span class="muted small">Đang tải thêm…</span></li>);
 
   return (
     <>

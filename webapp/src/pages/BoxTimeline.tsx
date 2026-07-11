@@ -15,6 +15,7 @@ const GROUP_SEC = 300;
 const GAP_PXPS = 0.0333, GAP_MAX = 4000;
 // Khe có chấm phải cao tối thiểu + kẹp lề khi trượt → số tồn không tràn đè dòng biến động.
 const MIN_JUNC = 34, SLIDE_M = 15;
+const LAZY_INITIAL = 25, LAZY_BATCH = 25;   // lazy-load theo cuộn
 const hm = (v?: string) => (fmtDateTimeVN(v || "").match(/\d{2}:\d{2}/) || [""])[0];
 function gapLabel(sec: number): string {
   const d = sec / 86400;
@@ -83,6 +84,20 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
   const [loading, setLoading] = useState(true);
   const focusedRef = useRef(false);
   const listRef = useRef<HTMLUListElement>(null);
+  // Lazy-load: render `shown` biến động đầu; sentinel gần đáy → tải thêm.
+  const [shown, setShown] = useState(LAZY_INITIAL);
+  const moreRef = useRef<HTMLLIElement>(null);
+  useEffect(() => { setShown(LAZY_INITIAL); }, [d]);
+  useEffect(() => {
+    const el = moreRef.current;
+    const n = d?.items.length || 0;
+    if (!el || shown >= n) return;
+    const io = new IntersectionObserver((es) => {
+      if (es.some((e) => e.isIntersecting)) setShown((s) => Math.min(n, s + LAZY_BATCH));
+    }, { rootMargin: "800px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [shown, d]);
 
   // Chấm tồn TRƯỢT theo cuộn (như hạt nợ ở feed khách): mỗi khe (junction) có 1 chấm
   // trượt trong phạm vi khe theo đường ghim ~45% màn hình. rAF khi đang cuộn.
@@ -108,7 +123,7 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     const t = setTimeout(apply, 60);   // đặt vị trí ban đầu sau render
     return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); clearTimeout(t); };
-  }, [d]);
+  }, [d, shown]);
 
   const load = () => {
     getBoxTimeline(boxId)
@@ -138,10 +153,12 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
     rows.push(<li key="d-top" class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(items[0].at))}</div></li>);
     rows.push(<Junction key="j-top" height={MIN_JUNC} label={null} amount={d.box.remaining} />);   // tồn HIỆN TẠI
   }
-  items.forEach((it, i) => {
+  const lim = Math.min(shown, items.length);
+  for (let i = 0; i < lim; i++) {
+    const it = items[i];
     rows.push(<EventRow key={`e-${i}`} it={it} idx={i} srcSlip={src} />);
     const older = items[i + 1];
-    if (older) {
+    if (older && i + 1 < lim) {   // khe chỉ vẽ khi cả 2 đầu đã render (còn lại để sentinel)
       const dsec = Math.max(0, it.ts - older.ts);
       const cross = dayKeyOf(it.at) !== dayKeyOf(older.at);
       if (dsec > GROUP_SEC) {
@@ -151,7 +168,8 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
       }
       if (cross) rows.push(<li key={`d-${i}`} class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(older.at))}</div></li>);
     }
-  });
+  }
+  if (lim < items.length) rows.push(<li key="more" ref={moreRef} class="pt-more"><span class="muted small">Đang tải thêm…</span></li>);
 
   return (
     <div class="place-tl">
