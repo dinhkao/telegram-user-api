@@ -8,6 +8,8 @@ import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
 import { Loading, ErrorState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
+import { SearchBar } from "../ui/SearchBar";
+import { foldVN } from "../format";
 
 const movable = (b: KhoBox) => !b.disabled && (b.remaining ?? b.quantity ?? 0) > 0;
 
@@ -19,6 +21,9 @@ export function BulkMove() {
   const [dst, setDst] = useState<number | null>(null);
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [qSrc, setQSrc] = useState("");   // lọc kho nguồn
+  const [qBox, setQBox] = useState("");   // lọc thùng
+  const [qDst, setQDst] = useState("");   // lọc kho đích
 
   const load = async () => {
     try { const [pl, bx] = await Promise.all([listPlaces(), allBoxes()]); setPlaces(pl); setBoxes(bx); setErr(""); }
@@ -31,10 +36,18 @@ export function BulkMove() {
   const srcBoxes = useMemo(() => src == null ? [] : boxes.filter((b) => b.place_id === src && movable(b))
     .sort((a, b) => (a.product_code || "").localeCompare(b.product_code || "") || (a.box_code || "").localeCompare(b.box_code || "")), [boxes, src]);
 
-  const pickSrc = (id: number) => { setSrc(id); setSel(new Set()); if (dst === id) setDst(null); };
+  // lọc không dấu: kho theo tên, thùng theo mã SP / số gọi
+  const fPlaces = (list: Place[], q: string) => { const n = foldVN(q.trim()); return n ? list.filter((p) => foldVN(p.name).includes(n)) : list; };
+  const shownBoxes = useMemo(() => {
+    const n = foldVN(qBox.trim());
+    return n ? srcBoxes.filter((b) => foldVN(b.product_code || "").includes(n) || foldVN(b.box_code || "").includes(n)) : srcBoxes;
+  }, [srcBoxes, qBox]);
+
+  const pickSrc = (id: number) => { setSrc(id); setSel(new Set()); setQBox(""); if (dst === id) setDst(null); };
   const toggle = (id: number) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const allSelected = srcBoxes.length > 0 && srcBoxes.every((b) => sel.has(b.id));
-  const selectAll = () => setSel(allSelected ? new Set() : new Set(srcBoxes.map((b) => b.id)));
+  // "Chọn tất cả" thao tác trên các thùng ĐANG HIỆN (đã lọc)
+  const allShown = shownBoxes.length > 0 && shownBoxes.every((b) => sel.has(b.id));
+  const selectAll = () => setSel((s) => { const n = new Set(s); allShown ? shownBoxes.forEach((b) => n.delete(b.id)) : shownBoxes.forEach((b) => n.add(b.id)); return n; });
 
   const dstName = places?.find((p) => p.id === dst)?.name || "";
   const doMove = async () => {
@@ -68,8 +81,9 @@ export function BulkMove() {
 
       <div class="bm-step">
         <div class="bm-step-h"><b>1 · Kho nguồn</b></div>
+        <SearchBar value={qSrc} onInput={setQSrc} placeholder="Tìm kho nguồn…" />
         <div class="bm-places">
-          {places.map((p) => (
+          {fPlaces(places, qSrc).map((p) => (
             <button key={p.id} class={"bm-place" + (src === p.id ? " on" : "")} onClick={() => pickSrc(p.id)}>
               {p.name} <span class="bm-place-n">{countAt(p.id)}</span>
             </button>
@@ -80,14 +94,17 @@ export function BulkMove() {
       {src != null && (
         <div class="bm-step">
           <div class="bm-step-h">
-            <b>2 · Chọn thùng</b> <span class="muted small">({sel.size}/{srcBoxes.length})</span>
-            {srcBoxes.length > 0 && <button class="bm-selall" onClick={selectAll}>{allSelected ? "Bỏ chọn hết" : "Chọn tất cả"}</button>}
+            <b>2 · Chọn thùng</b> <span class="muted small">(chọn {sel.size}/{srcBoxes.length})</span>
+            {shownBoxes.length > 0 && <button class="bm-selall" onClick={selectAll}>{allShown ? "Bỏ chọn" : "Chọn tất cả"}</button>}
           </div>
+          <SearchBar value={qBox} onInput={setQBox} placeholder="Tìm mã SP / số thùng…" />
           {srcBoxes.length === 0 ? (
             <p class="muted small">Kho này không có thùng chuyển được.</p>
+          ) : shownBoxes.length === 0 ? (
+            <p class="muted small">Không có thùng khớp "{qBox}".</p>
           ) : (
             <div class="bm-boxes">
-              {srcBoxes.map((b) => {
+              {shownBoxes.map((b) => {
                 const num = (b.box_code || "").split("-").pop() || b.box_code;
                 const on = sel.has(b.id);
                 return (
@@ -107,8 +124,9 @@ export function BulkMove() {
       {sel.size > 0 && (
         <div class="bm-step">
           <div class="bm-step-h"><b>3 · Kho đích</b></div>
+          <SearchBar value={qDst} onInput={setQDst} placeholder="Tìm kho đích…" />
           <div class="bm-places">
-            {places.filter((p) => p.id !== src).map((p) => (
+            {fPlaces(places.filter((p) => p.id !== src), qDst).map((p) => (
               <button key={p.id} class={"bm-place" + (dst === p.id ? " on" : "")} onClick={() => setDst(p.id)}>{p.name}</button>
             ))}
           </div>
