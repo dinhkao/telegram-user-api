@@ -58,7 +58,7 @@ def _seed(conn):
 
 def test_compute_range_report_money(conn, monkeypatch):
     from production_store import wages
-    monkeypatch.setattr(wages, "WAGES", {"K1": {"luong": 1000}, "K2": {"luong": 2000}})
+    monkeypatch.setattr(wages, "_cache", {"K1": {"luong": 1000}, "K2": {"luong": 2000}})
     _seed(conn)
 
     rep = report_slips.compute_range_report(conn, "2026-07-06", "2026-07-12")
@@ -84,7 +84,7 @@ def test_compute_range_report_money(conn, monkeypatch):
 
 def test_compute_missing_wage_flagged(conn, monkeypatch):
     from production_store import wages
-    monkeypatch.setattr(wages, "WAGES", {})
+    monkeypatch.setattr(wages, "_cache", {})
     _seed(conn)
     rep = report_slips.compute_range_report(conn, "2026-07-06", "2026-07-12")
     assert set(rep["missing_wage"]) == {"K1", "K2"}

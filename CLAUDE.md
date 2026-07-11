@@ -356,6 +356,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     list+tạo, preset Tuần này/trước) → `#/bao-cao/:id` (`ReportSlipDetail.tsx`); xoá = admin.
     Realtime `report_slips_changed`. ⚠ GROUP BY trên cột alias (`code`) bị SQLite resolve về
     `pr.code` — luôn GROUP BY biểu thức COALESCE đầy đủ (đã sửa ở cả `compute_wages`).
+  - **Bảng LƯƠNG SP** (`production_store/wages.py`): bảng `production_wages` (app.db, seed 1
+    lần từ dict cứng cũ `_SEED`), `wage_per_cay` đọc qua cache module (invalidate khi ghi).
+    Sửa từ webapp `#/luong-sp` (`pages/WageTable.tsx`, office) qua `server_app/wage_routes.py`
+    GET/POST `/api/wages` (luong ≤ 0 = gỡ mã → về missing_wage); lưu xong emit
+    `productions_changed` → tiền công/báo cáo tính lại ngay.
 
 **Web app for phones (orders management, 5-6 internal users)**
 - `webapp/` — Vite + Preact + TS mobile UI (Vietnamese). Hash router `main.tsx`, nav

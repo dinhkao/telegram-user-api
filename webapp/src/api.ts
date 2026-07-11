@@ -662,6 +662,20 @@ export async function reorderWorkers(ids: number[]): Promise<{ workers: Worker[]
   return { workers: d.workers || [], defaults: d.defaults || [] };
 }
 
+// ── Bảng lương SP (office-only) ──
+export type WageEntry = {
+  code: string; luong: number; mam: number | null; chao: number | null;
+  updated_at: string; updated_by: string; product_name: string;
+};
+export async function listWages(): Promise<WageEntry[]> {
+  const d = await getJSON("/api/wages", { cache: false });
+  return d.wages || [];
+}
+export async function setWage(code: string, luong: number): Promise<WageEntry[]> {
+  const d = await postJSON("/api/wages", { code, luong });
+  return d.wages || [];
+}
+
 // ── Phiếu báo cáo SX (office-only — tiền lương) ──
 export type ReportSlipTotals = { cay: number; money: number; allowance: number };
 export type ReportSlip = {

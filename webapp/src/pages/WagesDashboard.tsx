@@ -58,7 +58,7 @@ export function WagesDashboard() {
 
       {d.missing_wage.length > 0 && (
         <div class="wg-warn">
-          <Icon name="ban" size={15} /> Chưa có đơn giá lương cho: {d.missing_wage.map((c, i) => <span key={c}>{i ? ", " : ""}<b>{c}</b></span>)} — số cây các mã này KHÔNG được tính tiền.
+          <Icon name="ban" size={15} /> Chưa có đơn giá lương cho: {d.missing_wage.map((c, i) => <span key={c}>{i ? ", " : ""}<b>{c}</b></span>)} — số cây các mã này KHÔNG được tính tiền. <a href="#/luong-sp">Cài đơn giá →</a>
         </div>
       )}
 
