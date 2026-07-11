@@ -2117,6 +2117,16 @@ body.kbd-open .wr-peek-btn { bottom: calc(12px + env(safe-area-inset-bottom, 0px
 .wl-row .wl-star { flex: 0 0 auto; width: 17px; display: inline-flex; align-items: center; justify-content: center; color: var(--warn); }
 .wl-name { flex: 1 1 auto; min-width: 0; font-weight: 600; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wl-chev { flex: 0 0 auto; color: var(--muted-2); }
+
+/* Trang chủ (#/home): mục gom theo nhóm, mỗi mục 1 ô */
+.home { padding-bottom: 14px; }
+.home-grp { margin-bottom: 20px; }
+.home-grp-h { display: flex; align-items: center; gap: 7px; font-size: .8rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 2px 10px; }
+.home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
+.home-tile { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 15px 8px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); text-decoration: none; color: inherit; transition: transform .1s ease; }
+.home-tile:active { background: var(--bg); transform: scale(.96); }
+.home-tile-ic { width: 46px; height: 46px; border-radius: 12px; background: var(--accent-wash, var(--bg)); display: inline-flex; align-items: center; justify-content: center; color: var(--primary); }
+.home-tile-lb { font-size: .82rem; font-weight: 600; text-align: center; line-height: 1.25; }
 .wl-list { list-style: none; margin: 6px 0; padding: 0; }
 .wl-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
 .wl-star { flex: 0 0 auto; border: none; background: none; line-height: 1; cursor: pointer; padding: 2px; color: var(--muted-2); -webkit-tap-highlight-color: transparent; }

@@ -33,6 +33,7 @@ import { ReturnsList } from "./pages/ReturnsList";
 import { ReturnDetail } from "./pages/ReturnDetail";
 import { WorkerList } from "./pages/WorkerList";
 import { WorkerArrange } from "./pages/WorkerArrange";
+import { Home } from "./pages/Home";
 import { Users } from "./pages/Users";
 import { NotifCenter } from "./NotifCenter";
 import { TaskBell } from "./TaskBell";
@@ -271,8 +272,6 @@ function RealtimeDot() {
 
 function App() {
   const hash = useHash();
-  const [menuOpen, setMenuOpen] = useState(false);
-  usePopupBack(menuOpen, () => setMenuOpen(false));
   const user = currentUser();
   // Webapp luôn cùng origin với server (APK nạp URL từ xa qua Tailscale) nên không
   // còn màn hình cài server_url — chỉ cần đăng nhập.
@@ -408,6 +407,7 @@ function App() {
   else if (hash.startsWith("#/lich-su")) page = <ActivityLog />;
   else if (hash.startsWith("#/lich")) page = <DeliveryCalendar />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
+  else if (hash.startsWith("#/home")) page = <Home />;
   else if (viecMatch) page = <TaskDetail id={Number(viecMatch[1])} />;
   else if (hash.startsWith("#/viec")) page = <TasksBoard />;
   else if (retMatch) page = <ReturnDetail id={retMatch[1]} />;
@@ -428,6 +428,7 @@ function App() {
     : hash.startsWith("#/tra-hang") ? "Trả hàng"
     : (hash.startsWith("#/customers") || khachMatch) ? "Khách hàng"
     : hash.startsWith("#/create") ? "Tạo đơn"
+    : hash.startsWith("#/home") ? "Trang chủ"
     : hash.startsWith("#/tien-cong") ? "Tiền công"
     : (hash.startsWith("#/san_xuat") || hash.startsWith("#/sx-") || prodMatch || prodEditMatch || shtMatch) ? "Sản xuất"
     : hash.startsWith("#/san-pham") ? "Sản phẩm"
@@ -470,27 +471,8 @@ function App() {
           <a class={tab("#/create")} href="#/create" onClick={() => fastScrollTop()}><Icon name="plus" size={22} class="tab-ico" /><span class="tab-lbl">Tạo</span></a>
           <a class={tab("#/san_xuat")} href="#/san_xuat" onClick={() => fastScrollTop()}><Icon name="factory" size={22} class="tab-ico" /><span class="tab-lbl">SX</span></a>
           <a class={tab("#/kho")} href="#/kho" onClick={() => fastScrollTop()}><Icon name="box" size={22} class="tab-ico" /><span class="tab-lbl">Kho</span></a>
-          <button class={hash.startsWith("#/bang-gia") ? "tab nav-more active" : "tab nav-more"} onClick={() => setMenuOpen(true)} title="Thêm"><Icon name="menu" size={22} class="tab-ico" /><span class="tab-lbl">Thêm</span></button>
+          <a class={hash.startsWith("#/home") ? "tab nav-more active" : "tab nav-more"} href="#/home" title="Thêm" onClick={() => fastScrollTop()}><Icon name="menu" size={22} class="tab-ico" /><span class="tab-lbl">Thêm</span></a>
         </nav>
-      )}
-      {menuOpen && !showLogin && (
-        <div class="modal-overlay" onClick={() => setMenuOpen(false)}>
-          <div class="modal-sheet menu-sheet" onClick={(e: any) => e.stopPropagation()}>
-            <div class="modal-head">Mục khác</div>
-            <a class="menu-item" href="#/viec" onClick={() => setMenuOpen(false)}><Icon name="check" size={17} /> Việc (task list)</a>
-            <a class="menu-item" href="#/quy" onClick={() => setMenuOpen(false)}><Icon name="wallet" size={17} /> Sổ quỹ (thu/chi)</a>
-            <a class="menu-item" href="#/tra-hang" onClick={() => setMenuOpen(false)}><Icon name="refresh" size={17} /> Trả hàng</a>
-            <a class="menu-item" href="#/sx-bang" onClick={() => setMenuOpen(false)}><Icon name="chart" size={17} /> Dashboard sản xuất</a>
-            {(user?.role === "admin" || user?.role === "van_phong") && <a class="menu-item" href="#/tien-cong" onClick={() => setMenuOpen(false)}><Icon name="wallet" size={17} /> Tiền công thợ</a>}
-            <a class="menu-item" href="#/tho" onClick={() => setMenuOpen(false)}><Icon name="users" size={17} /> Danh sách thợ</a>
-            <a class="menu-item" href="#/lich-su" onClick={() => setMenuOpen(false)}><Icon name="history" size={17} /> Lịch sử thao tác</a>
-            <a class="menu-item" href="#/vi-tri" onClick={() => setMenuOpen(false)}><Icon name="box" size={17} /> Vị trí kho (Kho A/B…)</a>
-            <a class="menu-item" href="#/so-thung" onClick={() => setMenuOpen(false)}><Icon name="grid" size={17} /> Số thùng (999 gọi)</a>
-            <a class="menu-item" href="#/san-pham" onClick={() => setMenuOpen(false)}><Icon name="tag" size={17} /> Sản phẩm (danh mục)</a>
-            <a class="menu-item" href="#/bang-gia" onClick={() => setMenuOpen(false)}><Icon name="receipt" size={17} /> Bảng giá chung</a>
-            {user?.role === "admin" && <a class="menu-item" href="#/users" onClick={() => setMenuOpen(false)}><Icon name="lock" size={17} /> Quản lý user</a>}
-          </div>
-        </div>
       )}
     </div>
   );
