@@ -64,6 +64,16 @@ async def webapp_asset_handler(request: web.Request):
     return resp
 
 
+async def app_reload_handler(request: web.Request):
+    """ÉP mọi client web đang mở tải lại (lấy bundle mới). POST /api/app/reload.
+    Trả số client đang kết nối. Chỉ tới được máy ĐÃ có bản có listener app_reload."""
+    from server_app.realtime import emit_app_reload
+    from server_app.state import ws_clients
+    n = len(ws_clients)
+    emit_app_reload()
+    return web.json_response({"ok": True, "clients": n})
+
+
 async def _redirect_to_slash(request: web.Request):
     # base './' trong bundle → phải có dấu / cuối để ./assets resolve đúng /app/assets
     raise web.HTTPMovedPermanently("/app/")
@@ -80,3 +90,4 @@ def register_webapp_routes(router) -> None:
     os.makedirs(_APK_DIR, exist_ok=True)
     router.add_get("/app/update/version.json", app_version_handler)
     router.add_get("/app/update/app.apk", app_apk_handler)
+    router.add_post("/api/app/reload", app_reload_handler)   # admin ép mọi máy tải lại

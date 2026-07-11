@@ -5,8 +5,9 @@
 // APK cũ / trình duyệt (không có cầu) → fallback: tải /app/update/app.apk + proxy
 // "Đã cài xong" (lưu versionCode vào localStorage).
 import { useEffect, useState } from "preact/hooks";
-import { getApkVersion, type ApkVersion } from "../api";
+import { getApkVersion, forceReloadAll, currentUser, type ApkVersion } from "../api";
 import { Icon } from "../ui/Icon";
+import { toast, confirmDialog } from "../ui/feedback";
 
 const LS_KEY = "apk_installed_vc"; // proxy khi KHÔNG có cầu native
 
@@ -41,6 +42,14 @@ export function AppUpdate() {
     if (!latest) return;
     localStorage.setItem(LS_KEY, String(latest.versionCode));
     setInstalled(latest.versionCode);
+  };
+
+  const doForceReload = async () => {
+    if (!(await confirmDialog("Buộc MỌI máy đang mở tải lại web ngay?", { okLabel: "Tải lại hết" }))) return;
+    try {
+      const r = await forceReloadAll();
+      toast(`Đã gửi tín hiệu tải lại tới ${r.clients} máy đang kết nối.`, "ok");
+    } catch (e: any) { toast(e?.message || "Lỗi gửi tín hiệu", "err"); }
   };
 
   const hasBridge = !!bridge?.updateNow;
@@ -83,6 +92,18 @@ export function AppUpdate() {
             </div>
           )}
         </>
+      )}
+
+      {currentUser()?.role === "admin" && (
+        <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px solid var(--border)" }}>
+          <button class="btn small block" onClick={doForceReload}>
+            <Icon name="refresh" size={15} /> Buộc mọi máy tải lại web
+          </button>
+          <p class="muted small" style={{ margin: "5px 0 0" }}>
+            Gửi tín hiệu tải lại tới mọi máy ĐANG MỞ (để lấy giao diện mới). Máy đang dùng
+            bản cũ chưa có tính năng này thì cần mở lại app 1 lần.
+          </p>
+        </div>
       )}
     </div>
   );

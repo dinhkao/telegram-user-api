@@ -1072,6 +1072,11 @@ export async function callNumbers(): Promise<CallMapResult> {
   return { total: d.total || 999, occupied: d.occupied || [], last: d.last || 0, next: d.next ?? null, counts: d.counts || {} };
 }
 
+// ÉP mọi client web đang mở tải lại (lấy bundle mới). Trả số máy đang kết nối.
+export async function forceReloadAll(): Promise<{ ok: boolean; clients: number }> {
+  return await postJSON("/api/app/reload", {});
+}
+
 export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; capacity?: number; reserved?: boolean; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null; unit_id?: number | null; unit_name?: string | null; product_unit?: string; source_thread_id?: number | null };
 
 // ── Công thức sản xuất (BOM): SP cần nguyên liệu theo tỉ lệ ──

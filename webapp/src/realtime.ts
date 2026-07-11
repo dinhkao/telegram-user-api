@@ -23,6 +23,7 @@ export type RealtimeEvent =
   | { type: "report_draft"; thread_id: string | null; draft: any }
   | { type: "stock_pick_lock"; thread_id: string | null; code: string; holder: string | null }
   | { type: "invoice_edit_lock"; thread_id: string | null; holder: string | null }
+  | { type: "app_reload" }
   | { type: "resync" };
 
 // Các event server phát (không kèm "resync" — đó là do client tự sinh khi nối lại).
@@ -31,6 +32,7 @@ const _SERVER_EVENTS = new Set([
   "customer_changed", "inventory_changed", "box_changed", "price_lists_changed",
   "quy_changed", "notif_added", "report_lock", "report_draft", "banner_changed",
   "tasks_changed", "workers_changed", "return_changed", "stock_pick_lock", "invoice_edit_lock",
+  "app_reload",
 ]);
 
 type Handler = (e: RealtimeEvent) => void;
@@ -131,6 +133,8 @@ function connect() {
     } catch {
       return;
     }
+    // ÉP tải lại: admin bấm "Buộc mọi máy tải lại" → server broadcast → reload ngay.
+    if (data?.type === "app_reload") { try { window.location.reload(); } catch { /* ignore */ } return; }
     if (data && _SERVER_EVENTS.has(data.type)) emit(data);
   };
   const self = ws;

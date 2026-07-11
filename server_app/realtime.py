@@ -204,3 +204,10 @@ def emit_report_draft(thread_id, draft: dict) -> None:
     from server_app.tasks import spawn_tracked
     spawn_tracked("realtime.report_draft",
                   _broadcast({"type": "report_draft", "thread_id": None if thread_id is None else str(thread_id), "draft": draft}, "report_draft"))
+
+
+def emit_app_reload() -> None:
+    """ÉP mọi client web đang mở tải lại trang (lấy bundle mới nhất). Client nhận
+    'app_reload' → window.location.reload(). Chỉ tới được máy ĐÃ có bản có listener này."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.app_reload", _broadcast({"type": "app_reload"}, "app_reload"))
