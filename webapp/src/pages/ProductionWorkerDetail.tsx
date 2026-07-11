@@ -3,10 +3,11 @@
 // API: getWorkerReport. Realtime production_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { getWorkerReport, isOffice, soVN, type WorkerReport, type WorkerReportRow } from "../api";
+import { getWorkerReport, isOffice, listWorkers, soVN, updateWorker, type Worker, type WorkerReport, type WorkerReportRow } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { Icon } from "../ui/Icon";
+import { toast } from "../ui/feedback";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -27,6 +28,29 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
   const [period, setPeriod] = useState<Period>("month");
   const [data, setData] = useState<WorkerReport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [worker, setWorker] = useState<Worker | null>(null);
+  const [wkBusy, setWkBusy] = useState(false);
+
+  // Tìm row thợ theo tên (để đọc/sửa cờ weekly_salary)
+  useEffect(() => {
+    listWorkers()
+      .then(({ workers }) => setWorker(workers.find((w) => w.name.trim().toLowerCase() === name.trim().toLowerCase()) || null))
+      .catch(() => {});
+  }, [name]);
+
+  const flipWeekly = async () => {
+    if (!worker || wkBusy) return;
+    setWkBusy(true);
+    try {
+      const w = await updateWorker(worker.id, { weekly_salary: !worker.weekly_salary });
+      setWorker(w);
+      toast(w.weekly_salary ? "Đã BẬT nhận lương tuần" : "Đã TẮT nhận lương tuần", "ok");
+    } catch (e: any) {
+      toast(e?.message || "Lỗi lưu", "err");
+    } finally {
+      setWkBusy(false);
+    }
+  };
 
   const load = () => {
     setLoading(true);
@@ -66,6 +90,15 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
           {data && showMoney && <div class="wd-total-money">Tiền công: <b>{money(data.total_money || 0)}</b></div>}
         </div>
       </div>
+
+      {isOffice() && worker && (
+        <div class="card wd-weekly-row" onClick={flipWeekly} role="switch" aria-checked={!!worker.weekly_salary}>
+          <span class="wd-weekly-label">Nhận lương tuần</span>
+          <span class={worker.weekly_salary ? "wd-sw on" : "wd-sw"} style={wkBusy ? { opacity: 0.5 } : undefined}>
+            <span class="wd-sw-knob" />
+          </span>
+        </div>
+      )}
 
       <div class="db-period">
         {(["all", "month", "week"] as Period[]).map((p) => (

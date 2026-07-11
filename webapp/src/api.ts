@@ -640,7 +640,7 @@ export async function deleteProduction(id: string | number): Promise<any> {
 }
 
 // ── Danh sách thợ (template báo cáo) ──
-export type Worker = { id: number; name: string; is_default: boolean; sort_order: number };
+export type Worker = { id: number; name: string; is_default: boolean; sort_order: number; weekly_salary?: boolean };
 export async function listWorkers(): Promise<{ workers: Worker[]; defaults: string[] }> {
   const d = await getJSON("/api/workers", { cache: false });
   return { workers: d.workers || [], defaults: d.defaults || [] };
@@ -649,7 +649,7 @@ export async function addWorker(name: string, isDefault: boolean): Promise<Worke
   const d = await postJSON("/api/workers", { name, is_default: isDefault });
   return d.worker;
 }
-export async function updateWorker(id: number, patch: { name?: string; is_default?: boolean }): Promise<Worker> {
+export async function updateWorker(id: number, patch: { name?: string; is_default?: boolean; weekly_salary?: boolean }): Promise<Worker> {
   const d = await postJSON(`/api/workers/${id}`, patch);
   return d.worker;
 }

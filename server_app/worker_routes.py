@@ -71,6 +71,7 @@ async def workers_update_handler(request: web.Request):
         body = {}
     name = body.get("name")
     is_default = body.get("is_default")
+    weekly_salary = body.get("weekly_salary")
 
     def _run():
         conn = _conn()
@@ -80,6 +81,7 @@ async def workers_update_handler(request: web.Request):
                 conn, worker_id,
                 name=None if name is None else str(name),
                 is_default=None if is_default is None else bool(is_default),
+                weekly_salary=None if weekly_salary is None else bool(weekly_salary),
             )
         finally:
             conn.close()
