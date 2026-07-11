@@ -17,6 +17,7 @@ WAGES: dict[str, dict] = {
     "K10TV80":  {"mam": 4.0, "chao": 26.0, "luong": 800},
     "K2L":      {"mam": 3.5, "chao": 31.0, "luong": 720},
     "K2NT":     {"mam": 6.0, "chao": 38.0, "luong": 420},
+    "K2NT128":  {"mam": 6.0, "chao": None, "luong": 420},   # lương = K2NT (2026-07-11)
     "K2NV120":  {"mam": 6.0, "chao": 54.0, "luong": 380},
     "K2NV128":  {"mam": 6.0, "chao": 47.0, "luong": 380},
     "KDDT":     {"mam": 5.0, "chao": None, "luong": 800},
