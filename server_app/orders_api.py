@@ -306,9 +306,9 @@ async def orders_api_handler(request: web.Request):
         # dưới (mới tạo trước). ngay_giao là ISO nên so sánh chuỗi đúng thứ tự.
         ng = "json_extract(o.json, '$.ngay_giao')"
         has_ng = f"({ng} IS NOT NULL AND {ng} != '')"
-        # Lọc "Chưa giao" đảo chiều: ngày giao XA/mới nhất lên đầu (DESC); các view
-        # khác giữ ASC (trễ hạn/sớm nhất trước). Chưa hẹn giao luôn xuống dưới.
-        ng_dir = "DESC" if filt == "chua_giao" else "ASC"
+        # Đảo chiều 2026-07-11: lọc "Chưa giao" = trễ hạn/sớm nhất lên đầu (ASC);
+        # các view khác ngày giao XA/mới nhất trước (DESC). Chưa hẹn giao luôn xuống dưới.
+        ng_dir = "ASC" if filt == "chua_giao" else "DESC"
         order_by = f"CASE WHEN {has_ng} THEN 0 ELSE 1 END ASC, CASE WHEN {has_ng} THEN {ng} END {ng_dir}, {created_expr} DESC, o.thread_id DESC"
     else:
         order_by = f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, o.updated_at DESC, o.thread_id DESC"
