@@ -256,6 +256,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     return "❌";
   };
   const ts = j.task_status || {};
+  const hasDebt = !(j.payments || []).length;   // chưa có thanh toán nào = còn nợ → 😡
 
   // Điều hướng nhanh trong trang — cuộn NHANH dùng chung + nháy sáng mục đích
   const scrollTo = (id: string) => {
@@ -382,6 +383,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
                   {stepIcon(tt, ts[tt] || {})}
                 </button>
               ))}
+              {hasDebt && (
+                <button class="od-sb-ic" key="no" onClick={(e: any) => { e.stopPropagation(); scrollTo("od-payments"); }} title="Còn nợ — chưa có thanh toán">
+                  😡
+                </button>
+              )}
             </div>
             <div class="od-sb-text" title={j.text || j.text_raw || ""}>{j.text || j.text_raw || `#${threadId}`}</div>
             {/* Khách — avatar bấm được (giữ ngữ cảnh khách khi cuộn); chạm = mở khách,
@@ -468,6 +474,12 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
             <span class="ods-lb">{lbl}</span>
           </button>
         ))}
+        {hasDebt && (
+          <button class="ods-cell" key="no" onClick={() => scrollTo("od-payments")} title="Còn nợ — chưa có thanh toán nào">
+            <span class="ods-ic">😡</span>
+            <span class="ods-lb">Nợ</span>
+          </button>
+        )}
       </div>
 
       {/* Thao tác nhanh — nút vuông nhảy tới các mục hay dùng, khỏi cuộn tìm */}

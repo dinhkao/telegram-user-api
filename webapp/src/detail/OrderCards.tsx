@@ -337,6 +337,12 @@ export function TaskBadges({ o }: { o: OrderRow }) {
           </span>
         );
       })}
+      {icons[5] && (
+        <span class="tstat" key="no">
+          <span class="tico">{icons[5]}</span>
+          <span class="tlbl">Nợ</span>
+        </span>
+      )}
     </span>
   );
 }

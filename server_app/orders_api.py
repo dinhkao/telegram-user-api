@@ -33,6 +33,8 @@ def _build_order_row(r) -> dict:
     try:
         from renderers.order_parts import status_icons
         task_icons = status_icons(ts)   # 5 icon y hệt main message Telegram
+        if not (j.get("payments") or []):
+            task_icons += "😡"          # icon 6: chưa có thanh toán nào = còn nợ
     except Exception:
         task_icons = ""
     nop_t = ts.get("nop_tien", {}) or {}

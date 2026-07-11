@@ -18,6 +18,12 @@ export function TaskBadges({ o }: { o: any }) {
           <span class="tlbl">{label}</span>
         </span>
       ))}
+      {icons[5] && (
+        <span class="tstat" key="no">
+          <span class="tico">{icons[5]}</span>
+          <span class="tlbl">Nợ</span>
+        </span>
+      )}
     </span>
   );
 }
