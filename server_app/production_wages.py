@@ -80,12 +80,10 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
     for r in rows:
         ymd, worker, code, cay = r["ymd"], (r["worker"] or "?"), (r["code"] or ""), float(r["cay"] or 0)
         d = days.setdefault(ymd, {"ymd": ymd, "money": 0, "cay": 0.0, "allowance": 0, "workers": {}})
-        # LUÔN tạo thợ (kể cả làm 0 SP → vẫn hiện với 0đ); item chỉ thêm khi cây > 0
+        # HIỆN MỌI dòng SP thợ có mặt trong phiếu — kể cả làm 0 cây (0đ). Thợ luôn được tạo.
         wk = d["workers"].setdefault(worker, {"name": worker, "money": 0, "cay": 0.0, "allowance": 0, "items": []})
-        if cay <= 0:
-            continue
         wage = wage_per_cay(code)
-        if wage <= 0:
+        if cay > 0 and wage <= 0:   # chỉ cảnh báo thiếu đơn giá khi thực sự có sản lượng
             missing.add(code)
         money = round(cay * wage)
         wk["items"].append({"code": code, "cay": cay, "wage": wage, "money": money})
