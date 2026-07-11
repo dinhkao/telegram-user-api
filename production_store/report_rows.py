@@ -212,9 +212,10 @@ def dashboard(conn, dfrom: str | None = None, dto: str | None = None) -> dict:
 
 
 def worker_detail(conn, name: str, dfrom: str | None = None, dto: str | None = None) -> dict:
-    """Chi tiết 1 thợ: mỗi ngày làm phiếu nào, SP gì, bao nhiêu. Sắp theo ngày mới→cũ.
-    Khớp theo DANH TÍNH (worker_id) khi tên có trong danh sách thợ — dòng cổ mang
-    tên cũ vẫn ra; tên lạ fallback so tên snapshot."""
+    """Chi tiết 1 thợ: MỌI phiếu SX trong kỳ (kể cả phiếu thợ KHÔNG làm SP nào, và cả
+    ngày thợ không làm) + sản lượng của thợ trong từng phiếu (0 nếu không có). Để văn
+    phòng thấy/gắn phụ cấp cho mọi phiếu. Khớp thợ theo danh tính (worker_id) khi có.
+    Sắp ngày mới→cũ. totals/phiếu tính theo SẢN LƯỢNG THỰC của thợ."""
     ensure_report_rows_schema(conn)
     wid = None
     try:
@@ -224,32 +225,39 @@ def worker_detail(conn, name: str, dfrom: str | None = None, dto: str | None = N
         wid = int(r[0]) if r else None
     except Exception:  # noqa: BLE001
         pass
-    if wid is not None:
-        where = "WHERE (t.worker_id = ? OR (t.worker_id IS NULL AND t.worker_name = TRIM(?) COLLATE NOCASE))"
-        args: list = [wid, name]
-    else:
-        where = "WHERE t.worker_name = TRIM(?) COLLATE NOCASE"
-        args = [name]
+    dwhere, dargs = "", []
     if dfrom:
-        where += " AND t.report_ymd >= ?"
-        args.append(dfrom)
+        dwhere += " AND t.report_ymd >= ?"; dargs.append(dfrom)
     if dto:
-        where += " AND t.report_ymd <= ?"
-        args.append(dto)
+        dwhere += " AND t.report_ymd <= ?"; dargs.append(dto)
+    if wid is not None:
+        wcond = "(t.worker_id = ? OR (t.worker_id IS NULL AND t.worker_name = TRIM(?) COLLATE NOCASE))"
+        wargs: list = [wid, name]
+    else:
+        wcond = "t.worker_name = TRIM(?) COLLATE NOCASE"
+        wargs = [name]
+    # ph = mọi phiếu trong kỳ (mã SP + ngày, đồng nhất/phiếu); wc = sản lượng của thợ theo phiếu.
     rows = conn.execute(
-        f"SELECT t.thread_id, COALESCE(pr.code, t.product_code), t.report_date, t.report_ymd, "
-        f"t.so_gach, t.so_tru, t.so_cay_le, t.so_mam, t.tong_calc, t.note "
-        f"FROM production_report_rows t LEFT JOIN products pr ON pr.id = t.product_id "
-        f"{where} ORDER BY t.report_ymd DESC, t.thread_id DESC", args).fetchall()
-    total = round(sum(r[8] or 0 for r in rows), 1)
-    total_mam = round(sum(r[7] or 0 for r in rows), 1)
-    phieu = len({r[0] for r in rows if (r[8] or 0) > 0})
+        f"SELECT ph.thread_id, ph.ymd, ph.rdate, ph.code, COALESCE(wc.tong,0), COALESCE(wc.mam,0), wc.note "
+        f"FROM (SELECT t.thread_id AS thread_id, MIN(t.report_ymd) AS ymd, MIN(t.report_date) AS rdate, "
+        f"             MIN(COALESCE(pr.code, t.product_code)) AS code "
+        f"      FROM production_report_rows t LEFT JOIN products pr ON pr.id = t.product_id "
+        f"      WHERE t.report_ymd IS NOT NULL {dwhere} GROUP BY t.thread_id) ph "
+        f"LEFT JOIN (SELECT t.thread_id AS thread_id, SUM(t.tong_calc) AS tong, SUM(t.so_mam) AS mam, "
+        f"                  GROUP_CONCAT(NULLIF(TRIM(t.note),''), ' · ') AS note "
+        f"           FROM production_report_rows t WHERE {wcond} AND t.report_ymd IS NOT NULL {dwhere} "
+        f"           GROUP BY t.thread_id) wc ON wc.thread_id = ph.thread_id "
+        f"ORDER BY ph.ymd DESC, ph.thread_id DESC",
+        dargs + wargs + dargs,
+    ).fetchall()
+    total = round(sum(r[4] or 0 for r in rows), 1)
+    total_mam = round(sum(r[5] or 0 for r in rows), 1)
+    phieu = sum(1 for r in rows if (r[4] or 0) > 0)
     return {
         "name": name, "total": total, "total_mam": total_mam, "phieu": phieu,
         "rows": [{
-            "thread_id": r[0], "product_code": r[1] or "?", "date": r[2], "ymd": r[3],
-            "so_gach": r[4] or 0, "so_tru": r[5] or 0, "so_cay_le": r[6] or 0,
-            "so_mam": r[7] or 0, "tong_calc": r[8] or 0, "note": r[9] or "",
+            "thread_id": r[0], "product_code": r[3] or "?", "date": r[2], "ymd": r[1],
+            "so_mam": r[5] or 0, "tong_calc": r[4] or 0, "note": r[6] or "",
         } for r in rows],
     }
 
