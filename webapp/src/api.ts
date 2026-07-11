@@ -1077,6 +1077,20 @@ export async function forceReloadAll(): Promise<{ ok: boolean; clients: number }
   return await postJSON("/api/app/reload", {});
 }
 
+// ── Tiền công thợ theo ngày (NHẠY CẢM — chỉ văn phòng; server chặn 403) ──
+export type WageItem = { code: string; cay: number; wage: number; money: number };
+export type WageWorker = { name: string; money: number; cay: number; items: WageItem[] };
+export type WageDay = { ymd: string; money: number; cay: number; workers: WageWorker[] };
+export type WagesDashboard = { from: string; to: string; days: WageDay[]; totals: { money: number; cay: number }; missing_wage: string[] };
+export async function wagesDashboard(from?: string, to?: string): Promise<WagesDashboard> {
+  const p = new URLSearchParams();
+  if (from) p.set("from", from);
+  if (to) p.set("to", to);
+  const qs = p.toString();
+  const d = await getJSON("/api/production/wages" + (qs ? "?" + qs : ""), { cache: false });
+  return { from: d.from, to: d.to, days: d.days || [], totals: d.totals || { money: 0, cay: 0 }, missing_wage: d.missing_wage || [] };
+}
+
 export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; capacity?: number; reserved?: boolean; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null; unit_id?: number | null; unit_name?: string | null; product_unit?: string; source_thread_id?: number | null };
 
 // ── Công thức sản xuất (BOM): SP cần nguyên liệu theo tỉ lệ ──

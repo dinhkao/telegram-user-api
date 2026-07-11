@@ -1483,6 +1483,29 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .cn-cell.next { border-color: var(--ok); box-shadow: 0 0 0 2px var(--ok); }
 .cn-empty { text-align: center; color: var(--muted); padding: 22px; }
 
+/* ── Tiền công thợ (#/tien-cong) ── */
+.wg-head { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.wg-title { font-size: 1.18rem; font-weight: 800; display: inline-flex; align-items: center; gap: 7px; }
+.wg-total { background: var(--card); border: 1px solid var(--border); border-radius: 13px; padding: 14px 16px; margin-bottom: 12px; }
+.wg-total-money { font-size: 1.7rem; font-weight: 800; color: var(--ok); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.wg-warn { display: flex; align-items: flex-start; gap: 7px; background: var(--warn-wash); color: var(--nd-amber, #c77700); border: 1px solid #e0c9a6; border-radius: 10px; padding: 9px 12px; font-size: .82rem; line-height: 1.45; margin-bottom: 12px; }
+.wg-warn svg { flex: 0 0 auto; margin-top: 2px; }
+.wg-day { margin-bottom: 14px; }
+.wg-day-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 2px 6px; border-bottom: 2px solid var(--border); margin-bottom: 6px; }
+.wg-day-date { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.wg-day-money { font-weight: 800; color: var(--ok); font-variant-numeric: tabular-nums; }
+.wg-workers { display: flex; flex-direction: column; gap: 4px; }
+.wg-wk-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font: inherit; cursor: pointer; text-align: left; }
+.wg-wk-row:active { background: var(--bg); }
+.wg-wk-name { flex: 1 1 auto; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wg-wk-cay { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.wg-wk-money { flex: 0 0 auto; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.wg-items { display: flex; flex-direction: column; gap: 2px; padding: 6px 11px 8px 30px; }
+.wg-item { display: flex; align-items: baseline; gap: 8px; font-size: .86rem; }
+.wg-item-code { flex: 0 0 auto; font-family: var(--mono, ui-monospace, monospace); font-weight: 700; }
+.wg-item-calc { flex: 1 1 auto; min-width: 0; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wg-item-money { flex: 0 0 auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+
 /* THẺ SP CẦN LÀM — top band màu = mức độ; 3 dòng luôn hiện + phần mở rộng */
 .nd-card { position: relative; background: var(--card); border: 1px solid var(--border); border-top-width: 3px;
   border-radius: 14px; padding: 13px 15px 5px; margin-bottom: 11px; box-shadow: var(--e1); animation: nd-in .3s var(--ease, ease) both; }

@@ -41,6 +41,7 @@ import { KhoBoxes } from "./pages/KhoBoxes";
 import { StockDemand } from "./pages/StockDemand";
 import { CallNumbers } from "./pages/CallNumbers";
 import { ProductTimeline } from "./pages/ProductTimeline";
+import { WagesDashboard } from "./pages/WagesDashboard";
 import { PlacesList } from "./pages/PlacesList";
 import { PlaceDetail } from "./pages/PlaceDetail";
 import { PlaceTimeline } from "./pages/PlaceTimeline";
@@ -383,6 +384,7 @@ function App() {
   else if (prodEditMatch) page = <ProductionReportEdit threadId={prodEditMatch[1]} />;
   else if (shtMatch) page = <ProductionWorkerDetail name={decodeURIComponent(shtMatch[1])} />;
   else if (hash.startsWith("#/sx-bang")) page = <ProductionDashboard />;
+  else if (hash.startsWith("#/tien-cong")) page = <WagesDashboard />;
   else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} focus={focusEl} />;
   else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;
   else if (boxTLMatch) page = <BoxTimeline boxId={boxTLMatch[1]} />;
@@ -422,6 +424,7 @@ function App() {
     : hash.startsWith("#/tra-hang") ? "Trả hàng"
     : (hash.startsWith("#/customers") || khachMatch) ? "Khách hàng"
     : hash.startsWith("#/create") ? "Tạo đơn"
+    : hash.startsWith("#/tien-cong") ? "Tiền công"
     : (hash.startsWith("#/san_xuat") || hash.startsWith("#/sx-") || prodMatch || prodEditMatch || shtMatch) ? "Sản xuất"
     : hash.startsWith("#/san-pham") ? "Sản phẩm"
     : hash.startsWith("#/nhu-cau") ? "Cần làm hàng"
@@ -473,6 +476,7 @@ function App() {
             <a class="menu-item" href="#/quy" onClick={() => setMenuOpen(false)}><Icon name="wallet" size={17} /> Sổ quỹ (thu/chi)</a>
             <a class="menu-item" href="#/tra-hang" onClick={() => setMenuOpen(false)}><Icon name="refresh" size={17} /> Trả hàng</a>
             <a class="menu-item" href="#/sx-bang" onClick={() => setMenuOpen(false)}><Icon name="chart" size={17} /> Dashboard sản xuất</a>
+            {(user?.role === "admin" || user?.role === "van_phong") && <a class="menu-item" href="#/tien-cong" onClick={() => setMenuOpen(false)}><Icon name="wallet" size={17} /> Tiền công thợ</a>}
             <a class="menu-item" href="#/tho" onClick={() => setMenuOpen(false)}><Icon name="users" size={17} /> Danh sách thợ</a>
             <a class="menu-item" href="#/lich-su" onClick={() => setMenuOpen(false)}><Icon name="history" size={17} /> Lịch sử thao tác</a>
             <a class="menu-item" href="#/vi-tri" onClick={() => setMenuOpen(false)}><Icon name="box" size={17} /> Vị trí kho (Kho A/B…)</a>
