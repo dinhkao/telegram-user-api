@@ -114,13 +114,15 @@ async def production_list_handler(request: web.Request):
     kind = request.query.get("kind") or None
     if kind not in ("san_xuat", "dong_goi"):
         kind = None
+    # day = 'YYYYMMDD' (hoặc 'YYYY-MM-DD') → lọc phiếu tạo trong đúng 1 ngày
+    day = "".join(ch for ch in (request.query.get("day") or "") if ch.isdigit())[:8] or None
 
     def _run():
         conn = _conn()
         try:
             create_production_table(conn)
-            total = count_slips(conn, kind=kind)
-            slips = list_slips(conn, limit=limit, offset=offset, kind=kind)
+            total = count_slips(conn, kind=kind, day=day)
+            slips = list_slips(conn, limit=limit, offset=offset, kind=kind, day=day)
             from production_store.report_rows import report_summaries
             from inventory_store import sum_boxes_by_source, codes_by_source
             _ids = [s["thread_id"] for s in slips]

@@ -20,8 +20,17 @@ import { Loading, EmptyState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
 // Cache list đã tải → quay lại giữ nguyên + hệ cuộn khôi phục vị trí (khỏi tải lại).
-let prodCache: { slips: ProdSlip[]; page: number; totalPages: number; kind: string } | null = null;
+let prodCache: { slips: ProdSlip[]; page: number; totalPages: number; kind: string; day: string } | null = null;
 type KindF = "" | "san_xuat" | "dong_goi";
+
+// Mã ngày 'YYYYMMDD' của 1 phiếu (từ date_code lúc tạo; fallback date "DD/MM/YYYY").
+function slipDayCode(s: ProdSlip): string {
+  if (s.date_code && s.date_code.length >= 8) return s.date_code.slice(0, 8);
+  const p = (s.date || "").split(" ")[0].split("/");
+  return p.length === 3 ? p[2] + p[1].padStart(2, "0") + p[0].padStart(2, "0") : "";
+}
+const dayToCode = (d: string) => d.replace(/-/g, "");   // "YYYY-MM-DD" → "YYYYMMDD"
+const dayVN = (d: string) => { const [, m, dd] = d.split("-"); return dd && m ? `${dd}/${m}` : d; };   // nhãn ngắn
 
 // FIX realtime khi trang ĐANG UNMOUNT (ở trang khác): handler trong component chết nên
 // bỏ lỡ event → quay lại thấy cache cũ. Subscriber cấp-module này LUÔN sống, VÁ prodCache
@@ -40,7 +49,8 @@ onRealtime((e) => {
   // ở trang detail — event tới khi list unmount, thiếu nhánh chèn là quay lại dashboard
   // không thấy phiếu, phải reload).
   const row = e.row as ProdSlip;
-  const matches = !prodCache.kind || (row.kind || "san_xuat") === prodCache.kind;
+  const matches = (!prodCache.kind || (row.kind || "san_xuat") === prodCache.kind)
+    && (!prodCache.day || slipDayCode(row) === dayToCode(prodCache.day));
   if (idx >= 0) {
     prodCache = matches
       ? { ...prodCache, slips: prodCache.slips.map((s, i) => (i === idx ? { ...s, ...row } : s)) }
@@ -60,6 +70,8 @@ export function ProductionList() {
   const [total, setTotal] = useState(0);
   const [kindF, setKindF] = useState<KindF>("");   // lọc loại phiếu
   const kindFRef = useRef<KindF>("");
+  const [dayF, setDayF] = useState("");            // lọc 1 ngày ("YYYY-MM-DD"), "" = mọi ngày
+  const dayFRef = useRef("");
   const st = useRef({ page: 1, totalPages: 1, loading: false });
   const sentinel = useRef<HTMLDivElement>(null);
   // Thùng theo phiếu (source_thread_id) — 1 lần gọi allBoxes, gom nhóm
@@ -85,7 +97,7 @@ export function ProductionList() {
     st.current.loading = true;
     if (!append) setLoading(true);
     try {
-      const r = await listProduction(page, kindFRef.current || undefined);
+      const r = await listProduction(page, kindFRef.current || undefined, dayFRef.current ? dayToCode(dayFRef.current) : undefined);
       st.current.page = r.page;
       st.current.totalPages = r.total_pages;
       setTotal(r.total);
@@ -101,6 +113,7 @@ export function ProductionList() {
   useEffect(() => {
     if (prodCache) {   // quay lại → dựng lại list đã tải (giữ đúng bộ lọc đã xem)
       kindFRef.current = prodCache.kind as KindF; setKindF(prodCache.kind as KindF);
+      dayFRef.current = prodCache.day || ""; setDayF(prodCache.day || "");
       setSlips(prodCache.slips);
       st.current.page = prodCache.page;
       st.current.totalPages = prodCache.totalPages;
@@ -113,12 +126,18 @@ export function ProductionList() {
   const slipsRef = useRef<ProdSlip[]>([]);
   slipsRef.current = slips;
   useEffect(() => () => {
-    if (slipsRef.current.length) prodCache = { slips: slipsRef.current, page: st.current.page, totalPages: st.current.totalPages, kind: kindFRef.current };
+    if (slipsRef.current.length) prodCache = { slips: slipsRef.current, page: st.current.page, totalPages: st.current.totalPages, kind: kindFRef.current, day: dayFRef.current };
   }, []);
 
   const applyFilter = (k: KindF) => {
     if (k === kindFRef.current) return;
     kindFRef.current = k; setKindF(k); prodCache = null;
+    setSlips([]); st.current.page = 1; st.current.totalPages = 1;
+    load(1, false);
+  };
+  const applyDayFilter = (day: string) => {
+    if (day === dayFRef.current) return;
+    dayFRef.current = day; setDayF(day); prodCache = null;
     setSlips([]); st.current.page = 1; st.current.totalPages = 1;
     load(1, false);
   };
@@ -137,7 +156,8 @@ export function ProductionList() {
         if (e.row === null) return idx >= 0 ? prev.filter((_, i) => i !== idx) : prev;
         // tôn trọng bộ lọc: phiếu đổi loại rời khỏi lọc → gỡ; loại khác thêm mới → bỏ qua
         const f = kindFRef.current;
-        const matches = !f || ((e.row as ProdSlip).kind || "san_xuat") === f;
+        const dayOk = !dayFRef.current || slipDayCode(e.row as ProdSlip) === dayToCode(dayFRef.current);
+        const matches = (!f || ((e.row as ProdSlip).kind || "san_xuat") === f) && dayOk;
         if (idx >= 0) {
           if (!matches) return prev.filter((_, i) => i !== idx);
           const next = prev.slice();
@@ -192,6 +212,12 @@ export function ProductionList() {
         <button class={"pf-chip" + (kindF === "" ? " on" : "")} onClick={() => applyFilter("")}>Tất cả</button>
         <button class={"pf-chip" + (kindF === "san_xuat" ? " on" : "")} onClick={() => applyFilter("san_xuat")}><Icon name="factory" size={14} /> Sản xuất</button>
         <button class={"pf-chip" + (kindF === "dong_goi" ? " on" : "")} onClick={() => applyFilter("dong_goi")}><Icon name="box" size={14} /> Đóng gói</button>
+        <label class={"pf-chip pf-day" + (dayF ? " on" : "")} title="Lọc phiếu theo ngày tạo">
+          <Icon name="calendar" size={14} />
+          <span class="pf-day-lb">{dayF ? dayVN(dayF) : "Ngày"}</span>
+          <input type="date" value={dayF} onInput={(e: any) => applyDayFilter(e.target.value)} />
+        </label>
+        {dayF && <button class="pf-chip pf-clear" onClick={() => applyDayFilter("")} title="Bỏ lọc ngày"><Icon name="close" size={13} /></button>}
       </div>
 
       {err && <div class="error-banner">{err}</div>}

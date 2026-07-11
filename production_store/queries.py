@@ -56,11 +56,15 @@ def _kind_clause(kind):
     return "", ()
 
 
-def list_slips(conn, limit: int = 20, offset: int = 0, kind: str | None = None) -> list[dict]:
-    """Slips theo NGÀY TẠO mới→cũ (date_code lúc tạo), phân trang. Row nhẹ. Lọc theo kind."""
+def list_slips(conn, limit: int = 20, offset: int = 0, kind: str | None = None, day: str | None = None) -> list[dict]:
+    """Slips theo NGÀY TẠO mới→cũ (date_code lúc tạo), phân trang. Row nhẹ. Lọc theo
+    kind + day (day='YYYYMMDD' → khớp date_code LIKE 'YYYYMMDD%' = phiếu 1 ngày)."""
     where, wp = _kind_clause(kind)
     if where:
         where = where.replace("kind", "s.kind")
+    if day:
+        where = (where + " AND " if where else " WHERE ") + "s.date_code LIKE ?"
+        wp = (*wp, day + "%")
     rows = conn.execute(
         "SELECT s.thread_id, s.date, s.date_code, s.product_id, "
         "COALESCE(pr.code, s.sp_name) AS sp_name, s.sp_mam, s.sx_target, s.total, "
@@ -72,8 +76,11 @@ def list_slips(conn, limit: int = 20, offset: int = 0, kind: str | None = None) 
     return [dict(r) for r in rows]
 
 
-def count_slips(conn, kind: str | None = None) -> int:
+def count_slips(conn, kind: str | None = None, day: str | None = None) -> int:
     where, wp = _kind_clause(kind)
+    if day:
+        where = (where + " AND " if where else " WHERE ") + "date_code LIKE ?"
+        wp = (*wp, day + "%")
     return int(conn.execute("SELECT COUNT(*) FROM production_slips" + where, wp).fetchone()[0])
 
 

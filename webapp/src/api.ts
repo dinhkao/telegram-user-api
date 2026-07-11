@@ -558,8 +558,8 @@ export type ProdReport = {
 
 export type ProdListResp = { slips: ProdSlip[]; total: number; page: number; total_pages: number };
 
-export async function listProduction(page = 1, kind?: "san_xuat" | "dong_goi"): Promise<ProdListResp> {
-  const d = await getJSON(`/api/production?page=${page}${kind ? `&kind=${kind}` : ""}`);
+export async function listProduction(page = 1, kind?: "san_xuat" | "dong_goi", day?: string): Promise<ProdListResp> {
+  const d = await getJSON(`/api/production?page=${page}${kind ? `&kind=${kind}` : ""}${day ? `&day=${day}` : ""}`);
   return { slips: d.slips || [], total: d.total || 0, page: d.page || 1, total_pages: d.total_pages || 1 };
 }
 
