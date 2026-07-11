@@ -25,7 +25,9 @@ _PRODUCT_COLS_SQL = """
             prod_luong    REAL,
             can_produce_directly INTEGER DEFAULT 1,
             min_stock     REAL DEFAULT 0,
-            self_container INTEGER DEFAULT 0
+            self_container INTEGER DEFAULT 0,
+            can_sell      INTEGER DEFAULT 1,
+            can_purchase  INTEGER DEFAULT 1
 """
 
 
@@ -84,6 +86,10 @@ def migrate_products_table(conn):
         conn.execute("ALTER TABLE products ADD COLUMN min_stock REAL DEFAULT 0")
     if "self_container" not in columns:  # SP BẢN THÂN LÀ 1 thùng (KDXDB5/KGL5): mỗi thùng 1
         conn.execute("ALTER TABLE products ADD COLUMN self_container INTEGER DEFAULT 0")  # dòng, quantity=1, không có đơn vị chứa
+    if "can_sell" not in columns:       # CÓ THỂ BÁN (hiện trong picker bán/hoá đơn)
+        conn.execute("ALTER TABLE products ADD COLUMN can_sell INTEGER DEFAULT 1")
+    if "can_purchase" not in columns:   # CÓ THỂ NHẬP (hiện trong picker phiếu nhập NCC)
+        conn.execute("ALTER TABLE products ADD COLUMN can_purchase INTEGER DEFAULT 1")
     if "id" not in columns:
         _rebuild_with_id(conn)
     _create_history_table(conn)

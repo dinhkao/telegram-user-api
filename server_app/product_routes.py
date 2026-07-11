@@ -87,7 +87,9 @@ async def product_update_handler(request: web.Request):
                            unit=body.get("unit") if body.get("unit") is not None else None,
                            can_produce_directly=bool(body.get("can_produce_directly")) if body.get("can_produce_directly") is not None else None,
                            self_container=bool(body.get("self_container")) if body.get("self_container") is not None else None,
-                           min_stock=body.get("min_stock") if body.get("min_stock") is not None else None)
+                           min_stock=body.get("min_stock") if body.get("min_stock") is not None else None,
+                           can_sell=bool(body.get("can_sell")) if body.get("can_sell") is not None else None,
+                           can_purchase=bool(body.get("can_purchase")) if body.get("can_purchase") is not None else None)
             return get_product(conn, code)
         finally:
             conn.close()
@@ -96,7 +98,7 @@ async def product_update_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Mã SP không tồn tại"}, status=404)
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
-    _fields = ", ".join(k for k in ("name", "unit", "note") if body.get(k) is not None)
+    _fields = ", ".join(k for k in ("name", "unit", "note", "can_sell", "can_purchase") if body.get(k) is not None)
     _audit_product("product.updated", product, _actor(request), fields=_fields)
     return web.json_response({"ok": True, "product": product})
 
@@ -330,5 +332,7 @@ async def products_search_handler(request: web.Request):
         products = [p for p in products
                     if q in vn_normalize(p["code"]) or q in vn_normalize(p.get("name") or "")]
     out = [{"id": p.get("id"), "code": p["code"], "name": p.get("name") or "",
-            "can_produce_directly": bool(p.get("can_produce_directly"))} for p in products[:limit]]
+            "can_produce_directly": bool(p.get("can_produce_directly")),
+            "can_sell": bool(p.get("can_sell", True)),
+            "can_purchase": bool(p.get("can_purchase", True))} for p in products[:limit]]
     return web.json_response({"ok": True, "products": out})

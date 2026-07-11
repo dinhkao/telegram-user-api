@@ -96,6 +96,19 @@ export function InventoryDetail({ code }: { code: string }) {
       if (p && inv) { setInv({ ...inv, product: p }); toast(next ? "✅ SP sản xuất trực tiếp được" : "📦 Chỉ đóng gói từ nguyên liệu", "ok"); }
     } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
   };
+  // Có thể BÁN / có thể NHẬP — gate gợi ý SP ở hoá đơn bán & phiếu nhập NCC
+  const toggleTrade = async (key: "can_sell" | "can_purchase") => {
+    if (!inv?.product) return;
+    const next = !(inv.product[key] !== false);
+    try {
+      const p = await updateProduct(code, { [key]: next });
+      if (p && inv) {
+        setInv({ ...inv, product: p });
+        const label = key === "can_sell" ? "bán" : "nhập";
+        toast(next ? `✅ SP có thể ${label}` : `🚫 SP tắt ${label} — không gợi ý ở picker ${label} nữa`, "ok");
+      }
+    } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
+  };
   // Liên kết KiotViet từng cái (modal tìm + chọn)
   const [linkOpen, setLinkOpen] = useState(false);
   const [kvQ, setKvQ] = useState("");
@@ -349,6 +362,26 @@ export function InventoryDetail({ code }: { code: string }) {
             {inv.product.can_produce_directly
               ? "Nhập thùng từ phiếu SẢN XUẤT (không trừ NL). Có công thức thì cũng đóng gói được."
               : "Chỉ nhập thùng từ phiếu ĐÓNG GÓI — bắt buộc trừ nguyên liệu."}
+          </div>
+        )}
+        {inv.product && isAdmin && (
+          <div class="box-kv">
+            <span class="box-k">Mua bán</span>
+            <div class="row" style={{ gap: "6px" }}>
+              <button class={"trade-chip" + (inv.product.can_sell !== false ? " on" : "")} onClick={() => toggleTrade("can_sell")}>
+                <Icon name="tag" size={14} /> {inv.product.can_sell !== false ? "Có thể bán" : "Không bán"}
+              </button>
+              <button class={"trade-chip" + (inv.product.can_purchase !== false ? " on" : "")} onClick={() => toggleTrade("can_purchase")}>
+                <Icon name="truck" size={14} /> {inv.product.can_purchase !== false ? "Có thể nhập" : "Không nhập"}
+              </button>
+            </div>
+          </div>
+        )}
+        {inv.product && isAdmin && (
+          <div class="muted small" style={{ margin: "-2px 0 6px" }}>
+            Tắt = SP không hiện trong gợi ý {inv.product.can_sell === false && inv.product.can_purchase === false
+              ? "hoá đơn bán lẫn phiếu nhập NCC"
+              : inv.product.can_sell === false ? "hoá đơn bán" : inv.product.can_purchase === false ? "phiếu nhập NCC" : "(đang bật cả hai)"}.
           </div>
         )}
         <div class="row space">

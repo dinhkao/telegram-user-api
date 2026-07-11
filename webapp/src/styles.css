@@ -1440,6 +1440,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .cpd-opt + .cpd-opt { border-left: 1px solid var(--border); }
 .cpd-opt.sel { background: var(--accent, #2563eb); color: #fff; font-weight: 700; }
 .cpd-opt:disabled:not(.sel) { opacity: .5; }
+/* Cờ mua bán SP (chi tiết SP): có thể bán / có thể nhập — chip bật/tắt độc lập */
+.trade-chip { display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--muted); font: inherit; font-size: .85rem; cursor: pointer; text-decoration: line-through; }
+.trade-chip.on { background: #e8f6ee; border-color: #1a8a4a; color: #1a8a4a; font-weight: 700; text-decoration: none; }
 
 /* ══ Cần làm hàng — bảng điều phối sản xuất (#/nhu-cau) ══
    Triage 2 vùng: câu phán tổng → CẦN QUYẾT ĐỊNH (thẻ mở sẵn) → LÀM ĐƯỢC (thẻ gập,

@@ -5,7 +5,7 @@ from typing import Optional
 from .schema import _PRODUCTS_CACHE_TTL, _invalidate_products_cache, _products_cache
 
 
-_COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material, prod_mam, prod_luong, can_produce_directly, min_stock, self_container"
+_COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material, prod_mam, prod_luong, can_produce_directly, min_stock, self_container, can_sell, can_purchase"
 _FIELDS = tuple(c.strip() for c in _COLS.split(","))
 
 # SP "tự-là-thùng" = SP có ĐƠN VỊ ĐẾM là đơn vị nguyên kiện (thùng/kiện): bản thân nó
@@ -26,6 +26,8 @@ def _row(r) -> dict:
     d["can_produce_directly"] = d.get("can_produce_directly") != 0   # SX trực tiếp được (mặc định True)
     d["min_stock"] = float(d.get("min_stock") or 0)   # tồn kho tối thiểu
     d["self_container"] = is_self_container_unit(d.get("unit"))   # suy từ đơn vị (thùng/kiện)
+    d["can_sell"] = d.get("can_sell") != 0           # có thể bán (mặc định True)
+    d["can_purchase"] = d.get("can_purchase") != 0   # có thể nhập từ NCC (mặc định True)
     return d
 
 
@@ -55,7 +57,7 @@ def get_all_products(conn, *, _use_cache: bool = True) -> list[dict]:
     return result
 
 
-def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, prod_mam: float = None, prod_luong: float = None, can_produce_directly: bool = None, min_stock: float = None, self_container: bool = None) -> bool:
+def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, prod_mam: float = None, prod_luong: float = None, can_produce_directly: bool = None, min_stock: float = None, self_container: bool = None, can_sell: bool = None, can_purchase: bool = None) -> bool:
     code = code.upper().strip()
     if not code:
         return False
@@ -81,6 +83,10 @@ def upsert_product(conn, code: str, name: str = None, cost_price: int = None, no
             updates.append("min_stock = ?"); params.append(float(min_stock) if min_stock != "" else 0)
         if self_container is not None:
             updates.append("self_container = ?"); params.append(1 if self_container else 0)
+        if can_sell is not None:
+            updates.append("can_sell = ?"); params.append(1 if can_sell else 0)
+        if can_purchase is not None:
+            updates.append("can_purchase = ?"); params.append(1 if can_purchase else 0)
         if not updates:
             return True
         updates.append("updated_at = ?"); params.extend([now, code])

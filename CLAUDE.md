@@ -300,6 +300,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   chọn NCC gõ tên lạ → tạo mới ngay) → `#/nhap-hang/:id` (PurchaseDetail);
   `#/ncc` (SuppliersList, thống kê số phiếu/tổng tiền) → `#/ncc/:id` (SupplierDetail,
   sửa info + phiếu nhập của NCC). Tests: `tests/test_purchase_store.py`.
+  SP có 2 cờ `can_sell`/`can_purchase` (products, mặc định 1, sửa ở chi tiết SP
+  `#/kho/:code` khối "Mua bán", admin): tắt → SP biến khỏi GỢI Ý picker tương ứng
+  (bán = InvoiceEditor, nhập = PurchaseModal/PurchaseDetail — lọc client-side từ
+  `/api/products?search=`; mã gõ tự do vẫn nhận).
 - `chat_log/` — logs new/edited/deleted Telegram messages to DB.
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
 

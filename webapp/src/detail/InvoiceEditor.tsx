@@ -28,7 +28,9 @@ function ProductInput({ value, onChange, onCommit }: {
       class="ie-sp"
       onSearch={async (v) => {
         const r = await searchProducts(v).catch(() => []);
-        return r.map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }));
+        // chỉ gợi ý SP "có thể bán" (cờ ở chi tiết SP); mã tự do vẫn gõ được
+        return r.filter((s) => s.can_sell !== false)
+          .map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }));
       }}
       onPick={(o) => { onChange(o.key); onCommit(o.key); }}
     />

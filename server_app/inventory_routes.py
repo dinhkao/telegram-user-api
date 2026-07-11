@@ -1047,6 +1047,8 @@ async def inventory_detail_handler(request: web.Request):
             "can_produce_directly": bool(prod.get("can_produce_directly")),
             "self_container": bool(prod.get("self_container")),
             "min_stock": float(prod.get("min_stock") or 0),
+            "can_sell": bool(prod.get("can_sell", True)),
+            "can_purchase": bool(prod.get("can_purchase", True)),
             "cost_price": prod.get("cost_price") or 0, "unit": prod.get("unit") or "cây",
             "kv_id": prod.get("kv_id"), "kv_full_name": prod.get("kv_full_name"),
             "kv_synced_at": prod.get("kv_synced_at"),
