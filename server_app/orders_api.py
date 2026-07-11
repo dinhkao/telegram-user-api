@@ -69,7 +69,7 @@ def _build_order_row(r) -> dict:
     _maps = display_maps()
     inv = [display_item(_maps, it) for it in inv]
     invoice_items = [{"sp": it.get("sp", "?"), "sl": it.get("sl", it.get("quantity", it.get("sl1pc", 0)) or 0), "price": int(it.get("price", 0) or 0)} for it in inv]
-    return {"key": r["firebase_key"], "thread_id": r["thread_id"], "channel_id": r["channel_id"], "message_id": r["message_id"], "customer": customer, "total": total, "paid": paid, "remaining": max(0, raw_total - paid), "phone": pc.get("sdt", ""), "date": date, "status": j.get("trang_thai", ""), "soan": j.get("soan", False), "giao": j.get("giao", False), "nop": j.get("nop", False), "nhan": j.get("nhan", False), "nhan_tien_note": (ts.get("nhan_tien", {}) or {}).get("note", ""), "done_after_20250124": j.get("done_after_20250124", False), "updated_at": r["updated_at"], "hd_code": hd_code, "creator": creator, "giao_by": giao_by, "nop_by": nop_by, "nop_note": nop_note, "task_icons": task_icons, "task_bys": task_bys, "text": (j.get("text") or j.get("text_raw") or ""), "created": j.get("created"), "topic_name": j.get("topic_name", ""), "invoice_count": len(inv), "invoice_summary": [{"sp": it["sp"], "sl": it["sl"]} for it in invoice_items[:5]], "invoice_items": invoice_items, "vat": int(j.get("vat", 0) or 0), "pvc": int(j.get("pvc", 0) or 0), "discount": int(j.get("discount", 0) or 0), "no_truoc": pc.get("no_truoc", ""), "kh_debt": (j.get("khDebt") if j.get("khDebt") is not None else j.get("invoice_debt_snapshot")), "tongtienhang": pc.get("tongtienhang", ""), "ngay_giao": j.get("ngay_giao") or "", "giao_done": bool((ts.get("giao_hang") or {}).get("done")), "soan_img_ids": soan_img_ids, "nop_img_id": nop_img_id}
+    return {"key": r["firebase_key"], "thread_id": r["thread_id"], "channel_id": r["channel_id"], "message_id": r["message_id"], "customer": customer, "total": total, "paid": paid, "remaining": max(0, raw_total - paid), "phone": pc.get("sdt", ""), "date": date, "status": j.get("trang_thai", ""), "soan": j.get("soan", False), "giao": j.get("giao", False), "nop": j.get("nop", False), "nhan": j.get("nhan", False), "nhan_tien_note": (ts.get("nhan_tien", {}) or {}).get("note", ""), "done_after_20250124": j.get("done_after_20250124", False), "updated_at": r["updated_at"], "hd_code": hd_code, "creator": creator, "giao_by": giao_by, "nop_by": nop_by, "nop_note": nop_note, "task_icons": task_icons, "task_bys": task_bys, "text": (j.get("text") or j.get("text_raw") or ""), "created": j.get("created"), "topic_name": j.get("topic_name", ""), "invoice_count": len(inv), "invoice_summary": [{"sp": it["sp"], "sl": it["sl"]} for it in invoice_items[:5]], "invoice_items": invoice_items, "vat": int(j.get("vat", 0) or 0), "pvc": int(j.get("pvc", 0) or 0), "discount": int(j.get("discount", 0) or 0), "no_truoc": pc.get("no_truoc", ""), "kh_debt": (j.get("khDebt") if j.get("khDebt") is not None else j.get("invoice_debt_snapshot")), "tongtienhang": pc.get("tongtienhang", ""), "ngay_giao": j.get("ngay_giao") or "", "giao_done": bool((ts.get("giao_hang") or {}).get("done")), "giao_at": (ts.get("giao_hang") or {}).get("at") or "", "soan_img_ids": soan_img_ids, "nop_img_id": nop_img_id}
 
 
 def _ngay_giao_due() -> str:
@@ -310,6 +310,12 @@ async def orders_api_handler(request: web.Request):
         # các view khác ngày giao XA/mới nhất trước (DESC). Chưa hẹn giao luôn xuống dưới.
         ng_dir = "ASC" if filt == "chua_giao" else "DESC"
         order_by = f"CASE WHEN {has_ng} THEN 0 ELSE 1 END ASC, CASE WHEN {has_ng} THEN {ng} END {ng_dir}, {created_expr} DESC, o.thread_id DESC"
+    elif sort == "giao_at":
+        # 'Ngày giao' (thực tế): theo GIỜ ĐÁNH DẤU GIAO XONG (task_status.giao_hang.at,
+        # ISO) — giao gần nhất lên đầu. Đơn chưa giao xuống dưới (mới tạo trước).
+        ga = "json_extract(o.json, '$.task_status.giao_hang.at')"
+        has_ga = f"({ga} IS NOT NULL AND {ga} != '')"
+        order_by = f"CASE WHEN {has_ga} THEN 0 ELSE 1 END ASC, CASE WHEN {has_ga} THEN {ga} END DESC, {created_expr} DESC, o.thread_id DESC"
     else:
         order_by = f"CASE WHEN {has_data} THEN 0 ELSE 1 END ASC, o.updated_at DESC, o.thread_id DESC"
     try:

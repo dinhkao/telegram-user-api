@@ -162,12 +162,12 @@ export function OrdersList() {
     { m: "compact" as const, ic: "≣", t: "Gọn" },
     { m: "ultra" as const, ic: "▬", t: "Siêu gọn" },
   ];
-  const [sort, setSort] = useState<"created" | "updated" | "ngay_giao">(() => {
+  const [sort, setSort] = useState<"created" | "updated" | "ngay_giao" | "giao_at">(() => {
     const s = localStorage.getItem("dash_sort");
-    return s === "updated" || s === "ngay_giao" ? s : "created";
+    return s === "updated" || s === "ngay_giao" || s === "giao_at" ? s : "created";
   });
   const sortRef = useRef(sort); // đọc trong load (tránh stale closure)
-  const changeSort = (s: "created" | "updated" | "ngay_giao") => {
+  const changeSort = (s: "created" | "updated" | "ngay_giao" | "giao_at") => {
     if (s === sortRef.current) return;
     autoSortPrev = null; // user tự chọn sort → thôi auto-trả-lại khi rời "Chưa giao"
     sortRef.current = s;
@@ -484,7 +484,8 @@ export function OrdersList() {
         <span class="sort-lbl">Sắp xếp:</span>
         <button class={sort === "created" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("created")}>Mới tạo</button>
         <button class={sort === "updated" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("updated")}>Mới cập nhật</button>
-        <button class={sort === "ngay_giao" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("ngay_giao")}>Ngày giao</button>
+        <button class={sort === "ngay_giao" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("ngay_giao")}>Ngày hẹn giao</button>
+        <button class={sort === "giao_at" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("giao_at")}>Ngày giao</button>
       </div>
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
       {err && <p class="error">{err}</p>}

@@ -63,7 +63,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   // Tự lưu ngay khi đổi ngày/giờ (không cần nút Lưu) — tính combined từ giá trị MỚI.
   const commitNgg = async (d: string, t: string) => {
     setSavingNg(true); setMsg("");
-    try { await setOrderNgayGiao(threadId, d ? (t ? `${d}T${t}` : d) : ""); changed(); setMsg("✅ Đã lưu ngày giao"); }
+    try { await setOrderNgayGiao(threadId, d ? (t ? `${d}T${t}` : d) : ""); changed(); setMsg("✅ Đã lưu ngày hẹn giao"); }
     catch (e: any) { setMsg(`❌ ${e.message}`); }
     finally { setSavingNg(false); }
   };
@@ -501,7 +501,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
 
       <div class="card">
         <div class="row space">
-          <b><Icon name="truck" size={16} /> Ngày giao</b>
+          <b><Icon name="truck" size={16} /> Ngày hẹn giao</b>
           {j.ngay_giao && j.ngay_giao_auto ? <span class="muted small">tự đặt khi tạo đơn</span> : null}
         </div>
         <div class="row ngg-row">
@@ -510,7 +510,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           <input type="time" class="ngg-time" value={nggTime} disabled={!nggDate || savingNg}
             onChange={(e: any) => { const v = e.target.value; setNggTime(v); commitNgg(nggDate, v); }} />
           {savingNg && <span class="muted small">⏳</span>}
-          {nggDate && !savingNg && <button class="btn small" title="Xoá ngày giao" onClick={() => { setNggDate(""); setNggTime(""); commitNgg("", ""); }}>✕</button>}
+          {nggDate && !savingNg && <button class="btn small" title="Xoá ngày hẹn giao" onClick={() => { setNggDate(""); setNggTime(""); commitNgg("", ""); }}>✕</button>}
         </div>
         {nggCombined ? <p class="muted small">Giao dự kiến: <b>{fmtNgayGiao(nggCombined)}</b> · tự lưu khi đổi</p> : <p class="muted small">Chưa đặt ngày giao.</p>}
       </div>

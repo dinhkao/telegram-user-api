@@ -36,6 +36,7 @@ export type OrderRow = {
   kh_debt?: number | null;
   created?: string;
   ngay_giao?: string;
+  giao_at?: string;   // giờ đánh dấu GIAO XONG (ISO) — sort/nhóm 'Ngày giao' thực tế
   giao_by?: string;
   nop_by?: string;
   nop_note?: string;
@@ -160,8 +161,9 @@ export function dayKeyOf(created?: string): string {
 }
 
 /** Nhóm đơn theo NGÀY của trường đang SORT (giữ thứ tự hiện có; gộp liên tiếp cùng
- *  ngày): created (mặc định) | ngay_giao (chưa hẹn → nhóm "Chưa hẹn giao") | updated. */
-export function groupOrdersByDay(orders: OrderRow[], by: "created" | "ngay_giao" | "updated" = "created"): { key: string; label: string; orders: OrderRow[] }[] {
+ *  ngày): created (mặc định) | ngay_giao = ngày HẸN giao (chưa hẹn → "Chưa hẹn giao")
+ *  | giao_at = ngày GIAO XONG thực tế (chưa giao → "Chưa giao") | updated. */
+export function groupOrdersByDay(orders: OrderRow[], by: "created" | "ngay_giao" | "giao_at" | "updated" = "created"): { key: string; label: string; orders: OrderRow[] }[] {
   const out: { key: string; label: string; orders: OrderRow[] }[] = [];
   for (const o of orders) {
     let key: string, label: string | null = null;
@@ -170,6 +172,10 @@ export function groupOrdersByDay(orders: OrderRow[], by: "created" | "ngay_giao"
       const m = (o.ngay_giao || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
       if (m) key = `${m[3]}/${m[2]}/${m[1]}`;
       else { key = "none"; label = "Chưa hẹn giao"; }
+    } else if (by === "giao_at") {
+      // giao_at là ISO UTC → dayKeyOf đổi qua giờ VN rồi lấy ngày
+      if (o.giao_at) key = dayKeyOf(o.giao_at);
+      else { key = "none"; label = "Chưa giao"; }
     } else if (by === "updated") {
       key = dayKeyOf(o.updated_at as any);
     } else {
