@@ -113,6 +113,22 @@ def test_worker_filter(conn, monkeypatch):
     assert report_slips.resolve_worker_names(conn, None) is None
 
 
+def test_update_slip(conn):
+    s = report_slips.add_slip(conn, "2026-07-06", "2026-07-12", note="cũ", worker_ids=[1, 2])
+    # sửa từng phần — field không truyền giữ nguyên
+    u = report_slips.update_slip(conn, s["id"], note="mới")
+    assert u["note"] == "mới" and u["from_ymd"] == "2026-07-06" and u["worker_ids"] == [1, 2]
+    u = report_slips.update_slip(conn, s["id"], from_ymd="2026-07-01", to_ymd="2026-07-05")
+    assert (u["from_ymd"], u["to_ymd"]) == ("2026-07-01", "2026-07-05")
+    u = report_slips.update_slip(conn, s["id"], worker_ids=[3])
+    assert u["worker_ids"] == [3]
+    u = report_slips.update_slip(conn, s["id"], worker_ids=None)   # về MỌI THỢ
+    assert u["worker_ids"] is None
+    with pytest.raises(ValueError):
+        report_slips.update_slip(conn, s["id"], from_ymd="2026-08-01")   # from > to
+    assert report_slips.update_slip(conn, 9999, note="x") is None
+
+
 def test_slip_fixed_wage_overrides_current_table(conn, monkeypatch):
     """Phiếu đã CHỐT luong_1sp → dùng giá chốt, mặc kệ bảng lương hiện tại;
     phiếu chưa chốt (NULL) → bảng lương hiện tại."""

@@ -5,6 +5,7 @@
 // Data: listReportSlips/createReportSlip/listWorkers. Realtime report_slips_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
 import { createReportSlip, isOffice, listReportSlips, listWorkers, soVN, type ReportSlip, type Worker } from "../api";
+import { WorkerChips } from "../detail/WorkerChips";
 import { onRealtime } from "../realtime";
 import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
@@ -57,18 +58,6 @@ export function ReportSlips() {
     }
   };
 
-  // Chip thợ: sel = null nghĩa là MỌI THỢ (kể cả thợ thêm sau); bấm 1 chip khi đang
-  // "mọi thợ" = bỏ riêng thợ đó; preset Lương tuần = chỉ thợ bật nhận lương tuần.
-  const isOn = (id: number) => sel === null || sel.has(id);
-  const toggleWorker = (id: number) => {
-    setSel((s) => {
-      const base = s === null ? new Set(workers.map((w) => w.id)) : new Set(s);
-      base.has(id) ? base.delete(id) : base.add(id);
-      return base.size === workers.length ? null : base;
-    });
-  };
-  const weeklyIds = workers.filter((w) => w.weekly_salary).map((w) => w.id);
-
   const create = async () => {
     if (busy) return;
     if (!from || !to) { toast("Phải chọn ngày bắt đầu và ngày kết thúc", "err"); return; }
@@ -120,24 +109,7 @@ export function ReportSlips() {
           <button class="rs-preset" onClick={() => preset("this")}>Tuần này</button>
           <button class="rs-preset" onClick={() => preset("last")}>Tuần trước</button>
         </div>
-        {workers.length > 0 && (
-          <div class="rs-workers">
-            <div class="rs-workers-head">
-              <span class="muted small">Thợ tính trong báo cáo{sel === null ? " (tất cả)" : ` (${sel.size}/${workers.length})`}</span>
-              <button class="rs-preset" onClick={() => setSel(null)}>Tất cả</button>
-              {weeklyIds.length > 0 && (
-                <button class="rs-preset" onClick={() => setSel(new Set(weeklyIds))}>Lương tuần ({weeklyIds.length})</button>
-              )}
-            </div>
-            <div class="rs-worker-chips">
-              {workers.map((w) => (
-                <button key={w.id} class={isOn(w.id) ? "rs-wchip on" : "rs-wchip"} onClick={() => toggleWorker(w.id)}>
-                  {w.name}{w.weekly_salary ? " ·T" : ""}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        <WorkerChips workers={workers} value={sel} onChange={setSel} />
         <input class="rs-note" type="text" placeholder="Ghi chú (tuỳ chọn)…" value={note}
           onInput={(e: any) => setNote(e.currentTarget.value)} />
         <button class="btn primary block rs-create-btn" disabled={busy || !from || !to} onClick={create}>

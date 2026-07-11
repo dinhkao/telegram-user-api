@@ -699,6 +699,11 @@ export async function createReportSlip(from: string, to: string, note: string, w
   const d = await postJSON("/api/report-slips", { from, to, note, worker_ids: workerIds && workerIds.length ? workerIds : undefined });
   return d.slip;
 }
+/** Sửa phiếu báo cáo đã tạo. worker_ids: mảng id = chỉ các thợ đó, null = mọi thợ, không gửi = giữ nguyên. */
+export async function updateReportSlip(id: string | number, patch: { from?: string; to?: string; note?: string; worker_ids?: number[] | null }): Promise<ReportSlip> {
+  const d = await postJSON(`/api/report-slips/${id}`, patch);
+  return d.slip;
+}
 export async function getReportSlip(id: string | number): Promise<ReportSlip> {
   const d = await getJSON(`/api/report-slips/${id}`, { cache: false });
   return d.slip;

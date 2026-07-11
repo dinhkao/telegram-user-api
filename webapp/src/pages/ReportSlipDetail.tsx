@@ -1,14 +1,16 @@
 // Chi tiết PHIẾU BÁO CÁO SX (#/bao-cao/:id) — CHỈ văn phòng (tiền lương).
 // Tự tính từ báo cáo thợ trong khoảng ngày: TỔNG CỘNG (SP + tiền) → THEO THỢ
 // (tổng SP + tiền, bung theo mã SP) → TỪNG PHIẾU SX (ngày, SP, tiền — link phiếu).
-// Data: getReportSlip. Xoá = admin. Realtime production/report_slips → tải lại.
+// ✏️ Sửa (văn phòng): đổi ngày/ghi chú/chọn thợ → báo cáo tính lại ngay.
+// Data: getReportSlip/updateReportSlip. Xoá = admin. Realtime → tải lại.
 import { useEffect, useState } from "preact/hooks";
-import { currentUser, deleteReportSlip, getReportSlip, isOffice, soVN, type ReportSlip } from "../api";
+import { currentUser, deleteReportSlip, getReportSlip, isOffice, listWorkers, soVN, updateReportSlip, type ReportSlip, type Worker } from "../api";
 import { onRealtime } from "../realtime";
 import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
+import { WorkerChips } from "../detail/WorkerChips";
 
 const dmy = (ymd: string) => (ymd && ymd.length >= 10 ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}` : ymd);
 const dm = (ymd: string) => (ymd && ymd.length >= 10 ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}` : ymd);
@@ -19,6 +21,40 @@ export function ReportSlipDetail({ id }: { id: string }) {
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<Set<string>>(new Set());
   const admin = currentUser()?.role === "admin";
+  // ── sửa phiếu ──
+  const [editing, setEditing] = useState(false);
+  const [eFrom, setEFrom] = useState("");
+  const [eTo, setETo] = useState("");
+  const [eNote, setENote] = useState("");
+  const [eSel, setESel] = useState<Set<number> | null>(null);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = () => {
+    if (!slip) return;
+    setEFrom(slip.from_ymd); setETo(slip.to_ymd); setENote(slip.note || "");
+    setESel(slip.worker_ids && slip.worker_ids.length ? new Set(slip.worker_ids) : null);
+    listWorkers().then(({ workers }) => setWorkers(workers)).catch(() => {});
+    setEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!slip || saving) return;
+    if (!eFrom || !eTo) { toast("Phải chọn ngày bắt đầu và ngày kết thúc", "err"); return; }
+    if (eFrom > eTo) { toast("Ngày bắt đầu phải trước ngày kết thúc", "err"); return; }
+    if (eSel !== null && eSel.size === 0) { toast("Chọn ít nhất 1 thợ", "err"); return; }
+    setSaving(true);
+    try {
+      await updateReportSlip(slip.id, { from: eFrom, to: eTo, note: eNote, worker_ids: eSel === null ? null : [...eSel] });
+      toast("Đã lưu phiếu báo cáo", "ok");
+      setEditing(false);
+      load();
+    } catch (e: any) {
+      toast(e?.message || "Lỗi lưu", "err");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const load = async () => {
     try { setSlip(await getReportSlip(id)); setErr(""); }
@@ -56,6 +92,9 @@ export function ReportSlipDetail({ id }: { id: string }) {
         <div class="wg-title"><Icon name="receipt" size={18} /> Báo cáo {slip ? `${dmy(slip.from_ymd)} → ${dmy(slip.to_ymd)}` : ""}</div>
         {slip && <div class="muted small">{slip.note ? `${slip.note} · ` : ""}{slip.created_by ? `tạo bởi ${slip.created_by}` : ""}</div>}
       </div>
+      {slip && (
+        <button class="icon-btn" title="Sửa phiếu báo cáo" onClick={startEdit}><Icon name="edit" size={18} /></button>
+      )}
       {admin && slip && (
         <button class="icon-btn rs-del" title="Xoá phiếu báo cáo" onClick={del}><Icon name="trash" size={18} /></button>
       )}
@@ -72,6 +111,29 @@ export function ReportSlipDetail({ id }: { id: string }) {
   return (
     <div class="rs-page">
       {head}
+
+      {editing && (
+        <section class="card rs-create">
+          <label class="card-label">✏️ Sửa phiếu báo cáo</label>
+          <div class="rs-dates">
+            <label class="rs-date-f">
+              <span class="muted small">Từ ngày</span>
+              <input type="date" value={eFrom} max={eTo || undefined} onChange={(e: any) => setEFrom(e.currentTarget.value)} />
+            </label>
+            <label class="rs-date-f">
+              <span class="muted small">Đến ngày</span>
+              <input type="date" value={eTo} min={eFrom || undefined} onChange={(e: any) => setETo(e.currentTarget.value)} />
+            </label>
+          </div>
+          <WorkerChips workers={workers} value={eSel} onChange={setESel} />
+          <input class="rs-note" type="text" placeholder="Ghi chú (tuỳ chọn)…" value={eNote}
+            onInput={(e: any) => setENote(e.currentTarget.value)} />
+          <div class="rs-edit-btns">
+            <button class="btn small" disabled={saving} onClick={() => setEditing(false)}>Huỷ</button>
+            <button class="btn small primary" disabled={saving} onClick={saveEdit}>{saving ? "Đang lưu…" : "Lưu"}</button>
+          </div>
+        </section>
+      )}
 
       <div class="wg-total">
         <div class="wg-total-money">{money(rep.totals.money)}</div>

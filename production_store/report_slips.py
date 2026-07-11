@@ -100,6 +100,38 @@ def resolve_worker_names(conn, worker_ids: list[int] | None) -> list[str] | None
     return [r["name"] for r in rows]
 
 
+_KEEP = object()   # sentinel: field không truyền = giữ nguyên
+
+
+def update_slip(conn, slip_id: int, *, from_ymd=_KEEP, to_ymd=_KEEP, note=_KEEP,
+                worker_ids=_KEEP) -> dict | None:
+    """Sửa phiếu báo cáo đã tạo (ngày, ghi chú, chọn thợ). Field không truyền giữ
+    nguyên; worker_ids=None = MỌI THỢ, list = chỉ các thợ đó. Trả slip mới/None."""
+    cur = get_slip(conn, slip_id)
+    if not cur:
+        return None
+    f = cur["from_ymd"] if from_ymd is _KEEP else str(from_ymd or "").strip()
+    t = cur["to_ymd"] if to_ymd is _KEEP else str(to_ymd or "").strip()
+    if not _YMD.match(f) or not _YMD.match(t):
+        raise ValueError("Phải chọn ngày bắt đầu và ngày kết thúc (YYYY-MM-DD)")
+    if f > t:
+        raise ValueError("Ngày bắt đầu phải trước (hoặc bằng) ngày kết thúc")
+    n = cur["note"] if note is _KEEP else (str(note or "")).strip()
+    if worker_ids is _KEEP:
+        wids = json.dumps(cur["worker_ids"]) if cur["worker_ids"] else None
+    elif worker_ids:
+        wids = json.dumps(sorted({int(x) for x in worker_ids}))
+    else:
+        wids = None   # mọi thợ
+    with transaction(conn):
+        conn.execute(
+            "UPDATE production_report_slips SET from_ymd = ?, to_ymd = ?, note = ?, worker_ids = ? "
+            "WHERE id = ?",
+            (f, t, n, wids, slip_id),
+        )
+    return get_slip(conn, slip_id)
+
+
 def delete_slip(conn, slip_id: int) -> bool:
     with transaction(conn):
         cur = conn.execute("DELETE FROM production_report_slips WHERE id = ?", (slip_id,))

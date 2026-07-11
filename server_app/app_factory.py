@@ -257,11 +257,12 @@ def create_app():
     # ─── phiếu báo cáo SX (office-only — tiền lương) ─────────────────────────
     from server_app.report_slip_routes import (
         report_slips_list_handler, report_slips_create_handler,
-        report_slip_detail_handler, report_slip_delete_handler,
+        report_slip_detail_handler, report_slip_update_handler, report_slip_delete_handler,
     )
     r.add_get("/api/report-slips", report_slips_list_handler)
     r.add_post("/api/report-slips", report_slips_create_handler)
     r.add_get("/api/report-slips/{id}", report_slip_detail_handler)
+    r.add_post("/api/report-slips/{id}", report_slip_update_handler)
     r.add_delete("/api/report-slips/{id}", report_slip_delete_handler)
 
     # ─── danh sách thợ (template báo cáo) ────────────────────────────────────

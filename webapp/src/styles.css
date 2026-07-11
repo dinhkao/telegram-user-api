@@ -1600,6 +1600,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .rs-wchip { padding: 6px 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); font: inherit; font-size: .82rem; font-weight: 600; color: var(--muted); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .rs-wchip.on { background: var(--accent-wash); border-color: var(--primary); color: var(--primary); }
 .rs-only-workers { margin-top: 5px; }
+.rs-edit-btns { display: flex; gap: 8px; justify-content: flex-end; }
 
 /* BẢNG LƯƠNG SP (#/luong-sp) */
 .wt-add { display: flex; gap: 8px; align-items: center; }
