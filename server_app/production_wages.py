@@ -109,12 +109,14 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
         workers = sorted(d["workers"].values(), key=lambda x: -x["money"])
         for wk in workers:
             wk["items"].sort(key=lambda x: -x["money"])
-        day_list.append({"ymd": ymd, "money": d["money"], "cay": d["cay"], "workers": workers})
+        day_list.append({"ymd": ymd, "money": d["money"], "cay": d["cay"],
+                         "allowance": d.get("allowance", 0), "workers": workers})
 
     return {
         "ok": True, "from": dfrom, "to": dto,
         "days": day_list,
-        "totals": {"money": sum(d["money"] for d in day_list), "cay": round(sum(d["cay"] for d in day_list), 1)},
+        "totals": {"money": sum(d["money"] for d in day_list), "cay": round(sum(d["cay"] for d in day_list), 1),
+                   "allowance": sum(d.get("allowance", 0) for d in day_list)},
         "missing_wage": sorted(c for c in missing if c),
     }
 

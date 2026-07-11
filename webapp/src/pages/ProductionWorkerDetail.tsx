@@ -89,7 +89,7 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
             {g.rows.map((r, i) => (
               <a key={i} class="wd-row" href={`#/san_xuat/${r.thread_id}`}>
                 <span class="wd-prod">{r.product_code}</span>
-                <span class="wd-meta muted small">{soVN(r.so_mam)} mâm{r.note ? ` · ${r.note}` : ""}</span>
+                <span class="wd-meta muted small">{soVN(r.so_mam)} mâm{showMoney && (r.allowance || 0) > 0 ? ` · PC ${money(r.allowance || 0)}` : ""}{r.note ? ` · ${r.note}` : ""}</span>
                 {showMoney && r.money != null && <b class="wd-money">{money(r.money)}</b>}
                 <b class={r.tong_calc > 0 ? "wd-sp" : "wd-sp muted"}>{soVN(r.tong_calc)}</b>
               </a>

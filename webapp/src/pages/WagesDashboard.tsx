@@ -53,7 +53,7 @@ export function WagesDashboard() {
 
       <div class="wg-total">
         <div class="wg-total-money">{money(d.totals.money)}</div>
-        <div class="muted small">tổng {d.days.length} ngày · {soVN(d.totals.cay)} cây</div>
+        <div class="muted small">tổng {d.days.length} ngày · {soVN(d.totals.cay)} cây{(d.totals.allowance || 0) > 0 ? ` · gồm phụ cấp ${money(d.totals.allowance || 0)}` : ""}</div>
       </div>
 
       {d.missing_wage.length > 0 && (
@@ -79,7 +79,7 @@ export function WagesDashboard() {
                   <div class="wg-wk" key={k}>
                     <button class="wg-wk-row" onClick={() => toggle(k)} aria-expanded={isOpen}>
                       <Icon name={isOpen ? "chevronDown" : "chevronRight"} size={14} />
-                      <span class="wg-wk-name">{w.name}</span>
+                      <span class="wg-wk-name">{w.name}{(w.allowance || 0) > 0 ? <span class="wg-wk-pc"> +PC</span> : null}</span>
                       <span class="wg-wk-cay muted small">{soVN(w.cay)} cây</span>
                       <span class="wg-wk-money">{money(w.money)}</span>
                     </button>
@@ -92,6 +92,13 @@ export function WagesDashboard() {
                             <span class="wg-item-money">{money(it.money)}</span>
                           </div>
                         ))}
+                        {(w.allowance || 0) > 0 && (
+                          <div class="wg-item wg-item-pc">
+                            <span class="wg-item-code">Phụ cấp</span>
+                            <span class="wg-item-calc muted small">văn phòng nhập</span>
+                            <span class="wg-item-money">{money(w.allowance || 0)}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

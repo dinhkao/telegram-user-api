@@ -1547,6 +1547,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .wg-item-code { flex: 0 0 auto; font-family: var(--mono, ui-monospace, monospace); font-weight: 700; }
 .wg-item-calc { flex: 1 1 auto; min-width: 0; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wg-item-money { flex: 0 0 auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.wg-wk-pc { color: var(--ok); font-size: .72rem; font-weight: 700; }
+.wg-item-pc .wg-item-code { color: var(--ok); }
 
 /* THẺ SP CẦN LÀM — top band màu = mức độ; 3 dòng luôn hiện + phần mở rộng */
 .nd-card { position: relative; background: var(--card); border: 1px solid var(--border); border-top-width: 3px;
