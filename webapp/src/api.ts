@@ -1088,7 +1088,7 @@ export async function forceReloadAll(): Promise<{ ok: boolean; clients: number }
 }
 
 // ── Tiền công thợ theo ngày (NHẠY CẢM — chỉ văn phòng; server chặn 403) ──
-export type WageItem = { code: string; cay: number; wage: number; money: number };
+export type WageItem = { code: string; cay: number; wage: number; money: number; piece?: number; allowance?: number };
 export type WageWorker = { name: string; money: number; cay: number; allowance?: number; items: WageItem[] };
 export type WageDay = { ymd: string; money: number; cay: number; allowance?: number; workers: WageWorker[] };
 export type WagesDashboard = { from: string; to: string; days: WageDay[]; totals: { money: number; cay: number; allowance?: number }; missing_wage: string[] };

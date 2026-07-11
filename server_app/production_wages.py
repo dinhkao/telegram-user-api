@@ -70,39 +70,52 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
             "ORDER BY t.report_ymd DESC",
             (dfrom, dto),
         ).fetchall()
-        from production_store.allowances import allowances_by_day_worker
-        allow = allowances_by_day_worker(conn, dfrom, dto)   # {(ymd, worker): Σ phụ cấp}
+        from production_store.allowances import allowances_by_day_worker_product
+        allow = allowances_by_day_worker_product(conn, dfrom, dto)   # {(ymd, worker, code): Σ phụ cấp}
     finally:
         conn.close()
 
+    def _mk_day(ymd):
+        return days.setdefault(ymd, {"ymd": ymd, "money": 0, "cay": 0.0, "allowance": 0, "workers": {}})
+
+    def _mk_wk(d, worker):
+        return d["workers"].setdefault(worker, {"name": worker, "money": 0, "cay": 0.0, "allowance": 0, "items": []})
+
     days: dict = {}          # ymd → {money, cay, allowance, workers: {name → {money, cay, allowance, items:[]}}}
     missing: set = set()
+    seen: set = set()        # (ymd, worker, code) đã có dòng item
     for r in rows:
         ymd, worker, code, cay = r["ymd"], (r["worker"] or "?"), (r["code"] or ""), float(r["cay"] or 0)
-        d = days.setdefault(ymd, {"ymd": ymd, "money": 0, "cay": 0.0, "allowance": 0, "workers": {}})
+        d = _mk_day(ymd)
         # HIỆN MỌI dòng SP thợ có mặt trong phiếu — kể cả làm 0 cây (0đ). Thợ luôn được tạo.
-        wk = d["workers"].setdefault(worker, {"name": worker, "money": 0, "cay": 0.0, "allowance": 0, "items": []})
+        wk = _mk_wk(d, worker)
         wage = wage_per_cay(code)
         if cay > 0 and wage <= 0:   # chỉ cảnh báo thiếu đơn giá khi thực sự có sản lượng
             missing.add(code)
-        money = round(cay * wage)
-        wk["items"].append({"code": code, "cay": cay, "wage": wage, "money": money})
+        piece = round(cay * wage)
+        a = round(allow.get((ymd, worker, code), 0))   # PHỤ CẤP gắn ngay vào dòng SP của phiếu
+        money = piece + a
+        wk["items"].append({"code": code, "cay": cay, "wage": wage, "piece": piece, "allowance": a, "money": money})
         wk["money"] += money
+        wk["allowance"] += a
         wk["cay"] = round(wk["cay"] + cay, 1)
         d["money"] += money
+        d["allowance"] += a
         d["cay"] = round(d["cay"] + cay, 1)
+        seen.add((ymd, worker, code))
 
-    # cộng PHỤ CẤP theo (ngày, thợ) — cả vào tiền thợ lẫn tổng ngày (tạo thợ nếu chỉ có phụ cấp)
-    for (ymd, worker), amt in allow.items():
+    # An toàn: phụ cấp không khớp dòng SP nào (hiếm — mã đổi/thiếu row) → dòng riêng để không mất tiền
+    for (ymd, worker, code), amt in allow.items():
         amt = round(amt)
-        if amt == 0:
+        if amt == 0 or (ymd, worker, code) in seen:
             continue
-        d = days.setdefault(ymd, {"ymd": ymd, "money": 0, "cay": 0.0, "allowance": 0, "workers": {}})
-        wk = d["workers"].setdefault(worker, {"name": worker, "money": 0, "cay": 0.0, "allowance": 0, "items": []})
-        wk["allowance"] += amt
+        d = _mk_day(ymd)
+        wk = _mk_wk(d, worker)
+        wk["items"].append({"code": code, "cay": 0, "wage": wage_per_cay(code), "piece": 0, "allowance": amt, "money": amt})
         wk["money"] += amt
-        d["allowance"] += amt
+        wk["allowance"] += amt
         d["money"] += amt
+        d["allowance"] += amt
 
     day_list = []
     for ymd in sorted(days, reverse=True):

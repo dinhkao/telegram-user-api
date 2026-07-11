@@ -1549,7 +1549,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .wg-item-calc { flex: 1 1 auto; min-width: 0; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wg-item-money { flex: 0 0 auto; font-weight: 700; font-variant-numeric: tabular-nums; }
 .wg-wk-pc { flex: none; color: var(--ok); font-size: .74rem; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.wg-item-pc .wg-item-code { color: var(--ok); }
+.wg-item-pc-inline { color: var(--ok); font-weight: 600; }
 
 /* THẺ SP CẦN LÀM — top band màu = mức độ; 3 dòng luôn hiện + phần mở rộng */
 .nd-card { position: relative; background: var(--card); border: 1px solid var(--border); border-top-width: 3px;

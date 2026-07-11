@@ -55,18 +55,23 @@ def set_allowance(conn, thread_id: int, worker_name: str, amount: float, by: str
             conn.execute("DELETE FROM production_allowances WHERE thread_id = ? AND worker_name = ?", (thread_id, name))
 
 
-def allowances_by_day_worker(conn, dfrom: str, dto: str) -> dict:
-    """Σ phụ cấp theo (report_ymd, worker_name) trong khoảng — cho dashboard tiền công.
-    Lấy ngày của phiếu từ production_report_rows (phụ cấp gắn theo phiếu, không có ngày)."""
+def allowances_by_day_worker_product(conn, dfrom: str, dto: str) -> dict:
+    """Σ phụ cấp theo (report_ymd, TÊN THỢ HIỆN HÀNH, MÃ SP HIỆN HÀNH) trong khoảng — để
+    gắn phụ cấp vào ĐÚNG dòng SP của phiếu ở dashboard tiền công. Lấy ngày + SP + thợ (đã
+    resolve id) của phiếu từ production_report_rows (phụ cấp gắn theo phiếu, khoá tên snapshot)."""
     ensure_schema(conn)
     rows = conn.execute(
-        "SELECT rr.report_ymd AS ymd, a.worker_name AS worker, SUM(a.amount) AS allow "
+        "SELECT rr.ymd AS ymd, rr.worker AS worker, rr.code AS code, SUM(a.amount) AS allow "
         "FROM production_allowances a "
-        "JOIN (SELECT DISTINCT thread_id, report_ymd, worker_name FROM production_report_rows "
-        "      WHERE report_ymd IS NOT NULL) rr "
-        "  ON rr.thread_id = a.thread_id AND rr.worker_name = a.worker_name "
-        "WHERE rr.report_ymd >= ? AND rr.report_ymd <= ? "
-        "GROUP BY rr.report_ymd, a.worker_name",
+        "JOIN (SELECT DISTINCT t.thread_id, t.report_ymd AS ymd, t.worker_name AS wname, "
+        "             COALESCE(w.name, t.worker_name) AS worker, COALESCE(pr.code, t.product_code) AS code "
+        "      FROM production_report_rows t "
+        "      LEFT JOIN products pr ON pr.id = t.product_id "
+        "      LEFT JOIN production_workers w ON w.id = t.worker_id "
+        "      WHERE t.report_ymd IS NOT NULL) rr "
+        "  ON rr.thread_id = a.thread_id AND rr.wname = a.worker_name "
+        "WHERE rr.ymd >= ? AND rr.ymd <= ? "
+        "GROUP BY rr.ymd, rr.worker, rr.code",
         (dfrom, dto),
     ).fetchall()
-    return {(r[0], r[1]): float(r[2] or 0) for r in rows}
+    return {(r[0], r[1], r[2]): float(r[3] or 0) for r in rows}

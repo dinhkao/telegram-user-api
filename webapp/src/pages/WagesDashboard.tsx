@@ -86,20 +86,13 @@ export function WagesDashboard() {
                     </button>
                     {isOpen && (
                       <div class="wg-items">
-                        {w.items.map((it) => (
-                          <div class="wg-item" key={it.code}>
+                        {w.items.map((it, i) => (
+                          <div class="wg-item" key={i}>
                             <span class="wg-item-code">{it.code}</span>
-                            <span class="wg-item-calc muted small">{soVN(it.cay)} cây × {soVN(it.wage)}đ</span>
+                            <span class="wg-item-calc muted small">{soVN(it.cay)} cây × {soVN(it.wage)}đ{(it.allowance || 0) > 0 ? <span class="wg-item-pc-inline"> · +PC {money(it.allowance || 0)}</span> : null}</span>
                             <span class="wg-item-money">{money(it.money)}</span>
                           </div>
                         ))}
-                        {(w.allowance || 0) > 0 && (
-                          <div class="wg-item wg-item-pc">
-                            <span class="wg-item-code">Phụ cấp</span>
-                            <span class="wg-item-calc muted small">văn phòng nhập</span>
-                            <span class="wg-item-money">{money(w.allowance || 0)}</span>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
