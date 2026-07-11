@@ -64,11 +64,14 @@ def build_production_row(thread_id) -> dict | None:
         slip = get_slip(conn, thread_id)
         rep = {}
         boxed = 0
+        bcodes: list = []
         if slip:
             from production_store.report_rows import report_summaries
-            from inventory_store import sum_boxes_by_source
+            from inventory_store import sum_boxes_by_source, codes_by_source
             rep = report_summaries(conn, [thread_id]).get(slip["thread_id"]) or {}
             boxed = sum_boxes_by_source(conn, [thread_id]).get(slip["thread_id"]) or 0
+            if not (slip.get("sp_name") or "").strip():   # chưa chọn SP → mã thùng đã nhập
+                bcodes = codes_by_source(conn, [thread_id]).get(slip["thread_id"]) or []
     finally:
         conn.close()
     if not slip:
@@ -92,6 +95,7 @@ def build_production_row(thread_id) -> dict | None:
         "report_workers": rep.get("workers") or [],
         "report_notes": rep.get("notes") or [],
         "boxed_total": boxed,   # tổng NHẬP THÙNG thật (Σ quantity thùng từ phiếu, bỏ số nhập tay)
+        "boxed_codes": bcodes,  # mã SP các thùng đã nhập (chỉ khi phiếu CHƯA chọn SP) → hiện ở title
         **_progress(slip),
     }
 
@@ -118,10 +122,13 @@ async def production_list_handler(request: web.Request):
             total = count_slips(conn, kind=kind)
             slips = list_slips(conn, limit=limit, offset=offset, kind=kind)
             from production_store.report_rows import report_summaries
-            from inventory_store import sum_boxes_by_source
+            from inventory_store import sum_boxes_by_source, codes_by_source
             _ids = [s["thread_id"] for s in slips]
             reports = report_summaries(conn, _ids)
             boxed_sums = sum_boxes_by_source(conn, _ids)
+            # phiếu CHƯA chọn SP → lấy mã SP các thùng đã nhập để hiện ở title
+            _need = [s["thread_id"] for s in slips if not (s.get("sp_name") or "").strip()]
+            codes_map = codes_by_source(conn, _need) if _need else {}
         finally:
             conn.close()
         for s in slips:
@@ -131,6 +138,8 @@ async def production_list_handler(request: web.Request):
             s["report_workers"] = rep.get("workers") or []
             s["report_notes"] = rep.get("notes") or []
             s["boxed_total"] = boxed_sums.get(s["thread_id"]) or 0
+            if not (s.get("sp_name") or "").strip():
+                s["boxed_codes"] = codes_map.get(s["thread_id"]) or []
         return slips, total
     slips, total = await asyncio.to_thread(_run)
     return web.json_response({

@@ -257,7 +257,7 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
     <a class="prod-card" href={`#/san_xuat/${slip.thread_id}`}>
       <div class="prod-card-top">
         <span class="prod-sp">
-          {slip.sp_name || "Chưa có SP"}
+          {slip.sp_name || (slip.boxed_codes && slip.boxed_codes.length ? slip.boxed_codes.join(", ") : "Chưa có SP")}
           {isSX
             ? <span class="pk-badge sx"><Icon name="factory" size={12} /> Sản xuất</span>
             : <span class="pk-badge pack"><Icon name="box" size={12} /> Đóng gói</span>}

@@ -522,6 +522,7 @@ export type ProdSlip = {
   date?: string;
   date_code?: string;
   sp_name?: string | null;
+  boxed_codes?: string[];   // mã SP thùng đã nhập (khi phiếu chưa chọn SP) → hiện ở title
   sp_mam?: number | null;
   sp_luong?: number | null;
   sx_target?: number | null;

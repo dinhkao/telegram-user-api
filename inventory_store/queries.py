@@ -95,6 +95,25 @@ def count_boxes_by_source(conn, source_thread_id) -> int:
     return int(row[0]) if row else 0
 
 
+def codes_by_source(conn, thread_ids) -> dict:
+    """{thread_id: [mã SP distinct của thùng NHẬP từ phiếu đó]} — mã hiện hành (join
+    products theo product_id), giữ thứ tự thùng đầu tiên. Dùng cho title phiếu chưa chọn SP."""
+    ids = [int(t) for t in thread_ids if t is not None]
+    if not ids:
+        return {}
+    q = ",".join("?" * len(ids))
+    rows = conn.execute(
+        f"SELECT b.source_thread_id AS tid, COALESCE(pr.code, b.product_code) AS code "
+        f"FROM inventory_boxes b LEFT JOIN products pr ON pr.id = b.product_id "
+        f"WHERE b.source_thread_id IN ({q}) "
+        f"AND COALESCE(pr.code, b.product_code) IS NOT NULL AND COALESCE(pr.code, b.product_code) != '' "
+        f"GROUP BY b.source_thread_id, code ORDER BY b.source_thread_id, MIN(b.id)", ids).fetchall()
+    out: dict = {}
+    for r in rows:
+        out.setdefault(r["tid"], []).append(r["code"])
+    return out
+
+
 def sum_boxes_by_source(conn, thread_ids) -> dict:
     """{thread_id: Σ quantity} thùng tạo từ mỗi phiếu SX — tổng 'Nhập thùng' của card/so
     sánh (CHỈ thùng nhập qua UI web, không tính số nhập tay trong numbers)."""
