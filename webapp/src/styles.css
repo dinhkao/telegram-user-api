@@ -547,6 +547,14 @@ body.has-nop .order-day-head { top: 135px; }   /* banner 28px đẩy xuống */
 .ret-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
 .ret-toolbar .sbar, .ret-toolbar .searchbar { flex: 1; min-width: 0; }
 
+/* Nhập hàng + nhà cung cấp (dùng lại khung ret-* của trả hàng, đổi màu nhấn) */
+.pur-card { border-left-color: #1a8a4a; }
+.pur-amt { font-weight: 800; color: #1a8a4a; font-variant-numeric: tabular-nums; }
+.sup-card { border-left-color: #2680ff; }
+.sup-info { display: flex; flex-direction: column; gap: 6px; font-size: .92rem; }
+.sup-info a { color: var(--primary, #2680ff); text-decoration: none; }
+.pur-ncc-link { display: inline-flex; align-items: center; gap: 5px; font-size: .88rem; font-weight: 600; color: var(--primary, #2680ff); text-decoration: none; padding: 2px 0 4px; }
+
 /* Cài đặt hệ thống (trang Cài đặt, admin) */
 .set-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; font-size: .92rem; line-height: 1.45; cursor: pointer; }
 .set-row input { width: 20px; height: 20px; margin-top: 1px; flex: 0 0 auto; }

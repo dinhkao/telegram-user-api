@@ -18,6 +18,8 @@ const GROUPS: Group[] = [
   ] },
   { title: "Kho", icon: "box", items: [
     { label: "Kho hàng", href: "#/kho", icon: "box" },
+    { label: "Nhập hàng", href: "#/nhap-hang", icon: "truck" },
+    { label: "Nhà cung cấp", href: "#/ncc", icon: "users" },
     { label: "Cần làm hàng", href: "#/nhu-cau", icon: "chart" },
     { label: "Chuyển kho", href: "#/chuyen-kho", icon: "truck" },
     { label: "Sản phẩm", href: "#/san-pham", icon: "tag" },

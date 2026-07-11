@@ -1,0 +1,79 @@
+"""Unit tests purchase_store + supplier_store — SQLite tạm (không đụng app.db)."""
+from __future__ import annotations
+
+import os
+import tempfile
+import unittest
+
+from purchase_store import (add_purchase, count_all_purchases, get_purchase,
+                            get_purchase_full, list_all_purchases,
+                            list_purchases_for_supplier, soft_delete_purchase,
+                            update_purchase_items)
+from supplier_store import (add_supplier, get_supplier, list_suppliers,
+                            soft_delete_supplier, update_supplier)
+from utils.db import get_connection
+
+
+class PurchaseSupplierStore(unittest.TestCase):
+    def setUp(self):
+        self.db = os.path.join(tempfile.mkdtemp(), "test.db")
+        self.conn = get_connection(self.db)
+
+    def tearDown(self):
+        self.conn.close()
+
+    def test_supplier_crud(self):
+        s = add_supplier(self.conn, "Cty Bao Bì A", phone="0901", address="Q5", by="duy")
+        self.assertEqual(s["name"], "Cty Bao Bì A")
+        update_supplier(self.conn, s["id"], phone="0999", note="giao thứ 2")
+        s2 = get_supplier(self.conn, s["id"])
+        self.assertEqual(s2["phone"], "0999")
+        self.assertEqual(s2["name"], "Cty Bao Bì A")  # ô không gửi giữ nguyên
+        soft_delete_supplier(self.conn, s["id"], by="duy")
+        self.assertIsNotNone(get_supplier(self.conn, s["id"])["deleted_at"])
+        self.assertEqual(list_suppliers(self.conn), [])  # xoá mềm → khỏi list
+
+    def test_purchase_flow(self):
+        s = add_supplier(self.conn, "NCC B")
+        items = [{"sp": "KDX", "sl": 10, "price": 5000}, {"sp": "KGL", "sl": 2, "price": 0}]
+        p = add_purchase(self.conn, s["id"], items, 50000, note="đợt 1", by="trang")
+        self.assertEqual(p["total"], 50000)
+        self.assertEqual(len(p["items"]), 2)
+        full = get_purchase_full(self.conn, p["id"])
+        self.assertEqual(full["supplier_name"], "NCC B")
+        # sửa items + đổi tổng
+        update_purchase_items(self.conn, p["id"], [{"sp": "KDX", "sl": 5, "price": 4000}], 20000, "sửa")
+        p2 = get_purchase(self.conn, p["id"])
+        self.assertEqual(p2["total"], 20000)
+        self.assertEqual(p2["note"], "sửa")
+
+    def test_dashboard_and_stats(self):
+        a = add_supplier(self.conn, "A")
+        b = add_supplier(self.conn, "B")
+        add_purchase(self.conn, a["id"], [{"sp": "X", "sl": 1, "price": 100}], 100)
+        add_purchase(self.conn, a["id"], [{"sp": "Y", "sl": 2, "price": 50}], 100)
+        add_purchase(self.conn, b["id"], [{"sp": "Z", "sl": 1, "price": 999}], 999)
+        self.assertEqual(count_all_purchases(self.conn), 3)
+        rows = list_all_purchases(self.conn, limit=2)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["supplier_name"], "B")  # mới nhất trước
+        stats = {s["name"]: s for s in list_suppliers(self.conn)}
+        self.assertEqual(stats["A"]["so_phieu"], 2)
+        self.assertEqual(stats["A"]["tong_tien"], 200)
+        self.assertEqual(stats["B"]["tong_tien"], 999)
+        self.assertEqual(len(list_purchases_for_supplier(self.conn, a["id"])), 2)
+
+    def test_soft_delete_purchase_updates_stats(self):
+        s = add_supplier(self.conn, "C")
+        p = add_purchase(self.conn, s["id"], [{"sp": "X", "sl": 1, "price": 10}], 10)
+        soft_delete_purchase(self.conn, p["id"], by="admin")
+        self.assertEqual(count_all_purchases(self.conn), 0)
+        self.assertEqual(list_purchases_for_supplier(self.conn, s["id"]), [])
+        row = get_purchase(self.conn, p["id"])  # row còn (xoá mềm)
+        self.assertIsNotNone(row["deleted_at"])
+        self.assertEqual(row["deleted_by"], "admin")
+        self.assertEqual(list_suppliers(self.conn)[0]["so_phieu"], 0)
+
+
+if __name__ == "__main__":
+    unittest.main()

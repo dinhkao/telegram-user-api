@@ -164,6 +164,22 @@ def emit_return_changed(return_id) -> None:
                   _broadcast({"type": "return_changed", "id": str(return_id)}, "return_changed"))
 
 
+def emit_purchase_changed(purchase_id) -> None:
+    """Phiếu nhập hàng đổi (tạo/sửa/xoá/ảnh/bình luận) → chi tiết + dashboard nhập hàng."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.purchase_changed",
+                  _broadcast({"type": "purchase_changed", "id": str(purchase_id)}, "purchase_changed"))
+
+
+def emit_supplier_changed(supplier_id=None) -> None:
+    """Nhà cung cấp đổi (tạo/sửa/xoá, hoặc thống kê đổi vì phiếu nhập) → list + chi tiết NCC."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.supplier_changed",
+                  _broadcast({"type": "supplier_changed",
+                              "id": str(supplier_id) if supplier_id is not None else None},
+                             "supplier_changed"))
+
+
 def emit_workers_changed() -> None:
     """Danh sách thợ đổi (thêm/sửa/xoá/sắp thứ tự) → trang Thợ refetch."""
     from server_app.tasks import spawn_tracked

@@ -288,6 +288,18 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   menu Thêm) + chi tiết `#/tra-hang/:id` (ReturnDetail) + nút '↩ Trả hàng'
   (`detail/ReturnModal.tsx`) ở chi tiết khách; feed khách kind='return'
   (nháp delta 0, có HĐ delta âm).
+- `supplier_store/` + `purchase_store/` — NHẬP HÀNG + NHÀ CUNG CẤP (app.db,
+  **100% local, không KiotViet**). `suppliers` (tên/SĐT/địa chỉ/ghi chú, xoá mềm,
+  chặn xoá khi còn phiếu) + `purchase_slips` (items JSON [{sp, sp_id?, sl, price}]
+  — **hàng hoá dùng chung bảng sản phẩm**: mã resolve qua `product_store` gắn
+  `sp_id`, hiển thị bản hiện hành như đơn; giá ≥ 0, snapshot). Flow như đơn: tạo/sửa
+  = văn phòng, xoá = admin (xoá mềm). API `server_app/supplier_routes.py` +
+  `purchase_routes.py` (`/api/suppliers*`, `/api/purchases*`); realtime
+  `purchase_changed`/`supplier_changed`; ảnh/trao đổi/lịch sử = entity media scope
+  `supplier`/`purchase`. UI: dashboard `#/nhap-hang` (PurchasesList + PurchaseModal,
+  chọn NCC gõ tên lạ → tạo mới ngay) → `#/nhap-hang/:id` (PurchaseDetail);
+  `#/ncc` (SuppliersList, thống kê số phiếu/tổng tiền) → `#/ncc/:id` (SupplierDetail,
+  sửa info + phiếu nhập của NCC). Tests: `tests/test_purchase_store.py`.
 - `chat_log/` — logs new/edited/deleted Telegram messages to DB.
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
 

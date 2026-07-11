@@ -20,6 +20,9 @@ _NUM = re.compile(r"/-?\d+(?=/|$)")
 _ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo phiếu SX",
                   "return.created": "Tạo phiếu trả", "return.invoiced": "Tạo HĐ KiotViet (trừ nợ)",
                   "return.invoice_deleted": "Xoá HĐ KiotViet (hoàn nợ)", "return.deleted": "Xoá phiếu trả",
+                  # nhập hàng / nhà cung cấp (100% local)
+                  "purchase.created": "Tạo phiếu nhập", "purchase.deleted": "Xoá phiếu nhập",
+                  "supplier.created": "Tạo nhà cung cấp", "supplier.deleted": "Xoá nhà cung cấp",
                   # sản phẩm (event tường minh — mang id bất biến)
                   "product.created": "Tạo sản phẩm", "product.renamed": "Đổi mã SP",
                   "product.deleted": "Xoá sản phẩm", "product.linked": "Liên kết KiotViet",
@@ -101,6 +104,8 @@ _SOURCE_LABELS = {
     "POST /api/inventory/box/{id}": "Sửa thùng",
     "POST /api/inventory/box/{id}/disable": "Vô hiệu / kích hoạt thùng",
     "POST /api/returns/{id}/update": "Sửa hàng trả",
+    "POST /api/purchases/{id}/update": "Sửa phiếu nhập",
+    "POST /api/suppliers/{id}": "Sửa nhà cung cấp",
     "POST /api/returns/{id}/invoice": "Tạo HĐ KiotViet (trừ nợ)",
     "POST /api/returns/{id}/delete": "Xoá phiếu trả",
     # sản phẩm / phiếu SX bổ sung
@@ -127,7 +132,9 @@ _SOURCE_LABELS = {
 _SKIP = {"POST /api/production/{id}/report/parse",   # xem trước, không phải ghi
          "POST /api/returns/{id}/invoice",           # đã có event return.invoiced
          "POST /api/returns/{id}/delete",            # đã có event return.deleted
-         "POST /api/returns/{id}/delete-invoice"}    # đã có event return.invoice_deleted
+         "POST /api/returns/{id}/delete-invoice",    # đã có event return.invoice_deleted
+         "POST /api/purchases/{id}/delete",          # đã có event purchase.deleted
+         "POST /api/suppliers/{id}/delete"}          # đã có event supplier.deleted
 
 
 def _box_update_action(bd: dict, places: dict) -> tuple[str, str] | None:
@@ -355,7 +362,8 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
 async def entity_history_handler(request: web.Request):
     scope = request.match_info.get("scope", "")
     if scope not in ("production", "box", "return", "task", "place",
-                     "customer", "product", "unit", "worker", "price", "quy"):
+                     "customer", "product", "unit", "worker", "price", "quy",
+                     "supplier", "purchase"):
         return web.json_response({"ok": False, "error": "scope không hợp lệ"}, status=400)
     try:
         entity_id = int(request.match_info.get("entity_id", ""))

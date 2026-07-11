@@ -272,6 +272,60 @@ export async function deleteReturn(id: number): Promise<any> {
   return postJSON(`/api/returns/${id}/delete`, {});
 }
 
+// ── Nhập hàng + nhà cung cấp (100% local, không KiotViet) ──────────────────
+export type Supplier = {
+  id: number; name: string; phone?: string; address?: string; note?: string;
+  created_by?: string; created_at?: string; deleted_at?: string | null;
+  so_phieu?: number; tong_tien?: number; last_at?: string | null;
+};
+export type PurchaseSlip = {
+  id: number; supplier_id: number; supplier_name?: string | null;
+  items: { sp: string; sp_id?: number; name?: string; sl: number; price: number }[];
+  total: number; note?: string; created_by?: string; created_at?: string;
+  deleted_at?: string | null; deleted_by?: string | null;
+};
+/** Danh sách NCC kèm thống kê (số phiếu, tổng tiền, lần nhập cuối). */
+export async function listSuppliers(): Promise<Supplier[]> {
+  const d = await getJSON("/api/suppliers", { cache: false });
+  return d.suppliers || [];
+}
+export async function createSupplier(body: { name: string; phone?: string; address?: string; note?: string }): Promise<Supplier> {
+  const d = await postJSON("/api/suppliers", body);
+  return d.supplier;
+}
+/** Chi tiết NCC + mọi phiếu nhập của NCC đó. */
+export async function getSupplier(id: string | number): Promise<{ supplier: Supplier; purchases: PurchaseSlip[] }> {
+  const d = await getJSON(`/api/suppliers/${id}`, { cache: false });
+  return { supplier: d.supplier, purchases: d.purchases || [] };
+}
+export async function updateSupplier(id: number, body: { name?: string; phone?: string; address?: string; note?: string }): Promise<any> {
+  return postJSON(`/api/suppliers/${id}`, body);
+}
+/** Xoá NCC (admin) — server chặn nếu còn phiếu nhập. */
+export async function deleteSupplier(id: number): Promise<any> {
+  return postJSON(`/api/suppliers/${id}/delete`, {});
+}
+/** Dashboard nhập hàng — mọi NCC, 20/trang. */
+export async function listAllPurchases(page = 1): Promise<{ purchases: PurchaseSlip[]; page: number; total_pages: number; total: number }> {
+  const d = await getJSON(`/api/purchases?page=${page}`, { cache: false });
+  return { purchases: d.purchases || [], page: d.page || page, total_pages: d.total_pages || 1, total: d.total || 0 };
+}
+export async function getPurchase(id: string | number): Promise<PurchaseSlip> {
+  const d = await getJSON(`/api/purchases/${id}`, { cache: false });
+  return d.purchase;
+}
+/** Tạo phiếu nhập hàng (văn phòng) — 100% local, không đụng KiotViet. */
+export async function createPurchase(supplierId: number, items: { sp: string; sl: number; price: number }[], note = ""): Promise<any> {
+  return postJSON("/api/purchases", { supplier_id: supplierId, items, note });
+}
+/** Sửa phiếu nhập (văn phòng) — items/ghi chú, đổi NCC nếu truyền supplierId. */
+export async function updatePurchase(id: number, items: { sp: string; sl: number; price: number }[], note = "", supplierId?: number): Promise<any> {
+  return postJSON(`/api/purchases/${id}/update`, { items, note, ...(supplierId != null ? { supplier_id: supplierId } : {}) });
+}
+export async function deletePurchase(id: number): Promise<any> {
+  return postJSON(`/api/purchases/${id}/delete`, {});
+}
+
 /** Feed đơn + thanh toán của 1 khách, gộp 1 dòng thời gian (trang chi tiết khách). */
 export async function getCustomerFeed(key: string, page = 1): Promise<{ items: CustFeedItem[]; page: number; total_pages: number; total: number }> {
   const d = await getJSON(`/api/customers/${encodeURIComponent(key)}/feed?page=${page}`, { cache: false });

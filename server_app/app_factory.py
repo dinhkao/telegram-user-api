@@ -335,6 +335,23 @@ def create_app():
     r.add_post("/api/returns/{id}/invoice", return_invoice_handler)
     from server_app.return_routes import return_invoice_delete_handler
     r.add_post("/api/returns/{id}/delete-invoice", return_invoice_delete_handler)
+    # Nhập hàng + nhà cung cấp (100% local, không KiotViet)
+    from server_app.supplier_routes import (suppliers_list_handler, supplier_create_handler,
+                                            supplier_detail_handler, supplier_update_handler,
+                                            supplier_delete_handler)
+    r.add_get("/api/suppliers", suppliers_list_handler)
+    r.add_post("/api/suppliers", supplier_create_handler)
+    r.add_get("/api/suppliers/{id}", supplier_detail_handler)
+    r.add_post("/api/suppliers/{id}", supplier_update_handler)
+    r.add_post("/api/suppliers/{id}/delete", supplier_delete_handler)
+    from server_app.purchase_routes import (purchases_all_handler, purchase_create_handler,
+                                            purchase_detail_handler, purchase_update_handler,
+                                            purchase_delete_handler)
+    r.add_get("/api/purchases", purchases_all_handler)
+    r.add_post("/api/purchases", purchase_create_handler)
+    r.add_get("/api/purchases/{id}", purchase_detail_handler)
+    r.add_post("/api/purchases/{id}/update", purchase_update_handler)
+    r.add_post("/api/purchases/{id}/delete", purchase_delete_handler)
     from server_app.settings_routes import settings_get_handler, settings_set_handler
     r.add_get("/api/settings", settings_get_handler)
     r.add_post("/api/settings", settings_set_handler)

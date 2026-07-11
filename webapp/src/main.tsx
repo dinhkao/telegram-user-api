@@ -31,6 +31,10 @@ import { ProductionWorkerDetail } from "./pages/ProductionWorkerDetail";
 import { QuyList } from "./pages/QuyList";
 import { ReturnsList } from "./pages/ReturnsList";
 import { ReturnDetail } from "./pages/ReturnDetail";
+import { PurchasesList } from "./pages/PurchasesList";
+import { PurchaseDetail } from "./pages/PurchaseDetail";
+import { SuppliersList } from "./pages/SuppliersList";
+import { SupplierDetail } from "./pages/SupplierDetail";
 import { WorkerList } from "./pages/WorkerList";
 import { WorkerArrange } from "./pages/WorkerArrange";
 import { Home } from "./pages/Home";
@@ -376,6 +380,8 @@ function App() {
   const boxMatch = hash.match(/^#\/thung\/(\d+)/);
   const viecMatch = hash.match(/^#\/viec\/(\d+)/);
   const retMatch = hash.match(/^#\/tra-hang\/(\d+)/);
+  const purMatch = hash.match(/^#\/nhap-hang\/(\d+)/);
+  const nccMatch = hash.match(/^#\/ncc\/(\d+)/);
   const khachLichMatch = hash.match(/^#\/khach\/([^/?]+)\/lich/);
   const khachMatch = hash.match(/^#\/khach\/([^?]+)/);
   const bangGiaMatch = hash.match(/^#\/bang-gia\/([^?]+)/);
@@ -419,6 +425,10 @@ function App() {
   else if (hash.startsWith("#/viec")) page = <TasksBoard />;
   else if (retMatch) page = <ReturnDetail id={retMatch[1]} />;
   else if (hash.startsWith("#/tra-hang")) page = <ReturnsList />;
+  else if (purMatch) page = <PurchaseDetail id={purMatch[1]} />;
+  else if (hash.startsWith("#/nhap-hang")) page = <PurchasesList />;
+  else if (nccMatch) page = <SupplierDetail id={nccMatch[1]} />;
+  else if (hash.startsWith("#/ncc")) page = <SuppliersList />;
   else if (khachLichMatch) page = <CustomerCalendarPage ckey={decodeURIComponent(khachLichMatch[1])} />;
   else if (khachMatch) page = <CustomerDetail ckey={decodeURIComponent(khachMatch[1])} />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
@@ -433,6 +443,8 @@ function App() {
     invEditMatch ? "Sửa hoá đơn"
     : orderMatch ? "Chi tiết đơn"
     : hash.startsWith("#/tra-hang") ? "Trả hàng"
+    : hash.startsWith("#/nhap-hang") ? "Nhập hàng"
+    : hash.startsWith("#/ncc") ? "Nhà cung cấp"
     : (hash.startsWith("#/customers") || khachMatch) ? "Khách hàng"
     : hash.startsWith("#/create") ? "Tạo đơn"
     : hash.startsWith("#/home") ? "Trang chủ"
