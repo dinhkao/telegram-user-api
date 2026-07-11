@@ -42,6 +42,7 @@ import { StockDemand } from "./pages/StockDemand";
 import { CallNumbers } from "./pages/CallNumbers";
 import { ProductTimeline } from "./pages/ProductTimeline";
 import { WagesDashboard } from "./pages/WagesDashboard";
+import { BulkMove } from "./pages/BulkMove";
 import { PlacesList } from "./pages/PlacesList";
 import { PlaceDetail } from "./pages/PlaceDetail";
 import { PlaceTimeline } from "./pages/PlaceTimeline";
@@ -397,6 +398,7 @@ function App() {
   else if (hash.startsWith("#/san-pham")) page = <InventoryList />;
   else if (hash.startsWith("#/nhu-cau")) page = <StockDemand />;
   else if (hash.startsWith("#/so-thung")) page = <CallNumbers />;
+  else if (hash.startsWith("#/chuyen-kho")) page = <BulkMove />;
   else if (hash.startsWith("#/kho")) page = <KhoBoxes />;
   else if (hash.startsWith("#/quy")) page = <QuyList />;
   else if (hash.startsWith("#/users")) page = <Users />;
@@ -429,6 +431,7 @@ function App() {
     : hash.startsWith("#/san-pham") ? "Sản phẩm"
     : hash.startsWith("#/nhu-cau") ? "Cần làm hàng"
     : hash.startsWith("#/so-thung") ? "Số thùng"
+    : hash.startsWith("#/chuyen-kho") ? "Chuyển kho"
     : (hash.startsWith("#/vi-tri") || placeMatch) ? "Vị trí kho"
     : khoTLMatch ? "Biến động tồn"
     : (hash.startsWith("#/kho") || khoMatch || boxMatch) ? "Kho hàng"

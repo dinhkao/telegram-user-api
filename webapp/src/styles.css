@@ -992,6 +992,28 @@ body.pv-open { overflow: hidden; }
 .pw-input { width: 82px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 7px; font: inherit; font-size: .85rem; text-align: right; font-variant-numeric: tabular-nums; background: var(--card); color: var(--ink); }
 .pw-input:focus { border-color: var(--primary); outline: none; }
 
+/* ── Chuyển kho hàng loạt (#/chuyen-kho) ── */
+.bm-head { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.bm-title { font-size: 1.18rem; font-weight: 800; display: inline-flex; align-items: center; gap: 7px; }
+.bm-step { margin-bottom: 16px; }
+.bm-step-h { display: flex; align-items: center; gap: 8px; font-size: .92rem; margin-bottom: 8px; }
+.bm-selall { margin-left: auto; border: none; background: none; font: inherit; font-size: .8rem; font-weight: 700; color: var(--primary); cursor: pointer; }
+.bm-places { display: flex; flex-wrap: wrap; gap: 7px; }
+.bm-place { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 8px 14px; font: inherit; font-size: .88rem; font-weight: 600; color: var(--ink); cursor: pointer; }
+.bm-place.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.bm-place-n { font-size: .72rem; font-weight: 700; opacity: .7; font-variant-numeric: tabular-nums; }
+.bm-place.on .bm-place-n { opacity: .85; }
+.bm-boxes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.bm-box { display: flex; align-items: center; gap: 7px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font: inherit; cursor: pointer; text-align: left; }
+.bm-box.on { border-color: var(--ok); background: var(--ok-wash); }
+.bm-box-chk { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--border); display: inline-flex; align-items: center; justify-content: center; color: #fff; }
+.bm-box.on .bm-box-chk { background: var(--ok); border-color: var(--ok); }
+.bm-box-code { font-family: var(--mono, ui-monospace, monospace); font-weight: 800; font-size: .82rem; }
+.bm-box-num { font-family: var(--mono, ui-monospace, monospace); font-weight: 700; color: var(--muted); font-size: .82rem; }
+.bm-box-q { flex: 1 1 auto; text-align: right; font-variant-numeric: tabular-nums; }
+.bm-action { position: sticky; bottom: 8px; margin-top: 8px; padding-top: 8px; }
+.bm-action .btn { box-shadow: 0 3px 12px rgba(0,0,0,.18); }
+
 /* Bảng nhập báo cáo thợ — GRID cố định, input LIỀN Ô (chữ dùng hết bề rộng ô) */
 /* width 100% + table-layout fixed: cột SỐ cố định px, cột Thợ ăn phần còn lại
    (9 cột số vẫn vừa màn 390 — không tràn ngang trang). */

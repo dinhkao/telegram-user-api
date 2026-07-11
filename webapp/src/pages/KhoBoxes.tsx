@@ -129,6 +129,7 @@ export function KhoBoxes() {
         <a class="btn small" href="#/nhu-cau"><Icon name="chart" size={15} /> Cần làm</a>
         <a class="btn small" href="#/san-pham"><Icon name="tag" size={15} /> Sản phẩm</a>
         <a class="btn small" href="#/so-thung"><Icon name="grid" size={15} /> Số thùng</a>
+        <a class="btn small" href="#/chuyen-kho"><Icon name="truck" size={15} /> Chuyển kho</a>
       </span>
     </div>
   );

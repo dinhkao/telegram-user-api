@@ -1121,6 +1121,11 @@ export async function allBoxes(): Promise<KhoBox[]> {
   return d.boxes || [];
 }
 
+// Chuyển KHO hàng loạt: đổi vị trí nhiều thùng sang 1 kho đích.
+export async function bulkMove(boxIds: number[], toPlaceId: number): Promise<{ ok: boolean; moved: number; skipped: number; to_name: string }> {
+  return await postJSON("/api/inventory/bulk-move", { box_ids: boxIds, to_place_id: toPlaceId });
+}
+
 /** Tồn 1 product: tổng + nhóm size + thùng in_stock (boxes) + mọi thùng (all_boxes). */
 export async function inventoryDetail(code: string): Promise<InvDetail> {
   const d = await getJSON(`/api/inventory/${encodeURIComponent(code)}`);

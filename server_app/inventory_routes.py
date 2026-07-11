@@ -781,6 +781,68 @@ async def box_update_handler(request: web.Request):
     return web.json_response({"ok": True, "box": box})
 
 
+async def bulk_move_handler(request: web.Request):
+    """CHUYỂN KHO HÀNG LOẠT: đổi vị trí nhiều thùng sang 1 kho đích (POST /api/inventory/bulk-move,
+    body {box_ids:[...], to_place_id}). Bỏ qua thùng không thấy / đã xuất hết / vô hiệu / đã ở
+    kho đích. Cùng logic + audit (moved_out/in) + realtime như chuyển 1 thùng."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    try:
+        box_ids = [int(x) for x in (body.get("box_ids") or [])]
+    except (TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "box_ids không hợp lệ"}, status=400)
+    if not box_ids:
+        return web.json_response({"ok": False, "error": "Chưa chọn thùng"}, status=400)
+    pid = body.get("to_place_id")
+    try:
+        to_place_id = int(pid)
+    except (TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "Chưa chọn kho đích"}, status=400)
+    actor = _web_actor(request, body)
+
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            place = conn.execute("SELECT name FROM inventory_places WHERE id = ?", (to_place_id,)).fetchone()
+            if not place:
+                return None, None
+            to_name = place[0]
+            from server_app.inventory_audit import box_snapshot
+            moves = []
+            for bid in box_ids:
+                box = get_box(conn, bid)
+                if not box or box.get("disabled"):
+                    continue
+                used = sum((a.get("quantity") or 0) for a in list_box_allocations(conn, bid))
+                if float(box.get("quantity") or 0) - used <= 1e-9:      # đã xuất hết → không chuyển
+                    continue
+                if (box.get("place_id") or None) == to_place_id:        # đã ở kho đích
+                    continue
+                update_box(conn, bid, place_id=to_place_id)
+                moves.append({"box_id": bid, "from_place_id": box.get("place_id"),
+                              "from_name": box.get("place_name"), "snap": box_snapshot(conn, bid)})
+            return moves, to_name
+        finally:
+            conn.close()
+
+    result, to_name = await asyncio.to_thread(_run)
+    if result is None:
+        return web.json_response({"ok": False, "error": "Không tìm thấy kho đích"}, status=404)
+    from server_app.inventory_audit import log_box_moved
+    from server_app.realtime import emit_box_changed, emit_inventory_changed
+    at = "web_user" if request.get("web_user") else "http_client"
+    for m in result:
+        log_box_moved(m["snap"], from_place_id=m["from_place_id"], from_name=m["from_name"],
+                      to_place_id=to_place_id, to_name=to_name, actor=actor, actor_type=at)
+        emit_box_changed(m["box_id"])
+    if result:
+        emit_inventory_changed()
+    return web.json_response({"ok": True, "moved": len(result), "skipped": len(box_ids) - len(result), "to_name": to_name})
+
+
 async def box_disable_handler(request: web.Request):
     """Vô hiệu / kích hoạt lại 1 thùng. Vô hiệu = không tính tồn, không phân bổ đơn,
     trừ khỏi tổng phiếu SX nguồn (kích hoạt lại thì cộng vào). Vẫn hiển thị.
