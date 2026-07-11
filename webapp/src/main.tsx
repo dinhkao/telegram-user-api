@@ -32,6 +32,7 @@ import { QuyList } from "./pages/QuyList";
 import { ReturnsList } from "./pages/ReturnsList";
 import { ReturnDetail } from "./pages/ReturnDetail";
 import { WorkerList } from "./pages/WorkerList";
+import { WorkerArrange } from "./pages/WorkerArrange";
 import { Users } from "./pages/Users";
 import { NotifCenter } from "./NotifCenter";
 import { TaskBell } from "./TaskBell";
@@ -402,6 +403,7 @@ function App() {
   else if (hash.startsWith("#/kho")) page = <KhoBoxes />;
   else if (hash.startsWith("#/quy")) page = <QuyList />;
   else if (hash.startsWith("#/users")) page = <Users />;
+  else if (hash.startsWith("#/tho/sap-xep")) page = <WorkerArrange />;
   else if (hash.startsWith("#/tho")) page = <WorkerList />;
   else if (hash.startsWith("#/lich-su")) page = <ActivityLog />;
   else if (hash.startsWith("#/lich")) page = <DeliveryCalendar />;
