@@ -473,7 +473,7 @@ function App() {
       )}
       {menuOpen && !showLogin && (
         <div class="modal-overlay" onClick={() => setMenuOpen(false)}>
-          <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
+          <div class="modal-sheet menu-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head">Mục khác</div>
             <a class="menu-item" href="#/viec" onClick={() => setMenuOpen(false)}><Icon name="check" size={17} /> Việc (task list)</a>
             <a class="menu-item" href="#/quy" onClick={() => setMenuOpen(false)}><Icon name="wallet" size={17} /> Sổ quỹ (thu/chi)</a>

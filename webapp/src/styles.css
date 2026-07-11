@@ -1783,6 +1783,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* popup chọn thùng xuất kho */
 .modal-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; justify-content: center; }
 .modal-sheet { background: var(--card, #fff); width: 100%; max-width: 640px; max-height: 85vh; border-radius: 14px 14px 0 0; padding: 14px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+/* menu "Mục khác" nhét nhiều mục thẳng vào sheet → cho CUỘN cả sheet (mục cuối như
+   "Quản lý user" không bị cắt khi menu dài hơn màn hình). */
+.menu-sheet { overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; }
 .modal-head b { font-size: 1.05rem; }
 /* Tổng đang chọn / cần — góc phải header popup xuất */
