@@ -101,6 +101,33 @@ async def api_set_ngay_giao_handler(request: web.Request):
     return web.json_response({"ok": True, "ngay_giao": val})
 
 
+async def api_set_no_track_handler(request: web.Request):
+    """Bật/tắt 'Bỏ theo dõi nợ' cho đơn. Body {thread_id, on}. Bật: đơn chưa có
+    thanh toán hiện 😑 (thay 😡) và KHÔNG tính vào chip lọc Nợ ở dashboard."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    thread_id = body.get("thread_id")
+    if not thread_id:
+        return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
+    on = bool(body.get("on"))
+    conn = _get_connection()
+    with transaction(conn):
+        order = get_order_by_thread_id(conn, thread_id)
+        if not order:
+            return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+        if on:
+            order["bo_theo_doi_no"] = True
+        else:
+            order.pop("bo_theo_doi_no", None)
+        if not _save_order(conn, thread_id, order):
+            return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
+    if order.get("channel_id") and order.get("message_id") and state._client is not None:
+        spawn_tracked("order.refresh", refresh_order_bg(conn, thread_id, order["channel_id"], order["message_id"]), {"thread_id": thread_id})
+    return web.json_response({"ok": True, "bo_theo_doi_no": on})
+
+
 async def api_invoice_update_handler(request: web.Request):
     try:
         body = await request.json()

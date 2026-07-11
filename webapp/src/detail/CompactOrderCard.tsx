@@ -26,7 +26,7 @@ export function TaskBadges({ o }: { o: any }) {
       {icons[5] && (
         <span class="tstat" key="no">
           <span class="tico">{icons[5]}</span>
-          <span class="tlbl">{icons[5] === "😡" ? "Nợ" : "Tiền"}</span>
+          <span class="tlbl">{icons[5] === "😡" ? "Nợ" : icons[5] === "😑" ? "Bỏ nợ" : "Tiền"}</span>
         </span>
       )}
     </span>

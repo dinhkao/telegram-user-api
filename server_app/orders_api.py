@@ -33,8 +33,8 @@ def _build_order_row(r) -> dict:
     try:
         from renderers.order_parts import status_icons
         task_icons = status_icons(ts)   # 5 icon y hệt main message Telegram
-        # icon 6: chưa có thanh toán nào = còn nợ 😡, có rồi = 💰
-        task_icons += "😡" if not (j.get("payments") or []) else "💰"
+        # icon 6: chưa có thanh toán nào = còn nợ 😡 (😑 nếu 'Bỏ theo dõi nợ'), có rồi = 💰
+        task_icons += ("😑" if j.get("bo_theo_doi_no") else "😡") if not (j.get("payments") or []) else "💰"
     except Exception:
         task_icons = ""
     nop_t = ts.get("nop_tien", {}) or {}
@@ -254,8 +254,10 @@ async def orders_api_handler(request: web.Request):
     # (has_data + done_after_20250124) nên số trên chip == số đơn trong danh sách.
     # Đơn CÒN NỢ = chưa có thanh toán nào (payments rỗng/thiếu) — khớp icon 😡.
     # So chuỗi JSON để chạy được cả 2 engine (mảng có phần tử → '[{...}' ≠ '[]').
+    # Đơn bật 'Bỏ theo dõi nợ' (😑) KHÔNG tính là nợ.
     _pay = "json_extract(o.json, '$.payments')"
-    _no_pay = f"({_pay} IS NULL OR {_pay} IN ('[]', 'null'))"
+    _bt = "json_extract(o.json, '$.bo_theo_doi_no')"
+    _no_pay = f"({_pay} IS NULL OR {_pay} IN ('[]', 'null')) AND ({_bt} IS NULL OR {_bt} NOT IN (1, 'true'))"
     if filt == "pending":
         where.append(f"({has_data}) AND ({_is_pending})")
     elif filt == "done":

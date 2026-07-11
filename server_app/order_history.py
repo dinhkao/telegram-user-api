@@ -61,6 +61,7 @@ _LABELS = {
     "/api/order/refresh-debt": "Cập nhật nợ KiotViet",
     "/api/order/fix": "Sửa nội dung đơn",
     "/api/order/ngay-giao": "Đặt ngày giao",
+    "/api/order/no-track": "Bỏ theo dõi nợ",
     "/api/order/reply": "Trả lời topic",
     "/api/order/print-giao": "In hoá đơn + phiếu giao",
     "/api/order/{id}/comments": "Bình luận",

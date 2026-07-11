@@ -2,7 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, ensureInvoiceImage, getCustomerOrders, getJSON, invoiceEditStatus, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, type OrderImage } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, ensureInvoiceImage, getCustomerOrders, getJSON, invoiceEditStatus, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, setOrderNoTrack, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
 import { money, initial, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
@@ -259,7 +259,19 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     if (st?.done) return "✅";
     return "❌";
   };
-  const hasDebt = !(j.payments || []).length;   // chưa có thanh toán nào = còn nợ → 😡, có rồi → 💰
+  // Icon 6: chưa có thanh toán = còn nợ 😡 (😑 nếu 'Bỏ theo dõi nợ'), có rồi = 💰
+  const noPay = !(j.payments || []).length;
+  const noTrack = !!j.bo_theo_doi_no;
+  const debtIcon = noPay ? (noTrack ? "😑" : "😡") : "💰";
+  const debtLbl = noPay ? (noTrack ? "Bỏ nợ" : "Nợ") : "Tiền";
+  const debtTitle = noPay ? (noTrack ? "Đã bỏ theo dõi nợ" : "Còn nợ — chưa có thanh toán") : "Đã có thanh toán";
+  const toggleNoTrack = async () => {
+    try {
+      await setOrderNoTrack(threadId, !noTrack);
+      changed();
+      toast(!noTrack ? "😑 Đã bỏ theo dõi nợ đơn này" : "😡 Theo dõi nợ lại", "ok");
+    } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
+  };
 
   // Điều hướng nhanh trong trang — cuộn NHANH dùng chung + nháy sáng mục đích
   const scrollTo = (id: string) => {
@@ -386,8 +398,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
                   {stepIcon(tt, ts[tt] || {})}
                 </button>
               ))}
-              <button class="od-sb-ic" key="no" onClick={(e: any) => { e.stopPropagation(); scrollTo("od-payments"); }} title={hasDebt ? "Còn nợ — chưa có thanh toán" : "Đã có thanh toán"}>
-                {hasDebt ? "😡" : "💰"}
+              <button class="od-sb-ic" key="no" onClick={(e: any) => { e.stopPropagation(); scrollTo("od-payments"); }} title={debtTitle}>
+                {debtIcon}
               </button>
             </div>
             <div class="od-sb-text" title={j.text || j.text_raw || ""}>{j.text || j.text_raw || `#${threadId}`}</div>
@@ -475,9 +487,9 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
             <span class="ods-lb">{lbl}</span>
           </button>
         ))}
-        <button class="ods-cell" key="no" onClick={() => scrollTo("od-payments")} title={hasDebt ? "Còn nợ — chưa có thanh toán nào" : "Đã có thanh toán"}>
-          <span class="ods-ic">{hasDebt ? "😡" : "💰"}</span>
-          <span class="ods-lb">{hasDebt ? "Nợ" : "Tiền"}</span>
+        <button class="ods-cell" key="no" onClick={() => scrollTo("od-payments")} title={debtTitle}>
+          <span class="ods-ic">{debtIcon}</span>
+          <span class="ods-lb">{debtLbl}</span>
         </button>
       </div>
 
@@ -570,6 +582,15 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       </div>
       <div id="od-payments">
       <Payments threadId={threadId} payments={j.payments || []} suggest={invoiceTotal(j.invoice)} onChanged={changed} />
+      {/* Đơn chưa có thanh toán → cho bỏ theo dõi nợ (😡 → 😑, không vào chip lọc Nợ) */}
+      {noPay && (
+        <div class="card nt-card">
+          <div class="row space">
+            <span class="small muted">{noTrack ? "😑 Đơn này đã BỎ theo dõi nợ — không hiện trong lọc Nợ." : "😡 Đơn chưa có thanh toán — đang tính là còn nợ."}</span>
+            <button class="btn small" onClick={toggleNoTrack}>{noTrack ? "Theo dõi lại" : "Bỏ theo dõi nợ"}</button>
+          </div>
+        </div>
+      )}
       </div>
       <Images base={`/api/order/${threadId}`} anchorId="od-camera" openSignal={camSignal} />
       <History base={`/api/order/${threadId}`} />

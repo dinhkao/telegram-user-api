@@ -448,6 +448,11 @@ export async function setOrderNgayGiao(threadId: string | number, ngayGiao: stri
   return { ngay_giao: d.ngay_giao ?? null };
 }
 
+/** Bật/tắt 'Bỏ theo dõi nợ' — bật: đơn chưa thanh toán hiện 😑 và không vào chip lọc Nợ. */
+export async function setOrderNoTrack(threadId: string | number, on: boolean): Promise<void> {
+  await postJSON("/api/order/no-track", { thread_id: Number(threadId), on });
+}
+
 /** URL HTML hoá đơn để mở tab mới (kèm token cho WebView/khi bật auth). */
 export function invoiceHtmlUrl(threadId: string | number): string {
   const t = getToken();
