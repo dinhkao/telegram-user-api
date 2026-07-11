@@ -199,6 +199,8 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
             a = round(allow.get((tid, wname), 0))
             allow_used.add((tid, wname))
         money = piece + a
+        if cay == 0 and money == 0:
+            continue   # dòng rỗng (phiếu chưa gán SP / thợ 0 SP) — đừng sinh dòng "?" 0đ
 
         wk = workers.setdefault(worker, {"name": worker, "cay": 0.0, "money": 0, "allowance": 0, "items": {}, "days": {}})
         # item gộp theo (mã, đơn giá) — phiếu chốt giá khác nhau không trộn 1 dòng
