@@ -137,10 +137,16 @@ export function KhoBoxes() {
   // ── SEARCH: mã SP khớp + VỊ TRÍ khớp (card) + lưới ô thùng gom theo vị trí ─
   if (searching) {
     // Mã SP khớp (theo mã/tên) — dựng từ DANH MỤC (prodSum) nên SP TỒN 0 (chưa có
-    // thùng nào) VẪN hiện; tồn giảm dần.
+    // thùng nào) VẪN hiện; tồn giảm dần. Kèm phân bổ theo CỠ: "3 thùng 50 · 2 thùng 30"
+    // (gộp thùng còn hàng theo số tồn mỗi thùng; Σ count×tồn = tổng tồn).
+    const sizeText = (code: string): string => {
+      const m = new Map<number, number>();
+      for (const b of boxes) if (b.product_code === code && hasStock(b)) { const q = rem(b); m.set(q, (m.get(q) || 0) + 1); }
+      return [...m.entries()].sort((a, b) => b[0] - a[0]).map(([q, c]) => `${c} thùng ${soVN(q)}`).join(" · ");
+    };
     const spHits = prodSum
       .filter((s) => foldVN(s.product_code).includes(nq) || foldVN(s.name || "").includes(nq))
-      .map((s) => ({ code: s.product_code, name: s.name || "", unit: s.unit || "", total: s.in_stock_total || 0 }))
+      .map((s) => ({ code: s.product_code, name: s.name || "", unit: s.unit || "", total: s.in_stock_total || 0, sizes: sizeText(s.product_code) }))
       .sort((a, b) => b.total - a.total || a.code.localeCompare(b.code));
 
     // Ô thùng khớp mã/tên/số gọi, gom theo vị trí — BỎ vị trí đã hiện dạng CARD
@@ -171,6 +177,7 @@ export function KhoBoxes() {
                     </button>
                   </span>
                   {s.name ? <span class="muted small">{s.name}</span> : null}
+                  {s.sizes ? <span class="kho-sp-sizes">{s.sizes}</span> : null}
                 </span>
                 <span class={"kho-sp-hit-tot" + (s.total > 0 ? "" : " zero")}>
                   {soVN(s.total)}<span class="muted small"> {s.unit || ""} tồn →</span>
