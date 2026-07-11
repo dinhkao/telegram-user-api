@@ -447,7 +447,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         {editText === null ? (
           <>
             <pre class="order-text">{j.text || j.text_raw || "(trống)"}</pre>
-            {j.created && <div class="muted small od-created"><Icon name="clock" size={13} /> Tạo lúc {fmtDateTimeVN(j.created)} · {fmtRelative(j.created)}</div>}
+            {j.created && <div class="muted small od-created"><Icon name="clock" size={13} /> Tạo lúc {fmtDateTimeVN(j.created)} · {fmtRelative(j.created)}{j.created_by ? <> · bởi <b>{j.created_by}</b></> : null}</div>}
           </>
         ) : (
           <div>

@@ -42,9 +42,11 @@ async def order_create_handler(request: web.Request):
     if not getattr(sent, "id", None):
         return web.json_response({"ok": False, "error": "gửi kênh không trả về message_id"}, status=502)
 
-    # 2) Tạo topic + đơn ngay từ tin vừa đăng (không chờ listener)
+    # 2) Tạo topic + đơn ngay từ tin vừa đăng (không chờ listener). web_actor = người
+    #    đăng nhập webapp (từ token web_auth) → ghi NGƯỜI TẠO đơn (web gửi bằng tk bot).
+    web_actor = request.get("web_user") or (body.get("user") or "").strip() or None
     try:
-        thread_id = await process_new_order(client, sent)
+        thread_id = await process_new_order(client, sent, web_actor=web_actor)
     except Exception as exc:
         return web.json_response({"ok": False, "error": f"tạo đơn thất bại: {exc}"}, status=500)
     if thread_id is None:
