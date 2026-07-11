@@ -18,10 +18,11 @@ import { fastScrollTop } from "../scroll";
 
 
 
-type FilterKey = "all" | "pending" | "done" | "chua_soan" | "chua_giao" | "chua_nop" | "chua_nhan";
+type FilterKey = "all" | "pending" | "done" | "chua_soan" | "chua_giao" | "chua_nop" | "chua_nhan" | "no";
 const FILTER_LABELS: Record<string, string> = {
   pending: "Chưa xong", done: "Đã xong",
   chua_soan: "Chưa soạn", chua_giao: "Chưa giao", chua_nop: "Chưa nộp", chua_nhan: "Chưa nhận",
+  no: "Còn nợ",
 };
 
 // Dòng còn KHỚP chip lọc đang chọn không? Khớp đúng semantics server
@@ -48,6 +49,7 @@ function rowMatchesFilter(o: OrderRow, f: FilterKey): boolean {
     case "chua_giao": return !o.giao && giaoDue(o);   // bỏ đơn hẹn giao tương lai
     case "chua_nop": return !o.nop && !!o.giao; // chưa nộp = ĐÃ giao nhưng chưa nộp
     case "chua_nhan": return !o.nhan && !!o.nop; // chưa nhận = ĐÃ nộp nhưng chưa nhận
+    case "no": return [...(o.task_icons || "")][5] === "😡"; // còn nợ = chưa có thanh toán nào
     case "pending": return !o.done_after_20250124;
     case "done": return !!o.done_after_20250124;
     default: return true; // "all"
@@ -454,6 +456,7 @@ export function OrdersList() {
               filter !== "all" && (FILTER_LABELS[filter] || filter),
               filter === "chua_giao" && "ẩn đơn hẹn giao tương lai",
               filter === "chua_nhan" && "đã nộp, chờ nhận",
+              filter === "no" && "chưa có thanh toán nào",
               search.trim() && `“${search.trim()}”`,
             ]}
             count={filter !== "all" && stats ? (stats as any)[filter] : null}
@@ -468,6 +471,7 @@ export function OrdersList() {
             ["chua_giao", "Chưa giao", stats.chua_giao],
             ["chua_nop", "Chưa nộp", stats.chua_nop],
             ["chua_nhan", "Chưa nhận", stats.chua_nhan],
+            ["no", "Nợ 😡", stats.no],
           ] as [FilterKey, string, number | undefined][]).map(([k, lbl, n]) => (
             <button key={k} class={"of-tab" + (filter === k ? " on" : "")} aria-pressed={filter === k} onClick={() => onFilter(k)}>
               {k !== "all" && <b class={"of-n" + (n ? " hot" : "")}>{n != null ? fmtChipCount(n) : "–"}</b>}

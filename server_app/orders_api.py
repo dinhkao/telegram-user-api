@@ -252,10 +252,17 @@ async def orders_api_handler(request: web.Request):
         params.append(status)
     # Lọc pending/done server-side — khớp đúng định nghĩa của stats bên dưới
     # (has_data + done_after_20250124) nên số trên chip == số đơn trong danh sách.
+    # Đơn CÒN NỢ = chưa có thanh toán nào (payments rỗng/thiếu) — khớp icon 😡.
+    # So chuỗi JSON để chạy được cả 2 engine (mảng có phần tử → '[{...}' ≠ '[]').
+    _pay = "json_extract(o.json, '$.payments')"
+    _no_pay = f"({_pay} IS NULL OR {_pay} IN ('[]', 'null'))"
     if filt == "pending":
         where.append(f"({has_data}) AND ({_is_pending})")
     elif filt == "done":
         where.append(f"({has_data}) AND ({_is_done})")
+    elif filt == "no":
+        # Cùng khung với các chip bước: chỉ đơn có khách + tạo từ 01/06/2026
+        where.append(f"({has_data}) AND ({_no_pay}) AND (o.order_created >= '2026-06-01')")
     else:
         # Lọc theo bước workflow chưa xong (chưa soạn/giao/nộp/nhận) — dùng cờ gốc
         _stage = {"chua_soan": "soan", "chua_giao": "giao", "chua_nop": "nop", "chua_nhan": "nhan"}.get(filt)
@@ -328,9 +335,9 @@ async def orders_api_handler(request: web.Request):
             # chua_nop = chưa nộp NHƯNG đã giao (khớp filter ở trên)
             # chua_nhan = ĐÃ NỘP nhưng chưa nhận (khớp filter ở trên)
             # chua_giao = chưa giao VÀ tới hạn (ngày giao ≤ hôm nay / chưa hẹn) — khớp filter
-            stg = conn.execute(f"SELECT COUNT(CASE WHEN {_nd('soan')} THEN 1 END) s, COUNT(CASE WHEN {_nd('giao')} AND ({_ngay_giao_due()}) THEN 1 END) g, COUNT(CASE WHEN {_nd('nop')} AND {_dn('giao')} THEN 1 END) n, COUNT(CASE WHEN {_nd('nhan')} AND {_dn('nop')} THEN 1 END) nh FROM orders o WHERE o.deleted_at IS NULL AND ({has_data}) AND o.order_created >= '2026-06-01'").fetchone()
+            stg = conn.execute(f"SELECT COUNT(CASE WHEN {_nd('soan')} THEN 1 END) s, COUNT(CASE WHEN {_nd('giao')} AND ({_ngay_giao_due()}) THEN 1 END) g, COUNT(CASE WHEN {_nd('nop')} AND {_dn('giao')} THEN 1 END) n, COUNT(CASE WHEN {_nd('nhan')} AND {_dn('nop')} THEN 1 END) nh, COUNT(CASE WHEN {_no_pay} THEN 1 END) np FROM orders o WHERE o.deleted_at IS NULL AND ({has_data}) AND o.order_created >= '2026-06-01'").fetchone()
             if stg:
-                stats.update({"chua_soan": stg["s"] or 0, "chua_giao": stg["g"] or 0, "chua_nop": stg["n"] or 0, "chua_nhan": stg["nh"] or 0})
+                stats.update({"chua_soan": stg["s"] or 0, "chua_giao": stg["g"] or 0, "chua_nop": stg["n"] or 0, "chua_nhan": stg["nh"] or 0, "no": stg["np"] or 0})
         return web.json_response({"orders": orders, "total": total, "page": page, "limit": limit, "total_pages": max(1, (total + limit - 1) // limit), "stats": stats})
     finally:
         conn.close()
