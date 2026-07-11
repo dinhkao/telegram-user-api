@@ -200,7 +200,7 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
             allow_used.add((tid, wname))
         money = piece + a
 
-        wk = workers.setdefault(worker, {"name": worker, "cay": 0.0, "money": 0, "allowance": 0, "items": {}})
+        wk = workers.setdefault(worker, {"name": worker, "cay": 0.0, "money": 0, "allowance": 0, "items": {}, "days": {}})
         # item gộp theo (mã, đơn giá) — phiếu chốt giá khác nhau không trộn 1 dòng
         it = wk["items"].setdefault((code, wage), {"code": code, "cay": 0.0, "wage": wage, "money": 0})
         it["cay"] = round(it["cay"] + cay, 1)
@@ -208,6 +208,11 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
         wk["cay"] = round(wk["cay"] + cay, 1)
         wk["money"] += money
         wk["allowance"] += a
+        dy = wk["days"].setdefault(ymd or "", {"ymd": ymd or "", "cay": 0.0, "money": 0, "codes": []})
+        dy["cay"] = round(dy["cay"] + cay, 1)
+        dy["money"] += money
+        if code and code not in dy["codes"]:
+            dy["codes"].append(code)
 
         ph = phieus.setdefault(tid, {"thread_id": tid, "ymd": ymd, "codes": [], "cay": 0.0, "money": 0, "workers": 0, "_wk": set()})
         if code and code not in ph["codes"]:
@@ -223,12 +228,15 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
             continue
         if only_cf is not None and str(wname or "").strip().casefold() not in only_cf:
             continue
-        wk = workers.setdefault(wname, {"name": wname, "cay": 0.0, "money": 0, "allowance": 0, "items": {}})
+        wk = workers.setdefault(wname, {"name": wname, "cay": 0.0, "money": 0, "allowance": 0, "items": {}, "days": {}})
         it = wk["items"].setdefault(("", 0.0), {"code": "", "cay": 0.0, "wage": 0.0, "money": 0})
         it["money"] += amt
         wk["money"] += amt
         wk["allowance"] += amt
         phieus[tid]["money"] += amt
+        ph_ymd = phieus[tid]["ymd"] or ""
+        dy = wk["days"].setdefault(ph_ymd, {"ymd": ph_ymd, "cay": 0.0, "money": 0, "codes": []})
+        dy["money"] += amt
 
     phieu_list = []
     for tid in sorted(phieus, key=lambda t: (phieus[t]["ymd"] or "", t)):
@@ -238,6 +246,7 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
     worker_list = sorted(workers.values(), key=lambda w: -w["money"])
     for wk in worker_list:
         wk["items"] = sorted(wk["items"].values(), key=lambda x: -x["money"])
+        wk["days"] = sorted(wk["days"].values(), key=lambda d: d["ymd"])
 
     return {
         "workers": worker_list,

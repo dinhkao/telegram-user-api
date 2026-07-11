@@ -685,7 +685,8 @@ export type ReportSlip = {
   totals?: ReportSlipTotals; worker_count?: number; phieu_count?: number;
   report?: {
     workers: { name: string; cay: number; money: number; allowance: number;
-               items: { code: string; cay: number; wage: number; money: number }[] }[];
+               items: { code: string; cay: number; wage: number; money: number }[];
+               days?: { ymd: string; cay: number; money: number; codes: string[] }[] }[];
     phieus: { thread_id: number; ymd: string; codes: string[]; cay: number; money: number; workers: number }[];
     totals: ReportSlipTotals;
     missing_wage: string[];

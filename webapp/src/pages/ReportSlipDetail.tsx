@@ -179,6 +179,19 @@ export function ReportSlipDetail({ id }: { id: string }) {
                           <span class="wg-item-money">{money(it.money)}</span>
                         </div>
                       ))}
+                      {(w.days || []).length > 0 && (
+                        <div class="rs-wk-days">
+                          <div class="rs-wk-days-h muted small">Theo ngày</div>
+                          {w.days!.map((d) => (
+                            <div class="rs-wk-day" key={d.ymd}>
+                              <span class="rs-wk-day-date">{d.ymd ? dm(d.ymd) : "?"}</span>
+                              <span class="rs-wk-day-codes muted small">{d.codes.join(", ")}</span>
+                              <span class="rs-wk-day-cay muted small">{soVN(d.cay)} SP</span>
+                              <b class="rs-wk-day-money">{money(d.money)}</b>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <a class="rs-wk-link" href={`#/sx-tho/${encodeURIComponent(w.name)}`}>Xem chi tiết thợ →</a>
                     </div>
                   )}
