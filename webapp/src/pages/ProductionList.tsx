@@ -215,7 +215,9 @@ export function ProductionList() {
         <label class={"pf-chip pf-day" + (dayF ? " on" : "")} title="Lọc phiếu theo ngày tạo">
           <Icon name="calendar" size={14} />
           <span class="pf-day-lb">{dayF ? dayVN(dayF) : "Ngày"}</span>
-          <input type="date" value={dayF} onInput={(e: any) => applyDayFilter(e.target.value)} />
+          <input type="date" value={dayF}
+            onClick={(e: any) => { try { e.currentTarget.showPicker?.(); } catch { /* im */ } }}
+            onInput={(e: any) => applyDayFilter(e.target.value)} />
         </label>
         {dayF && <button class="pf-chip pf-clear" onClick={() => applyDayFilter("")} title="Bỏ lọc ngày"><Icon name="close" size={13} /></button>}
       </div>
