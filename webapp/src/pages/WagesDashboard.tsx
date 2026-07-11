@@ -79,7 +79,8 @@ export function WagesDashboard() {
                   <div class="wg-wk" key={k}>
                     <button class="wg-wk-row" onClick={() => toggle(k)} aria-expanded={isOpen}>
                       <Icon name={isOpen ? "chevronDown" : "chevronRight"} size={14} />
-                      <span class="wg-wk-name">{w.name}{(w.allowance || 0) > 0 ? <span class="wg-wk-pc"> +PC</span> : null}</span>
+                      <span class="wg-wk-name">{w.name}</span>
+                      {(w.allowance || 0) > 0 ? <span class="wg-wk-pc">+PC {money(w.allowance || 0)}</span> : null}
                       <span class="wg-wk-cay muted small">{soVN(w.cay)} cây</span>
                       <span class="wg-wk-money">{money(w.money)}</span>
                     </button>

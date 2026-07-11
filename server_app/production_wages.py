@@ -64,7 +64,7 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
             "FROM production_report_rows t "
             "LEFT JOIN production_workers w ON w.id = t.worker_id "
             "LEFT JOIN products pr ON pr.id = t.product_id "
-            "WHERE t.tong_calc > 0 AND t.report_ymd IS NOT NULL "
+            "WHERE t.report_ymd IS NOT NULL "   # BỎ lọc tong>0 → hiện cả thợ làm 0 SP
             "  AND t.report_ymd >= ? AND t.report_ymd <= ? "
             "GROUP BY t.report_ymd, worker, code "
             "ORDER BY t.report_ymd DESC",
@@ -79,12 +79,15 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
     missing: set = set()
     for r in rows:
         ymd, worker, code, cay = r["ymd"], (r["worker"] or "?"), (r["code"] or ""), float(r["cay"] or 0)
+        d = days.setdefault(ymd, {"ymd": ymd, "money": 0, "cay": 0.0, "allowance": 0, "workers": {}})
+        # LUÔN tạo thợ (kể cả làm 0 SP → vẫn hiện với 0đ); item chỉ thêm khi cây > 0
+        wk = d["workers"].setdefault(worker, {"name": worker, "money": 0, "cay": 0.0, "allowance": 0, "items": []})
+        if cay <= 0:
+            continue
         wage = wage_per_cay(code)
         if wage <= 0:
             missing.add(code)
         money = round(cay * wage)
-        d = days.setdefault(ymd, {"ymd": ymd, "money": 0, "cay": 0.0, "allowance": 0, "workers": {}})
-        wk = d["workers"].setdefault(worker, {"name": worker, "money": 0, "cay": 0.0, "allowance": 0, "items": []})
         wk["items"].append({"code": code, "cay": cay, "wage": wage, "money": money})
         wk["money"] += money
         wk["cay"] = round(wk["cay"] + cay, 1)
