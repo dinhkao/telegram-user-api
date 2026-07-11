@@ -39,6 +39,13 @@ def set_task_status(conn, thread_id: int, task_type: str, user_id: int | None, *
             auto_assign_nop_tien(thread_id, user_id)
         except Exception as e:  # noqa: BLE001 — best-effort, không hỏng flow đơn
             log.warning("auto_assign_nop_tien lỗi thread=%s: %s", thread_id, e)
+    # NỘP TIỀN xong → tự giao 'Nhận tiền / Gửi toa cho khách' cho Duy
+    if task_type == "nop_tien" and done and not skip:
+        try:
+            from task_store import auto_assign_nhan_tien
+            auto_assign_nhan_tien(thread_id)
+        except Exception as e:  # noqa: BLE001 — best-effort, không hỏng flow đơn
+            log.warning("auto_assign_nhan_tien lỗi thread=%s: %s", thread_id, e)
     _emit_tasks_changed_safe()   # dashboard VIỆC thấy mirror đổi (đánh dấu từ trang đơn)
     return ok
 

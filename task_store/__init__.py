@@ -9,11 +9,11 @@ from .queries import (
     list_tasks, open_counts_by_assignee, set_done, soft_delete, update_task,
 )
 from .mirror import (
-    auto_assign_nop_tien, backfill_from_orders, mirror_order_tasks_safe, order_label_of, STEP_LABELS,
+    auto_assign_nhan_tien, auto_assign_nop_tien, backfill_from_orders, mirror_order_tasks_safe, order_label_of, STEP_LABELS,
 )
 
 __all__ = [
     "attach_order_text", "counts", "create_task", "day_counts", "day_tasks",
     "get_task", "list_tasks", "open_counts_by_assignee", "set_done", "soft_delete", "update_task",
-    "auto_assign_nop_tien", "backfill_from_orders", "mirror_order_tasks_safe", "order_label_of", "STEP_LABELS",
+    "auto_assign_nhan_tien", "auto_assign_nop_tien", "backfill_from_orders", "mirror_order_tasks_safe", "order_label_of", "STEP_LABELS",
 ]

@@ -66,8 +66,13 @@ def mirror_order_tasks(thread_id: int, data: dict) -> None:
     label = order_label_of(data)
     created = _iso_epoch(data.get("created"))   # ngày tạo ĐƠN
     ts = data.get("task_status") or {}
+    # Nộp tiền xong kiểu KÝ TOA → bước 'nhận tiền' đổi tên 'Gửi toa cho khách'
+    _nop = ts.get("nop_tien") or {}
+    _gui_toa = bool(_nop.get("done")) and str(_nop.get("note", "")).lower().split(";")[0] in ("co_ky_toa", "khong_ky_toa")
     for key, title in STEP_LABELS.items():
         st = ts.get(key) or {}
+        if key == "nhan_tien" and _gui_toa:
+            title = "Gửi toa cho khách"
         _upsert("order_step", thread_id, key, title,
                 done=bool(st.get("done")), done_by=str(st.get("by") or "") or None,
                 done_at=st.get("at"), order_label=label, created_at=created)
@@ -119,6 +124,31 @@ def auto_assign_nop_tien(thread_id: int, by) -> bool:
         return cur.rowcount > 0
     finally:
         conn.close()
+
+
+def auto_assign_nhan_tien(thread_id: int) -> bool:
+    """NỘP TIỀN xong → tự giao việc 'Nhận tiền' (hoặc 'Gửi toa cho khách' nếu nộp
+    kiểu ký toa) của đơn cho DUY. Chỉ khi nhận tiền chưa xong + chưa ai được giao
+    (không đè phân công tay)."""
+    from user_store import get_user
+    if not get_user(_NHAN_TIEN_ASSIGNEE):
+        return False
+    now = int(time.time())
+    conn = conn_tasks()
+    try:
+        cur = conn.execute(
+            "UPDATE web_tasks SET assignee = ?,"
+            " note = CASE WHEN note = '' THEN ? ELSE note END, updated_at = ?"
+            " WHERE kind = 'order_step' AND thread_id = ? AND step_key = 'nhan_tien'"
+            " AND deleted_at IS NULL AND done = 0 AND assignee = ''",
+            (_NHAN_TIEN_ASSIGNEE, "(tự giao sau Nộp tiền)", now, int(thread_id)))
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+# Người nhận việc 'Nhận tiền / Gửi toa' tự giao sau khi nộp tiền xong (username web)
+_NHAN_TIEN_ASSIGNEE = "duy"
 
 
 def mirror_order_tasks_safe(thread_id: int, data: dict) -> None:
