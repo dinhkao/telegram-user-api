@@ -10,14 +10,19 @@ const TASK_LABELS = ["HĐ", "Soạn", "Giao", "Nộp", "Nhận"];
 export function TaskBadges({ o }: { o: any }) {
   const icons = [...(o.task_icons || "")];
   const fallback: boolean[] = [false, o.soan, o.giao, o.nop, o.nhan];
+  // Nộp xong kiểu ký toa → bước 5 là "Gửi toa" (icon xong = 📄, server đã render)
+  const guiToa = !!o.nop && ["co_ky_toa", "khong_ky_toa"].includes(String(o.nop_note || "").toLowerCase());
   return (
     <span class="badges">
-      {TASK_LABELS.map((label, i) => (
-        <span class="tstat" key={label}>
+      {TASK_LABELS.map((label0, i) => {
+        const label = i === 4 && guiToa ? "Gửi toa" : label0;
+        return (
+        <span class="tstat" key={label0}>
           <span class="tico">{icons[i] || (fallback[i] ? "✅" : "❌")}</span>
           <span class="tlbl">{label}</span>
         </span>
-      ))}
+        );
+      })}
       {icons[5] && (
         <span class="tstat" key="no">
           <span class="tico">{icons[5]}</span>

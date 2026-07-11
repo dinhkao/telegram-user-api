@@ -229,9 +229,10 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .of-tab.on { background: var(--primary); border-color: var(--primary); }
 .of-tab.on .of-n, .of-tab.on .of-n.hot, .of-tab.on .of-lbl { color: #fff; }
 /* Chọn kiểu sắp xếp danh sách đơn */
-.sort-row { display: flex; align-items: center; gap: 6px; padding: 4px 0 2px; }
-.sort-lbl { font-size: .8rem; color: var(--muted); }
-.sort-opt { border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 4px 12px; font-size: .82rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
+/* 4 chip sort chia đều bề ngang màn hình (nhãn "Sắp xếp:" ẩn cho đủ chỗ) */
+.sort-row { display: flex; align-items: center; gap: 4px; padding: 4px 0 2px; }
+.sort-lbl { display: none; }
+.sort-opt { flex: 1; min-width: 0; text-align: center; border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 4px 2px; font-size: .78rem; color: var(--muted); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sort-opt.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
 /* Khối "thao tác mới nhất" trên đầu card (view Mới cập nhật) — giàu như Lịch sử */
 .last-act { display: block; font-size: .78rem; background: var(--bg); background: color-mix(in srgb, var(--primary) 8%, transparent); border-left: 3px solid var(--primary); border-radius: 6px; padding: 4px 8px; margin-bottom: 5px; }
@@ -2295,8 +2296,8 @@ body.kbd-open .od-navbar { display: none; }
 
 /* 5 icon trạng thái ở trang chi tiết đơn */
 /* Tóm tắt trong header dính (khi cuộn) — 5 icon + nội dung đơn rút gọn */
-.od-sb-status { flex: 0 0 auto; display: flex; gap: 1px; }
-.od-sb-ic { border: none; background: transparent; font-size: 1.05rem; line-height: 1; padding: 2px; cursor: pointer; }
+.od-sb-status { flex: 0 0 auto; display: flex; gap: 0; }
+.od-sb-ic { border: none; background: transparent; font-size: 1.05rem; line-height: 1; padding: 2px 0; cursor: pointer; }
 .od-sb-ic:active { transform: scale(.9); }
 .od-sb-text { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .85rem; font-weight: 600; color: var(--ink); }
 .od-sb-cust { flex: 0 0 auto; display: inline-flex; text-decoration: none; }

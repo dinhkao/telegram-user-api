@@ -139,10 +139,15 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged,
           const st = taskStatus[type] || {};
           const done = !!st.done;
           const locked = type === "nhan_tien" && !office;   // nhận tiền: chỉ văn phòng
+          // Nộp tiền xong kiểu KÝ TOA → bước 'nhận tiền' = 'Gửi toa cho khách', xong 📄
+          const nopNote = String((taskStatus.nop_tien || {}).note || "").toLowerCase().split(";")[0];
+          const guiToa = type === "nhan_tien" && !!(taskStatus.nop_tien || {}).done && (nopNote === "co_ky_toa" || nopNote === "khong_ky_toa");
+          const showLbl = guiToa ? "Gửi toa cho khách" : lbl;
+          const doneIcon = done && (guiToa || (type === "nhan_tien" && String(st.note || "").toLowerCase() === "gtr")) ? "📄" : "✅";
           return (
             <li class={"task-row" + (done ? " done" : "")} id={`task-${type}`} key={type}>
               <div class="task-main">
-                <div class="task-head">{done ? "✅" : "⬜"} <span class="task-lbl">{lbl}</span></div>
+                <div class="task-head">{done ? doneIcon : "⬜"} <span class="task-lbl">{showLbl}</span></div>
                 {meta(st, type, locked ? "🔒 chỉ văn phòng" : undefined)}
               </div>
               <div class="task-act">

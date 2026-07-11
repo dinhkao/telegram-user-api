@@ -4,8 +4,12 @@ from renderers.common import accentless_lower, fmt_money
 
 
 def status_icons(task_status: dict) -> str:
+    # Nộp tiền xong kiểu KÝ TOA (có/không) → bước 'nhận tiền' thành 'Gửi toa cho
+    # khách': xong hiện 📄 thay ✅ (giống note 'gtr' cũ).
+    _nop = task_status.get("nop_tien") or {}
+    gui_toa = bool(_nop.get("done")) and str(_nop.get("note", "")).lower().split(";")[0] in ("co_ky_toa", "khong_ky_toa")
     return "".join(
-        "📄" if tt == "nhan_tien" and st.get("done") and str(st.get("note", "")).lower() == "gtr"
+        "📄" if tt == "nhan_tien" and st.get("done") and (gui_toa or str(st.get("note", "")).lower() == "gtr")
         else "🟨" if tt == "nop_tien" and not st.get("done") and str(st.get("note", "")).lower() == "chieu_lay_tien"
         else "🔘" if st.get("done") and st.get("skip")
         else "✅" if st.get("done")

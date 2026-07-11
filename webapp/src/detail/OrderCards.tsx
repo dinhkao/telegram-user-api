@@ -339,9 +339,12 @@ export function CompactBody({ o, search, sort, flashMsg, isNew, openThumb }: {
 export function TaskBadges({ o }: { o: OrderRow }) {
   const icons = [...(o.task_icons || "")];
   const fallback: boolean[] = [false, o.soan, o.giao, o.nop, o.nhan];
+  // Nộp xong kiểu ký toa → bước 5 là "Gửi toa" (icon xong = 📄, server đã render)
+  const guiToa = !!o.nop && ["co_ky_toa", "khong_ky_toa"].includes(String(o.nop_note || "").toLowerCase());
   return (
     <span class="badges">
-      {TASK_LABELS.map((label, i) => {
+      {TASK_LABELS.map((label0, i) => {
+        const label = i === 4 && guiToa ? "Gửi toa" : label0;
         // bước ĐÃ XONG → hiện TÊN người làm (thay nhãn); chưa xong → nhãn bước như cũ
         const by = (o.task_bys || [])[i];
         return (

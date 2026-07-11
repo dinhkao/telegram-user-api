@@ -246,16 +246,19 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const gotoOrder = (id: number | null) => { if (id) window.location.hash = `#/order/${id}`; };
 
   // 5 icon trạng thái (khớp renderers.order_parts.status_icons / main message Telegram)
-  const TASK_STEPS: [string, string][] = [["ban_hd", "Bán HĐ"], ["soan_hang", "Soạn"], ["giao_hang", "Giao"], ["nop_tien", "Nộp"], ["nhan_tien", "Nhận"]];
+  const ts = j.task_status || {};
+  // Nộp tiền xong kiểu KÝ TOA → bước 'nhận tiền' = 'Gửi toa cho khách', xong hiện 📄
+  const _nopNote = String((ts.nop_tien || {}).note || "").toLowerCase().split(";")[0];
+  const guiToa = !!(ts.nop_tien || {}).done && (_nopNote === "co_ky_toa" || _nopNote === "khong_ky_toa");
+  const TASK_STEPS: [string, string][] = [["ban_hd", "Bán HĐ"], ["soan_hang", "Soạn"], ["giao_hang", "Giao"], ["nop_tien", "Nộp"], ["nhan_tien", guiToa ? "Gửi toa" : "Nhận"]];
   const stepIcon = (tt: string, st: any): string => {
     const note = String(st?.note || "").toLowerCase();
-    if (tt === "nhan_tien" && st?.done && note === "gtr") return "📄";
+    if (tt === "nhan_tien" && st?.done && (guiToa || note === "gtr")) return "📄";
     if (tt === "nop_tien" && !st?.done && note === "chieu_lay_tien") return "🟨";
     if (st?.done && st?.skip) return "🔘";
     if (st?.done) return "✅";
     return "❌";
   };
-  const ts = j.task_status || {};
   const hasDebt = !(j.payments || []).length;   // chưa có thanh toán nào = còn nợ → 😡, có rồi → 💰
 
   // Điều hướng nhanh trong trang — cuộn NHANH dùng chung + nháy sáng mục đích
