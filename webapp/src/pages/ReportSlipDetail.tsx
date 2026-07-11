@@ -172,25 +172,31 @@ export function ReportSlipDetail({ id }: { id: string }) {
                   </button>
                   {isOpen && (
                     <div class="wg-items">
-                      {w.items.map((it, i) => (
-                        <div class="wg-item" key={i}>
-                          <span class="wg-item-code">{it.code || "?"}</span>
-                          <span class="wg-item-calc muted small">{soVN(it.cay)} SP × {soVN(it.wage)}đ</span>
-                          <span class="wg-item-money">{money(it.money)}</span>
-                        </div>
-                      ))}
-                      {(w.days || []).length > 0 && (
-                        <div class="rs-wk-days">
-                          <div class="rs-wk-days-h muted small">Theo ngày</div>
-                          {w.days!.map((d) => (
-                            <div class="rs-wk-day" key={d.ymd}>
-                              <span class="rs-wk-day-date">{d.ymd ? dm(d.ymd) : "?"}</span>
-                              <span class="rs-wk-day-codes muted small">{d.codes.join(", ")}</span>
+                      {(w.days || []).length > 0 ? (
+                        w.days!.map((d) => (
+                          <div class="rs-wk-day" key={d.ymd}>
+                            <div class="rs-wk-day-h">
+                              <span class="rs-wk-day-date">📅 {d.ymd ? dm(d.ymd) : "?"}</span>
                               <span class="rs-wk-day-cay muted small">{soVN(d.cay)} SP</span>
                               <b class="rs-wk-day-money">{money(d.money)}</b>
                             </div>
-                          ))}
-                        </div>
+                            {d.items.map((it, i) => (
+                              <div class="wg-item" key={i}>
+                                <span class="wg-item-code">{it.code || "?"}</span>
+                                <span class="wg-item-calc muted small">{soVN(it.cay)} SP × {soVN(it.wage)}đ</span>
+                                <span class="wg-item-money">{money(it.money)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ))
+                      ) : (
+                        w.items.map((it, i) => (
+                          <div class="wg-item" key={i}>
+                            <span class="wg-item-code">{it.code || "?"}</span>
+                            <span class="wg-item-calc muted small">{soVN(it.cay)} SP × {soVN(it.wage)}đ</span>
+                            <span class="wg-item-money">{money(it.money)}</span>
+                          </div>
+                        ))
                       )}
                       <a class="rs-wk-link" href={`#/sx-tho/${encodeURIComponent(w.name)}`}>Xem chi tiết thợ →</a>
                     </div>

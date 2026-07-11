@@ -208,11 +208,12 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
         wk["cay"] = round(wk["cay"] + cay, 1)
         wk["money"] += money
         wk["allowance"] += a
-        dy = wk["days"].setdefault(ymd or "", {"ymd": ymd or "", "cay": 0.0, "money": 0, "codes": []})
+        dy = wk["days"].setdefault(ymd or "", {"ymd": ymd or "", "cay": 0.0, "money": 0, "items": {}})
         dy["cay"] = round(dy["cay"] + cay, 1)
         dy["money"] += money
-        if code and code not in dy["codes"]:
-            dy["codes"].append(code)
+        di = dy["items"].setdefault((code, wage), {"code": code, "cay": 0.0, "wage": wage, "money": 0})
+        di["cay"] = round(di["cay"] + cay, 1)
+        di["money"] += money
 
         ph = phieus.setdefault(tid, {"thread_id": tid, "ymd": ymd, "codes": [], "cay": 0.0, "money": 0, "workers": 0, "_wk": set()})
         if code and code not in ph["codes"]:
@@ -235,8 +236,10 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
         wk["allowance"] += amt
         phieus[tid]["money"] += amt
         ph_ymd = phieus[tid]["ymd"] or ""
-        dy = wk["days"].setdefault(ph_ymd, {"ymd": ph_ymd, "cay": 0.0, "money": 0, "codes": []})
+        dy = wk["days"].setdefault(ph_ymd, {"ymd": ph_ymd, "cay": 0.0, "money": 0, "items": {}})
         dy["money"] += amt
+        di = dy["items"].setdefault(("", 0.0), {"code": "", "cay": 0.0, "wage": 0.0, "money": 0})
+        di["money"] += amt
 
     phieu_list = []
     for tid in sorted(phieus, key=lambda t: (phieus[t]["ymd"] or "", t)):
@@ -247,6 +250,8 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
     for wk in worker_list:
         wk["items"] = sorted(wk["items"].values(), key=lambda x: -x["money"])
         wk["days"] = sorted(wk["days"].values(), key=lambda d: d["ymd"])
+        for dy in wk["days"]:
+            dy["items"] = sorted(dy["items"].values(), key=lambda x: -x["money"])
 
     return {
         "workers": worker_list,

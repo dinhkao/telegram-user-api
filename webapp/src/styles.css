@@ -1583,13 +1583,12 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .rs-sec { margin-bottom: 16px; }
 .rs-sec-h { display: flex; align-items: center; gap: 6px; font-size: .84rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); padding: 0 2px 7px; }
 .rs-list { padding: 8px 10px; }
-.rs-wk-days { margin-top: 6px; border-top: 1px dashed var(--border); padding-top: 4px; }
-.rs-wk-days-h { padding: 2px 0; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; font-size: .7rem; }
-.rs-wk-day { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: .85rem; }
-.rs-wk-day-date { font-weight: 600; min-width: 42px; font-variant-numeric: tabular-nums; }
-.rs-wk-day-codes { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-wk-day { border-top: 1px dashed var(--border); padding: 4px 0 2px; }
+.rs-wk-day:first-child { border-top: none; }
+.rs-wk-day-h { display: flex; align-items: center; gap: 8px; padding: 2px 0; font-size: .85rem; }
+.rs-wk-day-date { font-weight: 700; flex: 1; font-variant-numeric: tabular-nums; }
 .rs-wk-day-cay { flex-shrink: 0; }
-.rs-wk-day-money { flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--ok); }
+.rs-wk-day-money { flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--ok); font-size: .85rem; }
 .rs-wk-link { display: inline-block; font-size: .8rem; font-weight: 600; color: var(--primary); text-decoration: none; padding: 4px 0 2px; }
 .rs-ph-row { display: flex; align-items: center; gap: 9px; padding: 9px 2px; border-top: 1px solid var(--border); text-decoration: none; color: inherit; }
 .rs-ph-row:first-child { border-top: none; }
