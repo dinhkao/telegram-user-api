@@ -76,14 +76,18 @@ export function ProductionBoxes({
   const [consumePicks, setConsumePicks] = useState<Record<string, { box_id: number; quantity: number }[]>>(draft?.consumePicks || {});
   const [pickIng, setPickIng] = useState<string | null>(null);   // mã NL đang mở popup chọn thùng
   const [prodUnit, setProdUnit] = useState("cây");                 // đơn vị SP (cây/gói…)
+  // SP tự-là-thùng (KDXDB5/KGL5): bản thân là 1 thùng → nhập theo SỐ THÙNG, mỗi thùng
+  // quantity=1, không có đơn vị chứa, không có "số cây bên trong".
+  const [selfContainer, setSelfContainer] = useState(false);
   const unitName = units.find((u) => u.id === unitId)?.name || "Thùng";   // đơn vị chứa (Thùng/Kiện/Hũ)
-  const unitLow = unitName.toLowerCase();
+  const unitLow = selfContainer ? "thùng" : unitName.toLowerCase();
   useEffect(() => {
-    if (prodCode) getRecipe(prodCode).then((r) => { setRecipe(r.recipe); setProdUnit(r.unit); }).catch(() => { setRecipe([]); setProdUnit("cây"); });
-    else { setRecipe([]); setProdUnit("cây"); }
+    if (prodCode) getRecipe(prodCode).then((r) => { setRecipe(r.recipe); setProdUnit(r.unit); setSelfContainer(r.self_container); }).catch(() => { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); });
+    else { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); }
   }, [prodCode]);
   const produced = (() => {
-    const n = parseFloat((amount || "").replace(",", ".")), c = Math.floor(parseFloat((count || "").replace(",", ".")));
+    const n = selfContainer ? 1 : parseFloat((amount || "").replace(",", "."));
+    const c = Math.floor(parseFloat((count || "").replace(",", ".")));
     return isFinite(n) && n > 0 && isFinite(c) && c > 0 ? n * c : 0;
   })();
   const chosenOf = (code: string) => (consumePicks[code] || []).reduce((s, p) => s + p.quantity, 0);
@@ -179,7 +183,7 @@ export function ProductionBoxes({
   };
 
   const submit = async () => {
-    const n = parseFloat(amount.replace(",", "."));
+    const n = selfContainer ? 1 : parseFloat(amount.replace(",", "."));   // tự-là-thùng: mỗi thùng = 1
     if (!isFinite(n) || n <= 0) {
       setMsg(`Số ${prodUnit} không hợp lệ`);
       return;
@@ -197,7 +201,10 @@ export function ProductionBoxes({
     }
     // Ảnh BẮT BUỘC: xác nhận rồi mở camera CHỤP TRƯỚC (buffer). ĐÓNG camera có ≥1 ảnh
     // mới TẠO thùng (finalizeCreate); bấm quay lại / xong mà chưa chụp → KHÔNG tạo gì.
-    if (!(await confirmDialog(`Nhập ${c} ${unitLow} × ${soVN(n)} ${prodUnit} ${prodCode}?\nBước sau chụp ảnh thùng — chưa chụp thì chưa tạo.`))) return;
+    const _confirmMsg = selfContainer
+      ? `Nhập ${c} thùng ${prodCode}?\nBước sau chụp ảnh thùng — chưa chụp thì chưa tạo.`
+      : `Nhập ${c} ${unitLow} × ${soVN(n)} ${prodUnit} ${prodCode}?\nBước sau chụp ảnh thùng — chưa chụp thì chưa tạo.`;
+    if (!(await confirmDialog(_confirmMsg))) return;
     const picks = Array.from({ length: c }, () => ({ quantity: n }));  // c thùng giống nhau
     // Cap tiêu hao mỗi NL đúng nhu cầu công thức (ratio × produced) — khớp cap server,
     // tránh trừ DƯ nếu số cây đổi sau khi đã chọn thùng (bug thùng 322). Mã ngoài
@@ -215,7 +222,7 @@ export function ProductionBoxes({
       }
     }
     capturedRef.current = [];
-    setPendingCreate({ picks, note: note.trim(), mfgDate, unitId, consume, prodCode, placeId, count: c });
+    setPendingCreate({ picks, note: note.trim(), mfgDate, unitId: selfContainer ? null : unitId, consume, prodCode, placeId, count: c });
     setMsg("");
     if (cameraSupported()) {
       setCamBases([`/api/media/production/${threadId}`]);   // COLLECT: base chỉ để mở khung, upload ở finalize
@@ -258,12 +265,14 @@ export function ProductionBoxes({
             onInput={(e) => setMfgDate((e.target as HTMLInputElement).value)} />
         </div>
 
-        <span class="pb-lb"><Icon name="box" size={15} /> Đơn vị</span>
-        <div class="pb-ctl">
-          <SelectPopup title="Đơn vị chứa" searchable onCreate={createUnitPick} disabled={!hasSp}
-            value={unitId ?? ""} options={units.map((u) => ({ value: u.id, label: u.name }))}
-            onChange={(v) => setUnitId(v ? Number(v) : null)} />
-        </div>
+        {!selfContainer && <>
+          <span class="pb-lb"><Icon name="box" size={15} /> Đơn vị</span>
+          <div class="pb-ctl">
+            <SelectPopup title="Đơn vị chứa" searchable onCreate={createUnitPick} disabled={!hasSp}
+              value={unitId ?? ""} options={units.map((u) => ({ value: u.id, label: u.name }))}
+              onChange={(v) => setUnitId(v ? Number(v) : null)} />
+          </div>
+        </>}
 
         <span class="pb-lb"><Icon name="tag" size={15} /> Vị trí</span>
         <div class="pb-ctl">
@@ -273,17 +282,23 @@ export function ProductionBoxes({
             onChange={(v) => setPlaceId(v ? Number(v) : null)} />
         </div>
 
-        <span class="pb-lb"><Icon name="clipboard" size={15} /> Số lượng</span>
+        <span class="pb-lb"><Icon name="clipboard" size={15} /> {selfContainer ? "Số thùng" : "Số lượng"}</span>
         <div class="pb-ctl pb-qty">
           <input type="text" inputMode="numeric" class="pb-count" value={count} disabled={!hasSp}
             onFocus={(e) => (e.target as HTMLInputElement).select()}
             onInput={(e) => setCount((e.target as HTMLInputElement).value)}
-            placeholder="1" title={`Số ${unitLow} giống nhau`} />
-          <span class="pb-x">{unitLow} ×</span>
-          <input type="text" inputMode="decimal" class="pb-amount" value={amount} disabled={!hasSp}
-            onFocus={(e) => (e.target as HTMLInputElement).select()}
-            onInput={(e) => setAmount((e.target as HTMLInputElement).value)}
-            placeholder={`Số ${prodUnit}`} />
+            placeholder="1" title={selfContainer ? "Số thùng" : `Số ${unitLow} giống nhau`} />
+          {selfContainer ? (
+            <span class="pb-x">thùng {prodCode}</span>
+          ) : (
+            <>
+              <span class="pb-x">{unitLow} ×</span>
+              <input type="text" inputMode="decimal" class="pb-amount" value={amount} disabled={!hasSp}
+                onFocus={(e) => (e.target as HTMLInputElement).select()}
+                onInput={(e) => setAmount((e.target as HTMLInputElement).value)}
+                placeholder={`Số ${prodUnit}`} />
+            </>
+          )}
         </div>
 
         <span class="pb-lb"><Icon name="note" size={15} /> Ghi chú</span>
@@ -299,7 +314,7 @@ export function ProductionBoxes({
       {packing && recipe.length > 0 && (
         <div class={"recipe-consume" + (recipeOk && produced > 0 ? " ok" : "")}>
           <div class="card-label"><Icon name="leaf" size={15} /> Nguyên liệu cần trừ {produced > 0 ? `(SX ${soVN(produced)} ${prodUnit})` : ""}</div>
-          {produced <= 0 && <div class="muted small">Nhập số {unitLow} × số {prodUnit} trước để tính nguyên liệu.</div>}
+          {produced <= 0 && <div class="muted small">{selfContainer ? "Nhập số thùng trước để tính nguyên liệu." : `Nhập số ${unitLow} × số ${prodUnit} trước để tính nguyên liệu.`}</div>}
           {recipe.map((l) => {
             const need = +(l.ratio * produced).toFixed(3);
             const chosen = chosenOf(l.ingredient_code);
@@ -321,7 +336,7 @@ export function ProductionBoxes({
 
       <button class="btn primary block pb-submit" disabled={!hasSp || busy || !recipeOk} onClick={submit}
         title={!recipeOk ? "Chọn đủ thùng nguyên liệu trước" : undefined}>
-        <Icon name="plus" size={16} /> {busy ? "Đang nhập…" : `Nhập ${cnt} ${unitLow}${produced > 0 ? ` · ${soVN(produced * cnt)} ${prodUnit}` : ""}`}
+        <Icon name="plus" size={16} /> {busy ? "Đang nhập…" : selfContainer ? `Nhập ${cnt} thùng ${prodCode}` : `Nhập ${cnt} ${unitLow}${produced > 0 ? ` · ${soVN(produced * cnt)} ${prodUnit}` : ""}`}
       </button>
       {packing && recipe.length > 0 && produced > 0 && !recipeOk && (
         <div class="muted small pb-hint">⚠ Cần chọn đủ thùng nguyên liệu mới tạo được thùng.</div>

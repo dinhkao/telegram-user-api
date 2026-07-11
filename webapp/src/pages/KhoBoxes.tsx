@@ -141,8 +141,11 @@ export function KhoBoxes() {
     // thùng nào) VẪN hiện; tồn giảm dần. Kèm phân bổ theo CỠ: "3 thùng 50 · 2 thùng 30"
     // (gộp thùng còn hàng theo số tồn mỗi thùng; Σ count×tồn = tổng tồn).
     const sizeText = (code: string): string => {
+      const bs = boxes.filter((b) => b.product_code === code && hasStock(b));
+      // SP tự-là-thùng (đơn vị SP = 'thùng', mỗi thùng 1 đơn vị): chỉ nói TỔNG số thùng
+      if (bs.length && bs.every((b) => (b.product_unit || "") === "thùng")) return `${bs.length} thùng`;
       const m = new Map<number, number>();
-      for (const b of boxes) if (b.product_code === code && hasStock(b)) { const q = rem(b); m.set(q, (m.get(q) || 0) + 1); }
+      for (const b of bs) { const q = rem(b); m.set(q, (m.get(q) || 0) + 1); }
       return [...m.entries()].sort((a, b) => b[0] - a[0]).map(([q, c]) => `${c} thùng ${soVN(q)}`).join(" · ");
     };
     const spHits = prodSum

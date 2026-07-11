@@ -95,6 +95,16 @@ export function InventoryDetail({ code }: { code: string }) {
       if (p && inv) { setInv({ ...inv, product: p }); toast(next ? "✅ SP sản xuất trực tiếp được" : "📦 Chỉ đóng gói từ nguyên liệu", "ok"); }
     } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
   };
+  // SP tự-là-thùng (KDXDB5/KGL5): bản thân là 1 thùng → nhập theo SỐ THÙNG, mỗi thùng
+  // quantity=1, không có đơn vị chứa. Khác với thùng chứa N cây/gói.
+  const toggleSelfContainer = async () => {
+    if (!inv?.product) return;
+    const next = !inv.product.self_container;
+    try {
+      const p = await updateProduct(code, { self_container: next });
+      if (p && inv) { setInv({ ...inv, product: p }); toast(next ? "📦 SP đóng sẵn thùng" : "Bỏ đánh dấu — thùng chứa hàng", "ok"); }
+    } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
+  };
   // Liên kết KiotViet từng cái (modal tìm + chọn)
   const [linkOpen, setLinkOpen] = useState(false);
   const [kvQ, setKvQ] = useState("");
@@ -335,6 +345,24 @@ export function InventoryDetail({ code }: { code: string }) {
             {inv.product.can_produce_directly
               ? "Nhập thùng từ phiếu SẢN XUẤT (không trừ NL). Có công thức thì cũng đóng gói được."
               : "Chỉ nhập thùng từ phiếu ĐÓNG GÓI — bắt buộc trừ nguyên liệu."}
+          </div>
+        )}
+        {inv.product && isAdmin && (
+          <div class="box-kv">
+            <span class="box-k">Loại thùng</span>
+            <div class="cpd-seg" role="group">
+              <button class={"cpd-opt" + (!inv.product.self_container ? " sel" : "")} disabled={!inv.product.self_container} onClick={() => { if (inv.product!.self_container) toggleSelfContainer(); }}>
+                <Icon name="box" size={14} /> Thùng chứa hàng
+              </button>
+              <button class={"cpd-opt" + (inv.product.self_container ? " sel" : "")} disabled={!!inv.product.self_container} onClick={() => { if (!inv.product!.self_container) toggleSelfContainer(); }}>
+                <Icon name="tag" size={14} /> Bản thân là thùng
+              </button>
+            </div>
+          </div>
+        )}
+        {inv.product && isAdmin && inv.product.self_container && (
+          <div class="muted small" style={{ margin: "-2px 0 6px" }}>
+            Nhập theo SỐ THÙNG — mỗi thùng là 1 đơn vị (ruột cố định), không chọn đơn vị chứa, không tách lẻ.
           </div>
         )}
         <div class="row space">

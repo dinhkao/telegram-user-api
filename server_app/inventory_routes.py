@@ -138,6 +138,13 @@ async def production_add_boxes_handler(request: web.Request):
             # nguyên liệu, đánh dấu is_material); đóng gói → BẮT BUỘC có công thức
             # và chọn đủ thùng NL cho MỌI nguyên liệu TRƯỚC khi tạo thùng.
             kind = (slip or {}).get("kind") or "san_xuat"
+            # SP tự-là-thùng (KDXDB5/KGL5): bản thân là 1 thùng → mỗi thùng = 1 dòng
+            # quantity=1, KHÔNG có đơn vị chứa. Enforce server-side (chốt thật).
+            from product_store import get_product as _gp
+            _prod = _gp(conn, code)
+            self_container = bool(_prod and _prod.get("self_container"))
+            qtys = [1.0] * len(quantities) if self_container else quantities
+            uid = None if self_container else unit_id
             # Thùng NL người dùng chọn để tiêu hao (body.consume = [{box_id, quantity}]).
             raw_picks = body.get("consume") if isinstance(body.get("consume"), list) else []
             picks = [p for p in raw_picks if isinstance(p, dict) and p.get("box_id")]
@@ -146,7 +153,7 @@ async def production_add_boxes_handler(request: web.Request):
             allow_no_mat = get_bool("pack_allow_no_material", False)
             if kind == "dong_goi" and not allow_no_mat:
                 # Kiểm tra theo tổng cây dự kiến của đợt này.
-                needs = recipe_needs(conn, code, sum(quantities))
+                needs = recipe_needs(conn, code, sum(qtys))
                 if not needs:
                     return "norecipe", code, None
                 # mã NL của từng thùng chọn (COALESCE mã hiện hành)
@@ -201,7 +208,7 @@ async def production_add_boxes_handler(request: web.Request):
                 if prod is not None and not prod.get("can_produce_directly"):
                     return "notdirect", code, None
             try:
-                created = add_boxes(conn, code, quantities, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=unit_id, place_id=place_id)
+                created = add_boxes(conn, code, qtys, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=uid, place_id=place_id)
             except ValueError as e:   # hết 999 số gọi đang hoạt động (thực tế khó xảy ra)
                 return "full", str(e), None
             # đồng bộ slip.total/numbers/progress: 1 entry/thùng (note = mã thùng)
@@ -268,11 +275,11 @@ async def recipe_get_handler(request: web.Request):
                 ing = resolve_code(conn, ln["ingredient_code"])
                 ln["unit"] = (ing.get("unit") if ing else None) or "cây"
             prod = resolve_code(conn, code)
-            return lines, (prod.get("unit") if prod else None) or "cây"
+            return lines, (prod.get("unit") if prod else None) or "cây", bool((prod or {}).get("self_container"))
         finally:
             conn.close()
-    lines, unit = await asyncio.to_thread(_run)
-    return web.json_response({"ok": True, "recipe": lines, "unit": unit})
+    lines, unit, self_container = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, "recipe": lines, "unit": unit, "self_container": self_container})
 
 
 async def recipe_set_handler(request: web.Request):
@@ -962,6 +969,7 @@ async def inventory_detail_handler(request: web.Request):
             "id": prod.get("id"),
             "code": prod["code"], "name": prod.get("name") or prod.get("kv_full_name") or "",
             "can_produce_directly": bool(prod.get("can_produce_directly")),
+            "self_container": bool(prod.get("self_container")),
             "min_stock": float(prod.get("min_stock") or 0),
             "cost_price": prod.get("cost_price") or 0, "unit": prod.get("unit") or "cây",
             "kv_id": prod.get("kv_id"), "kv_full_name": prod.get("kv_full_name"),
