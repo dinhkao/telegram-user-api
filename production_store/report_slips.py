@@ -154,7 +154,7 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
     rows = conn.execute(
         "SELECT t.thread_id AS tid, t.report_ymd AS ymd, t.worker_name AS wname, "
         "COALESCE(w.name, t.worker_name) AS worker, COALESCE(pr.code, t.product_code) AS code, "
-        "ROUND(SUM(t.tong_calc), 1) AS cay, s.luong_1sp AS slip_wage "
+        "ROUND(SUM(t.tong_calc), 1) AS cay, s.luong_1sp AS slip_wage, s.bang AS bang "
         "FROM production_report_rows t "
         "LEFT JOIN production_workers w ON w.id = t.worker_id "
         "LEFT JOIN products pr ON pr.id = t.product_id "
@@ -181,6 +181,14 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
 
     workers: dict[str, dict] = {}
     phieus: dict[int, dict] = {}
+    times: dict[int, tuple] = {}   # tid → (start, end) từ blob báo cáo
+    for r in rows:
+        if r["tid"] not in times:
+            try:
+                b = json.loads(r["bang"] or "{}")
+            except (TypeError, ValueError):
+                b = {}
+            times[r["tid"]] = (b.get("start") or "", b.get("end") or "")
     missing: set = set()
     allow_used: set = set()   # (tid, wname) đã cộng phụ cấp — chỉ cộng 1 lần
 
@@ -213,7 +221,12 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
         dy = wk["days"].setdefault(ymd or "", {"ymd": ymd or "", "cay": 0.0, "money": 0, "items": {}})
         dy["cay"] = round(dy["cay"] + cay, 1)
         dy["money"] += money
-        di = dy["items"].setdefault((code, wage), {"code": code, "cay": 0.0, "wage": wage, "money": 0})
+        st, en = times.get(tid, ("", ""))
+        # dòng ngày tách theo phiếu SX — mỗi dòng mang giờ bắt đầu/kết thúc của phiếu đó
+        di = dy["items"].setdefault((tid, code, wage), {
+            "code": code, "cay": 0.0, "wage": wage, "money": 0,
+            "start": st, "end": en, "thread_id": tid,
+        })
         di["cay"] = round(di["cay"] + cay, 1)
         di["money"] += money
 
@@ -240,7 +253,11 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
         ph_ymd = phieus[tid]["ymd"] or ""
         dy = wk["days"].setdefault(ph_ymd, {"ymd": ph_ymd, "cay": 0.0, "money": 0, "items": {}})
         dy["money"] += amt
-        di = dy["items"].setdefault(("", 0.0), {"code": "", "cay": 0.0, "wage": 0.0, "money": 0})
+        st, en = times.get(tid, ("", ""))
+        di = dy["items"].setdefault((tid, "", 0.0), {
+            "code": "", "cay": 0.0, "wage": 0.0, "money": 0,
+            "start": st, "end": en, "thread_id": tid,
+        })
         di["money"] += amt
 
     phieu_list = []
@@ -253,7 +270,9 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
         wk["items"] = sorted(wk["items"].values(), key=lambda x: -x["money"])
         wk["days"] = sorted(wk["days"].values(), key=lambda d: d["ymd"])
         for dy in wk["days"]:
-            dy["items"] = sorted(dy["items"].values(), key=lambda x: -x["money"])
+            # theo giờ bắt đầu trong ngày (không giờ → cuối), rồi theo tiền
+            dy["items"] = sorted(dy["items"].values(),
+                                 key=lambda x: (x["start"].zfill(5) if x["start"] else "￿", -x["money"]))
 
     return {
         "workers": worker_list,

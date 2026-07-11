@@ -182,6 +182,9 @@ export function ReportSlipDetail({ id }: { id: string }) {
                             </div>
                             {d.items.map((it, i) => (
                               <div class="wg-item" key={i}>
+                                {(it.start || it.end) && (
+                                  <span class="rs-item-time muted small">{it.start || "?"}–{it.end || "?"}</span>
+                                )}
                                 <span class="wg-item-code">{it.code || "?"}</span>
                                 <span class="wg-item-calc muted small">{soVN(it.cay)} SP × {soVN(it.wage)}đ</span>
                                 <span class="wg-item-money">{money(it.money)}</span>

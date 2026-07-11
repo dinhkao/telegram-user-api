@@ -1583,6 +1583,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .rs-sec { margin-bottom: 16px; }
 .rs-sec-h { display: flex; align-items: center; gap: 6px; font-size: .84rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); padding: 0 2px 7px; }
 .rs-list { padding: 8px 10px; }
+.rs-item-time { flex-shrink: 0; font-variant-numeric: tabular-nums; min-width: 76px; }
 .rs-wk-day { border-top: 1px dashed var(--border); padding: 4px 0 2px; }
 .rs-wk-day:first-child { border-top: none; }
 .rs-wk-day-h { display: flex; align-items: center; gap: 8px; padding: 2px 0; font-size: .85rem; }
