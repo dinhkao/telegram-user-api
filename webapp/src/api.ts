@@ -681,6 +681,7 @@ export type ReportSlipTotals = { cay: number; money: number; allowance: number }
 export type ReportSlip = {
   id: number; from_ymd: string; to_ymd: string; note: string;
   created_by: string; created_at: string;
+  worker_ids?: number[] | null; worker_names?: string[] | null;   // null = mọi thợ
   totals?: ReportSlipTotals; worker_count?: number; phieu_count?: number;
   report?: {
     workers: { name: string; cay: number; money: number; allowance: number;
@@ -694,8 +695,8 @@ export async function listReportSlips(): Promise<ReportSlip[]> {
   const d = await getJSON("/api/report-slips", { cache: false });
   return d.slips || [];
 }
-export async function createReportSlip(from: string, to: string, note: string): Promise<ReportSlip> {
-  const d = await postJSON("/api/report-slips", { from, to, note });
+export async function createReportSlip(from: string, to: string, note: string, workerIds?: number[]): Promise<ReportSlip> {
+  const d = await postJSON("/api/report-slips", { from, to, note, worker_ids: workerIds && workerIds.length ? workerIds : undefined });
   return d.slip;
 }
 export async function getReportSlip(id: string | number): Promise<ReportSlip> {

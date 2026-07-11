@@ -1,13 +1,16 @@
 """PHIẾU BÁO CÁO sản xuất (production_report_slips) — app.db.
 
-1 phiếu = 1 khoảng ngày (from_ymd → to_ymd) do văn phòng tạo; nội dung báo cáo
-KHÔNG lưu cứng mà TÍNH LẠI mỗi lần xem từ production_report_rows (tổng SP từng thợ,
-tiền công từng phiếu SX, tổng cộng — đơn giá production_store.wages + phụ cấp
-production_store.allowances). Nối: utils.db, production_report_rows, products,
-production_workers. API: server_app/report_slip_routes.
+1 phiếu = 1 khoảng ngày (from_ymd → to_ymd) do văn phòng tạo, tuỳ chọn CHỌN THỢ
+(worker_ids JSON — id bất biến production_workers; NULL = mọi thợ); nội dung báo
+cáo KHÔNG lưu cứng mà TÍNH LẠI mỗi lần xem từ production_report_rows (tổng SP
+từng thợ, tiền công từng phiếu SX, tổng cộng — đơn giá CHỐT theo phiếu luong_1sp
+→ fallback production_store.wages + phụ cấp production_store.allowances).
+Nối: utils.db, production_report_rows, products, production_workers.
+API: server_app/report_slip_routes.
 """
 from __future__ import annotations
 
+import json
 import re
 
 from utils.db import transaction
@@ -28,20 +31,28 @@ def ensure_table(conn) -> None:
         )
         """
     )
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(production_report_slips)").fetchall()}
+    if "worker_ids" not in cols:   # JSON [id, ...] thợ được chọn; NULL = mọi thợ
+        conn.execute("ALTER TABLE production_report_slips ADD COLUMN worker_ids TEXT")
     conn.commit()
 
 
 def _row(r) -> dict:
+    try:
+        wids = json.loads(r["worker_ids"]) if r["worker_ids"] else None
+    except (TypeError, ValueError):
+        wids = None
     return {
         "id": r["id"], "from_ymd": r["from_ymd"], "to_ymd": r["to_ymd"],
         "note": r["note"] or "", "created_by": r["created_by"] or "",
         "created_at": r["created_at"] or "",
+        "worker_ids": wids if isinstance(wids, list) else None,
     }
 
 
 def list_slips(conn) -> list[dict]:
     rows = conn.execute(
-        "SELECT id, from_ymd, to_ymd, note, created_by, created_at "
+        "SELECT id, from_ymd, to_ymd, note, created_by, created_at, worker_ids "
         "FROM production_report_slips ORDER BY id DESC"
     ).fetchall()
     return [_row(r) for r in rows]
@@ -49,25 +60,44 @@ def list_slips(conn) -> list[dict]:
 
 def get_slip(conn, slip_id: int) -> dict | None:
     r = conn.execute(
-        "SELECT id, from_ymd, to_ymd, note, created_by, created_at "
+        "SELECT id, from_ymd, to_ymd, note, created_by, created_at, worker_ids "
         "FROM production_report_slips WHERE id = ?", (slip_id,)
     ).fetchone()
     return _row(r) if r else None
 
 
-def add_slip(conn, from_ymd: str, to_ymd: str, note: str = "", by: str = "") -> dict:
+def add_slip(conn, from_ymd: str, to_ymd: str, note: str = "", by: str = "",
+             worker_ids: list[int] | None = None) -> dict:
     f, t = (from_ymd or "").strip(), (to_ymd or "").strip()
     if not _YMD.match(f) or not _YMD.match(t):
         raise ValueError("Phải chọn ngày bắt đầu và ngày kết thúc (YYYY-MM-DD)")
     if f > t:
         raise ValueError("Ngày bắt đầu phải trước (hoặc bằng) ngày kết thúc")
+    wids = None
+    if worker_ids:
+        wids = json.dumps(sorted({int(x) for x in worker_ids}))
     with transaction(conn):
         cur = conn.execute(
-            "INSERT INTO production_report_slips (from_ymd, to_ymd, note, created_by) VALUES (?, ?, ?, ?)",
-            (f, t, (note or "").strip(), by or ""),
+            "INSERT INTO production_report_slips (from_ymd, to_ymd, note, created_by, worker_ids) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (f, t, (note or "").strip(), by or "", wids),
         )
         sid = cur.lastrowid
     return get_slip(conn, sid)
+
+
+def resolve_worker_names(conn, worker_ids: list[int] | None) -> list[str] | None:
+    """TÊN HIỆN HÀNH của các thợ đã chọn (id bất biến — đổi tên vẫn khớp).
+    None nếu phiếu tính mọi thợ; id đã xoá bị bỏ qua."""
+    if not worker_ids:
+        return None
+    qs = ",".join("?" * len(worker_ids))
+    rows = conn.execute(
+        f"SELECT name FROM production_workers WHERE id IN ({qs}) "
+        "ORDER BY sort_order ASC, name COLLATE NOCASE ASC",
+        [int(x) for x in worker_ids],
+    ).fetchall()
+    return [r["name"] for r in rows]
 
 
 def delete_slip(conn, slip_id: int) -> bool:
@@ -78,12 +108,16 @@ def delete_slip(conn, slip_id: int) -> bool:
 
 # ── Nội dung báo cáo (tính live) ────────────────────────────────────────────────
 
-def compute_range_report(conn, dfrom: str, dto: str) -> dict:
+def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | None = None) -> dict:
     """Báo cáo 1 khoảng ngày: THEO THỢ (tổng SP + tiền, breakdown theo mã SP) +
     THEO PHIẾU SX (mỗi phiếu: ngày, mã SP, số SP, tiền công) + TỔNG CỘNG.
     Tiền = số cây × ĐƠN GIÁ CHỐT THEO PHIẾU (production_slips.luong_1sp; NULL =
-    chưa chốt → bảng lương hiện tại) + phụ cấp (gắn 1 lần / (phiếu, thợ))."""
+    chưa chốt → bảng lương hiện tại) + phụ cấp (gắn 1 lần / (phiếu, thợ)).
+    worker_ids: CHỈ TÍNH các thợ này (khớp theo tên hiện hành); None = mọi thợ."""
     from production_store.wages import wage_per_cay
+
+    only_names = resolve_worker_names(conn, worker_ids)   # None = không lọc
+    only_cf = {n.strip().casefold() for n in only_names} if only_names is not None else None
 
     rows = conn.execute(
         "SELECT t.thread_id AS tid, t.report_ymd AS ymd, t.worker_name AS wname, "
@@ -121,6 +155,8 @@ def compute_range_report(conn, dfrom: str, dto: str) -> dict:
     for r in rows:
         tid, ymd, wname = r["tid"], r["ymd"], r["wname"]
         worker, code, cay = (r["worker"] or "?"), (r["code"] or ""), float(r["cay"] or 0)
+        if only_cf is not None and worker.strip().casefold() not in only_cf:
+            continue   # phiếu báo cáo chỉ tính các thợ đã chọn
         # đơn giá CHỐT theo phiếu; chưa chốt (NULL) → bảng lương hiện tại
         wage = float(r["slip_wage"]) if r["slip_wage"] is not None else wage_per_cay(code)
         if cay > 0 and wage <= 0:
@@ -152,6 +188,8 @@ def compute_range_report(conn, dfrom: str, dto: str) -> dict:
     for (tid, wname), amt in allow.items():
         amt = round(amt)
         if amt == 0 or (tid, wname) in allow_used or tid not in phieus:
+            continue
+        if only_cf is not None and str(wname or "").strip().casefold() not in only_cf:
             continue
         wk = workers.setdefault(wname, {"name": wname, "cay": 0.0, "money": 0, "allowance": 0, "items": {}})
         it = wk["items"].setdefault(("", 0.0), {"code": "", "cay": 0.0, "wage": 0.0, "money": 0})

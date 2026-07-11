@@ -79,6 +79,9 @@ export function ReportSlipDetail({ id }: { id: string }) {
           tổng cộng {soVN(rep.totals.cay)} SP · {rep.workers.length} thợ · {rep.phieus.length} phiếu SX
           {(rep.totals.allowance || 0) > 0 ? ` · gồm phụ cấp ${money(rep.totals.allowance)}` : ""}
         </div>
+        {slip.worker_names && slip.worker_names.length > 0 && (
+          <div class="muted small rs-only-workers">👤 Chỉ tính: <b>{slip.worker_names.join(", ")}</b></div>
+        )}
       </div>
 
       {rep.missing_wage.length > 0 && (

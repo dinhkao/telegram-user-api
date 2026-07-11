@@ -92,6 +92,27 @@ def test_compute_missing_wage_flagged(conn, monkeypatch):
     assert rep["totals"]["money"] == 5000   # chỉ còn phụ cấp
 
 
+def test_worker_filter(conn, monkeypatch):
+    """worker_ids: chỉ tính các thợ đã chọn (khớp tên hiện hành, id bất biến)."""
+    from production_store import wages
+    monkeypatch.setattr(wages, "_cache", {"K1": {"luong": 1000}, "K2": {"luong": 2000}})
+    _seed(conn)
+    conn.execute("INSERT INTO production_workers (id, name) VALUES (1, 'Hiền'), (2, 'Mai')")
+    conn.execute("ALTER TABLE production_workers ADD COLUMN sort_order INTEGER DEFAULT 0")
+
+    rep = report_slips.compute_range_report(conn, "2026-07-06", "2026-07-12", worker_ids=[2])
+    assert [w["name"] for w in rep["workers"]] == ["Mai"]
+    assert rep["totals"]["money"] == 5000                  # chỉ tiền của Mai
+    phieus = {p["thread_id"]: p for p in rep["phieus"]}
+    assert phieus[100]["money"] == 5000 and 200 not in phieus   # phiếu 200 chỉ có Hiền
+
+    # lưu vào phiếu báo cáo + đọc lại
+    s = report_slips.add_slip(conn, "2026-07-06", "2026-07-12", worker_ids=[2, 1])
+    assert s["worker_ids"] == [1, 2]
+    assert report_slips.resolve_worker_names(conn, s["worker_ids"]) == ["Hiền", "Mai"]
+    assert report_slips.resolve_worker_names(conn, None) is None
+
+
 def test_slip_fixed_wage_overrides_current_table(conn, monkeypatch):
     """Phiếu đã CHỐT luong_1sp → dùng giá chốt, mặc kệ bảng lương hiện tại;
     phiếu chưa chốt (NULL) → bảng lương hiện tại."""

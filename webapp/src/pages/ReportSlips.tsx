@@ -1,9 +1,10 @@
 // Dashboard BÁO CÁO sản xuất (#/bao-cao) — CHỈ văn phòng (tiền lương).
-// Văn phòng tạo phiếu báo cáo (chọn ngày bắt đầu + kết thúc, ghi chú tuỳ chọn);
-// danh sách hiện tổng SP + tổng tiền từng phiếu. Bấm phiếu → chi tiết #/bao-cao/:id.
-// Data: listReportSlips/createReportSlip. Realtime report_slips_changed → tải lại.
+// Văn phòng tạo phiếu báo cáo: chọn ngày bắt đầu + kết thúc, CHỌN THỢ (chip —
+// mặc định mọi thợ; preset "Lương tuần" = thợ bật nhận lương tuần), ghi chú.
+// Danh sách hiện tổng SP + tổng tiền từng phiếu. Bấm phiếu → chi tiết #/bao-cao/:id.
+// Data: listReportSlips/createReportSlip/listWorkers. Realtime report_slips_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
-import { createReportSlip, isOffice, listReportSlips, soVN, type ReportSlip } from "../api";
+import { createReportSlip, isOffice, listReportSlips, listWorkers, soVN, type ReportSlip, type Worker } from "../api";
 import { onRealtime } from "../realtime";
 import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
@@ -29,12 +30,14 @@ export function ReportSlips() {
   const [to, setTo] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [sel, setSel] = useState<Set<number> | null>(null);   // null = mọi thợ
 
   const load = async () => {
     try { setSlips(await listReportSlips()); setErr(""); }
     catch (e: any) { setErr(e?.message || "Lỗi tải báo cáo"); }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); listWorkers().then(({ workers }) => setWorkers(workers)).catch(() => {}); }, []);
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
@@ -54,13 +57,26 @@ export function ReportSlips() {
     }
   };
 
+  // Chip thợ: sel = null nghĩa là MỌI THỢ (kể cả thợ thêm sau); bấm 1 chip khi đang
+  // "mọi thợ" = bỏ riêng thợ đó; preset Lương tuần = chỉ thợ bật nhận lương tuần.
+  const isOn = (id: number) => sel === null || sel.has(id);
+  const toggleWorker = (id: number) => {
+    setSel((s) => {
+      const base = s === null ? new Set(workers.map((w) => w.id)) : new Set(s);
+      base.has(id) ? base.delete(id) : base.add(id);
+      return base.size === workers.length ? null : base;
+    });
+  };
+  const weeklyIds = workers.filter((w) => w.weekly_salary).map((w) => w.id);
+
   const create = async () => {
     if (busy) return;
     if (!from || !to) { toast("Phải chọn ngày bắt đầu và ngày kết thúc", "err"); return; }
     if (from > to) { toast("Ngày bắt đầu phải trước ngày kết thúc", "err"); return; }
+    if (sel !== null && sel.size === 0) { toast("Chọn ít nhất 1 thợ", "err"); return; }
     setBusy(true);
     try {
-      const slip = await createReportSlip(from, to, note);
+      const slip = await createReportSlip(from, to, note, sel === null ? undefined : [...sel]);
       toast("Đã tạo phiếu báo cáo", "ok");
       setNote("");
       window.location.hash = `#/bao-cao/${slip.id}`;
@@ -104,6 +120,24 @@ export function ReportSlips() {
           <button class="rs-preset" onClick={() => preset("this")}>Tuần này</button>
           <button class="rs-preset" onClick={() => preset("last")}>Tuần trước</button>
         </div>
+        {workers.length > 0 && (
+          <div class="rs-workers">
+            <div class="rs-workers-head">
+              <span class="muted small">Thợ tính trong báo cáo{sel === null ? " (tất cả)" : ` (${sel.size}/${workers.length})`}</span>
+              <button class="rs-preset" onClick={() => setSel(null)}>Tất cả</button>
+              {weeklyIds.length > 0 && (
+                <button class="rs-preset" onClick={() => setSel(new Set(weeklyIds))}>Lương tuần ({weeklyIds.length})</button>
+              )}
+            </div>
+            <div class="rs-worker-chips">
+              {workers.map((w) => (
+                <button key={w.id} class={isOn(w.id) ? "rs-wchip on" : "rs-wchip"} onClick={() => toggleWorker(w.id)}>
+                  {w.name}{w.weekly_salary ? " ·T" : ""}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <input class="rs-note" type="text" placeholder="Ghi chú (tuỳ chọn)…" value={note}
           onInput={(e: any) => setNote(e.currentTarget.value)} />
         <button class="btn primary block rs-create-btn" disabled={busy || !from || !to} onClick={create}>
@@ -121,6 +155,9 @@ export function ReportSlips() {
             <div class="rs-row-main">
               <div class="rs-row-range"><Icon name="calendar" size={15} /> {dmy(s.from_ymd)} → {dmy(s.to_ymd)}</div>
               {s.note ? <div class="muted small rs-row-note">{s.note}</div> : null}
+              {s.worker_names && s.worker_names.length > 0 && (
+                <div class="muted small rs-row-note">👤 {s.worker_names.join(", ")}</div>
+              )}
               <div class="muted small">{s.worker_count || 0} thợ · {s.phieu_count || 0} phiếu SX{s.created_by ? ` · tạo bởi ${s.created_by}` : ""}</div>
             </div>
             <div class="rs-row-nums">
