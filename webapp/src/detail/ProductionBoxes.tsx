@@ -199,7 +199,21 @@ export function ProductionBoxes({
     // mới TẠO thùng (finalizeCreate); bấm quay lại / xong mà chưa chụp → KHÔNG tạo gì.
     if (!(await confirmDialog(`Nhập ${c} ${unitLow} × ${soVN(n)} ${prodUnit} ${prodCode}?\nBước sau chụp ảnh thùng — chưa chụp thì chưa tạo.`))) return;
     const picks = Array.from({ length: c }, () => ({ quantity: n }));  // c thùng giống nhau
-    const consume = Object.values(consumePicks).flat();               // thùng NL đã chọn
+    // Cap tiêu hao mỗi NL đúng nhu cầu công thức (ratio × produced) — khớp cap server,
+    // tránh trừ DƯ nếu số cây đổi sau khi đã chọn thùng (bug thùng 322). Mã ngoài
+    // công thức không cap. produced = n × c (tổng cây đợt này).
+    const consume: { box_id: number; quantity: number }[] = [];
+    for (const [code, ps] of Object.entries(consumePicks)) {
+      const line = recipe.find((l) => l.ingredient_code === code);
+      let allow = line ? line.ratio * produced : Infinity;
+      for (const p of ps) {
+        if (allow <= 1e-9) break;
+        const take = Math.min(p.quantity, allow);
+        if (take <= 1e-9) continue;
+        consume.push({ box_id: p.box_id, quantity: +take.toFixed(6) });
+        allow -= take;
+      }
+    }
     capturedRef.current = [];
     setPendingCreate({ picks, note: note.trim(), mfgDate, unitId, consume, prodCode, placeId, count: c });
     setMsg("");

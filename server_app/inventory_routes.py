@@ -149,20 +149,51 @@ async def production_add_boxes_handler(request: web.Request):
                 needs = recipe_needs(conn, code, sum(quantities))
                 if not needs:
                     return "norecipe", code, None
-                got: dict = {}
+                # mã NL của từng thùng chọn (COALESCE mã hiện hành)
+                codes: dict = {}
                 for p in picks:
                     row = conn.execute(
                         "SELECT COALESCE(pr.code, b.product_code) FROM inventory_boxes b "
                         "LEFT JOIN products pr ON pr.id = b.product_id WHERE b.id = ?",
                         (p.get("box_id"),)).fetchone()
                     if row:
-                        try:
-                            got[row[0]] = got.get(row[0], 0.0) + float(p.get("quantity") or 0)
-                        except (TypeError, ValueError):
-                            pass
+                        codes[p.get("box_id")] = row[0]
+                got: dict = {}
+                for p in picks:
+                    c = codes.get(p.get("box_id"))
+                    if c is None:
+                        continue
+                    try:
+                        got[c] = got.get(c, 0.0) + float(p.get("quantity") or 0)
+                    except (TypeError, ValueError):
+                        pass
+                # TỐI THIỂU: phải chọn đủ nhu cầu công thức
                 for nd in needs:
                     if got.get(nd["code"], 0.0) + 1e-6 < nd["amount"]:
                         return "short", nd["code"], nd["amount"]
+                # TỐI ĐA: KHÔNG cho tiêu hao quá nhu cầu (ratio × số cây). Trim cộng dồn
+                # theo mã → chặn trừ dư khi client gửi số cũ (vd đổi số cây sau khi chọn
+                # thùng). Mã ngoài công thức giữ nguyên. Đây là chốt chặn thật (bug thùng 322).
+                remain_allow = {nd["code"]: nd["amount"] for nd in needs}
+                capped: list = []
+                for p in picks:
+                    c = codes.get(p.get("box_id"))
+                    try:
+                        q = float(p.get("quantity") or 0)
+                    except (TypeError, ValueError):
+                        continue
+                    if c in remain_allow:
+                        allow = remain_allow[c]
+                        if allow <= 1e-9:
+                            continue          # đã đủ nhu cầu → bỏ phần dư
+                        take = min(q, allow)
+                        if take <= 1e-9:
+                            continue
+                        remain_allow[c] = allow - take
+                        capped.append({**p, "quantity": round(take, 6)})
+                    else:
+                        capped.append(p)      # mã ngoài công thức → không cap
+                picks = capped
             elif kind == "san_xuat" and not allow_no_mat:
                 # phiếu SẢN XUẤT chỉ nhập được SP có thể SX trực tiếp (can_produce_directly)
                 from product_store import get_product
