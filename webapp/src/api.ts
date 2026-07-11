@@ -715,7 +715,16 @@ export async function getProductionDashboard(from?: string, to?: string): Promis
   return getJSON(`/api/production/report-dashboard${q ? "?" + q : ""}`, { cache: false });
 }
 
-export type WorkerReportRow = { thread_id: number; product_code: string; date: string; ymd: string; so_mam: number; tong_calc: number; note: string; money?: number; wage?: number };
+export type WorkerReportRow = { thread_id: number; product_code: string; date: string; ymd: string; so_mam: number; tong_calc: number; note: string; money?: number; wage?: number; piece?: number; allowance?: number };
+// Tiền công + phụ cấp của 1 PHIẾU (office only)
+export type PhieuWages = { product_code: string; wage: number; allowances: Record<string, number> };
+export async function phieuWages(threadId: string | number): Promise<PhieuWages> {
+  const d = await getJSON(`/api/production/${threadId}/wages`, { cache: false });
+  return { product_code: d.product_code || "", wage: d.wage || 0, allowances: d.allowances || {} };
+}
+export async function setAllowance(threadId: string | number, worker_name: string, amount: number): Promise<{ ok: boolean; amount: number }> {
+  return await postJSON(`/api/production/${threadId}/allowance`, { worker_name, amount });
+}
 export type WorkerReport = { name: string; total: number; total_mam: number; phieu: number; rows: WorkerReportRow[]; total_money?: number; can_money?: boolean };
 export async function getWorkerReport(name: string, from?: string, to?: string): Promise<WorkerReport> {
   const qs = new URLSearchParams();

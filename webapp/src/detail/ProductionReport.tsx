@@ -2,9 +2,10 @@
 // Sửa → trang riêng (#/san_xuat/:id/bao-cao, ProductionReportEdit) khoá 1 người sửa.
 // Badge "✏️ X đang sửa" khi có người giữ khoá (poll status lúc mở + realtime report_lock).
 import { useEffect, useState } from "preact/hooks";
-import { soVN, reportLockStatus, type ProdSlip, type ProdReport } from "../api";
+import { soVN, isOffice, reportLockStatus, type ProdSlip, type ProdReport } from "../api";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
+import { ProductionWages } from "./ProductionWages";
 
 export function ProductionReport({ threadId, slip, locked }: { threadId: string; slip: ProdSlip; locked?: boolean }) {
   const rep = slip.bang as ProdReport | null;
@@ -60,6 +61,7 @@ export function ProductionReport({ threadId, slip, locked }: { threadId: string;
               </tfoot>
             </table>
           </div>
+          {isOffice() && <ProductionWages threadId={threadId} workers={rows.map((r) => ({ name: r.name, cay: r.tong_calc }))} />}
         </>
       ) : (
         <p class="muted small">Chưa có báo cáo. Bấm <b>✏️ Sửa</b> để nhập trực tiếp.</p>

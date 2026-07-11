@@ -44,23 +44,32 @@ async def production_worker_report_handler(request: web.Request):
         conn = get_connection(SHARED_DB_PATH)
         try:
             data = worker_detail(conn, name, dfrom, dto)
+            # Tiền công: chỉ văn phòng — mỗi row (= 1 phiếu): tiền SP = tong_calc × đơn giá,
+            # cộng PHỤ CẤP của (phiếu, thợ) → money = piece + allowance.
+            from server_app.production_wages import is_office_username
+            if is_office_username(username):
+                from production_store.wages import wage_per_cay
+                from production_store.allowances import get_allowances
+                acache: dict = {}
+                total_money = 0
+                for r in data.get("rows", []):
+                    tid = r.get("thread_id")
+                    if tid not in acache:
+                        acache[tid] = get_allowances(conn, tid)
+                    allow = round(acache[tid].get(name, 0))
+                    w = wage_per_cay(r.get("product_code"))
+                    piece = round((r.get("tong_calc") or 0) * w)
+                    r["wage"] = w
+                    r["piece"] = piece
+                    r["allowance"] = allow
+                    r["money"] = piece + allow
+                    total_money += piece + allow
+                data["total_money"] = total_money
+                data["can_money"] = True
+            else:
+                data["can_money"] = False
         finally:
             conn.close()
-        # Tiền công: chỉ văn phòng — mỗi row (= 1 phiếu) money = tong_calc × đơn giá SP.
-        from server_app.production_wages import is_office_username
-        if is_office_username(username):
-            from production_store.wages import wage_per_cay
-            total_money = 0
-            for r in data.get("rows", []):
-                w = wage_per_cay(r.get("product_code"))
-                m = round((r.get("tong_calc") or 0) * w)
-                r["money"] = m
-                r["wage"] = w
-                total_money += m
-            data["total_money"] = total_money
-            data["can_money"] = True
-        else:
-            data["can_money"] = False
         return data
 
     data = await asyncio.to_thread(_run)

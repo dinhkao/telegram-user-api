@@ -242,6 +242,9 @@ def create_app():
     r.add_post("/api/production/{thread_id}/report/unlock", production_report_unlock_handler)
     r.add_post("/api/production/{thread_id}/report/draft", production_report_draft_handler)
     r.add_post("/api/production/{thread_id}/report", production_report_save_handler)
+    from server_app.production_wages import phieu_wages_handler, set_allowance_handler
+    r.add_get("/api/production/{thread_id}/wages", phieu_wages_handler)          # tiền + phụ cấp (office)
+    r.add_post("/api/production/{thread_id}/allowance", set_allowance_handler)   # đặt phụ cấp (office)
 
     # ─── danh sách thợ (template báo cáo) ────────────────────────────────────
     from server_app.worker_routes import (
