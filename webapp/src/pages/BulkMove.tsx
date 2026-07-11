@@ -34,7 +34,7 @@ export function BulkMove() {
 
   const countAt = (pid: number) => boxes.filter((b) => b.place_id === pid && movable(b)).length;
   const srcBoxes = useMemo(() => src == null ? [] : boxes.filter((b) => b.place_id === src && movable(b))
-    .sort((a, b) => (a.product_code || "").localeCompare(b.product_code || "") || (a.box_code || "").localeCompare(b.box_code || "")), [boxes, src]);
+    .sort((a, b) => a.id - b.id), [boxes, src]);   // theo id thùng tăng dần
 
   // lọc không dấu: kho theo tên, thùng theo mã SP / số gọi
   const fPlaces = (list: Place[], q: string) => { const n = foldVN(q.trim()); return n ? list.filter((p) => foldVN(p.name).includes(n)) : list; };
