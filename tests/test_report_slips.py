@@ -22,6 +22,7 @@ def conn():
     )
     c.execute("CREATE TABLE production_workers (id INTEGER PRIMARY KEY, name TEXT)")
     c.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, code TEXT)")
+    c.execute("CREATE TABLE production_slips (thread_id INTEGER PRIMARY KEY, sp_name TEXT, luong_1sp REAL)")
     ensure_allowances(c)
     report_slips.ensure_table(c)
     yield c
@@ -89,3 +90,23 @@ def test_compute_missing_wage_flagged(conn, monkeypatch):
     rep = report_slips.compute_range_report(conn, "2026-07-06", "2026-07-12")
     assert set(rep["missing_wage"]) == {"K1", "K2"}
     assert rep["totals"]["money"] == 5000   # chỉ còn phụ cấp
+
+
+def test_slip_fixed_wage_overrides_current_table(conn, monkeypatch):
+    """Phiếu đã CHỐT luong_1sp → dùng giá chốt, mặc kệ bảng lương hiện tại;
+    phiếu chưa chốt (NULL) → bảng lương hiện tại."""
+    from production_store import wages
+    monkeypatch.setattr(wages, "_cache", {"K1": {"luong": 9999}, "K2": {"luong": 2000}})
+    _seed(conn)
+    # phiếu 100 chốt K1 = 1000đ (bảng lương hiện tại đã tăng 9999 — không ảnh hưởng)
+    conn.execute("INSERT INTO production_slips (thread_id, sp_name, luong_1sp) VALUES (100, 'K1', 1000)")
+
+    rep = report_slips.compute_range_report(conn, "2026-07-06", "2026-07-12")
+    phieus = {p["thread_id"]: p for p in rep["phieus"]}
+    assert phieus[100]["money"] == 15000          # (10+5) × 1000 giá CHỐT
+    # phiếu 200 chưa chốt → giá hiện tại: 4×9999 + 6×2000 + PC 5000
+    assert phieus[200]["money"] == round(4 * 9999) + 12000 + 5000
+    # thợ Hiền có 2 dòng K1 giá khác nhau (chốt 1000 vs live 9999) → 2 item riêng
+    hien = {tuple((i["code"], i["wage"])) for i in
+            next(w for w in rep["workers"] if w["name"] == "Hiền")["items"]}
+    assert ("K1", 1000.0) in hien and ("K1", 9999.0) in hien

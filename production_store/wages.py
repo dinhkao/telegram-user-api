@@ -88,6 +88,15 @@ def has_wage(code: str | None) -> bool:
     return wage_per_cay(code) > 0
 
 
+def wage_for_code(conn, code: str | None) -> float:
+    """Đơn giá bảng lương hiện tại của 1 mã, đọc qua `conn` truyền vào (không qua
+    cache module) — dùng để CHỐT snapshot vào phiếu SX (queries.set_sp)."""
+    ensure_table(conn)
+    c = str(code or "").strip().upper()
+    r = conn.execute("SELECT luong FROM production_wages WHERE code = ?", (c,)).fetchone()
+    return float(r["luong"] or 0) if r else 0.0
+
+
 def list_wages(conn) -> list[dict]:
     """Mọi entry lương (kèm tên SP hiện hành nếu khớp mã) — cho trang sửa lương."""
     ensure_table(conn)

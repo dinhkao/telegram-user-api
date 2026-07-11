@@ -991,6 +991,11 @@ body.pv-open { overflow: hidden; }
 .pw-table tfoot td { background: var(--ok-wash); font-weight: 800; font-variant-numeric: tabular-nums; }
 .pw-input { width: 82px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 7px; font: inherit; font-size: .85rem; text-align: right; font-variant-numeric: tabular-nums; background: var(--card); color: var(--ink); }
 .pw-input:focus { border-color: var(--primary); outline: none; }
+/* Đơn giá lương CHỐT theo phiếu */
+.pw-wage-row { display: flex; align-items: center; gap: 7px; margin-bottom: 9px; flex-wrap: wrap; }
+.pw-wage-lbl { font-size: .86rem; font-weight: 700; }
+.pw-wage-input { font-weight: 700; }
+.pw-wage-note { white-space: nowrap; }
 
 /* ── Chuyển kho hàng loạt (#/chuyen-kho) ── */
 .bm-head { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }

@@ -765,10 +765,14 @@ export async function getProductionDashboard(from?: string, to?: string): Promis
 
 export type WorkerReportRow = { thread_id: number; product_code: string; date: string; ymd: string; so_mam: number; tong_calc: number; note: string; money?: number; wage?: number; piece?: number; allowance?: number };
 // Tiền công + phụ cấp của 1 PHIẾU (office only)
-export type PhieuWages = { product_code: string; wage: number; allowances: Record<string, number> };
+export type PhieuWages = { product_code: string; wage: number; default_wage: number; custom: boolean; allowances: Record<string, number> };
 export async function phieuWages(threadId: string | number): Promise<PhieuWages> {
   const d = await getJSON(`/api/production/${threadId}/wages`, { cache: false });
-  return { product_code: d.product_code || "", wage: d.wage || 0, allowances: d.allowances || {} };
+  return { product_code: d.product_code || "", wage: d.wage || 0, default_wage: d.default_wage || 0, custom: !!d.custom, allowances: d.allowances || {} };
+}
+/** Chốt/sửa đơn giá lương /1SP của RIÊNG 1 phiếu (office). */
+export async function setPhieuWage(threadId: string | number, luong: number): Promise<any> {
+  return await postJSON(`/api/production/${threadId}/wage`, { luong });
 }
 export async function setAllowance(threadId: string | number, worker_name: string, amount: number): Promise<{ ok: boolean; amount: number }> {
   return await postJSON(`/api/production/${threadId}/allowance`, { worker_name, amount });

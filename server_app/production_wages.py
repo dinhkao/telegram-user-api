@@ -59,21 +59,34 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            "SELECT t.report_ymd AS ymd, COALESCE(w.name, t.worker_name) AS worker, "
-            "COALESCE(pr.code, t.product_code) AS code, ROUND(SUM(t.tong_calc),1) AS cay "
+            "SELECT t.thread_id AS tid, t.report_ymd AS ymd, t.worker_name AS wname, "
+            "COALESCE(w.name, t.worker_name) AS worker, "
+            "COALESCE(pr.code, t.product_code) AS code, ROUND(SUM(t.tong_calc),1) AS cay, "
+            "s.luong_1sp AS slip_wage "
             "FROM production_report_rows t "
             "LEFT JOIN production_workers w ON w.id = t.worker_id "
             "LEFT JOIN products pr ON pr.id = t.product_id "
+            "LEFT JOIN production_slips s ON s.thread_id = t.thread_id "
             "WHERE t.report_ymd IS NOT NULL "   # BỎ lọc tong>0 → hiện cả thợ làm 0 SP
             "  AND t.report_ymd >= ? AND t.report_ymd <= ? "
             # GROUP BY biểu thức đầy đủ — tên trần "code" resolve về pr.code (NULL khi
-            # thiếu product_id) → các mã SP của dòng cổ bị gộp nhầm làm một
-            "GROUP BY t.report_ymd, COALESCE(w.name, t.worker_name), COALESCE(pr.code, t.product_code) "
+            # thiếu product_id) → các mã SP của dòng cổ bị gộp nhầm làm một.
+            # Tách theo thread_id để lấy ĐƠN GIÁ CHỐT THEO PHIẾU (luong_1sp).
+            "GROUP BY t.thread_id, t.worker_name, COALESCE(w.name, t.worker_name), "
+            "         COALESCE(pr.code, t.product_code) "
             "ORDER BY t.report_ymd DESC",
             (dfrom, dto),
         ).fetchall()
-        from production_store.allowances import allowances_by_day_worker_product
-        allow = allowances_by_day_worker_product(conn, dfrom, dto)   # {(ymd, worker, code): Σ phụ cấp}
+        # PHỤ CẤP theo (phiếu, thợ snapshot) của các phiếu trong khoảng
+        tids = sorted({r["tid"] for r in rows})
+        allow: dict = {}
+        if tids:
+            qs = ",".join("?" * len(tids))
+            for a in conn.execute(
+                f"SELECT thread_id, worker_name, amount FROM production_allowances WHERE thread_id IN ({qs})",
+                tids,
+            ).fetchall():
+                allow[(a["thread_id"], a["worker_name"])] = float(a["amount"] or 0)
     finally:
         conn.close()
 
@@ -85,35 +98,49 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
 
     days: dict = {}          # ymd → {money, cay, allowance, workers: {name → {money, cay, allowance, items:[]}}}
     missing: set = set()
-    seen: set = set()        # (ymd, worker, code) đã có dòng item
+    allow_used: set = set()  # (tid, wname) đã cộng phụ cấp — đúng 1 lần / (phiếu, thợ)
+    tid_ymd: dict = {}       # tid → ymd (cho phụ cấp mồ côi)
     for r in rows:
-        ymd, worker, code, cay = r["ymd"], (r["worker"] or "?"), (r["code"] or ""), float(r["cay"] or 0)
+        tid, ymd, wname = r["tid"], r["ymd"], r["wname"]
+        worker, code, cay = (r["worker"] or "?"), (r["code"] or ""), float(r["cay"] or 0)
+        tid_ymd.setdefault(tid, ymd)
         d = _mk_day(ymd)
         # HIỆN MỌI dòng SP thợ có mặt trong phiếu — kể cả làm 0 cây (0đ). Thợ luôn được tạo.
         wk = _mk_wk(d, worker)
-        wage = wage_per_cay(code)
+        # đơn giá CHỐT theo phiếu; chưa chốt (NULL) → bảng lương hiện tại
+        wage = float(r["slip_wage"]) if r["slip_wage"] is not None else wage_per_cay(code)
         if cay > 0 and wage <= 0:   # chỉ cảnh báo thiếu đơn giá khi thực sự có sản lượng
             missing.add(code)
         piece = round(cay * wage)
-        a = round(allow.get((ymd, worker, code), 0))   # PHỤ CẤP gắn ngay vào dòng SP của phiếu
+        a = 0
+        if (tid, wname) not in allow_used:
+            a = round(allow.get((tid, wname), 0))
+            allow_used.add((tid, wname))
         money = piece + a
-        wk["items"].append({"code": code, "cay": cay, "wage": wage, "piece": piece, "allowance": a, "money": money})
+        # gộp dòng theo (mã, đơn giá) — 2 phiếu cùng SP chốt giá khác nhau = 2 dòng riêng
+        it = next((x for x in wk["items"] if x["code"] == code and x["wage"] == wage), None)
+        if it is None:
+            it = {"code": code, "cay": 0.0, "wage": wage, "piece": 0, "allowance": 0, "money": 0}
+            wk["items"].append(it)
+        it["cay"] = round(it["cay"] + cay, 1)
+        it["piece"] += piece
+        it["allowance"] += a
+        it["money"] += money
         wk["money"] += money
         wk["allowance"] += a
         wk["cay"] = round(wk["cay"] + cay, 1)
         d["money"] += money
         d["allowance"] += a
         d["cay"] = round(d["cay"] + cay, 1)
-        seen.add((ymd, worker, code))
 
-    # An toàn: phụ cấp không khớp dòng SP nào (hiếm — mã đổi/thiếu row) → dòng riêng để không mất tiền
-    for (ymd, worker, code), amt in allow.items():
+    # An toàn: phụ cấp mồ côi (thợ có phụ cấp nhưng không có dòng SP trong phiếu) → dòng riêng
+    for (tid, wname), amt in allow.items():
         amt = round(amt)
-        if amt == 0 or (ymd, worker, code) in seen:
+        if amt == 0 or (tid, wname) in allow_used or tid not in tid_ymd:
             continue
-        d = _mk_day(ymd)
-        wk = _mk_wk(d, worker)
-        wk["items"].append({"code": code, "cay": 0, "wage": wage_per_cay(code), "piece": 0, "allowance": amt, "money": amt})
+        d = _mk_day(tid_ymd[tid])
+        wk = _mk_wk(d, wname)
+        wk["items"].append({"code": "", "cay": 0, "wage": 0, "piece": 0, "allowance": amt, "money": amt})
         wk["money"] += amt
         wk["allowance"] += amt
         d["money"] += amt
@@ -157,8 +184,18 @@ def _phieu_wages(thread_id: int) -> dict:
             (thread_id,),
         ).fetchone()
         code = (row[0] if row else "") or ""
+        slip = conn.execute(
+            "SELECT sp_name, luong_1sp FROM production_slips WHERE thread_id = ?", (thread_id,)
+        ).fetchone()
+        if not code and slip:
+            code = (slip["sp_name"] or "").strip().upper()
+        default_wage = wage_per_cay(code)   # bảng lương hiện tại (tham chiếu)
+        slip_wage = slip["luong_1sp"] if slip else None
+        wage = float(slip_wage) if slip_wage is not None else default_wage
         return {"ok": True, "thread_id": thread_id, "product_code": code,
-                "wage": wage_per_cay(code), "allowances": get_allowances(conn, thread_id)}
+                "wage": wage, "default_wage": default_wage,
+                "custom": slip_wage is not None and float(slip_wage) != default_wage,
+                "allowances": get_allowances(conn, thread_id)}
     finally:
         conn.close()
 
@@ -172,6 +209,40 @@ async def phieu_wages_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
     data = await asyncio.to_thread(_phieu_wages, tid)
     return web.json_response(data)
+
+
+async def set_slip_wage_handler(request: web.Request):
+    """Chốt/sửa ĐƠN GIÁ LƯƠNG /1SP của RIÊNG 1 phiếu SX — CHỈ văn phòng.
+    luong >= 0 (0 = phiếu không tính tiền); mặc định phiếu đã chốt từ bảng lương lúc gán SP."""
+    user = office_user(request)
+    if not user:
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng"}, status=403)
+    try:
+        tid = int(request.match_info.get("thread_id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
+    body = await request.json()
+    try:
+        luong = float(body.get("luong"))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "đơn giá không hợp lệ"}, status=400)
+    if luong < 0:
+        return web.json_response({"ok": False, "error": "đơn giá phải >= 0"}, status=400)
+
+    def _run():
+        from production_store import set_slip_wage
+        conn = _get_connection()
+        try:
+            set_slip_wage(conn, tid, luong)
+        finally:
+            conn.close()
+
+    await asyncio.to_thread(_run)
+    # tiền phiếu này đổi → dashboard tiền công + báo cáo + chi tiết phiếu refetch
+    from server_app.realtime import emit_production_changed, emit_productions_changed
+    emit_production_changed(tid)
+    emit_productions_changed()
+    return web.json_response({"ok": True, "thread_id": tid, "luong": luong})
 
 
 async def set_allowance_handler(request: web.Request):

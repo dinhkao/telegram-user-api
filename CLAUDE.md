@@ -361,6 +361,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     Sửa từ webapp `#/luong-sp` (`pages/WageTable.tsx`, office) qua `server_app/wage_routes.py`
     GET/POST `/api/wages` (luong ≤ 0 = gỡ mã → về missing_wage); lưu xong emit
     `productions_changed` → tiền công/báo cáo tính lại ngay.
+  - **Lương CHỐT THEO PHIẾU** (`production_slips.luong_1sp`): đơn giá /1SP CỐ ĐỊNH từng phiếu
+    SX — gán/đổi SP (`queries.set_sp`) chốt từ bảng lương hiện tại (gán lại đúng SP cũ GIỮ giá
+    đã sửa tay); NULL = chưa chốt → bảng lương live; backfill boot (`schema.migrate`, khớp cả
+    sp_name không có product_id). Đổi bảng lương KHÔNG ảnh hưởng phiếu đã chốt. Văn phòng sửa
+    riêng từng phiếu: POST `/api/production/{tid}/wage` (`set_slip_wage_handler`), UI ô "Đơn
+    giá phiếu này" trong khối tiền công (`detail/ProductionWages.tsx`). MỌI chỗ tính tiền
+    (compute_wages, compute_range_report, worker_detail, _phieu_wages) ưu tiên luong_1sp.
 
 **Web app for phones (orders management, 5-6 internal users)**
 - `webapp/` — Vite + Preact + TS mobile UI (Vietnamese). Hash router `main.tsx`, nav

@@ -60,10 +60,33 @@ def migrate_production_table(conn):
         conn.execute("ALTER TABLE production_slips ADD COLUMN product_id INTEGER")
     if "lock_override" not in columns:  # admin ghi đè khoá: NULL=auto(24h) | 'locked' | 'unlocked'
         conn.execute("ALTER TABLE production_slips ADD COLUMN lock_override TEXT")
+    if "luong_1sp" not in columns:  # đơn giá lương /1SP CHỐT THEO PHIẾU (NULL = chưa chốt → bảng lương hiện tại)
+        conn.execute("ALTER TABLE production_slips ADD COLUMN luong_1sp REAL")
     # Backfill product_id theo sp_name (idempotent — chỉ row còn NULL; tên không phải mã giữ NULL)
     conn.execute(
         "UPDATE production_slips SET product_id = "
         "(SELECT p.id FROM products p WHERE p.code = UPPER(TRIM(COALESCE(production_slips.sp_name,'')))) "
         "WHERE product_id IS NULL"
     )
+    # Backfill luong_1sp: chốt đơn giá bảng lương HIỆN TẠI cho phiếu chưa chốt
+    # (idempotent — chỉ row NULL; từ đây đổi bảng lương KHÔNG ảnh hưởng phiếu đã chốt)
+    try:
+        from production_store.wages import ensure_table as _ensure_wages
+        _ensure_wages(conn)
+        conn.execute(
+            "UPDATE production_slips SET luong_1sp = "
+            "(SELECT w.luong FROM production_wages w JOIN products p ON UPPER(p.code) = w.code "
+            " WHERE p.id = production_slips.product_id) "
+            "WHERE luong_1sp IS NULL AND product_id IS NOT NULL"
+        )
+        # phiếu KHÔNG có product_id (sp_name là mã tự do, vd K2NT128 chưa có trong
+        # danh mục SP) → khớp thẳng sp_name với bảng lương
+        conn.execute(
+            "UPDATE production_slips SET luong_1sp = "
+            "(SELECT w.luong FROM production_wages w "
+            " WHERE w.code = UPPER(TRIM(COALESCE(production_slips.sp_name, '')))) "
+            "WHERE luong_1sp IS NULL AND TRIM(COALESCE(sp_name, '')) != ''"
+        )
+    except Exception:  # noqa: BLE001 — DB test thiếu bảng products
+        pass
     conn.commit()

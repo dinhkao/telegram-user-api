@@ -22,6 +22,7 @@ _COLUMNS = (
     "updated_at",
     "product_id",
     "lock_override",
+    "luong_1sp",
 )
 _JSON_COLUMNS = {"numbers", "bang"}
 
@@ -103,13 +104,32 @@ def upsert_slip(conn, thread_id, **fields) -> bool:
 
 def set_sp(conn, thread_id, name, mam, luong) -> bool:
     """Gán SP cho phiếu: ghi CẢ product_id (danh tính) + sp_name (snapshot mã hiện
-    hành — gõ mã cũ tự chuẩn hoá). Tên không phải mã SP → product_id NULL."""
+    hành — gõ mã cũ tự chuẩn hoá). Tên không phải mã SP → product_id NULL.
+    LƯƠNG 1 SP CỐ ĐỊNH THEO PHIẾU: gán/đổi SP → chốt luong_1sp từ bảng lương hiện
+    tại; gán lại ĐÚNG SP cũ → giữ đơn giá đã chốt (văn phòng có thể đã sửa tay)."""
     from product_store import resolve_code
+    from production_store.wages import wage_for_code
     prod = resolve_code(conn, name)
+    new_code = prod["code"] if prod else str(name or "").strip().upper()
+    cur = conn.execute(
+        "SELECT sp_name, luong_1sp FROM production_slips WHERE thread_id = ?", (thread_id,)
+    ).fetchone()
+    same_sp = cur is not None and str(cur["sp_name"] or "").strip().upper() == new_code
+    extra = {}
+    if not (same_sp and cur["luong_1sp"] is not None):
+        w = wage_for_code(conn, new_code)
+        extra["luong_1sp"] = w if w > 0 else None   # NULL = chưa chốt → theo bảng lương
     if prod:
         return upsert_slip(conn, thread_id, sp_name=prod["code"], sp_mam=mam, sp_luong=luong,
-                           product_id=prod["id"])
-    return upsert_slip(conn, thread_id, sp_name=name, sp_mam=mam, sp_luong=luong, product_id=None)
+                           product_id=prod["id"], **extra)
+    return upsert_slip(conn, thread_id, sp_name=name, sp_mam=mam, sp_luong=luong, product_id=None, **extra)
+
+
+def set_slip_wage(conn, thread_id, luong) -> bool:
+    """Văn phòng chốt/sửa đơn giá lương / 1 SP của RIÊNG phiếu này (snapshot).
+    luong None → về NULL (theo bảng lương hiện tại); 0 = phiếu không tính tiền."""
+    val = None if luong is None else max(0.0, float(luong))
+    return upsert_slip(conn, thread_id, luong_1sp=val)
 
 
 def set_target(conn, thread_id, sx_target) -> bool:

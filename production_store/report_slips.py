@@ -81,16 +81,18 @@ def delete_slip(conn, slip_id: int) -> bool:
 def compute_range_report(conn, dfrom: str, dto: str) -> dict:
     """Báo cáo 1 khoảng ngày: THEO THỢ (tổng SP + tiền, breakdown theo mã SP) +
     THEO PHIẾU SX (mỗi phiếu: ngày, mã SP, số SP, tiền công) + TỔNG CỘNG.
-    Tiền = số cây × đơn giá lương SP + phụ cấp (phụ cấp gắn 1 lần / (phiếu, thợ))."""
+    Tiền = số cây × ĐƠN GIÁ CHỐT THEO PHIẾU (production_slips.luong_1sp; NULL =
+    chưa chốt → bảng lương hiện tại) + phụ cấp (gắn 1 lần / (phiếu, thợ))."""
     from production_store.wages import wage_per_cay
 
     rows = conn.execute(
         "SELECT t.thread_id AS tid, t.report_ymd AS ymd, t.worker_name AS wname, "
         "COALESCE(w.name, t.worker_name) AS worker, COALESCE(pr.code, t.product_code) AS code, "
-        "ROUND(SUM(t.tong_calc), 1) AS cay "
+        "ROUND(SUM(t.tong_calc), 1) AS cay, s.luong_1sp AS slip_wage "
         "FROM production_report_rows t "
         "LEFT JOIN production_workers w ON w.id = t.worker_id "
         "LEFT JOIN products pr ON pr.id = t.product_id "
+        "LEFT JOIN production_slips s ON s.thread_id = t.thread_id "
         "WHERE t.report_ymd IS NOT NULL AND t.report_ymd >= ? AND t.report_ymd <= ? "
         # GROUP BY biểu thức đầy đủ — tên trần "code" bị SQLite resolve về pr.code (NULL
         # khi chưa gán product_id) làm các mã SP gộp nhầm làm một
@@ -119,7 +121,8 @@ def compute_range_report(conn, dfrom: str, dto: str) -> dict:
     for r in rows:
         tid, ymd, wname = r["tid"], r["ymd"], r["wname"]
         worker, code, cay = (r["worker"] or "?"), (r["code"] or ""), float(r["cay"] or 0)
-        wage = wage_per_cay(code)
+        # đơn giá CHỐT theo phiếu; chưa chốt (NULL) → bảng lương hiện tại
+        wage = float(r["slip_wage"]) if r["slip_wage"] is not None else wage_per_cay(code)
         if cay > 0 and wage <= 0:
             missing.add(code)
         piece = round(cay * wage)
@@ -130,7 +133,8 @@ def compute_range_report(conn, dfrom: str, dto: str) -> dict:
         money = piece + a
 
         wk = workers.setdefault(worker, {"name": worker, "cay": 0.0, "money": 0, "allowance": 0, "items": {}})
-        it = wk["items"].setdefault(code, {"code": code, "cay": 0.0, "wage": wage, "money": 0})
+        # item gộp theo (mã, đơn giá) — phiếu chốt giá khác nhau không trộn 1 dòng
+        it = wk["items"].setdefault((code, wage), {"code": code, "cay": 0.0, "wage": wage, "money": 0})
         it["cay"] = round(it["cay"] + cay, 1)
         it["money"] += money
         wk["cay"] = round(wk["cay"] + cay, 1)
@@ -143,6 +147,18 @@ def compute_range_report(conn, dfrom: str, dto: str) -> dict:
         ph["cay"] = round(ph["cay"] + cay, 1)
         ph["money"] += money
         ph["_wk"].add(worker)
+
+    # Phụ cấp "mồ côi" (thợ có phụ cấp nhưng không có dòng SP trong phiếu) — vẫn cộng tiền
+    for (tid, wname), amt in allow.items():
+        amt = round(amt)
+        if amt == 0 or (tid, wname) in allow_used or tid not in phieus:
+            continue
+        wk = workers.setdefault(wname, {"name": wname, "cay": 0.0, "money": 0, "allowance": 0, "items": {}})
+        it = wk["items"].setdefault(("", 0.0), {"code": "", "cay": 0.0, "wage": 0.0, "money": 0})
+        it["money"] += amt
+        wk["money"] += amt
+        wk["allowance"] += amt
+        phieus[tid]["money"] += amt
 
     phieu_list = []
     for tid in sorted(phieus, key=lambda t: (phieus[t]["ymd"] or "", t)):

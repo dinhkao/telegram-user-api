@@ -51,13 +51,23 @@ async def production_worker_report_handler(request: web.Request):
                 from production_store.wages import wage_per_cay
                 from production_store.allowances import get_allowances
                 acache: dict = {}
+                swage: dict = {}   # tid → luong_1sp (đơn giá CHỐT theo phiếu)
+                tids = {r.get("thread_id") for r in data.get("rows", []) if r.get("thread_id")}
+                if tids:
+                    qs = ",".join("?" * len(tids))
+                    for sr in conn.execute(
+                        f"SELECT thread_id, luong_1sp FROM production_slips WHERE thread_id IN ({qs})",
+                        sorted(tids),
+                    ).fetchall():
+                        swage[sr["thread_id"]] = sr["luong_1sp"]
                 total_money = 0
                 for r in data.get("rows", []):
                     tid = r.get("thread_id")
                     if tid not in acache:
                         acache[tid] = get_allowances(conn, tid)
                     allow = round(acache[tid].get(name, 0))
-                    w = wage_per_cay(r.get("product_code"))
+                    sw = swage.get(tid)
+                    w = float(sw) if sw is not None else wage_per_cay(r.get("product_code"))
                     piece = round((r.get("tong_calc") or 0) * w)
                     r["wage"] = w
                     r["piece"] = piece
