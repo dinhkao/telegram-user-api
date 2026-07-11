@@ -81,6 +81,7 @@ from server_app.inventory_routes import (
     bulk_move_handler,
     box_delete_handler,
     box_transfer_handler,
+    box_return_material_handler,
     recipe_get_handler,
     recipe_set_handler,
     recipe_delete_handler,
@@ -285,6 +286,7 @@ def create_app():
     r.add_post("/api/inventory/box/{box_id}", box_update_handler)
     r.add_delete("/api/inventory/box/{box_id}", box_delete_handler)
     r.add_post("/api/inventory/box/{box_id}/transfer", box_transfer_handler)
+    r.add_post("/api/inventory/box/{box_id}/return-material", box_return_material_handler)
     r.add_post("/api/inventory/box/{box_id}/disable", box_disable_handler)
     r.add_post("/api/inventory/bulk-move", bulk_move_handler)   # chuyển kho hàng loạt
     r.add_get("/api/inventory/{product_code}/orders", product_orders_handler)

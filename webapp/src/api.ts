@@ -865,6 +865,7 @@ export type InvBox = {
   unit_id?: number | null;
   unit_name?: string | null;
   product_unit?: string;
+  self_container?: boolean; // SP nguyên kiện (đơn vị thùng/kiện) → có nút "Trả về nguyên liệu"
 };
 
 export type Unit = { id: number; name: string; box_count?: number };
@@ -883,6 +884,10 @@ export async function deleteUnit(id: number): Promise<any> {
 /** Xoá HẲN 1 thùng (chỉ admin; cấm nếu đã xuất cho đơn). */
 export async function deleteBox(id: number | string): Promise<any> {
   return delJSON(`/api/inventory/box/${id}`);
+}
+/** Trả về nguyên liệu: rã 1 thùng nguyên kiện (KDXDB5…) → hoàn toàn bộ NL theo công thức. */
+export async function returnBoxMaterial(id: number | string): Promise<{ ok: boolean; restored_materials?: { code: string; amount: number; boxes?: any[] }[]; error?: string }> {
+  return postJSON(`/api/inventory/box/${id}/return-material`, {}, { queueable: false });
 }
 /** Đổi đơn vị chứa của 1 thùng. */
 export async function setBoxUnit(boxId: number, unitId: number): Promise<InvBox | null> {

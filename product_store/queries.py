@@ -8,6 +8,15 @@ from .schema import _PRODUCTS_CACHE_TTL, _invalidate_products_cache, _products_c
 _COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material, prod_mam, prod_luong, can_produce_directly, min_stock, self_container"
 _FIELDS = tuple(c.strip() for c in _COLS.split(","))
 
+# SP "tự-là-thùng" = SP có ĐƠN VỊ ĐẾM là đơn vị nguyên kiện (thùng/kiện): bản thân nó
+# LÀ 1 thùng, không nằm trong thùng khác. Suy TỰ ĐỘNG từ đơn vị (không cần cờ bật tay
+# → khỏi quên như KDDT12). Muốn thêm loại nguyên kiện khác thì thêm vào set này.
+_SELF_CONTAINER_UNITS = {"thùng", "kiện"}
+
+
+def is_self_container_unit(unit) -> bool:
+    return (unit or "").strip().lower() in _SELF_CONTAINER_UNITS
+
 
 def _row(r) -> dict:
     d = dict(zip(_FIELDS, r))
@@ -16,7 +25,7 @@ def _row(r) -> dict:
     d["is_material"] = bool(d["is_material"])
     d["can_produce_directly"] = d.get("can_produce_directly") != 0   # SX trực tiếp được (mặc định True)
     d["min_stock"] = float(d.get("min_stock") or 0)   # tồn kho tối thiểu
-    d["self_container"] = bool(d.get("self_container"))   # SP bản thân là 1 thùng
+    d["self_container"] = is_self_container_unit(d.get("unit"))   # suy từ đơn vị (thùng/kiện)
     return d
 
 

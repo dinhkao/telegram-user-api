@@ -642,6 +642,80 @@ async def box_delete_handler(request: web.Request):
     return web.json_response({"ok": True, "restored_materials": restored})
 
 
+async def box_return_material_handler(request: web.Request):
+    """POST /api/inventory/box/{box_id}/return-material — RÃ 1 thùng nguyên kiện
+    (KDXDB5/KGL5…) → hoàn lại TOÀN BỘ nguyên liệu theo công thức (ratio × số). Vô hiệu
+    thùng (GIỮ lịch sử, không xoá). Hoàn NL = đảo tiêu hao của phiếu đóng gói nguồn
+    (release_production_amount, trả về đúng thùng NL cũ); nguồn cũ thiếu bao nhiêu thì
+    TẠO thùng NL mới bù cho đủ → đảm bảo luôn trả đủ. CHỈ admin."""
+    from server_app.order_api_common import is_admin_request
+    if not await is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ admin mới được trả về nguyên liệu"}, status=403)
+    try:
+        box_id = int(request.match_info.get("box_id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "box_id không hợp lệ"}, status=400)
+    actor = _web_actor(request, {})
+
+    def _run():
+        conn = _conn()
+        try:
+            _ensure(conn)
+            box = get_box(conn, box_id)
+            if not box:
+                return "notfound", None
+            if box.get("disabled"):
+                return "disabled", None
+            if list_box_allocations(conn, box_id):   # đã xuất/đặt cho đơn → thu hồi trước
+                return "allocated", None
+            from product_store import get_product
+            prod = get_product(conn, box.get("product_code"))
+            if not prod or not prod.get("self_container"):
+                return "notselfcont", None
+            needs = recipe_needs(conn, box.get("product_code"), box.get("quantity") or 0)
+            if not needs:
+                return "norecipe", None
+            src = box.get("source_thread_id")
+            slip = get_slip(conn, src) if src else None
+            src_pack = bool(slip and (slip.get("kind") or "san_xuat") == "dong_goi")
+            from inventory_store import release_production_amount
+            restored = []
+            for nd in needs:
+                got, into = (release_production_amount(conn, src, nd["code"], nd["amount"])
+                             if src_pack else (0.0, []))
+                short = round(nd["amount"] - got, 6)
+                if short > 1e-6:   # nguồn cũ không đủ → tạo thùng NL mới bù cho đủ
+                    fresh = add_boxes(conn, nd["code"], [short], by=actor,
+                                      note=f"trả về từ thùng {box.get('box_code')}")
+                    into = list(into) + [{"box_id": f["id"], "box_code": f["box_code"],
+                                          "amount": short, "fresh": True} for f in fresh]
+                    got += short
+                if got > 1e-9:
+                    restored.append({"code": nd["code"], "amount": round(got, 3), "boxes": into})
+            mats = ", ".join(f"{r['amount']:g} {r['code']}" for r in restored) or "—"
+            set_disabled(conn, box_id, True, f"Đã trả về nguyên liệu: {mats}")
+            if src and box.get("box_code"):   # gỡ khỏi output phiếu nguồn (total tính lại)
+                remove_number_by_note(conn, src, f"📦 {box.get('box_code')}")
+            return "ok", (src, restored)
+        finally:
+            conn.close()
+    status, res = await asyncio.to_thread(_run)
+    _errs = {"notfound": ("Không tìm thấy thùng", 404), "disabled": ("Thùng đã vô hiệu", 400),
+             "allocated": ("Thùng đã xuất cho đơn — thu hồi khỏi đơn trước", 400),
+             "notselfcont": ("Chỉ áp dụng cho SP nguyên kiện (bán theo thùng)", 400),
+             "norecipe": ("SP chưa có công thức nguyên liệu để trả về", 400)}
+    if status in _errs:
+        msg, code = _errs[status]
+        return web.json_response({"ok": False, "error": msg}, status=code)
+    src, restored = res or (None, [])
+    from server_app.realtime import emit_inventory_changed, emit_box_changed, emit_production_changed
+    emit_inventory_changed()
+    emit_box_changed(box_id)
+    if src:
+        emit_production_changed(src)
+    return web.json_response({"ok": True, "restored_materials": restored})
+
+
 async def box_transfer_handler(request: web.Request):
     """POST /api/inventory/box/{box_id}/transfer — chuyển hàng sang thùng khác CÙNG SP.
     Body {to_box_id, quantity}. Bút toán kép box_allocations (transfer_out/+q trên
@@ -704,6 +778,8 @@ async def box_detail_handler(request: web.Request):
             box = get_box(conn, box_id)
             if not box:
                 return None, None, None, None
+            from product_store.queries import is_self_container_unit
+            box["self_container"] = is_self_container_unit(box.get("product_unit"))
             allocs = list_box_allocations(conn, box_id)
             for a in allocs:
                 kind = a.get("kind") or "order"

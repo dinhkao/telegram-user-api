@@ -34,8 +34,9 @@ export function InventoryDetail({ code }: { code: string }) {
   const [unitInput, setUnitInput] = useState("");
   const [unitSaved, setUnitSaved] = useState(false);
   useEffect(() => { setUnitInput(inv?.product?.unit || "cây"); }, [inv?.product?.unit]);
-  const saveUnit = async () => {
-    const u = unitInput.trim() || "cây";
+  const saveUnit = async (val?: string) => {
+    const u = (val ?? unitInput).trim() || "cây";
+    setUnitInput(u);
     if (!inv?.product || u === (inv.product.unit || "cây")) return;
     try {
       const p = await updateProduct(code, { unit: u });
@@ -93,16 +94,6 @@ export function InventoryDetail({ code }: { code: string }) {
     try {
       const p = await updateProduct(code, { can_produce_directly: next });
       if (p && inv) { setInv({ ...inv, product: p }); toast(next ? "✅ SP sản xuất trực tiếp được" : "📦 Chỉ đóng gói từ nguyên liệu", "ok"); }
-    } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
-  };
-  // SP tự-là-thùng (KDXDB5/KGL5): bản thân là 1 thùng → nhập theo SỐ THÙNG, mỗi thùng
-  // quantity=1, không có đơn vị chứa. Khác với thùng chứa N cây/gói.
-  const toggleSelfContainer = async () => {
-    if (!inv?.product) return;
-    const next = !inv.product.self_container;
-    try {
-      const p = await updateProduct(code, { self_container: next });
-      if (p && inv) { setInv({ ...inv, product: p }); toast(next ? "📦 SP đóng sẵn thùng" : "Bỏ đánh dấu — thùng chứa hàng", "ok"); }
     } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
   };
   // Liên kết KiotViet từng cái (modal tìm + chọn)
@@ -316,10 +307,23 @@ export function InventoryDetail({ code }: { code: string }) {
         )}
         <div class="box-kv">
           <span class="box-k">Đơn vị {unitSaved && <span class="muted small">✓</span>}</span>
-          <input class="box-place" style={{ minWidth: "110px" }} value={unitInput} placeholder="cây"
-            onInput={(e: any) => setUnitInput(e.target.value)} onBlur={saveUnit}
-            onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+          <div style={{ minWidth: "140px" }}>
+            <SelectPopup title="Đơn vị đếm của SP" searchable
+              onCreate={(name: string) => saveUnit(name)}
+              value={unitInput}
+              options={(["cây", "kg", "gói", "bịch", "hũ", "cái", "hộp", "lốc", "thùng", "kiện"].includes(unitInput)
+                ? ["cây", "kg", "gói", "bịch", "hũ", "cái", "hộp", "lốc", "thùng", "kiện"]
+                : [unitInput, "cây", "kg", "gói", "bịch", "hũ", "cái", "hộp", "lốc", "thùng", "kiện"].filter(Boolean))
+                .map((u) => ({ value: u, label: u }))}
+              onChange={(v: string) => saveUnit(v)} />
+          </div>
         </div>
+        {["thùng", "kiện"].includes((unitInput || "").trim().toLowerCase()) && (
+          <div class="muted small unit-self-note" style={{ margin: "-4px 0 8px" }}>
+            <Icon name="tag" size={13} /> Đơn vị "{unitInput}" = <b>SP nguyên kiện</b> — bản thân là 1 thùng, bán theo thùng.
+            Nhập kho theo <b>số thùng</b> (mỗi thùng 1 đơn vị, không chọn đơn vị chứa), và có nút <b>Trả về nguyên liệu</b> ở chi tiết thùng.
+          </div>
+        )}
         <div class="box-kv">
           <span class="box-k">Tồn tối thiểu {minSaved && <span class="muted small">✓</span>}</span>
           <input class="box-place" style={{ minWidth: "90px" }} type="number" inputMode="decimal" value={minInput} placeholder="0"
@@ -345,24 +349,6 @@ export function InventoryDetail({ code }: { code: string }) {
             {inv.product.can_produce_directly
               ? "Nhập thùng từ phiếu SẢN XUẤT (không trừ NL). Có công thức thì cũng đóng gói được."
               : "Chỉ nhập thùng từ phiếu ĐÓNG GÓI — bắt buộc trừ nguyên liệu."}
-          </div>
-        )}
-        {inv.product && isAdmin && (
-          <div class="box-kv">
-            <span class="box-k">Loại thùng</span>
-            <div class="cpd-seg" role="group">
-              <button class={"cpd-opt" + (!inv.product.self_container ? " sel" : "")} disabled={!inv.product.self_container} onClick={() => { if (inv.product!.self_container) toggleSelfContainer(); }}>
-                <Icon name="box" size={14} /> Thùng chứa hàng
-              </button>
-              <button class={"cpd-opt" + (inv.product.self_container ? " sel" : "")} disabled={!!inv.product.self_container} onClick={() => { if (!inv.product!.self_container) toggleSelfContainer(); }}>
-                <Icon name="tag" size={14} /> Bản thân là thùng
-              </button>
-            </div>
-          </div>
-        )}
-        {inv.product && isAdmin && inv.product.self_container && (
-          <div class="muted small" style={{ margin: "-2px 0 6px" }}>
-            Nhập theo SỐ THÙNG — mỗi thùng là 1 đơn vị (ruột cố định), không chọn đơn vị chứa, không tách lẻ.
           </div>
         )}
         <div class="row space">

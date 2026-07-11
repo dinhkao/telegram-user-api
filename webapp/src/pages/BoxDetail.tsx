@@ -3,7 +3,7 @@
 // GET /api/inventory/box/:id.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { boxDetail, updateBox, setBoxDisabled, deleteBox, transferBox, allBoxes, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, currentUser, soVN, type InvBoxDetail, type InvBox, type KhoBox, type Place, type Unit } from "../api";
+import { boxDetail, updateBox, setBoxDisabled, deleteBox, returnBoxMaterial, transferBox, allBoxes, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, currentUser, soVN, type InvBoxDetail, type InvBox, type KhoBox, type Place, type Unit } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -159,6 +159,33 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
       window.location.hash = `#/kho/${encodeURIComponent(code)}`;
     } catch (e: any) {
       setErr(e?.message || "Lỗi xoá thùng");
+      setDisBusy(false);
+    }
+  };
+
+  // Trả về nguyên liệu: rã 1 thùng nguyên kiện (KDXDB5…) → hoàn toàn bộ NL theo công thức
+  const doReturnMaterial = async () => {
+    if (!d) return;
+    if (d.allocations.length > 0) { toast("Thùng đã xuất/chuyển — thu hồi trước khi rã", "info"); return; }
+    const packed = d.packed_materials || [];
+    const matTxt = packed.length ? packed.map((p) => `${soVN(p.amount)} ${p.code}`).join(", ") : "nguyên liệu theo công thức";
+    if (!(await confirmDialog(
+      `Rã thùng ${d.box.box_code} (${d.box.product_code}) → trả về ${matTxt} vào kho.\n`
+      + `Thùng sẽ được đánh dấu "đã trả về nguyên liệu" (giữ lịch sử).\nTiếp tục?`,
+      { danger: true, okLabel: "Trả về NL" }))) return;
+    setDisBusy(true); setErr("");
+    try {
+      const r = await returnBoxMaterial(boxId);
+      const rest = r?.restored_materials || [];
+      if (rest.length) {
+        const lines = rest.flatMap((m) => (m.boxes || []).map(
+          (bx: any) => `• ${soVN(bx.amount)} ${m.code} → thùng ${bx.box_code}${bx.fresh ? " (mới)" : ""}`));
+        await confirmDialog(`✅ Đã trả về nguyên liệu:\n${lines.join("\n")}`, { okLabel: "OK", cancelLabel: "Đóng" });
+      }
+      reload(false);
+    } catch (e: any) {
+      setErr(e?.message || "Lỗi trả về nguyên liệu");
+    } finally {
       setDisBusy(false);
     }
   };
@@ -470,6 +497,21 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
         <section class="card">
           <button class="btn block" disabled={disBusy} onClick={reactivate}>
             {disBusy ? "…" : <><Icon name="check" size={16} /> Kích hoạt lại thùng</>}
+          </button>
+        </section>
+      )}
+
+      {isAdmin && !disabled && b.self_container && (
+        <section class="card">
+          <label class="card-label"><Icon name="refresh" size={15} /> Trả về nguyên liệu</label>
+          <div class="muted small" style={{ margin: "2px 0 8px" }}>
+            Rã thùng {b.product_code} này → hoàn {(d.packed_materials || []).length
+              ? (d.packed_materials || []).map((p) => `${soVN(p.amount)} ${p.code}`).join(", ")
+              : "nguyên liệu theo công thức"} vào kho để bán lẻ. Thùng giữ lại trong lịch sử.
+          </div>
+          <button class={"btn block" + (d.allocations.length > 0 ? " faded" : "")} disabled={disBusy} onClick={doReturnMaterial}
+            title={d.allocations.length > 0 ? "Đã xuất cho đơn — thu hồi trước" : undefined}>
+            <Icon name="refresh" size={16} /> {disBusy ? "…" : "Trả về nguyên liệu"}
           </button>
         </section>
       )}
