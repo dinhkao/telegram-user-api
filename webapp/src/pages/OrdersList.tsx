@@ -75,12 +75,21 @@ export function invalidateListCache() {
 
 /** Đơn liền trước/sau trong DANH SÁCH đang lọc (cache module) — cho thanh điều hướng
  *  ở trang chi tiết. Null nếu chưa có cache (mở đơn qua deep-link, không từ danh sách). */
-export function filterNeighbors(threadId: string | number): { prev: number | null; next: number | null } {
-  if (!listCache) return { prev: null, next: null };
-  const ids = listCache.orders.map((o) => o.thread_id);
-  const i = ids.findIndex((id) => String(id) === String(threadId));
-  if (i < 0) return { prev: null, next: null };
-  return { prev: i > 0 ? ids[i - 1] : null, next: i < ids.length - 1 ? ids[i + 1] : null };
+export function filterNeighbors(threadId: string | number): {
+  prev: number | null; next: number | null;
+  prevOrder: OrderRow | null; nextOrder: OrderRow | null;
+} {
+  if (!listCache) return { prev: null, next: null, prevOrder: null, nextOrder: null };
+  const i = listCache.orders.findIndex((o) => String(o.thread_id) === String(threadId));
+  if (i < 0) return { prev: null, next: null, prevOrder: null, nextOrder: null };
+  const prevOrder = i > 0 ? listCache.orders[i - 1] : null;
+  const nextOrder = i < listCache.orders.length - 1 ? listCache.orders[i + 1] : null;
+  return {
+    prev: prevOrder?.thread_id ?? null,
+    next: nextOrder?.thread_id ?? null,
+    prevOrder,
+    nextOrder,
+  };
 }
 
 // FIX: khi ở trang chi tiết, OrdersList unmount nên handler realtime của nó KHÔNG

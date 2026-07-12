@@ -20,6 +20,18 @@ import { confirmDialog, toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
 import { fastScrollToEl, fastScrollTop } from "../scroll";
 import { Icon } from "../ui/Icon";
+import type { OrderRow } from "../detail/OrderCards";
+
+/** Tuổi đơn siêu gọn cho nút điều hướng: 8p · 3g · 4n · 2th · 1năm. */
+function compactRelative(at?: string): string {
+  const s = fmtRelative(at);
+  if (!s) return "";
+  if (s === "vừa xong") return "mới";
+  const m = s.match(/^(\d+) (phút|giờ|ngày|tháng|năm) trước$/);
+  if (!m) return s;
+  const unit: Record<string, string> = { phút: "p", giờ: "g", ngày: "n", tháng: "th", năm: "năm" };
+  return `${m[1]}${unit[m[2]]}`;
+}
 
 export function OrderDetail({ threadId, focus }: { threadId: string; focus?: string }) {
   const [detail, setDetail] = useState<any>(null);
@@ -32,7 +44,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [nggTime, setNggTime] = useState("");   // giờ giao (HH:MM) — tách riêng
   const [savingNg, setSavingNg] = useState(false);
   const [camSignal, setCamSignal] = useState(0);   // tăng để mở camera ở khối Ảnh
-  const [custIds, setCustIds] = useState<number[]>([]);   // thread_id mọi đơn cùng khách (mới→cũ)
+  const [navLoading, setNavLoading] = useState<string | null>(null); // nút đơn↔đơn đang chuyển
+  const [custOrders, setCustOrders] = useState<OrderRow[]>([]); // mọi đơn cùng khách (mới→cũ), dùng cả preview nav
   const [showBar, setShowBar] = useState(false);          // hiện thanh dính (cuộn qua 5 icon)
   const [invEditBy, setInvEditBy] = useState<string | null>(null);   // ai đang sửa hoá đơn đơn này
   const statusRef = useRef<HTMLDivElement>(null);         // 5 icon trạng thái — mốc quan sát
@@ -46,6 +59,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       setErr("");
     } catch (ex: any) {
       setErr(ex.message);
+    } finally {
+      setNavLoading(null);
     }
   };
   // Sau khi SỬA đơn: xoá cache dashboard rồi tải lại (đơn có thể đã rời filter)
@@ -75,20 +90,20 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   // Tải danh sách đơn CÙNG KHÁCH (mọi trang) cho thanh điều hướng ⏮/⏭ — chỉ khi có khách
   const custKey = detail?.data?.khach_hang_id;
   useEffect(() => {
-    if (!custKey) { setCustIds([]); return; }
+    if (!custKey) { setCustOrders([]); return; }
     let alive = true;
     (async () => {
-      const ids: number[] = [];
+      const orders: OrderRow[] = [];
       let page = 1, pages = 1;
       do {
         try {
           const d = await getCustomerOrders(String(custKey), page);
-          ids.push(...(d.orders || []).map((o: any) => o.thread_id));
+          orders.push(...(d.orders || []));
           pages = d.total_pages || 1;
         } catch { break; }
         page++;
       } while (page <= pages && page <= 10);
-      if (alive) setCustIds(ids);
+      if (alive) setCustOrders(orders);
     })();
     return () => { alive = false; };
   }, [custKey]);
@@ -240,9 +255,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
 
   // Điều hướng đơn↔đơn: liền kề trong DANH SÁCH lọc + liền kề CÙNG KHÁCH (mới→cũ)
   const fil = filterNeighbors(threadId);
-  const ci = custIds.findIndex((id) => String(id) === String(threadId));
-  const custPrev = ci > 0 ? custIds[ci - 1] : null;
-  const custNext = ci >= 0 && ci < custIds.length - 1 ? custIds[ci + 1] : null;
+  const ci = custOrders.findIndex((o) => String(o.thread_id) === String(threadId));
+  const custPrevOrder = ci > 0 ? custOrders[ci - 1] : null;
+  const custNextOrder = ci >= 0 && ci < custOrders.length - 1 ? custOrders[ci + 1] : null;
+  const custPrev = custPrevOrder?.thread_id ?? null;
+  const custNext = custNextOrder?.thread_id ?? null;
   const gotoOrder = (id: number | null) => { if (id) window.location.hash = `#/order/${id}`; };
 
   // 5 icon trạng thái (khớp renderers.order_parts.status_icons / main message Telegram)
@@ -617,18 +634,34 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       {/* Thanh điều hướng đơn↔đơn (dính đáy): «« đơn trước KHÁCH · « đơn trước LỌC ·
           đơn sau LỌC » · đơn sau KHÁCH »» */}
       <div class="od-navbar">
-        <button class="od-nav-btn" disabled={!custPrev} onClick={() => gotoOrder(custPrev)} title="Đơn trước của khách này">
-          <span class="od-nav-ar">«</span><span class="od-nav-lb">khách</span>
-        </button>
-        <button class="od-nav-btn" disabled={!fil.prev} onClick={() => gotoOrder(fil.prev)} title="Đơn trước trong danh sách">
-          <span class="od-nav-ar">‹</span><span class="od-nav-lb">lọc</span>
-        </button>
-        <button class="od-nav-btn" disabled={!fil.next} onClick={() => gotoOrder(fil.next)} title="Đơn sau trong danh sách">
-          <span class="od-nav-ar">›</span><span class="od-nav-lb">lọc</span>
-        </button>
-        <button class="od-nav-btn" disabled={!custNext} onClick={() => gotoOrder(custNext)} title="Đơn sau của khách này">
-          <span class="od-nav-ar">»</span><span class="od-nav-lb">khách</span>
-        </button>
+        {([
+          { id: custPrev, order: custPrevOrder, arrow: "«", label: "khách", title: "Đơn trước của khách này" },
+          { id: fil.prev, order: fil.prevOrder, arrow: "‹", label: "lọc", title: "Đơn trước trong danh sách" },
+          { id: fil.next, order: fil.nextOrder, arrow: "›", label: "lọc", title: "Đơn sau trong danh sách" },
+          { id: custNext, order: custNextOrder, arrow: "»", label: "khách", title: "Đơn sau của khách này" },
+        ] as { id: number | null; order: OrderRow | null; arrow: string; label: string; title: string }[]).map((n, i) => {
+          const preview = (n.order?.text || n.order?.topic_name || "").replace(/\s+/g, " ").trim()
+            || (n.id ? "Không có nội dung" : "Không có đơn");
+          const age = compactRelative(n.order?.created);
+          const createdTitle = n.order?.created ? fmtDateTimeVN(n.order.created) : "";
+          const navKey = `${n.label}-${i}`;
+          const loading = navLoading === navKey;
+          return (
+            <button class={`od-nav-btn${loading ? " is-loading" : ""}`} key={navKey} disabled={!n.id}
+              aria-busy={loading} onClick={() => { if (navLoading) return; setNavLoading(navKey); gotoOrder(n.id); }}
+              title={n.id ? `${n.title}${createdTitle ? ` · ${createdTitle}` : ""}\n${preview}` : n.title}>
+              <span class="od-nav-head">
+                {loading
+                  ? <span class="od-nav-spinner" role="status" aria-label="Đang tải đơn" />
+                  : <span class="od-nav-ar" aria-hidden="true">{n.arrow}</span>}
+                <span class="od-nav-lb">{n.label}</span>
+                {age && <span class="od-nav-age" aria-label={`Tạo ${fmtRelative(n.order?.created)}`}>{age}</span>}
+              </span>
+              <span class="od-nav-status" aria-label="6 trạng thái đơn">{n.order?.task_icons || "······"}</span>
+              <span class="od-nav-preview">{preview}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
