@@ -297,9 +297,6 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .note-inp { width: 100%; margin-top: 3px; font-size: .8rem; padding: 4px 6px; }
 
 /* Khối điều chỉnh hoá đơn (CK / PVC / VAT / tổng) */
-.adj { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
-.adj > label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; font-size: .9rem; }
-.adj .total { border-top: 1px dashed var(--border); padding-top: 8px; margin-top: 8px; font-size: 1.05rem; }
 
 /* Chú thích giá bảng dưới ô giá bán */
 .pricetag { font-size: .68rem; color: var(--muted, #999); margin-top: 2px; white-space: nowrap; }
@@ -332,18 +329,21 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .adj-view .total { border-top: 1px dashed var(--border); padding-top: 8px; margin-top: 6px; font-size: 1.05rem; }
 
 /* ── Hoá đơn: chế độ SỬA (mỗi món 1 khối) ── */
-/* Dòng SP gọn: 1 hàng nhập (SP · SL × Giá · xoá) + 1 hàng mảnh (bảng giá · ghi chú · thành tiền),
-   ngăn nhau bằng vạch mảnh thay vì hộp-trong-hộp */
-.inv-edit { margin: 6px 0; }
-.edit-row { padding: 8px 0 7px; border-bottom: 1px solid var(--border); }
-.edit-row:first-child { padding-top: 2px; }
+/* ── Trình nhập hoá đơn — kiểu PHIẾU TÍNH TIỀN: mục có nhãn hoa nhỏ, dòng ngăn
+   vạch mảnh, ô nhập nền lì không viền, số tabular chấm nghìn, vạch đậm trước Tổng ── */
+.ie-head { display: flex; align-items: center; gap: 8px; margin: 2px 0 2px; font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.ie-head .ie-count { font-weight: 600; letter-spacing: 0; color: var(--muted-2); text-transform: none; }
+.inv-edit { margin: 4px 0; }
+.edit-row { padding: 9px 0 8px; border-bottom: 1px solid var(--border); }
 .er-main { display: flex; align-items: center; gap: 6px; }
-/* Ô mã SP co theo nội dung (mã ngắn → ô ngắn), chỗ trống dồn giữa; mã dài ellipsis */
-.er-main .sp-trigger { flex: 0 1 auto; min-width: 0; max-width: 46%; padding: 7px 8px; gap: 5px; font-size: .92rem; }
-.er-main input { flex: none; margin: 0; padding: 7px 6px; font-size: .95rem; text-align: right; }
-.er-main .er-sl { width: 48px; margin-left: auto; }
-.er-main .er-price { width: 88px; }
-.er-main .times { flex: none; color: var(--muted, #888); }
+/* Mã SP = chữ đậm trần như tên món trên phiếu (chạm mở picker), không đóng hộp */
+.er-main .sp-trigger { flex: 0 1 auto; min-width: 0; max-width: 46%; padding: 6px 2px; gap: 5px; border: none; background: none; border-radius: 6px; font-size: .95rem; font-weight: 700; }
+.er-main .sp-trigger .ic { color: var(--muted-2); }
+.er-main .sp-trigger:active { background: var(--bg); }
+.er-main input { flex: none; margin: 0; padding: 7px 8px; border: none; border-radius: 8px; background: #eef1f5; font-size: .95rem; text-align: right; font-variant-numeric: tabular-nums; }
+.er-main .er-sl { width: 52px; margin-left: auto; }
+.er-main .er-price { width: 92px; }
+.er-main .times { flex: none; color: var(--muted-2, #999); font-size: .85rem; }
 /* Nút đặt lại giá về giá bảng của khách (hiện khi giá ≠ giá định sẵn) */
 .er-main .price-reset { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 32px; padding: 0; border: 1px solid var(--warn, #c8901f); border-radius: 7px; background: var(--warn-wash, #fbf3e0); color: var(--warn, #a5730f); cursor: pointer; }
 .er-main .price-reset:active { opacity: .7; }
@@ -354,8 +354,27 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .er-sub .note-inp { flex: 1; min-width: 40px; margin: 0; padding: 2px; border: none; border-bottom: 1px dashed var(--border); border-radius: 0; background: transparent; font-size: .82rem; color: var(--muted, #777); }
 .er-sub .note-inp:focus { border-bottom-color: var(--primary); color: var(--ink); outline: none; }
 .er-sub .eq { margin-left: auto; flex: none; white-space: nowrap; font-size: .92rem; }
-/* Thanh Lưu/Huỷ dính đáy màn hình (nổi trên bottom-nav) — khỏi cuộn xuống cuối form */
-.ie-actions { position: sticky; bottom: calc(60px + env(safe-area-inset-bottom, 0px)); z-index: 12; gap: 8px; padding: 8px; margin-top: 10px; background: rgba(255,255,255,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+/* Thêm dòng — nút mảnh nét đứt kiểu "thêm hàng vào bảng" */
+.er-add { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 9px; margin: 10px 0 2px; border: 1px dashed var(--border); border-radius: 10px; background: none; color: var(--primary); font-size: .9rem; font-weight: 600; cursor: pointer; }
+.er-add:active { background: var(--accent-wash); }
+/* Nút ⓘ mở hướng dẫn gõ Thêm nhanh */
+.qa-help { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: none; border-radius: 50%; background: none; color: var(--muted-2); cursor: pointer; }
+.qa-help:active { background: var(--bg); color: var(--primary); }
+/* Tổng kết kiểu hoá đơn: nhãn trái mờ, số phải tabular, vạch đậm trước Tổng */
+.ie-sum { margin-top: 14px; }
+.ie-sum .sum-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; min-height: 36px; font-size: .92rem; }
+.ie-sum .sum-row > span:first-child { color: var(--muted); }
+.ie-sum .sum-inp { width: 118px; margin: 0; padding: 7px 8px; border: none; border-radius: 8px; background: #eef1f5; font-size: .95rem; text-align: right; font-variant-numeric: tabular-nums; }
+.ie-sum .sum-vat { display: flex; align-items: center; gap: 6px; }
+.ie-sum .chip8 { padding: 4px 11px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--card); color: var(--muted); font-size: .78rem; font-weight: 600; cursor: pointer; }
+.ie-sum .chip8:active { background: var(--accent-wash); color: var(--primary); }
+.ie-sum .sum-total { display: flex; align-items: baseline; justify-content: space-between; margin-top: 10px; padding-top: 9px; border-top: 2px solid var(--ink); font-size: .95rem; font-weight: 700; }
+.ie-sum .sum-total .num { font-size: 1.3rem; letter-spacing: -.01em; }
+/* Thanh Lưu/Huỷ dính đáy màn hình (nổi trên bottom-nav) — kèm TỔNG sống bên trái */
+.ie-actions { position: sticky; bottom: calc(60px + env(safe-area-inset-bottom, 0px)); z-index: 12; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; margin-top: 12px; background: rgba(255,255,255,.94); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--e2); }
+.ie-actions .ia-total { display: flex; flex-direction: column; flex: none; line-height: 1.2; padding-right: 2px; }
+.ie-actions .ia-total > span { font-size: .6rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted-2); }
+.ie-actions .ia-total > b { font-size: 1.02rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ie-actions .btn.primary { flex: 1; min-height: 44px; }
 body.kbd-open .ie-actions { bottom: 8px; }   /* bàn phím mở → nav ẩn → hạ sát đáy */
 
@@ -2094,8 +2113,10 @@ body.co-kbd .bottom-nav { display: none; }
 .hint-list li { margin: 4px 0; }
 .co-note { text-align: center; padding: 8px 4px 2px; }
 
-.quick-add { margin: 8px 0; padding: 8px; background: #f7f9fb; border: 1px dashed var(--border); border-radius: 8px; }
-.quick-add textarea { font-size: .9rem; }
+/* Thêm nhanh — không đóng khung; ô gõ nền lì như các ô số của phiếu */
+.quick-add { margin: 14px 0 0; }
+.quick-add textarea { margin: 4px 0 0; padding: 9px 10px; border: none; border-radius: 10px; background: #eef1f5; font-size: .9rem; }
+.quick-add .hint { margin-top: 6px; }
 
 .order-card.compact .order-when { margin-top: auto; text-align: right; }
 

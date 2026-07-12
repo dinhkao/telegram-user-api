@@ -52,6 +52,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const [busy, setBusy] = useState(false);
   const [quickText, setQuickText] = useState("");
   const [quickMsg, setQuickMsg] = useState("");
+  const [qaHelp, setQaHelp] = useState(false);   // hiện hướng dẫn gõ Thêm nhanh
   const [quickPreview, setQuickPreview] = useState<OrderPreview | null>(null);
   const quickSeq = useRef(0);
 
@@ -153,20 +154,18 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       : <span class="pricetag">{name}: {money(info.price)}</span>;
   };
 
-  // ── Chỉnh sửa — mỗi món là 1 khối, canh gọn trên mobile ─────────────────
+  // ── Chỉnh sửa — kiểu PHIẾU TÍNH TIỀN: vạch mảnh, số tabular có chấm nghìn ──
   return (
     <div class="card">
-      <div class="row space">
-        <b>Sản phẩm ({rows.length} món)</b>
-      </div>
+      <div class="ie-head">Sản phẩm <span class="ie-count">{rows.length} món</span></div>
       <div class="inv-edit">
         {rows.map((it, i) => (
           <div class="edit-row" key={i}>
             <div class="er-main">
               <ProductInput value={it.sp} onChange={(c) => setRow(i, "sp", c)} onCommit={(c) => autoPrice(i, c)} />
-              <input class="er-sl" inputMode="numeric" title="Số lượng" value={it.sl} onInput={(e: any) => setRow(i, "sl", parseMoney(e.target.value))} />
+              <input class="er-sl" inputMode="numeric" title="Số lượng" placeholder="SL" value={it.sl || ""} onInput={(e: any) => setRow(i, "sl", parseMoney(e.target.value))} />
               <span class="times">×</span>
-              <input class="er-price" inputMode="numeric" title="Đơn giá" value={it.price} onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} />
+              <input class="er-price" inputMode="numeric" title="Đơn giá" placeholder="giá" value={it.price ? money(it.price) : ""} onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} />
               {(() => {
                 const info = listPrices[(it.sp || "").trim().toUpperCase()];
                 return info && info.price && Number(it.price) !== info.price ? (
@@ -181,15 +180,18 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
             <div class="er-sub">
               {priceTag(it.sp, it.price)}
               <input class="note-inp" placeholder="ghi chú…" value={it.note || ""} onInput={(e: any) => setRow(i, "note", e.target.value)} />
-              <span class="eq">= <b>{money((it.price || 0) * (it.sl || 0))}</b></span>
+              <span class="eq">= <b class="num">{money((it.price || 0) * (it.sl || 0))}</b></span>
             </div>
           </div>
         ))}
       </div>
-      <button class="btn wide" onClick={addRow}><Icon name="plus" size={16} /> Thêm dòng</button>
+      <button class="er-add" onClick={addRow}><Icon name="plus" size={15} /> Thêm dòng</button>
 
       {/* Thêm nhanh bằng text — như tab Nhanh ở trang tạo đơn (kèm xem trước + gợi ý) */}
       <div class="quick-add">
+        <div class="ie-head">Thêm nhanh
+          <button type="button" class="qa-help" title="Cách gõ" onClick={() => setQaHelp((s) => !s)}><Icon name="info" size={15} /></button>
+        </div>
         {/* Xem trước Ở TRÊN ô nhập → bàn phím mobile không che */}
         {quickText.trim() && quickPreview && (
           quickPreview.invoice.length ? (
@@ -220,32 +222,35 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
 
         <textarea
           rows={2}
-          placeholder={"⚡ Thêm nhanh (dán nhiều dòng): vd\nK2L 10\nKDDT 5t"}
+          placeholder={"Mỗi dòng 1 món: mã SP + SL, vd\nK2L 10\nKDDT 5t"}
           value={quickText}
           onInput={(e: any) => setQuickText(e.target.value)}
         />
         {quickMsg && <div class="muted small">{quickMsg}</div>}
-        <div class="muted small hint">
-          💡 <code>&lt;mã SP&gt; &lt;SL&gt;</code> (mã trước, SL sau) · <code>5t</code>=5 thùng, <code>3b</code>=3 bịch, đổi số/đơn vị bằng <code>5t 60</code>/<code>3b 12</code>.
-          {" "}Mặc định số/thùng: 50 (DM50 100; KDXDB/KGL/KMT/KMD/KHDX 5; KDDT 12) · số/bịch: 10 (KDDT 3) · DM180 1 lốc 12.
-          {" "}Giá: nhập số sau SL để ghi đè (<code>K2L 10 25000</code>).
-        </div>
+        {qaHelp && (
+          <div class="muted small hint">
+            💡 <code>&lt;mã SP&gt; &lt;SL&gt;</code> (mã trước, SL sau) · <code>5t</code>=5 thùng, <code>3b</code>=3 bịch, đổi số/đơn vị bằng <code>5t 60</code>/<code>3b 12</code>.
+            {" "}Mặc định số/thùng: 50 (DM50 100; KDXDB/KGL/KMT/KMD/KHDX 5; KDDT 12) · số/bịch: 10 (KDDT 3) · DM180 1 lốc 12.
+            {" "}Giá: nhập số sau SL để ghi đè (<code>K2L 10 25000</code>).
+          </div>
+        )}
       </div>
 
-      <div class="adj">
-        <label>Tiền hàng<b class="num">{money(tienHang)}</b></label>
-        <label>Chiết khấu<input class="narrow" inputMode="numeric" value={disc} onInput={(e: any) => setDisc(parseMoney(e.target.value))} /></label>
-        <label>PVC (ship)<input class="narrow" inputMode="numeric" value={p} onInput={(e: any) => setP(parseMoney(e.target.value))} /></label>
-        <label>VAT
-          <span class="row">
-            <input class="narrow" inputMode="numeric" value={v} onInput={(e: any) => setV(parseMoney(e.target.value))} />
-            <button class="btn small" onClick={() => setV(Math.round(tienHang * 0.08))}>8%</button>
+      <div class="ie-sum">
+        <div class="sum-row"><span>Tiền hàng</span><b class="num">{money(tienHang)}</b></div>
+        <div class="sum-row"><span>Chiết khấu</span><input class="sum-inp" inputMode="numeric" placeholder="0" value={disc ? money(disc) : ""} onInput={(e: any) => setDisc(parseMoney(e.target.value))} /></div>
+        <div class="sum-row"><span>PVC (ship)</span><input class="sum-inp" inputMode="numeric" placeholder="0" value={p ? money(p) : ""} onInput={(e: any) => setP(parseMoney(e.target.value))} /></div>
+        <div class="sum-row"><span>VAT</span>
+          <span class="sum-vat">
+            <button type="button" class="chip8" onClick={() => setV(Math.round(tienHang * 0.08))}>8%</button>
+            <input class="sum-inp" inputMode="numeric" placeholder="0" value={v ? money(v) : ""} onInput={(e: any) => setV(parseMoney(e.target.value))} />
           </span>
-        </label>
-        <div class="row space total"><b>Tổng thanh toán</b><b class="money">{money(tong)}</b></div>
+        </div>
+        <div class="sum-total"><span>Tổng thanh toán</span><b class="num">{money(tong)}</b></div>
       </div>
 
-      <div class="row ie-actions">
+      <div class="ie-actions">
+        <div class="ia-total"><span>Tổng</span><b class="num">{money(tong)}</b></div>
         <button class="btn primary" disabled={busy} onClick={save}>{busy ? "Đang lưu…" : createMode ? <><Icon name="save" size={16} /> Lưu &amp; tạo đơn</> : <><Icon name="save" size={16} /> Lưu</>}</button>
         {onCancel && <button class="btn" disabled={busy} onClick={onCancel}>Huỷ</button>}
       </div>
