@@ -325,8 +325,8 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
 
       {/* TAB NÂNG CAO — 2 bước như trang tạo: khách hàng → sản phẩm (giá theo khách) */}
       <div style={mode === "advanced" ? undefined : "display:none"} class="co-adv">
+        <div class="co-step-head outside"><span class="co-step-n">1</span> Khách hàng</div>
         <div class="card co-adv-step">
-          <div class="co-step-head"><span class="co-step-n">1</span> Khách hàng</div>
           {custKey && !changingCust ? (
             <div class="co-cust-picked adv">
               <span class="co-avatar" aria-hidden="true">{initial(custName || cust?.name || "?")}</span>

@@ -278,8 +278,8 @@ export function CreateOrder() {
       ) : (
         <div class="co-adv">
           {/* Bước 1 — khách hàng: chip avatar + nợ KiotViet + bảng giá (như tab Nhanh) */}
+          <div class="co-step-head outside"><span class="co-step-n">1</span> Khách hàng</div>
           <div class="card co-adv-step">
-            <div class="co-step-head"><span class="co-step-n">1</span> Khách hàng</div>
             {customer ? (
               <div class="co-cust-picked adv">
                 <span class="co-avatar" aria-hidden="true">{initial(customer.name)}</span>
