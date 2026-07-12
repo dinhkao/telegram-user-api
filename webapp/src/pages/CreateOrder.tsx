@@ -5,14 +5,12 @@
 // Cần mạng (không queue). Bàn phím: preview DÍNH ĐỈNH + nút Tạo mini trong preview
 // nên mọi thứ quan trọng luôn ở NỬA TRÊN màn hình (bàn phím không che).
 import { useState, useEffect, useRef } from "preact/hooks";
-import { postJSON, previewOrder, refreshCustomerDebt, getCustomerPriceList, type OrderPreview, type CustomerPriceList } from "../api";
+import { postJSON, previewOrder, refreshCustomerDebt, type OrderPreview } from "../api";
 import { money, initial } from "../format";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
-import { useScrollLock } from "../useScrollLock";
+import { PriceListModal } from "../detail/PriceListModal";
 import { Icon } from "../ui/Icon";
-import { usePopupBack } from "../ui/usePopupBack";
-import { LoadingInline } from "../ui/states";
 
 // Giá rút gọn cho cột hẹp (chia đôi màn hình): 17000 → "17k", 25500 → "25,5k".
 const moneyK = (v: number) =>
@@ -36,15 +34,7 @@ export function CreateOrder() {
   const [previewing, setPreviewing] = useState(false);
   const [liveDebt, setLiveDebt] = useState<{ id: string; debt: number | null } | null>(null);
   const [debtBusy, setDebtBusy] = useState(false);
-  const [priceList, setPriceList] = useState<CustomerPriceList | null>(null);
-  const [plOpen, setPlOpen] = useState(false);
-  const openPriceList = async (key: string) => {
-    setPlOpen(true);
-    setPriceList(null);
-    try { setPriceList(await getCustomerPriceList(key)); } catch { /* ignore */ }
-  };
-  useScrollLock(plOpen); // khoá cuộn nền khi popup bảng giá mở
-  usePopupBack(plOpen, () => setPlOpen(false));
+  const [plCust, setPlCust] = useState<string | null>(null); // popup bảng giá của khách này
   const seq = useRef(0);
   const [showHint, setShowHint] = useState(false);
   const [typing, setTyping] = useState(false);   // ô nhập đang focus (bàn phím bật)
@@ -190,7 +180,7 @@ export function CreateOrder() {
             <span class="muted small">
               {c.manual ? "Chọn tay" : `Khớp ${c.score}%`}
               {c.price_list_name && <> · {c.price_list_name}{" "}
-                <button class="co-link" onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); openPriceList(c.id); }}>Xem giá</button></>}
+                <button class="co-link" onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); setPlCust(c.id); }}>Xem giá</button></>}
             </span>
           </div>
         </a>
@@ -337,7 +327,7 @@ export function CreateOrder() {
                   <span class="muted small">
                     {advCust?.price_list_name
                       ? <>Bảng giá: {advCust.price_list_name}{" "}
-                          <button class="co-link" onClick={() => openPriceList(advCust!.id)}>Xem giá</button></>
+                          <button class="co-link" onClick={() => setPlCust(advCust!.id)}>Xem giá</button></>
                       : "Giá chung"}
                   </span>
                 </div>
@@ -368,31 +358,7 @@ export function CreateOrder() {
         </div>
       )}
 
-      {plOpen && (
-        <div class="modal-backdrop" onClick={() => setPlOpen(false)}>
-          <div class="modal" onClick={(e: any) => e.stopPropagation()}>
-            <div class="row space">
-              <b><Icon name="clipboard" size={15} /> Bảng giá{priceList?.name ? `: ${priceList.name}` : ""}</b>
-              <button class="btn small" onClick={() => setPlOpen(false)}><Icon name="close" size={14} /></button>
-            </div>
-            {!priceList ? (
-              <p class="muted small"><LoadingInline /></p>
-            ) : priceList.items.length ? (
-              <div class="pl-scroll">
-                <table class="invoice-table">
-                  <tbody>
-                    {priceList.items.map((it) => (
-                      <tr key={it.sp}><td>{it.sp}</td><td class="num">{money(it.price)}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p class="muted small">Bảng giá trống.</p>
-            )}
-          </div>
-        </div>
-      )}
+      {plCust && <PriceListModal customerId={plCust} onClose={() => setPlCust(null)} />}
     </div>
   );
 }

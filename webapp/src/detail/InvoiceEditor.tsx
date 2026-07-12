@@ -86,9 +86,13 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
         if (my === quickSeq.current) { setQuickPreview(null); setQuickMsg("Lỗi phân tích"); }
       });
   }, [quickText, customerId]);
-  // Giá + bảng giá theo mã SP (đã hoa) — để ghi rõ giá lấy từ bảng giá nào
+  // Giá + bảng giá theo mã SP (đã hoa) — để ghi rõ giá lấy từ bảng giá nào.
+  // Cache theo MÃ, không theo khách → đổi khách phải xoá cache (effect dưới).
   const [listPrices, setListPrices] = useState<Record<string, PriceInfo>>({});
   const listRef = useRef<Record<string, PriceInfo>>({});
+  const custRef = useRef(customerId);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
 
   // Tra 1 lần giá bảng cho 1 mã (cache trong listRef); trả PriceInfo
   const loadListPrice = async (code: string): Promise<PriceInfo> => {
@@ -97,10 +101,24 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
     if (!key || !customerId) return empty;
     if (key in listRef.current) return listRef.current[key];
     const info = await fetchCustomerPrice(customerId, key).catch(() => empty);
+    if (custRef.current !== customerId) return info;   // khách đã đổi khi đang tra — bỏ, khỏi cache giá khách cũ
     listRef.current = { ...listRef.current, [key]: info };
     setListPrices(listRef.current);
     return info;
   };
+
+  // Đổi khách giữa chừng (bước 1 trang sửa hoá đơn) → giá bảng đã tra là của
+  // khách CŨ: xoá cache + tra lại theo khách mới cho các mã đang có trên form.
+  // Dòng SP + giá đã nhập GIỮ NGUYÊN (giá là snapshot) — chỉ chú thích bảng giá
+  // và nút đặt-lại-giá cập nhật theo khách mới.
+  useEffect(() => {
+    if (custRef.current === customerId) return;
+    custRef.current = customerId;
+    listRef.current = {};
+    setListPrices({});
+    const codes = [...new Set(rowsRef.current.map((r) => (r.sp || "").trim().toUpperCase()).filter(Boolean))];
+    codes.forEach((c) => { loadListPrice(c); });
+  }, [customerId]);
 
   // Chỉ nạp lại rows khi NỘI DUNG invoice đổi thật — không nạp lại khi reload nền
   // (realtime) trả về invoice y hệt, để không xoá phần user đang sửa dở.
