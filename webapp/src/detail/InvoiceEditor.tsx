@@ -50,6 +50,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const [disc, setDisc] = useState(0);
   const [p, setP] = useState(0);
   const [v, setV] = useState(0);
+  const [vat8Enabled, setVat8Enabled] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // Giá + bảng giá theo mã SP (đã hoa) — để ghi rõ giá lấy từ bảng giá nào.
@@ -107,9 +108,30 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   useEffect(() => setDisc(Number(discount) || 0), [discount]);
   useEffect(() => setP(Number(pvc) || 0), [pvc]);
   useEffect(() => setV(Number(vat) || 0), [vat]);
+  // Tự bật chế độ 8% khi đơn nạp vào có VAT = 8% tiền hàng (VAT phần trăm, không phải
+  // số cố định) → sửa SL/giá thì VAT tự tính lại. Chỉ xét 1 LẦN lúc seed (guard ref)
+  // nên không đè khi user tự chỉnh VAT hoặc tắt 8% sau đó.
+  const vat8Seeded = useRef(false);
+  useEffect(() => {
+    if (vat8Seeded.current || !invoice || invoice.length === 0) return;
+    vat8Seeded.current = true;
+    const sv = Number(vat) || 0;
+    const goods = invoice.reduce((s: number, it: any) => s + (Number(it.price) || 0) * (Number(it.sl ?? it.quantity) || 0), 0);
+    if (sv > 0 && goods > 0 && Math.abs(sv - Math.round(goods * 0.08)) <= 1) setVat8Enabled(true);
+  }, [invoice, vat]);
 
   const tienHang = rows.reduce((s, r) => s + (r.price || 0) * (r.sl || 0), 0);
-  const tong = tienHang - disc + p + v;
+  // Tính trực tiếp thay vì đồng bộ bằng effect: tắt VAT có hiệu lực ngay và
+  // không thể bị một effect chạy trễ ghi đè lại.
+  const currentVat = vat8Enabled ? Math.round(tienHang * 0.08) : v;
+  const tong = tienHang - disc + p + currentVat;
+
+  const toggleVat8 = () => {
+    const enabled = !vat8Enabled;
+    setVat8Enabled(enabled);
+    if (!enabled) setV(0);
+  };
+  const selectAll = (e: any) => (e.currentTarget as HTMLInputElement).select();
 
   const setRow = (i: number, f: string, val: any) => setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [f]: val } : r)));
   const addRow = () => setRows((prev) => [...prev, { sp: "", sl: 1, price: 0, note: "" }]);
@@ -124,7 +146,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
 
   const save = async () => {
     setBusy(true);
-    try { await onSave({ invoice: rows.filter((r) => (r.sp || "").trim()), discount: disc, pvc: p, vat: v }); }
+    try { await onSave({ invoice: rows.filter((r) => (r.sp || "").trim()), discount: disc, pvc: p, vat: currentVat }); }
     catch (e: any) { toast(e?.message || "Lỗi", "err"); }
     finally { setBusy(false); }
   };
@@ -147,9 +169,11 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
           <div class="edit-row" key={i}>
             <div class="er-main">
               <ProductInput value={it.sp} onChange={(c) => setRow(i, "sp", c)} onCommit={(c) => autoPrice(i, c)} />
-              <input class="er-sl" inputMode="numeric" title="Số lượng" placeholder="SL" value={it.sl || ""} onInput={(e: any) => setRow(i, "sl", parseMoney(e.target.value))} />
+              <input class="er-sl" inputMode="numeric" title="Số lượng" placeholder="SL" value={it.sl || ""}
+                onFocus={selectAll} onInput={(e: any) => setRow(i, "sl", parseMoney(e.target.value))} />
               <span class="times">×</span>
-              <input class="er-price" inputMode="numeric" title="Đơn giá" placeholder="giá" value={it.price ? money(it.price) : ""} onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} />
+              <input class="er-price" inputMode="numeric" title="Đơn giá" placeholder="giá" value={it.price ? money(it.price) : ""}
+                onFocus={selectAll} onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} />
               {(() => {
                 const info = listPrices[(it.sp || "").trim().toUpperCase()];
                 return info && info.price && Number(it.price) !== info.price ? (
@@ -163,7 +187,8 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
             </div>
             <div class="er-sub">
               {priceTag(it.sp, it.price)}
-              <input class="note-inp" placeholder="ghi chú…" value={it.note || ""} onInput={(e: any) => setRow(i, "note", e.target.value)} />
+              <input class="note-inp" placeholder="ghi chú…" value={it.note || ""}
+                onFocus={selectAll} onInput={(e: any) => setRow(i, "note", e.target.value)} />
               <span class="eq">= <b class="num">{money((it.price || 0) * (it.sl || 0))}</b></span>
             </div>
           </div>
@@ -173,12 +198,17 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
 
       <div class="ie-sum">
         <div class="sum-row"><span>Tiền hàng</span><b class="num">{money(tienHang)}</b></div>
-        <div class="sum-row"><span>Chiết khấu</span><input class="sum-inp" inputMode="numeric" placeholder="0" value={disc ? money(disc) : ""} onInput={(e: any) => setDisc(parseMoney(e.target.value))} /></div>
-        <div class="sum-row"><span>PVC (ship)</span><input class="sum-inp" inputMode="numeric" placeholder="0" value={p ? money(p) : ""} onInput={(e: any) => setP(parseMoney(e.target.value))} /></div>
+        <div class="sum-row"><span>Chiết khấu</span><input class="sum-inp" inputMode="numeric" placeholder="0" value={disc ? money(disc) : ""}
+          onFocus={selectAll} onInput={(e: any) => setDisc(parseMoney(e.target.value))} /></div>
+        <div class="sum-row"><span>PVC (ship)</span><input class="sum-inp" inputMode="numeric" placeholder="0" value={p ? money(p) : ""}
+          onFocus={selectAll} onInput={(e: any) => setP(parseMoney(e.target.value))} /></div>
         <div class="sum-row"><span>VAT</span>
           <span class="sum-vat">
-            <button type="button" class="chip8" onClick={() => setV(Math.round(tienHang * 0.08))}>8%</button>
-            <input class="sum-inp" inputMode="numeric" placeholder="0" value={v ? money(v) : ""} onInput={(e: any) => setV(parseMoney(e.target.value))} />
+            <button type="button" class={vat8Enabled ? "chip8 on" : "chip8"}
+              aria-pressed={vat8Enabled} title={vat8Enabled ? "Tắt VAT 8%" : "Bật VAT 8%"}
+              onClick={toggleVat8}>8%</button>
+            <input class="sum-inp" inputMode="numeric" placeholder="0" value={currentVat ? money(currentVat) : ""}
+              onFocus={selectAll} onInput={(e: any) => { setVat8Enabled(false); setV(parseMoney(e.target.value)); }} />
           </span>
         </div>
         <div class="sum-total"><span>Tổng thanh toán</span><b class="num">{money(tong)}</b></div>
