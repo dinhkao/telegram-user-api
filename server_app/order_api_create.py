@@ -29,6 +29,8 @@ async def order_create_handler(request: web.Request):
     text = str(body.get("text") or "").strip()
     if not text:
         return web.json_response({"ok": False, "error": "thiếu text đơn hàng"}, status=400)
+    # Khách người dùng CHỌN TAY ở webapp (tùy chọn) → đè lên tự nhận diện từ text.
+    customer_key = str(body.get("customer_key") or "").strip() or None
 
     client = state._client
     if client is None:
@@ -46,7 +48,7 @@ async def order_create_handler(request: web.Request):
     #    đăng nhập webapp (từ token web_auth) → ghi NGƯỜI TẠO đơn (web gửi bằng tk bot).
     web_actor = request.get("web_user") or (body.get("user") or "").strip() or None
     try:
-        thread_id = await process_new_order(client, sent, web_actor=web_actor)
+        thread_id = await process_new_order(client, sent, web_actor=web_actor, customer_key=customer_key)
     except Exception as exc:
         return web.json_response({"ok": False, "error": f"tạo đơn thất bại: {exc}"}, status=500)
     if thread_id is None:

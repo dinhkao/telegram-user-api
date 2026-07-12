@@ -95,8 +95,9 @@ export function CreateOrder() {
     if (!text.trim()) return setErr("Nhập nội dung đơn");
     setBusy(true); setErr("");
     try {
-      // Đăng vào kênh #don_hang → tạo topic Telegram + đơn (như gõ tay trên Telegram)
-      const r = await postJSON("/api/order/create", { text: text.trim() });
+      // Đăng vào kênh #don_hang → tạo topic Telegram + đơn (như gõ tay trên Telegram).
+      // Khách chọn tay (picked) ĐÈ lên tự nhận diện từ text — cả gán khách lẫn giá.
+      const r = await postJSON("/api/order/create", { text: text.trim(), customer_key: picked?.key || null });
       localStorage.removeItem(DRAFT_KEY); // đơn đã tạo → bỏ nháp
       if (r.thread_id) window.location.hash = `#/order/${r.thread_id}`;
       else { setErr("✅ Đã gửi vào #don_hang — đang tạo đơn, sẽ hiện ở danh sách."); window.location.hash = "#/"; }
@@ -107,7 +108,7 @@ export function CreateOrder() {
   const createAdvanced = async (payload: EditorPayload) => {
     if (!customer) throw new Error("Chọn khách hàng trước");
     if (!payload.invoice.length) throw new Error("Thêm ít nhất 1 sản phẩm");
-    const r = await postJSON("/api/order/create", { text: customer.name });
+    const r = await postJSON("/api/order/create", { text: customer.name, customer_key: customer.key });
     const tid = r.thread_id;
     if (!tid) throw new Error("Đơn đang được tạo trên Telegram — chờ vài giây rồi thử lại");
     await postJSON("/api/order/invoice/update", { thread_id: tid, ...payload });

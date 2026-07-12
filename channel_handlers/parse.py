@@ -12,23 +12,35 @@ from .render import render_channel_post
 log = logging.getLogger("channel_handler")
 
 
-async def auto_parse(client, conn, thread_id: int, text: str):
+async def auto_parse(client, conn, thread_id: int, text: str, *, customer_key=None):
     try:
-        from order_db import _update_order_json_field, detect_customer_free_text, parse_invoice_free_text
+        from order_db import _update_order_json_field, detect_customer_free_text, parse_invoice_free_text, get_customer_by_key
         from picking_sheet import generate_picking_sheet
         order = get_order_by_thread_id(conn, thread_id)
         if not order:
             log.warning("auto-parse: order not found thread=%d", thread_id)
             return
         all_products = get_all_products(conn)
-        detection = detect_customer_free_text(conn, text)
         assigned_cust = None
         kh_id_fb = order.get("khach_hang_id") or order.get("khID")
-        if detection.get("autoAssign"):
-            assigned_cust = detection["autoAssign"]
-            kh_id_fb = assigned_cust["customerID"]
-            _update_order_json_field(conn, thread_id, "$.khach_hang_id", assigned_cust["customerID"])
-            _update_order_json_field(conn, thread_id, "$.customer_name", assigned_cust["customerName"])
+        # Khách CHỌN TAY (webapp) đè lên tự nhận diện từ text — cả gán khách LẪN giá
+        # hoá đơn đều theo khách này. Chỉ tự nhận diện khi KHÔNG có khách tay hợp lệ.
+        detection = {"matches": [], "autoAssign": None}
+        chosen = None
+        if customer_key:
+            cust = get_customer_by_key(conn, str(customer_key))
+            if cust:
+                chosen = {"customerID": str(customer_key), "customerName": cust.get("name", ""),
+                          "score": 100, "bestMatchedPattern": "(chọn tay)"}
+        if chosen is None:
+            detection = detect_customer_free_text(conn, text)
+            if detection.get("autoAssign"):
+                chosen = detection["autoAssign"]
+        if chosen:
+            assigned_cust = chosen
+            kh_id_fb = chosen["customerID"]
+            _update_order_json_field(conn, thread_id, "$.khach_hang_id", chosen["customerID"])
+            _update_order_json_field(conn, thread_id, "$.customer_name", chosen["customerName"])
             from order_db import touch_customer_last_order
             touch_customer_last_order(conn, kh_id_fb)
             # Việc mặc định của khách → auto-thêm vào đơn (dưới 5 việc chuẩn)

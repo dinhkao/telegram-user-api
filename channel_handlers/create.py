@@ -48,12 +48,14 @@ def _existing_thread(conn, message_id: int) -> int | None:
     return int(row[0]) if row else None
 
 
-async def process_new_order(client, msg, *, web_actor=None) -> int | None:
+async def process_new_order(client, msg, *, web_actor=None, customer_key=None) -> int | None:
     """1 tin #don_hang → topic + đơn. Trả thread_id (None nếu bỏ qua/lỗi).
 
     Dùng cho cả listener lẫn webapp. An toàn gọi 2 lần cho cùng message_id
     (idempotent) — không tạo topic/đơn trùng. `web_actor` = username webapp khi tạo
-    từ web (để ghi NGƯỜI TẠO); None → lấy người đăng #don_hang từ msg.sender_id."""
+    từ web (để ghi NGƯỜI TẠO); None → lấy người đăng #don_hang từ msg.sender_id.
+    `customer_key` = khách người dùng CHỌN TAY ở webapp → đè lên tự nhận diện từ text
+    (auto_parse gán khách này + tính giá theo bảng giá của khách này)."""
     if should_skip_message(msg):
         return None
     conn = _get_connection()
@@ -125,5 +127,5 @@ async def process_new_order(client, msg, *, web_actor=None) -> int | None:
         pin_msg_id = None
     if pin_msg_id:
         client.loop.create_task(pin_and_update(client, conn, thread_id, pin_msg_id))
-    client.loop.create_task(auto_parse(client, conn, thread_id, msg.text))
+    client.loop.create_task(auto_parse(client, conn, thread_id, msg.text, customer_key=customer_key))
     return thread_id
