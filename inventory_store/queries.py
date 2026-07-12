@@ -203,13 +203,22 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
         where.append("b.order_thread_id = ?"); params.append(order_thread_id)
     if active_only:
         where.append("(b.disabled IS NULL OR b.disabled = 0)")
+    # allocated/transferred_in aggregate 1 LƯỢT qua CTE (trước là 2 correlated
+    # subquery chạy lại cho TỪNG thùng). Semantics giữ nguyên: remaining =
+    # quantity − allocated (allocation ÂM làm tăng remaining); transferred_in
+    # chỉ cộng phần âm đã đảo dấu.
     sql = (
+        "WITH alloc_totals AS ("
+        "SELECT box_id, SUM(quantity) AS allocated, "
+        "SUM(CASE WHEN quantity < 0 THEN -quantity ELSE 0 END) AS transferred_in "
+        "FROM box_allocations GROUP BY box_id) "
         "SELECT b.*, p.name AS place_name, u.name AS unit_name, pr.unit AS product_unit, "
         "COALESCE(pr.code, b.product_code) AS product_code_live, "
-        "COALESCE((SELECT SUM(a.quantity) FROM box_allocations a WHERE a.box_id=b.id),0) AS allocated, "
-        "COALESCE((SELECT SUM(-a.quantity) FROM box_allocations a WHERE a.box_id=b.id AND a.quantity<0),0) AS transferred_in, "
+        "COALESCE(al.allocated, 0) AS allocated, "
+        "COALESCE(al.transferred_in, 0) AS transferred_in, "
         + _reserved_fragment(conn) +
         " FROM inventory_boxes b "
+        "LEFT JOIN alloc_totals al ON al.box_id = b.id "
         "LEFT JOIN inventory_places p ON p.id = b.place_id "
         "LEFT JOIN inventory_units u ON u.id = b.unit_id "
         "LEFT JOIN products pr ON pr.id = b.product_id"
@@ -244,25 +253,32 @@ def product_totals(conn, *, status="in_stock") -> list[dict]:
 
 
 def product_summary(conn) -> list[dict]:
-    """Tồn/xuất theo product cho dashboard. Tồn = tổng CÒN LẠI (remaining) của thùng
-    còn hiệu lực; đã xuất = số thùng có phần xuất; vô hiệu đếm riêng (không tính tồn)."""
-    agg: dict = {}
-    for b in list_boxes(conn):
-        code = b["product_code"]
-        g = agg.setdefault(code, {
-            "product_code": code, "product_id": b.get("product_id"),
-            "in_stock_total": 0.0, "in_stock_count": 0,
-            "allocated_count": 0, "shipped_count": 0, "disabled_count": 0, "total_count": 0,
-        })
-        g["total_count"] += 1
-        if b.get("disabled"):
-            g["disabled_count"] += 1
-        elif b["remaining"] > 0:
-            g["in_stock_total"] += b["remaining"]
-            g["in_stock_count"] += 1
-        if (b.get("allocated") or 0) > 0:
-            g["allocated_count"] += 1
-    return [agg[k] for k in sorted(agg)]
+    """Tồn/xuất theo product cho dashboard — aggregate 1 LƯỢT SQL (trước đây gọi lại
+    list_boxes() rồi gộp bằng Python → quét toàn kho 2 lần mỗi lần vào trang Kho).
+    Tồn = tổng CÒN LẠI (remaining) của thùng còn hiệu lực; đã xuất = số thùng có phần
+    xuất; vô hiệu đếm riêng (không tính tồn). Gom theo MÃ HIỆN HÀNH.
+    ⚠ GROUP BY phải là NGUYÊN biểu thức COALESCE — bare alias bị SQLite resolve về
+    cột gốc làm nhóm tách sai (pitfall đã dính ở compute_wages)."""
+    rows = conn.execute(
+        "WITH alloc_totals AS ("
+        "SELECT box_id, SUM(quantity) AS allocated FROM box_allocations GROUP BY box_id) "
+        "SELECT COALESCE(pr.code, b.product_code) AS product_code, "
+        "MAX(b.product_id) AS product_id, "
+        "SUM(CASE WHEN COALESCE(b.disabled,0)=0 AND b.quantity - COALESCE(al.allocated,0) > 0 "
+        "THEN b.quantity - COALESCE(al.allocated,0) ELSE 0 END) AS in_stock_total, "
+        "SUM(CASE WHEN COALESCE(b.disabled,0)=0 AND b.quantity - COALESCE(al.allocated,0) > 0 "
+        "THEN 1 ELSE 0 END) AS in_stock_count, "
+        "SUM(CASE WHEN COALESCE(al.allocated,0) > 0 THEN 1 ELSE 0 END) AS allocated_count, "
+        "0 AS shipped_count, "
+        "SUM(CASE WHEN COALESCE(b.disabled,0)!=0 THEN 1 ELSE 0 END) AS disabled_count, "
+        "COUNT(*) AS total_count "
+        "FROM inventory_boxes b "
+        "LEFT JOIN alloc_totals al ON al.box_id = b.id "
+        "LEFT JOIN products pr ON pr.id = b.product_id "
+        "GROUP BY COALESCE(pr.code, b.product_code) "
+        "ORDER BY COALESCE(pr.code, b.product_code)"
+    ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def get_box(conn, box_id) -> dict | None:
