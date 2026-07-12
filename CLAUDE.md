@@ -393,10 +393,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (đăng xuất; kèm `TaskBell` badge việc-của-tôi + chuông thông báo). Dashboard Đơn:
   view-slider 4 ô (chi tiết/gọn/siêu gọn/**📅 lịch giao**). Menu ☰ Thêm có **Việc**. Trang: orders list/detail, tasks, payments, comments, create order,
   **sửa hoá đơn = trang riêng `pages/OrderInvoiceEdit.tsx` (`#/order/:id/hoa-don`,
-  2 bước như tab Nâng cao tạo đơn: ① Khách hàng [nợ KV + bảng giá + Đổi khách qua
-  `/api/order/assign-customer`] → ② InvoiceEditor lấy giá theo khách bước 1 — đổi
-  khách là editor xoá cache giá bảng, tra lại; KHOÁ nếu đã có HĐ KiotViet; order
-  detail chỉ hiện tóm tắt + nút; popup bảng giá dùng chung `detail/PriceListModal.tsx`)**,
+  2 TAB như trang tạo đơn, cùng mount: ⚡ Nhanh = sửa TEXT + preview parse, lưu qua
+  `/api/order/fix` [text sửa → nhận diện lại khách, cảnh báo nếu đổi; text nguyên →
+  preview theo khách hiện tại, Lưu khoá]; 📋 Nâng cao = ① Khách hàng [nợ KV + bảng
+  giá + Đổi khách qua `/api/order/assign-customer`] → ② InvoiceEditor lấy giá theo
+  khách bước 1 — đổi khách là editor xoá cache giá bảng, tra lại; KHOÁ nếu đã có HĐ
+  KiotViet; popup bảng giá dùng chung `detail/PriceListModal.tsx`; chế độ gõ chia
+  đôi màn dùng chung `ui/useTypingSplit.ts` với CreateOrder)**,
   customers/debt (bảng giá riêng `personal_price_list`), **photos (camera in-page HTTPS +
   gallery, 2-way Telegram sync)**, **phiếu sản xuất (🏭 SX)** + sửa báo cáo thợ + dashboard SX,
   **kho (📦 Kho: thùng/vị trí/sản phẩm — xem `inventory_store`)**, lịch giao (`#/lich`),

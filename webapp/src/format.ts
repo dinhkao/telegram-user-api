@@ -23,6 +23,10 @@ export function foldVN(s: string): string {
 /** Chữ cái đầu tên (avatar tròn khách hàng — CreateOrder/OrderDetail). */
 export const initial = (name: string) => ((name || "").trim().charAt(0) || "?").toUpperCase();
 
+// Giá rút gọn cho cột hẹp (preview chia đôi màn): 17000 → "17k", 25500 → "25,5k".
+export const moneyK = (v: number) =>
+  v >= 1000 && v % 100 === 0 ? `${(v / 1000).toLocaleString("vi-VN")}k` : money(v);
+
 export function money(n: number | string): string {
   const v = typeof n === "string" ? parseInt(n.replace(/\./g, ""), 10) || 0 : n || 0;
   return v.toLocaleString("vi-VN");

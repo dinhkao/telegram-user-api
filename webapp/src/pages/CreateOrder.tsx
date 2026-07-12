@@ -6,15 +6,12 @@
 // nên mọi thứ quan trọng luôn ở NỬA TRÊN màn hình (bàn phím không che).
 import { useState, useEffect, useRef } from "preact/hooks";
 import { postJSON, previewOrder, refreshCustomerDebt, type OrderPreview } from "../api";
-import { money, initial } from "../format";
+import { money, moneyK, initial } from "../format";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
 import { PriceListModal } from "../detail/PriceListModal";
 import { Icon } from "../ui/Icon";
-
-// Giá rút gọn cho cột hẹp (chia đôi màn hình): 17000 → "17k", 25500 → "25,5k".
-const moneyK = (v: number) =>
-  v >= 1000 && v % 100 === 0 ? `${(v / 1000).toLocaleString("vi-VN")}k` : money(v);
+import { useTypingSplit } from "../ui/useTypingSplit";
 
 // Nháp — text + khách đã chọn sống qua rời trang / reload app (localStorage).
 // Xoá khi tạo đơn xong hoặc khi người dùng tự xoá hết.
@@ -37,45 +34,9 @@ export function CreateOrder() {
   const [plCust, setPlCust] = useState<string | null>(null); // popup bảng giá của khách này
   const seq = useRef(0);
   const [showHint, setShowHint] = useState(false);
-  const [typing, setTyping] = useState(false);   // ô nhập đang focus (bàn phím bật)
   const taRef = useRef<HTMLTextAreaElement>(null);
-
-  // Đang gõ mà CHẠM ra ngoài textarea (vd bấm vùng preview) → thoát chế độ gõ NGAY.
-  // Layout chia đôi lấp gần hết màn nên chạm-ra-ngoài chỉ còn trúng preview; Android
-  // WebView đôi khi bỏ sót blur gốc → phải chạm 2 lần. Dùng onClick (CHỈ kích khi
-  // chạm, KHÔNG kích khi kéo cuộn danh sách SP) + blur() ép thoát dứt điểm lần đầu.
-  const exitTypingOnOutsideTap = (e: any) => {
-    const ta = taRef.current;
-    if (ta && e.target !== ta) ta.blur();
-  };
-
-  // Đang gõ (bàn phím bật) → giấu bottom-nav (body.co-kbd, styles.css) cho ô nhập
-  // khỏi bị nav đè trên màn thấp; blur thì nav hiện lại.
-  useEffect(() => {
-    document.body.classList.toggle("co-kbd", typing);
-    return () => document.body.classList.remove("co-kbd");
-  }, [typing]);
-  // Android WebView: bấm BACK khi bàn phím mở → bàn phím đóng nhưng KHÔNG có
-  // popstate, textarea vẫn focus → layout chia đôi (.co-typing) kẹt lại dù bàn
-  // phím đã tắt. Fix: khi đang gõ, nghe visualViewport resize CHỈ để phát hiện
-  // bàn phím đóng (viewport cao TRỞ LẠI đáng kể) rồi blur() → typing=false, layout
-  // gộp lại. KHÔNG dùng viewport để đo/đặt kích thước gì (chiều cao vẫn do CSS
-  // quản — tránh giật, xem chú thích styles.css). Guard: chỉ blur khi viewport đã
-  // từng THU NHỎ (hMin, lúc bàn phím bật) rồi cao lại >20% + >120px — chiều thu
-  // nhỏ chỉ cập nhật hMin nên mở bàn phím / reflow chia cột không kích nhầm.
-  useEffect(() => {
-    if (!typing) return;
-    const vv = window.visualViewport;
-    if (!vv) return;
-    let hMin = vv.height; // thấp nhất từng thấy trong phiên gõ này (bàn phím bật)
-    const onResize = () => {
-      const h = vv.height;
-      if (h <= hMin) { hMin = h; return; }               // đang thu nhỏ → chỉ ghi nhớ
-      if (h - hMin > 120 && h > hMin * 1.2) taRef.current?.blur(); // cao lại rõ rệt = bàn phím đóng
-    };
-    vv.addEventListener("resize", onResize);
-    return () => vv.removeEventListener("resize", onResize);
-  }, [typing]);
+  // Chế độ chia đôi màn khi gõ + các fix bàn phím Android — hook dùng chung
+  const { typing, setTyping, exitTypingOnOutsideTap } = useTypingSplit(taRef);
 
   // Nâng cao: chọn khách xong → kéo nợ + bảng giá (cùng đường với tab Nhanh:
   // previewOrder text rỗng + key khách trả về customer đầy đủ, rồi kéo nợ KV mới).
