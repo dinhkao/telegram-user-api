@@ -1091,8 +1091,34 @@ async def product_orders_handler(request: web.Request):
 
 
 # ─── xuất / thu thùng cho đơn ─────────────────────────────────────────────────
+def _order_product_stock(conn, thread_id) -> dict:
+    """{MÃ SP (hoa) trong hoá đơn: tồn hiện tại của kho}. Tồn = tổng CÒN LẠI của thùng
+    còn hiệu lực; khớp theo product_id nên mã cũ (alias) vẫn ra đúng SP. 1 lượt
+    product_summary (đã trừ mọi phân bổ, kể cả của đơn này = tồn thực còn lại)."""
+    from product_store import resolve_code_to_id
+    order = get_order_by_thread_id(conn, thread_id)
+    if not order:
+        return {}
+    codes: list[str] = []
+    for it in (order.get("invoice") or []):
+        c = str(it.get("sp") or "").strip().upper()
+        if c and c not in codes:
+            codes.append(c)
+    if not codes:
+        return {}
+    summ = product_summary(conn)
+    by_id = {s["product_id"]: (s.get("in_stock_total") or 0) for s in summ if s.get("product_id") is not None}
+    by_code = {s["product_code"]: (s.get("in_stock_total") or 0) for s in summ}
+    out: dict = {}
+    for c in codes:
+        pid = resolve_code_to_id(conn, c)
+        out[c] = by_id.get(pid, by_code.get(c, 0)) if pid is not None else by_code.get(c, 0)
+    return out
+
+
 async def order_allocations_handler(request: web.Request):
-    """Các phần thùng đã xuất cho đơn này (1 dòng = 1 phần thùng)."""
+    """Các phần thùng đã xuất cho đơn này (1 dòng = 1 phần thùng) + tồn hiện tại của
+    từng mã SP trong đơn (để trang xuất kho hiện tồn kho từng SP)."""
     thread_id = _thread_id(request)
     if thread_id is None:
         return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
@@ -1101,11 +1127,11 @@ async def order_allocations_handler(request: web.Request):
         conn = _conn()
         try:
             _ensure(conn)
-            return list_order_allocations(conn, thread_id)
+            return list_order_allocations(conn, thread_id), _order_product_stock(conn, thread_id)
         finally:
             conn.close()
-    allocs = await asyncio.to_thread(_run)
-    return web.json_response({"ok": True, "allocations": allocs})
+    allocs, stock = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, "allocations": allocs, "stock": stock})
 
 
 async def order_allocate_handler(request: web.Request):

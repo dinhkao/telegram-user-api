@@ -24,6 +24,7 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
   stockConfirmed?: Confirmed;
 }) {
   const [allocs, setAllocs] = useState<Allocation[]>([]);
+  const [stock, setStock] = useState<Record<string, number>>({});   // tồn hiện tại theo mã SP
   const [pickCode, setPickCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -39,7 +40,9 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
 
   const load = async () => {
     try {
-      setAllocs(await orderAllocations(threadId));
+      const r = await orderAllocations(threadId);
+      setAllocs(r.allocations);
+      setStock(r.stock);
     } catch {
       /* im lặng */
     }
@@ -185,12 +188,17 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
         const mine = allocs.filter((a) => a.product_code === code);
         const got = mine.reduce((s, a) => s + a.quantity, 0);
         const enough = got >= need;
+        const onhand = stock[code] ?? 0;                      // tồn hiện tại của kho
+        const lowStock = onhand < Math.max(need - got, 0);    // kho không đủ xuất nốt phần còn thiếu
         const pickBy = pickLocks[code];                       // ai đang chọn thùng mã này
         const heldByOther = !!pickBy && pickBy !== myName;    // NGƯỜI KHÁC đang chọn → khoá nút
         return (
           <div class="stock-line" key={code}>
             <div class="stock-head">
               <b>{code}</b>
+              <span class={"stock-onhand" + (lowStock ? " low" : "")} title={lowStock ? "Tồn kho không đủ để xuất nốt phần còn thiếu" : "Tồn hiện tại trong kho"}>
+                Tồn {soVN(onhand)}
+              </span>
               <span class={enough ? "inv-pick-sum ok" : "inv-pick-sum"}>
                 Đã xuất {soVN(got)}/{soVN(need)}
               </span>

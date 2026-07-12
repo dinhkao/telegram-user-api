@@ -1394,10 +1394,11 @@ export async function updateBox(
   return d.ok ? d.box : null;
 }
 
-/** Các phần thùng đã xuất cho đơn này (1 dòng = 1 phần thùng). */
-export async function orderAllocations(id: string | number): Promise<Allocation[]> {
+/** Phần thùng đã xuất cho đơn (1 dòng = 1 phần) + tồn hiện tại {MÃ SP: tồn}. */
+export type OrderStockInfo = { allocations: Allocation[]; stock: Record<string, number> };
+export async function orderAllocations(id: string | number): Promise<OrderStockInfo> {
   const d = await getJSON(`/api/order/${id}/allocations`);
-  return d.allocations || [];
+  return { allocations: d.allocations || [], stock: d.stock || {} };
 }
 
 /** Xuất kho cho đơn — lấy 1 phần được: picks=[{box_id, quantity?}] (thiếu qty = hết còn lại). */
