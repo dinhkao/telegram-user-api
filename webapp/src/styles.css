@@ -338,9 +338,10 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .edit-row { padding: 8px 0 7px; border-bottom: 1px solid var(--border); }
 .edit-row:first-child { padding-top: 2px; }
 .er-main { display: flex; align-items: center; gap: 6px; }
-.er-main .sp-trigger { flex: 1; min-width: 96px; padding: 7px 9px; font-size: .92rem; }
+/* Ô mã SP co theo nội dung (mã ngắn → ô ngắn), chỗ trống dồn giữa; mã dài ellipsis */
+.er-main .sp-trigger { flex: 0 1 auto; min-width: 0; max-width: 46%; padding: 7px 8px; gap: 5px; font-size: .92rem; }
 .er-main input { flex: none; margin: 0; padding: 7px 6px; font-size: .95rem; text-align: right; }
-.er-main .er-sl { width: 48px; }
+.er-main .er-sl { width: 48px; margin-left: auto; }
 .er-main .er-price { width: 88px; }
 .er-main .times { flex: none; color: var(--muted, #888); }
 /* Nút đặt lại giá về giá bảng của khách (hiện khi giá ≠ giá định sẵn) */
