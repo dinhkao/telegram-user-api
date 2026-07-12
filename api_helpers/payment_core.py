@@ -59,6 +59,39 @@ def delete_payment_record(conn, thread_id: int, payment_id: str) -> tuple[bool, 
     return True, f"🗑️ Đã xóa payment: {payment_id}"
 
 
+def find_batch_thread_ids(conn, batch_id: str) -> list[int]:
+    """thread_id của mọi đơn có 1 phiếu thu thuộc GIAO DỊCH gộp `batch_id` (bulk)."""
+    rows = conn.execute(
+        "SELECT DISTINCT o.thread_id tid FROM orders o, json_each(o.json,'$.payments') p"
+        " WHERE json_extract(p.value,'$.payment_batch_id') = ? AND o.deleted_at IS NULL",
+        (str(batch_id),),
+    ).fetchall()
+    return [r["tid"] for r in rows if r["tid"] is not None]
+
+
+def remove_batch_payments(conn, batch_id: str) -> list[int]:
+    """Gỡ mọi phiếu thu thuộc `batch_id` khỏi blob các đơn liên quan (nợ tự tính lại).
+
+    Trả list thread_id đã đổi. Mỗi đơn RMW trong transaction (an toàn ghi đồng thời)."""
+    from order_db import _save_order
+    from order_store.schema import transaction
+    changed: list[int] = []
+    for tid in find_batch_thread_ids(conn, batch_id):
+        with transaction(conn):
+            order = get_order_by_thread_id(conn, int(tid))
+            if not order:
+                continue
+            payments = order.get("payments", [])
+            kept = [p for p in payments if p.get("payment_batch_id") != batch_id]
+            if len(kept) == len(payments):
+                continue
+            order["payments"] = kept
+            order["updated_at"] = _stamp()
+            _save_order(conn, int(tid), order)   # KHÔNG commit — transaction bọc ngoài
+            changed.append(int(tid))
+    return changed
+
+
 def calculate_debt(conn, thread_id: int) -> dict:
     from payment_store.domain import compute_debt
     order = get_order_by_thread_id(conn, thread_id)

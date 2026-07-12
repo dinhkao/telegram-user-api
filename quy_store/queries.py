@@ -9,7 +9,7 @@ _VN_TZ = timezone(timedelta(hours=7))
 
 _COLUMNS = (
     "id", "type", "amount", "note", "source", "order_thread_id",
-    "payment_id", "customer_key", "customer_name", "created_by", "created_at", "date",
+    "payment_id", "payment_batch_id", "customer_key", "customer_name", "created_by", "created_at", "date",
 )
 
 
@@ -30,6 +30,7 @@ def create_receipt(
     source: str = "manual",
     order_thread_id: int | None = None,
     payment_id: str | None = None,
+    payment_batch_id: str | None = None,
     customer_key: str | None = None,
     customer_name: str | None = None,
     created_by: str = "",
@@ -38,11 +39,11 @@ def create_receipt(
     cur = conn.execute(
         """
         INSERT INTO quy_receipts
-            (type, amount, note, source, order_thread_id, payment_id,
+            (type, amount, note, source, order_thread_id, payment_id, payment_batch_id,
              customer_key, customer_name, created_by, created_at, date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (type, int(amount), note or "", source, order_thread_id, payment_id,
+        (type, int(amount), note or "", source, order_thread_id, payment_id, payment_batch_id,
          customer_key, customer_name, created_by, _now_iso(), _vn_date()),
     )
     conn.commit()
@@ -122,5 +123,12 @@ def delete_receipt(conn, receipt_id) -> bool:
 def delete_by_payment(conn, payment_id: str) -> int:
     """Xoá phiếu thu gắn 1 payment (khi payment tiền mặt của đơn bị xoá)."""
     cur = conn.execute("DELETE FROM quy_receipts WHERE payment_id = ?", (payment_id,))
+    conn.commit()
+    return cur.rowcount
+
+
+def delete_by_batch(conn, payment_batch_id: str) -> int:
+    """Xoá phiếu thu gắn 1 GIAO DỊCH thu gộp nhiều đơn (khi bulk payment bị xoá)."""
+    cur = conn.execute("DELETE FROM quy_receipts WHERE payment_batch_id = ?", (payment_batch_id,))
     conn.commit()
     return cur.rowcount

@@ -19,6 +19,7 @@ import { Login } from "./pages/Login";
 import { FeedbackHost } from "./ui/feedback";
 import { OrderDetail } from "./pages/OrderDetail";
 import { OrderInvoiceEdit } from "./pages/OrderInvoiceEdit";
+import { OrderPayment } from "./pages/OrderPayment";
 import { OrdersList, resetOrdersScroll } from "./pages/OrdersList";
 import { fastScrollTop } from "./scroll";
 import { DeliveryCalendar } from "./pages/DeliveryCalendar";
@@ -33,6 +34,7 @@ import { ReturnsList } from "./pages/ReturnsList";
 import { ReturnDetail } from "./pages/ReturnDetail";
 import { PurchasesList } from "./pages/PurchasesList";
 import { PurchaseDetail } from "./pages/PurchaseDetail";
+import { PurchaseEdit } from "./pages/PurchaseEdit";
 import { SuppliersList } from "./pages/SuppliersList";
 import { SupplierDetail } from "./pages/SupplierDetail";
 import { WorkerList } from "./pages/WorkerList";
@@ -367,6 +369,7 @@ function App() {
 
   let page;
   const invEditMatch = hash.match(/^#\/order\/(-?\d+)\/hoa-don/);
+  const payMatch = hash.match(/^#\/order\/(-?\d+)\/thanh-toan/);
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
   const prodEditMatch = hash.match(/^#\/san_xuat\/(-?\d+)\/bao-cao/);
   const baoCaoMatch = hash.match(/^#\/bao-cao\/(\d+)/);
@@ -380,6 +383,7 @@ function App() {
   const boxMatch = hash.match(/^#\/thung\/(\d+)/);
   const viecMatch = hash.match(/^#\/viec\/(\d+)/);
   const retMatch = hash.match(/^#\/tra-hang\/(\d+)/);
+  const purEditMatch = hash.match(/^#\/nhap-hang\/(\d+)\/sua/);
   const purMatch = hash.match(/^#\/nhap-hang\/(\d+)/);
   const nccMatch = hash.match(/^#\/ncc\/(\d+)/);
   const khachLichMatch = hash.match(/^#\/khach\/([^/?]+)\/lich/);
@@ -391,6 +395,7 @@ function App() {
   useScrollMemory(hash, !!focusEl);
   if (showLogin) page = <Login />;
   else if (invEditMatch) page = <OrderInvoiceEdit threadId={invEditMatch[1]} />;
+  else if (payMatch) page = <OrderPayment threadId={payMatch[1]} />;
   else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} focus={focusEl} />;
   else if (prodEditMatch) page = <ProductionReportEdit threadId={prodEditMatch[1]} />;
   else if (shtMatch) page = <ProductionWorkerDetail name={decodeURIComponent(shtMatch[1])} />;
@@ -425,6 +430,7 @@ function App() {
   else if (hash.startsWith("#/viec")) page = <TasksBoard />;
   else if (retMatch) page = <ReturnDetail id={retMatch[1]} />;
   else if (hash.startsWith("#/tra-hang")) page = <ReturnsList />;
+  else if (purEditMatch) page = <PurchaseEdit id={purEditMatch[1]} />;
   else if (purMatch) page = <PurchaseDetail id={purMatch[1]} />;
   else if (hash.startsWith("#/nhap-hang")) page = <PurchasesList />;
   else if (nccMatch) page = <SupplierDetail id={nccMatch[1]} />;
@@ -443,6 +449,7 @@ function App() {
     invEditMatch ? "Sửa hoá đơn"
     : orderMatch ? "Chi tiết đơn"
     : hash.startsWith("#/tra-hang") ? "Trả hàng"
+    : purEditMatch ? "Sửa phiếu nhập"
     : hash.startsWith("#/nhap-hang") ? "Nhập hàng"
     : hash.startsWith("#/ncc") ? "Nhà cung cấp"
     : (hash.startsWith("#/customers") || khachMatch) ? "Khách hàng"

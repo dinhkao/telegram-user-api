@@ -235,6 +235,35 @@ export type CustFeedItem =
   | { kind: "payment"; ts: number; thread_id: number; amount: number; method: string; code?: string; by?: string; at?: string; old_debt?: number | null; new_debt?: number | null; debt_after?: number | null; debt_est?: boolean }
   | { kind: "return"; ts: number; id: number; total: number; note?: string; items: { sp: string; sl: number; price: number }[]; code?: string; by?: string; at?: string; thread_id?: number | null; debt_after?: number | null; debt_est?: boolean };
 
+// ── Thu tiền GỘP nhiều đơn (bulk payment) ──────────────────────────────────
+/** 1 đơn đang nợ của khách (chưa có thanh toán) trên trang thu tiền. */
+export type DebtOrder = { thread_id: number; created?: string | null; total: number; debt: number; label?: string };
+/** Ngữ cảnh thu tiền của 1 đơn: khách + mọi đơn đang nợ (cũ→mới). */
+export type PaymentContext = {
+  source_thread_id: number;
+  customer: { key: string; name: string; kv_id: number | null; debt?: number | null };
+  orders: DebtOrder[];
+  total_debt: number;
+};
+/** 1 dòng phân bổ tiền vào 1 đơn. */
+export type PaymentAllocation = { thread_id: number; amount: number };
+/** Kết quả thu gộp: 1 phiếu KiotViet, N phiếu thu local. */
+export type BulkPaymentResult = {
+  ok: boolean; source_thread_id: number; amount: number; method: string; method_label: string;
+  kv_code?: string; old_debt?: number | null; new_debt?: number | null; batch_id: string;
+  allocations: PaymentAllocation[];
+};
+
+/** Lấy ngữ cảnh thu tiền theo đơn (khách + đơn đang nợ). Lỗi nếu đơn chưa gán khách. */
+export async function getPaymentContext(threadId: string | number): Promise<PaymentContext> {
+  const d = await getJSON(`/api/order/${threadId}/payment-context`, { cache: false });
+  return { source_thread_id: d.source_thread_id, customer: d.customer, orders: d.orders || [], total_debt: d.total_debt || 0 };
+}
+/** Thu gộp: 1 giao dịch KiotViet, chia vào nhiều đơn (cần mạng, không queue). */
+export async function bulkPayment(payload: { source_thread_id: number; method: "Cash" | "Transfer"; amount: number; allocations: PaymentAllocation[] }): Promise<BulkPaymentResult> {
+  return postJSON("/api/order/payment/bulk", payload);
+}
+
 /** Tạo phiếu TRẢ HÀNG (văn phòng) — HĐ KiotViet giá âm, giảm nợ khách. */
 export async function createReturn(key: string, items: { sp: string; sl: number; price: number }[], note = ""): Promise<any> {
   return postJSON(`/api/customers/${encodeURIComponent(key)}/returns`, { items, note });

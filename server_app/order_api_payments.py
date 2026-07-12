@@ -37,6 +37,9 @@ async def payment_delete_handler(request: web.Request):
     pay = next((p for p in order.get("payments", []) if p.get("id") == str(payment_id)), None)
     if not pay:
         return web.json_response({"ok": False, "error": f"Không tìm thấy payment: {payment_id}"}, status=400)
+    # Phiếu thu thuộc 1 GIAO DỊCH gộp (bulk, nhiều đơn 1 phiếu KiotViet) → xoá CẢ batch.
+    if pay.get("payment_batch_id"):
+        return await _delete_payment_batch(conn, int(thread_id), pay)
     # 1) Best-effort xoá trên KiotViet. Thanh toán được tạo bằng workaround POST
     # /orders (create_order_with_payment) nên KHÔNG có payment độc lập — phải xoá cả
     # phiếu đặt hàng (DH), id = kiotvietData.id → payment nhúng mất theo. Không chặn:
@@ -74,6 +77,47 @@ async def payment_delete_handler(request: web.Request):
         from server_app.realtime import emit_order_changed
         emit_order_changed(int(thread_id))
     return web.json_response({"ok": True, "thread_id": int(thread_id), "payment_id": str(payment_id), "kv_warning": kv_warning})
+
+
+async def _delete_payment_batch(conn, thread_id: int, pay: dict):
+    """Xoá 1 GIAO DỊCH thu gộp (bulk): phiếu KiotViet chung xoá ĐÚNG 1 lần, rồi gỡ
+    mọi phiếu thu local cùng batch_id ở MỌI đơn + phiếu sổ quỹ của batch, phát
+    realtime cho từng đơn. Đơn (nợ tự tính lại từ danh sách payments)."""
+    batch_id = str(pay.get("payment_batch_id"))
+    from payment_store import find_batch_thread_ids, remove_batch_payments
+    affected = find_batch_thread_ids(conn, batch_id)
+    # 1) Xoá phiếu đặt hàng KiotViet 1 LẦN (mọi phiếu thu batch chung 1 kiotvietData.id)
+    kv_order_id = (pay.get("kiotvietData") or {}).get("id")
+    kv_warning = ""
+    if kv_order_id:
+        try:
+            from kiotviet import delete_order_kv
+            await asyncio.to_thread(delete_order_kv, int(kv_order_id))
+        except Exception as e:
+            log.warning("bulk delete: xoá KV order %s lỗi (bỏ qua): %s", kv_order_id, e)
+            kv_warning = "KiotViet không xoá được phiếu đặt hàng — vào app KiotViet xoá tay nếu cần."
+    # 2) Gỡ mọi phiếu thu local cùng batch (mỗi đơn RMW trong transaction)
+    changed = remove_batch_payments(conn, batch_id)
+    # 3) Xoá phiếu sổ quỹ của batch (nếu tiền mặt)
+    try:
+        from quy_store import delete_by_batch
+        if delete_by_batch(conn, batch_id):
+            from server_app.realtime import emit_quy_changed
+            emit_quy_changed()
+    except Exception as e:
+        log.warning("bulk delete: xoá sổ quỹ batch lỗi: %s", e)
+    # 4) Refresh message + realtime cho mọi đơn liên quan
+    for tid in (changed or affected):
+        o = get_order_by_thread_id(conn, int(tid))
+        if o and o.get("channel_id") and o.get("message_id") and state._client is not None:
+            spawn_tracked("bulkpay.delete.refresh",
+                          refresh_order_bg(conn, int(tid), o["channel_id"], o["message_id"]),
+                          {"thread_id": int(tid)})
+        else:
+            from server_app.realtime import emit_order_changed
+            emit_order_changed(int(tid))
+    return web.json_response({"ok": True, "thread_id": thread_id, "batch_id": batch_id,
+                              "deleted_orders": changed, "kv_warning": kv_warning})
 
 
 async def _payment_handler(request: web.Request, method: str):

@@ -1,27 +1,33 @@
-// Khối thanh toán — danh sách payment + nhập tiền TM/CK (KiotViet qua backend).
-// POST /api/order/payment/tm|ck — cần mạng, không queue (chạm KiotViet + nợ).
+// Khối thanh toán ở chi tiết đơn — LỊCH SỬ phiếu thu (xoá = admin) + nút mở trang
+// Thu tiền (#/order/:id/thanh-toan, thu gộp nhiều đơn của khách). Tạo phiếu thu
+// nằm ở trang riêng. Xoá phiếu thuộc 1 giao dịch gộp (payment_batch_id) → xoá CẢ
+// giao dịch. POST /api/order/payment/delete.
 import { useState } from "preact/hooks";
 import { currentUser, isOffice, postJSON } from "../api";
-import { money, parseMoney, fmtDateTimeVN } from "../format";
+import { money, fmtDateTimeVN } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 
-export function Payments({ threadId, payments, suggest, onChanged }: { threadId: string; payments: any[]; suggest?: number; onChanged: () => void }) {
-  const [amount, setAmount] = useState("");
+export function Payments({ threadId, payments, hasCustomer, onChanged }: { threadId: string; payments: any[]; hasCustomer: boolean; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const isAdmin = currentUser()?.role === "admin";
-  const office = isOffice();   // chỉ văn phòng được tạo thanh toán
+  const office = isOffice();   // chỉ văn phòng được thu tiền
 
-  // Xoá 1 thanh toán — chỉ admin. Payment cũ không có id thì xoá bằng lệnh Telegram.
+  // Xoá 1 thanh toán — chỉ admin. Phiếu thuộc giao dịch gộp → xoá cả giao dịch.
   const del = async (p: any) => {
     if (!p.id) { toast("Thanh toán cũ không có id — xoá bằng lệnh Telegram /del_payment_", "err"); return; }
-    if (!(await confirmDialog(`Xoá thanh toán ${money(p.amount)}?\n(Xoá khỏi đơn; KiotViet có thể phải xoá tay)`, { danger: true }))) return;
+    const batch = !!p.payment_batch_id;
+    const confirmMsg = batch
+      ? "Xoá CẢ giao dịch thu gộp này?\n(Mọi đơn trong giao dịch sẽ bị gỡ thanh toán; xoá 1 phiếu KiotViet)"
+      : `Xoá thanh toán ${money(p.amount)}?\n(Xoá khỏi đơn; KiotViet có thể phải xoá tay)`;
+    if (!(await confirmDialog(confirmMsg, { danger: true }))) return;
     setBusy(true);
     setMsg("");
     try {
       const r = await postJSON("/api/order/payment/delete", { thread_id: Number(threadId), payment_id: p.id });
-      setMsg(r.kv_warning ? `🗑️ Đã xoá (local) ${money(p.amount)} · ⚠️ ${r.kv_warning}` : `🗑️ Đã xoá thanh toán ${money(p.amount)}`);
+      const base = batch ? "🗑️ Đã xoá giao dịch thu gộp" : `🗑️ Đã xoá thanh toán ${money(p.amount)}`;
+      setMsg(r.kv_warning ? `${base} · ⚠️ ${r.kv_warning}` : base);
       onChanged();
     } catch (ex: any) {
       setMsg(`❌ ${ex.message}`);
@@ -30,22 +36,9 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
     }
   };
 
-  const pay = async (method: "tm" | "ck") => {
-    const value = parseMoney(amount);
-    if (!value) { toast("Nhập số tiền", "err"); return; }
-    if (!(await confirmDialog(`Thu ${money(value)} (${method === "tm" ? "tiền mặt" : "chuyển khoản"})?`))) return;
-    setBusy(true);
-    setMsg("");
-    try {
-      const r = await postJSON(`/api/order/payment/${method}`, { thread_id: Number(threadId), amount: value });
-      setMsg(`✅ ${r.method_label || ""} ${money(r.amount)} · nợ: ${money(r.old_debt)} → ${money(r.new_debt)}`);
-      setAmount("");
-      onChanged();
-    } catch (ex: any) {
-      setMsg(`❌ ${ex.message}`);
-    } finally {
-      setBusy(false);
-    }
+  const goPay = () => {
+    if (!hasCustomer) { toast("Đơn chưa gán khách — không thể thu tiền.", "err"); return; }
+    window.location.hash = `#/order/${threadId}/thanh-toan`;
   };
 
   return (
@@ -56,7 +49,7 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
           {payments.map((p, i) => (
             <li class="payment-item" key={i}>
               <div class="row space">
-                <span>{p.code || p.method || "?"}</span>
+                <span>{p.code || p.method || "?"}{p.payment_batch_id ? " · gộp" : ""}</span>
                 <span class="row" style="gap:6px;align-items:center">
                   <b>{money(p.amount)}</b>
                   {isAdmin && p.id ? <button class="btn small danger" disabled={busy} title="Xoá thanh toán" onClick={() => del(p)}><Icon name="trash" size={14} /></button> : null}
@@ -78,21 +71,12 @@ export function Payments({ threadId, payments, suggest, onChanged }: { threadId:
       )}
       {msg && <p class="notice" onClick={() => setMsg("")}>{msg}</p>}
       {office ? (
-        <div class="pay-box">
-          <input inputMode="numeric" placeholder="Số tiền" value={amount} onInput={(e: any) => setAmount(e.target.value)} />
-          {suggest ? (
-            <button type="button" class="pay-suggest" title="Điền tổng tiền hàng"
-              onClick={() => setAmount(String(suggest))}>
-              Tổng tiền hàng: {money(suggest)}
-            </button>
-          ) : null}
-          <div class="pay-btns">
-            <button class="btn primary" disabled={busy} onClick={() => pay("tm")}><Icon name="banknote" size={16} /> TM</button>
-            <button class="btn primary" disabled={busy} onClick={() => pay("ck")}><Icon name="bank" size={16} /> CK</button>
-          </div>
-        </div>
+        <button class={"btn primary block" + (!hasCustomer ? " faded" : "")}
+          title={hasCustomer ? undefined : "Đơn chưa gán khách"} onClick={goPay}>
+          <Icon name="banknote" size={16} /> Thu tiền
+        </button>
       ) : (
-        <p class="muted small">🔒 Chỉ văn phòng mới được tạo thanh toán.</p>
+        <p class="muted small">🔒 Chỉ văn phòng mới được thu tiền.</p>
       )}
     </div>
   );

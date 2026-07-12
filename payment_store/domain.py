@@ -61,3 +61,33 @@ def compute_debt(order: dict) -> dict:
     total = order.get("tong_cong") or order.get("total") or 0
     paid = sum(p.get("amount", 0) for p in order.get("payments", []))
     return {"total": total, "paid": paid, "remaining": total - paid}
+
+
+def allocate_payment(orders: list[dict], amount: int) -> list[dict]:
+    """Phân bổ 1 khoản `amount` (đồng) vào nhiều đơn đang nợ — ĐƠN CŨ TRƯỚC.
+
+    `orders`: [{"thread_id": int, "debt": int(>0)}, ...] ĐÃ sắp cũ→mới (nợ = số cần
+    thu của đơn, thường = tổng đơn vì đơn chưa có thanh toán). Trả về danh sách
+    [{"thread_id", "amount"}] CHỈ gồm đơn được gán > 0, giữ nguyên thứ tự: trả ĐỦ
+    từng đơn từ cũ tới mới, đơn cuối cùng nhận được có thể chỉ MỘT PHẦN.
+
+    Raise ValueError nếu `amount` <= 0 hoặc vượt tổng nợ (chặn ở cả client lẫn
+    server). Pure — không IO, có unit test (tests/test_payment_domain.py)."""
+    amount = int(amount)
+    if amount <= 0:
+        raise ValueError("Số tiền phải lớn hơn 0")
+    total_debt = sum(int(o.get("debt") or 0) for o in orders)
+    if amount > total_debt:
+        raise ValueError("Số tiền vượt tổng nợ")
+    allocations: list[dict] = []
+    left = amount
+    for o in orders:
+        if left <= 0:
+            break
+        debt = int(o.get("debt") or 0)
+        if debt <= 0:
+            continue
+        take = min(debt, left)
+        allocations.append({"thread_id": o["thread_id"], "amount": take})
+        left -= take
+    return allocations

@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import unittest
 
-from payment_store.domain import method_params, resolve_payment_target, build_payment_record, compute_debt
+from payment_store.domain import (
+    method_params, resolve_payment_target, build_payment_record, compute_debt, allocate_payment,
+)
 
 
 class MethodParams(unittest.TestCase):
@@ -74,6 +76,56 @@ class BuildPaymentRecord(unittest.TestCase):
         rec = build_payment_record(50000, "Cash", {"code": "PT01"}, "actor")
         self.assertEqual(rec, {"amount": 50000, "method": "Cash",
                                "kiotvietData": {"code": "PT01"}, "createdBy": "actor"})
+
+
+class AllocatePayment(unittest.TestCase):
+    def _orders(self):
+        # đã sắp cũ→mới
+        return [{"thread_id": 1, "debt": 100}, {"thread_id": 2, "debt": 200}, {"thread_id": 3, "debt": 50}]
+
+    def test_fills_one_order_fully(self):
+        self.assertEqual(allocate_payment(self._orders(), 100), [{"thread_id": 1, "amount": 100}])
+
+    def test_fills_multiple_orders_oldest_first(self):
+        # 250 = trả đủ đơn 1 (100) + đủ đơn 2 (150 còn thiếu? không — đơn 2 cần 200) →
+        # 250 = 100 (đơn 1) + 150 (đơn 2 một phần)
+        self.assertEqual(
+            allocate_payment(self._orders(), 250),
+            [{"thread_id": 1, "amount": 100}, {"thread_id": 2, "amount": 150}],
+        )
+
+    def test_last_order_partial(self):
+        # 310 = 100 + 200 + 10 (đơn cuối một phần)
+        self.assertEqual(
+            allocate_payment(self._orders(), 310),
+            [{"thread_id": 1, "amount": 100}, {"thread_id": 2, "amount": 200}, {"thread_id": 3, "amount": 10}],
+        )
+
+    def test_amount_equals_total_debt(self):
+        self.assertEqual(
+            allocate_payment(self._orders(), 350),
+            [{"thread_id": 1, "amount": 100}, {"thread_id": 2, "amount": 200}, {"thread_id": 3, "amount": 50}],
+        )
+
+    def test_zero_amount_rejected(self):
+        with self.assertRaises(ValueError):
+            allocate_payment(self._orders(), 0)
+
+    def test_negative_amount_rejected(self):
+        with self.assertRaises(ValueError):
+            allocate_payment(self._orders(), -5)
+
+    def test_amount_over_total_debt_rejected(self):
+        with self.assertRaises(ValueError):
+            allocate_payment(self._orders(), 351)
+
+    def test_empty_orders_always_rejects(self):
+        with self.assertRaises(ValueError):
+            allocate_payment([], 100)
+
+    def test_skips_zero_debt_orders(self):
+        orders = [{"thread_id": 1, "debt": 0}, {"thread_id": 2, "debt": 100}]
+        self.assertEqual(allocate_payment(orders, 60), [{"thread_id": 2, "amount": 60}])
 
 
 if __name__ == "__main__":

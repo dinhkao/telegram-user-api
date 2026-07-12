@@ -763,6 +763,17 @@ body.pv-open { overflow: hidden; }
 .pay-suggest:active { background: var(--primary); color: #fff; }
 .pay-btns { display: flex; gap: 8px; }
 .pay-btns .btn { flex: 1; }
+/* Trang Thu tiền (#/order/:id/thanh-toan) — tổng nợ + chọn TM/CK + bảng phân bổ */
+.pay-total-debt { color: var(--danger, #d33); font-size: 1.15rem; }
+.pay-method { display: flex; gap: 8px; margin-top: 10px; }
+.pay-method .btn { flex: 1; }
+.notice.err { background: #fdecea; color: #b3261e; }
+.pay-alloc-list { list-style: none; margin-top: 6px; }
+.pay-alloc { padding: 8px 0; border-bottom: 1px dashed var(--border); opacity: .55; }
+.pay-alloc.on { opacity: 1; }
+.pay-alloc-link { color: var(--primary); text-decoration: none; font-weight: 600; }
+.pay-alloc-amt { color: var(--muted); }
+.pay-alloc-amt.on { color: var(--primary); }
 /* Tên khách trong chi tiết đơn → link sang trang chi tiết khách */
 .cust-link { color: var(--primary); text-decoration: none; display: inline-flex; align-items: baseline; gap: 4px; }
 .cust-link b { color: inherit; }

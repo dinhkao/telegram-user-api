@@ -13,6 +13,7 @@ from .queries import (
     list_by_order,
     delete_receipt,
     delete_by_payment,
+    delete_by_batch,
 )
 from .domain import RECEIPT_TYPES, normalize_type, parse_amount, signed, compute_summary
 
@@ -27,6 +28,7 @@ __all__ = [
     "list_by_order",
     "delete_receipt",
     "delete_by_payment",
+    "delete_by_batch",
     "RECEIPT_TYPES",
     "normalize_type",
     "parse_amount",

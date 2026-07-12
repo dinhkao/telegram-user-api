@@ -17,6 +17,7 @@ def create_quy_table(conn):
             source           TEXT DEFAULT 'manual',    -- 'manual' | 'order'
             order_thread_id  INTEGER,
             payment_id       TEXT,
+            payment_batch_id TEXT,                     -- gộp 1 giao dịch thu nhiều đơn (bulk)
             customer_key     TEXT,
             customer_name    TEXT,
             created_by       TEXT,
@@ -39,6 +40,7 @@ def migrate_quy_table(conn):
         "source": "ALTER TABLE quy_receipts ADD COLUMN source TEXT DEFAULT 'manual'",
         "order_thread_id": "ALTER TABLE quy_receipts ADD COLUMN order_thread_id INTEGER",
         "payment_id": "ALTER TABLE quy_receipts ADD COLUMN payment_id TEXT",
+        "payment_batch_id": "ALTER TABLE quy_receipts ADD COLUMN payment_batch_id TEXT",
         "customer_key": "ALTER TABLE quy_receipts ADD COLUMN customer_key TEXT",
         "customer_name": "ALTER TABLE quy_receipts ADD COLUMN customer_name TEXT",
         "created_by": "ALTER TABLE quy_receipts ADD COLUMN created_by TEXT",
@@ -48,4 +50,7 @@ def migrate_quy_table(conn):
     for col, ddl in adds.items():
         if col not in columns:
             conn.execute(ddl)
+    # Index cột payment_batch_id đặt Ở ĐÂY (sau khi cột chắc chắn tồn tại) — bảng cũ
+    # gọi create_quy_table trước migrate nên không thể index cột chưa thêm.
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_quy_batch ON quy_receipts(payment_batch_id)")
     conn.commit()

@@ -29,6 +29,7 @@ from server_app.order_api_create import order_create_handler
 from server_app.order_api_delete import order_delete_handler
 from server_app.order_api_mutations import api_assign_customer_handler, api_fix_handler, api_invoice_update_handler, api_refresh_handler, api_reply_handler, api_set_ngay_giao_handler, api_set_no_track_handler
 from server_app.order_api_payments import api_customer_price_handler, order_totals_handler, payment_ck_handler, payment_delete_handler, payment_tm_handler
+from server_app.order_api_bulk_payment import bulk_payment_handler, payment_context_handler
 from server_app.order_api_print import api_print_giao_handler
 from server_app.order_api_tasks import _make_task_handler, api_task_handler, api_task_status_clear_handler
 from server_app.order_api_custom_tasks import add_custom_task_handler, remove_custom_task_handler
@@ -143,6 +144,8 @@ def create_app():
     r.add_post("/api/tg/send-file", make_send_file_handler(get_client))
     r.add_post("/api/order/payment/tm", payment_tm_handler)
     r.add_post("/api/order/payment/ck", payment_ck_handler)
+    r.add_post("/api/order/payment/bulk", bulk_payment_handler)
+    r.add_get("/api/order/{thread_id}/payment-context", payment_context_handler)
     r.add_post("/api/order/payment/delete", payment_delete_handler)
     r.add_post("/api/order/totals", order_totals_handler)
     r.add_post("/api/order/auto-parse", auto_parse_handler)
