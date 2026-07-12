@@ -51,7 +51,6 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const [v, setV] = useState(0);
   const [busy, setBusy] = useState(false);
   const [quickText, setQuickText] = useState("");
-  const [quickBusy, setQuickBusy] = useState(false);
   const [quickMsg, setQuickMsg] = useState("");
   const [quickPreview, setQuickPreview] = useState<OrderPreview | null>(null);
   const quickSeq = useRef(0);
@@ -59,11 +58,32 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   // Xem trước tức thời khi gõ ở ô Thêm nhanh (giá theo khách của đơn)
   useEffect(() => {
     const t = quickText.trim();
-    if (!t) { setQuickPreview(null); return; }
+    if (!t) { setQuickPreview(null); setQuickMsg(""); return; }
     const my = ++quickSeq.current;
     previewOrder(t, customerId)
-      .then((r) => { if (my === quickSeq.current) setQuickPreview(r); })
-      .catch(() => { if (my === quickSeq.current) setQuickPreview(null); });
+      .then((r) => {
+        if (my !== quickSeq.current) return;
+        setQuickPreview(r);
+        const parsed = (r.invoice || []).map((it) => ({
+          sp: (it.sp || "").trim(), sl: Number(it.sl) || 0,
+          price: Number(it.price) || 0, note: "",
+        })).filter((it) => it.sp);
+        if (!parsed.length) { setQuickMsg("Chưa nhận ra sản phẩm nào."); return; }
+        setRows((prev) => {
+          const next = [...prev];
+          for (const item of parsed) {
+            const key = item.sp.toUpperCase();
+            const idx = next.findIndex((row) => (row.sp || "").trim().toUpperCase() === key);
+            if (idx >= 0) next[idx] = { ...next[idx], sp: item.sp, sl: item.sl, price: item.price };
+            else next.push(item);
+          }
+          return next;
+        });
+        setQuickMsg(`✓ Đã tự cập nhật ${parsed.length} món`);
+      })
+      .catch(() => {
+        if (my === quickSeq.current) { setQuickPreview(null); setQuickMsg("Lỗi phân tích"); }
+      });
   }, [quickText, customerId]);
   // Giá + bảng giá theo mã SP (đã hoa) — để ghi rõ giá lấy từ bảng giá nào
   const [listPrices, setListPrices] = useState<Record<string, PriceInfo>>({});
@@ -109,25 +129,6 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const setRow = (i: number, f: string, val: any) => setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [f]: val } : r)));
   const addRow = () => setRows((prev) => [...prev, { sp: "", sl: 1, price: 0, note: "" }]);
   const removeRow = (i: number) => setRows((prev) => prev.filter((_, idx) => idx !== i));
-
-  // Thêm nhanh: dán text (như tab Nhanh) → parse (giá theo khách) → nối vào danh sách
-  const quickAdd = async () => {
-    const t = quickText.trim();
-    if (!t) return;
-    setQuickBusy(true); setQuickMsg("");
-    try {
-      const r = await previewOrder(t, customerId);
-      const add = (r.invoice || []).map((it) => ({ sp: it.sp || "", sl: Number(it.sl) || 0, price: Number(it.price) || 0, note: "" }));
-      if (!add.length) { setQuickMsg("Không nhận ra sản phẩm nào — kiểm tra mã SP."); return; }
-      setRows((prev) => [...prev, ...add]);
-      setQuickText("");
-      setQuickMsg(`✓ Đã thêm ${add.length} món`);
-    } catch {
-      setQuickMsg("Lỗi phân tích");
-    } finally {
-      setQuickBusy(false);
-    }
-  };
 
   // Tự lấy giá theo khách khi chốt mã SP — chỉ điền khi giá đang trống (không đè giá tay)
   const autoPrice = async (i: number, code: string) => {
@@ -225,12 +226,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
           value={quickText}
           onInput={(e: any) => setQuickText(e.target.value)}
         />
-        <div class="row">
-          <button class="btn small" disabled={quickBusy || !quickText.trim()} onClick={quickAdd}>
-            {quickBusy ? "Đang thêm…" : <><Icon name="zap" size={15} /> Thêm nhanh</>}
-          </button>
-          {quickMsg && <span class="muted small">{quickMsg}</span>}
-        </div>
+        {quickMsg && <div class="muted small">{quickMsg}</div>}
         <div class="muted small hint">
           💡 <code>&lt;mã SP&gt; &lt;SL&gt;</code> (mã trước, SL sau) · <code>5t</code>=5 thùng, <code>3b</code>=3 bịch, đổi số/đơn vị bằng <code>5t 60</code>/<code>3b 12</code>.
           {" "}Mặc định số/thùng: 50 (DM50 100; KDXDB/KGL/KMT/KMD/KHDX 5; KDDT 12) · số/bịch: 10 (KDDT 3) · DM180 1 lốc 12.

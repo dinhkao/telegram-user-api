@@ -134,6 +134,7 @@ function getLastOrder(): string {
 }
 
 export function OrdersList() {
+  const searchInput = useRef<HTMLInputElement>(null);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [search, setSearch] = useState("");
@@ -438,6 +439,22 @@ export function OrdersList() {
     load(1, "", "all", false);
   };
 
+  // Desktop: Esc lần đầu bỏ mọi filter; khi đã sạch, Esc tiếp theo đưa con trỏ vào tìm kiếm.
+  useEffect(() => {
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || !window.matchMedia("(min-width: 720px)").matches || viewer) return;
+      e.preventDefault();
+      if (st.current.search.trim() || st.current.filter !== "all") {
+        clearFilters();
+        return;
+      }
+      searchInput.current?.focus();
+      searchInput.current?.select();
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [viewer]);
+
   const visible = orders;
   const lastOrder = getLastOrder(); // đơn vừa mở → tô sáng khi quay lại dashboard
   // Nhịp 60s để tag "Mới" tự hết sau 5 phút (không cần event khác)
@@ -451,7 +468,7 @@ export function OrdersList() {
     <div>
       <header class="topbar">
         <div class="topbar-row">
-          <SearchBar value={search} onInput={onSearch} placeholder="Tìm khách, sản phẩm…" />
+          <SearchBar inputRef={searchInput} value={search} onInput={onSearch} placeholder="Tìm khách, sản phẩm…" />
           <div class="view-slider" role="group" aria-label="Kiểu xem">
             {_VIEWS.map((v) => (
               <button key={v.m} class={view === v.m ? "vs-seg on" : "vs-seg"} title={v.t} aria-pressed={view === v.m} onClick={() => setViewMode(v.m)}>{v.ic}</button>

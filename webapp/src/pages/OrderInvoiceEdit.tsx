@@ -65,6 +65,10 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
         <BackLink fallback={`#/order/${threadId}`} />
         <div><div class="prod-sp big">Sửa hoá đơn · đơn #{threadId}</div></div>
       </div>
+      <div class="card">
+        <div class="muted small">Nội dung đơn hàng</div>
+        <pre class="order-text">{j.text || j.text_raw || "(trống)"}</pre>
+      </div>
       {locked ? (
         <div class="card co-adv-locked muted small">
           <Icon name="lock" size={14} />{" "}

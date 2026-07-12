@@ -3,17 +3,19 @@
 // server (vn_normalize) hoặc caller lo (foldVN) — component chỉ lo UI.
 // Kèm FilterActiveBar: panel "Đang lọc: … · n · ✕ Bỏ lọc" chuẩn (vàng, viền trái).
 import { Icon } from "./Icon";
+import type { Ref } from "preact";
 
-export function SearchBar({ value, onInput, placeholder = "Tìm…", autofocus }: {
+export function SearchBar({ value, onInput, placeholder = "Tìm…", autofocus, inputRef }: {
   value: string;
   onInput: (v: string) => void;
   placeholder?: string;
   autofocus?: boolean;
+  inputRef?: Ref<HTMLInputElement>;
 }) {
   return (
     <div class="sbar">
       <Icon name="search" size={15} class="sbar-ic" />
-      <input class="sbar-in" type="search" placeholder={placeholder} value={value}
+      <input ref={inputRef} class="sbar-in" type="search" placeholder={placeholder} value={value}
         autofocus={autofocus} onInput={(e: any) => onInput(e.target.value)} />
       {value ? (
         <button class="sbar-x" onClick={() => onInput("")} aria-label="Xoá tìm kiếm">
