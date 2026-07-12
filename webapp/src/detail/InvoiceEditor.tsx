@@ -1,11 +1,12 @@
 // Trình NHẬP hoá đơn — thuần chỉnh sửa, dùng cho trang Sửa hoá đơn
 // (OrderInvoiceEdit) và tab Nâng cao trang tạo đơn (CreateOrder, createMode).
 // Dòng SP có autocomplete + tự lấy giá theo khách (/api/customer/price),
-// Thêm nhanh bằng text, điều chỉnh Chiết khấu/PVC/VAT, tổng sống.
+// điều chỉnh Chiết khấu/PVC/VAT, tổng sống. (Nhập nhanh bằng text đã có ở tab
+// Nhanh của trang cha — không lặp lại ở đây.)
 // KHÔNG còn chế độ xem / nút HĐ KiotViet — phần đó nằm ở khối Hoá đơn của
 // OrderDetail. Parent quyết định onSave làm gì và điều hướng sau khi lưu.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { fetchCustomerPrice, previewOrder, searchProducts, type PriceInfo, type OrderPreview } from "../api";
+import { fetchCustomerPrice, searchProducts, type PriceInfo } from "../api";
 import { money, parseMoney } from "../format";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
@@ -50,42 +51,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const [p, setP] = useState(0);
   const [v, setV] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [quickText, setQuickText] = useState("");
-  const [quickMsg, setQuickMsg] = useState("");
-  const [qaHelp, setQaHelp] = useState(false);   // hiện hướng dẫn gõ Thêm nhanh
-  const [quickPreview, setQuickPreview] = useState<OrderPreview | null>(null);
-  const quickSeq = useRef(0);
 
-  // Xem trước tức thời khi gõ ở ô Thêm nhanh (giá theo khách của đơn)
-  useEffect(() => {
-    const t = quickText.trim();
-    if (!t) { setQuickPreview(null); setQuickMsg(""); return; }
-    const my = ++quickSeq.current;
-    previewOrder(t, customerId)
-      .then((r) => {
-        if (my !== quickSeq.current) return;
-        setQuickPreview(r);
-        const parsed = (r.invoice || []).map((it) => ({
-          sp: (it.sp || "").trim(), sl: Number(it.sl) || 0,
-          price: Number(it.price) || 0, note: "",
-        })).filter((it) => it.sp);
-        if (!parsed.length) { setQuickMsg("Chưa nhận ra sản phẩm nào."); return; }
-        setRows((prev) => {
-          const next = [...prev];
-          for (const item of parsed) {
-            const key = item.sp.toUpperCase();
-            const idx = next.findIndex((row) => (row.sp || "").trim().toUpperCase() === key);
-            if (idx >= 0) next[idx] = { ...next[idx], sp: item.sp, sl: item.sl, price: item.price };
-            else next.push(item);
-          }
-          return next;
-        });
-        setQuickMsg(`✓ Đã tự cập nhật ${parsed.length} món`);
-      })
-      .catch(() => {
-        if (my === quickSeq.current) { setQuickPreview(null); setQuickMsg("Lỗi phân tích"); }
-      });
-  }, [quickText, customerId]);
   // Giá + bảng giá theo mã SP (đã hoa) — để ghi rõ giá lấy từ bảng giá nào.
   // Cache theo MÃ, không theo khách → đổi khách phải xoá cache (effect dưới).
   const [listPrices, setListPrices] = useState<Record<string, PriceInfo>>({});
@@ -204,55 +170,6 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
         ))}
       </div>
       <button class="er-add" onClick={addRow}><Icon name="plus" size={15} /> Thêm dòng</button>
-
-      {/* Thêm nhanh bằng text — như tab Nhanh ở trang tạo đơn (kèm xem trước + gợi ý) */}
-      <div class="quick-add">
-        <div class="ie-head">Thêm nhanh
-          <button type="button" class="qa-help" title="Cách gõ" onClick={() => setQaHelp((s) => !s)}><Icon name="info" size={15} /></button>
-        </div>
-        {/* Xem trước Ở TRÊN ô nhập → bàn phím mobile không che */}
-        {quickText.trim() && quickPreview && (
-          quickPreview.invoice.length ? (
-            <table class="invoice-table">
-              <tbody>
-                {quickPreview.invoice.map((it, i) => (
-                  <tr key={i}>
-                    <td>{it.sp}</td>
-                    <td class="num">x{it.sl}</td>
-                    <td class="num">
-                      {money(it.price)}
-                      {it.list_price != null && it.list_price > 0 && it.list_price !== it.price && (
-                        <div class="old-price">{money(it.list_price)}</div>
-                      )}
-                    </td>
-                    <td class="num"><b>{money(it.sub)}</b></td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr><td colSpan={3}>Tổng thêm</td><td class="num"><b class="money">{money(quickPreview.total)}</b></td></tr>
-              </tfoot>
-            </table>
-          ) : (
-            <p class="muted small">Chưa nhận ra sản phẩm nào — kiểm tra mã SP.</p>
-          )
-        )}
-
-        <textarea
-          rows={2}
-          placeholder={"Mỗi dòng 1 món: mã SP + SL, vd\nK2L 10\nKDDT 5t"}
-          value={quickText}
-          onInput={(e: any) => setQuickText(e.target.value)}
-        />
-        {quickMsg && <div class="muted small">{quickMsg}</div>}
-        {qaHelp && (
-          <div class="muted small hint">
-            💡 <code>&lt;mã SP&gt; &lt;SL&gt;</code> (mã trước, SL sau) · <code>5t</code>=5 thùng, <code>3b</code>=3 bịch, đổi số/đơn vị bằng <code>5t 60</code>/<code>3b 12</code>.
-            {" "}Mặc định số/thùng: 50 (DM50 100; KDXDB/KGL/KMT/KMD/KHDX 5; KDDT 12) · số/bịch: 10 (KDDT 3) · DM180 1 lốc 12.
-            {" "}Giá: nhập số sau SL để ghi đè (<code>K2L 10 25000</code>).
-          </div>
-        )}
-      </div>
 
       <div class="ie-sum">
         <div class="sum-row"><span>Tiền hàng</span><b class="num">{money(tienHang)}</b></div>

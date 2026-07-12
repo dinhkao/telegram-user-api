@@ -361,9 +361,6 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 /* Thêm dòng — nút mảnh nét đứt kiểu "thêm hàng vào bảng" */
 .er-add { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 9px; margin: 10px 0 2px; border: 1px dashed var(--border); border-radius: 10px; background: none; color: var(--primary); font-size: .9rem; font-weight: 600; cursor: pointer; }
 .er-add:active { background: var(--accent-wash); }
-/* Nút ⓘ mở hướng dẫn gõ Thêm nhanh */
-.qa-help { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: none; border-radius: 50%; background: none; color: var(--muted-2); cursor: pointer; }
-.qa-help:active { background: var(--bg); color: var(--primary); }
 /* Tổng kết kiểu hoá đơn: nhãn trái mờ, số phải tabular, vạch đậm trước Tổng */
 .ie-sum { margin-top: 14px; }
 .ie-sum .sum-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; min-height: 36px; font-size: .92rem; }
@@ -2118,11 +2115,6 @@ body.co-kbd .bottom-nav { display: none; }
 .hint-list { margin: 0; padding-left: 16px; }
 .hint-list li { margin: 4px 0; }
 .co-note { text-align: center; padding: 8px 4px 2px; }
-
-/* Thêm nhanh — không đóng khung; ô gõ nền lì như các ô số của phiếu */
-.quick-add { margin: 14px 0 0; }
-.quick-add textarea { margin: 4px 0 0; padding: 9px 10px; border: none; border-radius: 10px; background: #eef1f5; font-size: .9rem; }
-.quick-add .hint { margin-top: 6px; }
 
 .order-card.compact .order-when { margin-top: auto; text-align: right; }
 
