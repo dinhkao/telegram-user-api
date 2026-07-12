@@ -1,9 +1,11 @@
 // Dashboard KHO HÀNG (#/kho). MẶC ĐỊNH: mỗi VỊ TRÍ kho = 1 card (thumbnail ảnh mới
 // nhất + mã SP kèm số lượng tồn tại vị trí đó) → tap mở chi tiết kho. KHI GÕ SEARCH:
-// đổi sang lưới Ô THÙNG vuông, GOM THEO VỊ TRÍ. Data: listPlaces + allBoxes.
-// Realtime: box/inventory/production_changed → tải lại.
-import { useEffect, useState } from "preact/hooks";
-import { listPlaces, allBoxes, inventoryList, mediaImageUrl, soVN, type Place, type KhoBox, type InvProductSummary } from "../api";
+// đổi sang lưới Ô THÙNG vuông, GOM THEO VỊ TRÍ. Data + cache module: ./khoData
+// (vẽ ngay từ cache khi quay lại, refresh nền). Realtime: KHO_EVENTS → refresh
+// debounce 350ms, response cũ không ghi đè mới (seq guard trong khoLoad).
+import { useEffect, useMemo, useState } from "preact/hooks";
+import { mediaImageUrl, soVN, type Place, type KhoBox } from "../api";
+import { khoCache, khoLoad, KHO_EVENTS, type KhoData } from "./khoData";
 import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
@@ -80,37 +82,68 @@ function LocCard({ p, bs }: { p: Place; bs: KhoBox[] }) {
 }
 
 export function KhoBoxes() {
-  const [places, setPlaces] = useState<Place[] | null>(null);
-  const [boxes, setBoxes] = useState<KhoBox[]>([]);
-  const [prodSum, setProdSum] = useState<InvProductSummary[]>([]);   // code → tên + tổng tồn
+  // Vẽ NGAY từ cache module nếu có (không spinner khi quay lại trang).
+  const [data, setData] = useState<KhoData | null>(khoCache().data);
   const [err, setErr] = useState("");
   const [q, setQ] = useState(memQ);
   const [boxView, setBoxView] = useState<"grid" | "compact">(memBoxView);
   useEffect(() => { memBoxView = boxView; }, [boxView]);
   useEffect(() => { memQ = q; }, [q]);
 
-  const load = async () => {
+  // Cold load (chưa có cache): lỗi → ErrorState. Refresh nền: lỗi → GIỮ cache im lặng.
+  const load = async (cold = false) => {
     try {
-      const [pl, bx, ps] = await Promise.all([listPlaces(), allBoxes(), inventoryList()]);
-      setPlaces(pl); setBoxes(bx); setProdSum(ps);
-    } catch (e: any) { setErr(e?.message || "Lỗi tải kho"); }
+      const d = await khoLoad();
+      if (d) setData(d);   // null = đã có lượt tải mới hơn (bỏ, chống quay ngược)
+    } catch (e: any) {
+      if (cold || !khoCache().data) setErr(e?.message || "Lỗi tải kho");
+    }
   };
-  useEffect(() => { load(); }, []);
-  useEffect(() => onRealtime((e) => {
-    if (e.type === "resync" || e.type === "box_changed" || e.type === "inventory_changed" || e.type === "production_changed") load();
-  }), []);
+  useEffect(() => {
+    const c = khoCache();
+    if (!c.data) load(true);        // lần đầu: cold load như cũ
+    else if (c.dirty) load();       // kho đổi lúc trang đóng: vẽ cache + refresh nền 1 lượt
+  }, []);
+  // Realtime khi ĐANG MỞ: debounce 350ms — burst nhiều event chỉ tạo 1 batch 3 request.
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const off = onRealtime((e) => {
+      if (!KHO_EVENTS.has(e.type)) return;
+      if (t) clearTimeout(t);
+      t = setTimeout(() => { t = null; load(); }, 350);
+    });
+    return () => { if (t) clearTimeout(t); off(); };
+  }, []);
 
-  if (err) return <ErrorState msg={err} onRetry={load} />;
-  if (!places) return <Loading />;
+  // Map dựng 1 lần theo data — thay các vòng filter() lặp cho từng vị trí/SP.
+  const maps = useMemo(() => {
+    const boxes = data?.boxes || [];
+    const byPlace = new Map<number, KhoBox[]>();
+    const byCode = new Map<string, KhoBox[]>();
+    const unplaced: KhoBox[] = [];
+    for (const b of boxes) {
+      if (b.place_id) {
+        const l = byPlace.get(b.place_id); l ? l.push(b) : byPlace.set(b.place_id, [b]);
+      } else unplaced.push(b);
+      const c = byCode.get(b.product_code); c ? c.push(b) : byCode.set(b.product_code, [b]);
+    }
+    const stockCountByPlace = new Map<number, number>();
+    byPlace.forEach((l, pid) => stockCountByPlace.set(pid, l.filter(hasStock).length));
+    const sumByCode = new Map((data?.prodSum || []).map((s) => [s.product_code, s]));
+    return { byPlace, byCode, unplaced, stockCountByPlace, sumByCode };
+  }, [data]);
+
+  if (err && !data) return <ErrorState msg={err} onRetry={() => { setErr(""); load(true); }} />;
+  if (!data) return <Loading />;
+  const { places, boxes, prodSum } = data;
+  const { byPlace, byCode, unplaced, stockCountByPlace, sumByCode } = maps;
 
   const nq = foldVN(q.trim());
   const searching = nq !== "";
-  const unplaced = boxes.filter((b) => !b.place_id);
   // Sắp kho theo NHIỀU THÙNG (còn hàng) nhất lên trước
-  const boxCountAt = (pid: number) => boxes.filter((b) => b.place_id === pid && hasStock(b)).length;
+  const boxCountAt = (pid: number) => stockCountByPlace.get(pid) || 0;
   const sortedPlaces = places.slice().sort((a, b) => boxCountAt(b.id) - boxCountAt(a.id) || a.name.localeCompare(b.name));
   // code → tên SP + tổng tồn kho (search khớp cả TÊN SP + hiện mã SP khớp)
-  const sumByCode = new Map(prodSum.map((s) => [s.product_code, s]));
   const fname = (code: string) => foldVN(sumByCode.get(code)?.name || "");
   // Khớp: mã/tên SP (matchName) · ô thùng (thêm số gọi) · TÊN VỊ TRÍ (matchPlaceName)
   const matchName = (b: KhoBox) => foldVN(b.product_code).includes(nq) || fname(b.product_code).includes(nq);
@@ -141,7 +174,7 @@ export function KhoBoxes() {
     // thùng nào) VẪN hiện; tồn giảm dần. Kèm phân bổ theo CỠ: "3 thùng 50 · 2 thùng 30"
     // (gộp thùng còn hàng theo số tồn mỗi thùng; Σ count×tồn = tổng tồn).
     const sizeText = (code: string): string => {
-      const bs = boxes.filter((b) => b.product_code === code && hasStock(b));
+      const bs = (byCode.get(code) || []).filter(hasStock);
       // SP tự-là-thùng (đơn vị SP = 'thùng', mỗi thùng 1 đơn vị): chỉ nói TỔNG số thùng
       if (bs.length && bs.every((b) => (b.product_unit || "") === "thùng")) return `${bs.length} thùng`;
       const m = new Map<number, number>();
@@ -157,7 +190,7 @@ export function KhoBoxes() {
     const groups: { key: string; name: string; href?: string; list: KhoBox[] }[] = [];
     for (const p of sortedPlaces) {
       if (matchedPlaceIds.has(p.id)) continue;
-      const list = boxes.filter((b) => b.place_id === p.id && matchBox(b) && hasStock(b)).sort(sortBoxes);
+      const list = (byPlace.get(p.id) || []).filter((b) => matchBox(b) && hasStock(b)).sort(sortBoxes);
       if (list.length) groups.push({ key: `p${p.id}`, name: p.name, href: `#/vi-tri/${p.id}`, list });
     }
     const un = unplaced.filter((b) => matchBox(b) && hasStock(b)).sort(sortBoxes);
@@ -194,7 +227,7 @@ export function KhoBoxes() {
           <div class="kho-loc-list">
             <div class="kho-sec-lbl muted small">Vị trí khớp</div>
             {matchedPlaces.map((p) => (
-              <LocCard key={p.id} p={p} bs={boxes.filter((b) => b.place_id === p.id)} />
+              <LocCard key={p.id} p={p} bs={byPlace.get(p.id) || []} />
             ))}
           </div>
         )}
@@ -270,7 +303,7 @@ export function KhoBoxes() {
           })()}
           <div class="kho-loc-list">
             {sortedPlaces.map((p) => (
-              <LocCard key={p.id} p={p} bs={boxes.filter((b) => b.place_id === p.id)} />
+              <LocCard key={p.id} p={p} bs={byPlace.get(p.id) || []} />
             ))}
           </div>
         </>
