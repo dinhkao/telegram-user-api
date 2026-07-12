@@ -9,7 +9,7 @@ import { confirmDialog, toast } from "../ui/feedback";
 import { useScrollLock } from "../useScrollLock";
 import { money } from "../format";
 import { onRealtime } from "../realtime";
-import { Loading, ErrorState } from "../ui/states";
+import { Loading, ErrorState, LoadingInline } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 import { CompactBoxList } from "../detail/CompactBoxList";
@@ -529,7 +529,7 @@ export function InventoryDetail({ code }: { code: string }) {
       <section class="card" ref={ordSecRef}>
         <label class="card-label">Đơn có sản phẩm này{ordStarted.current ? ` (${ordTotal})` : ""}</label>
         {!ordStarted.current || (ordLoading && ords.length === 0) ? (
-          <div class="muted small">Đang tải…</div>
+          <div class="muted small"><LoadingInline /></div>
         ) : ords.length === 0 ? (
           <div class="muted small">Chưa có đơn nào chứa mã này.</div>
         ) : (
@@ -546,7 +546,7 @@ export function InventoryDetail({ code }: { code: string }) {
             </div>
             {ordMore && (
               <button class="btn small block" style={{ marginTop: "8px" }} disabled={ordLoading} onClick={() => loadOrders(false)}>
-                {ordLoading ? "⏳ Đang tải…" : `Xem thêm (${ordTotal - ords.length})`}
+                {ordLoading ? <LoadingInline /> : `Xem thêm (${ordTotal - ords.length})`}
               </button>
             )}
           </>

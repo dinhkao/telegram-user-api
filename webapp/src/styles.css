@@ -147,6 +147,7 @@ body.kbd-open .page { padding-bottom: 10px; }
 @keyframes spin-rot { to { transform: rotate(360deg); } }
 @keyframes spin-dash { 0% { stroke-dashoffset: 51; } 50% { stroke-dashoffset: 14; } 100% { stroke-dashoffset: 51; } }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } .spin-arc { animation: none; } }
+.loading-inline { display: inline-flex; align-items: center; gap: 6px; vertical-align: -2px; }
 .state-empty-ic { display: block; font-size: 1.8rem; margin-bottom: 6px; opacity: .7; }
 .state-error { padding: 16px 12px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 

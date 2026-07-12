@@ -17,7 +17,7 @@ import { Icon } from "../ui/Icon";
 import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
 import { avaColor } from "../ui/avatar";
 import { toast } from "../ui/feedback";
-import { EmptyState, SkeletonList } from "../ui/states";
+import { EmptyState, SkeletonList, LoadingInline } from "../ui/states";
 import { fmtRelative } from "../format";
 
 // 4 KPI tile (trạng thái) + chips loại việc — cùng 1 không gian filter `flt`
@@ -310,7 +310,7 @@ export function TasksBoard() {
           {loading && !tasks.length ? <SkeletonList rows={5} /> : null}
           {!loading && !tasks.length ? <EmptyState>Không có việc nào</EmptyState> : null}
           <ul class="task-list">{rows}</ul>
-          {page < totalPages && <div ref={moreRef} class="tk-more-sentinel">{loading ? "Đang tải…" : ""}</div>}
+          {page < totalPages && <div ref={moreRef} class="tk-more-sentinel">{loading ? <LoadingInline /> : ""}</div>}
         </>
       )}
 
@@ -324,7 +324,7 @@ export function TasksBoard() {
             <div class="modal-head"><Icon name="calendar" size={16} /> Hạn {pick ? `${pick.slice(8)}/${pick.slice(5, 7)}/${pick.slice(0, 4)}` : ""}
               <button class="link-btn cc-x" onClick={closeDay}><Icon name="close" size={18} /></button>
             </div>
-            {dayItems == null ? <p class="muted small">Đang tải…</p>
+            {dayItems == null ? <p class="muted small"><LoadingInline /></p>
               : dayItems.length ? (
                 <ul class="task-list cc-list">
                   {dayItems.map((t) => <TaskCard key={t.id} t={t} today={today} names={names} onToggle={toggle} />)}

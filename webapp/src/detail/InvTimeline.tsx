@@ -8,7 +8,7 @@ import { fmtDateTimeVN } from "../format";
 import { fastScrollToEl } from "../scroll";
 import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
-import { EmptyState } from "../ui/states";
+import { EmptyState, LoadingInline } from "../ui/states";
 import { dayKeyOf, orderDayLabel } from "./OrderCards";
 import { BoxLabelGrid } from "./BoxLabelGrid";
 
@@ -222,7 +222,7 @@ export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, 
       rows.push(<Junction key="j-bot" height={MIN_JUNC} label={null} amount={Math.round((it.total_after - it.delta) * 1000) / 1000} onDot={() => openBoxes(it.at, items.length, "trước biến động đầu")} />);
     }
   }
-  if (lim < items.length) rows.push(<li key="more" ref={moreRef} class="pt-more"><span class="muted small">Đang tải thêm…</span></li>);
+  if (lim < items.length) rows.push(<li key="more" ref={moreRef} class="pt-more"><span class="muted small"><LoadingInline label="Đang tải thêm…" /></span></li>);
 
   return (
     <>

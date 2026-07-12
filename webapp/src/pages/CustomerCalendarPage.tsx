@@ -14,7 +14,7 @@ import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
 import { Icon } from "../ui/Icon";
 import { onRealtime } from "../realtime";
-import { EmptyState } from "../ui/states";
+import { EmptyState, LoadingInline } from "../ui/states";
 import type { OrderRow } from "../detail/OrderCards";
 
 const _WD = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
@@ -95,7 +95,7 @@ export function CustomerCalendarPage({ ckey }: { ckey: string }) {
               <button class="link-btn cc-x" onClick={closeDay}><Icon name="close" size={18} /></button>
             </div>
             {items == null ? (
-              <p class="muted small">Đang tải…</p>
+              <p class="muted small"><LoadingInline /></p>
             ) : items.length ? (
               <ul class="order-list cc-list">{items.map(renderItem)}</ul>
             ) : (

@@ -7,6 +7,7 @@ import { onRealtime } from "../realtime";
 import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
 import { Icon } from "../ui/Icon";
+import { LoadingInline } from "../ui/states";
 
 function fmtDate(s?: string | null): string {
   if (!s) return "";
@@ -132,7 +133,7 @@ export function StockPickerModal({
         </div>
 
         {!boxes ? (
-          <div class="muted">Đang tải…</div>
+          <div class="muted"><LoadingInline /></div>
         ) : boxes.length === 0 ? (
           <div class="muted small">Kho hết thùng {productCode}.</div>
         ) : (

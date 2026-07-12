@@ -13,6 +13,17 @@ export function Spinner({ size = 24 }: { size?: number }) {
   );
 }
 
+/** Bản NHỎ nằm trong dòng — cho khối con/sentinel tải-thêm/nút bận. Kế thừa
+ *  cỡ chữ + màu từ cha (đặt trong <p class="muted small"> như cũ). */
+export function LoadingInline({ label = "Đang tải…" }: { label?: string }) {
+  return (
+    <span class="loading-inline">
+      <Spinner size={14} />
+      {label}
+    </span>
+  );
+}
+
 export function Loading({ label = "Đang tải…" }: { label?: string }) {
   return (
     <div class="state-loading muted center" role="status">

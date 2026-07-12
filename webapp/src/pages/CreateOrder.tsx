@@ -12,6 +12,7 @@ import { CustomerPicker } from "../detail/CustomerPicker";
 import { useScrollLock } from "../useScrollLock";
 import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
+import { LoadingInline } from "../ui/states";
 
 // Giá rút gọn cho cột hẹp (chia đôi màn hình): 17000 → "17k", 25500 → "25,5k".
 const moneyK = (v: number) =>
@@ -375,7 +376,7 @@ export function CreateOrder() {
               <button class="btn small" onClick={() => setPlOpen(false)}><Icon name="close" size={14} /></button>
             </div>
             {!priceList ? (
-              <p class="muted small">Đang tải…</p>
+              <p class="muted small"><LoadingInline /></p>
             ) : priceList.items.length ? (
               <div class="pl-scroll">
                 <table class="invoice-table">

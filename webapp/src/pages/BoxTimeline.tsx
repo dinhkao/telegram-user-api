@@ -8,7 +8,7 @@ import { onRealtime } from "../realtime";
 import { fastScrollToEl } from "../scroll";
 import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
-import { Loading, EmptyState, ErrorState } from "../ui/states";
+import { Loading, EmptyState, ErrorState, LoadingInline } from "../ui/states";
 import { dayKeyOf, orderDayLabel } from "../detail/OrderCards";
 
 const GROUP_SEC = 300;
@@ -169,7 +169,7 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
       if (cross) rows.push(<li key={`d-${i}`} class="pt-day"><div class="order-day-head">{orderDayLabel(dayKeyOf(older.at))}</div></li>);
     }
   }
-  if (lim < items.length) rows.push(<li key="more" ref={moreRef} class="pt-more"><span class="muted small">Đang tải thêm…</span></li>);
+  if (lim < items.length) rows.push(<li key="more" ref={moreRef} class="pt-more"><span class="muted small"><LoadingInline label="Đang tải thêm…" /></span></li>);
 
   return (
     <div class="place-tl">

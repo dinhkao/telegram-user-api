@@ -10,6 +10,7 @@ import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
 import { kindOf } from "./imageKinds";
 import { fastScrollToEl } from "../scroll";
+import { LoadingInline } from "../ui/states";
 
 export function SoanHangPicker({ threadId, onClose, onDone, adminQuick, onAddPhoto }: {
   threadId: string; onClose: () => void; onDone: () => void;
@@ -68,7 +69,7 @@ export function SoanHangPicker({ threadId, onClose, onDone, adminQuick, onAddPho
         <div class="modal-head"><Icon name="box" size={18} /> {confirmMode ? "Xác nhận soạn hàng" : "Chọn ảnh soạn hàng"} {busy && "· ⏳"}</div>
 
         {images === null ? (
-          <p class="muted small">Đang tải ảnh…</p>
+          <p class="muted small"><LoadingInline label="Đang tải ảnh…" /></p>
         ) : confirmMode ? (
           <>
             <p class="muted small">Xác nhận những hình ảnh sau đây của soạn hàng:</p>

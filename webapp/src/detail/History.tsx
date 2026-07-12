@@ -6,6 +6,7 @@ import { fmtTime } from "../format";
 import { onRealtime, eventMatchesBase } from "../realtime";
 import { fastScrollToEl } from "../scroll";
 import { Icon } from "../ui/Icon";
+import { LoadingInline } from "../ui/states";
 
 const epoch = (iso?: string) => Math.floor(Date.parse(iso || "") / 1000) || 0;
 
@@ -111,7 +112,7 @@ export function History({ base, focusTs }: { base: string; focusTs?: number }) {
           ))}
         </ul>
       ) : (
-        <p class="muted small">{loaded ? "Chưa có thao tác nào được ghi." : "Đang tải…"}</p>
+        <p class="muted small">{loaded ? "Chưa có thao tác nào được ghi." : <LoadingInline />}</p>
       )}
     </div>
   );

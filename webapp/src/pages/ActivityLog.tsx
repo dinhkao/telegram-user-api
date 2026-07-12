@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getActivity } from "../api";
 import { fmtDateTimeVN, fmtRelative } from "../format";
-import { Loading } from "../ui/states";
+import { Loading, LoadingInline } from "../ui/states";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 
@@ -100,7 +100,7 @@ export function ActivityLog() {
         <p class="muted small">Chưa có thao tác nào được ghi.</p>
       )}
       {!loading && hasMore && <button class="btn small wide" onClick={() => load(before)}>Tải thêm</button>}
-      {loading && items.length > 0 && <p class="muted center small">Đang tải…</p>}
+      {loading && items.length > 0 && <p class="muted center small"><LoadingInline /></p>}
     </div>
   );
 }

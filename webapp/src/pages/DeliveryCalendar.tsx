@@ -10,7 +10,7 @@ import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
-import { EmptyState } from "../ui/states";
+import { EmptyState, LoadingInline } from "../ui/states";
 
 const _WD = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const dayLabel = (d: string) =>
@@ -85,7 +85,7 @@ export function DeliveryCalendar() {
               <button class="link-btn cc-x" onClick={closeDay}><Icon name="close" size={18} /></button>
             </div>
             {items == null ? (
-              <p class="muted small">Đang tải…</p>
+              <p class="muted small"><LoadingInline /></p>
             ) : shown.length ? (
               <ul class="order-list cc-list">
                 {shown.map((o) => <li key={o.thread_id}><CompactOrderCard o={o} /></li>)}

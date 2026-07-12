@@ -17,7 +17,7 @@ import { CustomerFeed } from "../detail/CustomerFeed";
 import { History } from "../detail/History";
 import { onRealtime } from "../realtime";
 import { toast } from "../ui/feedback";
-import { Loading, ErrorState } from "../ui/states";
+import { Loading, ErrorState, LoadingInline } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { SelectPopup } from "../ui/SelectPopup";
 
@@ -304,7 +304,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
             {effective?.items?.length ? <span class="muted small"> ({effective.items.length} SP)</span> : null}
           </summary>
           {!effective ? (
-            <p class="muted small">Đang tải…</p>
+            <p class="muted small"><LoadingInline /></p>
           ) : effective.items.length ? (
             <table class="invoice-table">
               <tbody>
