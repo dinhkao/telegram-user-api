@@ -162,28 +162,26 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
       <div class="inv-edit">
         {rows.map((it, i) => (
           <div class="edit-row" key={i}>
-            <div class="edit-top">
+            <div class="er-main">
               <ProductInput value={it.sp} onChange={(c) => setRow(i, "sp", c)} onCommit={(c) => autoPrice(i, c)} />
-              <button class="btn small danger" onClick={() => removeRow(i)}><Icon name="close" size={16} /></button>
-            </div>
-            <div class="edit-mid">
-              <label class="fld sl">SL<input inputMode="numeric" value={it.sl} onInput={(e: any) => setRow(i, "sl", parseMoney(e.target.value))} /></label>
+              <input class="er-sl" inputMode="numeric" title="Số lượng" value={it.sl} onInput={(e: any) => setRow(i, "sl", parseMoney(e.target.value))} />
               <span class="times">×</span>
-              <label class="fld price">Giá<input inputMode="numeric" value={it.price} onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} /></label>
+              <input class="er-price" inputMode="numeric" title="Đơn giá" value={it.price} onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} />
               {(() => {
                 const info = listPrices[(it.sp || "").trim().toUpperCase()];
                 return info && info.price && Number(it.price) !== info.price ? (
                   <button type="button" class="price-reset" title={`Đặt lại giá bảng: ${money(info.price)}`}
                     onClick={() => setRow(i, "price", info.price)}>
-                    <Icon name="refresh" size={15} />
+                    <Icon name="refresh" size={14} />
                   </button>
                 ) : null;
               })()}
-              <span class="eq">= <b>{money((it.price || 0) * (it.sl || 0))}</b></span>
+              <button class="er-del" title="Xoá dòng" onClick={() => removeRow(i)}><Icon name="close" size={15} /></button>
             </div>
-            <div class="edit-bot">
+            <div class="er-sub">
               {priceTag(it.sp, it.price)}
-              <input class="note-inp" placeholder="ghi chú" value={it.note || ""} onInput={(e: any) => setRow(i, "note", e.target.value)} />
+              <input class="note-inp" placeholder="ghi chú…" value={it.note || ""} onInput={(e: any) => setRow(i, "note", e.target.value)} />
+              <span class="eq">= <b>{money((it.price || 0) * (it.sl || 0))}</b></span>
             </div>
           </div>
         ))}

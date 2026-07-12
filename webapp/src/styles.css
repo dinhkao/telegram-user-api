@@ -332,23 +332,27 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .adj-view .total { border-top: 1px dashed var(--border); padding-top: 8px; margin-top: 6px; font-size: 1.05rem; }
 
 /* ── Hoá đơn: chế độ SỬA (mỗi món 1 khối) ── */
+/* Dòng SP gọn: 1 hàng nhập (SP · SL × Giá · xoá) + 1 hàng mảnh (bảng giá · ghi chú · thành tiền),
+   ngăn nhau bằng vạch mảnh thay vì hộp-trong-hộp */
 .inv-edit { margin: 6px 0; }
-.edit-row { border: 1px solid var(--border); border-radius: 10px; padding: 8px; margin-bottom: 8px; background: var(--bg); }
-.edit-top { display: flex; gap: 6px; align-items: center; }
-.edit-top .ac { flex: 1; }
-.edit-mid { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-.edit-mid .fld { display: flex; flex-direction: column; font-size: .7rem; color: var(--muted, #888); }
-.edit-mid .fld.sl input { width: 64px; }
-.edit-mid .fld.price input { width: 96px; }
-.edit-mid .fld input { padding: 6px; font-size: .95rem; }
-.edit-mid .times { align-self: flex-end; padding-bottom: 8px; }
-.edit-mid .eq { margin-left: auto; align-self: flex-end; padding-bottom: 6px; white-space: nowrap; }
+.edit-row { padding: 8px 0 7px; border-bottom: 1px solid var(--border); }
+.edit-row:first-child { padding-top: 2px; }
+.er-main { display: flex; align-items: center; gap: 6px; }
+.er-main .sp-trigger { flex: 1; min-width: 96px; padding: 7px 9px; font-size: .92rem; }
+.er-main input { flex: none; margin: 0; padding: 7px 6px; font-size: .95rem; text-align: right; }
+.er-main .er-sl { width: 48px; }
+.er-main .er-price { width: 88px; }
+.er-main .times { flex: none; color: var(--muted, #888); }
 /* Nút đặt lại giá về giá bảng của khách (hiện khi giá ≠ giá định sẵn) */
-.edit-mid .price-reset { align-self: flex-end; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--warn, #c8901f); border-radius: 7px; background: var(--warn-wash, #fbf3e0); color: var(--warn, #a5730f); cursor: pointer; }
-.edit-mid .price-reset:active { opacity: .7; }
-.edit-bot { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-.edit-bot .note-inp { flex: 1; margin-top: 0; }
-.pricetag { display: inline-block; }
+.er-main .price-reset { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 32px; padding: 0; border: 1px solid var(--warn, #c8901f); border-radius: 7px; background: var(--warn-wash, #fbf3e0); color: var(--warn, #a5730f); cursor: pointer; }
+.er-main .price-reset:active { opacity: .7; }
+.er-main .er-del { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 32px; padding: 0; border: none; border-radius: 7px; background: none; color: var(--muted-2, #aaa); cursor: pointer; }
+.er-main .er-del:active { color: var(--danger, #c0392b); background: rgba(192,57,43,.08); }
+.er-sub { display: flex; align-items: center; gap: 8px; margin-top: 3px; padding-left: 2px; }
+.er-sub .pricetag { margin-top: 0; flex: none; }
+.er-sub .note-inp { flex: 1; min-width: 40px; margin: 0; padding: 2px; border: none; border-bottom: 1px dashed var(--border); border-radius: 0; background: transparent; font-size: .82rem; color: var(--muted, #777); }
+.er-sub .note-inp:focus { border-bottom-color: var(--primary); color: var(--ink); outline: none; }
+.er-sub .eq { margin-left: auto; flex: none; white-space: nowrap; font-size: .92rem; }
 /* Thanh Lưu/Huỷ dính đáy màn hình (nổi trên bottom-nav) — khỏi cuộn xuống cuối form */
 .ie-actions { position: sticky; bottom: calc(60px + env(safe-area-inset-bottom, 0px)); z-index: 12; gap: 8px; padding: 8px; margin-top: 10px; background: rgba(255,255,255,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
 .ie-actions .btn.primary { flex: 1; min-height: 44px; }
