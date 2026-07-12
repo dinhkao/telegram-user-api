@@ -349,6 +349,10 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .edit-bot { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .edit-bot .note-inp { flex: 1; margin-top: 0; }
 .pricetag { display: inline-block; }
+/* Thanh Lưu/Huỷ dính đáy màn hình (nổi trên bottom-nav) — khỏi cuộn xuống cuối form */
+.ie-actions { position: sticky; bottom: calc(60px + env(safe-area-inset-bottom, 0px)); z-index: 12; gap: 8px; padding: 8px; margin-top: 10px; background: rgba(255,255,255,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+.ie-actions .btn.primary { flex: 1; min-height: 44px; }
+body.kbd-open .ie-actions { bottom: 8px; }   /* bàn phím mở → nav ẩn → hạ sát đáy */
 
 /* Tô sáng cụm khớp tìm kiếm */
 mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; }

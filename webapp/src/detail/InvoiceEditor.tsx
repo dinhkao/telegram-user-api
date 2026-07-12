@@ -247,7 +247,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
         <div class="row space total"><b>Tổng thanh toán</b><b class="money">{money(tong)}</b></div>
       </div>
 
-      <div class="row">
+      <div class="row ie-actions">
         <button class="btn primary" disabled={busy} onClick={save}>{busy ? "Đang lưu…" : createMode ? <><Icon name="save" size={16} /> Lưu &amp; tạo đơn</> : <><Icon name="save" size={16} /> Lưu</>}</button>
         {onCancel && <button class="btn" disabled={busy} onClick={onCancel}>Huỷ</button>}
       </div>
