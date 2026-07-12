@@ -240,12 +240,14 @@ export type CustFeedItem =
 export type DebtOrder = {
   thread_id: number; created?: string | null; total: number; debt: number; label?: string;
   text?: string; task_icons?: string; thumb_image_id?: number | null; image_count?: number;
+  bypass_debt?: boolean;
 };
 /** Ngữ cảnh thu tiền của 1 đơn: khách + mọi đơn đang nợ (cũ→mới). */
 export type PaymentContext = {
   source_thread_id: number;
   customer: { key: string; name: string; kv_id: number | null; debt?: number | null };
   orders: DebtOrder[];
+  hidden_orders: DebtOrder[];   // đơn đã "ẩn khỏi trang thu tiền" (bypass_debt)
   total_debt: number;
 };
 /** 1 dòng phân bổ tiền vào 1 đơn. */
@@ -260,7 +262,7 @@ export type BulkPaymentResult = {
 /** Lấy ngữ cảnh thu tiền theo đơn (khách + đơn đang nợ). Lỗi nếu đơn chưa gán khách. */
 export async function getPaymentContext(threadId: string | number): Promise<PaymentContext> {
   const d = await getJSON(`/api/order/${threadId}/payment-context`, { cache: false });
-  return { source_thread_id: d.source_thread_id, customer: d.customer, orders: d.orders || [], total_debt: d.total_debt || 0 };
+  return { source_thread_id: d.source_thread_id, customer: d.customer, orders: d.orders || [], hidden_orders: d.hidden_orders || [], total_debt: d.total_debt || 0 };
 }
 /** Thu gộp: 1 giao dịch KiotViet, chia vào nhiều đơn (cần mạng, không queue). */
 export async function bulkPayment(payload: { source_thread_id: number; method: "Cash" | "Transfer"; amount: number; allocations: PaymentAllocation[] }): Promise<BulkPaymentResult> {

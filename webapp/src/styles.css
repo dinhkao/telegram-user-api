@@ -823,6 +823,14 @@ body.pv-open { overflow: hidden; }
 .pay-order-icons { display: flex; align-items: center; gap: 3px; min-height: 17px; font-size: .82rem; line-height: 1; }
 .pay-order-icons > span { display: inline-flex; align-items: center; justify-content: center; }
 .pay-order-row .pay-alloc-amt { flex: 0 0 auto; max-width: 34%; text-align: right; font-variant-numeric: tabular-nums; }
+/* Nút ẨN đơn khỏi trang thu tiền (trên mỗi dòng phân bổ) + mục "Đã ẩn" gỡ lại */
+.pay-hide { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border: none; border-radius: 8px; background: none; color: var(--muted-2); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pay-hide:active { background: var(--danger-wash); color: var(--danger); }
+.pay-hide:disabled { opacity: .5; }
+.pay-hidden-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 2px; border: none; background: none; color: var(--muted); font-size: .9rem; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pay-hidden-chev { margin-left: auto; transition: transform var(--dur) var(--ease); }
+.pay-hidden-chev.flip { transform: rotate(180deg); }
+.pay-order-row .pay-unhide { flex: 0 0 auto; }
 @media (max-width: 420px) {
   .pay-order-thumb-wrap, .pay-order-thumb { width: 52px; height: 52px; }
   .pay-order-thumb-wrap { flex-basis: 52px; }
