@@ -2,8 +2,24 @@
 // viết (.error vs .error-banner, "muted center" vs "muted", 5 câu trống khác nhau).
 // Dùng: <Loading/> khi đang tải, <EmptyState> khi rỗng, <ErrorState onRetry> khi lỗi.
 
+/** Vòng xoay tải — SVG cung tròn quay + co giãn (kiểu Material). Dùng lẻ được
+ *  (nút đang bận, khối nhỏ): <Spinner size={16}/>. */
+export function Spinner({ size = 24 }: { size?: number }) {
+  return (
+    <svg class="spin" width={size} height={size} viewBox="0 0 24 24" role="status" aria-label="Đang tải">
+      <circle class="spin-track" cx="12" cy="12" r="9" fill="none" stroke-width="2.5" />
+      <circle class="spin-arc" cx="12" cy="12" r="9" fill="none" stroke-width="2.5" stroke-linecap="round" />
+    </svg>
+  );
+}
+
 export function Loading({ label = "Đang tải…" }: { label?: string }) {
-  return <p class="state-loading muted center">{label}</p>;
+  return (
+    <div class="state-loading muted center" role="status">
+      <Spinner />
+      <span>{label}</span>
+    </div>
+  );
 }
 
 export function EmptyState({ children, icon }: { children: any; icon?: string }) {

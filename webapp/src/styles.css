@@ -139,6 +139,14 @@ body.kbd-open .page { padding-bottom: 10px; }
 .cf-actions .btn { flex: 1; min-height: 44px; }
 /* Trạng thái màn dùng chung (ui/states.tsx) */
 .state-loading, .state-empty { padding: 24px 12px; font-size: .92rem; }
+.state-loading { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* Vòng xoay tải (Spinner) — vòng quay + cung co giãn, track mờ màu chủ đạo */
+.spin { display: block; animation: spin-rot 1.4s linear infinite; }
+.spin-track { stroke: color-mix(in srgb, var(--primary) 14%, transparent); }
+.spin-arc { stroke: var(--primary); stroke-dasharray: 56.55; stroke-dashoffset: 42; animation: spin-dash 1.2s ease-in-out infinite; }
+@keyframes spin-rot { to { transform: rotate(360deg); } }
+@keyframes spin-dash { 0% { stroke-dashoffset: 51; } 50% { stroke-dashoffset: 14; } 100% { stroke-dashoffset: 51; } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } .spin-arc { animation: none; } }
 .state-empty-ic { display: block; font-size: 1.8rem; margin-bottom: 6px; opacity: .7; }
 .state-error { padding: 16px 12px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
