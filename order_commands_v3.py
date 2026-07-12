@@ -759,8 +759,11 @@ class _EditBatcher:
         await _refresh_order_message(self.client, self.db_conn, thread_id, key[0], key[1])
 
 
-async def _auto_parse_fix(client, conn, thread_id: int, text: str):
-    """Re-run invoice parsing after order text is changed by fix/fixapp."""
+async def _auto_parse_fix(client, conn, thread_id: int, text: str, reassign_customer: bool = True):
+    """Re-run invoice parsing after order text is changed by fix/fixapp.
+
+    reassign_customer=False → GIỮ NGUYÊN khách của đơn, không nhận diện lại từ text
+    (webapp trang sửa hoá đơn: khách chọn tay ở ô dùng chung ghi đè suy đoán từ text)."""
     try:
         from order_db import parse_invoice_free_text, detect_customer_free_text, get_customer_price_list
         from product_db import freeze_invoice_cost_prices
@@ -769,7 +772,7 @@ async def _auto_parse_fix(client, conn, thread_id: int, text: str):
         if not order:
             return
         kh_id = order.get("khach_hang_id") or order.get("khID")
-        detection = detect_customer_free_text(conn, text)
+        detection = detect_customer_free_text(conn, text) if reassign_customer else {}
         # Đơn đã có HĐ KiotViet → KHÔNG tự đổi khách theo text mới (HĐ theo khách cũ)
         if detection.get("autoAssign") and not order.get("kiotvietInvoiceID"):
             cust = detection["autoAssign"]

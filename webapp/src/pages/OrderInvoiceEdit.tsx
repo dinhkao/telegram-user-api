@@ -36,7 +36,6 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
   const [text, setText] = useState("");
   const [preview, setPreview] = useState<OrderPreview | null>(null);
   const [previewing, setPreviewing] = useState(false);
-  const [liveDebt, setLiveDebt] = useState<{ id: string; debt: number | null } | null>(null);
   const seq = useRef(0);
   const seededText = useRef(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -84,40 +83,19 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
     return () => { alive = false; };
   }, [cust?.id]);
 
-  // Tab Nhanh: xem trước tức thời khi gõ. Text CHƯA sửa → preview theo khách hiện
-  // tại (chưa lưu được thì khỏi doạ đổi khách). Text ĐÃ sửa → mô phỏng đúng fix:
-  // nhận diện khách từ text trước, không nhận ra thì rơi về khách hiện tại (fix
-  // giữ nguyên khách, giá vẫn theo bảng giá của họ). seq chặn kết quả cũ đè mới.
+  // Tab Nhanh: xem trước tức thời khi gõ — LUÔN tính giá theo KHÁCH CỦA ĐƠN (ô khách
+  // dùng chung ở trên), KHÔNG tự nhận diện khách từ text. Khách hiển thị/đổi ở ô trên
+  // và ghi đè mọi suy đoán từ text. seq chặn kết quả cũ đè mới.
   useEffect(() => {
     const t = text.trim();
     if (!t) { seq.current++; setPreview(null); setPreviewing(false); return; }
-    const changed = t !== origText.trim();
     const my = ++seq.current;
     setPreviewing(true);
-    (async () => {
-      try {
-        let r;
-        if (!changed && custKey) r = await previewOrder(t, custKey);
-        else {
-          r = await previewOrder(t);
-          if (!r.customer && custKey && my === seq.current) r = await previewOrder(t, custKey);
-        }
-        if (my === seq.current) setPreview(r);
-      } catch { if (my === seq.current) setPreview(null); }
-      finally { if (my === seq.current) setPreviewing(false); }
-    })();
-  }, [text, custKey, origText]);
-
-  // Khách trong preview → kéo nợ MỚI từ KiotViet 1 lần (theo id, không mỗi phím)
-  useEffect(() => {
-    const id = preview?.customer?.id;
-    if (!id) { setLiveDebt(null); return; }
-    let alive = true;
-    refreshCustomerDebt(id)
-      .then((c) => { if (alive) setLiveDebt({ id, debt: c.debt }); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [preview?.customer?.id]);
+    previewOrder(t, custKey || undefined)
+      .then((r) => { if (my === seq.current) setPreview(r); })
+      .catch(() => { if (my === seq.current) setPreview(null); })
+      .finally(() => { if (my === seq.current) setPreviewing(false); });
+  }, [text, custKey]);
 
   // Giữ khoá "1 người sửa hoá đơn" khi trang mở (cả 2 tab đều sửa hoá đơn):
   // heartbeat 20s, nhả khi rời trang. Người khác giữ (mine=false) → banner + poll
@@ -142,14 +120,15 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
   // trình duyệt sẽ thêm một entry mới và nút Back sẽ mở lại form vừa rời.
   const goBack = () => { window.location.replace(`#/order/${threadId}`); };
 
-  // Lưu tab Nhanh — /api/order/fix: server parse lại khách + SP từ text (async)
+  // Lưu tab Nhanh — /api/order/fix: server parse lại SẢN PHẨM từ text. keep_customer
+  // giữ NGUYÊN khách của đơn (ô dùng chung ở trên) — text không tự đổi khách nữa.
   const saveQuick = async () => {
     if (!text.trim() || !textChanged) return;
     setBusy(true);
     try {
-      await postJSON("/api/order/fix", { thread_id: Number(threadId), text: text.trim() });
+      await postJSON("/api/order/fix", { thread_id: Number(threadId), text: text.trim(), keep_customer: !!custKey });
       invalidateListCache();
-      toast("✅ Đã lưu — đang nhận diện lại khách + SP", "ok");
+      toast("✅ Đã lưu — đang nhận diện lại sản phẩm", "ok");
       goBack();
     } catch (ex: any) { toast(`❌ ${ex.message}`, "err"); } finally { setBusy(false); }
   };
@@ -175,43 +154,37 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
     } catch (ex: any) { toast(`❌ ${ex.message}`, "err"); }
   };
 
-  // Khối khách trong preview Nhanh: khách nhận từ text (kèm cảnh báo nếu KHÁC khách
-  // hiện tại — lưu sẽ đổi), hoặc khách hiện tại khi text không nêu ai.
-  const previewCustomer = () => {
-    if (!preview) return null;
-    const c = preview.customer;
-    if (!c) {
-      return (
-        <div class="co-prev-nocust muted small">
-          {preview.candidates.length
-            ? <><Icon name="search" size={13} /> Có thể: {preview.candidates.map((x) => `${x.name} (${x.score}%)`).join(" · ")}</>
-            : <><Icon name="user" size={13} /> Chưa nhận ra khách hàng</>}
+  // Ô KHÁCH dùng chung cho CẢ 2 tab (đặt trên thanh chọn tab) — khách của đơn, đổi
+  // ngay qua assign-customer. Đây là nguồn sự thật: ghi đè mọi nhận diện từ text.
+  const customerBar = () => (
+    <div class="ie-cust-bar">
+      {custKey && !changingCust ? (
+        <div class="co-cust-picked adv">
+          <span class="co-avatar" aria-hidden="true">{initial(custName || cust?.name || "?")}</span>
+          <div class="co-prev-cinfo">
+            <b>{custName || cust?.name || custKey}</b>
+            <span class="muted small">
+              {cust?.price_list_name
+                ? <>Bảng giá: {cust.price_list_name}{" "}
+                    <button class="co-link" onClick={() => setPlCust(cust!.id)}>Xem giá</button></>
+                : "Giá chung"}
+            </span>
+          </div>
+          {cust?.debt != null && (
+            <span class={"co-debt" + (cust.debt > 0 ? " owe" : "")}>Nợ {money(cust.debt)}</span>
+          )}
+          {canChange && <button class="btn small ghost" onClick={() => setChangingCust(true)}>Đổi</button>}
         </div>
-      );
-    }
-    const isCurrent = String(c.id) === String(custKey);
-    const isLive = liveDebt?.id === c.id;
-    const debt = isLive ? liveDebt!.debt : c.debt;
-    return (
-      <>
-        <div class="co-prev-cust">
-          <a class="co-cust-link" href={`#/khach/${encodeURIComponent(c.id)}`}>
-            <span class="co-avatar" aria-hidden="true">{initial(c.name || "?")}</span>
-            <div class="co-prev-cinfo">
-              <span class="co-cust-line"><b>{c.name}</b><Icon name="chevronRight" size={14} class="co-cust-chev" /></span>
-              <span class="muted small">
-                {c.manual ? "Khách hiện tại của đơn" : isCurrent ? `Khớp ${c.score}% · khách hiện tại` : `Khớp ${c.score}%`}
-              </span>
-            </div>
-          </a>
-          {debt != null && <span class={"co-debt" + (debt > 0 ? " owe" : "")}>Nợ {money(debt)}{isLive ? " 🟢" : ""}</span>}
-        </div>
-        {!c.manual && !isCurrent && custKey && (
-          <p class="err-msg small">⚠ Lưu sẽ ĐỔI khách của đơn: {custName || "khách hiện tại"} → <b>{c.name}</b></p>
-        )}
-      </>
-    );
-  };
+      ) : (
+        <>
+          <CustomerPicker onPick={assignCustomer} placeholder={custKey ? "Tìm khách mới…" : "Gán khách cho đơn…"} />
+          {changingCust
+            ? <button class="btn small ghost" style="margin-top:8px" onClick={() => setChangingCust(false)}>Huỷ đổi khách</button>
+            : <p class="muted small">Chưa gán khách — giá sẽ không tự lấy theo bảng giá.</p>}
+        </>
+      )}
+    </div>
+  );
 
   if (err) return <ErrorState msg={err} onRetry={reload} />;
   if (!detail) return <Loading />;
@@ -242,13 +215,14 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
 
   return (
     <div>
-      {/* Header + chọn tab — giấu khi đang gõ để nhường chỗ cho 2 cột chia đôi */}
+      {/* Header + KHÁCH (dùng chung 2 tab) + chọn tab — giấu khi đang gõ để chia đôi */}
       {!typing && (
         <>
           <div class="prod-detail-head">
             <BackLink fallback={`#/order/${threadId}`} />
             <div><div class="prod-sp big">Sửa hoá đơn · đơn #{threadId}</div></div>
           </div>
+          {customerBar()}
           <div class="seg" role="tablist">
             <button class={mode === "quick" ? "seg-btn active" : "seg-btn"} onClick={() => setMode("quick")}>
               <Icon name="zap" size={15} /> Nhanh
@@ -276,7 +250,6 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
               </div>
               {preview && (
                 <>
-                  {previewCustomer()}
                   {preview.invoice.length ? (
                     <table class="invoice-table co-items">
                       <tbody>
@@ -315,46 +288,17 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
         </div>
 
         <button class="btn primary wide co-submit" disabled={busy || !text.trim() || !textChanged} onClick={saveQuick}>
-          {busy ? "Đang lưu…" : textChanged ? "Lưu — nhận diện lại khách + SP" : "Sửa text rồi bấm Lưu"}
+          {busy ? "Đang lưu…" : textChanged ? "Lưu — nhận diện lại sản phẩm" : "Sửa text rồi bấm Lưu"}
         </button>
         <p class="co-note muted small">
-          💡 Lưu tab Nhanh = phân tích lại từ text như lúc tạo đơn: khách nhận theo text,
-          giá tính lại theo bảng giá (giá đã sửa tay sẽ bị tính lại). Muốn chỉnh từng dòng/giá → tab Nâng cao.
+          💡 Lưu tab Nhanh = phân tích lại SẢN PHẨM từ text (giá theo bảng giá của khách ở trên;
+          giá sửa tay sẽ bị tính lại). Khách giữ nguyên theo ô trên — đổi bằng nút “Đổi”. Chỉnh
+          từng dòng/giá → tab Nâng cao.
         </p>
       </div>
 
-      {/* TAB NÂNG CAO — 2 bước như trang tạo: khách hàng → sản phẩm (giá theo khách) */}
+      {/* TAB NÂNG CAO — chỉ còn SẢN PHẨM (khách dùng chung ở ô trên, giá theo khách đó) */}
       <div style={mode === "advanced" ? undefined : "display:none"} class="co-adv">
-        <div class="co-step-head outside"><span class="co-step-n">1</span> Khách hàng</div>
-        <div class="card co-adv-step">
-          {custKey && !changingCust ? (
-            <div class="co-cust-picked adv">
-              <span class="co-avatar" aria-hidden="true">{initial(custName || cust?.name || "?")}</span>
-              <div class="co-prev-cinfo">
-                <b>{custName || cust?.name || custKey}</b>
-                <span class="muted small">
-                  {cust?.price_list_name
-                    ? <>Bảng giá: {cust.price_list_name}{" "}
-                        <button class="co-link" onClick={() => setPlCust(cust!.id)}>Xem giá</button></>
-                    : "Giá chung"}
-                </span>
-              </div>
-              {cust?.debt != null && (
-                <span class={"co-debt" + (cust.debt > 0 ? " owe" : "")}>Nợ {money(cust.debt)}</span>
-              )}
-              {canChange && <button class="btn small ghost" onClick={() => setChangingCust(true)}>Đổi</button>}
-            </div>
-          ) : (
-            <>
-              <CustomerPicker onPick={assignCustomer} placeholder={custKey ? "Tìm khách mới…" : "Gán khách cho đơn…"} />
-              {changingCust
-                ? <button class="btn small ghost" style="margin-top:8px" onClick={() => setChangingCust(false)}>Huỷ đổi khách</button>
-                : <p class="muted small">Chưa gán khách — giá sẽ không tự lấy theo bảng giá.</p>}
-            </>
-          )}
-        </div>
-
-        <div class="co-step-head outside"><span class="co-step-n">2</span> Sản phẩm &amp; hoá đơn</div>
         <InvoiceEditor
           customerId={custKey || undefined}
           invoice={j.invoice || []}

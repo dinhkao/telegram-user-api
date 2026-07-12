@@ -33,7 +33,9 @@ async def api_fix_handler(request: web.Request):
         if not _save_order(conn, thread_id, order):
             return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
     from order_commands_v3 import _auto_parse_fix
-    spawn_tracked("order.auto_parse_fix", _auto_parse_fix(state._client, conn, thread_id, text), {"thread_id": thread_id})
+    # keep_customer (trang sửa hoá đơn): giữ khách đã gán, KHÔNG nhận diện lại từ text
+    reassign = not bool(body.get("keep_customer"))
+    spawn_tracked("order.auto_parse_fix", _auto_parse_fix(state._client, conn, thread_id, text, reassign_customer=reassign), {"thread_id": thread_id})
     # Phát realtime NGAY (auto_parse chỉ emit khi có invoice; sửa text không SP sẽ mất push)
     from server_app.realtime import emit_order_changed
     emit_order_changed(thread_id)

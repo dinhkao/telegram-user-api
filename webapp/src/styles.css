@@ -2030,6 +2030,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .co-cust { margin-bottom: 8px; }
 .co-cust-picked { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-md); padding: 8px 10px; margin-top: 4px; }
 .co-cust-picked .btn { margin-left: auto; }
+/* Ô khách DÙNG CHUNG trên thanh tab (trang sửa hoá đơn) — cùng 1 khách cho cả 2 tab */
+.ie-cust-bar { margin: 4px 0 10px; }
 .co-cust-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .co-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--primary); color: #fff; font-weight: 700; font-size: .9rem; display: flex; align-items: center; justify-content: center; flex: none; }
 /* Preview + ô nhập nằm trong .co-split:
