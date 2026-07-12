@@ -196,9 +196,11 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
           <div class="stock-line" key={code}>
             <div class="stock-head">
               <b>{code}</b>
+              {!enough && (
               <span class={"stock-onhand" + (lowStock ? " low" : "")} title={lowStock ? "Tồn kho không đủ để xuất nốt phần còn thiếu" : "Tồn hiện tại trong kho"}>
                 Tồn {soVN(onhand)}
               </span>
+            )}
               <span class={enough ? "inv-pick-sum ok" : "inv-pick-sum"}>
                 Đã xuất {soVN(got)}/{soVN(need)}
               </span>
