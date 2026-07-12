@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 
 from aiohttp import web
 
@@ -96,6 +97,8 @@ _EVENT_LABELS = {
     "order.image_deleted": "Xóa ảnh",
     "order.stock_allocated": "Xuất kho cho đơn",
     "order.stock_released": "Thu hồi hàng về kho",
+    "order.stock_confirmed": "Chốt xuất kho",
+    "order.stock_unconfirmed": "Bỏ chốt xuất kho",
     "order.bulk_payment": "Thu tiền gộp",
     "order.changed": "Cập nhật đơn",
 }
@@ -103,8 +106,15 @@ _EVENT_LABELS = {
 # POST dùng để đọc/tính/xem trước, không phải một thao tác xảy ra với đơn.
 _READ_ONLY_POSTS = {
     "/api/order/preview", "/api/order/totals", "/api/order/refresh-view",
+    "/api/order/{id}/stock-pick/lock", "/api/order/{id}/stock-pick/unlock",
+    "/api/order/{id}/invoice-edit/lock", "/api/order/{id}/invoice-edit/unlock",
 }
 _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+_BUSINESS_EVENT_FOR_PATH = {
+    "/api/order/{id}/allocate": "order.stock_allocated",
+    "/api/order/{id}/release": "order.stock_released",
+    "/api/order/{id}/stock-confirm": ("order.stock_confirmed", "order.stock_unconfirmed"),
+}
 
 _TASK_VI = {"soan_hang": "soạn hàng", "ban_hd": "bán HĐ", "giao_hang": "giao hàng",
             "nop_tien": "nộp tiền", "nhan_tien": "nhận tiền",
@@ -158,6 +168,13 @@ def _event_detail(action: str, payload: dict) -> str:
     return ""
 
 
+def _epoch(value) -> float:
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError):
+        return 0
+
+
 def get_order_history(thread_id, limit: int = 60) -> list[dict]:
     conn = _get_connection()
     try:
@@ -173,10 +190,17 @@ def _get_order_history_rows(conn, thread_id, limit: int) -> list[dict]:
         "SELECT ts, actor_id, actor_type, action, source, payload_json, result_json "
         "FROM audit_events WHERE thread_id = ? "
         "AND (scope = 'order' OR (scope IS NULL AND action LIKE 'order.%')) "
+        "AND (action LIKE 'order.%' OR (action = 'http.request' AND "
+        "(source LIKE 'POST %' OR source LIKE 'PUT %' OR source LIKE 'PATCH %' OR source LIKE 'DELETE %'))) "
         "ORDER BY id DESC LIMIT 300",
         (int(thread_id),),
     ).fetchall()
     names = _load_names()
+    event_times: dict[str, list[float]] = {}
+    for row in rows:
+        action = row["action"] or ""
+        if action != "http.request":
+            event_times.setdefault(action, []).append(_epoch(row["ts"]))
     out = []
     for r in rows:
         action = r["action"] or ""
@@ -213,6 +237,11 @@ def _get_order_history_rows(conn, thread_id, limit: int) -> list[dict]:
             continue
         norm = _norm(raw_path.split("?")[0])
         if norm in _READ_ONLY_POSTS:
+            continue
+        explicit = _BUSINESS_EVENT_FOR_PATH.get(norm)
+        explicit_actions = explicit if isinstance(explicit, tuple) else (explicit,) if explicit else ()
+        http_ts = _epoch(r["ts"])
+        if any(abs(http_ts - event_ts) <= 10 for name in explicit_actions for event_ts in event_times.get(name, [])):
             continue
         # Upload/xóa ảnh có event tường minh kèm image_id ngay sau đó; bỏ request
         # HTTP tương ứng để lịch sử không hiện trùng hai dòng.
