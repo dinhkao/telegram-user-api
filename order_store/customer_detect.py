@@ -6,6 +6,8 @@ from vn import vn_normalize
 
 from .search import _CUSTOMER_PATTERNS_TTL, _customer_patterns_cache
 
+_IGNORED_EXACT_PATTERNS = {"liền", "chiều"}
+
 
 def detect_customer_free_text(conn, text: str, *, _patterns=None) -> dict:
     if not text or not text.strip():
@@ -34,6 +36,10 @@ def detect_customer_free_text(conn, text: str, *, _patterns=None) -> dict:
         for pattern in c["patterns"]:
             p = (pattern or "").strip()
             if not p:
+                continue
+            # Hai từ phổ thông này gây gán nhầm khách quá thường xuyên. Chỉ bỏ
+            # đúng pattern có dấu; cụm dài hơn và bản không dấu vẫn được xét.
+            if p.casefold() in _IGNORED_EXACT_PATTERNS:
                 continue
             norm_p = vn_normalize(p)
             if _re.compile(r"(?:^|\s)" + _re.escape(norm_p) + r"(?:$|\s)", _re.IGNORECASE).search(norm_text):

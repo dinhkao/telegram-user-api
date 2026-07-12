@@ -54,6 +54,7 @@ def log_boxes_allocated(items: list[dict], *, actor, actor_type: str) -> None:
         _box_and_place("box.allocated", s, actor, actor_type, extra={
             "order_thread_id": s.get("order_thread_id"), "order_text": s.get("order_text"),
             "taken": s.get("taken")})
+    _log_order_stock("order.stock_allocated", items, actor, actor_type)
 
 
 def log_boxes_released(items: list[dict], *, actor, actor_type: str) -> None:
@@ -61,6 +62,23 @@ def log_boxes_released(items: list[dict], *, actor, actor_type: str) -> None:
         _box_and_place("box.released", s, actor, actor_type, extra={
             "order_thread_id": s.get("order_thread_id"), "order_text": s.get("order_text"),
             "taken": s.get("taken")})
+    _log_order_stock("order.stock_released", items, actor, actor_type)
+
+
+def _log_order_stock(action: str, items: list[dict], actor, actor_type: str) -> None:
+    """Gộp các thùng của cùng một thao tác vào lịch sử của chính đơn hàng."""
+    grouped: dict[int, list[dict]] = {}
+    for s in items:
+        try:
+            tid = int(s.get("order_thread_id"))
+        except (TypeError, ValueError):
+            continue
+        grouped.setdefault(tid, []).append({
+            "box_id": s.get("box_id"), "box_code": s.get("box_code"),
+            "product_code": s.get("product_code"), "taken": s.get("taken"),
+        })
+    for tid, boxes in grouped.items():
+        _emit(action, "order", tid, actor, actor_type, {"boxes": boxes})
 
 
 def log_boxes_consumed(snaps: list[dict], *, target_code, slip_id, actor, actor_type: str) -> None:

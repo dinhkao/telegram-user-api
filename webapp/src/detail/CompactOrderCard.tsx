@@ -10,15 +10,18 @@ const TASK_LABELS = ["HĐ", "Soạn", "Giao", "Nộp", "Nhận"];
 export function TaskBadges({ o }: { o: any }) {
   const icons = [...(o.task_icons || "")];
   const fallback: boolean[] = [false, o.soan, o.giao, o.nop, o.nhan];
+  const nopCode = String(o.nop_note || "").toLowerCase().split(";")[0];
   // Nộp xong kiểu ký toa → bước 5 là "Gửi toa" (icon xong = 📄, server đã render)
-  const guiToa = !!o.nop && ["co_ky_toa", "khong_ky_toa"].includes(String(o.nop_note || "").toLowerCase());
+  const guiToa = !!o.nop && ["co_ky_toa", "khong_ky_toa"].includes(nopCode);
   return (
     <span class="badges">
       {TASK_LABELS.map((label0, i) => {
         const label = i === 4 && guiToa ? "Gửi toa" : label0;
+        const rawIcon = icons[i] || (fallback[i] ? "✅" : "❌");
+        const icon = i === 3 && rawIcon === "✅" && nopCode !== "tra_tien_mat" ? "📄" : rawIcon;
         return (
         <span class="tstat" key={label0}>
-          <span class="tico">{icons[i] || (fallback[i] ? "✅" : "❌")}</span>
+          <span class="tico">{icon}</span>
           <span class="tlbl">{label}</span>
         </span>
         );

@@ -137,7 +137,7 @@ async def import_sent_image(thread_id, file_bytes: bytes, tg_message_id, uploade
     push_bg("🖼 Ảnh mới", f"{uploaded_by} thêm ảnh vào đơn", {"thread_id": str(thread_id), "type": "image", "image_id": str(img["id"])})
     from audit_log import async_log_event
     await async_log_event("order.image_added", actor_type="telegram", actor_id=uploaded_by,
-                          thread_id=int(thread_id), payload={"image_id": img["id"]})
+                          scope="order", thread_id=int(thread_id), payload={"image_id": img["id"]})
     log.info("nhập ảnh send-file→web ok thread=%s msg=%s by=%s", thread_id, tg_message_id, uploaded_by)
     return img
 
@@ -214,5 +214,5 @@ def register_inbound_photo_sync(client) -> None:
         # Ghi vào lịch sử thao tác (kèm id ảnh để hiện thumbnail)
         from audit_log import async_log_event
         await async_log_event("order.image_added", actor_type="telegram", actor_id=who,
-                              thread_id=int(thread_id), payload={"image_id": saved["id"]})
+                              scope="order", thread_id=int(thread_id), payload={"image_id": saved["id"]})
         log.info("nhập ảnh topic→web ok thread=%s msg=%s by=%s", thread_id, mid, who)

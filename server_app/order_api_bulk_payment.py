@@ -1,8 +1,8 @@
 """Thu tiền GỘP nhiều đơn của 1 khách trong 1 giao dịch (bulk payment).
 
 Người dùng mở từ chi tiết 1 đơn → trang #/order/:id/thanh-toan lấy khách của đơn
-đó + MỌI đơn của khách CHƯA có thanh toán (cũ→mới) → nhập 1 tổng số tiền → tự phân
-bổ đơn cũ trước (payment_store.domain.allocate_payment). Xác nhận:
+đó + MỌI đơn của khách CHƯA có thanh toán → người dùng chọn các đơn muốn thu, nhập
+1 tổng số tiền → client phân bổ theo chiều sắp xếp người dùng chọn. Xác nhận:
   • Tạo ĐÚNG 1 phiếu đặt hàng + thanh toán KiotViet cho TOÀN BỘ số tiền.
   • Chia thành N phiếu thu local (mỗi đơn 1 phiếu) cùng 1 payment_batch_id + cùng
     kiotvietData → xoá batch chỉ xoá KiotViet 1 lần (order_api_payments).
@@ -130,7 +130,8 @@ async def payment_context_handler(request: web.Request):
             "customer": {"key": str(kh_id_fb), "name": kh_name, "kv_id": kv_id, "debt": debt},
             "orders": orders,
             "hidden_orders": hidden,
-            "total_debt": sum(o["debt"] for o in orders),
+            # Tổng nợ là snapshot trên khách, KHÔNG cộng từ danh sách đơn bên dưới.
+            "total_debt": debt if debt is not None else 0,
         }
 
     res = await asyncio.to_thread(_run)
@@ -343,9 +344,26 @@ async def bulk_payment_handler(request: web.Request):
         # dữ liệu đổi đồng thời / đơn không hợp lệ → 409 để client biết cần tải lại
         return web.json_response({"ok": False, "error": result["error"]}, status=409)
 
+    # Một giao dịch thu gộp làm thay đổi N đơn: ghi event riêng cho TỪNG đơn,
+    # thay vì chỉ dựa vào request HTTP vốn không có một thread_id duy nhất.
+    from audit_log import async_log_event
+    from server_app.tasks import spawn_tracked
+    audit_actor = str(request.get("web_user") or body.get("user_id") or "web")
+    for allocation in result["allocations"]:
+        tid = int(allocation["thread_id"])
+        spawn_tracked("audit.order_bulk_payment", async_log_event(
+            "order.bulk_payment", scope="order", thread_id=tid,
+            actor_type="web_user" if request.get("web_user") else "http_client",
+            actor_id=audit_actor, source="order.payment.bulk",
+            payload={
+                "amount": allocation["amount"], "method": result["method"],
+                "batch_id": result["batch_id"],
+                "source_thread_id": result["source_thread_id"],
+            },
+        ), {"thread_id": tid, "batch_id": result["batch_id"]})
+
     # Phiếu thu PNG + thông báo cho ĐƠN NGUỒN (tổng giao dịch) — chạy nền, không chặn.
     from server_app import state
-    from server_app.tasks import spawn_tracked
     try:
         from server_app.receipt_image import add_receipt_image_to_gallery
         spawn_tracked("bulkpay.receipt.gallery", add_receipt_image_to_gallery(

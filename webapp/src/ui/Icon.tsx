@@ -8,6 +8,7 @@ const PATHS: Record<string, JSX.Element> = {
   plus: <><path d="M12 5v14M5 12h14" /></>,
   close: <><path d="M18 6 6 18M6 6l12 12" /></>,
   check: <><path d="M20 6 9 17l-5-5" /></>,
+  sort: <><path d="M8 6h12M8 12h9M8 18h6" /><path d="m4 4-2 2 2 2M2 6v12m0 0 2-2m-2 2 2 2" /></>,
   back: <><path d="M19 12H5M12 19l-7-7 7-7" /></>,
   chevronRight: <><path d="m9 18 6-6-6-6" /></>,
   chevronDown: <><path d="m6 9 6 6 6-6" /></>,

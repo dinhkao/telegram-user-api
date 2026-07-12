@@ -191,7 +191,7 @@ async def images_upload_handler(request: web.Request):
     from audit_log import async_log_event
     spawn_tracked("audit.image_added", async_log_event(
         "order.image_added", actor_type="web", actor_id=uploaded_by,
-        thread_id=thread_id, payload={"image_id": image["id"]}))
+        scope="order", thread_id=thread_id, payload={"image_id": image["id"]}))
     # Forward ảnh vào topic Telegram của đơn (nền, không chặn/không làm hỏng upload)
     from server_app.order_photo_sync import forward_web_image_to_topic
     fp = _safe_path(thread_id, image["filename"])
@@ -226,7 +226,7 @@ async def images_delete_handler(request: web.Request):
     from audit_log import async_log_event
     spawn_tracked("audit.image_deleted", async_log_event(
         "order.image_deleted", actor_type="web", actor_id=deleted_by,
-        thread_id=thread_id, payload={"image_id": image_id}))
+        scope="order", thread_id=thread_id, payload={"image_id": image_id}))
     return web.json_response({"ok": True})
 
 

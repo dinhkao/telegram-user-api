@@ -113,7 +113,6 @@ export function InventoryList() {
               <span class="muted small">tồn · {p.in_stock_count} thùng</span>
             </div>
             <div class="inv-card-tags">
-              {p.allocated_count > 0 && <span class="inv-tag alloc">Đã xuất {p.allocated_count}</span>}
               {p.shipped_count > 0 && <span class="inv-tag ship">Đã giao {p.shipped_count}</span>}
             </div>
           </a>

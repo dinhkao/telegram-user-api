@@ -269,10 +269,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const guiToa = !!(ts.nop_tien || {}).done && (_nopNote === "co_ky_toa" || _nopNote === "khong_ky_toa");
   const TASK_STEPS: [string, string][] = [["ban_hd", "Bán HĐ"], ["soan_hang", "Soạn"], ["giao_hang", "Giao"], ["nop_tien", "Nộp"], ["nhan_tien", guiToa ? "Gửi toa" : "Nhận"]];
   const stepIcon = (tt: string, st: any): string => {
-    const note = String(st?.note || "").toLowerCase();
+    const note = String(st?.note || "").toLowerCase().split(";")[0];
     if (tt === "nhan_tien" && st?.done && (guiToa || note === "gtr")) return "📄";
     if (tt === "nop_tien" && !st?.done && note === "chieu_lay_tien") return "🟨";
     if (st?.done && st?.skip) return "🔘";
+    if (tt === "nop_tien" && st?.done && note !== "tra_tien_mat") return "📄";
     if (st?.done) return "✅";
     return "❌";
   };

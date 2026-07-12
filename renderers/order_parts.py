@@ -7,11 +7,15 @@ def status_icons(task_status: dict) -> str:
     # Nộp tiền xong kiểu KÝ TOA (có/không) → bước 'nhận tiền' thành 'Gửi toa cho
     # khách': xong hiện 📄 thay ✅ (giống note 'gtr' cũ).
     _nop = task_status.get("nop_tien") or {}
-    gui_toa = bool(_nop.get("done")) and str(_nop.get("note", "")).lower().split(";")[0] in ("co_ky_toa", "khong_ky_toa")
+    nop_code = str(_nop.get("note", "")).lower().split(";")[0]
+    gui_toa = bool(_nop.get("done")) and nop_code in ("co_ky_toa", "khong_ky_toa")
     return "".join(
         "📄" if tt == "nhan_tien" and st.get("done") and (gui_toa or str(st.get("note", "")).lower() == "gtr")
         else "🟨" if tt == "nop_tien" and not st.get("done") and str(st.get("note", "")).lower() == "chieu_lay_tien"
         else "🔘" if st.get("done") and st.get("skip")
+        # Nộp tiền chỉ thật sự hoàn tất bằng tiền khi khách trả đủ. Các cách chốt
+        # khác (ký toa, admin chốt nhanh, dữ liệu cũ không note) là chứng từ/toa.
+        else "📄" if tt == "nop_tien" and st.get("done") and nop_code != "tra_tien_mat"
         else "✅" if st.get("done")
         else "❌"
         for tt in ("ban_hd", "soan_hang", "giao_hang", "nop_tien", "nhan_tien")

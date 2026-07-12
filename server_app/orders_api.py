@@ -133,7 +133,8 @@ def _attach_latest_action(conn, orders: list[dict]) -> None:
         return
     try:
         import json
-        from server_app.order_history import _norm, _LABELS, _detail, _actor_display, _load_names
+        from server_app.order_history import (_norm, _LABELS, _EVENT_LABELS, _READ_ONLY_POSTS,
+                                              _event_detail, _detail, _actor_display, _load_names)
         ph = ",".join("?" * len(ids))
         rows = conn.execute(
             f"""SELECT thread_id, ts, source, actor_id, action, payload_json FROM (
@@ -141,7 +142,10 @@ def _attach_latest_action(conn, orders: list[dict]) -> None:
                            ROW_NUMBER() OVER (PARTITION BY thread_id ORDER BY id DESC) rn
                     FROM audit_events
                     WHERE thread_id IN ({ph})
-                      AND (action = 'order.image_added' OR (action = 'http.request' AND source LIKE 'POST %'))
+                      AND (scope = 'order' OR (scope IS NULL AND action LIKE 'order.%'))
+                      AND (action LIKE 'order.%' OR (action = 'http.request' AND
+                           (source LIKE 'POST %' OR source LIKE 'DELETE %' OR
+                            source LIKE 'PUT %' OR source LIKE 'PATCH %')))
                 ) WHERE rn <= 8 ORDER BY thread_id, rn""",
             ids,
         ).fetchall()
@@ -152,16 +156,26 @@ def _attach_latest_action(conn, orders: list[dict]) -> None:
             if tid in best:
                 continue
             detail, changes = "", []
-            if r["action"] == "order.image_added":
-                label = "Thêm ảnh"
+            if r["action"] != "http.request":
+                label = _EVENT_LABELS.get(r["action"], "Cập nhật đơn")
+                try:
+                    payload = json.loads(r["payload_json"] or "{}")
+                    detail = _event_detail(r["action"], payload)
+                    ch = payload.get("changes")
+                    if isinstance(ch, list):
+                        changes = ch
+                except Exception:
+                    pass
             else:
                 src = r["source"] or ""
-                if not src.startswith("POST "):
+                try:
+                    _method, _path = src.split(" ", 1)
+                except ValueError:
                     continue
-                norm = _norm(src[5:].split("?")[0])
-                label = _LABELS.get(norm)
-                if not label:
+                norm = _norm(_path.split("?")[0])
+                if norm in _READ_ONLY_POSTS:
                     continue
+                label = _LABELS.get(norm, "Cập nhật đơn")
                 try:
                     payload = json.loads(r["payload_json"] or "{}")
                     b = payload.get("body")

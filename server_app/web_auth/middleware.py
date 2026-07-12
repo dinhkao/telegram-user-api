@@ -52,4 +52,10 @@ async def web_auth_middleware(request: web.Request, handler):
             request["web_user"] = username
     if WEB_AUTH_ENABLED and not is_exempt(request.method, request.path, request.remote) and "web_user" not in request:
         return web.json_response({"ok": False, "error": "unauthorized"}, status=401)
-    return await handler(request)
+    from order_store.mutation_audit import reset_actor, set_actor
+    actor = request.get("web_user") or request.remote or "Hệ thống"
+    token = set_actor("web_user" if request.get("web_user") else "http_client", actor)
+    try:
+        return await handler(request)
+    finally:
+        reset_actor(token)

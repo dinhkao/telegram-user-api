@@ -242,7 +242,8 @@ export type DebtOrder = {
   text?: string; task_icons?: string; thumb_image_id?: number | null; image_count?: number;
   bypass_debt?: boolean;
 };
-/** Ngữ cảnh thu tiền của 1 đơn: khách + mọi đơn đang nợ (cũ→mới). */
+/** Ngữ cảnh thu tiền của 1 đơn: khách + mọi đơn đang nợ (cũ→mới).
+ *  total_debt là snapshot customer.debt, không phải tổng các đơn. */
 export type PaymentContext = {
   source_thread_id: number;
   customer: { key: string; name: string; kv_id: number | null; debt?: number | null };

@@ -27,10 +27,13 @@ def _get_order_firebase_key(conn, thread_id: int) -> str | None:
 
 def _save_order(conn, thread_id: int, data: dict) -> bool:
     try:
+        before = get_order_by_thread_id(conn, thread_id)
         conn.execute(
             "UPDATE orders SET json = ?, updated_at = ? WHERE thread_id = ? AND deleted_at IS NULL",
             (json.dumps(data, ensure_ascii=False), int(time.time() * 1000), thread_id),
         )
+        from .mutation_audit import record_order_change
+        record_order_change(conn, thread_id, before, data)
         return True
     except Exception as e:
         log.error("Failed to save order thread=%d: %s", thread_id, e)
@@ -39,6 +42,7 @@ def _save_order(conn, thread_id: int, data: dict) -> bool:
 
 def _update_order_json_field(conn, thread_id: int, field_path: str, value) -> bool:
     try:
+        before = get_order_by_thread_id(conn, thread_id)
         # JSON-encode EVERY value, not just dict/list. A bare string previously
         # became json('Anh Tú') — malformed JSON — so string writes (e.g.
         # $.customer_name, string customer IDs) silently failed. json.dumps makes
@@ -48,6 +52,9 @@ def _update_order_json_field(conn, thread_id: int, field_path: str, value) -> bo
             "UPDATE orders SET json = json_set(json, ?, json(?)), updated_at = ? WHERE thread_id = ? AND deleted_at IS NULL",
             (field_path, sql_val, int(time.time() * 1000), thread_id),
         )
+        after = get_order_by_thread_id(conn, thread_id)
+        from .mutation_audit import record_order_change
+        record_order_change(conn, thread_id, before, after)
         return True
     except Exception as e:
         log.error("Failed to update %s for thread=%d: %s", field_path, thread_id, e)

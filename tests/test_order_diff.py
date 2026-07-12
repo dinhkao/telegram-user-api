@@ -10,6 +10,8 @@ def test_is_order_mutation():
     assert is_order_mutation("POST", "/api/order/invoice/update")
     assert is_order_mutation("POST", "/api/order/123/task_status/clear")
     assert is_order_mutation("POST", "/api/order/-100/task_status/clear")
+    assert is_order_mutation("POST", "/api/order/123/custom-task")
+    assert is_order_mutation("DELETE", "/api/order/123")
     assert not is_order_mutation("POST", "/api/order/reply")          # read-only
     assert not is_order_mutation("POST", "/api/order/preview")
     assert not is_order_mutation("GET", "/api/order/invoice/update")  # không phải POST
