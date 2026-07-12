@@ -29,6 +29,7 @@ from server_app.order_api_create import order_create_handler
 from server_app.order_api_delete import order_delete_handler
 from server_app.order_api_mutations import api_assign_customer_handler, api_fix_handler, api_invoice_update_handler, api_refresh_handler, api_reply_handler, api_set_ngay_giao_handler, api_set_no_track_handler
 from server_app.order_api_payments import api_customer_price_handler, order_totals_handler, payment_ck_handler, payment_delete_handler, payment_tm_handler
+from server_app.order_api_debt_suggest import api_debt_suggest_handler
 from server_app.order_api_bulk_payment import bulk_payment_handler, payment_context_handler
 from server_app.order_api_print import api_print_giao_handler
 from server_app.order_api_tasks import _make_task_handler, api_task_handler, api_task_status_clear_handler
@@ -162,6 +163,7 @@ def create_app():
     r.add_post("/api/order/assign-customer", api_assign_customer_handler)
     r.add_post("/api/order/ngay-giao", api_set_ngay_giao_handler)
     r.add_post("/api/order/no-track", api_set_no_track_handler)
+    r.add_get("/api/order/{thread_id}/debt-suggest", api_debt_suggest_handler)
     r.add_post("/api/order/invoice/create-kiotviet", api_create_invoice_handler)
     r.add_post("/api/order/invoice/delete-kiotviet", api_delete_invoice_handler)
     r.add_post("/api/order/refresh-debt", api_refresh_debt_handler)

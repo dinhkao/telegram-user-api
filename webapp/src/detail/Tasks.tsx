@@ -7,6 +7,7 @@ import { fmtTime } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 import { NopTienWizard } from "./NopTienWizard";
 import { SoanHangPicker } from "./SoanHangPicker";
+import { suggestNoTrackOldOrders } from "./suggestNoTrack";
 import { PhotoViewer } from "./PhotoViewer";
 import { Icon } from "../ui/Icon";
 
@@ -42,8 +43,11 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged,
     setBusy(type);
     try {
       const r = await postJSON("/api/order/task", { thread_id: Number(threadId), type }, { queueable: true });
-      if (!r._queued) onChanged();
-      else toast("📴 Đã lưu, sẽ gửi khi có mạng", "ok");
+      if (!r._queued) {
+        onChanged();
+        // Nhận tiền / Gửi toa xong → gợi ý bỏ theo dõi nợ các đơn CŨ của khách
+        if (type === "nhan_tien") suggestNoTrackOldOrders(threadId);
+      } else toast("📴 Đã lưu, sẽ gửi khi có mạng", "ok");
     } catch (ex: any) {
       toast(ex.message, "err");
     } finally {
