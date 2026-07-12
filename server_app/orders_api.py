@@ -436,6 +436,13 @@ async def order_detail_handler(request: web.Request):
             user_names = {i: USER_NAMES[i] for i in ids if i in USER_NAMES}
         except Exception:
             pass
-        return web.json_response({"key": row["firebase_key"], "thread_id": row["thread_id"], "channel_id": row["channel_id"], "message_id": row["message_id"], "updated_at": row["updated_at"], "data": j, "chat_messages": [dict(r) for r in chat_rows], "user_names": user_names})
+        # id việc MIRROR (order_step/order_custom) theo step_key → Tiến độ link tới chi tiết việc
+        task_ids: dict = {}
+        try:
+            from task_store.queries import mirror_ids_for_thread
+            task_ids = mirror_ids_for_thread(int(row["thread_id"]))
+        except Exception:
+            pass
+        return web.json_response({"key": row["firebase_key"], "thread_id": row["thread_id"], "channel_id": row["channel_id"], "message_id": row["message_id"], "updated_at": row["updated_at"], "data": j, "chat_messages": [dict(r) for r in chat_rows], "user_names": user_names, "task_ids": task_ids})
     finally:
         conn.close()

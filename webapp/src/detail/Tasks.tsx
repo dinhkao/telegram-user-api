@@ -29,7 +29,7 @@ const NOP_NOTE_LABEL: Record<string, string> = {
 
 type CustomTask = { id: string; label: string };
 
-export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged, onAddPhoto }: { threadId: string; taskStatus: any; customTasks?: CustomTask[]; userNames?: Record<string, string>; onChanged: () => void; onAddPhoto?: () => void }) {
+export function Tasks({ threadId, taskStatus, customTasks, userNames, taskIds, onChanged, onAddPhoto }: { threadId: string; taskStatus: any; customTasks?: CustomTask[]; userNames?: Record<string, string>; taskIds?: Record<string, number>; onChanged: () => void; onAddPhoto?: () => void }) {
   const [busy, setBusy] = useState("");
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
@@ -135,6 +135,14 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged,
     );
   };
 
+  // Nhãn việc: LINK sang chi tiết việc (#/viec/:id) nếu có bản mirror; không thì text.
+  const taskLabel = (key: string, text: string) => {
+    const tid = taskIds?.[key];
+    return tid
+      ? <a class="task-lbl task-link" href={`#/viec/${tid}`} title="Mở chi tiết việc">{text}<Icon name="chevronRight" size={13} class="task-link-chev" /></a>
+      : <span class="task-lbl">{text}</span>;
+  };
+
   return (
     <div class="card">
       <b>Tiến độ</b>
@@ -151,7 +159,7 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged,
           return (
             <li class={"task-row" + (done ? " done" : "")} id={`task-${type}`} key={type}>
               <div class="task-main">
-                <div class="task-head">{done ? doneIcon : "⬜"} <span class="task-lbl">{showLbl}</span></div>
+                <div class="task-head">{done ? doneIcon : "⬜"} {taskLabel(type, showLbl)}</div>
                 {meta(st, type, locked ? "🔒 chỉ văn phòng" : undefined)}
               </div>
               <div class="task-act">
@@ -174,7 +182,7 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, onChanged,
           return (
             <li class={"task-row" + (done ? " done" : "")} key={ct.id}>
               <div class="task-main">
-                <div class="task-head">{done ? "✅" : "⬜"} <span class="task-lbl">{ct.label}</span></div>
+                <div class="task-head">{done ? "✅" : "⬜"} {taskLabel(ct.id, ct.label)}</div>
                 {meta(st)}
               </div>
               <div class="task-act">

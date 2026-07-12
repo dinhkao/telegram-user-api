@@ -41,6 +41,21 @@ def get_task(task_id: int) -> dict | None:
         conn.close()
 
 
+def mirror_ids_for_thread(thread_id: int) -> dict[str, int]:
+    """{step_key: web_task_id} cho các việc MIRROR (order_step + order_custom) của đơn.
+    Dùng để trang chi tiết đơn link mỗi bước/việc tới trang chi tiết việc (#/viec/:id)."""
+    conn = conn_tasks()
+    try:
+        rows = conn.execute(
+            "SELECT step_key, id FROM web_tasks WHERE thread_id = ? AND deleted_at IS NULL "
+            "AND kind IN ('order_step','order_custom') AND step_key IS NOT NULL",
+            (int(thread_id),),
+        ).fetchall()
+        return {r["step_key"]: int(r["id"]) for r in rows}
+    finally:
+        conn.close()
+
+
 _FIELDS = {"title", "note", "assignee", "due_at", "order_label", "thread_id"}
 
 
