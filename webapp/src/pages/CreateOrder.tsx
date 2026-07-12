@@ -49,6 +49,15 @@ export function CreateOrder() {
   const [typing, setTyping] = useState(false);   // ô nhập đang focus (bàn phím bật)
   const taRef = useRef<HTMLTextAreaElement>(null);
 
+  // Đang gõ mà CHẠM ra ngoài textarea (vd bấm vùng preview) → thoát chế độ gõ NGAY.
+  // Layout chia đôi lấp gần hết màn nên chạm-ra-ngoài chỉ còn trúng preview; Android
+  // WebView đôi khi bỏ sót blur gốc → phải chạm 2 lần. Dùng onClick (CHỈ kích khi
+  // chạm, KHÔNG kích khi kéo cuộn danh sách SP) + blur() ép thoát dứt điểm lần đầu.
+  const exitTypingOnOutsideTap = (e: any) => {
+    const ta = taRef.current;
+    if (ta && e.target !== ta) ta.blur();
+  };
+
   // Đang gõ (bàn phím bật) → giấu bottom-nav (body.co-kbd, styles.css) cho ô nhập
   // khỏi bị nav đè trên màn thấp; blur thì nav hiện lại.
   useEffect(() => {
@@ -229,7 +238,7 @@ export function CreateOrder() {
           {/* Bình thường: preview TRÊN ô nhập. Đang gõ: chia đôi màn hình — ô nhập
               TRÁI + preview PHẢI, cả hai cao hết chỗ trên bàn phím, cuộn riêng
               từng ô → không bị cắt. Nút "Tạo" mini trong header preview. */}
-          <div class="co-split">
+          <div class="co-split" onClick={typing ? exitTypingOnOutsideTap : undefined}>
           {(text.trim() || picked) && (
             <div class="co-preview">
               <div class="co-prev-head">
