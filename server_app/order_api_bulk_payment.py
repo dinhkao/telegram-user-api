@@ -47,16 +47,17 @@ def _load_customer_debt_orders(conn, key: str) -> list[dict]:
     """MỌI đơn của khách `key` ĐANG NỢ (chưa có thanh toán), cũ→mới.
 
     Lọc: cùng khách (khach_hang_id hoặc khID), chưa xoá, KHÔNG bỏ theo dõi nợ,
-    chưa có phiếu thu nào, tổng đơn > 0. debt = tổng đơn (như dashboard/feed)."""
+    KHÔNG bypass_debt, chưa có phiếu thu nào, tổng đơn > 0. debt = tổng đơn
+    (như dashboard/feed)."""
     rows = conn.execute(
-        "SELECT o.thread_id tid, o.json FROM orders o WHERE ("
+        "SELECT o.firebase_key, o.thread_id, o.channel_id, o.message_id, o.json, o.updated_at FROM orders o WHERE ("
         " CAST(json_extract(o.json,'$.khach_hang_id') AS TEXT) = ?"
         " OR CAST(json_extract(o.json,'$.khID') AS TEXT) = ? ) AND o.deleted_at IS NULL",
         (key, key),
     ).fetchall()
     out: list[dict] = []
     for r in rows:
-        tid = r["tid"]
+        tid = r["thread_id"]
         if tid is None:
             continue
         try:
@@ -68,19 +69,32 @@ def _load_customer_debt_orders(conn, key: str) -> list[dict]:
         bt = data.get("bo_theo_doi_no")
         if bt in (1, True, "1", "true"):
             continue
+        bypass = data.get("bypass_debt")
+        if bypass in (1, True, "1", "true"):
+            continue
         total = _order_total_num(data)
         if total <= 0:
             continue
+        # Tái dùng đúng shape card dashboard để text, status icons và thumbnail
+        # trên trang thu tiền luôn khớp với danh sách đơn.
+        from server_app.orders_api import _build_order_row
+        card = _build_order_row(r)
         out.append({
             "thread_id": tid,
             "created": data.get("created"),
             "total": total,
             "debt": total,
             "label": _order_label(data),
+            "text": card.get("text") or "",
+            "task_icons": card.get("task_icons") or "",
+            "soan_img_ids": card.get("soan_img_ids") or [],
+            "nop_img_id": card.get("nop_img_id"),
         })
     # cũ → mới (feed dùng created; fallback thread_id để ổn định)
     from server_app.customer_feed import _ts_key
     out.sort(key=lambda o: (_ts_key(o["created"]) or float(o["thread_id"])))
+    from server_app.orders_api import _attach_thumbs
+    _attach_thumbs(conn, out)
     return out
 
 
@@ -205,6 +219,10 @@ async def _process_bulk_payment(source_thread_id: int, method: str, amount: int,
         bt = o.get("bo_theo_doi_no")
         if bt in (1, True, "1", "true"):
             result["error"] = f"Đơn #{tid} đã bỏ theo dõi nợ — tải lại trang"
+            return result
+        bypass = o.get("bypass_debt")
+        if bypass in (1, True, "1", "true"):
+            result["error"] = f"Đơn #{tid} đã được bỏ qua khi thu tiền — tải lại trang"
             return result
         okh = o.get("khach_hang_id") or o.get("khID")
         if str(okh) != str(kh_id_fb):

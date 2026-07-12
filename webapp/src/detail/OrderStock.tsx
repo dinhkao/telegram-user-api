@@ -218,7 +218,10 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
                         onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); doRelease(a); }}>
                         <Icon name="close" size={12} />
                       </button>
-                      <span class="bl-q">{soVN(a.quantity)}{bq ? <span class="bl-q-tot">/{soVN(bq)}</span> : ""}</span>
+                      <span class={"bl-q" + (bq ? " has-total" : "")}>
+                        <span class="bl-q-now">{soVN(a.quantity)}</span>
+                        {bq ? <><span class="bl-q-sep">/</span><span class="bl-q-tot">{soVN(bq)}</span></> : null}
+                      </span>
                       <span class="bl-num">{num}</span>
                     </a>
                   );

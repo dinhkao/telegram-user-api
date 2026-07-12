@@ -4,7 +4,7 @@
 // phiếu thu local. POST /api/order/payment/bulk (cần mạng). Chỉ văn phòng.
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { getPaymentContext, bulkPayment, isOffice, type PaymentContext, type DebtOrder } from "../api";
+import { getPaymentContext, bulkPayment, isOffice, orderImageUrl, type PaymentContext, type DebtOrder } from "../api";
 import { invalidateListCache } from "./OrdersList";
 import { money, parseMoney, fmtDateTimeVN } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -116,11 +116,25 @@ export function OrderPayment({ threadId }: { threadId: string }) {
             <ul class="pay-alloc-list">
               {orders.map((o) => {
                 const take = allocMap.get(o.thread_id) || 0;
+                const icons = [...(o.task_icons || "")];
                 return (
                   <li class={"pay-alloc" + (take > 0 ? " on" : "")} key={o.thread_id}>
-                    <div class="row space">
-                      <a class="pay-alloc-link" href={`#/order/${o.thread_id}`} onClick={(e: any) => e.stopPropagation()}>
-                        Đơn #{o.thread_id}{o.label ? ` · ${o.label}` : ""}
+                    <div class="pay-order-row">
+                      <a class="pay-order-link" href={`#/order/${o.thread_id}`} onClick={(e: any) => e.stopPropagation()}>
+                        {o.thumb_image_id ? (
+                          <span class="pay-order-thumb-wrap">
+                            <img class="pay-order-thumb" src={orderImageUrl(o.thread_id, o.thumb_image_id, "thumb")} loading="lazy" alt="" />
+                            {(o.image_count || 0) > 1 && <span class="pay-order-more">+{(o.image_count || 0) - 1}</span>}
+                          </span>
+                        ) : (
+                          <span class="pay-order-thumb pay-order-ph"><Icon name="receipt" size={22} /></span>
+                        )}
+                        <span class="pay-order-copy">
+                          <span class="pay-order-text">{o.text || o.label || "(đơn không có nội dung)"}</span>
+                          <span class="pay-order-icons" aria-label="Trạng thái đơn">
+                            {icons.length ? icons.map((ic, i) => <span key={i}>{ic}</span>) : <span>······</span>}
+                          </span>
+                        </span>
                       </a>
                       <b class={take > 0 ? "pay-alloc-amt on" : "pay-alloc-amt"}>{take > 0 ? money(take) : "—"}</b>
                     </div>

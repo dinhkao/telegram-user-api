@@ -237,7 +237,10 @@ export type CustFeedItem =
 
 // ── Thu tiền GỘP nhiều đơn (bulk payment) ──────────────────────────────────
 /** 1 đơn đang nợ của khách (chưa có thanh toán) trên trang thu tiền. */
-export type DebtOrder = { thread_id: number; created?: string | null; total: number; debt: number; label?: string };
+export type DebtOrder = {
+  thread_id: number; created?: string | null; total: number; debt: number; label?: string;
+  text?: string; task_icons?: string; thumb_image_id?: number | null; image_count?: number;
+};
 /** Ngữ cảnh thu tiền của 1 đơn: khách + mọi đơn đang nợ (cũ→mới). */
 export type PaymentContext = {
   source_thread_id: number;
@@ -480,6 +483,11 @@ export async function setOrderNgayGiao(threadId: string | number, ngayGiao: stri
 /** Bật/tắt 'Bỏ theo dõi nợ' — bật: đơn chưa thanh toán hiện 😑 và không vào chip lọc Nợ. */
 export async function setOrderNoTrack(threadId: string | number, on: boolean): Promise<void> {
   await postJSON("/api/order/no-track", { thread_id: Number(threadId), on });
+}
+
+/** Chỉ ẩn/hiện đơn trong trang tạo thanh toán; không thay đổi trạng thái theo dõi nợ. */
+export async function setOrderBypassDebt(threadId: string | number, on: boolean): Promise<void> {
+  await postJSON("/api/order/bypass-debt", { thread_id: Number(threadId), on });
 }
 
 /** URL HTML hoá đơn để mở tab mới (kèm token cho WebView/khi bật auth). */

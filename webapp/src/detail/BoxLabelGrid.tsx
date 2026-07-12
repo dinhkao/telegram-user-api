@@ -26,7 +26,10 @@ export function BoxLabelGrid({ boxes, hideCode, dense }: { boxes: KhoBox[]; hide
             title={`${b.box_code} · ${soVN(rm)} ${b.product_unit || "cây"} · ${status}${b.place_name ? ` · ${b.place_name}` : ""}${b.note ? ` · ${b.note}` : ""}`}>
             {b.note && <span class="bl-dot" />}
             {!hideCode && <span class="bl-code">{b.product_code}</span>}
-            <span class="bl-q">{soVN(rm)}{used > 0 ? <span class="bl-q-tot">/{soVN(b.quantity)}</span> : ""}</span>
+            <span class={"bl-q" + (used > 0 ? " has-total" : "")}>
+              <span class="bl-q-now">{soVN(rm)}</span>
+              {used > 0 && <><span class="bl-q-sep">/</span><span class="bl-q-tot">{soVN(b.quantity)}</span></>}
+            </span>
             <span class="bl-num">{num}</span>
           </a>
         );

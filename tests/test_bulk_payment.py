@@ -60,6 +60,7 @@ class LoadCustomerDebtOrders(unittest.TestCase):
         _put(conn, 13, _order(created="2026-07-04T00:00:00", total=50,
                               payments=[{"amount": 10, "id": "p1"}]))       # đã có thanh toán
         _put(conn, 14, _order(created="2026-07-05T00:00:00", total=50, bo_theo_doi_no=1))  # bỏ theo dõi
+        _put(conn, 17, _order(created="2026-07-05T12:00:00", total=60, bypass_debt=True))   # chỉ ẩn khỏi thu tiền
         _put(conn, 15, _order(created="2026-07-06T00:00:00", total=0))     # tổng 0
         _put(conn, 16, _order(created="2026-07-07T00:00:00", total=70), deleted=True)      # đã xoá
 
@@ -67,6 +68,9 @@ class LoadCustomerDebtOrders(unittest.TestCase):
         self.assertEqual([o["thread_id"] for o in got], [11, 12, 10])      # cũ → mới
         self.assertEqual([o["debt"] for o in got], [100, 200, 300])
         self.assertTrue(all(o["debt"] == o["total"] for o in got))
+        self.assertEqual(got[0]["text"], "")
+        self.assertIn("task_icons", got[0])
+        self.assertIn("thumb_image_id", got[0])
 
     def test_matches_khID_alias(self):
         conn = _conn()

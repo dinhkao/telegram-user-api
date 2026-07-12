@@ -783,6 +783,24 @@ body.pv-open { overflow: hidden; }
 .pay-alloc-link { color: var(--primary); text-decoration: none; font-weight: 600; }
 .pay-alloc-amt { color: var(--muted); }
 .pay-alloc-amt.on { color: var(--primary); }
+.pay-order-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pay-order-link { display: flex; align-items: center; gap: 9px; flex: 1 1 auto; min-width: 0; color: inherit; text-decoration: none; }
+.pay-order-thumb-wrap { position: relative; flex: 0 0 58px; width: 58px; height: 58px; }
+.pay-order-thumb { display: flex; align-items: center; justify-content: center; width: 58px; height: 58px; border-radius: 9px;
+  object-fit: cover; box-sizing: border-box; background: var(--bg); border: 1px solid var(--border); color: var(--muted-2); }
+.pay-order-more { position: absolute; right: 3px; bottom: 3px; padding: 1px 4px; border-radius: 5px;
+  background: rgba(20, 24, 31, .78); color: #fff; font-size: .6rem; font-weight: 700; }
+.pay-order-copy { display: flex; flex-direction: column; gap: 5px; flex: 1 1 auto; min-width: 0; }
+.pay-order-text { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  font-size: .9rem; font-weight: 650; line-height: 1.28; color: var(--ink); overflow-wrap: anywhere; }
+.pay-order-icons { display: flex; align-items: center; gap: 3px; min-height: 17px; font-size: .82rem; line-height: 1; }
+.pay-order-icons > span { display: inline-flex; align-items: center; justify-content: center; }
+.pay-order-row .pay-alloc-amt { flex: 0 0 auto; max-width: 34%; text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 420px) {
+  .pay-order-thumb-wrap, .pay-order-thumb { width: 52px; height: 52px; }
+  .pay-order-thumb-wrap { flex-basis: 52px; }
+  .pay-order-row { gap: 7px; }
+}
 /* Tên khách trong chi tiết đơn → link sang trang chi tiết khách */
 .cust-link { color: var(--primary); text-decoration: none; display: inline-flex; align-items: baseline; gap: 4px; }
 .cust-link b { color: inherit; }
@@ -1439,14 +1457,18 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .lbl-grid { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 7px; }
 /* Nhãn thùng (kiểu tem dán): mã SP trên · số cây to giữa · số thùng dưới.
    Layout 3 tầng như tem; MÀU NỀN theo trạng thái (xanh/hổ phách/xám). */
-.box-lbl { position: relative; aspect-ratio: 1; display: grid; grid-template-rows: auto 1fr auto; border: 1.5px solid; border-radius: 10px; overflow: hidden; text-decoration: none; background: var(--card); transition: transform var(--dur) var(--ease); }
+.box-lbl { position: relative; aspect-ratio: 1; display: grid; grid-template-rows: auto 1fr auto; border: 1.5px solid; border-radius: 10px; overflow: hidden; text-decoration: none; background: var(--card); transition: transform var(--dur) var(--ease); container-type: inline-size; }
 .box-lbl:active { transform: scale(.94); }
 /* Mức "bình chứa": nền đổ đầy từ TRÁI theo --fill (remaining/gốc) */
 .box-lbl::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--fill, 100%); background: var(--fill-bg, var(--ok-wash)); z-index: 0; transition: width var(--dur) var(--ease); }
 .box-lbl > * { position: relative; z-index: 1; }
 .box-lbl .bl-code { font-family: var(--mono); font-weight: 700; font-size: .56rem; letter-spacing: -.02em; text-align: center; padding: 3px 2px; border-bottom: 1.5px solid; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .box-lbl .bl-q { display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; }
-.box-lbl .bl-q-tot { align-self: flex-end; font-size: .42em; font-weight: 600; opacity: .55; margin-left: 1px; padding-bottom: .12em; }
+/* Có tỷ lệ: co CẢ cụm theo chiều rộng ô, đủ cho trường hợp tối đa xxx/xxx. */
+.box-lbl .bl-q.has-total { width: 100%; padding-inline: 3px; box-sizing: border-box; white-space: nowrap;
+  font-family: var(--mono); font-size: .78rem; font-size: clamp(.66rem, 17cqw, .92rem); letter-spacing: -.055em; }
+.box-lbl .bl-q-sep { margin-inline: .08em; font-weight: 500; opacity: .46; }
+.box-lbl .bl-q-tot { font-size: 1em; font-weight: 650; opacity: .68; }
 .box-lbl .bl-num { font-family: var(--mono); font-size: .82rem; font-weight: 800; letter-spacing: -.01em; text-align: center; padding: 3px 2px; border-top: 1.5px solid; }
 .box-lbl .bl-dot { position: absolute; top: 21px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 /* no-code: bỏ hàng mã SP (lưới đã group theo SP). dense: ô nhỏ hơn. */
@@ -1455,6 +1477,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .lbl-grid.dense { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; }
 .lbl-grid.dense .box-lbl { border-radius: 8px; }
 .lbl-grid.dense .box-lbl .bl-q { font-size: 1.7rem; }
+.lbl-grid.dense .box-lbl .bl-q.has-total { font-size: .66rem; font-size: clamp(.62rem, 17cqw, .78rem); }
 .lbl-grid.dense .box-lbl .bl-num { font-size: .64rem; padding: 1px 1px; }
 .lbl-grid.dense .box-lbl .bl-code { padding: 1px 2px; }
 .lbl-grid.dense .box-lbl .bl-x { width: 17px; height: 17px; border-radius: 0 7px 0 7px; }

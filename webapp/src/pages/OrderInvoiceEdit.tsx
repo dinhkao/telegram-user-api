@@ -46,7 +46,9 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
     return () => { alive = false; clearTimeout(t); unlockInvoiceEdit(threadId).catch(() => {}); };
   }, [editable, threadId]);
 
-  const goBack = () => { window.location.hash = `#/order/${threadId}`; };
+  // Thay entry "Sửa hoá đơn" bằng trang chi tiết. Nếu chỉ gán location.hash,
+  // trình duyệt sẽ thêm một entry mới và nút Back sẽ mở lại form vừa rời.
+  const goBack = () => { window.location.replace(`#/order/${threadId}`); };
   const saveInvoice = async (payload: EditorPayload) => {
     await postJSON("/api/order/invoice/update", { thread_id: Number(threadId), ...payload });
     invalidateListCache();

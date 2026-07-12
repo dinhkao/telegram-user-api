@@ -3,12 +3,12 @@
 // nằm ở trang riêng. Xoá phiếu thuộc 1 giao dịch gộp (payment_batch_id) → xoá CẢ
 // giao dịch. POST /api/order/payment/delete.
 import { useState } from "preact/hooks";
-import { currentUser, isOffice, postJSON } from "../api";
+import { currentUser, isOffice, postJSON, setOrderBypassDebt } from "../api";
 import { money, fmtDateTimeVN } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 
-export function Payments({ threadId, payments, hasCustomer, onChanged }: { threadId: string; payments: any[]; hasCustomer: boolean; onChanged: () => void }) {
+export function Payments({ threadId, payments, hasCustomer, bypassDebt, onChanged }: { threadId: string; payments: any[]; hasCustomer: boolean; bypassDebt: boolean; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const isAdmin = currentUser()?.role === "admin";
@@ -41,6 +41,19 @@ export function Payments({ threadId, payments, hasCustomer, onChanged }: { threa
     window.location.hash = `#/order/${threadId}/thanh-toan`;
   };
 
+  const toggleBypass = async () => {
+    setBusy(true);
+    try {
+      await setOrderBypassDebt(threadId, !bypassDebt);
+      toast(!bypassDebt ? "Đã ẩn đơn khỏi trang thu tiền" : "Đã đưa đơn lại vào trang thu tiền", "ok");
+      onChanged();
+    } catch (ex: any) {
+      toast(ex?.message || "Không đổi được thiết lập", "err");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div class="card">
       <b>Thanh toán</b>
@@ -70,11 +83,23 @@ export function Payments({ threadId, payments, hasCustomer, onChanged }: { threa
         <p class="muted small">Chưa có thanh toán nào.</p>
       )}
       {msg && <p class="notice" onClick={() => setMsg("")}>{msg}</p>}
+      {bypassDebt && (
+        <p class="notice small"><Icon name="ban" size={14} /> Đơn này được ẩn khỏi trang thu tiền; trạng thái nợ vẫn giữ nguyên.</p>
+      )}
       {office ? (
-        <button class={"btn primary block" + (!hasCustomer ? " faded" : "")}
-          title={hasCustomer ? undefined : "Đơn chưa gán khách"} onClick={goPay}>
-          <Icon name="banknote" size={16} /> Thu tiền
-        </button>
+        <>
+          <button class={"btn primary block" + (!hasCustomer || bypassDebt ? " faded" : "")}
+            title={!hasCustomer ? "Đơn chưa gán khách" : bypassDebt ? "Đơn đang được ẩn khỏi trang thu tiền" : undefined}
+            onClick={() => bypassDebt ? toast("Bật lại đơn trong trang thu tiền trước", "info") : goPay()}>
+            <Icon name="banknote" size={16} /> Thu tiền
+          </button>
+          {payments.length === 0 && (
+            <button class="btn block" disabled={busy} style={{ marginTop: "7px" }} onClick={toggleBypass}>
+              <Icon name={bypassDebt ? "refresh" : "ban"} size={15} />
+              {bypassDebt ? "Đưa lại vào trang thu tiền" : "Ẩn khỏi trang thu tiền"}
+            </button>
+          )}
+        </>
       ) : (
         <p class="muted small">🔒 Chỉ văn phòng mới được thu tiền.</p>
       )}

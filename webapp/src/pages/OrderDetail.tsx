@@ -598,7 +598,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       <OrderStock threadId={threadId} invoice={j.invoice || []} stockConfirmed={j.stock_confirmed || null} />
       </div>
       <div id="od-payments">
-      <Payments threadId={threadId} payments={j.payments || []} hasCustomer={!!(j.khach_hang_id || j.khID)} onChanged={changed} />
+      <Payments threadId={threadId} payments={j.payments || []} hasCustomer={!!(j.khach_hang_id || j.khID)}
+        bypassDebt={!!j.bypass_debt} onChanged={changed} />
       {/* Đơn chưa có thanh toán → cho bỏ theo dõi nợ (😡 → 😑, không vào chip lọc Nợ) */}
       {noPay && (
         <div class="card nt-card">

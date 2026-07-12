@@ -128,6 +128,33 @@ async def api_set_no_track_handler(request: web.Request):
     return web.json_response({"ok": True, "bo_theo_doi_no": on})
 
 
+async def api_set_bypass_debt_handler(request: web.Request):
+    """Bật/tắt cờ riêng ``bypass_debt``. Cờ này CHỈ loại đơn khỏi trang tạo
+    thanh toán; không thay đổi icon nợ, chip lọc nợ hay ``bo_theo_doi_no``."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    thread_id = body.get("thread_id")
+    if not thread_id:
+        return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
+    on = bool(body.get("on"))
+    conn = _get_connection()
+    with transaction(conn):
+        order = get_order_by_thread_id(conn, thread_id)
+        if not order:
+            return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+        if on:
+            order["bypass_debt"] = True
+        else:
+            order.pop("bypass_debt", None)
+        if not _save_order(conn, thread_id, order):
+            return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
+    from server_app.realtime import emit_order_changed
+    emit_order_changed(int(thread_id))
+    return web.json_response({"ok": True, "bypass_debt": on})
+
+
 async def api_invoice_update_handler(request: web.Request):
     try:
         body = await request.json()
