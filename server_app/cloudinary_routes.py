@@ -237,6 +237,11 @@ async def _get_cloudinary_page(
 
 
 async def camera_images_handler(request: web.Request) -> web.Response:
+    # Camera chỉ cho văn phòng (admin/van_phong) — check TRƯỚC khi ghi _last_poll
+    # để poll trái phép không giữ refresher/warming chạy.
+    from server_app.order_api_common import is_office_request
+    if not await is_office_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng xem được camera"}, status=403)
     global _last_poll
     _last_poll = time.monotonic()  # refresher chỉ chạy khi gallery đang được xem
     cursor = (request.query.get("cursor") or "").strip()

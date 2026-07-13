@@ -40,7 +40,7 @@ const GROUPS: Group[] = [
     { label: "Bảng giá", href: "#/bang-gia", icon: "receipt" },
   ] },
   { title: "Hình ảnh", icon: "camera", items: [
-    { label: "Camera 2026", href: "#/camera", icon: "camera" },
+    { label: "Camera 2026", href: "#/camera", icon: "camera", office: true },
   ] },
   { title: "Hệ thống", icon: "settings", items: [
     { label: "Lịch sử thao tác", href: "#/lich-su", icon: "history" },
