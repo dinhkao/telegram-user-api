@@ -22,8 +22,12 @@ export const normalizeHash = (raw: string): string => {
   return "#/" + out.join("/");
 };
 
+// Nhãn = 4 TỪ ĐẦU, số → #: nhãn động kiểu "Lọc đơn của <tên khách>" gộp về
+// "Lọc đơn của" — vừa không ghi tên khách vào stats vừa không nở cardinality
+// (mỗi khách 1 dòng DB thì bảng xếp hạng thành vô nghĩa).
 const cleanLabel = (s: string) =>
-  s.replace(/\s+/g, " ").replace(/\d[\d.,:%/]*/g, "#").trim().slice(0, 48);
+  s.replace(/\s+/g, " ").replace(/\d[\d.,:%/]*/g, "#").trim()
+    .split(" ").slice(0, 4).join(" ").slice(0, 40);
 
 const bump = (kind: Ev["kind"], page: string, label = "") => {
   const key = `${kind}|${page}|${label}`;
@@ -37,7 +41,16 @@ const flush = () => {
   const events = [...buf.values()];
   buf.clear();
   // queueable: mất mạng thì vào offline queue, có mạng gửi lại — không mất đếm.
-  postJSON("/api/usage/batch", { events }, { queueable: true }).catch(() => {});
+  postJSON("/api/usage/batch", { events }, { queueable: true }).catch(() => {
+    // Gửi lỗi (server lỗi / localStorage đầy không queue được) → trả đếm lại
+    // buffer, chu kỳ sau thử tiếp thay vì mất im lặng.
+    for (const event of events) {
+      const key = `${event.kind}|${event.page}|${event.label}`;
+      const cur = buf.get(key);
+      if (cur) cur.n += event.n;
+      else if (buf.size < MAX_KEYS) buf.set(key, event);
+    }
+  });
 };
 
 const labelFor = (el: HTMLElement): string => {
