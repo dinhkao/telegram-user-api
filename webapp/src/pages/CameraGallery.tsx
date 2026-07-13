@@ -349,11 +349,27 @@ export function CameraGallery() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+  // Lazy load khi cuộn: nút "Xem ảnh cũ hơn" vừa là sentinel — lộ ra (trước đáy
+  // 700px) là tự tải trang cũ hơn. Mỗi cursor chỉ auto-tải 1 lần (disconnect ngay),
+  // cursor mới → effect chạy lại gắn observer mới. Nút giữ làm fallback bấm tay.
+  const moreBtn = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const el = moreBtn.current;
+    if (!el || !cursor || loading) return;
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting) || busyRef.current) return;
+      io.disconnect();
+      load(false);
+    }, { rootMargin: "700px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [cursor, loading]);
 
   const rangeActive = !!(rangeFrom || rangeTo);
   const rangeCaption = rangeActive ? `${dateTimeLabel(rangeFrom)} → ${dateTimeLabel(rangeTo)}` : "";
 
-  const groups: { key: string; label: string; images: { image: CameraImage; index: number }[] }[] = [];
+  type Item = { image: CameraImage; index: number };
+  const groups: { key: string; label: string; images: Item[] }[] = [];
   images.forEach((image, index) => {
     const key = dayKey(image.created_at);
     let group = groups[groups.length - 1];
@@ -364,15 +380,56 @@ export function CameraGallery() {
     group.images.push({ image, index });
   });
 
+  // Chế độ SONG SONG (không lọc kênh): 2 cột = 2 camera, ảnh CÙNG THỜI ĐIỂM nằm
+  // cạnh nhau để lướt dọc so sánh. 2 camera chụp mỗi ~10s lệch nhau ≤2s (đo thật)
+  // → ghép cặp khi lệch ≤5s; thiếu bên nào để ô trống giữ hàng thẳng.
+  const paired = !selectedChannel;
+  const leftId = channels[0]?.id || "channel_11";
+  const rightId = channels[1]?.id || "channel_14";
+  const PAIR_MS = 5000;
+  type Row = { left?: Item; right?: Item; full?: Item };
+  const pairRows = (items: Item[]): Row[] => {
+    const rows: Row[] = [];
+    const lefts = items.filter((it) => it.image.channel === leftId);
+    const rights = items.filter((it) => it.image.channel === rightId);
+    let li = 0, ri = 0;
+    while (li < lefts.length || ri < rights.length) {
+      const l = lefts[li], r = rights[ri];
+      if (l && r) {
+        const dt = Date.parse(l.image.created_at || "") - Date.parse(r.image.created_at || "");
+        if (Math.abs(dt) <= PAIR_MS) { rows.push({ left: l, right: r }); li++; ri++; }
+        else if (dt >= 0) { rows.push({ left: l }); li++; }
+        else { rows.push({ right: r }); ri++; }
+      } else if (l) { rows.push({ left: l }); li++; }
+      else { rows.push({ right: r! }); ri++; }
+    }
+    for (const it of items) // ảnh kênh lạ (hiếm): hàng riêng tràn 2 cột
+      if (it.image.channel !== leftId && it.image.channel !== rightId) rows.push({ full: it });
+    return rows;
+  };
+  const dayData = groups.map((group) => ({ ...group, rows: paired ? pairRows(group.images) : null }));
+
   // Ước lượng chiều cao section cho contain-intrinsic-size (content-visibility: auto):
-  // gallery ngang = viewport − 20px padding, grid 3 cột (<520px) / 4 cột, gap 3px,
-  // ô vuông, header nhóm ≈ 25px. Sau lần paint đầu, từ khoá `auto` nhớ size thật.
+  // gallery ngang = viewport − 20px padding, header nhóm ≈ 25px, gap 3px. Song song:
+  // 2 cột ô 16:9; lọc 1 kênh: grid 3 cột (<520px) / 4 cột ô vuông. Sau lần paint
+  // đầu, từ khoá `auto` nhớ size thật.
   const gridCols = viewWidth >= 520 ? 4 : 3;
   const gridCell = (viewWidth - 20 - (gridCols - 1) * 3) / gridCols;
-  const dayHeight = (count: number) => {
-    const rows = Math.ceil(count / gridCols);
-    return Math.round(25 + rows * gridCell + (rows - 1) * 3);
+  const pairCellH = ((viewWidth - 20 - 3) / 2) * 9 / 16;
+  const dayHeight = (group: { images: Item[]; rows: Row[] | null }) => {
+    const rows = group.rows ? group.rows.length : Math.ceil(group.images.length / gridCols);
+    const cellH = group.rows ? pairCellH : gridCell;
+    return Math.round(25 + rows * cellH + (rows - 1) * 3);
   };
+
+  // 1 ô ảnh (gọi hàm, không phải component — giữ nguyên cây DOM khi diff).
+  const cell = (item: Item | undefined, emptyKey: string) => item ? (
+    <button class="camera-shot-card" key={item.image.id} onClick={() => setViewer(item.index)} aria-label={`Xem ${item.image.name}`}>
+      <img src={item.image.thumbnail_url} alt="" loading={item.index < 6 ? "eager" : "lazy"}
+        fetchPriority={item.index < 3 ? "high" : "auto"} decoding="async" />
+      <span class="camera-shot-time">{timeLabel(item.image.created_at)}</span>
+    </button>
+  ) : <div class="camera-pair-empty" key={emptyKey} aria-hidden="true" />;
 
   return (
     <div class="camera-gallery">
@@ -381,7 +438,7 @@ export function CameraGallery() {
         <div class="camera-hero-copy">
           <span class="camera-kicker">CLOUD CAMERA</span>
           <b>{loading ? "Đang mở cuộn phim…" : total > images.length ? `${images.length} / ${total} ảnh đã tải` : `${images.length} ảnh`}</b>
-          <small>{rangeActive ? rangeCaption : "channel_11 + channel_14 · tự cập nhật 10 giây"}</small>
+          <small>{rangeActive ? rangeCaption : "2 camera song song · tự cập nhật 10 giây"}</small>
         </div>
         <span class={rangeActive ? "camera-live history" : syncing ? "camera-live syncing" : "camera-live"}><i />{rangeActive ? "Lịch sử" : syncing ? "Đang đồng bộ" : "Trực tiếp"}</span>
         <button class="camera-refresh" onClick={() => rangeActive ? load(true) : refreshLatest()} disabled={loading || syncing} title="Làm mới"><Icon name="refresh" size={19} /></button>
@@ -403,24 +460,46 @@ export function CameraGallery() {
 
       {loading ? <Loading label="Đang lấy ảnh từ Cloudinary…" /> : error ? <ErrorState msg={error} onRetry={() => load(true)} /> : images.length === 0 ? (
         <div class="camera-empty"><Icon name="camera" size={38} /><b>Chưa có ảnh</b><span>{rangeActive ? "Không có ảnh trong khoảng thời gian này." : "Thư mục camera_2026 đang trống."}</span></div>
-      ) : groups.map((group) => (
-        <section class="camera-day" key={group.key} style={`contain-intrinsic-size: auto ${dayHeight(group.images.length)}px`}>
-          <div class="camera-day-head"><b>{group.label}</b><span>{group.images.length} ảnh</span></div>
-          <div class="camera-grid">
-            {group.images.map(({ image, index }) => (
-              <button class="camera-shot-card" key={image.id} onClick={() => setViewer(index)} aria-label={`Xem ${image.name}`}>
-                <img src={image.thumbnail_url} alt="" loading={index < 6 ? "eager" : "lazy"}
-                  fetchPriority={index < 3 ? "high" : "auto"} decoding="async" />
-                <span class="camera-shot-time">{timeLabel(image.created_at)}</span>
-                <span class="camera-shot-source">{image.channel.replace("_", " ")}</span>
-              </button>
-            ))}
+      ) : (<>
+        {paired && (
+          <div class="camera-pair-head" aria-hidden="true">
+            <span>{channels.find((c) => c.id === leftId)?.label || leftId.replace("_", " ")}</span>
+            <span>{channels.find((c) => c.id === rightId)?.label || rightId.replace("_", " ")}</span>
           </div>
-        </section>
-      ))}
+        )}
+        {dayData.map((group) => (
+          <section class="camera-day" key={group.key} style={`contain-intrinsic-size: auto ${dayHeight(group)}px`}>
+            <div class="camera-day-head"><b>{group.label}</b><span>{group.images.length} ảnh</span></div>
+            {group.rows ? (
+              <div class="camera-pair-grid">
+                {group.rows.flatMap((row) => row.full ? [
+                  <button class="camera-shot-card camera-pair-full" key={row.full.image.id} onClick={() => setViewer(row.full!.index)} aria-label={`Xem ${row.full.image.name}`}>
+                    <img src={row.full.image.thumbnail_url} alt="" loading="lazy" decoding="async" />
+                    <span class="camera-shot-time">{timeLabel(row.full.image.created_at)}</span>
+                    <span class="camera-shot-source">{row.full.image.channel.replace("_", " ") || row.full.image.account_label}</span>
+                  </button>,
+                ] : [
+                  cell(row.left, `e:${row.right?.image.id}`),
+                  cell(row.right, `E:${row.left?.image.id}`),
+                ])}
+              </div>
+            ) : (
+              <div class="camera-grid">
+                {group.images.map(({ image, index }) => (
+                  <button class="camera-shot-card" key={image.id} onClick={() => setViewer(index)} aria-label={`Xem ${image.name}`}>
+                    <img src={image.thumbnail_url} alt="" loading={index < 6 ? "eager" : "lazy"}
+                      fetchPriority={index < 3 ? "high" : "auto"} decoding="async" />
+                    <span class="camera-shot-time">{timeLabel(image.created_at)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        ))}
+      </>)}
 
       {!loading && cursor && (
-        <button class="camera-more" onClick={() => load(false)} disabled={more}>
+        <button class="camera-more" ref={moreBtn} onClick={() => load(false)} disabled={more}>
           {more ? <LoadingInline label="Đang tải thêm…" /> : <>Xem ảnh cũ hơn <Icon name="chevronDown" size={18} /></>}
         </button>
       )}

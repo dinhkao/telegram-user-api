@@ -2391,6 +2391,15 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
 .camera-day-head b { font-size: .87rem; text-transform: capitalize; }
 .camera-day-head span { color: #71837a; font: .68rem ui-monospace, SFMono-Regular, monospace; }
 .camera-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 3px; border-radius: 13px; overflow: hidden; background: #25302b; }
+/* Chế độ 2 camera song song: mỗi hàng = 1 thời điểm, trái/phải = 2 kênh. Ô 16:9
+   (khớp khung camera 1920×1080 → không crop); thiếu ảnh bên nào thì ô trống sọc chéo
+   giữ hàng thẳng. Nhãn cột sticky ngay dưới thanh lọc kênh (top 72px + ~44px). */
+.camera-pair-head { position: sticky; top: 116px; z-index: 6; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin: 0 0 8px; }
+.camera-pair-head span { padding: 6px 0; text-align: center; color: #8fe6b4; background: rgba(18,26,22,.93); border: 1px solid #2c3b34; border-radius: 9px; font: 700 .72rem/1 ui-monospace, SFMono-Regular, monospace; text-transform: uppercase; letter-spacing: .5px; backdrop-filter: blur(4px); }
+.camera-pair-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; border-radius: 13px; overflow: hidden; background: #25302b; }
+.camera-pair-grid .camera-shot-card { aspect-ratio: 16/9; }
+.camera-pair-grid .camera-pair-full { grid-column: 1 / -1; }
+.camera-pair-empty { aspect-ratio: 16/9; min-width: 0; background: repeating-linear-gradient(45deg, #1b241f 0 9px, #171f1b 9px 18px); }
 .camera-shot-card { position: relative; aspect-ratio: 1; min-width: 0; padding: 0; border: 0; background: #26312c; overflow: hidden; cursor: zoom-in; }
 .camera-shot-card img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .22s var(--ease), filter .22s; }
 .camera-shot-card:active img { transform: scale(.96); filter: brightness(.72); }

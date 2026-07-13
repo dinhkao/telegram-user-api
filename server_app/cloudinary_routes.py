@@ -128,9 +128,9 @@ def _camera_image(
         "width": int(resource.get("width") or 0),
         "height": int(resource.get("height") or 0),
         "bytes": int(resource.get("bytes") or 0),
-        # Ô lưới tối đa ~160 CSS px: 320px đủ nét cả màn Retina 2x. Không crop
+        # Layout 2 camera song song: ô ~183 CSS px → 480px đủ nét DPR 2-3. Không crop
         # AI g_auto (CSS object-fit đã crop) → derived asset tạo nhanh và nhẹ hơn.
-        "thumbnail_url": _delivery_variant(url, "f_auto,q_auto:low,c_limit,w_320"),
+        "thumbnail_url": _delivery_variant(url, "f_auto,q_auto:low,c_limit,w_480"),
         # 1280px đủ cho viewport app 640px ở DPR 2; nhẹ hơn khoảng một nửa bản
         # 1800px. Viewer hiện thumbnail ngay trong lúc bản nét được tạo/tải.
         "preview_url": _delivery_variant(url, "f_auto,q_auto:eco,c_limit,w_1280,h_1280"),

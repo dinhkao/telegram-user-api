@@ -33,7 +33,7 @@ class CloudinaryRoutesTest(unittest.TestCase):
         self.assertEqual(image["name"], "cam-01")
         self.assertNotIn("api_key", image)
         self.assertIn("q_auto:low", image["thumbnail_url"])
-        self.assertIn("w_320", image["thumbnail_url"])
+        self.assertIn("w_480", image["thumbnail_url"])
         self.assertNotIn("g_auto", image["thumbnail_url"])
         self.assertIn("c_limit", image["preview_url"])
         self.assertIn("q_auto:eco", image["preview_url"])
