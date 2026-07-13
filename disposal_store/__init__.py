@@ -94,6 +94,64 @@ def list_disposals(conn, *, limit: int = 200) -> list[dict]:
     return [_row_to_slip(r) for r in rows]
 
 
+def backfill_timeline_events(conn) -> int:
+    """Bù sự kiện timeline cho phiếu hủy tạo trước khi có audit theo thùng/vị trí.
+
+    Idempotent theo (action, scope, box, disposal_id). Vị trí lấy từ thùng hiện tại;
+    đây là best-effort cho dữ liệu cũ, còn mọi phiếu mới được route chụp chính xác.
+    """
+    ensure_table(conn)
+    made = 0
+    rows = conn.execute("SELECT * FROM disposal_slips ORDER BY id").fetchall()
+    for row in rows:
+        slip = _row_to_slip(row)
+        for item in slip.get("items") or []:
+            try:
+                box_id = int(item.get("box_id"))
+                taken = float(item.get("quantity") or 0)
+            except (AttributeError, TypeError, ValueError):
+                continue
+            b = conn.execute(
+                "SELECT b.id, b.box_code, COALESCE(p.code,b.product_code) product_code, "
+                "b.quantity, b.place_id FROM inventory_boxes b "
+                "LEFT JOIN products p ON p.id=b.product_id WHERE b.id=?", (box_id,),
+            ).fetchone()
+            if not b:
+                continue
+            used = conn.execute(
+                "SELECT COALESCE(SUM(quantity),0) FROM box_allocations WHERE box_id=?", (box_id,),
+            ).fetchone()[0]
+            current = float(b["quantity"] or 0) - float(used or 0)
+            events = [("box.disposed", slip.get("created_at"), slip.get("created_by"),
+                       current if not slip.get("deleted_at") else max(0.0, current - taken))]
+            if slip.get("deleted_at"):
+                events.append(("box.disposal_released", slip.get("deleted_at"), slip.get("deleted_by"), current))
+            for action, ts, actor, remaining in events:
+                payload = json.dumps({
+                    "box_id": box_id, "box_code": b["box_code"], "product_code": b["product_code"],
+                    "quantity": b["quantity"], "remaining": remaining, "taken": taken,
+                    "disposal_id": slip["id"], "disposal_reason": slip.get("reason") or "",
+                }, ensure_ascii=False, separators=(",", ":"))
+                for scope, entity_id in (("box", box_id), ("place", b["place_id"])):
+                    if not entity_id:
+                        continue
+                    exists = conn.execute(
+                        "SELECT 1 FROM audit_events WHERE action=? AND scope=? AND thread_id=? "
+                        "AND CAST(json_extract(payload_json,'$.disposal_id') AS INTEGER)=? LIMIT 1",
+                        (action, scope, entity_id, slip["id"]),
+                    ).fetchone()
+                    if exists:
+                        continue
+                    conn.execute(
+                        "INSERT INTO audit_events (ts,request_id,actor_type,actor_id,action,source,scope,thread_id,payload_json) "
+                        "VALUES (?,?,?,?,?,?,?,?,?)",
+                        (ts or _now(), f"disposal-timeline:{slip['id']}:{box_id}:{action}:{scope}",
+                         "web_user", actor or "", action, "disposal.backfill", scope, entity_id, payload),
+                    )
+                    made += 1
+    return made
+
+
 def delete_disposal(conn, slip_id, *, by: str | None = None) -> tuple[int, str | None]:
     """Xoá phiếu (admin): xoá allocations kind='disposal' → TỒN HOÀN LẠI các thùng,
     phiếu xoá mềm giữ lịch sử. Trả (số dòng allocation đã hoàn, None) hoặc (0, lỗi)."""
