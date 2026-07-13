@@ -341,6 +341,14 @@ export function CameraGallery() {
       freshRequestId.current += 1;
     };
   }, [selectedAccount, selectedChannel, rangeFrom, rangeTo]);
+  // Xoay màn hình đổi số cột grid → tính lại ước lượng contain-intrinsic-size.
+  // Bàn phím mở chỉ đổi innerHeight (width giữ nguyên) → setState cùng giá trị, không re-render.
+  const [viewWidth, setViewWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setViewWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const rangeActive = !!(rangeFrom || rangeTo);
   const rangeCaption = rangeActive ? `${dateTimeLabel(rangeFrom)} → ${dateTimeLabel(rangeTo)}` : "";
@@ -359,8 +367,8 @@ export function CameraGallery() {
   // Ước lượng chiều cao section cho contain-intrinsic-size (content-visibility: auto):
   // gallery ngang = viewport − 20px padding, grid 3 cột (<520px) / 4 cột, gap 3px,
   // ô vuông, header nhóm ≈ 25px. Sau lần paint đầu, từ khoá `auto` nhớ size thật.
-  const gridCols = window.innerWidth >= 520 ? 4 : 3;
-  const gridCell = (window.innerWidth - 20 - (gridCols - 1) * 3) / gridCols;
+  const gridCols = viewWidth >= 520 ? 4 : 3;
+  const gridCell = (viewWidth - 20 - (gridCols - 1) * 3) / gridCols;
   const dayHeight = (count: number) => {
     const rows = Math.ceil(count / gridCols);
     return Math.round(25 + rows * gridCell + (rows - 1) * 3);

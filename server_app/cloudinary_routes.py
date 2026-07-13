@@ -291,6 +291,14 @@ async def camera_images_handler(request: web.Request) -> web.Response:
     images.sort(key=lambda image: str(image.get("created_at") or ""), reverse=True)
     if not images and errors and len(errors) == len(active):
         return web.json_response({"ok": False, "error": "Không kết nối được Cloudinary", "sources": errors}, status=502)
+    if not cursor and not created_from and not created_to:
+        # Warm ngay ảnh vừa trả (fire-and-forget): bịt khoảng trống sau idle dài —
+        # ảnh mới trong đêm được warm lúc user vừa mở, không đợi refresher 15s.
+        # _warmed dedup nên poll đều đặn không tốn gì thêm.
+        pairs = cloudinary_warm.collect_warm_urls(images)
+        if pairs:
+            warm_task = asyncio.create_task(cloudinary_warm.warm_urls(pairs), name="cloudinary.warm-on-view")
+            warm_task.add_done_callback(lambda t: None if t.cancelled() else t.exception())
     body = json.dumps(
         {
             "ok": True,
@@ -367,7 +375,8 @@ async def stop_camera_cache(app: web.Application) -> None:
         task.cancel()
         with suppress(asyncio.CancelledError):
             await task
-    for inflight in list(_INFLIGHT.values()):
+    while _INFLIGHT:  # drain lặp: task sinh thêm trong lúc await cũng bị huỷ
+        _, inflight = _INFLIGHT.popitem()
         inflight.cancel()
         with suppress(BaseException):
             await inflight
