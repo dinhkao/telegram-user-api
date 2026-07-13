@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import base64
 from contextlib import suppress
+from datetime import datetime, timezone
 import json
 import os
 import re
@@ -119,29 +120,50 @@ def _camera_image(
         # Ô lưới tối đa ~160 CSS px: 320px đủ nét cả màn Retina 2x. Không crop
         # AI g_auto (CSS object-fit đã crop) → derived asset tạo nhanh và nhẹ hơn.
         "thumbnail_url": _delivery_variant(url, "f_auto,q_auto:low,c_limit,w_320"),
-        "preview_url": _delivery_variant(url, "f_auto,q_auto,c_limit,w_1800,h_1800"),
+        # 1280px đủ cho viewport app 640px ở DPR 2; nhẹ hơn khoảng một nửa bản
+        # 1800px. Viewer hiện thumbnail ngay trong lúc bản nét được tạo/tải.
+        "preview_url": _delivery_variant(url, "f_auto,q_auto:eco,c_limit,w_1280,h_1280"),
         "original_url": url,
     }
 
 
-def _search_expression(account: dict[str, str], channel: str | None, folder_field: str) -> str:
+def _normalize_iso_time(value: str) -> str | None:
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("timezone required")
+    return parsed.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _search_expression(
+    account: dict[str, str], channel: str | None, folder_field: str,
+    created_from: str | None = None, created_to: str | None = None,
+) -> str:
     folders = [f"{account['folder']}/{channel}"] if channel else [f"{account['folder']}/{name}" for name in _CHANNELS]
     folder_query = " OR ".join(f"{folder_field}={json.dumps(folder)}" for folder in folders)
-    return f"resource_type:image AND type:upload AND ({folder_query})"
+    parts = ["resource_type:image", "type:upload", f"({folder_query})"]
+    if created_from:
+        parts.append(f"created_at>={json.dumps(created_from)}")
+    if created_to:
+        parts.append(f"created_at<={json.dumps(created_to)}")
+    return " AND ".join(parts)
 
 
 async def _get_cloudinary_page(
-    account: dict[str, str], cursor: str | None, channel: str | None = None, *, force: bool = False
+    account: dict[str, str], cursor: str | None, channel: str | None = None,
+    created_from: str | None = None, created_to: str | None = None, *, force: bool = False
 ) -> dict[str, Any]:
     cache_key = f"{account['id']}:{channel or '*'}"
-    if cursor is None and not force:
+    use_cache = cursor is None and not created_from and not created_to
+    if use_cache and not force:
         cached = _FIRST_PAGE_CACHE.get(cache_key)
         if cached and time.monotonic() - cached[0] < _FIRST_PAGE_CACHE_SECONDS:
             return cached[1]
 
     base = f"https://api.cloudinary.com/v1_1/{account['cloud_name']}"
     body: dict[str, Any] = {
-        "expression": _search_expression(account, channel, "folder"),
+        "expression": _search_expression(account, channel, "folder", created_from, created_to),
         "sort_by": [{"created_at": "desc"}],
         "max_results": 100,
         "fields": _FIELDS.split(","),
@@ -156,14 +178,14 @@ async def _get_cloudinary_page(
             data = await response.json(content_type=None)
             # Dynamic-folder không hỗ trợ field `folder`; thử lại bằng asset_folder.
             if response.status == 400:
-                body["expression"] = _search_expression(account, channel, "asset_folder")
+                body["expression"] = _search_expression(account, channel, "asset_folder", created_from, created_to)
                 async with session.post(f"{base}/resources/search", json=body) as dynamic:
                     data = await dynamic.json(content_type=None)
                     if dynamic.status >= 400:
                         raise RuntimeError("Cloudinary không đọc được thư mục ảnh")
             elif response.status >= 400:
                 raise RuntimeError("Cloudinary không đọc được thư mục ảnh")
-    if cursor is None:
+    if use_cache:
         _FIRST_PAGE_CACHE[cache_key] = (time.monotonic(), data)
     return data
 
@@ -184,6 +206,13 @@ async def camera_images_handler(request: web.Request) -> web.Response:
     channel = (request.query.get("channel") or "").strip().lower()
     if channel and channel not in _CHANNELS:
         return web.json_response({"ok": False, "error": "Kênh camera không tồn tại"}, status=404)
+    try:
+        created_from = _normalize_iso_time((request.query.get("from") or "").strip())
+        created_to = _normalize_iso_time((request.query.get("to") or "").strip())
+    except ValueError:
+        return web.json_response({"ok": False, "error": "Khoảng thời gian không hợp lệ"}, status=400)
+    if created_from and created_to and created_from > created_to:
+        return web.json_response({"ok": False, "error": "Thời gian bắt đầu phải trước thời gian kết thúc"}, status=400)
     state = _decode_cursor(cursor)
     if cursor and state is None:
         return web.json_response({"ok": False, "error": "cursor không hợp lệ"}, status=400)
@@ -191,7 +220,10 @@ async def camera_images_handler(request: web.Request) -> web.Response:
     # Cursor None trong state nghĩa là account đó đã hết ảnh, không gọi lại trang đầu.
     active = [account for account in accounts if state is None or state.get(account["id"], "__new__") is not None]
     results = await asyncio.gather(
-        *[_get_cloudinary_page(account, None if state is None else state.get(account["id"]), channel or None) for account in active],
+        *[_get_cloudinary_page(
+            account, None if state is None else state.get(account["id"]), channel or None,
+            created_from, created_to,
+        ) for account in active],
         return_exceptions=True,
     )
     images: list[dict[str, Any]] = []
@@ -224,6 +256,7 @@ async def camera_images_handler(request: web.Request) -> web.Response:
             "total_count": total_count,
             "next_cursor": _encode_cursor(next_state),
             "source_errors": errors,
+            "range": {"from": created_from, "to": created_to},
         },
         headers={"Cache-Control": "private, no-store"},
     )

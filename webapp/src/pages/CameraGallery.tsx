@@ -36,10 +36,18 @@ const dayLabel = (value?: string) => {
 const timeLabel = (value?: string) => value
   ? new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(new Date(value))
   : "";
+const dateTimeLabel = (value: string) => new Intl.DateTimeFormat("vi-VN", {
+  day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit",
+}).format(new Date(value));
+const localInputValue = (date: Date) => {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 
 function CameraViewer({ images, start, onClose }: { images: CameraImage[]; start: number; onClose: () => void }) {
   const [index, setIndex] = useState(start);
-  const imgRef = useRef<HTMLImageElement>(null);
+  const [previewReady, setPreviewReady] = useState(false);
+  const mediaRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const gesture = useRef({
     scale: 1, x: 0, y: 0, pointers: new Map<number, { x: number; y: number }>(),
@@ -48,11 +56,11 @@ function CameraViewer({ images, start, onClose }: { images: CameraImage[]; start
   usePopupBack(true, onClose);
 
   const applyTransform = (animate = false) => {
-    const img = imgRef.current;
-    if (!img) return;
+    const media = mediaRef.current;
+    if (!media) return;
     const state = gesture.current;
-    img.style.transition = animate ? "transform .2s ease" : "none";
-    img.style.transform = `translate3d(${state.x}px,${state.y}px,0) scale(${state.scale})`;
+    media.style.transition = animate ? "transform .2s ease" : "none";
+    media.style.transform = `translate3d(${state.x}px,${state.y}px,0) scale(${state.scale})`;
   };
   const resetZoom = (animate = false) => {
     Object.assign(gesture.current, { scale: 1, x: 0, y: 0, pinchDistance: 0 });
@@ -124,7 +132,19 @@ function CameraViewer({ images, start, onClose }: { images: CameraImage[]; start
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [images.length]);
-  useEffect(() => { resetZoom(false); }, [index]);
+  useEffect(() => { setPreviewReady(false); resetZoom(false); }, [index]);
+  useEffect(() => {
+    if (!previewReady) return;
+    const timer = window.setTimeout(() => {
+      for (const next of [images[index - 1], images[index + 1]]) {
+        if (!next) continue;
+        const preload = new Image();
+        preload.decoding = "async";
+        preload.src = next.preview_url;
+      }
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [previewReady, index, images.length]);
   const image = images[index];
   if (!image) return null;
   return (
@@ -137,7 +157,13 @@ function CameraViewer({ images, start, onClose }: { images: CameraImage[]; start
         <a class="camera-viewer-btn" href={image.original_url} target="_blank" rel="noopener" title="Mở ảnh gốc"><Icon name="download" size={20} /></a>
         <button class="camera-viewer-btn" onClick={onClose} title="Đóng"><Icon name="close" size={22} /></button>
       </div>
-      <img class="camera-viewer-img" ref={imgRef} src={image.preview_url} alt={image.name} draggable={false} />
+      <div class="camera-viewer-media" ref={mediaRef}>
+        <img class={previewReady ? "camera-viewer-placeholder hidden" : "camera-viewer-placeholder"}
+          src={image.thumbnail_url} alt="" draggable={false} />
+        <img class={previewReady ? "camera-viewer-img ready" : "camera-viewer-img"}
+          src={image.preview_url} alt={image.name} draggable={false} onLoad={() => setPreviewReady(true)} />
+      </div>
+      {!previewReady && <span class="camera-viewer-loading"><i /> Đang làm nét…</span>}
       <div class="camera-viewer-bottom">
         <button class="camera-viewer-btn" disabled={index === 0} onClick={() => setIndex(index - 1)} title="Ảnh trước"><Icon name="back" size={22} /></button>
         <div class="camera-viewer-meta">
@@ -165,10 +191,43 @@ export function CameraGallery() {
   const [error, setError] = useState("");
   const [sourceErrors, setSourceErrors] = useState(0);
   const [viewer, setViewer] = useState<number | null>(null);
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [rangeFrom, setRangeFrom] = useState("");
+  const [rangeTo, setRangeTo] = useState("");
+  const [draftFrom, setDraftFrom] = useState("");
+  const [draftTo, setDraftTo] = useState("");
+  const [rangeError, setRangeError] = useState("");
   const requestId = useRef(0);
   const freshRequestId = useRef(0);
   const busyRef = useRef(true);
   busyRef.current = loading || more || syncing;
+  usePopupBack(rangeOpen, () => setRangeOpen(false));
+
+  const addTimeRange = (query: URLSearchParams) => {
+    if (rangeFrom) query.set("from", rangeFrom);
+    if (rangeTo) query.set("to", rangeTo);
+  };
+  const openRange = () => {
+    const now = new Date();
+    const start = new Date(now); start.setHours(0, 0, 0, 0);
+    setDraftFrom(rangeFrom ? localInputValue(new Date(rangeFrom)) : localInputValue(start));
+    setDraftTo(rangeTo ? localInputValue(new Date(rangeTo)) : localInputValue(now));
+    setRangeError("");
+    setRangeOpen(true);
+  };
+  const applyRange = () => {
+    if (!draftFrom || !draftTo) { setRangeError("Chọn đủ thời gian bắt đầu và kết thúc"); return; }
+    const from = new Date(draftFrom), to = new Date(draftTo);
+    if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || from > to) {
+      setRangeError("Thời gian bắt đầu phải trước thời gian kết thúc"); return;
+    }
+    setRangeFrom(from.toISOString());
+    setRangeTo(to.toISOString());
+    setRangeOpen(false);
+  };
+  const clearRange = () => {
+    setRangeFrom(""); setRangeTo(""); setRangeOpen(false); setRangeError("");
+  };
 
   const load = async (reset: boolean, account = selectedAccount, channel = selectedChannel) => {
     const id = ++requestId.current;
@@ -178,6 +237,7 @@ export function CameraGallery() {
       const query = new URLSearchParams();
       if (account) query.set("account", account);
       if (channel) query.set("channel", channel);
+      addTimeRange(query);
       if (!reset && cursor) query.set("cursor", cursor);
       const data = await getJSON(`/api/cloudinary/camera-images?${query}`, { cache: false });
       if (id !== requestId.current) return;
@@ -200,7 +260,7 @@ export function CameraGallery() {
   };
 
   const refreshLatest = async () => {
-    if (busyRef.current || document.hidden) return;
+    if (busyRef.current || document.hidden || rangeFrom || rangeTo) return;
     const id = ++freshRequestId.current;
     setSyncing(true);
     try {
@@ -227,8 +287,9 @@ export function CameraGallery() {
     }
   };
 
-  useEffect(() => { load(true, selectedAccount, selectedChannel); }, [selectedAccount, selectedChannel]);
+  useEffect(() => { load(true, selectedAccount, selectedChannel); }, [selectedAccount, selectedChannel, rangeFrom, rangeTo]);
   useEffect(() => {
+    if (rangeFrom || rangeTo) return;
     const timer = window.setInterval(refreshLatest, 10000);
     const onVisible = () => { if (!document.hidden) refreshLatest(); };
     document.addEventListener("visibilitychange", onVisible);
@@ -237,7 +298,10 @@ export function CameraGallery() {
       document.removeEventListener("visibilitychange", onVisible);
       freshRequestId.current += 1;
     };
-  }, [selectedAccount, selectedChannel]);
+  }, [selectedAccount, selectedChannel, rangeFrom, rangeTo]);
+
+  const rangeActive = !!(rangeFrom || rangeTo);
+  const rangeCaption = rangeActive ? `${dateTimeLabel(rangeFrom)} → ${dateTimeLabel(rangeTo)}` : "";
 
   const groups: { key: string; label: string; images: { image: CameraImage; index: number }[] }[] = [];
   images.forEach((image, index) => {
@@ -257,10 +321,10 @@ export function CameraGallery() {
         <div class="camera-hero-copy">
           <span class="camera-kicker">CLOUD CAMERA</span>
           <b>{loading ? "Đang mở cuộn phim…" : total > images.length ? `${images.length} / ${total} ảnh đã tải` : `${images.length} ảnh`}</b>
-          <small>channel_11 + channel_14 · tự cập nhật 10 giây</small>
+          <small>{rangeActive ? rangeCaption : "channel_11 + channel_14 · tự cập nhật 10 giây"}</small>
         </div>
-        <span class={syncing ? "camera-live syncing" : "camera-live"}><i />{syncing ? "Đang đồng bộ" : "Trực tiếp"}</span>
-        <button class="camera-refresh" onClick={refreshLatest} disabled={loading || syncing} title="Làm mới"><Icon name="refresh" size={19} /></button>
+        <span class={rangeActive ? "camera-live history" : syncing ? "camera-live syncing" : "camera-live"}><i />{rangeActive ? "Lịch sử" : syncing ? "Đang đồng bộ" : "Trực tiếp"}</span>
+        <button class="camera-refresh" onClick={() => rangeActive ? load(true) : refreshLatest()} disabled={loading || syncing} title="Làm mới"><Icon name="refresh" size={19} /></button>
       </section>
 
       {accounts.length > 1 && (
@@ -272,11 +336,13 @@ export function CameraGallery() {
       <div class="camera-channels" aria-label="Lọc theo kênh camera">
         <button class={!selectedChannel ? "active" : ""} onClick={() => setSelectedChannel("")}>Tất cả camera</button>
         {channels.map((channel) => <button class={selectedChannel === channel.id ? "active" : ""} onClick={() => setSelectedChannel(channel.id)} key={channel.id}>{channel.label}</button>)}
+        <button class={rangeActive ? "camera-time-btn active" : "camera-time-btn"} onClick={openRange}><Icon name="clock" size={14} /> Thời gian</button>
       </div>
+      {rangeActive && <button class="camera-range-active" onClick={clearRange}><Icon name="clock" size={14} /><span>{rangeCaption}</span><Icon name="close" size={14} /></button>}
       {sourceErrors > 0 && <p class="camera-source-warn">Có {sourceErrors} nguồn tạm thời chưa kết nối được.</p>}
 
       {loading ? <Loading label="Đang lấy ảnh từ Cloudinary…" /> : error ? <ErrorState msg={error} onRetry={() => load(true)} /> : images.length === 0 ? (
-        <div class="camera-empty"><Icon name="camera" size={38} /><b>Chưa có ảnh</b><span>Thư mục camera_2026 đang trống.</span></div>
+        <div class="camera-empty"><Icon name="camera" size={38} /><b>Chưa có ảnh</b><span>{rangeActive ? "Không có ảnh trong khoảng thời gian này." : "Thư mục camera_2026 đang trống."}</span></div>
       ) : groups.map((group) => (
         <section class="camera-day" key={group.key}>
           <div class="camera-day-head"><b>{group.label}</b><span>{group.images.length} ảnh</span></div>
@@ -299,6 +365,23 @@ export function CameraGallery() {
         </button>
       )}
       {!loading && lastSync > 0 && <p class="camera-sync-note">Đồng bộ gần nhất lúc {timeLabel(new Date(lastSync).toISOString())}</p>}
+      {rangeOpen && (
+        <div class="modal-overlay" onClick={() => setRangeOpen(false)}>
+          <div class="modal-sheet camera-range-sheet" onClick={(event: any) => event.stopPropagation()}>
+            <div class="modal-head"><b><Icon name="clock" size={18} /> Đi tới khoảng thời gian</b>
+              <button class="camera-viewer-btn" onClick={() => setRangeOpen(false)}><Icon name="close" size={18} /></button>
+            </div>
+            <p>Chọn thời điểm bắt đầu và kết thúc. Kết quả vẫn được chia theo ngày và camera.</p>
+            <label><span>Từ</span><input type="datetime-local" value={draftFrom} onInput={(event: any) => setDraftFrom(event.currentTarget.value)} /></label>
+            <label><span>Đến</span><input type="datetime-local" value={draftTo} onInput={(event: any) => setDraftTo(event.currentTarget.value)} /></label>
+            {rangeError && <p class="camera-range-error">{rangeError}</p>}
+            <div class="camera-range-actions">
+              {rangeActive && <button class="btn" onClick={clearRange}>Về mới nhất</button>}
+              <button class="btn primary" onClick={applyRange}>Xem khoảng này</button>
+            </div>
+          </div>
+        </div>
+      )}
       {viewer !== null && <CameraViewer images={images} start={viewer} onClose={() => setViewer(null)} />}
     </div>
   );

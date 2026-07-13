@@ -1,6 +1,6 @@
 import unittest
 
-from server_app.cloudinary_routes import _camera_image, _decode_cursor, _delivery_variant, _encode_cursor, _search_expression
+from server_app.cloudinary_routes import _camera_image, _decode_cursor, _delivery_variant, _encode_cursor, _normalize_iso_time, _search_expression
 
 
 class CloudinaryRoutesTest(unittest.TestCase):
@@ -31,6 +31,8 @@ class CloudinaryRoutesTest(unittest.TestCase):
         self.assertIn("w_320", image["thumbnail_url"])
         self.assertNotIn("g_auto", image["thumbnail_url"])
         self.assertIn("c_limit", image["preview_url"])
+        self.assertIn("q_auto:eco", image["preview_url"])
+        self.assertIn("w_1280", image["preview_url"])
 
     def test_non_image_asset_is_ignored(self):
         self.assertIsNone(_camera_image({"resource_type": "video", "type": "upload"}))
@@ -43,10 +45,18 @@ class CloudinaryRoutesTest(unittest.TestCase):
         self.assertNotIn("cursor-one", encoded)
 
     def test_searches_both_camera_subfolders(self):
-        expression = _search_expression({"folder": "camera_2026"}, None, "folder")
+        expression = _search_expression(
+            {"folder": "camera_2026"}, None, "folder",
+            "2026-07-12T17:00:00Z", "2026-07-13T16:59:59Z",
+        )
         self.assertIn('folder="camera_2026/channel_11"', expression)
         self.assertIn('folder="camera_2026/channel_14"', expression)
         self.assertIn("resource_type:image", expression)
+        self.assertIn('created_at>="2026-07-12T17:00:00Z"', expression)
+        self.assertIn('created_at<="2026-07-13T16:59:59Z"', expression)
+
+    def test_normalizes_client_time_to_utc(self):
+        self.assertEqual(_normalize_iso_time("2026-07-13T10:30:00+07:00"), "2026-07-13T03:30:00Z")
 
 
 if __name__ == "__main__":
