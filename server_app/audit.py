@@ -15,7 +15,7 @@ from server_app import order_diff
 _NO_AUDIT = re.compile(r"/report/(draft|lock|unlock|parse)$|/(stock-pick|invoice-edit)/(lock|unlock)$|/api/inventory/box/-?\d+/transfer$|^/api/cloudinary/camera-images$|^/api/usage/batch$")
 _ORDER_PATH = re.compile(r"^/api/order/(-?\d+)")
 _PRODUCTION_PATH = re.compile(r"^/api/production/(-?\d+)")
-_MEDIA_PATH = re.compile(r"^/api/media/(production|box|return|task|place|customer|product|supplier|purchase)/(-?\d+)")
+_MEDIA_PATH = re.compile(r"^/api/media/(production|box|return|task|place|customer|product|supplier|purchase|disposal)/(-?\d+)")
 _RETURN_PATH = re.compile(r"^/api/returns/(\d+)")
 _INV_BOX_PATH = re.compile(r"^/api/inventory/box/(-?\d+)")
 # Thực thể khoá số nguyên: khách (firebase_key số) / việc / vị trí / đơn vị / thợ / bảng giá.
@@ -29,6 +29,7 @@ _KEYED_PATHS = [
     (re.compile(r"^/api/price-lists/(\d+)"), "price"),
     (re.compile(r"^/api/purchases/(\d+)"), "purchase"),
     (re.compile(r"^/api/suppliers/(\d+)"), "supplier"),
+    (re.compile(r"^/api/disposals/(\d+)"), "disposal"),
 ]
 
 

@@ -62,6 +62,8 @@ import { BoxDetail } from "./pages/BoxDetail";
 import { BoxTimeline } from "./pages/BoxTimeline";
 import { CameraGallery } from "./pages/CameraGallery";
 import { UsageStats } from "./pages/UsageStats";
+import { DisposalsList } from "./pages/DisposalsList";
+import { DisposalDetail } from "./pages/DisposalDetail";
 import { initUsage } from "./usage";
 import "./styles.css";
 
@@ -445,6 +447,7 @@ function App() {
   const boxMatch = hash.match(/^#\/thung\/(\d+)/);
   const viecMatch = hash.match(/^#\/viec\/(\d+)/);
   const retMatch = hash.match(/^#\/tra-hang\/(\d+)/);
+  const dispMatch = hash.match(/^#\/xuat-huy\/(\d+)/);
   const purEditMatch = hash.match(/^#\/nhap-hang\/(\d+)\/sua/);
   const purMatch = hash.match(/^#\/nhap-hang\/(\d+)/);
   const nccMatch = hash.match(/^#\/ncc\/(\d+)/);
@@ -497,6 +500,8 @@ function App() {
   else if (hash.startsWith("#/tra-hang")) page = <ReturnsList />;
   else if (purEditMatch) page = <PurchaseEdit id={purEditMatch[1]} />;
   else if (purMatch) page = <PurchaseDetail id={purMatch[1]} />;
+  else if (dispMatch) page = <DisposalDetail id={dispMatch[1]} />;
+  else if (hash.startsWith("#/xuat-huy")) page = <DisposalsList />;
   else if (hash.startsWith("#/nhap-hang")) page = <PurchasesList />;
   else if (nccMatch) page = <SupplierDetail id={nccMatch[1]} />;
   else if (hash.startsWith("#/ncc")) page = <SuppliersList />;
@@ -515,6 +520,7 @@ function App() {
     : orderMatch ? "Chi tiết đơn"
     : hash.startsWith("#/tra-hang") ? "Trả hàng"
     : purEditMatch ? "Sửa phiếu nhập"
+    : hash.startsWith("#/xuat-huy") ? "Xuất hủy"
     : hash.startsWith("#/nhap-hang") ? "Nhập hàng"
     : hash.startsWith("#/ncc") ? "Nhà cung cấp"
     : (hash.startsWith("#/customers") || khachMatch) ? "Khách hàng"

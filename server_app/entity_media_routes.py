@@ -21,7 +21,7 @@ from utils.paths import ORDER_MEDIA_DIR
 
 log = logging.getLogger("entity_media_routes")
 
-_ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return", "place", "supplier", "purchase"}
+_ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return", "place", "supplier", "purchase", "disposal"}
 _MAX_BYTES = 20 * 1024 * 1024
 _EXT_BY_MIME = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 _MIME_BY_EXT = {v: k for k, v in _EXT_BY_MIME.items()}
@@ -79,6 +79,9 @@ def _emit(scope: str, entity_id: int) -> None:
         elif scope == "supplier":
             from server_app.realtime import emit_supplier_changed
             emit_supplier_changed(entity_id)
+        elif scope == "disposal":
+            from server_app.realtime import emit_disposal_changed
+            emit_disposal_changed(entity_id)
     except Exception:  # noqa: BLE001
         pass
 

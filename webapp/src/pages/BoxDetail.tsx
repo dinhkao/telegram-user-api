@@ -3,7 +3,7 @@
 // GET /api/inventory/box/:id.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { boxDetail, updateBox, setBoxDisabled, deleteBox, returnBoxMaterial, transferBox, allBoxes, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, currentUser, soVN, type InvBoxDetail, type InvBox, type KhoBox, type Place, type Unit } from "../api";
+import { boxDetail, updateBox, setBoxDisabled, deleteBox, returnBoxMaterial, transferBox, allBoxes, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, createDisposal, currentUser, isOffice, soVN, type InvBoxDetail, type InvBox, type KhoBox, type Place, type Unit } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -223,6 +223,36 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
       toast(e?.message || "Lỗi chuyển hàng", "err");
     } finally {
       setXferBusy(false);
+    }
+  };
+
+  // Xuất hủy: hàng hư/hết hạn/vỡ → tạo phiếu hủy 1 thùng, trừ tồn ngay
+  const [dispQty, setDispQty] = useState("");
+  const [dispReason, setDispReason] = useState("");
+  const [dispBusy, setDispBusy] = useState(false);
+  const doDispose = async () => {
+    if (!d) return;
+    if (!isOffice()) { toast("Chỉ văn phòng mới được xuất hủy", "info"); return; }
+    const rem = d.box.remaining ?? d.box.quantity;
+    const q = parseFloat((dispQty || "").replace(",", "."));
+    const reason = dispReason.trim();
+    if (!isFinite(q) || q <= 0) { toast("Số lượng hủy phải > 0", "err"); return; }
+    if (q > rem) { toast(`Thùng chỉ còn ${soVN(rem)}`, "err"); return; }
+    if (!reason) { toast("Cần nhập lý do hủy", "err"); return; }
+    const pu = d.box.product_unit || "cây";
+    if (!(await confirmDialog(
+      `Xuất hủy ${soVN(q)} ${pu} ${d.box.product_code} khỏi thùng ${d.box.box_code}?\nLý do: ${reason}\nTồn kho sẽ trừ ngay.`,
+      { danger: true, okLabel: "Xuất hủy" }))) return;
+    setDispBusy(true);
+    try {
+      const slip = await createDisposal([{ box_id: d.box.id, quantity: q }], reason);
+      toast(`✅ Đã hủy ${soVN(q)} ${pu} — phiếu #${slip.id}`, "ok");
+      setDispQty(""); setDispReason("");
+      reload(false);
+    } catch (e: any) {
+      toast(e?.message || "Lỗi xuất hủy", "err");
+    } finally {
+      setDispBusy(false);
     }
   };
 
@@ -448,6 +478,31 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
         </section>
       )}
 
+      {!disabled && remaining > 0 && (
+        <section class="card">
+          <label class="card-label"><Icon name="trash" size={15} /> Xuất hủy (hàng hư / hết hạn / vỡ)</label>
+          <div class="row" style={{ gap: "6px" }}>
+            <input class="pb-amount" style={{ width: "84px" }} type="text" inputMode="decimal"
+              placeholder={`≤ ${soVN(remaining)}`} value={dispQty}
+              onFocus={(e: any) => (e.target as HTMLInputElement).select()}
+              onInput={(e: any) => setDispQty(e.target.value)} />
+            <input style={{ flex: 1, minWidth: 0 }} type="text" placeholder="Lý do hủy (bắt buộc)"
+              value={dispReason} onInput={(e: any) => setDispReason(e.target.value)} />
+            {(() => {
+              const q = parseFloat((dispQty || "").replace(",", "."));
+              const ok = isFinite(q) && q > 0 && q <= remaining && !!dispReason.trim() && isOffice();
+              return (
+                <button class={"btn danger" + (ok ? "" : " faded")} disabled={dispBusy} onClick={doDispose}
+                  title={ok ? undefined : "Nhập số lượng hợp lệ + lý do (văn phòng)"}>Hủy</button>
+              );
+            })()}
+          </div>
+          <div class="muted small" style={{ marginTop: "4px" }}>
+            Tồn thùng trừ ngay, ghi phiếu ở <a href="#/xuat-huy">Xuất hủy</a> — admin xoá phiếu sẽ hoàn tồn.
+          </div>
+        </section>
+      )}
+
       <section class="card">
         <label class="card-label">Đã xuất / tiêu hao / chuyển</label>
         {d.allocations.length === 0 ? (
@@ -465,6 +520,17 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
                       <Icon name="truck" size={16} />{" "}
                       {out ? "Chuyển sang" : "Nhận từ"} thùng {peer ? (peer.split("-").pop() || peer) : `#${a.order_thread_id}`}
                       {" · "}{out ? "−" : "+"}{soVN(Math.abs(a.quantity))}
+                      {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
+                    </a>
+                  </li>
+                );
+              }
+              if (kind === "disposal") {
+                return (
+                  <li key={a.allocation_id}>
+                    <a class="box-jump" href={`#/xuat-huy/${a.order_thread_id}`}>
+                      <Icon name="trash" size={16} />{" "}
+                      Xuất hủy phiếu #{a.order_thread_id} · −{soVN(a.quantity)}
                       {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
                     </a>
                   </li>

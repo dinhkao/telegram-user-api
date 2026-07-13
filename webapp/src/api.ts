@@ -361,6 +361,31 @@ export async function deletePurchase(id: number): Promise<any> {
   return postJSON(`/api/purchases/${id}/delete`, {});
 }
 
+export type DisposalSlip = {
+  id: number; reason: string; total_quantity: number;
+  items: { allocation_id: number; box_id: number; box_code: string; product_code: string; quantity: number; mfg_date?: string | null }[];
+  created_by?: string; created_at?: string;
+  deleted_at?: string | null; deleted_by?: string | null;
+};
+/** Dashboard xuất hủy — phiếu chưa xoá, mới nhất trước. */
+export async function listDisposals(): Promise<DisposalSlip[]> {
+  const d = await getJSON("/api/disposals", { cache: false });
+  return d.disposals || [];
+}
+export async function getDisposal(id: string | number): Promise<DisposalSlip> {
+  const d = await getJSON(`/api/disposals/${id}`, { cache: false });
+  return d.disposal;
+}
+/** Tạo phiếu xuất hủy (văn phòng) — trừ tồn các thùng ngay, BẮT BUỘC lý do. */
+export async function createDisposal(picks: { box_id: number; quantity?: number }[], reason: string): Promise<DisposalSlip> {
+  const d = await postJSON("/api/disposals", { picks, reason });
+  return d.disposal;
+}
+/** Xoá phiếu hủy (admin) — tồn HOÀN LẠI các thùng, phiếu xoá mềm. */
+export async function deleteDisposal(id: number): Promise<any> {
+  return postJSON(`/api/disposals/${id}/delete`, {});
+}
+
 /** Feed đơn + thanh toán của 1 khách, gộp 1 dòng thời gian (trang chi tiết khách). */
 export async function getCustomerFeed(key: string, page = 1): Promise<{ items: CustFeedItem[]; page: number; total_pages: number; total: number }> {
   const d = await getJSON(`/api/customers/${encodeURIComponent(key)}/feed?page=${page}`, { cache: false });

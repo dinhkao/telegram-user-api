@@ -171,6 +171,13 @@ def emit_purchase_changed(purchase_id) -> None:
                   _broadcast({"type": "purchase_changed", "id": str(purchase_id)}, "purchase_changed"))
 
 
+def emit_disposal_changed(disposal_id) -> None:
+    """Phiếu xuất hủy đổi (tạo/xoá/ảnh/bình luận) → chi tiết + dashboard xuất hủy."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.disposal_changed",
+                  _broadcast({"type": "disposal_changed", "id": str(disposal_id)}, "disposal_changed"))
+
+
 def emit_supplier_changed(supplier_id=None) -> None:
     """Nhà cung cấp đổi (tạo/sửa/xoá, hoặc thống kê đổi vì phiếu nhập) → list + chi tiết NCC."""
     from server_app.tasks import spawn_tracked

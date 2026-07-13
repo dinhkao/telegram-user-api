@@ -22,6 +22,7 @@ const ROUTE_NAMES: Record<string, string> = {
   "#/kho": "Kho hàng", "#/kho/:id": "Chi tiết SP kho", "#/thung/:id": "Chi tiết thùng",
   "#/nhap-hang": "Nhập hàng", "#/nhap-hang/:id": "Chi tiết phiếu nhập", "#/ncc": "Nhà cung cấp",
   "#/nhu-cau": "Cần làm hàng", "#/chuyen-kho": "Chuyển kho", "#/san-pham": "Sản phẩm",
+  "#/xuat-huy": "Xuất hủy", "#/xuat-huy/:id": "Chi tiết phiếu hủy",
   "#/vi-tri": "Vị trí kho", "#/so-thung": "Số thùng",
   "#/san_xuat": "Phiếu sản xuất", "#/san_xuat/:id": "Chi tiết phiếu SX",
   "#/san_xuat/:id/bao-cao": "Sửa báo cáo SX", "#/sx-bang": "Dashboard SX", "#/tho": "Danh sách thợ",

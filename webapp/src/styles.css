@@ -2383,6 +2383,10 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
 .camera-range-actions { display: flex; gap: 8px; }
 .camera-range-actions .btn { flex: 1; color: #dfe9e4; border-color: #40544a; background: #24322b; }
 .camera-range-actions .btn.primary { color: #092216; border-color: #7de2aa; background: #7de2aa; }
+/* ===== Xuất hủy (#/xuat-huy) — tái dùng khung ret-* của phiếu trả/nhập ===== */
+.disp-amt { color: var(--danger); font-weight: 800; }
+.disp-reason { font-size: .92rem; font-weight: 600; }
+
 /* ===== Thống kê sử dụng (#/usage, admin) ===== */
 .usage-page { padding-bottom: 30px; }
 .usage-chips { display: flex; gap: 7px; overflow-x: auto; margin: 0 0 10px; scrollbar-width: none; }

@@ -300,6 +300,14 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   menu Thêm) + chi tiết `#/tra-hang/:id` (ReturnDetail) + nút '↩ Trả hàng'
   (`detail/ReturnModal.tsx`) ở chi tiết khách; feed khách kind='return'
   (nháp delta 0, có HĐ delta âm).
+- `disposal_store/` — phiếu XUẤT HỦY hàng hóa (`disposal_slips`, app.db, 100% local).
+  Hủy hàng hư/hết hạn: BẮT BUỘC lý do, trừ tồn qua `box_allocations kind='disposal'`
+  (order_thread_id = id phiếu; remaining tự đúng), items = snapshot hiển thị. Tạo =
+  văn phòng (nút "Xuất hủy" ở chi tiết thùng `#/thung/:id`), xoá = admin (allocations
+  bị gỡ → TỒN HOÀN LẠI, phiếu xoá mềm). API `server_app/disposal_routes.py`
+  (`/api/disposals*`); realtime `disposal_changed`; ảnh/trao đổi/lịch sử = entity
+  media scope `disposal`. UI: `#/xuat-huy` (DisposalsList) → `#/xuat-huy/:id`
+  (DisposalDetail). Tests: `tests/test_disposal_store.py`.
 - `supplier_store/` + `purchase_store/` — NHẬP HÀNG + NHÀ CUNG CẤP (app.db,
   **100% local, không KiotViet**). `suppliers` (tên/SĐT/địa chỉ/ghi chú, xoá mềm,
   chặn xoá khi còn phiếu) + `purchase_slips` (items JSON [{sp, sp_id?, sl, price}]
