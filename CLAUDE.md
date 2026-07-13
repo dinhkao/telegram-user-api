@@ -109,7 +109,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     auto-reply-"yes") and the static `/` page were removed; `/` now 302s to `/app/`.
 - **Gallery camera Cloudinary (`server_app/cloudinary_routes.py` + `cloudinary_warm.py`)** —
   trang `#/camera` (`webapp/src/pages/CameraGallery.tsx`, poll 10s + module-cache +
-  content-visibility) ← `/api/cloudinary/camera-images`: proxy Search API read-only
+  content-visibility; **layout 2 CỘT SONG SONG**: hàng = 1 thời điểm, channel 11 trái ⟷
+  channel 14 phải, ghép cặp lệch ≤5s, ô 16:9, lọc 1 kênh → grid 3 cột; **lazy load
+  khi cuộn** — nút "Xem ảnh cũ hơn" là sentinel IO) ← `/api/cloudinary/camera-images`: proxy Search API read-only
   (key chỉ ở server, multi-account env `CLOUDINARY_*`), cache trang đầu RAM
   stale-while-revalidate (60s fresh/10ph stale, dedup in-flight) + refresher 15s
   (idle-gate: không ai poll 5ph → 0 request), ETag/304. `cloudinary_warm.py` = session
