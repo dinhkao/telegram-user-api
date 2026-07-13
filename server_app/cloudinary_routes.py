@@ -9,6 +9,7 @@ import asyncio
 import base64
 from contextlib import suppress
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 import re
@@ -17,6 +18,8 @@ from typing import Any
 
 import aiohttp
 from aiohttp import web
+
+from server_app import cloudinary_warm
 
 _FOLDER = os.getenv("CLOUDINARY_CAMERA_FOLDER", "camera_2026").strip("/")
 _CHANNELS = tuple(
@@ -28,8 +31,16 @@ _FIELDS = "asset_id,public_id,display_name,resource_type,type,format,width,heigh
 _ACCOUNT_ID = re.compile(r"^[a-z0-9_-]{1,32}$")
 _FIRST_PAGE_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _FIRST_PAGE_CACHE_SECONDS = 60
+_STALE_MAX_SECONDS = 600   # quá 10 phút → fetch đồng bộ, không trả bản quá cũ
 _CACHE_REFRESH_SECONDS = 15
+_IDLE_AFTER_SECONDS = 300  # không ai poll 5 phút → refresher nghỉ (đỡ quota Cloudinary)
 _CACHE_TASK = web.AppKey("camera_cache_refresh_task", asyncio.Task)
+# Dedup refresh nền theo cache key — nhiều request cùng key chia sẻ 1 fetch.
+_INFLIGHT: dict[str, asyncio.Task] = {}
+# Account dynamic-folder không hỗ trợ field `folder` (400) — nhớ sau lần đầu để khỏi
+# tốn 1 round-trip retry MỖI call (nhân đôi quota Admin API).
+_FOLDER_FIELD: dict[str, str] = {}
+_last_poll = 0.0
 
 
 def _accounts() -> list[dict[str, str]]:
@@ -150,20 +161,16 @@ def _search_expression(
     return " AND ".join(parts)
 
 
-async def _get_cloudinary_page(
+async def _fetch_page(
     account: dict[str, str], cursor: str | None, channel: str | None = None,
-    created_from: str | None = None, created_to: str | None = None, *, force: bool = False
+    created_from: str | None = None, created_to: str | None = None,
 ) -> dict[str, Any]:
-    cache_key = f"{account['id']}:{channel or '*'}"
-    use_cache = cursor is None and not created_from and not created_to
-    if use_cache and not force:
-        cached = _FIRST_PAGE_CACHE.get(cache_key)
-        if cached and time.monotonic() - cached[0] < _FIRST_PAGE_CACHE_SECONDS:
-            return cached[1]
-
+    """Gọi Cloudinary Search API thuần (không cache) qua session dùng chung."""
     base = f"https://api.cloudinary.com/v1_1/{account['cloud_name']}"
+    auth = aiohttp.BasicAuth(account["api_key"], account["api_secret"])
+    field = _FOLDER_FIELD.get(account["id"], "folder")
     body: dict[str, Any] = {
-        "expression": _search_expression(account, channel, "folder", created_from, created_to),
+        "expression": _search_expression(account, channel, field, created_from, created_to),
         "sort_by": [{"created_at": "desc"}],
         "max_results": 100,
         "fields": _FIELDS.split(","),
@@ -171,26 +178,67 @@ async def _get_cloudinary_page(
     if cursor:
         body["next_cursor"] = cursor
 
-    timeout = aiohttp.ClientTimeout(total=15, connect=5)
-    auth = aiohttp.BasicAuth(account["api_key"], account["api_secret"])
-    async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
-        async with session.post(f"{base}/resources/search", json=body) as response:
-            data = await response.json(content_type=None)
-            # Dynamic-folder không hỗ trợ field `folder`; thử lại bằng asset_folder.
-            if response.status == 400:
-                body["expression"] = _search_expression(account, channel, "asset_folder", created_from, created_to)
-                async with session.post(f"{base}/resources/search", json=body) as dynamic:
-                    data = await dynamic.json(content_type=None)
-                    if dynamic.status >= 400:
-                        raise RuntimeError("Cloudinary không đọc được thư mục ảnh")
-            elif response.status >= 400:
-                raise RuntimeError("Cloudinary không đọc được thư mục ảnh")
-    if use_cache:
-        _FIRST_PAGE_CACHE[cache_key] = (time.monotonic(), data)
+    session = await cloudinary_warm.get_session()
+    async with session.post(f"{base}/resources/search", json=body, auth=auth) as response:
+        data = await response.json(content_type=None)
+        # Dynamic-folder không hỗ trợ field `folder`; thử lại bằng asset_folder.
+        if response.status == 400 and field == "folder":
+            body["expression"] = _search_expression(account, channel, "asset_folder", created_from, created_to)
+            async with session.post(f"{base}/resources/search", json=body, auth=auth) as dynamic:
+                data = await dynamic.json(content_type=None)
+                if dynamic.status >= 400:
+                    raise RuntimeError("Cloudinary không đọc được thư mục ảnh")
+                _FOLDER_FIELD[account["id"]] = "asset_folder"  # memo khi chắc chắn đúng
+        elif response.status >= 400:
+            raise RuntimeError("Cloudinary không đọc được thư mục ảnh")
     return data
 
 
+def _spawn_refresh(key: str, account: dict[str, str], channel: str | None) -> asyncio.Task:
+    """Refresh trang đầu cho 1 cache key, dedup: request trùng chờ chung 1 task."""
+    task = _INFLIGHT.get(key)
+    if task is not None and not task.done():
+        return task
+
+    async def _run() -> dict[str, Any]:
+        try:
+            data = await _fetch_page(account, None, channel)
+            _FIRST_PAGE_CACHE[key] = (time.monotonic(), data)
+            return data
+        finally:
+            _INFLIGHT.pop(key, None)
+
+    task = asyncio.create_task(_run(), name=f"cloudinary.refresh.{key}")
+    # Spawn nền không ai await → tiêu thụ exception, khỏi "never retrieved" log.
+    task.add_done_callback(lambda t: None if t.cancelled() else t.exception())
+    _INFLIGHT[key] = task
+    return task
+
+
+async def _get_cloudinary_page(
+    account: dict[str, str], cursor: str | None, channel: str | None = None,
+    created_from: str | None = None, created_to: str | None = None, *, force: bool = False
+) -> dict[str, Any]:
+    """Trang đầu qua cache stale-while-revalidate; trang sau/lọc thời gian gọi thẳng."""
+    use_cache = cursor is None and not created_from and not created_to
+    if not use_cache:
+        return await _fetch_page(account, cursor, channel, created_from, created_to)
+    key = f"{account['id']}:{channel or '*'}"
+    if force:
+        return await _spawn_refresh(key, account, channel)
+    entry = _FIRST_PAGE_CACHE.get(key)
+    age = None if entry is None else time.monotonic() - entry[0]
+    if entry is not None and age < _FIRST_PAGE_CACHE_SECONDS:
+        return entry[1]
+    if entry is not None and age < _STALE_MAX_SECONDS:
+        _spawn_refresh(key, account, channel)  # trả bản cũ NGAY, làm mới chạy nền
+        return entry[1]
+    return await _spawn_refresh(key, account, channel)  # nguội/quá cũ → chờ fetch (vẫn dedup)
+
+
 async def camera_images_handler(request: web.Request) -> web.Response:
+    global _last_poll
+    _last_poll = time.monotonic()  # refresher chỉ chạy khi gallery đang được xem
     cursor = (request.query.get("cursor") or "").strip()
     if len(cursor) > 1024:
         return web.json_response({"ok": False, "error": "cursor không hợp lệ"}, status=400)
@@ -243,7 +291,7 @@ async def camera_images_handler(request: web.Request) -> web.Response:
     images.sort(key=lambda image: str(image.get("created_at") or ""), reverse=True)
     if not images and errors and len(errors) == len(active):
         return web.json_response({"ok": False, "error": "Không kết nối được Cloudinary", "sources": errors}, status=502)
-    return web.json_response(
+    body = json.dumps(
         {
             "ok": True,
             "folder": accounts[0]["folder"] if len({a["folder"] for a in accounts}) == 1 else None,
@@ -258,8 +306,30 @@ async def camera_images_handler(request: web.Request) -> web.Response:
             "source_errors": errors,
             "range": {"from": created_from, "to": created_to},
         },
-        headers={"Cache-Control": "private, no-store"},
+        ensure_ascii=False, separators=(",", ":"),
     )
+    # ETag + no-cache (thay no-store): poll 10s không có ảnh mới → browser tự gửi
+    # If-None-Match, nhận 304 rỗng thay vì tải lại 40-80KB metadata.
+    etag = f'"{hashlib.md5(body.encode("utf-8")).hexdigest()}"'
+    headers = {"Cache-Control": "private, no-cache", "ETag": etag}
+    if request.headers.get("If-None-Match") == etag:
+        return web.Response(status=304, headers=headers)
+    return web.Response(text=body, content_type="application/json", headers=headers)
+
+
+def _cached_images(accounts: list[dict[str, str]]) -> list[dict[str, Any]]:
+    """Ảnh (đã chuẩn hoá, sort mới→cũ) từ cache trang đầu all-channels của mỗi account."""
+    images: list[dict[str, Any]] = []
+    for account in accounts:
+        entry = _FIRST_PAGE_CACHE.get(f"{account['id']}:*")
+        if not entry:
+            continue
+        images.extend(
+            image for raw in entry[1].get("resources", [])
+            if (image := _camera_image(raw, account["id"], account["label"], account["folder"]))
+        )
+    images.sort(key=lambda image: str(image.get("created_at") or ""), reverse=True)
+    return images
 
 
 async def warm_camera_cache(_app: web.Application) -> None:
@@ -271,22 +341,34 @@ async def warm_camera_cache(_app: web.Application) -> None:
         *[_get_cloudinary_page(account, None, force=True) for account in accounts],
         return_exceptions=True,
     )
+    # Ảnh cũ coi như đã có derived asset (từ lần xem trước) — chỉ ảnh MỚI sau boot
+    # mới được warm, tránh burst hàng trăm request mỗi lần restart.
+    cloudinary_warm.seed_warmed(image["id"] for image in _cached_images(accounts))
     _app[_CACHE_TASK] = asyncio.create_task(_refresh_camera_cache(), name="cloudinary.camera-cache")
 
 
 async def _refresh_camera_cache() -> None:
     while True:
         await asyncio.sleep(_CACHE_REFRESH_SECONDS)
+        if time.monotonic() - _last_poll > _IDLE_AFTER_SECONDS:
+            continue  # không ai mở gallery → nghỉ, không tốn quota Cloudinary
+        accounts = _accounts()
         await asyncio.gather(
-            *[_get_cloudinary_page(account, None, force=True) for account in _accounts()],
+            *[_get_cloudinary_page(account, None, force=True) for account in accounts],
             return_exceptions=True,
         )
+        # Warm derived asset (thumb + preview) của ảnh mới trên CDN trước khi user xem.
+        await cloudinary_warm.warm_urls(cloudinary_warm.collect_warm_urls(_cached_images(accounts)))
 
 
 async def stop_camera_cache(app: web.Application) -> None:
     task = app.get(_CACHE_TASK)
-    if task is None:
-        return
-    task.cancel()
-    with suppress(asyncio.CancelledError):
-        await task
+    if task is not None:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+    for inflight in list(_INFLIGHT.values()):
+        inflight.cancel()
+        with suppress(BaseException):
+            await inflight
+    await cloudinary_warm.close_session()
