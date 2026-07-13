@@ -228,6 +228,16 @@ def emit_report_lock(thread_id, holder) -> None:
                   _broadcast({"type": "report_lock", "thread_id": None if thread_id is None else str(thread_id), "holder": holder}, "report_lock"))
 
 
+def emit_stocktake_lock(stocktake_id, holder) -> None:
+    """Người đang kiểm một phiếu/kho đổi → máy khác cập nhật quyền sửa ngay."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.stocktake_lock", _broadcast({
+        "type": "stocktake_lock",
+        "stocktake_id": None if stocktake_id is None else str(stocktake_id),
+        "holder": holder,
+    }, "stocktake_lock"))
+
+
 def emit_report_draft(thread_id, draft: dict) -> None:
     """Bản nháp bảng báo cáo (người đang sửa gõ) → người xem thấy trực tiếp. Không lưu DB."""
     from server_app.tasks import spawn_tracked

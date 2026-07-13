@@ -842,7 +842,7 @@ export async function deleteReportSlip(id: string | number): Promise<any> {
 const _actor = () => { const u = currentUser(); return u?.display_name || u?.username || ""; };
 
 /** Khoá sửa báo cáo (1 người/phiếu). Trả {holder, mine}. Gọi lặp lại = heartbeat gia hạn. */
-// sid = mã phiên mỗi tab/máy — cùng tài khoản mở 2 máy vẫn chỉ 1 máy giữ khoá sửa
+// sid = mã phiên mỗi lần mở trang; nhiều phiên của cùng user cùng tham gia một khoá.
 export async function lockReport(id: string | number, sid: string): Promise<{ ok: boolean; holder: string | null; mine: boolean }> {
   return postJSON(`/api/production/${id}/report/lock`, { user: _actor(), sid });
 }
@@ -857,11 +857,11 @@ export async function reportLockStatus(id: string | number): Promise<string | nu
 
 /** Khoá CHỌN THÙNG xuất kho cho (đơn, mã SP) — 1 người mở popup cùng lúc. Gọi lặp = heartbeat.
  * Trả {holder, mine}: mine=false = người khác đang chọn mã này. */
-export async function lockStockPick(id: string | number, code: string): Promise<{ ok: boolean; holder: string | null; mine: boolean }> {
-  return postJSON(`/api/order/${id}/stock-pick/lock`, { user: _actor(), code });
+export async function lockStockPick(id: string | number, code: string, sid: string): Promise<{ ok: boolean; holder: string | null; mine: boolean }> {
+  return postJSON(`/api/order/${id}/stock-pick/lock`, { user: _actor(), code, sid });
 }
-export async function unlockStockPick(id: string | number, code: string): Promise<any> {
-  return postJSON(`/api/order/${id}/stock-pick/unlock`, { user: _actor(), code });
+export async function unlockStockPick(id: string | number, code: string, sid: string): Promise<any> {
+  return postJSON(`/api/order/${id}/stock-pick/unlock`, { user: _actor(), code, sid });
 }
 /** {CODE: holder} các mã đang có người chọn thùng cho đơn (nạp lúc mở để làm mờ nút). */
 export async function stockPickStatus(id: string | number): Promise<Record<string, string>> {
@@ -871,11 +871,11 @@ export async function stockPickStatus(id: string | number): Promise<Record<strin
 
 /** Khoá SỬA HOÁ ĐƠN của đơn — 1 người mở trang sửa cùng lúc. Gọi lặp = heartbeat.
  * Trả {holder, mine}: mine=false = người khác đang sửa hoá đơn đơn này. */
-export async function lockInvoiceEdit(id: string | number): Promise<{ ok: boolean; holder: string | null; mine: boolean }> {
-  return postJSON(`/api/order/${id}/invoice-edit/lock`, { user: _actor() });
+export async function lockInvoiceEdit(id: string | number, sid: string): Promise<{ ok: boolean; holder: string | null; mine: boolean }> {
+  return postJSON(`/api/order/${id}/invoice-edit/lock`, { user: _actor(), sid });
 }
-export async function unlockInvoiceEdit(id: string | number): Promise<any> {
-  return postJSON(`/api/order/${id}/invoice-edit/unlock`, { user: _actor() });
+export async function unlockInvoiceEdit(id: string | number, sid: string): Promise<any> {
+  return postJSON(`/api/order/${id}/invoice-edit/unlock`, { user: _actor(), sid });
 }
 /** Ai đang sửa hoá đơn đơn này (không xin khoá) — làm mờ nút 'Sửa hoá đơn' ở chi tiết đơn. */
 export async function invoiceEditStatus(id: string | number): Promise<string | null> {
@@ -1086,6 +1086,50 @@ export async function listPlaces(): Promise<Place[]> {
   return d.places || [];
 }
 
+// ── Phiếu kiểm kho theo vị trí ───────────────────────────────────────────────
+export type StocktakeItem = {
+  id: number; stocktake_id: number; box_id: number; box_code: string; product_code: string;
+  product_unit?: string; expected_quantity: number; actual_quantity: number | null;
+  difference: number | null; note?: string | null;
+};
+export type StocktakeSummary = {
+  box_count: number; counted_count: number; deviation_count: number;
+  expected_total: number; actual_total: number | null; difference_total: number | null;
+};
+export type Stocktake = {
+  id: number; place_id: number; place_name: string; status: "draft" | "completed";
+  note?: string | null; captured_at: string; created_by?: string | null;
+  updated_at?: string | null; updated_by?: string | null;
+  completed_at?: string | null; completed_by?: string | null;
+  items: StocktakeItem[]; summary: StocktakeSummary;
+};
+export async function listPlaceStocktakes(placeId: string | number): Promise<Stocktake[]> {
+  const d = await getJSON(`/api/places/${Number(placeId)}/stocktakes`, { cache: false });
+  return d.stocktakes || [];
+}
+export async function createStocktake(placeId: string | number): Promise<{ stocktake: Stocktake; resumed: boolean }> {
+  const d = await postJSON(`/api/places/${Number(placeId)}/stocktakes`, { user: _actor() }, { queueable: false });
+  return { stocktake: d.stocktake, resumed: !!d.resumed };
+}
+export async function getStocktake(id: string | number): Promise<Stocktake> {
+  const d = await getJSON(`/api/stocktakes/${Number(id)}`, { cache: false });
+  return d.stocktake;
+}
+export async function saveStocktake(id: string | number, counts: { id: number; actual_quantity: number | null; note?: string }[], note: string | undefined, sid: string): Promise<Stocktake> {
+  const d = await postJSON(`/api/stocktakes/${Number(id)}`, { counts, note, sid, user: _actor() }, { queueable: false });
+  return d.stocktake;
+}
+export async function completeStocktake(id: string | number, note: string | undefined, sid: string): Promise<Stocktake> {
+  const d = await postJSON(`/api/stocktakes/${Number(id)}/complete`, { note, sid, user: _actor() }, { queueable: false });
+  return d.stocktake;
+}
+export async function lockStocktake(id: string | number, sid: string): Promise<{ ok: boolean; holder: string | null; mine: boolean; completed?: boolean }> {
+  return postJSON(`/api/stocktakes/${Number(id)}/lock`, { sid, user: _actor() }, { queueable: false });
+}
+export async function unlockStocktake(id: string | number, sid: string): Promise<any> {
+  return postJSON(`/api/stocktakes/${Number(id)}/unlock`, { sid, user: _actor() }, { queueable: false });
+}
+
 // ── Timeline biến động 1 vị trí kho — 2 loại: thùng VÀO / thùng RA + tồn kho chạy ──
 export type PlaceTLItem = {
   ts: number; at: string; dir: "in" | "out"; kind: string; reason: string;
@@ -1095,6 +1139,7 @@ export type PlaceTLItem = {
   from_name?: string | null; to_name?: string | null;   // kho nguồn/đích khi chuyển kho
   unit?: string;   // đơn vị đếm SP (cây/gói…) hiện sau số lượng
   target_code?: string | null; slip_id?: number | null;   // tiêu hao đóng gói
+  disposal_id?: number | null; disposal_reason?: string | null;
 };
 export type PlaceStockLine = { code: string; qty: number };
 export type PlaceBox = {
@@ -1129,6 +1174,7 @@ export type BoxTLItem = {
   order_thread_id?: number | null; order_text?: string | null; peer_box?: string;
   from_name?: string | null; to_name?: string | null; unit?: string; actor: string;
   target_code?: string | null; slip_id?: number | null;   // tiêu hao đóng gói
+  disposal_id?: number | null; disposal_reason?: string | null;
 };
 export type BoxTimeline = {
   box: { id: number; box_code: string; box_num: string; product_code: string; unit: string;

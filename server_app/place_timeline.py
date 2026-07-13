@@ -19,13 +19,14 @@ from server_app.order_history import _actor_display, _load_names
 
 _CAP = 500
 
-_DIR_IN = {"box.created", "box.moved_in", "box.released", "box.transfer_in"}
-_DIR_OUT = {"box.allocated", "box.moved_out", "box.deleted", "box.transfer_out", "box.consumed"}
+_DIR_IN = {"box.created", "box.moved_in", "box.released", "box.transfer_in", "box.disposal_released"}
+_DIR_OUT = {"box.allocated", "box.moved_out", "box.deleted", "box.transfer_out", "box.consumed", "box.disposed"}
 _INV_ACTIONS = _DIR_IN | _DIR_OUT
 _REASON = {
     "box.created": "nhập kho", "box.moved_in": "chuyển đến", "box.released": "trả về đơn",
     "box.transfer_in": "nhận chuyển", "box.allocated": "xuất cho đơn", "box.moved_out": "chuyển đi",
     "box.deleted": "xoá thùng", "box.transfer_out": "chuyển sang thùng khác", "box.consumed": "tiêu hao đóng gói",
+    "box.disposed": "xuất hủy", "box.disposal_released": "hoàn xuất hủy",
 }
 
 
@@ -38,7 +39,7 @@ def _delta(action: str, p: dict) -> float:
     return {
         "box.created": rem, "box.moved_in": rem, "box.released": taken, "box.transfer_in": q,
         "box.allocated": -taken, "box.moved_out": -rem, "box.deleted": -q, "box.transfer_out": -q,
-        "box.consumed": -taken,
+        "box.consumed": -taken, "box.disposed": -taken, "box.disposal_released": taken,
     }.get(action, 0.0)
 
 
@@ -146,6 +147,7 @@ def place_timeline(place_id: int) -> dict:
                 "order_text": p.get("order_text"), "peer_box": _boxnum(p.get("to_box") or p.get("from_box")),
                 "from_name": p.get("from_name"), "to_name": p.get("to_name"),   # kho nguồn/đích khi chuyển
                 "target_code": p.get("target_code"), "slip_id": p.get("slip_id"),   # tiêu hao đóng gói
+                "disposal_id": p.get("disposal_id"), "disposal_reason": p.get("disposal_reason"),
                 "total_after": round(running, 3), "actor": _actor_display(r["actor_id"], names),
             })
             running -= delta

@@ -85,6 +85,8 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
       case "transfer_out": return <>đã chuyển <b>{soVN(amt)}</b>{u} từ {boxRef} sang {peer}{it.to_name ? <> ở <b>{it.to_name}</b></> : null}</>;
       case "transfer_in": return <>đã chuyển <b>{soVN(amt)}</b>{u} từ {peer}{it.from_name ? <> ở <b>{it.from_name}</b></> : null} sang {boxRef}</>;
       case "consumed": return <>tiêu hao <b>{soVN(amt)}</b>{u} từ {boxRef} để đóng gói <b class="pt-sp">{it.target_code}</b>{it.slip_id ? <> <a class="pt-inl" href={`#/san_xuat/${it.slip_id}`}>(phiếu SX)</a></> : null}</>;
+      case "disposed": return <>xuất hủy <b>{soVN(amt)}</b>{u} từ {boxRef}{it.disposal_id ? <> · <a class="pt-inl" href={`#/xuat-huy/${it.disposal_id}`}>phiếu hủy #{it.disposal_id}</a></> : null}{it.disposal_reason ? <> · “{it.disposal_reason}”</> : null}</>;
+      case "disposal_released": return <>hoàn <b>{soVN(amt)}</b>{u} về {boxRef} do xóa {it.disposal_id ? <a class="pt-inl" href={`#/xuat-huy/${it.disposal_id}`}>phiếu hủy #{it.disposal_id}</a> : "phiếu hủy"}</>;
       default: return <>{boxRef} {it.reason}</>;
     }
   })();

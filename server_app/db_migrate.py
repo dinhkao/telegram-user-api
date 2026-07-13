@@ -188,6 +188,15 @@ def run_boot_migrations() -> None:
     from recipe_store.schema import create_recipe_table
     create_inventory_table(conn)
     migrate_inventory_table(conn)
+    from inventory_store.stocktakes import create_stocktake_tables
+    create_stocktake_tables(conn)
+    # Phiếu xuất hủy cũ: bù bút toán vào timeline thùng/vị trí (idempotent).
+    try:
+        import disposal_store
+        disposal_store.ensure_table(conn)
+        disposal_store.backfill_timeline_events(conn)
+    except Exception:  # noqa: BLE001 — timeline cũ thiếu không được chặn server boot
+        log.exception("backfill timeline xuất hủy thất bại (bỏ qua)")
     create_recipe_table(conn)
     # can_produce_directly: SP có công thức = ĐÓNG GÓI (không SX trực tiếp) — giữ hành vi
     # cũ. Chạy 1 lần (marker) để không đè lựa chọn admin sau này.

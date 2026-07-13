@@ -133,8 +133,11 @@ def _attach_latest_action(conn, orders: list[dict]) -> None:
         return
     try:
         import json
+        from server_app.event_format import event_entry
+        from server_app.history_format import Resolver, parts_text
         from server_app.order_history import (_norm, _LABELS, _EVENT_LABELS, _READ_ONLY_POSTS,
-                                              _event_detail, _detail, _actor_display, _load_names)
+                                              _detail, _actor_display, _load_names)
+        resolver = Resolver(conn)
         ph = ",".join("?" * len(ids))
         rows = conn.execute(
             f"""SELECT thread_id, ts, source, actor_id, action, payload_json FROM (
@@ -160,7 +163,13 @@ def _attach_latest_action(conn, orders: list[dict]) -> None:
                 label = _EVENT_LABELS.get(r["action"], "Cập nhật đơn")
                 try:
                     payload = json.loads(r["payload_json"] or "{}")
-                    detail = _event_detail(r["action"], payload)
+                    payload = payload if isinstance(payload, dict) else {}
+                    ent = event_entry(r["action"], payload, resolver)
+                    if ent:
+                        label = ent[0]
+                        detail = parts_text(ent[1])
+                    if not detail and payload.get("detail"):
+                        detail = str(payload["detail"])[:120]
                     ch = payload.get("changes")
                     if isinstance(ch, list):
                         changes = ch
@@ -180,7 +189,7 @@ def _attach_latest_action(conn, orders: list[dict]) -> None:
                     payload = json.loads(r["payload_json"] or "{}")
                     b = payload.get("body")
                     body = json.loads(b) if isinstance(b, str) and b.strip().startswith("{") else {}
-                    d = _detail(norm, body)
+                    d, _parts = _detail(norm, body, resolver)
                     if d and d != norm.rsplit("/", 1)[-1]:  # bỏ detail trùng tên path
                         detail = d
                     ch = payload.get("changes")

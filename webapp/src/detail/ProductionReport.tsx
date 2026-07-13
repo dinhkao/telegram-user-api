@@ -15,9 +15,18 @@ export function ProductionReport({ threadId, slip, locked }: { threadId: string;
   const [editor, setEditor] = useState<string | null>(null);            // tên người đang giữ khoá sửa
   const [draft, setDraft] = useState<{ rows: Wrow[]; date?: string; start?: string; end?: string } | null>(null);
   useEffect(() => {
+    let alive = true;
     setDraft(null);
-    reportLockStatus(threadId).then(setEditor).catch(() => {});
-    return onRealtime((e) => {
+    const syncEditor = () => reportLockStatus(threadId).then((holder) => {
+      if (!alive) return;
+      setEditor(holder);
+      if (!holder) setDraft(null);
+    }).catch(() => {});
+    syncEditor();
+    // Fallback khi request unlock/event realtime bị rớt: sau khi TTL server hết hạn,
+    // badge vẫn tự biến mất thay vì kẹt tên người sửa cho tới lần reload sau.
+    const poll = setInterval(syncEditor, 15000);
+    const offRealtime = onRealtime((e) => {
       if (e.type === "report_lock" && e.thread_id === String(threadId)) {
         setEditor(e.holder || null);
         if (!e.holder) setDraft(null);   // hết người sửa → bảng về bản ĐÃ LƯU
@@ -27,6 +36,7 @@ export function ProductionReport({ threadId, slip, locked }: { threadId: string;
         if (d.by) setEditor((cur) => cur || d.by);
       }
     });
+    return () => { alive = false; clearInterval(poll); offRealtime(); };
   }, [threadId]);
 
   const me = currentUser()?.display_name || currentUser()?.username || "";

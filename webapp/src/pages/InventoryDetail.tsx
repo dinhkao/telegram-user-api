@@ -347,11 +347,11 @@ export function InventoryDetail({ code }: { code: string }) {
         {inv.product && isAdmin && (
           <div class="box-kv">
             <span class="box-k">Cách sản xuất</span>
-            <div class="cpd-seg" role="group">
-              <button class={"cpd-opt" + (inv.product.can_produce_directly ? " sel" : "")} disabled={inv.product.can_produce_directly} onClick={() => { if (!inv.product!.can_produce_directly) toggleDirect(); }}>
+            <div class="row" style={{ gap: "6px" }} role="group">
+              <button class={"trade-chip" + (inv.product.can_produce_directly ? " on" : "")} disabled={inv.product.can_produce_directly} onClick={() => { if (!inv.product!.can_produce_directly) toggleDirect(); }}>
                 <Icon name="factory" size={14} /> Sản xuất trực tiếp
               </button>
-              <button class={"cpd-opt" + (!inv.product.can_produce_directly ? " sel" : "")} disabled={!inv.product.can_produce_directly} onClick={() => { if (inv.product!.can_produce_directly) toggleDirect(); }}>
+              <button class={"trade-chip" + (!inv.product.can_produce_directly ? " on" : "")} disabled={!inv.product.can_produce_directly} onClick={() => { if (inv.product!.can_produce_directly) toggleDirect(); }}>
                 <Icon name="box" size={14} /> Đóng gói từ NL
               </button>
             </div>

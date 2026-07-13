@@ -1,8 +1,11 @@
 // Trang chủ (#/home) — mọi mục của app gom theo NHÓM liên quan, mỗi mục 1 ô bấm được.
 // Thay menu "Mục khác" dài (bị cắt) bằng trang cuộn được, có phân nhóm. Vào từ nút ☰
 // Thêm ở thanh điều hướng. Mục theo quyền: office = admin/van_phong, admin = admin.
+import { useState } from "preact/hooks";
 import { currentUser } from "../api";
+import { foldVN } from "../format";
 import { Icon } from "../ui/Icon";
+import { SearchBar } from "../ui/SearchBar";
 
 type Item = { label: string; href: string; icon: string; office?: boolean; admin?: boolean };
 type Group = { title: string; icon: string; items: Item[] };
@@ -55,16 +58,27 @@ export function Home() {
   const role = currentUser()?.role;
   const office = role === "admin" || role === "van_phong";
   const admin = role === "admin";
+  const [query, setQuery] = useState("");
+  const normalizedQuery = foldVN(query.trim());
+  const visibleGroups = GROUPS.map((g) => {
+    const allowedItems = g.items.filter((it) => (!it.office || office) && (!it.admin || admin));
+    const items = normalizedQuery
+      ? allowedItems.filter((it) => foldVN(`${it.label} ${g.title}`).includes(normalizedQuery))
+      : allowedItems;
+    return { ...g, items };
+  }).filter((g) => g.items.length > 0);
+
   return (
     <div class="home">
-      {GROUPS.map((g) => {
-        const items = g.items.filter((it) => (!it.office || office) && (!it.admin || admin));
-        if (!items.length) return null;
+      <div class="home-search">
+        <SearchBar value={query} onInput={setQuery} placeholder="Tìm trong menu Thêm…" />
+      </div>
+      {visibleGroups.map((g) => {
         return (
           <section class="home-grp" key={g.title}>
             <div class="home-grp-h"><Icon name={g.icon} size={15} /> {g.title}</div>
             <div class="home-grid">
-              {items.map((it) => (
+              {g.items.map((it) => (
                 <a class="home-tile" href={it.href} key={it.href}>
                   <span class="home-tile-ic"><Icon name={it.icon} size={22} /></span>
                   <span class="home-tile-lb">{it.label}</span>
@@ -74,6 +88,13 @@ export function Home() {
           </section>
         );
       })}
+      {!visibleGroups.length && (
+        <div class="home-empty">
+          <Icon name="search" size={24} />
+          <span>Không tìm thấy mục phù hợp</span>
+          <button class="btn small" onClick={() => setQuery("")}>Xoá tìm kiếm</button>
+        </div>
+      )}
     </div>
   );
 }

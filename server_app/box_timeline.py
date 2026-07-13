@@ -18,11 +18,12 @@ from server_app.order_history import _actor_display, _load_names
 
 _CAP = 400
 _ACTIONS = ("box.created", "box.allocated", "box.released", "box.moved",
-            "box.transfer_out", "box.transfer_in", "box.consumed")
-_DIR_IN = {"box.created", "box.released", "box.transfer_in"}
+            "box.transfer_out", "box.transfer_in", "box.consumed", "box.disposed", "box.disposal_released")
+_DIR_IN = {"box.created", "box.released", "box.transfer_in", "box.disposal_released"}
 _REASON = {"box.created": "nhập mới", "box.allocated": "xuất cho đơn", "box.released": "thu về từ đơn",
            "box.moved": "chuyển kho", "box.transfer_out": "chuyển sang thùng khác",
-           "box.transfer_in": "nhận từ thùng khác", "box.consumed": "tiêu hao đóng gói"}
+           "box.transfer_in": "nhận từ thùng khác", "box.consumed": "tiêu hao đóng gói",
+           "box.disposed": "xuất hủy", "box.disposal_released": "hoàn xuất hủy"}
 
 
 def _num(v) -> float:
@@ -51,7 +52,7 @@ def _delta(action: str, p: dict) -> float:
     return {
         "box.created": q, "box.released": taken, "box.transfer_in": q,
         "box.allocated": -taken, "box.transfer_out": -q, "box.moved": 0.0,
-        "box.consumed": -taken,
+        "box.consumed": -taken, "box.disposed": -taken, "box.disposal_released": taken,
     }.get(action, 0.0)
 
 
@@ -94,6 +95,7 @@ def box_timeline(box_id: int) -> dict:
                 "peer_box": _boxnum(p.get("to_box") or p.get("from_box") or p.get("to_code") or p.get("from_code")),
                 "from_name": p.get("from_name"), "to_name": p.get("to_name"),
                 "target_code": p.get("target_code"), "slip_id": p.get("slip_id"),   # tiêu hao đóng gói
+                "disposal_id": p.get("disposal_id"), "disposal_reason": p.get("disposal_reason"),
                 "unit": unit, "actor": _actor_display(r["actor_id"], names),
             })
         return {"ok": True, "items": items, "truncated": len(rows) >= _CAP,

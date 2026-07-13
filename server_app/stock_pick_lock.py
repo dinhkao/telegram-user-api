@@ -21,6 +21,18 @@ _pick_locks: dict[str, dict] = {}
 _LOCK_TTL = 45.0   # hết hạn nếu client ngừng heartbeat (~mỗi 20s), giống report_lock
 
 
+def _user_key(user: str | None) -> str:
+    return " ".join(str(user or "").split()).casefold()
+
+
+def _session_key(sid: str | None) -> str:
+    return str(sid or "__legacy__")
+
+
+def _same_user(lock: dict, user: str) -> bool:
+    return str(lock.get("user_key") or _user_key(lock.get("user"))) == _user_key(user)
+
+
 def _key(thread_id: int, code: str) -> str:
     return f"{thread_id}:{(code or '').strip().upper()}"
 
@@ -30,8 +42,19 @@ def _lock_info(key: str) -> dict | None:
     lk = _pick_locks.get(key)
     if not lk:
         return None
-    if (time.monotonic() - lk["at"]) >= _LOCK_TTL:
+    sessions = lk.get("sessions")
+    if not isinstance(sessions, dict):
+        sessions = {_session_key(lk.get("sid")): float(lk.get("at") or 0)}
+        lk["sessions"] = sessions
+    lk["user_key"] = str(lk.get("user_key") or _user_key(lk.get("user")))
+    now = time.monotonic()
+    for session, heartbeat_at in list(sessions.items()):
+        if (now - float(heartbeat_at or 0)) >= _LOCK_TTL:
+            sessions.pop(session, None)
+    if not sessions:
         _pick_locks.pop(key, None)
+        from server_app.realtime import emit_stock_pick_lock
+        emit_stock_pick_lock(lk["thread_id"], lk["code"], None)
         return None
     return lk
 
@@ -56,7 +79,7 @@ def _thread_id(request: web.Request) -> int | None:
 
 
 async def stock_pick_lock_handler(request: web.Request):
-    """Xin/gia hạn khoá chọn thùng. Body {user?, code}. Trả {holder, mine, code}.
+    """Xin/gia hạn khoá chọn thùng. Body {user?, code, sid}. Trả {holder, mine, code}.
     mine=False = người khác đang chọn mã này (client tự đóng popup)."""
     thread_id = _thread_id(request)
     if thread_id is None:
@@ -67,12 +90,16 @@ async def stock_pick_lock_handler(request: web.Request):
         body = {}
     code = str(body.get("code") or "").strip().upper()
     me = _web_actor(request, body)
+    sid = str(body.get("sid") or "")
     key = _key(thread_id, code)
     lk = _lock_info(key)
-    if lk and lk["user"] != me:   # người khác đang giữ → không cấp
+    if lk and not _same_user(lk, me):   # người khác đang giữ → không cấp
         return web.json_response({"ok": True, "holder": lk["user"], "mine": False, "code": code})
     was_free = lk is None
-    _pick_locks[key] = {"user": me, "at": time.monotonic(), "code": code, "thread_id": thread_id}
+    if lk is None:
+        lk = {"user": me, "user_key": _user_key(me), "sessions": {}, "code": code, "thread_id": thread_id}
+        _pick_locks[key] = lk
+    lk["sessions"][_session_key(sid)] = time.monotonic()
     if was_free:   # chỉ phát khi ĐỔI trạng thái (tránh spam theo heartbeat)
         from server_app.realtime import emit_stock_pick_lock
         emit_stock_pick_lock(thread_id, code, me)
@@ -89,7 +116,7 @@ async def stock_pick_lock_status_handler(request: web.Request):
 
 
 async def stock_pick_unlock_handler(request: web.Request):
-    """Nhả khoá chọn thùng (chỉ khi mình đang giữ). Body {user?, code}."""
+    """Nhả phiên chọn thùng hiện tại. Body {user?, code, sid}."""
     thread_id = _thread_id(request)
     if thread_id is None:
         return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
@@ -99,10 +126,13 @@ async def stock_pick_unlock_handler(request: web.Request):
         body = {}
     code = str(body.get("code") or "").strip().upper()
     me = _web_actor(request, body)
+    sid = str(body.get("sid") or "")
     key = _key(thread_id, code)
-    lk = _pick_locks.get(key)
-    if lk and lk["user"] == me:
-        _pick_locks.pop(key, None)
-        from server_app.realtime import emit_stock_pick_lock
-        emit_stock_pick_lock(thread_id, code, None)
+    lk = _lock_info(key)
+    if lk and _same_user(lk, me) and _session_key(sid) in lk["sessions"]:
+        lk["sessions"].pop(_session_key(sid), None)
+        if not lk["sessions"]:
+            _pick_locks.pop(key, None)
+            from server_app.realtime import emit_stock_pick_lock
+            emit_stock_pick_lock(thread_id, code, None)
     return web.json_response({"ok": True})

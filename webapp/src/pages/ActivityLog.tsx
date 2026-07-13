@@ -65,11 +65,18 @@ export function ActivityLog() {
         <ul class="hist act-log">
           {items.map((h, i) => (
             <li key={i} class={h.ok === false ? "hist-fail" : ""}>
-              <a class="act-item" href={h.href || undefined}>
+              {/* div + onClick (không phải <a>) vì bên trong còn link con tới thùng/SP/khách */}
+              <div class="act-item" role={h.href ? "link" : undefined}
+                onClick={() => { if (h.href) location.hash = h.href.replace(/^#/, ""); }}>
                 <div class="act-body">
                   <div>
                     <span class="act-scope">{h.scope_label}</span> <b>{h.action}</b>
-                    {h.detail ? <span> — {h.detail}</span> : null}
+                    {Array.isArray(h.parts) && h.parts.length > 0 ? (
+                      <span> — {h.parts.map((p: any, pi: number) =>
+                        p.href
+                          ? <a key={pi} class="hist-place-lnk" href={p.href} onClick={(e: any) => e.stopPropagation()}>{p.t}</a>
+                          : <span key={pi}>{p.t}</span>)}</span>
+                    ) : h.detail ? <span> — {h.detail}</span> : null}
                     {h.peek
                       ? <span class="muted small act-peek"> · {h.peek}…</span>
                       : (h.entity_id ? <span class="muted small"> #{h.entity_id}</span> : null)}
@@ -90,7 +97,7 @@ export function ActivityLog() {
                   <div class="muted small"><Icon name="user" size={13} /> {h.actor || "?"} · <Icon name="clock" size={13} /> {fmtDateTimeVN(h.ts)} ({fmtRelative(h.ts)})</div>
                 </div>
                 {h.href ? <span class="act-go muted">›</span> : null}
-              </a>
+              </div>
             </li>
           ))}
         </ul>

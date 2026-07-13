@@ -594,8 +594,21 @@ def _web_actor(request: web.Request, body: dict | None = None) -> str:
 
 
 # ─── Khoá SỬA báo cáo: 1 phiếu SX chỉ 1 người sửa cùng lúc (in-memory, có TTL) ──
-_report_locks: dict[int, dict] = {}   # thread_id → {"user": str, "at": monotonic}
+_report_locks: dict[int, dict] = {}
 _LOCK_TTL = 45.0                      # hết hạn nếu client ngừng heartbeat (~mỗi 20s)
+
+
+def _report_user_key(user: str | None) -> str:
+    """Khoá so sánh user ổn định, không phụ thuộc hoa/thường hay khoảng trắng."""
+    return " ".join(str(user or "").split()).casefold()
+
+
+def _report_session_key(sid: str | None) -> str:
+    return str(sid or "__legacy__")
+
+
+def _same_report_user(lk: dict, user: str) -> bool:
+    return str(lk.get("user_key") or _report_user_key(lk.get("user"))) == _report_user_key(user)
 
 
 def _lock_info(thread_id: int) -> dict | None:
@@ -603,8 +616,24 @@ def _lock_info(thread_id: int) -> dict | None:
     lk = _report_locks.get(thread_id)
     if not lk:
         return None
-    if (time.monotonic() - lk["at"]) >= _LOCK_TTL:   # hết hạn → coi như nhả
+
+    # Tương thích khoá cũ tạo trước khi hỗ trợ nhiều tab cho cùng một user.
+    sessions = lk.get("sessions")
+    if not isinstance(sessions, dict):
+        sessions = {_report_session_key(lk.get("sid")): float(lk.get("at") or 0)}
+        lk["sessions"] = sessions
+    lk["user_key"] = str(lk.get("user_key") or _report_user_key(lk.get("user")))
+
+    now = time.monotonic()
+    for session, heartbeat_at in list(sessions.items()):
+        if (now - float(heartbeat_at or 0)) >= _LOCK_TTL:
+            sessions.pop(session, None)
+    if not sessions:
         _report_locks.pop(thread_id, None)
+        # TTL trước đây chỉ xoá trong RAM nên client đang xem vẫn giữ badge
+        # "X đang sửa" vô thời hạn. Phát trạng thái nhả để mọi màn hình đồng bộ.
+        from server_app.realtime import emit_report_lock
+        emit_report_lock(thread_id, None)
         return None
     return lk
 
@@ -615,17 +644,18 @@ def _lock_holder(thread_id: int) -> str | None:
 
 
 def _is_lock_mine(lk: dict | None, me: str, sid: str) -> bool:
-    """Khoá thuộc PHIÊN này? So (user, sid) — sid là mã phiên mỗi tab/máy, nên cùng
-    tài khoản mở 2 máy chỉ 1 máy được sửa (trước so mỗi tên → 2 máy đè nhau).
-    Khoá/client cũ không có sid → so mỗi tên (tương thích ngược)."""
-    if not lk or lk["user"] != me:
+    """Phiên này đã tham gia khoá của đúng user hay chưa."""
+    if not lk or not _same_report_user(lk, me):
         return False
-    return (not lk.get("sid")) or (not sid) or lk["sid"] == sid
+    sessions = lk.get("sessions")
+    if isinstance(sessions, dict):
+        return _report_session_key(sid) in sessions
+    return _report_session_key(lk.get("sid")) == _report_session_key(sid)
 
 
 async def production_report_lock_handler(request: web.Request):
     """Xin/gia hạn khoá sửa báo cáo. Body {user?, sid} — sid = mã phiên mỗi tab.
-    Trả {holder, mine}. mine=False = người khác (hoặc máy khác cùng tên) đang giữ."""
+    Trả {holder, mine}. Các tab của cùng user cùng tham gia một khoá."""
     thread_id = _thread_id(request)
     if thread_id is None:
         return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
@@ -636,10 +666,13 @@ async def production_report_lock_handler(request: web.Request):
     me = _web_actor(request, body)
     sid = str(body.get("sid") or "")
     lk = _lock_info(thread_id)
-    if lk and not _is_lock_mine(lk, me, sid):
+    if lk and not _same_report_user(lk, me):
         return web.json_response({"ok": True, "holder": lk["user"], "mine": False})
     was_free = lk is None
-    _report_locks[thread_id] = {"user": me, "sid": sid, "at": time.monotonic()}
+    if lk is None:
+        lk = {"user": me, "user_key": _report_user_key(me), "sessions": {}}
+        _report_locks[thread_id] = lk
+    lk["sessions"][_report_session_key(sid)] = time.monotonic()
     if was_free:   # chỉ phát khi ĐỔI trạng thái (tránh spam theo heartbeat)
         from server_app.realtime import emit_report_lock
         emit_report_lock(thread_id, me)
@@ -665,10 +698,13 @@ async def production_report_unlock_handler(request: web.Request):
         body = {}
     me = _web_actor(request, body)
     sid = str(body.get("sid") or "")
-    if _is_lock_mine(_report_locks.get(thread_id), me, sid):
-        _report_locks.pop(thread_id, None)
-        from server_app.realtime import emit_report_lock
-        emit_report_lock(thread_id, None)
+    lk = _lock_info(thread_id)
+    if _is_lock_mine(lk, me, sid):
+        lk["sessions"].pop(_report_session_key(sid), None)
+        if not lk["sessions"]:
+            _report_locks.pop(thread_id, None)
+            from server_app.realtime import emit_report_lock
+            emit_report_lock(thread_id, None)
     return web.json_response({"ok": True})
 
 
@@ -685,7 +721,7 @@ async def production_report_draft_handler(request: web.Request):
     sid = str(body.get("sid") or "")
     if not _is_lock_mine(_lock_info(thread_id), me, sid):   # chỉ PHIÊN đang giữ được phát nháp
         return web.json_response({"ok": False}, status=409)
-    _report_locks[thread_id]["at"] = time.monotonic()   # phát nháp = heartbeat luôn
+    _report_locks[thread_id]["sessions"][_report_session_key(sid)] = time.monotonic()
     from server_app.realtime import emit_report_draft
     emit_report_draft(thread_id, {
         "rows": body.get("rows") or [], "date": body.get("date"),

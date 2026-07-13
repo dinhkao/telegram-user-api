@@ -29,6 +29,9 @@ _ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo p
                   "product.unlinked": "Gỡ liên kết KiotViet", "product.updated": "Sửa sản phẩm",
                   # quỹ (đã có event tường minh sẵn)
                   "quy.created": "Thu/chi quỹ", "quy.deleted": "Xoá phiếu quỹ",
+                  # xuất hủy / kiểm kho
+                  "disposal.created": "Tạo phiếu xuất hủy", "disposal.deleted": "Xoá phiếu hủy (hoàn tồn)",
+                  "stocktake.created": "Tạo phiếu kiểm kho", "stocktake.completed": "Hoàn tất kiểm kho",
                   # thao tác từ Telegram (bot nhóm) — trước đây vô hình ở web
                   "production.sp_changed": "Đổi sản phẩm (Telegram)",
                   "production.target_changed": "Đặt chỉ tiêu (Telegram)",
@@ -38,7 +41,8 @@ _ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo p
 
 # Biến động KHO (server_app/inventory_audit) — nhãn theo SCOPE + chi tiết từ payload.
 _INV_ACTIONS = {"box.created", "box.allocated", "box.released", "box.moved", "box.moved_out",
-                "box.moved_in", "box.deleted", "box.transfer_out", "box.transfer_in", "box.consumed"}
+                "box.moved_in", "box.deleted", "box.transfer_out", "box.transfer_in", "box.consumed",
+                "box.disposed", "box.disposal_released"}
 
 
 def _numv(v) -> str:
@@ -82,6 +86,13 @@ def _inv_entry(act: str, scope: str, p: dict) -> tuple[str, str] | None:
         tgt = p.get("target_code") or ""
         extra = " · ".join(x for x in [f"tiêu hao {taken}" if taken else "", f"đóng gói {tgt}" if tgt else ""] if x)
         return "Tiêu hao đóng gói", join(extra)
+    if act in ("box.disposed", "box.disposal_released"):
+        taken = _numv(p.get("taken"))
+        rem = _numv(p.get("remaining")) if p.get("remaining") is not None else ""
+        reason = str(p.get("disposal_reason") or "").strip()
+        verb = "hủy" if act == "box.disposed" else "hoàn"
+        extra = " · ".join(x for x in [f"{verb} {taken}" if taken else "", f"thùng còn {rem}" if rem != "" else "", reason] if x)
+        return ("Xuất hủy" if act == "box.disposed" else "Hoàn xuất hủy"), join(extra)
     if act == "box.deleted":
         return "Xoá thùng khỏi kho", join("")
     if act in ("box.transfer_out", "box.transfer_in"):
@@ -255,40 +266,41 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
                 box_src = rr[0] if rr else None
             except Exception:
                 box_src = None
+        from server_app.event_format import event_entry
+        from server_app.history_format import Resolver, href_for, part, parts_text
+        resolver = Resolver(conn)
         out: list[dict] = []
         for r in rows:
             act = r["action"]
-            if act in _INV_ACTIONS:
+            if act != "http.request":
                 try:
                     pl = json.loads(r["payload_json"] or "{}")
                 except Exception:
                     pl = {}
                 pl = pl if isinstance(pl, dict) else {}
-                ent = _inv_entry(act, scope, pl)
-                if not ent:
-                    continue
-                item = {"ts": r["ts"], "actor": _actor_display(r["actor_id"], names),
-                        "action": ent[0], "detail": ent[1], "changes": [], "ok": True}
-                if act == "box.created" and box_src:   # link → phiếu SX nguồn
-                    item["source_slip"] = {"thread_id": box_src}
-                if act == "box.consumed" and pl.get("slip_id"):   # link → phiếu SX đóng gói
-                    item["source_slip"] = {"thread_id": pl.get("slip_id")}
-                if act == "box.moved":   # link tên kho → timeline kho tương ứng
-                    item["move"] = {"from": {"id": pl.get("from_place_id"), "name": pl.get("from_name")},
-                                    "to": {"id": pl.get("to_place_id"), "name": pl.get("to_name")}}
-                if act in ("box.allocated", "box.released") and pl.get("order_thread_id") and pl.get("order_text"):
-                    # link text đơn → mở đơn + cuộn/nháy đúng thùng (focus=box:<box_id>)
-                    item["order"] = {"thread_id": pl.get("order_thread_id"), "box_id": pl.get("box_id"),
-                                     "text": pl.get("order_text")}
-                out.append(item)
-            elif act in _ACTION_LABELS:
-                try:
-                    pl = json.loads(r["payload_json"] or "{}")
-                    pl = pl if isinstance(pl, dict) else {}
-                except Exception:
-                    pl = {}
+                ent = event_entry(act, pl, resolver)
+                if ent:
+                    label, parts = ent
+                    if not parts and pl.get("detail"):   # event Telegram cũ mang detail sẵn
+                        parts = [part(str(pl["detail"])[:80])]
+                elif act in _ACTION_LABELS:
+                    label, parts = _ACTION_LABELS[act], []
+                elif act in _INV_ACTIONS:
+                    lg = _inv_entry(act, scope, pl)
+                    if not lg:
+                        continue
+                    label, parts = lg[0], ([part(lg[1])] if lg[1] else [])
+                else:
+                    continue   # event lạ không thuộc lịch sử thực thể
+                # scope place: nhãn "Tạo thùng" đọc là nhập kho
+                if act == "box.created":
+                    label = "Nhập thùng vào kho" if scope == "place" else "Tạo thùng"
+                    if box_src:   # link → phiếu SX nguồn
+                        parts = parts + [part(" · "), part("phiếu SX →", href_for("production", box_src))]
+                if act in ("box.allocated", "box.released") and scope == "place":
+                    label = "Xuất cho đơn" if act == "box.allocated" else "Thu hồi về kho"
                 out.append({"ts": r["ts"], "actor": _actor_display(r["actor_id"], names),
-                            "action": _ACTION_LABELS[act], "detail": str(pl.get("detail") or "")[:60],
+                            "action": label, "detail": parts_text(parts), "parts": parts,
                             "changes": [], "ok": True})
             elif act == "http.request":
                 source = r["source"] or ""
@@ -344,7 +356,8 @@ def get_entity_history(scope: str, entity_id: int, limit: int = 60) -> list[dict
                 if is_report and ok and out and out[-1].get("_rk") == (actor,):
                     continue
                 out.append({"ts": r["ts"], "actor": actor,
-                            "action": label_override or _label(key, method, path), "detail": detail, "changes": [],
+                            "action": label_override or _label(key, method, path), "detail": detail,
+                            "parts": [part(detail)] if detail else [], "changes": [],
                             "ok": ok, **({"_rk": (actor,)} if is_report and ok else {})})
             else:
                 continue
@@ -363,7 +376,7 @@ async def entity_history_handler(request: web.Request):
     scope = request.match_info.get("scope", "")
     if scope not in ("production", "box", "return", "task", "place",
                      "customer", "product", "unit", "worker", "price", "quy",
-                     "supplier", "purchase"):
+                     "supplier", "purchase", "disposal", "stocktake"):
         return web.json_response({"ok": False, "error": "scope không hợp lệ"}, status=400)
     try:
         entity_id = int(request.match_info.get("entity_id", ""))

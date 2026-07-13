@@ -4,7 +4,8 @@
 import { useEffect, useState } from "preact/hooks";
 
 let memView: "grid" | "compact" = "grid";   // nhớ kiểu xem thùng khi rời trang (mặc định Ô THÙNG)
-import { listPlaces, allBoxes, renamePlace, setPlaceNote, deletePlace, currentUser, soVN, type Place, type KhoBox } from "../api";
+import { listPlaces, allBoxes, renamePlace, setPlaceNote, deletePlace, currentUser, soVN, createStocktake, listPlaceStocktakes, type Place, type KhoBox, type Stocktake } from "../api";
+import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
 import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
@@ -20,6 +21,7 @@ export function PlaceDetail({ id }: { id: string }) {
   const pid = Number(id);
   const [place, setPlace] = useState<Place | null | undefined>(undefined);
   const [boxes, setBoxes] = useState<KhoBox[]>([]);
+  const [stocktakes, setStocktakes] = useState<Stocktake[]>([]);
   const [err, setErr] = useState("");
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
@@ -28,10 +30,11 @@ export function PlaceDetail({ id }: { id: string }) {
 
   const load = async () => {
     try {
-      const [pl, bx] = await Promise.all([listPlaces(), allBoxes()]);
+      const [pl, bx, st] = await Promise.all([listPlaces(), allBoxes(), listPlaceStocktakes(pid)]);
       const p = pl.find((x) => x.id === pid) || null;
       setPlace(p); setName(p?.name || "");
       setBoxes(bx.filter((b) => b.place_id === pid));
+      setStocktakes(st);
     } catch (e: any) { setErr(e?.message || "Lỗi tải vị trí"); }
   };
   useEffect(() => { load(); }, [pid]);
@@ -64,6 +67,15 @@ export function PlaceDetail({ id }: { id: string }) {
     try { await deletePlace(pid); window.location.hash = "#/vi-tri"; }
     catch (e: any) { toast(e?.message || "Lỗi xoá", "err"); setBusy(false); }
   };
+  const startStocktake = async () => {
+    setBusy(true);
+    try {
+      const { stocktake, resumed } = await createStocktake(pid);
+      if (resumed) toast("Tiếp tục phiếu kiểm kho đang mở", "info");
+      window.location.hash = `#/kiem-kho/${stocktake.id}`;
+    } catch (e: any) { toast(e?.message || "Không tạo được phiếu kiểm kho", "err"); }
+    finally { setBusy(false); }
+  };
 
   if (err) return <ErrorState msg={err} onRetry={load} />;
   if (place === undefined) return <Loading />;
@@ -93,9 +105,32 @@ export function PlaceDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      <a class="btn block pt-open-btn" href={`#/vi-tri/${pid}/timeline`}>
-        <Icon name="history" size={16} /> Timeline biến động kho →
-      </a>
+      <div class="place-action-grid">
+        <button class="btn primary" disabled={busy} onClick={startStocktake}>
+          <Icon name="clipboard" size={17} /> {stocktakes[0]?.status === "draft" ? "Tiếp tục kiểm kho" : "Kiểm kho"}
+        </button>
+        <a class="btn" href={`#/vi-tri/${pid}/timeline`}>
+          <Icon name="history" size={16} /> Timeline kho
+        </a>
+      </div>
+
+      {stocktakes.length > 0 && (
+        <section class="card place-stocktakes">
+          <label class="card-label"><Icon name="clipboard" size={15} /> Phiếu kiểm kho gần đây</label>
+          <div class="place-stocktake-list">
+            {stocktakes.slice(0, 5).map((s) => (
+              <a href={`#/kiem-kho/${s.id}`} class="place-stocktake-link" key={s.id}>
+                <span class={`place-stocktake-dot ${s.status}`} />
+                <span><b>Phiếu #{s.id}</b><small>{fmtDateTimeVN(s.captured_at)} · {s.summary.counted_count}/{s.summary.box_count} thùng</small></span>
+                <strong class={s.status === "completed" && (s.summary.difference_total || 0) !== 0 ? "has-diff" : ""}>
+                  {s.status === "draft" ? "Đang kiểm" : `Lệch ${(s.summary.difference_total || 0) > 0 ? "+" : ""}${soVN(s.summary.difference_total || 0)}`}
+                </strong>
+                <Icon name="chevronRight" size={16} />
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section class="card">
         <label class="card-label"><Icon name="edit" size={15} /> Ghi chú</label>

@@ -3,7 +3,7 @@
 // phần đã xuất + thu hồi. Tap mã thùng → chi tiết thùng.
 // CHỐT xuất kho: xuất đủ mọi mã → bấm Chốt → KHOÁ sửa/thu hồi VỚI TẤT CẢ (server
 // cũng chặn); admin muốn sửa phải bấm Huỷ chốt. Nút bị khoá = mờ + toast lý do.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { orderAllocations, allocatePicks, releaseAllocations, stockConfirmOrder, currentUser, soVN, lockStockPick, unlockStockPick, stockPickStatus, type Allocation } from "../api";
 import { StockPickerModal } from "./StockPickerModal";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -27,6 +27,7 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
   const [allocs, setAllocs] = useState<Allocation[]>([]);
   const [stock, setStock] = useState<Record<string, number>>({});   // tồn hiện tại theo mã SP
   const [pickCode, setPickCode] = useState("");
+  const pickSid = useMemo(() => Math.random().toString(36).slice(2) + Date.now().toString(36), []);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   // Ghi đè cục bộ sau khi chốt/huỷ (prop cha chỉ đổi khi realtime tải lại đơn)
@@ -81,7 +82,7 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
     let t: any;
     const beat = async () => {
       try {
-        const r = await lockStockPick(threadId, pickCode);
+        const r = await lockStockPick(threadId, pickCode, pickSid);
         if (alive && r && r.mine === false) {
           toast(`Đang được ${r.holder} chọn thùng — chờ họ xong`, "info");
           setPickCode("");
@@ -91,8 +92,8 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
       if (alive) t = setTimeout(beat, 20000);
     };
     beat();
-    return () => { alive = false; clearTimeout(t); unlockStockPick(threadId, pickCode).catch(() => {}); };
-  }, [pickCode, threadId]);
+    return () => { alive = false; clearTimeout(t); unlockStockPick(threadId, pickCode, pickSid).catch(() => {}); };
+  }, [pickCode, pickSid, threadId]);
 
   // gộp nhu cầu theo mã SP (SL cộng dồn)
   const needs = new Map<string, number>();

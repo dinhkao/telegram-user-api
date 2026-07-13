@@ -20,10 +20,11 @@ from server_app.order_history import _actor_display, _load_names
 
 _CAP = 500
 # CHỈ các biến động ĐỔI TỒN của SP (bỏ chuyển kho/chuyển thùng — nội bộ, tồn SP không đổi)
-_ACTIONS = ("box.created", "box.allocated", "box.released", "box.consumed")
-_DIR_IN = {"box.created", "box.released"}
+_ACTIONS = ("box.created", "box.allocated", "box.released", "box.consumed", "box.disposed", "box.disposal_released")
+_DIR_IN = {"box.created", "box.released", "box.disposal_released"}
 _REASON = {"box.created": "sản xuất nhập kho", "box.allocated": "xuất cho đơn",
-           "box.released": "thu về từ đơn", "box.consumed": "tiêu hao đóng gói"}
+           "box.released": "thu về từ đơn", "box.consumed": "tiêu hao đóng gói",
+           "box.disposed": "xuất hủy", "box.disposal_released": "hoàn xuất hủy"}
 
 
 def _delta(action: str, p: dict) -> float:
@@ -33,7 +34,8 @@ def _delta(action: str, p: dict) -> float:
     rem = float(rem) if rem is not None else q
     taken = float(p.get("taken") or 0)
     return {"box.created": rem, "box.released": taken,
-            "box.allocated": -taken, "box.consumed": -taken}.get(action, 0.0)
+            "box.allocated": -taken, "box.consumed": -taken,
+            "box.disposed": -taken, "box.disposal_released": taken}.get(action, 0.0)
 
 
 def _epoch(ts: str) -> int:
@@ -135,6 +137,7 @@ def product_timeline(code: str) -> dict:
                 "remaining": p.get("remaining"),   # tồn của THÙNG sau biến động
                 "order_thread_id": p.get("order_thread_id"), "order_text": p.get("order_text"),
                 "target_code": p.get("target_code"), "slip_id": p.get("slip_id"),   # tiêu hao đóng gói
+                "disposal_id": p.get("disposal_id"), "disposal_reason": p.get("disposal_reason"),
                 "total_after": round(running, 3), "unit": unit,
                 "actor": _actor_display(r["actor_id"], names),
             })

@@ -22,6 +22,7 @@ def box_snapshot(conn, box_id) -> dict | None:
     return {
         "box_id": b.get("id"), "place_id": b.get("place_id"), "place_name": b.get("place_name"),
         "box_code": b.get("box_code"), "product_code": b.get("product_code"),
+        "unit": b.get("product_unit") or "cây",
         "quantity": b.get("quantity"), "remaining": float(b.get("quantity") or 0) - used,
     }
 
@@ -76,6 +77,8 @@ def _log_order_stock(action: str, items: list[dict], actor, actor_type: str) -> 
         grouped.setdefault(tid, []).append({
             "box_id": s.get("box_id"), "box_code": s.get("box_code"),
             "product_code": s.get("product_code"), "taken": s.get("taken"),
+            # cho lịch sử đọc được "lấy 5 cây ... (thùng còn 15)" không phải tra lại
+            "remaining": s.get("remaining"), "unit": s.get("unit"),
         })
     for tid, boxes in grouped.items():
         _emit(action, "order", tid, actor, actor_type, {"boxes": boxes})
@@ -87,6 +90,24 @@ def log_boxes_consumed(snaps: list[dict], *, target_code, slip_id, actor, actor_
     for s in snaps:
         _box_and_place("box.consumed", s, actor, actor_type, extra={
             "taken": s.get("consumed_amount"), "target_code": target_code, "slip_id": slip_id})
+
+
+def log_boxes_disposed(items: list[dict], *, disposal_id, reason, actor, actor_type: str) -> None:
+    """Xuất hủy: ghi giảm tồn vào timeline thùng + vị trí, link về phiếu hủy."""
+    for s in items:
+        _box_and_place("box.disposed", s, actor, actor_type, extra={
+            "taken": s.get("taken"), "disposal_id": disposal_id,
+            "disposal_reason": str(reason or "").strip(),
+        })
+
+
+def log_boxes_disposal_released(items: list[dict], *, disposal_id, reason, actor, actor_type: str) -> None:
+    """Xóa phiếu hủy: ghi lượng hàng được hoàn lại vào các timeline liên quan."""
+    for s in items:
+        _box_and_place("box.disposal_released", s, actor, actor_type, extra={
+            "taken": s.get("taken"), "disposal_id": disposal_id,
+            "disposal_reason": str(reason or "").strip(),
+        })
 
 
 def log_box_moved(snap: dict, *, from_place_id, from_name, to_place_id, to_name, actor, actor_type: str) -> None:

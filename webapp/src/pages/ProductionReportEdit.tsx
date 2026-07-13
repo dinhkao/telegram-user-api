@@ -32,8 +32,8 @@ const rowsFromReport = (rep: ProdReport | null, defaults: string[] = []): Wrow[]
 
 export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const me = useMemo(() => { const u = currentUser(); return u?.display_name || u?.username || ""; }, []);
-  // sid = mã phiên NGẪU NHIÊN mỗi lần mở trang — danh tính khoá là (tên, sid) nên
-  // cùng tài khoản mở 2 máy vẫn chỉ 1 máy được sửa (trước so mỗi tên → đè nhau).
+  // sid = mã phiên NGẪU NHIÊN mỗi lần mở trang; server gom nhiều phiên của cùng
+  // tài khoản vào một khoá, nhưng vẫn giữ heartbeat/nhả khoá riêng cho từng phiên.
   const sid = useMemo(() => Math.random().toString(36).slice(2) + Date.now().toString(36), []);
   const [slip, setSlip] = useState<ProdSlip | null>(null);
   const [wrows, setWrows] = useState<Wrow[]>([blankRow()]);
@@ -49,11 +49,9 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const draftTimer = useRef<any>(null);
   const autoTimer = useRef<any>(null);
   const [saveState, setSaveState] = useState<"" | "saving" | "saved" | "error">("");
-  // Danh sách thợ (picker) + thợ mặc định (template tự điền). defaultsRef để seed
+  // Danh sách thợ + thợ mặc định (template tự điền). defaultsRef để seed
   // đúng lúc (nạp thợ TRƯỚC khi seed bảng, tránh race với loadSlip).
-  const [workerNames, setWorkerNames] = useState<string[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);   // full (id+name) → map tên↔id khi lưu thứ tự
-  const [defaults, setDefaults] = useState<string[]>([]);
   const defaultsRef = useRef<string[]>([]);
   const [orderPop, setOrderPop] = useState(false);        // popup sắp thứ tự thợ
   // Ảnh nền để DÒ — lưu VĨNH VIỄN trên SERVER (DB + đĩa) theo phiếu, scope report_bg
@@ -85,23 +83,10 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         const w = await listWorkers();
         defaultsRef.current = w.defaults;
         setWorkers(w.workers);
-        setWorkerNames(w.workers.map((x) => x.name));
-        setDefaults(w.defaults);
       } catch { /* im — không có thợ thì bảng 1 dòng trống */ }
       loadSlip();
     })();
   }, [threadId]);
-
-  // Chèn thợ mặc định (template) — thêm các thợ chưa có vào bảng
-  const insertDefaults = () => {
-    const have = new Set(wrows.map((r) => r.name.trim().toLowerCase()).filter(Boolean));
-    const toAdd = defaults.filter((n) => !have.has(n.toLowerCase())).map((n) => blankRow(n));
-    if (!toAdd.length) return;
-    setWrows((rs) => {
-      const only = rs.length === 1 && !rs[0].name.trim() && !rs[0].gach && !rs[0].tru && !rs[0].le;
-      return only ? toAdd : [...rs, ...toAdd];   // bảng đang trống → thay; có rồi → nối
-    });
-  };
 
   // Áp CHỌN + THỨ TỰ thợ (từ popup) → DỰNG LẠI bảng theo đúng thợ đã chọn & thứ tự:
   //  • giữ nguyên số liệu thợ đang có; thợ mới chọn = dòng trống; thợ bỏ chọn = gỡ khỏi bảng.
@@ -122,8 +107,8 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     const ids = order.map((n) => idByName.get(n.trim().toLowerCase())).filter((x): x is number => typeof x === "number");
     if (ids.length)
       reorderWorkers(ids).then((w) => {
-        setWorkers(w.workers); setWorkerNames(w.workers.map((x) => x.name));
-        defaultsRef.current = w.defaults; setDefaults(w.defaults);
+        setWorkers(w.workers);
+        defaultsRef.current = w.defaults;
       }).catch(() => {});
     toast("Đã cập nhật thợ trong bảng");
   };
@@ -135,9 +120,17 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   // Xin/gia hạn khoá — cập nhật cả holder lẫn lockState (dùng chung mọi chỗ)
   const aliveRef = useRef(true);
   const acquire = async () => {
+    // Listener realtime/heartbeat có thể đã xếp acquire vào microtask ngay lúc trang
+    // đang unmount. Chặn TRƯỚC request để khỏi vừa unlock xong lại tự xin khoá.
+    if (!aliveRef.current) return;
     try {
       const r = await lockReport(threadId, sid);
-      if (!aliveRef.current) return;
+      if (!aliveRef.current) {
+        // Request đã bay đi trước lúc unmount và hoàn thành muộn: nếu nó vừa giành
+        // được khoá thì nhả lần nữa. sid bảo đảm không đụng khoá của phiên mới.
+        if (r.mine) unlockReport(threadId, sid).catch(() => {});
+        return;
+      }
       setHolder(r.mine ? null : r.holder);
       setLockState(r.mine ? "mine" : "other");
     } catch { /* mất mạng → giữ trạng thái hiện tại, heartbeat sẽ thử lại */ }
@@ -186,14 +179,8 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const grand = useMemo(() => round2(wrows.reduce((s, r) => s + calc(r).tong, 0)), [wrows, scm]);
 
   const setRow = (i: number, patch: Partial<Wrow>) => setWrows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)));
-  const addRow = () => setWrows((rs) => [...rs, blankRow()]);
-  const delRow = async (i: number) => {
-    const nm = wrows[i]?.name?.trim();
-    if (nm && !(await confirmDialog(`Xoá dòng thợ "${nm}"?`, { danger: true }))) return;
-    setWrows((rs) => (rs.length > 1 ? rs.filter((_, k) => k !== i) : rs));
-  };
   const selAll = (e: any) => e.target.select();   // bấm vào ô → chọn hết nội dung, gõ đè ngay
-  // Enter trong 1 ô → nhảy focus xuống ĐÚNG CỘT hàng dưới; hàng cuối thì thêm hàng mới.
+  // Enter trong 1 ô → nhảy focus xuống ĐÚNG CỘT hàng dưới.
   const tableRef = useRef<HTMLTableElement>(null);
   const focusCell = (col: string, row: number): boolean => {
     const el = tableRef.current?.querySelector(`[data-col="${col}"][data-row="${row}"]`) as HTMLInputElement | null;
@@ -204,7 +191,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     // Enter/Go/Next: bàn phím mobile báo key khác nhau → nhận cả keyCode 13
     if (e.key !== "Enter" && e.keyCode !== 13 && e.which !== 13) return;
     e.preventDefault();                     // chặn xuống dòng / submit
-    if (!focusCell(col, row + 1)) { addRow(); requestAnimationFrame(() => focusCell(col, row + 1)); }
+    focusCell(col, row + 1);
   };
 
   // ── Ảnh nền để dò: chọn ảnh (camera/thư viện) → nén bằng engine như trang đơn
@@ -357,28 +344,22 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
           )}
         </div>
 
-        {/* Gợi ý chọn thợ từ danh sách chung (gõ để lọc) */}
-        <datalist id="wr-worker-list">
-          {workerNames.map((n) => <option value={n} key={n} />)}
-        </datalist>
-
         <div class="prod-report-scroll wr-scroll">
           <table class="prod-report-table wr-edit" ref={tableRef}>
             <colgroup>
               <col class="c-name" /><col class="c-num" /><col class="c-num" /><col class="c-num" />
               <col class="c-num" /><col class="c-num" />
               <col class="c-calc" /><col class="c-calc" /><col class="c-note" />
-              {!readOnly && <col class="c-del" />}
             </colgroup>
             <thead>
-              <tr><th>Thợ</th><th>Gạch</th><th>Trừ</th><th>Lẻ</th><th>SP đè</th><th>Mâm đè</th><th>Mâm</th><th>Tổng</th><th>Ghi chú</th>{!readOnly && <th></th>}</tr>
+              <tr><th>Thợ</th><th>Gạch</th><th>Trừ</th><th>Lẻ</th><th>SP đè</th><th>Mâm đè</th><th>Mâm</th><th>Tổng</th><th>Ghi chú</th></tr>
             </thead>
             <tbody>
               {wrows.map((r, i) => {
                 const c = calc(r);
                 return (
                   <tr key={i} class={c.tong > 0 ? "" : "prod-row-off"}>
-                    <td><input class="wr-in wr-name" list="wr-worker-list" data-col="name" data-row={i} enterKeyHint="next" value={r.name} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("name", i)} onInput={(e: any) => setRow(i, { name: e.target.value })} placeholder="Tên" /></td>
+                    <td><span class="wr-worker-name">{r.name || "—"}</span></td>
                     <td><input class="wr-in wr-num" inputMode="decimal" data-col="gach" data-row={i} enterKeyHint="next" value={r.gach} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("gach", i)} onInput={(e: any) => setRow(i, { gach: e.target.value })} /></td>
                     <td><input class="wr-in wr-num" inputMode="decimal" data-col="tru" data-row={i} enterKeyHint="next" value={r.tru} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("tru", i)} onInput={(e: any) => setRow(i, { tru: e.target.value })} /></td>
                     <td><input class="wr-in wr-num" inputMode="decimal" data-col="le" data-row={i} enterKeyHint="next" value={r.le} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("le", i)} onInput={(e: any) => setRow(i, { le: e.target.value })} /></td>
@@ -391,21 +372,18 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
                       ref={(el: any) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }}
                       onInput={(e: any) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; setRow(i, { note: e.target.value }); }}
                       placeholder="—" /></td>
-                    {!readOnly && <td><button class="btn small wr-del" title="Xoá dòng" onClick={() => delRow(i)}><Icon name="close" size={16} /></button></td>}
                   </tr>
                 );
               })}
             </tbody>
             <tfoot>
-              <tr><td colSpan={7}>TỔNG CỘNG</td><td class="strong">{soVN(grand)}</td><td colSpan={readOnly ? 1 : 2}></td></tr>
+              <tr><td colSpan={7}>TỔNG CỘNG</td><td class="strong">{soVN(grand)}</td><td></td></tr>
             </tfoot>
           </table>
         </div>
 
         {!readOnly && (
           <div class="row">
-            <button class="btn" onClick={addRow}><Icon name="plus" size={16} /> Thêm thợ</button>
-            {defaults.length > 0 && <button class="btn" onClick={insertDefaults} title="Chèn các thợ mặc định"><Icon name="users" size={16} /> Chèn thợ mặc định</button>}
             <button class="btn" onClick={() => setOrderPop(true)} title="Chọn thợ & sắp thứ tự"><Icon name="settings" size={16} /> Chọn/sắp thợ</button>
             <span class="wr-autosave" data-st={saveState}>
               {saveState === "saving" ? "⏳ Đang lưu…" : saveState === "saved" ? "✓ Đã lưu tự động" : saveState === "error" ? "⚠ Lỗi lưu — thử lại" : "Tự lưu khi gõ"}

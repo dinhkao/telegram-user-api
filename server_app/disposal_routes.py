@@ -79,10 +79,18 @@ async def disposal_create_handler(request: web.Request):
     def _save():
         conn = _conn()
         try:
-            return disposal_store.create_disposal(conn, picks, reason=reason, by=actor)
+            slip, err = disposal_store.create_disposal(conn, picks, reason=reason, by=actor)
+            audit_items = []
+            if slip:
+                from server_app.inventory_audit import box_snapshot
+                for item in slip["items"]:
+                    snap = box_snapshot(conn, item.get("box_id"))
+                    if snap:
+                        audit_items.append({**snap, "taken": item.get("quantity")})
+            return slip, err, audit_items
         finally:
             conn.close()
-    slip, err = await asyncio.to_thread(_save)
+    slip, err, audit_items = await asyncio.to_thread(_save)
     if err:
         return web.json_response({"ok": False, "error": err}, status=400)
 
@@ -93,6 +101,11 @@ async def disposal_create_handler(request: web.Request):
         emit_box_changed(item.get("box_id"))
     from audit_log import async_log_event
     from server_app.tasks import spawn_tracked
+    from server_app.inventory_audit import log_boxes_disposed
+    log_boxes_disposed(
+        audit_items, disposal_id=slip["id"], reason=reason, actor=actor,
+        actor_type="web_user" if request.get("web_user") else "http_client",
+    )
     spawn_tracked("audit.disposal_created", async_log_event(
         "disposal.created", scope="disposal", thread_id=slip["id"],
         actor_type="web_user" if request.get("web_user") else "http_client",
@@ -117,10 +130,17 @@ async def disposal_delete_handler(request: web.Request):
         try:
             slip = disposal_store.get_disposal(conn, did)
             restored, err = disposal_store.delete_disposal(conn, did, by=actor)
-            return slip, restored, err
+            audit_items = []
+            if slip and not err:
+                from server_app.inventory_audit import box_snapshot
+                for item in slip.get("items", []):
+                    snap = box_snapshot(conn, item.get("box_id"))
+                    if snap:
+                        audit_items.append({**snap, "taken": item.get("quantity")})
+            return slip, restored, err, audit_items
         finally:
             conn.close()
-    slip, restored, err = await asyncio.to_thread(_del)
+    slip, restored, err, audit_items = await asyncio.to_thread(_del)
     if err:
         return web.json_response({"ok": False, "error": err}, status=404)
 
@@ -131,6 +151,11 @@ async def disposal_delete_handler(request: web.Request):
         emit_box_changed(item.get("box_id"))
     from audit_log import async_log_event
     from server_app.tasks import spawn_tracked
+    from server_app.inventory_audit import log_boxes_disposal_released
+    log_boxes_disposal_released(
+        audit_items, disposal_id=did, reason=(slip or {}).get("reason"), actor=actor,
+        actor_type="web_user" if request.get("web_user") else "http_client",
+    )
     spawn_tracked("audit.disposal_deleted", async_log_event(
         "disposal.deleted", scope="disposal", thread_id=did,
         actor_type="web_user", actor_id=actor, source="disposal.deleted",

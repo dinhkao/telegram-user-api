@@ -24,6 +24,7 @@ export type RealtimeEvent =
   | { type: "banner_changed" }
   | { type: "notif_added"; notif: any }
   | { type: "report_lock"; thread_id: string | null; holder: string | null }
+  | { type: "stocktake_lock"; stocktake_id: string | null; holder: string | null }
   | { type: "report_draft"; thread_id: string | null; draft: any }
   | { type: "stock_pick_lock"; thread_id: string | null; code: string; holder: string | null }
   | { type: "invoice_edit_lock"; thread_id: string | null; holder: string | null }

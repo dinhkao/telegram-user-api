@@ -9,7 +9,7 @@
 //    đổi khách là chú thích giá bảng/gợi ý giá cập nhật ngay.
 // Mọi thao tác HĐ KiotViet (tạo/xem/in/xoá/kéo nợ) nằm ở khối Hoá đơn của
 // OrderDetail. Đơn đã có HĐ KiotViet / chốt kho → khoá cả 2 tab.
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { getJSON, postJSON, lockInvoiceEdit, unlockInvoiceEdit, previewOrder, refreshCustomerDebt, orderImageUrl, type OrderPreview } from "../api";
 import { money, moneyK, initial } from "../format";
@@ -24,6 +24,7 @@ import { useTypingSplit } from "../ui/useTypingSplit";
 import { OrderImagePicker } from "../detail/OrderImagePicker";
 
 export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
+  const editSid = useMemo(() => Math.random().toString(36).slice(2) + Date.now().toString(36), []);
   const [detail, setDetail] = useState<any>(null);
   const [err, setErr] = useState("");
   const [editHolder, setEditHolder] = useState<string | null>(null);   // NGƯỜI KHÁC đang sửa
@@ -163,15 +164,15 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
     const beat = async () => {
       let blocked = false;
       try {
-        const r = await lockInvoiceEdit(threadId);
+        const r = await lockInvoiceEdit(threadId, editSid);
         blocked = !!(r && r.mine === false);
         if (alive) setEditHolder(blocked ? r.holder : null);
       } catch { /* im lặng — thử lại nhịp sau */ }
       if (alive) t = setTimeout(beat, blocked ? 4000 : 20000);
     };
     beat();
-    return () => { alive = false; clearTimeout(t); unlockInvoiceEdit(threadId).catch(() => {}); };
-  }, [editable, threadId]);
+    return () => { alive = false; clearTimeout(t); unlockInvoiceEdit(threadId, editSid).catch(() => {}); };
+  }, [editable, editSid, threadId]);
 
   // Thay entry "Sửa hoá đơn" bằng trang chi tiết. Nếu chỉ gán location.hash,
   // trình duyệt sẽ thêm một entry mới và nút Back sẽ mở lại form vừa rời.

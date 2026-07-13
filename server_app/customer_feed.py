@@ -60,18 +60,45 @@ def _ts_key(v) -> float:
         return 0.0
 
 
-def _order_total_num(data: dict) -> int:
-    """Tổng đơn dạng số — cùng nguồn với row dashboard (print_content.tongthanhtoan,
-    fallback Σ sl×giá của invoice)."""
-    pc = (data.get("hoadon") or {}).get("print_content") or {}
-    t = str(pc.get("tongthanhtoan") or "").replace(".", "")
-    if t.isdigit() and int(t) > 0:
-        return int(t)
+def _money_num(value) -> int:
+    """Chuẩn hoá tiền lưu dạng số hoặc chuỗi ``9,430,000`` / ``9.430.000``."""
+    if value is None or value == "":
+        return 0
     try:
-        return sum(int(it.get("price", 0) or 0) * int(it.get("sl", it.get("quantity", 0)) or 0)
-                   for it in data.get("invoice") or [])
+        if isinstance(value, str):
+            value = value.strip().replace(",", "").replace(".", "")
+        return int(float(value))
     except (TypeError, ValueError):
         return 0
+
+
+def _order_total_num(data: dict) -> int:
+    """Tổng tiền của riêng hóa đơn, trước nợ cũ.
+
+    Công thức duy nhất của app: tiền hàng + PVC + VAT - chiết khấu. Hóa đơn đời
+    cũ không còn ``invoice`` thì dùng ``print_content.tongtienhang``; tuyệt đối
+    không dùng ``tongthanhtoan`` vì trường đó đã cộng ``no_truoc``.
+    """
+    items = data.get("invoice") or data.get("san_pham") or []
+    goods = 0
+    try:
+        goods = sum(
+            _money_num(it.get("price"))
+            * _money_num(it.get("sl", it.get("quantity", 0)))
+            for it in items
+        )
+    except (AttributeError, TypeError):
+        goods = 0
+    if not items:
+        pc = (data.get("hoadon") or {}).get("print_content") or {}
+        goods = _money_num(pc.get("tongtienhang"))
+    return max(
+        0,
+        goods
+        + _money_num(data.get("pvc"))
+        + _money_num(data.get("vat"))
+        - _money_num(data.get("discount")),
+    )
 
 
 def _current_debt(conn, key: str):

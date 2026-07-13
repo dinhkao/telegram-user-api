@@ -58,6 +58,7 @@ import { BulkMove } from "./pages/BulkMove";
 import { PlacesList } from "./pages/PlacesList";
 import { PlaceDetail } from "./pages/PlaceDetail";
 import { PlaceTimeline } from "./pages/PlaceTimeline";
+import { StocktakeDetail } from "./pages/StocktakeDetail";
 import { BoxDetail } from "./pages/BoxDetail";
 import { BoxTimeline } from "./pages/BoxTimeline";
 import { CameraGallery } from "./pages/CameraGallery";
@@ -443,6 +444,7 @@ function App() {
   const khoMatch = hash.match(/^#\/kho\/([^?]+)/);
   const placeTLMatch = hash.match(/^#\/vi-tri\/(\d+)\/timeline/);
   const placeMatch = hash.match(/^#\/vi-tri\/(\d+)/);
+  const stocktakeMatch = hash.match(/^#\/kiem-kho\/(\d+)/);
   const boxTLMatch = hash.match(/^#\/thung\/(\d+)\/timeline/);
   const boxMatch = hash.match(/^#\/thung\/(\d+)/);
   const viecMatch = hash.match(/^#\/viec\/(\d+)/);
@@ -475,6 +477,7 @@ function App() {
   else if (boxMatch) page = <BoxDetail boxId={boxMatch[1]} focus={focusEl} />;
   else if (placeTLMatch) page = <PlaceTimeline placeId={placeTLMatch[1]} focus={focusEl} />;
   else if (placeMatch) page = <PlaceDetail id={placeMatch[1]} />;
+  else if (stocktakeMatch) page = <StocktakeDetail id={stocktakeMatch[1]} />;
   else if (hash.startsWith("#/vi-tri")) page = <PlacesList />;
   else if (khoTLMatch) page = <ProductTimeline code={decodeURIComponent(khoTLMatch[1])} focus={focusEl} />;
   else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;
@@ -534,6 +537,7 @@ function App() {
     : hash.startsWith("#/nhu-cau") ? "Cần làm hàng"
     : hash.startsWith("#/so-thung") ? "Số thùng"
     : hash.startsWith("#/chuyen-kho") ? "Chuyển kho"
+    : stocktakeMatch ? "Kiểm kho"
     : (hash.startsWith("#/vi-tri") || placeMatch) ? "Vị trí kho"
     : khoTLMatch ? "Biến động tồn"
     : (hash.startsWith("#/kho") || khoMatch || boxMatch) ? "Kho hàng"

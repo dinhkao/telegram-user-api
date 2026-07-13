@@ -13,6 +13,7 @@ from inventory_store.schema import create_inventory_table, migrate_inventory_tab
 from product_store import create_products_table, migrate_products_table, upsert_product
 from product_store.schema import _invalidate_products_cache
 from utils.db import get_connection
+from audit_log import init_audit_db
 
 
 class DisposalStoreTest(unittest.TestCase):
@@ -91,6 +92,19 @@ class DisposalStoreTest(unittest.TestCase):
         restored, err = disposal_store.delete_disposal(self.conn, slip["id"], by="duy")
         self.assertEqual(restored, 0)
         self.assertIn("đã xoá", err)
+
+    def test_timeline_backfill_is_idempotent(self):
+        init_audit_db(self.path)
+        slip, _ = disposal_store.create_disposal(
+            self.conn, [{"box_id": self.box["id"], "quantity": 15}], reason="hỏng", by="duy")
+        self.assertEqual(disposal_store.backfill_timeline_events(self.conn), 1)  # box; chưa xếp vị trí
+        self.assertEqual(disposal_store.backfill_timeline_events(self.conn), 0)
+        row = self.conn.execute(
+            "SELECT action, payload_json FROM audit_events WHERE scope='box' AND thread_id=?",
+            (self.box["id"],),
+        ).fetchone()
+        self.assertEqual(row["action"], "box.disposed")
+        self.assertIn(f'"disposal_id":{slip["id"]}', row["payload_json"])
 
 
 if __name__ == "__main__":

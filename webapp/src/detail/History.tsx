@@ -77,7 +77,12 @@ export function History({ base, focusTs }: { base: string; focusTs?: number }) {
                 <div>
                   <div>
                     <b>{h.action}</b>
-                    {h.move ? (
+                    {Array.isArray(h.parts) && h.parts.length > 0 ? (
+                      <span> — {h.parts.map((p: any, pi: number) =>
+                        p.href
+                          ? <a key={pi} class="hist-place-lnk" href={p.href}>{p.t}</a>
+                          : <span key={pi}>{p.t}</span>)}</span>
+                    ) : h.move ? (
                       <span> · từ {placeLink(h.move.from, h.ts)} → {placeLink(h.move.to, h.ts)}</span>
                     ) : h.detail ? <span> — {h.detail}</span> : null}
                     {h.order ? (
@@ -87,6 +92,9 @@ export function History({ base, focusTs }: { base: string; focusTs?: number }) {
                     ) : null}
                     {h.source_slip ? (
                       <span> · <a class="hist-place-lnk" href={`#/san_xuat/${h.source_slip.thread_id}`}>Phiếu SX →</a></span>
+                    ) : null}
+                    {h.disposal ? (
+                      <span> · <a class="hist-place-lnk" href={`#/xuat-huy/${h.disposal.id}`}>Phiếu hủy #{h.disposal.id} →</a></span>
                     ) : null}
                     {h.ok === false ? <span class="owe"> ✗</span> : null}
                   </div>

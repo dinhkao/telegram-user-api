@@ -276,7 +276,11 @@ export function OrderPayment({ threadId }: { threadId: string }) {
                         </div>
                         <div class="row space muted small">
                           <span>{o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : ""}</span>
-                          <span>Nợ đơn: {money(o.debt)}{take > 0 && take < o.debt ? ` · còn ${money(o.debt - take)}` : ""}</span>
+                          <span>
+                            Tiền đơn: {money(o.total)}
+                            {o.debt !== o.total ? ` · còn nợ ${money(o.debt)}` : ""}
+                            {take > 0 && take < o.debt ? ` · sau thu còn ${money(o.debt - take)}` : ""}
+                          </span>
                         </div>
                       </li>
                     );
@@ -323,7 +327,7 @@ export function OrderPayment({ threadId }: { threadId: string }) {
                       </div>
                       <div class="row space muted small">
                         <span>{o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : ""}</span>
-                        <span>Nợ đơn: {money(o.total)}</span>
+                        <span>Tiền đơn: {money(o.total)} · còn nợ {money(o.debt)}</span>
                       </div>
                     </li>
                   ))}

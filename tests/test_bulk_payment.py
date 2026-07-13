@@ -13,6 +13,7 @@ import time
 import unittest
 
 from api_helpers.payment_core import find_batch_thread_ids, remove_batch_payments
+from server_app.customer_feed import _order_total_num
 from server_app.order_api_bulk_payment import _load_customer_debt_orders
 
 _ORDERS_DDL = """
@@ -51,6 +52,32 @@ def _order(cust="K1", created="2026-07-01T00:00:00", total=100, **extra):
 
 
 class LoadCustomerDebtOrders(unittest.TestCase):
+    def test_total_includes_fees_discount_but_excludes_old_debt(self):
+        order = _order(
+            total=1_000_000,
+            pvc=30_000,
+            vat=80_000,
+            discount=50_000,
+            hoadon={"print_content": {
+                "tongtienhang": "1,000,000",
+                "no_truoc": "9,000,000",
+                "tongthanhtoan": "10,060,000",
+            }},
+        )
+        self.assertEqual(_order_total_num(order), 1_060_000)
+
+    def test_legacy_total_uses_printed_goods_not_total_with_old_debt(self):
+        order = {
+            "pvc": 30_000,
+            "discount": 10_000,
+            "hoadon": {"print_content": {
+                "tongtienhang": "650.000",
+                "no_truoc": "5.000.000",
+                "tongthanhtoan": "5.670.000",
+            }},
+        }
+        self.assertEqual(_order_total_num(order), 670_000)
+
     def test_only_unpaid_same_customer_sorted_old_first(self):
         conn = _conn()
         _put(conn, 10, _order(created="2026-07-03T00:00:00", total=300))   # mới hơn

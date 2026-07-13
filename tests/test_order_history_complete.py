@@ -29,12 +29,16 @@ def test_history_keeps_new_and_non_post_order_actions():
          payload={"body": json.dumps({"label": "Gọi khách"})})
     _add(conn, row_id=2, source="DELETE /api/order/99")
     _add(conn, row_id=3, action="order.stock_allocated", source="inventory",
-         payload={"boxes": [{"box_code": "K10-001", "taken": 20}]})
+         payload={"boxes": [{"box_id": 7, "box_code": "K10-001", "product_code": "KDX30",
+                             "taken": 20, "remaining": 5, "unit": "cây"}]})
 
     rows = _get_order_history_rows(conn, 99, 20)
 
     assert [r["action"] for r in rows] == ["Xuất kho cho đơn", "Xóa đơn", "Thêm việc tùy chỉnh"]
-    assert rows[0]["detail"] == "K10-001: 20"
+    # chi tiết ĐỌC ĐƯỢC: SP + số lượng + đơn vị + thùng + tồn còn, kèm link thùng/SP
+    assert rows[0]["detail"] == "lấy 20 cây KDX30 từ thùng 001 (thùng còn 5)"
+    hrefs = [p.get("href") for p in rows[0]["parts"] if p.get("href")]
+    assert "#/thung/7" in hrefs and "#/kho/KDX30" in hrefs
     assert rows[2]["detail"] == "Gọi khách"
 
 

@@ -40,11 +40,14 @@ def _load_names() -> dict:
 
 
 def _actor_display(actor_id, names: dict) -> str:
-    """actor_id (web_user username / IP) → tên hiển thị cho lịch sử."""
+    """actor_id (web_user username / Telegram id / IP) → tên hiển thị cho lịch sử.
+    Tra tên TRƯỚC khi đoán IP — id Telegram toàn chữ số từng bị nuốt thành 'Hệ thống'."""
     s = "" if actor_id is None else str(actor_id)
+    if s in names:
+        return names[s]
     if s in _LOOPBACK or _IPISH.match(s):
         return "Hệ thống"
-    return names.get(s, s)
+    return s
 
 
 def _norm(path: str) -> str:
@@ -122,51 +125,73 @@ _TASK_VI = {"soan_hang": "soạn hàng", "ban_hd": "bán HĐ", "giao_hang": "gia
             "soan": "soạn hàng", "ban": "bán HĐ", "giao": "giao hàng", "nop": "nộp tiền"}
 
 
-def _detail(norm: str, body: dict) -> str:
+def _fmt_ngay_giao(v: str) -> str:
+    """'2026-07-14T08:30' → '14/07/2026 08:30' (đọc kiểu VN)."""
+    try:
+        dt = datetime.fromisoformat(str(v))
+        hm = dt.strftime(" %H:%M") if (dt.hour or dt.minute) else ""
+        return dt.strftime("%d/%m/%Y") + hm
+    except (ValueError, TypeError):
+        return str(v or "")
+
+
+def _detail(norm: str, body: dict, resolver=None) -> tuple[str, list]:
+    """(detail text, parts có link) cho 1 request ghi theo path chuẩn hoá."""
+    from server_app.history_format import customer_part, money, part, parts_text
     try:
         if norm in ("/api/order/task", "/api/order/soan", "/api/order/ban", "/api/order/giao", "/api/order/nop-tien"):
             t = _TASK_VI.get(str(body.get("type", "")), body.get("type", "")) or norm.rsplit("/", 1)[-1]
             done = body.get("done", True)
-            return f"{t}{'' if done is not False else ' (bỏ)'}"
+            note = str(body.get("note") or "").strip()
+            txt = f"{t}{'' if done is not False else ' (bỏ)'}" + (f" · “{note[:40]}”" if note and not note.startswith("imgs:") else "")
+            return txt, [part(txt)]
         if norm.endswith("/task_status/clear"):
-            return _TASK_VI.get(str(body.get("type", "")), str(body.get("type", "")))
+            txt = _TASK_VI.get(str(body.get("type", "")), str(body.get("type", "")))
+            return txt, [part(txt)]
+        if norm == "/api/order/payment/delete":
+            txt = f"phiếu thu #{body.get('payment_id')}" if body.get("payment_id") is not None else ""
+            return txt, [part(txt)] if txt else []
         if norm.startswith("/api/order/payment"):
             amt = body.get("amount")
-            return f"{int(amt):,}đ".replace(",", ".") if str(amt).isdigit() else ""
-        if norm == "/api/order/fix":
-            return (body.get("text") or "")[:50]
+            txt = money(amt) if str(amt or "").isdigit() else ""
+            return txt, [part(txt)] if txt else []
+        if norm in ("/api/order/fix", "/api/order/auto-parse", "/api/order/reply"):
+            txt = " ".join(str(body.get("text") or "").split())[:60]
+            return txt, [part(f"“{txt}”")] if txt else []
         if norm.endswith("/comments"):
-            return (body.get("text") or "")[:50]
+            txt = (body.get("text") or "")[:60]
+            return txt, [part(f"“{txt}”")] if txt else []
         if norm == "/api/order/assign-customer":
-            return str(body.get("customer_key") or "")
+            key = body.get("customer_key")
+            if key is None or str(key) == "":
+                return "", []
+            p = customer_part(key, resolver)
+            return p["t"], [part("→ "), p]
         if norm == "/api/order/ngay-giao":
-            return str(body.get("ngay_giao") or body.get("date") or "")
+            raw = body.get("ngay_giao") or body.get("date")
+            txt = _fmt_ngay_giao(raw) if raw else "bỏ hẹn"
+            return txt, [part(txt)]
+        if norm == "/api/order/no-track":
+            txt = "bật (đơn không tính nợ nữa)" if body.get("on", True) else "tắt (tính nợ lại)"
+            return txt, [part(txt)]
         if norm == "/api/order/bypass-debt":
-            return "ẩn" if body.get("bypass", body.get("value", True)) else "hiện lại"
+            txt = "ẩn khỏi trang thu tiền" if body.get("bypass", body.get("value", body.get("on", True))) else "hiện lại ở trang thu tiền"
+            return txt, [part(txt)]
         if norm.endswith("/custom-task"):
-            return str(body.get("label") or "")[:50]
+            txt = str(body.get("label") or "")[:50]
+            return txt, [part(f"“{txt}”")] if txt else []
+        if norm.endswith("/custom-task/remove"):
+            txt = str(body.get("label") or body.get("id") or "")[:50]
+            return str(txt), [part(str(txt))] if txt else []
         if norm.endswith("/stock-confirm"):
-            return "chốt" if body.get("confirm") else "bỏ chốt"
+            txt = "chốt" if body.get("confirm") else "bỏ chốt"
+            return txt, [part(txt)]
         if norm.endswith("/kind"):
-            return str(body.get("kind") or "")
+            txt = str(body.get("kind") or "")
+            return txt, [part(txt)]
     except Exception:
         pass
-    return ""
-
-
-def _event_detail(action: str, payload: dict) -> str:
-    if payload.get("detail"):
-        return str(payload["detail"])[:120]
-    if action in ("order.stock_allocated", "order.stock_released"):
-        boxes = payload.get("boxes") or []
-        parts = [f"{b.get('box_code') or ('#' + str(b.get('box_id')))}: {b.get('taken', 0)}" for b in boxes]
-        return ", ".join(parts)[:180]
-    if action == "order.bulk_payment":
-        try:
-            return f"{int(payload.get('amount') or 0):,}đ".replace(",", ".")
-        except (TypeError, ValueError):
-            return ""
-    return ""
+    return "", []
 
 
 def _epoch(value) -> float:
@@ -196,6 +221,9 @@ def _get_order_history_rows(conn, thread_id, limit: int) -> list[dict]:
         "ORDER BY id DESC LIMIT 300",
         (int(thread_id),),
     ).fetchall()
+    from server_app.event_format import event_entry
+    from server_app.history_format import Resolver, parts_text
+    resolver = Resolver(conn)
     names = _load_names()
     event_times: dict[str, list[float]] = {}
     for row in rows:
@@ -206,17 +234,23 @@ def _get_order_history_rows(conn, thread_id, limit: int) -> list[dict]:
     for r in rows:
         action = r["action"] or ""
         if action != "http.request":
-            label = _EVENT_LABELS.get(action)
-            if not label:
-                # Event order.* mới phải xuất hiện thay vì bị lọc âm thầm.
-                label = "Cập nhật đơn"
             try:
                 payload = json.loads(r["payload_json"] or "{}")
+                payload = payload if isinstance(payload, dict) else {}
             except Exception:
                 payload = {}
+            ent = event_entry(action, payload, resolver)
+            if ent:
+                label, parts = ent
+                # event Telegram cũ mang sẵn payload['detail'] → giữ làm chi tiết
+                if not parts and payload.get("detail"):
+                    parts = [{"t": str(payload["detail"])[:120]}]
+            else:
+                # Event order.* mới phải xuất hiện thay vì bị lọc âm thầm.
+                label, parts = _EVENT_LABELS.get(action, "Cập nhật đơn"), []
             item = {
                 "ts": r["ts"], "actor": _actor_display(r["actor_id"], names),
-                "action": label, "detail": _event_detail(action, payload), "ok": True,
+                "action": label, "detail": parts_text(parts), "parts": parts, "ok": True,
             }
             if action in ("order.image_added", "order.image_deleted"):
                 item["image_id"] = payload.get("image_id")
@@ -266,9 +300,10 @@ def _get_order_history_rows(conn, thread_id, limit: int) -> list[dict]:
             status = json.loads(r["result_json"] or "{}").get("status")
         except Exception:
             status = None
+        detail, parts = _detail(norm, body, resolver)
         out.append({
             "ts": r["ts"], "actor": _actor_display(r["actor_id"], names), "action": label,
-            "detail": _detail(norm, body),
+            "detail": detail, "parts": parts,
             "changes": changes,
             "ok": status is None or (isinstance(status, int) and 200 <= status < 300),
         })
