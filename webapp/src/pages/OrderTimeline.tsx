@@ -123,7 +123,7 @@ export function OrderTimeline({ threadId }: { threadId: string }) {
 
   const load = () => {
     getOrderTimeline(threadId)
-      .then((r) => { if (!r) setErr("Không tìm thấy đơn"); else setD(r); })
+      .then((r) => { if (!r) setErr("Không tìm thấy đơn"); else { setD(r); setErr(""); } })
       .catch((e: any) => setErr(e?.message || "Lỗi tải timeline"))
       .finally(() => setLoading(false));
   };

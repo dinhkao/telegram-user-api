@@ -87,9 +87,10 @@ def get_activity(before: int | None = None, per: int = _PER):
         cursor = before
         exhausted = False
         last_rk = None   # gộp autosave (báo cáo thợ / đếm kiểm kho) liên tiếp
-        # thời điểm các event — để bỏ dòng request trùng event (±15s). Cộng dồn
+        broke_mid_batch = False   # trang đầy giữa batch cuối → vẫn còn dòng chưa xử lý
+        # (thời điểm, entity) các event — để bỏ dòng request trùng event. Cộng dồn
         # QUA các batch: event với request cùng thao tác có thể rơi 2 batch kề nhau.
-        event_times: dict[str, list[float]] = {}
+        event_times: dict[str, list[tuple[float, object]]] = {}
         # tối đa vài vòng quét (mỗi vòng 300 raw) để lấp đủ `per` kể cả vùng nhiều noise
         for _ in range(20):
             if len(out) >= per or exhausted:
@@ -106,19 +107,19 @@ def get_activity(before: int | None = None, per: int = _PER):
                 exhausted = True
             for r in rows:
                 if (r["action"] or "") != "http.request":
-                    event_times.setdefault(r["action"], []).append(_epoch(r["ts"]))
+                    event_times.setdefault(r["action"], []).append((_epoch(r["ts"]), r["thread_id"]))
             if rows:
                 # nhìn TRƯỚC 100 event kế (id nhỏ hơn) — cặp request↔event có thể
                 # rơi 2 bên mép batch (event ghi trước request vài ms)
                 try:
                     for r2 in conn.execute(
-                        "SELECT action, ts FROM audit_events WHERE id < ? AND action != 'http.request' "
+                        "SELECT action, ts, thread_id FROM audit_events WHERE id < ? AND action != 'http.request' "
                         "ORDER BY id DESC LIMIT 100", (rows[-1]["id"],),
                     ).fetchall():
-                        event_times.setdefault(r2["action"], []).append(_epoch(r2["ts"]))
+                        event_times.setdefault(r2["action"], []).append((_epoch(r2["ts"]), r2["thread_id"]))
                 except Exception:
                     pass
-            for r in rows:
+            for ri, r in enumerate(rows):
                 cursor = r["id"]
                 meta = row_meta(r, resolver, event_times)
                 if not meta:
@@ -147,9 +148,10 @@ def get_activity(before: int | None = None, per: int = _PER):
                     "ok": status is None or (isinstance(status, int) and 200 <= status < 300),
                 })
                 if len(out) >= per:
+                    broke_mid_batch = ri < len(rows) - 1
                     break
         _attach_peeks(conn, out)
-        return out, cursor, not exhausted
+        return out, cursor, (not exhausted) or broke_mid_batch
     except Exception:
         return [], None, False
     finally:

@@ -200,9 +200,10 @@ def _collect_events(conn, key: str) -> list[dict]:
                 by = USER_NAMES.get(by, by)
             except Exception:
                 pass
-            pay_ts = _ts_key(p.get("created_at"))
+            # payment đời Node ghi camelCase createdAt — vẫn là giờ THẬT
+            pay_ts = _ts_key(p.get("created_at") or p.get("createdAt"))
             events.append({
-                # payment di sản không có created_at → neo cạnh đơn của nó
+                # payment di sản không có giờ nào → neo cạnh đơn của nó
                 # (hơn là văng về 1970 đầu chuỗi); đánh dấu ts_guessed để
                 # feed_debt không dùng vị trí ĐOÁN làm bằng chứng demote mốc thật
                 "ts": pay_ts or (order_ts + 1.0), "ts_guessed": not pay_ts,

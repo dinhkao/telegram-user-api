@@ -46,12 +46,24 @@ def _epoch(ts) -> float:
         return 0.0
 
 
+def _shift_iso(ts, secs: float) -> str:
+    """ISO ts + secs giây (neo payment di sản cạnh mốc tạo đơn)."""
+    e = _epoch(ts)
+    if not e:
+        return str(ts or "")
+    from datetime import timezone
+    return datetime.fromtimestamp(e + secs, timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
 def _clean_note(note: str) -> str:
-    """note task: 'tra_tien_mat;img:875' → 'trả tiền mặt' (bỏ đuôi ảnh kỹ thuật)."""
+    """note task: 'tra_tien_mat;imgs:875,874' → 'trả tiền mặt' (bỏ đuôi ảnh kỹ thuật —
+    token imgs: mang NHIỀU id phân cách phẩy, phải gỡ nguyên cụm trước khi tách)."""
+    import re
+    s = re.sub(r"\bimgs?:[\d,\s]+", "", str(note or ""))
     outs = []
-    for tok in str(note or "").replace(",", ";").split(";"):
+    for tok in s.replace(",", ";").split(";"):
         tok = tok.strip()
-        if not tok or tok.startswith(("imgs:", "img:")):
+        if not tok:
             continue
         outs.append(_NOTE_VI.get(tok, tok.replace("_", " ")))
     return " · ".join(outs)
@@ -111,25 +123,60 @@ def order_timeline(thread_id: int) -> dict:
             parts = [part(m)] if m else []
             if p.get("new_debt") is not None:
                 parts.append(part(f"{' · ' if parts else ''}nợ khách sau thu: {money(p.get('new_debt'))}"))
-            add(p.get("created_at"), "payment", "out", "Thu tiền",
+            # payment đời Node ghi camelCase createdAt; thiếu cả 2 → neo cạnh đơn
+            # (không được RỚT — rail tiền phải khớp header)
+            pay_ts = p.get("created_at") or p.get("createdAt")
+            if not _epoch(pay_ts):
+                pay_ts = None
+                parts.append(part(f"{' · ' if parts else ''}(không rõ giờ thu)"))
+            add(pay_ts or _shift_iso(created, 1.0), "payment", "out", "Thu tiền",
                 parts, amount=float(p.get("amount") or 0),
                 actor=_actor_display(str(p.get("createdBy") or ""), names))
 
         # 2) mọi thao tác khác từ audit (đã có nhãn + parts + link + changes)
+        pay_events = [e for e in events if e["kind"] == "payment"]
+
+        def _near_payment(ts_h: float, tol: float = 300.0):
+            best = None
+            for e in pay_events:
+                d = abs(e["ts"] - ts_h)
+                if d <= tol and (best is None or d < abs(best["ts"] - ts_h)):
+                    best = e
+            return best
+
         for h in _get_order_history_rows(conn, int(thread_id), _CAP):
             label = h.get("action") or ""
-            if label in _SKIP_AUDIT_LABELS or h.get("ok") is False:
+            if h.get("ok") is False:
                 continue
-            if label == "Cập nhật đơn" and not (h.get("changes") or h.get("detail")):
-                continue   # request lặt vặt không nói lên gì
-            if label == "Cập nhật đơn (Telegram)" and not (h.get("changes") or h.get("detail")):
-                continue   # burst auto-parse — event kỹ thuật không mang thông tin
+            if label in ("Thu tiền mặt", "Thu chuyển khoản"):
+                # blob payment là nguồn chuẩn; request KHÔNG còn payment tương ứng
+                # = phiếu thu đã bị XOÁ sau đó → vẫn kể trong câu chuyện (không tính rail)
+                if _near_payment(_epoch(h.get("ts"))):
+                    continue
+                add(h.get("ts"), "payment_note", "neutral", "Thu tiền (phiếu đã xoá sau đó)",
+                    h.get("parts") or [], actor=h.get("actor"))
+                continue
+            if label == "Thu tiền gộp":
+                target = _near_payment(_epoch(h.get("ts")))
+                if target:   # gắn ngữ cảnh 'gộp + thu tại đơn X' vào chính dòng thu tiền
+                    src = [pp for pp in (h.get("parts") or []) if str(pp.get("href", "")).startswith("#/order/")]
+                    target["parts"] = target["parts"] + [{"t": " · thu gộp" + (" tại đơn " if src else "")}] + src
+                    continue
+                # không khớp payment nào (hiếm) → giữ dòng riêng
+            if label in _SKIP_AUDIT_LABELS:
+                continue
+            if label in ("Cập nhật đơn", "Cập nhật đơn (Telegram)") and not (h.get("changes") or h.get("detail")):
+                continue   # request lặt vặt / burst auto-parse không nói lên gì
             kind, dir_ = _KIND_BY_LABEL.get(label, ("other", "neutral"))
             add(h.get("ts"), kind, dir_, label, h.get("parts") or [],
                 actor=h.get("actor"), changes=h.get("changes") or [],
                 image_id=h.get("image_id"))
 
-        # 3) rail tiền: còn phải thu = tổng − Σ đã thu tới thời điểm đó
+        # 3) rail tiền: còn phải thu = tổng − Σ đã thu tới thời điểm đó.
+        # Đơn di sản không còn dữ liệu hoá đơn (total=0) nhưng CÓ thu tiền → lấy
+        # tổng = số đã thu để rail vẫn kể đúng câu chuyện (thay vì 0 suốt đời).
+        paid = sum(float(p.get("amount") or 0) for p in data.get("payments") or [])
+        rail_total = float(total) if total > 0 else paid
         events.sort(key=lambda e: e["ts"])
         # gộp burst: cùng nhãn + cùng người trong 3 phút, bản sau không thêm gì mới → bỏ
         dedup: list[dict] = []
@@ -144,13 +191,12 @@ def order_timeline(thread_id: int) -> dict:
         for e in events:
             if e["kind"] == "payment":
                 paid_running += e.get("amount") or 0
-            e["remaining"] = max(0.0, float(total) - paid_running)
-        paid = sum(float(p.get("amount") or 0) for p in data.get("payments") or [])
+            e["remaining"] = max(0.0, rail_total - paid_running)
         events.reverse()   # mới nhất trước (như box timeline)
 
         return {"ok": True, "items": events[:_CAP], "truncated": len(events) >= _CAP,
                 "order": {"thread_id": int(thread_id), "text": txt[:80], "total": total,
-                          "paid": paid, "remaining": max(0.0, float(total) - paid),
+                          "paid": paid, "remaining": max(0.0, rail_total - paid),
                           "customer_key": kh_key, "customer_name": kh_name,
                           "kv_code": data.get("kiotvietInvoiceCode") or "",
                           "created": str(created or ""), "ngay_giao": data.get("ngay_giao") or ""}}

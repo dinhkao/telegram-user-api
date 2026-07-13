@@ -42,9 +42,13 @@ _SKIP_PLACE_COPY = {"box.created", "box.allocated", "box.released", "box.consume
 _SKIP_EVENTS = {"box.moved_out", "box.moved_in"}
 _SKIP_BOX_COPY = {"box.allocated", "box.released"}   # bản gộp = order.stock_*
 
-# request ↔ event nghiệp vụ: thấy event trong ±15s → bỏ dòng request (event chi tiết hơn)
+# request ↔ event nghiệp vụ: thấy event tương ứng (±15s, cùng entity nếu biết)
+# → bỏ dòng request (event chi tiết hơn). Tạo đơn chờ mở topic Telegram lâu → 120s.
+_PAIR_WINDOW = {"POST /api/order/create": 120.0}
 _PAIRS = {
     "POST /api/order/create": ("order.created",),
+    "POST /api/order/{id}/images": ("order.image_added",),
+    "DELETE /api/order/{id}/images/{id}": ("order.image_deleted",),
     "POST /api/order/{id}/allocate": ("order.stock_allocated",),
     "POST /api/order/{id}/release": ("order.stock_released",),
     "POST /api/order/{id}/stock-confirm": ("order.stock_confirmed", "order.stock_unconfirmed"),
@@ -64,7 +68,23 @@ _PAIRS = {
     "POST /api/stocktakes/{id}/complete": ("stocktake.completed",),
     "POST /api/settings": ("settings.changed",),
     "POST /api/products": ("product.created",),
+    # SP theo MÃ (path không phải số — chuẩn hoá {code} riêng)
+    "POST /api/products/{code}": ("product.updated",),
+    "POST /api/products/{code}/rename": ("product.renamed",),
+    "DELETE /api/products/{code}": ("product.deleted",),
+    "POST /api/products/{code}/link": ("product.linked",),
+    "POST /api/products/{code}/unlink": ("product.unlinked",),
+    "POST /api/products/{code}/kiotviet-create": ("product.linked", "product.created"),
 }
+
+# endpoint SP theo mã KHÔNG có event riêng → nhãn + link SP
+_PRODUCT_LABELS = {
+    "POST /api/products/{code}/recipe": "Sửa công thức sản xuất",
+    "DELETE /api/products/{code}/recipe/{id}": "Xoá nguyên liệu khỏi công thức",
+    "POST /api/products/{code}/kiotviet-create": "Tạo SP trên KiotViet",
+}
+_PRODUCT_PATH = re.compile(r"^/api/products/([^/]+)")
+_USERS_PATH = re.compile(r"^(/api/users/)[^/]+(/)")
 
 # path (chuẩn hoá {id}) → nhãn cho endpoint scope=None / chưa có nhãn đẹp
 _EXTRA_LABELS = {
@@ -73,6 +93,9 @@ _EXTRA_LABELS = {
     "POST /api/customer/price": None,                # tra giá — read-only
     "POST /api/order/refresh-debt": None,
     "POST /api/reminder/stop/{id}": "Tắt nhắc nộp tiền",
+    "POST /api/places": "Tạo vị trí kho",
+    "POST /api/customers/{id}/link-kiotviet": "Liên kết khách với KiotViet",
+    "POST /api/customers/{id}/unlink-kiotviet": "Gỡ liên kết KiotViet",
     "POST /api/price-lists": "Tạo bảng giá",
     "POST /api/units": "Tạo đơn vị chứa",
     "POST /api/units/{id}": "Sửa đơn vị chứa",
@@ -165,6 +188,13 @@ def event_row(r, resolver) -> dict | None:
             "href": href, "image_id": pl.get("image_id")}
 
 
+def _status_of(r):
+    try:
+        return json.loads(r["result_json"] or "{}").get("status")
+    except Exception:
+        return None
+
+
 def http_row(r, resolver, event_times) -> dict | None:
     """Row http.request (ghi) → meta feed | None nếu bỏ (đọc/nhiễu/đã có event)."""
     source = r["source"] or ""
@@ -176,14 +206,39 @@ def http_row(r, resolver, event_times) -> dict | None:
     method, key, path = _ent_norm(source)
     if key in _SKIP:
         return None
-    # đã có event nghiệp vụ chi tiết hơn trong ±15s → bỏ dòng request
+    # path SP theo MÃ / user theo TÊN → chuẩn hoá thêm ({code}/{id})
+    prod_code = None
+    m = _PRODUCT_PATH.match(path)
+    if m and m.group(1) != "{id}":
+        prod_code = m.group(1)
+        key = f"{method} " + _PRODUCT_PATH.sub("/api/products/{code}", path)
+    key = re.sub(r"^(\w+) /api/users/[^/]+/", r"\1 /api/users/{id}/", key)
+    key = re.sub(r"^(\w+) /api/customers/[^/]+/", r"\1 /api/customers/{id}/", key)
+    # đã có event nghiệp vụ chi tiết hơn (cùng entity nếu biết, trong cửa sổ) → bỏ
+    # dòng request. Request LỖI (4xx/5xx) không bỏ — event của nó không tồn tại.
     paired = _PAIRS.get(key)
-    if paired:
+    status = _status_of(r)
+    ok2xx = status is None or (isinstance(status, int) and 200 <= status < 300)
+    if paired and ok2xx:
         ts = epoch(r["ts"])
-        if any(abs(ts - t) <= 15 for name in paired for t in event_times.get(name, [])):
-            return None
+        win = _PAIR_WINDOW.get(key, 15.0)
+        eid0 = r["thread_id"]
+        for name in paired:
+            for (t, ev_eid) in event_times.get(name, []):
+                if abs(ts - t) <= win and (eid0 is None or ev_eid is None or ev_eid == eid0):
+                    return None
+    if key in _PRODUCT_LABELS:
+        return {"scope": "product", "eid": None, "label": _PRODUCT_LABELS[key],
+                "parts": [], "href": product_href(prod_code)}
     scope = r["scope"]
     body = _body(r["payload_json"])
+    # khách firebase_key KHÔNG phải số → middleware không gắn scope; vá tại đây
+    segs = raw_path.strip("/").split("/")
+    if scope is None and len(segs) == 3 and segs[1] == "customers" and segs[2] != "new":
+        kh_key = segs[2]
+        la = _customer_update_action(body) or ("Sửa khách", "")
+        return {"scope": "customer", "eid": kh_key, "label": la[0],
+                "parts": [part(la[1])] if la[1] else [], "href": f"#/khach/{kh_key}"}
 
     # ĐƠN — nhãn/chi tiết như lịch sử đơn
     if scope == "order" or (scope is None and "/api/order/" in raw_path):

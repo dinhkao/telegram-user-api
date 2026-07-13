@@ -74,7 +74,18 @@ def _order_ref(p: dict, resolver) -> list[dict]:
 
 
 def event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, list[dict]] | None:
-    """1 domain event → (label, parts). None = không biết action này."""
+    """1 domain event → (label, parts). None = không biết action này.
+    KHÔNG BAO GIỜ raise — 1 payload hỏng không được giết cả trang lịch sử/feed
+    (bài học disposal.deleted 2026-07-14: len(int) → feed trắng từ trang 9)."""
+    try:
+        return _event_entry(action, p, resolver)
+    except Exception:
+        import logging
+        logging.getLogger("event_format").warning("event_entry(%s) lỗi payload=%r", action, p, exc_info=True)
+        return None
+
+
+def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, list[dict]] | None:
     p = p if isinstance(p, dict) else {}
 
     # ── ĐƠN ────────────────────────────────────────────────────────────────
@@ -211,7 +222,10 @@ def event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, l
                      [part(f"{len(items)} mục")] if items else []])
         return "Tạo phiếu xuất hủy", seg
     if action == "disposal.deleted":
-        n = len(p.get("restored_allocations") or []) or len(p.get("items") or [])
+        ra = p.get("restored_allocations")
+        # emitter ghi SỐ LƯỢNG (int) — bản cũ từng ghi list; nhận cả 2
+        n = ra if isinstance(ra, (int, float)) else len(ra or []) or len(p.get("items") or [])
+        n = int(n or 0)
         return "Xoá phiếu hủy (hoàn tồn)", [part(f"hoàn {n} phần về thùng")] if n else []
     if action in ("stocktake.created", "stocktake.completed"):
         label = "Tạo phiếu kiểm kho" if action.endswith("created") else "Hoàn tất kiểm kho"
