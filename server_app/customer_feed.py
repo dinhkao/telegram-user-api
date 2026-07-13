@@ -17,6 +17,9 @@ GET /api/customers/{key}/feed?page= → items xen kẽ theo thời gian giảm d
      về số gốc của mốc đó (số thật luôn thắng số tính). Trước mốc đầu: chạy LÙI.
    • Sự kiện KV bị chỉnh tay giữa 2 mốc → số est trong đoạn đó lệch, nhưng tự
      re-anchor ở mốc kế → sai số không lan. UI hiện '≈' trước số est để phân biệt.
+   • Mốc đúng-số-nhưng-SAI-CHỖ (HĐ KiotViet tạo trễ, sau phiếu thu kế đó →
+     khDebt chụp lúc nợ đã trả) → demote có kiểm chứng rồi nội suy lại — xem
+     server_app/feed_debt._demote_misplaced_anchors (logic thuần, unit-tested).
 
 Đơn của 1 khách ít (vài chục~trăm) nên dựng cả chuỗi trong RAM rồi phân trang;
 row đơn dựng bằng _build_order_row + thumbs — y hệt dashboard để client tái dùng
@@ -30,6 +33,8 @@ import json
 from datetime import datetime
 
 from aiohttp import web
+
+from server_app.feed_debt import _fill_debt_chain
 
 _PAGE = 20
 
@@ -79,83 +84,6 @@ def _current_debt(conn, key: str):
         return float(row[0]) if row and row[0] is not None else None
     except Exception:
         return None
-
-
-def _fill_debt_chain(events: list[dict], current_debt) -> None:
-    """Điền debt_after cho MỌI sự kiện (events theo thời gian TĂNG dần, mutate).
-
-    Mỗi event: {delta, stored (số gốc hoặc None)} → gắn thêm debt_after + est.
-    Mốc = stored + mốc ảo cuối (current_debt). Tiến giữa các mốc, lùi trước mốc đầu.
-    """
-    n = len(events)
-    _TOL = 1.0   # sai số làm tròn cho phép khi đối chiếu 2 mốc
-
-    # TIỀN XỬ LÝ — loạt phiếu thu dính nợ TRÙNG (bug resync: thu nhiều phiếu liền
-    # tay → resync +6s của từng phiếu đều đọc ra cùng số nợ CUỐI từ KV → các phiếu
-    # trước bị ghi trùng). Nợ sau 2 khoản thu >0 liên tiếp KHÔNG THỂ bằng nhau nếu
-    # không có gì cộng nợ chen giữa → số của phiếu TRƯỚC là rác → bỏ (stored=None)
-    # cho nội suy neo mốc điền lại (có kiểm chứng cân đoạn như thường).
-    last_pay = None        # index phiếu thu gần nhất còn stored
-    pos_delta_since = False   # có sự kiện cộng nợ chen giữa từ phiếu đó tới đây?
-    for i, e in enumerate(events):
-        if e.get("delta", 0) > 0:
-            pos_delta_since = True
-        if e.get("kind") != "payment" or e.get("stored") is None:
-            continue
-        if (last_pay is not None and not pos_delta_since and e.get("delta", 0) < 0
-                and abs(float(events[last_pay]["stored"]) - float(e["stored"])) <= _TOL):
-            events[last_pay]["stored"] = None
-        last_pay = i
-        pos_delta_since = False
-
-    for e in events:
-        s = e.get("stored")
-        e["debt_after"] = float(s) if s is not None else None
-        e["est"] = s is None
-    stored_idx = [i for i, e in enumerate(events) if not e["est"]]
-    if not stored_idx and current_debt is None:
-        return   # không có mốc nào — để None hết ('—')
-
-    # GIỮA 2 mốc lưu: chỉ điền khi đoạn CÂN — mốc_trước + Σdelta == mốc_sau.
-    # Không cân = có biến động ngoài app (chỉnh nợ tay KV, HĐ ngoài, xoá HĐ…)
-    # → số nội suy trong đoạn đó KHÔNG tin được → giữ '—' (không hiện số sai).
-    for a, b in zip(stored_idx, stored_idx[1:]):
-        expected = events[a]["debt_after"] + sum(events[k]["delta"] for k in range(a + 1, b + 1))
-        if abs(expected - events[b]["debt_after"]) <= _TOL:
-            running = events[a]["debt_after"]
-            for k in range(a + 1, b):
-                running += events[k]["delta"]
-                events[k]["debt_after"] = running
-        # lệch → bỏ trống cả đoạn (est giữ None)
-
-    # ĐUÔI (sau mốc lưu cuối): LÙI từ mốc ảo "hiện tại" (nợ KV đang có). Có mốc lưu
-    # cuối để đối chiếu → cũng phải CÂN mới điền; không có mốc lưu nào → điền thẳng
-    # nhưng bỏ nếu lòi số ÂM (nợ âm = chuỗi chắc chắn thiếu sự kiện).
-    if current_debt is not None:
-        last = stored_idx[-1] if stored_idx else -1
-        vals: list[float] = []
-        running = float(current_debt)
-        for i in range(n - 1, last, -1):
-            vals.append(running)
-            running -= events[i]["delta"]
-        ok = (abs(running - events[last]["debt_after"]) <= _TOL) if last >= 0 else all(v >= 0 for v in vals)
-        if ok:
-            for j, i in enumerate(range(n - 1, last, -1)):
-                events[i]["debt_after"] = vals[j]
-
-    # ĐẦU (trước mốc đầu): LÙI một phía, không có gì đối chiếu → chỉ điền khi
-    # không lòi số âm.
-    first = stored_idx[0] if stored_idx else n
-    if first > 0 and first < n and events[first]["debt_after"] is not None:
-        vals2: list[float] = []
-        running = events[first]["debt_after"]
-        for i in range(first - 1, -1, -1):
-            running = running - events[i + 1]["delta"]
-            vals2.append(running)
-        if all(v >= 0 for v in vals2):
-            for j, i in enumerate(range(first - 1, -1, -1)):
-                if events[i]["debt_after"] is None:
-                    events[i]["debt_after"] = vals2[j]
 
 
 _VN = None
@@ -230,8 +158,9 @@ def _collect_events(conn, key: str) -> list[dict]:
                       or hd.get("hd_code") or (hd.get("print_content") or {}).get("tongthanhtoan"))
         snapshot = data.get("khDebt", data.get("invoice_debt_snapshot"))
         stored = (float(snapshot) + total_num) if (snapshot is not None and has_kv and total_num) else None
+        order_ts = _ts_key(data.get("created")) or float(tid)
         events.append({
-            "ts": _ts_key(data.get("created")) or float(tid), "kind": "order", "tid": tid,
+            "ts": order_ts, "kind": "order", "tid": tid,
             # đơn KHÔNG có HĐ KiotViet không đụng nợ KV → delta 0
             "delta": float(total_num) if has_kv else 0.0,
             "stored": stored,
@@ -245,7 +174,9 @@ def _collect_events(conn, key: str) -> list[dict]:
             except Exception:
                 pass
             events.append({
-                "ts": _ts_key(p.get("created_at")), "kind": "payment", "tid": tid,
+                # payment di sản không có created_at → neo cạnh đơn của nó
+                # (hơn là văng về 1970 đầu chuỗi)
+                "ts": _ts_key(p.get("created_at")) or (order_ts + 1.0), "kind": "payment", "tid": tid,
                 "delta": -float(p.get("amount") or 0),
                 "stored": float(nd) if nd is not None else None,
                 "pay": {
