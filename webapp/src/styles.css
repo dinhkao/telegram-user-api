@@ -2383,6 +2383,22 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
 .camera-range-actions { display: flex; gap: 8px; }
 .camera-range-actions .btn { flex: 1; color: #dfe9e4; border-color: #40544a; background: #24322b; }
 .camera-range-actions .btn.primary { color: #092216; border-color: #7de2aa; background: #7de2aa; }
+/* ===== Thống kê sử dụng (#/usage, admin) ===== */
+.usage-page { padding-bottom: 30px; }
+.usage-chips { display: flex; gap: 7px; overflow-x: auto; margin: 0 0 10px; scrollbar-width: none; }
+.usage-chips::-webkit-scrollbar { display: none; }
+.usage-chips button { flex: none; min-height: 34px; padding: 0 13px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); background: var(--card); font: 650 .78rem/1 system-ui; }
+.usage-chips button.active { color: #fff; border-color: var(--accent); background: var(--accent); }
+.usage-sec { margin: 0 0 18px; }
+.usage-sec h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: .92rem; }
+.usage-sec h3 small { margin-left: auto; color: var(--muted); font-weight: 500; }
+.usage-row { position: relative; display: flex; align-items: baseline; gap: 8px; min-height: 34px; padding: 6px 10px; margin: 0 0 4px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); overflow: hidden; }
+.usage-row i { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 9px 0 0 9px; }
+.usage-row b { position: relative; font-size: .84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-row span { position: relative; margin-left: auto; flex: none; color: var(--muted); font-size: .72rem; }
+.usage-row.rare b { color: var(--muted); }
+.usage-empty { color: var(--muted); font-size: .84rem; }
+
 /* content-visibility: section ngoài viewport không layout/paint/decode ảnh — list dài
    chỉ tốn công cho 1-2 section đang thấy. Chiều cao ước lượng đặt inline qua
    contain-intrinsic-size (số hàng grid mỗi nhóm khác nhau). */

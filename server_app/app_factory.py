@@ -110,6 +110,7 @@ from server_app.user_routes import (
 )
 from server_app.webapp_routes import register_webapp_routes
 from server_app.cloudinary_routes import camera_images_handler, stop_camera_cache, warm_camera_cache
+from server_app.usage_routes import usage_batch_handler, usage_stats_handler
 from server_app.websocket_routes import websocket_handler
 from server_app import state
 
@@ -140,6 +141,8 @@ def create_app():
     r.add_get("/api/orders/delivery", orders_delivery_handler)
     r.add_get("/api/orders/delivering", orders_delivering_handler)
     r.add_get("/api/cloudinary/camera-images", camera_images_handler)
+    r.add_post("/api/usage/batch", usage_batch_handler)
+    r.add_get("/api/usage/stats", usage_stats_handler)
     r.add_get("/api/order/{thread_id}", order_detail_handler)
     r.add_delete("/api/order/{thread_id}", order_delete_handler)
     r.add_static("/static/", "static")

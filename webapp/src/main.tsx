@@ -61,6 +61,8 @@ import { PlaceTimeline } from "./pages/PlaceTimeline";
 import { BoxDetail } from "./pages/BoxDetail";
 import { BoxTimeline } from "./pages/BoxTimeline";
 import { CameraGallery } from "./pages/CameraGallery";
+import { UsageStats } from "./pages/UsageStats";
+import { initUsage } from "./usage";
 import "./styles.css";
 
 // Nhớ vị trí cuộn theo hash cho các trang KHÔNG tự quản (OrdersList/OrderDetail đã
@@ -484,6 +486,7 @@ function App() {
   else if (hash.startsWith("#/tho")) page = <WorkerList />;
   else if (hash.startsWith("#/lich-su")) page = <ActivityLog />;
   else if (hash.startsWith("#/camera")) page = <CameraGallery />;
+  else if (hash.startsWith("#/usage")) page = <UsageStats />;
   else if (hash.startsWith("#/dang-giao")) page = <DeliveringOrders />;
   else if (hash.startsWith("#/lich")) page = <DeliveryCalendar />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
@@ -534,6 +537,7 @@ function App() {
     : hash.startsWith("#/tho") ? "Thợ"
     : hash.startsWith("#/lich-su") ? "Lịch sử thao tác"
     : hash.startsWith("#/camera") ? "Camera 2026"
+    : hash.startsWith("#/usage") ? "Thống kê sử dụng"
     : hash.startsWith("#/dang-giao") ? "Ai đang giao"
     : hash.startsWith("#/lich") ? "Lịch giao"
     : (hash.startsWith("#/bang-gia") || bangGiaMatch) ? "Bảng giá"
@@ -574,3 +578,4 @@ function App() {
 }
 
 render(<App />, document.getElementById("app")!);
+initUsage();

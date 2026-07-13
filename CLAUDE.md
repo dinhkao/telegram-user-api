@@ -315,7 +315,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `#/kho/:code` khối "Mua bán", admin): tắt → SP biến khỏi GỢI Ý picker tương ứng
   (bán = InvoiceEditor, nhập = PurchaseModal/PurchaseDetail — lọc client-side từ
   `/api/products?search=`; mã gõ tự do vẫn nhận).
-- `chat_log/` — logs new/edited/deleted Telegram messages to DB.
+- `usage_store/` — bảng `usage_stats` (app.db): đếm GỘP thao tác webapp theo
+  (ngày, user, kind view/tap, trang chuẩn hoá, nhãn nút) — KHÔNG log thô từng cú bấm
+  (tránh phình kiểu audit_events). Client tự bắt mọi click nút/link + hashchange
+  (`webapp/src/usage.ts`, listener toàn cục — nhãn: title/aria/text với số→#, link
+  điều hướng = "→ route"), gom buffer gửi batch 20s (`POST /api/usage/batch`, nằm
+  trong `_NO_AUDIT`, offline→queue). Admin xem `#/usage` (UsageStats, menu Thêm) ←
+  `GET /api/usage/stats?days=&user=` (`server_app/usage_routes.py`).
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
 
 **Bot role (merged bot-don-hang)**

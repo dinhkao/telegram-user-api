@@ -44,6 +44,7 @@ const GROUPS: Group[] = [
   ] },
   { title: "Hệ thống", icon: "settings", items: [
     { label: "Lịch sử thao tác", href: "#/lich-su", icon: "history" },
+    { label: "Thống kê sử dụng", href: "#/usage", icon: "chart", admin: true },
     { label: "Cài đặt", href: "#/login", icon: "settings" },
     { label: "Quản lý user", href: "#/users", icon: "lock", admin: true },
   ] },
