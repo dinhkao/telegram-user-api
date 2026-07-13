@@ -233,7 +233,7 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
         d["remaining"] = float(d.get("quantity") or 0) - float(d.get("allocated") or 0)
         # capacity = SX gốc + hàng nhận qua transfer_in → mốc "đầy" cho thanh fill
         d["capacity"] = float(d.get("quantity") or 0) + float(d.get("transferred_in") or 0)
-        # reserved = tạm chiếm chỗ cho đơn CHƯA chốt xuất kho (ô thùng hiện màu NÂU)
+        # reserved = tạm chiếm chỗ cho đơn CHƯA chốt xuất kho
         d["reserved"] = bool(d.pop("reserved_pending", 0))
         out.append(d)
     return out

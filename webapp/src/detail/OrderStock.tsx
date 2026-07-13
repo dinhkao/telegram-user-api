@@ -9,6 +9,7 @@ import { StockPickerModal } from "./StockPickerModal";
 import { confirmDialog, toast } from "../ui/feedback";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
+import { BoxTileGrid, type BoxTileData } from "./BoxTileGrid";
 
 type Line = { sp: string; sl: number | string };
 type Confirmed = { at?: string; by?: string } | null;
@@ -213,30 +214,37 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
             </div>
 
             {mine.length > 0 && (
-              <div class="box-grid lbl-grid dense no-code sk-grid">
-                {mine.map((a) => {
-                  const num = (a.box_code || "").split("-").pop() || a.box_code;
+              <BoxTileGrid
+                size="dense"
+                mode="allocated"
+                productCodeMode="auto"
+                className="sk-grid"
+                boxes={mine.map((a): BoxTileData & { allocation: Allocation } => {
                   // Bấm → chi tiết thùng + cuộn/nháy đúng event xuất-kho này trong Lịch sử
                   const hts = a.allocated_at ? Math.floor(Date.parse(a.allocated_at) / 1000) : 0;
                   const bq = a.box_quantity || 0;
-                  const fill = bq > 0 ? Math.max(0, Math.min(100, (a.quantity / bq) * 100)) : 100;
-                  return (
-                    <a class="box-lbl in" id={`box-${a.box_id}`} key={a.allocation_id}
-                      href={`#/thung/${a.box_id}${hts ? `?focus=hist:${hts}` : ""}`} style={{ "--fill": `${fill}%` } as any}
-                      title={`${a.box_code} · lấy ${soVN(a.quantity)}${bq ? `/${soVN(bq)}` : ""}${a.place_name ? ` · ${a.place_name}` : ""}`}>
-                      <button class={"bl-x" + (locked ? " faded" : "")} disabled={busy} title="Thu hồi"
-                        onClick={(e: any) => { e.preventDefault(); e.stopPropagation(); doRelease(a); }}>
-                        <Icon name="close" size={12} />
-                      </button>
-                      <span class={"bl-q" + (bq ? " has-total" : "")}>
-                        <span class="bl-q-now">{soVN(a.quantity)}</span>
-                        {bq ? <><span class="bl-q-sep">/</span><span class="bl-q-tot">{soVN(bq)}</span></> : null}
-                      </span>
-                      <span class="bl-num">{num}</span>
-                    </a>
-                  );
+                  return {
+                    id: a.allocation_id,
+                    productCode: a.product_code,
+                    boxCode: a.box_code,
+                    quantity: bq,
+                    remaining: a.quantity,
+                    allocated: a.quantity,
+                    placeName: a.place_name,
+                    href: `#/thung/${a.box_id}${hts ? `?focus=hist:${hts}` : ""}`,
+                    domId: `box-${a.box_id}`,
+                    title: `${a.box_code} · lấy ${soVN(a.quantity)}${bq ? `/${soVN(bq)}` : ""}${a.place_name ? ` · ${a.place_name}` : ""}`,
+                    allocation: a,
+                  };
                 })}
-              </div>
+                getAction={(box) => ({
+                  label: "Thu hồi",
+                  content: <Icon name="close" size={12} />,
+                  disabled: busy,
+                  className: locked ? "faded" : "",
+                  onClick: () => doRelease(box.allocation),
+                })}
+              />
             )}
           </div>
         );

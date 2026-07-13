@@ -34,9 +34,9 @@ from server_app.order_api_bulk_payment import bulk_payment_handler, payment_cont
 from server_app.order_api_print import api_print_giao_handler
 from server_app.order_api_tasks import _make_task_handler, api_task_handler, api_task_status_clear_handler
 from server_app.order_api_custom_tasks import add_custom_task_handler, remove_custom_task_handler
-from server_app.order_api_invoice import api_create_invoice_handler, api_delete_invoice_handler, api_ensure_invoice_image_handler, api_invoice_html_handler, api_refresh_debt_handler
+from server_app.order_api_invoice import api_create_invoice_handler, api_delete_invoice_handler, api_ensure_invoice_image_handler, api_invoice_html_handler, api_refresh_debt_handler, api_set_invoice_reference_image_handler
 from server_app.order_history import order_history_handler
-from server_app.orders_api import order_detail_handler, orders_api_handler, orders_delivery_handler
+from server_app.orders_api import order_detail_handler, orders_api_handler, orders_delivery_handler, orders_delivering_handler
 from server_app.product_routes import (
     products_search_handler, product_create_handler, product_kiotviet_search_handler,
     product_link_handler, product_unlink_handler, product_delete_handler, product_update_handler, product_rename_handler,
@@ -109,6 +109,7 @@ from server_app.user_routes import (
     users_pin_handler,
 )
 from server_app.webapp_routes import register_webapp_routes
+from server_app.cloudinary_routes import camera_images_handler
 from server_app.websocket_routes import websocket_handler
 from server_app import state
 
@@ -135,6 +136,8 @@ def create_app():
     r.add_get("/orders/{thread_id}", order_detail_page_handler)
     r.add_get("/api/orders", orders_api_handler)
     r.add_get("/api/orders/delivery", orders_delivery_handler)
+    r.add_get("/api/orders/delivering", orders_delivering_handler)
+    r.add_get("/api/cloudinary/camera-images", camera_images_handler)
     r.add_get("/api/order/{thread_id}", order_detail_handler)
     r.add_delete("/api/order/{thread_id}", order_delete_handler)
     r.add_static("/static/", "static")
@@ -167,6 +170,7 @@ def create_app():
     r.add_post("/api/order/bypass-debt", api_set_bypass_debt_handler)
     r.add_post("/api/order/invoice/create-kiotviet", api_create_invoice_handler)
     r.add_post("/api/order/invoice/delete-kiotviet", api_delete_invoice_handler)
+    r.add_post("/api/order/invoice/reference-image", api_set_invoice_reference_image_handler)
     r.add_post("/api/order/refresh-debt", api_refresh_debt_handler)
     r.add_get("/api/order/{thread_id}/invoice-html", api_invoice_html_handler)
     r.add_post("/api/order/{thread_id}/invoice-image/ensure", api_ensure_invoice_image_handler)

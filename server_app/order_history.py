@@ -66,6 +66,7 @@ _LABELS = {
     "/api/order/invoice/create-kiotviet": "Tạo hoá đơn KiotViet",
     "/api/order/invoice/delete-kiotviet": "Xoá hoá đơn KiotViet",
     "/api/order/invoice/update": "Sửa hoá đơn",
+    "/api/order/invoice/reference-image": "Đổi ảnh tham chiếu HĐ",
     "/api/order/payment/tm": "Thu tiền mặt",
     "/api/order/payment/ck": "Thu chuyển khoản",
     "/api/order/payment/delete": "Xóa thanh toán",

@@ -12,7 +12,7 @@ from inventory_store.allocations import (
     create_allocations_table,
     transfer_between_boxes,
 )
-from inventory_store.queries import add_boxes, list_boxes, product_summary, set_disabled
+from inventory_store.queries import add_boxes, add_place, list_boxes, product_summary, set_disabled
 from inventory_store.schema import create_inventory_table, migrate_inventory_table
 from product_store import (
     create_products_table,
@@ -23,6 +23,9 @@ from product_store import (
 )
 from product_store.schema import _invalidate_products_cache
 from utils.db import get_connection
+from server_app.inventory_routes import _box_summary
+from server_app.place_timeline import _current_boxes as current_place_boxes
+from server_app.product_timeline import _current_boxes as current_product_boxes
 
 
 class Base(unittest.TestCase):
@@ -137,6 +140,18 @@ class ListBoxesCTE(Base):
         self.assertEqual(dst["remaining"], 35)
         self.assertEqual(dst["transferred_in"], 5)
         self.assertEqual(dst["capacity"], 35)
+
+        # Payload lưới và snapshot timeline phải giữ cùng mốc đầy.
+        self.assertEqual(_box_summary(dst)["capacity"], 35)
+        place_id = add_place(self.conn, "Kho test")["id"]
+        self.conn.execute("UPDATE inventory_boxes SET place_id = ? WHERE id IN (?, ?)",
+                          (place_id, boxes[0]["id"], boxes[1]["id"]))
+        self.conn.commit()
+        by_place = {b["id"]: b for b in current_place_boxes(self.conn, place_id)}
+        self.assertEqual(by_place[boxes[1]["id"]]["capacity"], 35)
+        pid = get_product(self.conn, "K10")["id"]
+        by_product = {b["id"]: b for b in current_product_boxes(self.conn, pid)}
+        self.assertEqual(by_product[boxes[1]["id"]]["capacity"], 35)
 
     def test_no_allocations_defaults_zero(self):
         add_boxes(self.conn, "K10", [9])

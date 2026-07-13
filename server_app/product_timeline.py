@@ -79,6 +79,7 @@ def _current_boxes(conn, pid: int) -> list[dict]:
         "SELECT b.id, b.box_code, COALESCE(pr.code, b.product_code) AS product_code, b.quantity, "
         "b.quantity - COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0) AS remaining, "
         "COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0) AS allocated, "
+        "b.quantity + COALESCE((SELECT SUM(CASE WHEN x.quantity < 0 THEN -x.quantity ELSE 0 END) FROM box_allocations x WHERE x.box_id=b.id),0) AS capacity, "
         "COALESCE(pr.unit,'cây') AS product_unit, b.note, pl.name AS place_name "
         "FROM inventory_boxes b LEFT JOIN products pr ON pr.id = b.product_id "
         "LEFT JOIN inventory_places pl ON pl.id = b.place_id "
@@ -87,7 +88,8 @@ def _current_boxes(conn, pid: int) -> list[dict]:
     ).fetchall()
     return [{"id": r["id"], "box_code": r["box_code"], "product_code": r["product_code"],
              "quantity": float(r["quantity"] or 0), "remaining": float(r["remaining"] or 0),
-             "allocated": float(r["allocated"] or 0), "product_unit": r["product_unit"],
+             "allocated": float(r["allocated"] or 0), "capacity": float(r["capacity"] or 0),
+             "product_unit": r["product_unit"],
              "place_name": r["place_name"], "note": r["note"], "disabled": False} for r in rows]
 
 

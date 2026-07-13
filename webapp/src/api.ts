@@ -218,7 +218,7 @@ export async function getPriceHistory(id: string, sp?: string): Promise<PriceHis
 }
 
 export type CustomerDetail = {
-  key: string; name: string; kh_id?: string | number | null;
+  key: string; name: string; nickname?: string; kh_id?: string | number | null;
   debt?: number | null; debt_updated_at?: any; thread_id?: number | null;
   last_order_at?: any; price_list?: string | number | null;
   personal_price_list?: Record<string, number> | null;
@@ -236,7 +236,7 @@ export type CustFeedItem =
   | { kind: "return"; ts: number; id: number; total: number; note?: string; items: { sp: string; sl: number; price: number }[]; code?: string; by?: string; at?: string; thread_id?: number | null; debt_after?: number | null; debt_est?: boolean };
 
 // ── Thu tiền GỘP nhiều đơn (bulk payment) ──────────────────────────────────
-/** 1 đơn đang nợ của khách (chưa có thanh toán) trên trang thu tiền. */
+/** 1 đơn đang nợ của khách (tổng thu < tổng đơn) trên trang thu tiền. */
 export type DebtOrder = {
   thread_id: number; created?: string | null; total: number; debt: number; label?: string;
   text?: string; task_icons?: string; thumb_image_id?: number | null; image_count?: number;
@@ -385,10 +385,10 @@ export async function getCustomer(key: string): Promise<CustomerDetail> {
   return d.customer;
 }
 
-/** Sửa khách: bảng giá riêng, detectPatterns[], default_tasks[] và/hoặc note (ghi chú). */
+/** Sửa khách: nickname, bảng giá riêng, detectPatterns[], default_tasks[] và/hoặc note. */
 export async function updateCustomer(
   key: string,
-  patch: { personal_price_list?: Record<string, number>; detectPatterns?: string[]; price_list?: string | null; default_tasks?: string[]; note?: string },
+  patch: { nickname?: string; personal_price_list?: Record<string, number>; detectPatterns?: string[]; price_list?: string | null; default_tasks?: string[]; note?: string },
 ): Promise<CustomerDetail> {
   const d = await postJSON(`/api/customers/${encodeURIComponent(key)}`, patch);
   return d.customer;
@@ -1018,7 +1018,7 @@ export type InvBox = {
   allocated?: number; // tổng đã xuất cho các đơn
   remaining?: number; // còn lại = quantity - allocated
   capacity?: number; // SX gốc + hàng nhận chuyển (mốc "đầy" thanh fill)
-  reserved?: boolean; // tạm chiếm chỗ cho đơn CHƯA chốt xuất kho → ô thùng màu NÂU
+  reserved?: boolean; // tạm chiếm chỗ cho đơn CHƯA chốt xuất kho
   place_id?: number | null;
   place_name?: string | null;
   unit_id?: number | null;
@@ -1074,7 +1074,7 @@ export type PlaceTLItem = {
 export type PlaceStockLine = { code: string; qty: number };
 export type PlaceBox = {
   id: number; box_code: string; product_code: string; quantity: number; remaining: number;
-  allocated: number; product_unit?: string; note?: string | null; disabled?: boolean; reserved?: boolean;
+  allocated: number; capacity?: number; product_unit?: string; note?: string | null; disabled?: boolean; reserved?: boolean;
 };
 export type PlaceTimeline = {
   place: { id: number; name: string }; current_total: number; box_count: number;

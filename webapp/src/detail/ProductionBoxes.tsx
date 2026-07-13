@@ -356,7 +356,7 @@ export function ProductionBoxes({
         <div class="cam-overlay">
           <div class="pb-codes-pop">
             <div class="pb-codes-title">✍️ Hãy ghi lên thùng trước khi đóng popup này</div>
-            <BoxLabelGrid boxes={codeBoxes as any} />
+            <BoxLabelGrid boxes={codeBoxes} />
             <button class="btn primary block" onClick={() => setCodeBoxes(null)}>Đã ghi xong</button>
           </div>
         </div>
@@ -382,7 +382,7 @@ export function ProductionBoxes({
               <button class={"pb-vt" + (mineView === "list" ? " on" : "")} title="Danh sách" onClick={() => setMineView("list")}><Icon name="menu" size={15} /></button>
             </div>
           </div>
-          {mineView === "grid" ? <BoxLabelGrid boxes={myBoxes as any} /> : (
+          {mineView === "grid" ? <BoxLabelGrid boxes={myBoxes} /> : (
             <div class="pb-boxlist">
               {myBoxes.map((b) => {
                 const rm = b.remaining ?? b.quantity;

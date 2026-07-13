@@ -17,6 +17,7 @@ def _summary(data: dict, firebase_key: str) -> dict:
     return {
         "key": firebase_key,
         "name": data.get("name") or data.get("ten") or firebase_key,
+        "nickname": data.get("nickname") or "",
         "kh_id": data.get("kh_id"),
         "debt": data.get("debt"),
         "debt_updated_at": data.get("debt_updated_at"),
@@ -141,6 +142,9 @@ async def customer_update_handler(request: web.Request):
             if "note" in body:
                 # Ghi chú khách (dặn giao hàng…) — giờ sửa được từ web
                 data["note"] = str(body["note"] or "").strip()
+            if "nickname" in body:
+                # Tên gọi ngắn dùng ở các bề mặt chật (banner giao hàng…).
+                data["nickname"] = str(body["nickname"] or "").strip()[:40]
             if "default_tasks" in body and isinstance(body["default_tasks"], list):
                 # Việc mặc định cho MỌI đơn của khách — strip, bỏ trùng (không phân
                 # biệt hoa/thường), cắt 60 ký tự / việc, tối đa 15 việc

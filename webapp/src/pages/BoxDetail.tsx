@@ -297,8 +297,7 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
 
       {!disabled && b.reserved && (
         <div class="box-reserved-banner">
-          🟤 Thùng đang TẠM giữ cho đơn chưa chốt xuất kho — vẫn có thể thu hồi lại
-          (ô thùng hiện màu nâu ở mọi nơi cho tới khi đơn chốt).
+          Thùng đang TẠM giữ cho đơn chưa chốt xuất kho — vẫn có thể thu hồi lại.
         </div>
       )}
 

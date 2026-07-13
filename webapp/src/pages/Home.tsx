@@ -14,6 +14,7 @@ const GROUPS: Group[] = [
     { label: "Khách hàng", href: "#/customers", icon: "user" },
     { label: "Trả hàng", href: "#/tra-hang", icon: "refresh" },
     { label: "Lịch giao", href: "#/lich", icon: "calendar" },
+    { label: "Đang giao", href: "#/dang-giao", icon: "truck" },
     { label: "Việc", href: "#/viec", icon: "check" },
   ] },
   { title: "Kho", icon: "box", items: [
@@ -37,6 +38,9 @@ const GROUPS: Group[] = [
   { title: "Tài chính", icon: "wallet", items: [
     { label: "Sổ quỹ", href: "#/quy", icon: "wallet" },
     { label: "Bảng giá", href: "#/bang-gia", icon: "receipt" },
+  ] },
+  { title: "Hình ảnh", icon: "camera", items: [
+    { label: "Camera 2026", href: "#/camera", icon: "camera" },
   ] },
   { title: "Hệ thống", icon: "settings", items: [
     { label: "Lịch sử thao tác", href: "#/lich-su", icon: "history" },

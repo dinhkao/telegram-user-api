@@ -218,6 +218,88 @@ def build_row_for_thread(thread_id) -> dict | None:
         conn.close()
 
 
+def _is_actively_delivering(order: dict) -> bool:
+    """Đã giao hàng nhưng chưa nộp tiền = người làm bước giao vẫn đang giữ đơn."""
+    ts = order.get("task_status") or {}
+    giao = ts.get("giao_hang") or {}
+    nop = ts.get("nop_tien") or {}
+    note = str(nop.get("note") or "").strip().lower().split(";", 1)[0]
+    waiting_to_collect = note in ("chieu_lay_tien", "chiều lấy tiền", "chieu lay tien")
+    return bool(giao.get("done")) and not bool(nop.get("done")) and not waiting_to_collect
+
+
+_DELIVERING_CREATED_AFTER = "2026-07-12"
+
+
+def _created_after_delivering_cutoff(order: dict) -> bool:
+    """Trang đang giao chỉ theo dõi đơn tạo từ ngày 12/07/2026."""
+    created = str(order.get("created") or "")
+    return created[:10] >= _DELIVERING_CREATED_AFTER
+
+
+async def orders_delivering_handler(request: web.Request):
+    """GET /api/orders/delivering — các đơn đang nằm trên tay người giao."""
+    conn = get_orders_conn()
+    try:
+        rows = conn.execute(
+            f"SELECT {_ROW_COLUMNS} FROM orders o "
+            "WHERE o.deleted_at IS NULL AND o.order_created >= ? "
+            "ORDER BY o.order_created DESC",
+            (f"{_DELIVERING_CREATED_AFTER}T00:00:00",),
+        ).fetchall()
+        orders = []
+        from bot_core.config import USER_NAMES
+        for r in rows:
+            try:
+                raw = json.loads(r["json"])
+            except Exception:
+                raw = {}
+            if not _is_actively_delivering(raw) or not _created_after_delivering_cutoff(raw):
+                continue
+            giao = ((raw.get("task_status") or {}).get("giao_hang") or {})
+            actor_id = str(giao.get("by") or "")
+            row = _build_order_row(r)
+            row["delivery_actor_id"] = actor_id
+            row["delivery_actor"] = USER_NAMES.get(actor_id, actor_id or "Chưa rõ người giao")
+            row["delivery_since"] = giao.get("at") or row.get("updated_at") or ""
+            row["_customer_key"] = str(raw.get("khach_hang_id") or raw.get("khID") or "")
+            orders.append(row)
+        # Nickname khách nằm trong blob customers. Gom 1 query cho tất cả đơn, không N+1.
+        customer_keys = sorted({o["_customer_key"] for o in orders if o.get("_customer_key")})
+        nicknames = {}
+        if customer_keys:
+            ph = ",".join("?" * len(customer_keys))
+            for cr in conn.execute(
+                f"SELECT firebase_key, json_extract(json, '$.nickname') nickname "
+                f"FROM customers WHERE firebase_key IN ({ph}) AND deleted_at IS NULL",
+                customer_keys,
+            ).fetchall():
+                nick = str(cr["nickname"] or "").strip()
+                if nick:
+                    nicknames[str(cr["firebase_key"])] = nick
+        # Task làm từ web lưu username (vd "tri"); đổi sang display_name ("Trí").
+        web_actor_ids = sorted({o["delivery_actor_id"] for o in orders if o.get("delivery_actor_id") and not o["delivery_actor_id"].isdigit()})
+        web_actor_names = {}
+        if web_actor_ids:
+            ph = ",".join("?" * len(web_actor_ids))
+            try:
+                for ur in conn.execute(
+                    f"SELECT username, display_name FROM web_users WHERE username IN ({ph}) AND disabled = 0",
+                    web_actor_ids,
+                ).fetchall():
+                    web_actor_names[str(ur["username"])] = str(ur["display_name"] or ur["username"])
+            except Exception:
+                pass
+        for row in orders:
+            row["customer_nickname"] = nicknames.get(row.pop("_customer_key", ""), "")
+            row["delivery_actor"] = web_actor_names.get(row["delivery_actor_id"], row["delivery_actor"])
+        _attach_thumbs(conn, orders)
+        orders.sort(key=lambda o: str(o.get("delivery_since") or ""), reverse=True)
+        return web.json_response({"ok": True, "orders": orders, "total": len(orders)})
+    finally:
+        conn.close()
+
+
 async def orders_api_handler(request: web.Request):
     try:
         page = max(1, int(request.query.get("page", "1")))

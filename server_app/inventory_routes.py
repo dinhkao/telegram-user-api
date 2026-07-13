@@ -397,6 +397,22 @@ async def unplaced_count_handler(request: web.Request):
     return web.json_response({"ok": True, "count": n})
 
 
+def _box_summary(b: dict) -> dict:
+    """Payload gọn dùng cho lưới kho; giữ capacity để mọi màn hình vẽ cùng mức đầy."""
+    return {
+        "id": b["id"], "product_code": b["product_code"], "box_code": b["box_code"],
+        "quantity": b.get("quantity") or 0, "remaining": b.get("remaining") or 0,
+        "capacity": b.get("capacity") if b.get("capacity") is not None else (b.get("quantity") or 0),
+        "allocated": b.get("allocated") or 0, "disabled": bool(b.get("disabled")),
+        "reserved": bool(b.get("reserved")),
+        "note": b.get("note") or "", "mfg_date": b.get("mfg_date"), "created_at": b.get("created_at"),
+        "place_id": b.get("place_id"), "place_name": b.get("place_name"),
+        "unit_id": b.get("unit_id"), "unit_name": b.get("unit_name"),
+        "product_unit": b.get("product_unit") or "cây",
+        "source_thread_id": b.get("source_thread_id"),
+    }
+
+
 async def all_boxes_handler(request: web.Request):
     """Kho hàng: MỌI thùng của MỌI sản phẩm (để dashboard kho trực quan + lọc theo mã).
     Trả list gọn; client gom nhóm theo product_code + lọc."""
@@ -409,17 +425,7 @@ async def all_boxes_handler(request: web.Request):
             conn.close()
         return boxes
     boxes = await asyncio.to_thread(_run)
-    out = [{
-        "id": b["id"], "product_code": b["product_code"], "box_code": b["box_code"],
-        "quantity": b.get("quantity") or 0, "remaining": b.get("remaining") or 0,
-        "allocated": b.get("allocated") or 0, "disabled": bool(b.get("disabled")),
-        "reserved": bool(b.get("reserved")),   # tạm chiếm chỗ cho đơn chưa chốt → ô NÂU
-        "note": b.get("note") or "", "mfg_date": b.get("mfg_date"), "created_at": b.get("created_at"),
-        "place_id": b.get("place_id"), "place_name": b.get("place_name"),
-        "unit_id": b.get("unit_id"), "unit_name": b.get("unit_name"),
-        "product_unit": b.get("product_unit") or "cây",
-        "source_thread_id": b.get("source_thread_id"),
-    } for b in boxes]
+    out = [_box_summary(b) for b in boxes]
     return web.json_response({"ok": True, "boxes": out})
 
 

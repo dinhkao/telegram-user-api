@@ -23,6 +23,7 @@ import { OrderPayment } from "./pages/OrderPayment";
 import { OrdersList, resetOrdersScroll } from "./pages/OrdersList";
 import { fastScrollTop } from "./scroll";
 import { DeliveryCalendar } from "./pages/DeliveryCalendar";
+import { DeliveringOrders } from "./pages/DeliveringOrders";
 import { ActivityLog } from "./pages/ActivityLog";
 import { ProductionList } from "./pages/ProductionList";
 import { ProductionDetail } from "./pages/ProductionDetail";
@@ -59,6 +60,7 @@ import { PlaceDetail } from "./pages/PlaceDetail";
 import { PlaceTimeline } from "./pages/PlaceTimeline";
 import { BoxDetail } from "./pages/BoxDetail";
 import { BoxTimeline } from "./pages/BoxTimeline";
+import { CameraGallery } from "./pages/CameraGallery";
 import "./styles.css";
 
 // Nhớ vị trí cuộn theo hash cho các trang KHÔNG tự quản (OrdersList/OrderDetail đã
@@ -226,6 +228,64 @@ function NopBanner() {
         </div>
       )}
     </>
+  );
+}
+
+// Dòng điều phối cố định ngay trên nav: tóm tắt ai đang giữ đơn đi giao.
+function DeliveringBanner() {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [rolling, setRolling] = useState(false);
+  const copyRef = useRef<HTMLSpanElement>(null);
+  const runRef = useRef<HTMLSpanElement>(null);
+  const timer = useRef<any>(null);
+  useEffect(() => {
+    const load = () => getJSON("/api/orders/delivering", { cache: false })
+      .then((d) => setOrders(d.orders || [])).catch(() => {});
+    load();
+    const poll = setInterval(load, 120000);
+    const off = onRealtime((e) => {
+      if (e.type !== "order_changed" && e.type !== "orders_changed" && e.type !== "resync") return;
+      clearTimeout(timer.current);
+      timer.current = setTimeout(load, 1500);
+    });
+    return () => { clearInterval(poll); clearTimeout(timer.current); off(); };
+  }, []);
+  useEffect(() => {
+    document.body.classList.toggle("has-delivering", orders.length > 0);
+    return () => document.body.classList.remove("has-delivering");
+  }, [orders.length]);
+  const groups = new Map<string, string[]>();
+  for (const o of orders) {
+    const who = o.delivery_actor || "Chưa rõ";
+    const rawCustomer = o.customer_nickname || o.customer || `đơn #${o.thread_id}`;
+    const customer = rawCustomer.charAt(0).toUpperCase() + rawCustomer.slice(1);
+    groups.set(who, [...(groups.get(who) || []), customer]);
+  }
+  const summary = [...groups].map(([who, customers]) => `${who} đang giao ${customers.join(", ")}`).join(" · ");
+  useEffect(() => {
+    const measure = () => {
+      const copy = copyRef.current, run = runRef.current;
+      if (copy && run) setRolling(run.scrollWidth - 52 > copy.clientWidth + 2);
+    };
+    const raf = requestAnimationFrame(measure);
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    if (copyRef.current) ro?.observe(copyRef.current);
+    return () => { cancelAnimationFrame(raf); ro?.disconnect(); };
+  }, [summary]);
+  if (!orders.length) return null;
+  const duration = Math.max(12, Math.round(summary.length * 7 / 40));
+  return (
+    <a class="delivering-banner" href="#/dang-giao" title={summary}>
+      <Icon name="truck" size={15} />
+      <span class="delivering-copy" ref={copyRef}>
+        <span class={rolling ? "delivering-track rolling" : "delivering-track"}
+          style={rolling ? { animationDuration: `${duration}s` } : undefined}>
+          <span class="delivering-run" ref={runRef}>{summary}</span>
+          {rolling && <span class="delivering-run" aria-hidden="true">{summary}</span>}
+        </span>
+      </span>
+      <Icon name="chevronRight" size={15} />
+    </a>
   );
 }
 
@@ -423,6 +483,8 @@ function App() {
   else if (hash.startsWith("#/tho/sap-xep")) page = <WorkerArrange />;
   else if (hash.startsWith("#/tho")) page = <WorkerList />;
   else if (hash.startsWith("#/lich-su")) page = <ActivityLog />;
+  else if (hash.startsWith("#/camera")) page = <CameraGallery />;
+  else if (hash.startsWith("#/dang-giao")) page = <DeliveringOrders />;
   else if (hash.startsWith("#/lich")) page = <DeliveryCalendar />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
   else if (hash.startsWith("#/home")) page = <Home />;
@@ -471,6 +533,8 @@ function App() {
     : hash.startsWith("#/users") ? "Người dùng"
     : hash.startsWith("#/tho") ? "Thợ"
     : hash.startsWith("#/lich-su") ? "Lịch sử thao tác"
+    : hash.startsWith("#/camera") ? "Camera 2026"
+    : hash.startsWith("#/dang-giao") ? "Ai đang giao"
     : hash.startsWith("#/lich") ? "Lịch giao"
     : (hash.startsWith("#/bang-gia") || bangGiaMatch) ? "Bảng giá"
     : "Đơn hàng";
@@ -493,14 +557,17 @@ function App() {
       {!showLogin && <NopBanner />}
       <main class="page">{page}</main>
       {!showLogin && (
-        <nav class="bottom-nav">
+        <div class="bottom-dock">
+          {isHome && <DeliveringBanner />}
+          <nav class="bottom-nav">
           <a class={hash === "#/orders" || orderMatch ? "tab active" : "tab"} href="#/orders" onClick={() => resetOrdersScroll()}><Icon name="clipboard" size={22} class="tab-ico" /><span class="tab-lbl">Đơn</span></a>
           <a class={tab("#/customers")} href="#/customers" onClick={() => fastScrollTop()}><Icon name="user" size={22} class="tab-ico" /><span class="tab-lbl">Khách</span></a>
           <a class={tab("#/create")} href="#/create" onClick={() => fastScrollTop()}><Icon name="plus" size={22} class="tab-ico" /><span class="tab-lbl">Tạo</span></a>
           <a class={tab("#/san_xuat")} href="#/san_xuat" onClick={() => fastScrollTop()}><Icon name="factory" size={22} class="tab-ico" /><span class="tab-lbl">SX</span></a>
           <a class={tab("#/kho")} href="#/kho" onClick={() => fastScrollTop()}><Icon name="box" size={22} class="tab-ico" /><span class="tab-lbl">Kho</span></a>
           <a class={hash.startsWith("#/home") ? "tab nav-more active" : "tab nav-more"} href="#/home" title="Thêm" onClick={() => fastScrollTop()}><Icon name="menu" size={22} class="tab-ico" /><span class="tab-lbl">Thêm</span></a>
-        </nav>
+          </nav>
+        </div>
       )}
     </div>
   );

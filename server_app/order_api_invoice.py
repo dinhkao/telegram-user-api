@@ -13,7 +13,8 @@ import logging
 
 from aiohttp import web
 
-from order_db import _get_connection, get_customer_by_key, get_order_by_thread_id
+from order_db import _get_connection, _save_order, get_customer_by_key, get_order_by_thread_id, transaction
+from order_store.tasks import set_task_status
 
 from server_app import state
 from server_app.order_api_common import apply_web_actor, refresh_order_bg, resolve_name, send_task_notification
@@ -92,8 +93,12 @@ async def api_delete_invoice_handler(request: web.Request):
         return web.json_response({"ok": False, "error": f"Lỗi xoá HĐ KiotViet: {e}"}, status=500)
     order.pop("kiotvietInvoiceID", None)
     order.pop("kiotvietInvoiceCode", None)
-    from order_db import _save_order
     _save_order(conn, int(thread_id), order)
+    # HĐ không còn tồn tại thì bước "bán HĐ" cũng không thể giữ trạng thái xong.
+    # Dùng cùng quy tắc với lệnh Telegram `del hd` để cập nhật cả order lẫn
+    # bảng task mirror trên dashboard VIỆC.
+    actor = request.get("web_user") or body.get("user_id")
+    set_task_status(conn, int(thread_id), "ban_hd", actor, done=False)
     # Xoá MỀM luôn ảnh HOÁ ĐƠN của đơn (render từ HĐ vừa xoá — giữ lại chỉ gạch X)
     def _soft_del_hoadon_imgs():
         from order_images_store import list_images, delete_image
@@ -114,6 +119,52 @@ async def api_delete_invoice_handler(request: web.Request):
     if order.get("channel_id") and order.get("message_id") and state._client is not None:
         spawn_tracked("invoice.refresh", refresh_order_bg(conn, int(thread_id), order["channel_id"], order["message_id"]), {"thread_id": int(thread_id)})
     return web.json_response({"ok": True, "thread_id": int(thread_id)})
+
+
+async def api_set_invoice_reference_image_handler(request: web.Request):
+    """Lưu vĩnh viễn ảnh tham chiếu khi sửa HĐ. Body {thread_id, image_id|null}.
+
+    Chỉ chấp nhận ảnh thuộc đúng pool của đơn và chưa bị xoá tại thời điểm chọn.
+    image_id=null là bỏ ảnh tham chiếu.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    apply_web_actor(request, body)
+    try:
+        thread_id = int(body.get("thread_id"))
+    except (TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
+
+    raw_image_id = body.get("image_id")
+    if raw_image_id in (None, ""):
+        image_id = None
+    else:
+        try:
+            image_id = int(raw_image_id)
+        except (TypeError, ValueError):
+            return web.json_response({"ok": False, "error": "image_id không hợp lệ"}, status=400)
+        from order_images_store import get_image
+        image = get_image(image_id)
+        if not image or int(image.get("thread_id") or 0) != thread_id or image.get("deleted_at"):
+            return web.json_response({"ok": False, "error": "Ảnh không thuộc đơn hoặc đã bị xoá"}, status=400)
+
+    conn = _get_connection()
+    with transaction(conn):
+        order = get_order_by_thread_id(conn, thread_id)
+        if not order:
+            return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+        if image_id is None:
+            order.pop("invoice_reference_image_id", None)
+        else:
+            order["invoice_reference_image_id"] = image_id
+        if not _save_order(conn, thread_id, order):
+            return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
+
+    from server_app.realtime import emit_order_changed
+    emit_order_changed(thread_id)
+    return web.json_response({"ok": True, "thread_id": thread_id, "image_id": image_id})
 
 
 async def api_refresh_debt_handler(request: web.Request):

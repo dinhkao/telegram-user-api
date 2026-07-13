@@ -29,6 +29,8 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [patterns, setPatterns] = useState("");
   const [noteInput, setNoteInput] = useState("");
+  const [nicknameInput, setNicknameInput] = useState("");
+  const [nicknameSaved, setNicknameSaved] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
   const [savingP, setSavingP] = useState(false);
   const [savingPat, setSavingPat] = useState(false);
@@ -43,6 +45,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
     setRows(Object.keys(ppl).map((sp) => ({ sp, price: String(ppl[sp]) })));
     setPatterns((c.detectPatterns || []).join(", "));
     setNoteInput(c.note || "");
+    setNicknameInput(c.nickname || "");
     setDefTasks(c.default_tasks || []);
   };
 
@@ -74,6 +77,16 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
       setNoteSaved(true);
       setTimeout(() => setNoteSaved(false), 1500);
     } catch (e: any) { toast(e.message || "Lỗi lưu ghi chú", "err"); }
+  };
+
+  const saveNickname = async () => {
+    const value = nicknameInput.trim();
+    if (!cust || value === (cust.nickname || "")) return;
+    try {
+      hydrate(await updateCustomer(ckey, { nickname: value }));
+      setNicknameSaved(true);
+      setTimeout(() => setNicknameSaved(false), 1500);
+    } catch (e: any) { toast(e.message || "Lỗi lưu tên gọi ngắn", "err"); }
   };
 
   // ── Giá bán ──
@@ -209,6 +222,14 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
           <Icon name="refresh" size={13} class={debtBusy ? "spin" : undefined} />
         </button>
       </div>
+
+      <section class="cust-nickname">
+        <label for="cust-nickname"><Icon name="tag" size={14} /> Tên gọi ngắn {nicknameSaved && <span>✓ đã lưu</span>}</label>
+        <input id="cust-nickname" value={nicknameInput} maxLength={40} placeholder={cust.name || "vd: Ngọc Trang"}
+          onInput={(e: any) => setNicknameInput(e.target.value)} onBlur={saveNickname}
+          onKeyDown={(e: any) => { if (e.key === "Enter") e.currentTarget.blur(); }} />
+        <small>Dùng trên banner giao hàng; để trống sẽ dùng tên đầy đủ.</small>
+      </section>
 
       {/* Trạng thái đồng bộ KiotViet — như trang chi tiết SP */}
       <div class="row space cust-kv-row">

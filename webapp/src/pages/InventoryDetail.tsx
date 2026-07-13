@@ -505,7 +505,7 @@ export function InventoryDetail({ code }: { code: string }) {
                           ) : (
                             <div class="kho-group-h"><b>{pname}</b><span class="muted small">{soVN(sumRem(bs))} tồn · {bs.length} thùng</span></div>
                           )}
-                          <BoxLabelGrid boxes={bs as any} hideCode dense />
+                          <BoxLabelGrid boxes={bs} dense />
                         </section>
                       );
                     })}

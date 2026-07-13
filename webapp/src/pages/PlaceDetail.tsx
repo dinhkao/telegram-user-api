@@ -143,7 +143,7 @@ export function PlaceDetail({ id }: { id: string }) {
                       <b>{pcode}</b>
                       <span class="muted small">{soVN(sumRem(bs))} tồn · {bs.length} thùng →</span>
                     </a>
-                    <BoxLabelGrid boxes={bs} hideCode dense />
+                    <BoxLabelGrid boxes={bs} dense />
                   </section>
                 ))}
               </div>

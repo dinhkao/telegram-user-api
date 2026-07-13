@@ -16,7 +16,8 @@ _MUTATION_PATHS = {
     "/api/order/task", "/api/order/soan", "/api/order/ban", "/api/order/giao",
     "/api/order/nop-tien", "/api/order/{id}/task_status/clear",
     "/api/order/invoice/create-kiotviet", "/api/order/invoice/delete-kiotviet",
-    "/api/order/invoice/update", "/api/order/payment/tm", "/api/order/payment/ck",
+    "/api/order/invoice/update", "/api/order/invoice/reference-image",
+    "/api/order/payment/tm", "/api/order/payment/ck",
     "/api/order/payment/delete", "/api/order/assign-customer",
     "/api/order/refresh-debt", "/api/order/fix", "/api/order/auto-parse",
     "/api/order/ngay-giao", "/api/order/no-track", "/api/order/bypass-debt",
@@ -62,6 +63,13 @@ def _yes_no(v) -> str:
 
 def _stock_confirm(v) -> str:
     return "Đã chốt" if isinstance(v, dict) or v in (True, 1, "1", "true") else "Chưa chốt"
+
+
+def _image_ref(v) -> str:
+    try:
+        return f"Ảnh #{int(v)}"
+    except (TypeError, ValueError):
+        return str(v)
 
 
 def _short(s, n: int = 45) -> str:
@@ -112,6 +120,7 @@ _SCALARS = [
     ("bo_theo_doi_no", "Bỏ theo dõi nợ", _yes_no),
     ("bypass_debt", "Ẩn khi thu tiền", _yes_no),
     ("stock_confirmed", "Chốt xuất kho", _stock_confirm),
+    ("invoice_reference_image_id", "Ảnh tham chiếu HĐ", _image_ref),
 ]
 
 

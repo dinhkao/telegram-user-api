@@ -1,7 +1,7 @@
 """Thu tiền GỘP nhiều đơn của 1 khách trong 1 giao dịch (bulk payment).
 
 Người dùng mở từ chi tiết 1 đơn → trang #/order/:id/thanh-toan lấy khách của đơn
-đó + MỌI đơn của khách CHƯA có thanh toán → người dùng chọn các đơn muốn thu, nhập
+đó + MỌI đơn của khách CÒN THIẾU thanh toán → người dùng chọn các đơn muốn thu, nhập
 1 tổng số tiền → client phân bổ theo chiều sắp xếp người dùng chọn. Xác nhận:
   • Tạo ĐÚNG 1 phiếu đặt hàng + thanh toán KiotViet cho TOÀN BỘ số tiền.
   • Chia thành N phiếu thu local (mỗi đơn 1 phiếu) cùng 1 payment_batch_id + cùng
@@ -43,13 +43,24 @@ def _order_label(data: dict) -> str:
     return label
 
 
+def _paid_total(data: dict) -> int:
+    """Tổng các phiếu thu local hợp lệ của đơn."""
+    total = 0
+    for payment in data.get("payments") or []:
+        try:
+            total += int(payment.get("amount") or 0)
+        except (AttributeError, TypeError, ValueError):
+            continue
+    return total
+
+
 def _load_customer_debt_orders(conn, key: str) -> tuple[list[dict], list[dict]]:
-    """Đơn của khách `key` ĐANG NỢ (chưa có thanh toán), cũ→mới — chia 2 nhóm:
+    """Đơn của khách `key` ĐANG NỢ (tổng thu < tổng đơn), cũ→mới — chia 2 nhóm:
       • active: hiện trên trang thu tiền (được phân bổ tiền).
       • hidden: đã "ẩn khỏi trang thu tiền" (bypass_debt) — LOẠI khỏi phân bổ nhưng
         vẫn liệt kê để bật lại ngay trên trang (toggle 2 chiều).
-    Cả hai: cùng khách, chưa xoá, KHÔNG bỏ theo dõi nợ, chưa có phiếu thu, tổng > 0.
-    debt = tổng đơn (như dashboard/feed)."""
+    Cả hai: cùng khách, chưa xoá, KHÔNG bỏ theo dõi nợ, còn thiếu tiền.
+    debt = tổng đơn trừ tổng các phiếu thu đã có."""
     rows = conn.execute(
         "SELECT o.firebase_key, o.thread_id, o.channel_id, o.message_id, o.json, o.updated_at FROM orders o WHERE ("
         " CAST(json_extract(o.json,'$.khach_hang_id') AS TEXT) = ?"
@@ -67,13 +78,14 @@ def _load_customer_debt_orders(conn, key: str) -> tuple[list[dict], list[dict]]:
             data = json.loads(r["json"])
         except (TypeError, ValueError):
             continue
-        if data.get("payments"):
-            continue   # đã có thanh toán → không còn trong nhóm "chưa có payment"
         bt = data.get("bo_theo_doi_no")
         if bt in (1, True, "1", "true"):
             continue
         total = _order_total_num(data)
         if total <= 0:
+            continue
+        debt = total - _paid_total(data)
+        if debt <= 0:
             continue
         bypass = data.get("bypass_debt") in (1, True, "1", "true")
         # Tái dùng đúng shape card dashboard để text, status icons và thumbnail
@@ -83,7 +95,7 @@ def _load_customer_debt_orders(conn, key: str) -> tuple[list[dict], list[dict]]:
             "thread_id": tid,
             "created": data.get("created"),
             "total": total,
-            "debt": total,
+            "debt": debt,
             "label": _order_label(data),
             "text": card.get("text") or "",
             "task_icons": card.get("task_icons") or "",
@@ -220,9 +232,6 @@ async def _process_bulk_payment(source_thread_id: int, method: str, amount: int,
         if not o or o.get("deleted_at"):
             result["error"] = f"Đơn #{tid} không còn — tải lại trang"
             return result
-        if o.get("payments"):
-            result["error"] = f"Đơn #{tid} vừa có thanh toán khác — tải lại trang"
-            return result
         bt = o.get("bo_theo_doi_no")
         if bt in (1, True, "1", "true"):
             result["error"] = f"Đơn #{tid} đã bỏ theo dõi nợ — tải lại trang"
@@ -236,8 +245,12 @@ async def _process_bulk_payment(source_thread_id: int, method: str, amount: int,
             result["error"] = f"Đơn #{tid} không thuộc khách này — tải lại trang"
             return result
         total = _order_total_num(o)
-        if amt > total:
-            result["error"] = f"Phân bổ đơn #{tid} vượt tổng đơn — tải lại trang"
+        remaining = total - _paid_total(o)
+        if remaining <= 0:
+            result["error"] = f"Đơn #{tid} đã thanh toán đủ — tải lại trang"
+            return result
+        if amt > remaining:
+            result["error"] = f"Phân bổ đơn #{tid} vượt số tiền còn thiếu — tải lại trang"
             return result
         validated.append((tid, amt))
 

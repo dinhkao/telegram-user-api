@@ -59,6 +59,13 @@ def test_task_status():
     assert _find(ch, "Soạn hàng")[0] == {"label": "Soạn hàng", "old": "chưa", "new": "đã xong"}
 
 
+def test_invoice_reference_image():
+    ch = diff_changes({}, {"invoice_reference_image_id": 77})
+    assert _find(ch, "Ảnh tham chiếu HĐ")[0] == {
+        "label": "Ảnh tham chiếu HĐ", "old": "(trống)", "new": "Ảnh #77",
+    }
+
+
 def test_no_change():
     o = {"customer_name": "A", "vat": 1000, "invoice": [{"sp": "X", "sl": 1, "price": 1}]}
     assert diff_changes(o, dict(o)) == []

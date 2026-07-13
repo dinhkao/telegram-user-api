@@ -11,7 +11,7 @@
 // OrderDetail. Đơn đã có HĐ KiotViet / chốt kho → khoá cả 2 tab.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { getJSON, postJSON, lockInvoiceEdit, unlockInvoiceEdit, previewOrder, refreshCustomerDebt, type OrderPreview } from "../api";
+import { getJSON, postJSON, lockInvoiceEdit, unlockInvoiceEdit, previewOrder, refreshCustomerDebt, orderImageUrl, type OrderPreview } from "../api";
 import { money, moneyK, initial } from "../format";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
@@ -21,17 +21,24 @@ import { toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { useTypingSplit } from "../ui/useTypingSplit";
+import { OrderImagePicker } from "../detail/OrderImagePicker";
 
 export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
   const [detail, setDetail] = useState<any>(null);
   const [err, setErr] = useState("");
   const [editHolder, setEditHolder] = useState<string | null>(null);   // NGƯỜI KHÁC đang sửa
-  const [mode, setMode] = useState<"quick" | "advanced">("quick");
+  const [mode, setMode] = useState<"quick" | "advanced">("advanced");
   const [busy, setBusy] = useState(false);
   // tab Nâng cao — bước 1
   const [changingCust, setChangingCust] = useState(false);             // đang mở ô đổi khách
   const [cust, setCust] = useState<OrderPreview["customer"]>(null);    // nợ + bảng giá khách hiện tại
   const [plCust, setPlCust] = useState<string | null>(null);           // popup bảng giá
+  // Ảnh tham chiếu lấy từ pool ảnh của đơn — chỉ giữ trong phiên sửa hiện tại.
+  const [refImageId, setRefImageId] = useState<number | null>(null);
+  const [refPicker, setRefPicker] = useState(false);
+  const [refShow, setRefShow] = useState(false);
+  const [refReady, setRefReady] = useState(false);
+  const [refSaving, setRefSaving] = useState(false);
   // tab Nhanh — text + preview
   const [text, setText] = useState("");
   const [preview, setPreview] = useState<OrderPreview | null>(null);
@@ -41,6 +48,48 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const { typing, setTyping, exitTypingOnOutsideTap } = useTypingSplit(taRef);
 
+  // Nạp sẵn ảnh full để nút mắt hiện tức thì; đổi đơn/tab thì luôn đóng lớp phủ.
+  useEffect(() => {
+    setRefReady(false);
+    if (!refImageId) return;
+    let alive = true;
+    const image = new Image();
+    image.onload = () => { if (alive) setRefReady(true); };
+    image.src = orderImageUrl(threadId, refImageId, "full");
+    return () => { alive = false; };
+  }, [refImageId, threadId]);
+  useEffect(() => { setRefImageId(null); setRefPicker(false); setRefShow(false); setRefReady(false); }, [threadId]);
+  useEffect(() => { if (mode !== "advanced") setRefShow(false); }, [mode]);
+
+  // Desktop: GIỮ phím K để xem ảnh, thả phím để ẩn — cùng hành vi với nút mắt.
+  useEffect(() => {
+    if (!refImageId || mode !== "advanced") return;
+    const canPeek = (e: KeyboardEvent) => {
+      if (e.key !== "k" && e.key !== "K") return;
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      return true;
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!canPeek(e)) return;
+      e.preventDefault();
+      setRefShow(true);
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (!canPeek(e)) return;
+      e.preventDefault();
+      setRefShow(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      setRefShow(false);
+    };
+  }, [refImageId, mode]);
+
   const reload = async () => {
     try { setDetail(await getJSON(`/api/order/${threadId}`)); setErr(""); }
     catch (ex: any) { setErr(ex.message); }
@@ -48,6 +97,7 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
   useEffect(() => { reload(); }, [threadId]);
 
   const j = detail?.data || {};
+  const storedRefImageId = Number(j.invoice_reference_image_id) || null;
   const custKey: string = j.khach_hang_id || j.khID || "";
   const custName: string = j.customer_name || "";
   const origText: string = j.text || j.text_raw || "";
@@ -57,6 +107,13 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
   const editable = !!detail && !locked;      // chỉ giữ khoá khi đơn còn sửa được
   const canChange = editable && !editHolder; // đổi khách: server cũng cấm khi có HĐ KiotViet
   const textChanged = !!detail && text.trim() !== origText.trim();
+
+  // Khôi phục ảnh tham chiếu đã lưu trên server mỗi khi mở/reload trang.
+  useEffect(() => {
+    if (!detail) return;
+    setRefImageId(storedRefImageId);
+    setRefShow(false);
+  }, [threadId, storedRefImageId, !!detail]);
 
   // Nạp text đơn vào ô Nhanh 1 LẦN khi đơn về — không đè khi reload nền
   useEffect(() => {
@@ -139,6 +196,29 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
     invalidateListCache();
     toast("✅ Đã lưu hoá đơn", "ok");
     goBack();
+  };
+
+  // Chọn/đổi/bỏ ảnh lưu NGAY vào blob đơn; optimistic để UI phản hồi tức thì,
+  // lỗi mạng thì trả lại ảnh cũ và báo rõ cho user.
+  const saveReferenceImage = async (imageId: number | null) => {
+    if (refSaving) return;
+    const previous = refImageId;
+    setRefSaving(true);
+    setRefPicker(false);
+    setRefShow(false);
+    setRefImageId(imageId);
+    try {
+      await postJSON("/api/order/invoice/reference-image", { thread_id: Number(threadId), image_id: imageId });
+      setDetail((current: any) => current ? {
+        ...current,
+        data: { ...current.data, invoice_reference_image_id: imageId },
+      } : current);
+    } catch (error: any) {
+      setRefImageId(previous);
+      toast(`❌ ${error?.message || "Không lưu được ảnh tham chiếu"}`, "err");
+    } finally {
+      setRefSaving(false);
+    }
   };
 
   // Đổi/gán khách (bước 1 Nâng cao) — lưu ngay; custKey đổi → InvoiceEditor tự tra
@@ -299,6 +379,26 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
 
       {/* TAB NÂNG CAO — chỉ còn SẢN PHẨM (khách dùng chung ở ô trên, giá theo khách đó) */}
       <div style={mode === "advanced" ? undefined : "display:none"} class="co-adv">
+        <div class="card">
+          <div class="ie-head">Nội dung đơn hàng</div>
+          <pre class="order-text">{origText || "(trống)"}</pre>
+          <div class="ie-ref-ctrl">
+            {!refImageId ? (
+              <button class="btn small" disabled={refSaving} onClick={() => setRefPicker(true)}>
+                <Icon name="image" size={16} /> Chọn ảnh của đơn để đối chiếu
+              </button>
+            ) : (
+              <>
+                <button class="ie-ref-picked" disabled={refSaving} onClick={() => { setRefShow(false); setRefPicker(true); }} title="Đổi ảnh tham chiếu">
+                  <img src={orderImageUrl(threadId, refImageId, "thumb")} alt="" />
+                  <span><b>{refSaving ? "Đang lưu ảnh…" : "Ảnh tham chiếu"}</b><small>Giữ mắt hoặc phím K để xem</small></span>
+                </button>
+                <button class="btn small" disabled={refSaving} onClick={() => { setRefShow(false); setRefPicker(true); }}><Icon name="refresh" size={16} /> Đổi</button>
+                <button class="btn small" disabled={refSaving} onClick={() => saveReferenceImage(null)}><Icon name="close" size={16} /> Bỏ</button>
+              </>
+            )}
+          </div>
+        </div>
         <InvoiceEditor
           customerId={custKey || undefined}
           invoice={j.invoice || []}
@@ -311,6 +411,49 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
       </div>
 
       {plCust && <PriceListModal customerId={plCust} onClose={() => setPlCust(null)} />}
+      {refPicker && (
+        <OrderImagePicker threadId={threadId} selectedId={refImageId || undefined}
+          onPick={(image) => saveReferenceImage(image.id)}
+          onClose={() => setRefPicker(false)} />
+      )}
+
+      {refImageId && mode === "advanced" && refShow && (
+        <div class="wr-bg-overlay ie-ref-overlay">
+          {!refReady && <span class="ie-ref-loading">Đang tải ảnh…</span>}
+          <img class={refReady ? "ready" : ""} src={orderImageUrl(threadId, refImageId, "full")}
+            alt="Ảnh tham chiếu của đơn" onLoad={() => setRefReady(true)}
+            onError={() => { setRefShow(false); setRefReady(false); toast("Không mở được ảnh tham chiếu", "err"); }} />
+        </div>
+      )}
+      {refImageId && mode === "advanced" && !refPicker && (
+        <button type="button" class={"wr-peek-btn ie-ref-peek" + (refShow ? " on" : "")} aria-pressed={refShow}
+          aria-label="Giữ để xem ảnh tham chiếu"
+          onPointerDown={(e: any) => {
+            e.preventDefault();
+            e.currentTarget.setPointerCapture?.(e.pointerId);
+            setRefShow(true);
+          }}
+          onPointerUp={(e: any) => {
+            e.currentTarget.releasePointerCapture?.(e.pointerId);
+            setRefShow(false);
+          }}
+          onPointerLeave={() => setRefShow(false)}
+          onPointerCancel={() => setRefShow(false)}
+          onTouchStart={(e: any) => e.preventDefault()}
+          onKeyDown={(e: any) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault(); setRefShow(true);
+          }}
+          onKeyUp={(e: any) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault(); setRefShow(false);
+          }}
+          onBlur={() => setRefShow(false)}
+          onContextMenu={(e: any) => { e.preventDefault(); return false; }}
+          title="Giữ để xem ảnh tham chiếu (hoặc giữ phím K)">
+          <Icon name="eye" size={20} />
+        </button>
+      )}
     </div>
   );
 }

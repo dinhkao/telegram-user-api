@@ -239,7 +239,7 @@ export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, 
                   <section class="kho-group" key={code}>
                     <div class="kho-group-h"><b>{code}</b>
                       <span class="muted small">{soVN(sumRem(bs))} tồn · {bs.length} thùng</span></div>
-                    <BoxLabelGrid boxes={bs as any} />
+                    <BoxLabelGrid boxes={bs} />
                   </section>
                 ))}
               </div>
