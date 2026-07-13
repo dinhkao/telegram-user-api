@@ -21,6 +21,23 @@ type CameraImage = {
   original_url: string;
 };
 
+// Snapshot gallery của lần xem gần nhất — sống ở module scope (pattern listCache của
+// OrdersList) để quay lại trang là hiện ngay, refreshLatest chạy nền. Chỉ metadata
+// (~1KB/ảnh, bounded theo số ảnh đã tải). KHÔNG cache khi đang lọc thời gian from/to.
+let galleryCache: {
+  account: string; channel: string;
+  images: CameraImage[]; accounts: CameraAccount[]; channels: CameraChannel[];
+  cursor: string | null; total: number; savedAt: number;
+} | null = null;
+const GALLERY_CACHE_TTL = 10 * 60_000;
+
+// Formatter Intl tạo 1 lần — constructor đắt, timeLabel chạy cho từng ảnh mỗi render.
+const dayFmt = new Intl.DateTimeFormat("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
+const timeFmt = new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" });
+const dateTimeFmt = new Intl.DateTimeFormat("vi-VN", {
+  day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit",
+});
+
 const dayKey = (value?: string) => value ? value.slice(0, 10) : "unknown";
 const dayLabel = (value?: string) => {
   if (!value) return "Không rõ ngày";
@@ -31,14 +48,10 @@ const dayLabel = (value?: string) => {
   const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
   if (same(date, today)) return "Hôm nay";
   if (same(date, yesterday)) return "Hôm qua";
-  return new Intl.DateTimeFormat("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+  return dayFmt.format(date);
 };
-const timeLabel = (value?: string) => value
-  ? new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(new Date(value))
-  : "";
-const dateTimeLabel = (value: string) => new Intl.DateTimeFormat("vi-VN", {
-  day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit",
-}).format(new Date(value));
+const timeLabel = (value?: string) => value ? timeFmt.format(new Date(value)) : "";
+const dateTimeLabel = (value: string) => dateTimeFmt.format(new Date(value));
 const localInputValue = (date: Date) => {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -177,17 +190,19 @@ function CameraViewer({ images, start, onClose }: { images: CameraImage[]; start
 }
 
 export function CameraGallery() {
-  const [images, setImages] = useState<CameraImage[]>([]);
-  const [accounts, setAccounts] = useState<CameraAccount[]>([]);
-  const [channels, setChannels] = useState<CameraChannel[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState("");
-  const [selectedChannel, setSelectedChannel] = useState("");
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  if (galleryCache && Date.now() - galleryCache.savedAt > GALLERY_CACHE_TTL) galleryCache = null;
+  const cached = galleryCache; // useState chỉ đọc ở render đầu
+  const [images, setImages] = useState<CameraImage[]>(cached?.images ?? []);
+  const [accounts, setAccounts] = useState<CameraAccount[]>(cached?.accounts ?? []);
+  const [channels, setChannels] = useState<CameraChannel[]>(cached?.channels ?? []);
+  const [selectedAccount, setSelectedAccount] = useState(cached?.account ?? "");
+  const [selectedChannel, setSelectedChannel] = useState(cached?.channel ?? "");
+  const [cursor, setCursor] = useState<string | null>(cached?.cursor ?? null);
+  const [total, setTotal] = useState(cached?.total ?? 0);
+  const [loading, setLoading] = useState(!cached);
   const [more, setMore] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [lastSync, setLastSync] = useState(0);
+  const [lastSync, setLastSync] = useState(cached?.savedAt ?? 0);
   const [error, setError] = useState("");
   const [sourceErrors, setSourceErrors] = useState(0);
   const [viewer, setViewer] = useState<number | null>(null);
@@ -201,6 +216,22 @@ export function CameraGallery() {
   const freshRequestId = useRef(0);
   const busyRef = useRef(true);
   busyRef.current = loading || more || syncing;
+  const viewerRef = useRef(false);
+  viewerRef.current = viewer !== null;
+  const skipFirstLoad = useRef(!!cached);
+  // Snapshot cho lần quay lại — ref cập nhật mỗi render, ghi cache khi unmount.
+  const st = useRef({ images, accounts, channels, selectedAccount, selectedChannel, cursor, total, rangeFrom, rangeTo });
+  st.current = { images, accounts, channels, selectedAccount, selectedChannel, cursor, total, rangeFrom, rangeTo };
+  useEffect(() => () => {
+    const s = st.current;
+    if (s.rangeFrom || s.rangeTo) { galleryCache = null; return; } // đang xem lịch sử → lệch scroll-restore, bỏ cache
+    if (!s.images.length) return;
+    galleryCache = {
+      account: s.selectedAccount, channel: s.selectedChannel,
+      images: s.images, accounts: s.accounts, channels: s.channels,
+      cursor: s.cursor, total: s.total, savedAt: Date.now(),
+    };
+  }, []);
   usePopupBack(rangeOpen, () => setRangeOpen(false));
 
   const addTimeRange = (query: URLSearchParams) => {
@@ -260,7 +291,8 @@ export function CameraGallery() {
   };
 
   const refreshLatest = async () => {
-    if (busyRef.current || document.hidden || rangeFrom || rangeTo) return;
+    // viewerRef: ảnh mới chèn đầu mảng làm index dịch → ảnh đang xem/zoom bị đổi dưới tay.
+    if (busyRef.current || document.hidden || rangeFrom || rangeTo || viewerRef.current) return;
     const id = ++freshRequestId.current;
     setSyncing(true);
     try {
@@ -271,6 +303,9 @@ export function CameraGallery() {
       if (id !== freshRequestId.current) return;
       setImages((old) => {
         const fresh: CameraImage[] = data.images || [];
+        // Trang đầu không đổi → giữ nguyên identity mảng, Preact bail-out khỏi rebuild grid.
+        if (fresh.length && old.length >= fresh.length && fresh.every((image, i) => image.id === old[i]?.id))
+          return old;
         const freshIds = new Set(fresh.map((image) => image.id));
         return [...fresh, ...old.filter((image) => !freshIds.has(image.id))]
           .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
@@ -287,7 +322,14 @@ export function CameraGallery() {
     }
   };
 
-  useEffect(() => { load(true, selectedAccount, selectedChannel); }, [selectedAccount, selectedChannel, rangeFrom, rangeTo]);
+  useEffect(() => {
+    if (skipFirstLoad.current) { // hydrate từ cache → hiện ngay, chỉ đồng bộ nền
+      skipFirstLoad.current = false;
+      refreshLatest();
+      return;
+    }
+    load(true, selectedAccount, selectedChannel);
+  }, [selectedAccount, selectedChannel, rangeFrom, rangeTo]);
   useEffect(() => {
     if (rangeFrom || rangeTo) return;
     const timer = window.setInterval(refreshLatest, 10000);
@@ -313,6 +355,16 @@ export function CameraGallery() {
     }
     group.images.push({ image, index });
   });
+
+  // Ước lượng chiều cao section cho contain-intrinsic-size (content-visibility: auto):
+  // gallery ngang = viewport − 20px padding, grid 3 cột (<520px) / 4 cột, gap 3px,
+  // ô vuông, header nhóm ≈ 25px. Sau lần paint đầu, từ khoá `auto` nhớ size thật.
+  const gridCols = window.innerWidth >= 520 ? 4 : 3;
+  const gridCell = (window.innerWidth - 20 - (gridCols - 1) * 3) / gridCols;
+  const dayHeight = (count: number) => {
+    const rows = Math.ceil(count / gridCols);
+    return Math.round(25 + rows * gridCell + (rows - 1) * 3);
+  };
 
   return (
     <div class="camera-gallery">
@@ -344,7 +396,7 @@ export function CameraGallery() {
       {loading ? <Loading label="Đang lấy ảnh từ Cloudinary…" /> : error ? <ErrorState msg={error} onRetry={() => load(true)} /> : images.length === 0 ? (
         <div class="camera-empty"><Icon name="camera" size={38} /><b>Chưa có ảnh</b><span>{rangeActive ? "Không có ảnh trong khoảng thời gian này." : "Thư mục camera_2026 đang trống."}</span></div>
       ) : groups.map((group) => (
-        <section class="camera-day" key={group.key}>
+        <section class="camera-day" key={group.key} style={`contain-intrinsic-size: auto ${dayHeight(group.images.length)}px`}>
           <div class="camera-day-head"><b>{group.label}</b><span>{group.images.length} ảnh</span></div>
           <div class="camera-grid">
             {group.images.map(({ image, index }) => (

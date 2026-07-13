@@ -2383,7 +2383,10 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
 .camera-range-actions { display: flex; gap: 8px; }
 .camera-range-actions .btn { flex: 1; color: #dfe9e4; border-color: #40544a; background: #24322b; }
 .camera-range-actions .btn.primary { color: #092216; border-color: #7de2aa; background: #7de2aa; }
-.camera-day { margin: 0 0 18px; }
+/* content-visibility: section ngoài viewport không layout/paint/decode ảnh — list dài
+   chỉ tốn công cho 1-2 section đang thấy. Chiều cao ước lượng đặt inline qua
+   contain-intrinsic-size (số hàng grid mỗi nhóm khác nhau). */
+.camera-day { margin: 0 0 18px; content-visibility: auto; }
 .camera-day-head { display: flex; align-items: baseline; justify-content: space-between; padding: 0 3px 7px; }
 .camera-day-head b { font-size: .87rem; text-transform: capitalize; }
 .camera-day-head span { color: #71837a; font: .68rem ui-monospace, SFMono-Regular, monospace; }
