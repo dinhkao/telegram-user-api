@@ -1,6 +1,6 @@
 import unittest
 
-from server_app.cloudinary_routes import _camera_image, _decode_cursor, _delivery_variant, _encode_cursor
+from server_app.cloudinary_routes import _camera_image, _decode_cursor, _delivery_variant, _encode_cursor, _search_expression
 
 
 class CloudinaryRoutesTest(unittest.TestCase):
@@ -39,6 +39,12 @@ class CloudinaryRoutesTest(unittest.TestCase):
         self.assertIsNotNone(encoded)
         self.assertEqual(_decode_cursor(encoded), state)
         self.assertNotIn("cursor-one", encoded)
+
+    def test_searches_both_camera_subfolders(self):
+        expression = _search_expression({"folder": "camera_2026"}, None, "folder")
+        self.assertIn('folder="camera_2026/channel_11"', expression)
+        self.assertIn('folder="camera_2026/channel_14"', expression)
+        self.assertIn("resource_type:image", expression)
 
 
 if __name__ == "__main__":

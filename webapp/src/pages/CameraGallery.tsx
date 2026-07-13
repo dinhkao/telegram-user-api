@@ -5,10 +5,12 @@ import { ErrorState, Loading, LoadingInline } from "../ui/states";
 import { usePopupBack } from "../ui/usePopupBack";
 
 type CameraAccount = { id: string; label: string; folder: string };
+type CameraChannel = { id: string; label: string; folder: string };
 type CameraImage = {
   id: string;
   account_id: string;
   account_label: string;
+  channel: string;
   name: string;
   created_at?: string;
   width: number;
@@ -52,7 +54,7 @@ function CameraViewer({ images, start, onClose }: { images: CameraImage[]; start
   return (
     <div class="camera-viewer" role="dialog" aria-modal="true" aria-label={`Ảnh ${image.name}`}>
       <div class="camera-viewer-top">
-        <span class="camera-viewer-source">{image.account_label}</span>
+        <span class="camera-viewer-source">{image.channel.replace("_", " ")} · {image.account_label}</span>
         <a class="camera-viewer-btn" href={image.original_url} target="_blank" rel="noopener" title="Mở ảnh gốc"><Icon name="download" size={20} /></a>
         <button class="camera-viewer-btn" onClick={onClose} title="Đóng"><Icon name="close" size={22} /></button>
       </div>
@@ -72,29 +74,45 @@ function CameraViewer({ images, start, onClose }: { images: CameraImage[]; start
 export function CameraGallery() {
   const [images, setImages] = useState<CameraImage[]>([]);
   const [accounts, setAccounts] = useState<CameraAccount[]>([]);
-  const [selected, setSelected] = useState("");
+  const [channels, setChannels] = useState<CameraChannel[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState("");
+  const [selectedChannel, setSelectedChannel] = useState("");
   const [cursor, setCursor] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [more, setMore] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState(0);
   const [error, setError] = useState("");
   const [sourceErrors, setSourceErrors] = useState(0);
   const [viewer, setViewer] = useState<number | null>(null);
   const requestId = useRef(0);
+  const freshRequestId = useRef(0);
+  const busyRef = useRef(true);
+  busyRef.current = loading || more || syncing;
 
-  const load = async (reset: boolean, account = selected) => {
+  const load = async (reset: boolean, account = selectedAccount, channel = selectedChannel) => {
     const id = ++requestId.current;
     reset ? setLoading(true) : setMore(true);
     if (reset) setError("");
     try {
       const query = new URLSearchParams();
       if (account) query.set("account", account);
+      if (channel) query.set("channel", channel);
       if (!reset && cursor) query.set("cursor", cursor);
       const data = await getJSON(`/api/cloudinary/camera-images?${query}`, { cache: false });
       if (id !== requestId.current) return;
-      setImages((old) => reset ? data.images || [] : [...old, ...(data.images || [])]);
+      setImages((old) => {
+        if (reset) return data.images || [];
+        const seen = new Set(old.map((image) => image.id));
+        return [...old, ...(data.images || []).filter((image: CameraImage) => !seen.has(image.id))];
+      });
       setCursor(data.next_cursor || null);
+      setTotal(Number(data.total_count) || 0);
       if (data.accounts?.length) setAccounts(data.accounts);
+      if (data.channels?.length) setChannels(data.channels);
       setSourceErrors(data.source_errors?.length || 0);
+      setLastSync(Date.now());
     } catch (reason: any) {
       if (id === requestId.current) setError(reason?.message || "Không tải được ảnh");
     } finally {
@@ -102,7 +120,45 @@ export function CameraGallery() {
     }
   };
 
-  useEffect(() => { load(true, selected); }, [selected]);
+  const refreshLatest = async () => {
+    if (busyRef.current || document.hidden) return;
+    const id = ++freshRequestId.current;
+    setSyncing(true);
+    try {
+      const query = new URLSearchParams();
+      if (selectedAccount) query.set("account", selectedAccount);
+      if (selectedChannel) query.set("channel", selectedChannel);
+      const data = await getJSON(`/api/cloudinary/camera-images?${query}`, { cache: false });
+      if (id !== freshRequestId.current) return;
+      setImages((old) => {
+        const fresh: CameraImage[] = data.images || [];
+        const freshIds = new Set(fresh.map((image) => image.id));
+        return [...fresh, ...old.filter((image) => !freshIds.has(image.id))]
+          .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+      });
+      setTotal(Number(data.total_count) || 0);
+      if (data.accounts?.length) setAccounts(data.accounts);
+      if (data.channels?.length) setChannels(data.channels);
+      setSourceErrors(data.source_errors?.length || 0);
+      setLastSync(Date.now());
+    } catch {
+      // Đồng bộ nền lỗi không che gallery đang xem; lần poll sau sẽ thử lại.
+    } finally {
+      if (id === freshRequestId.current) setSyncing(false);
+    }
+  };
+
+  useEffect(() => { load(true, selectedAccount, selectedChannel); }, [selectedAccount, selectedChannel]);
+  useEffect(() => {
+    const timer = window.setInterval(refreshLatest, 15000);
+    const onVisible = () => { if (!document.hidden) refreshLatest(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      freshRequestId.current += 1;
+    };
+  }, [selectedAccount, selectedChannel]);
 
   const groups: { key: string; label: string; images: { image: CameraImage; index: number }[] }[] = [];
   images.forEach((image, index) => {
@@ -121,18 +177,23 @@ export function CameraGallery() {
         <div class="camera-lens" aria-hidden="true"><span /></div>
         <div class="camera-hero-copy">
           <span class="camera-kicker">CLOUD CAMERA</span>
-          <b>{loading ? "Đang mở cuộn phim…" : `${images.length} ảnh đã tải`}</b>
-          <small>Thư mục camera_2026 · mới nhất trước</small>
+          <b>{loading ? "Đang mở cuộn phim…" : total > images.length ? `${images.length} / ${total} ảnh đã tải` : `${images.length} ảnh`}</b>
+          <small>channel_11 + channel_14 · tự cập nhật 15 giây</small>
         </div>
-        <button class="camera-refresh" onClick={() => load(true)} disabled={loading} title="Làm mới"><Icon name="refresh" size={19} /></button>
+        <span class={syncing ? "camera-live syncing" : "camera-live"}><i />{syncing ? "Đang đồng bộ" : "Trực tiếp"}</span>
+        <button class="camera-refresh" onClick={refreshLatest} disabled={loading || syncing} title="Làm mới"><Icon name="refresh" size={19} /></button>
       </section>
 
       {accounts.length > 1 && (
         <div class="camera-sources" aria-label="Lọc theo nguồn Cloudinary">
-          <button class={!selected ? "active" : ""} onClick={() => setSelected("")}>Tất cả</button>
-          {accounts.map((account) => <button class={selected === account.id ? "active" : ""} onClick={() => setSelected(account.id)} key={account.id}>{account.label}</button>)}
+          <button class={!selectedAccount ? "active" : ""} onClick={() => setSelectedAccount("")}>Tất cả nguồn</button>
+          {accounts.map((account) => <button class={selectedAccount === account.id ? "active" : ""} onClick={() => setSelectedAccount(account.id)} key={account.id}>{account.label}</button>)}
         </div>
       )}
+      <div class="camera-channels" aria-label="Lọc theo kênh camera">
+        <button class={!selectedChannel ? "active" : ""} onClick={() => setSelectedChannel("")}>Tất cả camera</button>
+        {channels.map((channel) => <button class={selectedChannel === channel.id ? "active" : ""} onClick={() => setSelectedChannel(channel.id)} key={channel.id}>{channel.label}</button>)}
+      </div>
       {sourceErrors > 0 && <p class="camera-source-warn">Có {sourceErrors} nguồn tạm thời chưa kết nối được.</p>}
 
       {loading ? <Loading label="Đang lấy ảnh từ Cloudinary…" /> : error ? <ErrorState msg={error} onRetry={() => load(true)} /> : images.length === 0 ? (
@@ -145,7 +206,7 @@ export function CameraGallery() {
               <button class="camera-shot-card" key={image.id} onClick={() => setViewer(index)} aria-label={`Xem ${image.name}`}>
                 <img src={image.thumbnail_url} alt="" loading="lazy" decoding="async" />
                 <span class="camera-shot-time">{timeLabel(image.created_at)}</span>
-                {accounts.length > 1 && <span class="camera-shot-source">{image.account_label}</span>}
+                <span class="camera-shot-source">{image.channel.replace("_", " ")}</span>
               </button>
             ))}
           </div>
@@ -157,6 +218,7 @@ export function CameraGallery() {
           {more ? <LoadingInline label="Đang tải thêm…" /> : <>Xem ảnh cũ hơn <Icon name="chevronDown" size={18} /></>}
         </button>
       )}
+      {!loading && lastSync > 0 && <p class="camera-sync-note">Đồng bộ gần nhất lúc {timeLabel(new Date(lastSync).toISOString())}</p>}
       {viewer !== null && <CameraViewer images={images} start={viewer} onClose={() => setViewer(null)} />}
     </div>
   );

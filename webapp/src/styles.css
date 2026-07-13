@@ -2360,10 +2360,15 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
 .camera-hero-copy small { color: #94a69e; font-size: .72rem; margin-top: 3px; }
 .camera-refresh { margin-left: auto; flex: none; width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid #3b4a44; border-radius: 50%; color: #dbe7e1; background: #202b26; }
 .camera-refresh:active { transform: rotate(-18deg) scale(.94); }
-.camera-sources { position: sticky; top: 76px; z-index: 7; display: flex; gap: 7px; overflow-x: auto; margin: 0 -10px 12px; padding: 3px 10px 9px; background: linear-gradient(#101614 75%, transparent); scrollbar-width: none; }
-.camera-sources::-webkit-scrollbar { display: none; }
-.camera-sources button { flex: none; min-height: 34px; padding: 0 13px; border: 1px solid #36473f; border-radius: 999px; color: #a9bab2; background: #18211d; font: 650 .78rem/1 system-ui; }
-.camera-sources button.active { color: #092216; border-color: #7de2aa; background: #7de2aa; }
+.camera-live { position: absolute; top: 8px; right: 60px; display: inline-flex; align-items: center; gap: 5px; color: #9bada4; font: 650 .63rem/1 ui-monospace, SFMono-Regular, monospace; }
+.camera-live i { width: 7px; height: 7px; border-radius: 50%; background: #65dc98; box-shadow: 0 0 0 4px rgba(101,220,152,.1); animation: camera-live-pulse 1.8s ease-in-out infinite; }
+.camera-live.syncing i { background: #efc66a; animation-duration: .7s; }
+@keyframes camera-live-pulse { 50% { opacity: .35; transform: scale(.72); } }
+.camera-sources, .camera-channels { display: flex; gap: 7px; overflow-x: auto; margin: 0 -10px 10px; padding: 3px 10px 8px; scrollbar-width: none; }
+.camera-channels { position: sticky; top: 72px; z-index: 7; background: linear-gradient(#101614 72%, transparent); }
+.camera-sources::-webkit-scrollbar, .camera-channels::-webkit-scrollbar { display: none; }
+.camera-sources button, .camera-channels button { flex: none; min-height: 34px; padding: 0 13px; border: 1px solid #36473f; border-radius: 999px; color: #a9bab2; background: #18211d; font: 650 .78rem/1 system-ui; }
+.camera-sources button.active, .camera-channels button.active { color: #092216; border-color: #7de2aa; background: #7de2aa; }
 .camera-source-warn { margin: -2px 2px 12px; color: #efc66a; font-size: .76rem; }
 .camera-day { margin: 0 0 18px; }
 .camera-day-head { display: flex; align-items: baseline; justify-content: space-between; padding: 0 3px 7px; }
@@ -2377,6 +2382,7 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
 .camera-shot-time { right: 4px; bottom: 4px; border-radius: 5px; }
 .camera-shot-source { left: 4px; top: 4px; max-width: calc(100% - 8px); border-radius: 999px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #baf0d1; }
 .camera-more { width: 100%; min-height: 46px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #3a4c43; border-radius: 13px; color: #bfe9d1; background: #1d2923; font-weight: 700; }
+.camera-sync-note { margin: 10px 0 0; color: #60736a; text-align: center; font: .66rem ui-monospace, SFMono-Regular, monospace; }
 .camera-empty { min-height: 42vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; color: #82958b; }
 .camera-empty b { color: #dce7e1; }
 .camera-gallery .state-loading, .camera-gallery .state-empty, .camera-gallery .error { color: #9fb0a8; }
@@ -2392,6 +2398,7 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
 .camera-viewer-meta { min-width: 0; display: flex; flex-direction: column; align-items: center; text-align: center; font-size: .77rem; }
 .camera-viewer-meta span { color: #9eadA6; font: .68rem ui-monospace, SFMono-Regular, monospace; }
 @media (min-width: 520px) { .camera-grid { grid-template-columns: repeat(4,minmax(0,1fr)); } }
+@media (max-width: 380px) { .camera-live { font-size: 0; } .camera-live i { width: 8px; height: 8px; } }
 .wl-list { list-style: none; margin: 6px 0; padding: 0; }
 .wl-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
 .wl-star { flex: 0 0 auto; border: none; background: none; line-height: 1; cursor: pointer; padding: 2px; color: var(--muted-2); -webkit-tap-highlight-color: transparent; }
