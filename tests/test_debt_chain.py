@@ -111,6 +111,45 @@ class MisplacedAnchorTests:
         assert events[0]["debt_after"] == 300_000 and not events[0]["est"]
         assert events[1]["debt_after"] == 500_000 and events[1]["est"]
 
+    def test_mutually_balancing_misplaced_anchors_escalation(self):
+        # Review 2026-07-13: 2 HĐ nhập trễ CÙNG ĐỢT → khDebt chụp liên tiếp →
+        # 2 mốc rác TỰ CÂN với nhau (cặp 'tốt' giả chẻ đoạn lệch) → bắc cầu cục
+        # bộ thất bại. Leo thang nới đoạn phải tìm ra cầu 500k → nợ hiện 1.000k.
+        events = [
+            _order(1, 500_000, stored=500_000.0),      # mốc đúng
+            _order(2, 500_000, stored=500_000.0),      # rác: khDebt=0 (HĐ trễ)
+            _order(3, 500_000, stored=1_000_000.0),    # rác: khDebt=500k (HĐ trễ, cân với mốc trên)
+            _pay(4, 500_000, stored=0.0),              # rác (resync chụp sớm)
+        ]
+        _fill_debt_chain(events, current_debt=1_000_000.0)
+        assert events[0]["debt_after"] == 500_000 and not events[0]["est"]
+        assert events[1]["debt_after"] == 1_000_000 and events[1]["est"]
+        assert events[2]["debt_after"] == 1_500_000 and events[2]["est"]
+        assert events[3]["debt_after"] == 1_000_000 and events[3]["est"]
+
+    def test_guessed_ts_delta_never_evidence_for_demote(self):
+        # Payment di sản (không created_at) neo cạnh đơn = vị trí ĐOÁN → không
+        # được dùng delta đó làm bằng chứng demote mốc KiotViet thật.
+        events = [
+            _order(1, 500_000, stored=500_000.0),
+            {**_pay(2, 800_000), "ts_guessed": True},   # thu gộp cũ, vị trí đoán
+            _order(3, 300_000, stored=800_000.0),       # mốc THẬT — phải giữ nguyên
+        ]
+        _fill_debt_chain(events, current_debt=0.0)
+        assert events[0]["debt_after"] == 500_000 and not events[0]["est"]
+        assert events[2]["debt_after"] == 800_000 and not events[2]["est"]
+
+    def test_bridge_yielding_negative_debt_rejected(self):
+        # Cầu cân về mặt số nhưng nội suy lòi nợ ÂM giữa đoạn → trùng hợp,
+        # không demote (giữ mốc gốc).
+        events = [
+            _order(1, 100_000, stored=100_000.0),
+            _pay(2, 500_000),                           # −400k nếu nội suy → âm
+            _order(3, 400_000, stored=999_000.0),       # mốc lệch nhưng phải GIỮ
+        ]
+        _fill_debt_chain(events, current_debt=0.0)
+        assert events[2]["debt_after"] == 999_000 and not events[2]["est"]
+
 
 class DeriveBatchNewDebtTests:
     def test_distributes_backwards_from_kv(self):

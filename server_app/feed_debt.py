@@ -7,6 +7,7 @@ Quy tắc nội suy neo mốc: xem docstring server_app/customer_feed.
 from __future__ import annotations
 
 _TOL = 1.0   # sai số làm tròn cho phép khi đối chiếu 2 mốc
+_ESCALATE_MAX = 12   # số bước nới đoạn lệch tối đa khi bắc cầu cục bộ thất bại
 
 
 def _demote_misplaced_anchors(events: list[dict], current_debt) -> None:
@@ -17,12 +18,22 @@ def _demote_misplaced_anchors(events: list[dict], current_debt) -> None:
     tổng) là số THẬT của KiotViet nhưng thuộc THỜI ĐIỂM KHÁC → rail nợ đọc sai
     (đơn 1.170k mà "nợ sau" không cộng đơn trước; thu tiền mà nợ không giảm).
 
-    Chỉ demote khi CHỨNG MINH được: giữa 2 mốc tin được (2 đầu đoạn lệch — kề
-    đoạn cân, hoặc mốc ảo "nợ KV hiện tại"), nếu bỏ ít mốc chen giữa nhất mà mọi
-    cặp mốc giữ lại CÂN (±_TOL) → các mốc bị bỏ là số-đúng-sai-chỗ, để nội suy
-    điền lại (hiện ≈). Không bắc cầu được (chỉnh nợ tay KiotViet, thiếu sự kiện)
-    → giữ nguyên mọi mốc như cũ, đoạn đó vẫn '—'.
+    Chỉ demote khi CHỨNG MINH được: giữa 2 mốc 2 đầu đoạn lệch (GIỮ), nếu bỏ ít
+    mốc chen giữa nhất mà mọi cặp mốc giữ lại CÂN (±_TOL) → các mốc bị bỏ là
+    số-đúng-sai-chỗ, để nội suy điền lại (hiện ≈). Không bắc cầu được (chỉnh nợ
+    tay KiotViet, thiếu sự kiện) → giữ nguyên mọi mốc như cũ, đoạn đó vẫn '—'.
+    Đoạn lệch cục bộ không bắc được thì NỚI RỘNG dần 2 đầu (2 mốc rác cùng đợt
+    nhập HĐ trễ TỰ CÂN với nhau → thành cặp 'tốt' giả che mất cầu — review
+    2026-07-13). Ranh giới chấp nhận: chuỗi chỉnh-tay-KV triệt tiêu nhau đúng
+    ±1đ vẫn có thể demote nhầm mốc thật (hiếm, số hiện ≈ để phân biệt).
     """
+    for _ in range(len(events) or 1):
+        if not _demote_pass(events, current_debt):
+            return
+
+
+def _demote_pass(events: list[dict], current_debt) -> bool:
+    """1 lượt quét demote. True = có demote (mốc/cặp đổi → caller quét lại)."""
     n = len(events)
     # mốc = (index sự kiện, giá trị, là-phiếu-thu); mốc ảo cuối = nợ KV hiện tại
     anchors = [(i, float(e["stored"]), e.get("kind") == "payment")
@@ -30,7 +41,7 @@ def _demote_misplaced_anchors(events: list[dict], current_debt) -> None:
     if current_debt is not None:
         anchors.append((n, float(current_debt), True))
     if len(anchors) < 3:
-        return
+        return False
 
     # prefix delta: P[i] = Σ delta events[0..i-1] → Σ delta (a+1..b) = P[b+1] − P[a+1]
     prefix = [0.0]
@@ -44,6 +55,7 @@ def _demote_misplaced_anchors(events: list[dict], current_debt) -> None:
 
     m = len(anchors)
     good = [_bal(anchors[k], anchors[k + 1]) for k in range(m - 1)]
+    runs = []   # các đoạn lệch cực đại (lo, hi) theo index mốc
     k = 0
     while k < m - 1:
         if good[k]:
@@ -52,17 +64,36 @@ def _demote_misplaced_anchors(events: list[dict], current_debt) -> None:
         j = k
         while j < m - 1 and not good[j]:
             j += 1
-        _demote_run(events, anchors, k, j, _bal)
+        runs.append((k, j))
         k = j
+    # 1) bắc cầu cục bộ từng đoạn lệch
+    for lo, hi in runs:
+        if _demote_run(events, anchors, lo, hi, _bal):
+            return True
+    # 2) leo thang: nới đoạn nuốt dần mốc lân cận (kể cả cặp 'tốt' giả giữa
+    #    2 mốc rác cùng đợt). Cap số bước — cụm HĐ nhập trễ 1 đợt chỉ vài mốc,
+    #    còn đoạn không bao giờ bắc được (chỉnh tay KV) khỏi quét cả chuỗi.
+    for lo, hi in runs:
+        L, H, steps = lo, hi, 0
+        while (L > 0 or H < m - 1) and steps < _ESCALATE_MAX:
+            L, H, steps = max(0, L - 1), min(m - 1, H + 1), steps + 1
+            if _demote_run(events, anchors, L, H, _bal):
+                return True
+    return False
 
 
-def _demote_run(events: list[dict], anchors: list, lo: int, hi: int, bal) -> None:
+def _demote_run(events: list[dict], anchors: list, lo: int, hi: int, bal) -> bool:
     """1 đoạn lệch anchors[lo..hi] (2 đầu GIỮ): tìm cách giữ NHIỀU mốc nhất
     (ưu tiên mốc phiếu thu — new_debt đo trực tiếp, mốc đơn chỉ là khDebt+tổng)
     sao cho mọi cặp liền kề cân; mốc rớt khỏi chuỗi → stored=None. Không có
-    đường đi lo→hi thì bỏ qua (giữ nguyên)."""
+    đường đi lo→hi thì bỏ qua (giữ nguyên). True = có demote."""
     if hi - lo < 2:
-        return   # không có mốc giữa để bỏ
+        return False   # không có mốc giữa để bỏ
+    lo_ev, hi_ev = anchors[lo][0], anchors[hi][0]
+    # chứng cứ yếu: sự kiện ts ĐOÁN trong đoạn (payment di sản neo cạnh đơn) —
+    # vị trí delta không chắc → không demote mốc thật dựa trên nó
+    if any(events[i].get("ts_guessed") for i in range(lo_ev, min(hi_ev + 1, len(events)))):
+        return False
     best: dict[int, tuple] = {lo: (1, int(anchors[lo][2]), None)}   # (giữ, phiếu thu giữ, parent)
     for t in range(lo + 1, hi + 1):
         cand = None
@@ -75,15 +106,26 @@ def _demote_run(events: list[dict], anchors: list, lo: int, hi: int, bal) -> Non
         if cand:
             best[t] = cand
     if hi not in best:
-        return   # không chứng minh được → giữ mọi mốc như cũ
-    keep = set()
+        return False   # không chứng minh được → giữ mọi mốc như cũ
+    keep = []
     t = hi
     while t is not None:
-        keep.add(t)
+        keep.append(t)
         t = best[t][2]
-    for t in range(lo + 1, hi):
-        if t not in keep:
-            events[anchors[t][0]]["stored"] = None
+    keep.reverse()
+    demoted = [t for t in range(lo + 1, hi) if t not in keep]
+    if not demoted:
+        return False
+    # mô phỏng số sẽ nội suy trên đoạn: lòi nợ ÂM = cầu trùng hợp, không tin
+    for s, t in zip(keep, keep[1:]):
+        running = anchors[s][1]
+        for i in range(anchors[s][0] + 1, anchors[t][0]):
+            running += float(events[i].get("delta") or 0.0)
+            if running < -_TOL:
+                return False
+    for t in demoted:
+        events[anchors[t][0]]["stored"] = None
+    return True
 
 
 def _fill_debt_chain(events: list[dict], current_debt) -> None:
