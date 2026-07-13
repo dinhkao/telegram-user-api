@@ -336,6 +336,23 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   trong `_NO_AUDIT`, offline→queue). Admin xem `#/usage` (UsageStats, menu Thêm) ←
   `GET /api/usage/stats?days=&user=` (`server_app/usage_routes.py`).
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
+- **Lịch sử thao tác — 3 mặt hiển thị, 1 bảng tra nhãn (2026-07-14).** Mọi dòng
+  lịch sử có `parts: [{t, href?}]` = đoạn chữ + LINK tới thực thể được nhắc
+  (thùng/SP/khách/đơn/phiếu…); `detail` = text ghép (fallback). Module:
+  `server_app/history_format.py` (part/href_for/Resolver tra tên best-effort),
+  **`event_format.py` = bảng tra DUY NHẤT mọi domain event → (nhãn VN, parts)**,
+  `activity_format.py` (feed toàn cục: phủ MỌI scope + khử trùng request↔event
+  ±15s + `_EXTRA_LABELS` cho endpoint scope=None + gộp autosave). Mặt đọc:
+  `order_history.py` (đơn), `entity_history.py` (mọi thực thể — scope allowlist
+  trong handler), `activity.py` (#/lich-su, peek batched/scope). **Thêm tính năng
+  mới = thêm event vào `event_format.event_entry` (+nhãn `_EXTRA_LABELS` nếu
+  endpoint scope=None) — không thì rơi vào nhãn generic/vô hình.** Client render
+  parts: `webapp/src/detail/History.tsx` + `pages/ActivityLog.tsx`.
+- **Timeline biến động ĐƠN (`server_app/order_timeline.py`)** — GET
+  `/api/order/{id}/timeline` → `#/order/:id/timeline` (`pages/OrderTimeline.tsx`,
+  nút ở chi tiết đơn): đời của đơn (tạo → HĐ KV → xuất kho → soạn/giao/nộp/nhận →
+  từng lần thu) + rail TIỀN CÒN PHẢI THU (chấm trượt như timeline thùng). Nguồn:
+  blob (5 mốc + payments = chuẩn) + audit rows; khử trùng, gộp burst.
 
 **Bot role (merged bot-don-hang)**
 - `bot_core/` — bot config, DB, keyboards, media, session store, firebase, html→png.
