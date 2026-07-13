@@ -1185,6 +1185,24 @@ export async function getBoxTimeline(boxId: string | number): Promise<BoxTimelin
   const d = await getJSON(`/api/inventory/box/${Number(boxId)}/timeline`, { cache: false });
   return d.ok ? d : null;
 }
+
+// ── Timeline biến động 1 ĐƠN HÀNG ──
+export type OrderTLPart = { t: string; href?: string };
+export type OrderTLItem = {
+  ts: number; at: string; kind: string; dir: "in" | "out" | "neutral"; label: string;
+  parts: OrderTLPart[]; actor?: string; amount?: number; remaining: number;
+  changes?: { label: string; old?: string; new?: string }[]; image_id?: number | null; task?: string;
+};
+export type OrderTimeline = {
+  order: { thread_id: number; text: string; total: number; paid: number; remaining: number;
+           customer_key?: string | number | null; customer_name?: string | null;
+           kv_code: string; created: string; ngay_giao: string };
+  items: OrderTLItem[]; truncated: boolean;
+};
+export async function getOrderTimeline(threadId: string | number): Promise<OrderTimeline | null> {
+  const d = await getJSON(`/api/order/${Number(threadId)}/timeline`, { cache: false });
+  return d.ok ? d : null;
+}
 export async function createPlace(name: string, note = ""): Promise<Place> {
   const d = await postJSON("/api/places", { name, note }, { queueable: false });
   return d.place;

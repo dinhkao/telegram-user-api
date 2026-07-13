@@ -612,6 +612,9 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       )}
       </div>
       <Images base={`/api/order/${threadId}`} anchorId="od-camera" openSignal={camSignal} />
+      <a class="btn block pt-open-btn" href={`#/order/${threadId}/timeline`}>
+        <Icon name="history" size={16} /> Timeline biến động đơn →
+      </a>
       <History base={`/api/order/${threadId}`} />
       <div class="muted small center">Tạo bởi: {(j.nguoi_tao_HD || []).join(", ") || "?"} · thread {threadId}</div>
 

@@ -61,6 +61,7 @@ import { PlaceTimeline } from "./pages/PlaceTimeline";
 import { StocktakeDetail } from "./pages/StocktakeDetail";
 import { BoxDetail } from "./pages/BoxDetail";
 import { BoxTimeline } from "./pages/BoxTimeline";
+import { OrderTimeline } from "./pages/OrderTimeline";
 import { CameraGallery } from "./pages/CameraGallery";
 import { UsageStats } from "./pages/UsageStats";
 import { DisposalsList } from "./pages/DisposalsList";
@@ -435,6 +436,7 @@ function App() {
   let page;
   const invEditMatch = hash.match(/^#\/order\/(-?\d+)\/hoa-don/);
   const payMatch = hash.match(/^#\/order\/(-?\d+)\/thanh-toan/);
+  const orderTLMatch = hash.match(/^#\/order\/(-?\d+)\/timeline/);
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
   const prodEditMatch = hash.match(/^#\/san_xuat\/(-?\d+)\/bao-cao/);
   const baoCaoMatch = hash.match(/^#\/bao-cao\/(\d+)/);
@@ -463,6 +465,7 @@ function App() {
   if (showLogin) page = <Login />;
   else if (invEditMatch) page = <OrderInvoiceEdit threadId={invEditMatch[1]} />;
   else if (payMatch) page = <OrderPayment threadId={payMatch[1]} />;
+  else if (orderTLMatch) page = <OrderTimeline threadId={orderTLMatch[1]} />;
   else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} focus={focusEl} />;
   else if (prodEditMatch) page = <ProductionReportEdit threadId={prodEditMatch[1]} />;
   else if (shtMatch) page = <ProductionWorkerDetail name={decodeURIComponent(shtMatch[1])} />;

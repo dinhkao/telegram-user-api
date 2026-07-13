@@ -200,6 +200,8 @@ def create_app():
     r.add_post("/api/order/print-giao", api_print_giao_handler)
     r.add_post("/api/order/create", order_create_handler)
     r.add_get("/api/order/{thread_id}/history", order_history_handler)
+    from server_app.order_timeline import order_timeline_handler
+    r.add_get("/api/order/{thread_id}/timeline", order_timeline_handler)
     r.add_get("/api/order/{thread_id}/comments", comments_list_handler)
     r.add_post("/api/order/{thread_id}/comments", comments_add_handler)
     r.add_get("/api/order/{thread_id}/images", images_list_handler)
