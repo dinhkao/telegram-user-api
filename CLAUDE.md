@@ -107,6 +107,15 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     when *their* entity changed. If you add a mutation, add its `emit_*`.
   - The old **saved-messages** feed, `/api/search`, `ai_backend.py` (group AI +
     auto-reply-"yes") and the static `/` page were removed; `/` now 302s to `/app/`.
+- **Gallery camera Cloudinary (`server_app/cloudinary_routes.py` + `cloudinary_warm.py`)** —
+  trang `#/camera` (`webapp/src/pages/CameraGallery.tsx`, poll 10s + module-cache +
+  content-visibility) ← `/api/cloudinary/camera-images`: proxy Search API read-only
+  (key chỉ ở server, multi-account env `CLOUDINARY_*`), cache trang đầu RAM
+  stale-while-revalidate (60s fresh/10ph stale, dedup in-flight) + refresher 15s
+  (idle-gate: không ai poll 5ph → 0 request), ETag/304. `cloudinary_warm.py` = session
+  aiohttp dùng chung + **CDN-warm derived asset ảnh MỚI** (GET thumb/preview với Accept
+  giống browser — f_auto derive theo Accept; warmed set FIFO 500, seed lúc boot).
+  Endpoint nằm trong `_NO_AUDIT` (poll 10s không ghi audit_events).
 - `utils/` — logging config and shared helpers. Imported everywhere.
 
 **Order workflow (the heart)**
