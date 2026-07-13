@@ -147,7 +147,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   đơn + thanh toán 1 dòng thời gian (rail nợ, dây SVG nối payment↔đơn). Nợ sau mỗi
   sự kiện: số KiotViet gốc, hoặc **SỐ TÍNH LẠI có kiểm chứng** (nội suy neo mốc KV,
   chỉ hiện khi đoạn CÂN ±1đ — est hiện `≈`; xem memory debt-recalc-permitted-feed).
-  Mode `?days=1`/`?day=` cho trang lịch khách (`#/khach/:key/lich`).
+  Logic chuỗi nợ thuần = **`server_app/feed_debt.py`** (unit-tested,
+  tests/test_debt_chain.py): điền + **demote mốc đúng-số-nhưng-SAI-CHỖ** (HĐ KV
+  tạo trễ sau phiếu thu → khDebt chụp sai thời điểm — bỏ ít mốc nhất cho chuỗi
+  cân lại, có leo thang + guard ts_guessed/nợ-âm). Mode `?days=1`/`?day=` cho
+  trang lịch khách (`#/khach/:key/lich`).
 - **VIỆC / task list (`task_store/` + `server_app/task_routes.py`)** — bảng
   **`web_tasks`** (bảng `tasks` là sync Firebase legacy 18k row, CẤM đụng). kind:
   `free` (việc tự tạo, link đơn tuỳ chọn) | `order_step`/`order_custom` = **MIRROR
