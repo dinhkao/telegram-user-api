@@ -27,7 +27,9 @@ class CloudinaryRoutesTest(unittest.TestCase):
         self.assertEqual(image["id"], "main:asset-1")
         self.assertEqual(image["name"], "cam-01")
         self.assertNotIn("api_key", image)
-        self.assertIn("c_fill", image["thumbnail_url"])
+        self.assertIn("q_auto:low", image["thumbnail_url"])
+        self.assertIn("w_320", image["thumbnail_url"])
+        self.assertNotIn("g_auto", image["thumbnail_url"])
         self.assertIn("c_limit", image["preview_url"])
 
     def test_non_image_asset_is_ignored(self):

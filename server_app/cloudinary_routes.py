@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from contextlib import suppress
 import json
 import os
 import re
@@ -25,7 +26,9 @@ _CHANNELS = tuple(
 _FIELDS = "asset_id,public_id,display_name,resource_type,type,format,width,height,bytes,created_at,secure_url"
 _ACCOUNT_ID = re.compile(r"^[a-z0-9_-]{1,32}$")
 _FIRST_PAGE_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
-_FIRST_PAGE_CACHE_SECONDS = 8
+_FIRST_PAGE_CACHE_SECONDS = 60
+_CACHE_REFRESH_SECONDS = 15
+_CACHE_TASK = web.AppKey("camera_cache_refresh_task", asyncio.Task)
 
 
 def _accounts() -> list[dict[str, str]]:
@@ -113,7 +116,9 @@ def _camera_image(
         "width": int(resource.get("width") or 0),
         "height": int(resource.get("height") or 0),
         "bytes": int(resource.get("bytes") or 0),
-        "thumbnail_url": _delivery_variant(url, "f_auto,q_auto:eco,c_fill,g_auto,w_640,h_640"),
+        # Ô lưới tối đa ~160 CSS px: 320px đủ nét cả màn Retina 2x. Không crop
+        # AI g_auto (CSS object-fit đã crop) → derived asset tạo nhanh và nhẹ hơn.
+        "thumbnail_url": _delivery_variant(url, "f_auto,q_auto:low,c_limit,w_320"),
         "preview_url": _delivery_variant(url, "f_auto,q_auto,c_limit,w_1800,h_1800"),
         "original_url": url,
     }
@@ -126,10 +131,10 @@ def _search_expression(account: dict[str, str], channel: str | None, folder_fiel
 
 
 async def _get_cloudinary_page(
-    account: dict[str, str], cursor: str | None, channel: str | None = None
+    account: dict[str, str], cursor: str | None, channel: str | None = None, *, force: bool = False
 ) -> dict[str, Any]:
     cache_key = f"{account['id']}:{channel or '*'}"
-    if cursor is None:
+    if cursor is None and not force:
         cached = _FIRST_PAGE_CACHE.get(cache_key)
         if cached and time.monotonic() - cached[0] < _FIRST_PAGE_CACHE_SECONDS:
             return cached[1]
@@ -222,3 +227,33 @@ async def camera_images_handler(request: web.Request) -> web.Response:
         },
         headers={"Cache-Control": "private, no-store"},
     )
+
+
+async def warm_camera_cache(_app: web.Application) -> None:
+    """Làm nóng trang mới nhất trong RAM khi server start; không ghi ổ đĩa."""
+    accounts = _accounts()
+    if not accounts:
+        return
+    await asyncio.gather(
+        *[_get_cloudinary_page(account, None, force=True) for account in accounts],
+        return_exceptions=True,
+    )
+    _app[_CACHE_TASK] = asyncio.create_task(_refresh_camera_cache(), name="cloudinary.camera-cache")
+
+
+async def _refresh_camera_cache() -> None:
+    while True:
+        await asyncio.sleep(_CACHE_REFRESH_SECONDS)
+        await asyncio.gather(
+            *[_get_cloudinary_page(account, None, force=True) for account in _accounts()],
+            return_exceptions=True,
+        )
+
+
+async def stop_camera_cache(app: web.Application) -> None:
+    task = app.get(_CACHE_TASK)
+    if task is None:
+        return
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task

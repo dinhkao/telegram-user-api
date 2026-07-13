@@ -109,7 +109,7 @@ from server_app.user_routes import (
     users_pin_handler,
 )
 from server_app.webapp_routes import register_webapp_routes
-from server_app.cloudinary_routes import camera_images_handler
+from server_app.cloudinary_routes import camera_images_handler, stop_camera_cache, warm_camera_cache
 from server_app.websocket_routes import websocket_handler
 from server_app import state
 
@@ -123,6 +123,8 @@ def create_app():
     # file lớn (vd APK qua /api/tg/send-file). Tailscale/LAN nội bộ nên nới an toàn.
     app = web.Application(client_max_size=32 * 1024 * 1024,
                           middlewares=[cors_middleware, audit_middleware, web_auth_middleware])
+    app.on_startup.append(warm_camera_cache)
+    app.on_cleanup.append(stop_camera_cache)
     r = app.router
     r.add_post("/api/auth/login", login_handler)
     r.add_get("/api/auth/me", me_handler)
