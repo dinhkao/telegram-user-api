@@ -10,8 +10,9 @@ from audit_log import async_log_event, new_request_id
 from server_app import order_diff
 
 # Endpoint TẠM (không phải ghi dữ liệu) — KHÔNG audit: nháp báo cáo (mỗi phím gõ),
-# khoá/nhả, xem trước. Nếu ghi sẽ ngập "draft" trong lịch sử thao tác.
-_NO_AUDIT = re.compile(r"/report/(draft|lock|unlock|parse)$|/(stock-pick|invoice-edit)/(lock|unlock)$|/api/inventory/box/-?\d+/transfer$")
+# khoá/nhả, xem trước, poll gallery camera 10s (read-only, ~8.6k req/ngày/client).
+# Nếu ghi sẽ ngập "draft"/poll trong lịch sử thao tác.
+_NO_AUDIT = re.compile(r"/report/(draft|lock|unlock|parse)$|/(stock-pick|invoice-edit)/(lock|unlock)$|/api/inventory/box/-?\d+/transfer$|^/api/cloudinary/camera-images$")
 _ORDER_PATH = re.compile(r"^/api/order/(-?\d+)")
 _PRODUCTION_PATH = re.compile(r"^/api/production/(-?\d+)")
 _MEDIA_PATH = re.compile(r"^/api/media/(production|box|return|task|place|customer|product|supplier|purchase)/(-?\d+)")
