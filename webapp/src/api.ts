@@ -680,7 +680,7 @@ export type ProdReport = {
   start?: string | null;
   end?: string | null;
   grand_total: number;
-  rows: { name: string; so_gach: number; so_tru: number; so_cay_le: number; note: string; so_mam: number; tong_calc: number; sp_de?: number | null; mam_de?: number | null }[];
+  rows: { name: string; so_gach: number; so_tru: number; so_cay_le: number; note: string; so_mam: number; tong_calc: number; sp_de?: number | null; mam_de?: number | null; so_gio?: number | null }[];
 };
 
 export type ProdListResp = { slips: ProdSlip[]; total: number; page: number; total_pages: number };
@@ -764,7 +764,7 @@ export async function deleteProduction(id: string | number): Promise<any> {
 }
 
 // ── Danh sách thợ (template báo cáo) ──
-export type Worker = { id: number; name: string; is_default: boolean; sort_order: number; weekly_salary?: boolean };
+export type Worker = { id: number; name: string; is_default: boolean; sort_order: number; weekly_salary?: boolean; hourly_rate?: number };
 export async function listWorkers(): Promise<{ workers: Worker[]; defaults: string[] }> {
   const d = await getJSON("/api/workers", { cache: false });
   return { workers: d.workers || [], defaults: d.defaults || [] };
@@ -773,7 +773,7 @@ export async function addWorker(name: string, isDefault: boolean): Promise<Worke
   const d = await postJSON("/api/workers", { name, is_default: isDefault });
   return d.worker;
 }
-export async function updateWorker(id: number, patch: { name?: string; is_default?: boolean; weekly_salary?: boolean }): Promise<Worker> {
+export async function updateWorker(id: number, patch: { name?: string; is_default?: boolean; weekly_salary?: boolean; hourly_rate?: number }): Promise<Worker> {
   const d = await postJSON(`/api/workers/${id}`, patch);
   return d.worker;
 }
@@ -896,12 +896,12 @@ export async function getProductionDashboard(from?: string, to?: string): Promis
   return getJSON(`/api/production/report-dashboard${q ? "?" + q : ""}`, { cache: false });
 }
 
-export type WorkerReportRow = { thread_id: number; product_code: string; date: string; ymd: string; so_mam: number; tong_calc: number; note: string; money?: number; wage?: number; piece?: number; allowance?: number };
+export type WorkerReportRow = { thread_id: number; product_code: string; date: string; ymd: string; so_mam: number; tong_calc: number; note: string; money?: number; wage?: number; piece?: number; allowance?: number; so_gio?: number | null; hourly_rate?: number };
 // Tiền công + phụ cấp của 1 PHIẾU (office only)
-export type PhieuWages = { product_code: string; wage: number; default_wage: number; custom: boolean; allowances: Record<string, number> };
+export type PhieuWages = { product_code: string; wage: number; default_wage: number; custom: boolean; allowances: Record<string, number>; hourly_rates: Record<string, number> };
 export async function phieuWages(threadId: string | number): Promise<PhieuWages> {
   const d = await getJSON(`/api/production/${threadId}/wages`, { cache: false });
-  return { product_code: d.product_code || "", wage: d.wage || 0, default_wage: d.default_wage || 0, custom: !!d.custom, allowances: d.allowances || {} };
+  return { product_code: d.product_code || "", wage: d.wage || 0, default_wage: d.default_wage || 0, custom: !!d.custom, allowances: d.allowances || {}, hourly_rates: d.hourly_rates || {} };
 }
 /** Chốt/sửa đơn giá lương /1SP của RIÊNG 1 phiếu (office). */
 export async function setPhieuWage(threadId: string | number, luong: number): Promise<any> {

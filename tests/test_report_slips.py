@@ -18,9 +18,9 @@ def conn():
     c.execute(
         "CREATE TABLE production_report_rows ("
         " thread_id INTEGER, report_ymd TEXT, worker_id INTEGER, worker_name TEXT,"
-        " product_id INTEGER, product_code TEXT, tong_calc REAL)"
+        " product_id INTEGER, product_code TEXT, tong_calc REAL, so_gio REAL)"
     )
-    c.execute("CREATE TABLE production_workers (id INTEGER PRIMARY KEY, name TEXT)")
+    c.execute("CREATE TABLE production_workers (id INTEGER PRIMARY KEY, name TEXT, hourly_rate REAL DEFAULT 0)")
     c.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, code TEXT)")
     c.execute("CREATE TABLE production_slips (thread_id INTEGER PRIMARY KEY, sp_name TEXT, luong_1sp REAL, bang TEXT)")
     ensure_allowances(c)
@@ -53,7 +53,9 @@ def _seed(conn):
         # ngoài khoảng — không được tính
         (300, "2026-06-30", None, "Hiền", None, "K1", 99),
     ]
-    conn.executemany("INSERT INTO production_report_rows VALUES (?,?,?,?,?,?,?)", rows)
+    conn.executemany(
+        "INSERT INTO production_report_rows (thread_id, report_ymd, worker_id, worker_name,"
+        " product_id, product_code, tong_calc) VALUES (?,?,?,?,?,?,?)", rows)
     conn.execute("INSERT INTO production_allowances (thread_id, worker_name, amount) VALUES (200, 'Hiền', 5000)")
 
 

@@ -60,16 +60,33 @@ async def production_worker_report_handler(request: web.Request):
                         sorted(tids),
                     ).fetchall():
                         swage[sr["thread_id"]] = sr["luong_1sp"]
+                # tiền 1 GIỜ của thợ này (dòng có số giờ → tiền = giờ × rate)
+                hrate = 0.0
+                try:
+                    hr = conn.execute(
+                        "SELECT hourly_rate FROM production_workers WHERE name = TRIM(?) COLLATE NOCASE",
+                        (name,),
+                    ).fetchone()
+                    hrate = float(hr[0] or 0) if hr else 0.0
+                except Exception:
+                    hrate = 0.0
                 total_money = 0
                 for r in data.get("rows", []):
                     tid = r.get("thread_id")
                     if tid not in acache:
                         acache[tid] = get_allowances(conn, tid)
                     allow = round(acache[tid].get(name, 0))
-                    sw = swage.get(tid)
-                    w = float(sw) if sw is not None else wage_per_cay(r.get("product_code"))
-                    piece = round((r.get("tong_calc") or 0) * w)
-                    r["wage"] = w
+                    gio = float(r.get("so_gio") or 0)
+                    if gio > 0:
+                        # SP tính lương THEO GIỜ
+                        piece = round(gio * hrate)
+                        r["hourly_rate"] = hrate
+                        r["wage"] = 0
+                    else:
+                        sw = swage.get(tid)
+                        w = float(sw) if sw is not None else wage_per_cay(r.get("product_code"))
+                        piece = round((r.get("tong_calc") or 0) * w)
+                        r["wage"] = w
                     r["piece"] = piece
                     r["allowance"] = allow
                     r["money"] = piece + allow

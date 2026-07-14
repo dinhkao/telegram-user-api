@@ -25,6 +25,7 @@ _C_TONG_SEMI = 5   # tổng sp when a note column is present (semicolon layout)
 _C_TONG_COMMA = 4  # tổng sp in the legacy comma/tab layout (no note column)
 _C_SP_DE = 6       # Số SP đè (sheet cột F) — đè TOÀN BỘ tổng của dòng
 _C_MAM_DE = 7      # Số mâm đè (sheet cột G) — đè số mâm tính từ gạch
+_C_GIO = 12        # Số giờ làm (sheet "số giờ TL") — SP tính lương THEO GIỜ
 _C_CODE = 13
 _C_DATE = 14
 _C_SOMAM = 17  # số mâm đã tính sẵn trong sheet (nguồn chuẩn cho tổng SP)
@@ -132,6 +133,8 @@ def parse_report(text: str) -> dict:
             # cột đè thô (webapp ghi; sheet để trống vì đã bake vào cột 5/17)
             "sp_de": _num_opt(cells, _C_SP_DE) if has_note_col else None,
             "mam_de": _num_opt(cells, _C_MAM_DE) if has_note_col else None,
+            # số giờ làm (SP tính lương theo giờ — tiền = giờ × đơn giá giờ của thợ)
+            "so_gio": _num_opt(cells, _C_GIO) if has_note_col else None,
             # số mâm sheet đã tính (None nếu dòng không có cột 17) — nguồn chuẩn
             "so_mam_sheet": _num(cells[_C_SOMAM]) if len(cells) > _C_SOMAM else None,
         })

@@ -24,6 +24,8 @@ def ensure_table(conn) -> None:
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(production_workers)").fetchall()}
     if "weekly_salary" not in cols:
         conn.execute("ALTER TABLE production_workers ADD COLUMN weekly_salary INTEGER DEFAULT 0")
+    if "hourly_rate" not in cols:   # tiền 1 GIỜ làm (SP tính lương theo giờ) — 0 = chưa đặt
+        conn.execute("ALTER TABLE production_workers ADD COLUMN hourly_rate REAL DEFAULT 0")
     conn.commit()
 
 
@@ -31,12 +33,13 @@ def _row(r) -> dict:
     return {
         "id": r["id"], "name": r["name"], "is_default": bool(r["is_default"]),
         "sort_order": r["sort_order"], "weekly_salary": bool(r["weekly_salary"]),
+        "hourly_rate": float(r["hourly_rate"] or 0),
     }
 
 
 def list_workers(conn) -> list[dict]:
     rows = conn.execute(
-        "SELECT id, name, is_default, sort_order, weekly_salary FROM production_workers "
+        "SELECT id, name, is_default, sort_order, weekly_salary, hourly_rate FROM production_workers "
         "ORDER BY sort_order ASC, name COLLATE NOCASE ASC"
     ).fetchall()
     return [_row(r) for r in rows]
@@ -65,20 +68,23 @@ def add_worker(conn, name: str, is_default: bool = False) -> dict:
             (nm, 1 if is_default else 0, int(mx) + 1),
         )
         wid = cur.lastrowid
-    return {"id": wid, "name": nm, "is_default": bool(is_default), "sort_order": int(mx) + 1, "weekly_salary": False}
+    return {"id": wid, "name": nm, "is_default": bool(is_default), "sort_order": int(mx) + 1,
+            "weekly_salary": False, "hourly_rate": 0.0}
 
 
 def update_worker(
     conn, worker_id: int, *,
     name: str | None = None, is_default: bool | None = None, weekly_salary: bool | None = None,
+    hourly_rate: float | None = None,
 ) -> dict | None:
     """Sửa thợ. ĐỔI TÊN = cascade cùng transaction: production_report_rows (dòng
     đã gán worker_id đổi nhãn; dòng cổ trùng tên cũ được GÁN id + nhãn mới) + blob
     `bang` các phiếu SX (tên thợ trong báo cáo đã lưu) — lịch sử dashboard/chi tiết
-    thợ KHÔNG tách đôi khi sửa tên."""
+    thợ KHÔNG tách đôi khi sửa tên. hourly_rate = tiền 1 GIỜ (SP tính lương giờ)."""
     with transaction(conn):
         cur = conn.execute(
-            "SELECT id, name, is_default, sort_order, weekly_salary FROM production_workers WHERE id = ?",
+            "SELECT id, name, is_default, sort_order, weekly_salary, hourly_rate "
+            "FROM production_workers WHERE id = ?",
             (worker_id,),
         ).fetchone()
         if not cur:
@@ -95,15 +101,21 @@ def update_worker(
                 raise ValueError("Thợ đã có trong danh sách")
         new_def = cur["is_default"] if is_default is None else (1 if is_default else 0)
         new_wk = cur["weekly_salary"] if weekly_salary is None else (1 if weekly_salary else 0)
+        if hourly_rate is None:
+            new_hr = float(cur["hourly_rate"] or 0)
+        else:
+            new_hr = float(hourly_rate)
+            if new_hr < 0:
+                raise ValueError("Tiền 1 giờ phải >= 0")
         conn.execute(
-            "UPDATE production_workers SET name = ?, is_default = ?, weekly_salary = ? WHERE id = ?",
-            (new_name, new_def, new_wk, worker_id),
+            "UPDATE production_workers SET name = ?, is_default = ?, weekly_salary = ?, hourly_rate = ? WHERE id = ?",
+            (new_name, new_def, new_wk, new_hr, worker_id),
         )
         if renaming:
             _cascade_rename(conn, worker_id, cur["name"], new_name)
     return {
         "id": worker_id, "name": new_name, "is_default": bool(new_def),
-        "sort_order": cur["sort_order"], "weekly_salary": bool(new_wk),
+        "sort_order": cur["sort_order"], "weekly_salary": bool(new_wk), "hourly_rate": new_hr,
     }
 
 

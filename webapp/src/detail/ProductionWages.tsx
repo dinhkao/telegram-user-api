@@ -10,17 +10,18 @@ import { toast } from "../ui/feedback";
 
 const money = (n: number) => soVN(Math.round(n)) + "đ";
 
-export function ProductionWages({ threadId, workers }: { threadId: string; workers: { name: string; cay: number }[] }) {
+export function ProductionWages({ threadId, workers }: { threadId: string; workers: { name: string; cay: number; gio?: number }[] }) {
   const [wage, setWage] = useState(0);
   const [defaultWage, setDefaultWage] = useState(0);
   const [wageDraft, setWageDraft] = useState<string | null>(null);
   const [allow, setAllow] = useState<Record<string, number>>({});
+  const [hourly, setHourly] = useState<Record<string, number>>({});   // tiền 1 GIỜ theo thợ
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let ok = true;
-    phieuWages(threadId).then((d) => { if (ok) { setWage(d.wage); setDefaultWage(d.default_wage); setAllow(d.allowances || {}); setLoaded(true); } }).catch(() => { if (ok) setLoaded(true); });
+    phieuWages(threadId).then((d) => { if (ok) { setWage(d.wage); setDefaultWage(d.default_wage); setAllow(d.allowances || {}); setHourly(d.hourly_rates || {}); setLoaded(true); } }).catch(() => { if (ok) setLoaded(true); });
     return () => { ok = false; };
   }, [threadId]);
 
@@ -56,10 +57,13 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
 
   let totPiece = 0, totAllow = 0;
   const rows = list.map((w) => {
-    const piece = Math.round(w.cay * wage);
+    // dòng có SỐ GIỜ = SP tính lương theo giờ → tiền = giờ × tiền-1-giờ của thợ
+    const gio = w.gio || 0;
+    const rate = hourly[w.name] || 0;
+    const piece = gio > 0 ? Math.round(gio * rate) : Math.round(w.cay * wage);
     const a = allow[w.name] || 0;
     totPiece += piece; totAllow += a;
-    return { name: w.name, cay: w.cay, piece, a };
+    return { name: w.name, cay: w.cay, gio, rate, piece, a };
   });
 
   return (
@@ -83,7 +87,11 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
             {rows.map((r) => (
               <tr key={r.name}>
                 <td class="pw-name">{r.name}</td>
-                <td class="pw-piece">{money(r.piece)}<span class="muted pw-sub"> {soVN(r.cay)}×{soVN(wage)}</span></td>
+                <td class="pw-piece">{money(r.piece)}
+                  {r.gio > 0
+                    ? <span class="muted pw-sub"> {soVN(r.gio)}giờ×{soVN(r.rate)}{r.rate <= 0 ? " ⚠ chưa đặt tiền 1 giờ" : ""}</span>
+                    : <span class="muted pw-sub"> {soVN(r.cay)}×{soVN(wage)}</span>}
+                </td>
                 <td class="pw-allow">
                   <input class="pw-input" inputMode="numeric" placeholder="0"
                     value={draft[r.name] !== undefined ? draft[r.name] : (r.a ? String(r.a) : "")}

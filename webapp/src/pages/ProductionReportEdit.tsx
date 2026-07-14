@@ -16,7 +16,7 @@ import { WorkerOrderPopup } from "../detail/WorkerOrderPopup";
 // spDe/mamDe = 2 cột ĐÈ như sheet (F "Số SP đè" / G "Số mâm đè"): mâm đè thay công
 // thức gạch×5−trừ−lẻ; SP đè thay toàn bộ tổng. Rỗng = không đè (ISBLANK sheet).
 const todayVN = (): string => { const d = new Date(); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; };
-const blankRow = (name = ""): Wrow => ({ name, gach: "", tru: "", le: "", note: "", spDe: "", mamDe: "" });
+const blankRow = (name = ""): Wrow => ({ name, gach: "", tru: "", le: "", note: "", spDe: "", mamDe: "", gio: "" });
 // Seed bảng: có báo cáo đã lưu → dùng nó; trống → tự điền thợ mặc định (template);
 // không có template → 1 dòng trống.
 const rowsFromReport = (rep: ProdReport | null, defaults: string[] = []): Wrow[] =>
@@ -25,6 +25,7 @@ const rowsFromReport = (rep: ProdReport | null, defaults: string[] = []): Wrow[]
         name: r.name, gach: r.so_gach ? String(r.so_gach) : "", tru: r.so_tru ? String(r.so_tru) : "",
         le: r.so_cay_le ? String(r.so_cay_le) : "", note: r.note || "",
         spDe: r.sp_de != null ? String(r.sp_de) : "", mamDe: r.mam_de != null ? String(r.mam_de) : "",
+        gio: r.so_gio != null ? String(r.so_gio) : "",
       }))
     : defaults.length
       ? defaults.map((n) => blankRow(n))
@@ -177,6 +178,8 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const scm = Number((slip?.bang as ProdReport)?.so_cay_1_mam || slip?.sp_mam || 0);
   const calc = (r: Wrow) => calcRow(r, scm);   // logic dùng chung ở detail/reportCalc
   const grand = useMemo(() => round2(wrows.reduce((s, r) => s + calc(r).tong, 0)), [wrows, scm]);
+  // Cột "Giờ" (số giờ làm — SP tính lương theo giờ): chỉ phiếu SẢN XUẤT
+  const showGio = (slip?.kind || "san_xuat") === "san_xuat";
 
   const setRow = (i: number, patch: Partial<Wrow>) => setWrows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)));
   const selAll = (e: any) => e.target.select();   // bấm vào ô → chọn hết nội dung, gõ đè ngay
@@ -261,6 +264,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
       c[0] = r.name.trim(); c[1] = r.gach.trim(); c[2] = r.tru.trim(); c[3] = r.le.trim(); c[4] = r.note.trim();
       // cột 5/17 = kết quả CUỐI (đã gồm đè, như Text view sheet); cột 6/7 = đè thô
       c[5] = String(tong); c[6] = r.spDe.trim(); c[7] = r.mamDe.trim();
+      c[12] = (r.gio || "").trim();   // số giờ làm (SP tính lương theo giờ)
       c[13] = CODE; c[14] = date.trim();
       c[17] = String(soMam); c[18] = start.trim(); c[19] = end.trim();
       return c.join(";");
@@ -348,11 +352,12 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
           <table class="prod-report-table wr-edit" ref={tableRef}>
             <colgroup>
               <col class="c-name" /><col class="c-num" /><col class="c-num" /><col class="c-num" />
+              {showGio && <col class="c-num" />}
               <col class="c-num" /><col class="c-num" />
               <col class="c-calc" /><col class="c-calc" /><col class="c-note" />
             </colgroup>
             <thead>
-              <tr><th>Thợ</th><th>Gạch</th><th>Trừ</th><th>Lẻ</th><th>SP đè</th><th>Mâm đè</th><th>Mâm</th><th>Tổng</th><th>Ghi chú</th></tr>
+              <tr><th>Thợ</th><th>Gạch</th><th>Trừ</th><th>Lẻ</th>{showGio && <th title="Số giờ làm — SP tính lương theo giờ">Giờ</th>}<th>SP đè</th><th>Mâm đè</th><th>Mâm</th><th>Tổng</th><th>Ghi chú</th></tr>
             </thead>
             <tbody>
               {wrows.map((r, i) => {
@@ -363,6 +368,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
                     <td><input class="wr-in wr-num" inputMode="decimal" data-col="gach" data-row={i} enterKeyHint="next" value={r.gach} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("gach", i)} onInput={(e: any) => setRow(i, { gach: e.target.value })} /></td>
                     <td><input class="wr-in wr-num" inputMode="decimal" data-col="tru" data-row={i} enterKeyHint="next" value={r.tru} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("tru", i)} onInput={(e: any) => setRow(i, { tru: e.target.value })} /></td>
                     <td><input class="wr-in wr-num" inputMode="decimal" data-col="le" data-row={i} enterKeyHint="next" value={r.le} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("le", i)} onInput={(e: any) => setRow(i, { le: e.target.value })} /></td>
+                    {showGio && <td><input class={"wr-in wr-num" + ((r.gio || "").trim() ? " wr-gio-in" : "")} inputMode="decimal" data-col="gio" data-row={i} enterKeyHint="next" title="Số giờ làm — tiền = giờ × tiền 1 giờ của thợ" value={r.gio || ""} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("gio", i)} onInput={(e: any) => setRow(i, { gio: e.target.value })} /></td>}
                     <td><input class={"wr-in wr-num" + (c.spDeSet ? " wr-ovr-in" : "")} inputMode="decimal" data-col="spDe" data-row={i} enterKeyHint="next" title="Số SP đè — đè toàn bộ tổng" value={r.spDe} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("spDe", i)} onInput={(e: any) => setRow(i, { spDe: e.target.value })} /></td>
                     <td><input class={"wr-in wr-num" + (c.mamDeSet ? " wr-ovr-in" : "")} inputMode="decimal" data-col="mamDe" data-row={i} enterKeyHint="next" title="Số mâm đè — thay công thức gạch" value={r.mamDe} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("mamDe", i)} onInput={(e: any) => setRow(i, { mamDe: e.target.value })} /></td>
                     <td class={"wr-calc" + (c.mamDeSet ? " wr-ovr" : "")}>{soVN(c.soMam)}</td>
@@ -377,7 +383,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
               })}
             </tbody>
             <tfoot>
-              <tr><td colSpan={7}>TỔNG CỘNG</td><td class="strong">{soVN(grand)}</td><td></td></tr>
+              <tr><td colSpan={showGio ? 8 : 7}>TỔNG CỘNG</td><td class="strong">{soVN(grand)}</td><td></td></tr>
             </tfoot>
           </table>
         </div>

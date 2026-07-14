@@ -46,6 +46,8 @@ export function ProductionReport({ threadId, slip, locked }: { threadId: string;
     .filter((r) => (r.name || "").trim() !== "" || (r.tong_calc || 0) > 0);
   const grand = draft ? Math.round(liveRows.reduce((s, r) => s + (r.tong_calc || 0), 0) * 100) / 100 : (rep?.grand_total || 0);
   const mDate = draft?.date || rep?.date, mStart = draft?.start || rep?.start, mEnd = draft?.end || rep?.end;
+  // cột "Giờ" (SP tính lương theo giờ) — chỉ hiện khi báo cáo có nhập giờ
+  const hasGio = liveRows.some((r) => ((r as any).so_gio || 0) > 0);
 
   return (
     <section class="card">
@@ -73,15 +75,16 @@ export function ProductionReport({ threadId, slip, locked }: { threadId: string;
           <div class="prod-report-scroll">
             <table class="prod-report-table">
               <thead>
-                <tr><th>Thợ</th><th>Gạch</th><th>Trừ</th><th>Lẻ</th><th>Mâm</th><th>Tổng SP</th><th>Ghi chú</th></tr>
+                <tr><th>Thợ</th><th>Gạch</th><th>Trừ</th><th>Lẻ</th>{hasGio && <th title="Số giờ làm — SP tính lương theo giờ">Giờ</th>}<th>Mâm</th><th>Tổng SP</th><th>Ghi chú</th></tr>
               </thead>
               <tbody>
                 {liveRows.map((r, i) => (
-                  <tr key={i} class={r.tong_calc > 0 ? "" : "prod-row-off"}>
+                  <tr key={i} class={r.tong_calc > 0 || ((r as any).so_gio || 0) > 0 ? "" : "prod-row-off"}>
                     <td>{r.name ? <a class="wr-tho-link" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>{r.name}</a> : ""}</td>
                     <td>{soVN(r.so_gach)}</td>
                     <td>{soVN(r.so_tru)}</td>
                     <td>{soVN(r.so_cay_le)}</td>
+                    {hasGio && <td class="wr-gio">{(r as any).so_gio != null ? soVN((r as any).so_gio) : ""}</td>}
                     <td class={r.mam_de != null ? "wr-ovr" : ""} title={r.mam_de != null ? "Mâm đè" : undefined}>{soVN(r.so_mam)}</td>
                     <td class={"strong" + (r.sp_de != null ? " wr-ovr" : "")} title={r.sp_de != null ? "SP đè" : undefined}>{soVN(r.tong_calc)}</td>
                     <td>{r.note || ""}</td>
@@ -89,11 +92,11 @@ export function ProductionReport({ threadId, slip, locked }: { threadId: string;
                 ))}
               </tbody>
               <tfoot>
-                <tr><td colSpan={5}>TỔNG CỘNG</td><td class="strong">{soVN(grand)}</td><td></td></tr>
+                <tr><td colSpan={hasGio ? 6 : 5}>TỔNG CỘNG</td><td class="strong">{soVN(grand)}</td><td></td></tr>
               </tfoot>
             </table>
           </div>
-          {isOffice() && !draft && <ProductionWages threadId={threadId} workers={liveRows.map((r) => ({ name: r.name, cay: r.tong_calc }))} />}
+          {isOffice() && !draft && <ProductionWages threadId={threadId} workers={liveRows.map((r) => ({ name: r.name, cay: r.tong_calc, gio: (r as any).so_gio || 0 }))} />}
         </>
       ) : (
         <p class="muted small">Chưa có báo cáo. Bấm <b>✏️ Sửa</b> để nhập trực tiếp.</p>

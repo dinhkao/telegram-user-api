@@ -65,6 +65,8 @@ def ensure_report_rows_schema(conn) -> None:
             )
         except Exception:  # noqa: BLE001 — production_workers chưa tạo (DB test)
             pass
+    if "so_gio" not in cols:  # số giờ làm (SP tính lương theo giờ) — NULL = không nhập
+        conn.execute("ALTER TABLE production_report_rows ADD COLUMN so_gio REAL")
     for sql in _INDEXES:
         conn.execute(sql)
     conn.commit()
@@ -126,14 +128,16 @@ def replace_report_rows(conn, thread_id, bang) -> int:
         name = (r.get("name") or "").strip()
         if not name:
             continue
+        gio = r.get("so_gio")
         conn.execute(
             """INSERT INTO production_report_rows
                (thread_id, worker_id, worker_name, product_id, product_code, report_date, report_ymd,
-                so_gach, so_tru, so_cay_le, so_mam, tong_calc, note)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                so_gach, so_tru, so_cay_le, so_mam, tong_calc, note, so_gio)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (thread_id, wmap.get(name.lower()), name, pid, product, rdate, rymd,
              _num(r.get("so_gach")), _num(r.get("so_tru")), _num(r.get("so_cay_le")),
-             _num(r.get("so_mam")), _num(r.get("tong_calc")), r.get("note") or ""),
+             _num(r.get("so_mam")), _num(r.get("tong_calc")), r.get("note") or "",
+             None if gio is None else _num(gio)),
         )
         n += 1
     conn.commit()
@@ -238,7 +242,7 @@ def worker_detail(conn, name: str, dfrom: str | None = None, dto: str | None = N
         args.append(dto)
     rows = conn.execute(
         f"SELECT t.thread_id, COALESCE(pr.code, t.product_code), t.report_date, t.report_ymd, "
-        f"t.so_gach, t.so_tru, t.so_cay_le, t.so_mam, t.tong_calc, t.note "
+        f"t.so_gach, t.so_tru, t.so_cay_le, t.so_mam, t.tong_calc, t.note, t.so_gio "
         f"FROM production_report_rows t LEFT JOIN products pr ON pr.id = t.product_id "
         f"{where} ORDER BY t.report_ymd DESC, t.thread_id DESC", args).fetchall()
     total = round(sum(r[8] or 0 for r in rows), 1)
@@ -250,6 +254,7 @@ def worker_detail(conn, name: str, dfrom: str | None = None, dto: str | None = N
             "thread_id": r[0], "product_code": r[1] or "?", "date": r[2], "ymd": r[3],
             "so_gach": r[4] or 0, "so_tru": r[5] or 0, "so_cay_le": r[6] or 0,
             "so_mam": r[7] or 0, "tong_calc": r[8] or 0, "note": r[9] or "",
+            "so_gio": r[10],   # None = không nhập giờ
         } for r in rows],
     }
 

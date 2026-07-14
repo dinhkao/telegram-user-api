@@ -62,6 +62,7 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
             "SELECT t.thread_id AS tid, t.report_ymd AS ymd, t.worker_name AS wname, "
             "COALESCE(w.name, t.worker_name) AS worker, "
             "COALESCE(pr.code, t.product_code) AS code, ROUND(SUM(t.tong_calc),1) AS cay, "
+            "SUM(t.so_gio) AS gio, COALESCE(w.hourly_rate, 0) AS hrate, "
             "s.luong_1sp AS slip_wage "
             "FROM production_report_rows t "
             "LEFT JOIN production_workers w ON w.id = t.worker_id "
@@ -98,31 +99,43 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
 
     days: dict = {}          # ymd → {money, cay, allowance, workers: {name → {money, cay, allowance, items:[]}}}
     missing: set = set()
+    missing_rate: set = set()   # thợ có GIỜ nhưng chưa đặt tiền 1 giờ
     allow_used: set = set()  # (tid, wname) đã cộng phụ cấp — đúng 1 lần / (phiếu, thợ)
     tid_ymd: dict = {}       # tid → ymd (cho phụ cấp mồ côi)
     for r in rows:
         tid, ymd, wname = r["tid"], r["ymd"], r["wname"]
         worker, code, cay = (r["worker"] or "?"), (r["code"] or ""), float(r["cay"] or 0)
+        gio, hrate = float(r["gio"] or 0), float(r["hrate"] or 0)
         tid_ymd.setdefault(tid, ymd)
         d = _mk_day(ymd)
         # HIỆN MỌI dòng SP thợ có mặt trong phiếu — kể cả làm 0 cây (0đ). Thợ luôn được tạo.
         wk = _mk_wk(d, worker)
         # đơn giá CHỐT theo phiếu; chưa chốt (NULL) → bảng lương hiện tại
         wage = float(r["slip_wage"]) if r["slip_wage"] is not None else wage_per_cay(code)
-        if cay > 0 and wage <= 0:   # chỉ cảnh báo thiếu đơn giá khi thực sự có sản lượng
-            missing.add(code)
-        piece = round(cay * wage)
+        if gio > 0:
+            # SP tính lương THEO GIỜ: tiền = giờ × tiền-1-giờ của thợ (thay cây × đơn giá)
+            piece = round(gio * hrate)
+            if hrate <= 0:
+                missing_rate.add(worker)
+        else:
+            if cay > 0 and wage <= 0:   # chỉ cảnh báo thiếu đơn giá khi thực sự có sản lượng
+                missing.add(code)
+            piece = round(cay * wage)
         a = 0
         if (tid, wname) not in allow_used:
             a = round(allow.get((tid, wname), 0))
             allow_used.add((tid, wname))
         money = piece + a
-        # gộp dòng theo (mã, đơn giá) — 2 phiếu cùng SP chốt giá khác nhau = 2 dòng riêng
-        it = next((x for x in wk["items"] if x["code"] == code and x["wage"] == wage), None)
+        # gộp dòng theo (mã, đơn giá, tính-giờ) — phiếu chốt giá khác không trộn 1 dòng
+        hourly = gio > 0
+        it = next((x for x in wk["items"] if x["code"] == code and x["wage"] == wage
+                   and bool(x.get("gio")) == hourly), None)
         if it is None:
-            it = {"code": code, "cay": 0.0, "wage": wage, "piece": 0, "allowance": 0, "money": 0}
+            it = {"code": code, "cay": 0.0, "wage": wage, "piece": 0, "allowance": 0, "money": 0,
+                  "gio": 0.0, "hourly_rate": hrate if hourly else 0}
             wk["items"].append(it)
         it["cay"] = round(it["cay"] + cay, 1)
+        it["gio"] = round(it["gio"] + gio, 2)
         it["piece"] += piece
         it["allowance"] += a
         it["money"] += money
@@ -161,6 +174,7 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
         "totals": {"money": sum(d["money"] for d in day_list), "cay": round(sum(d["cay"] for d in day_list), 1),
                    "allowance": sum(d.get("allowance", 0) for d in day_list)},
         "missing_wage": sorted(c for c in missing if c),
+        "missing_hour_rate": sorted(missing_rate),   # thợ có giờ nhưng chưa đặt tiền 1 giờ
     }
 
 
@@ -192,10 +206,17 @@ def _phieu_wages(thread_id: int) -> dict:
         default_wage = wage_per_cay(code)   # bảng lương hiện tại (tham chiếu)
         slip_wage = slip["luong_1sp"] if slip else None
         wage = float(slip_wage) if slip_wage is not None else default_wage
+        # tiền 1 GIỜ theo thợ (SP tính lương giờ) — client tính dòng giờ × rate
+        try:
+            hourly = {r[0]: float(r[1] or 0) for r in conn.execute(
+                "SELECT name, hourly_rate FROM production_workers").fetchall()}
+        except Exception:
+            hourly = {}
         return {"ok": True, "thread_id": thread_id, "product_code": code,
                 "wage": wage, "default_wage": default_wage,
                 "custom": slip_wage is not None and float(slip_wage) != default_wage,
-                "allowances": get_allowances(conn, thread_id)}
+                "allowances": get_allowances(conn, thread_id),
+                "hourly_rates": hourly}
     finally:
         conn.close()
 

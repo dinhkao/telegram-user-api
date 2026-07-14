@@ -4,7 +4,8 @@
 // Ô đè rỗng = không đè (0 VẪN là đè, như ISBLANK). Giữ 1 nguồn để 2 nơi không lệch.
 
 // 1 dòng thợ đang gõ (giá trị thô dạng chuỗi). Khớp draft phát qua report_draft.
-export type Wrow = { name: string; gach: string; tru: string; le: string; note: string; spDe: string; mamDe: string };
+// gio = số giờ làm (SP tính lương THEO GIỜ — tiền = giờ × tiền-1-giờ của thợ).
+export type Wrow = { name: string; gach: string; tru: string; le: string; note: string; spDe: string; mamDe: string; gio?: string };
 
 export const rNum = (s: string): number => { const n = parseFloat((s || "").trim().replace(",", ".")); return isFinite(n) ? n : 0; };
 export const round2 = (x: number) => Math.round(x * 100) / 100;
@@ -25,6 +26,7 @@ export function draftToRows(wrows: Wrow[], scm: number) {
       name: r.name || "", so_gach: rNum(r.gach), so_tru: rNum(r.tru), so_cay_le: rNum(r.le),
       so_mam: c.soMam, tong_calc: c.tong, note: r.note || "",
       mam_de: c.mamDeSet ? rNum(r.mamDe) : null, sp_de: c.spDeSet ? round2(rNum(r.spDe)) : null,
+      so_gio: (r.gio || "").trim() !== "" ? rNum(r.gio || "") : null,
     };
   });
 }

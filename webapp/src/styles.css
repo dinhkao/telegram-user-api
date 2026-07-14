@@ -1172,6 +1172,12 @@ body.kbd-open .pay-submit-bar { bottom: 8px; }
 /* Ô ĐÈ (SP đè / mâm đè — như sheet): ô nhập có đè nền xanh nhạt; số bị đè tô xanh */
 .wr-ovr { color: var(--primary) !important; }
 .wr-ovr-in { background: var(--accent-wash); }
+/* Cột "Giờ" (SP tính lương theo giờ): ô có giờ nhập + số giờ ở bảng xem */
+.wr-gio-in { background: #eaf6ee; }
+.wr-gio { color: var(--primary); font-weight: 600; }
+/* Ô "Tiền 1 giờ" ở chi tiết thợ */
+.wd-rate { display: inline-flex; align-items: center; gap: 4px; }
+.wd-rate .pw-input { width: 92px; text-align: right; }
 .wr-edit tfoot td { border: none; border-top: 2px solid var(--border); padding: 9px 3px; font-weight: 700; font-size: .74rem; }
 .wr-edit tfoot td:first-child { text-align: right; color: var(--muted); }
 .wr-edit tfoot td.strong { color: var(--primary); font-size: .92rem; text-align: center; }

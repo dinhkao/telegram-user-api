@@ -89,7 +89,12 @@ export function WagesDashboard() {
                         {w.items.map((it, i) => (
                           <div class="wg-item" key={i}>
                             <span class="wg-item-code">{it.code}</span>
-                            <span class="wg-item-calc muted small">{soVN(it.cay)} cây × {soVN(it.wage)}đ{(it.allowance || 0) > 0 ? <span class="wg-item-pc-inline"> · +PC {money(it.allowance || 0)}</span> : null}</span>
+                            <span class="wg-item-calc muted small">
+                              {((it as any).gio || 0) > 0
+                                ? <>{soVN((it as any).gio)} giờ × {soVN((it as any).hourly_rate || 0)}đ{((it as any).hourly_rate || 0) <= 0 ? " ⚠ chưa đặt tiền giờ" : ""}</>
+                                : <>{soVN(it.cay)} cây × {soVN(it.wage)}đ</>}
+                              {(it.allowance || 0) > 0 ? <span class="wg-item-pc-inline"> · +PC {money(it.allowance || 0)}</span> : null}
+                            </span>
                             <span class="wg-item-money">{money(it.money)}</span>
                           </div>
                         ))}

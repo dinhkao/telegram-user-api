@@ -72,6 +72,16 @@ async def workers_update_handler(request: web.Request):
     name = body.get("name")
     is_default = body.get("is_default")
     weekly_salary = body.get("weekly_salary")
+    hourly_rate = body.get("hourly_rate")
+    if hourly_rate is not None:
+        # tiền lương — CHỈ văn phòng được đặt đơn giá giờ
+        from server_app.production_wages import office_user
+        if not office_user(request):
+            return web.json_response({"ok": False, "error": "Chỉ văn phòng được đặt tiền 1 giờ"}, status=403)
+        try:
+            hourly_rate = float(hourly_rate)
+        except (ValueError, TypeError):
+            return web.json_response({"ok": False, "error": "tiền 1 giờ không hợp lệ"}, status=400)
 
     def _run():
         conn = _conn()
@@ -82,6 +92,7 @@ async def workers_update_handler(request: web.Request):
                 name=None if name is None else str(name),
                 is_default=None if is_default is None else bool(is_default),
                 weekly_salary=None if weekly_salary is None else bool(weekly_salary),
+                hourly_rate=hourly_rate,
             )
         finally:
             conn.close()
@@ -93,8 +104,8 @@ async def workers_update_handler(request: web.Request):
     if worker is None:
         return web.json_response({"ok": False, "error": "không tìm thấy thợ"}, status=404)
     _emit_workers()
-    if name is not None:
-        # đổi tên cascade vào báo cáo các phiếu → card/dashboard SX cần refresh
+    if name is not None or hourly_rate is not None:
+        # đổi tên cascade vào báo cáo các phiếu / đổi tiền giờ → tiền công tính lại
         from server_app.realtime import emit_productions_changed
         emit_productions_changed()
     return web.json_response({"ok": True, "worker": worker})

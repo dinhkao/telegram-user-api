@@ -193,7 +193,9 @@ export function ReportSlipDetail({ id }: { id: string }) {
                                   <span class="rs-item-time muted small">{it.start ? hhmm(it.start) : "?"}–{it.end ? hhmm(it.end) : "?"}</span>
                                 )}
                                 <span class="wg-item-code">{it.code || "?"}</span>
-                                <span class="wg-item-calc muted small">{soVN(it.cay)} SP × {soVN(it.wage)}đ</span>
+                                <span class="wg-item-calc muted small">{((it as any).gio || 0) > 0
+                                  ? <>{soVN((it as any).gio)} giờ × {soVN((it as any).hourly_rate || 0)}đ</>
+                                  : <>{soVN(it.cay)} SP × {soVN(it.wage)}đ</>}</span>
                                 <span class="wg-item-money">{money(it.money)}</span>
                               </div>
                             ))}
@@ -203,7 +205,9 @@ export function ReportSlipDetail({ id }: { id: string }) {
                         w.items.map((it, i) => (
                           <div class="wg-item" key={i}>
                             <span class="wg-item-code">{it.code || "?"}</span>
-                            <span class="wg-item-calc muted small">{soVN(it.cay)} SP × {soVN(it.wage)}đ</span>
+                            <span class="wg-item-calc muted small">{((it as any).gio || 0) > 0
+                              ? <>{soVN((it as any).gio)} giờ × {soVN((it as any).hourly_rate || 0)}đ</>
+                              : <>{soVN(it.cay)} SP × {soVN(it.wage)}đ</>}</span>
                             <span class="wg-item-money">{money(it.money)}</span>
                           </div>
                         ))

@@ -52,6 +52,22 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
     }
   };
 
+  // Tiền 1 GIỜ làm — cho SP tính lương THEO GIỜ (cột "Giờ" trong báo cáo thợ)
+  const [rateDraft, setRateDraft] = useState<string | null>(null);
+  const saveRate = async () => {
+    if (!worker || rateDraft === null) return;
+    const v = Number(rateDraft.replace(/[^\d]/g, "") || 0);
+    setRateDraft(null);
+    if (v === Math.round(worker.hourly_rate || 0)) return;
+    try {
+      const w = await updateWorker(worker.id, { hourly_rate: v });
+      setWorker(w);
+      toast(`Đã lưu tiền 1 giờ: ${money(v)}`, "ok");
+    } catch (e: any) {
+      toast(e?.message || "Lỗi lưu tiền 1 giờ", "err");
+    }
+  };
+
   const load = () => {
     setLoading(true);
     const { from, to } = rangeFor(period);
@@ -100,6 +116,20 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
         </div>
       )}
 
+      {isOffice() && worker && (
+        <div class="card wd-weekly-row">
+          <span class="wd-weekly-label">Tiền 1 giờ làm <span class="muted small">(SP tính lương theo giờ)</span></span>
+          <span class="wd-rate">
+            <input class="pw-input" inputMode="numeric" placeholder="0"
+              value={rateDraft !== null ? rateDraft : (worker.hourly_rate ? String(Math.round(worker.hourly_rate)) : "")}
+              onInput={(e: any) => setRateDraft(e.target.value)}
+              onBlur={saveRate}
+              onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+            <span class="muted small"> đ/giờ</span>
+          </span>
+        </div>
+      )}
+
       <div class="db-period">
         {(["all", "month", "week"] as Period[]).map((p) => (
           <button key={p} class={period === p ? "db-seg on" : "db-seg"} onClick={() => setPeriod(p)}>
@@ -122,7 +152,7 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
             {g.rows.map((r, i) => (
               <a key={i} class="wd-row" href={`#/san_xuat/${r.thread_id}`}>
                 <span class="wd-prod">{r.product_code}</span>
-                <span class="wd-meta muted small">{soVN(r.so_mam)} mâm{r.note ? ` · ${r.note}` : ""}</span>
+                <span class="wd-meta muted small">{(r.so_gio || 0) > 0 ? `${soVN(r.so_gio!)} giờ · ` : ""}{soVN(r.so_mam)} mâm{r.note ? ` · ${r.note}` : ""}</span>
                 {showMoney && (r.allowance || 0) > 0 && <span class="wd-pc">PC {money(r.allowance || 0)}</span>}
                 {showMoney && r.money != null && <b class="wd-money">{money(r.money)}</b>}
                 <b class={r.tong_calc > 0 ? "wd-sp" : "wd-sp muted"}>{soVN(r.tong_calc)}</b>
