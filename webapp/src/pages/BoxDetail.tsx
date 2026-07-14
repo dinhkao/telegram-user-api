@@ -1,12 +1,13 @@
 // Chi tiết 1 thùng (#/thung/:id) — info hub: mã, số cây, tình trạng, ai nhập, ngày,
 // thuộc phiếu SX nào (link), đã xuất đơn nào (link → cuộn+nháy thùng trong đơn).
 // GET /api/inventory/box/:id.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { boxDetail, updateBox, setBoxDisabled, deleteBox, returnBoxMaterial, transferBox, allBoxes, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, createDisposal, currentUser, isOffice, soVN, type InvBoxDetail, type InvBox, type KhoBox, type Place, type Unit } from "../api";
+import { boxDetail, updateBox, setBoxDisabled, deleteBox, returnBoxMaterial, transferBox, allBoxes, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, createDisposal, currentUser, soVN, type InvBoxDetail, type InvBox, type KhoBox, type Place, type Unit } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading } from "../ui/states";
 import { confirmDialog, toast } from "../ui/feedback";
+import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "../detail/CameraBox";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
@@ -226,13 +227,18 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
     }
   };
 
-  // Xuất hủy: hàng hư/hết hạn/vỡ → tạo phiếu hủy 1 thùng, trừ tồn ngay
+  // Xuất hủy: hàng hư/hết hạn/vỡ → BẮT BUỘC chụp ảnh chứng từ → tạo phiếu + trừ tồn.
+  // Pattern photo-first (như ProductionBoxes): chụp trước vào buffer, đóng camera mới
+  // tạo phiếu rồi upload ảnh vào phiếu. Không có camera (HTTP dev) → tạo không ảnh.
   const [dispQty, setDispQty] = useState("");
   const [dispReason, setDispReason] = useState("");
   const [dispBusy, setDispBusy] = useState(false);
+  const [dispCamOpen, setDispCamOpen] = useState(false);
+  const dispCapsRef = useRef<Processed[]>([]);
+  const dispPendingRef = useRef<{ q: number; reason: string } | null>(null);
+
   const doDispose = async () => {
     if (!d) return;
-    if (!isOffice()) { toast("Chỉ văn phòng mới được xuất hủy", "info"); return; }
     const rem = d.box.remaining ?? d.box.quantity;
     const q = parseFloat((dispQty || "").replace(",", "."));
     const reason = dispReason.trim();
@@ -240,13 +246,30 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
     if (q > rem) { toast(`Thùng chỉ còn ${soVN(rem)}`, "err"); return; }
     if (!reason) { toast("Cần nhập lý do hủy", "err"); return; }
     const pu = d.box.product_unit || "cây";
+    const camOk = cameraSupported();
     if (!(await confirmDialog(
-      `Xuất hủy ${soVN(q)} ${pu} ${d.box.product_code} khỏi thùng ${d.box.box_code}?\nLý do: ${reason}\nTồn kho sẽ trừ ngay.`,
-      { danger: true, okLabel: "Xuất hủy" }))) return;
+      `Xuất hủy ${soVN(q)} ${pu} ${d.box.product_code} khỏi thùng ${d.box.box_code}?\nLý do: ${reason}\nTồn kho sẽ trừ ngay.` +
+      (camOk ? "\n📸 Cần CHỤP ẢNH hàng hủy mới tạo được phiếu." : ""),
+      { danger: true, okLabel: camOk ? "Chụp ảnh & hủy" : "Xuất hủy" }))) return;
+    dispPendingRef.current = { q, reason };
+    if (camOk) { dispCapsRef.current = []; setDispCamOpen(true); }   // tạo phiếu khi đóng camera
+    else await finalizeDispose([], false);                          // HTTP dev: không ép ảnh
+  };
+
+  const finalizeDispose = async (caps: Processed[], requirePhoto: boolean) => {
+    const pend = dispPendingRef.current;
+    if (!d || !pend) return;
+    dispPendingRef.current = null;
+    if (requirePhoto && caps.length === 0) {
+      toast("⚠ Chưa chụp ảnh — CHƯA xuất hủy. Bấm lại để làm.", "err");
+      return;
+    }
+    const pu = d.box.product_unit || "cây";
     setDispBusy(true);
     try {
-      const slip = await createDisposal([{ box_id: d.box.id, quantity: q }], reason);
-      toast(`✅ Đã hủy ${soVN(q)} ${pu} — phiếu #${slip.id}`, "ok");
+      const slip = await createDisposal([{ box_id: d.box.id, quantity: pend.q }], pend.reason);
+      for (const p of caps) await Promise.allSettled([uploadProcessed(`/api/media/disposal/${slip.id}`, p)]);
+      toast(`✅ Đã hủy ${soVN(pend.q)} ${pu} — phiếu #${slip.id}${caps.length ? ` · ${caps.length} ảnh` : ""}`, "ok");
       setDispQty(""); setDispReason("");
       reload(false);
     } catch (e: any) {
@@ -490,16 +513,23 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
               value={dispReason} onInput={(e: any) => setDispReason(e.target.value)} />
             {(() => {
               const q = parseFloat((dispQty || "").replace(",", "."));
-              const ok = isFinite(q) && q > 0 && q <= remaining && !!dispReason.trim() && isOffice();
+              const ok = isFinite(q) && q > 0 && q <= remaining && !!dispReason.trim();
               return (
                 <button class={"btn danger" + (ok ? "" : " faded")} disabled={dispBusy} onClick={doDispose}
-                  title={ok ? undefined : "Nhập số lượng hợp lệ + lý do (văn phòng)"}>Hủy</button>
+                  title={ok ? undefined : "Nhập số lượng hợp lệ + lý do"}>Hủy</button>
               );
             })()}
           </div>
           <div class="muted small" style={{ marginTop: "4px" }}>
+            {cameraSupported() ? "📸 Bấm Hủy sẽ mở camera — chụp ảnh hàng hủy mới tạo phiếu. " : ""}
             Tồn thùng trừ ngay, ghi phiếu ở <a href="#/xuat-huy">Xuất hủy</a> — admin xoá phiếu sẽ hoàn tồn.
           </div>
+          {dispCamOpen && (
+            <CameraBox base={`/api/media/disposal/0`}
+              onCapture={(p) => { dispCapsRef.current.push(p); }}
+              onUploaded={() => {}}
+              onClose={() => { setDispCamOpen(false); finalizeDispose(dispCapsRef.current, true); }} />
+          )}
         </section>
       )}
 
@@ -531,6 +561,18 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
                     <a class="box-jump" href={`#/xuat-huy/${a.order_thread_id}`}>
                       <Icon name="trash" size={16} />{" "}
                       Xuất hủy phiếu #{a.order_thread_id} · −{soVN(a.quantity)}
+                      {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
+                    </a>
+                  </li>
+                );
+              }
+              if (kind === "return_in") {
+                // allocation ÂM → nhập thêm remaining; order_thread_id = id phiếu trả
+                return (
+                  <li key={a.allocation_id}>
+                    <a class="box-jump" href={`#/tra-hang/${a.order_thread_id}`}>
+                      <Icon name="refresh" size={16} />{" "}
+                      Nhận hàng khách trả (phiếu #{a.order_thread_id}) · +{soVN(Math.abs(a.quantity))}
                       {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
                     </a>
                   </li>

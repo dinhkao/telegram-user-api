@@ -367,6 +367,8 @@ def create_app():
     r.add_post("/api/returns/{id}/invoice", return_invoice_handler)
     from server_app.return_routes import return_invoice_delete_handler
     r.add_post("/api/returns/{id}/delete-invoice", return_invoice_delete_handler)
+    from server_app.return_routes import return_handle_goods_handler
+    r.add_post("/api/returns/{id}/handle-goods", return_handle_goods_handler)
     # Nhập hàng + nhà cung cấp (100% local, không KiotViet)
     from server_app.supplier_routes import (suppliers_list_handler, supplier_create_handler,
                                             supplier_detail_handler, supplier_update_handler,

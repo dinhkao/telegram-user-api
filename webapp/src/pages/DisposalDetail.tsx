@@ -36,8 +36,10 @@ export function DisposalDetail({ id }: { id: string }) {
   const doDelete = async () => {
     if (!isAdmin) return toast("Chỉ admin mới được xoá phiếu hủy", "info");
     if (!(await confirmDialog(
-      `Xoá phiếu hủy này? Tồn kho sẽ HOÀN LẠI ${soVN(r.total_quantity)} vào các thùng.`,
-      { danger: true, okLabel: "Xoá + hoàn tồn" }))) return;
+      r.box_less
+        ? "Xoá phiếu hủy hàng trả này? (Chỉ gỡ bản ghi — không có tồn kho để hoàn.)"
+        : `Xoá phiếu hủy này? Tồn kho sẽ HOÀN LẠI ${soVN(r.total_quantity)} vào các thùng.`,
+      { danger: true, okLabel: r.box_less ? "Xoá phiếu" : "Xoá + hoàn tồn" }))) return;
     setBusy(true);
     try {
       await deleteDisposal(Number(id));
@@ -59,7 +61,13 @@ export function DisposalDetail({ id }: { id: string }) {
           <div class="prod-date muted">{r.created_at ? `${r.created_at.slice(8, 10)}/${r.created_at.slice(5, 7)}/${r.created_at.slice(0, 4)} ${r.created_at.slice(11, 16)}` : ""}{r.created_by ? ` · ${r.created_by}` : ""}</div>
         </div>
       </div>
-      {deleted && <div class="error-banner">Phiếu đã bị xoá{r.deleted_by ? ` bởi ${r.deleted_by}` : ""} — tồn kho đã hoàn lại</div>}
+      {deleted && <div class="error-banner">Phiếu đã bị xoá{r.deleted_by ? ` bởi ${r.deleted_by}` : ""}{r.box_less ? "" : " — tồn kho đã hoàn lại"}</div>}
+      {r.box_less && (
+        <div class="disp-boxless-note">
+          <Icon name="refresh" size={14} /> Hàng khách trả — chỉ GHI NHẬN hủy, không trừ tồn kho.
+          {r.source_return_id ? <> Từ <a href={`#/tra-hang/${r.source_return_id}`}>phiếu trả #{r.source_return_id}</a>.</> : null}
+        </div>
+      )}
 
       <section class="card">
         <label class="card-label"><Icon name="note" size={15} /> Lý do hủy</label>
@@ -69,12 +77,14 @@ export function DisposalDetail({ id }: { id: string }) {
       <section class="card">
         <label class="card-label"><Icon name="box" size={15} /> Hàng đã hủy</label>
         <table class="ret-items">
-          <thead><tr><th>SP</th><th>Thùng</th><th>SL hủy</th></tr></thead>
+          <thead><tr><th>SP</th><th>{r.box_less ? "Đơn vị" : "Thùng"}</th><th>SL hủy</th></tr></thead>
           <tbody>
             {(r.items || []).map((x, i) => (
               <tr key={i}>
                 <td><b>{x.product_code}</b></td>
-                <td><a href={`#/thung/${x.box_id}`}>{(x.box_code || "").split("-").pop() || x.box_code}</a></td>
+                <td>{x.box_id
+                  ? <a href={`#/thung/${x.box_id}`}>{(x.box_code || "").split("-").pop() || x.box_code}</a>
+                  : <span class="muted">{x.product_unit || "—"}</span>}</td>
                 <td>−{soVN(x.quantity)}</td>
               </tr>
             ))}

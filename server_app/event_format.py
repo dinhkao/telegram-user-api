@@ -179,6 +179,18 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         return label, [part(str(p.get("detail") or "")[:80])] if p.get("detail") else []
 
     # ── TRẢ HÀNG / NHẬP HÀNG / NCC ─────────────────────────────────────────
+    if action == "return.goods_handled":
+        res = p.get("result") or {}
+        ne, nn, nd = len(res.get("restocked_existing") or []), len(res.get("restocked_new") or []), len(res.get("disposed") or [])
+        bits = []
+        if ne:
+            bits.append([part(f"nhập {ne} thùng có sẵn")])
+        if nn:
+            bits.append([part(f"tạo {nn} thùng mới")])
+        if nd:
+            seg_d = [part(f"hủy {nd} mục →", href_for("disposal", res.get("disposal_id")))] if res.get("disposal_id") else [part(f"hủy {nd} mục")]
+            bits.append(seg_d)
+        return "Xử lý hàng trả về", _join(bits)
     if action.startswith("return."):
         label = {"return.created": "Tạo phiếu trả hàng", "return.invoiced": "Tạo HĐ KiotViet (trừ nợ)",
                  "return.invoice_deleted": "Xoá HĐ KiotViet (hoàn nợ)", "return.deleted": "Xoá phiếu trả"}.get(action)

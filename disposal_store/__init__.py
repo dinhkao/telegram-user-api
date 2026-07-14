@@ -1,11 +1,14 @@
 """disposal_store — bảng `disposal_slips` (app.db): phiếu XUẤT HỦY hàng hóa.
 
-1 phiếu = 1 lần hủy hàng (hư/hết hạn/vỡ…) từ 1+ thùng, BẮT BUỘC có lý do. Trừ tồn
-qua `inventory_store.allocate_picks(kind='disposal')` (order_thread_id = id phiếu)
-— mọi công thức remaining tự đúng; `items` JSON là snapshot hiển thị (box_code, mã
-SP, số lượng lúc hủy). Xoá phiếu = admin: xoá allocations (tồn HOÀN LẠI) + xoá mềm
-phiếu. Ai dùng: server_app/disposal_routes. Connection qua utils.db, 100% local —
-không đụng KiotViet.
+Hai loại:
+  • THEO THÙNG (create_disposal): hủy hàng hư/hết hạn từ 1+ thùng, trừ tồn qua
+    `inventory_store.allocate_picks(kind='disposal')` (order_thread_id = id phiếu);
+    xoá phiếu (admin) xoá allocations → tồn HOÀN LẠI.
+  • BOX-LESS (create_manual_disposal): hàng KHÔNG trong thùng (vd hàng khách trả bị
+    hủy) — chỉ GHI NHẬN, KHÔNG trừ tồn, `source_return_id` link phiếu trả; xoá = xoá
+    mềm (không có tồn để hoàn). `_row_to_slip` gắn `box_less`.
+`items` JSON là snapshot hiển thị. Ai dùng: server_app/disposal_routes,
+server_app/return_routes. Connection qua utils.db, 100% local — không đụng KiotViet.
 """
 from __future__ import annotations
 
@@ -24,6 +27,7 @@ CREATE TABLE IF NOT EXISTS disposal_slips (
     created_by TEXT NOT NULL DEFAULT '',
     reason     TEXT NOT NULL DEFAULT '',
     items      TEXT NOT NULL DEFAULT '[]',
+    source_return_id INTEGER,
     deleted_at TEXT,
     deleted_by TEXT
 )
@@ -36,6 +40,10 @@ def _now() -> str:
 
 def ensure_table(conn) -> None:
     conn.execute(_CREATE_SQL)
+    # DB cũ tạo trước khi có phiếu hủy box-less (hàng khách trả) — migration idempotent.
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(disposal_slips)").fetchall()}
+    if "source_return_id" not in cols:
+        conn.execute("ALTER TABLE disposal_slips ADD COLUMN source_return_id INTEGER")
 
 
 def _row_to_slip(row) -> dict:
@@ -45,6 +53,8 @@ def _row_to_slip(row) -> dict:
     except (TypeError, ValueError):
         slip["items"] = []
     slip["total_quantity"] = round(sum(float(i.get("quantity") or 0) for i in slip["items"]), 3)
+    # box_less = phiếu KHÔNG gắn thùng (hàng khách trả) → chỉ ghi nhận, không trừ tồn.
+    slip["box_less"] = bool(slip["items"]) and not any(i.get("box_id") for i in slip["items"])
     return slip
 
 
@@ -77,6 +87,46 @@ def create_disposal(conn, picks, *, reason: str, by: str | None = None) -> tuple
             )
     except _NoStock:
         return None, "Thùng đã hết hàng hoặc vô hiệu — không hủy được"
+    return get_disposal(conn, slip_id), None
+
+
+def create_manual_disposal(conn, items, *, reason: str, by: str | None = None,
+                           source_return_id=None) -> tuple[dict | None, str | None]:
+    """Phiếu hủy BOX-LESS — hàng KHÔNG nằm trong thùng kho (vd hàng khách trả bị hủy).
+
+    Chỉ GHI NHẬN việc hủy: items = [{product_code, quantity, product_unit?}] lưu thẳng,
+    KHÔNG tạo allocation, KHÔNG trừ tồn thùng. Xoá phiếu chỉ xoá mềm (không có tồn để
+    hoàn). Trả (slip, None) hoặc (None, lý do lỗi)."""
+    ensure_table(conn)
+    reason = str(reason or "").strip()
+    if not reason:
+        return None, "Cần nhập lý do hủy"
+    clean = []
+    for it in items or []:
+        code = str(it.get("product_code") or it.get("sp") or "").strip().upper()
+        raw = it.get("quantity")
+        if raw is None:
+            raw = it.get("sl")
+        try:
+            q = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if not code or q <= 0:
+            continue
+        clean.append({
+            "product_code": code, "quantity": q,
+            "product_unit": str(it.get("product_unit") or "").strip(),
+            "from_return": source_return_id,
+        })
+    if not clean:
+        return None, "Không có hàng hợp lệ để hủy"
+    with transaction(conn):
+        cur = conn.execute(
+            "INSERT INTO disposal_slips (created_at, created_by, reason, items, source_return_id) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (_now(), by or "", reason, json.dumps(clean, ensure_ascii=False), source_return_id),
+        )
+        slip_id = cur.lastrowid
     return get_disposal(conn, slip_id), None
 
 

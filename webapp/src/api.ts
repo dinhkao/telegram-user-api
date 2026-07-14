@@ -274,13 +274,30 @@ export async function bulkPayment(payload: { source_thread_id: number; method: "
 export async function createReturn(key: string, items: { sp: string; sl: number; price: number }[], note = ""): Promise<any> {
   return postJSON(`/api/customers/${encodeURIComponent(key)}/returns`, { items, note });
 }
+export type ReturnGoodsResult = {
+  restocked_existing: { sp: string; quantity: number; box_id: number; box_code: string }[];
+  restocked_new: { sp: string; quantity: number; box_id: number; box_code: string }[];
+  disposed: { product_code: string; quantity: number }[];
+  disposal_id?: number | null;
+};
 export type ReturnSlip = {
   id: number; customer_key: string; customer_name?: string | null;
   thread_id?: number | null; kv_invoice_id?: number | null; kv_invoice_code?: string | null;
   items: { sp: string; sl: number; price: number }[]; total: number; note?: string;
   debt_before?: number | null; debt_after?: number | null;
   created_by?: string; created_at?: string;
+  goods_handled_at?: string | null; goods_handled_by?: string | null; goods_result?: ReturnGoodsResult | null;
 };
+export type ReturnDisposition = {
+  sp: string; quantity: number;
+  action: "restock_existing" | "restock_new" | "dispose" | "skip";
+  box_id?: number; place_id?: number | null; unit_id?: number | null;
+};
+/** Xử lý hàng khách trả về: nhập vào thùng có sẵn / tạo thùng mới / xuất hủy (box-less). */
+export async function handleReturnGoods(id: string | number, dispositions: ReturnDisposition[]): Promise<{ return: ReturnSlip; result: ReturnGoodsResult }> {
+  const d = await postJSON(`/api/returns/${Number(id)}/handle-goods`, { dispositions }, { queueable: false });
+  return { return: d.return, result: d.result };
+}
 /** Dashboard trả hàng — mọi khách, 20/trang. */
 export async function listAllReturns(page = 1): Promise<{ returns: ReturnSlip[]; page: number; total_pages: number; total: number }> {
   const d = await getJSON(`/api/returns?page=${page}`, { cache: false });
@@ -362,8 +379,8 @@ export async function deletePurchase(id: number): Promise<any> {
 }
 
 export type DisposalSlip = {
-  id: number; reason: string; total_quantity: number;
-  items: { allocation_id: number; box_id: number; box_code: string; product_code: string; quantity: number; mfg_date?: string | null }[];
+  id: number; reason: string; total_quantity: number; box_less?: boolean; source_return_id?: number | null;
+  items: { allocation_id?: number; box_id?: number; box_code?: string; product_code: string; quantity: number; product_unit?: string; mfg_date?: string | null; from_return?: number | null }[];
   created_by?: string; created_at?: string;
   deleted_at?: string | null; deleted_by?: string | null;
 };
@@ -376,7 +393,7 @@ export async function getDisposal(id: string | number): Promise<DisposalSlip> {
   const d = await getJSON(`/api/disposals/${id}`, { cache: false });
   return d.disposal;
 }
-/** Tạo phiếu xuất hủy (văn phòng) — trừ tồn các thùng ngay, BẮT BUỘC lý do. */
+/** Tạo phiếu xuất hủy (mọi user) — trừ tồn các thùng ngay, BẮT BUỘC lý do. */
 export async function createDisposal(picks: { box_id: number; quantity?: number }[], reason: string): Promise<DisposalSlip> {
   const d = await postJSON("/api/disposals", { picks, reason });
   return d.disposal;

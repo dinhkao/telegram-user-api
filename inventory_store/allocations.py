@@ -257,6 +257,29 @@ def transfer_between_boxes(conn, from_id, to_id, quantity, *, by=None) -> tuple[
     }, None
 
 
+def receive_return_stock(conn, box_id, quantity, ref_id, *, by=None) -> bool:
+    """Nhập hàng KHÁCH TRẢ vào 1 thùng CÓ SẴN mà KHÔNG đổi `quantity` gốc.
+
+    Ghi allocation ÂM kind='return_in' (y như 'transfer_in') → remaining thùng TĂNG q
+    (remaining = quantity − Σ allocations). Giữ nguyên quantity gốc là CỐ Ý: `boxed_total`
+    của phiếu SX nguồn = SUM(quantity) theo source_thread_id KHÔNG bị thổi phồng bởi hàng
+    trả (nếu bump quantity sẽ làm lệch đối chiếu phiếu SX). ref_id = id phiếu trả (dấu vết).
+    """
+    try:
+        q = float(quantity)
+    except (TypeError, ValueError):
+        return False
+    if q <= 0:
+        return False
+    with transaction(conn):
+        conn.execute(
+            "INSERT INTO box_allocations (box_id, order_thread_id, quantity, allocated_at, allocated_by, kind) "
+            "VALUES (?,?,?,?,?,?)",
+            (int(box_id), ref_id, -q, _now(), by or "", "return_in"),
+        )
+    return True
+
+
 def list_order_allocations(conn, order_thread_id, *, kind="order") -> list[dict]:
     """Các phần thùng đã xuất cho 1 đơn (kèm info thùng + còn lại của thùng).
     kind='production' → tiêu hao nguyên liệu của 1 phiếu SX."""

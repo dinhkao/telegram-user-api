@@ -49,7 +49,7 @@ export function DisposalsList() {
 
   const fq = foldVN(q.trim());
   const visible = !fq ? rows : rows.filter((r) => foldVN(
-    `${r.reason} ${(r.items || []).map((x) => `${x.product_code} ${x.box_code}`).join(" ")} ${r.created_by || ""}`
+    `${r.reason} ${(r.items || []).map((x) => `${x.product_code} ${x.box_code || ""}`).join(" ")} ${r.created_by || ""}`
   ).includes(fq));
 
   const groups: { key: string; items: DisposalSlip[] }[] = [];
@@ -82,7 +82,8 @@ export function DisposalsList() {
                 <span class="disp-amt">−{soVN(r.total_quantity)}</span>
               </div>
               <div class="ret-card-sub muted small">
-                {(r.items || []).map((x) => `${x.product_code} ×${soVN(x.quantity)} (thùng ${(x.box_code || "").split("-").pop()})`).join(", ")}
+                {r.box_less ? <span class="disp-boxless-tag">hàng trả</span> : null}
+                {(r.items || []).map((x) => `${x.product_code} ×${soVN(x.quantity)}${x.box_id ? ` (thùng ${(x.box_code || "").split("-").pop()})` : ""}`).join(", ")}
                 {r.created_by ? ` · ${r.created_by}` : ""}
                 {r.created_at ? ` · ${r.created_at.slice(11, 16)}` : ""}
               </div>

@@ -38,6 +38,11 @@ def ensure_returns_schema(conn) -> None:
     conn.executescript(_SCHEMA)
     for sql in _INDEXES:
         conn.execute(sql)
+    # Xử lý HÀNG trả về (nhập kho / xuất hủy) — cột thêm sau, migration idempotent.
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(return_slips)").fetchall()}
+    for name, typ in (("goods_handled_at", "TEXT"), ("goods_handled_by", "TEXT"), ("goods_result", "TEXT")):
+        if name not in cols:
+            conn.execute(f"ALTER TABLE return_slips ADD COLUMN {name} {typ}")
     conn.commit()
 
 
@@ -47,6 +52,11 @@ def _row_to_dict(r) -> dict:
         d["items"] = json.loads(d.get("items") or "[]")
     except (TypeError, ValueError):
         d["items"] = []
+    if d.get("goods_result"):
+        try:
+            d["goods_result"] = json.loads(d["goods_result"])
+        except (TypeError, ValueError):
+            d["goods_result"] = None
     return d
 
 
@@ -144,6 +154,31 @@ def set_return_debt_after(conn, return_id: int, debt_after: float) -> bool:
     """Resync nền vá nợ-sau (KV eventual-consistent — như payment.new_debt)."""
     ensure_returns_schema(conn)
     conn.execute("UPDATE return_slips SET debt_after = ? WHERE id = ?", (float(debt_after), return_id))
+    conn.commit()
+    return True
+
+
+def claim_goods_handling(conn, return_id: int, by: str = "") -> bool:
+    """GIÀNH quyền xử lý hàng trả (compare-and-set nguyên tử) — đặt goods_handled_at CHỈ
+    khi còn NULL. Trả True nếu vừa giành được, False nếu đã có người xử lý (chặn 2 request
+    đồng thời cùng nhập/hủy → double-apply). Gọi TRƯỚC khi thao tác kho."""
+    ensure_returns_schema(conn)
+    from datetime import datetime, timezone, timedelta
+    now_vn = datetime.now(timezone(timedelta(hours=7))).isoformat(timespec="seconds")
+    cur = conn.execute(
+        "UPDATE return_slips SET goods_handled_at = ?, goods_handled_by = ? "
+        "WHERE id = ? AND goods_handled_at IS NULL",
+        (now_vn, by or "", return_id))
+    conn.commit()
+    return cur.rowcount == 1
+
+
+def set_goods_result(conn, return_id: int, result: dict) -> bool:
+    """Lưu tóm tắt kết quả xử lý hàng trả (sau khi đã giành quyền + thao tác xong).
+    result = {restocked_existing:[], restocked_new:[], disposed:[], disposal_id?}."""
+    ensure_returns_schema(conn)
+    conn.execute("UPDATE return_slips SET goods_result = ? WHERE id = ?",
+                 (json.dumps(result, ensure_ascii=False), return_id))
     conn.commit()
     return True
 

@@ -14,8 +14,8 @@ import logging
 from aiohttp import web
 
 from return_store import (add_return, clear_return_invoice, count_all_returns, get_return,
-                          get_return_full, list_all_returns, list_returns, set_return_invoice,
-                          soft_delete_return, update_return_items)
+                          get_return_full, list_all_returns, list_returns,
+                          set_return_invoice, soft_delete_return, update_return_items)
 from utils.db import get_connection
 
 log = logging.getLogger("return_routes")
@@ -104,6 +104,75 @@ async def return_detail_handler(request: web.Request):
     if not row:
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
     return web.json_response({"ok": True, "return": row})
+
+
+async def return_handle_goods_handler(request: web.Request):
+    """POST /api/returns/{id}/handle-goods (văn phòng) — xử lý HÀNG khách trả về.
+
+    body {dispositions: [{sp, quantity, action, box_id?, place_id?, unit_id?}]}
+      action = 'restock_existing' (nhập vào thùng có sẵn: +quantity vào thùng)
+             | 'restock_new'      (tạo thùng mới cho hàng trả)
+             | 'dispose'          (gom vào 1 phiếu XUẤT HỦY box-less — không trừ tồn)
+             | 'skip'.
+    Idempotent-guard: phiếu đã xử lý → 409 (tránh nhập/hủy 2 lần)."""
+    from server_app.order_api_common import is_office_request
+    if not await is_office_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được xử lý hàng trả"}, status=403)
+    try:
+        rid = int(request.match_info.get("id", ""))
+    except (TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    dispositions = body.get("dispositions") if isinstance(body.get("dispositions"), list) else []
+    actor = _actor(request)
+
+    def _run():
+        from server_app.return_goods import apply_goods_dispositions
+        conn = get_connection()
+        try:
+            extra, err = apply_goods_dispositions(conn, rid, dispositions, actor=actor)
+            if err:
+                return None, err, None
+            updated = _items_display(conn, get_return_full(conn, rid))
+            return updated, None, extra
+        finally:
+            conn.close()
+
+    row, err, extra = await asyncio.to_thread(_run)
+    if err == "not_found":
+        return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
+    if err == "already":
+        return web.json_response({"ok": False, "error": "Hàng trả của phiếu này đã xử lý rồi"}, status=409)
+
+    from server_app.realtime import (emit_return_changed, emit_inventory_changed,
+                                      emit_box_changed, emit_disposal_changed, emit_customer_changed)
+    emit_return_changed(rid)
+    if extra["customer_key"]:
+        emit_customer_changed(extra["customer_key"])
+    result = extra["result"]
+    if result["restocked_existing"] or result["restocked_new"]:
+        emit_inventory_changed()
+        for bid in extra["touched_boxes"]:
+            emit_box_changed(bid)
+    if extra["disposal"]:
+        emit_disposal_changed(extra["disposal"]["id"])
+    from audit_log import async_log_event
+    from server_app.tasks import spawn_tracked
+    at = "web_user" if request.get("web_user") else "http_client"
+    spawn_tracked("audit.return_goods", async_log_event(
+        "return.goods_handled", scope="return", thread_id=rid,
+        actor_type=at, actor_id=actor, source="return.goods_handled", payload={"result": result}))
+    if extra["disposal"]:
+        d = extra["disposal"]
+        spawn_tracked("audit.disposal_created", async_log_event(
+            "disposal.created", scope="disposal", thread_id=d["id"],
+            actor_type=at, actor_id=actor, source="return.goods_handled",
+            payload={"reason": d["reason"], "items": d["items"],
+                     "total_quantity": d["total_quantity"], "source_return_id": rid}))
+    return web.json_response({"ok": True, "return": row, "result": result})
 
 
 async def returns_list_handler(request: web.Request):

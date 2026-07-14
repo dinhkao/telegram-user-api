@@ -39,9 +39,15 @@ export function ReturnModal({ ckey, onClose, onCreated }: {
     try {
       const r = await createReturn(pickedKey, parsed, note.trim());
       toast("Đã tạo phiếu trả (nháp)", "ok");
+      const rid = r?.return?.id;
+      // Prompt: xử lý HÀNG trả về ngay? (nhập lại kho / xuất hủy) — mở modal ở trang chi tiết.
+      if (rid && await confirmDialog("Xử lý hàng trả về ngay? (nhập lại kho hoặc xuất hủy)",
+        { okLabel: "Xử lý ngay", cancelLabel: "Để sau" })) {
+        sessionStorage.setItem("rg_open", String(rid));
+      }
       onCreated();
       onClose();
-      if (r?.return?.id) window.location.hash = `#/tra-hang/${r.return.id}`;
+      if (rid) window.location.hash = `#/tra-hang/${rid}`;
     } catch (e: any) {
       toast(e?.message || "Lỗi tạo phiếu trả", "err");
     } finally {

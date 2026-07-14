@@ -2516,6 +2516,19 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
 /* ===== Xuất hủy (#/xuat-huy) — tái dùng khung ret-* của phiếu trả/nhập ===== */
 .disp-amt { color: var(--danger); font-weight: 800; }
 .disp-reason { font-size: .92rem; font-weight: 600; }
+.disp-boxless-note { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 11px; border: 1px solid #ecd28a; border-radius: 10px; background: var(--warn-wash); color: #6c5200; font-size: .8rem; }
+.disp-boxless-tag { display: inline-block; margin-right: 5px; padding: 1px 7px; border-radius: 999px; background: var(--warn-wash); color: #7a5a00; font-weight: 700; font-size: .68rem; }
+
+/* ===== Xử lý hàng trả về (ReturnGoodsModal + tóm tắt ở ReturnDetail) ===== */
+.rg-sheet { display: flex; flex-direction: column; gap: 10px; }
+.rg-row { display: flex; flex-direction: column; gap: 6px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+.rg-row-head { font-size: .95rem; }
+.rg-row-head .muted { font-weight: 600; }
+.rg-newbox { display: flex; gap: 6px; }
+.rg-newbox > * { flex: 1; min-width: 0; }
+.rg-open-btn { border: 1px dashed var(--primary); color: var(--primary); }
+.rg-summary { background: var(--ok-wash); border-color: #bfe3c8; }
+.rg-sum-line { font-size: .85rem; margin-top: 4px; }
 
 /* ===== Thống kê sử dụng (#/usage, admin) ===== */
 .usage-page { padding-bottom: 30px; }

@@ -93,6 +93,38 @@ class DisposalStoreTest(unittest.TestCase):
         self.assertEqual(restored, 0)
         self.assertIn("đã xoá", err)
 
+    def test_manual_disposal_box_less_records_without_touching_stock(self):
+        before = self._remaining(self.box["id"])
+        slip, err = disposal_store.create_manual_disposal(
+            self.conn, [{"product_code": "keo1", "quantity": 7, "product_unit": "cây"},
+                        {"sp": "KEO1", "sl": 3}],
+            reason="Hàng khách trả bị mốc", by="duy", source_return_id=42)
+        self.assertIsNone(err)
+        self.assertTrue(slip["box_less"])
+        self.assertEqual(slip["source_return_id"], 42)
+        self.assertEqual(slip["total_quantity"], 10)               # 7 + 3
+        self.assertEqual(slip["items"][0]["product_code"], "KEO1")  # chuẩn hoá hoa
+        self.assertIsNone(slip["items"][0].get("box_id"))
+        # KHÔNG tạo allocation, KHÔNG trừ tồn thùng
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM box_allocations").fetchone()[0], 0)
+        self.assertEqual(self._remaining(self.box["id"]), before)
+
+    def test_manual_disposal_requires_reason_and_items(self):
+        slip, err = disposal_store.create_manual_disposal(self.conn, [{"sp": "KEO1", "sl": 5}], reason="  ")
+        self.assertIsNone(slip)
+        self.assertIn("lý do", err)
+        slip, err = disposal_store.create_manual_disposal(self.conn, [{"sp": "", "sl": 0}], reason="hủy")
+        self.assertIsNone(slip)
+        self.assertIn("Không có hàng", err)
+
+    def test_delete_box_less_soft_deletes_no_restore(self):
+        slip, _ = disposal_store.create_manual_disposal(
+            self.conn, [{"product_code": "KEO1", "quantity": 4}], reason="trả hủy", by="duy")
+        restored, err = disposal_store.delete_disposal(self.conn, slip["id"], by="duy")
+        self.assertIsNone(err)
+        self.assertEqual(restored, 0)   # không có allocation để hoàn
+        self.assertIsNotNone(disposal_store.get_disposal(self.conn, slip["id"])["deleted_at"])
+
     def test_timeline_backfill_is_idempotent(self):
         init_audit_db(self.path)
         slip, _ = disposal_store.create_disposal(

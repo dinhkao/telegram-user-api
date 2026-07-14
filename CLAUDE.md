@@ -315,14 +315,23 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   menu Thêm) + chi tiết `#/tra-hang/:id` (ReturnDetail) + nút '↩ Trả hàng'
   (`detail/ReturnModal.tsx`) ở chi tiết khách; feed khách kind='return'
   (nháp delta 0, có HĐ delta âm).
+  - **Xử lý HÀNG trả về** (`server_app/return_goods.py::apply_goods_dispositions`, POST
+    `/api/returns/{id}/handle-goods`, văn phòng): sau khi tạo phiếu trả, prompt "Xử lý
+    ngay?" → `detail/ReturnGoodsModal.tsx` mỗi dòng chọn **nhập vào thùng có sẵn**
+    (`update_box` +quantity) | **tạo thùng mới** (`add_boxes`) | **xuất hủy** (box-less,
+    gom 1 phiếu) | bỏ qua. Cột `goods_handled_at/by/goods_result` (JSON) chặn xử-lý-2-lần
+    + hiện tóm tắt. Audit `return.goods_handled`. Auto-mở modal qua sessionStorage `rg_open`.
 - `disposal_store/` — phiếu XUẤT HỦY hàng hóa (`disposal_slips`, app.db, 100% local).
-  Hủy hàng hư/hết hạn: BẮT BUỘC lý do, trừ tồn qua `box_allocations kind='disposal'`
-  (order_thread_id = id phiếu; remaining tự đúng), items = snapshot hiển thị. Tạo =
-  văn phòng (nút "Xuất hủy" ở chi tiết thùng `#/thung/:id`), xoá = admin (allocations
-  bị gỡ → TỒN HOÀN LẠI, phiếu xoá mềm). API `server_app/disposal_routes.py`
-  (`/api/disposals*`); realtime `disposal_changed`; ảnh/trao đổi/lịch sử = entity
-  media scope `disposal`. UI: `#/xuat-huy` (DisposalsList) → `#/xuat-huy/:id`
-  (DisposalDetail). Tests: `tests/test_disposal_store.py`.
+  Hai loại: **THEO THÙNG** (`create_disposal`) hủy hàng hư/hết hạn, trừ tồn qua
+  `box_allocations kind='disposal'` (order_thread_id = id phiếu; remaining tự đúng), xoá
+  (admin) → TỒN HOÀN LẠI; **BOX-LESS** (`create_manual_disposal`, `source_return_id`)
+  cho hàng khách trả bị hủy — chỉ GHI NHẬN, KHÔNG trừ tồn, `_row_to_slip` gắn `box_less`,
+  xoá chỉ xoá mềm. BẮT BUỘC lý do, items = snapshot. **Tạo phiếu theo thùng ở
+  `#/thung/:id` BẮT BUỘC CHỤP ẢNH** (photo-first: CameraBox collect → tạo phiếu →
+  upload `/api/media/disposal/{id}`; HTTP-no-camera fallback không ảnh). API
+  `disposal_routes.py` (`/api/disposals*`); realtime `disposal_changed`; media scope
+  `disposal`. UI: `#/xuat-huy` (DisposalsList) → `#/xuat-huy/:id` (DisposalDetail).
+  Tests: `tests/test_disposal_store.py`, `tests/test_return_goods.py`.
 - `supplier_store/` + `purchase_store/` — NHẬP HÀNG + NHÀ CUNG CẤP (app.db,
   **100% local, không KiotViet**). `suppliers` (tên/SĐT/địa chỉ/ghi chú, xoá mềm,
   chặn xoá khi còn phiếu) + `purchase_slips` (items JSON [{sp, sp_id?, sl, price}]

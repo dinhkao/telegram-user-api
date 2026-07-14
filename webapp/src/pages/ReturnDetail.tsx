@@ -1,13 +1,14 @@
 // Chi tiết phiếu TRẢ HÀNG (#/tra-hang/:id) — giống trang đơn: NHÁP sửa được →
 // bấm 'Tạo HĐ KiotViet' mới trừ nợ (khoá sửa); ảnh + trao đổi + lịch sử thao tác
 // dùng chung entity media scope 'return'. Xoá = admin (fade + toast; server chặn).
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import {
   getReturn, deleteReturn, deleteReturnInvoice, updateReturn, invoiceReturn, searchProducts,
   currentUser, isOffice, soVN, type ReturnSlip,
 } from "../api";
 import { onRealtime } from "../realtime";
+import { ReturnGoodsModal } from "../detail/ReturnGoodsModal";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
@@ -25,11 +26,22 @@ export function ReturnDetail({ id }: { id: string }) {
   const [editing, setEditing] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
   const [note, setNote] = useState("");
+  const [showGoods, setShowGoods] = useState(false);
+  const autoOpened = useRef(false);
   const isAdmin = currentUser()?.role === "admin";
   const office = isOffice();
 
   const load = () => getReturn(id).then(setR).catch((e: any) => setErr(e?.message || "Lỗi tải phiếu"));
   useEffect(() => { load(); }, [id]);
+  // Mở modal "Xử lý hàng trả" nếu vừa tạo phiếu và người dùng chọn "Xử lý ngay" (cờ session).
+  useEffect(() => {
+    if (!r || autoOpened.current) return;
+    if (sessionStorage.getItem("rg_open") === String(id)) {
+      sessionStorage.removeItem("rg_open");
+      autoOpened.current = true;
+      if (!r.goods_handled_at && office) setShowGoods(true);
+    }
+  }, [r]);
   useEffect(() => {
     let t: any;
     const off = onRealtime((e) => {
@@ -206,6 +218,33 @@ export function ReturnDetail({ id }: { id: string }) {
         )}
       </section>
 
+      {!deleted && (() => {
+        const gr = r.goods_result;
+        if (r.goods_handled_at && gr) {
+          const line = (arr: { sp?: string; product_code?: string; quantity: number; box_code?: string }[]) =>
+            arr.map((x) => `${x.sp || x.product_code} ×${soVN(x.quantity)}${x.box_code ? ` (thùng ${x.box_code})` : ""}`).join(", ");
+          return (
+            <section class="card rg-summary">
+              <label class="card-label"><Icon name="check" size={15} /> Hàng trả đã xử lý</label>
+              <div class="muted small">{r.goods_handled_by ? `${r.goods_handled_by}` : ""}{r.goods_handled_at ? ` · ${r.goods_handled_at.slice(8, 10)}/${r.goods_handled_at.slice(5, 7)} ${r.goods_handled_at.slice(11, 16)}` : ""}</div>
+              {gr.restocked_existing?.length > 0 && <div class="rg-sum-line">📦 Nhập thùng có sẵn: {line(gr.restocked_existing)}</div>}
+              {gr.restocked_new?.length > 0 && <div class="rg-sum-line">🆕 Thùng mới: {line(gr.restocked_new)}</div>}
+              {gr.disposed?.length > 0 && (
+                <div class="rg-sum-line">🗑 Xuất hủy: {line(gr.disposed)}
+                  {gr.disposal_id ? <> · <a href={`#/xuat-huy/${gr.disposal_id}`}>phiếu hủy #{gr.disposal_id}</a></> : null}
+                </div>
+              )}
+            </section>
+          );
+        }
+        return (
+          <button class={"btn block rg-open-btn" + (office ? "" : " faded")} disabled={busy}
+            onClick={() => office ? setShowGoods(true) : toast("Chỉ văn phòng mới được xử lý hàng trả", "info")}>
+            <Icon name="box" size={15} /> Xử lý hàng trả về (nhập kho / xuất hủy)
+          </button>
+        );
+      })()}
+
       {!deleted && !invoiced && (
         <button class={"btn primary block" + (office ? "" : " faded")} disabled={busy} onClick={doInvoice}>
           <Icon name="receipt" size={15} /> {busy ? "Đang tạo…" : `Tạo HĐ KiotViet (trừ nợ −${soVN(r.total)})`}
@@ -233,6 +272,11 @@ export function ReturnDetail({ id }: { id: string }) {
           title={invoiced ? "Xoá HĐ KiotViet trước rồi mới xoá phiếu" : undefined}>
           <Icon name="trash" size={15} /> {busy ? "Đang xoá…" : "Xoá phiếu trả"}
         </button>
+      )}
+
+      {showGoods && (
+        <ReturnGoodsModal ret={r} onClose={() => setShowGoods(false)}
+          onDone={(u) => { setR(u); setShowGoods(false); }} />
       )}
     </div>
   );
