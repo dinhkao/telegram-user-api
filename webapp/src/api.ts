@@ -1000,6 +1000,51 @@ export async function deleteQuy(id: number | string): Promise<any> {
   return delJSON(`/api/quy/${id}`);
 }
 
+// ── Két tiền — ai đang giữ tiền ───────────────────────────────────────────────
+
+export type CashBox = {
+  key: string;                 // "office" | "bank" | "debt" | "unknown" | "user:<u>" | "tg:<id>"
+  name: string;
+  kind: "special" | "user" | "tg";
+  balance: number;
+  holding_count: number;       // số đơn có tiền đang nằm trong két này
+  holding_total: number;
+  overdue_count: number;       // giữ quá hạn nộp (17:00 ngày giao)
+  in_today: number;
+  out_today: number;
+};
+export type CashHolding = {
+  box: string; thread_id: number | null; name: string; amount: number;
+  since: number; since_at: string; note: string; overdue: boolean;
+};
+export type CashMove = {
+  ts: number; at: string; dir: "in" | "out"; amount: number; after: number;
+  other_key: string; other_name: string; reason: string; label: string;
+  thread_id: number | null; order_name: string;
+  transfer_id: number | null; note: string; actor: string;
+};
+
+/** total_unpaid chỉ có với văn phòng — staff bị server lược bỏ (ẩn tổng nợ công ty). */
+export async function getCashboxes(): Promise<{ boxes: CashBox[]; since: string; total_unpaid?: number }> {
+  const d = await getJSON(`/api/cashbox`, { cache: false });
+  return { boxes: d.boxes || [], since: d.since || "", total_unpaid: d.total_unpaid };
+}
+
+/** Ném ApiError (403/404 mang message VN của server) / Error mất mạng — caller hiện e.message. */
+export async function getCashboxTimeline(key: string): Promise<{ box: CashBox; items: CashMove[]; holdings: CashHolding[]; truncated: boolean }> {
+  const d = await getJSON(`/api/cashbox/${encodeURIComponent(key)}/timeline`, { cache: false });
+  return { box: d.box, items: d.items || [], holdings: d.holdings || [], truncated: !!d.truncated };
+}
+
+/** Chuyển tiền tay giữa 2 két (văn phòng). */
+export async function cashboxTransfer(from_box: string, to_box: string, amount: number, note: string): Promise<any> {
+  return postJSON("/api/cashbox/transfer", { from_box, to_box, amount, note }, { queueable: false });
+}
+
+export async function cashboxTransferDelete(id: number): Promise<any> {
+  return postJSON(`/api/cashbox/transfer/${id}/delete`, {}, { queueable: false });
+}
+
 // ── Quản lý user (chỉ admin) ──────────────────────────────────────────────────
 
 export type WebUser = { username: string; display_name: string; role: string; disabled: boolean };

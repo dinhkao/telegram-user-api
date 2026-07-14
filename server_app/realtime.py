@@ -178,6 +178,13 @@ def emit_disposal_changed(disposal_id) -> None:
                   _broadcast({"type": "disposal_changed", "id": str(disposal_id)}, "disposal_changed"))
 
 
+def emit_cashbox_changed() -> None:
+    """Hệ két tiền đổi (chuyển tay tạo/xoá) → trang Két refetch. Biến động từ
+    đơn hàng thì client nghe order_changed/orders_changed sẵn có."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.cashbox_changed", _broadcast({"type": "cashbox_changed"}, "cashbox_changed"))
+
+
 def emit_supplier_changed(supplier_id=None) -> None:
     """Nhà cung cấp đổi (tạo/sửa/xoá, hoặc thống kê đổi vì phiếu nhập) → list + chi tiết NCC."""
     from server_app.tasks import spawn_tracked

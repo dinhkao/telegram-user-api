@@ -106,6 +106,8 @@ _EXTRA_LABELS = {
     "POST /api/report-slips/{id}": "Sửa phiếu báo cáo SX",
     "DELETE /api/report-slips/{id}": "Xoá phiếu báo cáo SX",
     "POST /api/tasks": "Tạo việc",
+    "POST /api/cashbox/transfer": "Chuyển tiền giữa két",
+    "POST /api/cashbox/transfer/{id}/delete": "Xoá lần chuyển tiền két",
     "POST /api/banner/pin": "Ghim lên bảng tin",
     "DELETE /api/banner/pin/{id}": "Bỏ ghim bảng tin",
     "POST /api/users": "Tạo tài khoản",
@@ -326,6 +328,16 @@ def _generic(r, key: str, label: str, body: dict, resolver) -> dict:
         name = str(body.get("name") or "")[:40]
         if name:
             parts = [part(f"“{name}”")]
+    elif key == "POST /api/cashbox/transfer":
+        try:
+            from cashbox_store.identity import box_display
+            parts = [part(f"{box_display(str(body.get('from_box') or ''))} → "
+                          f"{box_display(str(body.get('to_box') or ''))}: "),
+                     part(money(body.get("amount")))]
+            if body.get("note"):
+                parts.append(part(f" “{str(body.get('note'))[:40]}”"))
+        except Exception:  # noqa: BLE001
+            parts = []
     elif key.startswith("POST /api/users/"):
         m = re.search(r"/api/users/([^/]+)/", raw_path)
         who = m.group(1) if m else ""
@@ -339,6 +351,8 @@ def _generic(r, key: str, label: str, body: dict, resolver) -> dict:
     href = href_for(scope, eid) if scope not in ("app", "user") else ""
     if key == "POST /api/settings":
         href = "#/login"
+    if key.startswith("POST /api/cashbox/"):
+        href = "#/ket"
     return {"scope": scope, "eid": eid, "label": label, "parts": parts, "href": href}
 
 

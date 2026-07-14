@@ -348,6 +348,23 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `#/kho/:code` khối "Mua bán", admin): tắt → SP biến khỏi GỢI Ý picker tương ứng
   (bán = InvoiceEditor, nhập = PurchaseModal/PurchaseDetail — lọc client-side từ
   `/api/products?search=`; mã gõ tự do vẫn nhận).
+- `cashbox_store/` — hệ KÉT TIỀN "ai đang giữ tiền" (2026-07-14). Trạng thái két
+  **DERIVE THUẦN từ blob đơn** (đơn từ `SINCE=2026-06-01`), KHÔNG ledger table —
+  mỗi đồng của đơn nằm ở đúng 1 két mọi thời điểm, movement là cặp src→dst cân
+  bằng ⇒ bảo toàn tiền theo cấu trúc (un-done task/xoá payment/sửa HĐ → recompute
+  tự đúng). Máy trạng thái (`domain.py`, unit-tested `tests/test_cashbox_domain.py`):
+  tiền ở KHÁCH → `giao_hang` done → két người giao (COD phần chưa thu) →
+  `nop_tien` done: `tra_tien_mat`→két văn phòng | `co/khong_ky_toa`→két khách nợ
+  | không note/skip→**két chưa rõ** (không đoán) | `chieu_lay_tien` (done=false)
+  → vẫn giữ; payment → rút min(amount, phần còn lại) từ két hiện tại → két người
+  tạo (method Transfer → **két ngân hàng**). Danh tính hợp nhất tg-id↔username
+  (`identity.py`: fold dấu USER_NAMES khớp web_users; env `CASHBOX_TG_MAP` ép tay).
+  Bảng duy nhất: `cashbox_transfers` (chuyển tay giữa két, văn phòng; xoá mềm admin;
+  chặn rút quá số dư). Cache RAM theo stamp orders.updated_at (`service.py`). API
+  `server_app/cashbox_routes.py` (`/api/cashbox*`, GET nằm trong `_NO_AUDIT`; staff
+  chỉ thấy két mình); realtime `cashbox_changed` + client nghe order_changed. UI:
+  `#/ket` (CashboxList + chuyển tiền) → `#/ket/:key` (CashboxDetail — timeline rail
+  số dư kiểu OrderTimeline + đơn đang nằm két, badge ⏰ quá hạn nộp 17:00).
 - `usage_store/` — bảng `usage_stats` (app.db): đếm GỘP thao tác webapp theo
   (ngày, user, kind view/tap, trang chuẩn hoá, nhãn nút) — KHÔNG log thô từng cú bấm
   (tránh phình kiểu audit_events). Client tự bắt mọi click nút/link + hashchange

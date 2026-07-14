@@ -410,6 +410,13 @@ def create_app():
     r.add_post("/api/quy", quy_create_handler)
     r.add_get("/api/quy/{id}", quy_detail_handler)
     r.add_delete("/api/quy/{id}", quy_delete_handler)
+    # ─── két tiền — ai đang giữ tiền (derive từ blob đơn) ────────────────────
+    from server_app.cashbox_routes import (cashbox_summary_handler, cashbox_timeline_handler,
+                                           cashbox_transfer_delete_handler, cashbox_transfer_handler)
+    r.add_get("/api/cashbox", cashbox_summary_handler)
+    r.add_post("/api/cashbox/transfer", cashbox_transfer_handler)              # văn phòng — TRƯỚC {key}
+    r.add_post("/api/cashbox/transfer/{id}/delete", cashbox_transfer_delete_handler)  # admin
+    r.add_get("/api/cashbox/{key}/timeline", cashbox_timeline_handler)
     r.add_get("/api/customers", customers_search_handler)
     r.add_get("/api/customers/kiotviet", customer_kv_search_handler)   # TRƯỚC {key} GET
     from server_app.customer_create import customer_create_handler
