@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
-  completeStocktake, getStocktake, lockStocktake, saveStocktake, soVN, unlockStocktake,
+  completeStocktake, getStocktake, isOffice, lockStocktake, resyncStocktake, saveStocktake,
+  soVN, unlockStocktake, voidStocktake,
   type Stocktake, type StocktakeItem,
 } from "../api";
 import { foldVN, fmtDateTimeVN } from "../format";
@@ -49,6 +50,10 @@ export function StocktakeDetail({ id }: { id: string }) {
   };
   useEffect(load, [id]);
 
+  // Kho biến động khi đang kiểm → tải lại số sổ sách + cờ lỗi thời, GIỮ số đang gõ dở
+  // (không adopt: values/notes là state riêng, chỉ cập nhật slip = expected + stale + status).
+  const reloadStale = () => { getStocktake(id).then(setSlip).catch(() => {}); };
+
   const acquire = async () => {
     if (!aliveRef.current) return;
     try {
@@ -77,6 +82,7 @@ export function StocktakeDetail({ id }: { id: string }) {
   }, [id]);
   useEffect(() => onRealtime((e) => {
     if (e.type === "stocktake_lock" && e.stocktake_id === String(id)) acquire();
+    if (e.type === "inventory_changed" || e.type === "box_changed" || e.type === "resync") reloadStale();
   }), [id]);
 
   const computed = useMemo(() => {
@@ -162,6 +168,7 @@ export function StocktakeDetail({ id }: { id: string }) {
       toast(`Còn ${(slip?.items.length || 0) - computed.counted} thùng chưa kiểm`, "err");
       return;
     }
+    if (slip.stale?.changed) { toast("Kho đã biến động — cập nhật lại phiếu trước khi hoàn tất", "err"); return; }
     if (!valid()) { toast("Số thực tế phải là số không âm", "err"); return; }
     const ok = await confirmDialog(
       computed.deviations
@@ -178,13 +185,43 @@ export function StocktakeDetail({ id }: { id: string }) {
       d = await completeStocktake(d.id, note, sid);
       dirtyRef.current = false;
       adopt(d); toast("Đã hoàn tất kiểm kho", "ok");
-    } catch (e: any) { toast(e?.message || "Lỗi hoàn tất phiếu", "err"); }
+    } catch (e: any) {
+      toast(e?.message || "Lỗi hoàn tất phiếu", "err");
+      reloadStale();   // có thể bị chặn vì kho vừa biến động → hiện banner cảnh báo
+    }
     finally { setBusy(false); }
   };
   const fillMatched = () => {
     if (!slip) return;
     setValues((old) => ({ ...old, ...Object.fromEntries(slip.items.map((it) => [it.id, old[it.id] === "" || old[it.id] == null ? String(it.expected_quantity) : old[it.id]])) }));
     markDirty();
+  };
+  // Kho biến động → đồng bộ lại số sổ sách theo tồn hiện tại, GIỮ số đã đếm. Gỡ cờ lỗi thời.
+  const resync = async () => {
+    if (!slip) return;
+    setBusy(true);
+    try {
+      clearTimeout(autoTimer.current);
+      await saveChain.current.catch(() => {});
+      if (dirtyRef.current && valid()) await saveStocktake(slip.id, counts(), note, sid).catch(() => {});
+      dirtyRef.current = false;
+      const d = await resyncStocktake(slip.id, sid);
+      adopt(d);   // dòng thùng thay đổi (thêm/bớt/đổi số) → nạp lại map số đếm từ bản đã lưu
+      setSaveState("");
+      toast("Đã cập nhật phiếu theo tồn kho hiện tại", "ok");
+    } catch (e: any) { toast(e?.message || "Lỗi cập nhật phiếu", "err"); }
+    finally { setBusy(false); }
+  };
+  // Huỷ phiếu (văn phòng) — bỏ số đã kiểm, giải phóng vị trí cho phiếu mới.
+  const voidSlip = async () => {
+    if (!slip) return;
+    if (!(await confirmDialog("Huỷ phiếu kiểm kho này? Số đã kiểm sẽ bị bỏ. Bạn có thể tạo phiếu mới cho vị trí.", { danger: true, okLabel: "Huỷ phiếu" }))) return;
+    setBusy(true);
+    try {
+      await voidStocktake(slip.id);
+      toast("Đã huỷ phiếu kiểm kho", "ok");
+      window.location.hash = `#/vi-tri/${slip.place_id}`;
+    } catch (e: any) { toast(e?.message || "Lỗi huỷ phiếu", "err"); setBusy(false); }
   };
 
   // Tự lưu tuần tự sau khi ngừng gõ 900ms; request cũ luôn xong trước request mới.
@@ -197,7 +234,9 @@ export function StocktakeDetail({ id }: { id: string }) {
       setSaveState("saving");
       saveChain.current = saveChain.current.catch(() => {}).then(() => saveStocktake(slip.id, snapshot.counts, snapshot.note, sid))
         .then((d) => {
-          setSlip((old) => old ? { ...old, updated_at: d.updated_at, updated_by: d.updated_by } : old);
+          // Mang theo cờ lỗi thời từ response → banner "kho biến động" hiện ngay cả khi
+          // đang gõ (không cần chờ realtime). Giữ nguyên values/notes người dùng.
+          setSlip((old) => old ? { ...old, updated_at: d.updated_at, updated_by: d.updated_by, stale: d.stale } : old);
           if (versionRef.current === version) { dirtyRef.current = false; setSaveState("saved"); }
         })
         .catch(() => { setSaveState("error"); acquire(); });
@@ -208,10 +247,12 @@ export function StocktakeDetail({ id }: { id: string }) {
   if (err) return <ErrorState msg={err} onRetry={load} />;
   if (!slip) return <Loading />;
   const done = slip.status === "completed";
-  const mine = !done && lockState === "mine";
-  const readOnly = done || !mine;
+  const voided = slip.status === "voided";
+  const mine = !done && !voided && lockState === "mine";
+  const readOnly = done || voided || !mine;
   const allCounted = computed.counted === slip.items.length;
   const totalDiff = done ? (slip.summary.difference_total || 0) : computed.diff;
+  const stale = !done && !voided && !!slip.stale?.changed;
 
   return (
     <div class="stocktake-page">
@@ -221,12 +262,29 @@ export function StocktakeDetail({ id }: { id: string }) {
           <div class="prod-sp big"><Icon name="clipboard" size={18} /> Phiếu kiểm kho #{slip.id}</div>
           <div class="prod-date muted">{slip.place_name} · chụp lúc {fmtDateTimeVN(slip.captured_at)}</div>
         </div>
-        <span class={`stocktake-status ${done ? "done" : lockState}`}>
-          {done ? "Đã chốt" : lockState === "mine" ? "Bạn đang kiểm" : lockState === "other" ? `${holder} đang kiểm` : "Đang xin quyền…"}
+        <span class={`stocktake-status ${done ? "done" : voided ? "voided" : lockState}`}>
+          {done ? "Đã chốt" : voided ? "Đã huỷ" : lockState === "mine" ? "Bạn đang kiểm" : lockState === "other" ? `${holder} đang kiểm` : "Đang xin quyền…"}
         </span>
       </div>
 
-      {!done && lockState === "other" && (
+      {voided && (
+        <div class="stocktake-lock-alert voided"><Icon name="ban" size={16} /> Phiếu này đã bị huỷ. Số đã kiểm không được ghi nhận — tạo phiếu mới ở trang vị trí kho.</div>
+      )}
+
+      {stale && (
+        <div class="stocktake-stale-alert">
+          <div class="stocktake-stale-head"><Icon name="ban" size={16} /> <b>Kho đã biến động — phiếu không còn chính xác</b></div>
+          <p class="small">{slip.stale!.summary} sau khi tạo phiếu. Số sổ sách đã lệch khỏi tồn hiện tại; phải cập nhật lại phiếu trước khi hoàn tất.</p>
+          <StaleDetails stale={slip.stale!} />
+          <div class="stocktake-stale-actions">
+            {mine && <button class="btn small primary" disabled={busy} onClick={resync}><Icon name="refresh" size={14} /> Cập nhật lại theo tồn hiện tại</button>}
+            {!mine && lockState === "other" && <span class="muted small">{holder} đang giữ phiếu — nhờ họ cập nhật lại.</span>}
+            {isOffice() && <button class="btn small danger" disabled={busy} onClick={voidSlip}><Icon name="ban" size={14} /> Huỷ phiếu</button>}
+          </div>
+        </div>
+      )}
+
+      {!done && !voided && lockState === "other" && (
         <div class="stocktake-lock-alert"><Icon name="lock" size={16} /> <b>{holder}</b> đang kiểm kho này. Bạn chỉ có thể xem cho đến khi họ rời phiếu.</div>
       )}
 
@@ -301,8 +359,44 @@ export function StocktakeDetail({ id }: { id: string }) {
           <div class="stocktake-autosave" data-st={saveState}>
             {saveState === "saving" ? "Đang lưu…" : saveState === "saved" ? "✓ Đã tự lưu" : saveState === "error" ? "⚠ Lỗi lưu" : "Tự lưu khi nhập"}
           </div>
+          {isOffice() && <button class="btn small ghost" disabled={busy} onClick={voidSlip} title="Huỷ phiếu, bỏ số đã kiểm"><Icon name="ban" size={15} /> Huỷ</button>}
           <button class="btn" disabled={busy} onClick={() => save()}><Icon name="save" size={17} /> Lưu ngay</button>
-          <button class="btn primary" disabled={busy || !allCounted} onClick={finish}><Icon name="check" size={17} /> Hoàn tất</button>
+          <button class={"btn primary" + (stale ? " faded" : "")} disabled={busy || (!allCounted && !stale)}
+            onClick={() => stale ? toast("Kho đã biến động — cập nhật lại phiếu trước khi hoàn tất", "err") : finish()}>
+            <Icon name="check" size={17} /> Hoàn tất
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StaleDetails({ stale }: { stale: NonNullable<Stocktake["stale"]> }) {
+  const cap = <T,>(a: T[], n = 6) => a.slice(0, n);
+  return (
+    <div class="stocktake-stale-detail">
+      {stale.adjusted.length > 0 && (
+        <div><span class="st-diff-tag adj">Đổi số</span>
+          {cap(stale.adjusted).map((r) => (
+            <span class="st-diff-chip" key={r.box_id}>{r.product_code} · thùng {r.box_code}: {soVN(r.expected)} → <b>{soVN(r.current)}</b></span>
+          ))}
+          {stale.adjusted.length > 6 && <span class="st-diff-chip more">+{stale.adjusted.length - 6} thùng</span>}
+        </div>
+      )}
+      {stale.added.length > 0 && (
+        <div><span class="st-diff-tag add">Thùng mới</span>
+          {cap(stale.added).map((r) => (
+            <span class="st-diff-chip" key={r.box_id}>{r.product_code} · thùng {r.box_code}: <b>{soVN(r.remaining)}</b></span>
+          ))}
+          {stale.added.length > 6 && <span class="st-diff-chip more">+{stale.added.length - 6} thùng</span>}
+        </div>
+      )}
+      {stale.removed.length > 0 && (
+        <div><span class="st-diff-tag rem">Đã rời</span>
+          {cap(stale.removed).map((r) => (
+            <span class="st-diff-chip" key={r.box_id}>{r.product_code} · thùng {r.box_code}</span>
+          ))}
+          {stale.removed.length > 6 && <span class="st-diff-chip more">+{stale.removed.length - 6} thùng</span>}
         </div>
       )}
     </div>

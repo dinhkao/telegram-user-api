@@ -12,7 +12,9 @@ from inventory_store.stocktakes import (
     create_stocktake_tables,
     get_stocktake,
     list_place_stocktakes,
+    resync_stocktake,
     save_stocktake,
+    void_stocktake,
 )
 from server_app.production_routes import _web_actor
 from server_app.realtime import emit_inventory_changed
@@ -196,6 +198,12 @@ async def stocktake_complete_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu kiểm kho"}, status=404)
     if err == "incomplete":
         return web.json_response({"ok": False, "error": "Cần kiểm đủ số tồn thực tế của mọi thùng"}, status=400)
+    if err == "stale":
+        return web.json_response({
+            "ok": False,
+            "error": "Kho đã biến động sau khi tạo phiếu — cập nhật lại phiếu trước khi hoàn tất",
+            "stale": True, "stocktake": slip,
+        }, status=409)
     if err:
         return web.json_response({"ok": False, "error": "Không thể hoàn tất phiếu"}, status=400)
     spawn_tracked("audit.stocktake", async_log_event(
@@ -204,6 +212,82 @@ async def stocktake_complete_handler(request: web.Request):
         payload={"stocktake_id": slip["id"], **slip["summary"]},
     ))
     release(stocktake_id, force=True)
+    emit_inventory_changed()
+    return web.json_response({"ok": True, "stocktake": slip})
+
+
+async def stocktake_resync_handler(request: web.Request):
+    """Cập nhật lại số sổ sách của phiếu theo tồn hiện tại (gỡ cờ lỗi thời). Cần giữ khoá."""
+    stocktake_id = _int_match(request, "stocktake_id")
+    if stocktake_id is None:
+        return web.json_response({"ok": False, "error": "Phiếu không hợp lệ"}, status=400)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    actor = _web_actor(request, body)
+    sid = str(body.get("sid") or "")
+    mine, holder = held_by(stocktake_id, actor, sid)
+    if not mine:
+        return web.json_response({"ok": False, "error": f"{holder or 'Người khác'} đang kiểm kho này", "holder": holder}, status=423)
+
+    def _run():
+        conn = get_connection()
+        try:
+            return resync_stocktake(conn, stocktake_id, actor=actor)
+        finally:
+            conn.close()
+
+    slip, err = await asyncio.to_thread(_run)
+    if err == "not_found":
+        return web.json_response({"ok": False, "error": "Không tìm thấy phiếu kiểm kho"}, status=404)
+    if err == "completed":
+        return web.json_response({"ok": False, "error": "Phiếu đã hoàn tất/huỷ, không thể cập nhật"}, status=409)
+    if err:
+        return web.json_response({"ok": False, "error": "Không thể cập nhật phiếu"}, status=400)
+    spawn_tracked("audit.stocktake", async_log_event(
+        "stocktake.resynced", scope="place", thread_id=slip["place_id"],
+        actor_type=_actor_type(request), actor_id=actor, source="inventory",
+        payload={"stocktake_id": slip["id"], "box_count": slip["summary"]["box_count"]},
+    ))
+    emit_inventory_changed()
+    return web.json_response({"ok": True, "stocktake": slip})
+
+
+async def stocktake_void_handler(request: web.Request):
+    """Huỷ phiếu kiểm kho nháp — văn phòng. Giải phóng vị trí cho phiếu mới."""
+    from server_app.order_api_common import is_office_request
+    stocktake_id = _int_match(request, "stocktake_id")
+    if stocktake_id is None:
+        return web.json_response({"ok": False, "error": "Phiếu không hợp lệ"}, status=400)
+    if not await is_office_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng được huỷ phiếu kiểm kho"}, status=403)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    actor = _web_actor(request, body)
+
+    def _run():
+        conn = get_connection()
+        try:
+            return void_stocktake(conn, stocktake_id, actor=actor)
+        finally:
+            conn.close()
+
+    slip, err = await asyncio.to_thread(_run)
+    if err == "not_found":
+        return web.json_response({"ok": False, "error": "Không tìm thấy phiếu kiểm kho"}, status=404)
+    if err == "completed":
+        return web.json_response({"ok": False, "error": "Phiếu đã hoàn tất, không thể huỷ"}, status=409)
+    if err:
+        return web.json_response({"ok": False, "error": "Không thể huỷ phiếu"}, status=400)
+    release(stocktake_id, force=True)
+    spawn_tracked("audit.stocktake", async_log_event(
+        "stocktake.voided", scope="place", thread_id=slip["place_id"],
+        actor_type=_actor_type(request), actor_id=actor, source="inventory",
+        payload={"stocktake_id": slip["id"]},
+    ))
     emit_inventory_changed()
     return web.json_response({"ok": True, "stocktake": slip})
 

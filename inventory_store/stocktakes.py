@@ -1,11 +1,19 @@
 """Phiếu kiểm kho theo vị trí — snapshot tồn từng thùng, không tự điều chỉnh kho.
 
-Mỗi vị trí chỉ có tối đa một phiếu nháp. Số hệ thống được chụp cố định lúc tạo;
-mọi báo cáo chênh lệch vì vậy vẫn đúng dù kho tiếp tục phát sinh nhập/xuất.
+Mỗi vị trí chỉ có tối đa một phiếu nháp. Số hệ thống ("sổ sách") được chụp cố định
+lúc tạo. Nhưng nếu kho vị trí đó BIẾN ĐỘNG sau khi tạo (thùng đổi số còn lại, thêm
+thùng mới, thùng rời/vô hiệu), con số chụp không còn khớp tồn thực → phiếu bị coi
+là LỖI THỜI: `_payload` gắn cờ `stale` (so tồn hiện tại với snapshot), `complete`
+bị chặn, người đang kiểm được báo (webapp nghe realtime `inventory_changed`). Cách
+gỡ: `resync_stocktake` (cập nhật lại số sổ sách theo tồn hiện tại, GIỮ số đã đếm) —
+hoặc `void_stocktake` (huỷ, tạo phiếu mới). Nối: utils.db, box_allocations,
+inventory_boxes, products.
 """
 from __future__ import annotations
 
 from utils.db import transaction
+
+_STALE_EPS = 1e-6
 
 
 def create_stocktake_tables(conn) -> None:
@@ -63,6 +71,72 @@ def _row(conn, stocktake_id: int):
     ).fetchone()
 
 
+def _place_live_state(conn, place_id: int) -> dict[int, dict]:
+    """Tồn HIỆN TẠI của vị trí — CÙNG tập & công thức với lúc chụp phiếu (thùng active,
+    remaining = quantity − Σ mọi allocation, > 0). Trả {box_id: {box_code, product_code,
+    product_unit, remaining}} để so với snapshot phát hiện biến động."""
+    rows = conn.execute(
+        """
+        WITH alloc AS (
+            SELECT box_id, SUM(quantity) AS qty FROM box_allocations GROUP BY box_id
+        )
+        SELECT b.id AS box_id, b.box_code AS box_code,
+               COALESCE(p.code, b.product_code) AS product_code,
+               COALESCE(p.unit, 'cây') AS product_unit,
+               b.quantity - COALESCE(a.qty, 0) AS remaining
+        FROM inventory_boxes b
+        LEFT JOIN alloc a ON a.box_id = b.id
+        LEFT JOIN products p ON p.id = b.product_id
+        WHERE b.place_id = ? AND COALESCE(b.disabled, 0) = 0
+          AND b.quantity - COALESCE(a.qty, 0) > 0.000000001
+        """,
+        (place_id,),
+    ).fetchall()
+    return {int(r["box_id"]): dict(r) for r in rows}
+
+
+def _compute_stale(items: list[dict], live: dict[int, dict]) -> dict:
+    """So snapshot (items đã chụp) với tồn hiện tại (live) → mô tả biến động.
+    added = thùng mới xuất hiện, removed = thùng đã rời/hết, adjusted = đổi số còn lại."""
+    captured = {int(it["box_id"]): it for it in items}
+    added, removed, adjusted = [], [], []
+    for bid, lv in live.items():
+        if bid not in captured:
+            added.append({
+                "box_id": bid, "box_code": lv["box_code"], "product_code": lv["product_code"],
+                "remaining": round(float(lv["remaining"] or 0), 3),
+            })
+    for bid, it in captured.items():
+        exp = float(it["expected_quantity"] or 0)
+        if bid not in live:
+            removed.append({
+                "box_id": bid, "box_code": it["box_code"], "product_code": it["product_code"],
+                "expected": round(exp, 3),
+            })
+        else:
+            cur = float(live[bid]["remaining"] or 0)
+            if abs(cur - exp) > _STALE_EPS:
+                adjusted.append({
+                    "box_id": bid, "box_code": it["box_code"], "product_code": it["product_code"],
+                    "expected": round(exp, 3), "current": round(cur, 3),
+                })
+    added.sort(key=lambda x: (x["product_code"], x["box_code"]))
+    removed.sort(key=lambda x: (x["product_code"], x["box_code"]))
+    adjusted.sort(key=lambda x: (x["product_code"], x["box_code"]))
+    parts = []
+    if added:
+        parts.append(f"{len(added)} thùng mới")
+    if removed:
+        parts.append(f"{len(removed)} thùng đã rời kho")
+    if adjusted:
+        parts.append(f"{len(adjusted)} thùng đổi số")
+    return {
+        "changed": bool(added or removed or adjusted),
+        "added": added, "removed": removed, "adjusted": adjusted,
+        "summary": ", ".join(parts),
+    }
+
+
 def _payload(conn, stocktake_id: int) -> dict | None:
     head = _row(conn, stocktake_id)
     if not head:
@@ -99,6 +173,11 @@ def _payload(conn, stocktake_id: int) -> dict | None:
         "actual_total": actual_total if counted else None,
         "difference_total": (actual_total - expected_total) if counted == len(items) else None,
     }
+    # Chỉ phiếu ĐANG kiểm mới cần soi biến động — phiếu chốt/huỷ là bản ghi cố định.
+    if head["status"] == "draft":
+        out["stale"] = _compute_stale(items, _place_live_state(conn, int(head["place_id"])))
+    else:
+        out["stale"] = {"changed": False, "added": [], "removed": [], "adjusted": [], "summary": ""}
     return out
 
 
@@ -206,10 +285,79 @@ def complete_stocktake(conn, stocktake_id: int, *, actor: str | None = None, not
         ).fetchone()[0]
         if missing:
             return None, "incomplete"
+        # Kho biến động sau khi chụp → số sổ sách đã lệch, KHÔNG cho chốt (phải resync trước).
+        cap = [dict(r) for r in conn.execute(
+            "SELECT box_id, box_code, product_code, expected_quantity "
+            "FROM inventory_stocktake_items WHERE stocktake_id = ?", (stocktake_id,)
+        ).fetchall()]
+        if _compute_stale(cap, _place_live_state(conn, int(head["place_id"])))["changed"]:
+            return _payload(conn, stocktake_id), "stale"
         conn.execute(
             "UPDATE inventory_stocktakes SET status = 'completed', completed_at = datetime('now'), "
             "completed_by = ?, updated_at = datetime('now'), updated_by = ?, "
             "note = COALESCE(?, note) WHERE id = ?",
             (actor, actor, None if note is None else str(note).strip(), stocktake_id),
+        )
+        return _payload(conn, stocktake_id), None
+
+
+def resync_stocktake(conn, stocktake_id: int, *, actor: str | None = None) -> tuple[dict | None, str | None]:
+    """Cập nhật lại số sổ sách của phiếu nháp theo tồn HIỆN TẠI (gỡ cờ lỗi thời).
+
+    GIỮ số đã đếm (actual_quantity) + ghi chú của các thùng còn trong kho; cập nhật
+    expected_quantity theo remaining hiện tại; thêm dòng cho thùng mới (actual NULL);
+    xoá dòng của thùng đã rời/hết. Không đụng tới kho — chỉ đồng bộ ảnh chụp."""
+    create_stocktake_tables(conn)
+    with transaction(conn):
+        head = _row(conn, stocktake_id)
+        if not head:
+            return None, "not_found"
+        if head["status"] != "draft":
+            return None, "completed"
+        live = _place_live_state(conn, int(head["place_id"]))
+        existing = {int(r["box_id"]): dict(r) for r in conn.execute(
+            "SELECT id, box_id FROM inventory_stocktake_items WHERE stocktake_id = ?", (stocktake_id,)
+        ).fetchall()}
+        for bid, it in existing.items():
+            lv = live.get(bid)
+            if lv is None:
+                conn.execute("DELETE FROM inventory_stocktake_items WHERE id = ?", (it["id"],))
+            else:
+                conn.execute(
+                    "UPDATE inventory_stocktake_items SET expected_quantity = ?, box_code = ?, "
+                    "product_code = ?, product_unit = ? WHERE id = ?",
+                    (float(lv["remaining"] or 0), lv["box_code"], lv["product_code"], lv["product_unit"], it["id"]),
+                )
+        for bid, lv in live.items():
+            if bid not in existing:
+                conn.execute(
+                    "INSERT INTO inventory_stocktake_items "
+                    "(stocktake_id, box_id, box_code, product_code, product_unit, expected_quantity) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (stocktake_id, bid, lv["box_code"], lv["product_code"], lv["product_unit"], float(lv["remaining"] or 0)),
+                )
+        conn.execute(
+            "UPDATE inventory_stocktakes SET updated_at = datetime('now'), updated_by = ? WHERE id = ?",
+            (actor, stocktake_id),
+        )
+        return _payload(conn, stocktake_id), None
+
+
+def void_stocktake(conn, stocktake_id: int, *, actor: str | None = None) -> tuple[dict | None, str | None]:
+    """Huỷ phiếu nháp (status='voided') — số đã kiểm bị bỏ, giải phóng vị trí cho phiếu
+    mới (unique draft index chỉ chặn status='draft'). Không huỷ được phiếu đã chốt."""
+    create_stocktake_tables(conn)
+    with transaction(conn):
+        head = _row(conn, stocktake_id)
+        if not head:
+            return None, "not_found"
+        if head["status"] == "completed":
+            return None, "completed"
+        if head["status"] == "voided":
+            return _payload(conn, stocktake_id), None
+        conn.execute(
+            "UPDATE inventory_stocktakes SET status = 'voided', updated_at = datetime('now'), "
+            "updated_by = ? WHERE id = ?",
+            (actor, stocktake_id),
         )
         return _payload(conn, stocktake_id), None

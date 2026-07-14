@@ -261,6 +261,17 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   - `domain.py` (pure, unit-tested) = sinh mã base36 + gộp nhóm size. Thùng **vô hiệu**
     → loại khỏi tồn/phân bổ. Admin **xoá thùng** (`box_delete_handler`, cấm nếu đã xuất) +
     gỡ entry khỏi phiếu SX (`production_store.remove_number_by_note`).
+  - **Kiểm kho theo vị trí (`inventory_store/stocktakes.py` + `server_app/stocktake_routes.py`
+    + `stocktake_lock.py`)**: `inventory_stocktakes`/`inventory_stocktake_items` — 1 phiếu/vị
+    trí, chụp `expected_quantity` (= remaining) CỐ ĐỊNH lúc tạo; mỗi vị trí tối đa 1 nháp
+    (unique partial index `WHERE status='draft'`). Khoá 1-người (`stocktake_lock.py`, TTL 60s,
+    heartbeat 20s, multi-tab). **Vô hiệu hoá khi kho biến động:** `_place_live_state` (CÙNG
+    tập/công thức với lúc chụp) so với snapshot → `_payload` gắn `stale{changed,added,removed,
+    adjusted,summary}` cho phiếu **draft**; `complete` bị chặn (409 `stale`); webapp nghe
+    realtime `inventory_changed` → `reloadStale()` báo người đang kiểm. Gỡ: `resync_stocktake`
+    (đồng bộ số sổ sách theo tồn hiện tại, GIỮ số đã đếm, thêm/bớt dòng) — cần giữ khoá; hoặc
+    `void_stocktake` (`status='voided'`, văn phòng, giải phóng vị trí). Audit `stocktake.
+    created/completed/resynced/voided`. UI `pages/StocktakeDetail.tsx` (`#/kiem-kho/:id`).
   - API `server_app/inventory_routes.py` (`_ensure` = create+migrate mọi bảng): `/api/inventory`
     (summary), `/api/inventory/boxes` (MỌI thùng), `/api/inventory/{code}` (chi tiết SP),
     `/api/inventory/box/{id}` GET/POST/DELETE, nhập `POST /api/production/{id}/boxes`

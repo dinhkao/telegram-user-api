@@ -11,7 +11,9 @@ from inventory_store.stocktakes import (
     complete_stocktake,
     create_or_resume_stocktake,
     get_stocktake,
+    resync_stocktake,
     save_stocktake,
+    void_stocktake,
 )
 from product_store import create_products_table, migrate_products_table, upsert_product
 from product_store.schema import _invalidate_products_cache
@@ -98,6 +100,91 @@ class StocktakeStoreTest(unittest.TestCase):
         ])
         self.assertIsNone(result)
         self.assertEqual(err, "invalid")
+
+    # ── Biến động kho sau khi tạo phiếu → cờ lỗi thời + chặn chốt + resync/void ──
+    def _disable_box(self, box_id):
+        self.conn.execute("UPDATE inventory_boxes SET disabled = 1 WHERE id = ?", (box_id,))
+        self.conn.commit()
+
+    def test_fresh_slip_not_stale(self):
+        slip, _ = create_or_resume_stocktake(self.conn, self.place["id"])
+        self.assertFalse(slip["stale"]["changed"])
+        self.assertEqual(slip["stale"]["adjusted"], [])
+
+    def test_stale_when_box_remaining_changes(self):
+        slip, _ = create_or_resume_stocktake(self.conn, self.place["id"])
+        allocate_picks(self.conn, [{"box_id": self.boxes[0]["id"], "quantity": 5}], 2001)
+        after = get_stocktake(self.conn, slip["id"])
+        self.assertTrue(after["stale"]["changed"])
+        self.assertEqual([a["box_id"] for a in after["stale"]["adjusted"]], [self.boxes[0]["id"]])
+        self.assertEqual(after["stale"]["adjusted"][0]["expected"], 40)
+        self.assertEqual(after["stale"]["adjusted"][0]["current"], 35)
+        # Snapshot KHÔNG trôi — expected vẫn cố định.
+        self.assertEqual([i["expected_quantity"] for i in after["items"]], [40, 30])
+
+    def test_stale_when_new_box_added(self):
+        slip, _ = create_or_resume_stocktake(self.conn, self.place["id"])
+        add_boxes(self.conn, "K10", [12], place_id=self.place["id"])
+        after = get_stocktake(self.conn, slip["id"])
+        self.assertTrue(after["stale"]["changed"])
+        self.assertEqual(len(after["stale"]["added"]), 1)
+        self.assertEqual(after["stale"]["added"][0]["remaining"], 12)
+
+    def test_stale_when_box_disabled(self):
+        slip, _ = create_or_resume_stocktake(self.conn, self.place["id"])
+        self._disable_box(self.boxes[1]["id"])
+        after = get_stocktake(self.conn, slip["id"])
+        self.assertTrue(after["stale"]["changed"])
+        self.assertEqual([r["box_id"] for r in after["stale"]["removed"]], [self.boxes[1]["id"]])
+
+    def test_complete_blocked_when_stale(self):
+        slip, _ = create_or_resume_stocktake(self.conn, self.place["id"])
+        for it in slip["items"]:
+            save_stocktake(self.conn, slip["id"], [{"id": it["id"], "actual_quantity": it["expected_quantity"]}])
+        allocate_picks(self.conn, [{"box_id": self.boxes[0]["id"], "quantity": 5}], 2002)
+        done, err = complete_stocktake(self.conn, slip["id"], actor="Duy")
+        self.assertEqual(err, "stale")
+        self.assertTrue(done["stale"]["changed"])          # payload trả về mang chi tiết
+        self.assertEqual(get_stocktake(self.conn, slip["id"])["status"], "draft")  # chưa chốt
+
+    def test_resync_updates_expected_keeps_actuals_adds_removes(self):
+        slip, _ = create_or_resume_stocktake(self.conn, self.place["id"])
+        first = slip["items"][0]
+        save_stocktake(self.conn, slip["id"], [{"id": first["id"], "actual_quantity": 38, "note": "đếm rồi"}])
+        allocate_picks(self.conn, [{"box_id": self.boxes[0]["id"], "quantity": 5}], 2003)  # box0 40→35
+        new = add_boxes(self.conn, "K10", [12], place_id=self.place["id"])                 # thùng mới
+        self._disable_box(self.boxes[1]["id"])                                             # box1 rời
+
+        resynced, err = resync_stocktake(self.conn, slip["id"], actor="Lan")
+        self.assertIsNone(err)
+        self.assertFalse(resynced["stale"]["changed"])
+        by_box = {i["box_id"]: i for i in resynced["items"]}
+        self.assertEqual(by_box[self.boxes[0]["id"]]["expected_quantity"], 35)   # đồng bộ số mới
+        self.assertEqual(by_box[self.boxes[0]["id"]]["actual_quantity"], 38)     # GIỮ số đã đếm
+        self.assertEqual(by_box[self.boxes[0]["id"]]["note"], "đếm rồi")
+        self.assertNotIn(self.boxes[1]["id"], by_box)                            # thùng rời bị bỏ
+        self.assertIn(new[0]["id"], by_box)                                      # thùng mới thêm vào
+        self.assertIsNone(by_box[new[0]["id"]]["actual_quantity"])
+        self.assertEqual(by_box[new[0]["id"]]["expected_quantity"], 12)
+        self.assertEqual(resynced["updated_by"], "Lan")
+
+    def test_void_frees_place_for_new_draft(self):
+        slip, _ = create_or_resume_stocktake(self.conn, self.place["id"])
+        voided, err = void_stocktake(self.conn, slip["id"], actor="Duy")
+        self.assertIsNone(err)
+        self.assertEqual(voided["status"], "voided")
+        fresh, resumed = create_or_resume_stocktake(self.conn, self.place["id"])
+        self.assertFalse(resumed)                        # KHÔNG resume phiếu đã huỷ
+        self.assertNotEqual(fresh["id"], slip["id"])
+
+    def test_cannot_void_completed(self):
+        slip, _ = create_or_resume_stocktake(self.conn, self.place["id"])
+        for it in slip["items"]:
+            save_stocktake(self.conn, slip["id"], [{"id": it["id"], "actual_quantity": it["expected_quantity"]}])
+        complete_stocktake(self.conn, slip["id"], actor="Duy")
+        res, err = void_stocktake(self.conn, slip["id"], actor="Duy")
+        self.assertIsNone(res)
+        self.assertEqual(err, "completed")
 
 
 if __name__ == "__main__":

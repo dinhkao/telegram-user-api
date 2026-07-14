@@ -227,11 +227,18 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         n = ra if isinstance(ra, (int, float)) else len(ra or []) or len(p.get("items") or [])
         n = int(n or 0)
         return "Xoá phiếu hủy (hoàn tồn)", [part(f"hoàn {n} phần về thùng")] if n else []
-    if action in ("stocktake.created", "stocktake.completed"):
-        label = "Tạo phiếu kiểm kho" if action.endswith("created") else "Hoàn tất kiểm kho"
-        seg = _join([[part(f"phiếu #{p.get('stocktake_id')} →", href_for("stocktake", p.get("stocktake_id")))] if p.get("stocktake_id") else [],
-                     [part(f"{p.get('box_count')} thùng")] if p.get("box_count") is not None else []])
-        return label, seg
+    if action.startswith("stocktake."):
+        _st_labels = {
+            "stocktake.created": "Tạo phiếu kiểm kho",
+            "stocktake.completed": "Hoàn tất kiểm kho",
+            "stocktake.resynced": "Cập nhật lại phiếu kiểm kho",
+            "stocktake.voided": "Huỷ phiếu kiểm kho",
+        }
+        label = _st_labels.get(action)
+        if label:
+            seg = _join([[part(f"phiếu #{p.get('stocktake_id')} →", href_for("stocktake", p.get("stocktake_id")))] if p.get("stocktake_id") else [],
+                         [part(f"{p.get('box_count')} thùng")] if p.get("box_count") is not None else []])
+            return label, seg
     if action == "settings.changed":
         k = str(p.get("key") or "")
         v = p.get("value")

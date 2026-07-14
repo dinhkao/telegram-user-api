@@ -121,9 +121,12 @@ export function PlaceDetail({ id }: { id: string }) {
             {stocktakes.slice(0, 5).map((s) => (
               <a href={`#/kiem-kho/${s.id}`} class="place-stocktake-link" key={s.id}>
                 <span class={`place-stocktake-dot ${s.status}`} />
-                <span><b>Phiếu #{s.id}</b><small>{fmtDateTimeVN(s.captured_at)} · {s.summary.counted_count}/{s.summary.box_count} thùng</small></span>
+                <span>
+                  <b>Phiếu #{s.id} {s.status === "draft" && s.stale?.changed && <em class="place-stocktake-stale">⚠ cần cập nhật</em>}</b>
+                  <small>{fmtDateTimeVN(s.captured_at)} · {s.summary.counted_count}/{s.summary.box_count} thùng</small>
+                </span>
                 <strong class={s.status === "completed" && (s.summary.difference_total || 0) !== 0 ? "has-diff" : ""}>
-                  {s.status === "draft" ? "Đang kiểm" : `Lệch ${(s.summary.difference_total || 0) > 0 ? "+" : ""}${soVN(s.summary.difference_total || 0)}`}
+                  {s.status === "voided" ? "Đã huỷ" : s.status === "draft" ? "Đang kiểm" : `Lệch ${(s.summary.difference_total || 0) > 0 ? "+" : ""}${soVN(s.summary.difference_total || 0)}`}
                 </strong>
                 <Icon name="chevronRight" size={16} />
               </a>

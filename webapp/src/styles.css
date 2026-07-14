@@ -1399,6 +1399,23 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .stocktake-status.wait { color: var(--muted); background: var(--bg); border: 1px solid var(--border); }
 .stocktake-status.done { color: var(--ok); background: var(--ok-wash); border: 1px solid color-mix(in srgb, var(--ok) 25%, transparent); }
 .stocktake-lock-alert { display: flex; align-items: center; gap: 6px; padding: 9px 11px; border: 1px solid #ecd28a; border-radius: 10px; background: var(--warn-wash); color: #6c5200; font-size: .82rem; }
+.stocktake-status.voided { color: var(--danger); background: var(--danger-wash, #fdecec); border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent); }
+.place-stocktake-dot.voided { background: var(--danger); }
+.place-stocktake-stale { color: var(--danger); font-style: normal; font-weight: 700; font-size: .68rem; margin-left: 5px; }
+.stocktake-lock-alert.voided { border-color: color-mix(in srgb, var(--danger) 30%, transparent); background: var(--danger-wash, #fdecec); color: var(--danger); }
+/* Kho biến động sau khi chụp phiếu → cảnh báo + chi tiết thay đổi + nút cập nhật lại */
+.stocktake-stale-alert { display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius: 12px; background: var(--danger-wash, #fdecec); }
+.stocktake-stale-head { display: flex; align-items: center; gap: 6px; color: var(--danger); }
+.stocktake-stale-alert p { margin: 0; color: #7a1f1f; }
+.stocktake-stale-detail { display: flex; flex-direction: column; gap: 5px; }
+.stocktake-stale-detail > div { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.st-diff-tag { flex: 0 0 auto; padding: 2px 7px; border-radius: 999px; font-size: .68rem; font-weight: 700; }
+.st-diff-tag.adj { color: #7a5a00; background: var(--warn-wash); }
+.st-diff-tag.add { color: var(--ok); background: var(--ok-wash); }
+.st-diff-tag.rem { color: var(--danger); background: #fff; border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent); }
+.st-diff-chip { padding: 2px 8px; border-radius: 8px; background: #fff; border: 1px solid var(--border); font-size: .74rem; }
+.st-diff-chip.more { color: var(--muted); background: transparent; border-style: dashed; }
+.stocktake-stale-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 2px; }
 .stocktake-people { display: flex; flex-wrap: wrap; gap: 5px 12px; padding: 1px 3px; color: var(--muted); font-size: .74rem; }
 .stocktake-people span { display: inline-flex; align-items: center; gap: 4px; }
 .stocktake-people b { color: var(--ink); }

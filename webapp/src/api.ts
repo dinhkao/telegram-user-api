@@ -1096,12 +1096,19 @@ export type StocktakeSummary = {
   box_count: number; counted_count: number; deviation_count: number;
   expected_total: number; actual_total: number | null; difference_total: number | null;
 };
+export type StocktakeStale = {
+  changed: boolean;
+  added: { box_id: number; box_code: string; product_code: string; remaining: number }[];
+  removed: { box_id: number; box_code: string; product_code: string; expected: number }[];
+  adjusted: { box_id: number; box_code: string; product_code: string; expected: number; current: number }[];
+  summary: string;
+};
 export type Stocktake = {
-  id: number; place_id: number; place_name: string; status: "draft" | "completed";
+  id: number; place_id: number; place_name: string; status: "draft" | "completed" | "voided";
   note?: string | null; captured_at: string; created_by?: string | null;
   updated_at?: string | null; updated_by?: string | null;
   completed_at?: string | null; completed_by?: string | null;
-  items: StocktakeItem[]; summary: StocktakeSummary;
+  items: StocktakeItem[]; summary: StocktakeSummary; stale?: StocktakeStale;
 };
 export async function listPlaceStocktakes(placeId: string | number): Promise<Stocktake[]> {
   const d = await getJSON(`/api/places/${Number(placeId)}/stocktakes`, { cache: false });
@@ -1121,6 +1128,14 @@ export async function saveStocktake(id: string | number, counts: { id: number; a
 }
 export async function completeStocktake(id: string | number, note: string | undefined, sid: string): Promise<Stocktake> {
   const d = await postJSON(`/api/stocktakes/${Number(id)}/complete`, { note, sid, user: _actor() }, { queueable: false });
+  return d.stocktake;
+}
+export async function resyncStocktake(id: string | number, sid: string): Promise<Stocktake> {
+  const d = await postJSON(`/api/stocktakes/${Number(id)}/resync`, { sid, user: _actor() }, { queueable: false });
+  return d.stocktake;
+}
+export async function voidStocktake(id: string | number): Promise<Stocktake> {
+  const d = await postJSON(`/api/stocktakes/${Number(id)}/void`, { user: _actor() }, { queueable: false });
   return d.stocktake;
 }
 export async function lockStocktake(id: string | number, sid: string): Promise<{ ok: boolean; holder: string | null; mine: boolean; completed?: boolean }> {

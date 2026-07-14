@@ -312,13 +312,15 @@ def create_app():
     from server_app.stocktake_routes import (
         place_stocktakes_handler, stocktake_create_handler, stocktake_detail_handler,
         stocktake_save_handler, stocktake_complete_handler, stocktake_lock_handler,
-        stocktake_unlock_handler,
+        stocktake_unlock_handler, stocktake_resync_handler, stocktake_void_handler,
     )
     r.add_get("/api/places/{place_id}/stocktakes", place_stocktakes_handler)
     r.add_post("/api/places/{place_id}/stocktakes", stocktake_create_handler)
     r.add_get("/api/stocktakes/{stocktake_id}", stocktake_detail_handler)
     r.add_post("/api/stocktakes/{stocktake_id}", stocktake_save_handler)
     r.add_post("/api/stocktakes/{stocktake_id}/complete", stocktake_complete_handler)
+    r.add_post("/api/stocktakes/{stocktake_id}/resync", stocktake_resync_handler)
+    r.add_post("/api/stocktakes/{stocktake_id}/void", stocktake_void_handler)
     r.add_post("/api/stocktakes/{stocktake_id}/lock", stocktake_lock_handler)
     r.add_post("/api/stocktakes/{stocktake_id}/unlock", stocktake_unlock_handler)
     r.add_post("/api/places", place_create_handler)
