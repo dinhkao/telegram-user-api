@@ -433,6 +433,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     riêng từng phiếu: POST `/api/production/{tid}/wage` (`set_slip_wage_handler`), UI ô "Đơn
     giá phiếu này" trong khối tiền công (`detail/ProductionWages.tsx`). MỌI chỗ tính tiền
     (compute_wages, compute_range_report, worker_detail, _phieu_wages) ưu tiên luong_1sp.
+  - **Lương THEO GIỜ (2026-07-14)**: phiếu SẢN XUẤT có cột **"Giờ"** trong bảng báo cáo
+    thợ (= cột 12 "số giờ TL" layout sheet — `domain.parse_report` đọc, blob `bang` +
+    mirror `production_report_rows.so_gio`). Dòng có giờ → tiền = giờ ×
+    `production_workers.hourly_rate` (đặt ở `#/sx-tho/:name`, office-only qua POST
+    `/api/workers/{id}`) THAY cây × đơn giá. Cả 4 chỗ tính tiền xử lý; thợ có giờ chưa
+    đặt đơn giá → cảnh báo `missing_hour_rate`/`giờ: <tên>`, dòng hiện 0đ + ⚠.
 
 **Web app for phones (orders management, 5-6 internal users)**
 - `webapp/` — Vite + Preact + TS mobile UI (Vietnamese). Hash router `main.tsx`, nav
