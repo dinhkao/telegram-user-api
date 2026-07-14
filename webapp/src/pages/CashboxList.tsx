@@ -19,7 +19,7 @@ onRealtime((e) => {
 });
 
 const BOX_ICON: Record<string, string> = {
-  office: "wallet", bank: "receipt", debt: "clipboard", unknown: "search",
+  office: "banknote", bank: "bank", debt: "clipboard", unknown: "search",
 };
 
 function BoxCard({ b }: { b: CashBox }) {
@@ -125,23 +125,28 @@ export function CashboxList() {
 
   return (
     <div class="cash-page">
-      {(typeof totalUnpaid === "number" || office) && (
-        <div class="cash-head">
+      <div class="cash-head">
           <div>
             {typeof totalUnpaid === "number" ? (
               <>
                 <div class="muted small">Khách còn nợ (đơn từ {since})</div>
                 <div class="pt-total-big">{soVN(totalUnpaid)}đ</div>
               </>
-            ) : null}
+            ) : (
+              <div class="muted small">Két tiền của bạn</div>
+            )}
           </div>
-          {office && (
-            <button class="btn" onClick={() => setShowTransfer(true)}>
-              <Icon name="refresh" size={14} /> Chuyển tiền
-            </button>
-          )}
-        </div>
-      )}
+          <div class="cash-head-btns">
+            <a class="btn small" href="#/huong-dan/ket-tien" title="Hướng dẫn két tiền">
+              <Icon name="info" size={14} />
+            </a>
+            {office && (
+              <button class="btn" onClick={() => setShowTransfer(true)}>
+                <Icon name="refresh" size={14} /> Chuyển tiền
+              </button>
+            )}
+          </div>
+      </div>
 
       {!boxes.length && <EmptyState>Chưa có biến động tiền nào.</EmptyState>}
 

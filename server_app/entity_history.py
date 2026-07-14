@@ -145,6 +145,8 @@ _SKIP = {"POST /api/production/{id}/report/parse",   # xem trước, không ph�
          "POST /api/returns/{id}/delete",            # đã có event return.deleted
          "POST /api/returns/{id}/delete-invoice",    # đã có event return.invoice_deleted
          "POST /api/purchases/{id}/delete",          # đã có event purchase.deleted
+         "POST /api/purchases/{id}/pay",             # đã có event purchase.paid
+         "POST /api/purchases/{id}/payments/{id}/delete",  # đã có event purchase.payment_deleted
          "POST /api/suppliers/{id}/delete"}          # đã có event supplier.deleted
 
 

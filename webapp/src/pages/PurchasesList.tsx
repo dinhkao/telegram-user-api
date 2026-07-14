@@ -114,7 +114,14 @@ export function PurchasesList() {
             <a class="ret-card pur-card" href={`#/nhap-hang/${r.id}`} key={r.id}>
               <div class="ret-card-top">
                 <span class="ret-cust">{r.supplier_name || `NCC #${r.supplier_id}`}</span>
-                <span class="pur-amt">+{soVN(r.total)}</span>
+                <span class="pur-amt">
+                  {(r.paid || 0) > 0 && (r.remaining ?? 1) <= 0
+                    ? <span class="cash-badge ok">✓ đã trả</span>
+                    : (r.paid || 0) > 0
+                      ? <span class="cash-badge">nợ {soVN(r.remaining ?? 0)}</span>
+                      : null}
+                  {" "}+{soVN(r.total)}
+                </span>
               </div>
               <div class="ret-card-sub muted small">
                 {(r.items || []).map((x) => `${x.sp} ×${soVN(x.sl)}`).join(", ")}

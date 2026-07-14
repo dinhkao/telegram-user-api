@@ -48,6 +48,7 @@ const GROUPS: Group[] = [
     { label: "Camera 2026", href: "#/camera", icon: "camera", office: true },
   ] },
   { title: "Hệ thống", icon: "settings", items: [
+    { label: "Hướng dẫn", href: "#/huong-dan", icon: "info" },
     { label: "Lịch sử thao tác", href: "#/lich-su", icon: "history" },
     { label: "Thống kê sử dụng", href: "#/usage", icon: "chart", admin: true },
     { label: "Cài đặt", href: "#/login", icon: "settings" },

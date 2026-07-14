@@ -330,11 +330,17 @@ export type Supplier = {
   created_by?: string; created_at?: string; deleted_at?: string | null;
   so_phieu?: number; tong_tien?: number; last_at?: string | null;
 };
+export type PurchasePayment = {
+  id: number; amount: number; box: string; by: string; at: string;
+  by_name?: string; box_name?: string;   // server enrich — tên hiển thị
+};
 export type PurchaseSlip = {
   id: number; supplier_id: number; supplier_name?: string | null;
   items: { sp: string; sp_id?: number; name?: string; sl: number; price: number }[];
   total: number; note?: string; created_by?: string; created_at?: string;
   deleted_at?: string | null; deleted_by?: string | null;
+  payments?: PurchasePayment[]; paid?: number;
+  remaining?: number;   // còn nợ NCC — server tính (round Python), client hiển thị thẳng
 };
 /** Danh sách NCC kèm thống kê (số phiếu, tổng tiền, lần nhập cuối). */
 export async function listSuppliers(): Promise<Supplier[]> {
@@ -365,6 +371,13 @@ export async function listAllPurchases(page = 1): Promise<{ purchases: PurchaseS
 export async function getPurchase(id: string | number): Promise<PurchaseSlip> {
   const d = await getJSON(`/api/purchases/${id}`, { cache: false });
   return d.purchase;
+}
+/** Trả tiền NCC từ két của mình (admin: truyền box để trả từ két khác). */
+export async function payPurchase(id: number | string, amount: number, box?: string): Promise<any> {
+  return postJSON(`/api/purchases/${id}/pay`, { amount, ...(box ? { box } : {}) }, { queueable: false });
+}
+export async function deletePurchasePayment(id: number | string, paymentId: number): Promise<any> {
+  return postJSON(`/api/purchases/${id}/payments/${paymentId}/delete`, {}, { queueable: false });
 }
 /** Tạo phiếu nhập hàng (văn phòng) — 100% local, không đụng KiotViet. */
 export async function createPurchase(supplierId: number, items: { sp: string; sl: number; price: number }[], note = ""): Promise<any> {
@@ -1021,7 +1034,7 @@ export type CashMove = {
   ts: number; at: string; dir: "in" | "out"; amount: number; after: number;
   other_key: string; other_name: string; reason: string; label: string;
   thread_id: number | null; order_name: string;
-  transfer_id: number | null; note: string; actor: string;
+  transfer_id: number | null; purchase_id?: number | null; note: string; actor: string;
 };
 
 /** total_unpaid chỉ có với văn phòng — staff bị server lược bỏ (ẩn tổng nợ công ty). */

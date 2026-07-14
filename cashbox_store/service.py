@@ -34,6 +34,7 @@ _REASON_VI = {
     "payment": "Thu tiền (phiếu thu)",
     "payment_ck": "Thu chuyển khoản",
     "transfer": "Chuyển tiền tay",
+    "purchase_pay": "Trả tiền nhập hàng",
 }
 
 _cache: dict = {"stamp": None, "state": None}
@@ -54,6 +55,14 @@ def _since_utc() -> str:
         return SINCE
 
 
+def _since_epoch() -> float:
+    """Epoch của 00:00 VN ngày SINCE — lọc transfer/payment nhập hàng."""
+    try:
+        return datetime.strptime(SINCE, "%Y-%m-%d").replace(tzinfo=_VN).timestamp()
+    except ValueError:
+        return 0.0
+
+
 def _stamp(conn, now: float) -> tuple:
     row = conn.execute(
         "SELECT COUNT(*), COALESCE(MAX(updated_at), 0) FROM orders"
@@ -69,11 +78,20 @@ def _stamp(conn, now: float) -> tuple:
         users_sig = (u[0], u[1], u[2])
     except Exception:  # noqa: BLE001 — thiếu bảng (DB test) vẫn chạy
         users_sig = ()
+    try:   # payments trả NCC (thêm/gỡ/xoá phiếu) phải làm mới derive
+        p = conn.execute(
+            "SELECT COUNT(*), COALESCE(SUM(LENGTH(payments)), 0),"
+            " SUM(CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END)"
+            " FROM purchase_slips WHERE payments IS NOT NULL AND payments != '[]'").fetchone()
+        pur_sig = (p[0], p[1], p[2])
+    except Exception:  # noqa: BLE001
+        pur_sig = ()
     # bucket thời gian VN: cờ quá-hạn chỉ lật ở mốc 17:00/nửa đêm, in/out_today
     # đổi ở nửa đêm → đưa (ngày, đã-qua-17h) vào stamp là ĐỦ chính xác, tối đa
     # thêm 2 lần rebuild mỗi ngày.
     d = datetime.fromtimestamp(now, _VN)
-    return (row[0], row[1], t[0], t[1], t[2], users_sig, d.strftime("%Y-%m-%d"), d.hour >= 17)
+    return (row[0], row[1], t[0], t[1], t[2], users_sig, pur_sig,
+            d.strftime("%Y-%m-%d"), d.hour >= 17)
 
 
 def _extra_tg_map() -> dict[str, str]:
@@ -148,6 +166,26 @@ def _build_state(conn, now: float) -> dict:
         moves.append({"ts": _ts(t["created_at"]), "src": t["from_box"], "dst": t["to_box"],
                       "amount": t["amount"], "reason": "transfer", "actor": t["created_by"],
                       "thread_id": None, "transfer_id": t["id"], "note": t["note"]})
+
+    # Trả tiền NCC từ két (phiếu nhập hàng) — tiền RA khỏi hệ két
+    try:
+        from purchase_store import payments_for_cashbox
+        since_ep = _since_epoch()
+        for pu in payments_for_cashbox(conn):
+            for p in pu["payments"]:
+                try:
+                    a = int(round(float(p.get("amount") or 0)))
+                except (TypeError, ValueError):
+                    continue
+                ts = _ts(p.get("at"))
+                if a <= 0 or ts < since_ep:
+                    continue
+                moves.append({"ts": ts, "src": str(p.get("box") or "unknown"), "dst": EXTERNAL,
+                              "amount": a, "reason": "purchase_pay", "actor": p.get("by"),
+                              "thread_id": None, "purchase_id": pu["purchase_id"],
+                              "other_label": f"NCC {pu['supplier_name']}".strip()})
+    except Exception:  # noqa: BLE001 — bảng nhập hàng chưa có (DB test) vẫn chạy
+        pass
 
     for m in moves:   # tên người thao tác — canon 1 lần lúc build
         a = m.get("actor")
@@ -256,10 +294,12 @@ def cashbox_timeline(key: str, now: float, limit: int = 300, before: float | Non
             "ts": m["ts"], "at": _iso(m["ts"]), "dir": "in" if incoming else "out",
             "amount": m["amount"], "after": bal,
             "other_key": other,
-            "other_name": "Khách" if other == EXTERNAL else box_display(other, st["names"]),
+            "other_name": m.get("other_label")
+            or ("Khách" if other == EXTERNAL else box_display(other, st["names"])),
             "reason": m["reason"], "label": _REASON_VI.get(m["reason"], m["reason"]),
             "thread_id": tid, "order_name": st["order_names"].get(tid, "") if tid else "",
-            "transfer_id": m.get("transfer_id"), "note": m.get("note", ""),
+            "transfer_id": m.get("transfer_id"), "purchase_id": m.get("purchase_id"),
+            "note": m.get("note", ""),
             "actor": m.get("actor_name", ""),
         })
     if before:

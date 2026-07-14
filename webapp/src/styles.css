@@ -3000,3 +3000,22 @@ body.kbd-open .od-navbar { display: none; }
 .cash-hold-name { font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .cash-hold-amt { font-weight: 800; font-variant-numeric: tabular-nums; }
 .cash-del { color: var(--danger); }
+
+/* Thanh toán NCC từ két (PurchaseDetail) */
+.cash-badge.ok { color: var(--ok); background: var(--ok-wash); }
+.pu-pay-sum { margin: 2px 0 6px; }
+.pu-pay-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--border); font-size: .88rem; flex-wrap: wrap; }
+.pu-pay-row .pu-pay-amt { margin-left: auto; font-variant-numeric: tabular-nums; }
+.pu-pay-form { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+
+/* Hướng dẫn sử dụng (#/huong-dan) */
+.guide-list { display: flex; flex-direction: column; gap: 8px; }
+.guide-intro { margin: 2px 2px 4px; }
+.guide { display: flex; flex-direction: column; gap: 8px; }
+.guide-sect h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: .98rem; }
+.guide-num { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #fff;
+  font-size: .78rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+.guide-sect p { margin: 6px 0; line-height: 1.55; }
+.guide-sect ul, .guide-sect ol { margin: 6px 0; padding-left: 20px; line-height: 1.55; }
+.guide-sect li { margin: 4px 0; }
+.cash-head-btns { display: flex; align-items: center; gap: 8px; }

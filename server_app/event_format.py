@@ -205,6 +205,11 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         seg = _join([[part(name or f"NCC #{p.get('supplier_id')}", href_for("supplier", p.get("supplier_id")))] if p.get("supplier_id") else [],
                      [part(money(p.get("total")))] if p.get("total") is not None else []])
         return ("Tạo phiếu nhập hàng" if action.endswith("created") else "Xoá phiếu nhập hàng"), seg
+    if action in ("purchase.paid", "purchase.payment_deleted"):
+        from cashbox_store.identity import box_display
+        seg = _join([[part(money(p.get("amount")))] if p.get("amount") is not None else [],
+                     [part(f"từ két {box_display(str(p.get('box')))}", "#/ket")] if p.get("box") else []])
+        return ("Trả tiền nhập hàng" if action == "purchase.paid" else "Gỡ lần trả tiền nhập hàng"), seg
     if action in ("supplier.created", "supplier.deleted"):
         return ("Tạo nhà cung cấp" if action.endswith("created") else "Xoá nhà cung cấp"), \
             [part(str(p.get("name") or ""))] if p.get("name") else []

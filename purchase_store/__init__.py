@@ -32,15 +32,24 @@ def ensure_purchases_schema(conn) -> None:
     conn.executescript(_SCHEMA)
     for sql in _INDEXES:
         conn.execute(sql)
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(purchase_slips)")}
+    if "payments" not in cols:   # 2026-07-14: trả tiền NCC từ két (JSON list)
+        conn.execute("ALTER TABLE purchase_slips ADD COLUMN payments TEXT")
     conn.commit()
 
 
 def _row_to_dict(r) -> dict:
+    from purchase_store.payments import _parse, paid_total
     d = dict(r)
     try:
         d["items"] = json.loads(d.get("items") or "[]")
     except (TypeError, ValueError):
         d["items"] = []
+    d["payments"] = _parse(d.get("payments"))
+    d["paid"] = paid_total(d["payments"])
+    # remaining tính 1 chỗ (Python round) — client hiển thị thẳng, khỏi lệch
+    # Math.round(JS) vs round(Python) khi total lẻ
+    d["remaining"] = int(round(float(d.get("total") or 0))) - d["paid"]
     return d
 
 
@@ -109,19 +118,28 @@ def list_purchases_for_supplier(conn, supplier_id: int) -> list[dict]:
 
 
 def update_purchase_items(conn, purchase_id: int, items: list[dict], total: float,
-                          note: str, supplier_id: int | None = None) -> bool:
-    """Sửa hàng nhập/ghi chú (văn phòng) — đổi cả NCC nếu truyền supplier_id."""
+                          note: str, supplier_id: int | None = None) -> tuple[bool, str]:
+    """Sửa hàng nhập/ghi chú (văn phòng) — đổi cả NCC nếu truyền supplier_id.
+    CHẶN hạ tổng xuống dưới số ĐÃ TRẢ NCC (cùng transaction, tránh race với trả
+    tiền đồng thời) — không thì phiếu trả-dư bị che thành 'đã trả đủ'."""
+    from purchase_store.payments import _parse, paid_total
+    from utils.db import transaction
     ensure_purchases_schema(conn)
-    if supplier_id is not None:
-        conn.execute(
-            "UPDATE purchase_slips SET items = ?, total = ?, note = ?, supplier_id = ? WHERE id = ?",
-            (json.dumps(items, ensure_ascii=False), float(total), note or "", int(supplier_id), purchase_id))
-    else:
-        conn.execute(
-            "UPDATE purchase_slips SET items = ?, total = ?, note = ? WHERE id = ?",
-            (json.dumps(items, ensure_ascii=False), float(total), note or "", purchase_id))
-    conn.commit()
-    return True
+    with transaction(conn):
+        r = conn.execute("SELECT payments FROM purchase_slips WHERE id = ?", (purchase_id,)).fetchone()
+        paid = paid_total(_parse(r["payments"])) if r else 0
+        if int(round(float(total))) < paid:
+            return False, (f"Phiếu đã trả {paid:,}đ — tổng mới không được thấp hơn số đã trả"
+                           .replace(",", "."))
+        if supplier_id is not None:
+            conn.execute(
+                "UPDATE purchase_slips SET items = ?, total = ?, note = ?, supplier_id = ? WHERE id = ?",
+                (json.dumps(items, ensure_ascii=False), float(total), note or "", int(supplier_id), purchase_id))
+        else:
+            conn.execute(
+                "UPDATE purchase_slips SET items = ?, total = ?, note = ? WHERE id = ?",
+                (json.dumps(items, ensure_ascii=False), float(total), note or "", purchase_id))
+    return True, ""
 
 
 def soft_delete_purchase(conn, purchase_id: int, by: str = "") -> bool:
@@ -131,3 +149,7 @@ def soft_delete_purchase(conn, purchase_id: int, by: str = "") -> bool:
         " WHERE id = ? AND deleted_at IS NULL", (by or "", purchase_id))
     conn.commit()
     return True
+
+
+from purchase_store.payments import (add_purchase_payment, delete_purchase_payment,  # noqa: E402,F401
+                                     paid_total, payments_for_cashbox)

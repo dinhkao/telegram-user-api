@@ -68,6 +68,7 @@ import { DisposalsList } from "./pages/DisposalsList";
 import { DisposalDetail } from "./pages/DisposalDetail";
 import { CashboxList } from "./pages/CashboxList";
 import { CashboxDetail } from "./pages/CashboxDetail";
+import { GuidesList, GuideCashbox } from "./pages/Guides";
 import { initUsage } from "./usage";
 import "./styles.css";
 
@@ -513,6 +514,8 @@ function App() {
   else if (hash.startsWith("#/xuat-huy")) page = <DisposalsList />;
   else if (ketMatch) page = <CashboxDetail boxKey={decodeURIComponent(ketMatch[1])} />;
   else if (hash.startsWith("#/ket")) page = <CashboxList />;
+  else if (hash.startsWith("#/huong-dan/ket-tien")) page = <GuideCashbox />;
+  else if (hash.startsWith("#/huong-dan")) page = <GuidesList />;
   else if (hash.startsWith("#/nhap-hang")) page = <PurchasesList />;
   else if (nccMatch) page = <SupplierDetail id={nccMatch[1]} />;
   else if (hash.startsWith("#/ncc")) page = <SuppliersList />;
@@ -551,6 +554,7 @@ function App() {
     : (hash.startsWith("#/kho") || khoMatch || boxMatch) ? "Kho hàng"
     : hash.startsWith("#/viec") ? "Việc"
     : hash.startsWith("#/ket") ? "Két tiền"
+    : hash.startsWith("#/huong-dan") ? "Hướng dẫn"
     : hash.startsWith("#/quy") ? "Sổ quỹ"
     : hash.startsWith("#/users") ? "Người dùng"
     : hash.startsWith("#/tho") ? "Thợ"

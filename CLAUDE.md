@@ -344,6 +344,16 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   chọn NCC gõ tên lạ → tạo mới ngay) → `#/nhap-hang/:id` (PurchaseDetail);
   `#/ncc` (SuppliersList, thống kê số phiếu/tổng tiền) → `#/ncc/:id` (SupplierDetail,
   sửa info + phiếu nhập của NCC). Tests: `tests/test_purchase_store.py`.
+  **Trả tiền NCC từ KÉT (2026-07-14)**: cột JSON `payments` trên `purchase_slips`
+  (`purchase_store/payments.py` — RMW nguyên tử, chặn trả quá phần còn nợ TRONG
+  transaction; id payment = epoch ms SỐ để audit-path chuẩn hoá {id}). POST
+  `/api/purchases/{id}/pay` (đăng nhập, két CỦA MÌNH — admin két bất kỳ; chặn quá
+  số dư két, serialize qua `cashbox_routes._transfer_lock`) + `/payments/{pid}/delete`
+  (admin). Derive vào hệ két: két người trả → EXTERNAL (NCC), reason `purchase_pay`
+  (`cashbox_store/service.py`, stamp có chữ ký SUM(LENGTH(payments))). Sự kiện
+  `purchase.paid`/`purchase.payment_deleted` (event_format + _PAIRS). UI: khối
+  "Thanh toán NCC" ở PurchaseDetail (trả nhiều lần, admin gỡ), chip ✓ đã trả/nợ ở
+  PurchasesList, link phiếu nhập trong timeline két.
   SP có 2 cờ `can_sell`/`can_purchase` (products, mặc định 1, sửa ở chi tiết SP
   `#/kho/:code` khối "Mua bán", admin): tắt → SP biến khỏi GỢI Ý picker tương ứng
   (bán = InvoiceEditor, nhập = PurchaseModal/PurchaseDetail — lọc client-side từ
@@ -366,7 +376,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `server_app/cashbox_routes.py` (`/api/cashbox*`, GET nằm trong `_NO_AUDIT`; staff
   chỉ thấy két mình); realtime `cashbox_changed` + client nghe order_changed. UI:
   `#/ket` (CashboxList + chuyển tiền) → `#/ket/:key` (CashboxDetail — timeline rail
-  số dư kiểu OrderTimeline + đơn đang nằm két, badge ⏰ quá hạn nộp 17:00).
+  số dư kiểu OrderTimeline + đơn đang nằm két, badge ⏰ quá hạn nộp 17:00). Tiền RA
+  khỏi hệ két = trả NCC từ két (xem purchase_store). **Hướng dẫn sử dụng trong app:
+  `#/huong-dan` (webapp/src/pages/Guides.tsx, nội dung tĩnh — bài đầu: két tiền
+  `#/huong-dan/ket-tien`, nút ⓘ trên trang Két + menu Thêm→Hệ thống); thêm tính
+  năng lớn thì thêm bài vào GUIDES.**
 - `usage_store/` — bảng `usage_stats` (app.db): đếm GỘP thao tác webapp theo
   (ngày, user, kind view/tap, trang chuẩn hoá, nhãn nút) — KHÔNG log thô từng cú bấm
   (tránh phình kiểu audit_events). Client tự bắt mọi click nút/link + hashchange

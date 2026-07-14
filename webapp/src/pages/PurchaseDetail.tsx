@@ -4,7 +4,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import {
-  getPurchase, deletePurchase, currentUser, isOffice, soVN, type PurchaseSlip,
+  getPurchase, deletePurchase, payPurchase, deletePurchasePayment,
+  currentUser, isOffice, soVN, type PurchaseSlip,
 } from "../api";
 import { onRealtime } from "../realtime";
 import { Images } from "../detail/Images";
@@ -13,6 +14,93 @@ import { History } from "../detail/History";
 import { confirmDialog, toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
+
+const BOX_VI: Record<string, string> = {
+  office: "Két văn phòng", bank: "Két ngân hàng", debt: "Két khách nợ", unknown: "Két chưa rõ",
+};
+const boxVi = (key: string) =>
+  BOX_VI[key] || (key.startsWith("user:") ? `két ${key.slice(5)}` : key.startsWith("tg:") ? `két TG ${key.slice(3)}` : key);
+
+function PaySection({ r, isAdmin, deleted, onChanged }: {
+  r: PurchaseSlip; isAdmin: boolean; deleted: boolean; onChanged: () => void;
+}) {
+  const paid = r.paid || 0;
+  const remaining = r.remaining ?? Math.round(r.total) - paid;
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState(false);
+  const me = currentUser()?.username || "";
+  useEffect(() => { if (open) setAmount(String(remaining)); }, [open]);
+
+  const amt = parseInt(amount.replace(/[^\d]/g, ""), 10) || 0;
+  const pay = async () => {
+    if (amt <= 0) return toast("Nhập số tiền", "info");
+    if (!(await confirmDialog(`Trả ${soVN(amt)}đ cho NCC từ két của bạn (${me})?`))) return;
+    setBusy(true);
+    try {
+      await payPurchase(r.id, amt);
+      toast("Đã trả tiền từ két của bạn", "ok");
+      setOpen(false);
+      onChanged();
+    } catch (e: any) {
+      toast(e?.message || "Trả tiền thất bại", "err");
+    } finally { setBusy(false); }
+  };
+  const delPay = async (pid: number, a: number) => {
+    if (!(await confirmDialog(`Gỡ lần trả ${soVN(a)}đ? Tiền tính lại về két.`, { danger: true }))) return;
+    try {
+      await deletePurchasePayment(r.id, pid);
+      toast("Đã gỡ lần trả", "ok");
+      onChanged();
+    } catch (e: any) {
+      toast(e?.message || "Gỡ thất bại", "err");
+    }
+  };
+
+  return (
+    <section class="card">
+      <label class="card-label"><Icon name="wallet" size={15} /> Thanh toán NCC</label>
+      <div class="pu-pay-sum">
+        Đã trả <b class="cash-in">{soVN(paid)}đ</b>
+        {remaining >= 0 ? (
+          <> · Còn nợ NCC <b class={remaining > 0 ? "cash-out" : ""}>{soVN(remaining)}đ</b></>
+        ) : (
+          <> · <b class="cash-out">Trả dư {soVN(-remaining)}đ</b></>
+        )}
+        {remaining === 0 && <span class="cash-badge ok"> ✓ đã trả đủ</span>}
+      </div>
+      {(r.payments || []).map((p) => (
+        <div key={p.id} class="pu-pay-row">
+          <span class="muted small">{p.at ? `${p.at.slice(8, 10)}/${p.at.slice(5, 7)} ${p.at.slice(11, 16)}` : ""}</span>
+          <span><b>{p.by_name || p.by}</b> trả từ <a class="pt-inl" href={`#/ket/${encodeURIComponent(p.box)}`}>{p.box_name || boxVi(p.box)}</a></span>
+          <b class="pu-pay-amt">{soVN(p.amount)}đ</b>
+          {isAdmin && !deleted && (
+            <button class="icon-btn" title="Gỡ lần trả" onClick={() => delPay(p.id, p.amount)}>
+              <Icon name="trash" size={13} />
+            </button>
+          )}
+        </div>
+      ))}
+      {!deleted && remaining > 0 && !open && (
+        <button class="btn" onClick={() => setOpen(true)}>
+          <Icon name="wallet" size={14} /> Trả từ két của tôi
+        </button>
+      )}
+      {!deleted && open && (
+        <div class="pu-pay-form">
+          <input class="quy-input" type="text" inputMode="numeric" value={amount}
+            onInput={(e: any) => setAmount(e.currentTarget.value)} placeholder={`tối đa ${soVN(remaining)}`} />
+          <div class="row">
+            <button class="btn" onClick={() => setOpen(false)} disabled={busy}>Huỷ</button>
+            <button class="btn primary" onClick={pay} disabled={busy}>
+              {busy ? "Đang trả…" : `Trả ${amt > 0 ? soVN(amt) + "đ" : ""}`}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
 
 export function PurchaseDetail({ id }: { id: string }) {
   const [r, setR] = useState<PurchaseSlip | null>(null);
@@ -38,6 +126,8 @@ export function PurchaseDetail({ id }: { id: string }) {
 
   const doDelete = async () => {
     if (!isAdmin) return toast("Chỉ admin mới được xoá phiếu nhập", "info");
+    if ((r.payments || []).length > 0)
+      return toast("Phiếu còn lần trả tiền — gỡ các lần trả trước khi xoá", "info");
     if (!(await confirmDialog("Xoá phiếu nhập này?", { danger: true }))) return;
     setBusy(true);
     try {
@@ -103,12 +193,15 @@ export function PurchaseDetail({ id }: { id: string }) {
         {r.note && <div class="ret-card-note"><Icon name="note" size={13} /> {r.note}</div>}
       </section>
 
+      <PaySection r={r} isAdmin={isAdmin} deleted={deleted} onChanged={load} />
+
       <Images base={`/api/media/purchase/${id}`} />
       <Comments base={`/api/media/purchase/${id}`} />
       <History base={`/api/media/purchase/${id}`} />
 
       {!deleted && (
-        <button class={"btn danger block" + (isAdmin ? "" : " faded")} disabled={busy} onClick={doDelete}>
+        <button class={"btn danger block" + (isAdmin && !(r.payments || []).length ? "" : " faded")}
+          disabled={busy} onClick={doDelete}>
           <Icon name="trash" size={15} /> {busy ? "Đang xoá…" : "Xoá phiếu nhập"}
         </button>
       )}

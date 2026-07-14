@@ -380,12 +380,15 @@ def create_app():
     r.add_post("/api/suppliers/{id}/delete", supplier_delete_handler)
     from server_app.purchase_routes import (purchases_all_handler, purchase_create_handler,
                                             purchase_detail_handler, purchase_update_handler,
-                                            purchase_delete_handler)
+                                            purchase_delete_handler, purchase_pay_handler,
+                                            purchase_payment_delete_handler)
     r.add_get("/api/purchases", purchases_all_handler)
     r.add_post("/api/purchases", purchase_create_handler)
     r.add_get("/api/purchases/{id}", purchase_detail_handler)
     r.add_post("/api/purchases/{id}/update", purchase_update_handler)
     r.add_post("/api/purchases/{id}/delete", purchase_delete_handler)
+    r.add_post("/api/purchases/{id}/pay", purchase_pay_handler)                 # trả NCC từ két
+    r.add_post("/api/purchases/{id}/payments/{pid}/delete", purchase_payment_delete_handler)  # admin
     from server_app.disposal_routes import (disposal_create_handler, disposal_delete_handler,
                                             disposal_detail_handler, disposals_all_handler)
     r.add_get("/api/disposals", disposals_all_handler)

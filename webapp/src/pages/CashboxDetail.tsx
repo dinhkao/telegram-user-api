@@ -49,6 +49,9 @@ function MoveRow({ it, admin, onDeleteTransfer }: {
           {it.thread_id ? (
             <> · <a class="pt-inl" href={`#/order/${it.thread_id}`}>{it.order_name || `đơn #${it.thread_id}`}</a></>
           ) : null}
+          {it.purchase_id ? (
+            <> · <a class="pt-inl" href={`#/nhap-hang/${it.purchase_id}`}>phiếu nhập #{it.purchase_id}</a></>
+          ) : null}
           {it.note ? <> · <span class="muted">{it.note}</span></> : null}
           {it.transfer_id && admin ? (
             <> · <a class="pt-inl cash-del" onClick={(e: any) => { e.preventDefault(); onDeleteTransfer(it.transfer_id!); }} href="#">xoá</a></>
