@@ -42,7 +42,7 @@ class HourlyMoneyTests:
         ensure_report_rows_schema(conn)
         ensure_table(conn)
         conn.execute("""CREATE TABLE IF NOT EXISTS production_slips (
-            thread_id INTEGER PRIMARY KEY, sp_name TEXT, luong_1sp REAL, bang TEXT)""")
+            thread_id INTEGER PRIMARY KEY, sp_name TEXT, luong_1sp REAL, kind TEXT, bang TEXT)""")
         conn.execute("""CREATE TABLE IF NOT EXISTS production_allowances (
             thread_id INTEGER, worker_name TEXT, amount REAL)""")
         kim = add_worker(conn, "Kim")
@@ -69,8 +69,58 @@ class HourlyMoneyTests:
         by_name = {w["name"]: w for w in rep["workers"]}
         assert by_name["Kim"]["money"] == 8 * 50_000          # giờ × tiền 1 giờ
         assert by_name["Lan"]["money"] == 200 * 100           # cây × đơn giá chốt phiếu
-        kim_item = by_name["Kim"]["items"][0]
-        assert kim_item["gio"] == 8 and kim_item["hourly_rate"] == 50_000
+        kim_hr = [it for it in by_name["Kim"]["items"] if it["gio"] > 0][0]
+        assert kim_hr["gio"] == 8 and kim_hr["hourly_rate"] == 50_000
+
+    def test_piece_and_hours_both_paid_same_slip(self):
+        # Review 2026-07-14: thợ vừa có dòng CÂY vừa có dòng GIỜ trong 1 phiếu —
+        # GROUP BY từng nuốt tiền cây. Phải nhận CẢ HAI: cây×đơn giá + giờ×rate.
+        from production_store.report_rows import replace_report_rows
+        from production_store.report_slips import compute_range_report
+        conn = _conn()
+        self._seed(conn)
+        replace_report_rows(conn, 9, {
+            "product_code": "KDX30", "date": "5/7/2026",
+            "rows": [
+                {"name": "Kim", "so_gach": 10, "so_tru": 0, "so_cay_le": 0, "so_mam": 50,
+                 "tong_calc": 100, "note": ""},                      # dòng cây
+                {"name": "Kim", "so_gach": 0, "so_tru": 0, "so_cay_le": 0, "so_mam": 0,
+                 "tong_calc": 0, "note": "", "so_gio": 8},           # dòng giờ
+            ],
+        })
+        rep = compute_range_report(conn, "2026-07-01", "2026-07-31")
+        kim = {w["name"]: w for w in rep["workers"]}["Kim"]
+        assert kim["money"] == 100 * 100 + 8 * 50_000   # 10.000 + 400.000
+
+    def test_dong_goi_slip_ignores_hours(self):
+        # Giờ chỉ áp dụng phiếu SẢN XUẤT — phiếu đóng gói dính cột giờ (paste
+        # Telegram) không được lật sang tính giờ.
+        from production_store.report_slips import compute_range_report
+        conn = _conn()
+        self._seed(conn)
+        conn.execute("UPDATE production_slips SET kind = 'dong_goi' WHERE thread_id = 9")
+        rep = compute_range_report(conn, "2026-07-01", "2026-07-31")
+        kim = {w["name"]: w for w in rep["workers"]}.get("Kim")
+        assert kim is None or all((it["gio"] or 0) == 0 or it["money"] == 0 for it in kim["items"])
+
+    def test_worker_registered_after_report_claims_rows(self):
+        # Báo cáo lưu TRƯỚC khi đăng ký thợ → worker_id NULL; add_worker phải
+        # nhận lại các dòng đó (không thì lương giờ = 0 mãi).
+        from production_store.report_rows import replace_report_rows
+        from production_store.report_slips import compute_range_report
+        from worker_store import add_worker, update_worker
+        conn = _conn()
+        self._seed(conn)
+        replace_report_rows(conn, 9, {
+            "product_code": "KDX30", "date": "5/7/2026",
+            "rows": [{"name": "Mai", "so_gach": 0, "so_tru": 0, "so_cay_le": 0,
+                      "so_mam": 0, "tong_calc": 0, "note": "", "so_gio": 6}],
+        })
+        mai = add_worker(conn, "mai")   # đăng ký SAU, lệch hoa/thường
+        update_worker(conn, mai["id"], hourly_rate=40_000)
+        rep = compute_range_report(conn, "2026-07-01", "2026-07-31")
+        by = {w["name"]: w for w in rep["workers"]}
+        assert by["mai"]["money"] == 6 * 40_000
 
     def test_hours_without_rate_flagged_missing(self):
         from production_store.report_slips import compute_range_report

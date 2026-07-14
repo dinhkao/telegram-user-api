@@ -1344,14 +1344,14 @@ export async function forceReloadAll(): Promise<{ ok: boolean; clients: number }
 export type WageItem = { code: string; cay: number; wage: number; money: number; piece?: number; allowance?: number };
 export type WageWorker = { name: string; money: number; cay: number; allowance?: number; items: WageItem[] };
 export type WageDay = { ymd: string; money: number; cay: number; allowance?: number; workers: WageWorker[] };
-export type WagesDashboard = { from: string; to: string; days: WageDay[]; totals: { money: number; cay: number; allowance?: number }; missing_wage: string[] };
+export type WagesDashboard = { from: string; to: string; days: WageDay[]; totals: { money: number; cay: number; allowance?: number }; missing_wage: string[]; missing_hour_rate: string[] };
 export async function wagesDashboard(from?: string, to?: string): Promise<WagesDashboard> {
   const p = new URLSearchParams();
   if (from) p.set("from", from);
   if (to) p.set("to", to);
   const qs = p.toString();
   const d = await getJSON("/api/production/wages" + (qs ? "?" + qs : ""), { cache: false });
-  return { from: d.from, to: d.to, days: d.days || [], totals: d.totals || { money: 0, cay: 0 }, missing_wage: d.missing_wage || [] };
+  return { from: d.from, to: d.to, days: d.days || [], totals: d.totals || { money: 0, cay: 0 }, missing_wage: d.missing_wage || [], missing_hour_rate: d.missing_hour_rate || [] };
 }
 
 export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; capacity?: number; reserved?: boolean; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null; unit_id?: number | null; unit_name?: string | null; product_unit?: string; source_thread_id?: number | null };

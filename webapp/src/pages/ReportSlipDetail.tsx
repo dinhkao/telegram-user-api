@@ -153,11 +153,27 @@ export function ReportSlipDetail({ id }: { id: string }) {
         )}
       </div>
 
-      {rep.missing_wage.length > 0 && (
-        <div class="wg-warn">
-          <Icon name="ban" size={15} /> Chưa có đơn giá lương cho: {rep.missing_wage.map((c, i) => <span key={c}>{i ? ", " : ""}<b>{c}</b></span>)} — số SP các mã này KHÔNG được tính tiền. <a href="#/luong-sp">Cài đơn giá →</a>
-        </div>
-      )}
+      {(() => {
+        // "giờ: <tên thợ>" = thiếu TIỀN 1 GIỜ (đặt ở trang thợ) ≠ thiếu đơn giá SP
+        const spMiss = rep.missing_wage.filter((c) => !c.startsWith("giờ: "));
+        const gioMiss = rep.missing_wage.filter((c) => c.startsWith("giờ: ")).map((c) => c.slice(5));
+        return (
+          <>
+            {spMiss.length > 0 && (
+              <div class="wg-warn">
+                <Icon name="ban" size={15} /> Chưa có đơn giá lương cho: {spMiss.map((c, i) => <span key={c}>{i ? ", " : ""}<b>{c}</b></span>)} — số SP các mã này KHÔNG được tính tiền. <a href="#/luong-sp">Cài đơn giá →</a>
+              </div>
+            )}
+            {gioMiss.length > 0 && (
+              <div class="wg-warn">
+                <Icon name="ban" size={15} /> Thợ có GIỜ LÀM nhưng chưa đặt tiền 1 giờ: {gioMiss.map((n, i) => (
+                  <span key={n}>{i ? ", " : ""}<a href={`#/sx-tho/${encodeURIComponent(n)}`}><b>{n}</b></a></span>
+                ))} — đặt ở trang chi tiết thợ.
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       <section class="rs-sec">
         <div class="rs-sec-h"><Icon name="users" size={15} /> Theo thợ</div>

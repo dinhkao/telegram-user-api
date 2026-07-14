@@ -62,8 +62,11 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
             "SELECT t.thread_id AS tid, t.report_ymd AS ymd, t.worker_name AS wname, "
             "COALESCE(w.name, t.worker_name) AS worker, "
             "COALESCE(pr.code, t.product_code) AS code, ROUND(SUM(t.tong_calc),1) AS cay, "
+            # cây TÍNH TIỀN = chỉ từ dòng KHÔNG có giờ (dòng giờ trả theo giờ, cây của
+            # dòng đó không tính tiền SP — GROUP BY gộp dòng nên phải tách ngay ở SUM)
+            "ROUND(SUM(CASE WHEN COALESCE(t.so_gio,0) > 0 THEN 0 ELSE t.tong_calc END),1) AS cay_piece, "
             "SUM(t.so_gio) AS gio, COALESCE(w.hourly_rate, 0) AS hrate, "
-            "s.luong_1sp AS slip_wage "
+            "s.luong_1sp AS slip_wage, s.kind AS slip_kind "
             "FROM production_report_rows t "
             "LEFT JOIN production_workers w ON w.id = t.worker_id "
             "LEFT JOIN products pr ON pr.id = t.product_id "
@@ -102,32 +105,8 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
     missing_rate: set = set()   # thợ có GIỜ nhưng chưa đặt tiền 1 giờ
     allow_used: set = set()  # (tid, wname) đã cộng phụ cấp — đúng 1 lần / (phiếu, thợ)
     tid_ymd: dict = {}       # tid → ymd (cho phụ cấp mồ côi)
-    for r in rows:
-        tid, ymd, wname = r["tid"], r["ymd"], r["wname"]
-        worker, code, cay = (r["worker"] or "?"), (r["code"] or ""), float(r["cay"] or 0)
-        gio, hrate = float(r["gio"] or 0), float(r["hrate"] or 0)
-        tid_ymd.setdefault(tid, ymd)
-        d = _mk_day(ymd)
-        # HIỆN MỌI dòng SP thợ có mặt trong phiếu — kể cả làm 0 cây (0đ). Thợ luôn được tạo.
-        wk = _mk_wk(d, worker)
-        # đơn giá CHỐT theo phiếu; chưa chốt (NULL) → bảng lương hiện tại
-        wage = float(r["slip_wage"]) if r["slip_wage"] is not None else wage_per_cay(code)
-        if gio > 0:
-            # SP tính lương THEO GIỜ: tiền = giờ × tiền-1-giờ của thợ (thay cây × đơn giá)
-            piece = round(gio * hrate)
-            if hrate <= 0:
-                missing_rate.add(worker)
-        else:
-            if cay > 0 and wage <= 0:   # chỉ cảnh báo thiếu đơn giá khi thực sự có sản lượng
-                missing.add(code)
-            piece = round(cay * wage)
-        a = 0
-        if (tid, wname) not in allow_used:
-            a = round(allow.get((tid, wname), 0))
-            allow_used.add((tid, wname))
-        money = piece + a
-        # gộp dòng theo (mã, đơn giá, tính-giờ) — phiếu chốt giá khác không trộn 1 dòng
-        hourly = gio > 0
+    def _add_item(wk, *, code, wage, hourly, cay=0.0, gio=0.0, hrate=0.0, piece=0, a=0):
+        """1 dòng hiển thị theo (mã, đơn giá, tính-giờ) — cây và giờ tách dòng riêng."""
         it = next((x for x in wk["items"] if x["code"] == code and x["wage"] == wage
                    and bool(x.get("gio")) == hourly), None)
         if it is None:
@@ -138,7 +117,41 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
         it["gio"] = round(it["gio"] + gio, 2)
         it["piece"] += piece
         it["allowance"] += a
-        it["money"] += money
+        it["money"] += piece + a
+
+    for r in rows:
+        tid, ymd, wname = r["tid"], r["ymd"], r["wname"]
+        worker, code, cay = (r["worker"] or "?"), (r["code"] or ""), float(r["cay"] or 0)
+        cay_piece = float(r["cay_piece"] or 0)
+        # GIỜ chỉ tính ở phiếu SẢN XUẤT (gate UI có thể bị lách qua Telegram paste)
+        hourly_ok = (r["slip_kind"] or "san_xuat") != "dong_goi"
+        gio = float(r["gio"] or 0) if hourly_ok else 0.0
+        hrate = float(r["hrate"] or 0)
+        tid_ymd.setdefault(tid, ymd)
+        d = _mk_day(ymd)
+        # HIỆN MỌI dòng SP thợ có mặt trong phiếu — kể cả làm 0 cây (0đ). Thợ luôn được tạo.
+        wk = _mk_wk(d, worker)
+        # đơn giá CHỐT theo phiếu; chưa chốt (NULL) → bảng lương hiện tại
+        wage = float(r["slip_wage"]) if r["slip_wage"] is not None else wage_per_cay(code)
+        # Tiền = cây (dòng KHÔNG giờ) × đơn giá SP + giờ × tiền-1-giờ của thợ.
+        # Thợ vừa làm SP vừa làm giờ trong 1 phiếu → nhận CẢ HAI (không nuốt nhau).
+        piece_sp = round(cay_piece * wage)
+        piece_gio = round(gio * hrate)
+        if cay_piece > 0 and wage <= 0:   # chỉ cảnh báo thiếu đơn giá khi thực sự có sản lượng
+            missing.add(code)
+        if gio > 0 and hrate <= 0:
+            missing_rate.add(worker)
+        a = 0
+        if (tid, wname) not in allow_used:
+            a = round(allow.get((tid, wname), 0))
+            allow_used.add((tid, wname))
+        money = piece_sp + piece_gio + a
+        if gio > 0:
+            _add_item(wk, code=code, wage=wage, hourly=True, gio=gio, hrate=hrate,
+                      piece=piece_gio, a=a if cay_piece <= 0 else 0)
+        if cay_piece > 0 or gio <= 0:   # dòng cây (kể cả 0 cây khi không có giờ)
+            _add_item(wk, code=code, wage=wage, hourly=False, cay=cay if gio <= 0 else cay_piece,
+                      piece=piece_sp, a=a if cay_piece > 0 or gio <= 0 else 0)
         wk["money"] += money
         wk["allowance"] += a
         wk["cay"] = round(wk["cay"] + cay, 1)

@@ -22,7 +22,7 @@ def conn():
     )
     c.execute("CREATE TABLE production_workers (id INTEGER PRIMARY KEY, name TEXT, hourly_rate REAL DEFAULT 0)")
     c.execute("CREATE TABLE products (id INTEGER PRIMARY KEY, code TEXT)")
-    c.execute("CREATE TABLE production_slips (thread_id INTEGER PRIMARY KEY, sp_name TEXT, luong_1sp REAL, bang TEXT)")
+    c.execute("CREATE TABLE production_slips (thread_id INTEGER PRIMARY KEY, sp_name TEXT, luong_1sp REAL, kind TEXT, bang TEXT)")
     ensure_allowances(c)
     report_slips.ensure_table(c)
     yield c

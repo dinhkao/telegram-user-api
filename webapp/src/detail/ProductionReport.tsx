@@ -96,7 +96,11 @@ export function ProductionReport({ threadId, slip, locked }: { threadId: string;
               </tfoot>
             </table>
           </div>
-          {isOffice() && !draft && <ProductionWages threadId={threadId} workers={liveRows.map((r) => ({ name: r.name, cay: r.tong_calc, gio: (r as any).so_gio || 0 }))} />}
+          {isOffice() && !draft && <ProductionWages threadId={threadId} workers={liveRows.map((r) => ({
+            name: r.name, cay: r.tong_calc,
+            // giờ chỉ tính ở phiếu SẢN XUẤT (khớp rule server — đóng gói bỏ qua)
+            gio: (slip.kind || "san_xuat") !== "dong_goi" ? ((r as any).so_gio || 0) : 0,
+          }))} />}
         </>
       ) : (
         <p class="muted small">Chưa có báo cáo. Bấm <b>✏️ Sửa</b> để nhập trực tiếp.</p>

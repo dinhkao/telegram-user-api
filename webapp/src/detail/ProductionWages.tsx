@@ -5,6 +5,7 @@
 // setPhieuWage(), setAllowance(). Server chặn 403 nếu không office.
 import { useEffect, useState } from "preact/hooks";
 import { phieuWages, setAllowance, setPhieuWage, soVN } from "../api";
+import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { toast } from "../ui/feedback";
 
@@ -21,8 +22,17 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
 
   useEffect(() => {
     let ok = true;
-    phieuWages(threadId).then((d) => { if (ok) { setWage(d.wage); setDefaultWage(d.default_wage); setAllow(d.allowances || {}); setHourly(d.hourly_rates || {}); setLoaded(true); } }).catch(() => { if (ok) setLoaded(true); });
-    return () => { ok = false; };
+    const load = () =>
+      phieuWages(threadId).then((d) => { if (ok) { setWage(d.wage); setDefaultWage(d.default_wage); setAllow(d.allowances || {}); setHourly(d.hourly_rates || {}); setLoaded(true); } }).catch(() => { if (ok) setLoaded(true); });
+    load();
+    // đổi tiền 1 giờ / bảng lương từ máy khác → tải lại đơn giá (khỏi kẹt số cũ)
+    let t: any;
+    const off = onRealtime((e) => {
+      if (e.type === "workers_changed" || e.type === "productions_changed") {
+        clearTimeout(t); t = setTimeout(load, 400);
+      }
+    });
+    return () => { ok = false; off(); clearTimeout(t); };
   }, [threadId]);
 
   const saveWage = async () => {
@@ -55,11 +65,15 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
   const list = workers.filter((w) => w.name);
   if (!list.length) return null;
 
+  // tra tiền-1-giờ KHÔNG phân biệt hoa/thường — tên trong báo cáo (gõ tay/Telegram)
+  // có thể lệch case với tên đăng ký; server vốn khớp NOCASE, client phải giống
+  const hourlyLower: Record<string, number> = {};
+  for (const [k, v] of Object.entries(hourly)) hourlyLower[k.trim().toLowerCase()] = v;
   let totPiece = 0, totAllow = 0;
   const rows = list.map((w) => {
     // dòng có SỐ GIỜ = SP tính lương theo giờ → tiền = giờ × tiền-1-giờ của thợ
     const gio = w.gio || 0;
-    const rate = hourly[w.name] || 0;
+    const rate = hourlyLower[w.name.trim().toLowerCase()] || 0;
     const piece = gio > 0 ? Math.round(gio * rate) : Math.round(w.cay * wage);
     const a = allow[w.name] || 0;
     totPiece += piece; totAllow += a;

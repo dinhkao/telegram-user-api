@@ -82,6 +82,11 @@ async def push_report(thread_id, text: str) -> dict:
         rows = [[c.strip() for c in line.split(";")] for line in text.splitlines() if line.strip()]
         if not rows:
             return {"ok": False, "error": "Không có dòng dữ liệu để đẩy"}
+        # Cột 12 text-view = SỐ GIỜ LÀM (app nội bộ) nhưng HEADERS sheet index 12 =
+        # "Tổng lương phiếu" (cột tiền!) → xoá trước khi đẩy kẻo giờ đè cột tiền.
+        for r in rows:
+            if len(r) > 12:
+                r[12] = ""
         from command_handlers.production_commands import _topic_link
         thread_url = _topic_link(thread_id)
         result = await mgr.append_rows(rows, thread_url)

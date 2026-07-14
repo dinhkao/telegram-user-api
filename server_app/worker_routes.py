@@ -33,6 +33,11 @@ async def workers_list_handler(request: web.Request):
 
     workers = await asyncio.to_thread(_run)
     defaults = [w["name"] for w in workers if w["is_default"]]
+    # hourly_rate = TIỀN LƯƠNG — chỉ văn phòng được thấy (staff dùng list này
+    # cho template báo cáo, không cần biết đơn giá giờ của từng thợ)
+    from server_app.production_wages import is_office_username
+    if not is_office_username(request.get("web_user")):
+        workers = [{k: v for k, v in w.items() if k != "hourly_rate"} for w in workers]
     return web.json_response({"ok": True, "workers": workers, "defaults": defaults})
 
 

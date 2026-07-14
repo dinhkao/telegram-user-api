@@ -68,6 +68,16 @@ def add_worker(conn, name: str, is_default: bool = False) -> dict:
             (nm, 1 if is_default else 0, int(mx) + 1),
         )
         wid = cur.lastrowid
+        # Dòng báo cáo lưu TRƯỚC khi đăng ký thợ (worker_id NULL, trùng tên) → nhận
+        # danh tính luôn — không thì lương GIỜ (join theo worker_id) trả 0đ mãi.
+        try:
+            conn.execute(
+                "UPDATE production_report_rows SET worker_id = ?, worker_name = ? "
+                "WHERE worker_id IS NULL AND TRIM(worker_name) = TRIM(?) COLLATE NOCASE",
+                (wid, nm, nm),
+            )
+        except Exception:  # noqa: BLE001 — bảng chưa tạo (DB test)
+            pass
     return {"id": wid, "name": nm, "is_default": bool(is_default), "sort_order": int(mx) + 1,
             "weekly_salary": False, "hourly_rate": 0.0}
 

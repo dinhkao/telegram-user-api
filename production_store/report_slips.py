@@ -154,8 +154,11 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
     rows = conn.execute(
         "SELECT t.thread_id AS tid, t.report_ymd AS ymd, t.worker_name AS wname, "
         "COALESCE(w.name, t.worker_name) AS worker, COALESCE(pr.code, t.product_code) AS code, "
-        "ROUND(SUM(t.tong_calc), 1) AS cay, SUM(t.so_gio) AS gio, "
-        "COALESCE(w.hourly_rate, 0) AS hrate, s.luong_1sp AS slip_wage, s.bang AS bang "
+        "ROUND(SUM(t.tong_calc), 1) AS cay, "
+        # cây TÍNH TIỀN = chỉ dòng KHÔNG giờ (dòng giờ trả theo giờ — không nuốt tiền cây)
+        "ROUND(SUM(CASE WHEN COALESCE(t.so_gio,0) > 0 THEN 0 ELSE t.tong_calc END), 1) AS cay_piece, "
+        "SUM(t.so_gio) AS gio, "
+        "COALESCE(w.hourly_rate, 0) AS hrate, s.luong_1sp AS slip_wage, s.kind AS slip_kind, s.bang AS bang "
         "FROM production_report_rows t "
         "LEFT JOIN production_workers w ON w.id = t.worker_id "
         "LEFT JOIN products pr ON pr.id = t.product_id "
@@ -196,54 +199,64 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
     for r in rows:
         tid, ymd, wname = r["tid"], r["ymd"], r["wname"]
         worker, code, cay = (r["worker"] or "?"), (r["code"] or ""), float(r["cay"] or 0)
-        gio, hrate = float(r["gio"] or 0), float(r["hrate"] or 0)
+        cay_piece = float(r["cay_piece"] or 0)
+        # GIỜ chỉ tính ở phiếu SẢN XUẤT (Telegram paste có thể mang cột giờ vào đóng gói)
+        hourly_ok = (r["slip_kind"] or "san_xuat") != "dong_goi"
+        gio = float(r["gio"] or 0) if hourly_ok else 0.0
+        hrate = float(r["hrate"] or 0)
         if only_cf is not None and worker.strip().casefold() not in only_cf:
             continue   # phiếu báo cáo chỉ tính các thợ đã chọn
         # đơn giá CHỐT theo phiếu; chưa chốt (NULL) → bảng lương hiện tại
         wage = float(r["slip_wage"]) if r["slip_wage"] is not None else wage_per_cay(code)
-        if gio > 0:
-            # SP tính lương THEO GIỜ: tiền = giờ × tiền-1-giờ của thợ (worker detail page)
-            piece = round(gio * hrate)
-            if hrate <= 0:
-                missing.add(f"giờ: {worker}")
-        else:
-            if cay > 0 and wage <= 0:
-                missing.add(code)
-            piece = round(cay * wage)
+        # Tiền = cây (dòng không giờ) × đơn giá + giờ × tiền-1-giờ — nhận CẢ HAI
+        piece_sp = round(cay_piece * wage)
+        piece_gio = round(gio * hrate)
+        if cay_piece > 0 and wage <= 0:
+            missing.add(code)
+        if gio > 0 and hrate <= 0:
+            missing.add(f"giờ: {worker}")
         a = 0
         if (tid, wname) not in allow_used:
             a = round(allow.get((tid, wname), 0))
             allow_used.add((tid, wname))
-        money = piece + a
+        money = piece_sp + piece_gio + a
         if cay == 0 and money == 0 and gio == 0:
             continue   # dòng rỗng (phiếu chưa gán SP / thợ 0 SP) — đừng sinh dòng "?" 0đ
             # (có GIỜ vẫn hiện — thợ làm giờ chưa đặt đơn giá phải thấy được ⚠)
 
-        hourly = gio > 0
         wk = workers.setdefault(worker, {"name": worker, "cay": 0.0, "money": 0, "allowance": 0, "items": {}, "days": {}})
-        # item gộp theo (mã, đơn giá, tính-giờ) — phiếu chốt giá khác nhau không trộn 1 dòng
-        it = wk["items"].setdefault((code, wage, hourly), {
-            "code": code, "cay": 0.0, "wage": wage, "money": 0,
-            "gio": 0.0, "hourly_rate": hrate if hourly else 0})
-        it["cay"] = round(it["cay"] + cay, 1)
-        it["gio"] = round(it["gio"] + gio, 2)
-        it["money"] += money
+        # item tách theo (mã, đơn giá, tính-giờ) — dòng giờ và dòng cây không trộn
+        pieces = []   # (hourly, cay hiển thị, gio, tiền phần đó)
+        if gio > 0:
+            pieces.append((True, 0.0, gio, piece_gio))
+        if cay_piece > 0 or gio <= 0:
+            pieces.append((False, cay_piece if gio > 0 else cay, 0.0, piece_sp))
+        first = True
+        for hourly, p_cay, p_gio, p_money in pieces:
+            add_a = a if first else 0   # phụ cấp gắn 1 lần vào phần đầu
+            first = False
+            it = wk["items"].setdefault((code, wage, hourly), {
+                "code": code, "cay": 0.0, "wage": wage, "money": 0,
+                "gio": 0.0, "hourly_rate": hrate if hourly else 0})
+            it["cay"] = round(it["cay"] + p_cay, 1)
+            it["gio"] = round(it["gio"] + p_gio, 2)
+            it["money"] += p_money + add_a
+            dy = wk["days"].setdefault(ymd or "", {"ymd": ymd or "", "cay": 0.0, "money": 0, "items": {}})
+            dy["cay"] = round(dy["cay"] + p_cay, 1)
+            dy["money"] += p_money + add_a
+            st, en = times.get(tid, ("", ""))
+            # dòng ngày tách theo phiếu SX — mỗi dòng mang giờ bắt đầu/kết thúc phiếu đó
+            di = dy["items"].setdefault((tid, code, wage, hourly), {
+                "code": code, "cay": 0.0, "wage": wage, "money": 0,
+                "gio": 0.0, "hourly_rate": hrate if hourly else 0,
+                "start": st, "end": en, "thread_id": tid,
+            })
+            di["cay"] = round(di["cay"] + p_cay, 1)
+            di["gio"] = round(di["gio"] + p_gio, 2)
+            di["money"] += p_money + add_a
         wk["cay"] = round(wk["cay"] + cay, 1)
         wk["money"] += money
         wk["allowance"] += a
-        dy = wk["days"].setdefault(ymd or "", {"ymd": ymd or "", "cay": 0.0, "money": 0, "items": {}})
-        dy["cay"] = round(dy["cay"] + cay, 1)
-        dy["money"] += money
-        st, en = times.get(tid, ("", ""))
-        # dòng ngày tách theo phiếu SX — mỗi dòng mang giờ bắt đầu/kết thúc của phiếu đó
-        di = dy["items"].setdefault((tid, code, wage), {
-            "code": code, "cay": 0.0, "wage": wage, "money": 0,
-            "gio": 0.0, "hourly_rate": hrate if hourly else 0,
-            "start": st, "end": en, "thread_id": tid,
-        })
-        di["cay"] = round(di["cay"] + cay, 1)
-        di["gio"] = round(di["gio"] + gio, 2)
-        di["money"] += money
 
         ph = phieus.setdefault(tid, {"thread_id": tid, "ymd": ymd, "codes": [], "cay": 0.0, "money": 0, "workers": 0, "_wk": set()})
         if code and code not in ph["codes"]:

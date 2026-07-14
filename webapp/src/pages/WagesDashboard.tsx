@@ -61,6 +61,13 @@ export function WagesDashboard() {
           <Icon name="ban" size={15} /> Chưa có đơn giá lương cho: {d.missing_wage.map((c, i) => <span key={c}>{i ? ", " : ""}<b>{c}</b></span>)} — số cây các mã này KHÔNG được tính tiền. <a href="#/luong-sp">Cài đơn giá →</a>
         </div>
       )}
+      {(d.missing_hour_rate || []).length > 0 && (
+        <div class="wg-warn">
+          <Icon name="ban" size={15} /> Thợ có GIỜ LÀM nhưng chưa đặt tiền 1 giờ: {d.missing_hour_rate.map((n, i) => (
+            <span key={n}>{i ? ", " : ""}<a href={`#/sx-tho/${encodeURIComponent(n)}`}><b>{n}</b></a></span>
+          ))} — giờ của họ KHÔNG được tính tiền. Đặt ở trang chi tiết thợ.
+        </div>
+      )}
 
       {d.days.length === 0 ? (
         <EmptyState icon="check">Chưa có báo cáo sản xuất nào trong khoảng này.</EmptyState>

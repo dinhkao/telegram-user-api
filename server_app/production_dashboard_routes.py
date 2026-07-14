@@ -52,14 +52,16 @@ async def production_worker_report_handler(request: web.Request):
                 from production_store.allowances import get_allowances
                 acache: dict = {}
                 swage: dict = {}   # tid → luong_1sp (đơn giá CHỐT theo phiếu)
+                skind: dict = {}   # tid → kind (giờ chỉ tính ở phiếu SẢN XUẤT)
                 tids = {r.get("thread_id") for r in data.get("rows", []) if r.get("thread_id")}
                 if tids:
                     qs = ",".join("?" * len(tids))
                     for sr in conn.execute(
-                        f"SELECT thread_id, luong_1sp FROM production_slips WHERE thread_id IN ({qs})",
+                        f"SELECT thread_id, luong_1sp, kind FROM production_slips WHERE thread_id IN ({qs})",
                         sorted(tids),
                     ).fetchall():
                         swage[sr["thread_id"]] = sr["luong_1sp"]
+                        skind[sr["thread_id"]] = sr["kind"]
                 # tiền 1 GIỜ của thợ này (dòng có số giờ → tiền = giờ × rate)
                 hrate = 0.0
                 try:
@@ -71,14 +73,20 @@ async def production_worker_report_handler(request: web.Request):
                 except Exception:
                     hrate = 0.0
                 total_money = 0
+                allow_used: set = set()   # phụ cấp cộng ĐÚNG 1 lần / phiếu (thợ có nhiều dòng)
                 for r in data.get("rows", []):
                     tid = r.get("thread_id")
                     if tid not in acache:
                         acache[tid] = get_allowances(conn, tid)
-                    allow = round(acache[tid].get(name, 0))
+                    allow = 0
+                    if tid not in allow_used:
+                        allow = round(acache[tid].get(name, 0))
+                        allow_used.add(tid)
                     gio = float(r.get("so_gio") or 0)
+                    if gio > 0 and (skind.get(tid) or "san_xuat") == "dong_goi":
+                        gio = 0.0   # giờ chỉ áp dụng phiếu SẢN XUẤT
                     if gio > 0:
-                        # SP tính lương THEO GIỜ
+                        # SP tính lương THEO GIỜ (cây của dòng giờ không tính tiền SP)
                         piece = round(gio * hrate)
                         r["hourly_rate"] = hrate
                         r["wage"] = 0
