@@ -10,11 +10,13 @@ tests/test_cashbox_domain.py.
 """
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 EXTERNAL = "external"          # tiền còn ở khách — nguồn/đích ngoài hệ thống két
-SINCE = "2026-06-01"           # chỉ xét đơn từ mốc này (khớp mirror task/kho)
+# Ngày VN đầu tiên được tính (đơn cũ hơn chưa đi qua flow két → loại, như kho).
+SINCE = os.getenv("CASHBOX_SINCE", "2026-07-14")
 _VN = timezone(timedelta(hours=7))
 _NOP_DEADLINE_HOUR = 17        # hạn nộp 17:00 VN cùng ngày giao
 

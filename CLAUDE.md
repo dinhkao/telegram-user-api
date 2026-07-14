@@ -349,7 +349,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (bán = InvoiceEditor, nhập = PurchaseModal/PurchaseDetail — lọc client-side từ
   `/api/products?search=`; mã gõ tự do vẫn nhận).
 - `cashbox_store/` — hệ KÉT TIỀN "ai đang giữ tiền" (2026-07-14). Trạng thái két
-  **DERIVE THUẦN từ blob đơn** (đơn từ `SINCE=2026-06-01`), KHÔNG ledger table —
+  **DERIVE THUẦN từ blob đơn** (chỉ đơn từ `SINCE=2026-07-14` theo NGÀY VN — env
+  `CASHBOX_SINCE`; mốc SQL đổi sang UTC `_since_utc`, đơn cũ hơn chưa qua flow
+  két nên loại như tính năng kho), KHÔNG ledger table —
   mỗi đồng của đơn nằm ở đúng 1 két mọi thời điểm, movement là cặp src→dst cân
   bằng ⇒ bảo toàn tiền theo cấu trúc (un-done task/xoá payment/sửa HĐ → recompute
   tự đúng). Máy trạng thái (`domain.py`, unit-tested `tests/test_cashbox_domain.py`):

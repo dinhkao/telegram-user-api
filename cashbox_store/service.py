@@ -44,10 +44,20 @@ def invalidate_cache() -> None:
     _cache["state"] = None
 
 
+def _since_utc() -> str:
+    """Mốc SQL = 00:00 VN của ngày SINCE, đổi sang ISO UTC — order_created là
+    chuỗi ISO UTC nên so sánh thẳng ngày VN sẽ lệch 7 tiếng (đơn 0h–7h sáng)."""
+    try:
+        d = datetime.strptime(SINCE, "%Y-%m-%d").replace(tzinfo=_VN)
+        return d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    except ValueError:   # env CASHBOX_SINCE sai dạng → dùng thô
+        return SINCE
+
+
 def _stamp(conn, now: float) -> tuple:
     row = conn.execute(
         "SELECT COUNT(*), COALESCE(MAX(updated_at), 0) FROM orders"
-        " WHERE deleted_at IS NULL AND order_created >= ?", (SINCE,)).fetchone()
+        " WHERE deleted_at IS NULL AND order_created >= ?", (_since_utc(),)).fetchone()
     ensure_table(conn)
     t = conn.execute(
         "SELECT COUNT(*), COALESCE(MAX(id), 0), COALESCE(MAX(deleted_at), '')"
@@ -112,7 +122,7 @@ def _build_state(conn, now: float) -> dict:
     order_names: dict[int, str] = {}
     for r in conn.execute(
             "SELECT thread_id, json FROM orders WHERE deleted_at IS NULL"
-            " AND order_created >= ? AND json IS NOT NULL", (SINCE,)):
+            " AND order_created >= ? AND json IS NOT NULL", (_since_utc(),)):
         try:
             data = json.loads(r["json"])
         except (json.JSONDecodeError, TypeError):
