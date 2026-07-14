@@ -3,7 +3,7 @@ import type { Guide } from "./types";
 
 export const GUIDES_KHAC: Guide[] = [
   {
-    key: "camera", icon: "camera", cat: "Khác & hệ thống",
+    key: "camera", icon: "camera", cat: "Khác & hệ thống", office: true,
     title: "Camera 2026 (ảnh giám sát)",
     desc: "Thư viện ảnh camera 2 kênh song song, tự làm mới, tải thêm ảnh cũ khi cuộn.",
     routes: ["#/camera"],

@@ -4,9 +4,15 @@
 // viết) từ guides/registry.ts. Nối: ui/Icon, nav.BackLink, guides/*.
 import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
+import { currentUser, isOffice } from "../api";
 import type { Guide } from "../guides/types";
-import { GUIDE_CATS, guidesForRoute, normalizeFrom } from "../guides/types";
+import { GUIDE_CATS, guidesForRoute, normalizeFrom, visibleGuides } from "../guides/types";
 import { GUIDES, guideByKey } from "../guides/registry";
+
+// Quyền người xem hiện tại — quyết định bài nào hiện.
+function viewerPerm() {
+  return { office: isOffice(), admin: currentUser()?.role === "admin" };
+}
 
 function AiGuideNote() {
   return (
@@ -17,10 +23,17 @@ function AiGuideNote() {
   );
 }
 
+// Nhãn quyền RÕ RÀNG trên bài chỉ-văn-phòng / chỉ-admin.
+function PermBadge({ g }: { g: Guide }) {
+  if (g.admin) return <span class="guide-perm admin"><Icon name="lock" size={11} /> Chỉ admin</span>;
+  if (g.office) return <span class="guide-perm"><Icon name="lock" size={11} /> Chỉ văn phòng</span>;
+  return null;
+}
+
 function GuideCard({ g }: { g: Guide }) {
   return (
     <a class="cash-box" href={`#/huong-dan/${g.key}`}>
-      <div class="cash-box-name"><Icon name={g.icon} size={16} /> {g.title}</div>
+      <div class="cash-box-name"><Icon name={g.icon} size={16} /> {g.title} <PermBadge g={g} /></div>
       <div class="muted small">{g.desc}</div>
     </a>
   );
@@ -36,9 +49,12 @@ function readFrom(hash: string): string {
 
 export function GuidesList({ hash }: { hash: string }) {
   const from = readFrom(hash);
-  const related = from ? guidesForRoute(GUIDES, from) : [];
+  // CHỈ hiện bài người xem có quyền — bài chỉ-văn-phòng/admin bị ẩn với staff (cả ở
+  // khối "Trang bạn đang xem" lẫn danh sách theo mục).
+  const guides = visibleGuides(GUIDES, viewerPerm());
+  const related = from ? guidesForRoute(guides, from) : [];
   const relatedKeys = new Set(related.map((g) => g.key));
-  const rest = GUIDES.filter((g) => !relatedKeys.has(g.key));
+  const rest = guides.filter((g) => !relatedKeys.has(g.key));
 
   return (
     <div class="guide-list">
@@ -75,14 +91,18 @@ export function GuideDetail({ hash }: { hash: string }) {
   const path = hash.split("?")[0];
   const key = path.replace(/^#\/huong-dan\//, "").replace(/\/$/, "");
   const g = guideByKey(key);
+  const perm = viewerPerm();
+  // Staff mở trực tiếp URL bài chỉ-văn-phòng/admin (vd qua link cũ) → chặn, không lộ nội dung.
+  const denied = !!g && ((g.office && !perm.office) || (g.admin && !perm.admin));
 
-  if (!g) {
+  if (!g || denied) {
     return (
       <div class="guide">
         <div class="prod-detail-head">
           <BackLink fallback="#/huong-dan" />
-          <div><div class="prod-sp big">Không tìm thấy bài hướng dẫn</div></div>
+          <div><div class="prod-sp big">{denied ? "Bài này chỉ dành cho văn phòng" : "Không tìm thấy bài hướng dẫn"}</div></div>
         </div>
+        {denied && <div class="guide-ai-note"><Icon name="lock" size={14} /><span>Tính năng trong bài này chỉ văn phòng/admin dùng được, nên hướng dẫn cũng chỉ hiện cho văn phòng.</span></div>}
         <a class="cash-box" href="#/huong-dan">← Về danh sách hướng dẫn</a>
       </div>
     );
@@ -93,10 +113,16 @@ export function GuideDetail({ hash }: { hash: string }) {
       <div class="prod-detail-head">
         <BackLink fallback="#/huong-dan" />
         <div>
-          <div class="prod-sp big"><Icon name={g.icon} size={17} /> Hướng dẫn: {g.title}</div>
+          <div class="prod-sp big"><Icon name={g.icon} size={17} /> Hướng dẫn: {g.title} <PermBadge g={g} /></div>
           <div class="prod-date muted">{g.desc}</div>
         </div>
       </div>
+      {(g.office || g.admin) && (
+        <div class="guide-office-note">
+          <Icon name="lock" size={14} />
+          <span>{g.admin ? "Trang này chỉ ADMIN dùng được." : "Trang này chỉ VĂN PHÒNG dùng được."} Nhân viên sẽ không thấy bài này.</span>
+        </div>
+      )}
       <AiGuideNote />
       {g.sections.map((s, i) => (
         <section class="card guide-sect" key={i}>

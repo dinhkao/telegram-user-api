@@ -69,7 +69,7 @@ export const GUIDES_SANXUAT: Guide[] = [
     ],
   },
   {
-    key: "tien-cong", icon: "wallet", cat: "Sản xuất",
+    key: "tien-cong", icon: "wallet", cat: "Sản xuất", office: true,
     title: "Tiền công & lương sản phẩm",
     desc: "Đơn giá /1 sản phẩm, lương chốt theo phiếu, phiếu báo cáo tính lương theo khoảng ngày.",
     routes: ["#/tien-cong", "#/luong-sp", "#/bao-cao"],

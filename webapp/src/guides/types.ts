@@ -12,7 +12,20 @@ export type Guide = {
   cat: string;          // mục để nhóm ở danh sách
   routes: string[];     // các hash-prefix trang mà bài này liên quan (vd "#/ket")
   sections: GuideSection[];
+  // Quyền XEM bài: chỉ đặt khi TRANG của tính năng chặn hẳn staff (không phải chỉ ẩn
+  // vài nút). office → chỉ văn phòng (admin|van_phong); admin → chỉ admin. Bỏ trống =
+  // mọi người. Ẩn khỏi danh sách + khối "Trang bạn đang xem" cho người không đủ quyền.
+  office?: boolean;
+  admin?: boolean;
 };
+
+// Lọc bài theo quyền người xem — dùng trước khi tính danh sách/khớp route.
+export function visibleGuides(
+  guides: Guide[],
+  perm: { office: boolean; admin: boolean },
+): Guide[] {
+  return guides.filter((g) => (!g.office || perm.office) && (!g.admin || perm.admin));
+}
 
 // Thứ tự các mục hiển thị ở trang danh sách.
 export const GUIDE_CATS = [

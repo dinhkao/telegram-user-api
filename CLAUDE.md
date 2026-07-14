@@ -386,7 +386,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `?from=<route>`**, `guidesForRoute` (types.ts) khớp prefix (tránh nuốt tiền tố như
   `#/tho`↔`#/thung`). 1 route generic `#/huong-dan/:key` → `GuideDetail`. **Thêm tính
   năng mới = thêm 1 guide vào `data_*.ts` tương ứng (tự vào app, khỏi sửa route)**;
-  giữ `cat` khớp `GUIDE_CATS`.**
+  giữ `cat` khớp `GUIDE_CATS`. **Phân quyền XEM bài**: cờ `office`/`admin` trên guide
+  (`visibleGuides`) → ẩn với staff ở danh sách + khối "Trang bạn đang xem" + chặn mở URL
+  trực tiếp, kèm badge "Chỉ văn phòng/admin". CHỈ đặt cờ khi TRANG chặn hẳn staff (không
+  phải chỉ ẩn nút): hiện `thu-tien`, `tien-cong` (#/tien-cong+#/luong-sp+#/bao-cao),
+  `camera`. Trang mixed (ket/nhập hàng/trả hàng/hoá đơn…) KHÔNG gắn cờ — chỉ ghi chú
+  action office/admin trong nội dung.**
 - `usage_store/` — bảng `usage_stats` (app.db): đếm GỘP thao tác webapp theo
   (ngày, user, kind view/tap, trang chuẩn hoá, nhãn nút) — KHÔNG log thô từng cú bấm
   (tránh phình kiểu audit_events). Client tự bắt mọi click nút/link + hashchange

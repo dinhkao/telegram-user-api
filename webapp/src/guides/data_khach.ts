@@ -45,7 +45,7 @@ export const GUIDES_KHACH: Guide[] = [
     ],
   },
   {
-    key: "thu-tien", icon: "banknote", cat: "Đơn hàng & khách",
+    key: "thu-tien", icon: "banknote", cat: "Đơn hàng & khách", office: true,
     title: "Thu tiền hàng loạt",
     desc: "Thu nợ của nhiều khách trong một lần — tick khách, nhập số, tạo phiếu thu gộp.",
     routes: ["#/thu-tien"],

@@ -3019,6 +3019,18 @@ body.kbd-open .od-navbar { display: none; }
 .guide-cat { display: flex; flex-direction: column; gap: 8px; }
 .guide-cat-hd { font-weight: 800; font-size: .78rem; color: var(--muted); text-transform: uppercase;
   letter-spacing: .05em; margin: 10px 2px 0; }
+/* Nhãn quyền trên bài chỉ-văn-phòng / chỉ-admin */
+.guide-perm { display: inline-flex; align-items: center; gap: 3px; font-size: .68rem; font-weight: 700;
+  padding: 1px 7px 1px 5px; border-radius: 999px; vertical-align: middle; white-space: nowrap;
+  background: color-mix(in srgb, var(--warn, #b45309) 14%, var(--card)); color: var(--warn, #b45309);
+  border: 1px solid color-mix(in srgb, var(--warn, #b45309) 30%, transparent); }
+.guide-perm.admin { background: color-mix(in srgb, var(--danger, #dc2626) 12%, var(--card));
+  color: var(--danger, #dc2626); border-color: color-mix(in srgb, var(--danger, #dc2626) 30%, transparent); }
+.guide-perm .ic { flex: none; }
+.guide-office-note { display: flex; align-items: flex-start; gap: 7px; padding: 9px 11px; border-radius: var(--r-md);
+  font-size: .82rem; line-height: 1.45; background: color-mix(in srgb, var(--warn, #b45309) 10%, var(--card));
+  color: var(--warn, #b45309); border: 1px solid color-mix(in srgb, var(--warn, #b45309) 26%, transparent); }
+.guide-office-note .ic { flex: none; margin-top: 1px; }
 .guide { display: flex; flex-direction: column; gap: 8px; }
 .guide-ai-note { display: flex; align-items: flex-start; gap: 7px; padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); color: var(--muted); font-size: .8rem; line-height: 1.45; }
 .guide-ai-note .ic { flex: none; margin-top: 1px; color: var(--muted-2); }
