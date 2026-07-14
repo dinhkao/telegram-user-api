@@ -377,10 +377,16 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   chỉ thấy két mình); realtime `cashbox_changed` + client nghe order_changed. UI:
   `#/ket` (CashboxList + chuyển tiền) → `#/ket/:key` (CashboxDetail — timeline rail
   số dư kiểu OrderTimeline + đơn đang nằm két, badge ⏰ quá hạn nộp 17:00). Tiền RA
-  khỏi hệ két = trả NCC từ két (xem purchase_store). **Hướng dẫn sử dụng trong app:
-  `#/huong-dan` (webapp/src/pages/Guides.tsx, nội dung tĩnh — bài đầu: két tiền
-  `#/huong-dan/ket-tien`, nút ⓘ trên trang Két + menu Thêm→Hệ thống); thêm tính
-  năng lớn thì thêm bài vào GUIDES.**
+  khỏi hệ két = trả NCC từ két (xem purchase_store). **HƯỚNG DẪN sử dụng trong app
+  (`webapp/src/guides/` + `pages/Guides.tsx`): 25 bài phủ mọi khía cạnh, nội dung
+  HTML TĨNH trong `data_*.ts` (gom ở `guides/registry.ts`, render qua
+  `dangerouslySetInnerHTML`). Mỗi bài = `{key,icon,title,desc,cat,routes[],sections[]}`;
+  `routes` = hash-prefix trang mà bài liên quan. Danh sách `#/huong-dan` đẩy bài KHỚP
+  trang đang xem lên đầu ("Trang bạn đang xem") — **nút `?` nổi (HelpFab) truyền
+  `?from=<route>`**, `guidesForRoute` (types.ts) khớp prefix (tránh nuốt tiền tố như
+  `#/tho`↔`#/thung`). 1 route generic `#/huong-dan/:key` → `GuideDetail`. **Thêm tính
+  năng mới = thêm 1 guide vào `data_*.ts` tương ứng (tự vào app, khỏi sửa route)**;
+  giữ `cat` khớp `GUIDE_CATS`.**
 - `usage_store/` — bảng `usage_stats` (app.db): đếm GỘP thao tác webapp theo
   (ngày, user, kind view/tap, trang chuẩn hoá, nhãn nút) — KHÔNG log thô từng cú bấm
   (tránh phình kiểu audit_events). Client tự bắt mọi click nút/link + hashchange
