@@ -254,17 +254,20 @@ async def _process_bulk_payment(source_thread_id: int, method: str, amount: int,
             return result
         validated.append((tid, amt))
 
-    # 3. Nợ TRƯỚC từ KiotViet (best-effort)
+    # 3. Nợ TRƯỚC từ KiotViet (best-effort). KiotViet dùng urllib ĐỒNG BỘ (blocking)
+    # → chạy trong thread để KHÔNG đơ event loop (quan trọng khi thu hàng loạt fan-out
+    # nhiều khách tuần tự — xem server_app.order_api_collect).
     old_debt = None
     try:
-        old_debt = get_customer_debt_kv(kv_id).get("debt")
+        old_debt = (await asyncio.to_thread(get_customer_debt_kv, kv_id)).get("debt")
         result["old_debt"] = old_debt
     except Exception as e:
         log.warning("bulk pay: fetch old debt kv=%s lỗi: %s", kv_id, e)
 
-    # 4. TẠO ĐÚNG 1 phiếu KiotViet cho TOÀN BỘ số tiền
+    # 4. TẠO ĐÚNG 1 phiếu KiotViet cho TOÀN BỘ số tiền (blocking urllib → thread)
     try:
-        kv_res = create_order_with_payment(
+        kv_res = await asyncio.to_thread(
+            create_order_with_payment,
             customer_id=kv_id, method=method, total_payment=total_alloc, account_id=account_id)
     except Exception as e:
         log.error("bulk pay: create_order_with_payment lỗi: %s", e)
@@ -313,7 +316,7 @@ async def _process_bulk_payment(source_thread_id: int, method: str, amount: int,
 
     # 8. Nợ SAU từ KiotViet + cập nhật khách + resync nền (phân bổ nợ SAU cả loạt)
     try:
-        new_debt = get_customer_debt_kv(kv_id).get("debt")
+        new_debt = (await asyncio.to_thread(get_customer_debt_kv, kv_id)).get("debt")
         result["new_debt"] = new_debt
         if new_debt is not None:
             from order_db import update_customer_debt

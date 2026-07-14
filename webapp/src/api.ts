@@ -270,6 +270,28 @@ export async function bulkPayment(payload: { source_thread_id: number; method: "
   return postJSON("/api/order/payment/bulk", payload);
 }
 
+/** 1 khách đang nợ trên trang Thu tiền hàng loạt (#/thu-tien). */
+export type Debtor = {
+  key: string; name: string; kv_debt: number | null;
+  collectable: number;   // Σ còn thiếu của đơn active (số THU ĐƯỢC qua đơn)
+  order_count: number; blocked: boolean;   // blocked = chưa liên kết KiotViet
+};
+/** Kết quả thu 1 khách trong loạt. */
+export type CollectResult = {
+  key: string; name: string; ok: boolean; requested: number; collected: number;
+  order_count: number; kv_code: string | null; new_debt: number | null;
+  batch_id: string | null; capped: boolean; error?: string | null;
+};
+/** Mọi khách có đơn đang nợ (thu được qua đơn), nợ nhiều nhất trước. */
+export async function getDebtors(): Promise<{ debtors: Debtor[]; total_collectable: number; count: number }> {
+  const d = await getJSON("/api/collect/debtors", { cache: false });
+  return { debtors: d.debtors || [], total_collectable: d.total_collectable || 0, count: d.count || 0 };
+}
+/** Thu hàng loạt nhiều khách — mỗi khách 1 giao dịch thu gộp (cần mạng). */
+export async function collectBatch(payload: { method: "Cash" | "Transfer"; collections: { customer_key: string; amount: number }[] }): Promise<{ ok_count: number; fail_count: number; total_collected: number; total_requested: number; results: CollectResult[] }> {
+  return postJSON("/api/collect/batch", payload);
+}
+
 /** Tạo phiếu TRẢ HÀNG (văn phòng) — HĐ KiotViet giá âm, giảm nợ khách. */
 export async function createReturn(key: string, items: { sp: string; sl: number; price: number }[], note = ""): Promise<any> {
   return postJSON(`/api/customers/${encodeURIComponent(key)}/returns`, { items, note });

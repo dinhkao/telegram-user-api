@@ -154,6 +154,9 @@ def create_app():
     r.add_post("/api/order/payment/tm", payment_tm_handler)
     r.add_post("/api/order/payment/ck", payment_ck_handler)
     r.add_post("/api/order/payment/bulk", bulk_payment_handler)
+    from server_app.order_api_collect import debtors_handler, collect_batch_handler
+    r.add_get("/api/collect/debtors", debtors_handler)          # thu tiền hàng loạt nhiều khách
+    r.add_post("/api/collect/batch", collect_batch_handler)
     r.add_get("/api/order/{thread_id}/payment-context", payment_context_handler)
     r.add_post("/api/order/payment/delete", payment_delete_handler)
     r.add_post("/api/order/totals", order_totals_handler)

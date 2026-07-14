@@ -3019,3 +3019,40 @@ body.kbd-open .od-navbar { display: none; }
 .guide-sect ul, .guide-sect ol { margin: 6px 0; padding-left: 20px; line-height: 1.55; }
 .guide-sect li { margin: 4px 0; }
 .cash-head-btns { display: flex; align-items: center; gap: 8px; }
+
+/* ===== Thu tiền hàng loạt (#/thu-tien) — CollectMoney ===== */
+.collect-search { margin: 8px 0 6px; }
+.collect-all { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px; margin: 4px 0 8px; border: 1px dashed var(--border); border-radius: 10px; background: var(--card); color: var(--primary); font-weight: 700; font-size: .9rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.collect-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.collect-row { border: 1px solid var(--border); border-radius: 12px; background: var(--card); overflow: hidden; box-shadow: var(--e1); }
+.collect-row.sel { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) inset; }
+.collect-row.blocked { opacity: .6; }
+.collect-main { display: flex; align-items: center; gap: 10px; padding: 11px 12px; cursor: pointer; }
+.collect-check { flex: none; width: 22px; height: 22px; border: 2px solid var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; }
+.collect-row.sel .collect-check { background: var(--primary); border-color: var(--primary); }
+.collect-name { flex: 1; min-width: 0; font-weight: 700; color: var(--ink); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.collect-amt-col { flex: none; display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.collect-collectable { color: var(--warn); font-size: 1.02rem; }
+.collect-note { padding: 0 12px 10px 44px; color: var(--muted); font-size: .8rem; }
+.collect-edit { display: flex; align-items: center; gap: 8px; padding: 0 12px 11px 44px; flex-wrap: wrap; }
+.collect-edit input { flex: 1; min-width: 120px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px; font-size: 1rem; font-weight: 700; text-align: right; }
+.collect-edit input.over { border-color: var(--err); color: var(--err); }
+.collect-max { flex: none; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--primary); font-weight: 700; font-size: .82rem; cursor: pointer; }
+.collect-err { color: var(--err); }
+.collect-err.small { flex-basis: 100%; font-size: .78rem; }
+.collect-bar { position: sticky; bottom: calc(60px + env(safe-area-inset-bottom, 0px)); z-index: 12; margin-top: 10px; padding: 8px; border-radius: 12px; background: rgba(255,255,255,.95); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 20px rgba(0,0,0,.14); }
+body.kbd-open .collect-bar { bottom: 8px; }
+.collect-bar-info { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.collect-method { margin: 0; flex: none; }
+.collect-method .btn { padding: 7px 12px; }
+.collect-bar-sum { display: flex; flex-direction: column; align-items: flex-end; }
+.collect-bar-sum b { font-size: 1.1rem; color: var(--ok); }
+/* Kết quả lần thu */
+.collect-results { border-color: var(--primary); }
+.collect-res-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.collect-res { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
+.collect-res.ok { color: var(--ok); }
+.collect-res.bad { color: var(--err); }
+.collect-res-name { font-weight: 700; color: var(--ink); flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.collect-res-msg { color: var(--ink); }
+.collect-cap { color: var(--warn); font-size: .8rem; }

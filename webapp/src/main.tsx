@@ -67,6 +67,7 @@ import { UsageStats } from "./pages/UsageStats";
 import { DisposalsList } from "./pages/DisposalsList";
 import { DisposalDetail } from "./pages/DisposalDetail";
 import { CashboxList } from "./pages/CashboxList";
+import { CollectMoney } from "./pages/CollectMoney";
 import { CashboxDetail } from "./pages/CashboxDetail";
 import { GuidesList, GuideCashbox } from "./pages/Guides";
 import { initUsage } from "./usage";
@@ -493,6 +494,7 @@ function App() {
   else if (hash.startsWith("#/so-thung")) page = <CallNumbers />;
   else if (hash.startsWith("#/chuyen-kho")) page = <BulkMove />;
   else if (hash.startsWith("#/kho")) page = <KhoBoxes />;
+  else if (hash.startsWith("#/thu-tien")) page = <CollectMoney />;
   else if (hash.startsWith("#/quy")) page = <QuyList />;
   else if (hash.startsWith("#/users")) page = <Users />;
   else if (hash.startsWith("#/tho/sap-xep")) page = <WorkerArrange />;
@@ -555,6 +557,7 @@ function App() {
     : hash.startsWith("#/viec") ? "Việc"
     : hash.startsWith("#/ket") ? "Két tiền"
     : hash.startsWith("#/huong-dan") ? "Hướng dẫn"
+    : hash.startsWith("#/thu-tien") ? "Thu tiền hàng loạt"
     : hash.startsWith("#/quy") ? "Sổ quỹ"
     : hash.startsWith("#/users") ? "Người dùng"
     : hash.startsWith("#/tho") ? "Thợ"
