@@ -68,6 +68,7 @@ import { DisposalsList } from "./pages/DisposalsList";
 import { DisposalDetail } from "./pages/DisposalDetail";
 import { CashboxList } from "./pages/CashboxList";
 import { CollectMoney } from "./pages/CollectMoney";
+import { HelpFab } from "./ui/HelpFab";
 import { CashboxDetail } from "./pages/CashboxDetail";
 import { GuidesList, GuideCashbox } from "./pages/Guides";
 import { initUsage } from "./usage";
@@ -599,6 +600,7 @@ function App() {
           </nav>
         </div>
       )}
+      {!showLogin && !hash.startsWith("#/huong-dan") && <HelpFab />}
     </div>
   );
 }
