@@ -29,7 +29,7 @@ const NOP_NOTE_LABEL: Record<string, string> = {
 
 type CustomTask = { id: string; label: string };
 
-export function Tasks({ threadId, taskStatus, customTasks, userNames, taskIds, onChanged, onAddPhoto }: { threadId: string; taskStatus: any; customTasks?: CustomTask[]; userNames?: Record<string, string>; taskIds?: Record<string, number>; onChanged: () => void; onAddPhoto?: () => void }) {
+export function Tasks({ threadId, taskStatus, stockConfirmed, customTasks, userNames, taskIds, onChanged, onAddPhoto }: { threadId: string; taskStatus: any; stockConfirmed?: boolean; customTasks?: CustomTask[]; userNames?: Record<string, string>; taskIds?: Record<string, number>; onChanged: () => void; onAddPhoto?: () => void }) {
   const [busy, setBusy] = useState("");
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
@@ -158,10 +158,11 @@ export function Tasks({ threadId, taskStatus, customTasks, userNames, taskIds, o
           const taskNote = String(st.note || "").toLowerCase().split(";")[0];
           const doneIcon = done && (guiToa || (type === "nhan_tien" && taskNote === "gtr") ||
             (type === "nop_tien" && !st.skip && taskNote !== "tra_tien_mat")) ? "📄" : "✅";
+          const pendingIcon = type === "soan_hang" && stockConfirmed ? "📦" : "⬜";
           return (
             <li class={"task-row" + (done ? " done" : "")} id={`task-${type}`} key={type}>
               <div class="task-main">
-                <div class="task-head">{done ? doneIcon : "⬜"} {taskLabel(type, showLbl)}</div>
+                <div class="task-head">{done ? doneIcon : pendingIcon} {taskLabel(type, showLbl)}</div>
                 {meta(st, type, locked ? "🔒 chỉ văn phòng" : undefined)}
               </div>
               <div class="task-act">

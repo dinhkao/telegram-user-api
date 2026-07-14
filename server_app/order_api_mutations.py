@@ -16,6 +16,30 @@ from server_app.telegram_helpers import tg_send_message
 log = logging.getLogger("server")
 
 
+def _stock_locked_price_update(order: dict, invoice: list | None, body: dict) -> list[dict] | None:
+    """Trả invoice nếu payload chốt kho chỉ đổi giá, chiết khấu hoặc PVC."""
+    old_invoice = order.get("invoice") or []
+    new_invoice = invoice if invoice is not None else old_invoice
+    try:
+        same_lines = len(new_invoice) == len(old_invoice) and all(
+            isinstance(new, dict)
+            and str(new.get("sp") or "").strip().upper() == str(old.get("sp") or "").strip().upper()
+            and float(new.get("sl", new.get("quantity", 0)) or 0) == float(old.get("sl", old.get("quantity", 0)) or 0)
+            and str(new.get("note") or "") == str(old.get("note") or "")
+            for old, new in zip(old_invoice, new_invoice)
+        )
+        # Chiết khấu và PVC được phép đổi; VAT vẫn giữ nguyên.
+        same_adjustments = "vat" not in body or int(body.get("vat") or 0) == int(order.get("vat") or 0)
+        if not same_lines or not same_adjustments:
+            return None
+        return [
+            {**old, "price": int(float(new.get("price") or 0))}
+            for old, new in zip(old_invoice, new_invoice)
+        ]
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 async def api_fix_handler(request: web.Request):
     try:
         body = await request.json()
@@ -29,6 +53,11 @@ async def api_fix_handler(request: web.Request):
         order = get_order_by_thread_id(conn, thread_id)
         if not order:
             return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+        if order.get("stock_confirmed"):
+            return web.json_response(
+                {"ok": False, "error": "Đơn đã chốt xuất kho — chỉ được sửa đơn giá", "locked": True},
+                status=403,
+            )
         order["text"] = order["text_raw"] = text
         if not _save_order(conn, thread_id, order):
             return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
@@ -60,6 +89,11 @@ async def api_assign_customer_handler(request: web.Request):
         order = get_order_by_thread_id(conn, thread_id)
         if not order:
             return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+        if order.get("stock_confirmed"):
+            return web.json_response(
+                {"ok": False, "error": "Đơn đã chốt xuất kho — chỉ được sửa đơn giá", "locked": True},
+                status=403,
+            )
         # HĐ KiotViet đã tạo theo khách cũ — đổi khách làm HĐ/nợ lệch → cấm (xoá HĐ trước)
         if order.get("kiotvietInvoiceID"):
             return web.json_response(
@@ -167,18 +201,22 @@ async def api_invoice_update_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
     if invoice is not None and not isinstance(invoice, list):
         return web.json_response({"ok": False, "error": "invoice must be a list"}, status=400)
-    # Đơn đã CHỐT xuất kho → cấm sửa SP hoá đơn (SL/thêm bớt) — kể cả sau khi xoá HĐ
-    # KiotViet; admin phải Huỷ chốt trước. (chỉ khoá khi thực sự SỬA invoice)
-    if invoice is not None:
-        from server_app.order_stock_lock import stock_locked_error
-        locked = await stock_locked_error(request, thread_id)
-        if locked:
-            return locked
     conn = _get_connection()
     with transaction(conn):   # atomic RMW; the async refresh runs AFTER, outside the lock
         order = get_order_by_thread_id(conn, thread_id)
         if not order:
             return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+        # Sau khi chốt kho, danh sách hàng/SL/ghi chú và VAT phải bất biến; chỉ
+        # nhận giá, chiết khấu và PVC mới. Dựng lại từ invoice cũ để client không thể
+        # làm mất metadata nội bộ (cost_price, id...) bằng payload thủ công.
+        if order.get("stock_confirmed"):
+            price_update = _stock_locked_price_update(order, invoice, body)
+            if price_update is None:
+                return web.json_response(
+                    {"ok": False, "error": "Đơn đã chốt xuất kho — chỉ được sửa đơn giá, chiết khấu và PVC", "locked": True},
+                    status=403,
+                )
+            invoice = price_update
         if invoice is not None:
             order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
         # Điều chỉnh (chiết khấu / PVC / VAT) — chỉ set khi client gửi kèm

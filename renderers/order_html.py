@@ -32,7 +32,7 @@ def build_order_main_message_html(order: dict, thread_id: int) -> str:
     order_link = f"tg://privatepost?channel=2124542200&post={thread_id}"
     order_start_key = order.get("firebase_key") or thread_id
     bot_start_url = f"tg://resolve?domain=letrangdonhangbot&start={order_start_key}"
-    main_line = f'dh <a href="{bot_start_url}">{status_icons(task_status)}{"💰" if (task_status.get("nhan_tien") or {}).get("done") else "😠"}</a> <a href="{order_link}">{order_text}</a>'
+    main_line = f'dh <a href="{bot_start_url}">{status_icons(task_status, order.get("stock_confirmed"))}{"💰" if (task_status.get("nhan_tien") or {}).get("done") else "😠"}</a> <a href="{order_link}">{order_text}</a>'
     parts = []
     if customer_line: parts.extend([customer_line, money_line])
     if date_line: parts.append(date_line)

@@ -1,6 +1,6 @@
 """HTTP phiếu XUẤT HỦY hàng hóa — /api/disposals (100% local, không KiotViet).
 
-GET list / POST tạo (văn phòng, body {picks: [{box_id, quantity?}], reason}) /
+GET list / POST tạo (mọi user, body {picks: [{box_id, quantity?}], reason}) /
 GET {id} / POST {id}/delete xoá (admin — TỒN HOÀN LẠI các thùng, phiếu xoá mềm).
 Trừ tồn qua box_allocations kind='disposal' nên tồn thùng giảm ngay khi tạo.
 Nối: disposal_store, inventory_store (allocations), server_app.realtime, audit_log.
@@ -64,10 +64,7 @@ async def disposal_detail_handler(request: web.Request):
 
 
 async def disposal_create_handler(request: web.Request):
-    """POST /api/disposals (văn phòng) — body {picks: [{box_id, quantity?}], reason}."""
-    from server_app.order_api_common import is_office_request
-    if not await is_office_request(request):
-        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được xuất hủy"}, status=403)
+    """POST /api/disposals — mọi user đăng nhập được tạo phiếu xuất hủy."""
     try:
         body = await request.json()
     except Exception:

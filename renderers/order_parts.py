@@ -3,7 +3,7 @@ from __future__ import annotations
 from renderers.common import accentless_lower, fmt_money
 
 
-def status_icons(task_status: dict) -> str:
+def status_icons(task_status: dict, stock_confirmed=False) -> str:
     # Nộp tiền xong kiểu KÝ TOA (có/không) → bước 'nhận tiền' thành 'Gửi toa cho
     # khách': xong hiện 📄 thay ✅ (giống note 'gtr' cũ).
     _nop = task_status.get("nop_tien") or {}
@@ -17,6 +17,9 @@ def status_icons(task_status: dict) -> str:
         # khác (ký toa, admin chốt nhanh, dữ liệu cũ không note) là chứng từ/toa.
         else "📄" if tt == "nop_tien" and st.get("done") and nop_code != "tra_tien_mat"
         else "✅" if st.get("done")
+        # Kho đã chốt thùng nhưng bước Soạn hàng chưa hoàn tất: biểu thị hàng đã
+        # sẵn sàng bằng 📦, không đánh đồng với ✅ của công việc đã làm xong.
+        else "📦" if tt == "soan_hang" and stock_confirmed
         else "❌"
         for tt in ("ban_hd", "soan_hang", "giao_hang", "nop_tien", "nhan_tien")
         for st in [task_status.get(tt) or {}]

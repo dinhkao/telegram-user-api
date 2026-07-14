@@ -32,7 +32,7 @@ def _build_order_row(r) -> dict:
     ts = j.get("task_status", {}) or {}
     try:
         from renderers.order_parts import status_icons
-        task_icons = status_icons(ts)   # 5 icon y hệt main message Telegram
+        task_icons = status_icons(ts, j.get("stock_confirmed"))   # 5 icon y hệt main message Telegram
         # icon 6: chưa có thanh toán nào = còn nợ 😡 (😑 nếu 'Bỏ theo dõi nợ'), có rồi = 💰
         task_icons += ("😑" if j.get("bo_theo_doi_no") else "😡") if not (j.get("payments") or []) else "💰"
     except Exception:

@@ -275,6 +275,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     if (st?.done && st?.skip) return "🔘";
     if (tt === "nop_tien" && st?.done && note !== "tra_tien_mat") return "📄";
     if (st?.done) return "✅";
+    if (tt === "soan_hang" && j.stock_confirmed) return "📦";
     return "❌";
   };
   // Icon 6: chưa có thanh toán = còn nợ 😡 (😑 nếu 'Bỏ theo dõi nợ'), có rồi = 💰
@@ -549,7 +550,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       </div>
 
       <div id="od-tasks">
-      <Tasks threadId={threadId} taskStatus={j.task_status || {}} customTasks={j.custom_tasks || []} userNames={detail.user_names || {}} taskIds={detail.task_ids || {}} onChanged={changed} onAddPhoto={goCamera} />
+      <Tasks threadId={threadId} taskStatus={j.task_status || {}} stockConfirmed={!!j.stock_confirmed} customTasks={j.custom_tasks || []} userNames={detail.user_names || {}} taskIds={detail.task_ids || {}} onChanged={changed} onAddPhoto={goCamera} />
       </div>
       <div id="od-invoice">
       <section class="card">
@@ -574,13 +575,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           </>
         ) : (
           <>
-            <button class={"btn block primary" + (j.stock_confirmed || invLockedByOther ? " faded" : "")} style={{ marginTop: "8px" }}
-              onClick={() => j.stock_confirmed
-                ? toast("Đã chốt xuất kho — admin huỷ chốt mới sửa được số lượng/SP", "info")
-                : invLockedByOther
+            <button class={"btn block primary" + (invLockedByOther ? " faded" : "")} style={{ marginTop: "8px" }}
+              onClick={() => invLockedByOther
                 ? toast(`${invEditBy} đang sửa hoá đơn — chờ họ xong`, "info")
                 : (window.location.hash = `#/order/${threadId}/hoa-don`)}>
-              <Icon name="edit" size={16} /> {invLockedByOther ? `${invEditBy} đang sửa…` : "Sửa hoá đơn"}
+              <Icon name="edit" size={16} /> {invLockedByOther ? `${invEditBy} đang sửa…` : j.stock_confirmed ? "Sửa giá hoá đơn" : "Sửa hoá đơn"}
             </button>
             {isOffice() && (j.invoice || []).length > 0 && (
               <button class="btn block" style={{ marginTop: "8px" }} disabled={busy} onClick={createHD}>

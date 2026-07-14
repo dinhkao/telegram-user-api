@@ -354,6 +354,7 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .er-main .sp-trigger { flex: 0 1 auto; min-width: 0; max-width: 46%; padding: 6px 2px; gap: 5px; border: none; background: none; border-radius: 6px; font-size: .95rem; font-weight: 700; }
 .er-main .sp-trigger .ic { color: var(--muted-2); }
 .er-main .sp-trigger:active { background: var(--bg); }
+.er-product-fixed { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
 .er-main input { flex: none; margin: 0; padding: 7px 8px; border: none; border-radius: 8px; background: #eef1f5; font-size: .95rem; text-align: right; font-variant-numeric: tabular-nums; }
 .er-main .er-sl { width: 52px; margin-left: auto; }
 .er-main .er-price { width: 92px; }

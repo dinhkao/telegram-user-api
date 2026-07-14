@@ -8,7 +8,7 @@
 //    /api/order/assign-customer) → ② InvoiceEditor lấy giá theo khách bước 1 —
 //    đổi khách là chú thích giá bảng/gợi ý giá cập nhật ngay.
 // Mọi thao tác HĐ KiotViet (tạo/xem/in/xoá/kéo nợ) nằm ở khối Hoá đơn của
-// OrderDetail. Đơn đã có HĐ KiotViet / chốt kho → khoá cả 2 tab.
+// OrderDetail. Đơn đã có HĐ KiotViet → khoá cả 2 tab; đơn chốt kho chỉ sửa giá.
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { getJSON, postJSON, lockInvoiceEdit, unlockInvoiceEdit, previewOrder, refreshCustomerDebt, orderImageUrl, type OrderPreview } from "../api";
@@ -103,10 +103,10 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
   const custName: string = j.customer_name || "";
   const origText: string = j.text || j.text_raw || "";
   const hasInvoice = !!j.kiotvietInvoiceID;
-  const stockLocked = !!j.stock_confirmed;   // đã chốt xuất kho → khoá dù đã xoá HĐ
-  const locked = hasInvoice || stockLocked;
+  const stockLocked = !!j.stock_confirmed;
+  const locked = hasInvoice;
   const editable = !!detail && !locked;      // chỉ giữ khoá khi đơn còn sửa được
-  const canChange = editable && !editHolder; // đổi khách: server cũng cấm khi có HĐ KiotViet
+  const canChange = editable && !stockLocked && !editHolder;
   const textChanged = !!detail && text.trim() !== origText.trim();
 
   // Khôi phục ảnh tham chiếu đã lưu trên server mỗi khi mở/reload trang.
@@ -256,6 +256,8 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
           )}
           {canChange && <button class="btn small ghost" onClick={() => setChangingCust(true)}>Đổi</button>}
         </div>
+      ) : stockLocked ? (
+        <div class="co-cust-picked adv muted small">Chưa gán khách hàng</div>
       ) : (
         <>
           <CustomerPicker onPick={assignCustomer} placeholder={custKey ? "Tìm khách mới…" : "Gán khách cho đơn…"} />
@@ -286,8 +288,6 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
           <Icon name="lock" size={14} />{" "}
           {hasInvoice
             ? <>Đơn đã tạo hoá đơn KiotViet ({j.kiotvietInvoiceCode || j.kiotvietInvoiceID}) — không sửa được. Muốn sửa phải xoá HĐ ở trang chi tiết trước.</>
-            : stockLocked
-            ? <>Đơn đã <b>chốt xuất kho</b> — không sửa hoá đơn được. Admin bấm <b>Huỷ chốt</b> ở khối Xuất kho mới sửa được.</>
             : <><b>{editHolder}</b> đang sửa hoá đơn đơn này — chờ họ xong. Trang sẽ tự mở cho bạn khi họ rời.</>}
         </div>
       </div>
@@ -304,19 +304,20 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
             <div><div class="prod-sp big">Sửa hoá đơn · đơn #{threadId}</div></div>
           </div>
           {customerBar()}
-          <div class="seg" role="tablist">
+          {stockLocked && <div class="card co-adv-locked muted small"><Icon name="lock" size={14} /> Đơn đã <b>chốt xuất kho</b> — được sửa đơn giá, chiết khấu và PVC; sản phẩm, số lượng và VAT được giữ nguyên.</div>}
+          {!stockLocked && <div class="seg" role="tablist">
             <button class={mode === "quick" ? "seg-btn active" : "seg-btn"} onClick={() => setMode("quick")}>
               <Icon name="zap" size={15} /> Nhanh
             </button>
             <button class={mode === "advanced" ? "seg-btn active" : "seg-btn"} onClick={() => setMode("advanced")}>
               <Icon name="clipboard" size={15} /> Nâng cao
             </button>
-          </div>
+          </div>}
         </>
       )}
 
       {/* TAB NHANH — sửa text đơn + xem trước (layout chia đôi khi gõ, như trang tạo) */}
-      <div style={mode === "quick" ? undefined : "display:none"} class={typing ? "co-typing" : undefined}>
+      <div style={mode === "quick" && !stockLocked ? undefined : "display:none"} class={typing ? "co-typing" : undefined}>
         <div class="co-split" onClick={typing ? exitTypingOnOutsideTap : undefined}>
           {text.trim() !== "" && (
             <div class="co-preview">
@@ -379,11 +380,11 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
       </div>
 
       {/* TAB NÂNG CAO — chỉ còn SẢN PHẨM (khách dùng chung ở ô trên, giá theo khách đó) */}
-      <div style={mode === "advanced" ? undefined : "display:none"} class="co-adv">
+      <div style={mode === "advanced" || stockLocked ? undefined : "display:none"} class="co-adv">
         <div class="card">
           <div class="ie-head">Nội dung đơn hàng</div>
           <pre class="order-text">{origText || "(trống)"}</pre>
-          <div class="ie-ref-ctrl">
+          {!stockLocked && <div class="ie-ref-ctrl">
             {!refImageId ? (
               <button class="btn small" disabled={refSaving} onClick={() => setRefPicker(true)}>
                 <Icon name="image" size={16} /> Chọn ảnh của đơn để đối chiếu
@@ -398,7 +399,7 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
                 <button class="btn small" disabled={refSaving} onClick={() => saveReferenceImage(null)}><Icon name="close" size={16} /> Bỏ</button>
               </>
             )}
-          </div>
+          </div>}
         </div>
         <InvoiceEditor
           customerId={custKey || undefined}
@@ -408,6 +409,7 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
           vat={j.vat}
           onSave={saveInvoice}
           onCancel={goBack}
+          priceOnly={stockLocked}
         />
       </div>
 
