@@ -70,7 +70,7 @@ import { CashboxList } from "./pages/CashboxList";
 import { CollectMoney } from "./pages/CollectMoney";
 import { HelpFab } from "./ui/HelpFab";
 import { CashboxDetail } from "./pages/CashboxDetail";
-import { GuidesList, GuideCashbox } from "./pages/Guides";
+import { GuidesList, GuideDetail } from "./pages/Guides";
 import { initUsage } from "./usage";
 import "./styles.css";
 
@@ -517,8 +517,8 @@ function App() {
   else if (hash.startsWith("#/xuat-huy")) page = <DisposalsList />;
   else if (ketMatch) page = <CashboxDetail boxKey={decodeURIComponent(ketMatch[1])} />;
   else if (hash.startsWith("#/ket")) page = <CashboxList />;
-  else if (hash.startsWith("#/huong-dan/ket-tien")) page = <GuideCashbox />;
-  else if (hash.startsWith("#/huong-dan")) page = <GuidesList />;
+  else if (hash.match(/^#\/huong-dan\/[^?]/)) page = <GuideDetail hash={hash} />;
+  else if (hash.startsWith("#/huong-dan")) page = <GuidesList hash={hash} />;
   else if (hash.startsWith("#/nhap-hang")) page = <PurchasesList />;
   else if (nccMatch) page = <SupplierDetail id={nccMatch[1]} />;
   else if (hash.startsWith("#/ncc")) page = <SuppliersList />;

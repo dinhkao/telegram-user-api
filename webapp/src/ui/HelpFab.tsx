@@ -95,7 +95,9 @@ export function HelpFab() {
   };
   const onClick = () => {
     if (suppressClick.current) return;
-    window.location.hash = "#/huong-dan";
+    // Truyền trang đang xem (bỏ query) → trang Hướng dẫn lọc bài liên quan lên đầu.
+    const from = (window.location.hash || "").split("?")[0];
+    window.location.hash = "#/huong-dan?from=" + encodeURIComponent(from);
   };
 
   return (
