@@ -18,12 +18,22 @@ export function GuidesList() {
       <div class="muted small guide-intro">
         Chọn 1 bài để xem cách dùng. Có thắc mắc gì cứ hỏi Duy.
       </div>
+      <AiGuideNote />
       {GUIDES.map((g) => (
         <a key={g.key} class="cash-box" href={`#/huong-dan/${g.key}`}>
           <div class="cash-box-name"><Icon name={g.icon} size={16} /> {g.title}</div>
           <div class="muted small">{g.desc}</div>
         </a>
       ))}
+    </div>
+  );
+}
+
+function AiGuideNote() {
+  return (
+    <div class="guide-ai-note">
+      <Icon name="info" size={14} />
+      <span>Toàn bộ hướng dẫn trong mục này được viết bởi AI, nên có thể cần Duy kiểm tra lại khi có điểm chưa rõ.</span>
     </div>
   );
 }
@@ -47,6 +57,7 @@ export function GuideCashbox() {
           <div class="prod-date muted">Ai đang giữ tiền · mở từ menu ☰ Thêm → Tài chính → Két tiền</div>
         </div>
       </div>
+      <AiGuideNote />
 
       <S n={1} title="Két tiền là gì?">
         <p>

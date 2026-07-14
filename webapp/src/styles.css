@@ -3012,6 +3012,8 @@ body.kbd-open .od-navbar { display: none; }
 .guide-list { display: flex; flex-direction: column; gap: 8px; }
 .guide-intro { margin: 2px 2px 4px; }
 .guide { display: flex; flex-direction: column; gap: 8px; }
+.guide-ai-note { display: flex; align-items: flex-start; gap: 7px; padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); color: var(--muted); font-size: .8rem; line-height: 1.45; }
+.guide-ai-note .ic { flex: none; margin-top: 1px; color: var(--muted-2); }
 .guide-sect h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: .98rem; }
 .guide-num { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #fff;
   font-size: .78rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
@@ -3058,12 +3060,12 @@ body.kbd-open .collect-bar { bottom: 8px; }
 .collect-cap { color: var(--warn); font-size: .8rem; }
 
 /* ===== Nút trợ giúp nổi (HelpFab) — mọi trang, kéo được, mở #/huong-dan ===== */
-.help-fab { position: fixed; width: 52px; height: 52px; border-radius: 50%; border: none; padding: 0; background: var(--primary); color: #fff; box-shadow: 0 6px 18px rgba(0,0,0,.28); display: flex; align-items: center; justify-content: center; cursor: grab; z-index: 30; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; transition: box-shadow .15s ease; }
+.help-fab { position: fixed; width: 52px; height: 52px; border-radius: 50%; border: 1px solid rgba(107,114,128,.24); padding: 0; background: rgba(107,114,128,.18); color: rgba(31,35,40,.62); box-shadow: 0 4px 12px rgba(0,0,0,.14); display: flex; align-items: center; justify-content: center; cursor: grab; z-index: 30; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; transition: box-shadow .15s ease, background .15s ease, color .15s ease; }
 .help-fab:active { cursor: grabbing; }
 .help-fab.dragging { box-shadow: 0 12px 28px rgba(0,0,0,.4); }
 .help-fab .hf-q { font-size: 1.55rem; font-weight: 800; line-height: 1; pointer-events: none; }
 /* Vòng nhấp nháy nhẹ bao quanh để "có mặt" mà không chói */
-.help-fab::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--primary); opacity: 0; animation: hf-ring 9s ease-in-out infinite; pointer-events: none; }
+.help-fab::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid rgba(107,114,128,.28); opacity: 0; animation: hf-ring 9s ease-in-out infinite; pointer-events: none; }
 .help-fab.dragging::after { animation: none; opacity: 0; }
 @keyframes hf-ring { 0%, 88%, 100% { opacity: 0; transform: scale(1); } 92% { opacity: .5; transform: scale(1); } 100% { opacity: 0; transform: scale(1.35); } }
 /* Nhún gây chú ý (thêm class .wiggle định kỳ từ JS) */
