@@ -36,6 +36,18 @@ export function parseMoney(s: string): number {
   return parseInt(String(s).replace(/[^\d]/g, ""), 10) || 0;
 }
 
+/** Số lượng CÓ THỂ THẬP PHÂN — chấp nhận dấu ',' (VN) hoặc '.' làm phần thập phân.
+ *  Trả float, lỗi → 0. Khác parseMoney (ép số nguyên cho tiền đồng). */
+export function parseQty(s: string): number {
+  return parseFloat(String(s).replace(/,/g, ".").replace(/[^\d.]/g, "")) || 0;
+}
+
+/** Hiển thị số lượng trong ô nhập: dấu ',' cho phần thập phân, KHÔNG chấm nghìn
+ *  (chấm nghìn sẽ vướng khi gõ). vd 1.5 → "1,5", 12 → "12". */
+export function fmtQty(n: number): string {
+  return String(n).replace(".", ",");
+}
+
 export function timeAgo(epochSec: number): string {
   const diff = Math.floor(Date.now() / 1000) - epochSec;
   if (diff < 60) return "vừa xong";

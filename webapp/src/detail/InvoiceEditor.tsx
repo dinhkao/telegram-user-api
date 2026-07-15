@@ -7,7 +7,7 @@
 // OrderDetail. Parent quyết định onSave làm gì và điều hướng sau khi lưu.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { fetchCustomerPrice, searchProducts, type PriceInfo } from "../api";
-import { money, parseMoney } from "../format";
+import { money, parseMoney, parseQty, fmtQty } from "../format";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 import { PickerPopup } from "../ui/PickerPopup";
@@ -47,7 +47,9 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   createMode?: boolean;    // form tạo đơn → nhãn nút "Lưu & tạo đơn"
   priceOnly?: boolean;     // đơn đã chốt kho: chỉ cho đổi đơn giá, giữ nguyên mọi trường khác
 }) {
-  const [rows, setRows] = useState<EditorRow[]>([]);
+  // slText = chuỗi user đang gõ cho ô SL (giữ dấu ',' đang gõ dở như "1,"); sl = số
+  // đã parse (float) dùng để tính. Không giữ raw thì input controlled sẽ nuốt dấu phẩy.
+  const [rows, setRows] = useState<Array<EditorRow & { slText?: string }>>([]);
   const [disc, setDisc] = useState(0);
   const [p, setP] = useState(0);
   const [v, setV] = useState(0);
@@ -149,7 +151,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
 
   const save = async () => {
     setBusy(true);
-    try { await onSave({ invoice: rows.filter((r) => (r.sp || "").trim()), discount: disc, pvc: p, vat: currentVat }); }
+    try { await onSave({ invoice: rows.filter((r) => (r.sp || "").trim()).map(({ slText, ...r }) => r), discount: disc, pvc: p, vat: currentVat }); }
     catch (e: any) { toast(e?.message || "Lỗi", "err"); }
     finally { setBusy(false); }
   };
@@ -174,8 +176,14 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
               {priceOnly
                 ? <span class="er-product-fixed">{it.sp}</span>
                 : <ProductInput value={it.sp} onChange={(c) => setRow(i, "sp", c)} onCommit={(c) => autoPrice(i, c)} />}
-              <input class="er-sl" inputMode="numeric" title="Số lượng" placeholder="SL" value={it.sl || ""}
-                disabled={priceOnly} onFocus={selectAll} onInput={(e: any) => setRow(i, "sl", parseMoney(e.target.value))} />
+              <input class="er-sl" inputMode="decimal" title="Số lượng (nhập được số lẻ, vd 1,5)" placeholder="SL"
+                value={it.slText ?? (it.sl ? fmtQty(it.sl) : "")}
+                disabled={priceOnly} onFocus={selectAll}
+                onInput={(e: any) => {
+                  const raw = e.target.value;
+                  setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, slText: raw, sl: parseQty(raw) } : r)));
+                }}
+                onBlur={() => setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, slText: undefined } : r)))} />
               <span class="times">×</span>
               <input class="er-price" inputMode="numeric" title="Đơn giá" placeholder="giá" value={it.price ? money(it.price) : ""}
                 onFocus={selectAll} onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} />
