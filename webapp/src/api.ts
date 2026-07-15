@@ -350,6 +350,7 @@ export async function deleteReturn(id: number): Promise<any> {
 export type Supplier = {
   id: number; name: string; phone?: string; address?: string; note?: string;
   created_by?: string; created_at?: string; deleted_at?: string | null;
+  deleted_by?: string | null;
   so_phieu?: number; tong_tien?: number; last_at?: string | null;
 };
 export type PurchasePayment = {
@@ -1171,7 +1172,7 @@ export async function returnBoxMaterial(id: number | string): Promise<{ ok: bool
   return postJSON(`/api/inventory/box/${id}/return-material`, {}, { queueable: false });
 }
 /** Đổi đơn vị chứa của 1 thùng. */
-export async function setBoxUnit(boxId: number, unitId: number): Promise<InvBox | null> {
+export async function setBoxUnit(boxId: number | string, unitId: number): Promise<InvBox | null> {
   const d = await postJSON(`/api/inventory/box/${boxId}`, { unit_id: unitId }, { queueable: false });
   return d.ok ? d.box : null;
 }
@@ -1331,7 +1332,7 @@ export async function deletePlace(id: number): Promise<any> {
   return delJSON(`/api/places/${id}`);
 }
 /** Đặt/gỡ vị trí kho cho 1 thùng (placeId=null → gỡ). */
-export async function setBoxPlace(boxId: number, placeId: number | null): Promise<InvBox | null> {
+export async function setBoxPlace(boxId: number | string, placeId: number | null): Promise<InvBox | null> {
   const d = await postJSON(`/api/inventory/box/${boxId}`, { place_id: placeId }, { queueable: false });
   return d.ok ? d.box : null;
 }

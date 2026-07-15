@@ -35,6 +35,7 @@ export type OrderRow = {
   no_truoc?: string;
   kh_debt?: number | null;
   created?: string;
+  updated_at?: string | number;
   ngay_giao?: string;
   giao_at?: string;   // giờ đánh dấu GIAO XONG (ISO) — sort/nhóm 'Ngày giao' thực tế
   giao_by?: string;
