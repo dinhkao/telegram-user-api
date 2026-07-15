@@ -15,7 +15,8 @@ import { Images } from "../detail/Images";
 import { ImageStrip } from "../detail/ImageStrip";
 import { PhotoViewer } from "../detail/PhotoViewer";
 import { OrderStock } from "../detail/OrderStock";
-import { invalidateListCache, markLastOrder, filterNeighbors } from "./OrdersList";
+import { invalidateListCache, markLastOrder, filterNeighbors, onFilterNeighborsChanged } from "./OrdersList";
+import { applyCustomerOrderChange } from "./orderNavigation";
 import { confirmDialog, toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
 import { fastScrollToEl, fastScrollTop } from "../scroll";
@@ -47,6 +48,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [soanOpenRequest, setSoanOpenRequest] = useState(0); // tăng để mở luồng Xong task Soạn hàng
   const [navLoading, setNavLoading] = useState<string | null>(null); // nút đơn↔đơn đang chuyển
   const [custOrders, setCustOrders] = useState<OrderRow[]>([]); // mọi đơn cùng khách (mới→cũ), dùng cả preview nav
+  const [custNavRevision, setCustNavRevision] = useState(0); // tăng khi danh sách đổi/reconnect → refetch nav khách
+  const [filterNav, setFilterNav] = useState(() => filterNeighbors(threadId));
   const [showBar, setShowBar] = useState(false);          // hiện thanh dính (cuộn qua 5 icon)
   const [invEditBy, setInvEditBy] = useState<string | null>(null);   // ai đang sửa hoá đơn đơn này
   const statusRef = useRef<HTMLDivElement>(null);         // 5 icon trạng thái — mốc quan sát
@@ -107,7 +110,15 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       if (alive) setCustOrders(orders);
     })();
     return () => { alive = false; };
-  }, [custKey]);
+  }, [custKey, custNavRevision]);
+
+  // Cache danh sách lọc nằm ở module OrdersList. Khi realtime vá một đơn lân cận,
+  // listener làm OrderDetail render lại để icon/preview và prev/next đổi ngay.
+  useEffect(() => {
+    const sync = () => setFilterNav(filterNeighbors(threadId));
+    sync();
+    return onFilterNeighborsChanged(sync);
+  }, [threadId]);
 
   // (Vị trí cuộn do hệ trung tâm ở main.tsx quản: mở đơn = forward → lên đầu;
   //  quay lại danh sách = back → khôi phục. Deep-link ?focus xử lý riêng bên dưới.)
@@ -174,12 +185,20 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     const line = (h: any) => `• ${h.actor || "?"}: ${h.action}${h.detail ? ` — ${h.detail}` : ""}`;
     const off = onRealtime((e) => {
       if (e.type === "resync" || e.type === "customer_changed") {
+        if (e.type === "resync") setCustNavRevision((n) => n + 1);
         clearTimeout(t); t = setTimeout(reload, 250);
+        return;
+      }
+      if (e.type === "orders_changed") {
+        setCustNavRevision((n) => n + 1);
         return;
       }
       if (e.type === "invoice_edit_lock" && e.thread_id === String(threadId)) {
         setInvEditBy(e.holder);   // ai đang sửa hoá đơn (null = nhả) → làm mờ/bỏ mờ nút
         return;
+      }
+      if (e.type === "order_changed") {
+        setCustOrders((orders) => applyCustomerOrderChange(orders, String(custKey || ""), e));
       }
       if (e.type === "order_changed" && e.thread_id === String(threadId)) {
         clearTimeout(t); t = setTimeout(reload, 250);
@@ -202,7 +221,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       }
     });
     return () => { off(); clearTimeout(t); clearTimeout(tt); };
-  }, [threadId]);
+  }, [threadId, custKey]);
 
   // Cuộn qua 5 icon trạng thái → hiện thanh dính tóm tắt ở đỉnh
   useEffect(() => {
@@ -260,7 +279,6 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   };
 
   // Điều hướng đơn↔đơn: liền kề trong DANH SÁCH lọc + liền kề CÙNG KHÁCH (mới→cũ)
-  const fil = filterNeighbors(threadId);
   const ci = custOrders.findIndex((o) => String(o.thread_id) === String(threadId));
   const custPrevOrder = ci > 0 ? custOrders[ci - 1] : null;
   const custNextOrder = ci >= 0 && ci < custOrders.length - 1 ? custOrders[ci + 1] : null;
@@ -647,8 +665,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       <div class="od-navbar">
         {([
           { id: custPrev, order: custPrevOrder, arrow: "«", label: "khách", title: "Đơn trước của khách này" },
-          { id: fil.prev, order: fil.prevOrder, arrow: "‹", label: "lọc", title: "Đơn trước trong danh sách" },
-          { id: fil.next, order: fil.nextOrder, arrow: "›", label: "lọc", title: "Đơn sau trong danh sách" },
+          { id: filterNav.prev, order: filterNav.prevOrder, arrow: "‹", label: "lọc", title: "Đơn trước trong danh sách" },
+          { id: filterNav.next, order: filterNav.nextOrder, arrow: "›", label: "lọc", title: "Đơn sau trong danh sách" },
           { id: custNext, order: custNextOrder, arrow: "»", label: "khách", title: "Đơn sau của khách này" },
         ] as { id: number | null; order: OrderRow | null; arrow: string; label: string; title: string }[]).map((n, i) => {
           const preview = (n.order?.text || n.order?.topic_name || "").replace(/\s+/g, " ").trim()

@@ -35,3 +35,6 @@ dist/
 
 # Google Sheets service account (bot-nhap-phieu-sp)
 sheets_sa.json
+
+# Tooling scratch (subagent transcripts/artifacts) — not project code
+.pi-subagents/

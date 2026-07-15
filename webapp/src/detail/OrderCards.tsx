@@ -12,6 +12,7 @@ export const NEW_ORDER_SEC = 5 * 60; // đơn tạo trong 5 phút → tô vàng 
 
 export type OrderRow = {
   thread_id: number;
+  customer_key?: string | number | null;
   thumb_image_id?: number | null;
   thumb_image_ids?: number[];
   image_count?: number;

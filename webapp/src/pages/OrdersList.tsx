@@ -19,6 +19,8 @@ import { fastScrollTop } from "../scroll";
 
 
 type FilterKey = "all" | "pending" | "done" | "chua_soan" | "chua_giao" | "chua_nop" | "chua_nhan" | "no";
+type SortKey = "created" | "updated" | "ngay_giao" | "giao_at";
+const PAGE_SIZE = 20; // luôn tải 20 mỗi lần, kể cả lần đầu — không bao giờ tải hết
 const FILTER_LABELS: Record<string, string> = {
   pending: "Chưa xong", done: "Đã xong",
   chua_soan: "Chưa soạn", chua_giao: "Chưa giao", chua_nop: "Chưa nộp", chua_nhan: "Chưa nhận",
@@ -60,8 +62,25 @@ function rowMatchesFilter(o: OrderRow, f: FilterKey): boolean {
 // rời trang chi tiết rồi quay lại (mount lại). Reset khi có search mới.
 let listCache: {
   orders: OrderRow[]; stats: any; search: string;
-  filter: FilterKey; page: number; totalPages: number;
+  filter: FilterKey; sort: SortKey; page: number; totalPages: number; stale?: boolean;
 } | null = null;
+
+export type FilterNeighbors = {
+  prev: number | null; next: number | null;
+  prevOrder: OrderRow | null; nextOrder: OrderRow | null;
+};
+
+// filterNeighbors đọc cache cấp-module nên bản thân nó không làm component render lại.
+// OrderDetail đăng ký listener này để thanh nav đổi ngay khi realtime vá/xoá cache.
+const filterNeighborListeners = new Set<() => void>();
+const notifyFilterNeighborsChanged = () => filterNeighborListeners.forEach((listener) => {
+  try { listener(); } catch { /* một màn lỗi không được chặn listener khác */ }
+});
+
+export function onFilterNeighborsChanged(listener: () => void): () => void {
+  filterNeighborListeners.add(listener);
+  return () => filterNeighborListeners.delete(listener);
+}
 
 // Sort trước khi chip "Chưa giao" auto-chuyển sang ngày giao — rời filter thì trả lại.
 // Module-scope để sống qua unmount (vào chi tiết rồi quay lại vẫn nhớ).
@@ -75,10 +94,7 @@ export function invalidateListCache() {
 
 /** Đơn liền trước/sau trong DANH SÁCH đang lọc (cache module) — cho thanh điều hướng
  *  ở trang chi tiết. Null nếu chưa có cache (mở đơn qua deep-link, không từ danh sách). */
-export function filterNeighbors(threadId: string | number): {
-  prev: number | null; next: number | null;
-  prevOrder: OrderRow | null; nextOrder: OrderRow | null;
-} {
+export function filterNeighbors(threadId: string | number): FilterNeighbors {
   if (!listCache) return { prev: null, next: null, prevOrder: null, nextOrder: null };
   const i = listCache.orders.findIndex((o) => String(o.thread_id) === String(threadId));
   if (i < 0) return { prev: null, next: null, prevOrder: null, nextOrder: null };
@@ -92,6 +108,38 @@ export function filterNeighbors(threadId: string | number): {
   };
 }
 
+// Đơn mới/xoá hoặc WebSocket vừa nối lại có thể đổi cả quan hệ prev/next. Tải lại
+// đúng số trang user đã mở, nhưng vẫn giữ cache cũ trên màn hình trong lúc chờ.
+let cachedListRefreshSeq = 0;
+async function refreshCachedList(): Promise<void> {
+  if (!listCache) return;
+  const seq = ++cachedListRefreshSeq;
+  const snapshot = { ...listCache, stale: true };
+  listCache = snapshot;
+  const fp = snapshot.filter !== "all" ? `&filter=${snapshot.filter}` : "";
+  const sp = snapshot.sort !== "created" ? `&sort=${snapshot.sort}` : "";
+  try {
+    const pages = await Promise.all(Array.from({ length: Math.max(1, snapshot.page) }, (_, index) =>
+      getJSON(`/api/orders?page=${index + 1}&limit=${PAGE_SIZE}&search=${encodeURIComponent(snapshot.search)}${fp}${sp}`, { cache: false }),
+    ));
+    const current = listCache;
+    // User đã đổi search/filter/sort hoặc tải thêm trang trong lúc request chạy.
+    if (seq !== cachedListRefreshSeq || !current || current.search !== snapshot.search || current.filter !== snapshot.filter
+      || current.sort !== snapshot.sort || current.page !== snapshot.page) return;
+    const first = pages[0] || {};
+    listCache = {
+      ...current,
+      orders: pages.flatMap((page) => page.orders || []),
+      stats: first.stats && Object.keys(first.stats).length ? first.stats : current.stats,
+      totalPages: first.total_pages || 1,
+      stale: false,
+    };
+    notifyFilterNeighborsChanged();
+  } catch {
+    // Mất mạng: giữ nav gần nhất; khi quay lại danh sách, cờ stale sẽ buộc refetch.
+  }
+}
+
 // FIX: khi ở trang chi tiết, OrdersList unmount nên handler realtime của nó KHÔNG
 // nhận event → sửa task (vd nhận tiền) xong quay lại vẫn thấy dữ liệu cũ (cache).
 // Subscriber cấp-module này LUÔN sống → vá listCache dù danh sách đang unmount, nên
@@ -99,13 +147,17 @@ export function filterNeighbors(threadId: string | number): {
 // chỉ đồng bộ cache — hội tụ cùng giá trị.)
 onRealtime((e) => {
   if (e.type === "orders_changed" || e.type === "resync") {
-    listCache = null; // buộc tải lại lần remount sau (đơn mới/xoá/đồng bộ)
+    void refreshCachedList();
     return;
   }
   if (e.type !== "order_changed" || !listCache) return;
   const idx = listCache.orders.findIndex((o) => String(o.thread_id) === e.thread_id);
+  let changed = false;
   if (e.row === null) {
-    if (idx >= 0) listCache = { ...listCache, orders: listCache.orders.filter((_, i) => i !== idx) };
+    if (idx >= 0) {
+      listCache = { ...listCache, orders: listCache.orders.filter((_, i) => i !== idx) };
+      changed = true;
+    }
   } else if (idx >= 0) {
     // Dòng đổi có thể HẾT khớp chip lọc đang cache (vd lọc "Chưa nhận" mà đơn
     // vừa được nhận ở trang chi tiết) → rút khỏi danh sách thay vì vá tại chỗ.
@@ -113,10 +165,13 @@ onRealtime((e) => {
       const next = listCache.orders.slice();
       next[idx] = e.row as OrderRow;
       listCache = { ...listCache, orders: next };
+      changed = true;
     } else {
       listCache = { ...listCache, orders: listCache.orders.filter((_, i) => i !== idx) };
+      changed = true;
     }
   }
+  if (changed) notifyFilterNeighborsChanged();
 });
 
 /** Bấm tab Đơn khi ĐANG ở trang Đơn → cuộn lên đầu (hashchange không xảy ra nên hệ
@@ -172,12 +227,12 @@ export function OrdersList() {
     { m: "compact" as const, ic: "≣", t: "Gọn" },
     { m: "ultra" as const, ic: "▬", t: "Siêu gọn" },
   ];
-  const [sort, setSort] = useState<"created" | "updated" | "ngay_giao" | "giao_at">(() => {
+  const [sort, setSort] = useState<SortKey>(() => {
     const s = localStorage.getItem("dash_sort");
     return s === "updated" || s === "ngay_giao" || s === "giao_at" ? s : "created";
   });
   const sortRef = useRef(sort); // đọc trong load (tránh stale closure)
-  const changeSort = (s: "created" | "updated" | "ngay_giao" | "giao_at") => {
+  const changeSort = (s: SortKey) => {
     if (s === sortRef.current) return;
     autoSortPrev = null; // user tự chọn sort → thôi auto-trả-lại khi rời "Chưa giao"
     sortRef.current = s;
@@ -217,9 +272,7 @@ export function OrdersList() {
   const sentinel = useRef<HTMLDivElement>(null);
   // refs giữ state mới nhất cho observer (tránh stale closure)
   const st = useRef<any>({});
-  st.current = { page, totalPages, loading, search, filter, orders, stats };
-
-  const PAGE_SIZE = 20; // luôn tải 20 mỗi lần, kể cả lần đầu — không bao giờ tải hết
+  st.current = { page, totalPages, loading, search, filter, sort, orders, stats };
 
   const load = async (p: number, q: string, f: string, append: boolean) => {
     const seq = ++reqSeq.current; // đánh dấu request này là mới nhất
@@ -299,8 +352,14 @@ export function OrdersList() {
       setStats(c.stats);
       setSearch(c.search);
       setFilter(c.filter);
+      sortRef.current = c.sort;
+      setSort(c.sort);
       setPage(c.page);
       setTotalPages(c.totalPages);
+      if (c.stale) {
+        load(1, c.search, c.filter, false);
+        return;
+      }
       // Số đếm chip trong cache có thể đã lệch (đơn flip trạng thái lúc trang
       // unmount) → làm mới nhẹ nền (không đụng danh sách/vị trí cuộn).
       refreshStats();
@@ -315,7 +374,7 @@ export function OrdersList() {
       const s = st.current;
       if (!s.orders?.length) return;
       listCache = {
-        orders: s.orders, stats: s.stats, search: s.search, filter: s.filter,
+        orders: s.orders, stats: s.stats, search: s.search, filter: s.filter, sort: s.sort,
         page: s.page, totalPages: s.totalPages,
       };
     };
