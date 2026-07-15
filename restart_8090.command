@@ -7,6 +7,15 @@ set -e
 
 cd "$(dirname "$0")"
 
+# Guard: code + live DB/media live on the samwinchester SSD (via symlinks
+# ~/kiemkhach-code/telegram-user-api and ~/letrang-db). Refuse to start if the
+# drive isn't mounted — otherwise the app can't open app.db / media.
+if [ ! -d /Volumes/samwinchester/letrang ]; then
+  echo "ERROR: samwinchester SSD not mounted (/Volumes/samwinchester/letrang missing)."
+  echo "Mount the drive, then retry."
+  exit 1
+fi
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
