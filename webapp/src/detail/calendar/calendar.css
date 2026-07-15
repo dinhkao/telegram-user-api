@@ -1,0 +1,24 @@
+/* Âm lịch nằm dưới ngày dương; đỏ nhẹ ở mùng 1 để thấy ranh giới tháng âm. */
+.cc-cell.cont .cc-lunar {
+  align-self: center;
+  color: var(--muted);
+  font-size: .52rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.cc-cell.cont .cc-lunar.new-month {
+  color: var(--danger);
+  font-weight: 800;
+}
+
+.cc-cell.cont.today .cc-lunar:not(.new-month) {
+  color: var(--primary);
+}
+
+.cc-lunar-key {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
+    "lunar-date-vn": "^1.0.6",
     "preact": "^10.24.0"
   },
   "devDependencies": {
