@@ -18,7 +18,8 @@ export const GUIDES_KHONHAP: Guide[] = [
       { title: "Làm theo 3 bước", html: `
         <ol>
           <li><b>1 · Kho nguồn</b> — bấm chọn vị trí kho đang chứa hàng cần dời.
-            Con số bên cạnh mỗi kho là <i>số thùng chuyển được</i> ở đó.</li>
+            Chọn <b>Ko có kho</b> để lấy các thùng chưa được gán vị trí. Con số bên cạnh
+            mỗi lựa chọn là <i>số thùng chuyển được</i> ở đó.</li>
           <li><b>2 · Chọn thùng</b> — tick các thùng muốn dời. Có ô tìm theo
             <b>mã SP / số thùng</b> và nút <b>Chọn tất cả</b> (áp dụng cho các thùng đang hiện sau khi lọc).</li>
           <li><b>3 · Kho đích</b> — bấm chọn vị trí muốn chuyển tới (kho nguồn tự bị loại ra).</li>
