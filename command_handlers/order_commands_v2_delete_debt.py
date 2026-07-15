@@ -41,7 +41,7 @@ async def update_debt_command(client, msg, db_conn, thread_id):
     if not kv_id:
         return "❌ Khách hàng chưa liên kết KiotViet"
     try:
-        kv_debt = get_customer_debt_kv(kv_id).get("debt")
+        kv_debt = (await asyncio.to_thread(get_customer_debt_kv, kv_id)).get("debt")
     except Exception as e:
         return f"⚠️ {e}"
     if kv_debt is None:
@@ -72,7 +72,7 @@ async def update_debt_and_notify(client, db_conn, thread_id, order, kh_id_fb, ol
         new_debt = None
         for attempt in range(1, 6):
             try:
-                new_debt = get_customer_debt_kv(kv_id).get("debt", 0)
+                new_debt = (await asyncio.to_thread(get_customer_debt_kv, kv_id)).get("debt", 0)
             except Exception:
                 pass
             if old_debt is None or new_debt is None or new_debt != old_debt or attempt == 5:

@@ -244,7 +244,7 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     # 2. Get old debt from KiotViet (best-effort)
     old_debt = None
     try:
-        det = get_customer_debt_kv(kv_id)
+        det = await asyncio.to_thread(get_customer_debt_kv, kv_id)
         old_debt = det.get("debt")
         result["old_debt"] = old_debt
     except Exception as e:
@@ -252,7 +252,8 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
 
     # 3. Create order + payment on KiotViet
     try:
-        kv_res = create_order_with_payment(
+        kv_res = await asyncio.to_thread(
+            create_order_with_payment,
             customer_id=kv_id,
             method=method,
             total_payment=amount,
@@ -302,7 +303,7 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     # 7. Fetch new debt from KiotViet (nợ SAU — từ KiotViet, KHÔNG tính tay)
     new_debt = None
     try:
-        det = get_customer_debt_kv(kv_id)
+        det = await asyncio.to_thread(get_customer_debt_kv, kv_id)
         new_debt = det.get("debt")
         result["new_debt"] = new_debt
         if new_debt is not None:
@@ -384,8 +385,10 @@ async def _process_create_invoice_core_inner(thread_id: int, user_id: int | None
     old_debt_future = asyncio.get_running_loop().run_in_executor(None, get_customer_debt_kv, kv_id)
     try:
         from product_store import kv_ids_for_items
-        inv = create_kiotviet_invoice(customer_id=kv_id, invoice_items=invoice, discount=discount,
-                                      pvc=pvc, vat=vat, kv_ids=kv_ids_for_items(db_conn, invoice))
+        kv_ids = kv_ids_for_items(db_conn, invoice)   # DB (nhanh) — giữ trên loop
+        inv = await asyncio.to_thread(
+            create_kiotviet_invoice, customer_id=kv_id, invoice_items=invoice,
+            discount=discount, pvc=pvc, vat=vat, kv_ids=kv_ids)
     except Exception as e:
         log.error("KiotViet create invoice failed: %s", e)
         result["error"] = f"Lỗi tạo hoá đơn KiotViet: {e}"; return result
@@ -660,7 +663,7 @@ def _clean_text_chat(order: dict) -> None:
 async def _append_kv_debt(client, chat_id: int, reply_msg_id: int, kv_id: int) -> None:
     """Fetch KiotViet debt and append to existing reply message (non-blocking)."""
     try:
-        det = get_customer_debt_kv(kv_id)
+        det = await asyncio.to_thread(get_customer_debt_kv, kv_id)
         debt_val = det.get("debt")
         if debt_val is not None:
             # Read current message text, append debt, edit
@@ -692,7 +695,7 @@ async def _send_invoice_html_file(
         from firebase_sync import _ref as fb_ref
 
         # Generate HTML using the real KiotViet invoice (same as Node.js)
-        html = generate_invoice_html(invoice_id, debt=debt, hints={
+        html = await asyncio.to_thread(generate_invoice_html, invoice_id, debt, {
             "customerNameOverride": customer_name,
             "expectedVAT": 0,
             "expectedPVC": 0,
@@ -1073,7 +1076,7 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
         try:
-            invoices = get_invoices_by_order(str(thread_id))
+            invoices = await asyncio.to_thread(get_invoices_by_order, str(thread_id))
             if not invoices:
                 await client.send_message(msg.chat_id, "❌ Chưa có hóa đơn", reply_to=msg.id)
                 return
@@ -1238,7 +1241,7 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Khách hàng này không có mã KiotViet.", reply_to=msg.id)
             return
         try:
-            debt = get_customer_debt_kv(customer_id)
+            debt = await asyncio.to_thread(get_customer_debt_kv, customer_id)
             lines = [
                 "<b>📊 Công nợ (KiotViet):</b>",
                 f"Khách: <b>{debt.get('name', 'N/A')}</b>",

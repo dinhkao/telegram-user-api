@@ -1,4 +1,5 @@
 """bot_flows/invoice_render.py — Generate invoice HTML, send file, render PNG."""
+import asyncio
 import logging
 import os
 import tempfile
@@ -15,7 +16,7 @@ async def render_and_send_invoice(bot, event, s, invoice_id, invoice_code, custo
     try:
         from inhoadon import generate_invoice_html
         from kiotviet import get_invoice_detail as _get_invoice_detail
-        inv_detail = _get_invoice_detail(invoice_id)
+        inv_detail = await asyncio.to_thread(_get_invoice_detail, invoice_id)
         if inv_detail:
             html = generate_invoice_html(inv_detail, snapshot_debt, {
                 "expectedVAT": vat,

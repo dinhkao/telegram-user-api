@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 
@@ -40,7 +41,7 @@ async def handle_delete(client, msg, db_conn):
         await status_msg.edit("❌ Đơn hàng chưa có hóa đơn KiotViet")
         return True
     kh_id_fb = order.get("khach_hang_id") or order.get("khID")
-    old_debt = _fetch_old_debt(db_conn, kh_id_fb)
+    old_debt = await _fetch_old_debt(db_conn, kh_id_fb)
     await status_msg.edit(f"⏳ Đang xóa hóa đơn KiotViet #{invoice_id}...")
     ok, err = await _delete_kv_invoice(invoice_id)
     if not ok:
@@ -57,14 +58,15 @@ async def handle_delete(client, msg, db_conn):
     return True
 
 
-def _fetch_old_debt(db_conn, kh_id_fb):
+async def _fetch_old_debt(db_conn, kh_id_fb):
     if not kh_id_fb:
         return None
     try:
         customer = get_customer_by_key(db_conn, str(kh_id_fb))
         kv_id = customer.get("kh_id") if customer else None
         if kv_id:
-            return get_customer_debt_kv(kv_id).get("debt", 0)
+            det = await asyncio.to_thread(get_customer_debt_kv, kv_id)   # KiotViet off-loop
+            return det.get("debt", 0)
     except Exception:
         pass
     return None
@@ -72,7 +74,7 @@ def _fetch_old_debt(db_conn, kh_id_fb):
 
 async def _delete_kv_invoice(invoice_id):
     try:
-        delete_invoice_kv(invoice_id)
+        await asyncio.to_thread(delete_invoice_kv, invoice_id)
         return True, None
     except Exception as e:
         log.error("delete_invoice_kv failed invoice=%s: %s", invoice_id, e)

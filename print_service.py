@@ -1,5 +1,6 @@
 """print_service.py — Shared print logic used by both Telethon handler and HTTP API."""
 
+import asyncio
 import json
 import logging
 import os
@@ -45,7 +46,7 @@ async def execute_print_giao(conn, order, user_id=None) -> dict:
 
     # Invoice HTML (no QR, 2 copies)
     snapshot_debt = order.get("invoice_debt_snapshot", 0)
-    invoice_html = generate_invoice_html(invoice_id, debt=snapshot_debt, hints={
+    invoice_html = await asyncio.to_thread(generate_invoice_html, invoice_id, snapshot_debt, {
         "expectedVAT": int(order.get("vat", 0)),
         "expectedPVC": int(order.get("pvc", 0)),
         "customerNameOverride": customer_name,
