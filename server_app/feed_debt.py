@@ -128,6 +128,40 @@ def _demote_run(events: list[dict], anchors: list, lo: int, hi: int, bal) -> boo
     return True
 
 
+def _reorder_swapped_invoice_payment(events: list[dict]) -> None:
+    """Hoán vị cặp ĐƠN-HĐ ↔ PHIẾU-THU bị đảo bởi timestamp (mutate tại chỗ).
+
+    HĐ KiotViet của đơn nhiều khi được ĐẨY lên KV vài phút SAU khi tạo topic đơn,
+    rơi ngay sau 1 phiếu thu mà KiotViet đã áp TRƯỚC → sort theo timestamp xếp
+    [đơn, thu] trong khi nợ thật áp [thu, đơn]. Mốc nợ KiotViet (khDebt của đơn,
+    new_debt của phiếu thu) mã hoá thứ tự áp dụng THẬT: nếu thứ tự hiện tại KHÔNG
+    khớp chuỗi (mốc_trước + delta ≠ mốc) mà HOÁN VỊ lại khớp cả hai mốc (±_TOL) →
+    đảo, để feed hiện đúng SỐ THẬT thay vì bị _demote_misplaced_anchors vứt mốc
+    rồi nội suy sai (ca thật Loan Long Đại 2026-07-06). Chạy TRƯỚC demote.
+
+    Bảo thủ — chỉ đảo khi CHỨNG MINH được: cặp kề [order (delta>0, stored), payment
+    (delta<0, stored)], mốc lưu ngay trước (events[i-1].stored) làm đầu trái, không
+    sự kiện nào ts_guessed (vị trí đoán không làm bằng chứng). Không thoả → để yên
+    cho demote xử lý (mốc rác thật vẫn demote như cũ).
+    """
+    for i in range(1, len(events) - 1):
+        prev, b, c = events[i - 1], events[i], events[i + 1]
+        if b.get("kind") != "order" or c.get("kind") != "payment":
+            continue
+        if b.get("stored") is None or c.get("stored") is None or prev.get("stored") is None:
+            continue
+        if b.get("ts_guessed") or c.get("ts_guessed"):
+            continue
+        bd, cd = float(b.get("delta") or 0.0), float(c.get("delta") or 0.0)
+        if not (bd > 0 and cd < 0):
+            continue
+        p, bs, cs = float(prev["stored"]), float(b["stored"]), float(c["stored"])
+        cur_ok = abs(p + bd - bs) <= _TOL and abs(bs + cd - cs) <= _TOL
+        swap_ok = abs(p + cd - cs) <= _TOL and abs(cs + bd - bs) <= _TOL
+        if swap_ok and not cur_ok:
+            events[i], events[i + 1] = c, b   # phiếu thu lên trước HĐ (thứ tự KV thật)
+
+
 def _fill_debt_chain(events: list[dict], current_debt) -> None:
     """Điền debt_after cho MỌI sự kiện (events theo thời gian TĂNG dần, mutate).
 
@@ -153,6 +187,11 @@ def _fill_debt_chain(events: list[dict], current_debt) -> None:
             events[last_pay]["stored"] = None
         last_pay = i
         pos_delta_since = False
+
+    # TIỀN XỬ LÝ 1B — cặp ĐƠN-HĐ ↔ PHIẾU-THU bị đảo bởi timestamp (HĐ đẩy lên KV
+    # sau, KiotViet áp phiếu thu trước) → hoán vị lại đúng thứ tự áp dụng KV để
+    # khỏi bị demote vứt mốc thật. Chạy TRƯỚC demote.
+    _reorder_swapped_invoice_payment(events)
 
     # TIỀN XỬ LÝ 2 — mốc đúng-số-nhưng-sai-chỗ (HĐ KiotViet tạo trễ) → demote
     _demote_misplaced_anchors(events, current_debt)

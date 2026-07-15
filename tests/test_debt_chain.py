@@ -151,6 +151,68 @@ class MisplacedAnchorTests:
         assert events[2]["debt_after"] == 999_000 and not events[2]["est"]
 
 
+class ReorderSwappedInvoicePaymentTests:
+    """HĐ KiotViet đẩy lên SAU khi tạo topic đơn, rơi sau 1 phiếu thu KV đã áp
+    trước → sort timestamp xếp [đơn, thu] nhưng nợ thật áp [thu, đơn]. Hoán vị lại
+    theo mốc KiotViet để hiện SỐ THẬT thay vì demote vứt mốc rồi nội suy sai."""
+
+    def test_loan_long_dai_invoice_pushed_after_applied_payment(self):
+        # Ca thật (Loan Long Đại, 2026-07-06): đơn #491500 (HĐ tạo 15:00, khDebt=
+        # 57.9tr → mốc 61tr) đứng TRƯỚC phiếu thu 10.115tr (15:05, new_debt=57.9tr)
+        # theo timestamp, nhưng KiotViet áp phiếu thu TRƯỚC. Trước fix: demote vứt
+        # cả 2 mốc → đơn ≈71.115tr, thu ≈61tr (SAI). Sau fix: hoán vị → cả 4 mốc
+        # thật, không est.
+        events = [
+            _order(1, 975_000, stored=68_015_000.0),     # đơn trước (mốc)
+            _order(2, 3_100_000, stored=61_000_000.0),    # HĐ đẩy lên KV sau phiếu thu
+            _pay(3, 10_115_000, stored=57_900_000.0),     # KiotViet áp TRƯỚC đơn trên
+            _order(4, 750_000, stored=61_750_000.0),      # đơn sau (mốc)
+        ]
+        _fill_debt_chain(events, current_debt=61_750_000.0)
+        # đã hoán vị: phiếu thu lên trước HĐ #491500, mọi mốc là SỐ THẬT
+        assert events[0]["debt_after"] == 68_015_000 and not events[0]["est"]
+        assert events[1]["kind"] == "payment"
+        assert events[1]["debt_after"] == 57_900_000 and not events[1]["est"]
+        assert events[2]["kind"] == "order"
+        assert events[2]["debt_after"] == 61_000_000 and not events[2]["est"]
+        assert events[3]["debt_after"] == 61_750_000 and not events[3]["est"]
+
+    def test_swap_not_applied_when_chain_already_consistent(self):
+        # Cặp order→payment ĐÃ khớp thứ tự (cur_ok) → tuyệt đối không hoán vị.
+        events = [
+            _order(1, 0, stored=1_000_000.0),
+            _order(2, 500_000, stored=1_500_000.0),
+            _pay(3, 300_000, stored=1_200_000.0),
+        ]
+        _fill_debt_chain(events, current_debt=1_200_000.0)
+        assert events[1]["kind"] == "order" and events[1]["debt_after"] == 1_500_000
+        assert events[2]["kind"] == "payment" and events[2]["debt_after"] == 1_200_000
+
+    def test_swap_skipped_when_payment_ts_guessed(self):
+        # Phiếu thu di sản vị trí ĐOÁN (ts_guessed) → cấm dùng làm bằng chứng hoán
+        # vị (giống guard demote) → thứ tự giữ nguyên.
+        events = [
+            _order(1, 975_000, stored=68_015_000.0),
+            _order(2, 3_100_000, stored=61_000_000.0),
+            {**_pay(3, 10_115_000, stored=57_900_000.0), "ts_guessed": True},
+            _order(4, 750_000, stored=61_750_000.0),
+        ]
+        _fill_debt_chain(events, current_debt=61_750_000.0)
+        assert events[1]["kind"] == "order"      # KHÔNG hoán vị
+        assert events[2]["kind"] == "payment"
+
+    def test_swap_skipped_without_preceding_anchor(self):
+        # Cặp order→payment ở ĐẦU chuỗi (không có mốc trái để chứng minh) → no-op.
+        events = [
+            _order(1, 3_100_000, stored=61_000_000.0),
+            _pay(2, 10_115_000, stored=57_900_000.0),
+            _order(3, 750_000, stored=61_750_000.0),
+        ]
+        _fill_debt_chain(events, current_debt=61_750_000.0)
+        assert events[0]["kind"] == "order"      # KHÔNG hoán vị
+        assert events[1]["kind"] == "payment"
+
+
 class DeriveBatchNewDebtTests:
     def test_distributes_backwards_from_kv(self):
         assert derive_batch_new_debt([800_000, 310_000, 170_000], 0) == [480_000, 170_000, 0]

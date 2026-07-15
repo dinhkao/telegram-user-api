@@ -62,6 +62,27 @@ async def customers_search_handler(request: web.Request):
     return web.json_response(body)
 
 
+_DEBT_STALE_MS = 120_000   # chỉ refresh nền nếu nợ cũ hơn 2 phút (chặn spam KiotViet)
+
+
+def _maybe_refresh_debt_bg(data: dict, key: str) -> None:
+    """Kéo lại CÔNG NỢ khách từ KiotViet ở NỀN khi mở chi tiết — tự lành số nợ cũ
+    (resync lỡ / KV trễ quá lâu). Fire-and-forget, KHÔNG chặn response; throttle
+    theo debt_updated_at để không gọi KiotViet mỗi lần mở; chỉ khi đã liên kết KV.
+    Vẫn lấy nợ TỪ KiotViet (không tính tay). Dùng chung schedule_debt_resync."""
+    try:
+        if not data.get("kh_id"):
+            return
+        import time as _t
+        upd = float(data.get("debt_updated_at") or 0)
+        if (_t.time() * 1000 - upd) < _DEBT_STALE_MS:
+            return
+        from server_app.debt_sync import schedule_debt_resync
+        schedule_debt_resync(str(key), delay=0.0, followup_delay=None)
+    except Exception:
+        pass
+
+
 async def customer_detail_handler(request: web.Request):
     key = request.match_info.get("key", "").strip()
     if not key:
@@ -80,6 +101,7 @@ async def customer_detail_handler(request: web.Request):
     data = await asyncio.to_thread(_run)
     if data is None:
         return web.json_response({"ok": False, "error": "không thấy khách hàng"}, status=404)
+    _maybe_refresh_debt_bg(data, key)   # Fix B2: tự lành nợ cũ ở nền
     return web.json_response({"ok": True, "customer": _detail(data, key)})
 
 

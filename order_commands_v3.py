@@ -399,10 +399,16 @@ async def _process_create_invoice_core(thread_id: int, user_id: int | None) -> d
     from server_app.realtime import emit_customer_changed, emit_order_changed
     emit_order_changed(thread_id)
     emit_customer_changed(str(kh_id_fb))
-    # KiotViet cập nhật debt trễ → fetch lại 1 nhịp sau để chắc ăn số mới nhất
-    # (kèm vá khDebt/invoice_debt_snapshot của đơn — xoá HĐ rồi tạo lại hay dính số cũ)
+    # KiotViet cập nhật debt trễ → fetch lại nhiều nhịp (backoff) tới khi số nợ phản
+    # ánh HĐ mới (= nợ_trước + tổng). Truyền kỳ vọng để resync KIỂM CHỨNG trước khi
+    # vá khDebt — tránh KV trễ >30s làm hạ mốc thành số sai (ca Loan Long Đại 07-15).
     from server_app.debt_sync import schedule_debt_resync
-    schedule_debt_resync(str(kh_id_fb), invoice_thread_id=thread_id)
+    from server_app.customer_feed import _order_total_num
+    _inv_total = _order_total_num(order)
+    schedule_debt_resync(
+        str(kh_id_fb), invoice_thread_id=thread_id,
+        expected_debt=(old_debt + _inv_total) if old_debt is not None else None,
+        pre_invoice_debt=old_debt, retry_delays=[30.0, 90.0, 180.0])
     result.update(success=True, kv_code=invoice_code, kv_id=invoice_id, old_debt=snapshot_debt)
     return result
 
