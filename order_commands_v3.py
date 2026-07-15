@@ -334,16 +334,40 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     return result
 
 
+_invoice_create_locks: dict[int, asyncio.Lock] = {}
+
+
+def _invoice_create_lock(thread_id: int) -> asyncio.Lock:
+    """Khoá tạo HĐ THEO ĐƠN (1 process). Chặn tạo HĐ KiotViet TRÙNG khi bấm 2 lần /
+    2 request đồng thời (webapp double-tap, Telegram + web) — đóng cả khe TOCTOU
+    giữa create_kiotviet_invoice và _save_order (có await old_debt ở giữa)."""
+    lk = _invoice_create_locks.get(thread_id)
+    if lk is None:
+        lk = _invoice_create_locks[thread_id] = asyncio.Lock()
+    return lk
+
+
 async def _process_create_invoice_core(thread_id: int, user_id: int | None) -> dict:
-    """Core tạo hoá đơn KiotViet (DB + KiotViet). Dùng chung cho lệnh Telethon
-    'tạo hd' và endpoint REST /api/order/invoice/create-kiotviet. Trả dict
-    {success, error, kv_code, kv_id, old_debt, kh_name} — caller tự hiển thị."""
+    """Tạo hoá đơn KiotViet — KHOÁ theo đơn rồi gọi lõi. Giữ tên cũ cho mọi caller
+    (Telethon 'tạo hd', REST /api/order/invoice/create-kiotviet)."""
+    async with _invoice_create_lock(int(thread_id)):
+        return await _process_create_invoice_core_inner(thread_id, user_id)
+
+
+async def _process_create_invoice_core_inner(thread_id: int, user_id: int | None) -> dict:
+    """Lõi tạo hoá đơn KiotViet (DB + KiotViet). Trả dict {success, error, kv_code,
+    kv_id, old_debt, kh_name} — caller tự hiển thị. GỌI QUA _process_create_invoice_core
+    (đã khoá theo đơn) — đừng gọi trực tiếp kẻo mất chống-trùng."""
     db_conn = _get_connection()
     result = {"success": False, "error": None, "thread_id": thread_id,
               "kv_code": None, "kv_id": None, "old_debt": None, "kh_name": None}
     order = get_order_by_thread_id(db_conn, thread_id)
     if not order:
         result["error"] = "Không tìm thấy đơn hàng"; return result
+    # CHỐNG TRÙNG: đơn đã có HĐ KiotViet → KHÔNG tạo lại (bấm 2 lần / 2 request đồng
+    # thời). Đọc lại trong khoá nên request sau luôn thấy HĐ request trước vừa lưu.
+    if order.get("kiotvietInvoiceID") or order.get("kiotvietInvoiceCode"):
+        result["error"] = "Đơn đã có hoá đơn KiotViet rồi!"; return result
     invoice = order.get("invoice") or order.get("invoice_items") or []
     if not invoice:
         result["error"] = "Không có sản phẩm nào trong đơn. Thêm sản phẩm trước."; return result

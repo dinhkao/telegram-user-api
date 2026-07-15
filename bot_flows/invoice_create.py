@@ -20,6 +20,14 @@ async def handle_tao_hd(bot, event, s):
     if not s.thread_id:
         await event.reply(f"Không lấy được thread_id cho đơn {s.order_id}.")
         return
+    # Khoá tạo HĐ theo đơn — DÙNG CHUNG khoá với path webapp/Telethon → chống tạo HĐ
+    # KiotViet TRÙNG khi bấm 2 lần / 2 request đồng thời (kể cả bot + web cùng lúc).
+    from order_commands_v3 import _invoice_create_lock
+    async with _invoice_create_lock(int(s.thread_id)):
+        await _handle_tao_hd_locked(bot, event, s)
+
+
+async def _handle_tao_hd_locked(bot, event, s):
     if not config.is_admin(s.user_id):
         await event.reply("Chức năng chỉ dành cho admin.")
         return
