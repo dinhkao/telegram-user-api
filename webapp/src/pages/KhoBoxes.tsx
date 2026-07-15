@@ -1,18 +1,19 @@
-// Dashboard KHO HÀNG (#/kho). MẶC ĐỊNH: mỗi VỊ TRÍ kho = 1 card (thumbnail ảnh mới
-// nhất + mã SP kèm số lượng tồn tại vị trí đó) → tap mở chi tiết kho. KHI GÕ SEARCH:
-// đổi sang lưới Ô THÙNG vuông, GOM THEO VỊ TRÍ. Data + cache module: ./khoData
+// Dashboard KHO HÀNG (#/kho). MẶC ĐỊNH: hai cột — card VỊ TRÍ kho bên trái, tồn
+// SẢN PHẨM mới biến động bên phải. KHI GÕ SEARCH: đổi sang lưới Ô THÙNG vuông,
+// GOM THEO VỊ TRÍ. Data + cache module: ./khoData
 // (vẽ ngay từ cache khi quay lại, refresh nền). Realtime: KHO_EVENTS → refresh
 // debounce 350ms, response cũ không ghi đè mới (seq guard trong khoLoad).
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { mediaImageUrl, soVN, type Place, type KhoBox } from "../api";
+import { mediaImageUrl, soVN, type Place, type KhoBox, type InvProductSummary } from "../api";
 import { khoCache, khoLoad, KHO_EVENTS, type KhoData } from "./khoData";
-import { foldVN } from "../format";
+import { fmtTime, foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { SearchBar } from "../ui/SearchBar";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 import { CompactBoxList } from "../detail/CompactBoxList";
+import { sortProductsByRecentChange } from "./khoProducts";
 
 let memQ = "";                 // nhớ search khi rời trang
 let memBoxView: "grid" | "compact" = "compact";   // kiểu xem ô thùng ở search (mặc định GỌN)
@@ -59,8 +60,9 @@ function ProdChips({ prods }: { prods: { code: string; qty: number }[] }) {
   );
 }
 
-// Card 1 vị trí kho: thumbnail ảnh mới nhất + mã SP·SL tồn. Tap → chi tiết kho.
-function LocCard({ p, bs }: { p: Place; bs: KhoBox[] }) {
+// Card 1 vị trí kho: thumbnail ảnh mới nhất + tên + số thùng·tồn. Tap → chi tiết
+// kho. `compact` (dashboard): CHỈ tên + tổng — chi tiết mã SP xem khi bấm vào.
+function LocCard({ p, bs, compact }: { p: Place; bs: KhoBox[]; compact?: boolean }) {
   const total = bs.reduce((s, b) => s + rem(b), 0);
   const nStock = bs.filter(hasStock).length;   // đếm CHỈ thùng còn hàng (thùng rỗng đã ẩn)
   return (
@@ -69,14 +71,37 @@ function LocCard({ p, bs }: { p: Place; bs: KhoBox[] }) {
         <img class="kho-loc-thumb" loading="lazy" alt=""
           src={mediaImageUrl(`/api/media/place/${p.id}`, p.thumb_image_id, "thumb")} />
       ) : (
-        <div class="kho-loc-thumb ph"><Icon name="box" size={26} /></div>
+        <div class="kho-loc-thumb ph"><Icon name="box" size={compact ? 20 : 26} /></div>
       )}
       <div class="kho-loc-main">
         <div class="kho-loc-name">{p.name}</div>
         <div class="kho-loc-meta"><b>{nStock}</b> thùng · <b class={total > 0 ? "kho-loc-t" : ""}>{soVN(total)}</b> tồn</div>
-        <ProdChips prods={prodAgg(bs)} />
+        {!compact && <ProdChips prods={prodAgg(bs)} />}
       </div>
       <Icon name="chevronRight" size={18} class="kg-arrow" />
+    </a>
+  );
+}
+
+// Một dòng tồn bên phải dashboard. Gọn 2 hàng CĂN CỘT: mã ↔ số tồn (đọc nhanh
+// nhất) rồi tên ↔ đơn vị·lần đổi cuối. Tồn 0 làm xám để lùi ra sau.
+function ProductStockRow({ p }: { p: InvProductSummary }) {
+  const has = (p.in_stock_total || 0) > 0;
+  const changed = p.last_changed_at ? fmtTime(p.last_changed_at) : "";
+  const unit = p.unit || "cây";
+  return (
+    <a class={"kho-prod-row" + (has ? "" : " zero")} href={`#/kho/${encodeURIComponent(p.product_code)}`}>
+      <span class="kho-prod-txt">
+        <b class="kho-prod-code" title={p.product_code}>
+          {p.product_code}
+          {p.linked === false && <i class="kho-prod-unlinked" title="Chưa liên kết KiotViet">!</i>}
+        </b>
+        <span class={"kho-prod-name" + (p.name ? "" : " empty")} title={p.name || ""}>{p.name || "Chưa đặt tên"}</span>
+      </span>
+      <span class="kho-prod-num">
+        <b>{soVN(p.in_stock_total || 0)}</b>
+        <small>{unit}{changed ? " · " + changed : ""}</small>
+      </span>
     </a>
   );
 }
@@ -137,6 +162,7 @@ export function KhoBoxes() {
   if (!data) return <Loading />;
   const { places, boxes, prodSum } = data;
   const { byPlace, byCode, unplaced, stockCountByPlace, sumByCode } = maps;
+  const productsByChange = sortProductsByRecentChange(prodSum);
 
   const nq = foldVN(q.trim());
   const searching = nq !== "";
@@ -154,11 +180,11 @@ export function KhoBoxes() {
   const countBoxes = boxes.filter((b) => hasStock(b) && (matchBox(b) || (b.place_id != null && matchedPlaceIds.has(b.place_id)))).length;
 
   const header = (
-    <div class="row space">
+    <div class="row space kho-page-head">
       <h2 class="page-h"><Icon name="box" size={18} /> Kho hàng{" "}
-        <span class="muted small">({searching ? `${countBoxes} thùng` : `${places.length} vị trí`})</span>
+        <span class="muted small">({searching ? `${countBoxes} thùng` : `${places.length} kho · ${prodSum.length} SP`})</span>
       </h2>
-      <span class="row" style={{ gap: "6px" }}>
+      <span class="row kho-page-actions">
         <a class="btn small" href="#/nhu-cau"><Icon name="chart" size={15} /> Cần làm</a>
         <a class="btn small" href="#/san-pham"><Icon name="tag" size={15} /> Sản phẩm</a>
         <a class="btn small" href="#/so-thung"><Icon name="grid" size={15} /> Số thùng</a>
@@ -166,7 +192,7 @@ export function KhoBoxes() {
       </span>
     </div>
   );
-  const search = <SearchBar value={q} onInput={setQ} placeholder="Tìm mã SP / số thùng / vị trí…" />;
+  const search = <SearchBar value={q} onInput={setQ} placeholder="Tìm kho, sản phẩm hoặc số thùng…" />;
 
   // ── SEARCH: mã SP khớp + VỊ TRÍ khớp (card) + lưới ô thùng gom theo vị trí ─
   if (searching) {
@@ -280,33 +306,44 @@ export function KhoBoxes() {
     );
   }
 
-  // ── MẶC ĐỊNH: card từng vị trí kho ──────────────────────────────────────
+  // ── MẶC ĐỊNH: hai cột đơn giản — VỊ TRÍ KHO | TỒN SẢN PHẨM ──────────────
+  const unplacedStock = unplaced.filter(hasStock);
   return (
     <div class="inv-dash">
       {header}{search}
-      {places.length === 0 && unplaced.length === 0 ? (
+      {places.length === 0 && unplacedStock.length === 0 && prodSum.length === 0 ? (
         <EmptyState>Chưa có vị trí kho. Tạo ở <a href="#/vi-tri">Vị trí kho</a>.</EmptyState>
       ) : (
-        <>
-          {/* Thùng CHƯA XẾP kho lên ĐẦU (dạng chip) — nhắc xếp vào vị trí */}
-          {(() => {
-            const un = unplaced.filter(hasStock);
-            if (!un.length) return null;
-            return (
-              <section class="card kho-unplaced-top">
-                <div class="kho-unplaced-lbl"><Icon name="box" size={15} /> Chưa xếp kho
-                  <span class="muted small"> · {un.length} thùng · {soVN(un.reduce((s, b) => s + rem(b), 0))} tồn</span>
+        <div class="kho-board">
+          <section class="kho-col">
+            <h3 class="kho-col-h"><Icon name="box" size={14} /> Vị trí kho <span>{places.length}</span></h3>
+            {unplacedStock.length > 0 && (
+              <div class="kho-unplaced">
+                <div class="kho-unplaced-lbl">
+                  <span><Icon name="box" size={13} /> Chưa xếp kho</span>
+                  <b>{unplacedStock.length} thùng · {soVN(unplacedStock.reduce((s, b) => s + rem(b), 0))} tồn</b>
                 </div>
-                <CompactBoxList boxes={un} />
-              </section>
-            );
-          })()}
-          <div class="kho-loc-list">
-            {sortedPlaces.map((p) => (
-              <LocCard key={p.id} p={p} bs={byPlace.get(p.id) || []} />
-            ))}
-          </div>
-        </>
+                <CompactBoxList boxes={unplacedStock} />
+              </div>
+            )}
+            {places.length > 0 ? (
+              <div class="kho-loc-list">
+                {sortedPlaces.map((p) => (
+                  <LocCard key={p.id} p={p} bs={byPlace.get(p.id) || []} compact />
+                ))}
+              </div>
+            ) : <div class="kho-col-empty">Chưa có vị trí kho</div>}
+          </section>
+
+          <section class="kho-col">
+            <h3 class="kho-col-h"><Icon name="chart" size={14} /> Tồn sản phẩm <span>{prodSum.length}</span></h3>
+            {productsByChange.length > 0 ? (
+              <div class="kho-prod-list">
+                {productsByChange.map((p) => <ProductStockRow key={p.product_code} p={p} />)}
+              </div>
+            ) : <div class="kho-col-empty">Chưa có sản phẩm</div>}
+          </section>
+        </div>
       )}
     </div>
   );

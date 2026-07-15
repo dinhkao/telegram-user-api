@@ -1348,8 +1348,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .kho-loc-pqty { color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
 .kho-loc-pmore { font-size: .78rem; color: var(--muted); padding: 3px 0 0; border-top: 1px solid var(--border); }
 .kho-loc-empty { color: var(--muted); font-size: .85rem; }
-/* Thùng chưa xếp kho — section nổi bật ở đầu dashboard kho */
-.kho-unplaced-top { border-color: #ecd28a; background: var(--warn-wash, #fff8e6); margin-bottom: 10px; }
+/* Nhãn khay "chưa xếp kho" (base — dashboard mặc định đè lại gọn hơn bên dưới). */
 .kho-unplaced-lbl { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: .92rem; color: #7a5a00; margin-bottom: 8px; }
 .kho-loc-card .kg-arrow { align-self: center; flex: 0 0 auto; color: var(--muted); transition: transform .15s; }
 .kho-loc-card .kg-arrow.open { transform: rotate(90deg); }
@@ -1373,6 +1372,84 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
   border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--muted);
   cursor: pointer; padding: 0; flex: 0 0 auto; }
 .kho-filt-btn:active { background: var(--card); color: var(--ink); }
+
+/* Dashboard Kho mặc định — hai cột song song, CÙNG một ngôn ngữ card, tối giản.
+   Trái = VỊ TRÍ (ảnh + tên + N thùng·M tồn). Phải = TỒN SP (mã ↔ số tồn). Không
+   panel màu / viền accent / tiêu đề in hoa / divider gạch — nhẹ mắt, dễ quét. */
+.kho-page-head { gap: 4px; margin-top: 0; }
+.kho-page-head .page-h { margin-bottom: 2px; }
+.kho-page-actions { flex: 1 0 100%; flex-wrap: nowrap; gap: 6px; margin: 0; padding: 2px 0 3px;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.kho-page-actions::-webkit-scrollbar { display: none; }
+.kho-page-actions .btn { flex: 0 0 auto; }
+
+.kho-board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 9px;
+  align-items: start; margin-top: 4px; }
+.kho-col { min-width: 0; }
+.kho-col-h { display: flex; align-items: center; gap: 5px; margin: 0 2px 7px; padding-bottom: 5px;
+  border-bottom: 1px solid var(--border); color: var(--ink); font-size: .82rem; font-weight: 700; }
+.kho-col-h span { margin-left: auto; color: var(--muted); font-weight: 600; font-size: .72rem;
+  font-variant-numeric: tabular-nums; }
+.kho-col-empty { padding: 18px 5px; color: var(--muted); font-size: .74rem; text-align: center; }
+
+/* Vị trí: card ngang gọn = thumbnail nhỏ + tên + "N thùng · M tồn" (list SP xem ở
+   chi tiết kho, không nhồi vào nửa màn hình). */
+.kho-col .kho-loc-list { gap: 8px; }
+.kho-col .kho-loc-card { gap: 9px; padding: 8px; border-radius: 11px; box-shadow: var(--e1); }
+.kho-col .kho-loc-thumb { flex: 0 0 46px; width: 46px; }
+.kho-col .kho-loc-name { font-size: .86rem; }
+.kho-col .kho-loc-meta { margin: 2px 0 0; font-size: .68rem; }
+.kho-col .kho-loc-card .kg-arrow { display: none; }
+
+/* Khay "chưa xếp kho" — nhắc nhẹ ở đầu cột trái, nền vàng nhạt. */
+.kho-unplaced { margin-bottom: 8px; padding: 8px; border: 1px solid var(--warn-wash);
+  background: var(--warn-wash); border-radius: 11px; }
+.kho-unplaced-lbl { display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  margin-bottom: 6px; color: #7a5a00; font-size: .74rem; font-weight: 700; }
+.kho-unplaced-lbl > span { display: inline-flex; align-items: center; gap: 4px; }
+.kho-unplaced-lbl > b { font-size: .64rem; font-weight: 700; }
+.kho-unplaced .pd-crow { padding: 3px 0 6px; }
+.kho-unplaced .pd-csp { font-size: .78rem; }
+.kho-unplaced .pd-cboxes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
+
+/* Tồn SP: 1 hàng = mã ↔ số tồn (trên) · tên ↔ đơn vị·đổi (dưới). Tồn 0 làm xám. */
+.kho-prod-list { display: flex; flex-direction: column; gap: 7px; }
+.kho-prod-row { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 9px 10px;
+  color: inherit; text-decoration: none; background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: var(--e1); -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.kho-prod-row:active { transform: translateY(1px); box-shadow: none; }
+.kho-prod-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.kho-prod-code { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--ink); font-size: .82rem; font-weight: 700; }
+.kho-prod-unlinked { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px;
+  margin-left: 4px; vertical-align: middle; border-radius: 50%; background: var(--warn-wash); color: var(--warn);
+  font-size: .58rem; font-weight: 900; font-style: normal; }
+.kho-prod-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: .68rem; }
+.kho-prod-name.empty { font-style: italic; color: var(--muted-2); }
+.kho-prod-num { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; text-align: right; }
+.kho-prod-num b { color: var(--ok); font-size: 1.1rem; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.kho-prod-num small { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--muted); font-size: .58rem; }
+.kho-prod-row.zero .kho-prod-num b { color: var(--muted); }
+
+@media (min-width: 520px) {
+  .kho-board { grid-template-columns: minmax(0, 1fr) minmax(0, 1.06fr); gap: 12px; }
+  .kho-col .kho-loc-thumb { flex-basis: 54px; width: 54px; }
+  .kho-col .kho-loc-name { font-size: .92rem; }
+  .kho-prod-code { font-size: .88rem; }
+  .kho-prod-num b { font-size: 1.2rem; }
+  .kho-prod-name { font-size: .72rem; }
+}
+
+@media (max-width: 360px) {
+  .kho-board { gap: 6px; }
+  .kho-col .kho-loc-thumb { flex-basis: 40px; width: 40px; }
+  .kho-col .kho-loc-card { padding: 6px; gap: 7px; }
+  .kho-prod-row { padding: 8px; gap: 6px; }
+  .kho-prod-num b { font-size: 1rem; }
+}
 
 /* ── Timeline biến động VỊ TRÍ KHO (#/vi-tri/:id/timeline) — rail tồn chạy ── */
 .pt-open-btn { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 8px 0; }

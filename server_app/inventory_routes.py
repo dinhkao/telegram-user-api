@@ -10,6 +10,8 @@ server_app.production_routes (_web_actor), utils.db. Đăng ký ở app_factory.
 from __future__ import annotations
 
 import asyncio
+import json
+from datetime import datetime, timezone
 
 from aiohttp import web
 
@@ -80,6 +82,59 @@ def _thread_id(request: web.Request) -> int | None:
 
 def _product_code(request: web.Request) -> str:
     return str(request.match_info.get("product_code", "")).strip().upper()
+
+
+# Các event thực sự làm TỔNG TỒN của sản phẩm thay đổi. Chuyển vị trí/chuyển giữa
+# hai thùng không đưa sản phẩm lên đầu vì tổng tồn vẫn giữ nguyên.
+_STOCK_CHANGE_ACTIONS = (
+    "box.created", "box.allocated", "box.released", "box.consumed",
+    "box.disposed", "box.disposal_released", "box.deleted",
+)
+
+
+def _time_key(value) -> float:
+    """Mọi kiểu ISO trong DB (Z, +07:00, legacy có dấu cách) → epoch để so đúng TZ."""
+    if not value:
+        return 0
+    try:
+        text = str(value).strip()
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        parsed = datetime.fromisoformat(text)
+        # Mốc legacy "YYYY-MM-DD HH:MM:SS" do SQLite datetime('now') lưu UTC.
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.timestamp()
+    except (TypeError, ValueError):
+        return 0
+
+
+def _latest_stock_changes(conn) -> dict[str, str]:
+    """{MÃ SP: thời gian biến động tồn gần nhất} từ audit.
+
+    Đọc các action qua index action rồi gộp ở Python để không phụ thuộc hàm JSON
+    riêng của SQLite/Postgres. Bảng audit có thể vắng trong test DB cũ → fallback
+    im lặng sang mốc tạo thùng/phân bổ do product_summary trả về.
+    """
+    marks = ",".join("?" for _ in _STOCK_CHANGE_ACTIONS)
+    try:
+        rows = conn.execute(
+            f"SELECT ts, payload_json FROM audit_events WHERE action IN ({marks})",
+            _STOCK_CHANGE_ACTIONS,
+        ).fetchall()
+    except Exception:
+        return {}
+    out: dict[str, str] = {}
+    for row in rows:
+        try:
+            payload = json.loads(row["payload_json"] or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        code = str(payload.get("product_code") or "").strip().upper() if isinstance(payload, dict) else ""
+        at = row["ts"]
+        if code and _time_key(at) > _time_key(out.get(code)):
+            out[code] = at
+    return out
 
 
 # ─── nhập thùng (từ phiếu SX) ─────────────────────────────────────────────────
@@ -349,12 +404,14 @@ async def production_boxes_list_handler(request: web.Request):
 # ─── xem tồn kho ──────────────────────────────────────────────────────────────
 async def inventory_list_handler(request: web.Request):
     """Dashboard kho: MỌI mã SP (từ product_store) — có thùng thì kèm tồn/đếm, chưa có
-    thì tồn 0. Kèm tên danh mục + cờ liên kết KiotViet. Sắp: có tồn trước, rồi A→Z."""
+    thì tồn 0. Kèm tên danh mục + cờ liên kết KiotViet + mốc biến động tồn mới nhất.
+    Giữ thứ tự API cũ (tồn giảm dần); riêng dashboard #/kho sắp lại theo mốc này."""
     def _run():
         conn = _conn()
         try:
             _ensure(conn)
             summ = product_summary(conn)   # chỉ product CÓ thùng
+            audit_changes = _latest_stock_changes(conn)
             from product_store.queries import get_all_products
             prods = get_all_products(conn)
         finally:
@@ -371,7 +428,12 @@ async def inventory_list_handler(request: web.Request):
         rows = []
         for code, s in by_code.items():
             name, linked, unit = meta.get(code, ("", False, "cây"))
-            rows.append({**s, "name": name, "linked": linked, "unit": unit})
+            # Audit cover cả thu hồi/xuất hủy/xoá; hai mốc SQL là fallback cho dữ liệu
+            # trước thời audit hoặc event async chưa ghi xong ngay lúc response chạy.
+            candidates = [audit_changes.get(code), s.pop("last_box_at", None), s.pop("last_allocated_at", None)]
+            last_changed_at = max(candidates, key=_time_key) if any(candidates) else None
+            rows.append({**s, "name": name, "linked": linked, "unit": unit,
+                         "last_changed_at": last_changed_at})
         rows.sort(key=lambda r: (-(r.get("in_stock_total") or 0), r["product_code"]))
         return rows
     products = await asyncio.to_thread(_run)

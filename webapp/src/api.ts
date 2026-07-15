@@ -1376,6 +1376,7 @@ export type InvProductSummary = {
   shipped_count: number;
   total_count: number;
   unit?: string;
+  last_changed_at?: string | null;
 };
 
 /** Nhập 1 đợt = N thùng (mỗi thùng số cây tự do). Mã tự sinh. Queueable (offline). */
