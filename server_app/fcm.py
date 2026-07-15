@@ -33,9 +33,15 @@ def _send(title: str, body: str, data: dict | None = None, image_url: str | None
             priority="high",
             notification=messaging.AndroidNotification(image=image_url) if image_url else None,
         )
+        # data['image_url'] cũng gửi kèm để foreground handler (FcmMessagingService) đọc
+        # được chắc chắn — không phụ thuộc riêng notification.imageUrl (SDK foreground
+        # đôi khi không map). Noti nền vẫn dùng Notification.image như cũ.
+        payload = {k: str(v) for k, v in (data or {}).items()}
+        if image_url:
+            payload.setdefault("image_url", image_url)
         msg = messaging.Message(
             notification=messaging.Notification(title=title, body=body, image=image_url or None),
-            data={k: str(v) for k, v in (data or {}).items()},
+            data=payload,
             topic=FCM_TOPIC,
             android=android,
         )
