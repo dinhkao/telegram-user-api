@@ -114,9 +114,11 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
   const origText: string = j.text || j.text_raw || "";
   const hasInvoice = !!j.kiotvietInvoiceID;
   const stockLocked = !!j.stock_confirmed;
+  const paidTotal = (j.payments || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0);
+  const hasPayments = paidTotal > 0;   // đã thu tiền → khoá đổi khách, chặn giảm tổng < đã thu
   const locked = hasInvoice;
   const editable = !!detail && !locked;      // chỉ giữ khoá khi đơn còn sửa được
-  const canChange = editable && !stockLocked && !editHolder;
+  const canChange = editable && !stockLocked && !editHolder && !hasPayments;
   const textChanged = !!detail && text.trim() !== origText.trim();
 
   // Khôi phục ảnh tham chiếu đã lưu trên server mỗi khi mở/reload trang.
@@ -318,6 +320,12 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
             <div class="card co-adv-locked ie-alloc-warn small">
               <span>⚠️</span>
               <div>Đơn đã <b>xuất kho {allocCount} thùng</b> nhưng chưa chốt. Đổi số lượng ở đây sẽ làm <b>phân bổ kho lệch</b> — sau khi lưu, mở lại khối <b>“Xuất kho cho đơn”</b> ở chi tiết đơn để thu hồi phần dư / xuất thêm cho khớp rồi mới chốt.</div>
+            </div>
+          )}
+          {hasPayments && (
+            <div class="card co-adv-locked ie-alloc-warn small">
+              <span>⚠️</span>
+              <div>Đơn đã <b>thu {money(paidTotal)}</b>. Không đổi khách được; và <b>không giảm tổng đơn xuống dưới số đã thu</b> (sẽ bị chặn). Cần đổi khách / giảm sâu → xoá bớt phiếu thu trước.</div>
             </div>
           )}
           {stockLocked && <div class="card co-adv-locked muted small"><Icon name="lock" size={14} /> Đơn đã <b>chốt xuất kho</b> — được sửa đơn giá, chiết khấu và PVC; sản phẩm, số lượng và VAT được giữ nguyên.</div>}

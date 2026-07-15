@@ -16,6 +16,24 @@ from server_app.telegram_helpers import tg_send_message
 log = logging.getLogger("server")
 
 
+def _paid_total(order: dict) -> int:
+    """Tổng tiền ĐÃ THU của đơn (Σ amount các phiếu thu)."""
+    return int(sum(int(p.get("amount") or 0) for p in order.get("payments", [])))
+
+
+def _invoice_total(invoice: list | None, vat, pvc, discount) -> int:
+    """Tổng đơn theo đúng công thức webapp: Σ(giá×SL) − chiết_khấu + pvc + vat."""
+    goods = 0.0
+    for it in invoice or []:
+        if not isinstance(it, dict):
+            continue
+        try:
+            goods += float(it.get("price") or 0) * float(it.get("sl", it.get("quantity", 0)) or 0)
+        except (TypeError, ValueError):
+            pass
+    return int(round(goods - int(discount or 0) + int(pvc or 0) + int(vat or 0)))
+
+
 def _stock_locked_price_update(order: dict, invoice: list | None, body: dict) -> list[dict] | None:
     """Trả invoice nếu payload chốt kho chỉ đổi giá, chiết khấu hoặc PVC."""
     old_invoice = order.get("invoice") or []
@@ -98,6 +116,12 @@ async def api_assign_customer_handler(request: web.Request):
         if order.get("kiotvietInvoiceID"):
             return web.json_response(
                 {"ok": False, "error": "Đơn đã có hoá đơn KiotViet — không đổi khách được. Xoá hoá đơn trước."},
+                status=400)
+        # Đã có phiếu thu — tiền + snapshot nợ (old_debt/new_debt) gắn khách HIỆN TẠI;
+        # đổi khách sẽ làm timeline/công nợ lệch sang khách khác → cấm (xoá phiếu thu trước)
+        if order.get("payments"):
+            return web.json_response(
+                {"ok": False, "error": "Đơn đã có thanh toán — không đổi khách được (tiền đã gắn khách hiện tại). Xoá phiếu thu trước rồi mới đổi."},
                 status=400)
         order["khach_hang_id"] = str(customer_key)
         order["customer_name"] = customer.get("name", "")
@@ -226,6 +250,15 @@ async def api_invoice_update_handler(request: web.Request):
                     order[k] = int(body[k] or 0)
                 except (TypeError, ValueError):
                     order[k] = 0
+        # Đã thu tiền rồi mà sửa tổng đơn XUỐNG DƯỚI số đã thu → nợ âm / dư tiền vô lý
+        # (giống guard phiếu nhập). Muốn giảm sâu phải xoá bớt phiếu thu trước.
+        paid = _paid_total(order)
+        if paid > 0:
+            new_total = _invoice_total(order.get("invoice"), order.get("vat"), order.get("pvc"), order.get("discount"))
+            if new_total < paid:
+                return web.json_response(
+                    {"ok": False, "error": f"Đơn đã thu {paid:,}đ — tổng mới {new_total:,}đ không được thấp hơn số đã thu. Xoá bớt phiếu thu trước nếu cần giảm.", "locked": True},
+                    status=400)
         if not _save_order(conn, thread_id, order):
             return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
     if order.get("channel_id") and order.get("message_id") and state._client is not None:

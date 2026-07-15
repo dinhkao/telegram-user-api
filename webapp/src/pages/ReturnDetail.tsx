@@ -56,10 +56,12 @@ export function ReturnDetail({ id }: { id: string }) {
   if (!r) return <Loading />;
   const deleted = !!(r as any).deleted_at;
   const invoiced = !!r.kv_invoice_id;
+  const goodsHandled = !!r.goods_handled_at;   // đã nhập kho / xuất hủy hàng trả
   const lockToast = () => toast("Phiếu đã có HĐ KiotViet — xoá HĐ (xoá phiếu) mới sửa được", "info");
 
   const startEdit = () => {
     if (invoiced) return lockToast();
+    if (goodsHandled) return toast("Phiếu đã xử lý hàng (nhập/hủy) — không sửa được nữa", "info");
     if (!office) return toast("Chỉ văn phòng mới được sửa phiếu trả", "info");
     setLines((r.items || []).map((x) => ({ sp: x.sp, sl: String(x.sl), price: String(x.price) })));
     setNote(r.note || "");
@@ -114,7 +116,11 @@ export function ReturnDetail({ id }: { id: string }) {
   const doDelete = async () => {
     if (!isAdmin) return toast("Chỉ admin mới được xoá phiếu trả", "info");
     if (invoiced) return toast("Phiếu còn HĐ KiotViet — xoá HĐ trước rồi mới xoá phiếu", "info");
-    if (!(await confirmDialog("Xoá phiếu trả nháp này?", { danger: true }))) return;
+    // Đã xử lý hàng → xoá phiếu KHÔNG tự hoàn tác nhập/hủy kho → cảnh báo rõ trước khi xoá.
+    const msg = goodsHandled
+      ? "Phiếu đã XỬ LÝ HÀNG (nhập/hủy kho). Xoá phiếu sẽ hoàn nợ cho khách nhưng KHÔNG tự hoàn tác việc đã nhập/hủy kho — hãy kiểm tra kho thủ công. Vẫn xoá?"
+      : "Xoá phiếu trả nháp này?";
+    if (!(await confirmDialog(msg, { danger: true }))) return;
     setBusy(true);
     try {
       await deleteReturn(Number(id));
@@ -157,7 +163,7 @@ export function ReturnDetail({ id }: { id: string }) {
       <section class="card">
         <label class="card-label"><Icon name="box" size={15} /> Hàng trả
           {!editing && !deleted && (
-            <button class={"btn small ret-edit" + (invoiced || !office ? " faded" : "")} onClick={startEdit}>
+            <button class={"btn small ret-edit" + (invoiced || goodsHandled || !office ? " faded" : "")} onClick={startEdit}>
               <Icon name="edit" size={13} /> Sửa
             </button>
           )}

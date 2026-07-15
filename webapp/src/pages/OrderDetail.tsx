@@ -231,10 +231,15 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const paid = paidTotal(j.payments);
   const remaining = Math.max(0, computedTotal - paid);
   const hasInvoice = !!j.kiotvietInvoiceID;
-  // Đổi/Gán khách bị KHOÁ khi đơn đã có HĐ KiotViet (HĐ tạo theo khách cũ) —
-  // pattern nút khoá: mờ + toast lý do, server cũng chặn 400.
+  const hasPayments = (j.payments || []).length > 0;
+  // Đổi/Gán khách bị KHOÁ khi đơn đã có HĐ KiotViet (HĐ tạo theo khách cũ) HOẶC đã
+  // có thanh toán (tiền + snapshot nợ gắn khách hiện tại) — mờ + toast lý do, server
+  // cũng chặn 400.
+  const custLockReason = hasInvoice
+    ? "Đơn đã có hoá đơn KiotViet — không đổi khách được. Xoá hoá đơn trước."
+    : hasPayments ? "Đơn đã có thanh toán — không đổi khách được. Xoá phiếu thu trước." : "";
   const toggleCust = () => {
-    if (hasInvoice) { toast("Đơn đã có hoá đơn KiotViet — không đổi khách được. Xoá hoá đơn trước.", "info"); return; }
+    if (custLockReason) { toast(custLockReason, "info"); return; }
     setChangingCust((v: boolean) => !v);
   };
   // Lý do khoá xoá đơn biết được từ blob (HĐ, thanh toán); phân bổ kho server chặn nốt
@@ -452,13 +457,13 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
                       <b class="od-cust-name">{j.customer_name || pc.kh}</b>
                     </span>
                   )}
-                  <button class={"btn small ghost od-cust-btn" + (hasInvoice ? " faded" : "")}
-                    title={hasInvoice ? "Đã có HĐ KiotViet — không đổi khách được" : undefined}
+                  <button class={"btn small ghost od-cust-btn" + (custLockReason ? " faded" : "")}
+                    title={custLockReason || undefined}
                     onClick={toggleCust}>Đổi</button>
                 </>
               ) : (
-                <button class={"od-cust-add" + (hasInvoice ? " faded" : "")}
-                  title={hasInvoice ? "Đã có HĐ KiotViet — không đổi khách được" : undefined}
+                <button class={"od-cust-add" + (custLockReason ? " faded" : "")}
+                  title={custLockReason || undefined}
                   onClick={toggleCust}>
                   <Icon name="user" size={15} /> Gán khách
                 </button>

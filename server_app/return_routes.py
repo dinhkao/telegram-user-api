@@ -254,6 +254,10 @@ async def return_update_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
     if row.get("kv_invoice_id"):
         return web.json_response({"ok": False, "error": "Phiếu đã có HĐ KiotViet — xoá HĐ mới sửa được", "locked": True}, status=400)
+    # Đã XỬ LÝ HÀNG (nhập kho / xuất hủy) rồi → items đã khớp hàng thực xử lý; sửa
+    # items lúc này làm lệch kho↔nợ mà không hoàn tác được → cấm sửa.
+    if row.get("goods_handled_at"):
+        return web.json_response({"ok": False, "error": "Phiếu đã xử lý hàng (nhập/hủy) — không sửa được nữa", "locked": True}, status=400)
     def _upd():
         conn = get_connection()
         try:
