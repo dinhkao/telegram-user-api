@@ -103,6 +103,11 @@ async def order_stock_confirm_handler(request: web.Request):
             short = [c for c, need in needs.items() if got.get(c, 0.0) + 1e-6 < need]
             if short:
                 return "short", short
+            # Xuất DƯ (giảm SL hoặc xoá SP khỏi hoá đơn SAU khi đã xuất kho) → chặn
+            # chốt, buộc thu hồi phần dư về kho — nếu không sẽ trừ tồn oan cho đơn này.
+            over = sorted(c for c in got if got.get(c, 0.0) - needs.get(c, 0.0) > 1e-6)
+            if over:
+                return "over", over
             state = {"at": datetime.now(_VN_TZ).isoformat(timespec="seconds"), "by": actor}
             _update_order_json_field(conn, thread_id, "$.stock_confirmed", state)
             conn.commit()
@@ -118,6 +123,10 @@ async def order_stock_confirm_handler(request: web.Request):
     if status == "short":
         return web.json_response(
             {"ok": False, "error": f"Chưa xuất đủ: {', '.join(payload)} — xuất đủ mới chốt được"}, status=400)
+    if status == "over":
+        return web.json_response(
+            {"ok": False, "error": f"Đã xuất DƯ: {', '.join(payload)} — thu hồi phần dư về kho trước khi chốt", "over": payload},
+            status=400)
 
     from server_app.realtime import emit_order_changed, emit_inventory_changed, emit_box_changed
     emit_order_changed(thread_id)

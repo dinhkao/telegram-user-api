@@ -11,7 +11,7 @@
 // OrderDetail. Đơn đã có HĐ KiotViet → khoá cả 2 tab; đơn chốt kho chỉ sửa giá.
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { getJSON, postJSON, lockInvoiceEdit, unlockInvoiceEdit, previewOrder, refreshCustomerDebt, orderImageUrl, type OrderPreview } from "../api";
+import { getJSON, postJSON, lockInvoiceEdit, unlockInvoiceEdit, previewOrder, refreshCustomerDebt, orderImageUrl, orderAllocations, type OrderPreview } from "../api";
 import { money, moneyK, initial } from "../format";
 import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
@@ -26,6 +26,7 @@ import { OrderImagePicker } from "../detail/OrderImagePicker";
 export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
   const editSid = useMemo(() => Math.random().toString(36).slice(2) + Date.now().toString(36), []);
   const [detail, setDetail] = useState<any>(null);
+  const [allocCount, setAllocCount] = useState(0);   // số phần đã xuất kho — đổi SL sẽ làm lệch
   const [err, setErr] = useState("");
   const [editHolder, setEditHolder] = useState<string | null>(null);   // NGƯỜI KHÁC đang sửa
   const [mode, setMode] = useState<"quick" | "advanced">("advanced");
@@ -96,6 +97,15 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
     catch (ex: any) { setErr(ex.message); }
   };
   useEffect(() => { reload(); }, [threadId]);
+
+  // Đơn đã xuất kho (phân bổ thùng) chưa? → cảnh báo đổi SL làm lệch phân bổ.
+  useEffect(() => {
+    let alive = true;
+    orderAllocations(threadId)
+      .then((r) => { if (alive) setAllocCount((r.allocations || []).filter((a) => (a.quantity || 0) > 0).length); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [threadId]);
 
   const j = detail?.data || {};
   const storedRefImageId = Number(j.invoice_reference_image_id) || null;
@@ -304,6 +314,12 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
             <div><div class="prod-sp big">Sửa hoá đơn · đơn #{threadId}</div></div>
           </div>
           {customerBar()}
+          {!stockLocked && allocCount > 0 && (
+            <div class="card co-adv-locked ie-alloc-warn small">
+              <span>⚠️</span>
+              <div>Đơn đã <b>xuất kho {allocCount} thùng</b> nhưng chưa chốt. Đổi số lượng ở đây sẽ làm <b>phân bổ kho lệch</b> — sau khi lưu, mở lại khối <b>“Xuất kho cho đơn”</b> ở chi tiết đơn để thu hồi phần dư / xuất thêm cho khớp rồi mới chốt.</div>
+            </div>
+          )}
           {stockLocked && <div class="card co-adv-locked muted small"><Icon name="lock" size={14} /> Đơn đã <b>chốt xuất kho</b> — được sửa đơn giá, chiết khấu và PVC; sản phẩm, số lượng và VAT được giữ nguyên.</div>}
           {!stockLocked && <div class="seg" role="tablist">
             <button class={mode === "quick" ? "seg-btn active" : "seg-btn"} onClick={() => setMode("quick")}>

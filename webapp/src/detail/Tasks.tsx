@@ -1,7 +1,7 @@
 // Khối task đơn hàng — 5 bước mặc định (bán HĐ, soạn, giao, nộp, nhận) + các việc
 // tự thêm (custom). Đánh dấu / huỷ: POST /api/order/task (queueable offline) +
 // /task_status/clear. Thêm/xoá việc tự thêm: /api/order/{id}/custom-task[/remove].
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { postJSON, isOffice, currentUser, mediaImageUrl, listMediaImages, type OrderImage } from "../api";
 import { fmtTime } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -29,12 +29,16 @@ const NOP_NOTE_LABEL: Record<string, string> = {
 
 type CustomTask = { id: string; label: string };
 
-export function Tasks({ threadId, taskStatus, stockConfirmed, customTasks, userNames, taskIds, onChanged, onAddPhoto }: { threadId: string; taskStatus: any; stockConfirmed?: boolean; customTasks?: CustomTask[]; userNames?: Record<string, string>; taskIds?: Record<string, number>; onChanged: () => void; onAddPhoto?: () => void }) {
+export function Tasks({ threadId, taskStatus, stockConfirmed, customTasks, userNames, taskIds, onChanged, onAddPhoto, openSoanRequest }: { threadId: string; taskStatus: any; stockConfirmed?: boolean; customTasks?: CustomTask[]; userNames?: Record<string, string>; taskIds?: Record<string, number>; onChanged: () => void; onAddPhoto?: () => void; openSoanRequest?: number }) {
   const [busy, setBusy] = useState("");
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
   const [nopOpen, setNopOpen] = useState(false);   // wizard nộp tiền
   const [soanOpen, setSoanOpen] = useState(false); // popup chọn ảnh soạn hàng
+  // Chốt xuất kho rồi chọn "Có" → mở chính popup mà nút Xong của task đang dùng.
+  useEffect(() => {
+    if (openSoanRequest) setSoanOpen(true);
+  }, [openSoanRequest]);
   const office = isOffice();   // chỉ văn phòng được đánh dấu/huỷ "nhận tiền"
   const isAdmin = currentUser()?.role === "admin";   // admin: xong ngay, bỏ qua yêu cầu
   const nameOf = (by: any) => (by == null ? "" : (userNames && userNames[String(by)]) || String(by));

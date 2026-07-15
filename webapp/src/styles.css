@@ -1302,6 +1302,12 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .stock-onhand { font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .stock-onhand.low { color: var(--danger); font-weight: 700; }
 .stock-head .btn.small { margin-left: auto; }
+/* Banner: phân bổ kho không khớp hoá đơn (thường do vừa sửa SL hoá đơn) */
+.stock-mismatch { display: flex; gap: 8px; align-items: flex-start; background: #fff5f5; border: 1px solid #f3c2c2; color: #8a2b2b; border-radius: 8px; padding: 8px 10px; margin: 6px 0 8px; font-size: .85rem; line-height: 1.5; }
+.stock-mismatch .sm-ic { flex: none; }
+.stock-mismatch .small { margin-top: 2px; }
+/* Mã đã xuất nhưng KHÔNG còn trong hoá đơn (bị xoá/đổi) — nhắc thu hồi */
+.stock-orphan { font-size: .78rem; color: #c33; background: #fff0f0; border: 1px solid #f3c2c2; border-radius: 6px; padding: 1px 6px; font-weight: 700; }
 .stock-picker { margin-top: 8px; padding: 8px; background: #fafcff; border: 1px solid #e6eef7; border-radius: 8px; }
 .stock-picker .inv-box-list li { cursor: pointer; user-select: none; }
 .link-btn { background: none; border: none; color: #c33; cursor: pointer; font-size: .85rem; padding: 0 2px; }
@@ -2183,6 +2189,9 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .co-step-n { width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #fff; font-size: .78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; }
 .co-step-n.off { background: var(--border); color: var(--muted); }
 .co-adv-locked { display: flex; align-items: flex-start; gap: 8px; padding: 14px; line-height: 1.5; }
+/* Cảnh báo: đơn đã xuất kho, đổi SL hoá đơn sẽ làm lệch phân bổ */
+.ie-alloc-warn { background: #fff8e6; border-color: #f0d089; color: #7a5a00; }
+.ie-alloc-warn b { color: #6a4e00; }
 .co-cust-picked.adv .co-prev-cinfo { flex: 1; min-width: 0; }
 .co-cust-picked.adv .btn, .co-cust-picked.adv .co-debt { flex: none; margin-left: 0; }
 /* Khách đã chọn — chip avatar */

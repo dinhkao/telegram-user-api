@@ -19,10 +19,12 @@ function fmtAt(at?: string): string {
   return `${at.slice(8, 10)}/${at.slice(5, 7)} ${at.slice(11, 16)}`;
 }
 
-export function OrderStock({ threadId, invoice, stockConfirmed }: {
+export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHang }: {
   threadId: string;
   invoice: Line[];
   stockConfirmed?: Confirmed;
+  /** Sau khi chốt kho, mở đúng luồng hoàn thành task Soạn hàng hiện có. */
+  onCompleteSoanHang?: () => void;
 }) {
   const [allocs, setAllocs] = useState<Allocation[]>([]);
   const [stock, setStock] = useState<Record<string, number>>({});   // tồn hiện tại theo mã SP
@@ -102,11 +104,27 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
     if (!code) continue;
     needs.set(code, (needs.get(code) || 0) + (Number(it.sl) || 0));
   }
-  const products = [...needs.entries()].map(([code, need]) => ({ code, need }));
+  const gotOf = (code: string) => allocs.filter((a) => a.product_code === code).reduce((s, a) => s + a.quantity, 0);
+  // Gộp mã = mã trong hoá đơn ∪ mã ĐÃ XUẤT. Mã bị xoá/đổi khỏi HĐ mà còn phần đã
+  // xuất vẫn phải hiện (need=0) để thu hồi — nếu không phần dư ẩn mất, trừ tồn oan.
+  const allocCodes = [...new Set(allocs.map((a) => a.product_code))];
+  const codes = [...new Set([...needs.keys(), ...allocCodes])];
+  const products = codes.map((code) => {
+    const need = needs.get(code) || 0;
+    const got = gotOf(code);
+    return { code, need, got, over: got - need > 1e-6, short: need - got > 1e-6 };
+  });
   if (!products.length) return null;
 
-  const gotOf = (code: string) => allocs.filter((a) => a.product_code === code).reduce((s, a) => s + a.quantity, 0);
-  const allEnough = allocs.length > 0 && products.every((p) => gotOf(p.code) + 1e-6 >= p.need);
+  // Lệch = ĐÃ xuất (got>0) nhưng KHÔNG khớp SL hoá đơn → hầu hết do vừa sửa hoá đơn.
+  //  • Dư (over): giảm SL / xoá SP sau khi đã xuất → phải thu hồi phần dư.
+  //  • Thiếu-đã-xuất: tăng SL sau khi đã xuất → phải xuất thêm cho đủ.
+  const overList = products.filter((p) => p.over);
+  const shortAllocated = products.filter((p) => p.short && p.got > 1e-6);
+  const mismatch = overList.length > 0 || shortAllocated.length > 0;
+  // Chốt được: đã có xuất & MỌI mã KHỚP CHÍNH XÁC (không thiếu, không dư). Xuất dư
+  // giờ CHẶN chốt (trước đây got≥need lọt qua → trừ tồn oan). Server cũng chặn.
+  const canConfirm = allocs.length > 0 && products.every((p) => !p.over && !p.short);
 
   const lockedToast = () => toast(isAdmin ? "Đã chốt xuất kho — bấm Huỷ chốt để sửa" : "Đã chốt xuất kho — chỉ admin mở khoá được", "info");
 
@@ -142,13 +160,21 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
   };
 
   const doConfirm = async () => {
-    if (!allEnough) return toast("Xuất đủ mọi mã SP mới chốt được", "info");
+    if (!canConfirm) return toast(
+      overList.length > 0 ? "Có mã xuất DƯ — thu hồi phần dư về kho trước khi chốt" : "Xuất đủ mọi mã SP mới chốt được",
+      "info");
     if (!(await confirmDialog("Chốt xuất kho cho đơn này? Sau khi chốt sẽ KHOÁ — không sửa hay thu hồi được nữa (chỉ admin)."))) return;
     setBusy(true);
     setMsg("");
     try {
       const r = await stockConfirmOrder(threadId, true);
       setLocalSt(r.stock_confirmed || {});
+      if (onCompleteSoanHang && await confirmDialog("Bạn có muốn hoàn thành task Soạn hàng luôn không?", {
+        okLabel: "Có",
+        cancelLabel: "Không",
+      })) {
+        onCompleteSoanHang();
+      }
     } catch (e: any) {
       setMsg(e?.message || "Lỗi chốt xuất kho");
     } finally {
@@ -186,32 +212,50 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
         </div>
       )}
 
-      {products.map(({ code, need }) => {
+      {!confirmed && mismatch && (
+        <div class="stock-mismatch">
+          <span class="sm-ic">⚠️</span>
+          <div>
+            <b>Phân bổ kho không khớp hoá đơn</b> — có thể do hoá đơn vừa đổi số lượng.
+            {overList.length > 0 && (
+              <div class="small">• Xuất DƯ: {overList.map((p) => `${p.code} (dư ${soVN(p.got - p.need)})`).join(", ")} — <b>thu hồi phần dư</b> về kho.</div>
+            )}
+            {shortAllocated.length > 0 && (
+              <div class="small">• Xuất THIẾU: {shortAllocated.map((p) => `${p.code} (thiếu ${soVN(p.need - p.got)})`).join(", ")} — <b>xuất thêm</b> cho đủ.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {products.map(({ code, need, got, over, short }) => {
         const mine = allocs.filter((a) => a.product_code === code);
-        const got = mine.reduce((s, a) => s + a.quantity, 0);
-        const enough = got >= need;
+        const inInvoice = need > 0;
+        const enough = inInvoice && !over && !short;          // xuất đúng đủ
         const onhand = stock[code] ?? 0;                      // tồn hiện tại của kho
-        const lowStock = onhand < Math.max(need - got, 0);    // kho không đủ xuất nốt phần còn thiếu
+        const lowStock = short && onhand < (need - got);      // kho không đủ xuất nốt phần còn thiếu
         const pickBy = pickLocks[code];                       // ai đang chọn thùng mã này
         const heldByOther = !!pickBy && pickBy !== myName;    // NGƯỜI KHÁC đang chọn → khoá nút
         return (
           <div class="stock-line" key={code}>
             <div class="stock-head">
               <b>{code}</b>
-              {!enough && (
+              {!inInvoice && <span class="stock-orphan">không còn trong hoá đơn</span>}
+              {inInvoice && short && (
               <span class={"stock-onhand" + (lowStock ? " low" : "")} title={lowStock ? "Tồn kho không đủ để xuất nốt phần còn thiếu" : "Tồn hiện tại trong kho"}>
                 Tồn {soVN(onhand)}
               </span>
             )}
-              <span class={enough ? "inv-pick-sum ok" : "inv-pick-sum"}>
-                Đã xuất {soVN(got)}/{soVN(need)}
+              <span class={over ? "inv-pick-sum over" : enough ? "inv-pick-sum ok" : "inv-pick-sum"}>
+                Đã xuất {soVN(got)}{inInvoice ? `/${soVN(need)}` : ""}{over ? ` · dư ${soVN(got - need)}` : ""}
               </span>
-              <button class={"btn small" + (locked || heldByOther ? " faded" : "")}
-                onClick={() => (locked ? lockedToast()
-                  : heldByOther ? toast(`Đang được ${pickBy} chọn thùng — chờ họ xong`, "info")
-                  : setPickCode(code))}>
-                {heldByOther ? `${pickBy} đang chọn…` : "Chọn thùng"}
-              </button>
+              {inInvoice && !over && (
+                <button class={"btn small" + (locked || heldByOther ? " faded" : "")}
+                  onClick={() => (locked ? lockedToast()
+                    : heldByOther ? toast(`Đang được ${pickBy} chọn thùng — chờ họ xong`, "info")
+                    : setPickCode(code))}>
+                  {heldByOther ? `${pickBy} đang chọn…` : "Chọn thùng"}
+                </button>
+              )}
             </div>
 
             {mine.length > 0 && (
@@ -253,8 +297,8 @@ export function OrderStock({ threadId, invoice, stockConfirmed }: {
       {msg && <div class="muted small">{msg}</div>}
 
       {!confirmed && (
-        <button class={"btn primary block stock-confirm" + (allEnough ? "" : " faded")} disabled={busy} onClick={doConfirm}
-          title={!allEnough ? "Xuất đủ mọi mã SP mới chốt được" : undefined}>
+        <button class={"btn primary block stock-confirm" + (canConfirm ? "" : " faded")} disabled={busy} onClick={doConfirm}
+          title={!canConfirm ? (overList.length > 0 ? "Thu hồi phần dư về kho trước khi chốt" : "Xuất đủ mọi mã SP mới chốt được") : undefined}>
           <Icon name="check" size={16} /> Chốt xuất kho
         </button>
       )}

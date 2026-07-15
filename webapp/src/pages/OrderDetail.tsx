@@ -44,6 +44,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [nggTime, setNggTime] = useState("");   // giờ giao (HH:MM) — tách riêng
   const [savingNg, setSavingNg] = useState(false);
   const [camSignal, setCamSignal] = useState(0);   // tăng để mở camera ở khối Ảnh
+  const [soanOpenRequest, setSoanOpenRequest] = useState(0); // tăng để mở luồng Xong task Soạn hàng
   const [navLoading, setNavLoading] = useState<string | null>(null); // nút đơn↔đơn đang chuyển
   const [custOrders, setCustOrders] = useState<OrderRow[]>([]); // mọi đơn cùng khách (mới→cũ), dùng cả preview nav
   const [showBar, setShowBar] = useState(false);          // hiện thanh dính (cuộn qua 5 icon)
@@ -550,7 +551,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       </div>
 
       <div id="od-tasks">
-      <Tasks threadId={threadId} taskStatus={j.task_status || {}} stockConfirmed={!!j.stock_confirmed} customTasks={j.custom_tasks || []} userNames={detail.user_names || {}} taskIds={detail.task_ids || {}} onChanged={changed} onAddPhoto={goCamera} />
+      <Tasks threadId={threadId} taskStatus={j.task_status || {}} stockConfirmed={!!j.stock_confirmed} customTasks={j.custom_tasks || []} userNames={detail.user_names || {}} taskIds={detail.task_ids || {}} onChanged={changed} onAddPhoto={goCamera} openSoanRequest={soanOpenRequest} />
       </div>
       <div id="od-invoice">
       <section class="card">
@@ -595,7 +596,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       </section>
       </div>{/* #od-invoice */}
       <div id="od-stock">
-      <OrderStock threadId={threadId} invoice={j.invoice || []} stockConfirmed={j.stock_confirmed || null} />
+      <OrderStock threadId={threadId} invoice={j.invoice || []} stockConfirmed={j.stock_confirmed || null}
+        onCompleteSoanHang={(j.task_status || {}).soan_hang?.done ? undefined : () => setSoanOpenRequest((n) => n + 1)} />
       </div>
       <div id="od-payments">
       <Payments threadId={threadId} payments={j.payments || []} hasCustomer={!!(j.khach_hang_id || j.khID)}
