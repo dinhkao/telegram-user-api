@@ -100,6 +100,7 @@ export function ProductionBoxes({
   const mainLines = recipe.filter((l) => !l.aux);
   const auxLines = auxRequired ? recipe.filter((l) => !!l.aux) : [];
   const requiredLines = packing ? [...mainLines, ...auxLines] : auxLines;
+  const isAuxIng = (code: string) => auxLines.some((l) => l.ingredient_code === code);
   const recipeOk = allowNoMat
     || ((!packing || mainLines.length > 0)
       && (requiredLines.length === 0
@@ -113,6 +114,9 @@ export function ProductionBoxes({
   };
   const [places, setPlaces] = useState<Place[]>([]);
   const [placeId, setPlaceId] = useState<number | null>(draft?.placeId ?? null);   // vị trí kho cho thùng mới
+  // KHO ĐẶC BIỆT nguồn NL PHỤ (aux_source, đặt ở PlaceDetail): NL phụ CHỈ được
+  // xuất từ kho này — picker lọc theo kho, server cũng chặn.
+  const auxPlace = places.find((p) => p.aux_source) || null;
   // Lưu nháp mỗi khi form đổi — thoát trang quay lại là nhập tiếp
   useEffect(() => {
     boxDrafts.set(threadId, { prodCode, amount, count, note, mfgDate, unitId, placeId, consumePicks });
@@ -342,7 +346,7 @@ export function ProductionBoxes({
             const enough = need > 0 && chosen >= need;
             return (
               <div class="stock-head" key={l.ingredient_code}>
-                <b>{l.ingredient_code}{l.aux ? <span class="muted small"> (phụ)</span> : null}</b>
+                <b>{l.ingredient_code}{l.aux ? <span class="muted small"> (phụ{auxPlace ? ` — kho ${auxPlace.name}` : ""})</span> : null}</b>
                 <span class={enough ? "inv-pick-sum ok" : "inv-pick-sum"}>{soVN(chosen)}/{soVN(need)}</span>
                 <span class="muted small">tồn {soVN(l.stock ?? 0)}</span>
                 <button class="btn small" disabled={!hasSp || produced <= 0} onClick={() => setPickIng(l.ingredient_code)}>Chọn thùng</button>
@@ -389,6 +393,7 @@ export function ProductionBoxes({
           need={+(((recipe.find((l) => l.ingredient_code === pickIng)?.ratio || 0) * produced).toFixed(3))}
           got={0}
           initial={consumePicks[pickIng] || []}
+          placeFilter={isAuxIng(pickIng) ? auxPlace : null}
           onClose={() => setPickIng(null)}
           onPick={async (picks) => { const code = pickIng; setConsumePicks((prev) => ({ ...prev, [code]: picks })); }}
         />

@@ -219,6 +219,7 @@ async def production_add_boxes_handler(request: web.Request):
             # NL PHỤ (aux=1) bắt buộc CẢ 2 loại phiếu khi SP bật aux_required
             # (tắt ở chi tiết SP → bỏ yêu cầu NL phụ).
             needs: list = []
+            aux_needs: list = []
             if not allow_no_mat:
                 if kind == "dong_goi":
                     main_needs = recipe_needs(conn, code, sum(qtys), aux=False)
@@ -226,17 +227,31 @@ async def production_add_boxes_handler(request: web.Request):
                         return "norecipe", code, None
                     needs += main_needs
                 if _prod is None or _prod.get("aux_required", 1):
-                    needs += recipe_needs(conn, code, sum(qtys), aux=True)
+                    aux_needs = recipe_needs(conn, code, sum(qtys), aux=True)
+                    needs += aux_needs
             if needs:
-                # mã NL của từng thùng chọn (COALESCE mã hiện hành)
+                # mã NL + vị trí của từng thùng chọn (COALESCE mã hiện hành)
                 codes: dict = {}
+                box_places: dict = {}
                 for p in picks:
                     row = conn.execute(
-                        "SELECT COALESCE(pr.code, b.product_code) FROM inventory_boxes b "
+                        "SELECT COALESCE(pr.code, b.product_code), b.place_id FROM inventory_boxes b "
                         "LEFT JOIN products pr ON pr.id = b.product_id WHERE b.id = ?",
                         (p.get("box_id"),)).fetchone()
                     if row:
                         codes[p.get("box_id")] = row[0]
+                        box_places[p.get("box_id")] = row[1]
+                # KHO ĐẶC BIỆT nguồn NL PHỤ: mọi thùng NL PHỤ phải đang ở kho đó
+                # (aux_source=1, đặt ở PlaceDetail). Chưa chỉ định kho → không ràng buộc.
+                if aux_needs:
+                    from inventory_store import aux_source_place
+                    src = aux_source_place(conn)
+                    if src:
+                        aux_codes = {nd["code"] for nd in aux_needs}
+                        for p in picks:
+                            bid = p.get("box_id")
+                            if codes.get(bid) in aux_codes and box_places.get(bid) != src["id"]:
+                                return "auxplace", codes.get(bid), src["name"]
                 got: dict = {}
                 for p in picks:
                     c = codes.get(p.get("box_id"))
@@ -301,6 +316,8 @@ async def production_add_boxes_handler(request: web.Request):
         return web.json_response({"ok": False, "error": f"Chưa chọn đủ thùng nguyên liệu {total} (cần {consume:g})"}, status=400)
     if created == "norecipe":
         return web.json_response({"ok": False, "error": f"Phiếu đóng gói bắt buộc trừ nguyên liệu — {total} chưa có công thức. Thêm công thức ở trang chi tiết sản phẩm."}, status=400)
+    if created == "auxplace":
+        return web.json_response({"ok": False, "error": f"Nguyên liệu phụ {total} phải xuất từ kho “{consume}” — chuyển hàng vào kho đó trước rồi chọn lại thùng."}, status=400)
     if created == "notdirect":
         return web.json_response({"ok": False, "error": f"SP {total} không sản xuất trực tiếp — chỉ nhập được qua phiếu ĐÓNG GÓI (trừ nguyên liệu). Đổi loại phiếu, hoặc bật 'SX trực tiếp' ở chi tiết SP."}, status=400)
     if created == "notpackage":
@@ -619,7 +636,8 @@ async def place_create_handler(request: web.Request):
 
 
 async def place_rename_handler(request: web.Request):
-    """Sửa 1 vị trí kho: tên và/hoặc ghi chú. Body {name?, note?}."""
+    """Sửa 1 vị trí kho: tên và/hoặc ghi chú {name?, note?}; riêng {aux_source} =
+    đặt/bỏ KHO ĐẶC BIỆT nguồn NL phụ (admin — NL phụ bắt buộc xuất từ kho này)."""
     try:
         pid = int(request.match_info.get("place_id", ""))
     except (ValueError, TypeError):
@@ -630,16 +648,25 @@ async def place_rename_handler(request: web.Request):
         body = {}
     name = (body.get("name") or "").strip() if "name" in body else None
     note = str(body.get("note") or "") if "note" in body else None
+    aux_source = bool(body.get("aux_source")) if "aux_source" in body else None
+    if aux_source is not None:
+        from server_app.order_api_common import is_admin_request
+        if not await is_admin_request(request):
+            return web.json_response({"ok": False, "error": "Chỉ admin mới được đổi kho nguồn NL phụ"}, status=403)
     if "name" in body and not name:
         return web.json_response({"ok": False, "error": "Thiếu tên vị trí"}, status=400)
-    if name is None and note is None:
+    if name is None and note is None and aux_source is None:
         return web.json_response({"ok": False, "error": "Không có gì để sửa"}, status=400)
 
     def _run():
         conn = _conn()
         try:
             _ensure(conn)
-            return rename_place(conn, pid, name=name, note=note)
+            place = rename_place(conn, pid, name=name, note=note) if (name is not None or note is not None) else None
+            if aux_source is not None:
+                from inventory_store import set_place_aux_source
+                place = set_place_aux_source(conn, pid, aux_source)
+            return place
         finally:
             conn.close()
     place = await asyncio.to_thread(_run)

@@ -1236,7 +1236,7 @@ export async function setBoxUnit(boxId: number | string, unitId: number): Promis
   return d.ok ? d.box : null;
 }
 
-export type Place = { id: number; name: string; note?: string; box_count?: number; thumb_image_id?: number | null; last_changed_at?: string | null };
+export type Place = { id: number; name: string; note?: string; box_count?: number; thumb_image_id?: number | null; last_changed_at?: string | null; aux_source?: number };
 /** Danh sách vị trí kho (Kho A, Kho B…). */
 export async function listPlaces(): Promise<Place[]> {
   const d = await getJSON("/api/places", { cache: false });
@@ -1422,6 +1422,11 @@ export async function renamePlace(id: number, name: string): Promise<Place> {
 }
 export async function setPlaceNote(id: number, note: string): Promise<Place> {
   const d = await postJSON(`/api/places/${id}`, { note }, { queueable: false });
+  return d.place;
+}
+/** Đặt/bỏ KHO ĐẶC BIỆT nguồn NL phụ (admin) — NL phụ bắt buộc xuất từ kho này khi SX. */
+export async function setPlaceAuxSource(id: number, on: boolean): Promise<Place> {
+  const d = await postJSON(`/api/places/${id}`, { aux_source: on }, { queueable: false });
   return d.place;
 }
 export async function deletePlace(id: number): Promise<any> {

@@ -4,7 +4,7 @@
 import { useEffect, useState } from "preact/hooks";
 
 let memView: "grid" | "compact" = "grid";   // nhớ kiểu xem thùng khi rời trang (mặc định Ô THÙNG)
-import { listPlaces, allBoxes, renamePlace, setPlaceNote, deletePlace, currentUser, soVN, createStocktake, listPlaceStocktakes, type Place, type KhoBox, type Stocktake } from "../api";
+import { listPlaces, allBoxes, renamePlace, setPlaceNote, setPlaceAuxSource, deletePlace, currentUser, soVN, createStocktake, listPlaceStocktakes, type Place, type KhoBox, type Stocktake } from "../api";
 import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
 import { BackLink } from "../nav";
@@ -67,6 +67,19 @@ export function PlaceDetail({ id }: { id: string }) {
     try { await deletePlace(pid); window.location.hash = "#/vi-tri"; }
     catch (e: any) { toast(e?.message || "Lỗi xoá", "err"); setBusy(false); }
   };
+  // KHO ĐẶC BIỆT nguồn NL PHỤ: NL phụ bắt buộc xuất từ kho này khi sản xuất.
+  // Tối đa 1 kho — bật ở đây thì kho khác tự tắt (server enforce). Admin.
+  const toggleAuxSource = async () => {
+    if (!isAdmin) return toast("Chỉ admin mới được đổi kho nguồn NL phụ", "info");
+    const on = !place?.aux_source;
+    if (!(await confirmDialog(on
+      ? `Đặt "${place?.name}" làm KHO NGUỒN NGUYÊN LIỆU PHỤ? Nguyên liệu phụ sẽ bắt buộc xuất từ kho này khi sản xuất (kho đặc biệt cũ nếu có sẽ tự bỏ).`
+      : `Bỏ "${place?.name}" khỏi vai trò kho nguồn NL phụ? Sản xuất sẽ hết ràng buộc kho cho NL phụ.`))) return;
+    setBusy(true);
+    try { const p = await setPlaceAuxSource(pid, on); setPlace(p); toast(on ? "✅ Đã đặt làm kho nguồn NL phụ" : "Đã bỏ vai trò kho nguồn NL phụ", "ok"); }
+    catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
+    finally { setBusy(false); }
+  };
   const startStocktake = async () => {
     setBusy(true);
     try {
@@ -103,6 +116,15 @@ export function PlaceDetail({ id }: { id: string }) {
           )}
           <div class="prod-date muted">{soVN(rem)} tồn · {nStock} thùng</div>
         </div>
+      </div>
+
+      <div class="row place-aux-row">
+        <button class={"chip" + (place.aux_source ? " active" : "") + (isAdmin ? "" : " faded")}
+          disabled={busy} onClick={toggleAuxSource}
+          title="NL phụ bắt buộc xuất từ kho đặc biệt này khi sản xuất (tối đa 1 kho)">
+          {place.aux_source ? "⭐ Kho nguồn NGUYÊN LIỆU PHỤ" : "Đặt làm kho nguồn NL phụ"}
+        </button>
+        {!!place.aux_source && <span class="muted small">NL phụ chỉ được xuất từ kho này khi sản xuất.</span>}
       </div>
 
       <div class="place-action-grid">

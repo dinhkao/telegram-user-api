@@ -326,6 +326,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   chung); client `ProductionBoxes.tsx` cùng rule (requiredLines). `list_recipe`/
   `recipe_needs`/`set_recipe_line` nhận tham số `aux`; API recipe trả `aux` từng
   dòng + `aux_required`. Tests: `tests/test_recipe_aux.py`.
+  **KHO ĐẶC BIỆT nguồn NL PHỤ**: cột `inventory_places.aux_source` (tối đa 1 kho —
+  `set_place_aux_source` bật là tắt kho khác; backfill 1 lần theo tên "Kho nguyên
+  liệu đang dùng"). Có kho này → thùng NL PHỤ bắt buộc đang ở đó (gate `auxplace`
+  server + `StockPickerModal placeFilter` client); chưa chỉ định → không ràng buộc.
+  Đặt/bỏ = chip ⭐ ở PlaceDetail (admin, POST /api/places/{id} {aux_source}).
   **Cách sản xuất = 2 CỜ ĐỘC LẬP trên `products` (2026-07-16)**: `can_produce_directly`
   (INTEGER DEFAULT 1 = 🏭 SX trực tiếp, phiếu `kind='san_xuat'`) và `can_package`
   (INTEGER DEFAULT 0 = 📦 đóng gói từ NL, phiếu `kind='dong_goi'`). 1 SP có thể bật CẢ

@@ -335,11 +335,34 @@ def update_box(conn, box_id, *, quantity=None, note=None, mfg_date=None, place_i
 # ─── Vị trí kho (inventory_places) ───────────────────────────────────────────
 def list_places(conn) -> list[dict]:
     rows = conn.execute(
-        "SELECT p.id, p.name, p.note, "
+        "SELECT p.id, p.name, p.note, COALESCE(p.aux_source, 0) AS aux_source, "
         "(SELECT COUNT(*) FROM inventory_boxes b WHERE b.place_id = p.id) AS box_count "
         "FROM inventory_places p ORDER BY p.name"
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+def aux_source_place(conn) -> dict | None:
+    """KHO ĐẶC BIỆT nguồn NL PHỤ (aux_source=1) — NL phụ bắt buộc xuất từ đây khi
+    sản xuất. Tối đa 1 kho (set_place_aux_source enforce); None = chưa chỉ định."""
+    row = conn.execute(
+        "SELECT id, name FROM inventory_places WHERE aux_source = 1 LIMIT 1").fetchone()
+    return dict(row) if row else None
+
+
+def set_place_aux_source(conn, place_id, on: bool) -> dict | None:
+    """Bật/tắt cờ kho-nguồn-NL-phụ cho 1 vị trí. Bật = tắt mọi kho khác trong CÙNG
+    transaction (chỉ 1 kho đặc biệt tại 1 thời điểm)."""
+    with transaction(conn):
+        if on:
+            conn.execute("UPDATE inventory_places SET aux_source = 0 WHERE aux_source = 1")
+            conn.execute("UPDATE inventory_places SET aux_source = 1 WHERE id = ?", (int(place_id),))
+        else:
+            conn.execute("UPDATE inventory_places SET aux_source = 0 WHERE id = ?", (int(place_id),))
+    row = conn.execute(
+        "SELECT id, name, note, COALESCE(aux_source, 0) AS aux_source FROM inventory_places WHERE id = ?",
+        (int(place_id),)).fetchone()
+    return dict(row) if row else None
 
 
 def add_place(conn, name: str, note: str = "") -> dict | None:

@@ -22,6 +22,7 @@ export function StockPickerModal({
   onClose,
   onPick,
   initial,
+  placeFilter,
 }: {
   productCode: string;
   need: number;
@@ -29,6 +30,7 @@ export function StockPickerModal({
   onClose: () => void;
   onPick: (picks: { box_id: number; quantity: number }[]) => Promise<void>;
   initial?: { box_id: number; quantity: number }[];   // seed sẵn (sửa lại lựa chọn cũ)
+  placeFilter?: { id: number; name: string } | null;  // NL phụ: CHỈ thùng ở kho đặc biệt này
 }) {
   useScrollLock(true);
   usePopupBack(true, onClose);
@@ -41,7 +43,8 @@ export function StockPickerModal({
 
   const load = () =>
     inventoryDetail(productCode)
-      .then((d) => setBoxes(d.boxes))
+      // kho đặc biệt NL phụ: chỉ hiện thùng đang ở kho đó (server cũng chặn)
+      .then((d) => setBoxes(placeFilter ? d.boxes.filter((b) => b.place_id === placeFilter.id) : d.boxes))
       .catch((e: any) => setErr(e?.message || "Lỗi tải kho"));
   useEffect(() => { load(); }, [productCode]);
   // Realtime: kho/thùng đổi (nơi khác xuất/nhập/vô hiệu) → cập nhật list thùng khả dụng
@@ -130,12 +133,17 @@ export function StockPickerModal({
         </div>
         <div class="muted small">
           Cần {soVN(need)} · đã xuất {soVN(got)} · còn thiếu {soVN(remaining)}
+          {placeFilter ? <> · chỉ từ kho <b>{placeFilter.name}</b></> : null}
         </div>
 
         {!boxes ? (
           <div class="muted"><LoadingInline /></div>
         ) : boxes.length === 0 ? (
-          <div class="muted small">Kho hết thùng {productCode}.</div>
+          <div class="muted small">
+            {placeFilter
+              ? <>Kho <b>{placeFilter.name}</b> không có thùng {productCode} — NL phụ chỉ được xuất từ kho này. Chuyển hàng vào đó trước (chi tiết thùng → chuyển kho).</>
+              : <>Kho hết thùng {productCode}.</>}
+          </div>
         ) : (
           <div class="sp-list">
             {boxes.slice().sort(sortPick).map((b) => {

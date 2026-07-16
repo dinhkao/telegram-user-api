@@ -139,7 +139,10 @@ export const GUIDES_KHO: Guide[] = [
         <p>Bên dưới có khu <b>Nguyên liệu phụ</b> (bao bì, tem, hộp…): khai như nguyên liệu thường
         nhưng bị trừ kho ở <b>CẢ hai loại phiếu</b> (sản xuất lẫn đóng gói) khi chip
         <b>「✓ Yêu cầu khi sản xuất」</b> đang bật. Tắt chip → sản xuất không bắt trừ NL phụ
-        (danh sách giữ nguyên, bật lại là áp dụng ngay).</p>` },
+        (danh sách giữ nguyên, bật lại là áp dụng ngay).</p>
+        <p>Nếu có <b>kho đặc biệt nguồn NL phụ</b> (chip <b>⭐</b> ở chi tiết vị trí kho, admin đặt —
+        vd “Kho nguyên liệu đang dùng”) thì thùng NL phụ <b>bắt buộc</b> đang nằm ở kho đó mới
+        chọn được; hàng ở kho khác phải <b>chuyển kho</b> vào trước.</p>` },
       { title: "Cờ Mua / Bán", html: `
         <p>Khối <b>Mua bán</b> có 2 cờ (admin):</p>
         <ul>

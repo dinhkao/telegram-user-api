@@ -103,4 +103,13 @@ def migrate_inventory_table(conn):
         "name TEXT NOT NULL UNIQUE, created_at TEXT DEFAULT (datetime('now')))"
     )
     conn.execute("INSERT OR IGNORE INTO inventory_units (name) VALUES ('Thùng')")
+    # KHO ĐẶC BIỆT nguồn NGUYÊN LIỆU PHỤ (2026-07-16): aux_source=1 — NL phụ bắt
+    # buộc xuất từ kho này khi sản xuất (gate ở inventory_routes; tối đa 1 kho,
+    # đổi bằng chip ở PlaceDetail, admin). Backfill 1 lần theo tên hiện có
+    # "Kho nguyên liệu đang dùng" ngay lúc thêm cột.
+    place_cols = {r[1] for r in conn.execute("PRAGMA table_info(inventory_places)").fetchall()}
+    if "aux_source" not in place_cols:
+        conn.execute("ALTER TABLE inventory_places ADD COLUMN aux_source INTEGER NOT NULL DEFAULT 0")
+        conn.execute("UPDATE inventory_places SET aux_source = 1 "
+                     "WHERE LOWER(TRIM(name)) = 'kho nguyên liệu đang dùng'")
     conn.commit()
