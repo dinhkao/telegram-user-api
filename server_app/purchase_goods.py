@@ -70,3 +70,23 @@ def apply_purchase_receipt(conn, purchase_id: int, dispositions, *, actor: str =
     set_goods_result(conn, purchase_id, result)
     return {"result": result, "touched_boxes": touched_boxes,
             "supplier_id": p.get("supplier_id")}, None
+
+
+def mark_deleted_boxes(conn, row: dict | None) -> dict | None:
+    """Gắn box_deleted=True cho các entry goods_result mà thùng đã bị admin XOÁ HẲN
+    khỏi kho (delete_box là hard-delete) — trang chi tiết phiếu hiện 'đã xoá' thay
+    vì link chết. Chỉ đọc, không sửa DB (goods_result là snapshot lịch sử)."""
+    gr = (row or {}).get("goods_result")
+    if not row or not gr:
+        return row
+    entries = list(gr.get("restocked_existing") or []) + list(gr.get("restocked_new") or [])
+    ids = [e.get("box_id") for e in entries if e.get("box_id")]
+    if not ids:
+        return row
+    q = ",".join("?" for _ in ids)
+    alive = {r[0] for r in conn.execute(
+        f"SELECT id FROM inventory_boxes WHERE id IN ({q})", ids).fetchall()}
+    for e in entries:   # e là reference vào dict trong row → gắn cờ tại chỗ
+        if e.get("box_id") and e["box_id"] not in alive:
+            e["box_deleted"] = True
+    return row

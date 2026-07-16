@@ -216,10 +216,12 @@ export function PurchaseDetail({ id }: { id: string }) {
       {!deleted && (() => {
         const gr = r.goods_result;
         if (r.goods_handled_at && gr) {
-          const line = (arr: { sp: string; quantity: number; box_id: number; box_code?: string }[]) =>
+          const line = (arr: { sp: string; quantity: number; box_id: number; box_code?: string; box_deleted?: boolean }[]) =>
             arr.map((x, i) => (
               <span key={i}>{i > 0 ? ", " : ""}{x.sp} ×{soVN(x.quantity)}{" "}
-                (<a href={`#/thung/${x.box_id}`}>thùng {x.box_code || `#${x.box_id}`}</a>)</span>
+                {x.box_deleted
+                  ? <span class="muted" style={{ textDecoration: "line-through" }}>(thùng {x.box_code || `#${x.box_id}`} — đã xoá)</span>
+                  : <>(<a href={`#/thung/${x.box_id}`}>thùng {x.box_code || `#${x.box_id}`}</a>)</>}</span>
             ));
           return (
             <section class="card rg-summary">

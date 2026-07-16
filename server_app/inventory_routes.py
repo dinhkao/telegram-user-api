@@ -688,7 +688,7 @@ async def box_delete_handler(request: web.Request):
             # nên match theo note trong phạm vi phiếu vẫn an toàn.
             if src and box_code:
                 remove_number_by_note(conn, src, f"📦 {box_code}")
-            return "ok", (src, restored)
+            return "ok", (src, restored, box.get("source_purchase_id"))
         finally:
             conn.close()
     status, res = await asyncio.to_thread(_run)
@@ -696,12 +696,16 @@ async def box_delete_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
     if status == "allocated":
         return web.json_response({"ok": False, "error": "Thùng đã xuất cho đơn — thu hồi khỏi đơn trước khi xoá"}, status=400)
-    src, restored = res or (None, [])
-    from server_app.realtime import emit_inventory_changed, emit_box_changed, emit_production_changed
+    src, restored, src_purchase = res or (None, [], None)
+    from server_app.realtime import (emit_inventory_changed, emit_box_changed,
+                                     emit_production_changed, emit_purchase_changed)
     emit_inventory_changed()
     emit_box_changed()
     if src:
         emit_production_changed(src)
+    if src_purchase:
+        # thùng tạo từ phiếu NHẬP HÀNG → trang chi tiết phiếu reload, hiện 'đã xoá'
+        emit_purchase_changed(int(src_purchase))
     # Lịch sử VỊ TRÍ: thùng bị admin xoá khỏi kho (lịch sử thùng: middleware DELETE)
     if del_snap.get("place_id"):
         from server_app.inventory_audit import log_box_deleted

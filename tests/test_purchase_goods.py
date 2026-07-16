@@ -99,6 +99,20 @@ class PurchaseGoodsTest(unittest.TestCase):
         self.assertEqual(extra["result"]["restocked_new"][0]["quantity"], 4)
         self.assertEqual(extra["result"]["restocked_existing"], [])
 
+    def test_mark_deleted_boxes_flags_removed_box(self):
+        from inventory_store.queries import delete_box
+        from server_app.purchase_goods import mark_deleted_boxes
+        extra, err = apply_purchase_receipt(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 15, "action": "restock_new"}], actor="lan")
+        self.assertIsNone(err)
+        new_id = extra["result"]["restocked_new"][0]["box_id"]
+        row = mark_deleted_boxes(self.conn, purchase_store.get_purchase(self.conn, self.pu["id"]))
+        self.assertNotIn("box_deleted", row["goods_result"]["restocked_new"][0])  # thùng còn → không cờ
+        delete_box(self.conn, new_id)   # admin xoá hẳn thùng
+        row2 = mark_deleted_boxes(self.conn, purchase_store.get_purchase(self.conn, self.pu["id"]))
+        self.assertTrue(row2["goods_result"]["restocked_new"][0]["box_deleted"])
+
     def test_not_found_and_deleted(self):
         _, err = apply_purchase_receipt(self.conn, 999, [], actor="lan")
         self.assertEqual(err, "not_found")

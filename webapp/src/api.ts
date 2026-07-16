@@ -358,8 +358,9 @@ export type PurchasePayment = {
   by_name?: string; box_name?: string;   // server enrich — tên hiển thị
 };
 export type PurchaseGoodsResult = {
-  restocked_existing: { sp: string; quantity: number; box_id: number; box_code: string }[];
-  restocked_new: { sp: string; quantity: number; box_id: number; box_code: string }[];
+  // box_deleted: server gắn lúc đọc nếu thùng đã bị admin xoá hẳn khỏi kho
+  restocked_existing: { sp: string; quantity: number; box_id: number; box_code: string; box_deleted?: boolean }[];
+  restocked_new: { sp: string; quantity: number; box_id: number; box_code: string; box_deleted?: boolean }[];
 };
 export type PurchaseDisposition = {
   sp: string; quantity: number;
