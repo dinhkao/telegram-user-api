@@ -1337,7 +1337,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
   object-fit: cover; background: var(--bg); border: 1px solid var(--border); }
 .kho-loc-thumb.ph { display: flex; align-items: center; justify-content: center; color: var(--muted); }
 .kho-loc-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; }
-.kho-loc-name { font-weight: 700; font-size: 1rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kho-loc-name { font-weight: 700; font-size: 1rem; color: var(--ink); overflow-wrap: anywhere; }
 .kho-loc-meta { font-size: .78rem; color: var(--muted); margin: 1px 0 5px; }
 .kho-loc-meta b { color: var(--ink); font-weight: 700; }
 .kho-loc-t { color: var(--ok) !important; }
@@ -1420,7 +1420,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
 .kho-prod-row:active { transform: translateY(1px); box-shadow: none; }
 .kho-prod-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.kho-prod-code { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.kho-prod-code { display: block; min-width: 0; overflow-wrap: anywhere;
   color: var(--ink); font-size: .82rem; font-weight: 700; }
 .kho-prod-unlinked { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px;
   margin-left: 4px; vertical-align: middle; border-radius: 50%; background: var(--warn-wash); color: var(--warn);
@@ -1454,6 +1454,7 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* ── Timeline biến động VỊ TRÍ KHO (#/vi-tri/:id/timeline) — rail tồn chạy ── */
 .pt-open-btn { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 8px 0; }
 .pt-head { display: flex; align-items: center; justify-content: space-between; }
+.pt-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .pt-total-big { font-size: 1.5rem; font-weight: 800; color: var(--ok); font-variant-numeric: tabular-nums; }
 .pt-total-big.zero { color: var(--muted); }
 .pt-below { color: var(--danger); }
