@@ -260,9 +260,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     nên mọi công thức remaining tự đúng; `quantity` gốc 2 thùng KHÔNG đổi, tồn tổng bảo
     toàn; API `POST /api/inventory/box/{id}/transfer`, UI ở chi tiết thùng). Xuất
     `allocate_picks(picks, thread_id, kind=)`; thu hồi = `delete_allocation`;
-    `list_order_allocations(kind=)` lọc. **Xoá thùng thành phẩm phiếu ĐÓNG GÓI** hoàn NL
-    theo ratio × số cây (`release_production_amount`, LIFO, trả chi tiết thùng NL nhận);
-    xoá cả phiếu hoàn nốt residue (`release_production_consumption`).
+    `list_order_allocations(kind=)` lọc. **Xoá thùng thành phẩm** hoàn NL theo ratio ×
+    số cây, MỌI loại phiếu (`release_production_amount`, LIFO, KẸP theo tổng đã tiêu
+    của phiếu — đóng gói hoàn NL chính+phụ, phiếu sản xuất hoàn NL PHỤ; mã không tiêu
+    hoàn 0, trả chi tiết thùng NL nhận); rã thùng nguyên kiện (`return-material`) cùng
+    rule; xoá cả phiếu hoàn nốt residue (`release_production_consumption`).
   - `domain.py` (pure, unit-tested) = sinh mã base36 + gộp nhóm size. Thùng **vô hiệu**
     → loại khỏi tồn/phân bổ. Admin **xoá thùng** (`box_delete_handler`, cấm nếu đã xuất) +
     gỡ entry khỏi phiếu SX (`production_store.remove_number_by_note`).

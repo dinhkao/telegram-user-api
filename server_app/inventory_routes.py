@@ -780,18 +780,18 @@ async def box_delete_handler(request: web.Request):
                             product_code=box.get("product_code"), quantity=box.get("quantity"))
             src = box.get("source_thread_id")
             box_code = box.get("box_code")
-            # Phiếu ĐÓNG GÓI: hoàn nguyên liệu đã trừ tương ứng thùng này (ratio × số
-            # cây thùng, kẹp theo tổng đã tiêu của phiếu) — allocation NL gắn PHIẾU chứ
-            # không gắn thùng, nên phải hoàn theo tỉ lệ công thức lúc xoá từng thùng.
+            # Hoàn nguyên liệu đã trừ tương ứng thùng này (ratio × số cây thùng, KẸP
+            # theo tổng đã tiêu của phiếu) — allocation NL gắn PHIẾU chứ không gắn
+            # thùng, nên hoàn theo tỉ lệ công thức lúc xoá từng thùng. Chạy cho MỌI
+            # loại phiếu: đóng gói tiêu NL chính+phụ, SẢN XUẤT cũng tiêu NL PHỤ
+            # (aux_required) — nhờ kẹp-theo-đã-tiêu, mã không tiêu thì hoàn 0 (no-op).
             restored = []
-            if src:
-                slip = get_slip(conn, src)
-                if slip and (slip.get("kind") or "san_xuat") == "dong_goi":
-                    from inventory_store import release_production_amount
-                    for nd in recipe_needs(conn, box.get("product_code"), box.get("quantity") or 0):
-                        got, into = release_production_amount(conn, src, nd["code"], nd["amount"])
-                        if got > 0:
-                            restored.append({"code": nd["code"], "amount": round(got, 3), "boxes": into})
+            if src and get_slip(conn, src):
+                from inventory_store import release_production_amount
+                for nd in recipe_needs(conn, box.get("product_code"), box.get("quantity") or 0):
+                    got, into = release_production_amount(conn, src, nd["code"], nd["amount"])
+                    if got > 0:
+                        restored.append({"code": nd["code"], "amount": round(got, 3), "boxes": into})
             delete_box(conn, box_id)
             # Gỡ entry numbers của thùng khỏi phiếu SX nguồn → total tính lại đúng
             # (numbers là nguồn thật; note nhập lúc tạo = '📦 <box_code>'). Số gọi
@@ -862,13 +862,15 @@ async def box_return_material_handler(request: web.Request):
             if not needs:
                 return "norecipe", None
             src = box.get("source_thread_id")
-            slip = get_slip(conn, src) if src else None
-            src_pack = bool(slip and (slip.get("kind") or "san_xuat") == "dong_goi")
+            # Đảo tiêu hao của phiếu nguồn cho MỌI loại phiếu (đóng gói: NL chính+phụ;
+            # sản xuất: NL phụ) — kẹp theo đã-tiêu nên mã không tiêu hoàn 0, phần
+            # thiếu tạo thùng NL mới bù bên dưới (không double-credit).
+            has_src = bool(src and get_slip(conn, src))
             from inventory_store import release_production_amount
             restored = []
             for nd in needs:
                 got, into = (release_production_amount(conn, src, nd["code"], nd["amount"])
-                             if src_pack else (0.0, []))
+                             if has_src else (0.0, []))
                 short = round(nd["amount"] - got, 6)
                 if short > 1e-6:   # nguồn cũ không đủ → tạo thùng NL mới bù cho đủ
                     fresh = add_boxes(conn, nd["code"], [short], by=actor,
