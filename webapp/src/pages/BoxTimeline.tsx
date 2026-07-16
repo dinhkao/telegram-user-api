@@ -44,6 +44,8 @@ function EventRow({ it, idx, srcSlip }: { it: BoxTLItem; idx: number; srcSlip?: 
       case "purchase_in": return <>nhập <b>{soVN(amt)}</b>{u} hàng mua{it.purchase_id ? <> từ <a class="pt-inl" href={`#/nhap-hang/${it.purchase_id}`}>phiếu nhập #{it.purchase_id}</a></> : null}</>;
       case "purchase_in_removed": return <>gỡ <b>{soVN(amt)}</b>{u} hàng nhập{it.purchase_id ? <> (<a class="pt-inl" href={`#/nhap-hang/${it.purchase_id}`}>phiếu nhập #{it.purchase_id}</a>)</> : null}</>;
       case "return_in": return <>khách trả <b>{soVN(amt)}</b>{u} về thùng{it.return_id ? <> (<a class="pt-inl" href={`#/tra-hang/${it.return_id}`}>phiếu trả #{it.return_id}</a>)</> : null}</>;
+      case "adjustment.created": return <>điều chỉnh tồn <b>{(it.delta ?? 0) >= 0 ? "+" : "−"}{soVN(amt)}</b>{u}{it.remaining != null ? <> → còn <b>{soVN(it.remaining)}</b>{u}</> : null}{it.adjust_reason ? <> · “{it.adjust_reason}”</> : null}</>;
+      case "adjustment.deleted": return <>gỡ điều chỉnh tồn (hoàn nguyên <b>{(it.delta ?? 0) >= 0 ? "+" : "−"}{soVN(amt)}</b>{u}){it.remaining != null ? <> → còn <b>{soVN(it.remaining)}</b>{u}</> : null}</>;
       case "allocated": return <>xuất <b>{soVN(amt)}</b>{u} cho{ord}</>;
       case "released": return <>thu <b>{soVN(amt)}</b>{u} về từ{ord}</>;
       case "moved": return <>chuyển từ kho <b>{it.from_name || "?"}</b> → kho <b>{it.to_name || "?"}</b></>;

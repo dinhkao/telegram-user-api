@@ -272,13 +272,21 @@ async def stocktake_apply_handler(request: web.Request):
 
     def _run():
         from inventory_store.stocktake_apply import apply_stocktake
+        from server_app.inventory_audit import box_snapshot
         conn = get_connection()
         try:
-            return apply_stocktake(conn, stocktake_id, actor=actor)
+            slip, err = apply_stocktake(conn, stocktake_id, actor=actor)
+            snaps = {}   # box_id → snapshot SAU điều chỉnh (event kho cho timeline)
+            if slip:
+                for a in (slip.get("applied_result") or {}).get("adjusted") or []:
+                    s = box_snapshot(conn, a.get("box_id"))
+                    if s:
+                        snaps[a.get("box_id")] = s
+            return slip, err, snaps
         finally:
             conn.close()
 
-    slip, err = await asyncio.to_thread(_run)
+    slip, err, snaps = await asyncio.to_thread(_run)
     if err == "not_found":
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu kiểm kho"}, status=404)
     if err == "not_completed":
@@ -296,8 +304,15 @@ async def stocktake_apply_handler(request: web.Request):
     ))
     emit_inventory_changed()
     from server_app.realtime import emit_box_changed
+    from server_app.inventory_audit import log_box_adjustment
+    reason = f"Kiểm kho {slip.get('place_name') or ''} — phiếu #{slip['id']}".strip()
     for a in applied:
         emit_box_changed(a.get("box_id"))
+        snap = snaps.get(a.get("box_id"))
+        if snap:   # event kho scope box/place → timeline thùng/SP/vị trí thấy điều chỉnh
+            log_box_adjustment("adjustment.created", snap, adjustment_id=a.get("adjustment_id"),
+                               delta=a.get("delta"), reason=reason, actor=actor,
+                               actor_type=_actor_type(request))
     return web.json_response({"ok": True, "stocktake": slip})
 
 

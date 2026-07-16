@@ -558,12 +558,22 @@ async def unit_delete_handler(request: web.Request):
 
 
 async def places_list_handler(request: web.Request):
-    """Danh sách vị trí kho (Kho A, Kho B…) + số thùng + ảnh mới nhất (thumb card)."""
+    """Danh sách vị trí kho (Kho A, Kho B…) + số thùng + ảnh mới nhất (thumb card)
+    + last_changed_at = event kho mới nhất của vị trí (audit scope='place') —
+    dashboard #/kho sort cột vị trí theo biến động gần nhất."""
     def _run():
         conn = _conn()
         try:
             _ensure(conn)
             places = list_places(conn)
+            try:
+                last = dict(conn.execute(
+                    "SELECT thread_id, MAX(ts) FROM audit_events WHERE scope = 'place'"
+                    " GROUP BY thread_id").fetchall())
+            except Exception:
+                last = {}   # chưa có bảng audit_events → sort fallback như cũ
+            for p in places:
+                p["last_changed_at"] = last.get(p["id"])
         finally:
             conn.close()
         from entity_media_store import latest_image_ids

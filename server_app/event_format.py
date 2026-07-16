@@ -311,9 +311,11 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
     # ── PHIẾU ĐIỀU CHỈNH tồn thùng (adjustment.*) — scope='box' ────────────────
     if action in ("adjustment.created", "adjustment.deleted"):
         d = p.get("delta")
+        rem = p.get("remaining", p.get("new_remaining"))   # payload mới: remaining SAU biến động
         seg = _join([[box_part(p.get("box_id"), p.get("box_code"), resolver)] if p.get("box_code") or p.get("box_id") else [],
                      [_sp(p.get("product_code"), resolver)] if p.get("product_code") else [],
                      [part(f"{float(d):+g}")] if d is not None else [],
+                     [part(f"thùng còn {qty(rem)}")] if rem is not None else [],
                      [part(f"“{str(p.get('reason') or '')[:60]}”")] if p.get("reason") else []])
         return ("Điều chỉnh tồn thùng" if action == "adjustment.created"
                 else "Gỡ phiếu điều chỉnh (hoàn nguyên)"), seg

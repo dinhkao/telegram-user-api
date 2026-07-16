@@ -23,7 +23,9 @@ _DIR_IN = {"box.created", "box.moved_in", "box.released", "box.transfer_in", "bo
            "box.purchase_in", "box.return_in"}
 _DIR_OUT = {"box.allocated", "box.moved_out", "box.deleted", "box.transfer_out", "box.consumed", "box.disposed",
             "box.purchase_in_removed"}
-_INV_ACTIONS = _DIR_IN | _DIR_OUT
+# Điều chỉnh tồn: chiều +/− theo DẤU delta (không cố định như action khác)
+_SIGNED = {"adjustment.created", "adjustment.deleted"}
+_INV_ACTIONS = _DIR_IN | _DIR_OUT | _SIGNED
 _REASON = {
     "box.created": "nhập kho", "box.moved_in": "chuyển đến", "box.released": "trả về đơn",
     "box.transfer_in": "nhận chuyển", "box.allocated": "xuất cho đơn", "box.moved_out": "chuyển đi",
@@ -31,6 +33,7 @@ _REASON = {
     "box.disposed": "xuất hủy", "box.disposal_released": "hoàn xuất hủy",
     "box.purchase_in": "nhập hàng NCC", "box.purchase_in_removed": "gỡ nhập hàng NCC",
     "box.return_in": "khách trả về",
+    "adjustment.created": "điều chỉnh tồn", "adjustment.deleted": "gỡ điều chỉnh tồn",
 }
 
 
@@ -40,11 +43,16 @@ def _delta(action: str, p: dict) -> float:
     rem = p.get("remaining")
     rem = float(rem) if rem is not None else q
     taken = float(p.get("taken") or 0)
+    try:
+        adj = float(p.get("delta") or 0)
+    except (TypeError, ValueError):
+        adj = 0.0
     return {
         "box.created": rem, "box.moved_in": rem, "box.released": taken, "box.transfer_in": q,
         "box.allocated": -taken, "box.moved_out": -rem, "box.deleted": -q, "box.transfer_out": -q,
         "box.consumed": -taken, "box.disposed": -taken, "box.disposal_released": taken,
         "box.purchase_in": taken, "box.purchase_in_removed": -taken, "box.return_in": taken,
+        "adjustment.created": adj, "adjustment.deleted": -adj,   # gỡ = hoàn nguyên
     }.get(action, 0.0)
 
 
@@ -143,7 +151,8 @@ def place_timeline(place_id: int) -> dict:
             pc = p.get("product_code") or ""
             bn = _boxnum(p.get("box_code"))
             items.append({
-                "ts": _epoch(r["ts"]), "at": r["ts"], "dir": "in" if act in _DIR_IN else "out",
+                "ts": _epoch(r["ts"]), "at": r["ts"],
+                "dir": ("in" if delta >= 0 else "out") if act in _SIGNED else ("in" if act in _DIR_IN else "out"),
                 "kind": act.replace("box.", ""), "reason": _REASON.get(act, ""), "product_code": pc,
                 "box_id": p.get("box_id"), "box_code": p.get("box_code"), "box_num": bn,
                 "quantity": p.get("quantity"), "delta": round(delta, 3), "amount": round(abs(delta), 3),
@@ -154,6 +163,7 @@ def place_timeline(place_id: int) -> dict:
                 "target_code": p.get("target_code"), "slip_id": p.get("slip_id"),   # tiêu hao đóng gói
                 "disposal_id": p.get("disposal_id"), "disposal_reason": p.get("disposal_reason"),
                 "purchase_id": p.get("purchase_id"), "return_id": p.get("return_id"),   # nhập hàng / hàng trả
+                "adjustment_id": p.get("adjustment_id"), "adjust_reason": p.get("reason"),   # phiếu điều chỉnh
                 "total_after": round(running, 3), "actor": _actor_display(r["actor_id"], names),
             })
             running -= delta

@@ -2,8 +2,10 @@
 
 Điều chỉnh tay (nhập TỒN THỰC TẾ + lý do bắt buộc) = VĂN PHÒNG; gỡ phiếu = ADMIN
 (hoàn nguyên, guard tồn âm). Store: inventory_store/adjustments.py (allocation
-kind='adjustment', không sửa quantity gốc). Audit adjustment.created/deleted
-(scope='box') + realtime inventory/box_changed. Đăng ký ở app_factory.
+kind='adjustment', không sửa quantity gốc). Audit adjustment.created/deleted ghi
+CẢ scope box LẪN place (inventory_audit.log_box_adjustment, snapshot sau biến
+động) → timeline thùng/SP/vị trí thấy điều chỉnh. Realtime inventory/box_changed.
+Đăng ký ở app_factory.
 """
 from __future__ import annotations
 
@@ -26,13 +28,14 @@ def _int_match(request: web.Request, key: str) -> int | None:
         return None
 
 
-def _audit(action: str, box_id: int, actor: str, request: web.Request, **payload) -> None:
-    from audit_log import async_log_event
-    from server_app.tasks import spawn_tracked
-    spawn_tracked(f"audit.{action}", async_log_event(
-        action, scope="box", thread_id=box_id,
-        actor_type="web_user" if request.get("web_user") else "http_client",
-        actor_id=actor, source=action, payload=payload))
+def _audit(action: str, snap: dict | None, adj: dict, actor: str, request: web.Request) -> None:
+    """Ghi event điều chỉnh cho CẢ lịch sử thùng lẫn vị trí (timeline đọc)."""
+    if not snap:
+        return
+    from server_app.inventory_audit import log_box_adjustment
+    log_box_adjustment(action, snap, adjustment_id=adj.get("id") or adj.get("adjustment_id"),
+                       delta=adj.get("delta"), reason=adj.get("reason"), actor=actor,
+                       actor_type="web_user" if request.get("web_user") else "http_client")
 
 
 async def box_adjust_handler(request: web.Request):
@@ -52,23 +55,23 @@ async def box_adjust_handler(request: web.Request):
 
     def _run():
         from inventory_store.adjustments import create_adjustment
+        from server_app.inventory_audit import box_snapshot
         conn = get_connection()
         try:
-            return create_adjustment(conn, box_id, new_remaining=body.get("new_remaining"),
-                                     reason=str(body.get("reason") or ""), by=actor)
+            adj, err = create_adjustment(conn, box_id, new_remaining=body.get("new_remaining"),
+                                         reason=str(body.get("reason") or ""), by=actor)
+            snap = box_snapshot(conn, box_id) if adj else None   # SAU biến động (đã commit)
+            return adj, err, snap
         finally:
             conn.close()
 
-    adj, err = await asyncio.to_thread(_run)
+    adj, err, snap = await asyncio.to_thread(_run)
     if err:
         return web.json_response({"ok": False, "error": err}, status=400)
     from server_app.realtime import emit_box_changed, emit_inventory_changed
     emit_inventory_changed()
     emit_box_changed(box_id)
-    _audit("adjustment.created", box_id, actor, request,
-           adjustment_id=adj["id"], box_id=box_id, box_code=adj.get("box_code"),
-           product_code=adj.get("product_code"), delta=adj.get("delta"),
-           new_remaining=adj.get("new_remaining"), reason=adj.get("reason"))
+    _audit("adjustment.created", snap, adj, actor, request)
     return web.json_response({"ok": True, "adjustment": adj})
 
 
@@ -107,21 +110,22 @@ async def adjustment_delete_handler(request: web.Request):
 
     def _run():
         from inventory_store.adjustments import delete_adjustment
+        from server_app.inventory_audit import box_snapshot
         conn = get_connection()
         try:
-            return delete_adjustment(conn, adj_id, by=actor)
+            adj, err = delete_adjustment(conn, adj_id, by=actor)
+            snap = box_snapshot(conn, int(adj["box_id"])) if adj else None   # SAU hoàn nguyên
+            return adj, err, snap
         finally:
             conn.close()
 
-    adj, err = await asyncio.to_thread(_run)
+    adj, err, snap = await asyncio.to_thread(_run)
     if err:
         return web.json_response({"ok": False, "error": err}, status=400)
     from server_app.realtime import emit_box_changed, emit_inventory_changed
     emit_inventory_changed()
     emit_box_changed(adj["box_id"])
-    _audit("adjustment.deleted", int(adj["box_id"]), actor, request,
-           adjustment_id=adj_id, box_id=int(adj["box_id"]), box_code=adj.get("box_code"),
-           product_code=adj.get("product_code"), delta=adj.get("delta"), reason=adj.get("reason"))
+    _audit("adjustment.deleted", snap, {**adj, "id": adj_id}, actor, request)
     return web.json_response({"ok": True})
 
 

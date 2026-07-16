@@ -1236,7 +1236,7 @@ export async function setBoxUnit(boxId: number | string, unitId: number): Promis
   return d.ok ? d.box : null;
 }
 
-export type Place = { id: number; name: string; note?: string; box_count?: number; thumb_image_id?: number | null };
+export type Place = { id: number; name: string; note?: string; box_count?: number; thumb_image_id?: number | null; last_changed_at?: string | null };
 /** Danh sách vị trí kho (Kho A, Kho B…). */
 export async function listPlaces(): Promise<Place[]> {
   const d = await getJSON("/api/places", { cache: false });
@@ -1346,6 +1346,7 @@ export type PlaceTLItem = {
   target_code?: string | null; slip_id?: number | null;   // tiêu hao đóng gói
   disposal_id?: number | null; disposal_reason?: string | null;
   purchase_id?: number | null; return_id?: number | null;   // nhập hàng NCC / hàng khách trả
+  adjustment_id?: number | null; adjust_reason?: string | null;   // phiếu điều chỉnh tồn
 };
 export type PlaceStockLine = { code: string; qty: number };
 export type PlaceBox = {
@@ -1382,6 +1383,7 @@ export type BoxTLItem = {
   target_code?: string | null; slip_id?: number | null;   // tiêu hao đóng gói
   disposal_id?: number | null; disposal_reason?: string | null;
   purchase_id?: number | null; return_id?: number | null;   // nhập hàng NCC / hàng khách trả
+  adjustment_id?: number | null; adjust_reason?: string | null;   // phiếu điều chỉnh tồn
 };
 export type BoxTimeline = {
   box: { id: number; box_code: string; box_num: string; product_code: string; unit: string;

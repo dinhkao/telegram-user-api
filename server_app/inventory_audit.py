@@ -73,6 +73,16 @@ def log_boxes_return_in(items: list[dict], *, return_id, actor, actor_type: str)
             "taken": s.get("taken"), "return_id": return_id})
 
 
+def log_box_adjustment(action: str, snap: dict, *, adjustment_id, delta, reason,
+                       actor, actor_type: str) -> None:
+    """PHIẾU ĐIỀU CHỈNH tồn thùng — action 'adjustment.created' / 'adjustment.deleted',
+    ghi CẢ box lẫn place (snap = box_snapshot SAU biến động) để 3 timeline kho thấy.
+    delta = delta GỐC của phiếu (deleted: timeline tự đảo dấu = hoàn nguyên)."""
+    _box_and_place(action, snap, actor, actor_type, extra={
+        "adjustment_id": adjustment_id, "delta": delta,
+        "reason": str(reason or "").strip()})
+
+
 def log_boxes_allocated(items: list[dict], *, actor, actor_type: str) -> None:
     """items = snapshot + {order_thread_id, order_text, taken}."""
     for s in items:

@@ -271,7 +271,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     quantity = −delta — KHÔNG sửa quantity gốc, remaining tự đúng mọi công thức. Tạo =
     văn phòng (`POST /api/inventory/box/{id}/adjust` {new_remaining, reason bắt buộc} —
     delta tính trong transaction); gỡ = admin (hoàn nguyên, guard tồn âm). Event
-    `adjustment.created/deleted` (scope='box'). UI `detail/BoxAdjust.tsx` ở chi tiết thùng.
+    `adjustment.created/deleted` ghi CẢ scope box LẪN place
+    (`inventory_audit.log_box_adjustment`, snapshot sau biến động — cả đường áp
+    kiểm kho `stocktake_routes.stocktake_apply_handler` cũng ghi) → 3 timeline kho
+    (thùng/SP/vị trí) hiện điều chỉnh, chiều +/− theo dấu delta, tồn-chạy đúng.
+    UI `detail/BoxAdjust.tsx` ở chi tiết thùng.
     **Kiểm kho ÁP DỤNG vào kho** (`inventory_store/stocktake_apply.py`, POST
     `/api/stocktakes/{id}/apply`, văn phòng): phiếu ĐÃ CHỐT, 1 lần (applied_at CAS),
     tạo phiếu điều chỉnh theo DELTA (đếm − sổ lúc chụp — không đè biến động hợp lệ

@@ -166,9 +166,12 @@ export function KhoBoxes() {
 
   const nq = foldVN(q.trim());
   const searching = nq !== "";
-  // Sắp kho theo NHIỀU THÙNG (còn hàng) nhất lên trước
+  // Sắp kho theo BIẾN ĐỘNG MỚI NHẤT lên trước (last_changed_at = event kho gần nhất
+  // của vị trí, cùng tinh thần cột "Tồn sản phẩm"); chưa có biến động → theo số thùng.
   const boxCountAt = (pid: number) => stockCountByPlace.get(pid) || 0;
-  const sortedPlaces = places.slice().sort((a, b) => boxCountAt(b.id) - boxCountAt(a.id) || a.name.localeCompare(b.name));
+  const sortedPlaces = places.slice().sort((a, b) =>
+    (b.last_changed_at || "").localeCompare(a.last_changed_at || "") ||
+    boxCountAt(b.id) - boxCountAt(a.id) || a.name.localeCompare(b.name));
   // code → tên SP + tổng tồn kho (search khớp cả TÊN SP + hiện mã SP khớp)
   const fname = (code: string) => foldVN(sumByCode.get(code)?.name || "");
   // Khớp: mã/tên SP (matchName) · ô thùng (thêm số gọi) · TÊN VỊ TRÍ (matchPlaceName)
