@@ -603,6 +603,7 @@ a.alloc-card:active { background: var(--accent-wash); }
 .alloc-amt.in { color: #1a7f37; }
 /* Phiếu điều chỉnh tồn (BoxAdjust ở chi tiết thùng + khối áp dụng kiểm kho) */
 .adj-del { color: var(--danger, #c33); flex: none; }
+.adj-down-warn { padding: 7px 10px; border: 1px solid #e0c9a6; border-radius: 10px; background: var(--warn-wash); }
 .stocktake-applied .card-label { display: flex; align-items: center; gap: 6px; }
 /* Ô thùng + nút hủy chốt trong khối "Đã nhập kho" của phiếu nhập */
 .rg-boxes { margin-top: 8px; }
@@ -1138,6 +1139,7 @@ body.kbd-open .pay-submit-bar { bottom: 8px; }
 .pw-table th:first-child, .pw-table td:first-child { text-align: left; }
 .pw-table thead th { font-size: .72rem; color: var(--muted); font-weight: 700; }
 .pw-name { font-weight: 700; }
+.pw-worker-note { margin-top: 2px; color: var(--muted); font-size: .72rem; font-weight: 500; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
 .pw-piece { font-variant-numeric: tabular-nums; }
 .pw-sub { font-size: .68rem; font-weight: 400; }
 .pw-total { font-weight: 800; color: var(--ok); font-variant-numeric: tabular-nums; }

@@ -74,9 +74,12 @@ export const GUIDES_KHO: Guide[] = [
             các xuất/nhập hợp lệ sau lúc đếm; áp đúng 1 lần/phiếu; admin gỡ được từng phiếu điều chỉnh).</li>
         </ul>` },
       { title: "Phiếu điều chỉnh tồn thùng", html: `
-        <p>Muốn sửa tồn 1 thùng cho đúng thực tế (hàng vỡ, đếm sót…) mà không qua kiểm kho:
+        <p>Muốn sửa tồn 1 thùng cho đúng thực tế (đếm sót, sổ ghi nhầm…) mà không qua kiểm kho:
         vào <b>chi tiết thùng</b> → khối <b>「Điều chỉnh tồn」</b> (văn phòng) → nhập <b>tồn thực tế</b>
         + <b>lý do bắt buộc</b>.</p>
+        <p><b>Phân biệt với Xuất hủy:</b> hàng <b>hư / hết hạn / bỏ đi thật</b> → dùng <b>Xuất hủy</b>
+        (bắt buộc chụp ảnh bằng chứng). <b>Điều chỉnh</b> chỉ dành cho <b>sửa số đếm sai</b> —
+        app sẽ nhắc khi bạn điều chỉnh giảm.</p>
         <ul>
           <li>Điều chỉnh <b>không sửa số gốc</b> của thùng — mỗi lần là 1 <b>phiếu điều chỉnh</b> có
             lịch sử (ai, lúc nào, lý do, số cũ → mới), hiện ngay trong chi tiết thùng.</li>

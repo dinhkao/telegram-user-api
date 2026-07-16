@@ -27,7 +27,8 @@ export function BoxAdjust({ boxId, remaining, unit, onChanged }: {
     if (!ok) { toast("Nhập tồn thực tế (khác số hệ thống) + lý do", "info"); return; }
     const delta = q - remaining;
     if (!(await confirmDialog(
-      `Điều chỉnh tồn thùng: ${soVN(remaining)} → ${soVN(q)} ${unit} (${delta > 0 ? "+" : ""}${soVN(delta)})?\nLý do: ${reason.trim()}`)))
+      `Điều chỉnh tồn thùng: ${soVN(remaining)} → ${soVN(q)} ${unit} (${delta > 0 ? "+" : ""}${soVN(delta)})?\nLý do: ${reason.trim()}`
+      + (delta < 0 ? "\n\n⚠ Hàng hư/bỏ đi thật thì dùng XUẤT HỦY (có ảnh) — điều chỉnh chỉ để sửa số đếm sai." : ""))))
       return;
     setBusy(true);
     try {
@@ -63,10 +64,20 @@ export function BoxAdjust({ boxId, remaining, unit, onChanged }: {
             <button class={"btn primary" + (ok ? "" : " faded")} disabled={busy} onClick={submit}
               title={ok ? undefined : "Nhập tồn thực tế + lý do"}>Lưu</button>
           </div>
-          <div class="muted small" style={{ marginTop: "4px" }}>
-            Nhập <b>tồn thực tế</b> — hệ thống đang ghi {soVN(remaining)} {unit}. Không sửa số gốc của thùng;
-            mọi điều chỉnh có phiếu + lịch sử, admin gỡ được (hoàn nguyên).
-          </div>
+          {/* Cảnh báo MỀM khi GIẢM tồn: hàng hư/bỏ đi thật thì phải đi đường Xuất hủy
+              (có ảnh bằng chứng) — điều chỉnh chỉ dành cho SỬA SỐ đếm sai. Vẫn cho lưu. */}
+          {isFinite(q) && q >= 0 && q < remaining ? (
+            <div class="adj-down-warn small" style={{ marginTop: "4px" }}>
+              ⚠ Bạn đang <b>giảm tồn {soVN(remaining - q)} {unit}</b>. Nếu hàng <b>hư / hết hạn / bỏ đi thật</b>
+              {" "}→ dùng khối <b>Xuất hủy</b> bên dưới (có chụp ảnh bằng chứng). Điều chỉnh chỉ dành cho
+              <b> sửa số đếm sai</b> (sổ sách ghi nhầm).
+            </div>
+          ) : (
+            <div class="muted small" style={{ marginTop: "4px" }}>
+              Nhập <b>tồn thực tế</b> — hệ thống đang ghi {soVN(remaining)} {unit}. Không sửa số gốc của thùng;
+              mọi điều chỉnh có phiếu + lịch sử, admin gỡ được (hoàn nguyên).
+            </div>
+          )}
         </>
       )}
       {list.length > 0 && (
