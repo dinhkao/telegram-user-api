@@ -46,12 +46,15 @@ function fmtChipCount(n: number): string {
 }
 
 function rowMatchesFilter(o: OrderRow, f: FilterKey): boolean {
+  // Cùng NGƯỠNG NGÀY server áp (server_app/orders_api.py): chua_* chỉ đơn tạo từ
+  // 01/06/2026, "no" (còn nợ) chỉ từ 01/07/2026. row.created là ISO nên so chuỗi đúng.
+  const created = (o.created || "");
   switch (f) {
-    case "chua_soan": return !o.soan;
-    case "chua_giao": return !o.giao && giaoDue(o);   // bỏ đơn hẹn giao tương lai
-    case "chua_nop": return !o.nop && !!o.giao; // chưa nộp = ĐÃ giao nhưng chưa nộp
-    case "chua_nhan": return !o.nhan && !!o.nop; // chưa nhận = ĐÃ nộp nhưng chưa nhận
-    case "no": return [...(o.task_icons || "")][5] === "😡"; // còn nợ = chưa có thanh toán nào
+    case "chua_soan": return !o.soan && created >= "2026-06-01";
+    case "chua_giao": return !o.giao && giaoDue(o) && created >= "2026-06-01";   // bỏ đơn hẹn giao tương lai
+    case "chua_nop": return !o.nop && !!o.giao && created >= "2026-06-01"; // chưa nộp = ĐÃ giao nhưng chưa nộp
+    case "chua_nhan": return !o.nhan && !!o.nop && created >= "2026-06-01"; // chưa nhận = ĐÃ nộp nhưng chưa nhận
+    case "no": return [...(o.task_icons || "")][5] === "😡" && created >= "2026-07-01"; // còn nợ = chưa có thanh toán nào
     case "pending": return !o.done_after_20250124;
     case "done": return !!o.done_after_20250124;
     default: return true; // "all"

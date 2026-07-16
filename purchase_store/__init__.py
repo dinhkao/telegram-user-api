@@ -29,6 +29,10 @@ _INDEXES = [
 
 
 def ensure_purchases_schema(conn) -> None:
+    # Trong 1 transaction ngoài (caller wrap `with transaction`) thì BỎ QUA: executescript
+    # implicit-commit sẽ cắt transaction. Schema đã được ensure TRƯỚC khi mở transaction.
+    if conn.in_transaction:
+        return
     conn.executescript(_SCHEMA)
     for sql in _INDEXES:
         conn.execute(sql)

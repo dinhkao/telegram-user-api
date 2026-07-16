@@ -149,8 +149,12 @@ async def cashbox_withdraw_handler(request: web.Request):
         body = await request.json()
     except Exception:  # noqa: BLE001
         return web.json_response({"ok": False, "error": "Body không hợp lệ"}, status=400)
-    box = str(body.get("box") or "").strip()
     web_user = str(request.get("web_user") or "").strip().lower()
+    # Yêu cầu đăng nhập: khi WEB_AUTH tắt, web_user rỗng → guard "chỉ két mình" bị bỏ
+    # và actor rỗng. Chặn hẳn (như purchase_pay) để không rút két bất kỳ vô danh.
+    if not web_user:
+        return web.json_response({"ok": False, "error": "Cần đăng nhập để thu hồi tiền"}, status=401)
+    box = str(body.get("box") or "").strip()
     if not box:
         box = f"user:{web_user}" if web_user else ""
     else:

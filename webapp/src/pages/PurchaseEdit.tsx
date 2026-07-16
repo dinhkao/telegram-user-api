@@ -9,6 +9,7 @@ import {
 import { buildPurchaseProductOptions, isCreateProd, codeFromCreateKey, unitChoicesFor, type UnitChoice } from "../detail/purchaseProduct";
 import { PurchaseUnitPicker } from "../detail/PurchaseUnitPicker";
 import { PickerPopup } from "../ui/PickerPopup";
+import { parseMoney, parseQty } from "../format";
 import { toast } from "../ui/feedback";
 import { ErrorState, Loading } from "../ui/states";
 import { Icon } from "../ui/Icon";
@@ -53,8 +54,8 @@ export function PurchaseEdit({ id }: { id: string }) {
   const parsed = lines
     .map((line) => ({
       sp: line.sp.trim().toUpperCase(),
-      sl: parseFloat(line.sl.replace(",", ".")),
-      price: parseFloat(line.price.replace(/\./g, "").replace(",", ".")),
+      sl: parseQty(line.sl),
+      price: parseMoney(line.price),
       // đơn vị nhập khác gốc → snapshot vào item (SL + giá tính theo đơn vị đó)
       ...(line.unit && (line.factor || 0) > 0 && line.factor !== 1 ? { unit: line.unit, unit_factor: line.factor } : {}),
     }))

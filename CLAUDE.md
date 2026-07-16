@@ -132,7 +132,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (creates forum topic + order row + fires `auto_parse` = customer/invoice parse +
   channel render + **picking-sheet print**). `register.py` is now just the thin
   Telethon `NewMessage(#don_hang)` listener → calls `process_new_order`. It is
-  **idempotent by `message_id`**, and the **webapp create-order calls it directly**
+  **idempotent by `message_id`** — the `_existing_thread` re-check + topic-create +
+  `_create_order` insert run under a per-`(channel_id, message_id)` `asyncio.Lock`
+  (`_create_locks`), so 2 concurrent calls for the same message can't create a double
+  topic/đơn. The **webapp create-order calls it directly**
   (see below) because Telethon does NOT emit `NewMessage` for the client's own sends.
   Picking sheet (`renderers/picking_sheet.py`) prints for **every** new order now
   (the old `if invoice:` gate was removed 2026-07-04).
@@ -677,11 +680,14 @@ runners.
   atomic — otherwise concurrent writers lose updates. `set_task_status` /
   `clear_task_status` already do; new mutation sites should too. See
   `docs/senior-review.md` for the phased plan to replace the blob with a typed model.
-  ⚠ **Known offenders that skip `transaction()`** (fix if you touch them): several
-  `order_commands_v3.py` handlers (`on_comma_invoice`, `vat`/`pvc`, `fix`, `bo no`,
-  `detect invoice`), `mirror_channel.sync_order_to_mirror`, and the bot flow
-  `bot_flows/invoice_create._save_order_field` (raw SQL, no transaction) — all do
-  bare RMW on the blob and can clobber concurrent writes.
+  `add_payment`/`delete_payment_record` (`api_helpers/payment_core.py`) now RMW inside
+  `transaction()` via `_save_order` (no more bare-commit `_save`); when there's a long
+  await (KiotViet/Telegram) in the middle, RE-READ the blob fresh inside a short
+  `transaction()` after the await and patch only the changed field — see
+  `_process_payment_core` (`order_commands_v3.py`), `on_comma_invoice`/`detect invoice`,
+  and `mirror_channel.sync_order_to_mirror` for the pattern. The previously-listed
+  bare-RMW offenders (v3 `on_comma_invoice`/`vat`/`pvc`/`fix`/`bo no`/`detect invoice`,
+  `mirror_channel`, `bot_flows/invoice_create._save_order_field`) are all wrapped now.
 - **Layering pattern (copy this).** New/changed order logic goes in 3 layers:
   **store** (`order_store/tasks.py`, `payment_store/…`) = transaction + IO only →
   **domain** (`order_store/domain.py`, `payment_store/domain.py`) = pure rules, no

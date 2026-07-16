@@ -11,6 +11,15 @@ from server_app.orders_db import ensure_orders_fts, ensure_orders_stats_columns,
 _ROW_COLUMNS = "o.firebase_key, o.thread_id, o.channel_id, o.message_id, o.json, o.updated_at"
 
 
+def _to_int(amount) -> int:
+    """Parse số tiền an toàn (float '150000.0' / âm / str) → int; lỗi → 0.
+    isdigit() cũ bỏ sót float và số âm nên đếm thiếu tiền đã thu."""
+    try:
+        return int(round(float(amount)))
+    except (TypeError, ValueError):
+        return 0
+
+
 def _build_order_row(r) -> dict:
     """Dựng 1 dòng đơn cho danh sách webapp từ 1 sqlite Row (các cột _ROW_COLUMNS).
     Nguồn sự thật cho shape của mỗi row — cả /api/orders lẫn realtime đều đi qua đây."""
@@ -25,7 +34,7 @@ def _build_order_row(r) -> dict:
     total = pc.get("tongthanhtoan", "")
     if not total and j.get("invoice"):
         total = f"{sum(int(it.get('price', 0)) * int(it.get('sl', it.get('quantity', 0)) or 0) for it in j.get('invoice', [])):,}".replace(",", ".")
-    paid = sum(int(p.get("amount", 0)) for p in (j.get("payments") or []) if str(p.get("amount", 0)).isdigit())
+    paid = sum(_to_int(p.get("amount", 0)) for p in (j.get("payments") or []))
     raw_total = int(str(total).replace(".", "")) if str(total).replace(".", "").isdigit() else 0
     creator = j.get("nguoi_tao_HD")
     creator = ", ".join(str(x) for x in creator) if isinstance(creator, list) else (str(creator) if creator else "")

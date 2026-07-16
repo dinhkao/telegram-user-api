@@ -46,7 +46,9 @@ export function Tasks({ threadId, taskStatus, stockConfirmed, customTasks, userN
   const mark = async (type: string) => {
     setBusy(type);
     try {
-      const r = await postJSON("/api/order/task", { thread_id: Number(threadId), type }, { queueable: true });
+      // Việc tiền (nộp/nhận) KHÔNG xếp hàng offline — phải chắc chắn tới server.
+      const isMoney = type === "nop_tien" || type === "nhan_tien";
+      const r = await postJSON("/api/order/task", { thread_id: Number(threadId), type }, { queueable: !isMoney });
       if (!r._queued) {
         onChanged();
         // Nhận tiền / Gửi toa xong → gợi ý bỏ theo dõi nợ các đơn CŨ của khách

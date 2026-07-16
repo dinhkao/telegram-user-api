@@ -36,7 +36,10 @@ def compute_auto_allowances(workers: list[dict]) -> dict[str, float]:
 
     Trả {name: amount} CHỈ cho thợ có rule khớp; amount 0 = xoá phụ cấp (rule nghỉ).
     Hạng tính theo piece giảm dần trên chính bảng này (positional, như popup UI)."""
-    ranked = sorted(workers, key=lambda w: -float(w.get("piece") or 0))
+    ranked = sorted(
+        workers,
+        key=lambda w: (-float(w.get("piece") or 0), vn_normalize(str(w.get("name") or ""))),
+    )
     out: dict[str, float] = {}
     for w in workers:
         name = str(w.get("name") or "").strip()

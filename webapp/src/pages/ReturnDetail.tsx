@@ -8,6 +8,7 @@ import {
   currentUser, isOffice, soVN, type ReturnSlip,
 } from "../api";
 import { onRealtime } from "../realtime";
+import { parseMoney, parseQty } from "../format";
 import { ReturnGoodsModal } from "../detail/ReturnGoodsModal";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
@@ -70,7 +71,7 @@ export function ReturnDetail({ id }: { id: string }) {
   const updLine = (i: number, patch: Partial<Line>) =>
     setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const parsed = lines
-    .map((l) => ({ sp: l.sp.trim().toUpperCase(), sl: parseFloat(l.sl.replace(",", ".")), price: parseFloat(l.price.replace(/\./g, "").replace(",", ".")) }))
+    .map((l) => ({ sp: l.sp.trim().toUpperCase(), sl: parseQty(l.sl), price: parseMoney(l.price) }))
     .filter((l) => l.sp && isFinite(l.sl) && l.sl > 0 && isFinite(l.price) && l.price > 0);
   const editTotal = parsed.reduce((s, l) => s + l.sl * l.price, 0);
 

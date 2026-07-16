@@ -4,7 +4,7 @@
 import { useState } from "preact/hooks";
 import { createProduct, createPurchase, createSupplier, listSuppliers, searchProducts, soVN, type Supplier } from "../api";
 import { buildPurchaseProductOptions, isCreateProd, codeFromCreateKey, unitChoicesFor, type UnitChoice } from "./purchaseProduct";
-import { foldVN } from "../format";
+import { foldVN, parseMoney, parseQty } from "../format";
 import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
 import { PurchaseUnitPicker } from "./PurchaseUnitPicker";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -66,8 +66,8 @@ export function PurchaseModal({ supplierId, supplierName, onClose, onCreated }: 
     setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const parsed = lines
     .map((l) => ({
-      sp: l.sp.trim().toUpperCase(), sl: parseFloat(l.sl.replace(",", ".")),
-      price: parseFloat(l.price.replace(/\./g, "").replace(",", ".")),
+      sp: l.sp.trim().toUpperCase(), sl: parseQty(l.sl),
+      price: parseMoney(l.price),
       // đơn vị nhập khác gốc → snapshot vào item (SL + giá tính theo đơn vị đó)
       ...(l.unit && (l.factor || 0) > 0 && l.factor !== 1 ? { unit: l.unit, unit_factor: l.factor } : {}),
     }))

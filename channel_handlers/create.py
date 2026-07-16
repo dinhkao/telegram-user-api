@@ -13,6 +13,7 @@ Nối: order_db (_create_order/_get_connection/_update_order_json_field), .confi
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from telethon.tl.functions.messages import CreateForumTopicRequest, UpdatePinnedMessageRequest
@@ -39,6 +40,12 @@ async def pin_and_update(client, conn, thread_id, pin_msg_id):
     _update_order_json_field(conn, thread_id, "$.pinMessageID", pin_msg_id)
 
 
+# Khoá theo (channel_id, message_id): chống tạo TOPIC + đơn TRÙNG khi 2 lời gọi
+# process_new_order cùng message_id chạy song song (listener + webapp, hoặc 2 request
+# web). SELECT-trước-tạo không nguyên tử → phải serialize qua asyncio.Lock (1 event loop).
+_create_locks: dict[tuple[int, int], asyncio.Lock] = {}
+
+
 def _existing_thread(conn, message_id: int) -> int | None:
     row = conn.execute(
         "SELECT thread_id FROM orders WHERE message_id = ? AND channel_id = ? "
@@ -59,54 +66,69 @@ async def process_new_order(client, msg, *, web_actor=None, customer_key=None) -
     if should_skip_message(msg):
         return None
     conn = _get_connection()
-    existing = _existing_thread(conn, msg.id)
-    if existing is not None:
-        return existing
 
-    log.info("New order from channel: msg_id=%d", msg.id)
-    order_text = normalize_text(msg.text)
-    text_raw = escape_to_backslash_n(order_text)
-    topic_name = topic_name_from_text(order_text)
-    firebase_key = build_firebase_key(msg.id)
+    # Serialize theo (channel, message_id): re-check _existing_thread TRONG khoá trước
+    # khi tạo topic → 2 lời gọi song song cùng msg.id không tạo topic/đơn trùng.
+    lock_key = (CHANNEL_DON_HANG_MOI, int(msg.id))
+    lock = _create_locks.setdefault(lock_key, asyncio.Lock())
     try:
-        peer = await client.get_input_entity(ORDER_GROUP_ID)
-        result = await client(CreateForumTopicRequest(peer=peer, title=topic_name, random_id=msg.id))
-    except Exception as e:
-        log.error("Failed to create forum topic for msg_id=%d: %s", msg.id, e)
-        return None
-    thread_id = extract_thread_id(result)
-    if not thread_id:
-        log.error("Could not extract thread_id from CreateForumTopic result for msg_id=%d", msg.id)
-        return None
+        async with lock:
+            existing = _existing_thread(conn, msg.id)
+            if existing is not None:
+                return existing
 
-    # NGƯỜI TẠO đơn: web → username webapp; telegram → người đăng #don_hang (sender_id).
-    # (web gửi tin bằng tài khoản bot nên sender_id vô nghĩa → phải dùng web_actor.)
-    cr_type, cr_id, cr_name = "system", None, ""
-    if web_actor:
-        cr_type, cr_id = "web_user", str(web_actor)
-        try:
-            from user_store import get_user
-            u = get_user(str(web_actor))
-            cr_name = (u.get("display_name") if u else "") or str(web_actor)
-        except Exception:
-            cr_name = str(web_actor)
-    else:
-        sid = getattr(msg, "sender_id", None)
-        if sid:
-            cr_type, cr_id = "tg_user", str(sid)
+            log.info("New order from channel: msg_id=%d", msg.id)
+            order_text = normalize_text(msg.text)
+            text_raw = escape_to_backslash_n(order_text)
+            topic_name = topic_name_from_text(order_text)
+            firebase_key = build_firebase_key(msg.id)
             try:
-                from server_app.order_api_common import resolve_name
-                cr_name = await resolve_name(sid) or ""
-            except Exception:
-                cr_name = ""
+                peer = await client.get_input_entity(ORDER_GROUP_ID)
+                result = await client(CreateForumTopicRequest(peer=peer, title=topic_name, random_id=msg.id))
+            except Exception as e:
+                log.error("Failed to create forum topic for msg_id=%d: %s", msg.id, e)
+                return None
+            thread_id = extract_thread_id(result)
+            if not thread_id:
+                log.error("Could not extract thread_id from CreateForumTopic result for msg_id=%d", msg.id)
+                return None
 
-    new_order = build_new_order(order_text, text_raw, thread_id, firebase_key, msg.id)
-    if cr_name:
-        new_order["created_by"] = cr_name          # hiện thẳng ở đầu OrderDetail
-    if cr_id:
-        new_order["created_by_id"] = cr_id
-        new_order["created_by_type"] = cr_type
-    _create_order(conn, firebase_key, thread_id, CHANNEL_DON_HANG_MOI, msg.id, new_order)
+            # NGƯỜI TẠO đơn: web → username webapp; telegram → người đăng (sender_id).
+            # (web gửi tin bằng tài khoản bot nên sender_id vô nghĩa → phải dùng web_actor.)
+            cr_type, cr_id, cr_name = "system", None, ""
+            if web_actor:
+                cr_type, cr_id = "web_user", str(web_actor)
+                try:
+                    from user_store import get_user
+                    u = get_user(str(web_actor))
+                    cr_name = (u.get("display_name") if u else "") or str(web_actor)
+                except Exception:
+                    cr_name = str(web_actor)
+            else:
+                sid = getattr(msg, "sender_id", None)
+                if sid:
+                    cr_type, cr_id = "tg_user", str(sid)
+                    try:
+                        from server_app.order_api_common import resolve_name
+                        cr_name = await resolve_name(sid) or ""
+                    except Exception:
+                        cr_name = ""
+
+            new_order = build_new_order(order_text, text_raw, thread_id, firebase_key, msg.id)
+            if cr_name:
+                new_order["created_by"] = cr_name          # hiện thẳng ở đầu OrderDetail
+            if cr_id:
+                new_order["created_by_id"] = cr_id
+                new_order["created_by_type"] = cr_type
+            # INSERT đơn TRONG khoá (cùng scope với re-check _existing_thread) → không trùng
+            _create_order(conn, firebase_key, thread_id, CHANNEL_DON_HANG_MOI, msg.id, new_order)
+    finally:
+        # Dọn khoá đã dùng (cùng event loop → an toàn xoá sau khi nhả)
+        _create_locks.pop(lock_key, None)
+    if thread_id is None:
+        return None
+
+    # ── NGOÀI khoá: side-effect + welcome message + pin + auto_parse ──
     client.loop.create_task(firebase_sync(firebase_key, thread_id, msg.id, new_order))
     # Log lịch sử thao tác: tạo đơn (hiện trong Lịch sử thao tác của đơn), kèm người tạo
     from audit_log import async_log_event

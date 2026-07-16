@@ -24,8 +24,14 @@ async def sync_order_to_mirror(client, conn, thread_id: int) -> None:
             except Exception:
                 pass
         sent = await client.send_message(ORDER_MIRROR_CHANNEL, html, parse_mode="html", link_preview=False)
-        order["mirror_message_id"] = sent.id
-        _save_order(conn, thread_id, order)
+        # RMW nguyên tử SAU await: re-read bản mới nhất, chỉ vá mirror_message_id
+        # (không đè update xen kẽ xảy ra trong lúc gửi Telegram).
+        from order_store.schema import transaction
+        with transaction(conn):
+            fresh = get_order_by_thread_id(conn, thread_id)
+            if fresh is not None:
+                fresh["mirror_message_id"] = sent.id
+                _save_order(conn, thread_id, fresh)
         log.info("Mirror synced: thread=%d old_msg=%s new_msg=%d", thread_id, old_msg_id, sent.id)
     except Exception as e:
         log.warning("Mirror sync failed for thread=%d: %s", thread_id, e)

@@ -285,17 +285,27 @@ async def _process_bulk_payment(source_thread_id: int, method: str, amount: int,
 
     # 6. Chia thành N phiếu thu local — nợ TRƯỚC/SAU từng phiếu suy từ old_debt +
     # số đã phân bổ luỹ kế (đơn cũ trước); resync nền sẽ chốt lại từ KiotViet.
+    # Ghi local (add_payment + auto-complete task) N đơn TRONG 1 transaction =
+    # all-or-nothing (HĐ KiotViet đã tạo là 1, nên phần local phải toàn bộ hoặc không).
+    # add_payment/set_task_status tự mở transaction re-entrant → passthrough, OK.
+    # Firebase/emit (IO mạng, fire-and-forget) để NGOÀI transaction, chạy sau.
+    from order_store.schema import transaction
     cum = 0
     first_payment_id = None
+    with transaction(conn):
+        for tid, amt in validated:
+            old_i = (old_debt - cum) if old_debt is not None else None
+            new_i = (old_debt - cum - amt) if old_debt is not None else None
+            rec = build_payment_record(amt, method, kv_res, actor_name, old_debt=old_i, new_debt=new_i)
+            rec["payment_batch_id"] = batch_id
+            add_payment(conn, tid, rec)
+            if first_payment_id is None:
+                first_payment_id = rec.get("id")
+            _auto_complete_tasks_core(conn, tid, user_id)
+            result["allocations"].append({"thread_id": tid, "amount": amt})
+            cum += amt
+    # 6b. Firebase sync + realtime NGOÀI transaction (không giữ write-lock khi gọi mạng)
     for tid, amt in validated:
-        old_i = (old_debt - cum) if old_debt is not None else None
-        new_i = (old_debt - cum - amt) if old_debt is not None else None
-        rec = build_payment_record(amt, method, kv_res, actor_name, old_debt=old_i, new_debt=new_i)
-        rec["payment_batch_id"] = batch_id
-        add_payment(conn, tid, rec)
-        if first_payment_id is None:
-            first_payment_id = rec.get("id")
-        _auto_complete_tasks_core(conn, tid, user_id)
         try:
             o2 = get_order_by_thread_id(conn, tid)
             if o2:
@@ -303,8 +313,6 @@ async def _process_bulk_payment(source_thread_id: int, method: str, amount: int,
         except Exception as e:
             log.warning("bulk pay: firebase sync đơn #%s lỗi: %s", tid, e)
         emit_order_changed(tid)
-        result["allocations"].append({"thread_id": tid, "amount": amt})
-        cum += amt
 
     # 7. Tiền mặt → 1 phiếu sổ quỹ cho cả giao dịch
     if method == "Cash":

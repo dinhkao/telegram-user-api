@@ -6,15 +6,18 @@ from bot_core.store import reset_timer
 from ._helpers import log, ORDER_API_BASE
 
 def _save_order_field(order_id, field, value):
+    # RMW blob NGUYÊN TỬ: BEGIN IMMEDIATE giữ lock từ SELECT tới UPDATE → không đè
+    # update xen kẽ. transaction() re-entrant + sở hữu commit (bỏ commit trần cũ).
+    from utils.db import transaction
     conn = db._conn()
-    row = conn.execute("SELECT json FROM orders WHERE firebase_key = ? AND deleted_at IS NULL", (order_id,)).fetchone()
-    if not row:
-        return
-    data = json.loads(row[0])
-    data[field] = value
-    conn.execute("UPDATE orders SET json = ?, updated_at = ? WHERE firebase_key = ?",
-        (json.dumps(data, ensure_ascii=False), int(time.time() * 1000), order_id))
-    conn.commit()
+    with transaction(conn):
+        row = conn.execute("SELECT json FROM orders WHERE firebase_key = ? AND deleted_at IS NULL", (order_id,)).fetchone()
+        if not row:
+            return
+        data = json.loads(row[0])
+        data[field] = value
+        conn.execute("UPDATE orders SET json = ?, updated_at = ? WHERE firebase_key = ?",
+            (json.dumps(data, ensure_ascii=False), int(time.time() * 1000), order_id))
 
 async def handle_tao_hd(bot, event, s):
     if not s.thread_id:

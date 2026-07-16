@@ -146,6 +146,13 @@ def _cascade_rename(conn, worker_id: int, old_name: str, new_name: str) -> None:
     except Exception:  # noqa: BLE001 — bảng chưa tạo (DB test)
         pass
     try:
+        conn.execute(
+            "UPDATE production_allowances SET worker_name = ? WHERE worker_name = ? COLLATE NOCASE",
+            (new_name, old_name),
+        )
+    except Exception:  # noqa: BLE001 — bảng chưa tạo (DB test)
+        pass
+    try:
         old_cf = old_name.strip().casefold()
         rows = conn.execute(
             "SELECT thread_id, bang FROM production_slips WHERE bang IS NOT NULL AND bang != ''"

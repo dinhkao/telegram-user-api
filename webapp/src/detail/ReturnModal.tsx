@@ -9,6 +9,7 @@ import { confirmDialog, toast } from "../ui/feedback";
 import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
 import { Icon } from "../ui/Icon";
+import { parseMoney, parseQty } from "../format";
 
 type Line = { sp: string; sl: string; price: string };
 
@@ -27,7 +28,7 @@ export function ReturnModal({ ckey, onClose, onCreated }: {
   const upd = (i: number, patch: Partial<Line>) =>
     setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const parsed = lines
-    .map((l) => ({ sp: l.sp.trim().toUpperCase(), sl: parseFloat(l.sl.replace(",", ".")), price: parseFloat(l.price.replace(/\./g, "").replace(",", ".")) }))
+    .map((l) => ({ sp: l.sp.trim().toUpperCase(), sl: parseQty(l.sl), price: parseMoney(l.price) }))
     .filter((l) => l.sp && isFinite(l.sl) && l.sl > 0 && isFinite(l.price) && l.price > 0);
   const total = parsed.reduce((s, l) => s + l.sl * l.price, 0);
 

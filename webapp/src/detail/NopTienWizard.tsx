@@ -25,7 +25,7 @@ export function NopTienWizard({ threadId, onClose, onDone, adminQuick }: {
   const marked = useRef(false);   // chống ghi task 2 lần (camera có thể chụp nhiều tấm)
 
   const markTask = async (note: string, done: boolean) => {
-    await postJSON("/api/order/task", { thread_id: Number(threadId), type: "nop_tien", note, done }, { queueable: true });
+    await postJSON("/api/order/task", { thread_id: Number(threadId), type: "nop_tien", note, done }, { queueable: false });
     onDone();
     onClose();
   };

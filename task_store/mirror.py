@@ -99,12 +99,38 @@ def mirror_order_tasks(thread_id: int, data: dict) -> None:
         conn.close()
 
 
+def _tgid_to_username(tgid: str) -> str | None:
+    """Telegram id số → username web (fold tên USER_NAMES khớp web_users), như
+    cashbox_store.identity. None nếu không map được. Tái dùng build_canon để không
+    lặp logic hợp nhất danh tính."""
+    try:
+        from cashbox_store.identity import build_canon
+        try:
+            from bot_core.config import USER_NAMES
+        except Exception:  # noqa: BLE001
+            USER_NAMES = {}
+        from user_store import list_users
+        rows = list_users()
+        users = {u["username"]: (u.get("display_name") or u["username"]) for u in rows}
+        canon, _ = build_canon(users, {str(k): v for k, v in USER_NAMES.items()})
+        key = canon(str(tgid))
+        if key.startswith("user:"):
+            return key[5:]
+    except Exception:  # noqa: BLE001 — không map được → giữ hành vi cũ (bỏ qua)
+        return None
+    return None
+
+
 def auto_assign_nop_tien(thread_id: int, by) -> bool:
     """GIAO HÀNG xong → tự giao việc 'Nộp tiền' của đơn cho người vừa giao,
     hạn CÙNG NGÀY (due_at = ngày VN; giờ 17:00 ghi ở note — cột due_at chỉ chứa
     ngày). Chỉ khi nộp tiền chưa xong + chưa ai được giao (không đè phân công tay).
-    `by` phải là username web (Telegram id số không map được → bỏ qua)."""
+    `by` = username web, hoặc Telegram id số (map sang username qua identity)."""
     u = str(by or "").strip()
+    if u.isdigit():
+        mapped = _tgid_to_username(u)
+        if mapped:
+            u = mapped
     if not u or u.isdigit():
         return False
     from user_store import get_user

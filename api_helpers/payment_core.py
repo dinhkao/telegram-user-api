@@ -17,45 +17,45 @@ def _stamp() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
-def _save(conn, order, thread_id: int) -> None:
-    conn.execute(
-        "UPDATE orders SET json = ?, updated_at = ? WHERE thread_id = ? AND deleted_at IS NULL",
-        # cột updated_at = epoch ms (thống nhất mọi writer; blob data['updated_at'] giữ ISO).
-        (json.dumps(order, ensure_ascii=False), int(datetime.now(UTC).timestamp() * 1000), thread_id),
-    )
-    conn.commit()
-
-
 def get_payments(conn, thread_id: int) -> list[dict]:
     order = get_order_by_thread_id(conn, thread_id)
     return [] if not order else order.get("payments", [])
 
 
 def add_payment(conn, thread_id: int, payment: dict) -> tuple[bool, str]:
-    order = get_order_by_thread_id(conn, thread_id)
-    if not order:
-        return False, "Không tìm thấy đơn hàng"
-    payments = order.get("payments", [])
     # uuid thay vì len(payments): tránh trùng id sau khi xoá 1 payment (len tái dùng chỉ số)
     payment["id"] = f"payment_{int(datetime.now(UTC).timestamp())}_{uuid.uuid4().hex[:8]}"
     payment["created_at"] = _stamp()
-    payments.append(payment)
-    order["payments"] = payments
-    order["updated_at"] = _stamp()
-    _save(conn, order, thread_id)
+    # RMW blob NGUYÊN TỬ: BEGIN IMMEDIATE giữ lock từ read tới ghi → 2 thu tiền đồng
+    # thời không nuốt phiếu. _save_order (order_db) KHÔNG commit trần nên re-entrant OK
+    # (transaction bọc ngoài, nếu có, sở hữu commit).
+    from order_db import _save_order
+    from order_store.schema import transaction
+    with transaction(conn):
+        order = get_order_by_thread_id(conn, thread_id)
+        if not order:
+            return False, "Không tìm thấy đơn hàng"
+        payments = order.get("payments", [])
+        payments.append(payment)
+        order["payments"] = payments
+        order["updated_at"] = _stamp()
+        _save_order(conn, thread_id, order)
     return True, f"✅ Đã thêm thanh toán: {payment.get('amount', 0):,}đ ({payment.get('method', 'unknown')})"
 
 
 def delete_payment_record(conn, thread_id: int, payment_id: str) -> tuple[bool, str]:
-    order = get_order_by_thread_id(conn, thread_id)
-    if not order:
-        return False, "Không tìm thấy đơn hàng"
-    payments = order.get("payments", [])
-    order["payments"] = [p for p in payments if p.get("id") != payment_id]
-    if len(order["payments"]) == len(payments):
-        return False, f"❌ Không tìm thấy payment: {payment_id}"
-    order["updated_at"] = _stamp()
-    _save(conn, order, thread_id)
+    from order_db import _save_order
+    from order_store.schema import transaction
+    with transaction(conn):
+        order = get_order_by_thread_id(conn, thread_id)
+        if not order:
+            return False, "Không tìm thấy đơn hàng"
+        payments = order.get("payments", [])
+        order["payments"] = [p for p in payments if p.get("id") != payment_id]
+        if len(order["payments"]) == len(payments):
+            return False, f"❌ Không tìm thấy payment: {payment_id}"
+        order["updated_at"] = _stamp()
+        _save_order(conn, thread_id, order)
     return True, f"🗑️ Đã xóa payment: {payment_id}"
 
 

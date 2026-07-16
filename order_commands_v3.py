@@ -308,16 +308,24 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
         result["new_debt"] = new_debt
         if new_debt is not None:
             from order_db import update_customer_debt, _save_order
+            from order_store.schema import transaction
             kh_id_fb = order.get("khach_hang_id") or order.get("khID")
             if kh_id_fb:
                 update_customer_debt(db_conn, str(kh_id_fb), new_debt)
-            # Vá nợ SAU vào phiếu thu vừa tạo (theo id) — nguồn KiotViet, không tính tay
+            # Vá nợ SAU vào phiếu thu vừa tạo (theo id) — nguồn KiotViet, không tính tay.
+            # RE-READ trong transaction sau await KiotViet: chỉ vá field new_debt của
+            # đúng phiếu vào bản MỚI NHẤT, KHÔNG ghi đè bằng `order` đọc trước await
+            # (tránh mất update xen kẽ). Cập nhật `order` cục bộ cho realtime bên dưới.
             if payment_id:
-                for p in order.get("payments", []):
-                    if p.get("id") == payment_id:
-                        p["new_debt"] = new_debt
-                        break
-                _save_order(db_conn, thread_id, order)
+                with transaction(db_conn):
+                    fresh = get_order_by_thread_id(db_conn, thread_id)
+                    if fresh:
+                        for p in fresh.get("payments", []):
+                            if p.get("id") == payment_id:
+                                p["new_debt"] = new_debt
+                                break
+                        _save_order(db_conn, thread_id, fresh)
+                        order = fresh
     except Exception as e:
         log.warning("Could not fetch new debt for customer %d: %s", kv_id, e)
 
@@ -801,33 +809,40 @@ async def _auto_parse_fix(client, conn, thread_id: int, text: str, reassign_cust
         from order_db import parse_invoice_free_text, detect_customer_free_text, get_customer_price_list
         from product_db import freeze_invoice_cost_prices
 
-        order = get_order_by_thread_id(conn, thread_id)
-        if not order:
-            return
-        kh_id = order.get("khach_hang_id") or order.get("khID")
-        detection = detect_customer_free_text(conn, text) if reassign_customer else {}
-        # Đơn đã có HĐ KiotViet → KHÔNG tự đổi khách theo text mới (HĐ theo khách cũ)
-        if detection.get("autoAssign") and not order.get("kiotvietInvoiceID"):
-            cust = detection["autoAssign"]
-            order["khach_hang_id"] = cust["customerID"]
-            order["customer_name"] = cust["customerName"]
-            kh_id = cust["customerID"]
+        from order_store.schema import transaction
+        # RMW blob NGUYÊN TỬ: gán khách + parse invoice + save trong 1 transaction
+        # (không await Telegram/KiotViet ở giữa — chỉ đọc DB local). Firebase/picking
+        # để NGOÀI transaction.
+        with transaction(conn):
+            order = get_order_by_thread_id(conn, thread_id)
+            if not order:
+                return
+            kh_id = order.get("khach_hang_id") or order.get("khID")
+            detection = detect_customer_free_text(conn, text) if reassign_customer else {}
+            # Đơn đã có HĐ KiotViet → KHÔNG tự đổi khách theo text mới (HĐ theo khách cũ)
+            if detection.get("autoAssign") and not order.get("kiotvietInvoiceID"):
+                cust = detection["autoAssign"]
+                order["khach_hang_id"] = cust["customerID"]
+                order["customer_name"] = cust["customerName"]
+                kh_id = cust["customerID"]
 
-        invoice = parse_invoice_free_text(conn, text, kh_id)
+            invoice = parse_invoice_free_text(conn, text, kh_id)
+            if invoice:
+                price_list = get_customer_price_list(conn, kh_id) if kh_id else None
+                if price_list:
+                    invoice = parse_invoice_free_text(conn, text, kh_id)
+                order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
+                _save_order(conn, thread_id, order)
+                log.info("auto-parse (fix): thread=%d items=%d", thread_id, len(invoice))
+
+            if detection.get("autoAssign") and not order.get("kiotvietInvoiceID"):
+                if not invoice:
+                    _save_order(conn, thread_id, order)   # lưu gán khách dù chưa nhận ra SP nào
+                from order_store.custom_tasks import apply_customer_default_tasks
+                apply_customer_default_tasks(conn, thread_id, kh_id)
+
         if invoice:
-            price_list = get_customer_price_list(conn, kh_id) if kh_id else None
-            if price_list:
-                invoice = parse_invoice_free_text(conn, text, kh_id)
-            order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
-            _save_order(conn, thread_id, order)
             _firebase_refresh_async(client, conn, thread_id, order)
-            log.info("auto-parse (fix): thread=%d items=%d", thread_id, len(invoice))
-
-        if detection.get("autoAssign") and not order.get("kiotvietInvoiceID"):
-            if not invoice:
-                _save_order(conn, thread_id, order)   # lưu gán khách dù chưa nhận ra SP nào
-            from order_store.custom_tasks import apply_customer_default_tasks
-            apply_customer_default_tasks(conn, thread_id, kh_id)
 
         if invoice:
 
@@ -900,10 +915,19 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Không parse được sản phẩm. Kiểm tra định dạng.", reply_to=msg.id)
             return
 
-        # Save to SQLite (freeze cost prices at order time)
+        # Save to SQLite (freeze cost prices at order time). RMW NGUYÊN TỬ: re-read
+        # bản mới nhất trong transaction rồi vá invoice → không đè update xen kẽ.
         from product_db import freeze_invoice_cost_prices
-        order["invoice"] = freeze_invoice_cost_prices(db_conn, invoice)
-        if not _save_order(db_conn, thread_id, order):
+        from order_store.schema import transaction
+        frozen = freeze_invoice_cost_prices(db_conn, invoice)
+        saved = False
+        with transaction(db_conn):
+            fresh = get_order_by_thread_id(db_conn, thread_id)
+            if fresh is not None:
+                fresh["invoice"] = frozen
+                order = fresh
+                saved = _save_order(db_conn, thread_id, fresh)
+        if not saved:
             await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
             return
 
@@ -1403,13 +1427,18 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Số tiền VAT không hợp lệ", reply_to=msg.id)
             return
 
-        order = get_order_by_thread_id(db_conn, thread_id)
+        from order_store.schema import transaction
+        order = None
+        saved = False
+        with transaction(db_conn):   # RMW nguyên tử: chỉ vá field vat vào bản mới nhất
+            order = get_order_by_thread_id(db_conn, thread_id)
+            if order is not None:
+                order["vat"] = amount
+                saved = _save_order(db_conn, thread_id, order)
         if not order:
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
-
-        order["vat"] = amount
-        if not _save_order(db_conn, thread_id, order):
+        if not saved:
             await client.send_message(msg.chat_id, "❌ Lỗi lưu VAT", reply_to=msg.id)
             return
 
@@ -1431,21 +1460,26 @@ def register_order_commands_v3(client):
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
 
-        order = get_order_by_thread_id(db_conn, thread_id)
+        from order_store.schema import transaction
+        order = None
+        saved = False
+        new_vat = 0
+        with transaction(db_conn):   # RMW nguyên tử: tính + vá vat trên bản mới nhất
+            order = get_order_by_thread_id(db_conn, thread_id)
+            if order is not None:
+                # Compute 8% of invoice items total
+                invoice = order.get("invoice") or order.get("invoice_items") or []
+                invoice_total = sum(
+                    int(item.get("price", 0)) * int(item.get("sl", 0))
+                    for item in invoice
+                )
+                new_vat = round(invoice_total * 0.08)
+                order["vat"] = new_vat
+                saved = _save_order(db_conn, thread_id, order)
         if not order:
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
-
-        # Compute 8% of invoice items total
-        invoice = order.get("invoice") or order.get("invoice_items") or []
-        invoice_total = sum(
-            int(item.get("price", 0)) * int(item.get("sl", 0))
-            for item in invoice
-        )
-        new_vat = round(invoice_total * 0.08)
-
-        order["vat"] = new_vat
-        if not _save_order(db_conn, thread_id, order):
+        if not saved:
             await client.send_message(msg.chat_id, "❌ Lỗi lưu VAT", reply_to=msg.id)
             return
 
@@ -1623,13 +1657,18 @@ def register_order_commands_v3(client):
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
 
-        order = get_order_by_thread_id(db_conn, thread_id)
+        from order_store.schema import transaction
+        order = None
+        saved = False
+        with transaction(db_conn):   # RMW nguyên tử: vá cờ debt_tag_disabled
+            order = get_order_by_thread_id(db_conn, thread_id)
+            if order is not None:
+                order["debt_tag_disabled"] = not enabled
+                saved = _save_order(db_conn, thread_id, order)
         if not order:
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
-
-        order["debt_tag_disabled"] = not enabled
-        if not _save_order(db_conn, thread_id, order):
+        if not saved:
             await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
             return
 
@@ -1675,10 +1714,18 @@ def register_order_commands_v3(client):
             )
             return
 
-        # Save to SQLite
+        # Save to SQLite — RMW nguyên tử: re-read bản mới nhất rồi vá invoice
         from product_db import freeze_invoice_cost_prices
-        order["invoice"] = freeze_invoice_cost_prices(db_conn, invoice)
-        if not _save_order(db_conn, thread_id, order):
+        from order_store.schema import transaction
+        frozen = freeze_invoice_cost_prices(db_conn, invoice)
+        saved = False
+        with transaction(db_conn):
+            fresh = get_order_by_thread_id(db_conn, thread_id)
+            if fresh is not None:
+                fresh["invoice"] = frozen
+                order = fresh
+                saved = _save_order(db_conn, thread_id, fresh)
+        if not saved:
             await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
             return
 
@@ -1905,33 +1952,37 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "Vui lòng nhập nội dung mới.", reply_to=msg.id)
             return
 
-        order = get_order_by_thread_id(db_conn, thread_id)
+        from order_store.schema import transaction
+        # RMW nguyên tử: đọc old_text + ghép + save trong 1 transaction (không await ở giữa)
+        order = None
+        old_text = ""
+        combined = new_text
+        with transaction(db_conn):
+            order = get_order_by_thread_id(db_conn, thread_id)
+            if order is not None:
+                old_text = (order.get("text") or "").strip()
+                if is_append:
+                    # Append: smart join with newline
+                    base = old_text.rstrip()
+                    append_part = new_text
+                    if not base:
+                        combined = append_part
+                    elif append_part.startswith("\n"):
+                        combined = base + append_part
+                    elif "\n" in append_part:
+                        combined = base + "\n" + append_part.lstrip()
+                    else:
+                        combined = base + " " + append_part
+                else:
+                    combined = new_text
+                # Update order
+                order["text"] = combined
+                order["text_raw"] = combined.replace("\n", "\\n")
+                order["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+                _save_order(db_conn, thread_id, order)
         if not order:
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng.", reply_to=msg.id)
             return
-
-        old_text = (order.get("text") or "").strip()
-
-        if is_append:
-            # Append: smart join with newline
-            base = old_text.rstrip()
-            append_part = new_text
-            if not base:
-                combined = append_part
-            elif append_part.startswith("\n"):
-                combined = base + append_part
-            elif "\n" in append_part:
-                combined = base + "\n" + append_part.lstrip()
-            else:
-                combined = base + " " + append_part
-        else:
-            combined = new_text
-
-        # Update order
-        order["text"] = combined
-        order["text_raw"] = combined.replace("\n", "\\n")
-        order["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
-        _save_order(db_conn, thread_id, order)
 
         # Refresh main message + Firebase
         _firebase_refresh_async(client, db_conn, thread_id, order)
@@ -2010,14 +2061,17 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, f"❌ Vui lòng nhập số tiền. Ví dụ: `{field} 50000`", reply_to=msg.id)
             return
 
-        order = get_order_by_thread_id(db_conn, thread_id)
+        from order_store.schema import transaction
+        order = None
+        with transaction(db_conn):   # RMW nguyên tử: vá pvc/vat trên bản mới nhất
+            order = get_order_by_thread_id(db_conn, thread_id)
+            if order is not None:
+                order[field] = amount
+                order["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+                _save_order(db_conn, thread_id, order)
         if not order:
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng.", reply_to=msg.id)
             return
-
-        order[field] = amount
-        order["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
-        _save_order(db_conn, thread_id, order)
 
         # Refresh main message + Firebase
         _firebase_refresh_async(client, db_conn, thread_id, order)
