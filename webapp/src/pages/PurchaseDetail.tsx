@@ -218,14 +218,14 @@ export function PurchaseDetail({ id }: { id: string }) {
 
       {!deleted && (() => {
         const gr = r.goods_result;
+        const line = (arr: { sp: string; quantity: number; box_id: number; box_code?: string; box_deleted?: boolean }[]) =>
+          arr.map((x, i) => (
+            <span key={i}>{i > 0 ? ", " : ""}{x.sp} ×{soVN(x.quantity)}{" "}
+              {x.box_deleted
+                ? <span class="muted" style={{ textDecoration: "line-through" }}>(thùng {x.box_code || `#${x.box_id}`} — đã xoá)</span>
+                : <>(<a href={`#/thung/${x.box_id}`}>thùng {x.box_code || `#${x.box_id}`}</a>)</>}</span>
+          ));
         if (r.goods_handled_at && gr) {
-          const line = (arr: { sp: string; quantity: number; box_id: number; box_code?: string; box_deleted?: boolean }[]) =>
-            arr.map((x, i) => (
-              <span key={i}>{i > 0 ? ", " : ""}{x.sp} ×{soVN(x.quantity)}{" "}
-                {x.box_deleted
-                  ? <span class="muted" style={{ textDecoration: "line-through" }}>(thùng {x.box_code || `#${x.box_id}`} — đã xoá)</span>
-                  : <>(<a href={`#/thung/${x.box_id}`}>thùng {x.box_code || `#${x.box_id}`}</a>)</>}</span>
-            ));
           const doUndo = async () => {
             if (!(await confirmDialog(
               "Hủy chốt nhập kho phiếu này?\nCác thùng mới sẽ được GIỮ NGUYÊN để xóa từng thùng hoặc nhập bổ sung. Phần đã cộng vào thùng có sẵn sẽ bị trừ lại. Chỉ được khi hàng CHƯA dùng vào đâu.",
@@ -260,11 +260,30 @@ export function PurchaseDetail({ id }: { id: string }) {
             </section>
           );
         }
+        // Phiếu ĐÃ HỦY CHỐT nhưng kho còn thùng giữ lại từ lần nhập trước:
+        // vẫn hiện danh sách + ô thùng (không thì thùng "biến mất" khỏi phiếu),
+        // kèm nút nhập kho lại (modal tự trừ phần đã giữ, chỉ nhập phần còn thiếu).
+        const retained = gr?.restocked_new || [];
         return (
-          <button class={"btn block rg-open-btn" + (office ? "" : " faded")} disabled={busy}
-            onClick={() => office ? setShowGoods(true) : toast("Chỉ văn phòng mới được nhập kho hàng mua", "info")}>
-            <Icon name="box" size={15} /> Nhập kho hàng mua về
-          </button>
+          <>
+            {retained.length > 0 && (
+              <section class="card rg-summary">
+                <label class="card-label"><Icon name="box" size={15} /> Thùng giữ lại (đã hủy chốt)</label>
+                <div class="muted small">
+                  Phiếu đã mở khoá sửa — các thùng dưới đây vẫn nằm trong kho. Nhập kho lại
+                  chỉ cần nhập phần còn thiếu; muốn bỏ thùng nào thì xoá ở trang thùng đó.
+                </div>
+                <div class="rg-sum-line">🆕 Thùng mới: {line(retained)}</div>
+                {(r.boxes || []).length > 0 && (
+                  <div class="rg-boxes"><BoxLabelGrid boxes={r.boxes as any} dense /></div>
+                )}
+              </section>
+            )}
+            <button class={"btn block rg-open-btn" + (office ? "" : " faded")} disabled={busy}
+              onClick={() => office ? setShowGoods(true) : toast("Chỉ văn phòng mới được nhập kho hàng mua", "info")}>
+              <Icon name="box" size={15} /> Nhập kho hàng mua về
+            </button>
+          </>
         );
       })()}
 
