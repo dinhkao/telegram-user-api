@@ -586,9 +586,23 @@ body.has-nop .order-day-group .order-day-head { top: 124px; }
 .adj-card-deleted { opacity: .55; }
 .adj-card-deleted .ret-cust { text-decoration: line-through; }
 .disp-amt.adj-up { color: var(--ok, #1a7f37); }
+/* Card biến động thùng (chi tiết thùng: đã xuất/nhập/chuyển/điều chỉnh) — thay list text */
+.alloc-cards { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.alloc-card { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--line);
+  border-radius: 12px; text-decoration: none; color: inherit; background: var(--bg-card, transparent); }
+a.alloc-card:active { background: var(--accent-wash); }
+.alloc-card-off { opacity: .55; }
+.alloc-card-off .alloc-title { text-decoration: line-through; }
+.alloc-ic { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center;
+  justify-content: center; flex: none; background: rgba(200, 60, 60, .1); color: #b23b3b; }
+.alloc-ic.in { background: rgba(30, 130, 60, .12); color: #1a7f37; }
+.alloc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.alloc-title { font-weight: 600; font-size: .88rem; overflow-wrap: anywhere; }
+.alloc-sub { color: var(--muted); font-size: .76rem; overflow-wrap: anywhere; }
+.alloc-amt { font-weight: 700; font-variant-numeric: tabular-nums; flex: none; color: #b23b3b; }
+.alloc-amt.in { color: #1a7f37; }
 /* Phiếu điều chỉnh tồn (BoxAdjust ở chi tiết thùng + khối áp dụng kiểm kho) */
-.adj-row { display: flex; align-items: center; gap: 6px; }
-.adj-row .adj-del { margin-left: auto; color: var(--danger, #c33); }
+.adj-del { color: var(--danger, #c33); flex: none; }
 .stocktake-applied .card-label { display: flex; align-items: center; gap: 6px; }
 /* Ô thùng + nút hủy chốt trong khối "Đã nhập kho" của phiếu nhập */
 .rg-boxes { margin-top: 8px; }

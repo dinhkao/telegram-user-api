@@ -70,28 +70,33 @@ export function BoxAdjust({ boxId, remaining, unit, onChanged }: {
         </>
       )}
       {list.length > 0 && (
-        <ul class="box-alloc-list" style={{ marginTop: "6px" }}>
+        <div class="alloc-cards" style={{ marginTop: "6px" }}>
           {list.map((a) => (
-            <li key={a.id} class={a.deleted_at ? "adj-deleted" : ""}>
-              <span class="box-jump adj-row">
-                <Icon name="edit" size={15} />{" "}
-                <span style={a.deleted_at ? { textDecoration: "line-through", opacity: 0.6 } : undefined}>
-                  {a.delta > 0 ? "+" : ""}{soVN(a.delta)} {unit}
-                  {a.old_remaining != null && a.new_remaining != null ? ` (${soVN(a.old_remaining)} → ${soVN(a.new_remaining)})` : ""}
-                  {a.source === "stocktake" && a.stocktake_id ? <> · <a href={`#/kiem-kho/${a.stocktake_id}`}>kiểm kho #{a.stocktake_id}</a></> : null}
-                  {" · "}{a.reason}
-                  {a.created_by ? ` · ${a.created_by}` : ""}
-                  {a.deleted_at ? ` · đã gỡ${a.deleted_by ? ` bởi ${a.deleted_by}` : ""}` : ""}
+            <div class={"alloc-card" + (a.deleted_at ? " alloc-card-off" : "")} key={a.id}>
+              <span class={"alloc-ic " + (a.delta > 0 ? "in" : "out")}><Icon name="edit" size={17} /></span>
+              <span class="alloc-main">
+                <span class="alloc-title">
+                  {a.old_remaining != null && a.new_remaining != null
+                    ? `${soVN(a.old_remaining)} → ${soVN(a.new_remaining)} ${unit}`
+                    : `${a.delta > 0 ? "+" : ""}${soVN(a.delta)} ${unit}`}
+                  {a.deleted_at ? " · ĐÃ GỠ" : ""}
                 </span>
-                {isAdmin && !a.deleted_at && (
-                  <button class="icon-btn adj-del" title="Gỡ phiếu (hoàn nguyên)" onClick={() => del(a)}>
-                    <Icon name="close" size={14} />
-                  </button>
-                )}
+                <span class="alloc-sub">
+                  {a.reason}
+                  {a.source === "stocktake" && a.stocktake_id ? <> · <a href={`#/kiem-kho/${a.stocktake_id}`}>kiểm kho #{a.stocktake_id}</a></> : null}
+                  {a.created_by ? ` · ${a.created_by}` : ""}
+                  {a.deleted_at && a.deleted_by ? ` · gỡ bởi ${a.deleted_by}` : ""}
+                </span>
               </span>
-            </li>
+              <span class={"alloc-amt " + (a.delta > 0 ? "in" : "out")}>{a.delta > 0 ? "+" : "−"}{soVN(Math.abs(a.delta))}</span>
+              {isAdmin && !a.deleted_at && (
+                <button class="icon-btn adj-del" title="Gỡ phiếu (hoàn nguyên)" onClick={() => del(a)}>
+                  <Icon name="close" size={14} />
+                </button>
+              )}
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </section>
   );

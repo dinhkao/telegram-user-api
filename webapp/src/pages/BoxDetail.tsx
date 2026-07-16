@@ -549,85 +549,51 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
         {d.allocations.length === 0 ? (
           <div class="muted small">Chưa xuất cho đơn nào — còn trong kho.</div>
         ) : (
-          <ul class="box-alloc-list">
+          <div class="alloc-cards">
             {d.allocations.map((a) => {
+              // 1 kiểu CARD chung cho mọi loại biến động: icon tròn (đỏ ra / xanh vào)
+              // + tiêu đề + người·lúc + số lượng bên phải. quantity ÂM = hàng VÀO thùng.
               const kind = (a as any).kind || "order";
+              const inbound = a.quantity < 0;
+              let icon = "clipboard"; let href: string | undefined; let title = "";
               if (kind === "transfer_out" || kind === "transfer_in") {
                 const out = kind === "transfer_out";
                 const peer = (a as any).peer_box_code;
-                return (
-                  <li key={a.allocation_id}>
-                    <a class="box-jump" href={`#/thung/${a.order_thread_id}`}>
-                      <Icon name="truck" size={16} />{" "}
-                      {out ? "Chuyển sang" : "Nhận từ"} thùng {peer ? (peer.split("-").pop() || peer) : `#${a.order_thread_id}`}
-                      {" · "}{out ? "−" : "+"}{soVN(Math.abs(a.quantity))}
-                      {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
-                    </a>
-                  </li>
-                );
+                icon = "truck"; href = `#/thung/${a.order_thread_id}`;
+                title = `${out ? "Chuyển sang" : "Nhận từ"} thùng ${peer ? (peer.split("-").pop() || peer) : `#${a.order_thread_id}`}`;
+              } else if (kind === "disposal") {
+                icon = "trash"; href = `#/xuat-huy/${a.order_thread_id}`;
+                title = `Xuất hủy — phiếu #${a.order_thread_id}`;
+              } else if (kind === "purchase_in") {
+                icon = "truck"; href = `#/nhap-hang/${a.order_thread_id}`;
+                title = `Hàng mua về — phiếu nhập #${a.order_thread_id}`;
+              } else if (kind === "return_in") {
+                icon = "refresh"; href = `#/tra-hang/${a.order_thread_id}`;
+                title = `Khách trả hàng — phiếu #${a.order_thread_id}`;
+              } else if (kind === "adjustment") {
+                // chi tiết + gỡ phiếu nằm ở khối "Điều chỉnh tồn" phía trên
+                icon = "edit"; href = "#/dieu-chinh";
+                title = `Điều chỉnh tồn — phiếu #${a.order_thread_id}`;
+              } else if (kind === "production") {
+                icon = "factory"; href = `#/san_xuat/${a.order_thread_id}?focus=box:${b.id}`;
+                title = `Tiêu hao đóng gói — phiếu SX #${a.order_thread_id}`;
+              } else {
+                icon = "clipboard"; href = `#/order/${a.order_thread_id}?focus=box:${b.id}`;
+                title = a.order_text ? `Đơn “${a.order_text}”` : `Đơn #${a.order_thread_id}`;
               }
-              if (kind === "disposal") {
-                return (
-                  <li key={a.allocation_id}>
-                    <a class="box-jump" href={`#/xuat-huy/${a.order_thread_id}`}>
-                      <Icon name="trash" size={16} />{" "}
-                      Xuất hủy phiếu #{a.order_thread_id} · −{soVN(a.quantity)}
-                      {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
-                    </a>
-                  </li>
-                );
-              }
-              if (kind === "purchase_in") {
-                // allocation ÂM → nhập thêm remaining; order_thread_id = id phiếu nhập
-                return (
-                  <li key={a.allocation_id}>
-                    <a class="box-jump" href={`#/nhap-hang/${a.order_thread_id}`}>
-                      <Icon name="truck" size={16} />{" "}
-                      Nhận hàng mua về (phiếu nhập #{a.order_thread_id}) · +{soVN(Math.abs(a.quantity))}
-                      {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
-                    </a>
-                  </li>
-                );
-              }
-              if (kind === "adjustment") {
-                // allocation −delta; chi tiết + gỡ nằm ở khối "Điều chỉnh tồn" phía trên
-                const up = a.quantity < 0;
-                return (
-                  <li key={a.allocation_id}>
-                    <span class="box-jump">
-                      <Icon name="edit" size={16} />{" "}
-                      Điều chỉnh tồn (phiếu #{a.order_thread_id}) · {up ? "+" : "−"}{soVN(Math.abs(a.quantity))}
-                      {a.allocated_by ? ` · ${a.allocated_by}` : ""}
-                    </span>
-                  </li>
-                );
-              }
-              if (kind === "return_in") {
-                // allocation ÂM → nhập thêm remaining; order_thread_id = id phiếu trả
-                return (
-                  <li key={a.allocation_id}>
-                    <a class="box-jump" href={`#/tra-hang/${a.order_thread_id}`}>
-                      <Icon name="refresh" size={16} />{" "}
-                      Nhận hàng khách trả (phiếu #{a.order_thread_id}) · +{soVN(Math.abs(a.quantity))}
-                      {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
-                    </a>
-                  </li>
-                );
-              }
-              const prod = kind === "production";
-              // Đơn: hiện TEXT đơn (dòng đầu) thay vì #id — dễ nhận ra đơn nào
-              const label = !prod && a.order_text ? `"${a.order_text}"` : `#${a.order_thread_id}`;
+              const sub = [a.allocated_by, a.allocated_at ? fmtWhen(a.allocated_at) : ""].filter(Boolean).join(" · ");
               return (
-                <li key={a.allocation_id}>
-                  <a class="box-jump" href={`${prod ? "#/san_xuat" : "#/order"}/${a.order_thread_id}?focus=box:${b.id}`}>
-                    <Icon name={prod ? "factory" : "clipboard"} size={16} />{" "}
-                    {prod ? "Phiếu SX" : "Đơn"} {label} · {prod ? "tiêu hao" : "lấy"} {soVN(a.quantity)}
-                    {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
-                  </a>
-                </li>
+                <a class="alloc-card" href={href} key={a.allocation_id}>
+                  <span class={"alloc-ic " + (inbound ? "in" : "out")}><Icon name={icon as any} size={17} /></span>
+                  <span class="alloc-main">
+                    <span class="alloc-title">{title}</span>
+                    {sub && <span class="alloc-sub">{sub}</span>}
+                  </span>
+                  <span class={"alloc-amt " + (inbound ? "in" : "out")}>{inbound ? "+" : "−"}{soVN(Math.abs(a.quantity))}</span>
+                </a>
               );
             })}
-          </ul>
+          </div>
         )}
       </section>
 
