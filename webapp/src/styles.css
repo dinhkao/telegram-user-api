@@ -588,7 +588,7 @@ body.has-nop .order-day-group .order-day-head { top: 124px; }
 .disp-amt.adj-up { color: var(--ok, #1a7f37); }
 /* Card biến động thùng (chi tiết thùng: đã xuất/nhập/chuyển/điều chỉnh) — thay list text */
 .alloc-cards { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
-.alloc-card { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--line);
+.alloc-card { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--border);
   border-radius: 12px; text-decoration: none; color: inherit; background: var(--bg-card, transparent); }
 a.alloc-card:active { background: var(--accent-wash); }
 .alloc-card-off { opacity: .55; }
@@ -2157,20 +2157,32 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .box-tile.is-off .bl-q { text-decoration: line-through; }
 /* Nguyên liệu cần trừ khi nhập thùng (công thức BOM) */
 /* Mặc định NÂU (chưa chọn đủ thùng NL) → .ok XANH khi đã chọn đủ hết */
-/* Quy đổi đơn vị SP (detail/ProductUnits) — khối nhỏ trong card chi tiết SP */
-.punit-box { margin: 6px 0 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
-.punit-head { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: .85rem; margin-bottom: 4px; }
+/* Quy đổi đơn vị SP (detail/ProductUnits) — khối nhỏ trong card chi tiết SP,
+   style đồng bộ app: nền wash nhẹ, dòng ngăn hairline, input pill như box-place */
+.punit-box { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: #f8f9fb; }
+.punit-head { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: .85rem; color: var(--ink); margin-bottom: 2px; }
 .punit-head .punit-add { margin-left: auto; }
-.punit-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: .9rem; }
-.punit-name { font-weight: 600; }
-.punit-input { width: 70px; padding: 5px 6px; border: 1px solid var(--line); border-radius: 8px; font: inherit; text-align: center; }
-.punit-name-in { width: 90px; text-align: left; }
+.punit-row { display: flex; align-items: center; gap: 7px; padding: 8px 0; font-size: .92rem; }
+.punit-row + .punit-row { border-top: 1px solid rgba(0, 0, 0, .06); }
+.punit-name { font-weight: 700; white-space: nowrap; }
+.punit-eq { color: var(--muted); }
+.punit-input { width: 76px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; font: inherit;
+  font-size: .92rem; text-align: center; font-variant-numeric: tabular-nums; background: var(--card); color: var(--ink); }
+.punit-input:focus { border-color: var(--primary); outline: none; }
+.punit-name-in { width: 86px; text-align: left; }
 .punit-base { color: var(--muted); }
-.punit-del { border: none; background: none; color: var(--danger, #c33); padding: 4px; cursor: pointer; }
+.punit-del { border: none; background: none; color: var(--danger, #c33); padding: 5px; cursor: pointer;
+  display: flex; align-items: center; flex: none; }
 /* Nút ⇄ đổi chiều quy đổi (1 thùng = 30 cây ⇄ 1 cây = 0,033 thùng) */
-.punit-flip { margin-left: auto; border: 1px solid var(--line); background: none; border-radius: 8px;
-  padding: 2px 8px; font-size: .9rem; cursor: pointer; color: var(--muted); flex: none; }
+.punit-flip { margin-left: auto; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: var(--card); border-radius: 8px; font-size: .95rem;
+  cursor: pointer; color: var(--muted); flex: none; }
 .punit-flip:active { background: var(--accent-wash); }
+/* Form thêm dòng: phương trình 1 hàng + hàng nút riêng (khỏi vỡ trên màn hẹp) */
+.punit-new { flex-wrap: wrap; }
+.punit-new .punit-flip { margin-left: auto; }
+.punit-new-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 2px 0 4px; }
+.punit-empty { color: var(--muted); font-size: .82rem; padding: 4px 0 2px; }
 .recipe-consume { margin: 8px 0; padding: 8px 10px; border: 1px solid #e0c9a6; border-radius: 10px; background: var(--warn-wash); transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
 .recipe-consume.ok { background: var(--ok-wash); border-color: #b7dfc0; }
 .recipe-consume .stock-head { display: flex; align-items: center; gap: 8px; padding: 5px 0; }

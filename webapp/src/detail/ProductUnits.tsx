@@ -9,8 +9,8 @@ import { listProductUnits, addProductUnit, updateProductUnit, deleteProductUnit,
 import { Icon } from "../ui/Icon";
 import { confirmDialog, toast } from "../ui/feedback";
 
-// Hiện số gọn: tối đa 6 số lẻ, bỏ 0 thừa ("0.033333", "30")
-const fmt = (x: number) => String(Math.round(x * 1e6) / 1e6);
+// Hiện số gọn kiểu VN: tối đa 6 số lẻ, bỏ 0 thừa, dấu phẩy thập phân ("0,0333", "30")
+const fmt = (x: number) => String(Math.round(x * 1e6) / 1e6).replace(".", ",");
 
 export function ProductUnits({ code, baseUnit }: { code: string; baseUnit: string }) {
   const office = isOffice();
@@ -76,7 +76,7 @@ export function ProductUnits({ code, baseUnit }: { code: string; baseUnit: strin
         return (
           <div class="punit-row" key={u.id}>
             <span class="punit-name">1 {inv ? base : u.name}</span>
-            <span class="muted">=</span>
+            <span class="punit-eq">=</span>
             {office ? (
               <input class="punit-input" inputMode="decimal"
                 value={shown}
@@ -90,14 +90,14 @@ export function ProductUnits({ code, baseUnit }: { code: string; baseUnit: strin
           </div>
         );
       })}
-      {!units.length && <div class="muted small">Chưa có đơn vị quy đổi — vd: 1 thùng = 30 {base}.</div>}
+      {!units.length && <div class="punit-empty">Chưa có đơn vị quy đổi — vd: 1 thùng = 30 {base}.</div>}
       {adding && (
         <>
           <div class="punit-row punit-new">
             {nFlip ? (
               <>
                 <span class="punit-name">1 {base}</span>
-                <span class="muted">=</span>
+                <span class="punit-eq">=</span>
                 <input class="punit-input" inputMode="decimal" placeholder="0,5" value={nFactor}
                   onInput={(e: any) => setNFactor(e.target.value)}
                   onKeyDown={(e: any) => { if (e.key === "Enter") add(); }} />
@@ -106,9 +106,10 @@ export function ProductUnits({ code, baseUnit }: { code: string; baseUnit: strin
               </>
             ) : (
               <>
-                <span class="punit-name">1 <input class="punit-input punit-name-in" placeholder="thùng" value={nName}
-                  onInput={(e: any) => setNName(e.target.value)} /></span>
-                <span class="muted">=</span>
+                <span class="punit-name">1</span>
+                <input class="punit-input punit-name-in" placeholder="thùng" value={nName}
+                  onInput={(e: any) => setNName(e.target.value)} />
+                <span class="punit-eq">=</span>
                 <input class="punit-input" inputMode="decimal" placeholder="30" value={nFactor}
                   onInput={(e: any) => setNFactor(e.target.value)}
                   onKeyDown={(e: any) => { if (e.key === "Enter") add(); }} />
@@ -116,16 +117,18 @@ export function ProductUnits({ code, baseUnit }: { code: string; baseUnit: strin
               </>
             )}
             <button class="punit-flip" title="Đổi chiều quy đổi" onClick={() => { setNFlip(!nFlip); setNFactor(""); }}>⇄</button>
-            <button class="btn small primary" onClick={add}>Lưu</button>
-            <button class="btn small" onClick={() => { setAdding(false); setNName(""); setNFactor(""); setNFlip(false); }}>Huỷ</button>
           </div>
           {/* Preview chiều CHUẨN sẽ lưu — nhập đảo chiều vẫn thấy hệ quy ra sao */}
           {(() => {
             const v = Number(nFactor.replace(",", "."));
             if (!nName.trim() || !v || v <= 0) return null;
             const f = nFlip ? 1 / v : v;
-            return <div class="muted small" style={{ margin: "-2px 0 4px 2px" }}>= 1 {nName.trim()} = {fmt(f)} {base}</div>;
+            return <div class="muted small" style={{ margin: "0 0 4px 2px" }}>→ sẽ lưu: 1 {nName.trim()} = {fmt(f)} {base}</div>;
           })()}
+          <div class="punit-new-actions">
+            <button class="btn small" onClick={() => { setAdding(false); setNName(""); setNFactor(""); setNFlip(false); }}>Huỷ</button>
+            <button class="btn small primary" onClick={add}><Icon name="check" size={14} /> Lưu đơn vị</button>
+          </div>
         </>
       )}
     </div>
