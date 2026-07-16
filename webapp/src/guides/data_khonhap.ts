@@ -122,9 +122,10 @@ export const GUIDES_KHONHAP: Guide[] = [
         <ul>
           <li>Ghi <b>nhiều đợt</b> được — mỗi đợt app tự trừ phần đã nhập, chỉ cho nhập
             <b>phần còn lại</b> trên phiếu (sửa SL nếu hàng về thiếu/vỡ).</li>
-          <li>Khối <b>Đang nhập kho (chưa chốt)</b>: tiến độ từng mã (đã nhập/trên phiếu),
-            <b>ô thùng</b>, và nút <b>✕</b> cạnh từng dòng — xoá thùng mới thừa / gỡ phần đã
-            cộng vào thùng có sẵn (văn phòng).</li>
+          <li>Khối <b>Đang nhập kho (chưa chốt)</b>: tiến độ từng mã (đã nhập/trên phiếu) +
+            <b>ô thùng</b> từng đợt nhập — bấm dấu <b>✕ đỏ ở góc ô thùng</b> (như thu hồi ở
+            xuất kho cho đơn) để xoá thùng mới thừa / gỡ phần đã cộng vào thùng có sẵn
+            (văn phòng).</li>
           <li>Đủ (hoặc chấp nhận thiếu) → bấm <b>「✓ Chốt nhập kho」</b>: app cảnh báo nếu còn
             thiếu, chốt xong phiếu <b>khoá sửa</b> và <b>không xoá được</b>; danh sách phiếu
             hiện chip <span class="cash-badge ok">📦 kho</span>.</li>

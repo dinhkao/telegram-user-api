@@ -11,6 +11,7 @@ import {
 } from "../api";
 import { onRealtime } from "../realtime";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
+import { BoxTileGrid, type BoxTileData } from "../detail/BoxTileGrid";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
@@ -265,8 +266,8 @@ export function PurchaseDetail({ id }: { id: string }) {
           );
         }
         // Phiếu ĐANG MỞ: nhập kho TỪNG ĐỢT như xuất kho cho đơn — trạng thái
-        // đang nhập (draft_receipt) derive live từ kho; ✕ xoá từng thùng mới /
-        // gỡ từng lần cộng; đủ rồi bấm CHỐT mới khoá phiếu.
+        // đang nhập (draft_receipt) derive live từ kho; ✕ góc ô thùng xoá thùng
+        // mới / gỡ từng lần cộng (như thu hồi ở OrderStock); đủ rồi CHỐT mới khoá.
         const draft = r.draft_receipt;
         const hasDraft = !!draft && draft.new.length + draft.existing.length > 0;
         const baseByCode = new Map<string, number>();
@@ -308,6 +309,31 @@ export function PurchaseDetail({ id }: { id: string }) {
             toast(e?.message || "Không gỡ được", "err");
           } finally { setBusy(false); }
         };
+        // 1 ô thùng / 1 dòng nhập (như OrderStock 1 ô / 1 allocation): thùng mới
+        // ✕ = xoá hẳn thùng; cộng vào thùng có sẵn ✕ = gỡ allocation purchase_in.
+        type DraftTile = BoxTileData & { line: PurchaseDraftLine; isNew: boolean };
+        const boxById = new Map<number, any>(((r.boxes || []) as any[]).map((b) => [b.id, b]));
+        const draftTiles: DraftTile[] = [
+          ...(draft?.new || []).map((x) => ({ x, isNew: true })),
+          ...(draft?.existing || []).map((x) => ({ x, isNew: false })),
+        ].map(({ x, isNew }) => {
+          const b = boxById.get(x.box_id) || {};
+          const code = b.box_code || x.box_code || `#${x.box_id}`;
+          return {
+            id: x.allocation_id ? `a${x.allocation_id}` : `b${x.box_id}`,
+            productCode: b.product_code || x.sp,
+            boxCode: code,
+            quantity: b.quantity ?? x.quantity,
+            allocated: x.quantity,
+            note: b.note,
+            placeName: b.place_name,
+            productUnit: b.product_unit,
+            href: `#/thung/${x.box_id}`,
+            title: (isNew ? "🆕 thùng mới" : "📦 cộng vào thùng có sẵn")
+              + ` · ${code} · ${isNew ? "×" : "+"}${soVN(x.quantity)} ${x.sp}${b.place_name ? ` · ${b.place_name}` : ""}`,
+            line: x, isNew,
+          };
+        });
         const doConfirm = async () => {
           const warn = !hasDraft
             ? "Chưa nhập kho mục nào (hàng không quản kho).\n"
@@ -342,28 +368,21 @@ export function PurchaseDetail({ id }: { id: string }) {
                     );
                   })}
                 </div>
-                {draft!.new.map((x, i) => (
-                  <div class="rg-sum-line" key={`n${i}`}>
-                    🆕 {x.sp} ×{soVN(x.quantity)}{" "}
-                    (<a href={`#/thung/${x.box_id}`}>thùng {x.box_code || `#${x.box_id}`}</a>)
-                    {office && (
-                      <button class="btn small danger rg-box-del" disabled={busy} onClick={() => doDeleteBox(x)}
-                        title="Xoá hẳn thùng này khỏi kho">✕ Xoá</button>
-                    )}
+                {draftTiles.length > 0 && (
+                  <div class="rg-boxes">
+                    <BoxTileGrid
+                      size="dense"
+                      mode="allocated"
+                      productCodeMode="auto"
+                      boxes={draftTiles}
+                      getAction={office ? (t) => ({
+                        label: t.isNew ? "Xoá hẳn thùng này khỏi kho" : "Gỡ phần đã cộng vào thùng",
+                        content: <Icon name="close" size={12} />,
+                        disabled: busy,
+                        onClick: () => (t.isNew ? doDeleteBox(t.line) : doUnreceive(t.line)),
+                      }) : undefined}
+                    />
                   </div>
-                ))}
-                {draft!.existing.map((x, i) => (
-                  <div class="rg-sum-line" key={`e${i}`}>
-                    📦 {x.sp} +{soVN(x.quantity)} vào{" "}
-                    <a href={`#/thung/${x.box_id}`}>thùng {x.box_code || `#${x.box_id}`}</a>
-                    {office && (
-                      <button class="btn small danger rg-box-del" disabled={busy} onClick={() => doUnreceive(x)}
-                        title="Gỡ phần đã cộng vào thùng này">✕ Gỡ</button>
-                    )}
-                  </div>
-                ))}
-                {(r.boxes || []).length > 0 && (
-                  <div class="rg-boxes"><BoxLabelGrid boxes={r.boxes as any} dense /></div>
                 )}
               </section>
             )}

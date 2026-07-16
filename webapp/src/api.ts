@@ -1188,6 +1188,7 @@ export type InvBox = {
   quantity: number;
   status: string;
   source_thread_id?: number | null;
+  source_purchase_id?: number | null; // thùng tạo từ phiếu NHẬP HÀNG
   order_thread_id?: number | null;
   note?: string | null;
   mfg_date?: string | null;

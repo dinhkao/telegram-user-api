@@ -410,8 +410,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     (`_retained_box_totals` = thùng + purchase_in) + re-check khoá TRONG transaction.
   Events: `purchase.goods_line_added/line_removed/received/undone` (event_format).
   UI `PurchaseDetail`: khối "Đang nhập kho (chưa chốt)" — tiến độ theo mã
-  (đã nhập/trên phiếu/thiếu), dòng 🆕/📦 kèm nút ✕, Ô THÙNG (BoxLabelGrid), nút
-  "Nhập thêm" + "✓ Chốt nhập kho"; sau chốt = khối "Đã nhập kho" + Hủy chốt.
+  (đã nhập/trên phiếu/thiếu) + Ô THÙNG 1 ô/1 dòng nhập (BoxTileGrid
+  mode="allocated", ✕ đỏ góc ô = xoá thùng mới / gỡ phần cộng — giống thu hồi ở
+  OrderStock), nút "Nhập thêm" + "✓ Chốt nhập kho"; sau chốt = khối "Đã nhập
+  kho" + Hủy chốt.
   `PurchaseGoodsModal` = popup GHI 1 đợt (prefill + cap theo phần còn lại; đơn vị
   nhập Thùng ×30 → count×per; prompt sau tạo phiếu, cờ session `pg_open`); items
   gắn `base_unit` (đơn vị gốc SP) để bảng hàng nhập luôn hiện đơn vị; chip 📦 kho.
