@@ -367,9 +367,12 @@ export type PurchaseDisposition = {
   action: "restock_existing" | "restock_new" | "skip";
   box_id?: number; place_id?: number | null; unit_id?: number | null;
 };
+/** 1 dòng hàng phiếu nhập — unit/unit_factor = ĐƠN VỊ NHẬP đã chọn (snapshot quy
+ *  đổi: 1 unit = unit_factor đơn vị gốc); thiếu = nhập theo đơn vị gốc. */
+export type PurchaseItem = { sp: string; sp_id?: number; name?: string; sl: number; price: number; unit?: string; unit_factor?: number };
 export type PurchaseSlip = {
   id: number; supplier_id: number; supplier_name?: string | null;
-  items: { sp: string; sp_id?: number; name?: string; sl: number; price: number }[];
+  items: PurchaseItem[];
   total: number; note?: string; created_by?: string; created_at?: string;
   deleted_at?: string | null; deleted_by?: string | null;
   payments?: PurchasePayment[]; paid?: number;
@@ -414,11 +417,11 @@ export async function deletePurchasePayment(id: number | string, paymentId: numb
   return postJSON(`/api/purchases/${id}/payments/${paymentId}/delete`, {}, { queueable: false });
 }
 /** Tạo phiếu nhập hàng (văn phòng) — 100% local, không đụng KiotViet. */
-export async function createPurchase(supplierId: number, items: { sp: string; sl: number; price: number }[], note = ""): Promise<any> {
+export async function createPurchase(supplierId: number, items: { sp: string; sl: number; price: number; unit?: string; unit_factor?: number }[], note = ""): Promise<any> {
   return postJSON("/api/purchases", { supplier_id: supplierId, items, note });
 }
 /** Sửa phiếu nhập (văn phòng) — items/ghi chú, đổi NCC nếu truyền supplierId. */
-export async function updatePurchase(id: number, items: { sp: string; sl: number; price: number }[], note = "", supplierId?: number): Promise<any> {
+export async function updatePurchase(id: number, items: { sp: string; sl: number; price: number; unit?: string; unit_factor?: number }[], note = "", supplierId?: number): Promise<any> {
   return postJSON(`/api/purchases/${id}/update`, { items, note, ...(supplierId != null ? { supplier_id: supplierId } : {}) });
 }
 export async function deletePurchase(id: number): Promise<any> {

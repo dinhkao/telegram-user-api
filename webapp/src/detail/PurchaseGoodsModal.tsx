@@ -25,8 +25,13 @@ const ACTIONS: SPOption[] = [
 export function PurchaseGoodsModal({ pu, onClose, onDone }: {
   pu: PurchaseSlip; onClose: () => void; onDone: (p: PurchaseSlip) => void;
 }) {
+  // SL nhập kho tính theo ĐƠN VỊ GỐC của SP: dòng phiếu có đơn vị nhập (unit_factor)
+  // → quy đổi sẵn (3 thùng × 30 = 90); hint giữ ở dưới để đối chiếu.
   const [rows, setRows] = useState<Row[]>(
-    (pu.items || []).map((it) => ({ sp: it.sp, qty: String(it.sl), action: "restock_new" as Act })));
+    (pu.items || []).map((it) => ({
+      sp: it.sp, action: "restock_new" as Act,
+      qty: String(it.sl * (it.unit && (it.unit_factor || 0) > 0 ? it.unit_factor! : 1)),
+    })));
   const [boxes, setBoxes] = useState<KhoBox[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -83,6 +88,9 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
           Hàng về từ NCC — chọn cách nhập từng loại. Sửa SL nếu thực nhận lệch phiếu (thiếu/vỡ).
         </p>
         {rows.map((r, i) => {
+          const item = (pu.items || [])[i];
+          const conv = item?.unit && (item.unit_factor || 0) > 0
+            ? `${soVN(item.sl)} ${item.unit} × ${soVN(item.unit_factor!)} = ${soVN(item.sl * item.unit_factor!)}` : "";
           const bopts: SPOption[] = boxesOf(r.sp).map((b) => ({
             value: b.id, label: `Thùng ${b.box_code}`,
             sub: `còn ${soVN(b.remaining ?? b.quantity)}${b.place_name ? ` · ${b.place_name}` : ""}`,
@@ -97,6 +105,7 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
                     onInput={(e: any) => upd(i, { qty: e.currentTarget.value })} />
                 )}
               </div>
+              {conv && r.action !== "skip" && <div class="muted small">Phiếu ghi {conv} (đơn vị gốc)</div>}
               <SelectPopup value={r.action} options={ACTIONS}
                 onChange={(v) => upd(i, { action: v as Act, box_id: undefined })} />
               {r.action === "restock_existing" && (

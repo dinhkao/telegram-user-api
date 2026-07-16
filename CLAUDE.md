@@ -364,6 +364,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   giữ) | `skip`; SL = số THỰC NHẬN (sửa được). Đã nhập kho → phiếu KHOÁ sửa items +
   chặn xoá. Event `purchase.goods_received`. UI: `detail/PurchaseGoodsModal.tsx`
   (prompt sau tạo phiếu, cờ session `pg_open`), summary + chip 📦 kho.
+  **Đơn vị nhập trên dòng phiếu (2026-07-16)**: item nhận thêm `unit`/`unit_factor`
+  (snapshot từ `product_units` — SL + giá tính theo đơn vị đã chọn, 1 unit =
+  factor đơn vị gốc; `_parse_items` validate, đơn vị xấu chỉ rơi phần unit).
+  UI `detail/PurchaseUnitPicker.tsx` (chỉ hiện khi SP có quy đổi; chọn ở
+  PurchaseModal/PurchaseEdit, cache đơn vị `purchaseProduct.unitChoicesFor`);
+  modal nhập kho prefill SL = sl × factor (quy về đơn vị gốc).
   SP có 2 cờ `can_sell`/`can_purchase` (products, mặc định 1, sửa ở chi tiết SP
   `#/kho/:code` khối "Mua bán", admin): tắt → SP biến khỏi GỢI Ý picker tương ứng
   (bán = InvoiceEditor, nhập = PurchaseModal/PurchaseDetail — lọc client-side từ

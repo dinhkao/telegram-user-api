@@ -29,3 +29,23 @@ export function isCreateProd(key: string): boolean {
 export function codeFromCreateKey(key: string): string {
   return key.slice(NEW_PROD_PREFIX.length);
 }
+
+// ── ĐƠN VỊ NHẬP của 1 SP: đơn vị gốc (factor 1) + các đơn vị quy đổi (product_units).
+// Cache module theo mã — mỗi mã chỉ fetch 1 lần/phiên trang. Dùng chung
+// PurchaseModal + PurchaseEdit.
+export type UnitChoice = { name: string; factor: number };
+const _unitCache = new Map<string, Promise<UnitChoice[]>>();
+
+export function unitChoicesFor(code: string): Promise<UnitChoice[]> {
+  const key = code.trim().toUpperCase();
+  if (!key) return Promise.resolve([]);
+  let p = _unitCache.get(key);
+  if (!p) {
+    p = import("../api").then((api) => api.listProductUnits(key))
+      .then((d) => [{ name: d.base_unit || "cây", factor: 1 },
+        ...d.units.map((u) => ({ name: u.name, factor: u.factor }))])
+      .catch(() => { _unitCache.delete(key); return [] as UnitChoice[]; });   // SP ngoài danh mục → không đơn vị
+    _unitCache.set(key, p);
+  }
+  return p;
+}

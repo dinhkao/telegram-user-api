@@ -6,13 +6,14 @@ import {
   createProduct, getPurchase, isOffice, searchProducts, soVN,
   updatePurchase, type PurchaseSlip,
 } from "../api";
-import { buildPurchaseProductOptions, isCreateProd, codeFromCreateKey } from "../detail/purchaseProduct";
+import { buildPurchaseProductOptions, isCreateProd, codeFromCreateKey, unitChoicesFor, type UnitChoice } from "../detail/purchaseProduct";
+import { PurchaseUnitPicker } from "../detail/PurchaseUnitPicker";
 import { PickerPopup } from "../ui/PickerPopup";
 import { toast } from "../ui/feedback";
 import { ErrorState, Loading } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
-type Line = { sp: string; sl: string; price: string };
+type Line = { sp: string; sl: string; price: string; unit?: string; factor?: number };
 
 export function PurchaseEdit({ id }: { id: string }) {
   const [purchase, setPurchase] = useState<PurchaseSlip | null>(null);
@@ -22,11 +23,21 @@ export function PurchaseEdit({ id }: { id: string }) {
   const [note, setNote] = useState("");
   const office = isOffice();
 
+  // đơn vị nhập theo mã SP: gốc + quy đổi (product_units) — nạp khi chọn/tải SP
+  const [unitsBySp, setUnitsBySp] = useState<Record<string, UnitChoice[]>>({});
+  const loadUnits = (sp: string) => {
+    const key = sp.trim().toUpperCase();
+    if (!key) return;
+    setUnitsBySp((m) => { if (m[key]) return m; unitChoicesFor(key).then((cs) => setUnitsBySp((n) => ({ ...n, [key]: cs }))); return m; });
+  };
+
   const load = async () => {
     try {
       const r = await getPurchase(id);
       setPurchase(r);
-      setLines((r.items || []).map((x) => ({ sp: x.sp, sl: String(x.sl), price: String(x.price) })));
+      setLines((r.items || []).map((x) => ({ sp: x.sp, sl: String(x.sl), price: String(x.price),
+        ...(x.unit && (x.unit_factor || 0) > 0 ? { unit: x.unit, factor: x.unit_factor } : {}) })));
+      (r.items || []).forEach((x) => loadUnits(x.sp));
       setNote(r.note || "");
       setErr("");
     } catch (e: any) {
@@ -44,6 +55,8 @@ export function PurchaseEdit({ id }: { id: string }) {
       sp: line.sp.trim().toUpperCase(),
       sl: parseFloat(line.sl.replace(",", ".")),
       price: parseFloat(line.price.replace(/\./g, "").replace(",", ".")),
+      // đơn vị nhập khác gốc → snapshot vào item (SL + giá tính theo đơn vị đó)
+      ...(line.unit && (line.factor || 0) > 0 && line.factor !== 1 ? { unit: line.unit, unit_factor: line.factor } : {}),
     }))
     .filter((line) => line.sp && isFinite(line.sl) && line.sl > 0 && isFinite(line.price) && line.price >= 0);
   const total = parsed.reduce((sum, line) => sum + line.sl * line.price, 0);
@@ -112,9 +125,9 @@ export function PurchaseEdit({ id }: { id: string }) {
                     onPick={async (o) => {
                       if (isCreateProd(o.key)) {
                         const code = codeFromCreateKey(o.key);
-                        try { await createProduct(code); updateLine(i, { sp: code }); toast(`Đã tạo mã hàng "${code}"`, "ok"); }
+                        try { await createProduct(code); updateLine(i, { sp: code, unit: undefined, factor: undefined }); loadUnits(code); toast(`Đã tạo mã hàng "${code}"`, "ok"); }
                         catch (e: any) { toast(e?.message || "Lỗi tạo mã hàng", "err"); }
-                      } else { updateLine(i, { sp: o.key }); }
+                      } else { updateLine(i, { sp: o.key, unit: undefined, factor: undefined }); loadUnits(o.key); }
                     }}
                   />
                 </div>
@@ -141,6 +154,8 @@ export function PurchaseEdit({ id }: { id: string }) {
                     <Icon name="close" size={14} />
                   </button>
                 )}
+                <PurchaseUnitPicker line={line} choices={unitsBySp[line.sp.trim().toUpperCase()]}
+                  onPick={(u) => updateLine(i, u.factor === 1 ? { unit: undefined, factor: undefined } : { unit: u.name, factor: u.factor })} />
               </div>
             ))}
             <button class="btn small" onClick={() => setLines((prev) => [...prev, { sp: "", sl: "1", price: "" }])}>

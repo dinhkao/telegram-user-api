@@ -202,7 +202,9 @@ export function PurchaseDetail({ id }: { id: string }) {
                 <td>{x.sp
                       ? <a class="pt-inl" href={`#/kho/${encodeURIComponent(x.sp)}`}><b>{x.sp}</b></a>
                       : <b>{x.sp}</b>}</td>
-                <td>{soVN(x.sl)}</td>
+                <td>{soVN(x.sl)}{x.unit ? <span class="muted"> {x.unit}</span> : ""}
+                  {x.unit && (x.unit_factor || 0) > 0
+                    ? <div class="muted small">= {soVN(x.sl * (x.unit_factor || 1))}</div> : null}</td>
                 <td>{soVN(x.price)}</td>
                 <td>{soVN(x.sl * x.price)}</td>
               </tr>

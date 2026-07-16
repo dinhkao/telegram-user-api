@@ -3,15 +3,16 @@
 // SL × giá nhập. 100% local, không đụng KiotViet. POST /api/purchases.
 import { useState } from "preact/hooks";
 import { createProduct, createPurchase, createSupplier, listSuppliers, searchProducts, soVN, type Supplier } from "../api";
-import { buildPurchaseProductOptions, isCreateProd, codeFromCreateKey } from "./purchaseProduct";
+import { buildPurchaseProductOptions, isCreateProd, codeFromCreateKey, unitChoicesFor, type UnitChoice } from "./purchaseProduct";
 import { foldVN } from "../format";
 import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
+import { PurchaseUnitPicker } from "./PurchaseUnitPicker";
 import { confirmDialog, toast } from "../ui/feedback";
 import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
 import { Icon } from "../ui/Icon";
 
-type Line = { sp: string; sl: string; price: string };
+type Line = { sp: string; sl: string; price: string; unit?: string; factor?: number };
 const NEW_PREFIX = "__new__:";
 
 export function PurchaseModal({ supplierId, supplierName, onClose, onCreated }: {
@@ -23,6 +24,13 @@ export function PurchaseModal({ supplierId, supplierName, onClose, onCreated }: 
   const [picked, setPicked] = useState<{ id: number; name: string } | null>(
     supplierId ? { id: supplierId, name: supplierName || `NCC #${supplierId}` } : null);
   const [lines, setLines] = useState<Line[]>([{ sp: "", sl: "1", price: "" }]);
+  // đơn vị nhập theo mã SP: gốc + quy đổi (product_units) — nạp khi chọn SP
+  const [unitsBySp, setUnitsBySp] = useState<Record<string, UnitChoice[]>>({});
+  const loadUnits = (sp: string) => {
+    const key = sp.trim().toUpperCase();
+    if (!key || unitsBySp[key]) return;
+    unitChoicesFor(key).then((cs) => setUnitsBySp((m) => ({ ...m, [key]: cs })));
+  };
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   useScrollLock(true);
@@ -57,7 +65,12 @@ export function PurchaseModal({ supplierId, supplierName, onClose, onCreated }: 
   const upd = (i: number, patch: Partial<Line>) =>
     setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const parsed = lines
-    .map((l) => ({ sp: l.sp.trim().toUpperCase(), sl: parseFloat(l.sl.replace(",", ".")), price: parseFloat(l.price.replace(/\./g, "").replace(",", ".")) }))
+    .map((l) => ({
+      sp: l.sp.trim().toUpperCase(), sl: parseFloat(l.sl.replace(",", ".")),
+      price: parseFloat(l.price.replace(/\./g, "").replace(",", ".")),
+      // đơn vị nhập khác gốc → snapshot vào item (SL + giá tính theo đơn vị đó)
+      ...(l.unit && (l.factor || 0) > 0 && l.factor !== 1 ? { unit: l.unit, unit_factor: l.factor } : {}),
+    }))
     .filter((l) => l.sp && isFinite(l.sl) && l.sl > 0 && isFinite(l.price) && l.price >= 0);
   const total = parsed.reduce((s, l) => s + l.sl * l.price, 0);
 
@@ -102,9 +115,9 @@ export function PurchaseModal({ supplierId, supplierName, onClose, onCreated }: 
                 onPick={async (o) => {
                   if (isCreateProd(o.key)) {
                     const code = codeFromCreateKey(o.key);
-                    try { await createProduct(code); upd(i, { sp: code }); toast(`Đã tạo mã hàng "${code}"`, "ok"); }
+                    try { await createProduct(code); upd(i, { sp: code, unit: undefined, factor: undefined }); loadUnits(code); toast(`Đã tạo mã hàng "${code}"`, "ok"); }
                     catch (e: any) { toast(e?.message || "Lỗi tạo mã hàng", "err"); }
-                  } else { upd(i, { sp: o.key }); }
+                  } else { upd(i, { sp: o.key, unit: undefined, factor: undefined }); loadUnits(o.key); }
                 }} />
             </div>
             <input class="ret-sl" type="text" inputMode="decimal" placeholder="SL" value={l.sl}
@@ -118,6 +131,8 @@ export function PurchaseModal({ supplierId, supplierName, onClose, onCreated }: 
                 <Icon name="close" size={14} />
               </button>
             )}
+            <PurchaseUnitPicker line={l} choices={unitsBySp[l.sp.trim().toUpperCase()]}
+              onPick={(u) => upd(i, u.factor === 1 ? { unit: undefined, factor: undefined } : { unit: u.name, factor: u.factor })} />
           </div>
         ))}
         <button class="btn small" onClick={() => setLines((prev) => [...prev, { sp: "", sl: "1", price: "" }])}>

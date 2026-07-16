@@ -95,8 +95,10 @@ def _items_display(conn, row: dict | None) -> dict | None:
 
 
 def _parse_items(body: dict) -> tuple[list[dict], float] | None:
-    """[{sp, sl, price}] → (items, tổng). Giá ≥ 0 (hàng tặng kèm giá 0 hợp lệ).
-    None = không hợp lệ."""
+    """[{sp, sl, price, unit?, unit_factor?}] → (items, tổng). Giá ≥ 0 (hàng tặng
+    kèm giá 0 hợp lệ). unit/unit_factor = ĐƠN VỊ NHẬP đã chọn (snapshot từ
+    product_units): sl + giá tính theo đơn vị đó, 1 unit = unit_factor đơn vị gốc
+    (quy về gốc khi nhập kho). None = không hợp lệ."""
     items = []
     total = 0.0
     for it in body.get("items") or []:
@@ -108,7 +110,16 @@ def _parse_items(body: dict) -> tuple[list[dict], float] | None:
             return None
         if not sp or sl <= 0 or price < 0:
             return None
-        items.append({"sp": sp, "sl": sl, "price": price})
+        row = {"sp": sp, "sl": sl, "price": price}
+        unit = str(it.get("unit") or "").strip()[:40]
+        try:
+            factor = float(it.get("unit_factor") or 0)
+        except (TypeError, ValueError):
+            factor = 0.0
+        if unit and factor > 0:
+            row["unit"] = unit
+            row["unit_factor"] = factor
+        items.append(row)
         total += sl * price
     return (items, total) if items else None
 

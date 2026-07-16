@@ -581,7 +581,10 @@ body.has-nop .order-day-group .order-day-head { top: 124px; }
 .feed-ret-amt { color: #b5730a; }
 .ret-open { margin: 8px 0; }
 .ret-sheet { display: flex; flex-direction: column; gap: 8px; }
-.ret-line { display: flex; gap: 6px; align-items: center; }
+.ret-line { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+/* Đơn vị nhập của dòng phiếu nhập (PurchaseUnitPicker) — xuống hàng riêng dưới dòng */
+.pu-unit-row { flex-basis: 100%; display: flex; gap: 8px; align-items: center; padding: 0 0 4px 2px; }
+.pu-unit-row .sp-trigger { padding: 4px 8px; font-size: .85rem; min-height: 0; width: auto; }
 .ret-sp { flex: 1; min-width: 0; }
 .ret-sl { width: 52px; }
 .ret-price { width: 90px; }
