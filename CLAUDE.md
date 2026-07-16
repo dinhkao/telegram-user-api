@@ -369,8 +369,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   đã trả VÀ chặn đổi NCC khi `paid > 0`** (gỡ các lần trả trước mới đổi được). API `server_app/supplier_routes.py` +
   `purchase_routes.py` (`/api/suppliers*`, `/api/purchases*`); realtime
   `purchase_changed`/`supplier_changed`; ảnh/trao đổi/lịch sử = entity media scope
-  `supplier`/`purchase`. UI: dashboard `#/nhap-hang` (PurchasesList + PurchaseModal,
-  chọn NCC gõ tên lạ → tạo mới ngay) → `#/nhap-hang/:id` (PurchaseDetail);
+  `supplier`/`purchase`. UI: dashboard `#/nhap-hang` (PurchasesList) → tạo phiếu =
+  **trang riêng `#/nhap-hang/tao`** (`pages/PurchaseCreate.tsx`, thay popup cũ —
+  chọn NCC gõ tên lạ → tạo mới ngay, `?ncc=<id>` prefill từ trang NCC; **nháp tự
+  lưu localStorage `purchase_create_draft_v1`** — rời trang giữa chừng quay lại
+  khôi phục, tạo xong/Xoá nháp mới xoá) → `#/nhap-hang/:id` (PurchaseDetail);
   `#/ncc` (SuppliersList, thống kê số phiếu/tổng tiền) → `#/ncc/:id` (SupplierDetail,
   sửa info + phiếu nhập của NCC). Tests: `tests/test_purchase_store.py`.
   **Trả tiền NCC từ KÉT (2026-07-14)**: cột JSON `payments` trên `purchase_slips`

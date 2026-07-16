@@ -36,6 +36,7 @@ import { ReturnDetail } from "./pages/ReturnDetail";
 import { PurchasesList } from "./pages/PurchasesList";
 import { PurchaseDetail } from "./pages/PurchaseDetail";
 import { PurchaseEdit } from "./pages/PurchaseEdit";
+import { PurchaseCreate } from "./pages/PurchaseCreate";
 import { SuppliersList } from "./pages/SuppliersList";
 import { SupplierDetail } from "./pages/SupplierDetail";
 import { WorkerList } from "./pages/WorkerList";
@@ -512,6 +513,7 @@ function App() {
   else if (hash.startsWith("#/viec")) page = <TasksBoard />;
   else if (retMatch) page = <ReturnDetail id={retMatch[1]} />;
   else if (hash.startsWith("#/tra-hang")) page = <ReturnsList />;
+  else if (hash.startsWith("#/nhap-hang/tao")) page = <PurchaseCreate />;
   else if (purEditMatch) page = <PurchaseEdit id={purEditMatch[1]} />;
   else if (purMatch) page = <PurchaseDetail id={purMatch[1]} />;
   else if (dispMatch) page = <DisposalDetail id={dispMatch[1]} />;

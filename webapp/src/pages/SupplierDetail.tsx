@@ -11,7 +11,6 @@ import { onRealtime } from "../realtime";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
-import { PurchaseModal } from "../detail/PurchaseModal";
 import { confirmDialog, toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
@@ -23,7 +22,6 @@ export function SupplierDetail({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", address: "", note: "" });
-  const [createOpen, setCreateOpen] = useState(false);
   const isAdmin = currentUser()?.role === "admin";
   const office = isOffice();
 
@@ -134,15 +132,12 @@ export function SupplierDetail({ id }: { id: string }) {
         <label class="card-label"><Icon name="truck" size={15} /> Phiếu nhập hàng
           {!deleted && (
             <button class={"btn small ret-edit" + (office ? "" : " faded")}
-              onClick={() => office ? setCreateOpen(true) : toast("Chỉ văn phòng mới được tạo phiếu nhập", "info")}>
+              onClick={() => office ? (window.location.hash = `#/nhap-hang/tao?ncc=${id}`)
+                : toast("Chỉ văn phòng mới được tạo phiếu nhập", "info")}>
               <Icon name="plus" size={13} /> Tạo phiếu
             </button>
           )}
         </label>
-        {createOpen && (
-          <PurchaseModal supplierId={Number(id)} supplierName={s.name}
-            onClose={() => setCreateOpen(false)} onCreated={load} />
-        )}
         {!purchases.length && <div class="muted small">Chưa có phiếu nhập nào.</div>}
         {purchases.map((p) => (
           <a class="ret-card pur-card" href={`#/nhap-hang/${p.id}`} key={p.id}>

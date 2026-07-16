@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { listAllPurchases, soVN, type PurchaseSlip } from "../api";
 import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
-import { PurchaseModal } from "../detail/PurchaseModal";
 import { SearchBar } from "../ui/SearchBar";
 import { Loading, EmptyState } from "../ui/states";
 import { Icon } from "../ui/Icon";
@@ -35,7 +34,6 @@ export function PurchasesList() {
   const [rows, setRows] = useState<PurchaseSlip[]>(purCache?.rows || []);
   const [q, setQ] = useState(memQ);
   useEffect(() => { memQ = q; }, [q]);
-  const [createOpen, setCreateOpen] = useState(false);
   const [loading, setLoading] = useState(!purCache);
   const [total, setTotal] = useState(0);
   const st = useRef({ page: purCache?.page || 1, totalPages: purCache?.totalPages || 1, loading: false });
@@ -98,12 +96,11 @@ export function PurchasesList() {
     <div class="ret-list">
       <div class="ret-toolbar">
         <SearchBar value={q} onInput={setQ} placeholder="Tìm NCC, SP, ghi chú…" />
-        <button class="btn primary" onClick={() => setCreateOpen(true)}>
+        <a class="btn primary" href="#/nhap-hang/tao">
           <Icon name="plus" size={16} /> Tạo phiếu
-        </button>
+        </a>
       </div>
       <a class="pur-ncc-link" href="#/ncc"><Icon name="users" size={14} /> Nhà cung cấp</a>
-      {createOpen && <PurchaseModal onClose={() => setCreateOpen(false)} onCreated={() => load(1, false)} />}
       {loading && !rows.length && <Loading />}
       {!loading && !rows.length && <EmptyState>Chưa có phiếu nhập hàng nào.</EmptyState>}
       {!loading && rows.length > 0 && !visible.length && <EmptyState>Không có phiếu khớp "{q}".</EmptyState>}

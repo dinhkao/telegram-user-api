@@ -97,7 +97,9 @@ export const GUIDES_KHONHAP: Guide[] = [
         <b>xoá</b> là quyền <b>admin</b> (xoá mềm).</p>` },
       { title: "Tạo phiếu nhập", html: `
         <ol>
-          <li>Ở <a href="#/nhap-hang">#/nhap-hang</a> bấm <b>Tạo phiếu</b> (hoặc tạo ngay trong trang một NCC).</li>
+          <li>Ở <a href="#/nhap-hang">#/nhap-hang</a> bấm <b>Tạo phiếu</b> (hoặc tạo ngay trong trang một NCC)
+            — mở trang tạo phiếu riêng. Nội dung đang gõ <b>tự lưu nháp</b>: lỡ rời trang/tắt app
+            giữa chừng, quay lại vẫn còn nguyên (tạo xong hoặc bấm <b>Xoá nháp</b> mới mất).</li>
           <li><b>Chọn nhà cung cấp</b> — gõ tên để tìm. Gõ tên <i>chưa có trong danh sách</i> sẽ hiện
             <b>「➕ Tạo NCC mới」</b> — bấm là tạo NCC ngay, khỏi qua trang khác.</li>
           <li><b>Thêm dòng hàng</b>: gõ <b>mã SP</b> (dùng chung bảng sản phẩm; chỉ gợi ý SP được phép

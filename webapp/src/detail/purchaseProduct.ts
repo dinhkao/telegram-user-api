@@ -1,6 +1,6 @@
 // Dựng danh sách gợi ý SP cho dòng phiếu nhập hàng + option "tạo mã hàng mới" khi
 // mã gõ vào chưa có trong danh mục. Thuần (unit-test được), dùng chung
-// PurchaseModal + PurchaseEdit. Tạo thật qua createProduct (POST /api/products).
+// PurchaseCreate + PurchaseEdit. Tạo thật qua createProduct (POST /api/products).
 import type { PickOpt } from "../ui/PickerPopup";
 
 export const NEW_PROD_PREFIX = "__newprod__:";
@@ -32,7 +32,7 @@ export function codeFromCreateKey(key: string): string {
 
 // ── ĐƠN VỊ NHẬP của 1 SP: đơn vị gốc (factor 1) + các đơn vị quy đổi (product_units).
 // Cache module theo mã — mỗi mã chỉ fetch 1 lần/phiên trang. Dùng chung
-// PurchaseModal + PurchaseEdit.
+// PurchaseCreate + PurchaseEdit.
 export type UnitChoice = { name: string; factor: number };
 const _unitCache = new Map<string, Promise<UnitChoice[]>>();
 

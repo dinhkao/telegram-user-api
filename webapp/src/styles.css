@@ -612,6 +612,9 @@ a.alloc-card:active { background: var(--accent-wash); }
 /* Đơn vị nhập của dòng phiếu nhập (PurchaseUnitPicker) — xuống hàng riêng dưới dòng */
 .pu-unit-row { flex-basis: 100%; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 0 0 4px 2px; }
 .pu-unit-row .sp-trigger { padding: 4px 8px; font-size: .85rem; min-height: 0; width: auto; }
+/* banner nháp khôi phục ở trang tạo phiếu nhập (#/nhap-hang/tao) */
+.pur-draft-hint { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; }
+.pur-draft-note { margin: 2px 0 0; }
 /* form thêm đơn vị quy đổi tại chỗ: "1 [Thùng] = [30] cây · OK/Huỷ" */
 .pu-unit-add { flex-basis: 100%; display: flex; gap: 6px; align-items: center; }
 .pu-unit-add input { min-height: 0; padding: 5px 8px; font-size: .85rem; }
