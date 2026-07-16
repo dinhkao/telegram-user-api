@@ -672,6 +672,13 @@ async def box_delete_handler(request: web.Request):
                 return "notfound", None
             if list_box_allocations(conn, box_id):
                 return "allocated", None
+            # Thùng tạo từ phiếu NHẬP HÀNG còn CHỐT kho → cấm xoá lẻ (goods_result sẽ
+            # lệch kho). Đường đúng: HỦY CHỐT phiếu nhập (undo-goods) — nó tự xoá thùng.
+            if box.get("source_purchase_id"):
+                from purchase_store import get_purchase
+                pu = get_purchase(conn, int(box["source_purchase_id"]))
+                if pu and not pu.get("deleted_at") and pu.get("goods_handled_at"):
+                    return "purchase_locked", int(box["source_purchase_id"])
             del_snap.update(box_id=box_id, place_id=box.get("place_id"), box_code=box.get("box_code"),
                             product_code=box.get("product_code"), quantity=box.get("quantity"))
             src = box.get("source_thread_id")
@@ -703,6 +710,9 @@ async def box_delete_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
     if status == "allocated":
         return web.json_response({"ok": False, "error": "Thùng đã xuất cho đơn — thu hồi khỏi đơn trước khi xoá"}, status=400)
+    if status == "purchase_locked":
+        return web.json_response({"ok": False, "error":
+            f"Thùng thuộc phiếu nhập hàng #{res} đang CHỐT kho — vào phiếu nhập bấm Hủy chốt (thùng sẽ được xoá kèm), không xoá lẻ được"}, status=400)
     src, restored, src_purchase = res or (None, [], None)
     from server_app.realtime import (emit_inventory_changed, emit_box_changed,
                                      emit_production_changed, emit_purchase_changed)
