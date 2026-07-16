@@ -436,7 +436,7 @@ export async function handlePurchaseGoods(id: string | number, dispositions: Pur
   const d = await postJSON(`/api/purchases/${Number(id)}/handle-goods`, { dispositions }, { queueable: false });
   return { purchase: d.purchase, result: d.result };
 }
-/** HỦY CHỐT nhập kho (admin) — xoá thùng mới + gỡ cộng kho; server chặn nếu hàng đã dùng. */
+/** HỦY CHỐT nhập kho (admin) — giữ thùng mới + gỡ cộng vào thùng có sẵn; chặn nếu hàng đã dùng. */
 export async function undoPurchaseGoods(id: string | number): Promise<{ purchase: PurchaseSlip }> {
   const d = await postJSON(`/api/purchases/${Number(id)}/undo-goods`, {}, { queueable: false });
   return { purchase: d.purchase };

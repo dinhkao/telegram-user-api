@@ -396,10 +396,18 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   per = factor; không quy đổi → 1 thùng cả lô. Event `purchase.goods_received`. UI: `detail/PurchaseGoodsModal.tsx`
   (prompt sau tạo phiếu, cờ session `pg_open`), summary + chip 📦 kho.
   **HỦY CHỐT nhập kho (admin, 2026-07-16)**: POST `/api/purchases/{id}/undo-goods`
-  (`purchase_goods.undo_purchase_receipt` — all-or-nothing: xoá thùng mới + gỡ
-  allocation purchase_in + clear goods_handled_* → phiếu mở khoá sửa/nhập lại;
+  (`purchase_goods.undo_purchase_receipt` — all-or-nothing: giữ nguyên thùng mới + gỡ
+  allocation purchase_in + clear goods_handled_* → phiếu mở khoá sửa/nhập bổ sung;
+  user có thể xoá riêng từng thùng khi phiếu đã mở; lần chốt lại tính cả thùng giữ lại;
   CHẶN nếu hàng đã dùng: thùng mới có lần xuất/chuyển, hoặc remaining thùng có
-  sẵn < số đã cộng). Event `purchase.goods_undone`. Chi tiết phiếu server gắn
+  sẵn < số đã cộng). Phiếu ĐANG MỞ nhưng kho còn thùng giữ lại từ phiếu:
+  `soft_delete_purchase` CHẶN xoá phiếu (mồ côi thùng) và `update_purchase_items`
+  chặn hạ hàng dưới tổng thùng đang giữ + re-check `goods_handled_at` TRONG
+  transaction (chống race sửa-items đè lên phiếu vừa chốt đồng thời); modal nhập
+  kho prefill + cap theo PHẦN CÒN LẠI (trừ thùng giữ). Server validate disposition
+  TRƯỚC khi claim (mã phải có trên phiếu, đúng SP thùng, thùng sống/còn hàng,
+  không vượt trần cộng dồn theo SP) — lỗi trả 400, không chốt phiếu âm thầm.
+  Event `purchase.goods_undone`. Chi tiết phiếu server gắn
   `boxes` (info + remaining, `attach_purchase_boxes`) → UI vẽ Ô THÙNG
   (BoxLabelGrid) trong khối "Đã nhập kho" + nút Hủy chốt; items gắn `base_unit`
   (đơn vị gốc SP) để bảng hàng nhập luôn hiện đơn vị.

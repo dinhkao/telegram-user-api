@@ -56,6 +56,8 @@ async def purchase_handle_goods_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu nhập"}, status=404)
     if err == "already":
         return web.json_response({"ok": False, "error": "Hàng của phiếu này đã nhập kho rồi"}, status=409)
+    if err:
+        return web.json_response({"ok": False, "error": err}, status=400)
 
     from server_app.realtime import emit_purchase_changed, emit_inventory_changed, emit_box_changed
     emit_purchase_changed(pid)
@@ -77,8 +79,8 @@ async def purchase_handle_goods_handler(request: web.Request):
 async def purchase_undo_goods_handler(request: web.Request):
     """POST /api/purchases/{id}/undo-goods — HỦY CHỐT nhập kho (CHỈ admin).
 
-    Hoàn tác all-or-nothing: xoá thùng mới tạo từ phiếu + gỡ allocation purchase_in
-    + clear goods_handled_* → phiếu mở khoá sửa/nhập kho lại. CHẶN nếu hàng đã
+    Mở khóa all-or-nothing: giữ nguyên thùng mới tạo từ phiếu + gỡ allocation purchase_in
+    + clear goods_handled_* → phiếu sửa/nhập bổ sung được. CHẶN nếu hàng đã
     được dùng (thùng mới có lần xuất/chuyển, hoặc phần cộng vào thùng có sẵn đã
     tiêu) — lỗi 409 kèm thùng vi phạm."""
     from server_app.order_api_common import is_admin_request
@@ -112,7 +114,7 @@ async def purchase_undo_goods_handler(request: web.Request):
     from server_app.realtime import emit_purchase_changed, emit_inventory_changed, emit_box_changed
     emit_purchase_changed(pid)
     emit_inventory_changed()
-    for bid in info.get("deleted_boxes") or []:
+    for bid in info.get("retained_boxes") or []:
         emit_box_changed(bid)
     from audit_log import async_log_event
     from server_app.tasks import spawn_tracked
@@ -120,7 +122,7 @@ async def purchase_undo_goods_handler(request: web.Request):
         "purchase.goods_undone", scope="purchase", thread_id=pid,
         actor_type="web_user" if request.get("web_user") else "http_client",
         actor_id=actor, source="purchase.goods_undone",
-        payload={"deleted_boxes": len(info.get("deleted_boxes") or []),
+        payload={"retained_boxes": len(info.get("retained_boxes") or []),
                  "removed_allocations": info.get("removed_allocations"),
                  "supplier_id": info.get("supplier_id")}))
     return web.json_response({"ok": True, "purchase": row})

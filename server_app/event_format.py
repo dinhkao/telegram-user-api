@@ -212,7 +212,7 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
             bits.append([part("không nhập kho mục nào")])
         return "Nhập kho hàng mua về", _join(bits)
     if action == "purchase.goods_undone":
-        seg = _join([[part(f"xoá {p.get('deleted_boxes')} thùng mới")] if p.get("deleted_boxes") else [],
+        seg = _join([[part(f"giữ {p.get('retained_boxes')} thùng")] if p.get("retained_boxes") else [],
                      [part(f"gỡ {p.get('removed_allocations')} lần cộng kho")] if p.get("removed_allocations") else []])
         return "Hủy chốt nhập kho hàng mua", seg
     if action in ("purchase.created", "purchase.deleted"):

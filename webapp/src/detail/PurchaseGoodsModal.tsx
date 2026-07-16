@@ -17,9 +17,12 @@ import { Icon } from "../ui/Icon";
 
 type Act = "restock_new" | "restock_existing" | "skip";
 // restock_new: count (số thùng) × per (số hàng/thùng); restock_existing: qty cộng vào thùng.
+// held/cap cố định từ lúc mở: held = số đã nằm trong thùng giữ lại (sau hủy chốt),
+// cap = trần còn nhập được của dòng (= số trên phiếu − held) — server check cùng luật.
 type Row = {
   sp: string; action: Act;
   qty: string; count: string; per: string;
+  held: number; cap: number;
   box_id?: number; place_id?: number | null; unit_id?: number | null;
 };
 
@@ -31,22 +34,38 @@ const ACTIONS: SPOption[] = [
 
 const num = (s: string) => parseFloat((s || "").replace(",", ".")) || 0;
 
+const initialRows = (pu: PurchaseSlip): Row[] => {
+  const retained = new Map<string, number>();
+  for (const box of pu.goods_result?.restocked_new || []) {
+    if (box.box_deleted) continue;
+    const code = (box.sp || "").toUpperCase();
+    retained.set(code, (retained.get(code) || 0) + Number(box.quantity || 0));
+  }
+  return (pu.items || []).map((it) => {
+    const conv = !!it.unit && (it.unit_factor || 0) > 0;
+    const base = it.sl * (conv ? it.unit_factor! : 1);
+    const code = (it.sp || "").toUpperCase();
+    const already = Math.min(base, retained.get(code) || 0);
+    retained.set(code, Math.max(0, (retained.get(code) || 0) - already));
+    const left = Math.max(0, base - already);
+    const keepConversion = already <= 1e-6 && conv;
+    return {
+      sp: it.sp,
+      action: left > 1e-6 ? "restock_new" as Act : "skip" as Act,
+      qty: String(left),
+      count: keepConversion ? String(it.sl) : "1",
+      per: keepConversion ? String(it.unit_factor) : String(left),
+      held: already, cap: left,
+    };
+  });
+};
+
 export function PurchaseGoodsModal({ pu, onClose, onDone }: {
   pu: PurchaseSlip; onClose: () => void; onDone: (p: PurchaseSlip) => void;
 }) {
   // Prefill từ dòng phiếu: có đơn vị nhập (Thùng ×30) → count = SL thùng, per = số
   // hàng/thùng (khớp phiếu). Không đơn vị quy đổi → 1 thùng chứa cả lô. Đều sửa được.
-  const [rows, setRows] = useState<Row[]>(
-    (pu.items || []).map((it) => {
-      const conv = it.unit && (it.unit_factor || 0) > 0;
-      const base = it.sl * (conv ? it.unit_factor! : 1);
-      return {
-        sp: it.sp, action: "restock_new" as Act,
-        qty: String(base),
-        count: conv ? String(it.sl) : "1",
-        per: conv ? String(it.unit_factor) : String(base),
-      };
-    }));
+  const [rows, setRows] = useState<Row[]>(() => initialRows(pu));
   const [boxes, setBoxes] = useState<KhoBox[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -73,19 +92,45 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
     if (!it) return 0;
     return it.sl * (it.unit && (it.unit_factor || 0) > 0 ? it.unit_factor! : 1);
   };
+  const unitNameOf = (r: Row) => units.find((u) => u.id === r.unit_id)?.name || "Thùng";
+  const splitCountOf = (r: Row) => {
+    if (r.action !== "restock_new" || countOf(r) !== 1) return 0;
+    const base = r.cap;   // chia theo phần CÒN nhập được (đã trừ thùng giữ lại)
+    const per = perOf(r);
+    if (base <= 0 || per <= 0 || per >= base - 1e-6) return 0;
+    const ratio = base / per;
+    const rounded = Math.round(ratio);
+    return rounded > 1 && Math.abs(ratio - rounded) <= 1e-6 ? rounded : 0;
+  };
 
   const missingBox = rows.some((r) => r.action === "restock_existing" && !r.box_id);
   const badNew = rows.some((r) => r.action === "restock_new" && (countOf(r) < 1 || perOf(r) <= 0));
   const badExisting = rows.some((r) => r.action === "restock_existing" && num(r.qty) <= 0);
-  const overRows = rows.some((r, i) => r.action !== "skip" && totalOf(r) > baseOf(i) + 1e-6);
+  const overRows = rows.some((r) => r.action !== "skip" && totalOf(r) > r.cap + 1e-6);
 
   const submit = async () => {
     if (missingBox) { toast("Chọn thùng cho dòng ‘Nhập vào thùng có sẵn’", "err"); return; }
     if (badNew) { toast("Số thùng ≥ 1 và số hàng/thùng phải > 0", "err"); return; }
     if (badExisting) { toast("Số lượng thực nhận phải > 0 (hoặc chọn Bỏ qua)", "err"); return; }
     if (overRows) { toast("Tổng hàng nhập kho không được vượt số trên phiếu", "err"); return; }
-    const active = rows.filter((r) => r.action !== "skip");
-    if (!active.length) { onClose(); return; }
+    let submitRows = rows;
+    const splitRows = rows
+      .map((r, i) => ({ i, r, count: splitCountOf(r) }))
+      .filter((x) => x.count > 1);
+    if (splitRows.length) {
+      const lines = splitRows.map(({ r, count }) =>
+        `${r.sp}: ${count} ${unitNameOf(r).toLowerCase()} × ${soVN(perOf(r))}`);
+      if (await confirmDialog(
+        `Có dòng đang để 1 ${unitNameOf(splitRows[0].r).toLowerCase()} nhưng chia đều được theo số trên phiếu:\n${lines.join("\n")}`,
+        { okLabel: "Tự chia", cancelLabel: "Giữ như hiện tại" },
+      )) {
+        const counts = Object.fromEntries(splitRows.map((x) => [x.i, String(x.count)]));
+        submitRows = rows.map((r, i) => (counts[i] ? { ...r, count: counts[i] } : r));
+        setRows(submitRows);
+      }
+    }
+
+    const active = submitRows.filter((r) => r.action !== "skip");
     const dispositions: PurchaseDisposition[] = active.map((r) =>
       r.action === "restock_existing"
         ? { sp: r.sp, quantity: num(r.qty), action: r.action, box_id: r.box_id }
@@ -96,7 +141,10 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
     const parts: string[] = [];
     if (nBoxes) parts.push(`tạo ${nBoxes} thùng mới`);
     if (nRe) parts.push(`nhập ${nRe} thùng có sẵn`);
-    if (!(await confirmDialog(`Nhập kho hàng mua: ${parts.join(", ")}? (1 lần/phiếu — sau đó phiếu khoá sửa)`, { okLabel: "Nhập kho" }))) return;
+    const msg = active.length
+      ? `Nhập kho hàng mua: ${parts.join(", ")}? (1 lần/phiếu — sau đó phiếu khoá sửa)`
+      : "Không nhập kho mục nào cho phiếu này? Phiếu sẽ được chốt xử lý và khoá sửa.";
+    if (!(await confirmDialog(msg, { okLabel: active.length ? "Nhập kho" : "Chốt xử lý" }))) return;
     setBusy(true);
     try {
       const { purchase: updated } = await handlePurchaseGoods(pu.id, dispositions);
@@ -126,7 +174,7 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
           }));
           const total = totalOf(r);
           const base = baseOf(i);
-          const over = r.action !== "skip" && total > base + 1e-6;
+          const over = r.action !== "skip" && total > r.cap + 1e-6;
           return (
             <div class="rg-row" key={i}>
               <div class="rg-row-head rg-qty-head">
@@ -140,7 +188,9 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
               {r.action !== "skip" && (
                 <div class={"muted small" + (over ? " pg-over" : "")}>
                   Số hàng trên phiếu: <b>{soVN(base)}{baseUnit ? ` ${baseUnit}` : ""}</b>
-                  {conv ? ` (${conv})` : ""}{over ? " · ⚠ đang nhập vượt số này" : ""}
+                  {conv ? ` (${conv})` : ""}
+                  {r.held > 1e-6 ? ` · đã giữ ${soVN(r.held)} ở thùng cũ · còn nhập được ${soVN(r.cap)}` : ""}
+                  {over ? " · ⚠ đang nhập vượt số còn lại" : ""}
                 </div>
               )}
               <SelectPopup value={r.action} options={ACTIONS}
@@ -174,7 +224,8 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
                     {baseUnit && <span class="pg-x">{baseUnit}</span>}
                   </div>
                   <div class={"muted small" + (over ? " pg-over" : "")}>
-                    = {soVN(total)}{baseUnit ? ` ${baseUnit}` : ""} nhập kho ({countOf(r)} {unitName.toLowerCase()}) / phiếu {soVN(base)}
+                    = {soVN(total)}{baseUnit ? ` ${baseUnit}` : ""} nhập kho ({countOf(r)} {unitName.toLowerCase()})
+                    {" / "}{r.held > 1e-6 ? `còn nhập được ${soVN(r.cap)}` : `phiếu ${soVN(base)}`}
                   </div>
                 </div>
               )}

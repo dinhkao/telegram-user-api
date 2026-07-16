@@ -130,21 +130,91 @@ def list_purchases_for_supplier(conn, supplier_id: int) -> list[dict]:
     return [_row_to_dict(r) for r in rows]
 
 
+def _has_inventory_boxes(conn) -> bool:
+    # bảng kho do inventory_store tạo — DB chưa bật tính năng kho thì guard bỏ qua
+    return bool(conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='inventory_boxes'").fetchone())
+
+
+def _retained_box_totals(conn, purchase_id: int) -> dict:
+    """Hàng đang nằm trong thùng CÒN SỐNG tạo từ phiếu này (sau hủy chốt các thùng
+    được GIỮ NGUYÊN), gộp theo SP — key = ('id', products.id) hoặc ('code', MÃ),
+    value = (tổng số, mã hiển thị). Dùng cho guard sửa/xoá phiếu."""
+    totals: dict = {}
+    if not _has_inventory_boxes(conn):
+        return totals
+    for r in conn.execute(
+            "SELECT product_id, product_code, SUM(quantity) AS q FROM inventory_boxes"
+            " WHERE source_purchase_id = ? AND quantity > 0 GROUP BY product_id, product_code",
+            (int(purchase_id),)).fetchall():
+        code = str(r["product_code"] or "").strip().upper()
+        key = ("id", int(r["product_id"])) if r["product_id"] is not None else ("code", code)
+        qty, _ = totals.get(key, (0.0, code))
+        totals[key] = (qty + float(r["q"] or 0), code)
+    return totals
+
+
+def _items_totals(conn, items: list[dict]) -> dict:
+    """Tổng số hàng (đơn vị gốc) theo SP của items phiếu — cùng key với
+    _retained_box_totals để so được với thùng đang giữ. Mã không kèm sp_id được
+    resolve qua product_store (cùng cách add_boxes gắn product_id cho thùng)."""
+    from product_store import resolve_code
+    totals: dict = {}
+    for it in items or []:
+        code = str((it or {}).get("sp") or "").strip().upper()
+        if not code:
+            continue
+        try:
+            qty = float((it or {}).get("sl"))
+        except (TypeError, ValueError):
+            continue
+        if qty <= 0:
+            continue
+        if (it or {}).get("unit"):
+            try:
+                f = float((it or {}).get("unit_factor"))
+            except (TypeError, ValueError):
+                f = 0.0
+            if f > 0:
+                qty *= f
+        sp_id = (it or {}).get("sp_id")
+        if sp_id in (None, ""):
+            prod = resolve_code(conn, code)
+            sp_id = prod["id"] if prod else None
+        key = ("id", int(sp_id)) if sp_id not in (None, "") else ("code", code)
+        totals[key] = totals.get(key, 0.0) + qty
+    return totals
+
+
 def update_purchase_items(conn, purchase_id: int, items: list[dict], total: float,
                           note: str, supplier_id: int | None = None) -> tuple[bool, str]:
     """Sửa hàng nhập/ghi chú (văn phòng) — đổi cả NCC nếu truyền supplier_id.
     CHẶN hạ tổng xuống dưới số ĐÃ TRẢ NCC (cùng transaction, tránh race với trả
-    tiền đồng thời) — không thì phiếu trả-dư bị che thành 'đã trả đủ'."""
+    tiền đồng thời) — không thì phiếu trả-dư bị che thành 'đã trả đủ'.
+    CHẶN sửa khi phiếu đã CHỐT nhập kho (re-check trong transaction — route đã
+    check nhưng có thể bị chốt đồng thời giữa 2 bước) và chặn hạ hàng xuống dưới
+    số đang nằm trong thùng giữ lại sau hủy chốt (không thì phiếu kẹt, không chốt
+    lại được)."""
     from purchase_store.payments import _parse, paid_total
     from utils.db import transaction
     ensure_purchases_schema(conn)
     with transaction(conn):
         r = conn.execute(
-            "SELECT payments, supplier_id FROM purchase_slips WHERE id = ?", (purchase_id,)).fetchone()
+            "SELECT payments, supplier_id, goods_handled_at FROM purchase_slips WHERE id = ?",
+            (purchase_id,)).fetchone()
+        if r and r["goods_handled_at"]:
+            return False, "Phiếu đã nhập kho — không sửa hàng được nữa"
         paid = paid_total(_parse(r["payments"])) if r else 0
         if int(round(float(total))) < paid:
             return False, (f"Phiếu đã trả {paid:,}đ — tổng mới không được thấp hơn số đã trả"
                            .replace(",", "."))
+        retained = _retained_box_totals(conn, purchase_id)
+        if retained:   # chỉ resolve items khi có thùng giữ lại (DB không kho thì bỏ qua)
+            new_totals = _items_totals(conn, items)
+            for key, (qty, code) in retained.items():
+                if qty > new_totals.get(key, 0.0) + 1e-9:
+                    return False, (f"Kho đang giữ {qty:g} {code} trong thùng tạo từ phiếu này — "
+                                   f"hàng trên phiếu không được thấp hơn (xoá bớt thùng trước)")
         # Đã trả tiền NCC → không được đổi sang NCC khác (các lần trả gắn với NCC cũ
         # sẽ lệch két/công nợ). Muốn đổi thì gỡ hết các lần trả trước.
         cur_sup = r["supplier_id"] if r else None
@@ -176,9 +246,10 @@ def claim_goods_handling(conn, purchase_id: int, by: str = "") -> bool:
 
 
 def clear_goods_handling(conn, purchase_id: int) -> bool:
-    """HỦY CHỐT nhập kho: xoá dấu goods_handled_* + goods_result → phiếu sửa lại
-    được, nhập kho lại được. Caller (purchase_goods.undo_purchase_receipt) phải
-    hoàn kho TRƯỚC (xoá thùng mới / gỡ allocation purchase_in)."""
+    """Helper cũ: xoá dấu goods_handled_* và toàn bộ goods_result.
+
+    Luồng undo hiện tại ghi inline để giữ snapshot thùng mới, không gọi helper này.
+    """
     ensure_purchases_schema(conn)
     conn.execute(
         "UPDATE purchase_slips SET goods_handled_at = NULL, goods_handled_by = NULL, goods_result = NULL"
@@ -197,13 +268,23 @@ def set_goods_result(conn, purchase_id: int, result: dict) -> bool:
     return True
 
 
-def soft_delete_purchase(conn, purchase_id: int, by: str = "") -> bool:
+def soft_delete_purchase(conn, purchase_id: int, by: str = "") -> tuple[bool, str]:
+    """Xoá mềm phiếu nhập (admin). CHẶN khi kho còn thùng tạo từ phiếu (kể cả sau
+    hủy chốt — thùng được giữ lại): xoá phiếu sẽ mồ côi thùng, link 'Nguồn' chết
+    và không chốt/hoàn lại được. Xoá các thùng đó trước rồi mới xoá phiếu."""
+    from utils.db import transaction
     ensure_purchases_schema(conn)
-    conn.execute(
-        "UPDATE purchase_slips SET deleted_at = datetime('now', '+7 hours'), deleted_by = ?"
-        " WHERE id = ? AND deleted_at IS NULL", (by or "", purchase_id))
-    conn.commit()
-    return True
+    with transaction(conn):
+        n = conn.execute(
+            "SELECT COUNT(*) FROM inventory_boxes WHERE source_purchase_id = ?",
+            (int(purchase_id),)).fetchone()[0] if _has_inventory_boxes(conn) else 0
+        if n:
+            return False, (f"Kho còn {n} thùng tạo từ phiếu này — xoá các thùng đó "
+                           f"(hoặc hủy chốt rồi xoá thùng) trước khi xoá phiếu")
+        conn.execute(
+            "UPDATE purchase_slips SET deleted_at = datetime('now', '+7 hours'), deleted_by = ?"
+            " WHERE id = ? AND deleted_at IS NULL", (by or "", purchase_id))
+    return True, ""
 
 
 from purchase_store.payments import (add_purchase_payment, delete_purchase_payment,  # noqa: E402,F401

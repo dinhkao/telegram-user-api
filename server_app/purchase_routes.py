@@ -415,7 +415,10 @@ async def purchase_delete_handler(request: web.Request):
             return soft_delete_purchase(conn, pid, by=actor)
         finally:
             conn.close()
-    await asyncio.to_thread(_del_slip)
+    ok, del_err = await asyncio.to_thread(_del_slip)
+    if not ok:
+        # kho còn thùng tạo từ phiếu (kể cả sau hủy chốt) — xoá phiếu sẽ mồ côi thùng
+        return web.json_response({"ok": False, "error": del_err}, status=400)
     from server_app.realtime import emit_purchase_changed, emit_supplier_changed
     emit_purchase_changed(pid)
     emit_supplier_changed(int(row["supplier_id"]))

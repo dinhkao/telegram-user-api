@@ -687,7 +687,7 @@ async def box_delete_handler(request: web.Request):
             if list_box_allocations(conn, box_id):
                 return "allocated", None
             # Thùng tạo từ phiếu NHẬP HÀNG còn CHỐT kho → cấm xoá lẻ (goods_result sẽ
-            # lệch kho). Đường đúng: HỦY CHỐT phiếu nhập (undo-goods) — nó tự xoá thùng.
+            # lệch kho). Hủy chốt phiếu trước để mở khóa rồi mới xoá từng thùng.
             if box.get("source_purchase_id"):
                 from purchase_store import get_purchase
                 pu = get_purchase(conn, int(box["source_purchase_id"]))
@@ -733,7 +733,7 @@ async def box_delete_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Thùng đã xuất cho đơn — thu hồi khỏi đơn trước khi xoá"}, status=400)
     if status == "purchase_locked":
         return web.json_response({"ok": False, "error":
-            f"Thùng thuộc phiếu nhập hàng #{res} đang CHỐT kho — vào phiếu nhập bấm Hủy chốt (thùng sẽ được xoá kèm), không xoá lẻ được"}, status=400)
+            f"Thùng thuộc phiếu nhập hàng #{res} đang CHỐT kho — vào phiếu nhập bấm Hủy chốt rồi xoá thùng này"}, status=400)
     if status == "return_locked":
         return web.json_response({"ok": False, "error":
             f"Thùng thuộc phiếu trả hàng #{res} đã xử lý hàng — không xoá lẻ được"}, status=400)

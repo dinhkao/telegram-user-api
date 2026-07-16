@@ -228,7 +228,7 @@ export function PurchaseDetail({ id }: { id: string }) {
             ));
           const doUndo = async () => {
             if (!(await confirmDialog(
-              "Hủy chốt nhập kho phiếu này?\nThùng mới tạo từ phiếu sẽ bị XOÁ, phần đã cộng vào thùng có sẵn sẽ bị trừ lại. Chỉ được khi hàng CHƯA dùng vào đâu.",
+              "Hủy chốt nhập kho phiếu này?\nCác thùng mới sẽ được GIỮ NGUYÊN để xóa từng thùng hoặc nhập bổ sung. Phần đã cộng vào thùng có sẵn sẽ bị trừ lại. Chỉ được khi hàng CHƯA dùng vào đâu.",
               { danger: true, okLabel: "Hủy chốt" }))) return;
             setBusy(true);
             try {
@@ -244,7 +244,7 @@ export function PurchaseDetail({ id }: { id: string }) {
               <label class="card-label"><Icon name="check" size={15} /> Đã nhập kho
                 {isAdmin && (
                   <button class="btn small rg-undo-btn" disabled={busy} onClick={doUndo}
-                    title="Xoá thùng đã nhập, mở khoá sửa phiếu — chặn nếu hàng đã dùng">
+                    title="Giữ nguyên thùng mới và mở khóa phiếu — chặn nếu hàng đã dùng">
                     <Icon name="refresh" size={13} /> Hủy chốt
                   </button>
                 )}
