@@ -3,7 +3,9 @@ python-dotenv>=1.0.0
 aiohttp>=3.9.0
 scrapling[fetchers]>=0.4.7
 firebase-admin>=6.0.0
-playwright>=1.40.0
+# PIN chính xác: 1.60.0 khớp chromium-1223 đã cache (~/Library/Caches/ms-playwright).
+# Bản mới hơn đòi chromium khác chưa cache → render HĐ→PNG hỏng (xem invoice_image.py).
+playwright==1.60.0
 Pillow>=10.0.0
 google-api-python-client>=2.100.0
 google-auth>=2.20.0
