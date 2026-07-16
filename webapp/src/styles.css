@@ -1132,18 +1132,18 @@ body.kbd-open .pay-submit-bar { bottom: 8px; }
 .prod-report-table tr.prod-row-off td { color: var(--muted); }
 /* Khối tiền công + phụ cấp (chỉ văn phòng) */
 .pw-box { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
-.pw-head { display: flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 800; color: var(--ok); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+.pw-head { display: flex; align-items: center; gap: 6px; font-size: .86rem; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
 .pw-scroll { overflow-x: auto; }
 .pw-table { border-collapse: collapse; width: 100%; font-size: .85rem; }
-.pw-table th, .pw-table td { border: 1px solid var(--border); padding: 5px 8px; text-align: right; white-space: nowrap; }
+.pw-table th, .pw-table td { border: 1px solid #eee; padding: 5px 8px; text-align: right; white-space: nowrap; vertical-align: middle; }
 .pw-table th:first-child, .pw-table td:first-child { text-align: left; }
-.pw-table thead th { font-size: .72rem; color: var(--muted); font-weight: 700; }
+.pw-table thead th { font-size: .85rem; color: inherit; font-weight: 700; }
 .pw-name { font-weight: 700; }
 .pw-worker-note { margin-top: 2px; color: var(--muted); font-size: .72rem; font-weight: 500; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
 .pw-piece { font-variant-numeric: tabular-nums; }
 .pw-sub { font-size: .68rem; font-weight: 400; }
-.pw-total { font-weight: 800; color: var(--ok); font-variant-numeric: tabular-nums; }
-.pw-table tfoot td { background: var(--ok-wash); font-weight: 800; font-variant-numeric: tabular-nums; }
+.pw-total { font-weight: 700; font-variant-numeric: tabular-nums; }
+.pw-table tfoot td { background: #faf3e0; font-weight: 700; font-variant-numeric: tabular-nums; }
 .pw-input { width: 82px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 7px; font: inherit; font-size: .85rem; text-align: right; font-variant-numeric: tabular-nums; background: var(--card); color: var(--ink); }
 .pw-input:focus { border-color: var(--primary); outline: none; }
 /* Đơn giá lương CHỐT theo phiếu */

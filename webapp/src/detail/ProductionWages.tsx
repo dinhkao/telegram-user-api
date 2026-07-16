@@ -14,7 +14,7 @@ import { SelectPopup } from "../ui/SelectPopup";
 
 const money = (n: number) => soVN(Math.round(n)) + "đ";
 
-export function ProductionWages({ threadId, workers }: { threadId: string; workers: { name: string; cay: number; gio?: number }[] }) {
+export function ProductionWages({ threadId, workers }: { threadId: string; workers: { name: string; cay: number; gio?: number; note?: string }[] }) {
   const [wage, setWage] = useState(0);
   const [defaultWage, setDefaultWage] = useState(0);
   const [wageDraft, setWageDraft] = useState<string | null>(null);
@@ -97,7 +97,7 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
     const piece = gio > 0 ? Math.round(gio * rate) : Math.round(w.cay * wage);
     const a = allow[w.name] || 0;
     totPiece += piece; totAllow += a;
-    return { name: w.name, cay: w.cay, gio, rate, piece, a };
+    return { name: w.name, cay: w.cay, gio, rate, piece, a, note: (w.note || "").trim() };
   });
   // Xếp hạng theo TIỀN SP (không tính phụ cấp) cho popup "bằng người cao nhất/nhì/ba"
   const ranked = [...rows].sort((x, y) => y.piece - x.piece);
@@ -131,13 +131,16 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
         <span class="muted small">đ/SP</span>
         {defaultWage !== wage ? <span class="pw-wage-note muted small">bảng lương: {soVN(defaultWage)}đ</span> : null}
       </div>
-      <div class="pw-scroll">
-        <table class="pw-table">
+      <div class="prod-report-scroll pw-scroll">
+        <table class="prod-report-table pw-table">
           <thead><tr><th>Thợ</th><th>Tiền SP</th><th>Phụ cấp</th><th>Tổng</th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.name}>
-                <td class="pw-name">{r.name}</td>
+                <td class="pw-name">
+                  <div>{r.name}</div>
+                  {r.note ? <div class="pw-worker-note">{r.note}</div> : null}
+                </td>
                 <td class="pw-piece">{money(r.piece)}
                   {r.gio > 0
                     ? <span class="muted pw-sub"> {soVN(r.gio)}giờ×{soVN(r.rate)}{r.rate <= 0 ? " ⚠ chưa đặt tiền 1 giờ" : ""}</span>

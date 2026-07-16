@@ -100,6 +100,7 @@ export function ProductionReport({ threadId, slip, locked }: { threadId: string;
             name: r.name, cay: r.tong_calc,
             // giờ chỉ tính ở phiếu SẢN XUẤT (khớp rule server — đóng gói bỏ qua)
             gio: (slip.kind || "san_xuat") !== "dong_goi" ? ((r as any).so_gio || 0) : 0,
+            note: r.note || "",
           }))} />}
         </>
       ) : (
