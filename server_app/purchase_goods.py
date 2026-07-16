@@ -2,9 +2,10 @@
 
 Phiếu MỞ: ghi nhập TỪNG DÒNG thoải mái (receive_purchase_lines — tạo N thùng mới
 giống nhau như phiếu SX / cộng vào thùng có sẵn bằng allocation ÂM 'purchase_in'),
-gỡ từng dòng (unreceive_purchase_line) hoặc xoá từng thùng; đủ rồi bấm CHỐT
-(confirm_purchase_receipt — CAS goods_handled_at + snapshot goods_result → khoá
-phiếu). Trạng thái ĐANG NHẬP derive LIVE từ kho (_draft_receipt: thùng
+gỡ từng dòng (unreceive_purchase_line) hoặc xoá từng thùng; nhập ĐỦ mọi mã theo
+phiếu mới CHỐT được (confirm_purchase_receipt — CAS goods_handled_at + snapshot
+goods_result → khoá phiếu; thiếu → lỗi, sửa SL phiếu về số thực nhận nếu hàng về
+thiếu/vỡ). Trạng thái ĐANG NHẬP derive LIVE từ kho (_draft_receipt: thùng
 source_purchase_id + allocation purchase_in) — không có bảng state riêng.
 apply_purchase_receipt (endpoint handle-goods cũ + tests) = receive + confirm
 trong 1 transaction. Hủy chốt (undo) mở khoá, GIỮ thùng → quay về trạng thái
@@ -235,6 +236,20 @@ def _apply_lines(conn, purchase_id: int, valid: list[dict], actor: str) -> list[
     return touched
 
 
+def _missing_items(conn, purchase: dict, used: dict) -> list[dict]:
+    """Các mã CHƯA nhập đủ so với phiếu. Rule: chưa đủ thì KHÔNG cho chốt —
+    hàng về thiếu/vỡ phải sửa SL trên phiếu về số thực nhận rồi mới chốt."""
+    limits, labels = _purchase_item_limits(conn, purchase.get("items") or [])
+    return [{"sp": labels.get(k) or k[1], "missing": round(lim - used.get(k, 0.0), 3)}
+            for k, lim in limits.items() if used.get(k, 0.0) + 1e-6 < lim]
+
+
+def _missing_error(missing: list[dict]) -> str:
+    detail = ", ".join(f"{m['sp']} thiếu {m['missing']:g}" for m in missing)
+    return (f"Chưa nhập đủ hàng vào kho — {detail}. Nhập thêm cho đủ; "
+            "hàng về thiếu/vỡ thì sửa SL trên phiếu về số thực nhận rồi chốt.")
+
+
 def _snapshot(draft: dict) -> dict:
     """goods_result từ trạng thái đang nhập — 1 entry / thùng mới, 1 entry / lần cộng."""
     keep = ("sp", "quantity", "box_id", "box_code")
@@ -271,8 +286,9 @@ def receive_purchase_lines(conn, purchase_id: int, dispositions, *, actor: str =
 
 def confirm_purchase_receipt(conn, purchase_id: int, *, actor: str = "") -> tuple[dict | None, str | None]:
     """CHỐT nhập kho (như 'chốt xuất kho' của đơn): CAS goods_handled_at, chụp
-    trạng thái đang nhập vào goods_result → phiếu khoá sửa/xoá. Cho chốt cả khi
-    THIẾU (hàng về thiếu/vỡ) — trả missing để UI cảnh báo trước."""
+    trạng thái đang nhập vào goods_result → phiếu khoá sửa/xoá. CHỈ chốt khi đã
+    nhập ĐỦ mọi mã theo phiếu (như chốt xuất kho đòi xuất đủ) — thiếu trả lỗi;
+    hàng về thiếu/vỡ thì sửa SL trên phiếu về số thực nhận rồi chốt."""
     from purchase_store import get_purchase, ensure_purchases_schema
     from utils.db import transaction
 
@@ -283,14 +299,14 @@ def confirm_purchase_receipt(conn, purchase_id: int, *, actor: str = "") -> tupl
             return None, "not_found"
         draft = _draft_receipt(conn, purchase_id)
         limits, labels = _purchase_item_limits(conn, p.get("items") or [])
-        missing = []
         for key, lim in limits.items():
             got = draft["used"].get(key, 0.0)
             if got > lim + 1e-9:   # phòng hờ — receive đã chặn, items đã guard
                 return None, (f"Phần đã nhập của mã {labels.get(key) or key[1]} vượt số trên phiếu "
                               f"({got:g} > {lim:g}) — gỡ bớt trước khi chốt")
-            if got + 1e-6 < lim:
-                missing.append({"sp": labels.get(key) or key[1], "missing": round(lim - got, 3)})
+        missing = _missing_items(conn, p, draft["used"])
+        if missing:
+            return None, _missing_error(missing)
         claimed = conn.execute(
             "UPDATE purchase_slips SET goods_handled_at = ?, goods_handled_by = ? "
             "WHERE id = ? AND goods_handled_at IS NULL",
@@ -301,7 +317,7 @@ def confirm_purchase_receipt(conn, purchase_id: int, *, actor: str = "") -> tupl
         conn.execute("UPDATE purchase_slips SET goods_result = ? WHERE id = ?",
                      (_json.dumps(result, ensure_ascii=False), purchase_id))
     touched = [e["box_id"] for e in draft["new"] + draft["existing"]]
-    return {"result": result, "touched_boxes": touched, "missing": missing,
+    return {"result": result, "touched_boxes": touched, "missing": [],
             "supplier_id": p.get("supplier_id")}, None
 
 
@@ -345,7 +361,7 @@ def apply_purchase_receipt(conn, purchase_id: int, dispositions, *, actor: str =
     """Nhập + CHỐT 1 phát trong 1 transaction (endpoint handle-goods cũ — modal
     'nhập nhanh' và tests). Tương đương receive_purchase_lines + confirm; phần
     đã nhập từ trước (thùng giữ lại sau hủy chốt, dòng receive lẻ) được tính vào
-    trần và vào goods_result."""
+    trần và vào goods_result. Cùng rule chốt: THIẾU → lỗi, rollback cả lô."""
     from purchase_store import get_purchase, ensure_purchases_schema
     from utils.db import transaction
 
@@ -369,6 +385,9 @@ def apply_purchase_receipt(conn, purchase_id: int, dispositions, *, actor: str =
                 return None, "already"
             touched = _apply_lines(conn, purchase_id, valid, actor)
             final = _draft_receipt(conn, purchase_id)
+            missing = _missing_items(conn, p, final["used"])
+            if missing:   # raise → rollback cả CAS lẫn các dòng vừa ghi
+                raise _ReceiptApplyError(_missing_error(missing))
             result = _snapshot(final)
             conn.execute("UPDATE purchase_slips SET goods_result = ? WHERE id = ?",
                          (_json.dumps(result, ensure_ascii=False), purchase_id))

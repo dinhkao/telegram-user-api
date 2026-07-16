@@ -334,14 +334,17 @@ export function PurchaseDetail({ id }: { id: string }) {
             line: x, isNew,
           };
         });
+        // Nhập ĐỦ mọi mã theo phiếu mới chốt được (như chốt xuất kho đơn — server
+        // cũng chặn). Hàng về thiếu/vỡ → sửa SL trên phiếu về số thực nhận rồi chốt.
+        const confirmBlock = !hasDraft
+          ? "Chưa nhập kho mục nào — nhập đủ hàng vào kho rồi mới chốt được"
+          : missing.length
+            ? `Chưa nhập đủ: ${missing.map((m) => `${m.code} thiếu ${soVN(m.base - m.got)}`).join(", ")} — nhập thêm cho đủ (hàng về thiếu/vỡ thì sửa SL trên phiếu)`
+            : "";
         const doConfirm = async () => {
-          const warn = !hasDraft
-            ? "Chưa nhập kho mục nào (hàng không quản kho).\n"
-            : missing.length
-              ? `Còn thiếu so với phiếu:\n${missing.map((m) => `• ${m.code}: thiếu ${soVN(m.base - m.got)}`).join("\n")}\n`
-              : "";
+          if (confirmBlock) return toast(confirmBlock, "info");
           if (!(await confirmDialog(
-            `${warn}Chốt nhập kho? Phiếu sẽ KHOÁ sửa (chỉ admin hủy chốt được).`,
+            "Chốt nhập kho? Phiếu sẽ KHOÁ sửa (chỉ admin hủy chốt được).",
             { okLabel: "Chốt nhập kho" }))) return;
           setBusy(true);
           try {
@@ -391,7 +394,8 @@ export function PurchaseDetail({ id }: { id: string }) {
                 onClick={() => office ? setShowGoods(true) : toast("Chỉ văn phòng mới được nhập kho hàng mua", "info")}>
                 <Icon name="box" size={15} /> {hasDraft ? "Nhập thêm" : "Nhập kho hàng mua về"}
               </button>
-              <button class={"btn primary block" + (office ? "" : " faded")} disabled={busy}
+              <button class={"btn primary block" + (office && !confirmBlock ? "" : " faded")} disabled={busy}
+                title={confirmBlock || undefined}
                 onClick={() => office ? doConfirm() : toast("Chỉ văn phòng mới được chốt nhập kho", "info")}>
                 ✓ Chốt nhập kho
               </button>
