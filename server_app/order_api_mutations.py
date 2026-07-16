@@ -35,7 +35,10 @@ def _invoice_total(invoice: list | None, vat, pvc, discount) -> int:
 
 
 def _stock_locked_price_update(order: dict, invoice: list | None, body: dict) -> list[dict] | None:
-    """Trả invoice nếu payload chốt kho chỉ đổi giá, chiết khấu hoặc PVC."""
+    """Sau CHỐT XUẤT KHO chỉ khoá HÀNG ĐÃ XUẤT: không thêm/xoá dòng, không đổi mã,
+    không đổi số lượng (kho đã trừ theo đó). Còn lại sửa hết: giá, ghi chú từng
+    dòng, chiết khấu, PVC, VAT (xử lý ở caller). Trả invoice dựng lại từ bản cũ
+    (giữ metadata nội bộ cost_price/id...) hoặc None nếu payload đụng phần khoá."""
     old_invoice = order.get("invoice") or []
     new_invoice = invoice if invoice is not None else old_invoice
     try:
@@ -43,15 +46,12 @@ def _stock_locked_price_update(order: dict, invoice: list | None, body: dict) ->
             isinstance(new, dict)
             and str(new.get("sp") or "").strip().upper() == str(old.get("sp") or "").strip().upper()
             and float(new.get("sl", new.get("quantity", 0)) or 0) == float(old.get("sl", old.get("quantity", 0)) or 0)
-            and str(new.get("note") or "") == str(old.get("note") or "")
             for old, new in zip(old_invoice, new_invoice)
         )
-        # Chiết khấu và PVC được phép đổi; VAT vẫn giữ nguyên.
-        same_adjustments = "vat" not in body or int(body.get("vat") or 0) == int(order.get("vat") or 0)
-        if not same_lines or not same_adjustments:
+        if not same_lines:
             return None
         return [
-            {**old, "price": int(float(new.get("price") or 0))}
+            {**old, "price": int(float(new.get("price") or 0)), "note": str(new.get("note") or "")}
             for old, new in zip(old_invoice, new_invoice)
         ]
     except (TypeError, ValueError, OverflowError):
@@ -230,14 +230,14 @@ async def api_invoice_update_handler(request: web.Request):
         order = get_order_by_thread_id(conn, thread_id)
         if not order:
             return web.json_response({"ok": False, "error": "Order not found"}, status=404)
-        # Sau khi chốt kho, danh sách hàng/SL/ghi chú và VAT phải bất biến; chỉ
-        # nhận giá, chiết khấu và PVC mới. Dựng lại từ invoice cũ để client không thể
-        # làm mất metadata nội bộ (cost_price, id...) bằng payload thủ công.
+        # Sau khi chốt kho chỉ khoá HÀNG ĐÃ XUẤT (mã + số lượng, không thêm/xoá dòng);
+        # giá, ghi chú, chiết khấu, PVC, VAT vẫn sửa được. Dựng lại từ invoice cũ để
+        # client không thể làm mất metadata nội bộ (cost_price, id...) bằng payload thủ công.
         if order.get("stock_confirmed"):
             price_update = _stock_locked_price_update(order, invoice, body)
             if price_update is None:
                 return web.json_response(
-                    {"ok": False, "error": "Đơn đã chốt xuất kho — chỉ được sửa đơn giá, chiết khấu và PVC", "locked": True},
+                    {"ok": False, "error": "Đơn đã chốt xuất kho — không thêm/xoá mã hàng hay đổi số lượng được (giá, ghi chú, CK, PVC, VAT vẫn sửa được)", "locked": True},
                     status=403,
                 )
             invoice = price_update

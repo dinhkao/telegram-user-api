@@ -45,7 +45,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   onSave: (payload: EditorPayload) => Promise<void> | void;
   onCancel?: () => void;   // trang sửa: Huỷ → quay về chi tiết; createMode không cần
   createMode?: boolean;    // form tạo đơn → nhãn nút "Lưu & tạo đơn"
-  priceOnly?: boolean;     // đơn đã chốt kho: chỉ cho đổi đơn giá, giữ nguyên mọi trường khác
+  priceOnly?: boolean;     // đơn đã chốt kho: khoá mã hàng + SL (không thêm/xoá dòng); giá/ghi chú/CK/PVC/VAT vẫn sửa
 }) {
   // slText = chuỗi user đang gõ cho ô SL (giữ dấu ',' đang gõ dở như "1,"); sl = số
   // đã parse (float) dùng để tính. Không giữ raw thì input controlled sẽ nuốt dấu phẩy.
@@ -125,10 +125,9 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
 
   const tienHang = rows.reduce((s, r) => s + (r.price || 0) * (r.sl || 0), 0);
   // Tính trực tiếp thay vì đồng bộ bằng effect: tắt VAT có hiệu lực ngay và
-  // không thể bị một effect chạy trễ ghi đè lại.
-  // Đơn đã chốt kho giữ nguyên VAT. Nếu trước đó VAT đúng 8%, thay đổi giá không
-  // được âm thầm tính lại VAT rồi khiến API từ chối nút Lưu.
-  const currentVat = priceOnly ? v : vat8Enabled ? Math.round(tienHang * 0.08) : v;
+  // không thể bị một effect chạy trễ ghi đè lại. (Chốt kho chỉ khoá mã hàng +
+  // SL — VAT/giá/ghi chú/CK/PVC vẫn sửa được, server cùng rule.)
+  const currentVat = vat8Enabled ? Math.round(tienHang * 0.08) : v;
   const tong = tienHang - disc + p + currentVat;
 
   const toggleVat8 = () => {
@@ -201,7 +200,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
             <div class="er-sub">
               {priceTag(it.sp, it.price)}
               <input class="note-inp" placeholder="ghi chú…" value={it.note || ""}
-                disabled={priceOnly} onFocus={selectAll} onInput={(e: any) => setRow(i, "note", e.target.value)} />
+                onFocus={selectAll} onInput={(e: any) => setRow(i, "note", e.target.value)} />
               <span class="eq">= <b class="num">{money((it.price || 0) * (it.sl || 0))}</b></span>
             </div>
           </div>
@@ -217,14 +216,11 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
           onFocus={selectAll} onInput={(e: any) => setP(parseMoney(e.target.value))} /></div>
         <div class="sum-row"><span>VAT</span>
           <span class="sum-vat">
-            <button type="button" class={(vat8Enabled ? "chip8 on" : "chip8") + (priceOnly ? " faded" : "")}
-              aria-pressed={vat8Enabled} aria-disabled={priceOnly}
-              title={priceOnly ? "Đơn đã chốt xuất kho — VAT giữ nguyên" : vat8Enabled ? "Tắt VAT 8%" : "Bật VAT 8%"}
-              onClick={priceOnly
-                ? () => toast("Đơn đã chốt xuất kho — VAT giữ nguyên. Cần đổi VAT thì bỏ chốt xuất kho trước (admin).", "info")
-                : toggleVat8}>8%</button>
+            <button type="button" class={vat8Enabled ? "chip8 on" : "chip8"}
+              aria-pressed={vat8Enabled} title={vat8Enabled ? "Tắt VAT 8%" : "Bật VAT 8%"}
+              onClick={toggleVat8}>8%</button>
             <input class="sum-inp" inputMode="numeric" placeholder="0" value={currentVat ? money(currentVat) : ""}
-              disabled={priceOnly} onFocus={selectAll} onInput={(e: any) => { setVat8Enabled(false); setV(parseMoney(e.target.value)); }} />
+              onFocus={selectAll} onInput={(e: any) => { setVat8Enabled(false); setV(parseMoney(e.target.value)); }} />
           </span>
         </div>
         <div class="sum-total"><span>Tổng thanh toán</span><b class="num">{money(tong)}</b></div>

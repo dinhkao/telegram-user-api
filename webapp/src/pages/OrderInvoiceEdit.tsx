@@ -328,7 +328,7 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
               <div>Đơn đã <b>thu {money(paidTotal)}</b>. Không đổi khách được; và <b>không giảm tổng đơn xuống dưới số đã thu</b> (sẽ bị chặn). Cần đổi khách / giảm sâu → xoá bớt phiếu thu trước.</div>
             </div>
           )}
-          {stockLocked && <div class="card co-adv-locked muted small"><Icon name="lock" size={14} /> Đơn đã <b>chốt xuất kho</b> — được sửa đơn giá, chiết khấu và PVC; sản phẩm, số lượng và VAT được giữ nguyên.</div>}
+          {stockLocked && <div class="card co-adv-locked muted small"><Icon name="lock" size={14} /> Đơn đã <b>chốt xuất kho</b> — sản phẩm và số lượng giữ nguyên (không thêm/xoá mã hàng); đơn giá, ghi chú, chiết khấu, PVC, VAT vẫn sửa được.</div>}
           {!stockLocked && <div class="seg" role="tablist">
             <button class={mode === "quick" ? "seg-btn active" : "seg-btn"} onClick={() => setMode("quick")}>
               <Icon name="zap" size={15} /> Nhanh

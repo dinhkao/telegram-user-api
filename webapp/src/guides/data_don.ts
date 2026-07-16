@@ -151,8 +151,8 @@ export const GUIDES_DON: Guide[] = [
         <ul>
           <li><b>Đã có hoá đơn KiotViet</b> → khoá toàn bộ. Muốn sửa lại phải <b>xoá HĐ</b> ở chi tiết đơn trước
             (chỉ <b>admin</b> xoá được HĐ KiotViet).</li>
-          <li><b>Đã chốt xuất kho</b> → chỉ sửa được <b>đơn giá, chiết khấu, phụ thu (PVC)</b>;
-            <b>sản phẩm, số lượng, VAT giữ nguyên</b>.</li>
+          <li><b>Đã chốt xuất kho</b> → chỉ khoá <b>hàng đã xuất</b>: không thêm/xoá mã hàng,
+            không đổi <b>số lượng</b>; còn <b>đơn giá, ghi chú, chiết khấu, PVC, VAT</b> vẫn sửa được.</li>
           <li><b>Người khác đang sửa</b> đơn này → khoá tạm, chờ họ xong (hệ thống tự mở lại).</li>
         </ul>
         <p class="cash-badge">Bị khoá thì nút mờ đi và có dòng báo lý do — cứ làm theo hướng dẫn trên màn hình.</p>` },
