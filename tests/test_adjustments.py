@@ -113,6 +113,16 @@ class AdjustmentTest(unittest.TestCase):
         _, err2 = apply_stocktake(self.conn, st["id"], actor="duy")
         self.assertEqual(err2, "already")
 
+    def test_go_le_phieu_sinh_tu_kiem_kho_bi_chan(self):
+        st = self._make_stocktake(counted=93)          # delta −7
+        apply_stocktake(self.conn, st["id"], actor="duy")
+        adj = list_adjustments(self.conn, stocktake_id=st["id"])[0]
+        _, err = delete_adjustment(self.conn, adj["id"], by="duy")
+        self.assertIsNotNone(err)
+        self.assertIn("kiểm kho", err)
+        # allocation vẫn còn → tồn không đổi
+        self.assertEqual(_remaining(self.conn, self.box["id"]), 93)
+
     def test_apply_theo_delta_khi_kho_da_bien_dong_hop_le(self):
         st = self._make_stocktake(counted=93)
         # SAU khi chốt, kho xuất thêm 50 cho đơn (biến động HỢP LỆ có sổ)

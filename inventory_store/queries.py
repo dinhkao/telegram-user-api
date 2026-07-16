@@ -47,7 +47,7 @@ def _reserved_fragment(conn) -> str:
 
 
 def add_boxes(conn, product_code, quantities, *, source_thread_id=None, source_purchase_id=None,
-              by=None, note=None, mfg_date=None, unit_id=None, place_id=None) -> list[dict]:
+              source_return_id=None, by=None, note=None, mfg_date=None, unit_id=None, place_id=None) -> list[dict]:
     """Tạo N thùng mới cho product — SỐ GỌI 3 chữ số toàn kho, xoay vòng, nguyên tử.
 
     Số bị chiếm = số của thùng còn hàng hoặc vô hiệu (nhãn còn dán trên thùng thật).
@@ -76,15 +76,16 @@ def add_boxes(conn, product_code, quantities, *, source_thread_id=None, source_p
             box_code = call_code(n)
             cur = conn.execute(
                 "INSERT INTO inventory_boxes "
-                "(product_id, product_code, box_code, quantity, status, source_thread_id, source_purchase_id, note, mfg_date, unit_id, place_id, created_at, created_by) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "(product_id, product_code, box_code, quantity, status, source_thread_id, source_purchase_id, source_return_id, note, mfg_date, unit_id, place_id, created_at, created_by) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (pid, code, box_code, float(q), "in_stock", source_thread_id, source_purchase_id,
-                 note or "", mfg_date or None, unit_id, place_id, now, by or ""),
+                 source_return_id, note or "", mfg_date or None, unit_id, place_id, now, by or ""),
             )
             created.append({
                 "id": cur.lastrowid, "product_id": pid, "product_code": code, "box_code": box_code,
                 "quantity": float(q), "status": "in_stock", "mfg_date": mfg_date or None,
                 "source_thread_id": source_thread_id, "source_purchase_id": source_purchase_id,
+                "source_return_id": source_return_id,
                 "created_at": now, "created_by": by or "",
             })
     return created

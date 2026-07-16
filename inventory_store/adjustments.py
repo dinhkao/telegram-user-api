@@ -146,6 +146,12 @@ def delete_adjustment(conn, adj_id: int, *, by: str = "") -> tuple[dict | None, 
         adj = get_adjustment(conn, adj_id)
         if not adj or adj.get("deleted_at"):
             return None, "Không tìm thấy phiếu điều chỉnh"
+        # Phiếu con của một lần kiểm kho đã áp → gỡ lẻ làm sổ kiểm kho lệch với kho.
+        # Muốn hoàn tác thì thao tác ở phiếu kiểm kho, không gỡ từng dòng.
+        if adj.get("source") == "stocktake":
+            stid = adj.get("stocktake_id")
+            return None, (f"Phiếu điều chỉnh sinh từ kiểm kho #{stid} — không gỡ lẻ được "
+                          "(sổ kiểm kho sẽ lệch)")
         delta = float(adj.get("delta") or 0)
         _, rem = _box_remaining(conn, int(adj["box_id"]))
         if delta > 0 and rem - delta < -_EPS:

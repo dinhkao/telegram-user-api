@@ -111,6 +111,22 @@ def _is_product_code(s: str) -> bool:
         return False
 
 
+def _slip_locked(slip, sender_id) -> bool:
+    """Phiếu SX đã KHOÁ (quá 24h / override) và người gõ KHÔNG phải admin Telegram →
+    chặn sửa từ nhóm (webapp cũng chặn qua production_lock.locked_error). Admin qua.
+    slip None = phiếu CHƯA tồn tại (đang TẠO mới trong topic) → không có gì để khoá
+    (is_locked(None) trả True vì thiếu date_code — không được dùng thẳng ở đây)."""
+    from server_app.production_lock import is_locked
+    if not slip:
+        return False
+    if is_admin(sender_id):
+        return False
+    return is_locked(slip)
+
+
+_LOCK_MSG = ("🔒 Phiếu đã khoá (quá 24h) — cần sửa thì vào webapp bằng tài khoản admin.")
+
+
 def _topic_link(thread_id) -> str:
     """Deep-link tới topic chat của phiếu trong group SX (t.me/c/<internal>/<topic>)."""
     gid = str(PRODUCTION_GROUP_ID)
@@ -294,8 +310,12 @@ def register_production_commands(client):
             await reply(msg, out)
             return
 
-        # google-sheet CSV → báo cáo sản xuất
+        # google-sheet CSV → báo cáo sản xuất (LƯU set_bang = mutation → chặn nếu khoá,
+        # chỉ khi báo cáo gắn 1 phiếu; báo cáo rời không phiếu chỉ tính, không lưu)
         if looks_like_report(text):
+            if thread_id and _slip_locked(get_slip(conn, thread_id), getattr(msg, "sender_id", None)):
+                await reply(msg, _LOCK_MSG)
+                return
             await _handle_csv_report(msg, text, thread_id)
             return
 
@@ -305,9 +325,29 @@ def register_production_commands(client):
         processed = t.replace('"', "")
         upper = processed.upper()
 
-        # detailed production qty (*...~)
+        # detailed production qty (*...~) — CHỈ TÍNH & trả lời, không mutation → không khoá
         if processed.startswith("*"):
             await _handle_detailed(msg, processed, slip)
+            return
+
+        # Từ đây trở xuống là các lệnh SỬA phiếu (đổi SP / SX / DEL / done / nhập số).
+        # Phiếu đã khoá (>24h) + không phải admin Telegram → chặn, hướng sang webapp
+        # admin. CHỈ chặn khi tin NHÌN GIỐNG 1 lệnh mutation (tránh spam mọi tin chat
+        # trong topic đã khoá). _is_mutation_cmd nhận diện: mã SP / SX / DEL / done /
+        # số lượng dẫn đầu.
+        def _is_mutation_cmd() -> bool:
+            if _is_product_code(upper) or upper.startswith("SX ") or processed == "DEL":
+                return True
+            if processed.lower() == "done all tasks":
+                return True
+            try:
+                float(processed.split(" ")[0])
+                return True   # nhập số lượng
+            except ValueError:
+                return False
+
+        if _is_mutation_cmd() and _slip_locked(slip, getattr(msg, "sender_id", None)):
+            await reply(msg, _LOCK_MSG)
             return
 
         # product code update

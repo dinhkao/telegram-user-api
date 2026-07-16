@@ -115,8 +115,18 @@ def set_sp(conn, thread_id, name, mam, luong) -> bool:
         "SELECT sp_name, luong_1sp FROM production_slips WHERE thread_id = ?", (thread_id,)
     ).fetchone()
     same_sp = cur is not None and str(cur["sp_name"] or "").strip().upper() == new_code
+    # Phiếu ĐÃ có báo cáo thợ → tiền công đã tính theo luong_1sp đã chốt; đổi SP lúc
+    # này KHÔNG được lặng lẽ re-price (sẽ đổi số tiền của các dòng đã tính). Giữ
+    # nguyên luong_1sp cũ, chỉ đổi SP.
+    try:
+        has_report = conn.execute(
+            "SELECT 1 FROM production_report_rows WHERE thread_id = ? LIMIT 1", (thread_id,)
+        ).fetchone() is not None
+    except Exception:
+        has_report = False   # bảng chưa tồn tại → coi như chưa có báo cáo
+
     extra = {}
-    if not (same_sp and cur["luong_1sp"] is not None):
+    if not (same_sp and cur["luong_1sp"] is not None) and not has_report:
         w = wage_for_code(conn, new_code)
         extra["luong_1sp"] = w if w > 0 else None   # NULL = chưa chốt → theo bảng lương
     if prod:

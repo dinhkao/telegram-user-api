@@ -238,7 +238,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     `K2L-001`/base36 vẫn parse (`code_call_number`) + chiếm số tới khi xuất hết.
     Pool tồn gom theo `product_code`. Cột:
     `quantity`, `mfg_date`, `note`, `disabled`+`disabled_reason`, `source_thread_id`
-    (phiếu SX nguồn), **`unit_id`** → `inventory_units` (đơn vị chứa: Thùng/Kiện/Hũ…),
+    (phiếu SX nguồn), `source_purchase_id`/`source_return_id` (thùng tạo từ phiếu NHẬP
+    HÀNG / hàng TRẢ về — link "Nguồn" ở BoxDetail + guard cấm xoá lẻ khi phiếu đã
+    xử lý hàng), **`unit_id`** → `inventory_units` (đơn vị chứa: Thùng/Kiện/Hũ…),
     **`place_id`** → `inventory_places` (vị trí kho Kho A/B…). (`status`/`order_thread_id`
     legacy.) `list_boxes`/`get_box` join thêm `place_name`, `unit_name`, `product_unit`
     (đơn vị đếm của SP từ `products.unit` — cây/gói…).
@@ -329,7 +331,8 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   nhận, trừ thẳng nợ; sl âm bị chặn, phụ thu âm bị ép 0). **Flow giống ĐƠN**: tạo
   phiếu = NHÁP (chưa đụng KV/nợ, sửa được) → `POST /api/returns/{id}/invoice`
   (văn phòng) tạo HĐ âm + trừ nợ + khoá sửa; xoá = admin (xoá HĐ KV, hoàn nợ);
-  resync nợ qua `debt_sync` return_id. Ảnh/trao đổi/lịch sử = entity media scope
+  resync nợ qua `debt_sync` return_id. **Đã xử lý hàng (`goods_handled_at`) → chặn
+  sửa items VÀ chặn xoá phiếu** (thùng đã tạo/tồn đã đổi, không hoàn tác được). Ảnh/trao đổi/lịch sử = entity media scope
   `return`. Realtime `return_changed`. UI: dashboard `#/tra-hang` (ReturnsList,
   menu Thêm) + chi tiết `#/tra-hang/:id` (ReturnDetail) + nút '↩ Trả hàng'
   (`detail/ReturnModal.tsx`) ở chi tiết khách; feed khách kind='return'
@@ -356,7 +359,8 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   chặn xoá khi còn phiếu) + `purchase_slips` (items JSON [{sp, sp_id?, sl, price}]
   — **hàng hoá dùng chung bảng sản phẩm**: mã resolve qua `product_store` gắn
   `sp_id`, hiển thị bản hiện hành như đơn; giá ≥ 0, snapshot). Flow như đơn: tạo/sửa
-  = văn phòng, xoá = admin (xoá mềm). API `server_app/supplier_routes.py` +
+  = văn phòng, xoá = admin (xoá mềm). **`update_purchase_items` chặn hạ tổng dưới số
+  đã trả VÀ chặn đổi NCC khi `paid > 0`** (gỡ các lần trả trước mới đổi được). API `server_app/supplier_routes.py` +
   `purchase_routes.py` (`/api/suppliers*`, `/api/purchases*`); realtime
   `purchase_changed`/`supplier_changed`; ảnh/trao đổi/lịch sử = entity media scope
   `supplier`/`purchase`. UI: dashboard `#/nhap-hang` (PurchasesList + PurchaseModal,
@@ -504,7 +508,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     aggregation queries + `backfill_report_rows()`.
 - `server_app/production_routes.py` — webapp API `/api/production*` (list/detail/
   catalog/create/set-product/set-target/add-number/report parse+save/delete). Create
-  opens a forum topic in `PRODUCTION_GROUP_ID`. Emits realtime `production_changed`/
+  opens a forum topic in `PRODUCTION_GROUP_ID`. **Khoá 24h** (`server_app/production_lock.py`
+  `is_locked`): phiếu >24h (hoặc `lock_override='locked'`) → cấm mọi mutation trừ admin.
+  Áp CẢ web (`locked_error`) LẪN lệnh nhóm Telegram (`command_handlers/production_commands.py`
+  chặn đổi SP/SX/DEL/done/nhập số/lưu báo cáo khi khoá + không phải admin Telegram;
+  lệnh chỉ-đọc + tạo phiếu mới không bị chặn). **`set_sp` KHÔNG re-chốt `luong_1sp` khi
+  phiếu đã có dòng báo cáo** (tránh đổi tiền công đã tính). Emits realtime `production_changed`/
   `productions_changed` (separate id-space from orders). **Report editing has a
   single-editor lock** (in-memory TTL 45s, heartbeat 20s): `/report/lock|unlock|draft`
   + events `report_lock` (who holds) / `report_draft` (live keystrokes to viewers). Save

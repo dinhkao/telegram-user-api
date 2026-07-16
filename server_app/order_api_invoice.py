@@ -85,6 +85,11 @@ async def api_delete_invoice_handler(request: web.Request):
     invoice_id = order.get("kiotvietInvoiceID")
     if not invoice_id:
         return web.json_response({"ok": False, "error": "Đơn không có hoá đơn KiotViet"}, status=400)
+    # Đơn đã CHỐT xuất kho → HĐ khớp phần đã xuất. Xoá HĐ mà giữ chốt kho làm lệch
+    # sổ (đã trừ tồn nhưng không còn HĐ). Có đường HUỶ CHỐT (admin) → bắt huỷ trước.
+    if isinstance(order.get("stock_confirmed"), dict) and order["stock_confirmed"]:
+        return web.json_response({"ok": False, "error":
+            "Đơn đã chốt xuất kho — huỷ chốt xuất kho trước rồi mới xoá HĐ KiotViet"}, status=400)
     try:
         from kiotviet import delete_invoice_kv
         await asyncio.to_thread(delete_invoice_kv, int(invoice_id))

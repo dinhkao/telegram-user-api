@@ -410,6 +410,12 @@ async def returns_delete_handler(request: web.Request):
         return web.json_response(
             {"ok": False, "error": "Phiếu còn HĐ KiotViet — xoá HĐ trước rồi mới xoá phiếu", "locked": True},
             status=400)
+    # Đã XỬ LÝ HÀNG (nhập kho / xuất hủy) → thùng đã tạo/tồn đã đổi theo phiếu này;
+    # xoá phiếu bây giờ để lại thùng mồ côi + không truy nguồn được → cấm xoá.
+    if row.get("goods_handled_at"):
+        return web.json_response(
+            {"ok": False, "error": "Phiếu đã xử lý hàng (nhập kho/hủy) — không xoá được nữa", "locked": True},
+            status=400)
     actor = _actor(request)
     await asyncio.to_thread(lambda: soft_delete_return(get_connection(), rid, by=actor))
     from server_app.debt_sync import schedule_debt_resync

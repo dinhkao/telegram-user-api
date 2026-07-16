@@ -138,6 +138,17 @@ class PurchasePayments(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(get_purchase(self.conn, self.p["id"])["remaining"], 0)
 
+    def test_chan_doi_ncc_khi_da_tra(self):
+        s2 = add_supplier(self.conn, "NCC M")
+        add_purchase_payment(self.conn, self.p["id"], 30000, "user:trang", "trang")
+        ok, err = update_purchase_items(self.conn, self.p["id"],
+                                        [{"sp": "X", "sl": 10, "price": 10000}], 100000, "",
+                                        supplier_id=s2["id"])
+        self.assertFalse(ok)
+        self.assertIn("nhà cung cấp", err)
+        # NCC không đổi
+        self.assertNotEqual(get_purchase(self.conn, self.p["id"])["supplier_id"], s2["id"])
+
     def test_so_tien_khong_hop_le(self):
         rec, err = add_purchase_payment(self.conn, self.p["id"], 0, "user:duy", "duy")
         self.assertIsNone(rec)

@@ -440,7 +440,7 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
       </section>
 
       <section class="card">
-        <label class="card-label">Nguồn — {d.source_purchase ? "Phiếu nhập hàng" : "Phiếu sản xuất"}</label>
+        <label class="card-label">Nguồn — {d.source_purchase ? "Phiếu nhập hàng" : d.source_return ? "Phiếu trả hàng" : "Phiếu sản xuất"}</label>
         {d.source_slip ? (
           <a class="box-jump" href={`#/san_xuat/${d.source_slip.thread_id}?focus=box:${b.id}`}>
             <Icon name="factory" size={16} /> {d.source_slip.sp_name || b.product_code}
@@ -450,6 +450,11 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
           <a class="box-jump" href={`#/nhap-hang/${d.source_purchase.id}`}>
             <Icon name="truck" size={16} /> Nhập hàng {d.source_purchase.supplier_name ? `NCC ${d.source_purchase.supplier_name}` : `#${d.source_purchase.id}`}
             {d.source_purchase.created_at ? ` · ${d.source_purchase.created_at.slice(8, 10)}/${d.source_purchase.created_at.slice(5, 7)}` : ""} →
+          </a>
+        ) : d.source_return ? (
+          <a class="box-jump" href={`#/tra-hang/${d.source_return.id}`}>
+            <Icon name="truck" size={16} /> Hàng trả về #{d.source_return.id}
+            {d.source_return.created_at ? ` · ${d.source_return.created_at.slice(8, 10)}/${d.source_return.created_at.slice(5, 7)}` : ""} →
           </a>
         ) : (
           <div class="muted small">Không rõ phiếu nguồn.</div>

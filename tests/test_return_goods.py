@@ -74,6 +74,8 @@ class ReturnGoodsTest(unittest.TestCase):
         self.assertEqual(len(list_boxes(self.conn)), before + 1)
         new_id = extra["result"]["restocked_new"][0]["box_id"]
         self.assertEqual(self._qty(new_id), 6)
+        # thùng mới truy nguồn về phiếu trả (guard xoá lẻ + link BoxDetail)
+        self.assertEqual(get_box(self.conn, new_id)["source_return_id"], self.ret["id"])
 
     def test_dispose_creates_box_less_disposal_no_stock_change(self):
         extra, err = apply_goods_dispositions(

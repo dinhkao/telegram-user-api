@@ -1650,15 +1650,18 @@ export async function deleteProductUnit(code: string, id: number): Promise<any> 
 
 export type InvSourceSlip = { thread_id: number; date?: string | null; sp_name?: string | null };
 export type InvSourcePurchase = { id: number; supplier_name?: string | null; created_at?: string | null };
+export type InvSourceReturn = { id: number; created_at?: string | null };
 export type InvBoxDetail = { box: InvBox; source_slip: InvSourceSlip | null; allocations: Allocation[];
   source_purchase?: InvSourcePurchase | null;
+  source_return?: InvSourceReturn | null;
   packed_materials?: { code: string; amount: number }[] };
 
-/** Chi tiết 1 thùng: info + còn lại + phiếu nguồn (SX / nhập hàng) + các đơn đã xuất. */
+/** Chi tiết 1 thùng: info + còn lại + phiếu nguồn (SX / nhập hàng / trả hàng) + các đơn đã xuất. */
 export async function boxDetail(id: string | number): Promise<InvBoxDetail | null> {
   const d = await getJSON(`/api/inventory/box/${id}`);
   return d.ok ? { box: d.box, source_slip: d.source_slip, allocations: d.allocations || [],
     source_purchase: d.source_purchase || null,
+    source_return: d.source_return || null,
     packed_materials: d.packed_materials || [] } : null;
 }
 

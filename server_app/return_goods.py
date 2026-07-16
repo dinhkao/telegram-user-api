@@ -61,6 +61,7 @@ def apply_goods_dispositions(conn, return_id: int, dispositions, *, actor: str =
             try:
                 boxes = add_boxes(conn, code, [q], place_id=disp.get("place_id"),
                                   unit_id=disp.get("unit_id"), by=actor,
+                                  source_return_id=return_id,
                                   note=f"Hàng khách trả (phiếu trả #{return_id})")
             except ValueError:
                 boxes = []

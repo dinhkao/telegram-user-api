@@ -307,14 +307,39 @@ async def product_delete_handler(request: web.Request):
         try:
             p = get_product(conn, code)
             if not p:
-                return None
+                return None, None
+            pid = p.get("id")
+            cu = str(code).upper()
+            # (a) Còn thùng CÒN HÀNG (remaining > 0) → phải xử lý hết thùng trước.
+            try:
+                has_stock = conn.execute(
+                    "SELECT 1 FROM inventory_boxes b WHERE (b.product_id = ? OR upper(b.product_code) = ?)"
+                    " AND b.quantity - COALESCE("
+                    "  (SELECT SUM(a.quantity) FROM box_allocations a WHERE a.box_id = b.id), 0) > 0"
+                    " LIMIT 1", (pid, cu)).fetchone()
+            except Exception:
+                has_stock = None   # bảng chưa tồn tại (DB test) → không chặn
+            if has_stock:
+                return p, "stock"
+            # (b) SP đang là NGUYÊN LIỆU trong công thức của SP khác → gỡ công thức trước.
+            try:
+                is_ingredient = conn.execute(
+                    "SELECT 1 FROM product_recipes WHERE ingredient_id = ? LIMIT 1", (pid,)).fetchone()
+            except Exception:
+                is_ingredient = None
+            if is_ingredient:
+                return p, "ingredient"
             delete_product(conn, code)
-            return p
+            return p, None
         finally:
             conn.close()
-    product = await asyncio.to_thread(_run)
+    product, block = await asyncio.to_thread(_run)
     if not product:
         return web.json_response({"ok": False, "error": "Không tìm thấy mã SP"}, status=404)
+    if block == "stock":
+        return web.json_response({"ok": False, "error": "SP còn tồn kho — xử lý hết thùng trước khi xoá"}, status=400)
+    if block == "ingredient":
+        return web.json_response({"ok": False, "error": "SP đang là nguyên liệu trong công thức của SP khác — gỡ công thức trước"}, status=400)
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
     _audit_product("product.deleted", product, _actor(request))

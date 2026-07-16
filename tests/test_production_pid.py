@@ -68,6 +68,24 @@ class SlipById(Base):
         self.assertEqual(slip["product_id"], self.pid)
         self.assertEqual(slip["sp_name"], "K10X")
 
+    def test_set_sp_giu_luong_1sp_khi_da_co_bao_cao(self):
+        from production_store.wages import ensure_table, set_wage
+        ensure_table(self.conn)
+        set_wage(self.conn, "K10", 500)
+        upsert_product(self.conn, "K20", name="Kẹo 20")
+        set_wage(self.conn, "K20", 999)
+        upsert_slip(self.conn, 300, date_code="20260709")
+        set_sp(self.conn, 300, "K10", 3, 1200)                          # chốt luong_1sp = 500
+        self.assertEqual(get_slip(self.conn, 300)["luong_1sp"], 500)
+        # phiếu có báo cáo thợ
+        set_bang(self.conn, 300, {"product_code": "K10", "date": "9/7/2026",
+                                  "rows": [{"name": "Thợ A", "so_gach": 10, "tong_calc": 100}]})
+        # đổi SP sau khi có báo cáo → GIỮ luong_1sp cũ (không re-chốt về 999)
+        set_sp(self.conn, 300, "K20", 3, 1200)
+        slip = get_slip(self.conn, 300)
+        self.assertEqual(slip["sp_name"], "K20")
+        self.assertEqual(slip["luong_1sp"], 500)
+
     def test_non_catalog_name_keeps_null_pid(self):
         upsert_slip(self.conn, 102, date_code="20260709")
         set_sp(self.conn, 102, "TÊN TỰ DO", None, None)

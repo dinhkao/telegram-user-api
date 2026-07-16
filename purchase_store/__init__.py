@@ -135,11 +135,18 @@ def update_purchase_items(conn, purchase_id: int, items: list[dict], total: floa
     from utils.db import transaction
     ensure_purchases_schema(conn)
     with transaction(conn):
-        r = conn.execute("SELECT payments FROM purchase_slips WHERE id = ?", (purchase_id,)).fetchone()
+        r = conn.execute(
+            "SELECT payments, supplier_id FROM purchase_slips WHERE id = ?", (purchase_id,)).fetchone()
         paid = paid_total(_parse(r["payments"])) if r else 0
         if int(round(float(total))) < paid:
             return False, (f"Phiếu đã trả {paid:,}đ — tổng mới không được thấp hơn số đã trả"
                            .replace(",", "."))
+        # Đã trả tiền NCC → không được đổi sang NCC khác (các lần trả gắn với NCC cũ
+        # sẽ lệch két/công nợ). Muốn đổi thì gỡ hết các lần trả trước.
+        cur_sup = r["supplier_id"] if r else None
+        if (paid > 0 and supplier_id is not None and cur_sup is not None
+                and int(supplier_id) != int(cur_sup)):
+            return False, "Phiếu đã trả tiền NCC — không đổi nhà cung cấp được (gỡ các lần trả trước)"
         if supplier_id is not None:
             conn.execute(
                 "UPDATE purchase_slips SET items = ?, total = ?, note = ?, supplier_id = ? WHERE id = ?",
