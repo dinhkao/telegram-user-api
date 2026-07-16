@@ -365,6 +365,8 @@ export type PurchaseGoodsResult = {
 export type PurchaseDisposition = {
   sp: string; quantity: number;
   action: "restock_existing" | "restock_new" | "skip";
+  // restock_new: count = số thùng giống nhau (mỗi thùng `quantity` hàng — như nhập thùng SX).
+  count?: number;
   box_id?: number; place_id?: number | null; unit_id?: number | null;
 };
 /** 1 dòng hàng phiếu nhập — unit/unit_factor = ĐƠN VỊ NHẬP đã chọn (snapshot quy

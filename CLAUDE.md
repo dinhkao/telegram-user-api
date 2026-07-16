@@ -388,7 +388,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   tiết thùng link "Nguồn — Phiếu nhập hàng") | `restock_existing` (allocation ÂM
   `kind='purchase_in'` qua `receive_purchase_stock` — remaining tăng, quantity gốc
   giữ) | `skip`; SL = số THỰC NHẬN (sửa được). Đã nhập kho → phiếu KHOÁ sửa items +
-  chặn xoá. Event `purchase.goods_received`. UI: `detail/PurchaseGoodsModal.tsx`
+  chặn xoá. **`restock_new` tạo N thùng GIỐNG NHAU như nhập thùng phiếu SX**: disposition
+  `{count = số thùng, quantity = số hàng/1 thùng, unit_id, place_id}` → `add_boxes` tạo
+  `count` thùng mỗi thùng `quantity` (thiếu `count` = 1 thùng, tương thích ngược);
+  `goods_result.restocked_new` có 1 entry/thùng (undo/attach/mark_deleted lặp theo entry).
+  UI `PurchaseGoodsModal` prefill từ dòng phiếu: có đơn vị nhập (Thùng ×30) → count = SL,
+  per = factor; không quy đổi → 1 thùng cả lô. Event `purchase.goods_received`. UI: `detail/PurchaseGoodsModal.tsx`
   (prompt sau tạo phiếu, cờ session `pg_open`), summary + chip 📦 kho.
   **HỦY CHỐT nhập kho (admin, 2026-07-16)**: POST `/api/purchases/{id}/undo-goods`
   (`purchase_goods.undo_purchase_receipt` — all-or-nothing: xoá thùng mới + gỡ

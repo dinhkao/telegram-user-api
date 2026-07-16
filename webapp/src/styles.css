@@ -2674,6 +2674,11 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
 .rg-row-head .muted { font-weight: 600; }
 .rg-newbox { display: flex; gap: 6px; }
 .rg-newbox > * { flex: 1; min-width: 0; }
+/* Nhập kho hàng mua — khối tạo thùng mới (đơn vị + số thùng × số hàng/thùng) */
+.pg-newbox { display: flex; flex-direction: column; gap: 6px; }
+.pg-qty-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pg-qty-line input { width: 68px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; font-size: .95rem; text-align: right; background: var(--bg); color: inherit; }
+.pg-qty-line .pg-x { color: var(--muted); font-size: .9rem; white-space: nowrap; }
 .rg-open-btn { border: 1px dashed var(--primary); color: var(--primary); }
 .rg-summary { background: var(--ok-wash); border-color: #bfe3c8; }
 .rg-sum-line { font-size: .85rem; margin-top: 4px; }

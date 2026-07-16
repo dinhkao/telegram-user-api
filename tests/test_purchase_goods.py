@@ -76,6 +76,20 @@ class PurchaseGoodsTest(unittest.TestCase):
         self.assertEqual(b["source_purchase_id"], self.pu["id"])
         self.assertIn(f"#{self.pu['id']}", b["note"])
 
+    def test_restock_new_count_creates_multiple_boxes(self):
+        # count = số thùng giống nhau (như nhập thùng phiếu SX); mỗi thùng `quantity` hàng.
+        before = len(list_boxes(self.conn))
+        extra, err = apply_purchase_receipt(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 30, "count": 3, "action": "restock_new"}], actor="lan")
+        self.assertIsNone(err)
+        self.assertEqual(len(list_boxes(self.conn)), before + 3)   # 3 thùng mới
+        news = extra["result"]["restocked_new"]
+        self.assertEqual(len(news), 3)                             # 1 entry / thùng
+        for e in news:
+            self.assertEqual(float(get_box(self.conn, e["box_id"])["quantity"]), 30)
+        self.assertEqual(len(set(e["box_id"] for e in news)), 3)   # 3 thùng riêng biệt
+
     def test_second_apply_blocked(self):
         _, err = apply_purchase_receipt(self.conn, self.pu["id"], [], actor="lan")
         self.assertIsNone(err)

@@ -1,7 +1,9 @@
 // Popup NHẬP KHO hàng mua về — mỗi dòng phiếu nhập chọn 1 cách: tạo thùng mới
 // (mặc định) / nhập vào thùng có sẵn (+tồn) / bỏ qua (hàng không quản kho).
-// SL sửa được = số THỰC NHẬN (hàng về có thể thiếu/vỡ so với phiếu).
-// Submit → POST /api/purchases/{id}/handle-goods (1 lần/phiếu). Cha mount khi mở.
+// Tạo thùng mới = như NHẬP THÙNG phiếu SX: chọn đơn vị chứa + SỐ THÙNG × SỐ HÀNG
+// trong 1 thùng → tạo nhiều thùng giống nhau. SL sửa được = số THỰC NHẬN (hàng về
+// có thể thiếu/vỡ so với phiếu). Submit → POST /api/purchases/{id}/handle-goods
+// (1 lần/phiếu). Cha mount khi mở.
 import { useEffect, useState } from "preact/hooks";
 import {
   allBoxes, listPlaces, listUnits, handlePurchaseGoods, soVN,
@@ -14,7 +16,12 @@ import { useScrollLock } from "../useScrollLock";
 import { Icon } from "../ui/Icon";
 
 type Act = "restock_new" | "restock_existing" | "skip";
-type Row = { sp: string; qty: string; action: Act; box_id?: number; place_id?: number | null; unit_id?: number | null };
+// restock_new: count (số thùng) × per (số hàng/thùng); restock_existing: qty cộng vào thùng.
+type Row = {
+  sp: string; action: Act;
+  qty: string; count: string; per: string;
+  box_id?: number; place_id?: number | null; unit_id?: number | null;
+};
 
 const ACTIONS: SPOption[] = [
   { value: "restock_new", label: "🆕 Tạo thùng mới" },
@@ -22,16 +29,24 @@ const ACTIONS: SPOption[] = [
   { value: "skip", label: "Bỏ qua (không quản kho)" },
 ];
 
+const num = (s: string) => parseFloat((s || "").replace(",", ".")) || 0;
+
 export function PurchaseGoodsModal({ pu, onClose, onDone }: {
   pu: PurchaseSlip; onClose: () => void; onDone: (p: PurchaseSlip) => void;
 }) {
-  // SL nhập kho tính theo ĐƠN VỊ GỐC của SP: dòng phiếu có đơn vị nhập (unit_factor)
-  // → quy đổi sẵn (3 thùng × 30 = 90); hint giữ ở dưới để đối chiếu.
+  // Prefill từ dòng phiếu: có đơn vị nhập (Thùng ×30) → count = SL thùng, per = số
+  // hàng/thùng (khớp phiếu). Không đơn vị quy đổi → 1 thùng chứa cả lô. Đều sửa được.
   const [rows, setRows] = useState<Row[]>(
-    (pu.items || []).map((it) => ({
-      sp: it.sp, action: "restock_new" as Act,
-      qty: String(it.sl * (it.unit && (it.unit_factor || 0) > 0 ? it.unit_factor! : 1)),
-    })));
+    (pu.items || []).map((it) => {
+      const conv = it.unit && (it.unit_factor || 0) > 0;
+      const base = it.sl * (conv ? it.unit_factor! : 1);
+      return {
+        sp: it.sp, action: "restock_new" as Act,
+        qty: String(base),
+        count: conv ? String(it.sl) : "1",
+        per: conv ? String(it.unit_factor) : String(base),
+      };
+    }));
   const [boxes, setBoxes] = useState<KhoBox[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -49,25 +64,29 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
     setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const boxesOf = (sp: string) =>
     boxes.filter((b) => !b.disabled && (b.remaining ?? b.quantity) > 0 && b.product_code.toUpperCase() === sp.toUpperCase());
-  const qtyOf = (r: Row) => parseFloat(r.qty.replace(",", ".")) || 0;
+  const countOf = (r: Row) => Math.floor(num(r.count)) || 0;
+  const perOf = (r: Row) => num(r.per);
+  const totalOf = (r: Row) => (r.action === "restock_new" ? countOf(r) * perOf(r) : num(r.qty));
 
   const missingBox = rows.some((r) => r.action === "restock_existing" && !r.box_id);
-  const badQty = rows.some((r) => r.action !== "skip" && qtyOf(r) <= 0);
+  const badNew = rows.some((r) => r.action === "restock_new" && (countOf(r) < 1 || perOf(r) <= 0));
+  const badExisting = rows.some((r) => r.action === "restock_existing" && num(r.qty) <= 0);
 
   const submit = async () => {
     if (missingBox) { toast("Chọn thùng cho dòng ‘Nhập vào thùng có sẵn’", "err"); return; }
-    if (badQty) { toast("Số lượng thực nhận phải > 0 (hoặc chọn Bỏ qua)", "err"); return; }
+    if (badNew) { toast("Số thùng ≥ 1 và số hàng/thùng phải > 0", "err"); return; }
+    if (badExisting) { toast("Số lượng thực nhận phải > 0 (hoặc chọn Bỏ qua)", "err"); return; }
     const active = rows.filter((r) => r.action !== "skip");
     if (!active.length) { onClose(); return; }
-    const dispositions: PurchaseDisposition[] = active.map((r) => ({
-      sp: r.sp, quantity: qtyOf(r), action: r.action,
-      ...(r.action === "restock_existing" ? { box_id: r.box_id } : {}),
-      ...(r.action === "restock_new" ? { place_id: r.place_id ?? null, unit_id: r.unit_id ?? null } : {}),
-    }));
-    const nRn = active.filter((r) => r.action === "restock_new").length;
+    const dispositions: PurchaseDisposition[] = active.map((r) =>
+      r.action === "restock_existing"
+        ? { sp: r.sp, quantity: num(r.qty), action: r.action, box_id: r.box_id }
+        : { sp: r.sp, quantity: perOf(r), count: countOf(r), action: r.action,
+            place_id: r.place_id ?? null, unit_id: r.unit_id ?? null });
+    const nBoxes = active.filter((r) => r.action === "restock_new").reduce((s, r) => s + countOf(r), 0);
     const nRe = active.filter((r) => r.action === "restock_existing").length;
     const parts: string[] = [];
-    if (nRn) parts.push(`tạo ${nRn} thùng mới`);
+    if (nBoxes) parts.push(`tạo ${nBoxes} thùng mới`);
     if (nRe) parts.push(`nhập ${nRe} thùng có sẵn`);
     if (!(await confirmDialog(`Nhập kho hàng mua: ${parts.join(", ")}? (1 lần/phiếu — sau đó phiếu khoá sửa)`, { okLabel: "Nhập kho" }))) return;
     setBusy(true);
@@ -89,17 +108,20 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
         </p>
         {rows.map((r, i) => {
           const item = (pu.items || [])[i];
+          const baseUnit = item?.base_unit || "";
+          const unitName = units.find((u) => u.id === r.unit_id)?.name || "Thùng";
           const conv = item?.unit && (item.unit_factor || 0) > 0
-            ? `${soVN(item.sl)} ${item.unit} × ${soVN(item.unit_factor!)} = ${soVN(item.sl * item.unit_factor!)}` : "";
+            ? `${soVN(item.sl)} ${item.unit} × ${soVN(item.unit_factor!)} = ${soVN(item.sl * item.unit_factor!)}${baseUnit ? ` ${baseUnit}` : ""}` : "";
           const bopts: SPOption[] = boxesOf(r.sp).map((b) => ({
             value: b.id, label: `Thùng ${b.box_code}`,
             sub: `còn ${soVN(b.remaining ?? b.quantity)}${b.place_name ? ` · ${b.place_name}` : ""}`,
           }));
+          const total = totalOf(r);
           return (
             <div class="rg-row" key={i}>
               <div class="rg-row-head rg-qty-head">
                 <b>{r.sp}</b>
-                {r.action !== "skip" && (
+                {r.action === "restock_existing" && (
                   <input class="rg-qty-input" type="text" inputMode="decimal" value={r.qty}
                     onFocus={(e) => (e.target as HTMLInputElement).select()}
                     onInput={(e: any) => upd(i, { qty: e.currentTarget.value })} />
@@ -115,13 +137,28 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
                   : <div class="muted small">Chưa có thùng {r.sp} còn hàng — chọn “Tạo thùng mới”.</div>
               )}
               {r.action === "restock_new" && (
-                <div class="rg-newbox">
-                  <SelectPopup value={r.place_id ?? ""} placeholder="Vị trí kho"
-                    options={[{ value: "", label: "(chưa xếp vị trí)" }, ...places.map((p) => ({ value: p.id, label: p.name }))]}
-                    onChange={(v) => upd(i, { place_id: v ? Number(v) : null })} />
-                  <SelectPopup value={r.unit_id ?? ""} placeholder="Đơn vị chứa"
-                    options={[{ value: "", label: "(đơn vị mặc định)" }, ...units.map((u) => ({ value: u.id, label: u.name }))]}
-                    onChange={(v) => upd(i, { unit_id: v ? Number(v) : null })} />
+                <div class="pg-newbox">
+                  <div class="rg-newbox">
+                    <SelectPopup value={r.place_id ?? ""} placeholder="Vị trí kho"
+                      options={[{ value: "", label: "(chưa xếp vị trí)" }, ...places.map((p) => ({ value: p.id, label: p.name }))]}
+                      onChange={(v) => upd(i, { place_id: v ? Number(v) : null })} />
+                    <SelectPopup value={r.unit_id ?? ""} placeholder="Đơn vị chứa"
+                      options={[{ value: "", label: "(đơn vị mặc định)" }, ...units.map((u) => ({ value: u.id, label: u.name }))]}
+                      onChange={(v) => upd(i, { unit_id: v ? Number(v) : null })} />
+                  </div>
+                  <div class="pg-qty-line">
+                    <input type="text" inputMode="numeric" value={r.count}
+                      onFocus={(e) => (e.target as HTMLInputElement).select()}
+                      onInput={(e: any) => upd(i, { count: e.currentTarget.value })}
+                      title={`Số ${unitName.toLowerCase()}`} />
+                    <span class="pg-x">{unitName} ×</span>
+                    <input type="text" inputMode="decimal" value={r.per}
+                      onFocus={(e) => (e.target as HTMLInputElement).select()}
+                      onInput={(e: any) => upd(i, { per: e.currentTarget.value })}
+                      title={`Số hàng trong 1 ${unitName.toLowerCase()}`} placeholder={baseUnit ? `Số ${baseUnit}` : "Số hàng"} />
+                    {baseUnit && <span class="pg-x">{baseUnit}</span>}
+                  </div>
+                  <div class="muted small">= {soVN(total)}{baseUnit ? ` ${baseUnit}` : ""} nhập kho ({countOf(r)} {unitName.toLowerCase()})</div>
                 </div>
               )}
             </div>
