@@ -1168,6 +1168,9 @@ body.kbd-open .pay-submit-bar { bottom: 8px; }
 .wr-edit .wr-note { text-align: left; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere;
   word-break: break-word; resize: none; overflow: hidden; line-height: 1.2; padding: 4px 3px; margin: 0;
   display: block; vertical-align: middle; }
+/* Ghi chú giờ là NÚT mở popup gợi ý (SelectPopup) — vẫn ăn style wr-note */
+.wr-edit .wr-note-btn { cursor: pointer; min-height: 30px; }
+.wr-edit .wr-note-btn.empty { opacity: .45; }
 .wr-edit .wr-calc { text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .8rem; padding: 2px 5px; }
 .wr-edit .wr-calc.strong { color: var(--ink); font-weight: 700; }
 /* Ô ĐÈ (SP đè / mâm đè — như sheet): ô nhập có đè nền xanh nhạt; số bị đè tô xanh */

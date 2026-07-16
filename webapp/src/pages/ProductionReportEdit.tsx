@@ -12,6 +12,11 @@ import { confirmDialog, toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 import { processImage } from "../detail/imageProcess";
 import { WorkerOrderPopup } from "../detail/WorkerOrderPopup";
+import { SelectPopup } from "../ui/SelectPopup";
+
+// Gợi ý sẵn cho ô GHI CHÚ (bấm ô → popup chọn nhanh); gõ text khác vẫn được
+// (qua nút "Tạo …" của popup) nhưng KHÔNG nạp vào list gợi ý.
+const NOTE_PRESETS = ["nghỉ", "vít kẹo", "rắc mè", "rắc dừa", "gỡ bánh", "quậy kẹo", "vô kẹo"];
 
 // spDe/mamDe = 2 cột ĐÈ như sheet (F "Số SP đè" / G "Số mâm đè"): mâm đè thay công
 // thức gạch×5−trừ−lẻ; SP đè thay toàn bộ tổng. Rỗng = không đè (ISBLANK sheet).
@@ -55,6 +60,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const [workers, setWorkers] = useState<Worker[]>([]);   // full (id+name) → map tên↔id khi lưu thứ tự
   const defaultsRef = useRef<string[]>([]);
   const [orderPop, setOrderPop] = useState(false);        // popup sắp thứ tự thợ
+  const [notePop, setNotePop] = useState<number | null>(null); // popup ghi chú: index dòng đang chọn
   // Ảnh nền để DÒ — lưu VĨNH VIỄN trên SERVER (DB + đĩa) theo phiếu, scope report_bg
   // (1 ảnh/phiếu, còn mãi + chung mọi máy). Mặc định ẩn; GIỮ nút tròn để hiện (thả ra ẩn).
   const [bgUrl, setBgUrl] = useState<string | null>(null);
@@ -373,11 +379,8 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
                     <td><input class={"wr-in wr-num" + (c.mamDeSet ? " wr-ovr-in" : "")} inputMode="decimal" data-col="mamDe" data-row={i} enterKeyHint="next" title="Số mâm đè — thay công thức gạch" value={r.mamDe} disabled={readOnly} onFocus={selAll} onKeyDown={onCellKey("mamDe", i)} onInput={(e: any) => setRow(i, { mamDe: e.target.value })} /></td>
                     <td class={"wr-calc" + (c.mamDeSet ? " wr-ovr" : "")}>{soVN(c.soMam)}</td>
                     <td class={"wr-calc strong" + (c.spDeSet ? " wr-ovr" : "")}>{soVN(c.tong)}</td>
-                    <td><textarea class="wr-in wr-note" rows={1} value={r.note} disabled={readOnly}
-                      onFocus={selAll}
-                      ref={(el: any) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }}
-                      onInput={(e: any) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; setRow(i, { note: e.target.value }); }}
-                      placeholder="—" /></td>
+                    <td><button type="button" class={"wr-in wr-note wr-note-btn" + (r.note ? "" : " empty")}
+                      disabled={readOnly} onClick={() => setNotePop(i)}>{r.note || "—"}</button></td>
                   </tr>
                 );
               })}
@@ -437,6 +440,22 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         })()}
         onClose={() => setOrderPop(false)}
         onApply={applyWorkerSelection}
+      />
+
+      {/* Popup GHI CHÚ: gợi ý sẵn + gõ text tự do (không nạp vào list). Chọn/tạo → ghi
+          thẳng vào dòng đang mở; "— Trống" để xoá ghi chú. */}
+      <SelectPopup
+        open={notePop != null}
+        onClose={() => setNotePop(null)}
+        title={`Ghi chú — ${(notePop != null && wrows[notePop]?.name) || "thợ"}`}
+        value={notePop != null ? wrows[notePop]?.note || "" : ""}
+        options={[
+          ...NOTE_PRESETS.map((v) => ({ value: v, label: v })),
+          { value: "", label: "— Trống (xoá ghi chú)" },
+        ]}
+        searchable
+        onChange={(v) => { if (notePop != null) setRow(notePop, { note: v }); }}
+        onCreate={(t) => { if (notePop != null) setRow(notePop, { note: t }); }}
       />
     </div>
   );
