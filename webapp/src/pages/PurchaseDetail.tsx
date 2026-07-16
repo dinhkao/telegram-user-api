@@ -181,7 +181,9 @@ export function PurchaseDetail({ id }: { id: string }) {
           <tbody>
             {(r.items || []).map((x, i) => (
               <tr key={i}>
-                <td><b>{x.sp}</b></td>
+                <td>{x.sp
+                      ? <a class="pt-inl" href={`#/kho/${encodeURIComponent(x.sp)}`}><b>{x.sp}</b></a>
+                      : <b>{x.sp}</b>}</td>
                 <td>{soVN(x.sl)}</td>
                 <td>{soVN(x.price)}</td>
                 <td>{soVN(x.sl * x.price)}</td>

@@ -2,7 +2,8 @@
 // tạo NCC mới ngay), dòng hàng: SP (autocomplete, dùng chung bảng sản phẩm) ×
 // SL × giá nhập. 100% local, không đụng KiotViet. POST /api/purchases.
 import { useState } from "preact/hooks";
-import { createPurchase, createSupplier, listSuppliers, searchProducts, soVN, type Supplier } from "../api";
+import { createProduct, createPurchase, createSupplier, listSuppliers, searchProducts, soVN, type Supplier } from "../api";
+import { buildPurchaseProductOptions, isCreateProd, codeFromCreateKey } from "./purchaseProduct";
 import { foldVN } from "../format";
 import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -90,12 +91,15 @@ export function PurchaseModal({ supplierId, supplierName, onClose, onCreated }: 
         {lines.map((l, i) => (
           <div class="ret-line" key={i}>
             <div class="ret-sp">
-              <PickerPopup value={l.sp} placeholder="Mã SP" allowFreeText
-                onSearch={async (q): Promise<PickOpt[]> =>
-                  (await searchProducts(q).catch(() => []))
-                    .filter((s) => s.can_purchase !== false)   // chỉ SP "có thể nhập"
-                    .map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }))}
-                onPick={(o) => upd(i, { sp: o.key })} />
+              <PickerPopup value={l.sp} placeholder="Mã SP"
+                onSearch={async (q) => buildPurchaseProductOptions(await searchProducts(q).catch(() => []), q)}
+                onPick={async (o) => {
+                  if (isCreateProd(o.key)) {
+                    const code = codeFromCreateKey(o.key);
+                    try { await createProduct(code); upd(i, { sp: code }); toast(`Đã tạo mã hàng "${code}"`, "ok"); }
+                    catch (e: any) { toast(e?.message || "Lỗi tạo mã hàng", "err"); }
+                  } else { upd(i, { sp: o.key }); }
+                }} />
             </div>
             <input class="ret-sl" type="text" inputMode="decimal" placeholder="SL" value={l.sl}
               onFocus={(e) => (e.target as HTMLInputElement).select()}

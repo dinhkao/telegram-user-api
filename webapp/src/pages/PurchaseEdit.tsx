@@ -3,10 +3,11 @@
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import {
-  getPurchase, isOffice, searchProducts, soVN,
+  createProduct, getPurchase, isOffice, searchProducts, soVN,
   updatePurchase, type PurchaseSlip,
 } from "../api";
-import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
+import { buildPurchaseProductOptions, isCreateProd, codeFromCreateKey } from "../detail/purchaseProduct";
+import { PickerPopup } from "../ui/PickerPopup";
 import { toast } from "../ui/feedback";
 import { ErrorState, Loading } from "../ui/states";
 import { Icon } from "../ui/Icon";
@@ -100,12 +101,14 @@ export function PurchaseEdit({ id }: { id: string }) {
                   <PickerPopup
                     value={line.sp}
                     placeholder="Mã SP"
-                    allowFreeText
-                    onSearch={async (q): Promise<PickOpt[]> =>
-                      (await searchProducts(q).catch(() => []))
-                        .filter((s) => s.can_purchase !== false)
-                        .map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }))}
-                    onPick={(option) => updateLine(i, { sp: option.key })}
+                    onSearch={async (q) => buildPurchaseProductOptions(await searchProducts(q).catch(() => []), q)}
+                    onPick={async (o) => {
+                      if (isCreateProd(o.key)) {
+                        const code = codeFromCreateKey(o.key);
+                        try { await createProduct(code); updateLine(i, { sp: code }); toast(`Đã tạo mã hàng "${code}"`, "ok"); }
+                        catch (e: any) { toast(e?.message || "Lỗi tạo mã hàng", "err"); }
+                      } else { updateLine(i, { sp: o.key }); }
+                    }}
                   />
                 </div>
                 <input
