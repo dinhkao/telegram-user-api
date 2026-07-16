@@ -118,9 +118,29 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
 
     # ── KHO (thùng / vị trí) ───────────────────────────────────────────────
     if action == "box.created":
+        src = []
+        if p.get("purchase_id"):
+            src = [part(f"phiếu nhập #{p['purchase_id']} →", href_for("purchase", p.get("purchase_id")))]
+        elif p.get("return_id"):
+            src = [part(f"hàng khách trả (phiếu trả #{p['return_id']}) →", href_for("return", p.get("return_id")))]
         seg = _join([_inv_box_parts(p, resolver),
-                     [part(f"nhập {qty(p.get('quantity'))}")] if p.get("quantity") is not None else []])
+                     [part(f"nhập {qty(p.get('quantity'))}")] if p.get("quantity") is not None else [],
+                     src])
         return "Nhập thùng vào kho", seg
+    if action in ("box.purchase_in", "box.purchase_in_removed"):
+        verb = "cộng" if action == "box.purchase_in" else "gỡ"
+        label = "Nhập hàng NCC vào thùng" if action == "box.purchase_in" else "Gỡ hàng nhập khỏi thùng"
+        seg = _join([_inv_box_parts(p, resolver),
+                     [part(f"{verb} {qty(p.get('taken'))}")] if p.get("taken") is not None else [],
+                     [part(f"phiếu nhập #{p.get('purchase_id')} →", href_for("purchase", p.get("purchase_id")))] if p.get("purchase_id") else [],
+                     [part(f"thùng còn {qty(p.get('remaining'))}")] if p.get("remaining") is not None else []])
+        return label, seg
+    if action == "box.return_in":
+        seg = _join([_inv_box_parts(p, resolver),
+                     [part(f"cộng {qty(p.get('taken'))}")] if p.get("taken") is not None else [],
+                     [part(f"phiếu trả #{p.get('return_id')} →", href_for("return", p.get("return_id")))] if p.get("return_id") else [],
+                     [part(f"thùng còn {qty(p.get('remaining'))}")] if p.get("remaining") is not None else []])
+        return "Khách trả hàng vào thùng", seg
     if action in ("box.allocated", "box.released"):
         verb = "lấy" if action == "box.allocated" else "trả"
         label = "Xuất cho đơn" if action == "box.allocated" else "Thu hồi về kho"

@@ -44,9 +44,33 @@ def _box_and_place(action: str, snap: dict, actor, actor_type: str, extra: dict 
     _emit(action, "place", snap.get("place_id"), actor, actor_type, pl)
 
 
-def log_boxes_created(snaps: list[dict], *, actor, actor_type: str) -> None:
+def log_boxes_created(snaps: list[dict], *, actor, actor_type: str, extra: dict | None = None) -> None:
+    """extra: nguồn thùng ngoài phiếu SX — {'purchase_id': ...} (phiếu nhập hàng)
+    hoặc {'return_id': ...} (hàng khách trả) để timeline link đúng phiếu."""
     for s in snaps:
-        _box_and_place("box.created", s, actor, actor_type)
+        _box_and_place("box.created", s, actor, actor_type, extra=extra)
+
+
+def log_boxes_purchase_in(items: list[dict], *, purchase_id, actor, actor_type: str) -> None:
+    """Phiếu NHẬP HÀNG cộng vào thùng CÓ SẴN (allocation âm purchase_in).
+    items = box_snapshot + {'taken': số cộng vào}."""
+    for s in items:
+        _box_and_place("box.purchase_in", s, actor, actor_type, extra={
+            "taken": s.get("taken"), "purchase_id": purchase_id})
+
+
+def log_boxes_purchase_in_removed(items: list[dict], *, purchase_id, actor, actor_type: str) -> None:
+    """Gỡ phần đã cộng từ phiếu nhập (unreceive từng dòng / hủy chốt)."""
+    for s in items:
+        _box_and_place("box.purchase_in_removed", s, actor, actor_type, extra={
+            "taken": s.get("taken"), "purchase_id": purchase_id})
+
+
+def log_boxes_return_in(items: list[dict], *, return_id, actor, actor_type: str) -> None:
+    """Hàng KHÁCH TRẢ cộng vào thùng CÓ SẴN (allocation âm return_in)."""
+    for s in items:
+        _box_and_place("box.return_in", s, actor, actor_type, extra={
+            "taken": s.get("taken"), "return_id": return_id})
 
 
 def log_boxes_allocated(items: list[dict], *, actor, actor_type: str) -> None:

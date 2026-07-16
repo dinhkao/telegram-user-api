@@ -165,6 +165,13 @@ async def return_handle_goods_handler(request: web.Request):
     spawn_tracked("audit.return_goods", async_log_event(
         "return.goods_handled", scope="return", thread_id=rid,
         actor_type=at, actor_id=actor, source="return.goods_handled", payload={"result": result}))
+    # Event kho scope box/place → timeline thùng / sản phẩm / vị trí thấy hàng trả về
+    from server_app.inventory_audit import log_boxes_created, log_boxes_return_in
+    audit = extra.get("audit") or {}
+    if audit.get("created"):
+        log_boxes_created(audit["created"], actor=actor, actor_type=at, extra={"return_id": rid})
+    if audit.get("return_in"):
+        log_boxes_return_in(audit["return_in"], return_id=rid, actor=actor, actor_type=at)
     if extra["disposal"]:
         d = extra["disposal"]
         spawn_tracked("audit.disposal_created", async_log_event(

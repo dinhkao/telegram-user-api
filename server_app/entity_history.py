@@ -44,7 +44,8 @@ _ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo p
 # Biến động KHO (server_app/inventory_audit) — nhãn theo SCOPE + chi tiết từ payload.
 _INV_ACTIONS = {"box.created", "box.allocated", "box.released", "box.moved", "box.moved_out",
                 "box.moved_in", "box.deleted", "box.transfer_out", "box.transfer_in", "box.consumed",
-                "box.disposed", "box.disposal_released"}
+                "box.disposed", "box.disposal_released",
+                "box.purchase_in", "box.purchase_in_removed", "box.return_in"}
 
 
 def _numv(v) -> str:
@@ -69,7 +70,30 @@ def _inv_entry(act: str, scope: str, p: dict) -> tuple[str, str] | None:
     head = " · ".join(x for x in [pc, f"thùng {bc}" if bc else ""] if x)
     join = lambda extra: " · ".join(x for x in [head, extra] if x)  # noqa: E731
     if act == "box.created":
-        return ("Nhập thùng vào kho" if scope == "place" else "Tạo thùng"), join(f"{q} cây" if q else "")
+        src = ""
+        if p.get("purchase_id"):
+            src = f"phiếu nhập #{p['purchase_id']}"
+        elif p.get("return_id"):
+            src = f"hàng khách trả (phiếu trả #{p['return_id']})"
+        extra = " · ".join(x for x in [f"{q} cây" if q else "", src] if x)
+        return ("Nhập thùng vào kho" if scope == "place" else "Tạo thùng"), join(extra)
+    if act in ("box.purchase_in", "box.purchase_in_removed"):
+        taken = _numv(p.get("taken"))
+        rem = _numv(p.get("remaining")) if p.get("remaining") is not None else ""
+        verb = "cộng" if act == "box.purchase_in" else "gỡ"
+        pid = p.get("purchase_id")
+        extra = " · ".join(x for x in [f"{verb} {taken}" if taken else "",
+                                       f"phiếu nhập #{pid}" if pid else "",
+                                       f"thùng còn {rem}" if rem != "" else ""] if x)
+        return ("Nhập hàng NCC vào thùng" if act == "box.purchase_in" else "Gỡ hàng nhập khỏi thùng"), join(extra)
+    if act == "box.return_in":
+        taken = _numv(p.get("taken"))
+        rem = _numv(p.get("remaining")) if p.get("remaining") is not None else ""
+        rid = p.get("return_id")
+        extra = " · ".join(x for x in [f"cộng {taken}" if taken else "",
+                                       f"phiếu trả #{rid}" if rid else "",
+                                       f"thùng còn {rem}" if rem != "" else ""] if x)
+        return "Khách trả hàng vào thùng", join(extra)
     if act in ("box.allocated", "box.released"):
         taken = _numv(p.get("taken"))
         verb = "lấy" if act == "box.allocated" else "trả"

@@ -1,8 +1,11 @@
 """Xử lý HÀNG khách trả về — orchestration thuần (nhập kho / tạo thùng / xuất hủy).
 
 Không HTTP/realtime — chỉ thao tác store trong 1 connection để route gọi + unit-test
-(tests/test_return_goods.py). Nối: inventory_store.queries (add_boxes/get_box/update_box),
-disposal_store (box-less create_manual_disposal), return_store (mark_goods_handled).
+(tests/test_return_goods.py). Trả kèm extra['audit'] (snapshot thùng sau biến động,
+server_app.inventory_audit.box_snapshot) để ROUTE ghi event kho box.created/box.return_in
+→ timeline thùng/SP/vị trí thấy hàng trả về. Nối: inventory_store.queries
+(add_boxes/get_box/update_box), disposal_store (box-less create_manual_disposal),
+return_store (mark_goods_handled).
 
 Ba cách xử lý mỗi dòng hàng trả:
   • restock_existing — nhập vào 1 thùng CÓ SẴN: allocation ÂM return_in, remaining tăng, quantity gốc giữ nguyên.
@@ -52,6 +55,8 @@ def apply_goods_dispositions(conn, return_id: int, dispositions, *, actor: str =
         result: dict = {"restocked_existing": [], "restocked_new": [], "disposed": [], "disposal_id": None}
         touched_boxes: list[int] = []
         dispose_items: list[dict] = []
+        created_ids: list[int] = []                    # thùng MỚI tạo (audit kho)
+        return_in: list[tuple[int, float]] = []        # (box_id, q cộng vào) (audit kho)
         for disp in dispositions or []:
             action = str(disp.get("action") or "").strip()
             code = str(disp.get("sp") or "").strip().upper()
@@ -73,6 +78,7 @@ def apply_goods_dispositions(conn, return_id: int, dispositions, *, actor: str =
                 # (không thổi phồng boxed_total phiếu SX nguồn). Xem receive_return_stock.
                 receive_return_stock(conn, box_id, q, return_id, by=actor)
                 touched_boxes.append(box_id)
+                return_in.append((box_id, q))
                 result["restocked_existing"].append(
                     {"sp": code, "quantity": q, "box_id": box_id, "box_code": box.get("box_code")})
             elif action == "restock_new":
@@ -85,6 +91,7 @@ def apply_goods_dispositions(conn, return_id: int, dispositions, *, actor: str =
                     boxes = []
                 if boxes:
                     touched_boxes.append(boxes[0]["id"])
+                    created_ids.append(boxes[0]["id"])
                     result["restocked_new"].append(
                         {"sp": code, "quantity": q, "box_id": boxes[0]["id"], "box_code": boxes[0]["box_code"]})
             elif action == "dispose":
@@ -102,5 +109,11 @@ def apply_goods_dispositions(conn, return_id: int, dispositions, *, actor: str =
         # inline set_goods_result(conn, return_id, result) — tránh bare commit
         conn.execute("UPDATE return_slips SET goods_result = ? WHERE id = ?",
                      (_json.dumps(result, ensure_ascii=False), return_id))
-    return {"result": result, "touched_boxes": touched_boxes,
+    # Snapshot thùng SAU biến động (đã commit) → route ghi event kho scope box
+    # (box.created / box.return_in — timeline thùng/SP/vị trí đọc).
+    from server_app.inventory_audit import box_snapshot
+    audit = {"created": [s for bid in created_ids if (s := box_snapshot(conn, bid))],
+             "return_in": [dict(s, taken=q) for bid, q in return_in
+                           if (s := box_snapshot(conn, bid))]}
+    return {"result": result, "touched_boxes": touched_boxes, "audit": audit,
             "disposal": disposal, "customer_key": r.get("customer_key")}, None

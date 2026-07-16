@@ -19,14 +19,18 @@ from server_app.order_history import _actor_display, _load_names
 
 _CAP = 500
 
-_DIR_IN = {"box.created", "box.moved_in", "box.released", "box.transfer_in", "box.disposal_released"}
-_DIR_OUT = {"box.allocated", "box.moved_out", "box.deleted", "box.transfer_out", "box.consumed", "box.disposed"}
+_DIR_IN = {"box.created", "box.moved_in", "box.released", "box.transfer_in", "box.disposal_released",
+           "box.purchase_in", "box.return_in"}
+_DIR_OUT = {"box.allocated", "box.moved_out", "box.deleted", "box.transfer_out", "box.consumed", "box.disposed",
+            "box.purchase_in_removed"}
 _INV_ACTIONS = _DIR_IN | _DIR_OUT
 _REASON = {
     "box.created": "nhập kho", "box.moved_in": "chuyển đến", "box.released": "trả về đơn",
     "box.transfer_in": "nhận chuyển", "box.allocated": "xuất cho đơn", "box.moved_out": "chuyển đi",
     "box.deleted": "xoá thùng", "box.transfer_out": "chuyển sang thùng khác", "box.consumed": "tiêu hao đóng gói",
     "box.disposed": "xuất hủy", "box.disposal_released": "hoàn xuất hủy",
+    "box.purchase_in": "nhập hàng NCC", "box.purchase_in_removed": "gỡ nhập hàng NCC",
+    "box.return_in": "khách trả về",
 }
 
 
@@ -40,6 +44,7 @@ def _delta(action: str, p: dict) -> float:
         "box.created": rem, "box.moved_in": rem, "box.released": taken, "box.transfer_in": q,
         "box.allocated": -taken, "box.moved_out": -rem, "box.deleted": -q, "box.transfer_out": -q,
         "box.consumed": -taken, "box.disposed": -taken, "box.disposal_released": taken,
+        "box.purchase_in": taken, "box.purchase_in_removed": -taken, "box.return_in": taken,
     }.get(action, 0.0)
 
 
@@ -148,6 +153,7 @@ def place_timeline(place_id: int) -> dict:
                 "from_name": p.get("from_name"), "to_name": p.get("to_name"),   # kho nguồn/đích khi chuyển
                 "target_code": p.get("target_code"), "slip_id": p.get("slip_id"),   # tiêu hao đóng gói
                 "disposal_id": p.get("disposal_id"), "disposal_reason": p.get("disposal_reason"),
+                "purchase_id": p.get("purchase_id"), "return_id": p.get("return_id"),   # nhập hàng / hàng trả
                 "total_after": round(running, 3), "actor": _actor_display(r["actor_id"], names),
             })
             running -= delta

@@ -472,6 +472,45 @@ class PurchaseGoodsTest(unittest.TestCase):
         _, err2 = apply_purchase_receipt(self.conn, self.pu["id"], [], actor="lan")
         self.assertEqual(err2, "not_found")
 
+    def test_receive_returns_audit_snapshots_for_box_events(self):
+        # extra['audit'] = snapshot cho route ghi event kho (box.created / box.purchase_in)
+        from server_app.purchase_goods import receive_purchase_lines, unreceive_purchase_line, undo_purchase_receipt
+        extra, err = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 12, "action": "restock_new"},
+             {"sp": "KEO1", "quantity": 8, "action": "restock_existing", "box_id": self.box["id"]}],
+            actor="lan")
+        self.assertIsNone(err)
+        audit = extra["audit"]
+        self.assertEqual(len(audit["created"]), 1)
+        self.assertEqual(audit["created"][0]["remaining"], 12)
+        self.assertEqual(len(audit["purchase_in"]), 1)
+        pin = audit["purchase_in"][0]
+        self.assertEqual(pin["box_id"], self.box["id"])
+        self.assertEqual(pin["taken"], 8)
+        self.assertEqual(pin["remaining"], 108)   # tồn SAU khi cộng
+        # gỡ dòng cộng → audit purchase_in_removed với tồn sau khi gỡ
+        aid = self.conn.execute(
+            "SELECT id FROM box_allocations WHERE box_id = ? AND kind = 'purchase_in'",
+            (self.box["id"],)).fetchone()["id"]
+        info, err2 = unreceive_purchase_line(self.conn, self.pu["id"], aid)
+        self.assertIsNone(err2)
+        rem = info["audit"]["purchase_in_removed"][0]
+        self.assertEqual(rem["taken"], 8)
+        self.assertEqual(rem["remaining"], 100)
+        # nhập đủ + chốt rồi hủy chốt → audit purchase_in_removed cho phần gỡ
+        extra3, err3 = apply_purchase_receipt(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 8, "action": "restock_existing", "box_id": self.box["id"]}],
+            actor="lan")
+        self.assertIsNone(err3)
+        info4, err4 = undo_purchase_receipt(self.conn, self.pu["id"])
+        self.assertIsNone(err4)
+        undone = info4["audit"]["purchase_in_removed"]
+        self.assertEqual(len(undone), 1)
+        self.assertEqual(undone[0]["taken"], 8)
+        self.assertEqual(undone[0]["remaining"], 100)
+
 
 if __name__ == "__main__":
     unittest.main()

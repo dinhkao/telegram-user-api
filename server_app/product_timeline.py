@@ -20,11 +20,23 @@ from server_app.order_history import _actor_display, _load_names
 
 _CAP = 500
 # CHỈ các biến động ĐỔI TỒN của SP (bỏ chuyển kho/chuyển thùng — nội bộ, tồn SP không đổi)
-_ACTIONS = ("box.created", "box.allocated", "box.released", "box.consumed", "box.disposed", "box.disposal_released")
-_DIR_IN = {"box.created", "box.released", "box.disposal_released"}
+_ACTIONS = ("box.created", "box.allocated", "box.released", "box.consumed", "box.disposed", "box.disposal_released",
+            "box.purchase_in", "box.purchase_in_removed", "box.return_in")
+_DIR_IN = {"box.created", "box.released", "box.disposal_released", "box.purchase_in", "box.return_in"}
 _REASON = {"box.created": "sản xuất nhập kho", "box.allocated": "xuất cho đơn",
            "box.released": "thu về từ đơn", "box.consumed": "tiêu hao đóng gói",
-           "box.disposed": "xuất hủy", "box.disposal_released": "hoàn xuất hủy"}
+           "box.disposed": "xuất hủy", "box.disposal_released": "hoàn xuất hủy",
+           "box.purchase_in": "nhập hàng NCC", "box.purchase_in_removed": "gỡ nhập hàng NCC",
+           "box.return_in": "khách trả về"}
+
+
+def _created_reason(p: dict) -> str:
+    """box.created có nguồn khác phiếu SX → nhãn theo payload (phiếu nhập / hàng trả)."""
+    if p.get("purchase_id"):
+        return "nhập hàng NCC (thùng mới)"
+    if p.get("return_id"):
+        return "khách trả về (thùng mới)"
+    return _REASON["box.created"]
 
 
 def _delta(action: str, p: dict) -> float:
@@ -35,7 +47,9 @@ def _delta(action: str, p: dict) -> float:
     taken = float(p.get("taken") or 0)
     return {"box.created": rem, "box.released": taken,
             "box.allocated": -taken, "box.consumed": -taken,
-            "box.disposed": -taken, "box.disposal_released": taken}.get(action, 0.0)
+            "box.disposed": -taken, "box.disposal_released": taken,
+            "box.purchase_in": taken, "box.purchase_in_removed": -taken,
+            "box.return_in": taken}.get(action, 0.0)
 
 
 def _epoch(ts: str) -> int:
@@ -130,7 +144,8 @@ def product_timeline(code: str) -> dict:
             delta = _delta(act, p)
             items.append({
                 "ts": _epoch(r["ts"]), "at": r["ts"], "dir": "in" if act in _DIR_IN else "out",
-                "kind": act.replace("box.", ""), "reason": _REASON.get(act, ""),
+                "kind": act.replace("box.", ""),
+                "reason": _created_reason(p) if act == "box.created" else _REASON.get(act, ""),
                 "product_code": p.get("product_code") or prod["code"],
                 "box_id": p.get("box_id"), "box_code": p.get("box_code"), "box_num": _boxnum(p.get("box_code")),
                 "quantity": p.get("quantity"), "delta": round(delta, 3), "amount": round(abs(delta), 3),
@@ -138,6 +153,7 @@ def product_timeline(code: str) -> dict:
                 "order_thread_id": p.get("order_thread_id"), "order_text": p.get("order_text"),
                 "target_code": p.get("target_code"), "slip_id": p.get("slip_id"),   # tiêu hao đóng gói
                 "disposal_id": p.get("disposal_id"), "disposal_reason": p.get("disposal_reason"),
+                "purchase_id": p.get("purchase_id"), "return_id": p.get("return_id"),   # nhập hàng / hàng trả
                 "total_after": round(running, 3), "unit": unit,
                 "actor": _actor_display(r["actor_id"], names),
             })

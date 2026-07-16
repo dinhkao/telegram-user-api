@@ -12,9 +12,11 @@ trong 1 transaction. Hủy chốt (undo) mở khoá, GIỮ thùng → quay về 
 đang nhập. Server luôn chặn nhập vượt số/mã trên phiếu (cộng dồn theo SP).
 
 Không HTTP/realtime — chỉ thao tác store trong 1 connection để route gọi +
-unit-test (tests/test_purchase_goods.py). Phần đọc cho API (attach boxes/draft):
-server_app/purchase_goods_view.py. Nối: inventory_store.queries/allocations,
-purchase_store, product_store.
+unit-test (tests/test_purchase_goods.py). Mỗi hàm ghi/gỡ kho trả kèm
+extra['audit'] (snapshot thùng sau biến động) để ROUTE ghi event kho scope box
+(box.created / box.purchase_in / box.purchase_in_removed — timeline thùng/SP/vị trí
+đọc). Phần đọc cho API (attach boxes/draft): server_app/purchase_goods_view.py.
+Nối: inventory_store.queries/allocations, purchase_store, product_store.
 """
 from __future__ import annotations
 
@@ -95,6 +97,26 @@ def _box_remaining(conn, box_id: int, box: dict) -> float:
         (box_id,),
     ).fetchone()[0]
     return float(box.get("quantity") or 0) - float(used or 0)
+
+
+def _audit_snap(conn, box_id, taken=None) -> dict | None:
+    """Ảnh chụp thùng SAU biến động cho audit kho (khớp shape inventory_audit.box_snapshot
+    — không import server_app để module này vẫn store-thuần, unit-test không kéo aiohttp)."""
+    from inventory_store.queries import get_box
+    box = get_box(conn, box_id)
+    if not box:
+        return None
+    snap = {"box_id": box["id"], "place_id": box.get("place_id"), "place_name": box.get("place_name"),
+            "box_code": box.get("box_code"), "product_code": box.get("product_code"),
+            "unit": box.get("product_unit") or "cây",
+            "quantity": box.get("quantity"), "remaining": _box_remaining(conn, box_id, box)}
+    if taken is not None:
+        snap["taken"] = taken
+    return snap
+
+
+def _audit_snaps(conn, entries: list[tuple[int, float | None]]) -> list[dict]:
+    return [s for bid, taken in entries if (s := _audit_snap(conn, bid, taken))]
 
 
 def _draft_receipt(conn, purchase_id: int) -> dict:
@@ -212,12 +234,17 @@ def _validate_purchase_dispositions(conn, purchase: dict, dispositions, *,
     return valid, None
 
 
-def _apply_lines(conn, purchase_id: int, valid: list[dict], actor: str) -> list[int]:
+def _apply_lines(conn, purchase_id: int, valid: list[dict], actor: str
+                 ) -> tuple[list[int], list[int], list[tuple[int, float]]]:
     """Ghi các dòng ĐÃ validate vào kho (trong transaction của caller).
-    Lỗi giữa chừng raise _ReceiptApplyError → caller rollback cả lô."""
+    Lỗi giữa chừng raise _ReceiptApplyError → caller rollback cả lô.
+    Trả (touched, created_ids, added) — created_ids = thùng MỚI tạo,
+    added = [(box_id, q)] các lần cộng vào thùng có sẵn (cho audit kho)."""
     from inventory_store.queries import add_boxes
     from inventory_store.allocations import receive_purchase_stock
     touched: list[int] = []
+    created: list[int] = []
+    added: list[tuple[int, float]] = []
     for disp in valid:
         code = disp["sp"]
         q = float(disp["quantity"])
@@ -226,6 +253,7 @@ def _apply_lines(conn, purchase_id: int, valid: list[dict], actor: str) -> list[
             if not receive_purchase_stock(conn, box_id, q, purchase_id, by=actor):
                 raise _ReceiptApplyError(f"Không nhập được hàng vào thùng {disp.get('box_code')}")
             touched.append(box_id)
+            added.append((box_id, q))
         elif disp["action"] == "restock_new":
             # count = số thùng giống nhau (như nhập thùng phiếu SX); mỗi thùng q hàng.
             count = int(disp.get("count") or 1)
@@ -236,7 +264,8 @@ def _apply_lines(conn, purchase_id: int, valid: list[dict], actor: str) -> list[
             except ValueError:
                 raise _ReceiptApplyError("Không còn số gọi trống để tạo thùng mới")
             touched += [bx["id"] for bx in boxes]
-    return touched
+            created += [bx["id"] for bx in boxes]
+    return touched, created, added
 
 
 def _missing_items(conn, purchase: dict, used: dict) -> list[dict]:
@@ -281,10 +310,13 @@ def receive_purchase_lines(conn, purchase_id: int, dispositions, *, actor: str =
                 return None, err
             if not valid:
                 return None, "Chưa có dòng nào để nhập kho"
-            touched = _apply_lines(conn, purchase_id, valid, actor)
+            touched, created, added = _apply_lines(conn, purchase_id, valid, actor)
     except _ReceiptApplyError as exc:
         return None, str(exc)
-    return {"touched_boxes": touched, "supplier_id": p.get("supplier_id")}, None
+    audit = {"created": _audit_snaps(conn, [(b, None) for b in created]),
+             "purchase_in": _audit_snaps(conn, added)}
+    return {"touched_boxes": touched, "supplier_id": p.get("supplier_id"),
+            "audit": audit}, None
 
 
 def confirm_purchase_receipt(conn, purchase_id: int, *, actor: str = "") -> tuple[dict | None, str | None]:
@@ -357,7 +389,8 @@ def unreceive_purchase_line(conn, purchase_id: int, allocation_id) -> tuple[dict
                           f"(còn {remaining:g} < {q_in:g} đã cộng) — không gỡ được")
         conn.execute("DELETE FROM box_allocations WHERE id = ?", (aid,))
     return {"box_id": row["box_id"], "box_code": row["box_code"], "quantity": q_in,
-            "supplier_id": p.get("supplier_id")}, None
+            "supplier_id": p.get("supplier_id"),
+            "audit": {"purchase_in_removed": _audit_snaps(conn, [(row["box_id"], q_in)])}}, None
 
 
 def apply_purchase_receipt(conn, purchase_id: int, dispositions, *, actor: str = "") -> tuple[dict | None, str | None]:
@@ -386,7 +419,7 @@ def apply_purchase_receipt(conn, purchase_id: int, dispositions, *, actor: str =
                 (_now_vn(), actor or "", purchase_id))
             if claimed.rowcount != 1:
                 return None, "already"
-            touched = _apply_lines(conn, purchase_id, valid, actor)
+            touched, created, added = _apply_lines(conn, purchase_id, valid, actor)
             final = _draft_receipt(conn, purchase_id)
             missing = _missing_items(conn, p, final["used"])
             if missing:   # raise → rollback cả CAS lẫn các dòng vừa ghi
@@ -397,8 +430,10 @@ def apply_purchase_receipt(conn, purchase_id: int, dispositions, *, actor: str =
     except _ReceiptApplyError as exc:
         return None, str(exc)
     all_touched = sorted({e["box_id"] for e in final["new"] + final["existing"]} | set(touched))
+    audit = {"created": _audit_snaps(conn, [(b, None) for b in created]),
+             "purchase_in": _audit_snaps(conn, added)}
     return {"result": result, "touched_boxes": all_touched,
-            "supplier_id": p.get("supplier_id")}, None
+            "supplier_id": p.get("supplier_id"), "audit": audit}, None
 
 
 def undo_purchase_receipt(conn, purchase_id: int) -> tuple[dict | None, str | None]:
@@ -431,6 +466,7 @@ def undo_purchase_receipt(conn, purchase_id: int) -> tuple[dict | None, str | No
         # ── Kiểm TRƯỚC toàn bộ — all-or-nothing (return trong transaction = rollback) ──
         retained_boxes: list[int] = []     # thùng mới giữ nguyên
         to_unalloc: list[int] = []         # allocation purchase_in sẽ gỡ
+        removed_per_box: list[tuple[int, float]] = []   # (box_id, tổng gỡ) cho audit kho
         for e in new_entries:
             box = get_box(conn, e.get("box_id"))
             if not box:
@@ -458,6 +494,8 @@ def undo_purchase_receipt(conn, purchase_id: int) -> tuple[dict | None, str | No
                 return None, (f"Thùng {box.get('box_code')} ({e.get('sp')}) đã dùng một phần hàng nhập "
                               f"(còn {remaining:g} < {q_in:g} đã cộng) — không hủy chốt được")
             to_unalloc += [a["allocation_id"] for a in allocs]
+            if q_in > 0:
+                removed_per_box.append((box["id"], q_in))
         # ── Áp dụng ──
         for aid in to_unalloc:
             conn.execute("DELETE FROM box_allocations WHERE id = ?", (aid,))
@@ -465,4 +503,5 @@ def undo_purchase_receipt(conn, purchase_id: int) -> tuple[dict | None, str | No
             "UPDATE purchase_slips SET goods_handled_at = NULL, goods_handled_by = NULL, goods_result = NULL"
             " WHERE id = ?", (purchase_id,))
     return {"retained_boxes": retained_boxes, "removed_allocations": len(to_unalloc),
-            "supplier_id": p.get("supplier_id")}, None
+            "supplier_id": p.get("supplier_id"),
+            "audit": {"purchase_in_removed": _audit_snaps(conn, removed_per_box)}}, None

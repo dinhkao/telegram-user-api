@@ -38,7 +38,8 @@ _EVENT_SCOPE = {"order": "order", "box": "box", "production": "production", "ret
 # Event nhân bản: box.* ghi cho CẢ thùng lẫn vị trí → feed giữ 1 bản (scope box);
 # moved_in/out là bản phụ của box.moved; allocated/released đã có bản gộp theo ĐƠN.
 _SKIP_PLACE_COPY = {"box.created", "box.allocated", "box.released", "box.consumed",
-                    "box.transfer_out", "box.transfer_in", "box.disposed", "box.disposal_released"}
+                    "box.transfer_out", "box.transfer_in", "box.disposed", "box.disposal_released",
+                    "box.purchase_in", "box.purchase_in_removed", "box.return_in"}
 _SKIP_EVENTS = {"box.moved_out", "box.moved_in"}
 _SKIP_BOX_COPY = {"box.allocated", "box.released"}   # bản gộp = order.stock_*
 

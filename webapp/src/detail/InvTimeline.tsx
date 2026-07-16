@@ -78,7 +78,13 @@ function EventRow({ it, idx }: { it: PlaceTLItem; idx: number }) {
     switch (it.kind) {
       case "allocated": return <>xuất <b>{soVN(amt)}</b>{u} từ {boxRef} cho{ord}</>;
       case "released": return <>trả <b>{soVN(amt)}</b>{u} về {boxRef} từ{ord}</>;
-      case "created": return <>nhập mới {boxRef} <b>{soVN(amt)}</b>{u} từ phiếu sản xuất</>;
+      case "created": return <>nhập mới {boxRef} <b>{soVN(amt)}</b>{u} từ {
+        it.purchase_id ? <a class="pt-inl" href={`#/nhap-hang/${it.purchase_id}`}>phiếu nhập #{it.purchase_id}</a>
+        : it.return_id ? <a class="pt-inl" href={`#/tra-hang/${it.return_id}`}>hàng khách trả #{it.return_id}</a>
+        : "phiếu sản xuất"}</>;
+      case "purchase_in": return <>nhập <b>{soVN(amt)}</b>{u} hàng mua vào {boxRef}{it.purchase_id ? <> từ <a class="pt-inl" href={`#/nhap-hang/${it.purchase_id}`}>phiếu nhập #{it.purchase_id}</a></> : null}</>;
+      case "purchase_in_removed": return <>gỡ <b>{soVN(amt)}</b>{u} hàng nhập khỏi {boxRef}{it.purchase_id ? <> (<a class="pt-inl" href={`#/nhap-hang/${it.purchase_id}`}>phiếu nhập #{it.purchase_id}</a>)</> : null}</>;
+      case "return_in": return <>khách trả <b>{soVN(amt)}</b>{u} về {boxRef}{it.return_id ? <> (<a class="pt-inl" href={`#/tra-hang/${it.return_id}`}>phiếu trả #{it.return_id}</a>)</> : null}</>;
       case "moved_in": return <>chuyển {boxRef}{ton} từ kho <b>{it.from_name || "khác"}</b> đến đây</>;
       case "moved_out": return <>chuyển {boxRef}{ton} từ đây sang kho <b>{it.to_name || "khác"}</b></>;
       case "deleted": return <>xoá {boxRef} ({soVN(amt)}{u})</>;

@@ -114,6 +114,23 @@ class ReturnGoodsTest(unittest.TestCase):
         self.assertIsNone(extra)
         self.assertEqual(err, "not_found")
 
+    def test_audit_snapshots_for_box_events(self):
+        # extra['audit'] = snapshot cho route ghi event kho (box.created / box.return_in)
+        extra, err = apply_goods_dispositions(
+            self.conn, self.ret["id"],
+            [{"sp": "KEO1", "quantity": 4, "action": "restock_existing", "box_id": self.box["id"]},
+             {"sp": "KEO1", "quantity": 6, "action": "restock_new"}],
+            actor="lan")
+        self.assertIsNone(err)
+        audit = extra["audit"]
+        self.assertEqual(len(audit["created"]), 1)
+        self.assertEqual(audit["created"][0]["remaining"], 6)
+        self.assertEqual(len(audit["return_in"]), 1)
+        rin = audit["return_in"][0]
+        self.assertEqual(rin["box_id"], self.box["id"])
+        self.assertEqual(rin["taken"], 4)
+        self.assertEqual(rin["remaining"], 104)   # tồn SAU khi cộng
+
 
 if __name__ == "__main__":
     unittest.main()

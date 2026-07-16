@@ -1345,6 +1345,7 @@ export type PlaceTLItem = {
   unit?: string;   // đơn vị đếm SP (cây/gói…) hiện sau số lượng
   target_code?: string | null; slip_id?: number | null;   // tiêu hao đóng gói
   disposal_id?: number | null; disposal_reason?: string | null;
+  purchase_id?: number | null; return_id?: number | null;   // nhập hàng NCC / hàng khách trả
 };
 export type PlaceStockLine = { code: string; qty: number };
 export type PlaceBox = {
@@ -1380,6 +1381,7 @@ export type BoxTLItem = {
   from_name?: string | null; to_name?: string | null; unit?: string; actor: string;
   target_code?: string | null; slip_id?: number | null;   // tiêu hao đóng gói
   disposal_id?: number | null; disposal_reason?: string | null;
+  purchase_id?: number | null; return_id?: number | null;   // nhập hàng NCC / hàng khách trả
 };
 export type BoxTimeline = {
   box: { id: number; box_code: string; box_num: string; product_code: string; unit: string;

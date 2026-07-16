@@ -345,7 +345,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     ngay?" → `detail/ReturnGoodsModal.tsx` mỗi dòng chọn **nhập vào thùng có sẵn**
     (`update_box` +quantity) | **tạo thùng mới** (`add_boxes`) | **xuất hủy** (box-less,
     gom 1 phiếu) | bỏ qua. Cột `goods_handled_at/by/goods_result` (JSON) chặn xử-lý-2-lần
-    + hiện tóm tắt. Audit `return.goods_handled`. Auto-mở modal qua sessionStorage `rg_open`.
+    + hiện tóm tắt. Audit `return.goods_handled` + event kho scope box/place
+    (`box.created` kèm `return_id` / `box.return_in` — route ghi từ `extra['audit']`
+    snapshot) → timeline thùng/SP/vị trí thấy hàng trả về. Auto-mở modal qua
+    sessionStorage `rg_open`.
 - `disposal_store/` — phiếu XUẤT HỦY hàng hóa (`disposal_slips`, app.db, 100% local).
   Hai loại: **THEO THÙNG** (`create_disposal`) hủy hàng hư/hết hạn, trừ tồn qua
   `box_allocations kind='disposal'` (order_thread_id = id phiếu; remaining tự đúng), xoá
@@ -410,7 +413,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   - Guard nhất quán khi kho còn dấu vết nhập: `soft_delete_purchase` chặn xoá
     phiếu; `update_purchase_items` chặn hạ hàng dưới phần đã nhập
     (`_retained_box_totals` = thùng + purchase_in) + re-check khoá TRONG transaction.
-  Events: `purchase.goods_line_added/line_removed/received/undone` (event_format).
+  Events: `purchase.goods_line_added/line_removed/received/undone` (event_format)
+  + event KHO scope box/place mỗi biến động (`box.created` kèm `purchase_id` /
+  `box.purchase_in` / `box.purchase_in_removed` — route ghi qua `inventory_audit`
+  từ `extra['audit']` snapshot purchase_goods trả về) → timeline thùng
+  (`box_timeline`) / sản phẩm (`product_timeline`) / vị trí (`place_timeline`)
+  đều thấy nhập hàng, tồn-chạy (`total_after`) tính đúng.
   UI `PurchaseDetail`: khối "Đang nhập kho (chưa chốt)" — tiến độ theo mã
   (đã nhập/trên phiếu/thiếu) + Ô THÙNG 1 ô/1 dòng nhập (BoxTileGrid
   mode="allocated", ✕ đỏ góc ô = xoá thùng mới / gỡ phần cộng — giống thu hồi ở

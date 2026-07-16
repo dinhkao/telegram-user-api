@@ -37,7 +37,13 @@ function EventRow({ it, idx, srcSlip }: { it: BoxTLItem; idx: number; srcSlip?: 
     : (otxt ? <> đơn "{otxt}"</> : null);
   const act = (() => {
     switch (it.kind) {
-      case "created": return <>nhập mới <b>{soVN(amt)}</b>{u} từ {srcSlip ? <a class="pt-inl" href={`#/san_xuat/${srcSlip}`}>phiếu sản xuất</a> : "phiếu sản xuất"}</>;
+      case "created": return <>nhập mới <b>{soVN(amt)}</b>{u} từ {
+        it.purchase_id ? <a class="pt-inl" href={`#/nhap-hang/${it.purchase_id}`}>phiếu nhập #{it.purchase_id}</a>
+        : it.return_id ? <a class="pt-inl" href={`#/tra-hang/${it.return_id}`}>hàng khách trả #{it.return_id}</a>
+        : srcSlip ? <a class="pt-inl" href={`#/san_xuat/${srcSlip}`}>phiếu sản xuất</a> : "phiếu sản xuất"}</>;
+      case "purchase_in": return <>nhập <b>{soVN(amt)}</b>{u} hàng mua{it.purchase_id ? <> từ <a class="pt-inl" href={`#/nhap-hang/${it.purchase_id}`}>phiếu nhập #{it.purchase_id}</a></> : null}</>;
+      case "purchase_in_removed": return <>gỡ <b>{soVN(amt)}</b>{u} hàng nhập{it.purchase_id ? <> (<a class="pt-inl" href={`#/nhap-hang/${it.purchase_id}`}>phiếu nhập #{it.purchase_id}</a>)</> : null}</>;
+      case "return_in": return <>khách trả <b>{soVN(amt)}</b>{u} về thùng{it.return_id ? <> (<a class="pt-inl" href={`#/tra-hang/${it.return_id}`}>phiếu trả #{it.return_id}</a>)</> : null}</>;
       case "allocated": return <>xuất <b>{soVN(amt)}</b>{u} cho{ord}</>;
       case "released": return <>thu <b>{soVN(amt)}</b>{u} về từ{ord}</>;
       case "moved": return <>chuyển từ kho <b>{it.from_name || "?"}</b> → kho <b>{it.to_name || "?"}</b></>;

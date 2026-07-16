@@ -58,6 +58,23 @@ def _audit(request, action: str, pid: int, actor: str, payload: dict) -> None:
         actor_id=actor, source=action, payload=payload))
 
 
+def _audit_boxes(request, pid: int, actor: str, extra) -> None:
+    """Ghi event kho scope box/place từ extra['audit'] (snapshot purchase_goods trả về)
+    → timeline thùng / sản phẩm / vị trí thấy biến động nhập hàng."""
+    from server_app.inventory_audit import (log_boxes_created, log_boxes_purchase_in,
+                                            log_boxes_purchase_in_removed)
+    audit = (extra or {}).get("audit") or {}
+    at = "web_user" if request.get("web_user") else "http_client"
+    if audit.get("created"):
+        log_boxes_created(audit["created"], actor=actor, actor_type=at,
+                          extra={"purchase_id": pid})
+    if audit.get("purchase_in"):
+        log_boxes_purchase_in(audit["purchase_in"], purchase_id=pid, actor=actor, actor_type=at)
+    if audit.get("purchase_in_removed"):
+        log_boxes_purchase_in_removed(audit["purchase_in_removed"], purchase_id=pid,
+                                      actor=actor, actor_type=at)
+
+
 async def purchase_receive_goods_handler(request: web.Request):
     """POST /api/purchases/{id}/receive-goods (văn phòng) — ghi nhập từng đợt."""
     from server_app.order_api_common import is_office_request
@@ -93,6 +110,7 @@ async def purchase_receive_goods_handler(request: web.Request):
     _emit_goods(pid, extra["touched_boxes"])
     _audit(request, "purchase.goods_line_added", pid, actor,
            {"boxes": len(extra["touched_boxes"]), "supplier_id": extra.get("supplier_id")})
+    _audit_boxes(request, pid, actor, extra)
     return web.json_response({"ok": True, "purchase": row})
 
 
@@ -168,6 +186,7 @@ async def purchase_unreceive_handler(request: web.Request):
     _audit(request, "purchase.goods_line_removed", pid, actor,
            {"box_code": info.get("box_code"), "quantity": info.get("quantity"),
             "supplier_id": info.get("supplier_id")})
+    _audit_boxes(request, pid, actor, info)
     return web.json_response({"ok": True, "purchase": row})
 
 
@@ -209,6 +228,7 @@ async def purchase_handle_goods_handler(request: web.Request):
     _emit_goods(pid, extra["touched_boxes"] if (result["restocked_existing"] or result["restocked_new"]) else [])
     _audit(request, "purchase.goods_received", pid, actor,
            {"result": result, "supplier_id": extra.get("supplier_id")})
+    _audit_boxes(request, pid, actor, extra)
     return web.json_response({"ok": True, "purchase": row, "result": result})
 
 
@@ -247,4 +267,5 @@ async def purchase_undo_goods_handler(request: web.Request):
            {"retained_boxes": len(info.get("retained_boxes") or []),
             "removed_allocations": info.get("removed_allocations"),
             "supplier_id": info.get("supplier_id")})
+    _audit_boxes(request, pid, actor, info)
     return web.json_response({"ok": True, "purchase": row})
