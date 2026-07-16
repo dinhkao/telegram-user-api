@@ -109,6 +109,7 @@ _EXTRA_LABELS = {
     "DELETE /api/report-slips/{id}": "Xoá phiếu báo cáo SX",
     "POST /api/tasks": "Tạo việc",
     "POST /api/cashbox/transfer": "Chuyển tiền giữa két",
+    "POST /api/cashbox/withdraw": "Thu hồi tiền két",
     "POST /api/cashbox/transfer/{id}/delete": "Xoá lần chuyển tiền két",
     "POST /api/banner/pin": "Ghim lên bảng tin",
     "DELETE /api/banner/pin/{id}": "Bỏ ghim bảng tin",
@@ -335,6 +336,15 @@ def _generic(r, key: str, label: str, body: dict, resolver) -> dict:
             from cashbox_store.identity import box_display
             parts = [part(f"{box_display(str(body.get('from_box') or ''))} → "
                           f"{box_display(str(body.get('to_box') or ''))}: "),
+                     part(money(body.get("amount")))]
+            if body.get("note"):
+                parts.append(part(f" “{str(body.get('note'))[:40]}”"))
+        except Exception:  # noqa: BLE001
+            parts = []
+    elif key == "POST /api/cashbox/withdraw":
+        try:
+            from cashbox_store.identity import box_display
+            parts = [part(f"{box_display(str(body.get('box') or ''))}: "),
                      part(money(body.get("amount")))]
             if body.get("note"):
                 parts.append(part(f" “{str(body.get('note'))[:40]}”"))

@@ -1081,6 +1081,11 @@ export async function cashboxTransferDelete(id: number): Promise<any> {
   return postJSON(`/api/cashbox/transfer/${id}/delete`, {}, { queueable: false });
 }
 
+/** Thu hồi tiền khỏi két (văn phòng). */
+export async function cashboxWithdraw(box: string, amount: number, note: string): Promise<any> {
+  return postJSON("/api/cashbox/withdraw", { box, amount, note }, { queueable: false });
+}
+
 // ── Quản lý user (chỉ admin) ──────────────────────────────────────────────────
 
 export type WebUser = { username: string; display_name: string; role: string; disabled: boolean };

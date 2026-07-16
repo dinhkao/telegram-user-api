@@ -137,6 +137,63 @@ async def cashbox_transfer_delete_handler(request: web.Request):
     return web.json_response({"ok": True})
 
 
+async def cashbox_withdraw_handler(request: web.Request):
+    """POST /api/cashbox/withdraw {box?, amount, note} — văn phòng rút tiền khỏi két.
+
+    Tiền RA khỏi hệ két (về EXTERNAL, giống trả NCC nhưng thủ công).
+    Admin rút được két bất kỳ; user văn phòng thường chỉ rút được két mình.
+    """
+    if not await is_office_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được thu hồi tiền két"}, status=403)
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        return web.json_response({"ok": False, "error": "Body không hợp lệ"}, status=400)
+    box = str(body.get("box") or "").strip()
+    web_user = str(request.get("web_user") or "").strip().lower()
+    if not box:
+        box = f"user:{web_user}" if web_user else ""
+    else:
+        nb = _norm_box(box)
+        if nb:
+            box = nb
+    if not box:
+        return web.json_response({"ok": False, "error": "Không xác định được két nguồn"}, status=400)
+    if not await is_admin_request(request) and web_user:
+        if box != f"user:{web_user}":
+            return web.json_response({"ok": False, "error": "Chỉ thu hồi được két của mình"}, status=403)
+    note = str(body.get("note") or "").strip()
+    try:
+        amount = int(round(float(body.get("amount") or 0)))
+    except (TypeError, ValueError, OverflowError):
+        amount = 0
+    if amount <= 0:
+        return web.json_response({"ok": False, "error": "Số tiền phải > 0"}, status=400)
+    actor = web_user
+
+    def _run():
+        conn = get_connection()
+        try:
+            return cashbox_store.add_transfer(conn, box, cashbox_store.EXTERNAL, amount, note, actor)
+        finally:
+            conn.close()
+
+    async with _transfer_lock:
+        now = time.time()
+        exists = await asyncio.to_thread(box_exists, box, now)
+        if not exists:
+            return web.json_response({"ok": False, "error": "Két nguồn không tồn tại"}, status=400)
+        balance = await asyncio.to_thread(cashbox_balance, box, now)
+        if amount > balance:
+            return web.json_response(
+                {"ok": False, "error": f"Két chỉ còn {balance:,}đ — không đủ {amount:,}đ".replace(",", ".")},
+                status=400)
+        transfer = await asyncio.to_thread(_run)
+        cashbox_store.invalidate_cache()
+    _emit_changed()
+    return web.json_response({"ok": True, "transfer": transfer})
+
+
 def _emit_changed() -> None:
     try:
         from server_app.realtime import emit_cashbox_changed

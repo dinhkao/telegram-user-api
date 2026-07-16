@@ -34,6 +34,7 @@ _REASON_VI = {
     "payment": "Thu tiền (phiếu thu)",
     "payment_ck": "Thu chuyển khoản",
     "transfer": "Chuyển tiền tay",
+    "withdraw": "Thu hồi tiền",
     "purchase_pay": "Trả tiền nhập hàng",
 }
 
@@ -163,9 +164,11 @@ def _build_state(conn, now: float) -> dict:
             })
 
     for t in list_transfers(conn):
+        reason = "withdraw" if t["to_box"] == EXTERNAL else "transfer"
+        extra = {"other_label": "Thu hồi (ra ngoài hệ két)"} if reason == "withdraw" else {}
         moves.append({"ts": _ts(t["created_at"]), "src": t["from_box"], "dst": t["to_box"],
-                      "amount": t["amount"], "reason": "transfer", "actor": t["created_by"],
-                      "thread_id": None, "transfer_id": t["id"], "note": t["note"]})
+                      "amount": t["amount"], "reason": reason, "actor": t["created_by"],
+                      "thread_id": None, "transfer_id": t["id"], "note": t["note"], **extra})
 
     # Trả tiền NCC từ két (phiếu nhập hàng) — tiền RA khỏi hệ két
     try:

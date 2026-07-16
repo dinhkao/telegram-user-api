@@ -3,7 +3,7 @@
 // đơn có tiền đang nằm trong két. Admin xoá được lần chuyển tay.
 // Nối: api.getCashboxTimeline/cashboxTransferDelete, realtime, detail/OrderCards.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { cashboxTransferDelete, currentUser, getCashboxTimeline, soVN,
+import { cashboxTransferDelete, cashboxWithdraw, currentUser, getCashboxTimeline, isOffice, soVN,
          type CashBox, type CashHolding, type CashMove } from "../api";
 import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
@@ -11,6 +11,8 @@ import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
 import { confirmDialog, toast } from "../ui/feedback";
 import { EmptyState, ErrorState, Loading, LoadingInline } from "../ui/states";
+import { useScrollLock } from "../useScrollLock";
+import { usePopupBack } from "../ui/usePopupBack";
 import { dayKeyOf, orderDayLabel } from "../detail/OrderCards";
 
 const GROUP_SEC = 300;
@@ -76,6 +78,50 @@ function Junction({ height, label, amount }: { height: number; label: string | n
         </span>
       </span>
     </li>
+  );
+}
+
+function WithdrawModal({ boxKey, balance, onDone, onClose }: {
+  boxKey: string; balance: number; onDone: () => void; onClose: () => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  useScrollLock(true);
+  usePopupBack(true, onClose);
+  const amt = parseInt(amount.replace(/[^\d]/g, ""), 10) || 0;
+  const submit = async () => {
+    if (amt <= 0) return toast("Nhập số tiền", "info");
+    if (amt > balance) return toast("Số tiền vượt quá số dư két", "info");
+    setBusy(true);
+    try {
+      await cashboxWithdraw(boxKey, amt, note.trim());
+      toast("Đã thu hồi tiền", "ok");
+      onDone();
+    } catch (e: any) {
+      toast(e?.message || "Thu hồi thất bại", "err");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
+        <div class="modal-head">💸 Thu hồi tiền từ két</div>
+        <div class="muted small" style={{ marginBottom: 8 }}>
+          Số dư hiện tại: <b>{soVN(balance)}đ</b>
+        </div>
+        <input class="quy-input" type="text" inputMode="numeric" placeholder="Số tiền"
+          value={amount} onInput={(e: any) => setAmount(e.currentTarget.value)} />
+        <input class="quy-input" placeholder="Ghi chú (vd rút tiền mặt)"
+          value={note} onInput={(e: any) => setNote(e.currentTarget.value)} />
+        {amt > 0 && <div class="muted small">Sẽ thu hồi <b>{soVN(amt)}đ</b></div>}
+        <div class="row">
+          <button class="btn" onClick={onClose} disabled={busy}>Huỷ</button>
+          <button class="btn primary" onClick={submit} disabled={busy}>{busy ? "Đang xử lý…" : "Xác nhận thu hồi"}</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -158,6 +204,11 @@ export function CashboxDetail({ boxKey }: { boxKey: string }) {
     }
   };
 
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const office = isOffice();
+  const isMyBox = boxKey === `user:${currentUser()?.username || ""}`;
+  const canWithdraw = office && (isMyBox || admin);
+
   if (loading && !box) return <Loading />;
   if (err || !box) return <ErrorState msg={err || "Không tìm thấy"} onRetry={load} />;
 
@@ -204,6 +255,18 @@ export function CashboxDetail({ boxKey }: { boxKey: string }) {
         </div>
         <span class="muted small">{items.length} biến động{truncated ? " (mới nhất)" : ""}</span>
       </div>
+
+      {canWithdraw && (
+        <div class="pt-head card" style={{ display: "flex", justifyContent: "flex-end", paddingTop: 0, borderBottom: "none" }}>
+          <button class="btn" onClick={() => setShowWithdraw(true)}>
+            💸 Thu hồi tiền
+          </button>
+        </div>
+      )}
+
+      {showWithdraw && (
+        <WithdrawModal boxKey={boxKey} balance={box.balance} onDone={() => { setShowWithdraw(false); load(); }} onClose={() => setShowWithdraw(false)} />
+      )}
 
       {holdings.length > 0 && (
         <div class="cash-holdings card">
