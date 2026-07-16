@@ -43,6 +43,20 @@ class RecipeAuxTest(unittest.TestCase):
         self.assertEqual(recipe_needs(self.conn, "KEO1", 10, aux=False), [{"code": "HOP1", "amount": 5}])
         self.assertEqual(len(recipe_needs(self.conn, "KEO1", 10)), 2)
 
+    def test_ratio_unit_converts_to_base(self):
+        # Nhập tỉ lệ theo ĐƠN VỊ QUY ĐỔI (1 Thùng = 30 gốc) → DB lưu ratio GỐC
+        # (needs/gate không đổi) + snapshot ratio_unit/ratio_factor để hiển thị.
+        line = set_recipe_line(self.conn, "KEO1", "TEM1", 2, aux=True,
+                               ratio_unit="Thùng", ratio_factor=30)
+        self.assertEqual(line["ratio"], 60.0)
+        self.assertEqual((line["ratio_unit"], line["ratio_factor"]), ("Thùng", 30.0))
+        self.assertEqual(recipe_needs(self.conn, "KEO1", 2, aux=True),
+                         [{"code": "TEM1", "amount": 120}])
+        # factor xấu → rơi phần unit, ratio hiểu theo gốc
+        line2 = set_recipe_line(self.conn, "KEO1", "HOP1", 5, ratio_unit="Kiện", ratio_factor=0)
+        self.assertEqual(line2["ratio"], 5.0)
+        self.assertIsNone(line2["ratio_unit"])
+
     def test_aux_required_flag_roundtrip(self):
         # Hồi quy: _COLS từng thiếu aux_required → get_product không trả cờ,
         # API luôn coi là bật, toggle ở RecipeEditor bị đè ngược lại.

@@ -326,6 +326,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   chung); client `ProductionBoxes.tsx` cùng rule (requiredLines). `list_recipe`/
   `recipe_needs`/`set_recipe_line` nhận tham số `aux`; API recipe trả `aux` từng
   dòng + `aux_required`. Tests: `tests/test_recipe_aux.py`.
+  **Đơn vị nhập tỉ lệ**: cột `ratio_unit`/`ratio_factor` — tỉ lệ nhập theo đơn vị
+  quy đổi của NL (product_units, chọn ở RecipeEditor); `ratio` DB LUÔN quy về
+  đơn vị GỐC (needs/gate không đổi), unit/factor chỉ là snapshot hiển thị.
   **KHO ĐẶC BIỆT nguồn NL PHỤ**: cột `inventory_places.aux_source` (tối đa 1 kho —
   `set_place_aux_source` bật là tắt kho khác; backfill 1 lần theo tên "Kho nguyên
   liệu đang dùng"). Có kho này → thùng NL PHỤ bắt buộc đang ở đó (gate `auxplace`

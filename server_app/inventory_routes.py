@@ -371,8 +371,10 @@ async def recipe_get_handler(request: web.Request):
 
 
 async def recipe_set_handler(request: web.Request):
-    """Thêm/sửa 1 nguyên liệu. Body {ingredient_code, ratio, aux?} — aux=true =
-    NGUYÊN LIỆU PHỤ (trừ kho cả phiếu SX khi SP bật aux_required)."""
+    """Thêm/sửa 1 nguyên liệu. Body {ingredient_code, ratio, aux?, ratio_unit?,
+    ratio_factor?} — aux=true = NGUYÊN LIỆU PHỤ (trừ kho cả phiếu SX khi SP bật
+    aux_required); ratio_unit/factor = ratio nhập theo đơn vị quy đổi của NL
+    (product_units), store tự quy về gốc + snapshot."""
     code = _product_code(request)
     try:
         body = await request.json()
@@ -388,7 +390,9 @@ async def recipe_set_handler(request: web.Request):
         conn = _conn()
         try:
             _ensure(conn)
-            return set_recipe_line(conn, code, ic, ratio, aux=aux)
+            return set_recipe_line(conn, code, ic, ratio, aux=aux,
+                                   ratio_unit=body.get("ratio_unit"),
+                                   ratio_factor=body.get("ratio_factor"))
         finally:
             conn.close()
     line = await asyncio.to_thread(_run)

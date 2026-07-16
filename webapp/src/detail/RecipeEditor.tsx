@@ -4,18 +4,36 @@
 // products.aux_required). Data: /api/products/{code}/recipe + updateProduct.
 import { useEffect, useState } from "preact/hooks";
 import { getRecipe, setRecipeLine, deleteRecipeLine, updateProduct, searchProducts, soVN, type RecipeLine } from "../api";
+import { unitChoicesFor, type UnitChoice } from "./purchaseProduct";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { toast, confirmDialog } from "../ui/feedback";
 import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
+import { SelectPopup } from "../ui/SelectPopup";
 
-// 1 khu nguyên liệu (chính / phụ): danh sách + dòng thêm. aux quyết định loại.
+// Hiển thị tỉ lệ 1 dòng: có đơn vị quy đổi → "0,5 Cuộn" + chú "= 15 cây (gốc)"
+function ratioText(l: RecipeLine): { main: string; sub?: string } {
+  if (l.ratio_unit && (l.ratio_factor || 0) > 0) {
+    return { main: `${soVN(l.ratio / (l.ratio_factor || 1))} ${l.ratio_unit}`, sub: `= ${soVN(l.ratio)} ${l.unit || ""}` };
+  }
+  return { main: `${soVN(l.ratio)}${l.unit ? ` ${l.unit}` : ""}` };
+}
+
+// 1 khu nguyên liệu (chính / phụ): danh sách + dòng thêm (tỉ lệ nhập theo ĐƠN VỊ
+// tự chọn của NL — gốc hoặc quy đổi product_units). aux quyết định loại.
 function IngSection({ productCode, lines, aux, onChanged }: {
   productCode: string; lines: RecipeLine[]; aux: boolean; onChanged: () => void;
 }) {
   const [ing, setIng] = useState("");
   const [ratio, setRatio] = useState("");
   const [busy, setBusy] = useState(false);
+  // đơn vị nhập tỉ lệ: nạp theo NL đã chọn (gốc + quy đổi); mặc định gốc
+  const [unitChoices, setUnitChoices] = useState<UnitChoice[]>([]);
+  const [unitName, setUnitName] = useState<string | null>(null);
+  const pickIng = (code: string) => {
+    setIng(code); setUnitName(null); setUnitChoices([]);
+    unitChoicesFor(code).then(setUnitChoices).catch(() => {});
+  };
 
   const add = async () => {
     const code = ing.trim().toUpperCase();
@@ -23,8 +41,13 @@ function IngSection({ productCode, lines, aux, onChanged }: {
     if (!code) { toast("Chọn nguyên liệu", "err"); return; }
     if (!isFinite(r) || r <= 0) { toast("Tỉ lệ phải > 0", "err"); return; }
     if (code === productCode.toUpperCase()) { toast("Không tự làm nguyên liệu", "err"); return; }
+    const u = unitName ? unitChoices.find((c) => c.name === unitName) : null;
     setBusy(true);
-    try { await setRecipeLine(productCode, code, r, aux); setIng(""); setRatio(""); onChanged(); toast("✅ Đã lưu", "ok"); }
+    try {
+      await setRecipeLine(productCode, code, r, aux, u && u.factor !== 1 ? u : null);
+      setIng(""); setRatio(""); setUnitName(null); setUnitChoices([]);
+      onChanged(); toast("✅ Đã lưu", "ok");
+    }
     catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
     finally { setBusy(false); }
   };
@@ -37,6 +60,10 @@ function IngSection({ productCode, lines, aux, onChanged }: {
     return r.filter((s) => s.code.toUpperCase() !== productCode.toUpperCase())
       .map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }));
   };
+  const base = unitChoices[0];   // phần tử đầu = đơn vị gốc (factor 1)
+  const curUnit = unitName || base?.name || "";
+  const rNum = parseFloat((ratio || "").replace(",", ".")) || 0;
+  const curFactor = unitChoices.find((c) => c.name === curUnit)?.factor || 1;
 
   return (
     <>
@@ -44,25 +71,39 @@ function IngSection({ productCode, lines, aux, onChanged }: {
         <div class="muted small">{aux ? "Chưa có nguyên liệu phụ." : "Chưa có nguyên liệu. Thêm bên dưới."}</div>
       ) : (
         <div class="inv-detail-list">
-          {lines.map((l) => (
-            <div class="inv-detail-row" key={l.id}>
-              <code class="inv-bc">{l.ingredient_code}</code>
-              <span class="inv-q">× {l.ratio}</span>
-              <span class="muted small">tồn {soVN(l.stock ?? 0)} {l.unit || ""}</span>
-              <button class="link-btn" onClick={() => del(l)} title="Bỏ"><Icon name="trash" size={15} /></button>
-            </div>
-          ))}
+          {lines.map((l) => {
+            const rt = ratioText(l);
+            return (
+              <div class="inv-detail-row" key={l.id}>
+                <code class="inv-bc">{l.ingredient_code}</code>
+                <span class="inv-q">× {rt.main}{rt.sub ? <span class="muted small"> {rt.sub}</span> : null}</span>
+                <span class="muted small">tồn {soVN(l.stock ?? 0)} {l.unit || ""}</span>
+                <button class="link-btn" onClick={() => del(l)} title="Bỏ"><Icon name="trash" size={15} /></button>
+              </div>
+            );
+          })}
         </div>
       )}
-      <div class="row" style={{ gap: "6px", marginTop: "8px" }}>
-        <span style={{ flex: 1 }}>
-          <PickerPopup value={ing} placeholder={aux ? "Nguyên liệu phụ" : "Nguyên liệu"} onSearch={search} onPick={(o) => setIng(o.key)} />
+      <div class="row" style={{ gap: "6px", marginTop: "8px", flexWrap: "wrap" }}>
+        <span style={{ flex: 1, minWidth: "120px" }}>
+          <PickerPopup value={ing} placeholder={aux ? "Nguyên liệu phụ" : "Nguyên liệu"} onSearch={search} onPick={(o) => pickIng(o.key)} />
         </span>
         <input class="pb-amount" type="text" inputMode="decimal" style={{ width: "72px" }} placeholder="Tỉ lệ"
           value={ratio} onFocus={(e) => (e.target as HTMLInputElement).select()}
           onInput={(e: any) => setRatio(e.target.value)} />
+        {unitChoices.length > 1 && (
+          <SelectPopup title="Đơn vị của tỉ lệ" value={curUnit}
+            options={unitChoices.map((c) => ({
+              value: c.name, label: c.name,
+              sub: c.factor !== 1 ? `1 ${c.name} = ${soVN(c.factor)} ${base?.name || ""}` : "đơn vị gốc",
+            }))}
+            onChange={(v) => setUnitName(String(v))} />
+        )}
         <button class="btn primary" disabled={busy} onClick={add}><Icon name="plus" size={16} /></button>
       </div>
+      {curFactor !== 1 && rNum > 0 && (
+        <div class="muted small">= {soVN(rNum * curFactor)} {base?.name || ""} cho 1 thành phẩm</div>
+      )}
     </>
   );
 }
@@ -99,7 +140,7 @@ export function RecipeEditor({ productCode }: { productCode: string }) {
   return (
     <section class="card">
       <label class="card-label"><Icon name="leaf" size={16} /> Công thức — nguyên liệu</label>
-      <div class="muted small" style={{ marginBottom: "6px" }}>Tỉ lệ = lượng nguyên liệu cho 1 {unit} {productCode}. Chỉ phiếu ĐÓNG GÓI mới bắt buộc trừ nguyên liệu chính; phiếu sản xuất không cần.</div>
+      <div class="muted small" style={{ marginBottom: "6px" }}>Tỉ lệ = lượng nguyên liệu cho 1 {unit} {productCode} — NL có quy đổi đơn vị thì chọn được đơn vị nhập (app tự quy về gốc). Chỉ phiếu ĐÓNG GÓI mới bắt buộc trừ nguyên liệu chính; phiếu sản xuất không cần.</div>
       <IngSection productCode={productCode} lines={main} aux={false} onChanged={load} />
 
       <div class="recipe-aux-head">

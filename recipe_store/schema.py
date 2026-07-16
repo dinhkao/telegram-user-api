@@ -39,6 +39,13 @@ def create_recipe_table(conn):
     # 1 cặp (SP, NL) là chính HOẶC phụ (UNIQUE pair giữ nguyên).
     if "aux" not in cols:
         conn.execute("ALTER TABLE product_recipes ADD COLUMN aux INTEGER NOT NULL DEFAULT 0")
+    # ĐƠN VỊ NHẬP TỈ LỆ (2026-07-16): ratio LUÔN lưu theo đơn vị GỐC của NL (mọi
+    # công thức tính giữ nguyên); ratio_unit/ratio_factor = snapshot đơn vị người
+    # dùng chọn khi khai (từ product_units của NL, 1 unit = factor gốc) để hiển thị.
+    if "ratio_unit" not in cols:
+        conn.execute("ALTER TABLE product_recipes ADD COLUMN ratio_unit TEXT")
+    if "ratio_factor" not in cols:
+        conn.execute("ALTER TABLE product_recipes ADD COLUMN ratio_factor REAL")
     conn.execute(
         "UPDATE product_recipes SET product_id = "
         "(SELECT p.id FROM products p WHERE p.code = product_recipes.product_code) "
