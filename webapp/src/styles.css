@@ -2166,7 +2166,11 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .punit-input { width: 70px; padding: 5px 6px; border: 1px solid var(--line); border-radius: 8px; font: inherit; text-align: center; }
 .punit-name-in { width: 90px; text-align: left; }
 .punit-base { color: var(--muted); }
-.punit-del { margin-left: auto; border: none; background: none; color: var(--danger, #c33); padding: 4px; cursor: pointer; }
+.punit-del { border: none; background: none; color: var(--danger, #c33); padding: 4px; cursor: pointer; }
+/* Nút ⇄ đổi chiều quy đổi (1 thùng = 30 cây ⇄ 1 cây = 0,033 thùng) */
+.punit-flip { margin-left: auto; border: 1px solid var(--line); background: none; border-radius: 8px;
+  padding: 2px 8px; font-size: .9rem; cursor: pointer; color: var(--muted); flex: none; }
+.punit-flip:active { background: var(--accent-wash); }
 .recipe-consume { margin: 8px 0; padding: 8px 10px; border: 1px solid #e0c9a6; border-radius: 10px; background: var(--warn-wash); transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
 .recipe-consume.ok { background: var(--ok-wash); border-color: #b7dfc0; }
 .recipe-consume .stock-head { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
