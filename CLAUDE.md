@@ -313,10 +313,19 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   cần các nguyên liệu (product khác) theo tỉ lệ (`ratio` = số cây NL / 1 cây thành
   phẩm). Tỉ lệ định nghĩa ở trang chi tiết SP (`detail/RecipeEditor.tsx`). Nhu cầu NL
   theo **LOẠI PHIẾU** (bỏ cờ bắt buộc/optional per-NL 2026-07-09): phiếu **sản xuất**
-  = KHÔNG cần NL; phiếu **đóng gói** = BẮT BUỘC có công thức + chọn đủ thùng NL cho
-  MỌI nguyên liệu → trừ kho qua
+  = KHÔNG cần NL chính; phiếu **đóng gói** = BẮT BUỘC có công thức + chọn đủ thùng NL
+  cho MỌI nguyên liệu → trừ kho qua
   `inventory_store.allocate_picks(kind='production')` (cột `kind` phân biệt xuất-đơn ↔
   tiêu-hao-SX; `remaining` = quantity − Σ mọi allocation nên tồn NL giảm đúng).
+  **NGUYÊN LIỆU PHỤ (2026-07-16)**: cột `aux` trên `product_recipes` (0 = NL chính,
+  1 = NL phụ — bao bì/tem…; 1 cặp SP↔NL là chính HOẶC phụ, upsert đổi được). NL phụ
+  bắt buộc trừ kho ở **CẢ 2 loại phiếu** (san_xuat + dong_goi) khi cờ
+  `products.aux_required` bật (INTEGER DEFAULT 1) — bật/tắt bằng chip "Yêu cầu khi
+  sản xuất" ở khu Nguyên liệu phụ của RecipeEditor (chi tiết SP). Gate server
+  `inventory_routes` (needs = chính[dong_goi] + phụ[aux_required], coverage + cap
+  chung); client `ProductionBoxes.tsx` cùng rule (requiredLines). `list_recipe`/
+  `recipe_needs`/`set_recipe_line` nhận tham số `aux`; API recipe trả `aux` từng
+  dòng + `aux_required`. Tests: `tests/test_recipe_aux.py`.
   **Cách sản xuất = 2 CỜ ĐỘC LẬP trên `products` (2026-07-16)**: `can_produce_directly`
   (INTEGER DEFAULT 1 = 🏭 SX trực tiếp, phiếu `kind='san_xuat'`) và `can_package`
   (INTEGER DEFAULT 0 = 📦 đóng gói từ NL, phiếu `kind='dong_goi'`). 1 SP có thể bật CẢ
@@ -573,8 +582,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   per-day phiếu/SP breakdown). Chọn mã SP dùng **`detail/ProductPicker.tsx`**.
   - **Công thức/BOM** (`recipe_store`): SP có thể cần nguyên liệu (product khác) theo tỉ lệ.
     Định nghĩa ở chi tiết SP (`detail/RecipeEditor.tsx`). Nhu cầu theo LOẠI PHIẾU: sản xuất
-    = không cần NL; đóng gói = bắt buộc công thức +
+    = không cần NL chính; đóng gói = bắt buộc công thức +
     chọn đủ thùng NL mọi nguyên liệu → trừ kho (`allocate_picks kind='production'`).
+    NGUYÊN LIỆU PHỤ (`aux=1`) trừ ở CẢ 2 loại phiếu khi `products.aux_required` bật
+    (toggle ở RecipeEditor) — xem mục `recipe_store/` phần Data stores.
   - **Phiếu BÁO CÁO SX** (`production_store/report_slips.py` + `server_app/report_slip_routes.py`,
     office-only — tiền lương): văn phòng tạo phiếu chọn khoảng ngày (`production_report_slips`);
     nội dung TÍNH LIVE mỗi lần xem (tổng SP + tiền theo THỢ, tiền TỪNG PHIẾU SX, tổng cộng —

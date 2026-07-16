@@ -1,0 +1,56 @@
+"""NGUYÊN LIỆU PHỤ (product_recipes.aux): lọc list/needs theo loại, upsert đổi
+chính↔phụ không tạo dòng đôi. Gate nhập kho SX dùng recipe_needs(aux=...)."""
+from __future__ import annotations
+
+import os
+import tempfile
+import unittest
+
+from product_store import create_products_table, migrate_products_table, upsert_product
+from product_store.schema import _invalidate_products_cache
+from recipe_store import create_recipe_table, list_recipe, set_recipe_line, recipe_needs
+from utils.db import get_connection
+
+
+class RecipeAuxTest(unittest.TestCase):
+    def setUp(self):
+        fd, self.path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        self.conn = get_connection(self.path)
+        _invalidate_products_cache()
+        create_products_table(self.conn)
+        migrate_products_table(self.conn)
+        create_recipe_table(self.conn)
+        for code in ("KEO1", "TEM1", "HOP1"):
+            upsert_product(self.conn, code, code)
+
+    def tearDown(self):
+        self.conn.close()
+        _invalidate_products_cache()
+        os.unlink(self.path)
+
+    def test_set_and_filter_by_aux(self):
+        assert set_recipe_line(self.conn, "KEO1", "HOP1", 0.5) is not None            # NL chính
+        line = set_recipe_line(self.conn, "KEO1", "TEM1", 2, aux=True)                # NL phụ
+        self.assertEqual(line["aux"], 1)
+        allr = list_recipe(self.conn, "KEO1")
+        self.assertEqual({(r["ingredient_code"], r["aux"]) for r in allr},
+                         {("HOP1", 0), ("TEM1", 1)})
+        self.assertEqual([r["ingredient_code"] for r in list_recipe(self.conn, "KEO1", aux=True)], ["TEM1"])
+        self.assertEqual([r["ingredient_code"] for r in list_recipe(self.conn, "KEO1", aux=False)], ["HOP1"])
+        # nhu cầu theo loại: aux=True chỉ NL phụ, aux=False chỉ chính, None = cả hai
+        self.assertEqual(recipe_needs(self.conn, "KEO1", 10, aux=True), [{"code": "TEM1", "amount": 20}])
+        self.assertEqual(recipe_needs(self.conn, "KEO1", 10, aux=False), [{"code": "HOP1", "amount": 5}])
+        self.assertEqual(len(recipe_needs(self.conn, "KEO1", 10)), 2)
+
+    def test_upsert_flips_kind_without_duplicate(self):
+        set_recipe_line(self.conn, "KEO1", "TEM1", 1)                 # chính
+        line = set_recipe_line(self.conn, "KEO1", "TEM1", 3, aux=True)   # đổi thành phụ
+        self.assertEqual((line["ratio"], line["aux"]), (3.0, 1))
+        rows = list_recipe(self.conn, "KEO1")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["aux"], 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

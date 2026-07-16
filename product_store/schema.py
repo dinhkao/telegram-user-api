@@ -93,6 +93,8 @@ def migrate_products_table(conn):
         conn.execute("ALTER TABLE products ADD COLUMN can_sell INTEGER DEFAULT 1")
     if "can_purchase" not in columns:   # CÓ THỂ NHẬP (hiện trong picker phiếu nhập NCC)
         conn.execute("ALTER TABLE products ADD COLUMN can_purchase INTEGER DEFAULT 1")
+    if "aux_required" not in columns:   # YÊU CẦU trừ NGUYÊN LIỆU PHỤ khi sản xuất (bật/tắt ở chi tiết SP)
+        conn.execute("ALTER TABLE products ADD COLUMN aux_required INTEGER DEFAULT 1")
     if "id" not in columns:
         _rebuild_with_id(conn)
     _create_history_table(conn)

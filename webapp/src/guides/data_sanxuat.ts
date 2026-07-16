@@ -24,10 +24,12 @@ export const GUIDES_SANXUAT: Guide[] = [
       { title: "2 loại phiếu: Sản xuất vs Đóng gói", html: `
         <p>Có <b>hai loại phiếu</b>, khác nhau ở chỗ trừ nguyên liệu:</p>
         <ul>
-          <li><b>Phiếu SẢN XUẤT</b> — làm ra hàng, <i>không cần</i> chọn nguyên liệu. Dùng cho sản phẩm
+          <li><b>Phiếu SẢN XUẤT</b> — làm ra hàng, <i>không cần</i> chọn nguyên liệu chính. Dùng cho sản phẩm
             làm trực tiếp.</li>
           <li><b>Phiếu ĐÓNG GÓI</b> — <b>bắt buộc</b> sản phẩm phải có <b>công thức (BOM)</b> và bạn phải
             <b>chọn đủ thùng nguyên liệu</b> cho từng thành phần → hệ thống <b>trừ kho nguyên liệu</b> tự động.</li>
+          <li>SP có khai <b>nguyên liệu phụ</b> (bao bì/tem…) và đang bật <b>「Yêu cầu khi sản xuất」</b>
+            ở chi tiết SP → <b>cả hai loại phiếu</b> đều phải chọn thêm thùng NL phụ (dòng có nhãn <i>(phụ)</i>) để trừ kho.</li>
         </ul>
         <p class="muted small">Công thức (nguyên liệu + tỉ lệ) khai báo ở chi tiết sản phẩm trong
           <a href="#/san-pham">Sản phẩm</a>. Xem thêm bài hướng dẫn Kho & Sản phẩm.</p>

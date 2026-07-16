@@ -2193,6 +2193,8 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .punit-new-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 2px 0 4px; }
 .punit-empty { color: var(--muted); font-size: .82rem; padding: 4px 0 2px; }
 .recipe-consume { margin: 8px 0; padding: 8px 10px; border: 1px solid #e0c9a6; border-radius: 10px; background: var(--warn-wash); transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+/* header khu NGUYÊN LIỆU PHỤ ở RecipeEditor: nhãn + chip toggle "Yêu cầu khi sản xuất" */
+.recipe-aux-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--border); }
 .recipe-consume.ok { background: var(--ok-wash); border-color: #b7dfc0; }
 .recipe-consume .stock-head { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
 .recipe-consume .stock-head b { min-width: 54px; }

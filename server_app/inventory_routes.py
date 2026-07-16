@@ -189,9 +189,9 @@ async def production_add_boxes_handler(request: web.Request):
             code = req_code or str((slip or {}).get("sp_name") or "").strip().upper()
             if not slip or not code:
                 return None, None, None
-            # Nguyên liệu theo LOẠI PHIẾU: sản xuất → KHÔNG cần NL (SP đầu ra là
-            # nguyên liệu, đánh dấu is_material); đóng gói → BẮT BUỘC có công thức
-            # và chọn đủ thùng NL cho MỌI nguyên liệu TRƯỚC khi tạo thùng.
+            # Nguyên liệu theo LOẠI PHIẾU: sản xuất → không cần NL CHÍNH nhưng vẫn
+            # phải trừ NL PHỤ (aux) nếu SP bật aux_required; đóng gói → BẮT BUỘC có
+            # công thức chính + chọn đủ thùng NL (chính + phụ) TRƯỚC khi tạo thùng.
             kind = (slip or {}).get("kind") or "san_xuat"
             # SP tự-là-thùng (KDXDB5/KGL5): bản thân là 1 thùng → mỗi thùng = 1 dòng
             # quantity=1, KHÔNG có đơn vị chứa. Enforce server-side (chốt thật).
@@ -211,11 +211,23 @@ async def production_add_boxes_handler(request: web.Request):
                 # check công thức bên dưới (đóng gói bắt buộc trừ nguyên liệu).
                 if _prod is not None and not _prod.get("can_package"):
                     return "notpackage", code, None
-            if kind == "dong_goi" and not allow_no_mat:
-                # Kiểm tra theo tổng cây dự kiến của đợt này.
-                needs = recipe_needs(conn, code, sum(qtys))
-                if not needs:
-                    return "norecipe", code, None
+            elif kind == "san_xuat" and not allow_no_mat:
+                # phiếu SẢN XUẤT chỉ nhập được SP có thể SX trực tiếp (can_produce_directly)
+                if _prod is not None and not _prod.get("can_produce_directly"):
+                    return "notdirect", code, None
+            # Nhu cầu NL của đợt này: NL CHÍNH (aux=0) chỉ phiếu đóng gói bắt buộc;
+            # NL PHỤ (aux=1) bắt buộc CẢ 2 loại phiếu khi SP bật aux_required
+            # (tắt ở chi tiết SP → bỏ yêu cầu NL phụ).
+            needs: list = []
+            if not allow_no_mat:
+                if kind == "dong_goi":
+                    main_needs = recipe_needs(conn, code, sum(qtys), aux=False)
+                    if not main_needs:
+                        return "norecipe", code, None
+                    needs += main_needs
+                if _prod is None or _prod.get("aux_required", 1):
+                    needs += recipe_needs(conn, code, sum(qtys), aux=True)
+            if needs:
                 # mã NL của từng thùng chọn (COALESCE mã hiện hành)
                 codes: dict = {}
                 for p in picks:
@@ -261,12 +273,6 @@ async def production_add_boxes_handler(request: web.Request):
                     else:
                         capped.append(p)      # mã ngoài công thức → không cap
                 picks = capped
-            elif kind == "san_xuat" and not allow_no_mat:
-                # phiếu SẢN XUẤT chỉ nhập được SP có thể SX trực tiếp (can_produce_directly)
-                from product_store import get_product
-                prod = get_product(conn, code)
-                if prod is not None and not prod.get("can_produce_directly"):
-                    return "notdirect", code, None
             try:
                 created = add_boxes(conn, code, qtys, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=uid, place_id=place_id)
             except ValueError as e:   # hết 999 số gọi đang hoạt động (thực tế khó xảy ra)
@@ -337,15 +343,19 @@ async def recipe_get_handler(request: web.Request):
                 ing = resolve_code(conn, ln["ingredient_code"])
                 ln["unit"] = (ing.get("unit") if ing else None) or "cây"
             prod = resolve_code(conn, code)
-            return lines, (prod.get("unit") if prod else None) or "cây", bool((prod or {}).get("self_container"))
+            return (lines, (prod.get("unit") if prod else None) or "cây",
+                    bool((prod or {}).get("self_container")),
+                    bool((prod or {}).get("aux_required", 1)))
         finally:
             conn.close()
-    lines, unit, self_container = await asyncio.to_thread(_run)
-    return web.json_response({"ok": True, "recipe": lines, "unit": unit, "self_container": self_container})
+    lines, unit, self_container, aux_required = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, "recipe": lines, "unit": unit,
+                              "self_container": self_container, "aux_required": aux_required})
 
 
 async def recipe_set_handler(request: web.Request):
-    """Thêm/sửa 1 nguyên liệu. Body {ingredient_code, ratio}."""
+    """Thêm/sửa 1 nguyên liệu. Body {ingredient_code, ratio, aux?} — aux=true =
+    NGUYÊN LIỆU PHỤ (trừ kho cả phiếu SX khi SP bật aux_required)."""
     code = _product_code(request)
     try:
         body = await request.json()
@@ -353,6 +363,7 @@ async def recipe_set_handler(request: web.Request):
         body = {}
     ic = str(body.get("ingredient_code") or "").strip().upper()
     ratio = body.get("ratio")
+    aux = bool(body.get("aux"))
     if not ic:
         return web.json_response({"ok": False, "error": "Thiếu mã nguyên liệu"}, status=400)
 
@@ -360,7 +371,7 @@ async def recipe_set_handler(request: web.Request):
         conn = _conn()
         try:
             _ensure(conn)
-            return set_recipe_line(conn, code, ic, ratio)
+            return set_recipe_line(conn, code, ic, ratio, aux=aux)
         finally:
             conn.close()
     line = await asyncio.to_thread(_run)

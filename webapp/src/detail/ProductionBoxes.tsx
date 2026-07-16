@@ -82,9 +82,10 @@ export function ProductionBoxes({
   const [selfContainer, setSelfContainer] = useState(false);
   const unitName = units.find((u) => u.id === unitId)?.name || "Thùng";   // đơn vị chứa (Thùng/Kiện/Hũ)
   const unitLow = selfContainer ? "thùng" : unitName.toLowerCase();
+  const [auxRequired, setAuxRequired] = useState(true);   // SP có yêu cầu trừ NL PHỤ khi SX?
   useEffect(() => {
-    if (prodCode) getRecipe(prodCode).then((r) => { setRecipe(r.recipe); setProdUnit(r.unit); setSelfContainer(r.self_container); }).catch(() => { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); });
-    else { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); }
+    if (prodCode) getRecipe(prodCode).then((r) => { setRecipe(r.recipe); setProdUnit(r.unit); setSelfContainer(r.self_container); setAuxRequired(r.aux_required); }).catch(() => { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); setAuxRequired(true); });
+    else { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); setAuxRequired(true); }
   }, [prodCode]);
   const produced = (() => {
     const n = selfContainer ? 1 : parseFloat((amount || "").replace(",", "."));
@@ -92,11 +93,17 @@ export function ProductionBoxes({
     return isFinite(n) && n > 0 && isFinite(c) && c > 0 ? n * c : 0;
   })();
   const chosenOf = (code: string) => (consumePicks[code] || []).reduce((s, p) => s + p.quantity, 0);
-  // Nguyên liệu theo LOẠI PHIẾU: SẢN XUẤT → không cần NL (ẩn luôn phần chọn);
-  // ĐÓNG GÓI → bắt buộc có công thức + chọn đủ thùng cho MỌI nguyên liệu.
+  // Nguyên liệu theo LOẠI PHIẾU: SẢN XUẤT → không cần NL CHÍNH nhưng vẫn trừ NL PHỤ
+  // (aux) nếu SP bật yêu cầu; ĐÓNG GÓI → bắt buộc công thức chính + đủ thùng cho
+  // MỌI nguyên liệu (chính + phụ). Server cùng rule (inventory_routes).
   const packing = (slip.kind || "san_xuat") === "dong_goi";
-  const recipeOk = allowNoMat || !packing
-    || (recipe.length > 0 && produced > 0 && recipe.every((l) => chosenOf(l.ingredient_code) + 1e-6 >= l.ratio * produced));
+  const mainLines = recipe.filter((l) => !l.aux);
+  const auxLines = auxRequired ? recipe.filter((l) => !!l.aux) : [];
+  const requiredLines = packing ? [...mainLines, ...auxLines] : auxLines;
+  const recipeOk = allowNoMat
+    || ((!packing || mainLines.length > 0)
+      && (requiredLines.length === 0
+        || (produced > 0 && requiredLines.every((l) => chosenOf(l.ingredient_code) + 1e-6 >= l.ratio * produced))));
   const createUnitPick = async (name: string) => {
     try {
       const u = await createUnit(name);
@@ -195,7 +202,7 @@ export function ProductionBoxes({
       return;
     }
     if (!recipeOk) {
-      setMsg(recipe.length === 0
+      setMsg(packing && mainLines.length === 0
         ? "⚠ Phiếu đóng gói bắt buộc trừ nguyên liệu — SP chưa có công thức"
         : "⚠ Chọn đủ thùng nguyên liệu trước khi tạo thùng");
       return;
@@ -212,8 +219,11 @@ export function ProductionBoxes({
     // công thức không cap. produced = n × c (tổng cây đợt này).
     const consume: { box_id: number; quantity: number }[] = [];
     for (const [code, ps] of Object.entries(consumePicks)) {
-      const line = recipe.find((l) => l.ingredient_code === code);
-      let allow = line ? line.ratio * produced : Infinity;
+      // CHỈ gửi NL thuộc yêu cầu của đợt này (chính khi đóng gói + phụ khi bật) —
+      // nháp cũ có thể còn NL không áp dụng (đổi SP / tắt yêu cầu phụ) → bỏ.
+      const line = requiredLines.find((l) => l.ingredient_code === code);
+      if (!line) continue;
+      let allow = line.ratio * produced;
       for (const p of ps) {
         if (allow <= 1e-9) break;
         const take = Math.min(p.quantity, allow);
@@ -322,17 +332,17 @@ export function ProductionBoxes({
 
       {!hasSp && <div class="muted small pb-hint">Chọn sản phẩm trước khi nhập.</div>}
 
-      {packing && recipe.length > 0 && (
+      {requiredLines.length > 0 && (
         <div class={"recipe-consume" + (recipeOk && produced > 0 ? " ok" : "")}>
           <div class="card-label"><Icon name="leaf" size={15} /> Nguyên liệu cần trừ {produced > 0 ? `(SX ${soVN(produced)} ${prodUnit})` : ""}</div>
           {produced <= 0 && <div class="muted small">{selfContainer ? "Nhập số thùng trước để tính nguyên liệu." : `Nhập số ${unitLow} × số ${prodUnit} trước để tính nguyên liệu.`}</div>}
-          {recipe.map((l) => {
+          {requiredLines.map((l) => {
             const need = +(l.ratio * produced).toFixed(3);
             const chosen = chosenOf(l.ingredient_code);
             const enough = need > 0 && chosen >= need;
             return (
               <div class="stock-head" key={l.ingredient_code}>
-                <b>{l.ingredient_code}</b>
+                <b>{l.ingredient_code}{l.aux ? <span class="muted small"> (phụ)</span> : null}</b>
                 <span class={enough ? "inv-pick-sum ok" : "inv-pick-sum"}>{soVN(chosen)}/{soVN(need)}</span>
                 <span class="muted small">tồn {soVN(l.stock ?? 0)}</span>
                 <button class="btn small" disabled={!hasSp || produced <= 0} onClick={() => setPickIng(l.ingredient_code)}>Chọn thùng</button>
@@ -341,7 +351,7 @@ export function ProductionBoxes({
           })}
         </div>
       )}
-      {packing && hasSp && recipe.length === 0 && !allowNoMat && (
+      {packing && hasSp && mainLines.length === 0 && !allowNoMat && (
         <div class="muted small pb-hint">⚠ Phiếu đóng gói bắt buộc trừ nguyên liệu — {prodCode} chưa có công thức. Thêm ở trang chi tiết sản phẩm.</div>
       )}
 
@@ -349,7 +359,7 @@ export function ProductionBoxes({
         title={!recipeOk ? "Chọn đủ thùng nguyên liệu trước" : undefined}>
         <Icon name="plus" size={16} /> {busy ? "Đang nhập…" : selfContainer ? `Nhập ${cnt} thùng ${prodCode}` : `Nhập ${cnt} ${unitLow}${produced > 0 ? ` · ${soVN(produced * cnt)} ${prodUnit}` : ""}`}
       </button>
-      {packing && recipe.length > 0 && produced > 0 && !recipeOk && (
+      {requiredLines.length > 0 && produced > 0 && !recipeOk && (
         <div class="muted small pb-hint">⚠ Cần chọn đủ thùng nguyên liệu mới tạo được thùng.</div>
       )}
       {msg && <div class="muted small pb-hint">{msg}</div>}

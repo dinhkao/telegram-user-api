@@ -134,8 +134,12 @@ export const GUIDES_KHO: Guide[] = [
         (là SP khác) theo <b>tỉ lệ</b> (lượng NL cho 1 đơn vị thành phẩm).</p>
         <ul>
           <li>Phiếu <b>đóng gói</b>: <b>bắt buộc</b> có công thức + chọn đủ thùng nguyên liệu — hệ thống trừ kho NL khi nhập.</li>
-          <li>Phiếu <b>sản xuất</b>: <b>không cần</b> nguyên liệu.</li>
-        </ul>` },
+          <li>Phiếu <b>sản xuất</b>: <b>không cần</b> nguyên liệu chính.</li>
+        </ul>
+        <p>Bên dưới có khu <b>Nguyên liệu phụ</b> (bao bì, tem, hộp…): khai như nguyên liệu thường
+        nhưng bị trừ kho ở <b>CẢ hai loại phiếu</b> (sản xuất lẫn đóng gói) khi chip
+        <b>「✓ Yêu cầu khi sản xuất」</b> đang bật. Tắt chip → sản xuất không bắt trừ NL phụ
+        (danh sách giữ nguyên, bật lại là áp dụng ngay).</p>` },
       { title: "Cờ Mua / Bán", html: `
         <p>Khối <b>Mua bán</b> có 2 cờ (admin):</p>
         <ul>

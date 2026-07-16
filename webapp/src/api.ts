@@ -1567,13 +1567,14 @@ export async function wagesDashboard(from?: string, to?: string): Promise<WagesD
 export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; capacity?: number; reserved?: boolean; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null; unit_id?: number | null; unit_name?: string | null; product_unit?: string; source_thread_id?: number | null };
 
 // ── Công thức sản xuất (BOM): SP cần nguyên liệu theo tỉ lệ ──
-export type RecipeLine = { id: number; ingredient_code: string; ratio: number; stock?: number; unit?: string };
-export async function getRecipe(code: string): Promise<{ recipe: RecipeLine[]; unit: string; self_container: boolean }> {
+// aux = NGUYÊN LIỆU PHỤ: trừ kho CẢ phiếu SX lẫn đóng gói khi SP bật aux_required.
+export type RecipeLine = { id: number; ingredient_code: string; ratio: number; stock?: number; unit?: string; aux?: number };
+export async function getRecipe(code: string): Promise<{ recipe: RecipeLine[]; unit: string; self_container: boolean; aux_required: boolean }> {
   const d = await getJSON(`/api/products/${encodeURIComponent(code)}/recipe`, { cache: false });
-  return { recipe: d.recipe || [], unit: d.unit || "cây", self_container: !!d.self_container };
+  return { recipe: d.recipe || [], unit: d.unit || "cây", self_container: !!d.self_container, aux_required: d.aux_required !== false };
 }
-export async function setRecipeLine(code: string, ingredientCode: string, ratio: number): Promise<RecipeLine> {
-  const d = await postJSON(`/api/products/${encodeURIComponent(code)}/recipe`, { ingredient_code: ingredientCode, ratio }, { queueable: false });
+export async function setRecipeLine(code: string, ingredientCode: string, ratio: number, aux?: boolean): Promise<RecipeLine> {
+  const d = await postJSON(`/api/products/${encodeURIComponent(code)}/recipe`, { ingredient_code: ingredientCode, ratio, ...(aux ? { aux: true } : {}) }, { queueable: false });
   return d.line;
 }
 export async function deleteRecipeLine(code: string, id: number): Promise<any> {
@@ -1618,7 +1619,7 @@ export async function createProduct(code: string, name = "", unit = ""): Promise
   return { product: d.product, existed: !!d.existed };
 }
 /** Sửa SP (đơn vị / tên / ghi chú). */
-export async function updateProduct(code: string, patch: { unit?: string; name?: string; note?: string; can_produce_directly?: boolean; can_package?: boolean; self_container?: boolean; min_stock?: number; can_sell?: boolean; can_purchase?: boolean }): Promise<InvProductLink | null> {
+export async function updateProduct(code: string, patch: { unit?: string; name?: string; note?: string; can_produce_directly?: boolean; can_package?: boolean; self_container?: boolean; min_stock?: number; can_sell?: boolean; can_purchase?: boolean; aux_required?: boolean }): Promise<InvProductLink | null> {
   const d = await postJSON(`/api/products/${encodeURIComponent(code)}`, patch, { queueable: false });
   return d.ok ? d.product : null;
 }

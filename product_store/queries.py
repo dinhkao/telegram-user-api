@@ -58,7 +58,7 @@ def get_all_products(conn, *, _use_cache: bool = True) -> list[dict]:
     return result
 
 
-def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, prod_mam: float = None, prod_luong: float = None, can_produce_directly: bool = None, can_package: bool = None, min_stock: float = None, self_container: bool = None, can_sell: bool = None, can_purchase: bool = None) -> bool:
+def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, prod_mam: float = None, prod_luong: float = None, can_produce_directly: bool = None, can_package: bool = None, min_stock: float = None, self_container: bool = None, can_sell: bool = None, can_purchase: bool = None, aux_required: bool = None) -> bool:
     code = code.upper().strip()
     if not code:
         return False
@@ -90,6 +90,8 @@ def upsert_product(conn, code: str, name: str = None, cost_price: int = None, no
             updates.append("can_sell = ?"); params.append(1 if can_sell else 0)
         if can_purchase is not None:
             updates.append("can_purchase = ?"); params.append(1 if can_purchase else 0)
+        if aux_required is not None:
+            updates.append("aux_required = ?"); params.append(1 if aux_required else 0)
         if not updates:
             return True
         updates.append("updated_at = ?"); params.extend([now, code])
