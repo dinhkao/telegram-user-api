@@ -1653,10 +1653,13 @@ export async function deleteProductUnit(code: string, id: number): Promise<any> 
 export type InvSourceSlip = { thread_id: number; date?: string | null; sp_name?: string | null };
 export type InvSourcePurchase = { id: number; supplier_name?: string | null; created_at?: string | null };
 export type InvSourceReturn = { id: number; created_at?: string | null };
+/** Lý do server KHOÁ xoá thùng (cùng luật với handler xoá) — UI mờ nút + hiện lý do từ đầu. */
+export type BoxDeleteLock = { kind: "allocated" | "purchase_locked" | "return_locked"; reason: string; href?: string };
 export type InvBoxDetail = { box: InvBox; source_slip: InvSourceSlip | null; allocations: Allocation[];
   source_purchase?: InvSourcePurchase | null;
   source_return?: InvSourceReturn | null;
-  packed_materials?: { code: string; amount: number }[] };
+  packed_materials?: { code: string; amount: number }[];
+  delete_lock?: BoxDeleteLock | null };
 
 /** Chi tiết 1 thùng: info + còn lại + phiếu nguồn (SX / nhập hàng / trả hàng) + các đơn đã xuất. */
 export async function boxDetail(id: string | number): Promise<InvBoxDetail | null> {
@@ -1664,7 +1667,8 @@ export async function boxDetail(id: string | number): Promise<InvBoxDetail | nul
   return d.ok ? { box: d.box, source_slip: d.source_slip, allocations: d.allocations || [],
     source_purchase: d.source_purchase || null,
     source_return: d.source_return || null,
-    packed_materials: d.packed_materials || [] } : null;
+    packed_materials: d.packed_materials || [],
+    delete_lock: d.delete_lock || null } : null;
 }
 
 /** Chuyển hàng giữa 2 thùng CÙNG mã SP (bút toán kép — tồn tổng không đổi). */

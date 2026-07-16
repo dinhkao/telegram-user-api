@@ -135,9 +135,10 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
   const isAdmin = currentUser()?.role === "admin";
   const doDelete = async () => {
     if (!d) return;
-    // Đã xuất/tiêu hao/chuyển → nút mờ, bấm chỉ toast lý do (server cũng chặn)
-    if (d.allocations.length > 0) {
-      toast("Thùng có lịch sử xuất/chuyển — không xoá được", "info"); return;
+    // Server tính lý do khoá xoá (đã xuất/chuyển, phiếu nhập đang chốt, phiếu trả
+    // đã xử lý) → nút mờ, bấm chỉ toast lý do (server cũng chặn thật)
+    if (d.delete_lock) {
+      toast(d.delete_lock.reason, "info"); return;
     }
     // Thùng ĐÓNG GÓI từ nguyên liệu → nói rõ xoá sẽ hoàn NL gì, bao nhiêu
     const packed = d.packed_materials || [];
@@ -632,11 +633,16 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
 
       {isAdmin && (
         <section class="card">
-          <button class={"btn danger block" + (d.allocations.length > 0 ? " faded" : "")} disabled={disBusy} onClick={doDelete}
-            title={d.allocations.length > 0 ? "Đã xuất cho đơn — thu hồi trước khi xoá" : undefined}>
+          <button class={"btn danger block" + (d.delete_lock ? " faded" : "")} disabled={disBusy} onClick={doDelete}
+            title={d.delete_lock?.reason}>
             <Icon name="trash" size={16} /> Xoá thùng (admin)
           </button>
-          {d.allocations.length > 0 && <div class="muted small">Đã xuất cho đơn — thu hồi trước khi xoá.</div>}
+          {d.delete_lock && (
+            <div class="muted small">
+              {d.delete_lock.reason}
+              {d.delete_lock.href && <>{" — "}<a href={d.delete_lock.href}>mở phiếu</a></>}
+            </div>
+          )}
         </section>
       )}
     </div>

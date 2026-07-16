@@ -666,8 +666,38 @@ async def place_delete_handler(request: web.Request):
     return web.json_response({"ok": True})
 
 
+def _box_delete_lock(conn, box: dict, allocs: list) -> dict | None:
+    """Lý do KHOÁ xoá thùng — 1 nguồn sự thật cho CẢ chi tiết thùng (UI mờ nút +
+    hiện lý do TỪ ĐẦU) lẫn handler xoá (guard thật). None = xoá được.
+    Trả {kind, reason, href?}: allocated (đã xuất/chuyển) | purchase_locked (thùng
+    của phiếu nhập đang CHỐT kho) | return_locked (thùng của phiếu trả đã xử lý)."""
+    if allocs:
+        return {"kind": "allocated",
+                "reason": "Thùng đã xuất cho đơn — thu hồi khỏi đơn trước khi xoá"}
+    # Thùng tạo từ phiếu NHẬP HÀNG còn CHỐT kho → cấm xoá lẻ (goods_result sẽ
+    # lệch kho). Hủy chốt phiếu trước để mở khóa rồi mới xoá từng thùng.
+    if box.get("source_purchase_id"):
+        from purchase_store import get_purchase
+        pid = int(box["source_purchase_id"])
+        pu = get_purchase(conn, pid)
+        if pu and not pu.get("deleted_at") and pu.get("goods_handled_at"):
+            return {"kind": "purchase_locked", "href": f"#/nhap-hang/{pid}",
+                    "reason": (f"Thùng thuộc phiếu nhập hàng #{pid} đang CHỐT kho — "
+                               f"vào phiếu nhập bấm Hủy chốt rồi xoá thùng này")}
+    # Thùng tạo từ phiếu TRẢ HÀNG đã xử lý hàng → goods_result phiếu trả đã
+    # ghi thùng này; xoá lẻ làm lệch truy nguồn hàng trả. Cấm.
+    if box.get("source_return_id"):
+        from return_store import get_return as _get_return
+        rid = int(box["source_return_id"])
+        rt = _get_return(conn, rid)
+        if rt and not rt.get("deleted_at") and rt.get("goods_handled_at"):
+            return {"kind": "return_locked", "href": f"#/tra-hang/{rid}",
+                    "reason": f"Thùng thuộc phiếu trả hàng #{rid} đã xử lý hàng — không xoá lẻ được"}
+    return None
+
+
 async def box_delete_handler(request: web.Request):
-    """Xoá HẲN 1 thùng — CHỈ admin. Cấm nếu đã xuất phần nào cho đơn (thu hồi trước)."""
+    """Xoá HẲN 1 thùng — CHỈ admin. Cấm nếu khoá xoá (_box_delete_lock)."""
     from server_app.order_api_common import is_admin_request
     if not await is_admin_request(request):
         return web.json_response({"ok": False, "error": "Chỉ admin mới được xoá thùng"}, status=403)
@@ -684,22 +714,9 @@ async def box_delete_handler(request: web.Request):
             box = get_box(conn, box_id)
             if not box:
                 return "notfound", None
-            if list_box_allocations(conn, box_id):
-                return "allocated", None
-            # Thùng tạo từ phiếu NHẬP HÀNG còn CHỐT kho → cấm xoá lẻ (goods_result sẽ
-            # lệch kho). Hủy chốt phiếu trước để mở khóa rồi mới xoá từng thùng.
-            if box.get("source_purchase_id"):
-                from purchase_store import get_purchase
-                pu = get_purchase(conn, int(box["source_purchase_id"]))
-                if pu and not pu.get("deleted_at") and pu.get("goods_handled_at"):
-                    return "purchase_locked", int(box["source_purchase_id"])
-            # Thùng tạo từ phiếu TRẢ HÀNG đã xử lý hàng → goods_result phiếu trả đã
-            # ghi thùng này; xoá lẻ làm lệch truy nguồn hàng trả. Cấm.
-            if box.get("source_return_id"):
-                from return_store import get_return as _get_return
-                rt = _get_return(conn, int(box["source_return_id"]))
-                if rt and not rt.get("deleted_at") and rt.get("goods_handled_at"):
-                    return "return_locked", int(box["source_return_id"])
+            lock = _box_delete_lock(conn, box, list_box_allocations(conn, box_id))
+            if lock:
+                return "locked", lock
             del_snap.update(box_id=box_id, place_id=box.get("place_id"), box_code=box.get("box_code"),
                             product_code=box.get("product_code"), quantity=box.get("quantity"))
             src = box.get("source_thread_id")
@@ -729,14 +746,8 @@ async def box_delete_handler(request: web.Request):
     status, res = await asyncio.to_thread(_run)
     if status == "notfound":
         return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
-    if status == "allocated":
-        return web.json_response({"ok": False, "error": "Thùng đã xuất cho đơn — thu hồi khỏi đơn trước khi xoá"}, status=400)
-    if status == "purchase_locked":
-        return web.json_response({"ok": False, "error":
-            f"Thùng thuộc phiếu nhập hàng #{res} đang CHỐT kho — vào phiếu nhập bấm Hủy chốt rồi xoá thùng này"}, status=400)
-    if status == "return_locked":
-        return web.json_response({"ok": False, "error":
-            f"Thùng thuộc phiếu trả hàng #{res} đã xử lý hàng — không xoá lẻ được"}, status=400)
+    if status == "locked":
+        return web.json_response({"ok": False, "error": res["reason"]}, status=400)
     src, restored, src_purchase = res or (None, [], None)
     from server_app.realtime import (emit_inventory_changed, emit_box_changed,
                                      emit_production_changed, emit_purchase_changed)
@@ -890,7 +901,7 @@ async def box_detail_handler(request: web.Request):
             _ensure(conn)
             box = get_box(conn, box_id)
             if not box:
-                return None, None, None, None, None, None
+                return None, None, None, None, None, None, None
             from product_store.queries import is_self_container_unit
             box["self_container"] = is_self_container_unit(box.get("product_unit"))
             allocs = list_box_allocations(conn, box_id)
@@ -923,10 +934,13 @@ async def box_detail_handler(request: web.Request):
             packed = []
             if slip and (slip.get("kind") or "san_xuat") == "dong_goi":
                 packed = recipe_needs(conn, box.get("product_code"), box.get("quantity") or 0)
-            return box, slip, allocs, packed, src_purchase, src_return
+            # Lý do khoá xoá (cùng luật với handler xoá) → UI mờ nút Xoá + hiện
+            # lý do NGAY, không để bấm rồi mới ăn lỗi server.
+            delete_lock = _box_delete_lock(conn, box, allocs)
+            return box, slip, allocs, packed, src_purchase, src_return, delete_lock
         finally:
             conn.close()
-    box, slip, allocs, packed, src_purchase, src_return = await asyncio.to_thread(_run)
+    box, slip, allocs, packed, src_purchase, src_return, delete_lock = await asyncio.to_thread(_run)
     if not box:
         return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
     used = sum(a.get("quantity") or 0 for a in allocs)
@@ -937,7 +951,7 @@ async def box_detail_handler(request: web.Request):
         source = {"thread_id": slip["thread_id"], "date": slip.get("date"), "sp_name": slip.get("sp_name")}
     return web.json_response({"ok": True, "box": box, "source_slip": source, "allocations": allocs,
                               "source_purchase": src_purchase, "source_return": src_return,
-                              "packed_materials": packed})
+                              "packed_materials": packed, "delete_lock": delete_lock})
 
 
 async def box_update_handler(request: web.Request):
