@@ -107,18 +107,22 @@ function WithdrawModal({ boxKey, balance, onDone, onClose }: {
   return (
     <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
       <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
-        <div class="modal-head">💸 Thu hồi tiền từ két</div>
-        <div class="muted small" style={{ marginBottom: 8 }}>
+        <div class="modal-head"><Icon name="wallet" size={16} /> Thu hồi tiền khỏi két</div>
+        <div class="muted small">
           Số dư hiện tại: <b>{soVN(balance)}đ</b>
+          {" · "}
+          <a class="pt-inl" href="#" onClick={(e:any) => { e.preventDefault(); setAmount(String(balance)); }}>rút hết</a>
         </div>
         <input class="quy-input" type="text" inputMode="numeric" placeholder="Số tiền"
           value={amount} onInput={(e: any) => setAmount(e.currentTarget.value)} />
         <input class="quy-input" placeholder="Ghi chú (vd rút tiền mặt)"
           value={note} onInput={(e: any) => setNote(e.currentTarget.value)} />
-        {amt > 0 && <div class="muted small">Sẽ thu hồi <b>{soVN(amt)}đ</b></div>}
+        <div class="muted small">Tiền sẽ ra khỏi hệ két — admin hoàn tác được ở timeline.</div>
         <div class="row">
           <button class="btn" onClick={onClose} disabled={busy}>Huỷ</button>
-          <button class="btn primary" onClick={submit} disabled={busy}>{busy ? "Đang xử lý…" : "Xác nhận thu hồi"}</button>
+          <button class="btn danger" onClick={submit} disabled={busy}>
+            {busy ? "Đang xử lý…" : amt > 0 ? `Thu hồi ${soVN(amt)}đ` : "Thu hồi"}
+          </button>
         </div>
       </div>
     </div>
@@ -253,16 +257,15 @@ export function CashboxDetail({ boxKey }: { boxKey: string }) {
             {box.out_today > 0 && <> / <b class="cash-out">−{soVN(box.out_today)}</b></>}
           </div>
         </div>
-        <span class="muted small">{items.length} biến động{truncated ? " (mới nhất)" : ""}</span>
-      </div>
-
-      {canWithdraw && (
-        <div class="pt-head card" style={{ display: "flex", justifyContent: "flex-end", paddingTop: 0, borderBottom: "none" }}>
-          <button class="btn" onClick={() => setShowWithdraw(true)}>
-            💸 Thu hồi tiền
-          </button>
+        <div class="pt-head-right">
+          {canWithdraw && (
+            <button class="btn small" onClick={() => setShowWithdraw(true)}>
+              <Icon name="wallet" size={14} /> Thu hồi
+            </button>
+          )}
+          <span class="muted small">{items.length} biến động{truncated ? " (mới nhất)" : ""}</span>
         </div>
-      )}
+      </div>
 
       {showWithdraw && (
         <WithdrawModal boxKey={boxKey} balance={box.balance} onDone={() => { setShowWithdraw(false); load(); }} onClose={() => setShowWithdraw(false)} />
