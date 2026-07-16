@@ -6,7 +6,7 @@ export const GUIDES_KHO: Guide[] = [
     key: "kho", icon: "box", cat: "Kho & hàng hoá",
     title: "Kho hàng & thùng",
     desc: "Mọi thùng trong kho: số thùng, tồn, xuất cho đơn, chuyển hàng, kiểm kho theo vị trí.",
-    routes: ["#/kho", "#/thung", "#/so-thung", "#/kiem-kho"],
+    routes: ["#/kho", "#/thung", "#/so-thung", "#/kiem-kho", "#/dieu-chinh"],
     sections: [
       { title: "Trang Kho hàng là gì?", html: `
         <p>Trang <a href="#/kho">Kho hàng</a> liệt kê <b>mọi thùng</b> trong kho dạng phẳng —
@@ -82,6 +82,8 @@ export const GUIDES_KHO: Guide[] = [
             lịch sử (ai, lúc nào, lý do, số cũ → mới), hiện ngay trong chi tiết thùng.</li>
           <li><b>Admin gỡ phiếu</b> = hoàn nguyên tồn; bị chặn nếu phần tồn đã tăng đã được dùng
             (gỡ sẽ làm tồn âm).</li>
+          <li>Xem <b>mọi phiếu điều chỉnh</b> (kể cả từ kiểm kho) ở dashboard
+            <a href="#/dieu-chinh">Điều chỉnh tồn</a> (menu ☰ Thêm → Kho).</li>
         </ul>` },
     ],
   },

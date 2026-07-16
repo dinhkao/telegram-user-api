@@ -582,6 +582,10 @@ body.has-nop .order-day-group .order-day-head { top: 124px; }
 .ret-open { margin: 8px 0; }
 .ret-sheet { display: flex; flex-direction: column; gap: 8px; }
 .ret-line { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+/* Dashboard phiếu điều chỉnh (#/dieu-chinh) */
+.adj-card-deleted { opacity: .55; }
+.adj-card-deleted .ret-cust { text-decoration: line-through; }
+.disp-amt.adj-up { color: var(--ok, #1a7f37); }
 /* Phiếu điều chỉnh tồn (BoxAdjust ở chi tiết thùng + khối áp dụng kiểm kho) */
 .adj-row { display: flex; align-items: center; gap: 6px; }
 .adj-row .adj-del { margin-left: auto; color: var(--danger, #c33); }

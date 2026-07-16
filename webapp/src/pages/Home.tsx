@@ -27,6 +27,7 @@ const GROUPS: Group[] = [
     { label: "Cần làm hàng", href: "#/nhu-cau", icon: "chart" },
     { label: "Chuyển kho", href: "#/chuyen-kho", icon: "truck" },
     { label: "Xuất hủy", href: "#/xuat-huy", icon: "trash" },
+    { label: "Điều chỉnh tồn", href: "#/dieu-chinh", icon: "edit" },
     { label: "Sản phẩm", href: "#/san-pham", icon: "tag" },
     { label: "Vị trí kho", href: "#/vi-tri", icon: "box" },
     { label: "Số thùng", href: "#/so-thung", icon: "grid" },

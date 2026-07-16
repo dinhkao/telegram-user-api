@@ -65,6 +65,7 @@ import { OrderTimeline } from "./pages/OrderTimeline";
 import { CameraGallery } from "./pages/CameraGallery";
 import { UsageStats } from "./pages/UsageStats";
 import { DisposalsList } from "./pages/DisposalsList";
+import { AdjustmentsList } from "./pages/AdjustmentsList";
 import { DisposalDetail } from "./pages/DisposalDetail";
 import { CashboxList } from "./pages/CashboxList";
 import { CollectMoney } from "./pages/CollectMoney";
@@ -515,6 +516,7 @@ function App() {
   else if (purMatch) page = <PurchaseDetail id={purMatch[1]} />;
   else if (dispMatch) page = <DisposalDetail id={dispMatch[1]} />;
   else if (hash.startsWith("#/xuat-huy")) page = <DisposalsList />;
+  else if (hash.startsWith("#/dieu-chinh")) page = <AdjustmentsList />;
   else if (ketMatch) page = <CashboxDetail boxKey={decodeURIComponent(ketMatch[1])} />;
   else if (hash.startsWith("#/ket")) page = <CashboxList />;
   else if (hash.match(/^#\/huong-dan\/[^?]/)) page = <GuideDetail hash={hash} />;
@@ -538,6 +540,7 @@ function App() {
     : hash.startsWith("#/tra-hang") ? "Trả hàng"
     : purEditMatch ? "Sửa phiếu nhập"
     : hash.startsWith("#/xuat-huy") ? "Xuất hủy"
+    : hash.startsWith("#/dieu-chinh") ? "Điều chỉnh tồn"
     : hash.startsWith("#/nhap-hang") ? "Nhập hàng"
     : hash.startsWith("#/ncc") ? "Nhà cung cấp"
     : (hash.startsWith("#/customers") || khachMatch) ? "Khách hàng"
