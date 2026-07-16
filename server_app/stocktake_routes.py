@@ -254,6 +254,53 @@ async def stocktake_resync_handler(request: web.Request):
     return web.json_response({"ok": True, "stocktake": slip})
 
 
+async def stocktake_apply_handler(request: web.Request):
+    """ÁP DỤNG chênh lệch kiểm kho vào kho (văn phòng) — tạo phiếu điều chỉnh cho
+    từng thùng lệch. Chỉ phiếu ĐÃ CHỐT, 1 lần/phiếu, all-or-nothing (xem
+    inventory_store/stocktake_apply.py)."""
+    from server_app.order_api_common import is_office_request
+    stocktake_id = _int_match(request, "stocktake_id")
+    if stocktake_id is None:
+        return web.json_response({"ok": False, "error": "Phiếu không hợp lệ"}, status=400)
+    if not await is_office_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng được áp dụng kiểm kho vào kho"}, status=403)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    actor = _web_actor(request, body)
+
+    def _run():
+        from inventory_store.stocktake_apply import apply_stocktake
+        conn = get_connection()
+        try:
+            return apply_stocktake(conn, stocktake_id, actor=actor)
+        finally:
+            conn.close()
+
+    slip, err = await asyncio.to_thread(_run)
+    if err == "not_found":
+        return web.json_response({"ok": False, "error": "Không tìm thấy phiếu kiểm kho"}, status=404)
+    if err == "not_completed":
+        return web.json_response({"ok": False, "error": "Phiếu chưa chốt — hoàn tất kiểm kho trước rồi mới áp dụng"}, status=409)
+    if err == "already":
+        return web.json_response({"ok": False, "error": "Phiếu này đã áp dụng vào kho rồi"}, status=409)
+    if err:
+        return web.json_response({"ok": False, "error": err}, status=409)   # thùng cụ thể không áp được
+    applied = (slip.get("applied_result") or {}).get("adjusted") or []
+    spawn_tracked("audit.stocktake", async_log_event(
+        "stocktake.applied", scope="place", thread_id=slip["place_id"],
+        actor_type=_actor_type(request), actor_id=actor, source="inventory",
+        payload={"stocktake_id": slip["id"], "adjusted": len(applied),
+                 "boxes": [{"box_code": a["box_code"], "delta": a["delta"]} for a in applied]},
+    ))
+    emit_inventory_changed()
+    from server_app.realtime import emit_box_changed
+    for a in applied:
+        emit_box_changed(a.get("box_id"))
+    return web.json_response({"ok": True, "stocktake": slip})
+
+
 async def stocktake_void_handler(request: web.Request):
     """Huỷ phiếu kiểm kho nháp — văn phòng. Giải phóng vị trí cho phiếu mới."""
     from server_app.order_api_common import is_office_request

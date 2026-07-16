@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
-  completeStocktake, getStocktake, isOffice, lockStocktake, resyncStocktake, saveStocktake,
+  applyStocktake, completeStocktake, getStocktake, isOffice, lockStocktake, resyncStocktake, saveStocktake,
   soVN, unlockStocktake, voidStocktake,
   type Stocktake, type StocktakeItem,
 } from "../api";
@@ -185,6 +185,11 @@ export function StocktakeDetail({ id }: { id: string }) {
       d = await completeStocktake(d.id, note, sid);
       dirtyRef.current = false;
       adopt(d); toast("Đã hoàn tất kiểm kho", "ok");
+      // Có thùng lệch → mời áp dụng vào kho luôn (tạo phiếu điều chỉnh từng thùng)
+      if (isOffice() && (d.summary?.deviation_count || 0) > 0 && !d.applied_at
+        && await confirmDialog(`Có ${d.summary.deviation_count} thùng lệch — áp dụng số đếm vào kho ngay? (tạo phiếu điều chỉnh cho từng thùng)`, { okLabel: "Áp dụng" })) {
+        await applyNow(d.id);
+      }
     } catch (e: any) {
       toast(e?.message || "Lỗi hoàn tất phiếu", "err");
       reloadStale();   // có thể bị chặn vì kho vừa biến động → hiện banner cảnh báo
@@ -210,6 +215,18 @@ export function StocktakeDetail({ id }: { id: string }) {
       setSaveState("");
       toast("Đã cập nhật phiếu theo tồn kho hiện tại", "ok");
     } catch (e: any) { toast(e?.message || "Lỗi cập nhật phiếu", "err"); }
+    finally { setBusy(false); }
+  };
+  // ÁP DỤNG chênh lệch vào kho (văn phòng, phiếu đã chốt, 1 lần) — server tạo phiếu
+  // điều chỉnh theo DELTA từng thùng lệch, all-or-nothing.
+  const applyNow = async (id?: number) => {
+    if (!slip && !id) return;
+    setBusy(true);
+    try {
+      const d = await applyStocktake(id ?? slip!.id);
+      adopt(d);
+      toast(`Đã áp dụng vào kho — điều chỉnh ${(d.applied_result?.adjusted || []).length} thùng`, "ok");
+    } catch (e: any) { toast(e?.message || "Không áp dụng được", "err"); }
     finally { setBusy(false); }
   };
   // Huỷ phiếu (văn phòng) — bỏ số đã kiểm, giải phóng vị trí cho phiếu mới.
@@ -292,6 +309,36 @@ export function StocktakeDetail({ id }: { id: string }) {
         <span><Icon name="edit" size={14} /> Người sửa: <b>{done ? (slip.updated_by || slip.created_by || "—") : (holder || slip.updated_by || slip.created_by || "—")}</b></span>
         {done && <span><Icon name="check" size={14} /> Người chốt: <b>{slip.completed_by || "—"}</b> · {fmtDateTimeVN(slip.completed_at)}</span>}
       </div>
+
+      {/* Áp dụng chênh lệch vào kho: phiếu đã chốt, có lệch, chưa áp → nút (văn phòng);
+          đã áp → tóm tắt phiếu điều chỉnh từng thùng. */}
+      {done && slip.applied_at && (
+        <section class="card stocktake-applied">
+          <label class="card-label"><Icon name="check" size={15} /> Đã áp dụng vào kho</label>
+          <div class="muted small">{slip.applied_by || ""} · {fmtDateTimeVN(slip.applied_at)}</div>
+          {(slip.applied_result?.adjusted || []).map((a) => (
+            <div key={a.adjustment_id} class="small">
+              {a.product_code} · <a href={`#/thung/${a.box_id}`}>thùng {(a.box_code || "").split("-").pop()}</a>
+              {" "}điều chỉnh <b>{a.delta > 0 ? "+" : ""}{soVN(a.delta)}</b>
+            </div>
+          ))}
+          {!(slip.applied_result?.adjusted || []).length && <div class="muted small">Không có thùng lệch — kho giữ nguyên.</div>}
+        </section>
+      )}
+      {done && !slip.applied_at && (slip.summary.deviation_count || 0) > 0 && (
+        <section class="card stocktake-applied">
+          <label class="card-label"><Icon name="edit" size={15} /> Chênh lệch chưa áp dụng vào kho</label>
+          <div class="muted small" style={{ margin: "2px 0 8px" }}>
+            {slip.summary.deviation_count} thùng lệch so với sổ sách lúc đếm. Áp dụng sẽ tạo <b>phiếu điều
+            chỉnh</b> cho từng thùng (theo mức lệch, không đè các xuất/nhập sau khi đếm) — admin gỡ được từng phiếu.
+          </div>
+          {isOffice()
+            ? <button class="btn primary block" disabled={busy} onClick={() => applyNow()}>
+                {busy ? "Đang áp dụng…" : "⚖ Áp dụng số đếm vào kho"}
+              </button>
+            : <div class="muted small">Chỉ văn phòng được áp dụng vào kho.</div>}
+        </section>
+      )}
 
       <section class={`stocktake-hero ${done && totalDiff === 0 ? "matched" : ""}`}>
         <div class="stocktake-progress">

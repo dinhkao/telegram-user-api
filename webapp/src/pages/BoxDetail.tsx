@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { boxDetail, updateBox, setBoxDisabled, deleteBox, returnBoxMaterial, transferBox, allBoxes, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, createDisposal, currentUser, soVN, type InvBoxDetail, type InvBox, type KhoBox, type Place, type Unit } from "../api";
 import { onRealtime } from "../realtime";
+import { BoxAdjust } from "../detail/BoxAdjust";
 import { Loading } from "../ui/states";
 import { confirmDialog, toast } from "../ui/feedback";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "../detail/CameraBox";
@@ -538,6 +539,11 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
         </section>
       )}
 
+      {!disabled && (
+        <BoxAdjust boxId={b.id} remaining={remaining} unit={b.product_unit || "cây"}
+          onChanged={() => reload(false)} />
+      )}
+
       <section class="card">
         <label class="card-label">Đã xuất / tiêu hao / chuyển</label>
         {d.allocations.length === 0 ? (
@@ -580,6 +586,19 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
                       Nhận hàng mua về (phiếu nhập #{a.order_thread_id}) · +{soVN(Math.abs(a.quantity))}
                       {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
                     </a>
+                  </li>
+                );
+              }
+              if (kind === "adjustment") {
+                // allocation −delta; chi tiết + gỡ nằm ở khối "Điều chỉnh tồn" phía trên
+                const up = a.quantity < 0;
+                return (
+                  <li key={a.allocation_id}>
+                    <span class="box-jump">
+                      <Icon name="edit" size={16} />{" "}
+                      Điều chỉnh tồn (phiếu #{a.order_thread_id}) · {up ? "+" : "−"}{soVN(Math.abs(a.quantity))}
+                      {a.allocated_by ? ` · ${a.allocated_by}` : ""}
+                    </span>
                   </li>
                 );
               }

@@ -69,6 +69,19 @@ export const GUIDES_KHO: Guide[] = [
             <i>"Kho đã biến động — phiếu không còn chính xác"</i> → bấm
             <b>Cập nhật lại theo tồn hiện tại</b> (giữ số đã đếm) hoặc <b>Huỷ phiếu</b>.</li>
           <li>Đếm xong bấm <b>Hoàn tất</b> để chốt.</li>
+          <li>Chốt xong nếu có <b>thùng lệch</b>, văn phòng bấm <b>「⚖ Áp dụng số đếm vào kho」</b> —
+            hệ thống tạo <b>phiếu điều chỉnh</b> cho từng thùng lệch (áp theo <i>mức lệch</i>, không đè
+            các xuất/nhập hợp lệ sau lúc đếm; áp đúng 1 lần/phiếu; admin gỡ được từng phiếu điều chỉnh).</li>
+        </ul>` },
+      { title: "Phiếu điều chỉnh tồn thùng", html: `
+        <p>Muốn sửa tồn 1 thùng cho đúng thực tế (hàng vỡ, đếm sót…) mà không qua kiểm kho:
+        vào <b>chi tiết thùng</b> → khối <b>「Điều chỉnh tồn」</b> (văn phòng) → nhập <b>tồn thực tế</b>
+        + <b>lý do bắt buộc</b>.</p>
+        <ul>
+          <li>Điều chỉnh <b>không sửa số gốc</b> của thùng — mỗi lần là 1 <b>phiếu điều chỉnh</b> có
+            lịch sử (ai, lúc nào, lý do, số cũ → mới), hiện ngay trong chi tiết thùng.</li>
+          <li><b>Admin gỡ phiếu</b> = hoàn nguyên tồn; bị chặn nếu phần tồn đã tăng đã được dùng
+            (gỡ sẽ làm tồn âm).</li>
         </ul>` },
     ],
   },

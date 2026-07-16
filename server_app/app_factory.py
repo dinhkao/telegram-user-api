@@ -318,6 +318,7 @@ def create_app():
         place_stocktakes_handler, stocktake_create_handler, stocktake_detail_handler,
         stocktake_save_handler, stocktake_complete_handler, stocktake_lock_handler,
         stocktake_unlock_handler, stocktake_resync_handler, stocktake_void_handler,
+        stocktake_apply_handler,
     )
     r.add_get("/api/places/{place_id}/stocktakes", place_stocktakes_handler)
     r.add_post("/api/places/{place_id}/stocktakes", stocktake_create_handler)
@@ -325,6 +326,7 @@ def create_app():
     r.add_post("/api/stocktakes/{stocktake_id}", stocktake_save_handler)
     r.add_post("/api/stocktakes/{stocktake_id}/complete", stocktake_complete_handler)
     r.add_post("/api/stocktakes/{stocktake_id}/resync", stocktake_resync_handler)
+    r.add_post("/api/stocktakes/{stocktake_id}/apply", stocktake_apply_handler)   # áp chênh lệch vào kho
     r.add_post("/api/stocktakes/{stocktake_id}/void", stocktake_void_handler)
     r.add_post("/api/stocktakes/{stocktake_id}/lock", stocktake_lock_handler)
     r.add_post("/api/stocktakes/{stocktake_id}/unlock", stocktake_unlock_handler)
@@ -339,6 +341,8 @@ def create_app():
     r.add_get("/api/inventory/box/{box_id}", box_detail_handler)
     r.add_post("/api/inventory/box/{box_id}", box_update_handler)
     r.add_delete("/api/inventory/box/{box_id}", box_delete_handler)
+    from server_app.adjustment_routes import register as register_adjustment_routes
+    register_adjustment_routes(r)   # /api/inventory/box/{id}/adjust + /api/adjustments* — phiếu điều chỉnh tồn
     r.add_post("/api/inventory/box/{box_id}/transfer", box_transfer_handler)
     r.add_post("/api/inventory/box/{box_id}/return-material", box_return_material_handler)
     r.add_post("/api/inventory/box/{box_id}/disable", box_disable_handler)

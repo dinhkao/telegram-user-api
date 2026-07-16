@@ -273,12 +273,23 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
             "stocktake.completed": "Hoàn tất kiểm kho",
             "stocktake.resynced": "Cập nhật lại phiếu kiểm kho",
             "stocktake.voided": "Huỷ phiếu kiểm kho",
+            "stocktake.applied": "Áp dụng kiểm kho vào kho",
         }
         label = _st_labels.get(action)
         if label:
             seg = _join([[part(f"phiếu #{p.get('stocktake_id')} →", href_for("stocktake", p.get("stocktake_id")))] if p.get("stocktake_id") else [],
-                         [part(f"{p.get('box_count')} thùng")] if p.get("box_count") is not None else []])
+                         [part(f"{p.get('box_count')} thùng")] if p.get("box_count") is not None else [],
+                         [part(f"điều chỉnh {p.get('adjusted')} thùng lệch")] if p.get("adjusted") is not None else []])
             return label, seg
+    # ── PHIẾU ĐIỀU CHỈNH tồn thùng (adjustment.*) — scope='box' ────────────────
+    if action in ("adjustment.created", "adjustment.deleted"):
+        d = p.get("delta")
+        seg = _join([[box_part(p.get("box_id"), p.get("box_code"), resolver)] if p.get("box_code") or p.get("box_id") else [],
+                     [_sp(p.get("product_code"), resolver)] if p.get("product_code") else [],
+                     [part(f"{float(d):+g}")] if d is not None else [],
+                     [part(f"“{str(p.get('reason') or '')[:60]}”")] if p.get("reason") else []])
+        return ("Điều chỉnh tồn thùng" if action == "adjustment.created"
+                else "Gỡ phiếu điều chỉnh (hoàn nguyên)"), seg
     if action == "settings.changed":
         k = str(p.get("key") or "")
         v = p.get("value")

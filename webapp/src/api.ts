@@ -1232,11 +1232,16 @@ export type StocktakeStale = {
   adjusted: { box_id: number; box_code: string; product_code: string; expected: number; current: number }[];
   summary: string;
 };
+export type StocktakeApplied = {
+  adjusted: { box_id: number; box_code: string; product_code: string; delta: number; adjustment_id: number }[];
+  equal_count: number;
+};
 export type Stocktake = {
   id: number; place_id: number; place_name: string; status: "draft" | "completed" | "voided";
   note?: string | null; captured_at: string; created_by?: string | null;
   updated_at?: string | null; updated_by?: string | null;
   completed_at?: string | null; completed_by?: string | null;
+  applied_at?: string | null; applied_by?: string | null; applied_result?: StocktakeApplied | null;
   items: StocktakeItem[]; summary: StocktakeSummary; stale?: StocktakeStale;
 };
 export async function listPlaceStocktakes(placeId: string | number): Promise<Stocktake[]> {
@@ -1266,6 +1271,34 @@ export async function resyncStocktake(id: string | number, sid: string): Promise
 export async function voidStocktake(id: string | number): Promise<Stocktake> {
   const d = await postJSON(`/api/stocktakes/${Number(id)}/void`, { user: _actor() }, { queueable: false });
   return d.stocktake;
+}
+/** ÁP DỤNG chênh lệch kiểm kho vào kho (văn phòng, 1 lần/phiếu đã chốt) —
+ *  tạo phiếu điều chỉnh cho từng thùng lệch, all-or-nothing. */
+export async function applyStocktake(id: string | number): Promise<Stocktake> {
+  const d = await postJSON(`/api/stocktakes/${Number(id)}/apply`, { user: _actor() }, { queueable: false });
+  return d.stocktake;
+}
+
+// ── PHIẾU ĐIỀU CHỈNH tồn kho 1 thùng (allocation kind='adjustment') ──
+export type Adjustment = {
+  id: number; box_id: number; box_code?: string; product_code?: string;
+  delta: number; old_remaining?: number; new_remaining?: number;
+  reason: string; source: "manual" | "stocktake"; stocktake_id?: number | null;
+  created_at?: string; created_by?: string; deleted_at?: string | null; deleted_by?: string | null;
+};
+/** Điều chỉnh tồn 1 thùng về số THỰC TẾ (văn phòng, lý do bắt buộc). */
+export async function adjustBox(boxId: number | string, newRemaining: number, reason: string): Promise<Adjustment> {
+  const d = await postJSON(`/api/inventory/box/${Number(boxId)}/adjust`, { new_remaining: newRemaining, reason }, { queueable: false });
+  return d.adjustment;
+}
+export async function listAdjustments(q: { box_id?: number; stocktake_id?: number }): Promise<Adjustment[]> {
+  const ps = Object.entries(q).filter(([, v]) => v != null).map(([k, v]) => `${k}=${v}`).join("&");
+  const d = await getJSON(`/api/adjustments${ps ? "?" + ps : ""}`, { cache: false });
+  return d.adjustments || [];
+}
+/** Gỡ phiếu điều chỉnh = hoàn nguyên (admin) — server chặn nếu gây tồn âm. */
+export async function deleteAdjustment(id: number): Promise<any> {
+  return postJSON(`/api/adjustments/${id}/delete`, {}, { queueable: false });
 }
 export async function lockStocktake(id: string | number, sid: string): Promise<{ ok: boolean; holder: string | null; mine: boolean; completed?: boolean }> {
   return postJSON(`/api/stocktakes/${Number(id)}/lock`, { sid, user: _actor() }, { queueable: false });

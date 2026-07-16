@@ -70,6 +70,9 @@ _PAIRS = {
     "DELETE /api/quy/{id}": ("quy.deleted",),
     "POST /api/places/{id}/stocktakes": ("stocktake.created",),
     "POST /api/stocktakes/{id}/complete": ("stocktake.completed",),
+    "POST /api/stocktakes/{id}/apply": ("stocktake.applied",),
+    "POST /api/inventory/box/{id}/adjust": ("adjustment.created",),
+    "POST /api/adjustments/{id}/delete": ("adjustment.deleted",),
     "POST /api/settings": ("settings.changed",),
     "POST /api/products": ("product.created",),
     # SP theo MÃ (path không phải số — chuẩn hoá {code} riêng)

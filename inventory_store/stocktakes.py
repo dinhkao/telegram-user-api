@@ -63,6 +63,10 @@ def create_stocktake_tables(conn) -> None:
         conn.execute("ALTER TABLE inventory_stocktakes ADD COLUMN updated_at TEXT")
     if "updated_by" not in cols:
         conn.execute("ALTER TABLE inventory_stocktakes ADD COLUMN updated_by TEXT")
+    # 2026-07-16: ÁP DỤNG chênh lệch kiểm kho vào kho (tạo phiếu điều chỉnh) — 1 lần/phiếu
+    for name in ("applied_at", "applied_by", "applied_result"):
+        if name not in cols:
+            conn.execute(f"ALTER TABLE inventory_stocktakes ADD COLUMN {name} TEXT")
 
 
 def _row(conn, stocktake_id: int):
@@ -164,6 +168,12 @@ def _payload(conn, stocktake_id: int) -> dict | None:
                 deviations += 1
         items.append(item)
     out = dict(head)
+    if out.get("applied_result"):
+        import json
+        try:
+            out["applied_result"] = json.loads(out["applied_result"])
+        except (TypeError, ValueError):
+            out["applied_result"] = None
     out["items"] = items
     out["summary"] = {
         "box_count": len(items),

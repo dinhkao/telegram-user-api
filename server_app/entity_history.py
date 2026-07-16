@@ -32,6 +32,8 @@ _ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo p
                   # xuất hủy / kiểm kho
                   "disposal.created": "Tạo phiếu xuất hủy", "disposal.deleted": "Xoá phiếu hủy (hoàn tồn)",
                   "stocktake.created": "Tạo phiếu kiểm kho", "stocktake.completed": "Hoàn tất kiểm kho",
+                  "stocktake.applied": "Áp dụng kiểm kho vào kho",
+                  "adjustment.created": "Điều chỉnh tồn thùng", "adjustment.deleted": "Gỡ phiếu điều chỉnh (hoàn nguyên)",
                   # thao tác từ Telegram (bot nhóm) — trước đây vô hình ở web
                   "production.sp_changed": "Đổi sản phẩm (Telegram)",
                   "production.target_changed": "Đặt chỉ tiêu (Telegram)",
