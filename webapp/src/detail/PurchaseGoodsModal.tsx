@@ -67,15 +67,23 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
   const countOf = (r: Row) => Math.floor(num(r.count)) || 0;
   const perOf = (r: Row) => num(r.per);
   const totalOf = (r: Row) => (r.action === "restock_new" ? countOf(r) * perOf(r) : num(r.qty));
+  // Số hàng TRÊN PHIẾU của dòng (đơn vị gốc) = trần nhập kho — không được vượt.
+  const baseOf = (i: number) => {
+    const it = (pu.items || [])[i];
+    if (!it) return 0;
+    return it.sl * (it.unit && (it.unit_factor || 0) > 0 ? it.unit_factor! : 1);
+  };
 
   const missingBox = rows.some((r) => r.action === "restock_existing" && !r.box_id);
   const badNew = rows.some((r) => r.action === "restock_new" && (countOf(r) < 1 || perOf(r) <= 0));
   const badExisting = rows.some((r) => r.action === "restock_existing" && num(r.qty) <= 0);
+  const overRows = rows.some((r, i) => r.action !== "skip" && totalOf(r) > baseOf(i) + 1e-6);
 
   const submit = async () => {
     if (missingBox) { toast("Chọn thùng cho dòng ‘Nhập vào thùng có sẵn’", "err"); return; }
     if (badNew) { toast("Số thùng ≥ 1 và số hàng/thùng phải > 0", "err"); return; }
     if (badExisting) { toast("Số lượng thực nhận phải > 0 (hoặc chọn Bỏ qua)", "err"); return; }
+    if (overRows) { toast("Tổng hàng nhập kho không được vượt số trên phiếu", "err"); return; }
     const active = rows.filter((r) => r.action !== "skip");
     if (!active.length) { onClose(); return; }
     const dispositions: PurchaseDisposition[] = active.map((r) =>
@@ -117,17 +125,24 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
             sub: `còn ${soVN(b.remaining ?? b.quantity)}${b.place_name ? ` · ${b.place_name}` : ""}`,
           }));
           const total = totalOf(r);
+          const base = baseOf(i);
+          const over = r.action !== "skip" && total > base + 1e-6;
           return (
             <div class="rg-row" key={i}>
               <div class="rg-row-head rg-qty-head">
                 <b>{r.sp}</b>
                 {r.action === "restock_existing" && (
-                  <input class="rg-qty-input" type="text" inputMode="decimal" value={r.qty}
+                  <input class={"rg-qty-input" + (over ? " over" : "")} type="text" inputMode="decimal" value={r.qty}
                     onFocus={(e) => (e.target as HTMLInputElement).select()}
                     onInput={(e: any) => upd(i, { qty: e.currentTarget.value })} />
                 )}
               </div>
-              {conv && r.action !== "skip" && <div class="muted small">Phiếu ghi {conv} (đơn vị gốc)</div>}
+              {r.action !== "skip" && (
+                <div class={"muted small" + (over ? " pg-over" : "")}>
+                  Số hàng trên phiếu: <b>{soVN(base)}{baseUnit ? ` ${baseUnit}` : ""}</b>
+                  {conv ? ` (${conv})` : ""}{over ? " · ⚠ đang nhập vượt số này" : ""}
+                </div>
+              )}
               <SelectPopup value={r.action} options={ACTIONS}
                 onChange={(v) => upd(i, { action: v as Act, box_id: undefined })} />
               {r.action === "restock_existing" && (
@@ -158,7 +173,9 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
                       title={`Số hàng trong 1 ${unitName.toLowerCase()}`} placeholder={baseUnit ? `Số ${baseUnit}` : "Số hàng"} />
                     {baseUnit && <span class="pg-x">{baseUnit}</span>}
                   </div>
-                  <div class="muted small">= {soVN(total)}{baseUnit ? ` ${baseUnit}` : ""} nhập kho ({countOf(r)} {unitName.toLowerCase()})</div>
+                  <div class={"muted small" + (over ? " pg-over" : "")}>
+                    = {soVN(total)}{baseUnit ? ` ${baseUnit}` : ""} nhập kho ({countOf(r)} {unitName.toLowerCase()}) / phiếu {soVN(base)}
+                  </div>
                 </div>
               )}
             </div>
@@ -166,7 +183,7 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
         })}
         <div class="row" style={{ marginTop: "8px" }}>
           <button class="btn" onClick={onClose}>Để sau</button>
-          <button class="btn primary" disabled={busy} onClick={submit}>{busy ? "Đang nhập…" : "Nhập kho"}</button>
+          <button class="btn primary" disabled={busy || overRows} onClick={submit}>{busy ? "Đang nhập…" : "Nhập kho"}</button>
         </div>
       </div>
     </div>
