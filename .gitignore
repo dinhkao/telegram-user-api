@@ -39,3 +39,4 @@ sheets_sa.json
 # Tooling scratch (subagent transcripts/artifacts) — not project code
 .pi-subagents/
 restart.out
+.codewhale/

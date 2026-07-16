@@ -389,6 +389,7 @@ export type PurchaseSlip = {
   payments?: PurchasePayment[]; paid?: number;
   remaining?: number;   // còn nợ NCC — server tính (round Python), client hiển thị thẳng
   goods_handled_at?: string | null; goods_handled_by?: string | null; goods_result?: PurchaseGoodsResult | null;
+  has_draft?: boolean;  // dashboard: đã có thùng nhập dở nhưng chưa chốt
   boxes?: KhoBox[];     // thùng đã/đang nhập kho từ phiếu (server gắn ở detail) — vẽ ô thùng
   draft_receipt?: PurchaseDraftReceipt | null;  // phiếu MỞ + đã nhập dở (server gắn ở detail)
 };

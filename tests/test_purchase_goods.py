@@ -126,6 +126,24 @@ class PurchaseGoodsTest(unittest.TestCase):
         self.assertEqual(d["new"][0]["sp_id"], pid)
         self.assertEqual(d["existing"][0]["sp_id"], pid)
 
+    def test_batch_draft_status(self):
+        # Badge 'nhập dở' dashboard: False khi chưa nhập gì, True khi có thùng/
+        # allocation nhập dở (cả 2 nhánh new + existing).
+        from purchase_store import batch_draft_status
+        from server_app.purchase_goods import receive_purchase_lines
+        self.assertEqual(batch_draft_status(self.conn, [self.pu["id"]]), {self.pu["id"]: False})
+        _, err = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 3, "action": "restock_existing", "box_id": self.box["id"]}],
+            actor="lan")
+        self.assertIsNone(err)
+        self.assertTrue(batch_draft_status(self.conn, [self.pu["id"]])[self.pu["id"]])
+        _, err2 = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 5, "action": "restock_new"}], actor="lan")
+        self.assertIsNone(err2)
+        self.assertTrue(batch_draft_status(self.conn, [self.pu["id"]])[self.pu["id"]])
+
     def test_confirm_blocked_until_enough(self):
         from server_app.purchase_goods import confirm_purchase_receipt
         _, err = confirm_purchase_receipt(self.conn, self.pu["id"], actor="lan")

@@ -115,7 +115,11 @@ export function PurchasesList() {
               <div class="ret-card-top">
                 <span class="ret-cust">{r.supplier_name || `NCC #${r.supplier_id}`}</span>
                 <span class="pur-amt">
-                  {r.goods_handled_at && <span class="cash-badge ok">📦 kho</span>}
+                  {r.goods_handled_at
+                    ? <span class="cash-badge ok">📦 kho</span>
+                    : r.has_draft
+                      ? <span class="cash-badge warn">📥 nhập dở</span>
+                      : null}
                   {" "}
                   {(r.paid || 0) > 0 && (r.remaining ?? 1) <= 0
                     ? <span class="cash-badge ok">✓ đã trả</span>

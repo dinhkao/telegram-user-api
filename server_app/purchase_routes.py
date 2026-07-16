@@ -150,7 +150,17 @@ async def purchases_all_handler(request: web.Request):
         conn = get_connection()
         try:
             rows = [_items_display(conn, r) for r in list_all_purchases(conn, limit=limit, offset=(page - 1) * limit)]
-            return rows, count_all_purchases(conn)
+            total = count_all_purchases(conn)
+            # Gắn trạng thái nhập dở cho dashboard — chỉ tra phiếu ĐANG MỞ (phiếu
+            # đã chốt vẫn còn thùng/allocation purchase_in trong kho → tra sẽ
+            # dính True oan; badge chỉ có nghĩa khi chưa chốt)
+            from purchase_store import batch_draft_status
+            pids = [r["id"] for r in rows if r and not r.get("goods_handled_at")]
+            draft_map = batch_draft_status(conn, pids)
+            for r in rows:
+                if r:
+                    r["has_draft"] = draft_map.get(r["id"], False)
+            return rows, total
         finally:
             conn.close()
     rows, total = await asyncio.to_thread(_run)

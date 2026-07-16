@@ -281,6 +281,39 @@ def set_goods_result(conn, purchase_id: int, result: dict) -> bool:
     return True
 
 
+def batch_draft_status(conn, purchase_ids: list[int]) -> dict[int, bool]:
+    """Batch kiểm tra các phiếu nhập có thùng nhập dở chưa (draft receipt).
+    Trả {purchase_id: True nếu đã có thùng/allocation nhập dở}.
+    Dùng cho dashboard để hiển thị tag 'đang nhập dở'."""
+    if not purchase_ids:
+        return {}
+    if not _has_table(conn, "inventory_boxes"):
+        return {pid: False for pid in purchase_ids}
+
+    has_draft: set[int] = set()
+    ids = [int(pid) for pid in purchase_ids if pid is not None]
+    if not ids:
+        return {}
+    ph = ",".join("?" * len(ids))
+
+    for r in conn.execute(
+            f"SELECT DISTINCT source_purchase_id FROM inventory_boxes"
+            f" WHERE source_purchase_id IN ({ph}) AND quantity > 0",
+            ids).fetchall():
+        if r[0] is not None:
+            has_draft.add(int(r[0]))
+
+    if _has_table(conn, "box_allocations"):
+        for r in conn.execute(
+                f"SELECT DISTINCT order_thread_id FROM box_allocations"
+                f" WHERE kind = 'purchase_in' AND order_thread_id IN ({ph})",
+                ids).fetchall():
+            if r[0] is not None:
+                has_draft.add(int(r[0]))
+
+    return {pid: pid in has_draft for pid in purchase_ids}
+
+
 def soft_delete_purchase(conn, purchase_id: int, by: str = "") -> tuple[bool, str]:
     """Xoá mềm phiếu nhập (admin). CHẶN khi kho còn dấu vết nhập theo phiếu: thùng
     tạo từ phiếu (kể cả đang nhập dở / sau hủy chốt) hoặc phần đã cộng vào thùng
