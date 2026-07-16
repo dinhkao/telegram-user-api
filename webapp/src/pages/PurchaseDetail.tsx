@@ -270,16 +270,24 @@ export function PurchaseDetail({ id }: { id: string }) {
         // mới / gỡ từng lần cộng (như thu hồi ở OrderStock); đủ rồi CHỐT mới khoá.
         const draft = r.draft_receipt;
         const hasDraft = !!draft && draft.new.length + draft.existing.length > 0;
-        const baseByCode = new Map<string, number>();
+        // Khớp dòng phiếu ↔ đã-nhập theo DANH TÍNH SP (sp_id — mã đổi tên giữa
+        // chừng vẫn khớp, cùng luật _product_key server), fallback mã uppercase.
+        const spKey = (sp?: string | null, id?: number | null) => (id ? `#${id}` : (sp || "").toUpperCase());
+        const baseBySp = new Map<string, { code: string; base: number }>();
         for (const it of r.items || []) {
           const f = it.unit && (it.unit_factor || 0) > 0 ? it.unit_factor! : 1;
-          const code = (it.sp || "").toUpperCase();
-          baseByCode.set(code, (baseByCode.get(code) || 0) + it.sl * f);
+          const k = spKey(it.sp, it.sp_id);
+          const cur = baseBySp.get(k) || { code: (it.sp || "").toUpperCase(), base: 0 };
+          cur.base += it.sl * f;
+          baseBySp.set(k, cur);
         }
-        const gotByCode = new Map<string, number>();
-        for (const t of draft?.totals || []) gotByCode.set((t.sp || "").toUpperCase(), t.quantity);
-        const missing = [...baseByCode.entries()]
-          .map(([code, base]) => ({ code, base, got: gotByCode.get(code) || 0 }))
+        const gotBySp = new Map<string, number>();
+        for (const t of draft?.totals || []) {
+          const k = spKey(t.sp, t.sp_id);
+          gotBySp.set(k, (gotBySp.get(k) || 0) + Number(t.quantity || 0));
+        }
+        const missing = [...baseBySp.entries()]
+          .map(([k, { code, base }]) => ({ code, base, got: gotBySp.get(k) || 0 }))
           .filter((x) => x.got + 1e-6 < x.base);
         const doDeleteBox = async (x: PurchaseDraftLine) => {
           const name = `thùng ${x.box_code || `#${x.box_id}`}`;
@@ -361,10 +369,10 @@ export function PurchaseDetail({ id }: { id: string }) {
               <section class="card rg-summary">
                 <label class="card-label"><Icon name="box" size={15} /> Đang nhập kho (chưa chốt)</label>
                 <div class="muted small">
-                  {[...baseByCode.entries()].map(([code, base]) => {
-                    const got = gotByCode.get(code) || 0;
+                  {[...baseBySp.entries()].map(([k, { code, base }]) => {
+                    const got = gotBySp.get(k) || 0;
                     return (
-                      <div key={code}>
+                      <div key={k}>
                         {code}: đã nhập <b>{soVN(got)}</b> / {soVN(base)}
                         {got + 1e-6 < base ? ` · còn thiếu ${soVN(base - got)}` : " · ✓ đủ"}
                       </div>

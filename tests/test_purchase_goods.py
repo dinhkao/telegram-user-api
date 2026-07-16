@@ -111,6 +111,21 @@ class PurchaseGoodsTest(unittest.TestCase):
         self.assertEqual(len(list_boxes(self.conn)), before)   # không ghi dòng nào
         self.assertIsNone(purchase_store.get_purchase(self.conn, self.pu["id"])["goods_handled_at"])
 
+    def test_draft_receipt_carries_sp_id(self):
+        # Client khớp dòng phiếu ↔ đã-nhập theo sp_id — mã SP đổi tên giữa chừng vẫn khớp.
+        from product_store import resolve_code
+        from server_app.purchase_goods import receive_purchase_lines, _draft_receipt
+        _, err = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 5, "action": "restock_new"},
+             {"sp": "KEO1", "quantity": 3, "action": "restock_existing", "box_id": self.box["id"]}],
+            actor="lan")
+        self.assertIsNone(err)
+        pid = resolve_code(self.conn, "KEO1")["id"]
+        d = _draft_receipt(self.conn, self.pu["id"])
+        self.assertEqual(d["new"][0]["sp_id"], pid)
+        self.assertEqual(d["existing"][0]["sp_id"], pid)
+
     def test_confirm_blocked_until_enough(self):
         from server_app.purchase_goods import confirm_purchase_receipt
         _, err = confirm_purchase_receipt(self.conn, self.pu["id"], actor="lan")

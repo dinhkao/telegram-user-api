@@ -86,6 +86,10 @@ def migrate_inventory_table(conn):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_inv_pid ON inventory_boxes(product_id)")
     # list_places() đếm thùng theo từng vị trí → index place_id (cột do ALTER ở trên)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_inv_place ON inventory_boxes(place_id)")
+    # _draft_receipt/_retained_box_totals quét thùng theo phiếu nhập mỗi lần đọc
+    # chi tiết phiếu → partial index (đa số thùng không từ phiếu nhập, giữ index nhỏ)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_inv_source_purchase ON "
+                 "inventory_boxes(source_purchase_id) WHERE source_purchase_id IS NOT NULL")
     # Hệ số gọi xoay vòng: bỏ UNIQUE cũ trên box_code (số được tái dùng), thay index thường
     conn.execute("DROP INDEX IF EXISTS idx_inv_box_code")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_inv_box_code_nu ON inventory_boxes(box_code)")

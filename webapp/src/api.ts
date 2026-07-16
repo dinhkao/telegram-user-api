@@ -375,11 +375,11 @@ export type PurchaseDisposition = {
 export type PurchaseItem = { sp: string; sp_id?: number; name?: string; sl: number; price: number; unit?: string; unit_factor?: number; base_unit?: string };
 /** 1 dòng ĐANG NHẬP (phiếu chưa chốt): thùng mới hoặc lần cộng vào thùng có sẵn
  *  (allocation_id có = dòng cộng, gỡ được qua unreceivePurchase). */
-export type PurchaseDraftLine = { sp: string; quantity: number; box_id: number; box_code?: string; allocation_id?: number };
+export type PurchaseDraftLine = { sp: string; sp_id?: number | null; quantity: number; box_id: number; box_code?: string; allocation_id?: number };
 /** Trạng thái nhập kho ĐANG DỞ của phiếu mở — server derive live từ kho. */
 export type PurchaseDraftReceipt = {
   new: PurchaseDraftLine[]; existing: PurchaseDraftLine[];
-  totals: { sp: string; quantity: number }[];   // tổng đã nhập theo mã SP
+  totals: { sp: string; sp_id?: number | null; quantity: number }[];   // tổng đã nhập theo SP (khớp bằng sp_id, fallback mã)
 };
 export type PurchaseSlip = {
   id: number; supplier_id: number; supplier_name?: string | null;

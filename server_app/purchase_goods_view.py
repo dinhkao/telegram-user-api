@@ -42,12 +42,16 @@ def attach_purchase_boxes(conn, row: dict | None) -> dict | None:
         return row
     draft = _draft_receipt(conn, row["id"])
     if draft["new"] or draft["existing"]:
-        totals: dict[str, float] = {}
+        # Gom theo danh tính SP (sp_id, fallback mã) — client khớp dòng phiếu qua
+        # sp_id nên mã SP đổi tên giữa chừng không làm lệch tiến độ/prefill.
+        totals: dict = {}
         for e in draft["new"] + draft["existing"]:
-            totals[e["sp"]] = totals.get(e["sp"], 0.0) + float(e["quantity"] or 0)
+            k = e.get("sp_id") or e["sp"]
+            cur = totals.setdefault(k, {"sp": e["sp"], "sp_id": e.get("sp_id"), "quantity": 0.0})
+            cur["quantity"] += float(e["quantity"] or 0)
         row["draft_receipt"] = {
             "new": draft["new"], "existing": draft["existing"],
-            "totals": [{"sp": k, "quantity": v} for k, v in totals.items()],
+            "totals": list(totals.values()),
         }
         _attach_box_infos(conn, row, [e["box_id"] for e in draft["new"] + draft["existing"]])
     return row

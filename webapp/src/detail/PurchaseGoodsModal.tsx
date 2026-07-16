@@ -35,26 +35,31 @@ const ACTIONS: SPOption[] = [
 const num = (s: string) => parseFloat((s || "").replace(",", ".")) || 0;
 
 const initialRows = (pu: PurchaseSlip): Row[] => {
-  // Đã nhập bao nhiêu theo mã (thùng mới + cộng thùng có sẵn) → prefill phần còn lại
+  // Đã nhập bao nhiêu theo SP (thùng mới + cộng thùng có sẵn) → prefill phần còn
+  // lại. Khớp theo sp_id (mã đổi tên vẫn khớp — cùng luật server), fallback mã.
+  const spKey = (sp?: string | null, id?: number | null) => (id ? `#${id}` : (sp || "").toUpperCase());
   const retained = new Map<string, number>();
   for (const t of pu.draft_receipt?.totals || []) {
-    const code = (t.sp || "").toUpperCase();
-    retained.set(code, (retained.get(code) || 0) + Number(t.quantity || 0));
+    const k = spKey(t.sp, t.sp_id);
+    retained.set(k, (retained.get(k) || 0) + Number(t.quantity || 0));
   }
   return (pu.items || []).map((it) => {
     const conv = !!it.unit && (it.unit_factor || 0) > 0;
     const base = it.sl * (conv ? it.unit_factor! : 1);
-    const code = (it.sp || "").toUpperCase();
-    const already = Math.min(base, retained.get(code) || 0);
-    retained.set(code, Math.max(0, (retained.get(code) || 0) - already));
+    const k = spKey(it.sp, it.sp_id);
+    const already = Math.min(base, retained.get(k) || 0);
+    retained.set(k, Math.max(0, (retained.get(k) || 0) - already));
     const left = Math.max(0, base - already);
-    const keepConversion = already <= 1e-6 && conv;
+    // Giữ quy đổi đơn vị cả khi đã nhập 1 phần: phần còn lại chia hết cho
+    // 1 đơn vị (Thùng ×30) → prefill count×per theo đơn vị; lẻ → 1 thùng cả lô.
+    const units = conv ? left / it.unit_factor! : 0;
+    const wholeUnits = conv && left > 1e-6 && Math.abs(units - Math.round(units)) <= 1e-6;
     return {
       sp: it.sp,
       action: left > 1e-6 ? "restock_new" as Act : "skip" as Act,
       qty: String(left),
-      count: keepConversion ? String(it.sl) : "1",
-      per: keepConversion ? String(it.unit_factor) : String(left),
+      count: wholeUnits ? String(Math.round(units)) : "1",
+      per: wholeUnits ? String(it.unit_factor) : String(left),
       held: already, cap: left,
     };
   });

@@ -115,7 +115,9 @@ def _draft_receipt(conn, purchase_id: int) -> dict:
             continue
         key, code = _product_key(conn, box.get("product_code"), box.get("product_id"))
         out["used"][key] = out["used"].get(key, 0.0) + q
-        out["new"].append({"sp": code, "quantity": q, "box_id": box["id"],
+        # sp_id để client khớp dòng phiếu theo danh tính SP (mã đổi tên vẫn khớp)
+        out["new"].append({"sp": code, "sp_id": key[1] if key[0] == "id" else None,
+                           "quantity": q, "box_id": box["id"],
                            "box_code": box.get("box_code")})
     for r in conn.execute(
             "SELECT a.id AS allocation_id, a.box_id, a.quantity, b.box_code,"
@@ -128,7 +130,8 @@ def _draft_receipt(conn, purchase_id: int) -> dict:
             continue
         key, code = _product_key(conn, r["product_code"], r["product_id"])
         out["used"][key] = out["used"].get(key, 0.0) + q
-        out["existing"].append({"sp": code, "quantity": q, "box_id": r["box_id"],
+        out["existing"].append({"sp": code, "sp_id": key[1] if key[0] == "id" else None,
+                                "quantity": q, "box_id": r["box_id"],
                                 "box_code": r["box_code"], "allocation_id": r["allocation_id"]})
     return out
 
