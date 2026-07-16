@@ -42,6 +42,7 @@ from server_app.product_routes import (
     product_link_handler, product_unlink_handler, product_delete_handler, product_update_handler, product_rename_handler,
     product_kv_create_handler, kiotviet_categories_handler,
 )
+from server_app.product_unit_routes import register as register_product_unit_routes
 from server_app.production_routes import (
     production_add_number_handler,
     production_catalog_handler,
@@ -192,6 +193,7 @@ def create_app():
     r.add_post("/api/products/{code}/unlink", product_unlink_handler)
     r.add_delete("/api/products/{code}", product_delete_handler)
     r.add_post("/api/products/{code}", product_update_handler)
+    register_product_unit_routes(r)   # /api/products/{code}/units* — quy đổi đơn vị
     r.add_get("/api/products/{product_code}/recipe", recipe_get_handler)
     r.add_post("/api/products/{product_code}/recipe", recipe_set_handler)
     r.add_delete("/api/products/{product_code}/recipe/{line_id}", recipe_delete_handler)

@@ -14,6 +14,7 @@ import { Icon } from "../ui/Icon";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 import { CompactBoxList } from "../detail/CompactBoxList";
 import { RecipeEditor } from "../detail/RecipeEditor";
+import { ProductUnits } from "../detail/ProductUnits";
 import { History } from "../detail/History";
 import { usePopupBack } from "../ui/usePopupBack";
 
@@ -337,6 +338,7 @@ export function InventoryDetail({ code }: { code: string }) {
             Nhập kho theo <b>số thùng</b> (mỗi thùng 1 đơn vị, không chọn đơn vị chứa), và có nút <b>Trả về nguyên liệu</b> ở chi tiết thùng.
           </div>
         )}
+        {inv.product && <ProductUnits code={inv.product_code || code} baseUnit={inv.product?.unit || "cây"} />}
         <div class="box-kv">
           <span class="box-k">Tồn tối thiểu {minSaved && <span class="muted small">✓</span>}</span>
           <input class="box-place" style={{ minWidth: "90px" }} type="number" inputMode="decimal" value={minInput} placeholder="0"

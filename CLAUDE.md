@@ -368,6 +368,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `#/kho/:code` khối "Mua bán", admin): tắt → SP biến khỏi GỢI Ý picker tương ứng
   (bán = InvoiceEditor, nhập = PurchaseModal/PurchaseDetail — lọc client-side từ
   `/api/products?search=`; mã gõ tự do vẫn nhận).
+  **QUY ĐỔI ĐƠN VỊ (2026-07-16)**: bảng `product_units` (`product_store/units.py`,
+  khoá products.id) — 1 SP nhiều đơn vị phụ, `factor` = 1 đơn vị phụ = ? đơn vị gốc
+  (`products.unit`); quy đổi 2 đơn vị bất kỳ = tỉ số factor (`convert`, unit-tested).
+  API `/api/products/{code}/units*` (`server_app/product_unit_routes.py` — GET đăng
+  nhập, thêm/sửa văn phòng, xoá admin; audit `product.unit_*`, realtime
+  inventory_changed). UI khối "Quy đổi đơn vị" chi tiết SP (`detail/ProductUnits.tsx`).
 - `cashbox_store/` — hệ KÉT TIỀN "ai đang giữ tiền" (2026-07-14). Trạng thái két
   **DERIVE THUẦN từ blob đơn** (chỉ đơn từ `SINCE=2026-07-14` theo NGÀY VN — env
   `CASHBOX_SINCE`; mốc SQL đổi sang UTC `_since_utc`, đơn cũ hơn chưa qua flow

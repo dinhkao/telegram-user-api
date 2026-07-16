@@ -229,12 +229,20 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
     if action.startswith("product."):
         label = {"product.created": "Tạo sản phẩm", "product.renamed": "Đổi mã SP",
                  "product.deleted": "Xoá sản phẩm", "product.linked": "Liên kết KiotViet",
-                 "product.unlinked": "Gỡ liên kết KiotViet", "product.updated": "Sửa sản phẩm"}.get(action)
+                 "product.unlinked": "Gỡ liên kết KiotViet", "product.updated": "Sửa sản phẩm",
+                 "product.unit_added": "Thêm đơn vị quy đổi", "product.unit_updated": "Sửa đơn vị quy đổi",
+                 "product.unit_deleted": "Xoá đơn vị quy đổi"}.get(action)
         if not label:
             return None
         if action == "product.renamed":
             return label, [part(str(p.get("old_code") or "")), part(" → "),
                            _sp(p.get("new_code"), resolver)]
+        if action.startswith("product.unit_"):
+            # "1 thùng = 30 cây" — factor theo đơn vị gốc snapshot lúc ghi
+            seg = _join([[_sp(p.get("code"), resolver)] if p.get("code") else [],
+                         [part(f"1 {p.get('unit')} = {qty(p.get('factor'))} {p.get('base_unit') or ''}".strip())]
+                         if p.get("unit") else []])
+            return label, seg
         return label, [_sp(p.get("code"), resolver)] if p.get("code") else []
 
     # ── QUỸ / XUẤT HỦY / KIỂM KHO / CÀI ĐẶT ────────────────────────────────

@@ -1583,6 +1583,28 @@ export async function deleteProduct(code: string): Promise<any> {
   return delJSON(`/api/products/${encodeURIComponent(code)}`);
 }
 
+// ── QUY ĐỔI ĐƠN VỊ hàng hoá: 1 SP nhiều đơn vị, factor = 1 đơn vị = ? đơn vị gốc ──
+export type ProductUnit = { id: number; name: string; factor: number; note?: string };
+/** Danh sách đơn vị quy đổi của SP + đơn vị gốc. */
+export async function listProductUnits(code: string): Promise<{ base_unit: string; units: ProductUnit[] }> {
+  const d = await getJSON(`/api/products/${encodeURIComponent(code)}/units`, { cache: false });
+  return { base_unit: d.base_unit || "cây", units: d.units || [] };
+}
+/** Thêm đơn vị quy đổi (văn phòng). */
+export async function addProductUnit(code: string, name: string, factor: number): Promise<ProductUnit> {
+  const d = await postJSON(`/api/products/${encodeURIComponent(code)}/units`, { name, factor }, { queueable: false });
+  return d.unit;
+}
+/** Sửa đơn vị quy đổi (văn phòng). */
+export async function updateProductUnit(code: string, id: number, name: string, factor: number): Promise<ProductUnit> {
+  const d = await postJSON(`/api/products/${encodeURIComponent(code)}/units/${id}`, { name, factor }, { queueable: false });
+  return d.unit;
+}
+/** Xoá đơn vị quy đổi (admin). */
+export async function deleteProductUnit(code: string, id: number): Promise<any> {
+  return delJSON(`/api/products/${encodeURIComponent(code)}/units/${id}`);
+}
+
 export type InvSourceSlip = { thread_id: number; date?: string | null; sp_name?: string | null };
 export type InvSourcePurchase = { id: number; supplier_name?: string | null; created_at?: string | null };
 export type InvBoxDetail = { box: InvBox; source_slip: InvSourceSlip | null; allocations: Allocation[];

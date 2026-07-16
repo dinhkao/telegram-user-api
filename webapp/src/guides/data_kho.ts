@@ -94,6 +94,13 @@ export const GUIDES_KHO: Guide[] = [
         <p>Ô <b>Đơn vị</b> = đơn vị đếm của SP (cây / gói / kg…). Sửa ở chi tiết SP; số hiển thị đúng
         đơn vị đó ở <b>khắp nơi</b> (kho, đơn, nhu cầu).</p>
         <p class="muted small">Khác với <i>đơn vị chứa</i> của thùng (Thùng/Kiện/Hũ) — cái đó là cách đóng thùng, không phải cách đếm SP.</p>` },
+      { title: "Quy đổi đơn vị", html: `
+        <p>Khối <b>Quy đổi đơn vị</b> ở chi tiết SP: khai báo SP có <b>nhiều đơn vị</b> với tỉ lệ quy đổi
+        về đơn vị gốc — ví dụ đơn vị gốc là <i>cây</i>, thêm <i>1 thùng = 30 cây</i>, <i>1 kiện = 120 cây</i>.</p>
+        <ul>
+          <li><b>Thêm/sửa tỉ lệ</b>: văn phòng. <b>Xoá đơn vị</b>: admin.</li>
+          <li>Tỉ lệ giữa 2 đơn vị bất kỳ tự suy ra từ tỉ lệ về gốc (1 kiện = 4 thùng).</li>
+        </ul>` },
       { title: "Công thức / BOM (nguyên liệu)", html: `
         <p>Khối <b>Công thức — nguyên liệu</b> ở chi tiết SP: khai báo 1 SP cần những <b>nguyên liệu</b>
         (là SP khác) theo <b>tỉ lệ</b> (lượng NL cho 1 đơn vị thành phẩm).</p>
