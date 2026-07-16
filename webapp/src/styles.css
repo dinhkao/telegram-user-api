@@ -383,6 +383,7 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .ie-sum .sum-vat { display: flex; align-items: center; gap: 6px; }
 .ie-sum .chip8 { padding: 4px 11px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--card); color: var(--muted); font-size: .78rem; font-weight: 600; cursor: pointer; transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease; }
 .ie-sum .chip8.on { border-color: var(--primary); background: var(--primary); color: #fff; box-shadow: 0 1px 4px color-mix(in srgb, var(--primary) 28%, transparent); }
+.ie-sum .chip8.faded { opacity: .5; }   /* đơn chốt kho: VAT khoá — bấm hiện toast giải thích */
 .ie-sum .chip8:active { background: var(--accent-wash); color: var(--primary); }
 .ie-sum .chip8.on:active { background: color-mix(in srgb, var(--primary) 84%, #000); color: #fff; }
 .ie-sum .sum-total { display: flex; align-items: baseline; justify-content: space-between; margin-top: 10px; padding-top: 9px; border-top: 2px solid var(--ink); font-size: .95rem; font-weight: 700; }

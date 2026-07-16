@@ -217,10 +217,12 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
           onFocus={selectAll} onInput={(e: any) => setP(parseMoney(e.target.value))} /></div>
         <div class="sum-row"><span>VAT</span>
           <span class="sum-vat">
-            <button type="button" class={vat8Enabled ? "chip8 on" : "chip8"}
-              disabled={priceOnly}
-              aria-pressed={vat8Enabled} title={vat8Enabled ? "Tắt VAT 8%" : "Bật VAT 8%"}
-              onClick={toggleVat8}>8%</button>
+            <button type="button" class={(vat8Enabled ? "chip8 on" : "chip8") + (priceOnly ? " faded" : "")}
+              aria-pressed={vat8Enabled} aria-disabled={priceOnly}
+              title={priceOnly ? "Đơn đã chốt xuất kho — VAT giữ nguyên" : vat8Enabled ? "Tắt VAT 8%" : "Bật VAT 8%"}
+              onClick={priceOnly
+                ? () => toast("Đơn đã chốt xuất kho — VAT giữ nguyên. Cần đổi VAT thì bỏ chốt xuất kho trước (admin).", "info")
+                : toggleVat8}>8%</button>
             <input class="sum-inp" inputMode="numeric" placeholder="0" value={currentVat ? money(currentVat) : ""}
               disabled={priceOnly} onFocus={selectAll} onInput={(e: any) => { setVat8Enabled(false); setV(parseMoney(e.target.value)); }} />
           </span>
