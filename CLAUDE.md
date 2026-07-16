@@ -308,6 +308,14 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   MỌI nguyên liệu → trừ kho qua
   `inventory_store.allocate_picks(kind='production')` (cột `kind` phân biệt xuất-đơn ↔
   tiêu-hao-SX; `remaining` = quantity − Σ mọi allocation nên tồn NL giảm đúng).
+  **Cách sản xuất = 2 CỜ ĐỘC LẬP trên `products` (2026-07-16)**: `can_produce_directly`
+  (INTEGER DEFAULT 1 = 🏭 SX trực tiếp, phiếu `kind='san_xuat'`) và `can_package`
+  (INTEGER DEFAULT 0 = 📦 đóng gói từ NL, phiếu `kind='dong_goi'`). 1 SP có thể bật CẢ
+  hai / KHÔNG cái nào (= nguyên liệu / hàng mua từ NCC). Phiếu san_xuat chỉ nhập SP
+  can_produce_directly; phiếu dong_goi chỉ nhập SP can_package + bắt buộc công thức
+  (gate ở `inventory_routes` + picker `ProductionBoxes.tsx`). UI 2 chip toggle độc lập
+  ở `InventoryDetail.tsx` khối "Cách sản xuất". Backfill 1 lần marker
+  `migrate/can_package_v1` (SP chỉ-đóng-gói-cũ + SP có công thức → can_package=1).
 - `settings_store/` — cài đặt hệ thống (blob `kv_store['app_settings']`, app.db):
   toggle rule vận hành, sửa từ trang Cài đặt webapp (admin, `server_app/settings_routes.py`).
   Hiện có `soan_hang_require_stock` (mặc định BẬT): task **soạn hàng** chỉ đánh dấu

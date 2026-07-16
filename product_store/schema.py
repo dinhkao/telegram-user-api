@@ -24,6 +24,7 @@ _PRODUCT_COLS_SQL = """
             prod_mam      REAL,
             prod_luong    REAL,
             can_produce_directly INTEGER DEFAULT 1,
+            can_package   INTEGER DEFAULT 0,
             min_stock     REAL DEFAULT 0,
             self_container INTEGER DEFAULT 0,
             can_sell      INTEGER DEFAULT 1,
@@ -82,6 +83,8 @@ def migrate_products_table(conn):
         conn.execute("ALTER TABLE products ADD COLUMN prod_luong REAL")
     if "can_produce_directly" not in columns:   # SX TRỰC TIẾP được không (phiếu kind=san_xuat).
         conn.execute("ALTER TABLE products ADD COLUMN can_produce_directly INTEGER DEFAULT 1")  # backfill 0 cho SP có công thức ở db_migrate
+    if "can_package" not in columns:   # ĐÓNG GÓI từ nguyên liệu được không (phiếu kind=dong_goi).
+        conn.execute("ALTER TABLE products ADD COLUMN can_package INTEGER DEFAULT 0")  # backfill 1 cho SP đóng-gói-cũ/có công thức ở db_migrate
     if "min_stock" not in columns:      # tồn kho tối thiểu (ngưỡng cảnh báo)
         conn.execute("ALTER TABLE products ADD COLUMN min_stock REAL DEFAULT 0")
     if "self_container" not in columns:  # SP BẢN THÂN LÀ 1 thùng (KDXDB5/KGL5): mỗi thùng 1

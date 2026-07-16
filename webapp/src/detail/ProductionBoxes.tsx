@@ -45,7 +45,8 @@ export function ProductionBoxes({
   const draft = boxDrafts.get(threadId);
   const [prodCode, setProdCode] = useState(draft?.prodCode || slip.sp_name || "");
   useEffect(() => { if (slip.sp_name && !prodCode) setProdCode(slip.sp_name); }, [slip.sp_name]);
-  const dirRef = useRef<Map<string, boolean>>(new Map());   // code → SX trực tiếp được (lọc theo loại phiếu)
+  const dirRef = useRef<Map<string, boolean>>(new Map());   // code → SX trực tiếp được
+  const pkgRef = useRef<Map<string, boolean>>(new Map());   // code → đóng gói được (lọc theo loại phiếu)
   const [allowNoMat, setAllowNoMat] = useState(false);      // admin bật: nhập SP đóng gói không trừ NL
   useEffect(() => { getAppSettings().then((s) => setAllowNoMat(!!s.pack_allow_no_material)).catch(() => {}); }, []);
   const hasSp = !!prodCode;
@@ -247,11 +248,21 @@ export function ProductionBoxes({
           <PickerPopup value={prodCode} placeholder="Chọn SP" allowFreeText
             onSearch={async (q): Promise<PickOpt[]> => (await searchProducts(q).catch(() => [])).map((s) => {
               dirRef.current.set(s.code, s.can_produce_directly !== false);
-              const bad = !allowNoMat && !packing && s.can_produce_directly === false;   // phiếu SX + SP chỉ đóng gói
-              return { key: s.code, label: s.code, sub: bad ? "⚠ chỉ đóng gói — không hợp phiếu SX" : (s.name || undefined) };
+              pkgRef.current.set(s.code, s.can_package === true);
+              // phiếu SX → cần SX trực tiếp; phiếu đóng gói → cần cờ Đóng gói
+              const bad = packing
+                ? s.can_package !== true
+                : (!allowNoMat && s.can_produce_directly === false);
+              const badSub = packing ? "⚠ không đóng gói — bật cờ Đóng gói ở chi tiết SP" : "⚠ chỉ đóng gói — không hợp phiếu SX";
+              return { key: s.code, label: s.code, sub: bad ? badSub : (s.name || undefined) };
             })}
             onPick={(o) => {
-              if (!allowNoMat && !packing && dirRef.current.get(o.key) === false) {
+              if (packing) {
+                if (pkgRef.current.get(o.key) === false) {
+                  toast("SP này chưa bật ĐÓNG GÓI — bật cờ 'Đóng gói từ NL' ở chi tiết SP", "err");
+                  return;
+                }
+              } else if (!allowNoMat && dirRef.current.get(o.key) === false) {
                 toast("SP này chỉ ĐÓNG GÓI — đổi loại phiếu sang Đóng gói, hoặc bật 'SX trực tiếp' ở chi tiết SP", "err");
                 return;
               }

@@ -5,7 +5,7 @@ from typing import Optional
 from .schema import _PRODUCTS_CACHE_TTL, _invalidate_products_cache, _products_cache
 
 
-_COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material, prod_mam, prod_luong, can_produce_directly, min_stock, self_container, can_sell, can_purchase"
+_COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material, prod_mam, prod_luong, can_produce_directly, can_package, min_stock, self_container, can_sell, can_purchase"
 _FIELDS = tuple(c.strip() for c in _COLS.split(","))
 
 # SP "tự-là-thùng" = SP có ĐƠN VỊ ĐẾM là đơn vị nguyên kiện (thùng/kiện): bản thân nó
@@ -24,6 +24,7 @@ def _row(r) -> dict:
     d["unit"] = d["unit"] or "cây"
     d["is_material"] = bool(d["is_material"])
     d["can_produce_directly"] = d.get("can_produce_directly") != 0   # SX trực tiếp được (mặc định True)
+    d["can_package"] = d.get("can_package") == 1     # đóng gói từ NL được (mặc định False)
     d["min_stock"] = float(d.get("min_stock") or 0)   # tồn kho tối thiểu
     d["self_container"] = is_self_container_unit(d.get("unit"))   # suy từ đơn vị (thùng/kiện)
     d["can_sell"] = d.get("can_sell") != 0           # có thể bán (mặc định True)
@@ -57,7 +58,7 @@ def get_all_products(conn, *, _use_cache: bool = True) -> list[dict]:
     return result
 
 
-def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, prod_mam: float = None, prod_luong: float = None, can_produce_directly: bool = None, min_stock: float = None, self_container: bool = None, can_sell: bool = None, can_purchase: bool = None) -> bool:
+def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, prod_mam: float = None, prod_luong: float = None, can_produce_directly: bool = None, can_package: bool = None, min_stock: float = None, self_container: bool = None, can_sell: bool = None, can_purchase: bool = None) -> bool:
     code = code.upper().strip()
     if not code:
         return False
@@ -79,6 +80,8 @@ def upsert_product(conn, code: str, name: str = None, cost_price: int = None, no
             updates.append("prod_luong = ?"); params.append(float(prod_luong) if prod_luong != "" else None)
         if can_produce_directly is not None:
             updates.append("can_produce_directly = ?"); params.append(1 if can_produce_directly else 0)
+        if can_package is not None:
+            updates.append("can_package = ?"); params.append(1 if can_package else 0)
         if min_stock is not None:
             updates.append("min_stock = ?"); params.append(float(min_stock) if min_stock != "" else 0)
         if self_container is not None:

@@ -211,6 +211,20 @@ def run_boot_migrations() -> None:
             conn.commit()
     except Exception:  # noqa: BLE001
         log.exception("backfill can_produce_directly thất bại (bỏ qua)")
+    # can_package: tách cờ độc lập (SP có thể làm CẢ SX lẫn đóng gói). Giữ hành vi cũ —
+    # SP "chỉ đóng gói" (can_produce_directly=0) và SP có công thức đều đóng gói được.
+    # Chạy 1 lần (marker) để không đè lựa chọn admin sau này.
+    try:
+        _m = "migrate/can_package_v1"
+        if not conn.execute("SELECT value FROM kv_store WHERE path = ?", (_m,)).fetchone():
+            conn.execute(
+                "UPDATE products SET can_package = 1 WHERE can_produce_directly = 0 OR id IN "
+                "(SELECT DISTINCT product_id FROM product_recipes WHERE product_id IS NOT NULL AND ratio > 0)")
+            conn.execute("INSERT INTO kv_store (path, value, updated_at) VALUES (?, '1', ?) "
+                         "ON CONFLICT(path) DO NOTHING", (_m, int(time.time() * 1000)))
+            conn.commit()
+    except Exception:  # noqa: BLE001
+        log.exception("backfill can_package thất bại (bỏ qua)")
     # sản xuất: product_id trên slip + report_rows (backfill theo sp_name/mã)
     from production_store.schema import create_production_table, migrate_production_table
     from production_store.report_rows import ensure_report_rows_schema

@@ -155,7 +155,7 @@ export async function login(username: string, pin: string): Promise<any> {
 // ── Helpers cho trình nhập hoá đơn nâng cao ──────────────────────────────
 
 /** Autocomplete mã/tên SP. Không cache (kết quả theo phím gõ). */
-export async function searchProducts(q: string): Promise<{ code: string; name: string; can_produce_directly?: boolean; can_sell?: boolean; can_purchase?: boolean }[]> {
+export async function searchProducts(q: string): Promise<{ code: string; name: string; can_produce_directly?: boolean; can_package?: boolean; can_sell?: boolean; can_purchase?: boolean }[]> {
   const d = await getJSON(`/api/products?search=${encodeURIComponent(q)}&limit=15`, { cache: false });
   return d.products || [];
 }
@@ -1419,7 +1419,7 @@ export type Allocation = {
   order_text?: string; // dòng đầu nội dung đơn (sneak peek, chỉ trang chi tiết thùng)
 };
 export type InvGroup = { quantity: number; count: number; total: number; box_codes: string[] };
-export type InvProductLink = { id?: number; code: string; name: string; cost_price: number; unit?: string; can_produce_directly?: boolean; self_container?: boolean; min_stock?: number; can_sell?: boolean; can_purchase?: boolean; kv_id: number | null; kv_full_name: string | null; kv_synced_at: string | null; linked: boolean };
+export type InvProductLink = { id?: number; code: string; name: string; cost_price: number; unit?: string; can_produce_directly?: boolean; can_package?: boolean; self_container?: boolean; min_stock?: number; can_sell?: boolean; can_purchase?: boolean; kv_id: number | null; kv_full_name: string | null; kv_synced_at: string | null; linked: boolean };
 export type InvOrderRef = { thread_id: number; text: string; sl: number | null; price: number | null; created: string | null };
 export type InvDetail = {
   product_code: string;
@@ -1586,7 +1586,7 @@ export async function createProduct(code: string, name = "", unit = ""): Promise
   return { product: d.product, existed: !!d.existed };
 }
 /** Sửa SP (đơn vị / tên / ghi chú). */
-export async function updateProduct(code: string, patch: { unit?: string; name?: string; note?: string; can_produce_directly?: boolean; self_container?: boolean; min_stock?: number; can_sell?: boolean; can_purchase?: boolean }): Promise<InvProductLink | null> {
+export async function updateProduct(code: string, patch: { unit?: string; name?: string; note?: string; can_produce_directly?: boolean; can_package?: boolean; self_container?: boolean; min_stock?: number; can_sell?: boolean; can_purchase?: boolean }): Promise<InvProductLink | null> {
   const d = await postJSON(`/api/products/${encodeURIComponent(code)}`, patch, { queueable: false });
   return d.ok ? d.product : null;
 }

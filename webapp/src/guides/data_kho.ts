@@ -119,6 +119,16 @@ export const GUIDES_KHO: Guide[] = [
           <li><b>Thêm/sửa tỉ lệ</b>: văn phòng. <b>Xoá đơn vị</b>: admin.</li>
           <li>Tỉ lệ giữa 2 đơn vị bất kỳ tự suy ra từ tỉ lệ về gốc (1 kiện = 4 thùng).</li>
         </ul>` },
+      { title: "Cách sản xuất (2 cờ độc lập)", html: `
+        <p>Khối <b>Cách sản xuất</b> ở chi tiết SP có <b>2 cờ độc lập</b> (admin) — 1 SP có thể bật
+        <b>cả hai</b>, hoặc <b>không cái nào</b>:</p>
+        <ul>
+          <li>🏭 <b>Sản xuất trực tiếp</b> — nhập thùng qua phiếu <b>SẢN XUẤT</b> (không trừ nguyên liệu).</li>
+          <li>📦 <b>Đóng gói từ NL</b> — nhập thùng qua phiếu <b>ĐÓNG GÓI</b>, <b>bắt buộc</b> có công thức và trừ nguyên liệu.</li>
+          <li>Bật <b>cả hai</b>: SP làm được bằng cả hai cách.</li>
+          <li>Tắt <b>cả hai</b>: SP <b>không sản xuất</b> — là <b>nguyên liệu / hàng mua</b> từ NCC (nhập kho qua phiếu nhập hàng).</li>
+        </ul>
+        <p class="muted small">Bật Đóng gói mà chưa khai công thức → có cảnh báo; khai ở khối Công thức bên dưới mới nhập được phiếu đóng gói.</p>` },
       { title: "Công thức / BOM (nguyên liệu)", html: `
         <p>Khối <b>Công thức — nguyên liệu</b> ở chi tiết SP: khai báo 1 SP cần những <b>nguyên liệu</b>
         (là SP khác) theo <b>tỉ lệ</b> (lượng NL cho 1 đơn vị thành phẩm).</p>

@@ -3,7 +3,7 @@
 // Thùng đã xuất link tới đơn. Realtime production_changed → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, createKiotvietProduct, createProduct, kiotvietCategories, deleteProduct, updateProduct, renameProduct, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct, type KvCategory } from "../api";
+import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, createKiotvietProduct, createProduct, kiotvietCategories, deleteProduct, updateProduct, renameProduct, getRecipe, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct, type KvCategory } from "../api";
 import { SelectPopup } from "../ui/SelectPopup";
 import { confirmDialog, toast } from "../ui/feedback";
 import { useScrollLock } from "../useScrollLock";
@@ -32,6 +32,13 @@ export function InventoryDetail({ code }: { code: string }) {
   const [inv, setInv] = useState<InvDetail | null>(null);
   const [err, setErr] = useState("");
   const isAdmin = currentUser()?.role === "admin";
+  // Có công thức chưa? — cảnh báo khi bật Đóng gói mà SP chưa khai công thức.
+  const [hasRecipe, setHasRecipe] = useState<boolean | null>(null);
+  useEffect(() => {
+    let live = true;
+    getRecipe(code).then((r) => { if (live) setHasRecipe((r.recipe || []).length > 0); }).catch(() => { if (live) setHasRecipe(null); });
+    return () => { live = false; };
+  }, [code, inv?.product?.can_package]);
   const [unitInput, setUnitInput] = useState("");
   const [unitSaved, setUnitSaved] = useState(false);
   useEffect(() => { setUnitInput(inv?.product?.unit || "cây"); }, [inv?.product?.unit]);
@@ -88,13 +95,18 @@ export function InventoryDetail({ code }: { code: string }) {
       if (p && inv) { setInv({ ...inv, product: p }); setNameSaved(true); setTimeout(() => setNameSaved(false), 1500); }
     } catch { /* im */ }
   };
-  // SX trực tiếp được không → gate loại phiếu nhập thùng (san_xuat vs dong_goi)
-  const toggleDirect = async () => {
+  // Cách sản xuất = 2 CỜ ĐỘC LẬP: SX trực tiếp (phiếu san_xuat) và Đóng gói từ NL
+  // (phiếu dong_goi). 1 SP có thể bật cả hai / không cái nào (nguyên liệu / hàng mua).
+  const toggleMethod = async (key: "can_produce_directly" | "can_package") => {
     if (!inv?.product) return;
-    const next = !inv.product.can_produce_directly;
+    const next = !inv.product[key];
     try {
-      const p = await updateProduct(code, { can_produce_directly: next });
-      if (p && inv) { setInv({ ...inv, product: p }); toast(next ? "✅ SP sản xuất trực tiếp được" : "📦 Chỉ đóng gói từ nguyên liệu", "ok"); }
+      const p = await updateProduct(code, { [key]: next });
+      if (p && inv) {
+        setInv({ ...inv, product: p });
+        const label = key === "can_produce_directly" ? "sản xuất trực tiếp" : "đóng gói từ nguyên liệu";
+        toast(next ? `✅ Bật ${label}` : `⭘ Tắt ${label}`, "ok");
+      }
     } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
   };
   // Có thể BÁN / có thể NHẬP — gate gợi ý SP ở hoá đơn bán & phiếu nhập NCC
@@ -350,10 +362,10 @@ export function InventoryDetail({ code }: { code: string }) {
           <div class="box-kv">
             <span class="box-k">Cách sản xuất</span>
             <div class="row" style={{ gap: "6px" }} role="group">
-              <button class={"trade-chip" + (inv.product.can_produce_directly ? " on" : "")} disabled={inv.product.can_produce_directly} onClick={() => { if (!inv.product!.can_produce_directly) toggleDirect(); }}>
+              <button class={"trade-chip" + (inv.product.can_produce_directly ? " on" : "")} onClick={() => toggleMethod("can_produce_directly")}>
                 <Icon name="factory" size={14} /> Sản xuất trực tiếp
               </button>
-              <button class={"trade-chip" + (!inv.product.can_produce_directly ? " on" : "")} disabled={!inv.product.can_produce_directly} onClick={() => { if (inv.product!.can_produce_directly) toggleDirect(); }}>
+              <button class={"trade-chip" + (inv.product.can_package ? " on" : "")} onClick={() => toggleMethod("can_package")}>
                 <Icon name="box" size={14} /> Đóng gói từ NL
               </button>
             </div>
@@ -361,9 +373,18 @@ export function InventoryDetail({ code }: { code: string }) {
         )}
         {inv.product && isAdmin && (
           <div class="muted small" style={{ margin: "-2px 0 6px" }}>
-            {inv.product.can_produce_directly
-              ? "Nhập thùng từ phiếu SẢN XUẤT (không trừ NL). Có công thức thì cũng đóng gói được."
-              : "Chỉ nhập thùng từ phiếu ĐÓNG GÓI — bắt buộc trừ nguyên liệu."}
+            {inv.product.can_produce_directly && inv.product.can_package
+              ? "Nhập thùng được từ cả phiếu SẢN XUẤT lẫn ĐÓNG GÓI (đóng gói trừ nguyên liệu theo công thức)."
+              : inv.product.can_produce_directly
+              ? "Nhập thùng từ phiếu SẢN XUẤT (không trừ NL)."
+              : inv.product.can_package
+              ? "Chỉ nhập thùng từ phiếu ĐÓNG GÓI — bắt buộc trừ nguyên liệu."
+              : "SP KHÔNG sản xuất — nguyên liệu / hàng mua từ NCC (nhập kho qua phiếu nhập hàng)."}
+          </div>
+        )}
+        {inv.product && isAdmin && inv.product.can_package && hasRecipe === false && (
+          <div class="muted small" style={{ margin: "-4px 0 6px", color: "#c0392b" }}>
+            ⚠ Chưa khai công thức — khai ở khối Công thức bên dưới mới nhập được phiếu đóng gói.
           </div>
         )}
         {inv.product && isAdmin && (

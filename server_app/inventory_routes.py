@@ -206,6 +206,11 @@ async def production_add_boxes_handler(request: web.Request):
             # Admin bật: cho nhập trực tiếp SP đóng gói KHÔNG bắt buộc trừ NL → bỏ mọi gate NL.
             from settings_store import get_bool
             allow_no_mat = get_bool("pack_allow_no_material", False)
+            if kind == "dong_goi":
+                # Phiếu ĐÓNG GÓI: SP phải bật cờ đóng gói (can_package). Giữ nguyên
+                # check công thức bên dưới (đóng gói bắt buộc trừ nguyên liệu).
+                if _prod is not None and not _prod.get("can_package"):
+                    return "notpackage", code, None
             if kind == "dong_goi" and not allow_no_mat:
                 # Kiểm tra theo tổng cây dự kiến của đợt này.
                 needs = recipe_needs(conn, code, sum(qtys))
@@ -292,6 +297,8 @@ async def production_add_boxes_handler(request: web.Request):
         return web.json_response({"ok": False, "error": f"Phiếu đóng gói bắt buộc trừ nguyên liệu — {total} chưa có công thức. Thêm công thức ở trang chi tiết sản phẩm."}, status=400)
     if created == "notdirect":
         return web.json_response({"ok": False, "error": f"SP {total} không sản xuất trực tiếp — chỉ nhập được qua phiếu ĐÓNG GÓI (trừ nguyên liệu). Đổi loại phiếu, hoặc bật 'SX trực tiếp' ở chi tiết SP."}, status=400)
+    if created == "notpackage":
+        return web.json_response({"ok": False, "error": f"SP {total} không đóng gói từ nguyên liệu — bật cờ Đóng gói ở chi tiết SP trước."}, status=400)
     if created == "full":
         return web.json_response({"ok": False, "error": total}, status=400)
     from server_app.realtime import emit_inventory_changed, emit_production_changed
@@ -1125,6 +1132,7 @@ async def inventory_detail_handler(request: web.Request):
             "id": prod.get("id"),
             "code": prod["code"], "name": prod.get("name") or prod.get("kv_full_name") or "",
             "can_produce_directly": bool(prod.get("can_produce_directly")),
+            "can_package": bool(prod.get("can_package")),
             "self_container": bool(prod.get("self_container")),
             "min_stock": float(prod.get("min_stock") or 0),
             "can_sell": bool(prod.get("can_sell", True)),
