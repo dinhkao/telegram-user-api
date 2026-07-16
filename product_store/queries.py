@@ -5,7 +5,7 @@ from typing import Optional
 from .schema import _PRODUCTS_CACHE_TTL, _invalidate_products_cache, _products_cache
 
 
-_COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material, prod_mam, prod_luong, can_produce_directly, can_package, min_stock, self_container, can_sell, can_purchase"
+_COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material, prod_mam, prod_luong, can_produce_directly, can_package, min_stock, self_container, can_sell, can_purchase, aux_required"
 _FIELDS = tuple(c.strip() for c in _COLS.split(","))
 
 # SP "tự-là-thùng" = SP có ĐƠN VỊ ĐẾM là đơn vị nguyên kiện (thùng/kiện): bản thân nó
@@ -29,6 +29,7 @@ def _row(r) -> dict:
     d["self_container"] = is_self_container_unit(d.get("unit"))   # suy từ đơn vị (thùng/kiện)
     d["can_sell"] = d.get("can_sell") != 0           # có thể bán (mặc định True)
     d["can_purchase"] = d.get("can_purchase") != 0   # có thể nhập từ NCC (mặc định True)
+    d["aux_required"] = d.get("aux_required") != 0   # yêu cầu trừ NL PHỤ khi SX (mặc định True)
     return d
 
 

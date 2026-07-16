@@ -28,7 +28,8 @@ _PRODUCT_COLS_SQL = """
             min_stock     REAL DEFAULT 0,
             self_container INTEGER DEFAULT 0,
             can_sell      INTEGER DEFAULT 1,
-            can_purchase  INTEGER DEFAULT 1
+            can_purchase  INTEGER DEFAULT 1,
+            aux_required  INTEGER DEFAULT 1
 """
 
 

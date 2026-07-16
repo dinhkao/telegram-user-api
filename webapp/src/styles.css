@@ -2193,8 +2193,15 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .punit-new-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 2px 0 4px; }
 .punit-empty { color: var(--muted); font-size: .82rem; padding: 4px 0 2px; }
 .recipe-consume { margin: 8px 0; padding: 8px 10px; border: 1px solid #e0c9a6; border-radius: 10px; background: var(--warn-wash); transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
-/* header khu NGUYÊN LIỆU PHỤ ở RecipeEditor: nhãn + chip toggle "Yêu cầu khi sản xuất" */
+/* CÔNG TẮC GẠT dùng chung (.tgl / .tgl.on) — track + knob trượt */
+.tgl { position: relative; flex: 0 0 auto; width: 44px; height: 24px; border-radius: 12px; border: 1px solid var(--border); background: #cfd4dc; padding: 0; cursor: pointer; transition: background .18s ease, border-color .18s ease; }
+.tgl.on { background: var(--primary); border-color: var(--primary); }
+.tgl-knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: left .18s ease; }
+.tgl.on .tgl-knob { left: 22px; }
+.tgl:disabled { opacity: .5; }
+/* header khu NGUYÊN LIỆU PHỤ ở RecipeEditor: nhãn + công tắc "Yêu cầu khi sản xuất" */
 .recipe-aux-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.recipe-aux-tgl { display: flex; align-items: center; gap: 8px; }
 /* chip kho đặc biệt nguồn NL phụ ở PlaceDetail */
 .place-aux-row { gap: 8px; align-items: center; margin: 0 0 8px; flex-wrap: wrap; }
 .recipe-consume.ok { background: var(--ok-wash); border-color: #b7dfc0; }

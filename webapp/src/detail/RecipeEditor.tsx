@@ -104,10 +104,14 @@ export function RecipeEditor({ productCode }: { productCode: string }) {
 
       <div class="recipe-aux-head">
         <label class="card-label" style={{ margin: 0 }}><Icon name="tag" size={15} /> Nguyên liệu phụ</label>
-        <button class={"chip" + (auxRequired ? " active" : "")} disabled={togBusy} onClick={toggleAux}
+        <span class="recipe-aux-tgl"
           title="Bật: nhập thùng từ phiếu SX (cả sản xuất lẫn đóng gói) phải chọn đủ thùng NL phụ để trừ kho">
-          {auxRequired ? "✓ Yêu cầu khi sản xuất" : "Không yêu cầu"}
-        </button>
+          <span class="muted small">Yêu cầu khi sản xuất</span>
+          <button class={"tgl" + (auxRequired ? " on" : "")} role="switch" aria-checked={auxRequired}
+            disabled={togBusy} onClick={toggleAux}>
+            <span class="tgl-knob" />
+          </button>
+        </span>
       </div>
       <div class="muted small" style={{ marginBottom: "6px" }}>
         Bao bì/tem/hộp… {auxRequired

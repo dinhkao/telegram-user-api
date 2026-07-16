@@ -43,6 +43,16 @@ class RecipeAuxTest(unittest.TestCase):
         self.assertEqual(recipe_needs(self.conn, "KEO1", 10, aux=False), [{"code": "HOP1", "amount": 5}])
         self.assertEqual(len(recipe_needs(self.conn, "KEO1", 10)), 2)
 
+    def test_aux_required_flag_roundtrip(self):
+        # Hồi quy: _COLS từng thiếu aux_required → get_product không trả cờ,
+        # API luôn coi là bật, toggle ở RecipeEditor bị đè ngược lại.
+        from product_store import get_product
+        self.assertTrue(get_product(self.conn, "KEO1")["aux_required"])   # mặc định BẬT
+        upsert_product(self.conn, "KEO1", aux_required=False)
+        self.assertFalse(get_product(self.conn, "KEO1")["aux_required"])
+        upsert_product(self.conn, "KEO1", aux_required=True)
+        self.assertTrue(get_product(self.conn, "KEO1")["aux_required"])
+
     def test_upsert_flips_kind_without_duplicate(self):
         set_recipe_line(self.conn, "KEO1", "TEM1", 1)                 # chính
         line = set_recipe_line(self.conn, "KEO1", "TEM1", 3, aux=True)   # đổi thành phụ
