@@ -215,6 +215,13 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         seg = _join([[part(f"giữ {p.get('retained_boxes')} thùng")] if p.get("retained_boxes") else [],
                      [part(f"gỡ {p.get('removed_allocations')} lần cộng kho")] if p.get("removed_allocations") else []])
         return "Hủy chốt nhập kho hàng mua", seg
+    if action == "purchase.goods_line_added":
+        seg = [part(f"{p.get('boxes')} thùng")] if p.get("boxes") else []
+        return "Ghi nhập kho hàng mua (chưa chốt)", seg
+    if action == "purchase.goods_line_removed":
+        seg = _join([[part(f"thùng {p.get('box_code')}")] if p.get("box_code") else [],
+                     [part(f"−{p.get('quantity'):g}")] if p.get("quantity") else []])
+        return "Gỡ dòng nhập kho hàng mua", seg
     if action in ("purchase.created", "purchase.deleted"):
         name = resolver.supplier_name(p.get("supplier_id")) if resolver else None
         seg = _join([[part(name or f"NCC #{p.get('supplier_id')}", href_for("supplier", p.get("supplier_id")))] if p.get("supplier_id") else [],

@@ -166,7 +166,7 @@ async def purchase_detail_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
 
     def _get():
-        from server_app.purchase_goods import attach_purchase_boxes, mark_deleted_boxes
+        from server_app.purchase_goods_view import attach_purchase_boxes, mark_deleted_boxes
         conn = get_connection()
         try:
             # gắn box_deleted cho thùng đã bị admin xoá — UI hiện 'đã xoá' thay link chết

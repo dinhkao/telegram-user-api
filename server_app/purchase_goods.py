@@ -1,18 +1,19 @@
-"""Nhập KHO hàng mua về từ phiếu NHẬP HÀNG — orchestration thuần (thùng mới / thùng có sẵn).
+"""Nhập KHO hàng mua về từ phiếu NHẬP HÀNG — flow GIỐNG XUẤT KHO ĐƠN HÀNG.
 
-Không HTTP/realtime — chỉ thao tác store trong 1 connection để route gọi + unit-test
-(tests/test_purchase_goods.py). Nối: inventory_store.queries (add_boxes),
-inventory_store.allocations (receive_purchase_stock), purchase_store (claim/set_goods_result).
+Phiếu MỞ: ghi nhập TỪNG DÒNG thoải mái (receive_purchase_lines — tạo N thùng mới
+giống nhau như phiếu SX / cộng vào thùng có sẵn bằng allocation ÂM 'purchase_in'),
+gỡ từng dòng (unreceive_purchase_line) hoặc xoá từng thùng; đủ rồi bấm CHỐT
+(confirm_purchase_receipt — CAS goods_handled_at + snapshot goods_result → khoá
+phiếu). Trạng thái ĐANG NHẬP derive LIVE từ kho (_draft_receipt: thùng
+source_purchase_id + allocation purchase_in) — không có bảng state riêng.
+apply_purchase_receipt (endpoint handle-goods cũ + tests) = receive + confirm
+trong 1 transaction. Hủy chốt (undo) mở khoá, GIỮ thùng → quay về trạng thái
+đang nhập. Server luôn chặn nhập vượt số/mã trên phiếu (cộng dồn theo SP).
 
-Hai cách nhập mỗi dòng hàng mua (khác hàng trả: KHÔNG có xuất hủy):
-  • restock_new      — TẠO N thùng GIỐNG NHAU (như nhập thùng phiếu SX): `count` =
-                       số thùng, `quantity` = số hàng trong 1 thùng → tạo count thùng
-                       mỗi thùng quantity (chọn vị trí/đơn vị), thùng gắn source_purchase_id.
-                       Thiếu `count` → 1 thùng (tương thích ngược).
-  • restock_existing — nhập vào 1 thùng CÓ SẴN: allocation ÂM kind='purchase_in'
-                       → remaining tăng, quantity gốc thùng GIỮ NGUYÊN.
-Số lượng lấy từ disposition (số THỰC NHẬN — có thể thấp hơn số trên phiếu vì thiếu/vỡ,
-nhưng server không cho vượt số/mã trên phiếu).
+Không HTTP/realtime — chỉ thao tác store trong 1 connection để route gọi +
+unit-test (tests/test_purchase_goods.py). Phần đọc cho API (attach boxes/draft):
+server_app/purchase_goods_view.py. Nối: inventory_store.queries/allocations,
+purchase_store, product_store.
 """
 from __future__ import annotations
 
@@ -95,15 +96,51 @@ def _box_remaining(conn, box_id: int, box: dict) -> float:
     return float(box.get("quantity") or 0) - float(used or 0)
 
 
+def _draft_receipt(conn, purchase_id: int) -> dict:
+    """Trạng thái ĐANG NHẬP của phiếu — derive live từ kho, không bảng riêng:
+    new = thùng còn sống tạo từ phiếu (source_purchase_id, quantity > 0);
+    existing = từng allocation 'purchase_in' của phiếu (cộng vào thùng có sẵn);
+    used = tổng đã nhập theo SP (key _product_key) để so trần trên phiếu."""
+    out = {"new": [], "existing": [], "used": {}}
+    if not conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='inventory_boxes'").fetchone():
+        return out   # DB chưa bật tính năng kho
+    for raw in conn.execute(
+            "SELECT * FROM inventory_boxes WHERE source_purchase_id = ? ORDER BY id",
+            (int(purchase_id),)).fetchall():
+        box = dict(raw)
+        q = float(box.get("quantity") or 0)
+        if q <= 0:
+            continue
+        key, code = _product_key(conn, box.get("product_code"), box.get("product_id"))
+        out["used"][key] = out["used"].get(key, 0.0) + q
+        out["new"].append({"sp": code, "quantity": q, "box_id": box["id"],
+                           "box_code": box.get("box_code")})
+    for r in conn.execute(
+            "SELECT a.id AS allocation_id, a.box_id, a.quantity, b.box_code,"
+            " b.product_code, b.product_id"
+            " FROM box_allocations a JOIN inventory_boxes b ON b.id = a.box_id"
+            " WHERE a.kind = 'purchase_in' AND a.order_thread_id = ? ORDER BY a.id",
+            (int(purchase_id),)).fetchall():
+        q = -float(r["quantity"] or 0)   # dòng purchase_in quantity ÂM
+        if q <= 0:
+            continue
+        key, code = _product_key(conn, r["product_code"], r["product_id"])
+        out["used"][key] = out["used"].get(key, 0.0) + q
+        out["existing"].append({"sp": code, "quantity": q, "box_id": r["box_id"],
+                                "box_code": r["box_code"], "allocation_id": r["allocation_id"]})
+    return out
+
+
 def _validate_purchase_dispositions(conn, purchase: dict, dispositions, *,
                                     initial_used: dict[tuple[str, int | str], float] | None = None
                                     ) -> tuple[list[dict], str | None]:
-    """Chuẩn hoá và kiểm disposition trước khi claim, để lỗi không chốt phiếu âm thầm."""
+    """Chuẩn hoá và kiểm disposition trước khi ghi, lỗi trả rõ — không bỏ qua lặng."""
     limits, labels = _purchase_item_limits(conn, purchase.get("items") or [])
     used: dict[tuple[str, int | str], float] = dict(initial_used or {})
     for key, qty in used.items():
         if key not in limits or qty > limits[key] + 1e-9:
-            return [], (f"Các thùng đang giữ của mã {labels.get(key) or key[1]} vượt số trên phiếu "
+            return [], (f"Phần đã nhập của mã {labels.get(key) or key[1]} vượt số trên phiếu "
                         f"({qty:g} > {limits.get(key, 0):g})")
     valid: list[dict] = []
 
@@ -171,49 +208,156 @@ def _validate_purchase_dispositions(conn, purchase: dict, dispositions, *,
     return valid, None
 
 
-def apply_purchase_receipt(conn, purchase_id: int, dispositions, *, actor: str = "") -> tuple[dict | None, str | None]:
-    """Áp dụng từng disposition cho hàng của phiếu nhập purchase_id.
-
-    dispositions = [{sp, quantity, action, box_id?, place_id?, unit_id?, count?}].
-    restock_new: `count` = số thùng (mặc định 1), `quantity` = số hàng / 1 thùng.
-    Trả (extra, None) với extra = {result, touched_boxes, supplier_id},
-    hoặc (None, lỗi). Dòng active không hợp lệ bị chặn trước khi chốt phiếu."""
-    from inventory_store.queries import add_boxes, get_box
+def _apply_lines(conn, purchase_id: int, valid: list[dict], actor: str) -> list[int]:
+    """Ghi các dòng ĐÃ validate vào kho (trong transaction của caller).
+    Lỗi giữa chừng raise _ReceiptApplyError → caller rollback cả lô."""
+    from inventory_store.queries import add_boxes
     from inventory_store.allocations import receive_purchase_stock
+    touched: list[int] = []
+    for disp in valid:
+        code = disp["sp"]
+        q = float(disp["quantity"])
+        if disp["action"] == "restock_existing":
+            box_id = int(disp["box_id"])
+            if not receive_purchase_stock(conn, box_id, q, purchase_id, by=actor):
+                raise _ReceiptApplyError(f"Không nhập được hàng vào thùng {disp.get('box_code')}")
+            touched.append(box_id)
+        elif disp["action"] == "restock_new":
+            # count = số thùng giống nhau (như nhập thùng phiếu SX); mỗi thùng q hàng.
+            count = int(disp.get("count") or 1)
+            try:
+                boxes = add_boxes(conn, code, [q] * count, source_purchase_id=purchase_id,
+                                  place_id=disp.get("place_id"), unit_id=disp.get("unit_id"),
+                                  by=actor, note=f"Nhập hàng NCC (phiếu nhập #{purchase_id})")
+            except ValueError:
+                raise _ReceiptApplyError("Không còn số gọi trống để tạo thùng mới")
+            touched += [bx["id"] for bx in boxes]
+    return touched
+
+
+def _snapshot(draft: dict) -> dict:
+    """goods_result từ trạng thái đang nhập — 1 entry / thùng mới, 1 entry / lần cộng."""
+    keep = ("sp", "quantity", "box_id", "box_code")
+    return {"restocked_new": [{k: e[k] for k in keep} for e in draft["new"]],
+            "restocked_existing": [{k: e[k] for k in keep} for e in draft["existing"]]}
+
+
+def receive_purchase_lines(conn, purchase_id: int, dispositions, *, actor: str = "") -> tuple[dict | None, str | None]:
+    """Ghi nhập kho TỪNG ĐỢT khi phiếu ĐANG MỞ (như xuất kho từng thùng cho đơn).
+    Không chốt, gọi được nhiều lần; trần = số trên phiếu trừ phần ĐÃ nhập."""
     from purchase_store import get_purchase, ensure_purchases_schema
     from utils.db import transaction
 
     ensure_purchases_schema(conn)   # DDL trước khi mở transaction
-    # Claim + mọi ghi kho + set_goods_result trong 1 transaction → all-or-nothing.
-    # add_boxes/receive_purchase_stock dùng `with transaction` re-entrant (an toàn).
-    # claim_goods_handling/set_goods_result commit trần → INLINE SQL của chúng.
     try:
         with transaction(conn):
             p = get_purchase(conn, purchase_id)
             if not p or p.get("deleted_at"):
                 return None, "not_found"
-            # Sau khi hủy chốt, các thùng mới vẫn được giữ nguyên. Chốt lại phải
-            # tính chúng vào kết quả và hạn mức để chỉ nhập PHẦN BỔ SUNG.
-            retained_new: list[dict] = []
-            retained_used: dict[tuple[str, int | str], float] = {}
-            rows = conn.execute(
-                "SELECT * FROM inventory_boxes WHERE source_purchase_id = ? ORDER BY id",
-                (purchase_id,),
-            ).fetchall()
-            for raw in rows:
-                box = dict(raw)
-                q = float(box.get("quantity") or 0)
-                if q <= 0:
-                    continue
-                key, code = _product_key(conn, box.get("product_code"), box.get("product_id"))
-                retained_used[key] = retained_used.get(key, 0.0) + q
-                retained_new.append({
-                    "sp": code, "quantity": q, "box_id": box["id"],
-                    "box_code": box.get("box_code"),
-                })
-
+            if p.get("goods_handled_at"):
+                return None, "Phiếu đã chốt nhập kho — hủy chốt trước khi nhập thêm"
+            draft = _draft_receipt(conn, purchase_id)
             valid, err = _validate_purchase_dispositions(
-                conn, p, dispositions, initial_used=retained_used)
+                conn, p, dispositions, initial_used=draft["used"])
+            if err:
+                return None, err
+            if not valid:
+                return None, "Chưa có dòng nào để nhập kho"
+            touched = _apply_lines(conn, purchase_id, valid, actor)
+    except _ReceiptApplyError as exc:
+        return None, str(exc)
+    return {"touched_boxes": touched, "supplier_id": p.get("supplier_id")}, None
+
+
+def confirm_purchase_receipt(conn, purchase_id: int, *, actor: str = "") -> tuple[dict | None, str | None]:
+    """CHỐT nhập kho (như 'chốt xuất kho' của đơn): CAS goods_handled_at, chụp
+    trạng thái đang nhập vào goods_result → phiếu khoá sửa/xoá. Cho chốt cả khi
+    THIẾU (hàng về thiếu/vỡ) — trả missing để UI cảnh báo trước."""
+    from purchase_store import get_purchase, ensure_purchases_schema
+    from utils.db import transaction
+
+    ensure_purchases_schema(conn)   # DDL trước khi mở transaction
+    with transaction(conn):
+        p = get_purchase(conn, purchase_id)
+        if not p or p.get("deleted_at"):
+            return None, "not_found"
+        draft = _draft_receipt(conn, purchase_id)
+        limits, labels = _purchase_item_limits(conn, p.get("items") or [])
+        missing = []
+        for key, lim in limits.items():
+            got = draft["used"].get(key, 0.0)
+            if got > lim + 1e-9:   # phòng hờ — receive đã chặn, items đã guard
+                return None, (f"Phần đã nhập của mã {labels.get(key) or key[1]} vượt số trên phiếu "
+                              f"({got:g} > {lim:g}) — gỡ bớt trước khi chốt")
+            if got + 1e-6 < lim:
+                missing.append({"sp": labels.get(key) or key[1], "missing": round(lim - got, 3)})
+        claimed = conn.execute(
+            "UPDATE purchase_slips SET goods_handled_at = ?, goods_handled_by = ? "
+            "WHERE id = ? AND goods_handled_at IS NULL",
+            (_now_vn(), actor or "", purchase_id))
+        if claimed.rowcount != 1:
+            return None, "already"
+        result = _snapshot(draft)
+        conn.execute("UPDATE purchase_slips SET goods_result = ? WHERE id = ?",
+                     (_json.dumps(result, ensure_ascii=False), purchase_id))
+    touched = [e["box_id"] for e in draft["new"] + draft["existing"]]
+    return {"result": result, "touched_boxes": touched, "missing": missing,
+            "supplier_id": p.get("supplier_id")}, None
+
+
+def unreceive_purchase_line(conn, purchase_id: int, allocation_id) -> tuple[dict | None, str | None]:
+    """Gỡ 1 dòng 'cộng vào thùng có sẵn' khi phiếu ĐANG MỞ (như thu hồi 1 thùng
+    khỏi đơn). Guard: phần đã cộng chưa bị tiêu — gỡ xong remaining không âm."""
+    from purchase_store import get_purchase, ensure_purchases_schema
+    from utils.db import transaction
+
+    ensure_purchases_schema(conn)   # DDL trước khi mở transaction
+    with transaction(conn):
+        p = get_purchase(conn, purchase_id)
+        if not p or p.get("deleted_at"):
+            return None, "Không tìm thấy phiếu nhập"
+        if p.get("goods_handled_at"):
+            return None, "Phiếu đã chốt nhập kho — hủy chốt trước khi gỡ"
+        try:
+            aid = int(allocation_id)
+        except (TypeError, ValueError):
+            return None, "Dòng nhập kho không hợp lệ"
+        row = conn.execute(
+            "SELECT a.*, b.box_code, b.quantity AS box_quantity FROM box_allocations a"
+            " JOIN inventory_boxes b ON b.id = a.box_id WHERE a.id = ?", (aid,)).fetchone()
+        if (not row or (row["kind"] or "") != "purchase_in"
+                or int(row["order_thread_id"] or 0) != int(purchase_id)):
+            return None, "Không tìm thấy dòng nhập kho để gỡ"
+        q_in = -float(row["quantity"] or 0)
+        used = conn.execute(
+            "SELECT COALESCE(SUM(quantity),0) FROM box_allocations WHERE box_id = ?",
+            (row["box_id"],)).fetchone()[0]
+        remaining = float(row["box_quantity"] or 0) - float(used or 0)
+        if remaining < q_in - 1e-9:
+            return None, (f"Thùng {row['box_code']} đã dùng một phần hàng nhập "
+                          f"(còn {remaining:g} < {q_in:g} đã cộng) — không gỡ được")
+        conn.execute("DELETE FROM box_allocations WHERE id = ?", (aid,))
+    return {"box_id": row["box_id"], "box_code": row["box_code"], "quantity": q_in,
+            "supplier_id": p.get("supplier_id")}, None
+
+
+def apply_purchase_receipt(conn, purchase_id: int, dispositions, *, actor: str = "") -> tuple[dict | None, str | None]:
+    """Nhập + CHỐT 1 phát trong 1 transaction (endpoint handle-goods cũ — modal
+    'nhập nhanh' và tests). Tương đương receive_purchase_lines + confirm; phần
+    đã nhập từ trước (thùng giữ lại sau hủy chốt, dòng receive lẻ) được tính vào
+    trần và vào goods_result."""
+    from purchase_store import get_purchase, ensure_purchases_schema
+    from utils.db import transaction
+
+    ensure_purchases_schema(conn)   # DDL trước khi mở transaction
+    try:
+        with transaction(conn):
+            p = get_purchase(conn, purchase_id)
+            if not p or p.get("deleted_at"):
+                return None, "not_found"
+            draft = _draft_receipt(conn, purchase_id)
+            valid, err = _validate_purchase_dispositions(
+                conn, p, dispositions, initial_used=draft["used"])
             if err:
                 return None, err
             # Giành quyền NGUYÊN TỬ (compare-and-set) — 2 request đồng thời không double-apply.
@@ -223,63 +367,35 @@ def apply_purchase_receipt(conn, purchase_id: int, dispositions, *, actor: str =
                 (_now_vn(), actor or "", purchase_id))
             if claimed.rowcount != 1:
                 return None, "already"
-
-            result: dict = {"restocked_existing": [], "restocked_new": retained_new}
-            touched_boxes: list[int] = [e["box_id"] for e in retained_new]
-            for disp in valid:
-                action = disp["action"]
-                code = disp["sp"]
-                q = float(disp["quantity"])
-                if action == "restock_existing":
-                    box_id = int(disp["box_id"])
-                    if not receive_purchase_stock(conn, box_id, q, purchase_id, by=actor):
-                        raise _ReceiptApplyError(f"Không nhập được hàng vào thùng {disp.get('box_code')}")
-                    touched_boxes.append(box_id)
-                    result["restocked_existing"].append(
-                        {"sp": code, "quantity": q, "box_id": box_id, "box_code": disp.get("box_code")})
-                elif action == "restock_new":
-                    # count = số thùng giống nhau (như nhập thùng phiếu SX); mỗi thùng q hàng.
-                    count = int(disp.get("count") or 1)
-                    try:
-                        boxes = add_boxes(conn, code, [q] * count, source_purchase_id=purchase_id,
-                                          place_id=disp.get("place_id"), unit_id=disp.get("unit_id"),
-                                          by=actor, note=f"Nhập hàng NCC (phiếu nhập #{purchase_id})")
-                    except ValueError:
-                        raise _ReceiptApplyError("Không còn số gọi trống để tạo thùng mới")
-                    for bx in boxes:
-                        touched_boxes.append(bx["id"])
-                        result["restocked_new"].append(
-                            {"sp": code, "quantity": q, "box_id": bx["id"], "box_code": bx["box_code"]})
-
-            # inline set_goods_result(conn, purchase_id, result) — tránh bare commit
+            touched = _apply_lines(conn, purchase_id, valid, actor)
+            final = _draft_receipt(conn, purchase_id)
+            result = _snapshot(final)
             conn.execute("UPDATE purchase_slips SET goods_result = ? WHERE id = ?",
                          (_json.dumps(result, ensure_ascii=False), purchase_id))
     except _ReceiptApplyError as exc:
         return None, str(exc)
-    return {"result": result, "touched_boxes": touched_boxes,
+    all_touched = sorted({e["box_id"] for e in final["new"] + final["existing"]} | set(touched))
+    return {"result": result, "touched_boxes": all_touched,
             "supplier_id": p.get("supplier_id")}, None
 
 
 def undo_purchase_receipt(conn, purchase_id: int) -> tuple[dict | None, str | None]:
-    """HỦY CHỐT nhập kho của 1 phiếu nhập (admin) — mở khóa, giữ nguyên thùng mới.
+    """HỦY CHỐT nhập kho (admin) — mở khóa, GIỮ NGUYÊN thùng mới → phiếu quay về
+    trạng thái ĐANG NHẬP (xoá từng thùng / nhập bổ sung / chốt lại được).
 
-    Điều kiện: hàng nhập vào kho CHƯA ĐƯỢC DÙNG. Cụ thể:
+    Điều kiện: hàng nhập CHƯA ĐƯỢC DÙNG. Cụ thể:
       • thùng MỚI tạo từ phiếu: chưa có allocation nào (chưa xuất đơn/hủy/chuyển);
-      • thùng CÓ SẴN đã cộng thêm: remaining hiện tại ≥ số đã cộng (phần cộng thêm
-        chưa bị tiêu vào đâu) — gỡ allocation purchase_in xong remaining không âm.
-    Vi phạm 1 dòng → trả lỗi, KHÔNG hoàn dòng nào. Thùng đã bị admin xoá hẳn → bỏ qua.
-    Xong: GIỮ NGUYÊN thùng mới (để user xóa từng thùng hoặc nhập bổ sung), gỡ
-    allocation purchase_in ở thùng có sẵn, clear goods_handled_* và giữ snapshot
-    các thùng mới → phiếu mở khoá. Trả (info, None) hoặc (None, lỗi VN)."""
+      • thùng CÓ SẴN đã cộng thêm: remaining hiện tại ≥ số đã cộng — gỡ allocation
+        purchase_in xong remaining không âm.
+    Vi phạm 1 dòng → trả lỗi, KHÔNG hoàn dòng nào. Thùng đã xoá hẳn → bỏ qua.
+    Xong: gỡ allocation purchase_in, clear goods_handled_* + goods_result (trạng
+    thái đang nhập derive live từ kho, không cần snapshot)."""
     from inventory_store.queries import get_box
     from inventory_store.allocations import list_box_allocations
     from purchase_store import get_purchase, ensure_purchases_schema
     from utils.db import transaction
 
     ensure_purchases_schema(conn)   # DDL trước khi mở transaction
-    # Toàn bộ hoàn tác trong 1 transaction (BEGIN IMMEDIATE) → all-or-nothing. Không
-    # gọi helper có bare commit (delete_box/list_box_allocations dùng transaction re-entrant,
-    # an toàn; clear_goods_handling commit trần nên INLINE SQL của nó).
     with transaction(conn):
         p = get_purchase(conn, purchase_id)
         if not p or p.get("deleted_at"):
@@ -302,8 +418,13 @@ def undo_purchase_receipt(conn, purchase_id: int) -> tuple[dict | None, str | No
                 return None, (f"Thùng {box.get('box_code')} ({e.get('sp')}) đã phát sinh "
                               f"{len(allocs)} bút toán nhập/xuất/chuyển — không hủy chốt được")
             retained_boxes.append(box["id"])
+        seen_boxes: set[int] = set()
         for e in exist_entries:
-            box = get_box(conn, e.get("box_id"))
+            bid = e.get("box_id")
+            if bid in seen_boxes:
+                continue
+            seen_boxes.add(bid)
+            box = get_box(conn, bid)
             if not box:
                 continue
             all_allocs = list_box_allocations(conn, box["id"])
@@ -318,60 +439,8 @@ def undo_purchase_receipt(conn, purchase_id: int) -> tuple[dict | None, str | No
         # ── Áp dụng ──
         for aid in to_unalloc:
             conn.execute("DELETE FROM box_allocations WHERE id = ?", (aid,))
-        # Giữ goods_result của các thùng mới làm trạng thái nền cho lần chốt tiếp
-        # theo; phần nhập vào thùng có sẵn đã hoàn nên loại khỏi snapshot.
-        retained_result = {
-            "restocked_new": [e for e in new_entries if e.get("box_id") in retained_boxes],
-            "restocked_existing": [],
-        }
         conn.execute(
-            "UPDATE purchase_slips SET goods_handled_at = NULL, goods_handled_by = NULL, goods_result = ?"
-            " WHERE id = ?", (_json.dumps(retained_result, ensure_ascii=False), purchase_id))
+            "UPDATE purchase_slips SET goods_handled_at = NULL, goods_handled_by = NULL, goods_result = NULL"
+            " WHERE id = ?", (purchase_id,))
     return {"retained_boxes": retained_boxes, "removed_allocations": len(to_unalloc),
             "supplier_id": p.get("supplier_id")}, None
-
-
-def attach_purchase_boxes(conn, row: dict | None) -> dict | None:
-    """Gắn row['boxes'] = info ĐẦY ĐỦ (kèm remaining) của các thùng phiếu đã nhập
-    kho — trang chi tiết phiếu vẽ Ô THÙNG (BoxLabelGrid) như trong đơn hàng.
-    Chỉ đọc; thùng đã bị xoá hẳn thì không có trong list (đã có cờ box_deleted)."""
-    gr = (row or {}).get("goods_result")
-    if not row or not gr:
-        return row
-    from inventory_store.queries import get_box
-    from inventory_store.allocations import list_box_allocations
-    boxes, seen = [], set()
-    for e in list(gr.get("restocked_new") or []) + list(gr.get("restocked_existing") or []):
-        bid = e.get("box_id")
-        if not bid or bid in seen:
-            continue
-        seen.add(bid)
-        b = get_box(conn, bid)
-        if not b:
-            continue
-        b["remaining"] = float(b.get("quantity") or 0) - sum(
-            float(a.get("quantity") or 0) for a in list_box_allocations(conn, bid))
-        boxes.append(b)
-    if boxes:
-        row["boxes"] = boxes
-    return row
-
-
-def mark_deleted_boxes(conn, row: dict | None) -> dict | None:
-    """Gắn box_deleted=True cho các entry goods_result mà thùng đã bị admin XOÁ HẲN
-    khỏi kho (delete_box là hard-delete) — trang chi tiết phiếu hiện 'đã xoá' thay
-    vì link chết. Chỉ đọc, không sửa DB (goods_result là snapshot lịch sử)."""
-    gr = (row or {}).get("goods_result")
-    if not row or not gr:
-        return row
-    entries = list(gr.get("restocked_existing") or []) + list(gr.get("restocked_new") or [])
-    ids = [e.get("box_id") for e in entries if e.get("box_id")]
-    if not ids:
-        return row
-    q = ",".join("?" for _ in ids)
-    alive = {r[0] for r in conn.execute(
-        f"SELECT id FROM inventory_boxes WHERE id IN ({q})", ids).fetchall()}
-    for e in entries:   # e là reference vào dict trong row → gắn cờ tại chỗ
-        if e.get("box_id") and e["box_id"] not in alive:
-            e["box_deleted"] = True
-    return row

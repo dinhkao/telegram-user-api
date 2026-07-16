@@ -130,27 +130,40 @@ def list_purchases_for_supplier(conn, supplier_id: int) -> list[dict]:
     return [_row_to_dict(r) for r in rows]
 
 
-def _has_inventory_boxes(conn) -> bool:
+def _has_table(conn, name: str) -> bool:
     # bảng kho do inventory_store tạo — DB chưa bật tính năng kho thì guard bỏ qua
     return bool(conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='inventory_boxes'").fetchone())
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone())
 
 
 def _retained_box_totals(conn, purchase_id: int) -> dict:
-    """Hàng đang nằm trong thùng CÒN SỐNG tạo từ phiếu này (sau hủy chốt các thùng
-    được GIỮ NGUYÊN), gộp theo SP — key = ('id', products.id) hoặc ('code', MÃ),
-    value = (tổng số, mã hiển thị). Dùng cho guard sửa/xoá phiếu."""
+    """Hàng ĐÃ NHẬP theo phiếu này còn nằm trong kho: thùng còn sống tạo từ phiếu
+    + phần đã cộng vào thùng có sẵn (allocation 'purchase_in'), gộp theo SP —
+    key = ('id', products.id) hoặc ('code', MÃ), value = (tổng số, mã hiển thị).
+    Dùng cho guard sửa/xoá phiếu (không hạ hàng dưới phần đã nhập)."""
     totals: dict = {}
-    if not _has_inventory_boxes(conn):
+    if not _has_table(conn, "inventory_boxes"):
         return totals
+
+    def _add(pid_val, code_raw, qty):
+        code = str(code_raw or "").strip().upper()
+        key = ("id", int(pid_val)) if pid_val is not None else ("code", code)
+        cur, _ = totals.get(key, (0.0, code))
+        totals[key] = (cur + float(qty or 0), code)
+
     for r in conn.execute(
             "SELECT product_id, product_code, SUM(quantity) AS q FROM inventory_boxes"
             " WHERE source_purchase_id = ? AND quantity > 0 GROUP BY product_id, product_code",
             (int(purchase_id),)).fetchall():
-        code = str(r["product_code"] or "").strip().upper()
-        key = ("id", int(r["product_id"])) if r["product_id"] is not None else ("code", code)
-        qty, _ = totals.get(key, (0.0, code))
-        totals[key] = (qty + float(r["q"] or 0), code)
+        _add(r["product_id"], r["product_code"], r["q"])
+    if _has_table(conn, "box_allocations"):
+        for r in conn.execute(
+                "SELECT b.product_id, b.product_code, SUM(-a.quantity) AS q"
+                " FROM box_allocations a JOIN inventory_boxes b ON b.id = a.box_id"
+                " WHERE a.kind = 'purchase_in' AND a.order_thread_id = ?"
+                " GROUP BY b.product_id, b.product_code", (int(purchase_id),)).fetchall():
+            if float(r["q"] or 0) > 0:
+                _add(r["product_id"], r["product_code"], r["q"])
     return totals
 
 
@@ -269,18 +282,27 @@ def set_goods_result(conn, purchase_id: int, result: dict) -> bool:
 
 
 def soft_delete_purchase(conn, purchase_id: int, by: str = "") -> tuple[bool, str]:
-    """Xoá mềm phiếu nhập (admin). CHẶN khi kho còn thùng tạo từ phiếu (kể cả sau
-    hủy chốt — thùng được giữ lại): xoá phiếu sẽ mồ côi thùng, link 'Nguồn' chết
-    và không chốt/hoàn lại được. Xoá các thùng đó trước rồi mới xoá phiếu."""
+    """Xoá mềm phiếu nhập (admin). CHẶN khi kho còn dấu vết nhập theo phiếu: thùng
+    tạo từ phiếu (kể cả đang nhập dở / sau hủy chốt) hoặc phần đã cộng vào thùng
+    có sẵn — xoá phiếu sẽ mồ côi thùng/allocation, link 'Nguồn' chết. Gỡ/xoá các
+    phần đó trước rồi mới xoá phiếu."""
     from utils.db import transaction
     ensure_purchases_schema(conn)
     with transaction(conn):
-        n = conn.execute(
+        n_box = conn.execute(
             "SELECT COUNT(*) FROM inventory_boxes WHERE source_purchase_id = ?",
-            (int(purchase_id),)).fetchone()[0] if _has_inventory_boxes(conn) else 0
-        if n:
-            return False, (f"Kho còn {n} thùng tạo từ phiếu này — xoá các thùng đó "
-                           f"(hoặc hủy chốt rồi xoá thùng) trước khi xoá phiếu")
+            (int(purchase_id),)).fetchone()[0] if _has_table(conn, "inventory_boxes") else 0
+        n_alloc = conn.execute(
+            "SELECT COUNT(*) FROM box_allocations WHERE kind = 'purchase_in' AND order_thread_id = ?",
+            (int(purchase_id),)).fetchone()[0] if _has_table(conn, "box_allocations") else 0
+        if n_box or n_alloc:
+            bits = []
+            if n_box:
+                bits.append(f"{n_box} thùng tạo từ phiếu")
+            if n_alloc:
+                bits.append(f"{n_alloc} lần cộng vào thùng có sẵn")
+            return False, (f"Kho còn {' và '.join(bits)} — xoá thùng/gỡ dòng nhập "
+                           f"trước khi xoá phiếu")
         conn.execute(
             "UPDATE purchase_slips SET deleted_at = datetime('now', '+7 hours'), deleted_by = ?"
             " WHERE id = ? AND deleted_at IS NULL", (by or "", purchase_id))

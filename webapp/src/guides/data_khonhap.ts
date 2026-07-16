@@ -110,31 +110,31 @@ export const GUIDES_KHONHAP: Guide[] = [
         <p class="muted small">Mỗi phiếu có <b>ảnh · trao đổi · lịch sử</b> riêng. Sửa hàng/ghi chú ở
         nút <b>Sửa</b> trong phiếu (văn phòng).</p>` },
       { title: "Nhập kho hàng mua về", html: `
-        <p>Tạo phiếu xong app hỏi <b>「Nhập kho hàng mua về ngay?」</b> — hoặc bấm nút
-        <b>「Nhập kho hàng mua về」</b> trong chi tiết phiếu (văn phòng). Mỗi dòng hàng chọn:</p>
+        <p>Giống <b>xuất kho cho đơn hàng</b>: nhập <b>từng đợt</b> khi phiếu còn mở, đủ rồi
+        mới <b>Chốt</b>. Tạo phiếu xong app hỏi <b>「Nhập kho hàng mua về ngay?」</b> — hoặc bấm
+        nút trong chi tiết phiếu (văn phòng). Mỗi dòng hàng chọn:</p>
         <ul>
-          <li><b>🆕 Tạo thùng mới</b> (mặc định) — chọn vị trí kho + đơn vị chứa; thùng mới
-            gắn link ngược về phiếu nhập.</li>
+          <li><b>🆕 Tạo thùng mới</b> (mặc định) — chọn vị trí kho + đơn vị chứa + số thùng ×
+            số hàng/thùng; thùng mới gắn link ngược về phiếu nhập.</li>
           <li><b>📦 Nhập vào thùng có sẵn</b> — cộng tồn vào một thùng cùng mã SP đang còn hàng.</li>
           <li><b>Bỏ qua</b> — hàng không quản kho.</li>
         </ul>
         <ul>
-          <li>Sửa được <b>số lượng thực nhận</b> nếu hàng về thiếu/vỡ so với phiếu.</li>
-          <li>Nhập kho <b>1 lần/phiếu</b>. Sau khi nhập, phiếu <b>khoá sửa hàng</b> và
-            <b>không xoá được</b> (hàng đã vào thùng); danh sách phiếu hiện chip
-            <span class="cash-badge ok">📦 kho</span>.</li>
-          <li>Xem thùng nào từ phiếu nào: chi tiết phiếu có khối <b>Đã nhập kho</b> — hiện
-            <b>ô thùng</b> (như trong đơn hàng) + link tới từng thùng; chi tiết thùng có mục
-            <b>Nguồn — Phiếu nhập hàng</b>.</li>
-          <li><b>Hủy chốt nhập kho</b> (admin, nút trong khối Đã nhập kho): giữ nguyên thùng mới
-            để có thể xoá từng thùng hoặc nhập bổ sung; phần đã cộng vào thùng có sẵn được trừ lại
-            → phiếu <b>mở khoá sửa</b>. <b>Bị chặn</b> nếu hàng nhập đã được dùng (thùng đã xuất/chuyển,
-            hoặc phần cộng thêm đã tiêu).</li>
-          <li>Khi kho còn <b>thùng giữ lại</b> từ phiếu (sau hủy chốt): phiếu hiện khối
-            <b>Thùng giữ lại</b> — văn phòng bấm <b>✕ Xoá</b> cạnh từng thùng để bỏ thùng thừa
-            (chỉ được khi phiếu đang mở; thùng chưa xuất/chuyển). Không xoá được phiếu khi còn
-            thùng, và sửa hàng trên phiếu không hạ được xuống dưới số đang nằm trong thùng.
-            Nhập kho lại chỉ cần nhập <b>phần còn thiếu</b> (app tự trừ số đã giữ).</li>
+          <li>Ghi <b>nhiều đợt</b> được — mỗi đợt app tự trừ phần đã nhập, chỉ cho nhập
+            <b>phần còn lại</b> trên phiếu (sửa SL nếu hàng về thiếu/vỡ).</li>
+          <li>Khối <b>Đang nhập kho (chưa chốt)</b>: tiến độ từng mã (đã nhập/trên phiếu),
+            <b>ô thùng</b>, và nút <b>✕</b> cạnh từng dòng — xoá thùng mới thừa / gỡ phần đã
+            cộng vào thùng có sẵn (văn phòng).</li>
+          <li>Đủ (hoặc chấp nhận thiếu) → bấm <b>「✓ Chốt nhập kho」</b>: app cảnh báo nếu còn
+            thiếu, chốt xong phiếu <b>khoá sửa</b> và <b>không xoá được</b>; danh sách phiếu
+            hiện chip <span class="cash-badge ok">📦 kho</span>.</li>
+          <li>Xem thùng nào từ phiếu nào: khối <b>Đã nhập kho</b> ở chi tiết phiếu + mục
+            <b>Nguồn — Phiếu nhập hàng</b> ở chi tiết thùng.</li>
+          <li><b>Hủy chốt nhập kho</b> (admin): phiếu quay về trạng thái <b>đang nhập</b> —
+            thùng mới giữ nguyên (xoá/nhập thêm/chốt lại được), phần cộng vào thùng có sẵn được
+            trừ lại. <b>Bị chặn</b> nếu hàng nhập đã được dùng (thùng đã xuất/chuyển, phần cộng
+            thêm đã tiêu). Không xoá được phiếu khi kho còn thùng/dòng nhập của phiếu; sửa hàng
+            trên phiếu không hạ được xuống dưới số đã nhập vào kho.</li>
         </ul>` },
       { title: "Trả tiền NCC từ két của mình", html: `
         <p>Trong chi tiết một phiếu nhập có khối <b>Thanh toán NCC</b>. Bấm

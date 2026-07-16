@@ -373,6 +373,14 @@ export type PurchaseDisposition = {
  *  đổi: 1 unit = unit_factor đơn vị gốc); thiếu = nhập theo đơn vị gốc.
  *  base_unit = đơn vị gốc của SP (server gắn lúc đọc — chỉ để hiển thị). */
 export type PurchaseItem = { sp: string; sp_id?: number; name?: string; sl: number; price: number; unit?: string; unit_factor?: number; base_unit?: string };
+/** 1 dòng ĐANG NHẬP (phiếu chưa chốt): thùng mới hoặc lần cộng vào thùng có sẵn
+ *  (allocation_id có = dòng cộng, gỡ được qua unreceivePurchase). */
+export type PurchaseDraftLine = { sp: string; quantity: number; box_id: number; box_code?: string; allocation_id?: number };
+/** Trạng thái nhập kho ĐANG DỞ của phiếu mở — server derive live từ kho. */
+export type PurchaseDraftReceipt = {
+  new: PurchaseDraftLine[]; existing: PurchaseDraftLine[];
+  totals: { sp: string; quantity: number }[];   // tổng đã nhập theo mã SP
+};
 export type PurchaseSlip = {
   id: number; supplier_id: number; supplier_name?: string | null;
   items: PurchaseItem[];
@@ -381,7 +389,8 @@ export type PurchaseSlip = {
   payments?: PurchasePayment[]; paid?: number;
   remaining?: number;   // còn nợ NCC — server tính (round Python), client hiển thị thẳng
   goods_handled_at?: string | null; goods_handled_by?: string | null; goods_result?: PurchaseGoodsResult | null;
-  boxes?: KhoBox[];     // thùng đã nhập kho từ phiếu (server gắn ở detail) — vẽ ô thùng
+  boxes?: KhoBox[];     // thùng đã/đang nhập kho từ phiếu (server gắn ở detail) — vẽ ô thùng
+  draft_receipt?: PurchaseDraftReceipt | null;  // phiếu MỞ + đã nhập dở (server gắn ở detail)
 };
 /** Danh sách NCC kèm thống kê (số phiếu, tổng tiền, lần nhập cuối). */
 export async function listSuppliers(): Promise<Supplier[]> {
@@ -431,10 +440,25 @@ export async function updatePurchase(id: number, items: { sp: string; sl: number
 export async function deletePurchase(id: number): Promise<any> {
   return postJSON(`/api/purchases/${id}/delete`, {});
 }
-/** Nhập KHO hàng mua về (văn phòng, 1 lần/phiếu): thùng mới / thùng có sẵn / bỏ qua. */
+/** Nhập KHO hàng mua về + CHỐT 1 phát (endpoint cũ — giữ tương thích). */
 export async function handlePurchaseGoods(id: string | number, dispositions: PurchaseDisposition[]): Promise<{ purchase: PurchaseSlip; result: PurchaseGoodsResult }> {
   const d = await postJSON(`/api/purchases/${Number(id)}/handle-goods`, { dispositions }, { queueable: false });
   return { purchase: d.purchase, result: d.result };
+}
+/** Ghi nhập kho TỪNG ĐỢT khi phiếu đang mở (văn phòng) — như xuất từng thùng cho đơn, gọi nhiều lần được. */
+export async function receivePurchaseGoods(id: string | number, dispositions: PurchaseDisposition[]): Promise<{ purchase: PurchaseSlip }> {
+  const d = await postJSON(`/api/purchases/${Number(id)}/receive-goods`, { dispositions }, { queueable: false });
+  return { purchase: d.purchase };
+}
+/** CHỐT nhập kho (văn phòng): khoá phiếu + snapshot; UI nên cảnh báo thiếu trước khi gọi. */
+export async function confirmPurchaseGoods(id: string | number): Promise<{ purchase: PurchaseSlip; missing: { sp: string; missing: number }[] }> {
+  const d = await postJSON(`/api/purchases/${Number(id)}/confirm-goods`, {}, { queueable: false });
+  return { purchase: d.purchase, missing: d.missing || [] };
+}
+/** Gỡ 1 dòng cộng-vào-thùng-có-sẵn khi phiếu đang mở (văn phòng). */
+export async function unreceivePurchase(id: string | number, allocationId: number): Promise<{ purchase: PurchaseSlip }> {
+  const d = await postJSON(`/api/purchases/${Number(id)}/unreceive`, { allocation_id: allocationId }, { queueable: false });
+  return { purchase: d.purchase };
 }
 /** HỦY CHỐT nhập kho (admin) — giữ thùng mới + gỡ cộng vào thùng có sẵn; chặn nếu hàng đã dùng. */
 export async function undoPurchaseGoods(id: string | number): Promise<{ purchase: PurchaseSlip }> {

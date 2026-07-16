@@ -1,12 +1,12 @@
-// Popup NHẬP KHO hàng mua về — mỗi dòng phiếu nhập chọn 1 cách: tạo thùng mới
-// (mặc định) / nhập vào thùng có sẵn (+tồn) / bỏ qua (hàng không quản kho).
-// Tạo thùng mới = như NHẬP THÙNG phiếu SX: chọn đơn vị chứa + SỐ THÙNG × SỐ HÀNG
-// trong 1 thùng → tạo nhiều thùng giống nhau. SL sửa được = số THỰC NHẬN (hàng về
-// có thể thiếu/vỡ so với phiếu). Submit → POST /api/purchases/{id}/handle-goods
-// (1 lần/phiếu). Cha mount khi mở.
+// Popup GHI NHẬP KHO hàng mua về (từng đợt — như xuất kho cho đơn): mỗi dòng
+// phiếu chọn 1 cách: tạo thùng mới (mặc định) / nhập vào thùng có sẵn (+tồn) /
+// bỏ qua. Tạo thùng mới = như NHẬP THÙNG phiếu SX: chọn đơn vị chứa + SỐ THÙNG ×
+// SỐ HÀNG/thùng → N thùng giống nhau. Prefill + trần = PHẦN CÒN LẠI trên phiếu
+// (trừ phần đã nhập — draft_receipt). Submit → POST /receive-goods, KHÔNG chốt:
+// gọi nhiều lần được; đủ rồi bấm 'Chốt nhập kho' ở trang phiếu. Cha mount khi mở.
 import { useEffect, useState } from "preact/hooks";
 import {
-  allBoxes, listPlaces, listUnits, handlePurchaseGoods, soVN,
+  allBoxes, listPlaces, listUnits, receivePurchaseGoods, soVN,
   type PurchaseSlip, type PurchaseDisposition, type KhoBox, type Place, type Unit,
 } from "../api";
 import { SelectPopup, type SPOption } from "../ui/SelectPopup";
@@ -35,11 +35,11 @@ const ACTIONS: SPOption[] = [
 const num = (s: string) => parseFloat((s || "").replace(",", ".")) || 0;
 
 const initialRows = (pu: PurchaseSlip): Row[] => {
+  // Đã nhập bao nhiêu theo mã (thùng mới + cộng thùng có sẵn) → prefill phần còn lại
   const retained = new Map<string, number>();
-  for (const box of pu.goods_result?.restocked_new || []) {
-    if (box.box_deleted) continue;
-    const code = (box.sp || "").toUpperCase();
-    retained.set(code, (retained.get(code) || 0) + Number(box.quantity || 0));
+  for (const t of pu.draft_receipt?.totals || []) {
+    const code = (t.sp || "").toUpperCase();
+    retained.set(code, (retained.get(code) || 0) + Number(t.quantity || 0));
   }
   return (pu.items || []).map((it) => {
     const conv = !!it.unit && (it.unit_factor || 0) > 0;
@@ -131,6 +131,10 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
     }
 
     const active = submitRows.filter((r) => r.action !== "skip");
+    if (!active.length) {
+      toast("Chưa chọn dòng nào để nhập — chọn cách nhập hoặc bấm Để sau", "info");
+      return;
+    }
     const dispositions: PurchaseDisposition[] = active.map((r) =>
       r.action === "restock_existing"
         ? { sp: r.sp, quantity: num(r.qty), action: r.action, box_id: r.box_id }
@@ -140,15 +144,14 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
     const nRe = active.filter((r) => r.action === "restock_existing").length;
     const parts: string[] = [];
     if (nBoxes) parts.push(`tạo ${nBoxes} thùng mới`);
-    if (nRe) parts.push(`nhập ${nRe} thùng có sẵn`);
-    const msg = active.length
-      ? `Nhập kho hàng mua: ${parts.join(", ")}? (1 lần/phiếu — sau đó phiếu khoá sửa)`
-      : "Không nhập kho mục nào cho phiếu này? Phiếu sẽ được chốt xử lý và khoá sửa.";
-    if (!(await confirmDialog(msg, { okLabel: active.length ? "Nhập kho" : "Chốt xử lý" }))) return;
+    if (nRe) parts.push(`cộng ${nRe} thùng có sẵn`);
+    if (!(await confirmDialog(
+      `Ghi nhập kho: ${parts.join(", ")}?\n(Chưa chốt — xoá/gỡ/nhập thêm được, đủ rồi bấm Chốt nhập kho ở trang phiếu)`,
+      { okLabel: "Ghi nhập" }))) return;
     setBusy(true);
     try {
-      const { purchase: updated } = await handlePurchaseGoods(pu.id, dispositions);
-      toast("Đã nhập kho hàng mua về", "ok");
+      const { purchase: updated } = await receivePurchaseGoods(pu.id, dispositions);
+      toast("Đã ghi nhập kho — kiểm tra rồi bấm Chốt nhập kho", "ok");
       onDone(updated);
     } catch (e: any) {
       toast(e?.message || "Lỗi nhập kho", "err");
@@ -158,9 +161,10 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
   return (
     <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
       <div class="modal-sheet rg-sheet" onClick={(e: any) => e.stopPropagation()}>
-        <div class="modal-head"><Icon name="box" size={16} /> Nhập kho hàng mua về</div>
+        <div class="modal-head"><Icon name="box" size={16} /> Ghi nhập kho hàng mua về</div>
         <p class="muted small" style={{ margin: "0 0 4px" }}>
-          Hàng về từ NCC — chọn cách nhập từng loại. Sửa SL nếu thực nhận lệch phiếu (thiếu/vỡ).
+          Chọn cách nhập từng loại — ghi nhiều đợt được, đủ rồi bấm Chốt ở trang phiếu.
+          Sửa SL nếu thực nhận lệch phiếu (thiếu/vỡ).
         </p>
         {rows.map((r, i) => {
           const item = (pu.items || [])[i];
@@ -189,7 +193,7 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
                 <div class={"muted small" + (over ? " pg-over" : "")}>
                   Số hàng trên phiếu: <b>{soVN(base)}{baseUnit ? ` ${baseUnit}` : ""}</b>
                   {conv ? ` (${conv})` : ""}
-                  {r.held > 1e-6 ? ` · đã giữ ${soVN(r.held)} ở thùng cũ · còn nhập được ${soVN(r.cap)}` : ""}
+                  {r.held > 1e-6 ? ` · đã nhập ${soVN(r.held)} · còn nhập được ${soVN(r.cap)}` : ""}
                   {over ? " · ⚠ đang nhập vượt số còn lại" : ""}
                 </div>
               )}
@@ -234,7 +238,7 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
         })}
         <div class="row" style={{ marginTop: "8px" }}>
           <button class="btn" onClick={onClose}>Để sau</button>
-          <button class="btn primary" disabled={busy || overRows} onClick={submit}>{busy ? "Đang nhập…" : "Nhập kho"}</button>
+          <button class="btn primary" disabled={busy || overRows} onClick={submit}>{busy ? "Đang ghi…" : "Ghi nhập"}</button>
         </div>
       </div>
     </div>

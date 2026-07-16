@@ -380,41 +380,41 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `purchase.paid`/`purchase.payment_deleted` (event_format + _PAIRS). UI: khối
   "Thanh toán NCC" ở PurchaseDetail (trả nhiều lần, admin gỡ), chip ✓ đã trả/nợ ở
   PurchasesList, link phiếu nhập trong timeline két.
-  **Nhập KHO hàng mua về (2026-07-16)**: cột `goods_handled_at/by/goods_result` trên
-  `purchase_slips` (claim nguyên tử như phiếu trả — 1 lần/phiếu). POST
-  `/api/purchases/{id}/handle-goods` (văn phòng, `server_app/purchase_goods_routes.py`
-  → orchestration thuần `server_app/purchase_goods.py`, tests/test_purchase_goods.py):
-  mỗi dòng `restock_new` (tạo thùng, gắn `inventory_boxes.source_purchase_id` → chi
-  tiết thùng link "Nguồn — Phiếu nhập hàng") | `restock_existing` (allocation ÂM
-  `kind='purchase_in'` qua `receive_purchase_stock` — remaining tăng, quantity gốc
-  giữ) | `skip`; SL = số THỰC NHẬN (sửa được). Đã nhập kho → phiếu KHOÁ sửa items +
-  chặn xoá. **`restock_new` tạo N thùng GIỐNG NHAU như nhập thùng phiếu SX**: disposition
-  `{count = số thùng, quantity = số hàng/1 thùng, unit_id, place_id}` → `add_boxes` tạo
-  `count` thùng mỗi thùng `quantity` (thiếu `count` = 1 thùng, tương thích ngược);
-  `goods_result.restocked_new` có 1 entry/thùng (undo/attach/mark_deleted lặp theo entry).
-  UI `PurchaseGoodsModal` prefill từ dòng phiếu: có đơn vị nhập (Thùng ×30) → count = SL,
-  per = factor; không quy đổi → 1 thùng cả lô. Event `purchase.goods_received`. UI: `detail/PurchaseGoodsModal.tsx`
-  (prompt sau tạo phiếu, cờ session `pg_open`), summary + chip 📦 kho.
-  **HỦY CHỐT nhập kho (admin, 2026-07-16)**: POST `/api/purchases/{id}/undo-goods`
-  (`purchase_goods.undo_purchase_receipt` — all-or-nothing: giữ nguyên thùng mới + gỡ
-  allocation purchase_in + clear goods_handled_* → phiếu mở khoá sửa/nhập bổ sung;
-  user có thể xoá riêng từng thùng khi phiếu đã mở; lần chốt lại tính cả thùng giữ lại;
-  CHẶN nếu hàng đã dùng: thùng mới có lần xuất/chuyển, hoặc remaining thùng có
-  sẵn < số đã cộng). Phiếu ĐANG MỞ nhưng kho còn thùng giữ lại từ phiếu:
-  `soft_delete_purchase` CHẶN xoá phiếu (mồ côi thùng) và `update_purchase_items`
-  chặn hạ hàng dưới tổng thùng đang giữ + re-check `goods_handled_at` TRONG
-  transaction (chống race sửa-items đè lên phiếu vừa chốt đồng thời); modal nhập
-  kho prefill + cap theo PHẦN CÒN LẠI (trừ thùng giữ). Trang phiếu hiện khối
-  "Thùng giữ lại (đã hủy chốt)" — VĂN PHÒNG xoá được TỪNG thùng tại đó (và ở trang
-  thùng): `box_delete_handler` cho office xoá thùng có `source_purchase_id` khi
-  phiếu đang MỞ (phiếu chốt/thùng đã dùng thì `_box_delete_lock` chặn; thùng khác
-  vẫn admin-only). Server validate disposition
-  TRƯỚC khi claim (mã phải có trên phiếu, đúng SP thùng, thùng sống/còn hàng,
-  không vượt trần cộng dồn theo SP) — lỗi trả 400, không chốt phiếu âm thầm.
-  Event `purchase.goods_undone`. Chi tiết phiếu server gắn
-  `boxes` (info + remaining, `attach_purchase_boxes`) → UI vẽ Ô THÙNG
-  (BoxLabelGrid) trong khối "Đã nhập kho" + nút Hủy chốt; items gắn `base_unit`
-  (đơn vị gốc SP) để bảng hàng nhập luôn hiện đơn vị.
+  **Nhập KHO hàng mua về (2026-07-16, flow GIỐNG XUẤT KHO ĐƠN)**: phiếu MỞ → ghi
+  nhập TỪNG ĐỢT, đủ rồi CHỐT. Cột `goods_handled_at/by/goods_result` trên
+  `purchase_slips` = trạng thái CHỐT; trạng thái ĐANG NHẬP derive LIVE từ kho
+  (`purchase_goods._draft_receipt`: thùng `source_purchase_id` + allocation
+  `purchase_in`) — không bảng state riêng. Orchestration thuần
+  `server_app/purchase_goods.py` (tests/test_purchase_goods.py), row đọc
+  `purchase_goods_view.py` (attach `boxes` + `draft_receipt{new,existing,totals}`
+  vào detail), routes `purchase_goods_routes.py` (đăng ký app_factory):
+  - POST `/receive-goods` (văn phòng, nhiều lần): mỗi dòng `restock_new` (tạo N
+    thùng GIỐNG NHAU như phiếu SX — `{count, quantity/thùng, unit_id, place_id}`,
+    thùng gắn `source_purchase_id` → link "Nguồn") | `restock_existing`
+    (allocation ÂM `kind='purchase_in'` — remaining tăng, quantity gốc giữ) |
+    `skip`. Validate TRƯỚC khi ghi: mã có trên phiếu, đúng SP thùng, thùng
+    sống/còn hàng, không vượt trần cộng dồn theo SP (trần = phiếu − đã nhập).
+  - Gỡ từng dòng khi ĐANG MỞ: xoá thùng mới qua DELETE box (office được với thùng
+    `source_purchase_id` phiếu mở — `box_delete_handler`; thùng khác admin-only,
+    `_box_delete_lock` chặn phiếu chốt/thùng đã dùng); gỡ dòng cộng qua POST
+    `/unreceive {allocation_id}` (guard phần cộng chưa tiêu).
+  - POST `/confirm-goods` (văn phòng): CHỐT — CAS `goods_handled_at` + snapshot
+    `goods_result` từ trạng thái đang nhập → phiếu KHOÁ sửa items + chặn xoá; trả
+    `missing` (cho chốt khi thiếu — hàng về thiếu/vỡ; UI cảnh báo trước).
+  - POST `/handle-goods` = receive + confirm 1 transaction (endpoint cũ, tương thích).
+  - **HỦY CHỐT** (admin) POST `/undo-goods`: all-or-nothing — giữ thùng mới, gỡ
+    allocation purchase_in, clear goods_* → phiếu QUAY VỀ trạng thái đang nhập;
+    CHẶN nếu hàng đã dùng (thùng mới có allocation, remaining thùng có sẵn < số cộng).
+  - Guard nhất quán khi kho còn dấu vết nhập: `soft_delete_purchase` chặn xoá
+    phiếu; `update_purchase_items` chặn hạ hàng dưới phần đã nhập
+    (`_retained_box_totals` = thùng + purchase_in) + re-check khoá TRONG transaction.
+  Events: `purchase.goods_line_added/line_removed/received/undone` (event_format).
+  UI `PurchaseDetail`: khối "Đang nhập kho (chưa chốt)" — tiến độ theo mã
+  (đã nhập/trên phiếu/thiếu), dòng 🆕/📦 kèm nút ✕, Ô THÙNG (BoxLabelGrid), nút
+  "Nhập thêm" + "✓ Chốt nhập kho"; sau chốt = khối "Đã nhập kho" + Hủy chốt.
+  `PurchaseGoodsModal` = popup GHI 1 đợt (prefill + cap theo phần còn lại; đơn vị
+  nhập Thùng ×30 → count×per; prompt sau tạo phiếu, cờ session `pg_open`); items
+  gắn `base_unit` (đơn vị gốc SP) để bảng hàng nhập luôn hiện đơn vị; chip 📦 kho.
   **Đơn vị nhập trên dòng phiếu (2026-07-16)**: item nhận thêm `unit`/`unit_factor`
   (snapshot từ `product_units` — SL + giá tính theo đơn vị đã chọn, 1 unit =
   factor đơn vị gốc; `_parse_items` validate, đơn vị xấu chỉ rơi phần unit).

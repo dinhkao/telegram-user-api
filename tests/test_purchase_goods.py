@@ -149,7 +149,7 @@ class PurchaseGoodsTest(unittest.TestCase):
 
     def test_mark_deleted_boxes_flags_removed_box(self):
         from inventory_store.queries import delete_box
-        from server_app.purchase_goods import mark_deleted_boxes
+        from server_app.purchase_goods_view import mark_deleted_boxes
         extra, err = apply_purchase_receipt(
             self.conn, self.pu["id"],
             [{"sp": "KEO1", "quantity": 15, "action": "restock_new"}], actor="lan")
@@ -181,8 +181,7 @@ class PurchaseGoodsTest(unittest.TestCase):
         self.assertEqual(self._rem(self.box["id"]), 100)         # thùng có sẵn về như cũ
         got = purchase_store.get_purchase(self.conn, self.pu["id"])
         self.assertIsNone(got["goods_handled_at"])               # phiếu mở khoá lại
-        self.assertEqual(len(got["goods_result"]["restocked_new"]), 1)  # snapshot thùng giữ lại
-        self.assertEqual(got["goods_result"]["restocked_existing"], [])
+        self.assertIsNone(got["goods_result"])                   # trạng thái đang nhập derive live
         # nhập kho LẠI được sau khi hủy chốt
         extra2, err2 = apply_purchase_receipt(
             self.conn, self.pu["id"],
@@ -213,6 +212,100 @@ class PurchaseGoodsTest(unittest.TestCase):
         self.assertEqual(len(current), 3)
         self.assertNotIn(ids[0], [e["box_id"] for e in current])
         self.assertTrue(all(get_box(self.conn, e["box_id"]) for e in current))
+
+    def test_receive_then_confirm_incremental(self):
+        # Flow MỚI như xuất kho đơn: ghi từng đợt khi phiếu mở → đủ thì chốt.
+        from server_app.purchase_goods import receive_purchase_lines, confirm_purchase_receipt
+        extra, err = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 5, "count": 2, "action": "restock_new"}], actor="lan")
+        self.assertIsNone(err)
+        self.assertEqual(len(extra["touched_boxes"]), 2)
+        got = purchase_store.get_purchase(self.conn, self.pu["id"])
+        self.assertIsNone(got["goods_handled_at"])               # CHƯA chốt, phiếu vẫn mở
+        # đợt 2: cộng vào thùng có sẵn
+        _, err2 = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 6, "action": "restock_existing", "box_id": self.box["id"]}],
+            actor="lan")
+        self.assertIsNone(err2)
+        # đợt 3 vượt trần (đã nhập 16/20, thêm 5 = 21) → chặn
+        _, err3 = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 5, "action": "restock_new"}], actor="lan")
+        self.assertIn("vượt số trên phiếu", err3)
+        # chốt: snapshot đủ cả 2 đợt + báo thiếu 4
+        extra4, err4 = confirm_purchase_receipt(self.conn, self.pu["id"], actor="lan")
+        self.assertIsNone(err4)
+        self.assertEqual(len(extra4["result"]["restocked_new"]), 2)
+        self.assertEqual(len(extra4["result"]["restocked_existing"]), 1)
+        self.assertEqual(extra4["missing"], [{"sp": "KEO1", "missing": 4}])
+        got = purchase_store.get_purchase(self.conn, self.pu["id"])
+        self.assertIsNotNone(got["goods_handled_at"])
+        # chốt lần 2 / nhập thêm sau chốt → chặn
+        _, err5 = confirm_purchase_receipt(self.conn, self.pu["id"], actor="lan")
+        self.assertEqual(err5, "already")
+        _, err6 = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 1, "action": "restock_new"}], actor="lan")
+        self.assertIn("đã chốt", err6)
+
+    def test_unreceive_removes_existing_line(self):
+        from server_app.purchase_goods import receive_purchase_lines, unreceive_purchase_line
+        _, err = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 8, "action": "restock_existing", "box_id": self.box["id"]}],
+            actor="lan")
+        self.assertIsNone(err)
+        self.assertEqual(self._rem(self.box["id"]), 108)
+        aid = self.conn.execute(
+            "SELECT id FROM box_allocations WHERE box_id = ? AND kind = 'purchase_in'",
+            (self.box["id"],)).fetchone()[0]
+        info, err2 = unreceive_purchase_line(self.conn, self.pu["id"], aid)
+        self.assertIsNone(err2)
+        self.assertEqual(info["box_id"], self.box["id"])
+        self.assertEqual(self._rem(self.box["id"]), 100)         # về như cũ
+
+    def test_unreceive_blocked_when_consumed(self):
+        from inventory_store.allocations import allocate_picks
+        from server_app.purchase_goods import receive_purchase_lines, unreceive_purchase_line
+        _, err = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 8, "action": "restock_existing", "box_id": self.box["id"]}],
+            actor="lan")
+        self.assertIsNone(err)
+        allocate_picks(self.conn, [{"box_id": self.box["id"], "quantity": 105}], 555)  # tiêu lẹm phần cộng
+        aid = self.conn.execute(
+            "SELECT id FROM box_allocations WHERE box_id = ? AND kind = 'purchase_in'",
+            (self.box["id"],)).fetchone()[0]
+        info, err2 = unreceive_purchase_line(self.conn, self.pu["id"], aid)
+        self.assertIsNone(info)
+        self.assertIn("đã dùng", err2)
+        self.assertEqual(self._rem(self.box["id"]), 3)           # không gỡ gì
+
+    def test_update_items_blocked_below_received_existing_line(self):
+        # Guard sửa phiếu phải tính CẢ phần cộng vào thùng có sẵn đang nhập dở.
+        from server_app.purchase_goods import receive_purchase_lines
+        _, err = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 15, "action": "restock_existing", "box_id": self.box["id"]}],
+            actor="lan")
+        self.assertIsNone(err)
+        ok, upd_err = purchase_store.update_purchase_items(
+            self.conn, self.pu["id"], [{"sp": "KEO1", "sl": 10, "price": 5000}], 50000, "")
+        self.assertFalse(ok)
+        self.assertIn("đang giữ", upd_err)
+
+    def test_delete_slip_blocked_while_receiving_in_progress(self):
+        from server_app.purchase_goods import receive_purchase_lines
+        _, err = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 5, "action": "restock_existing", "box_id": self.box["id"]}],
+            actor="lan")
+        self.assertIsNone(err)
+        ok, del_err = purchase_store.soft_delete_purchase(self.conn, self.pu["id"], by="duy")
+        self.assertFalse(ok)
+        self.assertIn("cộng vào thùng", del_err)
 
     def test_delete_slip_blocked_while_boxes_from_slip_exist(self):
         # Sau hủy chốt thùng mới được GIỮ LẠI — xoá phiếu lúc này sẽ mồ côi thùng.

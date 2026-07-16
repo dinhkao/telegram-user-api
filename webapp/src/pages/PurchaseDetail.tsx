@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import {
   getPurchase, deletePurchase, payPurchase, deletePurchasePayment, undoPurchaseGoods,
-  deleteBox, currentUser, isOffice, soVN, type PurchaseSlip,
+  confirmPurchaseGoods, unreceivePurchase, deleteBox, currentUser, isOffice, soVN,
+  type PurchaseSlip, type PurchaseDraftLine,
 } from "../api";
 import { onRealtime } from "../realtime";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
@@ -138,12 +139,15 @@ export function PurchaseDetail({ id }: { id: string }) {
   if (!r) return <Loading />;
   const deleted = !!r.deleted_at;
 
+  const draftLines = (r.draft_receipt?.new.length || 0) + (r.draft_receipt?.existing.length || 0);
   const doDelete = async () => {
     if (!isAdmin) return toast("Chỉ admin mới được xoá phiếu nhập", "info");
     if ((r.payments || []).length > 0)
       return toast("Phiếu còn lần trả tiền — gỡ các lần trả trước khi xoá", "info");
     if (r.goods_handled_at)
       return toast("Phiếu đã nhập kho — không xoá được (hàng đã vào thùng)", "info");
+    if (draftLines > 0)
+      return toast("Phiếu đang nhập kho dở — xoá thùng/gỡ dòng nhập trước khi xoá phiếu", "info");
     if (!(await confirmDialog("Xoá phiếu nhập này?", { danger: true }))) return;
     setBusy(true);
     try {
@@ -260,12 +264,23 @@ export function PurchaseDetail({ id }: { id: string }) {
             </section>
           );
         }
-        // Phiếu ĐÃ HỦY CHỐT nhưng kho còn thùng giữ lại từ lần nhập trước:
-        // vẫn hiện danh sách + ô thùng (không thì thùng "biến mất" khỏi phiếu),
-        // văn phòng xoá được TỪNG thùng ngay tại đây (server cho phép khi phiếu
-        // đang mở), kèm nút nhập kho lại (modal tự trừ phần đã giữ).
-        const retained = gr?.restocked_new || [];
-        const doDeleteBox = async (x: { sp: string; quantity: number; box_id: number; box_code?: string }) => {
+        // Phiếu ĐANG MỞ: nhập kho TỪNG ĐỢT như xuất kho cho đơn — trạng thái
+        // đang nhập (draft_receipt) derive live từ kho; ✕ xoá từng thùng mới /
+        // gỡ từng lần cộng; đủ rồi bấm CHỐT mới khoá phiếu.
+        const draft = r.draft_receipt;
+        const hasDraft = !!draft && draft.new.length + draft.existing.length > 0;
+        const baseByCode = new Map<string, number>();
+        for (const it of r.items || []) {
+          const f = it.unit && (it.unit_factor || 0) > 0 ? it.unit_factor! : 1;
+          const code = (it.sp || "").toUpperCase();
+          baseByCode.set(code, (baseByCode.get(code) || 0) + it.sl * f);
+        }
+        const gotByCode = new Map<string, number>();
+        for (const t of draft?.totals || []) gotByCode.set((t.sp || "").toUpperCase(), t.quantity);
+        const missing = [...baseByCode.entries()]
+          .map(([code, base]) => ({ code, base, got: gotByCode.get(code) || 0 }))
+          .filter((x) => x.got + 1e-6 < x.base);
+        const doDeleteBox = async (x: PurchaseDraftLine) => {
           const name = `thùng ${x.box_code || `#${x.box_id}`}`;
           if (!(await confirmDialog(
             `Xoá HẲN ${name} (${x.sp} ×${soVN(x.quantity)}) khỏi kho? Không thể hoàn tác.`,
@@ -279,27 +294,72 @@ export function PurchaseDetail({ id }: { id: string }) {
             toast(e?.message || "Không xoá được thùng", "err");
           } finally { setBusy(false); }
         };
+        const doUnreceive = async (x: PurchaseDraftLine) => {
+          if (!x.allocation_id) return;
+          if (!(await confirmDialog(
+            `Gỡ ${soVN(x.quantity)} ${x.sp} đã cộng vào thùng ${x.box_code || `#${x.box_id}`}?`,
+            { danger: true, okLabel: "Gỡ" }))) return;
+          setBusy(true);
+          try {
+            const { purchase: updated } = await unreceivePurchase(r.id, x.allocation_id);
+            toast("Đã gỡ dòng nhập kho", "ok");
+            setR(updated);
+          } catch (e: any) {
+            toast(e?.message || "Không gỡ được", "err");
+          } finally { setBusy(false); }
+        };
+        const doConfirm = async () => {
+          const warn = !hasDraft
+            ? "Chưa nhập kho mục nào (hàng không quản kho).\n"
+            : missing.length
+              ? `Còn thiếu so với phiếu:\n${missing.map((m) => `• ${m.code}: thiếu ${soVN(m.base - m.got)}`).join("\n")}\n`
+              : "";
+          if (!(await confirmDialog(
+            `${warn}Chốt nhập kho? Phiếu sẽ KHOÁ sửa (chỉ admin hủy chốt được).`,
+            { okLabel: "Chốt nhập kho" }))) return;
+          setBusy(true);
+          try {
+            const { purchase: updated } = await confirmPurchaseGoods(r.id);
+            toast("Đã chốt nhập kho", "ok");
+            setR(updated);
+          } catch (e: any) {
+            toast(e?.message || "Không chốt được", "err");
+          } finally { setBusy(false); }
+        };
         return (
           <>
-            {retained.length > 0 && (
+            {hasDraft && (
               <section class="card rg-summary">
-                <label class="card-label"><Icon name="box" size={15} /> Thùng giữ lại (đã hủy chốt)</label>
+                <label class="card-label"><Icon name="box" size={15} /> Đang nhập kho (chưa chốt)</label>
                 <div class="muted small">
-                  Phiếu đã mở khoá sửa — các thùng dưới đây vẫn nằm trong kho. Nhập kho lại
-                  chỉ cần nhập phần còn thiếu; thùng thừa bấm ✕ để xoá.
+                  {[...baseByCode.entries()].map(([code, base]) => {
+                    const got = gotByCode.get(code) || 0;
+                    return (
+                      <div key={code}>
+                        {code}: đã nhập <b>{soVN(got)}</b> / {soVN(base)}
+                        {got + 1e-6 < base ? ` · còn thiếu ${soVN(base - got)}` : " · ✓ đủ"}
+                      </div>
+                    );
+                  })}
                 </div>
-                {retained.map((x, i) => (
-                  <div class="rg-sum-line" key={i}>
+                {draft!.new.map((x, i) => (
+                  <div class="rg-sum-line" key={`n${i}`}>
                     🆕 {x.sp} ×{soVN(x.quantity)}{" "}
-                    {x.box_deleted
-                      ? <span class="muted" style={{ textDecoration: "line-through" }}>(thùng {x.box_code || `#${x.box_id}`} — đã xoá)</span>
-                      : <>
-                          (<a href={`#/thung/${x.box_id}`}>thùng {x.box_code || `#${x.box_id}`}</a>)
-                          {office && (
-                            <button class="btn small danger rg-box-del" disabled={busy} onClick={() => doDeleteBox(x)}
-                              title="Xoá hẳn thùng này khỏi kho">✕ Xoá</button>
-                          )}
-                        </>}
+                    (<a href={`#/thung/${x.box_id}`}>thùng {x.box_code || `#${x.box_id}`}</a>)
+                    {office && (
+                      <button class="btn small danger rg-box-del" disabled={busy} onClick={() => doDeleteBox(x)}
+                        title="Xoá hẳn thùng này khỏi kho">✕ Xoá</button>
+                    )}
+                  </div>
+                ))}
+                {draft!.existing.map((x, i) => (
+                  <div class="rg-sum-line" key={`e${i}`}>
+                    📦 {x.sp} +{soVN(x.quantity)} vào{" "}
+                    <a href={`#/thung/${x.box_id}`}>thùng {x.box_code || `#${x.box_id}`}</a>
+                    {office && (
+                      <button class="btn small danger rg-box-del" disabled={busy} onClick={() => doUnreceive(x)}
+                        title="Gỡ phần đã cộng vào thùng này">✕ Gỡ</button>
+                    )}
                   </div>
                 ))}
                 {(r.boxes || []).length > 0 && (
@@ -307,10 +367,16 @@ export function PurchaseDetail({ id }: { id: string }) {
                 )}
               </section>
             )}
-            <button class={"btn block rg-open-btn" + (office ? "" : " faded")} disabled={busy}
-              onClick={() => office ? setShowGoods(true) : toast("Chỉ văn phòng mới được nhập kho hàng mua", "info")}>
-              <Icon name="box" size={15} /> Nhập kho hàng mua về
-            </button>
+            <div class="row">
+              <button class={"btn block rg-open-btn" + (office ? "" : " faded")} disabled={busy}
+                onClick={() => office ? setShowGoods(true) : toast("Chỉ văn phòng mới được nhập kho hàng mua", "info")}>
+                <Icon name="box" size={15} /> {hasDraft ? "Nhập thêm" : "Nhập kho hàng mua về"}
+              </button>
+              <button class={"btn primary block" + (office ? "" : " faded")} disabled={busy}
+                onClick={() => office ? doConfirm() : toast("Chỉ văn phòng mới được chốt nhập kho", "info")}>
+                ✓ Chốt nhập kho
+              </button>
+            </div>
           </>
         );
       })()}
@@ -327,7 +393,7 @@ export function PurchaseDetail({ id }: { id: string }) {
       <History base={`/api/media/purchase/${id}`} />
 
       {!deleted && (
-        <button class={"btn danger block" + (isAdmin && !(r.payments || []).length && !r.goods_handled_at ? "" : " faded")}
+        <button class={"btn danger block" + (isAdmin && !(r.payments || []).length && !r.goods_handled_at && !draftLines ? "" : " faded")}
           disabled={busy} onClick={doDelete}>
           <Icon name="trash" size={15} /> {busy ? "Đang xoá…" : "Xoá phiếu nhập"}
         </button>
