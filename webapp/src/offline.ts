@@ -42,11 +42,19 @@ export function pruneCache() {
 }
 
 type QueuedPost = { path: string; body: any; at: number };
+// Thao tác chờ quá 1 ngày → BỎ khi flush: replay đánh-dấu/bình-luận trễ cỡ đó dễ
+// sai hơn đúng, và là đường thoát cho item kẹt vĩnh viễn (vd 401 token cũ).
+const QUEUE_MAX_AGE_MS = 24 * 3600 * 1000;
 
 export function queuePost(path: string, body: any) {
   const q = getQueue();
   q.push({ path, body, at: Date.now() });
   localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
+}
+
+/** Bỏ toàn bộ thao tác chờ (nút "Xoá" trên banner — user chủ động từ bỏ). */
+export function clearQueue() {
+  localStorage.removeItem(QUEUE_KEY);
 }
 
 export function getQueue(): QueuedPost[] {
@@ -65,6 +73,7 @@ export async function flushQueue(send: (path: string, body: any) => Promise<"ok"
   const remaining: QueuedPost[] = [];
   let sent = 0;
   for (const item of q) {
+    if (Date.now() - (item.at || 0) > QUEUE_MAX_AGE_MS) continue;   // quá hạn → bỏ
     let verdict: "ok" | "drop" | "keep";
     try {
       verdict = await send(item.path, item.body);

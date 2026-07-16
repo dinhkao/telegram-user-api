@@ -3,7 +3,7 @@
 import { render } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { currentUser, getJSON, replayQueue, netOk, onNetStatus, refreshMe, soVN } from "./api";
-import { getQueue } from "./offline";
+import { clearQueue, getQueue } from "./offline";
 import { getStatus, onStatus, onRealtime, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
 import { Icon } from "./ui/Icon";
@@ -16,7 +16,7 @@ import { TaskDetail } from "./pages/TaskDetail";
 import { PriceLists } from "./pages/PriceLists";
 import { PriceListDetail } from "./pages/PriceListDetail";
 import { Login } from "./pages/Login";
-import { FeedbackHost } from "./ui/feedback";
+import { confirmDialog, FeedbackHost } from "./ui/feedback";
 import { OrderDetail } from "./pages/OrderDetail";
 import { OrderInvoiceEdit } from "./pages/OrderInvoiceEdit";
 import { OrderPayment } from "./pages/OrderPayment";
@@ -304,18 +304,20 @@ function DeliveringBanner() {
 
 function OfflineBanner() {
   // "online" = có TỚI ĐƯỢC server (theo fetch thực), KHÔNG theo navigator.onLine (WebView
-  // qua Tailscale báo sai → banner "mất mạng" ảo dù mạng vẫn chạy).
+  // qua Tailscale báo sai → banner "mất mạng" ảo dù mạng vẫn chạy). Vì vậy retry queue
+  // cũng KHÔNG gate theo navigator.onLine — cứ thử gửi, mất mạng thật thì item được giữ
+  // (trước đây gate làm queue kẹt vĩnh viễn khi WebView báo offline sai).
   const [online, setOnline] = useState(netOk());
   const [queued, setQueued] = useState(getQueue().length);
+  const sync = async () => {
+    await replayQueue().catch(() => {});
+    setQueued(getQueue().length);
+  };
   useEffect(() => {
     const offNet = onNetStatus((ok) => {
       setOnline(ok);
-      if (ok) replayQueue().then(() => setQueued(getQueue().length)).catch(() => {});
+      if (ok) sync();
     });
-    const sync = async () => {
-      if (navigator.onLine) await replayQueue().catch(() => {});
-      setQueued(getQueue().length);
-    };
     window.addEventListener("online", sync);
     const timer = setInterval(sync, 30000);
     sync();
@@ -326,9 +328,16 @@ function OfflineBanner() {
     };
   }, []);
   if (online && !queued) return null;
+  const discard = async (e: Event) => {
+    e.stopPropagation();
+    if (!(await confirmDialog(`Bỏ ${queued} thao tác chưa gửi được? (đánh dấu/bình luận lúc mất mạng sẽ mất)`, { danger: true }))) return;
+    clearQueue();
+    setQueued(0);
+  };
   return (
-    <div class="offline-banner">
+    <div class="offline-banner" onClick={sync} title="Bấm để thử gửi lại ngay">
       {!online ? "📴 Mất mạng — xem dữ liệu đã lưu" : `⏳ Đang gửi lại ${queued} thao tác chờ…`}
+      {online && queued > 0 && <button class="offline-discard" onClick={discard}>Xoá</button>}
     </div>
   );
 }

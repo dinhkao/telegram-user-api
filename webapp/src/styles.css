@@ -289,6 +289,7 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .comment.web { background: #e8f0fe; }
 
 .offline-banner { background: #fef7e0; color: #7a5c00; text-align: center; padding: 6px; font-size: .85rem; position: sticky; top: 0; z-index: 10; }
+.offline-discard { margin-left: 10px; border: 1px solid #d6b95c; border-radius: 6px; background: #fff; color: #7a5c00; font-size: .8rem; padding: 1px 8px; }
 .login-page { padding-top: 12vh; text-align: center; }
 .login-page .card { text-align: left; margin-top: 16px; }
 
