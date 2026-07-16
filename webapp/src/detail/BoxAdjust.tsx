@@ -4,6 +4,7 @@
 // nguyên (server chặn nếu gây tồn âm). Data: adjustBox/listAdjustments/deleteAdjustment.
 import { useEffect, useState } from "preact/hooks";
 import { adjustBox, listAdjustments, deleteAdjustment, currentUser, isOffice, soVN, type Adjustment } from "../api";
+import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { confirmDialog, toast } from "../ui/feedback";
 
@@ -19,6 +20,16 @@ export function BoxAdjust({ boxId, remaining, unit, onChanged }: {
 
   const load = () => listAdjustments({ box_id: boxId }).then(setList).catch(() => {});
   useEffect(() => { load(); }, [boxId]);
+  // Realtime: máy khác điều chỉnh/gỡ phiếu (hoặc kiểm kho áp vào thùng này) → tải lại list
+  useEffect(() => {
+    let t: any;
+    const off = onRealtime((e) => {
+      const hit = e.type === "resync" || e.type === "inventory_changed"
+        || (e.type === "box_changed" && ((e as any).box_id == null || String((e as any).box_id) === String(boxId)));
+      if (hit) { clearTimeout(t); t = setTimeout(load, 300); }
+    });
+    return () => { off(); clearTimeout(t); };
+  }, [boxId]);
 
   const q = parseFloat((qty || "").replace(",", "."));
   const ok = isFinite(q) && q >= 0 && Math.abs(q - remaining) > 1e-9 && !!reason.trim();
