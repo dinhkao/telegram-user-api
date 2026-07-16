@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import {
   getPurchase, deletePurchase, payPurchase, deletePurchasePayment, undoPurchaseGoods,
-  currentUser, isOffice, soVN, type PurchaseSlip,
+  deleteBox, currentUser, isOffice, soVN, type PurchaseSlip,
 } from "../api";
 import { onRealtime } from "../realtime";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
@@ -262,8 +262,23 @@ export function PurchaseDetail({ id }: { id: string }) {
         }
         // Phiếu ĐÃ HỦY CHỐT nhưng kho còn thùng giữ lại từ lần nhập trước:
         // vẫn hiện danh sách + ô thùng (không thì thùng "biến mất" khỏi phiếu),
-        // kèm nút nhập kho lại (modal tự trừ phần đã giữ, chỉ nhập phần còn thiếu).
+        // văn phòng xoá được TỪNG thùng ngay tại đây (server cho phép khi phiếu
+        // đang mở), kèm nút nhập kho lại (modal tự trừ phần đã giữ).
         const retained = gr?.restocked_new || [];
+        const doDeleteBox = async (x: { sp: string; quantity: number; box_id: number; box_code?: string }) => {
+          const name = `thùng ${x.box_code || `#${x.box_id}`}`;
+          if (!(await confirmDialog(
+            `Xoá HẲN ${name} (${x.sp} ×${soVN(x.quantity)}) khỏi kho? Không thể hoàn tác.`,
+            { danger: true, okLabel: "Xoá thùng" }))) return;
+          setBusy(true);
+          try {
+            await deleteBox(x.box_id);
+            toast(`Đã xoá ${name}`, "ok");
+            load();
+          } catch (e: any) {
+            toast(e?.message || "Không xoá được thùng", "err");
+          } finally { setBusy(false); }
+        };
         return (
           <>
             {retained.length > 0 && (
@@ -271,9 +286,22 @@ export function PurchaseDetail({ id }: { id: string }) {
                 <label class="card-label"><Icon name="box" size={15} /> Thùng giữ lại (đã hủy chốt)</label>
                 <div class="muted small">
                   Phiếu đã mở khoá sửa — các thùng dưới đây vẫn nằm trong kho. Nhập kho lại
-                  chỉ cần nhập phần còn thiếu; muốn bỏ thùng nào thì xoá ở trang thùng đó.
+                  chỉ cần nhập phần còn thiếu; thùng thừa bấm ✕ để xoá.
                 </div>
-                <div class="rg-sum-line">🆕 Thùng mới: {line(retained)}</div>
+                {retained.map((x, i) => (
+                  <div class="rg-sum-line" key={i}>
+                    🆕 {x.sp} ×{soVN(x.quantity)}{" "}
+                    {x.box_deleted
+                      ? <span class="muted" style={{ textDecoration: "line-through" }}>(thùng {x.box_code || `#${x.box_id}`} — đã xoá)</span>
+                      : <>
+                          (<a href={`#/thung/${x.box_id}`}>thùng {x.box_code || `#${x.box_id}`}</a>)
+                          {office && (
+                            <button class="btn small danger rg-box-del" disabled={busy} onClick={() => doDeleteBox(x)}
+                              title="Xoá hẳn thùng này khỏi kho">✕ Xoá</button>
+                          )}
+                        </>}
+                  </div>
+                ))}
                 {(r.boxes || []).length > 0 && (
                   <div class="rg-boxes"><BoxLabelGrid boxes={r.boxes as any} dense /></div>
                 )}

@@ -404,7 +404,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `soft_delete_purchase` CHẶN xoá phiếu (mồ côi thùng) và `update_purchase_items`
   chặn hạ hàng dưới tổng thùng đang giữ + re-check `goods_handled_at` TRONG
   transaction (chống race sửa-items đè lên phiếu vừa chốt đồng thời); modal nhập
-  kho prefill + cap theo PHẦN CÒN LẠI (trừ thùng giữ). Server validate disposition
+  kho prefill + cap theo PHẦN CÒN LẠI (trừ thùng giữ). Trang phiếu hiện khối
+  "Thùng giữ lại (đã hủy chốt)" — VĂN PHÒNG xoá được TỪNG thùng tại đó (và ở trang
+  thùng): `box_delete_handler` cho office xoá thùng có `source_purchase_id` khi
+  phiếu đang MỞ (phiếu chốt/thùng đã dùng thì `_box_delete_lock` chặn; thùng khác
+  vẫn admin-only). Server validate disposition
   TRƯỚC khi claim (mã phải có trên phiếu, đúng SP thùng, thùng sống/còn hàng,
   không vượt trần cộng dồn theo SP) — lỗi trả 400, không chốt phiếu âm thầm.
   Event `purchase.goods_undone`. Chi tiết phiếu server gắn

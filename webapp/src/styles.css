@@ -2684,6 +2684,7 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
 .rg-open-btn { border: 1px dashed var(--primary); color: var(--primary); }
 .rg-summary { background: var(--ok-wash); border-color: #bfe3c8; }
 .rg-sum-line { font-size: .85rem; margin-top: 4px; }
+.rg-box-del { margin-left: 8px; padding: 1px 8px; }
 
 /* ===== Thống kê sử dụng (#/usage, admin) ===== */
 .usage-page { padding-bottom: 30px; }

@@ -697,10 +697,13 @@ def _box_delete_lock(conn, box: dict, allocs: list) -> dict | None:
 
 
 async def box_delete_handler(request: web.Request):
-    """Xoá HẲN 1 thùng — CHỈ admin. Cấm nếu khoá xoá (_box_delete_lock)."""
-    from server_app.order_api_common import is_admin_request
-    if not await is_admin_request(request):
-        return web.json_response({"ok": False, "error": "Chỉ admin mới được xoá thùng"}, status=403)
+    """Xoá HẲN 1 thùng — admin xoá mọi thùng; VĂN PHÒNG chỉ xoá thùng thuộc phiếu
+    NHẬP HÀNG đang MỞ khoá (sau hủy chốt — dọn thùng để nhập lại). Cấm nếu khoá
+    xoá (_box_delete_lock: đã xuất/chuyển, phiếu nhập đang chốt, phiếu trả đã xử lý)."""
+    from server_app.order_api_common import is_admin_request, is_office_request
+    is_admin = await is_admin_request(request)
+    if not is_admin and not await is_office_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng/admin mới được xoá thùng"}, status=403)
     try:
         box_id = int(request.match_info.get("box_id", ""))
     except (ValueError, TypeError):
@@ -717,6 +720,10 @@ async def box_delete_handler(request: web.Request):
             lock = _box_delete_lock(conn, box, list_box_allocations(conn, box_id))
             if lock:
                 return "locked", lock
+            # Văn phòng (không admin): chỉ thùng của phiếu nhập — mà phiếu đang
+            # chốt thì lock ở trên đã chặn, nên tới đây là phiếu ĐANG MỞ (hủy chốt).
+            if not is_admin and not box.get("source_purchase_id"):
+                return "forbidden", None
             del_snap.update(box_id=box_id, place_id=box.get("place_id"), box_code=box.get("box_code"),
                             product_code=box.get("product_code"), quantity=box.get("quantity"))
             src = box.get("source_thread_id")
@@ -748,6 +755,9 @@ async def box_delete_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
     if status == "locked":
         return web.json_response({"ok": False, "error": res["reason"]}, status=400)
+    if status == "forbidden":
+        return web.json_response({"ok": False, "error":
+            "Văn phòng chỉ xoá được thùng của phiếu nhập hàng đang mở — thùng khác cần admin"}, status=403)
     src, restored, src_purchase = res or (None, [], None)
     from server_app.realtime import (emit_inventory_changed, emit_box_changed,
                                      emit_production_changed, emit_purchase_changed)
