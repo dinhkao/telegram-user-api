@@ -858,15 +858,23 @@ async def box_detail_handler(request: web.Request):
                 else:
                     a["order_text"] = _order_first_line(conn, a.get("order_thread_id"))
             slip = get_slip(conn, box["source_thread_id"]) if box.get("source_thread_id") else None
+            src_purchase = None
+            if box.get("source_purchase_id"):
+                # thùng tạo từ phiếu NHẬP HÀNG → link nguồn về #/nhap-hang/:id
+                from purchase_store import get_purchase_full
+                pu = get_purchase_full(conn, int(box["source_purchase_id"]))
+                if pu:
+                    src_purchase = {"id": pu["id"], "supplier_name": pu.get("supplier_name"),
+                                    "created_at": pu.get("created_at")}
             # Thùng của phiếu ĐÓNG GÓI: liệt kê NL đã tiêu cho thùng này (ratio × số cây)
             # → client hiện popup xoá "đóng gói từ …, xoá sẽ hoàn NL".
             packed = []
             if slip and (slip.get("kind") or "san_xuat") == "dong_goi":
                 packed = recipe_needs(conn, box.get("product_code"), box.get("quantity") or 0)
-            return box, slip, allocs, packed
+            return box, slip, allocs, packed, src_purchase
         finally:
             conn.close()
-    box, slip, allocs, packed = await asyncio.to_thread(_run)
+    box, slip, allocs, packed, src_purchase = await asyncio.to_thread(_run)
     if not box:
         return web.json_response({"ok": False, "error": "Không tìm thấy thùng"}, status=404)
     used = sum(a.get("quantity") or 0 for a in allocs)
@@ -876,7 +884,7 @@ async def box_detail_handler(request: web.Request):
     if slip:
         source = {"thread_id": slip["thread_id"], "date": slip.get("date"), "sp_name": slip.get("sp_name")}
     return web.json_response({"ok": True, "box": box, "source_slip": source, "allocations": allocs,
-                              "packed_materials": packed})
+                              "source_purchase": src_purchase, "packed_materials": packed})
 
 
 async def box_update_handler(request: web.Request):

@@ -354,6 +354,16 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `purchase.paid`/`purchase.payment_deleted` (event_format + _PAIRS). UI: khối
   "Thanh toán NCC" ở PurchaseDetail (trả nhiều lần, admin gỡ), chip ✓ đã trả/nợ ở
   PurchasesList, link phiếu nhập trong timeline két.
+  **Nhập KHO hàng mua về (2026-07-16)**: cột `goods_handled_at/by/goods_result` trên
+  `purchase_slips` (claim nguyên tử như phiếu trả — 1 lần/phiếu). POST
+  `/api/purchases/{id}/handle-goods` (văn phòng, `server_app/purchase_goods_routes.py`
+  → orchestration thuần `server_app/purchase_goods.py`, tests/test_purchase_goods.py):
+  mỗi dòng `restock_new` (tạo thùng, gắn `inventory_boxes.source_purchase_id` → chi
+  tiết thùng link "Nguồn — Phiếu nhập hàng") | `restock_existing` (allocation ÂM
+  `kind='purchase_in'` qua `receive_purchase_stock` — remaining tăng, quantity gốc
+  giữ) | `skip`; SL = số THỰC NHẬN (sửa được). Đã nhập kho → phiếu KHOÁ sửa items +
+  chặn xoá. Event `purchase.goods_received`. UI: `detail/PurchaseGoodsModal.tsx`
+  (prompt sau tạo phiếu, cờ session `pg_open`), summary + chip 📦 kho.
   SP có 2 cờ `can_sell`/`can_purchase` (products, mặc định 1, sửa ở chi tiết SP
   `#/kho/:code` khối "Mua bán", admin): tắt → SP biến khỏi GỢI Ý picker tương ứng
   (bán = InvoiceEditor, nhập = PurchaseModal/PurchaseDetail — lọc client-side từ

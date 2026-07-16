@@ -3198,3 +3198,7 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
     50%      { transform: scale(1.12); box-shadow: 0 6px 18px rgba(0,0,0,.22); }
   }
 }
+
+/* Nhập kho hàng mua về (PurchaseGoodsModal) — SL thực nhận sửa được trên đầu dòng */
+.rg-qty-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rg-qty-input { width: 72px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; font-size: .95rem; text-align: right; background: var(--bg); color: inherit; }

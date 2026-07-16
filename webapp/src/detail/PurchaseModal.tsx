@@ -69,9 +69,15 @@ export function PurchaseModal({ supplierId, supplierName, onClose, onCreated }: 
     try {
       const r = await createPurchase(picked.id, parsed, note.trim());
       toast("Đã tạo phiếu nhập", "ok");
+      const pid = r?.purchase?.id;
+      // Prompt: nhập KHO hàng mua về ngay? — mở modal ở trang chi tiết (cờ session).
+      if (pid && await confirmDialog("Nhập kho hàng mua về ngay? (tạo thùng / cộng vào thùng có sẵn)",
+        { okLabel: "Nhập kho ngay", cancelLabel: "Để sau" })) {
+        sessionStorage.setItem("pg_open", String(pid));
+      }
       onCreated();
       onClose();
-      if (r?.purchase?.id) window.location.hash = `#/nhap-hang/${r.purchase.id}`;
+      if (pid) window.location.hash = `#/nhap-hang/${pid}`;
     } catch (e: any) {
       toast(e?.message || "Lỗi tạo phiếu nhập", "err");
     } finally {

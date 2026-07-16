@@ -357,6 +357,15 @@ export type PurchasePayment = {
   id: number; amount: number; box: string; by: string; at: string;
   by_name?: string; box_name?: string;   // server enrich — tên hiển thị
 };
+export type PurchaseGoodsResult = {
+  restocked_existing: { sp: string; quantity: number; box_id: number; box_code: string }[];
+  restocked_new: { sp: string; quantity: number; box_id: number; box_code: string }[];
+};
+export type PurchaseDisposition = {
+  sp: string; quantity: number;
+  action: "restock_existing" | "restock_new" | "skip";
+  box_id?: number; place_id?: number | null; unit_id?: number | null;
+};
 export type PurchaseSlip = {
   id: number; supplier_id: number; supplier_name?: string | null;
   items: { sp: string; sp_id?: number; name?: string; sl: number; price: number }[];
@@ -364,6 +373,7 @@ export type PurchaseSlip = {
   deleted_at?: string | null; deleted_by?: string | null;
   payments?: PurchasePayment[]; paid?: number;
   remaining?: number;   // còn nợ NCC — server tính (round Python), client hiển thị thẳng
+  goods_handled_at?: string | null; goods_handled_by?: string | null; goods_result?: PurchaseGoodsResult | null;
 };
 /** Danh sách NCC kèm thống kê (số phiếu, tổng tiền, lần nhập cuối). */
 export async function listSuppliers(): Promise<Supplier[]> {
@@ -412,6 +422,11 @@ export async function updatePurchase(id: number, items: { sp: string; sl: number
 }
 export async function deletePurchase(id: number): Promise<any> {
   return postJSON(`/api/purchases/${id}/delete`, {});
+}
+/** Nhập KHO hàng mua về (văn phòng, 1 lần/phiếu): thùng mới / thùng có sẵn / bỏ qua. */
+export async function handlePurchaseGoods(id: string | number, dispositions: PurchaseDisposition[]): Promise<{ purchase: PurchaseSlip; result: PurchaseGoodsResult }> {
+  const d = await postJSON(`/api/purchases/${Number(id)}/handle-goods`, { dispositions }, { queueable: false });
+  return { purchase: d.purchase, result: d.result };
 }
 
 export type DisposalSlip = {
@@ -1568,13 +1583,16 @@ export async function deleteProduct(code: string): Promise<any> {
 }
 
 export type InvSourceSlip = { thread_id: number; date?: string | null; sp_name?: string | null };
+export type InvSourcePurchase = { id: number; supplier_name?: string | null; created_at?: string | null };
 export type InvBoxDetail = { box: InvBox; source_slip: InvSourceSlip | null; allocations: Allocation[];
+  source_purchase?: InvSourcePurchase | null;
   packed_materials?: { code: string; amount: number }[] };
 
-/** Chi tiết 1 thùng: info + còn lại + phiếu SX nguồn + các đơn đã xuất. */
+/** Chi tiết 1 thùng: info + còn lại + phiếu nguồn (SX / nhập hàng) + các đơn đã xuất. */
 export async function boxDetail(id: string | number): Promise<InvBoxDetail | null> {
   const d = await getJSON(`/api/inventory/box/${id}`);
   return d.ok ? { box: d.box, source_slip: d.source_slip, allocations: d.allocations || [],
+    source_purchase: d.source_purchase || null,
     packed_materials: d.packed_materials || [] } : null;
 }
 

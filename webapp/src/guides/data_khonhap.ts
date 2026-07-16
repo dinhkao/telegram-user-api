@@ -106,6 +106,23 @@ export const GUIDES_KHONHAP: Guide[] = [
         </ol>
         <p class="muted small">Mỗi phiếu có <b>ảnh · trao đổi · lịch sử</b> riêng. Sửa hàng/ghi chú ở
         nút <b>Sửa</b> trong phiếu (văn phòng).</p>` },
+      { title: "Nhập kho hàng mua về", html: `
+        <p>Tạo phiếu xong app hỏi <b>「Nhập kho hàng mua về ngay?」</b> — hoặc bấm nút
+        <b>「Nhập kho hàng mua về」</b> trong chi tiết phiếu (văn phòng). Mỗi dòng hàng chọn:</p>
+        <ul>
+          <li><b>🆕 Tạo thùng mới</b> (mặc định) — chọn vị trí kho + đơn vị chứa; thùng mới
+            gắn link ngược về phiếu nhập.</li>
+          <li><b>📦 Nhập vào thùng có sẵn</b> — cộng tồn vào một thùng cùng mã SP đang còn hàng.</li>
+          <li><b>Bỏ qua</b> — hàng không quản kho.</li>
+        </ul>
+        <ul>
+          <li>Sửa được <b>số lượng thực nhận</b> nếu hàng về thiếu/vỡ so với phiếu.</li>
+          <li>Nhập kho <b>1 lần/phiếu</b>. Sau khi nhập, phiếu <b>khoá sửa hàng</b> và
+            <b>không xoá được</b> (hàng đã vào thùng); danh sách phiếu hiện chip
+            <span class="cash-badge ok">📦 kho</span>.</li>
+          <li>Xem thùng nào từ phiếu nào: chi tiết phiếu có khối <b>Đã nhập kho</b> link tới từng thùng;
+            chi tiết thùng có mục <b>Nguồn — Phiếu nhập hàng</b>.</li>
+        </ul>` },
       { title: "Trả tiền NCC từ két của mình", html: `
         <p>Trong chi tiết một phiếu nhập có khối <b>Thanh toán NCC</b>. Bấm
         <b>「Trả từ két của tôi」</b> → nhập số tiền → xác nhận. Tiền <b>trừ thẳng vào két của bạn</b>,

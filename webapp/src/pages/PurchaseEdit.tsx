@@ -48,10 +48,12 @@ export function PurchaseEdit({ id }: { id: string }) {
     .filter((line) => line.sp && isFinite(line.sl) && line.sl > 0 && isFinite(line.price) && line.price >= 0);
   const total = parsed.reduce((sum, line) => sum + line.sl * line.price, 0);
   const deleted = !!purchase?.deleted_at;
+  const goodsHandled = !!purchase?.goods_handled_at;   // đã nhập kho → khoá sửa (server cũng chặn)
 
   const save = async () => {
     if (!office) return toast("Chỉ văn phòng mới được sửa phiếu nhập", "info");
     if (deleted) return toast("Phiếu đã bị xoá, không thể sửa", "info");
+    if (goodsHandled) return toast("Phiếu đã nhập kho — không sửa hàng được nữa", "info");
     if (!parsed.length) return toast("Cần ít nhất 1 dòng hàng hợp lệ", "info");
     setBusy(true);
     try {
@@ -90,8 +92,13 @@ export function PurchaseEdit({ id }: { id: string }) {
           <Icon name="lock" size={14} /> Phiếu đã bị xoá{purchase.deleted_by ? ` bởi ${purchase.deleted_by}` : ""} — không thể sửa.
         </div>
       )}
+      {goodsHandled && !deleted && (
+        <div class="card co-adv-locked muted small">
+          <Icon name="lock" size={14} /> Phiếu đã nhập kho — hàng đã vào thùng, không sửa được nữa.
+        </div>
+      )}
 
-      {office && !deleted && (
+      {office && !deleted && !goodsHandled && (
         <section class="card pur-edit-card">
           <div class="card-label"><Icon name="box" size={15} /> Hàng nhập</div>
           <div class="ret-sheet">

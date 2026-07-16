@@ -35,6 +35,10 @@ def ensure_purchases_schema(conn) -> None:
     cols = {row[1] for row in conn.execute("PRAGMA table_info(purchase_slips)")}
     if "payments" not in cols:   # 2026-07-14: trả tiền NCC từ két (JSON list)
         conn.execute("ALTER TABLE purchase_slips ADD COLUMN payments TEXT")
+    # 2026-07-16: nhập kho hàng mua về (thùng có sẵn / thùng mới) — như hàng trả
+    for name in ("goods_handled_at", "goods_handled_by", "goods_result"):
+        if name not in cols:
+            conn.execute(f"ALTER TABLE purchase_slips ADD COLUMN {name} TEXT")
     conn.commit()
 
 
@@ -47,6 +51,11 @@ def _row_to_dict(r) -> dict:
         d["items"] = []
     d["payments"] = _parse(d.get("payments"))
     d["paid"] = paid_total(d["payments"])
+    if d.get("goods_result"):
+        try:
+            d["goods_result"] = json.loads(d["goods_result"])
+        except (TypeError, ValueError):
+            d["goods_result"] = None
     # remaining tính 1 chỗ (Python round) — client hiển thị thẳng, khỏi lệch
     # Math.round(JS) vs round(Python) khi total lẻ
     d["remaining"] = int(round(float(d.get("total") or 0))) - d["paid"]
@@ -140,6 +149,29 @@ def update_purchase_items(conn, purchase_id: int, items: list[dict], total: floa
                 "UPDATE purchase_slips SET items = ?, total = ?, note = ? WHERE id = ?",
                 (json.dumps(items, ensure_ascii=False), float(total), note or "", purchase_id))
     return True, ""
+
+
+def claim_goods_handling(conn, purchase_id: int, by: str = "") -> bool:
+    """GIÀNH quyền nhập kho hàng mua về (compare-and-set nguyên tử) — đặt
+    goods_handled_at CHỈ khi còn NULL. False = đã có người nhập (chặn 2 request
+    đồng thời double-apply vào kho). Gọi TRƯỚC khi thao tác kho."""
+    ensure_purchases_schema(conn)
+    cur = conn.execute(
+        "UPDATE purchase_slips SET goods_handled_at = ?, goods_handled_by = ? "
+        "WHERE id = ? AND goods_handled_at IS NULL",
+        (_now_vn(), by or "", purchase_id))
+    conn.commit()
+    return cur.rowcount == 1
+
+
+def set_goods_result(conn, purchase_id: int, result: dict) -> bool:
+    """Lưu tóm tắt kết quả nhập kho (sau khi đã giành quyền + thao tác xong).
+    result = {restocked_existing:[], restocked_new:[], skipped:[]}."""
+    ensure_purchases_schema(conn)
+    conn.execute("UPDATE purchase_slips SET goods_result = ? WHERE id = ?",
+                 (json.dumps(result, ensure_ascii=False), purchase_id))
+    conn.commit()
+    return True
 
 
 def soft_delete_purchase(conn, purchase_id: int, by: str = "") -> bool:

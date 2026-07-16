@@ -439,11 +439,16 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
       </section>
 
       <section class="card">
-        <label class="card-label">Nguồn — Phiếu sản xuất</label>
+        <label class="card-label">Nguồn — {d.source_purchase ? "Phiếu nhập hàng" : "Phiếu sản xuất"}</label>
         {d.source_slip ? (
           <a class="box-jump" href={`#/san_xuat/${d.source_slip.thread_id}?focus=box:${b.id}`}>
             <Icon name="factory" size={16} /> {d.source_slip.sp_name || b.product_code}
             {d.source_slip.date ? ` · ${d.source_slip.date}` : ""} →
+          </a>
+        ) : d.source_purchase ? (
+          <a class="box-jump" href={`#/nhap-hang/${d.source_purchase.id}`}>
+            <Icon name="truck" size={16} /> Nhập hàng {d.source_purchase.supplier_name ? `NCC ${d.source_purchase.supplier_name}` : `#${d.source_purchase.id}`}
+            {d.source_purchase.created_at ? ` · ${d.source_purchase.created_at.slice(8, 10)}/${d.source_purchase.created_at.slice(5, 7)}` : ""} →
           </a>
         ) : (
           <div class="muted small">Không rõ phiếu nguồn.</div>
@@ -561,6 +566,18 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
                     <a class="box-jump" href={`#/xuat-huy/${a.order_thread_id}`}>
                       <Icon name="trash" size={16} />{" "}
                       Xuất hủy phiếu #{a.order_thread_id} · −{soVN(a.quantity)}
+                      {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
+                    </a>
+                  </li>
+                );
+              }
+              if (kind === "purchase_in") {
+                // allocation ÂM → nhập thêm remaining; order_thread_id = id phiếu nhập
+                return (
+                  <li key={a.allocation_id}>
+                    <a class="box-jump" href={`#/nhap-hang/${a.order_thread_id}`}>
+                      <Icon name="truck" size={16} />{" "}
+                      Nhận hàng mua về (phiếu nhập #{a.order_thread_id}) · +{soVN(Math.abs(a.quantity))}
                       {a.allocated_by ? ` · ${a.allocated_by}` : ""} →
                     </a>
                   </li>

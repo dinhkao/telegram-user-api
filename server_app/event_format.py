@@ -200,6 +200,17 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
                      [part(money(p.get("total")))] if p.get("total") is not None else [],
                      [part(f"HĐ {p.get('kv_code')}")] if p.get("kv_code") else []])
         return label, seg
+    if action == "purchase.goods_received":
+        res = p.get("result") or {}
+        ne, nn = len(res.get("restocked_existing") or []), len(res.get("restocked_new") or [])
+        bits = []
+        if ne:
+            bits.append([part(f"nhập {ne} thùng có sẵn")])
+        if nn:
+            bits.append([part(f"tạo {nn} thùng mới")])
+        if not bits:
+            bits.append([part("không nhập kho mục nào")])
+        return "Nhập kho hàng mua về", _join(bits)
     if action in ("purchase.created", "purchase.deleted"):
         name = resolver.supplier_name(p.get("supplier_id")) if resolver else None
         seg = _join([[part(name or f"NCC #{p.get('supplier_id')}", href_for("supplier", p.get("supplier_id")))] if p.get("supplier_id") else [],

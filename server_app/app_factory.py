@@ -392,6 +392,8 @@ def create_app():
     r.add_post("/api/purchases/{id}/delete", purchase_delete_handler)
     r.add_post("/api/purchases/{id}/pay", purchase_pay_handler)                 # trả NCC từ két
     r.add_post("/api/purchases/{id}/payments/{pid}/delete", purchase_payment_delete_handler)  # admin
+    from server_app.purchase_goods_routes import purchase_handle_goods_handler
+    r.add_post("/api/purchases/{id}/handle-goods", purchase_handle_goods_handler)  # nhập kho hàng mua
     from server_app.disposal_routes import (disposal_create_handler, disposal_delete_handler,
                                             disposal_detail_handler, disposals_all_handler)
     r.add_get("/api/disposals", disposals_all_handler)

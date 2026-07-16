@@ -222,6 +222,10 @@ async def purchase_update_handler(request: web.Request):
     row = await asyncio.to_thread(_get_purchase_closed, pid)
     if not row or row.get("deleted_at"):
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu nhập"}, status=404)
+    if row.get("goods_handled_at"):
+        # hàng đã vào thùng theo phiếu này — sửa items sau đó sẽ lệch kho
+        return web.json_response(
+            {"ok": False, "error": "Phiếu đã nhập kho — không sửa hàng được nữa"}, status=400)
 
     def _upd():
         conn = get_connection()
@@ -370,6 +374,10 @@ async def purchase_delete_handler(request: web.Request):
         return web.json_response(
             {"ok": False, "error": f"Phiếu còn {len(row['payments'])} lần trả tiền — gỡ các lần trả trước khi xoá phiếu"},
             status=400)
+    if row.get("goods_handled_at"):
+        # hàng đã vào thùng kho — xoá phiếu sẽ mồ côi thùng/allocation nguồn
+        return web.json_response(
+            {"ok": False, "error": "Phiếu đã nhập kho — không xoá được (hàng đã vào thùng)"}, status=400)
     actor = _actor(request)
 
     def _del_slip():
