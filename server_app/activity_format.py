@@ -63,6 +63,7 @@ _PAIRS = {
     "POST /api/purchases": ("purchase.created",),
     "POST /api/purchases/{id}/pay": ("purchase.paid",),
     "POST /api/purchases/{id}/handle-goods": ("purchase.goods_received",),
+    "POST /api/purchases/{id}/undo-goods": ("purchase.goods_undone",),
     "POST /api/purchases/{id}/payments/{id}/delete": ("purchase.payment_deleted",),
     "POST /api/suppliers": ("supplier.created",),
     "POST /api/quy": ("quy.created",),

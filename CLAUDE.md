@@ -364,6 +364,14 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   giữ) | `skip`; SL = số THỰC NHẬN (sửa được). Đã nhập kho → phiếu KHOÁ sửa items +
   chặn xoá. Event `purchase.goods_received`. UI: `detail/PurchaseGoodsModal.tsx`
   (prompt sau tạo phiếu, cờ session `pg_open`), summary + chip 📦 kho.
+  **HỦY CHỐT nhập kho (admin, 2026-07-16)**: POST `/api/purchases/{id}/undo-goods`
+  (`purchase_goods.undo_purchase_receipt` — all-or-nothing: xoá thùng mới + gỡ
+  allocation purchase_in + clear goods_handled_* → phiếu mở khoá sửa/nhập lại;
+  CHẶN nếu hàng đã dùng: thùng mới có lần xuất/chuyển, hoặc remaining thùng có
+  sẵn < số đã cộng). Event `purchase.goods_undone`. Chi tiết phiếu server gắn
+  `boxes` (info + remaining, `attach_purchase_boxes`) → UI vẽ Ô THÙNG
+  (BoxLabelGrid) trong khối "Đã nhập kho" + nút Hủy chốt; items gắn `base_unit`
+  (đơn vị gốc SP) để bảng hàng nhập luôn hiện đơn vị.
   **Đơn vị nhập trên dòng phiếu (2026-07-16)**: item nhận thêm `unit`/`unit_factor`
   (snapshot từ `product_units` — SL + giá tính theo đơn vị đã chọn, 1 unit =
   factor đơn vị gốc; `_parse_items` validate, đơn vị xấu chỉ rơi phần unit).

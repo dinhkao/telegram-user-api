@@ -5,10 +5,11 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import {
-  getPurchase, deletePurchase, payPurchase, deletePurchasePayment,
+  getPurchase, deletePurchase, payPurchase, deletePurchasePayment, undoPurchaseGoods,
   currentUser, isOffice, soVN, type PurchaseSlip,
 } from "../api";
 import { onRealtime } from "../realtime";
+import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
@@ -202,9 +203,9 @@ export function PurchaseDetail({ id }: { id: string }) {
                 <td>{x.sp
                       ? <a class="pt-inl" href={`#/kho/${encodeURIComponent(x.sp)}`}><b>{x.sp}</b></a>
                       : <b>{x.sp}</b>}</td>
-                <td>{soVN(x.sl)}{x.unit ? <span class="muted"> {x.unit}</span> : ""}
+                <td>{soVN(x.sl)}{(x.unit || x.base_unit) ? <span class="muted"> {x.unit || x.base_unit}</span> : ""}
                   {x.unit && (x.unit_factor || 0) > 0
-                    ? <div class="muted small">= {soVN(x.sl * (x.unit_factor || 1))}</div> : null}</td>
+                    ? <div class="muted small">= {soVN(x.sl * (x.unit_factor || 1))}{x.base_unit ? ` ${x.base_unit}` : ""}</div> : null}</td>
                 <td>{soVN(x.price)}</td>
                 <td>{soVN(x.sl * x.price)}</td>
               </tr>
@@ -225,14 +226,37 @@ export function PurchaseDetail({ id }: { id: string }) {
                   ? <span class="muted" style={{ textDecoration: "line-through" }}>(thùng {x.box_code || `#${x.box_id}`} — đã xoá)</span>
                   : <>(<a href={`#/thung/${x.box_id}`}>thùng {x.box_code || `#${x.box_id}`}</a>)</>}</span>
             ));
+          const doUndo = async () => {
+            if (!(await confirmDialog(
+              "Hủy chốt nhập kho phiếu này?\nThùng mới tạo từ phiếu sẽ bị XOÁ, phần đã cộng vào thùng có sẵn sẽ bị trừ lại. Chỉ được khi hàng CHƯA dùng vào đâu.",
+              { danger: true, okLabel: "Hủy chốt" }))) return;
+            setBusy(true);
+            try {
+              await undoPurchaseGoods(r.id);
+              toast("Đã hủy chốt nhập kho — phiếu sửa lại được", "ok");
+              load();
+            } catch (e: any) {
+              toast(e?.message || "Không hủy chốt được", "err");
+            } finally { setBusy(false); }
+          };
           return (
             <section class="card rg-summary">
-              <label class="card-label"><Icon name="check" size={15} /> Đã nhập kho</label>
+              <label class="card-label"><Icon name="check" size={15} /> Đã nhập kho
+                {isAdmin && (
+                  <button class="btn small rg-undo-btn" disabled={busy} onClick={doUndo}
+                    title="Xoá thùng đã nhập, mở khoá sửa phiếu — chặn nếu hàng đã dùng">
+                    <Icon name="refresh" size={13} /> Hủy chốt
+                  </button>
+                )}
+              </label>
               <div class="muted small">{r.goods_handled_by || ""}{r.goods_handled_at ? ` · ${r.goods_handled_at.slice(8, 10)}/${r.goods_handled_at.slice(5, 7)} ${r.goods_handled_at.slice(11, 16)}` : ""}</div>
               {gr.restocked_new?.length > 0 && <div class="rg-sum-line">🆕 Thùng mới: {line(gr.restocked_new)}</div>}
               {gr.restocked_existing?.length > 0 && <div class="rg-sum-line">📦 Nhập thùng có sẵn: {line(gr.restocked_existing)}</div>}
               {!gr.restocked_new?.length && !gr.restocked_existing?.length &&
                 <div class="rg-sum-line muted">Không nhập kho mục nào (đã bỏ qua).</div>}
+              {(r.boxes || []).length > 0 && (
+                <div class="rg-boxes"><BoxLabelGrid boxes={r.boxes as any} dense /></div>
+              )}
             </section>
           );
         }

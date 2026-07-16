@@ -368,8 +368,9 @@ export type PurchaseDisposition = {
   box_id?: number; place_id?: number | null; unit_id?: number | null;
 };
 /** 1 dòng hàng phiếu nhập — unit/unit_factor = ĐƠN VỊ NHẬP đã chọn (snapshot quy
- *  đổi: 1 unit = unit_factor đơn vị gốc); thiếu = nhập theo đơn vị gốc. */
-export type PurchaseItem = { sp: string; sp_id?: number; name?: string; sl: number; price: number; unit?: string; unit_factor?: number };
+ *  đổi: 1 unit = unit_factor đơn vị gốc); thiếu = nhập theo đơn vị gốc.
+ *  base_unit = đơn vị gốc của SP (server gắn lúc đọc — chỉ để hiển thị). */
+export type PurchaseItem = { sp: string; sp_id?: number; name?: string; sl: number; price: number; unit?: string; unit_factor?: number; base_unit?: string };
 export type PurchaseSlip = {
   id: number; supplier_id: number; supplier_name?: string | null;
   items: PurchaseItem[];
@@ -378,6 +379,7 @@ export type PurchaseSlip = {
   payments?: PurchasePayment[]; paid?: number;
   remaining?: number;   // còn nợ NCC — server tính (round Python), client hiển thị thẳng
   goods_handled_at?: string | null; goods_handled_by?: string | null; goods_result?: PurchaseGoodsResult | null;
+  boxes?: KhoBox[];     // thùng đã nhập kho từ phiếu (server gắn ở detail) — vẽ ô thùng
 };
 /** Danh sách NCC kèm thống kê (số phiếu, tổng tiền, lần nhập cuối). */
 export async function listSuppliers(): Promise<Supplier[]> {
@@ -431,6 +433,11 @@ export async function deletePurchase(id: number): Promise<any> {
 export async function handlePurchaseGoods(id: string | number, dispositions: PurchaseDisposition[]): Promise<{ purchase: PurchaseSlip; result: PurchaseGoodsResult }> {
   const d = await postJSON(`/api/purchases/${Number(id)}/handle-goods`, { dispositions }, { queueable: false });
   return { purchase: d.purchase, result: d.result };
+}
+/** HỦY CHỐT nhập kho (admin) — xoá thùng mới + gỡ cộng kho; server chặn nếu hàng đã dùng. */
+export async function undoPurchaseGoods(id: string | number): Promise<{ purchase: PurchaseSlip }> {
+  const d = await postJSON(`/api/purchases/${Number(id)}/undo-goods`, {}, { queueable: false });
+  return { purchase: d.purchase };
 }
 
 export type DisposalSlip = {

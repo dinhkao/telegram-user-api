@@ -164,6 +164,18 @@ def claim_goods_handling(conn, purchase_id: int, by: str = "") -> bool:
     return cur.rowcount == 1
 
 
+def clear_goods_handling(conn, purchase_id: int) -> bool:
+    """HỦY CHỐT nhập kho: xoá dấu goods_handled_* + goods_result → phiếu sửa lại
+    được, nhập kho lại được. Caller (purchase_goods.undo_purchase_receipt) phải
+    hoàn kho TRƯỚC (xoá thùng mới / gỡ allocation purchase_in)."""
+    ensure_purchases_schema(conn)
+    conn.execute(
+        "UPDATE purchase_slips SET goods_handled_at = NULL, goods_handled_by = NULL, goods_result = NULL"
+        " WHERE id = ?", (purchase_id,))
+    conn.commit()
+    return True
+
+
 def set_goods_result(conn, purchase_id: int, result: dict) -> bool:
     """Lưu tóm tắt kết quả nhập kho (sau khi đã giành quyền + thao tác xong).
     result = {restocked_existing:[], restocked_new:[], skipped:[]}."""

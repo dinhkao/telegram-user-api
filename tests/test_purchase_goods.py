@@ -113,6 +113,62 @@ class PurchaseGoodsTest(unittest.TestCase):
         row2 = mark_deleted_boxes(self.conn, purchase_store.get_purchase(self.conn, self.pu["id"]))
         self.assertTrue(row2["goods_result"]["restocked_new"][0]["box_deleted"])
 
+    # ── HỦY CHỐT nhập kho (undo_purchase_receipt) ──
+    def _receive_both(self):
+        extra, err = apply_purchase_receipt(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 20, "action": "restock_existing", "box_id": self.box["id"]},
+             {"sp": "KEO1", "quantity": 15, "action": "restock_new"}], actor="lan")
+        self.assertIsNone(err)
+        return extra["result"]["restocked_new"][0]["box_id"]
+
+    def test_undo_receipt_full_revert(self):
+        from server_app.purchase_goods import undo_purchase_receipt
+        new_id = self._receive_both()
+        info, err = undo_purchase_receipt(self.conn, self.pu["id"])
+        self.assertIsNone(err)
+        self.assertIn(new_id, info["deleted_boxes"])
+        self.assertIsNone(get_box(self.conn, new_id))            # thùng mới bị xoá
+        self.assertEqual(self._rem(self.box["id"]), 100)         # thùng có sẵn về như cũ
+        got = purchase_store.get_purchase(self.conn, self.pu["id"])
+        self.assertIsNone(got["goods_handled_at"])               # phiếu mở khoá lại
+        self.assertIsNone(got["goods_result"])
+        # nhập kho LẠI được sau khi hủy chốt
+        _, err2 = apply_purchase_receipt(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 5, "action": "restock_new"}], actor="lan")
+        self.assertIsNone(err2)
+
+    def test_undo_blocked_when_new_box_used(self):
+        from inventory_store.allocations import allocate_picks
+        from server_app.purchase_goods import undo_purchase_receipt
+        new_id = self._receive_both()
+        allocate_picks(self.conn, [{"box_id": new_id, "quantity": 3}], 555)   # đã xuất cho đơn
+        info, err = undo_purchase_receipt(self.conn, self.pu["id"])
+        self.assertIsNotNone(err)
+        self.assertIn("đã được dùng", err)
+        self.assertIsNotNone(get_box(self.conn, new_id))                       # KHÔNG xoá gì (all-or-nothing)
+        self.assertEqual(self._rem(self.box["id"]), 120)
+        self.assertIsNotNone(purchase_store.get_purchase(self.conn, self.pu["id"])["goods_handled_at"])
+
+    def test_undo_blocked_when_received_stock_consumed(self):
+        from inventory_store.allocations import allocate_picks
+        from server_app.purchase_goods import undo_purchase_receipt
+        apply_purchase_receipt(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 20, "action": "restock_existing", "box_id": self.box["id"]}],
+            actor="lan")
+        # tiêu 110/120 → remaining 10 < 20 đã cộng ⇒ phần hàng nhập đã bị dùng
+        allocate_picks(self.conn, [{"box_id": self.box["id"], "quantity": 110}], 556)
+        info, err = undo_purchase_receipt(self.conn, self.pu["id"])
+        self.assertIsNotNone(err)
+        self.assertIn("đã dùng một phần", err)
+
+    def test_undo_requires_handled(self):
+        from server_app.purchase_goods import undo_purchase_receipt
+        _, err = undo_purchase_receipt(self.conn, self.pu["id"])
+        self.assertIn("chưa chốt", err)
+
     def test_not_found_and_deleted(self):
         _, err = apply_purchase_receipt(self.conn, 999, [], actor="lan")
         self.assertEqual(err, "not_found")

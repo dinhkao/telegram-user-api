@@ -72,11 +72,25 @@ def _normalize_items(conn, items: list[dict]) -> list[dict]:
 
 
 def _items_display(conn, row: dict | None) -> dict | None:
-    """Mã/tên item hiển thị = bản hiện hành (fallback snapshot) + tên người/két
-    cho payments ('tri'/'user:tri' → 'Trí'/'Két Trí' — nhất quán trang Két)."""
+    """Mã/tên item hiển thị = bản hiện hành (fallback snapshot) + ĐƠN VỊ GỐC của SP
+    (base_unit — bảng hàng nhập hiện đơn vị cả khi không chọn đơn vị quy đổi) + tên
+    người/két cho payments ('tri'/'user:tri' → 'Trí'/'Két Trí' — nhất quán trang Két)."""
     if row and row.get("items"):
         from order_store.display import resolve_invoice_display
-        row = {**row, "items": resolve_invoice_display(row["items"], conn)}
+        items = resolve_invoice_display(row["items"], conn)
+        try:
+            from product_store.queries import get_all_products
+            prods = get_all_products(conn)
+            by_id = {p.get("id"): p for p in prods}
+            by_code = {str(p.get("code") or "").upper(): p for p in prods}
+            items = [dict(it) for it in items]
+            for it in items:
+                p = by_id.get(it.get("sp_id")) or by_code.get(str(it.get("sp") or "").upper())
+                if p:
+                    it["base_unit"] = p.get("unit") or "cây"
+        except Exception:  # noqa: BLE001 — enrich hỏng vẫn trả items thô
+            pass
+        row = {**row, "items": items}
     if row and row.get("payments"):
         try:
             from cashbox_store.identity import BOX_NAMES, box_display
@@ -152,11 +166,13 @@ async def purchase_detail_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
 
     def _get():
-        from server_app.purchase_goods import mark_deleted_boxes
+        from server_app.purchase_goods import attach_purchase_boxes, mark_deleted_boxes
         conn = get_connection()
         try:
             # gắn box_deleted cho thùng đã bị admin xoá — UI hiện 'đã xoá' thay link chết
-            return mark_deleted_boxes(conn, _items_display(conn, get_purchase_full(conn, pid)))
+            # + boxes (info đầy đủ) → trang chi tiết vẽ Ô THÙNG như trong đơn hàng
+            return attach_purchase_boxes(
+                conn, mark_deleted_boxes(conn, _items_display(conn, get_purchase_full(conn, pid))))
         finally:
             conn.close()
     row = await asyncio.to_thread(_get)

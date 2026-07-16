@@ -123,8 +123,13 @@ export const GUIDES_KHONHAP: Guide[] = [
           <li>Nhập kho <b>1 lần/phiếu</b>. Sau khi nhập, phiếu <b>khoá sửa hàng</b> và
             <b>không xoá được</b> (hàng đã vào thùng); danh sách phiếu hiện chip
             <span class="cash-badge ok">📦 kho</span>.</li>
-          <li>Xem thùng nào từ phiếu nào: chi tiết phiếu có khối <b>Đã nhập kho</b> link tới từng thùng;
-            chi tiết thùng có mục <b>Nguồn — Phiếu nhập hàng</b>.</li>
+          <li>Xem thùng nào từ phiếu nào: chi tiết phiếu có khối <b>Đã nhập kho</b> — hiện
+            <b>ô thùng</b> (như trong đơn hàng) + link tới từng thùng; chi tiết thùng có mục
+            <b>Nguồn — Phiếu nhập hàng</b>.</li>
+          <li><b>Hủy chốt nhập kho</b> (admin, nút trong khối Đã nhập kho): xoá thùng mới tạo
+            từ phiếu + trừ lại phần đã cộng vào thùng có sẵn → phiếu <b>mở khoá sửa</b> và nhập
+            kho lại được. <b>Bị chặn</b> nếu hàng nhập đã được dùng (thùng đã xuất/chuyển,
+            hoặc phần cộng thêm đã tiêu).</li>
         </ul>` },
       { title: "Trả tiền NCC từ két của mình", html: `
         <p>Trong chi tiết một phiếu nhập có khối <b>Thanh toán NCC</b>. Bấm
