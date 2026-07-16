@@ -31,10 +31,13 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
     const load = () =>
       phieuWages(threadId).then((d) => { if (ok) { setWage(d.wage); setDefaultWage(d.default_wage); setAllow(d.allowances || {}); setHourly(d.hourly_rates || {}); setLoaded(true); } }).catch(() => { if (ok) setLoaded(true); });
     load();
-    // đổi tiền 1 giờ / bảng lương từ máy khác → tải lại đơn giá (khỏi kẹt số cũ)
+    // đổi tiền 1 giờ / bảng lương từ máy khác → tải lại đơn giá (khỏi kẹt số cũ).
+    // production_changed của CHÍNH phiếu: lưu báo cáo có thể vừa áp PHỤ CẤP TỰ ĐỘNG
+    // theo ghi chú (allowance_auto) → tải lại để hiện số mới.
     let t: any;
     const off = onRealtime((e) => {
-      if (e.type === "workers_changed" || e.type === "productions_changed") {
+      if (e.type === "workers_changed" || e.type === "productions_changed"
+        || (e.type === "production_changed" && String((e as any).thread_id || "") === String(threadId))) {
         clearTimeout(t); t = setTimeout(load, 400);
       }
     });

@@ -195,6 +195,12 @@ def set_bang(conn, thread_id, bang) -> bool:
         replace_report_rows(conn, thread_id, bang)
     except Exception:
         pass
+    # PHỤ CẤP TỰ ĐỘNG theo ghi chú (Kim vít → cao nhất, nghỉ → xoá…). Phụ — không chặn lưu.
+    try:
+        from production_store.allowance_auto import apply_auto_allowances
+        apply_auto_allowances(conn, thread_id, bang)
+    except Exception:
+        pass
     return ok
 
 
