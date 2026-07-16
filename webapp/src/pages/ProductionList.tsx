@@ -20,8 +20,20 @@ import { Loading, EmptyState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
 // Cache list đã tải → quay lại giữ nguyên + hệ cuộn khôi phục vị trí (khỏi tải lại).
-let prodCache: { slips: ProdSlip[]; page: number; totalPages: number; kind: string; day: string } | null = null;
+let prodCache: { slips: ProdSlip[]; page: number; totalPages: number; kind: string; day: string; mm?: boolean } | null = null;
 type KindF = "" | "san_xuat" | "dong_goi";
+
+// Lọc "LỆCH NHẬP" — CÙNG RULE server (_mismatch_sql) + badge card: phiếu SX từ
+// 10/07/2026 có báo cáo thợ mà tổng nhập thùng lệch tổng báo cáo >1%.
+const MM_SINCE = "20260710";
+function slipMismatch(s: ProdSlip): boolean {
+  if ((s.kind || "san_xuat") === "dong_goi") return false;
+  if (slipDayCode(s) < MM_SINCE) return false;
+  if (s.report_total === undefined) return true;   // row realtime thiếu số liệu → giữ, reload sau chỉnh
+  const rep = s.report_total || 0;
+  if (rep <= 0) return false;
+  return Math.abs((s.boxed_total ?? 0) - rep) > rep * 0.01;
+}
 
 // Mã ngày 'YYYYMMDD' của 1 phiếu (từ date_code lúc tạo; fallback date "DD/MM/YYYY").
 function slipDayCode(s: ProdSlip): string {
@@ -33,12 +45,12 @@ const dayToCode = (d: string) => d.replace(/-/g, "");   // "YYYY-MM-DD" → "YYY
 
 // Lưu bộ lọc (kind + ngày) vào localStorage → NHỚ qua cả reload / mở lại app.
 const PROD_FILTER_KEY = "prod_filter_v1";
-function loadFilter(): { kind: KindF; day: string } {
-  try { const j = JSON.parse(localStorage.getItem(PROD_FILTER_KEY) || "{}"); return { kind: (j.kind || "") as KindF, day: j.day || "" }; }
-  catch { return { kind: "", day: "" }; }
+function loadFilter(): { kind: KindF; day: string; mm: boolean } {
+  try { const j = JSON.parse(localStorage.getItem(PROD_FILTER_KEY) || "{}"); return { kind: (j.kind || "") as KindF, day: j.day || "", mm: !!j.mm }; }
+  catch { return { kind: "", day: "", mm: false }; }
 }
-function saveFilter(kind: KindF, day: string) {
-  try { localStorage.setItem(PROD_FILTER_KEY, JSON.stringify({ kind, day })); } catch { /* im */ }
+function saveFilter(kind: KindF, day: string, mm = false) {
+  try { localStorage.setItem(PROD_FILTER_KEY, JSON.stringify({ kind, day, mm })); } catch { /* im */ }
 }
 const dayVN = (d: string) => { const [, m, dd] = d.split("-"); return dd && m ? `${dd}/${m}` : d; };   // nhãn ngắn
 
@@ -60,7 +72,8 @@ onRealtime((e) => {
   // không thấy phiếu, phải reload).
   const row = e.row as ProdSlip;
   const matches = (!prodCache.kind || (row.kind || "san_xuat") === prodCache.kind)
-    && (!prodCache.day || slipDayCode(row) === dayToCode(prodCache.day));
+    && (!prodCache.day || slipDayCode(row) === dayToCode(prodCache.day))
+    && (!prodCache.mm || slipMismatch(row));
   if (idx >= 0) {
     prodCache = matches
       ? { ...prodCache, slips: prodCache.slips.map((s, i) => (i === idx ? { ...s, ...row } : s)) }
@@ -82,6 +95,8 @@ export function ProductionList() {
   const kindFRef = useRef<KindF>("");
   const [dayF, setDayF] = useState("");            // lọc 1 ngày ("YYYY-MM-DD"), "" = mọi ngày
   const dayFRef = useRef("");
+  const [mmF, setMmF] = useState(false);           // lọc phiếu SX LỆCH NHẬP (từ 10/07/2026)
+  const mmFRef = useRef(false);
   const st = useRef({ page: 1, totalPages: 1, loading: false });
   const sentinel = useRef<HTMLDivElement>(null);
   // Thùng theo phiếu (source_thread_id) — 1 lần gọi allBoxes, gom nhóm
@@ -107,7 +122,7 @@ export function ProductionList() {
     st.current.loading = true;
     if (!append) setLoading(true);
     try {
-      const r = await listProduction(page, kindFRef.current || undefined, dayFRef.current ? dayToCode(dayFRef.current) : undefined);
+      const r = await listProduction(page, kindFRef.current || undefined, dayFRef.current ? dayToCode(dayFRef.current) : undefined, mmFRef.current);
       st.current.page = r.page;
       st.current.totalPages = r.total_pages;
       setTotal(r.total);
@@ -124,6 +139,7 @@ export function ProductionList() {
     if (prodCache) {   // quay lại → dựng lại list đã tải (giữ đúng bộ lọc đã xem)
       kindFRef.current = prodCache.kind as KindF; setKindF(prodCache.kind as KindF);
       dayFRef.current = prodCache.day || ""; setDayF(prodCache.day || "");
+      mmFRef.current = !!prodCache.mm; setMmF(!!prodCache.mm);
       setSlips(prodCache.slips);
       st.current.page = prodCache.page;
       st.current.totalPages = prodCache.totalPages;
@@ -131,6 +147,7 @@ export function ProductionList() {
       const f = loadFilter();   // nhớ bộ lọc qua reload / mở lại app
       kindFRef.current = f.kind; setKindF(f.kind);
       dayFRef.current = f.day; setDayF(f.day);
+      mmFRef.current = f.mm; setMmF(f.mm);
       load(1, false);
     }
     productionCatalog().then(setCatalog).catch(() => {});
@@ -139,20 +156,27 @@ export function ProductionList() {
   const slipsRef = useRef<ProdSlip[]>([]);
   slipsRef.current = slips;
   useEffect(() => () => {
-    if (slipsRef.current.length) prodCache = { slips: slipsRef.current, page: st.current.page, totalPages: st.current.totalPages, kind: kindFRef.current, day: dayFRef.current };
+    if (slipsRef.current.length) prodCache = { slips: slipsRef.current, page: st.current.page, totalPages: st.current.totalPages, kind: kindFRef.current, day: dayFRef.current, mm: mmFRef.current };
   }, []);
 
   const applyFilter = (k: KindF) => {
     if (k === kindFRef.current) return;
     kindFRef.current = k; setKindF(k); prodCache = null;
-    saveFilter(k, dayFRef.current);
+    saveFilter(k, dayFRef.current, mmFRef.current);
     setSlips([]); st.current.page = 1; st.current.totalPages = 1;
     load(1, false);
   };
   const applyDayFilter = (day: string) => {
     if (day === dayFRef.current) return;
     dayFRef.current = day; setDayF(day); prodCache = null;
-    saveFilter(kindFRef.current, day);
+    saveFilter(kindFRef.current, day, mmFRef.current);
+    setSlips([]); st.current.page = 1; st.current.totalPages = 1;
+    load(1, false);
+  };
+  const applyMmFilter = () => {
+    const v = !mmFRef.current;
+    mmFRef.current = v; setMmF(v); prodCache = null;
+    saveFilter(kindFRef.current, dayFRef.current, v);
     setSlips([]); st.current.page = 1; st.current.totalPages = 1;
     load(1, false);
   };
@@ -172,7 +196,8 @@ export function ProductionList() {
         // tôn trọng bộ lọc: phiếu đổi loại rời khỏi lọc → gỡ; loại khác thêm mới → bỏ qua
         const f = kindFRef.current;
         const dayOk = !dayFRef.current || slipDayCode(e.row as ProdSlip) === dayToCode(dayFRef.current);
-        const matches = (!f || ((e.row as ProdSlip).kind || "san_xuat") === f) && dayOk;
+        const mmOk = !mmFRef.current || slipMismatch(e.row as ProdSlip);
+        const matches = (!f || ((e.row as ProdSlip).kind || "san_xuat") === f) && dayOk && mmOk;
         if (idx >= 0) {
           if (!matches) return prev.filter((_, i) => i !== idx);
           const next = prev.slice();
@@ -227,6 +252,8 @@ export function ProductionList() {
         <button class={"pf-chip" + (kindF === "" ? " on" : "")} onClick={() => applyFilter("")}>Tất cả</button>
         <button class={"pf-chip" + (kindF === "san_xuat" ? " on" : "")} onClick={() => applyFilter("san_xuat")}><Icon name="factory" size={14} /> Sản xuất</button>
         <button class={"pf-chip" + (kindF === "dong_goi" ? " on" : "")} onClick={() => applyFilter("dong_goi")}><Icon name="box" size={14} /> Đóng gói</button>
+        <button class={"pf-chip pf-mm" + (mmF ? " on" : "")} onClick={applyMmFilter}
+          title="Phiếu SX (từ 10/07/2026) có báo cáo thợ lệch tổng nhập thùng >1%">⚠ Lệch nhập</button>
         <label class={"pf-chip pf-day" + (dayF ? " on" : "")} title="Lọc phiếu theo ngày tạo">
           <Icon name="calendar" size={14} />
           <span class="pf-day-lb">{dayF ? dayVN(dayF) : "Ngày"}</span>

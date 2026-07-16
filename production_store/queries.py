@@ -57,15 +57,35 @@ def _kind_clause(kind):
     return "", ()
 
 
-def list_slips(conn, limit: int = 20, offset: int = 0, kind: str | None = None, day: str | None = None) -> list[dict]:
+# Lọc "LỆCH NHẬP": phiếu SX từ 2026-07-10 có báo cáo thợ mà tổng NHẬP THÙNG lệch
+# tổng BÁO CÁO quá 1% — CÙNG RULE với badge khớp/lệch trên card + panel so sánh
+# chi tiết (boxed = Σ quantity thùng source_thread_id; report = Σ tong_calc mirror).
+MISMATCH_SINCE = "20260710"
+
+
+def _mismatch_sql(prefix: str = "") -> str:
+    rep = (f"(SELECT COALESCE(SUM(r.tong_calc),0) FROM production_report_rows r"
+           f" WHERE r.thread_id = {prefix}thread_id)")
+    boxed = (f"COALESCE((SELECT SUM(b.quantity) FROM inventory_boxes b"
+             f" WHERE b.source_thread_id = {prefix}thread_id),0)")
+    return (f" ({prefix}kind IS NULL OR {prefix}kind = '' OR {prefix}kind = 'san_xuat')"
+            f" AND substr({prefix}date_code,1,8) >= '{MISMATCH_SINCE}'"
+            f" AND {rep} > 0 AND ABS({boxed} - {rep}) > 0.01 * {rep}")
+
+
+def list_slips(conn, limit: int = 20, offset: int = 0, kind: str | None = None, day: str | None = None,
+               mismatch: bool = False) -> list[dict]:
     """Slips theo NGÀY TẠO mới→cũ (date_code lúc tạo), phân trang. Row nhẹ. Lọc theo
-    kind + day (day='YYYYMMDD' → khớp date_code LIKE 'YYYYMMDD%' = phiếu 1 ngày)."""
+    kind + day (day='YYYYMMDD' → khớp date_code LIKE 'YYYYMMDD%' = phiếu 1 ngày)
+    + mismatch (phiếu SX lệch nhập — xem _mismatch_sql)."""
     where, wp = _kind_clause(kind)
     if where:
         where = where.replace("kind", "s.kind")
     if day:
         where = (where + " AND " if where else " WHERE ") + "s.date_code LIKE ?"
         wp = (*wp, day + "%")
+    if mismatch:
+        where = (where + " AND " if where else " WHERE ") + _mismatch_sql("s.")
     rows = conn.execute(
         "SELECT s.thread_id, s.date, s.date_code, s.product_id, "
         "COALESCE(pr.code, s.sp_name) AS sp_name, s.sp_mam, s.sx_target, s.total, "
@@ -77,11 +97,13 @@ def list_slips(conn, limit: int = 20, offset: int = 0, kind: str | None = None, 
     return [dict(r) for r in rows]
 
 
-def count_slips(conn, kind: str | None = None, day: str | None = None) -> int:
+def count_slips(conn, kind: str | None = None, day: str | None = None, mismatch: bool = False) -> int:
     where, wp = _kind_clause(kind)
     if day:
         where = (where + " AND " if where else " WHERE ") + "date_code LIKE ?"
         wp = (*wp, day + "%")
+    if mismatch:
+        where = (where + " AND " if where else " WHERE ") + _mismatch_sql("")
     return int(conn.execute("SELECT COUNT(*) FROM production_slips" + where, wp).fetchone()[0])
 
 
