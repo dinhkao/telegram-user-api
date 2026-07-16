@@ -155,7 +155,8 @@ export function PurchaseEdit({ id }: { id: string }) {
                     <Icon name="close" size={14} />
                   </button>
                 )}
-                <PurchaseUnitPicker line={line} choices={unitsBySp[line.sp.trim().toUpperCase()]}
+                <PurchaseUnitPicker code={line.sp} line={line} choices={unitsBySp[line.sp.trim().toUpperCase()]}
+                  onChoices={(k, list) => setUnitsBySp((m) => ({ ...m, [k]: list }))}
                   onPick={(u) => updateLine(i, u.factor === 1 ? { unit: undefined, factor: undefined } : { unit: u.name, factor: u.factor })} />
               </div>
             ))}

@@ -49,3 +49,14 @@ export function unitChoicesFor(code: string): Promise<UnitChoice[]> {
   }
   return p;
 }
+
+/** Thêm đơn vị quy đổi cho SP ngay từ dòng phiếu nhập (PurchaseUnitPicker):
+ *  POST product_units rồi nạp lại danh sách (cache invalidate → mọi dòng cùng mã
+ *  thấy đơn vị mới). factor = 1 đơn vị mới bằng bao nhiêu đơn vị gốc. */
+export async function addUnitChoice(code: string, name: string, factor: number): Promise<UnitChoice[]> {
+  const key = code.trim().toUpperCase();
+  const api = await import("../api");
+  await api.addProductUnit(key, name, factor);
+  _unitCache.delete(key);
+  return unitChoicesFor(key);
+}

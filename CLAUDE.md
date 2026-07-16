@@ -430,7 +430,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   **Đơn vị nhập trên dòng phiếu (2026-07-16)**: item nhận thêm `unit`/`unit_factor`
   (snapshot từ `product_units` — SL + giá tính theo đơn vị đã chọn, 1 unit =
   factor đơn vị gốc; `_parse_items` validate, đơn vị xấu chỉ rơi phần unit).
-  UI `detail/PurchaseUnitPicker.tsx` (chỉ hiện khi SP có quy đổi; chọn ở
+  UI `detail/PurchaseUnitPicker.tsx` (hiện khi SP có trong danh mục — kể cả chưa
+  có quy đổi; option "➕ Thêm đơn vị quy đổi…" khai ngay trong popup →
+  `purchaseProduct.addUnitChoice` POST product_units + invalidate cache; chọn ở
   PurchaseModal/PurchaseEdit, cache đơn vị `purchaseProduct.unitChoicesFor`);
   modal nhập kho prefill SL = sl × factor (quy về đơn vị gốc).
   SP có 2 cờ `can_sell`/`can_purchase` (products, mặc định 1, sửa ở chi tiết SP

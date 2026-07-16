@@ -102,9 +102,10 @@ export const GUIDES_KHONHAP: Guide[] = [
             <b>「➕ Tạo NCC mới」</b> — bấm là tạo NCC ngay, khỏi qua trang khác.</li>
           <li><b>Thêm dòng hàng</b>: gõ <b>mã SP</b> (dùng chung bảng sản phẩm; chỉ gợi ý SP được phép
             nhập, mã lạ vẫn gõ tay được), <b>số lượng</b>, <b>giá nhập</b>. Bấm <b>Thêm dòng</b> cho nhiều mặt hàng.</li>
-          <li>SP có <b>quy đổi đơn vị</b> (khai ở chi tiết SP) → dưới dòng hiện ô <b>Đơn vị nhập</b>:
-            chọn thùng/kiện… thì <b>SL + giá tính theo đơn vị đó</b>, app tự quy ra đơn vị gốc
-            (vd 3 thùng = 90 cây) và điền sẵn khi nhập kho.</li>
+          <li>Chọn SP xong, dưới dòng hiện ô <b>Đơn vị nhập</b>: chọn thùng/kiện… thì
+            <b>SL + giá tính theo đơn vị đó</b>, app tự quy ra đơn vị gốc (vd 3 thùng = 90 cây)
+            và điền sẵn khi nhập kho. SP chưa có quy đổi → chọn <b>「➕ Thêm đơn vị quy đổi…」</b>
+            khai ngay tại chỗ (vd 1 Thùng = 30 cây — lưu vào SP, lần sau có sẵn).</li>
           <li>Ghi <b>ghi chú</b> nếu cần, xem <b>Tổng nhập</b>, rồi bấm <b>Tạo phiếu nhập</b>.</li>
         </ol>
         <p class="muted small">Mỗi phiếu có <b>ảnh · trao đổi · lịch sử</b> riêng. Sửa hàng/ghi chú ở

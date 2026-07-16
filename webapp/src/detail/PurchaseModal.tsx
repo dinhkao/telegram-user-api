@@ -131,7 +131,8 @@ export function PurchaseModal({ supplierId, supplierName, onClose, onCreated }: 
                 <Icon name="close" size={14} />
               </button>
             )}
-            <PurchaseUnitPicker line={l} choices={unitsBySp[l.sp.trim().toUpperCase()]}
+            <PurchaseUnitPicker code={l.sp} line={l} choices={unitsBySp[l.sp.trim().toUpperCase()]}
+              onChoices={(k, list) => setUnitsBySp((m) => ({ ...m, [k]: list }))}
               onPick={(u) => upd(i, u.factor === 1 ? { unit: undefined, factor: undefined } : { unit: u.name, factor: u.factor })} />
           </div>
         ))}
