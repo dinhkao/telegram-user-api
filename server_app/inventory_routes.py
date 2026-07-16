@@ -216,8 +216,8 @@ async def production_add_boxes_handler(request: web.Request):
                 if _prod is not None and not _prod.get("can_produce_directly"):
                     return "notdirect", code, None
             # Nhu cầu NL của đợt này: NL CHÍNH (aux=0) chỉ phiếu đóng gói bắt buộc;
-            # NL PHỤ (aux=1) bắt buộc CẢ 2 loại phiếu khi SP bật aux_required
-            # (tắt ở chi tiết SP → bỏ yêu cầu NL phụ).
+            # NL PHỤ (aux=1) bắt buộc CẢ 2 loại phiếu KHI SP bật aux_required
+            # (mặc định TẮT → không yêu cầu NL phụ; bật opt-in ở chi tiết SP để áp dụng).
             needs: list = []
             aux_needs: list = []
             if not allow_no_mat:
@@ -226,7 +226,7 @@ async def production_add_boxes_handler(request: web.Request):
                     if not main_needs:
                         return "norecipe", code, None
                     needs += main_needs
-                if _prod is None or _prod.get("aux_required", 1):
+                if _prod is not None and _prod.get("aux_required"):
                     aux_needs = recipe_needs(conn, code, sum(qtys), aux=True)
                     needs += aux_needs
             if needs:
@@ -362,7 +362,7 @@ async def recipe_get_handler(request: web.Request):
             prod = resolve_code(conn, code)
             return (lines, (prod.get("unit") if prod else None) or "cây",
                     bool((prod or {}).get("self_container")),
-                    bool((prod or {}).get("aux_required", 1)))
+                    bool((prod or {}).get("aux_required")))
         finally:
             conn.close()
     lines, unit, self_container, aux_required = await asyncio.to_thread(_run)

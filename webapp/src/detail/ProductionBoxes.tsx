@@ -82,10 +82,10 @@ export function ProductionBoxes({
   const [selfContainer, setSelfContainer] = useState(false);
   const unitName = units.find((u) => u.id === unitId)?.name || "Thùng";   // đơn vị chứa (Thùng/Kiện/Hũ)
   const unitLow = selfContainer ? "thùng" : unitName.toLowerCase();
-  const [auxRequired, setAuxRequired] = useState(true);   // SP có yêu cầu trừ NL PHỤ khi SX?
+  const [auxRequired, setAuxRequired] = useState(false);   // SP có yêu cầu trừ NL PHỤ khi SX? (mặc định TẮT)
   useEffect(() => {
-    if (prodCode) getRecipe(prodCode).then((r) => { setRecipe(r.recipe); setProdUnit(r.unit); setSelfContainer(r.self_container); setAuxRequired(r.aux_required); }).catch(() => { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); setAuxRequired(true); });
-    else { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); setAuxRequired(true); }
+    if (prodCode) getRecipe(prodCode).then((r) => { setRecipe(r.recipe); setProdUnit(r.unit); setSelfContainer(r.self_container); setAuxRequired(r.aux_required); }).catch(() => { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); setAuxRequired(false); });
+    else { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); setAuxRequired(false); }
   }, [prodCode]);
   const produced = (() => {
     const n = selfContainer ? 1 : parseFloat((amount || "").replace(",", "."));

@@ -1578,7 +1578,7 @@ export type KhoBox = { id: number; product_code: string; box_code: string; quant
 export type RecipeLine = { id: number; ingredient_code: string; ratio: number; stock?: number; unit?: string; aux?: number; ratio_unit?: string | null; ratio_factor?: number | null };
 export async function getRecipe(code: string): Promise<{ recipe: RecipeLine[]; unit: string; self_container: boolean; aux_required: boolean }> {
   const d = await getJSON(`/api/products/${encodeURIComponent(code)}/recipe`, { cache: false });
-  return { recipe: d.recipe || [], unit: d.unit || "cây", self_container: !!d.self_container, aux_required: d.aux_required !== false };
+  return { recipe: d.recipe || [], unit: d.unit || "cây", self_container: !!d.self_container, aux_required: d.aux_required === true };
 }
 export async function setRecipeLine(code: string, ingredientCode: string, ratio: number, aux?: boolean,
   unit?: { name: string; factor: number } | null): Promise<RecipeLine> {

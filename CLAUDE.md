@@ -322,7 +322,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   **NGUYÊN LIỆU PHỤ (2026-07-16)**: cột `aux` trên `product_recipes` (0 = NL chính,
   1 = NL phụ — bao bì/tem…; 1 cặp SP↔NL là chính HOẶC phụ, upsert đổi được). NL phụ
   bắt buộc trừ kho ở **CẢ 2 loại phiếu** (san_xuat + dong_goi) khi cờ
-  `products.aux_required` bật (INTEGER DEFAULT 1) — bật/tắt bằng chip "Yêu cầu khi
+  `products.aux_required` bật (INTEGER DEFAULT 0 — **mặc định TẮT, opt-in**; interpret
+  `== 1`; reset 1-lần các SP cũ về 0 ở `db_migrate` marker `aux_required_default_off_v1`)
+  — bật/tắt bằng toggle "Yêu cầu khi
   sản xuất" ở khu Nguyên liệu phụ của RecipeEditor (chi tiết SP). Gate server
   `inventory_routes` (needs = chính[dong_goi] + phụ[aux_required], coverage + cap
   chung); client `ProductionBoxes.tsx` cùng rule (requiredLines). `list_recipe`/

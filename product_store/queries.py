@@ -29,7 +29,7 @@ def _row(r) -> dict:
     d["self_container"] = is_self_container_unit(d.get("unit"))   # suy từ đơn vị (thùng/kiện)
     d["can_sell"] = d.get("can_sell") != 0           # có thể bán (mặc định True)
     d["can_purchase"] = d.get("can_purchase") != 0   # có thể nhập từ NCC (mặc định True)
-    d["aux_required"] = d.get("aux_required") != 0   # yêu cầu trừ NL PHỤ khi SX (mặc định True)
+    d["aux_required"] = d.get("aux_required") == 1   # yêu cầu trừ NL PHỤ khi SX (mặc định False/TẮT)
     return d
 
 

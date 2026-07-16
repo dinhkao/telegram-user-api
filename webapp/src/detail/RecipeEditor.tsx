@@ -111,7 +111,7 @@ function IngSection({ productCode, lines, aux, onChanged }: {
 export function RecipeEditor({ productCode }: { productCode: string }) {
   const [lines, setLines] = useState<RecipeLine[]>([]);
   const [unit, setUnit] = useState("cây");
-  const [auxRequired, setAuxRequired] = useState(true);
+  const [auxRequired, setAuxRequired] = useState(false);
   const [togBusy, setTogBusy] = useState(false);
 
   const load = async () => {

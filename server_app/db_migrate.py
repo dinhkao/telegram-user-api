@@ -225,6 +225,19 @@ def run_boot_migrations() -> None:
             conn.commit()
     except Exception:  # noqa: BLE001
         log.exception("backfill can_package thất bại (bỏ qua)")
+    # aux_required: đổi mặc định "Yêu cầu NL phụ khi sản xuất" từ BẬT → TẮT (opt-in).
+    # Tính năng ra 2026-07-16; migration cũ (DEFAULT 1) đã đóng dấu MỌI SP = 1 chứ
+    # không phải lựa chọn per-SP → reset về 0 MỘT LẦN (marker) để mặc định TẮT có
+    # hiệu lực trên dữ liệu thật. Sau đó admin tự bật lại SP cần (không bị đè nữa).
+    try:
+        _m = "migrate/aux_required_default_off_v1"
+        if not conn.execute("SELECT value FROM kv_store WHERE path = ?", (_m,)).fetchone():
+            conn.execute("UPDATE products SET aux_required = 0")
+            conn.execute("INSERT INTO kv_store (path, value, updated_at) VALUES (?, '1', ?) "
+                         "ON CONFLICT(path) DO NOTHING", (_m, int(time.time() * 1000)))
+            conn.commit()
+    except Exception:  # noqa: BLE001
+        log.exception("reset aux_required default off thất bại (bỏ qua)")
     # sản xuất: product_id trên slip + report_rows (backfill theo sp_name/mã)
     from production_store.schema import create_production_table, migrate_production_table
     from production_store.report_rows import ensure_report_rows_schema
