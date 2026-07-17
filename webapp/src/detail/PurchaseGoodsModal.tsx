@@ -14,6 +14,7 @@ import { confirmDialog, toast } from "../ui/feedback";
 import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
 import { Icon } from "../ui/Icon";
+import { bulkRoleFor, type BulkRole } from "./purchaseProduct";
 
 type Act = "restock_new" | "restock_existing" | "skip";
 // restock_new: count (số thùng) × per (số hàng/thùng); restock_existing: qty cộng vào thùng.
@@ -78,11 +79,16 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
   useScrollLock(true);
   usePopupBack(true, onClose);
 
+  // Vai 📦 NGUYÊN KIỆN theo mã — nhập đúng kiện thì ẩn picker đơn vị chứa (nhãn tự dán)
+  const [bulks, setBulks] = useState<Record<string, BulkRole | null>>({});
   useEffect(() => {
     allBoxes().then(setBoxes).catch(() => {});
     listPlaces().then(setPlaces).catch(() => {});
     listUnits().then(setUnits).catch(() => {});
+    const codes = [...new Set((pu.items || []).map((it) => (it.sp || "").toUpperCase()).filter(Boolean))];
+    codes.forEach((c) => bulkRoleFor(c).then((b) => setBulks((m) => ({ ...m, [c]: b }))).catch(() => {}));
   }, []);
+  const bulkOf = (r: Row) => bulks[(r.sp || "").toUpperCase()] || null;
 
   const upd = (i: number, patch: Partial<Row>) =>
     setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -97,7 +103,7 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
     if (!it) return 0;
     return it.sl * (it.unit && (it.unit_factor || 0) > 0 ? it.unit_factor! : 1);
   };
-  const unitNameOf = (r: Row) => units.find((u) => u.id === r.unit_id)?.name || "Thùng";
+  const unitNameOf = (r: Row) => bulkOf(r)?.name || units.find((u) => u.id === r.unit_id)?.name || "Thùng";
   const splitCountOf = (r: Row) => {
     if (r.action !== "restock_new" || countOf(r) !== 1) return 0;
     const base = r.cap;   // chia theo phần CÒN nhập được (đã trừ thùng giữ lại)
@@ -112,12 +118,18 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
   const badNew = rows.some((r) => r.action === "restock_new" && (countOf(r) < 1 || perOf(r) <= 0));
   const badExisting = rows.some((r) => r.action === "restock_existing" && num(r.qty) <= 0);
   const overRows = rows.some((r) => r.action !== "skip" && totalOf(r) > r.cap + 1e-6);
+  // SP nguyên kiện: 1 thùng tối đa 1 kiện — server chặn cùng luật
+  const overBulk = rows.some((r) => {
+    const b = bulkOf(r);
+    return r.action === "restock_new" && b && perOf(r) > b.factor + 1e-6;
+  });
 
   const submit = async () => {
     if (missingBox) { toast("Chọn thùng cho dòng ‘Nhập vào thùng có sẵn’", "err"); return; }
     if (badNew) { toast("Số thùng ≥ 1 và số hàng/thùng phải > 0", "err"); return; }
     if (badExisting) { toast("Số lượng thực nhận phải > 0 (hoặc chọn Bỏ qua)", "err"); return; }
     if (overRows) { toast("Tổng hàng nhập kho không được vượt số trên phiếu", "err"); return; }
+    if (overBulk) { toast("SP nguyên kiện: mỗi thùng tối đa 1 kiện — nhập nhiều kiện thì tăng SỐ THÙNG", "err"); return; }
     let submitRows = rows;
     const splitRows = rows
       .map((r, i) => ({ i, r, count: splitCountOf(r) }))
@@ -174,7 +186,10 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
         {rows.map((r, i) => {
           const item = (pu.items || [])[i];
           const baseUnit = item?.base_unit || "";
-          const unitName = units.find((u) => u.id === r.unit_id)?.name || "Thùng";
+          const bulk = bulkOf(r);
+          const isKien = !!(bulk && Math.abs(perOf(r) - bulk.factor) < 1e-6);
+          const bulkOver = !!(bulk && perOf(r) > bulk.factor + 1e-6);
+          const unitName = bulk?.name || units.find((u) => u.id === r.unit_id)?.name || "Thùng";
           const conv = item?.unit && (item.unit_factor || 0) > 0
             ? `${soVN(item.sl)} ${item.unit} × ${soVN(item.unit_factor!)} = ${soVN(item.sl * item.unit_factor!)}${baseUnit ? ` ${baseUnit}` : ""}` : "";
           const bopts: SPOption[] = boxesOf(r.sp).map((b) => ({
@@ -216,10 +231,19 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
                     <SelectPopup value={r.place_id ?? ""} placeholder="Vị trí kho"
                       options={[{ value: "", label: "(chưa xếp vị trí)" }, ...places.map((p) => ({ value: p.id, label: p.name }))]}
                       onChange={(v) => upd(i, { place_id: v ? Number(v) : null })} />
-                    <SelectPopup value={r.unit_id ?? ""} placeholder="Đơn vị chứa"
-                      options={[{ value: "", label: "(đơn vị mặc định)" }, ...units.map((u) => ({ value: u.id, label: u.name }))]}
-                      onChange={(v) => upd(i, { unit_id: v ? Number(v) : null })} />
+                    {/* SP nguyên kiện nhập ĐÚNG KIỆN: nhãn chứa tự dán = tên đơn vị 📦 — khỏi chọn */}
+                    {!(bulk && isKien) && (
+                      <SelectPopup value={r.unit_id ?? ""} placeholder="Đơn vị chứa"
+                        options={[{ value: "", label: "(đơn vị mặc định)" }, ...units.map((u) => ({ value: u.id, label: u.name }))]}
+                        onChange={(v) => upd(i, { unit_id: v ? Number(v) : null })} />
+                    )}
                   </div>
+                  {bulk && isKien && (
+                    <div class="muted small">📦 SP nguyên kiện — mỗi thùng 1 {bulk.name}, nhãn tự dán</div>
+                  )}
+                  {bulkOver && (
+                    <div class="pg-over small">⚠ SP nguyên kiện: mỗi thùng tối đa 1 {bulk!.name} (= {soVN(bulk!.factor)}{baseUnit ? ` ${baseUnit}` : ""}) — nhập nhiều kiện thì tăng SỐ THÙNG</div>
+                  )}
                   <div class="pg-qty-line">
                     <input type="text" inputMode="numeric" value={r.count}
                       onFocus={(e) => (e.target as HTMLInputElement).select()}
@@ -243,7 +267,7 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
         })}
         <div class="row" style={{ marginTop: "8px" }}>
           <button class="btn" onClick={onClose}>Để sau</button>
-          <button class="btn primary" disabled={busy || overRows} onClick={submit}>{busy ? "Đang ghi…" : "Ghi nhập"}</button>
+          <button class="btn primary" disabled={busy || overRows || overBulk} onClick={submit}>{busy ? "Đang ghi…" : "Ghi nhập"}</button>
         </div>
       </div>
     </div>

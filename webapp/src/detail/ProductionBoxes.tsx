@@ -77,18 +77,21 @@ export function ProductionBoxes({
   const [consumePicks, setConsumePicks] = useState<Record<string, { box_id: number; quantity: number }[]>>(draft?.consumePicks || {});
   const [pickIng, setPickIng] = useState<string | null>(null);   // mã NL đang mở popup chọn thùng
   const [prodUnit, setProdUnit] = useState("cây");                 // đơn vị SP (cây/gói…)
-  // SP tự-là-thùng (KDXDB5/KGL5): bản thân là 1 thùng → nhập theo SỐ THÙNG, mỗi thùng
-  // quantity=1, không có đơn vị chứa, không có "số cây bên trong".
+  // SP NGUYÊN KIỆN (vai 📦): nhập theo SỐ KIỆN — mỗi kiện = 1 dòng thùng, quantity =
+  // bulkUnit.factor (SP nguyên-kiện-đơn-vị-gốc như KDXDB5: factor 1 → như cũ),
+  // không có đơn vị chứa (nhãn tự dán = tên đơn vị 📦).
   const [selfContainer, setSelfContainer] = useState(false);
+  const [bulkUnit, setBulkUnit] = useState<{ name: string; factor: number } | null>(null);
+  const bulkFactor = bulkUnit?.factor || 1;
   const unitName = units.find((u) => u.id === unitId)?.name || "Thùng";   // đơn vị chứa (Thùng/Kiện/Hũ)
-  const unitLow = selfContainer ? "thùng" : unitName.toLowerCase();
+  const unitLow = selfContainer ? (bulkUnit?.name || "thùng").toLowerCase() : unitName.toLowerCase();
   const [auxRequired, setAuxRequired] = useState(false);   // SP có yêu cầu trừ NL PHỤ khi SX? (mặc định TẮT)
   useEffect(() => {
-    if (prodCode) getRecipe(prodCode).then((r) => { setRecipe(r.recipe); setProdUnit(r.unit); setSelfContainer(r.self_container); setAuxRequired(r.aux_required); }).catch(() => { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); setAuxRequired(false); });
-    else { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); setAuxRequired(false); }
+    if (prodCode) getRecipe(prodCode).then((r) => { setRecipe(r.recipe); setProdUnit(r.unit); setSelfContainer(r.self_container); setBulkUnit(r.bulk_unit); setAuxRequired(r.aux_required); }).catch(() => { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); setBulkUnit(null); setAuxRequired(false); });
+    else { setRecipe([]); setProdUnit("cây"); setSelfContainer(false); setBulkUnit(null); setAuxRequired(false); }
   }, [prodCode]);
   const produced = (() => {
-    const n = selfContainer ? 1 : parseFloat((amount || "").replace(",", "."));
+    const n = selfContainer ? bulkFactor : parseFloat((amount || "").replace(",", "."));
     const c = Math.floor(parseFloat((count || "").replace(",", ".")));
     return isFinite(n) && n > 0 && isFinite(c) && c > 0 ? n * c : 0;
   })();
@@ -195,7 +198,7 @@ export function ProductionBoxes({
   };
 
   const submit = async () => {
-    const n = selfContainer ? 1 : parseFloat(amount.replace(",", "."));   // tự-là-thùng: mỗi thùng = 1
+    const n = selfContainer ? bulkFactor : parseFloat(amount.replace(",", "."));   // nguyên kiện: mỗi thùng = 1 kiện (factor đơn vị gốc)
     if (!isFinite(n) || n <= 0) {
       setMsg(`Số ${prodUnit} không hợp lệ`);
       return;
@@ -214,7 +217,7 @@ export function ProductionBoxes({
     // Ảnh BẮT BUỘC: xác nhận rồi mở camera CHỤP TRƯỚC (buffer). ĐÓNG camera có ≥1 ảnh
     // mới TẠO thùng (finalizeCreate); bấm quay lại / xong mà chưa chụp → KHÔNG tạo gì.
     const _confirmMsg = selfContainer
-      ? `Nhập ${c} thùng ${prodCode}?\nBước sau chụp ảnh thùng — chưa chụp thì chưa tạo.`
+      ? `Nhập ${c} ${unitLow} ${prodCode}${bulkFactor !== 1 ? ` (${soVN(bulkFactor)} ${prodUnit}/${unitLow})` : ""}?\nBước sau chụp ảnh thùng — chưa chụp thì chưa tạo.`
       : `Nhập ${c} ${unitLow} × ${soVN(n)} ${prodUnit} ${prodCode}?\nBước sau chụp ảnh thùng — chưa chụp thì chưa tạo.`;
     if (!(await confirmDialog(_confirmMsg))) return;
     const picks = Array.from({ length: c }, () => ({ quantity: n }));  // c thùng giống nhau
@@ -307,14 +310,14 @@ export function ProductionBoxes({
             onChange={(v) => setPlaceId(v ? Number(v) : null)} />
         </div>
 
-        <span class="pb-lb"><Icon name="clipboard" size={15} /> {selfContainer ? "Số thùng" : "Số lượng"}</span>
+        <span class="pb-lb"><Icon name="clipboard" size={15} /> {selfContainer ? `Số ${unitLow}` : "Số lượng"}</span>
         <div class="pb-ctl pb-qty">
           <input type="text" inputMode="numeric" class="pb-count" value={count} disabled={!hasSp}
             onFocus={(e) => (e.target as HTMLInputElement).select()}
             onInput={(e) => setCount((e.target as HTMLInputElement).value)}
-            placeholder="1" title={selfContainer ? "Số thùng" : `Số ${unitLow} giống nhau`} />
+            placeholder="1" title={selfContainer ? `Số ${unitLow}` : `Số ${unitLow} giống nhau`} />
           {selfContainer ? (
-            <span class="pb-x">thùng {prodCode}</span>
+            <span class="pb-x">{unitLow} {prodCode}{bulkFactor !== 1 ? ` × ${soVN(bulkFactor)} ${prodUnit}` : ""}</span>
           ) : (
             <>
               <span class="pb-x">{unitLow} ×</span>
@@ -339,7 +342,7 @@ export function ProductionBoxes({
       {requiredLines.length > 0 && (
         <div class={"recipe-consume" + (recipeOk && produced > 0 ? " ok" : "")}>
           <div class="card-label"><Icon name="leaf" size={15} /> Nguyên liệu cần trừ {produced > 0 ? `(SX ${soVN(produced)} ${prodUnit})` : ""}</div>
-          {produced <= 0 && <div class="muted small">{selfContainer ? "Nhập số thùng trước để tính nguyên liệu." : `Nhập số ${unitLow} × số ${prodUnit} trước để tính nguyên liệu.`}</div>}
+          {produced <= 0 && <div class="muted small">{selfContainer ? `Nhập số ${unitLow} trước để tính nguyên liệu.` : `Nhập số ${unitLow} × số ${prodUnit} trước để tính nguyên liệu.`}</div>}
           {requiredLines.map((l) => {
             const need = +(l.ratio * produced).toFixed(3);
             const chosen = chosenOf(l.ingredient_code);
@@ -361,7 +364,8 @@ export function ProductionBoxes({
 
       <button class="btn primary block pb-submit" disabled={!hasSp || busy || !recipeOk} onClick={submit}
         title={!recipeOk ? "Chọn đủ thùng nguyên liệu trước" : undefined}>
-        <Icon name="plus" size={16} /> {busy ? "Đang nhập…" : selfContainer ? `Nhập ${cnt} thùng ${prodCode}` : `Nhập ${cnt} ${unitLow}${produced > 0 ? ` · ${soVN(produced * cnt)} ${prodUnit}` : ""}`}
+        {/* produced đã = số/thùng × số thùng — không nhân cnt lần nữa */}
+        <Icon name="plus" size={16} /> {busy ? "Đang nhập…" : selfContainer ? `Nhập ${cnt} ${unitLow} ${prodCode}${bulkFactor !== 1 && produced > 0 ? ` · ${soVN(produced)} ${prodUnit}` : ""}` : `Nhập ${cnt} ${unitLow}${produced > 0 ? ` · ${soVN(produced)} ${prodUnit}` : ""}`}
       </button>
       {requiredLines.length > 0 && produced > 0 && !recipeOk && (
         <div class="muted small pb-hint">⚠ Cần chọn đủ thùng nguyên liệu mới tạo được thùng.</div>

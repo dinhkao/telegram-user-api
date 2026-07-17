@@ -1594,9 +1594,9 @@ export type KhoBox = { id: number; product_code: string; box_code: string; quant
 // ratio LUÔN theo đơn vị GỐC của NL; ratio_unit/ratio_factor = đơn vị người dùng
 // chọn lúc khai (hiển thị "0,5 Cuộn = 15 cây").
 export type RecipeLine = { id: number; ingredient_code: string; ratio: number; stock?: number; unit?: string; aux?: number; ratio_unit?: string | null; ratio_factor?: number | null };
-export async function getRecipe(code: string): Promise<{ recipe: RecipeLine[]; unit: string; self_container: boolean; aux_required: boolean }> {
+export async function getRecipe(code: string): Promise<{ recipe: RecipeLine[]; unit: string; self_container: boolean; aux_required: boolean; bulk_unit: { name: string; factor: number } | null }> {
   const d = await getJSON(`/api/products/${encodeURIComponent(code)}/recipe`, { cache: false });
-  return { recipe: d.recipe || [], unit: d.unit || "cây", self_container: !!d.self_container, aux_required: d.aux_required === true };
+  return { recipe: d.recipe || [], unit: d.unit || "cây", self_container: !!d.self_container, aux_required: d.aux_required === true, bulk_unit: d.bulk_unit || null };
 }
 export async function setRecipeLine(code: string, ingredientCode: string, ratio: number, aux?: boolean,
   unit?: { name: string; factor: number } | null): Promise<RecipeLine> {

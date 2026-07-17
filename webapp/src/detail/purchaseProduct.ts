@@ -30,24 +30,43 @@ export function codeFromCreateKey(key: string): string {
   return key.slice(NEW_PROD_PREFIX.length);
 }
 
-// ── ĐƠN VỊ NHẬP của 1 SP: đơn vị gốc (factor 1) + các đơn vị quy đổi (product_units).
-// Cache module theo mã — mỗi mã chỉ fetch 1 lần/phiên trang. Dùng chung
-// PurchaseCreate + PurchaseEdit.
+// ── ĐƠN VỊ NHẬP của 1 SP: đơn vị gốc (factor 1) + các đơn vị quy đổi (product_units)
+// + VAI 📦 nguyên kiện. 1 fetch listProductUnits/mã, cache module — dùng chung
+// PurchaseCreate + PurchaseEdit + PurchaseGoodsModal.
 export type UnitChoice = { name: string; factor: number };
-const _unitCache = new Map<string, Promise<UnitChoice[]>>();
+export type BulkRole = { name: string; factor: number };
+type UnitInfo = { base_unit: string; units: { id: number; name: string; factor: number }[];
+                  roles: { bulk_unit_id: number | null } };
+const _infoCache = new Map<string, Promise<UnitInfo | null>>();
 
-export function unitChoicesFor(code: string): Promise<UnitChoice[]> {
+function unitInfoFor(code: string): Promise<UnitInfo | null> {
   const key = code.trim().toUpperCase();
-  if (!key) return Promise.resolve([]);
-  let p = _unitCache.get(key);
+  if (!key) return Promise.resolve(null);
+  let p = _infoCache.get(key);
   if (!p) {
     p = import("../api").then((api) => api.listProductUnits(key))
-      .then((d) => [{ name: d.base_unit || "cây", factor: 1 },
-        ...d.units.map((u) => ({ name: u.name, factor: u.factor }))])
-      .catch(() => { _unitCache.delete(key); return [] as UnitChoice[]; });   // SP ngoài danh mục → không đơn vị
-    _unitCache.set(key, p);
+      .catch(() => { _infoCache.delete(key); return null; });   // SP ngoài danh mục
+    _infoCache.set(key, p);
   }
   return p;
+}
+
+export function unitChoicesFor(code: string): Promise<UnitChoice[]> {
+  return unitInfoFor(code).then((d) => d
+    ? [{ name: d.base_unit || "cây", factor: 1 }, ...d.units.map((u) => ({ name: u.name, factor: u.factor }))]
+    : []);
+}
+
+/** Vai 📦 NGUYÊN KIỆN của SP → {name, factor} | null. Nhập đúng kiện = thùng tự
+ *  dán nhãn đơn vị, khỏi chọn đơn vị chứa (server enforce cùng luật). */
+export function bulkRoleFor(code: string): Promise<BulkRole | null> {
+  return unitInfoFor(code).then((d) => {
+    const rid = d?.roles?.bulk_unit_id;
+    if (d == null || rid === null || rid === undefined) return null;
+    if (rid === 0) return { name: d.base_unit || "cây", factor: 1 };
+    const u = d.units.find((x) => x.id === rid);
+    return u ? { name: u.name, factor: u.factor } : null;
+  });
 }
 
 /** Thêm đơn vị quy đổi cho SP ngay từ dòng phiếu nhập (PurchaseUnitPicker):
@@ -57,6 +76,6 @@ export async function addUnitChoice(code: string, name: string, factor: number):
   const key = code.trim().toUpperCase();
   const api = await import("../api");
   await api.addProductUnit(key, name, factor);
-  _unitCache.delete(key);
+  _infoCache.delete(key);
   return unitChoicesFor(key);
 }
