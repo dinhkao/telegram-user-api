@@ -335,6 +335,9 @@ export function PurchaseDetail({ id }: { id: string }) {
             note: b.note,
             placeName: b.place_name,
             productUnit: b.product_unit,
+            // vai 👁 — số trên ô quy đổi theo đơn vị hiển thị (b từ get_box đã có field)
+            displayUnitName: b.display_unit_name,
+            displayUnitFactor: b.display_unit_factor,
             href: `#/thung/${x.box_id}`,
             title: (isNew ? "🆕 thùng mới" : "📦 cộng vào thùng có sẵn")
               + ` · ${code} · ${isNew ? "×" : "+"}${soVN(x.quantity)} ${x.sp}${b.place_name ? ` · ${b.place_name}` : ""}`,
