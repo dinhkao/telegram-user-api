@@ -3,6 +3,51 @@ import type { Guide } from "./types";
 
 export const GUIDES_KHO: Guide[] = [
   {
+    key: "don-vi-3-vai", icon: "refresh", cat: "Kho & hàng hoá",
+    title: "Đơn vị hàng hoá: 3 vai",
+    desc: "Đơn vị đếm + đơn vị quy đổi; 3 vai: 📦 nguyên kiện · 👁 hiển thị ô thùng · 📋 kiểm kho.",
+    routes: ["#/san-pham", "#/kho", "#/kiem-kho", "#/nhap-hang"],
+    sections: [
+      { title: "Đơn vị đếm và đơn vị quy đổi", html: `
+        <p>Mỗi sản phẩm có <b>1 đơn vị ĐẾM</b> (cây/gói/kg… — mọi con số trong hệ thống đều lưu
+        theo đơn vị này) và có thể thêm nhiều <b>đơn vị QUY ĐỔI</b> ở khối
+        <i>Quy đổi đơn vị</i> trong <a href="#/san-pham">chi tiết sản phẩm</a>,
+        ví dụ <i>1 Thùng = 30 cây</i>.</p>
+        <p>Đơn vị quy đổi dùng khi <b>nhập phiếu mua</b> (mua 2 Thùng thay vì 60 cây),
+        <b>nhập tỉ lệ công thức</b>, và gánh 3 VAI dưới đây.</p>` },
+      { title: "3 vai của đơn vị (chọn ở khối Quy đổi đơn vị)", html: `
+        <p>Trong khối <i>Quy đổi đơn vị</i>, văn phòng chỉ định <b>tối đa 1 đơn vị cho mỗi vai</b>
+        (tap chip để chọn, tap lại để bỏ; có dòng <i>⚡ Cả 3 vai</i> đặt nhanh):</p>
+        <ul>
+          <li><b>📦 Nguyên kiện</b> — nhập hàng bằng đơn vị này thì <b>mỗi kiện = 1 thùng riêng</b>
+            (1 số gọi/kiện), nhãn chứa tự dán theo tên đơn vị, <b>khỏi chọn đơn vị chứa</b>.</li>
+          <li><b>👁 Hiển thị</b> — SỐ trên <b>ô thùng</b> khắp app quy đổi sang đơn vị này
+            (90 cây → <b>3</b> Thùng; lẻ hiện 1 chữ số: <b>2,8</b>). Chỉ là hiển thị —
+            chạm vào ô/tooltip vẫn thấy số gốc, mọi ô nhập liệu vẫn nhập số gốc.</li>
+          <li><b>📋 Kiểm kho</b> — phiếu <a href="#/kiem-kho">kiểm kho</a> bắt đếm bằng đơn vị này:
+            nhập <b>[số kiện] + [số lẻ]</b>, hệ thống tự nhân — hết cảnh nhẩm 2×30+25 ngoài kho.</li>
+        </ul>` },
+      { title: "Nguyên kiện hoạt động thế nào?", html: `
+        <ul>
+          <li><b>Nhập hàng NCC</b>: dòng phiếu mua theo đơn vị nguyên kiện → modal nhập kho chỉ hỏi
+            <b>số kiện + vị trí</b>; mỗi kiện thành 1 thùng đúng <i>factor</i> đơn vị gốc.</li>
+          <li><b>Phiếu sản xuất</b>: SP nguyên kiện nhập theo <b>số kiện</b> (server tự tính số gốc).</li>
+          <li><b>Hàng khách trả</b>: hệ thống tự tách — trả 75 (kiện 30) → 2 kiện dán nhãn + 1 thùng lẻ 15.</li>
+          <li>1 thùng <b>tối đa 1 kiện</b> — nhập nhiều kiện thì tăng số thùng, không gộp.</li>
+          <li>SP nguyên kiện có nút <b>Trả về nguyên liệu</b> (rã kiện) ở chi tiết thùng (admin).</li>
+        </ul>
+        <p class="muted small">SP kiểu cũ đếm bằng "thùng/kiện" (KDXDB5…) đã được tự gán vai 📦
+        cho đơn vị gốc — hành vi như trước, không cần làm gì.</p>` },
+      { title: "Ai chỉnh được? Đổi tỉ lệ có sao không?", html: `
+        <ul>
+          <li>Thêm/sửa đơn vị + gán vai = <b>văn phòng</b>; xoá đơn vị = <b>admin</b>
+            (đơn vị đang giữ vai thì phải gỡ vai trước mới xoá được).</li>
+          <li>Đổi <i>factor</i> của đơn vị đang giữ vai sẽ đổi cách quy đổi từ lúc đó
+            (số gốc trong kho <b>không đổi</b>); phiếu kiểm kho đang mở giữ tỉ lệ đã chụp lúc tạo.</li>
+        </ul>` },
+    ],
+  },
+  {
     key: "kho", icon: "box", cat: "Kho & hàng hoá",
     title: "Kho hàng & thùng",
     desc: "Mọi thùng trong kho: số thùng, tồn, xuất cho đơn, chuyển hàng, kiểm kho theo vị trí.",
@@ -17,12 +62,13 @@ export const GUIDES_KHO: Guide[] = [
         <b>Chuyển kho</b>. Bấm chip <b>Ô thùng / Gọn</b> để đổi cách xem.</p>
         <p class="muted small">Lưu ý quan trọng: các tính năng kho chỉ áp dụng cho <b>đơn tạo từ hôm nay trở đi</b>.
           Đơn cũ chưa đi qua luồng kho nên không tính tồn/xuất ở đây.</p>` },
-      { title: "Mã thùng = số gọi 001–999", html: `
-        <p>Mỗi thùng có một <b>SỐ GỌI 3 chữ số</b> (từ <b>001</b> đến <b>999</b>), dùng chung cho <b>cả kho</b>.
-        Ngoài kho mọi người chỉ hô <i>"lấy thùng 347"</i> cho gọn — không cần biết SP gì.</p>
+      { title: "Mã thùng = số gọi 001–999 (rồi A001…Z999)", html: `
+        <p>Mỗi thùng có một <b>SỐ GỌI</b> (từ <b>001</b> đến <b>999</b>, hết thì sang <b>A001…A999</b>,
+        <b>B001</b>… tới <b>Z999</b>), dùng chung cho <b>cả kho</b>.
+        Ngoài kho mọi người chỉ hô <i>"lấy thùng 347"</i> / <i>"thùng A047"</i> cho gọn — không cần biết SP gì.</p>
         <ul>
           <li>Số <b>xoay vòng</b>: khi một thùng <b>hết hàng</b>, số của nó được <b>tái dùng</b> cho thùng mới.
-            Hết 999 thì quay về 001.</li>
+            Hết Z999 thì quay về 001.</li>
           <li>Vì số tái dùng, <b>số gọi KHÔNG phải danh tính thật</b> của thùng. Danh tính thật là
             <i>id</i> (mã trong link <a href="#/thung">chi tiết thùng</a>) — lịch sử luôn bám theo id.</li>
         </ul>

@@ -2,6 +2,11 @@
 
 > Chốt thiết kế 2026-07-17. Mục tiêu: `products.unit` chỉ còn ĐÚNG 1 nghĩa (đơn vị
 > đếm/lưu số); mọi nghĩa khác đang nhồi vào nó tách ra thành VAI chỉ định trên đơn vị.
+>
+> **✅ ĐÃ TRIỂN KHAI đủ 6 phase cùng ngày 2026-07-17** (commit `44c22d69`…: Phase 0
+> vai + backfill, Phase 1 UI chip, số gọi 27 block, Phase 2 nhập kiện 3 đường,
+> Phase 3 ô thùng, Phase 4 kiểm kho nhập kép, Phase 5 guide + docs). File này giữ
+> làm tài liệu thiết kế; trạng thái hiện hành xem CLAUDE.md mục "VAI ĐƠN VỊ".
 
 ## Mô hình
 

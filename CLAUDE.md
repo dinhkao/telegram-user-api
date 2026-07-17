@@ -228,15 +228,38 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `server_app/db_migrate.py` (idempotent, marker kv_store). SP_INFO (mâm/lượng SX)
   port vào cột `prod_mam`/`prod_luong` (fallback config, `production_store/defaults.py`).
   Plan: `docs/plan-product-id.md`.
+- **VAI ĐƠN VỊ (2026-07-17, plan: `docs/plan-don-vi-hang-hoa.md`).** SP có 1 đơn vị
+  GỐC (`products.unit` — mọi số trong DB) + đơn vị phụ quy đổi (`product_units`).
+  3 cột vai trên `products` (`bulk_unit_id`/`display_unit_id`/`stocktake_unit_id`:
+  NULL = không · 0 = đơn vị gốc · >0 = product_units.id; resolve
+  `product_store/units.py::unit_role/role_by_code`; UI = 3 dòng chip trong khối Quy
+  đổi đơn vị `ProductUnits.tsx`, office; xoá đơn vị đang giữ vai bị CHẶN):
+  - **📦 NGUYÊN KIỆN**: nhập bằng đơn vị này → 1 kiện = 1 dòng thùng quantity=factor,
+    nhãn chứa = tên đơn vị (`unit_label`), khỏi chọn inventory_units. Rule chung
+    `bulk_label_for_qty` (1 dòng ≤ 1 kiện) áp CẢ 3 đường tạo thùng: nhập NCC
+    (`purchase_goods` — server tự resolve vai), phiếu SX (`inventory_routes`, thay
+    nhánh self-container cũ — factor 1 giữ nguyên hành vi; recipe API trả
+    `bulk_unit`), hàng trả (`return_goods` TỰ TÁCH 75→2×30+15). **`self_container`
+    giờ DERIVE từ vai 📦** (hết suy từ tên đơn vị thùng/kiện; backfill 1 lần marker
+    `migrate/unit_roles_v1`); gate rã kiện `return-material` theo đó.
+  - **👁 HIỂN THỊ**: BoxTile quy đổi SỐ trên ô thùng (chia hết → nguyên, lẻ → 1 chữ
+    số + nhãn đơn vị nhỏ, tooltip kép "90 cây = 3 Thùng"); fill + MỌI Ô NHẬP giữ gốc.
+  - **📋 KIỂM KHO**: phiếu kiểm snapshot (tên, factor)/dòng lúc tạo/resync
+    (`stocktakes._stamp_count_units`), nhập kép [N kiện]+[M lẻ] → `actual_quantity`
+    quy về gốc + lưu số thô `counted_bulk/loose` cho audit; apply/hao hụt NL đọc gốc
+    như cũ. Tests: `tests/test_unit_roles.py` + case bulk trong
+    test_purchase_goods/test_return_goods/test_stocktakes.
 - `user_store/` — `web_users` table in `app.db`: login accounts for the orders web
   app (PIN hash in `pin.py`, CLI: `tools/add_web_user.py`).
 - `comment_store/` — `web_comments` table in `app.db`: web-app comments on orders
   (separate from `order_chat_messages` = read-only Telegram log).
 - `inventory_store/` — kho thùng (`app.db`). Bảng:
   - `inventory_boxes` (`schema.py`+`queries.py`): 1 row = 1 thùng vật lý. Mã thùng =
-    **SỐ GỌI 3 chữ số `001`–`999` TOÀN KHO, xoay vòng** (`domain.next_call_numbers`:
-    tiếp từ số cấp gần nhất, nhảy qua số của thùng còn hàng/vô hiệu, hết 999 quay về
-    001 — ngoài kho chỉ hô "thùng 347"). Số TÁI DÙNG khi thùng hết hàng → `box_code`
+    **SỐ GỌI TOÀN KHO, xoay vòng 27 BLOCK** (mở rộng 2026-07-17): `001`–`999` →
+    `A001`…`A999` → `B001` … `Z999` rồi quay về 001 (`domain.next_call_numbers`, MAX
+    26.973; tiếp từ số cấp gần nhất, nhảy qua số của thùng còn hàng/vô hiệu — ngoài
+    kho hô "thùng 347"/"thùng A047"; bản đồ `#/so-thung` vẽ theo block đã dùng).
+    Số TÁI DÙNG khi thùng hết hàng → `box_code`
     KHÔNG unique; danh tính bất biến = `id` (lịch sử/link đều theo id). Mã cũ kiểu
     `K2L-001`/base36 vẫn parse (`code_call_number`) + chiếm số tới khi xuất hết.
     Pool tồn gom theo `product_code`. Cột:
@@ -244,9 +267,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     (phiếu SX nguồn), `source_purchase_id`/`source_return_id` (thùng tạo từ phiếu NHẬP
     HÀNG / hàng TRẢ về — link "Nguồn" ở BoxDetail + guard cấm xoá lẻ khi phiếu đã
     xử lý hàng), **`unit_id`** → `inventory_units` (đơn vị chứa: Thùng/Kiện/Hũ…),
-    **`place_id`** → `inventory_places` (vị trí kho Kho A/B…). (`status`/`order_thread_id`
-    legacy.) `list_boxes`/`get_box` join thêm `place_name`, `unit_name`, `product_unit`
-    (đơn vị đếm của SP từ `products.unit` — cây/gói…).
+    **`unit_label`** (nhãn chứa SNAPSHOT = tên đơn vị NGUYÊN KIỆN lúc nhập — ưu tiên
+    hơn unit_id), **`place_id`** → `inventory_places` (vị trí kho Kho A/B…).
+    (`status`/`order_thread_id` legacy.) `list_boxes`/`get_box` join thêm `place_name`,
+    `unit_name` (= COALESCE(unit_label, inventory_units.name)), `product_unit`
+    (đơn vị đếm của SP từ `products.unit` — cây/gói…) + `display_unit_name`/
+    `display_unit_factor` (vai 👁 — BoxTile quy đổi số hiển thị).
   - `inventory_units` (đơn vị chứa) + `inventory_places` (vị trí kho): bảng user-định-nghĩa,
     CRUD `list/add/rename/delete_*`. API `/api/units`, `/api/places` (sửa tên/ghi chú qua
     POST `{name?, note?}`; delete admin). Vị trí có **ảnh/trao đổi/lịch sử** (entity media
