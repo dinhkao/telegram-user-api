@@ -1,15 +1,18 @@
 // Khối ĐIỀU CHỈNH TỒN của 1 thùng (chi tiết thùng #/thung/:id) — văn phòng nhập
 // TỒN THỰC TẾ + lý do bắt buộc → tạo phiếu điều chỉnh (allocation kind='adjustment',
-// không sửa quantity gốc). Danh sách phiếu của thùng hiện dưới; admin gỡ = hoàn
-// nguyên (server chặn nếu gây tồn âm). Data: adjustBox/listAdjustments/deleteAdjustment.
+// không sửa quantity gốc). Ô số có PICKER ĐƠN VỊ (gốc + quy đổi của SP —
+// QtyUnitPicker); số gửi API luôn quy về đơn vị gốc. Danh sách phiếu của thùng hiện
+// dưới; admin gỡ = hoàn nguyên (server chặn nếu gây tồn âm).
+// Data: adjustBox/listAdjustments/deleteAdjustment.
 import { useEffect, useState } from "preact/hooks";
 import { adjustBox, listAdjustments, deleteAdjustment, currentUser, isOffice, soVN, type Adjustment } from "../api";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { confirmDialog, toast } from "../ui/feedback";
+import { QtyUnitPicker, baseChoice, toBaseQty, type UnitChoice } from "./QtyUnitPicker";
 
-export function BoxAdjust({ boxId, remaining, unit, onChanged }: {
-  boxId: number; remaining: number; unit: string; onChanged: () => void;
+export function BoxAdjust({ boxId, remaining, unit, code, onChanged }: {
+  boxId: number; remaining: number; unit: string; code: string; onChanged: () => void;
 }) {
   const office = isOffice();
   const isAdmin = currentUser()?.role === "admin";
@@ -17,6 +20,8 @@ export function BoxAdjust({ boxId, remaining, unit, onChanged }: {
   const [qty, setQty] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [adjUnit, setAdjUnit] = useState<UnitChoice | null>(null);
+  const au = adjUnit || baseChoice(unit);
 
   const load = () => listAdjustments({ box_id: boxId }).then(setList).catch(() => {});
   useEffect(() => { load(); }, [boxId]);
@@ -31,14 +36,16 @@ export function BoxAdjust({ boxId, remaining, unit, onChanged }: {
     return () => { off(); clearTimeout(t); };
   }, [boxId]);
 
-  const q = parseFloat((qty || "").replace(",", "."));
+  const raw = parseFloat((qty || "").replace(",", "."));
+  const q = toBaseQty(raw, au);   // tồn thực tế quy về ĐƠN VỊ GỐC gửi API
   const ok = isFinite(q) && q >= 0 && Math.abs(q - remaining) > 1e-9 && !!reason.trim();
 
   const submit = async () => {
     if (!ok) { toast("Nhập tồn thực tế (khác số hệ thống) + lý do", "info"); return; }
     const delta = q - remaining;
+    const qTxt = au.factor !== 1 ? `${soVN(raw)} ${au.name} (= ${soVN(q)} ${unit})` : `${soVN(q)} ${unit}`;
     if (!(await confirmDialog(
-      `Điều chỉnh tồn thùng: ${soVN(remaining)} → ${soVN(q)} ${unit} (${delta > 0 ? "+" : ""}${soVN(delta)})?\nLý do: ${reason.trim()}`
+      `Điều chỉnh tồn thùng: ${soVN(remaining)} → ${qTxt} (${delta > 0 ? "+" : ""}${soVN(delta)})?\nLý do: ${reason.trim()}`
       + (delta < 0 ? "\n\n⚠ Hàng hư/bỏ đi thật thì dùng XUẤT HỦY (có ảnh) — điều chỉnh chỉ để sửa số đếm sai." : ""))))
       return;
     setBusy(true);
@@ -67,9 +74,10 @@ export function BoxAdjust({ boxId, remaining, unit, onChanged }: {
         <>
           <div class="row" style={{ gap: "6px" }}>
             <input class="pb-amount" style={{ width: "84px" }} type="text" inputMode="decimal"
-              placeholder={`${soVN(remaining)}`} value={qty}
+              placeholder={`${soVN(au.factor !== 1 ? Math.round(remaining / au.factor * 10) / 10 : remaining)}`} value={qty}
               onFocus={(e: any) => (e.target as HTMLInputElement).select()}
               onInput={(e: any) => setQty(e.target.value)} />
+            <QtyUnitPicker code={code} baseUnit={unit} unit={au} onPick={setAdjUnit} />
             <input style={{ flex: 1, minWidth: 0 }} type="text" placeholder="Lý do điều chỉnh (bắt buộc)"
               value={reason} onInput={(e: any) => setReason(e.target.value)} />
             <button class={"btn primary" + (ok ? "" : " faded")} disabled={busy} onClick={submit}

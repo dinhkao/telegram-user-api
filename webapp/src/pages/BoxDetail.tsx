@@ -6,6 +6,7 @@ import { BackLink } from "../nav";
 import { boxDetail, updateBox, setBoxDisabled, deleteBox, returnBoxMaterial, transferBox, allBoxes, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, createDisposal, currentUser, soVN, type InvBoxDetail, type InvBox, type KhoBox, type Place, type Unit } from "../api";
 import { onRealtime } from "../realtime";
 import { BoxAdjust } from "../detail/BoxAdjust";
+import { QtyUnitPicker, baseChoice, toBaseQty, type UnitChoice } from "../detail/QtyUnitPicker";
 import { Loading } from "../ui/states";
 import { confirmDialog, toast } from "../ui/feedback";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "../detail/CameraBox";
@@ -198,6 +199,12 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
   const [xferTo, setXferTo] = useState<number | null>(null);
   const [xferQty, setXferQty] = useState("");
   const [xferBusy, setXferBusy] = useState(false);
+  // Đơn vị NHẬP số chuyển/hủy/điều chỉnh (gốc + quy đổi của SP) — số gửi API luôn quy về GỐC
+  const [xferUnit, setXferUnit] = useState<UnitChoice | null>(null);
+  const [dispUnit, setDispUnit] = useState<UnitChoice | null>(null);
+  useEffect(() => { setXferUnit(null); setDispUnit(null); }, [d?.box?.id]);
+  const xu = xferUnit || baseChoice(d?.box?.product_unit);
+  const du = dispUnit || baseChoice(d?.box?.product_unit);
   useEffect(() => {
     if (!d) return;
     allBoxes().then((bs) => setXferTargets(
@@ -206,7 +213,8 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
   }, [d?.box?.id, d?.box?.product_code]);
   const doTransfer = async () => {
     if (!d) return;
-    const q = parseFloat((xferQty || "").replace(",", "."));
+    const raw = parseFloat((xferQty || "").replace(",", "."));
+    const q = toBaseQty(raw, xu);   // số ĐƠN VỊ GỐC gửi API
     const rem = d.box.remaining ?? d.box.quantity;
     if (!xferTo) { toast("Chọn thùng đích", "err"); return; }
     if (!isFinite(q) || q <= 0) { toast("Số lượng phải > 0", "err"); return; }
@@ -215,7 +223,8 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
     const uThis = (d.box.unit_name || "thùng").toLowerCase();
     const uTgt = (tgt?.unit_name || "thùng").toLowerCase();
     const pu = d.box.product_unit || "cây";
-    if (!(await confirmDialog(`Chuyển ${soVN(q)} ${pu} ${d.box.product_code} từ ${uThis} ${d.box.box_code} → ${uTgt} ${tgt?.box_code || xferTo}?`))) return;
+    const qTxt = xu.factor !== 1 ? `${soVN(raw)} ${xu.name} (= ${soVN(q)} ${pu})` : `${soVN(q)} ${pu}`;
+    if (!(await confirmDialog(`Chuyển ${qTxt} ${d.box.product_code} từ ${uThis} ${d.box.box_code} → ${uTgt} ${tgt?.box_code || xferTo}?`))) return;
     setXferBusy(true);
     try {
       const r = await transferBox(boxId, xferTo, q);
@@ -242,15 +251,17 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
   const doDispose = async () => {
     if (!d) return;
     const rem = d.box.remaining ?? d.box.quantity;
-    const q = parseFloat((dispQty || "").replace(",", "."));
+    const raw = parseFloat((dispQty || "").replace(",", "."));
+    const q = toBaseQty(raw, du);   // số ĐƠN VỊ GỐC gửi API
     const reason = dispReason.trim();
     if (!isFinite(q) || q <= 0) { toast("Số lượng hủy phải > 0", "err"); return; }
     if (q > rem) { toast(`Thùng chỉ còn ${soVN(rem)}`, "err"); return; }
     if (!reason) { toast("Cần nhập lý do hủy", "err"); return; }
     const pu = d.box.product_unit || "cây";
+    const qTxt = du.factor !== 1 ? `${soVN(raw)} ${du.name} (= ${soVN(q)} ${pu})` : `${soVN(q)} ${pu}`;
     const camOk = cameraSupported();
     if (!(await confirmDialog(
-      `Xuất hủy ${soVN(q)} ${pu} ${d.box.product_code} khỏi thùng ${d.box.box_code}?\nLý do: ${reason}\nTồn kho sẽ trừ ngay.` +
+      `Xuất hủy ${qTxt} ${d.box.product_code} khỏi thùng ${d.box.box_code}?\nLý do: ${reason}\nTồn kho sẽ trừ ngay.` +
       (camOk ? "\n📸 Cần CHỤP ẢNH hàng hủy mới tạo được phiếu." : ""),
       { danger: true, okLabel: camOk ? "Chụp ảnh & hủy" : "Xuất hủy" }))) return;
     dispPendingRef.current = { q, reason };
@@ -492,12 +503,13 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
                 }))} />
             </span>
             <input class="pb-amount" style={{ width: "84px" }} type="text" inputMode="decimal"
-              placeholder={`≤ ${soVN(remaining)}`} value={xferQty}
+              placeholder={`≤ ${soVN(xu.factor !== 1 ? Math.round(remaining / xu.factor * 10) / 10 : remaining)}`} value={xferQty}
               onFocus={(e: any) => (e.target as HTMLInputElement).select()}
               onInput={(e: any) => setXferQty(e.target.value)} />
+            <QtyUnitPicker code={b.product_code} baseUnit={b.product_unit} unit={xu} onPick={setXferUnit} />
             {(() => {
               // Chưa đủ điều kiện (thiếu đích / số sai / vượt còn lại) → FADE, bấm toast lý do
-              const q = parseFloat((xferQty || "").replace(",", "."));
+              const q = toBaseQty(parseFloat((xferQty || "").replace(",", ".")), xu);
               const ok = !!xferTo && isFinite(q) && q > 0 && q <= remaining;
               return (
                 <button class={"btn primary" + (ok ? "" : " faded")} disabled={xferBusy} onClick={doTransfer}
@@ -507,7 +519,7 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
           </div>
           {(() => {
             // Preview còn lại NGAY khi gõ: bên này giảm, bên nhận tăng — đúng đơn vị từng bên
-            const q = parseFloat((xferQty || "").replace(",", "."));
+            const q = toBaseQty(parseFloat((xferQty || "").replace(",", ".")), xu);
             const uThis = (b.unit_name || "Thùng");
             const pu = b.product_unit || "cây";
             if (!isFinite(q) || q <= 0) return (
@@ -535,13 +547,14 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
           <label class="card-label"><Icon name="trash" size={15} /> Xuất hủy (hàng hư / hết hạn / vỡ)</label>
           <div class="row" style={{ gap: "6px" }}>
             <input class="pb-amount" style={{ width: "84px" }} type="text" inputMode="decimal"
-              placeholder={`≤ ${soVN(remaining)}`} value={dispQty}
+              placeholder={`≤ ${soVN(du.factor !== 1 ? Math.round(remaining / du.factor * 10) / 10 : remaining)}`} value={dispQty}
               onFocus={(e: any) => (e.target as HTMLInputElement).select()}
               onInput={(e: any) => setDispQty(e.target.value)} />
+            <QtyUnitPicker code={b.product_code} baseUnit={b.product_unit} unit={du} onPick={setDispUnit} />
             <input style={{ flex: 1, minWidth: 0 }} type="text" placeholder="Lý do hủy (bắt buộc)"
               value={dispReason} onInput={(e: any) => setDispReason(e.target.value)} />
             {(() => {
-              const q = parseFloat((dispQty || "").replace(",", "."));
+              const q = toBaseQty(parseFloat((dispQty || "").replace(",", ".")), du);
               const ok = isFinite(q) && q > 0 && q <= remaining && !!dispReason.trim();
               return (
                 <button class={"btn danger" + (ok ? "" : " faded")} disabled={dispBusy} onClick={doDispose}
@@ -564,7 +577,7 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
 
       {!disabled && (
         <BoxAdjust boxId={b.id} remaining={remaining} unit={b.product_unit || "cây"}
-          onChanged={() => reload(false)} />
+          code={b.product_code} onChanged={() => reload(false)} />
       )}
 
       <section class="card">
