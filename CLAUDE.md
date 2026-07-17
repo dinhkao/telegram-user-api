@@ -271,7 +271,7 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   - **PHIẾU ĐIỀU CHỈNH tồn thùng (`inventory_store/adjustments.py` + `server_app/adjustment_routes.py`,
     2026-07-16)**: bảng `inventory_adjustments`, mỗi phiếu = 1 allocation `kind='adjustment'`
     quantity = −delta — KHÔNG sửa quantity gốc, remaining tự đúng mọi công thức. Tạo =
-    văn phòng (`POST /api/inventory/box/{id}/adjust` {new_remaining, reason bắt buộc} —
+    admin (`POST /api/inventory/box/{id}/adjust` {new_remaining, reason bắt buộc} —
     delta tính trong transaction); gỡ = admin (hoàn nguyên, guard tồn âm). Event
     `adjustment.created/deleted` ghi CẢ scope box LẪN place
     (`inventory_audit.log_box_adjustment`, snapshot sau biến động — cả đường áp
@@ -279,10 +279,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     (thùng/SP/vị trí) hiện điều chỉnh, chiều +/− theo dấu delta, tồn-chạy đúng.
     UI `detail/BoxAdjust.tsx` ở chi tiết thùng.
     **Kiểm kho ÁP DỤNG vào kho** (`inventory_store/stocktake_apply.py`, POST
-    `/api/stocktakes/{id}/apply`, văn phòng): phiếu ĐÃ CHỐT, 1 lần (applied_at CAS),
+    `/api/stocktakes/{id}/apply`, admin): phiếu ĐÃ CHỐT, 1 lần (applied_at CAS),
     tạo phiếu điều chỉnh theo DELTA (đếm − sổ lúc chụp — không đè biến động hợp lệ
     sau đếm), all-or-nothing + chặn tồn âm; cột applied_at/by/result. Event
-    `stocktake.applied`. Tests: tests/test_adjustments.py.
+    `stocktake.applied`. Tests: tests/test_adjustments.py + test_adjustment_permissions.py.
   - **Kiểm kho theo vị trí (`inventory_store/stocktakes.py` + `server_app/stocktake_routes.py`
     + `stocktake_lock.py`)**: `inventory_stocktakes`/`inventory_stocktake_items` — 1 phiếu/vị
     trí, chụp `expected_quantity` (= remaining) CỐ ĐỊNH lúc tạo; mỗi vị trí tối đa 1 nháp
@@ -330,6 +330,17 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   chung); client `ProductionBoxes.tsx` cùng rule (requiredLines). `list_recipe`/
   `recipe_needs`/`set_recipe_line` nhận tham số `aux`; API recipe trả `aux` từng
   dòng + `aux_required`. Tests: `tests/test_recipe_aux.py`.
+  **Dashboard HAO HỤT NL phụ (`inventory_store/aux_loss.py` + `server_app/aux_loss_routes.py`,
+  GET `/api/inventory/aux-loss`, CHỈ VĂN PHÒNG)**: so NL phụ *dùng cho SX theo công
+  thức* (Σ số cây THÙNG THÀNH PHẨM tạo trong kỳ × tỉ lệ NL phụ) với *sụt giảm thực*
+  đo qua 2 lần KIỂM KHO liên tiếp của kho `aux_source`. 1 KỲ = giữa 2 phiếu kiểm kho
+  ĐÃ CHỐT; mỗi NL phụ: `used`(A) · `cham` (châm thêm trong kỳ = bút toán
+  transfer_in/out + purchase_in + return_in, cộng thùng MỚI tạo trong kho) ·
+  `consumed` = đếm_trước + châm − đếm_sau (CHỈ số ĐẾM THỰC, không đụng sổ sách) ·
+  `gap` = consumed − used (dương = hao hụt thật). Mốc chuẩn hoá epoch UTC
+  (`strftime('%s')` vì created_at/completed_at = UTC còn allocated_at = ISO giờ VN).
+  Kỳ 'open' (chưa kiểm lần sau) chỉ có used/cham. Phạm vi = NL phụ (ingredient aux=1).
+  UI `pages/AuxLoss.tsx` (`#/hao-hut-nl`, ☰ Thêm — office-only). Tests: `tests/test_aux_loss.py`.
   **Đơn vị nhập tỉ lệ**: cột `ratio_unit`/`ratio_factor` — tỉ lệ nhập theo đơn vị
   quy đổi của NL (product_units, chọn ở RecipeEditor); `ratio` DB LUÔN quy về
   đơn vị GỐC (needs/gate không đổi), unit/factor chỉ là snapshot hiển thị.

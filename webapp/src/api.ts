@@ -1002,6 +1002,29 @@ export async function getProductionDashboard(from?: string, to?: string): Promis
   return getJSON(`/api/production/report-dashboard${q ? "?" + q : ""}`, { cache: false });
 }
 
+// ── Hao hụt nguyên liệu phụ (#/hao-hut-nl, office-only) ────────────────────
+// So NL phụ DÙNG theo công thức với sụt giảm THỰC (đo qua 2 lần kiểm kho liên
+// tiếp của "kho nguyên liệu đang dùng"). getJSON ném ApiError(403) khi staff.
+export type AuxLossRow = {
+  code: string; name: string; unit: string;
+  used: number; cham: number; prev: number;
+  now: number | null; consumed: number | null; gap: number | null;
+};
+export type AuxLossPeriod = {
+  open: boolean; prev_ts: number; cur_ts: number | null;
+  rows: AuxLossRow[];
+  totals: { used: number; cham: number; consumed: number | null; gap: number | null };
+};
+export type AuxLossResp = {
+  ok: boolean;
+  place: { id: number; name: string } | null;   // null = chưa chỉ định kho aux_source
+  error?: "no_aux_place";
+  periods: AuxLossPeriod[];   // MỚI → CŨ; kỳ "open" (đang diễn ra) đầu nếu có
+};
+export async function getAuxLoss(limit = 30): Promise<AuxLossResp> {
+  return getJSON(`/api/inventory/aux-loss?limit=${limit}`, { cache: false });
+}
+
 export type WorkerReportRow = { thread_id: number; product_code: string; date: string; ymd: string; so_mam: number; tong_calc: number; note: string; money?: number; wage?: number; piece?: number; allowance?: number; so_gio?: number | null; hourly_rate?: number };
 // Tiền công + phụ cấp của 1 PHIẾU (office only)
 export type PhieuWages = { product_code: string; wage: number; default_wage: number; custom: boolean; allowances: Record<string, number>; hourly_rates: Record<string, number> };
