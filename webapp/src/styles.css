@@ -2200,6 +2200,9 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .punit-new .punit-flip { margin-left: auto; }
 .punit-new-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 2px 0 4px; }
 .punit-empty { color: var(--muted); font-size: .82rem; padding: 4px 0 2px; }
+/* Vế THAM CHIẾU của phương trình quy đổi — bấm đổi đơn vị ("1 Thùng = 3 Lốc") */
+.punit-refbtn { border: none; background: none; padding: 0 1px; font: inherit; font-weight: inherit;
+  color: var(--primary); text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
 /* VAI đơn vị (📦 nguyên kiện / 👁 hiển thị / 📋 kiểm kho) — chip chọn 1 đơn vị/vai */
 .punit-roles { margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(0, 0, 0, .12); }
 .punit-role-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; flex-wrap: wrap; font-size: .84rem; }

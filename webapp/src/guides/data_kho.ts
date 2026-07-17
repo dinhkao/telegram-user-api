@@ -14,7 +14,10 @@ export const GUIDES_KHO: Guide[] = [
         <i>Quy đổi đơn vị</i> trong <a href="#/san-pham">chi tiết sản phẩm</a>,
         ví dụ <i>1 Thùng = 30 cây</i>.</p>
         <p>Đơn vị quy đổi dùng khi <b>nhập phiếu mua</b> (mua 2 Thùng thay vì 60 cây),
-        <b>nhập tỉ lệ công thức</b>, và gánh 3 VAI dưới đây.</p>` },
+        <b>nhập tỉ lệ công thức</b>, và gánh 3 VAI dưới đây.</p>
+        <p>Tỉ lệ khai được <b>theo đơn vị bất kỳ</b>, không bắt buộc quy về gốc: bấm vào
+        tên đơn vị ở vế phải phương trình để đổi — ví dụ khai <i>1 Thùng = 3 Lốc</i>,
+        hệ thống tự quy ra <i>= 30 cây</i> (dòng "→ sẽ lưu" hiện số quy đổi trước khi lưu).</p>` },
       { title: "3 vai của đơn vị (chọn ở khối Quy đổi đơn vị)", html: `
         <p>Trong khối <i>Quy đổi đơn vị</i>, văn phòng chỉ định <b>tối đa 1 đơn vị cho mỗi vai</b>
         (tap chip để chọn, tap lại để bỏ; có dòng <i>⚡ Cả 3 vai</i> đặt nhanh):</p>
