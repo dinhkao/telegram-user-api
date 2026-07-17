@@ -1802,7 +1802,7 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .box-tile::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--fill, 100%); background: var(--fill-bg, var(--ok-wash)); z-index: 0; transition: width var(--dur) var(--ease); }
 .box-tile > * { position: relative; z-index: 1; }
 .box-tile .bl-code { font-family: var(--mono); font-weight: 700; font-size: .56rem; letter-spacing: -.02em; text-align: center; padding: 3px 2px; border-bottom: 1.5px solid; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.box-tile .bl-q { display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.box-tile .bl-q { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; align-content: center; font-weight: 800; font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; }
 /* Có tỷ lệ: số CÒN giữ lớn; "/tổng" là chỉ số phụ nhỏ lệch baseline. Không co cả
    cụm xuống cùng một cỡ vì xxx/xxx sẽ khó đọc trên ô dense 52px. */
 .box-tile .bl-q.has-total { width: 100%; min-width: 0; padding-inline: 0; box-sizing: border-box;
@@ -1813,7 +1813,7 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .box-tile .bl-q-tot { flex: 0 0 auto; align-self: center; margin-top: .28em; font-size: clamp(.42rem, var(--ratio-total, 14cqw), .8rem); font-weight: 700; opacity: .62; letter-spacing: -.08em; }
 .box-tile .bl-num { font-family: var(--mono); font-size: .82rem; font-weight: 800; letter-spacing: -.01em; text-align: center; padding: 3px 2px; border-top: 1.5px solid; }
 /* Nhãn ĐƠN VỊ HIỂN THỊ (vai 👁 — số trên ô đã quy đổi, vd "3 Thùng" thay 90 cây) */
-.box-tile .bl-unit { flex: 0 0 auto; align-self: end; margin: 0 0 .18em 2px; font-size: .44rem; font-weight: 700; opacity: .6; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.box-tile .bl-unit { flex: 0 0 100%; text-align: center; margin: 2px 0 0; font-size: .5rem; font-weight: 700; opacity: .65; line-height: 1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 3px; box-sizing: border-box; }
 .box-tile .bl-dot { position: absolute; top: 21px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 /* no-code: bỏ hàng mã SP (lưới đã group theo SP). dense: ô nhỏ hơn. */
 .box-tile-grid.no-product-code .box-tile { grid-template-rows: 1fr auto; }
