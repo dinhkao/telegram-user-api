@@ -1806,6 +1806,8 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
   font-size: .62rem; font-weight: 800; line-height: 1; opacity: .62; }
 .box-tile .bl-q-tot { flex: 0 0 auto; align-self: center; margin-top: .28em; font-size: clamp(.42rem, var(--ratio-total, 14cqw), .8rem); font-weight: 700; opacity: .62; letter-spacing: -.08em; }
 .box-tile .bl-num { font-family: var(--mono); font-size: .82rem; font-weight: 800; letter-spacing: -.01em; text-align: center; padding: 3px 2px; border-top: 1.5px solid; }
+/* Nhãn ĐƠN VỊ HIỂN THỊ (vai 👁 — số trên ô đã quy đổi, vd "3 Thùng" thay 90 cây) */
+.box-tile .bl-unit { flex: 0 0 auto; align-self: end; margin: 0 0 .18em 2px; font-size: .44rem; font-weight: 700; opacity: .6; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .box-tile .bl-dot { position: absolute; top: 21px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 /* no-code: bỏ hàng mã SP (lưới đã group theo SP). dense: ô nhỏ hơn. */
 .box-tile-grid.no-product-code .box-tile { grid-template-rows: 1fr auto; }

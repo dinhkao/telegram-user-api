@@ -17,6 +17,10 @@ export type BoxTileData = {
   note?: string | null;
   placeName?: string | null;
   productUnit?: string | null;
+  /** Vai 👁 hiển thị: SỐ trên ô quy đổi sang đơn vị này (chia hết → nguyên,
+   *  không → 1 số lẻ). CHỈ tầng hiển thị — fill/tooltip gốc giữ nguyên số thật. */
+  displayUnitName?: string | null;
+  displayUnitFactor?: number | null;
   href?: string;
   domId?: string;
   title?: string;
@@ -35,6 +39,8 @@ export type InventoryBoxTileData = {
   note?: string | null;
   place_name?: string | null;
   product_unit?: string | null;
+  display_unit_name?: string | null;
+  display_unit_factor?: number | null;
 };
 
 export function inventoryBoxTile(box: InventoryBoxTileData, href = `#/thung/${box.id}`): BoxTileData {
@@ -50,6 +56,8 @@ export function inventoryBoxTile(box: InventoryBoxTileData, href = `#/thung/${bo
     note: box.note,
     placeName: box.place_name,
     productUnit: box.product_unit,
+    displayUnitName: box.display_unit_name,
+    displayUnitFactor: box.display_unit_factor,
     href,
   };
 }
@@ -100,13 +108,28 @@ function tileValues(box: BoxTileData, mode: BoxTileMode) {
   };
 }
 
+/** Factor quy đổi hiển thị (vai 👁) — chỉ nhận khi > 0 và ≠ 1 (1 = như đơn vị gốc). */
+function displayFactor(box: BoxTileData): number | null {
+  const f = box.displayUnitFactor;
+  return f && f > 0 && f !== 1 ? f : null;
+}
+
+/** Số theo đơn vị hiển thị: chia hết → nguyên; không → 1 chữ số lẻ. */
+function displayQty(v: number, factor: number): string {
+  const x = v / factor;
+  const r = Math.round(x);
+  return Math.abs(x - r) < 1e-6 ? soVN(r) : soVN(Math.round(x * 10) / 10);
+}
+
 function defaultTitle(box: BoxTileData, mode: BoxTileMode, current: number, total: number | null, remaining: number): string {
   const unit = box.productUnit || (mode === "remaining" ? "cây" : "");
+  const df = displayFactor(box);
   const quantity = mode === "allocated"
     ? `lấy ${soVN(current)}${total !== null ? `/${soVN(total)}` : ""}`
     : mode === "produced"
       ? `còn ${soVN(remaining)}/${soVN(box.quantity)}`
-      : `${soVN(current)} ${unit}`.trim();
+      : `${soVN(current)} ${unit}`.trim()
+        + (df ? ` = ${displayQty(current, df)} ${box.displayUnitName}` : "");
   const status = box.disabled
     ? "vô hiệu"
     : mode === "remaining" && (box.allocated ?? 0) > 0
@@ -122,8 +145,10 @@ function defaultTitle(box: BoxTileData, mode: BoxTileMode, current: number, tota
  */
 export function BoxTile({ box, size = "regular", mode = "remaining", showProductCode = true, action }: BoxTileProps) {
   const { current, total, fill, remaining } = tileValues(box, mode);
-  const currentText = soVN(current);
-  const totalText = total !== null ? soVN(total) : "";
+  // Vai 👁: SỐ trên ô quy đổi sang đơn vị hiển thị (fill vẫn tỉ lệ theo số gốc)
+  const df = displayFactor(box);
+  const currentText = df ? displayQty(current, df) : soVN(current);
+  const totalText = total !== null ? (df ? displayQty(total, df) : soVN(total)) : "";
   // Mono font: ước lượng bề ngang theo số ký tự để tỷ lệ luôn phóng lớn nhất có thể
   // mà vẫn vừa ô. Phần tổng nhỏ hơn nên mỗi ký tự chỉ tính ~46% trọng số số chính.
   const ratioUnits = currentText.length * .6 + .45 + totalText.length * .27;
@@ -151,6 +176,7 @@ export function BoxTile({ box, size = "regular", mode = "remaining", showProduct
       <span class={"bl-q" + (total !== null ? " has-total" : "")}>
         <span class="bl-q-now">{currentText}</span>
         {total !== null && <><span class="bl-q-sep">/</span><span class="bl-q-tot">{totalText}</span></>}
+        {df && size !== "mini" && <span class="bl-unit">{box.displayUnitName}</span>}
       </span>
       <span class="bl-num">{boxNumber(box.boxCode)}</span>
     </>

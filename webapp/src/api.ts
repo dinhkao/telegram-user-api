@@ -1587,7 +1587,7 @@ export async function wagesDashboard(from?: string, to?: string): Promise<WagesD
   return { from: d.from, to: d.to, days: d.days || [], totals: d.totals || { money: 0, cay: 0 }, missing_wage: d.missing_wage || [], missing_hour_rate: d.missing_hour_rate || [] };
 }
 
-export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; capacity?: number; reserved?: boolean; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null; unit_id?: number | null; unit_name?: string | null; product_unit?: string; source_thread_id?: number | null };
+export type KhoBox = { id: number; product_code: string; box_code: string; quantity: number; remaining: number; allocated: number; capacity?: number; reserved?: boolean; disabled: boolean; note: string; mfg_date?: string | null; created_at?: string; place_id?: number | null; place_name?: string | null; unit_id?: number | null; unit_name?: string | null; unit_label?: string | null; product_unit?: string; display_unit_name?: string | null; display_unit_factor?: number | null; source_thread_id?: number | null };
 
 // ── Công thức sản xuất (BOM): SP cần nguyên liệu theo tỉ lệ ──
 // aux = NGUYÊN LIỆU PHỤ: trừ kho CẢ phiếu SX lẫn đóng gói khi SP bật aux_required.
