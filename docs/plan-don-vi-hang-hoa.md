@@ -21,7 +21,9 @@
 2. Nhãn chứa của thùng = tên đơn vị nguyên kiện (text snapshot trên thùng, KHÔNG đi
    qua `inventory_units` — bảng đó chỉ còn phục vụ hàng xá nhập rời).
 3. **1 đơn vị nguyên kiện = 1 dòng thùng** (mỗi kiện 1 số gọi riêng để điểm danh
-   ngoài kho; chấp nhận tốn số gọi — xem lưu ý pool 001–999 ở Phase 2).
+   ngoài kho).
+4. **Số gọi mở rộng sau 999**: … 998, 999, A001 … A999, B001 … Z999 rồi quay về
+   001 (27 block × 999 = 26.973 số, vẫn hô được ngoài kho: "thùng A ba-bốn-bảy").
 
 ## Phase 0 — Schema + store (nền tảng, tự thân vô hại)
 
@@ -72,10 +74,23 @@
   - **Phiếu SX**: `ProductionBoxes.tsx` + route boxes — thành phẩm có vai 📦 →
     nhập "số kiện" tạo N dòng × factor, label auto.
   - **Hàng trả về**: `ReturnGoodsModal` nhánh "tạo thùng mới" cùng rule.
-- ⚠ Lưu ý pool số gọi: mỗi kiện chiếm 1 số trong 001–999 xoay vòng. Kiểm tra
-  `domain.next_call_numbers` khi số thùng sống tiến gần 999 — thêm lỗi rõ ràng
-  khi cạn pool (hiện tại chưa rõ hành vi). SP bulk = đơn vị gốc (factor 1) nhập
-  10 kiện → 10 dòng quantity 1 — đúng quyết định 3, khác hành vi gộp hiện tại.
+- **Mở rộng SỐ GỌI theo quyết định 4** (làm ĐẦU Phase 2 — trước khi 1-kiện-1-dòng
+  tăng lượng số dùng; độc lập, ship riêng được):
+  - `inventory_store/domain.py`: không gian số 1..26.973 (block 0 = không tiền tố,
+    block 1–26 = 'A'–'Z'). `call_code(n)`: block 0 → `"047"`, block chữ →
+    `"A047"`. `code_call_number`: nhận thêm dạng `^[A-Z]\d{3}$` (đúng 3 chữ số);
+    dạng số trần + đuôi base36 mã cũ có gạch (`K2L-00A`) giữ nguyên, không va chạm
+    (mã mới không có gạch, chữ đứng ĐẦU). `next_call_numbers`: MAX 26.973,
+    Z999 quay về 001 — hết pool mới ValueError như cũ.
+  - Hệ quả tốt: khoảng cách tái dùng số tăng 27× (số thường chỉ quay lại sau khi
+    đi hết A–Z) — càng đỡ nhầm ngoài kho.
+  - Bản đồ số gọi `#/so-thung` (`inventory_call_map.py` + `CallNumbers.tsx` đang
+    hardcode 999): hiện block 001–999 mặc định, block chữ chỉ hiện khi block đó
+    đã có số được cấp.
+  - Tests `test_inventory_domain`: biên 999→A001, Z999→001, parse `A347`,
+    mã cũ `K2L-00A` vẫn ra 10, loại `A47`/`AA47`.
+- SP bulk = đơn vị gốc (factor 1) nhập 10 kiện → 10 dòng quantity 1 — đúng quyết
+  định 3, khác hành vi gộp hiện tại (thấy được với người dùng).
 
 ## Phase 3 — Đơn vị hiển thị trên ô thùng
 
