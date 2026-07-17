@@ -118,7 +118,9 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
   const hasPayments = paidTotal > 0;   // đã thu tiền → khoá đổi khách, chặn giảm tổng < đã thu
   const locked = hasInvoice;
   const editable = !!detail && !locked;      // chỉ giữ khoá khi đơn còn sửa được
-  const canChange = editable && !stockLocked && !editHolder && !hasPayments;
+  // Chốt kho KHÔNG khoá đổi khách (chỉ đóng băng hàng đã xuất) — khoá theo HĐ KV
+  // (editable) và thanh toán (tiền + snapshot nợ đã gắn khách hiện tại).
+  const canChange = editable && !editHolder && !hasPayments;
   const textChanged = !!detail && text.trim() !== origText.trim();
 
   // Khôi phục ảnh tham chiếu đã lưu trên server mỗi khi mở/reload trang.
@@ -268,7 +270,8 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
           )}
           {canChange && <button class="btn small ghost" onClick={() => setChangingCust(true)}>Đổi</button>}
         </div>
-      ) : stockLocked ? (
+      ) : hasPayments ? (
+        // Đã thu tiền → không gán/đổi khách được (server chặn) — hiện tĩnh thay picker
         <div class="co-cust-picked adv muted small">Chưa gán khách hàng</div>
       ) : (
         <>

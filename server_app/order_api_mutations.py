@@ -107,11 +107,8 @@ async def api_assign_customer_handler(request: web.Request):
         order = get_order_by_thread_id(conn, thread_id)
         if not order:
             return web.json_response({"ok": False, "error": "Order not found"}, status=404)
-        if order.get("stock_confirmed"):
-            return web.json_response(
-                {"ok": False, "error": "Đơn đã chốt xuất kho — chỉ được sửa đơn giá", "locked": True},
-                status=403,
-            )
+        # CHỐT XUẤT KHO không khoá đổi khách (2026-07-17): chốt kho chỉ đóng băng
+        # HÀNG ĐÃ XUẤT (mã + số lượng) — khách của đơn không ảnh hưởng tồn kho.
         # HĐ KiotViet đã tạo theo khách cũ — đổi khách làm HĐ/nợ lệch → cấm (xoá HĐ trước)
         if order.get("kiotvietInvoiceID"):
             return web.json_response(
