@@ -3,7 +3,7 @@
 // GET /api/inventory/box/:id.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { boxDetail, updateBox, setBoxDisabled, deleteBox, returnBoxMaterial, transferBox, allBoxes, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, createDisposal, currentUser, isOffice, soVN, type InvBoxDetail, type InvBox, type KhoBox, type Place, type Unit } from "../api";
+import { boxDetail, updateBox, setBoxDisabled, deleteBox, returnBoxMaterial, transferBox, allBoxes, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, createDisposal, currentUser, soVN, type InvBoxDetail, type InvBox, type KhoBox, type Place, type Unit } from "../api";
 import { onRealtime } from "../realtime";
 import { BoxAdjust } from "../detail/BoxAdjust";
 import { Loading } from "../ui/states";
@@ -631,9 +631,9 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
         </section>
       )}
 
-      {/* Admin xoá mọi thùng; văn phòng xoá thùng của PHIẾU NHẬP (server chỉ cho
-          khi phiếu đang mở — phiếu chốt thì delete_lock đã làm mờ nút kèm lý do). */}
-      {(isAdmin || (isOffice() && !!d.box.source_purchase_id)) && (
+      {/* Admin xoá mọi thùng; người dùng thường xoá thùng của PHIẾU NHẬP (server
+          chỉ cho khi phiếu đang mở — phiếu chốt thì delete_lock làm mờ nút kèm lý do). */}
+      {(isAdmin || !!d.box.source_purchase_id) && (
         <section class="card">
           <button class={"btn danger block" + (d.delete_lock ? " faded" : "")} disabled={disBusy} onClick={doDelete}
             title={d.delete_lock?.reason}>

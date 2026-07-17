@@ -432,17 +432,17 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `server_app/purchase_goods.py` (tests/test_purchase_goods.py), row đọc
   `purchase_goods_view.py` (attach `boxes` + `draft_receipt{new,existing,totals}`
   vào detail), routes `purchase_goods_routes.py` (đăng ký app_factory):
-  - POST `/receive-goods` (văn phòng, nhiều lần): mỗi dòng `restock_new` (tạo N
-    thùng GIỐNG NHAU như phiếu SX — `{count, quantity/thùng, unit_id, place_id}`,
-    thùng gắn `source_purchase_id` → link "Nguồn") | `restock_existing`
-    (allocation ÂM `kind='purchase_in'` — remaining tăng, quantity gốc giữ) |
-    `skip`. Validate TRƯỚC khi ghi: mã có trên phiếu, đúng SP thùng, thùng
-    sống/còn hàng, không vượt trần cộng dồn theo SP (trần = phiếu − đã nhập).
-  - Gỡ từng dòng khi ĐANG MỞ: xoá thùng mới qua DELETE box (office được với thùng
-    `source_purchase_id` phiếu mở — `box_delete_handler`; thùng khác admin-only,
-    `_box_delete_lock` chặn phiếu chốt/thùng đã dùng); gỡ dòng cộng qua POST
-    `/unreceive {allocation_id}` (guard phần cộng chưa tiêu).
-  - POST `/confirm-goods` (văn phòng): CHỐT — CAS `goods_handled_at` + snapshot
+  - POST `/receive-goods` (mọi người dùng — mở 2026-07-17, nhiều lần): mỗi dòng
+    `restock_new` (tạo N thùng GIỐNG NHAU như phiếu SX — `{count, quantity/thùng,
+    unit_id, place_id}`, thùng gắn `source_purchase_id` → link "Nguồn") |
+    `restock_existing` (allocation ÂM `kind='purchase_in'` — remaining tăng,
+    quantity gốc giữ) | `skip`. Validate TRƯỚC khi ghi: mã có trên phiếu, đúng SP
+    thùng, thùng sống/còn hàng, không vượt trần cộng dồn theo SP (trần = phiếu − đã nhập).
+  - Gỡ từng dòng khi ĐANG MỞ: xoá thùng mới qua DELETE box (mọi người dùng với
+    thùng `source_purchase_id` phiếu mở — `box_delete_handler`; thùng khác
+    admin-only, `_box_delete_lock` chặn phiếu chốt/thùng đã dùng); gỡ dòng cộng
+    qua POST `/unreceive {allocation_id}` (mọi người dùng, guard phần cộng chưa tiêu).
+  - POST `/confirm-goods` (mọi người dùng): CHỐT — CAS `goods_handled_at` + snapshot
     `goods_result` từ trạng thái đang nhập → phiếu KHOÁ sửa items + chặn xoá.
     CHỈ chốt khi đã nhập ĐỦ mọi mã theo phiếu (như chốt xuất kho đơn; UI mờ nút
     kèm lý do) — hàng về thiếu/vỡ thì sửa SL trên phiếu về số thực nhận rồi chốt.

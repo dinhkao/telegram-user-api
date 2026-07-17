@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import {
   getPurchase, deletePurchase, payPurchase, deletePurchasePayment, undoPurchaseGoods,
-  confirmPurchaseGoods, unreceivePurchase, deleteBox, currentUser, isOffice, soVN,
+  confirmPurchaseGoods, unreceivePurchase, deleteBox, currentUser, soVN,
   type PurchaseSlip, type PurchaseDraftLine,
 } from "../api";
 import { onRealtime } from "../realtime";
@@ -114,7 +114,8 @@ export function PurchaseDetail({ id }: { id: string }) {
   const [showGoods, setShowGoods] = useState(false);
   const autoOpened = useRef(false);
   const isAdmin = currentUser()?.role === "admin";
-  const office = isOffice();
+  // Tạo/sửa/nhập kho phiếu nhập mở cho MỌI người dùng (2026-07-17) — chỉ còn
+  // admin cho xoá phiếu / hủy chốt / gỡ lần trả tiền.
 
   const load = () => getPurchase(id).then(setR).catch((e: any) => setErr(e?.message || "Lỗi tải phiếu"));
   useEffect(() => { load(); }, [id]);
@@ -124,7 +125,7 @@ export function PurchaseDetail({ id }: { id: string }) {
     if (sessionStorage.getItem("pg_open") === String(id)) {
       sessionStorage.removeItem("pg_open");
       autoOpened.current = true;
-      if (!r.goods_handled_at && office) setShowGoods(true);
+      if (!r.goods_handled_at) setShowGoods(true);
     }
   }, [r]);
   useEffect(() => {
@@ -384,25 +385,25 @@ export function PurchaseDetail({ id }: { id: string }) {
                       mode="allocated"
                       productCodeMode="auto"
                       boxes={draftTiles}
-                      getAction={office ? (t) => ({
+                      getAction={(t) => ({
                         label: t.isNew ? "Xoá hẳn thùng này khỏi kho" : "Gỡ phần đã cộng vào thùng",
                         content: <Icon name="close" size={12} />,
                         disabled: busy,
                         onClick: () => (t.isNew ? doDeleteBox(t.line) : doUnreceive(t.line)),
-                      }) : undefined}
+                      })}
                     />
                   </div>
                 )}
               </section>
             )}
             <div class="row">
-              <button class={"btn block rg-open-btn" + (office ? "" : " faded")} disabled={busy}
-                onClick={() => office ? setShowGoods(true) : toast("Chỉ văn phòng mới được nhập kho hàng mua", "info")}>
+              <button class="btn block rg-open-btn" disabled={busy}
+                onClick={() => setShowGoods(true)}>
                 <Icon name="box" size={15} /> {hasDraft ? "Nhập thêm" : "Nhập kho hàng mua về"}
               </button>
-              <button class={"btn primary block" + (office && !confirmBlock ? "" : " faded")} disabled={busy}
+              <button class={"btn primary block" + (!confirmBlock ? "" : " faded")} disabled={busy}
                 title={confirmBlock || undefined}
-                onClick={() => office ? doConfirm() : toast("Chỉ văn phòng mới được chốt nhập kho", "info")}>
+                onClick={doConfirm}>
                 ✓ Chốt nhập kho
               </button>
             </div>

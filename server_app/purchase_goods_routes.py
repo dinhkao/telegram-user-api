@@ -1,4 +1,5 @@
-"""HTTP nhập KHO hàng mua về — flow GIỐNG XUẤT KHO ĐƠN (văn phòng, trừ undo=admin).
+"""HTTP nhập KHO hàng mua về — flow GIỐNG XUẤT KHO ĐƠN (mọi người dùng đăng
+nhập — mở cho staff 2026-07-17; riêng undo = admin).
 
 POST /api/purchases/{id}/receive-goods {dispositions} — ghi nhập TỪNG ĐỢT khi
   phiếu đang mở (restock_new: count thùng × quantity/thùng | restock_existing:
@@ -75,11 +76,8 @@ def _audit_boxes(request, pid: int, actor: str, extra) -> None:
 
 
 async def purchase_receive_goods_handler(request: web.Request):
-    """POST /api/purchases/{id}/receive-goods (văn phòng) — ghi nhập từng đợt."""
-    from server_app.order_api_common import is_office_request
+    """POST /api/purchases/{id}/receive-goods (mọi người dùng) — ghi nhập từng đợt."""
     from server_app.purchase_routes import _actor
-    if not await is_office_request(request):
-        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được nhập kho hàng mua"}, status=403)
     pid = _pid(request)
     if pid is None:
         return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
@@ -114,11 +112,8 @@ async def purchase_receive_goods_handler(request: web.Request):
 
 
 async def purchase_confirm_goods_handler(request: web.Request):
-    """POST /api/purchases/{id}/confirm-goods (văn phòng) — CHỐT nhập kho, khoá phiếu."""
-    from server_app.order_api_common import is_office_request
+    """POST /api/purchases/{id}/confirm-goods (mọi người dùng) — CHỐT nhập kho, khoá phiếu."""
     from server_app.purchase_routes import _actor
-    if not await is_office_request(request):
-        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được chốt nhập kho"}, status=403)
     pid = _pid(request)
     if pid is None:
         return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
@@ -151,12 +146,9 @@ async def purchase_confirm_goods_handler(request: web.Request):
 
 
 async def purchase_unreceive_handler(request: web.Request):
-    """POST /api/purchases/{id}/unreceive {allocation_id} (văn phòng) — gỡ 1 dòng
-    cộng-vào-thùng-có-sẵn khi phiếu đang mở."""
-    from server_app.order_api_common import is_office_request
+    """POST /api/purchases/{id}/unreceive {allocation_id} (mọi người dùng) — gỡ 1
+    dòng cộng-vào-thùng-có-sẵn khi phiếu đang mở."""
     from server_app.purchase_routes import _actor
-    if not await is_office_request(request):
-        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được gỡ dòng nhập kho"}, status=403)
     pid = _pid(request)
     if pid is None:
         return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
