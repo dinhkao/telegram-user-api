@@ -182,14 +182,23 @@ def run_boot_migrations() -> None:
     # products: id INTEGER PK (danh tính bất biến) + bảng product_code_history
     create_products_table(conn)
     migrate_products_table(conn)
-    # kho + công thức: cột product_id/ingredient_id + backfill theo mã (idempotent —
-    # cũng chạy lazily trong inventory_routes._ensure, gọi ở đây cho chắc lúc boot)
+    # kho + công thức: cột product_id/ingredient_id + backfill theo mã (idempotent).
+    # Boot là chỗ chạy CHÍNH — inventory_routes._ensure chỉ còn là guard 1-lần/process
+    # cho test/chạy lẻ, không trả phí DDL + quét migrate mỗi request nữa.
     from inventory_store.schema import create_inventory_table, migrate_inventory_table
     from recipe_store.schema import create_recipe_table
     create_inventory_table(conn)
     migrate_inventory_table(conn)
+    from inventory_store.allocations import create_allocations_table, migrate_legacy_allocations
+    create_allocations_table(conn)
+    migrate_legacy_allocations(conn)   # quét thùng kiểu cũ (status+order_thread_id) — idempotent
+    from inventory_store.adjustments import ensure_adjustments_schema
+    ensure_adjustments_schema(conn)
     from inventory_store.stocktakes import create_stocktake_tables
     create_stocktake_tables(conn)
+    from purchase_store import ensure_purchases_schema
+    ensure_purchases_schema(conn)
+    conn.commit()
     # Phiếu xuất hủy cũ: bù bút toán vào timeline thùng/vị trí (idempotent).
     try:
         import disposal_store

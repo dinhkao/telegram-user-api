@@ -64,13 +64,22 @@ def _conn():
     return get_connection()
 
 
+_ensured = False
+
+
 def _ensure(conn):
-    """Tạo bảng + migrate (cột mới như disabled/mfg_date, bảng box_allocations)."""
+    """Tạo bảng + migrate kho — chạy CHÍNH ở boot (db_migrate.run_boot_migrations).
+    Đây chỉ là guard cho test/chạy lẻ không qua bootstrap: làm 1 LẦN ở lượt gọi đầu
+    của process, các request sau khỏi trả phí DDL + quét migrate_legacy_allocations."""
+    global _ensured
+    if _ensured:
+        return
     create_inventory_table(conn)
     migrate_inventory_table(conn)
     create_allocations_table(conn)
     migrate_legacy_allocations(conn)
     create_recipe_table(conn)
+    _ensured = True
 
 
 def _thread_id(request: web.Request) -> int | None:

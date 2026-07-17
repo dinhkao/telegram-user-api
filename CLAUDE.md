@@ -294,7 +294,8 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     (đồng bộ số sổ sách theo tồn hiện tại, GIỮ số đã đếm, thêm/bớt dòng) — cần giữ khoá; hoặc
     `void_stocktake` (`status='voided'`, văn phòng, giải phóng vị trí). Audit `stocktake.
     created/completed/resynced/voided`. UI `pages/StocktakeDetail.tsx` (`#/kiem-kho/:id`).
-  - API `server_app/inventory_routes.py` (`_ensure` = create+migrate mọi bảng): `/api/inventory`
+  - API `server_app/inventory_routes.py` (DDL/migrate kho chạy ở BOOT — `db_migrate.
+    run_boot_migrations`; `_ensure` chỉ là guard 1-lần/process cho test/chạy lẻ): `/api/inventory`
     (summary), `/api/inventory/boxes` (MỌI thùng), `/api/inventory/{code}` (chi tiết SP),
     `/api/inventory/box/{id}` GET/POST/DELETE, nhập `POST /api/production/{id}/boxes`
     (nhận `product_code`/`unit_id`/`place_id`/`consume` = thùng NL tiêu hao),
