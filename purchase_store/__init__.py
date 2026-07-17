@@ -1,7 +1,7 @@
 """Phiếu NHẬP HÀNG (purchase_slips, app.db) — nhập hàng từ nhà cung cấp.
 
-100% local, KHÔNG dính KiotViet. Flow giống ĐƠN: tạo phiếu (sửa được, văn phòng)
-→ xoá = admin (xoá mềm). Hàng hoá DÙNG CHUNG bảng sản phẩm: items JSON
+100% local, KHÔNG dính KiotViet. Flow giống ĐƠN: tạo/sửa phiếu = mọi người dùng
+đăng nhập (mở 2026-07-17) → xoá = admin (xoá mềm). Hàng hoá DÙNG CHUNG bảng sản phẩm: items JSON
 [{sp, sp_id?, sl, price}] — sp_id gắn khi mã resolve được (product_store), giá là
 snapshot. Nối: utils.db, supplier_store (JOIN tên NCC).
 API: server_app/purchase_routes.py.

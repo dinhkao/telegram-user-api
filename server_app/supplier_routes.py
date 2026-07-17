@@ -39,10 +39,9 @@ async def suppliers_list_handler(request: web.Request):
 
 
 async def supplier_create_handler(request: web.Request):
-    """POST /api/suppliers (văn phòng) — body {name, phone?, address?, note?}."""
-    from server_app.order_api_common import is_office_request
-    if not await is_office_request(request):
-        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được tạo nhà cung cấp"}, status=403)
+    """POST /api/suppliers (mọi người dùng đăng nhập — mở cùng tạo phiếu nhập
+    2026-07-17: trang tạo phiếu gõ tên NCC lạ là tạo NCC ngay). Body {name,
+    phone?, address?, note?}. Sửa NCC vẫn văn phòng, xoá vẫn admin."""
     try:
         body = await request.json()
     except Exception:

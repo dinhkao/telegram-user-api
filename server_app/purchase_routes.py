@@ -192,10 +192,8 @@ async def purchase_detail_handler(request: web.Request):
 
 
 async def purchase_create_handler(request: web.Request):
-    """POST /api/purchases (văn phòng) — body {supplier_id, items: [{sp, sl, price}], note?}."""
-    from server_app.order_api_common import is_office_request
-    if not await is_office_request(request):
-        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được tạo phiếu nhập"}, status=403)
+    """POST /api/purchases (mọi người dùng đăng nhập — mở cho staff 2026-07-17)
+    — body {supplier_id, items: [{sp, sl, price}], note?}."""
     try:
         body = await request.json()
     except Exception:
@@ -240,10 +238,8 @@ async def purchase_create_handler(request: web.Request):
 
 
 async def purchase_update_handler(request: web.Request):
-    """POST /api/purchases/{id}/update (văn phòng) — sửa hàng nhập/ghi chú/NCC."""
-    from server_app.order_api_common import is_office_request
-    if not await is_office_request(request):
-        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được sửa phiếu nhập"}, status=403)
+    """POST /api/purchases/{id}/update (mọi người dùng đăng nhập) — sửa hàng
+    nhập/ghi chú/NCC. Guard nội dung (đã trả tiền/đã nhập kho) vẫn ở store."""
     try:
         pid = int(request.match_info.get("id", ""))
     except (TypeError, ValueError):

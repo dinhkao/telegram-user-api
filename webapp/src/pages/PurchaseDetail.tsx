@@ -172,13 +172,11 @@ export function PurchaseDetail({ id }: { id: string }) {
         </div>
         {!deleted && (
           <a
-            class={"btn small ret-edit" + (office && !r.goods_handled_at ? "" : " faded")}
+            class={"btn small ret-edit" + (!r.goods_handled_at ? "" : " faded")}
             href={`#/nhap-hang/${id}/sua`}
             onClick={(e) => {
-              if (!office) {
-                e.preventDefault();
-                toast("Chỉ văn phòng mới được sửa phiếu nhập", "info");
-              } else if (r.goods_handled_at) {
+              // Sửa phiếu mở cho mọi người dùng (2026-07-17) — chỉ khoá khi đã chốt kho
+              if (r.goods_handled_at) {
                 e.preventDefault();
                 toast("Phiếu đã nhập kho — không sửa hàng được nữa", "info");
               }

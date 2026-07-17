@@ -1,4 +1,4 @@
-// Trang TẠO phiếu nhập hàng (#/nhap-hang/tao, văn phòng) — thay popup cũ.
+// Trang TẠO phiếu nhập hàng (#/nhap-hang/tao, mọi người dùng) — thay popup cũ.
 // Chọn NCC (autocomplete, gõ tên lạ → tạo NCC mới ngay; ?ncc=<id> = prefill từ
 // trang NCC), dòng hàng: SP × SL × giá + đơn vị nhập (PurchaseUnitPicker).
 // NHÁP TỰ LƯU localStorage (purchase_create_draft_v1): rời trang giữa chừng →
@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import {
-  createProduct, createPurchase, createSupplier, isOffice, listSuppliers,
+  createProduct, createPurchase, createSupplier, listSuppliers,
   searchProducts, soVN, type Supplier,
 } from "../api";
 import { buildPurchaseProductOptions, isCreateProd, codeFromCreateKey, unitChoicesFor, type UnitChoice } from "../detail/purchaseProduct";
@@ -35,7 +35,7 @@ function readDraft(): { picked: Picked; lines: Line[]; note: string } | null {
 }
 
 export function PurchaseCreate() {
-  const office = isOffice();
+  // Tạo phiếu nhập mở cho MỌI người dùng đăng nhập (2026-07-17) — không gate office.
   // ?ncc=<id> → prefill NCC (ưu tiên hơn NCC trong nháp)
   const nccParam = Number((window.location.hash.match(/[?&]ncc=(\d+)/) || [])[1] || 0) || null;
   const draft = useRef(readDraft()).current;
@@ -150,12 +150,6 @@ export function PurchaseCreate() {
           <div class="prod-date muted">{picked ? picked.name : "Chưa chọn nhà cung cấp"}</div>
         </div>
       </div>
-
-      {!office && (
-        <div class="card co-adv-locked muted small">
-          <Icon name="lock" size={14} /> Chỉ văn phòng mới được tạo phiếu nhập.
-        </div>
-      )}
 
       {restored && (
         <div class="card pur-draft-hint">

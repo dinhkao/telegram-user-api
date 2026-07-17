@@ -401,8 +401,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   **100% local, không KiotViet**). `suppliers` (tên/SĐT/địa chỉ/ghi chú, xoá mềm,
   chặn xoá khi còn phiếu) + `purchase_slips` (items JSON [{sp, sp_id?, sl, price}]
   — **hàng hoá dùng chung bảng sản phẩm**: mã resolve qua `product_store` gắn
-  `sp_id`, hiển thị bản hiện hành như đơn; giá ≥ 0, snapshot). Flow như đơn: tạo/sửa
-  = văn phòng, xoá = admin (xoá mềm). **`update_purchase_items` chặn hạ tổng dưới số
+  `sp_id`, hiển thị bản hiện hành như đơn; giá ≥ 0, snapshot). Tạo/sửa phiếu + tạo
+  NCC = MỌI người dùng đăng nhập (mở 2026-07-17; sửa NCC vẫn văn phòng), xoá =
+  admin (xoá mềm). **`update_purchase_items` chặn hạ tổng dưới số
   đã trả VÀ chặn đổi NCC khi `paid > 0`** (gỡ các lần trả trước mới đổi được). API `server_app/supplier_routes.py` +
   `purchase_routes.py` (`/api/suppliers*`, `/api/purchases*`); realtime
   `purchase_changed`/`supplier_changed`; ảnh/trao đổi/lịch sử = entity media scope

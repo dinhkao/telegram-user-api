@@ -2,7 +2,7 @@
 // lần nhập cuối). Card → #/ncc/:id. Tạo NCC = popup (văn phòng). 100% local.
 // Realtime: supplier_changed/resync → tải lại. Cache module — quay lại tức thì.
 import { useEffect, useState } from "preact/hooks";
-import { createSupplier, isOffice, listSuppliers, soVN, type Supplier } from "../api";
+import { createSupplier, listSuppliers, soVN, type Supplier } from "../api";
 import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { SearchBar } from "../ui/SearchBar";
@@ -65,7 +65,6 @@ export function SuppliersList() {
   useEffect(() => { memQ = q; }, [q]);
   const [loading, setLoading] = useState(!supCache);
   const [createOpen, setCreateOpen] = useState(false);
-  const office = isOffice();
 
   const load = async () => {
     try {
@@ -83,16 +82,14 @@ export function SuppliersList() {
   const visible = !fq ? rows : rows.filter((s) =>
     foldVN(`${s.name} ${s.phone || ""} ${s.address || ""} ${s.note || ""}`).includes(fq));
 
-  const openCreate = async () => {
-    if (!office) return toast("Chỉ văn phòng mới được tạo nhà cung cấp", "info");
-    setCreateOpen(true);
-  };
+  // Tạo NCC mở cho MỌI người dùng (2026-07-17, cùng đợt mở tạo phiếu nhập)
+  const openCreate = () => setCreateOpen(true);
 
   return (
     <div class="ret-list">
       <div class="ret-toolbar">
         <SearchBar value={q} onInput={setQ} placeholder="Tìm tên, SĐT, địa chỉ…" />
-        <button class={"btn primary" + (office ? "" : " faded")} onClick={openCreate}>
+        <button class="btn primary" onClick={openCreate}>
           <Icon name="plus" size={16} /> Tạo NCC
         </button>
       </div>

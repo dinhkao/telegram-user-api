@@ -3,7 +3,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import {
-  createProduct, getPurchase, isOffice, searchProducts, soVN,
+  createProduct, getPurchase, searchProducts, soVN,
   updatePurchase, type PurchaseSlip,
 } from "../api";
 import { buildPurchaseProductOptions, isCreateProd, codeFromCreateKey, unitChoicesFor, type UnitChoice } from "../detail/purchaseProduct";
@@ -22,7 +22,8 @@ export function PurchaseEdit({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
   const [note, setNote] = useState("");
-  const office = isOffice();
+  // Sửa phiếu nhập mở cho MỌI người dùng đăng nhập (2026-07-17) — chỉ khoá theo
+  // trạng thái phiếu (đã xoá / đã chốt nhập kho).
 
   // đơn vị nhập theo mã SP: gốc + quy đổi (product_units) — nạp khi chọn/tải SP
   const [unitsBySp, setUnitsBySp] = useState<Record<string, UnitChoice[]>>({});
@@ -65,7 +66,6 @@ export function PurchaseEdit({ id }: { id: string }) {
   const goodsHandled = !!purchase?.goods_handled_at;   // đã nhập kho → khoá sửa (server cũng chặn)
 
   const save = async () => {
-    if (!office) return toast("Chỉ văn phòng mới được sửa phiếu nhập", "info");
     if (deleted) return toast("Phiếu đã bị xoá, không thể sửa", "info");
     if (goodsHandled) return toast("Phiếu đã nhập kho — không sửa hàng được nữa", "info");
     if (!parsed.length) return toast("Cần ít nhất 1 dòng hàng hợp lệ", "info");
@@ -96,11 +96,6 @@ export function PurchaseEdit({ id }: { id: string }) {
         </div>
       </div>
 
-      {!office && (
-        <div class="card co-adv-locked muted small">
-          <Icon name="lock" size={14} /> Chỉ văn phòng mới được sửa phiếu nhập.
-        </div>
-      )}
       {deleted && (
         <div class="card co-adv-locked muted small">
           <Icon name="lock" size={14} /> Phiếu đã bị xoá{purchase.deleted_by ? ` bởi ${purchase.deleted_by}` : ""} — không thể sửa.
@@ -112,7 +107,7 @@ export function PurchaseEdit({ id }: { id: string }) {
         </div>
       )}
 
-      {office && !deleted && !goodsHandled && (
+      {!deleted && !goodsHandled && (
         <section class="card pur-edit-card">
           <div class="card-label"><Icon name="box" size={15} /> Hàng nhập</div>
           <div class="ret-sheet">
