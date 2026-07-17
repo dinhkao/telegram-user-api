@@ -357,17 +357,34 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
       )}
 
       <section class="card">
-        <div class="box-kv">
-          <span class="box-k">Số {b.product_unit || "cây"}</span>
-          <span class="box-v big">{soVN(b.quantity)}</span>
-        </div>
-        <div class="box-kv">
-          <span class="box-k">Còn lại</span>
-          <span class="box-v big" style={{ color: remaining > 0 ? "#2b6b2b" : "#a15c00" }}>
-            {soVN(remaining)}
-          </span>
-          {used > 0 ? <span class="muted small">đã xuất {soVN(used)}</span> : null}
-        </div>
+        {(() => {
+          // Vai 👁: kèm số quy đổi theo đơn vị hiển thị ("= 3 Thùng") cạnh số gốc
+          const df = b.display_unit_factor && b.display_unit_factor > 0 && b.display_unit_factor !== 1 ? b.display_unit_factor : null;
+          const dq = (v: number) => {
+            const x = v / df!; const r = Math.round(x);
+            return Math.abs(x - r) < 1e-6 ? soVN(r) : soVN(Math.round(x * 10) / 10);
+          };
+          return (
+            <>
+              <div class="box-kv">
+                <span class="box-k">Số {b.product_unit || "cây"}</span>
+                <span class="box-v big">{soVN(b.quantity)}</span>
+                {df ? <span class="muted small">= {dq(b.quantity)} {b.display_unit_name}</span> : null}
+              </div>
+              <div class="box-kv">
+                <span class="box-k">Còn lại</span>
+                <span class="box-v big" style={{ color: remaining > 0 ? "#2b6b2b" : "#a15c00" }}>
+                  {soVN(remaining)}
+                </span>
+                <span class="muted small">
+                  {df ? `= ${dq(remaining)} ${b.display_unit_name}` : ""}
+                  {df && used > 0 ? " · " : ""}
+                  {used > 0 ? `đã xuất ${soVN(used)}` : ""}
+                </span>
+              </div>
+            </>
+          );
+        })()}
         <div class="box-kv">
           <span class="box-k">Đơn vị</span>
           {soldOut ? (

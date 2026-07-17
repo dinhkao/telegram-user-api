@@ -1223,8 +1223,11 @@ export type InvBox = {
   place_name?: string | null;
   unit_id?: number | null;
   unit_name?: string | null;
+  unit_label?: string | null;   // nhãn chứa SNAPSHOT (tên đơn vị nguyên kiện lúc nhập)
   product_unit?: string;
-  self_container?: boolean; // SP nguyên kiện (đơn vị thùng/kiện) → có nút "Trả về nguyên liệu"
+  display_unit_name?: string | null;    // vai 👁 — quy đổi số hiển thị
+  display_unit_factor?: number | null;
+  self_container?: boolean; // SP nguyên kiện (có vai 📦) → có nút "Trả về nguyên liệu"
 };
 
 export type Unit = { id: number; name: string; box_count?: number };
