@@ -93,12 +93,6 @@ export function ProductUnits({ code, baseUnit }: { code: string; baseUnit: strin
     try { await updateProduct(code, { [key]: value }); }
     catch (e: any) { setRoles(prev); toast(e?.message || "Lỗi lưu vai đơn vị", "err"); }
   };
-  const setAllRoles = async (value: number) => {
-    const prev = roles;
-    setRoles({ bulk_unit_id: value, display_unit_id: value, stocktake_unit_id: value });
-    try { await updateProduct(code, { bulk_unit_id: value, display_unit_id: value, stocktake_unit_id: value }); toast("Đã đặt cả 3 vai", "ok"); }
-    catch (e: any) { setRoles(prev); toast(e?.message || "Lỗi lưu vai đơn vị", "err"); }
-  };
   const del = async (u: ProductUnit) => {
     if (!(await confirmDialog(`Xoá đơn vị "${u.name}" (1 ${u.name} = ${soVN(u.factor)} ${base})?`, { danger: true }))) return;
     try { await deleteProductUnit(code, u.id); toast("Đã xoá đơn vị", "ok"); load(); }
@@ -183,14 +177,6 @@ export function ProductUnits({ code, baseUnit }: { code: string; baseUnit: strin
                 </div>
               )
             ))}
-            {office && opts.length > 1 && (
-              <div class="punit-role-row">
-                <span class="punit-role-label muted">⚡ Cả 3 vai</span>
-                {opts.map((o) => (
-                  <button key={o.id} class="punit-role-chip" onClick={() => setAllRoles(o.id)}>{o.name}</button>
-                ))}
-              </div>
-            )}
             <div class="punit-role-hint">Nguyên kiện: nhập hàng khỏi chọn đơn vị chứa · Hiển thị: số trên ô thùng · Kiểm kho: đơn vị bắt buộc khi đếm</div>
           </div>
         );

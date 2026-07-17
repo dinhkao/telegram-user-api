@@ -20,7 +20,7 @@ export const GUIDES_KHO: Guide[] = [
         hệ thống tự quy ra <i>= 30 cây</i> (dòng "→ sẽ lưu" hiện số quy đổi trước khi lưu).</p>` },
       { title: "3 vai của đơn vị (chọn ở khối Quy đổi đơn vị)", html: `
         <p>Trong khối <i>Quy đổi đơn vị</i>, văn phòng chỉ định <b>tối đa 1 đơn vị cho mỗi vai</b>
-        (tap chip để chọn, tap lại để bỏ; có dòng <i>⚡ Cả 3 vai</i> đặt nhanh):</p>
+        (tap chip để chọn, tap lại để bỏ):</p>
         <ul>
           <li><b>📦 Nguyên kiện</b> — nhập hàng bằng đơn vị này thì <b>mỗi kiện = 1 thùng riêng</b>
             (1 số gọi/kiện), nhãn chứa tự dán theo tên đơn vị, <b>khỏi chọn đơn vị chứa</b>.</li>
