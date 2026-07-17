@@ -554,7 +554,11 @@ def _box_summary(b: dict) -> dict:
         "note": b.get("note") or "", "mfg_date": b.get("mfg_date"), "created_at": b.get("created_at"),
         "place_id": b.get("place_id"), "place_name": b.get("place_name"),
         "unit_id": b.get("unit_id"), "unit_name": b.get("unit_name"),
+        "unit_label": b.get("unit_label"),
         "product_unit": b.get("product_unit") or "cây",
+        # vai 👁 hiển thị — BoxTile quy đổi số trên ô
+        "display_unit_name": b.get("display_unit_name"),
+        "display_unit_factor": b.get("display_unit_factor"),
         "source_thread_id": b.get("source_thread_id"),
     }
 
