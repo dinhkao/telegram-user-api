@@ -441,11 +441,6 @@ export async function updatePurchase(id: number, items: { sp: string; sl: number
 export async function deletePurchase(id: number): Promise<any> {
   return postJSON(`/api/purchases/${id}/delete`, {});
 }
-/** Nhập KHO hàng mua về + CHỐT 1 phát (endpoint cũ — giữ tương thích). */
-export async function handlePurchaseGoods(id: string | number, dispositions: PurchaseDisposition[]): Promise<{ purchase: PurchaseSlip; result: PurchaseGoodsResult }> {
-  const d = await postJSON(`/api/purchases/${Number(id)}/handle-goods`, { dispositions }, { queueable: false });
-  return { purchase: d.purchase, result: d.result };
-}
 /** Ghi nhập kho TỪNG ĐỢT khi phiếu đang mở (văn phòng) — như xuất từng thùng cho đơn, gọi nhiều lần được. */
 export async function receivePurchaseGoods(id: string | number, dispositions: PurchaseDisposition[]): Promise<{ purchase: PurchaseSlip }> {
   const d = await postJSON(`/api/purchases/${Number(id)}/receive-goods`, { dispositions }, { queueable: false });

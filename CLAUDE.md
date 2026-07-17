@@ -442,10 +442,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     `/unreceive {allocation_id}` (guard phần cộng chưa tiêu).
   - POST `/confirm-goods` (văn phòng): CHỐT — CAS `goods_handled_at` + snapshot
     `goods_result` từ trạng thái đang nhập → phiếu KHOÁ sửa items + chặn xoá.
-    CHỈ chốt khi đã nhập ĐỦ mọi mã theo phiếu (như chốt xuất kho đơn; server chặn
-    cả confirm lẫn handle-goods, UI mờ nút kèm lý do) — hàng về thiếu/vỡ thì sửa
-    SL trên phiếu về số thực nhận rồi chốt.
-  - POST `/handle-goods` = receive + confirm 1 transaction (endpoint cũ, tương thích).
+    CHỈ chốt khi đã nhập ĐỦ mọi mã theo phiếu (như chốt xuất kho đơn; UI mờ nút
+    kèm lý do) — hàng về thiếu/vỡ thì sửa SL trên phiếu về số thực nhận rồi chốt.
+    (Endpoint cũ `/handle-goods` nhập+chốt 1 phát đã XOÁ 2026-07-17 — UI không dùng.)
   - **HỦY CHỐT** (admin) POST `/undo-goods`: all-or-nothing — giữ thùng mới, gỡ
     allocation purchase_in, clear goods_* → phiếu QUAY VỀ trạng thái đang nhập;
     CHẶN nếu hàng đã dùng (thùng mới có allocation, remaining thùng có sẵn < số cộng).

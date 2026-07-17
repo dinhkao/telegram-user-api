@@ -1,4 +1,4 @@
-"""Test server_app.purchase_goods.apply_purchase_receipt — nhập kho hàng mua về:
+"""Test server_app.purchase_goods — nhập kho hàng mua về (receive → confirm):
 nhập vào thùng có sẵn (allocation ÂM 'purchase_in') / tạo thùng mới (source_purchase_id);
 guard đã-nhập; khoá không có trong hàng trả: KHÔNG có action dispose."""
 from __future__ import annotations
@@ -13,7 +13,7 @@ from inventory_store.queries import add_boxes, get_box, list_boxes
 from inventory_store.schema import create_inventory_table, migrate_inventory_table
 from product_store import create_products_table, migrate_products_table, upsert_product
 from product_store.schema import _invalidate_products_cache
-from server_app.purchase_goods import apply_purchase_receipt
+from server_app.purchase_goods import confirm_purchase_receipt, receive_purchase_lines
 from utils.db import get_connection
 
 
@@ -45,11 +45,18 @@ class PurchaseGoodsTest(unittest.TestCase):
             "SELECT COALESCE(SUM(quantity), 0) FROM box_allocations WHERE box_id = ?", (box_id,)).fetchone()[0]
         return q - float(used or 0)
 
+    def _receive_confirm(self, purchase_id, dispositions, actor="lan"):
+        """Nhập (nếu có dòng) rồi CHỐT — flow sống receive → confirm."""
+        if dispositions:
+            _, err = receive_purchase_lines(self.conn, purchase_id, dispositions, actor=actor)
+            if err:
+                return None, err
+        return confirm_purchase_receipt(self.conn, purchase_id, actor=actor)
+
     def test_restock_existing_negative_purchase_in_allocation(self):
-        extra, err = apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 20, "action": "restock_existing", "box_id": self.box["id"]}],
-            actor="lan")
+        extra, err = self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 20, "action": "restock_existing", "box_id": self.box["id"]}])
         self.assertIsNone(err)
         self.assertEqual(float(get_box(self.conn, self.box["id"])["quantity"]), 100)  # quantity GỐC giữ nguyên
         self.assertEqual(self._rem(self.box["id"]), 120)                              # remaining TĂNG 20
@@ -65,9 +72,9 @@ class PurchaseGoodsTest(unittest.TestCase):
 
     def test_restock_new_creates_box_with_source_purchase_id(self):
         before = len(list_boxes(self.conn))
-        extra, err = apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 20, "action": "restock_new"}], actor="lan")
+        extra, err = self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 20, "action": "restock_new"}])
         self.assertIsNone(err)
         self.assertEqual(len(list_boxes(self.conn)), before + 1)
         new_id = extra["result"]["restocked_new"][0]["box_id"]
@@ -79,9 +86,9 @@ class PurchaseGoodsTest(unittest.TestCase):
     def test_restock_new_count_creates_multiple_boxes(self):
         # count = số thùng giống nhau (như nhập thùng phiếu SX); mỗi thùng `quantity` hàng.
         before = len(list_boxes(self.conn))
-        extra, err = apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 5, "count": 4, "action": "restock_new"}], actor="lan")
+        extra, err = self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 5, "count": 4, "action": "restock_new"}])
         self.assertIsNone(err)
         self.assertEqual(len(list_boxes(self.conn)), before + 4)   # 4 thùng mới
         news = extra["result"]["restocked_new"]
@@ -90,25 +97,27 @@ class PurchaseGoodsTest(unittest.TestCase):
             self.assertEqual(float(get_box(self.conn, e["box_id"])["quantity"]), 5)
         self.assertEqual(len(set(e["box_id"] for e in news)), 4)   # 4 thùng riêng biệt
 
-    def test_second_apply_blocked(self):
-        _, err = apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 20, "action": "restock_existing", "box_id": self.box["id"]}],
-            actor="lan")
+    def test_second_confirm_blocked(self):
+        _, err = self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 20, "action": "restock_existing", "box_id": self.box["id"]}])
         self.assertIsNone(err)
-        _, err2 = apply_purchase_receipt(self.conn, self.pu["id"], [], actor="hai")
+        _, err2 = self._receive_confirm(self.pu["id"], [], actor="hai")
         self.assertEqual(err2, "already")
         self.assertEqual(len(list_boxes(self.conn)), 1)   # không tạo thêm thùng
 
-    def test_apply_blocked_when_not_enough(self):
-        # Rule chốt: nhập ĐỦ mọi mã theo phiếu mới chốt được — thiếu → lỗi, rollback cả lô.
+    def test_confirm_blocked_when_received_partial(self):
+        # Rule chốt: nhập ĐỦ mọi mã theo phiếu mới chốt được — thiếu → confirm chặn,
+        # dòng đã nhập GIỮ NGUYÊN (phiếu vẫn mở, nhập thêm rồi chốt sau).
         before = len(list_boxes(self.conn))
-        extra, err = apply_purchase_receipt(
+        _, err = receive_purchase_lines(
             self.conn, self.pu["id"],
             [{"sp": "KEO1", "quantity": 15, "action": "restock_new"}], actor="lan")
+        self.assertIsNone(err)
+        extra, err2 = confirm_purchase_receipt(self.conn, self.pu["id"], actor="lan")
         self.assertIsNone(extra)
-        self.assertIn("Chưa nhập đủ", err)
-        self.assertEqual(len(list_boxes(self.conn)), before)   # không ghi dòng nào
+        self.assertIn("Chưa nhập đủ", err2)
+        self.assertEqual(len(list_boxes(self.conn)), before + 1)   # dòng nhập dở giữ nguyên
         self.assertIsNone(purchase_store.get_purchase(self.conn, self.pu["id"])["goods_handled_at"])
 
     def test_draft_receipt_carries_sp_id(self):
@@ -152,7 +161,7 @@ class PurchaseGoodsTest(unittest.TestCase):
 
     def test_invalid_lines_rejected_without_partial_apply(self):
         before = len(list_boxes(self.conn))
-        extra, err = apply_purchase_receipt(
+        extra, err = receive_purchase_lines(
             self.conn, self.pu["id"],
             [{"sp": "", "quantity": 5, "action": "restock_new"},                       # thiếu mã
              {"sp": "KEO1", "quantity": 0, "action": "restock_new"},                   # số ≤ 0
@@ -167,7 +176,7 @@ class PurchaseGoodsTest(unittest.TestCase):
 
     def test_restock_cannot_exceed_purchase_quantity(self):
         before = len(list_boxes(self.conn))
-        extra, err = apply_purchase_receipt(
+        extra, err = receive_purchase_lines(
             self.conn, self.pu["id"],
             [{"sp": "KEO1", "quantity": 30, "count": 3, "action": "restock_new"}], actor="lan")
         self.assertIsNone(extra)
@@ -178,7 +187,7 @@ class PurchaseGoodsTest(unittest.TestCase):
     def test_restock_existing_requires_matching_product_box(self):
         upsert_product(self.conn, "KEO2", "Kẹo khác", unit="cây")
         other = add_boxes(self.conn, "KEO2", [100])[0]
-        extra, err = apply_purchase_receipt(
+        extra, err = receive_purchase_lines(
             self.conn, self.pu["id"],
             [{"sp": "KEO1", "quantity": 5, "action": "restock_existing", "box_id": other["id"]}],
             actor="lan")
@@ -190,7 +199,7 @@ class PurchaseGoodsTest(unittest.TestCase):
 
     def test_restock_existing_rejects_disabled_box(self):
         self.conn.execute("UPDATE inventory_boxes SET disabled = 1 WHERE id = ?", (self.box["id"],))
-        extra, err = apply_purchase_receipt(
+        extra, err = receive_purchase_lines(
             self.conn, self.pu["id"],
             [{"sp": "KEO1", "quantity": 5, "action": "restock_existing", "box_id": self.box["id"]}],
             actor="lan")
@@ -201,9 +210,9 @@ class PurchaseGoodsTest(unittest.TestCase):
     def test_mark_deleted_boxes_flags_removed_box(self):
         from inventory_store.queries import delete_box
         from server_app.purchase_goods_view import mark_deleted_boxes
-        extra, err = apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 20, "action": "restock_new"}], actor="lan")
+        extra, err = self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 20, "action": "restock_new"}])
         self.assertIsNone(err)
         new_id = extra["result"]["restocked_new"][0]["box_id"]
         row = mark_deleted_boxes(self.conn, purchase_store.get_purchase(self.conn, self.pu["id"]))
@@ -214,10 +223,10 @@ class PurchaseGoodsTest(unittest.TestCase):
 
     # ── HỦY CHỐT nhập kho (undo_purchase_receipt) ──
     def _receive_both(self):
-        extra, err = apply_purchase_receipt(
-            self.conn, self.pu["id"],
+        extra, err = self._receive_confirm(
+            self.pu["id"],
             [{"sp": "KEO1", "quantity": 10, "action": "restock_existing", "box_id": self.box["id"]},
-             {"sp": "KEO1", "quantity": 10, "action": "restock_new"}], actor="lan")
+             {"sp": "KEO1", "quantity": 10, "action": "restock_new"}])
         self.assertIsNone(err)
         return extra["result"]["restocked_new"][0]["box_id"]
 
@@ -234,9 +243,9 @@ class PurchaseGoodsTest(unittest.TestCase):
         self.assertIsNone(got["goods_handled_at"])               # phiếu mở khoá lại
         self.assertIsNone(got["goods_result"])                   # trạng thái đang nhập derive live
         # nhập kho LẠI được sau khi hủy chốt (thùng 10 giữ lại + 10 mới = đủ 20)
-        extra2, err2 = apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 10, "action": "restock_new"}], actor="lan")
+        extra2, err2 = self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 10, "action": "restock_new"}])
         self.assertIsNone(err2)
         self.assertEqual(len(extra2["result"]["restocked_new"]), 2)
         self.assertEqual(sum(e["quantity"] for e in extra2["result"]["restocked_new"]), 20)
@@ -244,9 +253,9 @@ class PurchaseGoodsTest(unittest.TestCase):
     def test_undo_allows_deleting_one_box_then_adding_more(self):
         from inventory_store.queries import delete_box
         from server_app.purchase_goods import undo_purchase_receipt
-        extra, err = apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 5, "count": 4, "action": "restock_new"}], actor="lan")
+        extra, err = self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 5, "count": 4, "action": "restock_new"}])
         self.assertIsNone(err)
         ids = [e["box_id"] for e in extra["result"]["restocked_new"]]
 
@@ -255,9 +264,9 @@ class PurchaseGoodsTest(unittest.TestCase):
         self.assertEqual(info["retained_boxes"], ids)
         delete_box(self.conn, ids[0])
 
-        extra2, apply_err = apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 5, "action": "restock_new"}], actor="lan")
+        extra2, apply_err = self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 5, "action": "restock_new"}])
         self.assertIsNone(apply_err)
         current = extra2["result"]["restocked_new"]
         self.assertEqual(len(current), 4)
@@ -369,9 +378,9 @@ class PurchaseGoodsTest(unittest.TestCase):
     def test_delete_slip_blocked_while_boxes_from_slip_exist(self):
         # Sau hủy chốt thùng mới được GIỮ LẠI — xoá phiếu lúc này sẽ mồ côi thùng.
         from server_app.purchase_goods import undo_purchase_receipt
-        extra, err = apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 20, "action": "restock_new"}], actor="lan")
+        extra, err = self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 20, "action": "restock_new"}])
         self.assertIsNone(err)
         new_id = extra["result"]["restocked_new"][0]["box_id"]
         _, undo_err = undo_purchase_receipt(self.conn, self.pu["id"])
@@ -388,9 +397,9 @@ class PurchaseGoodsTest(unittest.TestCase):
 
     def test_update_items_blocked_when_goods_handled(self):
         # Re-check trong transaction — chốt kho đồng thời không bị sửa items đè lên.
-        _, err = apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 20, "action": "restock_new"}], actor="lan")
+        _, err = self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 20, "action": "restock_new"}])
         self.assertIsNone(err)
         ok, upd_err = purchase_store.update_purchase_items(
             self.conn, self.pu["id"], [{"sp": "KEO1", "sl": 25, "price": 5000}], 125000, "")
@@ -399,9 +408,9 @@ class PurchaseGoodsTest(unittest.TestCase):
 
     def test_update_items_blocked_below_retained_boxes(self):
         from server_app.purchase_goods import undo_purchase_receipt
-        _, err = apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 20, "action": "restock_new"}], actor="lan")
+        _, err = self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 20, "action": "restock_new"}])
         self.assertIsNone(err)
         _, undo_err = undo_purchase_receipt(self.conn, self.pu["id"])
         self.assertIsNone(undo_err)
@@ -427,17 +436,16 @@ class PurchaseGoodsTest(unittest.TestCase):
 
     def test_undo_blocked_when_new_box_receives_other_purchase(self):
         from server_app.purchase_goods import undo_purchase_receipt
-        extra, err = apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 20, "action": "restock_new"}], actor="lan")
+        extra, err = self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 20, "action": "restock_new"}])
         self.assertIsNone(err)
         new_id = extra["result"]["restocked_new"][0]["box_id"]
         pu2 = purchase_store.add_purchase(
             self.conn, 1, [{"sp": "KEO1", "sl": 5, "price": 5000}], 25000, by="duy")
-        _, err2 = apply_purchase_receipt(
-            self.conn, pu2["id"],
-            [{"sp": "KEO1", "quantity": 5, "action": "restock_existing", "box_id": new_id}],
-            actor="lan")
+        _, err2 = self._receive_confirm(
+            pu2["id"],
+            [{"sp": "KEO1", "quantity": 5, "action": "restock_existing", "box_id": new_id}])
         self.assertIsNone(err2)
 
         info, undo_err = undo_purchase_receipt(self.conn, self.pu["id"])
@@ -450,10 +458,9 @@ class PurchaseGoodsTest(unittest.TestCase):
     def test_undo_blocked_when_received_stock_consumed(self):
         from inventory_store.allocations import allocate_picks
         from server_app.purchase_goods import undo_purchase_receipt
-        apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 20, "action": "restock_existing", "box_id": self.box["id"]}],
-            actor="lan")
+        self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 20, "action": "restock_existing", "box_id": self.box["id"]}])
         # tiêu 110/120 → remaining 10 < 20 đã cộng ⇒ phần hàng nhập đã bị dùng
         allocate_picks(self.conn, [{"box_id": self.box["id"], "quantity": 110}], 556)
         info, err = undo_purchase_receipt(self.conn, self.pu["id"])
@@ -466,10 +473,10 @@ class PurchaseGoodsTest(unittest.TestCase):
         self.assertIn("chưa chốt", err)
 
     def test_not_found_and_deleted(self):
-        _, err = apply_purchase_receipt(self.conn, 999, [], actor="lan")
+        _, err = self._receive_confirm(999, [])
         self.assertEqual(err, "not_found")
         purchase_store.soft_delete_purchase(self.conn, self.pu["id"], by="admin")
-        _, err2 = apply_purchase_receipt(self.conn, self.pu["id"], [], actor="lan")
+        _, err2 = self._receive_confirm(self.pu["id"], [])
         self.assertEqual(err2, "not_found")
 
     def test_receive_returns_audit_snapshots_for_box_events(self):
@@ -499,10 +506,9 @@ class PurchaseGoodsTest(unittest.TestCase):
         self.assertEqual(rem["taken"], 8)
         self.assertEqual(rem["remaining"], 100)
         # nhập đủ + chốt rồi hủy chốt → audit purchase_in_removed cho phần gỡ
-        extra3, err3 = apply_purchase_receipt(
-            self.conn, self.pu["id"],
-            [{"sp": "KEO1", "quantity": 8, "action": "restock_existing", "box_id": self.box["id"]}],
-            actor="lan")
+        extra3, err3 = self._receive_confirm(
+            self.pu["id"],
+            [{"sp": "KEO1", "quantity": 8, "action": "restock_existing", "box_id": self.box["id"]}])
         self.assertIsNone(err3)
         info4, err4 = undo_purchase_receipt(self.conn, self.pu["id"])
         self.assertIsNone(err4)

@@ -245,42 +245,6 @@ def update_purchase_items(conn, purchase_id: int, items: list[dict], total: floa
     return True, ""
 
 
-def claim_goods_handling(conn, purchase_id: int, by: str = "") -> bool:
-    """GIÀNH quyền nhập kho hàng mua về (compare-and-set nguyên tử) — đặt
-    goods_handled_at CHỈ khi còn NULL. False = đã có người nhập (chặn 2 request
-    đồng thời double-apply vào kho). Gọi TRƯỚC khi thao tác kho."""
-    ensure_purchases_schema(conn)
-    cur = conn.execute(
-        "UPDATE purchase_slips SET goods_handled_at = ?, goods_handled_by = ? "
-        "WHERE id = ? AND goods_handled_at IS NULL",
-        (_now_vn(), by or "", purchase_id))
-    conn.commit()
-    return cur.rowcount == 1
-
-
-def clear_goods_handling(conn, purchase_id: int) -> bool:
-    """Helper cũ: xoá dấu goods_handled_* và toàn bộ goods_result.
-
-    Luồng undo hiện tại ghi inline để giữ snapshot thùng mới, không gọi helper này.
-    """
-    ensure_purchases_schema(conn)
-    conn.execute(
-        "UPDATE purchase_slips SET goods_handled_at = NULL, goods_handled_by = NULL, goods_result = NULL"
-        " WHERE id = ?", (purchase_id,))
-    conn.commit()
-    return True
-
-
-def set_goods_result(conn, purchase_id: int, result: dict) -> bool:
-    """Lưu tóm tắt kết quả nhập kho (sau khi đã giành quyền + thao tác xong).
-    result = {restocked_existing:[], restocked_new:[], skipped:[]}."""
-    ensure_purchases_schema(conn)
-    conn.execute("UPDATE purchase_slips SET goods_result = ? WHERE id = ?",
-                 (json.dumps(result, ensure_ascii=False), purchase_id))
-    conn.commit()
-    return True
-
-
 def batch_draft_status(conn, purchase_ids: list[int]) -> dict[int, bool]:
     """Batch kiểm tra các phiếu nhập có thùng nhập dở chưa (draft receipt).
     Trả {purchase_id: True nếu đã có thùng/allocation nhập dở}.

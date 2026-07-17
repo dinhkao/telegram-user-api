@@ -64,7 +64,6 @@ _PAIRS = {
     "POST /api/disposals/{id}/delete": ("disposal.deleted",),
     "POST /api/purchases": ("purchase.created",),
     "POST /api/purchases/{id}/pay": ("purchase.paid",),
-    "POST /api/purchases/{id}/handle-goods": ("purchase.goods_received",),
     "POST /api/purchases/{id}/receive-goods": ("purchase.goods_line_added",),
     "POST /api/purchases/{id}/confirm-goods": ("purchase.goods_received",),
     "POST /api/purchases/{id}/unreceive": ("purchase.goods_line_removed",),

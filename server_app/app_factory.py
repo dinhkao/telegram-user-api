@@ -400,15 +400,13 @@ def create_app():
     r.add_post("/api/purchases/{id}/delete", purchase_delete_handler)
     r.add_post("/api/purchases/{id}/pay", purchase_pay_handler)                 # trả NCC từ két
     r.add_post("/api/purchases/{id}/payments/{pid}/delete", purchase_payment_delete_handler)  # admin
-    from server_app.purchase_goods_routes import (purchase_handle_goods_handler,
-                                                  purchase_receive_goods_handler,
+    from server_app.purchase_goods_routes import (purchase_receive_goods_handler,
                                                   purchase_confirm_goods_handler,
                                                   purchase_unreceive_handler,
                                                   purchase_undo_goods_handler)
     r.add_post("/api/purchases/{id}/receive-goods", purchase_receive_goods_handler)  # ghi nhập từng đợt
     r.add_post("/api/purchases/{id}/confirm-goods", purchase_confirm_goods_handler)  # chốt nhập kho
     r.add_post("/api/purchases/{id}/unreceive", purchase_unreceive_handler)          # gỡ 1 dòng cộng thùng
-    r.add_post("/api/purchases/{id}/handle-goods", purchase_handle_goods_handler)  # nhập + chốt 1 phát (cũ)
     r.add_post("/api/purchases/{id}/undo-goods", purchase_undo_goods_handler)      # hủy chốt nhập kho (admin)
     from server_app.disposal_routes import (disposal_create_handler, disposal_delete_handler,
                                             disposal_detail_handler, disposals_all_handler)

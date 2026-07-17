@@ -7,8 +7,7 @@ POST /api/purchases/{id}/confirm-goods — CHỐT: khoá phiếu + snapshot good
   (1 lần/phiếu — CAS); CHỈ chốt khi đã nhập ĐỦ mọi mã theo phiếu — thiếu → 400.
 POST /api/purchases/{id}/unreceive {allocation_id} — gỡ 1 dòng cộng-vào-thùng
   khi phiếu đang mở (thùng mới thì xoá thùng qua /api/inventory/box/{id} DELETE).
-POST /api/purchases/{id}/handle-goods — endpoint CŨ: nhập + chốt 1 phát (giữ
-  tương thích). /undo-goods — HỦY CHỐT (admin) → phiếu về trạng thái đang nhập.
+POST /api/purchases/{id}/undo-goods — HỦY CHỐT (admin) → phiếu về trạng thái đang nhập.
 Nối: server_app.purchase_goods (orchestration), purchase_goods_view (row đọc),
 purchase_store, purchase_routes (_actor/_items_display), realtime, audit_log.
 Đăng ký ở app_factory.
@@ -188,48 +187,6 @@ async def purchase_unreceive_handler(request: web.Request):
             "supplier_id": info.get("supplier_id")})
     _audit_boxes(request, pid, actor, info)
     return web.json_response({"ok": True, "purchase": row})
-
-
-async def purchase_handle_goods_handler(request: web.Request):
-    """POST /api/purchases/{id}/handle-goods (văn phòng) — nhập + CHỐT 1 phát (cũ)."""
-    from server_app.order_api_common import is_office_request
-    from server_app.purchase_routes import _actor
-    if not await is_office_request(request):
-        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được nhập kho hàng mua"}, status=403)
-    pid = _pid(request)
-    if pid is None:
-        return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    dispositions = body.get("dispositions") if isinstance(body.get("dispositions"), list) else []
-    actor = _actor(request)
-
-    def _run():
-        from server_app.purchase_goods import apply_purchase_receipt
-        conn = get_connection()
-        try:
-            extra, err = apply_purchase_receipt(conn, pid, dispositions, actor=actor)
-            if err:
-                return None, err, None
-            return _detail_row(conn, pid), None, extra
-        finally:
-            conn.close()
-
-    row, err, extra = await asyncio.to_thread(_run)
-    if err == "not_found":
-        return web.json_response({"ok": False, "error": "Không tìm thấy phiếu nhập"}, status=404)
-    if err == "already":
-        return web.json_response({"ok": False, "error": "Hàng của phiếu này đã nhập kho rồi"}, status=409)
-    if err:
-        return web.json_response({"ok": False, "error": err}, status=400)
-    result = extra["result"]
-    _emit_goods(pid, extra["touched_boxes"] if (result["restocked_existing"] or result["restocked_new"]) else [])
-    _audit(request, "purchase.goods_received", pid, actor,
-           {"result": result, "supplier_id": extra.get("supplier_id")})
-    _audit_boxes(request, pid, actor, extra)
-    return web.json_response({"ok": True, "purchase": row, "result": result})
 
 
 async def purchase_undo_goods_handler(request: web.Request):

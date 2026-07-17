@@ -7,9 +7,8 @@ phiếu mới CHỐT được (confirm_purchase_receipt — CAS goods_handled_at
 goods_result → khoá phiếu; thiếu → lỗi, sửa SL phiếu về số thực nhận nếu hàng về
 thiếu/vỡ). Trạng thái ĐANG NHẬP derive LIVE từ kho (_draft_receipt: thùng
 source_purchase_id + allocation purchase_in) — không có bảng state riêng.
-apply_purchase_receipt (endpoint handle-goods cũ + tests) = receive + confirm
-trong 1 transaction. Hủy chốt (undo) mở khoá, GIỮ thùng → quay về trạng thái
-đang nhập. Server luôn chặn nhập vượt số/mã trên phiếu (cộng dồn theo SP).
+Hủy chốt (undo) mở khoá, GIỮ thùng → quay về trạng thái đang nhập. Server luôn
+chặn nhập vượt số/mã trên phiếu (cộng dồn theo SP).
 
 Không HTTP/realtime — chỉ thao tác store trong 1 connection để route gọi +
 unit-test (tests/test_purchase_goods.py). Mỗi hàm ghi/gỡ kho trả kèm
@@ -391,49 +390,6 @@ def unreceive_purchase_line(conn, purchase_id: int, allocation_id) -> tuple[dict
     return {"box_id": row["box_id"], "box_code": row["box_code"], "quantity": q_in,
             "supplier_id": p.get("supplier_id"),
             "audit": {"purchase_in_removed": _audit_snaps(conn, [(row["box_id"], q_in)])}}, None
-
-
-def apply_purchase_receipt(conn, purchase_id: int, dispositions, *, actor: str = "") -> tuple[dict | None, str | None]:
-    """Nhập + CHỐT 1 phát trong 1 transaction (endpoint handle-goods cũ — modal
-    'nhập nhanh' và tests). Tương đương receive_purchase_lines + confirm; phần
-    đã nhập từ trước (thùng giữ lại sau hủy chốt, dòng receive lẻ) được tính vào
-    trần và vào goods_result. Cùng rule chốt: THIẾU → lỗi, rollback cả lô."""
-    from purchase_store import get_purchase, ensure_purchases_schema
-    from utils.db import transaction
-
-    ensure_purchases_schema(conn)   # DDL trước khi mở transaction
-    try:
-        with transaction(conn):
-            p = get_purchase(conn, purchase_id)
-            if not p or p.get("deleted_at"):
-                return None, "not_found"
-            draft = _draft_receipt(conn, purchase_id)
-            valid, err = _validate_purchase_dispositions(
-                conn, p, dispositions, initial_used=draft["used"])
-            if err:
-                return None, err
-            # Giành quyền NGUYÊN TỬ (compare-and-set) — 2 request đồng thời không double-apply.
-            claimed = conn.execute(
-                "UPDATE purchase_slips SET goods_handled_at = ?, goods_handled_by = ? "
-                "WHERE id = ? AND goods_handled_at IS NULL",
-                (_now_vn(), actor or "", purchase_id))
-            if claimed.rowcount != 1:
-                return None, "already"
-            touched, created, added = _apply_lines(conn, purchase_id, valid, actor)
-            final = _draft_receipt(conn, purchase_id)
-            missing = _missing_items(conn, p, final["used"])
-            if missing:   # raise → rollback cả CAS lẫn các dòng vừa ghi
-                raise _ReceiptApplyError(_missing_error(missing))
-            result = _snapshot(final)
-            conn.execute("UPDATE purchase_slips SET goods_result = ? WHERE id = ?",
-                         (_json.dumps(result, ensure_ascii=False), purchase_id))
-    except _ReceiptApplyError as exc:
-        return None, str(exc)
-    all_touched = sorted({e["box_id"] for e in final["new"] + final["existing"]} | set(touched))
-    audit = {"created": _audit_snaps(conn, [(b, None) for b in created]),
-             "purchase_in": _audit_snaps(conn, added)}
-    return {"result": result, "touched_boxes": all_touched,
-            "supplier_id": p.get("supplier_id"), "audit": audit}, None
 
 
 def undo_purchase_receipt(conn, purchase_id: int) -> tuple[dict | None, str | None]:
