@@ -199,10 +199,22 @@ def _validate_purchase_dispositions(conn, purchase: dict, dispositions, *,
             place_id, err = _optional_fk(conn, "inventory_places", disp.get("place_id"), "Vị trí kho")
             if err:
                 return [], err
-            unit_id, err = _optional_fk(conn, "inventory_units", disp.get("unit_id"), "Đơn vị chứa")
-            if err:
-                return [], err
-            row.update({"count": count, "place_id": place_id, "unit_id": unit_id})
+            # NGUYÊN KIỆN (vai 📦, server tự resolve — không tin client): 1 thùng = tối
+            # đa 1 kiện; đúng kiện (q == factor) → nhãn chứa = TÊN ĐƠN VỊ, khỏi chọn
+            # đơn vị chứa; lẻ (< kiện — hàng xá/vỡ) → đường cũ unit_id; vượt kiện → chặn.
+            from product_store.units import bulk_role_by_code, bulk_label_for_qty
+            bulk = bulk_role_by_code(conn, live_code or code)
+            label, berr = bulk_label_for_qty(bulk, q)
+            if berr:
+                return [], f"{live_code or code}: {berr}"
+            if label:
+                row.update({"count": count, "place_id": place_id, "unit_id": None,
+                            "unit_label": label})
+            else:
+                unit_id, err = _optional_fk(conn, "inventory_units", disp.get("unit_id"), "Đơn vị chứa")
+                if err:
+                    return [], err
+                row.update({"count": count, "place_id": place_id, "unit_id": unit_id})
             total = q * count
         else:
             try:
@@ -259,6 +271,7 @@ def _apply_lines(conn, purchase_id: int, valid: list[dict], actor: str
             try:
                 boxes = add_boxes(conn, code, [q] * count, source_purchase_id=purchase_id,
                                   place_id=disp.get("place_id"), unit_id=disp.get("unit_id"),
+                                  unit_label=disp.get("unit_label"),
                                   by=actor, note=f"Nhập hàng NCC (phiếu nhập #{purchase_id})")
             except ValueError:
                 raise _ReceiptApplyError("Không còn số gọi trống để tạo thùng mới")

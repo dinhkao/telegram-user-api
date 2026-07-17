@@ -202,13 +202,27 @@ async def production_add_boxes_handler(request: web.Request):
             # phải trừ NL PHỤ (aux) nếu SP bật aux_required; đóng gói → BẮT BUỘC có
             # công thức chính + chọn đủ thùng NL (chính + phụ) TRƯỚC khi tạo thùng.
             kind = (slip or {}).get("kind") or "san_xuat"
-            # SP tự-là-thùng (KDXDB5/KGL5): bản thân là 1 thùng → mỗi thùng = 1 dòng
-            # quantity=1, KHÔNG có đơn vị chứa. Enforce server-side (chốt thật).
+            # SP NGUYÊN KIỆN (vai 📦): 1 dòng thùng = tối đa 1 kiện — đúng kiện (q ==
+            # factor) → nhãn chứa = TÊN ĐƠN VỊ, bỏ đơn vị chứa; lẻ (< kiện) đi đường
+            # thường; vượt kiện chặn. Enforce server-side (chốt thật). SP nguyên kiện
+            # đơn-vị-gốc (KDXDB5…): factor 1 → mỗi dòng đúng 1 kiện như cũ.
             from product_store import get_product as _gp
+            from product_store.units import bulk_role_by_code, bulk_label_for_qty
             _prod = _gp(conn, code)
-            self_container = bool(_prod and _prod.get("self_container"))
-            qtys = [1.0] * len(quantities) if self_container else quantities
-            uid = None if self_container else unit_id
+            bulk = bulk_role_by_code(conn, code) if (_prod and _prod.get("self_container")) else None
+            kien_qtys: list = []
+            loose_qtys: list = []
+            if bulk:
+                for q in quantities:
+                    _lbl, _berr = bulk_label_for_qty(bulk, q)
+                    if _berr:
+                        return "bulkshape", _berr, None
+                    (kien_qtys if _lbl else loose_qtys).append(q)
+                qtys = kien_qtys + loose_qtys
+                uid = unit_id if loose_qtys else None
+            else:
+                qtys = quantities
+                uid = unit_id
             # Thùng NL người dùng chọn để tiêu hao (body.consume = [{box_id, quantity}]).
             raw_picks = body.get("consume") if isinstance(body.get("consume"), list) else []
             picks = [p for p in raw_picks if isinstance(p, dict) and p.get("box_id")]
@@ -303,7 +317,18 @@ async def production_add_boxes_handler(request: web.Request):
             # (add_number) đã guard in_transaction nên không commit cắt ngang.
             try:
                 with transaction(conn):
-                    created = add_boxes(conn, code, qtys, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=uid, place_id=place_id)
+                    if bulk:
+                        # 2 batch: kiện nguyên (nhãn = tên đơn vị 📦) + hàng lẻ (đường thường)
+                        created = []
+                        if kien_qtys:
+                            created += add_boxes(conn, code, kien_qtys, source_thread_id=thread_id, by=actor,
+                                                 note=note, mfg_date=mfg_date, unit_id=None,
+                                                 unit_label=bulk["name"], place_id=place_id)
+                        if loose_qtys:
+                            created += add_boxes(conn, code, loose_qtys, source_thread_id=thread_id, by=actor,
+                                                 note=note, mfg_date=mfg_date, unit_id=uid, place_id=place_id)
+                    else:
+                        created = add_boxes(conn, code, qtys, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=uid, place_id=place_id)
                     # đồng bộ slip.total/numbers/progress: 1 entry/thùng (note = mã thùng)
                     total = slip.get("total") or 0
                     for box in created:
@@ -337,6 +362,8 @@ async def production_add_boxes_handler(request: web.Request):
     if created == "notpackage":
         return web.json_response({"ok": False, "error": f"SP {total} không đóng gói từ nguyên liệu — bật cờ Đóng gói ở chi tiết SP trước."}, status=400)
     if created == "full":
+        return web.json_response({"ok": False, "error": total}, status=400)
+    if created == "bulkshape":
         return web.json_response({"ok": False, "error": total}, status=400)
     from server_app.realtime import emit_inventory_changed, emit_production_changed
     emit_production_changed(thread_id)
@@ -374,14 +401,18 @@ async def recipe_get_handler(request: web.Request):
                 ing = resolve_code(conn, ln["ingredient_code"])
                 ln["unit"] = (ing.get("unit") if ing else None) or "cây"
             prod = resolve_code(conn, code)
+            # vai 📦 nguyên kiện: client cần {name, factor} để nhập "số kiện" đúng cỡ
+            from product_store.units import bulk_role_by_code
+            bulk = bulk_role_by_code(conn, code) if (prod or {}).get("self_container") else None
             return (lines, (prod.get("unit") if prod else None) or "cây",
                     bool((prod or {}).get("self_container")),
-                    bool((prod or {}).get("aux_required")))
+                    bool((prod or {}).get("aux_required")), bulk)
         finally:
             conn.close()
-    lines, unit, self_container, aux_required = await asyncio.to_thread(_run)
+    lines, unit, self_container, aux_required, bulk = await asyncio.to_thread(_run)
     return web.json_response({"ok": True, "recipe": lines, "unit": unit,
-                              "self_container": self_container, "aux_required": aux_required})
+                              "self_container": self_container, "aux_required": aux_required,
+                              "bulk_unit": bulk})
 
 
 async def recipe_set_handler(request: web.Request):

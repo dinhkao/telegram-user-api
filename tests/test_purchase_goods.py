@@ -520,3 +520,64 @@ class PurchaseGoodsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PurchaseGoodsBulkTest(unittest.TestCase):
+    """SP NGUYÊN KIỆN (vai 📦 — docs/plan-don-vi-hang-hoa.md): nhập đúng kiện →
+    thùng dán nhãn ĐƠN VỊ (unit_label), 1 kiện = 1 dòng; lẻ (< kiện) đi đường
+    thường; vượt kiện bị chặn. Server tự resolve vai, không tin client."""
+
+    def setUp(self):
+        fd, self.path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        self.conn = get_connection(self.path)
+        _invalidate_products_cache()
+        create_products_table(self.conn)
+        migrate_products_table(self.conn)
+        create_inventory_table(self.conn)
+        migrate_inventory_table(self.conn)
+        create_allocations_table(self.conn)
+        purchase_store.ensure_purchases_schema(self.conn)
+        upsert_product(self.conn, "KEO1", "Kẹo", unit="cây")
+        from product_store.queries import get_product
+        from product_store import units as pu
+        pid = get_product(self.conn, "KEO1")["id"]
+        self.thung, _ = pu.add_unit(self.conn, pid, "Thùng", 30, "cây")
+        upsert_product(self.conn, "KEO1", bulk_unit_id=self.thung["id"])
+        # phiếu 2 Thùng ×30 = 60 cây
+        self.pu = purchase_store.add_purchase(
+            self.conn, 1, [{"sp": "KEO1", "sl": 2, "price": 150000,
+                            "unit": "Thùng", "unit_factor": 30}], 300000, by="duy")
+
+    def tearDown(self):
+        self.conn.close()
+        _invalidate_products_cache()
+        os.unlink(self.path)
+
+    def test_dung_kien_dan_nhan_don_vi(self):
+        extra, err = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "action": "restock_new", "quantity": 30, "count": 2}])
+        self.assertIsNone(err)
+        boxes = [b for b in list_boxes(self.conn) if b.get("source_purchase_id") == self.pu["id"]]
+        self.assertEqual(len(boxes), 2)                       # 1 kiện = 1 dòng
+        for b in boxes:
+            self.assertEqual(b["quantity"], 30.0)
+            self.assertEqual(b["unit_label"], "Thùng")        # nhãn snapshot
+            self.assertEqual(b["unit_name"], "Thùng")         # unit_name đọc từ nhãn
+        _, err = confirm_purchase_receipt(self.conn, self.pu["id"])
+        self.assertIsNone(err)
+
+    def test_vuot_kien_bi_chan(self):
+        _, err = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "action": "restock_new", "quantity": 60, "count": 1}])
+        self.assertIn("tối đa 1 Thùng", err or "")
+
+    def test_hang_le_duong_thuong_khong_nhan(self):
+        _, err = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "action": "restock_new", "quantity": 15, "count": 1}])
+        self.assertIsNone(err)
+        box = [b for b in list_boxes(self.conn) if b.get("source_purchase_id") == self.pu["id"]][0]
+        self.assertIsNone(box["unit_label"])

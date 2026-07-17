@@ -110,19 +110,35 @@ def apply_goods_dispositions(conn, return_id: int, dispositions, *, actor: str =
                 result["restocked_existing"].append(
                     {"sp": code, "quantity": q, "box_id": box_id, "box_code": box.get("box_code")})
             elif action == "restock_new":
-                try:
-                    boxes = add_boxes(conn, code, [q], place_id=disp.get("place_id"),
-                                      unit_id=disp.get("unit_id"), by=actor,
-                                      source_return_id=return_id,
-                                      note=f"Hàng khách trả (phiếu trả #{return_id})")
-                except ValueError:
-                    boxes = []
-                if boxes:
-                    touched_boxes.append(boxes[0]["id"])
-                    created_ids.append(boxes[0]["id"])
-                    used[key] = used.get(key, 0.0) + q
-                    result["restocked_new"].append(
-                        {"sp": code, "quantity": q, "box_id": boxes[0]["id"], "box_code": boxes[0]["box_code"]})
+                # SP NGUYÊN KIỆN (vai 📦): 1 kiện = 1 dòng thùng — modal trả hàng không
+                # có ô "số thùng" nên server TỰ TÁCH: 75 (kiện 30) → 2 kiện dán nhãn
+                # đơn vị + 1 thùng lẻ 15 (đường thường). SP không vai → 1 thùng như cũ.
+                from product_store.units import bulk_role_by_code
+                bulk = bulk_role_by_code(conn, code)
+                f = float(bulk["factor"]) if (bulk and bulk.get("factor")) else 0.0
+                if f > 0 and q > f + 1e-9:
+                    n_kien = int((q + 1e-9) // f)
+                    le = round(q - n_kien * f, 6)
+                    parts = [(f, bulk["name"])] * n_kien + ([(le, None)] if le > 1e-9 else [])
+                elif f > 0 and abs(q - f) < 1e-9:
+                    parts = [(q, bulk["name"])]
+                else:
+                    parts = [(q, None)]
+                for pq, plabel in parts:
+                    try:
+                        boxes = add_boxes(conn, code, [pq], place_id=disp.get("place_id"),
+                                          unit_id=None if plabel else disp.get("unit_id"),
+                                          unit_label=plabel, by=actor,
+                                          source_return_id=return_id,
+                                          note=f"Hàng khách trả (phiếu trả #{return_id})")
+                    except ValueError:
+                        boxes = []
+                    if boxes:
+                        touched_boxes.append(boxes[0]["id"])
+                        created_ids.append(boxes[0]["id"])
+                        used[key] = used.get(key, 0.0) + pq
+                        result["restocked_new"].append(
+                            {"sp": code, "quantity": pq, "box_id": boxes[0]["id"], "box_code": boxes[0]["box_code"]})
             elif action == "dispose":
                 dispose_items.append({"product_code": code, "quantity": q})
                 used[key] = used.get(key, 0.0) + q

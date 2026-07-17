@@ -141,6 +141,36 @@ def resolve_roles(conn, product: dict) -> dict:
     return {f"{r}_unit": unit_role(product, units, r) for r in ROLES}
 
 
+def bulk_role_by_code(conn, code) -> dict | None:
+    """Vai 📦 NGUYÊN KIỆN của SP theo mã (nhận cả mã cũ) → {id, name, factor} | None.
+    Dùng ở các flow tạo thùng (nhập NCC / phiếu SX / hàng trả) để stamp unit_label."""
+    from .resolve import resolve_code
+    prod = resolve_code(conn, code)
+    if not prod or prod.get("bulk_unit_id") is None:
+        return None
+    return unit_role(prod, list_units(conn, int(prod["id"])), "bulk")
+
+
+def bulk_label_for_qty(bulk: dict | None, q) -> tuple[str | None, str | None]:
+    """THUẦN — rule '1 dòng thùng = tối đa 1 KIỆN' cho SP có vai 📦:
+    q == factor → (nhãn = tên đơn vị, None); q < factor → (None, None) = hàng lẻ,
+    đi đường thường; q > factor → (None, lỗi) — nhập nhiều kiện thì tăng số dòng.
+    SP không có vai (bulk None) → (None, None)."""
+    if not bulk or not bulk.get("factor"):
+        return None, None
+    f = float(bulk["factor"])
+    try:
+        qv = float(q)
+    except (TypeError, ValueError):
+        return None, None
+    if abs(qv - f) < 1e-9:
+        return bulk["name"], None
+    if qv > f:
+        return None, (f"SP nguyên kiện: mỗi dòng thùng tối đa 1 {bulk['name']} (= {f:g} đơn vị gốc)"
+                      " — nhập nhiều kiện thì tăng SỐ THÙNG")
+    return None, None
+
+
 def validate_role_value(conn, product_id: int, value) -> str | None:
     """Kiểm giá trị vai từ API: None/0 luôn hợp lệ; >0 phải là đơn vị của đúng SP."""
     if value is None:
