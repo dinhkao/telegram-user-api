@@ -1,7 +1,7 @@
 // Dashboard "Hao hụt nguyên liệu phụ" (#/hao-hut-nl, office-only) — so NL phụ
 // DÙNG theo công thức với sụt giảm THỰC (đo qua 2 lần kiểm kho liên tiếp của
-// "kho nguyên liệu đang dùng"). Mỗi kỳ = 1 card, MỚI → CŨ. gap>0 = hao hụt thật.
-// API: getAuxLoss. Realtime inventory_changed → tải lại.
+// "kho nguyên liệu đang dùng"). Mỗi kỳ = 1 card gồm 2 BẢNG KỀ BÊN (định mức ↔
+// thực tế) để dễ so sánh; MỚI → CŨ. gap>0 = hao hụt thật. API: getAuxLoss.
 import { useEffect, useState } from "preact/hooks";
 import { getAuxLoss, ApiError, type AuxLossResp, type AuxLossPeriod, type AuxLossRow } from "../api";
 import { onRealtime } from "../realtime";
@@ -27,10 +27,17 @@ function gapColor(gap: number | null): string | undefined {
 }
 
 const num = (v: number | null): string => (v == null ? "—" : fmtQty(v));
+const Dash = () => <span class="muted">—</span>;
+// Ô nhãn NL phụ (mã + đơn vị) — 1 dòng để 2 bảng canh hàng khớp nhau.
+const NlCell = ({ r }: { r: AuxLossRow }) => (
+  <td class="al-nl"><b>{r.code}</b>{r.unit ? <span class="muted small"> · {r.unit}</span> : null}</td>
+);
 
+// 2 BẢNG KỀ BÊN: TRÁI = nên dùng theo công thức; PHẢI = thực tế đo qua kiểm kho
+// (đếm trước → +châm → −đếm sau = tiêu thụ) + LỆCH so định mức. Cùng thứ tự NL
+// phụ (backend sắp theo gap) nên đọc ngang từng hàng là so được.
 function PeriodCard({ p }: { p: AuxLossPeriod }) {
-  // Ẩn cột "Châm" nếu mọi dòng cham==0 trong kỳ này (đỡ rối).
-  const showCham = p.rows.some((r) => r.cham !== 0);
+  const showCham = p.rows.some((r) => r.cham !== 0);   // ẩn cột Châm nếu cả kỳ = 0
   const t = p.totals;
   return (
     <section class="card">
@@ -45,49 +52,60 @@ function PeriodCard({ p }: { p: AuxLossPeriod }) {
           <b>{dtVN(p.prev_ts)} → {p.cur_ts != null ? dtVN(p.cur_ts) : "—"}</b>
         )}
       </div>
-      <div style={{ overflowX: "auto" }}>
-        <table class="al-tbl">
-          <thead>
-            <tr>
-              <th>NL phụ</th>
-              <th class="al-r">Dùng SX</th>
-              {showCham && <th class="al-r">Châm</th>}
-              <th class="al-r">Đếm trước</th>
-              <th class="al-r">Đếm sau</th>
-              <th class="al-r">Tiêu thụ</th>
-              <th class="al-r">Chênh lệch</th>
-            </tr>
-          </thead>
-          <tbody>
-            {p.rows.map((r: AuxLossRow) => (
-              <tr key={r.code}>
-                <td>
-                  <b>{r.code}</b>
-                  <div class="muted small">{r.name}{r.unit ? ` · ${r.unit}` : ""}</div>
-                </td>
-                <td class="al-r">{num(r.used)}</td>
-                {showCham && <td class="al-r">{num(r.cham)}</td>}
-                <td class="al-r">{num(r.prev)}</td>
-                <td class="al-r">{p.open ? <span class="muted">—</span> : num(r.now)}</td>
-                <td class="al-r">{p.open ? <span class="muted">—</span> : num(r.consumed)}</td>
-                <td class="al-r" style={{ color: gapColor(r.gap), fontWeight: 600 }}>
-                  {p.open ? <span class="muted">—</span> : num(r.gap)}
+      <div class="al-cmp-wrap">
+        <div class="al-cmp">
+          {/* BẢNG TRÁI — nên dùng theo công thức */}
+          <table class="al-tbl al-plan">
+            <thead>
+              <tr><th class="al-cap" colSpan={2}>📐 Theo công thức</th></tr>
+              <tr><th>NL phụ</th><th class="al-r">Nên dùng</th></tr>
+            </thead>
+            <tbody>
+              {p.rows.map((r) => (
+                <tr key={r.code}><NlCell r={r} /><td class="al-r">{num(r.used)}</td></tr>
+              ))}
+              <tr class="al-total"><td><b>TỔNG</b></td><td class="al-r"><b>{num(t.used)}</b></td></tr>
+            </tbody>
+          </table>
+          {/* BẢNG PHẢI — thực tế qua kiểm kho */}
+          <table class="al-tbl al-real">
+            <thead>
+              <tr><th class="al-cap" colSpan={showCham ? 6 : 5}>📦 Thực tế (kiểm kho)</th></tr>
+              <tr>
+                <th>NL phụ</th>
+                <th class="al-r">Đếm trước</th>
+                {showCham && <th class="al-r">Châm</th>}
+                <th class="al-r">Đếm sau</th>
+                <th class="al-r">Tiêu thụ</th>
+                <th class="al-r" title="Tiêu thụ thực − Nên dùng (dương = mất nhiều hơn định mức)">Lệch</th>
+              </tr>
+            </thead>
+            <tbody>
+              {p.rows.map((r) => (
+                <tr key={r.code}>
+                  <NlCell r={r} />
+                  <td class="al-r">{num(r.prev)}</td>
+                  {showCham && <td class="al-r">{num(r.cham)}</td>}
+                  <td class="al-r">{p.open ? <Dash /> : num(r.now)}</td>
+                  <td class="al-r"><b>{p.open ? <Dash /> : num(r.consumed)}</b></td>
+                  <td class="al-r" style={{ color: gapColor(r.gap), fontWeight: 600 }}>
+                    {p.open ? <Dash /> : num(r.gap)}
+                  </td>
+                </tr>
+              ))}
+              <tr class="al-total">
+                <td><b>TỔNG</b></td>
+                <td class="al-r" />
+                {showCham && <td class="al-r"><b>{num(t.cham)}</b></td>}
+                <td class="al-r" />
+                <td class="al-r"><b>{p.open ? "—" : num(t.consumed)}</b></td>
+                <td class="al-r" style={{ color: gapColor(t.gap) }}>
+                  <b>{p.open ? "—" : num(t.gap)}</b>
                 </td>
               </tr>
-            ))}
-            <tr class="al-total">
-              <td><b>TỔNG</b></td>
-              <td class="al-r"><b>{num(t.used)}</b></td>
-              {showCham && <td class="al-r"><b>{num(t.cham)}</b></td>}
-              <td class="al-r" />
-              <td class="al-r" />
-              <td class="al-r"><b>{p.open ? "—" : num(t.consumed)}</b></td>
-              <td class="al-r" style={{ color: gapColor(t.gap) }}>
-                <b>{p.open ? "—" : num(t.gap)}</b>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   );

@@ -3294,8 +3294,12 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 .al-sub { margin: -4px 0 12px; }
 .al-head { margin-bottom: 8px; }
 .al-badge { display: inline-block; padding: 1px 7px; border-radius: 999px; background: #fdecea; color: #c0392b; font-size: .72rem; font-weight: 600; }
-.al-tbl { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.al-cmp-wrap { overflow-x: auto; }
+.al-cmp { display: flex; gap: 14px; align-items: flex-start; min-width: max-content; }
+.al-tbl { border-collapse: collapse; font-size: .9rem; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .al-tbl th, .al-tbl td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; text-align: left; white-space: nowrap; }
 .al-tbl th { font-size: .78rem; color: var(--muted); font-weight: 600; }
+.al-tbl .al-cap { font-size: .82rem; color: inherit; font-weight: 700; background: rgba(127,127,127,.10); border-bottom: 2px solid var(--border); }
+.al-tbl .al-nl { white-space: nowrap; }
 .al-tbl .al-r { text-align: right; }
 .al-tbl tr.al-total td { border-top: 2px solid var(--border); border-bottom: none; }
