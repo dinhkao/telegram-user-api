@@ -28,12 +28,15 @@ def apply_goods_dispositions(conn, return_id: int, dispositions, *, actor: str =
 
     dispositions = [{sp, quantity, action, box_id?, place_id?, unit_id?}].
     Trả (extra, None) với extra = {result, touched_boxes, disposal, customer_key},
-    hoặc (None, 'not_found'|'already'). Dòng không hợp lệ (thiếu mã/số ≤ 0/thùng
-    không tồn tại) bị BỎ QUA lặng, không làm hỏng cả lô."""
+    hoặc (None, 'not_found'|'already'). Dòng không hợp lệ bị BỎ QUA lặng, không làm
+    hỏng cả lô — gồm: thiếu mã / số ≤ 0 / thùng không tồn tại / thùng VÔ HIỆU /
+    thùng KHÁC SP với dòng hàng / SP không có trên phiếu trả / cộng dồn VƯỢT số
+    lượng SP đó trên phiếu (trần theo danh tính SP, chung cho cả 3 action)."""
     from inventory_store.queries import add_boxes, get_box
     from inventory_store.allocations import receive_return_stock
     from disposal_store import create_manual_disposal
     from return_store import get_return, ensure_returns_schema
+    from server_app.purchase_goods import _product_key
     from utils.db import transaction
 
     ensure_returns_schema(conn)   # DDL trước khi mở transaction
@@ -52,6 +55,22 @@ def apply_goods_dispositions(conn, return_id: int, dispositions, *, actor: str =
         if claimed.rowcount != 1:
             return None, "already"
 
+        # TRẦN theo phiếu trả: mỗi SP xử lý (nhập thùng / tạo thùng / hủy) không
+        # vượt tổng sl của SP đó trên phiếu — key = danh tính SP (products.id,
+        # fallback mã) để mã đổi tên giữa chừng vẫn khớp.
+        limits: dict = {}
+        for it in (r.get("items") or []):
+            code_i = str((it or {}).get("sp") or "").strip().upper()
+            try:
+                sl = float((it or {}).get("sl"))
+            except (TypeError, ValueError):
+                continue
+            if not code_i or sl <= 0:
+                continue
+            key_i, _ = _product_key(conn, code_i, (it or {}).get("sp_id"))
+            limits[key_i] = limits.get(key_i, 0.0) + sl
+        used: dict = {}
+
         result: dict = {"restocked_existing": [], "restocked_new": [], "disposed": [], "disposal_id": None}
         touched_boxes: list[int] = []
         dispose_items: list[dict] = []
@@ -66,19 +85,28 @@ def apply_goods_dispositions(conn, return_id: int, dispositions, *, actor: str =
                 continue
             if not code or q <= 0 or action in ("", "skip"):
                 continue
+            key, _ = _product_key(conn, code)
+            # SP không có trên phiếu / cộng dồn vượt số trên phiếu → bỏ qua
+            if key not in limits or used.get(key, 0.0) + q > limits[key] + 1e-9:
+                continue
             if action == "restock_existing":
                 try:
                     box_id = int(disp.get("box_id"))
                 except (TypeError, ValueError):
                     continue
                 box = get_box(conn, box_id)
-                if not box:
+                if not box or box.get("disabled"):
+                    continue
+                # Thùng phải CÙNG SP với dòng hàng trả — nhận nhầm là sai tồn cả 2 mã.
+                box_key, _ = _product_key(conn, box.get("product_code"), box.get("product_id"))
+                if box_key != key:
                     continue
                 # Ghi allocation ÂM 'return_in' — remaining tăng q, quantity gốc GIỮ NGUYÊN
                 # (không thổi phồng boxed_total phiếu SX nguồn). Xem receive_return_stock.
                 receive_return_stock(conn, box_id, q, return_id, by=actor)
                 touched_boxes.append(box_id)
                 return_in.append((box_id, q))
+                used[key] = used.get(key, 0.0) + q
                 result["restocked_existing"].append(
                     {"sp": code, "quantity": q, "box_id": box_id, "box_code": box.get("box_code")})
             elif action == "restock_new":
@@ -92,10 +120,12 @@ def apply_goods_dispositions(conn, return_id: int, dispositions, *, actor: str =
                 if boxes:
                     touched_boxes.append(boxes[0]["id"])
                     created_ids.append(boxes[0]["id"])
+                    used[key] = used.get(key, 0.0) + q
                     result["restocked_new"].append(
                         {"sp": code, "quantity": q, "box_id": boxes[0]["id"], "box_code": boxes[0]["box_code"]})
             elif action == "dispose":
                 dispose_items.append({"product_code": code, "quantity": q})
+                used[key] = used.get(key, 0.0) + q
 
         disposal = None
         if dispose_items:

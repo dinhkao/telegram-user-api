@@ -120,7 +120,10 @@ def upsert_slip(conn, thread_id, **fields) -> bool:
     updates.append("updated_at = datetime('now')")
     params.append(thread_id)
     conn.execute(f"UPDATE production_slips SET {', '.join(updates)} WHERE thread_id = ?", params)
-    conn.commit()
+    # Caller đang bọc transaction (vd nhập thùng phiếu SX nguyên tử) → outermost
+    # commit; commit trần ở đây sẽ cắt transaction ngoài giữa chừng.
+    if not conn.in_transaction:
+        conn.commit()
     return True
 
 

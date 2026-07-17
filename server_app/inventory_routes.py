@@ -46,7 +46,7 @@ from recipe_store import create_recipe_table, list_recipe, set_recipe_line, dele
 from production_store import get_slip, add_number, set_total, remove_number_by_note
 from order_store.serialization import get_order_by_thread_id
 from server_app.production_routes import _web_actor
-from utils.db import get_connection
+from utils.db import get_connection, transaction
 
 
 def _order_first_line(conn, thread_id) -> str:
@@ -297,16 +297,21 @@ async def production_add_boxes_handler(request: web.Request):
                     else:
                         capped.append(p)      # mã ngoài công thức → không cap
                 picks = capped
+            # NGUYÊN TỬ: tạo thùng + ghi numbers phiếu + trừ NL trong 1 transaction —
+            # chết giữa chừng không để thùng mồ côi (thùng có mà phiếu/NL không khớp).
+            # add_boxes/allocate_picks bọc transaction re-entrant; upsert_slip
+            # (add_number) đã guard in_transaction nên không commit cắt ngang.
             try:
-                created = add_boxes(conn, code, qtys, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=uid, place_id=place_id)
-            except ValueError as e:   # hết 999 số gọi đang hoạt động (thực tế khó xảy ra)
+                with transaction(conn):
+                    created = add_boxes(conn, code, qtys, source_thread_id=thread_id, by=actor, note=note, mfg_date=mfg_date, unit_id=uid, place_id=place_id)
+                    # đồng bộ slip.total/numbers/progress: 1 entry/thùng (note = mã thùng)
+                    total = slip.get("total") or 0
+                    for box in created:
+                        total = add_number(conn, thread_id, box["quantity"], f"📦 {box['box_code']}", by=actor)
+                    # Trừ kho NL (kind='production') — đã validate đủ ở trên.
+                    consume = allocate_picks(conn, picks, thread_id, by=actor, kind="production") if picks else []
+            except ValueError as e:   # hết 999 số gọi đang hoạt động — rollback cả lô
                 return "full", str(e), None
-            # đồng bộ slip.total/numbers/progress: 1 entry/thùng (note = mã thùng)
-            total = slip.get("total") or 0
-            for box in created:
-                total = add_number(conn, thread_id, box["quantity"], f"📦 {box['box_code']}", by=actor)
-            # Trừ kho NL (kind='production') — đã validate đủ ở trên.
-            consume = allocate_picks(conn, picks, thread_id, by=actor, kind="production") if picks else []
             from server_app.inventory_audit import box_snapshot
             snaps.extend(s for b in created if (s := box_snapshot(conn, b.get("id"))))
             # ảnh chụp thùng NL đã tiêu hao (remaining SAU trừ) → ghi lịch sử thùng NL
@@ -1442,7 +1447,10 @@ async def order_release_handler(request: web.Request):
             aud = []
             for aid in ids:
                 a = get_allocation(conn, aid)
-                if a and a.get("order_thread_id") == thread_id:
+                # CHỈ gỡ bút toán xuất-đơn (kind='order') — với kind khác, cột
+                # order_thread_id chứa id phiếu nhập/thùng đối tác/phiếu điều chỉnh;
+                # trùng số với thread_id đơn là xoá nhầm sổ khác.
+                if a and a.get("order_thread_id") == thread_id and (a.get("kind") or "order") == "order":
                     s = box_snapshot(conn, a.get("box_id"))
                     delete_allocation(conn, aid)
                     if s:

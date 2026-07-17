@@ -114,6 +114,46 @@ class ReturnGoodsTest(unittest.TestCase):
         self.assertIsNone(extra)
         self.assertEqual(err, "not_found")
 
+    def test_restock_existing_rejects_wrong_product_box(self):
+        # Nhận KEO1 vào thùng KEO2 → dòng bị bỏ qua, tồn KEO2 không đổi.
+        upsert_product(self.conn, "KEO2", "Kẹo khác", unit="cây")
+        other = add_boxes(self.conn, "KEO2", [50])[0]
+        extra, err = apply_goods_dispositions(
+            self.conn, self.ret["id"],
+            [{"sp": "KEO1", "quantity": 4, "action": "restock_existing", "box_id": other["id"]}],
+            actor="lan")
+        self.assertIsNone(err)
+        self.assertEqual(extra["result"]["restocked_existing"], [])
+        self.assertEqual(self._rem(other["id"]), 50)
+
+    def test_restock_existing_rejects_disabled_box(self):
+        self.conn.execute("UPDATE inventory_boxes SET disabled = 1 WHERE id = ?", (self.box["id"],))
+        extra, err = apply_goods_dispositions(
+            self.conn, self.ret["id"],
+            [{"sp": "KEO1", "quantity": 4, "action": "restock_existing", "box_id": self.box["id"]}],
+            actor="lan")
+        self.assertIsNone(err)
+        self.assertEqual(extra["result"]["restocked_existing"], [])
+        self.assertEqual(self._rem(self.box["id"]), 100)   # không cộng gì
+
+    def test_dispositions_capped_by_slip_quantity(self):
+        # Phiếu trả 10 KEO1: dòng vượt trần / SP lạ / cộng dồn quá 10 đều bị bỏ qua.
+        upsert_product(self.conn, "KEO2", "Kẹo khác", unit="cây")
+        extra, err = apply_goods_dispositions(
+            self.conn, self.ret["id"], [
+                {"sp": "KEO1", "quantity": 12, "action": "restock_new"},                          # 12 > 10
+                {"sp": "KEO2", "quantity": 3, "action": "restock_new"},                           # không có trên phiếu
+                {"sp": "KEO1", "quantity": 8, "action": "restock_existing", "box_id": self.box["id"]},  # OK
+                {"sp": "KEO1", "quantity": 4, "action": "dispose"},                               # 8+4 > 10
+            ], actor="lan")
+        self.assertIsNone(err)
+        res = extra["result"]
+        self.assertEqual(res["restocked_new"], [])
+        self.assertEqual(len(res["restocked_existing"]), 1)
+        self.assertEqual(res["disposed"], [])
+        self.assertIsNone(res["disposal_id"])
+        self.assertEqual(self._rem(self.box["id"]), 108)   # chỉ dòng hợp lệ được ghi
+
     def test_audit_snapshots_for_box_events(self):
         # extra['audit'] = snapshot cho route ghi event kho (box.created / box.return_in)
         extra, err = apply_goods_dispositions(
