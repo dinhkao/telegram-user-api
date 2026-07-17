@@ -140,7 +140,7 @@ function verdictOf(p: StockDemandLine): Verdict {
 
 // Thanh TỒN KHO: full = tổng tồn của SP; mỗi ĐƠN chiếm 1 khúc % theo tồn.
 // Đơn vượt tồn (thiếu) → khúc tràn qua vạch tồn, vùng vượt gạch đỏ.
-const SB_PAL = ["#4C9AFF", "#57D9A3", "#B37FEB", "#F78C6C", "#00B8D9", "#FFAB00"];
+const SB_PAL = ["var(--viz-1)", "var(--viz-2)", "var(--viz-3)", "var(--viz-4)", "var(--viz-5)", "var(--viz-6)"];
 function StockBar({ stock, need, orders, showNum = true, legend = false }: { stock: number; need: number; orders?: StockDemandOrder[]; showNum?: boolean; legend?: boolean }) {
   const scale = Math.max(stock, need, 0.0001);
   const stockPct = Math.min(100, (stock / scale) * 100);

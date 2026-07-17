@@ -10,7 +10,6 @@ import { Icon } from "../ui/Icon";
 
 export function Payments({ threadId, payments, hasCustomer, bypassDebt, onChanged }: { threadId: string; payments: any[]; hasCustomer: boolean; bypassDebt: boolean; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
   const isAdmin = currentUser()?.role === "admin";
   const office = isOffice();   // chỉ văn phòng được thu tiền
 
@@ -23,14 +22,13 @@ export function Payments({ threadId, payments, hasCustomer, bypassDebt, onChange
       : `Xoá thanh toán ${money(p.amount)}?\n(Xoá khỏi đơn; KiotViet có thể phải xoá tay)`;
     if (!(await confirmDialog(confirmMsg, { danger: true }))) return;
     setBusy(true);
-    setMsg("");
     try {
       const r = await postJSON("/api/order/payment/delete", { thread_id: Number(threadId), payment_id: p.id });
       const base = batch ? "🗑️ Đã xoá giao dịch thu gộp" : `🗑️ Đã xoá thanh toán ${money(p.amount)}`;
-      setMsg(r.kv_warning ? `${base} · ⚠️ ${r.kv_warning}` : base);
+      toast(r.kv_warning ? `${base} · ⚠️ ${r.kv_warning}` : base, "ok");
       onChanged();
     } catch (ex: any) {
-      setMsg(`❌ ${ex.message}`);
+      toast(ex.message, "err");
     } finally {
       setBusy(false);
     }
@@ -63,7 +61,7 @@ export function Payments({ threadId, payments, hasCustomer, bypassDebt, onChange
             <li class="payment-item" key={i}>
               <div class="row space">
                 <span>{p.code || p.method || "?"}{p.payment_batch_id ? " · gộp" : ""}</span>
-                <span class="row" style="gap:6px;align-items:center">
+                <span class="row">
                   <b>{money(p.amount)}</b>
                   {isAdmin && p.id ? <button class="btn small danger" disabled={busy} title="Xoá thanh toán" onClick={() => del(p)}><Icon name="trash" size={14} /></button> : null}
                 </span>
@@ -82,7 +80,6 @@ export function Payments({ threadId, payments, hasCustomer, bypassDebt, onChange
       ) : (
         <p class="muted small">Chưa có thanh toán nào.</p>
       )}
-      {msg && <p class="notice" onClick={() => setMsg("")}>{msg}</p>}
       {bypassDebt && (
         <p class="notice small"><Icon name="ban" size={14} /> Đơn này được ẩn khỏi trang thu tiền; trạng thái nợ vẫn giữ nguyên.</p>
       )}
@@ -94,7 +91,7 @@ export function Payments({ threadId, payments, hasCustomer, bypassDebt, onChange
             <Icon name="banknote" size={16} /> Thu tiền
           </button>
           {payments.length === 0 && (
-            <button class="btn block" disabled={busy} style={{ marginTop: "7px" }} onClick={toggleBypass}>
+            <button class="btn block mt-2" disabled={busy} onClick={toggleBypass}>
               <Icon name={bypassDebt ? "refresh" : "ban"} size={15} />
               {bypassDebt ? "Đưa lại vào trang thu tiền" : "Ẩn khỏi trang thu tiền"}
             </button>

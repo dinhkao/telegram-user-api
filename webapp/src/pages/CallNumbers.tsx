@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { callNumbers, soVN, type CallMapResult, type CallNumberBox } from "../api";
 import { onRealtime } from "../realtime";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { Loading, ErrorState } from "../ui/states";
 
 type Filt = "all" | "instock" | "disabled" | "free";
@@ -51,15 +51,7 @@ export function CallNumbers() {
   }, [data]);
 
   const total = data?.total || 999;
-  const head = (
-    <div class="cn-head">
-      <BackLink fallback="#/kho" />
-      <div class="cn-head-t">
-        <div class="cn-head-title">Số thùng</div>
-        <div class="cn-head-sub">{soVN(total)} số gọi toàn kho</div>
-      </div>
-    </div>
-  );
+  const head = <PageHead fallback="#/kho" title="Số thùng" sub={`${soVN(total)} số gọi toàn kho`} />;
   if (err) return <div class="cn-page">{head}<ErrorState msg={err} onRetry={load} /></div>;
   if (!data) return <div class="cn-page">{head}<Loading /></div>;
 
@@ -96,10 +88,10 @@ export function CallNumbers() {
         {nextCode != null && <span class="cn-next">Số kế tiếp: <b>{nextCode}</b></span>}
       </div>
 
-      <div class="cn-filters">
+      <div class="chips cn-filters">
         {FILTS.map((f) => (
-          <button key={f.k} class={"cn-filter" + (filt === f.k ? " on" : "")} onClick={() => setFilt(f.k)}>
-            {f.label} <span class="cn-filter-n">{f.n}</span>
+          <button key={f.k} class={"chip" + (filt === f.k ? " active" : "")} onClick={() => setFilt(f.k)}>
+            {f.label} <span class="chip-n">{f.n}</span>
           </button>
         ))}
       </div>
@@ -117,7 +109,7 @@ export function CallNumbers() {
         sections.filter((s) => s.ns.length > 0).map((s) => (
           <div key={s.b || "0"}>
             {s.b !== "" && (
-              <div class="cn-head-sub" style="font-weight:700;margin:14px 2px 6px;">
+              <div class="cn-block-h">
                 Block {s.b} · {s.b}001–{s.b}999
               </div>
             )}

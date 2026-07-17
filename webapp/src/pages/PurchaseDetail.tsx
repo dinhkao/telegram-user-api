@@ -226,7 +226,7 @@ export function PurchaseDetail({ id }: { id: string }) {
           arr.map((x, i) => (
             <span key={i}>{i > 0 ? ", " : ""}{x.sp} ×{soVN(x.quantity)}{" "}
               {x.box_deleted
-                ? <span class="muted" style={{ textDecoration: "line-through" }}>(thùng {x.box_code || `#${x.box_id}`} — đã xoá)</span>
+                ? <span class="muted strike">(thùng {x.box_code || `#${x.box_id}`} — đã xoá)</span>
                 : <>(<a href={`#/thung/${x.box_id}`}>thùng {x.box_code || `#${x.box_id}`}</a>)</>}</span>
           ));
         if (r.goods_handled_at && gr) {

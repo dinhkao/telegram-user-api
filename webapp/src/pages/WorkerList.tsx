@@ -5,7 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { listWorkers, type Worker } from "../api";
 import { onRealtime } from "../realtime";
-import { Loading, ErrorState } from "../ui/states";
+import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
 export function WorkerList() {
@@ -38,7 +38,7 @@ export function WorkerList() {
           <span class="muted small"><Icon name="star" size={13} /> mặc định: {defCount}</span>
         </div>
         {workers.length === 0 ? (
-          <p class="muted small">Chưa có thợ nào. Bấm <Icon name="settings" size={13} /> để thêm.</p>
+          <EmptyState icon="👷">Chưa có thợ nào. Bấm <Icon name="settings" size={13} /> để thêm.</EmptyState>
         ) : (
           <div class="wl-list">
             {workers.map((w) => (

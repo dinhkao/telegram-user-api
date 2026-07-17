@@ -27,16 +27,22 @@ function AdminSettings() {
   return (
     <div class="card">
       <label class="card-label">⚙️ Cài đặt hệ thống (admin)</label>
-      <label class="set-row">
-        <input type="checkbox" checked={!!st.soan_hang_require_stock} disabled={busy}
-          onChange={() => flip("soan_hang_require_stock")} />
-        <span>Ràng buộc quy trình đơn: <b>chốt xuất kho + ảnh</b> → soạn hàng → <b>soạn xong</b> → giao hàng → <b>giao xong</b> → in hoá đơn giao</span>
-      </label>
-      <label class="set-row">
-        <input type="checkbox" checked={!!st.pack_allow_no_material} disabled={busy}
-          onChange={() => flip("pack_allow_no_material")} />
-        <span>Cho phép <b>nhập trực tiếp SP đóng gói</b> không bắt buộc trừ nguyên liệu (bỏ qua kiểm tra công thức + loại phiếu khi nhập thùng)</span>
-      </label>
+      <div class="set-row">
+        <button class={"tgl" + (st.soan_hang_require_stock ? " on" : "")} role="switch"
+          aria-checked={!!st.soan_hang_require_stock} disabled={busy}
+          onClick={() => flip("soan_hang_require_stock")}>
+          <span class="tgl-knob" />
+        </button>
+        <span onClick={() => !busy && flip("soan_hang_require_stock")}>Ràng buộc quy trình đơn: <b>chốt xuất kho + ảnh</b> → soạn hàng → <b>soạn xong</b> → giao hàng → <b>giao xong</b> → in hoá đơn giao</span>
+      </div>
+      <div class="set-row">
+        <button class={"tgl" + (st.pack_allow_no_material ? " on" : "")} role="switch"
+          aria-checked={!!st.pack_allow_no_material} disabled={busy}
+          onClick={() => flip("pack_allow_no_material")}>
+          <span class="tgl-knob" />
+        </button>
+        <span onClick={() => !busy && flip("pack_allow_no_material")}>Cho phép <b>nhập trực tiếp SP đóng gói</b> không bắt buộc trừ nguyên liệu (bỏ qua kiểm tra công thức + loại phiếu khi nhập thùng)</span>
+      </div>
     </div>
   );
 }

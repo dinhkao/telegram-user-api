@@ -9,6 +9,7 @@ import { listNotifications, orderImageUrl, type Notif } from "./api";
 import { onRealtime } from "./realtime";
 import { fmtRelative } from "./format";
 import { Icon } from "./ui/Icon";
+import { EmptyState, LoadingInline } from "./ui/states";
 
 const SEEN_KEY = "notif_seen_id";
 const getSeen = (): number => { try { return Number(localStorage.getItem(SEEN_KEY) || "0") || 0; } catch { return 0; } };
@@ -20,13 +21,14 @@ export function NotifCenter() {
   const [open, setOpen] = useState(false);
   usePopupBack(open, () => setOpen(false));
   const [items, setItems] = useState<Notif[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [seen, setSeenState] = useState<number>(getSeen());
 
   const load = async () => {
     try {
       const r = await listNotifications(30);
       setItems(r.notifications);
-    } catch { /* im */ }
+    } catch { /* im */ } finally { setLoaded(true); }
   };
   useEffect(() => { load(); }, []);
 
@@ -70,8 +72,10 @@ export function NotifCenter() {
         <div class="modal-overlay" onClick={() => setOpen(false)}>
           <div class="modal-sheet notif-panel" ref={panelRef} onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><Icon name="bell" size={18} /> Thông báo</div>
-            {items.length === 0 ? (
-              <div class="notif-empty muted small">Chưa có thông báo nào.</div>
+            {items.length === 0 && !loaded ? (
+              <p class="muted small center"><LoadingInline /></p>
+            ) : items.length === 0 ? (
+              <EmptyState icon="🔔">Chưa có thông báo nào.</EmptyState>
             ) : (
               <ul class="notif-list">
                 {items.map((n) => (

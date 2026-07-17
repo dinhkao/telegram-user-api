@@ -4,6 +4,7 @@ import { listOrderImages, orderImageUrl, type OrderImage } from "../api";
 import { Icon } from "../ui/Icon";
 import { LoadingInline } from "../ui/states";
 import { usePopupBack } from "../ui/usePopupBack";
+import { useScrollLock } from "../useScrollLock";
 import { KIND_ICON, KIND_LABEL, kindOf } from "./imageKinds";
 
 export function OrderImagePicker({ threadId, selectedId, onPick, onClose }: {
@@ -15,6 +16,7 @@ export function OrderImagePicker({ threadId, selectedId, onPick, onClose }: {
   const [images, setImages] = useState<OrderImage[] | null>(null);
   const [failed, setFailed] = useState(false);
   usePopupBack(true, onClose);
+  useScrollLock(true);   // khoá cuộn nền khi popup mở
 
   const load = () => {
     setImages(null);

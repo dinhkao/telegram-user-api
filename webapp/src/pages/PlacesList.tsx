@@ -2,15 +2,18 @@
 // Tạo vị trí mới ngay đây. Data: listPlaces + allBoxes (gộp thống kê). Realtime reload.
 import { useEffect, useState } from "preact/hooks";
 import { listPlaces, allBoxes, createPlace, mediaImageUrl, soVN, type Place, type KhoBox } from "../api";
+import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { toast } from "../ui/feedback";
+import { SearchBar } from "../ui/SearchBar";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 
 export function PlacesList() {
   const [places, setPlaces] = useState<Place[] | null>(null);
   const [boxes, setBoxes] = useState<KhoBox[]>([]);
   const [err, setErr] = useState("");
+  const [q, setQ] = useState("");   // lọc HIỂN THỊ theo tên vị trí (client-side)
   const [nName, setNName] = useState("");
   const [adding, setAdding] = useState(false);
 
@@ -44,6 +47,8 @@ export function PlacesList() {
     return { count: bs.filter(hasStock).length, rem };   // đếm chỉ thùng còn hàng (rỗng đã ẩn)
   };
   const unplaced = boxes.filter((b) => !b.place_id && hasStock(b)).length;
+  const nq = foldVN(q.trim());
+  const shown = nq ? places.filter((p) => foldVN(p.name).includes(nq)) : places;
 
   return (
     <div class="inv-dash">
@@ -57,11 +62,14 @@ export function PlacesList() {
           onInput={(e: any) => setNName(e.target.value)} onKeyDown={(e: any) => { if (e.key === "Enter") doAdd(); }} />
         <button class="btn primary" disabled={adding || !nName.trim()} onClick={doAdd}><Icon name="plus" size={16} /></button>
       </div>
+      <SearchBar value={q} onInput={setQ} placeholder="Tìm tên vị trí…" />
 
       {places.length === 0 ? (
         <EmptyState>Chưa có vị trí. Tạo Kho A, Kho B… ở trên.</EmptyState>
+      ) : shown.length === 0 ? (
+        <EmptyState>Không có vị trí khớp “{q.trim()}”.</EmptyState>
       ) : (
-        places.map((p) => {
+        shown.map((p) => {
           const s = stat(p.id);
           return (
             <a class="inv-card" href={`#/vi-tri/${p.id}`} key={p.id}>
@@ -71,7 +79,7 @@ export function PlacesList() {
               )}
               <div class="inv-card-main">
                 <div class="inv-card-code"><Icon name="box" size={15} /> {p.name}</div>
-                {p.note ? <div class="muted small" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "160px" }}>{p.note}</div> : null}
+                {p.note ? <div class="inv-card-name muted small">{p.note}</div> : null}
               </div>
               <div class="inv-card-stat">
                 <span class={"inv-card-total" + (s.rem > 0 ? "" : " zero")}>{soVN(s.rem)}</span>

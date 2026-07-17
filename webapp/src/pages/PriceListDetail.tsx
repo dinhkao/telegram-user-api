@@ -5,7 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { getPriceList, savePriceOne, getPriceHistory, searchProducts,
   type PriceListFull, type PriceHistoryRow } from "../api";
-import { money, parseMoney } from "../format";
+import { money, parseMoney, fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
 import { Loading, ErrorState } from "../ui/states";
 import { SearchBar } from "../ui/SearchBar";
@@ -13,7 +13,6 @@ import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 
-const fmtMs = (ms: number) => { try { return new Date(ms).toLocaleString("vi-VN"); } catch { return String(ms); } };
 const priceLabel = (p: number | null) => (p == null ? "—" : money(p));
 
 export function PriceListDetail({ listId }: { listId: string }) {
@@ -95,7 +94,7 @@ export function PriceListDetail({ listId }: { listId: string }) {
 
       <section class="card pl-toolbar">
         <div class="pl-toolbar-row">
-          <span style={{ flex: 1, minWidth: 0 }}><SearchBar value={filter} onInput={setFilter} placeholder="Tìm mã SP…" /></span>
+          <span class="fill"><SearchBar value={filter} onInput={setFilter} placeholder="Tìm mã SP…" /></span>
           <button class={"btn primary pl-add-toggle" + (adding ? " on" : "")} onClick={() => setAdding((v) => !v)}>
             <Icon name={adding ? "close" : "plus"} size={16} /> {adding ? "Đóng" : "Thêm SP"}
           </button>
@@ -153,7 +152,7 @@ export function PriceListDetail({ listId }: { listId: string }) {
               <li key={i}>
                 <div><b>{h.sp}</b>: {priceLabel(h.old_price)} → <b>{priceLabel(h.new_price)}</b>
                   {h.new_price == null && <span class="owe"> (xoá)</span>}{h.old_price == null && <span class="pl-new"> (mới)</span>}</div>
-                <div class="muted small">{h.changed_by || "?"} · {fmtMs(h.changed_at)}</div>
+                <div class="muted small">{h.changed_by || "?"} · {fmtDateTimeVN(h.changed_at)}</div>
               </li>
             ))}
           </ul>

@@ -13,10 +13,10 @@ import { SearchBar } from "../ui/SearchBar";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 import { CompactBoxList } from "../detail/CompactBoxList";
+import { BoxViewToggle, useBoxView } from "../detail/BoxViewToggle";
 import { sortProductsByRecentChange } from "./khoProducts";
 
 let memQ = "";                 // nhớ search khi rời trang
-let memBoxView: "grid" | "compact" = "compact";   // kiểu xem ô thùng ở search (mặc định GỌN)
 const MAX_LINES = 6;           // số dòng SP hiện trên 1 card (còn lại gộp "+k")
 
 // Tồn dùng được của 1 thùng (vô hiệu = 0)
@@ -111,8 +111,8 @@ export function KhoBoxes() {
   const [data, setData] = useState<KhoData | null>(khoCache().data);
   const [err, setErr] = useState("");
   const [q, setQ] = useState(memQ);
-  const [boxView, setBoxView] = useState<"grid" | "compact">(memBoxView);
-  useEffect(() => { memBoxView = boxView; }, [boxView]);
+  // kiểu xem ô thùng ở search (mặc định GỌN) — nhớ khi rời trang
+  const [boxView, setBoxView] = useBoxView("kho_boxes", "compact");
   useEffect(() => { memQ = q; }, [q]);
 
   // Cold load (chưa có cache): lỗi → ErrorState. Refresh nền: lỗi → GIỮ cache im lặng.
@@ -254,7 +254,7 @@ export function KhoBoxes() {
         )}
         {matchedPlaces.length > 0 && (
           <div class="kho-loc-list">
-            <div class="kho-sec-lbl muted small">Vị trí khớp</div>
+            <div class="ie-head">Vị trí khớp</div>
             {matchedPlaces.map((p) => (
               <LocCard key={p.id} p={p} bs={byPlace.get(p.id) || []} />
             ))}
@@ -264,10 +264,7 @@ export function KhoBoxes() {
           <EmptyState>Không có gì khớp “{q.trim()}”.</EmptyState>
         ) : groups.length > 0 ? (
           <>
-            <div class="row" style={{ justifyContent: "flex-end", gap: "6px", marginBottom: "4px" }}>
-              <button class={"chip" + (boxView === "grid" ? " active" : "")} onClick={() => setBoxView("grid")}>Ô thùng</button>
-              <button class={"chip" + (boxView === "compact" ? " active" : "")} onClick={() => setBoxView("compact")}>Gọn</button>
-            </div>
+            <BoxViewToggle value={boxView} onChange={setBoxView} end />
             <div class="kho-groups">
               {groups.map((g) => {
                 const tot = g.list.reduce((s, x) => s + rem(x), 0);

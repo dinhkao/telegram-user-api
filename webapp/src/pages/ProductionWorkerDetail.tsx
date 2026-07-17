@@ -5,7 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { getWorkerReport, isOffice, listWorkers, soVN, updateWorker, type Worker, type WorkerReport, type WorkerReportRow } from "../api";
 import { onRealtime } from "../realtime";
-import { Loading } from "../ui/states";
+import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { toast } from "../ui/feedback";
 
@@ -28,6 +28,7 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
   const [period, setPeriod] = useState<Period>("month");
   const [data, setData] = useState<WorkerReport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
   const [worker, setWorker] = useState<Worker | null>(null);
   const [wkBusy, setWkBusy] = useState(false);
 
@@ -71,7 +72,10 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
   const load = () => {
     setLoading(true);
     const { from, to } = rangeFor(period);
-    getWorkerReport(name, from, to).then(setData).catch(() => {}).finally(() => setLoading(false));
+    getWorkerReport(name, from, to)
+      .then((d) => { setData(d); setErr(""); })
+      .catch((e: any) => setErr(e?.message || "Lỗi tải dữ liệu"))
+      .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [name, period]);
   useEffect(() => {
@@ -110,8 +114,8 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
       {isOffice() && worker && (
         <div class="card wd-weekly-row" onClick={flipWeekly} role="switch" aria-checked={!!worker.weekly_salary}>
           <span class="wd-weekly-label">Nhận lương tuần</span>
-          <span class={worker.weekly_salary ? "wd-sw on" : "wd-sw"} style={wkBusy ? { opacity: 0.5 } : undefined}>
-            <span class="wd-sw-knob" />
+          <span class={worker.weekly_salary ? "tgl on" : "tgl"} style={wkBusy ? { opacity: 0.5 } : undefined}>
+            <span class="tgl-knob" />
           </span>
         </div>
       )}
@@ -130,9 +134,9 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
         </div>
       )}
 
-      <div class="db-period">
+      <div class="seg">
         {(["all", "month", "week"] as Period[]).map((p) => (
-          <button key={p} class={period === p ? "db-seg on" : "db-seg"} onClick={() => setPeriod(p)}>
+          <button key={p} class={period === p ? "seg-btn active" : "seg-btn"} onClick={() => setPeriod(p)}>
             {p === "all" ? "Toàn bộ" : p === "month" ? "Tháng này" : "7 ngày"}
           </button>
         ))}
@@ -140,8 +144,10 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
 
       {loading && !data ? (
         <Loading />
+      ) : err && !data ? (
+        <ErrorState msg={err} onRetry={load} />
       ) : !days.length ? (
-        <p class="muted small">Không có dữ liệu kỳ này.</p>
+        <EmptyState icon="📊">Không có dữ liệu kỳ này.</EmptyState>
       ) : (
         days.map((g) => (
           <section class="card" key={g.ymd || g.date}>

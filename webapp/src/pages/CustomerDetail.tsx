@@ -11,7 +11,9 @@ import {
   searchKiotvietCustomers, linkCustomerKiotviet, unlinkCustomerKiotviet, type KvCustomer,
   deleteCustomer, currentUser, type CustomerDetail as Cust } from "../api";
 import { usePopupBack } from "../ui/usePopupBack";
+import { useScrollLock } from "../useScrollLock";
 import { confirmDialog } from "../ui/feedback";
+import { SearchBar } from "../ui/SearchBar";
 import { money, parseMoney, initial } from "../format";
 import { CustomerFeed } from "../detail/CustomerFeed";
 import { History } from "../detail/History";
@@ -162,6 +164,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
   const [kvRes, setKvRes] = useState<KvCustomer[]>([]);
   const [kvLoading, setKvLoading] = useState(false);
   usePopupBack(linkOpen, () => setLinkOpen(false));
+  useScrollLock(linkOpen);   // khoá cuộn nền khi modal liên kết KiotViet mở
   useEffect(() => {
     if (!linkOpen) return;
     const q = kvQ.trim();
@@ -241,7 +244,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
           <span class="kv-badge off">⚠️ Chưa liên kết KiotViet — nợ không tự cập nhật</span>
         )}
         {isAdmin && (
-          <span class="row" style={{ gap: "6px", marginTop: 0 }}>
+          <span class="row">
             {cust.kh_id
               ? <button class="btn small" onClick={doUnlink}>Bỏ liên kết</button>
               : <button class="btn small primary" onClick={() => { setKvQ(cust.name || ""); setLinkOpen(true); }}>
@@ -257,10 +260,9 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
         <div class="modal-overlay" onClick={() => setLinkOpen(false)}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><Icon name="link" size={18} /> Liên kết khách với KiotViet</div>
-            <input class="inv-search" type="search" autofocus placeholder="Tìm khách KiotViet (tên/mã)…"
-              value={kvQ} onInput={(e: any) => setKvQ(e.target.value)} />
+            <SearchBar value={kvQ} onInput={setKvQ} autofocus placeholder="Tìm khách KiotViet (tên/mã)…" />
             {kvLoading ? (
-              <p class="muted small">Đang tìm…</p>
+              <p class="muted small"><LoadingInline label="Đang tìm…" /></p>
             ) : kvRes.length === 0 ? (
               <p class="muted small">{kvQ.trim().length < 2 ? "Gõ ≥2 ký tự để tìm." : "Không thấy khách KiotViet."}</p>
             ) : (
@@ -274,7 +276,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
                 ))}
               </div>
             )}
-            <button class="btn block" style={{ marginTop: "8px" }} onClick={() => setLinkOpen(false)}>Đóng</button>
+            <button class="btn block mt-2" onClick={() => setLinkOpen(false)}>Đóng</button>
           </div>
         </div>
       )}

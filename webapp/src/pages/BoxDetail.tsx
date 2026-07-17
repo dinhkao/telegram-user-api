@@ -7,7 +7,7 @@ import { boxDetail, updateBox, setBoxDisabled, deleteBox, returnBoxMaterial, tra
 import { onRealtime } from "../realtime";
 import { BoxAdjust } from "../detail/BoxAdjust";
 import { QtyUnitPicker, baseChoice, toBaseQty, type UnitChoice } from "../detail/QtyUnitPicker";
-import { Loading } from "../ui/states";
+import { Loading, ErrorState } from "../ui/states";
 import { confirmDialog, toast } from "../ui/feedback";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "../detail/CameraBox";
 import { Images } from "../detail/Images";
@@ -312,9 +312,10 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
   if (loading) return <Loading />;
   if (err || !d)
     return (
-      <div class="muted">
-        {err || "Không tìm thấy thùng"}. <a href="#/kho">← Kho</a>
-      </div>
+      <>
+        <ErrorState msg={err || "Không tìm thấy thùng"} />
+        <p class="muted center"><a href="#/kho">← Kho</a></p>
+      </>
     );
 
   const b = d.box;
@@ -384,7 +385,7 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
               </div>
               <div class="box-kv">
                 <span class="box-k">Còn lại</span>
-                <span class="box-v big" style={{ color: remaining > 0 ? "#2b6b2b" : "#a15c00" }}>
+                <span class={"box-v big " + (remaining > 0 ? "t-ok" : "t-warn")}>
                   {soVN(remaining)}
                 </span>
                 <span class="muted small">

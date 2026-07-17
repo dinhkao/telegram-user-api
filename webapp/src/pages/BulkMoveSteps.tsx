@@ -23,11 +23,11 @@ export function MoveSourceStep({ places, boxes, value, query, onQuery, onPick }:
     <div class="bm-step-h"><b>1 · Kho nguồn</b></div>
     <SearchBar value={query} onInput={onQuery} placeholder="Tìm kho nguồn…" />
     <div class="bm-places">
-      {showUnplaced && <button class={"bm-place" + (value === "unplaced" ? " on" : "")} onClick={() => onPick("unplaced")}>
-        Ko có kho <span class="bm-place-n">{countAt(null)}</span>
+      {showUnplaced && <button class={"chip" + (value === "unplaced" ? " active" : "")} onClick={() => onPick("unplaced")}>
+        Ko có kho <span class="chip-n">{countAt(null)}</span>
       </button>}
-      {shown.map((place) => <button key={place.id} class={"bm-place" + (value === place.id ? " on" : "")} onClick={() => onPick(place.id)}>
-        {place.name} <span class="bm-place-n">{countAt(place.id)}</span>
+      {shown.map((place) => <button key={place.id} class={"chip" + (value === place.id ? " active" : "")} onClick={() => onPick(place.id)}>
+        {place.name} <span class="chip-n">{countAt(place.id)}</span>
       </button>)}
     </div>
   </div>;
@@ -42,7 +42,7 @@ export function MoveBoxesStep({ boxes, total, selected, query, allShown, onQuery
   return <div class="bm-step">
     <div class="bm-step-h">
       <b>2 · Chọn thùng</b> <span class="muted small">(chọn {selected.size}/{total})</span>
-      {boxes.length > 0 && <button class="bm-selall" onClick={onSelectAll}>{allShown ? "Bỏ chọn" : "Chọn tất cả"}</button>}
+      {boxes.length > 0 && <button class="btn ghost small" onClick={onSelectAll}>{allShown ? "Bỏ chọn" : "Chọn tất cả"}</button>}
     </div>
     <SearchBar value={query} onInput={onQuery} placeholder="Tìm mã SP / số thùng…" />
     {boxes.length === 0 ? <p class="muted small">{total ? `Không có thùng khớp "${query}".` : "Kho này không có thùng chuyển được."}</p> : <div class="bm-boxes">
@@ -71,7 +71,7 @@ export function MoveDestinationStep({ places, source, value, query, onQuery, onP
     <div class="bm-step-h"><b>3 · Kho đích</b></div>
     <SearchBar value={query} onInput={onQuery} placeholder="Tìm kho đích…" />
     <div class="bm-places">
-      {shown.map((place) => <button key={place.id} class={"bm-place" + (value === place.id ? " on" : "")} onClick={() => onPick(place.id)}>
+      {shown.map((place) => <button key={place.id} class={"chip" + (value === place.id ? " active" : "")} onClick={() => onPick(place.id)}>
         {place.name}
       </button>)}
     </div>

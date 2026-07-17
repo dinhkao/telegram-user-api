@@ -350,9 +350,9 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     setBusy(true);
     try {
       const r = await postJSON("/api/order/print-giao", { thread_id: Number(threadId) });
-      setMsg(r.error ? `❌ ${r.error}` : "🖨️ Đã gửi lệnh in");
+      r.error ? toast(r.error, "err") : toast("🖨️ Đã gửi lệnh in", "ok");
     } catch (ex: any) {
-      setMsg(`❌ ${ex.message}`);
+      toast(ex.message, "err");
     } finally {
       setBusy(false);
     }
@@ -365,15 +365,15 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     setBusy(true);
     try {
       const r = await createKiotVietInvoice(threadId);
-      setMsg(`🧾 Đã tạo HĐ ${r.kv_code || ""}${r.old_debt ? ` · nợ cũ ${money(r.old_debt)}` : ""}`);
+      toast(`🧾 Đã tạo HĐ ${r.kv_code || ""}${r.old_debt ? ` · nợ cũ ${money(r.old_debt)}` : ""}`, "ok");
       changed();
-    } catch (ex: any) { setMsg(`❌ ${ex.message}`); } finally { setBusy(false); }
+    } catch (ex: any) { toast(ex.message, "err"); } finally { setBusy(false); }
   };
   const deleteHD = async () => {
     if (!(await confirmDialog("XOÁ hoá đơn KiotViet của đơn này? Không thể hoàn tác.", { danger: true }))) return;
     setBusy(true);
-    try { await deleteKiotVietInvoice(threadId); setMsg("🗑️ Đã xoá hoá đơn KiotViet"); changed(); }
-    catch (ex: any) { setMsg(`❌ ${ex.message}`); } finally { setBusy(false); }
+    try { await deleteKiotVietInvoice(threadId); toast("🗑️ Đã xoá hoá đơn KiotViet", "ok"); changed(); }
+    catch (ex: any) { toast(ex.message, "err"); } finally { setBusy(false); }
   };
   // Xem HĐ: mở ảnh hoá đơn trong PhotoViewer (zoom/pan như ảnh đơn);
   // chưa có ảnh → gọi server render PNG ngay rồi mở; lỗi mới fallback HTML tab.
@@ -394,8 +394,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   };
 
   const refreshDebt = async () => {
-    try { const r = await refreshOrderDebt(threadId); setMsg(`💰 Đã cập nhật nợ KiotViet: ${money(r.debt)}`); changed(); }
-    catch (ex: any) { setMsg(`❌ ${ex.message}`); }
+    try { const r = await refreshOrderDebt(threadId); toast(`💰 Đã cập nhật nợ KiotViet: ${money(r.debt)}`, "ok"); changed(); }
+    catch (ex: any) { toast(ex.message, "err"); }
   };
 
   const assignCustomer = async (c: { key: string; name: string } | null) => {
@@ -417,11 +417,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     setBusy(true);
     try {
       await postJSON("/api/order/fix", { thread_id: Number(threadId), text: editText });
-      setMsg("✅ Đã sửa text — hệ thống đang parse lại");
+      toast("Đã sửa text — hệ thống đang parse lại", "ok");
       setEditText(null);
       saveTimer.current = setTimeout(changed, 1500);
     } catch (ex: any) {
-      setMsg(`❌ ${ex.message}`);
+      toast(ex.message, "err");
     } finally {
       setBusy(false);
     }
@@ -590,23 +590,23 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
             Có HĐ: chốt — chỉ Xem/In (+ Xoá admin), không còn nút Sửa. */}
         {hasInvoice ? (
           <>
-            <div class="row" style={{ marginTop: "8px" }}>
-              <button class="btn" style={{ flex: 1 }} onClick={viewHD}><Icon name="eye" size={16} /> Xem HĐ</button>
-              <button class="btn" style={{ flex: 1 }} disabled={busy} onClick={doPrint}><Icon name="printer" size={16} /> In</button>
-              {isAdmin && <button class="btn danger" style={{ flex: 1 }} disabled={busy} onClick={deleteHD}><Icon name="trash" size={16} /> Xoá HĐ</button>}
+            <div class="row mt-2">
+              <button class="btn fill" onClick={viewHD}><Icon name="eye" size={16} /> Xem HĐ</button>
+              <button class="btn fill" disabled={busy} onClick={doPrint}><Icon name="printer" size={16} /> In</button>
+              {isAdmin && <button class="btn danger fill" disabled={busy} onClick={deleteHD}><Icon name="trash" size={16} /> Xoá HĐ</button>}
             </div>
             <div class="muted small" style={{ marginTop: "6px" }}>🔒 Đã tạo HĐ KiotViet — muốn sửa sản phẩm phải xoá HĐ trước.</div>
           </>
         ) : (
           <>
-            <button class={"btn block primary" + (invLockedByOther ? " faded" : "")} style={{ marginTop: "8px" }}
+            <button class={"btn block primary mt-2" + (invLockedByOther ? " faded" : "")}
               onClick={() => invLockedByOther
                 ? toast(`${invEditBy} đang sửa hoá đơn — chờ họ xong`, "info")
                 : (window.location.hash = `#/order/${threadId}/hoa-don`)}>
               <Icon name="edit" size={16} /> {invLockedByOther ? `${invEditBy} đang sửa…` : j.stock_confirmed ? "Sửa giá hoá đơn" : "Sửa hoá đơn"}
             </button>
             {isOffice() && (j.invoice || []).length > 0 && (
-              <button class="btn block" style={{ marginTop: "8px" }} disabled={busy} onClick={createHD}>
+              <button class="btn block mt-2" disabled={busy} onClick={createHD}>
                 <Icon name="receipt" size={16} /> {busy ? "Đang tạo…" : "Tạo HĐ KiotViet"}
               </button>
             )}

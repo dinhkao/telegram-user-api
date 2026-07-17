@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { addProductionBoxes, slipBoxes, listUnits, createUnit, listPlaces, createPlace, getRecipe, searchProducts, getAppSettings, soVN, type ProdSlip, type InvBox, type Unit, type Place, type RecipeLine } from "../api";
 import { onRealtime } from "../realtime";
 import { usePopupBack } from "../ui/usePopupBack";
+import { useScrollLock } from "../useScrollLock";
 import { confirmDialog, toast } from "../ui/feedback";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "./CameraBox";
 import { Icon } from "../ui/Icon";
@@ -68,6 +69,7 @@ export function ProductionBoxes({
   }>(null);
   const [codeBoxes, setCodeBoxes] = useState<InvBox[] | null>(null);
   usePopupBack(!!codeBoxes, () => setCodeBoxes(null));
+  useScrollLock(!!codeBoxes);
   const [mineView, setMineView] = useState<"grid" | "list">("grid");
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitId, setUnitId] = useState<number | null>(draft?.unitId ?? null);   // đơn vị chứa cho đợt nhập

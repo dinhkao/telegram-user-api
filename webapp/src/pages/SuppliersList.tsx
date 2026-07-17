@@ -6,7 +6,7 @@ import { createSupplier, listSuppliers, soVN, type Supplier } from "../api";
 import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { SearchBar } from "../ui/SearchBar";
-import { Loading, EmptyState } from "../ui/states";
+import { SkeletonList, EmptyState, ErrorState } from "../ui/states";
 import { toast } from "../ui/feedback";
 import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
@@ -64,6 +64,7 @@ export function SuppliersList() {
   const [q, setQ] = useState(memQ);
   useEffect(() => { memQ = q; }, [q]);
   const [loading, setLoading] = useState(!supCache);
+  const [err, setErr] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
 
   const load = async () => {
@@ -71,7 +72,11 @@ export function SuppliersList() {
       const r = await listSuppliers();
       supCache = r;
       setRows(r);
-    } catch { /* im */ } finally { setLoading(false); }
+      setErr("");
+    } catch (e: any) {
+      // Lỗi nền khi đã có dữ liệu → giữ cache im lặng; chưa có gì thì hiện ErrorState
+      setErr(e?.message || "Lỗi tải nhà cung cấp");
+    } finally { setLoading(false); }
   };
   useEffect(() => { if (!supCache) load(); }, []);
   useEffect(() => onRealtime((e) => {
@@ -94,8 +99,9 @@ export function SuppliersList() {
         </button>
       </div>
       {createOpen && <CreateSupplierModal onClose={() => setCreateOpen(false)} onCreated={load} />}
-      {loading && !rows.length && <Loading />}
-      {!loading && !rows.length && <EmptyState>Chưa có nhà cung cấp nào.</EmptyState>}
+      {loading && !rows.length && <SkeletonList />}
+      {!loading && !rows.length && err && <ErrorState msg={err} onRetry={load} />}
+      {!loading && !rows.length && !err && <EmptyState>Chưa có nhà cung cấp nào.</EmptyState>}
       {!loading && rows.length > 0 && !visible.length && <EmptyState>Không có NCC khớp "{q}".</EmptyState>}
       {visible.map((s) => (
         <a class="ret-card sup-card" href={`#/ncc/${s.id}`} key={s.id}>
@@ -111,7 +117,7 @@ export function SuppliersList() {
           {s.note && <div class="ret-card-note"><Icon name="note" size={12} /> {s.note}</div>}
         </a>
       ))}
-      {visible.length > 0 && <div class="muted small" style={{ textAlign: "center", padding: "10px" }}>{visible.length} nhà cung cấp</div>}
+      {visible.length > 0 && <div class="muted small list-count">{visible.length} nhà cung cấp</div>}
     </div>
   );
 }

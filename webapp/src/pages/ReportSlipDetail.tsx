@@ -6,8 +6,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { currentUser, deleteReportSlip, getReportSlip, isOffice, listWorkers, soVN, updateReportSlip, type ReportSlip, type Worker } from "../api";
 import { onRealtime } from "../realtime";
-import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
+import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
 import { WorkerChips } from "../detail/WorkerChips";
@@ -93,19 +93,15 @@ export function ReportSlipDetail({ id }: { id: string }) {
   };
 
   const head = (
-    <div class="wg-head">
-      <BackLink fallback="#/bao-cao" />
-      <div style={{ flex: 1 }}>
-        <div class="wg-title"><Icon name="receipt" size={18} /> Báo cáo {slip ? `${dmy(slip.from_ymd)} → ${dmy(slip.to_ymd)}` : ""}</div>
-        {slip && <div class="muted small">{slip.note ? `${slip.note} · ` : ""}{slip.created_by ? `tạo bởi ${slip.created_by}` : ""}</div>}
-      </div>
-      {slip && (
-        <button class="icon-btn" title="Sửa phiếu báo cáo" onClick={startEdit}><Icon name="edit" size={18} /></button>
-      )}
-      {admin && slip && (
-        <button class="icon-btn rs-del" title="Xoá phiếu báo cáo" onClick={del}><Icon name="trash" size={18} /></button>
-      )}
-    </div>
+    <PageHead fallback="#/bao-cao"
+      title={<><Icon name="receipt" size={18} /> Báo cáo {slip ? `${dmy(slip.from_ymd)} → ${dmy(slip.to_ymd)}` : ""}</>}
+      sub={slip ? `${slip.note ? `${slip.note} · ` : ""}${slip.created_by ? `tạo bởi ${slip.created_by}` : ""}` : undefined}
+      right={slip ? (
+        <>
+          <button class="icon-btn" title="Sửa phiếu báo cáo" onClick={startEdit}><Icon name="edit" size={18} /></button>
+          {admin && <button class="icon-btn rs-del" title="Xoá phiếu báo cáo" onClick={del}><Icon name="trash" size={18} /></button>}
+        </>
+      ) : undefined} />
   );
 
   if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="lock">Chỉ văn phòng được xem báo cáo.</EmptyState></div>;

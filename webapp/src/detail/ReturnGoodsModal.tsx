@@ -79,7 +79,7 @@ export function ReturnGoodsModal({ ret, onClose, onDone }: {
     <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
       <div class="modal-sheet rg-sheet" onClick={(e: any) => e.stopPropagation()}>
         <div class="modal-head"><Icon name="box" size={16} /> Xử lý hàng trả về</div>
-        <p class="muted small" style={{ margin: "0 0 4px" }}>
+        <p class="muted small list-hint">
           Khách trả hàng — chọn cách xử lý từng loại: nhập lại kho (thùng có sẵn / thùng mới) hay xuất hủy.
         </p>
         {rows.map((r, i) => {
@@ -111,7 +111,7 @@ export function ReturnGoodsModal({ ret, onClose, onDone }: {
             </div>
           );
         })}
-        <div class="row" style={{ marginTop: "8px" }}>
+        <div class="row mt-2">
           <button class="btn" onClick={onClose}>Để sau</button>
           <button class="btn primary" disabled={busy} onClick={submit}>{busy ? "Đang xử lý…" : "Xử lý"}</button>
         </div>

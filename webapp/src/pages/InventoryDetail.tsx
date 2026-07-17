@@ -17,16 +17,7 @@ import { RecipeEditor } from "../detail/RecipeEditor";
 import { ProductUnits } from "../detail/ProductUnits";
 import { History } from "../detail/History";
 import { usePopupBack } from "../ui/usePopupBack";
-
-function fmtWhen(iso?: string): string {
-  if (!iso) return "";
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-  if (!m) return "";
-  const [, , mo, d, hh, mi] = m;
-  return `${d}/${mo} ${hh}:${mi}`;
-}
-
-let memInvView: "grid" | "compact" = "grid";   // nhớ kiểu xem thùng ở chi tiết SP (mặc định Ô THÙNG)
+import { BoxViewToggle, useBoxView } from "../detail/BoxViewToggle";
 
 export function InventoryDetail({ code }: { code: string }) {
   const [inv, setInv] = useState<InvDetail | null>(null);
@@ -205,8 +196,8 @@ export function InventoryDetail({ code }: { code: string }) {
   };
   const [kvCreating, setKvCreating] = useState(false);
   const [showEmpty, setShowEmpty] = useState(false);   // thùng đã hết: mặc định ẩn, có nút bật
-  const [invView, setInvView] = useState<"grid" | "compact">(memInvView);
-  useEffect(() => { memInvView = invView; }, [invView]);
+  // nhớ kiểu xem thùng ở chi tiết SP (mặc định Ô THÙNG)
+  const [invView, setInvView] = useBoxView("inv_detail", "grid");
   const [kvCatOpen, setKvCatOpen] = useState(false);
   const [kvCats, setKvCats] = useState<KvCategory[]>([]);
   const [kvCatId, setKvCatId] = useState("");
@@ -308,7 +299,7 @@ export function InventoryDetail({ code }: { code: string }) {
       <section class="card prod-link">
         {!inv.product && (
           <div class="box-kv" style={{ alignItems: "center" }}>
-            <span class="muted small" style={{ flex: 1 }}>
+            <span class="muted small fill">
               Mã "{code}" chưa có trong danh mục SP (thùng tạo bằng mã gõ tự do) — thêm vào
               danh mục để sửa tên/đơn vị/đổi mã/liên kết KiotViet.
             </span>
@@ -368,7 +359,7 @@ export function InventoryDetail({ code }: { code: string }) {
         {inv.product && isAdmin && (
           <div class="box-kv">
             <span class="box-k">Cách sản xuất</span>
-            <div class="row" style={{ gap: "6px" }} role="group">
+            <div class="row" role="group">
               <button class={"trade-chip" + (inv.product.can_produce_directly ? " on" : "")} onClick={() => toggleMethod("can_produce_directly")}>
                 <Icon name="factory" size={14} /> Sản xuất trực tiếp
               </button>
@@ -397,7 +388,7 @@ export function InventoryDetail({ code }: { code: string }) {
         {inv.product && isAdmin && (
           <div class="box-kv">
             <span class="box-k">Mua bán</span>
-            <div class="row" style={{ gap: "6px" }}>
+            <div class="row">
               <button class={"trade-chip" + (inv.product.can_sell !== false ? " on" : "")} onClick={() => toggleTrade("can_sell")}>
                 <Icon name="tag" size={14} /> {inv.product.can_sell !== false ? "Có thể bán" : "Không bán"}
               </button>
@@ -423,7 +414,7 @@ export function InventoryDetail({ code }: { code: string }) {
             <span class="kv-badge off">⚠️ Chưa liên kết KiotViet</span>
           )}
           {isAdmin && (
-            <span class="row" style={{ gap: "6px" }}>
+            <span class="row">
               {inv.product?.linked
                 ? <button class="btn small" onClick={doUnlink}>Bỏ liên kết</button>
                 : <>
@@ -443,7 +434,7 @@ export function InventoryDetail({ code }: { code: string }) {
             <input class="inv-search" type="search" autofocus placeholder="Tìm SP KiotViet (tên/mã)…"
               value={kvQ} onInput={(e: any) => setKvQ(e.target.value)} />
             {kvLoading ? (
-              <p class="muted small">Đang tìm…</p>
+              <p class="muted small"><LoadingInline label="Đang tìm…" /></p>
             ) : kvRes.length === 0 ? (
               <p class="muted small">{kvQ.trim().length < 2 ? "Gõ ≥2 ký tự để tìm." : "Không thấy SP KiotViet."}</p>
             ) : (
@@ -457,7 +448,7 @@ export function InventoryDetail({ code }: { code: string }) {
                 ))}
               </div>
             )}
-            <button class="btn block" style={{ marginTop: "8px" }} onClick={() => setLinkOpen(false)}>Đóng</button>
+            <button class="btn block mt-2" onClick={() => setLinkOpen(false)}>Đóng</button>
           </div>
         </div>
       )}
@@ -475,9 +466,9 @@ export function InventoryDetail({ code }: { code: string }) {
                 value={kvCatId} options={kvCats.map((c) => ({ value: c.id, label: c.name }))}
                 onChange={setKvCatId} />
             </div>
-            <div class="row" style={{ gap: "8px", marginTop: "10px" }}>
-              <button class="btn primary" style={{ flex: 1 }} disabled={kvCreating || !kvCatId} onClick={doKvCreate}>
-                {kvCreating ? "⏳ Đang tạo…" : "Tạo + liên kết"}
+            <div class="row mt-2">
+              <button class="btn primary fill" disabled={kvCreating || !kvCatId} onClick={doKvCreate}>
+                {kvCreating ? <LoadingInline label="Đang tạo…" /> : "Tạo + liên kết"}
               </button>
               <button class="btn" onClick={() => setKvCatOpen(false)}>Huỷ</button>
             </div>
@@ -503,12 +494,9 @@ export function InventoryDetail({ code }: { code: string }) {
           const shown = showEmpty ? all : stocked;
           return (
             <>
-              <div class="row space" style={{ alignItems: "center" }}>
+              <div class="row space">
                 <label class="card-label" style={{ margin: 0 }}>Danh sách thùng ({stocked.length}{emptied.length ? ` + ${emptied.length} đã hết` : ""})</label>
-                <span class="row" style={{ gap: "6px" }}>
-                  <button class={"chip" + (invView === "grid" ? " active" : "")} onClick={() => setInvView("grid")}>Ô thùng</button>
-                  <button class={"chip" + (invView === "compact" ? " active" : "")} onClick={() => setInvView("compact")}>Gọn</button>
-                </span>
+                <BoxViewToggle value={invView} onChange={setInvView} />
               </div>
               {all.length === 0 ? (
                 <div class="muted small">Chưa có thùng nào.</div>
@@ -543,7 +531,7 @@ export function InventoryDetail({ code }: { code: string }) {
                 );
               })()}
               {emptied.length > 0 && (
-                <button class="btn small block" style={{ marginTop: "8px" }} onClick={() => setShowEmpty((v) => !v)}>
+                <button class="btn small block mt-2" onClick={() => setShowEmpty((v) => !v)}>
                   {showEmpty ? "Ẩn thùng đã hết" : `Hiện ${emptied.length} thùng đã hết`}
                 </button>
               )}
@@ -575,7 +563,7 @@ export function InventoryDetail({ code }: { code: string }) {
               ))}
             </div>
             {ordMore && (
-              <button class="btn small block" style={{ marginTop: "8px" }} disabled={ordLoading} onClick={() => loadOrders(false)}>
+              <button class="btn small block mt-2" disabled={ordLoading} onClick={() => loadOrders(false)}>
                 {ordLoading ? <LoadingInline /> : `Xem thêm (${ordTotal - ords.length})`}
               </button>
             )}

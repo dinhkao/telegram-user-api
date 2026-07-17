@@ -20,15 +20,15 @@ export function WorkerChips({ workers, value, onChange }: {
     <div class="rs-workers">
       <div class="rs-workers-head">
         <span class="muted small">Thợ tính trong báo cáo{value === null ? " (tất cả)" : ` (${value.size}/${workers.length})`}</span>
-        <button type="button" class="rs-preset" onClick={() => onChange(null)}>Tất cả</button>
+        <button type="button" class="chip" onClick={() => onChange(null)}>Tất cả</button>
         {weeklyIds.length > 0 && (
-          <button type="button" class="rs-preset" onClick={() => onChange(new Set(weeklyIds))}>Lương tuần ({weeklyIds.length})</button>
+          <button type="button" class="chip" onClick={() => onChange(new Set(weeklyIds))}>Lương tuần ({weeklyIds.length})</button>
         )}
       </div>
       <div class="rs-worker-chips">
         {workers.map((w) => (
-          <button type="button" key={w.id} class={isOn(w.id) ? "rs-wchip on" : "rs-wchip"} onClick={() => toggle(w.id)}>
-            {w.name}{w.weekly_salary ? " ·T" : ""}
+          <button type="button" key={w.id} class={isOn(w.id) ? "chip active" : "chip"} onClick={() => toggle(w.id)}>
+            {w.name}{w.weekly_salary ? <span class="chip-n">T</span> : null}
           </button>
         ))}
       </div>

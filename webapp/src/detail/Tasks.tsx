@@ -207,8 +207,8 @@ export function Tasks({ threadId, taskStatus, stockConfirmed, customTasks, userN
         })}
         <li class="task-row task-addrow">
           {adding ? (
-            <span class="row" style="gap:6px;width:100%">
-              <input class="narrow" style="flex:1" value={label} placeholder="Tên việc mới…" autofocus
+            <span class="row fill">
+              <input class="narrow" value={label} placeholder="Tên việc mới…" autofocus
                 onInput={(e: any) => setLabel(e.target.value)}
                 onKeyDown={(e: any) => { if (e.key === "Enter") addCustom(); if (e.key === "Escape") { setAdding(false); setLabel(""); } }} />
               <button class="btn small primary" disabled={busy === "__add" || !label.trim()} onClick={addCustom}>Thêm</button>

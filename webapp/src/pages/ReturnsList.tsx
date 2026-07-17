@@ -3,30 +3,17 @@
 // (tạo/xoá phiếu trả emit customer_changed). Cache module — quay lại giữ vị trí.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { listAllReturns, soVN, type ReturnSlip } from "../api";
-import { foldVN } from "../format";
+import { dayKey, dayLabel, foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { ReturnModal } from "../detail/ReturnModal";
 import { SearchBar } from "../ui/SearchBar";
-import { Loading, EmptyState } from "../ui/states";
+import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
 let retCache: { rows: ReturnSlip[]; page: number; totalPages: number } | null = null;
 onRealtime((e) => {
   if (e.type === "customer_changed" || e.type === "return_changed" || e.type === "resync") retCache = null;
 });
-
-const dayKey = (at?: string) => (at || "").slice(0, 10);
-const _WD = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-function dayLabel(k: string): string {
-  if (!k) return "Không rõ ngày";
-  const d = new Date(k);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const diff = Math.round((today.getTime() - d.getTime()) / 86400000);
-  const lbl = `${_WD[d.getDay()]} ${k.slice(8)}/${k.slice(5, 7)}`;
-  if (diff === 0) return `Hôm nay · ${lbl}`;
-  if (diff === 1) return `Hôm qua · ${lbl}`;
-  return `${lbl}/${k.slice(0, 4)}`;
-}
 
 // Nhớ ô tìm khi rời trang
 let memQ = "";
@@ -37,6 +24,7 @@ export function ReturnsList() {
   useEffect(() => { memQ = q; }, [q]);
   const [createOpen, setCreateOpen] = useState(false);
   const [loading, setLoading] = useState(!retCache);
+  const [err, setErr] = useState("");
   const [total, setTotal] = useState(0);
   const st = useRef({ page: retCache?.page || 1, totalPages: retCache?.totalPages || 1, loading: false });
   const sentinel = useRef<HTMLDivElement>(null);
@@ -51,7 +39,10 @@ export function ReturnsList() {
       st.current.totalPages = r.total_pages;
       setTotal(r.total);
       setRows((prev) => (append ? [...prev, ...r.returns] : r.returns));
-    } catch { /* im */ } finally {
+      setErr("");
+    } catch (e: any) {
+      setErr(e?.message || "Lỗi tải danh sách");
+    } finally {
       st.current.loading = false;
       setLoading(false);
     }
@@ -104,7 +95,8 @@ export function ReturnsList() {
       </div>
       {createOpen && <ReturnModal onClose={() => setCreateOpen(false)} onCreated={() => load(1, false)} />}
       {loading && !rows.length && <Loading />}
-      {!loading && !rows.length && <EmptyState>Chưa có phiếu trả hàng nào.</EmptyState>}
+      {!loading && err && !rows.length && <ErrorState msg={err} onRetry={() => load(1, false)} />}
+      {!loading && !err && !rows.length && <EmptyState>Chưa có phiếu trả hàng nào.</EmptyState>}
       {!loading && rows.length > 0 && !visible.length && <EmptyState>Không có phiếu khớp "{q}".</EmptyState>}
       {groups.map((g) => (
         <div class="prod-group" key={g.key}>
@@ -128,8 +120,8 @@ export function ReturnsList() {
           ))}
         </div>
       ))}
-      <div ref={sentinel} style={{ height: "1px" }} />
-      {visible.length > 0 && <div class="muted small" style={{ textAlign: "center", padding: "10px" }}>{visible.length}/{total} phiếu</div>}
+      <div ref={sentinel} class="io-sentinel" />
+      {visible.length > 0 && <div class="muted small list-count">{visible.length}/{total} phiếu</div>}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
 import { usePopupBack } from "../ui/usePopupBack";
+import { useScrollLock } from "../useScrollLock";
 import { avaColor } from "../ui/avatar";
 
 const PAGE_SIZE = 30;
@@ -166,6 +167,7 @@ export function Customers() {
   // Tạo khách mới
   const [creating, setCreating] = useState(false);
   usePopupBack(creating, () => setCreating(false));
+  useScrollLock(creating);   // khoá cuộn nền khi modal tạo khách mở
   const [nName, setNName] = useState("");
   const [nPhone, setNPhone] = useState("");
   const [nAddr, setNAddr] = useState("");
@@ -249,9 +251,9 @@ export function Customers() {
           );
         })}
       </ul>
-      <div ref={sentinel} style="height:1px" />
+      <div ref={sentinel} class="io-sentinel" />
       {loading && <Loading />}
-      {!loading && !customers.length && !err && <EmptyState>Không thấy khách</EmptyState>}
+      {!loading && !customers.length && !err && <EmptyState icon="👤">Không thấy khách</EmptyState>}
       {!loading && page >= totalPages && customers.length > 0 && (
         <p class="muted center small">Hết danh sách ({customers.length} khách)</p>
       )}

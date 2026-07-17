@@ -5,8 +5,9 @@
 // phía server → dashboard tiền công + phiếu báo cáo tự tính lại.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOffice, listWages, productionCatalog, setWage, soVN, type ProdCatalogItem, type WageEntry } from "../api";
-import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
+import { PageHead } from "../ui/PageHead";
+import { SearchBar } from "../ui/SearchBar";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast } from "../ui/feedback";
 import { ProductPicker } from "../detail/ProductPicker";
@@ -60,13 +61,9 @@ export function WageTable() {
   };
 
   const head = (
-    <div class="wg-head">
-      <BackLink fallback="#/home" />
-      <div>
-        <div class="wg-title"><Icon name="wallet" size={18} /> Lương sản phẩm</div>
-        <div class="muted small">đơn giá tiền công / 1 SP theo mã — sửa là dashboard tiền tự tính lại</div>
-      </div>
-    </div>
+    <PageHead fallback="#/home"
+      title={<><Icon name="wallet" size={18} /> Lương sản phẩm</>}
+      sub="đơn giá tiền công / 1 SP theo mã — sửa là dashboard tiền tự tính lại" />
   );
 
   if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="lock">Chỉ văn phòng được xem bảng lương.</EmptyState></div>;
@@ -90,8 +87,7 @@ export function WageTable() {
         </div>
       </section>
 
-      <input class="wt-search" type="search" placeholder="Lọc mã / tên SP…" value={q}
-        onInput={(e: any) => setQ(e.currentTarget.value)} />
+      <SearchBar value={q} onInput={setQ} placeholder="Lọc mã / tên SP…" />
 
       {shown.length === 0 ? (
         <EmptyState icon="wallet">{qn ? "Không có mã nào khớp." : "Bảng lương trống — thêm mã ở trên."}</EmptyState>

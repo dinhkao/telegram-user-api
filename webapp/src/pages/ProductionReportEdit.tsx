@@ -320,7 +320,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         <span class={"wr-lockpill " + lockState}>
           {lockState === "mine" ? <><Icon name="check" size={12} /> Bạn đang sửa</>
             : lockState === "other" ? <><Icon name="lock" size={12} /> {holder} đang sửa</>
-            : "⏳ Xin quyền sửa…"}
+            : <><Icon name="clock" size={12} /> Xin quyền sửa…</>}
         </span>
       </div>
 

@@ -51,8 +51,8 @@ export function ProductionReport({ threadId, slip, locked }: { threadId: string;
 
   return (
     <section class="card">
-      <div class="row space" style={{ alignItems: "center", marginBottom: "8px" }}>
-        <label class="card-label" style={{ margin: 0 }}><Icon name="chart" size={16} /> Báo cáo theo thợ</label>
+      <div class="card-head">
+        <label class="card-label"><Icon name="chart" size={16} /> Báo cáo theo thợ</label>
         {locked
           ? <span class="muted small"><Icon name="lock" size={13} /> đã khoá</span>
           : heldByOther

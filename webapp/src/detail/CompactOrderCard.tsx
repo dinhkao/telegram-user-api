@@ -4,37 +4,7 @@
 import { orderImageUrl } from "../api";
 import { fmtDateTimeVN, fmtRelative, fmtNgayGiao } from "../format";
 import { Icon } from "../ui/Icon";
-
-const TASK_LABELS = ["HĐ", "Soạn", "Giao", "Nộp", "Nhận"];
-
-export function TaskBadges({ o }: { o: any }) {
-  const icons = [...(o.task_icons || "")];
-  const fallback: boolean[] = [false, o.soan, o.giao, o.nop, o.nhan];
-  const nopCode = String(o.nop_note || "").toLowerCase().split(";")[0];
-  // Nộp xong kiểu ký toa → bước 5 là "Gửi toa" (icon xong = 📄, server đã render)
-  const guiToa = !!o.nop && ["co_ky_toa", "khong_ky_toa"].includes(nopCode);
-  return (
-    <span class="badges">
-      {TASK_LABELS.map((label0, i) => {
-        const label = i === 4 && guiToa ? "Gửi toa" : label0;
-        const rawIcon = icons[i] || (fallback[i] ? "✅" : "❌");
-        const icon = i === 3 && rawIcon === "✅" && nopCode !== "tra_tien_mat" ? "📄" : rawIcon;
-        return (
-        <span class="tstat" key={label0}>
-          <span class="tico">{icon}</span>
-          <span class="tlbl">{label}</span>
-        </span>
-        );
-      })}
-      {icons[5] && (
-        <span class="tstat" key="no">
-          <span class="tico">{icons[5]}</span>
-          <span class="tlbl">{icons[5] === "😡" ? "Nợ" : icons[5] === "😑" ? "Bỏ nợ" : "Tiền"}</span>
-        </span>
-      )}
-    </span>
-  );
-}
+import { TaskBadges } from "./OrderCards";
 
 export function CompactOrderCard({ o }: { o: any }) {
   const allIds: number[] = o.thumb_image_ids?.length ? o.thumb_image_ids : (o.thumb_image_id ? [o.thumb_image_id] : []);

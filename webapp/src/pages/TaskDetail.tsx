@@ -14,7 +14,7 @@ import { onRealtime } from "../realtime";
 import { SelectPopup } from "../ui/SelectPopup";
 import { Icon } from "../ui/Icon";
 import { confirmDialog, toast } from "../ui/feedback";
-import { Loading } from "../ui/states";
+import { ErrorState, Loading } from "../ui/states";
 
 const KIND_LABEL: Record<string, string> = {
   free: "Việc tự do", order_step: "Bước của đơn", order_custom: "Việc trong đơn",
@@ -38,7 +38,7 @@ export function TaskDetail({ id }: { id: number }) {
     return () => { off(); clearTimeout(tm); };
   }, [id]);
 
-  if (err) return <div class="prod-detail"><BackLink fallback="#/viec" /><p class="error">{err}</p></div>;
+  if (err) return <div class="prod-detail"><BackLink fallback="#/viec" /><ErrorState msg={err} onRetry={() => { setErr(""); load(); }} /></div>;
   if (!t) return <div class="prod-detail"><BackLink fallback="#/viec" /><Loading /></div>;
 
   const patch = async (body: any) => {

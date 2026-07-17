@@ -8,7 +8,7 @@ import {
 } from "../api";
 import { KIND_ORDER, KIND_LABEL, KIND_ICON, kindOf } from "./imageKinds";
 import { fmtRelative } from "../format";
-import { toast } from "../ui/feedback";
+import { toast, confirmDialog } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 
 export function ImageInfoPanel({
@@ -64,6 +64,7 @@ export function ImageInfoPanel({
   };
 
   const del = async (c: ImageComment) => {
+    if (!(await confirmDialog("Xoá bình luận này?", { danger: true }))) return;
     setComments((prev) => prev.filter((x) => x.id !== c.id));  // lạc quan
     try {
       await deleteImageComment(base, image.id, c.id);

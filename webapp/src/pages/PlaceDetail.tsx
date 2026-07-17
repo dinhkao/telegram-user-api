@@ -2,8 +2,6 @@
 // 'place'), xoá (admin), lưới thùng đang ở vị trí này.
 // Data: listPlaces (tìm theo id) + allBoxes (lọc place_id). Realtime reload.
 import { useEffect, useState } from "preact/hooks";
-
-let memView: "grid" | "compact" = "grid";   // nhớ kiểu xem thùng khi rời trang (mặc định Ô THÙNG)
 import { listPlaces, allBoxes, renamePlace, setPlaceNote, setPlaceAuxSource, deletePlace, currentUser, soVN, createStocktake, listPlaceStocktakes, type Place, type KhoBox, type Stocktake } from "../api";
 import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
@@ -13,6 +11,7 @@ import { toast, confirmDialog } from "../ui/feedback";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 import { CompactBoxList } from "../detail/CompactBoxList";
+import { BoxViewToggle, useBoxView } from "../detail/BoxViewToggle";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
@@ -52,8 +51,8 @@ export function PlaceDetail({ id }: { id: string }) {
   };
   // Ghi chú vị trí — sửa tại chỗ, lưu khi bấm
   const [noteEdit, setNoteEdit] = useState<string | null>(null); // null = đang xem
-  const [view, setView] = useState<"grid" | "compact">(memView);
-  useEffect(() => { memView = view; }, [view]);
+  // nhớ kiểu xem thùng khi rời trang (mặc định Ô THÙNG)
+  const [view, setView] = useBoxView("place_detail", "grid");
   const saveNote = async () => {
     if (noteEdit === null) return;
     setBusy(true);
@@ -92,7 +91,7 @@ export function PlaceDetail({ id }: { id: string }) {
 
   if (err) return <ErrorState msg={err} onRetry={load} />;
   if (place === undefined) return <Loading />;
-  if (place === null) return <div class="muted">Không tìm thấy vị trí. <a href="#/vi-tri">← Vị trí kho</a></div>;
+  if (place === null) return <EmptyState>Không tìm thấy vị trí. <a href="#/vi-tri">← Vị trí kho</a></EmptyState>;
 
   const rem = boxes.reduce((s, b) => s + (b.disabled ? 0 : b.remaining), 0);
   const nStock = boxes.filter((b) => (b.remaining ?? b.quantity ?? 0) > 0).length;   // đếm thùng còn hàng
@@ -167,7 +166,7 @@ export function PlaceDetail({ id }: { id: string }) {
           </div>
         ) : (
           <>
-            <textarea class="inv-search" rows={3} style={{ width: "100%", resize: "vertical" }} autofocus
+            <textarea rows={3} autofocus
               value={noteEdit} onInput={(e: any) => setNoteEdit(e.target.value)} />
             <div class="row" style={{ gap: "6px", marginTop: "6px" }}>
               <button class="btn small primary" disabled={busy} onClick={saveNote}>Lưu</button>
@@ -189,10 +188,7 @@ export function PlaceDetail({ id }: { id: string }) {
         if (live.length === 0) return <EmptyState>Kho này không còn thùng nào có hàng.</EmptyState>;
         return (
           <>
-            <div class="row" style={{ justifyContent: "flex-end", gap: "6px", marginBottom: "6px" }}>
-              <button class={"chip" + (view === "grid" ? " active" : "")} onClick={() => setView("grid")}>Ô thùng</button>
-              <button class={"chip" + (view === "compact" ? " active" : "")} onClick={() => setView("compact")}>Gọn</button>
-            </div>
+            <BoxViewToggle value={view} onChange={setView} end />
             {view === "compact" ? (
               <CompactBoxList boxes={live} />
             ) : (

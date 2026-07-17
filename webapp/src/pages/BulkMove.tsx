@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { listPlaces, allBoxes, bulkMove, type Place, type KhoBox } from "../api";
 import { onRealtime } from "../realtime";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { Icon } from "../ui/Icon";
 import { Loading, ErrorState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
@@ -63,13 +63,9 @@ export function BulkMove() {
   };
 
   const head = (
-    <div class="bm-head">
-      <BackLink fallback="#/kho" />
-      <div>
-        <div class="bm-title"><Icon name="truck" size={18} /> Chuyển kho hàng loạt</div>
-        <div class="muted small">Kho nguồn → chọn thùng → kho đích</div>
-      </div>
-    </div>
+    <PageHead fallback="#/kho"
+      title={<><Icon name="truck" size={18} /> Chuyển kho hàng loạt</>}
+      sub="Kho nguồn → chọn thùng → kho đích" />
   );
   if (err) return <div class="bm-page">{head}<ErrorState msg={err} onRetry={load} /></div>;
   if (!places) return <div class="bm-page">{head}<Loading /></div>;

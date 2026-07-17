@@ -56,7 +56,7 @@ function MoveRow({ it, admin, onDeleteTransfer }: {
           ) : null}
           {it.note ? <> · <span class="muted">{it.note}</span></> : null}
           {it.transfer_id && admin ? (
-            <> · <a class="pt-inl cash-del" onClick={(e: any) => { e.preventDefault(); onDeleteTransfer(it.transfer_id!); }} href="#">xoá</a></>
+            <> · <button class="link-btn cash-del" onClick={() => onDeleteTransfer(it.transfer_id!)}>xoá</button></>
           ) : null}
         </span>
       </div>
@@ -111,7 +111,7 @@ function WithdrawModal({ boxKey, balance, onDone, onClose }: {
         <div class="muted small">
           Số dư hiện tại: <b>{soVN(balance)}đ</b>
           {" · "}
-          <a class="pt-inl" href="#" onClick={(e:any) => { e.preventDefault(); setAmount(String(balance)); }}>rút hết</a>
+          <button class="link-btn" onClick={() => setAmount(String(balance))}>rút hết</button>
         </div>
         <input class="quy-input" type="text" inputMode="numeric" placeholder="Số tiền"
           value={amount} onInput={(e: any) => setAmount(e.currentTarget.value)} />

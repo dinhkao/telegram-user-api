@@ -10,7 +10,7 @@ import { SelectPopup } from "../ui/SelectPopup";
 import { toast } from "../ui/feedback";
 import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
-import { EmptyState, Loading } from "../ui/states";
+import { EmptyState, SkeletonList } from "../ui/states";
 
 let boxCache: { boxes: CashBox[]; since: string; totalUnpaid?: number } | null = null;
 onRealtime((e) => {
@@ -117,7 +117,7 @@ export function CashboxList() {
     return () => { off(); clearTimeout(t); };
   }, []);
 
-  if (loading && !boxes.length) return <Loading />;
+  if (loading && !boxes.length) return <SkeletonList rows={5} />;
   const special = boxes.filter((b) => b.kind === "special");
   const people = boxes.filter((b) => b.kind !== "special");
   const holdingPeople = people.filter((b) => b.balance !== 0 || b.holding_count > 0);

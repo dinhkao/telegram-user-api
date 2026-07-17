@@ -92,7 +92,7 @@ export function CustomerCalendarPage({ ckey }: { ckey: string }) {
         <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) closeDay(); }}>
           <div class="modal-sheet cc-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><Icon name="calendar" size={16} /> {dayLabel(pick)}
-              <button class="link-btn cc-x" onClick={closeDay}><Icon name="close" size={18} /></button>
+              <button class="icon-btn cc-x" onClick={closeDay} aria-label="Đóng"><Icon name="close" size={18} /></button>
             </div>
             {items == null ? (
               <p class="muted small"><LoadingInline /></p>

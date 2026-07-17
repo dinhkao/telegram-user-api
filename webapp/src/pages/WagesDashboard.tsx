@@ -5,8 +5,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { wagesDashboard, isOffice, soVN, type WagesDashboard as WD } from "../api";
 import { onRealtime } from "../realtime";
-import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
+import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 
 const dmy = (ymd: string) => (ymd && ymd.length >= 10 ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}` : ymd);
@@ -31,13 +31,9 @@ export function WagesDashboard() {
   }, []);
 
   const head = (
-    <div class="wg-head">
-      <BackLink fallback="#/san_xuat" />
-      <div>
-        <div class="wg-title"><Icon name="wallet" size={18} /> Tiền công thợ</div>
-        <div class="muted small">{d ? `${dmy(d.from)} – ${dmy(d.to)}` : "theo từng ngày"}</div>
-      </div>
-    </div>
+    <PageHead fallback="#/san_xuat"
+      title={<><Icon name="wallet" size={18} /> Tiền công thợ</>}
+      sub={d ? `${dmy(d.from)} – ${dmy(d.to)}` : "theo từng ngày"} />
   );
 
   // Chặn phía client (server đã chặn 403) — không phải văn phòng thì không hiện số liệu.

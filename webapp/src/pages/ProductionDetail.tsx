@@ -26,7 +26,7 @@ import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
 import { ProductPicker } from "../detail/ProductPicker";
 import { confirmDialog, toast } from "../ui/feedback";
-import { Loading } from "../ui/states";
+import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { fastScrollToEl } from "../scroll";
 
@@ -170,7 +170,11 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
   };
 
   if (loading) return <Loading />;
-  if (!slip) return <div class="muted">Không tìm thấy phiếu. <a href="#/san_xuat">← Danh sách</a></div>;
+  if (!slip) {
+    // Lỗi tải (mạng/server) → ErrorState thử lại; tải ok mà không có → không tìm thấy
+    if (err) return <ErrorState msg={err} onRetry={() => { setErr(""); setLoading(true); reload(); }} />;
+    return <EmptyState icon="🏭">Không tìm thấy phiếu. <a href="#/san_xuat">← Danh sách</a></EmptyState>;
+  }
 
   const boxed = slip.boxed_total ?? 0;                    // tổng nhập thùng (chỉ thùng từ UI, bỏ nhập tay)
   const reported = Number(slip.bang?.grand_total || 0);   // tổng báo cáo theo thợ

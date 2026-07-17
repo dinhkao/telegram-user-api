@@ -32,8 +32,8 @@ function PermBadge({ g }: { g: Guide }) {
 
 function GuideCard({ g }: { g: Guide }) {
   return (
-    <a class="cash-box" href={`#/huong-dan/${g.key}`}>
-      <div class="cash-box-name"><Icon name={g.icon} size={16} /> {g.title} <PermBadge g={g} /></div>
+    <a class="link-card" href={`#/huong-dan/${g.key}`}>
+      <div class="link-card-name"><Icon name={g.icon} size={16} /> {g.title} <PermBadge g={g} /></div>
       <div class="muted small">{g.desc}</div>
     </a>
   );
@@ -103,7 +103,7 @@ export function GuideDetail({ hash }: { hash: string }) {
           <div><div class="prod-sp big">{denied ? "Bài này chỉ dành cho văn phòng" : "Không tìm thấy bài hướng dẫn"}</div></div>
         </div>
         {denied && <div class="guide-ai-note"><Icon name="lock" size={14} /><span>Tính năng trong bài này chỉ văn phòng/admin dùng được, nên hướng dẫn cũng chỉ hiện cho văn phòng.</span></div>}
-        <a class="cash-box" href="#/huong-dan">← Về danh sách hướng dẫn</a>
+        <a class="link-card" href="#/huong-dan">← Về danh sách hướng dẫn</a>
       </div>
     );
   }

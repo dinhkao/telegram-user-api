@@ -23,9 +23,9 @@ export function PriceListModal({ customerId, onClose }: {
     return () => { alive = false; };
   }, [customerId]);
   return (
-    <div class="modal-backdrop" onClick={onClose}>
-      <div class="modal" onClick={(e: any) => e.stopPropagation()}>
-        <div class="row space">
+    <div class="modal-overlay" onClick={onClose}>
+      <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
+        <div class="modal-head">
           <b><Icon name="clipboard" size={15} /> Bảng giá{priceList?.name ? `: ${priceList.name}` : ""}</b>
           <button class="btn small" onClick={onClose}><Icon name="close" size={14} /></button>
         </div>

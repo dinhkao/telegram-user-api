@@ -227,6 +227,7 @@ body.kbd-open .page { padding-bottom: 10px; }
 .btn:disabled { opacity: .45; cursor: default; transform: none; }
 
 input, textarea, select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; margin: 4px 0; font-family: inherit; }
+textarea { resize: vertical; }
 .row input { flex: 1; width: auto; }
 label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block; }
 
@@ -1169,16 +1170,9 @@ body.kbd-open .pay-submit-bar { bottom: 8px; }
 .pw-wage-note { white-space: nowrap; }
 
 /* ── Chuyển kho hàng loạt (#/chuyen-kho) ── */
-.bm-head { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
-.bm-title { font-size: 1.18rem; font-weight: 800; display: inline-flex; align-items: center; gap: 7px; }
 .bm-step { margin-bottom: 16px; }
 .bm-step-h { display: flex; align-items: center; gap: 8px; font-size: .92rem; margin-bottom: 8px; }
-.bm-selall { margin-left: auto; border: none; background: none; font: inherit; font-size: .8rem; font-weight: 700; color: var(--primary); cursor: pointer; }
 .bm-places { display: flex; flex-wrap: wrap; gap: 7px; }
-.bm-place { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 8px 14px; font: inherit; font-size: .88rem; font-weight: 600; color: var(--ink); cursor: pointer; }
-.bm-place.on { background: var(--primary); border-color: var(--primary); color: #fff; }
-.bm-place-n { font-size: .72rem; font-weight: 700; opacity: .7; font-variant-numeric: tabular-nums; }
-.bm-place.on .bm-place-n { opacity: .85; }
 .bm-boxes { display: flex; flex-direction: column; gap: 5px; }   /* mỗi thùng 1 dòng */
 .bm-box { display: flex; align-items: center; gap: 7px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font: inherit; cursor: pointer; text-align: left; }
 .bm-box.on { border-color: var(--ok); background: var(--ok-wash); }
@@ -1262,8 +1256,6 @@ body.kbd-open .pay-submit-bar { bottom: 8px; }
 /* Dashboard sản xuất */
 .db-page { display: flex; flex-direction: column; gap: 12px; }
 .db-period { display: flex; gap: 6px; }
-.db-seg { flex: 1; padding: 9px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--ink); font-size: .85rem; font-weight: 600; }
-.db-seg.on { background: var(--primary); color: #fff; border-color: var(--primary); }
 .db-cards { display: flex; gap: 8px; }
 .db-card { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 6px; text-align: center; }
 .db-card-num { display: block; font-size: 1.35rem; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
@@ -1294,10 +1286,6 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 /* Toggle "Nhận lương tuần" (chi tiết thợ, văn phòng) */
 .wd-weekly-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
 .wd-weekly-label { font-weight: 600; font-size: .92rem; }
-.wd-sw { flex: none; width: 44px; height: 26px; border-radius: 13px; background: var(--border); position: relative; transition: background .15s ease; }
-.wd-sw.on { background: var(--ok); }
-.wd-sw-knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: left .15s ease; }
-.wd-sw.on .wd-sw-knob { left: 21px; }
 
 /* số lượng nhận — danh sách có thời gian + người + ghi chú */
 .prod-numbers { flex-direction: column; align-items: stretch; }
@@ -1916,10 +1904,6 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .nd-fnode.material.short .nd-fn-stat { color: var(--nd-amber); }
 
 /* ── Số thùng (#/so-thung): bản đồ 999 số gọi, 10 số / hàng ── */
-.cn-head { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
-.cn-head-t { min-width: 0; }
-.cn-head-title { font-size: 1.18rem; font-weight: 800; letter-spacing: -.01em; }
-.cn-head-sub { font-size: .78rem; color: var(--muted); }
 .cn-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: .84rem; margin-bottom: 10px; }
 .cn-stat b { font-size: 1.05rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 .cn-stat.ok b { color: var(--ok); }
@@ -1927,9 +1911,6 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .cn-next { margin-left: auto; font-size: .82rem; color: var(--muted); }
 .cn-next b { font-family: var(--mono, ui-monospace, monospace); color: var(--primary); font-size: 1rem; }
 .cn-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.cn-filter { border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: .82rem; font-weight: 600; color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-.cn-filter.on { background: var(--primary); border-color: var(--primary); color: #fff; }
-.cn-filter-n { font-size: .72rem; opacity: .75; font-variant-numeric: tabular-nums; }
 .cn-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: .74rem; color: var(--muted); margin-bottom: 12px; }
 .cn-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .cn-dot { width: 12px; height: 12px; border-radius: 4px; border: 1px solid var(--border); }
@@ -1947,8 +1928,6 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .cn-empty { text-align: center; color: var(--muted); padding: 22px; }
 
 /* ── Tiền công thợ (#/tien-cong) ── */
-.wg-head { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
-.wg-title { font-size: 1.18rem; font-weight: 800; display: inline-flex; align-items: center; gap: 7px; }
 .wg-total { background: var(--card); border: 1px solid var(--border); border-radius: 13px; padding: 14px 16px; margin-bottom: 12px; }
 .wg-total-money { font-size: 1.7rem; font-weight: 800; color: var(--ok); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .wg-warn { display: flex; align-items: flex-start; gap: 7px; background: var(--warn-wash); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius: 10px; padding: 9px 12px; font-size: .82rem; line-height: 1.45; margin-bottom: 12px; }
@@ -2011,8 +1990,6 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .rs-workers-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
 .rs-workers-head span { flex: 1; min-width: 0; }
 .rs-worker-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.rs-wchip { padding: 6px 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); font: inherit; font-size: .82rem; font-weight: 600; color: var(--muted); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.rs-wchip.on { background: var(--accent-wash); border-color: var(--primary); color: var(--primary); }
 .rs-only-workers { margin-top: 5px; }
 .rs-edit-btns { display: flex; gap: 8px; justify-content: flex-end; }
 
@@ -2020,7 +1997,6 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .wt-add { display: flex; gap: 8px; align-items: center; }
 .wt-add-code { flex: 1; min-width: 0; }
 .wt-add-luong { flex: 0 0 88px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; font: inherit; text-align: right; font-variant-numeric: tabular-nums; }
-.wt-search { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 11px; font: inherit; margin-bottom: 10px; background: var(--card); }
 .wt-row { display: flex; align-items: center; gap: 10px; padding: 8px 2px; border-top: 1px solid var(--border); }
 .wt-row:first-child { border-top: none; }
 .wt-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -2488,8 +2464,6 @@ body.co-kbd .bottom-nav { display: none; }
 /* Giá bảng bị ghi đè — hiện gạch ngang, đỏ, nhỏ dưới giá nhập */
 .old-price { text-decoration: line-through; color: var(--danger); font-size: .72em; font-weight: 400; }
 /* Popup bảng giá */
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 16px; }
-.modal { background: var(--card); border-radius: 12px; padding: 14px; width: 100%; max-width: 420px; max-height: 80vh; display: flex; flex-direction: column; }
 .pl-scroll { overflow-y: auto; margin-top: 8px; }
 
 /* ─── Sổ quỹ (cash book) ─────────────────────────────────────────────────── */
@@ -2513,8 +2487,6 @@ body.co-kbd .bottom-nav { display: none; }
 .quy-input { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 1rem; box-sizing: border-box; }
 
 .quy-filter { display: flex; gap: 8px; margin-bottom: 8px; }
-.quy-filter .qf { padding: 6px 14px; border: 1px solid var(--border); background: var(--card); border-radius: 999px; font-size: .85rem; font-weight: 600; color: var(--muted); cursor: pointer; }
-.quy-filter .qf.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
 .quy-group { margin-bottom: 12px; }
 .quy-group-head { font-size: .78rem; font-weight: 700; color: var(--muted); padding: 4px 2px; position: sticky; top: 44px; background: var(--bg); z-index: 2; }
@@ -2536,7 +2508,6 @@ body.co-kbd .bottom-nav { display: none; }
 .quy-sum-period-lbl { text-align: center; font-size: .78rem; color: var(--muted); margin: 6px 0 6px; }
 .quy-sum-cell.net { background: var(--accent-wash); } .quy-sum-cell.net b { color: var(--primary); }
 .quy-periods { display: flex; gap: 6px; margin-bottom: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.quy-periods .qf { flex: 0 0 auto; }
 .quy-custom { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .quy-date { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; font-size: .9rem; min-width: 0; }
 
@@ -2640,7 +2611,6 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
   padding: 0 4px; border-radius: 8px; background: var(--danger); color: #fff;
   font-size: .66rem; font-weight: 700; line-height: 16px; text-align: center; box-sizing: border-box; }
 .notif-panel { max-height: 78vh; display: flex; flex-direction: column; }
-.notif-empty { padding: 24px 12px; text-align: center; }
 .notif-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
 .notif-item { display: flex; gap: 10px; padding: 11px 6px; border-top: 1px solid var(--border); align-items: flex-start; }
 .notif-item:first-child { border-top: none; }
@@ -2744,10 +2714,6 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
 
 /* ===== Thống kê sử dụng (#/usage, admin) ===== */
 .usage-page { padding-bottom: 30px; }
-.usage-chips { display: flex; gap: 7px; overflow-x: auto; margin: 0 0 10px; scrollbar-width: none; }
-.usage-chips::-webkit-scrollbar { display: none; }
-.usage-chips button { flex: none; min-height: 34px; padding: 0 13px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); background: var(--card); font: 650 .78rem/1 system-ui; }
-.usage-chips button.active { color: #fff; border-color: var(--accent); background: var(--accent); }
 .usage-sec { margin: 0 0 18px; }
 .usage-sec h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: .92rem; }
 .usage-sec h3 small { margin-left: auto; color: var(--muted); font-weight: 500; }
@@ -2756,7 +2722,6 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
 .usage-row b { position: relative; font-size: .84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .usage-row span { position: relative; margin-left: auto; flex: none; color: var(--muted); font-size: .72rem; }
 .usage-row.rare b { color: var(--muted); }
-.usage-empty { color: var(--muted); font-size: .84rem; }
 
 /* content-visibility: section ngoài viewport không layout/paint/decode ảnh — list dài
    chỉ tốn công cho 1-2 section đang thấy. Chiều cao ước lượng đặt inline qua
@@ -3027,8 +2992,6 @@ body.kbd-open .od-navbar { display: none; }
 
 /* Chip lọc loại phiếu ở danh sách SX */
 .prod-filter { display: flex; gap: 6px; margin: 6px 0 10px; flex-wrap: wrap; }
-.pf-chip { display: inline-flex; align-items: center; gap: 4px; padding: 6px 13px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); color: var(--muted); font-size: .85rem; font-weight: 600; cursor: pointer; }
-.pf-chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
 /* Chip lọc NGÀY: input date phủ trong suốt lên chip → chạm chỗ nào cũng mở lịch */
 .pf-day { position: relative; overflow: hidden; margin-left: auto; }
 .pf-day input[type="date"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; padding: 0; margin: 0; cursor: pointer; }
@@ -3361,3 +3324,27 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 .card-head .card-label { margin: 0; }
 /* Ô nhập trong hộp thoại promptDialog (ui/feedback) */
 .cf-input { margin: 0 0 14px; }
+
+/* ── CSS bổ sung từ đợt áp chuẩn (thay inline style trong TSX) ── */
+.pay-box { margin-top: 10px; }
+.cust-kv-row .row { margin-top: 0; gap: 6px; }
+.payment-item .row { margin-top: 0; }
+.quy-periods .chip, .quy-filter .chip { flex: 0 0 auto; }
+/* Segmented 'Ô thùng | Gọn' dùng chung (detail/BoxViewToggle) */
+.box-view-toggle { display: inline-flex; align-items: center; gap: 6px; }
+.box-view-row { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+.cn-block-h { font-size: .78rem; color: var(--muted); font-weight: 700; margin: 14px 2px 6px; }
+.bm-step-h .btn { margin-left: auto; }
+.stocktake-applied-note { margin: 2px 0 8px; }
+/* Padding thân form trong popup .sp-sheet (WorkerArrange…) */
+.sp-form-pad { padding: 12px 16px 6px; }
+/* Ô nhập số hẹp trong .row (tỉ lệ công thức RecipeEditor) */
+.row input.w-4, .w-4 { width: 72px; flex: 0 0 auto; }
+.link-card-name { font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+/* TasksBoard: avatar người làm theo trạng thái (thay inline style) */
+.tk-person-busy .tk-person-a { background: var(--danger); }
+.tk-person-free .tk-person-a { background: var(--ok); }
+.tk-person-busy.on .tk-person-a { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--danger); }
+.tk-person-free.on .tk-person-a { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ok); }
+.tk-person-busy.on .tk-person-n { color: var(--danger); }
+.tk-person-free.on .tk-person-n { color: var(--ok); }

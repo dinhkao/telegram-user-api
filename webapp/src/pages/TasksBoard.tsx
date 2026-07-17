@@ -13,6 +13,7 @@ import { onRealtime } from "../realtime";
 import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
 import { SelectPopup } from "../ui/SelectPopup";
+import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
 import { Icon } from "../ui/Icon";
 import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
 import { avaColor } from "../ui/avatar";
@@ -280,12 +281,13 @@ export function TasksBoard() {
               {Object.entries(names).sort((a, b) => a[1].localeCompare(b[1], "vi")).map(([u, n]) => {
                 // 2 màu: ĐỎ còn việc chưa xong / XANH hết việc; trong vòng = SỐ việc
                 const nOpen = openBy[u] || 0;
-                const c = nOpen > 0 ? "var(--danger)" : "var(--ok)";
                 const on = who === u || (u === me && flt === "mine");
                 return (
-                  <button key={u} class={"tk-person" + (on ? " on" : "")} onClick={() => pickWho(u)}>
-                    <span class="tk-person-a" style={{ background: c, boxShadow: on ? `0 0 0 2px var(--card), 0 0 0 4px ${c}` : "none" }}>{nOpen}</span>
-                    <span class="tk-person-n" style={on ? { color: c } : undefined}>{n}</span>
+                  <button key={u}
+                    class={"tk-person " + (nOpen > 0 ? "tk-person-busy" : "tk-person-free") + (on ? " on" : "")}
+                    onClick={() => pickWho(u)}>
+                    <span class="tk-person-a">{nOpen}</span>
+                    <span class="tk-person-n">{n}</span>
                   </button>
                 );
               })}
@@ -347,24 +349,28 @@ function CreateTaskSheet({ names, onClose, onCreated }: {
   const [note, setNote] = useState("");
   const [assignee, setAssignee] = useState(currentUser()?.username || "");
   const [due, setDue] = useState("");
-  const [orderQ, setOrderQ] = useState("");
-  const [orderHits, setOrderHits] = useState<any[]>([]);
   const [linked, setLinked] = useState<{ thread_id: number; label: string } | null>(null);
   const [busy, setBusy] = useState(false);
   useScrollLock(true);
   usePopupBack(true, onClose);
 
-  // search đơn để link (tái dùng /api/orders?search=)
-  useEffect(() => {
-    if (!orderQ.trim()) { setOrderHits([]); return; }
-    const t = setTimeout(async () => {
+  // search đơn để link (tái dùng /api/orders?search=) — debounce 250ms; promise cũ bị
+  // clear không resolve nhưng PickerPopup có seq-guard nên chỉ kết quả mới nhất hiện
+  const odTimer = useRef<any>(null);
+  const searchOrders = (q: string) => new Promise<PickOpt[]>((resolve) => {
+    clearTimeout(odTimer.current);
+    if (!q.trim()) { resolve([]); return; }
+    odTimer.current = setTimeout(async () => {
       try {
-        const d = await getJSON(`/api/orders?search=${encodeURIComponent(orderQ.trim())}&page=1`, { cache: false });
-        setOrderHits((d.orders || []).slice(0, 6));
-      } catch { setOrderHits([]); }
+        const d = await getJSON(`/api/orders?search=${encodeURIComponent(q.trim())}&page=1`, { cache: false });
+        resolve((d.orders || []).slice(0, 6).map((o: any): PickOpt => ({
+          key: String(o.thread_id),
+          label: o.customer || o.topic_name || `#${o.thread_id}`,
+          sub: (o.text || "").slice(0, 40),
+        })));
+      } catch { resolve([]); }
     }, 250);
-    return () => clearTimeout(t);
-  }, [orderQ]);
+  });
 
   const save = async () => {
     if (!title.trim()) { toast("Nhập tiêu đề việc"); return; }
@@ -404,19 +410,10 @@ function CreateTaskSheet({ names, onClose, onCreated }: {
             {linked ? (
               <span class="tk-chip tk-order">{linked.label} <button class="link-btn" onClick={() => setLinked(null)}>✕</button></span>
             ) : (
-              <input class="input" placeholder="Tìm đơn (khách, nội dung…)" value={orderQ} onInput={(e: any) => setOrderQ(e.target.value)} />
+              <PickerPopup placeholder="Tìm đơn (khách, nội dung…)" onSearch={searchOrders}
+                onPick={(o) => setLinked({ thread_id: Number(o.key), label: o.label })} />
             )}
           </div>
-          {!linked && orderHits.length > 0 && (
-            <div class="tk-hits">
-              {orderHits.map((o) => (
-                <button key={o.thread_id} class="tk-hit" onClick={() => { setLinked({ thread_id: o.thread_id, label: o.customer || o.topic_name || `#${o.thread_id}` }); setOrderQ(""); }}>
-                  <b>{o.customer || o.topic_name || `#${o.thread_id}`}</b>
-                  <span class="muted small"> {(o.text || "").slice(0, 40)}</span>
-                </button>
-              ))}
-            </div>
-          )}
           <button class="btn primary block" disabled={busy} onClick={save}>{busy ? "Đang lưu…" : "Tạo việc"}</button>
         </div>
       </div>

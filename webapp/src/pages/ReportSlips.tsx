@@ -7,8 +7,8 @@ import { useEffect, useState } from "preact/hooks";
 import { createReportSlip, isOffice, listReportSlips, listWorkers, soVN, type ReportSlip, type Worker } from "../api";
 import { WorkerChips } from "../detail/WorkerChips";
 import { onRealtime } from "../realtime";
-import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
+import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast } from "../ui/feedback";
 
@@ -77,13 +77,9 @@ export function ReportSlips() {
   };
 
   const head = (
-    <div class="wg-head">
-      <BackLink fallback="#/home" />
-      <div>
-        <div class="wg-title"><Icon name="receipt" size={18} /> Báo cáo sản xuất</div>
-        <div class="muted small">phiếu báo cáo theo khoảng ngày — SP + tiền công thợ</div>
-      </div>
-    </div>
+    <PageHead fallback="#/home"
+      title={<><Icon name="receipt" size={18} /> Báo cáo sản xuất</>}
+      sub="phiếu báo cáo theo khoảng ngày — SP + tiền công thợ" />
   );
 
   if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="lock">Chỉ văn phòng được xem báo cáo.</EmptyState></div>;

@@ -107,8 +107,8 @@ export function SupplierDetail({ id }: { id: string }) {
         </label>
         {!editing ? (
           <div class="sup-info">
-            {s.phone && <div><Icon name="chat" size={13} /> <a href={`tel:${s.phone}`}>{s.phone}</a></div>}
-            {s.address && <div><Icon name="box" size={13} /> {s.address}</div>}
+            {s.phone && <div><Icon name="phone" size={13} /> <a href={`tel:${s.phone}`}>{s.phone}</a></div>}
+            {s.address && <div><Icon name="location" size={13} /> {s.address}</div>}
             {s.note && <div class="ret-card-note"><Icon name="note" size={13} /> {s.note}</div>}
             {!s.phone && !s.address && !s.note && <div class="muted small">Chưa có thông tin — bấm Sửa để thêm.</div>}
           </div>
@@ -131,9 +131,8 @@ export function SupplierDetail({ id }: { id: string }) {
       <section class="card">
         <label class="card-label"><Icon name="truck" size={15} /> Phiếu nhập hàng
           {!deleted && (
-            <button class={"btn small ret-edit" + (office ? "" : " faded")}
-              onClick={() => office ? (window.location.hash = `#/nhap-hang/tao?ncc=${id}`)
-                : toast("Chỉ văn phòng mới được tạo phiếu nhập", "info")}>
+            <button class="btn small ret-edit"
+              onClick={() => { window.location.hash = `#/nhap-hang/tao?ncc=${id}`; }}>
               <Icon name="plus" size={13} /> Tạo phiếu
             </button>
           )}

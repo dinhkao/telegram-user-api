@@ -10,6 +10,7 @@ import { BackLink } from "../nav";
 import { BoxTile } from "../detail/BoxTile";
 import { Icon } from "../ui/Icon";
 import { confirmDialog, toast } from "../ui/feedback";
+import { SearchBar } from "../ui/SearchBar";
 import { EmptyState, ErrorState, Loading } from "../ui/states";
 
 type Filter = "all" | "pending" | "diff";
@@ -354,7 +355,7 @@ export function StocktakeDetail({ id }: { id: string }) {
       {done && !slip.applied_at && (slip.summary.deviation_count || 0) > 0 && (
         <section class="card stocktake-applied">
           <label class="card-label"><Icon name="edit" size={15} /> Chênh lệch chưa áp dụng vào kho</label>
-          <div class="muted small" style={{ margin: "2px 0 8px" }}>
+          <div class="muted small stocktake-applied-note">
             {slip.summary.deviation_count} thùng lệch so với sổ sách lúc đếm. Áp dụng sẽ tạo <b>phiếu điều
             chỉnh</b> cho từng thùng (theo mức lệch, không đè các xuất/nhập sau khi đếm) — admin gỡ được từng phiếu.
           </div>
@@ -386,7 +387,7 @@ export function StocktakeDetail({ id }: { id: string }) {
 
       {!done && (
         <div class="stocktake-tools">
-          <input class="inv-search" placeholder="Tìm mã SP hoặc số thùng…" value={q} onInput={(e: any) => setQ(e.target.value)} />
+          <SearchBar value={q} onInput={setQ} placeholder="Tìm mã SP hoặc số thùng…" />
           <div class="stocktake-filter-row">
             <button class={"chip" + (filter === "all" ? " active" : "")} onClick={() => setFilter("all")}>Tất cả</button>
             <button class={"chip" + (filter === "pending" ? " active" : "")} onClick={() => setFilter("pending")}>Chưa kiểm ({slip.items.length - computed.counted})</button>

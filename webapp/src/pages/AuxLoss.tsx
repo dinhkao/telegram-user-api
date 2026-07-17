@@ -6,8 +6,8 @@ import { useEffect, useState } from "preact/hooks";
 import { getAuxLoss, ApiError, type AuxLossResp, type AuxLossPeriod, type AuxLossRow } from "../api";
 import { onRealtime } from "../realtime";
 import { fmtQty } from "../format";
-import { Loading } from "../ui/states";
-import { Icon } from "../ui/Icon";
+import { PageHead } from "../ui/PageHead";
+import { EmptyState, ErrorState, Loading } from "../ui/states";
 
 // prev_ts/cur_ts là EPOCH GIÂY (UTC) → chỉ dùng epoch, ĐỪNG parse chuỗi ngày
 // (tránh lệch 7 giờ). Hiện ngày+giờ theo giờ VN.
@@ -17,14 +17,10 @@ function dtVN(epochSec: number): string {
   });
 }
 
-// Màu chênh lệch: gap>0 → mất nhiều hơn định mức (đỏ), gap<0 → còn dư (xanh),
-// gap=0/null → thường. Dùng inline color (không phụ thuộc class có sẵn).
-function gapColor(gap: number | null): string | undefined {
-  if (gap == null) return undefined;
-  if (gap > 0) return "#c0392b";
-  if (gap < 0) return "#1a7f37";
-  return undefined;
-}
+// Màu chênh lệch: gap>0 → mất nhiều hơn định mức (.t-danger), gap<0 → còn dư
+// (.t-ok), gap=0/null → thường.
+const gapCls = (gap: number | null): string =>
+  gap == null || gap === 0 ? "" : gap > 0 ? " t-danger" : " t-ok";
 
 const num = (v: number | null): string => (v == null ? "—" : fmtQty(v));
 const Dash = () => <span class="muted">—</span>;
@@ -88,8 +84,8 @@ function PeriodCard({ p }: { p: AuxLossPeriod }) {
                   {showCham && <td class="al-r">{num(r.cham)}</td>}
                   <td class="al-r">{p.open ? <Dash /> : num(r.now)}</td>
                   <td class="al-r"><b>{p.open ? <Dash /> : num(r.consumed)}</b></td>
-                  <td class="al-r" style={{ color: gapColor(r.gap), fontWeight: 600 }}>
-                    {p.open ? <Dash /> : num(r.gap)}
+                  <td class={"al-r" + gapCls(r.gap)}>
+                    <b>{p.open ? <Dash /> : num(r.gap)}</b>
                   </td>
                 </tr>
               ))}
@@ -99,7 +95,7 @@ function PeriodCard({ p }: { p: AuxLossPeriod }) {
                 {showCham && <td class="al-r"><b>{num(t.cham)}</b></td>}
                 <td class="al-r" />
                 <td class="al-r"><b>{p.open ? "—" : num(t.consumed)}</b></td>
-                <td class="al-r" style={{ color: gapColor(t.gap) }}>
+                <td class={"al-r" + gapCls(t.gap)}>
                   <b>{p.open ? "—" : num(t.gap)}</b>
                 </td>
               </tr>
@@ -142,7 +138,7 @@ export function AuxLoss() {
 
   return (
     <div class="al-page">
-      <h2 class="page-h"><Icon name="chart" size={18} /> Hao hụt nguyên liệu phụ</h2>
+      <PageHead fallback="#/home" title="Hao hụt NL phụ" />
       {place && (
         <p class="muted small al-sub">
           Kho: <b>{place.name}</b> · So NL phụ dùng theo công thức với sụt giảm thực đo qua kiểm kho.
@@ -152,18 +148,16 @@ export function AuxLoss() {
       {loading && !data ? (
         <Loading />
       ) : forbidden ? (
-        <p class="muted">Trang chỉ dành cho văn phòng.</p>
+        <EmptyState icon="🔒">Trang chỉ dành cho văn phòng.</EmptyState>
       ) : err ? (
-        <p class="muted small">Lỗi tải dữ liệu.</p>
+        <ErrorState msg="Lỗi tải dữ liệu." onRetry={load} />
       ) : !place ? (
-        <div class="card">
-          <p class="muted">
-            Chưa chỉ định "kho nguyên liệu đang dùng". Vào <a href="#/vi-tri">Vị trí</a> → chọn kho →
-            bật ⭐ nguồn NL phụ.
-          </p>
-        </div>
+        <EmptyState>
+          Chưa chỉ định "kho nguyên liệu đang dùng". Vào <a href="#/vi-tri">Vị trí</a> → chọn kho →
+          bật ⭐ nguồn NL phụ.
+        </EmptyState>
       ) : !data || data.periods.length === 0 ? (
-        <div class="card"><p class="muted">Cần ít nhất 2 lần kiểm kho để so sánh.</p></div>
+        <EmptyState>Cần ít nhất 2 lần kiểm kho để so sánh.</EmptyState>
       ) : (
         data.periods.map((p, i) => <PeriodCard key={`${p.prev_ts}-${i}`} p={p} />)
       )}

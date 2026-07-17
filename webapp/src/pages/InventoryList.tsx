@@ -54,13 +54,17 @@ export function InventoryList() {
   useEffect(() => {
     load();
   }, []);
-  useEffect(
-    () =>
-      onRealtime((e) => {
-        if (e.type === "resync" || e.type === "production_changed" || e.type === "inventory_changed" || e.type === "box_changed" || e.type === "order_changed") load();
-      }),
-    []
-  );
+  // Realtime: debounce 350ms như KhoBoxes — burst nhiều event chỉ tạo 1 lượt tải.
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const off = onRealtime((e) => {
+      if (e.type === "resync" || e.type === "production_changed" || e.type === "inventory_changed" || e.type === "box_changed" || e.type === "order_changed") {
+        if (t) clearTimeout(t);
+        t = setTimeout(() => { t = null; load(); }, 350);
+      }
+    });
+    return () => { if (t) clearTimeout(t); off(); };
+  }, []);
 
   if (err) return <ErrorState msg={err} onRetry={load} />;
   if (!products) return <Loading />;

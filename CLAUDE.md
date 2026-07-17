@@ -683,10 +683,18 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   lịch sử thao tác (`#/lich-su`).
   - **Admin xoá**: đơn (`order_api_delete.py`, cấm nếu còn HĐ KiotViet/phân bổ kho), thùng, SP,
     vị trí, HĐ KiotViet. **Đơn vị SP** (`products.unit`) sửa ở chi tiết SP; hiện đúng khắp nơi.
-  - **UI dùng chung (đừng tự chế lại)**: `ui/SelectPopup` (chọn tĩnh) + `ui/PickerPopup`
-    (autocomplete) = mọi dropdown/select là **popup neo đỉnh** (bàn phím không che); mọi
-    popup gọi `ui/usePopupBack` (nút BACK đóng popup trước) + `useScrollLock`. Ô thùng =
-    `detail/BoxLabelGrid`. Toast/confirm = `ui/feedback`. Cuộn = `scroll.ts`.
+  - **UI dùng chung (đừng tự chế lại — tổng duyệt 2026-07-17 đã quy mọi trang về bộ này)**:
+    `ui/PageHead` = header trang chuẩn (BackLink + tiêu đề + phụ đề + slot phải; class
+    `.page-head` alias `.prod-detail-head`) — đừng chế `.xx-head` mới. `ui/SelectPopup`
+    (chọn tĩnh) + `ui/PickerPopup` (autocomplete) = mọi dropdown/select là **popup neo
+    đỉnh** (bàn phím không che); mọi popup gọi `ui/usePopupBack` (nút BACK đóng popup
+    trước) + `useScrollLock`. Ô thùng = `detail/BoxLabelGrid`. Toast/confirm/**prompt** =
+    `ui/feedback` (`toast`/`confirmDialog`/`promptDialog` — cấm alert/confirm/prompt
+    native). States = `ui/states` (Loading/LoadingInline/EmptyState/SkeletonList/
+    ErrorState — lỗi tải PHẢI hiện ErrorState + retry, đừng nuốt im lặng thành empty).
+    Chip lọc = `.chips`/`.chip` (+`.chip-n` badge số); segmented = `.seg`/`.seg-btn`;
+    toggle = `.tgl`; nhãn khu = `.ie-head`; màu chữ ngữ nghĩa = `.t-ok/.t-warn/.t-danger`;
+    nhóm theo ngày = `dayKey`/`dayLabel` (format.ts). Cuộn = `scroll.ts`.
     **`ui/SearchBar`** = search bar chuẩn mọi trang list (+ `FilterActiveBar` panel
     "Đang lọc"). **`detail/ScrollCalendar`** = lịch cuộn liền mạch kiểu macOS dùng
     chung (lịch giao `#/lich` [text đơn trong ô, đỏ chưa giao/xanh đã giao], lịch

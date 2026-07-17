@@ -84,11 +84,11 @@ function IngSection({ productCode, lines, aux, onChanged }: {
           })}
         </div>
       )}
-      <div class="row" style={{ gap: "6px", marginTop: "8px", flexWrap: "wrap" }}>
-        <span style={{ flex: 1, minWidth: "120px" }}>
+      <div class="row mt-2">
+        <span class="fill">
           <PickerPopup value={ing} placeholder={aux ? "Nguyên liệu phụ" : "Nguyên liệu"} onSearch={search} onPick={(o) => pickIng(o.key)} />
         </span>
-        <input class="pb-amount" type="text" inputMode="decimal" style={{ width: "72px" }} placeholder="Tỉ lệ"
+        <input class="pb-amount w-4" type="text" inputMode="decimal" placeholder="Tỉ lệ"
           value={ratio} onFocus={(e) => (e.target as HTMLInputElement).select()}
           onInput={(e: any) => setRatio(e.target.value)} />
         {unitChoices.length > 1 && (
@@ -140,7 +140,7 @@ export function RecipeEditor({ productCode }: { productCode: string }) {
   return (
     <section class="card">
       <label class="card-label"><Icon name="leaf" size={16} /> Công thức — nguyên liệu</label>
-      <div class="muted small" style={{ marginBottom: "6px" }}>Tỉ lệ = lượng nguyên liệu cho 1 {unit} {productCode} — NL có quy đổi đơn vị thì chọn được đơn vị nhập (app tự quy về gốc). Chỉ phiếu ĐÓNG GÓI mới bắt buộc trừ nguyên liệu chính; phiếu sản xuất không cần.</div>
+      <div class="muted small list-hint">Tỉ lệ = lượng nguyên liệu cho 1 {unit} {productCode} — NL có quy đổi đơn vị thì chọn được đơn vị nhập (app tự quy về gốc). Chỉ phiếu ĐÓNG GÓI mới bắt buộc trừ nguyên liệu chính; phiếu sản xuất không cần.</div>
       <IngSection productCode={productCode} lines={main} aux={false} onChanged={load} />
 
       <div class="recipe-aux-head">
@@ -154,7 +154,7 @@ export function RecipeEditor({ productCode }: { productCode: string }) {
           </button>
         </span>
       </div>
-      <div class="muted small" style={{ marginBottom: "6px" }}>
+      <div class="muted small list-hint">
         Bao bì/tem/hộp… {auxRequired
           ? "Đang BẬT — nhập thùng ở MỌI phiếu (sản xuất + đóng gói) phải chọn thùng NL phụ để trừ kho."
           : "Đang TẮT — sản xuất không bắt trừ NL phụ (danh sách giữ nguyên, bật lại là áp dụng)."}

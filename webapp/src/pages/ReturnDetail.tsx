@@ -8,7 +8,7 @@ import {
   currentUser, isOffice, soVN, type ReturnSlip,
 } from "../api";
 import { onRealtime } from "../realtime";
-import { parseMoney, parseQty } from "../format";
+import { fmtDateTimeVN, parseMoney, parseQty } from "../format";
 import { ReturnGoodsModal } from "../detail/ReturnGoodsModal";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
@@ -143,7 +143,7 @@ export function ReturnDetail({ id }: { id: string }) {
               ? <span class="pk-badge sx"><Icon name="receipt" size={12} /> {r.kv_invoice_code}</span>
               : <span class="pk-badge pack"><Icon name="edit" size={12} /> Nháp</span>}
           </div>
-          <div class="prod-date muted">{r.created_at ? `${r.created_at.slice(8, 10)}/${r.created_at.slice(5, 7)}/${r.created_at.slice(0, 4)} ${r.created_at.slice(11, 16)}` : ""}{r.created_by ? ` · ${r.created_by}` : ""}</div>
+          <div class="prod-date muted">{fmtDateTimeVN(r.created_at)}{r.created_by ? ` · ${r.created_by}` : ""}</div>
         </div>
       </div>
       {deleted && <div class="error-banner">Phiếu đã bị xoá{(r as any).deleted_by ? ` bởi ${(r as any).deleted_by}` : ""}</div>}
@@ -233,11 +233,11 @@ export function ReturnDetail({ id }: { id: string }) {
           return (
             <section class="card rg-summary">
               <label class="card-label"><Icon name="check" size={15} /> Hàng trả đã xử lý</label>
-              <div class="muted small">{r.goods_handled_by ? `${r.goods_handled_by}` : ""}{r.goods_handled_at ? ` · ${r.goods_handled_at.slice(8, 10)}/${r.goods_handled_at.slice(5, 7)} ${r.goods_handled_at.slice(11, 16)}` : ""}</div>
-              {gr.restocked_existing?.length > 0 && <div class="rg-sum-line">📦 Nhập thùng có sẵn: {line(gr.restocked_existing)}</div>}
-              {gr.restocked_new?.length > 0 && <div class="rg-sum-line">🆕 Thùng mới: {line(gr.restocked_new)}</div>}
+              <div class="muted small">{r.goods_handled_by ? `${r.goods_handled_by}` : ""}{r.goods_handled_at ? ` · ${fmtDateTimeVN(r.goods_handled_at)}` : ""}</div>
+              {gr.restocked_existing?.length > 0 && <div class="rg-sum-line"><Icon name="box" size={13} /> Nhập thùng có sẵn: {line(gr.restocked_existing)}</div>}
+              {gr.restocked_new?.length > 0 && <div class="rg-sum-line"><Icon name="plus" size={13} /> Thùng mới: {line(gr.restocked_new)}</div>}
               {gr.disposed?.length > 0 && (
-                <div class="rg-sum-line">🗑 Xuất hủy: {line(gr.disposed)}
+                <div class="rg-sum-line"><Icon name="trash" size={13} /> Xuất hủy: {line(gr.disposed)}
                   {gr.disposal_id ? <> · <a href={`#/xuat-huy/${gr.disposal_id}`}>phiếu hủy #{gr.disposal_id}</a></> : null}
                 </div>
               )}
@@ -262,8 +262,8 @@ export function ReturnDetail({ id }: { id: string }) {
           <label class="card-label"><Icon name="receipt" size={15} /> Hoá đơn KiotViet (giá âm)</label>
           <div>{r.kv_invoice_code} <span class="muted small">· #{r.kv_invoice_id}</span></div>
           {!deleted && (
-            <button class={"btn danger block" + (isAdmin ? "" : " faded")} disabled={busy}
-              style={{ marginTop: "8px" }} onClick={doDeleteInvoice}>
+            <button class={"btn danger block mt-2" + (isAdmin ? "" : " faded")} disabled={busy}
+              onClick={doDeleteInvoice}>
               <Icon name="trash" size={14} /> Xoá HĐ KiotViet (hoàn nợ)
             </button>
           )}

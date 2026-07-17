@@ -3,9 +3,9 @@
 // batch từ src/usage.ts). Nối: GET /api/usage/stats.
 import { useEffect, useState } from "preact/hooks";
 import { getJSON } from "../api";
-import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
-import { ErrorState, Loading } from "../ui/states";
+import { PageHead } from "../ui/PageHead";
+import { EmptyState, ErrorState, Loading } from "../ui/states";
 
 type PageRow = { page: string; views: number; taps: number };
 type LabelRow = { page: string; label: string; count: number };
@@ -50,8 +50,8 @@ export function UsageStats() {
       .catch((reason: any) => setError(reason?.message || "Không tải được thống kê"));
   }, [days, user]);
 
-  if (error) return <div class="usage-page"><BackLink fallback="#/home" /><ErrorState msg={error} /></div>;
-  if (!data) return <div class="usage-page"><BackLink fallback="#/home" /><Loading label="Đang tổng hợp…" /></div>;
+  if (error) return <div class="usage-page"><PageHead fallback="#/home" title="Thống kê sử dụng" /><ErrorState msg={error} /></div>;
+  if (!data) return <div class="usage-page"><PageHead fallback="#/home" title="Thống kê sử dụng" /><Loading label="Đang tổng hợp…" /></div>;
 
   const maxPage = Math.max(1, ...data.pages.map((p) => p.views + p.taps));
   const topLabels = data.labels.slice(0, 30);
@@ -61,17 +61,17 @@ export function UsageStats() {
 
   return (
     <div class="usage-page">
-      <BackLink fallback="#/home" />
-      <div class="usage-chips">
+      <PageHead fallback="#/home" title="Thống kê sử dụng" />
+      <div class="chips">
         {[7, 30, 90].map((d) => (
-          <button class={days === d ? "active" : ""} key={d} onClick={() => setDays(d)}>{d} ngày</button>
+          <button class={"chip" + (days === d ? " active" : "")} key={d} onClick={() => setDays(d)}>{d} ngày</button>
         ))}
       </div>
       {data.users.length > 1 && (
-        <div class="usage-chips">
-          <button class={!user ? "active" : ""} onClick={() => setUser("")}>Mọi người</button>
+        <div class="chips">
+          <button class={"chip" + (!user ? " active" : "")} onClick={() => setUser("")}>Mọi người</button>
           {data.users.map((u) => (
-            <button class={user === u.username ? "active" : ""} key={u.username} onClick={() => setUser(u.username)}>
+            <button class={"chip" + (user === u.username ? " active" : "")} key={u.username} onClick={() => setUser(u.username)}>
               {u.username} · {u.taps}
             </button>
           ))}
@@ -80,7 +80,7 @@ export function UsageStats() {
 
       <section class="usage-sec">
         <h3><Icon name="chart" size={16} /> Tính năng dùng nhiều → ít <small>từ {data.since}</small></h3>
-        {data.pages.length === 0 && <p class="usage-empty">Chưa có dữ liệu — dùng app một lúc rồi quay lại.</p>}
+        {data.pages.length === 0 && <EmptyState icon="📊">Chưa có dữ liệu — dùng app một lúc rồi quay lại.</EmptyState>}
         {data.pages.map((p) => (
           <div class="usage-row" key={p.page}>
             <i style={`width:${Math.max(2, Math.round((p.views + p.taps) / maxPage * 100))}%`} />

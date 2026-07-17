@@ -622,7 +622,7 @@ export function OrdersList() {
       </ul>
       {loading && visible.length > 0 && <Loading />}
       {/* sentinel cho infinite scroll — observer tải trang kế khi lọt khung nhìn */}
-      <div ref={sentinel} style="height:1px" />
+      <div ref={sentinel} class="io-sentinel" />
       {!loading && page >= totalPages && visible.length > 0 && (
         <p class="muted center small">— Hết đơn —</p>
       )}

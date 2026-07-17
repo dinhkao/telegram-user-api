@@ -4,6 +4,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { currentUser, deleteDisposal, getDisposal, soVN, type DisposalSlip } from "../api";
+import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
@@ -58,7 +59,7 @@ export function DisposalDetail({ id }: { id: string }) {
           <div class="prod-sp big">
             <Icon name="trash" size={18} /> Xuất hủy −{soVN(r.total_quantity)}
           </div>
-          <div class="prod-date muted">{r.created_at ? `${r.created_at.slice(8, 10)}/${r.created_at.slice(5, 7)}/${r.created_at.slice(0, 4)} ${r.created_at.slice(11, 16)}` : ""}{r.created_by ? ` · ${r.created_by}` : ""}</div>
+          <div class="prod-date muted">{fmtDateTimeVN(r.created_at)}{r.created_by ? ` · ${r.created_by}` : ""}</div>
         </div>
       </div>
       {deleted && <div class="error-banner">Phiếu đã bị xoá{r.deleted_by ? ` bởi ${r.deleted_by}` : ""}{r.box_less ? "" : " — tồn kho đã hoàn lại"}</div>}

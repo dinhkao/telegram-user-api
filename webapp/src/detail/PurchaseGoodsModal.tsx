@@ -179,7 +179,7 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
     <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
       <div class="modal-sheet rg-sheet" onClick={(e: any) => e.stopPropagation()}>
         <div class="modal-head"><Icon name="box" size={16} /> Ghi nhập kho hàng mua về</div>
-        <p class="muted small" style={{ margin: "0 0 4px" }}>
+        <p class="muted small list-hint">
           Chọn cách nhập từng loại — ghi nhiều đợt được, đủ rồi bấm Chốt ở trang phiếu.
           Sửa SL nếu thực nhận lệch phiếu (thiếu/vỡ).
         </p>
@@ -265,7 +265,7 @@ export function PurchaseGoodsModal({ pu, onClose, onDone }: {
             </div>
           );
         })}
-        <div class="row" style={{ marginTop: "8px" }}>
+        <div class="row mt-2">
           <button class="btn" onClick={onClose}>Để sau</button>
           <button class="btn primary" disabled={busy || overRows || overBulk} onClick={submit}>{busy ? "Đang ghi…" : "Ghi nhập"}</button>
         </div>

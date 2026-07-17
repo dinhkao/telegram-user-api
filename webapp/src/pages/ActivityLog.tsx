@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getActivity } from "../api";
 import { fmtDateTimeVN, fmtRelative } from "../format";
-import { Loading, LoadingInline } from "../ui/states";
+import { EmptyState, ErrorState, Loading, LoadingInline } from "../ui/states";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
+import { PageHead } from "../ui/PageHead";
 
 // Cache list đã tải → quay lại giữ nguyên + hệ cuộn khôi phục vị trí (khỏi tải lại).
 let actCache: { items: any[]; before: number | null; hasMore: boolean } | null = null;
@@ -23,6 +24,7 @@ export function ActivityLog() {
   const [before, setBefore] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
   const snap = useRef<any>(null);
   snap.current = { items, before, hasMore };
 
@@ -33,8 +35,10 @@ export function ActivityLog() {
       setItems((prev) => (cursor == null ? r.items : [...prev, ...r.items]));
       setHasMore(!!r.has_more);
       setBefore(r.next_before ?? null);
-    } catch {
-      /* ignore */
+      setErr("");
+    } catch (e: any) {
+      // Lỗi trang ĐẦU → hiện ErrorState (trang sau lỡ lỗi thì giữ list đã có)
+      if (cursor == null) setErr(e?.message || "Không tải được lịch sử");
     } finally {
       setLoading(false);
     }
@@ -58,9 +62,24 @@ export function ActivityLog() {
     return () => { off(); clearTimeout(t); };
   }, []);
 
+  // Sentinel lazy-load: cuộn tới đáy → tự tải trang kế (nút "Tải thêm" vẫn giữ)
+  const moreRef = useRef<HTMLDivElement>(null);
+  const pgRef = useRef({ before, hasMore, loading });
+  pgRef.current = { before, hasMore, loading };
+  useEffect(() => {
+    const el = moreRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((ents) => {
+      const st = pgRef.current;
+      if (ents.some((x) => x.isIntersecting) && !st.loading && st.hasMore) load(st.before);
+    }, { rootMargin: "300px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [items.length]);
+
   return (
     <div>
-      <h2 class="page-h"><Icon name="clock" size={18} /> Lịch sử thao tác</h2>
+      <PageHead fallback="#/home" title={<><Icon name="clock" size={18} /> Lịch sử thao tác</>} />
       {items.length ? (
         <ul class="hist act-log">
           {items.map((h, i) => (
@@ -103,9 +122,12 @@ export function ActivityLog() {
         </ul>
       ) : loading ? (
         <Loading />
+      ) : err ? (
+        <ErrorState msg={err} onRetry={() => load(null)} />
       ) : (
-        <p class="muted small">Chưa có thao tác nào được ghi.</p>
+        <EmptyState icon="🕐">Chưa có thao tác nào được ghi.</EmptyState>
       )}
+      {hasMore && <div ref={moreRef} class="io-sentinel" />}
       {!loading && hasMore && <button class="btn small wide" onClick={() => load(before)}>Tải thêm</button>}
       {loading && items.length > 0 && <p class="muted center small"><LoadingInline /></p>}
     </div>

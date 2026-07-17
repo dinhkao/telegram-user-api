@@ -106,11 +106,11 @@ export function WorkerArrange() {
         <div class="sp-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setAddOpen(false); }}>
           <div class="sp-sheet">
             <div class="sp-title"><Icon name="plus" size={16} /> Thêm thợ</div>
-            <div style="padding:12px 16px 6px">
+            <div class="sp-form-pad">
               <input ref={addInput} class="cust-in" type="text" value={name} placeholder="Tên thợ"
                 onInput={(e: any) => setName(e.target.value)}
                 onKeyDown={(e: any) => { if (e.key === "Enter") add(); }} />
-              <label class="wl-defcheck" style="margin-top:10px">
+              <label class="wl-defcheck mt-2">
                 <input type="checkbox" checked={isDef} onChange={(e: any) => setIsDef(e.target.checked)} />
                 Thêm vào mẫu mặc định (tự điền khi báo cáo trống)
               </label>

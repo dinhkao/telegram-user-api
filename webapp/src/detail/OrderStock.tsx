@@ -31,7 +31,6 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
   const [pickCode, setPickCode] = useState("");
   const pickSid = useMemo(() => Math.random().toString(36).slice(2) + Date.now().toString(36), []);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
   // Ghi đè cục bộ sau khi chốt/huỷ (prop cha chỉ đổi khi realtime tải lại đơn)
   const [localSt, setLocalSt] = useState<Confirmed | "cleared" | null>(null);
   useEffect(() => { setLocalSt(null); }, [stockConfirmed]);
@@ -143,17 +142,16 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
         {a.place_id
           ? <a class="rl-place" href={`#/vi-tri/${a.place_id}`}>{place}</a>
           : <b>{place}</b>}.
-        <div class="muted small" style={{ marginTop: "8px" }}>⚠️ Hãy đảm bảo thùng này CHƯA được giao cho khách.</div>
+        <div class="muted small mt-2">⚠️ Hãy đảm bảo thùng này CHƯA được giao cho khách.</div>
       </span>
     );
     if (!(await confirmDialog("", { danger: true, okLabel: "Thu hồi", content }))) return;
     setBusy(true);
-    setMsg("");
     try {
       await releaseAllocations(threadId, [a.allocation_id]);
       await load();
     } catch (e: any) {
-      setMsg(e?.message || "Lỗi thu hồi");
+      toast(e?.message || "Lỗi thu hồi", "err");
     } finally {
       setBusy(false);
     }
@@ -165,7 +163,6 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
       "info");
     if (!(await confirmDialog("Chốt xuất kho cho đơn này? Sau khi chốt sẽ KHOÁ — không sửa hay thu hồi được nữa (chỉ admin)."))) return;
     setBusy(true);
-    setMsg("");
     try {
       const r = await stockConfirmOrder(threadId, true);
       setLocalSt(r.stock_confirmed || {});
@@ -176,7 +173,7 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
         onCompleteSoanHang();
       }
     } catch (e: any) {
-      setMsg(e?.message || "Lỗi chốt xuất kho");
+      toast(e?.message || "Lỗi chốt xuất kho", "err");
     } finally {
       setBusy(false);
     }
@@ -185,12 +182,11 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
   const doUnconfirm = async () => {
     if (!(await confirmDialog("Huỷ chốt xuất kho (admin)? Đơn sẽ sửa/thu hồi lại được.", { danger: true }))) return;
     setBusy(true);
-    setMsg("");
     try {
       await stockConfirmOrder(threadId, false);
       setLocalSt("cleared");
     } catch (e: any) {
-      setMsg(e?.message || "Lỗi huỷ chốt");
+      toast(e?.message || "Lỗi huỷ chốt", "err");
     } finally {
       setBusy(false);
     }
@@ -294,8 +290,6 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
           </div>
         );
       })}
-      {msg && <div class="muted small">{msg}</div>}
-
       {!confirmed && (
         <button class={"btn primary block stock-confirm" + (canConfirm ? "" : " faded")} disabled={busy} onClick={doConfirm}
           title={!canConfirm ? (overList.length > 0 ? "Thu hồi phần dư về kho trước khi chốt" : "Xuất đủ mọi mã SP mới chốt được") : undefined}>

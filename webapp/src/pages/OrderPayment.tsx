@@ -11,7 +11,7 @@ import { getPaymentContext, bulkPayment, isOffice, orderImageUrl, setOrderBypass
 import { invalidateListCache } from "./OrdersList";
 import { money, parseMoney, fmtDateTimeVN, fmtRelative } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
-import { Loading, ErrorState } from "../ui/states";
+import { EmptyState, ErrorState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
 /** Phân bổ lần lượt theo thứ tự danh sách đang hiển thị. */
@@ -183,7 +183,7 @@ export function OrderPayment({ threadId }: { threadId: string }) {
   };
 
   if (err) return <ErrorState msg={err} onRetry={reload} />;
-  if (!ctx) return <Loading />;
+  if (!ctx) return <SkeletonList rows={4} />;
 
   return (
     <div>
@@ -193,9 +193,9 @@ export function OrderPayment({ threadId }: { threadId: string }) {
       </div>
 
       {!office ? (
-        <div class="card muted small">🔒 Chỉ văn phòng mới được thu tiền.</div>
+        <EmptyState icon="🔒">Chỉ văn phòng mới được thu tiền.</EmptyState>
       ) : orders.length === 0 && hiddenOrders.length === 0 ? (
-        <div class="card muted">Khách này không có đơn nào đang nợ (chưa có thanh toán).</div>
+        <EmptyState icon="💸">Khách này không có đơn nào đang nợ (chưa có thanh toán).</EmptyState>
       ) : (
         <>
           {orders.length > 0 ? (
@@ -205,7 +205,7 @@ export function OrderPayment({ threadId }: { threadId: string }) {
                   <span class="muted small">Tổng nợ khách</span>
                   <b class="pay-total-debt">{money(customerDebt)}</b>
                 </div>
-                <div class="pay-box" style="margin-top:10px">
+                <div class="pay-box">
                   <input inputMode="numeric" placeholder="Số tiền thu" value={amountStr}
                     onInput={(e: any) => setAmountStr(e.target.value)} />
                   <button type="button" class="pay-suggest" title="Điền toàn bộ nợ của các đơn đã chọn"

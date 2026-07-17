@@ -8,6 +8,7 @@ import { fmtDateTimeVN } from "../format";
 import { fastScrollToEl } from "../scroll";
 import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
+import { useScrollLock } from "../useScrollLock";
 import { EmptyState, LoadingInline } from "../ui/states";
 import { dayKeyOf, orderDayLabel } from "./OrderCards";
 import { BoxLabelGrid } from "./BoxLabelGrid";
@@ -142,6 +143,7 @@ export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, 
   const [snap, setSnap] = useState<{ when: string; boxes: PlaceBox[]; note?: string } | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   usePopupBack(!!snap, () => setSnap(null));
+  useScrollLock(!!snap);
 
   // Lazy-load: chỉ render `shown` biến động đầu; chạm sentinel gần đáy → tải thêm.
   const [shown, setShown] = useState(LAZY_INITIAL);

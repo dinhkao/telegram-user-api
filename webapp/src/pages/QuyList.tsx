@@ -12,8 +12,10 @@ import {
   type QuySummary,
 } from "../api";
 import { onRealtime } from "../realtime";
-import { Loading, EmptyState } from "../ui/states";
+import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
+import { FilterActiveBar } from "../ui/SearchBar";
+import { dayKey, dayLabel } from "../format";
 import { Icon } from "../ui/Icon";
 
 type Filter = "all" | "thu" | "chi";
@@ -231,9 +233,9 @@ export function QuyList() {
       </div>
 
       {/* Lọc kỳ */}
-      <div class="quy-periods">
+      <div class="chips quy-periods">
         {_PERIODS.map((p) => (
-          <button key={p.key} class={pkey === p.key ? "qf active" : "qf"} onClick={() => changePeriod(p.key)}>{p.label}</button>
+          <button key={p.key} class={pkey === p.key ? "chip active" : "chip"} onClick={() => changePeriod(p.key)}>{p.label}</button>
         ))}
       </div>
       {pkey === "custom" && (
@@ -246,15 +248,22 @@ export function QuyList() {
       )}
 
       {/* Lọc loại */}
-      <div class="quy-filter">
+      <div class="chips quy-filter">
         {(["all", "thu", "chi"] as Filter[]).map((f) => (
-          <button key={f} class={filter === f ? "qf active" : "qf"} onClick={() => changeFilter(f)}>
+          <button key={f} class={filter === f ? "chip active" : "chip"} onClick={() => changeFilter(f)}>
             {f === "all" ? "Tất cả" : f === "thu" ? "Thu" : "Chi"}
           </button>
         ))}
       </div>
+      <FilterActiveBar
+        parts={[pkey !== "all" && plabel, filter !== "all" && (filter === "thu" ? "Thu" : "Chi")]}
+        count={total}
+        onClear={() => {
+          setFilter("all"); setPkey("all"); setCFrom(""); setCTo("");
+          reload("all", "all", "", "");
+        }} />
 
-      {err && <div class="error-banner">{err}</div>}
+      {err && <ErrorState msg={err} onRetry={() => { setErr(""); load(1, false); }} />}
       {loading && !receipts.length && <Loading />}
       {!loading && !receipts.length && <EmptyState icon="💰">Chưa có phiếu quỹ nào trong kỳ.</EmptyState>}
 
@@ -267,9 +276,9 @@ export function QuyList() {
         ))}
       </div>
 
-      <div ref={sentinel} style={{ height: "1px" }} />
+      <div ref={sentinel} class="io-sentinel" />
       {receipts.length > 0 && (
-        <div class="muted small" style={{ textAlign: "center", padding: "10px" }}>
+        <div class="muted small list-count">
           {receipts.length}/{total} phiếu
         </div>
       )}
@@ -306,28 +315,13 @@ function QuyRow({ r, onDelete }: { r: QuyReceipt; onDelete: (r: QuyReceipt) => v
   );
 }
 
-const _WD = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-
 function groupByDay(receipts: QuyReceipt[]): { key: string; label: string; receipts: QuyReceipt[] }[] {
   const out: { key: string; label: string; receipts: QuyReceipt[] }[] = [];
   for (const r of receipts) {
-    const key = r.date || "?"; // YYYY-MM-DD
+    const key = dayKey(r.date || undefined); // YYYY-MM-DD ("" = không rõ ngày)
     const last = out[out.length - 1];
     if (last && last.key === key) last.receipts.push(r);
     else out.push({ key, label: dayLabel(key), receipts: [r] });
   }
   return out;
-}
-
-function dayLabel(key: string): string {
-  const [y, m, d] = key.split("-").map(Number);
-  if (!y || !m || !d) return "Không rõ ngày";
-  const date = new Date(y, m - 1, d);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const diff = Math.round((today.getTime() - date.getTime()) / 86400000);
-  const wd = _WD[date.getDay()];
-  const dm = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
-  if (diff === 0) return `Hôm nay · ${wd} ${dm}`;
-  if (diff === 1) return `Hôm qua · ${wd} ${dm}`;
-  return `${wd} · ${dm}/${y}`;
 }

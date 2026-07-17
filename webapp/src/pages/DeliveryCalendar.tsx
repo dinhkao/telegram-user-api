@@ -71,10 +71,13 @@ export function DeliveryCalendar() {
       </div>
       <ScrollCalendar days={days} legend={{ o: "chưa giao", p: "đã giao" }} onPick={openDay}
         headExtra={
-          <label class="cal-toggle cc-ht">
-            <input type="checkbox" checked={hideDelivered} onChange={(e: any) => setHideDelivered(e.target.checked)} />
-            <span>Ẩn đã giao</span>
-          </label>
+          <span class="cal-toggle cc-ht">
+            <button class={"tgl" + (hideDelivered ? " on" : "")} role="switch" aria-checked={hideDelivered}
+              aria-label="Ẩn đã giao" onClick={() => setHideDelivered(!hideDelivered)}>
+              <span class="tgl-knob" />
+            </button>
+            <span onClick={() => setHideDelivered(!hideDelivered)}>Ẩn đã giao</span>
+          </span>
         } />
 
       {pick && (

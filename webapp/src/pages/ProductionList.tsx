@@ -16,7 +16,7 @@ import {
 import { onRealtime } from "../realtime";
 import { ProductPicker } from "../detail/ProductPicker";
 import { BoxMiniGrid } from "../detail/BoxMiniGrid";
-import { Loading, EmptyState } from "../ui/states";
+import { SkeletonList, EmptyState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
 // Cache list đã tải → quay lại giữ nguyên + hệ cuộn khôi phục vị trí (khỏi tải lại).
@@ -248,24 +248,24 @@ export function ProductionList() {
         </button>
       </div>
 
-      <div class="prod-filter">
-        <button class={"pf-chip" + (kindF === "" ? " on" : "")} onClick={() => applyFilter("")}>Tất cả</button>
-        <button class={"pf-chip" + (kindF === "san_xuat" ? " on" : "")} onClick={() => applyFilter("san_xuat")}><Icon name="factory" size={14} /> Sản xuất</button>
-        <button class={"pf-chip" + (kindF === "dong_goi" ? " on" : "")} onClick={() => applyFilter("dong_goi")}><Icon name="box" size={14} /> Đóng gói</button>
-        <button class={"pf-chip pf-mm" + (mmF ? " on" : "")} onClick={applyMmFilter}
+      <div class="chips prod-filter">
+        <button class={"chip" + (kindF === "" ? " active" : "")} onClick={() => applyFilter("")}>Tất cả</button>
+        <button class={"chip" + (kindF === "san_xuat" ? " active" : "")} onClick={() => applyFilter("san_xuat")}><Icon name="factory" size={14} /> Sản xuất</button>
+        <button class={"chip" + (kindF === "dong_goi" ? " active" : "")} onClick={() => applyFilter("dong_goi")}><Icon name="box" size={14} /> Đóng gói</button>
+        <button class={"chip" + (mmF ? " active" : "")} onClick={applyMmFilter}
           title="Phiếu SX (từ 10/07/2026) có báo cáo thợ lệch tổng nhập thùng >1%">⚠ Lệch nhập</button>
-        <label class={"pf-chip pf-day" + (dayF ? " on" : "")} title="Lọc phiếu theo ngày tạo">
+        <label class={"chip pf-day" + (dayF ? " active" : "")} title="Lọc phiếu theo ngày tạo">
           <Icon name="calendar" size={14} />
           <span class="pf-day-lb">{dayF ? dayVN(dayF) : "Ngày"}</span>
           <input type="date" value={dayF}
             onClick={(e: any) => { try { e.currentTarget.showPicker?.(); } catch { /* im */ } }}
             onInput={(e: any) => applyDayFilter(e.target.value)} />
         </label>
-        {dayF && <button class="pf-chip pf-clear" onClick={() => applyDayFilter("")} title="Bỏ lọc ngày"><Icon name="close" size={13} /></button>}
+        {dayF && <button class="chip pf-clear" onClick={() => applyDayFilter("")} title="Bỏ lọc ngày"><Icon name="close" size={13} /></button>}
       </div>
 
       {err && <div class="error-banner">{err}</div>}
-      {loading && !slips.length && <Loading />}
+      {loading && !slips.length && <SkeletonList />}
       {!loading && !slips.length && <EmptyState>Chưa có phiếu sản xuất nào.</EmptyState>}
 
       <div class="prod-cards">
@@ -277,9 +277,9 @@ export function ProductionList() {
         ))}
       </div>
 
-      <div ref={sentinel} style={{ height: "1px" }} />
+      <div ref={sentinel} class="io-sentinel" />
       {slips.length > 0 && (
-        <div class="muted small" style={{ textAlign: "center", padding: "10px" }}>
+        <div class="muted small list-count">
           {slips.length}/{total} phiếu
         </div>
       )}

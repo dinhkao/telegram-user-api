@@ -4,8 +4,9 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { getProductionDashboard, soVN, type ProdDashboard } from "../api";
 import { onRealtime } from "../realtime";
-import { Loading } from "../ui/states";
+import { Loading, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
+import { PageHead } from "../ui/PageHead";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -41,11 +42,15 @@ export function ProductionDashboard() {
   useEffect(() => { memPeriod = period; }, [period]);
   const [data, setData] = useState<ProdDashboard | null>(null);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
 
   const load = () => {
     setLoading(true);
     const { from, to } = rangeFor(period);
-    getProductionDashboard(from, to).then(setData).catch(() => {}).finally(() => setLoading(false));
+    getProductionDashboard(from, to)
+      .then((d) => { setData(d); setErr(""); })
+      .catch((e: any) => setErr(e?.message || "Lỗi tải dữ liệu"))
+      .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [period]);
   useEffect(() => {
@@ -64,10 +69,10 @@ export function ProductionDashboard() {
 
   return (
     <div class="db-page">
-      <h2 class="page-h"><Icon name="chart" size={18} /> Dashboard sản xuất</h2>
-      <div class="db-period">
+      <PageHead fallback="#/san_xuat" title={<><Icon name="chart" size={18} /> Dashboard sản xuất</>} />
+      <div class="seg">
         {(["all", "month", "week"] as Period[]).map((p) => (
-          <button key={p} class={period === p ? "db-seg on" : "db-seg"} onClick={() => setPeriod(p)}>
+          <button key={p} class={period === p ? "seg-btn active" : "seg-btn"} onClick={() => setPeriod(p)}>
             {p === "all" ? "Toàn bộ" : p === "month" ? "Tháng này" : "7 ngày"}
           </button>
         ))}
@@ -105,7 +110,7 @@ export function ProductionDashboard() {
           </section>
         </>
       ) : (
-        <p class="muted small">Lỗi tải dữ liệu.</p>
+        <ErrorState msg={err || "Lỗi tải dữ liệu."} onRetry={load} />
       )}
     </div>
   );

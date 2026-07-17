@@ -277,7 +277,7 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
         <>
           <CustomerPicker onPick={assignCustomer} placeholder={custKey ? "Tìm khách mới…" : "Gán khách cho đơn…"} />
           {changingCust
-            ? <button class="btn small ghost" style="margin-top:8px" onClick={() => setChangingCust(false)}>Huỷ đổi khách</button>
+            ? <button class="btn small ghost mt-2" onClick={() => setChangingCust(false)}>Huỷ đổi khách</button>
             : <p class="muted small">Chưa gán khách — giá sẽ không tự lấy theo bảng giá.</p>}
         </>
       )}

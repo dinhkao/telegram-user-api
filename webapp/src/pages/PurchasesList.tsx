@@ -6,7 +6,7 @@ import { listAllPurchases, soVN, type PurchaseSlip } from "../api";
 import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { SearchBar } from "../ui/SearchBar";
-import { Loading, EmptyState } from "../ui/states";
+import { SkeletonList, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
 let purCache: { rows: PurchaseSlip[]; page: number; totalPages: number } | null = null;
@@ -35,6 +35,7 @@ export function PurchasesList() {
   const [q, setQ] = useState(memQ);
   useEffect(() => { memQ = q; }, [q]);
   const [loading, setLoading] = useState(!purCache);
+  const [err, setErr] = useState("");
   const [total, setTotal] = useState(0);
   const st = useRef({ page: purCache?.page || 1, totalPages: purCache?.totalPages || 1, loading: false });
   const sentinel = useRef<HTMLDivElement>(null);
@@ -49,7 +50,11 @@ export function PurchasesList() {
       st.current.totalPages = r.total_pages;
       setTotal(r.total);
       setRows((prev) => (append ? [...prev, ...r.purchases] : r.purchases));
-    } catch { /* im */ } finally {
+      setErr("");
+    } catch (e: any) {
+      // Lỗi nền khi đã có dữ liệu → giữ cache im lặng; chưa có gì thì hiện ErrorState
+      setErr(e?.message || "Lỗi tải phiếu nhập");
+    } finally {
       st.current.loading = false;
       setLoading(false);
     }
@@ -101,8 +106,9 @@ export function PurchasesList() {
         </a>
       </div>
       <a class="pur-ncc-link" href="#/ncc"><Icon name="users" size={14} /> Nhà cung cấp</a>
-      {loading && !rows.length && <Loading />}
-      {!loading && !rows.length && <EmptyState>Chưa có phiếu nhập hàng nào.</EmptyState>}
+      {loading && !rows.length && <SkeletonList />}
+      {!loading && !rows.length && err && <ErrorState msg={err} onRetry={() => load(1, false)} />}
+      {!loading && !rows.length && !err && <EmptyState>Chưa có phiếu nhập hàng nào.</EmptyState>}
       {!loading && rows.length > 0 && !visible.length && <EmptyState>Không có phiếu khớp "{q}".</EmptyState>}
       {groups.map((g) => (
         <div class="prod-group" key={g.key}>
@@ -136,8 +142,8 @@ export function PurchasesList() {
           ))}
         </div>
       ))}
-      <div ref={sentinel} style={{ height: "1px" }} />
-      {visible.length > 0 && <div class="muted small" style={{ textAlign: "center", padding: "10px" }}>{visible.length}/{total} phiếu</div>}
+      <div ref={sentinel} class="io-sentinel" />
+      {visible.length > 0 && <div class="muted small list-count">{visible.length}/{total} phiếu</div>}
     </div>
   );
 }

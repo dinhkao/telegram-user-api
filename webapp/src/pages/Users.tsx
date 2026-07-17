@@ -7,7 +7,7 @@ import {
   currentUser, ROLE_LABEL, type WebUser,
 } from "../api";
 import { Loading, EmptyState } from "../ui/states";
-import { toast, confirmDialog } from "../ui/feedback";
+import { toast, confirmDialog, promptDialog } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 import { SelectPopup } from "../ui/SelectPopup";
 
@@ -57,7 +57,7 @@ export function Users() {
   };
 
   const resetPin = async (u: WebUser) => {
-    const pin = prompt(`PIN mới cho "${u.username}":`);
+    const pin = await promptDialog(`PIN mới cho "${u.username}":`, { placeholder: "PIN mới", type: "tel", okLabel: "Đặt PIN" });
     if (pin == null) return;
     if (!pin.trim()) { toast("PIN trống", "err"); return; }
     setBusy(u.username);

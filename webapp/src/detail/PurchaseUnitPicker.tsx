@@ -1,8 +1,9 @@
 // Ô chọn ĐƠN VỊ NHẬP cho 1 dòng phiếu nhập hàng (PurchaseCreate + PurchaseEdit).
 // Hiện khi SP có trong danh mục (đã nạp đơn vị gốc); SP chưa có quy đổi vẫn có chỗ
 // chọn + option "➕ Thêm đơn vị quy đổi…" tạo ngay trong popup (addUnitChoice →
-// product_units, quyền văn phòng — cùng gate với tạo phiếu). SL + giá của dòng
-// tính theo đơn vị đã chọn; kèm nhãn "= X <gốc>" để khỏi nhầm.
+// product_units — tạo phiếu đã MỞ cho mọi user đăng nhập 2026-07-17, riêng THÊM
+// đơn vị quy đổi server vẫn gate văn phòng). SL + giá của dòng tính theo đơn vị
+// đã chọn; kèm nhãn "= X <gốc>" để khỏi nhầm.
 import { useState } from "preact/hooks";
 import { soVN } from "../api";
 import { SelectPopup } from "../ui/SelectPopup";

@@ -8,6 +8,7 @@ import { listMediaImages, mediaImageUrl, postJSON, type OrderImage } from "../ap
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
+import { useScrollLock } from "../useScrollLock";
 import { kindOf } from "./imageKinds";
 import { fastScrollToEl } from "../scroll";
 import { LoadingInline } from "../ui/states";
@@ -20,6 +21,7 @@ export function SoanHangPicker({ threadId, onClose, onDone, adminQuick, onAddPho
   onAddPhoto?: () => void;
 }) {
   usePopupBack(true, onClose);   // back → đóng popup trước
+  useScrollLock(true);           // khoá cuộn nền khi popup mở
   const base = `/api/order/${threadId}`;
   const [images, setImages] = useState<OrderImage[] | null>(null);
   const [sel, setSel] = useState<Set<number>>(new Set());
