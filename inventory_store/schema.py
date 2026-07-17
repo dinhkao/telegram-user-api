@@ -73,6 +73,8 @@ def migrate_inventory_table(conn):
         "product_id": "INTEGER",  # → products.id (danh tính SP bất biến; product_code = snapshot hiển thị)
         "source_purchase_id": "INTEGER",  # → purchase_slips.id (thùng tạo từ phiếu NHẬP HÀNG)
         "source_return_id": "INTEGER",  # → return_slips.id (thùng tạo từ HÀNG TRẢ về)
+        "unit_label": "TEXT",  # nhãn chứa SNAPSHOT (tên đơn vị NGUYÊN KIỆN lúc nhập —
+                               # docs/plan-don-vi-hang-hoa.md); ưu tiên hơn unit_id khi hiển thị
     }
     for name, typ in adds.items():
         if name not in cols:

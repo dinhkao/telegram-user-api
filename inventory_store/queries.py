@@ -46,15 +46,36 @@ def _reserved_fragment(conn) -> str:
     return _RESERVED_SUBQUERY if has_orders else "0 AS reserved_pending"
 
 
+def _display_unit_fragment(conn) -> tuple[str, str]:
+    """(cột select, JOIN) cho ĐƠN VỊ HIỂN THỊ của SP (vai 👁 — products.display_unit_id
+    > 0 → product_units; 0/NULL = đơn vị gốc, không cần quy đổi). Guard: bảng
+    product_units / cột display_unit_id có thể chưa tồn tại (DB test) → NULL tĩnh."""
+    try:
+        has_pu = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_units' LIMIT 1"
+        ).fetchone()
+        has_col = any(r[1] == "display_unit_id"
+                      for r in conn.execute("PRAGMA table_info(products)").fetchall())
+    except Exception:
+        has_pu = has_col = False
+    if not (has_pu and has_col):
+        return "NULL AS display_unit_name, NULL AS display_unit_factor", ""
+    return ("du.name AS display_unit_name, du.factor AS display_unit_factor",
+            "LEFT JOIN product_units du ON du.id = pr.display_unit_id AND pr.display_unit_id > 0 ")
+
+
 def add_boxes(conn, product_code, quantities, *, source_thread_id=None, source_purchase_id=None,
-              source_return_id=None, by=None, note=None, mfg_date=None, unit_id=None, place_id=None) -> list[dict]:
-    """Tạo N thùng mới cho product — SỐ GỌI 3 chữ số toàn kho, xoay vòng, nguyên tử.
+              source_return_id=None, by=None, note=None, mfg_date=None, unit_id=None, place_id=None,
+              unit_label=None) -> list[dict]:
+    """Tạo N thùng mới cho product — SỐ GỌI toàn kho (001–999 → A001…Z999), xoay
+    vòng, nguyên tử.
 
     Số bị chiếm = số của thùng còn hàng hoặc vô hiệu (nhãn còn dán trên thùng thật).
-    Điểm xoay = số gọi của thùng TẠO gần nhất (kể cả đã hết hàng). >999 thùng đang
-    hoạt động → ValueError (caller trả lỗi). Trả list box dict.
+    Điểm xoay = số gọi của thùng TẠO gần nhất (kể cả đã hết hàng). Hết 26.973 số
+    đang hoạt động → ValueError (caller trả lỗi). Trả list box dict.
     Ghi CẢ product_id (danh tính bất biến) + product_code (snapshot mã hiện hành —
-    nhận cả mã cũ, tự chuẩn hoá về mã hiện tại)."""
+    nhận cả mã cũ, tự chuẩn hoá về mã hiện tại). unit_label = nhãn chứa SNAPSHOT
+    (tên đơn vị nguyên kiện — ưu tiên hơn unit_id khi hiển thị)."""
     from product_store import resolve_code
     code = str(product_code).strip().upper()
     prod = resolve_code(conn, code)
@@ -76,16 +97,16 @@ def add_boxes(conn, product_code, quantities, *, source_thread_id=None, source_p
             box_code = call_code(n)
             cur = conn.execute(
                 "INSERT INTO inventory_boxes "
-                "(product_id, product_code, box_code, quantity, status, source_thread_id, source_purchase_id, source_return_id, note, mfg_date, unit_id, place_id, created_at, created_by) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "(product_id, product_code, box_code, quantity, status, source_thread_id, source_purchase_id, source_return_id, note, mfg_date, unit_id, place_id, unit_label, created_at, created_by) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (pid, code, box_code, float(q), "in_stock", source_thread_id, source_purchase_id,
-                 source_return_id, note or "", mfg_date or None, unit_id, place_id, now, by or ""),
+                 source_return_id, note or "", mfg_date or None, unit_id, place_id, unit_label or None, now, by or ""),
             )
             created.append({
                 "id": cur.lastrowid, "product_id": pid, "product_code": code, "box_code": box_code,
                 "quantity": float(q), "status": "in_stock", "mfg_date": mfg_date or None,
                 "source_thread_id": source_thread_id, "source_purchase_id": source_purchase_id,
-                "source_return_id": source_return_id,
+                "source_return_id": source_return_id, "unit_label": unit_label or None,
                 "created_at": now, "created_by": by or "",
             })
     return created
@@ -211,12 +232,16 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
     # subquery chạy lại cho TỪNG thùng). Semantics giữ nguyên: remaining =
     # quantity − allocated (allocation ÂM làm tăng remaining); transferred_in
     # chỉ cộng phần âm đã đảo dấu.
+    du_cols, du_join = _display_unit_fragment(conn)
     sql = (
         "WITH alloc_totals AS ("
         "SELECT box_id, SUM(quantity) AS allocated, "
         "SUM(CASE WHEN quantity < 0 THEN -quantity ELSE 0 END) AS transferred_in "
         "FROM box_allocations GROUP BY box_id) "
-        "SELECT b.*, p.name AS place_name, u.name AS unit_name, pr.unit AS product_unit, "
+        # unit_name = nhãn chứa: snapshot unit_label (đơn vị nguyên kiện lúc nhập) ưu
+        # tiên hơn inventory_units cũ
+        "SELECT b.*, p.name AS place_name, COALESCE(b.unit_label, u.name) AS unit_name, "
+        "pr.unit AS product_unit, " + du_cols + ", "
         "COALESCE(pr.code, b.product_code) AS product_code_live, "
         "COALESCE(al.allocated, 0) AS allocated, "
         "COALESCE(al.transferred_in, 0) AS transferred_in, "
@@ -225,7 +250,7 @@ def list_boxes(conn, *, product_code=None, status=None, source_thread_id=None,
         "LEFT JOIN alloc_totals al ON al.box_id = b.id "
         "LEFT JOIN inventory_places p ON p.id = b.place_id "
         "LEFT JOIN inventory_units u ON u.id = b.unit_id "
-        "LEFT JOIN products pr ON pr.id = b.product_id"
+        "LEFT JOIN products pr ON pr.id = b.product_id " + du_join
     )
     if where:
         sql += " WHERE " + " AND ".join(where)
@@ -288,15 +313,17 @@ def product_summary(conn) -> list[dict]:
 
 
 def get_box(conn, box_id) -> dict | None:
+    du_cols, du_join = _display_unit_fragment(conn)
     row = conn.execute(
-        "SELECT b.*, p.name AS place_name, u.name AS unit_name, pr.unit AS product_unit, "
+        "SELECT b.*, p.name AS place_name, COALESCE(b.unit_label, u.name) AS unit_name, "
+        "pr.unit AS product_unit, " + du_cols + ", "
         "COALESCE(pr.code, b.product_code) AS product_code_live, "
         "COALESCE((SELECT SUM(-a.quantity) FROM box_allocations a WHERE a.box_id=b.id AND a.quantity<0),0) AS transferred_in, "
         + _reserved_fragment(conn) +
         " FROM inventory_boxes b "
         "LEFT JOIN inventory_places p ON p.id = b.place_id "
         "LEFT JOIN inventory_units u ON u.id = b.unit_id "
-        "LEFT JOIN products pr ON pr.id = b.product_id WHERE b.id = ?",
+        "LEFT JOIN products pr ON pr.id = b.product_id " + du_join + "WHERE b.id = ?",
         (box_id,),
     ).fetchone()
     if not row:
