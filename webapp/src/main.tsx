@@ -394,7 +394,7 @@ function App() {
   // thì thêm body.modal-open (overflow:hidden) để nền không cuộn, khỏi phá cuộn
   // trong popup. Tự cover mọi popup hiện tại lẫn tương lai dùng các class overlay này.
   useEffect(() => {
-    const SEL = ".modal-overlay, .cf-backdrop, .pv-overlay";
+    const SEL = ".modal-overlay, .cf-backdrop, .pv-overlay, .camera-viewer";
     const update = () => document.body.classList.toggle("modal-open", !!document.querySelector(SEL));
     const mo = new MutationObserver(update);
     mo.observe(document.body, { childList: true, subtree: true });

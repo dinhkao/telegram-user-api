@@ -127,6 +127,23 @@ export function fmtRelative(at: any): string {
   return `${Math.floor(sec / (365 * 86400))} năm trước`;
 }
 
+/** Key ngày YYYY-MM-DD từ timestamp ISO — để nhóm list theo ngày. */
+export const dayKey = (at?: string) => (at || "").slice(0, 10);
+
+const _WD = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+/** Nhãn nhóm ngày chuẩn toàn app: "Hôm nay · T5 17/07" / "Hôm qua · …" /
+ *  "T2 14/07/2026" (ngày xa kèm năm). Nhận key từ dayKey(). */
+export function dayLabel(k: string): string {
+  if (!k) return "Không rõ ngày";
+  const d = new Date(k);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((today.getTime() - d.getTime()) / 86400000);
+  const lbl = `${_WD[d.getDay()]} ${k.slice(8)}/${k.slice(5, 7)}`;
+  if (diff === 0) return `Hôm nay · ${lbl}`;
+  if (diff === 1) return `Hôm qua · ${lbl}`;
+  return `${lbl}/${k.slice(0, 4)}`;
+}
+
 /** Tổng tiền hàng từ invoice (sl × price). */
 export function invoiceTotal(invoice: any[]): number {
   return (invoice || []).reduce((sum, it) => sum + (parseInt(it.price, 10) || 0) * (parseInt(it.sl ?? it.quantity, 10) || 0), 0);

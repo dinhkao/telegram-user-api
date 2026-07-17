@@ -29,6 +29,21 @@ let current: Confirm | null = null;
 const cfSubs = new Set<(c: Confirm | null) => void>();
 const emitCf = () => cfSubs.forEach((f) => f(current));
 
+type Prompt = { msg: string; placeholder: string; value: string; okLabel: string; cancelLabel: string; type: string; resolve: (v: string | null) => void };
+let currentPrompt: Prompt | null = null;
+const prSubs = new Set<(p: Prompt | null) => void>();
+const emitPr = () => prSubs.forEach((f) => f(currentPrompt));
+
+/** Hộp nhập liệu 1 ô → Promise<string|null> (null = huỷ). Thay prompt() native
+ *  (bị chặn/lệch tông trong WebView). type: "text" | "tel" | "number"… */
+export function promptDialog(msg: string, opts: { placeholder?: string; initial?: string; okLabel?: string; cancelLabel?: string; type?: string } = {}): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (currentPrompt) currentPrompt.resolve(null);
+    currentPrompt = { msg, placeholder: opts.placeholder ?? "", value: opts.initial ?? "", okLabel: opts.okLabel ?? "Đồng ý", cancelLabel: opts.cancelLabel ?? "Huỷ", type: opts.type ?? "text", resolve };
+    emitPr();
+  });
+}
+
 /** Hộp xác nhận tuỳ biến → Promise<boolean>. Thay confirm() native.
  *  imageUrl: kèm ảnh xem trước (vd ảnh hoá đơn trước khi in). */
 export function confirmDialog(msg: string, opts: { okLabel?: string; cancelLabel?: string; danger?: boolean; imageUrl?: string; content?: any } = {}): Promise<boolean> {
@@ -43,12 +58,15 @@ export function confirmDialog(msg: string, opts: { okLabel?: string; cancelLabel
 export function FeedbackHost() {
   const [ts, setTs] = useState<Toast[]>(toasts);
   const [cf, setCf] = useState<Confirm | null>(current);
+  const [pr, setPr] = useState<Prompt | null>(currentPrompt);
   useEffect(() => {
-    toastSubs.add(setTs); cfSubs.add(setCf);
-    return () => { toastSubs.delete(setTs); cfSubs.delete(setCf); };
+    toastSubs.add(setTs); cfSubs.add(setCf); prSubs.add(setPr);
+    return () => { toastSubs.delete(setTs); cfSubs.delete(setCf); prSubs.delete(setPr); };
   }, []);
   const close = (v: boolean) => { if (current) { current.resolve(v); current = null; emitCf(); } };
+  const closePr = (v: string | null) => { if (currentPrompt) { currentPrompt.resolve(v); currentPrompt = null; emitPr(); } };
   usePopupBack(!!cf, () => close(false));   // back → huỷ hộp xác nhận
+  usePopupBack(!!pr, () => closePr(null));
   // Render THẲNG vào <body> (portal) → thoát mọi ancestor có transform/filter tạo
   // containing-block cho position:fixed, nên toast/hộp xác nhận luôn center theo viewport.
   const ui = (
@@ -56,6 +74,23 @@ export function FeedbackHost() {
       {ts.length > 0 && (
         <div class="toast-host">
           {ts.map((t) => <div key={t.id} class={`toast-item ${t.kind}`}>{t.msg}</div>)}
+        </div>
+      )}
+      {pr && (
+        <div class="cf-backdrop" onClick={() => closePr(null)}>
+          <div class="cf-box" onClick={(e: any) => e.stopPropagation()}>
+            <p class="cf-msg">{pr.msg}</p>
+            <input
+              class="cf-input" type={pr.type} placeholder={pr.placeholder} value={pr.value}
+              autofocus
+              onInput={(e: any) => { if (currentPrompt) currentPrompt.value = e.target.value; }}
+              onKeyDown={(e: any) => { if (e.key === "Enter") closePr(currentPrompt?.value ?? null); }}
+            />
+            <div class="cf-actions">
+              <button class="btn" onClick={() => closePr(null)}>{pr.cancelLabel}</button>
+              <button class="btn primary" onClick={() => closePr(currentPrompt?.value ?? null)}>{pr.okLabel}</button>
+            </div>
+          </div>
         </div>
       )}
       {cf && (
