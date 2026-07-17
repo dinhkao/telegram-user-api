@@ -1648,7 +1648,7 @@ export async function createProduct(code: string, name = "", unit = ""): Promise
   return { product: d.product, existed: !!d.existed };
 }
 /** Sửa SP (đơn vị / tên / ghi chú). */
-export async function updateProduct(code: string, patch: { unit?: string; name?: string; note?: string; can_produce_directly?: boolean; can_package?: boolean; self_container?: boolean; min_stock?: number; can_sell?: boolean; can_purchase?: boolean; aux_required?: boolean }): Promise<InvProductLink | null> {
+export async function updateProduct(code: string, patch: { unit?: string; name?: string; note?: string; can_produce_directly?: boolean; can_package?: boolean; self_container?: boolean; min_stock?: number; can_sell?: boolean; can_purchase?: boolean; aux_required?: boolean; bulk_unit_id?: number | null; display_unit_id?: number | null; stocktake_unit_id?: number | null }): Promise<InvProductLink | null> {
   const d = await postJSON(`/api/products/${encodeURIComponent(code)}`, patch, { queueable: false });
   return d.ok ? d.product : null;
 }
@@ -1690,10 +1690,18 @@ export async function deleteProduct(code: string): Promise<any> {
 
 // ── QUY ĐỔI ĐƠN VỊ hàng hoá: 1 SP nhiều đơn vị, factor = 1 đơn vị = ? đơn vị gốc ──
 export type ProductUnit = { id: number; name: string; factor: number; note?: string };
-/** Danh sách đơn vị quy đổi của SP + đơn vị gốc. */
-export async function listProductUnits(code: string): Promise<{ base_unit: string; units: ProductUnit[] }> {
+/** VAI đơn vị của SP: null = không chỉ định · 0 = đơn vị gốc · >0 = ProductUnit.id.
+ *  bulk = 📦 nguyên kiện (nhập 1 kiện = 1 dòng thùng) · display = 👁 số trên ô thùng ·
+ *  stocktake = 📋 đơn vị bắt buộc khi kiểm kho. */
+export type ProductUnitRoles = {
+  bulk_unit_id: number | null; display_unit_id: number | null; stocktake_unit_id: number | null;
+};
+/** Danh sách đơn vị quy đổi của SP + đơn vị gốc + vai đơn vị. */
+export async function listProductUnits(code: string): Promise<{ base_unit: string; units: ProductUnit[]; roles: ProductUnitRoles }> {
   const d = await getJSON(`/api/products/${encodeURIComponent(code)}/units`, { cache: false });
-  return { base_unit: d.base_unit || "cây", units: d.units || [] };
+  const r = d.roles || {};
+  return { base_unit: d.base_unit || "cây", units: d.units || [],
+           roles: { bulk_unit_id: r.bulk_unit_id ?? null, display_unit_id: r.display_unit_id ?? null, stocktake_unit_id: r.stocktake_unit_id ?? null } };
 }
 /** Thêm đơn vị quy đổi (văn phòng). */
 export async function addProductUnit(code: string, name: string, factor: number): Promise<ProductUnit> {

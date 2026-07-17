@@ -2,12 +2,22 @@
 // (products.unit) + nhiều đơn vị phụ với tỉ lệ: 1 <đơn vị phụ> = factor <gốc>.
 // Nút ⇄ đổi CHIỀU phương trình từng dòng ("1 thùng = 30 cây" ⇄ "1 cây = 0,033 thùng")
 // cho dễ nhập tỉ lệ nhỏ — DB luôn lưu 1 chiều (factor = số gốc / 1 đơn vị phụ).
-// Sửa/thêm = văn phòng, xoá = admin (server gate). Data: listProductUnits/
-// addProductUnit/updateProductUnit/deleteProductUnit (api.ts).
+// VAI ĐƠN VỊ (docs/plan-don-vi-hang-hoa.md): 3 dòng chip 📦 nguyên kiện / 👁 hiển thị
+// ô thùng / 📋 kiểm kho — mỗi vai chọn tối đa 1 đơn vị (gốc hoặc phụ), tap lại = bỏ;
+// lưu qua updateProduct({<vai>_unit_id}). Sửa/thêm = văn phòng, xoá = admin (server
+// gate). Data: listProductUnits (kèm roles)/addProductUnit/updateProductUnit/
+// deleteProductUnit + updateProduct (api.ts).
 import { useEffect, useState } from "preact/hooks";
-import { listProductUnits, addProductUnit, updateProductUnit, deleteProductUnit, isOffice, currentUser, soVN, type ProductUnit } from "../api";
+import { listProductUnits, addProductUnit, updateProductUnit, deleteProductUnit, updateProduct, isOffice, currentUser, soVN, type ProductUnit, type ProductUnitRoles } from "../api";
 import { Icon } from "../ui/Icon";
 import { confirmDialog, toast } from "../ui/feedback";
+
+const ROLE_DEFS: { key: keyof ProductUnitRoles; icon: string; label: string; hint: string }[] = [
+  { key: "bulk_unit_id", icon: "📦", label: "Nguyên kiện", hint: "nhập hàng bằng đơn vị này: mỗi kiện = 1 thùng riêng, khỏi chọn đơn vị chứa" },
+  { key: "display_unit_id", icon: "👁", label: "Hiển thị ô thùng", hint: "số trên ô thùng mọi nơi quy đổi sang đơn vị này (chỉ hiển thị)" },
+  { key: "stocktake_unit_id", icon: "📋", label: "Kiểm kho", hint: "phiếu kiểm kho bắt đếm bằng đơn vị này + ô số lẻ đơn vị gốc" },
+];
+const NO_ROLES: ProductUnitRoles = { bulk_unit_id: null, display_unit_id: null, stocktake_unit_id: null };
 
 // Hiện số gọn kiểu VN: tối đa 6 số lẻ, bỏ 0 thừa, dấu phẩy thập phân ("0,0333", "30")
 const fmt = (x: number) => String(Math.round(x * 1e6) / 1e6).replace(".", ",");
@@ -23,8 +33,9 @@ export function ProductUnits({ code, baseUnit }: { code: string; baseUnit: strin
   const [nFlip, setNFlip] = useState(false);                       // dòng mới đang đảo chiều?
   const [edit, setEdit] = useState<Record<number, string>>({});    // id → draft số đang gõ
   const [flip, setFlip] = useState<Record<number, boolean>>({});   // id → dòng đang đảo chiều?
+  const [roles, setRoles] = useState<ProductUnitRoles>(NO_ROLES);
 
-  const load = () => listProductUnits(code).then((d) => { setUnits(d.units); setBase(d.base_unit); }).catch(() => {});
+  const load = () => listProductUnits(code).then((d) => { setUnits(d.units); setBase(d.base_unit); setRoles(d.roles); }).catch(() => {});
   useEffect(() => { load(); }, [code]);
   useEffect(() => { setBase(baseUnit || "cây"); }, [baseUnit]);   // đổi đơn vị gốc ở trên → nhãn cập nhật
 
@@ -38,6 +49,8 @@ export function ProductUnits({ code, baseUnit }: { code: string; baseUnit: strin
       toast("Đã thêm đơn vị", "ok"); load();
     } catch (e: any) { toast(e?.message || "Lỗi thêm đơn vị", "err"); }
   };
+  const heldRoles = (unitId: number) =>
+    ROLE_DEFS.filter((rd) => roles[rd.key] === unitId).map((rd) => rd.label);
   const saveFactor = async (u: ProductUnit) => {
     const raw = edit[u.id];
     setEdit((d) => { const n = { ...d }; delete n[u.id]; return n; });
@@ -46,8 +59,25 @@ export function ProductUnits({ code, baseUnit }: { code: string; baseUnit: strin
     if (!v || v <= 0) return;
     const f = flip[u.id] ? 1 / v : v;
     if (Math.abs(f - u.factor) < 1e-9) return;
+    // Đơn vị đang giữ vai: đổi tỉ lệ đổi luôn cách đọc số kiện/hiển thị của thùng cũ
+    const held = heldRoles(u.id);
+    if (held.length && !(await confirmDialog(
+      `"${u.name}" đang là đơn vị ${held.join(" + ")}. Đổi tỉ lệ sẽ đổi cách quy đổi ở các chỗ đó (số gốc trong kho không đổi). Lưu?`))) { return; }
     try { await updateProductUnit(code, u.id, u.name, f); toast("Đã lưu tỉ lệ", "ok"); load(); }
     catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
+  };
+  // VAI đơn vị: tap chip = chọn, tap lại = bỏ. value: 0 = đơn vị gốc, >0 = đơn vị phụ.
+  const setRole = async (key: keyof ProductUnitRoles, value: number | null) => {
+    const prev = roles;
+    setRoles((r) => ({ ...r, [key]: value }));   // optimistic — lỗi thì revert
+    try { await updateProduct(code, { [key]: value }); }
+    catch (e: any) { setRoles(prev); toast(e?.message || "Lỗi lưu vai đơn vị", "err"); }
+  };
+  const setAllRoles = async (value: number) => {
+    const prev = roles;
+    setRoles({ bulk_unit_id: value, display_unit_id: value, stocktake_unit_id: value });
+    try { await updateProduct(code, { bulk_unit_id: value, display_unit_id: value, stocktake_unit_id: value }); toast("Đã đặt cả 3 vai", "ok"); }
+    catch (e: any) { setRoles(prev); toast(e?.message || "Lỗi lưu vai đơn vị", "err"); }
   };
   const del = async (u: ProductUnit) => {
     if (!(await confirmDialog(`Xoá đơn vị "${u.name}" (1 ${u.name} = ${soVN(u.factor)} ${base})?`, { danger: true }))) return;
@@ -60,7 +90,8 @@ export function ProductUnits({ code, baseUnit }: { code: string; baseUnit: strin
     setFlip((m) => ({ ...m, [id]: !m[id] }));
   };
 
-  if (!units.length && !office) return null;   // staff: không có gì thì ẩn hẳn khối
+  const anyRoleSet = ROLE_DEFS.some((rd) => roles[rd.key] !== null);
+  if (!units.length && !office && !anyRoleSet) return null;   // staff: không có gì thì ẩn hẳn khối
 
   return (
     <div class="punit-box">
@@ -91,6 +122,40 @@ export function ProductUnits({ code, baseUnit }: { code: string; baseUnit: strin
         );
       })}
       {!units.length && <div class="punit-empty">Chưa có đơn vị quy đổi — vd: 1 thùng = 30 {base}.</div>}
+      {(() => {
+        // VAI ĐƠN VỊ — office sửa được; staff chỉ thấy vai đã gán
+        const opts = [{ id: 0, name: `${base} (gốc)` }, ...units.map((u) => ({ id: u.id, name: u.name }))];
+        const anySet = ROLE_DEFS.some((rd) => roles[rd.key] !== null);
+        if (!office && !anySet) return null;
+        const nameOf = (v: number | null) => v === null ? null : (opts.find((o) => o.id === v)?.name || "?");
+        return (
+          <div class="punit-roles">
+            {ROLE_DEFS.map((rd) => (
+              (office || roles[rd.key] !== null) && (
+                <div class="punit-role-row" key={rd.key}>
+                  <span class="punit-role-label" title={rd.hint}>{rd.icon} {rd.label}</span>
+                  {office ? opts.map((o) => {
+                    const on = roles[rd.key] === o.id;
+                    return (
+                      <button key={o.id} class={"punit-role-chip" + (on ? " on" : "")}
+                        title={rd.hint} onClick={() => setRole(rd.key, on ? null : o.id)}>{o.name}</button>
+                    );
+                  }) : <b>{nameOf(roles[rd.key])}</b>}
+                </div>
+              )
+            ))}
+            {office && opts.length > 1 && (
+              <div class="punit-role-row">
+                <span class="punit-role-label muted">⚡ Cả 3 vai</span>
+                {opts.map((o) => (
+                  <button key={o.id} class="punit-role-chip" onClick={() => setAllRoles(o.id)}>{o.name}</button>
+                ))}
+              </div>
+            )}
+            <div class="punit-role-hint">Nguyên kiện: nhập hàng khỏi chọn đơn vị chứa · Hiển thị: số trên ô thùng · Kiểm kho: đơn vị bắt buộc khi đếm</div>
+          </div>
+        );
+      })()}
       {adding && (
         <>
           <div class="punit-row punit-new">

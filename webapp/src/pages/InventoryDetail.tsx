@@ -49,6 +49,13 @@ export function InventoryDetail({ code }: { code: string }) {
     try {
       const p = await updateProduct(code, { unit: u });
       if (p && inv) { setInv({ ...inv, product: p }); setUnitSaved(true); setTimeout(() => setUnitSaved(false), 1500); }
+      // GỢI Ý (không tự suy nữa): đơn vị đếm thùng/kiện thường là SP nguyên kiện →
+      // đề nghị gán vai 📦 cho đơn vị gốc (docs/plan-don-vi-hang-hoa.md)
+      if (p && !p.self_container && ["thùng", "kiện"].includes(u.toLowerCase())
+          && (await confirmDialog(`Đơn vị "${u}" thường là SP NGUYÊN KIỆN (mỗi ${u} = 1 thùng riêng, nhập kho khỏi chọn đơn vị chứa). Bật vai 📦 nguyên kiện?`))) {
+        const p2 = await updateProduct(code, { bulk_unit_id: 0 });
+        if (p2) { setInv((cur) => cur ? { ...cur, product: p2 } : cur); toast("Đã bật vai nguyên kiện (đơn vị gốc)", "ok"); }
+      }
     } catch { /* im */ }
   };
   // Tồn kho tối thiểu (ngưỡng cảnh báo) — sửa như Đơn vị (blur là lưu)
@@ -340,14 +347,14 @@ export function InventoryDetail({ code }: { code: string }) {
               options={(["cây", "kg", "gói", "bịch", "hũ", "cái", "hộp", "lốc", "thùng", "kiện"].includes(unitInput)
                 ? ["cây", "kg", "gói", "bịch", "hũ", "cái", "hộp", "lốc", "thùng", "kiện"]
                 : [unitInput, "cây", "kg", "gói", "bịch", "hũ", "cái", "hộp", "lốc", "thùng", "kiện"].filter(Boolean))
-                .map((u) => ({ value: u, label: u, sub: (u === "thùng" || u === "kiện") ? "⚠ SP nguyên kiện — bán theo thùng, nhập theo số thùng" : undefined }))}
+                .map((u) => ({ value: u, label: u, sub: (u === "thùng" || u === "kiện") ? "Thường là SP nguyên kiện — gán vai 📦 ở khối Quy đổi đơn vị" : undefined }))}
               onChange={(v: string) => saveUnit(v)} />
           </div>
         </div>
-        {["thùng", "kiện"].includes((unitInput || "").trim().toLowerCase()) && (
+        {inv.product?.self_container && (
           <div class="muted small unit-self-note" style={{ margin: "-4px 0 8px" }}>
-            <Icon name="tag" size={13} /> Đơn vị "{unitInput}" = <b>SP nguyên kiện</b> — bản thân là 1 thùng, bán theo thùng.
-            Nhập kho theo <b>số thùng</b> (mỗi thùng 1 đơn vị, không chọn đơn vị chứa), và có nút <b>Trả về nguyên liệu</b> ở chi tiết thùng.
+            <Icon name="tag" size={13} /> SP <b>nguyên kiện</b> (vai 📦 ở khối Quy đổi đơn vị) — mỗi kiện = 1 thùng riêng,
+            nhập kho <b>khỏi chọn đơn vị chứa</b>, và có nút <b>Trả về nguyên liệu</b> ở chi tiết thùng.
           </div>
         )}
         {inv.product && <ProductUnits code={inv.product_code || code} baseUnit={inv.product?.unit || "cây"} />}
