@@ -247,6 +247,29 @@ def run_boot_migrations() -> None:
             conn.commit()
     except Exception:  # noqa: BLE001
         log.exception("reset aux_required default off thất bại (bỏ qua)")
+    # VAI đơn vị (docs/plan-don-vi-hang-hoa.md): SP self-container cũ (đơn vị đếm
+    # thùng/kiện — trước đây SUY tự động) → chỉ định vai NGUYÊN KIỆN = đơn vị gốc
+    # (bulk_unit_id = 0) MỘT LẦN để giữ nguyên hành vi. Lọc bằng Python vì lower()
+    # của SQLite chỉ fold ASCII ('THÙNG' không khớp 'thùng' trong SQL).
+    try:
+        _m = "migrate/unit_roles_v1"
+        if not conn.execute("SELECT value FROM kv_store WHERE path = ?", (_m,)).fetchone():
+            from product_store.queries import is_self_container_unit
+            _rows = conn.execute(
+                "SELECT id, unit FROM products WHERE bulk_unit_id IS NULL").fetchall()
+            _ids = [r[0] for r in _rows if is_self_container_unit(r[1])]
+            if _ids:
+                conn.executemany("UPDATE products SET bulk_unit_id = 0 WHERE id = ?",
+                                 [(i,) for i in _ids])
+            conn.execute("INSERT INTO kv_store (path, value, updated_at) VALUES (?, '1', ?) "
+                         "ON CONFLICT(path) DO NOTHING", (_m, int(time.time() * 1000)))
+            conn.commit()
+            if _ids:
+                from product_store.schema import _invalidate_products_cache
+                _invalidate_products_cache()
+                log.info("unit_roles_v1: gán vai nguyên kiện (đơn vị gốc) cho %d SP", len(_ids))
+    except Exception:  # noqa: BLE001
+        log.exception("backfill unit_roles_v1 thất bại (bỏ qua)")
     # sản xuất: product_id trên slip + report_rows (backfill theo sp_name/mã)
     from production_store.schema import create_production_table, migrate_production_table
     from production_store.report_rows import ensure_report_rows_schema

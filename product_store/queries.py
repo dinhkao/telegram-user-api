@@ -5,12 +5,14 @@ from typing import Optional
 from .schema import _PRODUCTS_CACHE_TTL, _invalidate_products_cache, _products_cache
 
 
-_COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material, prod_mam, prod_luong, can_produce_directly, can_package, min_stock, self_container, can_sell, can_purchase, aux_required"
+_COLS = "id, code, name, cost_price, note, kv_id, kv_full_name, kv_synced_at, created_at, updated_at, unit, is_material, prod_mam, prod_luong, can_produce_directly, can_package, min_stock, self_container, can_sell, can_purchase, aux_required, bulk_unit_id, display_unit_id, stocktake_unit_id"
 _FIELDS = tuple(c.strip() for c in _COLS.split(","))
 
-# SP "tự-là-thùng" = SP có ĐƠN VỊ ĐẾM là đơn vị nguyên kiện (thùng/kiện): bản thân nó
-# LÀ 1 thùng, không nằm trong thùng khác. Suy TỰ ĐỘNG từ đơn vị (không cần cờ bật tay
-# → khỏi quên như KDDT12). Muốn thêm loại nguyên kiện khác thì thêm vào set này.
+_UNSET = object()   # phân biệt "không truyền" với None (= xoá chỉ định vai)
+
+# LEGACY (trước 2026-07-17): SP nguyên kiện từng suy TỰ ĐỘNG từ tên đơn vị đếm.
+# Giờ nguyên kiện = VAI chỉ định (bulk_unit_id — xem _row). Set này chỉ còn dùng cho
+# backfill 1 lần ở db_migrate + GỢI Ý bật vai trên UI.
 _SELF_CONTAINER_UNITS = {"thùng", "kiện"}
 
 
@@ -26,7 +28,9 @@ def _row(r) -> dict:
     d["can_produce_directly"] = d.get("can_produce_directly") != 0   # SX trực tiếp được (mặc định True)
     d["can_package"] = d.get("can_package") == 1     # đóng gói từ NL được (mặc định False)
     d["min_stock"] = float(d.get("min_stock") or 0)   # tồn kho tối thiểu
-    d["self_container"] = is_self_container_unit(d.get("unit"))   # suy từ đơn vị (thùng/kiện)
+    # SP nguyên kiện = ĐÃ CHỈ ĐỊNH vai 📦 (NULL = không; 0 = đơn vị gốc; >0 = đơn vị phụ).
+    # Cột self_container cũ trong DB không dùng nữa — giữ key trong payload cho client.
+    d["self_container"] = d.get("bulk_unit_id") is not None
     d["can_sell"] = d.get("can_sell") != 0           # có thể bán (mặc định True)
     d["can_purchase"] = d.get("can_purchase") != 0   # có thể nhập từ NCC (mặc định True)
     d["aux_required"] = d.get("aux_required") == 1   # yêu cầu trừ NL PHỤ khi SX (mặc định False/TẮT)
@@ -59,7 +63,7 @@ def get_all_products(conn, *, _use_cache: bool = True) -> list[dict]:
     return result
 
 
-def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, prod_mam: float = None, prod_luong: float = None, can_produce_directly: bool = None, can_package: bool = None, min_stock: float = None, self_container: bool = None, can_sell: bool = None, can_purchase: bool = None, aux_required: bool = None) -> bool:
+def upsert_product(conn, code: str, name: str = None, cost_price: int = None, note: str = None, unit: str = None, prod_mam: float = None, prod_luong: float = None, can_produce_directly: bool = None, can_package: bool = None, min_stock: float = None, self_container: bool = None, can_sell: bool = None, can_purchase: bool = None, aux_required: bool = None, bulk_unit_id=_UNSET, display_unit_id=_UNSET, stocktake_unit_id=_UNSET) -> bool:
     code = code.upper().strip()
     if not code:
         return False
@@ -93,6 +97,11 @@ def upsert_product(conn, code: str, name: str = None, cost_price: int = None, no
             updates.append("can_purchase = ?"); params.append(1 if can_purchase else 0)
         if aux_required is not None:
             updates.append("aux_required = ?"); params.append(1 if aux_required else 0)
+        # VAI đơn vị: _UNSET = không đổi; None = XOÁ chỉ định; 0 = đơn vị gốc; >0 = product_units.id
+        for _col, _val in (("bulk_unit_id", bulk_unit_id), ("display_unit_id", display_unit_id),
+                           ("stocktake_unit_id", stocktake_unit_id)):
+            if _val is not _UNSET:
+                updates.append(f"{_col} = ?"); params.append(int(_val) if _val is not None else None)
         if not updates:
             return True
         updates.append("updated_at = ?"); params.extend([now, code])

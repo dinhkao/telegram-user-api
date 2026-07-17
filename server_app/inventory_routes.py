@@ -979,8 +979,10 @@ async def box_detail_handler(request: web.Request):
             box = get_box(conn, box_id)
             if not box:
                 return None, None, None, None, None, None, None
-            from product_store.queries import is_self_container_unit
-            box["self_container"] = is_self_container_unit(box.get("product_unit"))
+            # SP nguyên kiện = SP có VAI 📦 (bulk_unit_id) — nguồn duy nhất, hết suy từ tên đơn vị
+            from product_store.queries import get_product as _get_prod
+            _bprod = _get_prod(conn, box.get("product_code") or "")
+            box["self_container"] = bool(_bprod and _bprod.get("self_container"))
             allocs = list_box_allocations(conn, box_id)
             for a in allocs:
                 kind = a.get("kind") or "order"

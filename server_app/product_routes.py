@@ -66,8 +66,13 @@ async def product_create_handler(request: web.Request):
     return web.json_response({"ok": True, "product": product, "existed": existed})
 
 
+_ROLE_KEYS = ("bulk_unit_id", "display_unit_id", "stocktake_unit_id")   # VAI đơn vị (📦/👁/📋)
+
+
 async def product_update_handler(request: web.Request):
-    """Sửa SP (đơn vị / tên / ghi chú). Body {unit?, name?, note?}."""
+    """Sửa SP (đơn vị / tên / ghi chú / vai đơn vị…). Body {unit?, name?, note?, …,
+    bulk_unit_id?, display_unit_id?, stocktake_unit_id?} — vai: key có mặt là SET
+    (null = xoá chỉ định, 0 = đơn vị gốc, >0 = product_units.id của đúng SP)."""
     code = (request.match_info.get("code") or "").upper().strip()
     if not code:
         return web.json_response({"ok": False, "error": "Thiếu mã SP"}, status=400)
@@ -75,32 +80,43 @@ async def product_update_handler(request: web.Request):
         body = await request.json()
     except Exception:
         body = {}
+    role_patch = {k: body[k] for k in _ROLE_KEYS if k in body}
 
     def _run():
         conn = _get_connection()
         try:
-            if not get_product(conn, code):
-                return None
+            product = get_product(conn, code)
+            if not product:
+                return None, None
+            from product_store import units as pu
+            for k, v in role_patch.items():
+                verr = pu.validate_role_value(conn, int(product["id"]), v)
+                if verr:
+                    return None, f"{verr} ({k})"
+            role_kwargs = {k: (int(v) if v is not None else None) for k, v in role_patch.items()}
             upsert_product(conn, code,
                            name=body.get("name") if body.get("name") is not None else None,
                            note=body.get("note") if body.get("note") is not None else None,
                            unit=body.get("unit") if body.get("unit") is not None else None,
                            can_produce_directly=bool(body.get("can_produce_directly")) if body.get("can_produce_directly") is not None else None,
                            can_package=bool(body.get("can_package")) if body.get("can_package") is not None else None,
-                           self_container=bool(body.get("self_container")) if body.get("self_container") is not None else None,
                            min_stock=body.get("min_stock") if body.get("min_stock") is not None else None,
                            can_sell=bool(body.get("can_sell")) if body.get("can_sell") is not None else None,
                            can_purchase=bool(body.get("can_purchase")) if body.get("can_purchase") is not None else None,
-                           aux_required=bool(body.get("aux_required")) if body.get("aux_required") is not None else None)
-            return get_product(conn, code)
+                           aux_required=bool(body.get("aux_required")) if body.get("aux_required") is not None else None,
+                           **role_kwargs)
+            return get_product(conn, code), None
         finally:
             conn.close()
-    product = await asyncio.to_thread(_run)
+    product, perr = await asyncio.to_thread(_run)
+    if perr:
+        return web.json_response({"ok": False, "error": perr}, status=400)
     if not product:
         return web.json_response({"ok": False, "error": "Mã SP không tồn tại"}, status=404)
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
-    _fields = ", ".join(k for k in ("name", "unit", "note", "can_produce_directly", "can_package", "can_sell", "can_purchase", "aux_required") if body.get(k) is not None)
+    _fields = ", ".join([k for k in ("name", "unit", "note", "can_produce_directly", "can_package", "can_sell", "can_purchase", "aux_required") if body.get(k) is not None]
+                        + list(role_patch.keys()))
     _audit_product("product.updated", product, _actor(request), fields=_fields)
     return web.json_response({"ok": True, "product": product})
 

@@ -47,7 +47,8 @@ async def _product_or_404(request: web.Request):
 
 
 async def product_units_list_handler(request: web.Request):
-    """GET → {ok, base_unit, units:[{id,name,factor,note}]}."""
+    """GET → {ok, base_unit, units:[{id,name,factor,note}], roles:{bulk_unit_id,
+    display_unit_id, stocktake_unit_id}} — vai: null = không, 0 = gốc, >0 = unit id."""
     product, err = await _product_or_404(request)
     if err:
         return err
@@ -59,8 +60,10 @@ async def product_units_list_handler(request: web.Request):
         finally:
             conn.close()
     units = await asyncio.to_thread(_run)
+    roles = {k: product.get(k) for k in ("bulk_unit_id", "display_unit_id", "stocktake_unit_id")}
     return web.json_response({"ok": True, "product_id": product["id"],
-                              "base_unit": product.get("unit") or "cây", "units": units})
+                              "base_unit": product.get("unit") or "cây", "units": units,
+                              "roles": roles})
 
 
 async def product_unit_add_handler(request: web.Request):
@@ -145,9 +148,10 @@ async def product_unit_delete_handler(request: web.Request):
             return pu.delete_unit(conn, int(product["id"]), uid)
         finally:
             conn.close()
-    unit = await asyncio.to_thread(_run)
-    if not unit:
-        return web.json_response({"ok": False, "error": "Không tìm thấy đơn vị"}, status=404)
+    unit, derr = await asyncio.to_thread(_run)
+    if derr:
+        status = 404 if "Không tìm thấy" in derr else 400
+        return web.json_response({"ok": False, "error": derr}, status=status)
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
     _audit("product.unit_deleted", product, _actor(request), unit=unit["name"], factor=unit["factor"])

@@ -29,7 +29,10 @@ _PRODUCT_COLS_SQL = """
             self_container INTEGER DEFAULT 0,
             can_sell      INTEGER DEFAULT 1,
             can_purchase  INTEGER DEFAULT 1,
-            aux_required  INTEGER DEFAULT 0
+            aux_required  INTEGER DEFAULT 0,
+            bulk_unit_id  INTEGER,
+            display_unit_id INTEGER,
+            stocktake_unit_id INTEGER
 """
 
 
@@ -96,6 +99,14 @@ def migrate_products_table(conn):
         conn.execute("ALTER TABLE products ADD COLUMN can_purchase INTEGER DEFAULT 1")
     if "aux_required" not in columns:   # YÊU CẦU trừ NGUYÊN LIỆU PHỤ khi sản xuất (mặc định TẮT — bật opt-in ở chi tiết SP)
         conn.execute("ALTER TABLE products ADD COLUMN aux_required INTEGER DEFAULT 0")
+    # VAI đơn vị (2026-07-17, docs/plan-don-vi-hang-hoa.md). Quy ước chung 3 cột:
+    # NULL = không chỉ định · 0 = đơn vị GỐC (products.unit) · >0 = product_units.id.
+    if "bulk_unit_id" not in columns:       # 📦 NGUYÊN KIỆN: nhập bằng đơn vị này → 1 kiện = 1 dòng thùng, khỏi chọn đơn vị chứa
+        conn.execute("ALTER TABLE products ADD COLUMN bulk_unit_id INTEGER")
+    if "display_unit_id" not in columns:    # 👁 HIỂN THỊ: số trên ô thùng quy đổi sang đơn vị này (chỉ hiển thị)
+        conn.execute("ALTER TABLE products ADD COLUMN display_unit_id INTEGER")
+    if "stocktake_unit_id" not in columns:  # 📋 KIỂM KHO: phiếu kiểm bắt đếm bằng đơn vị này + ô lẻ đơn vị gốc
+        conn.execute("ALTER TABLE products ADD COLUMN stocktake_unit_id INTEGER")
     if "id" not in columns:
         _rebuild_with_id(conn)
     _create_history_table(conn)

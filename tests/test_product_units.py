@@ -34,7 +34,8 @@ class ProductUnitsTest(unittest.TestCase):
         u2, err = pu.update_unit(self.conn, self.pid, u["id"], "thùng", 24, "cây")
         self.assertIsNone(err)
         self.assertEqual(pu.list_units(self.conn, self.pid)[0]["factor"], 24.0)
-        gone = pu.delete_unit(self.conn, self.pid, u["id"])
+        gone, derr = pu.delete_unit(self.conn, self.pid, u["id"])
+        self.assertIsNone(derr)
         self.assertEqual(gone["name"], "thùng")
         self.assertEqual(pu.list_units(self.conn, self.pid), [])
 
