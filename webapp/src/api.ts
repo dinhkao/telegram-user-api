@@ -1266,6 +1266,10 @@ export type StocktakeItem = {
   id: number; stocktake_id: number; box_id: number; box_code: string; product_code: string;
   product_unit?: string; expected_quantity: number; actual_quantity: number | null;
   difference: number | null; note?: string | null;
+  /** Vai 📋 (snapshot lúc tạo phiếu): bắt đếm bằng đơn vị này + ô lẻ đơn vị gốc.
+   *  counted_bulk/loose = số THÔ người đếm nhập (actual = bulk × factor + loose). */
+  count_unit_name?: string | null; count_unit_factor?: number | null;
+  counted_bulk?: number | null; counted_loose?: number | null;
 };
 export type StocktakeSummary = {
   box_count: number; counted_count: number; deviation_count: number;
@@ -1302,7 +1306,9 @@ export async function getStocktake(id: string | number): Promise<Stocktake> {
   const d = await getJSON(`/api/stocktakes/${Number(id)}`, { cache: false });
   return d.stocktake;
 }
-export async function saveStocktake(id: string | number, counts: { id: number; actual_quantity: number | null; note?: string }[], note: string | undefined, sid: string): Promise<Stocktake> {
+/** counts: dòng thường {actual_quantity}; dòng có đơn vị kiểm (vai 📋) gửi số THÔ
+ *  {counted_bulk, counted_loose} — server quy về gốc (bulk × factor + loose). */
+export async function saveStocktake(id: string | number, counts: { id: number; actual_quantity?: number | null; counted_bulk?: number | null; counted_loose?: number | null; note?: string }[], note: string | undefined, sid: string): Promise<Stocktake> {
   const d = await postJSON(`/api/stocktakes/${Number(id)}`, { counts, note, sid, user: _actor() }, { queueable: false });
   return d.stocktake;
 }

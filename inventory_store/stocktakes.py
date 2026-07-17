@@ -67,12 +67,46 @@ def create_stocktake_tables(conn) -> None:
     for name in ("applied_at", "applied_by", "applied_result"):
         if name not in cols:
             conn.execute(f"ALTER TABLE inventory_stocktakes ADD COLUMN {name} TEXT")
+    # 2026-07-17 (docs/plan-don-vi-hang-hoa.md): ĐƠN VỊ BẮT BUỘC khi kiểm (vai 📋) —
+    # snapshot (tên, factor) từng dòng lúc tạo/resync + số đếm THÔ (N kiện + M lẻ)
+    # để audit đọc đúng thao tác người đếm; actual_quantity vẫn là đơn vị gốc.
+    icols = {r[1] for r in conn.execute("PRAGMA table_info(inventory_stocktake_items)").fetchall()}
+    for name, typ in (("count_unit_name", "TEXT"), ("count_unit_factor", "REAL"),
+                      ("counted_bulk", "REAL"), ("counted_loose", "REAL")):
+        if name not in icols:
+            conn.execute(f"ALTER TABLE inventory_stocktake_items ADD COLUMN {name} {typ}")
 
 
 def _row(conn, stocktake_id: int):
     return conn.execute(
         "SELECT * FROM inventory_stocktakes WHERE id = ?", (stocktake_id,)
     ).fetchone()
+
+
+def _stamp_count_units(conn, stocktake_id: int, *, only_null: bool = False) -> None:
+    """Snapshot ĐƠN VỊ KIỂM (vai 📋) cho từng dòng — CỐ ĐỊNH theo thời điểm chụp
+    (đổi vai/factor sau không ảnh hưởng phiếu đang kiểm). Chỉ stamp khi factor ≠ 1
+    (vai = đơn vị gốc ⇔ hành vi cũ, 1 ô nhập). only_null: chỉ dòng mới (resync)."""
+    try:
+        from product_store.units import role_by_code
+    except Exception:   # DB test không có product_store đầy đủ → bỏ qua
+        return
+    codes = [r[0] for r in conn.execute(
+        "SELECT DISTINCT product_code FROM inventory_stocktake_items WHERE stocktake_id = ?",
+        (stocktake_id,)).fetchall()]
+    for code in codes:
+        try:
+            role = role_by_code(conn, code, "stocktake")
+        except Exception:
+            role = None
+        if not role or not role.get("factor") or abs(float(role["factor"]) - 1.0) < 1e-12:
+            continue
+        sql = ("UPDATE inventory_stocktake_items SET count_unit_name = ?, count_unit_factor = ? "
+               "WHERE stocktake_id = ? AND product_code = ?")
+        params = [role["name"], float(role["factor"]), stocktake_id, code]
+        if only_null:
+            sql += " AND count_unit_name IS NULL"
+        conn.execute(sql, params)
 
 
 def _place_live_state(conn, place_id: int) -> dict[int, dict]:
@@ -230,6 +264,7 @@ def create_or_resume_stocktake(conn, place_id: int, *, actor: str | None = None)
             """,
             (sid, place_id),
         )
+        _stamp_count_units(conn, sid)
         return _payload(conn, sid), False
 
 
@@ -255,21 +290,51 @@ def save_stocktake(conn, stocktake_id: int, counts: list[dict], *, actor: str | 
             return None, "not_found"
         if head["status"] != "draft":
             return None, "completed"
-        valid_ids = {int(r[0]) for r in conn.execute(
-            "SELECT id FROM inventory_stocktake_items WHERE stocktake_id = ?", (stocktake_id,)
+        valid = {int(r["id"]): dict(r) for r in conn.execute(
+            "SELECT id, count_unit_factor FROM inventory_stocktake_items WHERE stocktake_id = ?",
+            (stocktake_id,)
         ).fetchall()}
         for raw in counts:
             try:
                 item_id = int(raw.get("id"))
+            except (TypeError, ValueError, AttributeError):
+                return None, "invalid"
+            if item_id not in valid:
+                return None, "invalid"
+            if "counted_bulk" in raw or "counted_loose" in raw:
+                # Nhập theo ĐƠN VỊ KIỂM (vai 📋): actual = N kiện × factor + M lẻ;
+                # lưu cả số THÔ để audit đọc đúng thao tác. Cả 2 ô trống = chưa đếm.
+                f = float(valid[item_id].get("count_unit_factor") or 0)
+                if f <= 0:
+                    return None, "invalid"
+                cb_raw, cl_raw = raw.get("counted_bulk"), raw.get("counted_loose")
+                if cb_raw in (None, "") and cl_raw in (None, ""):
+                    actual, cb, cl = None, None, None
+                else:
+                    try:
+                        cb = float(cb_raw) if cb_raw not in (None, "") else 0.0
+                        cl = float(cl_raw) if cl_raw not in (None, "") else 0.0
+                    except (TypeError, ValueError):
+                        return None, "invalid"
+                    if cb < 0 or cl < 0:
+                        return None, "invalid"
+                    actual = cb * f + cl
+                conn.execute(
+                    "UPDATE inventory_stocktake_items SET actual_quantity = ?, counted_bulk = ?, "
+                    "counted_loose = ?, note = ? WHERE id = ? AND stocktake_id = ?",
+                    (actual, cb, cl, str(raw.get("note") or "").strip(), item_id, stocktake_id),
+                )
+                continue
+            try:
                 actual_raw = raw.get("actual_quantity")
                 actual = None if actual_raw is None or actual_raw == "" else float(actual_raw)
             except (TypeError, ValueError, AttributeError):
                 return None, "invalid"
-            if item_id not in valid_ids or (actual is not None and actual < 0):
+            if actual is not None and actual < 0:
                 return None, "invalid"
             conn.execute(
-                "UPDATE inventory_stocktake_items SET actual_quantity = ?, note = ? "
-                "WHERE id = ? AND stocktake_id = ?",
+                "UPDATE inventory_stocktake_items SET actual_quantity = ?, counted_bulk = NULL, "
+                "counted_loose = NULL, note = ? WHERE id = ? AND stocktake_id = ?",
                 (actual, str(raw.get("note") or "").strip(), item_id, stocktake_id),
             )
         if note is not None:
@@ -346,6 +411,7 @@ def resync_stocktake(conn, stocktake_id: int, *, actor: str | None = None) -> tu
                     "VALUES (?,?,?,?,?,?)",
                     (stocktake_id, bid, lv["box_code"], lv["product_code"], lv["product_unit"], float(lv["remaining"] or 0)),
                 )
+        _stamp_count_units(conn, stocktake_id, only_null=True)   # dòng mới snapshot theo lúc resync
         conn.execute(
             "UPDATE inventory_stocktakes SET updated_at = datetime('now'), updated_by = ? WHERE id = ?",
             (actor, stocktake_id),

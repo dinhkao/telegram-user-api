@@ -36,11 +36,23 @@ export function StocktakeDetail({ id }: { id: string }) {
   const dirtyRef = useRef(false);
   const versionRef = useRef(0);
   const [editVersion, setEditVersion] = useState(0);
-  const latestRef = useRef<{ counts: { id: number; actual_quantity: number | null; note?: string }[]; note: string }>({ counts: [], note: "" });
+  const latestRef = useRef<{ counts: { id: number; actual_quantity?: number | null; counted_bulk?: number | null; counted_loose?: number | null; note?: string }[]; note: string }>({ counts: [], note: "" });
+  // Đơn vị KIỂM bắt buộc (vai 📋, snapshot trên item): nhập kép [N kiện] + [M lẻ] —
+  // values vẫn giữ TỔNG đơn vị gốc (mọi thống kê/lệch tính như cũ), raw gửi server.
+  const [bulkVals, setBulkVals] = useState<Record<number, string>>({});
+  const [looseVals, setLooseVals] = useState<Record<number, string>>({});
+  const initRaw = (it: StocktakeItem): [string, string] => {
+    if (!it.count_unit_factor) return ["", ""];
+    if (it.counted_bulk != null || it.counted_loose != null)
+      return [it.counted_bulk == null ? "" : String(it.counted_bulk), it.counted_loose == null ? "" : String(it.counted_loose)];
+    return ["", it.actual_quantity == null ? "" : String(it.actual_quantity)];   // dữ liệu cũ chỉ có tổng
+  };
 
   const adopt = (d: Stocktake) => {
     setSlip(d);
     setValues(Object.fromEntries(d.items.map((it) => [it.id, it.actual_quantity == null ? "" : String(it.actual_quantity)])));
+    setBulkVals(Object.fromEntries(d.items.map((it) => [it.id, initRaw(it)[0]])));
+    setLooseVals(Object.fromEntries(d.items.map((it) => [it.id, initRaw(it)[1]])));
     setNotes(Object.fromEntries(d.items.map((it) => [it.id, it.note || ""])));
     setNote(d.note || "");
   };
@@ -131,11 +143,14 @@ export function StocktakeDetail({ id }: { id: string }) {
     });
   }, [slip, visible, values]);
 
-  const counts = () => (slip?.items || []).map((it) => ({
-    id: it.id,
-    actual_quantity: num(values[it.id] ?? ""),
-    note: notes[it.id] || "",
-  }));
+  const counts = () => (slip?.items || []).map((it) => {
+    if ((it.count_unit_factor || 0) > 0) {
+      const cb = bulkVals[it.id] ?? "", cl = looseVals[it.id] ?? "";
+      return { id: it.id, counted_bulk: cb === "" ? null : num(cb),
+               counted_loose: cl === "" ? null : num(cl), note: notes[it.id] || "" };
+    }
+    return { id: it.id, actual_quantity: num(values[it.id] ?? ""), note: notes[it.id] || "" };
+  });
   const valid = () => Object.values(values).every((v) => {
     const n = num(v); return n == null || (Number.isFinite(n) && n >= 0);
   });
@@ -196,9 +211,20 @@ export function StocktakeDetail({ id }: { id: string }) {
     }
     finally { setBusy(false); }
   };
+  // Tách 1 tổng (đơn vị gốc) thành [N kiện, M lẻ] theo factor của dòng — cho nút "Đủ".
+  const splitRaw = (it: StocktakeItem, total: number): [string, string] => {
+    const f = it.count_unit_factor || 0;
+    if (f <= 0) return ["", String(total)];
+    const b = Math.floor(total / f + 1e-9);
+    const l = Math.round((total - b * f) * 1e6) / 1e6;
+    return [String(b), String(l)];
+  };
   const fillMatched = () => {
     if (!slip) return;
-    setValues((old) => ({ ...old, ...Object.fromEntries(slip.items.map((it) => [it.id, old[it.id] === "" || old[it.id] == null ? String(it.expected_quantity) : old[it.id]])) }));
+    const empty = (v: string | undefined) => v === "" || v == null;
+    setValues((old) => ({ ...old, ...Object.fromEntries(slip.items.map((it) => [it.id, empty(old[it.id]) ? String(it.expected_quantity) : old[it.id]])) }));
+    setBulkVals((old) => ({ ...old, ...Object.fromEntries(slip.items.filter((it) => (it.count_unit_factor || 0) > 0 && empty(values[it.id])).map((it) => [it.id, splitRaw(it, it.expected_quantity)[0]])) }));
+    setLooseVals((old) => ({ ...old, ...Object.fromEntries(slip.items.filter((it) => (it.count_unit_factor || 0) > 0 && empty(values[it.id])).map((it) => [it.id, splitRaw(it, it.expected_quantity)[1]])) }));
     markDirty();
   };
   // Kho biến động → đồng bộ lại số sổ sách theo tồn hiện tại, GIỮ số đã đếm. Gỡ cờ lỗi thời.
@@ -384,8 +410,18 @@ export function StocktakeDetail({ id }: { id: string }) {
               </span>
             </header>
             <div class="stocktake-list">
-              {group.items.map((it) => <StocktakeRow key={it.id} item={it} value={values[it.id] ?? ""} note={notes[it.id] || ""}
+              {group.items.map((it) => <StocktakeRow key={it.id} item={it} value={values[it.id] ?? ""}
+                bulkVal={bulkVals[it.id] ?? ""} looseVal={looseVals[it.id] ?? ""} note={notes[it.id] || ""}
                 readonly={readOnly} onValue={(v) => { setValues((old) => ({ ...old, [it.id]: v })); markDirty(); }}
+                onRaw={(nb, nl) => {
+                  // nhập kép → tổng đơn vị gốc vào values (thống kê/lệch tính như cũ)
+                  const f = it.count_unit_factor || 0;
+                  setBulkVals((old) => ({ ...old, [it.id]: nb }));
+                  setLooseVals((old) => ({ ...old, [it.id]: nl }));
+                  const total = nb.trim() === "" && nl.trim() === "" ? "" : String((num(nb) || 0) * f + (num(nl) || 0));
+                  setValues((old) => ({ ...old, [it.id]: total }));
+                  markDirty();
+                }}
                 onNote={(v) => { setNotes((old) => ({ ...old, [it.id]: v })); markDirty(); }} />)}
             </div>
           </section>
@@ -450,11 +486,26 @@ function StaleDetails({ stale }: { stale: NonNullable<Stocktake["stale"]> }) {
   );
 }
 
-function StocktakeRow({ item, value, note, readonly, onValue, onNote }:
-  { item: StocktakeItem; value: string; note: string; readonly: boolean; onValue: (v: string) => void; onNote: (v: string) => void }) {
+function StocktakeRow({ item, value, bulkVal, looseVal, note, readonly, onValue, onRaw, onNote }:
+  { item: StocktakeItem; value: string; bulkVal: string; looseVal: string; note: string; readonly: boolean;
+    onValue: (v: string) => void; onRaw: (nb: string, nl: string) => void; onNote: (v: string) => void }) {
   const actual = num(value);
   const diff = actual == null ? null : actual - item.expected_quantity;
   const state = diff == null ? "pending" : Math.abs(diff) <= 1e-9 ? "ok" : diff > 0 ? "plus" : "minus";
+  // Vai 📋: bắt đếm bằng đơn vị kiểm → nhập kép [N kiện] + [M lẻ]; sổ sách hiện cùng hệ
+  const f = item.count_unit_factor || 0;
+  const dual = f > 0;
+  const dualText = (total: number) => {
+    const b = Math.floor(total / f + 1e-9);
+    const l = Math.round((total - b * f) * 1e6) / 1e6;
+    return `${soVN(b)} ${item.count_unit_name}${l ? ` + ${soVN(l)} ${item.product_unit || "lẻ"}` : ""}`;
+  };
+  const fillFull = () => {
+    if (!dual) { onValue(String(item.expected_quantity)); return; }
+    const b = Math.floor(item.expected_quantity / f + 1e-9);
+    const l = Math.round((item.expected_quantity - b * f) * 1e6) / 1e6;
+    onRaw(String(b), String(l));
+  };
   return (
     <article class={`stocktake-row ${state}`}>
       <div class="stocktake-box-tile box-tile-grid-dense">
@@ -471,22 +522,41 @@ function StocktakeRow({ item, value, note, readonly, onValue, onNote }:
       </div>
       <div class="stocktake-book">
         <span>Sổ sách</span><b>{soVN(item.expected_quantity)}</b><small>{item.product_unit || ""}</small>
+        {dual && <em class="st-book-dual">= {dualText(item.expected_quantity)}</em>}
       </div>
       <div class="stocktake-actual">
-        <label>Thực tế</label>
+        <label>Thực tế{dual ? ` (đếm theo ${item.count_unit_name})` : ""}</label>
         {readonly
-          ? <b>{actual == null ? "—" : soVN(actual)}</b>
+          ? <b>{actual == null ? "—" : soVN(actual)}{dual && actual != null && (item.counted_bulk != null || item.counted_loose != null)
+              ? <small class="st-book-dual"> ({soVN(item.counted_bulk || 0)} {item.count_unit_name} + {soVN(item.counted_loose || 0)})</small> : null}</b>
+          : dual ? (
+            <span class="st-dual">
+              <input type="number" min="0" step="any" inputMode="numeric" value={bulkVal}
+                placeholder="0" onFocus={(e: any) => { const i = e.currentTarget; requestAnimationFrame(() => i.select()); }}
+                onInput={(e: any) => onRaw(e.target.value, looseVal)} />
+              <small>{item.count_unit_name}</small>
+              <span class="st-dual-plus">+</span>
+              <input type="number" min="0" step="any" inputMode="decimal" value={looseVal}
+                placeholder="0" onFocus={(e: any) => { const i = e.currentTarget; requestAnimationFrame(() => i.select()); }}
+                onInput={(e: any) => onRaw(bulkVal, e.target.value)} />
+              <small>{item.product_unit || "lẻ"}</small>
+            </span>
+          )
           : <input type="number" min="0" step="any" inputMode="decimal" value={value}
               placeholder="—" onFocus={(e: any) => {
                 const input = e.currentTarget;
                 requestAnimationFrame(() => input.select());
               }} onInput={(e: any) => onValue(e.target.value)} />}
+        {!readonly && dual && actual != null && (
+          <em class="st-book-dual">= {soVN(actual)} {item.product_unit || ""}</em>
+        )}
         {!readonly && (
           <span class="stocktake-line-actions">
-            <button type="button" title="Xóa số thực tế" disabled={value === ""} onClick={() => onValue("")}>
+            <button type="button" title="Xóa số thực tế" disabled={value === ""}
+              onClick={() => dual ? onRaw("", "") : onValue("")}>
               <Icon name="close" size={10} /> Xóa
             </button>
-            <button type="button" title="Nhập đủ bằng số sổ sách" onClick={() => onValue(String(item.expected_quantity))}>
+            <button type="button" title="Nhập đủ bằng số sổ sách" onClick={fillFull}>
               <Icon name="check" size={10} /> Đủ
             </button>
           </span>

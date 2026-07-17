@@ -141,14 +141,19 @@ def resolve_roles(conn, product: dict) -> dict:
     return {f"{r}_unit": unit_role(product, units, r) for r in ROLES}
 
 
-def bulk_role_by_code(conn, code) -> dict | None:
-    """Vai 📦 NGUYÊN KIỆN của SP theo mã (nhận cả mã cũ) → {id, name, factor} | None.
-    Dùng ở các flow tạo thùng (nhập NCC / phiếu SX / hàng trả) để stamp unit_label."""
+def role_by_code(conn, code, role: str) -> dict | None:
+    """Vai đơn vị của SP theo MÃ (nhận cả mã cũ) → {id, name, factor} | None."""
     from .resolve import resolve_code
     prod = resolve_code(conn, code)
-    if not prod or prod.get("bulk_unit_id") is None:
+    if not prod or prod.get(f"{role}_unit_id") is None:
         return None
-    return unit_role(prod, list_units(conn, int(prod["id"])), "bulk")
+    return unit_role(prod, list_units(conn, int(prod["id"])), role)
+
+
+def bulk_role_by_code(conn, code) -> dict | None:
+    """Vai 📦 NGUYÊN KIỆN của SP theo mã — dùng ở các flow tạo thùng (nhập NCC /
+    phiếu SX / hàng trả) để stamp unit_label."""
+    return role_by_code(conn, code, "bulk")
 
 
 def bulk_label_for_qty(bulk: dict | None, q) -> tuple[str | None, str | None]:

@@ -189,3 +189,68 @@ class StocktakeStoreTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StocktakeCountUnitTest(unittest.TestCase):
+    """ĐƠN VỊ BẮT BUỘC khi kiểm kho (vai 📋 — docs/plan-don-vi-hang-hoa.md):
+    snapshot (tên, factor) từng dòng lúc tạo; nhập N kiện + M lẻ → actual quy về
+    gốc, lưu số thô; vai = đơn vị gốc (factor 1) → không stamp (hành vi cũ)."""
+
+    def setUp(self):
+        fd, self.path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        self.conn = get_connection(self.path)
+        _invalidate_products_cache()
+        create_products_table(self.conn)
+        migrate_products_table(self.conn)
+        create_inventory_table(self.conn)
+        migrate_inventory_table(self.conn)
+        create_allocations_table(self.conn)
+        upsert_product(self.conn, "K10", name="Kẹo", unit="cây")
+        from product_store.queries import get_product
+        from product_store import units as pu
+        pid = get_product(self.conn, "K10")["id"]
+        u, _ = pu.add_unit(self.conn, pid, "Thùng", 30, "cây")
+        upsert_product(self.conn, "K10", stocktake_unit_id=u["id"])
+        self.place = add_place(self.conn, "Kho A")
+        self.boxes = add_boxes(self.conn, "K10", [85], place_id=self.place["id"])
+
+    def tearDown(self):
+        self.conn.close()
+        _invalidate_products_cache()
+        for ext in ("", "-wal", "-shm"):
+            try:
+                os.unlink(self.path + ext)
+            except FileNotFoundError:
+                pass
+
+    def test_snapshot_va_nhap_kep(self):
+        slip, _ = create_or_resume_stocktake(self.conn, self.place["id"], actor="Duy")
+        it = slip["items"][0]
+        self.assertEqual(it["count_unit_name"], "Thùng")
+        self.assertEqual(it["count_unit_factor"], 30.0)
+        # đếm 2 Thùng + 25 lẻ → actual = 85 (đơn vị gốc), số thô giữ nguyên
+        slip, err = save_stocktake(self.conn, slip["id"],
+                                   [{"id": it["id"], "counted_bulk": 2, "counted_loose": 25}])
+        self.assertIsNone(err)
+        it = slip["items"][0]
+        self.assertEqual(it["actual_quantity"], 85.0)
+        self.assertEqual(it["counted_bulk"], 2.0)
+        self.assertEqual(it["counted_loose"], 25.0)
+        # cả 2 ô trống = chưa đếm
+        slip, err = save_stocktake(self.conn, slip["id"],
+                                   [{"id": it["id"], "counted_bulk": "", "counted_loose": ""}])
+        self.assertIsNone(err)
+        self.assertIsNone(slip["items"][0]["actual_quantity"])
+
+    def test_doi_vai_sau_khi_tao_khong_anh_huong(self):
+        slip, _ = create_or_resume_stocktake(self.conn, self.place["id"])
+        upsert_product(self.conn, "K10", stocktake_unit_id=None)   # gỡ vai sau khi chụp
+        got = get_stocktake(self.conn, slip["id"])
+        self.assertEqual(got["items"][0]["count_unit_factor"], 30.0)   # snapshot giữ nguyên
+
+    def test_vai_don_vi_goc_khong_stamp(self):
+        upsert_product(self.conn, "K10", stocktake_unit_id=0)   # ép đếm đơn vị gốc
+        # phải xoá nháp cũ nếu có (mỗi test DB riêng nên không cần) — tạo mới
+        slip, _ = create_or_resume_stocktake(self.conn, self.place["id"])
+        self.assertIsNone(slip["items"][0]["count_unit_name"])

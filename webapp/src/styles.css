@@ -1599,6 +1599,12 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .stocktake-actual input { width: 76px; height: 36px; box-sizing: border-box; margin: 0; padding: 5px 7px; border: 1px solid var(--border);
   background: #eef1f5; text-align: right; font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .stocktake-actual input:focus { border-color: var(--primary); outline: 2px solid var(--accent-wash); background: var(--card); }
+/* Nhập KÉP theo đơn vị kiểm bắt buộc (vai 📋): [N kiện] + [M lẻ] */
+.stocktake-actual .st-dual { display: flex; align-items: center; gap: 3px; }
+.stocktake-actual .st-dual input { width: 52px; }
+.stocktake-actual .st-dual small { color: var(--muted); font-size: .6rem; max-width: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-dual-plus { color: var(--muted); font-weight: 700; }
+.st-book-dual { display: block; color: var(--muted); font-size: .62rem; font-style: normal; font-variant-numeric: tabular-nums; }
 .stocktake-line-actions { display: grid; width: 76px; grid-template-columns: 1fr 1fr; gap: 3px; margin-top: 4px; }
 .stocktake-line-actions button { min-width: 0; height: 22px; display: inline-flex; align-items: center; justify-content: center; gap: 2px;
   padding: 0 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--muted); font: inherit; font-size: .58rem; font-weight: 700; cursor: pointer; }
