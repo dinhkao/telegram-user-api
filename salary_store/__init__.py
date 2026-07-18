@@ -11,11 +11,16 @@ from salary_store.store import (
     advance_totals,
     add_advance,
     delete_advance,
+    list_allowances,
+    allowance_totals,
+    add_allowance,
+    delete_allowance,
     compute_month_payroll,
 )
 
 __all__ = [
     "ensure_schema", "month_range", "get_month_adjust", "set_month_adjust",
     "list_advances", "advance_totals", "add_advance", "delete_advance",
+    "list_allowances", "allowance_totals", "add_allowance", "delete_allowance",
     "compute_month_payroll",
 ]

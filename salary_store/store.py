@@ -37,10 +37,20 @@ CREATE TABLE IF NOT EXISTS salary_advances (
     created_by  TEXT    DEFAULT '',
     created_at  TEXT    DEFAULT (datetime('now', '+7 hours'))
 );
+CREATE TABLE IF NOT EXISTS salary_allowances (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    worker_id   INTEGER NOT NULL,
+    ym          TEXT    NOT NULL,          -- tháng tính phụ cấp vào 'YYYY-MM'
+    amount      REAL    NOT NULL DEFAULT 0,
+    note        TEXT    DEFAULT '',         -- nhãn khoản phụ cấp (ăn trưa, xăng xe…)
+    created_by  TEXT    DEFAULT '',
+    created_at  TEXT    DEFAULT (datetime('now', '+7 hours'))
+);
 """
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_salary_month_ym ON salary_month(ym)",
     "CREATE INDEX IF NOT EXISTS idx_salary_adv ON salary_advances(ym, worker_id)",
+    "CREATE INDEX IF NOT EXISTS idx_salary_allow ON salary_allowances(ym, worker_id)",
 ]
 
 
@@ -64,31 +74,30 @@ def month_range(ym: str) -> tuple[str, str]:
 # ── Phụ cấp / thưởng theo tháng ─────────────────────────────────────────────────
 
 def get_month_adjust(conn, ym: str) -> dict:
-    """{worker_id: {'phu_cap', 'thuong', 'note', 'weekly'}} của 1 tháng."""
+    """{worker_id: {'thuong', 'note', 'weekly'}} của 1 tháng. (Phụ cấp giờ là NHIỀU
+    KHOẢN ở salary_allowances — xem allowance_totals.)"""
     ensure_schema(conn)
     rows = conn.execute(
-        "SELECT worker_id, phu_cap, thuong, note, weekly FROM salary_month WHERE ym = ?", (ym,)
+        "SELECT worker_id, thuong, note, weekly FROM salary_month WHERE ym = ?", (ym,)
     ).fetchall()
-    return {r["worker_id"]: {"phu_cap": float(r["phu_cap"] or 0), "thuong": float(r["thuong"] or 0),
+    return {r["worker_id"]: {"thuong": float(r["thuong"] or 0),
                              "note": r["note"] or "", "weekly": bool(r["weekly"])} for r in rows}
 
 
-def set_month_adjust(conn, ym: str, worker_id: int, *, phu_cap=None, thuong=None,
+def set_month_adjust(conn, ym: str, worker_id: int, *, thuong=None,
                      note=None, weekly=None, by: str = "") -> None:
-    """Cập nhật phụ cấp/thưởng/ghi chú/nhận-lương-tuần 1 (tháng, thợ). Field None = giữ
-    nguyên. weekly = nhận lương tuần THEO THÁNG (riêng bảng lương, không phải hồ sơ thợ)."""
+    """Cập nhật thưởng/ghi chú/nhận-lương-tuần 1 (tháng, thợ). Field None = giữ nguyên.
+    weekly = nhận lương tuần THEO THÁNG (riêng bảng lương, không phải hồ sơ thợ). Phụ cấp
+    KHÔNG ở đây nữa — dùng add_allowance (nhiều khoản)."""
     ensure_schema(conn)
     with transaction(conn):
         cur = conn.execute(
-            "SELECT phu_cap, thuong, note, weekly FROM salary_month WHERE ym = ? AND worker_id = ?",
+            "SELECT thuong, note, weekly FROM salary_month WHERE ym = ? AND worker_id = ?",
             (ym, worker_id),
         ).fetchone()
-        pc = float(cur["phu_cap"] or 0) if cur else 0.0
         th = float(cur["thuong"] or 0) if cur else 0.0
         nt = (cur["note"] or "") if cur else ""
         wk = int(cur["weekly"] or 0) if cur else 0
-        if phu_cap is not None:
-            pc = max(0.0, float(phu_cap))
         if thuong is not None:
             th = max(0.0, float(thuong))
         if note is not None:
@@ -96,11 +105,11 @@ def set_month_adjust(conn, ym: str, worker_id: int, *, phu_cap=None, thuong=None
         if weekly is not None:
             wk = 1 if weekly else 0
         conn.execute(
-            "INSERT INTO salary_month (ym, worker_id, phu_cap, thuong, note, weekly, updated_at, updated_by) "
-            "VALUES (?, ?, ?, ?, ?, ?, datetime('now','+7 hours'), ?) "
-            "ON CONFLICT(ym, worker_id) DO UPDATE SET phu_cap=excluded.phu_cap, thuong=excluded.thuong, "
+            "INSERT INTO salary_month (ym, worker_id, thuong, note, weekly, updated_at, updated_by) "
+            "VALUES (?, ?, ?, ?, ?, datetime('now','+7 hours'), ?) "
+            "ON CONFLICT(ym, worker_id) DO UPDATE SET thuong=excluded.thuong, "
             "note=excluded.note, weekly=excluded.weekly, updated_at=excluded.updated_at, updated_by=excluded.updated_by",
-            (ym, worker_id, pc, th, nt, wk, by or ""),
+            (ym, worker_id, th, nt, wk, by or ""),
         )
 
 
@@ -153,6 +162,52 @@ def delete_advance(conn, advance_id: int) -> bool:
         return cur.rowcount > 0
 
 
+# ── Phụ cấp (NHIỀU KHOẢN / tháng, giống ứng lương) ──────────────────────────────
+
+def list_allowances(conn, ym: str, worker_id: int | None = None) -> list[dict]:
+    ensure_schema(conn)
+    q = "SELECT id, worker_id, ym, amount, note, created_by, created_at FROM salary_allowances WHERE ym = ?"
+    args: list = [ym]
+    if worker_id is not None:
+        q += " AND worker_id = ?"
+        args.append(worker_id)
+    q += " ORDER BY id ASC"
+    return [{"id": r["id"], "worker_id": r["worker_id"], "ym": r["ym"], "amount": float(r["amount"] or 0),
+             "note": r["note"] or "", "created_by": r["created_by"] or "", "created_at": r["created_at"] or ""}
+            for r in conn.execute(q, args).fetchall()]
+
+
+def allowance_totals(conn, ym: str) -> dict:
+    """{worker_id: (tổng phụ cấp, số khoản)} của 1 tháng."""
+    ensure_schema(conn)
+    rows = conn.execute(
+        "SELECT worker_id, COALESCE(SUM(amount),0) AS s, COUNT(*) AS c FROM salary_allowances "
+        "WHERE ym = ? GROUP BY worker_id", (ym,)
+    ).fetchall()
+    return {r["worker_id"]: (float(r["s"] or 0), int(r["c"])) for r in rows}
+
+
+def add_allowance(conn, worker_id: int, ym: str, amount: float, note: str = "", by: str = "") -> dict:
+    ensure_schema(conn)
+    amt = float(amount or 0)
+    if amt <= 0:
+        raise ValueError("Số tiền phụ cấp phải > 0")
+    with transaction(conn):
+        cur = conn.execute(
+            "INSERT INTO salary_allowances (worker_id, ym, amount, note, created_by) VALUES (?, ?, ?, ?, ?)",
+            (worker_id, ym, amt, (note or "").strip(), by or ""),
+        )
+        aid = cur.lastrowid
+    return {"id": aid, "worker_id": worker_id, "ym": ym, "amount": amt, "note": (note or "").strip()}
+
+
+def delete_allowance(conn, allowance_id: int) -> bool:
+    ensure_schema(conn)
+    with transaction(conn):
+        cur = conn.execute("DELETE FROM salary_allowances WHERE id = ?", (allowance_id,))
+        return cur.rowcount > 0
+
+
 # ── Bảng lương tháng (tính live) ─────────────────────────────────────────────────
 
 def compute_month_payroll(conn, ym: str) -> dict:
@@ -172,6 +227,7 @@ def compute_month_payroll(conn, ym: str) -> dict:
             wage_by_name[(w.get("name") or "").strip().casefold()] = float(w.get("money") or 0)
     adjust = get_month_adjust(conn, ym)
     adv = advance_totals(conn, ym)
+    allow = allowance_totals(conn, ym)   # phụ cấp NHIỀU KHOẢN
 
     out = []
     tot = {"luong": 0.0, "phu_cap": 0.0, "thuong": 0.0, "ung": 0.0, "thuc_lanh": 0.0}
@@ -179,7 +235,8 @@ def compute_month_payroll(conn, ym: str) -> dict:
         wid, wt = w["id"], (w.get("wage_type") or "product")
         luong = wage_by_name.get(w["name"].strip().casefold(), 0.0) if wt == "product" else 0.0
         a = adjust.get(wid, {})
-        phu_cap, thuong, note = a.get("phu_cap", 0.0), a.get("thuong", 0.0), a.get("note", "")
+        thuong, note = a.get("thuong", 0.0), a.get("note", "")
+        phu_cap, pc_count = allow.get(wid, (0.0, 0))   # tổng + số khoản phụ cấp
         weekly = bool(a.get("weekly"))   # nhận lương tuần THEO THÁNG (riêng bảng lương)
         ung_manual, adv_count = adv.get(wid, (0.0, 0))
         # NHẬN LƯƠNG TUẦN → ứng tự động = đúng lương sản phẩm (đã trả theo tuần trong tháng)
@@ -188,7 +245,7 @@ def compute_month_payroll(conn, ym: str) -> dict:
         thuc_lanh = luong + phu_cap + thuong - ung
         out.append({
             "worker_id": wid, "name": w["name"], "wage_type": wt, "weekly": weekly,
-            "luong": round(luong), "phu_cap": round(phu_cap), "thuong": round(thuong),
+            "luong": round(luong), "phu_cap": round(phu_cap), "pc_count": pc_count, "thuong": round(thuong),
             "ung": round(ung), "ung_manual": round(ung_manual), "ung_weekly": round(ung_weekly),
             "adv_count": adv_count, "note": note, "thuc_lanh": round(thuc_lanh),
         })

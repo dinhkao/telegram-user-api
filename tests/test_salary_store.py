@@ -64,24 +64,44 @@ class SalaryStoreTest(unittest.TestCase):
         self.assertEqual(salary_store.month_range("2026-07"), ("2026-07-01", "2026-07-31"))
 
     def test_time_worker_luong_0_va_phu_cap_thuong(self):
-        salary_store.set_month_adjust(self.conn, "2026-07", self.a, phu_cap=100_000, thuong=50_000)
+        salary_store.add_allowance(self.conn, self.a, "2026-07", 100_000, note="ăn trưa")
+        salary_store.set_month_adjust(self.conn, "2026-07", self.a, thuong=50_000)
         d = salary_store.compute_month_payroll(self.conn, "2026-07")
         r = self._row(d, self.a)
         self.assertEqual(r["wage_type"], "time")
         self.assertEqual(r["luong"], 0)              # thời gian → 0
         self.assertEqual(r["phu_cap"], 100_000)
+        self.assertEqual(r["pc_count"], 1)
         self.assertEqual(r["thuong"], 50_000)
         self.assertEqual(r["thuc_lanh"], 150_000)    # 0 + 100k + 50k − 0
 
     def test_adjust_upsert_giu_field_khong_truyen(self):
-        salary_store.set_month_adjust(self.conn, "2026-07", self.a, phu_cap=100_000)
-        salary_store.set_month_adjust(self.conn, "2026-07", self.a, thuong=20_000)  # không đụng phu_cap
+        salary_store.set_month_adjust(self.conn, "2026-07", self.a, thuong=100_000)
+        salary_store.set_month_adjust(self.conn, "2026-07", self.a, weekly=True)  # không đụng thuong
         r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)
-        self.assertEqual(r["phu_cap"], 100_000)
-        self.assertEqual(r["thuong"], 20_000)
+        self.assertEqual(r["thuong"], 100_000)
+        self.assertTrue(r["weekly"])
+
+    def test_phu_cap_nhieu_khoan_cong_don(self):
+        salary_store.add_allowance(self.conn, self.a, "2026-07", 100_000, note="ăn trưa")
+        salary_store.add_allowance(self.conn, self.a, "2026-07", 50_000, note="xăng xe")
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)
+        self.assertEqual(r["phu_cap"], 150_000)      # cộng dồn các khoản
+        self.assertEqual(r["pc_count"], 2)
+        self.assertEqual(r["thuc_lanh"], 150_000)    # time worker: 0 + 150k
+
+    def test_xoa_khoan_phu_cap_hoan_lai(self):
+        a1 = salary_store.add_allowance(self.conn, self.b, "2026-07", 30_000)
+        self.assertEqual(self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.b)["phu_cap"], 30_000)
+        self.assertTrue(salary_store.delete_allowance(self.conn, a1["id"]))
+        self.assertEqual(self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.b)["phu_cap"], 0)
+
+    def test_phu_cap_amount_phai_duong(self):
+        with self.assertRaises(ValueError):
+            salary_store.add_allowance(self.conn, self.a, "2026-07", 0)
 
     def test_ung_nhieu_lan_cong_don_va_tru(self):
-        salary_store.set_month_adjust(self.conn, "2026-07", self.a, phu_cap=200_000)
+        salary_store.add_allowance(self.conn, self.a, "2026-07", 200_000)
         salary_store.add_advance(self.conn, self.a, "2026-07", 30_000, adv_date="2026-07-05")
         salary_store.add_advance(self.conn, self.a, "2026-07", 20_000, adv_date="2026-07-10")
         r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)
@@ -103,7 +123,7 @@ class SalaryStoreTest(unittest.TestCase):
         # Thợ SP lương 10.000, bật nhận lương tuần → ứng tự động = 10.000
         c = self._seed_product_worker("Chi", tong_calc=10, gia=1000)
         salary_store.set_month_adjust(self.conn, "2026-07", c, weekly=True)
-        salary_store.set_month_adjust(self.conn, "2026-07", c, phu_cap=2_000)
+        salary_store.add_allowance(self.conn, c, "2026-07", 2_000)
         r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), c)
         self.assertTrue(r["weekly"])
         self.assertEqual(r["luong"], 10_000)

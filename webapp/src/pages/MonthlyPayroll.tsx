@@ -1,11 +1,12 @@
-// BẢNG LƯƠNG THÁNG (#/luong-thang) — CHỈ văn phòng. Mỗi thợ 1 thẻ: loại lương (SP/thời
-// gian, bấm đổi), lương (SP tự tính từ sản xuất; thời gian = 0 chờ chấm công), phụ cấp +
-// thưởng (nhập tay/tháng), ứng lương (nhiều lần — mở xem/thêm/xoá), thực lãnh.
-// API: getMonthlyPayroll/setPayrollAdjust/addPayrollAdvance/deletePayrollAdvance/updateWorker.
+// BẢNG LƯƠNG THÁNG (#/luong-thang) — CHỈ văn phòng. Mỗi thợ: loại lương (SP/thời gian),
+// lương (SP tự tính; thời gian = 0 chờ chấm công), nhận lương tuần (theo tháng),
+// PHỤ CẤP nhiều khoản, THƯỞNG, ỨNG lương nhiều lần → thực lãnh. Phụ cấp + ứng quản lý
+// giống nhau (panel thêm/xoá khoản). API: getMonthlyPayroll + payroll allowance/advance.
 import { useEffect, useState } from "preact/hooks";
 import {
-  addPayrollAdvance, deletePayrollAdvance, getMonthlyPayroll, isOffice, listPayrollAdvances,
-  setPayrollAdjust, soVN, updateWorker, type PayrollMonth, type PayrollRow, type SalaryAdvance,
+  addPayrollAdvance, addPayrollAllowance, deletePayrollAdvance, deletePayrollAllowance,
+  getMonthlyPayroll, isOffice, listPayrollAdvances, listPayrollAllowances, setPayrollAdjust,
+  soVN, updateWorker, type PayrollMonth, type PayrollRow, type SalaryAdvance, type SalaryAllowance,
 } from "../api";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
@@ -29,9 +30,11 @@ export function MonthlyPayroll() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [draft, setDraft] = useState<Record<string, string>>({});
-  const [open, setOpen] = useState<number | null>(null);            // worker_id đang mở ứng
-  const [advs, setAdvs] = useState<Record<number, SalaryAdvance[]>>({});
   const [view, setView] = useState<"table" | "card">("table");
+  const [openUng, setOpenUng] = useState<number | null>(null);
+  const [openPc, setOpenPc] = useState<number | null>(null);
+  const [advs, setAdvs] = useState<Record<number, SalaryAdvance[]>>({});
+  const [allows, setAllows] = useState<Record<number, SalaryAllowance[]>>({});
 
   const load = () => {
     setLoading(true);
@@ -44,41 +47,33 @@ export function MonthlyPayroll() {
 
   const apply = (d: PayrollMonth) => { setData(d); setDraft({}); };
 
-  const saveAdjust = async (wid: number, field: "phu_cap" | "thuong", val: string) => {
-    try { apply(await setPayrollAdjust(ym, wid, { [field]: num(val) } as any)); }
+  const saveThuong = async (wid: number, val: string) => {
+    try { apply(await setPayrollAdjust(ym, wid, { thuong: num(val) })); }
+    catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
+  };
+  const toggleType = async (r: PayrollRow) => {
+    const next = r.wage_type === "time" ? "product" : "time";
+    try { await updateWorker(r.worker_id, { wage_type: next }); toast(next === "time" ? "→ Lương thời gian" : "→ Lương sản phẩm", "ok"); load(); }
+    catch (e: any) { toast(e?.message || "Lỗi đổi loại", "err"); }
+  };
+  const toggleWeekly = async (r: PayrollRow) => {
+    try { apply(await setPayrollAdjust(ym, r.worker_id, { weekly: !r.weekly }));
+      toast(!r.weekly ? "BẬT nhận lương tuần (tháng này)" : "TẮT nhận lương tuần", "ok"); }
     catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
   };
 
-  const toggleType = async (r: PayrollRow) => {
-    const next = r.wage_type === "time" ? "product" : "time";
-    try {
-      await updateWorker(r.worker_id, { wage_type: next });
-      toast(next === "time" ? "→ Lương thời gian" : "→ Lương sản phẩm", "ok");
-      load();
-    } catch (e: any) { toast(e?.message || "Lỗi đổi loại", "err"); }
-  };
-
-  // Nhận lương tuần THEO THÁNG (riêng bảng lương): bật → tự động ứng = đúng lương SP
-  const toggleWeekly = async (r: PayrollRow) => {
-    try {
-      apply(await setPayrollAdjust(ym, r.worker_id, { weekly: !r.weekly }));
-      toast(!r.weekly ? "BẬT nhận lương tuần (tháng này)" : "TẮT nhận lương tuần", "ok");
-    } catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
-  };
-
   const loadAdvances = async (wid: number) => {
-    try { setAdvs((m) => ({ ...m, [wid]: [] })); const a = await listPayrollAdvances(ym, wid); setAdvs((m) => ({ ...m, [wid]: a })); }
-    catch { /* im lặng */ }
+    try { setAdvs((m) => ({ ...m, [wid]: [] })); const a = await listPayrollAdvances(ym, wid); setAdvs((m) => ({ ...m, [wid]: a })); } catch { /**/ }
   };
-  const openAdv = (wid: number) => {
-    if (open === wid) { setOpen(null); return; }
-    setOpen(wid); loadAdvances(wid);
+  const loadAllowances = async (wid: number) => {
+    try { setAllows((m) => ({ ...m, [wid]: [] })); const a = await listPayrollAllowances(ym, wid); setAllows((m) => ({ ...m, [wid]: a })); } catch { /**/ }
   };
-  // Từ BẢNG bấm ô Ứng → chuyển sang THẺ của thợ đó + mở panel ứng để quản lý
-  const gotoUng = (wid: number) => { setView("card"); setOpen(wid); loadAdvances(wid); };
+  const toggleUng = (wid: number) => { if (openUng === wid) { setOpenUng(null); return; } setOpenUng(wid); loadAdvances(wid); };
+  const togglePc = (wid: number) => { if (openPc === wid) { setOpenPc(null); return; } setOpenPc(wid); loadAllowances(wid); };
+  const gotoUng = (wid: number) => { setView("card"); setOpenUng(wid); loadAdvances(wid); };
+  const gotoPc = (wid: number) => { setView("card"); setOpenPc(wid); loadAllowances(wid); };
 
   const totals = data?.totals;
-
   const head = (
     <PageHead fallback="#/home"
       title={<><Icon name="wallet" size={18} /> Bảng lương tháng</>}
@@ -112,14 +107,15 @@ export function MonthlyPayroll() {
             )}
             {view === "table" ? (
               <PayrollTable data={data} draft={draft} setDraft={setDraft}
-                saveAdjust={saveAdjust} toggleType={toggleType} toggleWeekly={toggleWeekly} onUng={gotoUng} />
+                saveThuong={saveThuong} toggleType={toggleType} toggleWeekly={toggleWeekly}
+                onPc={gotoPc} onUng={gotoUng} />
             ) : (
               data.workers.map((r) => (
-                <PayrollCard key={r.worker_id} r={r} ym={ym}
-                  draft={draft} setDraft={setDraft} saveAdjust={saveAdjust}
-                  toggleType={toggleType} toggleWeekly={toggleWeekly}
-                  open={open === r.worker_id} onToggleAdv={() => openAdv(r.worker_id)}
-                  advances={advs[r.worker_id]} apply={apply} setAdvs={setAdvs} />
+                <PayrollCard key={r.worker_id} r={r} ym={ym} draft={draft} setDraft={setDraft}
+                  saveThuong={saveThuong} toggleType={toggleType} toggleWeekly={toggleWeekly}
+                  openUng={openUng === r.worker_id} onToggleUng={() => toggleUng(r.worker_id)} advances={advs[r.worker_id]}
+                  openPc={openPc === r.worker_id} onTogglePc={() => togglePc(r.worker_id)} allowances={allows[r.worker_id]}
+                  apply={apply} setAdvs={setAdvs} setAllows={setAllows} />
               ))
             )}
           </>
@@ -128,23 +124,50 @@ export function MonthlyPayroll() {
   );
 }
 
-function PayrollTable({ data, draft, setDraft, saveAdjust, toggleType, toggleWeekly, onUng }: {
+// Panel liệt kê + thêm/xoá KHOẢN (dùng cho cả phụ cấp lẫn ứng). extra = dòng đọc-thêm ở đầu.
+function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, extra }: {
+  entries?: { id: number; amount: number; note: string; adv_date?: string }[];
+  showDate?: boolean; addPlaceholder: string;
+  onAdd: (amount: number, note: string, date: string) => void; onDel: (id: number) => void; extra?: any;
+}) {
+  const [amt, setAmt] = useState("");
+  const [date, setDate] = useState("");
+  const [note, setNote] = useState("");
+  const add = () => {
+    const a = num(amt);
+    if (a <= 0) { toast("Nhập số tiền", "err"); return; }
+    onAdd(a, note, date); setAmt(""); setNote("");
+  };
+  return (
+    <div class="pr-adv">
+      {extra}
+      {(entries || []).map((e) => (
+        <div class="pr-adv-row" key={e.id}>
+          {showDate ? <span class="muted small">{e.adv_date || "—"}</span> : null}
+          <b>{money(e.amount)}</b>
+          <span class="muted small pr-adv-note">{e.note}</span>
+          <button class="pr-adv-del" onClick={() => onDel(e.id)} aria-label="Xoá">✕</button>
+        </div>
+      ))}
+      {entries && !entries.length ? <div class="muted small">Chưa có khoản nào.</div> : null}
+      <div class="pr-adv-add">
+        <input class="pw-input" inputMode="numeric" placeholder={addPlaceholder} value={amt} onInput={(e: any) => setAmt(e.target.value)} />
+        {showDate ? <input class="pw-input" type="date" value={date} onInput={(e: any) => setDate(e.target.value)} /> : null}
+        <input class="pw-input pr-adv-note-in" placeholder="Ghi chú" value={note} onInput={(e: any) => setNote(e.target.value)} />
+        <button class="btn primary" onClick={add}>Thêm</button>
+      </div>
+    </div>
+  );
+}
+
+function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWeekly, onPc, onUng }: {
   data: PayrollMonth; draft: Record<string, string>;
   setDraft: (f: (d: Record<string, string>) => Record<string, string>) => void;
-  saveAdjust: (wid: number, field: "phu_cap" | "thuong", val: string) => void;
-  toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void; onUng: (wid: number) => void;
+  saveThuong: (wid: number, val: string) => void;
+  toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
+  onPc: (wid: number) => void; onUng: (wid: number) => void;
 }) {
   const t = data.totals;
-  const inp = (r: PayrollRow, field: "phu_cap" | "thuong") => {
-    const k = `${r.worker_id}:${field}`;
-    return (
-      <input class="pw-input pr-tin" inputMode="numeric" placeholder="0"
-        value={draft[k] !== undefined ? draft[k] : ((r as any)[field] ? String((r as any)[field]) : "")}
-        onInput={(e: any) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
-        onBlur={(e: any) => saveAdjust(r.worker_id, field, e.target.value)}
-        onKeyDown={(e: any) => { if (e.key === "Enter") e.target.blur(); }} />
-    );
-  };
   return (
     <div class="pr-table-wrap">
       <table class="pr-table">
@@ -157,6 +180,7 @@ function PayrollTable({ data, draft, setDraft, saveAdjust, toggleType, toggleWee
         <tbody>
           {data.workers.map((r) => {
             const isTime = r.wage_type === "time";
+            const kTh = `${r.worker_id}:thuong`;
             return (
               <tr key={r.worker_id}>
                 <td class="pr-sticky pr-td-name"><a class="pr-name-link" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>{r.name}</a></td>
@@ -169,8 +193,18 @@ function PayrollTable({ data, draft, setDraft, saveAdjust, toggleType, toggleWee
                     onClick={() => toggleWeekly(r)} style="cursor:pointer" title="Nhận lương tuần"><span class="tgl-knob" /></span>
                 </td>
                 <td class="pr-num">{isTime ? "0" : money(r.luong)}</td>
-                <td class="pr-td-in">{inp(r, "phu_cap")}</td>
-                <td class="pr-td-in">{inp(r, "thuong")}</td>
+                <td class="pr-num">
+                  <button class="pr-ung-btn" onClick={() => onPc(r.worker_id)} title="Quản lý phụ cấp">
+                    {money(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}
+                  </button>
+                </td>
+                <td class="pr-td-in">
+                  <input class="pw-input pr-tin" inputMode="numeric" placeholder="0"
+                    value={draft[kTh] !== undefined ? draft[kTh] : (r.thuong ? String(r.thuong) : "")}
+                    onInput={(e: any) => setDraft((d) => ({ ...d, [kTh]: e.target.value }))}
+                    onBlur={(e: any) => saveThuong(r.worker_id, e.target.value)}
+                    onKeyDown={(e: any) => { if (e.key === "Enter") e.target.blur(); }} />
+                </td>
                 <td class="pr-num">
                   <button class="pr-ung-btn" onClick={() => onUng(r.worker_id)} title="Quản lý ứng lương">
                     {money(r.ung)}{r.adv_count ? <sup> {r.adv_count}</sup> : null}
@@ -196,36 +230,39 @@ function PayrollTable({ data, draft, setDraft, saveAdjust, toggleType, toggleWee
   );
 }
 
-function PayrollCard({ r, ym, draft, setDraft, saveAdjust, toggleType, toggleWeekly, open, onToggleAdv, advances, apply, setAdvs }: {
+function PayrollCard({ r, ym, draft, setDraft, saveThuong, toggleType, toggleWeekly,
+  openUng, onToggleUng, advances, openPc, onTogglePc, allowances, apply, setAdvs, setAllows }: {
   r: PayrollRow; ym: string; draft: Record<string, string>;
   setDraft: (f: (d: Record<string, string>) => Record<string, string>) => void;
-  saveAdjust: (wid: number, field: "phu_cap" | "thuong", val: string) => void;
+  saveThuong: (wid: number, val: string) => void;
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
-  open: boolean; onToggleAdv: () => void; advances?: SalaryAdvance[];
-  apply: (d: PayrollMonth) => void; setAdvs: (f: (m: Record<number, SalaryAdvance[]>) => Record<number, SalaryAdvance[]>) => void;
+  openUng: boolean; onToggleUng: () => void; advances?: SalaryAdvance[];
+  openPc: boolean; onTogglePc: () => void; allowances?: SalaryAllowance[];
+  apply: (d: PayrollMonth) => void;
+  setAdvs: (f: (m: Record<number, SalaryAdvance[]>) => Record<number, SalaryAdvance[]>) => void;
+  setAllows: (f: (m: Record<number, SalaryAllowance[]>) => Record<number, SalaryAllowance[]>) => void;
 }) {
-  const [amt, setAmt] = useState("");
-  const [advDate, setAdvDate] = useState("");
-  const [advNote, setAdvNote] = useState("");
-  const kPc = `${r.worker_id}:phu_cap`, kTh = `${r.worker_id}:thuong`;
+  const kTh = `${r.worker_id}:thuong`;
   const isTime = r.wage_type === "time";
+  const wid = r.worker_id;
 
-  const addAdv = async () => {
-    const a = num(amt);
-    if (a <= 0) { toast("Nhập số tiền ứng", "err"); return; }
-    try {
-      apply(await addPayrollAdvance(ym, r.worker_id, a, advDate, advNote));
-      setAmt(""); setAdvNote("");
-      const list = await listPayrollAdvances(ym, r.worker_id);
-      setAdvs((m) => ({ ...m, [r.worker_id]: list }));
-    } catch (e: any) { toast(e?.message || "Lỗi thêm ứng", "err"); }
+  const addAllow = async (a: number, note: string) => {
+    try { apply(await addPayrollAllowance(ym, wid, a, note)); const l = await listPayrollAllowances(ym, wid); setAllows((m) => ({ ...m, [wid]: l })); }
+    catch (e: any) { toast(e?.message || "Lỗi thêm phụ cấp", "err"); }
+  };
+  const delAllow = async (id: number) => {
+    if (!(await confirmDialog("Xoá khoản phụ cấp này?"))) return;
+    try { apply(await deletePayrollAllowance(ym, id)); setAllows((m) => ({ ...m, [wid]: (m[wid] || []).filter((x) => x.id !== id) })); }
+    catch (e: any) { toast(e?.message || "Lỗi xoá", "err"); }
+  };
+  const addAdv = async (a: number, note: string, date: string) => {
+    try { apply(await addPayrollAdvance(ym, wid, a, date, note)); const l = await listPayrollAdvances(ym, wid); setAdvs((m) => ({ ...m, [wid]: l })); }
+    catch (e: any) { toast(e?.message || "Lỗi thêm ứng", "err"); }
   };
   const delAdv = async (id: number) => {
     if (!(await confirmDialog("Xoá lần ứng này?"))) return;
-    try {
-      apply(await deletePayrollAdvance(ym, id));
-      setAdvs((m) => ({ ...m, [r.worker_id]: (m[r.worker_id] || []).filter((x) => x.id !== id) }));
-    } catch (e: any) { toast(e?.message || "Lỗi xoá", "err"); }
+    try { apply(await deletePayrollAdvance(ym, id)); setAdvs((m) => ({ ...m, [wid]: (m[wid] || []).filter((x) => x.id !== id) })); }
+    catch (e: any) { toast(e?.message || "Lỗi xoá", "err"); }
   };
 
   return (
@@ -247,51 +284,32 @@ function PayrollCard({ r, ym, draft, setDraft, saveAdjust, toggleType, toggleWee
           onClick={() => toggleWeekly(r)} style="cursor:pointer"><span class="tgl-knob" /></span>
       </div>
       <div class="pr-edits">
-        <label>Phụ cấp
-          <input class="pw-input" inputMode="numeric" placeholder="0"
-            value={draft[kPc] !== undefined ? draft[kPc] : (r.phu_cap ? String(r.phu_cap) : "")}
-            onInput={(e: any) => setDraft((d) => ({ ...d, [kPc]: e.target.value }))}
-            onBlur={(e: any) => saveAdjust(r.worker_id, "phu_cap", e.target.value)}
-            onKeyDown={(e: any) => { if (e.key === "Enter") e.target.blur(); }} />
-        </label>
         <label>Thưởng
           <input class="pw-input" inputMode="numeric" placeholder="0"
             value={draft[kTh] !== undefined ? draft[kTh] : (r.thuong ? String(r.thuong) : "")}
             onInput={(e: any) => setDraft((d) => ({ ...d, [kTh]: e.target.value }))}
-            onBlur={(e: any) => saveAdjust(r.worker_id, "thuong", e.target.value)}
+            onBlur={(e: any) => saveThuong(wid, e.target.value)}
             onKeyDown={(e: any) => { if (e.key === "Enter") e.target.blur(); }} />
         </label>
       </div>
-      <button class="pr-adv-toggle" onClick={onToggleAdv}>
-        <span>Ứng: <b class={r.ung ? "t-danger" : ""}>{money(r.ung)}</b> {r.adv_count ? <span class="muted small">({r.adv_count} lần)</span> : null}</span>
-        <span class="muted">{open ? "▾" : "▸"}</span>
+      <button class="pr-adv-toggle" onClick={onTogglePc}>
+        <span>Phụ cấp: <b>{money(r.phu_cap)}</b> {r.pc_count ? <span class="muted small">({r.pc_count} khoản)</span> : null}</span>
+        <span class="muted">{openPc ? "▾" : "▸"}</span>
       </button>
-      {open && (
-        <div class="pr-adv">
-          {r.weekly && r.ung_weekly > 0 && (
-            <div class="pr-adv-row pr-adv-weekly">
-              <span class="muted small">Lương tuần</span>
-              <b>{money(r.ung_weekly)}</b>
-              <span class="muted small pr-adv-note">tự động = lương SP</span>
-            </div>
-          )}
-          {(advances || []).map((a) => (
-            <div class="pr-adv-row" key={a.id}>
-              <span class="muted small">{a.adv_date || "—"}</span>
-              <b>{money(a.amount)}</b>
-              <span class="muted small pr-adv-note">{a.note}</span>
-              <button class="pr-adv-del" onClick={() => delAdv(a.id)} aria-label="Xoá">✕</button>
-            </div>
-          ))}
-          {advances && !advances.length ? <div class="muted small">Chưa có lần ứng nào.</div> : null}
-          <div class="pr-adv-add">
-            <input class="pw-input" inputMode="numeric" placeholder="Số tiền ứng" value={amt} onInput={(e: any) => setAmt(e.target.value)} />
-            <input class="pw-input" type="date" value={advDate} onInput={(e: any) => setAdvDate(e.target.value)} />
-            <input class="pw-input pr-adv-note-in" placeholder="Ghi chú" value={advNote} onInput={(e: any) => setAdvNote(e.target.value)} />
-            <button class="btn primary" onClick={addAdv}>Thêm</button>
+      {openPc && <EntryPanel entries={allowances} addPlaceholder="Số tiền phụ cấp"
+        onAdd={(a, note) => addAllow(a, note)} onDel={delAllow} />}
+      <button class="pr-adv-toggle" onClick={onToggleUng}>
+        <span>Ứng: <b class={r.ung ? "t-danger" : ""}>{money(r.ung)}</b> {r.adv_count ? <span class="muted small">({r.adv_count} lần)</span> : null}</span>
+        <span class="muted">{openUng ? "▾" : "▸"}</span>
+      </button>
+      {openUng && <EntryPanel entries={advances} showDate addPlaceholder="Số tiền ứng"
+        onAdd={(a, note, date) => addAdv(a, note, date)} onDel={delAdv}
+        extra={r.weekly && r.ung_weekly > 0 ? (
+          <div class="pr-adv-row pr-adv-weekly">
+            <span class="muted small">Lương tuần</span><b>{money(r.ung_weekly)}</b>
+            <span class="muted small pr-adv-note">tự động = lương SP</span>
           </div>
-        </div>
-      )}
+        ) : null} />}
     </section>
   );
 }

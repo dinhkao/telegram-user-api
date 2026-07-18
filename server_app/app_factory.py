@@ -303,12 +303,16 @@ def create_app():
     from server_app.payroll_routes import (
         payroll_month_handler, payroll_advances_handler, payroll_adjust_handler,
         payroll_advance_add_handler, payroll_advance_delete_handler,
+        payroll_allowances_handler, payroll_allowance_add_handler, payroll_allowance_delete_handler,
     )
     r.add_get("/api/payroll/month", payroll_month_handler)
     r.add_get("/api/payroll/advances", payroll_advances_handler)
     r.add_post("/api/payroll/adjust", payroll_adjust_handler)
     r.add_post("/api/payroll/advance", payroll_advance_add_handler)   # TRƯỚC {id}
     r.add_delete("/api/payroll/advance/{id}", payroll_advance_delete_handler)
+    r.add_get("/api/payroll/allowances", payroll_allowances_handler)
+    r.add_post("/api/payroll/allowance", payroll_allowance_add_handler)   # TRƯỚC {id}
+    r.add_delete("/api/payroll/allowance/{id}", payroll_allowance_delete_handler)
     # ─── kho thùng (inventory) ───────────────────────────────────────────────
     r.add_get("/api/inventory", inventory_list_handler)
     r.add_get("/api/inventory/boxes", all_boxes_handler)
