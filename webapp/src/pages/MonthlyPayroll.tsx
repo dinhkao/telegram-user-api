@@ -58,12 +58,11 @@ export function MonthlyPayroll() {
     } catch (e: any) { toast(e?.message || "Lỗi đổi loại", "err"); }
   };
 
-  // Nhận lương tuần: bật → tự động ứng = đúng lương SP (tính ở server)
+  // Nhận lương tuần THEO THÁNG (riêng bảng lương): bật → tự động ứng = đúng lương SP
   const toggleWeekly = async (r: PayrollRow) => {
     try {
-      await updateWorker(r.worker_id, { weekly_salary: !r.weekly_salary });
-      toast(!r.weekly_salary ? "BẬT nhận lương tuần" : "TẮT nhận lương tuần", "ok");
-      load();
+      apply(await setPayrollAdjust(ym, r.worker_id, { weekly: !r.weekly }));
+      toast(!r.weekly ? "BẬT nhận lương tuần (tháng này)" : "TẮT nhận lương tuần", "ok");
     } catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
   };
 
@@ -166,7 +165,7 @@ function PayrollTable({ data, draft, setDraft, saveAdjust, toggleType, toggleWee
                     title="Bấm để đổi loại lương">{isTime ? "TG" : "SP"}</button>
                 </td>
                 <td class="pr-td-mid">
-                  <span class={r.weekly_salary ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly_salary}
+                  <span class={r.weekly ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly}
                     onClick={() => toggleWeekly(r)} style="cursor:pointer" title="Nhận lương tuần"><span class="tgl-knob" /></span>
                 </td>
                 <td class="pr-num">{isTime ? "0" : money(r.luong)}</td>
@@ -243,8 +242,8 @@ function PayrollCard({ r, ym, draft, setDraft, saveAdjust, toggleType, toggleWee
         Lương {isTime ? <span title="Chờ chấm công">0 <i>(chờ chấm công)</i></span> : <b>{money(r.luong)}</b>}
       </div>
       <div class="pr-wk-row">
-        <span>Nhận lương tuần {r.weekly_salary && r.ung_weekly > 0 ? <span class="muted small">(tự ứng {money(r.ung_weekly)})</span> : null}</span>
-        <span class={r.weekly_salary ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly_salary}
+        <span>Nhận lương tuần {r.weekly && r.ung_weekly > 0 ? <span class="muted small">(tự ứng {money(r.ung_weekly)})</span> : null}</span>
+        <span class={r.weekly ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly}
           onClick={() => toggleWeekly(r)} style="cursor:pointer"><span class="tgl-knob" /></span>
       </div>
       <div class="pr-edits">
@@ -269,7 +268,7 @@ function PayrollCard({ r, ym, draft, setDraft, saveAdjust, toggleType, toggleWee
       </button>
       {open && (
         <div class="pr-adv">
-          {r.weekly_salary && r.ung_weekly > 0 && (
+          {r.weekly && r.ung_weekly > 0 && (
             <div class="pr-adv-row pr-adv-weekly">
               <span class="muted small">Lương tuần</span>
               <b>{money(r.ung_weekly)}</b>

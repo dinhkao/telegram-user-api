@@ -46,6 +46,9 @@ _INDEXES = [
 
 def ensure_schema(conn) -> None:
     conn.executescript(_SCHEMA)
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(salary_month)").fetchall()}
+    if "weekly" not in cols:   # nhận lương tuần THEO THÁNG (riêng bảng lương, không phải hồ sơ thợ)
+        conn.execute("ALTER TABLE salary_month ADD COLUMN weekly INTEGER DEFAULT 0")
     for sql in _INDEXES:
         conn.execute(sql)
     conn.commit()
@@ -61,39 +64,43 @@ def month_range(ym: str) -> tuple[str, str]:
 # ── Phụ cấp / thưởng theo tháng ─────────────────────────────────────────────────
 
 def get_month_adjust(conn, ym: str) -> dict:
-    """{worker_id: {'phu_cap', 'thuong', 'note'}} của 1 tháng."""
+    """{worker_id: {'phu_cap', 'thuong', 'note', 'weekly'}} của 1 tháng."""
     ensure_schema(conn)
     rows = conn.execute(
-        "SELECT worker_id, phu_cap, thuong, note FROM salary_month WHERE ym = ?", (ym,)
+        "SELECT worker_id, phu_cap, thuong, note, weekly FROM salary_month WHERE ym = ?", (ym,)
     ).fetchall()
     return {r["worker_id"]: {"phu_cap": float(r["phu_cap"] or 0), "thuong": float(r["thuong"] or 0),
-                             "note": r["note"] or ""} for r in rows}
+                             "note": r["note"] or "", "weekly": bool(r["weekly"])} for r in rows}
 
 
 def set_month_adjust(conn, ym: str, worker_id: int, *, phu_cap=None, thuong=None,
-                     note=None, by: str = "") -> None:
-    """Cập nhật phụ cấp/thưởng/ghi chú 1 (tháng, thợ). Field None = giữ nguyên."""
+                     note=None, weekly=None, by: str = "") -> None:
+    """Cập nhật phụ cấp/thưởng/ghi chú/nhận-lương-tuần 1 (tháng, thợ). Field None = giữ
+    nguyên. weekly = nhận lương tuần THEO THÁNG (riêng bảng lương, không phải hồ sơ thợ)."""
     ensure_schema(conn)
     with transaction(conn):
         cur = conn.execute(
-            "SELECT phu_cap, thuong, note FROM salary_month WHERE ym = ? AND worker_id = ?",
+            "SELECT phu_cap, thuong, note, weekly FROM salary_month WHERE ym = ? AND worker_id = ?",
             (ym, worker_id),
         ).fetchone()
         pc = float(cur["phu_cap"] or 0) if cur else 0.0
         th = float(cur["thuong"] or 0) if cur else 0.0
         nt = (cur["note"] or "") if cur else ""
+        wk = int(cur["weekly"] or 0) if cur else 0
         if phu_cap is not None:
             pc = max(0.0, float(phu_cap))
         if thuong is not None:
             th = max(0.0, float(thuong))
         if note is not None:
             nt = str(note)
+        if weekly is not None:
+            wk = 1 if weekly else 0
         conn.execute(
-            "INSERT INTO salary_month (ym, worker_id, phu_cap, thuong, note, updated_at, updated_by) "
-            "VALUES (?, ?, ?, ?, ?, datetime('now','+7 hours'), ?) "
+            "INSERT INTO salary_month (ym, worker_id, phu_cap, thuong, note, weekly, updated_at, updated_by) "
+            "VALUES (?, ?, ?, ?, ?, ?, datetime('now','+7 hours'), ?) "
             "ON CONFLICT(ym, worker_id) DO UPDATE SET phu_cap=excluded.phu_cap, thuong=excluded.thuong, "
-            "note=excluded.note, updated_at=excluded.updated_at, updated_by=excluded.updated_by",
-            (ym, worker_id, pc, th, nt, by or ""),
+            "note=excluded.note, weekly=excluded.weekly, updated_at=excluded.updated_at, updated_by=excluded.updated_by",
+            (ym, worker_id, pc, th, nt, wk, by or ""),
         )
 
 
@@ -170,17 +177,17 @@ def compute_month_payroll(conn, ym: str) -> dict:
     tot = {"luong": 0.0, "phu_cap": 0.0, "thuong": 0.0, "ung": 0.0, "thuc_lanh": 0.0}
     for w in workers:
         wid, wt = w["id"], (w.get("wage_type") or "product")
-        weekly = bool(w.get("weekly_salary"))
         luong = wage_by_name.get(w["name"].strip().casefold(), 0.0) if wt == "product" else 0.0
         a = adjust.get(wid, {})
         phu_cap, thuong, note = a.get("phu_cap", 0.0), a.get("thuong", 0.0), a.get("note", "")
+        weekly = bool(a.get("weekly"))   # nhận lương tuần THEO THÁNG (riêng bảng lương)
         ung_manual, adv_count = adv.get(wid, (0.0, 0))
         # NHẬN LƯƠNG TUẦN → ứng tự động = đúng lương sản phẩm (đã trả theo tuần trong tháng)
         ung_weekly = luong if weekly else 0.0
         ung = ung_manual + ung_weekly
         thuc_lanh = luong + phu_cap + thuong - ung
         out.append({
-            "worker_id": wid, "name": w["name"], "wage_type": wt, "weekly_salary": weekly,
+            "worker_id": wid, "name": w["name"], "wage_type": wt, "weekly": weekly,
             "luong": round(luong), "phu_cap": round(phu_cap), "thuong": round(thuong),
             "ung": round(ung), "ung_manual": round(ung_manual), "ung_weekly": round(ung_weekly),
             "adv_count": adv_count, "note": note, "thuc_lanh": round(thuc_lanh),

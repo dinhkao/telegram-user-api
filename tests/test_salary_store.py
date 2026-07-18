@@ -102,10 +102,10 @@ class SalaryStoreTest(unittest.TestCase):
     def test_nhan_luong_tuan_tu_dong_ung_bang_luong_sp(self):
         # Thợ SP lương 10.000, bật nhận lương tuần → ứng tự động = 10.000
         c = self._seed_product_worker("Chi", tong_calc=10, gia=1000)
-        update_worker(self.conn, c, weekly_salary=True)
+        salary_store.set_month_adjust(self.conn, "2026-07", c, weekly=True)
         salary_store.set_month_adjust(self.conn, "2026-07", c, phu_cap=2_000)
         r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), c)
-        self.assertTrue(r["weekly_salary"])
+        self.assertTrue(r["weekly"])
         self.assertEqual(r["luong"], 10_000)
         self.assertEqual(r["ung_weekly"], 10_000)   # ứng tự động = đúng lương SP
         self.assertEqual(r["ung"], 10_000)          # chưa có ứng tay
@@ -113,7 +113,7 @@ class SalaryStoreTest(unittest.TestCase):
 
     def test_luong_tuan_cong_don_voi_ung_tay(self):
         c = self._seed_product_worker("Chi", tong_calc=10, gia=1000)  # lương 10k
-        update_worker(self.conn, c, weekly_salary=True)
+        salary_store.set_month_adjust(self.conn, "2026-07", c, weekly=True)
         salary_store.add_advance(self.conn, c, "2026-07", 3_000)      # ứng tay thêm
         r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), c)
         self.assertEqual(r["ung_weekly"], 10_000)
@@ -123,14 +123,14 @@ class SalaryStoreTest(unittest.TestCase):
     def test_khong_nhan_luong_tuan_khong_ung_tu_dong(self):
         c = self._seed_product_worker("Chi", tong_calc=10, gia=1000)  # weekly mặc định off
         r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), c)
-        self.assertFalse(r["weekly_salary"])
+        self.assertFalse(r["weekly"])
         self.assertEqual(r["ung_weekly"], 0)
         self.assertEqual(r["thuc_lanh"], 10_000)    # nhận đủ lương
 
     def test_luong_tuan_thoi_gian_khong_anh_huong(self):
-        update_worker(self.conn, self.a, weekly_salary=True)   # a là thợ 'time' (lương 0)
+        salary_store.set_month_adjust(self.conn, "2026-07", self.a, weekly=True)   # a là thợ 'time' (lương 0)
         r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)
-        self.assertTrue(r["weekly_salary"])
+        self.assertTrue(r["weekly"])
         self.assertEqual(r["ung_weekly"], 0)        # lương thời gian = 0 → không ứng tự động
 
     def test_ung_tach_theo_thang(self):

@@ -73,8 +73,8 @@ async def payroll_advances_handler(request: web.Request):
 
 
 async def payroll_adjust_handler(request: web.Request):
-    """POST /api/payroll/adjust {ym, worker_id, phu_cap?, thuong?, note?} — sửa phụ
-    cấp/thưởng theo tháng (field vắng = giữ nguyên)."""
+    """POST /api/payroll/adjust {ym, worker_id, phu_cap?, thuong?, note?, weekly?} — sửa
+    phụ cấp/thưởng/nhận-lương-tuần theo tháng (field vắng = giữ nguyên)."""
     d = _deny(request)
     if d:
         return d
@@ -94,7 +94,7 @@ async def payroll_adjust_handler(request: web.Request):
             salary_store.set_month_adjust(
                 conn, ym, worker_id,
                 phu_cap=body.get("phu_cap"), thuong=body.get("thuong"),
-                note=body.get("note"), by=by,
+                note=body.get("note"), weekly=body.get("weekly"), by=by,
             )
             return salary_store.compute_month_payroll(conn, ym)
         finally:
