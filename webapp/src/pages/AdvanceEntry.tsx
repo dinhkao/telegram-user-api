@@ -61,7 +61,7 @@ export function AdvanceEntry() {
   const wopts = workers.map((w) => ({ value: w.id, label: w.name }));
 
   const head = <PageHead fallback="#/home" title={<><Icon name="wallet" size={18} /> Nhập ứng lương</>} sub="ghi tạm ứng cho thợ theo tháng" />;
-  if (!isOffice()) return <div class="pr-page">{head}<EmptyState icon="lock">Chỉ văn phòng.</EmptyState></div>;
+  if (!isOffice()) return <div class="pr-page">{head}<EmptyState icon="🔒">Chỉ văn phòng.</EmptyState></div>;
 
   return (
     <div class="pr-page">
@@ -89,7 +89,7 @@ export function AdvanceEntry() {
           <div class="card pr-totals">
             <span>Tổng ứng {ymLabel(ym).toLowerCase()} <b class="t-danger">{money(total)}</b> · {list.length} lần</span>
           </div>
-          {list.length === 0 ? <EmptyState icon="wallet">Chưa có lần ứng nào trong tháng.</EmptyState> : (
+          {list.length === 0 ? <EmptyState icon="💰">Chưa có lần ứng nào trong tháng.</EmptyState> : (
             list.map((a) => (
               <div class="card ua-row" key={a.id}>
                 <div class="ua-row-main">

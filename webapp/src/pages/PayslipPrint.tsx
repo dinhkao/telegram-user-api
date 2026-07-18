@@ -61,7 +61,7 @@ export function PayslipPrint() {
       title={<><Icon name="printer" size={18} /> In phiếu lương</>}
       sub="chọn thợ + khoảng ngày → in 1 lần, tự cắt giữa từng người" />
   );
-  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="lock">Chỉ văn phòng.</EmptyState></div>;
+  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="🔒">Chỉ văn phòng.</EmptyState></div>;
 
   const count = sel === null ? workers.length : sel.size;
   return (

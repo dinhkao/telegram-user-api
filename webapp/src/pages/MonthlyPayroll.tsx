@@ -85,7 +85,7 @@ export function MonthlyPayroll() {
       title={<><Icon name="wallet" size={18} /> Bảng lương tháng</>}
       sub="lương SP tự tính + phụ cấp/thưởng/ứng theo tháng" />
   );
-  if (!isOffice()) return <div class="pr-page">{head}<EmptyState icon="lock">Chỉ văn phòng.</EmptyState></div>;
+  if (!isOffice()) return <div class="pr-page">{head}<EmptyState icon="🔒">Chỉ văn phòng.</EmptyState></div>;
 
   return (
     <div class="pr-page">
@@ -98,7 +98,7 @@ export function MonthlyPayroll() {
 
       {loading && !data ? <Loading />
         : err && !data ? <ErrorState msg={err} onRetry={load} />
-        : !data || !data.workers.length ? <EmptyState icon="wallet">Chưa có nhân viên.</EmptyState>
+        : !data || !data.workers.length ? <EmptyState icon="💰">Chưa có nhân viên.</EmptyState>
         : (
           <>
             <div class="seg pr-viewseg">
