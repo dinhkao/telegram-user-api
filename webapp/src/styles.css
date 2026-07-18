@@ -1370,6 +1370,7 @@ a.pr-stat:active { background: var(--accent-wash); }
 .pr-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: .8rem; background: var(--card); }
 .pr-table th, .pr-table td { padding: 6px 9px; border: none; border-bottom: 1px solid var(--border); white-space: nowrap; text-align: right; }
 .pr-table th { position: sticky; top: 44px; z-index: 3; color: var(--muted); font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; background: var(--bg); box-shadow: 0 1px 0 var(--border); }  /* ghim dưới app-bar(44) như .order-day-head */
+body.has-nop .pr-table th { top: 72px; }   /* banner .nop-banner (top:44, cao 28, đục) hiện → tụt xuống dưới nó, khỏi bị che */
 .pr-table th:first-child { text-align: left; }
 .pr-table th:nth-child(2), .pr-table th:nth-child(3) { text-align: center; }
 .pr-sticky { position: sticky; left: 0; z-index: 1; background: var(--card); }
