@@ -1403,7 +1403,9 @@ a.pr-stat:active { background: var(--accent-wash); }
   .pr-card-grid { grid-template-columns: 1fr; gap: 8px; }
   .pr-card-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }
   .pr-card-metric:nth-child(3) { padding-left: 0; border-left: none; }
-  .pr-table-wrap { max-height: none; }
+  /* Bảng cuộn trong hộp có chiều cao giới hạn → header (sticky top) + dòng Tổng
+     (sticky bottom) GHIM lại khi cuộn dòng. -104px = chừa app-bar + thanh nav dưới. */
+  .pr-table-wrap { max-height: calc(100dvh - 104px); }
   /* bảng lương GỌN TỐI ĐA trên mobile — cột thợ đóng băng trái, số dồn sát để thấy nhiều cột nhất */
   .pr-table { font-size: .72rem; }
   .pr-table th, .pr-table td { padding: 5px 5px; }

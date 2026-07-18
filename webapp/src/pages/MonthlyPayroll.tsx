@@ -2,7 +2,7 @@
 // lương (SP tự tính; thời gian = 0 chờ chấm công), nhận lương tuần (theo tháng),
 // PHỤ CẤP nhiều khoản, THƯỞNG, ỨNG lương nhiều lần → thực lãnh. Phụ cấp + ứng quản lý
 // giống nhau (panel thêm/xoá khoản). API: getMonthlyPayroll + payroll allowance/advance.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import {
   addPayrollAdvance, addPayrollAllowance, deletePayrollAdvance, deletePayrollAllowance,
   getMonthlyPayroll, isOffice, listPayrollAdvances, listPayrollAllowances, setPayrollAdjust,
@@ -25,15 +25,24 @@ const shiftYM = (ym: string, d: number) => {
 const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
 const initials = (name: string) => name.trim().split(/\s+/).slice(-2).map((part) => part[0] || "").join("").toUpperCase();
 
+// Ghi nhớ theo PHIÊN (module scope, reset khi tải lại trang): THÁNG đang xem +
+// vị trí CUỘN bảng (theo tháng, cả dọc lẫn ngang). Kiểu hiển thị lưu localStorage
+// (mặc định BẢNG). → quay lại trang (back) giữ nguyên tháng + chỗ đang cuộn.
+const VIEW_KEY = "payroll_view";
+let _savedYm: string | null = null;
+const _tblScroll: Record<string, { top: number; left: number }> = {};
+const loadView = (): "table" | "card" => {
+  try { return localStorage.getItem(VIEW_KEY) === "card" ? "card" : "table"; } catch { return "table"; }
+};
+
 export function MonthlyPayroll() {
-  const [ym, setYm] = useState(curYM());
+  const [ym, setYm] = useState(() => _savedYm || curYM());
   const [data, setData] = useState<PayrollMonth | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [draft, setDraft] = useState<Record<string, string>>({});
-  const [view, setView] = useState<"table" | "card">(() =>
-    typeof matchMedia === "function" && matchMedia("(max-width: 720px)").matches ? "card" : "table"
-  );
+  const [view, setViewState] = useState<"table" | "card">(loadView);
+  const setView = (v: "table" | "card") => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /**/ } };
   const [openUng, setOpenUng] = useState<number | null>(null);
   const [openPc, setOpenPc] = useState<number | null>(null);
   const [advs, setAdvs] = useState<Record<number, SalaryAdvance[]>>({});
@@ -47,6 +56,7 @@ export function MonthlyPayroll() {
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [ym]);
+  useEffect(() => { _savedYm = ym; }, [ym]);   // nhớ tháng đang xem cho lần quay lại
 
   const apply = (d: PayrollMonth) => { setData(d); setDraft({}); };
 
@@ -182,8 +192,16 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
 }) {
   const t = data.totals;
+  const wrapRef = useRef<HTMLDivElement>(null);
+  // Khôi phục vị trí cuộn bảng (dọc+ngang) của THÁNG này khi vào/quay lại trang.
+  useLayoutEffect(() => {
+    const el = wrapRef.current; if (!el) return;
+    const s = _tblScroll[data.ym];
+    if (s) { el.scrollTop = s.top; el.scrollLeft = s.left; }
+  }, [data.ym]);
   return (
-    <div class="pr-table-wrap">
+    <div class="pr-table-wrap" ref={wrapRef}
+      onScroll={(e: any) => { _tblScroll[data.ym] = { top: e.currentTarget.scrollTop, left: e.currentTarget.scrollLeft }; }}>
       <table class="pr-table">
         <thead>
           <tr>
