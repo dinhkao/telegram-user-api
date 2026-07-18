@@ -916,6 +916,10 @@ export async function listPayrollAllowances(ym: string, worker_id: number): Prom
   const d = await getJSON(`/api/payroll/allowances?ym=${encodeURIComponent(ym)}&worker_id=${worker_id}`, { cache: false });
   return d.allowances || [];
 }
+export async function listAllAllowances(ym: string): Promise<SalaryAllowance[]> {
+  const d = await getJSON(`/api/payroll/allowances?ym=${encodeURIComponent(ym)}`, { cache: false });
+  return d.allowances || [];
+}
 export async function addPayrollAllowance(ym: string, worker_id: number, amount: number, note?: string): Promise<PayrollMonth> {
   return postJSON(`/api/payroll/allowance`, { ym, worker_id, amount, note });
 }

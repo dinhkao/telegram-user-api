@@ -23,6 +23,7 @@ const shiftYM = (ym: string, d: number) => {
   return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`;
 };
 const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
+const initials = (name: string) => name.trim().split(/\s+/).slice(-2).map((part) => part[0] || "").join("").toUpperCase();
 
 export function MonthlyPayroll() {
   const [ym, setYm] = useState(curYM());
@@ -30,7 +31,9 @@ export function MonthlyPayroll() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [draft, setDraft] = useState<Record<string, string>>({});
-  const [view, setView] = useState<"table" | "card">("table");
+  const [view, setView] = useState<"table" | "card">(() =>
+    typeof matchMedia === "function" && matchMedia("(max-width: 720px)").matches ? "card" : "table"
+  );
   const [openUng, setOpenUng] = useState<number | null>(null);
   const [openPc, setOpenPc] = useState<number | null>(null);
   const [advs, setAdvs] = useState<Record<number, SalaryAdvance[]>>({});
@@ -70,9 +73,6 @@ export function MonthlyPayroll() {
   };
   const toggleUng = (wid: number) => { if (openUng === wid) { setOpenUng(null); return; } setOpenUng(wid); loadAdvances(wid); };
   const togglePc = (wid: number) => { if (openPc === wid) { setOpenPc(null); return; } setOpenPc(wid); loadAllowances(wid); };
-  const gotoUng = (wid: number) => { setView("card"); setOpenUng(wid); loadAdvances(wid); };
-  const gotoPc = (wid: number) => { setView("card"); setOpenPc(wid); loadAllowances(wid); };
-
   const totals = data?.totals;
   const head = (
     <PageHead fallback="#/home"
@@ -82,12 +82,21 @@ export function MonthlyPayroll() {
   if (!isOffice()) return <div class="pr-page">{head}<EmptyState icon="🔒">Chỉ văn phòng.</EmptyState></div>;
 
   return (
-    <div class="pr-page">
+    <div class="pr-page pr-payroll-page">
       {head}
-      <div class="pr-monthbar">
-        <button class="pr-mnav" onClick={() => setYm(shiftYM(ym, -1))} aria-label="Tháng trước">‹</button>
-        <b>{ymLabel(ym)}</b>
-        <button class="pr-mnav" onClick={() => setYm(shiftYM(ym, 1))} aria-label="Tháng sau">›</button>
+      <div class="pr-controlbar">
+        <div class="pr-monthbar">
+          <button class="pr-mnav previous" onClick={() => setYm(shiftYM(ym, -1))} aria-label="Tháng trước"><Icon name="chevronRight" size={18} /></button>
+          <div class="pr-period">
+            <span>Kỳ lương</span>
+            <b>{ymLabel(ym)}</b>
+          </div>
+          <button class="pr-mnav" onClick={() => setYm(shiftYM(ym, 1))} aria-label="Tháng sau"><Icon name="chevronRight" size={18} /></button>
+        </div>
+        <div class="seg pr-viewseg" role="group" aria-label="Kiểu hiển thị">
+          <button class={view === "table" ? "seg-btn active" : "seg-btn"} onClick={() => setView("table")}><Icon name="menu" size={16} /> Bảng</button>
+          <button class={view === "card" ? "seg-btn active" : "seg-btn"} onClick={() => setView("card")}><Icon name="grid" size={16} /> Thẻ</button>
+        </div>
       </div>
 
       {loading && !data ? <Loading />
@@ -95,28 +104,34 @@ export function MonthlyPayroll() {
         : !data || !data.workers.length ? <EmptyState icon="💰">Chưa có nhân viên.</EmptyState>
         : (
           <>
-            <div class="seg pr-viewseg">
-              <button class={view === "table" ? "seg-btn active" : "seg-btn"} onClick={() => setView("table")}>📊 Bảng</button>
-              <button class={view === "card" ? "seg-btn active" : "seg-btn"} onClick={() => setView("card")}>📇 Thẻ</button>
-            </div>
             {totals && (
-              <div class="card pr-totals">
-                <span>Tổng thực lãnh <b>{money(totals.thuc_lanh)}</b></span>
-                <span class="muted small">Lương {money(totals.luong)} · PC {money(totals.phu_cap)} · Thưởng {money(totals.thuong)} · Ứng {money(totals.ung)}</span>
-              </div>
+              <section class="pr-summary" aria-label="Tổng quan bảng lương">
+                <div class="pr-summary-net">
+                  <span>Thực lãnh toàn bộ</span>
+                  <strong>{money(totals.thuc_lanh)}</strong>
+                  <small>{data.workers.length} nhân viên · {data.workers.filter((r) => r.weekly).length} nhận lương tuần</small>
+                </div>
+                <div class="pr-summary-breakdown">
+                  <div class="pr-stat gross"><span>Lương gốc</span><b>{money(totals.luong)}</b></div>
+                  <a class="pr-stat allowance" href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}`}><span>Phụ cấp</span><b>+{money(totals.phu_cap)}</b></a>
+                  <div class="pr-stat bonus"><span>Thưởng</span><b>+{money(totals.thuong)}</b></div>
+                  <a class="pr-stat advance" href={`#/nhap-ung?ym=${encodeURIComponent(ym)}`}><span>Đã ứng</span><b>−{money(totals.ung)}</b></a>
+                </div>
+              </section>
             )}
             {view === "table" ? (
               <PayrollTable data={data} draft={draft} setDraft={setDraft}
-                saveThuong={saveThuong} toggleType={toggleType} toggleWeekly={toggleWeekly}
-                onPc={gotoPc} onUng={gotoUng} />
+                saveThuong={saveThuong} toggleType={toggleType} toggleWeekly={toggleWeekly} />
             ) : (
-              data.workers.map((r) => (
-                <PayrollCard key={r.worker_id} r={r} ym={ym} draft={draft} setDraft={setDraft}
-                  saveThuong={saveThuong} toggleType={toggleType} toggleWeekly={toggleWeekly}
-                  openUng={openUng === r.worker_id} onToggleUng={() => toggleUng(r.worker_id)} advances={advs[r.worker_id]}
-                  openPc={openPc === r.worker_id} onTogglePc={() => togglePc(r.worker_id)} allowances={allows[r.worker_id]}
-                  apply={apply} setAdvs={setAdvs} setAllows={setAllows} />
-              ))
+              <div class="pr-card-grid">
+                {data.workers.map((r) => (
+                  <PayrollCard key={r.worker_id} r={r} ym={ym} draft={draft} setDraft={setDraft}
+                    saveThuong={saveThuong} toggleType={toggleType} toggleWeekly={toggleWeekly}
+                    openUng={openUng === r.worker_id} onToggleUng={() => toggleUng(r.worker_id)} advances={advs[r.worker_id]}
+                    openPc={openPc === r.worker_id} onTogglePc={() => togglePc(r.worker_id)} allowances={allows[r.worker_id]}
+                    apply={apply} setAdvs={setAdvs} setAllows={setAllows} />
+                ))}
+              </div>
             )}
           </>
         )}
@@ -160,12 +175,11 @@ function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, extra }: 
   );
 }
 
-function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWeekly, onPc, onUng }: {
+function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWeekly }: {
   data: PayrollMonth; draft: Record<string, string>;
   setDraft: (f: (d: Record<string, string>) => Record<string, string>) => void;
   saveThuong: (wid: number, val: string) => void;
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
-  onPc: (wid: number) => void; onUng: (wid: number) => void;
 }) {
   const t = data.totals;
   return (
@@ -183,7 +197,12 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
             const kTh = `${r.worker_id}:thuong`;
             return (
               <tr key={r.worker_id}>
-                <td class="pr-sticky pr-td-name"><a class="pr-name-link" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>{r.name}</a></td>
+                <td class="pr-sticky pr-td-name">
+                  <a class="pr-worker" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>
+                    <span class="pr-avatar">{initials(r.name)}</span>
+                    <span>{r.name}</span>
+                  </a>
+                </td>
                 <td class="pr-td-mid">
                   <button class={isTime ? "chip pr-type time" : "chip pr-type"} onClick={() => toggleType(r)}
                     title="Bấm để đổi loại lương">{isTime ? "TG" : "SP"}</button>
@@ -192,11 +211,11 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
                   <span class={r.weekly ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly}
                     onClick={() => toggleWeekly(r)} style="cursor:pointer" title="Nhận lương tuần"><span class="tgl-knob" /></span>
                 </td>
-                <td class="pr-num">{isTime ? "0" : money(r.luong)}</td>
+                <td class={isTime || !r.luong ? "pr-num is-zero" : "pr-num"}>{isTime ? "0" : money(r.luong)}</td>
                 <td class="pr-num">
-                  <button class="pr-ung-btn" onClick={() => onPc(r.worker_id)} title="Quản lý phụ cấp">
+                  <a class="pr-ung-btn" href={`#/nhap-phu-cap?ym=${encodeURIComponent(data.ym)}&worker_id=${r.worker_id}`} title="Mở phụ cấp của nhân viên">
                     {money(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}
-                  </button>
+                  </a>
                 </td>
                 <td class="pr-td-in">
                   <input class="pw-input pr-tin" inputMode="numeric" placeholder="0"
@@ -206,11 +225,11 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
                     onKeyDown={(e: any) => { if (e.key === "Enter") e.target.blur(); }} />
                 </td>
                 <td class="pr-num">
-                  <button class="pr-ung-btn" onClick={() => onUng(r.worker_id)} title="Quản lý ứng lương">
+                  <a class="pr-ung-btn" href={`#/nhap-ung?ym=${encodeURIComponent(data.ym)}&worker_id=${r.worker_id}`} title="Mở ứng lương của nhân viên">
                     {money(r.ung)}{r.adv_count ? <sup> {r.adv_count}</sup> : null}
-                  </button>
+                  </a>
                 </td>
-                <td class={r.thuc_lanh < 0 ? "pr-num t-danger" : "pr-num pr-net-td"}>{money(r.thuc_lanh)}</td>
+                <td class={r.thuc_lanh < 0 ? "pr-num pr-net-td t-danger" : "pr-num pr-net-td"}>{money(r.thuc_lanh)}</td>
               </tr>
             );
           })}
@@ -268,40 +287,48 @@ function PayrollCard({ r, ym, draft, setDraft, saveThuong, toggleType, toggleWee
   return (
     <section class="card pr-card">
       <div class="pr-top">
-        <div class="pr-name">
-          <a class="pr-name-link" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>{r.name}</a>
-          <button class={isTime ? "chip pr-type time" : "chip pr-type"} onClick={() => toggleType(r)}
-            title="Bấm để đổi loại lương">{isTime ? "Thời gian" : "Sản phẩm"}</button>
+        <div class="pr-person">
+          <span class="pr-avatar large">{initials(r.name)}</span>
+          <div>
+            <a class="pr-name-link" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>{r.name}</a>
+            <span class="pr-person-sub">{isTime ? "Lương thời gian" : "Lương sản phẩm"}</span>
+          </div>
         </div>
-        <b class="pr-net">{money(r.thuc_lanh)}</b>
+        <div class="pr-card-net"><span>Thực lãnh</span><b class={r.thuc_lanh < 0 ? "t-danger" : ""}>{money(r.thuc_lanh)}</b></div>
       </div>
-      <div class="pr-line muted small">
-        Lương {isTime ? <span title="Chờ chấm công">0 <i>(chờ chấm công)</i></span> : <b>{money(r.luong)}</b>}
-      </div>
-      <div class="pr-wk-row">
-        <span>Nhận lương tuần {r.weekly && r.ung_weekly > 0 ? <span class="muted small">(tự ứng {money(r.ung_weekly)})</span> : null}</span>
-        <span class={r.weekly ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly}
-          onClick={() => toggleWeekly(r)} style="cursor:pointer"><span class="tgl-knob" /></span>
-      </div>
-      <div class="pr-edits">
-        <label>Thưởng
+
+      <div class="pr-card-metrics">
+        <div class="pr-card-metric"><span>Lương</span><b>{isTime ? "0" : money(r.luong)}</b></div>
+        <div class="pr-card-metric"><span>Phụ cấp</span><a href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>{money(r.phu_cap)}</a></div>
+        <label class="pr-card-metric editable"><span>Thưởng</span>
           <input class="pw-input" inputMode="numeric" placeholder="0"
             value={draft[kTh] !== undefined ? draft[kTh] : (r.thuong ? String(r.thuong) : "")}
             onInput={(e: any) => setDraft((d) => ({ ...d, [kTh]: e.target.value }))}
             onBlur={(e: any) => saveThuong(wid, e.target.value)}
             onKeyDown={(e: any) => { if (e.key === "Enter") e.target.blur(); }} />
         </label>
+        <div class="pr-card-metric advance"><span>Đã ứng</span><a href={`#/nhap-ung?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>{money(r.ung)}</a></div>
       </div>
-      <button class="pr-adv-toggle" onClick={onTogglePc}>
-        <span>Phụ cấp: <b>{money(r.phu_cap)}</b> {r.pc_count ? <span class="muted small">({r.pc_count} khoản)</span> : null}</span>
-        <span class="muted">{openPc ? "▾" : "▸"}</span>
-      </button>
+
+      <div class="pr-card-tools">
+        <button class={isTime ? "chip pr-type time" : "chip pr-type"} onClick={() => toggleType(r)}
+          title="Bấm để đổi loại lương">{isTime ? "Thời gian" : "Sản phẩm"}</button>
+        <label class="pr-weekly-control">
+          <span>Nhận tuần {r.weekly && r.ung_weekly > 0 ? `· ${money(r.ung_weekly)}` : ""}</span>
+          <span class={r.weekly ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly}
+            onClick={() => toggleWeekly(r)}><span class="tgl-knob" /></span>
+        </label>
+      </div>
+      <div class="pr-adv-toggle">
+        <span>Chi tiết phụ cấp {r.pc_count ? <span class="muted small">· {r.pc_count} khoản</span> : null}</span>
+        <button class="pr-toggle-btn" onClick={onTogglePc} aria-label={openPc ? "Đóng chi tiết phụ cấp" : "Mở chi tiết phụ cấp"}>{openPc ? "▾" : "▸"}</button>
+      </div>
       {openPc && <EntryPanel entries={allowances} addPlaceholder="Số tiền phụ cấp"
         onAdd={(a, note) => addAllow(a, note)} onDel={delAllow} />}
-      <button class="pr-adv-toggle" onClick={onToggleUng}>
-        <span>Ứng: <b class={r.ung ? "t-danger" : ""}>{money(r.ung)}</b> {r.adv_count ? <span class="muted small">({r.adv_count} lần)</span> : null}</span>
-        <span class="muted">{openUng ? "▾" : "▸"}</span>
-      </button>
+      <div class="pr-adv-toggle">
+        <span>Chi tiết ứng lương {r.adv_count ? <span class="muted small">· {r.adv_count} lần nhập tay</span> : null}</span>
+        <button class="pr-toggle-btn" onClick={onToggleUng} aria-label={openUng ? "Đóng chi tiết ứng lương" : "Mở chi tiết ứng lương"}>{openUng ? "▾" : "▸"}</button>
+      </div>
       {openUng && <EntryPanel entries={advances} showDate addPlaceholder="Số tiền ứng"
         onAdd={(a, note, date) => addAdv(a, note, date)} onDel={delAdv}
         extra={r.weekly && r.ung_weekly > 0 ? (

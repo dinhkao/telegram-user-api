@@ -34,6 +34,7 @@ import { ProductionWorkerDetail } from "./pages/ProductionWorkerDetail";
 import { PayslipPrint } from "./pages/PayslipPrint";
 import { MonthlyPayroll } from "./pages/MonthlyPayroll";
 import { AdvanceEntry } from "./pages/AdvanceEntry";
+import { AllowanceEntry } from "./pages/AllowanceEntry";
 import { QuyList } from "./pages/QuyList";
 import { ReturnsList } from "./pages/ReturnsList";
 import { ReturnDetail } from "./pages/ReturnDetail";
@@ -497,6 +498,7 @@ function App() {
   else if (hash.startsWith("#/luong-sp")) page = <WageTable />;
   else if (hash.startsWith("#/luong-thang")) page = <MonthlyPayroll />;
   else if (hash.startsWith("#/nhap-ung")) page = <AdvanceEntry />;
+  else if (hash.startsWith("#/nhap-phu-cap")) page = <AllowanceEntry />;
   else if (hash.startsWith("#/in-luong")) page = <PayslipPrint />;
   else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} focus={focusEl} />;
   else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;
@@ -570,6 +572,7 @@ function App() {
     : hash.startsWith("#/luong-sp") ? "Lương SP"
     : hash.startsWith("#/luong-thang") ? "Bảng lương tháng"
     : hash.startsWith("#/nhap-ung") ? "Nhập ứng lương"
+    : hash.startsWith("#/nhap-phu-cap") ? "Nhập phụ cấp"
     : hash.startsWith("#/in-luong") ? "In phiếu lương"
     : (hash.startsWith("#/san_xuat") || hash.startsWith("#/sx-") || prodMatch || prodEditMatch || shtMatch) ? "Sản xuất"
     : hash.startsWith("#/san-pham") ? "Sản phẩm"

@@ -3,8 +3,8 @@
 // (mọi thợ) + tổng, xoá được. API: addPayrollAdvance/listAllAdvances/deletePayrollAdvance.
 import { useEffect, useState } from "preact/hooks";
 import {
-  addPayrollAdvance, deletePayrollAdvance, isOffice, listAllAdvances, listWorkers, soVN,
-  type SalaryAdvance, type Worker,
+  addPayrollAdvance, deletePayrollAdvance, getMonthlyPayroll, isOffice, listAllAdvances, listPayrollAdvances, listWorkers, soVN,
+  type PayrollRow, type SalaryAdvance, type Worker,
 } from "../api";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
@@ -20,20 +20,38 @@ const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(
 const shiftYM = (ym: string, d: number) => { const [y, m] = ym.split("-").map(Number); const dt = new Date(y, m - 1 + d, 1); return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`; };
 const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
 const dmy = (s: string) => (s && s.length >= 10 ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : s || "—");
+const initialFilter = () => {
+  const query = new URLSearchParams((window.location.hash.split("?")[1] || ""));
+  const queryYM = query.get("ym") || "";
+  const queryWid = Number(query.get("worker_id") || 0);
+  return { ym: /^\d{4}-\d{2}$/.test(queryYM) ? queryYM : curYM(), wid: queryWid > 0 ? queryWid : null };
+};
 
 export function AdvanceEntry() {
-  const [ym, setYm] = useState(curYM());
+  const initial = initialFilter();
+  const [ym, setYm] = useState(initial.ym);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [advs, setAdvs] = useState<SalaryAdvance[] | null>(null);
-  const [wid, setWid] = useState<number | null>(null);
+  const [weeklyRows, setWeeklyRows] = useState<PayrollRow[]>([]);
+  const [wid, setWid] = useState<number | null>(initial.wid);
+  const [filterWid, setFilterWid] = useState<number | null>(initial.wid);
   const [amt, setAmt] = useState("");
   const [date, setDate] = useState(todayISO());
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = () => { setAdvs(null); listAllAdvances(ym).then((a) => setAdvs(a)).catch(() => setAdvs([])); };
+  const load = () => {
+    setAdvs(null);
+    const request = filterWid ? listPayrollAdvances(ym, filterWid) : listAllAdvances(ym);
+    Promise.all([request, getMonthlyPayroll(ym)])
+      .then(([items, payroll]) => {
+        setAdvs(items);
+        setWeeklyRows(payroll.workers.filter((row) => row.ung_weekly > 0 && (!filterWid || row.worker_id === filterWid)));
+      })
+      .catch(() => { setAdvs([]); setWeeklyRows([]); });
+  };
   useEffect(() => { listWorkers().then(({ workers }) => setWorkers(workers)).catch(() => {}); }, []);
-  useEffect(() => { load(); }, [ym]);
+  useEffect(() => { load(); }, [ym, filterWid]);
 
   const nameOf = (id: number) => workers.find((w) => w.id === id)?.name || `#${id}`;
 
@@ -57,7 +75,8 @@ export function AdvanceEntry() {
   };
 
   const list = (advs || []).slice().sort((a, b) => (b.adv_date || "").localeCompare(a.adv_date || "") || b.id - a.id);
-  const total = list.reduce((s, a) => s + a.amount, 0);
+  const total = list.reduce((s, a) => s + a.amount, 0) + weeklyRows.reduce((s, row) => s + row.ung_weekly, 0);
+  const entryCount = list.length + weeklyRows.length;
   const wopts = workers.map((w) => ({ value: w.id, label: w.name }));
 
   const head = <PageHead fallback="#/home" title={<><Icon name="wallet" size={18} /> Nhập ứng lương</>} sub="ghi tạm ứng cho thợ theo tháng" />;
@@ -86,11 +105,27 @@ export function AdvanceEntry() {
 
       {advs === null ? <Loading /> : (
         <>
+          {filterWid ? (
+            <div class="ua-filter">
+              <span>Đang lọc: <b>{nameOf(filterWid)}</b></span>
+              <button class="btn small" onClick={() => setFilterWid(null)}>Xem tất cả</button>
+            </div>
+          ) : null}
           <div class="card pr-totals">
-            <span>Tổng ứng {ymLabel(ym).toLowerCase()} <b class="t-danger">{money(total)}</b> · {list.length} lần</span>
+            <span>Tổng ứng {ymLabel(ym).toLowerCase()} <b class="t-danger">{money(total)}</b> · {entryCount} khoản</span>
           </div>
-          {list.length === 0 ? <EmptyState icon="💰">Chưa có lần ứng nào trong tháng.</EmptyState> : (
-            list.map((a) => (
+          {entryCount === 0 ? <EmptyState icon="💰">Chưa có khoản ứng nào trong tháng.</EmptyState> : (
+            <>
+              {weeklyRows.map((row) => (
+                <div class="card ua-row" key={`weekly-${row.worker_id}`}>
+                  <div class="ua-row-main">
+                    <b>{row.name}</b>
+                    <div class="muted small">Lương tuần tự động</div>
+                  </div>
+                  <b class="ua-amt t-danger">{money(row.ung_weekly)}</b>
+                </div>
+              ))}
+              {list.map((a) => (
               <div class="card ua-row" key={a.id}>
                 <div class="ua-row-main">
                   <b>{nameOf(a.worker_id)}</b>
@@ -100,7 +135,8 @@ export function AdvanceEntry() {
                 <b class="ua-amt t-danger">{money(a.amount)}</b>
                 <button class="pr-adv-del" onClick={() => del(a.id)} aria-label="Xoá">✕</button>
               </div>
-            ))
+              ))}
+            </>
           )}
         </>
       )}
