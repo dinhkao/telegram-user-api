@@ -59,9 +59,16 @@ def generate_payslips_html(from_ymd: str, to_ymd: str, workers: list[dict]) -> s
         '<meta name="viewport" content="width=device-width, initial-scale=1.0" />\n'
         '<title>Phiếu lương</title>\n'
         '<style>\n'
-        '  body { width: 280px; font-family: Arial, sans-serif; margin: 0 auto; }\n'
-        '  .payslip { page-break-after: always; padding-bottom: 6px; }\n'
-        '  .payslip:last-child { page-break-after: auto; }\n'
+        # @page size:auto = MỖI phiếu 1 trang giấy ngắn (không phải A4) → máy in nhiệt
+        # cắt ĐÚNG sau từng phiếu; margin:0 bỏ header/footer trình duyệt. (Máy in phải
+        # bật "cut per page"/tự cắt trong driver thì mới cắt giấy vật lý.)
+        '  @page { size: 76mm auto; margin: 0; }\n'
+        '  html, body { margin: 0; padding: 0; }\n'
+        '  body { width: 76mm; font-family: Arial, sans-serif; }\n'
+        '  .payslip { break-after: page; page-break-after: always; '
+        'break-inside: avoid; page-break-inside: avoid; padding: 3mm 2mm 5mm; '
+        'box-sizing: border-box; }\n'
+        '  .payslip:last-child { break-after: auto; page-break-after: auto; }\n'
         '  .title { text-align: center; font-weight: bold; font-size: 18px; margin-top: 6px; }\n'
         '  .mid { text-align: center; }\n'
         '  .period { font-size: 13px; margin-bottom: 4px; }\n'
