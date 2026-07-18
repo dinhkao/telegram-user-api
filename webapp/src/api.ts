@@ -625,6 +625,17 @@ export function invoiceHtmlUrl(threadId: string | number): string {
   return `${serverUrl()}/api/order/${Number(threadId)}/invoice-html${t ? `?token=${encodeURIComponent(t)}` : ""}`;
 }
 
+/** URL trang HTML "Phiếu lương tuần" của 1 thợ (in giấy) — office-only, mở tab mới. */
+export function payslipHtmlUrl(name: string, from?: string, to?: string): string {
+  const qs = new URLSearchParams();
+  if (from) qs.set("from", from);
+  if (to) qs.set("to", to);
+  const t = getToken();
+  if (t) qs.set("token", t);
+  const q = qs.toString();
+  return `${serverUrl()}/api/production/worker/${encodeURIComponent(name)}/payslip-html${q ? `?${q}` : ""}`;
+}
+
 // ── Ảnh đính kèm đơn ─────────────────────────────────────────────────────────
 
 /** Header chỉ có Authorization (KHÔNG set Content-Type — để browser tự gắn
