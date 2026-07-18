@@ -257,13 +257,16 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   từng tháng cho mọi NV. `production_workers.wage_type` phân loại NV: `'product'`
   (lương SP tự tính từ sản xuất theo tháng qua `report_slips.compute_range_report`)
   | `'time'` (lương thời gian = 0, CHỜ tính năng chấm công). Bảng `salary_month`
-  (phụ cấp + thưởng theo (tháng, thợ), nhập tay) + `salary_advances` (ỨNG lương
-  NHIỀU lần/tháng, cộng dồn). `compute_month_payroll(ym)`: thực lãnh = lương + phụ
-  cấp + thưởng − ứng, cho cả bảng. API `server_app/payroll_routes.py`
-  (`/api/payroll/month|adjust|advance*`, TẤT CẢ chặn `office_user`). UI
-  `webapp/src/pages/MonthlyPayroll.tsx` (`#/luong-thang`, ☰ Thêm → Sản xuất).
-  Tests: `tests/test_salary_store.py`. (Khác `production_allowances` = phụ cấp
-  per-PHIẾU SX; đây là phụ cấp/thưởng theo THÁNG.)
+  (thưởng + ghi chú + `weekly` = nhận-lương-tuần THEO THÁNG — mỗi (tháng, thợ) độc
+  lập, KHÁC `production_workers.weekly_salary`) + `salary_advances` (ỨNG lương NHIỀU
+  lần/tháng) + `salary_allowances` (PHỤ CẤP NHIỀU KHOẢN/tháng — amount + nhãn, cộng
+  dồn; giống ứng). `compute_month_payroll(ym)`: thực lãnh = lương + phụ cấp (Σ khoản)
+  + thưởng − ứng; `weekly` bật → ứng tự động += lương SP (đã trả theo tuần). API
+  `server_app/payroll_routes.py` (`/api/payroll/month|adjust|advance*|allowance*`,
+  TẤT CẢ chặn `office_user`). UI `MonthlyPayroll.tsx` (`#/luong-thang`, view Bảng/Thẻ,
+  bấm tên → chi tiết thợ) + `AdvanceEntry.tsx` (`#/nhap-ung` nhập ứng nhanh); ☰ Thêm
+  → nhóm **Lương**. Tests: `tests/test_salary_store.py`. (Khác `production_allowances`
+  = phụ cấp per-PHIẾU SX; đây là lương theo THÁNG.)
 - `inventory_store/` — kho thùng (`app.db`). Bảng:
   - `inventory_boxes` (`schema.py`+`queries.py`): 1 row = 1 thùng vật lý. Mã thùng =
     **SỐ GỌI TOÀN KHO, xoay vòng 27 BLOCK** (mở rộng 2026-07-17): `001`–`999` →
