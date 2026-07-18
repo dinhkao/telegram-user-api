@@ -1363,7 +1363,14 @@ a.pr-stat:active { background: var(--accent-wash); }
 .pr-totals { padding: 9px 12px; font-size: .9rem; }
 .pr-totals b { font-variant-numeric: tabular-nums; }
 /* bảng lương — view dạng table */
-.pr-table-wrap { overflow: auto; max-height: max(320px, calc(100dvh - 360px)); -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); box-shadow: var(--e1); }
+/* Bảng cuộn theo TRANG (dọc) + cuộn NGANG trong hộp; header thật cuộn theo trang,
+   header NỔI (.pr-thead-float, JS) ghim dưới app-bar khi cuộn qua. */
+.pr-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); box-shadow: var(--e1); }
+/* header NỔI: bản sao hàng tiêu đề, fixed dưới app-bar, JS bật/tắt + đồng bộ cuộn ngang */
+.pr-thead-float { position: fixed; z-index: 15; display: none; overflow: hidden; background: var(--bg); box-shadow: 0 3px 8px rgba(16, 20, 32, .10); border-radius: 0 0 var(--r-sm) var(--r-sm); }
+.pr-thead-float table { margin: 0; table-layout: fixed; }
+.pr-thead-float th { position: static; top: auto; }                 /* huỷ sticky-top thừa kế */
+.pr-thead-float th:first-child { position: relative; left: auto; z-index: 2; }  /* cột Thợ nổi trên khi cuộn ngang (JS counter-translate) */
 .pr-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: .8rem; background: var(--card); }
 .pr-table th, .pr-table td { padding: 6px 9px; border: none; border-bottom: 1px solid var(--border); white-space: nowrap; text-align: right; }
 .pr-table th { position: sticky; top: 0; z-index: 3; color: var(--muted); font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; background: var(--bg); }
@@ -1403,9 +1410,6 @@ a.pr-stat:active { background: var(--accent-wash); }
   .pr-card-grid { grid-template-columns: 1fr; gap: 8px; }
   .pr-card-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }
   .pr-card-metric:nth-child(3) { padding-left: 0; border-left: none; }
-  /* Bảng cuộn trong hộp có chiều cao giới hạn → header (sticky top) + dòng Tổng
-     (sticky bottom) GHIM lại khi cuộn dòng. -104px = chừa app-bar + thanh nav dưới. */
-  .pr-table-wrap { max-height: calc(100dvh - 104px); }
   /* bảng lương GỌN TỐI ĐA trên mobile — cột thợ đóng băng trái, số dồn sát để thấy nhiều cột nhất */
   .pr-table { font-size: .72rem; }
   .pr-table th, .pr-table td { padding: 5px 5px; }

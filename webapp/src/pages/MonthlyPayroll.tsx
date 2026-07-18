@@ -193,22 +193,84 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
 }) {
   const t = data.totals;
   const wrapRef = useRef<HTMLDivElement>(null);
-  // Khôi phục vị trí cuộn bảng (dọc+ngang) của THÁNG này khi vào/quay lại trang.
+  const floatRef = useRef<HTMLDivElement>(null);
+  const headerRow = () => (
+    <tr>
+      <th class="pr-sticky">Thợ</th><th>Loại</th><th>Tuần</th><th>Lương</th>
+      <th>Phụ cấp</th><th>Thưởng</th><th>Ứng</th><th>Thực lãnh</th>
+    </tr>
+  );
+
+  // Khôi phục vị trí cuộn NGANG (tháng này) khi vào/quay lại; cuộn DỌC do window (useScrollMemory) lo.
   useLayoutEffect(() => {
     const el = wrapRef.current; if (!el) return;
     const s = _tblScroll[data.ym];
-    if (s) { el.scrollTop = s.top; el.scrollLeft = s.left; }
+    if (s) el.scrollLeft = s.left;
   }, [data.ym]);
+
+  // HEADER NỔI: khi header thật cuộn qua đỉnh, hiện bản sao position:fixed ngay dưới
+  // app-bar; đồng bộ cuộn NGANG (+ giữ cột Thợ đóng băng bằng counter-translate).
+  useEffect(() => {
+    const wrap = wrapRef.current, float = floatRef.current;
+    if (!wrap || !float) return;
+    const ftable = float.querySelector("table") as HTMLTableElement | null;
+    const realThead = wrap.querySelector("thead") as HTMLElement | null;
+    if (!ftable || !realThead) return;
+    const bar = document.querySelector(".app-bar");
+    const topPx = bar ? Math.round(bar.getBoundingClientRect().height) : 0;
+
+    const syncWidths = () => {
+      const rths = realThead.querySelectorAll("th");
+      const fths = ftable.querySelectorAll("th");
+      let total = 0;
+      rths.forEach((th, i) => {
+        const w = (th as HTMLElement).getBoundingClientRect().width;
+        total += w;
+        const f = fths[i] as HTMLElement | undefined;
+        if (f) f.style.width = f.style.minWidth = f.style.maxWidth = `${w}px`;
+      });
+      ftable.style.width = `${total}px`;
+    };
+    const syncX = () => {
+      const sl = wrap.scrollLeft;
+      ftable.style.transform = `translateX(${-sl}px)`;
+      const f = ftable.querySelector("th") as HTMLElement | null;
+      if (f) f.style.transform = `translateX(${sl}px)`;   // cột Thợ đứng yên khi cuộn ngang
+    };
+    const update = () => {
+      const r = wrap.getBoundingClientRect();
+      const on = r.top < topPx && r.bottom > topPx + 24;  // header thật đã cuộn lên + bảng còn trong tầm
+      if (!on) { if (float.style.display !== "none") float.style.display = "none"; return; }
+      if (float.style.display !== "block") { float.style.display = "block"; syncWidths(); }
+      float.style.top = `${topPx}px`;
+      float.style.left = `${r.left}px`;
+      float.style.width = `${r.width}px`;
+      syncX();
+    };
+
+    update();
+    const onScroll = () => update();
+    const onWrapScroll = () => { if (float.style.display === "block") syncX(); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    wrap.addEventListener("scroll", onWrapScroll, { passive: true });
+    const ro = new ResizeObserver(() => { syncWidths(); update(); });
+    ro.observe(wrap);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      wrap.removeEventListener("scroll", onWrapScroll);
+      ro.disconnect();
+    };
+  }, [data]);
+
   return (
-    <div class="pr-table-wrap" ref={wrapRef}
-      onScroll={(e: any) => { _tblScroll[data.ym] = { top: e.currentTarget.scrollTop, left: e.currentTarget.scrollLeft }; }}>
-      <table class="pr-table">
-        <thead>
-          <tr>
-            <th class="pr-sticky">Thợ</th><th>Loại</th><th>Tuần</th><th>Lương</th>
-            <th>Phụ cấp</th><th>Thưởng</th><th>Ứng</th><th>Thực lãnh</th>
-          </tr>
-        </thead>
+    <>
+      <div class="pr-thead-float" ref={floatRef} aria-hidden="true">
+        <table class="pr-table"><thead>{headerRow()}</thead></table>
+      </div>
+      <div class="pr-table-wrap" ref={wrapRef}
+        onScroll={(e: any) => { _tblScroll[data.ym] = { top: 0, left: e.currentTarget.scrollLeft }; }}>
+        <table class="pr-table">
+          <thead>{headerRow()}</thead>
         <tbody>
           {data.workers.map((r) => {
             const isTime = r.wage_type === "time";
@@ -262,8 +324,9 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
             <td class="pr-num pr-net-td">{money(t.thuc_lanh)}</td>
           </tr>
         </tfoot>
-      </table>
-    </div>
+        </table>
+      </div>
+    </>
   );
 }
 
