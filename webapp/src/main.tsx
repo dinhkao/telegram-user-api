@@ -31,6 +31,7 @@ import { ProductionReportEdit } from "./pages/ProductionReportEdit";
 import { ProductionDashboard } from "./pages/ProductionDashboard";
 import { AuxLoss } from "./pages/AuxLoss";
 import { ProductionWorkerDetail } from "./pages/ProductionWorkerDetail";
+import { PayslipPrint } from "./pages/PayslipPrint";
 import { QuyList } from "./pages/QuyList";
 import { ReturnsList } from "./pages/ReturnsList";
 import { ReturnDetail } from "./pages/ReturnDetail";
@@ -492,6 +493,7 @@ function App() {
   else if (baoCaoMatch) page = <ReportSlipDetail id={baoCaoMatch[1]} />;
   else if (hash.startsWith("#/bao-cao")) page = <ReportSlips />;
   else if (hash.startsWith("#/luong-sp")) page = <WageTable />;
+  else if (hash.startsWith("#/in-luong")) page = <PayslipPrint />;
   else if (prodMatch) page = <ProductionDetail threadId={prodMatch[1]} focus={focusEl} />;
   else if (hash.startsWith("#/san_xuat")) page = <ProductionList />;
   else if (boxTLMatch) page = <BoxTimeline boxId={boxTLMatch[1]} />;
@@ -562,6 +564,7 @@ function App() {
     : hash.startsWith("#/tien-cong") ? "Tiền công"
     : hash.startsWith("#/bao-cao") ? "Báo cáo SX"
     : hash.startsWith("#/luong-sp") ? "Lương SP"
+    : hash.startsWith("#/in-luong") ? "In phiếu lương"
     : (hash.startsWith("#/san_xuat") || hash.startsWith("#/sx-") || prodMatch || prodEditMatch || shtMatch) ? "Sản xuất"
     : hash.startsWith("#/san-pham") ? "Sản phẩm"
     : hash.startsWith("#/nhu-cau") ? "Cần làm hàng"

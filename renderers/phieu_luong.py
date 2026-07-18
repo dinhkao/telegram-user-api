@@ -1,9 +1,9 @@
-"""HTML PHIẾU LƯƠNG TUẦN cho 1 thợ — in giấy, bắt chước layout hoá đơn (280px).
+"""HTML PHIẾU LƯƠNG TUẦN — in giấy (khổ 280px kiểu hoá đơn). Hỗ trợ NHIỀU thợ trong
+1 trang: mỗi thợ 1 phiếu, ngăn nhau bằng page-break để máy in TỰ CẮT giữa từng người.
 
-Thuần: nhận dữ liệu đã tính (days=[{ymd, money}], total) và trả chuỗi HTML. Nối:
-renderers.common. Route dùng: server_app/production_dashboard_routes
-(production_worker_payslip_handler) — số tiền tính từ production_store.report_slips
-.compute_range_report (cùng nguồn với phiếu báo cáo lương văn phòng).
+Thuần: nhận dữ liệu đã tính (workers=[{name, days:[{ymd,money}], total}], khoảng ngày).
+Nối: renderers.common. Route: server_app/production_dashboard_routes
+(production_payslips_html_handler). Tiền từ production_store.report_slips.compute_range_report.
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from renderers.common import esc
 
 
 def _money(n) -> str:
-    return f"{int(round(n or 0)):,}".replace(",", ".") + "đ"
+    return f"{int(round(n or 0)):,}".replace(",", ".")
 
 
 def _dmy(ymd: str) -> str:
@@ -21,55 +21,61 @@ def _dmy(ymd: str) -> str:
     return f"{d}/{m}/{y}"
 
 
-def generate_payslip_html(worker_name: str, from_ymd: str, to_ymd: str,
-                          days: list[dict], total) -> str:
-    """days = [{ymd, money}] (đã sắp ngày tăng dần); total = tổng tiền cả kỳ."""
+def _section(name: str, period: str, days: list[dict], total) -> str:
     if days:
-        day_rows = "".join(
+        rows = "".join(
             f'<tr><td>{esc(_dmy(d.get("ymd")))}</td>'
-            f'<td class="thanh-tien">{_money(d.get("money"))}</td></tr>'
+            f'<td class="money">{_money(d.get("money"))}</td></tr>'
             for d in days
         )
     else:
-        day_rows = '<tr><td colspan="2" class="align-middle">Không có dữ liệu kỳ này</td></tr>'
+        rows = '<tr><td colspan="2" class="mid">Không có dữ liệu kỳ này</td></tr>'
+    return (
+        '<div class="payslip">\n'
+        '  <div class="title">PHIẾU LƯƠNG TUẦN</div>\n'
+        f'  <div class="mid period">{esc(period)}</div>\n'
+        f'  <div class="ten-tho">Nhân viên: {esc(name)}</div>\n'
+        '  <table border="1">\n'
+        '    <tr><th>Ngày</th><th>Thành tiền</th></tr>\n'
+        f'    {rows}\n'
+        f'    <tr class="tong"><td>TỔNG CỘNG</td><td class="money">{_money(total)}</td></tr>\n'
+        '  </table>\n'
+        '  <div class="cut">- - - - - - - - - - - - - - - -</div>\n'
+        '</div>'
+    )
+
+
+def generate_payslips_html(from_ymd: str, to_ymd: str, workers: list[dict]) -> str:
+    """workers = [{name, days:[{ymd, money}], total}] — mỗi phần tử 1 phiếu lương."""
     period = f"{_dmy(from_ymd)} → {_dmy(to_ymd)}" if (from_ymd or to_ymd) else ""
-    html = (
+    if workers:
+        body = "\n".join(_section(w.get("name") or "?", period, w.get("days") or [], w.get("total"))
+                         for w in workers)
+    else:
+        body = '<div class="payslip mid">Chưa chọn nhân viên</div>'
+    return (
         '<!DOCTYPE html><html lang="vi"><head>\n'
         '<meta charset="UTF-8" />\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1.0" />\n'
-        f'<title>Phiếu lương — {esc(worker_name)}</title>\n'
+        '<title>Phiếu lương</title>\n'
         '<style>\n'
-        '  body { width: 280px; font-family: Arial, sans-serif; }\n'
-        '  .title { text-align: center; font-weight: bold; font-size: 17px; }\n'
-        '  .align-middle { text-align: center; vertical-align: middle; }\n'
-        '  .thanh-tien { text-align: right; }\n'
-        '  .ten-tho { font-size: 16px; font-weight: bold; }\n'
+        '  body { width: 280px; font-family: Arial, sans-serif; margin: 0 auto; }\n'
+        '  .payslip { page-break-after: always; padding-bottom: 6px; }\n'
+        '  .payslip:last-child { page-break-after: auto; }\n'
+        '  .title { text-align: center; font-weight: bold; font-size: 18px; margin-top: 6px; }\n'
+        '  .mid { text-align: center; }\n'
+        '  .period { font-size: 13px; margin-bottom: 4px; }\n'
+        '  .ten-tho { font-size: 17px; font-weight: bold; margin: 4px 0; }\n'
         '  table { width: 100%; border-collapse: collapse; }\n'
-        '  td, th { padding: 3px; font-size: 14px; vertical-align: middle; }\n'
-        '  th.hd { text-align: center; font-weight: bold; }\n'
-        '  .hr-container { text-align: left; }\n'
-        '  hr { margin: 5px auto; }\n'
-        '  .tong td { font-size: 16px; font-weight: bold; border-top: 2px solid #000; }\n'
+        '  th, td { padding: 3px 4px; font-size: 15px; vertical-align: middle; }\n'
+        '  th { font-weight: bold; }\n'
+        '  .money { text-align: right; font-size: 20px; font-weight: bold; '
+        'font-variant-numeric: tabular-nums; }\n'
+        '  .tong td { font-size: 22px; font-weight: bold; border-top: 2px solid #000; }\n'
+        '  .cut { text-align: center; letter-spacing: 2px; margin: 8px 0 2px; }\n'
+        '  .payslip:last-child .cut { display: none; }\n'
         '</style>\n'
         '</head><body>\n'
-        '  <div class="title">PHIẾU LƯƠNG TUẦN</div>\n'
-        f'  <div class="align-middle">{esc(period)}</div>\n'
-        '  <div class="hr-container"><hr></div>\n'
-        '  <table border="0">\n'
-        '    <tr><td>CÔNG TY LÊ TRANG PHÁT</td></tr>\n'
-        '    <tr><td>SĐT: 0941 586 542 | 0908 141 393</td></tr>\n'
-        '  </table>\n'
-        '  <div class="hr-container"><hr></div>\n'
-        '  <table border="0">\n'
-        f'    <tr><td class="ten-tho">Nhân viên: {esc(worker_name)}</td></tr>\n'
-        '  </table>\n'
-        '  <table border="1">\n'
-        '    <tr><th class="hd">Ngày</th><th class="hd">Thành tiền</th></tr>\n'
-        f'    {day_rows}\n'
-        '  </table>\n'
-        '  <table border="0">\n'
-        f'    <tr class="tong"><td>TỔNG CỘNG</td><td class="thanh-tien">{_money(total)}</td></tr>\n'
-        '  </table>\n'
+        f'{body}\n'
         '</body></html>'
     )
-    return html

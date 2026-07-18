@@ -30,13 +30,13 @@ async def production_report_dashboard_handler(request: web.Request):
     return web.json_response({"ok": True, **data})
 
 
-async def production_worker_payslip_handler(request: web.Request):
-    """HTML PHIẾU LƯƠNG TUẦN cho 1 thợ (in giấy) — GET /api/production/worker/{name}/payslip-html
-    ?from=&to=. CHỈ VĂN PHÒNG (lương nhạy cảm). Tiền theo NGÀY + tổng lấy từ
-    compute_range_report (cùng nguồn phiếu báo cáo lương) → renderers.phieu_luong."""
-    name = (request.match_info.get("name") or "").strip()
-    if not name:
-        return web.Response(text="<h3>Thiếu tên thợ</h3>", content_type="text/html", status=400)
+async def production_payslips_html_handler(request: web.Request):
+    """HTML PHIẾU LƯƠNG cho 1..N thợ (in 1 lần) — GET /api/production/payslips-html
+    ?names=A,B,C&from=&to=. CHỈ VĂN PHÒNG (lương nhạy cảm). Mỗi thợ 1 phiếu, ngăn nhau
+    bằng page-break để máy in tự cắt. names trống = MỌI thợ; giữ thứ tự yêu cầu. Tiền
+    theo NGÀY + tổng từ compute_range_report (cùng nguồn phiếu báo cáo lương)."""
+    names_q = (request.query.get("names") or "").strip()
+    req_names = [n.strip() for n in names_q.split(",") if n.strip()]
     dfrom = (request.query.get("from") or "").strip() or None
     dto = (request.query.get("to") or "").strip() or None
     username = request.get("web_user")
@@ -47,19 +47,31 @@ async def production_worker_payslip_handler(request: web.Request):
             from server_app.production_wages import is_office_username
             if not is_office_username(username):
                 return "forbidden"
-            wid_row = conn.execute(
-                "SELECT id FROM production_workers WHERE name = TRIM(?) COLLATE NOCASE", (name,)
-            ).fetchone()
-            wids = [wid_row[0]] if wid_row else None
+            # thợ được chọn (giữ thứ tự yêu cầu); names trống = mọi thợ theo sort_order
+            if req_names:
+                order = []
+                for nm in req_names:
+                    r = conn.execute(
+                        "SELECT id, name FROM production_workers WHERE name = TRIM(?) COLLATE NOCASE", (nm,)
+                    ).fetchone()
+                    if r:
+                        order.append((r["id"], r["name"]))
+            else:
+                order = [(r["id"], r["name"]) for r in conn.execute(
+                    "SELECT id, name FROM production_workers ORDER BY sort_order ASC, name COLLATE NOCASE ASC"
+                ).fetchall()]
+            if not order:
+                return []
+            wids = [i for i, _ in order]
             from production_store.report_slips import compute_range_report
             rep = compute_range_report(conn, dfrom or "0000-01-01", dto or "9999-12-31", worker_ids=wids)
-            wk = next(
-                (w for w in rep["workers"] if (w.get("name") or "").strip().casefold() == name.casefold()),
-                None,
-            )
-            days = [{"ymd": d.get("ymd"), "money": d.get("money")} for d in (wk["days"] if wk else [])]
-            total = wk["money"] if wk else 0
-            return {"days": days, "total": total}
+            by = {(w.get("name") or "").strip().casefold(): w for w in rep["workers"]}
+            out = []
+            for _, nm in order:
+                w = by.get(nm.strip().casefold())
+                days = [{"ymd": d.get("ymd"), "money": d.get("money")} for d in (w["days"] if w else [])]
+                out.append({"name": nm, "days": days, "total": (w["money"] if w else 0)})
+            return out
         finally:
             conn.close()
 
@@ -67,8 +79,8 @@ async def production_worker_payslip_handler(request: web.Request):
     if payload == "forbidden":
         return web.Response(text="<h3>Chỉ văn phòng xem được phiếu lương</h3>",
                             content_type="text/html", status=403)
-    from renderers.phieu_luong import generate_payslip_html
-    html = generate_payslip_html(name, dfrom or "", dto or "", payload["days"], payload["total"])
+    from renderers.phieu_luong import generate_payslips_html
+    html = generate_payslips_html(dfrom or "", dto or "", payload)
     return web.Response(text=html, content_type="text/html")
 
 

@@ -3,7 +3,7 @@
 // API: getWorkerReport. Realtime production_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { getWorkerReport, isOffice, listWorkers, payslipHtmlUrl, soVN, updateWorker, type Worker, type WorkerReport, type WorkerReportRow } from "../api";
+import { getWorkerReport, isOffice, listWorkers, soVN, updateWorker, type Worker, type WorkerReport, type WorkerReportRow } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
@@ -100,16 +100,10 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
     g.money += r.money || 0;
   }
 
-  // In "Phiếu lương tuần" (office): mở trang HTML server (giống hoá đơn). Kỳ "Toàn
-  // bộ" không có mốc → suy từ ngày nhỏ nhất/lớn nhất của dữ liệu đang xem.
+  // In phiếu lương (office): sang trang "In phiếu lương" với thợ này chọn sẵn — ở đó
+  // chọn khoảng ngày rồi in (chung công cụ với in nhiều thợ).
   const openPayslip = () => {
-    let { from, to } = rangeFor(period);
-    if ((!from || !to) && days.length) {
-      const ys = days.map((d) => d.ymd).filter(Boolean).sort();
-      from = from || ys[0];
-      to = to || ys[ys.length - 1];
-    }
-    window.open(payslipHtmlUrl(name, from, to), "_blank");
+    location.hash = `#/in-luong?w=${encodeURIComponent(name)}`;
   };
 
   return (
@@ -121,8 +115,8 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
           {data && <div class="muted small">Tổng <b>{soVN(data.total)}</b> SP · {soVN(data.total_mam)} mâm · {data.phieu} phiếu</div>}
           {data && showMoney && <div class="wd-total-money">Tiền công: <b>{money(data.total_money || 0)}</b></div>}
           {data && showMoney && (
-            <button class="btn wd-print-btn" onClick={openPayslip} title="Mở trang in phiếu lương tuần">
-              <Icon name="printer" size={16} /> In phiếu lương tuần
+            <button class="btn wd-print-btn" onClick={openPayslip} title="Sang trang in phiếu lương — chọn khoảng ngày">
+              <Icon name="printer" size={16} /> In phiếu lương
             </button>
           )}
         </div>

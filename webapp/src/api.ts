@@ -625,15 +625,16 @@ export function invoiceHtmlUrl(threadId: string | number): string {
   return `${serverUrl()}/api/order/${Number(threadId)}/invoice-html${t ? `?token=${encodeURIComponent(t)}` : ""}`;
 }
 
-/** URL trang HTML "Phiếu lương tuần" của 1 thợ (in giấy) — office-only, mở tab mới. */
-export function payslipHtmlUrl(name: string, from?: string, to?: string): string {
+/** URL trang HTML phiếu lương cho 1..N thợ (in 1 lần, tự cắt giữa từng người) — office-only. */
+export function payslipsHtmlUrl(names: string[], from?: string, to?: string): string {
   const qs = new URLSearchParams();
+  if (names && names.length) qs.set("names", names.join(","));
   if (from) qs.set("from", from);
   if (to) qs.set("to", to);
   const t = getToken();
   if (t) qs.set("token", t);
   const q = qs.toString();
-  return `${serverUrl()}/api/production/worker/${encodeURIComponent(name)}/payslip-html${q ? `?${q}` : ""}`;
+  return `${serverUrl()}/api/production/payslips-html${q ? `?${q}` : ""}`;
 }
 
 // ── Ảnh đính kèm đơn ─────────────────────────────────────────────────────────
