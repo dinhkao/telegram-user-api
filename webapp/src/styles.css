@@ -1297,6 +1297,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pr-net { color: var(--ok); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
 .pr-line { margin: 3px 0 6px; }
 .pr-line i { font-style: normal; opacity: .7; }
+.pr-wk-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; font-size: .9rem; }
+.pr-adv-weekly b { font-variant-numeric: tabular-nums; }
+.pr-adv-weekly { padding-bottom: 4px; border-bottom: 1px dashed var(--border); }
 .pr-edits { display: flex; gap: 12px; flex-wrap: wrap; }
 .pr-edits label { display: flex; align-items: center; gap: 6px; font-size: .85rem; color: var(--muted); }
 .pr-adv-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 8px; padding: 7px 0 0; background: none; border: none; border-top: 1px dashed var(--border); color: var(--ink); font: inherit; cursor: pointer; }
@@ -1308,6 +1311,15 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pr-adv-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
 .pr-adv-add .pw-input { text-align: left; }
 .pr-adv-note-in { flex: 1; min-width: 100px; }
+/* nhập ứng lương (#/nhap-ung) */
+.ua-create { display: flex; flex-direction: column; gap: 8px; }
+.ua-form { display: flex; flex-wrap: wrap; gap: 8px; }
+.ua-form .pw-input { text-align: left; }
+.ua-amt-in { flex: 1; min-width: 120px; text-align: right; }
+.ua-note-in { flex: 1; min-width: 140px; }
+.ua-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.ua-row-main { flex: 1; min-width: 0; }
+.ua-amt { font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* bảng lương — view dạng table */
 .pr-viewseg { margin: 0 0 8px; }
 .pr-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 10px; }

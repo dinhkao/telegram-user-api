@@ -45,17 +45,21 @@ async def payroll_month_handler(request: web.Request):
 
 
 async def payroll_advances_handler(request: web.Request):
-    """GET /api/payroll/advances?ym=YYYY-MM&worker_id= → các lần ứng của 1 thợ."""
+    """GET /api/payroll/advances?ym=YYYY-MM[&worker_id=] → các lần ứng. Không có
+    worker_id = MỌI thợ trong tháng (cho trang nhập ứng lương)."""
     d = _deny(request)
     if d:
         return d
     ym = (request.query.get("ym") or "").strip()
     if not _YM.match(ym):
         return web.json_response({"ok": False, "error": "ym phải dạng YYYY-MM"}, status=400)
-    try:
-        worker_id = int(request.query.get("worker_id", ""))
-    except (ValueError, TypeError):
-        return web.json_response({"ok": False, "error": "worker_id không hợp lệ"}, status=400)
+    wq = request.query.get("worker_id")
+    worker_id = None
+    if wq not in (None, ""):
+        try:
+            worker_id = int(wq)
+        except (ValueError, TypeError):
+            return web.json_response({"ok": False, "error": "worker_id không hợp lệ"}, status=400)
 
     def _run():
         conn = get_connection(SHARED_DB_PATH)

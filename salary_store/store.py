@@ -170,16 +170,20 @@ def compute_month_payroll(conn, ym: str) -> dict:
     tot = {"luong": 0.0, "phu_cap": 0.0, "thuong": 0.0, "ung": 0.0, "thuc_lanh": 0.0}
     for w in workers:
         wid, wt = w["id"], (w.get("wage_type") or "product")
+        weekly = bool(w.get("weekly_salary"))
         luong = wage_by_name.get(w["name"].strip().casefold(), 0.0) if wt == "product" else 0.0
         a = adjust.get(wid, {})
         phu_cap, thuong, note = a.get("phu_cap", 0.0), a.get("thuong", 0.0), a.get("note", "")
-        ung, adv_count = adv.get(wid, (0.0, 0))
+        ung_manual, adv_count = adv.get(wid, (0.0, 0))
+        # NHẬN LƯƠNG TUẦN → ứng tự động = đúng lương sản phẩm (đã trả theo tuần trong tháng)
+        ung_weekly = luong if weekly else 0.0
+        ung = ung_manual + ung_weekly
         thuc_lanh = luong + phu_cap + thuong - ung
         out.append({
-            "worker_id": wid, "name": w["name"], "wage_type": wt,
+            "worker_id": wid, "name": w["name"], "wage_type": wt, "weekly_salary": weekly,
             "luong": round(luong), "phu_cap": round(phu_cap), "thuong": round(thuong),
-            "ung": round(ung), "adv_count": adv_count, "note": note,
-            "thuc_lanh": round(thuc_lanh),
+            "ung": round(ung), "ung_manual": round(ung_manual), "ung_weekly": round(ung_weekly),
+            "adv_count": adv_count, "note": note, "thuc_lanh": round(thuc_lanh),
         })
         tot["luong"] += luong
         tot["phu_cap"] += phu_cap

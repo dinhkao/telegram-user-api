@@ -40,6 +40,7 @@ const GROUPS: Group[] = [
   ] },
   { title: "Lương", icon: "wallet", items: [
     { label: "Bảng lương tháng", href: "#/luong-thang", icon: "wallet", office: true },
+    { label: "Nhập ứng lương", href: "#/nhap-ung", icon: "banknote", office: true },
     { label: "Tiền công thợ", href: "#/tien-cong", icon: "wallet", office: true },
     { label: "In phiếu lương", href: "#/in-luong", icon: "printer", office: true },
     { label: "Báo cáo sản xuất", href: "#/bao-cao", icon: "receipt", office: true },

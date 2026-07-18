@@ -58,6 +58,15 @@ export function MonthlyPayroll() {
     } catch (e: any) { toast(e?.message || "Lỗi đổi loại", "err"); }
   };
 
+  // Nhận lương tuần: bật → tự động ứng = đúng lương SP (tính ở server)
+  const toggleWeekly = async (r: PayrollRow) => {
+    try {
+      await updateWorker(r.worker_id, { weekly_salary: !r.weekly_salary });
+      toast(!r.weekly_salary ? "BẬT nhận lương tuần" : "TẮT nhận lương tuần", "ok");
+      load();
+    } catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
+  };
+
   const loadAdvances = async (wid: number) => {
     try { setAdvs((m) => ({ ...m, [wid]: [] })); const a = await listPayrollAdvances(ym, wid); setAdvs((m) => ({ ...m, [wid]: a })); }
     catch { /* im lặng */ }
@@ -104,12 +113,12 @@ export function MonthlyPayroll() {
             )}
             {view === "table" ? (
               <PayrollTable data={data} draft={draft} setDraft={setDraft}
-                saveAdjust={saveAdjust} toggleType={toggleType} onUng={gotoUng} />
+                saveAdjust={saveAdjust} toggleType={toggleType} toggleWeekly={toggleWeekly} onUng={gotoUng} />
             ) : (
               data.workers.map((r) => (
                 <PayrollCard key={r.worker_id} r={r} ym={ym}
                   draft={draft} setDraft={setDraft} saveAdjust={saveAdjust}
-                  toggleType={toggleType}
+                  toggleType={toggleType} toggleWeekly={toggleWeekly}
                   open={open === r.worker_id} onToggleAdv={() => openAdv(r.worker_id)}
                   advances={advs[r.worker_id]} apply={apply} setAdvs={setAdvs} />
               ))
@@ -120,11 +129,11 @@ export function MonthlyPayroll() {
   );
 }
 
-function PayrollTable({ data, draft, setDraft, saveAdjust, toggleType, onUng }: {
+function PayrollTable({ data, draft, setDraft, saveAdjust, toggleType, toggleWeekly, onUng }: {
   data: PayrollMonth; draft: Record<string, string>;
   setDraft: (f: (d: Record<string, string>) => Record<string, string>) => void;
   saveAdjust: (wid: number, field: "phu_cap" | "thuong", val: string) => void;
-  toggleType: (r: PayrollRow) => void; onUng: (wid: number) => void;
+  toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void; onUng: (wid: number) => void;
 }) {
   const t = data.totals;
   const inp = (r: PayrollRow, field: "phu_cap" | "thuong") => {
@@ -142,7 +151,7 @@ function PayrollTable({ data, draft, setDraft, saveAdjust, toggleType, onUng }: 
       <table class="pr-table">
         <thead>
           <tr>
-            <th class="pr-sticky">Thợ</th><th>Loại</th><th>Lương</th>
+            <th class="pr-sticky">Thợ</th><th>Loại</th><th>Lương&nbsp;tuần</th><th>Lương</th>
             <th>Phụ cấp</th><th>Thưởng</th><th>Ứng</th><th>Thực lãnh</th>
           </tr>
         </thead>
@@ -155,6 +164,10 @@ function PayrollTable({ data, draft, setDraft, saveAdjust, toggleType, onUng }: 
                 <td class="pr-td-mid">
                   <button class={isTime ? "chip pr-type time" : "chip pr-type"} onClick={() => toggleType(r)}
                     title="Bấm để đổi loại lương">{isTime ? "TG" : "SP"}</button>
+                </td>
+                <td class="pr-td-mid">
+                  <span class={r.weekly_salary ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly_salary}
+                    onClick={() => toggleWeekly(r)} style="cursor:pointer" title="Nhận lương tuần"><span class="tgl-knob" /></span>
                 </td>
                 <td class="pr-num">{isTime ? "0" : money(r.luong)}</td>
                 <td class="pr-td-in">{inp(r, "phu_cap")}</td>
@@ -171,7 +184,7 @@ function PayrollTable({ data, draft, setDraft, saveAdjust, toggleType, onUng }: 
         </tbody>
         <tfoot>
           <tr>
-            <td class="pr-sticky pr-td-name">Tổng</td><td></td>
+            <td class="pr-sticky pr-td-name">Tổng</td><td></td><td></td>
             <td class="pr-num">{money(t.luong)}</td>
             <td class="pr-num">{money(t.phu_cap)}</td>
             <td class="pr-num">{money(t.thuong)}</td>
@@ -184,11 +197,11 @@ function PayrollTable({ data, draft, setDraft, saveAdjust, toggleType, onUng }: 
   );
 }
 
-function PayrollCard({ r, ym, draft, setDraft, saveAdjust, toggleType, open, onToggleAdv, advances, apply, setAdvs }: {
+function PayrollCard({ r, ym, draft, setDraft, saveAdjust, toggleType, toggleWeekly, open, onToggleAdv, advances, apply, setAdvs }: {
   r: PayrollRow; ym: string; draft: Record<string, string>;
   setDraft: (f: (d: Record<string, string>) => Record<string, string>) => void;
   saveAdjust: (wid: number, field: "phu_cap" | "thuong", val: string) => void;
-  toggleType: (r: PayrollRow) => void;
+  toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
   open: boolean; onToggleAdv: () => void; advances?: SalaryAdvance[];
   apply: (d: PayrollMonth) => void; setAdvs: (f: (m: Record<number, SalaryAdvance[]>) => Record<number, SalaryAdvance[]>) => void;
 }) {
@@ -229,6 +242,11 @@ function PayrollCard({ r, ym, draft, setDraft, saveAdjust, toggleType, open, onT
       <div class="pr-line muted small">
         Lương {isTime ? <span title="Chờ chấm công">0 <i>(chờ chấm công)</i></span> : <b>{money(r.luong)}</b>}
       </div>
+      <div class="pr-wk-row">
+        <span>Nhận lương tuần {r.weekly_salary && r.ung_weekly > 0 ? <span class="muted small">(tự ứng {money(r.ung_weekly)})</span> : null}</span>
+        <span class={r.weekly_salary ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly_salary}
+          onClick={() => toggleWeekly(r)} style="cursor:pointer"><span class="tgl-knob" /></span>
+      </div>
       <div class="pr-edits">
         <label>Phụ cấp
           <input class="pw-input" inputMode="numeric" placeholder="0"
@@ -251,6 +269,13 @@ function PayrollCard({ r, ym, draft, setDraft, saveAdjust, toggleType, open, onT
       </button>
       {open && (
         <div class="pr-adv">
+          {r.weekly_salary && r.ung_weekly > 0 && (
+            <div class="pr-adv-row pr-adv-weekly">
+              <span class="muted small">Lương tuần</span>
+              <b>{money(r.ung_weekly)}</b>
+              <span class="muted small pr-adv-note">tự động = lương SP</span>
+            </div>
+          )}
           {(advances || []).map((a) => (
             <div class="pr-adv-row" key={a.id}>
               <span class="muted small">{a.adv_date || "—"}</span>

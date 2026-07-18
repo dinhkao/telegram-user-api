@@ -896,8 +896,9 @@ export async function deleteWorker(id: number): Promise<any> {
 
 // ── Bảng lương tháng (office only) ───────────────────────────────────────────
 export type PayrollRow = {
-  worker_id: number; name: string; wage_type: "product" | "time";
-  luong: number; phu_cap: number; thuong: number; ung: number; adv_count: number;
+  worker_id: number; name: string; wage_type: "product" | "time"; weekly_salary: boolean;
+  luong: number; phu_cap: number; thuong: number;
+  ung: number; ung_manual: number; ung_weekly: number; adv_count: number;
   note: string; thuc_lanh: number;
 };
 export type PayrollMonth = { ym: string; workers: PayrollRow[]; totals: { luong: number; phu_cap: number; thuong: number; ung: number; thuc_lanh: number } };
@@ -911,6 +912,10 @@ export async function setPayrollAdjust(ym: string, worker_id: number, patch: { p
 }
 export async function listPayrollAdvances(ym: string, worker_id: number): Promise<SalaryAdvance[]> {
   const d = await getJSON(`/api/payroll/advances?ym=${encodeURIComponent(ym)}&worker_id=${worker_id}`, { cache: false });
+  return d.advances || [];
+}
+export async function listAllAdvances(ym: string): Promise<SalaryAdvance[]> {
+  const d = await getJSON(`/api/payroll/advances?ym=${encodeURIComponent(ym)}`, { cache: false });
   return d.advances || [];
 }
 export async function addPayrollAdvance(ym: string, worker_id: number, amount: number, adv_date?: string, note?: string): Promise<PayrollMonth> {
