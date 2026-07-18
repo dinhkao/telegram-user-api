@@ -78,15 +78,19 @@ async def workers_update_handler(request: web.Request):
     is_default = body.get("is_default")
     weekly_salary = body.get("weekly_salary")
     hourly_rate = body.get("hourly_rate")
-    if hourly_rate is not None:
-        # tiền lương — CHỈ văn phòng được đặt đơn giá giờ
+    wage_type = body.get("wage_type")
+    if hourly_rate is not None or wage_type is not None:
+        # tiền lương / phân loại lương — CHỈ văn phòng
         from server_app.production_wages import office_user
         if not office_user(request):
-            return web.json_response({"ok": False, "error": "Chỉ văn phòng được đặt tiền 1 giờ"}, status=403)
+            return web.json_response({"ok": False, "error": "Chỉ văn phòng được sửa mục lương"}, status=403)
+    if hourly_rate is not None:
         try:
             hourly_rate = float(hourly_rate)
         except (ValueError, TypeError):
             return web.json_response({"ok": False, "error": "tiền 1 giờ không hợp lệ"}, status=400)
+    if wage_type is not None and str(wage_type) not in ("product", "time"):
+        return web.json_response({"ok": False, "error": "wage_type phải là product/time"}, status=400)
 
     def _run():
         conn = _conn()
@@ -98,6 +102,7 @@ async def workers_update_handler(request: web.Request):
                 is_default=None if is_default is None else bool(is_default),
                 weekly_salary=None if weekly_salary is None else bool(weekly_salary),
                 hourly_rate=hourly_rate,
+                wage_type=None if wage_type is None else str(wage_type),
             )
         finally:
             conn.close()

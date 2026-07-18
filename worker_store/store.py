@@ -26,20 +26,24 @@ def ensure_table(conn) -> None:
         conn.execute("ALTER TABLE production_workers ADD COLUMN weekly_salary INTEGER DEFAULT 0")
     if "hourly_rate" not in cols:   # tiền 1 GIỜ làm (SP tính lương theo giờ) — 0 = chưa đặt
         conn.execute("ALTER TABLE production_workers ADD COLUMN hourly_rate REAL DEFAULT 0")
+    if "wage_type" not in cols:     # phân loại lương: 'product' (sản phẩm) | 'time' (thời gian)
+        conn.execute("ALTER TABLE production_workers ADD COLUMN wage_type TEXT DEFAULT 'product'")
     conn.commit()
 
 
 def _row(r) -> dict:
+    keys = r.keys()
     return {
         "id": r["id"], "name": r["name"], "is_default": bool(r["is_default"]),
         "sort_order": r["sort_order"], "weekly_salary": bool(r["weekly_salary"]),
         "hourly_rate": float(r["hourly_rate"] or 0),
+        "wage_type": (r["wage_type"] if "wage_type" in keys else None) or "product",
     }
 
 
 def list_workers(conn) -> list[dict]:
     rows = conn.execute(
-        "SELECT id, name, is_default, sort_order, weekly_salary, hourly_rate FROM production_workers "
+        "SELECT id, name, is_default, sort_order, weekly_salary, hourly_rate, wage_type FROM production_workers "
         "ORDER BY sort_order ASC, name COLLATE NOCASE ASC"
     ).fetchall()
     return [_row(r) for r in rows]
@@ -85,15 +89,16 @@ def add_worker(conn, name: str, is_default: bool = False) -> dict:
 def update_worker(
     conn, worker_id: int, *,
     name: str | None = None, is_default: bool | None = None, weekly_salary: bool | None = None,
-    hourly_rate: float | None = None,
+    hourly_rate: float | None = None, wage_type: str | None = None,
 ) -> dict | None:
     """Sửa thợ. ĐỔI TÊN = cascade cùng transaction: production_report_rows (dòng
     đã gán worker_id đổi nhãn; dòng cổ trùng tên cũ được GÁN id + nhãn mới) + blob
     `bang` các phiếu SX (tên thợ trong báo cáo đã lưu) — lịch sử dashboard/chi tiết
-    thợ KHÔNG tách đôi khi sửa tên. hourly_rate = tiền 1 GIỜ (SP tính lương giờ)."""
+    thợ KHÔNG tách đôi khi sửa tên. hourly_rate = tiền 1 GIỜ (SP tính lương giờ).
+    wage_type = 'product' (lương sản phẩm) | 'time' (lương thời gian)."""
     with transaction(conn):
         cur = conn.execute(
-            "SELECT id, name, is_default, sort_order, weekly_salary, hourly_rate "
+            "SELECT id, name, is_default, sort_order, weekly_salary, hourly_rate, wage_type "
             "FROM production_workers WHERE id = ?",
             (worker_id,),
         ).fetchone()
@@ -117,15 +122,20 @@ def update_worker(
             new_hr = float(hourly_rate)
             if new_hr < 0:
                 raise ValueError("Tiền 1 giờ phải >= 0")
+        new_wt = (cur["wage_type"] or "product") if wage_type is None else wage_type
+        if new_wt not in ("product", "time"):
+            new_wt = "product"
         conn.execute(
-            "UPDATE production_workers SET name = ?, is_default = ?, weekly_salary = ?, hourly_rate = ? WHERE id = ?",
-            (new_name, new_def, new_wk, new_hr, worker_id),
+            "UPDATE production_workers SET name = ?, is_default = ?, weekly_salary = ?, hourly_rate = ?, "
+            "wage_type = ? WHERE id = ?",
+            (new_name, new_def, new_wk, new_hr, new_wt, worker_id),
         )
         if renaming:
             _cascade_rename(conn, worker_id, cur["name"], new_name)
     return {
         "id": worker_id, "name": new_name, "is_default": bool(new_def),
         "sort_order": cur["sort_order"], "weekly_salary": bool(new_wk), "hourly_rate": new_hr,
+        "wage_type": new_wt,
     }
 
 

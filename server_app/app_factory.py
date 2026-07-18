@@ -299,6 +299,16 @@ def create_app():
     r.add_post("/api/workers/reorder", workers_reorder_handler)   # TRƯỚC {id} kẻo bị nuốt
     r.add_post("/api/workers/{id}", workers_update_handler)
     r.add_delete("/api/workers/{id}", workers_delete_handler)
+    # ─── bảng lương tháng (office only) ──────────────────────────────────────
+    from server_app.payroll_routes import (
+        payroll_month_handler, payroll_advances_handler, payroll_adjust_handler,
+        payroll_advance_add_handler, payroll_advance_delete_handler,
+    )
+    r.add_get("/api/payroll/month", payroll_month_handler)
+    r.add_get("/api/payroll/advances", payroll_advances_handler)
+    r.add_post("/api/payroll/adjust", payroll_adjust_handler)
+    r.add_post("/api/payroll/advance", payroll_advance_add_handler)   # TRƯỚC {id}
+    r.add_delete("/api/payroll/advance/{id}", payroll_advance_delete_handler)
     # ─── kho thùng (inventory) ───────────────────────────────────────────────
     r.add_get("/api/inventory", inventory_list_handler)
     r.add_get("/api/inventory/boxes", all_boxes_handler)

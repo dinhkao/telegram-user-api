@@ -877,7 +877,7 @@ export async function deleteProduction(id: string | number): Promise<any> {
 }
 
 // ── Danh sách thợ (template báo cáo) ──
-export type Worker = { id: number; name: string; is_default: boolean; sort_order: number; weekly_salary?: boolean; hourly_rate?: number };
+export type Worker = { id: number; name: string; is_default: boolean; sort_order: number; weekly_salary?: boolean; hourly_rate?: number; wage_type?: "product" | "time" };
 export async function listWorkers(): Promise<{ workers: Worker[]; defaults: string[] }> {
   const d = await getJSON("/api/workers", { cache: false });
   return { workers: d.workers || [], defaults: d.defaults || [] };
@@ -886,12 +886,38 @@ export async function addWorker(name: string, isDefault: boolean): Promise<Worke
   const d = await postJSON("/api/workers", { name, is_default: isDefault });
   return d.worker;
 }
-export async function updateWorker(id: number, patch: { name?: string; is_default?: boolean; weekly_salary?: boolean; hourly_rate?: number }): Promise<Worker> {
+export async function updateWorker(id: number, patch: { name?: string; is_default?: boolean; weekly_salary?: boolean; hourly_rate?: number; wage_type?: "product" | "time" }): Promise<Worker> {
   const d = await postJSON(`/api/workers/${id}`, patch);
   return d.worker;
 }
 export async function deleteWorker(id: number): Promise<any> {
   return delJSON(`/api/workers/${id}`);
+}
+
+// ── Bảng lương tháng (office only) ───────────────────────────────────────────
+export type PayrollRow = {
+  worker_id: number; name: string; wage_type: "product" | "time";
+  luong: number; phu_cap: number; thuong: number; ung: number; adv_count: number;
+  note: string; thuc_lanh: number;
+};
+export type PayrollMonth = { ym: string; workers: PayrollRow[]; totals: { luong: number; phu_cap: number; thuong: number; ung: number; thuc_lanh: number } };
+export type SalaryAdvance = { id: number; worker_id: number; ym: string; amount: number; adv_date: string; note: string; created_by?: string; created_at?: string };
+
+export async function getMonthlyPayroll(ym: string): Promise<PayrollMonth> {
+  return getJSON(`/api/payroll/month?ym=${encodeURIComponent(ym)}`, { cache: false });
+}
+export async function setPayrollAdjust(ym: string, worker_id: number, patch: { phu_cap?: number; thuong?: number; note?: string }): Promise<PayrollMonth> {
+  return postJSON(`/api/payroll/adjust`, { ym, worker_id, ...patch });
+}
+export async function listPayrollAdvances(ym: string, worker_id: number): Promise<SalaryAdvance[]> {
+  const d = await getJSON(`/api/payroll/advances?ym=${encodeURIComponent(ym)}&worker_id=${worker_id}`, { cache: false });
+  return d.advances || [];
+}
+export async function addPayrollAdvance(ym: string, worker_id: number, amount: number, adv_date?: string, note?: string): Promise<PayrollMonth> {
+  return postJSON(`/api/payroll/advance`, { ym, worker_id, amount, adv_date, note });
+}
+export async function deletePayrollAdvance(ym: string, id: number): Promise<PayrollMonth> {
+  return delJSON(`/api/payroll/advance/${id}?ym=${encodeURIComponent(ym)}`);
 }
 // Sắp lại thứ tự thợ (sort_order) theo mảng ids → ảnh hưởng template báo cáo
 export async function reorderWorkers(ids: number[]): Promise<{ workers: Worker[]; defaults: string[] }> {
