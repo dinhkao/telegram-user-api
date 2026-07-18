@@ -22,6 +22,9 @@ RULES: list[tuple[set[str], tuple[str, ...], int]] = [
     ({"thuy dang"}, ("quay keo",), 1),               # Thủy Đặng + quậy kẹo → cao nhì
 ]
 _NGHI = "nghi"   # ghi chú "nghỉ" → không phụ cấp (ưu tiên trên mọi rule)
+# Thợ KHÔNG dùng làm MỐC xếp hạng phụ cấp (sản lượng cao bất thường — không nên là
+# mốc cho người khác). Tên đã bỏ dấu.
+RANK_EXCLUDE = {"tran"}
 
 _AUTO_BY = "auto"
 
@@ -32,12 +35,16 @@ def _has_kw(note_fold: str, kw: str) -> bool:
 
 
 def compute_auto_allowances(workers: list[dict]) -> dict[str, float]:
-    """THUẦN. workers = [{name, piece, note}] (piece = tiền SP đã tính, không phụ cấp).
+    """THUẦN. workers = [{name, piece, note, hour}] (piece = tiền đã tính, không phụ
+    cấp; hour = True nếu người này TÍNH LƯƠNG THEO GIỜ phiếu này).
 
     Trả {name: amount} CHỈ cho thợ có rule khớp; amount 0 = xoá phụ cấp (rule nghỉ).
-    Hạng tính theo piece giảm dần trên chính bảng này (positional, như popup UI)."""
+    MỐC xếp hạng = thợ làm CÂY: bỏ người tính theo GIỜ (tiền giờ không làm mốc) và bỏ
+    thợ trong RANK_EXCLUDE (Trân). Người tính theo GIỜ cũng KHÔNG nhận phụ cấp."""
     ranked = sorted(
-        workers,
+        (w for w in workers
+         if not w.get("hour")
+         and vn_normalize(str(w.get("name") or "")).strip() not in RANK_EXCLUDE),
         key=lambda w: (-float(w.get("piece") or 0), vn_normalize(str(w.get("name") or ""))),
     )
     out: dict[str, float] = {}
@@ -49,6 +56,8 @@ def compute_auto_allowances(workers: list[dict]) -> dict[str, float]:
         if _has_kw(note, _NGHI):
             out[name] = 0.0
             continue
+        if w.get("hour"):        # tính lương theo giờ → không có phụ cấp
+            continue
         nfold = vn_normalize(name).strip()
         for names, kws, rank in RULES:
             if nfold in names and any(_has_kw(note, k) for k in kws):
@@ -59,9 +68,9 @@ def compute_auto_allowances(workers: list[dict]) -> dict[str, float]:
 
 
 def _pieces_from_bang(conn, thread_id: int, bang: dict) -> list[dict]:
-    """[{name, piece, note}] từ blob bang vừa lưu — cùng công thức khối tiền công UI:
-    dòng có GIỜ (phiếu sản xuất) = giờ × tiền-1-giờ của thợ, còn lại = cây × đơn giá
-    chốt theo phiếu (fallback bảng lương)."""
+    """[{name, piece, note, hour}] từ blob bang vừa lưu — cùng công thức khối tiền công
+    UI: dòng có GIỜ (phiếu sản xuất) = giờ × tiền-1-giờ của thợ (hour=True), còn lại =
+    cây × đơn giá chốt theo phiếu (fallback bảng lương)."""
     rows = bang.get("rows") or []
     if not rows:
         return []
@@ -90,7 +99,7 @@ def _pieces_from_bang(conn, thread_id: int, bang: dict) -> list[dict]:
         cay = float(r.get("tong_calc") or 0)
         rate = hourly.get(vn_normalize(name), 0.0)
         piece = round(gio * rate) if gio > 0 else round(cay * wage)
-        out.append({"name": name, "piece": piece, "note": str(r.get("note") or "")})
+        out.append({"name": name, "piece": piece, "note": str(r.get("note") or ""), "hour": gio > 0})
     return out
 
 

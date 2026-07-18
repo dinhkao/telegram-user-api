@@ -44,3 +44,29 @@ def test_khong_khop_ten_hoac_tu_gan_giong():
 def test_ten_bo_dau_khong_phan_biet_hoa_thuong():
     ws = [_w("KIM", 10, "Vít kẹo"), _w("trang", 99)]
     assert compute_auto_allowances(ws) == {"KIM": 99.0}
+
+
+def _wh(name, piece, note="", hour=False):
+    return {"name": name, "piece": piece, "note": note, "hour": hour}
+
+
+def test_nguoi_tinh_theo_gio_khong_lam_moc():
+    # Thủy Đặng nhập giờ (piece 250k) KHÔNG được làm mốc → Kim lấy theo cây cao nhất (62k)
+    ws = [_wh("Thủy Đặng", 250_000, "vít kẹo", hour=True),
+          _wh("Kim", 0, "vít kẹo"), _wh("Hiền", 62_000), _wh("Mai", 50_000)]
+    out = compute_auto_allowances(ws)
+    assert out["Kim"] == 62_000
+    assert "Thủy Đặng" not in out          # tính theo giờ → không có phụ cấp
+
+
+def test_nguoi_tinh_theo_gio_khong_nhan_phu_cap():
+    # Kim khớp rule vít nhưng NHẬP GIỜ → không có phụ cấp
+    ws = [_wh("Kim", 300_000, "vít kẹo", hour=True), _wh("Hiền", 62_000)]
+    assert compute_auto_allowances(ws) == {}
+
+
+def test_tran_khong_lam_moc():
+    # Trân cao nhất nhưng bị loại khỏi mốc → Kim lấy theo người kế (Duy 90k)
+    ws = [_wh("Kim", 0, "vít kẹo"), _wh("Trân", 200_000), _wh("Duy", 90_000)]
+    out = compute_auto_allowances(ws)
+    assert out["Kim"] == 90_000
