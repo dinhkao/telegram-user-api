@@ -1330,6 +1330,8 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pr-sticky { position: sticky; left: 0; z-index: 1; background: var(--card); }
 .pr-table th.pr-sticky { z-index: 2; background: var(--bg-soft, #eef0f2); }
 .pr-td-name { text-align: left; font-weight: 600; }
+.pr-name-link { color: var(--primary); text-decoration: none; }
+.pr-name-link:active { opacity: .6; }
 .pr-td-mid { text-align: center; }
 .pr-td-in { padding: 2px 4px; }
 .pr-num { text-align: right; font-variant-numeric: tabular-nums; }

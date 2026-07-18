@@ -160,7 +160,7 @@ function PayrollTable({ data, draft, setDraft, saveAdjust, toggleType, toggleWee
             const isTime = r.wage_type === "time";
             return (
               <tr key={r.worker_id}>
-                <td class="pr-sticky pr-td-name">{r.name}</td>
+                <td class="pr-sticky pr-td-name"><a class="pr-name-link" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>{r.name}</a></td>
                 <td class="pr-td-mid">
                   <button class={isTime ? "chip pr-type time" : "chip pr-type"} onClick={() => toggleType(r)}
                     title="Bấm để đổi loại lương">{isTime ? "TG" : "SP"}</button>
@@ -233,7 +233,7 @@ function PayrollCard({ r, ym, draft, setDraft, saveAdjust, toggleType, toggleWee
     <section class="card pr-card">
       <div class="pr-top">
         <div class="pr-name">
-          {r.name}
+          <a class="pr-name-link" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>{r.name}</a>
           <button class={isTime ? "chip pr-type time" : "chip pr-type"} onClick={() => toggleType(r)}
             title="Bấm để đổi loại lương">{isTime ? "Thời gian" : "Sản phẩm"}</button>
         </div>
