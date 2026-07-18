@@ -31,6 +31,7 @@ export function MonthlyPayroll() {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [open, setOpen] = useState<number | null>(null);            // worker_id đang mở ứng
   const [advs, setAdvs] = useState<Record<number, SalaryAdvance[]>>({});
+  const [view, setView] = useState<"table" | "card">("table");
 
   const load = () => {
     setLoading(true);
@@ -57,12 +58,16 @@ export function MonthlyPayroll() {
     } catch (e: any) { toast(e?.message || "Lỗi đổi loại", "err"); }
   };
 
-  const openAdv = async (wid: number) => {
-    if (open === wid) { setOpen(null); return; }
-    setOpen(wid);
+  const loadAdvances = async (wid: number) => {
     try { setAdvs((m) => ({ ...m, [wid]: [] })); const a = await listPayrollAdvances(ym, wid); setAdvs((m) => ({ ...m, [wid]: a })); }
     catch { /* im lặng */ }
   };
+  const openAdv = (wid: number) => {
+    if (open === wid) { setOpen(null); return; }
+    setOpen(wid); loadAdvances(wid);
+  };
+  // Từ BẢNG bấm ô Ứng → chuyển sang THẺ của thợ đó + mở panel ứng để quản lý
+  const gotoUng = (wid: number) => { setView("card"); setOpen(wid); loadAdvances(wid); };
 
   const totals = data?.totals;
 
@@ -87,21 +92,94 @@ export function MonthlyPayroll() {
         : !data || !data.workers.length ? <EmptyState icon="wallet">Chưa có nhân viên.</EmptyState>
         : (
           <>
+            <div class="seg pr-viewseg">
+              <button class={view === "table" ? "seg-btn active" : "seg-btn"} onClick={() => setView("table")}>📊 Bảng</button>
+              <button class={view === "card" ? "seg-btn active" : "seg-btn"} onClick={() => setView("card")}>📇 Thẻ</button>
+            </div>
             {totals && (
               <div class="card pr-totals">
                 <span>Tổng thực lãnh <b>{money(totals.thuc_lanh)}</b></span>
                 <span class="muted small">Lương {money(totals.luong)} · PC {money(totals.phu_cap)} · Thưởng {money(totals.thuong)} · Ứng {money(totals.ung)}</span>
               </div>
             )}
-            {data.workers.map((r) => (
-              <PayrollCard key={r.worker_id} r={r} ym={ym}
-                draft={draft} setDraft={setDraft} saveAdjust={saveAdjust}
-                toggleType={toggleType}
-                open={open === r.worker_id} onToggleAdv={() => openAdv(r.worker_id)}
-                advances={advs[r.worker_id]} apply={apply} setAdvs={setAdvs} />
-            ))}
+            {view === "table" ? (
+              <PayrollTable data={data} draft={draft} setDraft={setDraft}
+                saveAdjust={saveAdjust} toggleType={toggleType} onUng={gotoUng} />
+            ) : (
+              data.workers.map((r) => (
+                <PayrollCard key={r.worker_id} r={r} ym={ym}
+                  draft={draft} setDraft={setDraft} saveAdjust={saveAdjust}
+                  toggleType={toggleType}
+                  open={open === r.worker_id} onToggleAdv={() => openAdv(r.worker_id)}
+                  advances={advs[r.worker_id]} apply={apply} setAdvs={setAdvs} />
+              ))
+            )}
           </>
         )}
+    </div>
+  );
+}
+
+function PayrollTable({ data, draft, setDraft, saveAdjust, toggleType, onUng }: {
+  data: PayrollMonth; draft: Record<string, string>;
+  setDraft: (f: (d: Record<string, string>) => Record<string, string>) => void;
+  saveAdjust: (wid: number, field: "phu_cap" | "thuong", val: string) => void;
+  toggleType: (r: PayrollRow) => void; onUng: (wid: number) => void;
+}) {
+  const t = data.totals;
+  const inp = (r: PayrollRow, field: "phu_cap" | "thuong") => {
+    const k = `${r.worker_id}:${field}`;
+    return (
+      <input class="pw-input pr-tin" inputMode="numeric" placeholder="0"
+        value={draft[k] !== undefined ? draft[k] : ((r as any)[field] ? String((r as any)[field]) : "")}
+        onInput={(e: any) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
+        onBlur={(e: any) => saveAdjust(r.worker_id, field, e.target.value)}
+        onKeyDown={(e: any) => { if (e.key === "Enter") e.target.blur(); }} />
+    );
+  };
+  return (
+    <div class="pr-table-wrap">
+      <table class="pr-table">
+        <thead>
+          <tr>
+            <th class="pr-sticky">Thợ</th><th>Loại</th><th>Lương</th>
+            <th>Phụ cấp</th><th>Thưởng</th><th>Ứng</th><th>Thực lãnh</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.workers.map((r) => {
+            const isTime = r.wage_type === "time";
+            return (
+              <tr key={r.worker_id}>
+                <td class="pr-sticky pr-td-name">{r.name}</td>
+                <td class="pr-td-mid">
+                  <button class={isTime ? "chip pr-type time" : "chip pr-type"} onClick={() => toggleType(r)}
+                    title="Bấm để đổi loại lương">{isTime ? "TG" : "SP"}</button>
+                </td>
+                <td class="pr-num">{isTime ? "0" : money(r.luong)}</td>
+                <td class="pr-td-in">{inp(r, "phu_cap")}</td>
+                <td class="pr-td-in">{inp(r, "thuong")}</td>
+                <td class="pr-num">
+                  <button class="pr-ung-btn" onClick={() => onUng(r.worker_id)} title="Quản lý ứng lương">
+                    {money(r.ung)}{r.adv_count ? <sup> {r.adv_count}</sup> : null}
+                  </button>
+                </td>
+                <td class={r.thuc_lanh < 0 ? "pr-num t-danger" : "pr-num pr-net-td"}>{money(r.thuc_lanh)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td class="pr-sticky pr-td-name">Tổng</td><td></td>
+            <td class="pr-num">{money(t.luong)}</td>
+            <td class="pr-num">{money(t.phu_cap)}</td>
+            <td class="pr-num">{money(t.thuong)}</td>
+            <td class="pr-num">{money(t.ung)}</td>
+            <td class="pr-num pr-net-td">{money(t.thuc_lanh)}</td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   );
 }

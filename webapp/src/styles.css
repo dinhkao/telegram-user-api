@@ -1308,6 +1308,24 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 .pr-adv-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
 .pr-adv-add .pw-input { text-align: left; }
 .pr-adv-note-in { flex: 1; min-width: 100px; }
+/* bảng lương — view dạng table */
+.pr-viewseg { margin: 0 0 8px; }
+.pr-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 10px; }
+.pr-table { border-collapse: collapse; width: 100%; font-size: .82rem; background: var(--card); }
+.pr-table th, .pr-table td { border: 1px solid var(--border); padding: 5px 8px; white-space: nowrap; text-align: right; }
+.pr-table th { font-weight: 700; background: var(--bg-soft, rgba(128,128,128,.08)); }
+.pr-table th:first-child, .pr-table th:nth-child(2) { text-align: left; }
+.pr-sticky { position: sticky; left: 0; z-index: 1; background: var(--card); }
+.pr-table th.pr-sticky { z-index: 2; background: var(--bg-soft, #eef0f2); }
+.pr-td-name { text-align: left; font-weight: 600; }
+.pr-td-mid { text-align: center; }
+.pr-td-in { padding: 2px 4px; }
+.pr-num { text-align: right; font-variant-numeric: tabular-nums; }
+.pr-net-td { font-weight: 700; color: var(--ok); }
+.pr-tin { width: 76px; text-align: right; }
+.pr-ung-btn { background: none; border: none; color: var(--ink); font: inherit; cursor: pointer; padding: 0; text-decoration: underline dotted; }
+.pr-ung-btn sup { color: var(--muted); font-size: .7em; }
+.pr-table tfoot td { font-weight: 700; border-top: 2px solid var(--ink); background: var(--bg-soft, rgba(128,128,128,.06)); }
 .wd-day-money { color: var(--ok); font-variant-numeric: tabular-nums; }
 .wd-money { flex: none; color: var(--ok); font-variant-numeric: tabular-nums; font-size: .86rem; min-width: 62px; text-align: right; }
 .wd-pc { flex: none; color: var(--ok); font-weight: 600; font-size: .76rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
