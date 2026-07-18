@@ -253,6 +253,17 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   app (PIN hash in `pin.py`, CLI: `tools/add_web_user.py`).
 - `comment_store/` — `web_comments` table in `app.db`: web-app comments on orders
   (separate from `order_chat_messages` = read-only Telegram log).
+- **`salary_store/` — LƯƠNG THÁNG (`app.db`, 2026-07-18, office-only).** Bảng lương
+  từng tháng cho mọi NV. `production_workers.wage_type` phân loại NV: `'product'`
+  (lương SP tự tính từ sản xuất theo tháng qua `report_slips.compute_range_report`)
+  | `'time'` (lương thời gian = 0, CHỜ tính năng chấm công). Bảng `salary_month`
+  (phụ cấp + thưởng theo (tháng, thợ), nhập tay) + `salary_advances` (ỨNG lương
+  NHIỀU lần/tháng, cộng dồn). `compute_month_payroll(ym)`: thực lãnh = lương + phụ
+  cấp + thưởng − ứng, cho cả bảng. API `server_app/payroll_routes.py`
+  (`/api/payroll/month|adjust|advance*`, TẤT CẢ chặn `office_user`). UI
+  `webapp/src/pages/MonthlyPayroll.tsx` (`#/luong-thang`, ☰ Thêm → Sản xuất).
+  Tests: `tests/test_salary_store.py`. (Khác `production_allowances` = phụ cấp
+  per-PHIẾU SX; đây là phụ cấp/thưởng theo THÁNG.)
 - `inventory_store/` — kho thùng (`app.db`). Bảng:
   - `inventory_boxes` (`schema.py`+`queries.py`): 1 row = 1 thùng vật lý. Mã thùng =
     **SỐ GỌI TOÀN KHO, xoay vòng 27 BLOCK** (mở rộng 2026-07-17): `001`–`999` →
