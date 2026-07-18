@@ -7,12 +7,32 @@ Client: webapp/src/pages/ProductionDashboard.tsx.
 from __future__ import annotations
 
 import asyncio
+from datetime import date, timedelta
 
 from aiohttp import web
 
 from utils.db import get_connection
 from utils.paths import SHARED_DB_PATH
 from production_store.report_rows import dashboard, worker_detail
+
+
+def _fill_days(dfrom: str | None, dto: str | None, days: list[dict]) -> list[dict]:
+    """Điền ĐỦ MỌI NGÀY trong [dfrom, dto] (liên tục, không thiếu ngày), ngày không có
+    tiền = 0. Chỉ điền khi cả 2 mốc hợp lệ và khoảng ≤ 400 ngày; ngoài ra giữ nguyên."""
+    have = {d.get("ymd"): (d.get("money") or 0) for d in days if d.get("ymd")}
+    try:
+        start = date(*(int(x) for x in dfrom.split("-")))
+        end = date(*(int(x) for x in dto.split("-")))
+    except (AttributeError, ValueError, TypeError):
+        return days
+    if end < start or (end - start).days > 400:
+        return days
+    out, cur = [], start
+    while cur <= end:
+        ymd = cur.isoformat()
+        out.append({"ymd": ymd, "money": have.get(ymd, 0)})
+        cur += timedelta(days=1)
+    return out
 
 
 async def production_report_dashboard_handler(request: web.Request):
@@ -70,6 +90,7 @@ async def production_payslips_html_handler(request: web.Request):
             for _, nm in order:
                 w = by.get(nm.strip().casefold())
                 days = [{"ymd": d.get("ymd"), "money": d.get("money")} for d in (w["days"] if w else [])]
+                days = _fill_days(dfrom, dto, days)   # đủ mọi ngày trong kỳ, thiếu = 0
                 out.append({"name": nm, "days": days, "total": (w["money"] if w else 0)})
             return out
         finally:
