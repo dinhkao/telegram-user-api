@@ -2,7 +2,7 @@
 // lương (SP tự tính; thời gian = 0 chờ chấm công), nhận lương tuần (theo tháng),
 // PHỤ CẤP nhiều khoản, THƯỞNG, ỨNG lương nhiều lần → thực lãnh. Phụ cấp + ứng quản lý
 // giống nhau (panel thêm/xoá khoản). API: getMonthlyPayroll + payroll allowance/advance.
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import {
   addPayrollAdvance, addPayrollAllowance, deletePayrollAdvance, deletePayrollAllowance,
   getMonthlyPayroll, isOffice, listPayrollAdvances, listPayrollAllowances, setPayrollAdjust,
@@ -15,6 +15,17 @@ import { toast, confirmDialog } from "../ui/feedback";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const money = (n: number) => soVN(Math.round(n || 0));
+// Số RÚT GỌN cho BẢNG (để vừa màn hình, header sticky thuần CSS): 5.200.000→"5,2tr",
+// 300.000→"300k". Làm tròn 1 số thập phân — số chính xác xem ở thẻ / chi tiết thợ.
+const moneyShort = (n: number) => {
+  const v = Math.round(n || 0);
+  if (v === 0) return "0";
+  const sign = v < 0 ? "−" : "";
+  const a = Math.abs(v);
+  if (a >= 1_000_000) return sign + (Math.round(a / 100_000) / 10).toString().replace(".", ",") + "tr";
+  if (a >= 1_000) return sign + (Math.round(a / 100) / 10).toString().replace(".", ",") + "k";
+  return sign + a;
+};
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
 const curYM = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
 const shiftYM = (ym: string, d: number) => {
@@ -25,12 +36,11 @@ const shiftYM = (ym: string, d: number) => {
 const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
 const initials = (name: string) => name.trim().split(/\s+/).slice(-2).map((part) => part[0] || "").join("").toUpperCase();
 
-// Ghi nhớ theo PHIÊN (module scope, reset khi tải lại trang): THÁNG đang xem +
-// vị trí CUỘN bảng (theo tháng, cả dọc lẫn ngang). Kiểu hiển thị lưu localStorage
-// (mặc định BẢNG). → quay lại trang (back) giữ nguyên tháng + chỗ đang cuộn.
+// Ghi nhớ theo PHIÊN (module scope, reset khi tải lại): THÁNG đang xem (back về
+// giữ nguyên tháng). Kiểu hiển thị lưu localStorage (mặc định BẢNG). Vị trí cuộn
+// DỌC do useScrollMemory toàn cục lo (bảng cuộn theo trang, không còn cuộn ngang).
 const VIEW_KEY = "payroll_view";
 let _savedYm: string | null = null;
-const _tblScroll: Record<string, { top: number; left: number }> = {};
 const loadView = (): "table" | "card" => {
   try { return localStorage.getItem(VIEW_KEY) === "card" ? "card" : "table"; } catch { return "table"; }
 };
@@ -192,85 +202,15 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
 }) {
   const t = data.totals;
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const floatRef = useRef<HTMLDivElement>(null);
-  const headerRow = () => (
-    <tr>
-      <th class="pr-sticky">Thợ</th><th>Loại</th><th>Tuần</th><th>Lương</th>
-      <th>Phụ cấp</th><th>Thưởng</th><th>Ứng</th><th>Thực lãnh</th>
-    </tr>
-  );
-
-  // Khôi phục vị trí cuộn NGANG (tháng này) khi vào/quay lại; cuộn DỌC do window (useScrollMemory) lo.
-  useLayoutEffect(() => {
-    const el = wrapRef.current; if (!el) return;
-    const s = _tblScroll[data.ym];
-    if (s) el.scrollLeft = s.left;
-  }, [data.ym]);
-
-  // HEADER NỔI: khi header thật cuộn qua đỉnh, hiện bản sao position:fixed ngay dưới
-  // app-bar; đồng bộ cuộn NGANG (+ giữ cột Thợ đóng băng bằng counter-translate).
-  useEffect(() => {
-    const wrap = wrapRef.current, float = floatRef.current;
-    if (!wrap || !float) return;
-    const ftable = float.querySelector("table") as HTMLTableElement | null;
-    const realThead = wrap.querySelector("thead") as HTMLElement | null;
-    if (!ftable || !realThead) return;
-    const bar = document.querySelector(".app-bar");
-    const topPx = bar ? Math.round(bar.getBoundingClientRect().height) : 0;
-
-    const syncWidths = () => {
-      const rths = realThead.querySelectorAll("th");
-      const fths = ftable.querySelectorAll("th");
-      let total = 0;
-      rths.forEach((th, i) => {
-        const w = (th as HTMLElement).getBoundingClientRect().width;
-        total += w;
-        const f = fths[i] as HTMLElement | undefined;
-        if (f) f.style.width = f.style.minWidth = f.style.maxWidth = `${w}px`;
-      });
-      ftable.style.width = `${total}px`;
-    };
-    const syncX = () => {
-      const sl = wrap.scrollLeft;
-      ftable.style.transform = `translateX(${-sl}px)`;
-      const f = ftable.querySelector("th") as HTMLElement | null;
-      if (f) f.style.transform = `translateX(${sl}px)`;   // cột Thợ đứng yên khi cuộn ngang
-    };
-    const update = () => {
-      const r = wrap.getBoundingClientRect();
-      const on = r.top < topPx && r.bottom > topPx + 24;  // header thật đã cuộn lên + bảng còn trong tầm
-      if (!on) { if (float.style.display !== "none") float.style.display = "none"; return; }
-      if (float.style.display !== "block") { float.style.display = "block"; syncWidths(); }
-      float.style.top = `${topPx}px`;
-      float.style.left = `${r.left}px`;
-      float.style.width = `${r.width}px`;
-      syncX();
-    };
-
-    update();
-    const onScroll = () => update();
-    const onWrapScroll = () => { if (float.style.display === "block") syncX(); };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    wrap.addEventListener("scroll", onWrapScroll, { passive: true });
-    const ro = new ResizeObserver(() => { syncWidths(); update(); });
-    ro.observe(wrap);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      wrap.removeEventListener("scroll", onWrapScroll);
-      ro.disconnect();
-    };
-  }, [data]);
-
   return (
-    <>
-      <div class="pr-thead-float" ref={floatRef} aria-hidden="true">
-        <table class="pr-table"><thead>{headerRow()}</thead></table>
-      </div>
-      <div class="pr-table-wrap" ref={wrapRef}
-        onScroll={(e: any) => { _tblScroll[data.ym] = { top: 0, left: e.currentTarget.scrollLeft }; }}>
-        <table class="pr-table">
-          <thead>{headerRow()}</thead>
+    <div class="pr-table-wrap">
+      <table class="pr-table">
+        <thead>
+          <tr>
+            <th class="pr-sticky">Thợ</th><th>Loại</th><th>Tuần</th><th>Lương</th>
+            <th>P.cấp</th><th>Thưởng</th><th>Ứng</th><th>Lãnh</th>
+          </tr>
+        </thead>
         <tbody>
           {data.workers.map((r) => {
             const isTime = r.wage_type === "time";
@@ -291,10 +231,10 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
                   <span class={r.weekly ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly}
                     onClick={() => toggleWeekly(r)} style="cursor:pointer" title="Nhận lương tuần"><span class="tgl-knob" /></span>
                 </td>
-                <td class={isTime || !r.luong ? "pr-num is-zero" : "pr-num"}>{isTime ? "0" : money(r.luong)}</td>
+                <td class={isTime || !r.luong ? "pr-num is-zero" : "pr-num"}>{isTime ? "0" : moneyShort(r.luong)}</td>
                 <td class="pr-num">
                   <a class="pr-ung-btn" href={`#/nhap-phu-cap?ym=${encodeURIComponent(data.ym)}&worker_id=${r.worker_id}`} title="Mở phụ cấp của nhân viên">
-                    {money(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}
+                    {moneyShort(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}
                   </a>
                 </td>
                 <td class="pr-td-in">
@@ -306,10 +246,10 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
                 </td>
                 <td class="pr-num">
                   <a class="pr-ung-btn" href={`#/nhap-ung?ym=${encodeURIComponent(data.ym)}&worker_id=${r.worker_id}`} title="Mở ứng lương của nhân viên">
-                    {money(r.ung)}{r.adv_count ? <sup> {r.adv_count}</sup> : null}
+                    {moneyShort(r.ung)}{r.adv_count ? <sup> {r.adv_count}</sup> : null}
                   </a>
                 </td>
-                <td class={r.thuc_lanh < 0 ? "pr-num pr-net-td t-danger" : "pr-num pr-net-td"}>{money(r.thuc_lanh)}</td>
+                <td class={r.thuc_lanh < 0 ? "pr-num pr-net-td t-danger" : "pr-num pr-net-td"}>{moneyShort(r.thuc_lanh)}</td>
               </tr>
             );
           })}
@@ -317,16 +257,15 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
         <tfoot>
           <tr>
             <td class="pr-sticky pr-td-name">Tổng</td><td></td><td></td>
-            <td class="pr-num">{money(t.luong)}</td>
-            <td class="pr-num">{money(t.phu_cap)}</td>
-            <td class="pr-num">{money(t.thuong)}</td>
-            <td class="pr-num">{money(t.ung)}</td>
-            <td class="pr-num pr-net-td">{money(t.thuc_lanh)}</td>
+            <td class="pr-num">{moneyShort(t.luong)}</td>
+            <td class="pr-num">{moneyShort(t.phu_cap)}</td>
+            <td class="pr-num">{moneyShort(t.thuong)}</td>
+            <td class="pr-num">{moneyShort(t.ung)}</td>
+            <td class="pr-num pr-net-td">{moneyShort(t.thuc_lanh)}</td>
           </tr>
         </tfoot>
-        </table>
-      </div>
-    </>
+      </table>
+    </div>
   );
 }
 

@@ -1363,17 +1363,13 @@ a.pr-stat:active { background: var(--accent-wash); }
 .pr-totals { padding: 9px 12px; font-size: .9rem; }
 .pr-totals b { font-variant-numeric: tabular-nums; }
 /* bảng lương — view dạng table */
-/* Bảng cuộn theo TRANG (dọc) + cuộn NGANG trong hộp; header thật cuộn theo trang,
-   header NỔI (.pr-thead-float, JS) ghim dưới app-bar khi cuộn qua. */
-.pr-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); box-shadow: var(--e1); }
-/* header NỔI: bản sao hàng tiêu đề, fixed dưới app-bar, JS bật/tắt + đồng bộ cuộn ngang */
-.pr-thead-float { position: fixed; z-index: 15; display: none; overflow: hidden; background: var(--bg); box-shadow: 0 3px 8px rgba(16, 20, 32, .10); border-radius: 0 0 var(--r-sm) var(--r-sm); }
-.pr-thead-float table { margin: 0; table-layout: fixed; }
-.pr-thead-float th { position: static; top: auto; }                 /* huỷ sticky-top thừa kế */
-.pr-thead-float th:first-child { position: relative; left: auto; z-index: 2; }  /* cột Thợ nổi trên khi cuộn ngang (JS counter-translate) */
+/* Bảng cuộn THEO TRANG như date group. Header = position:sticky top dưới app-bar
+   (CSS THUẦN, không JS) → cần bảng VỪA màn hình nên số RÚT GỌN (tr/k, xem moneyShort).
+   overflow-x:clip = chặn tràn ngang mà KHÔNG tạo scroll-container (không kẹt sticky). */
+.pr-table-wrap { overflow-x: clip; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); box-shadow: var(--e1); }
 .pr-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: .8rem; background: var(--card); }
 .pr-table th, .pr-table td { padding: 6px 9px; border: none; border-bottom: 1px solid var(--border); white-space: nowrap; text-align: right; }
-.pr-table th { position: sticky; top: 0; z-index: 3; color: var(--muted); font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; background: var(--bg); }
+.pr-table th { position: sticky; top: 44px; z-index: 3; color: var(--muted); font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; background: var(--bg); box-shadow: 0 1px 0 var(--border); }  /* ghim dưới app-bar(44) như .order-day-head */
 .pr-table th:first-child { text-align: left; }
 .pr-table th:nth-child(2), .pr-table th:nth-child(3) { text-align: center; }
 .pr-sticky { position: sticky; left: 0; z-index: 1; background: var(--card); }
@@ -1394,8 +1390,8 @@ a.pr-stat:active { background: var(--accent-wash); }
 .pr-tin { width: 76px; height: 28px; padding: 4px 7px; border-radius: var(--r-sm); text-align: right; font-size: .78rem; }
 .pr-ung-btn { color: var(--primary); font: inherit; font-weight: 700; cursor: pointer; padding: 0; text-decoration: underline dotted; text-underline-offset: 3px; }
 .pr-ung-btn sup { color: var(--muted); font-size: .7em; }
-.pr-table tfoot td { position: sticky; bottom: 0; z-index: 2; padding-top: 8px; padding-bottom: 8px; font-weight: 800; border-top: 1px solid var(--border); border-bottom: none; background: var(--bg); }
-.pr-table tfoot .pr-sticky { z-index: 3; background: var(--bg); }
+.pr-table tfoot td { padding-top: 8px; padding-bottom: 8px; font-weight: 800; border-top: 1px solid var(--border); border-bottom: none; background: var(--bg); }
+.pr-table tfoot .pr-sticky { background: var(--bg); }
 
 @media (max-width: 720px) {
   .pr-payroll-page { padding-left: 8px; padding-right: 8px; }
@@ -1410,18 +1406,25 @@ a.pr-stat:active { background: var(--accent-wash); }
   .pr-card-grid { grid-template-columns: 1fr; gap: 8px; }
   .pr-card-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }
   .pr-card-metric:nth-child(3) { padding-left: 0; border-left: none; }
-  /* bảng lương GỌN TỐI ĐA trên mobile — cột thợ đóng băng trái, số dồn sát để thấy nhiều cột nhất */
-  .pr-table { font-size: .72rem; }
-  .pr-table th, .pr-table td { padding: 5px 5px; }
+  /* bảng lương mobile: table-layout FIXED + %/cột → cả 8 cột VỪA khít màn hình (số rút gọn) */
+  .pr-table { table-layout: fixed; font-size: .72rem; }
+  .pr-table th, .pr-table td { padding: 5px 3px; }
   .pr-table th { font-size: .58rem; letter-spacing: 0; }
-  .pr-table td.pr-td-name { min-width: 0; }
+  .pr-table th:nth-child(1) { width: 19%; }   /* Thợ */
+  .pr-table th:nth-child(2) { width: 9%; }    /* Loại */
+  .pr-table th:nth-child(3) { width: 13%; }   /* Tuần (công tắc) */
+  .pr-table th:nth-child(4) { width: 11%; }   /* Lương */
+  .pr-table th:nth-child(5) { width: 11%; }   /* P.cấp */
+  .pr-table th:nth-child(6) { width: 12%; }   /* Thưởng (ô nhập) */
+  .pr-table th:nth-child(7) { width: 12%; }   /* Ứng */
+  .pr-table th:nth-child(8) { width: 13%; }   /* Lãnh */
+  .pr-td-name { overflow: hidden; text-overflow: ellipsis; }
   .pr-td-name .pr-avatar { display: none; }
-  .pr-worker { gap: 0; }
-  .pr-worker > span:last-child { max-width: 76px; }
-  .pr-td-in { padding: 2px 3px; }
-  .pr-tin { width: 54px; height: 26px; padding: 3px 4px; font-size: .72rem; }
-  .pr-net-td { min-width: 0; }
-  .pr-type { min-height: 22px; padding: 2px 7px; font-size: .62rem; }
+  .pr-worker { gap: 0; max-width: 100%; }
+  .pr-worker > span:last-child { max-width: 100%; }
+  .pr-td-in { padding: 2px 2px; }
+  .pr-tin { width: 100%; height: 26px; padding: 3px 3px; font-size: .7rem; }
+  .pr-type { min-height: 22px; padding: 2px 6px; font-size: .62rem; }
 }
 .wd-day-money { color: var(--ok); font-variant-numeric: tabular-nums; }
 .wd-money { flex: none; color: var(--ok); font-variant-numeric: tabular-nums; font-size: .86rem; min-width: 62px; text-align: right; }
