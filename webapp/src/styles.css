@@ -1367,16 +1367,19 @@ a.pr-stat:active { background: var(--accent-wash); }
 .pr-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: .8rem; background: var(--card); }
 .pr-table th, .pr-table td { padding: 6px 9px; border: none; border-bottom: 1px solid var(--border); white-space: nowrap; text-align: right; }
 .pr-table th { position: sticky; top: 0; z-index: 3; color: var(--muted); font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; background: var(--bg); }
-.pr-table th:first-child, .pr-table th:nth-child(2) { text-align: left; }
+.pr-table th:first-child { text-align: left; }
+.pr-table th:nth-child(2), .pr-table th:nth-child(3) { text-align: center; }
 .pr-sticky { position: sticky; left: 0; z-index: 1; background: var(--card); }
 .pr-table th.pr-sticky { z-index: 4; background: var(--bg); }
 .pr-table tbody tr:hover td, .pr-table tbody tr:active td { background: var(--bg); }
 .pr-table tbody tr:hover .pr-sticky, .pr-table tbody tr:active .pr-sticky { background: var(--bg); }
-.pr-td-name { min-width: 150px; text-align: left; font-weight: 600; }
-.pr-worker { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); text-decoration: none; }
+/* ⚠ dùng .pr-table td.… để THẮNG .pr-table td{text-align:right} (cùng nếu chỉ .pr-td-name → bị đè, cột thợ dồn phải) */
+.pr-table td.pr-td-name { min-width: 150px; text-align: left; font-weight: 600; }
+.pr-worker { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; color: var(--ink); text-decoration: none; }
+.pr-worker > span:last-child { overflow: hidden; text-overflow: ellipsis; }
 .pr-name-link { color: var(--primary); text-decoration: none; }
 .pr-name-link:active { opacity: .6; }
-.pr-td-mid { text-align: center; }
+.pr-table td.pr-td-mid { text-align: center; }
 .pr-td-in { padding: 2px 4px; }
 .pr-num { text-align: right; font-variant-numeric: tabular-nums; }
 .pr-num.is-zero { color: var(--muted-2); }
@@ -1401,6 +1404,18 @@ a.pr-stat:active { background: var(--accent-wash); }
   .pr-card-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }
   .pr-card-metric:nth-child(3) { padding-left: 0; border-left: none; }
   .pr-table-wrap { max-height: none; }
+  /* bảng lương GỌN TỐI ĐA trên mobile — cột thợ đóng băng trái, số dồn sát để thấy nhiều cột nhất */
+  .pr-table { font-size: .72rem; }
+  .pr-table th, .pr-table td { padding: 5px 5px; }
+  .pr-table th { font-size: .58rem; letter-spacing: 0; }
+  .pr-table td.pr-td-name { min-width: 0; }
+  .pr-td-name .pr-avatar { display: none; }
+  .pr-worker { gap: 0; }
+  .pr-worker > span:last-child { max-width: 76px; }
+  .pr-td-in { padding: 2px 3px; }
+  .pr-tin { width: 54px; height: 26px; padding: 3px 4px; font-size: .72rem; }
+  .pr-net-td { min-width: 0; }
+  .pr-type { min-height: 22px; padding: 2px 7px; font-size: .62rem; }
 }
 .wd-day-money { color: var(--ok); font-variant-numeric: tabular-nums; }
 .wd-money { flex: none; color: var(--ok); font-variant-numeric: tabular-nums; font-size: .86rem; min-width: 62px; text-align: right; }

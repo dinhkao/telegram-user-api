@@ -187,7 +187,7 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
       <table class="pr-table">
         <thead>
           <tr>
-            <th class="pr-sticky">Thợ</th><th>Loại</th><th>Lương&nbsp;tuần</th><th>Lương</th>
+            <th class="pr-sticky">Thợ</th><th>Loại</th><th>Tuần</th><th>Lương</th>
             <th>Phụ cấp</th><th>Thưởng</th><th>Ứng</th><th>Thực lãnh</th>
           </tr>
         </thead>
