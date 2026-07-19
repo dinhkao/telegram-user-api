@@ -3522,7 +3522,8 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 .wd-note { width: 100%; resize: vertical; min-height: 44px; }
 
 /* chấm công: banner cập nhật + LƯỚI tháng (cột tên sticky, mỗi ngày 2 ống ca) */
-.att-sync { display: flex; align-items: center; gap: 5px; margin: -4px 0 8px; }
+.att-sync { display: flex; align-items: flex-start; gap: 5px; margin: -4px 0 8px; text-align: left; }
+.att-sync svg { flex: none; margin-top: 2px; }
 .att-grid-card { padding: 8px 0 8px 8px; }
 /* Cuộn dọc theo TRANG (như .pr-table): .att-ghead = thanh header sticky top:44 dưới
    app-bar, overflow hidden, scrollLeft được JS đồng bộ từ thân; .att-grid = thân,
@@ -3539,7 +3540,7 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .att-g-name { font-size: .78rem; font-weight: 600; padding: 3px 8px 3px 0; display: flex; align-items: center; max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-top: 1px solid var(--border); }
 .att-g-cell { display: flex; align-items: center; justify-content: center; gap: 2px; padding: 3px 0; border-top: 1px solid var(--border); border-right: 1px solid var(--border); }
 .att-g-cell.sun { background: rgba(220, 38, 38, .12); }
-.att-g-cell.today { box-shadow: inset 2px 0 0 var(--acc, #2563eb), inset -2px 0 0 var(--acc, #2563eb); }
+.att-g-cell.today { background: rgba(37, 99, 235, .08); }
 .att-tube { position: relative; width: 9px; height: 30px; border: 1px solid var(--border); border-radius: 4px; background: #fff; overflow: hidden; cursor: pointer; }
 .att-tube.one { border-color: var(--warn); }
 .att-fill { position: absolute; left: 0; right: 0; background: var(--ok, #16a34a); border-radius: 2px; }
@@ -3591,3 +3592,8 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .att-ed-add { border-top: 1px dashed var(--border); margin-top: 4px; }
 .att-ed-add input { flex: 1; }
 .att-ed-note { margin-top: 10px; line-height: 1.45; }
+
+/* chấm công: tinh chỉnh sau review UI (Playwright 2026-07-19) */
+.att-toolbar .seg-btn { white-space: nowrap; }
+.att-tube.ghost { opacity: .28; border-style: solid; }
+.att-g-day.today { box-shadow: inset 0 -2px 0 #2563eb; }

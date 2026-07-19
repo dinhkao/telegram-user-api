@@ -88,13 +88,17 @@ function SyncBanner({ lastSync, intervalMin }: { lastSync: string | null; interv
   const overdue = Date.now() > next.getTime() + 5 * 60000;   // trễ >5ph = máy chưa gửi
   const hm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   const sameDay = last.toDateString() === new Date().toDateString();
+  // 1 span chữ liền — không tách node kẻo flex-gap bẻ "·" rơi lẻ dòng
   return (
     <div class="att-sync muted small">
-      <Icon name="clock" size={13} /> Cập nhật {sameDay ? hm(last) : dmyt(lastSync.replace(" ", "T"))}
-      {" · "}
-      {overdue
-        ? <span class="t-warn">lần kế {hm(next)} đã quá giờ — đang chờ máy gửi</span>
-        : <>lần kế ≈ <b>{hm(next)}</b></>}
+      <Icon name="clock" size={13} />
+      <span>
+        Cập nhật <b>{sameDay ? hm(last) : dmyt(lastSync.replace(" ", "T"))}</b>
+        {" · "}
+        {overdue
+          ? <span class="t-warn">quá giờ lần kế {hm(next)} — đang chờ máy gửi</span>
+          : <>lần kế ≈ <b>{hm(next)}</b></>}
+      </span>
     </div>
   );
 }
@@ -138,8 +142,10 @@ function Tube({ spans, loose, shift }: {
     shift.key === "sang" ? loose < 12 * 60 :
     shift.key === "chieu" ? loose >= 12 * 60 && loose < 17 * 60 : loose >= 17 * 60);
   const mark = belongs && loose !== null ? Math.min(Math.max(loose, shift.from), shift.to) : null;
+  // ống TC trống = mờ hẳn (ngày thường không tăng ca — đỡ rối lưới)
+  const ghost = shift.ot && !segs.length && mark === null;
   return (
-    <span class={"att-tube" + (shift.ot ? " ot" : "") + (mark !== null ? " one" : "")} title={shift.label}>
+    <span class={"att-tube" + (shift.ot ? " ot" : "") + (mark !== null ? " one" : "") + (ghost ? " ghost" : "")} title={shift.label}>
       {segs.map(([s, e], i) => (
         <span key={i} class={"att-fill" + (shift.ot ? " ot" : "")}
           style={{ top: `${((s - shift.from) / dur) * 100}%`, height: `${Math.max(((e - s) / dur) * 100, 6)}%` }} />
@@ -309,7 +315,7 @@ export function AttendanceBoard() {
   return (
     <div class="prod-detail">
       <PageHead fallback="#/home" title={<><Icon name="clock" size={20} /> Chấm công</>}
-        sub="3 ống/ngày: ☀ 7–11 · ⛅ 13–17 · 🌙 tăng ca 17–21 (tím). Xanh = có mặt, vạch cam = thiếu chấm. Kéo ngang xem cả tháng." />
+        sub="☀ 7–11 · ⛅ 13–17 · 🌙 tăng ca. Xanh = có mặt, cam = thiếu chấm. Bấm ô để sửa giờ." />
       <SyncBanner lastSync={sync.last} intervalMin={sync.interval} />
 
       <div class="att-toolbar">
