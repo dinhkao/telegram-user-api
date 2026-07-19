@@ -22,9 +22,15 @@ import { SelectPopup } from "../ui/SelectPopup";
 import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
 import { Loading, LoadingInline, EmptyState, ErrorState } from "../ui/states";
-import { toast } from "../ui/feedback";
+import { toast, confirmDialog } from "../ui/feedback";
 
 const pad = (n: number) => String(n).padStart(2, "0");
+const NAME_W = 112;   // bề rộng CỐ ĐỊNH cột tên (px) — CHUNG cho header + thân lưới
+                      // để ngày ở header luôn thẳng cột với ô dữ liệu (auto lệch nhau).
+// Kích hoạt bằng bàn phím cho phần tử không phải <button> (Enter/Space).
+const keyActivate = (fn: () => void) => (e: any) => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); }
+};
 const curYM = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
 const shiftYM = (ym: string, d: number) => { const [y, m] = ym.split("-").map(Number); const dt = new Date(y, m - 1 + d, 1); return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`; };
 const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
@@ -109,6 +115,8 @@ function UnmappedCard({ u, workers, onDone }: { u: AttendanceUnmapped; workers: 
   const assign = async (v: string) => {
     const wid = Number(v);
     if (!wid || busy) return;
+    const name = workers.find((w) => w.id === wid)?.name || wid;
+    if (!(await confirmDialog(`Gán mã ${u.employee_code} cho ${name}? Áp cho CẢ ${u.punches} lần chấm cũ.`, { okLabel: "Gán" }))) return;
     setBusy(true);
     try {
       const r = await mapAttendanceCode(u.employee_code, wid);
@@ -162,42 +170,47 @@ function CellEditor({ code, who, day, onClose, onChanged }: {
   code: string; who: string; day: string; onClose: () => void; onChanged: () => void;
 }) {
   const [det, setDet] = useState<AttendanceDayDetail | null>(null);
+  const [loadErr, setLoadErr] = useState(false);
   const [newTime, setNewTime] = useState("");
   const [busy, setBusy] = useState(false);
   useScrollLock(true);
   usePopupBack(true, onClose);
-  const reload = () => getAttendanceDay(code, day).then(setDet).catch(() => setDet({ machine: [], manual: [] }));
+  // Lỗi tải KHÔNG được giả làm "rỗng" — người dùng sẽ tưởng chưa chấm mà sửa nhầm.
+  const reload = () => { setLoadErr(false); return getAttendanceDay(code, day).then(setDet).catch(() => { setDet(null); setLoadErr(true); }); };
   useEffect(() => { reload(); }, [code, day]);
 
-  const run = async (fn: () => Promise<any>, okMsg: string) => {
-    if (busy) return;
+  const run = async (fn: () => Promise<any>, okMsg: string): Promise<boolean> => {
+    if (busy) return false;
     setBusy(true);
     try {
       await fn();
       toast(okMsg, "ok");
       await reload();
       onChanged();
+      return true;
     } catch (e: any) {
       toast(e?.message || "Lỗi lưu", "err");
+      return false;
     } finally {
       setBusy(false);
     }
   };
-  const addTime = () => {
+  const addTime = async () => {
     if (!newTime) return;
-    run(() => addAttendanceManual(code, day, newTime), `Đã thêm giờ ${newTime}`);
-    setNewTime("");
+    // Chỉ xoá ô nhập KHI lưu thành công — hỏng thì giữ lại để khỏi gõ lại.
+    if (await run(() => addAttendanceManual(code, day, newTime), `Đã thêm giờ ${newTime}`)) setNewTime("");
   };
   const [y, m, d] = day.split("-");
   return (
     <div class="att-ed-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div class="att-ed">
+      <div class="att-ed" role="dialog" aria-modal="true" aria-label={`Sửa giờ chấm — ${who}`}>
         <div class="att-ed-head">
           <b>{who}</b>
           <span class="muted">{Number(d)}/{Number(m)}/{y}</span>
-          <button class="icon-btn att-ed-x" onClick={onClose} title="Đóng">✕</button>
+          <button class="icon-btn att-ed-x" onClick={onClose} title="Đóng" aria-label="Đóng cửa sổ sửa chấm công">✕</button>
         </div>
-        {det === null ? <LoadingInline /> : (
+        {loadErr ? <ErrorState msg="Không tải được giờ chấm ngày này" onRetry={reload} />
+          : det === null ? <LoadingInline /> : (
           <>
             <div class="att-ed-sec">Giờ máy chấm {det.machine.length === 0 && <span class="muted small">— không có</span>}</div>
             {det.machine.map((mrow) => (
@@ -217,7 +230,7 @@ function CellEditor({ code, who, day, onClose, onChanged }: {
                 <span class="att-ed-time">{mn.time}</span>
                 <span class="muted small">✎ {mn.created_by || "?"}</span>
                 <button class="btn att-ed-btn danger" disabled={busy}
-                  onClick={() => run(() => deleteAttendanceManual(mn.id), `Đã xoá giờ ${mn.time}`)}>Xoá</button>
+                  onClick={async () => { if (await confirmDialog(`Xoá giờ thêm tay ${mn.time}?`, { danger: true })) run(() => deleteAttendanceManual(mn.id), `Đã xoá giờ ${mn.time}`); }}>Xoá</button>
               </div>
             ))}
             <div class="att-ed-row att-ed-add">
@@ -236,17 +249,17 @@ function CellEditor({ code, who, day, onClose, onChanged }: {
   );
 }
 
-// View DÒNG: 1 cụm giờ của 1 buổi — mọi lần chấm nối bằng →, LẺ số lần = ⚠
+// View DÒNG: 1 cụm giờ của 1 buổi — mọi lần chấm nối bằng →. Cảnh báo LẺ tính ở
+// CẤP NGÀY (tổng lần chấm) chứ KHÔNG theo buổi: cắt buổi theo mốc giờ hay bẻ đôi
+// cặp vào-ra (vd 13:00→20:00 tăng ca) nên đếm lẻ theo buổi sẽ báo động giả.
 function ListShift({ icon, times }: { icon: string; times: string[] }) {
-  const odd = times.length % 2 === 1;
   return (
-    <span class={"att-shift" + (times.length === 0 ? " empty" : odd ? " odd" : "")}
-      title={times.length === 0 ? "Không chấm" : odd ? "Số lần chấm LẺ — nghi thiếu chấm" : `${times.length} lần chấm`}>
+    <span class={"att-shift" + (times.length === 0 ? " empty" : "")}
+      title={times.length === 0 ? "Không chấm" : `${times.length} lần chấm`}>
       <span class="att-shift-ico">{icon}</span>
       {times.length === 0 ? <span class="att-shift-none">—</span> : times.map((t, i) => (
         <span class="att-t" key={i}>{t}{i < times.length - 1 ? <span class="att-arrow">→</span> : null}</span>
       ))}
-      {odd ? <span class="att-warn-mark">⚠</span> : null}
     </span>
   );
 }
@@ -264,15 +277,28 @@ export function AttendanceBoard() {
   const [editor, setEditor] = useState<{ code: string; who: string; day: string } | null>(null);
   const headRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const reqRef = useRef(0);
 
   const load = () => {
     setErr("");
+    const my = ++reqRef.current;   // đổi tháng nhanh → response cũ về sau bị bỏ (chống race)
     getAttendanceSummary(ym)
-      .then((d) => { setDays(d.days); setUnmapped(d.unmapped); setSync({ last: d.last_sync, interval: d.sync_interval_min }); })
-      .catch((e: any) => setErr(e?.message || "Lỗi tải chấm công"));
+      .then((d) => {
+        if (my !== reqRef.current) return;
+        setDays(d.days); setUnmapped(d.unmapped); setSync({ last: d.last_sync, interval: d.sync_interval_min });
+      })
+      .catch((e: any) => { if (my !== reqRef.current) return; setErr(e?.message || "Lỗi tải chấm công"); });
   };
-  useEffect(() => { setDays(null); load(); }, [ym]);
-  useEffect(() => { listWorkers().then(({ workers }) => setWorkers(workers)).catch(() => {}); }, []);
+  // Đổi tháng: xoá SẠCH dữ liệu tháng cũ (kể cả mã chưa gán + banner sync) trước khi tải.
+  useEffect(() => { setDays(null); setUnmapped([]); setSync({ last: null, interval: 30 }); load(); }, [ym]);
+  useEffect(() => { listWorkers().then(({ workers }) => setWorkers(workers)).catch(() => toast("Không tải được danh sách thợ — thử tải lại trang", "err")); }, []);
+  // Tháng hiện tại: cuộn lưới tới cột HÔM NAY (khỏi kéo ngang từ ngày 1), giữ cột tên sticky.
+  useEffect(() => {
+    const [Yv, Mv] = ym.split("-").map(Number);
+    const now = new Date();
+    const td = now.getFullYear() === Yv && now.getMonth() + 1 === Mv ? now.getDate() : 0;
+    if (td && bodyRef.current) bodyRef.current.scrollLeft = Math.max(0, (td - 1) * 33 - 96);
+  }, [days, ym]);
 
   if (!isOffice()) return <EmptyState icon="🔒">Chỉ văn phòng xem được chấm công.</EmptyState>;
 
@@ -383,17 +409,28 @@ export function AttendanceBoard() {
               </div>
               {g.rows.map((r) => {
                 const ts = r.times || [];
+                const who = r.worker_name || `Mã ${r.employee_code}`;
+                const open = () => setEditor({ code: r.employee_code, who, day: g.day });
+                const dayOdd = ts.length % 2 === 1;   // tổng lần chấm LẺ = nghi thiếu 1 lần vào/ra
+                // 🌙 chỉ tính khi chấm sau 17:00 + OT_GRACE (17:15) — GIỐNG ống tăng ca ở lưới;
+                // chấm ra đúng/quanh 17:00 vẫn là ca chiều, không tách thành tăng ca.
+                const OT_FROM = 17 * 60 + OT_GRACE;
+                const hasOt = ts.some((t) => mins(t) >= OT_FROM);
                 return (
                   <div class="att-lrow" key={g.day + r.employee_code} title="Bấm để xem / sửa giờ chấm"
-                    onClick={() => setEditor({ code: r.employee_code, who: r.worker_name || `Mã ${r.employee_code}`, day: g.day })}>
+                    role="button" tabIndex={0} onKeyDown={keyActivate(open)}
+                    aria-label={`${who} — ${ts.length ? `${ts.length} lần chấm, bấm để sửa` : "chưa chấm"}`}
+                    onClick={open}>
                     {r.worker_name
                       ? <span class="att-name">{r.worker_name}</span>
                       : <span class="att-name att-code" title="Mã máy chưa gán thợ">Mã {r.employee_code}</span>}
                     {r.edited && <span class="att-edited-mark" title="Có sửa tay">✎</span>}
                     <span class="att-shifts">
                       <ListShift icon="☀" times={ts.filter((t) => mins(t) < 12 * 60)} />
-                      <ListShift icon="⛅" times={ts.filter((t) => mins(t) >= 12 * 60)} />
+                      <ListShift icon="⛅" times={ts.filter((t) => mins(t) >= 12 * 60 && mins(t) < OT_FROM)} />
+                      {hasOt && <ListShift icon="🌙" times={ts.filter((t) => mins(t) >= OT_FROM)} />}
                     </span>
+                    {dayOdd && <span class="att-warn-mark" title="Tổng lần chấm trong ngày LẺ — nghi thiếu 1 lần vào/ra">⚠</span>}
                   </div>
                 );
               })}
@@ -406,7 +443,7 @@ export function AttendanceBoard() {
         // sang header (header overflow:hidden — không tự cuộn được).
         <div class="card att-grid-card">
           <div class="att-ghead" ref={headRef}
-            style={{ gridTemplateColumns: `minmax(76px, auto) repeat(${nDays}, 33px)` }}>
+            style={{ gridTemplateColumns: `${NAME_W}px repeat(${nDays}, 33px)` }}>
             <div class="att-g-corner" />
             {dayNums.map((d) => (
               <div class={"att-g-day" + (isSun(d) ? " sun" : "") + (d === todayD ? " today" : "")} key={`h${d}`}>{d}</div>
@@ -414,7 +451,7 @@ export function AttendanceBoard() {
           </div>
           <div class="att-grid" ref={bodyRef}
             onScroll={() => { if (headRef.current && bodyRef.current) headRef.current.scrollLeft = bodyRef.current.scrollLeft; }}
-            style={{ gridTemplateColumns: `minmax(76px, auto) repeat(${nDays}, 33px)` }}>
+            style={{ gridTemplateColumns: `${NAME_W}px repeat(${nDays}, 33px)` }}>
             {rows.map((p, ri) => (
               <>
                 <div class={"att-g-name" + (p.mapped ? "" : " att-code") + (ri % 2 ? " alt" : "")} key={`n${ri}`}>
@@ -423,12 +460,14 @@ export function AttendanceBoard() {
                 {dayNums.map((d) => {
                   const times = p.byDay.get(d) || [];
                   const { spans, loose } = presence(times);
+                  const open = () => setEditor({ code: p.codeByDay.get(d) || p.code, who: p.label, day: `${ym}-${pad(d)}` });
                   return (
-                    <div key={`${ri}-${d}`}
+                    <div key={`${ri}-${d}`} role="button" tabIndex={0} onKeyDown={keyActivate(open)}
                       class={"att-g-cell" + (isSun(d) ? " sun" : "") + (d === todayD ? " today" : "")
                         + (ri % 2 ? " alt" : "") + (p.edDays.has(d) ? " edited" : "")}
                       title="Bấm để xem / sửa giờ chấm"
-                      onClick={() => setEditor({ code: p.codeByDay.get(d) || p.code, who: p.label, day: `${ym}-${pad(d)}` })}>
+                      aria-label={`${p.label} ngày ${d}/${M} — ${times.length ? `${times.length} lần chấm, bấm để sửa` : "chưa chấm"}`}
+                      onClick={open}>
                       {SHIFTS.map((sh) => (
                         <Tube key={sh.key} shift={sh} loose={loose}
                           // ống TĂNG CA: chỉ tô khi chấm ra QUÁ giờ hết ca >15ph

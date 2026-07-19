@@ -3548,13 +3548,17 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt xuống dưới nó */
 .att-grid { display: grid; overflow-x: auto; align-items: stretch; -webkit-overflow-scrolling: touch; }
 .att-g-corner, .att-g-name { position: sticky; left: 0; z-index: 2; background: var(--card); }
-.att-ghead .att-g-corner { z-index: 4; }
+/* Bóng phải cho cột tên sticky → tách khỏi phần cuộn ngang, thấy rõ đang có nội dung bên phải */
+.att-grid .att-g-name, .att-grid .att-g-corner { box-shadow: 3px 0 5px -3px rgba(0,0,0,.25); }
+.att-ghead .att-g-corner { z-index: 4; box-shadow: 3px 0 5px -3px rgba(0,0,0,.25); }
+/* Bàn phím: ô/dòng bấm được (role=button) có viền focus rõ */
+.att-g-cell:focus-visible, .att-lrow:focus-visible { outline: 2px solid var(--acc, #2563eb); outline-offset: -2px; border-radius: 3px; }
 .att-g-day { font-size: .68rem; font-weight: 700; text-align: center; color: var(--muted); padding: 4px 0; background: var(--card); border-right: 1px solid var(--border); }
 .att-g-day.sun { background: rgba(220, 38, 38, .12); }
 .att-g-day.sun { color: var(--danger); }
 .att-g-day.today { color: var(--acc, #2563eb); }
 .att-g-name { font-size: .78rem; font-weight: 600; padding: 3px 8px 3px 0; display: flex; align-items: center; max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-top: 1px solid var(--border); }
-.att-g-cell { display: flex; align-items: center; justify-content: center; gap: 2px; padding: 3px 0; border-top: 1px solid var(--border); border-right: 1px solid var(--border); }
+.att-g-cell { display: flex; align-items: center; justify-content: center; gap: 2px; min-height: 40px; padding: 3px 0; border-top: 1px solid var(--border); border-right: 1px solid var(--border); }
 .att-g-cell.sun { background: rgba(220, 38, 38, .12); }
 .att-g-cell.today { background: rgba(37, 99, 235, .08); }
 .att-tube { position: relative; width: 9px; height: 30px; border: 1px solid var(--border); border-radius: 4px; background: #fff; overflow: hidden; cursor: pointer; }
@@ -3603,7 +3607,7 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .att-ed-row.off .att-ed-time { text-decoration: line-through; color: var(--muted); }
 .att-ed-time { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 48px; }
 .att-ed-badge { font-size: .68rem; font-weight: 700; color: var(--warn); border: 1px solid var(--warn); border-radius: 999px; padding: 1px 7px; }
-.att-ed-btn { margin-left: auto; padding: 4px 12px; font-size: .78rem; }
+.att-ed-btn { margin-left: auto; padding: 4px 12px; min-height: 40px; font-size: .78rem; }
 .att-ed-btn.danger { color: var(--danger); border-color: var(--danger); }
 .att-ed-add { border-top: 1px dashed var(--border); margin-top: 4px; }
 .att-ed-add input { flex: 1; }
