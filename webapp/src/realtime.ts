@@ -70,6 +70,19 @@ let ws: WebSocket | null = null;
 let backoff = 1000;
 let stopped = false;
 let everConnected = false;
+// Chống socket "nửa sống": WebView bị suspend (tắt màn hình/đổi mạng) làm TCP đứt
+// KHÔNG có FIN → ws vẫn báo OPEN, onclose không bao giờ bắn, client tưởng online mà
+// không nhận gì nữa. Ping protocol-level của aiohttp JS không thấy được, nên server
+// phát thêm {"type":"ping"} app-level mỗi 25s (server_app/websocket_routes.py) và
+// client watchdog tự đóng khi im lặng quá lâu (chỉ bật sau khi ĐÃ thấy ping đầu —
+// server cũ chưa có ping thì hành vi y như trước, không tự đóng nhầm socket khoẻ).
+let lastMsgAt = 0;
+let sawPing = false;
+let hiddenAt = 0;
+let watchdog: any = null;
+let listenersInstalled = false;
+const PING_STALE_MS = 65_000;   // > 2 chu kỳ ping 25s + dư
+const HIDDEN_FORCE_MS = 30_000; // ẩn quá lâu → nghi socket chết, nối lại cho chắc
 
 function setStatus(s: RealtimeStatus) {
   if (s === status) return;
@@ -132,17 +145,20 @@ function connect() {
   }
   ws.onopen = () => {
     backoff = 1000;
+    lastMsgAt = Date.now();
     setStatus("online");
     if (everConnected) emit({ type: "resync" }); // lần nối LẠI mới cần tải bù
     everConnected = true;
   };
   ws.onmessage = (ev) => {
+    lastMsgAt = Date.now();
     let data: any;
     try {
       data = JSON.parse(ev.data);
     } catch {
       return;
     }
+    if (data?.type === "ping") { sawPing = true; return; } // keepalive — không phát cho subscriber
     // ÉP tải lại: admin bấm "Buộc mọi máy tải lại" → server broadcast → reload ngay.
     if (data?.type === "app_reload") { try { window.location.reload(); } catch { /* ignore */ } return; }
     if (data && _SERVER_EVENTS.has(data.type)) emit(data);
@@ -163,14 +179,56 @@ function connect() {
   };
 }
 
+/** Ép nối lại NGAY (bỏ backoff): đóng socket hiện tại nếu có; onclose sẽ schedule
+ *  connect sau 1s. Socket đã chết ngầm thì close() vô hại — chỉ để kích chu trình. */
+function kick() {
+  if (stopped) return;
+  backoff = 1000;
+  if (ws) {
+    try { ws.close(); } catch { /* onclose lo phần còn lại */ }
+  } else {
+    connect(); // đang giữa 2 lần retry → nối luôn khỏi chờ hết backoff
+  }
+}
+
+function checkStale() {
+  // Chỉ hoạt động khi server ĐÃ chứng minh có phát ping (sawPing) — server bản cũ
+  // không ping thì watchdog im lặng, không tự đóng socket khoẻ mạnh.
+  if (stopped || !ws || !sawPing) return;
+  if (Date.now() - lastMsgAt > PING_STALE_MS) kick();
+}
+
+function installLifecycleListeners() {
+  if (listenersInstalled || typeof document === "undefined") return;
+  listenersInstalled = true;
+  // App resume: WebView suspend làm socket chết không FIN → onclose không bắn.
+  // Ẩn đủ lâu rồi hiện lại → chủ động nối lại (phát resync → các trang tải bù).
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      hiddenAt = Date.now();
+      return;
+    }
+    const hiddenFor = hiddenAt ? Date.now() - hiddenAt : 0;
+    hiddenAt = 0;
+    if (stopped) return;
+    if (!ws || hiddenFor > HIDDEN_FORCE_MS) kick();
+    else checkStale();
+  });
+  // Mạng quay lại (đổi WiFi↔4G) → nối ngay, khỏi chờ backoff.
+  window.addEventListener("online", () => kick());
+}
+
 export function startRealtime() {
   stopped = false;
+  installLifecycleListeners();
+  if (!watchdog) watchdog = setInterval(checkStale, 15_000);
   connect();
 }
 
 export function stopRealtime() {
   stopped = true;
   everConnected = false; // đăng xuất→đăng nhập lại: lần nối đầu KHÔNG phát resync thừa
+  if (watchdog) { clearInterval(watchdog); watchdog = null; }
   try {
     ws?.close();
   } catch {

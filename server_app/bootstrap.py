@@ -48,6 +48,9 @@ async def main():
     from server_app.orders_db import prewarm_orders_indexes
     spawn_tracked("orders.prewarm", asyncio.to_thread(prewarm_orders_indexes))
     spawn_tracked("donhang.bootstrap", bootstrap_donhang(client, db))
+    # Keepalive /ws: phát {"type":"ping"} 25s/lần để client phát hiện socket chết ngầm
+    from server_app.websocket_routes import ws_ping_loop
+    spawn_tracked("ws.ping_loop", ws_ping_loop())
 
     # Start bot client (merged from bot-don-hang)
     from server_app.bot_bootstrap import start_bot
