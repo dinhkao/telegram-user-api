@@ -175,6 +175,15 @@ export const GUIDES_SANXUAT: Guide[] = [
           nhập mã máy của người đó (một người có thể có nhiều mã; bấm ✕ để gỡ).</li>
         </ul>
         <p>Gán xong, toàn bộ lịch sử chấm cũ của mã đó cũng tự tính cho đúng người.</p>` },
+      { title: "Nghi chấm thiếu — máy tự soi", html: `
+        <p>Khu <b>"⚠ Nghi chấm thiếu"</b> tự quét cả tháng và liệt kê các ca bất thường:</p>
+        <ul>
+          <li>chấm <b>số lần lẻ</b> trong ngày (thiếu 1 lần vào hoặc ra — kèm gợi ý ca nào);</li>
+          <li>cặp vào-ra <b>quá gần nhau</b> trong ca (vd 13:40→13:47 — nghi bấm 2 lần liền, quên chấm ra);</li>
+          <li>vào-ra <b>xuyên trọn giờ trưa</b> không chấm giữa (vd 7:00→17:00 — nghi quên chấm trưa;
+          khoảng 11–13h này <b>không</b> bị tính nhầm thành tăng ca).</li>
+        </ul>
+        <p>Dùng danh sách này để nhắc nhân viên chấm đủ vào/ra từng buổi.</p>` },
       { title: "Lưu ý", html: `
         <p>Dữ liệu chấm công là <b>giờ chấm thô</b> từ máy. Việc quy ra <b>công/lương thời gian</b>
         (ca, đi trễ, tăng ca…) sẽ bổ sung sau khi chốt quy tắc — hiện lương thợ

@@ -48,15 +48,44 @@ function presence(times: string[]): { spans: Interval[]; loose: number | null } 
 }
 const clip = (spans: Interval[], a: number, b: number): Interval[] =>
   spans.map(([s, e]): Interval => [Math.max(s, a), Math.min(e, b)]).filter(([s, e]) => e > s);
-// Phút tăng ca trong ngày: có mặt trừ đi phần nằm trong 2 khung ca chính
+// Khoảng phủ TRỌN giờ trưa (vào ≤11h, ra ≥13h) không chấm giữa = nghi QUÊN chấm trưa
+const LUNCH: Interval = [11 * 60, 13 * 60];
+const crossesLunch = ([s, e]: Interval) => s <= LUNCH[0] && e >= LUNCH[1];
+
+// Phút tăng ca trong ngày: có mặt trừ phần nằm trong 2 khung ca chính. Đoạn xuyên
+// TRỌN giờ trưa không tính 11–13 là TC (nghi quên chấm trưa — xem detectIssues).
 function otMinutes(spans: Interval[]): number {
   let total = 0;
   for (const [s, e] of spans) {
     let out = e - s;
     for (const [a, b] of WORK_WINDOWS) out -= Math.max(0, Math.min(e, b) - Math.max(s, a));
+    if (crossesLunch([s, e])) out -= LUNCH[1] - LUNCH[0];
     if (out >= OT_MIN_SEG) total += out;
   }
   return total;
+}
+
+// ── Nhận diện CHẤM THIẾU (heuristic thuần, chạy trên times 1 ngày) ──────────
+const SHORT_PAIR_MIN = 30;   // cặp vào-ra < 30ph nằm gọn trong 1 ca = nghi bấm 2 lần liền
+const tstr = (m: number) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+function detectIssues(times: string[]): string[] {
+  const { spans, loose } = presence(times);
+  const issues: string[] = [];
+  if (loose !== null) {
+    const shift = loose < 12 * 60 ? "ca sáng" : loose < 17 * 60 ? "ca chiều" : "tăng ca";
+    issues.push(`chấm ${times.length} lần (lẻ) — ${shift} thiếu 1 lần vào/ra (lần lẻ lúc ${tstr(loose)})`);
+  }
+  for (const [s, e] of spans) {
+    for (const [a, b] of WORK_WINDOWS) {
+      if (s >= a && e <= b && e - s < SHORT_PAIR_MIN) {
+        issues.push(`${a < 12 * 60 ? "ca sáng" : "ca chiều"} chỉ có mặt ${e - s}ph (${tstr(s)}→${tstr(e)}) — nghi bấm 2 lần liền, thiếu chấm ra`);
+      }
+    }
+    if (crossesLunch([s, e]) ) {
+      issues.push(`${tstr(s)}→${tstr(e)} xuyên trưa không chấm giữa — nghi quên chấm trưa (11–13h không tính tăng ca)`);
+    }
+  }
+  return issues;
 }
 
 function SyncBanner({ lastSync, intervalMin }: { lastSync: string | null; intervalMin: number }) {
@@ -181,6 +210,16 @@ export function AttendanceBoard() {
   const dayNums = Array.from({ length: nDays }, (_, i) => i + 1);
   const isSun = (d: number) => new Date(Y, M - 1, d).getDay() === 0;
 
+  // Quét CHẤM THIẾU toàn tháng: mỗi (ngày, NV) chạy detectIssues, mới nhất trước
+  const suspects: { d: number; who: string; texts: string[] }[] = [];
+  for (const p of rows) {
+    for (const [d, times] of p.byDay) {
+      const texts = detectIssues(times);
+      if (texts.length) suspects.push({ d, who: p.label, texts });
+    }
+  }
+  suspects.sort((a, b) => b.d - a.d || a.who.localeCompare(b.who, "vi"));
+
   return (
     <div class="prod-detail">
       <PageHead fallback="#/home" title={<><Icon name="clock" size={20} /> Chấm công</>}
@@ -201,6 +240,25 @@ export function AttendanceBoard() {
           </div>
           {unmapped.map((u) => <UnmappedCard key={u.employee_code} u={u} workers={workers} onDone={load} />)}
         </section>
+      )}
+
+      {suspects.length > 0 && (
+        <details class="card att-issues" open={suspects.length <= 6}>
+          <summary class="card-label t-warn">
+            <span>⚠</span> Nghi chấm thiếu ({suspects.length})
+          </summary>
+          <div class="muted small" style={{ margin: "4px 0 8px" }}>
+            Máy ghi gì tính nấy — các ca dưới đây có dấu hiệu THIẾU lần chấm, nhắc nhân viên
+            chấm đủ vào/ra từng buổi.
+          </div>
+          {suspects.map((s, i) => (
+            <div class="att-issue-row" key={i}>
+              <span class="att-issue-day">{s.d}/{M}</span>
+              <span class="att-issue-who">{s.who}</span>
+              <span class="att-issue-txt">{s.texts.map((t, j) => <div key={j}>• {t}</div>)}</span>
+            </div>
+          ))}
+        </details>
       )}
 
       {days === null && !err ? (

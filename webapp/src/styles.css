@@ -3544,3 +3544,11 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 .att-g-name { gap: 5px; }
 .att-g-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .att-ot-total { font-size: .62rem; font-weight: 800; color: #7c3aed; white-space: nowrap; flex: none; }
+
+/* chấm công: khu nghi chấm thiếu */
+.att-issues summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; }
+.att-issues summary::-webkit-details-marker { display: none; }
+.att-issue-row { display: flex; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border); font-size: .82rem; align-items: baseline; }
+.att-issue-day { font-weight: 800; white-space: nowrap; min-width: 38px; }
+.att-issue-who { font-weight: 700; white-space: nowrap; }
+.att-issue-txt { color: var(--warn); flex: 1; min-width: 0; }
