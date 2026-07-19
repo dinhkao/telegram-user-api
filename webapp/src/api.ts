@@ -877,7 +877,7 @@ export async function deleteProduction(id: string | number): Promise<any> {
 }
 
 // ── Danh sách thợ (template báo cáo) ──
-export type Worker = { id: number; name: string; is_default: boolean; sort_order: number; weekly_salary?: boolean; hourly_rate?: number; wage_type?: "product" | "time" };
+export type Worker = { id: number; name: string; is_default: boolean; sort_order: number; weekly_salary?: boolean; hourly_rate?: number; wage_type?: "product" | "time"; start_date?: string; note?: string };
 export async function listWorkers(): Promise<{ workers: Worker[]; defaults: string[] }> {
   const d = await getJSON("/api/workers", { cache: false });
   return { workers: d.workers || [], defaults: d.defaults || [] };
@@ -886,7 +886,7 @@ export async function addWorker(name: string, isDefault: boolean): Promise<Worke
   const d = await postJSON("/api/workers", { name, is_default: isDefault });
   return d.worker;
 }
-export async function updateWorker(id: number, patch: { name?: string; is_default?: boolean; weekly_salary?: boolean; hourly_rate?: number; wage_type?: "product" | "time" }): Promise<Worker> {
+export async function updateWorker(id: number, patch: { name?: string; is_default?: boolean; weekly_salary?: boolean; hourly_rate?: number; wage_type?: "product" | "time"; start_date?: string; note?: string }): Promise<Worker> {
   const d = await postJSON(`/api/workers/${id}`, patch);
   return d.worker;
 }

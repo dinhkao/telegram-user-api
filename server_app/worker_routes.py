@@ -79,6 +79,8 @@ async def workers_update_handler(request: web.Request):
     weekly_salary = body.get("weekly_salary")
     hourly_rate = body.get("hourly_rate")
     wage_type = body.get("wage_type")
+    start_date = body.get("start_date")   # 'YYYY-MM-DD' | '' (xoá) — hồ sơ
+    note = body.get("note")               # ghi chú hồ sơ
     if hourly_rate is not None or wage_type is not None:
         # tiền lương / phân loại lương — CHỈ văn phòng
         from server_app.production_wages import office_user
@@ -103,6 +105,8 @@ async def workers_update_handler(request: web.Request):
                 weekly_salary=None if weekly_salary is None else bool(weekly_salary),
                 hourly_rate=hourly_rate,
                 wage_type=None if wage_type is None else str(wage_type),
+                start_date=None if start_date is None else str(start_date),
+                note=None if note is None else str(note),
             )
         finally:
             conn.close()

@@ -1,7 +1,9 @@
 // Chi tiết 1 thợ (#/sx-tho/:name) — mỗi NGÀY làm những phiếu nào, SP gì, bao nhiêu SP.
 // Gộp theo ngày (report_ymd), mỗi dòng link tới phiếu SX. Lọc kỳ giống dashboard.
-// Office còn sửa được: lương tuần, tiền 1 giờ, ID CHẤM CÔNG (mã NV trên máy Ronald
-// Jack → map + backfill qua /api/attendance/map — xem dashboard #/cham-cong).
+// Office còn sửa được HỒ SƠ: đổi TÊN (bút chì cạnh tên — server cascade mirror rows +
+// blob bang, xong điều hướng sang hash tên mới), NGÀY VÀO LÀM, GHI CHÚ, lương tuần,
+// tiền 1 giờ, ID CHẤM CÔNG (mã NV trên máy Ronald Jack → map + backfill qua
+// /api/attendance/map — xem dashboard #/cham-cong).
 // API: getWorkerReport. Realtime production_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
@@ -12,7 +14,7 @@ import {
 import { onRealtime } from "../realtime";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
-import { toast } from "../ui/feedback";
+import { toast, promptDialog } from "../ui/feedback";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -113,6 +115,49 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
     }
   };
 
+  // Đổi TÊN — server cascade lịch sử; trang key theo tên nên xong phải đổi hash
+  const renameWorker = async () => {
+    if (!worker || wkBusy) return;
+    const nm = (await promptDialog("Tên mới của nhân viên", { initial: worker.name, okLabel: "Đổi tên" }))?.trim();
+    if (!nm || nm === worker.name) return;
+    setWkBusy(true);
+    try {
+      const w = await updateWorker(worker.id, { name: nm });
+      toast(`Đã đổi tên → "${w.name}" (lịch sử giữ nguyên)`, "ok");
+      location.replace(`#/sx-tho/${encodeURIComponent(w.name)}`);
+    } catch (e: any) {
+      toast(e?.message || "Lỗi đổi tên", "err");
+    } finally {
+      setWkBusy(false);
+    }
+  };
+
+  // Ngày vào làm + ghi chú hồ sơ
+  const saveStartDate = async (v: string) => {
+    if (!worker) return;
+    try {
+      const w = await updateWorker(worker.id, { start_date: v });
+      setWorker(w);
+      toast(v ? `Đã lưu ngày vào làm ${dmy(v)}` : "Đã xoá ngày vào làm", "ok");
+    } catch (e: any) {
+      toast(e?.message || "Lỗi lưu ngày vào làm", "err");
+    }
+  };
+  const [noteDraft, setNoteDraft] = useState<string | null>(null);
+  const saveNote = async () => {
+    if (!worker || noteDraft === null) return;
+    const v = noteDraft.trim();
+    setNoteDraft(null);
+    if (v === (worker.note || "")) return;
+    try {
+      const w = await updateWorker(worker.id, { note: v });
+      setWorker(w);
+      toast("Đã lưu ghi chú", "ok");
+    } catch (e: any) {
+      toast(e?.message || "Lỗi lưu ghi chú", "err");
+    }
+  };
+
   const load = () => {
     setLoading(true);
     const { from, to } = rangeFor(period);
@@ -155,7 +200,14 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
       <div class="prod-detail-head">
         <BackLink fallback="#/sx-bang" />
         <div>
-          <div class="prod-sp"><Icon name="user" size={18} /> {name}</div>
+          <div class="prod-sp">
+            <Icon name="user" size={18} /> {name}
+            {isOffice() && worker && (
+              <button class="icon-btn wd-rename" title="Đổi tên nhân viên" onClick={renameWorker}>
+                <Icon name="edit" size={15} />
+              </button>
+            )}
+          </div>
           {data && <div class="muted small">Tổng <b>{soVN(data.total)}</b> SP · {soVN(data.total_mam)} mâm · {data.phieu} phiếu</div>}
           {data && showMoney && <div class="wd-total-money">Tiền công: <b>{money(data.total_money || 0)}</b></div>}
           {data && showMoney && (
@@ -186,6 +238,24 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
               onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
             <span class="muted small"> đ/giờ</span>
           </span>
+        </div>
+      )}
+
+      {isOffice() && worker && (
+        <div class="card wd-weekly-row">
+          <span class="wd-weekly-label">Ngày vào làm</span>
+          <input class="pw-input" type="date" value={worker.start_date || ""}
+            onChange={(e: any) => saveStartDate(e.target.value || "")} />
+        </div>
+      )}
+
+      {isOffice() && worker && (
+        <div class="card wd-note-card">
+          <span class="wd-weekly-label">Ghi chú</span>
+          <textarea class="pw-input wd-note" rows={2} placeholder="ghi chú về nhân viên…"
+            value={noteDraft !== null ? noteDraft : (worker.note || "")}
+            onInput={(e: any) => setNoteDraft(e.target.value)}
+            onBlur={saveNote} />
         </div>
       )}
 

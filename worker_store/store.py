@@ -28,6 +28,10 @@ def ensure_table(conn) -> None:
         conn.execute("ALTER TABLE production_workers ADD COLUMN hourly_rate REAL DEFAULT 0")
     if "wage_type" not in cols:     # phân loại lương: 'product' (sản phẩm) | 'time' (thời gian)
         conn.execute("ALTER TABLE production_workers ADD COLUMN wage_type TEXT DEFAULT 'product'")
+    if "start_date" not in cols:    # ngày vào làm 'YYYY-MM-DD' ('' = chưa ghi)
+        conn.execute("ALTER TABLE production_workers ADD COLUMN start_date TEXT DEFAULT ''")
+    if "note" not in cols:          # ghi chú hồ sơ (văn phòng ghi tự do)
+        conn.execute("ALTER TABLE production_workers ADD COLUMN note TEXT DEFAULT ''")
     conn.commit()
 
 
@@ -38,12 +42,15 @@ def _row(r) -> dict:
         "sort_order": r["sort_order"], "weekly_salary": bool(r["weekly_salary"]),
         "hourly_rate": float(r["hourly_rate"] or 0),
         "wage_type": (r["wage_type"] if "wage_type" in keys else None) or "product",
+        "start_date": (r["start_date"] if "start_date" in keys else None) or "",
+        "note": (r["note"] if "note" in keys else None) or "",
     }
 
 
 def list_workers(conn) -> list[dict]:
     rows = conn.execute(
-        "SELECT id, name, is_default, sort_order, weekly_salary, hourly_rate, wage_type FROM production_workers "
+        "SELECT id, name, is_default, sort_order, weekly_salary, hourly_rate, wage_type, "
+        "start_date, note FROM production_workers "
         "ORDER BY sort_order ASC, name COLLATE NOCASE ASC"
     ).fetchall()
     return [_row(r) for r in rows]
@@ -83,13 +90,14 @@ def add_worker(conn, name: str, is_default: bool = False) -> dict:
         except Exception:  # noqa: BLE001 — bảng chưa tạo (DB test)
             pass
     return {"id": wid, "name": nm, "is_default": bool(is_default), "sort_order": int(mx) + 1,
-            "weekly_salary": False, "hourly_rate": 0.0}
+            "weekly_salary": False, "hourly_rate": 0.0, "start_date": "", "note": ""}
 
 
 def update_worker(
     conn, worker_id: int, *,
     name: str | None = None, is_default: bool | None = None, weekly_salary: bool | None = None,
     hourly_rate: float | None = None, wage_type: str | None = None,
+    start_date: str | None = None, note: str | None = None,
 ) -> dict | None:
     """Sửa thợ. ĐỔI TÊN = cascade cùng transaction: production_report_rows (dòng
     đã gán worker_id đổi nhãn; dòng cổ trùng tên cũ được GÁN id + nhãn mới) + blob
@@ -98,8 +106,8 @@ def update_worker(
     wage_type = 'product' (lương sản phẩm) | 'time' (lương thời gian)."""
     with transaction(conn):
         cur = conn.execute(
-            "SELECT id, name, is_default, sort_order, weekly_salary, hourly_rate, wage_type "
-            "FROM production_workers WHERE id = ?",
+            "SELECT id, name, is_default, sort_order, weekly_salary, hourly_rate, wage_type, "
+            "start_date, note FROM production_workers WHERE id = ?",
             (worker_id,),
         ).fetchone()
         if not cur:
@@ -125,17 +133,23 @@ def update_worker(
         new_wt = (cur["wage_type"] or "product") if wage_type is None else wage_type
         if new_wt not in ("product", "time"):
             new_wt = "product"
+        new_sd = (cur["start_date"] or "") if start_date is None else start_date.strip()
+        if new_sd:
+            import re
+            if not re.match(r"^\d{4}-\d{2}-\d{2}$", new_sd):
+                raise ValueError("Ngày vào làm phải dạng YYYY-MM-DD")
+        new_note = (cur["note"] or "") if note is None else note.strip()
         conn.execute(
             "UPDATE production_workers SET name = ?, is_default = ?, weekly_salary = ?, hourly_rate = ?, "
-            "wage_type = ? WHERE id = ?",
-            (new_name, new_def, new_wk, new_hr, new_wt, worker_id),
+            "wage_type = ?, start_date = ?, note = ? WHERE id = ?",
+            (new_name, new_def, new_wk, new_hr, new_wt, new_sd, new_note, worker_id),
         )
         if renaming:
             _cascade_rename(conn, worker_id, cur["name"], new_name)
     return {
         "id": worker_id, "name": new_name, "is_default": bool(new_def),
         "sort_order": cur["sort_order"], "weekly_salary": bool(new_wk), "hourly_rate": new_hr,
-        "wage_type": new_wt,
+        "wage_type": new_wt, "start_date": new_sd, "note": new_note,
     }
 
 

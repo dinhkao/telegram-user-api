@@ -3514,3 +3514,9 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 
 /* nút thêm nhân viên ở danh sách thợ (#/tho) */
 .wl-add-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin: 10px 0 6px; }
+
+/* hồ sơ thợ: nút đổi tên + card ghi chú (#/sx-tho/:name) */
+.wd-rename { margin-left: 6px; vertical-align: middle; }
+.wd-note-card { padding: 12px 14px; }
+.wd-note-card .wd-weekly-label { display: block; margin-bottom: 6px; }
+.wd-note { width: 100%; resize: vertical; min-height: 44px; }
