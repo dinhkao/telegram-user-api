@@ -1,6 +1,8 @@
 // Popup soạn hàng — bấm "Xong" ở task Soạn hàng.
 // - Đơn ĐÃ CÓ ảnh gắn loại "soạn hàng" → hiện thẳng để XÁC NHẬN (không bắt chọn tay).
 // - Chưa có ảnh soạn hàng → chọn ≥1 ảnh từ POOL ảnh của đơn (như cũ).
+// - Nút 📷 chụp ảnh NGAY TRONG popup (CameraBox, kind=soan_hang) — khỏi thoát ra ngoài;
+//   ảnh vừa chụp tự vào danh sách + tự chọn.
 // Lưu id ảnh đã dùng vào note task (imgs:<id,id>). Data: GET /api/order/{id}/images,
 // POST /api/order/task.
 import { useEffect, useState } from "preact/hooks";
@@ -9,6 +11,7 @@ import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
+import { CameraBox, cameraSupported } from "./CameraBox";
 import { kindOf } from "./imageKinds";
 import { fastScrollToEl } from "../scroll";
 import { LoadingInline } from "../ui/states";
@@ -27,6 +30,14 @@ export function SoanHangPicker({ threadId, onClose, onDone, adminQuick, onAddPho
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [manual, setManual] = useState(false);   // ép chọn tay dù đã có ảnh soạn hàng
   const [busy, setBusy] = useState(false);
+  const [cam, setCam] = useState(false);         // camera mở ngay trong popup
+
+  // Ảnh vừa chụp trong popup (đã gắn kind soan_hang) → thêm vào danh sách + tự chọn
+  const onShot = (img?: OrderImage) => {
+    if (!img) return;
+    setImages((prev) => [img, ...(prev || [])]);
+    setSel((s) => new Set(s).add(img.id));
+  };
 
   useEffect(() => {
     listMediaImages(base).then(setImages).catch(() => setImages([]));
@@ -85,12 +96,23 @@ export function SoanHangPicker({ threadId, onClose, onDone, adminQuick, onAddPho
             <button class="btn primary block" disabled={busy} onClick={() => save(soanImgs.map((x) => x.id))}>
               {busy ? "⏳ Đang lưu…" : `✅ Xác nhận (${soanImgs.length} ảnh)`}
             </button>
+            {cameraSupported() && (
+              <button class="btn block" disabled={busy} onClick={() => setCam(true)}>
+                <Icon name="camera" size={16} /> Chụp thêm ảnh
+              </button>
+            )}
             <button class="btn block" disabled={busy} onClick={() => { setManual(true); setSel(new Set(soanImgs.map((x) => x.id))); }}>Chọn ảnh khác</button>
           </>
         ) : images.length === 0 ? (
           <>
             <p class="sh-empty">⚠️ Đơn chưa có ảnh. Phải thêm ảnh trước khi soạn xong.</p>
-            <button class="btn primary block" onClick={goAddPhoto}><Icon name="camera" size={16} /> Thêm ảnh cho đơn</button>
+            {cameraSupported() ? (
+              <button class="btn primary block" onClick={() => setCam(true)}>
+                <Icon name="camera" size={16} /> Chụp ảnh soạn hàng
+              </button>
+            ) : (
+              <button class="btn primary block" onClick={goAddPhoto}><Icon name="camera" size={16} /> Thêm ảnh cho đơn</button>
+            )}
           </>
         ) : (
           <>
@@ -111,6 +133,11 @@ export function SoanHangPicker({ threadId, onClose, onDone, adminQuick, onAddPho
             <button class="btn primary block" disabled={busy || !sel.size} onClick={() => save([...sel])}>
               {busy ? "⏳ Đang lưu…" : `✅ Xong (${sel.size} ảnh)`}
             </button>
+            {cameraSupported() && (
+              <button class="btn block" disabled={busy} onClick={() => setCam(true)}>
+                <Icon name="camera" size={16} /> Chụp ảnh mới
+              </button>
+            )}
           </>
         )}
 
@@ -120,6 +147,15 @@ export function SoanHangPicker({ threadId, onClose, onDone, adminQuick, onAddPho
           </button>
         )}
         {!busy && <button class="btn sh-cancel" onClick={onClose}>Huỷ</button>}
+
+        {cam && (
+          <CameraBox
+            base={base}
+            kind="soan_hang"
+            onClose={() => setCam(false)}
+            onUploaded={onShot}
+          />
+        )}
       </div>
     </div>
   );
