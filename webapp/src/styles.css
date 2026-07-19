@@ -3532,12 +3532,13 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .att-grid { display: grid; overflow-x: auto; align-items: stretch; -webkit-overflow-scrolling: touch; }
 .att-g-corner, .att-g-name { position: sticky; left: 0; z-index: 2; background: var(--card); }
 .att-ghead .att-g-corner { z-index: 4; }
-.att-g-day { font-size: .68rem; font-weight: 700; text-align: center; color: var(--muted); padding: 4px 0; background: var(--card); }
+.att-g-day { font-size: .68rem; font-weight: 700; text-align: center; color: var(--muted); padding: 4px 0; background: var(--card); border-right: 1px solid var(--border); }
+.att-g-day.sun { background: rgba(220, 38, 38, .12); }
 .att-g-day.sun { color: var(--danger); }
 .att-g-day.today { color: var(--acc, #2563eb); }
 .att-g-name { font-size: .78rem; font-weight: 600; padding: 3px 8px 3px 0; display: flex; align-items: center; max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-top: 1px solid var(--border); }
-.att-g-cell { display: flex; align-items: center; justify-content: center; gap: 2px; padding: 3px 0; border-top: 1px solid var(--border); }
-.att-g-cell.sun { background: rgba(220, 38, 38, .055); }
+.att-g-cell { display: flex; align-items: center; justify-content: center; gap: 2px; padding: 3px 0; border-top: 1px solid var(--border); border-right: 1px solid var(--border); }
+.att-g-cell.sun { background: rgba(220, 38, 38, .12); }
 .att-g-cell.today { box-shadow: inset 2px 0 0 var(--acc, #2563eb), inset -2px 0 0 var(--acc, #2563eb); }
 .att-tube { position: relative; width: 9px; height: 30px; border: 1px solid var(--border); border-radius: 4px; background: #fff; overflow: hidden; cursor: pointer; }
 .att-tube.one { border-color: var(--warn); }

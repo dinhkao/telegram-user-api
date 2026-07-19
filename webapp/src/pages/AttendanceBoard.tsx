@@ -36,6 +36,8 @@ const SHIFTS = [
 ];
 // Tăng ca THẬT = có mặt ngoài 2 khung ca chính; đoạn < 10 phút bỏ (nhiễu chấm sớm/muộn vài phút)
 const WORK_WINDOWS: [number, number][] = [[7 * 60, 11 * 60], [13 * 60, 17 * 60]];
+// Chấm ra ≤15ph sau hết ca (11:00/17:00) = về trễ lặt vặt, KHÔNG tính tăng ca
+const OT_GRACE = 15;
 
 type Interval = [number, number];
 // Cặp chấm liên tiếp → các khoảng có mặt; lẻ → dư 1 điểm cuối (thiếu vào/ra)
@@ -333,7 +335,9 @@ export function AttendanceBoard() {
                   return (
                     <div class={"att-g-cell" + (isSun(d) ? " sun" : "") + (d === todayD ? " today" : "") + (ri % 2 ? " alt" : "")} key={`${ri}-${d}`}>
                       {SHIFTS.map((sh) => (
-                        <Tube key={sh.key} spans={spans} loose={loose} shift={sh}
+                        <Tube key={sh.key} shift={sh} loose={loose}
+                          // ống TĂNG CA: chỉ tô khi chấm ra QUÁ giờ hết ca >15ph
+                          spans={sh.ot ? spans.filter(([, e]) => e > sh.from + OT_GRACE) : spans}
                           allTimes={times} dayLbl={dayLbl} who={p.label} />
                       ))}
                     </div>
