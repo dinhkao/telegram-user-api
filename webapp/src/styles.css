@@ -1401,6 +1401,25 @@ body.has-nop .pr-thead-bar { top: 72px; }
 .pr-table tfoot td { padding-top: 8px; padding-bottom: 8px; font-weight: 800; border-top: 1px solid var(--border); border-bottom: none; background: var(--bg); }
 .pr-table tfoot .pr-sticky { background: var(--bg); }
 
+/* Ô bảng lương bấm được → popup xem/thao tác (PayrollCellPopup) */
+.pr-td-tap { cursor: pointer; -webkit-tap-highlight-color: rgba(0,0,0,.06); }
+.pr-td-tap:active { background: var(--bg-2); }
+.pr-pop-sheet { display: flex; flex-direction: column; gap: 8px; max-height: 82vh; overflow-y: auto; }
+.pr-pop-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; text-align: left; font: inherit; background: var(--bg-2); border: none;
+  border-radius: 10px; padding: 10px 12px; color: inherit; }
+.pr-pop-row.tappable { cursor: pointer; }
+.pr-pop-row.tappable > b { color: var(--primary); text-decoration: underline dotted; text-underline-offset: 3px; }
+.pr-pop-row.hl { background: var(--ok-wash); font-weight: 800; }
+.pr-pop-row b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pr-pop-sum { display: flex; flex-direction: column; gap: 6px; }
+.pr-pop-days { display: flex; flex-direction: column; gap: 4px; max-height: 44vh; overflow-y: auto; }
+.pr-pop-day { display: grid; grid-template-columns: 58px 1fr auto auto; gap: 8px; align-items: center;
+  padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.pr-pop-day b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pr-pop-day b.muted { font-weight: 500; }
+.pr-pop-times { color: var(--muted); font-size: 12px; word-break: break-word; }
+
 @media (max-width: 720px) {
   .pr-payroll-page { padding-left: 8px; padding-right: 8px; }
   .pr-controlbar { align-items: stretch; flex-direction: column; gap: 8px; }

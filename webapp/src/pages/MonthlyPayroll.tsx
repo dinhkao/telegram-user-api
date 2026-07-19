@@ -3,6 +3,9 @@
 // PHỤ CẤP nhiều khoản, ỨNG lương nhiều lần → thực lãnh. Phụ cấp + ứng quản lý giống
 // nhau (panel thêm/VÔ HIỆU khoản — không xoá, dòng giữ lại kèm ai/lúc nào/lý do).
 // API: getMonthlyPayroll + payroll allowance/advance.
+// MỌI Ô trong bảng bấm được → popup xem/thao tác đúng ô (detail/PayrollCellPopup:
+// Công/TC = chấm công từng ngày, L.công/L.TC/Lương/Lãnh = diễn giải công thức,
+// P.cấp/Ứng = thêm/vô hiệu khoản tại chỗ). EntryPanel chuyển sang file popup.
 // (Cột THƯỞNG bỏ 2026-07-19 — phụ cấp nhiều khoản có nhãn đã thay thế; backend giữ
 // field thuong cho tương thích, compute vẫn cộng nếu tháng cũ có dữ liệu.)
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -12,6 +15,7 @@ import {
   voidPayrollAdvance, voidPayrollAllowance,
   type PayrollMonth, type PayrollRow, type SalaryAdvance, type SalaryAllowance,
 } from "../api";
+import { EntryPanel, PayrollCellPopup, type PayrollCol } from "../detail/PayrollCellPopup";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
@@ -50,6 +54,8 @@ export function MonthlyPayroll() {
   const [openPc, setOpenPc] = useState<number | null>(null);
   const [advs, setAdvs] = useState<Record<number, SalaryAdvance[]>>({});
   const [allows, setAllows] = useState<Record<number, SalaryAllowance[]>>({});
+  // Popup ô bảng: {wid, col} — row truyền vào popup tra TƯƠI từ data mỗi render
+  const [pop, setPop] = useState<{ wid: number; col: PayrollCol } | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -136,7 +142,8 @@ export function MonthlyPayroll() {
               </section>
             )}
             {view === "table" ? (
-              <PayrollTable data={data} toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc} />
+              <PayrollTable data={data} toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc}
+                onCell={(wid, col) => setPop({ wid, col })} />
             ) : (
               <div class="pr-card-grid">
                 {data.workers.map((r) => (
@@ -150,54 +157,23 @@ export function MonthlyPayroll() {
             )}
           </>
         )}
+      {pop && data && (() => {
+        const r = data.workers.find((w) => w.worker_id === pop.wid);
+        return r ? (
+          <PayrollCellPopup ym={ym} r={r} col={pop.col}
+            onClose={() => setPop(null)} onCol={(col) => setPop({ wid: pop.wid, col })}
+            apply={apply} editMoc={editMoc} toggleType={toggleType} toggleWeekly={toggleWeekly} />
+        ) : null;
+      })()}
     </div>
   );
 }
 
-// Panel liệt kê + thêm/VÔ HIỆU KHOẢN (dùng cho cả phụ cấp lẫn ứng). Khoản vô hiệu vẫn
-// hiện (gạch ngang + ai/lý do), không tính vào tổng. extra = dòng đọc-thêm ở đầu.
-function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, extra }: {
-  entries?: { id: number; amount: number; note: string; adv_date?: string; voided_at?: string; voided_by?: string; void_reason?: string }[];
-  showDate?: boolean; addPlaceholder: string;
-  onAdd: (amount: number, note: string, date: string) => void; onDel: (id: number) => void; extra?: any;
-}) {
-  const [amt, setAmt] = useState("");
-  const [date, setDate] = useState("");
-  const [note, setNote] = useState("");
-  const add = () => {
-    const a = num(amt);
-    if (a <= 0) { toast("Nhập số tiền", "err"); return; }
-    onAdd(a, note, date); setAmt(""); setNote("");
-  };
-  return (
-    <div class="pr-adv">
-      {extra}
-      {(entries || []).map((e) => (
-        <div class={`pr-adv-row${e.voided_at ? " ua-voided" : ""}`} key={e.id}>
-          {showDate ? <span class="muted small">{e.adv_date || "—"}</span> : null}
-          <b class={e.voided_at ? "ua-amt-voided" : ""}>{money(e.amount)}</b>
-          <span class="muted small pr-adv-note">
-            {e.note}
-            {e.voided_at ? <span class="ua-void-info"> · vô hiệu{e.voided_by ? ` bởi ${e.voided_by}` : ""}{e.void_reason ? ` — ${e.void_reason}` : ""}</span> : null}
-          </span>
-          {!e.voided_at ? <button class="pr-adv-del" onClick={() => onDel(e.id)} aria-label="Vô hiệu">✕</button> : null}
-        </div>
-      ))}
-      {entries && !entries.length ? <div class="muted small">Chưa có khoản nào.</div> : null}
-      <div class="pr-adv-add">
-        <input class="pw-input" inputMode="numeric" placeholder={addPlaceholder} value={amt} onInput={(e: any) => setAmt(e.target.value)} />
-        {showDate ? <input class="pw-input" type="date" value={date} onInput={(e: any) => setDate(e.target.value)} /> : null}
-        <input class="pw-input pr-adv-note-in" placeholder="Ghi chú" value={note} onInput={(e: any) => setNote(e.target.value)} />
-        <button class="btn primary" onClick={add}>Thêm</button>
-      </div>
-    </div>
-  );
-}
-
-function PayrollTable({ data, toggleType, toggleWeekly, editMoc }: {
+function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell }: {
   data: PayrollMonth;
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
   editMoc: (r: PayrollRow) => void;
+  onCell: (wid: number, col: PayrollCol) => void;
 }) {
   const t = data.totals;
   // SỐ ĐẦY ĐỦ (không rút gọn) → bảng RỘNG hơn màn: thân cuộn NGANG, cột Thợ ghim
@@ -235,13 +211,18 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc }: {
           <tbody>
           {data.workers.map((r) => {
             const isTime = r.wage_type === "time";
+            // Ô số bấm được → popup xem/thao tác đúng cột (PayrollCellPopup)
+            const tap = (col: PayrollCol) => ({
+              role: "button" as const, tabIndex: 0, onClick: () => onCell(r.worker_id, col),
+              onKeyDown: (e: any) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCell(r.worker_id, col); } },
+            });
             return (
               <tr key={r.worker_id}>
-                <td class="pr-sticky pr-td-name">
-                  <a class="pr-worker" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>
+                <td class="pr-sticky pr-td-name pr-td-tap" {...tap("name")}>
+                  <span class="pr-worker">
                     <span class="pr-avatar">{initials(r.name)}</span>
                     <span>{r.name}</span>
-                  </a>
+                  </span>
                 </td>
                 <td class="pr-td-mid">
                   <button class={isTime ? "chip pr-type time" : "chip pr-type"} onClick={() => toggleType(r)}
@@ -256,30 +237,26 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc }: {
                     ? <button class="pr-ung-btn" onClick={() => editMoc(r)} title="Mốc lương tháng mong muốn — bấm để sửa">{r.monthly_salary ? money(r.monthly_salary) : "đặt…"}</button>
                     : <span class="is-zero">—</span>}
                 </td>
-                <td class={r.cong > 0 ? "pr-num" : "pr-num is-zero"} title="Ngày công từ máy chấm">
+                <td class={`pr-td-tap ${r.cong > 0 ? "pr-num" : "pr-num is-zero"}`} title="Ngày công từ máy chấm — bấm xem từng ngày" {...tap("cong")}>
                   {r.cong > 0 ? congVN(r.cong) : "—"}
                 </td>
-                <td class={isTime && r.luong_cong ? "pr-num" : "pr-num is-zero"} title="Lương theo ngày công = mốc/26 × công">
+                <td class={`pr-td-tap ${isTime && r.luong_cong ? "pr-num" : "pr-num is-zero"}`} title="Lương theo ngày công = mốc/26 × công — bấm xem cách tính" {...tap("luong_cong")}>
                   {isTime ? money(r.luong_cong) : "—"}
                 </td>
-                <td class={r.ot_gio > 0 ? "pr-num" : "pr-num is-zero"} title="Số giờ tăng ca">
+                <td class={`pr-td-tap ${r.ot_gio > 0 ? "pr-num" : "pr-num is-zero"}`} title="Số giờ tăng ca — bấm xem từng ngày" {...tap("tc")}>
                   {r.ot_gio > 0 ? congVN(r.ot_gio) : "—"}
                 </td>
-                <td class={isTime && r.luong_tc ? "pr-num" : "pr-num is-zero"} title="Lương tăng ca ×1,2">
+                <td class={`pr-td-tap ${isTime && r.luong_tc ? "pr-num" : "pr-num is-zero"}`} title="Lương tăng ca ×1,2 — bấm xem cách tính" {...tap("luong_tc")}>
                   {isTime ? money(r.luong_tc) : "—"}
                 </td>
-                <td class={!r.luong ? "pr-num is-zero" : "pr-num"}>{money(r.luong)}</td>
-                <td class="pr-num">
-                  <a class="pr-ung-btn" href={`#/nhap-phu-cap?ym=${encodeURIComponent(data.ym)}&worker_id=${r.worker_id}`} title="Mở phụ cấp của nhân viên">
-                    {money(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}
-                  </a>
+                <td class={`pr-td-tap ${!r.luong ? "pr-num is-zero" : "pr-num"}`} title="Bấm xem cách tính lương" {...tap("luong")}>{money(r.luong)}</td>
+                <td class="pr-num pr-td-tap" title="Phụ cấp — bấm thêm/vô hiệu khoản" {...tap("pc")}>
+                  <span class="pr-ung-btn">{money(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}</span>
                 </td>
-                <td class="pr-num">
-                  <a class="pr-ung-btn" href={`#/nhap-ung?ym=${encodeURIComponent(data.ym)}&worker_id=${r.worker_id}`} title="Mở ứng lương của nhân viên">
-                    {money(r.ung)}{r.adv_count ? <sup> {r.adv_count}</sup> : null}
-                  </a>
+                <td class="pr-num pr-td-tap" title="Ứng lương — bấm thêm/vô hiệu lần ứng" {...tap("ung")}>
+                  <span class="pr-ung-btn">{money(r.ung)}{r.adv_count ? <sup> {r.adv_count}</sup> : null}</span>
                 </td>
-                <td class={r.thuc_lanh < 0 ? "pr-num pr-net-td t-danger" : "pr-num pr-net-td"}>{money(r.thuc_lanh)}</td>
+                <td class={`pr-td-tap ${r.thuc_lanh < 0 ? "pr-num pr-net-td t-danger" : "pr-num pr-net-td"}`} title="Bấm xem diễn giải thực lãnh" {...tap("net")}>{money(r.thuc_lanh)}</td>
               </tr>
             );
           })}
