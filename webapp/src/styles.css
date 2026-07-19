@@ -1387,9 +1387,9 @@ body.has-nop .pr-thead-bar { top: 72px; }
 .pr-table tbody tr:hover td, .pr-table tbody tr:active td { background: var(--bg); }
 .pr-table tbody tr:hover .pr-sticky, .pr-table tbody tr:active .pr-sticky { background: var(--bg); }
 /* ⚠ dùng .pr-table td.… để THẮNG .pr-table td{text-align:right} (cùng nếu chỉ .pr-td-name → bị đè, cột thợ dồn phải) */
-.pr-table td.pr-td-name { min-width: 150px; text-align: left; font-weight: 600; }
+.pr-table td.pr-td-name { text-align: left; font-weight: 600; }
 .pr-worker { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; color: var(--ink); text-decoration: none; }
-.pr-worker > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.pr-worker > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pr-name-link { color: var(--primary); text-decoration: none; }
 .pr-name-link:active { opacity: .6; }
 .pr-table td.pr-td-mid { text-align: center; }

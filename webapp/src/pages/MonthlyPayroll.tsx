@@ -206,9 +206,9 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc }: {
   const bodyRef = useRef<HTMLDivElement>(null);
   const cols = (
     <colgroup>
-      <col style="width:118px" /><col style="width:42px" /><col style="width:48px" />
-      <col style="width:96px" /><col style="width:104px" /><col style="width:96px" />
-      <col style="width:96px" /><col style="width:104px" />
+      <col style="width:96px" /><col style="width:40px" /><col style="width:52px" />
+      <col style="width:84px" /><col style="width:92px" /><col style="width:84px" />
+      <col style="width:84px" /><col style="width:96px" />
     </colgroup>
   );
   return (
