@@ -96,7 +96,8 @@ function SyncBanner({ lastSync, intervalMin }: { lastSync: string | null; interv
         Cập nhật <b>{sameDay ? hm(last) : dmyt(lastSync.replace(" ", "T"))}</b>
         {" · "}
         {overdue
-          ? <span class="t-warn">quá giờ lần kế {hm(next)} — đang chờ máy gửi</span>
+          // máy CHỈ gửi khi có chấm mới — quá lịch không đồng nghĩa hỏng, đừng báo động
+          ? <>chưa có chấm mới từ đó (máy gửi 30ph/lần khi có người chấm)</>
           : <>lần kế ≈ <b>{hm(next)}</b></>}
       </span>
     </div>
