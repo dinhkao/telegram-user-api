@@ -894,6 +894,34 @@ export async function deleteWorker(id: number): Promise<any> {
   return delJSON(`/api/workers/${id}`);
 }
 
+// ── Chấm công máy Ronald Jack (office only) ──────────────────────────────────
+export type AttendanceDay = {
+  day: string; employee_code: string; worker_id: number | null;
+  worker_name: string | null; punches: number; first: string; last: string;
+};
+export type AttendanceUnmapped = { employee_code: string; punches: number; last: string };
+export type AttendanceEvent = {
+  event_id: string; employee_code: string; worker_id: number | null;
+  worker_name: string | null; occurred_at: string; occurred_ymd: string;
+};
+export type AttendanceMapping = { employee_code: string; worker_id: number; worker_name: string | null };
+export async function getAttendanceSummary(ym: string): Promise<{ days: AttendanceDay[]; unmapped: AttendanceUnmapped[] }> {
+  const d = await getJSON(`/api/attendance/summary?ym=${encodeURIComponent(ym)}`, { cache: false });
+  return { days: d.days || [], unmapped: d.unmapped || [] };
+}
+export async function listAttendance(day: string, employeeCode?: string): Promise<AttendanceEvent[]> {
+  const q = employeeCode ? `&employee_code=${encodeURIComponent(employeeCode)}` : "";
+  const d = await getJSON(`/api/attendance/list?day=${encodeURIComponent(day)}${q}`, { cache: false });
+  return d.events || [];
+}
+export async function listAttendanceMap(): Promise<AttendanceMapping[]> {
+  const d = await getJSON("/api/attendance/map", { cache: false });
+  return d.mappings || [];
+}
+export async function mapAttendanceCode(employeeCode: string, workerId: number | null): Promise<{ updated_events: number }> {
+  return postJSON("/api/attendance/map", { employee_code: employeeCode, worker_id: workerId });
+}
+
 // ── Bảng lương tháng (office only) ───────────────────────────────────────────
 export type PayrollRow = {
   worker_id: number; name: string; wage_type: "product" | "time"; weekly: boolean;

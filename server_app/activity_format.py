@@ -113,6 +113,7 @@ _EXTRA_LABELS = {
     "POST /api/workers": "Thêm thợ",
     "POST /api/workers/reorder": "Sắp xếp thứ tự thợ",
     "POST /api/wages": "Sửa bảng lương SP",
+    "POST /api/attendance/map": "Gán ID chấm công cho thợ",
     "POST /api/report-slips": "Tạo phiếu báo cáo SX",
     "POST /api/report-slips/{id}": "Sửa phiếu báo cáo SX",
     "DELETE /api/report-slips/{id}": "Xoá phiếu báo cáo SX",

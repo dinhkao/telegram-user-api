@@ -11,11 +11,12 @@ from attendance_store.store import (
     list_events,
     day_summary,
     unmapped_codes,
+    list_mappings,
     map_employee_code,
 )
 from attendance_store.domain import validate_batch, token_ok
 
 __all__ = [
     "ensure_schema", "insert_events", "list_events", "day_summary",
-    "unmapped_codes", "map_employee_code", "validate_batch", "token_ok",
+    "unmapped_codes", "list_mappings", "map_employee_code", "validate_batch", "token_ok",
 ]

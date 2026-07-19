@@ -1,9 +1,14 @@
 // Chi tiết 1 thợ (#/sx-tho/:name) — mỗi NGÀY làm những phiếu nào, SP gì, bao nhiêu SP.
 // Gộp theo ngày (report_ymd), mỗi dòng link tới phiếu SX. Lọc kỳ giống dashboard.
+// Office còn sửa được: lương tuần, tiền 1 giờ, ID CHẤM CÔNG (mã NV trên máy Ronald
+// Jack → map + backfill qua /api/attendance/map — xem dashboard #/cham-cong).
 // API: getWorkerReport. Realtime production_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { getWorkerReport, isOffice, listWorkers, soVN, updateWorker, type Worker, type WorkerReport, type WorkerReportRow } from "../api";
+import {
+  getWorkerReport, isOffice, listAttendanceMap, listWorkers, mapAttendanceCode, soVN,
+  updateWorker, type Worker, type WorkerReport, type WorkerReportRow,
+} from "../api";
 import { onRealtime } from "../realtime";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
@@ -66,6 +71,45 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
       toast(`Đã lưu tiền 1 giờ: ${money(v)}`, "ok");
     } catch (e: any) {
       toast(e?.message || "Lỗi lưu tiền 1 giờ", "err");
+    }
+  };
+
+  // ID CHẤM CÔNG — mã NV trên máy Ronald Jack gán cho thợ này (1 thợ có thể nhiều mã)
+  const [attCodes, setAttCodes] = useState<string[]>([]);
+  const [attDraft, setAttDraft] = useState("");
+  const [attBusy, setAttBusy] = useState(false);
+  const loadAttCodes = (wid: number) => {
+    listAttendanceMap()
+      .then((ms) => setAttCodes(ms.filter((m) => m.worker_id === wid).map((m) => m.employee_code)))
+      .catch(() => {});
+  };
+  useEffect(() => { if (isOffice() && worker) loadAttCodes(worker.id); }, [worker?.id]);
+  const addAttCode = async () => {
+    const code = attDraft.trim();
+    if (!worker || !code || attBusy) return;
+    setAttBusy(true);
+    try {
+      const r = await mapAttendanceCode(code, worker.id);
+      setAttDraft("");
+      toast(`Đã gán ID chấm công ${code} (${r.updated_events} lần chấm cũ)`, "ok");
+      loadAttCodes(worker.id);
+    } catch (e: any) {
+      toast(e?.message || "Lỗi gán ID chấm công", "err");
+    } finally {
+      setAttBusy(false);
+    }
+  };
+  const removeAttCode = async (code: string) => {
+    if (!worker || attBusy) return;
+    setAttBusy(true);
+    try {
+      await mapAttendanceCode(code, null);
+      toast(`Đã gỡ ID chấm công ${code}`, "ok");
+      loadAttCodes(worker.id);
+    } catch (e: any) {
+      toast(e?.message || "Lỗi gỡ ID", "err");
+    } finally {
+      setAttBusy(false);
     }
   };
 
@@ -141,6 +185,26 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
               onBlur={saveRate}
               onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
             <span class="muted small"> đ/giờ</span>
+          </span>
+        </div>
+      )}
+
+      {isOffice() && worker && (
+        <div class="card wd-weekly-row">
+          <span class="wd-weekly-label">ID chấm công <span class="muted small">(mã NV trên máy)</span></span>
+          <span class="att-id-codes">
+            {attCodes.map((c) => (
+              <span class="att-id-chip" key={c}>
+                {c}
+                <button class="att-id-x" title={`Gỡ mã ${c}`} disabled={attBusy}
+                  onClick={() => removeAttCode(c)}>✕</button>
+              </span>
+            ))}
+            <input class="pw-input" inputMode="numeric" placeholder="nhập mã…" style={{ width: 76 }}
+              value={attDraft} disabled={attBusy}
+              onInput={(e: any) => setAttDraft(e.target.value)}
+              onBlur={addAttCode}
+              onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
           </span>
         </div>
       )}

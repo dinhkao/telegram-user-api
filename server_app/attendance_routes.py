@@ -143,3 +143,21 @@ async def attendance_map_handler(request: web.Request):
 
     updated = await asyncio.to_thread(_run)
     return web.json_response({"ok": True, "updated_events": updated})
+
+
+async def attendance_map_list_handler(request: web.Request):
+    """GET /api/attendance/map — mọi map mã máy → thợ (chi tiết thợ hiện ID chấm công).
+    Office."""
+    d = _deny(request)
+    if d:
+        return d
+
+    def _run():
+        conn = _db()
+        try:
+            attendance_store.ensure_schema(conn)
+            return attendance_store.list_mappings(conn)
+        finally:
+            conn.close()
+
+    return web.json_response({"ok": True, "mappings": await asyncio.to_thread(_run)})

@@ -150,4 +150,30 @@ export const GUIDES_SANXUAT: Guide[] = [
         người hay nhập lên đầu, tiện chọn nhanh trong bảng báo cáo.</p>` },
     ],
   },
+  {
+    key: "cham-cong", icon: "clock", cat: "Sản xuất", office: true,
+    title: "Chấm công (máy Ronald Jack)",
+    desc: "Xem giờ vào/ra từ máy chấm công vân tay; gán mã NV trên máy cho từng thợ.",
+    routes: ["#/cham-cong"],
+    sections: [
+      { title: "Dữ liệu từ đâu ra?", html: `
+        <p>Máy chấm công vân tay <b>Ronald Jack</b> ở văn phòng tự đẩy dữ liệu lên hệ thống
+        <b>30 phút một lần</b>. Không cần thao tác gì — nhân viên chấm trên máy, dữ liệu tự về.</p>
+        <p>Trang <a href="#/cham-cong">Chấm công</a> (☰ Thêm → Lương) xem theo <b>tháng</b>: mỗi ngày
+        liệt kê từng người với giờ chấm <b>đầu → cuối</b> và số lần chấm; bấm vào dòng để xổ
+        chi tiết từng lần chấm trong ngày.</p>` },
+      { title: "Gán mã NV trên máy cho thợ", html: `
+        <p>Máy chỉ biết <b>mã số</b> (11, 95…), hệ thống cần biết mã đó là <b>ai</b>. Có 2 chỗ gán:</p>
+        <ul>
+          <li>Khu <b>"Mã máy chưa gán thợ"</b> đầu trang Chấm công — chọn thợ cho từng mã lạ;</li>
+          <li>Ô <b>"ID chấm công"</b> trong trang chi tiết thợ (<a href="#/sx-bang">Dashboard SX</a> → bấm tên) —
+          nhập mã máy của người đó (một người có thể có nhiều mã; bấm ✕ để gỡ).</li>
+        </ul>
+        <p>Gán xong, toàn bộ lịch sử chấm cũ của mã đó cũng tự tính cho đúng người.</p>` },
+      { title: "Lưu ý", html: `
+        <p>Dữ liệu chấm công là <b>giờ chấm thô</b> từ máy. Việc quy ra <b>công/lương thời gian</b>
+        (ca, đi trễ, tăng ca…) sẽ bổ sung sau khi chốt quy tắc — hiện lương thợ
+        <i>thời gian</i> trong Bảng lương tháng vẫn nhập tay.</p>` },
+    ],
+  },
 ];

@@ -113,6 +113,15 @@ def day_summary(conn, ym: str) -> list[dict]:
              "punches": r[4], "first": r[5], "last": r[6]} for r in rows]
 
 
+def list_mappings(conn) -> list[dict]:
+    """Mọi map mã NV máy → thợ (hiện ở chi tiết thợ + dashboard chấm công)."""
+    rows = conn.execute(
+        "SELECT m.employee_code, m.worker_id, w.name FROM attendance_employee_map m"
+        " LEFT JOIN production_workers w ON w.id = m.worker_id ORDER BY m.employee_code"
+    ).fetchall()
+    return [{"employee_code": r[0], "worker_id": r[1], "worker_name": r[2]} for r in rows]
+
+
 def unmapped_codes(conn) -> list[dict]:
     """Hàng chờ review: employee_code chưa map → thợ, kèm số punch + lần gần nhất."""
     rows = conn.execute(

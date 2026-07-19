@@ -3496,3 +3496,18 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 .tk-person-free.on .tk-person-a { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ok); }
 .tk-person-busy.on .tk-person-n { color: var(--danger); }
 .tk-person-free.on .tk-person-n { color: var(--ok); }
+
+/* ── Chấm công (#/cham-cong + ô ID chấm công ở chi tiết thợ) ─────────────── */
+.att-month-nav { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; }
+.att-month { font-weight: 700; min-width: 120px; text-align: center; }
+.att-unmapped-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.att-unmapped-row:first-of-type { border-top: 0; }
+.att-code { font-weight: 700; color: var(--warn); white-space: nowrap; }
+.att-row-wrap { border-top: 1px solid var(--border); }
+.att-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 0; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.att-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-times { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.att-detail { padding: 0 0 9px 2px; }
+.att-id-codes { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.att-id-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--chip, rgba(127,127,127,.15)); border-radius: 999px; padding: 3px 8px; font-weight: 600; }
+.att-id-x { background: none; border: 0; color: var(--danger); font-weight: 700; cursor: pointer; padding: 0 2px; font-size: 14px; line-height: 1; }
