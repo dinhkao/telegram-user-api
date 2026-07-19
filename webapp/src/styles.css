@@ -3543,7 +3543,7 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .att-tube { position: relative; width: 9px; height: 30px; border: 1px solid var(--border); border-radius: 4px; background: #fff; overflow: hidden; cursor: pointer; }
 .att-tube.one { border-color: var(--warn); }
 .att-fill { position: absolute; left: 0; right: 0; background: var(--ok, #16a34a); border-radius: 2px; }
-.att-mark { position: absolute; left: 0; right: 0; height: 3px; background: var(--warn); }
+.att-mark { position: absolute; left: 0; right: 0; height: 1px; background: var(--warn); }
 
 /* chấm công: ống TĂNG CA (tím, mảnh) + tổng TC tháng cạnh tên */
 .att-tube.ot { width: 6px; border-style: dashed; opacity: .9; }
