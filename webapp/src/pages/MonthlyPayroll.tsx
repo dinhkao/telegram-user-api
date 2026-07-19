@@ -1,7 +1,9 @@
 // BẢNG LƯƠNG THÁNG (#/luong-thang) — CHỈ văn phòng. Mỗi thợ: loại lương (SP/thời gian),
 // lương (SP tự tính; thời gian = 0 chờ chấm công), nhận lương tuần (theo tháng),
-// PHỤ CẤP nhiều khoản, THƯỞNG, ỨNG lương nhiều lần → thực lãnh. Phụ cấp + ứng quản lý
+// PHỤ CẤP nhiều khoản, ỨNG lương nhiều lần → thực lãnh. Phụ cấp + ứng quản lý
 // giống nhau (panel thêm/xoá khoản). API: getMonthlyPayroll + payroll allowance/advance.
+// (Cột THƯỞNG bỏ 2026-07-19 — phụ cấp nhiều khoản có nhãn đã thay thế; backend giữ
+// field thuong cho tương thích, compute vẫn cộng nếu tháng cũ có dữ liệu.)
 import { useEffect, useState } from "preact/hooks";
 import {
   addPayrollAdvance, addPayrollAllowance, deletePayrollAdvance, deletePayrollAllowance,
@@ -50,7 +52,6 @@ export function MonthlyPayroll() {
   const [data, setData] = useState<PayrollMonth | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [draft, setDraft] = useState<Record<string, string>>({});
   const [view, setViewState] = useState<"table" | "card">(loadView);
   const setView = (v: "table" | "card") => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /**/ } };
   const [openUng, setOpenUng] = useState<number | null>(null);
@@ -61,19 +62,15 @@ export function MonthlyPayroll() {
   const load = () => {
     setLoading(true);
     getMonthlyPayroll(ym)
-      .then((d) => { setData(d); setErr(""); setDraft({}); })
+      .then((d) => { setData(d); setErr(""); })
       .catch((e: any) => setErr(e?.message || "Lỗi tải bảng lương"))
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [ym]);
   useEffect(() => { _savedYm = ym; }, [ym]);   // nhớ tháng đang xem cho lần quay lại
 
-  const apply = (d: PayrollMonth) => { setData(d); setDraft({}); };
+  const apply = (d: PayrollMonth) => setData(d);
 
-  const saveThuong = async (wid: number, val: string) => {
-    try { apply(await setPayrollAdjust(ym, wid, { thuong: num(val) })); }
-    catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
-  };
   const toggleType = async (r: PayrollRow) => {
     const next = r.wage_type === "time" ? "product" : "time";
     try { await updateWorker(r.worker_id, { wage_type: next }); toast(next === "time" ? "→ Lương thời gian" : "→ Lương sản phẩm", "ok"); load(); }
@@ -97,7 +94,7 @@ export function MonthlyPayroll() {
   const head = (
     <PageHead fallback="#/home"
       title={<><Icon name="wallet" size={18} /> Bảng lương tháng</>}
-      sub="lương SP tự tính + phụ cấp/thưởng/ứng theo tháng" />
+      sub="lương SP tự tính + phụ cấp/ứng theo tháng" />
   );
   if (!isOffice()) return <div class="pr-page">{head}<EmptyState icon="🔒">Chỉ văn phòng.</EmptyState></div>;
 
@@ -134,19 +131,17 @@ export function MonthlyPayroll() {
                 <div class="pr-summary-breakdown">
                   <div class="pr-stat gross"><span>Lương gốc</span><b>{money(totals.luong)}</b></div>
                   <a class="pr-stat allowance" href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}`}><span>Phụ cấp</span><b>+{money(totals.phu_cap)}</b></a>
-                  <div class="pr-stat bonus"><span>Thưởng</span><b>+{money(totals.thuong)}</b></div>
                   <a class="pr-stat advance" href={`#/nhap-ung?ym=${encodeURIComponent(ym)}`}><span>Đã ứng</span><b>−{money(totals.ung)}</b></a>
                 </div>
               </section>
             )}
             {view === "table" ? (
-              <PayrollTable data={data} draft={draft} setDraft={setDraft}
-                saveThuong={saveThuong} toggleType={toggleType} toggleWeekly={toggleWeekly} />
+              <PayrollTable data={data} toggleType={toggleType} toggleWeekly={toggleWeekly} />
             ) : (
               <div class="pr-card-grid">
                 {data.workers.map((r) => (
-                  <PayrollCard key={r.worker_id} r={r} ym={ym} draft={draft} setDraft={setDraft}
-                    saveThuong={saveThuong} toggleType={toggleType} toggleWeekly={toggleWeekly}
+                  <PayrollCard key={r.worker_id} r={r} ym={ym}
+                    toggleType={toggleType} toggleWeekly={toggleWeekly}
                     openUng={openUng === r.worker_id} onToggleUng={() => toggleUng(r.worker_id)} advances={advs[r.worker_id]}
                     openPc={openPc === r.worker_id} onTogglePc={() => togglePc(r.worker_id)} allowances={allows[r.worker_id]}
                     apply={apply} setAdvs={setAdvs} setAllows={setAllows} />
@@ -195,10 +190,8 @@ function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, extra }: 
   );
 }
 
-function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWeekly }: {
-  data: PayrollMonth; draft: Record<string, string>;
-  setDraft: (f: (d: Record<string, string>) => Record<string, string>) => void;
-  saveThuong: (wid: number, val: string) => void;
+function PayrollTable({ data, toggleType, toggleWeekly }: {
+  data: PayrollMonth;
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
 }) {
   const t = data.totals;
@@ -208,13 +201,12 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
         <thead>
           <tr>
             <th class="pr-sticky">Thợ</th><th>Loại</th><th>Tuần</th><th>Lương</th>
-            <th>P.cấp</th><th>Thưởng</th><th>Ứng</th><th>Lãnh</th>
+            <th>P.cấp</th><th>Ứng</th><th>Lãnh</th>
           </tr>
         </thead>
         <tbody>
           {data.workers.map((r) => {
             const isTime = r.wage_type === "time";
-            const kTh = `${r.worker_id}:thuong`;
             return (
               <tr key={r.worker_id}>
                 <td class="pr-sticky pr-td-name">
@@ -237,13 +229,6 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
                     {moneyShort(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}
                   </a>
                 </td>
-                <td class="pr-td-in">
-                  <input class="pw-input pr-tin" inputMode="numeric" placeholder="0"
-                    value={draft[kTh] !== undefined ? draft[kTh] : (r.thuong ? String(r.thuong) : "")}
-                    onInput={(e: any) => setDraft((d) => ({ ...d, [kTh]: e.target.value }))}
-                    onBlur={(e: any) => saveThuong(r.worker_id, e.target.value)}
-                    onKeyDown={(e: any) => { if (e.key === "Enter") e.target.blur(); }} />
-                </td>
                 <td class="pr-num">
                   <a class="pr-ung-btn" href={`#/nhap-ung?ym=${encodeURIComponent(data.ym)}&worker_id=${r.worker_id}`} title="Mở ứng lương của nhân viên">
                     {moneyShort(r.ung)}{r.adv_count ? <sup> {r.adv_count}</sup> : null}
@@ -259,7 +244,6 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
             <td class="pr-sticky pr-td-name">Tổng</td><td></td><td></td>
             <td class="pr-num">{moneyShort(t.luong)}</td>
             <td class="pr-num">{moneyShort(t.phu_cap)}</td>
-            <td class="pr-num">{moneyShort(t.thuong)}</td>
             <td class="pr-num">{moneyShort(t.ung)}</td>
             <td class="pr-num pr-net-td">{moneyShort(t.thuc_lanh)}</td>
           </tr>
@@ -269,11 +253,9 @@ function PayrollTable({ data, draft, setDraft, saveThuong, toggleType, toggleWee
   );
 }
 
-function PayrollCard({ r, ym, draft, setDraft, saveThuong, toggleType, toggleWeekly,
+function PayrollCard({ r, ym, toggleType, toggleWeekly,
   openUng, onToggleUng, advances, openPc, onTogglePc, allowances, apply, setAdvs, setAllows }: {
-  r: PayrollRow; ym: string; draft: Record<string, string>;
-  setDraft: (f: (d: Record<string, string>) => Record<string, string>) => void;
-  saveThuong: (wid: number, val: string) => void;
+  r: PayrollRow; ym: string;
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
   openUng: boolean; onToggleUng: () => void; advances?: SalaryAdvance[];
   openPc: boolean; onTogglePc: () => void; allowances?: SalaryAllowance[];
@@ -281,7 +263,6 @@ function PayrollCard({ r, ym, draft, setDraft, saveThuong, toggleType, toggleWee
   setAdvs: (f: (m: Record<number, SalaryAdvance[]>) => Record<number, SalaryAdvance[]>) => void;
   setAllows: (f: (m: Record<number, SalaryAllowance[]>) => Record<number, SalaryAllowance[]>) => void;
 }) {
-  const kTh = `${r.worker_id}:thuong`;
   const isTime = r.wage_type === "time";
   const wid = r.worker_id;
 
@@ -320,13 +301,6 @@ function PayrollCard({ r, ym, draft, setDraft, saveThuong, toggleType, toggleWee
       <div class="pr-card-metrics">
         <div class="pr-card-metric"><span>Lương</span><b>{isTime ? "0" : money(r.luong)}</b></div>
         <div class="pr-card-metric"><span>Phụ cấp</span><a href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>{money(r.phu_cap)}</a></div>
-        <label class="pr-card-metric editable"><span>Thưởng</span>
-          <input class="pw-input" inputMode="numeric" placeholder="0"
-            value={draft[kTh] !== undefined ? draft[kTh] : (r.thuong ? String(r.thuong) : "")}
-            onInput={(e: any) => setDraft((d) => ({ ...d, [kTh]: e.target.value }))}
-            onBlur={(e: any) => saveThuong(wid, e.target.value)}
-            onKeyDown={(e: any) => { if (e.key === "Enter") e.target.blur(); }} />
-        </label>
         <div class="pr-card-metric advance"><span>Đã ứng</span><a href={`#/nhap-ung?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>{money(r.ung)}</a></div>
       </div>
 
