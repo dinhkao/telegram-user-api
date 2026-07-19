@@ -949,6 +949,7 @@ export type PayrollRow = {
   ung: number; ung_manual: number; ung_weekly: number; adv_count: number;
   note: string; thuc_lanh: number;
   monthly_salary: number; cong: number; ot_gio: number;   // lương thời gian: mốc + công + TC (giờ)
+  luong_cong: number; luong_tc: number;                   // tách lương theo công / lương tăng ca
 };
 export type PayrollMonth = { ym: string; workers: PayrollRow[]; totals: { luong: number; phu_cap: number; thuong: number; ung: number; thuc_lanh: number } };
 export type SalaryAdvance = { id: number; worker_id: number; ym: string; amount: number; adv_date: string; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string };

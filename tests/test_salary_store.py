@@ -91,6 +91,8 @@ class SalaryStoreTest(unittest.TestCase):
         self.assertEqual(r["monthly_salary"], 5_200_000)
         self.assertEqual(r["cong"], 2.0)
         self.assertEqual(r["ot_gio"], 2.0)
+        self.assertEqual(r["luong_cong"], 400_000)   # 2 công × 200k
+        self.assertEqual(r["luong_tc"], 60_000)      # 2g TC × 25k/g ×1,2
         self.assertEqual(r["luong"], 460_000)
         self.assertEqual(r["thuc_lanh"], 460_000)
 

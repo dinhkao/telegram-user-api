@@ -274,11 +274,15 @@ def compute_month_payroll(conn, ym: str) -> dict:
         st = att.get(wid, {})
         work_min, ot_min = int(st.get("work_min") or 0), int(st.get("ot_min") or 0)
         cong = work_min / 480.0                          # ngày đủ 2 ca = 1 công
+        luong_cong = luong_tc = 0.0
         if wt == "product":
             luong = wage_by_name.get(w["name"].strip().casefold(), 0.0)
         else:
-            # lương TG = mốc/26 × công + tăng ca ×1,2 (quy TC ra công theo giờ)
-            luong = base / 26.0 * (work_min + 1.2 * ot_min) / 480.0
+            # lương TG = lương CÔNG (mốc/26 × công) + lương TĂNG CA (giờ TC ×1,2)
+            day_rate = base / 26.0
+            luong_cong = day_rate * work_min / 480.0
+            luong_tc = day_rate * 1.2 * ot_min / 480.0
+            luong = luong_cong + luong_tc
         a = adjust.get(wid, {})
         thuong, note = a.get("thuong", 0.0), a.get("note", "")
         phu_cap, pc_count = allow.get(wid, (0.0, 0))   # tổng + số khoản phụ cấp
@@ -295,6 +299,7 @@ def compute_month_payroll(conn, ym: str) -> dict:
             "adv_count": adv_count, "note": note, "thuc_lanh": round(thuc_lanh),
             "monthly_salary": round(base), "cong": round(cong, 2),
             "ot_gio": round(ot_min / 60.0, 1),
+            "luong_cong": round(luong_cong), "luong_tc": round(luong_tc),
         })
         tot["luong"] += luong
         tot["phu_cap"] += phu_cap
