@@ -1,16 +1,39 @@
-// Danh sách thợ (#/tho) — CHỈ HIỂN THỊ list, bấm 1 thợ → chi tiết thợ (#/sx-tho/:name).
-// Nút ⚙ → trang sắp xếp/quản lý (#/tho/sap-xep, WorkerArrange). KHÔNG sắp xếp/edit ở đây.
-// Data: /api/workers. Realtime workers_changed → tải lại.
+// Danh sách thợ (#/tho) — list + nút ➕ TẠO nhân viên mới (promptDialog tên); bấm 1 thợ
+// → chi tiết thợ (#/sx-tho/:name). Nút ⚙ → trang sắp xếp/quản lý (#/tho/sap-xep,
+// WorkerArrange — sắp thứ tự/⭐/xoá vẫn ở đó). Data: /api/workers. Realtime
+// workers_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { listWorkers, type Worker } from "../api";
+import { addWorker, listWorkers, type Worker } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
+import { toast, promptDialog } from "../ui/feedback";
 
 export function WorkerList() {
   const [workers, setWorkers] = useState<Worker[] | null>(null);
   const [err, setErr] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const addNew = async () => {
+    if (adding) return;
+    const nm = (await promptDialog("Tên nhân viên mới", { placeholder: "vd: Nguyễn Văn A", okLabel: "Tạo" }))?.trim();
+    if (!nm) return;
+    if (workers?.some((w) => w.name.trim().toLowerCase() === nm.toLowerCase())) {
+      toast(`Đã có nhân viên tên "${nm}"`, "err");
+      return;
+    }
+    setAdding(true);
+    try {
+      await addWorker(nm, false);
+      toast(`Đã tạo nhân viên "${nm}"`, "ok");
+      await load();
+    } catch (e: any) {
+      toast(e?.message || "Lỗi tạo nhân viên", "err");
+    } finally {
+      setAdding(false);
+    }
+  };
 
   const load = async () => {
     try { setWorkers((await listWorkers()).workers); setErr(""); }
@@ -37,8 +60,11 @@ export function WorkerList() {
           <b>Thợ ({workers.length})</b>
           <span class="muted small"><Icon name="star" size={13} /> mặc định: {defCount}</span>
         </div>
+        <button class="btn wl-add-btn" onClick={addNew} disabled={adding}>
+          <Icon name="plus" size={16} /> {adding ? "Đang tạo…" : "Thêm nhân viên"}
+        </button>
         {workers.length === 0 ? (
-          <EmptyState icon="👷">Chưa có thợ nào. Bấm <Icon name="settings" size={13} /> để thêm.</EmptyState>
+          <EmptyState icon="👷">Chưa có nhân viên nào. Bấm "Thêm nhân viên" để tạo.</EmptyState>
         ) : (
           <div class="wl-list">
             {workers.map((w) => (

@@ -3511,3 +3511,6 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 .att-id-codes { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .att-id-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--chip, rgba(127,127,127,.15)); border-radius: 999px; padding: 3px 8px; font-weight: 600; }
 .att-id-x { background: none; border: 0; color: var(--danger); font-weight: 700; cursor: pointer; padding: 0 2px; font-size: 14px; line-height: 1; }
+
+/* nút thêm nhân viên ở danh sách thợ (#/tho) */
+.wl-add-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin: 10px 0 6px; }
