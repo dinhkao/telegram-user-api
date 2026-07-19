@@ -267,6 +267,19 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   bấm tên → chi tiết thợ) + `AdvanceEntry.tsx` (`#/nhap-ung` nhập ứng nhanh); ☰ Thêm
   → nhóm **Lương**. Tests: `tests/test_salary_store.py`. (Khác `production_allowances`
   = phụ cấp per-PHIẾU SX; đây là lương theo THÁNG.)
+- **`attendance_store/` — CHẤM CÔNG máy Ronald Jack (`app.db`, 2026-07-19).** Collector
+  Windows (PC văn phòng, task 30ph/lần, SDK ZKTeco) đọc máy chấm công LAN rồi đẩy batch
+  qua Tailscale vào `POST /api/attendance/events` (`server_app/attendance_routes.py` —
+  bearer token RIÊNG của máy, env `ATTENDANCE_BEARER_TOKEN`, so constant-time; miễn
+  web_auth ở middleware + miễn audit). Bảng `attendance_events` = RAW punch bất biến,
+  `event_id` SHA-256 PRIMARY KEY → idempotent (batch trùng/retry vẫn 2xx, chỉ 2xx SAU
+  commit); `attendance_employee_map` map mã NV trên máy → `production_workers.id`
+  (POST `/api/attendance/map` backfill event cũ; mã chưa map = hàng chờ `unmapped` trong
+  GET `/api/attendance/summary?ym=`; GET `/api/attendance/list?day=` — office). Luật thuần
+  `domain.py` (validate batch + token). Tính LƯƠNG/ca từ raw CHƯA làm (nối vào
+  `salary_store` wage_type 'time' sau — đừng suy ca từ punch đầu/cuối khi chưa chốt luật).
+  KHÔNG sửa phía collector từ repo này (máy Windows riêng). Tests:
+  `tests/test_attendance_store.py`.
 - `inventory_store/` — kho thùng (`app.db`). Bảng:
   - `inventory_boxes` (`schema.py`+`queries.py`): 1 row = 1 thùng vật lý. Mã thùng =
     **SỐ GỌI TOÀN KHO, xoay vòng 27 BLOCK** (mở rộng 2026-07-17): `001`–`999` →

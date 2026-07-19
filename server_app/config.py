@@ -34,3 +34,10 @@ WEB_CORS_ORIGINS = tuple(
     ).split(",") if o.strip()
 )
 MAX_HISTORY = 20
+# Máy chấm công (server_app/attendance_routes.py): bearer token của collector Windows
+# (đặt trong .env, KHÔNG hardcode) + allowlist machine_id. Token rỗng = endpoint đóng.
+ATTENDANCE_BEARER_TOKEN = os.getenv("ATTENDANCE_BEARER_TOKEN", "").strip()
+ATTENDANCE_MACHINE_IDS = tuple(
+    m.strip() for m in os.getenv("ATTENDANCE_MACHINE_IDS", "ronald-jack-main-office").split(",")
+    if m.strip()
+)

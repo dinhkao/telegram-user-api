@@ -313,6 +313,15 @@ def create_app():
     r.add_get("/api/payroll/allowances", payroll_allowances_handler)
     r.add_post("/api/payroll/allowance", payroll_allowance_add_handler)   # TRƯỚC {id}
     r.add_post("/api/payroll/allowance/{id}/void", payroll_allowance_void_handler)
+    # ─── chấm công (máy Ronald Jack — ingest = bearer riêng, còn lại office) ─
+    from server_app.attendance_routes import (
+        attendance_ingest_handler, attendance_list_handler,
+        attendance_summary_handler, attendance_map_handler,
+    )
+    r.add_post("/api/attendance/events", attendance_ingest_handler)
+    r.add_get("/api/attendance/list", attendance_list_handler)
+    r.add_get("/api/attendance/summary", attendance_summary_handler)
+    r.add_post("/api/attendance/map", attendance_map_handler)
     # ─── kho thùng (inventory) ───────────────────────────────────────────────
     r.add_get("/api/inventory", inventory_list_handler)
     r.add_get("/api/inventory/boxes", all_boxes_handler)

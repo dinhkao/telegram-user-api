@@ -17,7 +17,10 @@ from server_app.config import WEB_AUTH_ENABLED
 from server_app.web_auth.secret import get_web_auth_secret
 from server_app.web_auth.token import verify_token
 
-_EXEMPT_EXACT = {"/api/auth/login", "/api/auth/me"}
+_EXEMPT_EXACT = {"/api/auth/login", "/api/auth/me",
+                 # collector chấm công: bearer token RIÊNG (không phải web token),
+                 # check constant-time trong server_app/attendance_routes.py
+                 "/api/attendance/events"}
 _EXEMPT_PREFIXES = ("/api/tg/",)
 _LOOPBACK = {"127.0.0.1", "::1", "localhost"}
 
