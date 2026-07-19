@@ -317,12 +317,18 @@ def create_app():
     from server_app.attendance_routes import (
         attendance_ingest_handler, attendance_list_handler,
         attendance_summary_handler, attendance_map_handler, attendance_map_list_handler,
+        attendance_day_handler, attendance_manual_add_handler,
+        attendance_manual_delete_handler, attendance_suppress_handler,
     )
     r.add_post("/api/attendance/events", attendance_ingest_handler)
     r.add_get("/api/attendance/list", attendance_list_handler)
     r.add_get("/api/attendance/summary", attendance_summary_handler)
     r.add_get("/api/attendance/map", attendance_map_list_handler)
     r.add_post("/api/attendance/map", attendance_map_handler)
+    r.add_get("/api/attendance/day", attendance_day_handler)
+    r.add_post("/api/attendance/manual", attendance_manual_add_handler)
+    r.add_post("/api/attendance/manual/delete", attendance_manual_delete_handler)
+    r.add_post("/api/attendance/suppress", attendance_suppress_handler)
     # ─── kho thùng (inventory) ───────────────────────────────────────────────
     r.add_get("/api/inventory", inventory_list_handler)
     r.add_get("/api/inventory/boxes", all_boxes_handler)

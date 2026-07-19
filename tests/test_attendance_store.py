@@ -128,6 +128,53 @@ class StoreTest(unittest.TestCase):
         # MỌI giờ chấm trong ngày, HH:MM tăng dần (client vẽ ống ca sáng/chiều)
         self.assertEqual(d19["times"], ["06:56", "17:02"])
 
+    def test_edits_overlay(self):
+        """Sửa tay = lớp phủ: ẩn giờ máy + thêm giờ tay; raw giữ nguyên nên máy gửi
+        lại (retry) không đè phần sửa."""
+        events = self._validated([
+            _event(1, occurred_at="2026-07-19T06:56:08+07:00"),
+            _event(2, occurred_at="2026-07-19T17:02:00+07:00"),
+        ])
+        attendance_store.insert_events(self.conn, events)
+        eid = f"{1:064x}"
+        # sửa giờ 06:56 → 07:00: ẩn event máy + thêm giờ tay
+        attendance_store.set_suppressed(self.conn, eid, True, by="duy")
+        attendance_store.add_manual(self.conn, "11", "2026-07-19", "07:00", by="duy")
+        d = attendance_store.day_summary(self.conn, "2026-07")[0]
+        self.assertEqual(d["times"], ["07:00", "17:02"])
+        self.assertTrue(d["edited"])
+        # máy gửi LẠI đúng batch cũ → không đè phần sửa
+        attendance_store.insert_events(self.conn, self._validated([
+            _event(1, occurred_at="2026-07-19T06:56:08+07:00")]))
+        d = attendance_store.day_summary(self.conn, "2026-07")[0]
+        self.assertEqual(d["times"], ["07:00", "17:02"])
+        # chi tiết popup: máy đủ 2 dòng (1 ẩn) + 1 dòng tay
+        det = attendance_store.day_detail(self.conn, "11", "2026-07-19")
+        self.assertEqual([m["suppressed"] for m in det["machine"]], [True, False])
+        self.assertEqual(det["manual"][0]["time"], "07:00")
+        # bỏ ẩn + xoá giờ tay → về nguyên trạng máy
+        attendance_store.set_suppressed(self.conn, eid, False)
+        attendance_store.delete_manual(self.conn, det["manual"][0]["id"])
+        d = attendance_store.day_summary(self.conn, "2026-07")[0]
+        self.assertEqual(d["times"], ["06:56", "17:02"])
+        self.assertFalse(d["edited"])
+        # validate: giờ xấu / event không tồn tại bị chặn
+        with self.assertRaises(ValueError):
+            attendance_store.add_manual(self.conn, "11", "2026-07-19", "25:00")
+        with self.assertRaises(ValueError):
+            attendance_store.set_suppressed(self.conn, "f" * 64, True)
+
+    def test_manual_only_day_creates_row(self):
+        """Ngày chỉ có giờ tay (máy hỏng/quên) vẫn ra dòng trong summary, map tên thợ."""
+        wid = add_worker(self.conn, "An")["id"]
+        attendance_store.map_employee_code(self.conn, "11", wid)
+        attendance_store.add_manual(self.conn, "11", "2026-07-20", "07:05")
+        rows = attendance_store.day_summary(self.conn, "2026-07")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["worker_name"], "An")
+        self.assertEqual(rows[0]["times"], ["07:05"])
+        self.assertTrue(rows[0]["edited"])
+
 
 if __name__ == "__main__":
     unittest.main()

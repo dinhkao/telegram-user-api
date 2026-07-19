@@ -899,6 +899,7 @@ export type AttendanceDay = {
   day: string; employee_code: string; worker_id: number | null;
   worker_name: string | null; punches: number; first: string; last: string;
   times: string[];   // MỌI giờ chấm trong ngày 'HH:MM' tăng dần (client chia ca)
+  edited?: boolean;  // có sửa tay (thêm giờ tay / ẩn giờ máy)
 };
 export type AttendanceUnmapped = { employee_code: string; punches: number; last: string };
 export type AttendanceEvent = {
@@ -921,6 +922,24 @@ export async function listAttendanceMap(): Promise<AttendanceMapping[]> {
 }
 export async function mapAttendanceCode(employeeCode: string, workerId: number | null): Promise<{ updated_events: number }> {
   return postJSON("/api/attendance/map", { employee_code: employeeCode, worker_id: workerId });
+}
+// Sửa tay giờ chấm — lớp phủ, KHÔNG đụng dữ liệu máy (xem attendance_store/edits.py)
+export type AttendanceDayDetail = {
+  machine: { event_id: string; time: string; suppressed: boolean }[];
+  manual: { id: number; time: string; created_by: string; created_at: string }[];
+};
+export async function getAttendanceDay(employeeCode: string, day: string): Promise<AttendanceDayDetail> {
+  const d = await getJSON(`/api/attendance/day?employee_code=${encodeURIComponent(employeeCode)}&day=${encodeURIComponent(day)}`, { cache: false });
+  return { machine: d.machine || [], manual: d.manual || [] };
+}
+export async function addAttendanceManual(employeeCode: string, day: string, time: string): Promise<any> {
+  return postJSON("/api/attendance/manual", { employee_code: employeeCode, day, time });
+}
+export async function deleteAttendanceManual(id: number): Promise<any> {
+  return postJSON("/api/attendance/manual/delete", { id });
+}
+export async function suppressAttendance(eventId: string, suppressed: boolean): Promise<any> {
+  return postJSON("/api/attendance/suppress", { event_id: eventId, suppressed });
 }
 
 // ── Bảng lương tháng (office only) ───────────────────────────────────────────

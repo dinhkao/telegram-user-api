@@ -42,6 +42,8 @@ def ensure_schema(conn) -> None:
     for sql in _INDEXES:
         conn.execute(sql)
     conn.commit()
+    from attendance_store.edits import ensure_edit_schema
+    ensure_edit_schema(conn)
 
 
 def insert_events(conn, events: list[dict]) -> dict:
@@ -102,24 +104,55 @@ def list_events(conn, *, day: str | None = None, employee_code: str | None = Non
 
 def day_summary(conn, ym: str) -> list[dict]:
     """Mỗi (ngày, NV) trong tháng 'YYYY-MM': MỌI giờ chấm trong ngày (times 'HH:MM',
-    tăng dần — client chia ca sáng/chiều) + đầu/cuối + số lần. Gộp bằng Python (punch
-    1 tháng chỉ vài nghìn dòng) thay vì GROUP_CONCAT để giữ thứ tự chắc chắn."""
+    tăng dần — client chia ca sáng/chiều) + đầu/cuối + số lần + cờ `edited`. Hiển thị
+    = (giờ máy − đã ẩn) ∪ giờ thêm tay (attendance_store.edits — sửa tay không đụng
+    raw nên batch máy về sau không đè). Gộp bằng Python (punch 1 tháng chỉ vài nghìn
+    dòng) thay vì GROUP_CONCAT để giữ thứ tự chắc chắn."""
+    from attendance_store.edits import month_edits
+    manual, suppressed = month_edits(conn, ym)
     rows = conn.execute(
-        "SELECT e.occurred_ymd, e.employee_code, e.worker_id, w.name, e.occurred_at"
+        "SELECT e.occurred_ymd, e.employee_code, e.worker_id, w.name, e.occurred_at, e.event_id"
         " FROM attendance_events e LEFT JOIN production_workers w ON w.id = e.worker_id"
         " WHERE e.occurred_ymd LIKE ? || '-%'"
         " ORDER BY e.occurred_ymd DESC, e.employee_code, e.occurred_at",
         (ym,)).fetchall()
     out: list[dict] = []
+    by_key: dict[tuple, dict] = {}
     for r in rows:
-        cur = out[-1] if out else None
-        if not cur or cur["day"] != r[0] or cur["employee_code"] != r[1]:
+        key = (r[0], r[1])
+        cur = by_key.get(key)
+        if not cur:
             cur = {"day": r[0], "employee_code": r[1], "worker_id": r[2], "worker_name": r[3],
-                   "punches": 0, "first": r[4], "last": r[4], "times": []}
+                   "punches": 0, "first": r[4], "last": r[4], "times": [], "edited": False}
+            by_key[key] = cur
             out.append(cur)
+        if r[5] in suppressed:
+            cur["edited"] = True
+            continue
         cur["punches"] += 1
         cur["last"] = r[4]
         cur["times"].append(r[4][11:16] if len(r[4]) >= 16 else r[4])
+    # giờ THÊM TAY: trộn vào đúng (ngày, NV) — chưa có dòng (ngày chỉ có giờ tay) thì tạo
+    if manual:
+        mapping = dict(conn.execute(
+            "SELECT employee_code, worker_id FROM attendance_employee_map").fetchall())
+        names = dict(conn.execute("SELECT id, name FROM production_workers").fetchall())
+        for code, ymd, hhmm in manual:
+            cur = by_key.get((ymd, code))
+            if not cur:
+                wid = mapping.get(code)
+                cur = {"day": ymd, "employee_code": code, "worker_id": wid,
+                       "worker_name": names.get(wid), "punches": 0, "first": hhmm,
+                       "last": hhmm, "times": [], "edited": False}
+                by_key[(ymd, code)] = cur
+                out.append(cur)
+            cur["times"].append(hhmm)
+            cur["punches"] += 1
+            cur["edited"] = True
+        for cur in out:
+            cur["times"].sort()
+        out.sort(key=lambda x: x["employee_code"])           # 2 pass ổn định:
+        out.sort(key=lambda x: x["day"], reverse=True)       # ngày DESC, mã ASC
     return out
 
 

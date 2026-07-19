@@ -164,3 +164,85 @@ async def attendance_map_list_handler(request: web.Request):
             conn.close()
 
     return web.json_response({"ok": True, "mappings": await asyncio.to_thread(_run)})
+
+
+def _office_run(request, fn):
+    """Chạy fn(conn) trong thread với schema đảm bảo — dùng cho các handler sửa tay."""
+    def _run():
+        conn = _db()
+        try:
+            attendance_store.ensure_schema(conn)
+            return fn(conn)
+        finally:
+            conn.close()
+    return asyncio.to_thread(_run)
+
+
+async def attendance_day_handler(request: web.Request):
+    """GET /api/attendance/day?employee_code=&day= — chi tiết 1 (NV, ngày) cho popup
+    sửa giờ: giờ máy (kèm cờ ẩn) + giờ thêm tay. Office."""
+    d = _deny(request)
+    if d:
+        return d
+    code = (request.query.get("employee_code") or "").strip()
+    day = (request.query.get("day") or "").strip()
+    if not code or not _YMD.match(day):
+        return web.json_response({"ok": False, "error": "cần employee_code + day YYYY-MM-DD"}, status=400)
+    detail = await _office_run(request, lambda conn: attendance_store.day_detail(conn, code, day))
+    return web.json_response({"ok": True, **detail})
+
+
+async def attendance_manual_add_handler(request: web.Request):
+    """POST /api/attendance/manual {employee_code, day, time} — THÊM giờ chấm tay
+    (không đụng dữ liệu máy). Office."""
+    d = _deny(request)
+    if d:
+        return d
+    try:
+        body = await request.json()
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return web.json_response({"ok": False, "error": "invalid JSON"}, status=400)
+    by = request.get("web_user") or ""
+    try:
+        mid = await _office_run(request, lambda conn: attendance_store.add_manual(
+            conn, str(body.get("employee_code") or ""), str(body.get("day") or ""),
+            str(body.get("time") or ""), by=by))
+    except ValueError as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=400)
+    return web.json_response({"ok": True, "id": mid})
+
+
+async def attendance_manual_delete_handler(request: web.Request):
+    """POST /api/attendance/manual/delete {id} — xoá 1 giờ chấm tay. Office."""
+    d = _deny(request)
+    if d:
+        return d
+    try:
+        body = await request.json()
+        mid = int(body.get("id"))
+    except (json.JSONDecodeError, UnicodeDecodeError, TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "thiếu id"}, status=400)
+    ok = await _office_run(request, lambda conn: attendance_store.delete_manual(conn, mid))
+    if not ok:
+        return web.json_response({"ok": False, "error": "không tìm thấy"}, status=404)
+    return web.json_response({"ok": True})
+
+
+async def attendance_suppress_handler(request: web.Request):
+    """POST /api/attendance/suppress {event_id, suppressed} — ẩn/hiện 1 giờ chấm MÁY
+    (raw giữ nguyên — máy gửi lại không đè). Office."""
+    d = _deny(request)
+    if d:
+        return d
+    try:
+        body = await request.json()
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return web.json_response({"ok": False, "error": "invalid JSON"}, status=400)
+    eid = str(body.get("event_id") or "").strip()
+    on = bool(body.get("suppressed"))
+    by = request.get("web_user") or ""
+    try:
+        await _office_run(request, lambda conn: attendance_store.set_suppressed(conn, eid, on, by=by))
+    except ValueError as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=400)
+    return web.json_response({"ok": True})
