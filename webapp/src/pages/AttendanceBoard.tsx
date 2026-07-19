@@ -14,6 +14,7 @@ import {
   getAttendanceSummary, isOffice, listWorkers, mapAttendanceCode,
   type AttendanceDay, type AttendanceUnmapped, type Worker,
 } from "../api";
+import { dayLabel } from "../format";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
@@ -26,7 +27,6 @@ const shiftYM = (ym: string, d: number) => { const [y, m] = ym.split("-").map(Nu
 const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
 const dmyt = (iso: string) => (iso && iso.length >= 16 ? `${Number(iso.slice(8, 10))}/${Number(iso.slice(5, 7))} ${iso.slice(11, 16)}` : "—");
 const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-const hgm = (m: number) => (m % 60 === 0 ? `${m / 60}g` : `${Math.floor(m / 60)}g${pad(m % 60)}`);
 
 // 3 khung giờ hiển thị: 2 ca chính + khung tăng ca chiều tối (tím).
 const SHIFTS = [
@@ -36,7 +36,6 @@ const SHIFTS = [
 ];
 // Tăng ca THẬT = có mặt ngoài 2 khung ca chính; đoạn < 10 phút bỏ (nhiễu chấm sớm/muộn vài phút)
 const WORK_WINDOWS: [number, number][] = [[7 * 60, 11 * 60], [13 * 60, 17 * 60]];
-const OT_MIN_SEG = 10;
 
 type Interval = [number, number];
 // Cặp chấm liên tiếp → các khoảng có mặt; lẻ → dư 1 điểm cuối (thiếu vào/ra)
@@ -51,19 +50,6 @@ const clip = (spans: Interval[], a: number, b: number): Interval[] =>
 // Khoảng phủ TRỌN giờ trưa (vào ≤11h, ra ≥13h) không chấm giữa = nghi QUÊN chấm trưa
 const LUNCH: Interval = [11 * 60, 13 * 60];
 const crossesLunch = ([s, e]: Interval) => s <= LUNCH[0] && e >= LUNCH[1];
-
-// Phút tăng ca trong ngày: có mặt trừ phần nằm trong 2 khung ca chính. Đoạn xuyên
-// TRỌN giờ trưa không tính 11–13 là TC (nghi quên chấm trưa — xem detectIssues).
-function otMinutes(spans: Interval[]): number {
-  let total = 0;
-  for (const [s, e] of spans) {
-    let out = e - s;
-    for (const [a, b] of WORK_WINDOWS) out -= Math.max(0, Math.min(e, b) - Math.max(s, a));
-    if (crossesLunch([s, e])) out -= LUNCH[1] - LUNCH[0];
-    if (out >= OT_MIN_SEG) total += out;
-  }
-  return total;
-}
 
 // ── Nhận diện CHẤM THIẾU (heuristic thuần, chạy trên times 1 ngày) ──────────
 const SHORT_PAIR_MIN = 30;   // cặp vào-ra < 30ph nằm gọn trong 1 ca = nghi bấm 2 lần liền
@@ -165,8 +151,26 @@ function Tube({ spans, loose, shift, allTimes, dayLbl, who }: {
   );
 }
 
+// View DÒNG: 1 cụm giờ của 1 buổi — mọi lần chấm nối bằng →, LẺ số lần = ⚠
+function ListShift({ icon, times }: { icon: string; times: string[] }) {
+  const odd = times.length % 2 === 1;
+  return (
+    <span class={"att-shift" + (times.length === 0 ? " empty" : odd ? " odd" : "")}
+      title={times.length === 0 ? "Không chấm" : odd ? "Số lần chấm LẺ — nghi thiếu chấm" : `${times.length} lần chấm`}>
+      <span class="att-shift-ico">{icon}</span>
+      {times.length === 0 ? <span class="att-shift-none">—</span> : times.map((t, i) => (
+        <span class="att-t" key={i}>{t}{i < times.length - 1 ? <span class="att-arrow">→</span> : null}</span>
+      ))}
+      {odd ? <span class="att-warn-mark">⚠</span> : null}
+    </span>
+  );
+}
+
 export function AttendanceBoard() {
   const [ym, setYm] = useState(curYM());
+  const [view, setViewRaw] = useState<"grid" | "list">(
+    (localStorage.getItem("att_view") as "grid" | "list") || "grid");
+  const setView = (v: "grid" | "list") => { setViewRaw(v); try { localStorage.setItem("att_view", v); } catch {} };
   const [days, setDays] = useState<AttendanceDay[] | null>(null);
   const [unmapped, setUnmapped] = useState<AttendanceUnmapped[]>([]);
   const [sync, setSync] = useState<{ last: string | null; interval: number }>({ last: null, interval: 30 });
@@ -201,11 +205,6 @@ export function AttendanceBoard() {
     p.byDay.set(d, [...(p.byDay.get(d) || []), ...(r.times || [])].sort());
   }
   const rows = [...people.values()]
-    .map((p) => {
-      let ot = 0;
-      for (const times of p.byDay.values()) ot += otMinutes(presence(times).spans);
-      return { ...p, ot };
-    })
     .sort((a, b) => (a.mapped !== b.mapped ? (a.mapped ? -1 : 1) : a.label.localeCompare(b.label, "vi")));
   const dayNums = Array.from({ length: nDays }, (_, i) => i + 1);
   const isSun = (d: number) => new Date(Y, M - 1, d).getDay() === 0;
@@ -226,10 +225,16 @@ export function AttendanceBoard() {
         sub="3 ống/ngày: ☀ 7–11 · ⛅ 13–17 · 🌙 tăng ca 17–21 (tím). Xanh = có mặt, vạch cam = thiếu chấm. Kéo ngang xem cả tháng." />
       <SyncBanner lastSync={sync.last} intervalMin={sync.interval} />
 
-      <div class="seg att-month-nav">
-        <button class="seg-btn" onClick={() => setYm(shiftYM(ym, -1))}>‹</button>
-        <span class="att-month">{ymLabel(ym)}</span>
-        <button class="seg-btn" onClick={() => setYm(shiftYM(ym, 1))} disabled={ym >= curYM()}>›</button>
+      <div class="att-toolbar">
+        <div class="seg att-month-nav">
+          <button class="seg-btn" onClick={() => setYm(shiftYM(ym, -1))}>‹</button>
+          <span class="att-month">{ymLabel(ym)}</span>
+          <button class="seg-btn" onClick={() => setYm(shiftYM(ym, 1))} disabled={ym >= curYM()}>›</button>
+        </div>
+        <div class="seg">
+          <button class={view === "grid" ? "seg-btn active" : "seg-btn"} onClick={() => setView("grid")} title="Lưới cả tháng">▦ Lưới</button>
+          <button class={view === "list" ? "seg-btn active" : "seg-btn"} onClick={() => setView("list")} title="Danh sách theo ngày">☰ Dòng</button>
+        </div>
       </div>
 
       {unmapped.length > 0 && (
@@ -267,6 +272,38 @@ export function AttendanceBoard() {
         <ErrorState msg={err} onRetry={load} />
       ) : !rows.length ? (
         <EmptyState icon="🕐">Chưa có chấm công tháng này.</EmptyState>
+      ) : view === "list" ? (
+        (() => {
+          // View DÒNG: gộp theo ngày (server đã sort DESC), mỗi người 1 dòng đủ mọi giờ chấm
+          const groups: { day: string; rows: AttendanceDay[] }[] = [];
+          for (const r of days || []) {
+            let g = groups.find((x) => x.day === r.day);
+            if (!g) { g = { day: r.day, rows: [] }; groups.push(g); }
+            g.rows.push(r);
+          }
+          return groups.map((g) => (
+            <section class="card" key={g.day}>
+              <div class="row space">
+                <label class="card-label" style={{ margin: 0 }}><Icon name="calendar" size={16} /> {dayLabel(g.day)}</label>
+                <span class="muted small">{g.rows.length} người</span>
+              </div>
+              {g.rows.map((r) => {
+                const ts = r.times || [];
+                return (
+                  <div class="att-lrow" key={g.day + r.employee_code}>
+                    {r.worker_name
+                      ? <span class="att-name">{r.worker_name}</span>
+                      : <span class="att-name att-code" title="Mã máy chưa gán thợ">Mã {r.employee_code}</span>}
+                    <span class="att-shifts">
+                      <ListShift icon="☀" times={ts.filter((t) => mins(t) < 12 * 60)} />
+                      <ListShift icon="⛅" times={ts.filter((t) => mins(t) >= 12 * 60)} />
+                    </span>
+                  </div>
+                );
+              })}
+            </section>
+          ));
+        })()
       ) : (
         <div class="card att-grid-card">
           <div class="att-grid" style={{ gridTemplateColumns: `minmax(76px, auto) repeat(${nDays}, 33px)` }}>
@@ -276,10 +313,8 @@ export function AttendanceBoard() {
             ))}
             {rows.map((p, ri) => (
               <>
-                <div class={"att-g-name" + (p.mapped ? "" : " att-code") + (ri % 2 ? " alt" : "")} key={`n${ri}`}
-                  title={p.ot > 0 ? `Tăng ca tháng này: ${hgm(p.ot)}` : undefined}>
+                <div class={"att-g-name" + (p.mapped ? "" : " att-code") + (ri % 2 ? " alt" : "")} key={`n${ri}`}>
                   <span class="att-g-nm">{p.label}</span>
-                  {p.ot > 0 && <span class="att-ot-total">TC {hgm(p.ot)}</span>}
                 </div>
                 {dayNums.map((d) => {
                   const times = p.byDay.get(d) || [];

@@ -3524,9 +3524,12 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 /* chấm công: banner cập nhật + LƯỚI tháng (cột tên sticky, mỗi ngày 2 ống ca) */
 .att-sync { display: flex; align-items: center; gap: 5px; margin: -4px 0 8px; }
 .att-grid-card { padding: 8px 0 8px 8px; }
-.att-grid { display: grid; overflow-x: auto; align-items: stretch; -webkit-overflow-scrolling: touch; }
+/* Lưới cuộn 2 CHIỀU trong khung riêng (max-height) → header ngày sticky TOP + cột
+   tên sticky LEFT đều hoạt động (giống bảng lương ghim header khi cuộn). */
+.att-grid { display: grid; overflow: auto; max-height: calc(100dvh - 215px); align-items: stretch; -webkit-overflow-scrolling: touch; }
 .att-g-corner, .att-g-name { position: sticky; left: 0; z-index: 2; background: var(--card); }
-.att-g-day { font-size: .68rem; font-weight: 700; text-align: center; color: var(--muted); padding: 2px 0 4px; }
+.att-g-corner { top: 0; z-index: 4; box-shadow: 0 1px 0 var(--border); }
+.att-g-day { position: sticky; top: 0; z-index: 3; background: var(--card); font-size: .68rem; font-weight: 700; text-align: center; color: var(--muted); padding: 2px 0 4px; box-shadow: 0 1px 0 var(--border); }
 .att-g-day.sun { color: var(--danger); }
 .att-g-day.today { color: var(--acc, #2563eb); }
 .att-g-name { font-size: .78rem; font-weight: 600; padding: 3px 8px 3px 0; display: flex; align-items: center; max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-top: 1px solid var(--border); }
@@ -3541,9 +3544,7 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 /* chấm công: ống TĂNG CA (tím, mảnh) + tổng TC tháng cạnh tên */
 .att-tube.ot { width: 6px; border-style: dashed; opacity: .9; }
 .att-fill.ot { background: #7c3aed; }
-.att-g-name { gap: 5px; }
 .att-g-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.att-ot-total { font-size: .62rem; font-weight: 800; color: #7c3aed; white-space: nowrap; flex: none; }
 
 /* chấm công: khu nghi chấm thiếu */
 .att-issues summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; }
@@ -3552,3 +3553,17 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 .att-issue-day { font-weight: 800; white-space: nowrap; min-width: 38px; }
 .att-issue-who { font-weight: 700; white-space: nowrap; }
 .att-issue-txt { color: var(--warn); flex: 1; min-width: 0; }
+
+/* chấm công: toolbar (tháng + đổi view) + view DÒNG (cụm giờ mỗi buổi) */
+.att-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.att-toolbar .att-month-nav { margin-bottom: 0; }
+.att-lrow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); flex-wrap: wrap; row-gap: 2px; }
+.att-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-shifts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.att-shift { display: inline-flex; align-items: center; gap: 3px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.att-shift.empty { opacity: .4; }
+.att-shift.odd .att-t { color: var(--warn); font-weight: 700; }
+.att-shift-ico { font-size: .8rem; opacity: .75; margin-right: 1px; }
+.att-shift-none { min-width: 34px; text-align: center; }
+.att-arrow { opacity: .45; margin: 0 2px; font-size: .8rem; }
+.att-warn-mark { font-size: .8rem; }
