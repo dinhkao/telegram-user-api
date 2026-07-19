@@ -178,3 +178,34 @@ class StoreTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WorkStatsTest(unittest.TestCase):
+    """Quy giờ chấm → công + tăng ca (luật: grace 15ph, bỏ xuyên trưa, bỏ trước 7h)."""
+
+    def _ws(self, times):
+        from attendance_store.domain import work_stats
+        return work_stats(times)
+
+    def test_full_day(self):
+        self.assertEqual(self._ws(["07:00", "11:00", "13:00", "17:00"]), (480, 0))
+
+    def test_partial_and_late_within_grace(self):
+        # ra 17:10 (≤15ph) → không tăng ca; sáng làm 3 tiếng
+        self.assertEqual(self._ws(["08:00", "11:00", "13:00", "17:10"]), (420, 0))
+
+    def test_evening_overtime(self):
+        # ra 19:00 → TC 17:00→19:00 = 120ph
+        self.assertEqual(self._ws(["07:00", "11:00", "13:00", "19:00"]), (480, 120))
+
+    def test_lunch_overtime_and_cross(self):
+        # ra 11:40 → TC 40ph; còn xuyên trưa 7:00→17:00 (2 lần) → KHÔNG TC trưa
+        self.assertEqual(self._ws(["07:00", "11:40"]), (240, 40))
+        self.assertEqual(self._ws(["07:00", "17:00"]), (480, 0))
+
+    def test_early_morning_not_ot(self):
+        self.assertEqual(self._ws(["06:30", "11:00"]), (240, 0))
+
+    def test_odd_punch_ignored(self):
+        # lần lẻ cuối bỏ, không đoán
+        self.assertEqual(self._ws(["07:00", "11:00", "13:00"]), (240, 0))

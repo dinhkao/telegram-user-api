@@ -256,7 +256,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 - **`salary_store/` — LƯƠNG THÁNG (`app.db`, 2026-07-18, office-only).** Bảng lương
   từng tháng cho mọi NV. `production_workers.wage_type` phân loại NV: `'product'`
   (lương SP tự tính từ sản xuất theo tháng qua `report_slips.compute_range_report`)
-  | `'time'` (lương thời gian = 0, CHỜ tính năng chấm công). Bảng `salary_month`
+  | `'time'` (lương THỜI GIAN từ CHẤM CÔNG 2026-07-19: mốc tháng
+  `production_workers.monthly_salary` ÷ 26 × ngày công + tăng ca ×1,2 — công/TC quy từ
+  máy chấm qua `attendance_store.month_worker_stats`/`domain.work_stats`, ngày đủ 2 ca
+  = 1 công, đã gộp giờ sửa tay; sửa mốc = cột "Mốc" bảng lương, office). Bảng `salary_month`
   (thưởng + ghi chú + `weekly` = nhận-lương-tuần THEO THÁNG — mỗi (tháng, thợ) độc
   lập, KHÁC `production_workers.weekly_salary`) + `salary_advances` (ỨNG lương NHIỀU
   lần/tháng) + `salary_allowances` (PHỤ CẤP NHIỀU KHOẢN/tháng — amount + nhãn, cộng

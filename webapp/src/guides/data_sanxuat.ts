@@ -185,9 +185,11 @@ export const GUIDES_SANXUAT: Guide[] = [
         </ul>
         <p>Dùng danh sách này để nhắc nhân viên chấm đủ vào/ra từng buổi.</p>` },
       { title: "Lưu ý", html: `
-        <p>Dữ liệu chấm công là <b>giờ chấm thô</b> từ máy. Việc quy ra <b>công/lương thời gian</b>
-        (ca, đi trễ, tăng ca…) sẽ bổ sung sau khi chốt quy tắc — hiện lương thợ
-        <i>thời gian</i> trong Bảng lương tháng vẫn nhập tay.</p>` },
+        <p>Chấm công đã <b>nối vào Bảng lương tháng</b>: thợ <i>lương thời gian</i> đặt
+        <b>Mốc lương tháng</b> (cột "Mốc" / dòng Mốc trên thẻ) → lương thực = mốc ÷ 26 ×
+        <b>ngày công</b> (ngày đủ 2 ca = 1 công, tính từ giờ chấm), <b>tăng ca ×1,2</b>
+        (chỉ tính khi chấm ra trễ hơn 15 phút sau giờ hết ca; ca xuyên trưa không chấm
+        giữa không tính tăng ca trưa). Giờ sửa tay trong popup cũng được tính.</p>` },
     ],
   },
 ];

@@ -75,6 +75,25 @@ class SalaryStoreTest(unittest.TestCase):
         self.assertEqual(r["thuong"], 50_000)
         self.assertEqual(r["thuc_lanh"], 150_000)    # 0 + 100k + 50k − 0
 
+    def test_time_worker_luong_tu_cham_cong(self):
+        """Lương TG = mốc/26 × công + tăng ca ×1,2 (công/TC từ máy chấm công)."""
+        import attendance_store
+        attendance_store.ensure_schema(self.conn)
+        update_worker(self.conn, self.a, monthly_salary=5_200_000)
+        attendance_store.map_employee_code(self.conn, "77", self.a)
+        # ngày 1: đủ 2 ca = 1 công → 5.2tr/26 = 200k
+        for t in ("07:00", "11:00", "13:00", "17:00"):
+            attendance_store.add_manual(self.conn, "77", "2026-07-06", t)
+        # ngày 2: đủ 2 ca + tăng ca tới 19:00 (120ph ×1,2) → 200k + 200k/480×120×1.2 = 260k
+        for t in ("07:00", "11:00", "13:00", "19:00"):
+            attendance_store.add_manual(self.conn, "77", "2026-07-07", t)
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)
+        self.assertEqual(r["monthly_salary"], 5_200_000)
+        self.assertEqual(r["cong"], 2.0)
+        self.assertEqual(r["ot_gio"], 2.0)
+        self.assertEqual(r["luong"], 460_000)
+        self.assertEqual(r["thuc_lanh"], 460_000)
+
     def test_adjust_upsert_giu_field_khong_truyen(self):
         salary_store.set_month_adjust(self.conn, "2026-07", self.a, thuong=100_000)
         salary_store.set_month_adjust(self.conn, "2026-07", self.a, weekly=True)  # không đụng thuong

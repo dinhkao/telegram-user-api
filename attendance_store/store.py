@@ -198,3 +198,21 @@ def map_employee_code(conn, employee_code: str, worker_id: int | None, by: str =
         cur = conn.execute("UPDATE attendance_events SET worker_id = ? WHERE employee_code = ?",
                            (worker_id, code))
         return cur.rowcount
+
+
+def month_worker_stats(conn, ym: str) -> dict:
+    """Tổng CÔNG + TĂNG CA theo THỢ trong tháng (cho bảng lương thời gian):
+    {worker_id: {work_min, ot_min, days}} — dùng day_summary (đã gộp sửa tay)."""
+    from attendance_store.domain import work_stats
+    out: dict = {}
+    for r in day_summary(conn, ym):
+        wid = r.get("worker_id")
+        if wid is None or not r.get("times"):
+            continue
+        work, ot = work_stats(r["times"])
+        cur = out.setdefault(wid, {"work_min": 0, "ot_min": 0, "days": 0})
+        cur["work_min"] += work
+        cur["ot_min"] += ot
+        if work > 0:
+            cur["days"] += 1
+    return out

@@ -242,8 +242,10 @@ def void_allowance(conn, allowance_id: int, reason: str, by: str = "") -> bool:
 # ── Bảng lương tháng (tính live) ─────────────────────────────────────────────────
 
 def compute_month_payroll(conn, ym: str) -> dict:
-    """Bảng lương 1 tháng cho MỌI thợ: lương (SP tự tính / thời gian = 0) + phụ cấp +
-    thưởng − ứng = thực lãnh. Trả {ym, workers:[...], totals:{...}}."""
+    """Bảng lương 1 tháng cho MỌI thợ: lương SP tự tính từ sản xuất; lương THỜI GIAN
+    tính từ CHẤM CÔNG = mốc tháng (production_workers.monthly_salary) / 26 × ngày công
+    + tăng ca ×1,2 (công/TC quy từ máy chấm — attendance_store.month_worker_stats);
+    + phụ cấp + thưởng − ứng = thực lãnh. Trả {ym, workers:[...], totals:{...}}."""
     from worker_store import list_workers
     from production_store.report_slips import compute_range_report
 
@@ -256,6 +258,10 @@ def compute_month_payroll(conn, ym: str) -> dict:
         rep = compute_range_report(conn, mstart, mend, worker_ids=product_ids)
         for w in rep["workers"]:
             wage_by_name[(w.get("name") or "").strip().casefold()] = float(w.get("money") or 0)
+    # công + tăng ca theo thợ từ máy chấm công (đã gộp sửa tay)
+    import attendance_store
+    attendance_store.ensure_schema(conn)
+    att = attendance_store.month_worker_stats(conn, ym)
     adjust = get_month_adjust(conn, ym)
     adv = advance_totals(conn, ym)
     allow = allowance_totals(conn, ym)   # phụ cấp NHIỀU KHOẢN
@@ -264,7 +270,15 @@ def compute_month_payroll(conn, ym: str) -> dict:
     tot = {"luong": 0.0, "phu_cap": 0.0, "thuong": 0.0, "ung": 0.0, "thuc_lanh": 0.0}
     for w in workers:
         wid, wt = w["id"], (w.get("wage_type") or "product")
-        luong = wage_by_name.get(w["name"].strip().casefold(), 0.0) if wt == "product" else 0.0
+        base = float(w.get("monthly_salary") or 0)       # mốc tháng (lương TG mong muốn)
+        st = att.get(wid, {})
+        work_min, ot_min = int(st.get("work_min") or 0), int(st.get("ot_min") or 0)
+        cong = work_min / 480.0                          # ngày đủ 2 ca = 1 công
+        if wt == "product":
+            luong = wage_by_name.get(w["name"].strip().casefold(), 0.0)
+        else:
+            # lương TG = mốc/26 × công + tăng ca ×1,2 (quy TC ra công theo giờ)
+            luong = base / 26.0 * (work_min + 1.2 * ot_min) / 480.0
         a = adjust.get(wid, {})
         thuong, note = a.get("thuong", 0.0), a.get("note", "")
         phu_cap, pc_count = allow.get(wid, (0.0, 0))   # tổng + số khoản phụ cấp
@@ -279,6 +293,8 @@ def compute_month_payroll(conn, ym: str) -> dict:
             "luong": round(luong), "phu_cap": round(phu_cap), "pc_count": pc_count, "thuong": round(thuong),
             "ung": round(ung), "ung_manual": round(ung_manual), "ung_weekly": round(ung_weekly),
             "adv_count": adv_count, "note": note, "thuc_lanh": round(thuc_lanh),
+            "monthly_salary": round(base), "cong": round(cong, 2),
+            "ot_gio": round(ot_min / 60.0, 1),
         })
         tot["luong"] += luong
         tot["phu_cap"] += phu_cap

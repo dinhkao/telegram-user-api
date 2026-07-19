@@ -32,6 +32,9 @@ def ensure_table(conn) -> None:
         conn.execute("ALTER TABLE production_workers ADD COLUMN start_date TEXT DEFAULT ''")
     if "note" not in cols:          # ghi chú hồ sơ (văn phòng ghi tự do)
         conn.execute("ALTER TABLE production_workers ADD COLUMN note TEXT DEFAULT ''")
+    if "monthly_salary" not in cols:  # LƯƠNG THÁNG MONG MUỐN (thợ lương thời gian):
+        # lương thực = mốc/26 × ngày công chấm công, tăng ca ×1,2 (salary_store)
+        conn.execute("ALTER TABLE production_workers ADD COLUMN monthly_salary REAL DEFAULT 0")
     conn.commit()
 
 
@@ -44,13 +47,14 @@ def _row(r) -> dict:
         "wage_type": (r["wage_type"] if "wage_type" in keys else None) or "product",
         "start_date": (r["start_date"] if "start_date" in keys else None) or "",
         "note": (r["note"] if "note" in keys else None) or "",
+        "monthly_salary": float((r["monthly_salary"] if "monthly_salary" in keys else 0) or 0),
     }
 
 
 def list_workers(conn) -> list[dict]:
     rows = conn.execute(
         "SELECT id, name, is_default, sort_order, weekly_salary, hourly_rate, wage_type, "
-        "start_date, note FROM production_workers "
+        "start_date, note, monthly_salary FROM production_workers "
         "ORDER BY sort_order ASC, name COLLATE NOCASE ASC"
     ).fetchall()
     return [_row(r) for r in rows]
@@ -90,7 +94,8 @@ def add_worker(conn, name: str, is_default: bool = False) -> dict:
         except Exception:  # noqa: BLE001 — bảng chưa tạo (DB test)
             pass
     return {"id": wid, "name": nm, "is_default": bool(is_default), "sort_order": int(mx) + 1,
-            "weekly_salary": False, "hourly_rate": 0.0, "start_date": "", "note": ""}
+            "weekly_salary": False, "hourly_rate": 0.0, "start_date": "", "note": "",
+            "monthly_salary": 0.0}
 
 
 def update_worker(
@@ -98,6 +103,7 @@ def update_worker(
     name: str | None = None, is_default: bool | None = None, weekly_salary: bool | None = None,
     hourly_rate: float | None = None, wage_type: str | None = None,
     start_date: str | None = None, note: str | None = None,
+    monthly_salary: float | None = None,
 ) -> dict | None:
     """Sửa thợ. ĐỔI TÊN = cascade cùng transaction: production_report_rows (dòng
     đã gán worker_id đổi nhãn; dòng cổ trùng tên cũ được GÁN id + nhãn mới) + blob
@@ -107,7 +113,7 @@ def update_worker(
     with transaction(conn):
         cur = conn.execute(
             "SELECT id, name, is_default, sort_order, weekly_salary, hourly_rate, wage_type, "
-            "start_date, note FROM production_workers WHERE id = ?",
+            "start_date, note, monthly_salary FROM production_workers WHERE id = ?",
             (worker_id,),
         ).fetchone()
         if not cur:
@@ -139,17 +145,23 @@ def update_worker(
             if not re.match(r"^\d{4}-\d{2}-\d{2}$", new_sd):
                 raise ValueError("Ngày vào làm phải dạng YYYY-MM-DD")
         new_note = (cur["note"] or "") if note is None else note.strip()
+        if monthly_salary is None:
+            new_ms = float(cur["monthly_salary"] or 0)
+        else:
+            new_ms = float(monthly_salary)
+            if new_ms < 0:
+                raise ValueError("Lương tháng phải >= 0")
         conn.execute(
             "UPDATE production_workers SET name = ?, is_default = ?, weekly_salary = ?, hourly_rate = ?, "
-            "wage_type = ?, start_date = ?, note = ? WHERE id = ?",
-            (new_name, new_def, new_wk, new_hr, new_wt, new_sd, new_note, worker_id),
+            "wage_type = ?, start_date = ?, note = ?, monthly_salary = ? WHERE id = ?",
+            (new_name, new_def, new_wk, new_hr, new_wt, new_sd, new_note, new_ms, worker_id),
         )
         if renaming:
             _cascade_rename(conn, worker_id, cur["name"], new_name)
     return {
         "id": worker_id, "name": new_name, "is_default": bool(new_def),
         "sort_order": cur["sort_order"], "weekly_salary": bool(new_wk), "hourly_rate": new_hr,
-        "wage_type": new_wt, "start_date": new_sd, "note": new_note,
+        "wage_type": new_wt, "start_date": new_sd, "note": new_note, "monthly_salary": new_ms,
     }
 
 

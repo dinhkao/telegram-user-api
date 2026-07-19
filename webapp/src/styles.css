@@ -1411,17 +1411,18 @@ body.has-nop .pr-table th { top: 72px; }   /* banner .nop-banner (top:44, cao 28
   .pr-card-grid { grid-template-columns: 1fr; gap: 8px; }
   .pr-card-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }
   .pr-card-metric:nth-child(3) { padding-left: 0; border-left: none; }
-  /* bảng lương mobile: table-layout FIXED + %/cột → cả 7 cột VỪA khít màn hình (số rút gọn) */
+  /* bảng lương mobile: table-layout FIXED + %/cột → cả 8 cột VỪA khít màn hình (số rút gọn) */
   .pr-table { table-layout: fixed; font-size: .72rem; }
   .pr-table th, .pr-table td { padding: 5px 3px; }
   .pr-table th { font-size: .58rem; letter-spacing: 0; }
-  .pr-table th:nth-child(1) { width: 21%; }   /* Thợ */
-  .pr-table th:nth-child(2) { width: 9%; }    /* Loại */
-  .pr-table th:nth-child(3) { width: 13%; }   /* Tuần (công tắc) */
-  .pr-table th:nth-child(4) { width: 13%; }   /* Lương */
-  .pr-table th:nth-child(5) { width: 14%; }   /* P.cấp */
-  .pr-table th:nth-child(6) { width: 14%; }   /* Ứng */
-  .pr-table th:nth-child(7) { width: 16%; }   /* Lãnh */
+  .pr-table th:nth-child(1) { width: 18%; }   /* Thợ */
+  .pr-table th:nth-child(2) { width: 8%; }    /* Loại */
+  .pr-table th:nth-child(3) { width: 11%; }   /* Tuần (công tắc) */
+  .pr-table th:nth-child(4) { width: 12%; }   /* Mốc (lương TG mong muốn) */
+  .pr-table th:nth-child(5) { width: 13%; }   /* Lương */
+  .pr-table th:nth-child(6) { width: 12%; }   /* P.cấp */
+  .pr-table th:nth-child(7) { width: 12%; }   /* Ứng */
+  .pr-table th:nth-child(8) { width: 14%; }   /* Lãnh */
   .pr-td-name { overflow: hidden; text-overflow: ellipsis; }
   .pr-td-name .pr-avatar { display: none; }
   .pr-worker { gap: 0; max-width: 100%; }
@@ -3597,3 +3598,6 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .att-toolbar .seg-btn { white-space: nowrap; }
 .att-tube.ghost { opacity: .28; border-style: solid; }
 .att-g-day.today { box-shadow: inset 0 -2px 0 #2563eb; }
+
+/* bảng lương: dòng mốc lương thời gian (từ chấm công) trên thẻ */
+.pr-moc-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; font-size: .82rem; }

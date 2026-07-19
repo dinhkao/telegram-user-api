@@ -22,12 +22,13 @@ from attendance_store.store import (
     list_mappings,
     map_employee_code,
     last_sync,
+    month_worker_stats,
 )
 from attendance_store.domain import validate_batch, token_ok
 
 __all__ = [
     "ensure_schema", "insert_events", "list_events", "day_summary",
     "unmapped_codes", "list_mappings", "map_employee_code", "last_sync",
-    "add_manual", "delete_manual", "set_suppressed", "day_detail",
+    "add_manual", "delete_manual", "set_suppressed", "day_detail", "month_worker_stats",
     "validate_batch", "token_ok",
 ]

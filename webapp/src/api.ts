@@ -877,7 +877,7 @@ export async function deleteProduction(id: string | number): Promise<any> {
 }
 
 // ── Danh sách thợ (template báo cáo) ──
-export type Worker = { id: number; name: string; is_default: boolean; sort_order: number; weekly_salary?: boolean; hourly_rate?: number; wage_type?: "product" | "time"; start_date?: string; note?: string };
+export type Worker = { id: number; name: string; is_default: boolean; sort_order: number; weekly_salary?: boolean; hourly_rate?: number; wage_type?: "product" | "time"; start_date?: string; note?: string; monthly_salary?: number };
 export async function listWorkers(): Promise<{ workers: Worker[]; defaults: string[] }> {
   const d = await getJSON("/api/workers", { cache: false });
   return { workers: d.workers || [], defaults: d.defaults || [] };
@@ -886,7 +886,7 @@ export async function addWorker(name: string, isDefault: boolean): Promise<Worke
   const d = await postJSON("/api/workers", { name, is_default: isDefault });
   return d.worker;
 }
-export async function updateWorker(id: number, patch: { name?: string; is_default?: boolean; weekly_salary?: boolean; hourly_rate?: number; wage_type?: "product" | "time"; start_date?: string; note?: string }): Promise<Worker> {
+export async function updateWorker(id: number, patch: { name?: string; is_default?: boolean; weekly_salary?: boolean; hourly_rate?: number; wage_type?: "product" | "time"; start_date?: string; note?: string; monthly_salary?: number }): Promise<Worker> {
   const d = await postJSON(`/api/workers/${id}`, patch);
   return d.worker;
 }
@@ -948,6 +948,7 @@ export type PayrollRow = {
   luong: number; phu_cap: number; pc_count: number; thuong: number;
   ung: number; ung_manual: number; ung_weekly: number; adv_count: number;
   note: string; thuc_lanh: number;
+  monthly_salary: number; cong: number; ot_gio: number;   // lương thời gian: mốc + công + TC (giờ)
 };
 export type PayrollMonth = { ym: string; workers: PayrollRow[]; totals: { luong: number; phu_cap: number; thuong: number; ung: number; thuc_lanh: number } };
 export type SalaryAdvance = { id: number; worker_id: number; ym: string; amount: number; adv_date: string; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string };

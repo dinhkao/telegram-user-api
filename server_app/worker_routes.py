@@ -81,7 +81,8 @@ async def workers_update_handler(request: web.Request):
     wage_type = body.get("wage_type")
     start_date = body.get("start_date")   # 'YYYY-MM-DD' | '' (xoá) — hồ sơ
     note = body.get("note")               # ghi chú hồ sơ
-    if hourly_rate is not None or wage_type is not None:
+    monthly_salary = body.get("monthly_salary")   # mốc lương tháng (lương thời gian)
+    if hourly_rate is not None or wage_type is not None or monthly_salary is not None:
         # tiền lương / phân loại lương — CHỈ văn phòng
         from server_app.production_wages import office_user
         if not office_user(request):
@@ -93,6 +94,11 @@ async def workers_update_handler(request: web.Request):
             return web.json_response({"ok": False, "error": "tiền 1 giờ không hợp lệ"}, status=400)
     if wage_type is not None and str(wage_type) not in ("product", "time"):
         return web.json_response({"ok": False, "error": "wage_type phải là product/time"}, status=400)
+    if monthly_salary is not None:
+        try:
+            monthly_salary = float(monthly_salary)
+        except (ValueError, TypeError):
+            return web.json_response({"ok": False, "error": "lương tháng không hợp lệ"}, status=400)
 
     def _run():
         conn = _conn()
@@ -107,6 +113,7 @@ async def workers_update_handler(request: web.Request):
                 wage_type=None if wage_type is None else str(wage_type),
                 start_date=None if start_date is None else str(start_date),
                 note=None if note is None else str(note),
+                monthly_salary=monthly_salary,
             )
         finally:
             conn.close()

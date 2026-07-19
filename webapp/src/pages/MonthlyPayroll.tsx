@@ -78,6 +78,14 @@ export function MonthlyPayroll() {
     try { await updateWorker(r.worker_id, { wage_type: next }); toast(next === "time" ? "→ Lương thời gian" : "→ Lương sản phẩm", "ok"); load(); }
     catch (e: any) { toast(e?.message || "Lỗi đổi loại", "err"); }
   };
+  // Mốc lương tháng mong muốn (thợ lương THỜI GIAN) — lương thực = mốc/26 × công, TC ×1,2
+  const editMoc = async (r: PayrollRow) => {
+    const v = await promptDialog(`Mốc lương tháng của ${r.name}`, {
+      initial: r.monthly_salary ? String(r.monthly_salary) : "", placeholder: "vd 6500000", okLabel: "Lưu" });
+    if (v === null) return;
+    try { await updateWorker(r.worker_id, { monthly_salary: num(v) }); toast(`Đã lưu mốc ${money(num(v))}đ/tháng`, "ok"); load(); }
+    catch (e: any) { toast(e?.message || "Lỗi lưu mốc lương", "err"); }
+  };
   const toggleWeekly = async (r: PayrollRow) => {
     try { apply(await setPayrollAdjust(ym, r.worker_id, { weekly: !r.weekly }));
       toast(!r.weekly ? "BẬT nhận lương tuần (tháng này)" : "TẮT nhận lương tuần", "ok"); }
@@ -138,12 +146,12 @@ export function MonthlyPayroll() {
               </section>
             )}
             {view === "table" ? (
-              <PayrollTable data={data} toggleType={toggleType} toggleWeekly={toggleWeekly} />
+              <PayrollTable data={data} toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc} />
             ) : (
               <div class="pr-card-grid">
                 {data.workers.map((r) => (
                   <PayrollCard key={r.worker_id} r={r} ym={ym}
-                    toggleType={toggleType} toggleWeekly={toggleWeekly}
+                    toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc}
                     openUng={openUng === r.worker_id} onToggleUng={() => toggleUng(r.worker_id)} advances={advs[r.worker_id]}
                     openPc={openPc === r.worker_id} onTogglePc={() => togglePc(r.worker_id)} allowances={allows[r.worker_id]}
                     apply={apply} setAdvs={setAdvs} setAllows={setAllows} />
@@ -196,9 +204,10 @@ function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, extra }: 
   );
 }
 
-function PayrollTable({ data, toggleType, toggleWeekly }: {
+function PayrollTable({ data, toggleType, toggleWeekly, editMoc }: {
   data: PayrollMonth;
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
+  editMoc: (r: PayrollRow) => void;
 }) {
   const t = data.totals;
   return (
@@ -206,7 +215,7 @@ function PayrollTable({ data, toggleType, toggleWeekly }: {
       <table class="pr-table">
         <thead>
           <tr>
-            <th class="pr-sticky">Thợ</th><th>Loại</th><th>Tuần</th><th>Lương</th>
+            <th class="pr-sticky">Thợ</th><th>Loại</th><th>Tuần</th><th>Mốc</th><th>Lương</th>
             <th>P.cấp</th><th>Ứng</th><th>Lãnh</th>
           </tr>
         </thead>
@@ -229,7 +238,15 @@ function PayrollTable({ data, toggleType, toggleWeekly }: {
                   <span class={r.weekly ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly}
                     onClick={() => toggleWeekly(r)} style="cursor:pointer" title="Nhận lương tuần"><span class="tgl-knob" /></span>
                 </td>
-                <td class={isTime || !r.luong ? "pr-num is-zero" : "pr-num"}>{isTime ? "0" : moneyShort(r.luong)}</td>
+                <td class="pr-num">
+                  {isTime
+                    ? <button class="pr-ung-btn" onClick={() => editMoc(r)} title="Mốc lương tháng mong muốn — bấm để sửa">{r.monthly_salary ? moneyShort(r.monthly_salary) : "đặt…"}</button>
+                    : <span class="is-zero">—</span>}
+                </td>
+                <td class={!r.luong ? "pr-num is-zero" : "pr-num"}
+                  title={isTime ? `${r.cong} công · tăng ca ${r.ot_gio}g ×1,2` : undefined}>
+                  {moneyShort(r.luong)}{isTime && r.cong > 0 ? <sup> {r.cong}c</sup> : null}
+                </td>
                 <td class="pr-num">
                   <a class="pr-ung-btn" href={`#/nhap-phu-cap?ym=${encodeURIComponent(data.ym)}&worker_id=${r.worker_id}`} title="Mở phụ cấp của nhân viên">
                     {moneyShort(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}
@@ -247,7 +264,7 @@ function PayrollTable({ data, toggleType, toggleWeekly }: {
         </tbody>
         <tfoot>
           <tr>
-            <td class="pr-sticky pr-td-name">Tổng</td><td></td><td></td>
+            <td class="pr-sticky pr-td-name">Tổng</td><td></td><td></td><td></td>
             <td class="pr-num">{moneyShort(t.luong)}</td>
             <td class="pr-num">{moneyShort(t.phu_cap)}</td>
             <td class="pr-num">{moneyShort(t.ung)}</td>
@@ -259,10 +276,11 @@ function PayrollTable({ data, toggleType, toggleWeekly }: {
   );
 }
 
-function PayrollCard({ r, ym, toggleType, toggleWeekly,
+function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc,
   openUng, onToggleUng, advances, openPc, onTogglePc, allowances, apply, setAdvs, setAllows }: {
   r: PayrollRow; ym: string;
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
+  editMoc: (r: PayrollRow) => void;
   openUng: boolean; onToggleUng: () => void; advances?: SalaryAdvance[];
   openPc: boolean; onTogglePc: () => void; allowances?: SalaryAllowance[];
   apply: (d: PayrollMonth) => void;
@@ -309,11 +327,19 @@ function PayrollCard({ r, ym, toggleType, toggleWeekly,
       </div>
 
       <div class="pr-card-metrics">
-        <div class="pr-card-metric"><span>Lương</span><b>{isTime ? "0" : money(r.luong)}</b></div>
+        <div class="pr-card-metric"><span>Lương</span><b>{money(r.luong)}</b></div>
         <div class="pr-card-metric"><span>Phụ cấp</span><a href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>{money(r.phu_cap)}</a></div>
         <div class="pr-card-metric advance"><span>Đã ứng</span><a href={`#/nhap-ung?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>{money(r.ung)}</a></div>
       </div>
 
+      {isTime && (
+        <div class="pr-moc-row">
+          <button class="pr-ung-btn" onClick={() => editMoc(r)} title="Bấm để sửa mốc lương tháng">
+            Mốc {r.monthly_salary ? money(r.monthly_salary) : "chưa đặt — bấm sửa"}
+          </button>
+          <span class="muted small">{r.cong} công · TC {r.ot_gio}g ×1,2 <a href="#/cham-cong">→ chấm công</a></span>
+        </div>
+      )}
       <div class="pr-card-tools">
         <button class={isTime ? "chip pr-type time" : "chip pr-type"} onClick={() => toggleType(r)}
           title="Bấm để đổi loại lương">{isTime ? "Thời gian" : "Sản phẩm"}</button>

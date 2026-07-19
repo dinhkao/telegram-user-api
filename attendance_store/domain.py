@@ -91,3 +91,40 @@ def validate_batch(payload, allowed_machines: set[str], now: datetime | None = N
             return None, f"duplicate event_id inside batch {ev['event_id'][:8]}"
         seen.add(ev["event_id"])
     return events, None
+
+
+# ── Quy giờ chấm → CÔNG + TĂNG CA (thuần, cùng luật với lưới webapp) ─────────
+# 2 ca: sáng 7–11, chiều 13–17 (ngày đủ = 480ph = 1 công). Cặp chấm liên tiếp
+# (vào→ra) = khoảng có mặt; lần chấm LẺ cuối bỏ (thiếu vào/ra — không đoán).
+# Tăng ca = có mặt SAU giờ hết ca (11h/17h) khi chấm ra TRỄ HƠN 15ph (grace);
+# trước 7h KHÔNG tính (đến sớm không phải tăng ca); khoảng vào-ra xuyên TRỌN giờ
+# trưa (≤11h → ≥13h, không chấm giữa) coi là quên chấm trưa → 11–13h không tính TC.
+SHIFT_WINDOWS = ((7 * 60, 11 * 60), (13 * 60, 17 * 60))
+FULL_DAY_MIN = 480          # 2 ca × 4 giờ
+OT_GRACE_MIN = 15
+OT_END_OF_DAY = 24 * 60
+
+
+def _mins(t: str) -> int:
+    return int(t[:2]) * 60 + int(t[3:5])
+
+
+def work_stats(times: list[str]) -> tuple[int, int]:
+    """['HH:MM' tăng dần] 1 ngày → (phút CÔNG trong 2 ca, phút TĂNG CA)."""
+    ts = sorted(_mins(t) for t in times)
+    spans = [(ts[i], ts[i + 1]) for i in range(0, len(ts) - 1, 2) if ts[i + 1] > ts[i]]
+    work = ot = 0
+    for s, e in spans:
+        for a, b in SHIFT_WINDOWS:
+            work += max(0, min(e, b) - max(s, a))
+        morning_end, afternoon_start = SHIFT_WINDOWS[0][1], SHIFT_WINDOWS[1][0]
+        crosses_lunch = s <= morning_end and e >= afternoon_start
+        # tăng ca sau 11h (làm lấn giờ trưa) — trừ ca xuyên trưa (nghi quên chấm)
+        if not crosses_lunch and s <= morning_end < e:
+            seg = min(e, afternoon_start) - morning_end
+            if seg > OT_GRACE_MIN:
+                ot += seg
+        # tăng ca sau 17h
+        if e > SHIFT_WINDOWS[1][1] + OT_GRACE_MIN:
+            ot += min(e, OT_END_OF_DAY) - SHIFT_WINDOWS[1][1]
+    return work, ot
