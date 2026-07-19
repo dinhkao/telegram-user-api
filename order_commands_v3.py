@@ -241,16 +241,22 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     result["kv_id"] = kv_id
     result["kh_name"] = kh_name
 
-    # 2. Get old debt from KiotViet (best-effort)
+    # 2+3. Nợ TRƯỚC (best-effort) lấy SONG SONG với tạo thanh toán trên KiotViet —
+    # 2 round-trip tuần tự là phần chờ chính của "tạo thanh toán" (cùng mẫu
+    # _process_create_invoice_core_inner). KV cập nhật debt trễ nên GET chạy song
+    # song vẫn đọc nợ TRƯỚC thanh toán.
     old_debt = None
-    try:
-        det = await asyncio.to_thread(get_customer_debt_kv, kv_id)
-        old_debt = det.get("debt")
-        result["old_debt"] = old_debt
-    except Exception as e:
-        log.warning("Could not fetch old debt for customer %d: %s", kv_id, e)
+    old_debt_future = asyncio.get_running_loop().run_in_executor(None, get_customer_debt_kv, kv_id)
 
-    # 3. Create order + payment on KiotViet
+    async def _await_old_debt():
+        nonlocal old_debt
+        try:
+            det = await old_debt_future
+            old_debt = det.get("debt")
+            result["old_debt"] = old_debt
+        except Exception as e:
+            log.warning("Could not fetch old debt for customer %d: %s", kv_id, e)
+
     try:
         kv_res = await asyncio.to_thread(
             create_order_with_payment,
@@ -262,8 +268,10 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     except Exception as e:
         log.error("KiotViet create_order_with_payment failed: %s", e)
         result["error"] = f"Lỗi tạo thanh toán KiotViet: {e}"
+        await _await_old_debt()   # thu dọn future (khỏi 'exception never retrieved')
         return result
 
+    await _await_old_debt()
     if not kv_res:
         result["error"] = "Không thể tạo thanh toán trên KiotViet"
         return result

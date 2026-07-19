@@ -29,6 +29,13 @@ def set_task_status(conn, thread_id: int, task_type: str, user_id: int | None, *
         order = mark_task(Order.from_dict(data), task_type, user_id, done=done, skip=skip, note=note, now_iso=now_iso)
         d = order.to_dict()
         ok = _save_order(conn, thread_id, d)
+    if conn.in_transaction:
+        # Đang trong transaction NGOÀI (transaction() passthrough — vd thu gộp giữ
+        # BEGIN IMMEDIATE quanh nhiều đơn): mirror/auto-assign mở connection THỨ HAI
+        # ghi cùng app.db → busy-wait đủ busy_timeout (5s) NGAY TRÊN event loop rồi
+        # "database is locked" (lock do chính thread này giữ, không bao giờ nhả kịp).
+        # Caller ngoài PHẢI tự mirror sau COMMIT (xem order_api_bulk_payment bước 6b).
+        return ok
     # MIRROR sang bảng tasks (task list) — best-effort, NGOÀI transaction
     from task_store import mirror_order_tasks_safe
     mirror_order_tasks_safe(thread_id, d)
@@ -69,6 +76,8 @@ def clear_task_status(conn, thread_id: int, task_type: str, user_id: int | None)
         order = clear_task(Order.from_dict(data), task_type)
         d = order.to_dict()
         ok = _save_order(conn, thread_id, d)
+    if conn.in_transaction:
+        return ok   # transaction ngoài đang giữ lock — caller mirror sau COMMIT
     from task_store import mirror_order_tasks_safe
     mirror_order_tasks_safe(thread_id, d)
     _emit_tasks_changed_safe()

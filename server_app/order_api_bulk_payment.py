@@ -304,15 +304,26 @@ async def _process_bulk_payment(source_thread_id: int, method: str, amount: int,
             _auto_complete_tasks_core(conn, tid, user_id)
             result["allocations"].append({"thread_id": tid, "amount": amt})
             cum += amt
-    # 6b. Firebase sync + realtime NGOÀI transaction (không giữ write-lock khi gọi mạng)
+    # 6b. Mirror task + Firebase sync + realtime NGOÀI transaction. set_task_status
+    # gọi TRONG transaction ngoài tự BỎ QUA mirror/auto-assign (connection thứ 2 ghi
+    # cùng app.db khi thread này đang giữ write-lock → busy-wait 5s/đơn CHẶN event
+    # loop rồi "database is locked") — nên mirror lại ở đây, SAU COMMIT. Auto-assign
+    # khỏi gọi lại: sau thanh toán nhan_tien đã done → UPDATE không khớp dòng nào.
+    from task_store import mirror_order_tasks_safe
     for tid, amt in validated:
         try:
             o2 = get_order_by_thread_id(conn, tid)
             if o2:
+                mirror_order_tasks_safe(tid, o2)
                 fb_set_order(tid, o2)
         except Exception as e:
             log.warning("bulk pay: firebase sync đơn #%s lỗi: %s", tid, e)
         emit_order_changed(tid)
+    try:
+        from server_app.realtime import emit_tasks_changed
+        emit_tasks_changed()
+    except Exception:  # noqa: BLE001 — best-effort (script/test không có loop)
+        pass
 
     # 7. Tiền mặt → 1 phiếu sổ quỹ cho cả giao dịch
     if method == "Cash":
