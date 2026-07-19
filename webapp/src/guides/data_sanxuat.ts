@@ -160,11 +160,13 @@ export const GUIDES_SANXUAT: Guide[] = [
         <p>Máy chấm công vân tay <b>Ronald Jack</b> ở văn phòng tự đẩy dữ liệu lên hệ thống
         <b>30 phút một lần</b>. Không cần thao tác gì — nhân viên chấm trên máy, dữ liệu tự về.</p>
         <p>Trang <a href="#/cham-cong">Chấm công</a> (☰ Thêm → Lương) là <b>lưới cả tháng</b>:
-        cột đầu là tên nhân viên (đứng yên), mỗi ngày 1 cột gồm <b>2 ống</b> = ca sáng 7–11 và
-        ca chiều 13–17. Ống <b>xanh đầy</b> = chấm đủ ca; xanh một phần = có mặt một đoạn;
-        <b>vạch cam</b> = chỉ chấm 1 lần (thiếu vào/ra); trống = không chấm. <b>Kéo ngang</b> để xem
-        hết tháng, bấm vào 1 ống để xem giờ chấm chi tiết. Đầu trang có dòng <i>cập nhật gần
-        nhất</i> và giờ máy gửi lần kế.</p>` },
+        cột đầu là tên nhân viên (đứng yên), mỗi ngày 1 cột gồm <b>3 ống</b> = ca sáng 7–11,
+        ca chiều 13–17 và ống <b>tăng ca</b> 17–21 (tím, mảnh, viền đứt). Ống <b>xanh đầy</b> =
+        chấm đủ ca; xanh một phần = có mặt một đoạn; <b>tím</b> = giờ tăng ca chiều tối;
+        <b>vạch cam</b> = chỉ chấm 1 lần (thiếu vào/ra); trống = không chấm. Tổng giờ tăng ca
+        cả tháng (có mặt ngoài 2 khung ca — kể cả xuyên trưa/trước 7h) hiện <b>tím cạnh tên</b>,
+        vd "TC 12g30". <b>Kéo ngang</b> để xem hết tháng, bấm vào 1 ống để xem giờ chấm chi
+        tiết. Đầu trang có dòng <i>cập nhật gần nhất</i> và giờ máy gửi lần kế.</p>` },
       { title: "Gán mã NV trên máy cho thợ", html: `
         <p>Máy chỉ biết <b>mã số</b> (11, 95…), hệ thống cần biết mã đó là <b>ai</b>. Có 2 chỗ gán:</p>
         <ul>

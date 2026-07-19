@@ -3537,3 +3537,10 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 .att-tube.one { border-color: var(--warn); }
 .att-fill { position: absolute; left: 0; right: 0; background: var(--ok, #16a34a); border-radius: 2px; }
 .att-mark { position: absolute; left: 0; right: 0; height: 3px; background: var(--warn); }
+
+/* chấm công: ống TĂNG CA (tím, mảnh) + tổng TC tháng cạnh tên */
+.att-tube.ot { width: 6px; border-style: dashed; opacity: .9; }
+.att-fill.ot { background: #7c3aed; }
+.att-g-name { gap: 5px; }
+.att-g-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-ot-total { font-size: .62rem; font-weight: 800; color: #7c3aed; white-space: nowrap; flex: none; }
