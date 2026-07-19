@@ -17,6 +17,8 @@ const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
 const curYM = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
 const shiftYM = (ym: string, d: number) => { const [y, m] = ym.split("-").map(Number); const dt = new Date(y, m - 1 + d, 1); return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`; };
 const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
+// created_at DB = "YYYY-MM-DD HH:MM:SS" giờ VN (salary_store: datetime('now','+7 hours')) → "18/7 19:25"
+const tsLabel = (s?: string) => (s && s.length >= 16 ? `${Number(s.slice(8, 10))}/${Number(s.slice(5, 7))} ${s.slice(11, 16)}` : "");
 const initialFilter = () => {
   const query = new URLSearchParams((window.location.hash.split("?")[1] || ""));
   const queryYM = query.get("ym") || "";
@@ -110,6 +112,7 @@ export function AllowanceEntry() {
                 <div class="ua-row-main">
                   <b>{nameOf(item.worker_id)}</b>
                   {item.note ? <div class="muted small">{item.note}</div> : null}
+                  {tsLabel(item.created_at) ? <div class="muted small ua-ts">tạo {tsLabel(item.created_at)}{item.created_by ? ` · ${item.created_by}` : ""}</div> : null}
                 </div>
                 <b class="ua-amt">{money(item.amount)}</b>
                 <button class="pr-adv-del" onClick={() => del(item.id)} aria-label="Xoá">✕</button>

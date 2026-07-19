@@ -1357,6 +1357,7 @@ a.pr-stat:active { background: var(--accent-wash); }
 .ua-note-in { flex: 1; min-width: 140px; }
 .ua-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; }
 .ua-row-main { flex: 1; min-width: 0; }
+.ua-ts { font-size: .64rem; color: var(--muted-2); }
 .ua-amt { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ua-filter { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 2px 0; font-size: .88rem; }
 .pr-totals { padding: 9px 12px; font-size: .9rem; }

@@ -20,6 +20,8 @@ const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(
 const shiftYM = (ym: string, d: number) => { const [y, m] = ym.split("-").map(Number); const dt = new Date(y, m - 1 + d, 1); return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`; };
 const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
 const dmy = (s: string) => (s && s.length >= 10 ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : s || "—");
+// created_at DB = "YYYY-MM-DD HH:MM:SS" giờ VN (salary_store: datetime('now','+7 hours')) → "18/7 19:25"
+const tsLabel = (s?: string) => (s && s.length >= 16 ? `${Number(s.slice(8, 10))}/${Number(s.slice(5, 7))} ${s.slice(11, 16)}` : "");
 const initialFilter = () => {
   const query = new URLSearchParams((window.location.hash.split("?")[1] || ""));
   const queryYM = query.get("ym") || "";
@@ -131,6 +133,7 @@ export function AdvanceEntry() {
                   <b>{nameOf(a.worker_id)}</b>
                   <span class="muted small"> · {dmy(a.adv_date)}</span>
                   {a.note ? <div class="muted small">{a.note}</div> : null}
+                  {tsLabel(a.created_at) ? <div class="muted small ua-ts">tạo {tsLabel(a.created_at)}{a.created_by ? ` · ${a.created_by}` : ""}</div> : null}
                 </div>
                 <b class="ua-amt t-danger">{money(a.amount)}</b>
                 <button class="pr-adv-del" onClick={() => del(a.id)} aria-label="Xoá">✕</button>
