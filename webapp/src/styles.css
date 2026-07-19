@@ -3520,3 +3520,20 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 .wd-note-card { padding: 12px 14px; }
 .wd-note-card .wd-weekly-label { display: block; margin-bottom: 6px; }
 .wd-note { width: 100%; resize: vertical; min-height: 44px; }
+
+/* chấm công: banner cập nhật + LƯỚI tháng (cột tên sticky, mỗi ngày 2 ống ca) */
+.att-sync { display: flex; align-items: center; gap: 5px; margin: -4px 0 8px; }
+.att-grid-card { padding: 8px 0 8px 8px; }
+.att-grid { display: grid; overflow-x: auto; align-items: stretch; -webkit-overflow-scrolling: touch; }
+.att-g-corner, .att-g-name { position: sticky; left: 0; z-index: 2; background: var(--card); }
+.att-g-day { font-size: .68rem; font-weight: 700; text-align: center; color: var(--muted); padding: 2px 0 4px; }
+.att-g-day.sun { color: var(--danger); }
+.att-g-day.today { color: var(--acc, #2563eb); }
+.att-g-name { font-size: .78rem; font-weight: 600; padding: 3px 8px 3px 0; display: flex; align-items: center; max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-top: 1px solid var(--border); }
+.att-g-cell { display: flex; align-items: center; justify-content: center; gap: 2px; padding: 3px 0; border-top: 1px solid var(--border); }
+.att-g-cell.sun { background: rgba(220, 38, 38, .055); }
+.att-g-cell.today { box-shadow: inset 2px 0 0 var(--acc, #2563eb), inset -2px 0 0 var(--acc, #2563eb); }
+.att-tube { position: relative; width: 9px; height: 30px; border: 1px solid var(--border); border-radius: 4px; background: #fff; overflow: hidden; cursor: pointer; }
+.att-tube.one { border-color: var(--warn); }
+.att-fill { position: absolute; left: 0; right: 0; background: var(--ok, #16a34a); border-radius: 2px; }
+.att-mark { position: absolute; left: 0; right: 0; height: 3px; background: var(--warn); }

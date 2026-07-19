@@ -898,6 +898,7 @@ export async function deleteWorker(id: number): Promise<any> {
 export type AttendanceDay = {
   day: string; employee_code: string; worker_id: number | null;
   worker_name: string | null; punches: number; first: string; last: string;
+  times: string[];   // MỌI giờ chấm trong ngày 'HH:MM' tăng dần (client chia ca)
 };
 export type AttendanceUnmapped = { employee_code: string; punches: number; last: string };
 export type AttendanceEvent = {
@@ -905,9 +906,9 @@ export type AttendanceEvent = {
   worker_name: string | null; occurred_at: string; occurred_ymd: string;
 };
 export type AttendanceMapping = { employee_code: string; worker_id: number; worker_name: string | null };
-export async function getAttendanceSummary(ym: string): Promise<{ days: AttendanceDay[]; unmapped: AttendanceUnmapped[] }> {
+export async function getAttendanceSummary(ym: string): Promise<{ days: AttendanceDay[]; unmapped: AttendanceUnmapped[]; last_sync: string | null; sync_interval_min: number }> {
   const d = await getJSON(`/api/attendance/summary?ym=${encodeURIComponent(ym)}`, { cache: false });
-  return { days: d.days || [], unmapped: d.unmapped || [] };
+  return { days: d.days || [], unmapped: d.unmapped || [], last_sync: d.last_sync || null, sync_interval_min: d.sync_interval_min || 30 };
 }
 export async function listAttendance(day: string, employeeCode?: string): Promise<AttendanceEvent[]> {
   const q = employeeCode ? `&employee_code=${encodeURIComponent(employeeCode)}` : "";

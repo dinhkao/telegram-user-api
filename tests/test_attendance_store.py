@@ -125,6 +125,8 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(d19["punches"], 2)
         self.assertIn("06:56:08", d19["first"])
         self.assertIn("17:02:00", d19["last"])
+        # MỌI giờ chấm trong ngày, HH:MM tăng dần (client vẽ ống ca sáng/chiều)
+        self.assertEqual(d19["times"], ["06:56", "17:02"])
 
 
 if __name__ == "__main__":

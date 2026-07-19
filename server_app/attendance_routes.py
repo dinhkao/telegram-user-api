@@ -93,8 +93,9 @@ async def attendance_list_handler(request: web.Request):
 
 
 async def attendance_summary_handler(request: web.Request):
-    """GET /api/attendance/summary?ym=YYYY-MM — mỗi (ngày, NV): số chấm + đầu/cuối
-    + hàng chờ mã chưa map. Office."""
+    """GET /api/attendance/summary?ym=YYYY-MM — mỗi (ngày, NV): MỌI giờ chấm (times)
+    + hàng chờ mã chưa map + last_sync (lúc nhận batch gần nhất — collector 30ph/lần).
+    Office."""
     d = _deny(request)
     if d:
         return d
@@ -107,12 +108,14 @@ async def attendance_summary_handler(request: web.Request):
         try:
             attendance_store.ensure_schema(conn)
             return (attendance_store.day_summary(conn, ym),
-                    attendance_store.unmapped_codes(conn))
+                    attendance_store.unmapped_codes(conn),
+                    attendance_store.last_sync(conn))
         finally:
             conn.close()
 
-    days, unmapped = await asyncio.to_thread(_run)
-    return web.json_response({"ok": True, "days": days, "unmapped": unmapped})
+    days, unmapped, sync = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, "days": days, "unmapped": unmapped,
+                              "last_sync": sync, "sync_interval_min": 30})
 
 
 async def attendance_map_handler(request: web.Request):

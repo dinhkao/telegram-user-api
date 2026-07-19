@@ -101,16 +101,33 @@ def list_events(conn, *, day: str | None = None, employee_code: str | None = Non
 
 
 def day_summary(conn, ym: str) -> list[dict]:
-    """Mỗi (ngày, NV) trong tháng 'YYYY-MM': số lần chấm + giờ đầu/cuối."""
+    """Mỗi (ngày, NV) trong tháng 'YYYY-MM': MỌI giờ chấm trong ngày (times 'HH:MM',
+    tăng dần — client chia ca sáng/chiều) + đầu/cuối + số lần. Gộp bằng Python (punch
+    1 tháng chỉ vài nghìn dòng) thay vì GROUP_CONCAT để giữ thứ tự chắc chắn."""
     rows = conn.execute(
-        "SELECT e.occurred_ymd, e.employee_code, e.worker_id, w.name, COUNT(*),"
-        " MIN(e.occurred_at), MAX(e.occurred_at)"
+        "SELECT e.occurred_ymd, e.employee_code, e.worker_id, w.name, e.occurred_at"
         " FROM attendance_events e LEFT JOIN production_workers w ON w.id = e.worker_id"
         " WHERE e.occurred_ymd LIKE ? || '-%'"
-        " GROUP BY e.occurred_ymd, e.employee_code ORDER BY e.occurred_ymd DESC, e.employee_code",
+        " ORDER BY e.occurred_ymd DESC, e.employee_code, e.occurred_at",
         (ym,)).fetchall()
-    return [{"day": r[0], "employee_code": r[1], "worker_id": r[2], "worker_name": r[3],
-             "punches": r[4], "first": r[5], "last": r[6]} for r in rows]
+    out: list[dict] = []
+    for r in rows:
+        cur = out[-1] if out else None
+        if not cur or cur["day"] != r[0] or cur["employee_code"] != r[1]:
+            cur = {"day": r[0], "employee_code": r[1], "worker_id": r[2], "worker_name": r[3],
+                   "punches": 0, "first": r[4], "last": r[4], "times": []}
+            out.append(cur)
+        cur["punches"] += 1
+        cur["last"] = r[4]
+        cur["times"].append(r[4][11:16] if len(r[4]) >= 16 else r[4])
+    return out
+
+
+def last_sync(conn) -> str | None:
+    """Lúc server NHẬN batch gần nhất ('YYYY-MM-DD HH:MM:SS' giờ VN) — collector gửi
+    30ph/lần nên lần kế ≈ +30ph (client tự cộng)."""
+    r = conn.execute("SELECT MAX(received_at) FROM attendance_events").fetchone()
+    return r[0] if r and r[0] else None
 
 
 def list_mappings(conn) -> list[dict]:
