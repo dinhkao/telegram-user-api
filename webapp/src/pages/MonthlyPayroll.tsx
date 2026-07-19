@@ -20,6 +20,7 @@ import { toast, promptDialog } from "../ui/feedback";
 const pad = (n: number) => String(n).padStart(2, "0");
 const money = (n: number) => soVN(Math.round(n || 0));
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
+const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 const curYM = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
 const shiftYM = (ym: string, d: number) => {
   const [y, m] = ym.split("-").map(Number);
@@ -207,8 +208,8 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc }: {
   const cols = (
     <colgroup>
       <col style="width:96px" /><col style="width:40px" /><col style="width:52px" />
-      <col style="width:84px" /><col style="width:92px" /><col style="width:84px" />
-      <col style="width:84px" /><col style="width:96px" />
+      <col style="width:84px" /><col style="width:56px" /><col style="width:92px" />
+      <col style="width:84px" /><col style="width:84px" /><col style="width:96px" />
     </colgroup>
   );
   return (
@@ -218,8 +219,8 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc }: {
           {cols}
           <thead>
             <tr>
-              <th class="pr-sticky">Thợ</th><th>Loại</th><th>Tuần</th><th>Mốc</th><th>Lương</th>
-              <th>P.cấp</th><th>Ứng</th><th>Lãnh</th>
+              <th class="pr-sticky">Thợ</th><th>Loại</th><th>Tuần</th><th>Mốc</th><th>Công</th>
+              <th>Lương</th><th>P.cấp</th><th>Ứng</th><th>Lãnh</th>
             </tr>
           </thead>
         </table>
@@ -252,10 +253,11 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc }: {
                     ? <button class="pr-ung-btn" onClick={() => editMoc(r)} title="Mốc lương tháng mong muốn — bấm để sửa">{r.monthly_salary ? money(r.monthly_salary) : "đặt…"}</button>
                     : <span class="is-zero">—</span>}
                 </td>
-                <td class={!r.luong ? "pr-num is-zero" : "pr-num"}
-                  title={isTime ? `${r.cong} công · tăng ca ${r.ot_gio}g ×1,2` : undefined}>
-                  {money(r.luong)}{isTime && r.cong > 0 ? <sup> {r.cong}c</sup> : null}
+                <td class={r.cong > 0 ? "pr-num" : "pr-num is-zero"}
+                  title={r.ot_gio > 0 ? `tăng ca ${congVN(r.ot_gio)}g ×1,2` : "ngày công từ máy chấm"}>
+                  {r.cong > 0 ? <>{congVN(r.cong)}{r.ot_gio > 0 ? <sup> +{congVN(r.ot_gio)}g</sup> : null}</> : "—"}
                 </td>
+                <td class={!r.luong ? "pr-num is-zero" : "pr-num"}>{money(r.luong)}</td>
                 <td class="pr-num">
                   <a class="pr-ung-btn" href={`#/nhap-phu-cap?ym=${encodeURIComponent(data.ym)}&worker_id=${r.worker_id}`} title="Mở phụ cấp của nhân viên">
                     {money(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}
@@ -274,6 +276,7 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc }: {
           <tfoot>
             <tr>
               <td class="pr-sticky pr-td-name">Tổng</td><td></td><td></td><td></td>
+              <td class="pr-num">{congVN(data.workers.reduce((a, r) => a + (r.cong || 0), 0))}</td>
               <td class="pr-num">{money(t.luong)}</td>
               <td class="pr-num">{money(t.phu_cap)}</td>
               <td class="pr-num">{money(t.ung)}</td>
