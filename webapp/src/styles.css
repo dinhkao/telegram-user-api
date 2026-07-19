@@ -1405,6 +1405,7 @@ body.has-nop .pr-thead-bar { top: 72px; }
 .pr-td-tap { cursor: pointer; -webkit-tap-highlight-color: rgba(0,0,0,.06); }
 .pr-td-tap:active { background: var(--bg-2); }
 .pr-pop-sheet { display: flex; flex-direction: column; gap: 8px; max-height: 82vh; overflow-y: auto; }
+.pr-pop-sheet .modal-head { justify-content: flex-start; gap: 7px; font-weight: 800; }
 .pr-pop-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
   width: 100%; text-align: left; font: inherit; background: var(--bg-2); border: none;
   border-radius: 10px; padding: 10px 12px; color: inherit; }
