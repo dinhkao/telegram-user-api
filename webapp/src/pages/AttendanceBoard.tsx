@@ -9,7 +9,7 @@
 // hôm nay viền; bấm 1 ống → toast giờ chấm chi tiết. Banner: cập nhật gần nhất
 // (last_sync) + lần kế ≈ +30ph. Khu "Mã chưa gán": chọn thợ ngay tại chỗ.
 // API: getAttendanceSummary/mapAttendanceCode. Gán ID cũng ở chi tiết thợ (#/sx-tho).
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
   getAttendanceSummary, isOffice, listWorkers, mapAttendanceCode,
   type AttendanceDay, type AttendanceUnmapped, type Worker,
@@ -176,6 +176,8 @@ export function AttendanceBoard() {
   const [sync, setSync] = useState<{ last: string | null; interval: number }>({ last: null, interval: 30 });
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [err, setErr] = useState("");
+  const headRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   const load = () => {
     setErr("");
@@ -305,12 +307,20 @@ export function AttendanceBoard() {
           ));
         })()
       ) : (
+        // Cuộn DỌC theo TRANG như bảng lương tháng: header ngày là thanh sticky
+        // top:44 (dưới app-bar); thân lưới cuộn NGANG riêng, scrollLeft đồng bộ
+        // sang header (header overflow:hidden — không tự cuộn được).
         <div class="card att-grid-card">
-          <div class="att-grid" style={{ gridTemplateColumns: `minmax(76px, auto) repeat(${nDays}, 33px)` }}>
+          <div class="att-ghead" ref={headRef}
+            style={{ gridTemplateColumns: `minmax(76px, auto) repeat(${nDays}, 33px)` }}>
             <div class="att-g-corner" />
             {dayNums.map((d) => (
               <div class={"att-g-day" + (isSun(d) ? " sun" : "") + (d === todayD ? " today" : "")} key={`h${d}`}>{d}</div>
             ))}
+          </div>
+          <div class="att-grid" ref={bodyRef}
+            onScroll={() => { if (headRef.current && bodyRef.current) headRef.current.scrollLeft = bodyRef.current.scrollLeft; }}
+            style={{ gridTemplateColumns: `minmax(76px, auto) repeat(${nDays}, 33px)` }}>
             {rows.map((p, ri) => (
               <>
                 <div class={"att-g-name" + (p.mapped ? "" : " att-code") + (ri % 2 ? " alt" : "")} key={`n${ri}`}>

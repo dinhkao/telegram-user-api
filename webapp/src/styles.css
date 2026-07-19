@@ -3524,12 +3524,15 @@ body.modal-open .help-fab { opacity: 0; pointer-events: none; }
 /* chấm công: banner cập nhật + LƯỚI tháng (cột tên sticky, mỗi ngày 2 ống ca) */
 .att-sync { display: flex; align-items: center; gap: 5px; margin: -4px 0 8px; }
 .att-grid-card { padding: 8px 0 8px 8px; }
-/* Lưới cuộn 2 CHIỀU trong khung riêng (max-height) → header ngày sticky TOP + cột
-   tên sticky LEFT đều hoạt động (giống bảng lương ghim header khi cuộn). */
-.att-grid { display: grid; overflow: auto; max-height: calc(100dvh - 215px); align-items: stretch; -webkit-overflow-scrolling: touch; }
+/* Cuộn dọc theo TRANG (như .pr-table): .att-ghead = thanh header sticky top:44 dưới
+   app-bar, overflow hidden, scrollLeft được JS đồng bộ từ thân; .att-grid = thân,
+   chỉ cuộn NGANG. Cột tên sticky left ở cả hai. */
+.att-ghead { display: grid; position: sticky; top: 44px; z-index: 6; overflow-x: hidden; background: var(--card); box-shadow: 0 1px 0 var(--border); }
+body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt xuống dưới nó */
+.att-grid { display: grid; overflow-x: auto; align-items: stretch; -webkit-overflow-scrolling: touch; }
 .att-g-corner, .att-g-name { position: sticky; left: 0; z-index: 2; background: var(--card); }
-.att-g-corner { top: 0; z-index: 4; box-shadow: 0 1px 0 var(--border); }
-.att-g-day { position: sticky; top: 0; z-index: 3; background: var(--card); font-size: .68rem; font-weight: 700; text-align: center; color: var(--muted); padding: 2px 0 4px; box-shadow: 0 1px 0 var(--border); }
+.att-ghead .att-g-corner { z-index: 4; }
+.att-g-day { font-size: .68rem; font-weight: 700; text-align: center; color: var(--muted); padding: 4px 0; background: var(--card); }
 .att-g-day.sun { color: var(--danger); }
 .att-g-day.today { color: var(--acc, #2563eb); }
 .att-g-name { font-size: .78rem; font-weight: 600; padding: 3px 8px 3px 0; display: flex; align-items: center; max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-top: 1px solid var(--border); }
