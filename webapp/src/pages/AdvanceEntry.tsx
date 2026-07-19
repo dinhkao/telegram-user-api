@@ -1,16 +1,17 @@
 // NHẬP ỨNG LƯƠNG (#/nhap-ung) — CHỈ văn phòng. Ghi nhanh tạm ứng cho thợ theo tháng:
 // chọn thợ + số tiền + ngày + ghi chú → Ghi ứng. Danh sách các lần ứng trong tháng
-// (mọi thợ) + tổng, xoá được. API: addPayrollAdvance/listAllAdvances/deletePayrollAdvance.
+// (mọi thợ) + tổng. Không xoá — VÔ HIỆU kèm lý do, dòng vẫn hiện (gạch ngang, ai/lúc
+// nào/lý do). API: addPayrollAdvance/listAllAdvances/voidPayrollAdvance.
 import { useEffect, useState } from "preact/hooks";
 import {
-  addPayrollAdvance, deletePayrollAdvance, getMonthlyPayroll, isOffice, listAllAdvances, listPayrollAdvances, listWorkers, soVN,
+  addPayrollAdvance, getMonthlyPayroll, isOffice, listAllAdvances, listPayrollAdvances, listWorkers, soVN, voidPayrollAdvance,
   type PayrollRow, type SalaryAdvance, type Worker,
 } from "../api";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
 import { Loading, EmptyState } from "../ui/states";
-import { toast, confirmDialog } from "../ui/feedback";
+import { toast, promptDialog } from "../ui/feedback";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const money = (n: number) => soVN(Math.round(n || 0));
@@ -70,15 +71,19 @@ export function AdvanceEntry() {
     } catch (e: any) { toast(e?.message || "Lỗi ghi ứng", "err"); }
     finally { setBusy(false); }
   };
-  const del = async (id: number) => {
-    if (!(await confirmDialog("Xoá lần ứng này?"))) return;
-    try { await deletePayrollAdvance(ym, id); load(); }
-    catch (e: any) { toast(e?.message || "Lỗi xoá", "err"); }
+  const voidIt = async (id: number) => {
+    const reason = await promptDialog("Lý do vô hiệu lần ứng này?", { placeholder: "VD: ghi nhầm số tiền…", okLabel: "Vô hiệu" });
+    if (reason === null) return;
+    if (!reason.trim()) { toast("Phải nhập lý do vô hiệu", "err"); return; }
+    try { await voidPayrollAdvance(ym, id, reason.trim()); toast("Đã vô hiệu khoản ứng", "ok"); load(); }
+    catch (e: any) { toast(e?.message || "Lỗi vô hiệu", "err"); }
   };
 
   const list = (advs || []).slice().sort((a, b) => (b.adv_date || "").localeCompare(a.adv_date || "") || b.id - a.id);
-  const total = list.reduce((s, a) => s + a.amount, 0) + weeklyRows.reduce((s, row) => s + row.ung_weekly, 0);
-  const entryCount = list.length + weeklyRows.length;
+  const active = list.filter((a) => !a.voided_at);
+  const voidedCount = list.length - active.length;
+  const total = active.reduce((s, a) => s + a.amount, 0) + weeklyRows.reduce((s, row) => s + row.ung_weekly, 0);
+  const entryCount = active.length + weeklyRows.length;
   const wopts = workers.map((w) => ({ value: w.id, label: w.name }));
 
   const head = <PageHead fallback="#/home" title={<><Icon name="wallet" size={18} /> Nhập ứng lương</>} sub="ghi tạm ứng cho thợ theo tháng" />;
@@ -114,9 +119,9 @@ export function AdvanceEntry() {
             </div>
           ) : null}
           <div class="card pr-totals">
-            <span>Tổng ứng {ymLabel(ym).toLowerCase()} <b class="t-danger">{money(total)}</b> · {entryCount} khoản</span>
+            <span>Tổng ứng {ymLabel(ym).toLowerCase()} <b class="t-danger">{money(total)}</b> · {entryCount} khoản{voidedCount ? ` · ${voidedCount} vô hiệu` : ""}</span>
           </div>
-          {entryCount === 0 ? <EmptyState icon="💰">Chưa có khoản ứng nào trong tháng.</EmptyState> : (
+          {entryCount === 0 && voidedCount === 0 ? <EmptyState icon="💰">Chưa có khoản ứng nào trong tháng.</EmptyState> : (
             <>
               {weeklyRows.map((row) => (
                 <div class="card ua-row" key={`weekly-${row.worker_id}`}>
@@ -128,15 +133,19 @@ export function AdvanceEntry() {
                 </div>
               ))}
               {list.map((a) => (
-              <div class="card ua-row" key={a.id}>
+              <div class={`card ua-row${a.voided_at ? " ua-voided" : ""}`} key={a.id}>
                 <div class="ua-row-main">
                   <b>{nameOf(a.worker_id)}</b>
                   <span class="muted small"> · {dmy(a.adv_date)}</span>
+                  {a.voided_at ? <span class="ua-void-badge">VÔ HIỆU</span> : null}
                   {a.note ? <div class="muted small">{a.note}</div> : null}
                   {tsLabel(a.created_at) ? <div class="muted small ua-ts">tạo {tsLabel(a.created_at)}{a.created_by ? ` · ${a.created_by}` : ""}</div> : null}
+                  {a.voided_at ? (
+                    <div class="small ua-void-info">vô hiệu {tsLabel(a.voided_at)}{a.voided_by ? ` · ${a.voided_by}` : ""}{a.void_reason ? ` — ${a.void_reason}` : ""}</div>
+                  ) : null}
                 </div>
-                <b class="ua-amt t-danger">{money(a.amount)}</b>
-                <button class="pr-adv-del" onClick={() => del(a.id)} aria-label="Xoá">✕</button>
+                <b class={`ua-amt ${a.voided_at ? "ua-amt-voided" : "t-danger"}`}>{money(a.amount)}</b>
+                {!a.voided_at ? <button class="pr-adv-del" onClick={() => voidIt(a.id)} aria-label="Vô hiệu">✕</button> : null}
               </div>
               ))}
             </>

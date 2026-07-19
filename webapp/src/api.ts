@@ -902,8 +902,8 @@ export type PayrollRow = {
   note: string; thuc_lanh: number;
 };
 export type PayrollMonth = { ym: string; workers: PayrollRow[]; totals: { luong: number; phu_cap: number; thuong: number; ung: number; thuc_lanh: number } };
-export type SalaryAdvance = { id: number; worker_id: number; ym: string; amount: number; adv_date: string; note: string; created_by?: string; created_at?: string };
-export type SalaryAllowance = { id: number; worker_id: number; ym: string; amount: number; note: string; created_by?: string; created_at?: string };
+export type SalaryAdvance = { id: number; worker_id: number; ym: string; amount: number; adv_date: string; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string };
+export type SalaryAllowance = { id: number; worker_id: number; ym: string; amount: number; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string };
 
 export async function getMonthlyPayroll(ym: string): Promise<PayrollMonth> {
   return getJSON(`/api/payroll/month?ym=${encodeURIComponent(ym)}`, { cache: false });
@@ -923,8 +923,9 @@ export async function listAllAllowances(ym: string): Promise<SalaryAllowance[]> 
 export async function addPayrollAllowance(ym: string, worker_id: number, amount: number, note?: string): Promise<PayrollMonth> {
   return postJSON(`/api/payroll/allowance`, { ym, worker_id, amount, note });
 }
-export async function deletePayrollAllowance(ym: string, id: number): Promise<PayrollMonth> {
-  return delJSON(`/api/payroll/allowance/${id}?ym=${encodeURIComponent(ym)}`);
+// Vô hiệu (không xoá): dòng giữ nguyên kèm ai/lúc nào/lý do, totals bỏ qua
+export async function voidPayrollAllowance(ym: string, id: number, reason: string): Promise<PayrollMonth> {
+  return postJSON(`/api/payroll/allowance/${id}/void`, { ym, reason });
 }
 export async function listPayrollAdvances(ym: string, worker_id: number): Promise<SalaryAdvance[]> {
   const d = await getJSON(`/api/payroll/advances?ym=${encodeURIComponent(ym)}&worker_id=${worker_id}`, { cache: false });
@@ -937,8 +938,8 @@ export async function listAllAdvances(ym: string): Promise<SalaryAdvance[]> {
 export async function addPayrollAdvance(ym: string, worker_id: number, amount: number, adv_date?: string, note?: string): Promise<PayrollMonth> {
   return postJSON(`/api/payroll/advance`, { ym, worker_id, amount, adv_date, note });
 }
-export async function deletePayrollAdvance(ym: string, id: number): Promise<PayrollMonth> {
-  return delJSON(`/api/payroll/advance/${id}?ym=${encodeURIComponent(ym)}`);
+export async function voidPayrollAdvance(ym: string, id: number, reason: string): Promise<PayrollMonth> {
+  return postJSON(`/api/payroll/advance/${id}/void`, { ym, reason });
 }
 // Sắp lại thứ tự thợ (sort_order) theo mảng ids → ảnh hưởng template báo cáo
 export async function reorderWorkers(ids: number[]): Promise<{ workers: Worker[]; defaults: string[] }> {

@@ -1,5 +1,6 @@
 """API BẢNG LƯƠNG THÁNG — CHỈ VĂN PHÒNG. Xem bảng lương 1 tháng (mọi thợ), sửa phụ
-cấp/thưởng theo tháng, ghi nhận/xoá ứng lương (nhiều lần). Nối: salary_store +
+cấp/thưởng theo tháng, ghi nhận/VÔ HIỆU ứng lương + phụ cấp (không xoá — giữ dòng kèm
+ai/lúc nào/lý do). Nối: salary_store +
 server_app.production_wages (office gate). Client: webapp/src/pages/MonthlyPayroll.tsx.
 """
 from __future__ import annotations
@@ -138,8 +139,9 @@ async def payroll_advance_add_handler(request: web.Request):
     return web.json_response({"ok": True, **data})
 
 
-async def payroll_advance_delete_handler(request: web.Request):
-    """DELETE /api/payroll/advance/{id}?ym=YYYY-MM — xoá 1 lần ứng (trả bảng tháng mới)."""
+async def payroll_advance_void_handler(request: web.Request):
+    """POST /api/payroll/advance/{id}/void {ym, reason} — VÔ HIỆU 1 lần ứng (không xoá,
+    giữ dòng kèm ai/lúc nào/lý do; trả bảng tháng mới)."""
     d = _deny(request)
     if d:
         return d
@@ -147,12 +149,17 @@ async def payroll_advance_delete_handler(request: web.Request):
         aid = int(request.match_info.get("id", ""))
     except (ValueError, TypeError):
         return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
-    ym = (request.query.get("ym") or "").strip()
+    body = await request.json()
+    ym = str(body.get("ym") or "").strip()
+    reason = str(body.get("reason") or "").strip()
+    if not reason:
+        return web.json_response({"ok": False, "error": "Phải nhập lý do vô hiệu"}, status=400)
+    by = request.get("web_user") or ""
 
     def _run():
         conn = get_connection(SHARED_DB_PATH)
         try:
-            ok = salary_store.delete_advance(conn, aid)
+            ok = salary_store.void_advance(conn, aid, reason, by=by)
             data = salary_store.compute_month_payroll(conn, ym) if _YM.match(ym) else {}
             return ok, data
         finally:
@@ -220,8 +227,9 @@ async def payroll_allowance_add_handler(request: web.Request):
     return web.json_response({"ok": True, **data})
 
 
-async def payroll_allowance_delete_handler(request: web.Request):
-    """DELETE /api/payroll/allowance/{id}?ym=YYYY-MM — xoá 1 khoản phụ cấp."""
+async def payroll_allowance_void_handler(request: web.Request):
+    """POST /api/payroll/allowance/{id}/void {ym, reason} — VÔ HIỆU 1 khoản phụ cấp
+    (không xoá, giữ dòng kèm ai/lúc nào/lý do)."""
     d = _deny(request)
     if d:
         return d
@@ -229,12 +237,17 @@ async def payroll_allowance_delete_handler(request: web.Request):
         aid = int(request.match_info.get("id", ""))
     except (ValueError, TypeError):
         return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
-    ym = (request.query.get("ym") or "").strip()
+    body = await request.json()
+    ym = str(body.get("ym") or "").strip()
+    reason = str(body.get("reason") or "").strip()
+    if not reason:
+        return web.json_response({"ok": False, "error": "Phải nhập lý do vô hiệu"}, status=400)
+    by = request.get("web_user") or ""
 
     def _run():
         conn = get_connection(SHARED_DB_PATH)
         try:
-            ok = salary_store.delete_allowance(conn, aid)
+            ok = salary_store.void_allowance(conn, aid, reason, by=by)
             data = salary_store.compute_month_payroll(conn, ym) if _YM.match(ym) else {}
             return ok, data
         finally:

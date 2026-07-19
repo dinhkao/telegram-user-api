@@ -90,11 +90,26 @@ class SalaryStoreTest(unittest.TestCase):
         self.assertEqual(r["pc_count"], 2)
         self.assertEqual(r["thuc_lanh"], 150_000)    # time worker: 0 + 150k
 
-    def test_xoa_khoan_phu_cap_hoan_lai(self):
+    def test_vo_hieu_khoan_phu_cap_hoan_lai_nhung_giu_dong(self):
         a1 = salary_store.add_allowance(self.conn, self.b, "2026-07", 30_000)
         self.assertEqual(self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.b)["phu_cap"], 30_000)
-        self.assertTrue(salary_store.delete_allowance(self.conn, a1["id"]))
+        self.assertTrue(salary_store.void_allowance(self.conn, a1["id"], "ghi nhầm", by="duy"))
         self.assertEqual(self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.b)["phu_cap"], 0)
+        rows = salary_store.list_allowances(self.conn, "2026-07", self.b)
+        self.assertEqual(len(rows), 1)                       # dòng vẫn còn để đối chiếu
+        self.assertTrue(rows[0]["voided_at"])
+        self.assertEqual(rows[0]["voided_by"], "duy")
+        self.assertEqual(rows[0]["void_reason"], "ghi nhầm")
+        # vô hiệu lần 2 → False (đã vô hiệu rồi)
+        self.assertFalse(salary_store.void_allowance(self.conn, a1["id"], "lần 2"))
+
+    def test_vo_hieu_phai_co_ly_do(self):
+        a1 = salary_store.add_allowance(self.conn, self.b, "2026-07", 30_000)
+        with self.assertRaises(ValueError):
+            salary_store.void_allowance(self.conn, a1["id"], "  ")
+        adv = salary_store.add_advance(self.conn, self.b, "2026-07", 10_000)
+        with self.assertRaises(ValueError):
+            salary_store.void_advance(self.conn, adv["id"], "")
 
     def test_phu_cap_amount_phai_duong(self):
         with self.assertRaises(ValueError):
@@ -109,11 +124,18 @@ class SalaryStoreTest(unittest.TestCase):
         self.assertEqual(r["adv_count"], 2)
         self.assertEqual(r["thuc_lanh"], 150_000)    # 0 + 200k − 50k
 
-    def test_xoa_ung_hoan_lai(self):
+    def test_vo_hieu_ung_hoan_lai_nhung_giu_dong(self):
         adv = salary_store.add_advance(self.conn, self.b, "2026-07", 40_000)
         self.assertEqual(self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.b)["ung"], 40_000)
-        self.assertTrue(salary_store.delete_advance(self.conn, adv["id"]))
+        self.assertTrue(salary_store.void_advance(self.conn, adv["id"], "ứng nhầm người", by="trang"))
         self.assertEqual(self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.b)["ung"], 0)
+        rows = salary_store.list_advances(self.conn, "2026-07", self.b)
+        self.assertEqual(len(rows), 1)                       # dòng vẫn còn để đối chiếu
+        self.assertTrue(rows[0]["voided_at"])
+        self.assertEqual(rows[0]["voided_by"], "trang")
+        self.assertEqual(rows[0]["void_reason"], "ứng nhầm người")
+        self.assertFalse(salary_store.void_advance(self.conn, adv["id"], "lần 2"))
+        self.assertFalse(salary_store.void_advance(self.conn, 99_999, "không tồn tại"))
 
     def test_advance_amount_phai_duong(self):
         with self.assertRaises(ValueError):

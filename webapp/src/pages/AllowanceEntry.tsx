@@ -1,15 +1,15 @@
-// NHẬP PHỤ CẤP (#/nhap-phu-cap) — CHỈ văn phòng. Ghi phụ cấp cho thợ theo tháng,
-// xem toàn bộ khoản phụ cấp trong tháng và xoá từng khoản.
+// NHẬP PHỤ CẤP (#/nhap-phu-cap) — CHỈ văn phòng. Ghi phụ cấp cho thợ theo tháng.
+// Không xoá — VÔ HIỆU kèm lý do, dòng vẫn hiện (gạch ngang, ai/lúc nào/lý do).
 import { useEffect, useState } from "preact/hooks";
 import {
-  addPayrollAllowance, deletePayrollAllowance, isOffice, listAllAllowances, listPayrollAllowances, listWorkers, soVN,
+  addPayrollAllowance, isOffice, listAllAllowances, listPayrollAllowances, listWorkers, soVN, voidPayrollAllowance,
   type SalaryAllowance, type Worker,
 } from "../api";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
 import { Loading, EmptyState } from "../ui/states";
-import { toast, confirmDialog } from "../ui/feedback";
+import { toast, promptDialog } from "../ui/feedback";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const money = (n: number) => soVN(Math.round(n || 0));
@@ -62,14 +62,18 @@ export function AllowanceEntry() {
     finally { setBusy(false); }
   };
 
-  const del = async (id: number) => {
-    if (!(await confirmDialog("Xoá khoản phụ cấp này?"))) return;
-    try { await deletePayrollAllowance(ym, id); load(); }
-    catch (e: any) { toast(e?.message || "Lỗi xoá", "err"); }
+  const voidIt = async (id: number) => {
+    const reason = await promptDialog("Lý do vô hiệu khoản phụ cấp này?", { placeholder: "VD: ghi nhầm số tiền…", okLabel: "Vô hiệu" });
+    if (reason === null) return;
+    if (!reason.trim()) { toast("Phải nhập lý do vô hiệu", "err"); return; }
+    try { await voidPayrollAllowance(ym, id, reason.trim()); toast("Đã vô hiệu khoản phụ cấp", "ok"); load(); }
+    catch (e: any) { toast(e?.message || "Lỗi vô hiệu", "err"); }
   };
 
   const list = (allows || []).slice().sort((a, b) => b.id - a.id);
-  const total = list.reduce((sum, item) => sum + item.amount, 0);
+  const active = list.filter((item) => !item.voided_at);
+  const voidedCount = list.length - active.length;
+  const total = active.reduce((sum, item) => sum + item.amount, 0);
   const wopts = workers.map((w) => ({ value: w.id, label: w.name }));
 
   const head = <PageHead fallback="#/home" title={<><Icon name="banknote" size={18} /> Nhập phụ cấp</>} sub="ghi phụ cấp cho thợ theo tháng" />;
@@ -104,18 +108,22 @@ export function AllowanceEntry() {
             </div>
           ) : null}
           <div class="card pr-totals">
-            <span>Tổng phụ cấp {ymLabel(ym).toLowerCase()} <b>{money(total)}</b> · {list.length} khoản</span>
+            <span>Tổng phụ cấp {ymLabel(ym).toLowerCase()} <b>{money(total)}</b> · {active.length} khoản{voidedCount ? ` · ${voidedCount} vô hiệu` : ""}</span>
           </div>
           {list.length === 0 ? <EmptyState icon="💵">Chưa có khoản phụ cấp nào trong tháng.</EmptyState> : (
             list.map((item) => (
-              <div class="card ua-row" key={item.id}>
+              <div class={`card ua-row${item.voided_at ? " ua-voided" : ""}`} key={item.id}>
                 <div class="ua-row-main">
                   <b>{nameOf(item.worker_id)}</b>
+                  {item.voided_at ? <span class="ua-void-badge">VÔ HIỆU</span> : null}
                   {item.note ? <div class="muted small">{item.note}</div> : null}
                   {tsLabel(item.created_at) ? <div class="muted small ua-ts">tạo {tsLabel(item.created_at)}{item.created_by ? ` · ${item.created_by}` : ""}</div> : null}
+                  {item.voided_at ? (
+                    <div class="small ua-void-info">vô hiệu {tsLabel(item.voided_at)}{item.voided_by ? ` · ${item.voided_by}` : ""}{item.void_reason ? ` — ${item.void_reason}` : ""}</div>
+                  ) : null}
                 </div>
-                <b class="ua-amt">{money(item.amount)}</b>
-                <button class="pr-adv-del" onClick={() => del(item.id)} aria-label="Xoá">✕</button>
+                <b class={`ua-amt${item.voided_at ? " ua-amt-voided" : ""}`}>{money(item.amount)}</b>
+                {!item.voided_at ? <button class="pr-adv-del" onClick={() => voidIt(item.id)} aria-label="Vô hiệu">✕</button> : null}
               </div>
             ))
           )}

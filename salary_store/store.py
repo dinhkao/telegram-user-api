@@ -4,7 +4,8 @@
 - salary_month(ym, worker_id, phu_cap, thuong, note): 1 dòng/(tháng, thợ) — phụ cấp +
   thưởng văn phòng gán theo THÁNG (khác phụ cấp per-phiếu SX ở production_allowances).
 - salary_advances(id, worker_id, ym, amount, adv_date, note, ...): ỨNG lương NHIỀU lần/
-  tháng, cộng dồn trừ vào lương.
+  tháng, cộng dồn trừ vào lương. KHÔNG xoá cứng — VÔ HIỆU (voided_at/by/reason): dòng
+  giữ nguyên để đối chiếu, totals bỏ qua. salary_allowances (phụ cấp) cùng cơ chế.
 
 compute_month_payroll gộp lương SP (production_store.report_slips.compute_range_report
 theo khoảng tháng) + phụ cấp + thưởng − ứng = thực lãnh cho MỌI thợ. Thợ 'time' (lương
@@ -59,6 +60,13 @@ def ensure_schema(conn) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(salary_month)").fetchall()}
     if "weekly" not in cols:   # nhận lương tuần THEO THÁNG (riêng bảng lương, không phải hồ sơ thợ)
         conn.execute("ALTER TABLE salary_month ADD COLUMN weekly INTEGER DEFAULT 0")
+    # vô hiệu hoá thay cho xoá (giữ dòng đối chiếu): ai + lúc nào + lý do
+    for table in ("salary_advances", "salary_allowances"):
+        tcols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        if "voided_at" not in tcols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN voided_at TEXT")
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN voided_by TEXT DEFAULT ''")
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN void_reason TEXT DEFAULT ''")
     for sql in _INDEXES:
         conn.execute(sql)
     conn.commit()
@@ -117,7 +125,8 @@ def set_month_adjust(conn, ym: str, worker_id: int, *, thuong=None,
 
 def list_advances(conn, ym: str, worker_id: int | None = None) -> list[dict]:
     ensure_schema(conn)
-    q = "SELECT id, worker_id, ym, amount, adv_date, note, created_by, created_at FROM salary_advances WHERE ym = ?"
+    q = ("SELECT id, worker_id, ym, amount, adv_date, note, created_by, created_at, "
+         "voided_at, voided_by, void_reason FROM salary_advances WHERE ym = ?")
     args: list = [ym]
     if worker_id is not None:
         q += " AND worker_id = ?"
@@ -125,7 +134,9 @@ def list_advances(conn, ym: str, worker_id: int | None = None) -> list[dict]:
     q += " ORDER BY adv_date ASC, id ASC"
     return [{"id": r["id"], "worker_id": r["worker_id"], "ym": r["ym"], "amount": float(r["amount"] or 0),
              "adv_date": r["adv_date"] or "", "note": r["note"] or "", "created_by": r["created_by"] or "",
-             "created_at": r["created_at"] or ""} for r in conn.execute(q, args).fetchall()]
+             "created_at": r["created_at"] or "", "voided_at": r["voided_at"] or "",
+             "voided_by": r["voided_by"] or "", "void_reason": r["void_reason"] or ""}
+            for r in conn.execute(q, args).fetchall()]
 
 
 def advance_totals(conn, ym: str) -> dict:
@@ -133,7 +144,7 @@ def advance_totals(conn, ym: str) -> dict:
     ensure_schema(conn)
     rows = conn.execute(
         "SELECT worker_id, COALESCE(SUM(amount),0) AS s, COUNT(*) AS c FROM salary_advances "
-        "WHERE ym = ? GROUP BY worker_id", (ym,)
+        "WHERE ym = ? AND voided_at IS NULL GROUP BY worker_id", (ym,)
     ).fetchall()
     return {r["worker_id"]: (float(r["s"] or 0), int(r["c"])) for r in rows}
 
@@ -155,10 +166,19 @@ def add_advance(conn, worker_id: int, ym: str, amount: float, adv_date: str = ""
             "adv_date": (adv_date or "").strip(), "note": (note or "").strip()}
 
 
-def delete_advance(conn, advance_id: int) -> bool:
+def void_advance(conn, advance_id: int, reason: str, by: str = "") -> bool:
+    """Vô hiệu 1 lần ứng (không xoá dòng — giữ để đối chiếu). Lý do BẮT BUỘC.
+    Trả False nếu không tìm thấy hoặc đã vô hiệu rồi."""
     ensure_schema(conn)
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValueError("Phải nhập lý do vô hiệu")
     with transaction(conn):
-        cur = conn.execute("DELETE FROM salary_advances WHERE id = ?", (advance_id,))
+        cur = conn.execute(
+            "UPDATE salary_advances SET voided_at = datetime('now','+7 hours'), "
+            "voided_by = ?, void_reason = ? WHERE id = ? AND voided_at IS NULL",
+            (by or "", reason, advance_id),
+        )
         return cur.rowcount > 0
 
 
@@ -166,14 +186,17 @@ def delete_advance(conn, advance_id: int) -> bool:
 
 def list_allowances(conn, ym: str, worker_id: int | None = None) -> list[dict]:
     ensure_schema(conn)
-    q = "SELECT id, worker_id, ym, amount, note, created_by, created_at FROM salary_allowances WHERE ym = ?"
+    q = ("SELECT id, worker_id, ym, amount, note, created_by, created_at, "
+         "voided_at, voided_by, void_reason FROM salary_allowances WHERE ym = ?")
     args: list = [ym]
     if worker_id is not None:
         q += " AND worker_id = ?"
         args.append(worker_id)
     q += " ORDER BY id ASC"
     return [{"id": r["id"], "worker_id": r["worker_id"], "ym": r["ym"], "amount": float(r["amount"] or 0),
-             "note": r["note"] or "", "created_by": r["created_by"] or "", "created_at": r["created_at"] or ""}
+             "note": r["note"] or "", "created_by": r["created_by"] or "", "created_at": r["created_at"] or "",
+             "voided_at": r["voided_at"] or "", "voided_by": r["voided_by"] or "",
+             "void_reason": r["void_reason"] or ""}
             for r in conn.execute(q, args).fetchall()]
 
 
@@ -182,7 +205,7 @@ def allowance_totals(conn, ym: str) -> dict:
     ensure_schema(conn)
     rows = conn.execute(
         "SELECT worker_id, COALESCE(SUM(amount),0) AS s, COUNT(*) AS c FROM salary_allowances "
-        "WHERE ym = ? GROUP BY worker_id", (ym,)
+        "WHERE ym = ? AND voided_at IS NULL GROUP BY worker_id", (ym,)
     ).fetchall()
     return {r["worker_id"]: (float(r["s"] or 0), int(r["c"])) for r in rows}
 
@@ -201,10 +224,18 @@ def add_allowance(conn, worker_id: int, ym: str, amount: float, note: str = "", 
     return {"id": aid, "worker_id": worker_id, "ym": ym, "amount": amt, "note": (note or "").strip()}
 
 
-def delete_allowance(conn, allowance_id: int) -> bool:
+def void_allowance(conn, allowance_id: int, reason: str, by: str = "") -> bool:
+    """Vô hiệu 1 khoản phụ cấp (không xoá dòng). Lý do BẮT BUỘC. Cùng cơ chế void_advance."""
     ensure_schema(conn)
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValueError("Phải nhập lý do vô hiệu")
     with transaction(conn):
-        cur = conn.execute("DELETE FROM salary_allowances WHERE id = ?", (allowance_id,))
+        cur = conn.execute(
+            "UPDATE salary_allowances SET voided_at = datetime('now','+7 hours'), "
+            "voided_by = ?, void_reason = ? WHERE id = ? AND voided_at IS NULL",
+            (by or "", reason, allowance_id),
+        )
         return cur.rowcount > 0
 
 

@@ -1,19 +1,21 @@
 // BẢNG LƯƠNG THÁNG (#/luong-thang) — CHỈ văn phòng. Mỗi thợ: loại lương (SP/thời gian),
 // lương (SP tự tính; thời gian = 0 chờ chấm công), nhận lương tuần (theo tháng),
-// PHỤ CẤP nhiều khoản, ỨNG lương nhiều lần → thực lãnh. Phụ cấp + ứng quản lý
-// giống nhau (panel thêm/xoá khoản). API: getMonthlyPayroll + payroll allowance/advance.
+// PHỤ CẤP nhiều khoản, ỨNG lương nhiều lần → thực lãnh. Phụ cấp + ứng quản lý giống
+// nhau (panel thêm/VÔ HIỆU khoản — không xoá, dòng giữ lại kèm ai/lúc nào/lý do).
+// API: getMonthlyPayroll + payroll allowance/advance.
 // (Cột THƯỞNG bỏ 2026-07-19 — phụ cấp nhiều khoản có nhãn đã thay thế; backend giữ
 // field thuong cho tương thích, compute vẫn cộng nếu tháng cũ có dữ liệu.)
 import { useEffect, useState } from "preact/hooks";
 import {
-  addPayrollAdvance, addPayrollAllowance, deletePayrollAdvance, deletePayrollAllowance,
-  getMonthlyPayroll, isOffice, listPayrollAdvances, listPayrollAllowances, setPayrollAdjust,
-  soVN, updateWorker, type PayrollMonth, type PayrollRow, type SalaryAdvance, type SalaryAllowance,
+  addPayrollAdvance, addPayrollAllowance, getMonthlyPayroll, isOffice,
+  listPayrollAdvances, listPayrollAllowances, setPayrollAdjust, soVN, updateWorker,
+  voidPayrollAdvance, voidPayrollAllowance,
+  type PayrollMonth, type PayrollRow, type SalaryAdvance, type SalaryAllowance,
 } from "../api";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
-import { toast, confirmDialog } from "../ui/feedback";
+import { toast, promptDialog } from "../ui/feedback";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const money = (n: number) => soVN(Math.round(n || 0));
@@ -154,9 +156,10 @@ export function MonthlyPayroll() {
   );
 }
 
-// Panel liệt kê + thêm/xoá KHOẢN (dùng cho cả phụ cấp lẫn ứng). extra = dòng đọc-thêm ở đầu.
+// Panel liệt kê + thêm/VÔ HIỆU KHOẢN (dùng cho cả phụ cấp lẫn ứng). Khoản vô hiệu vẫn
+// hiện (gạch ngang + ai/lý do), không tính vào tổng. extra = dòng đọc-thêm ở đầu.
 function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, extra }: {
-  entries?: { id: number; amount: number; note: string; adv_date?: string }[];
+  entries?: { id: number; amount: number; note: string; adv_date?: string; voided_at?: string; voided_by?: string; void_reason?: string }[];
   showDate?: boolean; addPlaceholder: string;
   onAdd: (amount: number, note: string, date: string) => void; onDel: (id: number) => void; extra?: any;
 }) {
@@ -172,11 +175,14 @@ function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, extra }: 
     <div class="pr-adv">
       {extra}
       {(entries || []).map((e) => (
-        <div class="pr-adv-row" key={e.id}>
+        <div class={`pr-adv-row${e.voided_at ? " ua-voided" : ""}`} key={e.id}>
           {showDate ? <span class="muted small">{e.adv_date || "—"}</span> : null}
-          <b>{money(e.amount)}</b>
-          <span class="muted small pr-adv-note">{e.note}</span>
-          <button class="pr-adv-del" onClick={() => onDel(e.id)} aria-label="Xoá">✕</button>
+          <b class={e.voided_at ? "ua-amt-voided" : ""}>{money(e.amount)}</b>
+          <span class="muted small pr-adv-note">
+            {e.note}
+            {e.voided_at ? <span class="ua-void-info"> · vô hiệu{e.voided_by ? ` bởi ${e.voided_by}` : ""}{e.void_reason ? ` — ${e.void_reason}` : ""}</span> : null}
+          </span>
+          {!e.voided_at ? <button class="pr-adv-del" onClick={() => onDel(e.id)} aria-label="Vô hiệu">✕</button> : null}
         </div>
       ))}
       {entries && !entries.length ? <div class="muted small">Chưa có khoản nào.</div> : null}
@@ -270,19 +276,23 @@ function PayrollCard({ r, ym, toggleType, toggleWeekly,
     try { apply(await addPayrollAllowance(ym, wid, a, note)); const l = await listPayrollAllowances(ym, wid); setAllows((m) => ({ ...m, [wid]: l })); }
     catch (e: any) { toast(e?.message || "Lỗi thêm phụ cấp", "err"); }
   };
-  const delAllow = async (id: number) => {
-    if (!(await confirmDialog("Xoá khoản phụ cấp này?"))) return;
-    try { apply(await deletePayrollAllowance(ym, id)); setAllows((m) => ({ ...m, [wid]: (m[wid] || []).filter((x) => x.id !== id) })); }
-    catch (e: any) { toast(e?.message || "Lỗi xoá", "err"); }
+  const voidAllow = async (id: number) => {
+    const reason = await promptDialog("Lý do vô hiệu khoản phụ cấp này?", { placeholder: "VD: ghi nhầm số tiền…", okLabel: "Vô hiệu" });
+    if (reason === null) return;
+    if (!reason.trim()) { toast("Phải nhập lý do vô hiệu", "err"); return; }
+    try { apply(await voidPayrollAllowance(ym, id, reason.trim())); const l = await listPayrollAllowances(ym, wid); setAllows((m) => ({ ...m, [wid]: l })); }
+    catch (e: any) { toast(e?.message || "Lỗi vô hiệu", "err"); }
   };
   const addAdv = async (a: number, note: string, date: string) => {
     try { apply(await addPayrollAdvance(ym, wid, a, date, note)); const l = await listPayrollAdvances(ym, wid); setAdvs((m) => ({ ...m, [wid]: l })); }
     catch (e: any) { toast(e?.message || "Lỗi thêm ứng", "err"); }
   };
-  const delAdv = async (id: number) => {
-    if (!(await confirmDialog("Xoá lần ứng này?"))) return;
-    try { apply(await deletePayrollAdvance(ym, id)); setAdvs((m) => ({ ...m, [wid]: (m[wid] || []).filter((x) => x.id !== id) })); }
-    catch (e: any) { toast(e?.message || "Lỗi xoá", "err"); }
+  const voidAdv = async (id: number) => {
+    const reason = await promptDialog("Lý do vô hiệu lần ứng này?", { placeholder: "VD: ghi nhầm số tiền…", okLabel: "Vô hiệu" });
+    if (reason === null) return;
+    if (!reason.trim()) { toast("Phải nhập lý do vô hiệu", "err"); return; }
+    try { apply(await voidPayrollAdvance(ym, id, reason.trim())); const l = await listPayrollAdvances(ym, wid); setAdvs((m) => ({ ...m, [wid]: l })); }
+    catch (e: any) { toast(e?.message || "Lỗi vô hiệu", "err"); }
   };
 
   return (
@@ -318,13 +328,13 @@ function PayrollCard({ r, ym, toggleType, toggleWeekly,
         <button class="pr-toggle-btn" onClick={onTogglePc} aria-label={openPc ? "Đóng chi tiết phụ cấp" : "Mở chi tiết phụ cấp"}>{openPc ? "▾" : "▸"}</button>
       </div>
       {openPc && <EntryPanel entries={allowances} addPlaceholder="Số tiền phụ cấp"
-        onAdd={(a, note) => addAllow(a, note)} onDel={delAllow} />}
+        onAdd={(a, note) => addAllow(a, note)} onDel={voidAllow} />}
       <div class="pr-adv-toggle">
         <span>Chi tiết ứng lương {r.adv_count ? <span class="muted small">· {r.adv_count} lần nhập tay</span> : null}</span>
         <button class="pr-toggle-btn" onClick={onToggleUng} aria-label={openUng ? "Đóng chi tiết ứng lương" : "Mở chi tiết ứng lương"}>{openUng ? "▾" : "▸"}</button>
       </div>
       {openUng && <EntryPanel entries={advances} showDate addPlaceholder="Số tiền ứng"
-        onAdd={(a, note, date) => addAdv(a, note, date)} onDel={delAdv}
+        onAdd={(a, note, date) => addAdv(a, note, date)} onDel={voidAdv}
         extra={r.weekly && r.ung_weekly > 0 ? (
           <div class="pr-adv-row pr-adv-weekly">
             <span class="muted small">Lương tuần</span><b>{money(r.ung_weekly)}</b>

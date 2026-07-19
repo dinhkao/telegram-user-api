@@ -1359,6 +1359,12 @@ a.pr-stat:active { background: var(--accent-wash); }
 .ua-row-main { flex: 1; min-width: 0; }
 .ua-ts { font-size: .64rem; color: var(--muted-2); }
 .ua-amt { font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* khoản vô hiệu: giữ dòng nhưng mờ + gạch ngang, kèm ai/lúc nào/lý do */
+.ua-voided { opacity: .72; background: color-mix(in srgb, var(--card) 92%, var(--danger, #d33) 8%); }
+.ua-voided .ua-row-main > b:first-child { text-decoration: line-through; }
+.ua-void-badge { margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: .6rem; font-weight: 700; letter-spacing: .04em; color: #fff; background: var(--danger, #d33); vertical-align: 2px; }
+.ua-void-info { font-size: .68rem; color: var(--danger, #d33); }
+.ua-amt-voided { text-decoration: line-through; color: var(--muted-2); }
 .ua-filter { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 2px 0; font-size: .88rem; }
 .pr-totals { padding: 9px 12px; font-size: .9rem; }
 .pr-totals b { font-variant-numeric: tabular-nums; }
