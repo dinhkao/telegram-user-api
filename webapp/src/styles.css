@@ -1369,14 +1369,17 @@ a.pr-stat:active { background: var(--accent-wash); }
 .pr-totals { padding: 9px 12px; font-size: .9rem; }
 .pr-totals b { font-variant-numeric: tabular-nums; }
 /* bảng lương — view dạng table */
-/* Bảng cuộn THEO TRANG như date group. Header = position:sticky top dưới app-bar
-   (CSS THUẦN, không JS) → cần bảng VỪA màn hình nên số RÚT GỌN (tr/k, xem moneyShort).
-   overflow-x:clip = chặn tràn ngang mà KHÔNG tạo scroll-container (không kẹt sticky). */
-.pr-table-wrap { overflow-x: clip; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); box-shadow: var(--e1); }
+/* SỐ ĐẦY ĐỦ → bảng rộng hơn màn: .pr-thead-bar = header sticky top dưới app-bar
+   (overflow hidden, scrollLeft do JS đồng bộ từ thân); .pr-tbody-scroll = thân cuộn
+   NGANG; cột Thợ sticky trái ở cả hai. colgroup px cố định giữ 2 bảng thẳng cột. */
+.pr-table-wrap { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); box-shadow: var(--e1); }
+.pr-thead-bar { position: sticky; top: 44px; z-index: 6; overflow-x: hidden; background: var(--bg); border-radius: var(--r-md) var(--r-md) 0 0; }
+body.has-nop .pr-thead-bar { top: 72px; }
+.pr-tbody-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pr-thead-bar .pr-table, .pr-tbody-scroll .pr-table { table-layout: fixed; width: max-content; min-width: 100%; }
 .pr-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: .8rem; background: var(--card); }
 .pr-table th, .pr-table td { padding: 6px 9px; border: none; border-bottom: 1px solid var(--border); white-space: nowrap; text-align: right; }
-.pr-table th { position: sticky; top: 44px; z-index: 3; color: var(--muted); font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; background: var(--bg); box-shadow: 0 1px 0 var(--border); }  /* ghim dưới app-bar(44) như .order-day-head */
-body.has-nop .pr-table th { top: 72px; }   /* banner .nop-banner (top:44, cao 28, đục) hiện → tụt xuống dưới nó, khỏi bị che */
+.pr-table th { color: var(--muted); font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; background: var(--bg); box-shadow: 0 1px 0 var(--border); }
 .pr-table th:first-child { text-align: left; }
 .pr-table th:nth-child(2), .pr-table th:nth-child(3) { text-align: center; }
 .pr-sticky { position: sticky; left: 0; z-index: 1; background: var(--card); }
@@ -1411,18 +1414,10 @@ body.has-nop .pr-table th { top: 72px; }   /* banner .nop-banner (top:44, cao 28
   .pr-card-grid { grid-template-columns: 1fr; gap: 8px; }
   .pr-card-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }
   .pr-card-metric:nth-child(3) { padding-left: 0; border-left: none; }
-  /* bảng lương mobile: table-layout FIXED + %/cột → cả 8 cột VỪA khít màn hình (số rút gọn) */
-  .pr-table { table-layout: fixed; font-size: .72rem; }
-  .pr-table th, .pr-table td { padding: 5px 3px; }
+  /* bảng lương mobile: số ĐẦY ĐỦ, colgroup px + cuộn ngang (không ép % nữa) */
+  .pr-table { font-size: .74rem; }
+  .pr-table th, .pr-table td { padding: 5px 6px; }
   .pr-table th { font-size: .58rem; letter-spacing: 0; }
-  .pr-table th:nth-child(1) { width: 18%; }   /* Thợ */
-  .pr-table th:nth-child(2) { width: 8%; }    /* Loại */
-  .pr-table th:nth-child(3) { width: 11%; }   /* Tuần (công tắc) */
-  .pr-table th:nth-child(4) { width: 12%; }   /* Mốc (lương TG mong muốn) */
-  .pr-table th:nth-child(5) { width: 13%; }   /* Lương */
-  .pr-table th:nth-child(6) { width: 12%; }   /* P.cấp */
-  .pr-table th:nth-child(7) { width: 12%; }   /* Ứng */
-  .pr-table th:nth-child(8) { width: 14%; }   /* Lãnh */
   .pr-td-name { overflow: hidden; text-overflow: ellipsis; }
   .pr-td-name .pr-avatar { display: none; }
   .pr-worker { gap: 0; max-width: 100%; }

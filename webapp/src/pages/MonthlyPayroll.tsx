@@ -5,7 +5,7 @@
 // API: getMonthlyPayroll + payroll allowance/advance.
 // (Cột THƯỞNG bỏ 2026-07-19 — phụ cấp nhiều khoản có nhãn đã thay thế; backend giữ
 // field thuong cho tương thích, compute vẫn cộng nếu tháng cũ có dữ liệu.)
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
   addPayrollAdvance, addPayrollAllowance, getMonthlyPayroll, isOffice,
   listPayrollAdvances, listPayrollAllowances, setPayrollAdjust, soVN, updateWorker,
@@ -19,17 +19,6 @@ import { toast, promptDialog } from "../ui/feedback";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const money = (n: number) => soVN(Math.round(n || 0));
-// Số RÚT GỌN cho BẢNG (để vừa màn hình, header sticky thuần CSS): 5.200.000→"5,2tr",
-// 300.000→"300k". Làm tròn 1 số thập phân — số chính xác xem ở thẻ / chi tiết thợ.
-const moneyShort = (n: number) => {
-  const v = Math.round(n || 0);
-  if (v === 0) return "0";
-  const sign = v < 0 ? "−" : "";
-  const a = Math.abs(v);
-  if (a >= 1_000_000) return sign + (Math.round(a / 100_000) / 10).toString().replace(".", ",") + "tr";
-  if (a >= 1_000) return sign + (Math.round(a / 100) / 10).toString().replace(".", ",") + "k";
-  return sign + a;
-};
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
 const curYM = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
 const shiftYM = (ym: string, d: number) => {
@@ -210,16 +199,36 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc }: {
   editMoc: (r: PayrollRow) => void;
 }) {
   const t = data.totals;
+  // SỐ ĐẦY ĐỦ (không rút gọn) → bảng RỘNG hơn màn: thân cuộn NGANG, cột Thợ ghim
+  // trái; header tách thanh sticky top (dưới app-bar) + scrollLeft đồng bộ từ thân
+  // — cùng kỹ thuật lưới chấm công. colgroup px cố định để 2 bảng thẳng cột.
+  const headRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const cols = (
+    <colgroup>
+      <col style="width:118px" /><col style="width:42px" /><col style="width:48px" />
+      <col style="width:96px" /><col style="width:104px" /><col style="width:96px" />
+      <col style="width:96px" /><col style="width:104px" />
+    </colgroup>
+  );
   return (
     <div class="pr-table-wrap">
-      <table class="pr-table">
-        <thead>
-          <tr>
-            <th class="pr-sticky">Thợ</th><th>Loại</th><th>Tuần</th><th>Mốc</th><th>Lương</th>
-            <th>P.cấp</th><th>Ứng</th><th>Lãnh</th>
-          </tr>
-        </thead>
-        <tbody>
+      <div class="pr-thead-bar" ref={headRef}>
+        <table class="pr-table">
+          {cols}
+          <thead>
+            <tr>
+              <th class="pr-sticky">Thợ</th><th>Loại</th><th>Tuần</th><th>Mốc</th><th>Lương</th>
+              <th>P.cấp</th><th>Ứng</th><th>Lãnh</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+      <div class="pr-tbody-scroll" ref={bodyRef}
+        onScroll={() => { if (headRef.current && bodyRef.current) headRef.current.scrollLeft = bodyRef.current.scrollLeft; }}>
+        <table class="pr-table">
+          {cols}
+          <tbody>
           {data.workers.map((r) => {
             const isTime = r.wage_type === "time";
             return (
@@ -240,38 +249,39 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc }: {
                 </td>
                 <td class="pr-num">
                   {isTime
-                    ? <button class="pr-ung-btn" onClick={() => editMoc(r)} title="Mốc lương tháng mong muốn — bấm để sửa">{r.monthly_salary ? moneyShort(r.monthly_salary) : "đặt…"}</button>
+                    ? <button class="pr-ung-btn" onClick={() => editMoc(r)} title="Mốc lương tháng mong muốn — bấm để sửa">{r.monthly_salary ? money(r.monthly_salary) : "đặt…"}</button>
                     : <span class="is-zero">—</span>}
                 </td>
                 <td class={!r.luong ? "pr-num is-zero" : "pr-num"}
                   title={isTime ? `${r.cong} công · tăng ca ${r.ot_gio}g ×1,2` : undefined}>
-                  {moneyShort(r.luong)}{isTime && r.cong > 0 ? <sup> {r.cong}c</sup> : null}
+                  {money(r.luong)}{isTime && r.cong > 0 ? <sup> {r.cong}c</sup> : null}
                 </td>
                 <td class="pr-num">
                   <a class="pr-ung-btn" href={`#/nhap-phu-cap?ym=${encodeURIComponent(data.ym)}&worker_id=${r.worker_id}`} title="Mở phụ cấp của nhân viên">
-                    {moneyShort(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}
+                    {money(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}
                   </a>
                 </td>
                 <td class="pr-num">
                   <a class="pr-ung-btn" href={`#/nhap-ung?ym=${encodeURIComponent(data.ym)}&worker_id=${r.worker_id}`} title="Mở ứng lương của nhân viên">
-                    {moneyShort(r.ung)}{r.adv_count ? <sup> {r.adv_count}</sup> : null}
+                    {money(r.ung)}{r.adv_count ? <sup> {r.adv_count}</sup> : null}
                   </a>
                 </td>
-                <td class={r.thuc_lanh < 0 ? "pr-num pr-net-td t-danger" : "pr-num pr-net-td"}>{moneyShort(r.thuc_lanh)}</td>
+                <td class={r.thuc_lanh < 0 ? "pr-num pr-net-td t-danger" : "pr-num pr-net-td"}>{money(r.thuc_lanh)}</td>
               </tr>
             );
           })}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td class="pr-sticky pr-td-name">Tổng</td><td></td><td></td><td></td>
-            <td class="pr-num">{moneyShort(t.luong)}</td>
-            <td class="pr-num">{moneyShort(t.phu_cap)}</td>
-            <td class="pr-num">{moneyShort(t.ung)}</td>
-            <td class="pr-num pr-net-td">{moneyShort(t.thuc_lanh)}</td>
-          </tr>
-        </tfoot>
-      </table>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td class="pr-sticky pr-td-name">Tổng</td><td></td><td></td><td></td>
+              <td class="pr-num">{money(t.luong)}</td>
+              <td class="pr-num">{money(t.phu_cap)}</td>
+              <td class="pr-num">{money(t.ung)}</td>
+              <td class="pr-num pr-net-td">{money(t.thuc_lanh)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }
