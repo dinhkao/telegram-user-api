@@ -112,13 +112,15 @@ def allocate_picks(conn, picks, order_thread_id, *, by=None, kind="order") -> li
     return out
 
 
-def fifo_consume(conn, ref_thread_id, needs, *, by=None) -> list[dict]:
+def fifo_consume(conn, ref_thread_id, needs, *, by=None, place_id=None) -> list[dict]:
     """Tiêu hao nguyên liệu (FIFO) khi sản xuất. needs=[{code, amount}] — mỗi mã lấy từ
     thùng CŨ NHẤT (created_at) còn hàng cho đủ amount (thùng cuối lấy 1 phần). Ghi
     allocation kind='production', ref_thread_id = phiếu SX. Trả tóm tắt tiêu hao/thiếu.
+    place_id != None → CHỈ lấy từ thùng ở kho đó (dùng cho NL phụ ép kho aux_source).
     """
     from .queries import _pid_filter
     summary: list[dict] = []
+    place_frag = " AND b.place_id = ?" if place_id is not None else ""
     for nd in needs:
         code = str(nd.get("code") or "").strip().upper()
         need = float(nd.get("amount") or 0)
@@ -129,9 +131,9 @@ def fifo_consume(conn, ref_thread_id, needs, *, by=None) -> list[dict]:
         rows = conn.execute(
             "SELECT b.id, b.box_code, b.quantity - COALESCE("
             "(SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0) AS rem "
-            f"FROM inventory_boxes b WHERE {frag} AND (b.disabled IS NULL OR b.disabled = 0) "
+            f"FROM inventory_boxes b WHERE {frag} AND (b.disabled IS NULL OR b.disabled = 0){place_frag} "
             "ORDER BY b.created_at, b.box_code",
-            ps,
+            ps + ([place_id] if place_id is not None else []),
         ).fetchall()
         left = need
         picks = []

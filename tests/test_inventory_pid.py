@@ -84,6 +84,18 @@ class BoxesById(Base):
         self.assertIsNone(err)                              # cùng product_id → cho chuyển
         self.assertEqual(res["quantity"], 10)
 
+    def test_fifo_consume_place_id_only_takes_from_that_place(self):
+        # NL phụ ép trừ từ kho aux_source: place_id giới hạn thùng nguồn.
+        from inventory_store.queries import add_place
+        p1 = add_place(self.conn, "Kho A")
+        p2 = add_place(self.conn, "Kho B")
+        add_boxes(self.conn, "K10", [100], place_id=p1["id"])   # ngoài kho đích
+        add_boxes(self.conn, "K10", [30], place_id=p2["id"])    # trong kho đích
+        s = fifo_consume(self.conn, 5001, [{"code": "K10", "amount": 40}], place_id=p2["id"])
+        # Kho đích chỉ có 30 → tiêu 30, thiếu 10 (KHÔNG lấn sang kho A dù kho A thừa).
+        self.assertAlmostEqual(s[0]["consumed"], 30.0)
+        self.assertAlmostEqual(s[0]["shortfall"], 10.0)
+
     def test_fifo_consume_accepts_old_code(self):
         add_boxes(self.conn, "K10", [50])
         self._rename("K10", "K10X", self.pid)

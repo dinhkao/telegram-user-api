@@ -103,9 +103,11 @@ export function ProductionBoxes({
   // MỌI nguyên liệu (chính + phụ). Server cùng rule (inventory_routes).
   const packing = (slip.kind || "san_xuat") === "dong_goi";
   const mainLines = recipe.filter((l) => !l.aux);
-  const auxLines = auxRequired ? recipe.filter((l) => !!l.aux) : [];
-  const requiredLines = packing ? [...mainLines, ...auxLines] : auxLines;
-  const isAuxIng = (code: string) => auxLines.some((l) => l.ingredient_code === code);
+  // NL PHỤ (aux) khi SP bật aux_required: HỆ TỰ trừ FIFO từ kho aux_source — KHÔNG
+  // chọn tay (chỉ hiện thông tin). NL CHÍNH vẫn chọn tay khi đóng gói.
+  const auxAutoLines = auxRequired ? recipe.filter((l) => !!l.aux) : [];
+  const requiredLines = packing ? mainLines : [];
+  const isAuxIng = (_code: string) => false;
   const recipeOk = allowNoMat
     || ((!packing || mainLines.length > 0)
       && (requiredLines.length === 0
@@ -358,6 +360,16 @@ export function ProductionBoxes({
               </div>
             );
           })}
+        </div>
+      )}
+      {auxAutoLines.length > 0 && (
+        <div class="pb-aux-info muted small">
+          ⚙️ Hệ tự trừ NL phụ{auxPlace ? ` từ kho ${auxPlace.name}` : ""} (FIFO, không cần chọn thùng):{" "}
+          {auxAutoLines.map((l, i) => (
+            <span key={l.ingredient_code}>{i > 0 ? ", " : ""}<b>{l.ingredient_code}</b>
+              {produced > 0 ? ` ${soVN(+(l.ratio * produced).toFixed(3))}` : ` ×${l.ratio}`}</span>
+          ))}
+          . Kho hết thì chuyển thêm NL vào rồi nhập.
         </div>
       )}
       {packing && hasSp && mainLines.length === 0 && !allowNoMat && (

@@ -1475,6 +1475,9 @@ body.has-nop .pr-thead-bar { top: 72px; }
 .pb-qty .pb-unit { flex: 0 0 auto; font-size: .76rem; white-space: nowrap; }
 .pb-submit { width: 100%; margin-top: 12px; justify-content: center; }
 .pb-hint { margin-top: 6px; }
+.pb-aux-info { margin-top: 6px; padding: 7px 9px; border-radius: 9px;
+  background: var(--primary-wash, #eef2ff); line-height: 1.45; }
+.pb-aux-info b { color: var(--primary); font-weight: 750; }
 .inv-summary { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #e0e0e0; }
 .inv-total { font-size: .95rem; margin-bottom: 6px; }
 /* Đầu trang chi tiết SP: tên trái, số tồn kho TO bên phải */

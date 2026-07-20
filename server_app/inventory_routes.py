@@ -82,6 +82,21 @@ def _ensure(conn):
     _ensured = True
 
 
+def _aux_available(conn, code, place_id) -> float:
+    """Tổng tồn (remaining) của 1 mã NL trong 1 kho — pre-check trước khi hệ TỰ trừ
+    NL phụ FIFO từ kho aux_source. place_id=None → toàn kho."""
+    from inventory_store.queries import _pid_filter
+    frag, ps = _pid_filter(conn, code)
+    place_frag = " AND b.place_id = ?" if place_id is not None else ""
+    row = conn.execute(
+        "SELECT COALESCE(SUM(b.quantity - COALESCE("
+        "(SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0)),0) "
+        f"FROM inventory_boxes b WHERE {frag} AND (b.disabled IS NULL OR b.disabled=0){place_frag}",
+        ps + ([place_id] if place_id is not None else []),
+    ).fetchone()
+    return float(row[0] or 0)
+
+
 def _thread_id(request: web.Request) -> int | None:
     try:
         return int(request.match_info.get("thread_id", ""))
@@ -238,9 +253,9 @@ async def production_add_boxes_handler(request: web.Request):
                 # phiếu SẢN XUẤT chỉ nhập được SP có thể SX trực tiếp (can_produce_directly)
                 if _prod is not None and not _prod.get("can_produce_directly"):
                     return "notdirect", code, None
-            # Nhu cầu NL của đợt này: NL CHÍNH (aux=0) chỉ phiếu đóng gói bắt buộc;
-            # NL PHỤ (aux=1) bắt buộc CẢ 2 loại phiếu KHI SP bật aux_required
-            # (mặc định TẮT → không yêu cầu NL phụ; bật opt-in ở chi tiết SP để áp dụng).
+            # Nhu cầu NL của đợt này: NL CHÍNH (aux=0) chỉ phiếu đóng gói bắt buộc,
+            # người dùng CHỌN thùng. NL PHỤ (aux=1) khi SP bật aux_required → HỆ TỰ
+            # CHỌN thùng từ kho aux_source (FIFO), không add vào `needs`/không chọn tay.
             needs: list = []
             aux_needs: list = []
             if not allow_no_mat:
@@ -251,7 +266,6 @@ async def production_add_boxes_handler(request: web.Request):
                     needs += main_needs
                 if _prod is not None and _prod.get("aux_required"):
                     aux_needs = recipe_needs(conn, code, sum(qtys), aux=True)
-                    needs += aux_needs
             if needs:
                 # mã NL + vị trí của từng thùng chọn (COALESCE mã hiện hành)
                 codes: dict = {}
@@ -264,17 +278,6 @@ async def production_add_boxes_handler(request: web.Request):
                     if row:
                         codes[p.get("box_id")] = row[0]
                         box_places[p.get("box_id")] = row[1]
-                # KHO ĐẶC BIỆT nguồn NL PHỤ: mọi thùng NL PHỤ phải đang ở kho đó
-                # (aux_source=1, đặt ở PlaceDetail). Chưa chỉ định kho → không ràng buộc.
-                if aux_needs:
-                    from inventory_store import aux_source_place
-                    src = aux_source_place(conn)
-                    if src:
-                        aux_codes = {nd["code"] for nd in aux_needs}
-                        for p in picks:
-                            bid = p.get("box_id")
-                            if codes.get(bid) in aux_codes and box_places.get(bid) != src["id"]:
-                                return "auxplace", codes.get(bid), src["name"]
                 got: dict = {}
                 for p in picks:
                     c = codes.get(p.get("box_id"))
@@ -311,6 +314,19 @@ async def production_add_boxes_handler(request: web.Request):
                     else:
                         capped.append(p)      # mã ngoài công thức → không cap
                 picks = capped
+            # NL PHỤ: pre-check đủ tồn ở kho aux_source (hệ sẽ TỰ trừ FIFO khi tạo thùng).
+            # Thiếu → chặn (chuyển thêm NL vào kho đó rồi làm lại). Chưa chỉ định kho
+            # aux_source → aux_place_id=None: tự trừ toàn kho (không ràng buộc vị trí).
+            aux_place_id = None
+            if aux_needs:
+                from inventory_store import aux_source_place
+                _src = aux_source_place(conn)
+                aux_place_id = _src["id"] if _src else None
+                for nd in aux_needs:
+                    avail = _aux_available(conn, nd["code"], aux_place_id)
+                    if avail + 1e-6 < nd["amount"]:
+                        return "auxshort", nd["code"], {"place": _src["name"] if _src else "",
+                                                        "need": nd["amount"], "avail": avail}
             # NGUYÊN TỬ: tạo thùng + ghi numbers phiếu + trừ NL trong 1 transaction —
             # chết giữa chừng không để thùng mồ côi (thùng có mà phiếu/NL không khớp).
             # add_boxes/allocate_picks bọc transaction re-entrant; upsert_slip
@@ -333,8 +349,17 @@ async def production_add_boxes_handler(request: web.Request):
                     total = slip.get("total") or 0
                     for box in created:
                         total = add_number(conn, thread_id, box["quantity"], f"📦 {box['box_code']}", by=actor)
-                    # Trừ kho NL (kind='production') — đã validate đủ ở trên.
+                    # Trừ kho NL CHÍNH (kind='production') — client chọn, đã validate.
                     consume = allocate_picks(conn, picks, thread_id, by=actor, kind="production") if picks else []
+                    # NL PHỤ: hệ TỰ trừ FIFO từ kho aux_source (đã pre-check đủ tồn).
+                    if aux_needs:
+                        from inventory_store.allocations import fifo_consume
+                        aux_done = fifo_consume(conn, thread_id, aux_needs, by=actor, place_id=aux_place_id)
+                        if any(s["shortfall"] > 1e-6 for s in aux_done):
+                            raise ValueError("Kho nguyên liệu phụ vừa hết trong lúc tạo — thử lại.")
+                        aux_picks = [p for s in aux_done for p in s["picks"]]
+                        picks = picks + aux_picks       # để snapshot audit thùng NL phụ đã trừ
+                        consume = (consume or []) + aux_picks
             except ValueError as e:   # hết 999 số gọi đang hoạt động — rollback cả lô
                 return "full", str(e), None
             from server_app.inventory_audit import box_snapshot
@@ -357,6 +382,12 @@ async def production_add_boxes_handler(request: web.Request):
         return web.json_response({"ok": False, "error": f"Phiếu đóng gói bắt buộc trừ nguyên liệu — {total} chưa có công thức. Thêm công thức ở trang chi tiết sản phẩm."}, status=400)
     if created == "auxplace":
         return web.json_response({"ok": False, "error": f"Nguyên liệu phụ {total} phải xuất từ kho “{consume}” — chuyển hàng vào kho đó trước rồi chọn lại thùng."}, status=400)
+    if created == "auxshort":
+        c = consume if isinstance(consume, dict) else {}
+        place = c.get("place") or "kho nguyên liệu"
+        return web.json_response({"ok": False, "error":
+            f"Kho “{place}” không đủ nguyên liệu phụ {total} (cần {c.get('need', 0):g}, còn {c.get('avail', 0):g}) — "
+            f"chuyển thêm vào kho đó rồi nhập lại."}, status=400)
     if created == "notdirect":
         return web.json_response({"ok": False, "error": f"SP {total} không sản xuất trực tiếp — chỉ nhập được qua phiếu ĐÓNG GÓI (trừ nguyên liệu). Đổi loại phiếu, hoặc bật 'SX trực tiếp' ở chi tiết SP."}, status=400)
     if created == "notpackage":
