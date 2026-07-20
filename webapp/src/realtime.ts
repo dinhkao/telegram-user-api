@@ -29,6 +29,7 @@ export type RealtimeEvent =
   | { type: "report_draft"; thread_id: string | null; draft: any }
   | { type: "stock_pick_lock"; thread_id: string | null; code: string; holder: string | null }
   | { type: "invoice_edit_lock"; thread_id: string | null; holder: string | null }
+  | { type: "invoice_creating"; thread_id: string | null; holder: string | null }
   | { type: "app_reload" }
   | { type: "resync" };
 
@@ -38,6 +39,7 @@ const _SERVER_EVENTS = new Set([
   "customer_changed", "inventory_changed", "box_changed", "price_lists_changed",
   "quy_changed", "notif_added", "report_lock", "report_draft", "banner_changed",
   "tasks_changed", "workers_changed", "report_slips_changed", "return_changed", "stock_pick_lock", "invoice_edit_lock",
+  "invoice_creating",
   "purchase_changed", "supplier_changed", "disposal_changed", "stocktake_lock",
   "cashbox_changed", "app_reload",
 ]);

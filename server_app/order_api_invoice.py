@@ -42,12 +42,21 @@ async def api_create_invoice_handler(request: web.Request):
     thread_id, user_id = body.get("thread_id"), body.get("user_id")
     if not thread_id:
         return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
+    # Phối hợp UI: báo cho các client KHÁC "đang có người tạo HĐ" → khoá nút + tắt
+    # popup xác nhận của họ (backend vẫn chống trùng bằng _invoice_create_lock). Nhả
+    # tín hiệu trong finally dù thành công hay lỗi.
+    from server_app.production_routes import _web_actor
+    from server_app.realtime import emit_invoice_creating
+    holder = _web_actor(request, body) or "văn phòng"
+    emit_invoice_creating(int(thread_id), holder)
     try:
         from order_commands_v3 import _process_create_invoice_core
         result = await _process_create_invoice_core(int(thread_id), user_id)
     except Exception as e:
         log.error("create invoice API error: %s", e, exc_info=True)
         return web.json_response({"ok": False, "error": str(e)}, status=500)
+    finally:
+        emit_invoice_creating(int(thread_id), None)
     if not result["success"]:
         return web.json_response({"ok": False, "error": result["error"]}, status=400)
     # refresh main message (đã kèm realtime emit) + thông báo bán HĐ — chạy nền

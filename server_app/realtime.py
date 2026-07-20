@@ -228,6 +228,15 @@ def emit_invoice_edit_lock(thread_id, holder) -> None:
                   _broadcast({"type": "invoice_edit_lock", "thread_id": None if thread_id is None else str(thread_id), "holder": holder}, "invoice_edit_lock"))
 
 
+def emit_invoice_creating(thread_id, holder) -> None:
+    """Đang TẠO hoá đơn KiotViet cho đơn (holder = người bấm; None = xong/nhả). Client
+    khác khoá nút 'Tạo HĐ KiotViet' + KHÔNG hiện popup xác nhận để tránh tạo HĐ trùng
+    (backend đã chống trùng bằng _invoice_create_lock; đây là lớp phối hợp UI)."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.invoice_creating",
+                  _broadcast({"type": "invoice_creating", "thread_id": None if thread_id is None else str(thread_id), "holder": holder}, "invoice_creating"))
+
+
 def emit_report_lock(thread_id, holder) -> None:
     """Khoá sửa báo cáo phiếu SX đổi chủ (ai đang giữ / None = nhả) → client khác đổi UI."""
     from server_app.tasks import spawn_tracked

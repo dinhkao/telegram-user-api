@@ -52,6 +52,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [filterNav, setFilterNav] = useState(() => filterNeighbors(threadId));
   const [showBar, setShowBar] = useState(false);          // hiện thanh dính (cuộn qua 5 icon)
   const [invEditBy, setInvEditBy] = useState<string | null>(null);   // ai đang sửa hoá đơn đơn này
+  const [invCreatingBy, setInvCreatingBy] = useState<string | null>(null);   // ai đang TẠO HĐ KiotViet (khoá nút + tắt popup)
   const statusRef = useRef<HTMLDivElement>(null);         // 5 icon trạng thái — mốc quan sát
   const seenTs = useRef<string | null>(null); // ts mới nhất đã báo — chặn báo lại lịch sử cũ
   const saveTimer = useRef<any>(null);
@@ -177,11 +178,12 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   // Lúc mở đơn: ai đang sửa hoá đơn (để làm mờ nút 'Sửa hoá đơn' ngay)
   useEffect(() => {
     setInvEditBy(null);
+    setInvCreatingBy(null);
     invoiceEditStatus(threadId).then(setInvEditBy).catch(() => {});
   }, [threadId]);
 
   useEffect(() => {
-    let t: any, tt: any;
+    let t: any, tt: any, ct: any;
     const line = (h: any) => `• ${h.actor || "?"}: ${h.action}${h.detail ? ` — ${h.detail}` : ""}`;
     const off = onRealtime((e) => {
       if (e.type === "resync" || e.type === "customer_changed") {
@@ -195,6 +197,13 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       }
       if (e.type === "invoice_edit_lock" && e.thread_id === String(threadId)) {
         setInvEditBy(e.holder);   // ai đang sửa hoá đơn (null = nhả) → làm mờ/bỏ mờ nút
+        return;
+      }
+      if (e.type === "invoice_creating" && e.thread_id === String(threadId)) {
+        // Ai đó đang TẠO HĐ (holder) hoặc đã xong (null) → khoá/mở nút Tạo HĐ + tắt popup.
+        setInvCreatingBy(e.holder);
+        clearTimeout(ct);
+        if (e.holder) ct = setTimeout(() => setInvCreatingBy(null), 45000);   // phòng khi mất tín hiệu nhả
         return;
       }
       if (e.type === "order_changed") {
@@ -220,7 +229,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         }, 600);
       }
     });
-    return () => { off(); clearTimeout(t); clearTimeout(tt); };
+    return () => { off(); clearTimeout(t); clearTimeout(tt); clearTimeout(ct); };
   }, [threadId, custKey]);
 
   // Cuộn qua 5 icon trạng thái → hiện thanh dính tóm tắt ở đỉnh
@@ -243,6 +252,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const isAdmin = currentUser()?.role === "admin";
   const myName = currentUser()?.display_name || currentUser()?.username || "";
   const invLockedByOther = !!invEditBy && invEditBy !== myName;   // người khác đang sửa hoá đơn
+  const invCreatingByOther = !!invCreatingBy && invCreatingBy !== myName;   // người khác đang TẠO HĐ
   // ưu tiên tổng từ hoá đơn in (đã gồm mọi điều chỉnh); tự tính thì phải cộng trừ
   // discount/pvc/vat như /api/order/totals — không thì lệch với Telegram
   const computedTotal = invoiceTotal(j.invoice) - (Number(j.discount) || 0) + (Number(j.pvc) || 0) + (Number(j.vat) || 0);
@@ -361,7 +371,12 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   // Thao tác HĐ KiotViet ngay tại khối Hoá đơn (trang Sửa hoá đơn bị khoá khi đã
   // có HĐ nên Tạo/Xem/Xoá phải có ở đây, như trước khi tách trang).
   const createHD = async () => {
+    // Người khác đang tạo → KHÔNG hiện popup xác nhận (tránh tạo trùng); chỉ báo nhẹ.
+    if (invCreatingByOther) { toast(`${invCreatingBy} đang tạo HĐ — chờ họ xong`, "info"); return; }
     if (!(await confirmDialog("Tạo hoá đơn KiotViet cho đơn này?"))) return;
+    // Có thể trong lúc mở popup đã có người khác bấm tạo → chặn lại, khỏi tạo trùng.
+    if (invCreatingByOther) { toast(`${invCreatingBy} đang tạo HĐ — chờ họ xong`, "info"); return; }
+    setInvCreatingBy(myName);   // khoá nút của chính mình ngay (đợi realtime server xác nhận)
     setBusy(true);
     try {
       const r = await createKiotVietInvoice(threadId);
@@ -606,8 +621,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
               <Icon name="edit" size={16} /> {invLockedByOther ? `${invEditBy} đang sửa…` : j.stock_confirmed ? "Sửa giá hoá đơn" : "Sửa hoá đơn"}
             </button>
             {isOffice() && (j.invoice || []).length > 0 && (
-              <button class="btn block mt-2" disabled={busy} onClick={createHD}>
-                <Icon name="receipt" size={16} /> {busy ? "Đang tạo…" : "Tạo HĐ KiotViet"}
+              <button class={"btn block mt-2" + (invCreatingByOther ? " faded" : "")}
+                disabled={busy || invCreatingByOther} onClick={createHD}>
+                <Icon name="receipt" size={16} /> {invCreatingByOther
+                  ? `${invCreatingBy} đang tạo…`
+                  : busy ? "Đang tạo…" : "Tạo HĐ KiotViet"}
               </button>
             )}
           </>
