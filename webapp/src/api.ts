@@ -1406,6 +1406,7 @@ export type Stocktake = {
   completed_at?: string | null; completed_by?: string | null;
   applied_at?: string | null; applied_by?: string | null; applied_result?: StocktakeApplied | null;
   items: StocktakeItem[]; summary: StocktakeSummary; stale?: StocktakeStale;
+  aux_recorded?: Record<string, number>;   // NL phụ: định mức đã ghi trong kỳ (theo mã) — chỉ kho aux_source
 };
 export async function listPlaceStocktakes(placeId: string | number): Promise<Stocktake[]> {
   const d = await getJSON(`/api/places/${Number(placeId)}/stocktakes`, { cache: false });

@@ -201,6 +201,36 @@ def _compute_stale(items: list[dict], live: dict[int, dict]) -> dict:
     }
 
 
+def _aux_recorded_for_stocktake(conn, head) -> dict:
+    """Định mức NL phụ ĐÃ GHI (aux_usage_ledger, chưa void) trong KỲ của phiếu kiểm —
+    CHỈ cho kho aux_source. Kỳ = từ phiếu kiểm CHỐT trước → snapshot phiếu này
+    (captured_at, KHÔNG dùng 'now' — theo codex). Trả {product_code_hiện_hành: amount}
+    để StocktakeDetail hiện cạnh Sổ·Đếm·Lệch, so 'đã ghi dùng' vs 'thực đếm'."""
+    place_id = int(head["place_id"])
+    if not _place_includes_empty(conn, place_id):
+        return {}
+    t1 = head["captured_at"]
+    prev = conn.execute(
+        "SELECT completed_at FROM inventory_stocktakes WHERE place_id = ? AND status='completed' "
+        "AND completed_at IS NOT NULL AND id <> ? "
+        "AND strftime('%s', completed_at) <= strftime('%s', ?) "
+        "ORDER BY strftime('%s', completed_at) DESC, id DESC LIMIT 1",
+        (place_id, int(head["id"]), t1),
+    ).fetchone()
+    t0 = prev["completed_at"] if prev else "1970-01-01 00:00:00"
+    out: dict = {}
+    try:   # bảng ledger có thể chưa tồn tại (test/chạy lẻ) → coi như chưa ghi gì
+        from aux_usage_store import aux_usage_by_ingredient
+        usage = aux_usage_by_ingredient(conn, t0, t1)
+        for ing_id, amt in usage.items():
+            row = conn.execute("SELECT code FROM products WHERE id = ?", (ing_id,)).fetchone()
+            if row and row["code"]:
+                out[str(row["code"]).strip().upper()] = round(float(amt), 3)
+    except Exception:
+        return {}
+    return out
+
+
 def _payload(conn, stocktake_id: int) -> dict | None:
     head = _row(conn, stocktake_id)
     if not head:
@@ -248,6 +278,8 @@ def _payload(conn, stocktake_id: int) -> dict | None:
         out["stale"] = _compute_stale(items, _place_live_state(conn, int(head["place_id"])))
     else:
         out["stale"] = {"changed": False, "added": [], "removed": [], "adjusted": [], "summary": ""}
+    # Định mức NL phụ đã ghi trong kỳ (chỉ kho aux_source) → đối chiếu vs thực đếm.
+    out["aux_recorded"] = _aux_recorded_for_stocktake(conn, head)
     return out
 
 

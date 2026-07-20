@@ -103,9 +103,11 @@ export function ProductionBoxes({
   // MỌI nguyên liệu (chính + phụ). Server cùng rule (inventory_routes).
   const packing = (slip.kind || "san_xuat") === "dong_goi";
   const mainLines = recipe.filter((l) => !l.aux);
-  const auxLines = auxRequired ? recipe.filter((l) => !!l.aux) : [];
-  const requiredLines = packing ? [...mainLines, ...auxLines] : auxLines;
-  const isAuxIng = (code: string) => auxLines.some((l) => l.ingredient_code === code);
+  // NL PHỤ (aux) KHÔNG còn chọn thùng / trừ kho — hệ TỰ GHI ĐỊNH MỨC khi tạo thùng
+  // (số cây × tỉ lệ) để cuối ngày kiểm kho đối chiếu. Chỉ hiện thông tin, không bắt chọn.
+  const auxInfoLines = recipe.filter((l) => !!l.aux);
+  const requiredLines = packing ? mainLines : [];
+  const isAuxIng = (_code: string) => false;
   const recipeOk = allowNoMat
     || ((!packing || mainLines.length > 0)
       && (requiredLines.length === 0
@@ -358,6 +360,15 @@ export function ProductionBoxes({
               </div>
             );
           })}
+        </div>
+      )}
+      {auxInfoLines.length > 0 && (
+        <div class="pb-aux-info muted small">
+          📋 Tự ghi định mức NL phụ (KHÔNG trừ kho — cuối ngày kiểm kho đối chiếu):{" "}
+          {auxInfoLines.map((l, i) => (
+            <span key={l.ingredient_code}>{i > 0 ? ", " : ""}<b>{l.ingredient_code}</b>
+              {produced > 0 ? ` ${soVN(+(l.ratio * produced).toFixed(3))}` : ` ×${l.ratio}`}</span>
+          ))}
         </div>
       )}
       {packing && hasSp && mainLines.length === 0 && !allowNoMat && (

@@ -196,6 +196,8 @@ def run_boot_migrations() -> None:
     ensure_adjustments_schema(conn)
     from inventory_store.stocktakes import create_stocktake_tables
     create_stocktake_tables(conn)
+    from aux_usage_store import create_aux_usage_table   # sổ ghi định mức NL phụ (không trừ kho)
+    create_aux_usage_table(conn)
     from purchase_store import ensure_purchases_schema
     ensure_purchases_schema(conn)
     conn.commit()

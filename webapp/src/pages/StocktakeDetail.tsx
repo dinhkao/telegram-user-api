@@ -416,7 +416,8 @@ export function StocktakeDetail({ id }: { id: string }) {
                 {group.deviations > 0 && <em>{group.deviations} lệch</em>}
               </span>
             </header>
-            {/* Sổ · Đếm · Lệch theo TỪNG MÃ — trả lời "sau khi trừ SX, thực tế hao/dư bao nhiêu" */}
+            {/* Sổ · Đếm · Lệch theo TỪNG MÃ; NL phụ thêm "Đã ghi dùng" (định mức SX
+                trong kỳ, KHÔNG trừ kho) để đối chiếu vs thực đếm rồi quyết định trừ. */}
             <div class="stocktake-group-nums muted small">
               Sổ {soVN(group.expected)} · Đếm {group.counted ? soVN(group.actual) : "—"}
               {group.diff != null && Math.abs(group.diff) > 1e-9 && (
@@ -425,6 +426,9 @@ export function StocktakeDetail({ id }: { id: string }) {
                 </b>
               )}
               {group.diff != null && Math.abs(group.diff) <= 1e-9 && <span class="t-ok">{" · Khớp"}</span>}
+              {slip.aux_recorded?.[group.code] != null && (
+                <span class="stocktake-aux-rec">📋 Đã ghi dùng: {soVN(slip.aux_recorded[group.code])}</span>
+              )}
             </div>
             <div class="stocktake-list">
               {group.items.map((it) => <StocktakeRow key={it.id} item={it} value={values[it.id] ?? ""}
