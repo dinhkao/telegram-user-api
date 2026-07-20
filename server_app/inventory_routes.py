@@ -79,8 +79,6 @@ def _ensure(conn):
     create_allocations_table(conn)
     migrate_legacy_allocations(conn)
     create_recipe_table(conn)
-    from aux_usage_store import create_aux_usage_table
-    create_aux_usage_table(conn)
     _ensured = True
 
 
@@ -240,10 +238,9 @@ async def production_add_boxes_handler(request: web.Request):
                 # phiếu SẢN XUẤT chỉ nhập được SP có thể SX trực tiếp (can_produce_directly)
                 if _prod is not None and not _prod.get("can_produce_directly"):
                     return "notdirect", code, None
-            # Nhu cầu NL của đợt này: chỉ NL CHÍNH (aux=0), phiếu ĐÓNG GÓI bắt buộc.
-            # NL PHỤ (aux=1) KHÔNG trừ kho / KHÔNG chọn thùng nữa — chỉ GHI ĐỊNH MỨC
-            # (aux_usage_ledger) sau khi tạo thùng, để cuối ngày kiểm kho đối chiếu rồi
-            # mới quyết định trừ. (Cờ aux_required cũ đã ngừng dùng cho đường trừ kho.)
+            # Nhu cầu NL của đợt này: NL CHÍNH (aux=0) chỉ phiếu đóng gói bắt buộc;
+            # NL PHỤ (aux=1) bắt buộc CẢ 2 loại phiếu KHI SP bật aux_required
+            # (mặc định TẮT → không yêu cầu NL phụ; bật opt-in ở chi tiết SP để áp dụng).
             needs: list = []
             aux_needs: list = []
             if not allow_no_mat:
@@ -252,6 +249,9 @@ async def production_add_boxes_handler(request: web.Request):
                     if not main_needs:
                         return "norecipe", code, None
                     needs += main_needs
+                if _prod is not None and _prod.get("aux_required"):
+                    aux_needs = recipe_needs(conn, code, sum(qtys), aux=True)
+                    needs += aux_needs
             if needs:
                 # mã NL + vị trí của từng thùng chọn (COALESCE mã hiện hành)
                 codes: dict = {}
@@ -333,12 +333,8 @@ async def production_add_boxes_handler(request: web.Request):
                     total = slip.get("total") or 0
                     for box in created:
                         total = add_number(conn, thread_id, box["quantity"], f"📦 {box['box_code']}", by=actor)
-                    # Trừ kho NL CHÍNH (kind='production') — đã validate đủ ở trên.
+                    # Trừ kho NL (kind='production') — đã validate đủ ở trên.
                     consume = allocate_picks(conn, picks, thread_id, by=actor, kind="production") if picks else []
-                    # NL PHỤ: KHÔNG trừ kho — GHI ĐỊNH MỨC (số cây × tỉ lệ) theo từng
-                    # thùng để cuối ngày kiểm kho đối chiếu (aux_usage_ledger).
-                    from aux_usage_store import record_boxes_aux_usage
-                    record_boxes_aux_usage(conn, created, code, by=actor)
             except ValueError as e:   # hết 999 số gọi đang hoạt động — rollback cả lô
                 return "full", str(e), None
             from server_app.inventory_audit import box_snapshot
@@ -844,9 +840,6 @@ async def box_delete_handler(request: web.Request):
                     got, into = release_production_amount(conn, src, nd["code"], nd["amount"])
                     if got > 0:
                         restored.append({"code": nd["code"], "amount": round(got, 3), "boxes": into})
-            # Void sổ ghi định mức NL phụ của thùng này (giữ dấu vết, không tính đối chiếu nữa).
-            from aux_usage_store import void_box_aux_usage
-            void_box_aux_usage(conn, box_id)
             delete_box(conn, box_id)
             # Gỡ entry numbers của thùng khỏi phiếu SX nguồn → total tính lại đúng
             # (numbers là nguồn thật; note nhập lúc tạo = '📦 <box_code>'). Số gọi
