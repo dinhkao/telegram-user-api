@@ -109,10 +109,25 @@ def _stamp_count_units(conn, stocktake_id: int, *, only_null: bool = False) -> N
         conn.execute(sql, params)
 
 
+def _place_includes_empty(conn, place_id: int) -> bool:
+    """Kho NGUỒN NL phụ (aux_source) đưa CẢ thùng sổ=0 vào phiếu kiểm — để đếm được
+    hàng còn THỰC TẾ dù sổ đã cạn (thùng tem sổ ghi hết nhưng ngoài kho vẫn còn →
+    trước đây thùng biến mất khỏi phiếu, không có ô nhập). Kho khác giữ lọc tồn>0
+    (toàn hệ có ~600 thùng rỗng, đưa hết vào sẽ loạn phiếu)."""
+    try:
+        from inventory_store.queries import aux_source_place
+        src = aux_source_place(conn)
+        return bool(src and int(src["id"]) == int(place_id))
+    except Exception:
+        return False
+
+
 def _place_live_state(conn, place_id: int) -> dict[int, dict]:
     """Tồn HIỆN TẠI của vị trí — CÙNG tập & công thức với lúc chụp phiếu (thùng active,
-    remaining = quantity − Σ mọi allocation, > 0). Trả {box_id: {box_code, product_code,
+    remaining = quantity − Σ mọi allocation). Kho aux_source đưa cả thùng sổ=0 (xem
+    _place_includes_empty), kho khác chỉ tồn>0. Trả {box_id: {box_code, product_code,
     product_unit, remaining}} để so với snapshot phát hiện biến động."""
+    keep_empty = 1 if _place_includes_empty(conn, place_id) else 0
     rows = conn.execute(
         """
         WITH alloc AS (
@@ -126,9 +141,9 @@ def _place_live_state(conn, place_id: int) -> dict[int, dict]:
         LEFT JOIN alloc a ON a.box_id = b.id
         LEFT JOIN products p ON p.id = b.product_id
         WHERE b.place_id = ? AND COALESCE(b.disabled, 0) = 0
-          AND b.quantity - COALESCE(a.qty, 0) > 0.000000001
+          AND (b.quantity - COALESCE(a.qty, 0) > 0.000000001 OR ?)
         """,
-        (place_id,),
+        (place_id, keep_empty),
     ).fetchall()
     return {int(r["box_id"]): dict(r) for r in rows}
 
@@ -245,6 +260,7 @@ def create_or_resume_stocktake(conn, place_id: int, *, actor: str | None = None)
             (place_id, place["name"], actor, actor),
         )
         sid = int(cur.lastrowid)
+        keep_empty = 1 if _place_includes_empty(conn, place_id) else 0
         conn.execute(
             """
             WITH alloc AS (
@@ -259,10 +275,10 @@ def create_or_resume_stocktake(conn, place_id: int, *, actor: str | None = None)
             LEFT JOIN alloc a ON a.box_id = b.id
             LEFT JOIN products p ON p.id = b.product_id
             WHERE b.place_id = ? AND COALESCE(b.disabled, 0) = 0
-              AND b.quantity - COALESCE(a.qty, 0) > 0.000000001
+              AND (b.quantity - COALESCE(a.qty, 0) > 0.000000001 OR ?)
             ORDER BY COALESCE(p.code, b.product_code), b.box_code
             """,
-            (sid, place_id),
+            (sid, place_id, keep_empty),
         )
         _stamp_count_units(conn, sid)
         return _payload(conn, sid), False

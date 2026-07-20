@@ -133,14 +133,20 @@ export function StocktakeDetail({ id }: { id: string }) {
     }
     return [...shown.entries()].map(([code, items]) => {
       const all = slip.items.filter((it) => (it.product_code || "Chưa có mã") === code);
-      let counted = 0, deviations = 0;
+      // Sổ = tổng expected của mã; Đếm = tổng actual đã nhập; Lệch = Đếm − Sổ (chỉ
+      // đủ nghĩa khi ĐẾM HẾT mọi thùng của mã → hiện khi counted === total).
+      let counted = 0, deviations = 0, expected = 0, actual = 0;
       for (const it of all) {
-        const actual = num(values[it.id] ?? "");
-        if (actual == null || !Number.isFinite(actual)) continue;
+        expected += it.expected_quantity;
+        const a = num(values[it.id] ?? "");
+        if (a == null || !Number.isFinite(a)) continue;
         counted += 1;
-        if (Math.abs(actual - it.expected_quantity) > 1e-9) deviations += 1;
+        actual += a;
+        if (Math.abs(a - it.expected_quantity) > 1e-9) deviations += 1;
       }
-      return { code, items, counted, total: all.length, deviations, unit: all[0]?.product_unit || "" };
+      const diff = counted === all.length ? actual - expected : null;
+      return { code, items, counted, total: all.length, deviations, expected, actual, diff,
+               unit: all[0]?.product_unit || "" };
     });
   }, [slip, visible, values]);
 
@@ -410,6 +416,16 @@ export function StocktakeDetail({ id }: { id: string }) {
                 {group.deviations > 0 && <em>{group.deviations} lệch</em>}
               </span>
             </header>
+            {/* Sổ · Đếm · Lệch theo TỪNG MÃ — trả lời "sau khi trừ SX, thực tế hao/dư bao nhiêu" */}
+            <div class="stocktake-group-nums muted small">
+              Sổ {soVN(group.expected)} · Đếm {group.counted ? soVN(group.actual) : "—"}
+              {group.diff != null && Math.abs(group.diff) > 1e-9 && (
+                <b class={group.diff < 0 ? "t-danger" : "t-warn"}>
+                  {" · Lệch "}{group.diff > 0 ? "+" : ""}{soVN(group.diff)}
+                </b>
+              )}
+              {group.diff != null && Math.abs(group.diff) <= 1e-9 && <span class="t-ok">{" · Khớp"}</span>}
+            </div>
             <div class="stocktake-list">
               {group.items.map((it) => <StocktakeRow key={it.id} item={it} value={values[it.id] ?? ""}
                 bulkVal={bulkVals[it.id] ?? ""} looseVal={looseVals[it.id] ?? ""} note={notes[it.id] || ""}

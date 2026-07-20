@@ -28,7 +28,9 @@ const GROUPS: Group[] = [
     { label: "Chuyển kho", href: "#/chuyen-kho", icon: "truck" },
     { label: "Xuất hủy", href: "#/xuat-huy", icon: "trash" },
     { label: "Điều chỉnh tồn", href: "#/dieu-chinh", icon: "edit" },
-    { label: "Hao hụt NL phụ", href: "#/hao-hut-nl", icon: "chart", office: true },
+    // Ẩn "Hao hụt NL phụ" (đối chiếu theo CÔNG THỨC, dễ nhầm với kiểm kho thường).
+    // Route + API + code còn nguyên (deep-link #/hao-hut-nl vẫn mở) — bật lại khi cần.
+    // { label: "Hao hụt NL phụ", href: "#/hao-hut-nl", icon: "chart", office: true },
     { label: "Sản phẩm", href: "#/san-pham", icon: "tag" },
     { label: "Vị trí kho", href: "#/vi-tri", icon: "box" },
     { label: "Số thùng", href: "#/so-thung", icon: "grid" },

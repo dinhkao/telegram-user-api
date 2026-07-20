@@ -55,6 +55,25 @@ class StocktakeStoreTest(unittest.TestCase):
         self.assertTrue(resumed)
         self.assertEqual(same["id"], slip["id"])
 
+    def test_aux_source_place_includes_zero_stock_boxes(self):
+        # Kho aux_source: thùng sổ=0 (đã trừ hết) VẪN vào phiếu để đếm hàng thực còn.
+        from inventory_store.queries import set_place_aux_source
+        aux = add_place(self.conn, "Kho nguyên liệu đang dùng")
+        set_place_aux_source(self.conn, aux["id"], True)
+        boxes = add_boxes(self.conn, "K10", [20, 30], place_id=aux["id"])
+        allocate_picks(self.conn, [{"box_id": boxes[0]["id"], "quantity": 20}], 2001)  # sổ về 0
+        slip, _ = create_or_resume_stocktake(self.conn, aux["id"], actor="Duy")
+        # Cả 2 thùng có mặt, thùng cạn expected=0 (trước đây bị loại → nay đếm được).
+        self.assertEqual(sorted(i["expected_quantity"] for i in slip["items"]), [0, 30])
+
+    def test_non_aux_place_excludes_zero_stock_boxes(self):
+        # Kho thường: thùng sổ=0 KHÔNG vào phiếu (toàn hệ nhiều thùng rỗng, tránh loạn).
+        boxes = add_boxes(self.conn, "K10", [15], place_id=self.place["id"])
+        allocate_picks(self.conn, [{"box_id": boxes[0]["id"], "quantity": 15}], 2002)  # sổ về 0
+        slip, _ = create_or_resume_stocktake(self.conn, self.place["id"], actor="Duy")
+        # 2 thùng gốc (40, 30) còn tồn; thùng vừa cạn KHÔNG có mặt.
+        self.assertEqual(sorted(i["expected_quantity"] for i in slip["items"]), [30, 40])
+
     def test_snapshot_does_not_drift_when_inventory_changes(self):
         slip, _ = create_or_resume_stocktake(self.conn, self.place["id"])
         allocate_picks(self.conn, [{"box_id": self.boxes[1]["id"], "quantity": 5}], 1002)
