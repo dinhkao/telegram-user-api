@@ -98,16 +98,13 @@ export function ProductionBoxes({
     return isFinite(n) && n > 0 && isFinite(c) && c > 0 ? n * c : 0;
   })();
   const chosenOf = (code: string) => (consumePicks[code] || []).reduce((s, p) => s + p.quantity, 0);
-  // Nguyên liệu theo LOẠI PHIẾU: SẢN XUẤT → không cần NL CHÍNH nhưng vẫn trừ NL PHỤ
-  // (aux) nếu SP bật yêu cầu; ĐÓNG GÓI → bắt buộc công thức chính + đủ thùng cho
-  // MỌI nguyên liệu (chính + phụ). Server cùng rule (inventory_routes).
+  // Nguyên liệu theo LOẠI PHIẾU: ĐÓNG GÓI → bắt buộc công thức chính + CHỌN TAY đủ
+  // thùng NL CHÍNH. SẢN XUẤT → không chọn tay NL. NL PHỤ (aux) khi SP bật aux_required
+  // → HỆ TỰ trừ FIFO từ kho aux_source (không chọn tay). Server cùng rule (inventory_routes).
   const packing = (slip.kind || "san_xuat") === "dong_goi";
   const mainLines = recipe.filter((l) => !l.aux);
-  // NL PHỤ (aux) khi SP bật aux_required: HỆ TỰ trừ FIFO từ kho aux_source — KHÔNG
-  // chọn tay (chỉ hiện thông tin). NL CHÍNH vẫn chọn tay khi đóng gói.
   const auxAutoLines = auxRequired ? recipe.filter((l) => !!l.aux) : [];
   const requiredLines = packing ? mainLines : [];
-  const isAuxIng = (_code: string) => false;
   const recipeOk = allowNoMat
     || ((!packing || mainLines.length > 0)
       && (requiredLines.length === 0
@@ -353,7 +350,7 @@ export function ProductionBoxes({
             const enough = need > 0 && chosen >= need;
             return (
               <div class="stock-head" key={l.ingredient_code}>
-                <b>{l.ingredient_code}{l.aux ? <span class="muted small"> (phụ{auxPlace ? ` — kho ${auxPlace.name}` : ""})</span> : null}</b>
+                <b>{l.ingredient_code}</b>
                 <span class={enough ? "inv-pick-sum ok" : "inv-pick-sum"}>{soVN(chosen)}/{soVN(need)}</span>
                 <span class="muted small">tồn {soVN(l.stock ?? 0)}</span>
                 <button class="btn small" disabled={!hasSp || produced <= 0} onClick={() => setPickIng(l.ingredient_code)}>Chọn thùng</button>
@@ -411,7 +408,7 @@ export function ProductionBoxes({
           need={+(((recipe.find((l) => l.ingredient_code === pickIng)?.ratio || 0) * produced).toFixed(3))}
           got={0}
           initial={consumePicks[pickIng] || []}
-          placeFilter={isAuxIng(pickIng) ? auxPlace : null}
+          placeFilter={null}
           onClose={() => setPickIng(null)}
           onPick={async (picks) => { const code = pickIng; setConsumePicks((prev) => ({ ...prev, [code]: picks })); }}
         />

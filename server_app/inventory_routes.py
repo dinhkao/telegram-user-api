@@ -88,10 +88,13 @@ def _aux_available(conn, code, place_id) -> float:
     from inventory_store.queries import _pid_filter
     frag, ps = _pid_filter(conn, code)
     place_frag = " AND b.place_id = ?" if place_id is not None else ""
+    # Chỉ cộng remaining DƯƠNG từng thùng — khớp FIFO (bỏ thùng âm), tránh pre-check
+    # báo đủ trong khi FIFO không lấy được.
     row = conn.execute(
-        "SELECT COALESCE(SUM(b.quantity - COALESCE("
-        "(SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0)),0) "
-        f"FROM inventory_boxes b WHERE {frag} AND (b.disabled IS NULL OR b.disabled=0){place_frag}",
+        "SELECT COALESCE(SUM(CASE WHEN rem > 0 THEN rem ELSE 0 END), 0) FROM ("
+        "SELECT b.quantity - COALESCE("
+        "(SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0) AS rem "
+        f"FROM inventory_boxes b WHERE {frag} AND (b.disabled IS NULL OR b.disabled=0){place_frag})",
         ps + ([place_id] if place_id is not None else []),
     ).fetchone()
     return float(row[0] or 0)
@@ -311,9 +314,11 @@ async def production_add_boxes_handler(request: web.Request):
                             continue
                         remain_allow[c] = allow - take
                         capped.append({**p, "quantity": round(take, 6)})
-                    else:
-                        capped.append(p)      # mã ngoài công thức → không cap
+                    # mã NGOÀI NL chính (kể cả NL phụ client gửi lạc/replay) → BỎ, không
+                    # trừ tay: NL phụ do hệ tự trừ FIFO, tránh trừ đôi kho.
                 picks = capped
+            if not needs:
+                picks = []   # san_xuat / allow_no_mat: không trừ NL chính tay (NL phụ tự trừ)
             # NL PHỤ: pre-check đủ tồn ở kho aux_source (hệ sẽ TỰ trừ FIFO khi tạo thùng).
             # Thiếu → chặn (chuyển thêm NL vào kho đó rồi làm lại). Chưa chỉ định kho
             # aux_source → aux_place_id=None: tự trừ toàn kho (không ràng buộc vị trí).
@@ -321,7 +326,9 @@ async def production_add_boxes_handler(request: web.Request):
             if aux_needs:
                 from inventory_store import aux_source_place
                 _src = aux_source_place(conn)
-                aux_place_id = _src["id"] if _src else None
+                if not _src:   # chưa chỉ định kho NL phụ → KHÔNG lấy bừa toàn kho
+                    return "auxnoplace", None, None
+                aux_place_id = _src["id"]
                 for nd in aux_needs:
                     avail = _aux_available(conn, nd["code"], aux_place_id)
                     if avail + 1e-6 < nd["amount"]:
@@ -382,6 +389,9 @@ async def production_add_boxes_handler(request: web.Request):
         return web.json_response({"ok": False, "error": f"Phiếu đóng gói bắt buộc trừ nguyên liệu — {total} chưa có công thức. Thêm công thức ở trang chi tiết sản phẩm."}, status=400)
     if created == "auxplace":
         return web.json_response({"ok": False, "error": f"Nguyên liệu phụ {total} phải xuất từ kho “{consume}” — chuyển hàng vào kho đó trước rồi chọn lại thùng."}, status=400)
+    if created == "auxnoplace":
+        return web.json_response({"ok": False, "error":
+            "Chưa chỉ định kho nguồn nguyên liệu phụ — vào Vị trí kho, đặt ⭐ kho nguồn NL phụ (aux_source) rồi nhập lại."}, status=400)
     if created == "auxshort":
         c = consume if isinstance(consume, dict) else {}
         place = c.get("place") or "kho nguyên liệu"
