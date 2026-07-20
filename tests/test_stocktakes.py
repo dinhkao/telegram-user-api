@@ -66,6 +66,22 @@ class StocktakeStoreTest(unittest.TestCase):
         # Cả 2 thùng có mặt, thùng cạn expected=0 (trước đây bị loại → nay đếm được).
         self.assertEqual(sorted(i["expected_quantity"] for i in slip["items"]), [0, 30])
 
+    def test_aux_source_excludes_zero_box_when_code_reused(self):
+        # Thùng sổ=0 mà SỐ (box_code) đã bị thùng còn hàng khác tái dùng → LOẠI (né
+        # 2 dòng cùng số ngoài kho, tránh nhập trùng làm Apply nhân đôi tồn).
+        from inventory_store.queries import set_place_aux_source
+        aux = add_place(self.conn, "Kho nguyên liệu đang dùng")
+        set_place_aux_source(self.conn, aux["id"], True)
+        b_empty, b_full = add_boxes(self.conn, "K10", [20, 30], place_id=aux["id"])
+        allocate_picks(self.conn, [{"box_id": b_empty["id"], "quantity": 20}], 2003)  # sổ về 0
+        # Giả lập tái dùng số: thùng đầy mang cùng box_code với thùng đã cạn.
+        self.conn.execute("UPDATE inventory_boxes SET box_code = ? WHERE id = ?",
+                          (b_empty["box_code"], b_full["id"]))
+        self.conn.commit()
+        slip, _ = create_or_resume_stocktake(self.conn, aux["id"], actor="Duy")
+        # Chỉ thùng còn hàng có mặt; thùng cạn trùng mã bị loại.
+        self.assertEqual([i["expected_quantity"] for i in slip["items"]], [30])
+
     def test_non_aux_place_excludes_zero_stock_boxes(self):
         # Kho thường: thùng sổ=0 KHÔNG vào phiếu (toàn hệ nhiều thùng rỗng, tránh loạn).
         boxes = add_boxes(self.conn, "K10", [15], place_id=self.place["id"])

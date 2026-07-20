@@ -53,6 +53,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [showBar, setShowBar] = useState(false);          // hiện thanh dính (cuộn qua 5 icon)
   const [invEditBy, setInvEditBy] = useState<string | null>(null);   // ai đang sửa hoá đơn đơn này
   const [invCreatingBy, setInvCreatingBy] = useState<string | null>(null);   // ai đang TẠO HĐ KiotViet (khoá nút + tắt popup)
+  const invCreatingRef = useRef<string | null>(null);   // bản mới nhất để check SAU await confirmDialog (state trong closure bị cũ)
   const statusRef = useRef<HTMLDivElement>(null);         // 5 icon trạng thái — mốc quan sát
   const seenTs = useRef<string | null>(null); // ts mới nhất đã báo — chặn báo lại lịch sử cũ
   const saveTimer = useRef<any>(null);
@@ -178,7 +179,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   // Lúc mở đơn: ai đang sửa hoá đơn (để làm mờ nút 'Sửa hoá đơn' ngay)
   useEffect(() => {
     setInvEditBy(null);
-    setInvCreatingBy(null);
+    setInvCreatingBy(null); invCreatingRef.current = null;
     invoiceEditStatus(threadId).then(setInvEditBy).catch(() => {});
   }, [threadId]);
 
@@ -202,8 +203,9 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       if (e.type === "invoice_creating" && e.thread_id === String(threadId)) {
         // Ai đó đang TẠO HĐ (holder) hoặc đã xong (null) → khoá/mở nút Tạo HĐ + tắt popup.
         setInvCreatingBy(e.holder);
+        invCreatingRef.current = e.holder;
         clearTimeout(ct);
-        if (e.holder) ct = setTimeout(() => setInvCreatingBy(null), 45000);   // phòng khi mất tín hiệu nhả
+        if (e.holder) ct = setTimeout(() => { setInvCreatingBy(null); invCreatingRef.current = null; }, 45000);   // phòng khi mất tín hiệu nhả
         return;
       }
       if (e.type === "order_changed") {
@@ -374,9 +376,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     // Người khác đang tạo → KHÔNG hiện popup xác nhận (tránh tạo trùng); chỉ báo nhẹ.
     if (invCreatingByOther) { toast(`${invCreatingBy} đang tạo HĐ — chờ họ xong`, "info"); return; }
     if (!(await confirmDialog("Tạo hoá đơn KiotViet cho đơn này?"))) return;
-    // Có thể trong lúc mở popup đã có người khác bấm tạo → chặn lại, khỏi tạo trùng.
-    if (invCreatingByOther) { toast(`${invCreatingBy} đang tạo HĐ — chờ họ xong`, "info"); return; }
-    setInvCreatingBy(myName);   // khoá nút của chính mình ngay (đợi realtime server xác nhận)
+    // Trong lúc mở popup có thể có người khác vừa bấm tạo → đọc REF (state trong
+    // closure đã cũ) để chặn kịp, khỏi tạo trùng.
+    const other = invCreatingRef.current;
+    if (other && other !== myName) { toast(`${other} đang tạo HĐ — chờ họ xong`, "info"); return; }
+    setInvCreatingBy(myName); invCreatingRef.current = myName;   // khoá nút của chính mình ngay (đợi realtime server xác nhận)
     setBusy(true);
     try {
       const r = await createKiotVietInvoice(threadId);

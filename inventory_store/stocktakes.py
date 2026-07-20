@@ -15,6 +15,17 @@ from utils.db import transaction
 
 _STALE_EPS = 1e-6
 
+# Thùng sổ=0 CHỈ vào phiếu khi số thùng (box_code) KHÔNG bị thùng còn hàng khác trong
+# CÙNG kho tái dùng — nếu trùng thì số đó ngoài kho trỏ thùng MỚI (đầy), đưa cả row cũ
+# vào sẽ hiện 2 dòng cùng số → dễ nhập trùng, Apply nhân đôi tồn (codex review #1).
+# Dùng chung cho snapshot (INSERT) và _place_live_state để predicate luôn khớp; yêu cầu
+# CTE `alloc` + alias `b` trong truy vấn dùng nó.
+_NO_CODE_COLLISION = (
+    "NOT EXISTS (SELECT 1 FROM inventory_boxes b2 LEFT JOIN alloc a2 ON a2.box_id = b2.id "
+    "WHERE b2.place_id = b.place_id AND COALESCE(b2.disabled,0)=0 AND b2.id <> b.id "
+    "AND b2.box_code = b.box_code AND b2.quantity - COALESCE(a2.qty,0) > 0.000000001)"
+)
+
 
 def create_stocktake_tables(conn) -> None:
     conn.execute(
@@ -129,7 +140,7 @@ def _place_live_state(conn, place_id: int) -> dict[int, dict]:
     product_unit, remaining}} để so với snapshot phát hiện biến động."""
     keep_empty = 1 if _place_includes_empty(conn, place_id) else 0
     rows = conn.execute(
-        """
+        f"""
         WITH alloc AS (
             SELECT box_id, SUM(quantity) AS qty FROM box_allocations GROUP BY box_id
         )
@@ -141,7 +152,7 @@ def _place_live_state(conn, place_id: int) -> dict[int, dict]:
         LEFT JOIN alloc a ON a.box_id = b.id
         LEFT JOIN products p ON p.id = b.product_id
         WHERE b.place_id = ? AND COALESCE(b.disabled, 0) = 0
-          AND (b.quantity - COALESCE(a.qty, 0) > 0.000000001 OR ?)
+          AND (b.quantity - COALESCE(a.qty, 0) > 0.000000001 OR (? AND {_NO_CODE_COLLISION}))
         """,
         (place_id, keep_empty),
     ).fetchall()
@@ -262,7 +273,7 @@ def create_or_resume_stocktake(conn, place_id: int, *, actor: str | None = None)
         sid = int(cur.lastrowid)
         keep_empty = 1 if _place_includes_empty(conn, place_id) else 0
         conn.execute(
-            """
+            f"""
             WITH alloc AS (
                 SELECT box_id, SUM(quantity) AS qty
                 FROM box_allocations GROUP BY box_id
@@ -275,7 +286,7 @@ def create_or_resume_stocktake(conn, place_id: int, *, actor: str | None = None)
             LEFT JOIN alloc a ON a.box_id = b.id
             LEFT JOIN products p ON p.id = b.product_id
             WHERE b.place_id = ? AND COALESCE(b.disabled, 0) = 0
-              AND (b.quantity - COALESCE(a.qty, 0) > 0.000000001 OR ?)
+              AND (b.quantity - COALESCE(a.qty, 0) > 0.000000001 OR (? AND {_NO_CODE_COLLISION}))
             ORDER BY COALESCE(p.code, b.product_code), b.box_code
             """,
             (sid, place_id, keep_empty),

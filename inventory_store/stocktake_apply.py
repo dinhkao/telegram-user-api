@@ -46,6 +46,9 @@ def apply_stocktake(conn, stocktake_id: int, *, actor: str | None = None) -> tup
             box, rem = _box_remaining(conn, int(it["box_id"]))
             if not box:
                 return None, f"Thùng {it['box_code']} ({it['product_code']}) đã bị xoá khỏi kho — không áp được"
+            if box["disabled"]:
+                return None, (f"Thùng {it['box_code']} ({it['product_code']}) đã bị vô hiệu hoá — "
+                              f"kích hoạt lại trước khi áp (tránh cộng tồn vào thùng đã tắt).")
             if rem + delta < -_EPS:
                 return None, (f"Thùng {it['box_code']} ({it['product_code']}): điều chỉnh {delta:+g} "
                               f"nhưng hiện chỉ còn {rem:g} — tồn sẽ âm. Kiểm lại trước khi áp.")
