@@ -78,6 +78,7 @@ _PAIRS = {
     "POST /api/inventory/box/{id}/adjust": ("adjustment.created",),
     "POST /api/adjustments/{id}/delete": ("adjustment.deleted",),
     "POST /api/settings": ("settings.changed",),
+    "POST /api/quy-cach": ("settings.quy_cach_changed",),
     "POST /api/products": ("product.created",),
     # SP theo MÃ (path không phải số — chuẩn hoá {code} riêng)
     "POST /api/products/{code}": ("product.updated",),
@@ -155,7 +156,8 @@ def _scope_of_path(path: str) -> str | None:
     for pref, sc in (("/api/customers", "customer"), ("/api/price-lists", "price"),
                      ("/api/units", "unit"), ("/api/workers", "worker"), ("/api/wages", "production"),
                      ("/api/report-slips", "report_slip"), ("/api/tasks", "task"),
-                     ("/api/users", "user"), ("/api/app/", "app"), ("/api/settings", "settings"),
+                     ("/api/users", "user"), ("/api/app/", "app"), ("/api/quy-cach", "settings"),
+                     ("/api/settings", "settings"),
                      ("/api/stocktakes", "stocktake"), ("/api/inventory", "box"), ("/api/banner", "app"),
                      ("/api/quy", "quy"), ("/api/reminder", "order")):
         if path.startswith(pref):
@@ -376,6 +378,8 @@ def _generic(r, key: str, label: str, body: dict, resolver) -> dict:
     href = href_for(scope, eid) if scope not in ("app", "user") else ""
     if key == "POST /api/settings":
         href = "#/login"
+    if key == "POST /api/quy-cach":
+        href = "#/quy-cach"
     if key.startswith("POST /api/cashbox/"):
         href = "#/ket"
     return {"scope": scope, "eid": eid, "label": label, "parts": parts, "href": href}

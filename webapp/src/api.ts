@@ -1629,6 +1629,23 @@ export async function setAppSetting(key: string, value: boolean): Promise<AppSet
   return d.settings || {};
 }
 
+// ── Quy cách đóng gói (admin): số cái / 1 thùng, 1 bịch (base + override theo mã SP) ──
+export type QuyCach = {
+  thung_base: number;
+  bich_base: number;
+  thung_overrides: Record<string, number>;
+  bich_overrides: Record<string, number>;
+  dm180_loc: number;
+};
+export async function getQuyCach(): Promise<QuyCach> {
+  const d = await getJSON("/api/quy-cach", { cache: false });
+  return d.quy_cach as QuyCach;
+}
+export async function setQuyCach(quy_cach: QuyCach): Promise<QuyCach> {
+  const d = await postJSON("/api/quy-cach", { quy_cach });
+  return d.quy_cach as QuyCach;
+}
+
 /** Chốt/huỷ chốt xuất kho cho đơn (huỷ = admin). */
 export async function stockConfirmOrder(id: string | number, confirm: boolean): Promise<{ stock_confirmed: { at?: string; by?: string } | null }> {
   return postJSON(`/api/order/${id}/stock-confirm`, { confirm });

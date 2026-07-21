@@ -325,4 +325,8 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         vi = _SETTING_VI.get(k, k)
         val = "BẬT" if v in (True, "true", 1) else ("TẮT" if v in (False, "false", 0) else str(v))
         return "Đổi cài đặt hệ thống", [part(f"{vi}: {val}")]
+    if action == "settings.quy_cach_changed":
+        tb, bb = p.get("thung_base"), p.get("bich_base")
+        seg = [part(f"thùng {tb}, bịch {bb}")] if tb is not None and bb is not None else []
+        return "Đổi quy cách đóng gói", seg
     return None

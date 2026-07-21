@@ -61,6 +61,7 @@ import { WagesDashboard } from "./pages/WagesDashboard";
 import { ReportSlips } from "./pages/ReportSlips";
 import { ReportSlipDetail } from "./pages/ReportSlipDetail";
 import { WageTable } from "./pages/WageTable";
+import { QuyCachPage } from "./pages/QuyCach";
 import { BulkMove } from "./pages/BulkMove";
 import { PlacesList } from "./pages/PlacesList";
 import { PlaceDetail } from "./pages/PlaceDetail";
@@ -496,6 +497,7 @@ function App() {
   else if (hash.startsWith("#/tien-cong")) page = <WagesDashboard />;
   else if (baoCaoMatch) page = <ReportSlipDetail id={baoCaoMatch[1]} />;
   else if (hash.startsWith("#/bao-cao")) page = <ReportSlips />;
+  else if (hash.startsWith("#/quy-cach")) page = <QuyCachPage />;
   else if (hash.startsWith("#/luong-sp")) page = <WageTable />;
   else if (hash.startsWith("#/luong-thang")) page = <MonthlyPayroll />;
   else if (hash.startsWith("#/nhap-ung")) page = <AdvanceEntry />;
@@ -571,6 +573,7 @@ function App() {
     : hash.startsWith("#/home") ? "Trang chủ"
     : hash.startsWith("#/tien-cong") ? "Tiền công"
     : hash.startsWith("#/bao-cao") ? "Báo cáo SX"
+    : hash.startsWith("#/quy-cach") ? "Quy cách đóng gói"
     : hash.startsWith("#/luong-sp") ? "Lương SP"
     : hash.startsWith("#/luong-thang") ? "Bảng lương tháng"
     : hash.startsWith("#/nhap-ung") ? "Nhập ứng lương"

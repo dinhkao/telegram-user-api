@@ -43,6 +43,9 @@ function AdminSettings() {
         </button>
         <span onClick={() => !busy && flip("pack_allow_no_material")}>Cho phép <b>nhập trực tiếp SP đóng gói</b> không bắt buộc trừ nguyên liệu (bỏ qua kiểm tra công thức + loại phiếu khi nhập thùng)</span>
       </div>
+      <div class="set-row">
+        <a class="btn" href="#/quy-cach" style="flex:1;text-align:center">📦 Quy cách đóng gói (số cái / thùng, bịch)…</a>
+      </div>
     </div>
   );
 }

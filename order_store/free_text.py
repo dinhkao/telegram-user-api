@@ -4,17 +4,10 @@ import re
 from product_store.queries import get_all_products
 
 from .search import get_customer_price_list
+from .quy_cach import load_quy_cach, thung_qty, bich_qty
 
-# Quy cách mặc định (số cái / 1 thùng, 1 bịch) theo mã SP. Nhập tay số sau <n>t /
-# <n>b sẽ ghi đè các mặc định này.
-_THUNG_BASE = 50  # 1 thùng mặc định = 50
-_THUNG_DEFAULT = {
-    "DM50": 100,
-    "KDXDB": 5, "KGL": 5, "KMT": 5, "KMD": 5, "KHDX": 5,
-    "KDDT": 12,
-}
-_BICH_BASE = 10  # 1 bịch mặc định = 10 (trừ KDDT = 3)
-_BICH_DEFAULT = {"KDDT": 3}
+# Quy cách đóng gói (số cái / 1 thùng, 1 bịch, lốc DM180) giờ ở order_store.quy_cach,
+# admin sửa được từ webapp (#/quy-cach). Nhập tay số sau <n>t / <n>b vẫn ghi đè.
 
 
 def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None, *, _all_products=None) -> list[dict]:
@@ -34,9 +27,10 @@ def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None, *, 
         pass
     valid_codes |= set(alias_codes)
     price_list = get_customer_price_list(conn, kh_id) if kh_id else {}
+    cfg = load_quy_cach(conn)
     cleaned = re.sub(r"[,\n]+", " ", text)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    cleaned = re.sub(r"(?i)(dm180)\s+(\d+)\s*l[ốo]c\b", r"\1 \2b 12", cleaned)
+    cleaned = re.sub(r"(?i)(dm180)\s+(\d+)\s*l[ốo]c\b", rf"\1 \2b {cfg['dm180_loc']}", cleaned)
     tokens, invoice, i = cleaned.split(" "), [], 0
     while i < len(tokens):
         token_upper = tokens[i].upper()
@@ -56,14 +50,14 @@ def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None, *, 
                 qc_type, so_qc, has_qc, i = "tb", [float(m_tb.group(1)), float(m_tb.group(2))], True, i + 1
             if has_qc:
                 if qc_type in ("t", "tb"):
-                    sl1pc = _THUNG_DEFAULT.get(sp.upper(), _THUNG_BASE)
+                    sl1pc = thung_qty(sp, cfg)
                     if i < len(tokens):
                         try:
                             sl1pc, i = int(tokens[i]), i + 1  # số/thùng nhập tay → ghi đè
                         except ValueError:
                             pass
                 elif qc_type == "b":
-                    sl1pc = _BICH_DEFAULT.get(sp.upper(), _BICH_BASE)
+                    sl1pc = bich_qty(sp, cfg)
                     if i < len(tokens):
                         try:
                             sl1pc, i = int(tokens[i]), i + 1  # số/bịch nhập tay → ghi đè

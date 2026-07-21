@@ -448,6 +448,9 @@ def create_app():
     from server_app.settings_routes import settings_get_handler, settings_set_handler
     r.add_get("/api/settings", settings_get_handler)
     r.add_post("/api/settings", settings_set_handler)
+    from server_app.quy_cach_routes import quy_cach_get_handler, quy_cach_set_handler
+    r.add_get("/api/quy-cach", quy_cach_get_handler)
+    r.add_post("/api/quy-cach", quy_cach_set_handler)
 
     # ─── notification center ─────────────────────────────────────────────────
     from server_app.notify import notifications_list_handler
