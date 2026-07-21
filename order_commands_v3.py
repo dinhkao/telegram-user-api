@@ -610,6 +610,8 @@ async def _refresh_order_message(client, db_conn, thread_id: int, channel_id: in
     # Đẩy realtime tới webapp (chạy nền) — phủ mọi lệnh gõ trong Telegram
     from server_app.realtime import emit_order_changed
     emit_order_changed(thread_id)
+    from server_app.stock_alert import check_and_notify_bg
+    check_and_notify_bg(thread_id)
 
 
 def _refresh_order_if_possible(client, db_conn, order: dict):

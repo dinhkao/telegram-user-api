@@ -90,3 +90,5 @@ async def refresh_order_bg(conn, thread_id, channel_id, message_id):
     # Đẩy realtime tới webapp (chạy nền, không chặn hot path)
     from server_app.realtime import emit_order_changed
     emit_order_changed(thread_id)
+    from server_app.stock_alert import check_and_notify_bg
+    check_and_notify_bg(thread_id)

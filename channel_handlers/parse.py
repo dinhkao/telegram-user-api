@@ -68,5 +68,10 @@ async def auto_parse(client, conn, thread_id: int, text: str, *, customer_key=No
             await generate_picking_sheet(client, conn, thread_id)
         except Exception as e:
             log.warning("picking sheet generation failed for thread=%d: %s", thread_id, e)
+        try:
+            from server_app.stock_alert import check_and_notify_bg
+            check_and_notify_bg(thread_id)
+        except Exception as e:
+            log.warning("stock alert check failed for thread=%d: %s", thread_id, e)
     except Exception as e:
         log.warning("auto-parse failed for thread=%d: %s", thread_id, e)
