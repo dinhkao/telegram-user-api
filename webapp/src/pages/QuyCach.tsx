@@ -1,7 +1,7 @@
 // Quy cách đóng gói (#/quy-cach) — admin sửa số cái / thùng, cái / bịch theo
-// mã SP. Đọc/ghi qua GET/POST /api/quy-cach. Dùng webapp/src/login.tsx AdminSettings
-// làm mẫu (card + set-row + toggle + toast) + PageHead + states.
-import { useEffect, useState } from "preact/hooks";
+// mã SP. Đọc/ghi qua GET/POST /api/quy-cach. TỰ ĐỘNG LƯU (debounce) mỗi khi đổi —
+// không có nút Lưu. Dùng PageHead + states + toast.
+import { useEffect, useRef, useState } from "preact/hooks";
 import { currentUser, getQuyCach, setQuyCach, type QuyCach } from "../api";
 import { PageHead } from "../ui/PageHead";
 import { Loading, ErrorState } from "../ui/states";
@@ -29,12 +29,16 @@ export function QuyCachPage() {
   const user = currentUser();
   const [cfg, setCfg] = useState<QuyCach | null>(null);
   const [err, setErr] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<"" | "saving" | "saved">("");
   const [thungRows, setThungRows] = useState<OverrideRow[]>([]);
   const [bichRows, setBichRows] = useState<OverrideRow[]>([]);
+  const loadedRef = useRef(false);       // đã qua lần render sau khi tải chưa (đừng auto-save lúc vừa tải)
+  const saveTimer = useRef<any>(null);
+  const okTimer = useRef<any>(null);
 
   const load = async () => {
     setErr("");
+    loadedRef.current = false;
     try {
       const c = await getQuyCach();
       setCfg(c);
@@ -46,36 +50,49 @@ export function QuyCachPage() {
   };
   useEffect(() => { load(); }, []);
 
+  // TỰ ĐỘNG LƯU: mỗi khi cfg/bảng đổi → debounce 700ms rồi POST. Bỏ qua lần set
+  // state ngay sau khi tải về (loadedRef). KHÔNG đồng bộ state từ response để không
+  // cắt ngang lúc đang gõ (server chuẩn hoá mã/khử dòng rỗng, local là nguồn sự thật).
+  useEffect(() => {
+    if (!cfg) return;
+    if (!loadedRef.current) { loadedRef.current = true; return; }
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setStatus("saving");
+    const snapshot: QuyCach = {
+      ...cfg,
+      thung_overrides: listToOverrides(thungRows),
+      bich_overrides: listToOverrides(bichRows),
+    };
+    saveTimer.current = setTimeout(async () => {
+      try {
+        await setQuyCach(snapshot);
+        setStatus("saved");
+        if (okTimer.current) clearTimeout(okTimer.current);
+        okTimer.current = setTimeout(() => setStatus(""), 1500);
+      } catch (e: any) {
+        setStatus("");
+        toast(e?.message || "Lỗi lưu quy cách", "err");
+      }
+    }, 700);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, [cfg, thungRows, bichRows]);
+
   const updateField = (k: keyof QuyCach, v: number) => {
     if (!cfg) return;
     setCfg({ ...cfg, [k]: v });
   };
 
-  const saveAll = async () => {
-    if (!cfg) return;
-    setSaving(true);
-    try {
-      const payload: QuyCach = {
-        ...cfg,
-        thung_overrides: listToOverrides(thungRows),
-        bich_overrides: listToOverrides(bichRows),
-      };
-      const next = await setQuyCach(payload);
-      setCfg(next);
-      setThungRows(overridesToList(next.thung_overrides));
-      setBichRows(overridesToList(next.bich_overrides));
-      toast("Đã lưu quy cách đóng gói", "ok");
-    } catch (e: any) {
-      toast(e?.message || "Lỗi lưu quy cách", "err");
-    } finally {
-      setSaving(false);
-    }
-  };
+  const statusEl = status === "saving"
+    ? <span class="qc-status">⏳ Đang lưu…</span>
+    : status === "saved"
+      ? <span class="qc-status ok">✓ Đã lưu</span>
+      : <span class="qc-status muted">Tự lưu</span>;
 
   const head = (
     <PageHead fallback="#/login"
       title="📦 Quy cách đóng gói"
-      sub="số cái / 1 thùng, 1 bịch, 1 lốc — admin sửa" />
+      sub="số cái / 1 thùng, 1 bịch, 1 lốc — admin sửa"
+      right={statusEl} />
   );
 
   if (!user || user.role !== "admin") {
@@ -113,21 +130,21 @@ export function QuyCachPage() {
         <div class="set-row">
           <span style={{ flex: 1 }}>1 thùng (<b>t</b>) mặc định =</span>
           <input class="qc-num" type="text" inputMode="numeric"
-            value={cfg.thung_base} style={{ width: 72, textAlign: "right" }}
+            value={cfg.thung_base}
             onInput={(e: any) => updateField("thung_base", Number(e.currentTarget.value) || 1)} />
           <span>cái</span>
         </div>
         <div class="set-row">
           <span style={{ flex: 1 }}>1 bịch (<b>b</b>) mặc định =</span>
           <input class="qc-num" type="text" inputMode="numeric"
-            value={cfg.bich_base} style={{ width: 72, textAlign: "right" }}
+            value={cfg.bich_base}
             onInput={(e: any) => updateField("bich_base", Number(e.currentTarget.value) || 1)} />
           <span>cái</span>
         </div>
         <div class="set-row">
           <span style={{ flex: 1 }}>1 lốc <b>DM180</b> =</span>
           <input class="qc-num" type="text" inputMode="numeric"
-            value={cfg.dm180_loc} style={{ width: 72, textAlign: "right" }}
+            value={cfg.dm180_loc}
             onInput={(e: any) => updateField("dm180_loc", Number(e.currentTarget.value) || 1)} />
           <span>cái</span>
         </div>
@@ -142,10 +159,10 @@ export function QuyCachPage() {
             {thungRows.map((r, i) => (
               <div class="qc-override-row" key={i}>
                 <input class="qc-code" type="text" placeholder="Mã SP"
-                  value={r.code} style={{ flex: 1, minWidth: 80 }}
+                  value={r.code}
                   onInput={(e: any) => updThungRow(i, e.currentTarget.value.toUpperCase(), r.value)} />
                 <input class="qc-val" type="text" inputMode="numeric"
-                  value={r.value} style={{ width: 64, textAlign: "right" }}
+                  value={r.value}
                   onInput={(e: any) => updThungRow(i, r.code, Number(e.currentTarget.value) || 1)} />
                 <button class="qc-del" onClick={() => delThungRow(i)} title="Xoá dòng">✕</button>
               </div>
@@ -164,10 +181,10 @@ export function QuyCachPage() {
             {bichRows.map((r, i) => (
               <div class="qc-override-row" key={i}>
                 <input class="qc-code" type="text" placeholder="Mã SP"
-                  value={r.code} style={{ flex: 1, minWidth: 80 }}
+                  value={r.code}
                   onInput={(e: any) => updBichRow(i, e.currentTarget.value.toUpperCase(), r.value)} />
                 <input class="qc-val" type="text" inputMode="numeric"
-                  value={r.value} style={{ width: 64, textAlign: "right" }}
+                  value={r.value}
                   onInput={(e: any) => updBichRow(i, r.code, Number(e.currentTarget.value) || 1)} />
                 <button class="qc-del" onClick={() => delBichRow(i)} title="Xoá dòng">✕</button>
               </div>
@@ -178,13 +195,9 @@ export function QuyCachPage() {
       </section>
 
       <p class="muted small" style={{ padding: "0 4px 8px" }}>
-        Nhập tay số sau <code>&lt;n&gt;t</code> / <code>&lt;n&gt;b</code> trong nội dung đơn vẫn ghi đè bảng này.
-        VD: <code>K10 2b</code> = 2 bịch × (bịch của K10).
+        Thay đổi <b>tự động lưu</b>. Nhập tay số sau <code>&lt;n&gt;t</code> / <code>&lt;n&gt;b</code> trong
+        nội dung đơn vẫn ghi đè bảng này. VD: <code>K10 2b</code> = 2 bịch × (bịch của K10).
       </p>
-
-      <button class="btn primary" disabled={saving} onClick={saveAll} style={{ width: "100%", padding: 12 }}>
-        {saving ? "⏳ Đang lưu…" : "💾 Lưu"}
-      </button>
 
       <p class="center" style={{ margin: "12px 0" }}><a class="btn" href="#/login">← Quay lại</a></p>
     </div>

@@ -2378,6 +2378,9 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .qc-num { width: 72px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 8px; font: inherit; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .qc-del { flex: none; width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--danger, #c00); }
 .qc-del:hover { background: #fee; }
+.qc-status { font-size: .78rem; white-space: nowrap; }
+.qc-status.ok { color: var(--ok, #14804a); }
+.qc-status.muted { color: var(--muted); }
 
 /* CÔNG TẮC GẠT dùng chung (.tgl / .tgl.on) — track + knob trượt */
 .tgl { position: relative; display: inline-block; vertical-align: middle; flex: 0 0 auto; width: 44px; height: 24px; border-radius: 12px; border: 1px solid var(--border); background: #cfd4dc; padding: 0; cursor: pointer; transition: background .18s ease, border-color .18s ease; }
