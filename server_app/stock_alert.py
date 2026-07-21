@@ -46,7 +46,7 @@ def _compute(conn, thread_id: int):
         if prev:
             _update_order_json_field(conn, thread_id, "$.stock_alert_state", {})
         return None
-    from inventory_store import product_summary
+    from inventory_store import product_summary, list_order_allocations
     avail: dict[str, float] = {}
     for s in product_summary(conn):
         code = str(s.get("product_code") or "").strip().upper()
@@ -56,9 +56,18 @@ def _compute(conn, thread_id: int):
             avail[code] = float(s.get("in_stock_total") or 0)
         except (TypeError, ValueError):
             avail[code] = 0.0
+    # in_stock_total = tồn CÒN LẠI = quantity − Σ MỌI phân bổ (kể cả phần đã xuất cho
+    # CHÍNH đơn này). Cộng lại phần của đơn này thì "khả dụng cho đơn" = tồn tự do +
+    # phần đã giữ cho nó → đơn đã xuất đủ KHÔNG bị coi là thiếu (tránh báo oan lúc
+    # chốt kho / phân bổ; phân bổ chỉ dời từ tự-do sang của-đơn nên have không đổi).
+    own: dict[str, float] = {}
+    for a in list_order_allocations(conn, thread_id):
+        code = str(a.get("product_code") or "").strip().upper()
+        if code:
+            own[code] = own.get(code, 0.0) + float(a.get("quantity") or 0)
     short: dict[str, tuple[float, float]] = {}
     for code, need in needs.items():
-        have = avail.get(code, 0.0)
+        have = avail.get(code, 0.0) + own.get(code, 0.0)
         if have + _EPS < need:
             short[code] = (need, have)
     # Dấu đã báo = {code: round(need)} — chỉ báo lại khi TẬP THIẾU (mã + số cần) đổi

@@ -109,6 +109,32 @@ class StockAlert(unittest.TestCase):
         self._order([])
         self.assertIsNone(_compute(self.conn, THREAD))
 
+    def test_no_false_alarm_after_full_allocation(self):
+        # Tồn 50 = cần 50 → không thiếu; sau khi XUẤT ĐỦ 50 cho đơn, tồn tự do về 0
+        # nhưng phần của-đơn = 50 → vẫn KHÔNG được coi là thiếu (đây là bug đã sửa).
+        from inventory_store.allocations import allocate_picks
+        boxes = add_boxes(self.conn, "K10", [50])
+        self.conn.commit()
+        self._order([{"sp": "K10", "sl": 50}])
+        self.assertIsNone(_compute(self.conn, THREAD))
+        allocate_picks(self.conn, [{"box_id": boxes[0]["id"], "quantity": 50}], THREAD)
+        self.conn.commit()
+        self.assertIsNone(_compute(self.conn, THREAD))
+
+    def test_partial_allocation_have_counts_own(self):
+        # Tồn 30 < cần 50 → thiếu, have=30. Xuất 30 cho đơn → have vẫn 30 (không tụt
+        # về 0 như bug cũ), tập thiếu KHÔNG đổi.
+        from inventory_store.allocations import allocate_picks
+        boxes = add_boxes(self.conn, "K10", [30])
+        self.conn.commit()
+        self._order([{"sp": "K10", "sl": 50}])
+        res = _compute(self.conn, THREAD)
+        self.assertIsNotNone(res)
+        self.assertEqual(res["short"]["K10"], (50.0, 30.0))
+        allocate_picks(self.conn, [{"box_id": boxes[0]["id"], "quantity": 30}], THREAD)
+        self.conn.commit()
+        self.assertIsNone(_compute(self.conn, THREAD))   # tập thiếu không đổi → dedup, không báo lại
+
 
 if __name__ == "__main__":
     unittest.main()
