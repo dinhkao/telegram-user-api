@@ -911,6 +911,27 @@ export async function getAttendanceSummary(ym: string): Promise<{ days: Attendan
   const d = await getJSON(`/api/attendance/summary?ym=${encodeURIComponent(ym)}`, { cache: false });
   return { days: d.days || [], unmapped: d.unmapped || [], last_sync: d.last_sync || null, sync_interval_min: d.sync_interval_min || 30 };
 }
+export async function renderAttendanceTodayImage(): Promise<Blob> {
+  try {
+    const res = await fetch(serverUrl() + "/api/attendance/today-image", {
+      method: "POST", headers: headers(), cache: "no-store",
+    });
+    setNet(true);
+    if (res.status === 401) {
+      window.location.hash = "#/login";
+      throw new ApiError(401, "Cần đăng nhập");
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new ApiError(res.status, data.error || `Lỗi ${res.status}`);
+    }
+    return await res.blob();
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    setNet(false);
+    throw new Error("Mất mạng — không tạo được ảnh chấm công");
+  }
+}
 export async function listAttendance(day: string, employeeCode?: string): Promise<AttendanceEvent[]> {
   const q = employeeCode ? `&employee_code=${encodeURIComponent(employeeCode)}` : "";
   const d = await getJSON(`/api/attendance/list?day=${encodeURIComponent(day)}${q}`, { cache: false });

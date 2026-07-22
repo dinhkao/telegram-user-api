@@ -278,7 +278,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `event_id` SHA-256 PRIMARY KEY → idempotent (batch trùng/retry vẫn 2xx, chỉ 2xx SAU
   commit); `attendance_employee_map` map mã NV trên máy → `production_workers.id`
   (POST `/api/attendance/map` backfill event cũ; mã chưa map = hàng chờ `unmapped` trong
-  GET `/api/attendance/summary?ym=`; GET `/api/attendance/list?day=` — office). Luật thuần
+  GET `/api/attendance/summary?ym=`). XEM mở cho MỌI người dùng đăng nhập (2026-07-22:
+  summary + day + today-image; trang `#/cham-cong` staff chỉ xem); SỬA (map, manual
+  add/delete, suppress) + GET list/map vẫn office. Luật thuần
   `domain.py` (validate batch + token). Tính LƯƠNG/ca từ raw CHƯA làm (nối vào
   `salary_store` wage_type 'time' sau — đừng suy ca từ punch đầu/cuối khi chưa chốt luật).
   KHÔNG sửa phía collector từ repo này (máy Windows riêng). Tests:

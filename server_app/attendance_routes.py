@@ -1,13 +1,15 @@
 """API CHẤM CÔNG. POST /api/attendance/events = ingestion cho collector Windows
 (bearer token riêng của máy — KHÔNG phải web token, miễn web_auth ở middleware; batch
-idempotent theo event_id, chỉ 2xx sau khi commit). Các GET/map = văn phòng xem punch +
-gán mã NV máy → thợ. Nối: attendance_store, server_app.production_wages (office gate).
+idempotent theo event_id, chỉ 2xx sau khi commit). XEM (summary/day/ảnh hôm nay) = mọi
+người dùng đăng nhập; SỬA (map, thêm/xoá giờ tay, ẩn giờ máy) + list/map GET = văn
+phòng. Nối: attendance_store, server_app.production_wages (office gate).
 """
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
+import os
 import re
 
 from aiohttp import web
@@ -17,6 +19,7 @@ from server_app.production_wages import office_user
 from utils.db import get_connection
 from utils.paths import SHARED_DB_PATH
 import attendance_store
+from server_app.attendance_image import build_today_html, today_vn
 
 log = logging.getLogger("attendance")
 _YMD = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -95,10 +98,7 @@ async def attendance_list_handler(request: web.Request):
 async def attendance_summary_handler(request: web.Request):
     """GET /api/attendance/summary?ym=YYYY-MM — mỗi (ngày, NV): MỌI giờ chấm (times)
     + hàng chờ mã chưa map + last_sync (lúc nhận batch gần nhất — collector 30ph/lần).
-    Office."""
-    d = _deny(request)
-    if d:
-        return d
+    Mọi người dùng đăng nhập (gán mã/sửa giờ vẫn office)."""
     ym = (request.query.get("ym") or "").strip()
     if not _YM.match(ym):
         return web.json_response({"ok": False, "error": "ym phải dạng YYYY-MM"}, status=400)
@@ -116,6 +116,46 @@ async def attendance_summary_handler(request: web.Request):
     days, unmapped, sync = await asyncio.to_thread(_run)
     return web.json_response({"ok": True, "days": days, "unmapped": unmapped,
                               "last_sync": sync, "sync_interval_min": 30})
+
+
+async def attendance_today_image_handler(request: web.Request):
+    """POST /api/attendance/today-image — server render báo cáo hôm nay thành PNG.
+    Dữ liệu và HTML được dựng ở server; thiết bị người dùng chỉ nhận bytes ảnh.
+    Mọi người dùng đăng nhập."""
+    day = today_vn()
+
+    def _load_html():
+        from worker_store import ensure_table, list_workers
+        conn = _db()
+        try:
+            attendance_store.ensure_schema(conn)
+            ensure_table(conn)
+            return build_today_html(day, attendance_store.day_summary(conn, day[:7]), list_workers(conn))
+        finally:
+            conn.close()
+
+    png_path = None
+    try:
+        html = await asyncio.to_thread(_load_html)
+        from integrations.firebase_html_to_png.core import _executor, _html_to_png
+        loop = asyncio.get_running_loop()
+        png_path = await loop.run_in_executor(_executor, _html_to_png, html, log, 1080, 0)
+        png_bytes = await asyncio.to_thread(_read_bytes, png_path)
+    except Exception as e:  # noqa: BLE001
+        log.exception("attendance image: HTML→PNG lỗi day=%s: %s", day, e)
+        return web.json_response({"ok": False, "error": "Không tạo được ảnh chấm công"}, status=500)
+    finally:
+        if png_path:
+            try:
+                os.unlink(png_path)
+            except OSError:
+                pass
+
+    return web.Response(
+        body=png_bytes,
+        content_type="image/png",
+        headers={"Cache-Control": "no-store", "Content-Disposition": f'inline; filename="cham-cong-{day}.png"'},
+    )
 
 
 async def attendance_map_handler(request: web.Request):
@@ -180,10 +220,8 @@ def _office_run(request, fn):
 
 async def attendance_day_handler(request: web.Request):
     """GET /api/attendance/day?employee_code=&day= — chi tiết 1 (NV, ngày) cho popup
-    sửa giờ: giờ máy (kèm cờ ẩn) + giờ thêm tay. Office."""
-    d = _deny(request)
-    if d:
-        return d
+    xem/sửa giờ: giờ máy (kèm cờ ẩn) + giờ thêm tay. Mọi người dùng đăng nhập
+    (thao tác sửa vẫn office)."""
     code = (request.query.get("employee_code") or "").strip()
     day = (request.query.get("day") or "").strip()
     if not code or not _YMD.match(day):
@@ -246,3 +284,8 @@ async def attendance_suppress_handler(request: web.Request):
     except ValueError as e:
         return web.json_response({"ok": False, "error": str(e)}, status=400)
     return web.json_response({"ok": True})
+
+
+def _read_bytes(path: str) -> bytes:
+    with open(path, "rb") as f:
+        return f.read()

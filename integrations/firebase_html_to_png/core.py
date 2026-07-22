@@ -59,7 +59,7 @@ def _crop_image(input_path: str, output_path: str, margin: int = 5) -> None:
     image.save(output_path, "PNG")
 
 
-def _html_to_png(html_content: str, log) -> str:
+def _html_to_png(html_content: str, log, viewport_width: int = 360, wait_ms: int = 100) -> str:
     global _browser
     if _browser is None:
         _init_browser(log)
@@ -72,9 +72,10 @@ def _html_to_png(html_content: str, log) -> str:
         for attempt in range(2):
             try:
                 page = _browser.new_page()
-                page.set_viewport_size({"width": 360, "height": 600})
+                page.set_viewport_size({"width": max(360, int(viewport_width)), "height": 600})
                 page.goto(f"file://{os.path.abspath(html_path)}", wait_until="load")
-                page.wait_for_timeout(100)
+                if wait_ms > 0:
+                    page.wait_for_timeout(int(wait_ms))
                 page.screenshot(path=screenshot_path, full_page=True)
                 page.close()
                 _crop_image(screenshot_path, output_path)

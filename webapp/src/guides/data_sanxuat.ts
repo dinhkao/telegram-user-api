@@ -151,7 +151,7 @@ export const GUIDES_SANXUAT: Guide[] = [
     ],
   },
   {
-    key: "cham-cong", icon: "clock", cat: "Sản xuất", office: true,
+    key: "cham-cong", icon: "clock", cat: "Sản xuất",
     title: "Chấm công (máy Ronald Jack)",
     desc: "Xem giờ vào/ra từ máy chấm công vân tay; gán mã NV trên máy cho từng thợ.",
     routes: ["#/cham-cong"],
@@ -168,6 +168,8 @@ export const GUIDES_SANXUAT: Guide[] = [
         vd "TC 12g30". <b>Kéo ngang</b> để xem hết tháng, bấm vào 1 ống để xem giờ chấm chi
         tiết. Đầu trang có dòng <i>cập nhật gần nhất</i> và giờ máy gửi lần kế.</p>` },
       { title: "Gán mã NV trên máy cho thợ", html: `
+        <p>Mọi người đều <b>xem</b> được trang Chấm công; riêng <b>gán mã</b> và <b>sửa giờ</b>
+        (ẩn giờ máy, thêm/xoá giờ tay) chỉ tài khoản <b>văn phòng</b> làm được.</p>
         <p>Máy chỉ biết <b>mã số</b> (11, 95…), hệ thống cần biết mã đó là <b>ai</b>. Có 2 chỗ gán:</p>
         <ul>
           <li>Khu <b>"Mã máy chưa gán thợ"</b> đầu trang Chấm công — chọn thợ cho từng mã lạ;</li>

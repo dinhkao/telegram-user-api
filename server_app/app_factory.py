@@ -319,10 +319,12 @@ def create_app():
         attendance_summary_handler, attendance_map_handler, attendance_map_list_handler,
         attendance_day_handler, attendance_manual_add_handler,
         attendance_manual_delete_handler, attendance_suppress_handler,
+        attendance_today_image_handler,
     )
     r.add_post("/api/attendance/events", attendance_ingest_handler)
     r.add_get("/api/attendance/list", attendance_list_handler)
     r.add_get("/api/attendance/summary", attendance_summary_handler)
+    r.add_post("/api/attendance/today-image", attendance_today_image_handler)
     r.add_get("/api/attendance/map", attendance_map_list_handler)
     r.add_post("/api/attendance/map", attendance_map_handler)
     r.add_get("/api/attendance/day", attendance_day_handler)

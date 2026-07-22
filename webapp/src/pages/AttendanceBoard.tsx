@@ -1,4 +1,5 @@
-// DASHBOARD CHẤM CÔNG (#/cham-cong) — CHỈ văn phòng. LƯỚI COMPACT cả tháng:
+// DASHBOARD CHẤM CÔNG (#/cham-cong) — MỌI người dùng XEM được; SỬA (gán mã,
+// ẩn/thêm/xoá giờ) chỉ văn phòng (server cũng chặn). LƯỚI COMPACT cả tháng:
 // cột đầu CỐ ĐỊNH (sticky) = tên NV (+ tổng TĂNG CA tháng, tím); mỗi NGÀY 1 cột gồm
 // 3 ỐNG dọc = ca SÁNG 7–11 + ca CHIỀU 13–17 + TĂNG CA 🌙 17–21 (tím, mảnh hơn).
 // Mô hình: cặp chấm liên tiếp (vào→ra, vào→ra…) = các KHOẢNG CÓ MẶT trong ngày; mỗi
@@ -12,7 +13,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   addAttendanceManual, deleteAttendanceManual, getAttendanceDay, getAttendanceSummary,
-  isOffice, listWorkers, mapAttendanceCode, suppressAttendance,
+  isOffice, listWorkers, mapAttendanceCode, renderAttendanceTodayImage, suppressAttendance,
   type AttendanceDay, type AttendanceDayDetail, type AttendanceUnmapped, type Worker,
 } from "../api";
 import { dayLabel } from "../format";
@@ -36,6 +37,7 @@ const shiftYM = (ym: string, d: number) => { const [y, m] = ym.split("-").map(Nu
 const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
 const dmyt = (iso: string) => (iso && iso.length >= 16 ? `${Number(iso.slice(8, 10))}/${Number(iso.slice(5, 7))} ${iso.slice(11, 16)}` : "—");
 const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 
 // 3 khung giờ hiển thị: 2 ca chính + khung tăng ca chiều tối (tím).
 const SHIFTS = [
@@ -83,6 +85,15 @@ function detectIssues(times: string[]): string[] {
     }
   }
   return issues;
+}
+
+function blobDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Không đọc được ảnh"));
+    reader.readAsDataURL(blob);
+  });
 }
 
 function SyncBanner({ lastSync, intervalMin }: { lastSync: string | null; intervalMin: number }) {
@@ -164,10 +175,11 @@ function Tube({ spans, loose, shift }: {
   );
 }
 
-// POPUP SỬA GIỜ 1 (NV, ngày) — neo đỉnh màn. Giờ MÁY chỉ Ẩn/Hiện (raw bất biến);
+// POPUP XEM/SỬA GIỜ 1 (NV, ngày) — neo đỉnh màn. Giờ MÁY chỉ Ẩn/Hiện (raw bất biến);
 // sửa 1 giờ = ẩn giờ máy rồi thêm giờ tay. Mỗi thao tác ghi server ngay + reload.
-function CellEditor({ code, who, day, onClose, onChanged }: {
-  code: string; who: string; day: string; onClose: () => void; onChanged: () => void;
+// canEdit=false (staff): chỉ xem giờ, không nút sửa.
+function CellEditor({ code, who, day, canEdit, onClose, onChanged }: {
+  code: string; who: string; day: string; canEdit: boolean; onClose: () => void; onChanged: () => void;
 }) {
   const [det, setDet] = useState<AttendanceDayDetail | null>(null);
   const [loadErr, setLoadErr] = useState(false);
@@ -203,7 +215,7 @@ function CellEditor({ code, who, day, onClose, onChanged }: {
   const [y, m, d] = day.split("-");
   return (
     <div class="att-ed-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div class="att-ed" role="dialog" aria-modal="true" aria-label={`Sửa giờ chấm — ${who}`}>
+      <div class="att-ed" role="dialog" aria-modal="true" aria-label={`${canEdit ? "Sửa" : "Xem"} giờ chấm — ${who}`}>
         <div class="att-ed-head">
           <b>{who}</b>
           <span class="muted">{Number(d)}/{Number(m)}/{y}</span>
@@ -217,11 +229,11 @@ function CellEditor({ code, who, day, onClose, onChanged }: {
               <div class={"att-ed-row" + (mrow.suppressed ? " off" : "")} key={mrow.event_id}>
                 <span class="att-ed-time">{mrow.time}</span>
                 {mrow.suppressed && <span class="att-ed-badge">đã ẩn</span>}
-                <button class="btn att-ed-btn" disabled={busy}
+                {canEdit && <button class="btn att-ed-btn" disabled={busy}
                   onClick={() => run(() => suppressAttendance(mrow.event_id, !mrow.suppressed),
                     mrow.suppressed ? `Đã hiện lại giờ ${mrow.time}` : `Đã ẩn giờ ${mrow.time}`)}>
                   {mrow.suppressed ? "Hiện lại" : "Ẩn"}
-                </button>
+                </button>}
               </div>
             ))}
             <div class="att-ed-sec">Giờ thêm tay</div>
@@ -229,19 +241,21 @@ function CellEditor({ code, who, day, onClose, onChanged }: {
               <div class="att-ed-row" key={mn.id}>
                 <span class="att-ed-time">{mn.time}</span>
                 <span class="muted small">✎ {mn.created_by || "?"}</span>
-                <button class="btn att-ed-btn danger" disabled={busy}
-                  onClick={async () => { if (await confirmDialog(`Xoá giờ thêm tay ${mn.time}?`, { danger: true })) run(() => deleteAttendanceManual(mn.id), `Đã xoá giờ ${mn.time}`); }}>Xoá</button>
+                {canEdit && <button class="btn att-ed-btn danger" disabled={busy}
+                  onClick={async () => { if (await confirmDialog(`Xoá giờ thêm tay ${mn.time}?`, { danger: true })) run(() => deleteAttendanceManual(mn.id), `Đã xoá giờ ${mn.time}`); }}>Xoá</button>}
               </div>
             ))}
-            <div class="att-ed-row att-ed-add">
-              <input type="time" class="pw-input" value={newTime} disabled={busy}
-                onInput={(e: any) => setNewTime(e.target.value)} />
-              <button class="btn att-ed-btn" disabled={busy || !newTime} onClick={addTime}>＋ Thêm giờ</button>
-            </div>
-            <div class="muted small att-ed-note">
-              Giờ máy không sửa trực tiếp được — muốn sửa 1 giờ: bấm <b>Ẩn</b> giờ sai rồi
-              <b> Thêm giờ</b> đúng. Dữ liệu máy giữ nguyên nên lần đồng bộ sau không đè phần sửa.
-            </div>
+            {canEdit && <>
+              <div class="att-ed-row att-ed-add">
+                <input type="time" class="pw-input" value={newTime} disabled={busy}
+                  onInput={(e: any) => setNewTime(e.target.value)} />
+                <button class="btn att-ed-btn" disabled={busy || !newTime} onClick={addTime}>＋ Thêm giờ</button>
+              </div>
+              <div class="muted small att-ed-note">
+                Giờ máy không sửa trực tiếp được — muốn sửa 1 giờ: bấm <b>Ẩn</b> giờ sai rồi
+                <b> Thêm giờ</b> đúng. Dữ liệu máy giữ nguyên nên lần đồng bộ sau không đè phần sửa.
+              </div>
+            </>}
           </>
         )}
       </div>
@@ -265,6 +279,7 @@ function ListShift({ icon, times }: { icon: string; times: string[] }) {
 }
 
 export function AttendanceBoard() {
+  const office = isOffice();   // staff: chỉ XEM — ẩn gán mã + nút sửa giờ (server cũng chặn)
   const [ym, setYm] = useState(curYM());
   const [view, setViewRaw] = useState<"grid" | "list">(
     (localStorage.getItem("att_view") as "grid" | "list") || "grid");
@@ -275,6 +290,8 @@ export function AttendanceBoard() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [err, setErr] = useState("");
   const [editor, setEditor] = useState<{ code: string; who: string; day: string } | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [reportImage, setReportImage] = useState<{ url: string; blob: Blob; name: string } | null>(null);
   const headRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const reqRef = useRef(0);
@@ -291,7 +308,9 @@ export function AttendanceBoard() {
   };
   // Đổi tháng: xoá SẠCH dữ liệu tháng cũ (kể cả mã chưa gán + banner sync) trước khi tải.
   useEffect(() => { setDays(null); setUnmapped([]); setSync({ last: null, interval: 30 }); load(); }, [ym]);
-  useEffect(() => { listWorkers().then(({ workers }) => setWorkers(workers)).catch(() => toast("Không tải được danh sách thợ — thử tải lại trang", "err")); }, []);
+  // Danh sách thợ chỉ phục vụ khu gán mã (office) — staff khỏi tải.
+  useEffect(() => { if (!office) return; listWorkers().then(({ workers }) => setWorkers(workers)).catch(() => toast("Không tải được danh sách thợ — thử tải lại trang", "err")); }, []);
+  useEffect(() => () => { if (reportImage) URL.revokeObjectURL(reportImage.url); }, [reportImage]);
   // Tháng hiện tại: cuộn lưới tới cột HÔM NAY (khỏi kéo ngang từ ngày 1), giữ cột tên sticky.
   useEffect(() => {
     const [Yv, Mv] = ym.split("-").map(Number);
@@ -299,8 +318,6 @@ export function AttendanceBoard() {
     const td = now.getFullYear() === Yv && now.getMonth() + 1 === Mv ? now.getDate() : 0;
     if (td && bodyRef.current) bodyRef.current.scrollLeft = Math.max(0, (td - 1) * 33 - 96);
   }, [days, ym]);
-
-  if (!isOffice()) return <EmptyState icon="🔒">Chỉ văn phòng xem được chấm công.</EmptyState>;
 
   // Ma trận NV × ngày: rows theo tên (mapped trước, mã lạ sau); mỗi ô = times[] gộp
   const [Y, M] = ym.split("-").map(Number);
@@ -339,10 +356,55 @@ export function AttendanceBoard() {
   }
   suspects.sort((a, b) => b.d - a.d || a.who.localeCompare(b.who, "vi"));
 
+  const generateTodayImage = async () => {
+    if (imageBusy || !days) return;
+    setImageBusy(true);
+    try {
+      const day = todayISO();
+      // Cho React kịp paint trạng thái loading trước khi chờ server render.
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const blob = await renderAttendanceTodayImage();
+      const name = `cham-cong-${day}.png`;
+      setReportImage({ url: URL.createObjectURL(blob), blob, name });
+      toast("Đã tạo ảnh chấm công hôm nay", "ok");
+    } catch (e: any) {
+      toast(e?.message || "Không tạo được ảnh chấm công", "err");
+    } finally {
+      setImageBusy(false);
+    }
+  };
+
+  const saveReportImage = async () => {
+    if (!reportImage) return;
+    try {
+      const bridge: any = (window as any).AndroidApp;
+      if (bridge?.saveImage) {
+        const ok = bridge.saveImage(await blobDataUrl(reportImage.blob), reportImage.name);
+        toast(ok === false ? "Lưu ảnh lỗi" : "Đã lưu ảnh vào thư viện", ok === false ? "err" : "ok");
+        return;
+      }
+      const nav: any = navigator;
+      const file = new File([reportImage.blob], reportImage.name, { type: "image/png" });
+      if (nav.canShare?.({ files: [file] })) {
+        await nav.share({ files: [file], title: reportImage.name });
+        return;
+      }
+      const a = document.createElement("a");
+      a.href = reportImage.url;
+      a.download = reportImage.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      toast("Đã tải ảnh chấm công", "ok");
+    } catch (e: any) {
+      if (e?.name !== "AbortError") toast("Không lưu/chia sẻ được ảnh", "err");
+    }
+  };
+
   return (
     <div class="prod-detail">
       <PageHead fallback="#/home" title={<><Icon name="clock" size={20} /> Chấm công</>}
-        sub="☀ 7–11 · ⛅ 13–17 · 🌙 tăng ca. Xanh = có mặt, cam = thiếu chấm. Bấm ô để sửa giờ." />
+        sub={`☀ 7–11 · ⛅ 13–17 · 🌙 tăng ca. Xanh = có mặt, cam = thiếu chấm. Bấm ô để ${office ? "sửa" : "xem"} giờ.`} />
       <SyncBanner lastSync={sync.last} intervalMin={sync.interval} />
 
       <div class="att-toolbar">
@@ -355,9 +417,12 @@ export function AttendanceBoard() {
           <button class={view === "grid" ? "seg-btn active" : "seg-btn"} onClick={() => setView("grid")} title="Lưới cả tháng">▦ Lưới</button>
           <button class={view === "list" ? "seg-btn active" : "seg-btn"} onClick={() => setView("list")} title="Danh sách theo ngày">☰ Dòng</button>
         </div>
+        <button class="btn primary att-export-btn" disabled={!days || imageBusy} onClick={generateTodayImage}>
+          <Icon name="image" size={15} /> {imageBusy ? "Đang tạo ảnh…" : "Tạo ảnh hôm nay"}
+        </button>
       </div>
 
-      {unmapped.length > 0 && (
+      {office && unmapped.length > 0 && (
         <section class="card">
           <label class="card-label t-warn"><Icon name="users" size={16} /> Mã máy chưa gán thợ ({unmapped.length})</label>
           <div class="muted small" style={{ marginBottom: 8 }}>
@@ -417,9 +482,9 @@ export function AttendanceBoard() {
                 const OT_FROM = 17 * 60 + OT_GRACE;
                 const hasOt = ts.some((t) => mins(t) >= OT_FROM);
                 return (
-                  <div class="att-lrow" key={g.day + r.employee_code} title="Bấm để xem / sửa giờ chấm"
+                  <div class="att-lrow" key={g.day + r.employee_code} title={office ? "Bấm để xem / sửa giờ chấm" : "Bấm để xem giờ chấm"}
                     role="button" tabIndex={0} onKeyDown={keyActivate(open)}
-                    aria-label={`${who} — ${ts.length ? `${ts.length} lần chấm, bấm để sửa` : "chưa chấm"}`}
+                    aria-label={`${who} — ${ts.length ? `${ts.length} lần chấm, bấm để ${office ? "sửa" : "xem"}` : "chưa chấm"}`}
                     onClick={open}>
                     {r.worker_name
                       ? <span class="att-name">{r.worker_name}</span>
@@ -465,8 +530,8 @@ export function AttendanceBoard() {
                     <div key={`${ri}-${d}`} role="button" tabIndex={0} onKeyDown={keyActivate(open)}
                       class={"att-g-cell" + (isSun(d) ? " sun" : "") + (d === todayD ? " today" : "")
                         + (ri % 2 ? " alt" : "") + (p.edDays.has(d) ? " edited" : "")}
-                      title="Bấm để xem / sửa giờ chấm"
-                      aria-label={`${p.label} ngày ${d}/${M} — ${times.length ? `${times.length} lần chấm, bấm để sửa` : "chưa chấm"}`}
+                      title={office ? "Bấm để xem / sửa giờ chấm" : "Bấm để xem giờ chấm"}
+                      aria-label={`${p.label} ngày ${d}/${M} — ${times.length ? `${times.length} lần chấm, bấm để ${office ? "sửa" : "xem"}` : "chưa chấm"}`}
                       onClick={open}>
                       {SHIFTS.map((sh) => (
                         <Tube key={sh.key} shift={sh} loose={loose}
@@ -483,8 +548,20 @@ export function AttendanceBoard() {
       )}
 
       {editor && (
-        <CellEditor code={editor.code} who={editor.who} day={editor.day}
+        <CellEditor code={editor.code} who={editor.who} day={editor.day} canEdit={office}
           onClose={() => setEditor(null)} onChanged={load} />
+      )}
+      {reportImage && (
+        <div class="att-image-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setReportImage(null); }}>
+          <div class="att-image-sheet" role="dialog" aria-modal="true" aria-label="Ảnh chấm công hôm nay">
+            <div class="att-image-head"><b>Ảnh chấm công hôm nay</b><button class="icon-btn" onClick={() => setReportImage(null)} title="Đóng">✕</button></div>
+            <img src={reportImage.url} class="att-image-preview" alt="Bảng chấm công hôm nay" />
+            <div class="att-image-actions">
+              <button class="btn primary block" onClick={saveReportImage}><Icon name="download" size={15} /> Lưu / chia sẻ ảnh</button>
+              <button class="btn block" onClick={() => setReportImage(null)}>Đóng</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

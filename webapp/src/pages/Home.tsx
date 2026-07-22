@@ -42,7 +42,7 @@ const GROUPS: Group[] = [
   ] },
   { title: "Lương", icon: "wallet", items: [
     { label: "Bảng lương tháng", href: "#/luong-thang", icon: "wallet", office: true },
-    { label: "Chấm công", href: "#/cham-cong", icon: "clock", office: true },
+    { label: "Chấm công", href: "#/cham-cong", icon: "clock" },
     { label: "Nhập ứng lương", href: "#/nhap-ung", icon: "banknote", office: true },
     { label: "Nhập phụ cấp", href: "#/nhap-phu-cap", icon: "banknote", office: true },
     { label: "Tiền công thợ", href: "#/tien-cong", icon: "wallet", office: true },
