@@ -10,6 +10,14 @@ import asyncio
 import order_commands_v3 as oc
 
 
+class _FakeConn:
+    """Conn giả tối thiểu cho utils.db.transaction (BEGIN/COMMIT no-op)."""
+    in_transaction = False
+
+    def execute(self, *a, **k):
+        return None
+
+
 def test_guard_rejects_when_invoice_already_exists(monkeypatch):
     # đơn ĐÃ có HĐ KiotViet → bấm tạo lần nữa phải bị chặn, KiotViet không bị gọi
     order = {"thread_id": 1, "invoice": [{"sp": "X", "sl": 1, "price": 1000}],
@@ -50,6 +58,43 @@ def test_lock_is_per_order_and_serializes():
     asyncio.run(go())
 
 
+def test_create_preserves_concurrent_blob_updates(monkeypatch):
+    # Field ghi vào blob TRONG LÚC chờ KiotViet (vd $.stock_alert_state của check
+    # thiếu-hàng lúc tạo đơn) phải SỐNG SÓT sau khi lưu HĐ — trước đây bản đọc
+    # trước await đè mất → báo thiếu hàng LẶP (bug 2026-07-23, đơn 497207).
+    store = {"order": {"thread_id": 6, "invoice": [{"sp": "X", "sl": 1, "price": 1000}],
+                       "khach_hang_id": "k"}}
+    monkeypatch.setattr(oc, "_get_connection", lambda: _FakeConn())
+    monkeypatch.setattr(oc, "get_order_by_thread_id", lambda conn, tid: dict(store["order"]))
+    monkeypatch.setattr(oc, "get_customer_by_key", lambda conn, k: {"kh_id": 123, "name": "K"})
+
+    def _fake_create(**kw):
+        store["order"]["stock_alert_state"] = {"X": 9.0}   # update xen kẽ lúc "chờ KV"
+        return {"id": 901, "code": "HD1"}
+    monkeypatch.setattr(oc, "create_kiotviet_invoice", _fake_create)
+    monkeypatch.setattr(oc, "get_customer_debt_kv", lambda kv_id: {"debt": 0})
+
+    def _fake_save(conn, tid, order):
+        store["order"] = dict(order)
+        return True
+    monkeypatch.setattr(oc, "_save_order", _fake_save)
+    monkeypatch.setattr(oc, "set_task_status", lambda *a, **k: None)
+    import product_store
+    monkeypatch.setattr(product_store, "kv_ids_for_items", lambda conn, inv: {})
+    import order_db
+    monkeypatch.setattr(order_db, "update_customer_debt", lambda *a, **k: None)
+    import server_app.realtime as rt
+    monkeypatch.setattr(rt, "emit_order_changed", lambda *a, **k: None)
+    monkeypatch.setattr(rt, "emit_customer_changed", lambda *a, **k: None)
+    import server_app.debt_sync as ds
+    monkeypatch.setattr(ds, "schedule_debt_resync", lambda *a, **k: None)
+
+    res = asyncio.run(oc._process_create_invoice_core(6, None))
+    assert res["success"] is True
+    assert store["order"]["stock_alert_state"] == {"X": 9.0}   # không bị bản cũ đè mất
+    assert store["order"]["kiotvietInvoiceID"] == 901
+
+
 def test_concurrent_create_makes_only_one_invoice(monkeypatch):
     # 2 request tạo HĐ ĐỒNG THỜI cho cùng đơn → KiotViet chỉ bị gọi 1 lần,
     # request kia thấy HĐ vừa lưu → bị guard chặn.
@@ -57,7 +102,7 @@ def test_concurrent_create_makes_only_one_invoice(monkeypatch):
                        "khach_hang_id": "k"}}
     calls = {"create": 0}
 
-    monkeypatch.setattr(oc, "_get_connection", lambda: object())
+    monkeypatch.setattr(oc, "_get_connection", lambda: _FakeConn())
     monkeypatch.setattr(oc, "get_order_by_thread_id", lambda conn, tid: dict(store["order"]))
     monkeypatch.setattr(oc, "get_customer_by_key", lambda conn, k: {"kh_id": 123, "name": "K"})
 

@@ -105,9 +105,15 @@ async def api_delete_invoice_handler(request: web.Request):
     except Exception as e:
         log.error("delete invoice failed thread=%s id=%s: %s", thread_id, invoice_id, e)
         return web.json_response({"ok": False, "error": f"Lỗi xoá HĐ KiotViet: {e}"}, status=500)
-    order.pop("kiotvietInvoiceID", None)
-    order.pop("kiotvietInvoiceCode", None)
-    _save_order(conn, int(thread_id), order)
+    # RE-READ trong transaction SAU await KiotViet: chỉ gỡ 2 field HĐ trên bản mới
+    # nhất, không ghi đè blob bằng bản đọc trước await (mất update xen kẽ).
+    with transaction(conn):
+        fresh = get_order_by_thread_id(conn, int(thread_id))
+        if fresh:
+            fresh.pop("kiotvietInvoiceID", None)
+            fresh.pop("kiotvietInvoiceCode", None)
+            _save_order(conn, int(thread_id), fresh)
+            order = fresh
     # HĐ không còn tồn tại thì bước "bán HĐ" cũng không thể giữ trạng thái xong.
     # Dùng cùng quy tắc với lệnh Telegram `del hd` để cập nhật cả order lẫn
     # bảng task mirror trên dashboard VIỆC.
@@ -211,10 +217,20 @@ async def api_refresh_debt_handler(request: web.Request):
         log.error("refresh debt failed thread=%s: %s", thread_id, e)
         return web.json_response({"ok": False, "error": f"Lỗi lấy nợ KiotViet: {e}"}, status=500)
     debt = det.get("debt", 0)
-    order["khDebt"] = debt
-    order["invoice_debt_snapshot"] = debt
     from order_db import _save_order, update_customer_debt
-    _save_order(conn, int(thread_id), order)
+    # RE-READ trong transaction SAU await KiotViet: vá 2 field nợ trên bản mới nhất
+    # (không ghi đè blob bằng bản đọc trước await); re-check chưa có HĐ — HĐ có thể
+    # vừa được tạo trong lúc chờ (nợ khi đó đã chốt theo hoá đơn).
+    with transaction(conn):
+        fresh = get_order_by_thread_id(conn, int(thread_id))
+        if not fresh:
+            return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+        if fresh.get("kiotvietInvoiceID"):
+            return web.json_response({"ok": False, "error": "Đơn đã có hoá đơn KiotViet — không kéo nợ được"}, status=400)
+        fresh["khDebt"] = debt
+        fresh["invoice_debt_snapshot"] = debt
+        _save_order(conn, int(thread_id), fresh)
+        order = fresh
     update_customer_debt(conn, str(kh_id_fb), debt)
     if order.get("channel_id") and order.get("message_id") and state._client is not None:
         spawn_tracked("debt.refresh", refresh_order_bg(conn, int(thread_id), order["channel_id"], order["message_id"]), {"thread_id": int(thread_id)})

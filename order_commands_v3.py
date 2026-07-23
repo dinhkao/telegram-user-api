@@ -416,15 +416,25 @@ async def _process_create_invoice_core_inner(thread_id: int, user_id: int | None
     if not inv:
         result["error"] = "Tạo hoá đơn KiotViet thất bại!"; return result
     invoice_code = inv.get("code", "N/A"); invoice_id = inv.get("id")
-    order["kiotvietInvoiceID"] = invoice_id
-    order["kiotvietInvoiceCode"] = invoice_code
-    order["nguoi_tao_HD"] = [user_id or 1809874974]
     snapshot_debt = old_debt if old_debt is not None else 0
-    order["invoice_debt_snapshot"] = snapshot_debt
-    if old_debt is not None:
-        order["khDebt"] = old_debt
-    if not _save_order(db_conn, thread_id, order):
-        result["error"] = "Lỗi lưu hoá đơn vào database"; return result
+    # RE-READ trong transaction SAU await KiotViet (~vài giây): chỉ vá các field HĐ
+    # vào bản MỚI NHẤT, KHÔNG ghi đè blob bằng `order` đọc trước await — bản cũ đó
+    # thiếu mọi update xen kẽ (vd $.stock_alert_state của check thiếu-hàng lúc tạo
+    # đơn → bị xoá → báo thiếu LẶP; hay task/thanh toán ghi trong lúc chờ KV).
+    from order_store.schema import transaction
+    with transaction(db_conn):
+        fresh = get_order_by_thread_id(db_conn, thread_id)
+        if not fresh:
+            result["error"] = "Không tìm thấy đơn hàng"; return result
+        fresh["kiotvietInvoiceID"] = invoice_id
+        fresh["kiotvietInvoiceCode"] = invoice_code
+        fresh["nguoi_tao_HD"] = [user_id or 1809874974]
+        fresh["invoice_debt_snapshot"] = snapshot_debt
+        if old_debt is not None:
+            fresh["khDebt"] = old_debt
+        if not _save_order(db_conn, thread_id, fresh):
+            result["error"] = "Lỗi lưu hoá đơn vào database"; return result
+    order = fresh
     set_task_status(db_conn, thread_id, "ban_hd", user_id)
     # Cập nhật CÔNG NỢ khách sau khi tạo HĐ (HĐ chưa thu → nợ tăng). Lấy nợ MỚI từ
     # KiotViet (đã gồm HĐ vừa tạo) → lưu vào khách; fallback dùng old_debt nếu lỗi.
