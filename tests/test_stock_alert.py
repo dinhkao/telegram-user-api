@@ -121,6 +121,19 @@ class StockAlert(unittest.TestCase):
         self.conn.commit()
         self.assertIsNone(_compute(self.conn, THREAD))
 
+    def test_no_alert_when_order_delivered(self):
+        # Đơn ĐÃ GIAO bị đụng lại (gửi toa / bỏ theo dõi nợ / thu tiền…) → refresh
+        # chạy lại check nhưng KHÔNG được báo thiếu theo tồn hiện tại (bug 2026-07-23).
+        add_boxes(self.conn, "K10", [10])
+        self.conn.commit()
+        self._order([{"sp": "K10", "sl": 40}])
+        _update_order_json_field(self.conn, THREAD, "$.task_status", {"giao_hang": {"done": True}})
+        self.assertIsNone(_compute(self.conn, THREAD))
+        _update_order_json_field(self.conn, THREAD, "$.task_status", {"giao_hang": {"done": False, "skip": True}})
+        self.assertIsNone(_compute(self.conn, THREAD))   # skip cũng tính là đã qua bước giao
+        _update_order_json_field(self.conn, THREAD, "$.task_status", {})
+        self.assertIsNotNone(_compute(self.conn, THREAD))   # huỷ giao → check hoạt động lại
+
     def test_partial_allocation_have_counts_own(self):
         # Tồn 30 < cần 50 → thiếu, have=30. Xuất 30 cho đơn → have vẫn 30 (không tụt
         # về 0 như bug cũ), tập thiếu KHÔNG đổi.

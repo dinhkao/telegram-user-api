@@ -1,7 +1,9 @@
 """Cảnh báo THIẾU HÀNG — khi TẠO đơn hoặc SỬA hoá đơn, so số CẦN (invoice) với TỒN
 kho (inventory_store.product_summary). Mã nào tồn < cần → push_bg (Notification
 Center + FCM). Dedup theo $.stock_alert_state trong blob đơn để KHÔNG báo lặp khi
-đơn đổi vì lý do khác (thanh toán, task, render lại…). Chạy nền, không chặn hot path.
+đơn đổi vì lý do khác (thanh toán, task, render lại…). Đơn ĐÃ GIAO thì bỏ qua hẳn —
+đơn cũ bị đụng lại (gửi toa, bỏ theo dõi nợ, thu tiền…) không được báo thiếu oan
+theo tồn kho hiện tại. Chạy nền, không chặn hot path.
 Nối: order_store.serialization, order_store.schema, inventory_store, server_app.notify,
 server_app.tasks, utils.db.
 """
@@ -31,13 +33,21 @@ def _needs_from_invoice(order: dict) -> dict[str, float]:
     return needs
 
 
+def _delivered(order: dict) -> bool:
+    """Đơn đã qua bước GIAO HÀNG (done hoặc skip) — hàng đã rời kho từ trước nên
+    so invoice với tồn HIỆN TẠI là vô nghĩa; mọi refresh về sau (gửi toa, bỏ theo
+    dõi nợ, thanh toán…) không được báo thiếu."""
+    st = (order.get("task_status") or {}).get("giao_hang") or {}
+    return bool(st.get("done") or st.get("skip"))
+
+
 def _compute(conn, thread_id: int):
     """Trong 1 transaction: đọc đơn + tồn, tính tập THIẾU, dedup theo dấu đã báo.
     Trả None nếu không cần báo (không thiếu, hoặc tập thiếu KHÔNG đổi); ngược lại
     trả {"short": {code: (need, have)}, "peek": <dòng đầu nội dung đơn>}."""
     from order_store.serialization import get_order_by_thread_id, _update_order_json_field
     order = get_order_by_thread_id(conn, thread_id)
-    if not order:
+    if not order or _delivered(order):
         return None
     needs = _needs_from_invoice(order)
     prev = order.get("stock_alert_state")
