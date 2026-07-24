@@ -1864,14 +1864,35 @@ def register_order_commands_v3(client):
             order = get_order_by_thread_id(db_conn, thread_id)
             prev_task_status = (order.get("task_status") or {}) if order else {}
 
-            # Mark all 5 tasks as done in one batch
+            # GUARD quy trình như mọi đường khác (web api_task_handler_impl +
+            # lệnh `done`): soạn cần chốt kho + ảnh, giao cần soạn xong. Bản cũ
+            # bỏ qua hết → in được HĐ giao cho đơn chưa soạn/chưa chốt kho.
+            from order_store.guards import giao_hang_block_reason, soan_hang_block_reason
+            from bot_core.config import is_admin as _tg_is_admin
+            is_admin = _tg_is_admin(user_id) if user_id else False
+            blocked: dict[str, str] = {}
+            if order:
+                r = soan_hang_block_reason(db_conn, int(thread_id), order, is_admin=is_admin)
+                if r:
+                    blocked["soan_hang"] = r
+                    blocked["giao_hang"] = "Soạn hàng chưa xong"
+                else:
+                    r2 = giao_hang_block_reason(order)
+                    if r2:
+                        blocked["giao_hang"] = r2
+
+            # Mark tasks as done in one batch (bỏ task bị guard chặn)
             for task_type in TASK_TYPES:
+                if task_type in blocked:
+                    continue
                 set_task_status(db_conn, thread_id, task_type, user_id, done=True, skip=False)
 
             # Build specific reply: which tasks just became done vs were already done
             just_done = []
             already_done = []
             for task_type in TASK_TYPES:
+                if task_type in blocked:
+                    continue
                 was_done = (prev_task_status.get(task_type) or {}).get("done", False)
                 label = TASK_LABELS.get(task_type, task_type)
                 if was_done:
@@ -1884,6 +1905,8 @@ def register_order_commands_v3(client):
                 reply_lines.append(f"✅ Đã hoàn thành: {', '.join(just_done)}")
             if already_done:
                 reply_lines.append(f"ℹ️ Đã hoàn thành từ trước: {', '.join(already_done)}")
+            for task_type, why in blocked.items():
+                reply_lines.append(f"⛔ {TASK_LABELS.get(task_type, task_type)}: {why}")
             reply_text = "\n".join(reply_lines)
 
             # Re-read order (now updated) and sync to Firebase + refresh main message
