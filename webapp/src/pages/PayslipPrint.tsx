@@ -10,8 +10,7 @@ import { PageHead } from "../ui/PageHead";
 import { EmptyState } from "../ui/states";
 import { toast } from "../ui/feedback";
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+import { pad2 as pad, isoDate as iso } from "../format";
 // Thứ Hai của tuần chứa d
 function monday(d: Date): Date { const m = new Date(d); m.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return m; }
 

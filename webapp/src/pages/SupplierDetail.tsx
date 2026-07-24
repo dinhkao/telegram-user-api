@@ -69,7 +69,7 @@ export function SupplierDetail({ id }: { id: string }) {
   const doDelete = async () => {
     if (!isAdmin) return toast("Chỉ admin mới được xoá nhà cung cấp", "info");
     if (purchases.length) return toast("NCC còn phiếu nhập — xoá các phiếu nhập trước", "info");
-    if (!(await confirmDialog(`Xoá nhà cung cấp "${s.name}"?`, { danger: true }))) return;
+    if (!(await confirmDialog(`Xoá nhà cung cấp "${s.name}"?`, { danger: true, okLabel: "Xoá NCC" }))) return;
     setBusy(true);
     try {
       await deleteSupplier(Number(id));

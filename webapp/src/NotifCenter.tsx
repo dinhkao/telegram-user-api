@@ -73,7 +73,7 @@ export function NotifCenter() {
         <Icon name="bell" size={19} />{unread > 0 && <span class="notif-badge">{unread > 9 ? "9+" : unread}</span>}
       </button>
       {open && createPortal(
-        <div class="modal-overlay" onClick={() => setOpen(false)}>
+        <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setOpen(false); }}>
           <div class="modal-sheet notif-panel" ref={panelRef} onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><Icon name="bell" size={18} /> Thông báo</div>
             {items.length === 0 && !loaded ? (

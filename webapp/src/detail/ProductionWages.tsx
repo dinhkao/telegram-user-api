@@ -12,7 +12,7 @@ import { Icon } from "../ui/Icon";
 import { toast } from "../ui/feedback";
 import { SelectPopup } from "../ui/SelectPopup";
 
-const money = (n: number) => soVN(Math.round(n)) + "đ";
+import { moneyD as money } from "../format";
 
 export function ProductionWages({ threadId, workers }: { threadId: string; workers: { name: string; cay: number; gio?: number; note?: string }[] }) {
   const [wage, setWage] = useState(0);

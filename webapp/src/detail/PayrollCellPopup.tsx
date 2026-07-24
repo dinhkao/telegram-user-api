@@ -20,7 +20,7 @@ import { toast, promptDialog } from "../ui/feedback";
 
 export type PayrollCol = "name" | "cong" | "tc" | "luong_cong" | "luong_tc" | "luong" | "pc" | "ung" | "net";
 
-const money = (n: number) => soVN(Math.round(n || 0));
+import { moneyR as money } from "../format";
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
 const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 
@@ -190,7 +190,7 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, t
   );
 
   return (
-    <div class="modal-overlay" onClick={onClose}>
+    <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
       <div class="modal-sheet pr-pop-sheet" onClick={(e: any) => e.stopPropagation()}>
         <div class="modal-head"><Icon name="wallet" size={18} /> {r.name} — {TITLES[col]}</div>
 

@@ -33,7 +33,7 @@ export function PlacesList() {
     const name = nName.trim();
     if (!name) return;
     setAdding(true);
-    try { await createPlace(name); setNName(""); await load(); toast(`✅ Tạo ${name}`, "ok"); }
+    try { await createPlace(name); setNName(""); await load(); toast(`Đã tạo `, "ok"); }
     catch (e: any) { toast(e?.message || "Lỗi tạo", "err"); }
     finally { setAdding(false); }
   };

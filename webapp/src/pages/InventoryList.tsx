@@ -83,7 +83,7 @@ export function InventoryList() {
       <SearchBar value={q} onInput={setQ} placeholder="Tìm mã / tên sản phẩm…" />
 
       {createOpen && (
-        <div class="modal-overlay" onClick={() => setCreateOpen(false)}>
+        <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setCreateOpen(false); }}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><Icon name="plus" size={18} /> Tạo mã sản phẩm</div>
             <input class="inv-search" autofocus placeholder="Mã SP (vd K2L)" value={nCode}

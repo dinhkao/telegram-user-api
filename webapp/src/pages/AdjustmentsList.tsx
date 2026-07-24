@@ -7,7 +7,7 @@ import { listAdjustments, soVN, type Adjustment } from "../api";
 import { dayKey, dayLabel, foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { SearchBar } from "../ui/SearchBar";
-import { EmptyState, ErrorState, Loading } from "../ui/states";
+import { EmptyState, ErrorState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
 let adjCache: Adjustment[] | null = null;
@@ -59,7 +59,7 @@ export function AdjustmentsList() {
         Sửa tồn 1 thùng cho đúng thực tế: mở thùng trong 📦 Kho → khối "Điều chỉnh tồn" (văn phòng).
         Kiểm kho áp dụng chênh lệch cũng tạo phiếu ở đây. Admin gỡ phiếu = hoàn nguyên tồn.
       </div>
-      {loading && !rows.length && <Loading />}
+      {loading && !rows.length && <SkeletonList />}
       {!loading && err && !rows.length && <ErrorState msg={err} onRetry={() => { setLoading(true); load(); }} />}
       {!loading && !err && !rows.length && <EmptyState>Chưa có phiếu điều chỉnh nào.</EmptyState>}
       {!loading && rows.length > 0 && !visible.length && <EmptyState>Không có phiếu khớp "{q}".</EmptyState>}

@@ -28,7 +28,7 @@ export function OrderImagePicker({ threadId, selectedId, onPick, onClose }: {
   useEffect(load, [threadId]);
 
   return (
-    <div class="modal-overlay" onClick={onClose}>
+    <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
       <div class="modal-sheet sh-sheet refimg-sheet" role="dialog" aria-modal="true"
         aria-label="Chọn ảnh tham chiếu" onClick={(e: any) => e.stopPropagation()}>
         <div class="modal-head">
@@ -65,7 +65,7 @@ export function OrderImagePicker({ threadId, selectedId, onPick, onClose }: {
           </>
         )}
 
-        <button class="btn sh-cancel" onClick={onClose}>Huỷ</button>
+        <button class="btn sh-cancel" onClick={onClose}>Đóng</button>
       </div>
     </div>
   );

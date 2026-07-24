@@ -103,7 +103,7 @@ export function ReturnDetail({ id }: { id: string }) {
 
   const doDeleteInvoice = async () => {
     if (!isAdmin) return toast("Chỉ admin mới được xoá HĐ KiotViet", "info");
-    if (!(await confirmDialog("Xoá HĐ KiotViet giá âm? Công nợ khách sẽ CỘNG lại và phiếu về NHÁP (sửa/xoá được).", { danger: true }))) return;
+    if (!(await confirmDialog("Xoá HĐ KiotViet giá âm? Công nợ khách sẽ CỘNG lại và phiếu về NHÁP (sửa/xoá được).", { danger: true, okLabel: "Xoá HĐ" }))) return;
     setBusy(true);
     try {
       await deleteReturnInvoice(Number(id));

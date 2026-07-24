@@ -15,23 +15,15 @@ import {
   voidPayrollAdvance, voidPayrollAllowance,
   type PayrollMonth, type PayrollRow, type SalaryAdvance, type SalaryAllowance,
 } from "../api";
+import { moneyR as money, curYM, shiftYM, ymLabel } from "../format";
 import { EntryPanel, PayrollCellPopup, type PayrollCol } from "../detail/PayrollCellPopup";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const money = (n: number) => soVN(Math.round(n || 0));
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
 const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
-const curYM = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
-const shiftYM = (ym: string, d: number) => {
-  const [y, m] = ym.split("-").map(Number);
-  const dt = new Date(y, m - 1 + d, 1);
-  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`;
-};
-const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
 const initials = (name: string) => name.trim().split(/\s+/).slice(-2).map((part) => part[0] || "").join("").toUpperCase();
 
 // Ghi nhớ theo PHIÊN (module scope, reset khi tải lại): THÁNG đang xem (back về

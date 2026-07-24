@@ -55,7 +55,7 @@ export function TaskDetail({ id }: { id: number }) {
     patch({ done: !t.done });
   };
   const remove = async () => {
-    if (!(await confirmDialog("Xoá việc này?", { danger: true }))) return;
+    if (!(await confirmDialog("Xoá việc này?", { danger: true, okLabel: "Xoá việc" }))) return;
     try { await deleteTask(t.id); window.location.hash = "#/viec"; } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
   };
   const isAdmin = currentUser()?.role === "admin";

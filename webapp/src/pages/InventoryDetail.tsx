@@ -241,7 +241,7 @@ export function InventoryDetail({ code }: { code: string }) {
     }
   };
   const doDelete = async () => {
-    if (!(await confirmDialog(`Xoá mã "${code}" khỏi danh mục?\n(Không ảnh hưởng đơn/thùng đã có)`, { danger: true }))) return;
+    if (!(await confirmDialog(`Xoá mã "${code}" khỏi danh mục?\n(Không ảnh hưởng đơn/thùng đã có)`, { danger: true, okLabel: "Xoá mã" }))) return;
     try {
       await deleteProduct(code);
       toast(`🗑️ Đã xoá mã ${code}`, "ok");
@@ -433,7 +433,7 @@ export function InventoryDetail({ code }: { code: string }) {
       </section>
 
       {linkOpen && (
-        <div class="modal-overlay" onClick={() => setLinkOpen(false)}>
+        <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setLinkOpen(false); }}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><Icon name="link" size={18} /> Liên kết {code} với KiotViet</div>
             <SearchBar value={kvQ} onInput={setKvQ} autofocus placeholder="Tìm SP KiotViet (tên/mã)…" />
@@ -458,7 +458,7 @@ export function InventoryDetail({ code }: { code: string }) {
       )}
 
       {kvCatOpen && (
-        <div class="modal-overlay" onClick={() => setKvCatOpen(false)}>
+        <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setKvCatOpen(false); }}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><Icon name="plus" size={18} /> Tạo {code} trên KiotViet</div>
             <div class="muted small" style={{ marginBottom: "8px" }}>

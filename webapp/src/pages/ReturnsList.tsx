@@ -7,7 +7,7 @@ import { dayKey, dayLabel, foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { ReturnModal } from "../detail/ReturnModal";
 import { SearchBar } from "../ui/SearchBar";
-import { Loading, EmptyState, ErrorState } from "../ui/states";
+import { SkeletonList, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
 let retCache: { rows: ReturnSlip[]; page: number; totalPages: number } | null = null;
@@ -93,8 +93,8 @@ export function ReturnsList() {
           <Icon name="plus" size={16} /> Tạo phiếu
         </button>
       </div>
-      {createOpen && <ReturnModal onClose={() => setCreateOpen(false)} onCreated={() => load(1, false)} />}
-      {loading && !rows.length && <Loading />}
+      {createOpen && <ReturnModal onClose={() => setCreateOpen(false)} onDone={() => load(1, false)} />}
+      {loading && !rows.length && <SkeletonList />}
       {!loading && err && !rows.length && <ErrorState msg={err} onRetry={() => load(1, false)} />}
       {!loading && !err && !rows.length && <EmptyState>Chưa có phiếu trả hàng nào.</EmptyState>}
       {!loading && rows.length > 0 && !visible.length && <EmptyState>Không có phiếu khớp "{q}".</EmptyState>}

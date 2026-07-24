@@ -94,7 +94,7 @@ export function ProductUnits({ code, baseUnit }: { code: string; baseUnit: strin
     catch (e: any) { setRoles(prev); toast(e?.message || "Lỗi lưu vai đơn vị", "err"); }
   };
   const del = async (u: ProductUnit) => {
-    if (!(await confirmDialog(`Xoá đơn vị "${u.name}" (1 ${u.name} = ${soVN(u.factor)} ${base})?`, { danger: true }))) return;
+    if (!(await confirmDialog(`Xoá đơn vị "${u.name}" (1 ${u.name} = ${soVN(u.factor)} ${base})?`, { danger: true, okLabel: "Xoá đơn vị" }))) return;
     try { await deleteProductUnit(code, u.id); toast("Đã xoá đơn vị", "ok"); load(); }
     catch (e: any) { toast(e?.message || "Lỗi xoá", "err"); }
   };

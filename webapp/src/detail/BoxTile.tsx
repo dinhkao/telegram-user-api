@@ -82,7 +82,8 @@ function clampPercent(value: number): number {
   return Math.max(0, Math.min(100, value));
 }
 
-function boxNumber(boxCode: string): string {
+/** Số gọi của thùng từ box_code ("K2L-047" → "047") — dùng chung, đừng inline lại. */
+export function boxNumber(boxCode: string): string {
   return boxCode.split("-").pop() || boxCode;
 }
 

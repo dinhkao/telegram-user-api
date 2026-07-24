@@ -64,7 +64,7 @@ export function ImageInfoPanel({
   };
 
   const del = async (c: ImageComment) => {
-    if (!(await confirmDialog("Xoá bình luận này?", { danger: true }))) return;
+    if (!(await confirmDialog("Xoá bình luận này?", { danger: true, okLabel: "Xoá" }))) return;
     setComments((prev) => prev.filter((x) => x.id !== c.id));  // lạc quan
     try {
       await deleteImageComment(base, image.id, c.id);

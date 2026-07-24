@@ -12,7 +12,7 @@ import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast } from "../ui/feedback";
 import { ProductPicker } from "../detail/ProductPicker";
 
-const money = (n: number) => soVN(Math.round(n)) + "đ";
+import { moneyD as money } from "../format";
 
 export function WageTable() {
   const [rows, setRows] = useState<WageEntry[] | null>(null);

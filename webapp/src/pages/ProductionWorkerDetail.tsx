@@ -16,10 +16,9 @@ import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { toast, promptDialog } from "../ui/feedback";
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+import { pad2 as pad, isoDate as iso } from "../format";
 const dmy = (ymd: string) => { if (!ymd) return "?"; const [y, m, d] = ymd.split("-"); return `${d}/${m}/${y}`; };
-const money = (n: number) => soVN(Math.round(n)) + "đ";
+import { moneyD as money } from "../format";
 
 type Period = "all" | "month" | "week";
 function rangeFor(p: Period): { from?: string; to?: string } {

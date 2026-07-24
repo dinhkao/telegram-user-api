@@ -91,7 +91,7 @@ export function Tasks({ threadId, taskStatus, stockConfirmed, customTasks, userN
   };
 
   const removeCustom = async (id: string) => {
-    if (!(await confirmDialog("Xoá hẳn việc này khỏi đơn?", { danger: true }))) return;
+    if (!(await confirmDialog("Xoá hẳn việc này khỏi đơn?", { danger: true, okLabel: "Xoá việc" }))) return;
     setBusy(id);
     try {
       await postJSON(`/api/order/${threadId}/custom-task/remove`, { id });

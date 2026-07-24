@@ -58,7 +58,7 @@ export function SoanHangPicker({ threadId, onClose, onDone, adminQuick, onAddPho
     setBusy(true);
     try {
       await postJSON("/api/order/task", { thread_id: Number(threadId), type: "soan_hang", note: `imgs:${ids.join(",")}`, done: true });
-      toast(`✅ Soạn hàng · ${ids.length} ảnh`, "ok");
+      toast(`Soạn hàng ·  ảnh`, "ok");
       onDone();
       onClose();
     } catch (e: any) {

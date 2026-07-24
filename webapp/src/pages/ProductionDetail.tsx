@@ -160,7 +160,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
       toast(`Phiếu đã tạo ${slip!.box_count} thùng — xoá các thùng đó trước`, "info");
       return;
     }
-    if (!(await confirmDialog("Xoá phiếu sản xuất này?", { danger: true }))) return;
+    if (!(await confirmDialog("Xoá phiếu sản xuất này?", { danger: true, okLabel: "Xoá phiếu" }))) return;
     try {
       await deleteProduction(threadId);
       window.location.hash = "#/san_xuat";
@@ -225,7 +225,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
           <div class="pc-val">{soVN(reported)}</div>
         </div>
         <div class="pc-verdict">
-          {!hasReport ? "— chưa báo cáo" : match ? "✅ Khớp" : `⚠️ Lệch ${soVN(Math.abs(diff))} (${pctOff.toFixed(1)}%)`}
+          {!hasReport ? "— chưa báo cáo" : match ? "✅ Khớp" : `⚠️ Lệch ${soVN(Math.abs(diff))} (${pctOff.toFixed(1).replace(".", ",")}%)`}
         </div>
       </div>}
 

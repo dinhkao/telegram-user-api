@@ -57,7 +57,7 @@ export function WorkerArrange() {
     updateWorker(Number(id), { is_default: next }).catch(() => { toast("Lỗi cập nhật", "err"); load(); });
   };
   const remove = async (id: number | string, nm: string) => {
-    if (!(await confirmDialog(`Xoá thợ "${nm}" khỏi danh sách?`, { danger: true }))) return;
+    if (!(await confirmDialog(`Xoá thợ "${nm}" khỏi danh sách?`, { danger: true, okLabel: "Xoá thợ" }))) return;
     setWorkers((ws) => ws?.filter((x) => x.id !== id) || null); setSeed((s) => s + 1);
     deleteWorker(Number(id)).catch(() => { toast("Lỗi xoá", "err"); load(); });
   };

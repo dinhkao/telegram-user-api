@@ -36,6 +36,26 @@ export function parseMoney(s: string): number {
   return parseInt(String(s).replace(/[^\d]/g, ""), 10) || 0;
 }
 
+/** Tiền LÀM TRÒN đồng (payroll hay có số lẻ float): 12345.6 → "12.346". */
+export const moneyR = (n: number) => money(Math.round(n || 0));
+/** moneyR kèm "đ" — nhãn tiền đầy đủ ở các trang lương. */
+export const moneyD = (n: number) => moneyR(n) + "đ";
+
+/** Đệm 2 chữ số: 7 → "07". */
+export const pad2 = (n: number) => String(n).padStart(2, "0");
+/** Date → "YYYY-MM-DD" (giờ máy — dùng cho ô input date / key ngày). */
+export const isoDate = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+/** Tháng hiện tại "YYYY-MM" + dịch tháng + nhãn "Tháng M/YYYY" — dùng chung các
+ *  trang lương/chấm công (trước đây 4 file tự chép bộ này). */
+export const curYM = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`; };
+export const shiftYM = (ym: string, d: number) => {
+  const [y, m] = ym.split("-").map(Number);
+  const dt = new Date(y, m - 1 + d, 1);
+  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}`;
+};
+export const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
+
 /** Số lượng CÓ THỂ THẬP PHÂN — chấp nhận dấu ',' (VN) hoặc '.' làm phần thập phân.
  *  Trả float, lỗi → 0. Khác parseMoney (ép số nguyên cho tiền đồng). */
 export function parseQty(s: string): number {

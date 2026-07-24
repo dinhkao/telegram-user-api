@@ -240,7 +240,7 @@ export function InvTimelineBody({ items, currentBoxes, currentTotal, snapTitle, 
     <>
       <ul class="pt-list" ref={listRef}>{rows}</ul>
       {snap && (
-        <div class="modal-overlay" onClick={() => setSnap(null)}>
+        <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setSnap(null); }}>
           <div class="modal-sheet pt-snap" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><Icon name="box" size={16} /> {snapTitle}{snap.note ? ` · ${snap.note}` : ""}</div>
             <div class="pt-snap-tot"><b>{soVN(sumRem(snap.boxes))}</b>

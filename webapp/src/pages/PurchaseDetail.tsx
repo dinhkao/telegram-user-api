@@ -151,7 +151,7 @@ export function PurchaseDetail({ id }: { id: string }) {
       return toast("Phiếu đã nhập kho — không xoá được (hàng đã vào thùng)", "info");
     if (draftLines > 0)
       return toast("Phiếu đang nhập kho dở — xoá thùng/gỡ dòng nhập trước khi xoá phiếu", "info");
-    if (!(await confirmDialog("Xoá phiếu nhập này?", { danger: true }))) return;
+    if (!(await confirmDialog("Xoá phiếu nhập này?", { danger: true, okLabel: "Xoá phiếu" }))) return;
     setBusy(true);
     try {
       await deletePurchase(Number(id));

@@ -8,6 +8,8 @@ import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
 import { Icon } from "../ui/Icon";
 import { ErrorState, LoadingInline } from "../ui/states";
+import { toast } from "../ui/feedback";
+import { boxNumber } from "./BoxTile";
 
 function fmtDate(s?: string | null): string {
   if (!s) return "";
@@ -104,7 +106,7 @@ export function StockPickerModal({
       if (isFinite(n) && n > 0) picks.push({ box_id: Number(id), quantity: n });
     }
     if (!picks.length) {
-      setErr("Chưa chọn thùng");
+      toast("Chưa chọn thùng", "info");
       return;
     }
     setBusy(true);
@@ -120,14 +122,14 @@ export function StockPickerModal({
   };
 
   return (
-    <div class="modal-overlay" onClick={onClose}>
+    <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
       <div class="modal-sheet" onClick={(e) => e.stopPropagation()}>
         <div class="modal-head">
           <b>Chọn thùng — {productCode}</b>
           <span class={"sp-total" + (full && remaining > 0 ? " ok" : "")}>
             <b>{soVN(pickedSum)}</b><span class="sp-total-sep">/</span>{soVN(remaining)}
           </span>
-          <button class="link-btn" onClick={onClose}>
+          <button class="link-btn" title="Đóng" onClick={onClose}>
             <Icon name="close" size={18} />
           </button>
         </div>
@@ -149,7 +151,7 @@ export function StockPickerModal({
             {boxes.slice().sort(sortPick).map((b) => {
               const checked = b.id in sel;
               const blocked = !checked && full;   // hết ngân sách → không cho chọn thêm
-              const num = (b.box_code || "").split("-").pop() || b.box_code;
+              const num = boxNumber(b.box_code || "");
               const unit = (b as any).product_unit || "cây";
               const after = Math.max(0, avail(b) - parseN(sel[b.id] || ""));   // còn lại SAU khi lấy
               const place = (b as any).place_name as string | undefined;

@@ -198,7 +198,7 @@ export function CashboxDetail({ boxKey }: { boxKey: string }) {
   }, [items, shown]);
 
   const delTransfer = async (id: number) => {
-    if (!(await confirmDialog("Xoá lần chuyển tiền này? Số dư 2 két sẽ tính lại.", { danger: true }))) return;
+    if (!(await confirmDialog("Xoá lần chuyển tiền này? Số dư 2 két sẽ tính lại.", { danger: true, okLabel: "Xoá" }))) return;
     try {
       await cashboxTransferDelete(id);
       toast("Đã xoá lần chuyển", "ok");
@@ -269,7 +269,7 @@ export function CashboxDetail({ boxKey }: { boxKey: string }) {
 
       {holdings.length > 0 && (
         <div class="cash-holdings card">
-          <div class="cash-sect muted small">TIỀN CỦA {holdings.length} ĐƠN ĐANG NẰM Ở ĐÂY</div>
+          <div class="ie-head">Tiền của {holdings.length} đơn đang nằm ở đây</div>
           {holdings.map((h) => (
             <a key={h.thread_id} class="cash-hold-row" href={`#/order/${h.thread_id}`}>
               <span class="cash-hold-name">

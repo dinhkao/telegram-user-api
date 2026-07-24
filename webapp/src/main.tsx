@@ -234,7 +234,7 @@ function NopBanner() {
         </span>
       </button>
       {open && (
-        <div class="modal-overlay" onClick={() => setOpen(false)}>
+        <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setOpen(false); }}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><b>📋 Bảng tin</b>
               <button class="btn small" onClick={() => setOpen(false)}><Icon name="close" size={14} /></button>

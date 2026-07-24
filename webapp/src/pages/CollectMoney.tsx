@@ -219,11 +219,11 @@ export function CollectMoney() {
       {valid.length > 0 && (
         <div class="collect-bar">
           <div class="collect-bar-info">
-            <div class="pay-method collect-method">
-              <button class={"btn" + (method === "Cash" ? " primary" : "")} onClick={() => setMethod("Cash")}>
+            <div class="seg pay-method collect-method" role="tablist">
+              <button class={method === "Cash" ? "seg-btn active" : "seg-btn"} onClick={() => setMethod("Cash")}>
                 <Icon name="banknote" size={15} /> TM
               </button>
-              <button class={"btn" + (method === "Transfer" ? " primary" : "")} onClick={() => setMethod("Transfer")}>
+              <button class={method === "Transfer" ? "seg-btn active" : "seg-btn"} onClick={() => setMethod("Transfer")}>
                 <Icon name="bank" size={15} /> CK
               </button>
             </div>

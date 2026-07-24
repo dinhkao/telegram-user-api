@@ -2,9 +2,10 @@
 // Chip = mã thùng (số gọi) đậm | tồn mờ, kẻ dọc ngăn, 5 chip/dòng. Bấm SP → chi tiết SP,
 // bấm chip → chi tiết thùng. Dùng ở PlaceDetail + KhoBoxes.
 import { soVN, type KhoBox } from "../api";
+import { boxNumber } from "./BoxTile";
 
 const remOf = (b: KhoBox) => Math.max(0, b.remaining ?? b.quantity ?? 0);
-const num = (b: KhoBox) => (b.box_code || "").split("-").pop() || b.box_code;
+const num = (b: KhoBox) => boxNumber(b.box_code || "");
 const sumRem = (bs: KhoBox[]) => bs.reduce((s, b) => s + remOf(b), 0);
 
 function Chips({ bs }: { bs: KhoBox[] }) {

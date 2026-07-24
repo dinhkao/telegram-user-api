@@ -13,10 +13,10 @@ import { parseMoney, parseQty } from "../format";
 
 type Line = { sp: string; sl: string; price: string };
 
-export function ReturnModal({ ckey, onClose, onCreated }: {
+export function ReturnModal({ ckey, onClose, onDone }: {
   ckey?: string;                 // thiếu → chọn khách ngay trong popup (mở từ dashboard)
   onClose: () => void;
-  onCreated: () => void;
+  onDone: () => void;
 }) {
   const [pickedKey, setPickedKey] = useState<string>(ckey || "");
   const [lines, setLines] = useState<Line[]>([{ sp: "", sl: "1", price: "" }]);
@@ -46,7 +46,7 @@ export function ReturnModal({ ckey, onClose, onCreated }: {
         { okLabel: "Xử lý ngay", cancelLabel: "Để sau" })) {
         sessionStorage.setItem("rg_open", String(rid));
       }
-      onCreated();
+      onDone();
       onClose();
       if (rid) window.location.hash = `#/tra-hang/${rid}`;
     } catch (e: any) {
