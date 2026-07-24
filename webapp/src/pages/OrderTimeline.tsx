@@ -6,8 +6,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { getOrderTimeline, soVN, type OrderTimeline as OT, type OrderTLItem } from "../api";
 import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
-import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
+import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState, LoadingInline } from "../ui/states";
 import { dayKeyOf, orderDayLabel } from "../detail/OrderCards";
 
@@ -167,17 +167,13 @@ export function OrderTimeline({ threadId }: { threadId: string }) {
   const o = d.order;
   return (
     <div class="place-tl">
-      <div class="prod-detail-head">
-        <BackLink fallback={`#/order/${threadId}`} />
-        <div>
-          <div class="prod-sp big"><Icon name="receipt" size={17} /> {o.text || `Đơn #${o.thread_id}`}</div>
-          <div class="prod-date muted">
-            Timeline biến động đơn
-            {o.customer_name ? <> · <a class="pt-inl" href={`#/khach/${o.customer_key}`}>{o.customer_name}</a></> : null}
-            {o.kv_code ? <> · {o.kv_code}</> : null}
-          </div>
-        </div>
-      </div>
+      <PageHead fallback={`#/order/${threadId}`}
+        title={<><Icon name="receipt" size={17} /> {o.text || `Đơn #${o.thread_id}`}</>}
+        sub={<>
+          Timeline biến động đơn
+          {o.customer_name ? <> · <a class="pt-inl" href={`#/khach/${o.customer_key}`}>{o.customer_name}</a></> : null}
+          {o.kv_code ? <> · {o.kv_code}</> : null}
+        </>} />
 
       <div class="pt-head card">
         <div>

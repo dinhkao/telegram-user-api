@@ -104,7 +104,7 @@ export function ReportSlipDetail({ id }: { id: string }) {
       ) : undefined} />
   );
 
-  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="lock">Chỉ văn phòng được xem báo cáo.</EmptyState></div>;
+  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="🔒">Chỉ văn phòng được xem báo cáo.</EmptyState></div>;
   if (err) return <div class="rs-page">{head}<ErrorState msg={err} onRetry={load} /></div>;
   if (!slip || !slip.report) return <div class="rs-page">{head}<Loading /></div>;
 
@@ -174,7 +174,7 @@ export function ReportSlipDetail({ id }: { id: string }) {
       <section class="rs-sec">
         <div class="rs-sec-h"><Icon name="users" size={15} /> Theo thợ</div>
         {rep.workers.length === 0 ? (
-          <EmptyState icon="check">Không có báo cáo thợ nào trong khoảng này.</EmptyState>
+          <EmptyState icon="✅">Không có báo cáo thợ nào trong khoảng này.</EmptyState>
         ) : (
           <div class="wg-workers card rs-list">
             {rep.workers.map((w) => {
@@ -237,7 +237,7 @@ export function ReportSlipDetail({ id }: { id: string }) {
       <section class="rs-sec">
         <div class="rs-sec-h"><Icon name="factory" size={15} /> Từng phiếu sản xuất</div>
         {rep.phieus.length === 0 ? (
-          <EmptyState icon="check">Không có phiếu SX nào trong khoảng này.</EmptyState>
+          <EmptyState icon="✅">Không có phiếu SX nào trong khoảng này.</EmptyState>
         ) : (
           <div class="card rs-list">
             {rep.phieus.map((p) => (

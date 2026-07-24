@@ -2,7 +2,7 @@
 // nhập thùng (ProductionBoxes), báo cáo theo thợ (ProductionReport), xoá.
 // Realtime: production_changed đúng thread / resync → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import {
   getProduction,
   productionCatalog,
@@ -186,13 +186,9 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
 
   return (
     <div class="prod-detail">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/san_xuat" />
-        <div>
-          <div class="prod-sp big">{slip.sp_name || "Chưa có SP"}</div>
-          <div class="prod-date muted"><Icon name="calendar" size={14} /> Tạo: {prodCreated(slip)}</div>
-        </div>
-      </div>
+      <PageHead fallback="#/san_xuat"
+        title={slip.sp_name || "Chưa có SP"}
+        sub={<><Icon name="calendar" size={14} /> Tạo: {prodCreated(slip)}</>} />
 
       {err && <div class="error-banner">{err}</div>}
 

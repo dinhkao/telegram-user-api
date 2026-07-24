@@ -10,24 +10,23 @@ import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
-import { EmptyState, LoadingInline } from "../ui/states";
-
-const _WD = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-const dayLabel = (d: string) =>
-  `${_WD[(new Date(d).getDay() + 6) % 7]} · ${d.slice(8)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+import { EmptyState, ErrorState, LoadingInline } from "../ui/states";
+import { PageHead } from "../ui/PageHead";
+import { dayLabel } from "../format";
 
 // Nhớ toggle khi rời trang (module scope)
 let memHide = true;
 
 export function DeliveryCalendar() {
   const [raw, setRaw] = useState<{ d: string; pending: number; done: number; items?: { t: string; done: boolean }[] }[]>([]);
+  const [err, setErr] = useState("");
   const [hideDelivered, setHideDelivered] = useState(memHide);   // mặc định ẩn đơn đã giao
   useEffect(() => { memHide = hideDelivered; }, [hideDelivered]);
 
   const load = () =>
     getJSON("/api/orders/delivery?days=1", { cache: false })
-      .then((r) => setRaw(r.days || []))
-      .catch(() => {});
+      .then((r) => { setRaw(r.days || []); setErr(""); })
+      .catch((e: any) => setErr(e?.message || "Lỗi tải lịch giao"));
   useEffect(() => { load(); }, []);
 
   // Realtime: đặt/đổi ngày giao, đánh dấu giao… → tải lại đếm
@@ -52,12 +51,14 @@ export function DeliveryCalendar() {
   // popup đơn giao 1 ngày
   const [pick, setPick] = useState<string | null>(null);
   const [items, setItems] = useState<any[] | null>(null);
+  const [dayErr, setDayErr] = useState("");
   const openDay = (d: string) => {
     setPick(d);
     setItems(null);
+    setDayErr("");
     getJSON(`/api/orders/delivery?day=${encodeURIComponent(d)}`, { cache: false })
       .then((r) => setItems(r.orders || []))
-      .catch(() => setItems([]));
+      .catch((e: any) => { setDayErr(e?.message || "Lỗi tải đơn"); setItems([]); });
   };
   const closeDay = () => { setPick(null); setItems(null); };
   useScrollLock(!!pick);
@@ -66,9 +67,8 @@ export function DeliveryCalendar() {
   const shown = (items || []).filter((o) => !hideDelivered || !o.giao_done);
   return (
     <div class="cal">
-      <div class="prod-detail-head">
-        <div class="prod-sp"><Icon name="truck" size={18} /> Lịch giao</div>
-      </div>
+      <PageHead fallback="#/orders" title={<><Icon name="truck" size={18} /> Lịch giao</>} />
+      {err && <ErrorState msg={err} onRetry={load} />}
       <ScrollCalendar days={days} legend={{ o: "chưa giao", p: "đã giao" }} onPick={openDay}
         headExtra={
           <span class="cal-toggle cc-ht">
@@ -89,6 +89,8 @@ export function DeliveryCalendar() {
             </div>
             {items == null ? (
               <p class="muted small"><LoadingInline /></p>
+            ) : dayErr ? (
+              <ErrorState msg={dayErr} onRetry={() => openDay(pick)} />
             ) : shown.length ? (
               <ul class="order-list cc-list">
                 {shown.map((o) => <li key={o.thread_id}><CompactOrderCard o={o} /></li>)}

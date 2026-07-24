@@ -4,6 +4,7 @@
 // lock/unlock/draft + saveProductionReport. Khoá + nháp: server_app/production_routes.py.
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { BackLink, goBack } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { getProduction, saveProductionReport, lockReport, unlockReport, pushReportDraft, currentUser, soVN, listMediaImages, mediaImageUrl, deleteMediaImage, postForm, listWorkers, reorderWorkers, type ProdSlip, type ProdReport, type Worker } from "../api";
 import { onRealtime } from "../realtime";
 import { rNum as _num, round2, calcRow, type Wrow } from "../detail/reportCalc";
@@ -310,19 +311,17 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
 
   return (
     <div class="prod-detail wr-page">
-      <div class="prod-detail-head">
-        <BackLink fallback={`#/san_xuat/${threadId}`} />
-        <div>
-          <div class="prod-sp"><Icon name="edit" size={18} /> Sửa báo cáo — {slip.sp_name || "?"}</div>
-          <div class="muted small">Phiếu #{threadId}{scm > 0 ? ` · 🌿 ${scm}/mâm` : ""}</div>
-        </div>
-        {/* Indicator quyền sửa — luôn hiện 1 trong 3 trạng thái */}
-        <span class={"wr-lockpill " + lockState}>
-          {lockState === "mine" ? <><Icon name="check" size={12} /> Bạn đang sửa</>
-            : lockState === "other" ? <><Icon name="lock" size={12} /> {holder} đang sửa</>
-            : <><Icon name="clock" size={12} /> Xin quyền sửa…</>}
-        </span>
-      </div>
+      <PageHead fallback={`#/san_xuat/${threadId}`}
+        title={<><Icon name="edit" size={18} /> Sửa báo cáo — {slip.sp_name || "?"}</>}
+        sub={<>Phiếu #{threadId}{scm > 0 ? ` · 🌿 ${scm}/mâm` : ""}</>}
+        right={
+          /* Indicator quyền sửa — luôn hiện 1 trong 3 trạng thái */
+          <span class={"wr-lockpill " + lockState}>
+            {lockState === "mine" ? <><Icon name="check" size={12} /> Bạn đang sửa</>
+              : lockState === "other" ? <><Icon name="lock" size={12} /> {holder} đang sửa</>
+              : <><Icon name="clock" size={12} /> Xin quyền sửa…</>}
+          </span>
+        } />
 
       {lockState === "other" && (
         <div class="wr-lock-alert">

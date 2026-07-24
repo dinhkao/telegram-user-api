@@ -2,7 +2,7 @@
 // thùng). Ảnh chứng minh hàng hư + trao đổi + lịch sử = entity media scope
 // 'disposal'. Xoá = admin: TỒN HOÀN LẠI các thùng, phiếu xoá mềm.
 import { useEffect, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { currentUser, deleteDisposal, getDisposal, soVN, type DisposalSlip } from "../api";
 import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
@@ -53,15 +53,9 @@ export function DisposalDetail({ id }: { id: string }) {
 
   return (
     <div class="ret-detail">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/xuat-huy" />
-        <div>
-          <div class="prod-sp big">
-            <Icon name="trash" size={18} /> Xuất hủy −{soVN(r.total_quantity)}
-          </div>
-          <div class="prod-date muted">{fmtDateTimeVN(r.created_at)}{r.created_by ? ` · ${r.created_by}` : ""}</div>
-        </div>
-      </div>
+      <PageHead fallback="#/xuat-huy"
+        title={<><Icon name="trash" size={18} /> Xuất hủy −{soVN(r.total_quantity)}</>}
+        sub={<>{fmtDateTimeVN(r.created_at)}{r.created_by ? ` · ${r.created_by}` : ""}</>} />
       {deleted && <div class="error-banner">Phiếu đã bị xoá{r.deleted_by ? ` bởi ${r.deleted_by}` : ""}{r.box_less ? "" : " — tồn kho đã hoàn lại"}</div>}
       {r.box_less && (
         <div class="disp-boxless-note">

@@ -2,7 +2,7 @@
 // bấm 'Tạo HĐ KiotViet' mới trừ nợ (khoá sửa); ảnh + trao đổi + lịch sử thao tác
 // dùng chung entity media scope 'return'. Xoá = admin (fade + toast; server chặn).
 import { useEffect, useRef, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import {
   getReturn, deleteReturn, deleteReturnInvoice, updateReturn, invoiceReturn, searchProducts,
   currentUser, isOffice, soVN, type ReturnSlip,
@@ -134,18 +134,14 @@ export function ReturnDetail({ id }: { id: string }) {
 
   return (
     <div class="ret-detail">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/tra-hang" />
-        <div>
-          <div class="prod-sp big">
-            <Icon name="refresh" size={18} /> Trả hàng −{soVN(r.total)}đ
-            {invoiced
-              ? <span class="pk-badge sx"><Icon name="receipt" size={12} /> {r.kv_invoice_code}</span>
-              : <span class="pk-badge pack"><Icon name="edit" size={12} /> Nháp</span>}
-          </div>
-          <div class="prod-date muted">{fmtDateTimeVN(r.created_at)}{r.created_by ? ` · ${r.created_by}` : ""}</div>
-        </div>
-      </div>
+      <PageHead fallback="#/tra-hang"
+        title={<>
+          <Icon name="refresh" size={18} /> Trả hàng −{soVN(r.total)}đ
+          {invoiced
+            ? <span class="pk-badge sx"><Icon name="receipt" size={12} /> {r.kv_invoice_code}</span>
+            : <span class="pk-badge pack"><Icon name="edit" size={12} /> Nháp</span>}
+        </>}
+        sub={<>{fmtDateTimeVN(r.created_at)}{r.created_by ? ` · ${r.created_by}` : ""}</>} />
       {deleted && <div class="error-banner">Phiếu đã bị xoá{(r as any).deleted_by ? ` bởi ${(r as any).deleted_by}` : ""}</div>}
 
       <section class="card">

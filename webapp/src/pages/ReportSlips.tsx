@@ -82,7 +82,7 @@ export function ReportSlips() {
       sub="phiếu báo cáo theo khoảng ngày — SP + tiền công thợ" />
   );
 
-  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="lock">Chỉ văn phòng được xem báo cáo.</EmptyState></div>;
+  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="🔒">Chỉ văn phòng được xem báo cáo.</EmptyState></div>;
   if (err) return <div class="rs-page">{head}<ErrorState msg={err} onRetry={load} /></div>;
 
   return (
@@ -116,7 +116,7 @@ export function ReportSlips() {
       {slips === null ? (
         <Loading />
       ) : slips.length === 0 ? (
-        <EmptyState icon="receipt">Chưa có phiếu báo cáo nào — chọn khoảng ngày ở trên để tạo.</EmptyState>
+        <EmptyState icon="🧾">Chưa có phiếu báo cáo nào — chọn khoảng ngày ở trên để tạo.</EmptyState>
       ) : (
         slips.map((s) => (
           <a class="card rs-row" key={s.id} href={`#/bao-cao/${s.id}`}>

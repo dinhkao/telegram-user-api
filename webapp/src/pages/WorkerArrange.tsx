@@ -3,7 +3,7 @@
 // SX mới. Vào từ nút ⚙ ở dashboard #/tho. Dùng chung ReorderList. Data: /api/workers.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { listWorkers, addWorker, updateWorker, deleteWorker, reorderWorkers, type Worker } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading, ErrorState } from "../ui/states";
@@ -70,11 +70,8 @@ export function WorkerArrange() {
 
   return (
     <div class="detail">
-      <header class="od-appbar">
-        <BackLink fallback="#/tho" className="od-back" />
-        <div class="od-appttl">Sắp xếp thợ</div>
-        <button class="btn primary od-appadd" onClick={() => setAddOpen(true)}><Icon name="plus" size={16} /> Thêm thợ</button>
-      </header>
+      <PageHead fallback="#/tho" title="Sắp xếp thợ"
+        right={<button class="btn primary" onClick={() => setAddOpen(true)}><Icon name="plus" size={16} /> Thêm thợ</button>} />
 
       <div class="card">
         <div class="row space">
@@ -103,19 +100,17 @@ export function WorkerArrange() {
       </div>
 
       {addOpen && createPortal(
-        <div class="sp-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setAddOpen(false); }}>
-          <div class="sp-sheet">
-            <div class="sp-title"><Icon name="plus" size={16} /> Thêm thợ</div>
-            <div class="sp-form-pad">
-              <input ref={addInput} class="cust-in" type="text" value={name} placeholder="Tên thợ"
-                onInput={(e: any) => setName(e.target.value)}
-                onKeyDown={(e: any) => { if (e.key === "Enter") add(); }} />
-              <label class="wl-defcheck mt-2">
-                <input type="checkbox" checked={isDef} onChange={(e: any) => setIsDef(e.target.checked)} />
-                Thêm vào mẫu mặc định (tự điền khi báo cáo trống)
-              </label>
-            </div>
-            <div class="wo-foot">
+        <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setAddOpen(false); }}>
+          <div class="modal-sheet">
+            <div class="modal-head"><Icon name="plus" size={16} /> Thêm thợ</div>
+            <input ref={addInput} class="cust-in" type="text" value={name} placeholder="Tên thợ"
+              onInput={(e: any) => setName(e.target.value)}
+              onKeyDown={(e: any) => { if (e.key === "Enter") add(); }} />
+            <label class="wl-defcheck mt-2">
+              <input type="checkbox" checked={isDef} onChange={(e: any) => setIsDef(e.target.checked)} />
+              Thêm vào mẫu mặc định (tự điền khi báo cáo trống)
+            </label>
+            <div class="row">
               <button class="btn" onClick={() => setAddOpen(false)}>Đóng</button>
               <button class="btn primary" disabled={busy || !name.trim()} onClick={add}><Icon name="plus" size={16} /> Thêm</button>
             </div>

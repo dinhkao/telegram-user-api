@@ -6,7 +6,7 @@
 // Mỗi đơn có nút ẨN khỏi trang thu tiền (bypass_debt) — toggle 2 chiều: đơn ẩn rơi
 // xuống mục "Đã ẩn" và không được phân bổ; bấm "Đưa lại" để thu tiếp.
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { getPaymentContext, bulkPayment, isOffice, orderImageUrl, setOrderBypassDebt, type PaymentContext, type DebtOrder } from "../api";
 import { invalidateListCache } from "./OrdersList";
 import { money, parseMoney, fmtDateTimeVN, fmtRelative } from "../format";
@@ -187,10 +187,7 @@ export function OrderPayment({ threadId }: { threadId: string }) {
 
   return (
     <div>
-      <div class="prod-detail-head">
-        <BackLink fallback={`#/order/${threadId}`} />
-        <div><div class="prod-sp big">Thu tiền · {ctx.customer.name}</div></div>
-      </div>
+      <PageHead fallback={`#/order/${threadId}`} title={<>Thu tiền · {ctx.customer.name}</>} />
 
       {!office ? (
         <EmptyState icon="🔒">Chỉ văn phòng mới được thu tiền.</EmptyState>

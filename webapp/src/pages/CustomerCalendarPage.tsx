@@ -2,7 +2,7 @@
 // chung (cũ→mới, mở ở đáy, lazy 2 chiều). Bấm ngày → popup liệt kê biến động
 // ngày đó, card tái dùng renderFeedItem (y hệt feed, kèm rail nợ).
 import { useEffect, useRef, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import {
   getCustomer, getCustomerFeedDays, getCustomerFeedDay, listOrderImages,
   type CustFeedItem, type OrderImage,
@@ -79,13 +79,9 @@ export function CustomerCalendarPage({ ckey }: { ckey: string }) {
 
   return (
     <div class="prod-detail">
-      <div class="prod-detail-head">
-        <BackLink fallback={`#/khach/${encodeURIComponent(ckey)}`} />
-        <div>
-          <div class="prod-sp"><Icon name="calendar" size={18} /> Lịch biến động</div>
-          <div class="muted small">{name || ckey}</div>
-        </div>
-      </div>
+      <PageHead fallback={`#/khach/${encodeURIComponent(ckey)}`}
+        title={<><Icon name="calendar" size={18} /> Lịch biến động</>}
+        sub={name || ckey} />
       <ScrollCalendar days={days} legend={{ o: "đơn hàng", p: "thanh toán" }} onPick={openDay} />
 
       {pick && (

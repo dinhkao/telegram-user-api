@@ -3,7 +3,7 @@
 // WorkerArrange — sắp thứ tự/⭐/xoá vẫn ở đó). Data: /api/workers. Realtime
 // workers_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { addWorker, listWorkers, type Worker } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
@@ -49,18 +49,15 @@ export function WorkerList() {
 
   return (
     <div class="detail">
-      <header class="od-appbar">
-        <BackLink fallback="#/san_xuat" className="od-back" />
-        <div class="od-appttl">Danh sách thợ</div>
-        <a class="icon-btn od-appadd" href="#/tho/sap-xep" title="Sắp xếp / quản lý thợ"><Icon name="settings" size={20} /></a>
-      </header>
+      <PageHead fallback="#/san_xuat" title="Danh sách thợ"
+        right={<a class="icon-btn" href="#/tho/sap-xep" title="Sắp xếp / quản lý thợ"><Icon name="settings" size={20} /></a>} />
 
       <div class="card">
         <div class="row space">
           <b>Thợ ({workers.length})</b>
           <span class="muted small"><Icon name="star" size={13} /> mặc định: {defCount}</span>
         </div>
-        <button class="btn wl-add-btn" onClick={addNew} disabled={adding}>
+        <button class="btn primary wl-add-btn" onClick={addNew} disabled={adding}>
           <Icon name="plus" size={16} /> {adding ? "Đang tạo…" : "Thêm nhân viên"}
         </button>
         {workers.length === 0 ? (

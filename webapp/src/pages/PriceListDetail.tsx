@@ -3,6 +3,7 @@
 // savePriceOne / getPriceHistory / searchProducts.
 import { useEffect, useState } from "preact/hooks";
 import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { getPriceList, savePriceOne, getPriceHistory, searchProducts,
   type PriceListFull, type PriceHistoryRow } from "../api";
 import { money, parseMoney, fmtDateTimeVN } from "../format";
@@ -82,13 +83,9 @@ export function PriceListDetail({ listId }: { listId: string }) {
 
   return (
     <div class="prod-detail pl-page">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/bang-gia" />
-        <div>
-          <div class="prod-sp big"><Icon name="receipt" size={18} /> {list.name}</div>
-          <div class="muted small">#{list.id} · {list.items.length} SP · {list.customers.length} khách</div>
-        </div>
-      </div>
+      <PageHead fallback="#/bang-gia"
+        title={<><Icon name="receipt" size={18} /> {list.name}</>}
+        sub={<>#{list.id} · {list.items.length} SP · {list.customers.length} khách</>} />
 
       {err && <p class="error">{err}</p>}
 

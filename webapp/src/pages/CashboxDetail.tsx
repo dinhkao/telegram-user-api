@@ -7,7 +7,7 @@ import { cashboxTransferDelete, cashboxWithdraw, currentUser, getCashboxTimeline
          type CashBox, type CashHolding, type CashMove } from "../api";
 import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { Icon } from "../ui/Icon";
 import { confirmDialog, toast } from "../ui/feedback";
 import { EmptyState, ErrorState, Loading, LoadingInline } from "../ui/states";
@@ -240,13 +240,9 @@ export function CashboxDetail({ boxKey }: { boxKey: string }) {
 
   return (
     <div class="place-tl">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/ket" />
-        <div>
-          <div class="prod-sp big"><Icon name="wallet" size={17} /> {box.name}</div>
-          <div class="prod-date muted">Timeline két tiền</div>
-        </div>
-      </div>
+      <PageHead fallback="#/ket"
+        title={<><Icon name="wallet" size={17} /> {box.name}</>}
+        sub="Timeline két tiền" />
 
       <div class="pt-head card">
         <div>

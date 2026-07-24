@@ -6,7 +6,7 @@
 // /api/attendance/map — xem dashboard #/cham-cong).
 // API: getWorkerReport. Realtime production_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import {
   getWorkerReport, isOffice, listAttendanceMap, listWorkers, mapAttendanceCode, soVN,
   updateWorker, type Worker, type WorkerReport, type WorkerReportRow,
@@ -197,17 +197,16 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
 
   return (
     <div class="prod-detail">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/sx-bang" />
-        <div>
-          <div class="prod-sp">
-            <Icon name="user" size={18} /> {name}
-            {isOffice() && worker && (
-              <button class="icon-btn wd-rename" title="Đổi tên nhân viên" onClick={renameWorker}>
-                <Icon name="edit" size={15} />
-              </button>
-            )}
-          </div>
+      <PageHead fallback="#/sx-bang"
+        title={<>
+          <Icon name="user" size={18} /> {name}
+          {isOffice() && worker && (
+            <button class="icon-btn wd-rename" title="Đổi tên nhân viên" onClick={renameWorker}>
+              <Icon name="edit" size={15} />
+            </button>
+          )}
+        </>}
+        sub={<>
           {data && <div class="muted small">Tổng <b>{soVN(data.total)}</b> SP · {soVN(data.total_mam)} mâm · {data.phieu} phiếu</div>}
           {data && showMoney && <div class="wd-total-money">Tiền công: <b>{money(data.total_money || 0)}</b></div>}
           {data && showMoney && (
@@ -215,8 +214,7 @@ export function ProductionWorkerDetail({ name }: { name: string }) {
               <Icon name="printer" size={16} /> In phiếu lương
             </button>
           )}
-        </div>
-      </div>
+        </>} />
 
       {isOffice() && worker && (
         <div class="card wd-weekly-row" onClick={flipWeekly} role="switch" aria-checked={!!worker.weekly_salary}>

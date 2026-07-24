@@ -10,7 +10,8 @@ import { SelectPopup } from "../ui/SelectPopup";
 import { toast } from "../ui/feedback";
 import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
-import { EmptyState, SkeletonList } from "../ui/states";
+import { EmptyState, ErrorState, SkeletonList } from "../ui/states";
+import { PageHead } from "../ui/PageHead";
 
 let boxCache: { boxes: CashBox[]; since: string; totalUnpaid?: number } | null = null;
 onRealtime((e) => {
@@ -93,16 +94,17 @@ export function CashboxList() {
   const [totalUnpaid, setTotalUnpaid] = useState<number | undefined>(boxCache?.totalUnpaid);
   const [since, setSince] = useState(boxCache?.since || "");
   const [loading, setLoading] = useState(!boxCache);
+  const [err, setErr] = useState("");
   const [showTransfer, setShowTransfer] = useState(false);
   const office = isOffice();
 
   const load = () => {
     getCashboxes()
       .then((d) => {
-        setBoxes(d.boxes); setTotalUnpaid(d.total_unpaid); setSince(d.since);
+        setBoxes(d.boxes); setTotalUnpaid(d.total_unpaid); setSince(d.since); setErr("");
         boxCache = { boxes: d.boxes, since: d.since, totalUnpaid: d.total_unpaid };
       })
-      .catch(() => toast("Lỗi tải két tiền", "err"))
+      .catch((e: any) => setErr(e?.message || "Lỗi tải két tiền"))
       .finally(() => setLoading(false));
   };
   useEffect(() => { if (!boxCache) load(); }, []);
@@ -125,17 +127,10 @@ export function CashboxList() {
 
   return (
     <div class="cash-page">
-      <div class="cash-head">
-          <div>
-            {typeof totalUnpaid === "number" ? (
-              <>
-                <div class="muted small">Khách còn nợ (đơn từ {since})</div>
-                <div class="pt-total-big">{soVN(totalUnpaid)}đ</div>
-              </>
-            ) : (
-              <div class="muted small">Két tiền của bạn</div>
-            )}
-          </div>
+      <PageHead fallback="#/home"
+        title={<><Icon name="wallet" size={18} /> Két tiền</>}
+        sub={typeof totalUnpaid === "number" ? `Khách còn nợ (đơn từ ${since})` : "Két tiền của bạn"}
+        right={
           <div class="cash-head-btns">
             <a class="btn small" href="#/huong-dan/ket-tien" title="Hướng dẫn két tiền">
               <Icon name="info" size={14} />
@@ -146,15 +141,18 @@ export function CashboxList() {
               </button>
             )}
           </div>
-      </div>
+        } />
+      {typeof totalUnpaid === "number" && <div class="pt-total-big">{soVN(totalUnpaid)}đ</div>}
 
-      {!boxes.length && <EmptyState>Chưa có biến động tiền nào.</EmptyState>}
+      {!boxes.length && (err
+        ? <ErrorState msg={err} onRetry={() => { setLoading(true); load(); }} />
+        : <EmptyState>Chưa có biến động tiền nào.</EmptyState>)}
 
-      {holdingPeople.length > 0 && <div class="cash-sect muted small">NGƯỜI ĐANG GIỮ TIỀN</div>}
+      {holdingPeople.length > 0 && <div class="ie-head">Người đang giữ tiền</div>}
       {holdingPeople.map((b) => <BoxCard key={b.key} b={b} />)}
-      {special.length > 0 && <div class="cash-sect muted small">KÉT CHUNG</div>}
+      {special.length > 0 && <div class="ie-head">Két chung</div>}
       {special.map((b) => <BoxCard key={b.key} b={b} />)}
-      {idlePeople.length > 0 && <div class="cash-sect muted small">KHÔNG GIỮ TIỀN</div>}
+      {idlePeople.length > 0 && <div class="ie-head">Không giữ tiền</div>}
       {idlePeople.map((b) => <BoxCard key={b.key} b={b} />)}
 
       {showTransfer && (

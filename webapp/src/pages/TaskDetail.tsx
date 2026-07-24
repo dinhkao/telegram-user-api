@@ -7,6 +7,7 @@ import {
   currentUser, deleteTask, getTask, taskAssignees, updateTask, type Task,
 } from "../api";
 import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { Comments } from "../detail/Comments";
 import { Images } from "../detail/Images";
 import { History } from "../detail/History";
@@ -61,13 +62,9 @@ export function TaskDetail({ id }: { id: number }) {
 
   return (
     <div class="prod-detail tasks-page">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/viec" />
-        <div class="tk-d-head">
-          <div class="prod-sp"><Icon name="check" size={18} /> {t.title}</div>
-          <div class="muted small">{KIND_LABEL[t.kind]}{t.done && t.done_by ? ` · ✓ ${names[t.done_by] || t.done_by}` : ""}</div>
-        </div>
-      </div>
+      <PageHead fallback="#/viec"
+        title={<><Icon name="check" size={18} /> {t.title}</>}
+        sub={<>{KIND_LABEL[t.kind]}{t.done && t.done_by ? ` · ✓ ${names[t.done_by] || t.done_by}` : ""}</>} />
 
       <div class="card">
         <button class={"btn block " + (t.done ? "" : "primary")} onClick={toggle}>

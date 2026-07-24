@@ -66,7 +66,7 @@ export function WageTable() {
       sub="đơn giá tiền công / 1 SP theo mã — sửa là dashboard tiền tự tính lại" />
   );
 
-  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="lock">Chỉ văn phòng được xem bảng lương.</EmptyState></div>;
+  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="🔒">Chỉ văn phòng được xem bảng lương.</EmptyState></div>;
   if (err) return <div class="rs-page">{head}<ErrorState msg={err} onRetry={load} /></div>;
   if (!rows) return <div class="rs-page">{head}<Loading /></div>;
 
@@ -90,7 +90,7 @@ export function WageTable() {
       <SearchBar value={q} onInput={setQ} placeholder="Lọc mã / tên SP…" />
 
       {shown.length === 0 ? (
-        <EmptyState icon="wallet">{qn ? "Không có mã nào khớp." : "Bảng lương trống — thêm mã ở trên."}</EmptyState>
+        <EmptyState icon="💰">{qn ? "Không có mã nào khớp." : "Bảng lương trống — thêm mã ở trên."}</EmptyState>
       ) : (
         <div class="card rs-list">
           {shown.map((r) => (
