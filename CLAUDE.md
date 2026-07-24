@@ -831,6 +831,13 @@ runners.
   see `docs/postgres-migration.md`). Leave it dormant unless re-enabling PG.
 - **Telegram sends/edits go through the gateway** (`TelegramGateway`) so flood-wait
   / rate limits are handled — don't call `client.edit_message` raw in hot paths.
+- **Mọi đường TẠO PHIẾU THU serialize qua `server_app/payment_lock.py`**
+  (1 asyncio.Lock toàn cục — web bulk, #/thu-tien-nhanh batch, Telegram `tm`):
+  validate còn-thiếu → tạo phiếu KiotViet → ghi local phải là 1 khối (2026-07-25,
+  cùng vai `_invoice_create_lock` bên nhánh hoá đơn). Ghi local fail SAU khi KV
+  đã thu → trả `kv_paid: true` để client KHÔNG mời bấm thu lại. Thêm đường thanh
+  toán mới = đi qua khoá này. SL hoá đơn có thể LẺ — parse/format qua `utils/qty.py`
+  (parse_qty/fmt_qty/line_total/qty_for_api), cấm `int(sl)`.
 - **Order mutations are read-modify-write on a JSON blob.** Orders live as one
   `json` column; a mutation is `get_order_by_thread_id → mutate dict → _save_order`.
   Wrap that sequence in `with transaction(conn):` (`order_store.schema`) so it's
