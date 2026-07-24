@@ -169,7 +169,18 @@ def _record_batch_cash_receipt(conn, source_thread_id, amount, batch_id, kh_id_f
 
 async def _process_bulk_payment(source_thread_id: int, method: str, amount: int,
                                 allocations: list[dict], user_id) -> dict:
+    """Lõi thu gộp — GIỮ payment_lock toàn cục suốt validate → KiotViet → ghi
+    local (đóng khe TOCTOU 2 thanh toán song song thu đôi tiền). Caller đã cầm
+    khoá thì gọi thẳng _process_bulk_payment_locked (khoá không reentrant)."""
+    from server_app.payment_lock import payment_lock
+    async with payment_lock:
+        return await _process_bulk_payment_locked(source_thread_id, method, amount, allocations, user_id)
+
+
+async def _process_bulk_payment_locked(source_thread_id: int, method: str, amount: int,
+                                       allocations: list[dict], user_id) -> dict:
     """Lõi thu gộp (DB + KiotViet). Trả dict kết quả (giống _process_payment_core).
+    PHẢI được gọi khi đang giữ server_app.payment_lock.
 
     RE-VALIDATE mọi đơn theo DB mới nhất TRƯỚC khi chạm KiotViet (chống dữ liệu đổi
     đồng thời). Chỉ tạo 1 phiếu KiotViet nếu qua hết kiểm tra."""
@@ -290,20 +301,43 @@ async def _process_bulk_payment(source_thread_id: int, method: str, amount: int,
     # add_payment/set_task_status tự mở transaction re-entrant → passthrough, OK.
     # Firebase/emit (IO mạng, fire-and-forget) để NGOÀI transaction, chạy sau.
     from order_store.schema import transaction
-    cum = 0
-    first_payment_id = None
-    with transaction(conn):
-        for tid, amt in validated:
-            old_i = (old_debt - cum) if old_debt is not None else None
-            new_i = (old_debt - cum - amt) if old_debt is not None else None
-            rec = build_payment_record(amt, method, kv_res, actor_name, old_debt=old_i, new_debt=new_i)
-            rec["payment_batch_id"] = batch_id
-            add_payment(conn, tid, rec)
-            if first_payment_id is None:
-                first_payment_id = rec.get("id")
-            _auto_complete_tasks_core(conn, tid, user_id)
-            result["allocations"].append({"thread_id": tid, "amount": amt})
-            cum += amt
+
+    def _write_local() -> None:
+        cum = 0
+        with transaction(conn):
+            for tid, amt in validated:
+                old_i = (old_debt - cum) if old_debt is not None else None
+                new_i = (old_debt - cum - amt) if old_debt is not None else None
+                rec = build_payment_record(amt, method, kv_res, actor_name, old_debt=old_i, new_debt=new_i)
+                rec["payment_batch_id"] = batch_id
+                add_payment(conn, tid, rec)
+                if rec.get("id") and not result.get("_first_payment_id"):
+                    result["_first_payment_id"] = rec.get("id")
+                _auto_complete_tasks_core(conn, tid, user_id)
+                result["allocations"].append({"thread_id": tid, "amount": amt})
+                cum += amt
+
+    # HĐ KiotViet ĐÃ TẠO ở trên — ghi local thất bại là tiền đã thu mà app không
+    # biết. Retry (SQLite busy là lỗi thoáng qua); vẫn hỏng → trả kv_paid=True để
+    # client TUYỆT ĐỐI không mời bấm thu lại (bấm lại = thu ĐÔI trên KiotViet).
+    for attempt in range(3):
+        try:
+            result["allocations"] = []
+            result.pop("_first_payment_id", None)
+            _write_local()
+            break
+        except Exception as e:  # noqa: BLE001
+            log.error("bulk pay: ghi local sau KiotViet lỗi (lần %d): %s", attempt + 1, e)
+            if attempt == 2:
+                log.critical(
+                    "bulk pay: KIOTVIET ĐÃ THU %s (phiếu %s) nhưng LOCAL KHÔNG GHI ĐƯỢC — "
+                    "đối chiếu tay khách kv_id=%s", total_alloc, result.get("kv_code"), kv_id)
+                result["error"] = (f"KiotViet ĐÃ THU {total_alloc:,}đ (phiếu {result.get('kv_code')}) "
+                                   "nhưng app chưa ghi được — ĐỪNG thu lại, báo văn phòng đối chiếu.")
+                result["kv_paid"] = True
+                return result
+            await asyncio.sleep(0.5 * (attempt + 1))
+    first_payment_id = result.pop("_first_payment_id", None)
     # 6b. Mirror task + Firebase sync + realtime NGOÀI transaction. set_task_status
     # gọi TRONG transaction ngoài tự BỎ QUA mirror/auto-assign (connection thứ 2 ghi
     # cùng app.db khi thread này đang giữ write-lock → busy-wait 5s/đơn CHẶN event
@@ -376,8 +410,10 @@ async def bulk_payment_handler(request: web.Request):
         log.error("Bulk payment API error: %s", e, exc_info=True)
         return web.json_response({"ok": False, "error": str(e)}, status=500)
     if not result["success"]:
-        # dữ liệu đổi đồng thời / đơn không hợp lệ → 409 để client biết cần tải lại
-        return web.json_response({"ok": False, "error": result["error"]}, status=409)
+        # dữ liệu đổi đồng thời / đơn không hợp lệ → 409 để client biết cần tải lại.
+        # kv_paid: KiotViet ĐÃ thu mà local chưa ghi — client phải coi là ĐÃ THU.
+        return web.json_response(
+            {"ok": False, "error": result["error"], "kv_paid": bool(result.get("kv_paid"))}, status=409)
 
     # Một giao dịch thu gộp làm thay đổi N đơn: ghi event riêng cho TỪNG đơn,
     # thay vì chỉ dựa vào request HTTP vốn không có một thread_id duy nhất.

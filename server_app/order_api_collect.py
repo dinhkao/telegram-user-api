@@ -187,29 +187,42 @@ def _prep_collection(key: str, req_amt: int) -> dict:
 
 async def _collect_one(key: str, method: str, req_amt: int, user_id) -> dict:
     """Thu cho 1 khách: chuẩn bị (thread) → fan-out vào lõi thu gộp cũ. Không ném:
-    mọi lỗi gói vào kết quả để loạt tiếp tục."""
+    mọi lỗi gói vào kết quả để loạt tiếp tục.
+
+    GIỮ payment_lock từ PREP tới hết ghi local: submit trùng (double-tap /
+    retry sau mất mạng) serialize lại — lượt sau prep thấy nợ ĐÃ GIẢM nên chỉ
+    thu phần còn thiếu (hết nợ thì 'Không còn đơn để thu'), không thu đôi."""
     base = {
         "key": key, "name": key, "requested": int(req_amt), "collected": 0,
         "order_count": 0, "kv_code": None, "new_debt": None, "batch_id": None,
         "capped": False, "allocations": [],
     }
-    try:
-        prep = await asyncio.to_thread(_prep_collection, key, int(req_amt))
-    except Exception as e:  # noqa: BLE001
-        log.error("collect prep key=%s lỗi: %s", key, e, exc_info=True)
-        return {**base, "ok": False, "error": "Lỗi chuẩn bị phân bổ"}
-    base["name"] = prep.get("name") or key
-    if not prep.get("ok"):
-        return {**base, "ok": False, "error": prep.get("error") or "Không thu được"}
-    amt = int(prep["amt"])
-    allocations = prep["allocations"]
-    try:
-        res = await _process_bulk_payment(int(prep["source"]), method, amt, allocations, user_id)
-    except Exception as e:  # noqa: BLE001
-        log.error("collect one key=%s lỗi: %s", key, e, exc_info=True)
-        return {**base, "ok": False, "error": str(e)}
+    from server_app.payment_lock import payment_lock
+    from server_app.order_api_bulk_payment import _process_bulk_payment_locked
+    async with payment_lock:
+        try:
+            prep = await asyncio.to_thread(_prep_collection, key, int(req_amt))
+        except Exception as e:  # noqa: BLE001
+            log.error("collect prep key=%s lỗi: %s", key, e, exc_info=True)
+            return {**base, "ok": False, "error": "Lỗi chuẩn bị phân bổ"}
+        base["name"] = prep.get("name") or key
+        if not prep.get("ok"):
+            return {**base, "ok": False, "error": prep.get("error") or "Không thu được"}
+        amt = int(prep["amt"])
+        allocations = prep["allocations"]
+        try:
+            res = await _process_bulk_payment_locked(int(prep["source"]), method, amt, allocations, user_id)
+        except Exception as e:  # noqa: BLE001
+            log.error("collect one key=%s lỗi: %s", key, e, exc_info=True)
+            return {**base, "ok": False, "error": str(e)}
     if not res.get("success"):
-        return {**base, "ok": False, "error": res.get("error") or "Thu thất bại"}
+        # kv_paid = KiotViet ĐÃ thu mà local chưa ghi — client phải bỏ chọn khách
+        # này và cảnh báo, tuyệt đối không mời bấm lại.
+        out = {**base, "ok": False, "error": res.get("error") or "Thu thất bại"}
+        if res.get("kv_paid"):
+            out["kv_paid"] = True
+            out["kv_code"] = res.get("kv_code")
+        return out
     done = res.get("allocations") or []
     return {
         **base, "ok": True, "error": None,

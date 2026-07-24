@@ -203,6 +203,15 @@ def _record_cash_receipt(conn, thread_id, amount, payment_id, kh_id_fb, kh_name,
 
 
 async def _process_payment_core(thread_id: int, amount: int, user_id: int | None, method: str) -> dict:
+    """Core payment processing — serialize qua payment_lock toàn cục (cùng khoá
+    với thu gộp web/batch): 2 lệnh `tm` sát nhau / web + Telegram cùng lúc không
+    còn lồng validate↔KiotViet↔ghi local vào nhau (thu đôi tiền)."""
+    from server_app.payment_lock import payment_lock
+    async with payment_lock:
+        return await _process_payment_core_inner(thread_id, amount, user_id, method)
+
+
+async def _process_payment_core_inner(thread_id: int, amount: int, user_id: int | None, method: str) -> dict:
     """Core payment processing (DB + KiotViet). Returns result dict for both Telethon and REST API."""
     db_conn = _get_connection()
     actor_name = str(user_id) if user_id else "API"
@@ -286,7 +295,14 @@ async def _process_payment_core(thread_id: int, amount: int, user_id: int | None
     ok, payment_msg = add_payment(db_conn, thread_id, payment_record)
     payment_id = payment_record.get("id")   # add_payment vừa gán
     if not ok:
-        log.error("Failed to save payment to SQLite: %s", payment_msg)
+        # KiotViet ĐÃ thu, local không ghi được → phải BÁO LỖI (bản cũ vẫn trả
+        # success=True: app không có phiếu, người dùng bấm lại = thu ĐÔI trên KV).
+        log.critical("Payment saved on KiotViet (%s) but SQLite write FAILED: %s — đối chiếu tay đơn #%s",
+                     result.get("kv_code"), payment_msg, thread_id)
+        result["error"] = (f"KiotViet ĐÃ THU {amount:,}đ (phiếu {result.get('kv_code')}) nhưng app chưa "
+                           "ghi được phiếu — ĐỪNG thu lại, báo văn phòng đối chiếu.")
+        result["kv_paid"] = True
+        return result
 
     # 4b. Sổ quỹ: thanh toán TIỀN MẶT → tạo phiếu thu gắn đơn + khách (web lẫn telegram
     # đều qua đây). Không chặn thanh toán nếu ghi quỹ lỗi.

@@ -182,12 +182,18 @@ export function SmartCollectMoney() {
         collections: valid.map((c) => ({ customer_key: c.key, amount: c.amount })),
       });
       setResults(response.results);
-      const okKeys = new Set(response.results.filter((r) => r.ok).map((r) => r.key));
+      // Bỏ chọn khách đã thu OK **và cả khách kv_paid** (KiotViet ĐÃ thu nhưng
+      // app chưa ghi được — giữ lại trong picked là mời bấm thu ĐÔI).
+      const doneKeys = new Set(response.results.filter((r) => r.ok || (r as any).kv_paid).map((r) => r.key));
       setPicked((prev) => {
         const next = new Map(prev);
-        for (const key of okKeys) next.delete(key);
+        for (const key of doneKeys) next.delete(key);
         return next;
       });
+      const kvPaid = response.results.filter((r) => (r as any).kv_paid);
+      if (kvPaid.length) {
+        toast(`⚠ ${kvPaid.length} khách KiotViet ĐÃ THU nhưng app chưa ghi — ĐỪNG thu lại, báo văn phòng đối chiếu`, "err");
+      }
       toast(response.fail_count === 0
         ? `✅ Đã thu ${money(response.total_collected)} đ từ ${response.ok_count} khách`
         : `Thu được ${response.ok_count} khách · ${response.fail_count} khách lỗi`, response.fail_count === 0 ? "ok" : "err");
