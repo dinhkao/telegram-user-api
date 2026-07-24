@@ -57,8 +57,11 @@ export function OrderPayment({ threadId }: { threadId: string }) {
   }, [threadId]);
 
   const amount = parseMoney(amountStr);
-  const rawCustomerDebt = Number(ctx?.customer.debt ?? 0);
-  const customerDebt = Number.isFinite(rawCustomerDebt) ? rawCustomerDebt : 0;
+  // Nợ KiotViet là snapshot có thể CHƯA từng sync (null) — chỉ áp trần tổng-nợ-khách
+  // khi có số thật; thiếu số thì trần = nợ của các đơn đã chọn (overSelectedDebt).
+  const rawCustomerDebt = ctx?.customer.debt;
+  const hasCustomerDebt = rawCustomerDebt != null && Number.isFinite(Number(rawCustomerDebt));
+  const customerDebt = hasCustomerDebt ? Number(rawCustomerDebt) : 0;
   const orders = ctx?.orders || [];
   const hiddenOrders = ctx?.hidden_orders || [];
   // API trả cũ→mới; giao diện mặc định đảo lại để thao tác trên đơn mới nhất trước.
@@ -71,9 +74,9 @@ export function OrderPayment({ threadId }: { threadId: string }) {
     [orderedOrders, selectedIds],
   );
   const selectedDebt = selectedOrders.reduce((sum, o) => sum + o.debt, 0);
-  const payableDebt = Math.min(selectedDebt, Math.max(0, customerDebt));
+  const payableDebt = hasCustomerDebt ? Math.min(selectedDebt, Math.max(0, customerDebt)) : selectedDebt;
   const allocMap = useMemo(() => allocate(selectedOrders, amount), [selectedOrders, amount]);
-  const overCustomerDebt = amount > Math.max(0, customerDebt);
+  const overCustomerDebt = hasCustomerDebt && amount > Math.max(0, customerDebt);
   const overSelectedDebt = amount > selectedDebt;
   const overDebt = overCustomerDebt || overSelectedDebt;
   const valid = amount > 0 && selectedOrders.length > 0 && !overDebt;
@@ -212,7 +215,7 @@ export function OrderPayment({ threadId }: { threadId: string }) {
                   </button>
                 </div>
                 {selectedOrders.length === 0 && <p class="notice small">Chọn ít nhất một đơn ở bên dưới.</p>}
-                {selectedOrders.length > 0 && customerDebt <= 0 && <p class="notice small">Khách hiện không còn công nợ.</p>}
+                {selectedOrders.length > 0 && hasCustomerDebt && customerDebt <= 0 && <p class="notice small">Khách hiện không còn công nợ.</p>}
                 {selectedOrders.length > 0 && customerDebt > 0 && overCustomerDebt && <p class="notice err small">Số tiền vượt tổng nợ khách — tối đa {money(customerDebt)}.</p>}
                 {selectedOrders.length > 0 && !overCustomerDebt && overSelectedDebt && <p class="notice err small">Số tiền vượt nợ của các đơn đã chọn — tối đa {money(selectedDebt)}.</p>}
                 <div class="seg pay-method" role="tablist">
@@ -289,7 +292,7 @@ export function OrderPayment({ threadId }: { threadId: string }) {
                 <button class={"btn primary block" + (!valid || busy ? " faded" : "")} disabled={busy}
                   onClick={() => (valid ? confirm() : toast(
                     selectedOrders.length === 0 ? "Chọn ít nhất một đơn"
-                      : customerDebt <= 0 ? "Khách hiện không còn công nợ"
+                      : hasCustomerDebt && customerDebt <= 0 ? "Khách hiện không còn công nợ"
                       : overCustomerDebt ? "Số tiền vượt tổng nợ khách"
                       : overSelectedDebt ? "Số tiền vượt nợ của các đơn đã chọn"
                       : "Nhập số tiền",

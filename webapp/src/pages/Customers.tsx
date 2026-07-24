@@ -107,8 +107,10 @@ export function Customers() {
   // Realtime: cập nhật công nợ/khách MÀ KHÔNG co danh sách về trang 1. Lấy trang 1 mới
   // rồi VÁ tại chỗ theo key (giữ nguyên các trang đã cuộn + vị trí), chèn khách mới lên đầu.
   const refreshMerge = async () => {
+    const seq = ++reqSeq.current;   // cùng counter với load — response cũ về trễ thì bỏ
     try {
       const r = await getJSON(qUrl(1, st.current.search, st.current.owing), { cache: false });
+      if (seq !== reqSeq.current) return;
       const fresh: any[] = r.customers || [];
       if (r.stats) setStats(r.stats);
       const byKey = new Map(fresh.map((c) => [c.key, c]));
@@ -160,7 +162,9 @@ export function Customers() {
   const onSearch = (q: string) => {
     setSearch(q);
     setPage(1);
-    if (q.length === 1) return;
+    // 1 ký tự: không query — chốt totalPages=1 để observer khỏi phân trang tiếp
+    // trên list cũ (state search đã đổi mà list chưa load theo).
+    if (q.length === 1) { setTotalPages(1); return; }
     load(1, q, false);
   };
 

@@ -2,10 +2,11 @@
 // hoàn tất bước Nhận tiền / Gửi toa. Dùng filter chua_nhan của API đơn để khớp
 // đúng workflow server, thao tác nhanh ngay trên từng card.
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { getJSON, postJSON } from "../api";
+import { getJSON, isOffice, postJSON } from "../api";
 import { onRealtime } from "../realtime";
 import { foldVN, fmtDateTimeVN, fmtRelative, money } from "../format";
 import { ErrorState, EmptyState, SkeletonList } from "../ui/states";
+import { PageHead } from "../ui/PageHead";
 import { SearchBar } from "../ui/SearchBar";
 import { Icon } from "../ui/Icon";
 import { toast } from "../ui/feedback";
@@ -33,7 +34,8 @@ function isReceiptOrder(o: OrderRow): boolean {
 }
 
 function isWaitingReceive(o: Partial<OrderRow>): boolean {
-  return !!o.customer_key && !!o.nop && !o.nhan && String(o.created || "") >= "2026-06-01";
+  // Server (has_customer) nhận cả đơn chỉ có TÊN khách chưa gán key — matcher phải theo.
+  return !!(o.customer_key || o.customer) && !!o.nop && !o.nhan && String(o.created || "") >= "2026-06-01";
 }
 
 function isToday(value: string): boolean {
@@ -132,6 +134,7 @@ export function NhanTienDashboard() {
   const visible = useMemo(() => orders.filter((o) => {
     const haystack = foldVN(`${o.customer} ${o.text} ${o.topic_name} ${o.thread_id}`);
     if (normalized && !haystack.includes(normalized)) return false;
+    if (scope === "pending") return !isReceiptOrder(o);
     if (scope === "receipt") return isReceiptOrder(o);
     if (scope === "today") return isToday(activityAt(o));
     if (scope === "older") return !isToday(activityAt(o));
@@ -163,6 +166,15 @@ export function NhanTienDashboard() {
     }
   };
 
+  // Server gate mọi thao tác nhận tiền office-only → chặn luôn trang với staff.
+  if (!isOffice()) {
+    return (
+      <div class="nopdash nhandash">
+        <PageHead fallback="#/orders" title="Nhận tiền" />
+        <EmptyState icon="🔒">Chỉ văn phòng.</EmptyState>
+      </div>
+    );
+  }
   if (err && !data) return <ErrorState msg={err} onRetry={reload} />;
   if (!data) return <SkeletonList rows={5} />;
 

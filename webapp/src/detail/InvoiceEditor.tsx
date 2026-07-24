@@ -141,11 +141,14 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const addRow = () => setRows((prev) => [...prev, { sp: "", sl: 1, price: 0, note: "" }]);
   const removeRow = (i: number) => setRows((prev) => prev.filter((_, idx) => idx !== i));
 
-  // Tự lấy giá theo khách khi chốt mã SP — chỉ điền khi giá đang trống (không đè giá tay)
-  const autoPrice = async (i: number, code: string) => {
+  // Tự lấy giá theo khách khi chốt mã SP — chỉ điền khi giá đang trống (không đè giá tay).
+  // Áp theo MÃ chứ không theo index: dòng có thể bị xoá/xáo trong lúc tra giá.
+  const autoPrice = async (code: string) => {
     if (!customerId || !code.trim()) return;
     const { price } = await loadListPrice(code);
-    if (price) setRows((prev) => prev.map((r, idx) => (idx === i && !r.price ? { ...r, price } : r)));
+    if (custRef.current !== customerId) return;   // khách đổi khi đang tra — giá là của khách cũ, bỏ
+    const key = code.trim().toUpperCase();
+    if (price) setRows((prev) => prev.map((r) => ((r.sp || "").trim().toUpperCase() === key && !r.price ? { ...r, price } : r)));
   };
 
   const save = async () => {
@@ -174,7 +177,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
             <div class="er-main">
               {priceOnly
                 ? <span class="er-product-fixed">{it.sp}</span>
-                : <ProductInput value={it.sp} onChange={(c) => setRow(i, "sp", c)} onCommit={(c) => autoPrice(i, c)} />}
+                : <ProductInput value={it.sp} onChange={(c) => setRow(i, "sp", c)} onCommit={(c) => autoPrice(c)} />}
               <input class="er-sl" inputMode="decimal" title="Số lượng (nhập được số lẻ, vd 1,5)" placeholder="SL"
                 value={it.slText ?? (it.sl ? fmtQty(it.sl) : "")}
                 disabled={priceOnly} onFocus={selectAll}

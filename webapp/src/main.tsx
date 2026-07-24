@@ -2,7 +2,7 @@
 // + thanh nav dưới + banner offline/hàng đợi. Connects to: pages/*, api.ts.
 import { render } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { currentUser, getJSON, replayQueue, netOk, onNetStatus, refreshMe, soVN } from "./api";
+import { currentUser, getJSON, isOffice, replayQueue, netOk, onNetStatus, refreshMe, soVN } from "./api";
 import { clearQueue, getQueue } from "./offline";
 import { getStatus, onStatus, onRealtime, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
@@ -194,7 +194,7 @@ function NopBanner() {
     });
     return () => { clearInterval(poll); clearTimeout(t.current); off(); };
   }, []);
-  const show = n > 0 || nhan > 0 || boxes > 0 || pins.length > 0 || short.n > 0;
+  const show = n > 0 || (nhan > 0 && isOffice()) || boxes > 0 || pins.length > 0 || short.n > 0;
   const [open, setOpen] = useState(false); // sheet liệt kê mọi tin trên banner
   usePopupBack(open, () => setOpen(false));
   useScrollLock(open);
@@ -220,7 +220,7 @@ function NopBanner() {
   });
   if (short.n > 0) parts.push({ text: `⚠️ Thiếu hàng: ${short.n} mã (thiếu ${soVN(short.total)})`, href: "#/nhu-cau", pin: true, sub: "bấm để xem Cần làm hàng" });
   if (n > 0) parts.push({ text: `💰 ${n} đơn chưa nộp tiền`, href: "#/nop-tien", sub: "bấm để mở dashboard nộp tiền" });
-  if (nhan > 0) parts.push({ text: `📥 ${nhan} đơn chờ nhận tiền`, href: "#/nhan-tien", sub: "bấm để mở dashboard nhận tiền" });
+  if (nhan > 0 && isOffice()) parts.push({ text: `📥 ${nhan} đơn chờ nhận tiền`, href: "#/nhan-tien", sub: "bấm để mở dashboard nhận tiền" });   // trang nhận tiền office-only
   if (boxes > 0) parts.push({ text: `📦 ${boxes} thùng chưa xếp kho`, href: "#/kho", sub: "bấm để mở Kho hàng" });
   // Tốc độ CỐ ĐỊNH (~50px/s) dù nội dung dài ngắn: thời gian tỉ lệ độ rộng nửa
   // track (ước lượng ~7px/ký tự + 48px đệm/mẩu, nửa track = 3 lượt parts).

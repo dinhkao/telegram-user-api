@@ -24,7 +24,11 @@ function orderLabel(o: OrderRow): string {
 }
 
 function deliveredAt(o: OrderRow): string {
-  return o.giao_at || o.updated_at?.toString() || o.created || "";
+  if (o.giao_at) return o.giao_at;
+  // updated_at là epoch-ms — đổi sang ISO thì Date/isToday mới parse được
+  const epoch = Number(o.updated_at);
+  if (Number.isFinite(epoch) && epoch > 1_000_000_000_000) return new Date(epoch).toISOString();
+  return o.created || "";
 }
 
 function isWaitingLater(o: OrderRow): boolean {
@@ -34,7 +38,8 @@ function isWaitingLater(o: OrderRow): boolean {
 function isUnpaidOrder(o: Partial<OrderRow>): boolean {
   // Khớp semantics server của filter=chua_nop: đã giao, chưa nộp, có khách,
   // và chỉ nhận dữ liệu từ mốc workflow hiện hành.
-  return !!o.customer_key && !!o.giao && !o.nop && String(o.created || "") >= "2026-06-01";
+  // has_customer server nhận cả đơn chỉ có TÊN khách chưa gán key — matcher phải theo.
+  return !!(o.customer_key || o.customer) && !!o.giao && !o.nop && String(o.created || "") >= "2026-06-01";
 }
 
 function sortDashboardOrders(orders: OrderRow[]): OrderRow[] {
@@ -201,7 +206,6 @@ export function NopTienDashboard() {
         </div>
       </div>
 
-      {data.stale && <p class="nopdash-stale">⚠️ Đang hiển thị dữ liệu lưu sẵn — sẽ đồng bộ lại khi có mạng.</p>}
       {err && <p class="nopdash-stale error">{err}</p>}
 
       {visible.length === 0 ? (

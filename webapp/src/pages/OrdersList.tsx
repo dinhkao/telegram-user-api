@@ -35,8 +35,8 @@ const FILTER_LABELS: Record<string, string> = {
 function giaoDue(o: OrderRow): boolean {
   const ng = ((o as any).ngay_giao || "").slice(0, 10);
   if (!ng) return true;
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  // "Hôm nay" theo giờ VN như server — máy lệch múi giờ vẫn khớp rule Chưa giao
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
   return ng <= today;
 }
 

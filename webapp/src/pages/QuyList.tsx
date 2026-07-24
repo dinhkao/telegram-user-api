@@ -288,7 +288,12 @@ export function QuyList() {
 
 function QuyRow({ r, onDelete }: { r: QuyReceipt; onDelete: (r: QuyReceipt) => void }) {
   const thu = r.type === "thu";
-  const time = (r.created_at || "").slice(11, 16);
+  // created_at là UTC ("…Z") — hiện HH:MM theo giờ VN cho khớp nhóm ngày;
+  // parse hỏng thì fallback cắt chuỗi như cũ.
+  const d = new Date(r.created_at || "");
+  const time = Number.isNaN(d.getTime())
+    ? (r.created_at || "").slice(11, 16)
+    : d.toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit" });
   return (
     <div class={"quy-row " + (thu ? "thu" : "chi")}>
       <div class="quy-row-main">

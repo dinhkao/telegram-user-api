@@ -65,27 +65,38 @@ export function getQueue(): QueuedPost[] {
   }
 }
 
+// Chặn flush CHỒNG (auto reconnect + tap banner cùng lúc) — không guard thì mỗi
+// item bị gửi lặp bởi từng lượt flush.
+let flushing = false;
+
 /** Gửi lần lượt. Callback trả "ok" (đã gửi) | "drop" (bỏ hẳn) | "keep" (giữ thử sau);
- *  ném exception (mất mạng) = "keep". Trả số item đã gửi. */
+ *  ném exception (mất mạng) = "keep". Trả số item đã gửi.
+ *  Đang có flush chạy dở → lượt gọi chồng là no-op (trả 0). */
 export async function flushQueue(send: (path: string, body: any) => Promise<"ok" | "drop" | "keep">): Promise<number> {
+  if (flushing) return 0;
   const q = getQueue();
   if (!q.length) return 0;
-  const remaining: QueuedPost[] = [];
-  let sent = 0;
-  for (const item of q) {
-    if (Date.now() - (item.at || 0) > QUEUE_MAX_AGE_MS) continue;   // quá hạn → bỏ
-    let verdict: "ok" | "drop" | "keep";
-    try {
-      verdict = await send(item.path, item.body);
-    } catch {
-      verdict = "keep";
+  flushing = true;
+  try {
+    const remaining: QueuedPost[] = [];
+    let sent = 0;
+    for (const item of q) {
+      if (Date.now() - (item.at || 0) > QUEUE_MAX_AGE_MS) continue;   // quá hạn → bỏ
+      let verdict: "ok" | "drop" | "keep";
+      try {
+        verdict = await send(item.path, item.body);
+      } catch {
+        verdict = "keep";
+      }
+      if (verdict === "ok") sent++;
+      else if (verdict === "keep") remaining.push(item);
     }
-    if (verdict === "ok") sent++;
-    else if (verdict === "keep") remaining.push(item);
+    // Item được queuePost thêm TRONG lúc flush nằm ở cuối queue hiện tại (sau snapshot q)
+    // → giữ lại, đừng ghi đè mất.
+    const added = getQueue().slice(q.length);
+    localStorage.setItem(QUEUE_KEY, JSON.stringify([...remaining, ...added]));
+    return sent;
+  } finally {
+    flushing = false;
   }
-  // Item được queuePost thêm TRONG lúc flush nằm ở cuối queue hiện tại (sau snapshot q)
-  // → giữ lại, đừng ghi đè mất.
-  const added = getQueue().slice(q.length);
-  localStorage.setItem(QUEUE_KEY, JSON.stringify([...remaining, ...added]));
-  return sent;
 }

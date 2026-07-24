@@ -76,11 +76,17 @@ export function SmartCollectMoney() {
   const eligible = useMemo(() => sortSmart(debtors.filter((d) => !d.blocked && d.collectable > 0)), [debtors]);
   const normalized = foldVN(query.trim());
   const selectedCount = picked.size;
+  // Hạng ƯU TIÊN theo thứ tự Gợi ý ĐẦY ĐỦ (trước khi lọc search) — gõ tên không đổi số.
+  const smartRank = useMemo(() => {
+    const m = new Map<string, number>();
+    sortSmart(debtors.filter((d) => !d.blocked)).forEach((d, i) => m.set(d.key, i + 1));
+    return m;
+  }, [debtors]);
 
   const visible = useMemo(() => {
     let list = debtors;
     if (filter === "smart") list = sortSmart(list.filter((d) => !d.blocked));
-    else if (filter === "largest") list = [...list].sort((a, b) => b.collectable - a.collectable);
+    else if (filter === "largest") list = list.filter((d) => !d.blocked && d.collectable > 0).sort((a, b) => b.collectable - a.collectable);   // cùng tập với badge (khách đủ điều kiện)
     else if (filter === "one-order") list = list.filter((d) => !d.blocked && d.order_count === 1);
     else if (filter === "selected") list = list.filter((d) => picked.has(d.key));
     else if (filter === "blocked") list = list.filter((d) => d.blocked);
@@ -281,7 +287,7 @@ export function SmartCollectMoney() {
               onKeyDown={(e: any) => { if ((e.key === "Enter" || e.key === " ") && !d.blocked) { e.preventDefault(); openCustomerPayment(d); } }}>
               <div class="smart-customer-main">
                 <button class="smart-check" aria-label={selected ? `Bỏ chọn ${d.name}` : `Chọn ${d.name}`} disabled={d.blocked} onClick={() => pickCustomer(d)}>{selected && <Icon name="check" size={15} />}</button>
-                <div class="smart-customer-copy"><div class="smart-customer-label"><span>{filter === "smart" && !d.blocked ? `ƯU TIÊN ${String(index + 1).padStart(2, "0")}` : d.blocked ? "CHƯA LIÊN KẾT" : `${d.order_count} ĐƠN ĐANG NỢ`}</span></div><a href={d.blocked ? undefined : (d.source_thread_id ? `#/order/${d.source_thread_id}/thanh-toan` : undefined)} onClick={(e: any) => { e.stopPropagation(); if (!d.source_thread_id) { e.preventDefault(); void openCustomerPayment(d); } }}>{openingKey === d.key ? "Đang mở…" : d.name}</a><small>{d.order_count} đơn · {kvDiff ? `nợ KV ${money(Number(d.kv_debt))} đ` : "bấm card để mở thu tiền"}</small></div>
+                <div class="smart-customer-copy"><div class="smart-customer-label"><span>{filter === "smart" && !d.blocked ? `ƯU TIÊN ${String(smartRank.get(d.key) || index + 1).padStart(2, "0")}` : d.blocked ? "CHƯA LIÊN KẾT" : `${d.order_count} ĐƠN ĐANG NỢ`}</span></div><a href={d.blocked ? undefined : (d.source_thread_id ? `#/order/${d.source_thread_id}/thanh-toan` : undefined)} onClick={(e: any) => { e.stopPropagation(); if (!d.source_thread_id) { e.preventDefault(); void openCustomerPayment(d); } }}>{openingKey === d.key ? "Đang mở…" : d.name}</a><small>{d.order_count} đơn · {kvDiff ? `nợ KV ${money(Number(d.kv_debt))} đ` : "bấm card để mở thu tiền"}</small></div>
                 <div class="smart-customer-money"><strong>{money(d.collectable)}</strong><span>đ</span></div>
                 {!d.blocked && <button class="smart-add" onClick={() => pickCustomer(d)}>{selected ? "Bỏ" : "+ Đủ"}</button>}
               </div>

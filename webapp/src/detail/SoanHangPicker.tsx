@@ -6,7 +6,7 @@
 // Lưu id ảnh đã dùng vào note task (imgs:<id,id>). Data: GET /api/order/{id}/images,
 // POST /api/order/task.
 import { useEffect, useState } from "preact/hooks";
-import { listMediaImages, mediaImageUrl, postJSON, type OrderImage } from "../api";
+import { listMediaImages, mediaImageUrl, postJSON, setImageKind, type OrderImage } from "../api";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
@@ -57,8 +57,21 @@ export function SoanHangPicker({ threadId, onClose, onDone, adminQuick, onAddPho
     if (!ids.length) return;
     setBusy(true);
     try {
+      // Ảnh chọn tay có thể chưa mang loại soạn hàng → gắn loại TRƯỚC khi đánh dấu
+      // (server đếm order_images kind='soan_hang' — thiếu là bị từ chối).
+      const need = (images || []).filter((x) => ids.includes(x.id) && kindOf(x) !== "soan_hang");
+      let failed = 0;
+      for (const img of need) {
+        try { await setImageKind(base, img.id, "soan_hang"); }
+        catch { failed++; }
+      }
+      if (failed) {
+        toast(`Không gắn được loại soạn hàng cho ${failed}/${need.length} ảnh — thử lại`, "err");
+        setBusy(false);
+        return;
+      }
       await postJSON("/api/order/task", { thread_id: Number(threadId), type: "soan_hang", note: `imgs:${ids.join(",")}`, done: true });
-      toast(`Soạn hàng ·  ảnh`, "ok");
+      toast(`Soạn hàng · ${ids.length} ảnh`, "ok");
       onDone();
       onClose();
     } catch (e: any) {
