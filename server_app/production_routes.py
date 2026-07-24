@@ -481,6 +481,7 @@ async def production_report_save_handler(request: web.Request):
                 "rows": result["rows"],
                 "grand_total": result["grand_total"],
                 "updated_at": datetime.now(_VN_TZ).isoformat(),
+                "updated_by": me,
             })
         finally:
             conn.close()

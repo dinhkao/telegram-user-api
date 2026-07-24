@@ -505,6 +505,7 @@ def register_production_commands(client):
                 "rows": report["rows"],
                 "grand_total": report["grand_total"],
                 "updated_at": datetime.now(_VN_TZ).isoformat(),
+                "updated_by": await _sender_name(msg) or str(getattr(msg, "sender_id", "") or ""),
             })
             _emit_prod(thread_id)  # báo cáo đổi → list card + dashboard SX refetch
             _rows = [r for r in report["rows"] if str(r.get("name") or "").strip()]

@@ -4,6 +4,7 @@
 // Khoá/nháp: server_app/production_routes.py. Tính mâm/tổng: detail/reportCalc.
 import { useEffect, useState } from "preact/hooks";
 import { soVN, isOffice, currentUser, reportLockStatus, type ProdSlip, type ProdReport } from "../api";
+import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { toast } from "../ui/feedback";
@@ -71,6 +72,11 @@ export function ProductionReport({ threadId, slip, locked }: { threadId: string;
             {mStart && mEnd && <span><Icon name="clock" size={14} /> {mStart}–{mEnd}</span>}
             <span>· Tổng <b>{soVN(grand)}</b></span>
             {draft && <span class="wr-live"><i class="wr-live-dot" /> đang nhập trực tiếp</span>}
+            {!draft && (rep?.updated_by || rep?.updated_at) && (
+              <span class="muted" title="Người lưu báo cáo gần nhất">
+                ✍️ {rep.updated_by ? `${rep.updated_by} · ` : ""}{fmtDateTimeVN(rep.updated_at)}
+              </span>
+            )}
           </div>
           <div class="prod-report-scroll">
             <table class="prod-report-table">

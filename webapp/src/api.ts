@@ -846,6 +846,8 @@ export type ProdReport = {
   date?: string | null;
   start?: string | null;
   end?: string | null;
+  updated_at?: string | null;   // lần lưu báo cáo gần nhất (ISO giờ VN)
+  updated_by?: string | null;   // ai lưu (web = tên đăng nhập, Telegram = tên người gửi)
   grand_total: number;
   rows: { name: string; so_gach: number; so_tru: number; so_cay_le: number; note: string; so_mam: number; tong_calc: number; sp_de?: number | null; mam_de?: number | null; so_gio?: number | null }[];
 };
