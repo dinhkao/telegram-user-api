@@ -5,17 +5,11 @@
 import { useEffect, useState } from "preact/hooks";
 import { getAuxLoss, ApiError, type AuxLossResp, type AuxLossPeriod, type AuxLossRow } from "../api";
 import { onRealtime } from "../realtime";
-import { fmtQty } from "../format";
+import { fmtDateTimeVN, fmtQty } from "../format";
 import { PageHead } from "../ui/PageHead";
 import { EmptyState, ErrorState, Loading } from "../ui/states";
 
 // prev_ts/cur_ts là EPOCH GIÂY (UTC) → chỉ dùng epoch, ĐỪNG parse chuỗi ngày
-// (tránh lệch 7 giờ). Hiện ngày+giờ theo giờ VN.
-function dtVN(epochSec: number): string {
-  return new Date(epochSec * 1000).toLocaleString("vi-VN", {
-    timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
-  });
-}
 
 // Màu chênh lệch: gap>0 → mất nhiều hơn định mức (.t-danger), gap<0 → còn dư
 // (.t-ok), gap=0/null → thường.
@@ -42,10 +36,10 @@ function PeriodCard({ p }: { p: AuxLossPeriod }) {
           <span>
             <b>Đang diễn ra</b>{" "}
             <span class="al-badge">chưa kiểm kho</span>{" "}
-            <span class="muted small">từ {dtVN(p.prev_ts)}</span>
+            <span class="muted small">từ {fmtDateTimeVN(p.prev_ts)}</span>
           </span>
         ) : (
-          <b>{dtVN(p.prev_ts)} → {p.cur_ts != null ? dtVN(p.cur_ts) : "—"}</b>
+          <b>{fmtDateTimeVN(p.prev_ts)} → {p.cur_ts != null ? fmtDateTimeVN(p.cur_ts) : "—"}</b>
         )}
       </div>
       <div class="al-cmp-wrap">

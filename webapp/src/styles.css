@@ -136,7 +136,6 @@ body.kbd-open .page { padding-bottom: 10px; }
 .muted { color: var(--muted); }
 .small { font-size: .82rem; }
 .error { color: var(--danger); padding: 6px 0; }
-.ok-msg { color: var(--ok); background: var(--ok-wash); padding: 8px 10px; border-radius: 8px; font-size: .9rem; margin: 6px 0; }
 
 /* Phản hồi dùng chung — toast + hộp xác nhận (ui/feedback.tsx) */
 /* flex column (KHÔNG grid place-items: nhiều toast bị grid chia màn thành N hàng,
@@ -2537,7 +2536,6 @@ body.co-kbd .bottom-nav { display: none; }
 .co-input::placeholder { font-weight: 500; opacity: .45; }
 .co-typing .co-input { padding: 10px; }
 .co-submit { margin-top: 10px; min-height: 50px; font-size: 1rem; }
-.err-msg { color: var(--danger); background: var(--danger-wash); padding: 8px 10px; border-radius: 8px; font-size: .9rem; margin: 6px 0; }
 /* Hướng dẫn cú pháp — gọn, thu gọn được */
 .co-hint-toggle { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; background: none; border: none; color: var(--muted); font-size: .82rem; font-weight: 600; padding: 10px 2px 6px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .co-hint-chev { transition: transform var(--dur) var(--ease); }

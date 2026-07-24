@@ -11,6 +11,7 @@ import { InvoiceEditor, type EditorPayload } from "../detail/InvoiceEditor";
 import { CustomerPicker } from "../detail/CustomerPicker";
 import { PriceListModal } from "../detail/PriceListModal";
 import { Icon } from "../ui/Icon";
+import { toast } from "../ui/feedback";
 import { useTypingSplit } from "../ui/useTypingSplit";
 
 // Nháp — text + khách đã chọn sống qua rời trang / reload app (localStorage).
@@ -26,7 +27,6 @@ export function CreateOrder() {
   const [customer, setCustomer] = useState<{ key: string; name: string } | null>(null);
   const [picked, setPicked] = useState<{ key: string; name: string } | null>(() => loadDraft().picked || null); // khách chọn tay ở tab Nhanh
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
   const [preview, setPreview] = useState<OrderPreview | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [liveDebt, setLiveDebt] = useState<{ id: string; debt: number | null } | null>(null);
@@ -92,16 +92,16 @@ export function CreateOrder() {
   }, [text, mode, picked?.key]);
 
   const submitQuick = async () => {
-    if (!text.trim()) return setErr("Nhập nội dung đơn");
-    setBusy(true); setErr("");
+    if (!text.trim()) return toast("Nhập nội dung đơn", "info");
+    setBusy(true);
     try {
       // Đăng vào kênh #don_hang → tạo topic Telegram + đơn (như gõ tay trên Telegram).
       // Khách chọn tay (picked) ĐÈ lên tự nhận diện từ text — cả gán khách lẫn giá.
       const r = await postJSON("/api/order/create", { text: text.trim(), customer_key: picked?.key || null });
       localStorage.removeItem(DRAFT_KEY); // đơn đã tạo → bỏ nháp
       if (r.thread_id) window.location.hash = `#/order/${r.thread_id}`;
-      else { setErr("✅ Đã gửi vào #don_hang — đang tạo đơn, sẽ hiện ở danh sách."); window.location.hash = "#/"; }
-    } catch (ex: any) { setErr(ex.message); } finally { setBusy(false); }
+      else { toast("Đã gửi vào #don_hang — đang tạo đơn, sẽ hiện ở danh sách.", "ok"); window.location.hash = "#/"; }
+    } catch (ex: any) { toast(ex.message, "err"); } finally { setBusy(false); }
   };
 
   // Nâng cao: đăng tên khách vào #don_hang (tạo topic + đơn) → lưu hoá đơn → chi tiết
@@ -245,7 +245,6 @@ export function CreateOrder() {
             onInput={(e: any) => setText(e.target.value)} />
           </div>
 
-          {err && <p class={err.startsWith("✅") ? "ok-msg" : "err-msg"}>{err}</p>}
           <button class="btn primary wide co-submit" disabled={busy || !text.trim()} onClick={submitQuick}>
             {busy ? "Đang tạo…" : preview?.invoice.length
               ? `Tạo đơn · ${preview.invoice.length} SP · ${money(preview.total)}`
