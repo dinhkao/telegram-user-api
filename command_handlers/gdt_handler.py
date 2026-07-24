@@ -43,8 +43,13 @@ def register_gdt_handler(client):
             if not order:
                 await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
                 return
-            order["giay_dan_thung"] = {"ten_gdt": parts[0], "sdt_gdt": parts[1], "so_thung": parts[2], "note_gdt": parts[3]}
-            await client.send_message(msg.chat_id, "✅ Cập nhật giấy dán thùng thành công" if _save_order(db_conn, thread_id, order) else "❌ Lỗi lưu giấy dán thùng", reply_to=msg.id)
+            from order_store.schema import transaction
+            gdt = {"ten_gdt": parts[0], "sdt_gdt": parts[1], "so_thung": parts[2], "note_gdt": parts[3]}
+            with transaction(db_conn):
+                fresh = get_order_by_thread_id(db_conn, thread_id) or order
+                fresh["giay_dan_thung"] = gdt
+                saved = _save_order(db_conn, thread_id, fresh)
+            await client.send_message(msg.chat_id, "✅ Cập nhật giấy dán thùng thành công" if saved else "❌ Lỗi lưu giấy dán thùng", reply_to=msg.id)
         except Exception as e:
             log.error("gdt command error: %s", e, exc_info=True)
             await client.send_message(msg.chat_id, "❌ Lỗi khi cập nhật giấy dán thùng", reply_to=msg.id)

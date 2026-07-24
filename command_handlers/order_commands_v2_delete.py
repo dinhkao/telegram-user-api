@@ -82,5 +82,15 @@ async def _delete_kv_invoice(invoice_id):
 
 
 def _clear_invoice_fields(db_conn, thread_id, order):
-    order.update({"kiotvietInvoiceID": None, "kiotvietInvoiceCode": None, "invoice_debt_snapshot": None, "nguoi_tao_HD": None})
-    _save_order(db_conn, thread_id, order)
+    """Xoá field HĐ trên blob. RE-READ trong transaction (KHÔNG ghi `order` của
+    caller — dict đó đọc TRƯỚC các await KiotViet/Telegram, ghi nguyên con sẽ
+    đè mất payment/task/stock_alert ghi xen kẽ — đúng bug 14594985)."""
+    from order_store.schema import transaction
+    fields = {"kiotvietInvoiceID": None, "kiotvietInvoiceCode": None,
+              "invoice_debt_snapshot": None, "nguoi_tao_HD": None}
+    with transaction(db_conn):
+        fresh = get_order_by_thread_id(db_conn, thread_id)
+        if fresh:
+            fresh.update(fields)
+            _save_order(db_conn, thread_id, fresh)
+    order.update(fields)   # bản caller dùng tiếp cho render — chỉ cập nhật local

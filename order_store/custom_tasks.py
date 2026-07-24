@@ -37,6 +37,11 @@ def add_custom_task(conn, thread_id: int, label: str, user_id: int | None) -> st
         d = order.to_dict()
         saved = _save_order(conn, thread_id, d)
     if saved:
+        if conn.in_transaction:
+            # transaction NGOÀI đang giữ write-lock — mirror mở connection thứ 2
+            # sẽ busy-wait 5s CHẶN event loop rồi "database is locked" (guard
+            # giống order_store.tasks.set_task_status); caller mirror sau COMMIT.
+            return task_id
         from task_store import mirror_order_tasks_safe
         mirror_order_tasks_safe(thread_id, d)
         from order_store.tasks import _emit_tasks_changed_safe
@@ -69,11 +74,13 @@ def apply_customer_default_tasks(conn, thread_id: int, firebase_key: str, user_i
         d = order.to_dict()
         saved = _save_order(conn, thread_id, d)
     if saved:
+        log.info("customer default tasks: thread=%s +%d (%s)", thread_id, len(todo), ", ".join(todo))
+        if conn.in_transaction:
+            return todo   # guard nested-transaction — caller mirror sau COMMIT
         from task_store import mirror_order_tasks_safe
         mirror_order_tasks_safe(thread_id, d)
         from order_store.tasks import _emit_tasks_changed_safe
         _emit_tasks_changed_safe()
-        log.info("customer default tasks: thread=%s +%d (%s)", thread_id, len(todo), ", ".join(todo))
         return todo
     return []
 
@@ -88,8 +95,9 @@ def remove_custom_task(conn, thread_id: int, task_id: str) -> bool:
         order = _remove(Order.from_dict(data), task_id)
         d = order.to_dict()
         ok = _save_order(conn, thread_id, d)
-    from task_store import mirror_order_tasks_safe
-    mirror_order_tasks_safe(thread_id, d)
-    from order_store.tasks import _emit_tasks_changed_safe
-    _emit_tasks_changed_safe()
+    if not conn.in_transaction:   # guard nested-transaction (như set_task_status)
+        from task_store import mirror_order_tasks_safe
+        mirror_order_tasks_safe(thread_id, d)
+        from order_store.tasks import _emit_tasks_changed_safe
+        _emit_tasks_changed_safe()
     return ok

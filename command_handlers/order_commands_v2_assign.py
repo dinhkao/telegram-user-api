@@ -28,7 +28,19 @@ async def assign_customer(client, msg, db_conn, thread_id: int, kh_id: str):
         new_invoice = parse_comma_text(order_text, db_conn, kh_id)
         if new_invoice:
             order["invoice"] = freeze_invoice_cost_prices(db_conn, new_invoice)
-    if not _save_order(db_conn, thread_id, order):
+    # RMW trong transaction: re-read + chỉ vá khách/invoice (save `order` trần
+    # đè mất payment/task ghi xen kẽ từ web trong lúc lệnh chạy)
+    from order_store.schema import transaction
+    with transaction(db_conn):
+        fresh = get_order_by_thread_id(db_conn, thread_id)
+        if fresh:
+            fresh["khach_hang_id"], fresh["customer_name"] = order["khach_hang_id"], order["customer_name"]
+            if order.get("invoice") is not None:
+                fresh["invoice"] = order["invoice"]
+            saved = _save_order(db_conn, thread_id, fresh)
+        else:
+            saved = _save_order(db_conn, thread_id, order)
+    if not saved:
         await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
         return
     # Việc mặc định của khách → auto-thêm vào đơn (dưới 5 việc chuẩn)

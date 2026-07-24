@@ -872,11 +872,26 @@ async def _auto_parse_fix(client, conn, thread_id: int, text: str, reassign_cust
                 _save_order(conn, thread_id, order)
                 log.info("auto-parse (fix): thread=%d items=%d", thread_id, len(invoice))
 
+            applied_defaults = []
             if detection.get("autoAssign") and not order.get("kiotvietInvoiceID"):
                 if not invoice:
                     _save_order(conn, thread_id, order)   # lưu gán khách dù chưa nhận ra SP nào
                 from order_store.custom_tasks import apply_customer_default_tasks
-                apply_customer_default_tasks(conn, thread_id, kh_id)
+                # đang TRONG transaction — hàm tự BỎ mirror (guard nested), mirror lại dưới
+                applied_defaults = apply_customer_default_tasks(conn, thread_id, kh_id)
+
+        # Mirror task SAU COMMIT (trong transaction sẽ mở connection thứ 2 cùng
+        # app.db → busy-wait 5s CHẶN event loop rồi 'database is locked')
+        if applied_defaults:
+            try:
+                from task_store import mirror_order_tasks_safe
+                d2 = get_order_by_thread_id(conn, thread_id)
+                if d2:
+                    mirror_order_tasks_safe(thread_id, d2)
+                from order_store.tasks import _emit_tasks_changed_safe
+                _emit_tasks_changed_safe()
+            except Exception as e:
+                log.warning("mirror default tasks sau auto-parse lỗi thread=%s: %s", thread_id, e)
 
         if invoice:
             _firebase_refresh_async(client, conn, thread_id, order)
@@ -1395,18 +1410,23 @@ def register_order_commands_v3(client):
         thread_id = _extract_thread_id(msg)
         if not thread_id: return
 
-        order = get_order_by_thread_id(db_conn, thread_id, )
-        if not order:
+        # RMW trong transaction: mutate bản FRESH (lệnh này rewrite mirror
+        # task_status — save bản đọc trần sẽ đè payment/task ghi xen kẽ)
+        from order_store.schema import transaction
+        with transaction(db_conn):
+            order = get_order_by_thread_id(db_conn, thread_id)
+            if not order:
+                saved = None
+            else:
+                # Sync task_status mirror to root booleans (soan, giao, nop, nhan)
+                _sync_task_mirror(order)
+                # Clean text_chat (remove cs, cg, cnt, cnhan)
+                _clean_text_chat(order)
+                saved = _save_order(db_conn, thread_id, order)
+        if saved is None:
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
-
-        # Sync task_status mirror to root booleans (soan, giao, nop, nhan)
-        _sync_task_mirror(order)
-        # Clean text_chat (remove cs, cg, cnt, cnhan)
-        _clean_text_chat(order)
-
-        # Save to SQLite
-        if not _save_order(db_conn, thread_id, order):
+        if not saved:
             await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
             return
 
@@ -1637,10 +1657,22 @@ def register_order_commands_v3(client):
 
         # Save updated invoice (freeze cost prices)
         from product_db import freeze_invoice_cost_prices
-        order["invoice"] = freeze_invoice_cost_prices(db_conn, next_invoice)
-        if not _save_order(db_conn, thread_id, order):
+        # RMW trong transaction: re-read + chỉ vá invoice (bản `order` đọc từ đầu
+        # lệnh, giữa chừng là ~85 dòng tra giá — save trần đè payment/task xen kẽ)
+        frozen_invoice = freeze_invoice_cost_prices(db_conn, next_invoice)
+        from order_store.schema import transaction
+        with transaction(db_conn):
+            fresh_bg = get_order_by_thread_id(db_conn, thread_id)
+            if fresh_bg:
+                fresh_bg["invoice"] = frozen_invoice
+                saved_bg = _save_order(db_conn, thread_id, fresh_bg)
+                order = fresh_bg
+            else:
+                saved_bg = False
+        if not saved_bg:
             await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
             return
+        order["invoice"] = frozen_invoice
 
         total = sum(line_total(i.get("price", 0), i.get("sl", 0)) for i in next_invoice)
         list_name = str(entry.get("name") or entry.get("ten") or "").strip()

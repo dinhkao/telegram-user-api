@@ -124,7 +124,18 @@ async def auto_parse_handler(request: web.Request):
         invoice = parse_invoice_free_text(conn, text, assigned_cust["customerID"])
     if invoice:
         order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
-    _save_order(conn, thread_id, order)
+    # RMW trong transaction: re-read rồi chỉ vá field mình đổi — save nguyên
+    # `order` trần sẽ đè mất payment/task ghi xen kẽ từ thread khác.
+    from order_store.schema import transaction
+    with transaction(conn):
+        fresh = get_order_by_thread_id(conn, thread_id)
+        if fresh:
+            if assigned_cust:
+                fresh.update({"khach_hang_id": assigned_cust["customerID"],
+                              "customer_name": assigned_cust["customerName"]})
+            if invoice:
+                fresh["invoice"] = order["invoice"]
+            _save_order(conn, thread_id, fresh)
     log.info("auto-parse: thread=%d items=%d assigned=%s", thread_id, len(invoice) if invoice else 0, assigned_cust["customerName"] if assigned_cust else "none")
     if state._client is not None:
         lines = []

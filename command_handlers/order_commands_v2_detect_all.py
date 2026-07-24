@@ -68,7 +68,16 @@ def register_order_commands_v2_detect_all(client):
             lines.append(f"\n💰 <b>Tổng cộng: {total:,}đ</b>")
         else:
             lines.append("\n🎯 Không tìm thấy sản phẩm nào.")
-        _save_order(db_conn, thread_id, order)
+        # RMW trong transaction: re-read + chỉ vá khách/invoice
+        from order_store.schema import transaction
+        with transaction(db_conn):
+            fresh = get_order_by_thread_id(db_conn, thread_id)
+            if fresh:
+                if detection["autoAssign"]:
+                    fresh["khach_hang_id"], fresh["customer_name"] = order["khach_hang_id"], order["customer_name"]
+                if invoice:
+                    fresh["invoice"] = order["invoice"]
+                _save_order(db_conn, thread_id, fresh)
         if order.get("channel_id") and order.get("message_id"):
             asyncio.ensure_future(refresh_main_msg(client, db_conn, thread_id, order["channel_id"], order["message_id"]))
         await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")

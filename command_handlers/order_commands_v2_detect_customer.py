@@ -43,7 +43,12 @@ def register_order_commands_v2_detect_customer(client):
         if detection["autoAssign"]:
             cust = detection["autoAssign"]
             order["khach_hang_id"], order["customer_name"] = cust["customerID"], cust["customerName"]
-            _save_order(db_conn, thread_id, order)
+            from order_store.schema import transaction
+            with transaction(db_conn):   # RMW: re-read + chỉ vá field khách
+                fresh = get_order_by_thread_id(db_conn, thread_id)
+                if fresh:
+                    fresh["khach_hang_id"], fresh["customer_name"] = cust["customerID"], cust["customerName"]
+                    _save_order(db_conn, thread_id, fresh)
             from order_db import touch_customer_last_order
             touch_customer_last_order(db_conn, cust["customerID"])
             if order.get("channel_id") and order.get("message_id"):

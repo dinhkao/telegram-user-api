@@ -49,8 +49,15 @@ async def update_debt_command(client, msg, db_conn, thread_id):
     display_debt = kv_debt
     if order.get("kiotvietInvoiceID"):
         display_debt = kv_debt - _get_order_total_value(order)
+    # RE-READ trong transaction sau await KiotViet — chỉ vá khDebt, không ghi
+    # nguyên blob đọc trước await (mất update xen kẽ).
+    from order_store.schema import transaction
+    with transaction(db_conn):
+        fresh = get_order_by_thread_id(db_conn, thread_id)
+        if fresh:
+            fresh["khDebt"] = display_debt
+            _save_order(db_conn, thread_id, fresh)
     order["khDebt"] = display_debt
-    _save_order(db_conn, thread_id, order)
     from order_db import update_customer_debt
     update_customer_debt(db_conn, str(kh_id_fb), kv_debt)
     if not order.get("kiotvietInvoiceID") and order.get("channel_id") and order.get("message_id"):
@@ -79,10 +86,19 @@ async def update_debt_and_notify(client, db_conn, thread_id, order, kh_id_fb, ol
                 break
             await asyncio.sleep(1.2 * attempt)
         if new_debt is not None:
+            # RE-READ trong transaction: `order` của caller đọc TRƯỚC chuỗi await
+            # (KV delete + retry tới ~12s) — ghi nguyên con sẽ re-mark ban_hd=done
+            # (caller vừa un-mark) + đè mọi update xen kẽ. Chỉ vá khDebt.
+            from order_store.schema import transaction
+            with transaction(db_conn):
+                fresh = get_order_by_thread_id(db_conn, thread_id)
+                if fresh:
+                    fresh["khDebt"] = new_debt
+                    _save_order(db_conn, thread_id, fresh)
             order["khDebt"] = new_debt
-            _save_order(db_conn, thread_id, order)
             from order_db import update_customer_debt
             update_customer_debt(db_conn, str(kh_id_fb), new_debt)
+            delta = None   # bản cũ: unbound khi old_debt None → NameError nuốt im, mất notify
             if old_debt is not None:
                 delta = new_debt - old_debt
                 debt_lines.append(f"💰 Nợ: {old_debt:,}đ → {new_debt:,}đ ({delta:+,}đ)")
