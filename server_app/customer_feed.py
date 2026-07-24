@@ -165,12 +165,17 @@ def _items_from_events(conn, chunk: list[dict]) -> list[dict]:
 
 def _collect_events(conn, key: str) -> list[dict]:
     # 1) sự kiện: mọi đơn (ts=created) + mọi payment trong blob (ts=created_at)
-    # CAST AS TEXT: khach_hang_id trong blob khi là số (8) khi là chữ ('8')
+    # CAST AS TEXT: khach_hang_id trong blob khi là số (8) khi là chữ ('8').
+    # OR khID: đơn di sản chỉ có khID (collect/bulk/debt_suggest đều match cả 2 —
+    # feed thiếu chúng làm chuỗi nợ mất delta, đoạn giữa 2 mốc không cân → '—').
     events: list[dict] = []
     for r in conn.execute(
         "SELECT o.thread_id, o.json FROM orders o "
-        "WHERE CAST(json_extract(o.json, '$.khach_hang_id') AS TEXT) = ? AND o.deleted_at IS NULL",
-        (key,),
+        "WHERE (CAST(json_extract(o.json, '$.khach_hang_id') AS TEXT) = ? "
+        "       OR (json_extract(o.json, '$.khach_hang_id') IS NULL "
+        "           AND CAST(json_extract(o.json, '$.khID') AS TEXT) = ?)) "
+        "AND o.deleted_at IS NULL",
+        (key, key),
     ).fetchall():
         tid = r["thread_id"]
         if tid is None:

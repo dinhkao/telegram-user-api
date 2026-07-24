@@ -81,9 +81,11 @@ def _patch_batch_new_debt(firebase_key: str, kv_debt) -> list[int]:
             " json_extract(p.value,'$.amount') amt, json_extract(p.value,'$.created_at') at,"
             " json_extract(p.value,'$.old_debt') od"
             " FROM orders o, json_each(o.json,'$.payments') p"
-            " WHERE CAST(json_extract(o.json,'$.khach_hang_id') AS TEXT) = ?"
+            " WHERE (CAST(json_extract(o.json,'$.khach_hang_id') AS TEXT) = ?"
+            "        OR (json_extract(o.json,'$.khach_hang_id') IS NULL"
+            "            AND CAST(json_extract(o.json,'$.khID') AS TEXT) = ?))"
             " AND o.deleted_at IS NULL",
-            (str(firebase_key),)).fetchall()
+            (str(firebase_key), str(firebase_key))).fetchall()
         cutoff = _time.time() - _BATCH_WINDOW_S
         batch = sorted(
             ({"tid": r["tid"], "pid": r["pid"], "amt": float(r["amt"] or 0), "ts": _ts(r["at"]), "od": r["od"]}
