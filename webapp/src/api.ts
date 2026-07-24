@@ -274,7 +274,7 @@ export async function bulkPayment(payload: { source_thread_id: number; method: "
 export type Debtor = {
   key: string; name: string; kv_debt: number | null;
   collectable: number;   // Σ còn thiếu của đơn active (số THU ĐƯỢC qua đơn)
-  order_count: number; blocked: boolean;   // blocked = chưa liên kết KiotViet
+  order_count: number; source_thread_id?: number; blocked: boolean;   // blocked = chưa liên kết KiotViet
 };
 /** Kết quả thu 1 khách trong loạt. */
 export type CollectResult = {

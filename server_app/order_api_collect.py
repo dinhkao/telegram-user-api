@@ -103,10 +103,13 @@ def _load_debtors(conn) -> dict:
         }
     # 1 lượt quét đơn → cộng collectable + đếm đơn theo khách.
     agg: dict[str, dict] = {}
-    for r in conn.execute("SELECT json FROM orders WHERE deleted_at IS NULL AND json IS NOT NULL"):
+    for r in conn.execute("SELECT thread_id, json FROM orders WHERE deleted_at IS NULL AND json IS NOT NULL"):
         try:
             data = json.loads(r["json"])
         except (TypeError, ValueError):
+            continue
+        thread_id = r["thread_id"]
+        if thread_id is None:
             continue
         key = data.get("khach_hang_id") or data.get("khID")
         if not key:
@@ -114,9 +117,18 @@ def _load_debtors(conn) -> dict:
         rem = _active_remaining(data)
         if rem is None:
             continue
-        e = agg.setdefault(str(key), {"collectable": 0, "order_count": 0})
+        candidate_key = _ts_key(data.get("created")) or float(thread_id)
+        e = agg.setdefault(str(key), {
+            "collectable": 0, "order_count": 0,
+            "source_thread_id": int(thread_id), "source_order_key": candidate_key,
+        })
         e["collectable"] += rem
         e["order_count"] += 1
+        # Mở trang thu tiền bằng đơn cũ nhất để thứ tự phân bổ mặc định khớp
+        # với lõi thu gộp (cũ → mới); payment-context vẫn tải toàn bộ đơn của khách.
+        if candidate_key < e["source_order_key"]:
+            e["source_thread_id"] = int(thread_id)
+            e["source_order_key"] = candidate_key
     debtors: list[dict] = []
     for key, e in agg.items():
         c = custs.get(key) or {}
@@ -126,6 +138,7 @@ def _load_debtors(conn) -> dict:
             "kv_debt": c.get("kv_debt"),
             "collectable": e["collectable"],
             "order_count": e["order_count"],
+            "source_thread_id": e["source_thread_id"],
             "blocked": not c.get("kh_id"),
         })
     debtors.sort(key=lambda d: d["collectable"], reverse=True)

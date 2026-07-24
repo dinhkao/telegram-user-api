@@ -79,6 +79,9 @@ import { AreasBoard } from "./pages/AreasBoard";
 import { AreaDetail } from "./pages/AreaDetail";
 import { CashboxList } from "./pages/CashboxList";
 import { CollectMoney } from "./pages/CollectMoney";
+import { SmartCollectMoney } from "./pages/SmartCollectMoney";
+import { NopTienDashboard } from "./pages/NopTienDashboard";
+import { NhanTienDashboard } from "./pages/NhanTienDashboard";
 import { HelpFab } from "./ui/HelpFab";
 import { CashboxDetail } from "./pages/CashboxDetail";
 import { GuidesList, GuideDetail } from "./pages/Guides";
@@ -159,6 +162,7 @@ function useHash(): string {
 // + poll 2 phút. Cả hai = 0 → ẩn banner.
 function NopBanner() {
   const [n, setN] = useState(0);        // đơn đã giao chưa nộp
+  const [nhan, setNhan] = useState(0);  // đơn đã nộp nhưng văn phòng chưa nhận
   const [boxes, setBoxes] = useState(0); // thùng chưa gán vị trí kho
   const [short, setShort] = useState({ n: 0, total: 0 }); // SP thiếu hàng cho đơn hôm nay
   const [pins, setPins] = useState<{ id: number; text: string; href?: string }[]>([]); // bình luận ghim 24h
@@ -166,7 +170,7 @@ function NopBanner() {
   useEffect(() => {
     const load = () => {
       getJSON("/api/orders?page=1&limit=1", { cache: false })
-        .then((d) => setN(Number(d.stats?.chua_nop) || 0))
+        .then((d) => { setN(Number(d.stats?.chua_nop) || 0); setNhan(Number(d.stats?.chua_nhan) || 0); })
         .catch(() => {});
       getJSON("/api/inventory/unplaced-count", { cache: false })
         .then((d) => setBoxes(Number(d.count) || 0))
@@ -189,7 +193,7 @@ function NopBanner() {
     });
     return () => { clearInterval(poll); clearTimeout(t.current); off(); };
   }, []);
-  const show = n > 0 || boxes > 0 || pins.length > 0 || short.n > 0;
+  const show = n > 0 || nhan > 0 || boxes > 0 || pins.length > 0 || short.n > 0;
   const [open, setOpen] = useState(false); // sheet liệt kê mọi tin trên banner
   usePopupBack(open, () => setOpen(false));
   // Banner chiếm ~28px dưới app-bar → các sticky khác (topbar tìm kiếm, header
@@ -213,7 +217,8 @@ function NopBanner() {
     sub: `${(p as any).created_by ? `${(p as any).created_by} ghim · ` : ""}${hLeft((p as any).expires_at)}`,
   });
   if (short.n > 0) parts.push({ text: `⚠️ Thiếu hàng: ${short.n} mã (thiếu ${soVN(short.total)})`, href: "#/nhu-cau", pin: true, sub: "bấm để xem Cần làm hàng" });
-  if (n > 0) parts.push({ text: `💰 ${n} đơn chưa nộp tiền`, href: "#/orders?filter=chua_nop", sub: "bấm để lọc Chưa nộp" });
+  if (n > 0) parts.push({ text: `💰 ${n} đơn chưa nộp tiền`, href: "#/nop-tien", sub: "bấm để mở dashboard nộp tiền" });
+  if (nhan > 0) parts.push({ text: `📥 ${nhan} đơn chờ nhận tiền`, href: "#/nhan-tien", sub: "bấm để mở dashboard nhận tiền" });
   if (boxes > 0) parts.push({ text: `📦 ${boxes} thùng chưa xếp kho`, href: "#/kho", sub: "bấm để mở Kho hàng" });
   // Tốc độ CỐ ĐỊNH (~50px/s) dù nội dung dài ngắn: thời gian tỉ lệ độ rộng nửa
   // track (ước lượng ~7px/ký tự + 48px đệm/mẩu, nửa track = 3 lượt parts).
@@ -477,12 +482,12 @@ function App() {
   const viecMatch = hash.match(/^#\/viec\/(\d+)/);
   const retMatch = hash.match(/^#\/tra-hang\/(\d+)/);
   const dispMatch = hash.match(/^#\/xuat-huy\/(\d+)/);
+  const areaMatch = hash.match(/^#\/khu-vuc\/(\d+)/);
   const ketMatch = hash.match(/^#\/ket\/([^?]+)/);
   const purEditMatch = hash.match(/^#\/nhap-hang\/(\d+)\/sua/);
   const purMatch = hash.match(/^#\/nhap-hang\/(\d+)/);
   const nccMatch = hash.match(/^#\/ncc\/(\d+)/);
   const khachLichMatch = hash.match(/^#\/khach\/([^/?]+)\/lich/);
-  const areaMatch = hash.match(/^#\/khu-vuc\/(\d+)/);
   const khachMatch = hash.match(/^#\/khach\/([^?]+)/);
   const bangGiaMatch = hash.match(/^#\/bang-gia\/([^?]+)/);
   // Deep-link từ notification: ?focus=comment:123 / ?focus=image:45 → cuộn + nháy
@@ -523,6 +528,9 @@ function App() {
   else if (hash.startsWith("#/chuyen-kho")) page = <BulkMove />;
   else if (hash.startsWith("#/hao-hut-nl")) page = <AuxLoss />;
   else if (hash.startsWith("#/kho")) page = <KhoBoxes />;
+  else if (hash.startsWith("#/nop-tien")) page = <NopTienDashboard />;
+  else if (hash.startsWith("#/nhan-tien")) page = <NhanTienDashboard />;
+  else if (hash.startsWith("#/thu-tien-nhanh")) page = <SmartCollectMoney />;
   else if (hash.startsWith("#/thu-tien")) page = <CollectMoney />;
   else if (hash.startsWith("#/quy")) page = <QuyList />;
   else if (hash.startsWith("#/users")) page = <Users />;
@@ -544,6 +552,8 @@ function App() {
   else if (purMatch) page = <PurchaseDetail id={purMatch[1]} />;
   else if (dispMatch) page = <DisposalDetail id={dispMatch[1]} />;
   else if (hash.startsWith("#/xuat-huy")) page = <DisposalsList />;
+  else if (areaMatch) page = <AreaDetail id={areaMatch[1]} />;
+  else if (hash.startsWith("#/khu-vuc")) page = <AreasBoard />;
   else if (hash.startsWith("#/dieu-chinh")) page = <AdjustmentsList />;
   else if (ketMatch) page = <CashboxDetail boxKey={decodeURIComponent(ketMatch[1])} />;
   else if (hash.startsWith("#/ket")) page = <CashboxList />;
@@ -552,8 +562,6 @@ function App() {
   else if (hash.startsWith("#/nhap-hang")) page = <PurchasesList />;
   else if (nccMatch) page = <SupplierDetail id={nccMatch[1]} />;
   else if (hash.startsWith("#/ncc")) page = <SuppliersList />;
-  else if (areaMatch) page = <AreaDetail id={areaMatch[1]} />;
-  else if (hash.startsWith("#/khu-vuc")) page = <AreasBoard />;
   else if (khachLichMatch) page = <CustomerCalendarPage ckey={decodeURIComponent(khachLichMatch[1])} />;
   else if (khachMatch) page = <CustomerDetail ckey={decodeURIComponent(khachMatch[1])} />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
@@ -570,6 +578,7 @@ function App() {
     : hash.startsWith("#/tra-hang") ? "Trả hàng"
     : purEditMatch ? "Sửa phiếu nhập"
     : hash.startsWith("#/xuat-huy") ? "Xuất hủy"
+    : hash.startsWith("#/khu-vuc") ? "Khu vực xưởng"
     : hash.startsWith("#/dieu-chinh") ? "Điều chỉnh tồn"
     : hash.startsWith("#/nhap-hang") ? "Nhập hàng"
     : hash.startsWith("#/ncc") ? "Nhà cung cấp"
@@ -578,7 +587,6 @@ function App() {
     : hash.startsWith("#/home") ? "Trang chủ"
     : hash.startsWith("#/tien-cong") ? "Tiền công"
     : hash.startsWith("#/bao-cao") ? "Báo cáo SX"
-    : hash.startsWith("#/khu-vuc") ? "Khu vực xưởng"
     : hash.startsWith("#/quy-cach") ? "Quy cách đóng gói"
     : hash.startsWith("#/luong-sp") ? "Lương SP"
     : hash.startsWith("#/luong-thang") ? "Bảng lương tháng"
@@ -596,9 +604,12 @@ function App() {
     : (hash.startsWith("#/vi-tri") || placeMatch) ? "Vị trí kho"
     : khoTLMatch ? "Biến động tồn"
     : (hash.startsWith("#/kho") || khoMatch || boxMatch) ? "Kho hàng"
+    : hash.startsWith("#/nop-tien") ? "Nộp tiền"
+    : hash.startsWith("#/nhan-tien") ? "Nhận tiền"
     : hash.startsWith("#/viec") ? "Việc"
     : hash.startsWith("#/ket") ? "Két tiền"
     : hash.startsWith("#/huong-dan") ? "Hướng dẫn"
+    : hash.startsWith("#/thu-tien-nhanh") ? "Thu tiền nhanh"
     : hash.startsWith("#/thu-tien") ? "Thu tiền hàng loạt"
     : hash.startsWith("#/quy") ? "Sổ quỹ"
     : hash.startsWith("#/users") ? "Người dùng"

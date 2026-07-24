@@ -18,6 +18,8 @@ const GROUPS: Group[] = [
     { label: "Trả hàng", href: "#/tra-hang", icon: "refresh" },
     { label: "Lịch giao", href: "#/lich", icon: "calendar" },
     { label: "Đang giao", href: "#/dang-giao", icon: "truck" },
+    { label: "Nộp tiền", href: "#/nop-tien", icon: "banknote" },
+    { label: "Nhận tiền", href: "#/nhan-tien", icon: "wallet", office: true },
     { label: "Việc", href: "#/viec", icon: "check" },
   ] },
   { title: "Kho", icon: "box", items: [
@@ -39,9 +41,9 @@ const GROUPS: Group[] = [
     { label: "Phiếu sản xuất", href: "#/san_xuat", icon: "factory" },
     { label: "Dashboard SX", href: "#/sx-bang", icon: "chart" },
     { label: "Danh sách thợ", href: "#/tho", icon: "users" },
+    { label: "Vệ sinh khu vực", href: "#/khu-vuc", icon: "leaf" },
   ] },
   { title: "Lương", icon: "wallet", items: [
-    { label: "Vệ sinh khu vực", href: "#/khu-vuc", icon: "leaf" },
     { label: "Bảng lương tháng", href: "#/luong-thang", icon: "wallet", office: true },
     { label: "Chấm công", href: "#/cham-cong", icon: "clock" },
     { label: "Nhập ứng lương", href: "#/nhap-ung", icon: "banknote", office: true },
@@ -52,7 +54,7 @@ const GROUPS: Group[] = [
     { label: "Lương sản phẩm", href: "#/luong-sp", icon: "wallet", office: true },
   ] },
   { title: "Tài chính", icon: "wallet", items: [
-    { label: "Thu tiền", href: "#/thu-tien", icon: "banknote", office: true },
+    { label: "Thu tiền nhanh", href: "#/thu-tien-nhanh", icon: "zap", office: true },
     { label: "Sổ quỹ", href: "#/quy", icon: "wallet" },
     { label: "Két tiền", href: "#/ket", icon: "wallet" },
     { label: "Bảng giá", href: "#/bang-gia", icon: "receipt" },

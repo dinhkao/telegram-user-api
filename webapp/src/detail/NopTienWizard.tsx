@@ -13,15 +13,26 @@ import { useScrollLock } from "../useScrollLock";
 // note giống bot để dữ liệu khớp Telegram
 type Branch = { note: string; label: string; photo: boolean; done: boolean; hint?: string };
 
-export function NopTienWizard({ threadId, onClose, onDone, adminQuick }: {
+export type NopTienPhotoBranch = "tra_tien_mat" | "co_ky_toa";
+
+function branchFor(code: NopTienPhotoBranch): Branch {
+  return code === "tra_tien_mat"
+    ? { note: "tra_tien_mat", label: "Báo khách trả đủ", photo: true, done: true }
+    : { note: "co_ky_toa", label: "Nợ · có ký toa", photo: true, done: true };
+}
+
+export function NopTienWizard({ threadId, onClose, onDone, adminQuick, initialBranch }: {
   threadId: string; onClose: () => void; onDone: () => void;
   /** admin: đánh dấu xong ngay bỏ qua ảnh — hiện nút phụ ở chân wizard */
   adminQuick?: () => void;
+  /** Dashboard nộp tiền có thể mở thẳng nhánh cần ảnh để giảm một lần chạm. */
+  initialBranch?: NopTienPhotoBranch;
 }) {
   usePopupBack(true, onClose);   // back → đóng wizard trước
   useScrollLock(true);           // khoá cuộn nền khi wizard mở
-  const [step, setStep] = useState<"type" | "kytoa" | "photo">("type");
-  const [branch, setBranch] = useState<Branch | null>(null);
+  const initial = adminQuick ? null : initialBranch ? branchFor(initialBranch) : null;
+  const [step, setStep] = useState<"type" | "kytoa" | "photo">(initial ? "photo" : "type");
+  const [branch, setBranch] = useState<Branch | null>(initial);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const marked = useRef(false);   // chống ghi task 2 lần (camera có thể chụp nhiều tấm)
