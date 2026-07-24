@@ -301,9 +301,12 @@ def compute_month_payroll(conn, ym: str) -> dict:
             "ot_gio": round(ot_min / 60.0, 1),
             "luong_cong": round(luong_cong), "luong_tc": round(luong_tc),
         })
-        tot["luong"] += luong
-        tot["phu_cap"] += phu_cap
-        tot["thuong"] += thuong
-        tot["ung"] += ung
-        tot["thuc_lanh"] += thuc_lanh
+        # Cộng dồn SỐ ĐÃ LÀM TRÒN (đúng số in trên dòng) — cộng float thô rồi
+        # round 1 lần làm tổng cột lệch tổng các dòng tới ~N/2 đồng.
+        row = out[-1]
+        tot["luong"] += row["luong"]
+        tot["phu_cap"] += row["phu_cap"]
+        tot["thuong"] += row["thuong"]
+        tot["ung"] += row["ung"]
+        tot["thuc_lanh"] += row["thuc_lanh"]
     return {"ym": ym, "workers": out, "totals": {k: round(v) for k, v in tot.items()}}

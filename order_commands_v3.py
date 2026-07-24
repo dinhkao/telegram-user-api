@@ -377,6 +377,11 @@ def _invoice_create_lock(thread_id: int) -> asyncio.Lock:
     giữa create_kiotviet_invoice và _save_order (có await old_debt ở giữa)."""
     lk = _invoice_create_locks.get(thread_id)
     if lk is None:
+        # Map chỉ tăng không giảm (leak chậm) → cap: evict khoá đang RẢNH (không
+        # pop trong finally — pop khi còn waiter là mở đường cho khoá thứ 2 song song)
+        if len(_invoice_create_locks) > 1024:
+            for k in [k for k, l in _invoice_create_locks.items() if not l.locked()][:256]:
+                _invoice_create_locks.pop(k, None)
         lk = _invoice_create_locks[thread_id] = asyncio.Lock()
     return lk
 

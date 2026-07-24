@@ -110,6 +110,22 @@ async def cashbox_transfer_handler(request: web.Request):
                 status=400)
         transfer = await asyncio.to_thread(_run)
         cashbox_store.invalidate_cache()
+        # Số dư DERIVE từ blob đơn — writer đơn (thread pool) KHÔNG cầm khoá này,
+        # check ở trên có thể stale 1 nhịp. Recompute SAU insert: âm → hoàn tác.
+        bal_after = await asyncio.to_thread(cashbox_balance, from_box, time.time())
+        if bal_after < 0:
+            def _undo():
+                conn = get_connection()
+                try:
+                    from cashbox_store.queries import delete_transfer
+                    return delete_transfer(conn, int(transfer["id"]))
+                finally:
+                    conn.close()
+            await asyncio.to_thread(_undo)
+            cashbox_store.invalidate_cache()
+            return web.json_response(
+                {"ok": False, "error": "Số dư két vừa đổi (đơn ghi xen kẽ) — két nguồn không đủ, thử lại"},
+                status=409)
     _emit_changed()
     return web.json_response({"ok": True, "transfer": transfer})
 
@@ -194,6 +210,21 @@ async def cashbox_withdraw_handler(request: web.Request):
                 status=400)
         transfer = await asyncio.to_thread(_run)
         cashbox_store.invalidate_cache()
+        # như transfer: recompute sau insert, âm (đơn ghi xen kẽ) → hoàn tác
+        bal_after = await asyncio.to_thread(cashbox_balance, box, time.time())
+        if bal_after < 0:
+            def _undo():
+                conn = get_connection()
+                try:
+                    from cashbox_store.queries import delete_transfer
+                    return delete_transfer(conn, int(transfer["id"]))
+                finally:
+                    conn.close()
+            await asyncio.to_thread(_undo)
+            cashbox_store.invalidate_cache()
+            return web.json_response(
+                {"ok": False, "error": "Số dư két vừa đổi (đơn ghi xen kẽ) — không đủ, thử lại"},
+                status=409)
     _emit_changed()
     return web.json_response({"ok": True, "transfer": transfer})
 

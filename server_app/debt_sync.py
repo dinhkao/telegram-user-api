@@ -192,6 +192,17 @@ def schedule_debt_resync(firebase_key: str, delay: float = 6.0,
     async def _run():
         try:
             await asyncio.sleep(delay)
+            # SERIALIZE theo khách: payment + invoice + return trong vài giây tạo
+            # nhiều chuỗi resync song song, mỗi chuỗi fetch KV 1 thời điểm khác rồi
+            # _patch_batch_new_debt phân bổ lại — chồng nhau là new_debt nhảy
+            # nondeterministic. Khoá per-khách cho fetch+patch chạy tuần tự.
+            async with _resync_lock(str(firebase_key)):
+                await _run_locked()
+        except Exception as e:  # noqa: BLE001 — nền, không được làm hỏng luồng gọi
+            log.warning("debt resync failed key=%s: %s", firebase_key, e)
+
+    async def _run_locked():
+        try:   # thân cũ giữ nguyên thụt lề — except cuối là của khối này
             data = await asyncio.to_thread(refresh_single_debt, str(firebase_key))
             if data is not None:
                 from server_app.realtime import emit_customer_changed
@@ -243,6 +254,21 @@ def schedule_debt_resync(firebase_key: str, delay: float = 6.0,
         spawn_tracked("debt.resync", _run())
     except Exception as e:  # noqa: BLE001 — không có loop (vd script) → bỏ qua
         log.warning("debt resync schedule failed key=%s: %s", firebase_key, e)
+
+
+_RESYNC_LOCKS: dict[str, "asyncio.Lock"] = {}
+
+
+def _resync_lock(key: str):
+    """Khoá resync per-khách (map cap 1024 — evict khoá đang rảnh)."""
+    import asyncio as _aio
+    lock = _RESYNC_LOCKS.get(key)
+    if lock is None:
+        if len(_RESYNC_LOCKS) > 1024:
+            for k in [k for k, l in _RESYNC_LOCKS.items() if not l.locked()][:256]:
+                _RESYNC_LOCKS.pop(k, None)
+        lock = _RESYNC_LOCKS.setdefault(key, _aio.Lock())
+    return lock
 
 
 def refresh_single_debt(firebase_key: str) -> dict | None:
