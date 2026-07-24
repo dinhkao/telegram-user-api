@@ -264,7 +264,7 @@ export function ProductionBoxes({
         <span class="pb-lb"><Icon name="tag" size={15} /> Sản phẩm</span>
         <div class="pb-ctl">
           <PickerPopup value={prodCode} placeholder="Chọn SP" allowFreeText
-            onSearch={async (q): Promise<PickOpt[]> => (await searchProducts(q).catch(() => [])).map((s) => {
+            onSearch={async (q): Promise<PickOpt[]> => (await searchProducts(q)).map((s) => {
               dirRef.current.set(s.code, s.can_produce_directly !== false);
               pkgRef.current.set(s.code, s.can_package === true);
               // phiếu SX → cần SX trực tiếp; phiếu đóng gói → cần cờ Đóng gói

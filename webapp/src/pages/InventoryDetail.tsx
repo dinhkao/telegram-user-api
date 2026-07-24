@@ -10,6 +10,7 @@ import { useScrollLock } from "../useScrollLock";
 import { money } from "../format";
 import { onRealtime } from "../realtime";
 import { Loading, ErrorState, LoadingInline } from "../ui/states";
+import { SearchBar } from "../ui/SearchBar";
 import { Icon } from "../ui/Icon";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 import { CompactBoxList } from "../detail/CompactBoxList";
@@ -47,7 +48,7 @@ export function InventoryDetail({ code }: { code: string }) {
         const p2 = await updateProduct(code, { bulk_unit_id: 0 });
         if (p2) { setInv((cur) => cur ? { ...cur, product: p2 } : cur); toast("Đã bật vai nguyên kiện (đơn vị gốc)", "ok"); }
       }
-    } catch { /* im */ }
+    } catch (e: any) { toast(e?.message || "Lỗi lưu đơn vị", "err"); }
   };
   // Tồn kho tối thiểu (ngưỡng cảnh báo) — sửa như Đơn vị (blur là lưu)
   const [minInput, setMinInput] = useState("");
@@ -59,7 +60,7 @@ export function InventoryDetail({ code }: { code: string }) {
     try {
       const p = await updateProduct(code, { min_stock: v });
       if (p && inv) { setInv({ ...inv, product: p }); setMinSaved(true); setTimeout(() => setMinSaved(false), 1500); }
-    } catch { /* im */ }
+    } catch (e: any) { toast(e?.message || "Lỗi lưu tồn tối thiểu", "err"); }
   };
   // Mã SP — đổi TỰ DO (admin): mọi liên kết theo products.id nên chỉ đổi nhãn;
   // mã cũ thành alias (gõ vẫn nhận, link cũ redirect). Có confirm vì đổi cả KiotViet.
@@ -91,7 +92,7 @@ export function InventoryDetail({ code }: { code: string }) {
     try {
       const p = await updateProduct(code, { name: n });
       if (p && inv) { setInv({ ...inv, product: p }); setNameSaved(true); setTimeout(() => setNameSaved(false), 1500); }
-    } catch { /* im */ }
+    } catch (e: any) { toast(e?.message || "Lỗi lưu tên SP", "err"); }
   };
   // Cách sản xuất = 2 CỜ ĐỘC LẬP: SX trực tiếp (phiếu san_xuat) và Đóng gói từ NL
   // (phiếu dong_goi). 1 SP có thể bật cả hai / không cái nào (nguyên liệu / hàng mua).
@@ -147,6 +148,7 @@ export function InventoryDetail({ code }: { code: string }) {
   const [ordTotal, setOrdTotal] = useState(0);
   const [ordMore, setOrdMore] = useState(false);
   const [ordLoading, setOrdLoading] = useState(false);
+  const [ordErr, setOrdErr] = useState("");
   const ordStarted = useRef(false);
   const ordSecRef = useRef<HTMLElement>(null);
 
@@ -158,7 +160,10 @@ export function InventoryDetail({ code }: { code: string }) {
       setOrds((prev) => (reset ? r.orders : [...prev, ...r.orders]));
       setOrdTotal(r.total);
       setOrdMore(r.has_more);
-    } catch { /* im */ } finally {
+      setOrdErr("");
+    } catch (e: any) {
+      setOrdErr(e?.message || "Lỗi tải đơn có SP này");
+    } finally {
       setOrdLoading(false);
     }
   };
@@ -431,8 +436,7 @@ export function InventoryDetail({ code }: { code: string }) {
         <div class="modal-overlay" onClick={() => setLinkOpen(false)}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><Icon name="link" size={18} /> Liên kết {code} với KiotViet</div>
-            <input class="inv-search" type="search" autofocus placeholder="Tìm SP KiotViet (tên/mã)…"
-              value={kvQ} onInput={(e: any) => setKvQ(e.target.value)} />
+            <SearchBar value={kvQ} onInput={setKvQ} autofocus placeholder="Tìm SP KiotViet (tên/mã)…" />
             {kvLoading ? (
               <p class="muted small"><LoadingInline label="Đang tìm…" /></p>
             ) : kvRes.length === 0 ? (
@@ -548,6 +552,8 @@ export function InventoryDetail({ code }: { code: string }) {
         <label class="card-label">Đơn có sản phẩm này{ordStarted.current ? ` (${ordTotal})` : ""}</label>
         {!ordStarted.current || (ordLoading && ords.length === 0) ? (
           <div class="muted small"><LoadingInline /></div>
+        ) : ords.length === 0 && ordErr ? (
+          <ErrorState msg={ordErr} onRetry={() => loadOrders(true)} />
         ) : ords.length === 0 ? (
           <div class="muted small">Chưa có đơn nào chứa mã này.</div>
         ) : (

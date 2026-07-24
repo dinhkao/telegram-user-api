@@ -43,7 +43,7 @@ export function TaskDetail({ id }: { id: number }) {
   if (!t) return <div class="prod-detail"><BackLink fallback="#/viec" /><Loading /></div>;
 
   const patch = async (body: any) => {
-    try { setT(await updateTask(t.id, body)); } catch (e: any) { toast(e?.message || "Lỗi lưu"); }
+    try { setT(await updateTask(t.id, body)); } catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
   };
   const toggle = () => {
     // Bước mặc định của đơn → hoàn thành ở trang đơn (rule chặn nằm ở đó)
@@ -56,7 +56,7 @@ export function TaskDetail({ id }: { id: number }) {
   };
   const remove = async () => {
     if (!(await confirmDialog("Xoá việc này?", { danger: true }))) return;
-    try { await deleteTask(t.id); window.location.hash = "#/viec"; } catch (e: any) { toast(e?.message || "Lỗi"); }
+    try { await deleteTask(t.id); window.location.hash = "#/viec"; } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
   };
   const isAdmin = currentUser()?.role === "admin";
 

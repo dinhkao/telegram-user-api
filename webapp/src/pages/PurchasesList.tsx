@@ -3,7 +3,7 @@
 // purchase_changed/resync → tải lại trang 1. Cache module — quay lại giữ vị trí.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { listAllPurchases, soVN, type PurchaseSlip } from "../api";
-import { foldVN } from "../format";
+import { dayKey, dayLabel, foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { SearchBar } from "../ui/SearchBar";
 import { SkeletonList, EmptyState, ErrorState } from "../ui/states";
@@ -13,19 +13,6 @@ let purCache: { rows: PurchaseSlip[]; page: number; totalPages: number } | null 
 onRealtime((e) => {
   if (e.type === "purchase_changed" || e.type === "resync") purCache = null;
 });
-
-const dayKey = (at?: string) => (at || "").slice(0, 10);
-const _WD = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-function dayLabel(k: string): string {
-  if (!k) return "Không rõ ngày";
-  const d = new Date(k);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const diff = Math.round((today.getTime() - d.getTime()) / 86400000);
-  const lbl = `${_WD[d.getDay()]} ${k.slice(8)}/${k.slice(5, 7)}`;
-  if (diff === 0) return `Hôm nay · ${lbl}`;
-  if (diff === 1) return `Hôm qua · ${lbl}`;
-  return `${lbl}/${k.slice(0, 4)}`;
-}
 
 // Nhớ ô tìm khi rời trang
 let memQ = "";

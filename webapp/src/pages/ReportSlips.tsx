@@ -90,7 +90,7 @@ export function ReportSlips() {
       {head}
 
       <section class="card rs-create">
-        <label class="card-label">➕ Tạo phiếu báo cáo</label>
+        <label class="card-label"><Icon name="plus" size={15} /> Tạo phiếu báo cáo</label>
         <div class="rs-dates">
           <label class="rs-date-f">
             <span class="muted small">Từ ngày</span>

@@ -25,7 +25,7 @@ export function PayslipPrint() {
     const now = new Date();
     setFrom(iso(monday(now)));   // mặc định = tuần này
     setTo(iso(now));
-    listWorkers().then(({ workers }) => setWorkers(workers)).catch(() => {});
+    listWorkers().then(({ workers }) => setWorkers(workers)).catch((e: any) => toast(e?.message || "Lỗi tải danh sách thợ", "err"));
   }, []);
 
   // Chọn sẵn 1 thợ khi vào từ nút "In phiếu lương" ở chi tiết thợ (#/in-luong?w=Tên)

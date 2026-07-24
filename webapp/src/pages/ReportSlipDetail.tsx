@@ -117,7 +117,7 @@ export function ReportSlipDetail({ id }: { id: string }) {
 
       {editing && (
         <section class="card rs-create">
-          <label class="card-label">✏️ Sửa phiếu báo cáo</label>
+          <label class="card-label"><Icon name="edit" size={15} /> Sửa phiếu báo cáo</label>
           <div class="rs-dates">
             <label class="rs-date-f">
               <span class="muted small">Từ ngày</span>

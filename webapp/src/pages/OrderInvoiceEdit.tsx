@@ -21,6 +21,8 @@ import { toast } from "../ui/feedback";
 import { Loading, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { useTypingSplit } from "../ui/useTypingSplit";
+import { useScrollLock } from "../useScrollLock";
+import { usePopupBack } from "../ui/usePopupBack";
 import { OrderImagePicker } from "../detail/OrderImagePicker";
 
 export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
@@ -41,6 +43,8 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
   const [refShow, setRefShow] = useState(false);
   const [refReady, setRefReady] = useState(false);
   const [refSaving, setRefSaving] = useState(false);
+  useScrollLock(refShow);                          // ảnh tham chiếu phủ màn → khoá cuộn nền
+  usePopupBack(refShow, () => setRefShow(false));  // BACK đóng ảnh trước
   // tab Nhanh — text + preview
   const [text, setText] = useState("");
   const [preview, setPreview] = useState<OrderPreview | null>(null);

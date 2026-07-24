@@ -8,6 +8,7 @@ import { getStatus, onStatus, onRealtime, startRealtime, stopRealtime, type Real
 import { CreateOrder } from "./pages/CreateOrder";
 import { Icon } from "./ui/Icon";
 import { usePopupBack } from "./ui/usePopupBack";
+import { useScrollLock } from "./useScrollLock";
 import { Customers } from "./pages/Customers";
 import { CustomerDetail } from "./pages/CustomerDetail";
 import { CustomerCalendarPage } from "./pages/CustomerCalendarPage";
@@ -192,6 +193,7 @@ function NopBanner() {
   const show = n > 0 || boxes > 0 || pins.length > 0 || short.n > 0;
   const [open, setOpen] = useState(false); // sheet liệt kê mọi tin trên banner
   usePopupBack(open, () => setOpen(false));
+  useScrollLock(open);
   // Banner chiếm ~28px dưới app-bar → các sticky khác (topbar tìm kiếm, header
   // chi tiết đơn, preview tạo đơn…) phải tụt xuống theo (body.has-nop, styles.css)
   useEffect(() => {
@@ -402,7 +404,7 @@ function App() {
   // thì thêm body.modal-open (overflow:hidden) để nền không cuộn, khỏi phá cuộn
   // trong popup. Tự cover mọi popup hiện tại lẫn tương lai dùng các class overlay này.
   useEffect(() => {
-    const SEL = ".modal-overlay, .cf-backdrop, .pv-overlay, .camera-viewer";
+    const SEL = ".modal-overlay, .cf-backdrop, .pv-overlay, .camera-viewer, .sp-overlay, .cam-overlay, .wr-bg-overlay, .att-ed-overlay, .att-image-overlay";
     const update = () => document.body.classList.toggle("modal-open", !!document.querySelector(SEL));
     const mo = new MutationObserver(update);
     mo.observe(document.body, { childList: true, subtree: true });

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON, createCustomer } from "../api";
 import { money, fmtTime } from "../format";
 import { onRealtime } from "../realtime";
-import { Loading, EmptyState } from "../ui/states";
+import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
@@ -209,7 +209,7 @@ export function Customers() {
       {creating && (
         <div class="modal-overlay" onClick={saving ? undefined : () => setCreating(false)}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
-            <div class="modal-head"><Icon name="plus" size={18} /> Tạo khách hàng mới {saving && "· ⏳"}</div>
+            <div class="modal-head"><Icon name="plus" size={18} /> Tạo khách hàng mới</div>
             <input class="cust-in" placeholder="Tên khách (bắt buộc)" value={nName} autofocus
               onInput={(e: any) => setNName(e.target.value)}
               onKeyDown={(e: any) => { if (e.key === "Enter" && nName.trim()) submitNew(); }} />
@@ -219,13 +219,13 @@ export function Customers() {
               onInput={(e: any) => setNAddr(e.target.value)} />
             <p class="muted small">Tạo trên KiotViet + mở topic khách. Có thể thêm bảng giá riêng sau.</p>
             <button class="btn primary block" disabled={saving || !nName.trim()} onClick={submitNew}>
-              {saving ? "⏳ Đang tạo…" : "✅ Tạo khách"}
+              {saving ? "Đang tạo…" : "Tạo khách"}
             </button>
             {!saving && <button class="btn" onClick={() => setCreating(false)}>Huỷ</button>}
           </div>
         </div>
       )}
-      {err && <p class="error">{err}</p>}
+      {err && <ErrorState msg={err} onRetry={() => load(1, st.current.search, false)} />}
       <ul class="cust-list">
         {customers.map((c) => {
           const debt = c.debt != null ? Number(c.debt) || 0 : null;

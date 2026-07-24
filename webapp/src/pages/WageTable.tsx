@@ -78,7 +78,7 @@ export function WageTable() {
       {head}
 
       <section class="card rs-create">
-        <label class="card-label">➕ Thêm mã vào bảng lương</label>
+        <label class="card-label"><Icon name="plus" size={15} /> Thêm mã vào bảng lương</label>
         <div class="wt-add">
           <div class="wt-add-code"><ProductPicker catalog={catalog} value={newCode} onPick={setNewCode} placeholder="Tìm mã SP" /></div>
           <input class="wt-add-luong" type="text" inputMode="numeric" placeholder="đ/SP" value={newLuong}

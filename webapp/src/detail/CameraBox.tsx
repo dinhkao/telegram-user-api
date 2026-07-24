@@ -11,6 +11,7 @@ import { createPortal } from "preact/compat";
 import { postForm } from "../api";
 import { processSource, processImage } from "./imageProcess";
 import { Icon } from "../ui/Icon";
+import { ErrorState } from "../ui/states";
 import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
 
@@ -193,7 +194,7 @@ export function CameraBox({
           <input ref={fileInput} type="file" accept="image/*" multiple hidden
             onChange={(e: any) => pickFiles(e.target.files)} />
         </div>
-        {err && <p class="error small">{err}</p>}
+        {err && <ErrorState msg={err} />}
       </div>
     </div>,
     document.body,

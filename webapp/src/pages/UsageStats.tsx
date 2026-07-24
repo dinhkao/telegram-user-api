@@ -40,7 +40,7 @@ export function UsageStats() {
   const [data, setData] = useState<Stats | null>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const load = () => {
     setData(null);
     setError("");
     const query = new URLSearchParams({ days: String(days) });
@@ -48,9 +48,10 @@ export function UsageStats() {
     getJSON(`/api/usage/stats?${query}`, { cache: false })
       .then(setData)
       .catch((reason: any) => setError(reason?.message || "Không tải được thống kê"));
-  }, [days, user]);
+  };
+  useEffect(() => { load(); }, [days, user]);
 
-  if (error) return <div class="usage-page"><PageHead fallback="#/home" title="Thống kê sử dụng" /><ErrorState msg={error} /></div>;
+  if (error) return <div class="usage-page"><PageHead fallback="#/home" title="Thống kê sử dụng" /><ErrorState msg={error} onRetry={load} /></div>;
   if (!data) return <div class="usage-page"><PageHead fallback="#/home" title="Thống kê sử dụng" /><Loading label="Đang tổng hợp…" /></div>;
 
   const maxPage = Math.max(1, ...data.pages.map((p) => p.views + p.taps));
@@ -79,7 +80,7 @@ export function UsageStats() {
       )}
 
       <section class="usage-sec">
-        <h3><Icon name="chart" size={16} /> Tính năng dùng nhiều → ít <small>từ {data.since}</small></h3>
+        <label class="card-label"><Icon name="chart" size={16} /> Tính năng dùng nhiều → ít <small>từ {data.since}</small></label>
         {data.pages.length === 0 && <EmptyState icon="📊">Chưa có dữ liệu — dùng app một lúc rồi quay lại.</EmptyState>}
         {data.pages.map((p) => (
           <div class="usage-row" key={p.page}>
@@ -91,7 +92,7 @@ export function UsageStats() {
       </section>
 
       <section class="usage-sec">
-        <h3><Icon name="check" size={16} /> Nút bấm nhiều nhất</h3>
+        <label class="card-label"><Icon name="check" size={16} /> Nút bấm nhiều nhất</label>
         {topLabels.map((l) => (
           <div class="usage-row" key={l.page + l.label}>
             <i style={`width:${Math.max(2, Math.round(l.count / maxLabel * 100))}%`} />
@@ -103,7 +104,7 @@ export function UsageStats() {
 
       {rareLabels.length > 0 && data.labels.length > 30 && (
         <section class="usage-sec">
-          <h3><Icon name="minus" size={16} /> Ít bấm nhất</h3>
+          <label class="card-label"><Icon name="minus" size={16} /> Ít bấm nhất</label>
           {rareLabels.map((l) => (
             <div class="usage-row rare" key={l.page + l.label}>
               <b>{l.label}</b>

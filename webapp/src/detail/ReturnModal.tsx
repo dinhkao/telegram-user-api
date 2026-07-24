@@ -66,7 +66,7 @@ export function ReturnModal({ ckey, onClose, onCreated }: {
             <div class="ret-sp">
               <PickerPopup value={l.sp} placeholder="Mã SP" allowFreeText
                 onSearch={async (q): Promise<PickOpt[]> =>
-                  (await searchProducts(q).catch(() => [])).map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }))}
+                  (await searchProducts(q)).map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }))}
                 onPick={(o) => upd(i, { sp: o.key })} />
             </div>
             <input class="ret-sl" type="text" inputMode="decimal" placeholder="SL" value={l.sl}

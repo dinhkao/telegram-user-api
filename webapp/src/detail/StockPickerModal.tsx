@@ -7,7 +7,7 @@ import { onRealtime } from "../realtime";
 import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
 import { Icon } from "../ui/Icon";
-import { LoadingInline } from "../ui/states";
+import { ErrorState, LoadingInline } from "../ui/states";
 
 function fmtDate(s?: string | null): string {
   if (!s) return "";
@@ -187,7 +187,7 @@ export function StockPickerModal({
           </div>
         )}
 
-        {err && <div class="error-banner">{err}</div>}
+        {err && <ErrorState msg={err} />}
         <div class="modal-foot">
           <span class={full && remaining > 0 ? "inv-pick-sum ok" : "inv-pick-sum"}>
             Chọn {soVN(pickedSum)}/{soVN(remaining)}

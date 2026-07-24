@@ -6,6 +6,7 @@ import { currentUser, getQuyCach, setQuyCach, type QuyCach } from "../api";
 import { PageHead } from "../ui/PageHead";
 import { Loading, ErrorState } from "../ui/states";
 import { toast } from "../ui/feedback";
+import { Icon } from "../ui/Icon";
 
 // Một dòng override: mã SP → số cái
 type OverrideRow = { code: string; value: number };
@@ -151,7 +152,7 @@ export function QuyCachPage() {
       </section>
 
       <section class="card">
-        <label class="card-label">📦 Số cái / 1 THÙNG theo mã (đè mặc định)</label>
+        <label class="card-label"><Icon name="box" size={15} /> Số cái / 1 THÙNG theo mã (đè mặc định)</label>
         {thungRows.length === 0 ? (
           <p class="muted small" style={{ margin: "4px 0 8px" }}>Chưa có override nào.</p>
         ) : (

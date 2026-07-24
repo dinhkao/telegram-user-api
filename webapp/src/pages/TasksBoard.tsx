@@ -18,7 +18,7 @@ import { Icon } from "../ui/Icon";
 import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
 import { avaColor } from "../ui/avatar";
 import { toast } from "../ui/feedback";
-import { EmptyState, SkeletonList, LoadingInline } from "../ui/states";
+import { EmptyState, ErrorState, SkeletonList, LoadingInline } from "../ui/states";
 import { fmtRelative } from "../format";
 
 // 4 KPI tile (trạng thái) + chips loại việc — cùng 1 không gian filter `flt`
@@ -97,6 +97,7 @@ export function TasksBoard() {
   const [page, setPage] = useState(c0?.page || 1);
   const [totalPages, setTotalPages] = useState(c0?.totalPages || 1);
   const [loading, setLoading] = useState(!c0);
+  const [err, setErr] = useState("");
   const [names, setNames] = useState<Record<string, string>>(c0?.names || {});
   const [q, setQ] = useState(c0?.q || "");
   const fltRef = useRef(c0?.flt || "open");   // closure-safe cho debounce search
@@ -112,7 +113,8 @@ export function TasksBoard() {
       const d = await listTasks(f, p, qq.trim(), w);
       setTasks(p === 1 ? d.tasks : (prev => [...prev, ...d.tasks])(tasks));
       setCounts(d.counts); setToday(d.today); setTotalPages(d.total_pages); setPage(p);
-    } catch (e: any) { toast(e?.message || "Lỗi tải việc"); }
+      setErr("");
+    } catch (e: any) { setErr(e?.message || "Lỗi tải việc"); }
     setLoading(false);
   };
   useEffect(() => {
@@ -167,7 +169,7 @@ export function TasksBoard() {
       const nt = await updateTask(t.id, { done: !t.done });
       setTasks((prev) => prev.map((x) => (x.id === t.id ? nt : x)));
       load(flt, 1); loadPeople();
-    } catch (e: any) { toast(e?.message || "Lỗi"); }
+    } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
   };
 
   // ── lịch theo hạn ──
@@ -310,7 +312,9 @@ export function TasksBoard() {
             count={tasks.length}
             onClear={() => { setQ(""); changeWho(""); changeFlt("open"); load("open", 1, "", ""); }} />
           {loading && !tasks.length ? <SkeletonList rows={5} /> : null}
-          {!loading && !tasks.length ? <EmptyState>Không có việc nào</EmptyState> : null}
+          {!loading && !tasks.length ? (err
+            ? <ErrorState msg={err} onRetry={() => load()} />
+            : <EmptyState>Không có việc nào</EmptyState>) : null}
           <ul class="task-list">{rows}</ul>
           {page < totalPages && <div ref={moreRef} class="tk-more-sentinel">{loading ? <LoadingInline /> : ""}</div>}
         </>
@@ -373,16 +377,16 @@ function CreateTaskSheet({ names, onClose, onCreated }: {
   });
 
   const save = async () => {
-    if (!title.trim()) { toast("Nhập tiêu đề việc"); return; }
+    if (!title.trim()) { toast("Nhập tiêu đề việc", "info"); return; }
     setBusy(true);
     try {
       await createTask({
         title: title.trim(), note: note.trim(), assignee, due_at: due || undefined,
         thread_id: linked?.thread_id,
       });
-      toast("Đã tạo việc");
+      toast("Đã tạo việc", "ok");
       onCreated();
-    } catch (e: any) { toast(e?.message || "Lỗi tạo việc"); }
+    } catch (e: any) { toast(e?.message || "Lỗi tạo việc", "err"); }
     setBusy(false);
   };
 

@@ -89,7 +89,7 @@ export function ProductionDashboard() {
           </div>
 
           <section class="card">
-            <label class="card-label">🏆 Theo thợ ({data.by_worker.length})</label>
+            <label class="card-label"><Icon name="star" size={15} /> Theo thợ ({data.by_worker.length})</label>
             {data.by_worker.length ? data.by_worker.map((w) => (
               <Bar key={w.name} label={w.name} sub={`${soVN(w.mam)} mâm · ${w.phieu} phiếu`} val={w.tong} max={maxW} href={`#/sx-tho/${encodeURIComponent(w.name)}`} />
             )) : <p class="muted small">Chưa có dữ liệu kỳ này.</p>}

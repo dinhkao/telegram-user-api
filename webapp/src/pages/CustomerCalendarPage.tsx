@@ -16,10 +16,7 @@ import { Icon } from "../ui/Icon";
 import { onRealtime } from "../realtime";
 import { EmptyState, LoadingInline } from "../ui/states";
 import type { OrderRow } from "../detail/OrderCards";
-
-const _WD = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-const dayLabel = (d: string) =>
-  `${_WD[(new Date(d).getDay() + 6) % 7]} · ${d.slice(8)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+import { dayLabel } from "../format";
 
 export function CustomerCalendarPage({ ckey }: { ckey: string }) {
   const [name, setName] = useState("");
