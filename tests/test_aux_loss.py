@@ -54,9 +54,12 @@ class AuxLossScenarioTest(unittest.TestCase):
         _invalidate_products_cache()
         os.unlink(self.path)
 
-    def _seed(self):
+    def _seed(self, aux_required=True):
         c = self.conn
+        # SX chỉ TRỪ NL phụ khi products.aux_required = 1 → used cũng chỉ tính SP bật cờ
+        # (upsert 2 bước: nhánh INSERT không nhận aux_required, nhánh UPDATE mới nhận)
         upsert_product(c, "SP", "Kẹo thành phẩm")
+        upsert_product(c, "SP", aux_required=aux_required)
         upsert_product(c, "TEM", "Tem dán")
         set_recipe_line(c, "SP", "TEM", 2, aux=True)   # 1 cây SP cần 2 TEM (NL phụ)
         tem_id = get_product(c, "TEM")["id"]
@@ -87,6 +90,7 @@ class AuxLossScenarioTest(unittest.TestCase):
                 "(stocktake_id, box_id, box_code, product_code, expected_quantity, actual_quantity) "
                 "VALUES (?, ?, '001', 'TEM', ?, ?)", (cur.lastrowid, tem_box, actual, actual))
         c.commit()
+        return place_id, tem_box
 
     def test_full_period(self):
         self._seed()
@@ -105,6 +109,34 @@ class AuxLossScenarioTest(unittest.TestCase):
         self.assertEqual(r["now"], 70.0)
         self.assertEqual(r["consumed"], 80.0)  # 100 + 50 − 70
         self.assertEqual(r["gap"], 60.0)       # 80 − 20 = hao hụt thật
+
+    def test_used_zero_when_aux_required_off(self):
+        # SP KHÔNG bật aux_required → SX không trừ NL phụ (gate inventory_routes)
+        # ⇒ used phải = 0, không phải định mức 20 (trước đây đếm mọi SP có công
+        # thức aux → gap âm ảo hàng loạt sau migration reset cờ về 0).
+        self._seed(aux_required=False)
+        data = aux_loss_periods(self.conn)
+        closed = [p for p in data["periods"] if not p["open"]]
+        r = closed[0]["rows"][0]
+        self.assertEqual(r["used"], 0.0)
+        self.assertEqual(r["consumed"], 80.0)   # 100 + 50 − 70 (không đổi)
+        self.assertEqual(r["gap"], 80.0)        # toàn bộ sụt giảm chưa giải thích
+
+    def test_order_and_disposal_outflow_counted_in_cham(self):
+        # Hàng XUẤT có sổ khỏi kho (bán 'order' 30 + hủy 'disposal' 10) phải vào
+        # cham với dấu ÂM — không thì consumed phồng lên, đọc nhầm thành hao hụt.
+        _, tem_box = self._seed()
+        for kind, q in (("order", 30), ("disposal", 10)):
+            self.conn.execute(
+                "INSERT INTO box_allocations (box_id, order_thread_id, quantity, allocated_at, kind) "
+                "VALUES (?, 0, ?, '2026-07-15T21:00:00+07:00', ?)", (tem_box, q, kind))
+        self.conn.commit()
+        data = aux_loss_periods(self.conn)
+        closed = [p for p in data["periods"] if not p["open"]]
+        r = closed[0]["rows"][0]
+        self.assertEqual(r["cham"], 10.0)       # 50 châm − 30 bán − 10 hủy
+        self.assertEqual(r["consumed"], 40.0)   # 100 + 10 − 70
+        self.assertEqual(r["gap"], 20.0)        # 40 − used 20
 
     def test_no_aux_place(self):
         # chưa chỉ định kho aux_source → báo lỗi rõ, không crash

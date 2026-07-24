@@ -20,7 +20,18 @@ from __future__ import annotations
 
 from .queries import aux_source_place
 
-_CHAM_KINDS = ("transfer_in", "transfer_out", "purchase_in", "return_in")
+# Bút toán ĐÃ GIẢI THÍCH ra/vào kho — vế `cham` của đẳng thức
+#   consumed = đếm_trước + cham − đếm_sau
+# `cham` = tổng RÒNG có sổ (vào dương, ra âm — SUM(−quantity) tự đúng dấu vì dòng
+# vào ghi quantity ÂM, dòng ra ghi quantity DƯƠNG). Phải gồm CẢ chiều RA có sổ:
+# 'order' (bán/xuất cho đơn từ kho) + 'disposal' (xuất hủy theo thùng) — không thì
+# hàng xuất hợp lệ làm consumed phồng lên, đọc nhầm thành hao hụt không rõ nguyên
+# nhân. RIÊNG 'production' KHÔNG nằm đây: đó chính là tiêu-hao-theo-công-thức mà
+# vế `used` đại diện — đưa vào cham sẽ trừ 2 lần (gap luôn ≈ −used). 'adjustment'
+# cũng KHÔNG: điều chỉnh thường là cách GHI NHẬN hao hụt — đưa vào cham sẽ giấu
+# đúng phần hao hụt dashboard này phải phơi ra.
+_CHAM_KINDS = ("transfer_in", "transfer_out", "purchase_in", "return_in",
+               "order", "disposal")
 
 
 def _r3(x) -> float:
@@ -59,7 +70,11 @@ def _mat(conn, code, cache: dict) -> dict:
 
 def _production_usage(conn, t0, t1, cache: dict) -> tuple[dict, dict]:
     """A: NL phụ CẦN theo công thức cho thùng thành phẩm tạo trong (t0, t1].
-    Trả ({mat_key: amount}, {mat_key: disp}). Chỉ NL phụ (list_recipe aux=True)."""
+    Trả ({mat_key: amount}, {mat_key: disp}). Chỉ NL phụ (list_recipe aux=True) và
+    CHỈ thành phẩm bật `products.aux_required = 1` — SP tắt cờ thì SX KHÔNG trừ NL
+    phụ (gate ở inventory_routes), tính used cho SP đó là đếm định mức không hề
+    tiêu → gap âm ảo hàng loạt (migration đã reset cờ về 0 cho mọi SP cũ)."""
+    from product_store import resolve_code
     from recipe_store import list_recipe
     rows = conn.execute(
         "SELECT COALESCE(pr.code, b.product_code) AS code, SUM(b.quantity) AS qty "
@@ -72,10 +87,17 @@ def _production_usage(conn, t0, t1, cache: dict) -> tuple[dict, dict]:
     ).fetchall()
     out: dict = {}
     disp: dict = {}
+    aux_req_cache: dict = {}
     for r in rows:
         qty = float(r["qty"] or 0)
         if qty <= 0:
             continue
+        code = str(r["code"] or "").strip().upper()
+        if code not in aux_req_cache:
+            prod = resolve_code(conn, code)
+            aux_req_cache[code] = bool(prod and (prod.get("aux_required") or 0) == 1)
+        if not aux_req_cache[code]:
+            continue   # SP không bật aux_required → SX không trừ NL phụ, không tính used
         for ln in list_recipe(conn, r["code"], aux=True):
             info = _mat(conn, ln["ingredient_code"], cache)
             k = info["key"]
@@ -94,7 +116,7 @@ def _cham(conn, place_id, t0, t1, cache: dict) -> tuple[dict, dict]:
         "SELECT COALESCE(pr.code, b.product_code) AS code, SUM(-a.quantity) AS inflow "
         "FROM box_allocations a JOIN inventory_boxes b ON b.id = a.box_id "
         "LEFT JOIN products pr ON pr.id = b.product_id "
-        f"WHERE b.place_id = ? AND a.kind IN ({qmarks}) "
+        f"WHERE b.place_id = ? AND COALESCE(a.kind, 'order') IN ({qmarks}) "
         "AND strftime('%s', a.allocated_at) >  strftime('%s', ?) "
         "AND strftime('%s', a.allocated_at) <= strftime('%s', ?) "
         "GROUP BY code",

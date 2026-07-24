@@ -197,6 +197,27 @@ class PurchaseGoodsTest(unittest.TestCase):
         self.assertEqual(rows, [])
         self.assertIsNone(purchase_store.get_purchase(self.conn, self.pu["id"])["goods_handled_at"])
 
+    def test_confirm_rejects_received_code_not_on_slip(self):
+        # Mã ĐÃ NHẬP nhưng items phiếu bị đổi mất mã đó (sửa vòng ngoài guard) →
+        # confirm phải CHẶN tường minh, không đếm-thiếu cũng không lọt chốt lặng.
+        import json
+        from server_app.purchase_goods import receive_purchase_lines, confirm_purchase_receipt
+        upsert_product(self.conn, "KEO2", "Kẹo khác", unit="cây")
+        _, err = receive_purchase_lines(
+            self.conn, self.pu["id"],
+            [{"sp": "KEO1", "quantity": 20, "action": "restock_new"}], actor="lan")
+        self.assertIsNone(err)
+        # đổi items sang KEO2 bằng SQL trực tiếp (bypass guard update_purchase_items)
+        self.conn.execute(
+            "UPDATE purchase_slips SET items = ? WHERE id = ?",
+            (json.dumps([{"sp": "KEO2", "sl": 20, "price": 5000}]), self.pu["id"]))
+        self.conn.commit()
+        extra, err2 = confirm_purchase_receipt(self.conn, self.pu["id"], actor="lan")
+        self.assertIsNone(extra)
+        self.assertIn("không có trên phiếu", err2)
+        self.assertIn("KEO1", err2)
+        self.assertIsNone(purchase_store.get_purchase(self.conn, self.pu["id"])["goods_handled_at"])
+
     def test_restock_existing_rejects_disabled_box(self):
         self.conn.execute("UPDATE inventory_boxes SET disabled = 1 WHERE id = ?", (self.box["id"],))
         extra, err = receive_purchase_lines(

@@ -141,6 +141,41 @@ class AdjustmentTest(unittest.TestCase):
         self.assertIsNone(
             self.conn.execute("SELECT applied_at FROM inventory_stocktakes WHERE id = ?", (st["id"],)).fetchone()[0])
 
+    def _backdate_completed(self, stocktake_id):
+        """Lùi mốc CHỐT 1 giờ — điều chỉnh tay trong test cùng giây với chốt,
+        phải chắc chắn nằm SAU completed_at để apply nhận diện."""
+        self.conn.execute(
+            "UPDATE inventory_stocktakes SET completed_at = datetime('now', '-1 hour') WHERE id = ?",
+            (stocktake_id,))
+        self.conn.commit()
+
+    def test_apply_khong_double_book_dieu_chinh_tay_sau_chot(self):
+        # Sổ 100, đếm 90; SAU khi chốt người kho đã tự ĐIỀU CHỈNH TAY về 90 (cùng
+        # một sự thật vật lý) → Áp dụng KHÔNG được ghi phiếu thứ 2 (trước đây trừ
+        # 2 lần → còn 80).
+        st = self._make_stocktake(counted=90)
+        self._backdate_completed(st["id"])
+        _, err = create_adjustment(self.conn, self.box["id"], new_remaining=90,
+                                   reason="hàng vỡ", by="duy")
+        self.assertIsNone(err)
+        slip, err = apply_stocktake(self.conn, st["id"], actor="duy")
+        self.assertIsNone(err)
+        self.assertEqual(_remaining(self.conn, self.box["id"]), 90)          # KHÔNG thành 80
+        self.assertEqual(slip["applied_result"]["adjusted"], [])              # không phiếu thứ 2
+        self.assertEqual(slip["applied_result"]["equal_count"], 1)
+        self.assertEqual(list_adjustments(self.conn, stocktake_id=st["id"]), [])
+
+    def test_apply_tru_phan_dieu_chinh_tay_mot_phan(self):
+        # Điều chỉnh tay mới xử lý MỘT PHẦN chênh lệch (100→95) → apply chỉ ghi
+        # phần còn lại (−5), tổng về đúng số đếm 90.
+        st = self._make_stocktake(counted=90)
+        self._backdate_completed(st["id"])
+        create_adjustment(self.conn, self.box["id"], new_remaining=95, reason="vỡ 5", by="duy")
+        slip, err = apply_stocktake(self.conn, st["id"], actor="duy")
+        self.assertIsNone(err)
+        self.assertEqual(_remaining(self.conn, self.box["id"]), 90)
+        self.assertEqual(slip["applied_result"]["adjusted"][0]["delta"], -5)
+
     def test_apply_doi_phieu_da_chot(self):
         self.conn.execute("CREATE TABLE IF NOT EXISTS inventory_places (id INTEGER PRIMARY KEY, name TEXT, note TEXT)")
         self.conn.execute("INSERT INTO inventory_places (id, name) VALUES (1, 'Kho A')")

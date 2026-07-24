@@ -156,6 +156,10 @@ async def return_handle_goods_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
     if err == "already":
         return web.json_response({"ok": False, "error": "Hàng trả của phiếu này đã xử lý rồi"}, status=409)
+    if err:
+        # Lỗi validate/ghi từ apply_goods_dispositions (validate-first 2026-07-25):
+        # chuỗi tiếng Việt nêu đúng dòng lỗi — phiếu CHƯA bị claim, sửa xong gọi lại.
+        return web.json_response({"ok": False, "error": str(err)}, status=400)
 
     from server_app.realtime import (emit_return_changed, emit_inventory_changed,
                                       emit_box_changed, emit_disposal_changed, emit_customer_changed)

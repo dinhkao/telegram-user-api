@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from utils.db import transaction
 
+from .allocations import _finite   # float() + chặn NaN/Infinity (xem allocations)
+
 _EPS = 1e-9
 
 _SCHEMA = """
@@ -65,9 +67,8 @@ def insert_adjustment(conn, box_id: int, *, delta: float, reason: str, by: str =
     reason = (reason or "").strip()
     if not reason:
         return None, "Bắt buộc ghi lý do điều chỉnh"
-    try:
-        delta = float(delta)
-    except (TypeError, ValueError):
+    delta = _finite(delta)   # NaN/Inf: `abs(nan) < eps` False, lọt xuống ghi allocation NaN
+    if delta is None:
         return None, "Số điều chỉnh không hợp lệ"
     if abs(delta) < _EPS:
         return None, "Số điều chỉnh phải khác 0"
@@ -96,9 +97,10 @@ def create_adjustment(conn, box_id: int, *, new_remaining: float, reason: str, b
                       source: str = "manual", stocktake_id: int | None = None) -> tuple[dict | None, str | None]:
     """Điều chỉnh tay: người dùng nhập TỒN THỰC TẾ → delta tính trong CÙNG transaction
     với đọc remaining (không race với xuất/nhập đồng thời)."""
-    try:
-        new_remaining = float(new_remaining)
-    except (TypeError, ValueError):
+    # _finite chặn NaN/Infinity: float('NaN') qua được check `< 0` (so sánh NaN luôn
+    # False) rồi delta = NaN − old_rem = NaN → allocation NaN phá remaining vĩnh viễn.
+    new_remaining = _finite(new_remaining)
+    if new_remaining is None:
         return None, "Số tồn thực tế không hợp lệ"
     if new_remaining < 0:
         return None, "Tồn thực tế phải ≥ 0"

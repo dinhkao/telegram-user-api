@@ -428,17 +428,12 @@ async def recipe_get_handler(request: web.Request):
         try:
             _ensure(conn)
             lines = list_recipe(conn, code)
-            # gắn tồn hiện tại (remaining) + đơn vị của mỗi nguyên liệu (lọc theo product_id)
-            from inventory_store.queries import _pid_filter
+            # gắn tồn hiện tại (remaining) + đơn vị của mỗi nguyên liệu (lọc theo
+            # product_id). Kẹp remaining từng thùng ≥ 0 (_aux_available) — thống
+            # nhất công thức với product_summary/FIFO, thùng âm không kéo tụt tổng.
             from product_store import resolve_code
             for ln in lines:
-                frag, ps = _pid_filter(conn, ln["ingredient_code"])
-                row = conn.execute(
-                    "SELECT COALESCE(SUM(b.quantity - COALESCE((SELECT SUM(x.quantity) FROM box_allocations x WHERE x.box_id=b.id),0)),0) AS rem "
-                    f"FROM inventory_boxes b WHERE {frag} AND (b.disabled IS NULL OR b.disabled=0)",
-                    ps,
-                ).fetchone()
-                ln["stock"] = row[0]
+                ln["stock"] = _aux_available(conn, ln["ingredient_code"], None)
                 ing = resolve_code(conn, ln["ingredient_code"])
                 ln["unit"] = (ing.get("unit") if ing else None) or "cây"
             prod = resolve_code(conn, code)
@@ -808,6 +803,42 @@ async def place_delete_handler(request: web.Request):
     return web.json_response({"ok": True})
 
 
+def _release_box_materials(conn, box: dict) -> list[dict]:
+    """Hoàn nguyên liệu đã trừ tương ứng 1 thùng thành phẩm sắp xoá — allocation NL
+    gắn PHIẾU chứ không gắn thùng, nên hoàn theo TỈ LỆ khi xoá từng thùng. KẸP KÉP:
+      • theo công thức HIỆN TẠI (ratio × số cây thùng), VÀ
+      • theo PHẦN CHIA của thùng trong tổng NL phiếu CÒN ĐANG TIÊU:
+        share = consumed_i × q_thùng / (q_thùng + Σ q thùng SỐNG khác của phiếu)
+        — công thức bị SỬA SAU khi SX thì không hoàn quá phần thùng này thực tiêu
+        (không in tồn từ hư không); xoá lần lượt các thùng vẫn hoàn đủ đúng tổng
+        (thùng cuối nhận trọn phần còn lại vì mẫu số co dần).
+    Chạy cho MỌI loại phiếu: đóng gói tiêu NL chính+phụ, SẢN XUẤT cũng tiêu NL PHỤ
+    (aux_required) — mã không tiêu thì consumed = 0 → hoàn 0 (no-op).
+    Gọi TRONG transaction của caller. Trả [{code, amount, boxes}]."""
+    from inventory_store import production_consumed_amount, release_production_amount
+    src = box.get("source_thread_id")
+    if not (src and get_slip(conn, src)):
+        return []
+    box_id = int(box["id"])
+    qty = float(box.get("quantity") or 0)
+    other_live = conn.execute(
+        "SELECT COALESCE(SUM(quantity),0) FROM inventory_boxes "
+        "WHERE source_thread_id = ? AND id != ? AND COALESCE(disabled,0) = 0",
+        (src, box_id)).fetchone()[0]
+    denom = qty + float(other_live or 0)
+    restored = []
+    for nd in recipe_needs(conn, box.get("product_code"), qty):
+        consumed = production_consumed_amount(conn, src, nd["code"])
+        share = consumed * qty / denom if denom > 0 else consumed
+        amount = min(float(nd["amount"]), share)
+        if amount <= 1e-9:
+            continue
+        got, into = release_production_amount(conn, src, nd["code"], amount)
+        if got > 0:
+            restored.append({"code": nd["code"], "amount": round(got, 3), "boxes": into})
+    return restored
+
+
 def _box_delete_lock(conn, box: dict, allocs: list) -> dict | None:
     """Lý do KHOÁ xoá thùng — 1 nguồn sự thật cho CẢ chi tiết thùng (UI mờ nút +
     hiện lý do TỪ ĐẦU) lẫn handler xoá (guard thật). None = xoá được.
@@ -855,40 +886,36 @@ async def box_delete_handler(request: web.Request):
         conn = _conn()
         try:
             _ensure(conn)
-            box = get_box(conn, box_id)
-            if not box:
-                return "notfound", None
-            lock = _box_delete_lock(conn, box, list_box_allocations(conn, box_id))
-            if lock:
-                return "locked", lock
-            # Không phải admin: chỉ thùng của phiếu nhập — mà phiếu đang
-            # chốt thì lock ở trên đã chặn, nên tới đây là phiếu ĐANG MỞ (hủy chốt).
-            if not is_admin and not box.get("source_purchase_id"):
-                return "forbidden", None
-            del_snap.update(box_id=box_id, place_id=box.get("place_id"), box_code=box.get("box_code"),
-                            product_code=box.get("product_code"), quantity=box.get("quantity"))
-            src = box.get("source_thread_id")
-            box_code = box.get("box_code")
-            # Hoàn nguyên liệu đã trừ tương ứng thùng này (ratio × số cây thùng, KẸP
-            # theo tổng đã tiêu của phiếu) — allocation NL gắn PHIẾU chứ không gắn
-            # thùng, nên hoàn theo tỉ lệ công thức lúc xoá từng thùng. Chạy cho MỌI
-            # loại phiếu: đóng gói tiêu NL chính+phụ, SẢN XUẤT cũng tiêu NL PHỤ
-            # (aux_required) — nhờ kẹp-theo-đã-tiêu, mã không tiêu thì hoàn 0 (no-op).
-            restored = []
-            if src and get_slip(conn, src):
-                from inventory_store import release_production_amount
-                for nd in recipe_needs(conn, box.get("product_code"), box.get("quantity") or 0):
-                    got, into = release_production_amount(conn, src, nd["code"], nd["amount"])
-                    if got > 0:
-                        restored.append({"code": nd["code"], "amount": round(got, 3), "boxes": into})
-            delete_box(conn, box_id)
-            # Gỡ entry numbers của thùng khỏi phiếu SX nguồn → total tính lại đúng
-            # (numbers là nguồn thật; note nhập lúc tạo = '📦 <box_code>'). Số gọi
-            # tái dùng toàn kho nhưng TRONG 1 phiếu không thể trùng (<999 thùng/phiếu)
-            # nên match theo note trong phạm vi phiếu vẫn an toàn.
-            if src and box_code:
-                remove_number_by_note(conn, src, f"📦 {box_code}")
-            return "ok", (src, restored, box.get("source_purchase_id"))
+            # NGUYÊN TỬ: hoàn NL + xoá thùng + gỡ numbers trong 1 transaction
+            # (các hàm store bên trong dùng transaction re-entrant) — crash giữa
+            # chừng không để lại "đã hoàn NL mà thùng còn"; guard allocations đọc
+            # TRONG transaction nên allocate đồng thời không mồ côi dòng.
+            with transaction(conn):
+                box = get_box(conn, box_id)
+                if not box:
+                    return "notfound", None
+                lock = _box_delete_lock(conn, box, list_box_allocations(conn, box_id))
+                if lock:
+                    return "locked", lock
+                # Không phải admin: chỉ thùng của phiếu nhập — mà phiếu đang
+                # chốt thì lock ở trên đã chặn, nên tới đây là phiếu ĐANG MỞ (hủy chốt).
+                if not is_admin and not box.get("source_purchase_id"):
+                    return "forbidden", None
+                del_snap.update(box_id=box_id, place_id=box.get("place_id"), box_code=box.get("box_code"),
+                                product_code=box.get("product_code"), quantity=box.get("quantity"))
+                src = box.get("source_thread_id")
+                box_code = box.get("box_code")
+                # Hoàn NL đã trừ tương ứng thùng này — kẹp kép (công thức hiện tại
+                # + phần chia thực tiêu của thùng), xem _release_box_materials.
+                restored = _release_box_materials(conn, box)
+                delete_box(conn, box_id)
+                # Gỡ entry numbers của thùng khỏi phiếu SX nguồn → total tính lại đúng
+                # (numbers là nguồn thật; note nhập lúc tạo = '📦 <box_code>'). Số gọi
+                # tái dùng toàn kho nhưng TRONG 1 phiếu không thể trùng (<999 thùng/phiếu)
+                # nên match theo note trong phạm vi phiếu vẫn an toàn.
+                if src and box_code:
+                    remove_number_by_note(conn, src, f"📦 {box_code}")
+                return "ok", (src, restored, box.get("source_purchase_id"))
         finally:
             conn.close()
     status, res = await asyncio.to_thread(_run)
@@ -917,12 +944,63 @@ async def box_delete_handler(request: web.Request):
     return web.json_response({"ok": True, "restored_materials": restored})
 
 
+def _return_material_core(conn, box_id: int, actor: str) -> tuple[str, tuple | None]:
+    """LÕI rã thùng nguyên kiện (unit-testable, gọi trong thread của handler).
+    Trả (status, (src, restored)|None) — status khớp bảng _errs của handler.
+
+    Đảo tiêu hao của phiếu nguồn cho MỌI loại phiếu (đóng gói: NL chính+phụ;
+    sản xuất: NL phụ) — kẹp theo đã-tiêu. CHỈ HOÀN PHẦN THỰC TIÊU: dòng NL
+    phiếu nguồn KHÔNG tiêu (got = 0 — vd đóng gói qua toggle admin bỏ NL)
+    thì BỎ QUA, không tạo thùng NL mới cho dòng đó (tạo là in tồn từ hư
+    không); MỌI dòng got = 0 → 'noconsume' (không rã được). Phần bù thùng-mới
+    chỉ áp cho dòng CÓ tiêu nhưng nguồn cũ trả thiếu (thùng NL cũ đã bị dùng lại)."""
+    box = get_box(conn, box_id)
+    if not box:
+        return "notfound", None
+    if box.get("disabled"):
+        return "disabled", None
+    if list_box_allocations(conn, box_id):   # đã xuất/đặt cho đơn → thu hồi trước
+        return "allocated", None
+    from product_store import get_product
+    prod = get_product(conn, box.get("product_code"))
+    if not prod or not prod.get("self_container"):
+        return "notselfcont", None
+    needs = recipe_needs(conn, box.get("product_code"), box.get("quantity") or 0)
+    if not needs:
+        return "norecipe", None
+    src = box.get("source_thread_id")
+    has_src = bool(src and get_slip(conn, src))
+    from inventory_store import release_production_amount
+    restored = []
+    for nd in needs:
+        got, into = (release_production_amount(conn, src, nd["code"], nd["amount"])
+                     if has_src else (0.0, []))
+        if got <= 1e-9:   # phiếu nguồn không tiêu NL này → không có gì để hoàn
+            continue
+        short = round(nd["amount"] - got, 6)
+        if short > 1e-6:   # nguồn cũ không đủ → tạo thùng NL mới bù cho đủ
+            fresh = add_boxes(conn, nd["code"], [short], by=actor,
+                              note=f"trả về từ thùng {box.get('box_code')}")
+            into = list(into) + [{"box_id": f["id"], "box_code": f["box_code"],
+                                  "amount": short, "fresh": True} for f in fresh]
+            got += short
+        restored.append({"code": nd["code"], "amount": round(got, 3), "boxes": into})
+    if not restored:   # MỌI dòng got = 0 → phiếu nguồn không tiêu gì, không rã được
+        return "noconsume", None
+    mats = ", ".join(f"{r['amount']:g} {r['code']}" for r in restored) or "—"
+    set_disabled(conn, box_id, True, f"Đã trả về nguyên liệu: {mats}")
+    if src and box.get("box_code"):   # gỡ khỏi output phiếu nguồn (total tính lại)
+        remove_number_by_note(conn, src, f"📦 {box.get('box_code')}")
+    return "ok", (src, restored)
+
+
 async def box_return_material_handler(request: web.Request):
     """POST /api/inventory/box/{box_id}/return-material — RÃ 1 thùng nguyên kiện
-    (KDXDB5/KGL5…) → hoàn lại TOÀN BỘ nguyên liệu theo công thức (ratio × số). Vô hiệu
+    (KDXDB5/KGL5…) → hoàn lại nguyên liệu ĐÃ THỰC TIÊU của phiếu nguồn. Vô hiệu
     thùng (GIỮ lịch sử, không xoá). Hoàn NL = đảo tiêu hao của phiếu đóng gói nguồn
-    (release_production_amount, trả về đúng thùng NL cũ); nguồn cũ thiếu bao nhiêu thì
-    TẠO thùng NL mới bù cho đủ → đảm bảo luôn trả đủ. CHỈ admin."""
+    (release_production_amount, trả về đúng thùng NL cũ); dòng có tiêu mà nguồn cũ
+    thiếu bao nhiêu thì TẠO thùng NL mới bù; phiếu nguồn không tiêu gì → 400.
+    CHỈ admin. Lõi: _return_material_core."""
     from server_app.order_api_common import is_admin_request
     if not await is_admin_request(request):
         return web.json_response({"ok": False, "error": "Chỉ admin mới được trả về nguyên liệu"}, status=403)
@@ -936,51 +1014,15 @@ async def box_return_material_handler(request: web.Request):
         conn = _conn()
         try:
             _ensure(conn)
-            box = get_box(conn, box_id)
-            if not box:
-                return "notfound", None
-            if box.get("disabled"):
-                return "disabled", None
-            if list_box_allocations(conn, box_id):   # đã xuất/đặt cho đơn → thu hồi trước
-                return "allocated", None
-            from product_store import get_product
-            prod = get_product(conn, box.get("product_code"))
-            if not prod or not prod.get("self_container"):
-                return "notselfcont", None
-            needs = recipe_needs(conn, box.get("product_code"), box.get("quantity") or 0)
-            if not needs:
-                return "norecipe", None
-            src = box.get("source_thread_id")
-            # Đảo tiêu hao của phiếu nguồn cho MỌI loại phiếu (đóng gói: NL chính+phụ;
-            # sản xuất: NL phụ) — kẹp theo đã-tiêu nên mã không tiêu hoàn 0, phần
-            # thiếu tạo thùng NL mới bù bên dưới (không double-credit).
-            has_src = bool(src and get_slip(conn, src))
-            from inventory_store import release_production_amount
-            restored = []
-            for nd in needs:
-                got, into = (release_production_amount(conn, src, nd["code"], nd["amount"])
-                             if has_src else (0.0, []))
-                short = round(nd["amount"] - got, 6)
-                if short > 1e-6:   # nguồn cũ không đủ → tạo thùng NL mới bù cho đủ
-                    fresh = add_boxes(conn, nd["code"], [short], by=actor,
-                                      note=f"trả về từ thùng {box.get('box_code')}")
-                    into = list(into) + [{"box_id": f["id"], "box_code": f["box_code"],
-                                          "amount": short, "fresh": True} for f in fresh]
-                    got += short
-                if got > 1e-9:
-                    restored.append({"code": nd["code"], "amount": round(got, 3), "boxes": into})
-            mats = ", ".join(f"{r['amount']:g} {r['code']}" for r in restored) or "—"
-            set_disabled(conn, box_id, True, f"Đã trả về nguyên liệu: {mats}")
-            if src and box.get("box_code"):   # gỡ khỏi output phiếu nguồn (total tính lại)
-                remove_number_by_note(conn, src, f"📦 {box.get('box_code')}")
-            return "ok", (src, restored)
+            return _return_material_core(conn, box_id, actor)
         finally:
             conn.close()
     status, res = await asyncio.to_thread(_run)
     _errs = {"notfound": ("Không tìm thấy thùng", 404), "disabled": ("Thùng đã vô hiệu", 400),
              "allocated": ("Thùng đã xuất cho đơn — thu hồi khỏi đơn trước", 400),
              "notselfcont": ("Chỉ áp dụng cho SP nguyên kiện (bán theo thùng)", 400),
-             "norecipe": ("SP chưa có công thức nguyên liệu để trả về", 400)}
+             "norecipe": ("SP chưa có công thức nguyên liệu để trả về", 400),
+             "noconsume": ("Phiếu nguồn không tiêu nguyên liệu — không rã được", 400)}
     if status in _errs:
         msg, code = _errs[status]
         return web.json_response({"ok": False, "error": msg}, status=code)
@@ -1524,12 +1566,17 @@ async def order_release_handler(request: web.Request):
             aud = []
             for aid in ids:
                 a = get_allocation(conn, aid)
-                # CHỈ gỡ bút toán xuất-đơn (kind='order') — với kind khác, cột
-                # order_thread_id chứa id phiếu nhập/thùng đối tác/phiếu điều chỉnh;
-                # trùng số với thread_id đơn là xoá nhầm sổ khác.
-                if a and a.get("order_thread_id") == thread_id and (a.get("kind") or "order") == "order":
-                    s = box_snapshot(conn, a.get("box_id"))
-                    delete_allocation(conn, aid)
+                if not a:
+                    continue
+                s = box_snapshot(conn, a.get("box_id"))
+                # Guard nằm TRONG store (delete_allocation): chỉ gỡ bút toán xuất-đơn
+                # kind='order' ĐÚNG đơn này — kind khác dùng cột order_thread_id cho
+                # sổ khác; vế transfer bị store raise (đảo bằng counter-transfer).
+                try:
+                    ok = delete_allocation(conn, aid, kind="order", order_thread_id=thread_id)
+                except ValueError:
+                    ok = False   # dòng transfer — không thu hồi từ đơn được
+                if ok:
                     if s:
                         # remaining SAU khi hoàn = trước (còn allocation) + phần vừa trả
                         s["remaining"] = (s.get("remaining") or 0) + float(a.get("quantity") or 0)

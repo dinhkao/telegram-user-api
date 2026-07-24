@@ -95,6 +95,24 @@ def test_parse_comma_decimal():
     assert trong["so_cay_le"] == 3.5
 
 
+def test_num_vn_thousands_and_decimals():
+    """_num: ',' = thập phân; '.' theo mẫu nghìn VN (1.234 → 1234, không phải
+    1,234 cây — thợ từng bị trả ~1 cây thay vì 1234; 1.234.567 từng rơi về 0)."""
+    from production_store.domain import _num
+    assert _num("1.234") == 1234
+    assert _num("1.234.567") == 1234567
+    assert _num("12.345") == 12345
+    assert _num("-1.234") == -1234
+    assert _num("1.5") == 1.5          # không khớp mẫu nghìn → thập phân thường
+    assert _num("12.34") == 12.34
+    assert _num("3,5") == 3.5          # ',' = thập phân kiểu VN
+    assert _num("1.234,5") == 1234.5   # nghìn + thập phân
+    assert _num("1234") == 1234
+    assert _num("") == 0.0
+    assert _num("abc") == 0.0
+    assert _num("1.234.5") == 0.0      # không hợp mẫu nào → garbage
+
+
 def test_compute_k10lt_totals():
     result = compute_report(parse_report(BLOCK_K10LT), so_cay_1_mam=3)
     assert result["product_code"] == "K10LT"

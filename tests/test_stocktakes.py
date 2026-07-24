@@ -203,6 +203,28 @@ class StocktakeStoreTest(unittest.TestCase):
         self.assertEqual(by_box[new[0]["id"]]["expected_quantity"], 12)
         self.assertEqual(resynced["updated_by"], "Lan")
 
+    def test_resync_keeps_counted_row_of_departed_box(self):
+        # Thùng RỜI live state nhưng người kiểm ĐÃ NHẬP SỐ → resync GIỮ dòng
+        # (bằng chứng vật lý), sổ sách về 0; dòng CHƯA đếm mới bị xoá.
+        slip, _ = create_or_resume_stocktake(self.conn, self.place["id"])
+        first, second = slip["items"]                      # box0 (40) + box1 (30)
+        save_stocktake(self.conn, slip["id"], [{"id": first["id"], "actual_quantity": 38}])
+        self._disable_box(self.boxes[0]["id"])             # box0 ĐÃ ĐẾM rời kho
+        self._disable_box(self.boxes[1]["id"])             # box1 CHƯA đếm rời kho
+
+        resynced, err = resync_stocktake(self.conn, slip["id"], actor="Lan")
+        self.assertIsNone(err)
+        by_box = {i["box_id"]: i for i in resynced["items"]}
+        self.assertIn(self.boxes[0]["id"], by_box)                          # GIỮ dòng đã đếm
+        self.assertEqual(by_box[self.boxes[0]["id"]]["expected_quantity"], 0)
+        self.assertEqual(by_box[self.boxes[0]["id"]]["actual_quantity"], 38)  # số đếm còn nguyên
+        self.assertNotIn(self.boxes[1]["id"], by_box)                       # dòng chưa đếm xoá
+        # dòng exp=0 vắng live KHÔNG kẹt stale → phiếu vẫn chốt được
+        self.assertFalse(resynced["stale"]["changed"])
+        done, cerr = complete_stocktake(self.conn, slip["id"], actor="Duy")
+        self.assertIsNone(cerr)
+        self.assertEqual(done["status"], "completed")
+
     def test_void_frees_place_for_new_draft(self):
         slip, _ = create_or_resume_stocktake(self.conn, self.place["id"])
         voided, err = void_stocktake(self.conn, slip["id"], actor="Duy")

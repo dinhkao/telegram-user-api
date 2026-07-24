@@ -114,45 +114,88 @@ class ReturnGoodsTest(unittest.TestCase):
         self.assertIsNone(extra)
         self.assertEqual(err, "not_found")
 
+    def _not_handled(self):
+        """Phiếu CHƯA bị claim (goods_handled_at NULL) — lỗi validate không khoá phiếu."""
+        self.assertIsNone(return_store.get_return(self.conn, self.ret["id"])["goods_handled_at"])
+
     def test_restock_existing_rejects_wrong_product_box(self):
-        # Nhận KEO1 vào thùng KEO2 → dòng bị bỏ qua, tồn KEO2 không đổi.
+        # Nhận KEO1 vào thùng KEO2 → LỖI cả lô (không bỏ qua lặng), tồn không đổi,
+        # phiếu KHÔNG bị đánh dấu đã xử lý → sửa xong gọi lại được.
         upsert_product(self.conn, "KEO2", "Kẹo khác", unit="cây")
         other = add_boxes(self.conn, "KEO2", [50])[0]
         extra, err = apply_goods_dispositions(
             self.conn, self.ret["id"],
             [{"sp": "KEO1", "quantity": 4, "action": "restock_existing", "box_id": other["id"]}],
             actor="lan")
-        self.assertIsNone(err)
-        self.assertEqual(extra["result"]["restocked_existing"], [])
+        self.assertIsNone(extra)
+        self.assertIn("không phải KEO1", err)
         self.assertEqual(self._rem(other["id"]), 50)
+        self._not_handled()
 
-    def test_restock_existing_rejects_disabled_box(self):
+    def test_restock_existing_rejects_disabled_box_then_retry(self):
+        # Thùng vô hiệu → LỖI, phiếu KHÔNG bị claim; kích hoạt lại → chạy lại OK.
         self.conn.execute("UPDATE inventory_boxes SET disabled = 1 WHERE id = ?", (self.box["id"],))
+        self.conn.commit()
+        disp = [{"sp": "KEO1", "quantity": 4, "action": "restock_existing", "box_id": self.box["id"]}]
+        extra, err = apply_goods_dispositions(self.conn, self.ret["id"], disp, actor="lan")
+        self.assertIsNone(extra)
+        self.assertIn("vô hiệu", err)
+        self.assertEqual(self._rem(self.box["id"]), 100)   # không cộng gì
+        self._not_handled()
+        # kích hoạt lại thùng → RETRY thành công (phiếu chưa từng bị khoá chết)
+        self.conn.execute("UPDATE inventory_boxes SET disabled = 0 WHERE id = ?", (self.box["id"],))
+        self.conn.commit()
+        extra2, err2 = apply_goods_dispositions(self.conn, self.ret["id"], disp, actor="lan")
+        self.assertIsNone(err2)
+        self.assertEqual(self._rem(self.box["id"]), 104)
+        self.assertIsNotNone(return_store.get_return(self.conn, self.ret["id"])["goods_handled_at"])
+
+    def test_missing_box_rejected_not_silently_skipped(self):
+        # Thùng biến mất → LỖI nêu rõ, không claim (trước đây skip lặng + claim,
+        # goods_result rỗng và phiếu vĩnh viễn không xử lý lại được).
         extra, err = apply_goods_dispositions(
             self.conn, self.ret["id"],
-            [{"sp": "KEO1", "quantity": 4, "action": "restock_existing", "box_id": self.box["id"]}],
+            [{"sp": "KEO1", "quantity": 4, "action": "restock_existing", "box_id": 99999}],
             actor="lan")
-        self.assertIsNone(err)
-        self.assertEqual(extra["result"]["restocked_existing"], [])
-        self.assertEqual(self._rem(self.box["id"]), 100)   # không cộng gì
+        self.assertIsNone(extra)
+        self.assertIn("Không tìm thấy thùng", err)
+        self._not_handled()
+
+    def test_nan_quantity_rejected(self):
+        # NaN qua float() vẫn phải bị chặn (parse_qty → 0.0 → 'phải > 0').
+        for bad in (float("nan"), "NaN", float("inf")):
+            extra, err = apply_goods_dispositions(
+                self.conn, self.ret["id"],
+                [{"sp": "KEO1", "quantity": bad, "action": "restock_new"}], actor="lan")
+            self.assertIsNone(extra)
+            self.assertIn("phải > 0", err)
+            self._not_handled()
 
     def test_dispositions_capped_by_slip_quantity(self):
-        # Phiếu trả 10 KEO1: dòng vượt trần / SP lạ / cộng dồn quá 10 đều bị bỏ qua.
+        # Phiếu trả 10 KEO1: dòng vượt trần / SP lạ / cộng dồn quá 10 → LỖI cả lô,
+        # KHÔNG ghi gì (kiểm-trước-ghi-sau), phiếu không bị claim.
         upsert_product(self.conn, "KEO2", "Kẹo khác", unit="cây")
+        cases = [
+            ([{"sp": "KEO1", "quantity": 12, "action": "restock_new"}], "vượt số trên phiếu"),
+            ([{"sp": "KEO2", "quantity": 3, "action": "restock_new"}], "không có trên phiếu"),
+            ([{"sp": "KEO1", "quantity": 8, "action": "restock_existing", "box_id": self.box["id"]},
+              {"sp": "KEO1", "quantity": 4, "action": "dispose"}], "vượt số trên phiếu"),  # 8+4 > 10
+        ]
+        for disps, frag in cases:
+            extra, err = apply_goods_dispositions(self.conn, self.ret["id"], disps, actor="lan")
+            self.assertIsNone(extra)
+            self.assertIn(frag, err)
+            self.assertEqual(self._rem(self.box["id"]), 100)   # KHÔNG dòng nào được ghi
+            self._not_handled()
+        # lô hợp lệ (8 nhập + 2 hủy = đúng 10) → chạy trọn
         extra, err = apply_goods_dispositions(
             self.conn, self.ret["id"], [
-                {"sp": "KEO1", "quantity": 12, "action": "restock_new"},                          # 12 > 10
-                {"sp": "KEO2", "quantity": 3, "action": "restock_new"},                           # không có trên phiếu
-                {"sp": "KEO1", "quantity": 8, "action": "restock_existing", "box_id": self.box["id"]},  # OK
-                {"sp": "KEO1", "quantity": 4, "action": "dispose"},                               # 8+4 > 10
+                {"sp": "KEO1", "quantity": 8, "action": "restock_existing", "box_id": self.box["id"]},
+                {"sp": "KEO1", "quantity": 2, "action": "dispose"},
             ], actor="lan")
         self.assertIsNone(err)
-        res = extra["result"]
-        self.assertEqual(res["restocked_new"], [])
-        self.assertEqual(len(res["restocked_existing"]), 1)
-        self.assertEqual(res["disposed"], [])
-        self.assertIsNone(res["disposal_id"])
-        self.assertEqual(self._rem(self.box["id"]), 108)   # chỉ dòng hợp lệ được ghi
+        self.assertEqual(self._rem(self.box["id"]), 108)
+        self.assertEqual(len(extra["result"]["disposed"]), 1)
 
     def test_audit_snapshots_for_box_events(self):
         # extra['audit'] = snapshot cho route ghi event kho (box.created / box.return_in)

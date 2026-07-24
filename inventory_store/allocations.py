@@ -4,6 +4,7 @@ remaining của thùng = quantity − tổng allocation. Xuất 1 phần → ghi
 gốc giữ nguyên số cây gốc, còn lại giảm. Thu hồi = xoá dòng. Nối: utils.db.
 """
 from __future__ import annotations
+import math
 from datetime import datetime, timezone, timedelta
 
 from utils.db import transaction
@@ -13,6 +14,17 @@ _VN_TZ = timezone(timedelta(hours=7))
 
 def _now() -> str:
     return datetime.now(_VN_TZ).isoformat(timespec="seconds")
+
+
+def _finite(v) -> float | None:
+    """float() + chặn NaN/Infinity. JSON lậu 'NaN' qua được `float(x) <= 0` (NaN so
+    sánh gì cũng False) và `min(nan, cap)` KHÔNG kẹp → 1 request đầu độc remaining
+    vĩnh viễn (json.dumps còn phun 'NaN' không hợp lệ). None = không hợp lệ."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
 
 
 def create_allocations_table(conn):
@@ -93,10 +105,15 @@ def allocate_picks(conn, picks, order_thread_id, *, by=None, kind="order") -> li
             if remaining <= 0:
                 continue
             raw_q = p.get("quantity")
-            try:
-                take = remaining if raw_q is None else float(raw_q)
-            except (TypeError, ValueError):
-                continue
+            # raw_q = None là HÀNH VI TÀI LIỆU HOÁ: lấy hết phần còn lại của thùng
+            # (client gửi null). take = remaining rồi VẪN đi qua min(take, remaining)
+            # bên dưới nên nhánh này không thể vượt trần; NaN chuỗi/float bị _finite chặn.
+            if raw_q is None:
+                take = remaining
+            else:
+                take = _finite(raw_q)
+                if take is None:
+                    continue
             if take <= 0:
                 continue
             take = min(take, remaining)
@@ -165,6 +182,25 @@ def release_production_consumption(conn, ref_thread_id) -> int:
         return cur.rowcount
 
 
+def production_consumed_amount(conn, ref_thread_id, product_code) -> float:
+    """Tổng nguyên liệu (mã product_code) 1 phiếu SX CÒN ĐANG TIÊU (Σ allocation
+    kind='production' hiện có — phần đã hoàn qua release_* không tính). Dùng để
+    KẸP hoàn-NL-khi-xoá-thùng theo phần TIÊU THẬT thay vì công thức hiện tại
+    (công thức sửa sau khi SX → hoàn theo ratio mới là in tồn từ hư không)."""
+    from .queries import _pid_filter
+    code = str(product_code or "").strip().upper()
+    if not code:
+        return 0.0
+    frag, ps = _pid_filter(conn, code)
+    row = conn.execute(
+        "SELECT COALESCE(SUM(a.quantity),0) FROM box_allocations a "
+        "JOIN inventory_boxes b ON b.id = a.box_id "
+        f"WHERE a.order_thread_id = ? AND COALESCE(a.kind,'order') = 'production' AND {frag}",
+        (ref_thread_id, *ps),
+    ).fetchone()
+    return float(row[0] or 0)
+
+
 def release_production_amount(conn, ref_thread_id, product_code, amount) -> tuple[float, list[dict]]:
     """Hoàn lại `amount` nguyên liệu (mã product_code) đã tiêu cho 1 phiếu SX — dùng
     khi XOÁ 1 thùng thành phẩm của phiếu đóng gói (hoàn phần NL tương ứng thùng đó,
@@ -173,8 +209,8 @@ def release_production_amount(conn, ref_thread_id, product_code, amount) -> tupl
     chi tiết [{box_id, box_code, amount}] từng thùng NL nhận lại)."""
     from .queries import _pid_filter
     code = str(product_code or "").strip().upper()
-    left = float(amount or 0)
-    if not code or left <= 0:
+    left = _finite(amount or 0)
+    if not code or left is None or left <= 0:
         return 0.0, []
     released = 0.0
     details: list[dict] = []
@@ -218,9 +254,8 @@ def transfer_between_boxes(conn, from_id, to_id, quantity, *, by=None) -> tuple[
         fid, tid = int(from_id), int(to_id)
     except (TypeError, ValueError):
         return None, "Thùng không hợp lệ"
-    try:
-        q = float(quantity)
-    except (TypeError, ValueError):
+    q = _finite(quantity)   # chặn cả NaN/Infinity — bút toán kép NaN phá remaining cả 2 thùng
+    if q is None:
         return None, "Số lượng không hợp lệ"
     if fid == tid:
         return None, "Thùng nguồn và thùng đích phải khác nhau"
@@ -267,11 +302,8 @@ def _receive_stock_in(conn, box_id, quantity, ref_id, kind, by) -> bool:
     của phiếu SX nguồn = SUM(quantity) theo source_thread_id KHÔNG bị thổi phồng bởi hàng
     nhận thêm (nếu bump quantity sẽ làm lệch đối chiếu phiếu SX). ref_id = id phiếu nguồn.
     """
-    try:
-        q = float(quantity)
-    except (TypeError, ValueError):
-        return False
-    if q <= 0:
+    q = _finite(quantity)   # NaN/Infinity → allocation âm NaN đầu độc remaining
+    if q is None or q <= 0:
         return False
     with transaction(conn):
         conn.execute(
@@ -324,8 +356,28 @@ def get_allocation(conn, allocation_id) -> dict | None:
     return dict(row) if row else None
 
 
-def delete_allocation(conn, allocation_id) -> bool:
-    """Thu hồi 1 phần thùng khỏi đơn (xoá dòng allocation)."""
+def delete_allocation(conn, allocation_id, *, kind="order", order_thread_id=None) -> bool:
+    """Thu hồi 1 dòng allocation — GUARD Ở STORE (không tin caller):
+
+    • dòng phải ĐÚNG `kind` (mặc định 'order'); các kind khác dùng cột
+      order_thread_id cho id phiếu nhập/phiếu điều chỉnh/thùng đối tác — xoá
+      nhầm là phá sổ khác;
+    • `order_thread_id` truyền vào (nếu có) phải khớp dòng;
+    • 'transfer_in'/'transfer_out' TỪ CHỐI THẲNG — xoá 1 vế phá bút toán kép,
+      muốn đảo thì tạo 1 lệnh chuyển ngược (counter-transfer).
+    Trả True nếu đã xoá; False nếu không khớp; raise ValueError với transfer."""
     with transaction(conn):
+        row = conn.execute(
+            "SELECT id, order_thread_id, COALESCE(kind,'order') AS kind "
+            "FROM box_allocations WHERE id = ?", (allocation_id,)).fetchone()
+        if not row:
+            return False
+        if row["kind"] in ("transfer_in", "transfer_out"):
+            raise ValueError(
+                "Bút toán chuyển thùng không xoá lẻ được — đảo bằng một lệnh chuyển ngược")
+        if row["kind"] != (kind or "order"):
+            return False
+        if order_thread_id is not None and row["order_thread_id"] != order_thread_id:
+            return False
         conn.execute("DELETE FROM box_allocations WHERE id = ?", (allocation_id,))
     return True

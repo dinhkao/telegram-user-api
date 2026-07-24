@@ -173,10 +173,15 @@ def _compute_stale(items: list[dict], live: dict[int, dict]) -> dict:
     for bid, it in captured.items():
         exp = float(it["expected_quantity"] or 0)
         if bid not in live:
-            removed.append({
-                "box_id": bid, "box_code": it["box_code"], "product_code": it["product_code"],
-                "expected": round(exp, 3),
-            })
+            # Sổ chụp = 0 và thùng vắng khỏi live (hết hàng/rời kho) → nhất quán
+            # (live cũng coi remaining ≤ 0 là vắng) — KHÔNG phải biến động. Dòng
+            # exp=0 tồn tại vì resync GIỮ dòng đã đếm của thùng rời kho (exp về 0);
+            # nếu flag ở đây thì phiếu kẹt stale vĩnh viễn, không chốt được.
+            if abs(exp) > _STALE_EPS:
+                removed.append({
+                    "box_id": bid, "box_code": it["box_code"], "product_code": it["product_code"],
+                    "expected": round(exp, 3),
+                })
         else:
             cur = float(live[bid]["remaining"] or 0)
             if abs(cur - exp) > _STALE_EPS:
@@ -408,7 +413,9 @@ def resync_stocktake(conn, stocktake_id: int, *, actor: str | None = None) -> tu
 
     GIỮ số đã đếm (actual_quantity) + ghi chú của các thùng còn trong kho; cập nhật
     expected_quantity theo remaining hiện tại; thêm dòng cho thùng mới (actual NULL);
-    xoá dòng của thùng đã rời/hết. Không đụng tới kho — chỉ đồng bộ ảnh chụp."""
+    thùng đã rời/hết: dòng ĐÃ ĐẾM (hoặc có ghi chú) GIỮ LẠI với expected = 0 —
+    số đếm là bằng chứng vật lý của người kiểm, xoá là mất; chỉ xoá dòng CHƯA đếm.
+    Không đụng tới kho — chỉ đồng bộ ảnh chụp."""
     create_stocktake_tables(conn)
     with transaction(conn):
         head = _row(conn, stocktake_id)
@@ -418,12 +425,21 @@ def resync_stocktake(conn, stocktake_id: int, *, actor: str | None = None) -> tu
             return None, "completed"
         live = _place_live_state(conn, int(head["place_id"]))
         existing = {int(r["box_id"]): dict(r) for r in conn.execute(
-            "SELECT id, box_id FROM inventory_stocktake_items WHERE stocktake_id = ?", (stocktake_id,)
+            "SELECT id, box_id, actual_quantity, note FROM inventory_stocktake_items "
+            "WHERE stocktake_id = ?", (stocktake_id,)
         ).fetchall()}
         for bid, it in existing.items():
             lv = live.get(bid)
             if lv is None:
-                conn.execute("DELETE FROM inventory_stocktake_items WHERE id = ?", (it["id"],))
+                if it.get("actual_quantity") is not None or str(it.get("note") or "").strip():
+                    # Thùng rời live state nhưng người kiểm ĐÃ nhập số/ghi chú →
+                    # giữ dòng, sổ sách về 0 (thùng vắng = live coi remaining 0);
+                    # _compute_stale bỏ qua dòng exp=0 vắng live nên không kẹt stale.
+                    conn.execute(
+                        "UPDATE inventory_stocktake_items SET expected_quantity = 0 WHERE id = ?",
+                        (it["id"],))
+                else:
+                    conn.execute("DELETE FROM inventory_stocktake_items WHERE id = ?", (it["id"],))
             else:
                 conn.execute(
                     "UPDATE inventory_stocktake_items SET expected_quantity = ?, box_code = ?, "

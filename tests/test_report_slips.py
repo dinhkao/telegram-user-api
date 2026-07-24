@@ -131,6 +131,30 @@ def test_update_slip(conn):
     assert report_slips.update_slip(conn, 9999, note="x") is None
 
 
+def test_dong_goi_slip_with_hours_column_still_pays_piece(conn, monkeypatch):
+    """Phiếu ĐÓNG GÓI dính cột giờ (paste Telegram): giờ bị ép 0 (đúng), nhưng
+    cây KHÔNG được zero theo nhánh giờ — không thì thợ mất cả tiền cây lẫn tiền
+    giờ, chỉ còn phụ cấp. Nhánh giờ trong SQL chỉ áp phiếu SẢN XUẤT."""
+    from production_store import wages
+    monkeypatch.setattr(wages, "_cache", {"K1": {"luong": 1000}})
+    conn.execute("INSERT INTO production_workers (id, name, hourly_rate) VALUES (1, 'Hiền', 50000)")
+    conn.execute("INSERT INTO production_slips (thread_id, sp_name, kind) VALUES (400, 'K1', 'dong_goi')")
+    conn.execute(
+        "INSERT INTO production_report_rows (thread_id, report_ymd, worker_id, worker_name,"
+        " product_id, product_code, tong_calc, so_gio) VALUES (400, '2026-07-09', 1, 'Hiền', NULL, 'K1', 10, 8)")
+
+    rep = report_slips.compute_range_report(conn, "2026-07-06", "2026-07-12")
+    hien = next(w for w in rep["workers"] if w["name"] == "Hiền")
+    assert hien["money"] == 10 * 1000            # tiền CÂY giữ nguyên, không tiền giờ
+    assert rep["missing_wage"] == []             # không cảnh báo thiếu đơn giá giờ
+
+    # ĐỐI CHỨNG: phiếu SẢN XUẤT cùng dữ liệu → dòng giờ trả THEO GIỜ, cây không tính
+    conn.execute("UPDATE production_slips SET kind = 'san_xuat' WHERE thread_id = 400")
+    rep2 = report_slips.compute_range_report(conn, "2026-07-06", "2026-07-12")
+    hien2 = next(w for w in rep2["workers"] if w["name"] == "Hiền")
+    assert hien2["money"] == 8 * 50000
+
+
 def test_slip_fixed_wage_overrides_current_table(conn, monkeypatch):
     """Phiếu đã CHỐT luong_1sp → dùng giá chốt, mặc kệ bảng lương hiện tại;
     phiếu chưa chốt (NULL) → bảng lương hiện tại."""

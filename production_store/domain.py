@@ -15,6 +15,8 @@ quả vào cột 5/17. Also tolerates the older comma/tab formats with a "thợ"
 """
 from __future__ import annotations
 
+import re
+
 # Column indices in the semicolon layout.
 _C_NAME = 0
 _C_GACH = 1
@@ -35,14 +37,26 @@ _C_END = 19
 _NOTE_WORDS = {"nghỉ", "nghi", "vít", "vit", "vô kẹo", "vo keo", "q.kẹo", "q.keo", "qkẹo"}
 
 
+# '1.234' / '1.234.567' kiểu VN: dấu chấm là PHÂN CÁCH NGHÌN (nhóm 3 chữ số).
+_DOT_THOUSANDS = re.compile(r"^-?\d{1,3}(\.\d{3})+$")
+
+
 def _num(val) -> float:
-    """Parse a cell to float; comma decimal → dot; blanks/garbage → 0.0."""
+    """Parse a cell to float; blanks/garbage → 0.0.
+
+    ',' là dấu THẬP PHÂN kiểu VN ('3,5' → 3.5; '1.234,5' → 1234.5). Với '.':
+    khớp mẫu nghìn `1.234`/`1.234.567` → BỎ dấu chấm (SL sheet là số nguyên —
+    trước đây '1.234' đọc thành 1.234 nên thợ được trả ~1 cây thay vì 1234, còn
+    '1.234.567' rơi thẳng về 0); không khớp ('1.5', '12.34') → thập phân thường."""
     if val is None:
         return 0.0
     s = str(val).strip().strip('"').strip("'").strip()
     if not s:
         return 0.0
-    s = s.replace(".", "").replace(",", ".") if s.count(",") == 1 and "." in s else s.replace(",", ".")
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".") if s.count(",") == 1 and "." in s else s.replace(",", ".")
+    elif _DOT_THOUSANDS.match(s):
+        s = s.replace(".", "")
     try:
         return float(s)
     except ValueError:

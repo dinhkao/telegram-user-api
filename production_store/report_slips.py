@@ -155,8 +155,12 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
         "SELECT t.thread_id AS tid, t.report_ymd AS ymd, t.worker_name AS wname, "
         "COALESCE(w.name, t.worker_name) AS worker, COALESCE(pr.code, t.product_code) AS code, "
         "ROUND(SUM(t.tong_calc), 1) AS cay, "
-        # cây TÍNH TIỀN = chỉ dòng KHÔNG giờ (dòng giờ trả theo giờ — không nuốt tiền cây)
-        "ROUND(SUM(CASE WHEN COALESCE(t.so_gio,0) > 0 THEN 0 ELSE t.tong_calc END), 1) AS cay_piece, "
+        # cây TÍNH TIỀN = chỉ dòng KHÔNG giờ (dòng giờ trả theo giờ — không nuốt tiền
+        # cây). Nhánh giờ CHỈ áp phiếu SẢN XUẤT — khớp chỗ ép gio=0 cho dong_goi bên
+        # dưới: phiếu ĐÓNG GÓI mang cột giờ (paste Telegram) mà vẫn zero cây ở đây
+        # thì thợ mất cả tiền cây LẪN tiền giờ (chỉ còn phụ cấp).
+        "ROUND(SUM(CASE WHEN COALESCE(t.so_gio,0) > 0 AND COALESCE(s.kind,'san_xuat') != 'dong_goi' "
+        "          THEN 0 ELSE t.tong_calc END), 1) AS cay_piece, "
         "SUM(t.so_gio) AS gio, "
         "COALESCE(w.hourly_rate, 0) AS hrate, s.luong_1sp AS slip_wage, s.kind AS slip_kind, s.bang AS bang "
         "FROM production_report_rows t "

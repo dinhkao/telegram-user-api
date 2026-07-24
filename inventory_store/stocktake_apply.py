@@ -43,6 +43,23 @@ def apply_stocktake(conn, stocktake_id: int, *, actor: str | None = None) -> tup
         plan = []
         for it in lech:
             delta = float(it["actual_quantity"]) - float(it["expected_quantity"] or 0)
+            # KHÔNG double-book: nếu SAU khi CHỐT phiếu đã có người ĐIỀU CHỈNH TAY
+            # thùng này (cùng một sự thật vật lý với số đếm), trừ phần đó khỏi delta.
+            # Mốc = completed_at (không phải captured_at): điều chỉnh giữa chụp và
+            # chốt đều đã bake vào expected — phiếu stale bị CHẶN chốt, phải resync
+            # (expected cập nhật) mới chốt được ⇒ chỉ phần ghi SAU chốt là chưa tính.
+            # Dòng allocation 'adjustment' lưu quantity = −delta_phiếu_điều_chỉnh
+            # ⇒ tổng delta đã ghi = SUM(−quantity). allocated_at là giờ VN
+            # (datetime('now','+7 hours')) còn completed_at là UTC → quy cùng mốc
+            # bằng datetime(completed_at, '+7 hours') trước khi so epoch.
+            adj_after = conn.execute(
+                "SELECT COALESCE(SUM(-quantity), 0) FROM box_allocations "
+                "WHERE box_id = ? AND COALESCE(kind,'order') = 'adjustment' "
+                "AND strftime('%s', allocated_at) > strftime('%s', datetime(?, '+7 hours'))",
+                (int(it["box_id"]), head["completed_at"])).fetchone()[0]
+            delta -= float(adj_after or 0)
+            if abs(delta) <= _EPS:
+                continue   # chênh lệch đã được phiếu điều chỉnh tay xử lý đủ — bỏ qua
             box, rem = _box_remaining(conn, int(it["box_id"]))
             if not box:
                 return None, f"Thùng {it['box_code']} ({it['product_code']}) đã bị xoá khỏi kho — không áp được"
@@ -64,7 +81,8 @@ def apply_stocktake(conn, stocktake_id: int, *, actor: str | None = None) -> tup
             applied.append({"box_id": it["box_id"], "box_code": it["box_code"],
                             "product_code": it["product_code"], "delta": round(delta, 3),
                             "adjustment_id": adj["id"]})
-        result = {"adjusted": applied, "equal_count": len(items) - len(lech)}
+        # equal_count = dòng KHÔNG sinh phiếu điều chỉnh (bằng số hoặc đã điều chỉnh tay đủ)
+        result = {"adjusted": applied, "equal_count": len(items) - len(applied)}
         conn.execute(
             "UPDATE inventory_stocktakes SET applied_at = datetime('now', '+7 hours'), applied_by = ?, "
             "applied_result = ? WHERE id = ? AND applied_at IS NULL",

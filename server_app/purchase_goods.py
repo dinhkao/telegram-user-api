@@ -33,10 +33,14 @@ class _ReceiptApplyError(Exception):
 
 
 def _float_or_none(value) -> float | None:
+    """float() + chặn NaN/Infinity — NaN qua được mọi so sánh `<= 0` (đều False)
+    rồi thành allocation NaN đầu độc remaining vĩnh viễn."""
     try:
-        return float(value)
+        f = float(value)
     except (TypeError, ValueError):
         return None
+    import math
+    return f if math.isfinite(f) else None
 
 
 def _product_key(conn, code: str, product_id=None) -> tuple[tuple[str, int | str], str]:
@@ -346,6 +350,16 @@ def confirm_purchase_receipt(conn, purchase_id: int, *, actor: str = "") -> tupl
             return None, "not_found"
         draft = _draft_receipt(conn, purchase_id)
         limits, labels = _purchase_item_limits(conn, p.get("items") or [])
+        # Mã ĐÃ NHẬP nhưng KHÔNG có trên phiếu (items bị sửa sau khi nhập / SP đổi
+        # danh tính) → chặn tường minh — vòng limits bên dưới chỉ duyệt mã TRÊN
+        # phiếu nên mã lạ không bị đếm thiếu cũng không bị chặn (lọt qua chốt lặng).
+        for key, qty in draft["used"].items():
+            if key not in limits:
+                lbl = next((e["sp"] for e in draft["new"] + draft["existing"]
+                            if _product_key(conn, e.get("sp"), e.get("sp_id"))[0] == key),
+                           str(key[1]))
+                return None, (f"Mã {lbl} không có trên phiếu — gỡ dòng nhập kho đó "
+                              f"trước khi chốt")
         for key, lim in limits.items():
             got = draft["used"].get(key, 0.0)
             if got > lim + 1e-9:   # phòng hờ — receive đã chặn, items đã guard
