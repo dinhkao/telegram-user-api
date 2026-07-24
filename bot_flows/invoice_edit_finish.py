@@ -1,5 +1,6 @@
 """bot_flows/invoice_edit_finish.py — Invoice edit: price selection & completion."""
 import logging
+from utils.qty import parse_qty, qty_for_api
 from telethon import Button
 from bot_core import config, db, keyboards
 from bot_core.utils import post_json
@@ -48,14 +49,14 @@ async def handle_next_action(bot, event, s, state, text):
         draft = state.get("draft", [])
         lines = []
         for item in draft:
-            qty, price = int(item.get("sl", 0)), int(item.get("price", 0))
+            qty, price = parse_qty(item.get("sl", 0)), int(item.get("price", 0))
             total = qty * price
             lines.append(f"{item['sp']} = {_nf(qty)} x {_nf(price)} = {_nf(total)}" if price > 0
                 else f"{item['sp']} = {_nf(qty)} (chưa có giá)")
         try:
             if s.thread_id:
-                items = [{"sp": str(it["sp"]), "sl": int(it["sl"]), "price": int(it["price"]) if it.get("price") else None}
-                    for it in draft if it and isinstance(it, dict) and it.get("sp") and int(it.get("sl", 0)) > 0]
+                items = [{"sp": str(it["sp"]), "sl": qty_for_api(it["sl"]), "price": int(it["price"]) if it.get("price") else None}
+                    for it in draft if it and isinstance(it, dict) and it.get("sp") and parse_qty(it.get("sl", 0)) > 0]
                 await post_json(f"{ORDER_API_BASE}/api/order/invoice/update", {
                     "thread_id": s.thread_id, "user_id": s.user_id, "invoice": items})
                 try:

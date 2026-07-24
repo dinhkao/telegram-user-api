@@ -1,4 +1,5 @@
 from __future__ import annotations
+from utils.qty import qty_for_api
 
 from .core import _request, log
 
@@ -32,7 +33,8 @@ def build_invoice_details(invoice_items: list[dict], kv_ids: dict | None = None)
     for item in invoice_items:
         code = str(item.get("sp") or item.get("productCode") or "").strip().upper()
         detail = {
-            "quantity": int(item.get("sl", item.get("quantity", 1))),
+            # SL có thể LẺ (3,5 thùng) — cắt int ở đây là dưới-hoá-đơn khách (mất tiền)
+            "quantity": qty_for_api(item.get("sl", item.get("quantity", 1)), default=1),
             "price": int(item.get("price", 0)),
             "note": str(item.get("note", "")) if item.get("note") else "",
         }

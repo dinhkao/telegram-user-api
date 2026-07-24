@@ -1,4 +1,5 @@
 from __future__ import annotations
+from utils.qty import line_total
 
 from order_db import _save_order, get_customer_by_key, get_customer_price_list, get_order_by_thread_id, parse_comma_text
 from product_db import freeze_invoice_cost_prices
@@ -39,7 +40,7 @@ async def assign_customer(client, msg, db_conn, thread_id: int, kh_id: str):
         lines.append(f"📱 {phone}")
     grand_total = 0
     for item in order.get("invoice") or []:
-        sub_total = int(item.get("sl", 0) or 0) * int(item.get("price", 0) or 0)
+        sub_total = line_total(item.get("price", 0) or 0, item.get("sl", 0) or 0)
         grand_total += sub_total
         lines.append(f"• <b>{item.get('sp', '?')}</b> x{item.get('sl', 0)} @ {int(item.get('price', 0) or 0):,}đ = <b>{sub_total:,}đ</b>")
     if grand_total:

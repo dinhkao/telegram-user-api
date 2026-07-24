@@ -1,4 +1,5 @@
 from __future__ import annotations
+from utils.qty import line_total
 
 import asyncio
 import logging
@@ -186,7 +187,7 @@ async def order_totals_handler(request: web.Request):
         if not order:
             return web.json_response({"ok": False, "error": "Order not found"}, status=404)
         invoice = order.get("invoice") or order.get("san_pham") or []
-        total = sum(int(item.get("price", 0)) * int(item.get("sl", 1)) for item in invoice)
+        total = sum(line_total(item.get("price", 0), item.get("sl", 1)) for item in invoice)
         discount, pvc, vat = order.get("discount", 0), order.get("pvc", 0), order.get("vat", 0)
         pre_debt_total = total - discount + pvc + vat
         return web.json_response({"ok": True, "order": {"pre_debt_total": pre_debt_total, "total_payable": pre_debt_total, "total": total, "discount": discount, "pvc": pvc, "vat": vat}})

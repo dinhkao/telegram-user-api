@@ -41,13 +41,15 @@ def customer_name(order: dict, kh_id, current: str) -> str:
 
 
 def invoice_block(invoice):
+    from utils.qty import parse_qty, fmt_qty, line_total
     total, lines = 0, []
     for item in invoice or []:
-        sp, sl, price = item.get("sp", ""), int(item.get("sl", 0)), int(item.get("price", 0))
-        total += sl * price
+        sp, price = item.get("sp", ""), int(item.get("price", 0))
+        sl = parse_qty(item.get("sl", 0))          # SL có thể lẻ (3,5) — không cắt int
+        total += line_total(price, sl)
         line = sp
         if sl:
-            line += f"\n{'SL:':5}{str(sl):>10}"
+            line += f"\n{'SL:':5}{fmt_qty(sl):>10}"
         if price:
             line += f"\n{'Giá:':5}{fmt_money(price):>10}"
         if sl * price:

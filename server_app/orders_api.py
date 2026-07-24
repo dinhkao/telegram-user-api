@@ -33,9 +33,14 @@ def _build_order_row(r) -> dict:
     date = pc.get("datetime", "") or (f"{j.get('created','')[8:10]}/{j.get('created','')[5:7]}/{j.get('created','')[:4]} {j.get('created','')[11:16]}" if j.get("created") else "")
     total = pc.get("tongthanhtoan", "")
     if not total and j.get("invoice"):
-        total = f"{sum(int(it.get('price', 0)) * int(it.get('sl', it.get('quantity', 0)) or 0) for it in j.get('invoice', [])):,}".replace(",", ".")
+        from utils.qty import line_total
+        total = f"{sum(line_total(it.get('price', 0), it.get('sl', it.get('quantity', 0)) or 0) for it in j.get('invoice', [])):,}".replace(",", ".")
     paid = sum(_to_int(p.get("amount", 0)) for p in (j.get("payments") or []))
-    raw_total = int(str(total).replace(".", "")) if str(total).replace(".", "").isdigit() else 0
+    # remaining = CÔNG THỨC DUY NHẤT của app (tiền hàng + pvc + vat − CK, KHÔNG
+    # gồm nợ cũ) − đã trả. Bản cũ đọc tongthanhtoan: dính no_truoc (phồng nợ),
+    # chuỗi có dấu phẩy '26,400,000' parse ra 0, và thiếu vat/pvc khi fallback.
+    from server_app.customer_feed import _order_total_num
+    remaining = max(0, _order_total_num(j) - paid)
     creator = j.get("nguoi_tao_HD")
     creator = ", ".join(str(x) for x in creator) if isinstance(creator, list) else (str(creator) if creator else "")
     ts = j.get("task_status", {}) or {}
@@ -78,7 +83,7 @@ def _build_order_row(r) -> dict:
     _maps = display_maps()
     inv = [display_item(_maps, it) for it in inv]
     invoice_items = [{"sp": it.get("sp", "?"), "sl": it.get("sl", it.get("quantity", it.get("sl1pc", 0)) or 0), "price": int(it.get("price", 0) or 0)} for it in inv]
-    return {"key": r["firebase_key"], "thread_id": r["thread_id"], "channel_id": r["channel_id"], "message_id": r["message_id"], "customer_key": j.get("khach_hang_id"), "customer": customer, "total": total, "paid": paid, "remaining": max(0, raw_total - paid), "phone": pc.get("sdt", ""), "date": date, "status": j.get("trang_thai", ""), "soan": j.get("soan", False), "giao": j.get("giao", False), "nop": j.get("nop", False), "nhan": j.get("nhan", False), "nhan_tien_note": (ts.get("nhan_tien", {}) or {}).get("note", ""), "done_after_20250124": j.get("done_after_20250124", False), "updated_at": r["updated_at"], "hd_code": hd_code, "creator": creator, "giao_by": giao_by, "nop_by": nop_by, "nop_note": nop_note, "task_icons": task_icons, "task_bys": task_bys, "text": (j.get("text") or j.get("text_raw") or ""), "created": j.get("created"), "topic_name": j.get("topic_name", ""), "invoice_count": len(inv), "invoice_summary": [{"sp": it["sp"], "sl": it["sl"]} for it in invoice_items[:5]], "invoice_items": invoice_items, "vat": int(j.get("vat", 0) or 0), "pvc": int(j.get("pvc", 0) or 0), "discount": int(j.get("discount", 0) or 0), "no_truoc": pc.get("no_truoc", ""), "kh_debt": (j.get("khDebt") if j.get("khDebt") is not None else j.get("invoice_debt_snapshot")), "tongtienhang": pc.get("tongtienhang", ""), "ngay_giao": j.get("ngay_giao") or "", "giao_done": bool((ts.get("giao_hang") or {}).get("done")), "giao_at": (ts.get("giao_hang") or {}).get("at") or "", "soan_img_ids": soan_img_ids, "nop_img_id": nop_img_id}
+    return {"key": r["firebase_key"], "thread_id": r["thread_id"], "channel_id": r["channel_id"], "message_id": r["message_id"], "customer_key": j.get("khach_hang_id"), "customer": customer, "total": total, "paid": paid, "remaining": remaining, "phone": pc.get("sdt", ""), "date": date, "status": j.get("trang_thai", ""), "soan": j.get("soan", False), "giao": j.get("giao", False), "nop": j.get("nop", False), "nhan": j.get("nhan", False), "nhan_tien_note": (ts.get("nhan_tien", {}) or {}).get("note", ""), "done_after_20250124": j.get("done_after_20250124", False), "updated_at": r["updated_at"], "hd_code": hd_code, "creator": creator, "giao_by": giao_by, "nop_by": nop_by, "nop_note": nop_note, "task_icons": task_icons, "task_bys": task_bys, "text": (j.get("text") or j.get("text_raw") or ""), "created": j.get("created"), "topic_name": j.get("topic_name", ""), "invoice_count": len(inv), "invoice_summary": [{"sp": it["sp"], "sl": it["sl"]} for it in invoice_items[:5]], "invoice_items": invoice_items, "vat": int(j.get("vat", 0) or 0), "pvc": int(j.get("pvc", 0) or 0), "discount": int(j.get("discount", 0) or 0), "no_truoc": pc.get("no_truoc", ""), "kh_debt": (j.get("khDebt") if j.get("khDebt") is not None else j.get("invoice_debt_snapshot")), "tongtienhang": pc.get("tongtienhang", ""), "ngay_giao": j.get("ngay_giao") or "", "giao_done": bool((ts.get("giao_hang") or {}).get("done")), "giao_at": (ts.get("giao_hang") or {}).get("at") or "", "soan_img_ids": soan_img_ids, "nop_img_id": nop_img_id}
 
 
 def _ngay_giao_due() -> str:

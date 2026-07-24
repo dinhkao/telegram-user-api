@@ -55,11 +55,30 @@ def build_payment_record(amount: int, method: str, kv_res: dict, actor_name: str
 
 
 def compute_debt(order: dict) -> dict:
-    """Pure debt math for one order: total (tong_cong|total|0) minus sum of
-    payment amounts. Returns {total, paid, remaining}. Callers add thread_id /
-    customer. Single source for calculate_debt + get_all_debts."""
-    total = order.get("tong_cong") or order.get("total") or 0
-    paid = sum(p.get("amount", 0) for p in order.get("payments", []))
+    """Pure debt math for one order: tổng đơn (tiền hàng + pvc + vat − CK) minus
+    sum of payment amounts. Returns {total, paid, remaining}. Callers add
+    thread_id / customer. Single source for calculate_debt + get_all_debts.
+
+    Bản cũ đọc `tong_cong`/`total` — 2 field KHÔNG tồn tại trên bất kỳ đơn nào
+    (0/17.561, audit 2026-07-25) nên total luôn 0 và /view_debt luôn 'không có
+    công nợ'. Giờ tính từ invoice như mọi đường tiền khác."""
+    from utils.qty import line_total
+    items = order.get("invoice") or order.get("san_pham") or []
+    goods = 0
+    for it in items:
+        if isinstance(it, dict):
+            goods += line_total(it.get("price", 0), it.get("sl", it.get("quantity", 0)))
+    if not items:
+        pc = (order.get("hoadon") or {}).get("print_content") or {}
+        raw = str(pc.get("tongtienhang") or "").replace(",", "").replace(".", "")
+        goods = int(raw) if raw.isdigit() else 0
+    def _i(v):
+        try:
+            return int(float(v or 0))
+        except (TypeError, ValueError):
+            return 0
+    total = max(0, goods + _i(order.get("pvc")) + _i(order.get("vat")) - _i(order.get("discount")))
+    paid = sum(_i(p.get("amount")) for p in order.get("payments", []))
     return {"total": total, "paid": paid, "remaining": total - paid}
 
 

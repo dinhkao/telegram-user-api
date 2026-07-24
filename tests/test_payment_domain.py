@@ -57,18 +57,36 @@ class ResolvePaymentTarget(unittest.TestCase):
 
 
 class ComputeDebt(unittest.TestCase):
+    # 2026-07-25: total tính từ invoice (tiền hàng + pvc + vat − CK) như mọi
+    # đường tiền khác — 2 field cũ `tong_cong`/`total` không tồn tại trên đơn nào.
     def test_empty_order(self):
         self.assertEqual(compute_debt({}), {"total": 0, "paid": 0, "remaining": 0})
 
-    def test_total_minus_payments(self):
-        d = compute_debt({"tong_cong": 100000, "payments": [{"amount": 30000}, {"amount": 20000}]})
+    def test_invoice_total_minus_payments(self):
+        d = compute_debt({
+            "invoice": [{"sp": "K2L", "sl": 2, "price": 50000}],
+            "payments": [{"amount": 30000}, {"amount": 20000}],
+        })
         self.assertEqual(d, {"total": 100000, "paid": 50000, "remaining": 50000})
 
-    def test_total_field_fallback(self):
-        self.assertEqual(compute_debt({"total": 500}), {"total": 500, "paid": 0, "remaining": 500})
+    def test_fractional_sl_not_truncated(self):
+        # 3,5 thùng × 135.000 = 472.500 — int(sl) cũ cắt còn 405.000 (mất tiền)
+        d = compute_debt({"invoice": [{"sp": "DM180", "sl": 3.5, "price": 135000}]})
+        self.assertEqual(d["total"], 472500)
 
-    def test_tong_cong_takes_precedence_over_total(self):
-        self.assertEqual(compute_debt({"tong_cong": 100, "total": 999})["total"], 100)
+    def test_vat_pvc_discount(self):
+        d = compute_debt({
+            "invoice": [{"sp": "A", "sl": 1, "price": 100000}],
+            "vat": 8000, "pvc": 5000, "discount": 3000,
+        })
+        self.assertEqual(d["total"], 110000)
+
+    def test_legacy_print_content_fallback(self):
+        d = compute_debt({"hoadon": {"print_content": {"tongtienhang": "1.200.000"}}})
+        self.assertEqual(d["total"], 1200000)
+
+    def test_old_dead_fields_ignored(self):
+        self.assertEqual(compute_debt({"tong_cong": 100, "total": 999})["total"], 0)
 
 
 class BuildPaymentRecord(unittest.TestCase):

@@ -164,9 +164,15 @@ export function dayLabel(k: string): string {
   return `${lbl}/${k.slice(0, 4)}`;
 }
 
-/** Tổng tiền hàng từ invoice (sl × price). */
+/** Tổng tiền hàng từ invoice (sl × price). SL có thể LẺ (3,5 thùng) — parseInt
+ *  cắt mất phần lẻ làm tổng/nợ hiển thị thiếu so với server. */
 export function invoiceTotal(invoice: any[]): number {
-  return (invoice || []).reduce((sum, it) => sum + (parseInt(it.price, 10) || 0) * (parseInt(it.sl ?? it.quantity, 10) || 0), 0);
+  return (invoice || []).reduce((sum, it) => {
+    const price = parseInt(it.price, 10) || 0;
+    const rawSl = it.sl ?? it.quantity;
+    const sl = typeof rawSl === "number" ? rawSl : parseQty(String(rawSl ?? ""));
+    return sum + Math.round(price * (Number.isFinite(sl) ? sl : 0));
+  }, 0);
 }
 
 /** Tổng đã trả từ payments. */

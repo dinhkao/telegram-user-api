@@ -35,6 +35,7 @@ from datetime import datetime
 from aiohttp import web
 
 from server_app.feed_debt import _fill_debt_chain
+from utils.qty import line_total
 
 _PAGE = 20
 
@@ -82,9 +83,10 @@ def _order_total_num(data: dict) -> int:
     items = data.get("invoice") or data.get("san_pham") or []
     goods = 0
     try:
+        # SL qua parse_qty (giữ số LẺ 3,5 — _money_num sẽ biến '3.5' thành 35
+        # và int() cắt mất phần lẻ); tiền dòng làm tròn về đồng.
         goods = sum(
-            _money_num(it.get("price"))
-            * _money_num(it.get("sl", it.get("quantity", 0)))
+            line_total(_money_num(it.get("price")), it.get("sl", it.get("quantity", 0)))
             for it in items
         )
     except (AttributeError, TypeError):

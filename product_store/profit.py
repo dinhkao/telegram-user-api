@@ -1,4 +1,5 @@
 from __future__ import annotations
+from utils.qty import parse_qty
 import json
 
 from .queries import get_product
@@ -13,8 +14,8 @@ def calculate_order_profit(conn, order: dict) -> dict:
         code = (item.get("sp") or "").upper().strip()
         if not code:
             continue
-        qty, sell_price = int(item.get("sl", 0)), int(item.get("price", 0))
-        revenue = qty * sell_price
+        qty, sell_price = parse_qty(item.get("sl", 0)), int(item.get("price", 0))
+        revenue = round(qty * sell_price)
         frozen_cost = item.get("cost_price")
         if frozen_cost is not None:
             cost_price, is_frozen = int(frozen_cost), True

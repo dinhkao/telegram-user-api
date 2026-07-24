@@ -1,4 +1,5 @@
 from __future__ import annotations
+from utils.qty import parse_qty
 
 import json
 import logging
@@ -55,7 +56,7 @@ def _build_html(data: dict, thread_id: int, elapsed_ms: float) -> str:
     items, total = [], 0
     for it in data.get("invoice") or data.get("invoice_items") or []:
         if isinstance(it, dict):
-            sl, pr = int(it.get("sl", 0) or 0), int(it.get("price", 0) or 0)
+            sl, pr = parse_qty(it.get("sl", 0) or 0), int(it.get("price", 0) or 0)
             total += sl * pr
             items.append(f"<tr><td>{_esc(str(it.get('sp', '')))}</td><td>{sl}</td><td>{pr:,}</td><td>{sl * pr:,}</td></tr>")
     payments = "".join(f"<tr><td>{_esc(str(p.get('method', '')))}</td><td>{int(p.get('amount', 0) or 0):,}</td><td>{_esc(str(p.get('note', '')))}</td></tr>" for p in data.get("payments") or [] if isinstance(p, dict))

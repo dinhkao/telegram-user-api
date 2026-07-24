@@ -43,6 +43,7 @@ from payment_db import (
     get_all_debts,
 )
 from payment_store.domain import method_params, resolve_payment_target, build_payment_record
+from utils.qty import parse_qty, fmt_qty, line_total
 from firebase_sync import set_order as fb_set_order
 from customer_notify import send_payment_notification
 from receipt_print import send_payment_receipt
@@ -1490,7 +1491,7 @@ def register_order_commands_v3(client):
                 # Compute 8% of invoice items total
                 invoice = order.get("invoice") or order.get("invoice_items") or []
                 invoice_total = sum(
-                    int(item.get("price", 0)) * int(item.get("sl", 0))
+                    line_total(item.get("price", 0), item.get("sl", 0))
                     for item in invoice
                 )
                 new_vat = round(invoice_total * 0.08)
@@ -1574,7 +1575,7 @@ def register_order_commands_v3(client):
 
         for idx, item in enumerate(invoice):
             code = str(item.get("sp") or "").strip().upper()
-            qty = int(item.get("sl", 0))
+            qty = parse_qty(item.get("sl", 0))   # SL có thể lẻ (3,5)
             old_price = int(item.get("price", 0))
 
             if not code:
@@ -1601,11 +1602,12 @@ def register_order_commands_v3(client):
             if changed:
                 changed_count += 1
             next_item = {**item, "price": new_price}
-            line_total = qty * new_price
+            row_total = round(qty * new_price)
+            qty_lbl = fmt_qty(qty)
             detail_rows.append(
-                f"{idx + 1}. {code} - {qty} x {old_price:,}đ -> {new_price:,}đ = {line_total:,}đ"
+                f"{idx + 1}. {code} - {qty_lbl} x {old_price:,}đ -> {new_price:,}đ = {row_total:,}đ"
                 if changed else
-                f"{idx + 1}. {code} - {qty} x {new_price:,}đ = {line_total:,}đ (không đổi)"
+                f"{idx + 1}. {code} - {qty_lbl} x {new_price:,}đ = {row_total:,}đ (không đổi)"
             )
             next_invoice.append(next_item)
 
@@ -1624,7 +1626,7 @@ def register_order_commands_v3(client):
             await client.send_message(msg.chat_id, "❌ Lỗi lưu đơn hàng", reply_to=msg.id)
             return
 
-        total = sum(int(i.get("sl", 0)) * int(i.get("price", 0)) for i in next_invoice)
+        total = sum(line_total(i.get("price", 0), i.get("sl", 0)) for i in next_invoice)
         list_name = str(entry.get("name") or entry.get("ten") or "").strip()
         name_part = f"{list_name} (ID {price_list_id})" if list_name else f"ID {price_list_id}"
         reply = f"✅ {label}: áp dụng {name_part}\n"

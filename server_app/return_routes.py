@@ -312,7 +312,10 @@ async def return_invoice_handler(request: web.Request):
     from integrations.kiotviet.invoices import create_kiotviet_invoice
     items = row.get("items") or []
     total = float(row.get("total") or 0)
-    kv_items = [{"sp": it["sp"], "sl": int(it["sl"]), "price": -int(it["price"])} for it in items]
+    # SL giữ số LẺ (2,5 thùng): int(sl) làm HĐ âm KV lệch với total local → chuỗi
+    # nợ ở feed khách lệch vĩnh viễn (local trừ 250k, KV trừ 200k).
+    from utils.qty import qty_for_api
+    kv_items = [{"sp": it["sp"], "sl": qty_for_api(it["sl"]), "price": -int(it["price"])} for it in items]
     try:
         debt_before = (await asyncio.to_thread(get_customer_debt_kv, kh_id)).get("debt")
     except Exception:

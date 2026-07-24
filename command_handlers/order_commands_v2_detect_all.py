@@ -1,4 +1,5 @@
 from __future__ import annotations
+from utils.qty import line_total
 
 import asyncio
 import logging
@@ -61,7 +62,7 @@ def register_order_commands_v2_detect_all(client):
             total = 0
             lines.append(f"\n🎯 <b>Tìm thấy {len(invoice)} sản phẩm:</b>")
             for item in invoice:
-                sub = int(item.get("sl", 0) or 0) * int(item.get("price", 0) or 0)
+                sub = line_total(item.get("price", 0) or 0, item.get("sl", 0) or 0)
                 total += sub
                 lines.append(f"• <b>{item.get('sp', '?')}</b> x{item.get('sl', 0)} @ {int(item.get('price', 0) or 0):,}đ = <b>{sub:,}đ</b>")
             lines.append(f"\n💰 <b>Tổng cộng: {total:,}đ</b>")
