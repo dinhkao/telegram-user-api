@@ -482,7 +482,12 @@ async def orders_delivery_handler(request: web.Request):
         if days_mode:
             # Lịch cuộn: theo NGÀY GIAO cho MỌI tháng — đếm pending/done + NHÃN
             # từng đơn (TEXT nội dung đơn) để ô lịch hiện text (đỏ chưa giao trên,
-            # xanh đã giao dưới).
+            # xanh đã giao dưới). Giới hạn cửa sổ [-730 ngày, +365 ngày] — không
+            # bound thì quét + trả MỌI đơn từng có ngay_giao (phình vô hạn theo DB).
+            from datetime import datetime, timedelta, timezone
+            _now_vn = datetime.now(timezone(timedelta(hours=7)))
+            d_lo = (_now_vn - timedelta(days=730)).strftime("%Y-%m-%d")
+            d_hi = (_now_vn + timedelta(days=365)).strftime("%Y-%m-%d")
             rows = conn.execute(
                 "SELECT substr(json_extract(o.json,'$.ngay_giao'),1,10) AS d, "
                 "COALESCE(NULLIF(json_extract(o.json,'$.text'),''), "
@@ -490,7 +495,9 @@ async def orders_delivery_handler(request: web.Request):
                 "         NULLIF(json_extract(o.json,'$.topic_name'),''), CAST(o.thread_id AS TEXT)) AS label, "
                 "CASE WHEN COALESCE(json_extract(o.json,'$.task_status.giao_hang.done'),0) IN (1,'true') THEN 1 ELSE 0 END AS done "
                 "FROM orders o WHERE json_extract(o.json,'$.ngay_giao') IS NOT NULL AND o.deleted_at IS NULL "
-                "ORDER BY d, done, o.thread_id"
+                "AND substr(json_extract(o.json,'$.ngay_giao'),1,10) BETWEEN ? AND ? "
+                "ORDER BY d, done, o.thread_id",
+                (d_lo, d_hi),
             ).fetchall()
             by_day: dict = {}
             for r in rows:

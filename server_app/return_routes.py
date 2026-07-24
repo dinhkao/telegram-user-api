@@ -28,6 +28,16 @@ def _actor(request: web.Request) -> str:
     return str(u or "web")
 
 
+def _load_return(rid: int) -> dict | None:
+    """Đọc 1 phiếu trả và ĐÓNG connection — kiểu cũ
+    lambda: get_return(get_connection(), rid) rò connection mỗi lần gọi."""
+    conn = get_connection()
+    try:
+        return get_return(conn, rid)
+    finally:
+        conn.close()
+
+
 def _normalize_items(conn, items: list[dict]) -> list[dict]:
     """Gắn sp_id + chuẩn hoá mã về hiện hành (nhận cả mã cũ) — như freeze của đơn."""
     from product_store import resolve_code
@@ -256,7 +266,7 @@ async def return_update_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Danh sách hàng trả không hợp lệ"}, status=400)
     items, total = parsed
     note = str(body.get("note") or "").strip()
-    row = await asyncio.to_thread(lambda: get_return(get_connection(), rid))
+    row = await asyncio.to_thread(_load_return, rid)
     if not row or row.get("deleted_at"):
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
     if row.get("kv_invoice_id"):
@@ -288,7 +298,7 @@ async def return_invoice_handler(request: web.Request):
         rid = int(request.match_info.get("id", ""))
     except (TypeError, ValueError):
         return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
-    row = await asyncio.to_thread(lambda: get_return(get_connection(), rid))
+    row = await asyncio.to_thread(_load_return, rid)
     if not row or row.get("deleted_at"):
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
     if row.get("kv_invoice_id"):
@@ -374,7 +384,7 @@ async def return_invoice_delete_handler(request: web.Request):
         rid = int(request.match_info.get("id", ""))
     except (TypeError, ValueError):
         return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
-    row = await asyncio.to_thread(lambda: get_return(get_connection(), rid))
+    row = await asyncio.to_thread(_load_return, rid)
     if not row or row.get("deleted_at"):
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
     if not row.get("kv_invoice_id"):
@@ -386,7 +396,14 @@ async def return_invoice_delete_handler(request: web.Request):
         log.error("delete return invoice failed id=%s: %s", rid, e)
         return web.json_response({"ok": False, "error": f"Lỗi xoá HĐ KiotViet: {e}"}, status=502)
     kv_code = row.get("kv_invoice_code")
-    await asyncio.to_thread(lambda: clear_return_invoice(get_connection(), rid))
+
+    def _clear():
+        conn = get_connection()
+        try:
+            clear_return_invoice(conn, rid)
+        finally:
+            conn.close()
+    await asyncio.to_thread(_clear)
     key = str(row["customer_key"])
     from server_app.debt_sync import schedule_debt_resync
     schedule_debt_resync(key)
@@ -412,7 +429,7 @@ async def returns_delete_handler(request: web.Request):
         rid = int(request.match_info.get("id", ""))
     except (TypeError, ValueError):
         return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
-    row = await asyncio.to_thread(lambda: get_return(get_connection(), rid))
+    row = await asyncio.to_thread(_load_return, rid)
     if not row or row.get("deleted_at"):
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
     # QUY TRÌNH như đơn: còn HĐ KiotViet → phải xoá HĐ trước rồi mới xoá phiếu
@@ -427,7 +444,14 @@ async def returns_delete_handler(request: web.Request):
             {"ok": False, "error": "Phiếu đã xử lý hàng (nhập kho/hủy) — không xoá được nữa", "locked": True},
             status=400)
     actor = _actor(request)
-    await asyncio.to_thread(lambda: soft_delete_return(get_connection(), rid, by=actor))
+
+    def _del():
+        conn = get_connection()
+        try:
+            soft_delete_return(conn, rid, by=actor)
+        finally:
+            conn.close()
+    await asyncio.to_thread(_del)
     from server_app.debt_sync import schedule_debt_resync
     schedule_debt_resync(str(row["customer_key"]))
     from server_app.realtime import emit_customer_changed

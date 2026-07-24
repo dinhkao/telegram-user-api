@@ -6,6 +6,7 @@ server_app.production_wages (office gate). Client: webapp/src/pages/MonthlyPayro
 from __future__ import annotations
 
 import asyncio
+import math
 import re
 
 from aiohttp import web
@@ -23,6 +24,19 @@ def _deny(request):
     if not office_user(request):
         return web.json_response({"ok": False, "error": "Chỉ văn phòng"}, status=403)
     return None
+
+
+def _money(v, *, positive: bool = True) -> float | None:
+    """Parse tiền an toàn: float() nhận cả 'inf'/'nan' → làm hỏng tổng tháng, phải
+    chặn non-finite. positive=True → phải > 0; False → chỉ cần ≥ 0 (0 = xoá).
+    Trả None nếu không hợp lệ."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(f) or f < 0 or (positive and f == 0):
+        return None
+    return f
 
 
 async def payroll_month_handler(request: web.Request):
@@ -88,6 +102,11 @@ async def payroll_adjust_handler(request: web.Request):
         worker_id = int(body.get("worker_id"))
     except (ValueError, TypeError):
         return web.json_response({"ok": False, "error": "worker_id không hợp lệ"}, status=400)
+    thuong = body.get("thuong")
+    if thuong is not None:
+        thuong = _money(thuong, positive=False)   # 0 = xoá thưởng; None (vắng) = giữ nguyên
+        if thuong is None:
+            return web.json_response({"ok": False, "error": "Tiền thưởng không hợp lệ"}, status=400)
     by = request.get("web_user") or ""
 
     def _run():
@@ -95,7 +114,7 @@ async def payroll_adjust_handler(request: web.Request):
         try:
             salary_store.set_month_adjust(
                 conn, ym, worker_id,
-                thuong=body.get("thuong"), note=body.get("note"),
+                thuong=thuong, note=body.get("note"),
                 weekly=body.get("weekly"), by=by,
             )
             return salary_store.compute_month_payroll(conn, ym)
@@ -117,8 +136,10 @@ async def payroll_advance_add_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "ym phải dạng YYYY-MM"}, status=400)
     try:
         worker_id = int(body.get("worker_id"))
-        amount = float(body.get("amount"))
     except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "worker_id / số tiền không hợp lệ"}, status=400)
+    amount = _money(body.get("amount"))
+    if amount is None:
         return web.json_response({"ok": False, "error": "worker_id / số tiền không hợp lệ"}, status=400)
     by = request.get("web_user") or ""
 
@@ -207,8 +228,10 @@ async def payroll_allowance_add_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "ym phải dạng YYYY-MM"}, status=400)
     try:
         worker_id = int(body.get("worker_id"))
-        amount = float(body.get("amount"))
     except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "worker_id / số tiền không hợp lệ"}, status=400)
+    amount = _money(body.get("amount"))
+    if amount is None:
         return web.json_response({"ok": False, "error": "worker_id / số tiền không hợp lệ"}, status=400)
     by = request.get("web_user") or ""
 

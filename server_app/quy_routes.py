@@ -148,6 +148,10 @@ async def quy_create_handler(request: web.Request):
 
 
 async def quy_delete_handler(request: web.Request):
+    # Xoá phiếu = đụng thẳng số dư quỹ — chỉ văn phòng (tạo thu/chi thì staff vẫn được)
+    from server_app.order_api_common import is_office_request
+    if not await is_office_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được xoá phiếu sổ quỹ"}, status=403)
     try:
         rid = int(request.match_info.get("id", ""))
     except (ValueError, TypeError):

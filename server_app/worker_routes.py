@@ -5,6 +5,7 @@ Nối: worker_store (CRUD), utils.db. Đăng ký ở server_app/app_factory.
 from __future__ import annotations
 
 import asyncio
+import math
 
 from aiohttp import web
 
@@ -15,6 +16,15 @@ from worker_store import add_worker, delete_worker, ensure_table, list_workers, 
 def _emit_workers() -> None:
     from server_app.realtime import emit_workers_changed
     emit_workers_changed()
+
+
+def _deny_not_office(request: web.Request):
+    """403 nếu không phải văn phòng — danh sách thợ nối thẳng vào bảng lương
+    (payroll) nên thêm/xếp/xoá thợ chỉ văn phòng; GET vẫn mở cho mọi người."""
+    from server_app.production_wages import office_user
+    if not office_user(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng được sửa danh sách thợ"}, status=403)
+    return None
 
 
 def _conn():
@@ -42,6 +52,9 @@ async def workers_list_handler(request: web.Request):
 
 
 async def workers_add_handler(request: web.Request):
+    deny = _deny_not_office(request)
+    if deny:
+        return deny
     try:
         body = await request.json()
     except Exception:  # noqa: BLE001
@@ -82,8 +95,9 @@ async def workers_update_handler(request: web.Request):
     start_date = body.get("start_date")   # 'YYYY-MM-DD' | '' (xoá) — hồ sơ
     note = body.get("note")               # ghi chú hồ sơ
     monthly_salary = body.get("monthly_salary")   # mốc lương tháng (lương thời gian)
-    if hourly_rate is not None or wage_type is not None or monthly_salary is not None:
-        # tiền lương / phân loại lương — CHỈ văn phòng
+    if (hourly_rate is not None or wage_type is not None or monthly_salary is not None
+            or weekly_salary is not None):
+        # tiền lương / phân loại lương / cờ nhận-lương-tuần — CHỈ văn phòng
         from server_app.production_wages import office_user
         if not office_user(request):
             return web.json_response({"ok": False, "error": "Chỉ văn phòng được sửa mục lương"}, status=403)
@@ -92,12 +106,16 @@ async def workers_update_handler(request: web.Request):
             hourly_rate = float(hourly_rate)
         except (ValueError, TypeError):
             return web.json_response({"ok": False, "error": "tiền 1 giờ không hợp lệ"}, status=400)
+        if not math.isfinite(hourly_rate):   # float() nhận cả 'inf'/'nan' → phá tổng lương
+            return web.json_response({"ok": False, "error": "tiền 1 giờ không hợp lệ"}, status=400)
     if wage_type is not None and str(wage_type) not in ("product", "time"):
         return web.json_response({"ok": False, "error": "wage_type phải là product/time"}, status=400)
     if monthly_salary is not None:
         try:
             monthly_salary = float(monthly_salary)
         except (ValueError, TypeError):
+            return web.json_response({"ok": False, "error": "lương tháng không hợp lệ"}, status=400)
+        if not math.isfinite(monthly_salary):
             return web.json_response({"ok": False, "error": "lương tháng không hợp lệ"}, status=400)
 
     def _run():
@@ -135,6 +153,9 @@ async def workers_update_handler(request: web.Request):
 async def workers_reorder_handler(request: web.Request):
     """POST /api/workers/reorder {ids:[...]} — đặt lại sort_order theo thứ tự ids.
     Trả về danh sách thợ + defaults MỚI (đã sắp lại) như /api/workers."""
+    deny = _deny_not_office(request)
+    if deny:
+        return deny
     try:
         body = await request.json()
     except Exception:  # noqa: BLE001
@@ -161,6 +182,9 @@ async def workers_reorder_handler(request: web.Request):
 
 
 async def workers_delete_handler(request: web.Request):
+    deny = _deny_not_office(request)
+    if deny:
+        return deny
     try:
         worker_id = int(request.match_info.get("id", ""))
     except (ValueError, TypeError):

@@ -46,12 +46,35 @@ def extract_token(headers, query) -> str:
     return (query.get("token") or "").strip()
 
 
+# Token sống tới 30 ngày nhưng user bị KHOÁ (disabled) phải văng ngay — re-check cờ
+# disabled mỗi request qua cache TTL 60s (khỏi 1 DB hit / request; login đã chặn
+# disabled nhưng token cũ vẫn chạy nếu chỉ check lúc login).
+_DISABLED_TTL = 60.0
+_disabled_cache: dict[str, tuple[bool, float]] = {}
+
+
+def _user_disabled(username: str) -> bool:
+    now = time.time()
+    hit = _disabled_cache.get(username)
+    if hit is not None and now - hit[1] < _DISABLED_TTL:
+        return hit[0]
+    try:
+        from user_store import get_user
+        u = get_user(username)
+        disabled = (u is None) or bool(u.get("disabled"))   # user đã xoá → coi như khoá
+    except Exception:
+        disabled = False   # DB trục trặc → không khoá oan cả app
+    _disabled_cache[username] = (disabled, now)
+    return disabled
+
+
 @web.middleware
 async def web_auth_middleware(request: web.Request, handler):
     token = extract_token(request.headers, request.query)
     if token:
         username = verify_token(get_web_auth_secret(), token, now=int(time.time()))
-        if username:
+        # user disabled = token vô hiệu (cùng đường với token sai)
+        if username and not _user_disabled(username):
             request["web_user"] = username
     if WEB_AUTH_ENABLED and not is_exempt(request.method, request.path, request.remote) and "web_user" not in request:
         return web.json_response({"ok": False, "error": "unauthorized"}, status=401)

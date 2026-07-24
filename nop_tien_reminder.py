@@ -79,4 +79,8 @@ async def _reminder_loop(thread_id: int):
         log.info("reminder cancelled for order %d", thread_id)
         raise
     finally:
-        _tasks.pop(thread_id, None)
+        # Chi go entry neu map van tro vao CHINH task nay: stop_reminder pop TRUOC
+        # roi moi cancel — neu start_reminder chen vao truoc khi CancelledError den,
+        # entry da la task MOI; pop mu se lam reminder moi mo coi (het cancel duoc).
+        if _tasks.get(thread_id) is asyncio.current_task():
+            _tasks.pop(thread_id, None)

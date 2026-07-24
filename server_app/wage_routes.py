@@ -7,6 +7,7 @@ Client: webapp/src/pages/WageTable.tsx (#/luong-sp). Đăng ký: app_factory.
 from __future__ import annotations
 
 import asyncio
+import math
 
 from aiohttp import web
 
@@ -42,6 +43,9 @@ async def wages_set_handler(request: web.Request):
     try:
         luong = float(body.get("luong") or 0)
     except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "đơn giá không hợp lệ"}, status=400)
+    # float() nhận cả 'inf'/'nan' → phá tổng tiền công; luong ≤ 0 vẫn hợp lệ (= gỡ mã)
+    if not math.isfinite(luong):
         return web.json_response({"ok": False, "error": "đơn giá không hợp lệ"}, status=400)
 
     def _run():

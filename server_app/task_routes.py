@@ -162,8 +162,13 @@ async def task_update_handler(request: web.Request):
         if task["kind"] in ("order_step", "order_custom"):
             # ghi về NGUỒN SỰ THẬT (blob đơn) — dùng đúng flow /api/order/task
             # (cờ legacy, reminder, notify topic, refresh, realtime, mirror lại)
-            from server_app.order_api_tasks import api_task_handler_impl
+            from server_app.order_api_tasks import _deny_if_nhan_tien_not_office, api_task_handler_impl
             from server_app.order_api_common import is_admin_request
+            # 'nhận tiền' chỉ văn phòng — đường /api/tasks phải chặn y như /api/order/task
+            # (forward thẳng vào impl sẽ né mất gate của api_task_handler)
+            deny = await _deny_if_nhan_tien_not_office(request, task["step_key"])
+            if deny:
+                return deny
             fwd = {"thread_id": task["thread_id"], "type": task["step_key"], "done": done}
             apply_web_actor(request, fwd)
             resp = await api_task_handler_impl(fwd, await is_admin_request(request))

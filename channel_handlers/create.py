@@ -71,60 +71,63 @@ async def process_new_order(client, msg, *, web_actor=None, customer_key=None) -
     # khi tạo topic → 2 lời gọi song song cùng msg.id không tạo topic/đơn trùng.
     lock_key = (CHANNEL_DON_HANG_MOI, int(msg.id))
     lock = _create_locks.setdefault(lock_key, asyncio.Lock())
-    try:
-        async with lock:
-            existing = _existing_thread(conn, msg.id)
-            if existing is not None:
-                return existing
+    # KHÔNG pop khoá trong finally (bug cũ): caller 1 pop trong khi caller 2 còn đang
+    # CHỜ/GIỮ chính lock đó → caller 3 setdefault nhận lock MỚI, chạy song song với
+    # caller 2 và lại tạo topic/đơn trùng. Giữ lock trong map; khi map phình chỉ cắt
+    # entry đang RẢNH (không ai giữ — setdefault→acquire không có await nên an toàn).
+    if len(_create_locks) > 512:
+        for k in [k for k, l in _create_locks.items() if k != lock_key and not l.locked()]:
+            _create_locks.pop(k, None)
+    async with lock:
+        existing = _existing_thread(conn, msg.id)
+        if existing is not None:
+            return existing
 
-            log.info("New order from channel: msg_id=%d", msg.id)
-            order_text = normalize_text(msg.text)
-            text_raw = escape_to_backslash_n(order_text)
-            topic_name = topic_name_from_text(order_text)
-            firebase_key = build_firebase_key(msg.id)
+        log.info("New order from channel: msg_id=%d", msg.id)
+        order_text = normalize_text(msg.text)
+        text_raw = escape_to_backslash_n(order_text)
+        topic_name = topic_name_from_text(order_text)
+        firebase_key = build_firebase_key(msg.id)
+        try:
+            peer = await client.get_input_entity(ORDER_GROUP_ID)
+            result = await client(CreateForumTopicRequest(peer=peer, title=topic_name, random_id=msg.id))
+        except Exception as e:
+            log.error("Failed to create forum topic for msg_id=%d: %s", msg.id, e)
+            return None
+        thread_id = extract_thread_id(result)
+        if not thread_id:
+            log.error("Could not extract thread_id from CreateForumTopic result for msg_id=%d", msg.id)
+            return None
+
+        # NGƯỜI TẠO đơn: web → username webapp; telegram → người đăng (sender_id).
+        # (web gửi tin bằng tài khoản bot nên sender_id vô nghĩa → phải dùng web_actor.)
+        cr_type, cr_id, cr_name = "system", None, ""
+        if web_actor:
+            cr_type, cr_id = "web_user", str(web_actor)
             try:
-                peer = await client.get_input_entity(ORDER_GROUP_ID)
-                result = await client(CreateForumTopicRequest(peer=peer, title=topic_name, random_id=msg.id))
-            except Exception as e:
-                log.error("Failed to create forum topic for msg_id=%d: %s", msg.id, e)
-                return None
-            thread_id = extract_thread_id(result)
-            if not thread_id:
-                log.error("Could not extract thread_id from CreateForumTopic result for msg_id=%d", msg.id)
-                return None
-
-            # NGƯỜI TẠO đơn: web → username webapp; telegram → người đăng (sender_id).
-            # (web gửi tin bằng tài khoản bot nên sender_id vô nghĩa → phải dùng web_actor.)
-            cr_type, cr_id, cr_name = "system", None, ""
-            if web_actor:
-                cr_type, cr_id = "web_user", str(web_actor)
+                from user_store import get_user
+                u = get_user(str(web_actor))
+                cr_name = (u.get("display_name") if u else "") or str(web_actor)
+            except Exception:
+                cr_name = str(web_actor)
+        else:
+            sid = getattr(msg, "sender_id", None)
+            if sid:
+                cr_type, cr_id = "tg_user", str(sid)
                 try:
-                    from user_store import get_user
-                    u = get_user(str(web_actor))
-                    cr_name = (u.get("display_name") if u else "") or str(web_actor)
+                    from server_app.order_api_common import resolve_name
+                    cr_name = await resolve_name(sid) or ""
                 except Exception:
-                    cr_name = str(web_actor)
-            else:
-                sid = getattr(msg, "sender_id", None)
-                if sid:
-                    cr_type, cr_id = "tg_user", str(sid)
-                    try:
-                        from server_app.order_api_common import resolve_name
-                        cr_name = await resolve_name(sid) or ""
-                    except Exception:
-                        cr_name = ""
+                    cr_name = ""
 
-            new_order = build_new_order(order_text, text_raw, thread_id, firebase_key, msg.id)
-            if cr_name:
-                new_order["created_by"] = cr_name          # hiện thẳng ở đầu OrderDetail
-            if cr_id:
-                new_order["created_by_id"] = cr_id
-                new_order["created_by_type"] = cr_type
-            # INSERT đơn TRONG khoá (cùng scope với re-check _existing_thread) → không trùng
-            _create_order(conn, firebase_key, thread_id, CHANNEL_DON_HANG_MOI, msg.id, new_order)
-    finally:
-        # Dọn khoá đã dùng (cùng event loop → an toàn xoá sau khi nhả)
-        _create_locks.pop(lock_key, None)
+        new_order = build_new_order(order_text, text_raw, thread_id, firebase_key, msg.id)
+        if cr_name:
+            new_order["created_by"] = cr_name          # hiện thẳng ở đầu OrderDetail
+        if cr_id:
+            new_order["created_by_id"] = cr_id
+            new_order["created_by_type"] = cr_type
+        # INSERT đơn TRONG khoá (cùng scope với re-check _existing_thread) → không trùng
+        _create_order(conn, firebase_key, thread_id, CHANNEL_DON_HANG_MOI, msg.id, new_order)
     if thread_id is None:
         return None
 

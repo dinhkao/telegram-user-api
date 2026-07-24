@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import os
+import re
+from datetime import datetime
 
 from aiohttp import web
 
@@ -14,6 +16,25 @@ from server_app.tasks import spawn_tracked
 from server_app.telegram_helpers import tg_send_message
 
 log = logging.getLogger("server")
+
+
+_NGAY_GIAO_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2}))?$")
+
+
+def valid_ngay_giao(val: str | None) -> bool:
+    """'YYYY-MM-DD' hoặc 'YYYY-MM-DD[T ]HH:MM' và phải là ngày/giờ THẬT. Chuỗi rác
+    đứng TRÊN mọi ngày trong so-sánh-chuỗi của _ngay_giao_due (orders_api) → đơn
+    biến mất vĩnh viễn khỏi 'Chưa giao', nên phải chặn ngay lúc ghi."""
+    m = _NGAY_GIAO_RE.match(val or "")
+    if not m:
+        return False
+    try:
+        datetime.strptime(m.group(1), "%Y-%m-%d")
+        if m.group(2):
+            datetime.strptime(m.group(2), "%H:%M")
+    except ValueError:
+        return False
+    return True
 
 
 def _paid_total(order: dict) -> int:
@@ -129,6 +150,11 @@ async def api_assign_customer_handler(request: web.Request):
     apply_customer_default_tasks(conn, thread_id, str(customer_key))
     if order.get("channel_id") and order.get("message_id") and state._client is not None:
         spawn_tracked("order.refresh", refresh_order_bg(conn, thread_id, order["channel_id"], order["message_id"]), {"thread_id": thread_id})
+    else:
+        # Không refresh Telegram được (đơn không topic / client chưa sẵn) → vẫn phải
+        # phát realtime cho webapp, không thì list/detail đang mở không thấy thay đổi
+        from server_app.realtime import emit_order_changed
+        emit_order_changed(int(thread_id))
     return web.json_response({"ok": True, "customer_name": customer.get("name", ""), "customer_key": str(customer_key)})
 
 
@@ -144,6 +170,8 @@ async def api_set_ngay_giao_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
     val = body.get("ngay_giao")
     val = str(val).strip()[:16] if val else None   # cắt còn YYYY-MM-DDTHH:MM
+    if val is not None and not valid_ngay_giao(val):
+        return web.json_response({"ok": False, "error": "Ngày giao không hợp lệ"}, status=400)
     conn = _get_connection()
     with transaction(conn):
         order = get_order_by_thread_id(conn, thread_id)
@@ -155,6 +183,9 @@ async def api_set_ngay_giao_handler(request: web.Request):
             return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
     if order.get("channel_id") and order.get("message_id") and state._client is not None:
         spawn_tracked("order.refresh", refresh_order_bg(conn, thread_id, order["channel_id"], order["message_id"]), {"thread_id": thread_id})
+    else:
+        from server_app.realtime import emit_order_changed
+        emit_order_changed(int(thread_id))   # không refresh Telegram được → vẫn push webapp
     return web.json_response({"ok": True, "ngay_giao": val})
 
 
@@ -182,6 +213,9 @@ async def api_set_no_track_handler(request: web.Request):
             return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
     if order.get("channel_id") and order.get("message_id") and state._client is not None:
         spawn_tracked("order.refresh", refresh_order_bg(conn, thread_id, order["channel_id"], order["message_id"]), {"thread_id": thread_id})
+    else:
+        from server_app.realtime import emit_order_changed
+        emit_order_changed(int(thread_id))   # không refresh Telegram được → vẫn push webapp
     return web.json_response({"ok": True, "bo_theo_doi_no": on})
 
 
@@ -260,6 +294,9 @@ async def api_invoice_update_handler(request: web.Request):
             return web.json_response({"ok": False, "error": "Failed to save"}, status=500)
     if order.get("channel_id") and order.get("message_id") and state._client is not None:
         spawn_tracked("order.refresh", refresh_order_bg(conn, thread_id, order["channel_id"], order["message_id"]), {"thread_id": thread_id, "channel_id": order["channel_id"], "message_id": order["message_id"]})
+    else:
+        from server_app.realtime import emit_order_changed
+        emit_order_changed(int(thread_id))   # không refresh Telegram được → vẫn push webapp
     log.info("invoice-update: thread=%d items=%d", thread_id, len(invoice or []))
     return web.json_response({"ok": True})
 
