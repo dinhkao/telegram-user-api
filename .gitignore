@@ -40,3 +40,4 @@ sheets_sa.json
 .pi-subagents/
 restart.out
 .codewhale/
+node_modules
