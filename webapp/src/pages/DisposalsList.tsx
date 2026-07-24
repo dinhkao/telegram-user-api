@@ -6,7 +6,7 @@ import { listDisposals, soVN, type DisposalSlip } from "../api";
 import { dayKey, dayLabel, foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { SearchBar } from "../ui/SearchBar";
-import { EmptyState, ErrorState, Loading } from "../ui/states";
+import { EmptyState, ErrorState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
 let dispCache: DisposalSlip[] | null = null;
@@ -57,7 +57,7 @@ export function DisposalsList() {
       <div class="muted small list-hint">
         Hủy hàng hư/hết hạn: mở thùng trong 📦 Kho → bấm "Xuất hủy". Tồn thùng trừ ngay, xoá phiếu (admin) sẽ hoàn lại.
       </div>
-      {loading && !rows.length && <Loading />}
+      {loading && !rows.length && <SkeletonList />}
       {!loading && err && !rows.length && <ErrorState msg={err} onRetry={() => { setLoading(true); load(); }} />}
       {!loading && !err && !rows.length && <EmptyState>Chưa có phiếu xuất hủy nào.</EmptyState>}
       {!loading && rows.length > 0 && !visible.length && <EmptyState>Không có phiếu khớp "{q}".</EmptyState>}

@@ -16,7 +16,7 @@ import {
   isOffice, listWorkers, mapAttendanceCode, renderAttendanceTodayImage, suppressAttendance,
   type AttendanceDay, type AttendanceDayDetail, type AttendanceUnmapped, type Worker,
 } from "../api";
-import { dayLabel } from "../format";
+import { dayLabel, pad2 as pad, curYM, shiftYM, ymLabel, isoDate } from "../format";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
@@ -25,19 +25,15 @@ import { useScrollLock } from "../useScrollLock";
 import { Loading, LoadingInline, EmptyState, ErrorState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
 
-const pad = (n: number) => String(n).padStart(2, "0");
 const NAME_W = 112;   // bề rộng CỐ ĐỊNH cột tên (px) — CHUNG cho header + thân lưới
                       // để ngày ở header luôn thẳng cột với ô dữ liệu (auto lệch nhau).
 // Kích hoạt bằng bàn phím cho phần tử không phải <button> (Enter/Space).
 const keyActivate = (fn: () => void) => (e: any) => {
   if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); }
 };
-const curYM = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
-const shiftYM = (ym: string, d: number) => { const [y, m] = ym.split("-").map(Number); const dt = new Date(y, m - 1 + d, 1); return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`; };
-const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
 const dmyt = (iso: string) => (iso && iso.length >= 16 ? `${Number(iso.slice(8, 10))}/${Number(iso.slice(5, 7))} ${iso.slice(11, 16)}` : "—");
 const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const todayISO = () => isoDate(new Date());
 
 // 3 khung giờ hiển thị: 2 ca chính + khung tăng ca chiều tối (tím).
 const SHIFTS = [
@@ -242,7 +238,7 @@ function CellEditor({ code, who, day, canEdit, onClose, onChanged }: {
                 <span class="att-ed-time">{mn.time}</span>
                 <span class="muted small">✎ {mn.created_by || "?"}</span>
                 {canEdit && <button class="btn att-ed-btn danger" disabled={busy}
-                  onClick={async () => { if (await confirmDialog(`Xoá giờ thêm tay ${mn.time}?`, { danger: true })) run(() => deleteAttendanceManual(mn.id), `Đã xoá giờ ${mn.time}`); }}>Xoá</button>}
+                  onClick={async () => { if (await confirmDialog(`Xoá giờ thêm tay ${mn.time}?`, { danger: true, okLabel: "Xoá" })) run(() => deleteAttendanceManual(mn.id), `Đã xoá giờ ${mn.time}`); }}>Xoá</button>}
               </div>
             ))}
             {canEdit && <>

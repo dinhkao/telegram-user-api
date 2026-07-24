@@ -436,7 +436,7 @@ export function CameraGallery() {
       <section class="camera-hero">
         <div class="camera-lens" aria-hidden="true"><span /></div>
         <div class="camera-hero-copy">
-          <span class="camera-kicker">CLOUD CAMERA</span>
+          <span class="camera-kicker">CAMERA XƯỞNG</span>
           <b>{loading ? "Đang mở cuộn phim…" : total > images.length ? `${images.length} / ${total} ảnh đã tải` : `${images.length} ảnh`}</b>
           <small>{rangeActive ? rangeCaption : "2 camera song song · tự cập nhật 10 giây"}</small>
         </div>
@@ -505,7 +505,7 @@ export function CameraGallery() {
       )}
       {!loading && lastSync > 0 && <p class="camera-sync-note">Đồng bộ gần nhất lúc {timeLabel(new Date(lastSync).toISOString())}</p>}
       {rangeOpen && (
-        <div class="modal-overlay" onClick={() => setRangeOpen(false)}>
+        <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setRangeOpen(false); }}>
           <div class="modal-sheet camera-range-sheet" onClick={(event: any) => event.stopPropagation()}>
             <div class="modal-head"><b><Icon name="clock" size={18} /> Đi tới khoảng thời gian</b>
               <button class="camera-viewer-btn" onClick={() => setRangeOpen(false)}><Icon name="close" size={18} /></button>

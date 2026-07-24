@@ -6,7 +6,7 @@
 // Mỗi đơn có nút ẨN khỏi trang thu tiền (bypass_debt) — toggle 2 chiều: đơn ẩn rơi
 // xuống mục "Đã ẩn" và không được phân bổ; bấm "Đưa lại" để thu tiếp.
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { getPaymentContext, bulkPayment, isOffice, orderImageUrl, setOrderBypassDebt, type PaymentContext, type DebtOrder } from "../api";
 import { invalidateListCache } from "./OrdersList";
 import { money, parseMoney, fmtDateTimeVN, fmtRelative } from "../format";
@@ -187,10 +187,7 @@ export function OrderPayment({ threadId }: { threadId: string }) {
 
   return (
     <div>
-      <div class="prod-detail-head">
-        <BackLink fallback={`#/order/${threadId}`} />
-        <div><div class="prod-sp big">Thu tiền · {ctx.customer.name}</div></div>
-      </div>
+      <PageHead fallback={`#/order/${threadId}`} title={<>Thu tiền · {ctx.customer.name}</>} />
 
       {!office ? (
         <EmptyState icon="🔒">Chỉ văn phòng mới được thu tiền.</EmptyState>
@@ -218,11 +215,11 @@ export function OrderPayment({ threadId }: { threadId: string }) {
                 {selectedOrders.length > 0 && customerDebt <= 0 && <p class="notice small">Khách hiện không còn công nợ.</p>}
                 {selectedOrders.length > 0 && customerDebt > 0 && overCustomerDebt && <p class="notice err small">Số tiền vượt tổng nợ khách — tối đa {money(customerDebt)}.</p>}
                 {selectedOrders.length > 0 && !overCustomerDebt && overSelectedDebt && <p class="notice err small">Số tiền vượt nợ của các đơn đã chọn — tối đa {money(selectedDebt)}.</p>}
-                <div class="pay-method">
-                  <button class={"btn" + (method === "Cash" ? " primary" : "")} onClick={() => setMethod("Cash")}>
+                <div class="seg pay-method" role="tablist">
+                  <button class={method === "Cash" ? "seg-btn active" : "seg-btn"} onClick={() => setMethod("Cash")}>
                     <Icon name="banknote" size={16} /> Tiền mặt
                   </button>
-                  <button class={"btn" + (method === "Transfer" ? " primary" : "")} onClick={() => setMethod("Transfer")}>
+                  <button class={method === "Transfer" ? "seg-btn active" : "seg-btn"} onClick={() => setMethod("Transfer")}>
                     <Icon name="bank" size={16} /> Chuyển khoản
                   </button>
                 </div>

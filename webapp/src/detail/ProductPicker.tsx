@@ -13,6 +13,7 @@ export function ProductPicker({ catalog, value, onPick, placeholder }: {
   return (
     <PickerPopup
       value={value}
+      title="Chọn mã SP"
       placeholder={placeholder || "Tìm mã SP"}
       onSearch={(q) => {
         const n = q.trim().toLowerCase();

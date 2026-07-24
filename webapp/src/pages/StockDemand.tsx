@@ -6,7 +6,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { stockDemand, soVN, type StockDemandResult, type StockDemandLine, type StockDemandOrder } from "../api";
 import { onRealtime } from "../realtime";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { Icon } from "../ui/Icon";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { StockFlow } from "../detail/StockFlow";
@@ -290,18 +290,14 @@ export function StockDemand() {
   }, []);
 
   const head = (
-    <div class="nd-head">
-      <BackLink fallback="#/kho" />
-      <div class="nd-head-t">
-        <div class="nd-head-title">Cần làm hàng</div>
-        <div class="nd-head-sub">Đơn đang chờ, chưa xuất kho</div>
-      </div>
-      <div class="view-slider" role="group" aria-label="Kiểu xem">
-        <button class={view === "full" ? "vs-seg on" : "vs-seg"} title="Chi tiết" aria-pressed={view === "full"} onClick={() => setViewMode("full")}>☰</button>
-        <button class={view === "compact" ? "vs-seg on" : "vs-seg"} title="Gọn" aria-pressed={view === "compact"} onClick={() => setViewMode("compact")}>≣</button>
-        <button class={view === "flow" ? "vs-seg on" : "vs-seg"} title="Sơ đồ" aria-pressed={view === "flow"} onClick={() => setViewMode("flow")}><Icon name="share2" size={15} /></button>
-      </div>
-    </div>
+    <PageHead fallback="#/kho" title="Cần làm hàng" sub="Đơn đang chờ, chưa xuất kho"
+      right={
+        <div class="view-slider" role="group" aria-label="Kiểu xem">
+          <button class={view === "full" ? "vs-seg on" : "vs-seg"} title="Chi tiết" aria-pressed={view === "full"} onClick={() => setViewMode("full")}>☰</button>
+          <button class={view === "compact" ? "vs-seg on" : "vs-seg"} title="Gọn" aria-pressed={view === "compact"} onClick={() => setViewMode("compact")}>≣</button>
+          <button class={view === "flow" ? "vs-seg on" : "vs-seg"} title="Sơ đồ" aria-pressed={view === "flow"} onClick={() => setViewMode("flow")}><Icon name="share2" size={15} /></button>
+        </div>
+      } />
   );
 
   if (err) return <div class="nd-page">{head}<ErrorState msg={err} onRetry={load} /></div>;
@@ -320,7 +316,7 @@ export function StockDemand() {
   if (products.length === 0) {
     return (
       <div class="nd-page">{head}{warn}
-        <EmptyState icon="check">Chưa có đơn nào cần làm hàng.</EmptyState>
+        <EmptyState icon="✅">Chưa có đơn nào cần làm hàng.</EmptyState>
       </div>
     );
   }

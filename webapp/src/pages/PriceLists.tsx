@@ -5,12 +5,13 @@ import { getPriceLists, type PriceListSummary } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
+import { PageHead } from "../ui/PageHead";
 
 export function PriceLists() {
   const [lists, setLists] = useState<PriceListSummary[] | null>(null);
   const [err, setErr] = useState("");
 
-  const reload = () => getPriceLists().then(setLists).catch((e) => setErr(e.message));
+  const reload = () => getPriceLists().then((r) => { setLists(r); setErr(""); }).catch((e) => setErr(e.message));
 
   useEffect(() => {
     reload();
@@ -29,9 +30,10 @@ export function PriceLists() {
 
   return (
     <div>
-      <h2><Icon name="wallet" size={18} /> Bảng giá chung</h2>
-      {err && <ErrorState msg={err} onRetry={reload} />}
-      {!lists ? (
+      <PageHead fallback="#/home" title={<><Icon name="wallet" size={18} /> Bảng giá chung</>} />
+      {err ? (
+        <ErrorState msg={err} onRetry={reload} />
+      ) : !lists ? (
         <Loading />
       ) : !lists.length ? (
         <EmptyState>Chưa có bảng giá chung nào.</EmptyState>

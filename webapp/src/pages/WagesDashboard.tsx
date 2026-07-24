@@ -10,7 +10,7 @@ import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 
 const dmy = (ymd: string) => (ymd && ymd.length >= 10 ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}` : ymd);
-const money = (n: number) => soVN(Math.round(n)) + "đ";
+import { moneyD as money } from "../format";
 
 export function WagesDashboard() {
   const [d, setD] = useState<WD | null>(null);
@@ -37,7 +37,7 @@ export function WagesDashboard() {
   );
 
   // Chặn phía client (server đã chặn 403) — không phải văn phòng thì không hiện số liệu.
-  if (!isOffice()) return <div class="wg-page">{head}<EmptyState icon="lock">Chỉ văn phòng được xem tiền công.</EmptyState></div>;
+  if (!isOffice()) return <div class="wg-page">{head}<EmptyState icon="🔒">Chỉ văn phòng được xem tiền công.</EmptyState></div>;
   if (err) return <div class="wg-page">{head}<ErrorState msg={err} onRetry={load} /></div>;
   if (!d) return <div class="wg-page">{head}<Loading /></div>;
 
@@ -66,7 +66,7 @@ export function WagesDashboard() {
       )}
 
       {d.days.length === 0 ? (
-        <EmptyState icon="check">Chưa có báo cáo sản xuất nào trong khoảng này.</EmptyState>
+        <EmptyState icon="✅">Chưa có báo cáo sản xuất nào trong khoảng này.</EmptyState>
       ) : (
         d.days.map((day) => (
           <section class="wg-day" key={day.ymd}>

@@ -6,7 +6,7 @@ import {
 } from "../api";
 import { foldVN, fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { BoxTile } from "../detail/BoxTile";
 import { Icon } from "../ui/Icon";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -306,16 +306,14 @@ export function StocktakeDetail({ id }: { id: string }) {
 
   return (
     <div class="stocktake-page">
-      <div class="prod-detail-head">
-        <BackLink fallback={`#/vi-tri/${slip.place_id}`} />
-        <div class="stocktake-title">
-          <div class="prod-sp big"><Icon name="clipboard" size={18} /> Phiếu kiểm kho #{slip.id}</div>
-          <div class="prod-date muted">{slip.place_name} · chụp lúc {fmtDateTimeVN(slip.captured_at)}</div>
-        </div>
-        <span class={`stocktake-status ${done ? "done" : voided ? "voided" : lockState}`}>
-          {done ? "Đã chốt" : voided ? "Đã huỷ" : lockState === "mine" ? "Bạn đang kiểm" : lockState === "other" ? `${holder} đang kiểm` : "Đang xin quyền…"}
-        </span>
-      </div>
+      <PageHead fallback={`#/vi-tri/${slip.place_id}`}
+        title={<><Icon name="clipboard" size={18} /> Phiếu kiểm kho #{slip.id}</>}
+        sub={<>{slip.place_name} · chụp lúc {fmtDateTimeVN(slip.captured_at)}</>}
+        right={
+          <span class={`stocktake-status ${done ? "done" : voided ? "voided" : lockState}`}>
+            {done ? "Đã chốt" : voided ? "Đã huỷ" : lockState === "mine" ? "Bạn đang kiểm" : lockState === "other" ? `${holder} đang kiểm` : "Đang xin quyền…"}
+          </span>
+        } />
 
       {voided && (
         <div class="stocktake-lock-alert voided"><Icon name="ban" size={16} /> Phiếu này đã bị huỷ. Số đã kiểm không được ghi nhận — tạo phiếu mới ở trang vị trí kho.</div>

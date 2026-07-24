@@ -3,7 +3,8 @@
 // trao đổi + lịch sử dùng entity media scope 'purchase'. Xoá = admin (xoá mềm).
 // Nhập KHO hàng mua về: nút/summary + PurchaseGoodsModal (1 lần/phiếu, khoá sửa sau đó).
 import { useEffect, useRef, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
+import { fmtDateTimeVN } from "../format";
 import {
   getPurchase, deletePurchase, payPurchase, deletePurchasePayment, undoPurchaseGoods,
   confirmPurchaseGoods, unreceivePurchase, deleteBox, currentUser, soVN,
@@ -76,7 +77,7 @@ function PaySection({ r, isAdmin, deleted, onChanged }: {
       </div>
       {(r.payments || []).map((p) => (
         <div key={p.id} class="pu-pay-row">
-          <span class="muted small">{p.at ? `${p.at.slice(8, 10)}/${p.at.slice(5, 7)} ${p.at.slice(11, 16)}` : ""}</span>
+          <span class="muted small">{fmtDateTimeVN(p.at)}</span>
           <span><b>{p.by_name || p.by}</b> trả từ <a class="pt-inl" href={`#/ket/${encodeURIComponent(p.box)}`}>{p.box_name || boxVi(p.box)}</a></span>
           <b class="pu-pay-amt">{soVN(p.amount)}đ</b>
           {isAdmin && !deleted && (
@@ -150,7 +151,7 @@ export function PurchaseDetail({ id }: { id: string }) {
       return toast("Phiếu đã nhập kho — không xoá được (hàng đã vào thùng)", "info");
     if (draftLines > 0)
       return toast("Phiếu đang nhập kho dở — xoá thùng/gỡ dòng nhập trước khi xoá phiếu", "info");
-    if (!(await confirmDialog("Xoá phiếu nhập này?", { danger: true }))) return;
+    if (!(await confirmDialog("Xoá phiếu nhập này?", { danger: true, okLabel: "Xoá phiếu" }))) return;
     setBusy(true);
     try {
       await deletePurchase(Number(id));
@@ -163,15 +164,10 @@ export function PurchaseDetail({ id }: { id: string }) {
 
   return (
     <div class="ret-detail">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/nhap-hang" />
-        <div>
-          <div class="prod-sp big">
-            <Icon name="truck" size={18} /> Nhập hàng {soVN(r.total)}đ
-          </div>
-          <div class="prod-date muted">{r.created_at ? `${r.created_at.slice(8, 10)}/${r.created_at.slice(5, 7)}/${r.created_at.slice(0, 4)} ${r.created_at.slice(11, 16)}` : ""}{r.created_by ? ` · ${r.created_by}` : ""}</div>
-        </div>
-        {!deleted && (
+      <PageHead fallback="#/nhap-hang"
+        title={<><Icon name="truck" size={18} /> Nhập hàng {soVN(r.total)}đ</>}
+        sub={<>{fmtDateTimeVN(r.created_at)}{r.created_by ? ` · ${r.created_by}` : ""}</>}
+        right={!deleted && (
           <a
             class={"btn small ret-edit" + (!r.goods_handled_at ? "" : " faded")}
             href={`#/nhap-hang/${id}/sua`}
@@ -185,8 +181,7 @@ export function PurchaseDetail({ id }: { id: string }) {
           >
             <Icon name="edit" size={13} /> Sửa
           </a>
-        )}
-      </div>
+        )} />
       {deleted && <div class="error-banner">Phiếu đã bị xoá{r.deleted_by ? ` bởi ${r.deleted_by}` : ""}</div>}
 
       <section class="card">
@@ -253,7 +248,7 @@ export function PurchaseDetail({ id }: { id: string }) {
                   </button>
                 )}
               </label>
-              <div class="muted small">{r.goods_handled_by || ""}{r.goods_handled_at ? ` · ${r.goods_handled_at.slice(8, 10)}/${r.goods_handled_at.slice(5, 7)} ${r.goods_handled_at.slice(11, 16)}` : ""}</div>
+              <div class="muted small">{r.goods_handled_by || ""}{r.goods_handled_at ? ` · ${fmtDateTimeVN(r.goods_handled_at)}` : ""}</div>
               {gr.restocked_new?.length > 0 && <div class="rg-sum-line">🆕 Thùng mới: {line(gr.restocked_new)}</div>}
               {gr.restocked_existing?.length > 0 && <div class="rg-sum-line">📦 Nhập thùng có sẵn: {line(gr.restocked_existing)}</div>}
               {!gr.restocked_new?.length && !gr.restocked_existing?.length &&

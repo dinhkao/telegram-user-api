@@ -4,12 +4,13 @@
 // localStorage). Bấm 1 thông báo → deep-link #/order/<id>?focus=<type>:<id>.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { usePopupBack } from "./ui/usePopupBack";
+import { useScrollLock } from "./useScrollLock";
 import { createPortal } from "preact/compat";
 import { listNotifications, orderImageUrl, type Notif } from "./api";
 import { onRealtime } from "./realtime";
 import { fmtRelative } from "./format";
 import { Icon } from "./ui/Icon";
-import { EmptyState, LoadingInline } from "./ui/states";
+import { EmptyState, ErrorState, LoadingInline } from "./ui/states";
 
 const SEEN_KEY = "notif_seen_id";
 const getSeen = (): number => { try { return Number(localStorage.getItem(SEEN_KEY) || "0") || 0; } catch { return 0; } };
@@ -20,15 +21,18 @@ const ICON: Record<string, string> = { comment: "💬", image: "🖼", order: "�
 export function NotifCenter() {
   const [open, setOpen] = useState(false);
   usePopupBack(open, () => setOpen(false));
+  useScrollLock(open);
   const [items, setItems] = useState<Notif[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [err, setErr] = useState("");
   const [seen, setSeenState] = useState<number>(getSeen());
 
   const load = async () => {
     try {
       const r = await listNotifications(30);
       setItems(r.notifications);
-    } catch { /* im */ } finally { setLoaded(true); }
+      setErr("");
+    } catch (e: any) { setErr(e?.message || "Không tải được thông báo"); } finally { setLoaded(true); }
   };
   useEffect(() => { load(); }, []);
 
@@ -69,11 +73,13 @@ export function NotifCenter() {
         <Icon name="bell" size={19} />{unread > 0 && <span class="notif-badge">{unread > 9 ? "9+" : unread}</span>}
       </button>
       {open && createPortal(
-        <div class="modal-overlay" onClick={() => setOpen(false)}>
+        <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setOpen(false); }}>
           <div class="modal-sheet notif-panel" ref={panelRef} onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><Icon name="bell" size={18} /> Thông báo</div>
             {items.length === 0 && !loaded ? (
               <p class="muted small center"><LoadingInline /></p>
+            ) : items.length === 0 && err ? (
+              <ErrorState msg={err} onRetry={load} />
             ) : items.length === 0 ? (
               <EmptyState icon="🔔">Chưa có thông báo nào.</EmptyState>
             ) : (

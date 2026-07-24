@@ -5,8 +5,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { getProductTimeline, soVN, type ProductTimeline as PTL } from "../api";
 import { onRealtime } from "../realtime";
-import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
+import { PageHead } from "../ui/PageHead";
 import { Loading, ErrorState } from "../ui/states";
 import { InvTimelineBody } from "../detail/InvTimeline";
 
@@ -17,7 +17,7 @@ export function ProductTimeline({ code, focus }: { code: string; focus?: string 
 
   const load = () => {
     getProductTimeline(code)
-      .then((r) => { if (!r) setErr("Không tìm thấy sản phẩm"); else setD(r); })
+      .then((r) => { if (!r) setErr("Không tìm thấy sản phẩm"); else { setD(r); setErr(""); } })
       .catch((e: any) => setErr(e?.message || "Lỗi tải timeline"))
       .finally(() => setLoading(false));
   };
@@ -39,13 +39,9 @@ export function ProductTimeline({ code, focus }: { code: string; focus?: string 
   const below = p.min_stock > 0 && d.current_total < p.min_stock;
   return (
     <div class="place-tl">
-      <div class="prod-detail-head">
-        <BackLink fallback={`#/kho/${encodeURIComponent(p.code)}`} />
-        <div>
-          <div class="prod-sp big"><Icon name="box" size={17} /> {p.code}{p.name ? <span class="muted"> · {p.name}</span> : null}</div>
-          <div class="prod-date muted">Timeline biến động tồn</div>
-        </div>
-      </div>
+      <PageHead fallback={`#/kho/${encodeURIComponent(p.code)}`}
+        title={<><Icon name="box" size={17} /> {p.code}{p.name ? <span class="muted"> · {p.name}</span> : null}</>}
+        sub="Timeline biến động tồn" />
 
       <div class="pt-head card">
         <div>

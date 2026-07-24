@@ -2,7 +2,7 @@
 // chung (cũ→mới, mở ở đáy, lazy 2 chiều). Bấm ngày → popup liệt kê biến động
 // ngày đó, card tái dùng renderFeedItem (y hệt feed, kèm rail nợ).
 import { useEffect, useRef, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import {
   getCustomer, getCustomerFeedDays, getCustomerFeedDay, listOrderImages,
   type CustFeedItem, type OrderImage,
@@ -16,10 +16,7 @@ import { Icon } from "../ui/Icon";
 import { onRealtime } from "../realtime";
 import { EmptyState, LoadingInline } from "../ui/states";
 import type { OrderRow } from "../detail/OrderCards";
-
-const _WD = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-const dayLabel = (d: string) =>
-  `${_WD[(new Date(d).getDay() + 6) % 7]} · ${d.slice(8)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+import { dayLabel } from "../format";
 
 export function CustomerCalendarPage({ ckey }: { ckey: string }) {
   const [name, setName] = useState("");
@@ -79,13 +76,9 @@ export function CustomerCalendarPage({ ckey }: { ckey: string }) {
 
   return (
     <div class="prod-detail">
-      <div class="prod-detail-head">
-        <BackLink fallback={`#/khach/${encodeURIComponent(ckey)}`} />
-        <div>
-          <div class="prod-sp"><Icon name="calendar" size={18} /> Lịch biến động</div>
-          <div class="muted small">{name || ckey}</div>
-        </div>
-      </div>
+      <PageHead fallback={`#/khach/${encodeURIComponent(ckey)}`}
+        title={<><Icon name="calendar" size={18} /> Lịch biến động</>}
+        sub={name || ckey} />
       <ScrollCalendar days={days} legend={{ o: "đơn hàng", p: "thanh toán" }} onPick={openDay} />
 
       {pick && (

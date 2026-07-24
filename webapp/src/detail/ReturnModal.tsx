@@ -13,10 +13,10 @@ import { parseMoney, parseQty } from "../format";
 
 type Line = { sp: string; sl: string; price: string };
 
-export function ReturnModal({ ckey, onClose, onCreated }: {
+export function ReturnModal({ ckey, onClose, onDone }: {
   ckey?: string;                 // thiếu → chọn khách ngay trong popup (mở từ dashboard)
   onClose: () => void;
-  onCreated: () => void;
+  onDone: () => void;
 }) {
   const [pickedKey, setPickedKey] = useState<string>(ckey || "");
   const [lines, setLines] = useState<Line[]>([{ sp: "", sl: "1", price: "" }]);
@@ -46,7 +46,7 @@ export function ReturnModal({ ckey, onClose, onCreated }: {
         { okLabel: "Xử lý ngay", cancelLabel: "Để sau" })) {
         sessionStorage.setItem("rg_open", String(rid));
       }
-      onCreated();
+      onDone();
       onClose();
       if (rid) window.location.hash = `#/tra-hang/${rid}`;
     } catch (e: any) {
@@ -66,7 +66,7 @@ export function ReturnModal({ ckey, onClose, onCreated }: {
             <div class="ret-sp">
               <PickerPopup value={l.sp} placeholder="Mã SP" allowFreeText
                 onSearch={async (q): Promise<PickOpt[]> =>
-                  (await searchProducts(q).catch(() => [])).map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }))}
+                  (await searchProducts(q)).map((s) => ({ key: s.code, label: s.code, sub: s.name || undefined }))}
                 onPick={(o) => upd(i, { sp: o.key })} />
             </div>
             <input class="ret-sl" type="text" inputMode="decimal" placeholder="SL" value={l.sl}

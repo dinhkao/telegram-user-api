@@ -8,6 +8,7 @@ import { onRealtime } from "../realtime";
 import { toast } from "../ui/feedback";
 import { useScrollLock } from "../useScrollLock";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
+import { PageHead } from "../ui/PageHead";
 import { Icon } from "../ui/Icon";
 import { SearchBar } from "../ui/SearchBar";
 import { usePopupBack } from "../ui/usePopupBack";
@@ -76,14 +77,13 @@ export function InventoryList() {
 
   return (
     <div class="inv-dash">
-      <div class="row space">
-        <h2 class="page-h"><Icon name="tag" size={18} /> Sản phẩm <span class="muted small">({products.length} mã)</span></h2>
-        <button class="btn small primary" onClick={() => setCreateOpen(true)}><Icon name="plus" size={16} /> Tạo mã</button>
-      </div>
+      <PageHead fallback="#/kho"
+        title={<><Icon name="tag" size={18} /> Sản phẩm <span class="muted small">({products.length} mã)</span></>}
+        right={<button class="btn small primary" onClick={() => setCreateOpen(true)}><Icon name="plus" size={16} /> Tạo mã</button>} />
       <SearchBar value={q} onInput={setQ} placeholder="Tìm mã / tên sản phẩm…" />
 
       {createOpen && (
-        <div class="modal-overlay" onClick={() => setCreateOpen(false)}>
+        <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setCreateOpen(false); }}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><Icon name="plus" size={18} /> Tạo mã sản phẩm</div>
             <input class="inv-search" autofocus placeholder="Mã SP (vd K2L)" value={nCode}
@@ -94,7 +94,7 @@ export function InventoryList() {
               onInput={(e: any) => setNUnit(e.target.value)} onKeyDown={(e: any) => { if (e.key === "Enter") doCreate(); }} />
             <div class="row" style={{ gap: "8px", marginTop: "8px" }}>
               <button class="btn primary" style={{ flex: 1 }} disabled={creating || !nCode.trim()} onClick={doCreate}>
-                {creating ? "⏳…" : "Tạo"}
+                {creating ? "Đang tạo…" : "Tạo"}
               </button>
               <button class="btn" onClick={() => setCreateOpen(false)}>Huỷ</button>
             </div>

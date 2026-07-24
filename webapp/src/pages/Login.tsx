@@ -5,6 +5,7 @@ import { useEffect, useState } from "preact/hooks";
 import { currentUser, login, setAuth, getAppSettings, setAppSetting, type AppSettings } from "../api";
 import { AppUpdate } from "../detail/AppUpdate";
 import { toast } from "../ui/feedback";
+import { Icon } from "../ui/Icon";
 
 /** Cài đặt hệ thống (admin): toggle rule vận hành, lưu server (kv_store). */
 function AdminSettings() {
@@ -26,7 +27,7 @@ function AdminSettings() {
   };
   return (
     <div class="card">
-      <label class="card-label">⚙️ Cài đặt hệ thống (admin)</label>
+      <label class="card-label"><Icon name="settings" size={15} /> Cài đặt hệ thống (admin)</label>
       <div class="set-row">
         <button class={"tgl" + (st.soan_hang_require_stock ? " on" : "")} role="switch"
           aria-checked={!!st.soan_hang_require_stock} disabled={busy}

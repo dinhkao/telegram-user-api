@@ -3,8 +3,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { getPlaceTimeline, soVN, type PlaceTimeline as PT } from "../api";
 import { onRealtime } from "../realtime";
-import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
+import { PageHead } from "../ui/PageHead";
 import { Loading, ErrorState } from "../ui/states";
 import { InvTimelineBody } from "../detail/InvTimeline";
 
@@ -15,7 +15,7 @@ export function PlaceTimeline({ placeId, focus }: { placeId: string; focus?: str
 
   const load = () => {
     getPlaceTimeline(placeId)
-      .then((r) => { if (!r) setErr("Không tìm thấy vị trí"); else setD(r); })
+      .then((r) => { if (!r) setErr("Không tìm thấy vị trí"); else { setD(r); setErr(""); } })
       .catch((e: any) => setErr(e?.message || "Lỗi tải timeline"))
       .finally(() => setLoading(false));
   };
@@ -35,13 +35,9 @@ export function PlaceTimeline({ placeId, focus }: { placeId: string; focus?: str
 
   return (
     <div class="place-tl">
-      <div class="prod-detail-head">
-        <BackLink fallback={`#/vi-tri/${d.place.id}`} />
-        <div>
-          <div class="prod-sp big"><Icon name="box" size={17} /> {d.place.name}</div>
-          <div class="prod-date muted">Timeline biến động kho</div>
-        </div>
-      </div>
+      <PageHead fallback={`#/vi-tri/${d.place.id}`}
+        title={<><Icon name="box" size={17} /> {d.place.name}</>}
+        sub="Timeline biến động kho" />
 
       <div class="pt-head card">
         <div>

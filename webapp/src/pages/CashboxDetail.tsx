@@ -7,7 +7,7 @@ import { cashboxTransferDelete, cashboxWithdraw, currentUser, getCashboxTimeline
          type CashBox, type CashHolding, type CashMove } from "../api";
 import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { Icon } from "../ui/Icon";
 import { confirmDialog, toast } from "../ui/feedback";
 import { EmptyState, ErrorState, Loading, LoadingInline } from "../ui/states";
@@ -198,7 +198,7 @@ export function CashboxDetail({ boxKey }: { boxKey: string }) {
   }, [items, shown]);
 
   const delTransfer = async (id: number) => {
-    if (!(await confirmDialog("Xoá lần chuyển tiền này? Số dư 2 két sẽ tính lại.", { danger: true }))) return;
+    if (!(await confirmDialog("Xoá lần chuyển tiền này? Số dư 2 két sẽ tính lại.", { danger: true, okLabel: "Xoá" }))) return;
     try {
       await cashboxTransferDelete(id);
       toast("Đã xoá lần chuyển", "ok");
@@ -240,13 +240,9 @@ export function CashboxDetail({ boxKey }: { boxKey: string }) {
 
   return (
     <div class="place-tl">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/ket" />
-        <div>
-          <div class="prod-sp big"><Icon name="wallet" size={17} /> {box.name}</div>
-          <div class="prod-date muted">Timeline két tiền</div>
-        </div>
-      </div>
+      <PageHead fallback="#/ket"
+        title={<><Icon name="wallet" size={17} /> {box.name}</>}
+        sub="Timeline két tiền" />
 
       <div class="pt-head card">
         <div>
@@ -273,7 +269,7 @@ export function CashboxDetail({ boxKey }: { boxKey: string }) {
 
       {holdings.length > 0 && (
         <div class="cash-holdings card">
-          <div class="cash-sect muted small">TIỀN CỦA {holdings.length} ĐƠN ĐANG NẰM Ở ĐÂY</div>
+          <div class="ie-head">Tiền của {holdings.length} đơn đang nằm ở đây</div>
           {holdings.map((h) => (
             <a key={h.thread_id} class="cash-hold-row" href={`#/order/${h.thread_id}`}>
               <span class="cash-hold-name">

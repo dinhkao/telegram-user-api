@@ -10,16 +10,12 @@ import {
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
-import { Loading, EmptyState } from "../ui/states";
+import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const money = (n: number) => soVN(Math.round(n || 0));
+import { moneyR as money, pad2 as pad, curYM, shiftYM, ymLabel, isoDate } from "../format";
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
-const curYM = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
-const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-const shiftYM = (ym: string, d: number) => { const [y, m] = ym.split("-").map(Number); const dt = new Date(y, m - 1 + d, 1); return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`; };
-const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
+const todayISO = () => isoDate(new Date());
 const dmy = (s: string) => (s && s.length >= 10 ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : s || "—");
 // created_at DB = "YYYY-MM-DD HH:MM:SS" giờ VN (salary_store: datetime('now','+7 hours')) → "18/7 19:25"
 const tsLabel = (s?: string) => (s && s.length >= 16 ? `${Number(s.slice(8, 10))}/${Number(s.slice(5, 7))} ${s.slice(11, 16)}` : "");
@@ -42,16 +38,18 @@ export function AdvanceEntry() {
   const [date, setDate] = useState(todayISO());
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
 
   const load = () => {
     setAdvs(null);
+    setErr("");
     const request = filterWid ? listPayrollAdvances(ym, filterWid) : listAllAdvances(ym);
     Promise.all([request, getMonthlyPayroll(ym)])
       .then(([items, payroll]) => {
         setAdvs(items);
         setWeeklyRows(payroll.workers.filter((row) => row.ung_weekly > 0 && (!filterWid || row.worker_id === filterWid)));
       })
-      .catch(() => { setAdvs([]); setWeeklyRows([]); });
+      .catch((e: any) => { setErr(e?.message || "Lỗi tải danh sách ứng"); setAdvs([]); setWeeklyRows([]); });
   };
   useEffect(() => { listWorkers().then(({ workers }) => setWorkers(workers)).catch(() => {}); }, []);
   useEffect(() => { load(); }, [ym, filterWid]);
@@ -88,6 +86,7 @@ export function AdvanceEntry() {
 
   const head = <PageHead fallback="#/home" title={<><Icon name="wallet" size={18} /> Nhập ứng lương</>} sub="ghi tạm ứng cho thợ theo tháng" />;
   if (!isOffice()) return <div class="pr-page">{head}<EmptyState icon="🔒">Chỉ văn phòng.</EmptyState></div>;
+  if (err) return <div class="pr-page">{head}<ErrorState msg={err} onRetry={load} /></div>;
 
   return (
     <div class="pr-page">
@@ -99,7 +98,7 @@ export function AdvanceEntry() {
       </div>
 
       <section class="card ua-create">
-        <label class="card-label">➕ Ghi ứng lương</label>
+        <label class="card-label"><Icon name="plus" size={15} /> Ghi ứng lương</label>
         <SelectPopup value={wid} options={wopts} onChange={(v) => setWid(Number(v))}
           searchable placeholder="Chọn thợ…" title="Chọn thợ" />
         <div class="ua-form">

@@ -2,7 +2,7 @@
 // nhập thùng (ProductionBoxes), báo cáo theo thợ (ProductionReport), xoá.
 // Realtime: production_changed đúng thread / resync → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import {
   getProduction,
   productionCatalog,
@@ -160,7 +160,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
       toast(`Phiếu đã tạo ${slip!.box_count} thùng — xoá các thùng đó trước`, "info");
       return;
     }
-    if (!(await confirmDialog("Xoá phiếu sản xuất này?", { danger: true }))) return;
+    if (!(await confirmDialog("Xoá phiếu sản xuất này?", { danger: true, okLabel: "Xoá phiếu" }))) return;
     try {
       await deleteProduction(threadId);
       window.location.hash = "#/san_xuat";
@@ -186,13 +186,9 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
 
   return (
     <div class="prod-detail">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/san_xuat" />
-        <div>
-          <div class="prod-sp big">{slip.sp_name || "Chưa có SP"}</div>
-          <div class="prod-date muted"><Icon name="calendar" size={14} /> Tạo: {prodCreated(slip)}</div>
-        </div>
-      </div>
+      <PageHead fallback="#/san_xuat"
+        title={slip.sp_name || "Chưa có SP"}
+        sub={<><Icon name="calendar" size={14} /> Tạo: {prodCreated(slip)}</>} />
 
       {err && <div class="error-banner">{err}</div>}
 
@@ -229,7 +225,7 @@ export function ProductionDetail({ threadId, focus }: { threadId: string; focus?
           <div class="pc-val">{soVN(reported)}</div>
         </div>
         <div class="pc-verdict">
-          {!hasReport ? "— chưa báo cáo" : match ? "✅ Khớp" : `⚠️ Lệch ${soVN(Math.abs(diff))} (${pctOff.toFixed(1)}%)`}
+          {!hasReport ? "— chưa báo cáo" : match ? "✅ Khớp" : `⚠️ Lệch ${soVN(Math.abs(diff))} (${pctOff.toFixed(1).replace(".", ",")}%)`}
         </div>
       </div>}
 

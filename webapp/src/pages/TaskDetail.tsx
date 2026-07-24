@@ -7,6 +7,7 @@ import {
   currentUser, deleteTask, getTask, taskAssignees, updateTask, type Task,
 } from "../api";
 import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { Comments } from "../detail/Comments";
 import { Images } from "../detail/Images";
 import { History } from "../detail/History";
@@ -42,7 +43,7 @@ export function TaskDetail({ id }: { id: number }) {
   if (!t) return <div class="prod-detail"><BackLink fallback="#/viec" /><Loading /></div>;
 
   const patch = async (body: any) => {
-    try { setT(await updateTask(t.id, body)); } catch (e: any) { toast(e?.message || "Lỗi lưu"); }
+    try { setT(await updateTask(t.id, body)); } catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
   };
   const toggle = () => {
     // Bước mặc định của đơn → hoàn thành ở trang đơn (rule chặn nằm ở đó)
@@ -54,20 +55,16 @@ export function TaskDetail({ id }: { id: number }) {
     patch({ done: !t.done });
   };
   const remove = async () => {
-    if (!(await confirmDialog("Xoá việc này?", { danger: true }))) return;
-    try { await deleteTask(t.id); window.location.hash = "#/viec"; } catch (e: any) { toast(e?.message || "Lỗi"); }
+    if (!(await confirmDialog("Xoá việc này?", { danger: true, okLabel: "Xoá việc" }))) return;
+    try { await deleteTask(t.id); window.location.hash = "#/viec"; } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
   };
   const isAdmin = currentUser()?.role === "admin";
 
   return (
     <div class="prod-detail tasks-page">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/viec" />
-        <div class="tk-d-head">
-          <div class="prod-sp"><Icon name="check" size={18} /> {t.title}</div>
-          <div class="muted small">{KIND_LABEL[t.kind]}{t.done && t.done_by ? ` · ✓ ${names[t.done_by] || t.done_by}` : ""}</div>
-        </div>
-      </div>
+      <PageHead fallback="#/viec"
+        title={<><Icon name="check" size={18} /> {t.title}</>}
+        sub={<>{KIND_LABEL[t.kind]}{t.done && t.done_by ? ` · ✓ ${names[t.done_by] || t.done_by}` : ""}</>} />
 
       <div class="card">
         <button class={"btn block " + (t.done ? "" : "primary")} onClick={toggle}>

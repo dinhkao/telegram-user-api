@@ -8,6 +8,7 @@ import { toast } from "../ui/feedback";
 import { ImageInfoPanel } from "./ImageInfoPanel";
 import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
+import { useScrollLock } from "../useScrollLock";
 import { fastScrollLeft } from "../scroll";
 
 const MIN_SCALE = 1;
@@ -39,7 +40,7 @@ export function PhotoViewer({
   const imgRef = useRef<HTMLImageElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const thumbsRef = useRef<HTMLDivElement>(null);
-  const flash = (m: string) => toast(m, "info");
+  const flash = (m: string, kind: "ok" | "err" | "info" = "info") => toast(m, kind);
 
   // Trạng thái biến đổi + cử chỉ giữ trong ref (không re-render mỗi frame)
   const g = useRef({
@@ -92,19 +93,16 @@ export function PhotoViewer({
     }
   }, [idx]);
 
-  // Khoá cuộn nền + phím: Esc đóng, ← → chuyển ảnh (desktop)
+  // Khoá cuộn nền (useScrollLock dùng chung, ref-count) + phím: Esc đóng, ← → chuyển ảnh
+  useScrollLock(true);
   useEffect(() => {
-    document.body.classList.add("pv-open");
     const h = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowLeft") setIdx((i) => (i > 0 ? i - 1 : i));
       else if (e.key === "ArrowRight") setIdx((i) => (i < images.length - 1 ? i + 1 : i));
     };
     window.addEventListener("keydown", h);
-    return () => {
-      document.body.classList.remove("pv-open");
-      window.removeEventListener("keydown", h);
-    };
+    return () => window.removeEventListener("keydown", h);
   }, [images.length]);
 
   const go = (d: number) => {
@@ -276,7 +274,7 @@ export function PhotoViewer({
           fr.readAsDataURL(blob);
         });
         const ok = bridge.copyImage(dataUrl);
-        flash(ok === false ? "Copy ảnh lỗi" : "✓ Đã copy ảnh");
+        flash(ok === false ? "Copy ảnh lỗi" : "Đã copy ảnh", ok === false ? "err" : "ok");
         return;
       }
       // Trình duyệt: clipboard.write PNG (cần HTTPS)
@@ -288,9 +286,9 @@ export function PhotoViewer({
       bmp.close?.();
       const png = await new Promise<Blob>((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error("png"))), "image/png"));
       await navigator.clipboard.write([new (window as any).ClipboardItem({ "image/png": png })]);
-      flash("✓ Đã copy ảnh");
+      flash("Đã copy ảnh", "ok");
     } catch {
-      flash("Copy không được (trình duyệt chặn)");
+      flash("Copy không được (trình duyệt chặn)", "err");
     }
   };
 
@@ -315,7 +313,7 @@ export function PhotoViewer({
           fr.readAsDataURL(blob);
         });
         const ok = bridge.saveImage(dataUrl, name);
-        flash(ok === false ? "Lưu ảnh lỗi" : "✓ Đã lưu vào thư viện");
+        flash(ok === false ? "Lưu ảnh lỗi" : "Đã lưu vào thư viện", ok === false ? "err" : "ok");
         return;
       }
 
@@ -334,10 +332,10 @@ export function PhotoViewer({
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      flash("✓ Đã tải ảnh");
+      flash("Đã tải ảnh", "ok");
     } catch (e: any) {
       if (e?.name === "AbortError") return; // người dùng đóng share sheet
-      flash("Tải không được");
+      flash("Tải không được", "err");
     }
   };
 

@@ -12,6 +12,8 @@ import { onRealtime } from "../realtime";
 import { PageHead } from "../ui/PageHead";
 import { Icon } from "../ui/Icon";
 import { toast, confirmDialog, promptDialog } from "../ui/feedback";
+import { useScrollLock } from "../useScrollLock";
+import { usePopupBack } from "../ui/usePopupBack";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "../detail/CameraBox";
 
@@ -23,6 +25,8 @@ export function AreaDetail({ id }: { id: string }) {
   const [camOpen, setCamOpen] = useState(false);
   const capsRef = useRef<Processed[]>([]);
   const [lightbox, setLightbox] = useState<{ base: string; imgId: number } | null>(null);
+  useScrollLock(!!lightbox);                          // ảnh phóng to phủ màn → khoá cuộn nền
+  usePopupBack(!!lightbox, () => setLightbox(null));  // BACK đóng ảnh trước
   const isAdmin = currentUser()?.role === "admin";
   const office = isOffice();
 

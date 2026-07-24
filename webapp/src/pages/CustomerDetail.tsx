@@ -257,7 +257,7 @@ export function CustomerDetail({ ckey }: { ckey: string }) {
       </div>
 
       {linkOpen && (
-        <div class="modal-overlay" onClick={() => setLinkOpen(false)}>
+        <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) setLinkOpen(false); }}>
           <div class="modal-sheet" onClick={(e: any) => e.stopPropagation()}>
             <div class="modal-head"><Icon name="link" size={18} /> Liên kết khách với KiotViet</div>
             <SearchBar value={kvQ} onInput={setKvQ} autofocus placeholder="Tìm khách KiotViet (tên/mã)…" />

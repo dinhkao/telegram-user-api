@@ -4,12 +4,11 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { getProductionDashboard, soVN, type ProdDashboard } from "../api";
 import { onRealtime } from "../realtime";
-import { Loading, ErrorState } from "../ui/states";
+import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+import { pad2 as pad, isoDate as iso } from "../format";
 const dmy = (ymd: string) => { const [y, m, d] = ymd.split("-"); return `${d}/${m}`; };
 
 type Period = "all" | "month" | "week";
@@ -89,24 +88,24 @@ export function ProductionDashboard() {
           </div>
 
           <section class="card">
-            <label class="card-label">🏆 Theo thợ ({data.by_worker.length})</label>
+            <label class="card-label"><Icon name="star" size={15} /> Theo thợ ({data.by_worker.length})</label>
             {data.by_worker.length ? data.by_worker.map((w) => (
               <Bar key={w.name} label={w.name} sub={`${soVN(w.mam)} mâm · ${w.phieu} phiếu`} val={w.tong} max={maxW} href={`#/sx-tho/${encodeURIComponent(w.name)}`} />
-            )) : <p class="muted small">Chưa có dữ liệu kỳ này.</p>}
+            )) : <EmptyState>Chưa có dữ liệu kỳ này.</EmptyState>}
           </section>
 
           <section class="card">
             <label class="card-label"><Icon name="calendar" size={16} /> Theo ngày</label>
             {data.by_day.length ? data.by_day.map((x) => (
               <Bar key={x.ymd} label={dmy(x.ymd)} sub={`${x.phieu} phiếu`} val={x.tong} max={maxD} />
-            )) : <p class="muted small">Chưa có dữ liệu kỳ này.</p>}
+            )) : <EmptyState>Chưa có dữ liệu kỳ này.</EmptyState>}
           </section>
 
           <section class="card">
             <label class="card-label"><Icon name="box" size={16} /> Theo sản phẩm</label>
             {data.by_product.length ? data.by_product.map((p) => (
               <Bar key={p.code} label={p.code} sub={`${p.phieu} phiếu`} val={p.tong} max={maxP} />
-            )) : <p class="muted small">Chưa có dữ liệu kỳ này.</p>}
+            )) : <EmptyState>Chưa có dữ liệu kỳ này.</EmptyState>}
           </section>
         </>
       ) : (

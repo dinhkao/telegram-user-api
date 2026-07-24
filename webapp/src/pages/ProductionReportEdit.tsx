@@ -4,11 +4,14 @@
 // lock/unlock/draft + saveProductionReport. Khoá + nháp: server_app/production_routes.py.
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { BackLink, goBack } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { getProduction, saveProductionReport, lockReport, unlockReport, pushReportDraft, currentUser, soVN, listMediaImages, mediaImageUrl, deleteMediaImage, postForm, listWorkers, reorderWorkers, type ProdSlip, type ProdReport, type Worker } from "../api";
 import { onRealtime } from "../realtime";
 import { rNum as _num, round2, calcRow, type Wrow } from "../detail/reportCalc";
 import { Loading } from "../ui/states";
 import { confirmDialog, toast } from "../ui/feedback";
+import { useScrollLock } from "../useScrollLock";
+import { usePopupBack } from "../ui/usePopupBack";
 import { Icon } from "../ui/Icon";
 import { processImage } from "../detail/imageProcess";
 import { WorkerOrderPopup } from "../detail/WorkerOrderPopup";
@@ -50,7 +53,6 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const [holder, setHolder] = useState<string | null>(null);
   const [lockState, setLockState] = useState<"wait" | "mine" | "other">("wait");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
   const seeded = useRef(false);
   const draftTimer = useRef<any>(null);
   const autoTimer = useRef<any>(null);
@@ -66,6 +68,8 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
   const [bgUrl, setBgUrl] = useState<string | null>(null);
   const [bgShow, setBgShow] = useState(false);   // đang giữ nút → hiện ảnh
   const [bgLoading, setBgLoading] = useState(false);
+  useScrollLock(bgShow);                         // ảnh dò đang phủ màn → khoá cuộn nền
+  usePopupBack(bgShow, () => setBgShow(false));  // BACK đóng ảnh dò trước
   const bgInput = useRef<HTMLInputElement>(null);
 
   const mine = lockState === "mine";          // CHỈ sửa được khi đã cầm khoá xác nhận
@@ -117,7 +121,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
         setWorkers(w.workers);
         defaultsRef.current = w.defaults;
       }).catch(() => {});
-    toast("Đã cập nhật thợ trong bảng");
+    toast("Đã cập nhật thợ trong bảng", "ok");
   };
 
   // mineRef = bản đồng bộ của lockState cho listener realtime (deps không đổi → khỏi stale).
@@ -237,7 +241,7 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
       await postForm(`${bgBase}/images`, fd);
       await refreshBg();     // lấy ảnh mới + tự dọn ảnh cũ
     } catch (err: any) {
-      setMsg(err?.message || "Không tải được ảnh");
+      toast(err?.message || "Không tải được ảnh", "err");
     } finally {
       setBgLoading(false);
     }
@@ -297,7 +301,13 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
     clearTimeout(autoTimer.current);
     if (wrows.some((r) => r.name.trim())) {
       setBusy(true);
-      try { await saveProductionReport(threadId, buildText(), sid); } catch { /* im — đã tự lưu trước đó */ }
+      try { await saveProductionReport(threadId, buildText(), sid); }
+      catch (e: any) {
+        // Lưu lần cuối thất bại → Ở LẠI trang (rời đi là mất phần vừa gõ)
+        setBusy(false);
+        toast(e?.message || "Lưu báo cáo thất bại — kiểm tra mạng rồi bấm Xong lại", "err");
+        return;
+      }
       setBusy(false);
     }
     // BACK (history.back) thay vì gán hash: gán hash = điều hướng FORWARD → hệ
@@ -310,19 +320,17 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
 
   return (
     <div class="prod-detail wr-page">
-      <div class="prod-detail-head">
-        <BackLink fallback={`#/san_xuat/${threadId}`} />
-        <div>
-          <div class="prod-sp"><Icon name="edit" size={18} /> Sửa báo cáo — {slip.sp_name || "?"}</div>
-          <div class="muted small">Phiếu #{threadId}{scm > 0 ? ` · 🌿 ${scm}/mâm` : ""}</div>
-        </div>
-        {/* Indicator quyền sửa — luôn hiện 1 trong 3 trạng thái */}
-        <span class={"wr-lockpill " + lockState}>
-          {lockState === "mine" ? <><Icon name="check" size={12} /> Bạn đang sửa</>
-            : lockState === "other" ? <><Icon name="lock" size={12} /> {holder} đang sửa</>
-            : <><Icon name="clock" size={12} /> Xin quyền sửa…</>}
-        </span>
-      </div>
+      <PageHead fallback={`#/san_xuat/${threadId}`}
+        title={<><Icon name="edit" size={18} /> Sửa báo cáo — {slip.sp_name || "?"}</>}
+        sub={<>Phiếu #{threadId}{scm > 0 ? ` · 🌿 ${scm}/mâm` : ""}</>}
+        right={
+          /* Indicator quyền sửa — luôn hiện 1 trong 3 trạng thái */
+          <span class={"wr-lockpill " + lockState}>
+            {lockState === "mine" ? <><Icon name="check" size={12} /> Bạn đang sửa</>
+              : lockState === "other" ? <><Icon name="lock" size={12} /> {holder} đang sửa</>
+              : <><Icon name="clock" size={12} /> Xin quyền sửa…</>}
+          </span>
+        } />
 
       {lockState === "other" && (
         <div class="wr-lock-alert">
@@ -400,7 +408,6 @@ export function ProductionReportEdit({ threadId }: { threadId: string }) {
             <button class="btn primary" disabled={busy} onClick={finishEdit}><Icon name="check" size={16} /> Xong</button>
           </div>
         )}
-        {msg && <div class="prod-save-msg">{msg}</div>}
       </section>
 
       {/* Ảnh phủ cố định (fixed) — KHÔNG trôi theo cuộn. Che vùng nhập, chừa app-bar

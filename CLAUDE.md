@@ -736,12 +736,15 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     (chọn tĩnh) + `ui/PickerPopup` (autocomplete) = mọi dropdown/select là **popup neo
     đỉnh** (bàn phím không che); mọi popup gọi `ui/usePopupBack` (nút BACK đóng popup
     trước) + `useScrollLock`. Ô thùng = `detail/BoxLabelGrid`. Toast/confirm/**prompt** =
-    `ui/feedback` (`toast`/`confirmDialog`/`promptDialog` — cấm alert/confirm/prompt
-    native). States = `ui/states` (Loading/LoadingInline/EmptyState/SkeletonList/
-    ErrorState — lỗi tải PHẢI hiện ErrorState + retry, đừng nuốt im lặng thành empty).
+    `ui/feedback` (`toast`/`confirmDialog`/`promptDialog`/`noticeDialog` [1 nút, thay
+    alert] — cấm alert/confirm/prompt native; toast LUÔN kèm kind "ok"/"err"; confirm
+    XOÁ kèm `okLabel: "Xoá <đối tượng>"`). States = `ui/states` (Loading/LoadingInline/
+    EmptyState/SkeletonList/ErrorState — lỗi tải PHẢI hiện ErrorState + retry, đừng nuốt
+    im lặng thành empty; retry thành công phải reset err).
     Chip lọc = `.chips`/`.chip` (+`.chip-n` badge số); segmented = `.seg`/`.seg-btn`;
     toggle = `.tgl`; nhãn khu = `.ie-head`; màu chữ ngữ nghĩa = `.t-ok/.t-warn/.t-danger`;
-    nhóm theo ngày = `dayKey`/`dayLabel` (format.ts). Cuộn = `scroll.ts`.
+    nhóm theo ngày = `dayKey`/`dayLabel`; tiền/pad/tháng = `money/moneyR/moneyD/pad2/
+    isoDate/curYM/shiftYM/ymLabel` (format.ts — đừng chép helper local). Cuộn = `scroll.ts`.
     **`ui/SearchBar`** = search bar chuẩn mọi trang list (+ `FilterActiveBar` panel
     "Đang lọc"). **`detail/ScrollCalendar`** = lịch cuộn liền mạch kiểu macOS dùng
     chung (lịch giao `#/lich` [text đơn trong ô, đỏ chưa giao/xanh đã giao], lịch

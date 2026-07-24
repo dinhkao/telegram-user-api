@@ -4,7 +4,7 @@
 // NHÁP TỰ LƯU localStorage (purchase_create_draft_v1): rời trang giữa chừng →
 // quay lại khôi phục nguyên trạng; tạo xong / Xoá nháp mới xoá. POST /api/purchases.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import {
   createProduct, createPurchase, createSupplier, listSuppliers,
   searchProducts, soVN, type Supplier,
@@ -143,13 +143,9 @@ export function PurchaseCreate() {
 
   return (
     <div class="pur-edit-page">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/nhap-hang" />
-        <div>
-          <div class="prod-sp big"><Icon name="truck" size={18} /> Tạo phiếu nhập hàng</div>
-          <div class="prod-date muted">{picked ? picked.name : "Chưa chọn nhà cung cấp"}</div>
-        </div>
-      </div>
+      <PageHead fallback="#/nhap-hang"
+        title={<><Icon name="truck" size={18} /> Tạo phiếu nhập hàng</>}
+        sub={picked ? picked.name : "Chưa chọn nhà cung cấp"} />
 
       {restored && (
         <div class="card pur-draft-hint">

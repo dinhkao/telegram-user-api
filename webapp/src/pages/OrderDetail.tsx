@@ -389,7 +389,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     } catch (ex: any) { toast(ex.message, "err"); } finally { setBusy(false); }
   };
   const deleteHD = async () => {
-    if (!(await confirmDialog("XOÁ hoá đơn KiotViet của đơn này? Không thể hoàn tác.", { danger: true }))) return;
+    if (!(await confirmDialog("XOÁ hoá đơn KiotViet của đơn này? Không thể hoàn tác.", { danger: true, okLabel: "Xoá HĐ" }))) return;
     setBusy(true);
     try { await deleteKiotVietInvoice(threadId); toast("🗑️ Đã xoá hoá đơn KiotViet", "ok"); changed(); }
     catch (ex: any) { toast(ex.message, "err"); } finally { setBusy(false); }
@@ -522,7 +522,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       <div class="dmain">
       <div class="card">
         <div class="row space">
-          <b>Nội dung đơn</b>
+          <div class="ie-head">Nội dung đơn</div>
           {editText === null && <button class="btn small" onClick={() => setEditText(j.text || j.text_raw || "")}>Sửa</button>}
         </div>
         {editText === null ? (
@@ -557,7 +557,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
 
       {/* Thao tác nhanh — nút vuông nhảy tới các mục hay dùng, khỏi cuộn tìm */}
       <div class="card od-quick">
-        <b class="od-quick-ttl">Thao tác nhanh</b>
+        <label class="card-label od-quick-ttl">Thao tác nhanh</label>
         <div class="qa-grid">
           <button class="qa" onClick={goCamera}><Icon name="camera" size={22} class="qa-ic" /><span class="qa-lb">Chụp ảnh</span></button>
           <button class={"qa" + (hasInvoice ? "" : " qa-off")} disabled={busy}
@@ -597,7 +597,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       </div>
       <div id="od-invoice">
       <section class="card">
-        <b>Hoá đơn ({(j.invoice || []).length} món){j.kiotvietInvoiceCode ? ` · HĐ ${j.kiotvietInvoiceCode}` : ""}</b>
+        <div class="ie-head">Hoá đơn ({(j.invoice || []).length} món){j.kiotvietInvoiceCode ? ` · HĐ ${j.kiotvietInvoiceCode}` : ""}</div>
         {(j.invoice || []).length > 0
           ? <InvoiceTable items={j.invoice} discount={j.discount} pvc={j.pvc} vat={j.vat}
               debt={j.khDebt ?? j.invoice_debt_snapshot} total={pc.tongthanhtoan || undefined}

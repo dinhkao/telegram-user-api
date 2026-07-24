@@ -1,7 +1,7 @@
 // Trang SỬA phiếu nhập hàng (#/nhap-hang/:id/sua) — tách khỏi trang chi tiết,
 // tương tự trang sửa hoá đơn của đơn. Lưu xong quay về chi tiết phiếu.
 import { useEffect, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import {
   createProduct, getPurchase, searchProducts, soVN,
   updatePurchase, type PurchaseSlip,
@@ -86,15 +86,9 @@ export function PurchaseEdit({ id }: { id: string }) {
 
   return (
     <div class="pur-edit-page">
-      <div class="prod-detail-head">
-        <BackLink fallback={`#/nhap-hang/${id}`} />
-        <div>
-          <div class="prod-sp big"><Icon name="edit" size={18} /> Sửa phiếu nhập</div>
-          <div class="prod-date muted">
-            {purchase.supplier_name || `NCC #${purchase.supplier_id}`} · Phiếu #{purchase.id}
-          </div>
-        </div>
-      </div>
+      <PageHead fallback={`#/nhap-hang/${id}`}
+        title={<><Icon name="edit" size={18} /> Sửa phiếu nhập</>}
+        sub={<>{purchase.supplier_name || `NCC #${purchase.supplier_id}`} · Phiếu #{purchase.id}</>} />
 
       {deleted && (
         <div class="card co-adv-locked muted small">

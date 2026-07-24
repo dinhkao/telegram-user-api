@@ -6,8 +6,8 @@ import { getBoxTimeline, soVN, type BoxTimeline as BT, type BoxTLItem } from "..
 import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
 import { fastScrollToEl } from "../scroll";
-import { BackLink } from "../nav";
 import { Icon } from "../ui/Icon";
+import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState, LoadingInline } from "../ui/states";
 import { dayKeyOf, orderDayLabel } from "../detail/OrderCards";
 
@@ -137,7 +137,7 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
 
   const load = () => {
     getBoxTimeline(boxId)
-      .then((r) => { if (!r) setErr("Không tìm thấy thùng"); else setD(r); })
+      .then((r) => { if (!r) setErr("Không tìm thấy thùng"); else { setD(r); setErr(""); } })
       .catch((e: any) => setErr(e?.message || "Lỗi tải timeline"))
       .finally(() => setLoading(false));
   };
@@ -183,13 +183,9 @@ export function BoxTimeline({ boxId }: { boxId: string }) {
 
   return (
     <div class="place-tl">
-      <div class="prod-detail-head">
-        <BackLink fallback={`#/thung/${d.box.id}`} />
-        <div>
-          <div class="prod-sp big"><Icon name="box" size={17} /> Thùng {d.box.box_num} · {d.box.product_code}</div>
-          <div class="prod-date muted">Timeline biến động thùng</div>
-        </div>
-      </div>
+      <PageHead fallback={`#/thung/${d.box.id}`}
+        title={<><Icon name="box" size={17} /> Thùng {d.box.box_num} · {d.box.product_code}</>}
+        sub="Timeline biến động thùng" />
 
       <div class="pt-head card">
         <div>

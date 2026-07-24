@@ -4,7 +4,7 @@
 // Số thu mỗi khách chặn trần theo "thu được qua đơn" (collectable). Nợ KiotViet chỉ
 // tham chiếu. Nối: api.getDebtors/collectBatch, ui/SearchBar, ui/feedback, realtime.
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { getDebtors, collectBatch, isOffice, type Debtor, type CollectResult } from "../api";
 import { onRealtime } from "../realtime";
 import { money, parseMoney, foldVN } from "../format";
@@ -133,7 +133,7 @@ export function CollectMoney() {
   if (!office) {
     return (
       <div>
-        <div class="prod-detail-head"><BackLink fallback="#/home" /><div class="prod-sp big">Thu tiền hàng loạt</div></div>
+        <PageHead fallback="#/home" title="Thu tiền hàng loạt" />
         <div class="card muted small">🔒 Chỉ văn phòng mới được thu tiền.</div>
       </div>
     );
@@ -143,11 +143,8 @@ export function CollectMoney() {
 
   return (
     <div class="collect">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/home" />
-        <div><div class="prod-sp big">Thu tiền hàng loạt</div>
-          <div class="muted small">{data.count} khách đang nợ · thu được {money(data.total_collectable)}</div></div>
-      </div>
+      <PageHead fallback="#/home" title="Thu tiền hàng loạt"
+        sub={<>{data.count} khách đang nợ · thu được {money(data.total_collectable)}</>} />
 
       {results && (
         <div class="card collect-results">
@@ -222,11 +219,11 @@ export function CollectMoney() {
       {valid.length > 0 && (
         <div class="collect-bar">
           <div class="collect-bar-info">
-            <div class="pay-method collect-method">
-              <button class={"btn" + (method === "Cash" ? " primary" : "")} onClick={() => setMethod("Cash")}>
+            <div class="seg pay-method collect-method" role="tablist">
+              <button class={method === "Cash" ? "seg-btn active" : "seg-btn"} onClick={() => setMethod("Cash")}>
                 <Icon name="banknote" size={15} /> TM
               </button>
-              <button class={"btn" + (method === "Transfer" ? " primary" : "")} onClick={() => setMethod("Transfer")}>
+              <button class={method === "Transfer" ? "seg-btn active" : "seg-btn"} onClick={() => setMethod("Transfer")}>
                 <Icon name="bank" size={15} /> CK
               </button>
             </div>

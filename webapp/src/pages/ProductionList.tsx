@@ -14,9 +14,10 @@ import {
   type KhoBox,
 } from "../api";
 import { onRealtime } from "../realtime";
+import { dayLabel } from "../format";
 import { ProductPicker } from "../detail/ProductPicker";
 import { BoxMiniGrid } from "../detail/BoxMiniGrid";
-import { SkeletonList, EmptyState } from "../ui/states";
+import { SkeletonList, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 
 // Cache list đã tải → quay lại giữ nguyên + hệ cuộn khôi phục vị trí (khỏi tải lại).
@@ -264,7 +265,7 @@ export function ProductionList() {
         {dayF && <button class="chip pf-clear" onClick={() => applyDayFilter("")} title="Bỏ lọc ngày"><Icon name="close" size={13} /></button>}
       </div>
 
-      {err && <div class="error-banner">{err}</div>}
+      {err && <ErrorState msg={err} onRetry={() => load(1, false)} />}
       {loading && !slips.length && <SkeletonList />}
       {!loading && !slips.length && <EmptyState>Chưa có phiếu sản xuất nào.</EmptyState>}
 
@@ -287,31 +288,20 @@ export function ProductionList() {
   );
 }
 
-const _WD = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-
-/** Nhóm phiếu theo NGÀY tạo (slip đã sắp mới→cũ). Trả [{key, label, slips}]. */
+/** Nhóm phiếu theo NGÀY tạo (slip đã sắp mới→cũ). Trả [{key, label, slips}].
+ *  Nhãn ngày = format.dayLabel dùng chung ("Hôm nay · T5 17/07" …) — key
+ *  "DD/MM/YYYY" từ prodCreated quy về "YYYY-MM-DD" trước khi tra. */
 function groupByDay(slips: ProdSlip[]): { key: string; label: string; slips: ProdSlip[] }[] {
   const out: { key: string; label: string; slips: ProdSlip[] }[] = [];
   for (const s of slips) {
     const key = (prodCreated(s).split(" ")[0]) || "?";   // "DD/MM/YYYY"
+    const [d, m, y] = key.split("/");
+    const ymd = d && m && y ? `${y}-${m}-${d}` : "";
     const last = out[out.length - 1];
     if (last && last.key === key) last.slips.push(s);
-    else out.push({ key, label: dayLabel(key), slips: [s] });
+    else out.push({ key, label: dayLabel(ymd), slips: [s] });
   }
   return out;
-}
-
-function dayLabel(key: string): string {
-  const [d, m, y] = key.split("/").map(Number);
-  if (!d || !m || !y) return "Không rõ ngày";
-  const date = new Date(y, m - 1, d);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const diff = Math.round((today.getTime() - date.getTime()) / 86400000);
-  const wd = _WD[date.getDay()];
-  const dm = `${key.slice(0, 5)}`; // DD/MM
-  if (diff === 0) return `Hôm nay · ${wd} ${dm}`;
-  if (diff === 1) return `Hôm qua · ${wd} ${dm}`;
-  return `${wd} · ${key}`;
 }
 
 function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {

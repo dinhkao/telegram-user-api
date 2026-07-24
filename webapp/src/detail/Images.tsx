@@ -9,6 +9,7 @@ import { PhotoViewer } from "./PhotoViewer";
 import { CameraBox, cameraSupported } from "./CameraBox";
 import { confirmDialog } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
+import { ErrorState } from "../ui/states";
 import { KIND_ORDER, KIND_LABEL, KIND_ICON, kindOf, isOrderBase } from "./imageKinds";
 
 type Pending = { key: number; url: string };
@@ -18,7 +19,6 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
   const [images, setImages] = useState<OrderImage[]>([]);
   const [pending, setPending] = useState<Pending[]>([]);
   const [err, setErr] = useState("");
-  const [dbg, setDbg] = useState<string[]>([]);
   const [lightbox, setLightbox] = useState<OrderImage | null>(null);
   const [camOpen, setCamOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -29,9 +29,6 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
   // (đang xem "Soạn hàng" → ảnh mới gắn soạn hàng; "Tất cả" → mặc định soạn hàng)
   const [filter, setFilter] = useState<string>("all");
   const uploadKind = filter !== "all" ? filter : "soan_hang";
-
-  // Chẩn đoán trên máy: hiện từng bước để biết ảnh gallery hỏng ở đâu
-  const logDbg = (m: string) => setDbg((p) => [...p.slice(-11), m]);
 
   const load = async () => {
     try {
@@ -80,7 +77,6 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
     } catch (ex: any) {
       const m = ex?.message || String(ex);
       setErr(`Lỗi tải ${nm}: ${m}`);
-      logDbg(`❌ ${nm} (${(file.size / 1024) | 0}KB, ${file.type || "no-type"}): ${m}`);
       return false;
     } finally {
       setPending((prev) => prev.filter((x) => x.key !== key));
@@ -91,7 +87,6 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
   const onPick = async (e: any) => {
     const files: FileList = e.target.files;
     setErr("");
-    setDbg([]);
     if (!files || !files.length) return;
     // Ảnh từ gallery/content-provider có thể có MIME rỗng hoặc lạ → đừng lọc gắt,
     // nhận cả file không có type hoặc có đuôi ảnh (HEIC iOS…). processImage tự báo lỗi nếu không đọc được.
@@ -105,11 +100,11 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
     }
     const oks = await Promise.all(imgs.map(uploadOne)); // upload song song cho nhanh
     await load(); // đồng bộ danh sách chuẩn từ server
-    if (oks.every(Boolean)) setDbg([]); // thành công hết → ẩn khối chẩn đoán
+    if (oks.every(Boolean)) setErr(""); // thành công hết → ẩn lỗi cũ
   };
 
   const remove = async (img: OrderImage) => {
-    if (!(await confirmDialog("Xoá ảnh này? Ảnh vẫn hiển thị nhưng bị gạch X.", { danger: true }))) return;
+    if (!(await confirmDialog("Xoá ảnh này? Ảnh vẫn hiển thị nhưng bị gạch X.", { danger: true, okLabel: "Xoá ảnh" }))) return;
     // XOÁ MỀM: đánh dấu tại chỗ (hiện X ngay) — KHÔNG rút khỏi danh sách
     setImages((prev) => prev.map((x) => (x.id === img.id
       ? { ...x, deleted_at: Math.floor(Date.now() / 1000) } : x)));
@@ -176,10 +171,7 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
       {/* Camera = popup (portal ra body) */}
       {camOpen && <CameraBox base={base} kind={isOrder ? uploadKind : undefined} onUploaded={load} onClose={() => setCamOpen(false)} />}
 
-      {err && <p class="error small">{err}</p>}
-      {dbg.length > 0 && (
-        <pre class="img-dbg" onClick={() => setDbg([])}>{dbg.join("\n")}</pre>
-      )}
+      {err && <ErrorState msg={err} />}
 
       {count === 0 ? (
         <p class="muted small">Chưa có ảnh. Bấm <Icon name="camera" size={14} /> Chụp hoặc <Icon name="image" size={14} /> Chọn để thêm.</p>

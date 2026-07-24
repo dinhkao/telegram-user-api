@@ -46,7 +46,7 @@ function IngSection({ productCode, lines, aux, onChanged }: {
     try {
       await setRecipeLine(productCode, code, r, aux, u && u.factor !== 1 ? u : null);
       setIng(""); setRatio(""); setUnitName(null); setUnitChoices([]);
-      onChanged(); toast("✅ Đã lưu", "ok");
+      onChanged(); toast("Đã lưu", "ok");
     }
     catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
     finally { setBusy(false); }

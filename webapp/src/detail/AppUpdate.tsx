@@ -8,6 +8,7 @@ import { useEffect, useState } from "preact/hooks";
 import { getApkVersion, forceReloadAll, currentUser, type ApkVersion } from "../api";
 import { Icon } from "../ui/Icon";
 import { toast, confirmDialog } from "../ui/feedback";
+import { ErrorState } from "../ui/states";
 
 const LS_KEY = "apk_installed_vc"; // proxy khi KHÔNG có cầu native
 
@@ -64,7 +65,7 @@ export function AppUpdate() {
         <button class="btn small" disabled={checking} onClick={check}>{checking ? "Đang kiểm tra…" : <><Icon name="refresh" size={14} /> Kiểm tra</>}</button>
       </div>
 
-      {err && <p class="error">{err}</p>}
+      {err && <ErrorState msg={err} />}
 
       {!latest ? (
         !err && <p class="muted small">Đang kiểm tra…</p>

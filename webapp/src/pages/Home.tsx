@@ -6,6 +6,7 @@ import { currentUser } from "../api";
 import { foldVN } from "../format";
 import { Icon } from "../ui/Icon";
 import { SearchBar } from "../ui/SearchBar";
+import { EmptyState } from "../ui/states";
 
 type Item = { label: string; href: string; icon: string; office?: boolean; admin?: boolean };
 type Group = { title: string; icon: string; items: Item[] };
@@ -106,11 +107,10 @@ export function Home() {
         );
       })}
       {!visibleGroups.length && (
-        <div class="home-empty">
-          <Icon name="search" size={24} />
-          <span>Không tìm thấy mục phù hợp</span>
+        <EmptyState icon="🔍">
+          Không tìm thấy mục phù hợp{" "}
           <button class="btn small" onClick={() => setQuery("")}>Xoá tìm kiếm</button>
-        </div>
+        </EmptyState>
       )}
     </div>
   );

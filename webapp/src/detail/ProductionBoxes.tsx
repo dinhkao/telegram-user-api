@@ -168,7 +168,7 @@ export function ProductionBoxes({
     setCamBases(null);
     if (requirePhoto && caps.length === 0) {
       setMsg("Chưa chụp ảnh — chưa tạo thùng. Bấm “Nhập” để làm lại.");
-      toast("⚠ Chưa chụp ảnh — thùng CHƯA được tạo", "err");
+      toast("Chưa chụp ảnh — thùng CHƯA được tạo", "err");
       return;
     }
     setBusy(true);
@@ -264,7 +264,7 @@ export function ProductionBoxes({
         <span class="pb-lb"><Icon name="tag" size={15} /> Sản phẩm</span>
         <div class="pb-ctl">
           <PickerPopup value={prodCode} placeholder="Chọn SP" allowFreeText
-            onSearch={async (q): Promise<PickOpt[]> => (await searchProducts(q).catch(() => [])).map((s) => {
+            onSearch={async (q): Promise<PickOpt[]> => (await searchProducts(q)).map((s) => {
               dirRef.current.set(s.code, s.can_produce_directly !== false);
               pkgRef.current.set(s.code, s.can_package === true);
               // phiếu SX → cần SX trực tiếp; phiếu đóng gói → cần cờ Đóng gói
@@ -393,8 +393,9 @@ export function ProductionBoxes({
       )}
 
       {codeBoxes && (
-        <div class="cam-overlay">
-          <div class="pb-codes-pop">
+        /* cố ý KHÔNG cho bấm nền để đóng — phải xác nhận đã ghi số lên thùng */
+        <div class="modal-overlay">
+          <div class="modal-sheet pb-codes-pop">
             <div class="pb-codes-title">✍️ Hãy ghi lên thùng trước khi đóng popup này</div>
             <BoxLabelGrid boxes={codeBoxes} />
             <button class="btn primary block" onClick={() => setCodeBoxes(null)}>Đã ghi xong</button>

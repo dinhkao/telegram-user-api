@@ -14,7 +14,7 @@ import { WorkerChips } from "../detail/WorkerChips";
 
 const dmy = (ymd: string) => (ymd && ymd.length >= 10 ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}` : ymd);
 const dm = (ymd: string) => (ymd && ymd.length >= 10 ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}` : ymd);
-const money = (n: number) => soVN(Math.round(n)) + "đ";
+import { moneyD as money } from "../format";
 // "7:00" / "7h" / "7" → "07:00"; giữ nguyên nếu không parse được
 const hhmm = (s: string) => {
   const m = String(s || "").trim().match(/^(\d{1,2})(?:[:hg.](\d{1,2})?)?$/i);
@@ -81,7 +81,7 @@ export function ReportSlipDetail({ id }: { id: string }) {
 
   const del = async () => {
     if (!slip) return;
-    const ok = await confirmDialog(`Xoá phiếu báo cáo ${dmy(slip.from_ymd)} → ${dmy(slip.to_ymd)}? (số liệu SX không bị ảnh hưởng)`, { danger: true });
+    const ok = await confirmDialog(`Xoá phiếu báo cáo ${dmy(slip.from_ymd)} → ${dmy(slip.to_ymd)}? (số liệu SX không bị ảnh hưởng)`, { danger: true, okLabel: "Xoá phiếu" });
     if (!ok) return;
     try {
       await deleteReportSlip(slip.id);
@@ -104,7 +104,7 @@ export function ReportSlipDetail({ id }: { id: string }) {
       ) : undefined} />
   );
 
-  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="lock">Chỉ văn phòng được xem báo cáo.</EmptyState></div>;
+  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="🔒">Chỉ văn phòng được xem báo cáo.</EmptyState></div>;
   if (err) return <div class="rs-page">{head}<ErrorState msg={err} onRetry={load} /></div>;
   if (!slip || !slip.report) return <div class="rs-page">{head}<Loading /></div>;
 
@@ -117,7 +117,7 @@ export function ReportSlipDetail({ id }: { id: string }) {
 
       {editing && (
         <section class="card rs-create">
-          <label class="card-label">✏️ Sửa phiếu báo cáo</label>
+          <label class="card-label"><Icon name="edit" size={15} /> Sửa phiếu báo cáo</label>
           <div class="rs-dates">
             <label class="rs-date-f">
               <span class="muted small">Từ ngày</span>
@@ -174,7 +174,7 @@ export function ReportSlipDetail({ id }: { id: string }) {
       <section class="rs-sec">
         <div class="rs-sec-h"><Icon name="users" size={15} /> Theo thợ</div>
         {rep.workers.length === 0 ? (
-          <EmptyState icon="check">Không có báo cáo thợ nào trong khoảng này.</EmptyState>
+          <EmptyState icon="✅">Không có báo cáo thợ nào trong khoảng này.</EmptyState>
         ) : (
           <div class="wg-workers card rs-list">
             {rep.workers.map((w) => {
@@ -237,7 +237,7 @@ export function ReportSlipDetail({ id }: { id: string }) {
       <section class="rs-sec">
         <div class="rs-sec-h"><Icon name="factory" size={15} /> Từng phiếu sản xuất</div>
         {rep.phieus.length === 0 ? (
-          <EmptyState icon="check">Không có phiếu SX nào trong khoảng này.</EmptyState>
+          <EmptyState icon="✅">Không có phiếu SX nào trong khoảng này.</EmptyState>
         ) : (
           <div class="card rs-list">
             {rep.phieus.map((p) => (

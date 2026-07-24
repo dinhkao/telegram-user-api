@@ -3,6 +3,7 @@
 // đầu ("📍 Trang bạn đang xem"), phần còn lại nhóm theo mục. Nội dung tĩnh (HTML do ta
 // viết) từ guides/registry.ts. Nối: ui/Icon, nav.BackLink, guides/*.
 import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import { Icon } from "../ui/Icon";
 import { currentUser, isOffice } from "../api";
 import type { Guide } from "../guides/types";
@@ -58,6 +59,7 @@ export function GuidesList({ hash }: { hash: string }) {
 
   return (
     <div class="guide-list">
+      <PageHead fallback="#/home" title={<><Icon name="info" size={18} /> Hướng dẫn sử dụng</>} />
       <div class="muted small guide-intro">
         Chọn 1 bài để xem cách dùng. Có thắc mắc gì cứ hỏi Duy.
       </div>

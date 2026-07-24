@@ -2,7 +2,8 @@
 // của NCC + tạo phiếu nhập ngay tại đây; ảnh + trao đổi + lịch sử dùng entity
 // media scope 'supplier'. Xoá = admin (server chặn nếu còn phiếu nhập).
 import { useEffect, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
+import { fmtDateTimeVN } from "../format";
 import {
   getSupplier, updateSupplier, deleteSupplier, currentUser, isOffice, soVN,
   type Supplier, type PurchaseSlip,
@@ -68,7 +69,7 @@ export function SupplierDetail({ id }: { id: string }) {
   const doDelete = async () => {
     if (!isAdmin) return toast("Chỉ admin mới được xoá nhà cung cấp", "info");
     if (purchases.length) return toast("NCC còn phiếu nhập — xoá các phiếu nhập trước", "info");
-    if (!(await confirmDialog(`Xoá nhà cung cấp "${s.name}"?`, { danger: true }))) return;
+    if (!(await confirmDialog(`Xoá nhà cung cấp "${s.name}"?`, { danger: true, okLabel: "Xoá NCC" }))) return;
     setBusy(true);
     try {
       await deleteSupplier(Number(id));
@@ -86,15 +87,9 @@ export function SupplierDetail({ id }: { id: string }) {
 
   return (
     <div class="ret-detail">
-      <div class="prod-detail-head">
-        <BackLink fallback="#/ncc" />
-        <div>
-          <div class="prod-sp big"><Icon name="users" size={18} /> {s.name}</div>
-          <div class="prod-date muted">
-            {purchases.length ? `${purchases.length} phiếu nhập · tổng ${soVN(total)}đ` : "Chưa có phiếu nhập"}
-          </div>
-        </div>
-      </div>
+      <PageHead fallback="#/ncc"
+        title={<><Icon name="users" size={18} /> {s.name}</>}
+        sub={purchases.length ? `${purchases.length} phiếu nhập · tổng ${soVN(total)}đ` : "Chưa có phiếu nhập"} />
       {deleted && <div class="error-banner">NCC đã bị xoá{s.deleted_by ? ` bởi ${s.deleted_by}` : ""}</div>}
 
       <section class="card">
@@ -142,7 +137,7 @@ export function SupplierDetail({ id }: { id: string }) {
           <a class="ret-card pur-card" href={`#/nhap-hang/${p.id}`} key={p.id}>
             <div class="ret-card-top">
               <span class="ret-cust">
-                {p.created_at ? `${p.created_at.slice(8, 10)}/${p.created_at.slice(5, 7)}/${p.created_at.slice(0, 4)}` : `Phiếu #${p.id}`}
+                {p.created_at ? fmtDateTimeVN(p.created_at) : `Phiếu #${p.id}`}
               </span>
               <span class="pur-amt">+{soVN(p.total)}</span>
             </div>

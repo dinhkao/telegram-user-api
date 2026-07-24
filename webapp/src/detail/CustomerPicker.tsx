@@ -13,8 +13,8 @@ export function CustomerPicker({ onPick, placeholder }: {
   const [picked, setPicked] = useState("");
   const search = async (v: string): Promise<PickOpt[]> => {
     if (!v.trim()) return [];
-    const d = await getJSON(`/api/customers?search=${encodeURIComponent(v)}&limit=10`, { cache: false })
-      .catch(() => ({ customers: [] }));
+    // KHÔNG nuốt lỗi thành list rỗng — PickerPopup hiện ErrorState + Thử lại
+    const d = await getJSON(`/api/customers?search=${encodeURIComponent(v)}&limit=10`, { cache: false });
     return (d.customers || []).map((c: any) => ({
       key: c.key, label: c.name, sub: c.debt ? `nợ ${money(c.debt)}` : undefined,
     }));
@@ -22,6 +22,7 @@ export function CustomerPicker({ onPick, placeholder }: {
   return (
     <PickerPopup
       value={picked}
+      title="Chọn khách hàng"
       placeholder={placeholder || "Tìm khách hàng"}
       onSearch={search}
       onPick={(o) => { setPicked(o.label); onPick({ key: o.key, name: o.label }); }}

@@ -12,7 +12,7 @@ import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast } from "../ui/feedback";
 import { ProductPicker } from "../detail/ProductPicker";
 
-const money = (n: number) => soVN(Math.round(n)) + "đ";
+import { moneyD as money } from "../format";
 
 export function WageTable() {
   const [rows, setRows] = useState<WageEntry[] | null>(null);
@@ -66,7 +66,7 @@ export function WageTable() {
       sub="đơn giá tiền công / 1 SP theo mã — sửa là dashboard tiền tự tính lại" />
   );
 
-  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="lock">Chỉ văn phòng được xem bảng lương.</EmptyState></div>;
+  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="🔒">Chỉ văn phòng được xem bảng lương.</EmptyState></div>;
   if (err) return <div class="rs-page">{head}<ErrorState msg={err} onRetry={load} /></div>;
   if (!rows) return <div class="rs-page">{head}<Loading /></div>;
 
@@ -78,7 +78,7 @@ export function WageTable() {
       {head}
 
       <section class="card rs-create">
-        <label class="card-label">➕ Thêm mã vào bảng lương</label>
+        <label class="card-label"><Icon name="plus" size={15} /> Thêm mã vào bảng lương</label>
         <div class="wt-add">
           <div class="wt-add-code"><ProductPicker catalog={catalog} value={newCode} onPick={setNewCode} placeholder="Tìm mã SP" /></div>
           <input class="wt-add-luong" type="text" inputMode="numeric" placeholder="đ/SP" value={newLuong}
@@ -90,7 +90,7 @@ export function WageTable() {
       <SearchBar value={q} onInput={setQ} placeholder="Lọc mã / tên SP…" />
 
       {shown.length === 0 ? (
-        <EmptyState icon="wallet">{qn ? "Không có mã nào khớp." : "Bảng lương trống — thêm mã ở trên."}</EmptyState>
+        <EmptyState icon="💰">{qn ? "Không có mã nào khớp." : "Bảng lương trống — thêm mã ở trên."}</EmptyState>
       ) : (
         <div class="card rs-list">
           {shown.map((r) => (

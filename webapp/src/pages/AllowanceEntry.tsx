@@ -8,15 +8,11 @@ import {
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
-import { Loading, EmptyState } from "../ui/states";
+import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const money = (n: number) => soVN(Math.round(n || 0));
+import { moneyR as money, pad2 as pad, curYM, shiftYM, ymLabel, isoDate } from "../format";
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
-const curYM = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
-const shiftYM = (ym: string, d: number) => { const [y, m] = ym.split("-").map(Number); const dt = new Date(y, m - 1 + d, 1); return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`; };
-const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
 // created_at DB = "YYYY-MM-DD HH:MM:SS" giờ VN (salary_store: datetime('now','+7 hours')) → "18/7 19:25"
 const tsLabel = (s?: string) => (s && s.length >= 16 ? `${Number(s.slice(8, 10))}/${Number(s.slice(5, 7))} ${s.slice(11, 16)}` : "");
 const initialFilter = () => {
@@ -36,11 +32,13 @@ export function AllowanceEntry() {
   const [amt, setAmt] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
 
   const load = () => {
     setAllows(null);
+    setErr("");
     const request = filterWid ? listPayrollAllowances(ym, filterWid) : listAllAllowances(ym);
-    request.then(setAllows).catch(() => setAllows([]));
+    request.then(setAllows).catch((e: any) => { setErr(e?.message || "Lỗi tải danh sách phụ cấp"); setAllows([]); });
   };
   useEffect(() => { listWorkers().then(({ workers }) => setWorkers(workers)).catch(() => {}); }, []);
   useEffect(() => { load(); }, [ym, filterWid]);
@@ -78,6 +76,7 @@ export function AllowanceEntry() {
 
   const head = <PageHead fallback="#/home" title={<><Icon name="banknote" size={18} /> Nhập phụ cấp</>} sub="ghi phụ cấp cho thợ theo tháng" />;
   if (!isOffice()) return <div class="pr-page">{head}<EmptyState icon="🔒">Chỉ văn phòng.</EmptyState></div>;
+  if (err) return <div class="pr-page">{head}<ErrorState msg={err} onRetry={load} /></div>;
 
   return (
     <div class="pr-page">
@@ -89,7 +88,7 @@ export function AllowanceEntry() {
       </div>
 
       <section class="card ua-create">
-        <label class="card-label">Ghi phụ cấp</label>
+        <label class="card-label"><Icon name="plus" size={15} /> Ghi phụ cấp</label>
         <SelectPopup value={wid} options={wopts} onChange={(v) => setWid(Number(v))}
           searchable placeholder="Chọn thợ…" title="Chọn thợ" />
         <div class="ua-form">

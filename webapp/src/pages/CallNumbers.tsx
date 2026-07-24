@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { callNumbers, soVN, type CallMapResult, type CallNumberBox } from "../api";
 import { onRealtime } from "../realtime";
 import { PageHead } from "../ui/PageHead";
-import { Loading, ErrorState } from "../ui/states";
+import { Loading, EmptyState, ErrorState } from "../ui/states";
 
 type Filt = "all" | "instock" | "disabled" | "free";
 // Field mới của API (blocks/next_code) chưa có trong api.ts — mở rộng type tại chỗ.
@@ -104,7 +104,7 @@ export function CallNumbers() {
       </div>
 
       {!anyCell ? (
-        <div class="cn-empty">Không có số nào ở nhóm này.</div>
+        <EmptyState>Không có số nào ở nhóm này.</EmptyState>
       ) : (
         sections.filter((s) => s.ns.length > 0).map((s) => (
           <div key={s.b || "0"}>

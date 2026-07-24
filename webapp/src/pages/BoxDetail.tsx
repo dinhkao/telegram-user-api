@@ -5,10 +5,11 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { boxDetail, updateBox, setBoxDisabled, deleteBox, returnBoxMaterial, transferBox, allBoxes, listPlaces, createPlace, setBoxPlace, listUnits, createUnit, setBoxUnit, createDisposal, currentUser, soVN, type InvBoxDetail, type InvBox, type KhoBox, type Place, type Unit } from "../api";
 import { onRealtime } from "../realtime";
+import { fmtDateTimeVN } from "../format";
 import { BoxAdjust } from "../detail/BoxAdjust";
 import { QtyUnitPicker, baseChoice, toBaseQty, type UnitChoice } from "../detail/QtyUnitPicker";
 import { Loading, ErrorState } from "../ui/states";
-import { confirmDialog, toast } from "../ui/feedback";
+import { confirmDialog, noticeDialog, toast } from "../ui/feedback";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "../detail/CameraBox";
 import { Images } from "../detail/Images";
 import { Comments } from "../detail/Comments";
@@ -17,14 +18,6 @@ import { Icon } from "../ui/Icon";
 import { SelectPopup } from "../ui/SelectPopup";
 
 const isDisabled = (b: InvBox) => !!b.disabled;
-
-function fmtWhen(iso?: string | null): string {
-  if (!iso) return "—";
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-  if (!m) return iso;
-  const [, y, mo, d, hh, mi] = m;
-  return `${d}/${mo}/${y} ${hh}:${mi}`;
-}
 
 export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
   // Deep-link từ timeline kho: ?focus=hist:<ts> → History cuộn + nháy thao tác đó
@@ -83,6 +76,7 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
         if (!r) setErr("Không tìm thấy thùng");
         else {
           setD(r);
+          setErr("");
           setNoteInput(r.box.note || "");
           setMfgInput(r.box.mfg_date || "");
         }
@@ -119,7 +113,7 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
         setTimeout(() => setNoteSaved(false), 1500);
       }
     } catch (e: any) {
-      setErr(e?.message || "Lỗi lưu ghi chú");
+      toast(e?.message || "Lỗi lưu ghi chú", "err");
     }
   };
 
@@ -129,7 +123,7 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
       const b = await updateBox(boxId, { mfg_date: v });
       if (b) setD({ ...d, box: b });
     } catch (e: any) {
-      setErr(e?.message || "Lỗi lưu ngày SX");
+      toast(e?.message || "Lỗi lưu ngày SX", "err");
     }
   };
 
@@ -157,12 +151,12 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
       if (rest.length) {
         const lines = rest.flatMap((m) => (m.boxes || []).map(
           (bx) => `• ${soVN(bx.amount)} ${m.code} → thùng ${bx.box_code} (id ${bx.box_id})`));
-        await confirmDialog(`✅ Đã hoàn nguyên liệu về kho:\n${lines.join("\n")}`, { okLabel: "OK", cancelLabel: "Đóng" });
+        await noticeDialog(`Đã hoàn nguyên liệu về kho:\n${lines.join("\n")}`);
       }
       const code = d.box.product_code;
       window.location.hash = `#/kho/${encodeURIComponent(code)}`;
     } catch (e: any) {
-      setErr(e?.message || "Lỗi xoá thùng");
+      toast(e?.message || "Lỗi xoá thùng", "err");
       setDisBusy(false);
     }
   };
@@ -184,11 +178,11 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
       if (rest.length) {
         const lines = rest.flatMap((m) => (m.boxes || []).map(
           (bx: any) => `• ${soVN(bx.amount)} ${m.code} → thùng ${bx.box_code}${bx.fresh ? " (mới)" : ""}`));
-        await confirmDialog(`✅ Đã trả về nguyên liệu:\n${lines.join("\n")}`, { okLabel: "OK", cancelLabel: "Đóng" });
+        await noticeDialog(`Đã trả về nguyên liệu:\n${lines.join("\n")}`);
       }
       reload(false);
     } catch (e: any) {
-      setErr(e?.message || "Lỗi trả về nguyên liệu");
+      toast(e?.message || "Lỗi trả về nguyên liệu", "err");
     } finally {
       setDisBusy(false);
     }
@@ -303,7 +297,7 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
       const b2 = await setBoxDisabled(boxId, false, "");
       if (b2) setD({ ...d, box: b2 });
     } catch (e: any) {
-      setErr(e?.message || "Lỗi cập nhật");
+      toast(e?.message || "Lỗi cập nhật", "err");
     } finally {
       setDisBusy(false);
     }
@@ -313,7 +307,7 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
   if (err || !d)
     return (
       <>
-        <ErrorState msg={err || "Không tìm thấy thùng"} />
+        <ErrorState msg={err || "Không tìm thấy thùng"} onRetry={() => reload(true)} />
         <p class="muted center"><a href="#/kho">← Kho</a></p>
       </>
     );
@@ -450,7 +444,7 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
         </div>
         <div class="box-kv">
           <span class="box-k">Ngày nhập</span>
-          <span class="box-v">{fmtWhen(b.created_at)}</span>
+          <span class="box-v">{fmtDateTimeVN(b.created_at) || "—"}</span>
         </div>
       </section>
 
@@ -618,7 +612,7 @@ export function BoxDetail({ boxId, focus }: { boxId: string; focus?: string }) {
                 icon = "clipboard"; href = `#/order/${a.order_thread_id}?focus=box:${b.id}`;
                 title = a.order_text ? `Đơn “${a.order_text}”` : `Đơn #${a.order_thread_id}`;
               }
-              const sub = [a.allocated_by, a.allocated_at ? fmtWhen(a.allocated_at) : ""].filter(Boolean).join(" · ");
+              const sub = [a.allocated_by, a.allocated_at ? fmtDateTimeVN(a.allocated_at) : ""].filter(Boolean).join(" · ");
               return (
                 <a class="alloc-card" href={href} key={a.allocation_id}>
                   <span class={"alloc-ic " + (inbound ? "in" : "out")}><Icon name={icon as any} size={17} /></span>

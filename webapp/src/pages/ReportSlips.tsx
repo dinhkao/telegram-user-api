@@ -12,10 +12,9 @@ import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast } from "../ui/feedback";
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+import { pad2 as pad, isoDate as iso } from "../format";
 const dmy = (ymd: string) => (ymd && ymd.length >= 10 ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}` : ymd);
-const money = (n: number) => soVN(Math.round(n)) + "đ";
+import { moneyD as money } from "../format";
 
 // Thứ Hai của tuần chứa `d`
 function monday(d: Date): Date {
@@ -82,7 +81,7 @@ export function ReportSlips() {
       sub="phiếu báo cáo theo khoảng ngày — SP + tiền công thợ" />
   );
 
-  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="lock">Chỉ văn phòng được xem báo cáo.</EmptyState></div>;
+  if (!isOffice()) return <div class="rs-page">{head}<EmptyState icon="🔒">Chỉ văn phòng được xem báo cáo.</EmptyState></div>;
   if (err) return <div class="rs-page">{head}<ErrorState msg={err} onRetry={load} /></div>;
 
   return (
@@ -90,7 +89,7 @@ export function ReportSlips() {
       {head}
 
       <section class="card rs-create">
-        <label class="card-label">➕ Tạo phiếu báo cáo</label>
+        <label class="card-label"><Icon name="plus" size={15} /> Tạo phiếu báo cáo</label>
         <div class="rs-dates">
           <label class="rs-date-f">
             <span class="muted small">Từ ngày</span>
@@ -116,7 +115,7 @@ export function ReportSlips() {
       {slips === null ? (
         <Loading />
       ) : slips.length === 0 ? (
-        <EmptyState icon="receipt">Chưa có phiếu báo cáo nào — chọn khoảng ngày ở trên để tạo.</EmptyState>
+        <EmptyState icon="🧾">Chưa có phiếu báo cáo nào — chọn khoảng ngày ở trên để tạo.</EmptyState>
       ) : (
         slips.map((s) => (
           <a class="card rs-row" key={s.id} href={`#/bao-cao/${s.id}`}>

@@ -10,7 +10,7 @@ import { usePopupBack } from "./usePopupBack";
 
 type Kind = "ok" | "err" | "info";
 type Toast = { id: number; msg: string; kind: Kind };
-type Confirm = { msg: string; content?: any; okLabel: string; cancelLabel: string; danger: boolean; imageUrl?: string; resolve: (v: boolean) => void };
+type Confirm = { msg: string; content?: any; okLabel: string; cancelLabel: string; danger: boolean; imageUrl?: string; notice?: boolean; resolve: (v: boolean) => void };
 
 let _id = 0;
 let toasts: Toast[] = [];
@@ -51,6 +51,16 @@ export function confirmDialog(msg: string, opts: { okLabel?: string; cancelLabel
     // Nếu đang có hộp khác → huỷ hộp cũ (trả false) để không kẹt.
     if (current) current.resolve(false);
     current = { msg, content: opts.content, okLabel: opts.okLabel ?? "Đồng ý", cancelLabel: opts.cancelLabel ?? "Huỷ", danger: !!opts.danger, imageUrl: opts.imageUrl, resolve };
+    emitCf();
+  });
+}
+
+/** Hộp THÔNG BÁO 1 nút (thay alert() / confirm 2-nút-đều-là-đóng) — cho kết quả
+ *  nhiều dòng mà toast không chứa nổi. */
+export function noticeDialog(msg: string, opts: { okLabel?: string } = {}): Promise<void> {
+  return new Promise((resolve) => {
+    if (current) current.resolve(false);
+    current = { msg, okLabel: opts.okLabel ?? "Đóng", cancelLabel: "", danger: false, notice: true, resolve: () => resolve() };
     emitCf();
   });
 }
@@ -103,7 +113,7 @@ export function FeedbackHost() {
             {cf.content ? <div class="cf-msg">{cf.content}</div> : <p class="cf-msg">{cf.msg}</p>}
             {cf.imageUrl && <img class="cf-img" src={cf.imageUrl} alt="Xem trước" />}
             <div class="cf-actions">
-              <button class="btn" onClick={() => close(false)}>{cf.cancelLabel}</button>
+              {!cf.notice && <button class="btn" onClick={() => close(false)}>{cf.cancelLabel}</button>}
               <button class={cf.danger ? "btn danger" : "btn primary"} onClick={() => close(true)}>{cf.okLabel}</button>
             </div>
           </div>

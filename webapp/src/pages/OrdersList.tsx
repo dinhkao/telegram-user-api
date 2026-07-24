@@ -11,7 +11,7 @@ import {
   type OrderRow, statusLabel, Highlight, InvoiceMini, LastAction,
   groupOrdersByDay, UltraBody, CardBody, CompactBody, NEW_ORDER_SEC, orderAllDone,
 } from "../detail/OrderCards";
-import { Loading, EmptyState, SkeletonList } from "../ui/states";
+import { Loading, EmptyState, ErrorState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
 import { fastScrollTop } from "../scroll";
@@ -576,7 +576,7 @@ export function OrdersList() {
         <button class={sort === "giao_at" ? "sort-opt active" : "sort-opt"} onClick={() => changeSort("giao_at")}>Ngày giao</button>
       </div>
       {stale && <p class="muted small">⚠️ Dữ liệu lưu sẵn (mất mạng)</p>}
-      {err && <p class="error">{err}</p>}
+      {err && <ErrorState msg={err} onRetry={() => load(1, search, filter, false)} />}
       {loading && !visible.length && <SkeletonList rows={5} />}
       <ul class="order-list">
         {view === "ultra" && groupOrdersByDay(visible, sort).map((g) => (

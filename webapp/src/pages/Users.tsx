@@ -1,12 +1,12 @@
 // Trang quản lý user (#/users) — CHỈ admin. Đổi vai trò, khoá/mở, đặt lại PIN, thêm
 // user. Data: /api/users*. Không realtime (thao tác admin ít) — tải lại sau mỗi lệnh.
 import { useEffect, useState } from "preact/hooks";
-import { BackLink } from "../nav";
+import { PageHead } from "../ui/PageHead";
 import {
   listUsers, createUser, setUserRole, setUserDisabled, setUserPin,
   currentUser, ROLE_LABEL, type WebUser,
 } from "../api";
-import { Loading, EmptyState } from "../ui/states";
+import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, confirmDialog, promptDialog } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 import { SelectPopup } from "../ui/SelectPopup";
@@ -81,7 +81,7 @@ export function Users() {
   if (me?.role !== "admin") {
     return (
       <div class="detail">
-        <header class="od-appbar"><BackLink fallback="#/orders" className="od-back" /><div class="od-appttl">Quản lý user</div></header>
+        <PageHead fallback="#/orders" title="Quản lý user" />
         <EmptyState icon="🔒">Chỉ admin mới được quản lý user.</EmptyState>
       </div>
     );
@@ -89,16 +89,13 @@ export function Users() {
 
   return (
     <div class="detail users-page">
-      <header class="od-appbar">
-        <BackLink fallback="#/orders" className="od-back" />
-        <div class="od-appttl"><Icon name="users" size={18} /> Quản lý user</div>
-      </header>
+      <PageHead fallback="#/orders" title={<><Icon name="users" size={18} /> Quản lý user</>} />
 
-      {err && <div class="error-banner">{err}</div>}
+      {err && <ErrorState msg={err} onRetry={load} />}
       {loading ? <Loading /> : (
         <>
           <section class="card">
-            <b>Thêm user</b>
+            <label class="card-label">Thêm user</label>
             <div class="usr-form">
               <input class="quy-input" placeholder="username" value={nu} onInput={(e: any) => setNu(e.currentTarget.value)} />
               <input class="quy-input" placeholder="Tên hiển thị" value={nn} onInput={(e: any) => setNn(e.currentTarget.value)} />
@@ -111,7 +108,7 @@ export function Users() {
 
           {users.length === 0 ? <EmptyState>Chưa có user.</EmptyState> : (
             <section class="card">
-              <b>Danh sách ({users.length})</b>
+              <label class="card-label">Danh sách ({users.length})</label>
               <ul class="usr-list">
                 {users.map((u) => (
                   <li class={"usr-row" + (u.disabled ? " off" : "")} key={u.username}>

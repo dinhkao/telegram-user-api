@@ -8,6 +8,7 @@ import { Icon } from "../ui/Icon";
 import { toast } from "../ui/feedback";
 import { SearchBar } from "../ui/SearchBar";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
+import { PageHead } from "../ui/PageHead";
 
 export function PlacesList() {
   const [places, setPlaces] = useState<Place[] | null>(null);
@@ -32,7 +33,7 @@ export function PlacesList() {
     const name = nName.trim();
     if (!name) return;
     setAdding(true);
-    try { await createPlace(name); setNName(""); await load(); toast(`✅ Tạo ${name}`, "ok"); }
+    try { await createPlace(name); setNName(""); await load(); toast(`Đã tạo `, "ok"); }
     catch (e: any) { toast(e?.message || "Lỗi tạo", "err"); }
     finally { setAdding(false); }
   };
@@ -52,10 +53,9 @@ export function PlacesList() {
 
   return (
     <div class="inv-dash">
-      <div class="row space">
-        <h2 class="page-h"><Icon name="box" size={18} /> Vị trí kho <span class="muted small">({places.length})</span></h2>
-        <a class="btn small" href="#/kho"><Icon name="box" size={15} /> Tất cả thùng</a>
-      </div>
+      <PageHead fallback="#/kho"
+        title={<><Icon name="box" size={18} /> Vị trí kho <span class="muted small">({places.length})</span></>}
+        right={<a class="btn small" href="#/kho"><Icon name="box" size={15} /> Tất cả thùng</a>} />
 
       <div class="row" style={{ gap: "6px", marginBottom: "6px" }}>
         <input class="inv-search" style={{ flex: 1 }} placeholder="Tên vị trí mới (vd Kho C)" value={nName}
