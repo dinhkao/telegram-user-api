@@ -3,6 +3,39 @@ import type { Guide } from "./types";
 
 export const GUIDES_SANXUAT: Guide[] = [
   {
+    key: "ve-sinh-khu-vuc", icon: "leaf", cat: "Sản xuất",
+    title: "Vệ sinh khu vực xưởng",
+    desc: "Tạo khu vực, chụp ảnh báo cáo vệ sinh mỗi ngày, xem khu nào đã/chưa làm.",
+    routes: ["#/khu-vuc"],
+    sections: [
+      { title: "Dùng để làm gì?", html: `
+        <p>Trang <a href="#/khu-vuc">Vệ sinh khu vực</a> (menu <b>☰ Thêm → Sản xuất</b>) giúp cả xưởng
+        theo dõi việc <b>vệ sinh từng khu vực mỗi ngày</b>. Mỗi khu vực phải được <b>chụp ảnh báo cáo</b>
+        khi đã dọn sạch; bảng cho biết ngay <b>khu nào đã báo cáo, khu nào chưa</b> trong hôm nay.</p>
+        <p>Dòng trên cùng ghi <b>"Hôm nay: X/Y khu vực đã báo cáo"</b> — nhìn là biết còn thiếu bao nhiêu khu.</p>` },
+      { title: "Tạo khu vực", html: `
+        <p>Bấm <b>➕ Thêm khu vực</b> ở góc trên, nhập tên (ví dụ <i>Khu đóng gói</i>, <i>Khu nấu</i>,
+        <i>Nhà vệ sinh</i>) rồi <b>Tạo</b>. <b>Mọi người</b> đều tạo được khu vực.</p>
+        <p>Trong chi tiết khu vực, <b>văn phòng</b> có thể sửa tên/ghi chú; <b>admin</b> có thể xoá khu vực
+        (báo cáo cũ vẫn được giữ).</p>` },
+      { title: "Chụp ảnh báo cáo vệ sinh", html: `
+        <ul>
+          <li>Mở một khu vực (chạm vào card) → bấm <b>📷 Báo cáo vệ sinh hôm nay</b>.</li>
+          <li>Camera mở ra — <b>chụp ít nhất 1 ảnh</b> khu vực đã dọn sạch (có thể chụp nhiều tấm hoặc
+            chọn ảnh từ máy), rồi bấm <b>Xong</b>. Báo cáo chỉ tính là hoàn tất khi <b>có ảnh</b>.</li>
+          <li>Nếu hôm nay đã báo cáo rồi, nút đổi thành <b>📷 Chụp thêm ảnh</b> — ảnh mới gộp vào báo cáo hôm nay.</li>
+        </ul>
+        <p class="muted small">Cần dùng app trên điện thoại (HTTPS) để mở camera. Ảnh lưu kèm ngày, người chụp và giờ.</p>` },
+      { title: "Đọc bảng khu vực", html: `
+        <ul>
+          <li>Mỗi card có huy hiệu <b class="t-ok">✓ Đã vệ sinh</b> (xanh) hoặc <b class="t-danger">Chưa báo cáo</b> (đỏ) cho hôm nay.</li>
+          <li>Dòng <b>7 chấm</b> là 7 ngày gần nhất: chấm xanh = ngày đó đã báo cáo, đỏ = bỏ sót; chấm hôm nay có viền nổi.</li>
+          <li>Dòng <b>"BC gần nhất"</b> cho biết lần báo cáo cuối cùng và ai làm.</li>
+          <li>Trong chi tiết khu vực có <b>lịch sử báo cáo theo ngày</b> kèm ảnh — chạm ảnh để xem to; admin có thể xoá báo cáo.</li>
+        </ul>` },
+    ],
+  },
+  {
     key: "san-xuat", icon: "factory", cat: "Sản xuất",
     title: "Phiếu sản xuất & báo cáo thợ",
     desc: "Tạo phiếu SX, nhập số thùng, ghi báo cáo theo từng thợ, xem dashboard sản lượng.",

@@ -447,6 +447,18 @@ def create_app():
     r.add_post("/api/disposals", disposal_create_handler)          # văn phòng
     r.add_get("/api/disposals/{id}", disposal_detail_handler)
     r.add_post("/api/disposals/{id}/delete", disposal_delete_handler)  # admin, hoàn tồn
+
+    from server_app.area_routes import (area_create_handler, area_delete_handler,
+                                         area_detail_handler, area_report_delete_handler,
+                                         area_report_handler, area_update_handler,
+                                         areas_all_handler)
+    r.add_get("/api/areas", areas_all_handler)
+    r.add_post("/api/areas", area_create_handler)                # mọi user tạo khu vực
+    r.add_get("/api/areas/{id}", area_detail_handler)
+    r.add_post("/api/areas/{id}", area_update_handler)           # văn phòng sửa
+    r.add_delete("/api/areas/{id}", area_delete_handler)         # admin xoá mềm
+    r.add_post("/api/areas/{id}/report", area_report_handler)    # mọi user báo cáo hôm nay
+    r.add_post("/api/areas/report/{rid}/delete", area_report_delete_handler)  # admin xoá báo cáo
     from server_app.settings_routes import settings_get_handler, settings_set_handler
     r.add_get("/api/settings", settings_get_handler)
     r.add_post("/api/settings", settings_set_handler)

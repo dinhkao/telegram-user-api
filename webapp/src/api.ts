@@ -487,6 +487,60 @@ export async function deleteDisposal(id: number): Promise<any> {
   return postJSON(`/api/disposals/${id}/delete`, {});
 }
 
+// ── KHU VỰC XƯỞNG + BÁO CÁO VỆ SINH hằng ngày (media scope 'area_report') ─────
+export type AreaWeekDay = { ymd: string; reported: boolean };
+export type AreaRow = {
+  id: number; name: string; note: string;
+  today: { report_id: number | null; photo_count: number; reported: boolean };
+  last_report: { ymd: string; created_at: string; created_by: string } | null;
+  week: AreaWeekDay[];
+  thumb_image_id: number | null;
+  thumb_report_id: number | null;
+};
+export type AreaBoard = { today_ymd: string; areas: AreaRow[]; done_count: number; total: number };
+export type AreaReport = {
+  id: number; area_id: number; ymd: string; note: string;
+  created_at: string; created_by: string; images: number[]; photo_count: number;
+};
+export type AreaDetailData = {
+  area: { id: number; name: string; note: string; created_at: string; created_by: string };
+  reports: AreaReport[]; today_ymd: string;
+};
+
+/** Dashboard khu vực — khu nào đã/chưa vệ sinh hôm nay + dải 7 ngày. */
+export async function listAreas(): Promise<AreaBoard> {
+  const d = await getJSON("/api/areas", { cache: false });
+  return { today_ymd: d.today_ymd, areas: d.areas || [], done_count: d.done_count || 0, total: d.total || 0 };
+}
+/** Chi tiết 1 khu vực + báo cáo (mỗi báo cáo kèm images[] + photo_count). */
+export async function getArea(id: string | number): Promise<AreaDetailData> {
+  const d = await getJSON(`/api/areas/${id}`, { cache: false });
+  return { area: d.area, reports: d.reports || [], today_ymd: d.today_ymd };
+}
+/** Tạo khu vực (mọi user) — trả khu vực mới. */
+export async function createArea(name: string, note = ""): Promise<{ id: number; name: string; note: string }> {
+  const d = await postJSON("/api/areas", { name, note });
+  return d.area;
+}
+/** Sửa tên/ghi chú khu vực (văn phòng). */
+export async function updateArea(id: number, body: { name?: string; note?: string }): Promise<any> {
+  const d = await postJSON(`/api/areas/${id}`, body);
+  return d.area;
+}
+/** Xoá khu vực (admin, xoá mềm). */
+export async function deleteArea(id: number): Promise<any> {
+  return delJSON(`/api/areas/${id}`);
+}
+/** Tạo/lấy báo cáo vệ sinh HÔM NAY của khu vực (mọi user, ymd tính server). */
+export async function createAreaReport(id: number, note = ""): Promise<{ report_id: number; ymd: string; created: boolean }> {
+  const d = await postJSON(`/api/areas/${id}/report`, { note });
+  return { report_id: d.report_id, ymd: d.ymd, created: d.created };
+}
+/** Xoá báo cáo vệ sinh (admin, xoá mềm). */
+export async function deleteAreaReport(rid: number): Promise<any> {
+  return postJSON(`/api/areas/report/${rid}/delete`, {});
+}
+
 /** Feed đơn + thanh toán của 1 khách, gộp 1 dòng thời gian (trang chi tiết khách). */
 export async function getCustomerFeed(key: string, page = 1): Promise<{ items: CustFeedItem[]; page: number; total_pages: number; total: number }> {
   const d = await getJSON(`/api/customers/${encodeURIComponent(key)}/feed?page=${page}`, { cache: false });

@@ -455,6 +455,21 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `disposal_routes.py` (`/api/disposals*`); realtime `disposal_changed`; media scope
   `disposal`. UI: `#/xuat-huy` (DisposalsList) → `#/xuat-huy/:id` (DisposalDetail).
   Tests: `tests/test_disposal_store.py`, `tests/test_return_goods.py`.
+- `area_store/` — KHU VỰC XƯỞNG (`workshop_areas`) + BÁO CÁO VỆ SINH hằng ngày
+  (`area_hygiene_reports`), app.db 100% local. Nhân viên chụp ảnh báo cáo vệ sinh
+  từng khu vực mỗi ngày; dashboard cho biết khu nào đã/chưa báo cáo hôm nay. Ảnh
+  gắn vào TỪNG BÁO CÁO qua media scope `area_report` (1 báo cáo tính là "đã báo
+  cáo" chỉ khi có ≥1 ảnh). `get_or_create_report` idempotent theo (khu, ngày) —
+  ngày = `today_vn()` tính SERVER; partial unique index `ux_area_report_day` cho
+  phép xoá mềm rồi báo cáo lại cùng ngày. DDL ensure per-module (`schema.py`,
+  gọi từ route, KHÔNG qua db_migrate); logic thuần `domain.py`
+  (`build_dashboard_rows`, unit-tested). Quyền: xem + tạo khu vực + báo cáo +
+  ảnh = mọi user; sửa tên/ghi chú = văn phòng; xoá khu vực/báo cáo = admin (xoá
+  mềm). API `server_app/area_routes.py` (`/api/areas*`); realtime `area_changed`;
+  audit scope `area` (event `area.created/updated/deleted/report_created/report_deleted`).
+  UI: `#/khu-vuc` (AreasBoard — dashboard 7 ngày) → `#/khu-vuc/:id` (AreaDetail —
+  báo cáo photo-first qua CameraBox); menu ☰ Thêm → Sản xuất → "Vệ sinh khu vực".
+  Tests: `tests/test_area_store.py`.
 - `supplier_store/` + `purchase_store/` — NHẬP HÀNG + NHÀ CUNG CẤP (app.db,
   **100% local, không KiotViet**). `suppliers` (tên/SĐT/địa chỉ/ghi chú, xoá mềm,
   chặn xoá khi còn phiếu) + `purchase_slips` (items JSON [{sp, sp_id?, sl, price}]

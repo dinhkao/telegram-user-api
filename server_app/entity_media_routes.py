@@ -21,7 +21,7 @@ from utils.paths import ORDER_MEDIA_DIR
 
 log = logging.getLogger("entity_media_routes")
 
-_ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return", "place", "supplier", "purchase", "disposal"}
+_ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return", "place", "supplier", "purchase", "disposal", "area_report"}
 _MAX_BYTES = 20 * 1024 * 1024
 _EXT_BY_MIME = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 _MIME_BY_EXT = {v: k for k, v in _EXT_BY_MIME.items()}
@@ -82,6 +82,11 @@ def _emit(scope: str, entity_id: int) -> None:
         elif scope == "disposal":
             from server_app.realtime import emit_disposal_changed
             emit_disposal_changed(entity_id)
+        elif scope == "area_report":
+            # entity_id = report id; ta không tra area_id ở đây → phát tín hiệu chung
+            # để mọi trang khu vực (dashboard + chi tiết) tải lại.
+            from server_app.realtime import emit_area_changed
+            emit_area_changed()
     except Exception:  # noqa: BLE001
         pass
 

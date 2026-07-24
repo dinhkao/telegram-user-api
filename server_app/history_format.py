@@ -58,6 +58,7 @@ _HREF = {
     "quy": lambda e: "#/quy",
     "report_slip": lambda e: f"#/bao-cao/{e}",
     "stocktake": lambda e: f"#/kiem-kho/{e}",
+    "area": lambda e: f"#/khu-vuc/{e}",
 }
 
 

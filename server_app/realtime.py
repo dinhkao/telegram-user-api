@@ -178,6 +178,14 @@ def emit_disposal_changed(disposal_id) -> None:
                   _broadcast({"type": "disposal_changed", "id": str(disposal_id)}, "disposal_changed"))
 
 
+def emit_area_changed(area_id=None) -> None:
+    """Khu vực xưởng / báo cáo vệ sinh đổi (tạo/sửa/xoá khu vực, tạo/xoá báo cáo,
+    thêm/xoá ảnh) → dashboard khu vực + trang chi tiết tải lại."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.area_changed",
+                  _broadcast({"type": "area_changed", "id": str(area_id) if area_id else ""}, "area_changed"))
+
+
 def emit_cashbox_changed() -> None:
     """Hệ két tiền đổi (chuyển tay tạo/xoá) → trang Két refetch. Biến động từ
     đơn hàng thì client nghe order_changed/orders_changed sẵn có."""

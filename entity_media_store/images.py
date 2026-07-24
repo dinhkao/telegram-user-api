@@ -89,6 +89,24 @@ def latest_image_ids(scope: str, entity_ids: list[int], *, db_path: str | None =
         conn.close()
 
 
+def image_counts(scope: str, entity_ids: list[int], *, db_path: str | None = None) -> dict[int, int]:
+    """Số ảnh của từng entity trong 1 scope: {entity_id: count} — 1 query gộp (dùng
+    cho badge/đếm ảnh mỗi báo cáo, tránh N+1)."""
+    if not entity_ids:
+        return {}
+    conn = _conn(db_path)
+    try:
+        qs = ",".join("?" * len(entity_ids))
+        rows = conn.execute(
+            f"SELECT entity_id, COUNT(*) AS n FROM entity_images"
+            f" WHERE scope = ? AND entity_id IN ({qs}) GROUP BY entity_id",
+            [scope, *[int(x) for x in entity_ids]],
+        ).fetchall()
+        return {int(r["entity_id"]): int(r["n"]) for r in rows}
+    finally:
+        conn.close()
+
+
 def get_image(image_id: int, *, db_path: str | None = None) -> dict | None:
     conn = _conn(db_path)
     try:

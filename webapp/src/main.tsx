@@ -75,6 +75,8 @@ import { UsageStats } from "./pages/UsageStats";
 import { DisposalsList } from "./pages/DisposalsList";
 import { AdjustmentsList } from "./pages/AdjustmentsList";
 import { DisposalDetail } from "./pages/DisposalDetail";
+import { AreasBoard } from "./pages/AreasBoard";
+import { AreaDetail } from "./pages/AreaDetail";
 import { CashboxList } from "./pages/CashboxList";
 import { CollectMoney } from "./pages/CollectMoney";
 import { HelpFab } from "./ui/HelpFab";
@@ -480,6 +482,7 @@ function App() {
   const purMatch = hash.match(/^#\/nhap-hang\/(\d+)/);
   const nccMatch = hash.match(/^#\/ncc\/(\d+)/);
   const khachLichMatch = hash.match(/^#\/khach\/([^/?]+)\/lich/);
+  const areaMatch = hash.match(/^#\/khu-vuc\/(\d+)/);
   const khachMatch = hash.match(/^#\/khach\/([^?]+)/);
   const bangGiaMatch = hash.match(/^#\/bang-gia\/([^?]+)/);
   // Deep-link từ notification: ?focus=comment:123 / ?focus=image:45 → cuộn + nháy
@@ -549,6 +552,8 @@ function App() {
   else if (hash.startsWith("#/nhap-hang")) page = <PurchasesList />;
   else if (nccMatch) page = <SupplierDetail id={nccMatch[1]} />;
   else if (hash.startsWith("#/ncc")) page = <SuppliersList />;
+  else if (areaMatch) page = <AreaDetail id={areaMatch[1]} />;
+  else if (hash.startsWith("#/khu-vuc")) page = <AreasBoard />;
   else if (khachLichMatch) page = <CustomerCalendarPage ckey={decodeURIComponent(khachLichMatch[1])} />;
   else if (khachMatch) page = <CustomerDetail ckey={decodeURIComponent(khachMatch[1])} />;
   else if (hash.startsWith("#/customers")) page = <Customers />;
@@ -573,6 +578,7 @@ function App() {
     : hash.startsWith("#/home") ? "Trang chủ"
     : hash.startsWith("#/tien-cong") ? "Tiền công"
     : hash.startsWith("#/bao-cao") ? "Báo cáo SX"
+    : hash.startsWith("#/khu-vuc") ? "Khu vực xưởng"
     : hash.startsWith("#/quy-cach") ? "Quy cách đóng gói"
     : hash.startsWith("#/luong-sp") ? "Lương SP"
     : hash.startsWith("#/luong-thang") ? "Bảng lương tháng"

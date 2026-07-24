@@ -41,6 +41,7 @@ const GROUPS: Group[] = [
     { label: "Danh sách thợ", href: "#/tho", icon: "users" },
   ] },
   { title: "Lương", icon: "wallet", items: [
+    { label: "Vệ sinh khu vực", href: "#/khu-vuc", icon: "leaf" },
     { label: "Bảng lương tháng", href: "#/luong-thang", icon: "wallet", office: true },
     { label: "Chấm công", href: "#/cham-cong", icon: "clock" },
     { label: "Nhập ứng lương", href: "#/nhap-ung", icon: "banknote", office: true },

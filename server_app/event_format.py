@@ -294,6 +294,22 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         n = ra if isinstance(ra, (int, float)) else len(ra or []) or len(p.get("items") or [])
         n = int(n or 0)
         return "Xoá phiếu hủy (hoàn tồn)", [part(f"hoàn {n} phần về thùng")] if n else []
+    # ── KHU VỰC XƯỞNG + BÁO CÁO VỆ SINH (area.*) — scope='area' ────────────────
+    if action.startswith("area."):
+        aid = p.get("area_id")
+        name = str(p.get("area_name") or "").strip()
+        area_seg = [part(name or f"khu vực #{aid}", href_for("area", aid))] if aid else []
+        _area_labels = {
+            "area.created": "Tạo khu vực",
+            "area.updated": "Sửa khu vực",
+            "area.deleted": "Xoá khu vực",
+            "area.report_created": "Báo cáo vệ sinh khu vực",
+            "area.report_deleted": "Xoá báo cáo vệ sinh",
+        }
+        label = _area_labels.get(action)
+        if label:
+            extra = [part(f"ngày {p.get('ymd')}")] if p.get("ymd") else []
+            return label, _join([area_seg, extra])
     if action.startswith("stocktake."):
         _st_labels = {
             "stocktake.created": "Tạo phiếu kiểm kho",
