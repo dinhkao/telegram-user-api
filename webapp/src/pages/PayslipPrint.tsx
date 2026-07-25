@@ -10,20 +10,16 @@ import { PageHead } from "../ui/PageHead";
 import { EmptyState } from "../ui/states";
 import { toast } from "../ui/feedback";
 
-import { pad2 as pad, isoDate as iso } from "../format";
-// Thứ Hai của tuần chứa d
-function monday(d: Date): Date { const m = new Date(d); m.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return m; }
+import { payWeek } from "../format";
 
 export function PayslipPrint() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [sel, setSel] = useState<Set<number> | null>(null);   // null = mọi thợ
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  // Mặc định = TUẦN LƯƠNG hiện tại: thứ 7 tuần trước → thứ 6 tuần này
+  const [from, setFrom] = useState(payWeek().from);
+  const [to, setTo] = useState(payWeek().to);
 
   useEffect(() => {
-    const now = new Date();
-    setFrom(iso(monday(now)));   // mặc định = tuần này
-    setTo(iso(now));
     listWorkers().then(({ workers }) => setWorkers(workers)).catch((e: any) => toast(e?.message || "Lỗi tải danh sách thợ", "err"));
   }, []);
 
@@ -38,13 +34,8 @@ export function PayslipPrint() {
   }, [workers]);
 
   const preset = (which: "this" | "last") => {
-    const now = new Date(); const mon = monday(now);
-    if (which === "this") { setFrom(iso(mon)); setTo(iso(now)); }
-    else {
-      const lm = new Date(mon); lm.setDate(mon.getDate() - 7);
-      const ls = new Date(mon); ls.setDate(mon.getDate() - 1);
-      setFrom(iso(lm)); setTo(iso(ls));
-    }
+    const { from: f, to: t } = payWeek(which === "this" ? 0 : 1);
+    setFrom(f); setTo(t);
   };
 
   const doPrint = () => {
@@ -80,6 +71,7 @@ export function PayslipPrint() {
         <div class="rs-presets">
           <button class="rs-preset" onClick={() => preset("this")}>Tuần này</button>
           <button class="rs-preset" onClick={() => preset("last")}>Tuần trước</button>
+          <span class="muted small rs-preset-hint">tuần lương: T7 → T6</span>
         </div>
         <WorkerChips workers={workers} value={sel} onChange={setSel} />
         <button class="btn primary block" disabled={!from || !to} onClick={doPrint}>

@@ -2047,6 +2047,7 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .rs-presets { display: flex; gap: 8px; margin-bottom: 8px; }
 .rs-preset { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
 .rs-preset:active { background: var(--accent-wash); }
+.rs-preset-hint { margin-left: auto; align-self: center; }
 .rs-note { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; font: inherit; margin-bottom: 10px; }
 .rs-create-btn { width: 100%; }
 .rs-row { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; margin-bottom: 10px; }

@@ -12,22 +12,15 @@ import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast } from "../ui/feedback";
 
-import { pad2 as pad, isoDate as iso } from "../format";
 const dmy = (ymd: string) => (ymd && ymd.length >= 10 ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}` : ymd);
-import { moneyD as money } from "../format";
-
-// Thứ Hai của tuần chứa `d`
-function monday(d: Date): Date {
-  const m = new Date(d);
-  m.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  return m;
-}
+import { moneyD as money, payWeek } from "../format";
 
 export function ReportSlips() {
   const [slips, setSlips] = useState<ReportSlip[] | null>(null);
   const [err, setErr] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  // Mặc định = TUẦN LƯƠNG hiện tại: thứ 7 tuần trước → thứ 6 tuần này
+  const [from, setFrom] = useState(payWeek().from);
+  const [to, setTo] = useState(payWeek().to);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -47,14 +40,8 @@ export function ReportSlips() {
   }, []);
 
   const preset = (which: "this" | "last") => {
-    const now = new Date();
-    const mon = monday(now);
-    if (which === "this") { setFrom(iso(mon)); setTo(iso(now)); }
-    else {
-      const lastMon = new Date(mon); lastMon.setDate(mon.getDate() - 7);
-      const lastSun = new Date(mon); lastSun.setDate(mon.getDate() - 1);
-      setFrom(iso(lastMon)); setTo(iso(lastSun));
-    }
+    const { from: f, to: t } = payWeek(which === "this" ? 0 : 1);
+    setFrom(f); setTo(t);
   };
 
   const create = async () => {
@@ -103,6 +90,7 @@ export function ReportSlips() {
         <div class="rs-presets">
           <button class="rs-preset" onClick={() => preset("this")}>Tuần này</button>
           <button class="rs-preset" onClick={() => preset("last")}>Tuần trước</button>
+          <span class="muted small rs-preset-hint">tuần lương: T7 → T6</span>
         </div>
         <WorkerChips workers={workers} value={sel} onChange={setSel} />
         <input class="rs-note" type="text" placeholder="Ghi chú (tuỳ chọn)…" value={note}
