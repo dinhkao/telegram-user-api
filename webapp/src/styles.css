@@ -3678,13 +3678,16 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .att-fill.ot { background: #7c3aed; }
 .att-g-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* chấm công: khu nghi chấm thiếu */
+/* chấm công: khu CHẤM SAI CHUẨN (đỏ = sai luật 4 lần/ngày, cam = giờ đáng soi) */
 .att-issues summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; }
 .att-issues summary::-webkit-details-marker { display: none; }
+.att-issue-badge { background: var(--danger); color: #fff; border-radius: var(--r-pill); padding: 1px 8px; font-size: .7rem; font-weight: 800; }
 .att-issue-row { display: flex; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border); font-size: .82rem; align-items: baseline; }
+.att-issue-row.err { background: var(--danger-wash); }
 .att-issue-day { font-weight: 800; white-space: nowrap; min-width: 38px; }
 .att-issue-who { font-weight: 700; white-space: nowrap; }
 .att-issue-txt { color: var(--warn); flex: 1; min-width: 0; }
+.att-issue-txt .err { color: var(--danger); font-weight: 600; }
 
 /* chấm công: toolbar (tháng + đổi view) + view DÒNG (cụm giờ mỗi buổi) */
 .att-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -3698,11 +3701,17 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .att-shift-ico { font-size: .8rem; opacity: .75; margin-right: 1px; }
 .att-shift-none { min-width: 34px; text-align: center; }
 .att-arrow { opacity: .45; margin: 0 2px; font-size: .8rem; }
-.att-warn-mark { font-size: .8rem; }
+.att-warn-mark { font-size: .8rem; color: var(--warn); flex: none; }
+.att-warn-mark.err { color: var(--danger); font-weight: 800; }
 
 /* chấm công: popup sửa giờ + đánh dấu ô đã sửa tay */
 .att-g-cell { position: relative; cursor: pointer; }
 .att-g-cell.edited::after { content: ""; position: absolute; top: 2px; right: 2px; width: 0; height: 0; border-style: solid; border-width: 0 7px 7px 0; border-color: transparent var(--primary) transparent transparent; }
+/* SAI CHUẨN 4 lần chấm/ngày = góc dưới-trái ĐỎ + nền hồng (át cả nền CN/hôm nay —
+   lỗi quan trọng hơn); đủ số lần nhưng giờ đáng soi = góc CAM, không đổi nền. */
+.att-g-cell.err::before, .att-g-cell.susp::before { content: ""; position: absolute; left: 2px; bottom: 2px; width: 0; height: 0; border-style: solid; border-width: 0 7px 7px 0; border-color: transparent transparent var(--warn) transparent; }
+.att-g-cell.err::before { border-color: transparent transparent var(--danger) transparent; }
+.att-g-cell.err { background: var(--danger-wash); }
 .att-lrow { cursor: pointer; }
 .att-edited-mark { color: var(--primary); font-size: .8rem; flex: none; }
 .att-ed-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.42); display: flex; align-items: flex-start; justify-content: center; padding: 54px 12px 12px; }

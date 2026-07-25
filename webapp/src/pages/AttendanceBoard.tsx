@@ -9,6 +9,9 @@
 // phút khỏi nhiễu) — tổng tháng hiện cạnh tên. Kéo NGANG xem hết tháng, CN nền hồng,
 // hôm nay viền; bấm 1 ống → toast giờ chấm chi tiết. Banner: cập nhật gần nhất
 // (last_sync) + lần kế ≈ +30ph. Khu "Mã chưa gán": chọn thợ ngay tại chỗ.
+// CHUẨN 4 LẦN CHẤM/NGÀY: luật thuần ở ../attendanceRules (mirror attendance_store/
+// domain.py) — ngày sai chuẩn = ô có góc ĐỎ + liệt kê ở khu "Chấm sai chuẩn"; ngày đủ
+// số lần nhưng giờ đáng soi = cảnh báo cam.
 // API: getAttendanceSummary/mapAttendanceCode. Gán ID cũng ở chi tiết thợ (#/sx-tho).
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
@@ -17,6 +20,7 @@ import {
   type AttendanceDay, type AttendanceDayDetail, type AttendanceUnmapped, type Worker,
 } from "../api";
 import { dayLabel, pad2 as pad, curYM, shiftYM, ymLabel, isoDate } from "../format";
+import { attMins as mins, dayIssues, STANDARD_PUNCHES, type DayIssue } from "../attendanceRules";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
@@ -32,7 +36,6 @@ const keyActivate = (fn: () => void) => (e: any) => {
   if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); }
 };
 const dmyt = (iso: string) => (iso && iso.length >= 16 ? `${Number(iso.slice(8, 10))}/${Number(iso.slice(5, 7))} ${iso.slice(11, 16)}` : "—");
-const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 const todayISO = () => isoDate(new Date());
 
 // 3 khung giờ hiển thị: 2 ca chính + khung tăng ca chiều tối (tím).
@@ -41,8 +44,6 @@ const SHIFTS = [
   { key: "chieu", label: "Ca chiều", from: 13 * 60, to: 17 * 60, ot: false },
   { key: "tc", label: "Tăng ca", from: 17 * 60, to: 21 * 60, ot: true },
 ];
-// Tăng ca THẬT = có mặt ngoài 2 khung ca chính; đoạn < 10 phút bỏ (nhiễu chấm sớm/muộn vài phút)
-const WORK_WINDOWS: [number, number][] = [[7 * 60, 11 * 60], [13 * 60, 17 * 60]];
 // Chấm ra ≤15ph sau hết ca (11:00/17:00) = về trễ lặt vặt, KHÔNG tính tăng ca
 const OT_GRACE = 15;
 
@@ -56,32 +57,10 @@ function presence(times: string[]): { spans: Interval[]; loose: number | null } 
 }
 const clip = (spans: Interval[], a: number, b: number): Interval[] =>
   spans.map(([s, e]): Interval => [Math.max(s, a), Math.min(e, b)]).filter(([s, e]) => e > s);
-// Khoảng phủ TRỌN giờ trưa (vào ≤11h, ra ≥13h) không chấm giữa = nghi QUÊN chấm trưa
-const LUNCH: Interval = [11 * 60, 13 * 60];
-const crossesLunch = ([s, e]: Interval) => s <= LUNCH[0] && e >= LUNCH[1];
 
-// ── Nhận diện CHẤM THIẾU (heuristic thuần, chạy trên times 1 ngày) ──────────
-const SHORT_PAIR_MIN = 30;   // cặp vào-ra < 30ph nằm gọn trong 1 ca = nghi bấm 2 lần liền
-const tstr = (m: number) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
-function detectIssues(times: string[]): string[] {
-  const { spans, loose } = presence(times);
-  const issues: string[] = [];
-  if (loose !== null) {
-    const shift = loose < 12 * 60 ? "ca sáng" : loose < 17 * 60 ? "ca chiều" : "tăng ca";
-    issues.push(`chấm ${times.length} lần (lẻ) — ${shift} thiếu 1 lần vào/ra (lần lẻ lúc ${tstr(loose)})`);
-  }
-  for (const [s, e] of spans) {
-    for (const [a, b] of WORK_WINDOWS) {
-      if (s >= a && e <= b && e - s < SHORT_PAIR_MIN) {
-        issues.push(`${a < 12 * 60 ? "ca sáng" : "ca chiều"} chỉ có mặt ${e - s}ph (${tstr(s)}→${tstr(e)}) — nghi bấm 2 lần liền, thiếu chấm ra`);
-      }
-    }
-    if (crossesLunch([s, e]) ) {
-      issues.push(`${tstr(s)}→${tstr(e)} xuyên trưa không chấm giữa — nghi quên chấm trưa (11–13h không tính tăng ca)`);
-    }
-  }
-  return issues;
-}
+// Vấn đề của 1 ngày (sai chuẩn số lần = "err", giờ đáng soi = "warn") → ../attendanceRules
+const hasErr = (issues: DayIssue[]) => issues.some((i) => i.level === "err");
+const issueTitle = (issues: DayIssue[]) => issues.map((i) => i.text).join("\n");
 
 function blobDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -342,15 +321,19 @@ export function AttendanceBoard() {
   const dayNums = Array.from({ length: nDays }, (_, i) => i + 1);
   const isSun = (d: number) => new Date(Y, M - 1, d).getDay() === 0;
 
-  // Quét CHẤM THIẾU toàn tháng: mỗi (ngày, NV) chạy detectIssues, mới nhất trước
-  const suspects: { d: number; who: string; texts: string[] }[] = [];
+  // Quét toàn tháng: mỗi (ngày, NV) chạy luật chuẩn 4 lần, mới nhất trước.
+  // Ô lưới / dòng cũng đọc lại dayIssues(times) — cùng 1 hàm nên không lệch nhau.
+  const suspects: { d: number; who: string; issues: DayIssue[] }[] = [];
   for (const p of rows) {
     for (const [d, times] of p.byDay) {
-      const texts = detectIssues(times);
-      if (texts.length) suspects.push({ d, who: p.label, texts });
+      const issues = dayIssues(times);
+      if (issues.length) suspects.push({ d, who: p.label, issues });
     }
   }
-  suspects.sort((a, b) => b.d - a.d || a.who.localeCompare(b.who, "vi"));
+  // Ngày SAI CHUẨN lên trước (lỗi cứng), rồi mới nhất trước
+  suspects.sort((a, b) => Number(hasErr(b.issues)) - Number(hasErr(a.issues))
+    || b.d - a.d || a.who.localeCompare(b.who, "vi"));
+  const nErr = suspects.filter((s) => hasErr(s.issues)).length;
 
   const generateTodayImage = async () => {
     if (imageBusy || !days) return;
@@ -400,7 +383,7 @@ export function AttendanceBoard() {
   return (
     <div class="prod-detail">
       <PageHead fallback="#/home" title={<><Icon name="clock" size={20} /> Chấm công</>}
-        sub={`☀ 7–11 · ⛅ 13–17 · 🌙 tăng ca. Xanh = có mặt, cam = thiếu chấm. Bấm ô để ${office ? "sửa" : "xem"} giờ.`} />
+        sub={`☀ 7–11 · ⛅ 13–17 · 🌙 tăng ca · chuẩn ${STANDARD_PUNCHES} lần chấm/ngày. Xanh = có mặt, góc đỏ = sai chuẩn. Bấm ô để ${office ? "sửa" : "xem"} giờ.`} />
       <SyncBanner lastSync={sync.last} intervalMin={sync.interval} />
 
       <div class="att-toolbar">
@@ -430,18 +413,23 @@ export function AttendanceBoard() {
 
       {suspects.length > 0 && (
         <details class="card att-issues" open={suspects.length <= 6}>
-          <summary class="card-label t-warn">
-            <span>⚠</span> Nghi chấm thiếu ({suspects.length})
+          <summary class={nErr ? "card-label t-danger" : "card-label t-warn"}>
+            <span>⚠</span> Chấm sai chuẩn ({suspects.length})
+            {nErr > 0 && <span class="att-issue-badge">{nErr} lỗi</span>}
           </summary>
           <div class="muted small" style={{ margin: "4px 0 8px" }}>
-            Máy ghi gì tính nấy — các ca dưới đây có dấu hiệu THIẾU lần chấm, nhắc nhân viên
-            chấm đủ vào/ra từng buổi.
+            Chuẩn: <b>{STANDARD_PUNCHES} lần chấm/ngày</b> (vào–ra ca sáng + vào–ra ca chiều).
+            Nhiều hơn hoặc ít hơn đều là <b>lỗi</b>; chấm đúng 2 lần chỉ hợp lệ khi cả 2 lần
+            nằm trong <b>cùng 1 buổi</b> (làm nửa ngày). Dòng <b>đỏ</b> = sai chuẩn, dòng
+            <b> cam</b> = đủ số lần nhưng giờ cần soi lại.
           </div>
           {suspects.map((s, i) => (
-            <div class="att-issue-row" key={i}>
+            <div class={"att-issue-row" + (hasErr(s.issues) ? " err" : "")} key={i}>
               <span class="att-issue-day">{s.d}/{M}</span>
               <span class="att-issue-who">{s.who}</span>
-              <span class="att-issue-txt">{s.texts.map((t, j) => <div key={j}>• {t}</div>)}</span>
+              <span class="att-issue-txt">{s.issues.map((it, j) => (
+                <div key={j} class={it.level === "err" ? "err" : ""}>• {it.text}</div>
+              ))}</span>
             </div>
           ))}
         </details>
@@ -472,7 +460,8 @@ export function AttendanceBoard() {
                 const ts = r.times || [];
                 const who = r.worker_name || `Mã ${r.employee_code}`;
                 const open = () => setEditor({ code: r.employee_code, who, day: g.day });
-                const dayOdd = ts.length % 2 === 1;   // tổng lần chấm LẺ = nghi thiếu 1 lần vào/ra
+                const issues = dayIssues(ts);         // chuẩn 4 lần/ngày (../attendanceRules)
+                const bad = hasErr(issues);
                 // 🌙 chỉ tính khi chấm sau 17:00 + OT_GRACE (17:15) — GIỐNG ống tăng ca ở lưới;
                 // chấm ra đúng/quanh 17:00 vẫn là ca chiều, không tách thành tăng ca.
                 const OT_FROM = 17 * 60 + OT_GRACE;
@@ -491,7 +480,9 @@ export function AttendanceBoard() {
                       <ListShift icon="⛅" times={ts.filter((t) => mins(t) >= 12 * 60 && mins(t) < OT_FROM)} />
                       {hasOt && <ListShift icon="🌙" times={ts.filter((t) => mins(t) >= OT_FROM)} />}
                     </span>
-                    {dayOdd && <span class="att-warn-mark" title="Tổng lần chấm trong ngày LẺ — nghi thiếu 1 lần vào/ra">⚠</span>}
+                    {issues.length > 0 && (
+                      <span class={"att-warn-mark" + (bad ? " err" : "")} title={issueTitle(issues)}>⚠</span>
+                    )}
                   </div>
                 );
               })}
@@ -521,13 +512,17 @@ export function AttendanceBoard() {
                 {dayNums.map((d) => {
                   const times = p.byDay.get(d) || [];
                   const { spans, loose } = presence(times);
+                  const issues = dayIssues(times);          // chuẩn 4 lần/ngày
+                  const bad = hasErr(issues);
                   const open = () => setEditor({ code: p.codeByDay.get(d) || p.code, who: p.label, day: `${ym}-${pad(d)}` });
+                  const hint = office ? "Bấm để xem / sửa giờ chấm" : "Bấm để xem giờ chấm";
                   return (
                     <div key={`${ri}-${d}`} role="button" tabIndex={0} onKeyDown={keyActivate(open)}
                       class={"att-g-cell" + (isSun(d) ? " sun" : "") + (d === todayD ? " today" : "")
-                        + (ri % 2 ? " alt" : "") + (p.edDays.has(d) ? " edited" : "")}
-                      title={office ? "Bấm để xem / sửa giờ chấm" : "Bấm để xem giờ chấm"}
-                      aria-label={`${p.label} ngày ${d}/${M} — ${times.length ? `${times.length} lần chấm, bấm để ${office ? "sửa" : "xem"}` : "chưa chấm"}`}
+                        + (ri % 2 ? " alt" : "") + (p.edDays.has(d) ? " edited" : "")
+                        + (bad ? " err" : issues.length ? " susp" : "")}
+                      title={issues.length ? `${issueTitle(issues)}\n${hint}` : hint}
+                      aria-label={`${p.label} ngày ${d}/${M} — ${times.length ? `${times.length} lần chấm${bad ? ", SAI CHUẨN" : ""}, bấm để ${office ? "sửa" : "xem"}` : "chưa chấm"}`}
                       onClick={open}>
                       {SHIFTS.map((sh) => (
                         <Tube key={sh.key} shift={sh} loose={loose}

@@ -281,7 +281,17 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   GET `/api/attendance/summary?ym=`). XEM mở cho MỌI người dùng đăng nhập (2026-07-22:
   summary + day + today-image; trang `#/cham-cong` staff chỉ xem); SỬA (map, manual
   add/delete, suppress) + GET list/map vẫn office. Luật thuần
-  `domain.py` (validate batch + token). Tính LƯƠNG/ca từ raw CHƯA làm (nối vào
+  `domain.py` (validate batch + token + **CHUẨN 4 LẦN CHẤM/NGÀY**). **Luật chuẩn
+  (2026-07-25)**: 1 ngày = ĐÚNG 4 lần chấm (vào-ra sáng + vào-ra chiều); nhiều/ít hơn
+  = LỖI, ngoại lệ duy nhất là đúng 2 lần CÙNG 1 buổi (nửa ngày — mốc buổi = 12:00);
+  0 lần = nghỉ, không lỗi. `domain.day_error` (lỗi số lần) + `day_warnings` (đủ số lần
+  nhưng giờ đáng soi: cặp <30ph trong ca, cặp xuyên trọn trưa) + `day_issues` =
+  [(level,text)] — sai số lần thì CHỈ trả lỗi đó, khỏi báo trùng. Dùng ở ảnh báo cáo
+  hôm nay (`server_app/attendance_image.py`) và **mirror thuần TS** ở
+  `webapp/src/attendanceRules.ts` (lưới/dòng/khu "Chấm sai chuẩn" — sửa 1 bên phải sửa
+  cả 2; test 2 bên: `tests/test_attendance_store.py::DayRuleTest` +
+  `webapp/tests/attendanceRules.test.ts`). Luật này CHỈ báo lỗi để người soi — KHÔNG
+  chặn/không đổi cách tính công-tăng ca (`work_stats`). Tính LƯƠNG/ca từ raw CHƯA làm (nối vào
   `salary_store` wage_type 'time' sau — đừng suy ca từ punch đầu/cuối khi chưa chốt luật).
   KHÔNG sửa phía collector từ repo này (máy Windows riêng). Tests:
   `tests/test_attendance_store.py`.

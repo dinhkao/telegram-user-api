@@ -1,6 +1,7 @@
 // POPUP Ô BẢNG LƯƠNG THÁNG — bấm 1 ô trong bảng (#/luong-thang) mở popup xem/thao
 // tác đúng nội dung ô đó: Công/TC = chấm công từng ngày của thợ (luật quy công
-// GIỐNG attendance_store/domain.work_stats); L.công/L.TC/Lương/Lãnh = diễn giải
+// GIỐNG attendance_store/domain.work_stats; ngày SAI CHUẨN 4 lần chấm có ⚠ đỏ —
+// luật ở ../attendanceRules); L.công/L.TC/Lương/Lãnh = diễn giải
 // công thức; P.cấp/Ứng = panel thêm/vô hiệu khoản ngay tại chỗ (EntryPanel).
 // Data: getAttendanceSummary, payroll allowance/advance API. Cha (MonthlyPayroll)
 // giữ state {wid, col} và truyền row TƯƠI mỗi lần data đổi.
@@ -12,6 +13,7 @@ import {
   type AttendanceDay, type PayrollMonth, type PayrollRow,
   type SalaryAdvance, type SalaryAllowance,
 } from "../api";
+import { dayIssues } from "../attendanceRules";
 import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
@@ -175,11 +177,20 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, t
       <div class="pr-pop-days">
         {att.map((d) => {
           const st = workStats(d.times || []);
-          if (!st.work && !st.ot) return null;
+          // Chuẩn 4 lần chấm/ngày (../attendanceRules): ngày SAI CHUẨN vẫn hiện ở đây
+          // dù quy ra 0 công — người tính lương phải thấy để đi soi lại giờ chấm.
+          const iss = dayIssues(d.times || []);
+          const bad = iss.some((i) => i.level === "err");
+          if (!st.work && !st.ot && !iss.length) return null;
           return (
             <div class="pr-pop-day" key={`${d.day}:${d.employee_code}`}>
               <span class="muted small">{dayVN(d.day)}{d.edited ? " ✏️" : ""}</span>
-              <span class="pr-pop-times">{(d.times || []).join(" · ")}</span>
+              <span class="pr-pop-times">
+                {(d.times || []).join(" · ")}
+                {iss.length > 0 && (
+                  <span class={bad ? "t-danger" : "t-warn"} title={iss.map((i) => i.text).join("\n")}> ⚠</span>
+                )}
+              </span>
               <b class={hl === "work" ? "" : "muted"}>{congVN(st.work / 480)} công</b>
               <b class={hl === "ot" ? "t-warn" : "muted"}>{st.ot ? `${congVN(st.ot / 60)}g TC` : "—"}</b>
             </div>

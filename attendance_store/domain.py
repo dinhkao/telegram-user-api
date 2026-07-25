@@ -128,3 +128,69 @@ def work_stats(times: list[str]) -> tuple[int, int]:
         if e > SHIFT_WINDOWS[1][1] + OT_GRACE_MIN:
             ot += min(e, OT_END_OF_DAY) - SHIFT_WINDOWS[1][1]
     return work, ot
+
+
+# ── CHUẨN 1 NGÀY = ĐÚNG 4 LẦN CHẤM (vào-ra sáng + vào-ra chiều) ──────────────
+# Nhiều hơn hoặc ít hơn 4 = LỖI. Ngoại lệ DUY NHẤT: đúng 2 lần và cả 2 rơi vào
+# CÙNG 1 buổi = làm nửa ngày (hợp lệ). 2 lần ở 2 buổi khác nhau (vd 7:00 & 17:00)
+# = quên chấm ra sáng + vào chiều → LỖI. Không chấm lần nào = nghỉ, KHÔNG phải lỗi.
+# Mirror ở webapp/src/attendanceRules.ts — sửa 1 bên phải sửa cả 2.
+STANDARD_PUNCHES = 4
+NOON = 12 * 60
+SHORT_PAIR_MIN = 30       # cặp vào-ra < 30ph nằm gọn trong 1 ca = nghi bấm 2 lần liền
+
+
+def session_of(hhmm: str) -> str:
+    """'HH:MM' → buổi: 'sang' (trước 12:00) | 'chieu' (từ 12:00, kể cả tăng ca tối)."""
+    return "sang" if _mins(hhmm) < NOON else "chieu"
+
+
+def day_error(times: list[str]) -> str | None:
+    """LỖI số lần chấm của 1 ngày (chuỗi tiếng Việt hiện cho người dùng) hoặc None."""
+    ts = sorted(times)
+    n = len(ts)
+    if n in (0, STANDARD_PUNCHES):
+        return None
+    if n == 2:
+        if session_of(ts[0]) == session_of(ts[1]):
+            return None       # làm 1 buổi: vào-ra đủ cặp
+        return (f"chấm 2 lần ở 2 buổi khác nhau ({ts[0]} sáng, {ts[1]} chiều)"
+                " — thiếu chấm ra buổi sáng và chấm vào buổi chiều")
+    if n < STANDARD_PUNCHES:
+        return (f"chỉ chấm {n} lần — thiếu {STANDARD_PUNCHES - n} lần"
+                f" (chuẩn {STANDARD_PUNCHES} lần/ngày)")
+    return f"chấm {n} lần — nhiều hơn chuẩn {STANDARD_PUNCHES} lần/ngày"
+
+
+def _pairs(times: list[str]) -> list[tuple[int, int]]:
+    ts = sorted(_mins(t) for t in times)
+    return [(ts[i], ts[i + 1]) for i in range(0, len(ts) - 1, 2) if ts[i + 1] > ts[i]]
+
+
+def _hhmm(m: int) -> str:
+    return f"{m // 60:02d}:{m % 60:02d}"
+
+
+def day_warnings(times: list[str]) -> list[str]:
+    """Dấu hiệu chấm sai NGOÀI luật số lần (đủ 4 lần nhưng giờ vô lý): cặp vào-ra quá
+    gần nhau trong 1 ca, cặp xuyên trọn giờ trưa (nghi quên chấm trưa)."""
+    out: list[str] = []
+    for s, e in _pairs(times):
+        for a, b in SHIFT_WINDOWS:
+            if s >= a and e <= b and e - s < SHORT_PAIR_MIN:
+                ca = "ca sáng" if a < NOON else "ca chiều"
+                out.append(f"{ca} chỉ có mặt {e - s}ph ({_hhmm(s)}→{_hhmm(e)})"
+                           " — nghi bấm 2 lần liền, thiếu chấm ra")
+        if s <= SHIFT_WINDOWS[0][1] and e >= SHIFT_WINDOWS[1][0]:
+            out.append(f"{_hhmm(s)}→{_hhmm(e)} xuyên trưa không chấm giữa"
+                       " — nghi quên chấm trưa (11–13h không tính tăng ca)")
+    return out
+
+
+def day_issues(times: list[str]) -> list[tuple[str, str]]:
+    """[(level, text)] cho 1 ngày: level 'err' = sai chuẩn số lần (chặn ở đây, khỏi
+    báo trùng), 'warn' = đủ số lần nhưng giờ đáng soi. [] = ngày sạch."""
+    err = day_error(times)
+    if err:
+        return [("err", err)]
+    return [("warn", w) for w in day_warnings(times)]
