@@ -51,6 +51,7 @@ export function ProductionReport({ threadId, slip, locked }: { threadId: string;
   const hasGio = liveRows.some((r) => ((r as any).so_gio || 0) > 0);
 
   return (
+    <>
     <section class="card">
       <div class="card-head">
         <label class="card-label"><Icon name="chart" size={16} /> Báo cáo theo thợ</label>
@@ -102,16 +103,19 @@ export function ProductionReport({ threadId, slip, locked }: { threadId: string;
               </tfoot>
             </table>
           </div>
-          {isOffice() && !draft && <ProductionWages threadId={threadId} workers={liveRows.map((r) => ({
-            name: r.name, cay: r.tong_calc,
-            // giờ chỉ tính ở phiếu SẢN XUẤT (khớp rule server — đóng gói bỏ qua)
-            gio: (slip.kind || "san_xuat") !== "dong_goi" ? ((r as any).so_gio || 0) : 0,
-            note: r.note || "",
-          }))} />}
         </>
       ) : (
         <p class="muted small">Chưa có báo cáo. Bấm <b>✏️ Sửa</b> để nhập trực tiếp.</p>
       )}
     </section>
+    {/* Bảng tiền công + phụ cấp = CARD RIÊNG cùng khung với card báo cáo (không
+        lồng card-trong-card) — 2 bảng nhìn đồng bộ trên trang phiếu. */}
+    {liveRows.length > 0 && isOffice() && !draft && <ProductionWages threadId={threadId} workers={liveRows.map((r) => ({
+      name: r.name, cay: r.tong_calc,
+      // giờ chỉ tính ở phiếu SẢN XUẤT (khớp rule server — đóng gói bỏ qua)
+      gio: (slip.kind || "san_xuat") !== "dong_goi" ? ((r as any).so_gio || 0) : 0,
+      note: r.note || "",
+    }))} />}
+    </>
   );
 }

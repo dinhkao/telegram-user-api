@@ -118,9 +118,14 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
   };
 
   return (
-    <div class="pw-box">
-      <div class="pw-head"><Icon name="wallet" size={15} /> Tiền công + phụ cấp (văn phòng)</div>
-      <div class="pw-wage-row">
+    // CÙNG khung với card "Báo cáo theo thợ" (card-head + meta + prod-report-table)
+    // — 2 bảng đứng cạnh nhau trên trang phiếu phải cùng một ngôn ngữ hình ảnh.
+    <section class="card">
+      <div class="card-head">
+        <label class="card-label"><Icon name="wallet" size={16} /> Tiền công + phụ cấp</label>
+        <span class="muted small"><Icon name="lock" size={13} /> văn phòng</span>
+      </div>
+      <div class="prod-report-meta">
         <span class="pw-wage-lbl">Đơn giá phiếu này:</span>
         <input class="pw-input pw-wage-input" inputMode="numeric"
           value={wageDraft !== null ? wageDraft : (wage ? String(wage) : "")}
@@ -130,15 +135,16 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
           onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
         <span class="muted small">đ/SP</span>
         {defaultWage !== wage ? <span class="pw-wage-note muted small">bảng lương: {soVN(defaultWage)}đ</span> : null}
+        <span>· Tổng <b>{money(totPiece + totAllow)}</b></span>
       </div>
-      <div class="prod-report-scroll pw-scroll">
+      <div class="prod-report-scroll">
         <table class="prod-report-table pw-table">
           <thead><tr><th>Thợ</th><th>Tiền SP</th><th>Phụ cấp</th><th>Tổng</th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.name}>
                 <td class="pw-name">
-                  <div>{r.name}</div>
+                  <div><a class="wr-tho-link" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>{r.name}</a></div>
                   {r.note ? <div class="pw-worker-note">{r.note}</div> : null}
                 </td>
                 <td class="pw-piece">{money(r.piece)}
@@ -163,7 +169,7 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
             ))}
           </tbody>
           <tfoot>
-            <tr><td>TỔNG</td><td>{money(totPiece)}</td><td>{money(totAllow)}</td><td class="pw-total">{money(totPiece + totAllow)}</td></tr>
+            <tr><td>TỔNG CỘNG</td><td>{money(totPiece)}</td><td>{money(totAllow)}</td><td class="pw-total">{money(totPiece + totAllow)}</td></tr>
           </tfoot>
         </table>
       </div>
@@ -182,6 +188,6 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
         ]}
         onChange={onPickAllow}
       />
-    </div>
+    </section>
   );
 }
