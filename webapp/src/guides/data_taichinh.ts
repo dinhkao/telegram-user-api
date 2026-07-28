@@ -4,6 +4,36 @@ import type { Guide } from "./types";
 
 export const GUIDES_TAICHINH: Guide[] = [
   {
+    key: "no-qua-han", icon: "clock", cat: "Tài chính", office: true,
+    title: "Nợ quá hạn — nhắc thu tiền mỗi ngày",
+    desc: "Khách đã nhận hàng nhưng chưa trả tiền: xem ai nợ mấy ngày, bao nhiêu đơn, thu ngay.",
+    routes: ["#/no-qua-han"],
+    sections: [
+      { title: "Trang này để làm gì?", html: `
+        <p>Trang <a href="#/no-qua-han">Nợ quá hạn</a> liệt kê <b>khách đã nhận hàng nhưng chưa trả tiền</b>,
+        nợ lâu nhất lên đầu. Mỗi dòng đọc thẳng như câu nhắc:
+        <i>“Loan Phú đang có công nợ đã 3 ngày chưa thanh toán từ 3 đơn hàng · 4.200.000đ”</i>.</p>
+        <p class="muted small">Vào bằng menu <b>☰ Thêm → Tài chính → Nợ quá hạn</b>. <b>Chỉ văn phòng</b> xem được.</p>` },
+      { title: "Đếm ngày nợ thế nào?", html: `
+        <ul>
+          <li>Đếm <b>từ ngày giao hàng xong</b> — giao hôm qua mà chưa trả là <b>1 ngày</b>. Đơn <b>chưa giao</b> không tính.</li>
+          <li>Con số ngày trên huy hiệu = <b>đơn quá hạn lâu nhất</b> của khách; đỏ khi từ <b>7 ngày</b> trở lên.</li>
+          <li>Số đơn và số tiền chỉ tính <b>các đơn đã quá ngưỡng</b> đang chọn (chip <b>từ 1 / 3 / 7 / 15 ngày</b>).</li>
+          <li><b>Không tính</b>: đơn đã <b>ẩn khỏi trang thu tiền</b>, đơn <b>bỏ theo dõi nợ</b>, đơn đã trả đủ.</li>
+        </ul>` },
+      { title: "Thông báo mỗi ngày", html: `
+        <p>Mỗi sáng (khoảng <b>8 giờ</b>) hệ thống gửi <b>một thông báo cho mỗi khách còn nợ quá hạn</b> —
+        vào <b>chuông thông báo</b> trong app và <b>push về điện thoại</b>. Bấm vào thông báo là mở thẳng
+        <b>trang thu tiền</b> của khách đó.</p>
+        <p>Khách nào còn nợ thì <b>ngày nào cũng được nhắc lại</b> cho tới khi trả xong. Nếu quá nhiều khách,
+        phần dư gộp lại thành một thông báo tổng.</p>` },
+      { title: "Thu tiền từ đây", html: `
+        <p>Bấm vào dòng khách (hoặc nút <b>Thu tiền</b>) → mở trang thu tiền của khách: chọn đơn, nhập số tiền, thu.
+        Muốn thu nhiều khách một lượt thì dùng <a href="#/huong-dan/thu-tien">Thu tiền hàng loạt</a>.</p>
+        <p class="muted small">Khách báo <b>“Chưa liên kết KiotViet”</b> thì không tạo được phiếu thu — cần liên kết khách với KiotViet trước.</p>` },
+    ],
+  },
+  {
     key: "ket-tien", icon: "banknote", cat: "Tài chính",
     title: "Két tiền — ai đang giữ tiền",
     desc: "Theo dõi tiền mặt từng đơn: ai giữ, nộp chưa, khách nợ bao nhiêu, trả tiền nhập hàng.",

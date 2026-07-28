@@ -81,6 +81,7 @@ import { AreaDetail } from "./pages/AreaDetail";
 import { CashboxList } from "./pages/CashboxList";
 import { CollectMoney } from "./pages/CollectMoney";
 import { SmartCollectMoney } from "./pages/SmartCollectMoney";
+import { DebtAlerts } from "./pages/DebtAlerts";
 import { NopTienDashboard } from "./pages/NopTienDashboard";
 import { NhanTienDashboard } from "./pages/NhanTienDashboard";
 import { HelpFab } from "./ui/HelpFab";
@@ -532,6 +533,7 @@ function App() {
   else if (hash.startsWith("#/kho")) page = <KhoBoxes />;
   else if (hash.startsWith("#/nop-tien")) page = <NopTienDashboard />;
   else if (hash.startsWith("#/nhan-tien")) page = <NhanTienDashboard />;
+  else if (hash.startsWith("#/no-qua-han")) page = <DebtAlerts />;
   else if (hash.startsWith("#/thu-tien-nhanh")) page = <SmartCollectMoney />;
   else if (hash.startsWith("#/thu-tien")) page = <CollectMoney />;
   else if (hash.startsWith("#/quy")) page = <QuyList />;
@@ -611,6 +613,7 @@ function App() {
     : hash.startsWith("#/viec") ? "Việc"
     : hash.startsWith("#/ket") ? "Két tiền"
     : hash.startsWith("#/huong-dan") ? "Hướng dẫn"
+    : hash.startsWith("#/no-qua-han") ? "Nợ quá hạn"
     : hash.startsWith("#/thu-tien-nhanh") ? "Thu tiền nhanh"
     : hash.startsWith("#/thu-tien") ? "Thu tiền hàng loạt"
     : hash.startsWith("#/quy") ? "Sổ quỹ"

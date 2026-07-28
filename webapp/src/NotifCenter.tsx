@@ -57,6 +57,12 @@ export function NotifCenter() {
 
   const go = (n: Notif) => {
     setOpen(false);
+    // Nhắc CÔNG NỢ QUÁ HẠN → mở thẳng trang thu tiền của khách (không có đơn thì
+    // về danh sách nợ quá hạn).
+    if (n.type === "debt") {
+      window.location.hash = n.thread_id ? `#/order/${n.thread_id}/thanh-toan` : "#/no-qua-han";
+      return;
+    }
     if (n.thread_id) {
       // KHÔNG encode: main.tsx bắt focus=<type>:<id> với dấu ':' nguyên; encodeURIComponent
       // biến ':' → '%3A' làm regex trượt → không cuộn tới đích. n.focus toàn ký tự an toàn.
