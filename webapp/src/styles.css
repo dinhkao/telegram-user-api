@@ -3325,6 +3325,18 @@ body.kbd-open .collect-bar { bottom: 8px; }
 .collect-res-name { font-weight: 700; color: var(--ink); flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .collect-res-msg { color: var(--ink); }
 .collect-cap { color: var(--warn); font-size: .8rem; }
+/* Đơn đã ẩn khỏi trang thu tiền (bypass_debt) — nút xem + danh sách đưa lại */
+.collect-hidden-toggle { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px; margin: 0 0 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--muted); font-weight: 700; font-size: .85rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.collect-hidden-toggle.on { color: var(--warn); border-color: var(--warn); }
+.collect-hidden-toggle:disabled { opacity: .6; }
+.collect-row.hidden-only { border-style: dashed; opacity: .82; }
+.collect-row.hidden-only .collect-check { visibility: hidden; }
+.collect-row.hidden-only .collect-collectable { color: var(--muted); }
+.collect-hidden-list { list-style: none; margin: 0; padding: 0 12px 10px; display: flex; flex-direction: column; gap: 6px; border-top: 1px dashed var(--border); }
+.collect-hidden-item { display: flex; align-items: center; gap: 8px; padding-top: 8px; }
+.collect-hidden-link { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; color: var(--ink); text-decoration: none; }
+.collect-hidden-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; }
+.collect-unhide { flex: none; }
 
 /* ===== Trạm Thu tiền nhanh (#/thu-tien-nhanh) =====
    Luồng theo mục tiêu: nền xanh mực, tín hiệu vàng, các khoản thu nằm như

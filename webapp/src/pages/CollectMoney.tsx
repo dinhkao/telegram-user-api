@@ -2,39 +2,54 @@
 // đơn nợ, tick nhiều khách + số tiền mỗi khách → thu 1 lần. Mỗi khách là 1 giao
 // dịch thu gộp độc lập (server fan-out vào lõi thu gộp cũ). Chỉ văn phòng.
 // Số thu mỗi khách chặn trần theo "thu được qua đơn" (collectable). Nợ KiotViet chỉ
-// tham chiếu. Nối: api.getDebtors/collectBatch, ui/SearchBar, ui/feedback, realtime.
-import { useEffect, useMemo, useState } from "preact/hooks";
+// tham chiếu. Nút "Xem đơn đã ẩn" tải lại kèm các đơn bị ẩn khỏi trang thu tiền
+// (cờ bypass_debt) — kể cả khách CHỈ còn đơn ẩn — và cho ĐƯA LẠI từng đơn.
+// Nối: api.getDebtors/collectBatch/setOrderBypassDebt, ui/SearchBar, ui/feedback, realtime.
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { PageHead } from "../ui/PageHead";
-import { getDebtors, collectBatch, isOffice, type Debtor, type CollectResult } from "../api";
+import { getDebtors, collectBatch, setOrderBypassDebt, isOffice, type Debtor, type CollectResult } from "../api";
 import { onRealtime } from "../realtime";
-import { money, parseMoney, foldVN } from "../format";
+import { money, parseMoney, foldVN, fmtDateTimeVN } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 import { Loading, ErrorState, EmptyState } from "../ui/states";
 import { SearchBar } from "../ui/SearchBar";
 import { Icon } from "../ui/Icon";
 
-type Data = { debtors: Debtor[]; total_collectable: number; count: number };
-let cache: Data | null = null;
+type Data = {
+  debtors: Debtor[]; total_collectable: number; count: number;
+  hidden_count: number; hidden_total: number; hidden_customer_count: number;
+};
+// 2 chế độ tải (không kèm / có kèm đơn đã ẩn) → 2 ô cache riêng.
+let cache: { plain: Data | null; hidden: Data | null } = { plain: null, hidden: null };
 onRealtime((e) => {
-  if (["order_changed", "orders_changed", "customer_changed", "resync"].includes(e.type)) cache = null;
+  if (["order_changed", "orders_changed", "customer_changed", "resync"].includes(e.type)) {
+    cache = { plain: null, hidden: null };
+  }
 });
 
 export function CollectMoney() {
   const office = isOffice();
-  const [data, setData] = useState<Data | null>(cache);
+  const [showHidden, setShowHidden] = useState(false);
+  const [data, setData] = useState<Data | null>(cache.plain);
   const [err, setErr] = useState("");
   const [method, setMethod] = useState<"Cash" | "Transfer">("Cash");
   const [query, setQuery] = useState("");
   // key → số tiền (chuỗi) đang chọn thu. Không có key = chưa chọn.
   const [picked, setPicked] = useState<Map<string, string>>(() => new Map());
   const [busy, setBusy] = useState(false);
+  const [hiddenBusy, setHiddenBusy] = useState(false);
+  const [unhiding, setUnhiding] = useState<number | null>(null);
   const [results, setResults] = useState<CollectResult[] | null>(null);
+  const reqSeq = useRef(0);
 
-  const reload = async (soft = false) => {
+  const reload = async (soft = false, hidden = showHidden) => {
+    // Đổi chế độ ẩn/hiện giữa chừng: chỉ lượt tải MỚI NHẤT được đổ ra màn hình.
+    const seq = ++reqSeq.current;
     try {
-      if (!soft) setData(cache);
-      const next = await getDebtors();
-      cache = next;
+      if (!soft) setData(hidden ? cache.hidden : cache.plain);
+      const next = await getDebtors(hidden);
+      if (hidden) cache.hidden = next; else cache.plain = next;
+      if (seq !== reqSeq.current) return;
       setData(next);
       setErr("");
       // Bỏ chọn khách đã hết nợ (không còn trong danh sách).
@@ -44,29 +59,55 @@ export function CollectMoney() {
         for (const [k, v] of prev) if (alive.has(k)) m.set(k, v);
         return m;
       });
-    } catch (ex: any) { setErr(ex.message); }
+    } catch (ex: any) { if (seq === reqSeq.current) setErr(ex.message); }
   };
   useEffect(() => { reload(); }, []);
   // Thu xong / khách đổi nợ → cập nhật danh sách nền (không nháy màn khi đang thao tác).
   useEffect(() => {
     const off = onRealtime((e) => {
       if (["order_changed", "orders_changed", "customer_changed", "resync"].includes(e.type)) {
-        if (!busy) reload(true);
+        if (!busy) reload(true, showHidden);
       }
     });
     return off;
-  }, [busy]);
+  }, [busy, showHidden]);
+
+  // Bật/tắt xem đơn đã ẩn: tải lại cùng danh sách nhưng kèm (hoặc bỏ) phần ẩn.
+  const toggleShowHidden = async () => {
+    if (hiddenBusy) return;
+    const next = !showHidden;
+    setShowHidden(next);
+    setHiddenBusy(true);
+    try { await reload(true, next); } finally { setHiddenBusy(false); }
+  };
+
+  // Đưa 1 đơn đã ẩn trở lại trang thu tiền (bỏ cờ bypass_debt).
+  const unhide = async (threadId: number) => {
+    if (unhiding) return;
+    setUnhiding(threadId);
+    try {
+      await setOrderBypassDebt(threadId, false);
+      toast("Đã đưa đơn lại vào trang thu tiền", "ok");
+      cache = { plain: null, hidden: null };
+      await reload(true, showHidden);
+    } catch (ex: any) {
+      toast(ex?.message || "Không đưa lại được đơn", "err");
+    } finally { setUnhiding(null); }
+  };
 
   const debtors = data?.debtors || [];
   const normalizedQuery = foldVN(query.trim());
-  const shown = useMemo(
-    () => normalizedQuery ? debtors.filter((d) => foldVN(d.name).includes(normalizedQuery)) : debtors,
-    [debtors, normalizedQuery],
-  );
+  const shown = useMemo(() => {
+    // Khách chỉ còn đơn ẩn chỉ xuất hiện khi đang xem đơn ẩn (server cũng chỉ trả khi đó).
+    let list = showHidden ? debtors : debtors.filter((d) => !d.hidden_only);
+    if (normalizedQuery) list = list.filter((d) => foldVN(d.name).includes(normalizedQuery));
+    return list;
+  }, [debtors, normalizedQuery, showHidden]);
   const selectable = useMemo(() => shown.filter((d) => !d.blocked && d.collectable > 0), [shown]);
 
   const toggle = (d: Debtor) => {
     if (d.blocked) { toast("Khách chưa liên kết KiotViet — không thu được", "err"); return; }
+    if (d.collectable <= 0) { toast("Khách chỉ còn đơn đã ẩn — đưa lại đơn mới thu được", "err"); return; }
     setPicked((prev) => {
       const m = new Map(prev);
       if (m.has(d.key)) m.delete(d.key);
@@ -122,11 +163,11 @@ export function CollectMoney() {
       setPicked((prev) => { const m = new Map(prev); for (const k of okKeys) m.delete(k); return m; });
       if (r.fail_count === 0) toast(`✅ Đã thu ${money(r.total_collected)} từ ${r.ok_count} khách`, "ok");
       else toast(`Thu ${r.ok_count} khách (${money(r.total_collected)}) · ${r.fail_count} khách lỗi`, "err");
-      cache = null;
-      await reload(true);
+      cache = { plain: null, hidden: null };
+      await reload(true, showHidden);
     } catch (ex: any) {
       toast(`❌ ${ex.message}`, "err");
-      await reload(true);
+      await reload(true, showHidden);
     } finally { setBusy(false); }
   };
 
@@ -168,6 +209,17 @@ export function CollectMoney() {
 
       <div class="collect-search"><SearchBar value={query} onInput={setQuery} placeholder="Tìm khách…" /></div>
 
+      {(data.hidden_count > 0 || showHidden) && (
+        <button class={"collect-hidden-toggle" + (showHidden ? " on" : "")} disabled={hiddenBusy}
+          onClick={toggleShowHidden}>
+          <Icon name={showHidden ? "eye" : "ban"} size={14} />
+          {hiddenBusy ? "Đang tải…"
+            : showHidden
+              ? `Đang hiện ${data.hidden_count} đơn đã ẩn (${money(data.hidden_total)}) — bấm để ẩn bớt`
+              : `Xem ${data.hidden_count} đơn đã ẩn khỏi thu tiền (${money(data.hidden_total)})`}
+        </button>
+      )}
+
       {selectable.length > 0 && (
         <button class="collect-all" onClick={toggleAll}>
           <Icon name="check" size={14} /> {allPicked ? "Bỏ chọn tất cả" : `Chọn tất cả (${selectable.length} khách) — thu đủ`}
@@ -184,8 +236,11 @@ export function CollectMoney() {
             const amt = parseMoney(amtStr);
             const over = amt > d.collectable;
             const kvDiff = d.kv_debt != null && Math.abs(Number(d.kv_debt) - d.collectable) > 1;
+            const hiddenOrders = showHidden ? (d.hidden_orders || []) : [];
+            const hiddenOnly = !!d.hidden_only;
             return (
-              <li class={"collect-row" + (sel ? " sel" : "") + (d.blocked ? " blocked" : "")} key={d.key}>
+              <li class={"collect-row" + (sel ? " sel" : "") + (d.blocked ? " blocked" : "")
+                + (hiddenOnly ? " hidden-only" : "")} key={d.key}>
                 <div class="collect-main" onClick={() => toggle(d)}>
                   <span class="collect-check" aria-hidden="true">
                     {sel ? <Icon name="check" size={15} /> : null}
@@ -194,10 +249,33 @@ export function CollectMoney() {
                     {d.name}
                   </a>
                   <span class="collect-amt-col">
-                    <b class="collect-collectable">{money(d.collectable)}</b>
-                    <span class="muted small">{d.order_count} đơn{kvDiff ? ` · nợ KV ${money(Number(d.kv_debt))}` : ""}</span>
+                    <b class="collect-collectable">{hiddenOnly ? "—" : money(d.collectable)}</b>
+                    <span class="muted small">
+                      {hiddenOnly ? "chỉ còn đơn ẩn" : `${d.order_count} đơn`}
+                      {(d.hidden_count || 0) > 0 && !hiddenOnly ? ` · ${d.hidden_count} đơn ẩn` : ""}
+                      {kvDiff ? ` · nợ KV ${money(Number(d.kv_debt))}` : ""}
+                    </span>
                   </span>
                 </div>
+                {hiddenOrders.length > 0 && (
+                  <ul class="collect-hidden-list">
+                    {hiddenOrders.map((h) => (
+                      <li class="collect-hidden-item" key={h.thread_id}>
+                        <a class="collect-hidden-link" href={`#/order/${h.thread_id}`}>
+                          <span class="collect-hidden-text">{h.label || `Đơn #${h.thread_id}`}</span>
+                          <span class="muted small">
+                            {h.created ? `${fmtDateTimeVN(h.created)} · ` : ""}còn nợ {money(h.debt)}
+                          </span>
+                        </a>
+                        <button type="button" class="btn small ghost collect-unhide"
+                          disabled={unhiding === h.thread_id}
+                          onClick={() => unhide(h.thread_id)}>
+                          <Icon name="refresh" size={14} /> {unhiding === h.thread_id ? "Đang…" : "Đưa lại"}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {d.blocked && <div class="collect-note">Chưa liên kết KiotViet — không thu được</div>}
                 {sel && !d.blocked && (
                   <div class="collect-edit">

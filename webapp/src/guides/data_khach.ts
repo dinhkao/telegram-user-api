@@ -64,6 +64,17 @@ export const GUIDES_KHACH: Guide[] = [
           <li>Bấm <b>Thu tiền</b> → xác nhận. Kết quả từng khách (thành công / lỗi) hiện ở đầu trang.</li>
         </ol>
         <p class="muted small">Không nhập vượt <b>số thu được qua đơn</b> của khách (báo "tối đa qua đơn"). Nợ KiotViet chỉ để tham chiếu.</p>` },
+      { title: "Đơn đã ẩn khỏi trang thu tiền", html: `
+        <p>Trong trang thu tiền của từng đơn, bạn có thể <b>ẩn một đơn khỏi việc thu tiền</b> (đơn khỏi bị
+        tính vào số thu được). Các đơn ẩn đó <b>không cộng vào "thu được"</b> ở trang này, nên khách chỉ còn
+        đơn ẩn sẽ <b>biến mất</b> khỏi danh sách.</p>
+        <p>Bấm nút <b>"Xem N đơn đã ẩn khỏi thu tiền"</b> (ngay dưới ô tìm kiếm) để hiện chúng:</p>
+        <ul>
+          <li>Mỗi khách hiện thêm danh sách <b>đơn đang bị ẩn</b> — bấm vào để mở đơn.</li>
+          <li>Khách <b>chỉ còn đơn ẩn</b> cũng hiện ra (viền đứt nét, cột tiền là "—" vì chưa thu được).</li>
+          <li>Bấm <b>Đưa lại</b> để bỏ ẩn 1 đơn → đơn quay lại phần thu được, số tiền của khách tăng ngay.</li>
+        </ul>
+        <p class="muted small">Bấm nút lần nữa để ẩn bớt. Tổng đầu trang <b>luôn</b> chỉ tính phần thu được — bật/tắt nút không làm đổi số đó.</p>` },
       { title: "\"Nộp tiền\" khác \"phiếu thu\"", html: `
         <p>Đừng nhầm hai việc:</p>
         <ul>
