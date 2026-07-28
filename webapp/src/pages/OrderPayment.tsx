@@ -5,8 +5,9 @@
 // POST /api/order/payment/bulk (cần mạng). Chỉ văn phòng.
 // Mỗi đơn có nút ẨN khỏi trang thu tiền (bypass_debt) — toggle 2 chiều: đơn ẩn rơi
 // xuống mục "Đã ẩn" và không được phân bổ; bấm "Đưa lại" để thu tiếp.
-// Nút "Hiện N đơn ẩn" xen các đơn ẩn vào ĐÚNG VỊ TRÍ theo chiều sắp xếp thời gian
-// đang chọn (mới/cũ trước) — chỉ để nhìn mạch thời gian + đưa lại, KHÔNG chọn được.
+// MẶC ĐỊNH đơn ẩn nằm ngay trong danh sách "Chọn đơn nhận thanh toán", ĐÚNG VỊ TRÍ
+// theo chiều sắp xếp thời gian đang chọn (mới/cũ trước) — chỉ để nhìn mạch thời gian
+// + đưa lại, KHÔNG chọn được. Nút "Ẩn lại" gom chúng về khối "Đã ẩn" cuối trang.
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { PageHead } from "../ui/PageHead";
 import { getPaymentContext, bulkPayment, isOffice, orderImageUrl, setOrderBypassDebt, type PaymentContext, type DebtOrder } from "../api";
@@ -45,7 +46,9 @@ export function OrderPayment({ threadId }: { threadId: string }) {
   const [hidingSelected, setHidingSelected] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);  // đơn đang đổi ẩn/hiện
   const [hiddenOpen, setHiddenOpen] = useState(false);
-  const [hiddenInline, setHiddenInline] = useState(false);   // xen đơn ẩn theo dòng thời gian
+  // MẶC ĐỊNH bật: đơn ẩn nằm luôn trong danh sách "Chọn đơn nhận thanh toán",
+  // đúng vị trí theo dòng thời gian. Tắt = gom về khối "Đã ẩn" cuối trang.
+  const [hiddenInline, setHiddenInline] = useState(true);
   const office = isOffice();
 
   const reload = async () => {
