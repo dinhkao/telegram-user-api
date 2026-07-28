@@ -869,6 +869,12 @@ body.kbd-open .pay-submit-bar { bottom: 8px; }
 .pay-hidden-chev { margin-left: auto; transition: transform var(--dur) var(--ease); }
 .pay-hidden-chev.flip { transform: rotate(180deg); }
 .pay-order-row .pay-unhide { flex: 0 0 auto; }
+/* Đơn ẩn XEN vào danh sách theo dòng thời gian (nút "Hiện N đơn ẩn") */
+.pay-show-hidden.on { color: var(--muted); border-color: var(--muted-2); }
+.pay-alloc.pay-alloc-hidden { opacity: .8; padding-left: 8px; border-left: 3px solid var(--border); border-radius: 8px; background: var(--bg); }
+.pay-alloc-hidden .pay-alloc-amt { color: var(--muted-2); font-size: .8rem; font-weight: 700; }
+.pay-alloc-hidden .pay-order-text { text-decoration: line-through; text-decoration-color: var(--muted-2); }
+.pay-check-off { color: var(--muted-2); cursor: default; }
 @media (max-width: 420px) {
   .pay-select-head { align-items: flex-start; flex-direction: column; }
   .pay-select-actions { width: 100%; }

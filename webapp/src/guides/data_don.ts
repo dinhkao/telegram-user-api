@@ -63,6 +63,17 @@ export const GUIDES_DON: Guide[] = [
         </ul>
         <p>Cuối đơn có <b>Lịch sử thao tác</b> (ai làm gì, lúc nào) và nút <b>Timeline biến động đơn</b>
         (<a href="#/order">#/order/:id/timeline</a>) — xem cả đời đơn kèm rail <b>tiền còn phải thu</b>.</p>` },
+      { title: "Trang thu tiền của đơn (đơn ẩn)", html: `
+        <p>Bấm <b>Thanh toán</b> → trang thu tiền hiện <b>mọi đơn còn nợ của khách</b> (không chỉ đơn đang mở):
+        tick đơn muốn thu, nhập tổng tiền, hệ thống chia theo chiều sắp xếp <b>Mới trước / Cũ trước</b>.</p>
+        <ul>
+          <li>Nút <b>🚫</b> ở cuối mỗi dòng = <b>ẩn đơn khỏi trang thu tiền</b> (đơn không được chia tiền nữa).</li>
+          <li>Bấm <b>「Hiện N đơn ẩn」</b> cạnh nút sắp xếp để <b>xen các đơn ẩn vào đúng vị trí theo thời gian</b> —
+            dòng ẩn có viền xám, gạch ngang nội dung và không tick chọn được.</li>
+          <li>Bấm <b>Đưa lại</b> trên dòng ẩn để đơn quay lại nhận thanh toán.</li>
+        </ul>
+        <p class="muted small">Tắt nút đó thì các đơn ẩn gom lại ở khối <b>“Đã ẩn khỏi trang thu tiền”</b> cuối trang như trước.
+        Xem toàn cảnh đơn ẩn của mọi khách ở trang <a href="#/huong-dan/thu-tien">Thu tiền hàng loạt</a>.</p>` },
       { title: "Xoá ảnh, đổi khách, xoá đơn", html: `
         <ul>
           <li><b>Xoá ảnh = xoá mềm</b>: ảnh vẫn hiện nhưng có <b>dấu X đỏ</b> gạch chéo — để đối chiếu sau, không mất hẳn.</li>
