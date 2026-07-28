@@ -11,6 +11,9 @@ Luật (unit-test ở tests/test_debt_alert.py):
     .giao_hang.at`), đơn cũ chỉ có cờ mirror `giao` thì lấy `created`.
   • Số ngày = chênh lệch NGÀY theo giờ VN (giao hôm qua = 1 ngày), gộp theo khách:
     `days` = đơn quá hạn LÂU NHẤT, `order_count`/`total` = các đơn ĐÃ quá ngưỡng.
+  • CHỈ đơn tạo TỪ `DEBT_ALERT_SINCE` (mặc định 2026-07-01, theo NGÀY VN) — nợ cũ
+    trước mốc không nhắc (giống CASHBOX_SINCE của hệ két). Đơn thiếu/hỏng
+    `created` coi như đơn CŨ → bỏ qua.
 
 Đọc: GET /api/debt-alerts?days=N (văn phòng) — trang webapp #/no-qua-han; bộ nhắc
 mỗi ngày ở server_app/debt_alert_daily.py. Nối: order_api_collect, customer_feed
@@ -21,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from datetime import date, datetime, timedelta, timezone
 
 from aiohttp import web
@@ -35,6 +39,17 @@ log = logging.getLogger("server")
 _VN_TZ = timezone(timedelta(hours=7))
 # Ngưỡng mặc định: nợ từ 1 ngày (giao hôm qua, hôm nay chưa trả) là đã cảnh báo.
 DEFAULT_MIN_DAYS = 1
+
+
+def _parse_date(s: str | None) -> date | None:
+    try:
+        return date.fromisoformat((s or "").strip())
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+# Chỉ nhắc nợ của đơn tạo TỪ mốc này (ngày VN) — nợ cũ trước đó không đụng tới.
+SINCE = _parse_date(os.getenv("DEBT_ALERT_SINCE")) or date(2026, 7, 1)
 
 
 def today_vn() -> date:
@@ -55,6 +70,14 @@ def delivered_ts(data: dict) -> float | None:
     if data.get("giao") is True or data.get("giao_hang") is True:
         return _ts_key(data.get("created")) or None
     return None
+
+
+def created_date_vn(data: dict) -> date | None:
+    """Ngày TẠO ĐƠN theo giờ VN — None nếu đơn không có/hỏng `created`."""
+    ts = _ts_key(data.get("created"))
+    if not ts:
+        return None
+    return datetime.fromtimestamp(ts, _VN_TZ).date()
 
 
 def days_overdue(ts: float, today: date | None = None) -> int:
@@ -86,13 +109,16 @@ def _customers(conn) -> dict[str, dict]:
     return out
 
 
-def compute_debt_alerts(conn, min_days: int = DEFAULT_MIN_DAYS, today: date | None = None) -> dict:
+def compute_debt_alerts(conn, min_days: int = DEFAULT_MIN_DAYS, today: date | None = None,
+                        since: date | None = None) -> dict:
     """Khách có đơn ĐÃ GIAO còn nợ quá `min_days` ngày → {alerts, count, total}.
 
-    `alerts` xếp nợ lâu nhất trước (cùng số ngày thì tiền nhiều trước). Mỗi dòng:
-    key/name/days/order_count/total/source_thread_id (đơn quá hạn CŨ NHẤT — mở
-    thẳng trang thu tiền)/blocked (khách chưa liên kết KiotViet)."""
+    Chỉ xét đơn TẠO TỪ `since` (mặc định `SINCE` = 2026-07-01) — nợ cũ hơn không
+    nhắc. `alerts` xếp nợ lâu nhất trước (cùng số ngày thì tiền nhiều trước). Mỗi
+    dòng: key/name/days/order_count/total/source_thread_id (đơn quá hạn CŨ NHẤT —
+    mở thẳng trang thu tiền)/blocked (khách chưa liên kết KiotViet)."""
     day = today or today_vn()
+    start = since or SINCE
     min_days = max(0, int(min_days))
     agg: dict[str, dict] = {}
     for r in conn.execute("SELECT thread_id, json FROM orders WHERE deleted_at IS NULL AND json IS NOT NULL"):
@@ -106,6 +132,9 @@ def compute_debt_alerts(conn, min_days: int = DEFAULT_MIN_DAYS, today: date | No
         key = data.get("khach_hang_id") or data.get("khID")
         if not key:
             continue
+        created = created_date_vn(data)
+        if created is None or created < start:
+            continue   # nợ cũ trước mốc / đơn không rõ ngày tạo → không nhắc
         rem = _owing_remaining(data)
         if rem is None or _is_hidden(data):
             continue
@@ -145,6 +174,7 @@ def compute_debt_alerts(conn, min_days: int = DEFAULT_MIN_DAYS, today: date | No
         "count": len(alerts),
         "total": sum(a["total"] for a in alerts),
         "min_days": min_days,
+        "since": start.isoformat(),
     }
 
 

@@ -13,12 +13,18 @@ import { Loading, ErrorState, EmptyState } from "../ui/states";
 import { SearchBar } from "../ui/SearchBar";
 import { Icon } from "../ui/Icon";
 
-type Data = { alerts: DebtAlert[]; count: number; total: number; min_days: number };
+type Data = { alerts: DebtAlert[]; count: number; total: number; min_days: number; since?: string };
 const THRESHOLDS = [1, 3, 7, 15];
 let cache: Record<number, Data | undefined> = {};
 onRealtime((e) => {
   if (["order_changed", "orders_changed", "customer_changed", "resync"].includes(e.type)) cache = {};
 });
+
+/** "2026-07-01" → "01/07/2026" (mốc chỉ hiện ở chân trang nên để local, khỏi thêm helper chung). */
+function sinceLabel(iso?: string): string {
+  const m = (iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "01/07/2026";
+}
 
 /** "đã 3 ngày chưa thanh toán từ 3 đơn hàng" — cùng câu với thông báo của server. */
 function alertLine(a: DebtAlert): string {
@@ -130,6 +136,7 @@ export function DebtAlerts() {
       )}
 
       <p class="muted small debt-foot">
+        Chỉ tính <b>đơn tạo từ {sinceLabel(data.since)}</b> — nợ cũ hơn không nhắc.
         Đếm từ ngày <b>giao hàng xong</b>; đơn đã ẩn khỏi trang thu tiền và đơn bỏ theo dõi nợ không tính.
         Mỗi sáng hệ thống gửi lại thông báo cho tới khi khách hết nợ.
       </p>
