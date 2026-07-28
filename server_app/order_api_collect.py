@@ -27,7 +27,7 @@ from aiohttp import web
 from order_db import _get_connection, get_customer_by_key
 from payment_store.domain import allocate_payment
 from server_app.customer_feed import _order_total_num, _ts_key
-from server_app.order_api_bulk_payment import _paid_total, _process_bulk_payment
+from server_app.order_api_bulk_payment import _order_label, _paid_total, _process_bulk_payment
 from server_app.order_api_common import apply_web_actor, is_office_request
 
 log = logging.getLogger("server")
@@ -36,15 +36,18 @@ log = logging.getLogger("server")
 _MAX_BATCH = 60
 
 
-def _active_remaining(data: dict) -> int | None:
-    """Số tiền CÒN THIẾU của 1 đơn nếu đơn ĐANG NỢ và KHÔNG bị loại, ngược lại None.
+def _is_hidden(data: dict) -> bool:
+    """Đơn đã 'ẩn khỏi trang thu tiền' (cờ bypass_debt, bật ở trang thu tiền 1 khách)."""
+    return data.get("bypass_debt") in (1, True, "1", "true")
 
-    Cùng luật lọc với order_api_bulk_payment._load_customer_debt_orders:
-    bỏ đơn `bo_theo_doi_no` / `bypass_debt`, tổng đơn > 0, còn thiếu > 0. Làm TRÒN
-    XUỐNG (int) nên không bao giờ vượt số thực → qua được re-validate của lõi thu."""
+
+def _owing_remaining(data: dict) -> int | None:
+    """Số tiền CÒN THIẾU của 1 đơn ĐANG NỢ, KHÔNG xét cờ ẩn — ngược lại None.
+
+    Cùng luật lọc với order_api_bulk_payment._load_customer_debt_orders: bỏ đơn
+    `bo_theo_doi_no`, tổng đơn > 0, còn thiếu > 0. Làm TRÒN XUỐNG (int) nên không
+    bao giờ vượt số thực → qua được re-validate của lõi thu."""
     if data.get("bo_theo_doi_no") in (1, True, "1", "true"):
-        return None
-    if data.get("bypass_debt") in (1, True, "1", "true"):
         return None
     total = _order_total_num(data)
     if total <= 0:
@@ -54,6 +57,13 @@ def _active_remaining(data: dict) -> int | None:
         return None
     rem = int(remaining)
     return rem if rem > 0 else None
+
+
+def _active_remaining(data: dict) -> int | None:
+    """Như `_owing_remaining` nhưng LOẠI đơn đã ẩn — đây là số thu được qua đơn."""
+    if _is_hidden(data):
+        return None
+    return _owing_remaining(data)
 
 
 def _active_debt_orders_light(conn, key: str) -> list[dict]:
@@ -84,11 +94,17 @@ def _active_debt_orders_light(conn, key: str) -> list[dict]:
     return out
 
 
-def _load_debtors(conn) -> dict:
+def _load_debtors(conn, with_hidden: bool = False) -> dict:
     """1 lượt quét đơn → gom số CÓ THỂ THU theo khách; nối tên + nợ KiotViet.
 
-    Trả {debtors, total_collectable, count}. Chỉ khách có collectable > 0 (thu được
-    qua đơn). `blocked`=True khi khách chưa có kh_id KiotViet (không tạo được HĐ)."""
+    Trả {debtors, total_collectable, count, hidden_count, hidden_total,
+    hidden_customer_count}. Mặc định chỉ khách có collectable > 0 (thu được qua
+    đơn). `blocked`=True khi khách chưa có kh_id KiotViet (không tạo được HĐ).
+
+    `with_hidden=True` (query `?hidden=1`) trả THÊM các đơn đã ẩn khỏi trang thu
+    tiền (`bypass_debt`) của từng khách trong `hidden_orders`, kèm cả khách CHỈ
+    còn đơn ẩn (`hidden_only`, collectable = 0 — không thu được, chỉ để đưa lại).
+    Tổng/`count` LUÔN chỉ tính phần thu được nên số ở đầu trang không đổi."""
     # Bản đồ khách (≈343 dòng — quét nhanh trong bộ nhớ).
     custs: dict[str, dict] = {}
     for fk, jt in conn.execute("SELECT firebase_key, json FROM customers WHERE deleted_at IS NULL"):
@@ -114,47 +130,84 @@ def _load_debtors(conn) -> dict:
         key = data.get("khach_hang_id") or data.get("khID")
         if not key:
             continue
-        rem = _active_remaining(data)
+        rem = _owing_remaining(data)
         if rem is None:
             continue
         candidate_key = _ts_key(data.get("created")) or float(thread_id)
         e = agg.setdefault(str(key), {
             "collectable": 0, "order_count": 0,
-            "source_thread_id": int(thread_id), "source_order_key": candidate_key,
+            "source_thread_id": None, "source_order_key": None,
+            "hidden_count": 0, "hidden_amount": 0, "hidden_orders": [],
+            "hidden_source": None, "hidden_source_key": None,
         })
+        if _is_hidden(data):
+            e["hidden_count"] += 1
+            e["hidden_amount"] += rem
+            if e["hidden_source_key"] is None or candidate_key < e["hidden_source_key"]:
+                e["hidden_source"] = int(thread_id)
+                e["hidden_source_key"] = candidate_key
+            if with_hidden:
+                e["hidden_orders"].append({
+                    "thread_id": int(thread_id), "created": data.get("created"),
+                    "total": int(_order_total_num(data)), "debt": rem,
+                    "label": _order_label(data), "sort_key": candidate_key,
+                })
+            continue
         e["collectable"] += rem
         e["order_count"] += 1
         # Mở trang thu tiền bằng đơn cũ nhất để thứ tự phân bổ mặc định khớp
         # với lõi thu gộp (cũ → mới); payment-context vẫn tải toàn bộ đơn của khách.
-        if candidate_key < e["source_order_key"]:
+        if e["source_order_key"] is None or candidate_key < e["source_order_key"]:
             e["source_thread_id"] = int(thread_id)
             e["source_order_key"] = candidate_key
     debtors: list[dict] = []
     for key, e in agg.items():
+        collectable = e["collectable"]
+        # Khách chỉ còn đơn ẩn: không thu được → chỉ trả khi client hỏi đơn ẩn.
+        if collectable <= 0 and not (with_hidden and e["hidden_count"]):
+            continue
         c = custs.get(key) or {}
-        debtors.append({
+        d = {
             "key": key,
             "name": c.get("name") or key,
             "kv_debt": c.get("kv_debt"),
-            "collectable": e["collectable"],
+            "collectable": collectable,
             "order_count": e["order_count"],
-            "source_thread_id": e["source_thread_id"],
+            "source_thread_id": e["source_thread_id"] or e["hidden_source"],
             "blocked": not c.get("kh_id"),
-        })
-    debtors.sort(key=lambda d: d["collectable"], reverse=True)
-    total = sum(d["collectable"] for d in debtors)
-    return {"debtors": debtors, "total_collectable": total, "count": len(debtors)}
+            "hidden_count": e["hidden_count"],
+            "hidden_amount": e["hidden_amount"],
+        }
+        if with_hidden:
+            d["hidden_only"] = collectable <= 0
+            d["hidden_orders"] = [
+                {k: v for k, v in o.items() if k != "sort_key"}
+                for o in sorted(e["hidden_orders"], key=lambda o: o["sort_key"])
+            ]
+        debtors.append(d)
+    debtors.sort(key=lambda d: (-d["collectable"], -d["hidden_amount"]))
+    active = [d for d in debtors if d["collectable"] > 0]
+    return {
+        "debtors": debtors,
+        "total_collectable": sum(d["collectable"] for d in active),
+        "count": len(active),
+        "hidden_count": sum(e["hidden_count"] for e in agg.values()),
+        "hidden_total": sum(e["hidden_amount"] for e in agg.values()),
+        "hidden_customer_count": sum(1 for e in agg.values() if e["hidden_count"]),
+    }
 
 
 async def debtors_handler(request: web.Request):
-    """GET /api/collect/debtors — mọi khách có đơn đang nợ (thu được qua đơn)."""
+    """GET /api/collect/debtors[?hidden=1] — mọi khách có đơn đang nợ (thu được qua
+    đơn). `hidden=1` kèm luôn các đơn đã ẩn khỏi trang thu tiền để đưa lại."""
     if not await is_office_request(request):
         return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được thu tiền"}, status=403)
+    with_hidden = str(request.query.get("hidden", "")).lower() in ("1", "true", "yes")
 
     def _run():
         conn = _get_connection()
         try:
-            return _load_debtors(conn)
+            return _load_debtors(conn, with_hidden)
         finally:
             conn.close()
 

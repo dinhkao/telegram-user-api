@@ -56,6 +56,21 @@ export const shiftYM = (ym: string, d: number) => {
 };
 export const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
 
+/** TUẦN LƯƠNG = THỨ 7 tuần trước → THỨ 6 tuần này (đúng 7 ngày). Mốc chốt kỳ =
+ *  thứ 6 GẦN NHẤT ĐÃ QUA (hôm nay nếu hôm nay thứ 6) → khoảng ngày không bao giờ
+ *  lấn sang ngày chưa làm; bấm ngày thứ 6 (ngày chốt lương) ra đúng tuần vừa xong.
+ *  Hai kỳ liên tiếp KHÔNG đè ngày nào (kỳ trước kết thứ 6, kỳ sau mở thứ 7) — đừng
+ *  đổi thành 8 ngày, sản lượng ngày giao nhau sẽ được trả lương 2 lần.
+ *  `back` = lùi mấy tuần (0 = tuần này, 1 = tuần trước).
+ *  Dùng chung #/bao-cao + #/in-luong — đừng chép lại. */
+export function payWeek(back = 0, today: Date = new Date()): { from: string; to: string } {
+  const end = new Date(today);
+  end.setDate(today.getDate() - ((today.getDay() + 2) % 7) - back * 7);
+  const start = new Date(end);
+  start.setDate(end.getDate() - 6);
+  return { from: isoDate(start), to: isoDate(end) };
+}
+
 /** Số lượng CÓ THỂ THẬP PHÂN — chấp nhận dấu ',' (VN) hoặc '.' làm phần thập phân.
  *  Trả float, lỗi → 0. Khác parseMoney (ép số nguyên cho tiền đồng). */
 export function parseQty(s: string): number {

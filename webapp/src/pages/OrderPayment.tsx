@@ -5,6 +5,9 @@
 // POST /api/order/payment/bulk (cần mạng). Chỉ văn phòng.
 // Mỗi đơn có nút ẨN khỏi trang thu tiền (bypass_debt) — toggle 2 chiều: đơn ẩn rơi
 // xuống mục "Đã ẩn" và không được phân bổ; bấm "Đưa lại" để thu tiếp.
+// MẶC ĐỊNH đơn ẩn nằm ngay trong danh sách "Chọn đơn nhận thanh toán", ĐÚNG VỊ TRÍ
+// theo chiều sắp xếp thời gian đang chọn (mới/cũ trước) — chỉ để nhìn mạch thời gian
+// + đưa lại, KHÔNG chọn được. Nút "Ẩn lại" gom chúng về khối "Đã ẩn" cuối trang.
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { PageHead } from "../ui/PageHead";
 import { getPaymentContext, bulkPayment, isOffice, orderImageUrl, setOrderBypassDebt, type PaymentContext, type DebtOrder } from "../api";
@@ -13,6 +16,12 @@ import { money, parseMoney, fmtDateTimeVN, fmtRelative } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 import { EmptyState, ErrorState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
+
+/** Mốc thời gian để xếp đơn (đơn thiếu `created` xuống cuối chiều cũ→mới). */
+function timeKey(o: DebtOrder): number {
+  const t = o.created ? Date.parse(o.created) : NaN;
+  return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
+}
 
 /** Phân bổ lần lượt theo thứ tự danh sách đang hiển thị. */
 function allocate(orders: DebtOrder[], amount: number): Map<number, number> {
@@ -37,6 +46,9 @@ export function OrderPayment({ threadId }: { threadId: string }) {
   const [hidingSelected, setHidingSelected] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);  // đơn đang đổi ẩn/hiện
   const [hiddenOpen, setHiddenOpen] = useState(false);
+  // MẶC ĐỊNH bật: đơn ẩn nằm luôn trong danh sách "Chọn đơn nhận thanh toán",
+  // đúng vị trí theo dòng thời gian. Tắt = gom về khối "Đã ẩn" cuối trang.
+  const [hiddenInline, setHiddenInline] = useState(true);
   const office = isOffice();
 
   const reload = async () => {
@@ -73,6 +85,16 @@ export function OrderPayment({ threadId }: { threadId: string }) {
     () => orderedOrders.filter((o) => selectedIds.has(o.thread_id)),
     [orderedOrders, selectedIds],
   );
+  // Danh sách hiển thị: đơn thu được; bật "Hiện đơn ẩn" thì trộn thêm đơn ẩn rồi
+  // xếp lại TOÀN BỘ theo thời gian nên đơn ẩn nằm đúng chỗ của nó trong dòng thời gian.
+  const rows = useMemo(() => {
+    if (!hiddenInline || !hiddenOrders.length) return orderedOrders.map((o) => ({ o, hidden: false }));
+    const merged = [
+      ...orders.map((o) => ({ o, hidden: false })),
+      ...hiddenOrders.map((o) => ({ o, hidden: true })),
+    ].sort((a, b) => timeKey(a.o) - timeKey(b.o));
+    return newestFirst ? merged.reverse() : merged;
+  }, [orders, orderedOrders, hiddenOrders, hiddenInline, newestFirst]);
   const selectedDebt = selectedOrders.reduce((sum, o) => sum + o.debt, 0);
   const payableDebt = hasCustomerDebt ? Math.min(selectedDebt, Math.max(0, customerDebt)) : selectedDebt;
   const allocMap = useMemo(() => allocate(selectedOrders, amount), [selectedOrders, amount]);
@@ -239,6 +261,14 @@ export function OrderPayment({ threadId }: { threadId: string }) {
                       title="Đổi chiều sắp xếp" aria-label={`Đang xếp ${newestFirst ? "mới nhất trước" : "cũ nhất trước"}. Bấm để đổi chiều`}>
                       <Icon name="sort" size={14} /> {newestFirst ? "Mới trước" : "Cũ trước"}
                     </button>
+                    {hiddenOrders.length > 0 && (
+                      <button type="button" class={"pay-sort pay-show-hidden" + (hiddenInline ? " on" : "")}
+                        title="Xen các đơn đã ẩn vào danh sách theo đúng thứ tự thời gian"
+                        onClick={() => setHiddenInline((v) => !v)}>
+                        <Icon name={hiddenInline ? "eye" : "ban"} size={14} />
+                        {hiddenInline ? "Ẩn lại" : `Hiện ${hiddenOrders.length} đơn ẩn`}
+                      </button>
+                    )}
                     <button type="button" class="pay-select-all" onClick={toggleSelectAll}>
                       {selectedIds.size === orders.length ? "Bỏ chọn" : "Chọn tất cả"}
                     </button>
@@ -252,9 +282,29 @@ export function OrderPayment({ threadId }: { threadId: string }) {
                   </button>
                 )}
                 <ul class="pay-alloc-list">
-                  {orderedOrders.map((o) => {
+                  {rows.map(({ o, hidden }) => {
                     const selected = selectedIds.has(o.thread_id);
                     const take = allocMap.get(o.thread_id) || 0;
+                    if (hidden) return (
+                      <li class="pay-alloc pay-alloc-hidden" key={o.thread_id}>
+                        <div class="pay-order-row">
+                          <span class="pay-order-check pay-check-off" aria-hidden="true"
+                            title="Đơn đã ẩn khỏi trang thu tiền — không nhận thanh toán">
+                            <Icon name="ban" size={16} />
+                          </span>
+                          {orderLink(o)}
+                          <b class="pay-alloc-amt">Đã ẩn</b>
+                          <button class="btn small ghost pay-unhide" disabled={togglingId === o.thread_id}
+                            onClick={() => toggleHide(o.thread_id, false)}>
+                            <Icon name="refresh" size={14} /> Đưa lại
+                          </button>
+                        </div>
+                        <div class="row space muted small">
+                          <span>{o.created ? <>{fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : ""}</span>
+                          <span>Tiền đơn: {money(o.total)} · còn nợ {money(o.debt)}</span>
+                        </div>
+                      </li>
+                    );
                     return (
                       <li class={"pay-alloc" + (selected ? " selected" : "") + (take > 0 ? " on" : "")} key={o.thread_id}>
                         <div class="pay-order-row">
@@ -308,7 +358,7 @@ export function OrderPayment({ threadId }: { threadId: string }) {
             </div>
           )}
 
-          {hiddenOrders.length > 0 && (
+          {hiddenOrders.length > 0 && (!hiddenInline || orders.length === 0) && (
             <div class="card">
               <button class="pay-hidden-head" onClick={() => setHiddenOpen((s) => !s)}>
                 <Icon name="ban" size={15} /> Đã ẩn khỏi trang thu tiền ({hiddenOrders.length})

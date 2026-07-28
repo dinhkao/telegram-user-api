@@ -744,7 +744,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     Chip lọc = `.chips`/`.chip` (+`.chip-n` badge số); segmented = `.seg`/`.seg-btn`;
     toggle = `.tgl`; nhãn khu = `.ie-head`; màu chữ ngữ nghĩa = `.t-ok/.t-warn/.t-danger`;
     nhóm theo ngày = `dayKey`/`dayLabel`; tiền/pad/tháng = `money/moneyR/moneyD/pad2/
-    isoDate/curYM/shiftYM/ymLabel` (format.ts — đừng chép helper local). Cuộn = `scroll.ts`.
+    isoDate/curYM/shiftYM/ymLabel` (format.ts — đừng chép helper local). **Tuần LƯƠNG =
+    `payWeek(back)`** (format.ts): 1 tuần = **thứ 7 tuần trước → thứ 6 tuần này** (đúng 7
+    ngày), mốc chốt là thứ 6 gần nhất ĐÃ QUA (không lấn ngày chưa làm) và 2 kỳ liên tiếp
+    KHÔNG đè ngày nào (đè = trả lương 2 lần) — dùng cho `#/bao-cao` + `#/in-luong`, mọi chỗ
+    tính tuần lương mới phải gọi helper này, đừng tự tính thứ 2. Cuộn = `scroll.ts`.
     **`ui/SearchBar`** = search bar chuẩn mọi trang list (+ `FilterActiveBar` panel
     "Đang lọc"). **`detail/ScrollCalendar`** = lịch cuộn liền mạch kiểu macOS dùng
     chung (lịch giao `#/lich` [text đơn trong ô, đỏ chưa giao/xanh đã giao], lịch

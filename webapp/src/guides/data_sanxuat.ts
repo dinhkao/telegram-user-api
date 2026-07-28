@@ -133,6 +133,11 @@ export const GUIDES_SANXUAT: Guide[] = [
       { title: "Phiếu báo cáo lương (theo khoảng ngày)", html: `
         <p><a href="#/bao-cao">#/bao-cao</a> (chỉ <b>văn phòng</b> — đây là <b>tiền lương</b>) dùng để làm phiếu
         lương: bấm tạo phiếu, <b>chọn khoảng ngày</b> (có sẵn preset <i>Tuần này / Tuần trước</i>).</p>
+        <p><b>1 tuần lương = thứ 7 tuần trước → thứ 6 tuần này</b> (đúng 7 ngày, chốt vào thứ 6).
+        Mở trang lên ô ngày đã điền sẵn tuần lương gần nhất — mốc chốt là <b>thứ 6 vừa qua</b>,
+        không lấn sang ngày chưa làm, và <b>hai tuần liên tiếp không đè ngày nào</b> nên không có
+        ngày nào bị tính lương 2 lần. Trang <a href="#/in-luong">In phiếu lương</a> cũng theo
+        tuần này; cần khoảng khác thì sửa tay.</p>
         <p>Nội dung phiếu <b>tính live mỗi lần mở</b>:</p>
         <ul>
           <li>Tổng sản phẩm + <b>tiền theo từng thợ</b>.</li>
