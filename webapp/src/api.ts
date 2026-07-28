@@ -309,12 +309,12 @@ export type DebtAlert = {
 };
 /** Khách nợ quá hạn — nợ lâu nhất trước. `days` = ngưỡng số ngày (mặc định 1). */
 export async function getDebtAlerts(days = 1): Promise<{
-  alerts: DebtAlert[]; count: number; total: number; min_days: number;
+  alerts: DebtAlert[]; count: number; total: number; min_days: number; since?: string;
 }> {
   const d = await getJSON(`/api/debt-alerts?days=${Math.max(0, Math.floor(days))}`, { cache: false });
   return {
     alerts: d.alerts || [], count: d.count || 0, total: d.total || 0,
-    min_days: d.min_days ?? days,
+    min_days: d.min_days ?? days, since: d.since,
   };
 }
 

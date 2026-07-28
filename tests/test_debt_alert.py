@@ -12,7 +12,7 @@ import unittest
 from datetime import date, datetime, timedelta, timezone
 
 from server_app.debt_alert import (
-    alert_line, compute_debt_alerts, days_overdue, delivered_ts, money_vn,
+    SINCE, alert_line, compute_debt_alerts, created_date_vn, days_overdue, delivered_ts, money_vn,
 )
 
 _VN = timezone(timedelta(hours=7))
@@ -163,12 +163,43 @@ class ComputeDebtAlerts(unittest.TestCase):
         res = compute_debt_alerts(conn, 1, TODAY)
         self.assertEqual(res["alerts"][0]["total"], 600_000)
 
+    def test_orders_created_before_since_are_ignored(self):
+        """Nợ cũ trước mốc (mặc định 01/07/2026) không nhắc — kể cả đã giao lâu."""
+        conn = _conn()
+        _cust(conn, "K1", "Loan Phú")
+        old = _order(total=5_000_000, delivered_days_ago=40)
+        old["created"] = "2026-06-20T03:00:00.000Z"          # trước mốc
+        _put(conn, 10, old)
+        _put(conn, 11, _order(total=800_000, delivered_days_ago=2))   # sau mốc
+        res = compute_debt_alerts(conn, 1, TODAY)
+        self.assertEqual(res["count"], 1)
+        self.assertEqual(res["alerts"][0]["order_count"], 1)
+        self.assertEqual(res["alerts"][0]["total"], 800_000)
+        self.assertEqual(res["since"], SINCE.isoformat())
+
+    def test_order_without_created_is_ignored(self):
+        conn = _conn()
+        _cust(conn, "K1", "Loan Phú")
+        no_date = _order(total=900_000, delivered_days_ago=3)
+        no_date.pop("created")
+        _put(conn, 10, no_date)
+        self.assertIsNone(created_date_vn(no_date))
+        self.assertEqual(compute_debt_alerts(conn, 1, TODAY)["count"], 0)
+
+    def test_custom_since_overrides_default(self):
+        conn = _conn()
+        _cust(conn, "K1", "Loan Phú")
+        _put(conn, 10, _order(total=700_000, delivered_days_ago=3))   # tạo 4 ngày trước
+        self.assertEqual(compute_debt_alerts(conn, 1, TODAY, date(2026, 7, 1))["count"], 1)
+        self.assertEqual(compute_debt_alerts(conn, 1, TODAY, date(2026, 7, 27))["count"], 0)
+
     def test_no_alerts_when_nothing_overdue(self):
         conn = _conn()
         _cust(conn, "K1", "Loan Phú")
         _put(conn, 10, _order(total=100_000, delivered_days_ago=0))
         res = compute_debt_alerts(conn, 1, TODAY)
-        self.assertEqual(res, {"alerts": [], "count": 0, "total": 0, "min_days": 1})
+        self.assertEqual(res, {"alerts": [], "count": 0, "total": 0, "min_days": 1,
+                               "since": SINCE.isoformat()})
 
 
 class DailyPush(unittest.TestCase):

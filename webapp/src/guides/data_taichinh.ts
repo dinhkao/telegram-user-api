@@ -20,7 +20,8 @@ export const GUIDES_TAICHINH: Guide[] = [
           <li>Con số ngày trên huy hiệu = <b>đơn quá hạn lâu nhất</b> của khách; đỏ khi từ <b>7 ngày</b> trở lên.</li>
           <li>Số đơn và số tiền chỉ tính <b>các đơn đã quá ngưỡng</b> đang chọn (chip <b>từ 1 / 3 / 7 / 15 ngày</b>).</li>
           <li><b>Không tính</b>: đơn đã <b>ẩn khỏi trang thu tiền</b>, đơn <b>bỏ theo dõi nợ</b>, đơn đã trả đủ.</li>
-        </ul>` },
+        </ul>
+        <p class="muted small">Chỉ xét <b>đơn tạo từ 01/07/2026</b> trở đi — nợ cũ hơn mốc này hệ thống không nhắc.</p>` },
       { title: "Thông báo mỗi ngày", html: `
         <p>Mỗi sáng (khoảng <b>8 giờ</b>) hệ thống gửi <b>một thông báo cho mỗi khách còn nợ quá hạn</b> —
         vào <b>chuông thông báo</b> trong app và <b>push về điện thoại</b>. Bấm vào thông báo là mở thẳng

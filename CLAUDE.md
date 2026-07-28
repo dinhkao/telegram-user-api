@@ -160,7 +160,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   trang thu tiền (`order_api_collect._owing_remaining`, bỏ đơn `bypass_debt`) +
   **phải giao xong** (mốc = `task_status.giao_hang.at`, đơn cũ lùi về `created`),
   ngày đếm theo giờ VN; gom theo khách: `days` = đơn quá hạn lâu nhất,
-  `order_count`/`total` = CHỈ các đơn đã quá ngưỡng. GET `/api/debt-alerts?days=N`
+  `order_count`/`total` = CHỈ các đơn đã quá ngưỡng. **Chỉ đơn tạo TỪ
+  `DEBT_ALERT_SINCE`** (mặc định 2026-07-01, ngày VN — như `CASHBOX_SINCE` của
+  két; đơn thiếu `created` coi như cũ → bỏ). GET `/api/debt-alerts?days=N`
   (văn phòng) → `#/no-qua-han` (`pages/DebtAlerts.tsx`, chip 1/3/7/15 ngày).
   `debt_alert_daily.debt_alert_loop` (spawn ở bootstrap, nhịp 10ph) mỗi ngày từ
   `DEBT_ALERT_HOUR` (mặc định 8h VN) đẩy **1 thông báo/khách** qua
