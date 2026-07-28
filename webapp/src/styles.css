@@ -3344,6 +3344,23 @@ body.kbd-open .collect-bar { bottom: 8px; }
 .collect-hidden-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; }
 .collect-unhide { flex: none; }
 
+/* ===== Nợ quá hạn (#/no-qua-han) — DebtAlerts ===== */
+.debt-days { margin: 6px 0 2px; }
+.debt-search { margin: 4px 0 8px; }
+.debt-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.debt-row { border: 1px solid var(--border); border-radius: 12px; background: var(--card); box-shadow: var(--e1); overflow: hidden; }
+.debt-row.blocked { opacity: .72; }
+.debt-main { display: flex; align-items: center; gap: 10px; padding: 11px 12px; color: var(--ink); text-decoration: none; }
+.debt-days-badge { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 44px; padding: 5px 6px; border-radius: 10px; background: var(--accent-wash); color: var(--primary); font-weight: 800; font-size: 1.05rem; line-height: 1; }
+.debt-days-badge small { font-size: .62rem; font-weight: 700; opacity: .8; }
+.debt-days-badge.hot { background: var(--danger-wash); color: var(--danger); }
+.debt-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.debt-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.debt-amt { flex: none; font-weight: 800; color: var(--warn); font-variant-numeric: tabular-nums; }
+.debt-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0 12px 11px; }
+.debt-note { display: flex; align-items: center; gap: 6px; padding: 0 12px 10px; color: var(--muted); font-size: .8rem; }
+.debt-foot { margin: 12px 2px 0; line-height: 1.5; }
+
 /* ===== Trạm Thu tiền nhanh (#/thu-tien-nhanh) =====
    Luồng theo mục tiêu: nền xanh mực, tín hiệu vàng, các khoản thu nằm như
    những thẻ lệnh ngắn. Dữ liệu và giới hạn vẫn do API thu gộp hiện tại quyết định. */

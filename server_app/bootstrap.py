@@ -51,6 +51,9 @@ async def main():
     # Keepalive /ws: phát {"type":"ping"} 25s/lần để client phát hiện socket chết ngầm
     from server_app.websocket_routes import ws_ping_loop
     spawn_tracked("ws.ping_loop", ws_ping_loop())
+    # Nhắc CÔNG NỢ QUÁ HẠN: mỗi ngày 1 lượt (từ 8h VN) → notification + FCM
+    from server_app.debt_alert_daily import debt_alert_loop
+    spawn_tracked("debt_alert.daily", debt_alert_loop())
 
     # Start bot client (merged from bot-don-hang)
     from server_app.bot_bootstrap import start_bot

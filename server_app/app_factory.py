@@ -158,6 +158,8 @@ def create_app():
     from server_app.order_api_collect import debtors_handler, collect_batch_handler
     r.add_get("/api/collect/debtors", debtors_handler)          # thu tiền hàng loạt nhiều khách
     r.add_post("/api/collect/batch", collect_batch_handler)
+    from server_app.debt_alert import debt_alerts_handler
+    r.add_get("/api/debt-alerts", debt_alerts_handler)          # khách nợ quá hạn (#/no-qua-han)
     r.add_get("/api/order/{thread_id}/payment-context", payment_context_handler)
     r.add_post("/api/order/payment/delete", payment_delete_handler)
     r.add_post("/api/order/totals", order_totals_handler)

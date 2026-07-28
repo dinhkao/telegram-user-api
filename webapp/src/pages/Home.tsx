@@ -55,6 +55,7 @@ const GROUPS: Group[] = [
     { label: "Lương sản phẩm", href: "#/luong-sp", icon: "wallet", office: true },
   ] },
   { title: "Tài chính", icon: "wallet", items: [
+    { label: "Nợ quá hạn", href: "#/no-qua-han", icon: "clock", office: true },
     { label: "Thu tiền nhanh", href: "#/thu-tien-nhanh", icon: "zap", office: true },
     { label: "Sổ quỹ", href: "#/quy", icon: "wallet" },
     { label: "Két tiền", href: "#/ket", icon: "wallet" },

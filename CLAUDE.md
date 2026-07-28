@@ -155,6 +155,19 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   tạo trễ sau phiếu thu → khDebt chụp sai thời điểm — bỏ ít mốc nhất cho chuỗi
   cân lại, có leo thang + guard ts_guessed/nợ-âm). Mode `?days=1`/`?day=` cho
   trang lịch khách (`#/khach/:key/lich`).
+- **NỢ QUÁ HẠN (`server_app/debt_alert.py` + `debt_alert_daily.py`, 2026-07-28)** —
+  khách ĐÃ GIAO HÀNG mà chưa trả tiền quá N ngày. Luật: đơn còn nợ theo đúng lọc
+  trang thu tiền (`order_api_collect._owing_remaining`, bỏ đơn `bypass_debt`) +
+  **phải giao xong** (mốc = `task_status.giao_hang.at`, đơn cũ lùi về `created`),
+  ngày đếm theo giờ VN; gom theo khách: `days` = đơn quá hạn lâu nhất,
+  `order_count`/`total` = CHỈ các đơn đã quá ngưỡng. GET `/api/debt-alerts?days=N`
+  (văn phòng) → `#/no-qua-han` (`pages/DebtAlerts.tsx`, chip 1/3/7/15 ngày).
+  `debt_alert_daily.debt_alert_loop` (spawn ở bootstrap, nhịp 10ph) mỗi ngày từ
+  `DEBT_ALERT_HOUR` (mặc định 8h VN) đẩy **1 thông báo/khách** qua
+  `server_app.notify.push_bg` (chuông trong app + FCM), type `debt` → NotifCenter
+  mở `#/order/<tid>/thanh-toan`; quá `DEBT_ALERT_MAX_PUSH` (8) gộp phần dư 1 dòng.
+  Chống nhắc trùng/khi restart: ngày đã gửi lưu `kv_store['debt_alert_state']` —
+  đúng 1 lượt/ngày. Tests: `tests/test_debt_alert.py`.
 - **VIỆC / task list (`task_store/` + `server_app/task_routes.py`)** — bảng
   **`web_tasks`** (bảng `tasks` là sync Firebase legacy 18k row, CẤM đụng). kind:
   `free` (việc tự tạo, link đơn tuỳ chọn) | `order_step`/`order_custom` = **MIRROR

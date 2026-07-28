@@ -302,6 +302,22 @@ export async function getDebtors(withHidden = false): Promise<{
     hidden_customer_count: d.hidden_customer_count || 0,
   };
 }
+/** 1 khách đang nợ QUÁ HẠN (đã giao hàng nhưng chưa trả tiền quá N ngày). */
+export type DebtAlert = {
+  key: string; name: string; days: number; order_count: number; total: number;
+  source_thread_id: number; blocked: boolean;
+};
+/** Khách nợ quá hạn — nợ lâu nhất trước. `days` = ngưỡng số ngày (mặc định 1). */
+export async function getDebtAlerts(days = 1): Promise<{
+  alerts: DebtAlert[]; count: number; total: number; min_days: number;
+}> {
+  const d = await getJSON(`/api/debt-alerts?days=${Math.max(0, Math.floor(days))}`, { cache: false });
+  return {
+    alerts: d.alerts || [], count: d.count || 0, total: d.total || 0,
+    min_days: d.min_days ?? days,
+  };
+}
+
 /** Thu hàng loạt nhiều khách — mỗi khách 1 giao dịch thu gộp (cần mạng). */
 export async function collectBatch(payload: { method: "Cash" | "Transfer"; collections: { customer_key: string; amount: number }[] }): Promise<{ ok_count: number; fail_count: number; total_collected: number; total_requested: number; results: CollectResult[] }> {
   return postJSON("/api/collect/batch", payload);
