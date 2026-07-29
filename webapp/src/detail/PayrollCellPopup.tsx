@@ -13,14 +13,13 @@ import {
   type AttendanceDay, type PayrollMonth, type PayrollRow,
   type SalaryAdvance, type SalaryAllowance,
 } from "../api";
-import { PayrollWorkerSheet } from "./PayrollWorkerSheet";
 import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
 import { LoadingInline } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
 
-export type PayrollCol = "name" | "cong" | "tc" | "luong_cong" | "luong_tc" | "luong" | "pc" | "ung" | "net";
+export type PayrollCol = "cong" | "tc" | "luong_cong" | "luong_tc" | "luong" | "pc" | "ung" | "net";
 
 import { moneyR as money, dmy, tsLabel } from "../format";
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
@@ -118,17 +117,16 @@ export function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, on
 }
 
 const TITLES: Record<PayrollCol, string> = {
-  name: "Lương tháng", cong: "Ngày công", tc: "Giờ tăng ca",
+  cong: "Ngày công", tc: "Giờ tăng ca",
   luong_cong: "Lương theo công", luong_tc: "Lương tăng ca", luong: "Lương",
   pc: "Phụ cấp", ung: "Ứng lương", net: "Thực lãnh",
 };
 
-export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, toggleType, toggleWeekly }: {
+export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }: {
   ym: string; r: PayrollRow; col: PayrollCol;
   onClose: () => void; onCol: (c: PayrollCol) => void;
   apply: (d: PayrollMonth) => void;
   editMoc: (r: PayrollRow) => void;
-  toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
 }) {
   usePopupBack(true, onClose);
   useScrollLock(true);
@@ -231,11 +229,6 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, t
     <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
       <div class="modal-sheet pr-pop-sheet" onClick={(e: any) => e.stopPropagation()}>
         <div class="modal-head"><Icon name="wallet" size={18} /> {r.name} — {TITLES[col]}</div>
-
-        {col === "name" && (
-          <PayrollWorkerSheet ym={ym} r={r} onCol={onCol}
-            editMoc={editMoc} toggleType={toggleType} toggleWeekly={toggleWeekly} />
-        )}
 
         {(col === "cong" || col === "tc") && (
           <>

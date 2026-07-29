@@ -1413,6 +1413,10 @@ body.has-nop .pr-thead-bar { top: 72px; }
 .pws-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
   margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
 .pws-links { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+/* TRANG lương của thợ (#/luong-thang/:id): sheet vốn là con của .pr-pop-sheet (flex
+   column + gap) — bọc trong .card thì phải tự dựng lại khoảng cách đó. */
+.pws-card { display: flex; flex-direction: column; gap: 8px; }
+.pws-page .pws-hero > b { font-size: 1.7rem; }
 
 @media (max-width: 720px) {
   .pr-payroll-page { padding-left: 8px; padding-right: 8px; }

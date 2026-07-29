@@ -34,6 +34,7 @@ import { AuxLoss } from "./pages/AuxLoss";
 import { ProductionWorkerDetail } from "./pages/ProductionWorkerDetail";
 import { PayslipPrint } from "./pages/PayslipPrint";
 import { MonthlyPayroll } from "./pages/MonthlyPayroll";
+import { PayrollWorker } from "./pages/PayrollWorker";
 import { AdvanceEntry } from "./pages/AdvanceEntry";
 import { AttendanceBoard } from "./pages/AttendanceBoard";
 import { AllowanceEntry } from "./pages/AllowanceEntry";
@@ -473,6 +474,7 @@ function App() {
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
   const prodEditMatch = hash.match(/^#\/san_xuat\/(-?\d+)\/bao-cao/);
   const baoCaoMatch = hash.match(/^#\/bao-cao\/(\d+)/);
+  const luongThoMatch = hash.match(/^#\/luong-thang\/(\d+)/);   // trang lương tháng của 1 thợ
   const shtMatch = hash.match(/^#\/sx-tho\/([^?]+)/);
   const prodMatch = hash.match(/^#\/san_xuat\/(-?\d+)/);
   const khoTLMatch = hash.match(/^#\/kho\/([^/?]+)\/timeline/);
@@ -510,6 +512,7 @@ function App() {
   else if (hash.startsWith("#/bao-cao")) page = <ReportSlips />;
   else if (hash.startsWith("#/quy-cach")) page = <QuyCachPage />;
   else if (hash.startsWith("#/luong-sp")) page = <WageTable />;
+  else if (luongThoMatch) page = <PayrollWorker wid={Number(luongThoMatch[1])} />;   // TRƯỚC bảng lương
   else if (hash.startsWith("#/luong-thang")) page = <MonthlyPayroll />;
   else if (hash.startsWith("#/nhap-ung")) page = <AdvanceEntry />;
   else if (hash.startsWith("#/cham-cong")) page = <AttendanceBoard />;
@@ -593,6 +596,7 @@ function App() {
     : hash.startsWith("#/bao-cao") ? "Báo cáo SX"
     : hash.startsWith("#/quy-cach") ? "Quy cách đóng gói"
     : hash.startsWith("#/luong-sp") ? "Lương SP"
+    : luongThoMatch ? "Lương của thợ"
     : hash.startsWith("#/luong-thang") ? "Bảng lương tháng"
     : hash.startsWith("#/nhap-ung") ? "Nhập ứng lương"
     : hash.startsWith("#/cham-cong") ? "Chấm công"
