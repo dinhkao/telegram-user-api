@@ -1085,6 +1085,10 @@ export async function addPayrollAllowance(ym: string, worker_id: number, amount:
 export async function voidPayrollAllowance(ym: string, id: number, reason: string): Promise<PayrollMonth> {
   return postJSON(`/api/payroll/allowance/${id}/void`, { ym, reason });
 }
+// Sửa GHI CHÚ khoản đã ghi (số tiền bất biến — sai tiền thì vô hiệu rồi ghi lại)
+export async function setPayrollAllowanceNote(ym: string, id: number, note: string): Promise<PayrollMonth> {
+  return postJSON(`/api/payroll/allowance/${id}/note`, { ym, note });
+}
 export async function listPayrollAdvances(ym: string, worker_id: number): Promise<SalaryAdvance[]> {
   const d = await getJSON(`/api/payroll/advances?ym=${encodeURIComponent(ym)}&worker_id=${worker_id}`, { cache: false });
   return d.advances || [];
@@ -1098,6 +1102,9 @@ export async function addPayrollAdvance(ym: string, worker_id: number, amount: n
 }
 export async function voidPayrollAdvance(ym: string, id: number, reason: string): Promise<PayrollMonth> {
   return postJSON(`/api/payroll/advance/${id}/void`, { ym, reason });
+}
+export async function setPayrollAdvanceNote(ym: string, id: number, note: string): Promise<PayrollMonth> {
+  return postJSON(`/api/payroll/advance/${id}/note`, { ym, note });
 }
 // Sắp lại thứ tự thợ (sort_order) theo mảng ids → ảnh hưởng template báo cáo
 export async function reorderWorkers(ids: number[]): Promise<{ workers: Worker[]; defaults: string[] }> {

@@ -8,6 +8,7 @@ import { useEffect, useState } from "preact/hooks";
 import {
   addPayrollAdvance, addPayrollAllowance, getAttendanceSummary,
   listPayrollAdvances, listPayrollAllowances, soVN,
+  setPayrollAdvanceNote, setPayrollAllowanceNote,
   voidPayrollAdvance, voidPayrollAllowance,
   type AttendanceDay, type PayrollMonth, type PayrollRow,
   type SalaryAdvance, type SalaryAllowance,
@@ -58,10 +59,12 @@ const dayVN = (ymd: string) => {
 
 // Panel liệt kê + thêm/VÔ HIỆU KHOẢN (phụ cấp lẫn ứng — chuyển từ MonthlyPayroll
 // sang đây để popup + thẻ dùng chung). Khoản vô hiệu vẫn hiện (gạch + ai/lý do).
-export function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, extra }: {
+export function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, onNote, extra }: {
   entries?: { id: number; amount: number; note: string; adv_date?: string; voided_at?: string; voided_by?: string; void_reason?: string }[];
   showDate?: boolean; addPlaceholder: string;
-  onAdd: (amount: number, note: string, date: string) => void; onDel: (id: number) => void; extra?: any;
+  onAdd: (amount: number, note: string, date: string) => void; onDel: (id: number) => void;
+  onNote?: (id: number, current: string) => void;   // ✏️ sửa ghi chú (tiền bất biến)
+  extra?: any;
 }) {
   const [amt, setAmt] = useState("");
   const [date, setDate] = useState("");
@@ -82,6 +85,9 @@ export function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, ex
             {e.note}
             {e.voided_at ? <span class="ua-void-info"> · vô hiệu{e.voided_by ? ` bởi ${e.voided_by}` : ""}{e.void_reason ? ` — ${e.void_reason}` : ""}</span> : null}
           </span>
+          {!e.voided_at && onNote ? (
+            <button class="ua-note-edit" onClick={() => onNote(e.id, e.note || "")} aria-label="Sửa ghi chú" title="Sửa ghi chú"><Icon name="edit" size={14} /></button>
+          ) : null}
           {!e.voided_at ? <button class="pr-adv-del" onClick={() => onDel(e.id)} aria-label="Vô hiệu">✕</button> : null}
         </div>
       ))}
@@ -148,6 +154,23 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, t
     if (reason === null) return;
     try { apply(await voidPayrollAllowance(ym, id, reason)); setAllows(await listPayrollAllowances(ym, wid)); }
     catch (e: any) { toast(e?.message || "Lỗi vô hiệu", "err"); }
+  };
+  // ✏️ sửa ghi chú khoản đã ghi — SỐ TIỀN bất biến (sai tiền thì vô hiệu rồi ghi lại)
+  const askNote = async (title: string, cur: string) => {
+    const next = await promptDialog(title, { initial: cur, placeholder: "VD: ăn trưa, xăng xe…", okLabel: "Lưu" });
+    return next === null || next.trim() === cur ? null : next.trim();
+  };
+  const noteAllow = async (id: number, cur: string) => {
+    const next = await askNote("Nội dung khoản phụ cấp", cur);
+    if (next === null) return;
+    try { apply(await setPayrollAllowanceNote(ym, id, next)); setAllows(await listPayrollAllowances(ym, wid)); toast("Đã lưu nội dung", "ok"); }
+    catch (e: any) { toast(e?.message || "Lỗi lưu nội dung", "err"); }
+  };
+  const noteAdv = async (id: number, cur: string) => {
+    const next = await askNote("Ghi chú lần ứng", cur);
+    if (next === null) return;
+    try { apply(await setPayrollAdvanceNote(ym, id, next)); setAdvs(await listPayrollAdvances(ym, wid)); toast("Đã lưu ghi chú", "ok"); }
+    catch (e: any) { toast(e?.message || "Lỗi lưu ghi chú", "err"); }
   };
   const addAdv = async (a: number, note: string, date: string) => {
     try { apply(await addPayrollAdvance(ym, wid, a, date, note)); setAdvs(await listPayrollAdvances(ym, wid)); }
@@ -261,7 +284,7 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, t
         {col === "pc" && (
           <>
             <EntryPanel entries={allows} addPlaceholder="Số tiền phụ cấp"
-              onAdd={(a, note) => addAllow(a, note)} onDel={voidAllow} />
+              onAdd={(a, note) => addAllow(a, note)} onDel={voidAllow} onNote={noteAllow} />
             <a class="btn block" href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>📋 Trang nhập phụ cấp</a>
           </>
         )}
@@ -269,7 +292,7 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, t
         {col === "ung" && (
           <>
             <EntryPanel entries={advs} showDate addPlaceholder="Số tiền ứng"
-              onAdd={(a, note, date) => addAdv(a, note, date)} onDel={voidAdv}
+              onAdd={(a, note, date) => addAdv(a, note, date)} onDel={voidAdv} onNote={noteAdv}
               extra={r.weekly && r.ung_weekly > 0 ? (
                 <div class="pr-adv-row pr-adv-weekly">
                   <span class="muted small">Lương tuần</span><b>{money(r.ung_weekly)}</b>

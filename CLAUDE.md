@@ -281,7 +281,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   dồn; giống ứng). `compute_month_payroll(ym)`: thực lãnh = lương + phụ cấp (Σ khoản)
   + thưởng − ứng; `weekly` bật → ứng tự động += lương SP (đã trả theo tuần). API
   `server_app/payroll_routes.py` (`/api/payroll/month|adjust|advance*|allowance*`,
-  TẤT CẢ chặn `office_user`). UI `MonthlyPayroll.tsx` (`#/luong-thang`, view Bảng/Thẻ,
+  TẤT CẢ chặn `office_user`). Khoản đã ghi: **VÔ HIỆU** (`.../{id}/void`, kèm lý do)
+  hoặc **SỬA GHI CHÚ** (`.../{id}/note` — SỐ TIỀN/ngày BẤT BIẾN, sai tiền thì vô hiệu
+  rồi ghi lại; khoản đã vô hiệu khoá luôn ghi chú). UI `MonthlyPayroll.tsx`
+  (`#/luong-thang`, view Bảng/Thẻ,
   bấm tên → chi tiết thợ) + `AdvanceEntry.tsx` (`#/nhap-ung` nhập ứng nhanh); ☰ Thêm
   → nhóm **Lương**. Tests: `tests/test_salary_store.py`. (Khác `production_allowances`
   = phụ cấp per-PHIẾU SX; đây là lương theo THÁNG.)

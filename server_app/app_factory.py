@@ -304,17 +304,20 @@ def create_app():
     # ─── bảng lương tháng (office only) ──────────────────────────────────────
     from server_app.payroll_routes import (
         payroll_month_handler, payroll_advances_handler, payroll_adjust_handler,
-        payroll_advance_add_handler, payroll_advance_void_handler,
+        payroll_advance_add_handler, payroll_advance_void_handler, payroll_advance_note_handler,
         payroll_allowances_handler, payroll_allowance_add_handler, payroll_allowance_void_handler,
+        payroll_allowance_note_handler,
     )
     r.add_get("/api/payroll/month", payroll_month_handler)
     r.add_get("/api/payroll/advances", payroll_advances_handler)
     r.add_post("/api/payroll/adjust", payroll_adjust_handler)
     r.add_post("/api/payroll/advance", payroll_advance_add_handler)   # TRƯỚC {id}
     r.add_post("/api/payroll/advance/{id}/void", payroll_advance_void_handler)
+    r.add_post("/api/payroll/advance/{id}/note", payroll_advance_note_handler)
     r.add_get("/api/payroll/allowances", payroll_allowances_handler)
     r.add_post("/api/payroll/allowance", payroll_allowance_add_handler)   # TRƯỚC {id}
     r.add_post("/api/payroll/allowance/{id}/void", payroll_allowance_void_handler)
+    r.add_post("/api/payroll/allowance/{id}/note", payroll_allowance_note_handler)
     # ─── chấm công (máy Ronald Jack — ingest = bearer riêng, còn lại office) ─
     from server_app.attendance_routes import (
         attendance_ingest_handler, attendance_list_handler,
