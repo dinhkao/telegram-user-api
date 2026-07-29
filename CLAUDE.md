@@ -288,6 +288,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   bấm tên → chi tiết thợ) + `AdvanceEntry.tsx` (`#/nhap-ung` nhập ứng nhanh); ☰ Thêm
   → nhóm **Lương**. Tests: `tests/test_salary_store.py`. (Khác `production_allowances`
   = phụ cấp per-PHIẾU SX; đây là lương theo THÁNG.)
+  ⚠ **KHOẢN ứng/phụ cấp HIỆN Ở 2 CHỖ — sửa gì phải đồng bộ CẢ HAI**: (1) 2 trang nhập
+  `pages/AdvanceEntry.tsx` + `pages/AllowanceEntry.tsx` (`#/nhap-ung`, `#/nhap-phu-cap`),
+  (2) panel `EntryPanel` trong `detail/PayrollCellPopup.tsx` — dùng cho popup ô P.cấp/Ứng
+  của bảng lương tháng LẪN view Thẻ. Cùng dữ liệu, cùng API; thêm nút/cột/thông tin dòng
+  ở 1 bên mà quên bên kia là người dùng thấy tính năng "lúc có lúc không".
 - **`attendance_store/` — CHẤM CÔNG máy Ronald Jack (`app.db`, 2026-07-19).** Collector
   Windows (PC văn phòng, task 30ph/lần, SDK ZKTeco) đọc máy chấm công LAN rồi đẩy batch
   qua Tailscale vào `POST /api/attendance/events` (`server_app/attendance_routes.py` —
