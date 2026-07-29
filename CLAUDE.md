@@ -287,8 +287,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (`#/luong-thang`, view Bảng/Thẻ; **bấm ô TÊN → TRANG `#/luong-thang/:worker_id?ym=`
   = `pages/PayrollWorker.tsx` + `detail/PayrollWorkerSheet.tsx` = HỒ SƠ LƯƠNG THÁNG**:
   thực lãnh + thanh tỉ lệ cộng/trừ, nguồn lương [SP gộp **theo mã SP HOẶC theo NGÀY** từ
-  `getWorkerReport` · TG mốc→công→tăng ca], TỪNG khoản phụ cấp + TỪNG lần ứng, cảnh báo
-  ứng vượt lương — CHỈ ĐỌC, mỗi khối bấm mở `PayrollCellPopup` đúng tab để sửa nên không
+  `getWorkerReport` · TG mốc→công→tăng ca], **CHẤM CÔNG luôn hiện cho MỌI thợ** (khối
+  "Chấm công" = tổng công/TC + từng ngày qua `detail/AttendanceDays.tsx`, dùng chung với
+  `#/cham-cong/:id`; view "Theo ngày" của thợ SX còn GHÉP công/giờ chấm vào từng ngày →
+  thấy ngay ngày đi làm mà chưa có báo cáo SX, hoặc có báo cáo mà quên chấm),
+  TỪNG khoản phụ cấp + TỪNG lần ứng, cảnh báo ứng vượt lương — CHỈ ĐỌC, mỗi khối bấm mở `PayrollCellPopup` đúng tab để sửa nên không
   có editor thứ 2; 3 thao tác hồ sơ [đổi loại lương/lương tuần/mốc] dùng chung
   `detail/payrollActions.ts`)
   + `AdvanceEntry.tsx` (`#/nhap-ung` nhập ứng nhanh); ☰ Thêm

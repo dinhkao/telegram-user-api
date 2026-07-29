@@ -1394,7 +1394,7 @@ body.has-nop .pr-thead-bar { top: 72px; }
 .pws-warn { margin: 0; padding: 7px 10px; border-radius: 10px; background: var(--danger-wash); color: var(--danger); }
 .pws-block { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 2px; padding: 9px 12px;
   font: inherit; text-align: left; color: inherit; background: var(--bg); border: none; border-radius: 10px; }
-.pws-block.tappable { cursor: pointer; }
+.pws-block.tappable { cursor: pointer; text-decoration: none; }   /* khối Chấm công là <a> → bỏ gạch chân mặc định */
 .pws-block-l { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .pws-block > b { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pws-list { display: flex; flex-direction: column; margin: -4px 2px 0; }
@@ -1402,7 +1402,10 @@ body.has-nop .pr-thead-bar { top: 72px; }
   width: 100%; padding: 7px 10px; font: inherit; text-align: left; color: inherit;
   background: none; border: none; border-bottom: 1px solid var(--border); font-size: .84rem; }
 .pws-item:last-child { border-bottom: none; }
-.pws-item.tappable { cursor: pointer; }
+/* Dòng bấm được: KHÔNG gạch chân cả dòng (dòng 2 kèm giờ chấm → gạch trông rối),
+   chỉ gạch nhạt phần mã SP / ngày ở đầu dòng làm dấu "bấm được". */
+.pws-item.tappable { cursor: pointer; text-decoration: none; }
+.pws-item.tappable .pws-day { text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
 .pws-item > span { min-width: 0; overflow-wrap: anywhere; }
 .pws-item > b { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pws-sum { font-weight: 700; border-top: 1px dashed var(--border); }
@@ -1431,6 +1434,11 @@ body.has-nop .pr-thead-bar { top: 72px; }
 .wa-times { color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .wa-row b { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .wa-links { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+/* Chấm công NHÚNG trong hồ sơ lương thợ: cùng dòng .wa-row nhưng gọn hơn (không
+   bấm được — sửa giờ ở trang chấm công), và dòng giờ chấm kèm trong bảng theo ngày */
+.pws-att-list { margin: -4px 2px 0; }
+.pws-att-list .wa-row { padding: 6px 8px; font-size: .8rem; }
+.pws-att { font-variant-numeric: tabular-nums; }
 .pws-page .pws-hero > b { font-size: 1.7rem; }
 
 @media (max-width: 720px) {
