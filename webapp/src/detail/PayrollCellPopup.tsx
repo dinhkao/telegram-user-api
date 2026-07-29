@@ -21,7 +21,7 @@ import { toast, promptDialog } from "../ui/feedback";
 
 export type PayrollCol = "name" | "cong" | "tc" | "luong_cong" | "luong_tc" | "luong" | "pc" | "ung" | "net";
 
-import { moneyR as money } from "../format";
+import { moneyR as money, dmy, tsLabel } from "../format";
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
 const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 
@@ -57,10 +57,15 @@ const dayVN = (ymd: string) => {
   return `${DOW[d.getDay()]} ${Number(ymd.slice(8, 10))}/${Number(ymd.slice(5, 7))}`;
 };
 
-// Panel liệt kê + thêm/VÔ HIỆU KHOẢN (phụ cấp lẫn ứng — chuyển từ MonthlyPayroll
-// sang đây để popup + thẻ dùng chung). Khoản vô hiệu vẫn hiện (gạch + ai/lý do).
+// Panel liệt kê + thêm/VÔ HIỆU/SỬA GHI CHÚ KHOẢN (phụ cấp lẫn ứng) — popup ô bảng
+// lương + view Thẻ dùng chung.
+// ⚠ ĐỒNG BỘ 2 CHỖ: panel này và 2 trang nhập (pages/AdvanceEntry.tsx +
+// pages/AllowanceEntry.tsx) hiện CÙNG một khoản → thêm/sửa tính năng nào (nút, cột,
+// thông tin dòng) phải làm ở CẢ HAI, đừng để 1 bên có 1 bên không.
+// Dòng hiện: ngày (ứng) · tiền · badge VÔ HIỆU · ghi chú · ai tạo lúc nào · lý do vô hiệu.
 export function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, onNote, extra }: {
-  entries?: { id: number; amount: number; note: string; adv_date?: string; voided_at?: string; voided_by?: string; void_reason?: string }[];
+  entries?: { id: number; amount: number; note: string; adv_date?: string; created_by?: string;
+              created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string }[];
   showDate?: boolean; addPlaceholder: string;
   onAdd: (amount: number, note: string, date: string) => void; onDel: (id: number) => void;
   onNote?: (id: number, current: string) => void;   // ✏️ sửa ghi chú (tiền bất biến)
@@ -79,12 +84,21 @@ export function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, on
       {extra}
       {(entries || []).map((e) => (
         <div class={`pr-adv-row${e.voided_at ? " ua-voided" : ""}`} key={e.id}>
-          {showDate ? <span class="muted small">{e.adv_date || "—"}</span> : null}
-          <b class={e.voided_at ? "ua-amt-voided" : ""}>{money(e.amount)}</b>
-          <span class="muted small pr-adv-note">
-            {e.note}
-            {e.voided_at ? <span class="ua-void-info"> · vô hiệu{e.voided_by ? ` bởi ${e.voided_by}` : ""}{e.void_reason ? ` — ${e.void_reason}` : ""}</span> : null}
-          </span>
+          <div class="ua-row-main">
+            <div>
+              {showDate ? <span class="muted small">{dmy(e.adv_date)} · </span> : null}
+              <b class={e.voided_at ? "ua-amt-voided" : ""}>{money(e.amount)}</b>
+              {e.voided_at ? <span class="ua-void-badge">VÔ HIỆU</span> : null}
+            </div>
+            {e.note ? <div class="muted small">{e.note}</div>
+              : !e.voided_at ? <div class="muted small ua-note-empty">chưa có ghi chú</div> : null}
+            {tsLabel(e.created_at) ? (
+              <div class="muted small ua-ts">tạo {tsLabel(e.created_at)}{e.created_by ? ` · ${e.created_by}` : ""}</div>
+            ) : null}
+            {e.voided_at ? (
+              <div class="small ua-void-info">vô hiệu {tsLabel(e.voided_at)}{e.voided_by ? ` · ${e.voided_by}` : ""}{e.void_reason ? ` — ${e.void_reason}` : ""}</div>
+            ) : null}
+          </div>
           {!e.voided_at && onNote ? (
             <button class="ua-note-edit" onClick={() => onNote(e.id, e.note || "")} aria-label="Sửa ghi chú" title="Sửa ghi chú"><Icon name="edit" size={14} /></button>
           ) : null}

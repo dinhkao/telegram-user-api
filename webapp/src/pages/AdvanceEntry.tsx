@@ -4,6 +4,9 @@
 // nào/lý do). Nút ✏️ = SỬA GHI CHÚ dòng chưa vô hiệu (số tiền/ngày bất biến — sai
 // tiền thì vô hiệu rồi ghi lại).
 // API: addPayrollAdvance/listAllAdvances/voidPayrollAdvance/setPayrollAdvanceNote.
+// ⚠ ĐỒNG BỘ 2 CHỖ: cùng khoản ứng còn hiện ở panel P.cấp/Ứng của bảng lương tháng
+// (detail/PayrollCellPopup.tsx EntryPanel — popup ô bảng + view Thẻ). Thêm/sửa tính
+// năng nào ở đây thì làm luôn bên đó, đừng để 1 bên có 1 bên không.
 import { useEffect, useState } from "preact/hooks";
 import {
   addPayrollAdvance, getMonthlyPayroll, isOffice, listAllAdvances, listPayrollAdvances, listWorkers,
@@ -16,12 +19,9 @@ import { SelectPopup } from "../ui/SelectPopup";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
 
-import { moneyR as money, pad2 as pad, curYM, shiftYM, ymLabel, isoDate } from "../format";
+import { moneyR as money, pad2 as pad, curYM, shiftYM, ymLabel, isoDate, dmy, tsLabel } from "../format";
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
 const todayISO = () => isoDate(new Date());
-const dmy = (s: string) => (s && s.length >= 10 ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : s || "—");
-// created_at DB = "YYYY-MM-DD HH:MM:SS" giờ VN (salary_store: datetime('now','+7 hours')) → "18/7 19:25"
-const tsLabel = (s?: string) => (s && s.length >= 16 ? `${Number(s.slice(8, 10))}/${Number(s.slice(5, 7))} ${s.slice(11, 16)}` : "");
 const initialFilter = () => {
   const query = new URLSearchParams((window.location.hash.split("?")[1] || ""));
   const queryYM = query.get("ym") || "";

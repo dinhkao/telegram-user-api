@@ -56,6 +56,13 @@ export const shiftYM = (ym: string, d: number) => {
 };
 export const ymLabel = (ym: string) => { const [y, m] = ym.split("-"); return `Tháng ${Number(m)}/${y}`; };
 
+/** "YYYY-MM-DD" → "05/07" (ngày gọn trên dòng ứng lương). */
+export const dmy = (s?: string) => (s && s.length >= 10 ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : s || "—");
+/** Mốc DB "YYYY-MM-DD HH:MM:SS" đã là GIỜ VN (salary_store ghi datetime('now','+7 hours'))
+ *  → "18/7 19:25"; chuỗi thiếu → "". Dùng chung trang nhập ứng/phụ cấp + panel bảng lương. */
+export const tsLabel = (s?: string) =>
+  (s && s.length >= 16 ? `${Number(s.slice(8, 10))}/${Number(s.slice(5, 7))} ${s.slice(11, 16)}` : "");
+
 /** TUẦN LƯƠNG = THỨ 7 tuần trước → THỨ 6 tuần này (đúng 7 ngày). Mốc chốt kỳ =
  *  thứ 6 GẦN NHẤT ĐÃ QUA (hôm nay nếu hôm nay thứ 6) → khoảng ngày không bao giờ
  *  lấn sang ngày chưa làm; bấm ngày thứ 6 (ngày chốt lương) ra đúng tuần vừa xong.
