@@ -284,8 +284,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   TẤT CẢ chặn `office_user`). Khoản đã ghi: **VÔ HIỆU** (`.../{id}/void`, kèm lý do)
   hoặc **SỬA GHI CHÚ** (`.../{id}/note` — SỐ TIỀN/ngày BẤT BIẾN, sai tiền thì vô hiệu
   rồi ghi lại; khoản đã vô hiệu khoá luôn ghi chú). UI `MonthlyPayroll.tsx`
-  (`#/luong-thang`, view Bảng/Thẻ,
-  bấm tên → chi tiết thợ) + `AdvanceEntry.tsx` (`#/nhap-ung` nhập ứng nhanh); ☰ Thêm
+  (`#/luong-thang`, view Bảng/Thẻ; **bấm ô TÊN → `detail/PayrollWorkerSheet.tsx` = HỒ SƠ
+  LƯƠNG THÁNG**: thực lãnh + thanh tỉ lệ cộng/trừ, nguồn lương [SP gộp theo mã SP từ
+  `getWorkerReport` · TG mốc→công→tăng ca], TỪNG khoản phụ cấp + TỪNG lần ứng, cảnh báo
+  ứng vượt lương — CHỈ ĐỌC, mỗi khối bấm sang tab sửa tương ứng nên không có editor thứ 2)
+  + `AdvanceEntry.tsx` (`#/nhap-ung` nhập ứng nhanh); ☰ Thêm
   → nhóm **Lương**. Tests: `tests/test_salary_store.py`. (Khác `production_allowances`
   = phụ cấp per-PHIẾU SX; đây là lương theo THÁNG.)
   ⚠ **KHOẢN ứng/phụ cấp HIỆN Ở 2 CHỖ — sửa gì phải đồng bộ CẢ HAI**: (1) 2 trang nhập

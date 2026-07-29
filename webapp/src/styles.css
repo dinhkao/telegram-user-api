@@ -1370,6 +1370,40 @@ body.has-nop .pr-thead-bar { top: 72px; }
 .pr-pop-day b { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pr-pop-day b.muted { font-weight: 500; }
 .pr-pop-times { color: var(--muted); font-size: 12px; word-break: break-word; }
+/* HỒ SƠ LƯƠNG THÁNG của thợ (popup ô TÊN — detail/PayrollWorkerSheet.tsx):
+   thực lãnh nổi bật → thanh tỉ lệ cấu thành → từng khối khoản (bấm sang tab sửa) */
+.pws-hero { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 12px;
+  background: var(--bg); border-radius: 12px; }
+.pws-hero > b { font-size: 1.5rem; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.pws-formula { font-variant-numeric: tabular-nums; text-align: center; }
+.pws-bar { display: flex; height: 9px; border-radius: 999px; overflow: hidden; background: var(--bg); }
+.pws-seg + .pws-seg { border-left: 1px solid var(--card); }
+.pws-seg.luong, .pws-dot.luong { background: var(--primary); }
+.pws-seg.pc, .pws-dot.pc { background: var(--ok); }
+.pws-seg.thuong, .pws-dot.thuong { background: var(--warn, #d69e2e); }
+.pws-seg.ung, .pws-dot.ung { background: var(--danger); }
+.pws-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: center; }
+.pws-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.pws-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+.pws-warn { margin: 0; padding: 7px 10px; border-radius: 10px; background: var(--danger-wash); color: var(--danger); }
+.pws-block { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 2px; padding: 9px 12px;
+  font: inherit; text-align: left; color: inherit; background: var(--bg); border: none; border-radius: 10px; }
+.pws-block.tappable { cursor: pointer; }
+.pws-block-l { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pws-block > b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pws-list { display: flex; flex-direction: column; margin: -4px 2px 0; }
+.pws-item { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 7px 10px; font: inherit; text-align: left; color: inherit;
+  background: none; border: none; border-bottom: 1px solid var(--border); font-size: .84rem; }
+.pws-item:last-child { border-bottom: none; }
+.pws-item.tappable { cursor: pointer; }
+.pws-item > span { min-width: 0; overflow-wrap: anywhere; }
+.pws-item > b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pws-sum { font-weight: 700; border-top: 1px dashed var(--border); }
+.pws-pad { margin: -2px 0 0; padding: 0 12px; }
+.pws-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+.pws-links { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 
 @media (max-width: 720px) {
   .pr-payroll-page { padding-left: 8px; padding-right: 8px; }

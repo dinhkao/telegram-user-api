@@ -13,6 +13,7 @@ import {
   type AttendanceDay, type PayrollMonth, type PayrollRow,
   type SalaryAdvance, type SalaryAllowance,
 } from "../api";
+import { PayrollWorkerSheet } from "./PayrollWorkerSheet";
 import { Icon } from "../ui/Icon";
 import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
@@ -117,7 +118,7 @@ export function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, on
 }
 
 const TITLES: Record<PayrollCol, string> = {
-  name: "Nhân viên", cong: "Ngày công", tc: "Giờ tăng ca",
+  name: "Lương tháng", cong: "Ngày công", tc: "Giờ tăng ca",
   luong_cong: "Lương theo công", luong_tc: "Lương tăng ca", luong: "Lương",
   pc: "Phụ cấp", ung: "Ứng lương", net: "Thực lãnh",
 };
@@ -232,14 +233,8 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, t
         <div class="modal-head"><Icon name="wallet" size={18} /> {r.name} — {TITLES[col]}</div>
 
         {col === "name" && (
-          <>
-            <Row label="Loại lương" val={<button class={isTime ? "chip pr-type time" : "chip pr-type"} onClick={() => toggleType(r)}>{isTime ? "Thời gian" : "Sản phẩm"}</button>} />
-            <Row label="Nhận lương tuần (tháng này)" val={
-              <span class={r.weekly ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly} onClick={() => toggleWeekly(r)}><span class="tgl-knob" /></span>} />
-            {isTime && <Row label="Mốc lương tháng" val={<button class="pr-ung-btn" onClick={() => editMoc(r)}>{r.monthly_salary ? `${money(r.monthly_salary)}đ` : "đặt…"}</button>} />}
-            <a class="btn block" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>🏭 Chi tiết thợ (sản xuất)</a>
-            <a class="btn block" href="#/cham-cong">🕐 Bảng chấm công</a>
-          </>
+          <PayrollWorkerSheet ym={ym} r={r} onCol={onCol}
+            editMoc={editMoc} toggleType={toggleType} toggleWeekly={toggleWeekly} />
         )}
 
         {(col === "cong" || col === "tc") && (
