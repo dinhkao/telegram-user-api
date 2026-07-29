@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-    <meta name="theme-color" content="#1a73e8" />
+    <!-- KHÔNG đặt theme-color: để thanh trên (browser/PWA) dùng MÀU MẶC ĐỊNH của trình
+         duyệt, tự theo sáng/tối của máy — thay vì tô xanh brand. -->
     <!-- Ảnh camera giao từ CDN Cloudinary: mở sẵn DNS+TCP+TLS (img non-CORS → không crossorigin) -->
     <link rel="preconnect" href="https://res.cloudinary.com" />
     <link rel="dns-prefetch" href="https://res.cloudinary.com" />
