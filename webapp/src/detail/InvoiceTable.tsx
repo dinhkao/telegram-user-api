@@ -33,12 +33,14 @@ function hl(text: string, q?: string) {
   return out;
 }
 
-export function InvoiceTable({ items, discount, pvc, vat, debt, total, q, debtCtl }: {
+export function InvoiceTable({ items, discount, pvc, vat, debt, total, q, debtCtl, linkSp }: {
   items: { sp: string; sl: number | string; price: number }[];
   discount?: number; pvc?: number; vat?: number; debt?: number | null;
   total?: string;   // tổng in sẵn từ KiotViet (nếu có) — ưu tiên dòng "Tổng thanh toán"
   q?: string;       // từ khoá tìm kiếm → tô sáng mã SP khớp
   debtCtl?: any;    // nút khoá 🔒 / 🔄 cập nhật nợ — render NGAY cạnh chữ "Nợ trước"
+  linkSp?: boolean; // mã SP bấm được → #/kho/<mã> (BẬT ở trang chi tiết đơn; TẮT ở card
+                    // dashboard vì cả card là 1 nút mở đơn, link con sẽ nuốt cú chạm)
 }) {
   const list = items || [];
   const tienHang = list.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.sl) || 0), 0);
@@ -55,7 +57,10 @@ export function InvoiceTable({ items, discount, pvc, vat, debt, total, q, debtCt
       <tbody>
         {list.map((it, i) => (
           <tr key={i}>
-            <td>{hl(it.sp, q)}</td>
+            <td>{linkSp && String(it.sp || "").trim()
+              ? <a class="pt-inl" href={`#/kho/${encodeURIComponent(String(it.sp).trim())}`}
+                title="Mở trang sản phẩm">{hl(it.sp, q)}</a>
+              : hl(it.sp, q)}</td>
             <td class="num">{it.sl}</td>
             <td class="num">{money(it.price)}</td>
             <td class="num">{money((Number(it.price) || 0) * (Number(it.sl) || 0))}</td>

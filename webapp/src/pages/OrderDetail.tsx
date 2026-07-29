@@ -599,7 +599,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       <section class="card">
         <div class="ie-head">Hoá đơn ({(j.invoice || []).length} món){j.kiotvietInvoiceCode ? ` · HĐ ${j.kiotvietInvoiceCode}` : ""}</div>
         {(j.invoice || []).length > 0
-          ? <InvoiceTable items={j.invoice} discount={j.discount} pvc={j.pvc} vat={j.vat}
+          ? <InvoiceTable items={j.invoice} discount={j.discount} pvc={j.pvc} vat={j.vat} linkSp
               debt={j.khDebt ?? j.invoice_debt_snapshot} total={pc.tongthanhtoan || undefined}
               debtCtl={!hasInvoice && (j.khach_hang_id || j.khID)
                 ? <button class="btn small" title="Kéo nợ KiotViet mới nhất" onClick={refreshDebt}><Icon name="refresh" size={14} /></button>

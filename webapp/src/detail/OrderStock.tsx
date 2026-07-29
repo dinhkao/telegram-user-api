@@ -234,7 +234,8 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
         return (
           <div class="stock-line" key={code}>
             <div class="stock-head">
-              <b>{code}</b>
+              {/* mã SP bấm được → trang sản phẩm (giống bảng hoá đơn) */}
+              <a class="pt-inl" href={`#/kho/${encodeURIComponent(code)}`} title="Mở trang sản phẩm"><b>{code}</b></a>
               {!inInvoice && <span class="stock-orphan">không còn trong hoá đơn</span>}
               {inInvoice && short && (
               <span class={"stock-onhand" + (lowStock ? " low" : "")} title={lowStock ? "Tồn kho không đủ để xuất nốt phần còn thiếu" : "Tồn hiện tại trong kho"}>
