@@ -343,7 +343,7 @@ function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc,
           </button>
           <span class="muted small">
             {r.cong} công = {money(r.luong_cong)}đ · TC {r.ot_gio}g = {money(r.luong_tc)}đ (×1,2)
-            {" "}<a href="#/cham-cong">→ chấm công</a>
+            {" "}<a href={`#/cham-cong/${wid}?ym=${encodeURIComponent(ym)}`}>→ chấm công</a>
           </span>
         </div>
       )}

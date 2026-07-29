@@ -24,6 +24,7 @@ import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
 import { Loading, LoadingInline, EmptyState, ErrorState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
+import { CellEditor } from "../detail/AttendanceCellEditor";
 
 const NAME_W = 112;   // bề rộng CỐ ĐỊNH cột tên (px) — CHUNG cho header + thân lưới
                       // để ngày ở header luôn thẳng cột với ô dữ liệu (auto lệch nhau).
@@ -174,91 +175,6 @@ function Tube({ spans, loose, shift }: {
 // POPUP XEM/SỬA GIỜ 1 (NV, ngày) — neo đỉnh màn. Giờ MÁY chỉ Ẩn/Hiện (raw bất biến);
 // sửa 1 giờ = ẩn giờ máy rồi thêm giờ tay. Mỗi thao tác ghi server ngay + reload.
 // canEdit=false (staff): chỉ xem giờ, không nút sửa.
-function CellEditor({ code, who, day, canEdit, onClose, onChanged }: {
-  code: string; who: string; day: string; canEdit: boolean; onClose: () => void; onChanged: () => void;
-}) {
-  const [det, setDet] = useState<AttendanceDayDetail | null>(null);
-  const [loadErr, setLoadErr] = useState(false);
-  const [newTime, setNewTime] = useState("");
-  const [busy, setBusy] = useState(false);
-  useScrollLock(true);
-  usePopupBack(true, onClose);
-  // Lỗi tải KHÔNG được giả làm "rỗng" — người dùng sẽ tưởng chưa chấm mà sửa nhầm.
-  const reload = () => { setLoadErr(false); return getAttendanceDay(code, day).then(setDet).catch(() => { setDet(null); setLoadErr(true); }); };
-  useEffect(() => { reload(); }, [code, day]);
-
-  const run = async (fn: () => Promise<any>, okMsg: string): Promise<boolean> => {
-    if (busy) return false;
-    setBusy(true);
-    try {
-      await fn();
-      toast(okMsg, "ok");
-      await reload();
-      onChanged();
-      return true;
-    } catch (e: any) {
-      toast(e?.message || "Lỗi lưu", "err");
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  };
-  const addTime = async () => {
-    if (!newTime) return;
-    // Chỉ xoá ô nhập KHI lưu thành công — hỏng thì giữ lại để khỏi gõ lại.
-    if (await run(() => addAttendanceManual(code, day, newTime), `Đã thêm giờ ${newTime}`)) setNewTime("");
-  };
-  const [y, m, d] = day.split("-");
-  return (
-    <div class="att-ed-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div class="att-ed" role="dialog" aria-modal="true" aria-label={`${canEdit ? "Sửa" : "Xem"} giờ chấm — ${who}`}>
-        <div class="att-ed-head">
-          <b>{who}</b>
-          <span class="muted">{Number(d)}/{Number(m)}/{y}</span>
-          <button class="icon-btn att-ed-x" onClick={onClose} title="Đóng" aria-label="Đóng cửa sổ sửa chấm công">✕</button>
-        </div>
-        {loadErr ? <ErrorState msg="Không tải được giờ chấm ngày này" onRetry={reload} />
-          : det === null ? <LoadingInline /> : (
-          <>
-            <div class="att-ed-sec">Giờ máy chấm {det.machine.length === 0 && <span class="muted small">— không có</span>}</div>
-            {det.machine.map((mrow) => (
-              <div class={"att-ed-row" + (mrow.suppressed ? " off" : "")} key={mrow.event_id}>
-                <span class="att-ed-time">{mrow.time}</span>
-                {mrow.suppressed && <span class="att-ed-badge">đã ẩn</span>}
-                {canEdit && <button class="btn att-ed-btn" disabled={busy}
-                  onClick={() => run(() => suppressAttendance(mrow.event_id, !mrow.suppressed),
-                    mrow.suppressed ? `Đã hiện lại giờ ${mrow.time}` : `Đã ẩn giờ ${mrow.time}`)}>
-                  {mrow.suppressed ? "Hiện lại" : "Ẩn"}
-                </button>}
-              </div>
-            ))}
-            <div class="att-ed-sec">Giờ thêm tay</div>
-            {det.manual.map((mn) => (
-              <div class="att-ed-row" key={mn.id}>
-                <span class="att-ed-time">{mn.time}</span>
-                <span class="muted small">✎ {mn.created_by || "?"}</span>
-                {canEdit && <button class="btn att-ed-btn danger" disabled={busy}
-                  onClick={async () => { if (await confirmDialog(`Xoá giờ thêm tay ${mn.time}?`, { danger: true, okLabel: "Xoá" })) run(() => deleteAttendanceManual(mn.id), `Đã xoá giờ ${mn.time}`); }}>Xoá</button>}
-              </div>
-            ))}
-            {canEdit && <>
-              <div class="att-ed-row att-ed-add">
-                <input type="time" class="pw-input" value={newTime} disabled={busy}
-                  onInput={(e: any) => setNewTime(e.target.value)} />
-                <button class="btn att-ed-btn" disabled={busy || !newTime} onClick={addTime}>＋ Thêm giờ</button>
-              </div>
-              <div class="muted small att-ed-note">
-                Giờ máy không sửa trực tiếp được — muốn sửa 1 giờ: bấm <b>Ẩn</b> giờ sai rồi
-                <b> Thêm giờ</b> đúng. Dữ liệu máy giữ nguyên nên lần đồng bộ sau không đè phần sửa.
-              </div>
-            </>}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // View DÒNG: 1 cụm giờ của 1 buổi — mọi lần chấm nối bằng →. Cảnh báo LẺ tính ở
 // CẤP NGÀY (tổng lần chấm) chứ KHÔNG theo buổi: cắt buổi theo mốc giờ hay bẻ đôi
 // cặp vào-ra (vd 13:00→20:00 tăng ca) nên đếm lẻ theo buổi sẽ báo động giả.

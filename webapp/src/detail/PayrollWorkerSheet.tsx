@@ -251,7 +251,7 @@ export function PayrollWorkerSheet({ ym, r, onCol, editMoc, toggleType, toggleWe
       </div>
       <div class="pws-links">
         <a class="btn" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>🏭 Chi tiết sản xuất</a>
-        <a class="btn" href="#/cham-cong">🕐 Chấm công</a>
+        <a class="btn" href={`#/cham-cong/${wid}?ym=${encodeURIComponent(ym)}`}>🕐 Chấm công</a>
         <a class="btn" href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>💵 Nhập phụ cấp</a>
         <a class="btn" href={`#/nhap-ung?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>📋 Nhập ứng</a>
       </div>

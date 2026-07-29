@@ -35,6 +35,7 @@ import { ProductionWorkerDetail } from "./pages/ProductionWorkerDetail";
 import { PayslipPrint } from "./pages/PayslipPrint";
 import { MonthlyPayroll } from "./pages/MonthlyPayroll";
 import { PayrollWorker } from "./pages/PayrollWorker";
+import { WorkerAttendance } from "./pages/WorkerAttendance";
 import { AdvanceEntry } from "./pages/AdvanceEntry";
 import { AttendanceBoard } from "./pages/AttendanceBoard";
 import { AllowanceEntry } from "./pages/AllowanceEntry";
@@ -475,6 +476,7 @@ function App() {
   const prodEditMatch = hash.match(/^#\/san_xuat\/(-?\d+)\/bao-cao/);
   const baoCaoMatch = hash.match(/^#\/bao-cao\/(\d+)/);
   const luongThoMatch = hash.match(/^#\/luong-thang\/(\d+)/);   // trang lương tháng của 1 thợ
+  const chamCongThoMatch = hash.match(/^#\/cham-cong\/(\d+)/);  // chấm công 1 thợ trong tháng
   const shtMatch = hash.match(/^#\/sx-tho\/([^?]+)/);
   const prodMatch = hash.match(/^#\/san_xuat\/(-?\d+)/);
   const khoTLMatch = hash.match(/^#\/kho\/([^/?]+)\/timeline/);
@@ -515,6 +517,7 @@ function App() {
   else if (luongThoMatch) page = <PayrollWorker wid={Number(luongThoMatch[1])} />;   // TRƯỚC bảng lương
   else if (hash.startsWith("#/luong-thang")) page = <MonthlyPayroll />;
   else if (hash.startsWith("#/nhap-ung")) page = <AdvanceEntry />;
+  else if (chamCongThoMatch) page = <WorkerAttendance wid={Number(chamCongThoMatch[1])} />;   // TRƯỚC bảng
   else if (hash.startsWith("#/cham-cong")) page = <AttendanceBoard />;
   else if (hash.startsWith("#/nhap-phu-cap")) page = <AllowanceEntry />;
   else if (hash.startsWith("#/in-luong")) page = <PayslipPrint />;
@@ -599,6 +602,7 @@ function App() {
     : luongThoMatch ? "Lương của thợ"
     : hash.startsWith("#/luong-thang") ? "Bảng lương tháng"
     : hash.startsWith("#/nhap-ung") ? "Nhập ứng lương"
+    : chamCongThoMatch ? "Chấm công của thợ"
     : hash.startsWith("#/cham-cong") ? "Chấm công"
     : hash.startsWith("#/nhap-phu-cap") ? "Nhập phụ cấp"
     : hash.startsWith("#/in-luong") ? "In phiếu lương"

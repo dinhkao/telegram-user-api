@@ -22,34 +22,9 @@ import { toast, promptDialog } from "../ui/feedback";
 export type PayrollCol = "cong" | "tc" | "luong_cong" | "luong_tc" | "luong" | "pc" | "ung" | "net";
 
 import { moneyR as money, dmy, tsLabel } from "../format";
+import { workStats } from "./attendanceStats";
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
 const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
-
-// ── Quy giờ chấm 1 ngày → (phút công, phút tăng ca) — GƯƠNG của
-// attendance_store/domain.work_stats (2 ca 7–11/13–17, ngày đủ 480ph; cặp chấm
-// liên tiếp = khoảng có mặt, lần lẻ bỏ; TC sau 11h/17h quá 15ph grace; khoảng
-// xuyên trọn giờ trưa = nghi quên chấm → 11–13h không tính TC).
-const WIN: [number, number][] = [[7 * 60, 11 * 60], [13 * 60, 17 * 60]];
-const GRACE = 15;
-const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-export function workStats(times: string[]): { work: number; ot: number } {
-  const ts = times.map(mins).sort((a, b) => a - b);
-  const spans: [number, number][] = [];
-  for (let i = 0; i + 1 < ts.length; i += 2) if (ts[i + 1] > ts[i]) spans.push([ts[i], ts[i + 1]]);
-  let work = 0, ot = 0;
-  const [, mEnd] = WIN[0];
-  const [aStart, aEnd] = WIN[1];
-  for (const [s, e] of spans) {
-    for (const [a, b] of WIN) work += Math.max(0, Math.min(e, b) - Math.max(s, a));
-    const lunch = s <= mEnd && e >= aStart;
-    if (!lunch && s <= mEnd && e > mEnd) {
-      const seg = Math.min(e, aStart) - mEnd;
-      if (seg > GRACE) ot += seg;
-    }
-    if (e > aEnd + GRACE) ot += Math.min(e, 24 * 60) - aEnd;
-  }
-  return { work, ot };
-}
 
 const DOW = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 const dayVN = (ymd: string) => {
@@ -237,7 +212,9 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
               <Row label="Tổng tăng ca" val={`${congVN(r.ot_gio)} giờ`} cls={col === "tc" ? "hl" : ""} />
             </div>
             {attList(col === "cong" ? "work" : "ot")}
-            <a class="btn block" href="#/cham-cong">🕐 Mở bảng chấm công (sửa giờ tay)</a>
+            <a class="btn block" href={`#/cham-cong/${wid}?ym=${encodeURIComponent(ym)}`}>
+              🕐 Chấm công tháng của {r.name} (xem/sửa giờ)
+            </a>
           </>
         )}
 
