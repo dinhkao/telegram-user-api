@@ -16,7 +16,7 @@ import {
   type AttendanceDay, type PayrollRow, type SalaryAdvance, type SalaryAllowance, type WorkerReport,
 } from "../api";
 import { moneyR as money, dmy, pad2, ymLabel } from "../format";
-import { AttendanceDayRows, attRows, attTotals, congVN } from "./AttendanceDays";
+import { AttendanceDayRows, attRows, attTotals, congVN, otVN, pairs } from "./AttendanceDays";
 import { Icon } from "../ui/Icon";
 import { LoadingInline } from "../ui/states";
 
@@ -200,9 +200,14 @@ export function PayrollWorkerSheet({ ym, r, onCol, editMoc, toggleType, toggleWe
                       {d.phieu.size > 1 ? ` · ${d.phieu.size} phiếu` : ""}</span>
                       : <span class="muted small t-warn">chưa có báo cáo SX</span>}
                     <div class="muted small pws-att">
-                      {a ? <>⏱ {congVN(a.cong)} công{a.ot ? ` · TC ${congVN(a.ot)}g` : ""}
-                        {a.le ? <span class="t-danger"> · lẻ giờ</span> : null}
-                        {" · "}{(a.times || []).join(" · ")}</>
+                      {a ? <><span class="wa-pair">⏱ {congVN(a.cong)} công</span>
+                        {a.ot ? <span class="wa-pair t-warn">TC {otVN(a.ot)}g</span> : null}
+                        {/* giờ ghép CẶP vào–ra cho gọn, giống dòng chấm công; các cụm
+                            cách nhau bằng gap (không dùng dấu · để khỏi lơ lửng đầu dòng) */}
+                        {pairs(a.times || []).map(([x, y], i) => (
+                          <span class="wa-pair" key={i}>{x}<span class="wa-dash">–</span>
+                            {y || <b class="t-danger">?</b>}</span>
+                        ))}</>
                         : <span class="t-warn">⏱ không chấm công</span>}
                     </div>
                   </span>
