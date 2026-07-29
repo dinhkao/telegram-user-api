@@ -18,6 +18,10 @@ def _emit_workers() -> None:
     emit_workers_changed()
 
 
+# Cột TIỀN trên production_workers — cắt khỏi GET /api/workers khi không phải văn phòng
+_MONEY_COLS = ("hourly_rate", "monthly_salary")
+
+
 def _deny_not_office(request: web.Request):
     """403 nếu không phải văn phòng — danh sách thợ nối thẳng vào bảng lương
     (payroll) nên thêm/xếp/xoá thợ chỉ văn phòng; GET vẫn mở cho mọi người."""
@@ -43,11 +47,12 @@ async def workers_list_handler(request: web.Request):
 
     workers = await asyncio.to_thread(_run)
     defaults = [w["name"] for w in workers if w["is_default"]]
-    # hourly_rate = TIỀN LƯƠNG — chỉ văn phòng được thấy (staff dùng list này
-    # cho template báo cáo, không cần biết đơn giá giờ của từng thợ)
+    # hourly_rate + monthly_salary = TIỀN LƯƠNG — chỉ văn phòng được thấy (staff dùng
+    # list này cho template báo cáo/chọn thợ, không cần biết đơn giá giờ hay mốc lương
+    # tháng của ai). THÊM CỘT LƯƠNG MỚI vào production_workers thì thêm vào _MONEY_COLS.
     from server_app.production_wages import is_office_username
     if not is_office_username(request.get("web_user")):
-        workers = [{k: v for k, v in w.items() if k != "hourly_rate"} for w in workers]
+        workers = [{k: v for k, v in w.items() if k not in _MONEY_COLS} for w in workers]
     return web.json_response({"ok": True, "workers": workers, "defaults": defaults})
 
 

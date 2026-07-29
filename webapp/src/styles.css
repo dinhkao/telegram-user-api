@@ -1354,7 +1354,11 @@ body.has-nop .pr-thead-bar { top: 72px; }
 /* Ô bảng lương bấm được → popup xem/thao tác (PayrollCellPopup) */
 .pr-td-tap { cursor: pointer; -webkit-tap-highlight-color: rgba(0,0,0,.06); }
 .pr-td-tap:active { background: var(--bg-2); }
+/* Sheet popup ô bảng lương PHẢI CUỘN được (hồ sơ lương tháng dài hơn màn hình).
+   Chốt 2 class .modal-sheet.pr-pop-sheet: `.modal-sheet { overflow: hidden }` đứng
+   SAU trong file, cùng độ ưu tiên 1 class nên đè mất overflow-y của rule dưới đây. */
 .pr-pop-sheet { display: flex; flex-direction: column; gap: 8px; max-height: 82vh; overflow-y: auto; }
+.modal-sheet.pr-pop-sheet { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .pr-pop-sheet .modal-head { justify-content: flex-start; gap: 7px; font-weight: 800; }
 .pr-pop-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
   width: 100%; text-align: left; font: inherit; background: var(--bg-2); border: none;
@@ -1376,7 +1380,9 @@ body.has-nop .pr-thead-bar { top: 72px; }
   background: var(--bg); border-radius: 12px; }
 .pws-hero > b { font-size: 1.5rem; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 .pws-formula { font-variant-numeric: tabular-nums; text-align: center; }
-.pws-bar { display: flex; height: 9px; border-radius: 999px; overflow: hidden; background: var(--bg); }
+/* flex:none BẮT BUỘC — sheet là flex-column, thanh này RỖNG (chỉ có segment đặt width)
+   nên nội dung cao 0px → bị bóp mất tiêu khi hồ sơ dài hơn màn hình. */
+.pws-bar { display: flex; flex: none; height: 9px; border-radius: 999px; overflow: hidden; background: var(--bg); }
 .pws-seg + .pws-seg { border-left: 1px solid var(--card); }
 .pws-seg.luong, .pws-dot.luong { background: var(--primary); }
 .pws-seg.pc, .pws-dot.pc { background: var(--ok); }
@@ -1400,6 +1406,9 @@ body.has-nop .pr-thead-bar { top: 72px; }
 .pws-item > span { min-width: 0; overflow-wrap: anywhere; }
 .pws-item > b { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pws-sum { font-weight: 700; border-top: 1px dashed var(--border); }
+.pws-seg-view { margin: 2px 2px 0; }
+.pws-seg-view .seg-btn { padding: 5px 8px; font-size: .78rem; }
+.pws-day { font-variant-numeric: tabular-nums; }
 .pws-pad { margin: -2px 0 0; padding: 0 12px; }
 .pws-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
   margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }

@@ -38,6 +38,21 @@ function byProduct(rep: WorkerReport | null) {
   return [...m.values()].sort((a, b) => b.money - a.money || b.cay - a.cay);
 }
 
+/** Gộp dòng báo cáo SX theo NGÀY (report_ymd) — xem lương SP rơi vào ngày nào. */
+function byDay(rep: WorkerReport | null) {
+  const m = new Map<string, { ymd: string; cay: number; money: number; codes: Set<string>; phieu: Set<number> }>();
+  for (const row of rep?.rows || []) {
+    const ymd = row.ymd || "";
+    const it = m.get(ymd) || { ymd, cay: 0, money: 0, codes: new Set<string>(), phieu: new Set<number>() };
+    it.cay += row.tong_calc || 0;
+    it.money += row.money || 0;
+    if (row.product_code) it.codes.add(row.product_code);
+    it.phieu.add(row.thread_id);
+    m.set(ymd, it);
+  }
+  return [...m.values()].sort((a, b) => a.ymd.localeCompare(b.ymd));   // đầu tháng → cuối tháng
+}
+
 /** Tiêu đề 1 khối: nhãn + tổng + chevron, bấm → mở tab sửa tương ứng. */
 function Block({ label, sub, total, tone, onTap }: {
   label: string; sub?: any; total: string; tone?: "ok" | "danger"; onTap?: () => void;
@@ -65,6 +80,7 @@ export function PayrollWorkerSheet({ ym, r, onCol, editMoc, toggleType, toggleWe
   const [allows, setAllows] = useState<SalaryAllowance[] | null>(null);
   const [advs, setAdvs] = useState<SalaryAdvance[] | null>(null);
   const [rep, setRep] = useState<WorkerReport | null | "err">(null);
+  const [spView, setSpView] = useState<"sp" | "ngay">("sp");   // lương SP: gộp theo mã SP hay theo ngày
 
   useEffect(() => {
     setAllows(null); setAdvs(null);
@@ -84,10 +100,9 @@ export function PayrollWorkerSheet({ ym, r, onCol, editMoc, toggleType, toggleWe
   const ungPct = cong > 0 ? Math.round((r.ung / cong) * 100) : 0;
 
   const sp = byProduct(rep === "err" ? null : rep);
+  const days = byDay(rep === "err" ? null : rep);
   const spCay = sp.reduce((s, i) => s + i.cay, 0);
   const spPhieu = new Set(sp.flatMap((i) => [...i.phieu])).size;
-  const activeAllows = (allows || []).filter((a) => !a.voided_at);
-  const activeAdvs = (advs || []).filter((a) => !a.voided_at);
 
   return (
     <>
@@ -147,15 +162,38 @@ export function PayrollWorkerSheet({ ym, r, onCol, editMoc, toggleType, toggleWe
       ) : rep === "err" || !sp.length ? (
         <p class="muted small pws-pad">Tháng này chưa có báo cáo sản xuất nào của {r.name}.</p>
       ) : (
-        <div class="pws-list">
-          {sp.map((it) => (
-            <a class="pws-item tappable" key={it.code} href={`#/kho/${encodeURIComponent(it.code)}`}>
-              <span>{it.code} <span class="muted small">· {cayVN(it.cay)} cây · {it.phieu.size} phiếu</span></span>
-              <b>{money(it.money)}đ</b>
-            </a>
-          ))}
-          <div class="pws-item pws-sum"><span>Tổng {cayVN(spCay)} cây</span><b>{money(r.luong)}đ</b></div>
-        </div>
+        <>
+          <div class="seg pws-seg-view" role="group" aria-label="Cách xem lương sản phẩm">
+            <button class={spView === "sp" ? "seg-btn active" : "seg-btn"} onClick={() => setSpView("sp")}>Theo sản phẩm</button>
+            <button class={spView === "ngay" ? "seg-btn active" : "seg-btn"} onClick={() => setSpView("ngay")}>Theo ngày</button>
+          </div>
+          <div class="pws-list">
+            {spView === "sp" ? sp.map((it) => (
+              <a class="pws-item tappable" key={it.code} href={`#/kho/${encodeURIComponent(it.code)}`}>
+                <span>{it.code} <span class="muted small">· {cayVN(it.cay)} cây · {it.phieu.size} phiếu</span></span>
+                <b>{money(it.money)}đ</b>
+              </a>
+            )) : days.map((d) => {
+              // 1 phiếu trong ngày → bấm mở thẳng phiếu SX đó; nhiều phiếu thì để trơn
+              const one = d.phieu.size === 1 ? [...d.phieu][0] : 0;
+              const inner = (
+                <>
+                  <span><b class="pws-day">{dmy(d.ymd)}</b>{" "}
+                    <span class="muted small">{[...d.codes].join(", ") || "—"} · {cayVN(d.cay)} cây
+                      {d.phieu.size > 1 ? ` · ${d.phieu.size} phiếu` : ""}</span></span>
+                  <b>{money(d.money)}đ</b>
+                </>
+              );
+              return one
+                ? <a class="pws-item tappable" key={d.ymd} href={`#/san_xuat/${one}`}>{inner}</a>
+                : <div class="pws-item" key={d.ymd}>{inner}</div>;
+            })}
+            <div class="pws-item pws-sum">
+              <span>{spView === "sp" ? `Tổng ${cayVN(spCay)} cây` : `${days.length} ngày · ${cayVN(spCay)} cây`}</span>
+              <b>{money(r.luong)}đ</b>
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── Phụ cấp ──────────────────────────────────────────────────────── */}
