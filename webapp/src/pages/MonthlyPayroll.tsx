@@ -3,26 +3,28 @@
 // PHỤ CẤP nhiều khoản, ỨNG lương nhiều lần → thực lãnh. Phụ cấp + ứng quản lý giống
 // nhau (panel thêm/VÔ HIỆU khoản — không xoá, dòng giữ lại kèm ai/lúc nào/lý do).
 // API: getMonthlyPayroll + payroll allowance/advance.
-// MỌI Ô trong bảng bấm được → popup xem/thao tác đúng ô (detail/PayrollCellPopup:
+// MỌI Ô SỐ bấm được → popup xem/thao tác đúng ô (detail/PayrollCellPopup:
 // Công/TC = chấm công từng ngày, L.công/L.TC/Lương/Lãnh = diễn giải công thức,
 // P.cấp/Ứng = thêm/vô hiệu khoản tại chỗ). EntryPanel chuyển sang file popup.
+// Ô TÊN thì KHÁC: mở TRANG riêng #/luong-thang/:worker_id (pages/PayrollWorker.tsx =
+// hồ sơ lương tháng đầy đủ) — trước là popup, nội dung dài nên tách trang.
 // (Cột THƯỞNG bỏ 2026-07-19 — phụ cấp nhiều khoản có nhãn đã thay thế; backend giữ
 // field thuong cho tương thích, compute vẫn cộng nếu tháng cũ có dữ liệu.)
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   addPayrollAdvance, addPayrollAllowance, getMonthlyPayroll, isOffice,
-  listPayrollAdvances, listPayrollAllowances, setPayrollAdjust, setPayrollAdvanceNote,
-  setPayrollAllowanceNote, soVN, updateWorker, voidPayrollAdvance, voidPayrollAllowance,
+  listPayrollAdvances, listPayrollAllowances, setPayrollAdvanceNote,
+  setPayrollAllowanceNote, soVN, voidPayrollAdvance, voidPayrollAllowance,
   type PayrollMonth, type PayrollRow, type SalaryAdvance, type SalaryAllowance,
 } from "../api";
 import { moneyR as money, curYM, shiftYM, ymLabel } from "../format";
 import { EntryPanel, PayrollCellPopup, type PayrollCol } from "../detail/PayrollCellPopup";
+import { payrollActions } from "../detail/payrollActions";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
 
-const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
 const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 const initials = (name: string) => name.trim().split(/\s+/).slice(-2).map((part) => part[0] || "").join("").toUpperCase();
 
@@ -60,25 +62,10 @@ export function MonthlyPayroll() {
   useEffect(() => { _savedYm = ym; }, [ym]);   // nhớ tháng đang xem cho lần quay lại
 
   const apply = (d: PayrollMonth) => setData(d);
-
-  const toggleType = async (r: PayrollRow) => {
-    const next = r.wage_type === "time" ? "product" : "time";
-    try { await updateWorker(r.worker_id, { wage_type: next }); toast(next === "time" ? "→ Lương thời gian" : "→ Lương sản phẩm", "ok"); load(); }
-    catch (e: any) { toast(e?.message || "Lỗi đổi loại", "err"); }
-  };
-  // Mốc lương tháng mong muốn (thợ lương THỜI GIAN) — lương thực = mốc/26 × công, TC ×1,2
-  const editMoc = async (r: PayrollRow) => {
-    const v = await promptDialog(`Mốc lương tháng của ${r.name}`, {
-      initial: r.monthly_salary ? String(r.monthly_salary) : "", placeholder: "vd 6500000", okLabel: "Lưu" });
-    if (v === null) return;
-    try { await updateWorker(r.worker_id, { monthly_salary: num(v) }); toast(`Đã lưu mốc ${money(num(v))}đ/tháng`, "ok"); load(); }
-    catch (e: any) { toast(e?.message || "Lỗi lưu mốc lương", "err"); }
-  };
-  const toggleWeekly = async (r: PayrollRow) => {
-    try { apply(await setPayrollAdjust(ym, r.worker_id, { weekly: !r.weekly }));
-      toast(!r.weekly ? "BẬT nhận lương tuần (tháng này)" : "TẮT nhận lương tuần", "ok"); }
-    catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
-  };
+  // 3 thao tác hồ sơ lương dùng CHUNG với trang #/luong-thang/:id (detail/payrollActions)
+  const { toggleType, editMoc, toggleWeekly } = payrollActions(ym, apply, load);
+  // Ô TÊN → TRANG lương của thợ (trước là popup; nội dung dài nên tách trang riêng)
+  const openWorker = (wid: number) => { window.location.hash = `#/luong-thang/${wid}?ym=${encodeURIComponent(ym)}`; };
 
   const loadAdvances = async (wid: number) => {
     try { setAdvs((m) => ({ ...m, [wid]: [] })); const a = await listPayrollAdvances(ym, wid); setAdvs((m) => ({ ...m, [wid]: a })); } catch { /**/ }
@@ -135,7 +122,7 @@ export function MonthlyPayroll() {
             )}
             {view === "table" ? (
               <PayrollTable data={data} toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc}
-                onCell={(wid, col) => setPop({ wid, col })} />
+                onCell={(wid, col) => setPop({ wid, col })} onName={openWorker} />
             ) : (
               <div class="pr-card-grid">
                 {data.workers.map((r) => (
@@ -154,18 +141,19 @@ export function MonthlyPayroll() {
         return r ? (
           <PayrollCellPopup ym={ym} r={r} col={pop.col}
             onClose={() => setPop(null)} onCol={(col) => setPop({ wid: pop.wid, col })}
-            apply={apply} editMoc={editMoc} toggleType={toggleType} toggleWeekly={toggleWeekly} />
+            apply={apply} editMoc={editMoc} />
         ) : null;
       })()}
     </div>
   );
 }
 
-function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell }: {
+function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName }: {
   data: PayrollMonth;
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
   editMoc: (r: PayrollRow) => void;
   onCell: (wid: number, col: PayrollCol) => void;
+  onName: (wid: number) => void;   // ô TÊN → trang lương của thợ
 }) {
   const t = data.totals;
   // SỐ ĐẦY ĐỦ (không rút gọn) → bảng RỘNG hơn màn: thân cuộn NGANG, cột Thợ ghim
@@ -210,7 +198,10 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell }: {
             });
             return (
               <tr key={r.worker_id}>
-                <td class="pr-sticky pr-td-name pr-td-tap" {...tap("name")}>
+                <td class="pr-sticky pr-td-name pr-td-tap" role="button" tabIndex={0}
+                  title="Mở trang lương tháng của thợ"
+                  onClick={() => onName(r.worker_id)}
+                  onKeyDown={(e: any) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onName(r.worker_id); } }}>
                   <span class="pr-worker">
                     <span class="pr-avatar">{initials(r.name)}</span>
                     <span>{r.name}</span>
@@ -332,7 +323,7 @@ function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc,
         <div class="pr-person">
           <span class="pr-avatar large">{initials(r.name)}</span>
           <div>
-            <a class="pr-name-link" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>{r.name}</a>
+            <a class="pr-name-link" href={`#/luong-thang/${wid}?ym=${encodeURIComponent(ym)}`}>{r.name}</a>
             <span class="pr-person-sub">{isTime ? "Lương thời gian" : "Lương sản phẩm"}</span>
           </div>
         </div>
