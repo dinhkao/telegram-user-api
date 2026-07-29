@@ -1,10 +1,13 @@
 // NHẬP ỨNG LƯƠNG (#/nhap-ung) — CHỈ văn phòng. Ghi nhanh tạm ứng cho thợ theo tháng:
 // chọn thợ + số tiền + ngày + ghi chú → Ghi ứng. Danh sách các lần ứng trong tháng
 // (mọi thợ) + tổng. Không xoá — VÔ HIỆU kèm lý do, dòng vẫn hiện (gạch ngang, ai/lúc
-// nào/lý do). API: addPayrollAdvance/listAllAdvances/voidPayrollAdvance.
+// nào/lý do). Nút ✏️ = SỬA GHI CHÚ dòng chưa vô hiệu (số tiền/ngày bất biến — sai
+// tiền thì vô hiệu rồi ghi lại).
+// API: addPayrollAdvance/listAllAdvances/voidPayrollAdvance/setPayrollAdvanceNote.
 import { useEffect, useState } from "preact/hooks";
 import {
-  addPayrollAdvance, getMonthlyPayroll, isOffice, listAllAdvances, listPayrollAdvances, listWorkers, soVN, voidPayrollAdvance,
+  addPayrollAdvance, getMonthlyPayroll, isOffice, listAllAdvances, listPayrollAdvances, listWorkers,
+  setPayrollAdvanceNote, soVN, voidPayrollAdvance,
   type PayrollRow, type SalaryAdvance, type Worker,
 } from "../api";
 import { Icon } from "../ui/Icon";
@@ -68,6 +71,14 @@ export function AdvanceEntry() {
       load();
     } catch (e: any) { toast(e?.message || "Lỗi ghi ứng", "err"); }
     finally { setBusy(false); }
+  };
+  // Sửa GHI CHÚ (số tiền/ngày bất biến — ghi nhầm tiền thì vô hiệu rồi ghi lại)
+  const editNote = async (a: SalaryAdvance) => {
+    const next = await promptDialog(`Ghi chú lần ứng ${money(a.amount)} của ${nameOf(a.worker_id)}`, {
+      initial: a.note || "", placeholder: "VD: ứng mua xe…", okLabel: "Lưu" });
+    if (next === null || next.trim() === (a.note || "")) return;
+    try { await setPayrollAdvanceNote(ym, a.id, next.trim()); toast("Đã lưu ghi chú", "ok"); load(); }
+    catch (e: any) { toast(e?.message || "Lỗi lưu ghi chú", "err"); }
   };
   const voidIt = async (id: number) => {
     const reason = await promptDialog("Lý do vô hiệu lần ứng này?", { placeholder: "VD: ghi nhầm số tiền…", okLabel: "Vô hiệu" });
@@ -137,14 +148,20 @@ export function AdvanceEntry() {
                   <b>{nameOf(a.worker_id)}</b>
                   <span class="muted small"> · {dmy(a.adv_date)}</span>
                   {a.voided_at ? <span class="ua-void-badge">VÔ HIỆU</span> : null}
-                  {a.note ? <div class="muted small">{a.note}</div> : null}
+                  {a.note ? <div class="muted small">{a.note}</div>
+                    : !a.voided_at ? <div class="muted small ua-note-empty">chưa có ghi chú</div> : null}
                   {tsLabel(a.created_at) ? <div class="muted small ua-ts">tạo {tsLabel(a.created_at)}{a.created_by ? ` · ${a.created_by}` : ""}</div> : null}
                   {a.voided_at ? (
                     <div class="small ua-void-info">vô hiệu {tsLabel(a.voided_at)}{a.voided_by ? ` · ${a.voided_by}` : ""}{a.void_reason ? ` — ${a.void_reason}` : ""}</div>
                   ) : null}
                 </div>
                 <b class={`ua-amt ${a.voided_at ? "ua-amt-voided" : "t-danger"}`}>{money(a.amount)}</b>
-                {!a.voided_at ? <button class="pr-adv-del" onClick={() => voidIt(a.id)} aria-label="Vô hiệu">✕</button> : null}
+                {!a.voided_at ? (
+                  <>
+                    <button class="ua-note-edit" onClick={() => editNote(a)} aria-label="Sửa ghi chú" title="Sửa ghi chú"><Icon name="edit" size={15} /></button>
+                    <button class="pr-adv-del" onClick={() => voidIt(a.id)} aria-label="Vô hiệu">✕</button>
+                  </>
+                ) : null}
               </div>
               ))}
             </>

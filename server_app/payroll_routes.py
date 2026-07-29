@@ -1,6 +1,6 @@
 """API BẢNG LƯƠNG THÁNG — CHỈ VĂN PHÒNG. Xem bảng lương 1 tháng (mọi thợ), sửa phụ
 cấp/thưởng theo tháng, ghi nhận/VÔ HIỆU ứng lương + phụ cấp (không xoá — giữ dòng kèm
-ai/lúc nào/lý do). Nối: salary_store +
+ai/lúc nào/lý do) + SỬA GHI CHÚ khoản đã ghi (số tiền bất biến). Nối: salary_store +
 server_app.production_wages (office gate). Client: webapp/src/pages/MonthlyPayroll.tsx.
 """
 from __future__ import annotations
@@ -188,6 +188,48 @@ async def payroll_advance_void_handler(request: web.Request):
 
     ok, data = await asyncio.to_thread(_run)
     return web.json_response({"ok": ok, **data})
+
+
+async def _note_edit(request: web.Request, kind: str):
+    """Thân chung POST .../{id}/note {ym, note} — sửa GHI CHÚ 1 khoản ứng/phụ cấp
+    (số tiền bất biến; khoản đã vô hiệu không sửa). Trả bảng tháng mới như void."""
+    d = _deny(request)
+    if d:
+        return d
+    try:
+        rid = int(request.match_info.get("id", ""))
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
+    body = await request.json()
+    ym = str(body.get("ym") or "").strip()
+    note = str(body.get("note") or "")
+    update = (salary_store.update_advance_note if kind == "advance"
+              else salary_store.update_allowance_note)
+
+    def _run():
+        conn = get_connection(SHARED_DB_PATH)
+        try:
+            if not update(conn, rid, note):
+                return False, {}
+            return True, (salary_store.compute_month_payroll(conn, ym) if _YM.match(ym) else {})
+        finally:
+            conn.close()
+
+    ok, data = await asyncio.to_thread(_run)
+    if not ok:
+        return web.json_response({"ok": False, "error": "Không sửa được (khoản không tồn tại hoặc đã vô hiệu)"},
+                                 status=400)
+    return web.json_response({"ok": True, **data})
+
+
+async def payroll_advance_note_handler(request: web.Request):
+    """POST /api/payroll/advance/{id}/note {ym, note} — sửa ghi chú 1 lần ứng."""
+    return await _note_edit(request, "advance")
+
+
+async def payroll_allowance_note_handler(request: web.Request):
+    """POST /api/payroll/allowance/{id}/note {ym, note} — sửa ghi chú 1 khoản phụ cấp."""
+    return await _note_edit(request, "allowance")
 
 
 async def payroll_allowances_handler(request: web.Request):

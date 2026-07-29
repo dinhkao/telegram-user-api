@@ -11,8 +11,8 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   addPayrollAdvance, addPayrollAllowance, getMonthlyPayroll, isOffice,
-  listPayrollAdvances, listPayrollAllowances, setPayrollAdjust, soVN, updateWorker,
-  voidPayrollAdvance, voidPayrollAllowance,
+  listPayrollAdvances, listPayrollAllowances, setPayrollAdjust, setPayrollAdvanceNote,
+  setPayrollAllowanceNote, soVN, updateWorker, voidPayrollAdvance, voidPayrollAllowance,
   type PayrollMonth, type PayrollRow, type SalaryAdvance, type SalaryAllowance,
 } from "../api";
 import { moneyR as money, curYM, shiftYM, ymLabel } from "../format";
@@ -297,6 +297,23 @@ function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc,
     try { apply(await voidPayrollAllowance(ym, id, reason.trim())); const l = await listPayrollAllowances(ym, wid); setAllows((m) => ({ ...m, [wid]: l })); }
     catch (e: any) { toast(e?.message || "Lỗi vô hiệu", "err"); }
   };
+  // ✏️ sửa ghi chú khoản đã ghi — SỐ TIỀN bất biến (sai tiền thì vô hiệu rồi ghi lại)
+  const askNote = async (title: string, cur: string) => {
+    const next = await promptDialog(title, { initial: cur, placeholder: "VD: ăn trưa, xăng xe…", okLabel: "Lưu" });
+    return next === null || next.trim() === cur ? null : next.trim();
+  };
+  const noteAllow = async (id: number, cur: string) => {
+    const next = await askNote("Nội dung khoản phụ cấp", cur);
+    if (next === null) return;
+    try { apply(await setPayrollAllowanceNote(ym, id, next)); const l = await listPayrollAllowances(ym, wid); setAllows((m) => ({ ...m, [wid]: l })); toast("Đã lưu nội dung", "ok"); }
+    catch (e: any) { toast(e?.message || "Lỗi lưu nội dung", "err"); }
+  };
+  const noteAdv = async (id: number, cur: string) => {
+    const next = await askNote("Ghi chú lần ứng", cur);
+    if (next === null) return;
+    try { apply(await setPayrollAdvanceNote(ym, id, next)); const l = await listPayrollAdvances(ym, wid); setAdvs((m) => ({ ...m, [wid]: l })); toast("Đã lưu ghi chú", "ok"); }
+    catch (e: any) { toast(e?.message || "Lỗi lưu ghi chú", "err"); }
+  };
   const addAdv = async (a: number, note: string, date: string) => {
     try { apply(await addPayrollAdvance(ym, wid, a, date, note)); const l = await listPayrollAdvances(ym, wid); setAdvs((m) => ({ ...m, [wid]: l })); }
     catch (e: any) { toast(e?.message || "Lỗi thêm ứng", "err"); }
@@ -353,13 +370,13 @@ function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc,
         <button class="pr-toggle-btn" onClick={onTogglePc} aria-label={openPc ? "Đóng chi tiết phụ cấp" : "Mở chi tiết phụ cấp"}>{openPc ? "▾" : "▸"}</button>
       </div>
       {openPc && <EntryPanel entries={allowances} addPlaceholder="Số tiền phụ cấp"
-        onAdd={(a, note) => addAllow(a, note)} onDel={voidAllow} />}
+        onAdd={(a, note) => addAllow(a, note)} onDel={voidAllow} onNote={noteAllow} />}
       <div class="pr-adv-toggle">
         <span>Chi tiết ứng lương {r.adv_count ? <span class="muted small">· {r.adv_count} lần nhập tay</span> : null}</span>
         <button class="pr-toggle-btn" onClick={onToggleUng} aria-label={openUng ? "Đóng chi tiết ứng lương" : "Mở chi tiết ứng lương"}>{openUng ? "▾" : "▸"}</button>
       </div>
       {openUng && <EntryPanel entries={advances} showDate addPlaceholder="Số tiền ứng"
-        onAdd={(a, note, date) => addAdv(a, note, date)} onDel={voidAdv}
+        onAdd={(a, note, date) => addAdv(a, note, date)} onDel={voidAdv} onNote={noteAdv}
         extra={r.weekly && r.ung_weekly > 0 ? (
           <div class="pr-adv-row pr-adv-weekly">
             <span class="muted small">Lương tuần</span><b>{money(r.ung_weekly)}</b>

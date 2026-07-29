@@ -166,6 +166,24 @@ def add_advance(conn, worker_id: int, ym: str, amount: float, adv_date: str = ""
             "adv_date": (adv_date or "").strip(), "note": (note or "").strip()}
 
 
+def _set_note(conn, table: str, row_id: int, note: str) -> bool:
+    """Sửa GHI CHÚ 1 dòng (ứng / phụ cấp). SỐ TIỀN bất biến — ghi nhầm tiền thì VÔ
+    HIỆU rồi ghi lại, ghi chú chỉ là nhãn nên sửa thoải mái. Dòng ĐÃ VÔ HIỆU khoá
+    (giữ nguyên để đối chiếu). Trả False nếu không có dòng / đã vô hiệu."""
+    with transaction(conn):
+        cur = conn.execute(
+            f"UPDATE {table} SET note = ? WHERE id = ? AND voided_at IS NULL",
+            ((note or "").strip(), row_id),
+        )
+        return cur.rowcount > 0
+
+
+def update_advance_note(conn, advance_id: int, note: str) -> bool:
+    """Sửa ghi chú 1 lần ứng (số tiền/ngày không đổi). Xem _set_note."""
+    ensure_schema(conn)
+    return _set_note(conn, "salary_advances", advance_id, note)
+
+
 def void_advance(conn, advance_id: int, reason: str, by: str = "") -> bool:
     """Vô hiệu 1 lần ứng (không xoá dòng — giữ để đối chiếu). Lý do BẮT BUỘC.
     Trả False nếu không tìm thấy hoặc đã vô hiệu rồi."""
@@ -222,6 +240,12 @@ def add_allowance(conn, worker_id: int, ym: str, amount: float, note: str = "", 
         )
         aid = cur.lastrowid
     return {"id": aid, "worker_id": worker_id, "ym": ym, "amount": amt, "note": (note or "").strip()}
+
+
+def update_allowance_note(conn, allowance_id: int, note: str) -> bool:
+    """Sửa nhãn/ghi chú 1 khoản phụ cấp (số tiền không đổi). Xem _set_note."""
+    ensure_schema(conn)
+    return _set_note(conn, "salary_allowances", allowance_id, note)
 
 
 def void_allowance(conn, allowance_id: int, reason: str, by: str = "") -> bool:

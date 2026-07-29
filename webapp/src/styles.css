@@ -1304,6 +1304,10 @@ a.pr-stat:active { background: var(--accent-wash); }
 .ua-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; }
 .ua-row-main { flex: 1; min-width: 0; }
 .ua-ts { font-size: .64rem; color: var(--muted-2); }
+.ua-note-empty { font-style: italic; color: var(--muted-2); }
+/* sửa ghi chú khoản (số tiền bất biến) — nút ✏️ đứng trước nút vô hiệu */
+.ua-note-edit { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: none; background: var(--bg); color: var(--muted); border-radius: var(--r-sm); cursor: pointer; }
+.ua-row .pr-adv-del { margin-left: 0; }
 .ua-amt { font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* khoản vô hiệu: giữ dòng nhưng mờ + gạch ngang, kèm ai/lúc nào/lý do */
 .ua-voided { opacity: .72; background: color-mix(in srgb, var(--card) 92%, var(--danger) 8%); }

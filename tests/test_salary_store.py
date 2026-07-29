@@ -162,6 +162,39 @@ class SalaryStoreTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             salary_store.add_advance(self.conn, self.a, "2026-07", 0)
 
+    def test_sua_ghi_chu_khoan_phu_cap_va_ung(self):
+        al = salary_store.add_allowance(self.conn, self.a, "2026-07", 80_000, note="ăn trưa")
+        adv = salary_store.add_advance(self.conn, self.a, "2026-07", 20_000, adv_date="2026-07-05", note="")
+        self.assertTrue(salary_store.update_allowance_note(self.conn, al["id"], "  ăn trưa T7  "))
+        self.assertTrue(salary_store.update_advance_note(self.conn, adv["id"], "ứng mua xe"))
+        arow = salary_store.list_allowances(self.conn, "2026-07", self.a)[0]
+        drow = salary_store.list_advances(self.conn, "2026-07", self.a)[0]
+        self.assertEqual(arow["note"], "ăn trưa T7")     # trim khoảng trắng
+        self.assertEqual(drow["note"], "ứng mua xe")
+        # SỐ TIỀN + ngày KHÔNG đổi khi sửa ghi chú
+        self.assertEqual(arow["amount"], 80_000)
+        self.assertEqual(drow["amount"], 20_000)
+        self.assertEqual(drow["adv_date"], "2026-07-05")
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)
+        self.assertEqual(r["phu_cap"], 80_000)
+        self.assertEqual(r["ung"], 20_000)
+        # xoá trắng ghi chú được
+        self.assertTrue(salary_store.update_advance_note(self.conn, adv["id"], ""))
+        self.assertEqual(salary_store.list_advances(self.conn, "2026-07", self.a)[0]["note"], "")
+
+    def test_khong_sua_ghi_chu_khoan_da_vo_hieu_hoac_khong_ton_tai(self):
+        al = salary_store.add_allowance(self.conn, self.b, "2026-07", 10_000, note="xăng xe")
+        adv = salary_store.add_advance(self.conn, self.b, "2026-07", 10_000, note="ứng")
+        salary_store.void_allowance(self.conn, al["id"], "ghi nhầm")
+        salary_store.void_advance(self.conn, adv["id"], "ghi nhầm")
+        self.assertFalse(salary_store.update_allowance_note(self.conn, al["id"], "sửa"))
+        self.assertFalse(salary_store.update_advance_note(self.conn, adv["id"], "sửa"))
+        self.assertFalse(salary_store.update_allowance_note(self.conn, 99_999, "sửa"))
+        self.assertFalse(salary_store.update_advance_note(self.conn, 99_999, "sửa"))
+        # ghi chú dòng đã vô hiệu giữ NGUYÊN
+        self.assertEqual(salary_store.list_allowances(self.conn, "2026-07", self.b)[0]["note"], "xăng xe")
+        self.assertEqual(salary_store.list_advances(self.conn, "2026-07", self.b)[0]["note"], "ứng")
+
     def test_nhan_luong_tuan_tu_dong_ung_bang_luong_sp(self):
         # Thợ SP lương 10.000, bật nhận lương tuần → ứng tự động = 10.000
         c = self._seed_product_worker("Chi", tong_calc=10, gia=1000)
