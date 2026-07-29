@@ -5,17 +5,21 @@
 // CHỈ ĐỌC + điều hướng: mỗi khối bấm được để nhảy sang tab sửa tương ứng của popup
 // (pc/ung/luong/cong/tc) — cố tình KHÔNG dựng editor thứ 2 ở đây, thao tác thêm/vô
 // hiệu/sửa ghi chú chỉ nằm ở EntryPanel (xem luật ĐỒNG BỘ 2 CHỖ trong PayrollCellPopup).
-// Data: listPayrollAllowances + listPayrollAdvances + getWorkerReport (thợ lương SP).
+// CHẤM CÔNG hiện LUÔN cho MỌI thợ (không riêng thợ lương thời gian): khối "Chấm công"
+// = tổng công/TC + từng ngày; thợ lương SP xem view "Theo ngày" thì mỗi ngày còn kèm
+// công + giờ chấm của ngày đó (thấy ngay hôm nào đi làm mà không có báo cáo SX).
+// Data: listPayrollAllowances + listPayrollAdvances + getWorkerReport (thợ lương SP)
+// + getAttendanceSummary (chấm công tháng).
 import { useEffect, useState } from "preact/hooks";
 import {
-  getWorkerReport, listPayrollAdvances, listPayrollAllowances, soVN,
-  type PayrollRow, type SalaryAdvance, type SalaryAllowance, type WorkerReport,
+  getAttendanceSummary, getWorkerReport, listPayrollAdvances, listPayrollAllowances, soVN,
+  type AttendanceDay, type PayrollRow, type SalaryAdvance, type SalaryAllowance, type WorkerReport,
 } from "../api";
 import { moneyR as money, dmy, pad2, ymLabel } from "../format";
+import { AttendanceDayRows, attRows, attTotals, congVN } from "./AttendanceDays";
 import { Icon } from "../ui/Icon";
 import { LoadingInline } from "../ui/states";
 
-const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 /** Số cây: có dấu chấm nghìn, bỏ đuôi ,00 (3420 → "3.420"; 12,5 → "12,5"). */
 const cayVN = (n: number) => soVN(Math.round((n || 0) * 100) / 100);
 const monthFrom = (ym: string) => `${ym}-01`;
@@ -80,12 +84,14 @@ export function PayrollWorkerSheet({ ym, r, onCol, editMoc, toggleType, toggleWe
   const [allows, setAllows] = useState<SalaryAllowance[] | null>(null);
   const [advs, setAdvs] = useState<SalaryAdvance[] | null>(null);
   const [rep, setRep] = useState<WorkerReport | null | "err">(null);
+  const [att, setAtt] = useState<AttendanceDay[] | null>(null);
   const [spView, setSpView] = useState<"sp" | "ngay">("sp");   // lương SP: gộp theo mã SP hay theo ngày
 
   useEffect(() => {
-    setAllows(null); setAdvs(null);
+    setAllows(null); setAdvs(null); setAtt(null);
     listPayrollAllowances(ym, wid).then(setAllows).catch(() => setAllows([]));
     listPayrollAdvances(ym, wid).then(setAdvs).catch(() => setAdvs([]));
+    getAttendanceSummary(ym).then((s) => setAtt(s.days)).catch(() => setAtt([]));
   }, [ym, wid]);
   useEffect(() => {
     if (isTime) { setRep(null); return; }
@@ -101,6 +107,12 @@ export function PayrollWorkerSheet({ ym, r, onCol, editMoc, toggleType, toggleWe
 
   const sp = byProduct(rep === "err" ? null : rep);
   const days = byDay(rep === "err" ? null : rep);
+  // Chấm công tháng của thợ + tra theo ngày (ghép vào bảng lương SP theo ngày)
+  const attList = attRows(att, wid);
+  const attTot = attTotals(attList);
+  const attByDay = new Map(attList.map((a) => [a.day, a]));
+  // MỌI ngày trong tháng có phát sinh: có báo cáo SX HOẶC có chấm công
+  const dayKeys = [...new Set([...days.map((d) => d.ymd), ...attList.map((a) => a.day)])].sort();
   const spCay = sp.reduce((s, i) => s + i.cay, 0);
   const spPhieu = new Set(sp.flatMap((i) => [...i.phieu])).size;
 
@@ -170,31 +182,62 @@ export function PayrollWorkerSheet({ ym, r, onCol, editMoc, toggleType, toggleWe
           <div class="pws-list">
             {spView === "sp" ? sp.map((it) => (
               <a class="pws-item tappable" key={it.code} href={`#/kho/${encodeURIComponent(it.code)}`}>
-                <span>{it.code} <span class="muted small">· {cayVN(it.cay)} cây · {it.phieu.size} phiếu</span></span>
+                <span><b class="pws-day">{it.code}</b> <span class="muted small">· {cayVN(it.cay)} cây · {it.phieu.size} phiếu</span></span>
                 <b>{money(it.money)}đ</b>
               </a>
-            )) : days.map((d) => {
+            )) : dayKeys.map((ymd) => {
+              // Ngày = báo cáo SX (nếu có) + CHẤM CÔNG (nếu có) → thấy ngay hôm đi làm
+              // mà không có báo cáo, hoặc có báo cáo mà quên chấm công.
+              const d = days.find((x) => x.ymd === ymd);
+              const a = attByDay.get(ymd);
               // 1 phiếu trong ngày → bấm mở thẳng phiếu SX đó; nhiều phiếu thì để trơn
-              const one = d.phieu.size === 1 ? [...d.phieu][0] : 0;
+              const one = d && d.phieu.size === 1 ? [...d.phieu][0] : 0;
               const inner = (
                 <>
-                  <span><b class="pws-day">{dmy(d.ymd)}</b>{" "}
-                    <span class="muted small">{[...d.codes].join(", ") || "—"} · {cayVN(d.cay)} cây
-                      {d.phieu.size > 1 ? ` · ${d.phieu.size} phiếu` : ""}</span></span>
-                  <b>{money(d.money)}đ</b>
+                  <span>
+                    <b class="pws-day">{dmy(ymd)}</b>{" "}
+                    {d ? <span class="muted small">{[...d.codes].join(", ") || "—"} · {cayVN(d.cay)} cây
+                      {d.phieu.size > 1 ? ` · ${d.phieu.size} phiếu` : ""}</span>
+                      : <span class="muted small t-warn">chưa có báo cáo SX</span>}
+                    <div class="muted small pws-att">
+                      {a ? <>⏱ {congVN(a.cong)} công{a.ot ? ` · TC ${congVN(a.ot)}g` : ""}
+                        {a.le ? <span class="t-danger"> · lẻ giờ</span> : null}
+                        {" · "}{(a.times || []).join(" · ")}</>
+                        : <span class="t-warn">⏱ không chấm công</span>}
+                    </div>
+                  </span>
+                  <b class={d ? "" : "muted"}>{d ? `${money(d.money)}đ` : "—"}</b>
                 </>
               );
               return one
-                ? <a class="pws-item tappable" key={d.ymd} href={`#/san_xuat/${one}`}>{inner}</a>
-                : <div class="pws-item" key={d.ymd}>{inner}</div>;
+                ? <a class="pws-item tappable" key={ymd} href={`#/san_xuat/${one}`}>{inner}</a>
+                : <div class="pws-item" key={ymd}>{inner}</div>;
             })}
             <div class="pws-item pws-sum">
-              <span>{spView === "sp" ? `Tổng ${cayVN(spCay)} cây` : `${days.length} ngày · ${cayVN(spCay)} cây`}</span>
+              <span>{spView === "sp" ? `Tổng ${cayVN(spCay)} cây`
+                : `${days.length} ngày SX · ${cayVN(spCay)} cây · ${congVN(attTot.cong)} công`}</span>
               <b>{money(r.luong)}đ</b>
             </div>
           </div>
         </>
       )}
+
+      {/* ── Chấm công (LUÔN hiện, mọi loại lương) ────────────────────────── */}
+      <a class="pws-block tappable" href={`#/cham-cong/${wid}?ym=${encodeURIComponent(ym)}`}>
+        <span class="pws-block-l">
+          <b>Chấm công</b>
+          <span class="muted small">
+            {att === null ? "đang tải…"
+              : attTot.ngay ? `${attTot.ngay} ngày có chấm${attTot.le ? ` · ${attTot.le} ngày lẻ giờ` : ""} · bấm để sửa giờ`
+              : "tháng này chưa có giờ chấm"}
+          </span>
+        </span>
+        <b>{congVN(attTot.cong)} công{attTot.ot ? <span class="t-warn"> · {congVN(attTot.ot)}g TC</span> : null}</b>
+        <Icon name="chevronRight" size={15} />
+      </a>
+      {att === null ? <p class="muted small pws-pad"><LoadingInline label="Đang tải chấm công…" /></p>
+        : !attList.length ? <p class="muted small pws-pad">Chưa có ngày nào chấm giờ trong tháng.</p>
+        : <div class="pws-list wa-list pws-att-list"><AttendanceDayRows rows={attList} /></div>}
 
       {/* ── Phụ cấp ──────────────────────────────────────────────────────── */}
       <Block label="Phụ cấp" total={`+${money(r.phu_cap)}đ`} tone={r.phu_cap ? "ok" : undefined}
