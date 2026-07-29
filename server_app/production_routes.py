@@ -209,6 +209,11 @@ async def production_detail_handler(request: web.Request):
     if not slip:
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu"}, status=404)
     slip.update(_progress(slip))
+    # luong_1sp = ĐƠN GIÁ LƯƠNG /1SP của phiếu → tiền lương, chỉ văn phòng (UI lấy tiền
+    # công qua /api/production/{id}/wages vốn đã chặn office; field này chỉ để lộ giá).
+    from server_app.production_wages import is_office_username
+    if not is_office_username(request.get("web_user")):
+        slip.pop("luong_1sp", None)
     return web.json_response({"ok": True, "slip": slip})
 
 
