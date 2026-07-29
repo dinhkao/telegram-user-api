@@ -309,7 +309,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (POST `/api/attendance/map` backfill event cũ; mã chưa map = hàng chờ `unmapped` trong
   GET `/api/attendance/summary?ym=`). XEM mở cho MỌI người dùng đăng nhập (2026-07-22:
   summary + day + today-image; trang `#/cham-cong` staff chỉ xem); SỬA (map, manual
-  add/delete, suppress) + GET list/map vẫn office. Luật thuần
+  add/delete, suppress) + GET list/map vẫn office. **Trang CHẤM CÔNG 1 THỢ 1 THÁNG =
+  `#/cham-cong/:worker_id?ym=` (`pages/WorkerAttendance.tsx`)** — vào từ bảng lương
+  (ô Công/TC, hồ sơ lương thợ); tóm tắt công/TC + từng ngày, bấm ngày mở popup giờ
+  DÙNG CHUNG với bảng cả xưởng (`detail/AttendanceCellEditor.tsx`). Số công/TC trên
+  app tính bằng `detail/attendanceStats.ts::workStats` = GƯƠNG của `domain.work_stats`
+  — đổi luật phải đổi CẢ HAI, không thì app lệch số tính lương. Luật thuần
   `domain.py` (validate batch + token). Tính LƯƠNG/ca từ raw CHƯA làm (nối vào
   `salary_store` wage_type 'time' sau — đừng suy ca từ punch đầu/cuối khi chưa chốt luật).
   KHÔNG sửa phía collector từ repo này (máy Windows riêng). Tests:
