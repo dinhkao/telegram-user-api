@@ -215,14 +215,24 @@ export const GUIDES_SANXUAT: Guide[] = [
           nhập mã máy của người đó (một người có thể có nhiều mã; bấm ✕ để gỡ).</li>
         </ul>
         <p>Gán xong, toàn bộ lịch sử chấm cũ của mã đó cũng tự tính cho đúng người.</p>` },
-      { title: "Nghi chấm thiếu — máy tự soi", html: `
-        <p>Khu <b>"⚠ Nghi chấm thiếu"</b> tự quét cả tháng và liệt kê các ca bất thường:</p>
+      { title: "Chuẩn 4 lần chấm/ngày — máy tự soi", html: `
+        <p><b>Chuẩn 1 ngày = ĐÚNG 4 lần chấm</b>: vào–ra ca sáng + vào–ra ca chiều.
+        <b>Nhiều hơn hoặc ít hơn 4 lần đều là LỖI.</b></p>
+        <p>Ngoại lệ duy nhất: chấm <b>đúng 2 lần</b> và cả 2 lần nằm <b>cùng 1 buổi</b>
+        (vd 7:00→11:02 = làm buổi sáng, hoặc 13:00→20:00 = chiều + tăng ca) — đó là
+        <b>làm nửa ngày</b>, hợp lệ. Nhưng 2 lần ở <b>2 buổi khác nhau</b> (vd 7:00 và
+        17:00) là <b>lỗi</b>: người đó quên chấm ra buổi sáng và chấm vào buổi chiều.
+        Ngày <b>không chấm lần nào</b> = nghỉ, không tính lỗi.</p>
+        <p>Khu <b>"⚠ Chấm sai chuẩn"</b> quét cả tháng, xếp <b>lỗi</b> (dòng đỏ) lên trước:</p>
         <ul>
-          <li>chấm <b>số lần lẻ</b> trong ngày (thiếu 1 lần vào hoặc ra — kèm gợi ý ca nào);</li>
-          <li>cặp vào-ra <b>quá gần nhau</b> trong ca (vd 13:40→13:47 — nghi bấm 2 lần liền, quên chấm ra);</li>
-          <li>vào-ra <b>xuyên trọn giờ trưa</b> không chấm giữa (vd 7:00→17:00 — nghi quên chấm trưa;
-          khoảng 11–13h này <b>không</b> bị tính nhầm thành tăng ca).</li>
+          <li><b>đỏ = sai chuẩn số lần</b> (1, 3, ≥5 lần, hoặc 2 lần lệch buổi) — ghi rõ thiếu/thừa mấy lần;</li>
+          <li><b>cam = đủ số lần nhưng giờ đáng soi</b>: cặp vào-ra <b>quá gần nhau</b> trong ca
+          (vd 13:40→13:47 — nghi bấm 2 lần liền), hoặc cặp <b>xuyên trọn giờ trưa</b> không chấm
+          giữa (khoảng 11–13h này <b>không</b> bị tính nhầm thành tăng ca).</li>
         </ul>
+        <p>Trên lưới, ngày sai chuẩn có <b>góc đỏ dưới-trái</b> + nền hồng (cam = loại cần soi);
+        bấm vào ô để xem/sửa giờ. <b>Ảnh chấm công hôm nay</b> ("Tạo ảnh hôm nay") cũng ghi
+        trạng thái <b>ĐỦ 4 LẦN / SAI CHUẨN / CẦN KIỂM TRA / CHƯA CHẤM</b> kèm lý do.</p>
         <p>Dùng danh sách này để nhắc nhân viên chấm đủ vào/ra từng buổi.</p>` },
       { title: "Lưu ý", html: `
         <p>Chấm công đã <b>nối vào Bảng lương tháng</b>: thợ <i>lương thời gian</i> đặt

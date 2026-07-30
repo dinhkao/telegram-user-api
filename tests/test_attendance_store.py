@@ -209,3 +209,55 @@ class WorkStatsTest(unittest.TestCase):
     def test_odd_punch_ignored(self):
         # lần lẻ cuối bỏ, không đoán
         self.assertEqual(self._ws(["07:00", "11:00", "13:00"]), (240, 0))
+
+
+class DayRuleTest(unittest.TestCase):
+    """CHUẨN 1 ngày = ĐÚNG 4 lần chấm; 2 lần chỉ hợp lệ khi cùng 1 buổi."""
+
+    def _err(self, times):
+        from attendance_store.domain import day_error
+        return day_error(times)
+
+    def test_four_punches_is_standard(self):
+        self.assertIsNone(self._err(["07:00", "11:00", "13:00", "17:00"]))
+
+    def test_no_punch_is_not_an_error(self):
+        self.assertIsNone(self._err([]))          # nghỉ, không phải chấm sai
+
+    def test_two_punches_same_session_ok(self):
+        self.assertIsNone(self._err(["07:00", "11:02"]))          # chỉ làm buổi sáng
+        self.assertIsNone(self._err(["13:00", "17:05"]))          # chỉ làm buổi chiều
+        self.assertIsNone(self._err(["13:00", "20:00"]))          # chiều + tăng ca tối
+
+    def test_two_punches_different_session_is_error(self):
+        err = self._err(["07:00", "17:00"])                       # quên chấm trưa
+        self.assertIsNotNone(err)
+        self.assertIn("2 buổi", err)
+
+    def test_missing_punches(self):
+        for times in (["07:00"], ["07:00", "11:00", "13:00"]):
+            err = self._err(times)
+            self.assertIsNotNone(err, times)
+            self.assertIn("thiếu", err)
+
+    def test_too_many_punches(self):
+        err = self._err(["07:00", "11:00", "13:00", "17:00", "18:00", "20:00"])
+        self.assertIsNotNone(err)
+        self.assertIn("nhiều hơn", err)
+
+    def test_unsorted_input_same_verdict(self):
+        self.assertIsNone(self._err(["11:00", "07:00"]))
+        self.assertIn("2 buổi", self._err(["17:00", "07:00"]))
+
+    def test_issues_reports_count_error_alone(self):
+        from attendance_store.domain import day_issues
+        # 2 lần xuyên trưa: chỉ báo LỖI số lần, không báo trùng cảnh báo "xuyên trưa"
+        issues = day_issues(["07:00", "17:00"])
+        self.assertEqual([lv for lv, _ in issues], ["err"])
+
+    def test_issues_warns_when_count_ok(self):
+        from attendance_store.domain import day_issues
+        # đủ 4 lần nhưng cặp chiều chỉ 7ph → cảnh báo (không phải lỗi số lần)
+        issues = day_issues(["07:00", "11:00", "13:40", "13:47"])
+        self.assertEqual([lv for lv, _ in issues], ["warn"])
+        self.assertIn("7ph", issues[0][1])

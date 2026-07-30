@@ -1,37 +1,32 @@
-"""Dựng báo cáo chấm công hôm nay thành HTML để renderer Playwright chụp PNG."""
+"""Dựng báo cáo chấm công hôm nay thành HTML để renderer Playwright chụp PNG.
+
+Luật ĐẠT/SAI CHUẨN (4 lần chấm/ngày) dùng chung với webapp: attendance_store.domain.
+"""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from html import escape
 
+from attendance_store.domain import day_issues
+
 _VN = timezone(timedelta(hours=7))
+_STATUS = {"err": ("SAI CHUẨN", "bad"), "warn": ("CẦN KIỂM TRA", "warning")}
 
 
 def today_vn() -> str:
     return datetime.now(_VN).strftime("%Y-%m-%d")
 
 
-def _mins(value: str) -> int:
-    try:
-        h, m = value[:5].split(":")
-        return int(h) * 60 + int(m)
-    except (ValueError, IndexError):
-        return -1
-
-
-def _needs_check(times: list[str]) -> bool:
-    if len(times) % 2:
-        return True
-    values = [_mins(t) for t in times]
-    for i in range(0, len(values), 2):
-        if values[i] < 0 or values[i + 1] < 0:
-            return True
-        duration = values[i + 1] - values[i]
-        if duration < 30 and 7 * 60 <= values[i] and values[i + 1] <= 17 * 60:
-            return True
-        if values[i] <= 11 * 60 and values[i + 1] >= 13 * 60:
-            return True
-    return False
+def _state(times: list[str]) -> tuple[str, str, str]:
+    """(nhãn trạng thái, class, lý do) của 1 người trong ngày."""
+    if not times:
+        return "CHƯA CHẤM", "missing", ""
+    issues = day_issues(times)
+    if not issues:
+        return "ĐỦ 4 LẦN", "ok", ""
+    level, text = issues[0]
+    label, cls = _STATUS[level]
+    return label, cls, "; ".join(t for _, t in issues)
 
 
 def _people(rows: list[dict], workers: list[dict], day: str) -> list[dict]:
@@ -70,20 +65,20 @@ def _people(rows: list[dict], workers: list[dict], day: str) -> list[dict]:
 def build_today_html(day: str, rows: list[dict], workers: list[dict]) -> str:
     people = _people(rows, workers, day)
     present = sum(bool(p["times"]) for p in people)
-    issues = sum(bool(p["times"]) and _needs_check(p["times"]) for p in people)
+    states = [_state(p["times"]) for p in people]
+    issues = sum(cls in ("bad", "warning") for _, cls, _ in states)
     date_label = f"{day[8:10]}/{day[5:7]}/{day[:4]}"
 
     body_rows = []
-    for index, person in enumerate(people, 1):
+    for index, (person, (status, status_class, reason)) in enumerate(zip(people, states), 1):
         times = "  →  ".join(person["times"]) if person["times"] else "Chưa có record"
-        status = "CHƯA CHẤM" if not person["times"] else "CẦN KIỂM TRA" if _needs_check(person["times"]) else "ĐỦ CẶP"
-        status_class = "missing" if status == "CHƯA CHẤM" else "warning" if status == "CẦN KIỂM TRA" else "ok"
+        note = f'<div class="reason">⚠ {escape(reason)}</div>' if reason else ""
         body_rows.append(f"""
           <tr>
             <td class="index">{index:02d}</td>
             <td class="person"><strong>{escape(str(person['name']))}</strong></td>
             <td class="code">{escape(person['code'])}</td>
-            <td class="times {'empty' if not person['times'] else ''}">{escape(times)}</td>
+            <td class="times {'empty' if not person['times'] else ''}">{escape(times)}{note}</td>
             <td><span class="status {status_class}">{status}</span></td>
           </tr>""")
 
@@ -110,14 +105,16 @@ tbody tr:nth-child(even) {{ background: #fbfaf6; }}
 .code {{ color: #4e665b; font: 700 17px ui-monospace, monospace; word-break: break-word; }}
 .times {{ color: #22372d; font: 700 17px ui-monospace, monospace; line-height: 1.5; overflow-wrap: anywhere; }}
 .times.empty {{ color: #a27a3b; font: 600 16px Arial, sans-serif; }}
+.reason {{ margin-top: 6px; color: #a4331d; font: 600 14px Arial, sans-serif; line-height: 1.4; }}
 .status {{ display: inline-block; padding: 8px 10px; border-radius: 18px; color: white; font: 800 11px Arial, sans-serif; white-space: nowrap; }}
-.status.ok {{ background: #2f7a47; }} .status.warning {{ background: #c45832; }} .status.missing {{ background: #a86f17; }}
+.status.ok {{ background: #2f7a47; }} .status.warning {{ background: #c45832; }}
+.status.bad {{ background: #a4231d; }} .status.missing {{ background: #a86f17; }}
 footer {{ padding: 20px 38px; color: #69786f; background: #e9e6dc; font-size: 14px; }}
 </style></head><body><main class="sheet">
   <header class="hero">
     <div class="eyebrow">BẢNG CHẤM CÔNG · BÁO CÁO TRONG NGÀY</div>
     <h1>Chấm công hôm nay</h1>
-    <div class="summary">{date_label} &nbsp;·&nbsp; {len(people)} nhân viên &nbsp;·&nbsp; {present} có chấm &nbsp;·&nbsp; {issues} cần kiểm tra</div>
+    <div class="summary">{date_label} &nbsp;·&nbsp; {len(people)} nhân viên &nbsp;·&nbsp; {present} có chấm &nbsp;·&nbsp; {issues} cần kiểm tra &nbsp;·&nbsp; chuẩn 4 lần chấm/ngày</div>
   </header>
   <table><colgroup><col class="index"><col class="person"><col class="code"><col class="times"><col class="state"></colgroup>
     <thead><tr><th>#</th><th>NHÂN VIÊN</th><th>MÃ</th><th>MỌI GIỜ CHẤM</th><th>TRẠNG THÁI</th></tr></thead>
