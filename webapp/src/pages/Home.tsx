@@ -1,7 +1,7 @@
 // Trang chủ (#/home) — mọi mục của app gom theo NHÓM liên quan, mỗi mục 1 ô bấm được.
 // Thay menu "Mục khác" dài (bị cắt) bằng trang cuộn được, có phân nhóm. Vào từ nút ☰
 // Thêm ở thanh điều hướng. Mục theo quyền: office = admin/van_phong, admin = admin.
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { currentUser } from "../api";
 import { foldVN } from "../format";
 import { Icon } from "../ui/Icon";
@@ -78,6 +78,24 @@ export function Home() {
   const office = role === "admin" || role === "van_phong";
   const admin = role === "admin";
   const [query, setQuery] = useState("");
+  const searchInput = useRef<HTMLInputElement>(null);
+  // Desktop (có bàn phím): bấm "/" ở bất kỳ đâu → nhảy vào ô tìm kiếm.
+  // Cùng luật màn hình rộng như phím tắt Escape ở dashboard Đơn (OrdersList).
+  useEffect(() => {
+    const onSlash = (e: KeyboardEvent) => {
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (!window.matchMedia("(min-width: 720px)").matches) return;
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      // Đang gõ trong ô nhập thì "/" là ký tự bình thường, không cướp.
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return;
+      e.preventDefault();
+      searchInput.current?.focus();
+      searchInput.current?.select();
+    };
+    window.addEventListener("keydown", onSlash);
+    return () => window.removeEventListener("keydown", onSlash);
+  }, []);
   const normalizedQuery = foldVN(query.trim());
   const visibleGroups = GROUPS.map((g) => {
     const allowedItems = g.items.filter((it) => (!it.office || office) && (!it.admin || admin));
@@ -90,7 +108,7 @@ export function Home() {
   return (
     <div class="home">
       <div class="home-search">
-        <SearchBar value={query} onInput={setQuery} placeholder="Tìm trong menu Thêm…" />
+        <SearchBar value={query} onInput={setQuery} placeholder="Tìm trong menu Thêm…" inputRef={searchInput} />
       </div>
       {visibleGroups.map((g) => {
         return (
