@@ -158,21 +158,36 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName 
   const t = data.totals;
   // SỐ ĐẦY ĐỦ (không rút gọn) → bảng RỘNG hơn màn: thân cuộn NGANG, cột Thợ ghim
   // trái; header tách thanh sticky top (dưới app-bar) + scrollLeft đồng bộ từ thân
-  // — cùng kỹ thuật lưới chấm công. colgroup px cố định để 2 bảng thẳng cột.
+  // — cùng kỹ thuật lưới chấm công.
+  // ⚠ 2 BẢNG THẲNG CỘT chỉ đúng khi table-layout:fixed THẬT ĂN → bảng phải có bề
+  // rộng XÁC ĐỊNH (`width:100%` + min-width dưới đây). Trước đây dùng
+  // `width:max-content` → Chrome phải đo bằng auto-layout, colgroup mất tác dụng,
+  // mỗi bảng tự co theo nội dung CỦA NÓ (header nhãn ngắn ≠ thân số dài) → lệch tới
+  // ~180px, đổi liên tục khi resize. Đừng đưa max-content/width:auto trở lại.
+  // Bề rộng theo EM (không px) để mobile font nhỏ hơn thì bảng tự hẹp lại; số đo
+  // thực: dòng TỔNG ~9 chữ số cần ≤8,3em, chip Loại/toggle Tuần cần ≥5,4em/5,7em,
+  // tên thợ dài cắt bằng ellipsis.
+  const COL_EM = [12, 5.5, 5.9, 8, 5.4, 8.4, 5.4, 8.4, 8.4, 8.4, 8.4, 8.4];
+  const totalEm = COL_EM.reduce((a, b) => a + b, 0);
+  const tableStyle = `min-width:${totalEm}em`;
   const headRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const cols = (
-    <colgroup>
-      <col style="width:96px" /><col style="width:40px" /><col style="width:52px" />
-      <col style="width:84px" /><col style="width:52px" /><col style="width:88px" />
-      <col style="width:48px" /><col style="width:84px" /><col style="width:92px" />
-      <col style="width:84px" /><col style="width:84px" /><col style="width:96px" />
-    </colgroup>
-  );
+  // Resize cửa sổ → thân bị CLAMP scrollLeft (bảng vừa màn thì về 0) mà header
+  // không hay biết vì chỉ sync trong onScroll → lệch. Bám ResizeObserver để sync lại.
+  useEffect(() => {
+    const head = headRef.current, body = bodyRef.current;
+    if (!head || !body) return;
+    const sync = () => { head.scrollLeft = body.scrollLeft; };
+    const ro = new ResizeObserver(sync);
+    ro.observe(body);
+    window.addEventListener("resize", sync);
+    return () => { ro.disconnect(); window.removeEventListener("resize", sync); };
+  }, []);
+  const cols = <colgroup>{COL_EM.map((w, i) => <col key={i} style={`width:${w}em`} />)}</colgroup>;
   return (
     <div class="pr-table-wrap">
       <div class="pr-thead-bar" ref={headRef}>
-        <table class="pr-table">
+        <table class="pr-table" style={tableStyle}>
           {cols}
           <thead>
             <tr>
@@ -186,7 +201,7 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName 
       </div>
       <div class="pr-tbody-scroll" ref={bodyRef}
         onScroll={() => { if (headRef.current && bodyRef.current) headRef.current.scrollLeft = bodyRef.current.scrollLeft; }}>
-        <table class="pr-table">
+        <table class="pr-table" style={tableStyle}>
           {cols}
           <tbody>
           {data.workers.map((r) => {

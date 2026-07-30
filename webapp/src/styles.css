@@ -1326,14 +1326,26 @@ a.pr-stat:active { background: var(--accent-wash); }
 .pr-thead-bar { position: sticky; top: 44px; z-index: 6; overflow-x: hidden; background: var(--bg); border-radius: var(--r-md) var(--r-md) 0 0; }
 body.has-nop .pr-thead-bar { top: 72px; }
 .pr-tbody-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.pr-thead-bar .pr-table, .pr-tbody-scroll .pr-table { table-layout: fixed; width: max-content; min-width: 100%; }
+/* ⚠ table-layout:fixed CHỈ ăn khi bảng có bề rộng XÁC ĐỊNH. `width:max-content`
+   (bản cũ) là bề rộng nội tại → Chrome phải đo bằng auto-layout, colgroup mất tác
+   dụng và mỗi bảng tự co theo nội dung của nó → header lệch thân ~180px, đổi liên
+   tục khi resize. min-width đặt inline từ MonthlyPayroll.tsx (tổng em của colgroup,
+   1 nguồn duy nhất) — đừng thêm width/min-width cho .pr-table ở đây. */
+.pr-thead-bar .pr-table, .pr-tbody-scroll .pr-table { table-layout: fixed; width: 100%; }
 .pr-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: .8rem; background: var(--card); }
-.pr-table th, .pr-table td { padding: 6px 9px; border: none; border-bottom: 1px solid var(--border); white-space: nowrap; text-align: right; }
+.pr-table th, .pr-table td { padding: 6px 9px; border: none; border-bottom: 1px solid var(--border); white-space: nowrap; text-align: right;
+  overflow: hidden; text-overflow: ellipsis; }   /* fixed layout: số quá dài thì CẮT gọn, không tràn đè cột bên */
+/* kẻ DỌC giữa các cột — mắt lần theo cột dễ hơn (cùng lối lưới chấm công) */
+.pr-table th, .pr-table td { border-right: 1px solid var(--border); }
+.pr-table th:last-child, .pr-table td:last-child { border-right: none; }
 .pr-table th { color: var(--muted); font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; background: var(--bg); box-shadow: 0 1px 0 var(--border); }
 .pr-table th:first-child { text-align: left; }
 .pr-table th:nth-child(2), .pr-table th:nth-child(3) { text-align: center; }
 .pr-sticky { position: sticky; left: 0; z-index: 1; background: var(--card); }
 .pr-table th.pr-sticky { z-index: 4; background: var(--bg); }
+/* cột Thợ ghim trái: bóng phải → thấy rõ đang che phần cuộn ngang (như .att-grid) */
+.pr-table td.pr-sticky { box-shadow: 3px 0 5px -3px rgba(0, 0, 0, .25); }
+.pr-table th.pr-sticky { box-shadow: 0 1px 0 var(--border), 3px 0 5px -3px rgba(0, 0, 0, .25); }
 .pr-table tbody tr:hover td, .pr-table tbody tr:active td { background: var(--bg); }
 .pr-table tbody tr:hover .pr-sticky, .pr-table tbody tr:active .pr-sticky { background: var(--bg); }
 /* ⚠ dùng .pr-table td.… để THẮNG .pr-table td{text-align:right} (cùng nếu chỉ .pr-td-name → bị đè, cột thợ dồn phải) */
@@ -1345,7 +1357,9 @@ body.has-nop .pr-thead-bar { top: 72px; }
 .pr-table td.pr-td-mid { text-align: center; }
 .pr-num { text-align: right; font-variant-numeric: tabular-nums; }
 .pr-num.is-zero { color: var(--muted-2); }
-.pr-net-td { min-width: 92px; font-weight: 800; color: var(--ok); background: var(--ok-wash); }
+/* bề rộng cột do colgroup (MonthlyPayroll.tsx) chốt — KHÔNG đặt min-width ở ô, vì ô
+   dòng đầu của bảng thân sẽ ép cột rộng hơn header 1 chút → 2 bảng lệch lại. */
+.pr-net-td { font-weight: 800; color: var(--ok); background: var(--ok-wash); }
 .pr-ung-btn { color: var(--primary); font: inherit; font-weight: 700; cursor: pointer; padding: 0; text-decoration: underline dotted; text-underline-offset: 3px; }
 .pr-ung-btn sup { color: var(--muted); font-size: .7em; }
 .pr-table tfoot td { padding-top: 8px; padding-bottom: 8px; font-weight: 800; border-top: 1px solid var(--border); border-bottom: none; background: var(--bg); }
