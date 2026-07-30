@@ -219,15 +219,16 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName 
                   title="Mở trang lương tháng của thợ"
                   onClick={() => onName(r.worker_id)}
                   onKeyDown={(e: any) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onName(r.worker_id); } }}>
-                  {/* Dưới tên = THỰC LÃNH tháng đó: cột Thợ ghim trái nên thấy ngay số
-                      chốt mà không phải cuộn sang cột Lãnh ở tận cùng bên phải. */}
+                  {/* Dưới tên = TỔNG TIỀN NHẬN ĐƯỢC của tháng (lương + phụ cấp + thưởng),
+                      CHƯA trừ ứng — cố ý KHÁC cột Lãnh (thực lãnh = đã trừ ứng). Cột Thợ
+                      ghim trái nên thấy ngay số này khỏi phải cuộn ngang. */}
                   <span class="pr-worker">
                     <span class="pr-avatar">{initials(r.name)}</span>
                     <span class="pr-worker-main">
                       <span class="pr-worker-nm">{r.name}</span>
-                      <span class={r.thuc_lanh < 0 ? "pr-worker-net t-danger" : "pr-worker-net"}
-                        title={`Thực lãnh ${ymLabel(data.ym).toLowerCase()} = lương + phụ cấp − ứng`}>
-                        {money(r.thuc_lanh)}
+                      <span class="pr-worker-net"
+                        title={`Tổng tiền lương ${ymLabel(data.ym).toLowerCase()} = lương + phụ cấp (chưa trừ ứng)`}>
+                        {money(r.luong + r.phu_cap + r.thuong)}
                       </span>
                     </span>
                   </span>
@@ -286,7 +287,9 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName 
               <td class="pr-sticky pr-td-name">
                 <span class="pr-worker-main">
                   <span class="pr-worker-nm">Tổng</span>
-                  <span class="pr-worker-net" title="Tổng thực lãnh toàn bộ nhân viên">{money(t.thuc_lanh)}</span>
+                  <span class="pr-worker-net" title="Tổng tiền lương cả xưởng (lương + phụ cấp, chưa trừ ứng)">
+                    {money(t.luong + t.phu_cap + t.thuong)}
+                  </span>
                 </span>
               </td><td></td><td></td><td></td>
               <td class="pr-num">{congVN(data.workers.reduce((a, r) => a + (r.cong || 0), 0))}</td>

@@ -1352,8 +1352,8 @@ body.has-nop .pr-thead-bar { top: 72px; }
 .pr-table td.pr-td-name { text-align: left; font-weight: 600; }
 .pr-worker { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; color: var(--ink); text-decoration: none; }
 .pr-worker > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Cột Thợ 2 DÒNG: tên + THỰC LÃNH tháng đó (cột ghim trái → thấy số chốt khỏi cuộn
-   sang cột Lãnh). Tên dài cắt ellipsis, số dùng tabular-nums cho thẳng hàng. */
+/* Cột Thợ 2 DÒNG: tên + TỔNG TIỀN NHẬN ĐƯỢC của tháng (lương + phụ cấp, CHƯA trừ ứng
+   — khác cột Lãnh = thực lãnh). Tên dài cắt ellipsis, số tabular-nums cho thẳng hàng. */
 .pr-worker-main { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: 100%; line-height: 1.2; }
 .pr-worker-nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pr-worker-net { font-size: .84em; font-weight: 700; color: var(--ok); font-variant-numeric: tabular-nums; white-space: nowrap; }
