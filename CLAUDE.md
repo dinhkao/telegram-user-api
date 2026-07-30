@@ -279,7 +279,14 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   | `'time'` (lương THỜI GIAN từ CHẤM CÔNG 2026-07-19: mốc tháng ÷ 26 × ngày công +
   tăng ca ×1,2 — công/TC quy từ
   máy chấm qua `attendance_store.month_worker_stats`/`domain.work_stats`, ngày đủ 2 ca
-  = 1 công, đã gộp giờ sửa tay; sửa mốc = ô "Mốc" bảng lương, office).
+  = 1 công, đã gộp giờ sửa tay; sửa mốc = ô "Mốc" bảng lương, office)
+  | **`'time_flat'` = TG\* (2026-07-30)**: CỐ ĐỊNH theo ngày công — giờ tăng ca GỘP LUÔN
+  vào ngày công (`cong = (work_min + ot_min)/480`) rồi trả bằng đơn giá công, `luong_tc`
+  = 0 (`ot_gio` vẫn trả để biết đã gộp bao nhiêu; UI: ô Công có dấu `+TC`, ô L.TC "—").
+  ⚠ Thêm giá trị wage_type mới phải sửa **cả whitelist `worker_store.update_worker`**
+  (giá trị lạ bị ép về 'product' — âm thầm) LẪN validate `server_app/worker_routes.py`;
+  client gom nhãn/luật ở **`webapp/src/detail/wageType.ts`** (`isTimeWage`/`otInCong`/
+  `wageChip`/`wageLabel`/`nextWageType` — chip Loại bấm đổi VÒNG SP→TG→TG*).
   **MỐC lương lưu THEO TỪNG THÁNG (2026-07-30, `salary_store/moc.py` + cột
   `salary_month.monthly_salary`, tests/test_salary_moc.py)**: mốc hiệu lực của tháng M =
   bản đặt gần nhất có tháng ≤ M (đặt tháng nào áp TỪ THÁNG ĐÓ TRỞ ĐI, tháng sau tự kế

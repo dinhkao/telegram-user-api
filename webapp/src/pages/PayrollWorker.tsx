@@ -11,6 +11,7 @@ import { curYM, shiftYM, ymLabel } from "../format";
 import { PayrollWorkerSheet } from "../detail/PayrollWorkerSheet";
 import { PayrollCellPopup, type PayrollCol } from "../detail/PayrollCellPopup";
 import { payrollActions } from "../detail/payrollActions";
+import { wageLabel } from "../detail/wageType";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
@@ -44,7 +45,7 @@ export function PayrollWorker({ wid }: { wid: number }) {
   const head = (
     <PageHead fallback={`#/luong-thang`}
       title={<><Icon name="wallet" size={18} /> {r ? r.name : "Lương tháng"}</>}
-      sub={r ? (r.wage_type === "time" ? "lương thời gian" : "lương sản phẩm") : "lương tháng của thợ"} />
+      sub={r ? `lương ${wageLabel(r.wage_type).toLowerCase()}` : "lương tháng của thợ"} />
   );
   if (!isOffice()) return <div class="pr-page">{head}<EmptyState icon="🔒">Chỉ văn phòng.</EmptyState></div>;
 

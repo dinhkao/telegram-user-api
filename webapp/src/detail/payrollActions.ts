@@ -5,16 +5,18 @@
 // nằm ở bảng khác nên phải gọi lại /api/payroll/month).
 import { setPayrollAdjust, updateWorker, type PayrollMonth, type PayrollRow } from "../api";
 import { moneyR as money, ymLabel } from "../format";
+import { nextWageType, wageLabel } from "./wageType";
 import { toast, promptDialog } from "../ui/feedback";
 
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
 
 export function payrollActions(ym: string, apply: (d: PayrollMonth) => void, reload: () => void) {
+  // Bấm chip Loại = ĐỔI VÒNG SP → TG → TG* → SP (3 loại lương, xem detail/wageType.ts)
   const toggleType = async (r: PayrollRow) => {
-    const next = r.wage_type === "time" ? "product" : "time";
+    const next = nextWageType(r.wage_type);
     try {
       await updateWorker(r.worker_id, { wage_type: next });
-      toast(next === "time" ? "→ Lương thời gian" : "→ Lương sản phẩm", "ok");
+      toast(`→ Lương ${wageLabel(next).toLowerCase()}`, "ok");
       reload();
     } catch (e: any) { toast(e?.message || "Lỗi đổi loại", "err"); }
   };

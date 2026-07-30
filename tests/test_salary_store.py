@@ -96,6 +96,45 @@ class SalaryStoreTest(unittest.TestCase):
         self.assertEqual(r["luong"], 460_000)
         self.assertEqual(r["thuc_lanh"], 460_000)
 
+    def test_tg_sao_gop_gio_tang_ca_vao_ngay_cong(self):
+        """TG* ('time_flat'): trả CỐ ĐỊNH theo ngày công, giờ tăng ca GỘP vào công —
+        không có lương tăng ca ×1,2 riêng. So sánh thẳng với TG cùng dữ liệu chấm công."""
+        import attendance_store
+        attendance_store.ensure_schema(self.conn)
+        # 2 thợ cùng mốc 5.200.000 (200k/công, 25k/giờ) và CÙNG giờ chấm công
+        update_worker(self.conn, self.a, wage_type="time", monthly_salary=5_200_000)
+        update_worker(self.conn, self.b, wage_type="time_flat", monthly_salary=5_200_000)
+        for code, wid in (("77", self.a), ("88", self.b)):
+            attendance_store.map_employee_code(self.conn, code, wid)
+            for day in ("2026-07-06", "2026-07-07"):
+                # ngày 1: đủ 2 ca (1 công). ngày 2: đủ 2 ca + tăng ca tới 19:00 (2 giờ)
+                for t in ("07:00", "11:00", "13:00", "17:00" if day.endswith("06") else "19:00"):
+                    attendance_store.add_manual(self.conn, code, day, t)
+        d = salary_store.compute_month_payroll(self.conn, "2026-07")
+        tg, tgx = self._row(d, self.a), self._row(d, self.b)
+        # TG: 2 công + 2 giờ TC tính riêng ×1,2
+        self.assertEqual((tg["cong"], tg["ot_gio"]), (2.0, 2.0))
+        self.assertEqual((tg["luong_cong"], tg["luong_tc"], tg["luong"]), (400_000, 60_000, 460_000))
+        # TG*: 2 công + 2 giờ TC = 2,25 công (2g = 0,25 ngày 8 giờ), KHÔNG có lương TC
+        self.assertEqual((tgx["cong"], tgx["ot_gio"]), (2.25, 2.0))
+        self.assertEqual(tgx["luong_tc"], 0)
+        self.assertEqual((tgx["luong_cong"], tgx["luong"]), (450_000, 450_000))   # 200k × 2,25
+        self.assertEqual(tgx["wage_type"], "time_flat")
+        # TG* KHÔNG ăn lương sản phẩm (chỉ thợ 'product' vào compute_range_report)
+        self.assertEqual(tgx["pc_phieu"], 0)
+
+    def test_tg_sao_khong_co_tang_ca_thi_giong_tg(self):
+        """Không có giờ tăng ca → TG* và TG ra cùng số (khác biệt chỉ ở phần TC)."""
+        import attendance_store
+        attendance_store.ensure_schema(self.conn)
+        update_worker(self.conn, self.b, wage_type="time_flat", monthly_salary=5_200_000)
+        attendance_store.map_employee_code(self.conn, "88", self.b)
+        for t in ("07:00", "11:00", "13:00", "17:00"):
+            attendance_store.add_manual(self.conn, "88", "2026-07-06", t)
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.b)
+        self.assertEqual((r["cong"], r["ot_gio"]), (1.0, 0.0))
+        self.assertEqual((r["luong_cong"], r["luong_tc"], r["luong"]), (200_000, 0, 200_000))
+
     def test_adjust_upsert_giu_field_khong_truyen(self):
         salary_store.set_month_adjust(self.conn, "2026-07", self.a, thuong=100_000)
         salary_store.set_month_adjust(self.conn, "2026-07", self.a, weekly=True)  # không đụng thuong

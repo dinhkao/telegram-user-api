@@ -1,6 +1,7 @@
 // Lớp gọi API — gắn token, base URL cấu hình được (WebView trỏ Tailscale IP),
 // cache GET (network-first, rớt mạng đọc cache) + hàng đợi POST offline (offline.ts).
 import { flushQueue, queuePost, readCache, writeCache } from "./offline";
+import type { WageType } from "./detail/wageType";   // 3 loại lương: SP · TG · TG*
 
 // Trạng thái MẠNG THẬT: dựa trên fetch tới server có tới được hay không, KHÔNG dựa
 // navigator.onLine (Android WebView qua Tailscale báo sai → banner "mất mạng" ảo).
@@ -964,7 +965,7 @@ export async function deleteProduction(id: string | number): Promise<any> {
 }
 
 // ── Danh sách thợ (template báo cáo) ──
-export type Worker = { id: number; name: string; is_default: boolean; sort_order: number; weekly_salary?: boolean; hourly_rate?: number; wage_type?: "product" | "time"; start_date?: string; note?: string; monthly_salary?: number };
+export type Worker = { id: number; name: string; is_default: boolean; sort_order: number; weekly_salary?: boolean; hourly_rate?: number; wage_type?: WageType; start_date?: string; note?: string; monthly_salary?: number };
 export async function listWorkers(): Promise<{ workers: Worker[]; defaults: string[] }> {
   const d = await getJSON("/api/workers", { cache: false });
   return { workers: d.workers || [], defaults: d.defaults || [] };
@@ -973,7 +974,7 @@ export async function addWorker(name: string, isDefault: boolean): Promise<Worke
   const d = await postJSON("/api/workers", { name, is_default: isDefault });
   return d.worker;
 }
-export async function updateWorker(id: number, patch: { name?: string; is_default?: boolean; weekly_salary?: boolean; hourly_rate?: number; wage_type?: "product" | "time"; start_date?: string; note?: string; monthly_salary?: number }): Promise<Worker> {
+export async function updateWorker(id: number, patch: { name?: string; is_default?: boolean; weekly_salary?: boolean; hourly_rate?: number; wage_type?: WageType; start_date?: string; note?: string; monthly_salary?: number }): Promise<Worker> {
   const d = await postJSON(`/api/workers/${id}`, patch);
   return d.worker;
 }
@@ -1052,7 +1053,7 @@ export async function suppressAttendance(eventId: string, suppressed: boolean): 
 
 // ── Bảng lương tháng (office only) ───────────────────────────────────────────
 export type PayrollRow = {
-  worker_id: number; name: string; wage_type: "product" | "time"; weekly: boolean;
+  worker_id: number; name: string; wage_type: WageType; weekly: boolean;
   luong: number; phu_cap: number; pc_count: number; thuong: number;
   ung: number; ung_manual: number; ung_weekly: number; adv_count: number;
   note: string; thuc_lanh: number;
