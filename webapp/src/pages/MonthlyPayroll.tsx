@@ -230,11 +230,17 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName 
                   <span class={r.weekly ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly}
                     onClick={() => toggleWeekly(r)} style="cursor:pointer" title="Nhận lương tuần"><span class="tgl-knob" /></span>
                 </td>
-                <td class="pr-num">
-                  {isTime
-                    ? <button class="pr-ung-btn" onClick={() => editMoc(r)} title="Mốc lương tháng mong muốn — bấm để sửa">{r.monthly_salary ? money(r.monthly_salary) : "đặt…"}</button>
-                    : <span class="is-zero">—</span>}
-                </td>
+                {/* Mốc = mốc lương THÁNG ĐANG XEM (lưu theo từng tháng). Dấu ↩ = tháng
+                    này không đặt riêng, đang kế thừa mốc đặt ở tháng trước đó. Bấm ô
+                    mở popup: sửa mốc + TRAO ĐỔI về mốc lương của thợ (mọi tháng). */}
+                {isTime ? (
+                  <td class="pr-num pr-td-tap" title={`Mốc lương tháng — ${r.moc_own ? "đặt riêng tháng này" : r.moc_ym ? `kế thừa mốc đặt ở tháng ${r.moc_ym}` : "mốc hồ sơ thợ"}. Bấm để sửa / trao đổi`} {...tap("moc")}>
+                    <span class="pr-ung-btn">
+                      {r.monthly_salary ? money(r.monthly_salary) : "đặt…"}
+                      {r.monthly_salary && !r.moc_own ? <sup title="kế thừa từ tháng trước"> ↩</sup> : null}
+                    </span>
+                  </td>
+                ) : <td class="pr-num is-zero">—</td>}
                 <td class={`pr-td-tap ${r.cong > 0 ? "pr-num" : "pr-num is-zero"}`} title="Ngày công từ máy chấm — bấm xem từng ngày" {...tap("cong")}>
                   {r.cong > 0 ? congVN(r.cong) : "—"}
                 </td>
@@ -353,8 +359,10 @@ function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc,
 
       {isTime && (
         <div class="pr-moc-row">
-          <button class="pr-ung-btn" onClick={() => editMoc(r)} title="Bấm để sửa mốc lương tháng">
+          <button class="pr-ung-btn" onClick={() => editMoc(r)}
+            title={`Mốc của tháng đang xem — ${r.moc_own ? "đặt riêng tháng này" : r.moc_ym ? `kế thừa mốc đặt ở tháng ${r.moc_ym}` : "mốc hồ sơ thợ"}. Bấm để sửa`}>
             Mốc {r.monthly_salary ? money(r.monthly_salary) : "chưa đặt — bấm sửa"}
+            {r.monthly_salary && !r.moc_own ? " ↩" : ""}
           </button>
           <span class="muted small">
             {r.cong} công = {money(r.luong_cong)}đ · TC {r.ot_gio}g = {money(r.luong_tc)}đ (×1,2)

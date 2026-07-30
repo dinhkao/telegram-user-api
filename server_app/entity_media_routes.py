@@ -1,6 +1,8 @@
 """HTTP handlers bình luận + ảnh DÙNG CHUNG cho production slip / box…
-Đường dẫn: /api/media/{scope}/{entity_id}/comments|images[...]. scope ∈ {production, box, report_bg, task, return, place}.
+Đường dẫn: /api/media/{scope}/{entity_id}/comments|images[...]. scope ∈ {production, box, report_bg, task, return, place, worker_moc…}.
 report_bg = ảnh nền "để dò" của trang sửa báo cáo phiếu SX (1 ảnh/phiếu, thay khi upload mới).
+worker_moc = trao đổi về MỐC LƯƠNG THÁNG của 1 thợ (entity_id = worker_id → dùng chung
+mọi tháng); thuộc _OFFICE_ONLY_SCOPES nên CHỈ VĂN PHÒNG xem/ghi được.
 
 Web-only: KHÔNG sync Telegram, KHÔNG FCM/audit (khác order). Ảnh lưu xuống
 ORDER_MEDIA_DIR/<scope>/<entity_id>/ (client đã resize/nén; thiếu thumb thì server tạo
@@ -21,7 +23,10 @@ from utils.paths import ORDER_MEDIA_DIR
 
 log = logging.getLogger("entity_media_routes")
 
-_ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return", "place", "supplier", "purchase", "disposal", "area_report"}
+_ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return", "place", "supplier", "purchase", "disposal", "area_report", "worker_moc"}
+# worker_moc = trao đổi về MỐC LƯƠNG THÁNG của 1 thợ (entity_id = worker_id nên thấy
+# GIỐNG NHAU ở mọi tháng). Là chuyện tiền lương → CHỈ VĂN PHÒNG, như /api/payroll/*.
+_OFFICE_ONLY_SCOPES = {"worker_moc"}
 _MAX_BYTES = 20 * 1024 * 1024
 _EXT_BY_MIME = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 _MIME_BY_EXT = {v: k for k, v in _EXT_BY_MIME.items()}
@@ -36,6 +41,16 @@ def _scope_entity(request: web.Request):
         return scope, int(request.match_info.get("entity_id", ""))
     except (ValueError, TypeError):
         return scope, None
+
+
+def _deny(request: web.Request, scope: str):
+    """403 nếu scope thuộc loại CHỈ VĂN PHÒNG mà người gọi không phải văn phòng.
+    Mọi handler (xem lẫn ghi) phải gọi — nội dung là tiền lương."""
+    if scope in _OFFICE_ONLY_SCOPES:
+        from server_app.production_wages import office_user
+        if not office_user(request):
+            return web.json_response({"ok": False, "error": "Chỉ văn phòng"}, status=403)
+    return None
 
 
 def _dir(scope: str, entity_id: int) -> str:
@@ -96,6 +111,9 @@ async def comments_list_handler(request: web.Request):
     scope, entity_id = _scope_entity(request)
     if entity_id is None:
         return web.json_response({"ok": False, "error": "scope/entity_id không hợp lệ"}, status=400)
+    d = _deny(request, scope)
+    if d:
+        return d
     comments = await asyncio.to_thread(list_comments, scope, entity_id)
     return web.json_response({"ok": True, "comments": comments})
 
@@ -104,6 +122,9 @@ async def comments_add_handler(request: web.Request):
     scope, entity_id = _scope_entity(request)
     if entity_id is None:
         return web.json_response({"ok": False, "error": "scope/entity_id không hợp lệ"}, status=400)
+    d = _deny(request, scope)
+    if d:
+        return d
     try:
         body = await request.json()
     except Exception:  # noqa: BLE001
@@ -122,6 +143,9 @@ async def images_list_handler(request: web.Request):
     scope, entity_id = _scope_entity(request)
     if entity_id is None:
         return web.json_response({"ok": False, "error": "scope/entity_id không hợp lệ"}, status=400)
+    d = _deny(request, scope)
+    if d:
+        return d
     images = await asyncio.to_thread(list_images, scope, entity_id)
     return web.json_response({"ok": True, "images": images})
 
@@ -141,6 +165,9 @@ async def images_upload_handler(request: web.Request):
     scope, entity_id = _scope_entity(request)
     if entity_id is None:
         return web.json_response({"ok": False, "error": "scope/entity_id không hợp lệ"}, status=400)
+    d = _deny(request, scope)
+    if d:
+        return d
     try:
         data = await request.post()
     except Exception as e:  # noqa: BLE001
@@ -212,6 +239,9 @@ async def images_delete_handler(request: web.Request):
     scope, entity_id = _scope_entity(request)
     if entity_id is None:
         return web.json_response({"ok": False, "error": "scope/entity_id không hợp lệ"}, status=400)
+    d = _deny(request, scope)
+    if d:
+        return d
     try:
         image_id = int(request.match_info.get("image_id", ""))
     except (ValueError, TypeError):
@@ -241,6 +271,8 @@ async def images_file_handler(request: web.Request):
     scope, entity_id = _scope_entity(request)
     if entity_id is None:
         return web.Response(status=400, text="scope/entity_id không hợp lệ")
+    if _deny(request, scope):
+        return web.Response(status=403, text="Chỉ văn phòng")
     try:
         image_id = int(request.match_info.get("image_id", ""))
     except (ValueError, TypeError):

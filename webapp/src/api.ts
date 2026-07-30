@@ -1058,6 +1058,9 @@ export type PayrollRow = {
   note: string; thuc_lanh: number;
   monthly_salary: number; cong: number; ot_gio: number;   // lương thời gian: mốc + công + TC (giờ)
   luong_cong: number; luong_tc: number;                   // tách lương theo công / lương tăng ca
+  // MỐC lương lưu theo TỪNG THÁNG (salary_store/moc.py): moc_ym = mốc này đặt ở tháng
+  // nào ("" = mốc mặc định hồ sơ thợ), moc_own = đặt RIÊNG cho tháng đang xem
+  moc_ym: string; moc_own: boolean;
 };
 export type PayrollMonth = { ym: string; workers: PayrollRow[]; totals: { luong: number; phu_cap: number; thuong: number; ung: number; thuc_lanh: number } };
 export type SalaryAdvance = { id: number; worker_id: number; ym: string; amount: number; adv_date: string; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string };
@@ -1066,7 +1069,9 @@ export type SalaryAllowance = { id: number; worker_id: number; ym: string; amoun
 export async function getMonthlyPayroll(ym: string): Promise<PayrollMonth> {
   return getJSON(`/api/payroll/month?ym=${encodeURIComponent(ym)}`, { cache: false });
 }
-export async function setPayrollAdjust(ym: string, worker_id: number, patch: { thuong?: number; note?: string; weekly?: boolean }): Promise<PayrollMonth> {
+// monthly_salary = MỐC lương của ĐÚNG tháng ym (0 = bỏ mốc riêng tháng này → kế thừa
+// mốc gần nhất trước đó). Sửa mốc KHÔNG tính lại các tháng trước.
+export async function setPayrollAdjust(ym: string, worker_id: number, patch: { thuong?: number; note?: string; weekly?: boolean; monthly_salary?: number }): Promise<PayrollMonth> {
   return postJSON(`/api/payroll/adjust`, { ym, worker_id, ...patch });
 }
 // Phụ cấp = nhiều khoản / tháng (giống ứng lương)
