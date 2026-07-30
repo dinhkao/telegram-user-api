@@ -24,6 +24,7 @@ import { toast, promptDialog } from "../ui/feedback";
 export type PayrollCol = "moc" | "cong" | "tc" | "luong_cong" | "luong_tc" | "luong" | "pc" | "ung" | "net";
 
 import { Comments } from "./Comments";
+import { isTimeWage, otInCong, wageLabel } from "./wageType";
 import { moneyR as money, dmy, tsLabel, ymLabel } from "../format";
 import { workStats } from "./attendanceStats";
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
@@ -119,7 +120,8 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
   usePopupBack(true, onClose);
   useScrollLock(true);
   const wid = r.worker_id;
-  const isTime = r.wage_type === "time";
+  const isTime = isTimeWage(r.wage_type);
+  const otCong = otInCong(r.wage_type);   // TG*: giờ TC gộp vào công, không trả riêng
   const dayRate = (r.monthly_salary || 0) / 26;
 
   // Chấm công tháng của thợ (cột Công/TC) — tải 1 lần khi cần
@@ -204,8 +206,12 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
             <div class="pr-pop-day" key={`${d.day}:${d.employee_code}`}>
               <span class="muted small">{dayVN(d.day)}{d.edited ? " ✏️" : ""}</span>
               <span class="pr-pop-times">{(d.times || []).join(" · ")}</span>
-              <b class={hl === "work" ? "" : "muted"}>{congVN(st.work / 480)} công</b>
-              <b class={hl === "ot" ? "t-warn" : "muted"}>{st.ot ? `${congVN(st.ot / 60)}g TC` : "—"}</b>
+              {/* TG*: công của NGÀY cũng phải gộp giờ TC, không thì tổng ở trên (r.cong,
+                  server đã gộp) không khớp tổng các dòng dưới */}
+              <b class={hl === "work" ? "" : "muted"}>{congVN((st.work + (otCong ? st.ot : 0)) / 480)} công</b>
+              <b class={hl === "ot" ? "t-warn" : "muted"}>
+                {st.ot ? `${congVN(st.ot / 60)}g TC${otCong ? " → gộp" : ""}` : "—"}
+              </b>
             </div>
           );
         })}
@@ -245,9 +251,12 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
         {(col === "cong" || col === "tc") && (
           <>
             <div class="pr-pop-sum">
-              <Row label="Tổng công (ngày đủ 2 ca = 1)" val={congVN(r.cong)} cls={col === "cong" ? "hl" : ""} />
+              <Row label={otCong ? "Tổng công (ngày đủ 2 ca = 1, ĐÃ gộp tăng ca)" : "Tổng công (ngày đủ 2 ca = 1)"}
+                val={congVN(r.cong)} cls={col === "cong" ? "hl" : ""} />
               <Row label="Tổng tăng ca" val={`${congVN(r.ot_gio)} giờ`} cls={col === "tc" ? "hl" : ""} />
             </div>
+            {otCong ? <p class="muted small">Loại <b>TG*</b>: giờ tăng ca gộp thẳng vào ngày công
+              (1 công = 8 giờ) và trả theo đơn giá công — KHÔNG có tiền tăng ca ×1,2 riêng.</p> : null}
             {attList(col === "cong" ? "work" : "ot")}
             <a class="btn block" href={`#/cham-cong/${wid}?ym=${encodeURIComponent(ym)}`}>
               🕐 Chấm công tháng của {r.name} (xem/sửa giờ)
@@ -262,8 +271,11 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
                 <Row label={`Mốc lương ${ymLabel(ym).toLowerCase()} (${mocNguon(r, ym)})`}
                   val={r.monthly_salary ? `${money(r.monthly_salary)}đ` : "đặt…"} go="moc" />
                 <Row label="Lương 1 công (mốc ÷ 26)" val={`${money(dayRate)}đ`} />
-                <Row label="Ngày công" val={congVN(r.cong)} go="cong" />
+                <Row label={otCong ? `Ngày công (đã gộp ${congVN(r.ot_gio)}g tăng ca)` : "Ngày công"}
+                  val={congVN(r.cong)} go="cong" />
                 <Row label={<b>Lương công = {money(dayRate)} × {congVN(r.cong)}</b>} val={`${money(r.luong_cong)}đ`} cls="hl" />
+                {otCong ? <p class="muted small">TG*: đây là TOÀN BỘ lương thời gian của tháng —
+                  giờ tăng ca đã nằm trong số công, không cộng thêm lương tăng ca.</p> : null}
               </>
             ) : <p class="muted small">{r.name} hưởng lương SẢN PHẨM — không tính lương theo công.</p>}
           </>
@@ -271,7 +283,16 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
 
         {col === "luong_tc" && (
           <>
-            {isTime ? (
+            {otCong ? (
+              <>
+                <Row label="Giờ tăng ca" val={`${congVN(r.ot_gio)} giờ`} go="tc" />
+                <Row label={<b>Lương tăng ca riêng</b>} val="không có" />
+                <p class="muted small">{r.name} hưởng lương <b>TG*</b>: giờ tăng ca đã GỘP vào ngày
+                  công ({congVN(r.cong)} công) và trả theo đơn giá công, nên không tính tiền tăng ca
+                  ×1,2 riêng. Xem ở "Lương theo công".</p>
+                <Row label="Lương theo công (đã bao gồm tăng ca)" val={`${money(r.luong_cong)}đ`} go="luong_cong" />
+              </>
+            ) : isTime ? (
               <>
                 <Row label="Giờ tăng ca" val={`${congVN(r.ot_gio)} giờ`} go="tc" />
                 <Row label="Đơn giá giờ TC (mốc ÷ 26 ÷ 8 × 1,2)" val={`${money(dayRate / 8 * 1.2)}đ/giờ`} />
@@ -284,9 +305,13 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
         {col === "luong" && (
           isTime ? (
             <>
-              <Row label="Lương theo công" val={`${money(r.luong_cong)}đ`} go="luong_cong" />
-              <Row label="Lương tăng ca (×1,2)" val={`${money(r.luong_tc)}đ`} go="luong_tc" />
-              <Row label={<b>Lương thời gian</b>} val={`${money(r.luong)}đ`} cls="hl" />
+              <Row label={otCong ? `Lương theo công (${congVN(r.cong)} công, đã gộp ${congVN(r.ot_gio)}g TC)`
+                                 : "Lương theo công"}
+                val={`${money(r.luong_cong)}đ`} go="luong_cong" />
+              {otCong
+                ? <Row label="Lương tăng ca riêng (TG* không có)" val="—" go="luong_tc" />
+                : <Row label="Lương tăng ca (×1,2)" val={`${money(r.luong_tc)}đ`} go="luong_tc" />}
+              <Row label={<b>Lương {wageLabel(r.wage_type).toLowerCase()}</b>} val={`${money(r.luong)}đ`} cls="hl" />
             </>
           ) : (
             <>

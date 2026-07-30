@@ -17,6 +17,7 @@ import {
 } from "../api";
 import { moneyR as money, dmy, pad2, ymLabel } from "../format";
 import { mocNguon, type PayrollCol } from "./PayrollCellPopup";
+import { isTimeWage, otInCong, wageLabel } from "./wageType";
 import { AttendanceDayRows, attRows, attTotals, congVN, otVN, pairs } from "./AttendanceDays";
 import { Icon } from "../ui/Icon";
 import { LoadingInline } from "../ui/states";
@@ -79,7 +80,8 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
   onCol: (c: PayrollCol) => void;   // mở tab tương ứng của PayrollCellPopup (gồm "moc")
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
 }) {
-  const isTime = r.wage_type === "time";
+  const isTime = isTimeWage(r.wage_type);   // TG hoặc TG*
+  const otCong = otInCong(r.wage_type);     // TG*: giờ TC gộp vào công, không trả riêng
   const wid = r.worker_id;
   const [allows, setAllows] = useState<SalaryAllowance[] | null>(null);
   const [advs, setAdvs] = useState<SalaryAdvance[] | null>(null);
@@ -152,7 +154,8 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
       {/* ── Lương ────────────────────────────────────────────────────────── */}
       {/* thợ SP: nói rõ trong Lương đã có phụ cấp ghi ở phiếu SX (khác phụ cấp THÁNG) */}
       <Block label="Lương" total={`${money(r.luong)}đ`} onTap={() => onCol("luong")}
-        sub={isTime ? "theo công + tăng ca"
+        sub={otCong ? "cố định theo ngày công (đã gộp tăng ca)"
+          : isTime ? "theo công + tăng ca"
           : `sản phẩm${spPhieu ? ` · ${spPhieu} phiếu` : ""}${r.pc_phieu ? ` · gồm ${money(r.pc_phieu)}đ phụ cấp phiếu` : ""}`} />
       {isTime ? (
         <div class="pws-list">
@@ -163,14 +166,15 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
             <b>{r.monthly_salary ? `${money(r.monthly_salary)}đ` : "chưa đặt — bấm đặt"}</b>
           </button>
           <button class="pws-item tappable" onClick={() => onCol("luong_cong")}>
-            <span>{congVN(r.cong)} công {r.monthly_salary
+            <span>{congVN(r.cong)} công{otCong && r.ot_gio ? ` (gồm ${congVN(r.ot_gio)}g TC)` : ""} {r.monthly_salary
               ? <>× {money(r.monthly_salary / 26)}đ</>
               : <span class="t-warn">· chưa đặt mốc nên chưa tính được</span>}</span>
             <b>{money(r.luong_cong)}đ</b>
           </button>
+          {/* TG*: tăng ca đã nằm trong công ở trên → dòng này chỉ để nói rõ không trả riêng */}
           <button class="pws-item tappable" onClick={() => onCol("luong_tc")}>
-            <span>Tăng ca {congVN(r.ot_gio)} giờ (×1,2)</span>
-            <b>{r.luong_tc ? `${money(r.luong_tc)}đ` : "—"}</b>
+            <span>{otCong ? `Tăng ca ${congVN(r.ot_gio)} giờ — đã gộp vào công` : `Tăng ca ${congVN(r.ot_gio)} giờ (×1,2)`}</span>
+            <b>{otCong ? "—" : r.luong_tc ? `${money(r.luong_tc)}đ` : "—"}</b>
           </button>
         </div>
       ) : rep === null ? (
@@ -294,7 +298,7 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
       {/* ── Cài đặt + lối đi tiếp ────────────────────────────────────────── */}
       <div class="pws-tools">
         <button class={isTime ? "chip pr-type time" : "chip pr-type"} onClick={() => toggleType(r)}
-          title="Bấm để đổi loại lương">{isTime ? "Lương thời gian" : "Lương sản phẩm"}</button>
+          title="Bấm để đổi loại lương (SP → TG → TG*)">Lương {wageLabel(r.wage_type).toLowerCase()}</button>
         <label class="pr-weekly-control">
           <span>Nhận lương tuần</span>
           <span class={r.weekly ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly}

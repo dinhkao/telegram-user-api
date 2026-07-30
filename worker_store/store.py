@@ -26,7 +26,9 @@ def ensure_table(conn) -> None:
         conn.execute("ALTER TABLE production_workers ADD COLUMN weekly_salary INTEGER DEFAULT 0")
     if "hourly_rate" not in cols:   # tiền 1 GIỜ làm (SP tính lương theo giờ) — 0 = chưa đặt
         conn.execute("ALTER TABLE production_workers ADD COLUMN hourly_rate REAL DEFAULT 0")
-    if "wage_type" not in cols:     # phân loại lương: 'product' (sản phẩm) | 'time' (thời gian)
+    # phân loại lương: 'product' (sản phẩm) | 'time' (thời gian: công + TC ×1,2)
+    # | 'time_flat' (TG*: cố định theo ngày công, giờ TC gộp luôn vào công)
+    if "wage_type" not in cols:
         conn.execute("ALTER TABLE production_workers ADD COLUMN wage_type TEXT DEFAULT 'product'")
     if "start_date" not in cols:    # ngày vào làm 'YYYY-MM-DD' ('' = chưa ghi)
         conn.execute("ALTER TABLE production_workers ADD COLUMN start_date TEXT DEFAULT ''")
@@ -109,7 +111,8 @@ def update_worker(
     đã gán worker_id đổi nhãn; dòng cổ trùng tên cũ được GÁN id + nhãn mới) + blob
     `bang` các phiếu SX (tên thợ trong báo cáo đã lưu) — lịch sử dashboard/chi tiết
     thợ KHÔNG tách đôi khi sửa tên. hourly_rate = tiền 1 GIỜ (SP tính lương giờ).
-    wage_type = 'product' (lương sản phẩm) | 'time' (lương thời gian)."""
+    wage_type = 'product' (lương sản phẩm) | 'time' (lương thời gian: công + TC ×1,2)
+    | 'time_flat' (TG*: cố định theo ngày công, giờ TC gộp luôn vào công)."""
     with transaction(conn):
         cur = conn.execute(
             "SELECT id, name, is_default, sort_order, weekly_salary, hourly_rate, wage_type, "
@@ -137,8 +140,8 @@ def update_worker(
             if new_hr < 0:
                 raise ValueError("Tiền 1 giờ phải >= 0")
         new_wt = (cur["wage_type"] or "product") if wage_type is None else wage_type
-        if new_wt not in ("product", "time"):
-            new_wt = "product"
+        if new_wt not in ("product", "time", "time_flat"):
+            new_wt = "product"   # giá trị lạ → SP (whitelist, đừng để rác vào cột)
         new_sd = (cur["start_date"] or "") if start_date is None else start_date.strip()
         if new_sd:
             import re

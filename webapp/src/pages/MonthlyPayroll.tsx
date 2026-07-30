@@ -20,6 +20,7 @@ import {
 import { moneyR as money, curYM, shiftYM, ymLabel } from "../format";
 import { EntryPanel, PayrollCellPopup, type PayrollCol } from "../detail/PayrollCellPopup";
 import { payrollActions } from "../detail/payrollActions";
+import { isTimeWage, otInCong, wageChip, wageLabel } from "../detail/wageType";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
@@ -166,10 +167,10 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName 
   // ~180px, đổi liên tục khi resize. Đừng đưa max-content/width:auto trở lại.
   // Bề rộng theo EM (không px) để mobile font nhỏ hơn thì bảng tự hẹp lại; số đo
   // thực: dòng TỔNG ~9 chữ số cần ≤8,3em, chip Loại/toggle Tuần cần ≥5,4em/5,7em,
-  // tên thợ dài cắt bằng ellipsis. Mốc (8,6) + Lương (8,8) rộng hơn phần còn lại vì
-  // còn đeo dấu ↩ (mốc kế thừa) / ⁺ (lương đã gộp phụ cấp phiếu) — đo bằng Playwright,
-  // hụt là chữ bị cắt ngay.
-  const COL_EM = [12, 5.5, 5.9, 8.6, 5.4, 8.4, 5.4, 8.4, 8.8, 8.4, 8.4, 8.4];
+  // tên thợ dài cắt bằng ellipsis. Công (6,2) / Mốc (8,6) / Lương (8,8) rộng hơn phần
+  // còn lại vì còn đeo dấu +TC (TG* gộp tăng ca vào công) / ↩ (mốc kế thừa) / ⁺ (lương
+  // đã gộp phụ cấp phiếu) — đo bằng Playwright, hụt là chữ bị cắt ngay.
+  const COL_EM = [12, 5.5, 5.9, 8.6, 6.2, 8.4, 5.4, 8.4, 8.8, 8.4, 8.4, 8.4];
   const totalEm = COL_EM.reduce((a, b) => a + b, 0);
   const tableStyle = `min-width:${totalEm}em`;
   const headRef = useRef<HTMLDivElement>(null);
@@ -207,7 +208,8 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName 
           {cols}
           <tbody>
           {data.workers.map((r) => {
-            const isTime = r.wage_type === "time";
+            const isTime = isTimeWage(r.wage_type);      // TG hoặc TG* → có mốc/ngày công
+            const otCong = otInCong(r.wage_type);        // TG*: giờ TC đã gộp vào công
             // Ô số bấm được → popup xem/thao tác đúng cột (PayrollCellPopup)
             const tap = (col: PayrollCol) => ({
               role: "button" as const, tabIndex: 0, onClick: () => onCell(r.worker_id, col),
@@ -235,7 +237,9 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName 
                 </td>
                 <td class="pr-td-mid">
                   <button class={isTime ? "chip pr-type time" : "chip pr-type"} onClick={() => toggleType(r)}
-                    title="Bấm để đổi loại lương">{isTime ? "TG" : "SP"}</button>
+                    title={`Lương ${wageLabel(r.wage_type).toLowerCase()} — bấm đổi loại (SP → TG → TG*)`}>
+                    {wageChip(r.wage_type)}
+                  </button>
                 </td>
                 <td class="pr-td-mid">
                   <span class={r.weekly ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly}
@@ -252,17 +256,27 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName 
                     </span>
                   </td>
                 ) : <td class="pr-num is-zero">—</td>}
-                <td class={`pr-td-tap ${r.cong > 0 ? "pr-num" : "pr-num is-zero"}`} title="Ngày công từ máy chấm — bấm xem từng ngày" {...tap("cong")}>
+                {/* TG*: công ĐÃ gồm giờ tăng ca (dấu +TC), nên cột L.TC là "—" */}
+                <td class={`pr-td-tap ${r.cong > 0 ? "pr-num" : "pr-num is-zero"}`} {...tap("cong")}
+                  title={otCong ? "Ngày công (ĐÃ gộp giờ tăng ca — loại TG*) — bấm xem từng ngày"
+                                : "Ngày công từ máy chấm — bấm xem từng ngày"}>
                   {r.cong > 0 ? congVN(r.cong) : "—"}
+                  {otCong && r.ot_gio > 0 ? <sup title="đã gộp giờ tăng ca vào công"> +TC</sup> : null}
                 </td>
-                <td class={`pr-td-tap ${isTime && r.luong_cong ? "pr-num" : "pr-num is-zero"}`} title="Lương theo ngày công = mốc/26 × công — bấm xem cách tính" {...tap("luong_cong")}>
+                <td class={`pr-td-tap ${isTime && r.luong_cong ? "pr-num" : "pr-num is-zero"}`} {...tap("luong_cong")}
+                  title={otCong ? "Lương = mốc/26 × công (công đã gồm tăng ca) — bấm xem cách tính"
+                                : "Lương theo ngày công = mốc/26 × công — bấm xem cách tính"}>
                   {isTime ? money(r.luong_cong) : "—"}
                 </td>
-                <td class={`pr-td-tap ${r.ot_gio > 0 ? "pr-num" : "pr-num is-zero"}`} title="Số giờ tăng ca — bấm xem từng ngày" {...tap("tc")}>
+                <td class={`pr-td-tap ${r.ot_gio > 0 ? "pr-num" : "pr-num is-zero"}`} {...tap("tc")}
+                  title={otCong ? "Giờ tăng ca — loại TG* đã gộp số này vào ngày công, không trả riêng"
+                                : "Số giờ tăng ca — bấm xem từng ngày"}>
                   {r.ot_gio > 0 ? congVN(r.ot_gio) : "—"}
                 </td>
-                <td class={`pr-td-tap ${isTime && r.luong_tc ? "pr-num" : "pr-num is-zero"}`} title="Lương tăng ca ×1,2 — bấm xem cách tính" {...tap("luong_tc")}>
-                  {isTime ? money(r.luong_tc) : "—"}
+                <td class={`pr-td-tap ${isTime && r.luong_tc ? "pr-num" : "pr-num is-zero"}`} {...tap("luong_tc")}
+                  title={otCong ? "TG* không trả lương tăng ca riêng (đã gộp vào ngày công)"
+                                : "Lương tăng ca ×1,2 — bấm xem cách tính"}>
+                  {isTime && !otCong ? money(r.luong_tc) : "—"}
                 </td>
                 {/* Lương thợ SP ĐÃ GỒM phụ cấp ghi trong phiếu SX (cột P.cấp là phụ cấp
                     THÁNG, khác hẳn) → nói trong tooltip + dấu ⁺ cho khỏi tưởng bỏ sót */}
@@ -319,7 +333,8 @@ function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc,
   setAdvs: (f: (m: Record<number, SalaryAdvance[]>) => Record<number, SalaryAdvance[]>) => void;
   setAllows: (f: (m: Record<number, SalaryAllowance[]>) => Record<number, SalaryAllowance[]>) => void;
 }) {
-  const isTime = r.wage_type === "time";
+  const isTime = isTimeWage(r.wage_type);
+  const otCong = otInCong(r.wage_type);     // TG*: giờ TC gộp vào công, không trả riêng
   const wid = r.worker_id;
 
   const addAllow = async (a: number, note: string) => {
@@ -369,7 +384,7 @@ function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc,
           <span class="pr-avatar large">{initials(r.name)}</span>
           <div>
             <a class="pr-name-link" href={`#/luong-thang/${wid}?ym=${encodeURIComponent(ym)}`}>{r.name}</a>
-            <span class="pr-person-sub">{isTime ? "Lương thời gian" : "Lương sản phẩm"}</span>
+            <span class="pr-person-sub">Lương {wageLabel(r.wage_type).toLowerCase()}</span>
           </div>
         </div>
         <div class="pr-card-net"><span>Thực lãnh</span><b class={r.thuc_lanh < 0 ? "t-danger" : ""}>{money(r.thuc_lanh)}</b></div>
@@ -389,14 +404,16 @@ function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc,
             {r.monthly_salary && !r.moc_own ? " ↩" : ""}
           </button>
           <span class="muted small">
-            {r.cong} công = {money(r.luong_cong)}đ · TC {r.ot_gio}g = {money(r.luong_tc)}đ (×1,2)
+            {otCong
+              ? <>{r.cong} công (đã gộp {r.ot_gio}g tăng ca) = {money(r.luong_cong)}đ · không trả TC riêng</>
+              : <>{r.cong} công = {money(r.luong_cong)}đ · TC {r.ot_gio}g = {money(r.luong_tc)}đ (×1,2)</>}
             {" "}<a href={`#/cham-cong/${wid}?ym=${encodeURIComponent(ym)}`}>→ chấm công</a>
           </span>
         </div>
       )}
       <div class="pr-card-tools">
         <button class={isTime ? "chip pr-type time" : "chip pr-type"} onClick={() => toggleType(r)}
-          title="Bấm để đổi loại lương">{isTime ? "Thời gian" : "Sản phẩm"}</button>
+          title="Bấm để đổi loại lương (SP → TG → TG*)">{wageLabel(r.wage_type)}</button>
         <label class="pr-weekly-control">
           <span>Nhận tuần {r.weekly && r.ung_weekly > 0 ? `· ${money(r.ung_weekly)}` : ""}</span>
           <span class={r.weekly ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly}

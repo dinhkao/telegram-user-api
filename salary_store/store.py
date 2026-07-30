@@ -270,12 +270,15 @@ def void_allowance(conn, allowance_id: int, reason: str, by: str = "") -> bool:
 # ── Bảng lương tháng (tính live) ─────────────────────────────────────────────────
 
 def compute_month_payroll(conn, ym: str) -> dict:
-    """Bảng lương 1 tháng cho MỌI thợ: lương SP tự tính từ sản xuất (ĐÃ GỒM phụ cấp ghi
-    trong phiếu SX — production_allowances; trả riêng `pc_phieu` để UI tách cho thấy,
-    KHÁC cột phụ cấp tháng `phu_cap` = salary_allowances); lương THỜI GIAN
-    tính từ CHẤM CÔNG = MỐC CỦA THÁNG ĐÓ / 26 × ngày công + tăng ca ×1,2 (công/TC quy
-    từ máy chấm — attendance_store.month_worker_stats); + phụ cấp + thưởng − ứng =
-    thực lãnh. Mốc lấy theo TỪNG THÁNG (salary_store.moc: bản đặt gần nhất ≤ ym, chưa
+    """Bảng lương 1 tháng cho MỌI thợ. 3 loại `wage_type`:
+    - 'product' (SP): lương SP tự tính từ sản xuất (ĐÃ GỒM phụ cấp ghi trong phiếu SX —
+      production_allowances; trả riêng `pc_phieu` để UI tách cho thấy, KHÁC cột phụ cấp
+      tháng `phu_cap` = salary_allowances);
+    - 'time' (TG): mốc/26 × ngày công + tăng ca ×1,2 (tính riêng);
+    - 'time_flat' (TG*): CỐ ĐỊNH theo ngày công, giờ tăng ca GỘP LUÔN vào ngày công →
+      `cong` đã gồm TC, `luong_tc` = 0 (`ot_gio` vẫn trả để biết đã gộp bao nhiêu).
+    Công/TC quy từ máy chấm công (attendance_store.month_worker_stats); mọi loại rồi
+    + phụ cấp + thưởng − ứng = thực lãnh. Mốc lấy theo TỪNG THÁNG (salary_store.moc: bản đặt gần nhất ≤ ym, chưa
     có thì mốc hồ sơ thợ) nên sửa mốc không tính lại tháng cũ.
     Trả {ym, workers:[...], totals:{...}}."""
     from worker_store import list_workers
@@ -312,16 +315,21 @@ def compute_month_payroll(conn, ym: str) -> dict:
         base = float(mc["value"]) if mc else float(w.get("monthly_salary") or 0)
         st = att.get(wid, {})
         work_min, ot_min = int(st.get("work_min") or 0), int(st.get("ot_min") or 0)
-        cong = work_min / 480.0                          # ngày đủ 2 ca = 1 công
+        # TG* ('time_flat'): giờ TĂNG CA GỘP THẲNG vào ngày công (trả cố định theo công,
+        # KHÔNG có tiền tăng ca ×1,2 riêng). TG ('time') giữ nguyên: công tách, TC ×1,2.
+        ot_in_cong = wt == "time_flat"
+        cong = (work_min + (ot_min if ot_in_cong else 0)) / 480.0   # ngày đủ 2 ca = 1 công
         luong_cong = luong_tc = 0.0
         pc_phieu = 0.0            # phụ cấp PHIẾU SX đã gộp trong lương SP (để UI tách ra)
         if wt == "product":
             luong, pc_phieu = wage_by_name.get(w["name"].strip().casefold(), (0.0, 0.0))
         else:
-            # lương TG = lương CÔNG (mốc/26 × công) + lương TĂNG CA (giờ TC ×1,2)
+            # lương TG = lương CÔNG (mốc/26 × công) + lương TĂNG CA (giờ TC ×1,2).
+            # TG*: `cong` đã gồm giờ TC ở trên → chỉ có lương công, luong_tc = 0.
             day_rate = base / 26.0
-            luong_cong = day_rate * work_min / 480.0
-            luong_tc = day_rate * 1.2 * ot_min / 480.0
+            luong_cong = day_rate * cong
+            if not ot_in_cong:
+                luong_tc = day_rate * 1.2 * ot_min / 480.0
             luong = luong_cong + luong_tc
         a = adjust.get(wid, {})
         thuong, note = a.get("thuong", 0.0), a.get("note", "")

@@ -113,8 +113,9 @@ async def workers_update_handler(request: web.Request):
             return web.json_response({"ok": False, "error": "tiền 1 giờ không hợp lệ"}, status=400)
         if not math.isfinite(hourly_rate):   # float() nhận cả 'inf'/'nan' → phá tổng lương
             return web.json_response({"ok": False, "error": "tiền 1 giờ không hợp lệ"}, status=400)
-    if wage_type is not None and str(wage_type) not in ("product", "time"):
-        return web.json_response({"ok": False, "error": "wage_type phải là product/time"}, status=400)
+    # 'time_flat' = TG*: trả cố định theo ngày công, giờ tăng ca gộp luôn vào công
+    if wage_type is not None and str(wage_type) not in ("product", "time", "time_flat"):
+        return web.json_response({"ok": False, "error": "wage_type phải là product/time/time_flat"}, status=400)
     if monthly_salary is not None:
         try:
             monthly_salary = float(monthly_salary)

@@ -229,7 +229,15 @@ export const GUIDES_SANXUAT: Guide[] = [
         <b>Mốc lương tháng</b> (cột "Mốc" / dòng Mốc trên thẻ) → lương thực = mốc ÷ 26 ×
         <b>ngày công</b> (ngày đủ 2 ca = 1 công, tính từ giờ chấm), <b>tăng ca ×1,2</b>
         (chỉ tính khi chấm ra trễ hơn 15 phút sau giờ hết ca; ca xuyên trưa không chấm
-        giữa không tính tăng ca trưa). Giờ sửa tay trong popup cũng được tính.</p>` },
+        giữa không tính tăng ca trưa). Giờ sửa tay trong popup cũng được tính.</p>
+        <p><b>3 loại lương</b> — bấm chip ở cột "Loại" để đổi vòng SP → TG → TG*:</p>
+        <ul>
+          <li><b>SP</b> — lương sản phẩm, tự tính từ báo cáo sản xuất.</li>
+          <li><b>TG</b> — lương thời gian: mốc ÷ 26 × ngày công, <b>cộng thêm</b> tăng ca ×1,2.</li>
+          <li><b>TG*</b> — cố định theo ngày công: <b>giờ tăng ca gộp luôn vào ngày công</b>
+            (8 giờ = 1 công) và trả bằng đơn giá công, <b>không</b> có tiền tăng ca ×1,2 riêng.
+            Ô "Công" hiện dấu <b>+TC</b>, cột "L.TC" để trống.</li>
+        </ul>` },
     ],
   },
 ];
