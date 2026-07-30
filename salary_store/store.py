@@ -60,6 +60,10 @@ def ensure_schema(conn) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(salary_month)").fetchall()}
     if "weekly" not in cols:   # nhận lương tuần THEO THÁNG (riêng bảng lương, không phải hồ sơ thợ)
         conn.execute("ALTER TABLE salary_month ADD COLUMN weekly INTEGER DEFAULT 0")
+    if "monthly_salary" not in cols:
+        # MỐC lương tháng đặt RIÊNG từng tháng (NULL = tháng đó kế thừa mốc gần nhất
+        # trước đó / mốc hồ sơ thợ) — luật ở salary_store/moc.py
+        conn.execute("ALTER TABLE salary_month ADD COLUMN monthly_salary REAL")
     # vô hiệu hoá thay cho xoá (giữ dòng đối chiếu): ai + lúc nào + lý do
     for table in ("salary_advances", "salary_allowances"):
         tcols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
@@ -266,27 +270,35 @@ def void_allowance(conn, allowance_id: int, reason: str, by: str = "") -> bool:
 # ── Bảng lương tháng (tính live) ─────────────────────────────────────────────────
 
 def compute_month_payroll(conn, ym: str) -> dict:
-    """Bảng lương 1 tháng cho MỌI thợ: lương SP tự tính từ sản xuất; lương THỜI GIAN
-    tính từ CHẤM CÔNG = mốc tháng (production_workers.monthly_salary) / 26 × ngày công
-    + tăng ca ×1,2 (công/TC quy từ máy chấm — attendance_store.month_worker_stats);
-    + phụ cấp + thưởng − ứng = thực lãnh. Trả {ym, workers:[...], totals:{...}}."""
+    """Bảng lương 1 tháng cho MỌI thợ: lương SP tự tính từ sản xuất (ĐÃ GỒM phụ cấp ghi
+    trong phiếu SX — production_allowances; trả riêng `pc_phieu` để UI tách cho thấy,
+    KHÁC cột phụ cấp tháng `phu_cap` = salary_allowances); lương THỜI GIAN
+    tính từ CHẤM CÔNG = MỐC CỦA THÁNG ĐÓ / 26 × ngày công + tăng ca ×1,2 (công/TC quy
+    từ máy chấm — attendance_store.month_worker_stats); + phụ cấp + thưởng − ứng =
+    thực lãnh. Mốc lấy theo TỪNG THÁNG (salary_store.moc: bản đặt gần nhất ≤ ym, chưa
+    có thì mốc hồ sơ thợ) nên sửa mốc không tính lại tháng cũ.
+    Trả {ym, workers:[...], totals:{...}}."""
     from worker_store import list_workers
     from production_store.report_slips import compute_range_report
+    from salary_store.moc import month_moc_map
 
     ensure_schema(conn)
     workers = list_workers(conn)
     mstart, mend = month_range(ym)
     product_ids = [w["id"] for w in workers if (w.get("wage_type") or "product") == "product"]
+    # (tiền, phụ cấp phiếu SX ĐÃ GỘP trong tiền đó) theo tên thợ hiện hành
     wage_by_name: dict = {}
     if product_ids:
         rep = compute_range_report(conn, mstart, mend, worker_ids=product_ids)
         for w in rep["workers"]:
-            wage_by_name[(w.get("name") or "").strip().casefold()] = float(w.get("money") or 0)
+            wage_by_name[(w.get("name") or "").strip().casefold()] = (
+                float(w.get("money") or 0), float(w.get("allowance") or 0))
     # công + tăng ca theo thợ từ máy chấm công (đã gộp sửa tay)
     import attendance_store
     attendance_store.ensure_schema(conn)
     att = attendance_store.month_worker_stats(conn, ym)
     adjust = get_month_adjust(conn, ym)
+    moc = month_moc_map(conn, ym)        # mốc lương HIỆU LỰC của tháng này (theo từng tháng)
     adv = advance_totals(conn, ym)
     allow = allowance_totals(conn, ym)   # phụ cấp NHIỀU KHOẢN
 
@@ -294,13 +306,17 @@ def compute_month_payroll(conn, ym: str) -> dict:
     tot = {"luong": 0.0, "phu_cap": 0.0, "thuong": 0.0, "ung": 0.0, "thuc_lanh": 0.0}
     for w in workers:
         wid, wt = w["id"], (w.get("wage_type") or "product")
-        base = float(w.get("monthly_salary") or 0)       # mốc tháng (lương TG mong muốn)
+        # mốc tháng (lương TG mong muốn): bản đặt gần nhất ≤ ym; chưa đặt bao giờ thì
+        # lùi về mốc hồ sơ thợ (dữ liệu cũ trước khi mốc tách theo tháng)
+        mc = moc.get(wid)
+        base = float(mc["value"]) if mc else float(w.get("monthly_salary") or 0)
         st = att.get(wid, {})
         work_min, ot_min = int(st.get("work_min") or 0), int(st.get("ot_min") or 0)
         cong = work_min / 480.0                          # ngày đủ 2 ca = 1 công
         luong_cong = luong_tc = 0.0
+        pc_phieu = 0.0            # phụ cấp PHIẾU SX đã gộp trong lương SP (để UI tách ra)
         if wt == "product":
-            luong = wage_by_name.get(w["name"].strip().casefold(), 0.0)
+            luong, pc_phieu = wage_by_name.get(w["name"].strip().casefold(), (0.0, 0.0))
         else:
             # lương TG = lương CÔNG (mốc/26 × công) + lương TĂNG CA (giờ TC ×1,2)
             day_rate = base / 26.0
@@ -321,9 +337,16 @@ def compute_month_payroll(conn, ym: str) -> dict:
             "luong": round(luong), "phu_cap": round(phu_cap), "pc_count": pc_count, "thuong": round(thuong),
             "ung": round(ung), "ung_manual": round(ung_manual), "ung_weekly": round(ung_weekly),
             "adv_count": adv_count, "note": note, "thuc_lanh": round(thuc_lanh),
-            "monthly_salary": round(base), "cong": round(cong, 2),
+            "monthly_salary": round(base),
+            # mốc này ĐẶT ở tháng nào ("" = mốc hồ sơ thợ) + có phải đặt RIÊNG tháng
+            # đang xem không → UI nói rõ "kế thừa từ tháng X" thay vì im lặng
+            "moc_ym": (mc["ym"] if mc else ""), "moc_own": bool(mc and mc["ym"] == ym),
+            "cong": round(cong, 2),
             "ot_gio": round(ot_min / 60.0, 1),
             "luong_cong": round(luong_cong), "luong_tc": round(luong_tc),
+            # phụ cấp ghi trong PHIẾU SX (production_allowances) — ĐÃ nằm TRONG `luong`,
+            # tách ra để bảng lương nói rõ, đừng cộng lần nữa
+            "pc_phieu": round(pc_phieu),
         })
         # Cộng dồn SỐ ĐÃ LÀM TRÒN (đúng số in trên dòng) — cộng float thô rồi
         # round 1 lần làm tổng cột lệch tổng các dòng tới ~N/2 đồng.

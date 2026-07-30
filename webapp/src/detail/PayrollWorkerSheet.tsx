@@ -16,6 +16,7 @@ import {
   type AttendanceDay, type PayrollRow, type SalaryAdvance, type SalaryAllowance, type WorkerReport,
 } from "../api";
 import { moneyR as money, dmy, pad2, ymLabel } from "../format";
+import { mocNguon, type PayrollCol } from "./PayrollCellPopup";
 import { AttendanceDayRows, attRows, attTotals, congVN, otVN, pairs } from "./AttendanceDays";
 import { Icon } from "../ui/Icon";
 import { LoadingInline } from "../ui/states";
@@ -73,10 +74,9 @@ function Block({ label, sub, total, tone, onTap }: {
   );
 }
 
-export function PayrollWorkerSheet({ ym, r, onCol, editMoc, toggleType, toggleWeekly }: {
+export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
   ym: string; r: PayrollRow;
-  onCol: (c: "cong" | "tc" | "luong_cong" | "luong_tc" | "luong" | "pc" | "ung" | "net") => void;
-  editMoc: (r: PayrollRow) => void;
+  onCol: (c: PayrollCol) => void;   // mở tab tương ứng của PayrollCellPopup (gồm "moc")
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
 }) {
   const isTime = r.wage_type === "time";
@@ -150,12 +150,16 @@ export function PayrollWorkerSheet({ ym, r, onCol, editMoc, toggleType, toggleWe
       ) : null}
 
       {/* ── Lương ────────────────────────────────────────────────────────── */}
+      {/* thợ SP: nói rõ trong Lương đã có phụ cấp ghi ở phiếu SX (khác phụ cấp THÁNG) */}
       <Block label="Lương" total={`${money(r.luong)}đ`} onTap={() => onCol("luong")}
-        sub={isTime ? "theo công + tăng ca" : `sản phẩm${spPhieu ? ` · ${spPhieu} phiếu` : ""}`} />
+        sub={isTime ? "theo công + tăng ca"
+          : `sản phẩm${spPhieu ? ` · ${spPhieu} phiếu` : ""}${r.pc_phieu ? ` · gồm ${money(r.pc_phieu)}đ phụ cấp phiếu` : ""}`} />
       {isTime ? (
         <div class="pws-list">
-          <button class="pws-item tappable" onClick={() => editMoc(r)}>
-            <span>Mốc lương tháng</span>
+          {/* Mốc lưu theo TỪNG THÁNG → nói rõ số này của tháng nào; bấm mở tab Mốc
+              (sửa mốc + trao đổi về mốc lương của thợ, dùng chung mọi tháng). */}
+          <button class="pws-item tappable" onClick={() => onCol("moc")}>
+            <span>Mốc lương {ymLabel(ym).toLowerCase()} <span class="muted small">· {mocNguon(r, ym)}</span></span>
             <b>{r.monthly_salary ? `${money(r.monthly_salary)}đ` : "chưa đặt — bấm đặt"}</b>
           </button>
           <button class="pws-item tappable" onClick={() => onCol("luong_cong")}>

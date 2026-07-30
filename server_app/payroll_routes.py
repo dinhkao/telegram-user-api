@@ -88,9 +88,12 @@ async def payroll_advances_handler(request: web.Request):
 
 
 async def payroll_adjust_handler(request: web.Request):
-    """POST /api/payroll/adjust {ym, worker_id, thuong?, note?, weekly?} — sửa
-    thưởng/ghi chú/nhận-lương-tuần theo tháng (field vắng = giữ nguyên). Phụ cấp =
-    nhiều khoản, dùng /api/payroll/allowance."""
+    """POST /api/payroll/adjust {ym, worker_id, thuong?, note?, weekly?, monthly_salary?}
+    — sửa thưởng/ghi chú/nhận-lương-tuần/MỐC LƯƠNG theo tháng (field vắng = giữ nguyên).
+    monthly_salary = mốc lương tháng của thợ lương thời gian, ghi vào ĐÚNG tháng ym
+    (0 = bỏ mốc riêng tháng này → kế thừa mốc gần nhất trước đó); sửa mốc KHÔNG tính
+    lại tháng cũ — xem salary_store/moc.py. Phụ cấp = nhiều khoản, dùng
+    /api/payroll/allowance."""
     d = _deny(request)
     if d:
         return d
@@ -107,16 +110,26 @@ async def payroll_adjust_handler(request: web.Request):
         thuong = _money(thuong, positive=False)   # 0 = xoá thưởng; None (vắng) = giữ nguyên
         if thuong is None:
             return web.json_response({"ok": False, "error": "Tiền thưởng không hợp lệ"}, status=400)
+    moc = body.get("monthly_salary")
+    if moc is not None:
+        moc = _money(moc, positive=False)   # 0 = bỏ mốc riêng tháng này; None (vắng) = giữ nguyên
+        if moc is None:
+            return web.json_response({"ok": False, "error": "Mốc lương tháng không hợp lệ"}, status=400)
     by = request.get("web_user") or ""
+    has_moc = body.get("monthly_salary") is not None
 
     def _run():
         conn = get_connection(SHARED_DB_PATH)
         try:
-            salary_store.set_month_adjust(
-                conn, ym, worker_id,
-                thuong=thuong, note=body.get("note"),
-                weekly=body.get("weekly"), by=by,
-            )
+            salary_store.ensure_schema(conn)
+            if thuong is not None or body.get("note") is not None or body.get("weekly") is not None:
+                salary_store.set_month_adjust(
+                    conn, ym, worker_id,
+                    thuong=thuong, note=body.get("note"),
+                    weekly=body.get("weekly"), by=by,
+                )
+            if has_moc:   # mốc lương ghi vào ĐÚNG tháng ym (không đụng tháng khác)
+                salary_store.set_month_moc(conn, ym, worker_id, moc, by=by)
             return salary_store.compute_month_payroll(conn, ym)
         finally:
             conn.close()

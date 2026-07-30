@@ -270,11 +270,28 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (separate from `order_chat_messages` = read-only Telegram log).
 - **`salary_store/` — LƯƠNG THÁNG (`app.db`, 2026-07-18, office-only).** Bảng lương
   từng tháng cho mọi NV. `production_workers.wage_type` phân loại NV: `'product'`
-  (lương SP tự tính từ sản xuất theo tháng qua `report_slips.compute_range_report`)
-  | `'time'` (lương THỜI GIAN từ CHẤM CÔNG 2026-07-19: mốc tháng
-  `production_workers.monthly_salary` ÷ 26 × ngày công + tăng ca ×1,2 — công/TC quy từ
+  (lương SP tự tính từ sản xuất theo tháng qua `report_slips.compute_range_report` —
+  **ĐÃ GỒM phụ cấp ghi trong PHIẾU SX** `production_allowances`; row trả riêng
+  `pc_phieu` = phần phụ cấp phiếu đã gộp đó để UI tách dòng [ô Lương có dấu ⁺ +
+  popup tab Lương], KHÁC cột `phu_cap` = phụ cấp THÁNG `salary_allowances` — đừng
+  cộng 2 lần. ⚠ phụ cấp phiếu của thợ `'time'` KHÔNG vào bảng lương: compute chỉ
+  truyền `worker_ids` là thợ SP)
+  | `'time'` (lương THỜI GIAN từ CHẤM CÔNG 2026-07-19: mốc tháng ÷ 26 × ngày công +
+  tăng ca ×1,2 — công/TC quy từ
   máy chấm qua `attendance_store.month_worker_stats`/`domain.work_stats`, ngày đủ 2 ca
-  = 1 công, đã gộp giờ sửa tay; sửa mốc = cột "Mốc" bảng lương, office). Bảng `salary_month`
+  = 1 công, đã gộp giờ sửa tay; sửa mốc = ô "Mốc" bảng lương, office).
+  **MỐC lương lưu THEO TỪNG THÁNG (2026-07-30, `salary_store/moc.py` + cột
+  `salary_month.monthly_salary`, tests/test_salary_moc.py)**: mốc hiệu lực của tháng M =
+  bản đặt gần nhất có tháng ≤ M (đặt tháng nào áp TỪ THÁNG ĐÓ TRỞ ĐI, tháng sau tự kế
+  thừa), chưa đặt bao giờ → `production_workers.monthly_salary` (mốc mặc định hồ sơ,
+  dữ liệu cũ). Sửa mốc KHÔNG tính lại tháng trước (trước đây 1 số chung → sửa là đổi
+  cả quá khứ đã trả tiền). Ghi qua `/api/payroll/adjust {monthly_salary}` (0 = bỏ mốc
+  riêng tháng này); row trả thêm `moc_ym`/`moc_own` để UI nói rõ nguồn (dấu ↩ = kế
+  thừa). Ô Mốc bấm mở tab "moc" của `PayrollCellPopup`: sửa mốc + **TRAO ĐỔI gắn theo
+  THỢ** (`entity_media` scope `worker_moc`, entity_id = worker_id → CÙNG luồng ở mọi
+  tháng; scope nằm trong `_OFFICE_ONLY_SCOPES` nên staff 403 cả xem lẫn ghi, và
+  `Comments allowPin={false}` để số lương không ghim lên bảng tin chung).
+  Bảng `salary_month`
   (thưởng + ghi chú + `weekly` = nhận-lương-tuần THEO THÁNG — mỗi (tháng, thợ) độc
   lập, KHÁC `production_workers.weekly_salary`) + `salary_advances` (ỨNG lương NHIỀU
   lần/tháng) + `salary_allowances` (PHỤ CẤP NHIỀU KHOẢN/tháng — amount + nhãn, cộng

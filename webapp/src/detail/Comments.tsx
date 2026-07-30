@@ -28,7 +28,9 @@ function hrefFromBase(b: string): string {
   return "";
 }
 
-export function Comments({ base, chatMessages = [] }: { base: string; chatMessages?: any[] }) {
+/** allowPin=false → ẩn nút 📢 ghim bảng tin. Bảng tin hiện cho MỌI người dùng nên
+ *  luồng trao đổi về tiền lương (scope worker_moc) không được có nút này. */
+export function Comments({ base, chatMessages = [], allowPin = true }: { base: string; chatMessages?: any[]; allowPin?: boolean }) {
   const [comments, setComments] = useState<any[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -78,10 +80,11 @@ export function Comments({ base, chatMessages = [] }: { base: string; chatMessag
   const [pins, setPins] = useState<{ id: number; text: string; href?: string }[]>([]);
   const loadPins = () => getJSON("/api/banner/pins", { cache: false }).then((d) => setPins(d.pins || [])).catch(() => {});
   useEffect(() => {
+    if (!allowPin) return;   // không có nút ghim thì khỏi tải danh sách ghim
     loadPins();
     const off = onRealtime((e) => { if (e.type === "banner_changed") loadPins(); });
     return () => off();
-  }, []);
+  }, [allowPin]);
   const pinOf = (it: Item) =>
     pins.find((p) => (p.href || "").split("?")[0] === hrefFromBase(base) && p.text === `${it.who}: ${it.text}`);
   const togglePin = async (it: Item) => {
@@ -123,11 +126,13 @@ export function Comments({ base, chatMessages = [] }: { base: string; chatMessag
             <div class="muted small cmt-head">
               {it.source === "tg" ? "✈️" : <Icon name="chat" size={12} />}{" "}
               {it.who} · {fmtTime(it.at)}
-              <button class={"cmt-pin" + (pinOf(it) ? " on" : "")}
-                title={pinOf(it) ? "Đang trên bảng tin — bấm để gỡ" : "Đưa lên bảng tin (24h)"}
-                onClick={() => togglePin(it)}>
-                <Icon name="megaphone" size={13} />
-              </button>
+              {allowPin && (
+                <button class={"cmt-pin" + (pinOf(it) ? " on" : "")}
+                  title={pinOf(it) ? "Đang trên bảng tin — bấm để gỡ" : "Đưa lên bảng tin (24h)"}
+                  onClick={() => togglePin(it)}>
+                  <Icon name="megaphone" size={13} />
+                </button>
+              )}
             </div>
             <div>{it.text}</div>
           </li>

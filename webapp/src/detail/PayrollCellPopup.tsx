@@ -1,5 +1,7 @@
 // POPUP Ô BẢNG LƯƠNG THÁNG — bấm 1 ô trong bảng (#/luong-thang) mở popup xem/thao
-// tác đúng nội dung ô đó: Công/TC = chấm công từng ngày của thợ (luật quy công
+// tác đúng nội dung ô đó: Mốc = mốc lương THÁNG ĐANG XEM (lưu theo từng tháng,
+// salary_store/moc.py) + khung TRAO ĐỔI gắn theo THỢ (scope worker_moc → dùng chung
+// mọi tháng); Công/TC = chấm công từng ngày của thợ (luật quy công
 // GIỐNG attendance_store/domain.work_stats); L.công/L.TC/Lương/Lãnh = diễn giải
 // công thức; P.cấp/Ứng = panel thêm/vô hiệu khoản ngay tại chỗ (EntryPanel).
 // Data: getAttendanceSummary, payroll allowance/advance API. Cha (MonthlyPayroll)
@@ -19,9 +21,10 @@ import { useScrollLock } from "../useScrollLock";
 import { LoadingInline } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
 
-export type PayrollCol = "cong" | "tc" | "luong_cong" | "luong_tc" | "luong" | "pc" | "ung" | "net";
+export type PayrollCol = "moc" | "cong" | "tc" | "luong_cong" | "luong_tc" | "luong" | "pc" | "ung" | "net";
 
-import { moneyR as money, dmy, tsLabel } from "../format";
+import { Comments } from "./Comments";
+import { moneyR as money, dmy, tsLabel, ymLabel } from "../format";
 import { workStats } from "./attendanceStats";
 const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
 const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
@@ -92,10 +95,20 @@ export function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, on
 }
 
 const TITLES: Record<PayrollCol, string> = {
-  cong: "Ngày công", tc: "Giờ tăng ca",
+  moc: "Mốc lương tháng", cong: "Ngày công", tc: "Giờ tăng ca",
   luong_cong: "Lương theo công", luong_tc: "Lương tăng ca", luong: "Lương",
   pc: "Phụ cấp", ung: "Ứng lương", net: "Thực lãnh",
 };
+
+/** Mốc này ở đâu ra: đặt riêng tháng đang xem / kế thừa tháng nào / mốc hồ sơ thợ.
+ *  Mốc lưu THEO TỪNG THÁNG (salary_store/moc.py) nên phải nói rõ, không thì người
+ *  dùng tưởng sửa 1 lần là đổi hết mọi tháng như trước. */
+export function mocNguon(r: PayrollRow, ym: string): string {
+  if (!r.monthly_salary) return "chưa đặt mốc";
+  if (r.moc_own) return `đặt riêng ${ymLabel(ym).toLowerCase()}`;
+  if (r.moc_ym) return `theo mốc đặt ở ${ymLabel(r.moc_ym).toLowerCase()}`;
+  return "mốc mặc định ở hồ sơ thợ";
+}
 
 export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }: {
   ym: string; r: PayrollRow; col: PayrollCol;
@@ -205,6 +218,30 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
       <div class="modal-sheet pr-pop-sheet" onClick={(e: any) => e.stopPropagation()}>
         <div class="modal-head"><Icon name="wallet" size={18} /> {r.name} — {TITLES[col]}</div>
 
+        {col === "moc" && (
+          isTime ? (
+            <>
+              <Row label={`Mốc lương ${ymLabel(ym).toLowerCase()}`}
+                val={<button class="pr-ung-btn" onClick={() => editMoc(r)}>{r.monthly_salary ? `${money(r.monthly_salary)}đ` : "đặt…"}</button>}
+                cls="hl" />
+              <p class="muted small">{mocNguon(r, ym)} — mốc lưu theo TỪNG THÁNG: sửa ở đây áp dụng
+                từ {ymLabel(ym).toLowerCase()} trở đi, các tháng trước giữ nguyên số cũ.</p>
+              <Row label="Lương 1 công (mốc ÷ 26)" val={`${money((r.monthly_salary || 0) / 26)}đ`} />
+              <Row label="Lương theo công tháng này" val={`${money(r.luong_cong)}đ`} go="luong_cong" />
+              <button class="btn block" onClick={() => editMoc(r)}>
+                ✏️ {r.monthly_salary ? `Sửa mốc ${ymLabel(ym).toLowerCase()}` : `Đặt mốc ${ymLabel(ym).toLowerCase()}`}
+              </button>
+              {/* Trao đổi gắn theo THỢ (scope worker_moc/worker_id) → hiện GIỐNG NHAU ở
+                  mọi tháng. Không cho ghim lên bảng tin: đây là chuyện tiền lương. */}
+              <Comments base={`/api/media/worker_moc/${wid}`} allowPin={false} />
+              <p class="muted small">Trao đổi về mốc lương của {r.name} — dùng chung cho mọi tháng.</p>
+            </>
+          ) : (
+            <p class="muted small">{r.name} hưởng lương SẢN PHẨM — không có mốc lương tháng.
+              Đổi sang lương thời gian ở ô "Loại" nếu cần.</p>
+          )
+        )}
+
         {(col === "cong" || col === "tc") && (
           <>
             <div class="pr-pop-sum">
@@ -222,7 +259,8 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
           <>
             {isTime ? (
               <>
-                <Row label="Mốc lương tháng" val={<button class="pr-ung-btn" onClick={() => editMoc(r)}>{r.monthly_salary ? `${money(r.monthly_salary)}đ` : "đặt…"}</button>} />
+                <Row label={`Mốc lương ${ymLabel(ym).toLowerCase()} (${mocNguon(r, ym)})`}
+                  val={r.monthly_salary ? `${money(r.monthly_salary)}đ` : "đặt…"} go="moc" />
                 <Row label="Lương 1 công (mốc ÷ 26)" val={`${money(dayRate)}đ`} />
                 <Row label="Ngày công" val={congVN(r.cong)} go="cong" />
                 <Row label={<b>Lương công = {money(dayRate)} × {congVN(r.cong)}</b>} val={`${money(r.luong_cong)}đ`} cls="hl" />
@@ -252,8 +290,15 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
             </>
           ) : (
             <>
+              {/* Lương SP = tiền cây + PHỤ CẤP GHI TRONG PHIẾU SX. Phụ cấp phiếu đã nằm
+                  trong con số Lương (cột P.cấp của bảng là phụ cấp THÁNG, khác hẳn) →
+                  tách 2 dòng cho khỏi tưởng bảng lương bỏ sót phụ cấp phiếu. */}
+              <Row label="Tiền sản phẩm (cây × đơn giá phiếu)" val={`${money(r.luong - (r.pc_phieu || 0))}đ`} />
+              <Row label="Phụ cấp ghi trong phiếu SX" val={`+${money(r.pc_phieu || 0)}đ`} />
               <Row label="Lương sản phẩm (tự tính từ báo cáo SX)" val={`${money(r.luong)}đ`} cls="hl" />
-              <p class="muted small">= tổng cây × đơn giá chốt theo từng phiếu SX trong tháng (+ phụ cấp phiếu).</p>
+              <p class="muted small">= tổng cây × đơn giá chốt theo từng phiếu SX trong tháng
+                {r.pc_phieu ? <> + phụ cấp phiếu ({money(r.pc_phieu)}đ — đã gộp sẵn ở đây,
+                  KHÁC cột P.cấp = phụ cấp tháng)</> : <> (tháng này không có phụ cấp phiếu)</>}.</p>
               <a class="btn block" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>🏭 Chi tiết sản xuất của thợ</a>
               <a class="btn block" href="#/bao-cao">📄 Phiếu báo cáo SX</a>
             </>

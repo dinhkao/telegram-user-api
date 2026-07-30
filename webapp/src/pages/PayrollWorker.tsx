@@ -63,7 +63,7 @@ export function PayrollWorker({ wid }: { wid: number }) {
         : (
           <section class="card pws-card">
             <PayrollWorkerSheet ym={ym} r={r} onCol={setPop}
-              editMoc={editMoc} toggleType={toggleType} toggleWeekly={toggleWeekly} />
+              toggleType={toggleType} toggleWeekly={toggleWeekly} />
           </section>
         )}
 
