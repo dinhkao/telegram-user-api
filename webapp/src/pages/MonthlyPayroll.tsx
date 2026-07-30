@@ -166,8 +166,10 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName 
   // ~180px, đổi liên tục khi resize. Đừng đưa max-content/width:auto trở lại.
   // Bề rộng theo EM (không px) để mobile font nhỏ hơn thì bảng tự hẹp lại; số đo
   // thực: dòng TỔNG ~9 chữ số cần ≤8,3em, chip Loại/toggle Tuần cần ≥5,4em/5,7em,
-  // tên thợ dài cắt bằng ellipsis.
-  const COL_EM = [12, 5.5, 5.9, 8, 5.4, 8.4, 5.4, 8.4, 8.4, 8.4, 8.4, 8.4];
+  // tên thợ dài cắt bằng ellipsis. Mốc (8,6) + Lương (8,8) rộng hơn phần còn lại vì
+  // còn đeo dấu ↩ (mốc kế thừa) / ⁺ (lương đã gộp phụ cấp phiếu) — đo bằng Playwright,
+  // hụt là chữ bị cắt ngay.
+  const COL_EM = [12, 5.5, 5.9, 8.6, 5.4, 8.4, 5.4, 8.4, 8.8, 8.4, 8.4, 8.4];
   const totalEm = COL_EM.reduce((a, b) => a + b, 0);
   const tableStyle = `min-width:${totalEm}em`;
   const headRef = useRef<HTMLDivElement>(null);
@@ -217,9 +219,17 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName 
                   title="Mở trang lương tháng của thợ"
                   onClick={() => onName(r.worker_id)}
                   onKeyDown={(e: any) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onName(r.worker_id); } }}>
+                  {/* Dưới tên = THỰC LÃNH tháng đó: cột Thợ ghim trái nên thấy ngay số
+                      chốt mà không phải cuộn sang cột Lãnh ở tận cùng bên phải. */}
                   <span class="pr-worker">
                     <span class="pr-avatar">{initials(r.name)}</span>
-                    <span>{r.name}</span>
+                    <span class="pr-worker-main">
+                      <span class="pr-worker-nm">{r.name}</span>
+                      <span class={r.thuc_lanh < 0 ? "pr-worker-net t-danger" : "pr-worker-net"}
+                        title={`Thực lãnh ${ymLabel(data.ym).toLowerCase()} = lương + phụ cấp − ứng`}>
+                        {money(r.thuc_lanh)}
+                      </span>
+                    </span>
                   </span>
                 </td>
                 <td class="pr-td-mid">
@@ -273,7 +283,12 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName 
           </tbody>
           <tfoot>
             <tr>
-              <td class="pr-sticky pr-td-name">Tổng</td><td></td><td></td><td></td>
+              <td class="pr-sticky pr-td-name">
+                <span class="pr-worker-main">
+                  <span class="pr-worker-nm">Tổng</span>
+                  <span class="pr-worker-net" title="Tổng thực lãnh toàn bộ nhân viên">{money(t.thuc_lanh)}</span>
+                </span>
+              </td><td></td><td></td><td></td>
               <td class="pr-num">{congVN(data.workers.reduce((a, r) => a + (r.cong || 0), 0))}</td>
               <td class="pr-num">{money(data.workers.reduce((a, r) => a + (r.luong_cong || 0), 0))}</td>
               <td class="pr-num">{congVN(data.workers.reduce((a, r) => a + (r.ot_gio || 0), 0))}</td>
