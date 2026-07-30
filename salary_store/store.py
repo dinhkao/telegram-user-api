@@ -270,7 +270,9 @@ def void_allowance(conn, allowance_id: int, reason: str, by: str = "") -> bool:
 # ── Bảng lương tháng (tính live) ─────────────────────────────────────────────────
 
 def compute_month_payroll(conn, ym: str) -> dict:
-    """Bảng lương 1 tháng cho MỌI thợ: lương SP tự tính từ sản xuất; lương THỜI GIAN
+    """Bảng lương 1 tháng cho MỌI thợ: lương SP tự tính từ sản xuất (ĐÃ GỒM phụ cấp ghi
+    trong phiếu SX — production_allowances; trả riêng `pc_phieu` để UI tách cho thấy,
+    KHÁC cột phụ cấp tháng `phu_cap` = salary_allowances); lương THỜI GIAN
     tính từ CHẤM CÔNG = MỐC CỦA THÁNG ĐÓ / 26 × ngày công + tăng ca ×1,2 (công/TC quy
     từ máy chấm — attendance_store.month_worker_stats); + phụ cấp + thưởng − ứng =
     thực lãnh. Mốc lấy theo TỪNG THÁNG (salary_store.moc: bản đặt gần nhất ≤ ym, chưa
@@ -284,11 +286,13 @@ def compute_month_payroll(conn, ym: str) -> dict:
     workers = list_workers(conn)
     mstart, mend = month_range(ym)
     product_ids = [w["id"] for w in workers if (w.get("wage_type") or "product") == "product"]
+    # (tiền, phụ cấp phiếu SX ĐÃ GỘP trong tiền đó) theo tên thợ hiện hành
     wage_by_name: dict = {}
     if product_ids:
         rep = compute_range_report(conn, mstart, mend, worker_ids=product_ids)
         for w in rep["workers"]:
-            wage_by_name[(w.get("name") or "").strip().casefold()] = float(w.get("money") or 0)
+            wage_by_name[(w.get("name") or "").strip().casefold()] = (
+                float(w.get("money") or 0), float(w.get("allowance") or 0))
     # công + tăng ca theo thợ từ máy chấm công (đã gộp sửa tay)
     import attendance_store
     attendance_store.ensure_schema(conn)
@@ -310,8 +314,9 @@ def compute_month_payroll(conn, ym: str) -> dict:
         work_min, ot_min = int(st.get("work_min") or 0), int(st.get("ot_min") or 0)
         cong = work_min / 480.0                          # ngày đủ 2 ca = 1 công
         luong_cong = luong_tc = 0.0
+        pc_phieu = 0.0            # phụ cấp PHIẾU SX đã gộp trong lương SP (để UI tách ra)
         if wt == "product":
-            luong = wage_by_name.get(w["name"].strip().casefold(), 0.0)
+            luong, pc_phieu = wage_by_name.get(w["name"].strip().casefold(), (0.0, 0.0))
         else:
             # lương TG = lương CÔNG (mốc/26 × công) + lương TĂNG CA (giờ TC ×1,2)
             day_rate = base / 26.0
@@ -339,6 +344,9 @@ def compute_month_payroll(conn, ym: str) -> dict:
             "cong": round(cong, 2),
             "ot_gio": round(ot_min / 60.0, 1),
             "luong_cong": round(luong_cong), "luong_tc": round(luong_tc),
+            # phụ cấp ghi trong PHIẾU SX (production_allowances) — ĐÃ nằm TRONG `luong`,
+            # tách ra để bảng lương nói rõ, đừng cộng lần nữa
+            "pc_phieu": round(pc_phieu),
         })
         # Cộng dồn SỐ ĐÃ LÀM TRÒN (đúng số in trên dòng) — cộng float thô rồi
         # round 1 lần làm tổng cột lệch tổng các dòng tới ~N/2 đồng.

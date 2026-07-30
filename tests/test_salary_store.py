@@ -229,6 +229,23 @@ class SalaryStoreTest(unittest.TestCase):
         self.assertTrue(r["weekly"])
         self.assertEqual(r["ung_weekly"], 0)        # lương thời gian = 0 → không ứng tự động
 
+    def test_luong_sp_gom_phu_cap_phieu_va_tach_rieng_pc_phieu(self):
+        """Lương SP = tiền cây + PHỤ CẤP GHI TRONG PHIẾU SX (production_allowances);
+        `pc_phieu` báo riêng phần đã gộp đó (KHÁC phu_cap = phụ cấp THÁNG) — người dùng
+        tưởng bảng lương bỏ sót phụ cấp phiếu vì nó chìm trong cột Lương."""
+        from production_store.allowances import set_allowance
+        c = self._seed_product_worker("Chi", tong_calc=10, gia=1000)     # tiền cây 10.000
+        set_allowance(self.conn, 100, "Chi", 7_000)                      # phụ cấp phiếu 100
+        salary_store.add_allowance(self.conn, c, "2026-07", 2_000)       # phụ cấp THÁNG
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), c)
+        self.assertEqual(r["luong"], 17_000)        # 10k cây + 7k phụ cấp phiếu
+        self.assertEqual(r["pc_phieu"], 7_000)      # phần phụ cấp phiếu ĐÃ nằm trong luong
+        self.assertEqual(r["phu_cap"], 2_000)       # phụ cấp tháng tách riêng
+        self.assertEqual(r["thuc_lanh"], 19_000)    # 17k + 2k (không cộng phụ cấp phiếu 2 lần)
+        # thợ lương THỜI GIAN không dính phụ cấp phiếu
+        self.assertEqual(self._row(salary_store.compute_month_payroll(self.conn, "2026-07"),
+                                   self.a)["pc_phieu"], 0)
+
     def test_ung_tach_theo_thang(self):
         salary_store.add_advance(self.conn, self.a, "2026-07", 10_000)
         salary_store.add_advance(self.conn, self.a, "2026-08", 99_000)

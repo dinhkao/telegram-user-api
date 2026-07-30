@@ -1058,6 +1058,9 @@ export type PayrollRow = {
   note: string; thuc_lanh: number;
   monthly_salary: number; cong: number; ot_gio: number;   // lương thời gian: mốc + công + TC (giờ)
   luong_cong: number; luong_tc: number;                   // tách lương theo công / lương tăng ca
+  // pc_phieu = phụ cấp ghi trong PHIẾU SX (production_allowances) — ĐÃ nằm TRONG luong
+  // của thợ lương SP; KHÁC phu_cap (phụ cấp THÁNG, salary_allowances). Đừng cộng 2 lần.
+  pc_phieu: number;
   // MỐC lương lưu theo TỪNG THÁNG (salary_store/moc.py): moc_ym = mốc này đặt ở tháng
   // nào ("" = mốc mặc định hồ sơ thợ), moc_own = đặt RIÊNG cho tháng đang xem
   moc_ym: string; moc_own: boolean;

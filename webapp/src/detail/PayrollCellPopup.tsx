@@ -290,8 +290,15 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
             </>
           ) : (
             <>
+              {/* Lương SP = tiền cây + PHỤ CẤP GHI TRONG PHIẾU SX. Phụ cấp phiếu đã nằm
+                  trong con số Lương (cột P.cấp của bảng là phụ cấp THÁNG, khác hẳn) →
+                  tách 2 dòng cho khỏi tưởng bảng lương bỏ sót phụ cấp phiếu. */}
+              <Row label="Tiền sản phẩm (cây × đơn giá phiếu)" val={`${money(r.luong - (r.pc_phieu || 0))}đ`} />
+              <Row label="Phụ cấp ghi trong phiếu SX" val={`+${money(r.pc_phieu || 0)}đ`} />
               <Row label="Lương sản phẩm (tự tính từ báo cáo SX)" val={`${money(r.luong)}đ`} cls="hl" />
-              <p class="muted small">= tổng cây × đơn giá chốt theo từng phiếu SX trong tháng (+ phụ cấp phiếu).</p>
+              <p class="muted small">= tổng cây × đơn giá chốt theo từng phiếu SX trong tháng
+                {r.pc_phieu ? <> + phụ cấp phiếu ({money(r.pc_phieu)}đ — đã gộp sẵn ở đây,
+                  KHÁC cột P.cấp = phụ cấp tháng)</> : <> (tháng này không có phụ cấp phiếu)</>}.</p>
               <a class="btn block" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>🏭 Chi tiết sản xuất của thợ</a>
               <a class="btn block" href="#/bao-cao">📄 Phiếu báo cáo SX</a>
             </>

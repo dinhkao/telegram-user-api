@@ -150,8 +150,10 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
       ) : null}
 
       {/* ── Lương ────────────────────────────────────────────────────────── */}
+      {/* thợ SP: nói rõ trong Lương đã có phụ cấp ghi ở phiếu SX (khác phụ cấp THÁNG) */}
       <Block label="Lương" total={`${money(r.luong)}đ`} onTap={() => onCol("luong")}
-        sub={isTime ? "theo công + tăng ca" : `sản phẩm${spPhieu ? ` · ${spPhieu} phiếu` : ""}`} />
+        sub={isTime ? "theo công + tăng ca"
+          : `sản phẩm${spPhieu ? ` · ${spPhieu} phiếu` : ""}${r.pc_phieu ? ` · gồm ${money(r.pc_phieu)}đ phụ cấp phiếu` : ""}`} />
       {isTime ? (
         <div class="pws-list">
           {/* Mốc lưu theo TỪNG THÁNG → nói rõ số này của tháng nào; bấm mở tab Mốc

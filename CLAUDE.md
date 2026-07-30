@@ -270,7 +270,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (separate from `order_chat_messages` = read-only Telegram log).
 - **`salary_store/` — LƯƠNG THÁNG (`app.db`, 2026-07-18, office-only).** Bảng lương
   từng tháng cho mọi NV. `production_workers.wage_type` phân loại NV: `'product'`
-  (lương SP tự tính từ sản xuất theo tháng qua `report_slips.compute_range_report`)
+  (lương SP tự tính từ sản xuất theo tháng qua `report_slips.compute_range_report` —
+  **ĐÃ GỒM phụ cấp ghi trong PHIẾU SX** `production_allowances`; row trả riêng
+  `pc_phieu` = phần phụ cấp phiếu đã gộp đó để UI tách dòng [ô Lương có dấu ⁺ +
+  popup tab Lương], KHÁC cột `phu_cap` = phụ cấp THÁNG `salary_allowances` — đừng
+  cộng 2 lần. ⚠ phụ cấp phiếu của thợ `'time'` KHÔNG vào bảng lương: compute chỉ
+  truyền `worker_ids` là thợ SP)
   | `'time'` (lương THỜI GIAN từ CHẤM CÔNG 2026-07-19: mốc tháng ÷ 26 × ngày công +
   tăng ca ×1,2 — công/TC quy từ
   máy chấm qua `attendance_store.month_worker_stats`/`domain.work_stats`, ngày đủ 2 ca

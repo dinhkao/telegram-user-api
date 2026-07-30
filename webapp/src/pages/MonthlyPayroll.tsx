@@ -253,7 +253,13 @@ function PayrollTable({ data, toggleType, toggleWeekly, editMoc, onCell, onName 
                 <td class={`pr-td-tap ${isTime && r.luong_tc ? "pr-num" : "pr-num is-zero"}`} title="Lương tăng ca ×1,2 — bấm xem cách tính" {...tap("luong_tc")}>
                   {isTime ? money(r.luong_tc) : "—"}
                 </td>
-                <td class={`pr-td-tap ${!r.luong ? "pr-num is-zero" : "pr-num"}`} title="Bấm xem cách tính lương" {...tap("luong")}>{money(r.luong)}</td>
+                {/* Lương thợ SP ĐÃ GỒM phụ cấp ghi trong phiếu SX (cột P.cấp là phụ cấp
+                    THÁNG, khác hẳn) → nói trong tooltip + dấu ⁺ cho khỏi tưởng bỏ sót */}
+                <td class={`pr-td-tap ${!r.luong ? "pr-num is-zero" : "pr-num"}`} {...tap("luong")}
+                  title={r.pc_phieu ? `Gồm ${money(r.pc_phieu)}đ phụ cấp ghi trong phiếu SX — bấm xem cách tính`
+                                    : "Bấm xem cách tính lương"}>
+                  {money(r.luong)}{r.pc_phieu ? <sup title="đã gộp phụ cấp phiếu SX"> ⁺</sup> : null}
+                </td>
                 <td class="pr-num pr-td-tap" title="Phụ cấp — bấm thêm/vô hiệu khoản" {...tap("pc")}>
                   <span class="pr-ung-btn">{money(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}</span>
                 </td>
