@@ -1343,6 +1343,12 @@ body.has-nop .pr-thead-bar { top: 72px; }
 .pr-table th:nth-child(2), .pr-table th:nth-child(3) { text-align: center; }
 .pr-sticky { position: sticky; left: 0; z-index: 1; background: var(--card); }
 .pr-table th.pr-sticky { z-index: 4; background: var(--bg); }
+/* Tiêu đề cột BẤM ĐỂ SẮP XẾP: mũi tên ▲/▼ chỉ chiều, cột đang sắp thì chữ đậm màu */
+.pr-th-sort { cursor: pointer; user-select: none; -webkit-tap-highlight-color: rgba(0,0,0,.06); }
+.pr-th-sort:hover { color: var(--ink); }
+.pr-th-sort:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.pr-th-sort[aria-sort="ascending"], .pr-th-sort[aria-sort="descending"] { color: var(--primary); }
+.pr-sort-ar { margin-left: 2px; font-size: .85em; }
 /* cột Thợ ghim trái: bóng phải → thấy rõ đang che phần cuộn ngang (như .att-grid) */
 .pr-table td.pr-sticky { box-shadow: 3px 0 5px -3px rgba(0, 0, 0, .25); }
 .pr-table th.pr-sticky { box-shadow: 0 1px 0 var(--border), 3px 0 5px -3px rgba(0, 0, 0, .25); }

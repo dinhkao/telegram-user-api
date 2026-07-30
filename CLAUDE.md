@@ -308,7 +308,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   TẤT CẢ chặn `office_user`). Khoản đã ghi: **VÔ HIỆU** (`.../{id}/void`, kèm lý do)
   hoặc **SỬA GHI CHÚ** (`.../{id}/note` — SỐ TIỀN/ngày BẤT BIẾN, sai tiền thì vô hiệu
   rồi ghi lại; khoản đã vô hiệu khoá luôn ghi chú). UI `MonthlyPayroll.tsx`
-  (`#/luong-thang`, view Bảng/Thẻ; **bấm ô TÊN → TRANG `#/luong-thang/:worker_id?ym=`
+  (`#/luong-thang`, view Bảng/Thẻ — view Thẻ tách ra `detail/PayrollCard.tsx`;
+  **SẮP XẾP bấm tiêu đề cột** = `detail/payrollSort.ts` (`COLS` là NGUỒN DUY NHẤT của
+  nhãn/tooltip 12 cột — thứ tự phải khớp `<td>` thân bảng LẪN mảng `COL_EM` colgroup;
+  bấm: sắp → đảo chiều → bỏ sắp, cột số lớn-trước, cột Thợ A→Z theo `localeCompare('vi')`,
+  nhớ ở localStorage `payroll_sort`, áp cho CẢ view Thẻ; dòng TỔNG ở tfoot không đổi chỗ);
+  **bấm ô TÊN → TRANG `#/luong-thang/:worker_id?ym=`
   = `pages/PayrollWorker.tsx` + `detail/PayrollWorkerSheet.tsx` = HỒ SƠ LƯƠNG THÁNG**:
   thực lãnh + thanh tỉ lệ cộng/trừ, nguồn lương [SP gộp **theo mã SP HOẶC theo NGÀY** từ
   `getWorkerReport` · TG mốc→công→tăng ca], **CHẤM CÔNG luôn hiện cho MỌI thợ** (khối
