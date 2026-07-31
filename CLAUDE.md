@@ -242,6 +242,14 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   emit realtime + audit `product.renamed`). Migration/backfill chạy ở boot:
   `server_app/db_migrate.py` (idempotent, marker kv_store). SP_INFO (mâm/lượng SX)
   port vào cột `prod_mam`/`prod_luong` (fallback config, `production_store/defaults.py`).
+  **`prod_mam` = số CÂY trên 1 mâm** (báo cáo SX: `tổng = cây/mâm × số mâm + lẻ`,
+  `production_store/domain.compute_report`) — ⚠ chú thích ở `bot_core/config.py::SP_INFO`
+  ghi "số mâm trong 1 chảo" là SAI so với cách code dùng. Sửa 2 số này ở **chi tiết SP
+  `#/kho/:code`** (2 ô "Số cây / 1 mâm" + "Lượng 1 mẻ", `POST /api/products/{code}`
+  {prod_mam, prod_luong} — **CHỈ văn phòng** vì ra tiền công; rỗng/0 = xoá về NULL;
+  ô là `type=text inputMode=decimal` để gõ "3,5" kiểu Việt được).
+  Đổi số CHỈ áp cho phiếu SX gán mã SAU ĐÓ — `set_sp` đã snapshot `production_slips.sp_mam`.
+  Tests: `tests/test_product_prod_nums.py`.
   Plan: `docs/plan-product-id.md`.
 - **VAI ĐƠN VỊ (2026-07-17, plan: `docs/plan-don-vi-hang-hoa.md`).** SP có 1 đơn vị
   GỐC (`products.unit` — mọi số trong DB) + đơn vị phụ quy đổi (`product_units`).

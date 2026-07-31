@@ -178,6 +178,16 @@ export const GUIDES_KHO: Guide[] = [
           <li>Tắt <b>cả hai</b>: SP <b>không sản xuất</b> — là <b>nguyên liệu / hàng mua</b> từ NCC (nhập kho qua phiếu nhập hàng).</li>
         </ul>
         <p class="muted small">Bật Đóng gói mà chưa khai công thức → có cảnh báo; khai ở khối Công thức bên dưới mới nhập được phiếu đóng gói.</p>` },
+      { title: "Số cây / 1 mâm & Lượng 1 mẻ", html: `
+        <p>Hai ô này ở chi tiết SP (<b>văn phòng</b> sửa) là <b>thông số sản xuất</b> của mã hàng:</p>
+        <ul>
+          <li><b>Số cây / 1 mâm</b> — báo cáo sản xuất lấy số này tính ra tổng:
+            <b>tổng = số cây/mâm × số mâm + số cây lẻ</b>. Nhập được số lẻ (vd <i>3,5</i>).</li>
+          <li><b>Lượng 1 mẻ</b> — lượng SP mỗi mẻ nấu, dùng để tham khảo khi ra lệnh sản xuất.</li>
+        </ul>
+        <p>Bỏ trống = <b>chưa đặt</b> (hệ thống lùi về bảng thông số cũ trong cấu hình).
+        Sửa xong <b>chỉ áp cho phiếu SX tạo/gán mã sau đó</b> — phiếu cũ giữ nguyên số đã chốt
+        lúc gán mã, nên tiền công đã tính không bị đổi ngược.</p>` },
       { title: "Công thức / BOM (nguyên liệu)", html: `
         <p>Khối <b>Công thức — nguyên liệu</b> ở chi tiết SP: khai báo 1 SP cần những <b>nguyên liệu</b>
         (là SP khác) theo <b>tỉ lệ</b> (lượng NL cho 1 đơn vị thành phẩm).</p>
