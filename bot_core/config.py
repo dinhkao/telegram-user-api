@@ -73,7 +73,10 @@ QTY_OPTIONS_BY_CODE = {"KDDT": ["1", "2", "3", "6", "9", "12", "15", "18", "21",
 
 
 # ─── Sản xuất (production) ──────────────────────────────────────────────────
-# mâm = số mâm trong 1 chảo, luong = lượng SP mỗi mẻ (ported from node spInfo).
+# mâm = số CÂY trên 1 mâm (báo cáo SX: tổng = mâm × số_mâm + lẻ — xem
+# production_store/domain.compute_report), luong = lượng SP mỗi mẻ (ported from node
+# spInfo). Đây chỉ là DỰ PHÒNG: số thật nằm ở products.prod_mam/prod_luong, sửa ở
+# chi tiết SP #/kho/:code (văn phòng); seed lúc boot chỉ điền chỗ còn TRỐNG.
 SP_INFO = {
     "K10LV87": {"mam": 3, "luong": 1100},
     "K10LT": {"mam": 3, "luong": 1200},

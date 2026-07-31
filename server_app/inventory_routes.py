@@ -1391,6 +1391,9 @@ async def inventory_detail_handler(request: web.Request):
             "can_sell": bool(prod.get("can_sell", True)),
             "can_purchase": bool(prod.get("can_purchase", True)),
             "cost_price": prod.get("cost_price") or 0, "unit": prod.get("unit") or "cây",
+            # thông số SX (sửa ở chi tiết SP, văn phòng): số CÂY trên 1 mâm + lượng 1 mẻ
+            # — None = chưa đặt, lúc tính báo cáo SX sẽ lùi về SP_INFO (config cũ)
+            "prod_mam": prod.get("prod_mam"), "prod_luong": prod.get("prod_luong"),
             "kv_id": prod.get("kv_id"), "kv_full_name": prod.get("kv_full_name"),
             "kv_synced_at": prod.get("kv_synced_at"),
             "linked": bool(prod.get("kv_id")),

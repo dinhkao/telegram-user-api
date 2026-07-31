@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 
 from aiohttp import web
 
 from order_db import _get_connection
 from product_store.queries import get_all_products, get_product, upsert_product, delete_product, set_kiotviet_link, clear_kiotviet_link
+from server_app.production_wages import office_user   # gate mâm/lượng SX (ra tiền công)
 from vn import vn_normalize
 
 log = logging.getLogger("server")
@@ -81,6 +83,28 @@ async def product_update_handler(request: web.Request):
     except Exception:
         body = {}
     role_patch = {k: body[k] for k in _ROLE_KEYS if k in body}
+    # THÔNG SỐ SẢN XUẤT: prod_mam = số CÂY trên 1 mâm, prod_luong = lượng 1 mẻ.
+    # prod_mam đi thẳng vào công thức tổng cây của báo cáo SX (tổng = cây/mâm × mâm +
+    # lẻ) ⇒ ra TIỀN CÔNG, nên CHỈ VĂN PHÒNG sửa (các field khác của endpoint này không
+    # chặn). Rỗng / 0 = xoá về "chưa biết" (NULL) → lùi về SP_INFO như trước.
+    prod_nums: dict = {}
+    for k in ("prod_mam", "prod_luong"):
+        if k not in body:
+            continue
+        v = body[k]
+        if v is None or (isinstance(v, str) and not v.strip()):
+            prod_nums[k] = ""      # upsert_product hiểu "" = ghi NULL
+            continue
+        try:
+            f = float(str(v).replace(",", "."))
+        except (TypeError, ValueError):
+            return web.json_response({"ok": False, "error": f"{k} phải là số"}, status=400)
+        if not math.isfinite(f) or f < 0:
+            return web.json_response({"ok": False, "error": f"{k} phải là số ≥ 0"}, status=400)
+        prod_nums[k] = "" if f == 0 else f
+    if prod_nums and not office_user(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng sửa được mâm/lượng sản xuất"},
+                                 status=403)
 
     def _run():
         conn = _get_connection()
@@ -104,7 +128,7 @@ async def product_update_handler(request: web.Request):
                            can_sell=bool(body.get("can_sell")) if body.get("can_sell") is not None else None,
                            can_purchase=bool(body.get("can_purchase")) if body.get("can_purchase") is not None else None,
                            aux_required=bool(body.get("aux_required")) if body.get("aux_required") is not None else None,
-                           **role_kwargs)
+                           **prod_nums, **role_kwargs)
             return get_product(conn, code), None
         finally:
             conn.close()
@@ -116,7 +140,7 @@ async def product_update_handler(request: web.Request):
     from server_app.realtime import emit_inventory_changed
     emit_inventory_changed()
     _fields = ", ".join([k for k in ("name", "unit", "note", "can_produce_directly", "can_package", "can_sell", "can_purchase", "aux_required") if body.get(k) is not None]
-                        + list(role_patch.keys()))
+                        + list(prod_nums.keys()) + list(role_patch.keys()))
     _audit_product("product.updated", product, _actor(request), fields=_fields)
     return web.json_response({"ok": True, "product": product})
 

@@ -3,7 +3,7 @@
 // Thùng đã xuất link tới đơn. Realtime production_changed → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, createKiotvietProduct, createProduct, kiotvietCategories, deleteProduct, updateProduct, renameProduct, getRecipe, currentUser, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct, type KvCategory } from "../api";
+import { inventoryDetail, productOrders, searchKiotvietProducts, linkProductKiotviet, unlinkProductKiotviet, createKiotvietProduct, createProduct, kiotvietCategories, deleteProduct, updateProduct, renameProduct, getRecipe, currentUser, isOffice, soVN, type InvDetail, type InvBox, type InvOrderRef, type KvProduct, type KvCategory } from "../api";
 import { SelectPopup } from "../ui/SelectPopup";
 import { confirmDialog, toast } from "../ui/feedback";
 import { useScrollLock } from "../useScrollLock";
@@ -61,6 +61,26 @@ export function InventoryDetail({ code }: { code: string }) {
       const p = await updateProduct(code, { min_stock: v });
       if (p && inv) { setInv({ ...inv, product: p }); setMinSaved(true); setTimeout(() => setMinSaved(false), 1500); }
     } catch (e: any) { toast(e?.message || "Lỗi lưu tồn tối thiểu", "err"); }
+  };
+  // THÔNG SỐ SẢN XUẤT (văn phòng): số CÂY trên 1 mâm + lượng 1 mẻ. Số cây/mâm đi vào
+  // công thức tổng cây của báo cáo SX (tổng = cây/mâm × số mâm + lẻ) ⇒ ra TIỀN CÔNG.
+  // Bỏ trống = chưa đặt → lùi về SP_INFO (config cũ). Sửa xong CHỈ áp cho phiếu SX
+  // TẠO/GÁN MÃ SAU ĐÓ — phiếu cũ đã chốt sp_mam riêng, không đổi theo.
+  const [mamInput, setMamInput] = useState("");
+  const [luongInput, setLuongInput] = useState("");
+  const [prodSaved, setProdSaved] = useState("");
+  useEffect(() => { setMamInput(inv?.product?.prod_mam != null ? String(inv.product.prod_mam) : ""); }, [inv?.product?.prod_mam]);
+  useEffect(() => { setLuongInput(inv?.product?.prod_luong != null ? String(inv.product.prod_luong) : ""); }, [inv?.product?.prod_luong]);
+  const saveProdNum = async (key: "prod_mam" | "prod_luong", raw: string) => {
+    if (!inv?.product) return;
+    const cur = (inv.product as any)[key] as number | null | undefined;
+    const txt = raw.trim().replace(",", ".");            // gõ "3,5" cũng nhận
+    if (txt !== "" && !(Number(txt) >= 0)) { toast("Phải là số ≥ 0", "err"); return; }
+    if (txt === "" ? cur == null : Number(txt) === Number(cur ?? NaN)) return;   // không đổi
+    try {
+      const p = await updateProduct(code, { [key]: txt } as any);
+      if (p && inv) { setInv({ ...inv, product: p }); setProdSaved(key); setTimeout(() => setProdSaved(""), 1500); }
+    } catch (e: any) { toast(e?.message || "Lỗi lưu thông số sản xuất", "err"); }
   };
   // Mã SP — đổi TỰ DO (admin): mọi liên kết theo products.id nên chỉ đổi nhãn;
   // mã cũ thành alias (gõ vẫn nhận, link cũ redirect). Có confirm vì đổi cả KiotViet.
@@ -361,6 +381,33 @@ export function InventoryDetail({ code }: { code: string }) {
             onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
           <span class="muted small">{inv.product?.unit || "cây"}{inv.product && (inv.product.min_stock || 0) > 0 && (inv.total || 0) < (inv.product.min_stock || 0) ? <span class="min-below"> · ⚠ tồn {soVN(inv.total || 0)} dưới mức</span> : null}</span>
         </div>
+        {/* Thông số SX — văn phòng sửa (số cây/mâm ra tiền công báo cáo SX) */}
+        {inv.product && isOffice() && (
+          <>
+            <div class="box-kv">
+              <span class="box-k">Số cây / 1 mâm {prodSaved === "prod_mam" && <span class="muted small">✓</span>}</span>
+              {/* type=text (không phải number): người dùng gõ "3,5" kiểu Việt — input[type=number]
+                  từ chối dấu phẩy. inputMode=decimal vẫn cho bàn phím số trên điện thoại. */}
+              <input class="box-place" style={{ minWidth: "90px" }} type="text" inputMode="decimal"
+                value={mamInput} placeholder="chưa đặt"
+                onInput={(e: any) => setMamInput(e.target.value)} onBlur={() => saveProdNum("prod_mam", mamInput)}
+                onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+              <span class="muted small">{inv.product?.unit || "cây"}/mâm</span>
+            </div>
+            <div class="box-kv">
+              <span class="box-k">Lượng 1 mẻ {prodSaved === "prod_luong" && <span class="muted small">✓</span>}</span>
+              <input class="box-place" style={{ minWidth: "90px" }} type="text" inputMode="decimal"
+                value={luongInput} placeholder="chưa đặt"
+                onInput={(e: any) => setLuongInput(e.target.value)} onBlur={() => saveProdNum("prod_luong", luongInput)}
+                onKeyDown={(e: any) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+              <span class="muted small">{inv.product?.unit || "cây"}/mẻ</span>
+            </div>
+            <div class="muted small" style={{ margin: "-2px 0 6px" }}>
+              Báo cáo SX tính <b>tổng = số cây/mâm × số mâm + số cây lẻ</b>. Sửa ở đây chỉ áp cho
+              phiếu SX <b>tạo/gán mã sau đó</b> — phiếu cũ giữ số đã chốt lúc gán mã.
+            </div>
+          </>
+        )}
         {inv.product && isAdmin && (
           <div class="box-kv">
             <span class="box-k">Cách sản xuất</span>
