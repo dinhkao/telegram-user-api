@@ -5,17 +5,15 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   getArea, createAreaReport, updateArea, deleteArea, deleteAreaReport,
-  mediaImageUrl, currentUser, isOffice, type AreaReport,
+  currentUser, isOffice, AREA_SCOPE, type AreaReport, type DayReport,
 } from "../api";
-import { dayLabel } from "../format";
 import { onRealtime } from "../realtime";
 import { PageHead } from "../ui/PageHead";
 import { Icon } from "../ui/Icon";
 import { toast, confirmDialog, promptDialog } from "../ui/feedback";
-import { useScrollLock } from "../useScrollLock";
-import { usePopupBack } from "../ui/usePopupBack";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "../detail/CameraBox";
+import { PhotoReportDays } from "../detail/PhotoReportDays";
 
 export function AreaDetail({ id }: { id: string }) {
   const aid = Number(id);
@@ -24,9 +22,6 @@ export function AreaDetail({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [camOpen, setCamOpen] = useState(false);
   const capsRef = useRef<Processed[]>([]);
-  const [lightbox, setLightbox] = useState<{ base: string; imgId: number } | null>(null);
-  useScrollLock(!!lightbox);                          // ảnh phóng to phủ màn → khoá cuộn nền
-  usePopupBack(!!lightbox, () => setLightbox(null));  // BACK đóng ảnh trước
   const isAdmin = currentUser()?.role === "admin";
   const office = isOffice();
 
@@ -94,7 +89,11 @@ export function AreaDetail({ id }: { id: string }) {
 
   const editNote = async () => {
     if (!data) return;
-    const note = await promptDialog("Ghi chú khu vực", { initial: data.area.note || "", okLabel: "Lưu" });
+    // Ghi chú TỔNG của khu vực: dặn dò "cần dọn những gì" → nhiều dòng.
+    const note = await promptDialog("Ghi chú tổng — khu này cần dọn những gì?", {
+      initial: data.area.note || "", okLabel: "Lưu", multiline: true,
+      placeholder: "VD:\n- Quét sàn, lau kệ\n- Đổ rác cuối ca\n- Lau kính tủ",
+    });
     if (note == null) return;
     setBusy(true);
     try { await updateArea(aid, { note }); toast("✅ Đã lưu ghi chú", "ok"); await load(); }
@@ -129,9 +128,11 @@ export function AreaDetail({ id }: { id: string }) {
         <Icon name="leaf" size={18} /> {data.area.name}{office ? <Icon name="edit" size={14} class="kg-arrow" /> : null}
       </span>} sub="Vệ sinh khu vực" fallback="#/khu-vuc" />
 
-      <section class="card">
+      {/* GHI CHÚ TỔNG của khu vực — việc cần dọn ở đây (văn phòng sửa, mọi người đọc) */}
+      <section class="card area-note">
         <label class="card-label" onClick={office ? editNote : undefined} style={office ? { cursor: "pointer" } : undefined}>
-          <Icon name="edit" size={15} /> Ghi chú {office ? <Icon name="edit" size={12} class="kg-arrow" /> : null}
+          <Icon name="note" size={15} /> Ghi chú tổng — cần dọn những gì
+          {office ? <Icon name="edit" size={12} class="kg-arrow" /> : null}
         </label>
         {data.area.note
           ? <p style={{ whiteSpace: "pre-wrap", margin: "4px 0" }}>{data.area.note}</p>
@@ -149,43 +150,14 @@ export function AreaDetail({ id }: { id: string }) {
         <Icon name="camera" size={18} /> {todayDone ? "Chụp thêm ảnh" : "Báo cáo vệ sinh hôm nay"}
       </button>
 
-      {/* Lịch sử báo cáo theo ngày */}
+      {/* Lịch sử báo cáo theo ngày — ảnh + chấm điểm + trao đổi (dùng chung với chất lượng mâm) */}
       <h3 class="area-hist-h"><Icon name="history" size={16} /> Lịch sử báo cáo</h3>
-      {data.reports.length === 0 ? (
-        <EmptyState>Chưa có báo cáo vệ sinh nào. Bấm nút trên để báo cáo lần đầu.</EmptyState>
-      ) : (
-        data.reports.map((r) => {
-          const base = `/api/media/area_report/${r.id}`;
-          return (
-            <section class="card area-report-card" key={r.id}>
-              <div class="row space">
-                <b>{dayLabel(r.ymd)}</b>
-                <span class="muted small">
-                  {r.created_by ? `${r.created_by}` : ""}{r.created_at ? ` · ${String(r.created_at).slice(11, 16)}` : ""}
-                  {isAdmin && (
-                    <button class="area-del-rep" disabled={busy}
-                      title="Xoá báo cáo" onClick={() => doDeleteReport(r)}>
-                      <Icon name="trash" size={13} />
-                    </button>
-                  )}
-                </span>
-              </div>
-              {r.note ? <p class="muted small" style={{ margin: "2px 0 6px" }}>{r.note}</p> : null}
-              {r.images.length > 0 ? (
-                <div class="area-thumbs">
-                  {r.images.map((imgId) => (
-                    <img class="area-thumb-sm" loading="lazy" alt="" key={imgId}
-                      src={mediaImageUrl(base, imgId, "thumb")}
-                      onClick={() => setLightbox({ base, imgId })} />
-                  ))}
-                </div>
-              ) : (
-                <p class="muted small t-warn" style={{ margin: 0 }}>⚠ Chưa có ảnh — báo cáo chưa hoàn tất.</p>
-              )}
-            </section>
-          );
-        })
-      )}
+      <PhotoReportDays
+        scope={AREA_SCOPE} reports={data.reports as DayReport[]}
+        isAdmin={isAdmin} busy={busy}
+        onDelete={(r) => doDeleteReport(r as AreaReport)}
+        onChanged={load}
+        emptyText="Chưa có báo cáo vệ sinh nào. Bấm nút trên để báo cáo lần đầu." />
 
       {isAdmin && (
         <section class="card" style={{ marginTop: "14px" }}>
@@ -202,12 +174,6 @@ export function AreaDetail({ id }: { id: string }) {
           onClose={() => { setCamOpen(false); finalizeReport(capsRef.current, true); }} />
       )}
 
-      {lightbox && (
-        <div class="cam-overlay" onClick={() => setLightbox(null)}>
-          <img class="area-lightbox-img" alt=""
-            src={mediaImageUrl(lightbox.base, lightbox.imgId, "full")} />
-        </div>
-      )}
     </div>
   );
 }

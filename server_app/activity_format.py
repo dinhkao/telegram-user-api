@@ -28,13 +28,13 @@ _SCOPE_LABEL = {"order": "Đơn", "production": "Phiếu SX", "box": "Thùng", "
                 "purchase": "Nhập hàng", "supplier": "NCC", "product": "Sản phẩm", "unit": "Đơn vị",
                 "worker": "Thợ", "price": "Bảng giá", "quy": "Quỹ", "stocktake": "Kiểm kho",
                 "report_slip": "Báo cáo SX", "settings": "Cài đặt", "user": "User", "app": "Hệ thống",
-                "area": "Khu vực"}
+                "area": "Khu vực", "quality": "Chất lượng mâm"}
 
 # event → scope hiển thị khi row.scope trống (event cũ ghi thiếu scope)
 _EVENT_SCOPE = {"order": "order", "box": "box", "production": "production", "return": "return",
                 "purchase": "purchase", "supplier": "supplier", "product": "product",
                 "quy": "quy", "disposal": "disposal", "stocktake": "place", "settings": "settings",
-                "customer": "customer", "area": "area"}
+                "customer": "customer", "area": "area", "quality": "quality"}
 
 # Event nhân bản: box.* ghi cho CẢ thùng lẫn vị trí → feed giữ 1 bản (scope box);
 # moved_in/out là bản phụ của box.moved; allocated/released đã có bản gộp theo ĐƠN.
@@ -68,6 +68,8 @@ _PAIRS = {
     "DELETE /api/areas/{id}": ("area.deleted",),
     "POST /api/areas/{id}/report": ("area.report_created",),
     "POST /api/areas/report/{rid}/delete": ("area.report_deleted",),
+    "POST /api/quality/{id}/report": ("quality.report_created",),
+    "POST /api/quality/report/{rid}/delete": ("quality.report_deleted",),
     "POST /api/purchases": ("purchase.created",),
     "POST /api/purchases/{id}/pay": ("purchase.paid",),
     "POST /api/purchases/{id}/receive-goods": ("purchase.goods_line_added",),

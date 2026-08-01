@@ -186,6 +186,15 @@ def emit_area_changed(area_id=None) -> None:
                   _broadcast({"type": "area_changed", "id": str(area_id) if area_id else ""}, "area_changed"))
 
 
+def emit_quality_changed(worker_id=None) -> None:
+    """Báo cáo CHẤT LƯỢNG MÂM KẸO đổi (tạo/xoá báo cáo, thêm/xoá ảnh) → dashboard
+    chất lượng + trang chi tiết thợ tải lại."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.quality_changed",
+                  _broadcast({"type": "quality_changed", "id": str(worker_id) if worker_id else ""},
+                             "quality_changed"))
+
+
 def emit_cashbox_changed() -> None:
     """Hệ két tiền đổi (chuyển tay tạo/xoá) → trang Két refetch. Biến động từ
     đơn hàng thì client nghe order_changed/orders_changed sẵn có."""

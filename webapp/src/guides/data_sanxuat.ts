@@ -3,6 +3,51 @@ import type { Guide } from "./types";
 
 export const GUIDES_SANXUAT: Guide[] = [
   {
+    key: "chat-luong-mam-keo", icon: "star", cat: "Sản xuất",
+    title: "Chất lượng mâm kẹo",
+    desc: "Chụp ảnh mâm kẹo từng thợ làm được mỗi ngày, xem thợ nào đã/chưa chụp.",
+    routes: ["#/chat-luong"],
+    sections: [
+      { title: "Dùng để làm gì?", html: `
+        <p>Trang <a href="#/chat-luong">Chất lượng mâm kẹo</a> (menu <b>☰ Thêm → Sản xuất</b>) lưu lại
+        <b>hình ảnh mâm kẹo mà từng thợ làm được mỗi ngày</b> — để xem chất lượng mâm của ai đẹp/xấu,
+        có bằng chứng khi cần nhắc nhở hoặc khen thưởng, và tra lại được mâm ngày cũ.</p>
+        <p>Dòng trên cùng ghi <b>"Hôm nay: X/Y thợ đã chụp mâm"</b> — nhìn là biết còn thiếu ai.</p>` },
+      { title: "Chụp mâm kẹo của 1 thợ", html: `
+        <ul>
+          <li>Mở trang, chạm vào <b>card của thợ</b> đó.</li>
+          <li>Bấm <b>📷 Chụp mâm kẹo hôm nay</b> → camera mở ra, <b>chụp ít nhất 1 ảnh</b> mâm kẹo
+            (chụp nhiều mâm cũng được, hoặc chọn ảnh có sẵn từ máy), rồi bấm <b>Xong</b>.</li>
+          <li>Chỉ tính là <b>đã chụp</b> khi có ảnh — chụp xong mà không có ảnh nào thì vẫn coi là chưa.</li>
+          <li>Hôm nay chụp rồi thì nút đổi thành <b>📷 Chụp thêm mâm</b> — ảnh mới gộp chung vào hôm nay.</li>
+        </ul>
+        <p class="muted small">Cần dùng app trên điện thoại (HTTPS) để mở camera. Ảnh lưu kèm ngày, giờ và người chụp.</p>` },
+      { title: "Chấm điểm 10 + trao đổi trên ảnh", html: `
+        <ul>
+          <li>Chạm <b>1 tấm ảnh</b> trong lịch sử → ảnh mở to. Bên dưới có hàng số <b>0 → 10</b>:
+            bấm 1 số là <b>chấm điểm mâm đó</b> (0 rất kém, 10 rất tốt). Bấm lại đúng số đang chọn = <b>bỏ điểm</b>.</li>
+          <li>Điểm hiện luôn <b>góc trên ô ảnh</b> (xanh ≥8 · vàng 5–7 · đỏ &lt;5) và app ghi <b>ai chấm</b>.</li>
+          <li>Ngay dưới phần điểm là ô <b>Trao đổi của riêng bức ảnh này</b> — góp ý đúng vào mâm đang xem.</li>
+          <li>Nhiều ảnh trong 1 ngày thì bấm <b>‹ ›</b> hai bên để lướt qua lại.</li>
+          <li>Mỗi ngày còn có nút <b>💬 Trao đổi</b> (trao đổi chung của cả ngày) và huy hiệu
+            <b>⭐ điểm trung bình</b> của các ảnh đã chấm trong ngày.</li>
+        </ul>` },
+      { title: "Đọc bảng chất lượng", html: `
+        <ul>
+          <li>Mỗi card là <b>1 thợ</b>, kèm <b>ảnh mâm gần nhất</b> bên trái.</li>
+          <li>Huy hiệu <b class="t-ok">✓ Đã chụp mâm</b> (xanh) hoặc <b class="t-danger">Chưa chụp mâm</b> (đỏ) cho hôm nay,
+            kèm <b>⭐ điểm trung bình hôm nay</b> nếu đã chấm.</li>
+          <li>Dòng <b>7 chấm</b> là 7 ngày gần nhất: xanh = ngày đó có ảnh mâm, đỏ = không có; chấm hôm nay có viền nổi.</li>
+          <li>Trong chi tiết thợ có <b>lịch sử chụp mâm theo ngày</b> — chạm ảnh để xem to; admin có thể xoá báo cáo.</li>
+        </ul>` },
+      { title: "Thợ hiện ở đâu ra?", html: `
+        <p>Danh sách thợ ở đây <b>chính là danh sách thợ sản xuất</b> (<a href="#/tho">Danh sách thợ</a>) —
+        thêm/xoá/đổi tên thợ làm ở trang đó, bảng chất lượng tự cập nhật theo.</p>
+        <p>Nút <b>Sản xuất của thợ</b> ở góc trên trang chi tiết mở qua trang phiếu SX / sản lượng của
+        chính thợ đó, để đối chiếu ảnh mâm với số cây đã báo cáo.</p>` },
+    ],
+  },
+  {
     key: "ve-sinh-khu-vuc", icon: "leaf", cat: "Sản xuất",
     title: "Vệ sinh khu vực xưởng",
     desc: "Tạo khu vực, chụp ảnh báo cáo vệ sinh mỗi ngày, xem khu nào đã/chưa làm.",
@@ -18,6 +63,14 @@ export const GUIDES_SANXUAT: Guide[] = [
         <i>Nhà vệ sinh</i>) rồi <b>Tạo</b>. <b>Mọi người</b> đều tạo được khu vực.</p>
         <p>Trong chi tiết khu vực, <b>văn phòng</b> có thể sửa tên/ghi chú; <b>admin</b> có thể xoá khu vực
         (báo cáo cũ vẫn được giữ).</p>` },
+      { title: "Ghi chú tổng — khu này cần dọn gì", html: `
+        <p>Mỗi khu vực có khối <b>“Ghi chú tổng — cần dọn những gì”</b> ngay đầu trang chi tiết:
+        <b>văn phòng</b> chạm vào để ghi (nhiều dòng được), ví dụ:</p>
+        <pre>- Quét sàn, lau kệ
+- Đổ rác cuối ca
+- Lau kính tủ</pre>
+        <p>Mọi người đều <b>đọc</b> được, và ghi chú này còn hiện <b>ngay trên card ở bảng khu vực</b>
+        để nhìn là biết khu đó phải làm gì trước khi vào dọn.</p>` },
       { title: "Chụp ảnh báo cáo vệ sinh", html: `
         <ul>
           <li>Mở một khu vực (chạm vào card) → bấm <b>📷 Báo cáo vệ sinh hôm nay</b>.</li>
@@ -26,9 +79,18 @@ export const GUIDES_SANXUAT: Guide[] = [
           <li>Nếu hôm nay đã báo cáo rồi, nút đổi thành <b>📷 Chụp thêm ảnh</b> — ảnh mới gộp vào báo cáo hôm nay.</li>
         </ul>
         <p class="muted small">Cần dùng app trên điện thoại (HTTPS) để mở camera. Ảnh lưu kèm ngày, người chụp và giờ.</p>` },
+      { title: "Chấm điểm 10 + trao đổi trên ảnh", html: `
+        <ul>
+          <li>Chạm <b>1 tấm ảnh</b> trong lịch sử → ảnh mở to, bên dưới có hàng số <b>0 → 10</b>:
+            bấm 1 số là <b>chấm điểm mức sạch</b> của tấm đó. Bấm lại đúng số đang chọn = <b>bỏ điểm</b>.</li>
+          <li>Điểm hiện ở <b>góc ô ảnh</b> (xanh ≥8 · vàng 5–7 · đỏ &lt;5), kèm tên <b>người chấm</b>.</li>
+          <li>Dưới phần điểm là <b>Trao đổi riêng của bức ảnh</b> — nhắc “góc này còn bẩn” đúng vào tấm đang xem.</li>
+          <li>Mỗi ngày còn có nút <b>💬 Trao đổi</b> chung cho cả ngày + huy hiệu <b>⭐ điểm trung bình</b> ngày đó.</li>
+        </ul>` },
       { title: "Đọc bảng khu vực", html: `
         <ul>
-          <li>Mỗi card có huy hiệu <b class="t-ok">✓ Đã vệ sinh</b> (xanh) hoặc <b class="t-danger">Chưa báo cáo</b> (đỏ) cho hôm nay.</li>
+          <li>Mỗi card có huy hiệu <b class="t-ok">✓ Đã vệ sinh</b> (xanh) hoặc <b class="t-danger">Chưa báo cáo</b> (đỏ) cho hôm nay,
+            kèm <b>⭐ điểm trung bình hôm nay</b> nếu đã chấm.</li>
           <li>Dòng <b>7 chấm</b> là 7 ngày gần nhất: chấm xanh = ngày đó đã báo cáo, đỏ = bỏ sót; chấm hôm nay có viền nổi.</li>
           <li>Dòng <b>"BC gần nhất"</b> cho biết lần báo cáo cuối cùng và ai làm.</li>
           <li>Trong chi tiết khu vực có <b>lịch sử báo cáo theo ngày</b> kèm ảnh — chạm ảnh để xem to; admin có thể xoá báo cáo.</li>
