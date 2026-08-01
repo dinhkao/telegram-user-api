@@ -29,17 +29,18 @@ let current: Confirm | null = null;
 const cfSubs = new Set<(c: Confirm | null) => void>();
 const emitCf = () => cfSubs.forEach((f) => f(current));
 
-type Prompt = { msg: string; placeholder: string; value: string; okLabel: string; cancelLabel: string; type: string; resolve: (v: string | null) => void };
+type Prompt = { msg: string; placeholder: string; value: string; okLabel: string; cancelLabel: string; type: string; multiline: boolean; resolve: (v: string | null) => void };
 let currentPrompt: Prompt | null = null;
 const prSubs = new Set<(p: Prompt | null) => void>();
 const emitPr = () => prSubs.forEach((f) => f(currentPrompt));
 
 /** Hộp nhập liệu 1 ô → Promise<string|null> (null = huỷ). Thay prompt() native
- *  (bị chặn/lệch tông trong WebView). type: "text" | "tel" | "number"… */
-export function promptDialog(msg: string, opts: { placeholder?: string; initial?: string; okLabel?: string; cancelLabel?: string; type?: string } = {}): Promise<string | null> {
+ *  (bị chặn/lệch tông trong WebView). type: "text" | "tel" | "number"…
+ *  multiline: true → ô nhiều dòng (ghi chú dài, Enter xuống dòng thay vì gửi). */
+export function promptDialog(msg: string, opts: { placeholder?: string; initial?: string; okLabel?: string; cancelLabel?: string; type?: string; multiline?: boolean } = {}): Promise<string | null> {
   return new Promise((resolve) => {
     if (currentPrompt) currentPrompt.resolve(null);
-    currentPrompt = { msg, placeholder: opts.placeholder ?? "", value: opts.initial ?? "", okLabel: opts.okLabel ?? "Đồng ý", cancelLabel: opts.cancelLabel ?? "Huỷ", type: opts.type ?? "text", resolve };
+    currentPrompt = { msg, placeholder: opts.placeholder ?? "", value: opts.initial ?? "", okLabel: opts.okLabel ?? "Đồng ý", cancelLabel: opts.cancelLabel ?? "Huỷ", type: opts.type ?? "text", multiline: !!opts.multiline, resolve };
     emitPr();
   });
 }
@@ -90,12 +91,20 @@ export function FeedbackHost() {
         <div class="cf-backdrop" onClick={() => closePr(null)}>
           <div class="cf-box" onClick={(e: any) => e.stopPropagation()}>
             <p class="cf-msg">{pr.msg}</p>
-            <input
-              class="cf-input" type={pr.type} placeholder={pr.placeholder} value={pr.value}
-              autofocus
-              onInput={(e: any) => { if (currentPrompt) currentPrompt.value = e.target.value; }}
-              onKeyDown={(e: any) => { if (e.key === "Enter") closePr(currentPrompt?.value ?? null); }}
-            />
+            {pr.multiline ? (
+              <textarea
+                class="cf-input cf-textarea" rows={6} placeholder={pr.placeholder} value={pr.value}
+                autofocus
+                onInput={(e: any) => { if (currentPrompt) currentPrompt.value = e.target.value; }}
+              />
+            ) : (
+              <input
+                class="cf-input" type={pr.type} placeholder={pr.placeholder} value={pr.value}
+                autofocus
+                onInput={(e: any) => { if (currentPrompt) currentPrompt.value = e.target.value; }}
+                onKeyDown={(e: any) => { if (e.key === "Enter") closePr(currentPrompt?.value ?? null); }}
+              />
+            )}
             <div class="cf-actions">
               <button class="btn" onClick={() => closePr(null)}>{pr.cancelLabel}</button>
               <button class="btn primary" onClick={() => closePr(currentPrompt?.value ?? null)}>{pr.okLabel}</button>

@@ -23,7 +23,11 @@ from utils.paths import ORDER_MEDIA_DIR
 
 log = logging.getLogger("entity_media_routes")
 
-_ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return", "place", "supplier", "purchase", "disposal", "area_report", "quality_report", "worker_moc"}
+_ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return", "place", "supplier", "purchase", "disposal",
+                   "area_report", "quality_report", "area_image", "quality_image", "worker_moc"}
+# area_image / quality_image = TRAO ĐỔI TRÊN TỪNG BỨC ẢNH của báo cáo vệ sinh /
+# chất lượng mâm kẹo: entity_id ở đây là **image_id** (id trong entity_images), KHÔNG
+# phải id báo cáo. Chỉ dùng cho comments — ảnh của ảnh thì vô nghĩa.
 # worker_moc = trao đổi về MỐC LƯƠNG THÁNG của 1 thợ (entity_id = worker_id nên thấy
 # GIỐNG NHAU ở mọi tháng). Là chuyện tiền lương → CHỈ VĂN PHÒNG, như /api/payroll/*.
 _OFFICE_ONLY_SCOPES = {"worker_moc"}
@@ -97,14 +101,14 @@ def _emit(scope: str, entity_id: int) -> None:
         elif scope == "disposal":
             from server_app.realtime import emit_disposal_changed
             emit_disposal_changed(entity_id)
-        elif scope == "area_report":
-            # entity_id = report id; ta không tra area_id ở đây → phát tín hiệu chung
-            # để mọi trang khu vực (dashboard + chi tiết) tải lại.
+        elif scope in ("area_report", "area_image"):
+            # entity_id = report id / image id; ta không tra area_id ở đây → phát tín
+            # hiệu chung để mọi trang khu vực (dashboard + chi tiết) tải lại.
             from server_app.realtime import emit_area_changed
             emit_area_changed()
-        elif scope == "quality_report":
-            # entity_id = report id (không tra worker_id) → tín hiệu chung, mọi trang
-            # chất lượng mâm kẹo tải lại.
+        elif scope in ("quality_report", "quality_image"):
+            # entity_id = report id / image id (không tra worker_id) → tín hiệu chung,
+            # mọi trang chất lượng mâm kẹo tải lại.
             from server_app.realtime import emit_quality_changed
             emit_quality_changed()
     except Exception:  # noqa: BLE001

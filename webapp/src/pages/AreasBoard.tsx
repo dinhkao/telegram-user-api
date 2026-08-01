@@ -10,6 +10,7 @@ import { PageHead } from "../ui/PageHead";
 import { SearchBar } from "../ui/SearchBar";
 import { toast, promptDialog } from "../ui/feedback";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
+import { scoreClass } from "../detail/PhotoReportViewer";
 
 let areasCache: AreaRow[] | null = null;
 onRealtime((e) => { if (e.type === "area_changed" || e.type === "resync") areasCache = null; });
@@ -95,7 +96,14 @@ export function AreasBoard() {
                 <div class="area-card-name">{a.name}</div>
                 <div class={"area-badge " + (a.today.reported ? "t-ok" : "t-danger")}>
                   {a.today.reported ? "✓ Đã vệ sinh" : "Chưa báo cáo"}
+                  {a.today.score_avg != null && (
+                    <span class={"area-score " + scoreClass(a.today.score_avg)}>
+                      <Icon name="star" size={11} /> {a.today.score_avg}/10
+                    </span>
+                  )}
                 </div>
+                {/* ghi chú tổng: cần dọn những gì ở khu này (văn phòng đặt) */}
+                {a.note && <div class="muted small area-card-note">{a.note}</div>}
                 {a.last_report && (
                   <div class="muted small">
                     BC gần nhất: {a.last_report.ymd}{a.last_report.created_by ? ` · ${a.last_report.created_by}` : ""}

@@ -50,6 +50,29 @@ def add_comment(scope: str, entity_id: int, username: str, text: str, *, db_path
         conn.close()
 
 
+def comment_counts(scope: str, entity_ids: list[int], *, db_path: str | None = None) -> dict[int, int]:
+    """{entity_id: số bình luận} — để hiện badge 💬 mà không tải cả luồng."""
+    ids = [int(i) for i in (entity_ids or [])]
+    if not ids:
+        return {}
+    conn = _conn(db_path)
+    try:
+        out: dict[int, int] = {}
+        for i in range(0, len(ids), 400):   # tránh vượt trần biến SQLite
+            chunk = ids[i:i + 400]
+            q = ",".join("?" * len(chunk))
+            rows = conn.execute(
+                f"SELECT entity_id, COUNT(*) AS n FROM entity_comments "
+                f"WHERE scope = ? AND entity_id IN ({q}) GROUP BY entity_id",
+                (scope, *chunk),
+            ).fetchall()
+            for r in rows:
+                out[int(r["entity_id"])] = int(r["n"])
+        return out
+    finally:
+        conn.close()
+
+
 def list_comments(scope: str, entity_id: int, *, db_path: str | None = None) -> list[dict]:
     conn = _conn(db_path)
     try:

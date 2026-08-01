@@ -563,6 +563,30 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   tham số `entity_key='area_id'|'worker_id'`); `area_store/domain.py` +
   `quality_store/domain.py` chỉ là lớp chốt entity_key. Sửa luật "đã báo cáo" ở đó là
   đổi cả hai — đừng chép lại. Thêm trang báo-cáo-ảnh-hằng-ngày thứ 3 thì dùng lại module này.
+- **CHẤM ĐIỂM 0–10 + TRAO ĐỔI trên báo cáo-ảnh (2026-08-01, áp cho CẢ 2 trang trên).**
+  3 tầng trao đổi/đánh giá, tất cả xây trên `entity_media_store`:
+  - **Bình luận TỪNG NGÀY** = scope báo cáo (`area_report`/`quality_report`,
+    entity_id = report_id) — có sẵn, chỉ thêm UI.
+  - **Bình luận TỪNG BỨC ẢNH** = scope MỚI `area_image`/`quality_image` với
+    **entity_id = image_id** (id trong `entity_images`), chỉ dùng cho comments (ảnh
+    của ảnh là vô nghĩa) — nhớ khoảng cách ngữ nghĩa này khi đọc `entity_comments`.
+  - **Điểm 0–10 mỗi ảnh** = `entity_media_store/scores.py` (bảng `entity_image_scores`,
+    PK (scope ẢNH-THUỘC-BÁO-CÁO, image_id) → 1 ảnh 1 điểm, chấm lại là ghi đè, lưu
+    `scored_by`); API `server_app/image_score_routes.py` POST/DELETE
+    `/api/media/{scope}/{entity_id}/images/{image_id}/score` (mọi user đăng nhập chấm
+    được — đổi thành office chỉ cần thêm gate ở 2 handler đó). `avg_by_entity` JOIN
+    `entity_images` cho điểm TB theo ngày/hôm nay.
+  - Dựng payload xem cho cả 2 trang: **`server_app/photo_report_view.py`**
+    (`enrich_reports` → images[{id,score,scored_by,comment_count}] + photo_count +
+    comment_count + score_avg/score_count; `attach_today_scores` → today.score_avg).
+    Sửa hình dạng report trả về thì sửa Ở ĐÂY, cả 2 route dùng chung.
+  - UI dùng chung: **`webapp/src/detail/PhotoReportDays.tsx`** (thẻ từng ngày: badge
+    điểm TB + nút Trao đổi ngày + ô ảnh có nhãn điểm/💬) → **`PhotoReportViewer.tsx`**
+    (ảnh to + chips 0–10 + Comments của ảnh; `scoreClass` = màu theo thang điểm, cả 2
+    dashboard import). `promptDialog` có thêm `multiline: true` (dùng cho "Ghi chú tổng"
+    của khu vực — hiện luôn trên card ở `#/khu-vuc`). `eventMatchesBase` (realtime.ts)
+    nhận `area_changed`/`quality_changed` để luồng trao đổi đang mở tự tải lại.
+  Tests: `tests/test_image_scores.py`.
 - `supplier_store/` + `purchase_store/` — NHẬP HÀNG + NHÀ CUNG CẤP (app.db,
   **100% local, không KiotViet**). `suppliers` (tên/SĐT/địa chỉ/ghi chú, xoá mềm,
   chặn xoá khi còn phiếu) + `purchase_slips` (items JSON [{sp, sp_id?, sl, price}]

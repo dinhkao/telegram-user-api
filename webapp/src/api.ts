@@ -519,21 +519,49 @@ export async function deleteDisposal(id: number): Promise<any> {
   return postJSON(`/api/disposals/${id}/delete`, {});
 }
 
+// ── BÁO CÁO-ẢNH-HẰNG-NGÀY: kiểu dùng chung cho vệ sinh khu vực + chất lượng mâm ─
+/** 1 ảnh trong báo cáo: điểm 0–10 (null = chưa chấm) + số bình luận của ẢNH đó. */
+export type ReportImage = {
+  id: number; score: number | null; scored_by: string; scored_at: number | null; comment_count: number;
+};
+/** 1 NGÀY báo cáo: ảnh + bình luận của cả ngày + điểm trung bình các ảnh đã chấm. */
+export type DayReport = {
+  id: number; ymd: string; note: string; created_at: string; created_by: string;
+  images: ReportImage[]; photo_count: number; comment_count: number;
+  score_avg: number | null; score_count: number;
+};
+/** Trạng thái hôm nay trên card dashboard. */
+export type TodayStatus = {
+  report_id: number | null; photo_count: number; reported: boolean;
+  score_avg: number | null; score_count: number;
+};
+/** Cặp scope media: báo cáo (theo ngày) ↔ ảnh (bình luận từng bức). */
+export type PhotoScope = { report: "area_report" | "quality_report"; image: "area_image" | "quality_image" };
+export const AREA_SCOPE: PhotoScope = { report: "area_report", image: "area_image" };
+export const QUALITY_SCOPE: PhotoScope = { report: "quality_report", image: "quality_image" };
+
+/** Chấm điểm 0–10 cho 1 ảnh (mọi user; lưu kèm ai chấm). */
+export async function setImageScore(scope: string, entityId: number, imageId: number, score: number): Promise<any> {
+  const d = await postJSON(`/api/media/${scope}/${entityId}/images/${imageId}/score`, { score });
+  return d.score;
+}
+/** Bỏ điểm 1 ảnh (về "chưa chấm"). */
+export async function clearImageScore(scope: string, entityId: number, imageId: number): Promise<any> {
+  return delJSON(`/api/media/${scope}/${entityId}/images/${imageId}/score`);
+}
+
 // ── KHU VỰC XƯỞNG + BÁO CÁO VỆ SINH hằng ngày (media scope 'area_report') ─────
 export type AreaWeekDay = { ymd: string; reported: boolean };
 export type AreaRow = {
   id: number; name: string; note: string;
-  today: { report_id: number | null; photo_count: number; reported: boolean };
+  today: TodayStatus;
   last_report: { ymd: string; created_at: string; created_by: string } | null;
   week: AreaWeekDay[];
   thumb_image_id: number | null;
   thumb_report_id: number | null;
 };
 export type AreaBoard = { today_ymd: string; areas: AreaRow[]; done_count: number; total: number };
-export type AreaReport = {
-  id: number; area_id: number; ymd: string; note: string;
-  created_at: string; created_by: string; images: number[]; photo_count: number;
-};
+export type AreaReport = DayReport & { area_id: number };
 export type AreaDetailData = {
   area: { id: number; name: string; note: string; created_at: string; created_by: string };
   reports: AreaReport[]; today_ymd: string;
@@ -577,7 +605,7 @@ export async function deleteAreaReport(rid: number): Promise<any> {
 // Cùng hình dạng với khu vực/vệ sinh, nhưng thực thể là THỢ (production_workers).
 export type QualityRow = {
   id: number; name: string; note: string;
-  today: { report_id: number | null; photo_count: number; reported: boolean };
+  today: TodayStatus;
   last_report: { ymd: string; created_at: string; created_by: string } | null;
   week: AreaWeekDay[];
   thumb_image_id: number | null;
@@ -586,10 +614,7 @@ export type QualityRow = {
 export type QualityBoardData = {
   today_ymd: string; workers: QualityRow[]; done_count: number; total: number;
 };
-export type QualityReport = {
-  id: number; worker_id: number; ymd: string; note: string;
-  created_at: string; created_by: string; images: number[]; photo_count: number;
-};
+export type QualityReport = DayReport & { worker_id: number };
 export type QualityWorkerData = {
   worker: { id: number; name: string };
   reports: QualityReport[]; today_ymd: string;

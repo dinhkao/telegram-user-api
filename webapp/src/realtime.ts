@@ -61,6 +61,10 @@ export function eventMatchesBase(base: string, e: RealtimeEvent): boolean {
   if (e.type === "purchase_changed" && e.id) return base.includes("/purchase/") && base.endsWith("/" + e.id);
   if (e.type === "supplier_changed" && e.id) return base.includes("/supplier/") && base.endsWith("/" + e.id);
   if (e.type === "disposal_changed" && e.id) return base.includes("/disposal/") && base.endsWith("/" + e.id);
+  // Vệ sinh khu vực / chất lượng mâm: event KHÔNG mang id báo cáo hay id ảnh (chỉ id
+  // khu vực/thợ) → mọi luồng trao đổi đang mở của trang đó tải lại.
+  if (e.type === "area_changed") return base.includes("/area_report/") || base.includes("/area_image/");
+  if (e.type === "quality_changed") return base.includes("/quality_report/") || base.includes("/quality_image/");
   return false;
 }
 

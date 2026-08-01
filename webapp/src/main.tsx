@@ -594,7 +594,7 @@ function App() {
     : purEditMatch ? "Sửa phiếu nhập"
     : hash.startsWith("#/xuat-huy") ? "Xuất hủy"
     : hash.startsWith("#/khu-vuc") ? "Khu vực xưởng"
-    : hash.startsWith("#/chat-luong") ? "Chất lượng mâm kẹo"
+    : hash.startsWith("#/chat-luong") ? "Chất lượng mâm"
     : hash.startsWith("#/dieu-chinh") ? "Điều chỉnh tồn"
     : hash.startsWith("#/nhap-hang") ? "Nhập hàng"
     : hash.startsWith("#/ncc") ? "Nhà cung cấp"

@@ -16,8 +16,9 @@ from aiohttp import web
 
 import quality_store
 import worker_store
-from entity_media_store import image_counts, latest_image_ids, list_images
+from entity_media_store import image_counts, latest_image_ids
 from quality_store import domain
+from server_app.photo_report_view import attach_today_scores, enrich_reports
 from utils.db import get_connection
 
 log = logging.getLogger("quality_routes")
@@ -74,6 +75,10 @@ async def quality_all_handler(request: web.Request):
             for r in reports:
                 r["photo_count"] = int(counts.get(int(r["id"]), 0))
             rows, done = domain.build_dashboard_rows(workers, reports, today, week=7)
+            # điểm TB mâm hôm nay của từng thợ (chấm điểm 0–10 trên từng ảnh)
+            attach_today_scores("quality_report", rows,
+                                {int(r["worker_id"]): int(r["id"]) for r in reports
+                                 if str(r.get("ymd")) == today})
             # thumbnail = ảnh mới nhất của BÁO CÁO GẦN NHẤT mỗi thợ (reports đã sort
             # mới→cũ nên id đầu tiên gặp = gần nhất).
             latest_map: dict[int, int] = {}
@@ -108,11 +113,8 @@ async def quality_worker_handler(request: web.Request):
             if not worker:
                 return None, None, None
             reports = quality_store.list_reports(conn, wid)
-            counts = image_counts("quality_report", [int(r["id"]) for r in reports])
-            for r in reports:
-                imgs = list_images("quality_report", int(r["id"]))
-                r["images"] = [int(i["id"]) for i in imgs]
-                r["photo_count"] = int(counts.get(int(r["id"]), len(imgs)))
+            # ảnh + điểm 0–10 + số bình luận (từng ảnh và cả ngày)
+            enrich_reports("quality_report", "quality_image", reports)
             return worker, reports, domain.today_vn()
         finally:
             conn.close()

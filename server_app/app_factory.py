@@ -226,6 +226,9 @@ def create_app():
     r.add_post("/api/media/{scope}/{entity_id}/images", em_images_upload)
     r.add_delete("/api/media/{scope}/{entity_id}/images/{image_id}", em_images_delete)
     r.add_get("/api/media/{scope}/{entity_id}/images/{image_id}/file", em_images_file)
+    from server_app.image_score_routes import image_score_clear_handler, image_score_set_handler
+    r.add_post("/api/media/{scope}/{entity_id}/images/{image_id}/score", image_score_set_handler)
+    r.add_delete("/api/media/{scope}/{entity_id}/images/{image_id}/score", image_score_clear_handler)
     from server_app.entity_history import entity_history_handler
     r.add_get("/api/media/{scope}/{entity_id}/history", entity_history_handler)
     from server_app.activity import activity_handler

@@ -6,17 +6,15 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   getQualityWorker, createQualityReport, deleteQualityReport,
-  mediaImageUrl, currentUser, type QualityReport,
+  currentUser, QUALITY_SCOPE, type DayReport, type QualityReport,
 } from "../api";
-import { dayLabel } from "../format";
 import { onRealtime } from "../realtime";
 import { PageHead } from "../ui/PageHead";
 import { Icon } from "../ui/Icon";
 import { toast, confirmDialog } from "../ui/feedback";
-import { useScrollLock } from "../useScrollLock";
-import { usePopupBack } from "../ui/usePopupBack";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "../detail/CameraBox";
+import { PhotoReportDays } from "../detail/PhotoReportDays";
 
 export function QualityDetail({ id }: { id: string }) {
   const wid = Number(id);
@@ -25,9 +23,6 @@ export function QualityDetail({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [camOpen, setCamOpen] = useState(false);
   const capsRef = useRef<Processed[]>([]);
-  const [lightbox, setLightbox] = useState<{ base: string; imgId: number } | null>(null);
-  useScrollLock(!!lightbox);                          // ảnh phóng to phủ màn → khoá cuộn nền
-  usePopupBack(!!lightbox, () => setLightbox(null));  // BACK đóng ảnh trước
   const isAdmin = currentUser()?.role === "admin";
 
   const load = async () => {
@@ -114,56 +109,20 @@ export function QualityDetail({ id }: { id: string }) {
         <Icon name="camera" size={18} /> {todayDone ? "Chụp thêm mâm" : "Chụp mâm kẹo hôm nay"}
       </button>
 
-      {/* Lịch sử báo cáo theo ngày */}
+      {/* Lịch sử báo cáo theo ngày — ảnh + chấm điểm + trao đổi (dùng chung với vệ sinh) */}
       <h3 class="area-hist-h"><Icon name="history" size={16} /> Lịch sử chụp mâm</h3>
-      {data.reports.length === 0 ? (
-        <EmptyState>Chưa có ảnh mâm kẹo nào của thợ này. Bấm nút trên để chụp lần đầu.</EmptyState>
-      ) : (
-        data.reports.map((r) => {
-          const base = `/api/media/quality_report/${r.id}`;
-          return (
-            <section class="card area-report-card" key={r.id}>
-              <div class="row space">
-                <b>{dayLabel(r.ymd)}</b>
-                <span class="muted small">
-                  {r.created_by ? `${r.created_by}` : ""}{r.created_at ? ` · ${String(r.created_at).slice(11, 16)}` : ""}
-                  {isAdmin && (
-                    <button class="area-del-rep" disabled={busy}
-                      title="Xoá báo cáo" onClick={() => doDeleteReport(r)}>
-                      <Icon name="trash" size={13} />
-                    </button>
-                  )}
-                </span>
-              </div>
-              {r.note ? <p class="muted small" style={{ margin: "2px 0 6px" }}>{r.note}</p> : null}
-              {r.images.length > 0 ? (
-                <div class="area-thumbs">
-                  {r.images.map((imgId) => (
-                    <img class="area-thumb-sm" loading="lazy" alt="" key={imgId}
-                      src={mediaImageUrl(base, imgId, "thumb")}
-                      onClick={() => setLightbox({ base, imgId })} />
-                  ))}
-                </div>
-              ) : (
-                <p class="muted small t-warn" style={{ margin: 0 }}>⚠ Chưa có ảnh — báo cáo chưa hoàn tất.</p>
-              )}
-            </section>
-          );
-        })
-      )}
+      <PhotoReportDays
+        scope={QUALITY_SCOPE} reports={data.reports as DayReport[]}
+        isAdmin={isAdmin} busy={busy}
+        onDelete={(r) => doDeleteReport(r as QualityReport)}
+        onChanged={load}
+        emptyText="Chưa có ảnh mâm kẹo nào của thợ này. Bấm nút trên để chụp lần đầu." />
 
       {camOpen && (
         <CameraBox base={`/api/media/quality_report/0`}
           onCapture={(p) => capsRef.current.push(p)}
           onUploaded={() => { /* collect mode — không upload ngay */ }}
           onClose={() => { setCamOpen(false); finalizeReport(capsRef.current, true); }} />
-      )}
-
-      {lightbox && (
-        <div class="cam-overlay" onClick={() => setLightbox(null)}>
-          <img class="area-lightbox-img" alt=""
-            src={mediaImageUrl(lightbox.base, lightbox.imgId, "full")} />
-        </div>
       )}
     </div>
   );

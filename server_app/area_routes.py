@@ -15,7 +15,8 @@ from aiohttp import web
 
 import area_store
 from area_store import domain
-from entity_media_store import image_counts, latest_image_ids, list_images
+from entity_media_store import image_counts, latest_image_ids
+from server_app.photo_report_view import attach_today_scores, enrich_reports
 from utils.db import get_connection
 
 log = logging.getLogger("area_routes")
@@ -61,6 +62,10 @@ async def areas_all_handler(request: web.Request):
             for r in reports:
                 r["photo_count"] = int(counts.get(int(r["id"]), 0))
             rows, done = domain.build_dashboard_rows(areas, reports, today, week=7)
+            # điểm TB vệ sinh hôm nay của từng khu (chấm điểm 0–10 trên từng ảnh)
+            attach_today_scores("area_report", rows,
+                                {int(r["area_id"]): int(r["id"]) for r in reports
+                                 if str(r.get("ymd")) == today})
             # thumbnail = ảnh mới nhất của BÁO CÁO GẦN NHẤT mỗi khu vực (reports đã
             # sort mới→cũ nên id đầu tiên gặp = gần nhất).
             latest_map: dict[int, int] = {}
@@ -95,11 +100,8 @@ async def area_detail_handler(request: web.Request):
             if not area:
                 return None, None, None
             reports = area_store.list_reports(conn, aid)
-            counts = image_counts("area_report", [int(r["id"]) for r in reports])
-            for r in reports:
-                imgs = list_images("area_report", int(r["id"]))
-                r["images"] = [int(i["id"]) for i in imgs]
-                r["photo_count"] = int(counts.get(int(r["id"]), len(imgs)))
+            # ảnh + điểm 0–10 + số bình luận (từng ảnh và cả ngày)
+            enrich_reports("area_report", "area_image", reports)
             return area, reports, domain.today_vn()
         finally:
             conn.close()

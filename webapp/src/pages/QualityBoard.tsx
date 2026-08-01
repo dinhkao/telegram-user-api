@@ -11,6 +11,7 @@ import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SearchBar } from "../ui/SearchBar";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
+import { scoreClass } from "../detail/PhotoReportViewer";
 
 let qualityCache: QualityRow[] | null = null;
 onRealtime((e) => {
@@ -86,6 +87,11 @@ export function QualityBoard() {
                   {w.today.reported
                     ? `✓ Đã chụp mâm${w.today.photo_count > 1 ? ` · ${w.today.photo_count} ảnh` : ""}`
                     : "Chưa chụp mâm"}
+                  {w.today.score_avg != null && (
+                    <span class={"area-score " + scoreClass(w.today.score_avg)}>
+                      <Icon name="star" size={11} /> {w.today.score_avg}/10
+                    </span>
+                  )}
                 </div>
                 {w.last_report && (
                   <div class="muted small">
