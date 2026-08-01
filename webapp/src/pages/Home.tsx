@@ -43,6 +43,7 @@ const GROUPS: Group[] = [
     { label: "Dashboard SX", href: "#/sx-bang", icon: "chart" },
     { label: "Danh sách thợ", href: "#/tho", icon: "users" },
     { label: "Vệ sinh khu vực", href: "#/khu-vuc", icon: "leaf" },
+    { label: "Chất lượng mâm kẹo", href: "#/chat-luong", icon: "star" },
   ] },
   { title: "Lương", icon: "wallet", items: [
     { label: "Bảng lương tháng", href: "#/luong-thang", icon: "wallet", office: true },

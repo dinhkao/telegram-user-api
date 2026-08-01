@@ -573,6 +573,48 @@ export async function deleteAreaReport(rid: number): Promise<any> {
   return postJSON(`/api/areas/report/${rid}/delete`, {});
 }
 
+// ── CHẤT LƯỢNG MÂM KẸO hằng ngày theo THỢ (media scope 'quality_report') ──────
+// Cùng hình dạng với khu vực/vệ sinh, nhưng thực thể là THỢ (production_workers).
+export type QualityRow = {
+  id: number; name: string; note: string;
+  today: { report_id: number | null; photo_count: number; reported: boolean };
+  last_report: { ymd: string; created_at: string; created_by: string } | null;
+  week: AreaWeekDay[];
+  thumb_image_id: number | null;
+  thumb_report_id: number | null;
+};
+export type QualityBoardData = {
+  today_ymd: string; workers: QualityRow[]; done_count: number; total: number;
+};
+export type QualityReport = {
+  id: number; worker_id: number; ymd: string; note: string;
+  created_at: string; created_by: string; images: number[]; photo_count: number;
+};
+export type QualityWorkerData = {
+  worker: { id: number; name: string };
+  reports: QualityReport[]; today_ymd: string;
+};
+
+/** Dashboard chất lượng mâm — thợ nào đã/chưa chụp mâm hôm nay + dải 7 ngày. */
+export async function listQuality(): Promise<QualityBoardData> {
+  const d = await getJSON("/api/quality", { cache: false });
+  return { today_ymd: d.today_ymd, workers: d.workers || [], done_count: d.done_count || 0, total: d.total || 0 };
+}
+/** Chi tiết 1 thợ + báo cáo chất lượng (mỗi báo cáo kèm images[] + photo_count). */
+export async function getQualityWorker(id: string | number): Promise<QualityWorkerData> {
+  const d = await getJSON(`/api/quality/${id}`, { cache: false });
+  return { worker: d.worker, reports: d.reports || [], today_ymd: d.today_ymd };
+}
+/** Tạo/lấy báo cáo chất lượng mâm HÔM NAY của 1 thợ (mọi user, ymd tính server). */
+export async function createQualityReport(id: number, note = ""): Promise<{ report_id: number; ymd: string; created: boolean }> {
+  const d = await postJSON(`/api/quality/${id}/report`, { note });
+  return { report_id: d.report_id, ymd: d.ymd, created: d.created };
+}
+/** Xoá báo cáo chất lượng mâm (admin, xoá mềm). */
+export async function deleteQualityReport(rid: number): Promise<any> {
+  return postJSON(`/api/quality/report/${rid}/delete`, {});
+}
+
 /** Feed đơn + thanh toán của 1 khách, gộp 1 dòng thời gian (trang chi tiết khách). */
 export async function getCustomerFeed(key: string, page = 1): Promise<{ items: CustFeedItem[]; page: number; total_pages: number; total: number }> {
   const d = await getJSON(`/api/customers/${encodeURIComponent(key)}/feed?page=${page}`, { cache: false });

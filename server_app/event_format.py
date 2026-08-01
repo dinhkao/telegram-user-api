@@ -310,6 +310,19 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         if label:
             extra = [part(f"ngày {p.get('ymd')}")] if p.get("ymd") else []
             return label, _join([area_seg, extra])
+    # ── CHẤT LƯỢNG MÂM KẸO (quality.*) — scope='quality', entity = THỢ ─────────
+    if action.startswith("quality."):
+        wid = p.get("worker_id")
+        wname = str(p.get("worker_name") or "").strip()
+        w_seg = [part(wname or f"thợ #{wid}", href_for("quality", wid))] if wid else []
+        _q_labels = {
+            "quality.report_created": "Chụp chất lượng mâm kẹo",
+            "quality.report_deleted": "Xoá báo cáo chất lượng mâm",
+        }
+        label = _q_labels.get(action)
+        if label:
+            extra = [part(f"ngày {p.get('ymd')}")] if p.get("ymd") else []
+            return label, _join([w_seg, extra])
     if action.startswith("stocktake."):
         _st_labels = {
             "stocktake.created": "Tạo phiếu kiểm kho",

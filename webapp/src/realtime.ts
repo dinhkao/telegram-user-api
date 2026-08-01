@@ -22,6 +22,7 @@ export type RealtimeEvent =
   | { type: "supplier_changed"; id: string | null }
   | { type: "disposal_changed"; id: string }
   | { type: "area_changed"; id: string }
+  | { type: "quality_changed"; id: string }
   | { type: "cashbox_changed" }
   | { type: "banner_changed" }
   | { type: "notif_added"; notif: any }

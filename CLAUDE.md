@@ -544,6 +544,25 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   UI: `#/khu-vuc` (AreasBoard — dashboard 7 ngày) → `#/khu-vuc/:id` (AreaDetail —
   báo cáo photo-first qua CameraBox); menu ☰ Thêm → Sản xuất → "Vệ sinh khu vực".
   Tests: `tests/test_area_store.py`.
+- `quality_store/` — CHẤT LƯỢNG MÂM KẸO (`tray_quality_reports`), app.db 100% local,
+  2026-08-01. **CÙNG KHUÔN với vệ sinh khu vực**, chỉ khác THỰC THỂ: ở đây là **THỢ**
+  (bảng `production_workers` có sẵn của `worker_store` — KHÔNG tạo danh sách người thứ
+  hai; thêm/xoá/đổi tên thợ vẫn ở `#/tho`). Mỗi ngày chụp ảnh mâm kẹo từng thợ làm
+  được; dashboard cho biết thợ nào đã/chưa chụp hôm nay. Ảnh gắn TỪNG BÁO CÁO qua media
+  scope `quality_report` (báo cáo tính là XONG chỉ khi có ≥1 ảnh). `get_or_create_report`
+  idempotent theo (thợ, ngày) — ngày = `today_vn()` tính SERVER; partial unique index
+  `ux_tray_quality_day` cho phép xoá mềm rồi chụp lại cùng ngày. Quyền: xem + chụp =
+  mọi user; xoá báo cáo = admin (xoá mềm). API `server_app/quality_routes.py`
+  (`/api/quality*`); realtime `quality_changed`; audit scope `quality` (event
+  `quality.report_created/report_deleted`). UI: `#/chat-luong` (QualityBoard) →
+  `#/chat-luong/:worker_id` (QualityDetail — photo-first qua CameraBox, nút sang
+  `#/sx-tho/:name`); menu ☰ Thêm → Sản xuất → "Chất lượng mâm kẹo"; **CSS dùng chung
+  `.area-*`** với trang vệ sinh. Tests: `tests/test_quality_store.py`.
+  ⚠ Logic THUẦN của CẢ HAI trang (mốc ngày VN + ghép hàng dashboard 7 ngày) nằm ở
+  **`utils/daily_photo_report.py`** (`today_vn`/`last_n_days`/`build_dashboard_rows`,
+  tham số `entity_key='area_id'|'worker_id'`); `area_store/domain.py` +
+  `quality_store/domain.py` chỉ là lớp chốt entity_key. Sửa luật "đã báo cáo" ở đó là
+  đổi cả hai — đừng chép lại. Thêm trang báo-cáo-ảnh-hằng-ngày thứ 3 thì dùng lại module này.
 - `supplier_store/` + `purchase_store/` — NHẬP HÀNG + NHÀ CUNG CẤP (app.db,
   **100% local, không KiotViet**). `suppliers` (tên/SĐT/địa chỉ/ghi chú, xoá mềm,
   chặn xoá khi còn phiếu) + `purchase_slips` (items JSON [{sp, sp_id?, sl, price}]

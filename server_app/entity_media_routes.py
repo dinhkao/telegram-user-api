@@ -23,7 +23,7 @@ from utils.paths import ORDER_MEDIA_DIR
 
 log = logging.getLogger("entity_media_routes")
 
-_ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return", "place", "supplier", "purchase", "disposal", "area_report", "worker_moc"}
+_ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return", "place", "supplier", "purchase", "disposal", "area_report", "quality_report", "worker_moc"}
 # worker_moc = trao đổi về MỐC LƯƠNG THÁNG của 1 thợ (entity_id = worker_id nên thấy
 # GIỐNG NHAU ở mọi tháng). Là chuyện tiền lương → CHỈ VĂN PHÒNG, như /api/payroll/*.
 _OFFICE_ONLY_SCOPES = {"worker_moc"}
@@ -102,6 +102,11 @@ def _emit(scope: str, entity_id: int) -> None:
             # để mọi trang khu vực (dashboard + chi tiết) tải lại.
             from server_app.realtime import emit_area_changed
             emit_area_changed()
+        elif scope == "quality_report":
+            # entity_id = report id (không tra worker_id) → tín hiệu chung, mọi trang
+            # chất lượng mâm kẹo tải lại.
+            from server_app.realtime import emit_quality_changed
+            emit_quality_changed()
     except Exception:  # noqa: BLE001
         pass
 

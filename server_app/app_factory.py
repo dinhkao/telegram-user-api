@@ -464,6 +464,13 @@ def create_app():
     r.add_delete("/api/areas/{id}", area_delete_handler)         # admin xoá mềm
     r.add_post("/api/areas/{id}/report", area_report_handler)    # mọi user báo cáo hôm nay
     r.add_post("/api/areas/report/{rid}/delete", area_report_delete_handler)  # admin xoá báo cáo
+
+    from server_app.quality_routes import (quality_all_handler, quality_report_delete_handler,
+                                            quality_report_handler, quality_worker_handler)
+    r.add_get("/api/quality", quality_all_handler)                 # dashboard chất lượng mâm kẹo
+    r.add_get("/api/quality/{id}", quality_worker_handler)         # 1 thợ + báo cáo
+    r.add_post("/api/quality/{id}/report", quality_report_handler)  # mọi user chụp mâm hôm nay
+    r.add_post("/api/quality/report/{rid}/delete", quality_report_delete_handler)  # admin xoá
     from server_app.settings_routes import settings_get_handler, settings_set_handler
     r.add_get("/api/settings", settings_get_handler)
     r.add_post("/api/settings", settings_set_handler)

@@ -3883,7 +3883,9 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 /* bảng lương: dòng mốc lương thời gian (từ chấm công) trên thẻ */
 .pr-moc-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; font-size: .82rem; }
 
-/* ── KHU VỰC XƯỞNG + BÁO CÁO VỆ SINH (#/khu-vuc, #/khu-vuc/:id) ─────────────── */
+/* ── BẢNG BÁO CÁO-ẢNH-HẰNG-NGÀY (.area-*) — DÙNG CHUNG 2 trang cùng kiểu:
+   vệ sinh khu vực (#/khu-vuc, #/khu-vuc/:id) + chất lượng mâm kẹo
+   (#/chat-luong, #/chat-luong/:worker_id). Sửa ở đây là đổi cả hai. ───────────── */
 .area-summary { display: flex; align-items: center; gap: 8px; margin: 8px 0 10px; padding: 8px 12px;
   background: var(--warn-wash); color: var(--warn); border-radius: 10px; font-size: .9rem; font-weight: 600; }
 .area-summary.all-done { background: var(--ok-wash); color: var(--ok); }

@@ -80,6 +80,8 @@ import { AdjustmentsList } from "./pages/AdjustmentsList";
 import { DisposalDetail } from "./pages/DisposalDetail";
 import { AreasBoard } from "./pages/AreasBoard";
 import { AreaDetail } from "./pages/AreaDetail";
+import { QualityBoard } from "./pages/QualityBoard";
+import { QualityDetail } from "./pages/QualityDetail";
 import { CashboxList } from "./pages/CashboxList";
 import { CollectMoney } from "./pages/CollectMoney";
 import { SmartCollectMoney } from "./pages/SmartCollectMoney";
@@ -490,6 +492,7 @@ function App() {
   const retMatch = hash.match(/^#\/tra-hang\/(\d+)/);
   const dispMatch = hash.match(/^#\/xuat-huy\/(\d+)/);
   const areaMatch = hash.match(/^#\/khu-vuc\/(\d+)/);
+  const qualityMatch = hash.match(/^#\/chat-luong\/(\d+)/);
   const ketMatch = hash.match(/^#\/ket\/([^?]+)/);
   const purEditMatch = hash.match(/^#\/nhap-hang\/(\d+)\/sua/);
   const purMatch = hash.match(/^#\/nhap-hang\/(\d+)/);
@@ -564,6 +567,8 @@ function App() {
   else if (hash.startsWith("#/xuat-huy")) page = <DisposalsList />;
   else if (areaMatch) page = <AreaDetail id={areaMatch[1]} />;
   else if (hash.startsWith("#/khu-vuc")) page = <AreasBoard />;
+  else if (qualityMatch) page = <QualityDetail id={qualityMatch[1]} />;
+  else if (hash.startsWith("#/chat-luong")) page = <QualityBoard />;
   else if (hash.startsWith("#/dieu-chinh")) page = <AdjustmentsList />;
   else if (ketMatch) page = <CashboxDetail boxKey={decodeURIComponent(ketMatch[1])} />;
   else if (hash.startsWith("#/ket")) page = <CashboxList />;
@@ -589,6 +594,7 @@ function App() {
     : purEditMatch ? "Sửa phiếu nhập"
     : hash.startsWith("#/xuat-huy") ? "Xuất hủy"
     : hash.startsWith("#/khu-vuc") ? "Khu vực xưởng"
+    : hash.startsWith("#/chat-luong") ? "Chất lượng mâm kẹo"
     : hash.startsWith("#/dieu-chinh") ? "Điều chỉnh tồn"
     : hash.startsWith("#/nhap-hang") ? "Nhập hàng"
     : hash.startsWith("#/ncc") ? "Nhà cung cấp"

@@ -28,6 +28,7 @@ const ROUTE_NAMES: Record<string, string> = {
   "#/san_xuat": "Phiếu sản xuất", "#/san_xuat/:id": "Chi tiết phiếu SX",
   "#/san_xuat/:id/bao-cao": "Sửa báo cáo SX", "#/sx-bang": "Dashboard SX", "#/tho": "Danh sách thợ",
   "#/tien-cong": "Tiền công thợ", "#/bao-cao": "Báo cáo SX", "#/luong-sp": "Lương sản phẩm",
+  "#/chat-luong": "Chất lượng mâm kẹo", "#/chat-luong/:id": "Chất lượng mâm của thợ",
   "#/quy": "Sổ quỹ", "#/bang-gia": "Bảng giá", "#/camera": "Camera",
   "#/lich-su": "Lịch sử thao tác", "#/home": "Menu Thêm", "#/thu-tien": "Thu tiền",
   "#/login": "Đăng nhập / Cài đặt", "#/users": "Quản lý user", "#/usage": "Thống kê sử dụng",

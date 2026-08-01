@@ -3,6 +3,40 @@ import type { Guide } from "./types";
 
 export const GUIDES_SANXUAT: Guide[] = [
   {
+    key: "chat-luong-mam-keo", icon: "star", cat: "Sản xuất",
+    title: "Chất lượng mâm kẹo",
+    desc: "Chụp ảnh mâm kẹo từng thợ làm được mỗi ngày, xem thợ nào đã/chưa chụp.",
+    routes: ["#/chat-luong"],
+    sections: [
+      { title: "Dùng để làm gì?", html: `
+        <p>Trang <a href="#/chat-luong">Chất lượng mâm kẹo</a> (menu <b>☰ Thêm → Sản xuất</b>) lưu lại
+        <b>hình ảnh mâm kẹo mà từng thợ làm được mỗi ngày</b> — để xem chất lượng mâm của ai đẹp/xấu,
+        có bằng chứng khi cần nhắc nhở hoặc khen thưởng, và tra lại được mâm ngày cũ.</p>
+        <p>Dòng trên cùng ghi <b>"Hôm nay: X/Y thợ đã chụp mâm"</b> — nhìn là biết còn thiếu ai.</p>` },
+      { title: "Chụp mâm kẹo của 1 thợ", html: `
+        <ul>
+          <li>Mở trang, chạm vào <b>card của thợ</b> đó.</li>
+          <li>Bấm <b>📷 Chụp mâm kẹo hôm nay</b> → camera mở ra, <b>chụp ít nhất 1 ảnh</b> mâm kẹo
+            (chụp nhiều mâm cũng được, hoặc chọn ảnh có sẵn từ máy), rồi bấm <b>Xong</b>.</li>
+          <li>Chỉ tính là <b>đã chụp</b> khi có ảnh — chụp xong mà không có ảnh nào thì vẫn coi là chưa.</li>
+          <li>Hôm nay chụp rồi thì nút đổi thành <b>📷 Chụp thêm mâm</b> — ảnh mới gộp chung vào hôm nay.</li>
+        </ul>
+        <p class="muted small">Cần dùng app trên điện thoại (HTTPS) để mở camera. Ảnh lưu kèm ngày, giờ và người chụp.</p>` },
+      { title: "Đọc bảng chất lượng", html: `
+        <ul>
+          <li>Mỗi card là <b>1 thợ</b>, kèm <b>ảnh mâm gần nhất</b> bên trái.</li>
+          <li>Huy hiệu <b class="t-ok">✓ Đã chụp mâm</b> (xanh) hoặc <b class="t-danger">Chưa chụp mâm</b> (đỏ) cho hôm nay.</li>
+          <li>Dòng <b>7 chấm</b> là 7 ngày gần nhất: xanh = ngày đó có ảnh mâm, đỏ = không có; chấm hôm nay có viền nổi.</li>
+          <li>Trong chi tiết thợ có <b>lịch sử chụp mâm theo ngày</b> — chạm ảnh để xem to; admin có thể xoá báo cáo.</li>
+        </ul>` },
+      { title: "Thợ hiện ở đâu ra?", html: `
+        <p>Danh sách thợ ở đây <b>chính là danh sách thợ sản xuất</b> (<a href="#/tho">Danh sách thợ</a>) —
+        thêm/xoá/đổi tên thợ làm ở trang đó, bảng chất lượng tự cập nhật theo.</p>
+        <p>Nút <b>Sản xuất của thợ</b> ở góc trên trang chi tiết mở qua trang phiếu SX / sản lượng của
+        chính thợ đó, để đối chiếu ảnh mâm với số cây đã báo cáo.</p>` },
+    ],
+  },
+  {
     key: "ve-sinh-khu-vuc", icon: "leaf", cat: "Sản xuất",
     title: "Vệ sinh khu vực xưởng",
     desc: "Tạo khu vực, chụp ảnh báo cáo vệ sinh mỗi ngày, xem khu nào đã/chưa làm.",
