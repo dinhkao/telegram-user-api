@@ -919,7 +919,9 @@ Rules:
 **Exceptions — a few root `.py` still hold real logic** (not yet moved to a package):
 `customer_notify.py` (payment notifications to customer topics), `mirror_channel.py`
 (mirrors orders to a mirror channel), `nop_tien_reminder.py` (background timer:
-nags when delivery done but payment not), and **`order_commands_v3.py`** — a real
+nags Duy every 15 min when delivery done but payment not — **TẮT mặc định từ
+2026-08-03**, `start_reminder` no-op trừ khi `NOP_TIEN_REMINDER_ENABLED=true`),
+and **`order_commands_v3.py`** — a real
 ~1900-line module holding the KiotViet invoice/print/payment/debt/analysis handlers
 (`register_order_commands_v3`, `_auto_parse_fix`, `_process_payment_core`,
 `_refresh_order_message`). It used to be an `exec()`'d blob of 22 `.txt` parts — now

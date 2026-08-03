@@ -1,5 +1,9 @@
 """nop_tien_reminder.py — Timer reminder khi giao hang xong ma chua nop tien.
 
+TAT MAC DINH tu 2026-08-03 (spam) — bat lai bang env NOP_TIEN_REMINDER_ENABLED=true
+(server_app/config.py). Tat thi start_reminder() la no-op; stop_reminder() van chay
+binh thuong de huy timer con sot lai.
+
 Khi giao hang duoc danh dau done, bat dau timer:
 - Check sau 15 phut, neu nop_tien chua done -> gui tin nhan cho Duy
 - Lap lai moi 15 phut cho den khi nop_tien done hoac order bi xoa
@@ -11,6 +15,7 @@ import logging
 
 from order_db import get_order_by_thread_id, _get_connection
 from server_app import state
+from server_app.config import NOP_TIEN_REMINDER_ENABLED
 
 log = logging.getLogger("nop_tien_reminder")
 
@@ -20,6 +25,8 @@ _tasks: dict[int, asyncio.Task] = {}
 
 def start_reminder(thread_id: int):
     """Goi khi giao hang done. Start background loop reminder."""
+    if not NOP_TIEN_REMINDER_ENABLED:
+        return
     if thread_id in _tasks:
         log.debug("reminder already active for order %d", thread_id)
         return
