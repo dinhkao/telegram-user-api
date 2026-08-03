@@ -18,8 +18,11 @@ from vn import vn_normalize
 RULES: list[tuple[set[str], tuple[str, ...], int]] = [
     ({"kim"}, ("vit",), 0),                          # Kim + "vít…" → cao nhất
     ({"duy"}, ("vit", "rac me"), 1),                 # Duy + "vít"/"rắc mè" → cao nhì
-    ({"kim dung", "bao", "xuyen"}, ("quay keo",), 0),  # quậy kẹo → cao nhất
-    ({"thuy dang"}, ("quay keo",), 1),               # Thủy Đặng + quậy kẹo → cao nhì
+    # ⚠ TÊN PHẢI LÀ TÊN ĐẦY ĐỦ đã bỏ dấu, đúng như trong production_workers ("bao xuyen",
+    # KHÔNG tách "bao"/"xuyen" — tách ra thì "Bảo Xuyên" không khớp rule nào, mà "Bảo" lại
+    # là thợ KHÁC).
+    ({"kim dung", "bao xuyen"}, ("quay keo",), 0),   # quậy kẹo → cao nhất
+    ({"thuy dang"}, ("quay keo", "vit"), 1),         # Thủy Đặng quậy kẹo/vít → cao nhì
 ]
 _NGHI = "nghi"   # ghi chú "nghỉ" → không phụ cấp (ưu tiên trên mọi rule)
 # Thợ KHÔNG dùng làm MỐC xếp hạng phụ cấp (sản lượng cao bất thường — không nên là
@@ -103,29 +106,30 @@ def _pieces_from_bang(conn, thread_id: int, bang: dict) -> list[dict]:
     return out
 
 
-def apply_auto_allowances(conn, thread_id: int, bang: dict) -> None:
-    """Áp rule sau khi lưu báo cáo. Chỉ đụng dòng do auto ghi (updated_by='auto')
-    hoặc chưa có; văn phòng đã sửa tay thì giữ nguyên — trừ "nghỉ" vẫn ép xoá.
-    Thợ hết khớp rule → gỡ phụ cấp auto cũ (số tay giữ nguyên)."""
-    from production_store.allowances import ensure_schema, set_allowance
+def plan_auto_allowances(conn, thread_id: int, bang: dict) -> list[dict]:
+    """DỰ TÍNH thay đổi phụ cấp auto của 1 phiếu — CHỈ ĐỌC, không ghi gì. Trả
+    [{name, old, new}] cho các dòng THỰC SỰ đổi (bỏ qua dòng văn phòng đã sửa tay và
+    dòng không đổi số). Tách riêng để tools/backfill_auto_allowances.py chạy thử được."""
+    from production_store.allowances import ensure_schema
 
     workers = _pieces_from_bang(conn, thread_id, bang)
     if not workers:
-        return
+        return []
     targets = compute_auto_allowances(workers)
     ensure_schema(conn)
     existing = {r[0]: (float(r[1] or 0), r[2] or "") for r in conn.execute(
         "SELECT worker_name, amount, updated_by FROM production_allowances WHERE thread_id = ?",
         (thread_id,),
     ).fetchall()}
+    out: list[dict] = []
     for w in workers:
         name = w["name"]
         cur = existing.get(name)
         tgt = targets.get(name)
         if tgt is None:
             # không khớp rule nào — chỉ dọn dòng auto cũ, số nhập tay giữ nguyên
-            if cur and cur[1] == _AUTO_BY:
-                set_allowance(conn, thread_id, name, 0, by=_AUTO_BY)
+            if cur and cur[1] == _AUTO_BY and cur[0] != 0:
+                out.append({"name": name, "old": cur[0], "new": 0.0})
             continue
         if cur and cur[1] not in ("", _AUTO_BY) and tgt > 0:
             continue                     # văn phòng đã sửa tay → tôn trọng
@@ -133,4 +137,15 @@ def apply_auto_allowances(conn, thread_id: int, bang: dict) -> None:
             continue                     # chưa có gì để xoá
         if cur is not None and abs(cur[0] - tgt) < 0.5:
             continue                     # không đổi — khỏi ghi lại
-        set_allowance(conn, thread_id, name, tgt, by=_AUTO_BY)
+        out.append({"name": name, "old": (cur[0] if cur else 0.0), "new": float(tgt)})
+    return out
+
+
+def apply_auto_allowances(conn, thread_id: int, bang: dict) -> None:
+    """Áp rule sau khi lưu báo cáo. Chỉ đụng dòng do auto ghi (updated_by='auto')
+    hoặc chưa có; văn phòng đã sửa tay thì giữ nguyên — trừ "nghỉ" vẫn ép xoá.
+    Thợ hết khớp rule → gỡ phụ cấp auto cũ (số tay giữ nguyên). = plan + ghi."""
+    from production_store.allowances import set_allowance
+
+    for ch in plan_auto_allowances(conn, thread_id, bang):
+        set_allowance(conn, thread_id, ch["name"], ch["new"], by=_AUTO_BY)

@@ -21,12 +21,30 @@ def test_duy_vit_hoac_rac_me_bang_cao_nhi():
 
 def test_quay_keo_theo_ten():
     ws = [_w("Kim Dung", 50_000, "quậy kẹo"), _w("Thủy Đặng", 60_000, "quậy kẹo"),
-          _w("Bảo", 70_000), _w("Xuyên", 300_000)]
+          _w("Hằng", 70_000), _w("Mai", 300_000)]
     out = compute_auto_allowances(ws)
     assert out["Kim Dung"] == 300_000     # cao nhất
     assert out["Thủy Đặng"] == 70_000     # cao nhì
-    assert "Bảo" not in out               # có tên trong rule nhưng KHÔNG có ghi chú
-    assert "Xuyên" not in out
+    assert "Hằng" not in out              # không có rule
+    assert "Mai" not in out
+
+
+def test_bao_xuyen_quay_keo_bang_cao_nhat():
+    # Tên trong rule phải là TÊN ĐẦY ĐỦ: tách "bao"/"xuyen" thì "Bảo Xuyên" trượt hết rule
+    ws = [_w("Bảo Xuyên", 0, "quậy kẹo"), _w("Hiền", 112_000), _w("Hằng", 111_000)]
+    assert compute_auto_allowances(ws) == {"Bảo Xuyên": 112_000}
+
+
+def test_bao_khong_an_rule_cua_bao_xuyen():
+    # "Bảo" là thợ KHÁC (lương thời gian) — không được ăn rule của "Bảo Xuyên"
+    ws = [_w("Bảo", 0, "quậy kẹo"), _w("Hiền", 112_000)]
+    assert compute_auto_allowances(ws) == {}
+
+
+def test_thuy_dang_vit_bang_cao_nhi():
+    # Thủy Đặng ghi "vít kẹo" (không phải "quậy kẹo") → vẫn phải có phụ cấp, hạng nhì
+    ws = [_w("Thủy Đặng", 0, "vít kẹo"), _w("Hiền", 112_000), _w("Hằng", 111_000)]
+    assert compute_auto_allowances(ws) == {"Thủy Đặng": 111_000}
 
 
 def test_nghi_xoa_phu_cap_moi_nguoi():
