@@ -26,6 +26,9 @@ WEB_AUTH_TOKEN_TTL = int(os.getenv("WEB_AUTH_TOKEN_TTL", 30 * 24 * 3600))  # 30 
 ADMIN_WEB_USER = os.getenv("ADMIN_WEB_USER", "duy")
 # Đẩy báo cáo thợ (phiếu SX) lên Google Sheet — TẮT mặc định (bật lại: =true).
 PRODUCTION_SHEET_SYNC = os.getenv("PRODUCTION_SHEET_SYNC", "false").strip().lower() in ("1", "true", "yes")
+# Nhắc nộp tiền (DM cho Duy mỗi 15 phút khi đã giao mà chưa nộp) — TẮT mặc định
+# (2026-08-03, spam). Bật lại: NOP_TIEN_REMINDER_ENABLED=true.
+NOP_TIEN_REMINDER_ENABLED = os.getenv("NOP_TIEN_REMINDER_ENABLED", "false").strip().lower() in ("1", "true", "yes")
 # CORS allowlist cho web app (WebView APK + dev); thêm origin qua env, phẩy ngăn cách.
 WEB_CORS_ORIGINS = tuple(
     o.strip() for o in os.getenv(
