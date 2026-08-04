@@ -102,7 +102,7 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
   }, [ym, r.name, isTime]);
 
   // Thanh tỉ lệ: phần CỘNG (lương + phụ cấp + thưởng) so với phần TRỪ (ứng + BHXH)
-  const cong = r.luong + r.phu_cap + r.thuong;
+  const cong = r.luong + r.phu_cap + r.thuong + r.thuong_cc + r.thuong_vs;
   const tong = cong + r.ung + r.bhxh;
   const pct = (v: number) => (tong > 0 ? Math.max(v > 0 ? 2 : 0, Math.round((v / tong) * 100)) : 0);
   const ungPct = cong > 0 ? Math.round((r.ung / cong) * 100) : 0;
@@ -128,6 +128,8 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
           {money(r.luong)}
           {r.phu_cap ? <> + {money(r.phu_cap)}</> : null}
           {r.thuong ? <> + {money(r.thuong)}</> : null}
+          {r.thuong_cc ? <> + {money(r.thuong_cc)} <span class="muted">ch.cần</span></> : null}
+          {r.thuong_vs ? <> + {money(r.thuong_vs)} <span class="muted">vệ sinh</span></> : null}
           {r.ung ? <> − <span class="t-danger">{money(r.ung)}</span></> : null}
           {r.bhxh ? <> − <span class="t-danger">{money(r.bhxh)}</span> <span class="muted">BHXH</span></> : null}
         </div>
@@ -294,6 +296,21 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
             ))}
           </div>
         )}
+
+      {/* ── 2 khoản thưởng bật/tắt ───────────────────────────────────────── */}
+      {/* Chỉ ăn tháng đang xem (không kế thừa) — bật/tắt ở bảng lương hoặc view Thẻ */}
+      {r.cc_on || r.vs_on ? (
+        <div class="pws-list">
+          {r.cc_on ? (
+            <div class="pws-item"><span>Thưởng chuyên cần <span class="muted small">· cố định</span></span>
+              <b class="t-ok">+{money(r.thuong_cc)}đ</b></div>
+          ) : null}
+          {r.vs_on ? (
+            <div class="pws-item"><span>Thưởng vệ sinh <span class="muted small">· {congVN(r.cong)} công</span></span>
+              <b class="t-ok">+{money(r.thuong_vs)}đ</b></div>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* ── Trừ BHXH ─────────────────────────────────────────────────────── */}
       {/* Mức lưu theo TỪNG THÁNG + kế thừa (bhxhNguon nói rõ số này của tháng nào) */}

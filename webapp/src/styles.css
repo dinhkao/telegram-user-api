@@ -1368,7 +1368,9 @@ body.has-nop .pr-thead-bar { top: 72px; }
    1 nguồn duy nhất) — đừng thêm width/min-width cho .pr-table ở đây. */
 .pr-thead-bar .pr-table, .pr-tbody-scroll .pr-table { table-layout: fixed; width: 100%; }
 .pr-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: .8rem; background: var(--card); }
-.pr-table th, .pr-table td { padding: 6px 9px; border: none; border-bottom: 1px solid var(--border); white-space: nowrap; text-align: right;
+/* Đệm ngang 6px (không phải 9px): 15 cột × 2 bên = 90px — đủ để cả bảng lọt màn
+   1440px mà không phải cuộn. Giữa 2 cột vẫn có đường kẻ nên 12px là đọc được. */
+.pr-table th, .pr-table td { padding: 6px 6px; border: none; border-bottom: 1px solid var(--border); white-space: nowrap; text-align: right;
   overflow: hidden; text-overflow: ellipsis; }   /* fixed layout: số quá dài thì CẮT gọn, không tràn đè cột bên */
 /* kẻ DỌC giữa các cột — mắt lần theo cột dễ hơn (cùng lối lưới chấm công) */
 .pr-table th, .pr-table td { border-right: 1px solid var(--border); }
@@ -1407,6 +1409,14 @@ body.has-nop .pr-thead-bar { top: 72px; }
 /* bề rộng cột do colgroup (MonthlyPayroll.tsx) chốt — KHÔNG đặt min-width ở ô, vì ô
    dòng đầu của bảng thân sẽ ép cột rộng hơn header 1 chút → 2 bảng lệch lại. */
 .pr-net-td { font-weight: 800; color: var(--ok); background: var(--ok-wash); }
+/* NÚT BẬT/TẮT 2 khoản thưởng (chuyên cần, vệ sinh) — bấm thẳng vào ô bảng.
+   Bật = viên thuốc xanh có số tiền; tắt = "—" mờ, vẫn bấm được để bật. Cố ý làm
+   nổi hơn .pr-ung-btn: đây là công tắc ra tiền, phải nhìn phát biết đang bật hay tắt. */
+.pr-bon { display: inline-block; min-width: 3.4em; padding: 2px 8px; border: 1px solid transparent; border-radius: 999px;
+  background: none; color: var(--muted); font: inherit; font-weight: 700; font-variant-numeric: tabular-nums;
+  cursor: pointer; transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
+.pr-bon:hover { background: var(--bg); }
+.pr-bon.on { background: var(--ok-wash); border-color: var(--ok); color: var(--ok); }
 .pr-ung-btn { color: var(--primary); font: inherit; font-weight: 700; cursor: pointer; padding: 0; text-decoration: underline dotted; text-underline-offset: 3px; }
 .pr-ung-btn sup { color: var(--muted); font-size: .7em; }
 .pr-table tfoot td { padding-top: 8px; padding-bottom: 8px; font-weight: 800; border-top: 1px solid var(--border); border-bottom: none; background: var(--bg); }

@@ -16,10 +16,12 @@ import { toast, promptDialog } from "../ui/feedback";
 const initials = (name: string) => name.trim().split(/\s+/).slice(-2).map((part) => part[0] || "").join("").toUpperCase();
 
 export function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc, editBhxh,
+  toggleThuongCC, toggleThuongVS,
   openUng, onToggleUng, advances, openPc, onTogglePc, allowances, apply, setAdvs, setAllows }: {
   r: PayrollRow; ym: string;
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
   editMoc: (r: PayrollRow) => void; editBhxh: (r: PayrollRow) => void;
+  toggleThuongCC: (r: PayrollRow) => void; toggleThuongVS: (r: PayrollRow) => void;
   openUng: boolean; onToggleUng: () => void; advances?: SalaryAdvance[];
   openPc: boolean; onTogglePc: () => void; allowances?: SalaryAllowance[];
   apply: (d: PayrollMonth) => void;
@@ -87,6 +89,19 @@ export function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc, editBhxh
         <div class="pr-card-metric"><span>Lương</span><b>{money(r.luong)}</b></div>
         <div class="pr-card-metric"><span>Phụ cấp</span><a href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>{money(r.phu_cap)}</a></div>
         <div class="pr-card-metric advance"><span>Đã ứng</span><a href={`#/nhap-ung?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>{money(r.ung)}</a></div>
+        {/* 2 khoản THƯỞNG: bấm là bật/tắt cho THÁNG ĐANG XEM (không kế thừa) */}
+        <div class="pr-card-metric"><span>Ch.cần</span>
+          <button class={r.cc_on ? "pr-bon on" : "pr-bon"} onClick={() => toggleThuongCC(r)}
+            title={`Thưởng chuyên cần — bấm để ${r.cc_on ? "tắt" : "bật"} cho tháng này`}>
+            {r.cc_on ? money(r.thuong_cc) : "— bật"}
+          </button>
+        </div>
+        <div class="pr-card-metric"><span>Vệ sinh</span>
+          <button class={r.vs_on ? "pr-bon on" : "pr-bon"} onClick={() => toggleThuongVS(r)}
+            title={`Thưởng vệ sinh = 12.000đ × ${r.cong} công — bấm để ${r.vs_on ? "tắt" : "bật"} cho tháng này`}>
+            {r.vs_on ? money(r.thuong_vs) : "— bật"}
+          </button>
+        </div>
         {/* BHXH: luôn hiện (kể cả chưa đặt) để bấm đặt được ngay — giống cột BHXH
             của view Bảng; dấu ↩ = tháng này kế thừa mức đặt ở tháng trước. */}
         <div class="pr-card-metric advance"><span>Trừ BHXH</span>

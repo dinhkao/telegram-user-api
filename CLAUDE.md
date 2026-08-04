@@ -319,16 +319,27 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   còn ở đây **0 là số CÓ NGHĨA** ("từ tháng này thôi trừ") → API `/api/payroll/adjust`
   phân biệt bằng `"bhxh" in body` (vắng = giữ nguyên · số ≥ 0 = đặt riêng · **null =
   bỏ đặt riêng**), đừng đổi sang `.get() is not None`. Row trả `bhxh`/`bhxh_ym`/
-  `bhxh_own` (↩ = kế thừa) như bộ `moc_*`. API
+  `bhxh_own` (↩ = kế thừa) như bộ `moc_*`.
+  **2 khoản THƯỞNG bật/tắt (2026-08-04, `salary_store/bonus.py` + cột
+  `salary_month.thuong_cc`/`.thuong_vs`, tests/test_salary_bonus.py)**: CHUYÊN CẦN =
+  cố định `THUONG_CHUYEN_CAN` (200k); VỆ SINH = `THUONG_VE_SINH_MOI_NGAY` (12k) ×
+  ĐÚNG số `cong` đang hiện ở cột Công. Đổi mức = sửa 2 hằng số đó (chưa có màn hình
+  cấu hình). ⚠ 2 cờ này **KHÔNG kế thừa** sang tháng sau (giống `weekly`, KHÁC
+  mốc/BHXH) — cố ý: thưởng là quyết định từng tháng, bò sang tháng sau là trả thừa
+  âm thầm. Row trả `cc_on`/`vs_on` (cờ) + `thuong_cc`/`thuong_vs` (tiền, đã vào
+  `thuc_lanh`). API
   `server_app/payroll_routes.py` (`/api/payroll/month|adjust|advance*|allowance*`,
   TẤT CẢ chặn `office_user`). Khoản đã ghi: **VÔ HIỆU** (`.../{id}/void`, kèm lý do)
   hoặc **SỬA GHI CHÚ** (`.../{id}/note` — SỐ TIỀN/ngày BẤT BIẾN, sai tiền thì vô hiệu
   rồi ghi lại; khoản đã vô hiệu khoá luôn ghi chú). UI `MonthlyPayroll.tsx`
   (`#/luong-thang`, view Bảng/Thẻ — view Thẻ tách ra `detail/PayrollCard.tsx`;
   **SẮP XẾP bấm tiêu đề cột** = `detail/payrollSort.ts` (`COLS` là NGUỒN DUY NHẤT của
-  nhãn/tooltip 13 cột — thứ tự phải khớp `<td>` thân bảng LẪN mảng `COL_EM` colgroup;
-  cột Thợ GHIM trái nên `COL_EM[0]` hẹp lại còn 8em ở mobile qua hook `useNarrow`
+  nhãn/tooltip 15 cột — thứ tự phải khớp `<td>` thân bảng LẪN mảng `COL_EM` colgroup;
+  cột Thợ GHIM trái nên `COL_EM[0]` hẹp lại ở mobile qua hook `useNarrow`
   (matchMedia 720px — width nằm inline trên `<col>`, CSS media query KHÔNG đè được);
+  **`COL_EM` đo bằng Playwright** với nội dung dài nhất có thể + 0,35em đệm — tổng
+  106,7em ≈ 1366px để LỌT màn 1440px không phải cuộn (đệm ngang ô `.pr-table td`
+  cũng đã hạ 9px→6px cho đủ chỗ); sửa cột nào phải đo lại cột đó;
   bấm: sắp → đảo chiều → bỏ sắp, cột số lớn-trước, cột Thợ A→Z theo `localeCompare('vi')`,
   nhớ ở localStorage `payroll_sort`, áp cho CẢ view Thẻ; dòng TỔNG ở tfoot không đổi chỗ);
   **bấm ô TÊN → TRANG `#/luong-thang/:worker_id?ym=`

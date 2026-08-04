@@ -5,6 +5,9 @@
 // API: getMonthlyPayroll + payroll allowance/advance.
 // TRỪ BHXH = cột riêng, số lưu theo TỪNG THÁNG + kế thừa như Mốc lương (đặt tháng nào
 // áp từ tháng đó trở đi — salary_store/bhxh.py); đã trừ trong cột Lãnh.
+// 2 cột THƯỞNG "Ch.cần" + "Vệ sinh" = NÚT BẬT/TẮT, bấm thẳng vào ô (chuyên cần cố
+// định, vệ sinh = 12.000đ × ngày công — salary_store/bonus.py). KHÁC BHXH/Mốc:
+// 2 cờ này KHÔNG kế thừa, bật tháng nào chỉ ăn tháng đó.
 // MỌI Ô SỐ bấm được → popup xem/thao tác đúng ô (detail/PayrollCellPopup:
 // Công/TC = chấm công từng ngày, L.công/L.TC/Lương/Lãnh = diễn giải công thức,
 // P.cấp/Ứng = thêm/vô hiệu khoản tại chỗ qua detail/EntryPanel, BHXH = sửa mức trừ).
@@ -30,6 +33,9 @@ import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 
 const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
+// Gương của salary_store/bonus.THUONG_VE_SINH_MOI_NGAY — CHỈ dùng cho chú thích
+// ("12.000đ × N công"); số tiền thật luôn do server tính, client không tự cộng.
+const VS_MOI_NGAY = 12000;
 const initials = (name: string) => name.trim().split(/\s+/).slice(-2).map((part) => part[0] || "").join("").toUpperCase();
 
 /** Màn hẹp (cùng mốc 720px với media query bảng lương trong styles.css) — dùng để
@@ -91,7 +97,8 @@ export function MonthlyPayroll() {
 
   const apply = (d: PayrollMonth) => setData(d);
   // 4 thao tác hồ sơ lương dùng CHUNG với trang #/luong-thang/:id (detail/payrollActions)
-  const { toggleType, editMoc, editBhxh, toggleWeekly } = payrollActions(ym, apply, load);
+  const { toggleType, editMoc, editBhxh, toggleWeekly, toggleThuongCC, toggleThuongVS } =
+    payrollActions(ym, apply, load);
   // Ô TÊN → TRANG lương của thợ (trước là popup; nội dung dài nên tách trang riêng)
   const openWorker = (wid: number) => { window.location.hash = `#/luong-thang/${wid}?ym=${encodeURIComponent(ym)}`; };
 
@@ -152,14 +159,16 @@ export function MonthlyPayroll() {
               </section>
             )}
             {view === "table" ? (
-              <PayrollTable data={data} rows={rows} sort={sort} onSort={onSort}
+              <PayrollTable data={data} rows={rows} sort={sort} onSort={onSort} ym={ym}
                 toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc}
+                toggleThuongCC={toggleThuongCC} toggleThuongVS={toggleThuongVS}
                 onCell={(wid, col) => setPop({ wid, col })} onName={openWorker} />
             ) : (
               <div class="pr-card-grid">
                 {rows.map((r) => (
                   <PayrollCard key={r.worker_id} r={r} ym={ym}
                     toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc} editBhxh={editBhxh}
+                    toggleThuongCC={toggleThuongCC} toggleThuongVS={toggleThuongVS}
                     openUng={openUng === r.worker_id} onToggleUng={() => toggleUng(r.worker_id)} advances={advs[r.worker_id]}
                     openPc={openPc === r.worker_id} onTogglePc={() => togglePc(r.worker_id)} allowances={allows[r.worker_id]}
                     apply={apply} setAdvs={setAdvs} setAllows={setAllows} />
@@ -180,13 +189,16 @@ export function MonthlyPayroll() {
   );
 }
 
-function PayrollTable({ data, rows, sort, onSort, toggleType, toggleWeekly, editMoc, onCell, onName }: {
+function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleWeekly, editMoc,
+  toggleThuongCC, toggleThuongVS, onCell, onName }: {
   data: PayrollMonth;
   rows: PayrollRow[];              // đã sắp theo cột đang chọn (cha lo)
   sort: Sort | null;
   onSort: (key: Sort["key"], num: boolean) => void;
+  ym: string;                      // để chú thích nói rõ thưởng chỉ ăn tháng nào
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
   editMoc: (r: PayrollRow) => void;
+  toggleThuongCC: (r: PayrollRow) => void; toggleThuongVS: (r: PayrollRow) => void;
   onCell: (wid: number, col: PayrollCol) => void;
   onName: (wid: number) => void;   // ô TÊN → trang lương của thợ
 }) {
@@ -210,7 +222,10 @@ function PayrollTable({ data, rows, sort, onSort, toggleType, toggleWeekly, edit
   // tiền bên dưới. Phải làm bằng JS: width nằm trong style inline của <col>, CSS
   // media query không đè được.
   const narrow = useNarrow();
-  const COL_EM = [narrow ? 8 : 12, 5.5, 5.9, 8.6, 6.2, 8.4, 5.4, 8.4, 8.8, 8.4, 8.4, 8.4, 8.4];
+  // ĐO LẠI 2026-08-04 bằng Playwright với nội dung DÀI NHẤT có thể của từng cột
+  // (kể cả dòng TỔNG + các dấu ↩/⁺/số khoản) rồi + 0,35em đệm — tổng 106,7em ≈
+  // 1366px, tức lọt màn 1440px không phải cuộn. Sửa số nào phải đo lại số đó.
+  const COL_EM = [narrow ? 7 : 10.2, 4.9, 4.9, 8.3, 5.4, 7.0, 3.3, 7.0, 8.2, 8.6, 7.2, 7.2, 9.3, 7.7, 7.5];
   const totalEm = COL_EM.reduce((a, b) => a + b, 0);
   const tableStyle = `min-width:${totalEm}em`;
   const headRef = useRef<HTMLDivElement>(null);
@@ -338,6 +353,20 @@ function PayrollTable({ data, rows, sort, onSort, toggleType, toggleWeekly, edit
                 <td class="pr-num pr-td-tap" title="Phụ cấp — bấm thêm/vô hiệu khoản" {...tap("pc")}>
                   <span class="pr-ung-btn">{money(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}</span>
                 </td>
+                {/* 2 khoản THƯỞNG: bấm thẳng vào ô = BẬT/TẮT cho tháng đang xem
+                    (không kế thừa sang tháng sau). Bật thì hiện số tiền, tắt hiện "—". */}
+                <td class={`pr-num pr-td-tap ${r.cc_on ? "" : "is-zero"}`}
+                  title={`Thưởng chuyên cần (cố định) — ${r.cc_on ? "ĐANG BẬT" : "đang tắt"}, bấm để ${r.cc_on ? "tắt" : "bật"} cho ${ymLabel(ym).toLowerCase()}`}>
+                  <button class={r.cc_on ? "pr-bon on" : "pr-bon"} onClick={() => toggleThuongCC(r)}>
+                    {r.cc_on ? money(r.thuong_cc) : "—"}
+                  </button>
+                </td>
+                <td class={`pr-num pr-td-tap ${r.vs_on ? "" : "is-zero"}`}
+                  title={`Thưởng vệ sinh = ${money(VS_MOI_NGAY)}đ × ${congVN(r.cong)} công — ${r.vs_on ? "ĐANG BẬT" : "đang tắt"}, bấm để ${r.vs_on ? "tắt" : "bật"} cho ${ymLabel(ym).toLowerCase()}`}>
+                  <button class={r.vs_on ? "pr-bon on" : "pr-bon"} onClick={() => toggleThuongVS(r)}>
+                    {r.vs_on ? money(r.thuong_vs) : "—"}
+                  </button>
+                </td>
                 <td class="pr-num pr-td-tap" title="Ứng lương — bấm thêm/vô hiệu lần ứng" {...tap("ung")}>
                   <span class="pr-ung-btn">{money(r.ung)}{r.adv_count ? <sup> {r.adv_count}</sup> : null}</span>
                 </td>
@@ -371,6 +400,8 @@ function PayrollTable({ data, rows, sort, onSort, toggleType, toggleWeekly, edit
               <td class="pr-num">{money(data.workers.reduce((a, r) => a + (r.luong_tc || 0), 0))}</td>
               <td class="pr-num">{money(t.luong)}</td>
               <td class="pr-num">{money(t.phu_cap)}</td>
+              <td class="pr-num">{money(t.thuong_cc)}</td>
+              <td class="pr-num">{money(t.thuong_vs)}</td>
               <td class="pr-num">{money(t.ung)}</td>
               <td class="pr-num">{money(t.bhxh)}</td>
               <td class="pr-num pr-net-td">{money(t.thuc_lanh)}</td>
