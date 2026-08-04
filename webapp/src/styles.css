@@ -57,7 +57,12 @@ body.modal-open { overflow: hidden; touch-action: none; overscroll-behavior: non
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 5px; }
 .app { max-width: 640px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
 /* Chừa chỗ cho bottom-nav cố định (cao ~56px + safe-area máy có home indicator) */
-.page { flex: 1; padding: 10px 10px calc(72px + env(safe-area-inset-bottom, 0px)); }
+/* ⚠ width:100% + min-width:0 KHÔNG thừa: .page là flex item của .app (flex column).
+   Thiếu 2 dòng này, trang nào có khối rộng cố định (bảng lương 13 cột min-width
+   ~1170px) sẽ KÉO .page phình theo nội dung → CẢ TRANG cuộn ngang (app-bar, thẻ
+   tổng quan trôi theo) thay vì chỉ thân bảng cuộn trong .pr-tbody-scroll. Đo ở
+   390px: .page 1188px, trang tràn 798px. */
+.page { flex: 1; width: 100%; min-width: 0; padding: 10px 10px calc(72px + env(safe-area-inset-bottom, 0px)); }
 
 /* margin-top −10 khử padding-top của .page → vị trí trong luồng = vị trí dính
    (top:44) nên KHÔNG nhảy khi cuộn; padding-top bù lại khoảng thở dưới app-bar */
@@ -396,9 +401,13 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .inv-mini .lbl .debt-ctl { margin-left: 6px; }
 .inv-mini .lbl .lock-chip, .inv-mini .lbl .debt-ctl .btn { min-height: 24px; padding: 2px 8px; font-size: .72rem; vertical-align: middle; }
 
-/* Desktop: rộng hơn, bố cục 2 cột */
+/* Desktop: DÙNG TRỌN BỀ NGANG màn hình, bố cục 2 cột.
+   Trước đây chặn 1040px → bảng lương tháng (13 cột, cần ~1320px) luôn phải cuộn
+   ngang dù màn hình thừa chỗ. Bỏ chặn: app rộng bằng cửa sổ, chỉ chừa lề 16px.
+   (Điện thoại vẫn 640px như cũ — quy tắc này chỉ từ 820px trở lên.) */
 @media (min-width: 820px) {
-  .app, .bottom-dock { max-width: 1040px; }
+  .app, .bottom-dock { max-width: none; }
+  .page, .pr-page { padding-left: 16px; padding-right: 16px; }
   .order-card.two-col { display: grid; grid-template-columns: 1fr 300px; gap: 14px; align-items: start; }
   .order-card.two-col .card-inv { margin-top: 0; border-left: 1px solid var(--border); padding-left: 12px; }
   .detail-grid { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: start; }
@@ -1230,7 +1239,9 @@ a.db-link .db-name::after { content: " ›"; color: var(--muted); font-weight: 4
 
 /* ── Bảng lương tháng (#/luong-thang) — dùng token app: --primary/--ok/--danger, thẻ trung tính ── */
 .pr-page { padding: 8px 10px 24px; }
-.pr-payroll-page { max-width: 1200px; margin: 0 auto; }
+/* KHÔNG chặn bề ngang: bảng lương 13 cột cần ~1320px mới hiện đủ, chặn 1200px là
+   màn hình rộng vẫn phải cuộn ngang. Rộng dư thì các cột giãn ra, vẫn dễ đọc. */
+.pr-payroll-page { margin: 0 auto; }
 .pr-controlbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 10px; }
 .pr-monthbar { display: flex; align-items: center; gap: 6px; }
 .pr-monthbar > b { min-width: 116px; text-align: center; font-size: .95rem; }
