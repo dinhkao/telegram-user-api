@@ -1,6 +1,6 @@
 """API BẢNG LƯƠNG THÁNG — CHỈ VĂN PHÒNG. Xem bảng lương 1 tháng (mọi thợ), sửa phụ
-cấp/thưởng theo tháng, ghi nhận/VÔ HIỆU ứng lương + phụ cấp (không xoá — giữ dòng kèm
-ai/lúc nào/lý do) + SỬA GHI CHÚ khoản đã ghi (số tiền bất biến). Nối: salary_store +
+cấp/thưởng/mốc lương/TRỪ BHXH theo tháng, ghi nhận/VÔ HIỆU ứng lương + phụ cấp (không
+xoá — giữ dòng kèm ai/lúc nào/lý do) + SỬA GHI CHÚ khoản đã ghi (số tiền bất biến). Nối: salary_store +
 server_app.production_wages (office gate). Client: webapp/src/pages/MonthlyPayroll.tsx.
 """
 from __future__ import annotations
@@ -88,11 +88,14 @@ async def payroll_advances_handler(request: web.Request):
 
 
 async def payroll_adjust_handler(request: web.Request):
-    """POST /api/payroll/adjust {ym, worker_id, thuong?, note?, weekly?, monthly_salary?}
-    — sửa thưởng/ghi chú/nhận-lương-tuần/MỐC LƯƠNG theo tháng (field vắng = giữ nguyên).
+    """POST /api/payroll/adjust {ym, worker_id, thuong?, note?, weekly?, monthly_salary?, bhxh?}
+    — sửa thưởng/ghi chú/nhận-lương-tuần/MỐC LƯƠNG/TRỪ BHXH theo tháng (field vắng = giữ nguyên).
     monthly_salary = mốc lương tháng của thợ lương thời gian, ghi vào ĐÚNG tháng ym
     (0 = bỏ mốc riêng tháng này → kế thừa mốc gần nhất trước đó); sửa mốc KHÔNG tính
-    lại tháng cũ — xem salary_store/moc.py. Phụ cấp = nhiều khoản, dùng
+    lại tháng cũ — xem salary_store/moc.py.
+    bhxh = số TRỪ BHXH của tháng ym, cùng luật kế thừa nhưng 0 KHÁC "bỏ đặt riêng":
+    số ≥ 0 = đặt riêng tháng này (0 = từ tháng này thôi trừ), null = bỏ đặt riêng →
+    kế thừa lại bản trước (xem salary_store/bhxh.py). Phụ cấp = nhiều khoản, dùng
     /api/payroll/allowance."""
     d = _deny(request)
     if d:
@@ -115,6 +118,14 @@ async def payroll_adjust_handler(request: web.Request):
         moc = _money(moc, positive=False)   # 0 = bỏ mốc riêng tháng này; None (vắng) = giữ nguyên
         if moc is None:
             return web.json_response({"ok": False, "error": "Mốc lương tháng không hợp lệ"}, status=400)
+    # BHXH: phải phân biệt "vắng field" (giữ nguyên) ↔ "gửi null" (bỏ đặt riêng tháng
+    # này) ↔ "gửi 0" (đặt riêng = 0) → dùng `in body` chứ KHÔNG dùng .get() is not None.
+    has_bhxh = "bhxh" in body
+    bhxh = None
+    if has_bhxh and body["bhxh"] is not None:
+        bhxh = _money(body["bhxh"], positive=False)   # 0 hợp lệ; âm/nan → lỗi
+        if bhxh is None:
+            return web.json_response({"ok": False, "error": "Số trừ BHXH không hợp lệ"}, status=400)
     by = request.get("web_user") or ""
     has_moc = body.get("monthly_salary") is not None
 
@@ -130,6 +141,8 @@ async def payroll_adjust_handler(request: web.Request):
                 )
             if has_moc:   # mốc lương ghi vào ĐÚNG tháng ym (không đụng tháng khác)
                 salary_store.set_month_moc(conn, ym, worker_id, moc, by=by)
+            if has_bhxh:  # bhxh=None ở đây nghĩa là BỎ đặt riêng tháng này
+                salary_store.set_month_bhxh(conn, ym, worker_id, bhxh, by=by)
             return salary_store.compute_month_payroll(conn, ym)
         finally:
             conn.close()

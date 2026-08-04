@@ -3,8 +3,9 @@
 // Nút ✏️ = SỬA NỘI DUNG khoản chưa vô hiệu (số tiền bất biến — sai tiền thì vô hiệu
 // rồi ghi lại). API: setPayrollAllowanceNote.
 // ⚠ ĐỒNG BỘ 2 CHỖ: cùng khoản phụ cấp còn hiện ở panel P.cấp/Ứng của bảng lương tháng
-// (detail/PayrollCellPopup.tsx EntryPanel — popup ô bảng + view Thẻ). Thêm/sửa tính
-// năng nào ở đây thì làm luôn bên đó, đừng để 1 bên có 1 bên không.
+// (detail/EntryPanel.tsx — popup ô bảng + view Thẻ). Thêm/sửa tính năng nào ở đây
+// thì làm luôn bên đó, đừng để 1 bên có 1 bên không. Ô NHẬP TIỀN của cả 2 nơi là
+// ui/MoneyEntryForm (ô to + đọc lại bằng chữ + chip cộng nhanh).
 import { useEffect, useState } from "preact/hooks";
 import {
   addPayrollAllowance, isOffice, listAllAllowances, listPayrollAllowances, listWorkers,
@@ -14,6 +15,8 @@ import {
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
+import { MoneyEntryForm } from "../ui/MoneyEntryForm";
+import { PC_GOI_Y } from "../detail/EntryPanel";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
 
@@ -102,13 +105,12 @@ export function AllowanceEntry() {
 
       <section class="card ua-create">
         <label class="card-label"><Icon name="plus" size={15} /> Ghi phụ cấp</label>
-        <SelectPopup value={wid} options={wopts} onChange={(v) => setWid(Number(v))}
-          searchable placeholder="Chọn thợ…" title="Chọn thợ" />
-        <div class="ua-form">
-          <input class="pw-input ua-amt-in" inputMode="numeric" placeholder="Số tiền phụ cấp" value={amt} onInput={(e: any) => setAmt(e.target.value)} />
-          <input class="pw-input ua-note-in" placeholder="Nội dung phụ cấp" value={note} onInput={(e: any) => setNote(e.target.value)} />
-        </div>
-        <button class="btn primary block" disabled={busy} onClick={submit}>{busy ? "Đang ghi…" : "Ghi phụ cấp"}</button>
+        <MoneyEntryForm amount={amt} onAmount={setAmt} note={note} onNote={setNote}
+          amountLabel="Số tiền phụ cấp" submitLabel="Ghi phụ cấp"
+          noteLabel="Nội dung phụ cấp" notePlaceholder="VD: ăn trưa, xăng xe…"
+          noteSuggestions={PC_GOI_Y} busy={busy} onSubmit={submit}
+          before={<SelectPopup value={wid} options={wopts} onChange={(v) => setWid(Number(v))}
+            searchable placeholder="Chọn thợ…" title="Chọn thợ" />} />
       </section>
 
       {allows === null ? <Loading /> : (

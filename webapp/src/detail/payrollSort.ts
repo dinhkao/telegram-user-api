@@ -1,4 +1,4 @@
-// SẮP XẾP bảng lương tháng (#/luong-thang) + ĐỊNH NGHĨA 12 CỘT dùng chung cho header.
+// SẮP XẾP bảng lương tháng (#/luong-thang) + ĐỊNH NGHĨA 13 CỘT dùng chung cho header.
 // Bấm tiêu đề cột: lần 1 sắp (cột số → LỚN trước, cột chữ → A→Z), lần 2 đảo chiều,
 // lần 3 về thứ tự mặc định của server (sort_order hồ sơ thợ). Lựa chọn nhớ trong
 // localStorage nên mở lại vẫn giữ.
@@ -7,7 +7,7 @@
 import type { PayrollRow } from "../api";
 
 export type SortKey = "name" | "type" | "weekly" | "moc" | "cong" | "luong_cong"
-  | "tc" | "luong_tc" | "luong" | "pc" | "ung" | "net";
+  | "tc" | "luong_tc" | "luong" | "pc" | "ung" | "bhxh" | "net";
 export type Sort = { key: SortKey; dir: 1 | -1 };
 
 export const COLS: { key: SortKey; label: string; title: string; num: boolean }[] = [
@@ -22,7 +22,8 @@ export const COLS: { key: SortKey; label: string; title: string; num: boolean }[
   { key: "luong", label: "Lương", title: "Lương tháng", num: true },
   { key: "pc", label: "P.cấp", title: "Phụ cấp tháng", num: true },
   { key: "ung", label: "Ứng", title: "Đã ứng", num: true },
-  { key: "net", label: "Lãnh", title: "Thực lãnh = lương + phụ cấp − ứng", num: true },
+  { key: "bhxh", label: "BHXH", title: "Trừ BHXH hằng tháng (BHXH/BHYT/BHTN phần NV đóng)", num: true },
+  { key: "net", label: "Lãnh", title: "Thực lãnh = lương + phụ cấp − ứng − BHXH", num: true },
 ];
 
 /** Giá trị đem so của 1 dòng theo cột. Cột chữ trả string, còn lại trả số. */
@@ -39,6 +40,7 @@ function val(r: PayrollRow, key: SortKey): number | string {
     case "luong": return r.luong || 0;
     case "pc": return r.phu_cap || 0;
     case "ung": return r.ung || 0;
+    case "bhxh": return r.bhxh || 0;
     case "net": return r.thuc_lanh || 0;
   }
 }

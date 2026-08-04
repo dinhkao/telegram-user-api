@@ -36,11 +36,28 @@ export function payrollActions(ym: string, apply: (d: PayrollMonth) => void, rel
                        : `Đã bỏ mốc riêng ${ymLabel(ym)}`, "ok");
     } catch (e: any) { toast(e?.message || "Lỗi lưu mốc lương", "err"); }
   };
+  // TRỪ BHXH hằng tháng — cùng luật kế thừa với mốc, nhưng số 0 CÓ NGHĨA ("từ tháng
+  // này thôi đóng") nên KHÔNG được lẫn với "bỏ đặt riêng": gõ 0 = đặt riêng bằng 0,
+  // để TRỐNG = bỏ đặt riêng (gửi null) → kế thừa lại số của tháng trước đó.
+  const editBhxh = async (r: PayrollRow) => {
+    const v = await promptDialog(
+      `Trừ BHXH ${ymLabel(ym)} của ${r.name}\nÁp dụng TỪ THÁNG NÀY TRỞ ĐI — tháng trước giữ nguyên.\nGõ 0 = từ tháng này thôi trừ. Để trống = bỏ đặt riêng (kế thừa số trước đó).`,
+      { initial: r.bhxh ? String(r.bhxh) : "", placeholder: "vd 682500", okLabel: "Lưu" });
+    if (v === null) return;
+    const digits = String(v).replace(/[^\d]/g, "");
+    const amount = digits === "" ? null : Number(digits);
+    try {
+      apply(await setPayrollAdjust(ym, r.worker_id, { bhxh: amount }));
+      toast(amount === null ? `Đã bỏ mức BHXH riêng ${ymLabel(ym)}`
+            : amount > 0 ? `Trừ BHXH ${ymLabel(ym)}: ${money(amount)}đ (từ tháng này trở đi)`
+            : `${ymLabel(ym)} trở đi: KHÔNG trừ BHXH`, "ok");
+    } catch (e: any) { toast(e?.message || "Lỗi lưu mức BHXH", "err"); }
+  };
   const toggleWeekly = async (r: PayrollRow) => {
     try {
       apply(await setPayrollAdjust(ym, r.worker_id, { weekly: !r.weekly }));
       toast(!r.weekly ? "BẬT nhận lương tuần (tháng này)" : "TẮT nhận lương tuần", "ok");
     } catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
   };
-  return { toggleType, editMoc, toggleWeekly };
+  return { toggleType, editMoc, editBhxh, toggleWeekly };
 }

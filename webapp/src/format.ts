@@ -36,6 +36,25 @@ export function parseMoney(s: string): number {
   return parseInt(String(s).replace(/[^\d]/g, ""), 10) || 0;
 }
 
+/** Chỉ giữ chữ số, TRẢ CHUỖI ("1.500.000đ" → "1500000"; "" → ""). Khác parseMoney ở
+ *  chỗ giữ được ô rỗng — ô nhập tiền controlled cần phân biệt "chưa gõ" với số 0. */
+export const digitsOnly = (s: string) => String(s ?? "").replace(/[^\d]/g, "");
+
+/** ĐỌC LẠI số tiền cho người kiểm tra bằng mắt: 1500000 → "1 triệu 500 nghìn".
+ *  Dùng dưới ô nhập tiền (ui/MoneyEntryForm) — chỗ duy nhất bắt được lỗi thừa/thiếu
+ *  số 0 trước khi lưu. Số lẻ dưới nghìn đọc thẳng "đồng". */
+export function docTien(n: number): string {
+  if (!n || n < 0 || !isFinite(n)) return "";
+  const tr = Math.floor(n / 1_000_000);
+  const ng = Math.floor((n % 1_000_000) / 1000);
+  const le = Math.round(n % 1000);
+  const parts: string[] = [];
+  if (tr) parts.push(`${tr} triệu`);
+  if (ng) parts.push(`${ng} nghìn`);
+  if (le) parts.push(`${le} đồng`);
+  return parts.join(" ");
+}
+
 /** Tiền LÀM TRÒN đồng (payroll hay có số lẻ float): 12345.6 → "12.346". */
 export const moneyR = (n: number) => money(Math.round(n || 0));
 /** moneyR kèm "đ" — nhãn tiền đầy đủ ở các trang lương. */

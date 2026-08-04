@@ -2,6 +2,11 @@
 
 Tính live lương SP từ production_store; bảng riêng cho phụ cấp/thưởng + ứng. app.db.
 """
+from salary_store.bhxh import (
+    list_worker_bhxh,
+    month_bhxh_map,
+    set_month_bhxh,
+)
 from salary_store.moc import (
     list_worker_moc,
     month_moc_map,
@@ -32,4 +37,6 @@ __all__ = [
     "void_allowance", "compute_month_payroll",
     # mốc lương tháng theo TỪNG THÁNG (salary_store/moc.py)
     "month_moc_map", "set_month_moc", "list_worker_moc",
+    # TRỪ BHXH theo tháng, cùng luật kế thừa với mốc (salary_store/bhxh.py)
+    "month_bhxh_map", "set_month_bhxh", "list_worker_bhxh",
 ]
