@@ -37,6 +37,12 @@ class BonusPureTest(unittest.TestCase):
         _, vs = bonus_amounts(25.5, chuyen_can=False, ve_sinh=True)
         self.assertEqual(vs, 25.5 * THUONG_VE_SINH_MOI_NGAY)
 
+    def test_nhan_theo_dung_so_cong_in_ra_bang(self):
+        # công thô 2,40833… nhưng bảng in 2,41 → tiền phải khớp số IN RA, không thì
+        # người duyệt lương bấm máy tính ra lệch 20đ.
+        self.assertEqual(bonus_amounts(round(1156 / 480, 2), chuyen_can=False, ve_sinh=True)[1],
+                         round(THUONG_VE_SINH_MOI_NGAY * 2.41))
+
     def test_khong_cham_cong_thi_ve_sinh_bang_0(self):
         _, vs = bonus_amounts(0, chuyen_can=False, ve_sinh=True)
         self.assertEqual(vs, 0.0)

@@ -381,6 +381,10 @@ def compute_month_payroll(conn, ym: str) -> dict:
         # KHÔNG có tiền tăng ca ×1,2 riêng). TG ('time') giữ nguyên: công tách, TC ×1,2.
         ot_in_cong = wt == "time_flat"
         cong = (work_min + (ot_min if ot_in_cong else 0)) / 480.0   # ngày đủ 2 ca = 1 công
+        # SỐ CÔNG DÙNG ĐỂ NHÂN TIỀN = đúng số IN RA BẢNG (làm tròn 2 số lẻ). Nhân với
+        # công thô thì "12.000đ × 2,41 công" người ta bấm máy tính ra 28.920đ mà bảng
+        # trả 28.900đ — cùng nguyên tắc "cộng dồn số đã làm tròn" ở dòng TỔNG bên dưới.
+        cong_hien = round(cong, 2)
         luong_cong = luong_tc = 0.0
         pc_phieu = 0.0            # phụ cấp PHIẾU SX đã gộp trong lương SP (để UI tách ra)
         if wt == "product":
@@ -400,7 +404,7 @@ def compute_month_payroll(conn, ym: str) -> dict:
         # số ngày công của tháng → sửa báo cáo/chấm công là phụ cấp tự chạy theo.
         pc_base = luong if wt == "product" else luong_cong
         rows_pc = allow_rows.get(wid, [])
-        phu_cap = sum(allowance_amount(k, v, amt, base=pc_base, cong=cong) for k, v, amt in rows_pc)
+        phu_cap = sum(allowance_amount(k, v, amt, base=pc_base, cong=cong_hien) for k, v, amt in rows_pc)
         pc_count = len(rows_pc)
         weekly = bool(a.get("weekly"))   # nhận lương tuần THEO THÁNG (riêng bảng lương)
         ung_manual, adv_count = adv.get(wid, (0.0, 0))
@@ -413,7 +417,7 @@ def compute_month_payroll(conn, ym: str) -> dict:
         # 2 khoản THƯỞNG bật/tắt riêng từng tháng (không kế thừa) — chuyên cần cố
         # định, vệ sinh = đơn giá × ĐÚNG số công đang hiện ở cột Công
         cc_on, vs_on = bool(a.get("thuong_cc")), bool(a.get("thuong_vs"))
-        thuong_cc, thuong_vs = bonus_amounts(cong, chuyen_can=cc_on, ve_sinh=vs_on)
+        thuong_cc, thuong_vs = bonus_amounts(cong_hien, chuyen_can=cc_on, ve_sinh=vs_on)
         thuc_lanh = luong + phu_cap + thuong + thuong_cc + thuong_vs - ung - bhxh
         out.append({
             "worker_id": wid, "name": w["name"], "wage_type": wt, "weekly": weekly,
@@ -430,7 +434,7 @@ def compute_month_payroll(conn, ym: str) -> dict:
             # mốc này ĐẶT ở tháng nào ("" = mốc hồ sơ thợ) + có phải đặt RIÊNG tháng
             # đang xem không → UI nói rõ "kế thừa từ tháng X" thay vì im lặng
             "moc_ym": (mc["ym"] if mc else ""), "moc_own": bool(mc and mc["ym"] == ym),
-            "cong": round(cong, 2),
+            "cong": cong_hien,
             "ot_gio": round(ot_min / 60.0, 1),
             "luong_cong": round(luong_cong), "luong_tc": round(luong_tc),
             # 2 NGUỒN lương tách bạch cho bảng lương khỏi mập mờ: `luong_tg` = lương
