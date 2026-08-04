@@ -32,10 +32,13 @@ RULES: list[tuple[set[str], tuple[str, ...], int | str]] = [
     ({"kim dung"}, ("quay keo",), 0),                # Kim Dung quậy kẹo → cao nhất
     ({"bao xuyen"}, ("quay keo", "vit"), 0),         # Bảo Xuyên quậy kẹo/vít → cao nhất
     ({"thuy dang"}, ("quay keo", "vit"), 1),         # Thủy Đặng quậy kẹo/vít → cao nhì
-    # Tâm vô kẹo / rắc cơm dừa → BẰNG TIỀN SP CỦA TRỌNG (mốc theo TÊN, không theo hạng:
+    # Tâm vô kẹo / việc DỪA → BẰNG TIỀN SP CỦA TRỌNG (mốc theo TÊN, không theo hạng:
     # dữ liệu thật cho thấy Trọng lúc hạng 3, lúc hạng 4 — Duy chốt 2026-08-05, khớp 2
     # khoản văn phòng đã trả tay: phiếu 40963 = 79.000, phiếu 40527 = 29.260).
-    ({"tam"}, ("vo keo", "rac com dua"), "trong"),
+    # Việc dừa Tâm ghi 3 kiểu, TẤT CẢ cùng 1 việc (Duy chốt: "Gắn dừa or rắc cơm dừa
+    # should do the same"): "rắc cơm dừa" · "rắc dừa" (viết tắt) · "gắn dừa". Lưu ý
+    # "rac com dua" KHÔNG chứa chuỗi "rac dua" nên phải liệt kê cả hai.
+    ({"tam"}, ("vo keo", "rac com dua", "rac dua", "gan dua"), "trong"),
 ]
 _NGHI = "nghi"   # ghi chú "nghỉ" → không phụ cấp (ưu tiên trên mọi rule)
 # Thợ KHÔNG dùng làm MỐC xếp hạng phụ cấp (sản lượng cao bất thường — không nên là

@@ -119,6 +119,14 @@ def test_tam_rac_com_dua_cung_bang_trong():
     assert compute_auto_allowances(ws) == {"Tâm": 29_260}
 
 
+def test_tam_moi_cach_ghi_viec_dua_deu_bang_trong():
+    # 3 cách Tâm ghi việc dừa đều là 1 việc (Duy chốt 2026-08-05). Lưu ý "rac com dua"
+    # KHÔNG chứa chuỗi "rac dua" → phải có đủ cả 2 từ khoá trong rule.
+    for note in ("rắc cơm dừa", "rắc dừa", "Gắn dừa"):
+        ws = [_w("Tâm", 0, note), _w("Hiền", 48_070), _w("Trọng", 29_260)]
+        assert compute_auto_allowances(ws) == {"Tâm": 29_260}, note
+
+
 def test_tam_ghi_chu_khac_thi_khong_co_phu_cap():
     ws = [_w("Tâm", 50_000, "Đã -1 mâm"), _w("Trọng", 29_260)]
     assert compute_auto_allowances(ws) == {}
