@@ -106,6 +106,35 @@ def test_nguoi_tinh_theo_gio_khong_nhan_phu_cap():
     assert compute_auto_allowances(ws) == {}
 
 
+def test_tam_vo_keo_bang_dung_tien_cua_trong():
+    # Mốc theo TÊN, không theo hạng: Trọng chỉ đứng hạng 3 mà Tâm vẫn lấy đúng tiền
+    # của anh ấy (số thật phiếu #40963: Trọng 79 cây × 1.000).
+    ws = [_w("Tâm", 8_000, "vô kẹo"), _w("Hiền", 112_000), _w("Hằng", 111_000),
+          _w("Mai", 107_000), _w("Trọng", 79_000)]
+    assert compute_auto_allowances(ws) == {"Tâm": 79_000}
+
+
+def test_tam_rac_com_dua_cung_bang_trong():
+    ws = [_w("Tâm", 0, "rắc cơm dừa"), _w("Hiền", 48_070), _w("Trọng", 29_260)]
+    assert compute_auto_allowances(ws) == {"Tâm": 29_260}
+
+
+def test_tam_ghi_chu_khac_thi_khong_co_phu_cap():
+    ws = [_w("Tâm", 50_000, "Đã -1 mâm"), _w("Trọng", 29_260)]
+    assert compute_auto_allowances(ws) == {}
+
+
+def test_tam_khong_ghi_gi_khi_trong_vang_mat():
+    # Trọng nghỉ/không có dòng → không có mốc → KHÔNG ghi gì (giữ số văn phòng nhập tay)
+    ws = [_w("Tâm", 0, "vô kẹo"), _w("Hiền", 112_000), _w("Hằng", 111_000)]
+    assert compute_auto_allowances(ws) == {}
+
+
+def test_tam_nghi_van_bi_xoa_phu_cap():
+    ws = [_w("Tâm", 0, "vô kẹo nghỉ"), _w("Trọng", 79_000)]
+    assert compute_auto_allowances(ws) == {"Tâm": 0.0}
+
+
 def test_tran_khong_lam_moc():
     # Trân cao nhất nhưng bị loại khỏi mốc → Kim lấy theo người kế (Duy 90k)
     ws = [_wh("Kim", 0, "vít kẹo"), _wh("Trân", 200_000), _wh("Duy", 90_000)]
