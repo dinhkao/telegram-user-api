@@ -81,14 +81,16 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
       {extra}
       {(entries || []).map((e) => (
         <div class={`pr-adv-row${e.voided_at ? " ua-voided" : ""}${fresh.includes(e.id) ? " just-added" : ""}`} key={e.id}>
-          <div class="ua-row-main">
-            <div>
-              {showDate ? <span class="muted small">{dmy(e.adv_date)} · </span> : null}
-              <b class={e.voided_at ? "ua-amt-voided" : ""}>{money(e.amount)}</b>
-              {e.voided_at ? <span class="ua-void-badge">VÔ HIỆU</span> : null}
-              {fresh.includes(e.id) ? <span class="ua-new-badge">VỪA THÊM</span> : null}
-            </div>
-            {e.note ? <div class="muted small">{e.note}</div>
+          {/* 2 CỘT: tiền (+ngày) bên trái · ghi chú bên phải — trước đây ghi chú nằm
+              DƯỚI số tiền nên nhiều khoản là một khối chữ dày, đọc rất mệt. */}
+          <div class="ua-amt-col">
+            {showDate ? <span class="muted small">{dmy(e.adv_date)}</span> : null}
+            <b class={e.voided_at ? "ua-amt-voided" : ""}>{money(e.amount)}</b>
+            {e.voided_at ? <span class="ua-void-badge">VÔ HIỆU</span> : null}
+            {fresh.includes(e.id) ? <span class="ua-new-badge">VỪA THÊM</span> : null}
+          </div>
+          <div class="ua-note-col">
+            {e.note ? <div class="ua-note-txt">{e.note}</div>
               : !e.voided_at ? <div class="muted small ua-note-empty">chưa có ghi chú</div> : null}
             {tsLabel(e.created_at) ? (
               <div class="muted small ua-ts">tạo {tsLabel(e.created_at)}{e.created_by ? ` · ${e.created_by}` : ""}</div>

@@ -28,7 +28,7 @@ export function WagePivotCell({ cell, data, onClose }: {
 
   let title = "";
   let sub = "";
-  let rows: { l: any; r: string; href?: string; zero?: boolean }[] = [];
+  let rows: { l: any; r: string; href?: string; zero?: boolean; note?: string }[] = [];
   let total = 0;
 
   if (cell.kind === "dayTotal") {
@@ -52,9 +52,9 @@ export function WagePivotCell({ cell, data, onClose }: {
       const cay = s.cay?.[w] || 0;
       const pc = s.pc?.[w] || 0;
       const note = s.notes?.[w] || "";
+      // số lượng/phụ cấp đi kèm mã SP; GHI CHÚ tách hẳn thành CỘT RIÊNG cho dễ đọc
       const bits: string[] = [];
       if (cay) bits.push(`${String(cay).replace(".", ",")} cây`);
-      if (note) bits.push(note);
       if (pc) bits.push(`phụ cấp ${money(pc)}đ`);
       return {
         l: (
@@ -64,6 +64,7 @@ export function WagePivotCell({ cell, data, onClose }: {
             {bits.length ? <span class="muted small wpc-sub">{bits.join(" · ")}</span> : null}
           </span>
         ),
+        note,
         r: `${money(v)}đ`,
         href: `#/san_xuat/${s.thread_id}`,
         zero: !v,
@@ -106,7 +107,11 @@ export function WagePivotCell({ cell, data, onClose }: {
         <p class="muted small">{sub}</p>
         {rows.map((r, i) => (
           r.href
-            ? <a class={`pr-pop-row tappable${r.zero ? " wpc-zero" : ""}`} key={i} href={r.href} onClick={onClose}><span>{r.l}</span><b>{r.r}</b></a>
+            ? <a class={`pr-pop-row wpc-row tappable${r.zero ? " wpc-zero" : ""}`} key={i} href={r.href} onClick={onClose}>
+                <span>{r.l}</span>
+                <span class="wpc-note">{r.note || ""}</span>
+                <b>{r.r}</b>
+              </a>
             : <div class="pr-pop-row" key={i}><span>{r.l}</span><b>{r.r}</b></div>
         ))}
         <div class="pr-pop-row hl"><span><b>Tổng ô này</b></span><b>{money(total)}đ</b></div>
