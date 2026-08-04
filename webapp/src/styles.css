@@ -4021,18 +4021,19 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .wp-page .pr-controlbar { margin-bottom: 6px; }
 .wp-sum { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: .8rem; }
 .wp-sum b { font-variant-numeric: tabular-nums; }
-/* width:max-content = khung ÔM SÁT bảng (15 thợ chỉ chiếm ~620px trên màn rộng —
-   để khung kéo hết bề ngang thì viền chạy tít bên phải, nhìn như bảng bị hỏng).
-   ⚠ max-height do JS đặt (pages/WagePivot.tsx) = đúng phần màn hình còn lại, KHÔNG
-   hardcode 100vh-Xpx: số phỏng đoán làm đáy khung chui xuống dưới thanh nav và sinh
-   2 vùng cuộn lồng nhau. */
-.wp-wrap { max-height: 60vh; width: max-content; max-width: 100%;
-  overflow: auto; overscroll-behavior: contain;
-  border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); }
+/* Cuộn GIỐNG BẢNG LƯƠNG THÁNG: KHÔNG ép chiều cao khung — trang cuộn dọc bình
+   thường, bảng chỉ cuộn NGANG trong .wp-tbody-scroll, hàng tiêu đề tách ra thanh
+   sticky top (scrollLeft đồng bộ từ thân bằng JS, y hệt .pr-thead-bar). */
+.wp-wrap { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); box-shadow: var(--e1); }
+.wp-thead-bar { position: sticky; top: 44px; z-index: 6; overflow-x: hidden;
+  background: var(--bg); border-radius: var(--r-md) var(--r-md) 0 0; }
+body.has-nop .wp-thead-bar { top: 72px; }
+.wp-tbody-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.wp-thead-bar .wp-table, .wp-tbody-scroll .wp-table { table-layout: fixed; width: 100%; }
 .wp-table { border-collapse: separate; border-spacing: 0; font-size: .62rem; font-variant-numeric: tabular-nums; }
 .wp-table th, .wp-table td { padding: 1px 3px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
   text-align: right; white-space: nowrap; line-height: 1.35; }
-.wp-table thead th { position: sticky; top: 0; z-index: 3; background: var(--bg); color: var(--muted);
+.wp-table thead th { background: var(--bg); color: var(--muted);
   font-size: .58rem; font-weight: 700; text-align: center; white-space: normal; word-break: break-word;
   max-width: 4.6em; line-height: 1.05; padding: 3px 3px; }
 /* cột NGÀY + ô góc: dính trái; góc phải cao hơn để không bị hàng tiêu đề đè */
@@ -4048,7 +4049,7 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .wp-table .wp-slip a { color: var(--primary); text-decoration: none; font-weight: 600; }
 .wp-table .wp-slip .muted { font-size: .55rem; }
 .wp-table .wp-tot { font-weight: 700; background: var(--bg); }
-.wp-table tfoot th, .wp-table tfoot td { position: sticky; bottom: 0; z-index: 3; background: var(--bg); font-weight: 800; border-top: 1px solid var(--border); }
+.wp-table tfoot th, .wp-table tfoot td { background: var(--bg); font-weight: 800; border-top: 1px solid var(--border); }
 .wp-note { margin: 0 0 6px; }
 
 /* POPUP hồ sơ lương 1 thợ (detail/PayrollWorkerPopup) — dùng chung thân sheet với

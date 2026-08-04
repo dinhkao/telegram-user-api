@@ -857,9 +857,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     luôn khớp phiếu báo cáo + bảng lương tháng; chỉ lấy thợ `wage_type='product'`.
     Trả kèm `max_cell` để client tô heatmap. UI `pages/WagePivot.tsx` (`#/luong-ngay`,
     ☰ Thêm → Lương): bảng siêu gọn (chữ .62rem, đệm 1–3px), sticky 2 trục trong khung
-    tự cuộn (chiều cao khung do JS đo phần màn hình còn lại — KHÔNG hardcode
-    `100vh - Xpx`, số phỏng đoán làm đáy khung chui dưới thanh nav + sinh 2 vùng cuộn
-    lồng nhau), ô đậm nhạt theo tiền, số hiện theo NGHÌN đồng (title = số đầy đủ),
+    cuộn GIỐNG BẢNG LƯƠNG THÁNG (KHÔNG ép chiều cao khung: trang cuộn dọc bình
+    thường, bảng chỉ cuộn NGANG trong `.wp-tbody-scroll`, hàng tiêu đề tách ra thanh
+    `.wp-thead-bar` sticky `top:44` + JS đồng bộ scrollLeft — cột Ngày ghim trái, tiêu
+    đề ghim trên), ô đậm nhạt theo tiền, số hiện theo NGHÌN đồng (title = số đầy đủ),
     **bấm 1 ô = popup CẤU THÀNH số tiền ô đó** (`detail/WagePivotCell.tsx`: ô ngày →
     các phiếu trong ngày · ô phiếu → cây × đơn giá + phụ cấp phiếu · ô Tổng ngày →
     chia theo thợ), nhớ tháng/kiểu xem/vị trí cuộn theo phiên.

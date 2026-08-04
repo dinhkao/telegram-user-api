@@ -37,7 +37,7 @@ function heat(v: number, max: number): string {
 // NHỚ theo PHIÊN: tháng + kiểu xem + vị trí cuộn (cả 2 chiều) của khung bảng. Bảng
 // rất rộng và dài — mở 1 ô rồi quay lại mà bảng nhảy về góc trên trái thì phải dò
 // lại từ đầu. Module scope: reset khi tải lại app, giống các trang lazy-load khác.
-let _saved: { ym: string; view: "day" | "slip"; top: number; left: number } | null = null;
+let _saved: { ym: string; view: "day" | "slip"; left: number } | null = null;
 
 const monthRange = (ym: string) => {
   const [y, m] = ym.split("-").map(Number);
@@ -54,30 +54,26 @@ export function WagePivot() {
   const [err, setErr] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  // Khung bảng phải cao ĐÚNG phần màn hình còn lại: đo vị trí thật của nó rồi trừ
-  // thanh nav dưới. Trước dùng max-height: calc(100vh - 200px) — số phỏng đoán, nên
-  // trên điện thoại đáy khung chui XUỐNG DƯỚI thanh nav (mất luôn hàng Tổng dính
-  // đáy) và sinh 2 vùng cuộn lồng nhau (cuộn hết khung là kẹt, trang không đi tiếp).
-  // Đo runtime cũng tự đúng khi có banner "ai đang giao" đẩy nội dung xuống.
+  // Cuộn GIỐNG BẢNG LƯƠNG THÁNG: trang cuộn DỌC bình thường (không ép chiều cao
+  // khung), bảng chỉ cuộn NGANG trong .wp-tbody-scroll; hàng tiêu đề tách ra thanh
+  // sticky top và đồng bộ scrollLeft từ thân. Trước đây ép max-height theo màn hình
+  // → khung cứng đơ, cuộn lồng nhau, không hợp với các trang khác.
+  const headRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const fit = () => {
-      const top = el.getBoundingClientRect().top;
-      const dock = document.querySelector(".bottom-dock")?.getBoundingClientRect().height || 56;
-      el.style.maxHeight = `${Math.max(220, Math.round(window.innerHeight - top - dock - 10))}px`;
-    };
-    fit();
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, [view, data, loading]);
+    const head = headRef.current, body = wrapRef.current;
+    if (!head || !body) return;
+    const sync = () => { head.scrollLeft = body.scrollLeft; };
+    const ro = new ResizeObserver(sync);
+    ro.observe(body);
+    window.addEventListener("resize", sync);
+    return () => { ro.disconnect(); window.removeEventListener("resize", sync); };
+  }, [data, view]);
 
   // KHÔI PHỤC vị trí cuộn sau khi bảng đã dựng xong (chỉ khi đúng tháng + kiểu xem
   // đã lưu — đổi tháng thì về đầu bảng cho khỏi lạc).
   useEffect(() => {
     const el = wrapRef.current;
     if (!el || !data || !_saved || _saved.ym !== ym || _saved.view !== view) return;
-    el.scrollTop = _saved.top;
     el.scrollLeft = _saved.left;
   }, [data, view, ym]);
 
@@ -91,7 +87,7 @@ export function WagePivot() {
   };
   useEffect(() => { load(); }, [ym]);
   // ghi nhớ tháng/kiểu xem ngay khi đổi (vị trí cuộn ghi trong onScroll)
-  useEffect(() => { _saved = { ...(_saved || { top: 0, left: 0 }), ym, view }; }, [ym, view]);
+  useEffect(() => { _saved = { ...(_saved || { left: 0 }), ym, view }; }, [ym, view]);
 
   // View chi tiết có thang màu RIÊNG (ô phiếu luôn nhỏ hơn ô ngày — dùng chung
   // thang thì cả bảng chi tiết nhạt thếch, không phân biệt được gì)
@@ -100,6 +96,13 @@ export function WagePivot() {
     for (const d of data?.days || []) for (const s of d.slips) for (const v of Object.values(s.cells)) m = Math.max(m, v);
     return m;
   }, [data]);
+
+  // Bề rộng cột theo EM (font bảng .62rem) — số hiện theo nghìn nên 4 chữ số là đủ;
+  // tên thợ ở tiêu đề tự xuống 2 dòng trong bề rộng này.
+  const ws0 = data?.workers || [];
+  const COL_EM = [5.8, ...ws0.map(() => 4.3), 5.0];
+  const tableStyle = `min-width:${COL_EM.reduce((a, b) => a + b, 0)}em`;
+  const cols = <colgroup>{COL_EM.map((w, i) => <col key={i} style={`width:${w}em`} />)}</colgroup>;
 
   const head = (
     <PageHead fallback="#/home"
@@ -135,15 +138,22 @@ export function WagePivot() {
             </div>
             <p class="muted small wp-note">Số theo <b>nghìn đồng</b> · ô càng đậm tiền càng nhiều ·
               chạm giữ 1 ô để xem số đầy đủ.</p>
-            <div class="wp-wrap" ref={wrapRef}>
-              <table class="wp-table">
-                <thead>
-                  <tr>
-                    <th class="wp-cnr">Ngày</th>
-                    {ws.map((w) => <th key={w.id} title={`${w.name} — ${money(w.total)}đ cả kỳ`}>{shortName(w.name)}</th>)}
-                    <th class="wp-tot">Tổng</th>
-                  </tr>
-                </thead>
+            <div class="wp-wrap">
+              <div class="wp-thead-bar" ref={headRef}>
+                <table class="wp-table" style={tableStyle}>
+                  {cols}
+                  <thead>
+                    <tr>
+                      <th class="wp-cnr">Ngày</th>
+                      {ws.map((w) => <th key={w.id} title={`${w.name} — ${money(w.total)}đ cả kỳ`}>{shortName(w.name)}</th>)}
+                      <th class="wp-tot">Tổng</th>
+                    </tr>
+                  </thead>
+                </table>
+              </div>
+              <div class="wp-tbody-scroll" ref={wrapRef}>
+              <table class="wp-table" style={tableStyle}>
+                {cols}
                 <tbody>
                   {data.days.map((d) => (
                     <>
@@ -193,6 +203,7 @@ export function WagePivot() {
                   </tr>
                 </tfoot>
               </table>
+              </div>
             </div>
           </>
         )}
