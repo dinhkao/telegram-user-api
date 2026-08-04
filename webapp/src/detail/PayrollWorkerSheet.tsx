@@ -16,7 +16,7 @@ import {
   type AttendanceDay, type PayrollRow, type SalaryAdvance, type SalaryAllowance, type WorkerReport,
 } from "../api";
 import { moneyR as money, dmy, pad2, ymLabel } from "../format";
-import { mocNguon, type PayrollCol } from "./PayrollCellPopup";
+import { bhxhNguon, mocNguon, type PayrollCol } from "./PayrollCellPopup";
 import { isTimeWage, otInCong, wageLabel } from "./wageType";
 import { AttendanceDayRows, attRows, attTotals, congVN, otVN, pairs } from "./AttendanceDays";
 import { Icon } from "../ui/Icon";
@@ -101,9 +101,9 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
     getWorkerReport(r.name, monthFrom(ym), monthTo(ym)).then(setRep).catch(() => setRep("err"));
   }, [ym, r.name, isTime]);
 
-  // Thanh tỉ lệ: phần CỘNG (lương + phụ cấp + thưởng) so với phần TRỪ (ứng)
+  // Thanh tỉ lệ: phần CỘNG (lương + phụ cấp + thưởng) so với phần TRỪ (ứng + BHXH)
   const cong = r.luong + r.phu_cap + r.thuong;
-  const tong = cong + r.ung;
+  const tong = cong + r.ung + r.bhxh;
   const pct = (v: number) => (tong > 0 ? Math.max(v > 0 ? 2 : 0, Math.round((v / tong) * 100)) : 0);
   const ungPct = cong > 0 ? Math.round((r.ung / cong) * 100) : 0;
 
@@ -129,6 +129,7 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
           {r.phu_cap ? <> + {money(r.phu_cap)}</> : null}
           {r.thuong ? <> + {money(r.thuong)}</> : null}
           {r.ung ? <> − <span class="t-danger">{money(r.ung)}</span></> : null}
+          {r.bhxh ? <> − <span class="t-danger">{money(r.bhxh)}</span> <span class="muted">BHXH</span></> : null}
         </div>
       </div>
       {tong > 0 && (
@@ -138,12 +139,14 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
             {r.phu_cap ? <span class="pws-seg pc" style={`width:${pct(r.phu_cap)}%`} /> : null}
             {r.thuong ? <span class="pws-seg thuong" style={`width:${pct(r.thuong)}%`} /> : null}
             {r.ung ? <span class="pws-seg ung" style={`width:${pct(r.ung)}%`} /> : null}
+            {r.bhxh ? <span class="pws-seg bhxh" style={`width:${pct(r.bhxh)}%`} /> : null}
           </div>
           <div class="pws-legend muted small">
             <span><i class="pws-dot luong" /> Lương</span>
             {r.phu_cap ? <span><i class="pws-dot pc" /> Phụ cấp</span> : null}
             {r.thuong ? <span><i class="pws-dot thuong" /> Thưởng</span> : null}
             {r.ung ? <span><i class="pws-dot ung" /> Đã ứng{ungPct ? ` ${ungPct}%` : ""}</span> : null}
+            {r.bhxh ? <span><i class="pws-dot bhxh" /> Trừ BHXH</span> : null}
           </div>
         </>
       )}
@@ -291,6 +294,11 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
             ))}
           </div>
         )}
+
+      {/* ── Trừ BHXH ─────────────────────────────────────────────────────── */}
+      {/* Mức lưu theo TỪNG THÁNG + kế thừa (bhxhNguon nói rõ số này của tháng nào) */}
+      <Block label="Trừ BHXH" total={r.bhxh ? `−${money(r.bhxh)}đ` : "—"} tone={r.bhxh ? "danger" : undefined}
+        sub={`${bhxhNguon(r, ym)} · bấm để ${r.bhxh ? "sửa" : "đặt"} mức trừ`} onTap={() => onCol("bhxh")} />
 
       {r.thuong ? <Block label="Thưởng (tháng cũ)" total={`+${money(r.thuong)}đ`} tone="ok" /> : null}
       {r.note ? <p class="muted small pws-pad">Ghi chú tháng: {r.note}</p> : null}

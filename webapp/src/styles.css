@@ -1292,15 +1292,39 @@ a.pr-stat:active { background: var(--accent-wash); }
 .pr-adv-row b { font-variant-numeric: tabular-nums; }
 .pr-adv-note { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pr-adv-del { margin-left: auto; width: 26px; height: 26px; border: none; background: var(--danger-wash); color: var(--danger); border-radius: var(--r-sm); cursor: pointer; }
-.pr-adv-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 2px; }
-.pr-adv-add .pw-input { text-align: left; }
-.pr-adv-note-in { flex: 1; min-width: 100px; }
 /* nhập ứng lương và phụ cấp (#/nhap-ung, #/nhap-phu-cap) */
 .ua-create { display: flex; flex-direction: column; gap: 8px; }
-.ua-form { display: flex; flex-wrap: wrap; gap: 8px; }
-.ua-form .pw-input { text-align: left; }
-.ua-amt-in { flex: 1; min-width: 120px; text-align: right; }
-.ua-note-in { flex: 1; min-width: 140px; }
+
+/* ── Ô NHẬP TIỀN dùng chung (ui/MoneyEntryForm) ─────────────────────────────
+   Trước đây ô tiền là .pw-input rộng 82px nằm chung hàng với ngày + ghi chú →
+   trên điện thoại gõ tiền triệu vào ô bằng đốt ngón tay, nhìn lại không ra số.
+   Giờ ô tiền chiếm TRỌN chiều ngang, chữ to (số tiền là thứ dễ sai nhất), có
+   dòng đọc lại bằng chữ ở dưới. Các ô phụ (ngày/ghi chú) mới xuống hàng riêng. */
+.me-form { display: flex; flex-direction: column; gap: 6px; }
+.me-form.compact { margin-top: 4px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.me-label { color: var(--muted); font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.me-amt-wrap { position: relative; display: flex; align-items: center; }
+.me-amt { width: 100%; padding: 12px 38px 12px 48px; border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--card); color: var(--ink); font: inherit; font-size: 1.6rem; font-weight: 800;
+  font-variant-numeric: tabular-nums; text-align: right; letter-spacing: .01em; }
+.me-amt:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px var(--accent-wash); }
+.me-amt::placeholder { color: var(--border); font-weight: 700; }
+.me-cur { position: absolute; right: 14px; color: var(--muted); font-size: 1.1rem; font-weight: 700; pointer-events: none; }
+/* nút xoá nằm BÊN TRÁI: số căn phải nên mép trái luôn trống — để bên phải thì nó
+   chen vào giữa số tiền và chữ "đ", nhìn như một chữ số lạ */
+.me-clear { position: absolute; left: 10px; width: 28px; height: 28px; padding: 0; border: none; border-radius: 999px;
+  background: var(--bg); color: var(--muted); font-size: .8rem; line-height: 1; cursor: pointer; }
+/* dòng đọc lại: chỗ DUY NHẤT bắt được lỗi thừa/thiếu số 0 trước khi bấm lưu */
+.me-read { min-height: 1.1em; color: var(--ok); font-size: .8rem; font-weight: 700; text-align: right; }
+.me-read.empty { color: var(--muted); font-weight: 400; }
+.me-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.me-chip { padding: 7px 12px; font-size: .8rem; font-weight: 700; }
+.me-daterow { display: flex; align-items: center; gap: 8px; }
+.me-date, .me-note { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--card); color: var(--ink); font: inherit; font-size: .92rem; }
+.me-date:focus, .me-note:focus { border-color: var(--primary); outline: none; }
+.me-submit { margin-top: 2px; padding: 12px; font-size: .95rem; font-weight: 800; }
+.me-submit:disabled { opacity: .5; }
 .ua-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; }
 .ua-row-main { flex: 1; min-width: 0; }
 .ua-ts { font-size: .64rem; color: var(--muted-2); }
@@ -1414,6 +1438,7 @@ body.has-nop .pr-thead-bar { top: 72px; }
 .pws-seg.pc, .pws-dot.pc { background: var(--ok); }
 .pws-seg.thuong, .pws-dot.thuong { background: var(--warn, #d69e2e); }
 .pws-seg.ung, .pws-dot.ung { background: var(--danger); }
+.pws-seg.bhxh, .pws-dot.bhxh { background: var(--muted); }
 .pws-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: center; }
 .pws-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .pws-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
@@ -1489,7 +1514,10 @@ body.has-nop .pr-thead-bar { top: 72px; }
   .pr-stat:nth-child(odd) { border-left: none; }
   .pr-card-grid { grid-template-columns: 1fr; gap: 8px; }
   .pr-card-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }
-  .pr-card-metric:nth-child(3) { padding-left: 0; border-left: none; }
+  .pr-card-metric:nth-child(odd) { padding-left: 0; border-left: none; }
+  /* ô tiền to vẫn phải vừa màn hẹp: bớt cỡ chữ + chỗ chừa cho hậu tố "đ" */
+  .me-amt { padding: 11px 34px 11px 44px; font-size: 1.35rem; }
+  .me-cur { right: 12px; font-size: 1rem; }
   /* bảng lương mobile: số ĐẦY ĐỦ, colgroup px + cuộn ngang (không ép % nữa) */
   .pr-table { font-size: .74rem; }
   .pr-table th, .pr-table td { padding: 5px 6px; }

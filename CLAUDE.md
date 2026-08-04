@@ -311,14 +311,24 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   lập, KHÁC `production_workers.weekly_salary`) + `salary_advances` (ỨNG lương NHIỀU
   lần/tháng) + `salary_allowances` (PHỤ CẤP NHIỀU KHOẢN/tháng — amount + nhãn, cộng
   dồn; giống ứng). `compute_month_payroll(ym)`: thực lãnh = lương + phụ cấp (Σ khoản)
-  + thưởng − ứng; `weekly` bật → ứng tự động += lương SP (đã trả theo tuần). API
+  + thưởng − ứng − **BHXH**; `weekly` bật → ứng tự động += lương SP (đã trả theo tuần).
+  **TRỪ BHXH (2026-08-04, `salary_store/bhxh.py` + cột `salary_month.bhxh`,
+  tests/test_salary_bhxh.py)**: khoản TRỪ hằng tháng, cùng luật KẾ THỪA THEO THÁNG với
+  mốc lương (đặt tháng nào áp TỪ THÁNG ĐÓ trở đi, tháng sau tự kế thừa, tháng trước
+  KHÔNG đổi; chưa đặt bao giờ = 0). ⚠ KHÁC mốc ở số 0: mốc dùng 0 = "bỏ đặt riêng",
+  còn ở đây **0 là số CÓ NGHĨA** ("từ tháng này thôi trừ") → API `/api/payroll/adjust`
+  phân biệt bằng `"bhxh" in body` (vắng = giữ nguyên · số ≥ 0 = đặt riêng · **null =
+  bỏ đặt riêng**), đừng đổi sang `.get() is not None`. Row trả `bhxh`/`bhxh_ym`/
+  `bhxh_own` (↩ = kế thừa) như bộ `moc_*`. API
   `server_app/payroll_routes.py` (`/api/payroll/month|adjust|advance*|allowance*`,
   TẤT CẢ chặn `office_user`). Khoản đã ghi: **VÔ HIỆU** (`.../{id}/void`, kèm lý do)
   hoặc **SỬA GHI CHÚ** (`.../{id}/note` — SỐ TIỀN/ngày BẤT BIẾN, sai tiền thì vô hiệu
   rồi ghi lại; khoản đã vô hiệu khoá luôn ghi chú). UI `MonthlyPayroll.tsx`
   (`#/luong-thang`, view Bảng/Thẻ — view Thẻ tách ra `detail/PayrollCard.tsx`;
   **SẮP XẾP bấm tiêu đề cột** = `detail/payrollSort.ts` (`COLS` là NGUỒN DUY NHẤT của
-  nhãn/tooltip 12 cột — thứ tự phải khớp `<td>` thân bảng LẪN mảng `COL_EM` colgroup;
+  nhãn/tooltip 13 cột — thứ tự phải khớp `<td>` thân bảng LẪN mảng `COL_EM` colgroup;
+  cột Thợ GHIM trái nên `COL_EM[0]` hẹp lại còn 8em ở mobile qua hook `useNarrow`
+  (matchMedia 720px — width nằm inline trên `<col>`, CSS media query KHÔNG đè được);
   bấm: sắp → đảo chiều → bỏ sắp, cột số lớn-trước, cột Thợ A→Z theo `localeCompare('vi')`,
   nhớ ở localStorage `payroll_sort`, áp cho CẢ view Thẻ; dòng TỔNG ở tfoot không đổi chỗ);
   **bấm ô TÊN → TRANG `#/luong-thang/:worker_id?ym=`
@@ -346,9 +356,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   Tests: `tests/test_allowance_auto.py`.
   ⚠ **KHOẢN ứng/phụ cấp HIỆN Ở 2 CHỖ — sửa gì phải đồng bộ CẢ HAI**: (1) 2 trang nhập
   `pages/AdvanceEntry.tsx` + `pages/AllowanceEntry.tsx` (`#/nhap-ung`, `#/nhap-phu-cap`),
-  (2) panel `EntryPanel` trong `detail/PayrollCellPopup.tsx` — dùng cho popup ô P.cấp/Ứng
-  của bảng lương tháng LẪN view Thẻ. Cùng dữ liệu, cùng API; thêm nút/cột/thông tin dòng
-  ở 1 bên mà quên bên kia là người dùng thấy tính năng "lúc có lúc không".
+  (2) panel `detail/EntryPanel.tsx` — dùng cho popup ô P.cấp/Ứng của bảng lương tháng
+  LẪN view Thẻ. Cùng dữ liệu, cùng API; thêm nút/cột/thông tin dòng ở 1 bên mà quên bên
+  kia là người dùng thấy tính năng "lúc có lúc không". **Ô NHẬP TIỀN của CẢ HAI = `ui/
+  MoneyEntryForm.tsx`** (ô to hết chiều ngang + dấu chấm nghìn khi gõ + dòng ĐỌC LẠI
+  bằng chữ "1 triệu 500 nghìn" + chip cộng nhanh +10k…+1tr + chip gợi ý nội dung) —
+  cần ô nhập tiền ở chỗ khác thì dùng lại nó, đừng quay về `<input class="pw-input">`
+  rộng 82px (gõ tiền triệu trên điện thoại sai số 0 như chơi).
 - **`attendance_store/` — CHẤM CÔNG máy Ronald Jack (`app.db`, 2026-07-19).** Collector
   Windows (PC văn phòng, task 30ph/lần, SDK ZKTeco) đọc máy chấm công LAN rồi đẩy batch
   qua Tailscale vào `POST /api/attendance/events` (`server_app/attendance_routes.py` —
@@ -862,7 +876,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     `.page-head` alias `.prod-detail-head`) — đừng chế `.xx-head` mới. `ui/SelectPopup`
     (chọn tĩnh) + `ui/PickerPopup` (autocomplete) = mọi dropdown/select là **popup neo
     đỉnh** (bàn phím không che); mọi popup gọi `ui/usePopupBack` (nút BACK đóng popup
-    trước) + `useScrollLock`. Ô thùng = `detail/BoxLabelGrid`. Toast/confirm/**prompt** =
+    trước) + `useScrollLock`. Ô thùng = `detail/BoxLabelGrid`. **Nhập TIỀN =
+    `ui/MoneyEntryForm`** (ô to hết chiều ngang + chấm nghìn khi gõ + đọc lại bằng chữ +
+    chip cộng nhanh) — đừng dùng `<input class="pw-input">` bé cho ô tiền.
+    Toast/confirm/**prompt** =
     `ui/feedback` (`toast`/`confirmDialog`/`promptDialog`/`noticeDialog` [1 nút, thay
     alert] — cấm alert/confirm/prompt native; toast LUÔN kèm kind "ok"/"err"; confirm
     XOÁ kèm `okLabel: "Xoá <đối tượng>"`). States = `ui/states` (Loading/LoadingInline/

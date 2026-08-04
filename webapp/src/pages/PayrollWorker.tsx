@@ -40,7 +40,7 @@ export function PayrollWorker({ wid }: { wid: number }) {
   useEffect(() => { setData(null); load(); }, [ym]);
 
   const r = data?.workers.find((w) => w.worker_id === wid) || null;
-  const { toggleType, editMoc, toggleWeekly } = payrollActions(ym, setData, load);
+  const { toggleType, editMoc, editBhxh, toggleWeekly } = payrollActions(ym, setData, load);
 
   const head = (
     <PageHead fallback={`#/luong-thang`}
@@ -71,7 +71,7 @@ export function PayrollWorker({ wid }: { wid: number }) {
       {pop && r && (
         <PayrollCellPopup ym={ym} r={r} col={pop}
           onClose={() => setPop(null)} onCol={setPop}
-          apply={setData} editMoc={editMoc} />
+          apply={setData} editMoc={editMoc} editBhxh={editBhxh} />
       )}
     </div>
   );

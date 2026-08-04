@@ -217,6 +217,62 @@ export const GUIDES_SANXUAT: Guide[] = [
     ],
   },
   {
+    key: "luong-thang", icon: "wallet", cat: "Sản xuất", office: true,
+    title: "Bảng lương tháng",
+    desc: "Lương từng thợ trong tháng: lương + phụ cấp − ứng − BHXH = thực lãnh. Nhập ứng/phụ cấp, đặt mốc lương và mức trừ BHXH.",
+    routes: ["#/luong-thang", "#/nhap-ung", "#/nhap-phu-cap"],
+    sections: [
+      { title: "Bảng lương tháng là gì", html: `
+        <p><a href="#/luong-thang">#/luong-thang</a> (chỉ <b>văn phòng</b>) gom <b>mọi khoản của một tháng</b>
+        cho từng thợ về một bảng. Công thức của cột cuối:</p>
+        <p><b>Thực lãnh = Lương + Phụ cấp − Đã ứng − Trừ BHXH</b></p>
+        <ul>
+          <li><b>Lương</b>: thợ lương <i>sản phẩm</i> tính tự động từ báo cáo sản xuất; thợ lương
+            <i>thời gian</i> tính từ <b>mốc</b> và <b>ngày công</b> chấm được.</li>
+          <li>Số liệu <b>tính lại mỗi lần mở</b> — không có nút "chốt", sửa gì thấy ngay.</li>
+        </ul>
+        <p>Có 2 kiểu xem: <b>Bảng</b> (đủ cột, cuộn ngang, bấm tiêu đề để sắp xếp) và <b>Thẻ</b>
+        (mỗi thợ một thẻ, dễ nhìn trên điện thoại). <b>Mọi ô số đều bấm được</b> để xem cách tính
+        hoặc sửa ngay tại chỗ; bấm <b>tên thợ</b> mở hồ sơ lương tháng đầy đủ của người đó.</p>` },
+      { title: "Cột TRỪ BHXH", html: `
+        <p>Cột <b>BHXH</b> là khoản <b>trừ hằng tháng</b> (phần bảo hiểm người lao động đóng). Bấm ô đó
+        để đặt hoặc sửa số tiền.</p>
+        <ul>
+          <li>Đặt ở tháng nào thì <b>áp dụng từ tháng đó trở đi</b> — <b>các tháng trước giữ nguyên</b>,
+            bảng lương đã trả không bị tính lại.</li>
+          <li>Tháng sau <b>tự kế thừa</b>, khỏi nhập lại mỗi tháng. Ô có dấu <b>↩</b> nghĩa là
+            tháng này đang ăn theo mức đã đặt ở tháng trước.</li>
+          <li>Gõ <b>0</b> = <i>từ tháng này thôi trừ</i>. Để <b>trống</b> = bỏ mức riêng của tháng này,
+            quay lại kế thừa số cũ. Hai việc này <b>khác nhau</b>.</li>
+        </ul>
+        <p>Thợ nào không đóng thì để trống — cột hiện <i>đặt…</i> và không trừ đồng nào.</p>` },
+      { title: "Mốc lương (thợ lương thời gian)", html: `
+        <p>Ô <b>Mốc</b> = mức lương tháng thoả thuận. Lương 1 công = <b>mốc ÷ 26</b>, tăng ca ×1,2
+        (trừ loại <b>TG*</b> — giờ tăng ca gộp thẳng vào ngày công, không trả riêng).</p>
+        <p>Mốc cũng <b>lưu theo từng tháng và kế thừa</b> giống BHXH: tăng lương giữa năm không làm
+        sai bảng lương các tháng đã trả. Bấm ô Mốc còn có khung <b>trao đổi</b> riêng về lương của
+        thợ đó (dùng chung cho mọi tháng, staff không xem được).</p>` },
+      { title: "Nhập phụ cấp & ứng lương", html: `
+        <p>Cột <b>P.cấp</b> và <b>Ứng</b> bấm vào là thêm/gỡ khoản ngay tại chỗ; hoặc dùng trang riêng
+        <a href="#/nhap-phu-cap">Nhập phụ cấp</a> / <a href="#/nhap-ung">Nhập ứng lương</a> khi cần
+        ghi cho nhiều người liên tiếp. <b>Hai nơi là cùng một dữ liệu.</b></p>
+        <p>Ô nhập tiền cố ý <b>to hết chiều ngang</b>, có dòng <b>đọc lại bằng chữ</b> ngay dưới
+        ("1 triệu 500 nghìn") để bắt lỗi thừa/thiếu số 0 trước khi lưu, kèm <b>chip cộng nhanh</b>
+        (+10k … +1tr, bấm là cộng dồn) và chip gợi ý nội dung.</p>
+        <ul>
+          <li>Một tháng ghi được <b>nhiều khoản</b> phụ cấp và <b>nhiều lần</b> ứng.</li>
+          <li>Ghi sai <b>không xoá</b> được — phải <b>VÔ HIỆU kèm lý do</b>, dòng vẫn nằm đó để đối chiếu.</li>
+          <li><b>Số tiền bất biến</b>: chỉ sửa được ghi chú (nút ✏️). Sai tiền thì vô hiệu rồi ghi lại.</li>
+          <li>Thợ bật <b>nhận lương tuần</b> thì phần lương sản phẩm tự vào cột Ứng (đã trả theo tuần).</li>
+        </ul>` },
+      { title: "Ai được làm gì?", html: `
+        <ul>
+          <li>Xem bảng lương tháng, sửa mốc / BHXH / phụ cấp / ứng: <b>văn phòng</b>.</li>
+          <li>Nhân viên thường <b>không mở được</b> các trang này.</li>
+        </ul>` },
+    ],
+  },
+  {
     key: "tho", icon: "users", cat: "Sản xuất",
     title: "Thợ (nhân công)",
     desc: "Danh sách thợ, danh tính bất biến, đơn giá giờ, cờ lương tuần, sắp xếp thứ tự.",

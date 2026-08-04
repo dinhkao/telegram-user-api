@@ -3,13 +3,15 @@
 // salary_store/moc.py) + khung TRAO ĐỔI gắn theo THỢ (scope worker_moc → dùng chung
 // mọi tháng); Công/TC = chấm công từng ngày của thợ (luật quy công
 // GIỐNG attendance_store/domain.work_stats); L.công/L.TC/Lương/Lãnh = diễn giải
-// công thức; P.cấp/Ứng = panel thêm/vô hiệu khoản ngay tại chỗ (EntryPanel).
+// công thức; P.cấp/Ứng = panel thêm/vô hiệu khoản ngay tại chỗ (detail/EntryPanel);
+// BHXH = số trừ hằng tháng của THÁNG ĐANG XEM (kế thừa theo tháng như mốc — 0 khác
+// "bỏ đặt riêng", xem salary_store/bhxh.py).
 // Data: getAttendanceSummary, payroll allowance/advance API. Cha (MonthlyPayroll)
 // giữ state {wid, col} và truyền row TƯƠI mỗi lần data đổi.
 import { useEffect, useState } from "preact/hooks";
 import {
   addPayrollAdvance, addPayrollAllowance, getAttendanceSummary,
-  listPayrollAdvances, listPayrollAllowances, soVN,
+  listPayrollAdvances, listPayrollAllowances,
   setPayrollAdvanceNote, setPayrollAllowanceNote,
   voidPayrollAdvance, voidPayrollAllowance,
   type AttendanceDay, type PayrollMonth, type PayrollRow,
@@ -21,13 +23,14 @@ import { useScrollLock } from "../useScrollLock";
 import { LoadingInline } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
 
-export type PayrollCol = "moc" | "cong" | "tc" | "luong_cong" | "luong_tc" | "luong" | "pc" | "ung" | "net";
+export type PayrollCol = "moc" | "cong" | "tc" | "luong_cong" | "luong_tc" | "luong"
+  | "pc" | "ung" | "bhxh" | "net";
 
 import { Comments } from "./Comments";
+import { EntryPanel, PC_GOI_Y, UNG_GOI_Y } from "./EntryPanel";
 import { isTimeWage, otInCong, wageLabel } from "./wageType";
-import { moneyR as money, dmy, tsLabel, ymLabel } from "../format";
+import { moneyR as money, ymLabel } from "../format";
 import { workStats } from "./attendanceStats";
-const num = (s: string) => Number(String(s).replace(/[^\d]/g, "") || 0);
 const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 
 const DOW = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -36,70 +39,18 @@ const dayVN = (ymd: string) => {
   return `${DOW[d.getDay()]} ${Number(ymd.slice(8, 10))}/${Number(ymd.slice(5, 7))}`;
 };
 
-// Panel liệt kê + thêm/VÔ HIỆU/SỬA GHI CHÚ KHOẢN (phụ cấp lẫn ứng) — popup ô bảng
-// lương + view Thẻ dùng chung.
-// ⚠ ĐỒNG BỘ 2 CHỖ: panel này và 2 trang nhập (pages/AdvanceEntry.tsx +
-// pages/AllowanceEntry.tsx) hiện CÙNG một khoản → thêm/sửa tính năng nào (nút, cột,
-// thông tin dòng) phải làm ở CẢ HAI, đừng để 1 bên có 1 bên không.
-// Dòng hiện: ngày (ứng) · tiền · badge VÔ HIỆU · ghi chú · ai tạo lúc nào · lý do vô hiệu.
-export function EntryPanel({ entries, showDate, addPlaceholder, onAdd, onDel, onNote, extra }: {
-  entries?: { id: number; amount: number; note: string; adv_date?: string; created_by?: string;
-              created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string }[];
-  showDate?: boolean; addPlaceholder: string;
-  onAdd: (amount: number, note: string, date: string) => void; onDel: (id: number) => void;
-  onNote?: (id: number, current: string) => void;   // ✏️ sửa ghi chú (tiền bất biến)
-  extra?: any;
-}) {
-  const [amt, setAmt] = useState("");
-  const [date, setDate] = useState("");
-  const [note, setNote] = useState("");
-  const add = () => {
-    const a = num(amt);
-    if (a <= 0) { toast("Nhập số tiền", "err"); return; }
-    onAdd(a, note, date); setAmt(""); setNote("");
-  };
-  return (
-    <div class="pr-adv">
-      {extra}
-      {(entries || []).map((e) => (
-        <div class={`pr-adv-row${e.voided_at ? " ua-voided" : ""}`} key={e.id}>
-          <div class="ua-row-main">
-            <div>
-              {showDate ? <span class="muted small">{dmy(e.adv_date)} · </span> : null}
-              <b class={e.voided_at ? "ua-amt-voided" : ""}>{money(e.amount)}</b>
-              {e.voided_at ? <span class="ua-void-badge">VÔ HIỆU</span> : null}
-            </div>
-            {e.note ? <div class="muted small">{e.note}</div>
-              : !e.voided_at ? <div class="muted small ua-note-empty">chưa có ghi chú</div> : null}
-            {tsLabel(e.created_at) ? (
-              <div class="muted small ua-ts">tạo {tsLabel(e.created_at)}{e.created_by ? ` · ${e.created_by}` : ""}</div>
-            ) : null}
-            {e.voided_at ? (
-              <div class="small ua-void-info">vô hiệu {tsLabel(e.voided_at)}{e.voided_by ? ` · ${e.voided_by}` : ""}{e.void_reason ? ` — ${e.void_reason}` : ""}</div>
-            ) : null}
-          </div>
-          {!e.voided_at && onNote ? (
-            <button class="ua-note-edit" onClick={() => onNote(e.id, e.note || "")} aria-label="Sửa ghi chú" title="Sửa ghi chú"><Icon name="edit" size={14} /></button>
-          ) : null}
-          {!e.voided_at ? <button class="pr-adv-del" onClick={() => onDel(e.id)} aria-label="Vô hiệu">✕</button> : null}
-        </div>
-      ))}
-      {entries && !entries.length ? <div class="muted small">Chưa có khoản nào.</div> : null}
-      <div class="pr-adv-add">
-        <input class="pw-input" inputMode="numeric" placeholder={addPlaceholder} value={amt} onInput={(e: any) => setAmt(e.target.value)} />
-        {showDate ? <input class="pw-input" type="date" value={date} onInput={(e: any) => setDate(e.target.value)} /> : null}
-        <input class="pw-input pr-adv-note-in" placeholder="Ghi chú" value={note} onInput={(e: any) => setNote(e.target.value)} />
-        <button class="btn primary" onClick={add}>Thêm</button>
-      </div>
-    </div>
-  );
-}
-
 const TITLES: Record<PayrollCol, string> = {
   moc: "Mốc lương tháng", cong: "Ngày công", tc: "Giờ tăng ca",
   luong_cong: "Lương theo công", luong_tc: "Lương tăng ca", luong: "Lương",
-  pc: "Phụ cấp", ung: "Ứng lương", net: "Thực lãnh",
+  pc: "Phụ cấp", ung: "Ứng lương", bhxh: "Trừ BHXH", net: "Thực lãnh",
 };
+
+/** Số trừ BHXH này ở đâu ra — cùng cách nói với mocNguon (kế thừa theo tháng). */
+export function bhxhNguon(r: PayrollRow, ym: string): string {
+  if (r.bhxh_own) return `đặt riêng ${ymLabel(ym).toLowerCase()}`;
+  if (r.bhxh_ym) return `theo mức đặt ở ${ymLabel(r.bhxh_ym).toLowerCase()}`;
+  return "chưa đặt mức BHXH";
+}
 
 /** Mốc này ở đâu ra: đặt riêng tháng đang xem / kế thừa tháng nào / mốc hồ sơ thợ.
  *  Mốc lưu THEO TỪNG THÁNG (salary_store/moc.py) nên phải nói rõ, không thì người
@@ -111,11 +62,12 @@ export function mocNguon(r: PayrollRow, ym: string): string {
   return "mốc mặc định ở hồ sơ thợ";
 }
 
-export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }: {
+export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, editBhxh }: {
   ym: string; r: PayrollRow; col: PayrollCol;
   onClose: () => void; onCol: (c: PayrollCol) => void;
   apply: (d: PayrollMonth) => void;
   editMoc: (r: PayrollRow) => void;
+  editBhxh: (r: PayrollRow) => void;
 }) {
   usePopupBack(true, onClose);
   useScrollLock(true);
@@ -330,9 +282,28 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
           )
         )}
 
+        {col === "bhxh" && (
+          <>
+            <Row label={`Trừ BHXH ${ymLabel(ym).toLowerCase()}`}
+              val={<button class="pr-ung-btn" onClick={() => editBhxh(r)}>{r.bhxh ? `${money(r.bhxh)}đ` : "đặt…"}</button>}
+              cls="hl" />
+            <p class="muted small">{bhxhNguon(r, ym)} — mức BHXH lưu theo TỪNG THÁNG: sửa ở đây áp
+              dụng từ {ymLabel(ym).toLowerCase()} trở đi, các tháng trước giữ nguyên số cũ.
+              Gõ <b>0</b> = từ tháng này thôi trừ; để trống = bỏ mức riêng, kế thừa lại số trước đó.</p>
+            <Row label="Tổng nhận trước khi trừ (lương + phụ cấp)" val={`${money(r.luong + r.phu_cap + r.thuong)}đ`} />
+            <Row label="Đã ứng" val={`−${money(r.ung)}đ`} go="ung" />
+            <Row label={<b>Thực lãnh sau khi trừ BHXH</b>} val={`${money(r.thuc_lanh)}đ`} go="net" />
+            <button class="btn block" onClick={() => editBhxh(r)}>
+              ✏️ {r.bhxh ? `Sửa mức BHXH ${ymLabel(ym).toLowerCase()}` : `Đặt mức BHXH ${ymLabel(ym).toLowerCase()}`}
+            </button>
+          </>
+        )}
+
         {col === "pc" && (
           <>
             <EntryPanel entries={allows} addPlaceholder="Số tiền phụ cấp"
+              submitLabel="Thêm phụ cấp" noteLabel="Nội dung phụ cấp"
+              notePlaceholder="VD: ăn trưa, xăng xe…" noteSuggestions={PC_GOI_Y}
               onAdd={(a, note) => addAllow(a, note)} onDel={voidAllow} onNote={noteAllow} />
             <a class="btn block" href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>📋 Trang nhập phụ cấp</a>
           </>
@@ -341,6 +312,7 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
         {col === "ung" && (
           <>
             <EntryPanel entries={advs} showDate addPlaceholder="Số tiền ứng"
+              submitLabel="Ghi ứng" notePlaceholder="VD: ứng mua xe…" noteSuggestions={UNG_GOI_Y}
               onAdd={(a, note, date) => addAdv(a, note, date)} onDel={voidAdv} onNote={noteAdv}
               extra={r.weekly && r.ung_weekly > 0 ? (
                 <div class="pr-adv-row pr-adv-weekly">
@@ -358,6 +330,7 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc }:
             <Row label={`Phụ cấp${r.pc_count ? ` (${r.pc_count} khoản)` : ""}`} val={`+${money(r.phu_cap)}đ`} go="pc" />
             {r.thuong ? <Row label="Thưởng (tháng cũ)" val={`+${money(r.thuong)}đ`} /> : null}
             <Row label={`Đã ứng${r.adv_count ? ` (${r.adv_count} lần)` : ""}`} val={`−${money(r.ung)}đ`} go="ung" />
+            <Row label={`Trừ BHXH${r.bhxh ? ` (${bhxhNguon(r, ym)})` : ""}`} val={`−${money(r.bhxh)}đ`} go="bhxh" />
             <Row label={<b>Thực lãnh</b>} val={`${money(r.thuc_lanh)}đ`} cls={r.thuc_lanh < 0 ? "hl t-danger" : "hl"} />
           </>
         )}

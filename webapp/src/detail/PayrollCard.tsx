@@ -9,17 +9,17 @@ import {
   type PayrollMonth, type PayrollRow, type SalaryAdvance, type SalaryAllowance,
 } from "../api";
 import { moneyR as money } from "../format";
-import { EntryPanel } from "./PayrollCellPopup";
+import { EntryPanel, PC_GOI_Y, UNG_GOI_Y } from "./EntryPanel";
 import { isTimeWage, otInCong, wageLabel } from "./wageType";
 import { toast, promptDialog } from "../ui/feedback";
 
 const initials = (name: string) => name.trim().split(/\s+/).slice(-2).map((part) => part[0] || "").join("").toUpperCase();
 
-export function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc,
+export function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc, editBhxh,
   openUng, onToggleUng, advances, openPc, onTogglePc, allowances, apply, setAdvs, setAllows }: {
   r: PayrollRow; ym: string;
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
-  editMoc: (r: PayrollRow) => void;
+  editMoc: (r: PayrollRow) => void; editBhxh: (r: PayrollRow) => void;
   openUng: boolean; onToggleUng: () => void; advances?: SalaryAdvance[];
   openPc: boolean; onTogglePc: () => void; allowances?: SalaryAllowance[];
   apply: (d: PayrollMonth) => void;
@@ -87,6 +87,16 @@ export function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc,
         <div class="pr-card-metric"><span>Lương</span><b>{money(r.luong)}</b></div>
         <div class="pr-card-metric"><span>Phụ cấp</span><a href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>{money(r.phu_cap)}</a></div>
         <div class="pr-card-metric advance"><span>Đã ứng</span><a href={`#/nhap-ung?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>{money(r.ung)}</a></div>
+        {/* BHXH: luôn hiện (kể cả chưa đặt) để bấm đặt được ngay — giống cột BHXH
+            của view Bảng; dấu ↩ = tháng này kế thừa mức đặt ở tháng trước. */}
+        <div class="pr-card-metric advance"><span>Trừ BHXH</span>
+          <button class="pr-ung-btn" onClick={() => editBhxh(r)}
+            title={r.bhxh_own ? "Đặt riêng tháng này — bấm để sửa"
+              : r.bhxh_ym ? `Kế thừa mức đặt ở tháng ${r.bhxh_ym} — bấm để sửa`
+              : "Chưa đặt mức BHXH — bấm để đặt"}>
+            {r.bhxh ? `${money(r.bhxh)}${r.bhxh_own ? "" : " ↩"}` : "đặt…"}
+          </button>
+        </div>
       </div>
 
       {isTime && (
@@ -118,12 +128,15 @@ export function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc,
         <button class="pr-toggle-btn" onClick={onTogglePc} aria-label={openPc ? "Đóng chi tiết phụ cấp" : "Mở chi tiết phụ cấp"}>{openPc ? "▾" : "▸"}</button>
       </div>
       {openPc && <EntryPanel entries={allowances} addPlaceholder="Số tiền phụ cấp"
+        submitLabel="Thêm phụ cấp" noteLabel="Nội dung phụ cấp"
+        notePlaceholder="VD: ăn trưa, xăng xe…" noteSuggestions={PC_GOI_Y}
         onAdd={(a, note) => addAllow(a, note)} onDel={voidAllow} onNote={noteAllow} />}
       <div class="pr-adv-toggle">
         <span>Chi tiết ứng lương {r.adv_count ? <span class="muted small">· {r.adv_count} lần nhập tay</span> : null}</span>
         <button class="pr-toggle-btn" onClick={onToggleUng} aria-label={openUng ? "Đóng chi tiết ứng lương" : "Mở chi tiết ứng lương"}>{openUng ? "▾" : "▸"}</button>
       </div>
       {openUng && <EntryPanel entries={advances} showDate addPlaceholder="Số tiền ứng"
+        submitLabel="Ghi ứng" notePlaceholder="VD: ứng mua xe…" noteSuggestions={UNG_GOI_Y}
         onAdd={(a, note, date) => addAdv(a, note, date)} onDel={voidAdv} onNote={noteAdv}
         extra={r.weekly && r.ung_weekly > 0 ? (
           <div class="pr-adv-row pr-adv-weekly">

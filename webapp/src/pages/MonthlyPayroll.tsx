@@ -3,9 +3,11 @@
 // PHỤ CẤP nhiều khoản, ỨNG lương nhiều lần → thực lãnh. Phụ cấp + ứng quản lý giống
 // nhau (panel thêm/VÔ HIỆU khoản — không xoá, dòng giữ lại kèm ai/lúc nào/lý do).
 // API: getMonthlyPayroll + payroll allowance/advance.
+// TRỪ BHXH = cột riêng, số lưu theo TỪNG THÁNG + kế thừa như Mốc lương (đặt tháng nào
+// áp từ tháng đó trở đi — salary_store/bhxh.py); đã trừ trong cột Lãnh.
 // MỌI Ô SỐ bấm được → popup xem/thao tác đúng ô (detail/PayrollCellPopup:
 // Công/TC = chấm công từng ngày, L.công/L.TC/Lương/Lãnh = diễn giải công thức,
-// P.cấp/Ứng = thêm/vô hiệu khoản tại chỗ). EntryPanel chuyển sang file popup.
+// P.cấp/Ứng = thêm/vô hiệu khoản tại chỗ qua detail/EntryPanel, BHXH = sửa mức trừ).
 // Ô TÊN thì KHÁC: mở TRANG riêng #/luong-thang/:worker_id (pages/PayrollWorker.tsx =
 // hồ sơ lương tháng đầy đủ) — trước là popup, nội dung dài nên tách trang.
 // (Cột THƯỞNG bỏ 2026-07-19 — phụ cấp nhiều khoản có nhãn đã thay thế; backend giữ
@@ -29,6 +31,23 @@ import { Loading, EmptyState, ErrorState } from "../ui/states";
 
 const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 const initials = (name: string) => name.trim().split(/\s+/).slice(-2).map((part) => part[0] || "").join("").toUpperCase();
+
+/** Màn hẹp (cùng mốc 720px với media query bảng lương trong styles.css) — dùng để
+ *  thu cột Thợ ghim trái, thứ CSS không đè được vì width nằm inline trên <col>. */
+const NARROW_MQ = "(max-width: 720px)";
+function useNarrow() {
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== "undefined" && !!window.matchMedia?.(NARROW_MQ).matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.(NARROW_MQ);
+    if (!mq) return;
+    const on = () => setNarrow(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return narrow;
+}
 
 // Ghi nhớ theo PHIÊN (module scope, reset khi tải lại): THÁNG đang xem (back về
 // giữ nguyên tháng). Kiểu hiển thị lưu localStorage (mặc định BẢNG). Vị trí cuộn
@@ -71,8 +90,8 @@ export function MonthlyPayroll() {
   useEffect(() => { _savedYm = ym; }, [ym]);   // nhớ tháng đang xem cho lần quay lại
 
   const apply = (d: PayrollMonth) => setData(d);
-  // 3 thao tác hồ sơ lương dùng CHUNG với trang #/luong-thang/:id (detail/payrollActions)
-  const { toggleType, editMoc, toggleWeekly } = payrollActions(ym, apply, load);
+  // 4 thao tác hồ sơ lương dùng CHUNG với trang #/luong-thang/:id (detail/payrollActions)
+  const { toggleType, editMoc, editBhxh, toggleWeekly } = payrollActions(ym, apply, load);
   // Ô TÊN → TRANG lương của thợ (trước là popup; nội dung dài nên tách trang riêng)
   const openWorker = (wid: number) => { window.location.hash = `#/luong-thang/${wid}?ym=${encodeURIComponent(ym)}`; };
 
@@ -126,6 +145,9 @@ export function MonthlyPayroll() {
                   <div class="pr-stat gross"><span>Lương gốc</span><b>{money(totals.luong)}</b></div>
                   <a class="pr-stat allowance" href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}`}><span>Phụ cấp</span><b>+{money(totals.phu_cap)}</b></a>
                   <a class="pr-stat advance" href={`#/nhap-ung?ym=${encodeURIComponent(ym)}`}><span>Đã ứng</span><b>−{money(totals.ung)}</b></a>
+                  {/* BHXH chỉ vào tổng quan khi tháng này CÓ trừ — xưởng chưa đóng thì
+                      đừng chiếm 1 ô của thanh tóm tắt */}
+                  {totals.bhxh ? <div class="pr-stat advance"><span>Trừ BHXH</span><b>−{money(totals.bhxh)}</b></div> : null}
                 </div>
               </section>
             )}
@@ -137,7 +159,7 @@ export function MonthlyPayroll() {
               <div class="pr-card-grid">
                 {rows.map((r) => (
                   <PayrollCard key={r.worker_id} r={r} ym={ym}
-                    toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc}
+                    toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc} editBhxh={editBhxh}
                     openUng={openUng === r.worker_id} onToggleUng={() => toggleUng(r.worker_id)} advances={advs[r.worker_id]}
                     openPc={openPc === r.worker_id} onTogglePc={() => togglePc(r.worker_id)} allowances={allows[r.worker_id]}
                     apply={apply} setAdvs={setAdvs} setAllows={setAllows} />
@@ -151,7 +173,7 @@ export function MonthlyPayroll() {
         return r ? (
           <PayrollCellPopup ym={ym} r={r} col={pop.col}
             onClose={() => setPop(null)} onCol={(col) => setPop({ wid: pop.wid, col })}
-            apply={apply} editMoc={editMoc} />
+            apply={apply} editMoc={editMoc} editBhxh={editBhxh} />
         ) : null;
       })()}
     </div>
@@ -182,7 +204,13 @@ function PayrollTable({ data, rows, sort, onSort, toggleType, toggleWeekly, edit
   // tên thợ dài cắt bằng ellipsis. Công (6,2) / Mốc (8,6) / Lương (8,8) rộng hơn phần
   // còn lại vì còn đeo dấu +TC (TG* gộp tăng ca vào công) / ↩ (mốc kế thừa) / ⁺ (lương
   // đã gộp phụ cấp phiếu) — đo bằng Playwright, hụt là chữ bị cắt ngay.
-  const COL_EM = [12, 5.5, 5.9, 8.6, 6.2, 8.4, 5.4, 8.4, 8.8, 8.4, 8.4, 8.4];
+  // ⚠ CỘT THỢ HẸP LẠI TRÊN MOBILE (8em): cột này GHIM trái nên bề rộng của nó là phần
+  // màn hình VĨNH VIỄN không dùng để xem số; 12em trên máy 360px nuốt gần nửa màn.
+  // Ở mobile avatar cũng đã bị ẩn (media query 720px) nên 8em đủ chỗ cho tên + dòng
+  // tiền bên dưới. Phải làm bằng JS: width nằm trong style inline của <col>, CSS
+  // media query không đè được.
+  const narrow = useNarrow();
+  const COL_EM = [narrow ? 8 : 12, 5.5, 5.9, 8.6, 6.2, 8.4, 5.4, 8.4, 8.8, 8.4, 8.4, 8.4, 8.4];
   const totalEm = COL_EM.reduce((a, b) => a + b, 0);
   const tableStyle = `min-width:${totalEm}em`;
   const headRef = useRef<HTMLDivElement>(null);
@@ -313,6 +341,15 @@ function PayrollTable({ data, rows, sort, onSort, toggleType, toggleWeekly, edit
                 <td class="pr-num pr-td-tap" title="Ứng lương — bấm thêm/vô hiệu lần ứng" {...tap("ung")}>
                   <span class="pr-ung-btn">{money(r.ung)}{r.adv_count ? <sup> {r.adv_count}</sup> : null}</span>
                 </td>
+                {/* BHXH = số trừ hằng tháng, lưu theo TỪNG THÁNG + kế thừa như Mốc
+                    (dấu ↩ = tháng này ăn theo mức đặt ở tháng trước). Bấm ô mở popup. */}
+                <td class={`pr-td-tap ${r.bhxh ? "pr-num" : "pr-num is-zero"}`} {...tap("bhxh")}
+                  title={`Trừ BHXH — ${r.bhxh_own ? "đặt riêng tháng này" : r.bhxh_ym ? `kế thừa mức đặt ở tháng ${r.bhxh_ym}` : "chưa đặt"}. Bấm để sửa`}>
+                  <span class="pr-ung-btn">
+                    {r.bhxh ? money(r.bhxh) : "đặt…"}
+                    {r.bhxh && !r.bhxh_own ? <sup title="kế thừa từ tháng trước"> ↩</sup> : null}
+                  </span>
+                </td>
                 <td class={`pr-td-tap ${r.thuc_lanh < 0 ? "pr-num pr-net-td t-danger" : "pr-num pr-net-td"}`} title="Bấm xem diễn giải thực lãnh" {...tap("net")}>{money(r.thuc_lanh)}</td>
               </tr>
             );
@@ -335,6 +372,7 @@ function PayrollTable({ data, rows, sort, onSort, toggleType, toggleWeekly, edit
               <td class="pr-num">{money(t.luong)}</td>
               <td class="pr-num">{money(t.phu_cap)}</td>
               <td class="pr-num">{money(t.ung)}</td>
+              <td class="pr-num">{money(t.bhxh)}</td>
               <td class="pr-num pr-net-td">{money(t.thuc_lanh)}</td>
             </tr>
           </tfoot>

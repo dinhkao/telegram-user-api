@@ -5,8 +5,9 @@
 // tiền thì vô hiệu rồi ghi lại).
 // API: addPayrollAdvance/listAllAdvances/voidPayrollAdvance/setPayrollAdvanceNote.
 // ⚠ ĐỒNG BỘ 2 CHỖ: cùng khoản ứng còn hiện ở panel P.cấp/Ứng của bảng lương tháng
-// (detail/PayrollCellPopup.tsx EntryPanel — popup ô bảng + view Thẻ). Thêm/sửa tính
-// năng nào ở đây thì làm luôn bên đó, đừng để 1 bên có 1 bên không.
+// (detail/EntryPanel.tsx — popup ô bảng + view Thẻ). Thêm/sửa tính năng nào ở đây
+// thì làm luôn bên đó, đừng để 1 bên có 1 bên không. Ô NHẬP TIỀN của cả 2 nơi là
+// ui/MoneyEntryForm (ô to + đọc lại bằng chữ + chip cộng nhanh).
 import { useEffect, useState } from "preact/hooks";
 import {
   addPayrollAdvance, getMonthlyPayroll, isOffice, listAllAdvances, listPayrollAdvances, listWorkers,
@@ -16,6 +17,8 @@ import {
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
+import { MoneyEntryForm } from "../ui/MoneyEntryForm";
+import { UNG_GOI_Y } from "../detail/EntryPanel";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
 
@@ -110,14 +113,13 @@ export function AdvanceEntry() {
 
       <section class="card ua-create">
         <label class="card-label"><Icon name="plus" size={15} /> Ghi ứng lương</label>
-        <SelectPopup value={wid} options={wopts} onChange={(v) => setWid(Number(v))}
-          searchable placeholder="Chọn thợ…" title="Chọn thợ" />
-        <div class="ua-form">
-          <input class="pw-input ua-amt-in" inputMode="numeric" placeholder="Số tiền ứng" value={amt} onInput={(e: any) => setAmt(e.target.value)} />
-          <input class="pw-input" type="date" value={date} onInput={(e: any) => setDate(e.target.value)} />
-          <input class="pw-input ua-note-in" placeholder="Ghi chú (tuỳ chọn)" value={note} onInput={(e: any) => setNote(e.target.value)} />
-        </div>
-        <button class="btn primary block" disabled={busy} onClick={submit}>{busy ? "Đang ghi…" : "Ghi ứng"}</button>
+        <MoneyEntryForm amount={amt} onAmount={setAmt} note={note} onNote={setNote}
+          date={date} onDate={setDate}
+          amountLabel="Số tiền ứng" submitLabel="Ghi ứng"
+          notePlaceholder="VD: ứng mua xe…" noteSuggestions={UNG_GOI_Y}
+          busy={busy} onSubmit={submit}
+          before={<SelectPopup value={wid} options={wopts} onChange={(v) => setWid(Number(v))}
+            searchable placeholder="Chọn thợ…" title="Chọn thợ" />} />
       </section>
 
       {advs === null ? <Loading /> : (
