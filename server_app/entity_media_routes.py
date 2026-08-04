@@ -1,5 +1,5 @@
 """HTTP handlers bình luận + ảnh DÙNG CHUNG cho production slip / box…
-Đường dẫn: /api/media/{scope}/{entity_id}/comments|images[...]. scope ∈ {production, box, report_bg, task, return, place, worker_moc…}.
+Đường dẫn: /api/media/{scope}/{entity_id}/comments|images[...]. scope ∈ {production, box, report_bg, task, return, place, worker_moc/pc/ung/bhxh…}.
 report_bg = ảnh nền "để dò" của trang sửa báo cáo phiếu SX (1 ảnh/phiếu, thay khi upload mới).
 worker_moc = trao đổi về MỐC LƯƠNG THÁNG của 1 thợ (entity_id = worker_id → dùng chung
 mọi tháng); thuộc _OFFICE_ONLY_SCOPES nên CHỈ VĂN PHÒNG xem/ghi được.
@@ -24,13 +24,17 @@ from utils.paths import ORDER_MEDIA_DIR
 log = logging.getLogger("entity_media_routes")
 
 _ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return", "place", "supplier", "purchase", "disposal",
-                   "area_report", "quality_report", "area_image", "quality_image", "worker_moc"}
+                   "area_report", "quality_report", "area_image", "quality_image",
+                   "worker_moc", "worker_pc", "worker_ung", "worker_bhxh"}
 # area_image / quality_image = TRAO ĐỔI TRÊN TỪNG BỨC ẢNH của báo cáo vệ sinh /
 # chất lượng mâm kẹo: entity_id ở đây là **image_id** (id trong entity_images), KHÔNG
 # phải id báo cáo. Chỉ dùng cho comments — ảnh của ảnh thì vô nghĩa.
-# worker_moc = trao đổi về MỐC LƯƠNG THÁNG của 1 thợ (entity_id = worker_id nên thấy
-# GIỐNG NHAU ở mọi tháng). Là chuyện tiền lương → CHỈ VĂN PHÒNG, như /api/payroll/*.
-_OFFICE_ONLY_SCOPES = {"worker_moc"}
+# 4 scope worker_* = trao đổi gắn theo THỢ ở các ô của bảng lương tháng: worker_moc
+# (mốc lương) · worker_pc (phụ cấp) · worker_ung (ứng lương) · worker_bhxh (trừ BHXH).
+# entity_id = worker_id (KHÔNG kèm tháng) nên luồng trao đổi XUYÊN THÁNG — mở tháng nào
+# cũng thấy cùng một mạch, đúng ý "chuyện của thợ này" chứ không phải "chuyện tháng 7".
+# Đều là chuyện tiền lương → CHỈ VĂN PHÒNG, như /api/payroll/*.
+_OFFICE_ONLY_SCOPES = {"worker_moc", "worker_pc", "worker_ung", "worker_bhxh"}
 _MAX_BYTES = 20 * 1024 * 1024
 _EXT_BY_MIME = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 _MIME_BY_EXT = {v: k for k, v in _EXT_BY_MIME.items()}

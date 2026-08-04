@@ -4067,3 +4067,7 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 /* segmented chọn kiểu nhập tiền / % trong ô nhập tiền dùng chung */
 .me-modeseg { align-self: flex-start; }
 .me-modeseg .seg-btn { padding: 5px 14px; font-size: .8rem; white-space: nowrap; }
+/* Dòng VỪA THÊM trong panel phụ cấp/ứng — nhấp nháy xanh ~4s. Thêm xong mà danh
+   sách im lìm thì người dùng tưởng bấm hụt và bấm lại → ghi trùng khoản. */
+.pr-adv-row.just-added { background: var(--ok-wash); border-radius: var(--r-sm); box-shadow: 0 0 0 1px var(--ok) inset; }
+.ua-new-badge { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: var(--ok); color: #fff; font-size: .6rem; font-weight: 800; }

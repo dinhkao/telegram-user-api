@@ -306,6 +306,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   THỢ** (`entity_media` scope `worker_moc`, entity_id = worker_id → CÙNG luồng ở mọi
   tháng; scope nằm trong `_OFFICE_ONLY_SCOPES` nên staff 403 cả xem lẫn ghi, và
   `Comments allowPin={false}` để số lương không ghim lên bảng tin chung).
+  **4 ô Mốc / P.cấp / Ứng / BHXH đều có khung trao đổi XUYÊN THÁNG** — scope
+  `worker_moc` · `worker_pc` · `worker_ung` · `worker_bhxh`, entity_id = worker_id
+  (KHÔNG kèm tháng), tất cả office-only.
   Bảng `salary_month`
   (thưởng + ghi chú + `weekly` = nhận-lương-tuần THEO THÁNG — mỗi (tháng, thợ) độc
   lập, KHÁC `production_workers.weekly_salary`) + `salary_advances` (ỨNG lương NHIỀU
