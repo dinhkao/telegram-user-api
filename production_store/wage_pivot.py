@@ -22,6 +22,7 @@ Nối: production_store.report_slips, worker_store. Client: webapp/src/pages/Wag
 """
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 
 
@@ -40,6 +41,19 @@ def _all_days(dfrom: str, dto: str) -> list[str]:
         out.append(cur.isoformat())
         cur += timedelta(days=1)
     return out
+
+
+_HHMM = re.compile(r"^\s*(\d{1,2})\s*[:h]\s*(\d{1,2})")
+
+
+def _time_key(start: str | None) -> tuple[int, int]:
+    """Khoá SẮP XẾP phiếu theo GIỜ BẮT ĐẦU. Phải quy về PHÚT chứ không so chuỗi:
+    "7:00" (1 chữ số giờ) so chuỗi sẽ đứng SAU "13:00" — đúng lỗi phiếu xếp lộn xộn.
+    Phiếu không có giờ xếp CUỐI (không đoán chỗ cho nó)."""
+    m = _HHMM.match(str(start or ""))
+    if not m:
+        return (1, 0)
+    return (0, int(m.group(1)) * 60 + int(m.group(2)))
 
 
 def wage_pivot(conn, dfrom: str, dto: str) -> dict:
@@ -137,7 +151,7 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
     max_cell = 0
     for ymd in sorted(days):
         d = days[ymd]
-        slips = sorted(d["slips"].values(), key=lambda s: (s.get("start") or "", s["thread_id"]))
+        slips = sorted(d["slips"].values(), key=lambda s: (_time_key(s.get("start")), s["thread_id"]))
         for s in slips:
             s["cells"] = {str(k): v for k, v in s["cells"].items() if v}
             s["parts"] = {str(k): v for k, v in s.get("parts", {}).items() if s["cells"].get(str(k))}
