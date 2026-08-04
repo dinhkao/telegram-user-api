@@ -88,8 +88,11 @@ async def payroll_advances_handler(request: web.Request):
 
 
 async def payroll_adjust_handler(request: web.Request):
-    """POST /api/payroll/adjust {ym, worker_id, thuong?, note?, weekly?, monthly_salary?, bhxh?}
-    — sửa thưởng/ghi chú/nhận-lương-tuần/MỐC LƯƠNG/TRỪ BHXH theo tháng (field vắng = giữ nguyên).
+    """POST /api/payroll/adjust
+    {ym, worker_id, thuong?, note?, weekly?, thuong_cc?, thuong_vs?, monthly_salary?, bhxh?}
+    — sửa thưởng/ghi chú/nhận-lương-tuần/2 cờ THƯỞNG (chuyên cần, vệ sinh)/MỐC LƯƠNG/
+    TRỪ BHXH theo tháng (field vắng = giữ nguyên). thuong_cc/thuong_vs là cờ bật-tắt,
+    số tiền tính live (salary_store/bonus.py) và KHÔNG kế thừa sang tháng sau.
     monthly_salary = mốc lương tháng của thợ lương thời gian, ghi vào ĐÚNG tháng ym
     (0 = bỏ mốc riêng tháng này → kế thừa mốc gần nhất trước đó); sửa mốc KHÔNG tính
     lại tháng cũ — xem salary_store/moc.py.
@@ -133,11 +136,13 @@ async def payroll_adjust_handler(request: web.Request):
         conn = get_connection(SHARED_DB_PATH)
         try:
             salary_store.ensure_schema(conn)
-            if thuong is not None or body.get("note") is not None or body.get("weekly") is not None:
+            if any(body.get(k) is not None for k in ("note", "weekly", "thuong_cc", "thuong_vs")) \
+                    or thuong is not None:
                 salary_store.set_month_adjust(
                     conn, ym, worker_id,
                     thuong=thuong, note=body.get("note"),
-                    weekly=body.get("weekly"), by=by,
+                    weekly=body.get("weekly"),
+                    thuong_cc=body.get("thuong_cc"), thuong_vs=body.get("thuong_vs"), by=by,
                 )
             if has_moc:   # mốc lương ghi vào ĐÚNG tháng ym (không đụng tháng khác)
                 salary_store.set_month_moc(conn, ym, worker_id, moc, by=by)

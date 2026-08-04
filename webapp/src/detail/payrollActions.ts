@@ -59,5 +59,19 @@ export function payrollActions(ym: string, apply: (d: PayrollMonth) => void, rel
       toast(!r.weekly ? "BẬT nhận lương tuần (tháng này)" : "TẮT nhận lương tuần", "ok");
     } catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
   };
-  return { toggleType, editMoc, editBhxh, toggleWeekly };
+  // 2 khoản THƯỞNG bật/tắt — CHỈ ăn tháng đang xem, tháng sau tự tắt lại (cố ý:
+  // thưởng là quyết định từng tháng, để nó bò sang tháng sau là trả thừa âm thầm).
+  const toggleThuongCC = async (r: PayrollRow) => {
+    try {
+      apply(await setPayrollAdjust(ym, r.worker_id, { thuong_cc: !r.cc_on }));
+      toast(!r.cc_on ? `BẬT thưởng chuyên cần ${ymLabel(ym).toLowerCase()}` : "TẮT thưởng chuyên cần", "ok");
+    } catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
+  };
+  const toggleThuongVS = async (r: PayrollRow) => {
+    try {
+      apply(await setPayrollAdjust(ym, r.worker_id, { thuong_vs: !r.vs_on }));
+      toast(!r.vs_on ? `BẬT thưởng vệ sinh ${ymLabel(ym).toLowerCase()}` : "TẮT thưởng vệ sinh", "ok");
+    } catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
+  };
+  return { toggleType, editMoc, editBhxh, toggleWeekly, toggleThuongCC, toggleThuongVS };
 }

@@ -219,13 +219,13 @@ export const GUIDES_SANXUAT: Guide[] = [
   {
     key: "luong-thang", icon: "wallet", cat: "Sản xuất", office: true,
     title: "Bảng lương tháng",
-    desc: "Lương từng thợ trong tháng: lương + phụ cấp − ứng − BHXH = thực lãnh. Nhập ứng/phụ cấp, đặt mốc lương và mức trừ BHXH.",
+    desc: "Lương từng thợ trong tháng: lương + phụ cấp + thưởng − ứng − BHXH = thực lãnh. Nhập ứng/phụ cấp, thưởng chuyên cần/vệ sinh, mốc lương, mức trừ BHXH.",
     routes: ["#/luong-thang", "#/nhap-ung", "#/nhap-phu-cap"],
     sections: [
       { title: "Bảng lương tháng là gì", html: `
         <p><a href="#/luong-thang">#/luong-thang</a> (chỉ <b>văn phòng</b>) gom <b>mọi khoản của một tháng</b>
         cho từng thợ về một bảng. Công thức của cột cuối:</p>
-        <p><b>Thực lãnh = Lương + Phụ cấp − Đã ứng − Trừ BHXH</b></p>
+        <p><b>Thực lãnh = Lương + Phụ cấp + Thưởng − Đã ứng − Trừ BHXH</b></p>
         <ul>
           <li><b>Lương</b>: thợ lương <i>sản phẩm</i> tính tự động từ báo cáo sản xuất; thợ lương
             <i>thời gian</i> tính từ <b>mốc</b> và <b>ngày công</b> chấm được.</li>
@@ -246,6 +246,17 @@ export const GUIDES_SANXUAT: Guide[] = [
             quay lại kế thừa số cũ. Hai việc này <b>khác nhau</b>.</li>
         </ul>
         <p>Thợ nào không đóng thì để trống — cột hiện <i>đặt…</i> và không trừ đồng nào.</p>` },
+      { title: "2 khoản thưởng: Chuyên cần & Vệ sinh", html: `
+        <p>Hai cột <b>Ch.cần</b> và <b>Vệ sinh</b> là <b>nút bật/tắt</b> — bấm thẳng vào ô.
+        Bật thì ô hiện số tiền (viền xanh), tắt thì hiện <b>—</b>.</p>
+        <ul>
+          <li><b>Chuyên cần</b>: cố định <b>200.000đ</b>, không phụ thuộc số ngày công.</li>
+          <li><b>Vệ sinh</b>: <b>12.000đ × số ngày công</b> của tháng (đúng con số ở cột Công).</li>
+        </ul>
+        <p>⚠ Khác BHXH và Mốc lương: hai cờ này <b>CHỈ ăn tháng đang xem</b>, <b>không</b> tự bò
+        sang tháng sau. Sang tháng mới phải bật lại cho ai được thưởng — cố ý làm vậy để không
+        có tháng nào quên tắt mà vẫn trả tiền.</p>
+        <p>Muốn đổi mức 200.000đ / 12.000đ thì phải sửa trong mã nguồn (chưa có màn hình cấu hình).</p>` },
       { title: "Mốc lương (thợ lương thời gian)", html: `
         <p>Ô <b>Mốc</b> = mức lương tháng thoả thuận. Lương 1 công = <b>mốc ÷ 26</b>, tăng ca ×1,2
         (trừ loại <b>TG*</b> — giờ tăng ca gộp thẳng vào ngày công, không trả riêng).</p>

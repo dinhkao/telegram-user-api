@@ -66,6 +66,10 @@ def ensure_schema(conn) -> None:
         # MỐC lương tháng đặt RIÊNG từng tháng (NULL = tháng đó kế thừa mốc gần nhất
         # trước đó / mốc hồ sơ thợ) — luật ở salary_store/moc.py
         conn.execute("ALTER TABLE salary_month ADD COLUMN monthly_salary REAL")
+    # 2 cờ THƯỞNG bật/tắt theo tháng (KHÔNG kế thừa — xem salary_store/bonus.py)
+    for flag in ("thuong_cc", "thuong_vs"):
+        if flag not in cols:
+            conn.execute(f"ALTER TABLE salary_month ADD COLUMN {flag} INTEGER DEFAULT 0")
     if "bhxh" not in cols:
         # TRỪ BHXH hằng tháng, cũng đặt RIÊNG từng tháng + kế thừa (NULL = tháng đó
         # không đặt riêng, KHÁC 0 = đặt riêng bằng 0) — luật ở salary_store/bhxh.py
@@ -92,42 +96,54 @@ def month_range(ym: str) -> tuple[str, str]:
 # ── Phụ cấp / thưởng theo tháng ─────────────────────────────────────────────────
 
 def get_month_adjust(conn, ym: str) -> dict:
-    """{worker_id: {'thuong', 'note', 'weekly'}} của 1 tháng. (Phụ cấp giờ là NHIỀU
-    KHOẢN ở salary_allowances — xem allowance_totals.)"""
+    """{worker_id: {'thuong', 'note', 'weekly', 'thuong_cc', 'thuong_vs'}} của 1 tháng.
+    (Phụ cấp giờ là NHIỀU KHOẢN ở salary_allowances — xem allowance_totals; thuong_cc/
+    thuong_vs là 2 CỜ bật/tắt thưởng, số tiền tính ở salary_store/bonus.py.)"""
     ensure_schema(conn)
     rows = conn.execute(
-        "SELECT worker_id, thuong, note, weekly FROM salary_month WHERE ym = ?", (ym,)
+        "SELECT worker_id, thuong, note, weekly, thuong_cc, thuong_vs FROM salary_month WHERE ym = ?", (ym,)
     ).fetchall()
     return {r["worker_id"]: {"thuong": float(r["thuong"] or 0),
-                             "note": r["note"] or "", "weekly": bool(r["weekly"])} for r in rows}
+                             "note": r["note"] or "", "weekly": bool(r["weekly"]),
+                             "thuong_cc": bool(r["thuong_cc"]), "thuong_vs": bool(r["thuong_vs"])}
+            for r in rows}
 
 
-def set_month_adjust(conn, ym: str, worker_id: int, *, thuong=None,
-                     note=None, weekly=None, by: str = "") -> None:
-    """Cập nhật thưởng/ghi chú/nhận-lương-tuần 1 (tháng, thợ). Field None = giữ nguyên.
-    weekly = nhận lương tuần THEO THÁNG (riêng bảng lương, không phải hồ sơ thợ). Phụ cấp
-    KHÔNG ở đây nữa — dùng add_allowance (nhiều khoản)."""
+def set_month_adjust(conn, ym: str, worker_id: int, *, thuong=None, note=None,
+                     weekly=None, thuong_cc=None, thuong_vs=None, by: str = "") -> None:
+    """Cập nhật thưởng/ghi chú/nhận-lương-tuần/2 cờ THƯỞNG của 1 (tháng, thợ). Field
+    None = giữ nguyên. weekly = nhận lương tuần THEO THÁNG (riêng bảng lương, không
+    phải hồ sơ thợ); thuong_cc/thuong_vs = bật thưởng chuyên cần / vệ sinh của tháng
+    đó (số tiền tính live ở salary_store/bonus.py, KHÔNG kế thừa sang tháng sau).
+    Phụ cấp KHÔNG ở đây nữa — dùng add_allowance (nhiều khoản)."""
     ensure_schema(conn)
     with transaction(conn):
         cur = conn.execute(
-            "SELECT thuong, note, weekly FROM salary_month WHERE ym = ? AND worker_id = ?",
-            (ym, worker_id),
+            "SELECT thuong, note, weekly, thuong_cc, thuong_vs FROM salary_month "
+            "WHERE ym = ? AND worker_id = ?", (ym, worker_id),
         ).fetchone()
         th = float(cur["thuong"] or 0) if cur else 0.0
         nt = (cur["note"] or "") if cur else ""
         wk = int(cur["weekly"] or 0) if cur else 0
+        cc = int(cur["thuong_cc"] or 0) if cur else 0
+        vs = int(cur["thuong_vs"] or 0) if cur else 0
         if thuong is not None:
             th = max(0.0, float(thuong))
         if note is not None:
             nt = str(note)
         if weekly is not None:
             wk = 1 if weekly else 0
+        if thuong_cc is not None:
+            cc = 1 if thuong_cc else 0
+        if thuong_vs is not None:
+            vs = 1 if thuong_vs else 0
         conn.execute(
-            "INSERT INTO salary_month (ym, worker_id, thuong, note, weekly, updated_at, updated_by) "
-            "VALUES (?, ?, ?, ?, ?, datetime('now','+7 hours'), ?) "
+            "INSERT INTO salary_month (ym, worker_id, thuong, note, weekly, thuong_cc, thuong_vs, updated_at, updated_by) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'), ?) "
             "ON CONFLICT(ym, worker_id) DO UPDATE SET thuong=excluded.thuong, "
-            "note=excluded.note, weekly=excluded.weekly, updated_at=excluded.updated_at, updated_by=excluded.updated_by",
-            (ym, worker_id, th, nt, wk, by or ""),
+            "note=excluded.note, weekly=excluded.weekly, thuong_cc=excluded.thuong_cc, "
+            "thuong_vs=excluded.thuong_vs, updated_at=excluded.updated_at, updated_by=excluded.updated_by",
+            (ym, worker_id, th, nt, wk, cc, vs, by or ""),
         )
 
 
@@ -284,13 +300,16 @@ def compute_month_payroll(conn, ym: str) -> dict:
     - 'time_flat' (TG*): CỐ ĐỊNH theo ngày công, giờ tăng ca GỘP LUÔN vào ngày công →
       `cong` đã gồm TC, `luong_tc` = 0 (`ot_gio` vẫn trả để biết đã gộp bao nhiêu).
     Công/TC quy từ máy chấm công (attendance_store.month_worker_stats); mọi loại rồi
-    + phụ cấp + thưởng − ứng − BHXH = thực lãnh. Mốc lấy theo TỪNG THÁNG (salary_store.moc: bản đặt gần nhất ≤ ym, chưa
+    + phụ cấp + thưởng (gồm 2 khoản bật/tắt: CHUYÊN CẦN cố định + VỆ SINH theo ngày
+    công, salary_store.bonus) − ứng − BHXH = thực lãnh.
+    Mốc lấy theo TỪNG THÁNG (salary_store.moc: bản đặt gần nhất ≤ ym, chưa
     có thì mốc hồ sơ thợ) nên sửa mốc không tính lại tháng cũ; TRỪ BHXH cũng theo từng
     tháng + kế thừa y hệt (salary_store.bhxh), chưa đặt bao giờ = 0.
     Trả {ym, workers:[...], totals:{...}}."""
     from worker_store import list_workers
     from production_store.report_slips import compute_range_report
     from salary_store.bhxh import month_bhxh_map
+    from salary_store.bonus import bonus_amounts
     from salary_store.moc import month_moc_map
 
     ensure_schema(conn)
@@ -315,7 +334,8 @@ def compute_month_payroll(conn, ym: str) -> dict:
     allow = allowance_totals(conn, ym)   # phụ cấp NHIỀU KHOẢN
 
     out = []
-    tot = {"luong": 0.0, "phu_cap": 0.0, "thuong": 0.0, "ung": 0.0, "bhxh": 0.0, "thuc_lanh": 0.0}
+    tot = {"luong": 0.0, "phu_cap": 0.0, "thuong": 0.0, "thuong_cc": 0.0, "thuong_vs": 0.0,
+           "ung": 0.0, "bhxh": 0.0, "thuc_lanh": 0.0}
     for w in workers:
         wid, wt = w["id"], (w.get("wage_type") or "product")
         # mốc tháng (lương TG mong muốn): bản đặt gần nhất ≤ ym; chưa đặt bao giờ thì
@@ -351,10 +371,16 @@ def compute_month_payroll(conn, ym: str) -> dict:
         # TRỪ BHXH: số hiệu lực tháng này (kế thừa bản gần nhất ≤ ym), chưa đặt = 0
         bhr = bh.get(wid)
         bhxh = float(bhr["value"]) if bhr else 0.0
-        thuc_lanh = luong + phu_cap + thuong - ung - bhxh
+        # 2 khoản THƯỞNG bật/tắt riêng từng tháng (không kế thừa) — chuyên cần cố
+        # định, vệ sinh = đơn giá × ĐÚNG số công đang hiện ở cột Công
+        cc_on, vs_on = bool(a.get("thuong_cc")), bool(a.get("thuong_vs"))
+        thuong_cc, thuong_vs = bonus_amounts(cong, chuyen_can=cc_on, ve_sinh=vs_on)
+        thuc_lanh = luong + phu_cap + thuong + thuong_cc + thuong_vs - ung - bhxh
         out.append({
             "worker_id": wid, "name": w["name"], "wage_type": wt, "weekly": weekly,
             "luong": round(luong), "phu_cap": round(phu_cap), "pc_count": pc_count, "thuong": round(thuong),
+            "cc_on": cc_on, "vs_on": vs_on,
+            "thuong_cc": round(thuong_cc), "thuong_vs": round(thuong_vs),
             "ung": round(ung), "ung_manual": round(ung_manual), "ung_weekly": round(ung_weekly),
             "adv_count": adv_count, "note": note, "thuc_lanh": round(thuc_lanh),
             "bhxh": round(bhxh),
@@ -378,6 +404,8 @@ def compute_month_payroll(conn, ym: str) -> dict:
         tot["luong"] += row["luong"]
         tot["phu_cap"] += row["phu_cap"]
         tot["thuong"] += row["thuong"]
+        tot["thuong_cc"] += row["thuong_cc"]
+        tot["thuong_vs"] += row["thuong_vs"]
         tot["ung"] += row["ung"]
         tot["bhxh"] += row["bhxh"]
         tot["thuc_lanh"] += row["thuc_lanh"]

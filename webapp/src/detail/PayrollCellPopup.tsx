@@ -328,6 +328,9 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
           <>
             <Row label="Lương" val={`${money(r.luong)}đ`} go="luong" />
             <Row label={`Phụ cấp${r.pc_count ? ` (${r.pc_count} khoản)` : ""}`} val={`+${money(r.phu_cap)}đ`} go="pc" />
+            {/* 2 khoản thưởng bật/tắt — chỉ hiện dòng khi ĐANG BẬT, khỏi rối */}
+            {r.cc_on ? <Row label="Thưởng chuyên cần" val={`+${money(r.thuong_cc)}đ`} /> : null}
+            {r.vs_on ? <Row label={`Thưởng vệ sinh (${congVN(r.cong)} công)`} val={`+${money(r.thuong_vs)}đ`} /> : null}
             {r.thuong ? <Row label="Thưởng (tháng cũ)" val={`+${money(r.thuong)}đ`} /> : null}
             <Row label={`Đã ứng${r.adv_count ? ` (${r.adv_count} lần)` : ""}`} val={`−${money(r.ung)}đ`} go="ung" />
             <Row label={`Trừ BHXH${r.bhxh ? ` (${bhxhNguon(r, ym)})` : ""}`} val={`−${money(r.bhxh)}đ`} go="bhxh" />
