@@ -3,7 +3,8 @@
 // NGUỒN lương (thợ SP: CHI TIẾT từng phiếu SX của từng ngày · thợ TG: mốc → công → tăng ca),
 // TỪNG khoản phụ cấp, TỪNG lần ứng (kèm lương tuần tự động), thưởng tháng cũ.
 // CHỈ ĐỌC + điều hướng: mỗi khối bấm được để nhảy sang tab sửa tương ứng của popup
-// (pc/ung/luong/cong/tc) — cố tình KHÔNG dựng editor thứ 2 ở đây, thao tác thêm/vô
+// (pc/ung/luong/cong/tc) — MỌI khối đều GẬP được (lương + chấm công mặc định ĐÓNG,
+// các khối tiền ngắn mặc định MỞ). Cố tình KHÔNG dựng editor thứ 2 ở đây, thao tác thêm/vô
 // hiệu/sửa ghi chú chỉ nằm ở EntryPanel (xem luật ĐỒNG BỘ 2 CHỖ trong PayrollCellPopup).
 // 2 khối dài nhất — Lương và Chấm công — MẶC ĐỊNH GẬP, tiêu đề chỉ hiện TỔNG;
 // bấm tiêu đề mới bung chi tiết ra (popup mở lên phải đọc được ngay con số).
@@ -14,62 +15,16 @@
 // + getAttendanceSummary (chấm công tháng).
 import { useEffect, useState } from "preact/hooks";
 import {
-  getAttendanceSummary, getWorkerReport, listPayrollAdvances, listPayrollAllowances, soVN,
+  getAttendanceSummary, getWorkerReport, listPayrollAdvances, listPayrollAllowances,
   type AttendanceDay, type PayrollRow, type SalaryAdvance, type SalaryAllowance, type WorkerReport,
 } from "../api";
-import { moneyR as money, dmy, pad2, ymLabel } from "../format";
+import { moneyR as money, dmy, ymLabel } from "../format";
+import { byDay, byDaySlip, cayVN, monthFrom, monthTo } from "./payrollWageRows";
 import { bhxhNguon, mocNguon, type PayrollCol } from "./PayrollCellPopup";
 import { isTimeWage, otInCong, wageLabel } from "./wageType";
 import { AttendanceDayRows, attRows, attTotals, congVN, otVN, pairs } from "./AttendanceDays";
 import { Icon } from "../ui/Icon";
 import { LoadingInline } from "../ui/states";
-
-/** Số cây: có dấu chấm nghìn, bỏ đuôi ,00 (3420 → "3.420"; 12,5 → "12,5"). */
-const cayVN = (n: number) => soVN(Math.round((n || 0) * 100) / 100);
-const monthFrom = (ym: string) => `${ym}-01`;
-const monthTo = (ym: string) => {
-  const [y, m] = ym.split("-").map(Number);
-  return `${ym}-${pad2(new Date(y, m, 0).getDate())}`;
-};
-
-/** CHI TIẾT: mỗi NGÀY có những PHIẾU SX nào, mỗi phiếu bao nhiêu cây / bao nhiêu tiền.
- *  (Thay cho view "theo mã SP" cũ — xem lương thì cái cần biết là phiếu nào ra tiền
- *  nào, còn tổng theo mã SP đã có ở trang sản xuất của thợ.) */
-function byDaySlip(rep: WorkerReport | null) {
-  const days = new Map<string, { ymd: string; money: number; cay: number;
-    slips: Map<number, { tid: number; codes: Set<string>; cay: number; money: number }> }>();
-  for (const row of rep?.rows || []) {
-    const ymd = row.ymd || "";
-    const d = days.get(ymd) || { ymd, money: 0, cay: 0, slips: new Map() };
-    d.cay += row.tong_calc || 0;
-    d.money += row.money || 0;
-    const sl = d.slips.get(row.thread_id)
-      || { tid: row.thread_id, codes: new Set<string>(), cay: 0, money: 0 };
-    if (row.product_code) sl.codes.add(row.product_code);
-    sl.cay += row.tong_calc || 0;
-    sl.money += row.money || 0;
-    d.slips.set(row.thread_id, sl);
-    days.set(ymd, d);
-  }
-  return [...days.values()]
-    .sort((a, b) => a.ymd.localeCompare(b.ymd))
-    .map((d) => ({ ...d, slips: [...d.slips.values()].sort((a, b) => b.money - a.money) }));
-}
-
-/** Gộp dòng báo cáo SX theo NGÀY (report_ymd) — xem lương SP rơi vào ngày nào. */
-function byDay(rep: WorkerReport | null) {
-  const m = new Map<string, { ymd: string; cay: number; money: number; codes: Set<string>; phieu: Set<number> }>();
-  for (const row of rep?.rows || []) {
-    const ymd = row.ymd || "";
-    const it = m.get(ymd) || { ymd, cay: 0, money: 0, codes: new Set<string>(), phieu: new Set<number>() };
-    it.cay += row.tong_calc || 0;
-    it.money += row.money || 0;
-    if (row.product_code) it.codes.add(row.product_code);
-    it.phieu.add(row.thread_id);
-    m.set(ymd, it);
-  }
-  return [...m.values()].sort((a, b) => a.ymd.localeCompare(b.ymd));   // đầu tháng → cuối tháng
-}
 
 /** Tiêu đề 1 khối: nhãn + tổng + chevron, bấm → mở tab sửa tương ứng.
  *  `open` khác undefined = khối GẬP ĐƯỢC: bấm tiêu đề để mở/gập, mũi tên đổi chiều.
@@ -105,10 +60,13 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
   const [advs, setAdvs] = useState<SalaryAdvance[] | null>(null);
   const [rep, setRep] = useState<WorkerReport | null | "err">(null);
   const [att, setAtt] = useState<AttendanceDay[] | null>(null);
-  // 2 khối dài nhất mặc định GẬP — mở popup ra thấy ngay TỔNG TIỀN, cần xem
-  // chi tiết mới bung (yêu cầu 2026-08-04).
-  const [openLuong, setOpenLuong] = useState(false);
-  const [openCham, setOpenCham] = useState(false);
+  // MỌI khối đều gập được. 2 khối DÀI (lương, chấm công) mặc định ĐÓNG — mở popup ra
+  // thấy ngay tổng tiền; các khối tiền ngắn (thưởng, phụ cấp, ứng, BHXH) mặc định MỞ
+  // vì đó là thứ văn phòng hay sửa nhất (chốt 2026-08-05).
+  const [open, setOpen] = useState<Record<string, boolean>>({
+    luong: false, cham: false, thuong: true, pc: true, ung: true, bhxh: true,
+  });
+  const tog = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }));
   const [spView, setSpView] = useState<"chitiet" | "ngay">("chitiet");   // lương SP: chi tiết từng phiếu hay gộp theo ngày
 
   useEffect(() => {
@@ -180,12 +138,12 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
 
       {/* ── Lương ────────────────────────────────────────────────────────── */}
       {/* thợ SP: nói rõ trong Lương đã có phụ cấp ghi ở phiếu SX (khác phụ cấp THÁNG) */}
-      <Block label="Lương" total={`${money(r.luong)}đ`} open={openLuong}
-        onTap={() => setOpenLuong((v) => !v)}
+      <Block label="Lương" total={`${money(r.luong)}đ`} open={open.luong}
+        onTap={() => tog("luong")}
         sub={otCong ? "cố định theo ngày công (đã gộp tăng ca)"
           : isTime ? "theo công + tăng ca"
           : `sản phẩm${spPhieu ? ` · ${spPhieu} phiếu` : ""}${r.pc_phieu ? ` · gồm ${money(r.pc_phieu)}đ phụ cấp phiếu` : ""}`} />
-      {!openLuong ? null : isTime ? (
+      {!open.luong ? null : isTime ? (
         <div class="pws-list">
           {/* Mốc lưu theo TỪNG THÁNG → nói rõ số này của tháng nào; bấm mở tab Mốc
               (sửa mốc + trao đổi về mốc lương của thợ, dùng chung mọi tháng). */}
@@ -273,19 +231,19 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
           </div>
         </>
       )}
-      {openLuong ? (
+      {open.luong ? (
         <button class="pws-item tappable pws-more" onClick={() => onCol(isTime ? "luong_cong" : "luong")}>
           <span class="muted small">Xem cách tính lương</span><b>›</b>
         </button>
       ) : null}
 
       {/* ── Chấm công (LUÔN hiện, mọi loại lương) ────────────────────────── */}
-      <Block label="Chấm công" open={openCham} onTap={() => setOpenCham((v) => !v)}
+      <Block label="Chấm công" open={open.cham} onTap={() => tog("cham")}
         total={`${congVN(attTot.cong)} công${attTot.ot ? ` · ${congVN(attTot.ot)}g TC` : ""}`}
         sub={att === null ? "đang tải…"
           : attTot.ngay ? `${attTot.ngay} ngày có chấm${attTot.le ? ` · ${attTot.le} ngày lẻ giờ` : ""}`
           : "tháng này chưa có giờ chấm"} />
-      {openCham ? (
+      {open.cham ? (
         att === null ? <p class="muted small pws-pad"><LoadingInline label="Đang tải chấm công…" /></p>
         : !attList.length ? <p class="muted small pws-pad">Chưa có ngày nào chấm giờ trong tháng.</p>
         : <>
@@ -298,27 +256,45 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
 
       {/* ── Phụ cấp ──────────────────────────────────────────────────────── */}
       <Block label="Phụ cấp" total={`+${money(r.phu_cap)}đ`} tone={r.phu_cap ? "ok" : undefined}
-        sub={r.pc_count ? `${r.pc_count} khoản · bấm để thêm/sửa` : "bấm để thêm"} onTap={() => onCol("pc")} />
-      {allows === null ? <p class="muted small pws-pad"><LoadingInline label="Đang tải…" /></p>
-        : !allows.length ? <p class="muted small pws-pad">Chưa có khoản phụ cấp nào.</p>
+        open={open.pc} onTap={() => tog("pc")}
+        sub={r.pc_count ? `${r.pc_count} khoản` : "chưa có khoản nào"} />
+      {!open.pc ? null
+        : allows === null ? <p class="muted small pws-pad"><LoadingInline label="Đang tải…" /></p>
         : (
-          <div class="pws-list">
-            {allows.map((a) => (
-              <div class={`pws-item${a.voided_at ? " ua-voided" : ""}`} key={a.id}>
-                <span>{a.note || <i class="muted">không ghi nội dung</i>}
-                  {a.voided_at ? <span class="ua-void-badge">VÔ HIỆU</span> : null}</span>
-                <b class={a.voided_at ? "ua-amt-voided" : ""}>{money(a.amount)}đ</b>
+          <>
+            {allows.length ? (
+              <div class="pws-list">
+                {allows.map((a) => (
+                  <div class={`pws-item${a.voided_at ? " ua-voided" : ""}`} key={a.id}>
+                    <span>{a.calc_label ? <b class="ua-calc">{a.calc_label}</b> : null}
+                      {a.calc_label && a.note ? " · " : ""}
+                      {a.note || (a.calc_label ? "" : <i class="muted">không ghi nội dung</i>)}
+                      {a.voided_at ? <span class="ua-void-badge">VÔ HIỆU</span> : null}</span>
+                    <b class={a.voided_at ? "ua-amt-voided" : ""}>{money(a.amount)}đ</b>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            ) : <p class="muted small pws-pad">Chưa có khoản phụ cấp nào.</p>}
+            <button class="pws-item tappable pws-more" onClick={() => onCol("pc")}>
+              <span class="muted small">Thêm / sửa khoản phụ cấp</span><b>›</b>
+            </button>
+          </>
         )}
 
       {/* ── Ứng lương ────────────────────────────────────────────────────── */}
       <Block label="Đã ứng" total={`−${money(r.ung)}đ`} tone={r.ung ? "danger" : undefined}
-        sub={r.adv_count ? `${r.adv_count} lần nhập tay · bấm để thêm/sửa` : "bấm để thêm"} onTap={() => onCol("ung")} />
-      {advs === null ? <p class="muted small pws-pad"><LoadingInline label="Đang tải…" /></p>
-        : !advs.length && !r.ung_weekly ? <p class="muted small pws-pad">Chưa ứng lần nào trong tháng.</p>
-        : (
+        open={open.ung} onTap={() => tog("ung")}
+        sub={r.adv_count ? `${r.adv_count} lần nhập tay` : "chưa ứng lần nào"} />
+      {!open.ung ? null
+        : advs === null ? <p class="muted small pws-pad"><LoadingInline label="Đang tải…" /></p>
+        : !advs.length && !r.ung_weekly ? (
+          <>
+            <p class="muted small pws-pad">Chưa ứng lần nào trong tháng.</p>
+            <button class="pws-item tappable pws-more" onClick={() => onCol("ung")}>
+              <span class="muted small">Ghi ứng lương</span><b>›</b>
+            </button>
+          </>
+        ) : (
           <div class="pws-list">
             {r.ung_weekly > 0 ? (
               <div class="pws-item">
@@ -333,28 +309,43 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
                 <b class={a.voided_at ? "ua-amt-voided" : ""}>{money(a.amount)}đ</b>
               </div>
             ))}
+            <button class="pws-item tappable pws-more" onClick={() => onCol("ung")}>
+              <span class="muted small">Thêm / sửa lần ứng</span><b>›</b>
+            </button>
           </div>
         )}
 
       {/* ── 2 khoản thưởng bật/tắt ───────────────────────────────────────── */}
-      {/* Chỉ ăn tháng đang xem (không kế thừa) — bật/tắt ở bảng lương hoặc view Thẻ */}
-      {r.cc_on || r.vs_on ? (
+      {/* Luôn hiện KỂ CẢ khi đang tắt hết — không thì không ai biết có 2 khoản này.
+          Chỉ ăn tháng đang xem (không kế thừa); bật/tắt ở ô Ch.cần/Vệ sinh của bảng. */}
+      <Block label="Thưởng" open={open.thuong} onTap={() => tog("thuong")}
+        total={`+${money(r.thuong_cc + r.thuong_vs)}đ`} tone={r.thuong_cc + r.thuong_vs ? "ok" : undefined}
+        sub={r.cc_on || r.vs_on
+          ? [r.cc_on ? "chuyên cần" : "", r.vs_on ? "vệ sinh" : ""].filter(Boolean).join(" · ")
+          : "chưa bật khoản nào"} />
+      {open.thuong ? (
         <div class="pws-list">
-          {r.cc_on ? (
-            <div class="pws-item"><span>Thưởng chuyên cần <span class="muted small">· cố định</span></span>
-              <b class="t-ok">+{money(r.thuong_cc)}đ</b></div>
-          ) : null}
-          {r.vs_on ? (
-            <div class="pws-item"><span>Thưởng vệ sinh <span class="muted small">· {congVN(r.cong)} công</span></span>
-              <b class="t-ok">+{money(r.thuong_vs)}đ</b></div>
-          ) : null}
+          <div class="pws-item">
+            <span>Chuyên cần <span class="muted small">· cố định</span></span>
+            <b class={r.cc_on ? "t-ok" : "muted"}>{r.cc_on ? `+${money(r.thuong_cc)}đ` : "chưa bật"}</b>
+          </div>
+          <div class="pws-item">
+            <span>Vệ sinh <span class="muted small">· {congVN(r.cong)} công</span></span>
+            <b class={r.vs_on ? "t-ok" : "muted"}>{r.vs_on ? `+${money(r.thuong_vs)}đ` : "chưa bật"}</b>
+          </div>
+          <div class="pws-item"><span class="muted small">Bật/tắt ở ô Ch.cần và Vệ sinh trên bảng lương</span><b /></div>
         </div>
       ) : null}
 
       {/* ── Trừ BHXH ─────────────────────────────────────────────────────── */}
       {/* Mức lưu theo TỪNG THÁNG + kế thừa (bhxhNguon nói rõ số này của tháng nào) */}
       <Block label="Trừ BHXH" total={r.bhxh ? `−${money(r.bhxh)}đ` : "—"} tone={r.bhxh ? "danger" : undefined}
-        sub={`${bhxhNguon(r, ym)} · bấm để ${r.bhxh ? "sửa" : "đặt"} mức trừ`} onTap={() => onCol("bhxh")} />
+        open={open.bhxh} onTap={() => tog("bhxh")} sub={bhxhNguon(r, ym)} />
+      {open.bhxh ? (
+        <button class="pws-item tappable pws-more" onClick={() => onCol("bhxh")}>
+          <span class="muted small">{r.bhxh ? "Sửa mức trừ" : "Đặt mức trừ"} · trao đổi về BHXH</span><b>›</b>
+        </button>
+      ) : null}
 
       {r.thuong ? <Block label="Thưởng (tháng cũ)" total={`+${money(r.thuong)}đ`} tone="ok" /> : null}
       {r.note ? <p class="muted small pws-pad">Ghi chú tháng: {r.note}</p> : null}
