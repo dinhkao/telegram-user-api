@@ -16,7 +16,7 @@ import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
 import { MoneyEntryForm } from "../ui/MoneyEntryForm";
-import { PC_GOI_Y, calcNote, type PctInfo } from "../detail/EntryPanel";
+import { PC_GOI_Y, type PctInfo } from "../detail/EntryPanel";
 import { pctBaseOf } from "../detail/PayrollCellPopup";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
@@ -65,8 +65,9 @@ export function AllowanceEntry() {
     setBusy(true);
     try {
       // nhập theo % thì ghi luôn cách tính vào nội dung (DB chỉ lưu SỐ TIỀN chốt)
-      const auto = pct && !note.trim() ? calcNote(pct) : note;
-      await addPayrollAllowance(ym, wid, num(amt), auto);
+      // có công thức thì lưu công thức, số tiền sẽ tự tính lại theo lương gốc
+      await addPayrollAllowance(ym, wid, num(amt), note,
+        pct ? { kind: pct.kind, value: pct.n } : null);
       toast(`Đã ghi phụ cấp ${money(num(amt))} cho ${nameOf(wid)}`, "ok");
       setAmt("");
       setNote("");

@@ -1169,7 +1169,9 @@ export type PayrollRow = {
 };
 export type PayrollMonth = { ym: string; workers: PayrollRow[]; totals: { luong: number; phu_cap: number; thuong: number; thuong_cc: number; thuong_vs: number; ung: number; bhxh: number; thuc_lanh: number } };
 export type SalaryAdvance = { id: number; worker_id: number; ym: string; amount: number; adv_date: string; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string };
-export type SalaryAllowance = { id: number; worker_id: number; ym: string; amount: number; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string };
+// calc_kind 'pct'/'day' + calc_value = CÔNG THỨC: amount được server TÍNH LẠI theo
+// lương gốc của tháng mỗi lần trả về (rỗng = khoản tiền cố định, bất biến).
+export type SalaryAllowance = { id: number; worker_id: number; ym: string; amount: number; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string; calc_kind?: string; calc_value?: number; calc_label?: string };
 
 // PIVOT lương SP: thợ theo CỘT, ngày theo HÀNG (+ từng phiếu SX trong ngày).
 // cells khoá theo worker_id dạng CHUỖI (JSON object key). Tiền = đồng.
@@ -1210,8 +1212,10 @@ export async function listAllAllowances(ym: string): Promise<SalaryAllowance[]> 
   const d = await getJSON(`/api/payroll/allowances?ym=${encodeURIComponent(ym)}`, { cache: false });
   return d.allowances || [];
 }
-export async function addPayrollAllowance(ym: string, worker_id: number, amount: number, note?: string): Promise<PayrollMonth> {
-  return postJSON(`/api/payroll/allowance`, { ym, worker_id, amount, note });
+export async function addPayrollAllowance(ym: string, worker_id: number, amount: number, note?: string,
+  calc?: { kind: "pct" | "day"; value: number } | null): Promise<PayrollMonth> {
+  return postJSON(`/api/payroll/allowance`, { ym, worker_id, amount, note,
+    calc_kind: calc?.kind, calc_value: calc?.value });
 }
 // Vô hiệu (không xoá): dòng giữ nguyên kèm ai/lúc nào/lý do, totals bỏ qua
 export async function voidPayrollAllowance(ym: string, id: number, reason: string): Promise<PayrollMonth> {

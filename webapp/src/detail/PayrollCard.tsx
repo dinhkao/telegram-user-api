@@ -33,9 +33,9 @@ export function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc, editBhxh
   const otCong = otInCong(r.wage_type);     // TG*: giờ TC gộp vào công, không trả riêng
   const wid = r.worker_id;
 
-  const addAllow = async (a: number, note: string) => {
+  const addAllow = async (a: number, note: string, calc?: { kind: "pct" | "day"; value: number } | null) => {
     // PHẢI toast: thêm xong mà im lặng thì người dùng tưởng bấm hụt, bấm lại → ghi 2 lần
-    try { apply(await addPayrollAllowance(ym, wid, a, note)); const l = await listPayrollAllowances(ym, wid); setAllows((m) => ({ ...m, [wid]: l }));
+    try { apply(await addPayrollAllowance(ym, wid, a, note, calc)); const l = await listPayrollAllowances(ym, wid); setAllows((m) => ({ ...m, [wid]: l }));
       toast(`Đã ghi phụ cấp ${money(a)}đ cho ${r.name}`, "ok"); }
     catch (e: any) { toast(e?.message || "Lỗi thêm phụ cấp", "err"); }
   };
@@ -149,7 +149,7 @@ export function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc, editBhxh
       {openPc && <EntryPanel entries={allowances} addPlaceholder="Số tiền phụ cấp"
         submitLabel="Thêm phụ cấp" noteLabel="Nội dung phụ cấp"
         notePlaceholder="VD: ăn trưa, xăng xe…" noteSuggestions={PC_GOI_Y} pctBase={pctBaseOf(r)} dayBase={{ days: r.cong || 0 }}
-        onAdd={(a, note) => addAllow(a, note)} onDel={voidAllow} onNote={noteAllow} />}
+        onAdd={(a, note, _d, calc) => addAllow(a, note, calc)} onDel={voidAllow} onNote={noteAllow} />}
       <div class="pr-adv-toggle">
         <span>Chi tiết ứng lương {r.adv_count ? <span class="muted small">· {r.adv_count} lần nhập tay</span> : null}</span>
         <button class="pr-toggle-btn" onClick={onToggleUng} aria-label={openUng ? "Đóng chi tiết ứng lương" : "Mở chi tiết ứng lương"}>{openUng ? "▾" : "▸"}</button>

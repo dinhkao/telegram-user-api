@@ -111,9 +111,9 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
     if (!reason.trim()) { toast("Phải nhập lý do vô hiệu", "err"); return null; }
     return reason.trim();
   };
-  const addAllow = async (a: number, note: string) => {
+  const addAllow = async (a: number, note: string, calc?: { kind: "pct" | "day"; value: number } | null) => {
     // PHẢI toast: thêm xong mà im lặng thì người dùng tưởng bấm hụt, bấm lại → ghi 2 lần
-    try { apply(await addPayrollAllowance(ym, wid, a, note)); setAllows(await listPayrollAllowances(ym, wid));
+    try { apply(await addPayrollAllowance(ym, wid, a, note, calc)); setAllows(await listPayrollAllowances(ym, wid));
       toast(`Đã ghi phụ cấp ${money(a)}đ cho ${r.name}`, "ok"); }
     catch (e: any) { toast(e?.message || "Lỗi thêm phụ cấp", "err"); }
   };
@@ -321,7 +321,7 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
               submitLabel="Thêm phụ cấp" noteLabel="Nội dung phụ cấp"
               notePlaceholder="VD: ăn trưa, xăng xe…" noteSuggestions={PC_GOI_Y}
               pctBase={pctBaseOf(r)} dayBase={{ days: r.cong || 0 }}
-              onAdd={(a, note) => addAllow(a, note)} onDel={voidAllow} onNote={noteAllow} />
+              onAdd={(a, note, _d, calc) => addAllow(a, note, calc)} onDel={voidAllow} onNote={noteAllow} />
             <a class="btn block" href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>📋 Trang nhập phụ cấp</a>
             <Comments base={`/api/media/worker_pc/${wid}`} allowPin={false} />
             <p class="muted small">Trao đổi về phụ cấp của {r.name} — dùng chung cho mọi tháng.</p>

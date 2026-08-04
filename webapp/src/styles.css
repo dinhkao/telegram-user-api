@@ -4101,3 +4101,9 @@ body.has-nop .wp-thead-bar { top: 72px; }
 /* popup ô pivot: ghi chú thành cột giữa riêng */
 .wpc-row { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto; gap: 8px; align-items: start; }
 .wpc-note { min-width: 0; color: var(--muted); font-size: .78rem; line-height: 1.3; word-break: break-word; }
+/* Cột Thợ: bỏ avatar, thêm dòng TRUNG BÌNH 1 NGÀY CÔNG dưới tổng nhận */
+.pr-worker-avg { font-size: .8em; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pr-worker-avg.is-zero { opacity: .5; }
+.pr-table tfoot .pr-worker-avg { font-size: .86em; }
+/* nhãn công thức của khoản phụ cấp ("10% lương gốc") — đứng trên ghi chú */
+.ua-calc { font-size: .74rem; font-weight: 700; color: var(--primary); }

@@ -20,17 +20,11 @@ import { moneyR as money, dmy, isoDate, tsLabel } from "../format";
 export const PC_GOI_Y = ["Ăn trưa", "Xăng xe", "Chuyên cần", "Tăng ca"];
 export const UNG_GOI_Y = ["Ứng tiêu", "Việc gia đình", "Ứng trước lương"];
 
-/** Ghi chú tự sinh mô tả CÁCH TÍNH ra số tiền (dùng chung với trang nhập). */
-export function calcNote(p: NonNullable<PctInfo>): string {
-  return p.kind === "pct"
-    ? `${String(p.n).replace(".", ",")}% ${p.label} (${money(p.base)}đ)`
-    : `${money(p.n)}đ × ${String(p.base).replace(".", ",")} công`;
-}
-
 export type MoneyEntry = {
   id: number; amount: number; note: string; adv_date?: string;
   created_by?: string; created_at?: string;
   voided_at?: string; voided_by?: string; void_reason?: string;
+  calc_label?: string;                  // "10% lương gốc" — khoản tính theo công thức
 };
 
 export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, noteLabel,
@@ -42,7 +36,8 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
   noteLabel?: string; notePlaceholder?: string; noteSuggestions?: string[];
   pctBase?: PctBase | null;             // có = cho nhập theo % lương tháng
   dayBase?: DayBase | null;             // có = cho nhập đơn giá × ngày công
-  onAdd: (amount: number, note: string, date: string) => void;
+  // calc = CÔNG THỨC đã dùng (nếu có) → chỗ gọi lưu xuống để tính lại sau này
+  onAdd: (amount: number, note: string, date: string, calc?: { kind: "pct" | "day"; value: number } | null) => void;
   onDel: (id: number) => void;
   onNote?: (id: number, current: string) => void;   // ✏️ sửa ghi chú (tiền bất biến)
   extra?: any;
@@ -73,8 +68,10 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
   const add = () => {
     const a = Number(amt || 0);
     if (a <= 0) { toast("Nhập số tiền", "err"); return; }
-    const auto = pct && !note.trim() ? calcNote(pct) : note;
-    onAdd(a, auto, date); setAmt(""); setNote(""); setPct(null);
+    // có công thức thì KHÔNG nhét số gốc vào ghi chú nữa: gốc đổi là ghi chú sai
+    const auto = note;
+    onAdd(a, auto, date, pct ? { kind: pct.kind, value: pct.n } : null);
+    setAmt(""); setNote(""); setPct(null);
   };
   return (
     <div class="pr-adv">
@@ -90,6 +87,7 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
             {fresh.includes(e.id) ? <span class="ua-new-badge">VỪA THÊM</span> : null}
           </div>
           <div class="ua-note-col">
+            {(e as any).calc_label ? <div class="ua-calc">{(e as any).calc_label}</div> : null}
             {e.note ? <div class="ua-note-txt">{e.note}</div>
               : !e.voided_at ? <div class="muted small ua-note-empty">chưa có ghi chú</div> : null}
             {tsLabel(e.created_at) ? (
