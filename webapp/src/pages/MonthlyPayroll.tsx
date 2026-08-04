@@ -84,6 +84,8 @@ export function MonthlyPayroll() {
   const [allows, setAllows] = useState<Record<number, SalaryAllowance[]>>({});
   // Popup ô bảng: {wid, col} — row truyền vào popup tra TƯƠI từ data mỗi render
   const [pop, setPop] = useState<{ wid: number; col: PayrollCol } | null>(null);
+  // HÀNG VỪA THAO TÁC — giữ sáng cả sau khi đóng popup để khỏi lạc chỗ trong bảng dài
+  const [activeWid, setActiveWid] = useState<number | null>(null);
   // Sắp xếp theo cột (null = thứ tự server). Nhớ trong localStorage; áp cả 2 view.
   const [sort, setSortState] = useState<Sort | null>(loadSort);
   const onSort = (key: any, num: boolean) => {
@@ -109,7 +111,7 @@ export function MonthlyPayroll() {
   // Ô TÊN → POPUP hồ sơ lương của thợ (ở NGAY trang này, khỏi rời bảng rồi phải
   // back + tải lại; vẫn mở được thành trang riêng bằng nút ↗ trong popup)
   const [sheetWid, setSheetWid] = useState<number | null>(null);
-  const openWorker = (wid: number) => setSheetWid(wid);
+  const openWorker = (wid: number) => { setActiveWid(wid); setSheetWid(wid); };
 
   const loadAdvances = async (wid: number) => {
     try { setAdvs((m) => ({ ...m, [wid]: [] })); const a = await listPayrollAdvances(ym, wid); setAdvs((m) => ({ ...m, [wid]: a })); } catch { /**/ }
@@ -175,11 +177,12 @@ export function MonthlyPayroll() {
               <PayrollTable data={data} rows={rows} sort={sort} onSort={onSort} ym={ym}
                 toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc}
                 toggleThuongCC={toggleThuongCC} toggleThuongVS={toggleThuongVS}
-                onCell={(wid, col) => setPop({ wid, col })} onName={openWorker} />
+                onCell={(wid, col) => { setActiveWid(wid); setPop({ wid, col }); }} onName={openWorker}
+                activeWid={activeWid} />
             ) : (
               <div class="pr-card-grid">
                 {rows.map((r) => (
-                  <PayrollCard key={r.worker_id} r={r} ym={ym}
+                  <PayrollCard key={r.worker_id} r={r} ym={ym} active={r.worker_id === activeWid}
                     toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc} editBhxh={editBhxh}
                     toggleThuongCC={toggleThuongCC} toggleThuongVS={toggleThuongVS}
                     openUng={openUng === r.worker_id} onToggleUng={() => toggleUng(r.worker_id)} advances={advs[r.worker_id]}
@@ -210,7 +213,7 @@ export function MonthlyPayroll() {
 }
 
 function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleWeekly, editMoc,
-  toggleThuongCC, toggleThuongVS, onCell, onName }: {
+  toggleThuongCC, toggleThuongVS, onCell, onName, activeWid }: {
   data: PayrollMonth;
   rows: PayrollRow[];              // đã sắp theo cột đang chọn (cha lo)
   sort: Sort | null;
@@ -220,7 +223,8 @@ function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleWeekly, 
   editMoc: (r: PayrollRow) => void;
   toggleThuongCC: (r: PayrollRow) => void; toggleThuongVS: (r: PayrollRow) => void;
   onCell: (wid: number, col: PayrollCol) => void;
-  onName: (wid: number) => void;   // ô TÊN → trang lương của thợ
+  onName: (wid: number) => void;   // ô TÊN → popup lương của thợ
+  activeWid: number | null;        // hàng vừa thao tác → tô sáng
 }) {
   const t = data.totals;
   // SỐ ĐẦY ĐỦ (không rút gọn) → bảng RỘNG hơn màn: thân cuộn NGANG, cột Thợ ghim
@@ -301,7 +305,7 @@ function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleWeekly, 
               onKeyDown: (e: any) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCell(r.worker_id, col); } },
             });
             return (
-              <tr key={r.worker_id}>
+              <tr key={r.worker_id} class={r.worker_id === activeWid ? "is-active" : ""}>
                 <td class="pr-sticky pr-td-name pr-td-tap" role="button" tabIndex={0}
                   title="Mở trang lương tháng của thợ"
                   onClick={() => onName(r.worker_id)}

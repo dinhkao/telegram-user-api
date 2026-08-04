@@ -16,10 +16,10 @@ import { toast, promptDialog } from "../ui/feedback";
 
 const initials = (name: string) => name.trim().split(/\s+/).slice(-2).map((part) => part[0] || "").join("").toUpperCase();
 
-export function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc, editBhxh,
+export function PayrollCard({ r, ym, active, toggleType, toggleWeekly, editMoc, editBhxh,
   toggleThuongCC, toggleThuongVS,
   openUng, onToggleUng, advances, openPc, onTogglePc, allowances, apply, setAdvs, setAllows }: {
-  r: PayrollRow; ym: string;
+  r: PayrollRow; ym: string; active?: boolean;
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
   editMoc: (r: PayrollRow) => void; editBhxh: (r: PayrollRow) => void;
   toggleThuongCC: (r: PayrollRow) => void; toggleThuongVS: (r: PayrollRow) => void;
@@ -77,7 +77,7 @@ export function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc, editBhxh
   };
 
   return (
-    <section class="card pr-card">
+    <section class={active ? "card pr-card is-active" : "card pr-card"}>
       <div class="pr-top">
         <div class="pr-person">
           <span class="pr-avatar large">{initials(r.name)}</span>
