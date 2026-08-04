@@ -22,7 +22,7 @@ export function attRows(days: AttendanceDay[] | null, wid: number): AttRow[] {
     .filter((d) => d.worker_id === wid && (d.times || []).length > 0)
     .sort((a, b) => a.day.localeCompare(b.day))
     .map((d) => {
-      const st = workStats(d.times || []);
+      const st = workStats(d.times || [], d.day);
       return { ...d, cong: st.work / 480, ot: st.ot / 60, le: (d.times || []).length % 2 === 1 };
     });
 }

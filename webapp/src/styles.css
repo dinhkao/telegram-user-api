@@ -4029,7 +4029,11 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
   background: var(--bg); border-radius: var(--r-md) var(--r-md) 0 0; }
 body.has-nop .wp-thead-bar { top: 72px; }
 .wp-tbody-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.wp-thead-bar .wp-table, .wp-tbody-scroll .wp-table { table-layout: fixed; width: 100%; }
+/* thanh TỔNG dính đáy màn hình, nằm ngay trên thanh nav dưới */
+.wp-tfoot-bar { position: sticky; bottom: calc(56px + env(safe-area-inset-bottom, 0px)); z-index: 5;
+  overflow-x: hidden; background: var(--bg); border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--r-md) var(--r-md); }
+.wp-thead-bar .wp-table, .wp-tbody-scroll .wp-table, .wp-tfoot-bar .wp-table { table-layout: fixed; width: 100%; }
 .wp-table { border-collapse: separate; border-spacing: 0; font-size: .62rem; font-variant-numeric: tabular-nums; }
 .wp-table th, .wp-table td { padding: 1px 3px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
   text-align: right; white-space: nowrap; line-height: 1.35; }
@@ -4038,7 +4042,8 @@ body.has-nop .wp-thead-bar { top: 72px; }
   max-width: 4.6em; line-height: 1.05; padding: 3px 3px; }
 /* cột NGÀY + ô góc: dính trái; góc phải cao hơn để không bị hàng tiêu đề đè */
 .wp-table .wp-day, .wp-table .wp-slip, .wp-table .wp-cnr { position: sticky; left: 0; z-index: 2;
-  background: var(--card); text-align: left; font-weight: 600; }
+  background: var(--card); text-align: left; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; }
 .wp-table thead .wp-cnr, .wp-table tfoot .wp-cnr { background: var(--bg); z-index: 4; }
 .wp-table .wp-day b { font-size: .72rem; }
 .wp-table .wp-day .muted { font-size: .55rem; }
@@ -4072,3 +4077,7 @@ body.has-nop .wp-thead-bar { top: 72px; }
    sách im lìm thì người dùng tưởng bấm hụt và bấm lại → ghi trùng khoản. */
 .pr-adv-row.just-added { background: var(--ok-wash); border-radius: var(--r-sm); box-shadow: 0 0 0 1px var(--ok) inset; }
 .ua-new-badge { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: var(--ok); color: #fff; font-size: .6rem; font-weight: 800; }
+/* popup chi tiết ô pivot: dòng phụ (số cây · ghi chú · phụ cấp) xuống hàng, phiếu 0đ mờ đi */
+.wpc-l { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.wpc-sub { margin-top: 1px; line-height: 1.25; white-space: normal; }
+.pr-pop-row.wpc-zero { opacity: .55; }

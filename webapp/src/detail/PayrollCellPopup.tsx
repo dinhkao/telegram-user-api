@@ -166,7 +166,7 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
     : (
       <div class="pr-pop-days">
         {att.map((d) => {
-          const st = workStats(d.times || []);
+          const st = workStats(d.times || [], d.day);
           if (!st.work && !st.ot) return null;
           return (
             <div class="pr-pop-day" key={`${d.day}:${d.employee_code}`}>

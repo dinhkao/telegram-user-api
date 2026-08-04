@@ -209,7 +209,8 @@ def month_worker_stats(conn, ym: str) -> dict:
         wid = r.get("worker_id")
         if wid is None or not r.get("times"):
             continue
-        work, ot = work_stats(r["times"])
+        # truyền NGÀY để luật "chủ nhật = tăng ca" ăn (xem domain.work_stats)
+        work, ot = work_stats(r["times"], r.get("day"))
         cur = out.setdefault(wid, {"work_min": 0, "ot_min": 0, "days": 0})
         cur["work_min"] += work
         cur["ot_min"] += ot

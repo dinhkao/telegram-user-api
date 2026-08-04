@@ -183,12 +183,32 @@ if __name__ == "__main__":
 class WorkStatsTest(unittest.TestCase):
     """Quy giờ chấm → công + tăng ca (luật: grace 15ph, bỏ xuyên trưa, bỏ trước 7h)."""
 
-    def _ws(self, times):
+    def _ws(self, times, ymd=None):
         from attendance_store.domain import work_stats
-        return work_stats(times)
+        return work_stats(times, ymd)
 
     def test_full_day(self):
         self.assertEqual(self._ws(["07:00", "11:00", "13:00", "17:00"]), (480, 0))
+
+    # ── ĐI LÀM CHỦ NHẬT = TĂNG CA TOÀN BỘ (Duy chốt 2026-08-04) ────────────────
+    def test_chu_nhat_ca_ngay_thanh_tang_ca(self):
+        # 2026-08-02 là CHỦ NHẬT: 8 tiếng có mặt → 0 công, 480 phút tăng ca
+        self.assertEqual(self._ws(["07:00", "11:00", "13:00", "17:00"], "2026-08-02"), (0, 480))
+
+    def test_chu_nhat_nua_buoi(self):
+        self.assertEqual(self._ws(["07:00", "11:00"], "2026-08-02"), (0, 240))
+
+    def test_chu_nhat_khong_cham_trua_thi_tinh_luon_gio_trua(self):
+        # không chấm ra/vào trưa → cả khoảng 7–17 là có mặt (10 tiếng)
+        self.assertEqual(self._ws(["07:00", "17:00"], "2026-08-02"), (0, 600))
+
+    def test_thu_bay_van_tinh_nhu_ngay_thuong(self):
+        # 2026-08-01 là THỨ BẢY — chỉ CHỦ NHẬT mới thành tăng ca toàn bộ
+        self.assertEqual(self._ws(["07:00", "11:00", "13:00", "17:00"], "2026-08-01"), (480, 0))
+
+    def test_thieu_ngay_thi_tinh_nhu_ngay_thuong(self):
+        self.assertEqual(self._ws(["07:00", "11:00", "13:00", "17:00"], None), (480, 0))
+        self.assertEqual(self._ws(["07:00", "11:00", "13:00", "17:00"], "hỏng"), (480, 0))
 
     def test_partial_and_late_within_grace(self):
         # ra 17:10 (≤15ph) → không tăng ca; sáng làm 3 tiếng
