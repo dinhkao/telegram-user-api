@@ -4081,3 +4081,12 @@ body.has-nop .wp-thead-bar { top: 72px; }
 .wpc-l { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
 .wpc-sub { margin-top: 1px; line-height: 1.25; white-space: normal; }
 .pr-pop-row.wpc-zero { opacity: .55; }
+/* THU NHANH 1 chạm ở đầu trang thu tiền (detail/QuickCollect) */
+.qc-box { display: flex; flex-direction: column; gap: 7px; border: 1px solid var(--primary); }
+/* xuống dòng thay vì 2 cột: màn hẹp thì 2 cụm chữ cùng hàng bị bẻ chữ xấu */
+.qc-head { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; font-weight: 700; font-size: .86rem; }
+.qc-head .small { font-weight: 400; }
+.qc-head span:first-child { display: inline-flex; align-items: center; gap: 5px; color: var(--primary); }
+.qc-main { padding: 13px; font-size: 1rem; font-weight: 800; }
+.qc-main b { font-variant-numeric: tabular-nums; }
+.qc-alt { padding: 9px; font-size: .86rem; }
