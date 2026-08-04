@@ -334,6 +334,16 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   + `AdvanceEntry.tsx` (`#/nhap-ung` nhập ứng nhanh); ☰ Thêm
   → nhóm **Lương**. Tests: `tests/test_salary_store.py`. (Khác `production_allowances`
   = phụ cấp per-PHIẾU SX; đây là lương theo THÁNG.)
+  **PHỤ CẤP TỰ ĐỘNG theo ghi chú báo cáo (`production_store/allowance_auto.py`)**: bảng
+  `RULES` = (tên thợ đã bỏ dấu, từ khoá ghi chú, hạng) → phụ cấp = tiền SP của người
+  hạng đó trong CÙNG phiếu. ⚠ Tên phải là **TÊN ĐẦY ĐỦ** đúng như `production_workers`
+  ("bao xuyen", KHÔNG tách "bao"/"xuyen" — tách ra thì thợ trượt hết rule mà "Bảo" lại là
+  người khác), và từ khoá phải khớp ĐÚNG chữ thợ hay ghi (Thủy Đặng ghi "vít kẹo" chứ
+  không phải "quậy kẹo"). Rule CHỈ áp lúc **lưu báo cáo** (`set_bang`) → sửa `RULES` KHÔNG
+  tự tính lại phiếu cũ; chạy bù bằng `tools/backfill_auto_allowances.py --from --to`
+  (mặc định CHẠY THỬ in ra, `--apply` mới ghi; tôn trọng số văn phòng nhập tay). Logic
+  thuần = `compute_auto_allowances`, dự tính 1 phiếu = `plan_auto_allowances` (chỉ đọc).
+  Tests: `tests/test_allowance_auto.py`.
   ⚠ **KHOẢN ứng/phụ cấp HIỆN Ở 2 CHỖ — sửa gì phải đồng bộ CẢ HAI**: (1) 2 trang nhập
   `pages/AdvanceEntry.tsx` + `pages/AllowanceEntry.tsx` (`#/nhap-ung`, `#/nhap-phu-cap`),
   (2) panel `EntryPanel` trong `detail/PayrollCellPopup.tsx` — dùng cho popup ô P.cấp/Ứng
