@@ -4124,3 +4124,4 @@ body.has-nop .wp-thead-bar { top: 72px; }
 .pr-card.is-active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
 .wp-table tr.is-active > td, .wp-table tr.is-active > th { background: var(--accent-wash); }
 .wp-table tr.is-active > th:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+.pr-adv-addbtn { margin-top: 4px; padding: 10px; font-weight: 700; }

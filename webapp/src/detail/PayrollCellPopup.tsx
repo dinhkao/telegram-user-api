@@ -3,7 +3,9 @@
 // salary_store/moc.py) + khung TRAO ĐỔI gắn theo THỢ (scope worker_moc → dùng chung
 // mọi tháng); Công/TC = chấm công từng ngày của thợ (luật quy công
 // GIỐNG attendance_store/domain.work_stats); L.công/L.TC/Lương/Lãnh = diễn giải
-// công thức; P.cấp/Ứng = panel thêm/vô hiệu khoản ngay tại chỗ (detail/EntryPanel);
+// công thức (tab "luong_cong" diễn giải TRỌN cột "Lương công+TC": lương công +
+// lương tăng ca, phải khớp số trên cột); P.cấp/Ứng = panel thêm/vô hiệu khoản
+// ngay tại chỗ (detail/EntryPanel);
 // BHXH = số trừ hằng tháng của THÁNG ĐANG XEM (kế thừa theo tháng như mốc — 0 khác
 // "bỏ đặt riêng", xem salary_store/bhxh.py).
 // 4 ô Mốc/P.cấp/Ứng/BHXH đều có khung TRAO ĐỔI gắn theo THỢ (scope worker_moc/pc/
@@ -43,7 +45,7 @@ const dayVN = (ymd: string) => {
 
 const TITLES: Record<PayrollCol, string> = {
   moc: "Mốc lương tháng", cong: "Ngày công", tc: "Giờ tăng ca",
-  luong_cong: "Lương theo công", luong_tc: "Lương tăng ca", luong: "Lương",
+  luong_cong: "Lương công + tăng ca", luong_tc: "Lương tăng ca", luong: "Lương sản phẩm",
   pc: "Phụ cấp", ung: "Ứng lương", bhxh: "Trừ BHXH", net: "Thực lãnh",
 };
 
@@ -248,11 +250,29 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
                 <Row label="Lương 1 công (mốc ÷ 26)" val={`${money(dayRate)}đ`} />
                 <Row label={otCong ? `Ngày công (đã gộp ${congVN(r.ot_gio)}g tăng ca)` : "Ngày công"}
                   val={congVN(r.cong)} go="cong" />
-                <Row label={<b>Lương công = {money(dayRate)} × {congVN(r.cong)}</b>} val={`${money(r.luong_cong)}đ`} cls="hl" />
-                {otCong ? <p class="muted small">TG*: đây là TOÀN BỘ lương thời gian của tháng —
-                  giờ tăng ca đã nằm trong số công, không cộng thêm lương tăng ca.</p> : null}
+                <Row label={<>Lương công = {money(dayRate)} × {congVN(r.cong)}</>} val={`${money(r.luong_cong)}đ`} />
+                {/* Cột trên bảng là "Lương công+TC" nên popup PHẢI diễn giải cả phần
+                    tăng ca, không thì số ở đây lệch số trên cột. TG* thì tăng ca đã
+                    nằm trong công → nói rõ là không cộng thêm. */}
+                {otCong ? (
+                  <>
+                    <Row label={`Tăng ca ${congVN(r.ot_gio)} giờ — đã gộp vào công`} val="—" go="tc" />
+                    <Row label={<b>Lương công + TC</b>} val={`${money(r.luong_tg)}đ`} cls="hl" />
+                    <p class="muted small">Loại <b>TG*</b>: giờ tăng ca gộp thẳng vào ngày công và trả
+                      theo đơn giá công — KHÔNG có tiền tăng ca ×1,2 riêng.</p>
+                  </>
+                ) : (
+                  <>
+                    <Row label="Giờ tăng ca" val={`${congVN(r.ot_gio)} giờ`} go="tc" />
+                    <Row label="Đơn giá 1 giờ TC (mốc ÷ 26 ÷ 8 × 1,2)" val={`${money(dayRate / 8 * 1.2)}đ`} />
+                    <Row label={<>Lương tăng ca = {money(dayRate / 8 * 1.2)} × {congVN(r.ot_gio)}</>}
+                      val={`${money(r.luong_tc)}đ`} />
+                    <Row label={<b>Lương công + TC</b>} val={`${money(r.luong_tg)}đ`} cls="hl" />
+                  </>
+                )}
               </>
-            ) : <p class="muted small">{r.name} hưởng lương SẢN PHẨM — không tính lương theo công.</p>}
+            ) : <p class="muted small">{r.name} hưởng lương SẢN PHẨM — không tính lương theo công.
+              Xem ô "Lương SP" bên cạnh.</p>}
           </>
         )}
 
@@ -277,16 +297,16 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
           </>
         )}
 
+        {/* Tab này là cột "Lương SP" — CHỈ nói về lương SẢN PHẨM. Thợ lương thời gian
+            không có nguồn này; đẩy họ sang tab "Lương công + tăng ca" thay vì diễn
+            giải lương công ở đây (trước bị nhầm: bấm ô Lương SP lại hiện lương công). */}
         {col === "luong" && (
           isTime ? (
             <>
-              <Row label={otCong ? `Lương theo công (${congVN(r.cong)} công, đã gộp ${congVN(r.ot_gio)}g TC)`
-                                 : "Lương theo công"}
-                val={`${money(r.luong_cong)}đ`} go="luong_cong" />
-              {otCong
-                ? <Row label="Lương tăng ca riêng (TG* không có)" val="—" go="luong_tc" />
-                : <Row label="Lương tăng ca (×1,2)" val={`${money(r.luong_tc)}đ`} go="luong_tc" />}
-              <Row label={<b>Lương {wageLabel(r.wage_type).toLowerCase()}</b>} val={`${money(r.luong)}đ`} cls="hl" />
+              <p class="muted small">{r.name} hưởng lương <b>{wageLabel(r.wage_type).toLowerCase()}</b> —
+                tháng này KHÔNG có lương sản phẩm (không có báo cáo sản xuất tính tiền cây).</p>
+              <Row label="Lương công + tăng ca của tháng" val={`${money(r.luong_tg)}đ`} go="luong_cong" />
+              <a class="btn block" href={`#/sx-tho/${encodeURIComponent(r.name)}`}>🏭 Xem sản xuất của thợ</a>
             </>
           ) : (
             <>
@@ -313,9 +333,6 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
             <p class="muted small">{bhxhNguon(r, ym)} — mức BHXH lưu theo TỪNG THÁNG: sửa ở đây áp
               dụng từ {ymLabel(ym).toLowerCase()} trở đi, các tháng trước giữ nguyên số cũ.
               Gõ <b>0</b> = từ tháng này thôi trừ; để trống = bỏ mức riêng, kế thừa lại số trước đó.</p>
-            <Row label="Tổng nhận trước khi trừ (lương + phụ cấp)" val={`${money(r.luong + r.phu_cap + r.thuong)}đ`} />
-            <Row label="Đã ứng" val={`−${money(r.ung)}đ`} go="ung" />
-            <Row label={<b>Thực lãnh sau khi trừ BHXH</b>} val={`${money(r.thuc_lanh)}đ`} go="net" />
             <button class="btn block" onClick={() => editBhxh(r)}>
               ✏️ {r.bhxh ? `Sửa mức BHXH ${ymLabel(ym).toLowerCase()}` : `Đặt mức BHXH ${ymLabel(ym).toLowerCase()}`}
             </button>
@@ -356,7 +373,8 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
 
         {col === "net" && (
           <>
-            <Row label="Lương" val={`${money(r.luong)}đ`} go="luong" />
+            <Row label={isTime ? "Lương công + tăng ca" : "Lương sản phẩm"}
+              val={`${money(r.luong)}đ`} go={isTime ? "luong_cong" : "luong"} />
             <Row label={`Phụ cấp${r.pc_count ? ` (${r.pc_count} khoản)` : ""}`} val={`+${money(r.phu_cap)}đ`} go="pc" />
             {/* 2 khoản thưởng bật/tắt — chỉ hiện dòng khi ĐANG BẬT, khỏi rối */}
             {r.cc_on ? <Row label="Thưởng chuyên cần" val={`+${money(r.thuong_cc)}đ`} /> : null}
