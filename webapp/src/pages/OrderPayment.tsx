@@ -5,6 +5,8 @@
 // POST /api/order/payment/bulk (cần mạng). Chỉ văn phòng.
 // Mỗi đơn có nút ẨN khỏi trang thu tiền (bypass_debt) — toggle 2 chiều: đơn ẩn rơi
 // xuống mục "Đã ẩn" và không được phân bổ; bấm "Đưa lại" để thu tiếp.
+// Trên cùng có khối THU NHANH (detail/QuickCollect): 1 chạm thu ĐÚNG số nợ của đơn
+// đang mở, không gộp nợ cũ — cùng API bulkPayment, không có đường đi riêng.
 // MẶC ĐỊNH đơn ẩn nằm ngay trong danh sách "Chọn đơn nhận thanh toán", ĐÚNG VỊ TRÍ
 // theo chiều sắp xếp thời gian đang chọn (mới/cũ trước) — chỉ để nhìn mạch thời gian
 // + đưa lại, KHÔNG chọn được. Nút "Ẩn lại" gom chúng về khối "Đã ẩn" cuối trang.
@@ -16,6 +18,7 @@ import { money, parseMoney, fmtDateTimeVN, fmtRelative } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
 import { EmptyState, ErrorState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
+import { QuickCollect } from "../detail/QuickCollect";
 
 /** Mốc thời gian để xếp đơn (đơn thiếu `created` xuống cuối chiều cũ→mới). */
 function timeKey(o: DebtOrder): number {
@@ -158,6 +161,9 @@ export function OrderPayment({ threadId }: { threadId: string }) {
     }
   };
 
+  // đơn ĐANG MỞ trong danh sách còn nợ (dùng cho nút thu nhanh)
+  const thisOrder = orders.find((o) => o.thread_id === Number(threadId)) || null;
+
   const confirm = async () => {
     if (!valid) return;
     const allocations = selectedOrders
@@ -220,6 +226,9 @@ export function OrderPayment({ threadId }: { threadId: string }) {
         <EmptyState icon="💸">Khách này không có đơn nào đang nợ (chưa có thanh toán).</EmptyState>
       ) : (
         <>
+          {/* Thu nhanh đặt trên cùng vì hay dùng nhất; luồng chọn-đơn ở dưới vẫn nguyên */}
+          <QuickCollect threadId={threadId} order={thisOrder} busy={busy} setBusy={setBusy}
+            onDone={async () => { invalidateListCache(); setAmountStr(""); await reload(); }} />
           {orders.length > 0 ? (
             <>
               <div class="card">

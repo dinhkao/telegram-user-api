@@ -903,6 +903,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   bottom **📋 Đơn · 👤 Khách · ➕ Tạo · 🏭 SX · 📦 Kho** + ⚙️ cài đặt ở top bar
   (đăng xuất; kèm `TaskBell` badge việc-của-tôi + chuông thông báo). Dashboard Đơn:
   view-slider 4 ô (chi tiết/gọn/siêu gọn/**📅 lịch giao**). Menu ☰ Thêm có **Việc**. Trang: orders list/detail, tasks, payments, comments, create order,
+  **thu tiền = `pages/OrderPayment.tsx` (`#/order/:id/thanh-toan`) — trên cùng có
+  khối **THU NHANH** (`detail/QuickCollect.tsx`): 1 CHẠM thu ĐÚNG số nợ của ĐƠN ĐANG
+  MỞ, không gộp nợ cũ / đơn khác, cố ý KHÔNG hỏi xác nhận (nút in sẵn số tiền + hình
+  thức); luồng chọn-đơn + phân bổ vẫn ở dưới cho ca gộp. Cả hai gọi CÙNG `bulkPayment`
+  nên không có đường ghi tiền thứ hai**,
   **sửa hoá đơn = trang riêng `pages/OrderInvoiceEdit.tsx` (`#/order/:id/hoa-don`,
   2 TAB như trang tạo đơn, cùng mount: ⚡ Nhanh = sửa TEXT + preview parse, lưu qua
   `/api/order/fix` [text sửa → nhận diện lại khách, cảnh báo nếu đổi; text nguyên →
