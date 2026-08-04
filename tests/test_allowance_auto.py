@@ -41,6 +41,29 @@ def test_bao_khong_an_rule_cua_bao_xuyen():
     assert compute_auto_allowances(ws) == {}
 
 
+def test_bao_xuyen_vit_van_bang_cao_nhat():
+    # Từ 21/7 Bảo Xuyên đổi ghi chú "quậy kẹo" → "vít kẹo". HẠNG ĐI THEO NGƯỜI nên vẫn
+    # cao nhất, KHÔNG tụt xuống cao nhì như Thủy Đặng dù cùng ghi "vít".
+    ws = [_w("Bảo Xuyên", 0, "vít kẹo"), _w("Hiền", 125_000), _w("Hằng", 123_000)]
+    assert compute_auto_allowances(ws) == {"Bảo Xuyên": 125_000}
+
+
+def test_kim_dung_chi_an_quay_keo_khong_an_vit():
+    # Kim Dung CHƯA BAO GIỜ ghi "vít" (0 dòng trong dữ liệu thật) → không thêm từ khoá
+    # suy diễn cho cô ấy; giữ vậy để test chống-trùng-tên "Kim"/"Kim Dung" còn ý nghĩa.
+    ws = [_w("Kim Dung", 100_000, "vít kẹo"), _w("Hiền", 125_000)]
+    assert compute_auto_allowances(ws) == {}
+
+
+def test_cung_phieu_moi_nguoi_mot_hang_theo_ten():
+    # Ảnh chụp thực tế phiếu #40998: cùng ghi "vít kẹo" nhưng Bảo Xuyên hạng 0,
+    # Thủy Đặng hạng 1 — bằng chứng hạng gắn với NGƯỜI chứ không phải việc.
+    ws = [_w("Bảo Xuyên", 0, "vít kẹo"), _w("Thủy Đặng", 0, "vít kẹo"),
+          _w("Kim Dung", 0, "quậy kẹo"), _w("Hiền", 125_000), _w("Hằng", 123_000)]
+    assert compute_auto_allowances(ws) == {
+        "Bảo Xuyên": 125_000, "Kim Dung": 125_000, "Thủy Đặng": 123_000}
+
+
 def test_thuy_dang_vit_bang_cao_nhi():
     # Thủy Đặng ghi "vít kẹo" (không phải "quậy kẹo") → vẫn phải có phụ cấp, hạng nhì
     ws = [_w("Thủy Đặng", 0, "vít kẹo"), _w("Hiền", 112_000), _w("Hằng", 111_000)]

@@ -21,7 +21,12 @@ RULES: list[tuple[set[str], tuple[str, ...], int]] = [
     # ⚠ TÊN PHẢI LÀ TÊN ĐẦY ĐỦ đã bỏ dấu, đúng như trong production_workers ("bao xuyen",
     # KHÔNG tách "bao"/"xuyen" — tách ra thì "Bảo Xuyên" không khớp rule nào, mà "Bảo" lại
     # là thợ KHÁC).
-    ({"kim dung", "bao xuyen"}, ("quay keo",), 0),   # quậy kẹo → cao nhất
+    # ⚠ HẠNG ĐI THEO NGƯỜI, KHÔNG theo việc: cùng ghi "vít" mà Kim là hạng 0 còn Thủy
+    # Đặng/Duy là hạng 1. Nên khi 1 thợ đổi việc (Bảo Xuyên từ 21/7 chuyển "quậy kẹo"
+    # → "vít kẹo") thì hạng của cô ấy GIỮ NGUYÊN — chỉ cần thêm từ khoá vào rule sẵn
+    # có, đừng tạo rule mới với hạng khác. (Duy chốt 2026-08-04.)
+    ({"kim dung"}, ("quay keo",), 0),                # Kim Dung quậy kẹo → cao nhất
+    ({"bao xuyen"}, ("quay keo", "vit"), 0),         # Bảo Xuyên quậy kẹo/vít → cao nhất
     ({"thuy dang"}, ("quay keo", "vit"), 1),         # Thủy Đặng quậy kẹo/vít → cao nhì
 ]
 _NGHI = "nghi"   # ghi chú "nghỉ" → không phụ cấp (ưu tiên trên mọi rule)
