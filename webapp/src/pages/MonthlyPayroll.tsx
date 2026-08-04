@@ -41,7 +41,6 @@ const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ","
 // Gương của salary_store/bonus.THUONG_VE_SINH_MOI_NGAY — CHỈ dùng cho chú thích
 // ("12.000đ × N công"); số tiền thật luôn do server tính, client không tự cộng.
 const VS_MOI_NGAY = 12000;
-const initials = (name: string) => name.trim().split(/\s+/).slice(-2).map((part) => part[0] || "").join("").toUpperCase();
 
 /** Màn hẹp (cùng mốc 720px với media query bảng lương trong styles.css) — dùng để
  *  thu cột Thợ ghim trái, thứ CSS không đè được vì width nằm inline trên <col>. */
@@ -303,13 +302,20 @@ function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleWeekly, 
                   {/* Dưới tên = TỔNG TIỀN NHẬN ĐƯỢC của tháng (lương + phụ cấp + thưởng),
                       CHƯA trừ ứng — cố ý KHÁC cột Lãnh (thực lãnh = đã trừ ứng). Cột Thợ
                       ghim trái nên thấy ngay số này khỏi phải cuộn ngang. */}
+                  {/* Bỏ ảnh đại diện để nhường chỗ cho SỐ: dòng 2 = tổng nhận (chưa
+                      trừ ứng), dòng 3 = TRUNG BÌNH 1 NGÀY CÔNG của tháng đó. */}
                   <span class="pr-worker">
-                    <span class="pr-avatar">{initials(r.name)}</span>
                     <span class="pr-worker-main">
                       <span class="pr-worker-nm">{r.name}</span>
                       <span class="pr-worker-net"
                         title={`Tổng tiền lương ${ymLabel(data.ym).toLowerCase()} = lương + phụ cấp (chưa trừ ứng)`}>
                         {money(r.luong + r.phu_cap + r.thuong)}
+                      </span>
+                      <span class={r.cong > 0 ? "pr-worker-avg" : "pr-worker-avg is-zero"}
+                        title={r.cong > 0
+                          ? `Trung bình 1 ngày công = ${money(r.luong + r.phu_cap + r.thuong)} ÷ ${congVN(r.cong)} công`
+                          : "Tháng này chưa có ngày công nào nên chưa tính được trung bình"}>
+                        {r.cong > 0 ? `${money((r.luong + r.phu_cap + r.thuong) / r.cong)}/ngày` : "—/ngày"}
                       </span>
                     </span>
                   </span>
@@ -406,6 +412,13 @@ function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleWeekly, 
                   <span class="pr-worker-net" title="Tổng tiền lương cả xưởng (lương + phụ cấp, chưa trừ ứng)">
                     {money(t.luong + t.phu_cap + t.thuong)}
                   </span>
+                  {(() => {
+                    const c = data.workers.reduce((a, r) => a + (r.cong || 0), 0);
+                    return <span class={c > 0 ? "pr-worker-avg" : "pr-worker-avg is-zero"}
+                      title="Trung bình 1 ngày công của cả xưởng">
+                      {c > 0 ? `${money((t.luong + t.phu_cap + t.thuong) / c)}/ngày` : "—/ngày"}
+                    </span>;
+                  })()}
                 </span>
               </td><td></td><td></td><td></td>
               <td class="pr-num">{congVN(data.workers.reduce((a, r) => a + (r.cong || 0), 0))}</td>

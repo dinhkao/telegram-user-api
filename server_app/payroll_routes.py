@@ -282,7 +282,11 @@ async def payroll_allowances_handler(request: web.Request):
     def _run():
         conn = get_connection(SHARED_DB_PATH)
         try:
-            return salary_store.list_allowances(conn, ym, worker_id)
+            # hỏi 1 thợ → quy luôn khoản có CÔNG THỨC ra tiền theo lương gốc hiện tại
+            if worker_id is not None:
+                base, cong = _pc_base(conn, ym, worker_id)
+                return salary_store.list_allowances(conn, ym, worker_id, base=base, cong=cong)
+            return salary_store.list_allowances(conn, ym)
         finally:
             conn.close()
 
@@ -290,8 +294,22 @@ async def payroll_allowances_handler(request: web.Request):
     return web.json_response({"ok": True, "allowances": rows})
 
 
+def _pc_base(conn, ym: str, worker_id: int) -> tuple[float, float]:
+    """(lương gốc, ngày công) của 1 thợ trong tháng — để quy khoản phụ cấp có CÔNG
+    THỨC ra tiền. Gốc: thợ SP → lương sản phẩm · thợ TG → lương theo ngày công."""
+    data = salary_store.compute_month_payroll(conn, ym)
+    row = next((r for r in data["workers"] if r["worker_id"] == worker_id), None)
+    if not row:
+        return 0.0, 0.0
+    base = row["luong_sp"] if row["wage_type"] == "product" else row["luong_cong"]
+    return float(base or 0), float(row.get("cong") or 0)
+
+
 async def payroll_allowance_add_handler(request: web.Request):
-    """POST /api/payroll/allowance {worker_id, ym, amount, note?} — thêm 1 khoản phụ cấp."""
+    """POST /api/payroll/allowance {worker_id, ym, amount, note?, calc_kind?, calc_value?}
+    — thêm 1 khoản phụ cấp. calc_kind='pct'/'day' + calc_value = CÔNG THỨC (% lương gốc
+    / đơn giá 1 ngày công): số tiền được TÍNH LẠI theo lương gốc mỗi lần xem, nên
+    amount khi đó chỉ là số chụp lúc nhập và ĐƯỢC PHÉP bằng 0."""
     d = _deny(request)
     if d:
         return d
@@ -303,7 +321,8 @@ async def payroll_allowance_add_handler(request: web.Request):
         worker_id = int(body.get("worker_id"))
     except (ValueError, TypeError):
         return web.json_response({"ok": False, "error": "worker_id / số tiền không hợp lệ"}, status=400)
-    amount = _money(body.get("amount"))
+    kind = str(body.get("calc_kind") or "").strip() or None
+    amount = _money(body.get("amount"), positive=not kind)   # có công thức → cho phép 0
     if amount is None:
         return web.json_response({"ok": False, "error": "worker_id / số tiền không hợp lệ"}, status=400)
     by = request.get("web_user") or ""
@@ -311,7 +330,8 @@ async def payroll_allowance_add_handler(request: web.Request):
     def _run():
         conn = get_connection(SHARED_DB_PATH)
         try:
-            salary_store.add_allowance(conn, worker_id, ym, amount, note=str(body.get("note") or ""), by=by)
+            salary_store.add_allowance(conn, worker_id, ym, amount, note=str(body.get("note") or ""),
+                                       by=by, calc_kind=kind, calc_value=body.get("calc_value"))
             return salary_store.compute_month_payroll(conn, ym)
         finally:
             conn.close()

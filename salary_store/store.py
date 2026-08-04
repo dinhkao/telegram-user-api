@@ -74,6 +74,12 @@ def ensure_schema(conn) -> None:
         # TRỪ BHXH hằng tháng, cũng đặt RIÊNG từng tháng + kế thừa (NULL = tháng đó
         # không đặt riêng, KHÁC 0 = đặt riêng bằng 0) — luật ở salary_store/bhxh.py
         conn.execute("ALTER TABLE salary_month ADD COLUMN bhxh REAL")
+    # PHỤ CẤP theo CÔNG THỨC: calc_kind ('pct'/'day'/NULL) + calc_value (% hoặc đơn
+    # giá/ngày). NULL = khoản tiền cố định như cũ — xem salary_store/allowance_calc.py
+    acols = {r[1] for r in conn.execute("PRAGMA table_info(salary_allowances)").fetchall()}
+    if "calc_kind" not in acols:
+        conn.execute("ALTER TABLE salary_allowances ADD COLUMN calc_kind TEXT")
+        conn.execute("ALTER TABLE salary_allowances ADD COLUMN calc_value REAL")
     # vô hiệu hoá thay cho xoá (giữ dòng đối chiếu): ai + lúc nào + lý do
     for table in ("salary_advances", "salary_allowances"):
         tcols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
@@ -97,7 +103,7 @@ def month_range(ym: str) -> tuple[str, str]:
 
 def get_month_adjust(conn, ym: str) -> dict:
     """{worker_id: {'thuong', 'note', 'weekly', 'thuong_cc', 'thuong_vs'}} của 1 tháng.
-    (Phụ cấp giờ là NHIỀU KHOẢN ở salary_allowances — xem allowance_totals; thuong_cc/
+    (Phụ cấp giờ là NHIỀU KHOẢN ở salary_allowances — xem allowance_rows_by_worker; thuong_cc/
     thuong_vs là 2 CỜ bật/tắt thưởng, số tiền tính ở salary_store/bonus.py.)"""
     ensure_schema(conn)
     rows = conn.execute(
@@ -228,44 +234,70 @@ def void_advance(conn, advance_id: int, reason: str, by: str = "") -> bool:
 
 # ── Phụ cấp (NHIỀU KHOẢN / tháng, giống ứng lương) ──────────────────────────────
 
-def list_allowances(conn, ym: str, worker_id: int | None = None) -> list[dict]:
+def list_allowances(conn, ym: str, worker_id: int | None = None, *,
+                    base: float | None = None, cong: float | None = None) -> list[dict]:
+    """Các khoản phụ cấp của tháng. Truyền base/cong (lương gốc + ngày công của thợ)
+    thì khoản có CÔNG THỨC được TÍNH LẠI theo số hiện tại — không truyền thì trả số
+    chụp lúc nhập (chỉ dùng để hiển thị tạm)."""
+    from salary_store.allowance_calc import allowance_amount, calc_label
     ensure_schema(conn)
     q = ("SELECT id, worker_id, ym, amount, note, created_by, created_at, "
-         "voided_at, voided_by, void_reason FROM salary_allowances WHERE ym = ?")
+         "voided_at, voided_by, void_reason, calc_kind, calc_value FROM salary_allowances WHERE ym = ?")
     args: list = [ym]
     if worker_id is not None:
         q += " AND worker_id = ?"
         args.append(worker_id)
     q += " ORDER BY id ASC"
-    return [{"id": r["id"], "worker_id": r["worker_id"], "ym": r["ym"], "amount": float(r["amount"] or 0),
-             "note": r["note"] or "", "created_by": r["created_by"] or "", "created_at": r["created_at"] or "",
-             "voided_at": r["voided_at"] or "", "voided_by": r["voided_by"] or "",
-             "void_reason": r["void_reason"] or ""}
-            for r in conn.execute(q, args).fetchall()]
+    out = []
+    for r in conn.execute(q, args).fetchall():
+        kind, val = r["calc_kind"], r["calc_value"]
+        amt = (allowance_amount(kind, val, r["amount"], base=base or 0, cong=cong or 0)
+               if (kind and base is not None) else float(r["amount"] or 0))
+        out.append({"id": r["id"], "worker_id": r["worker_id"], "ym": r["ym"], "amount": amt,
+                    "note": r["note"] or "", "created_by": r["created_by"] or "",
+                    "created_at": r["created_at"] or "", "voided_at": r["voided_at"] or "",
+                    "voided_by": r["voided_by"] or "", "void_reason": r["void_reason"] or "",
+                    "calc_kind": kind or "", "calc_value": float(val) if val is not None else 0,
+                    "calc_label": calc_label(kind, val)})
+    return out
 
 
-def allowance_totals(conn, ym: str) -> dict:
-    """{worker_id: (tổng phụ cấp, số khoản)} của 1 tháng."""
+def allowance_rows_by_worker(conn, ym: str) -> dict:
+    """{worker_id: [(calc_kind, calc_value, amount)]} — các khoản CÒN HIỆU LỰC của
+    tháng, chưa quy ra tiền. Phải để chỗ gọi tự quy vì khoản theo CÔNG THỨC cần lương
+    gốc + ngày công của CHÍNH thợ đó (xem salary_store/allowance_calc.py)."""
     ensure_schema(conn)
-    rows = conn.execute(
-        "SELECT worker_id, COALESCE(SUM(amount),0) AS s, COUNT(*) AS c FROM salary_allowances "
-        "WHERE ym = ? AND voided_at IS NULL GROUP BY worker_id", (ym,)
-    ).fetchall()
-    return {r["worker_id"]: (float(r["s"] or 0), int(r["c"])) for r in rows}
+    out: dict = {}
+    for r in conn.execute(
+        "SELECT worker_id, calc_kind, calc_value, amount FROM salary_allowances "
+        "WHERE ym = ? AND voided_at IS NULL", (ym,)
+    ).fetchall():
+        out.setdefault(r["worker_id"], []).append((r["calc_kind"], r["calc_value"], r["amount"]))
+    return out
 
 
-def add_allowance(conn, worker_id: int, ym: str, amount: float, note: str = "", by: str = "") -> dict:
+def add_allowance(conn, worker_id: int, ym: str, amount: float, note: str = "", by: str = "",
+                  calc_kind: str | None = None, calc_value=None) -> dict:
+    """Thêm 1 khoản phụ cấp. calc_kind='pct'/'day' + calc_value = CÔNG THỨC (%, hoặc
+    đơn giá 1 ngày công) → số tiền sẽ được tính lại theo lương gốc mỗi lần xem;
+    `amount` khi đó chỉ là số chụp lúc nhập. Không có công thức = tiền cố định."""
+    from salary_store.allowance_calc import normalize
     ensure_schema(conn)
+    kind, val = normalize(calc_kind, calc_value)
     amt = float(amount or 0)
-    if amt <= 0:
+    # khoản theo công thức: gốc tháng này có thể đang = 0 (chưa có báo cáo/chấm công)
+    # → cho phép amount 0, số thật tính sau; khoản cố định thì vẫn bắt buộc > 0
+    if amt <= 0 and not kind:
         raise ValueError("Số tiền phụ cấp phải > 0")
     with transaction(conn):
         cur = conn.execute(
-            "INSERT INTO salary_allowances (worker_id, ym, amount, note, created_by) VALUES (?, ?, ?, ?, ?)",
-            (worker_id, ym, amt, (note or "").strip(), by or ""),
+            "INSERT INTO salary_allowances (worker_id, ym, amount, note, created_by, calc_kind, calc_value) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (worker_id, ym, max(0.0, amt), (note or "").strip(), by or "", kind, val),
         )
         aid = cur.lastrowid
-    return {"id": aid, "worker_id": worker_id, "ym": ym, "amount": amt, "note": (note or "").strip()}
+    return {"id": aid, "worker_id": worker_id, "ym": ym, "amount": amt,
+            "note": (note or "").strip(), "calc_kind": kind or "", "calc_value": val or 0}
 
 
 def update_allowance_note(conn, allowance_id: int, note: str) -> bool:
@@ -309,6 +341,7 @@ def compute_month_payroll(conn, ym: str) -> dict:
     from worker_store import list_workers
     from production_store.report_slips import compute_range_report
     from salary_store.bhxh import month_bhxh_map
+    from salary_store.allowance_calc import allowance_amount
     from salary_store.bonus import bonus_amounts
     from salary_store.moc import month_moc_map
 
@@ -331,7 +364,7 @@ def compute_month_payroll(conn, ym: str) -> dict:
     moc = month_moc_map(conn, ym)        # mốc lương HIỆU LỰC của tháng này (theo từng tháng)
     bh = month_bhxh_map(conn, ym)        # TRỪ BHXH hiệu lực của tháng này (cùng luật kế thừa)
     adv = advance_totals(conn, ym)
-    allow = allowance_totals(conn, ym)   # phụ cấp NHIỀU KHOẢN
+    allow_rows = allowance_rows_by_worker(conn, ym)   # phụ cấp NHIỀU KHOẢN (chưa quy tiền)
 
     out = []
     tot = {"luong": 0.0, "phu_cap": 0.0, "thuong": 0.0, "thuong_cc": 0.0, "thuong_vs": 0.0,
@@ -362,7 +395,13 @@ def compute_month_payroll(conn, ym: str) -> dict:
             luong = luong_cong + luong_tc
         a = adjust.get(wid, {})
         thuong, note = a.get("thuong", 0.0), a.get("note", "")
-        phu_cap, pc_count = allow.get(wid, (0.0, 0))   # tổng + số khoản phụ cấp
+        # PHỤ CẤP: khoản theo CÔNG THỨC quy ra tiền theo lương gốc của CHÍNH thợ này
+        # (thợ SP → lương sản phẩm · thợ TG → lương ngày công, không gồm tăng ca) và
+        # số ngày công của tháng → sửa báo cáo/chấm công là phụ cấp tự chạy theo.
+        pc_base = luong if wt == "product" else luong_cong
+        rows_pc = allow_rows.get(wid, [])
+        phu_cap = sum(allowance_amount(k, v, amt, base=pc_base, cong=cong) for k, v, amt in rows_pc)
+        pc_count = len(rows_pc)
         weekly = bool(a.get("weekly"))   # nhận lương tuần THEO THÁNG (riêng bảng lương)
         ung_manual, adv_count = adv.get(wid, (0.0, 0))
         # NHẬN LƯƠNG TUẦN → ứng tự động = đúng lương sản phẩm (đã trả theo tuần trong tháng)
