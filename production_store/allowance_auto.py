@@ -19,9 +19,13 @@ from vn import vn_normalize
 #   • CHỮ = TÊN 1 THỢ CỤ THỂ (đã bỏ dấu) → bằng tiền SP của ĐÍCH DANH người đó trong
 #     cùng phiếu, dù người đó đứng hạng mấy. Thợ đó không có mặt trong phiếu → KHÔNG
 #     ghi gì (giữ nguyên số cũ, kể cả số văn phòng nhập tay).
+# 3 cách thợ ghi việc DỪA, TẤT CẢ là 1 việc (Duy chốt 2026-08-05: "Gắn dừa or rắc cơm
+# dừa should do the same"). ⚠ "rac com dua" KHÔNG chứa chuỗi "rac dua" → phải đủ cả hai.
+_DUA = ("rac com dua", "rac dua", "gan dua")
+
 RULES: list[tuple[set[str], tuple[str, ...], int | str]] = [
     ({"kim"}, ("vit",), 0),                          # Kim + "vít…" → cao nhất
-    ({"duy"}, ("vit", "rac me"), 1),                 # Duy + "vít"/"rắc mè" → cao nhì
+    ({"duy"}, ("vit", "rac me", *_DUA), 1),          # Duy + vít/rắc mè/việc dừa → cao nhì
     # ⚠ TÊN PHẢI LÀ TÊN ĐẦY ĐỦ đã bỏ dấu, đúng như trong production_workers ("bao xuyen",
     # KHÔNG tách "bao"/"xuyen" — tách ra thì "Bảo Xuyên" không khớp rule nào, mà "Bảo" lại
     # là thợ KHÁC).
@@ -29,16 +33,16 @@ RULES: list[tuple[set[str], tuple[str, ...], int | str]] = [
     # Đặng/Duy là hạng 1. Nên khi 1 thợ đổi việc (Bảo Xuyên từ 21/7 chuyển "quậy kẹo"
     # → "vít kẹo") thì hạng của cô ấy GIỮ NGUYÊN — chỉ cần thêm từ khoá vào rule sẵn
     # có, đừng tạo rule mới với hạng khác. (Duy chốt 2026-08-04.)
-    ({"kim dung"}, ("quay keo",), 0),                # Kim Dung quậy kẹo → cao nhất
+    # Kim Dung quậy kẹo / chiên đậu → cao nhất. Từ khoá "chien" bắt CẢ "Chiên đậu" LẪN
+    # "Chiên" (khớp theo ranh giới từ). Duy chốt 2026-08-05.
+    ({"kim dung"}, ("quay keo", "chien"), 0),
     ({"bao xuyen"}, ("quay keo", "vit"), 0),         # Bảo Xuyên quậy kẹo/vít → cao nhất
     ({"thuy dang"}, ("quay keo", "vit"), 1),         # Thủy Đặng quậy kẹo/vít → cao nhì
     # Tâm vô kẹo / việc DỪA → BẰNG TIỀN SP CỦA TRỌNG (mốc theo TÊN, không theo hạng:
     # dữ liệu thật cho thấy Trọng lúc hạng 3, lúc hạng 4 — Duy chốt 2026-08-05, khớp 2
     # khoản văn phòng đã trả tay: phiếu 40963 = 79.000, phiếu 40527 = 29.260).
-    # Việc dừa Tâm ghi 3 kiểu, TẤT CẢ cùng 1 việc (Duy chốt: "Gắn dừa or rắc cơm dừa
-    # should do the same"): "rắc cơm dừa" · "rắc dừa" (viết tắt) · "gắn dừa". Lưu ý
-    # "rac com dua" KHÔNG chứa chuỗi "rac dua" nên phải liệt kê cả hai.
-    ({"tam"}, ("vo keo", "rac com dua", "rac dua", "gan dua"), "trong"),
+    ({"tam"}, ("vo keo", *_DUA), "trong"),
+    ({"vi"}, _DUA, "trong"),                         # Vĩ việc dừa → cũng bằng Trọng
 ]
 _NGHI = "nghi"   # ghi chú "nghỉ" → không phụ cấp (ưu tiên trên mọi rule)
 # Thợ KHÔNG dùng làm MỐC xếp hạng phụ cấp (sản lượng cao bất thường — không nên là

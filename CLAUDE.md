@@ -372,9 +372,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   **PHỤ CẤP TỰ ĐỘNG theo ghi chú báo cáo (`production_store/allowance_auto.py`)**: bảng
   `RULES` = (tên thợ đã bỏ dấu, từ khoá ghi chú, **mốc**) → phụ cấp = tiền SP của mốc đó
   trong CÙNG phiếu. Mốc 2 kiểu: **SỐ = HẠNG** (0 = cao nhất bảng, 1 = cao nhì…) hoặc
-  **CHỮ = TÊN 1 THỢ ĐÍCH DANH** (Tâm "vô kẹo"/"rắc cơm dừa" → bằng tiền **Trọng**, vì
-  Trọng lúc hạng 3 lúc hạng 4 nên hạng không tả được; thợ mốc VẮNG MẶT trong phiếu →
-  không ghi gì, giữ nguyên số cũ). ⚠ Tên phải là **TÊN ĐẦY ĐỦ** đúng như `production_workers`
+  **CHỮ = TÊN 1 THỢ ĐÍCH DANH** (Tâm "vô kẹo" + Tâm/Vĩ việc DỪA → bằng tiền **Trọng**,
+  vì Trọng lúc hạng 3 lúc hạng 4 nên hạng không tả được; thợ mốc VẮNG MẶT trong phiếu →
+  không ghi gì, giữ nguyên số cũ). Việc DỪA gom ở hằng `_DUA` = 3 cách ghi cùng 1 việc
+  ("rắc cơm dừa" · "rắc dừa" · "gắn dừa") — ⚠ `"rac com dua"` KHÔNG chứa chuỗi
+  `"rac dua"` nên phải liệt kê cả hai. Cùng việc dừa nhưng mốc theo NGƯỜI: Tâm/Vĩ =
+  Trọng, Duy = cao nhì (Duy chốt 2026-08-05). ⚠ Tên phải là **TÊN ĐẦY ĐỦ** đúng như `production_workers`
   ("bao xuyen", KHÔNG tách "bao"/"xuyen" — tách ra thì thợ trượt hết rule mà "Bảo" lại là
   người khác), và từ khoá phải khớp ĐÚNG chữ thợ hay ghi (Thủy Đặng ghi "vít kẹo" chứ
   không phải "quậy kẹo"; Bảo Xuyên từ 21/7 đổi sang ghi "vít" nên rule của cô ấy có CẢ
