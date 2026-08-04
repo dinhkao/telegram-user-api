@@ -18,6 +18,8 @@ import { useState } from "preact/hooks";
 /** Gốc để tính phụ cấp theo % (lương của THÁNG ĐANG XEM). value = số tiền làm gốc,
  *  label = nói rõ gốc là gì để người nhập không đoán mò. */
 export type PctBase = { label: string; value: number };
+/** Gốc để tính phụ cấp theo ĐƠN GIÁ × NGÀY CÔNG (vd 20.000đ/ngày × 24,5 công). */
+export type DayBase = { days: number };
 /** Số % đã gõ (chuỗi, cho phép "12,5"). Trả về NaN nếu chưa gõ gì. */
 const pctNum = (s: string) => {
   const t = String(s || "").replace(",", ".").replace(/[^\d.]/g, "");
@@ -35,7 +37,7 @@ export function MoneyEntryForm({
   amount, onAmount, note, onNote, date, onDate,
   amountLabel = "Số tiền", notePlaceholder = "Ghi chú", noteLabel = "Ghi chú",
   noteSuggestions, submitLabel = "Thêm", onSubmit, busy, before, compact,
-  pctBase, onPct,
+  pctBase, dayBase, onPct,
 }: {
   amount: string;                       // CHUỖI CHỈ CHỮ SỐ (cha giữ)
   onAmount: (digits: string) => void;
@@ -49,7 +51,9 @@ export function MoneyEntryForm({
   before?: any;                         // slot trên ô tiền (vd: chọn thợ)
   compact?: boolean;                    // bản gọn cho popup/thẻ
   pctBase?: PctBase | null;             // có = hiện thêm kiểu nhập THEO %
-  onPct?: (p: { pct: number; base: number } | null) => void;   // báo cha để ghi vào ghi chú
+  dayBase?: DayBase | null;             // có = hiện thêm kiểu ĐƠN GIÁ × NGÀY CÔNG
+  // báo cha CÁCH TÍNH đã dùng để ghi vào ghi chú khoản (DB chỉ lưu số tiền chốt)
+  onPct?: (p: { kind: "pct" | "day"; n: number; base: number; label: string } | null) => void;
 }) {
   const n = Number(amount || 0);
   const bump = (v: number) => onAmount(String(n + v));
@@ -57,27 +61,60 @@ export function MoneyEntryForm({
   // Kiểu nhập: tiền thẳng hay % của lương tháng. % chỉ là CÁCH TÍNH RA SỐ TIỀN —
   // thứ lưu xuống DB vẫn là số tiền chốt (khoản đã ghi bất biến), nên lương tháng
   // sau có đổi cũng không làm số phụ cấp đã ghi nhảy theo.
-  const [mode, setMode] = useState<"vnd" | "pct">("vnd");
-  const [pct, setPct] = useState("");
+  const [mode, setMode] = useState<"vnd" | "pct" | "day">("vnd");
+  const [pct, setPct] = useState("");     // dùng chung cho ô % và ô đơn giá/ngày
   const base = pctBase?.value || 0;
+  const days = dayBase?.days || 0;
   const setPctAmt = (raw: string) => {
     setPct(raw);
     const v = pctNum(raw);
     if (!isFinite(v) || v <= 0 || base <= 0) { onAmount(""); onPct?.(null); return; }
     onAmount(String(Math.round((base * v) / 100)));
-    onPct?.({ pct: v, base });
+    onPct?.({ kind: "pct", n: v, base, label: pctBase?.label || "lương" });
   };
-  const toVnd = () => { setMode("vnd"); setPct(""); onPct?.(null); };
+  const setDayAmt = (raw: string) => {
+    const digits = digitsOnly(raw);
+    setPct(digits);
+    const v = Number(digits || 0);
+    if (v <= 0 || days <= 0) { onAmount(""); onPct?.(null); return; }
+    onAmount(String(Math.round(v * days)));
+    onPct?.({ kind: "day", n: v, base: days, label: "ngày công" });
+  };
+  const toMode = (m: "vnd" | "pct" | "day") => { setMode(m); setPct(""); onAmount(""); onPct?.(null); };
 
   return (
     <div class={compact ? "me-form compact" : "me-form"}>
       {before}
-      {pctBase ? (
+      {pctBase || dayBase ? (
         <div class="seg me-modeseg" role="group" aria-label="Kiểu nhập">
-          <button class={mode === "vnd" ? "seg-btn active" : "seg-btn"} type="button" onClick={toVnd}>Số tiền</button>
-          <button class={mode === "pct" ? "seg-btn active" : "seg-btn"} type="button"
-            onClick={() => { setMode("pct"); onAmount(""); }}>% lương</button>
+          <button class={mode === "vnd" ? "seg-btn active" : "seg-btn"} type="button" onClick={() => toMode("vnd")}>Số tiền</button>
+          {pctBase ? <button class={mode === "pct" ? "seg-btn active" : "seg-btn"} type="button"
+            onClick={() => toMode("pct")}>% lương</button> : null}
+          {dayBase ? <button class={mode === "day" ? "seg-btn active" : "seg-btn"} type="button"
+            onClick={() => toMode("day")}>× ngày công</button> : null}
         </div>
+      ) : null}
+      {mode === "day" && dayBase ? (
+        <>
+          <label class="me-label" for="me-day">Số tiền cho 1 ngày công</label>
+          <div class="me-amt-wrap">
+            <input id="me-day" class="me-amt" inputMode="numeric" autocomplete="off" placeholder="0"
+              value={pct ? money(Number(pct)) : ""} onInput={(e: any) => setDayAmt(e.target.value)}
+              onKeyDown={(e: any) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }} />
+            <span class="me-cur" aria-hidden="true">đ</span>
+            {pct ? <button class="me-clear" type="button" onClick={() => setDayAmt("")} aria-label="Xoá">✕</button> : null}
+          </div>
+          <div class={n > 0 ? "me-read" : "me-read empty"}>
+            {days <= 0 ? "Tháng này chưa có ngày công nào nên chưa tính được"
+              : n > 0 ? `${money(Number(pct))}đ × ${String(days).replace(".", ",")} công = ${money(n)}đ`
+              : `${String(days).replace(".", ",")} ngày công trong tháng`}
+          </div>
+          <div class="me-quick">
+            {[10_000, 15_000, 20_000, 30_000].map((v) => (
+              <button class="chip me-chip" type="button" key={v} onClick={() => setDayAmt(String(v))}>{v / 1000}k/ngày</button>
+            ))}
+          </div>
+        </>
       ) : null}
       {mode === "pct" && pctBase ? (
         <>
@@ -102,7 +139,7 @@ export function MoneyEntryForm({
             ))}
           </div>
         </>
-      ) : (
+      ) : mode === "day" ? null : (
         <>
           <label class="me-label" for="me-amt">{amountLabel}</label>
           <div class="me-amt-wrap">

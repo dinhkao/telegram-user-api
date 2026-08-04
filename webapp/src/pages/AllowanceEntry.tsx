@@ -16,7 +16,7 @@ import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
 import { MoneyEntryForm } from "../ui/MoneyEntryForm";
-import { PC_GOI_Y } from "../detail/EntryPanel";
+import { PC_GOI_Y, calcNote, type PctInfo } from "../detail/EntryPanel";
 import { pctBaseOf } from "../detail/PayrollCellPopup";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
@@ -42,7 +42,7 @@ export function AllowanceEntry() {
   // Bảng lương tháng — chỉ để lấy GỐC tính phụ cấp theo % của thợ đang chọn
   // (thợ SP → lương sản phẩm, thợ TG → lương ngày công). Xem detail/EntryPanel.
   const [payroll, setPayroll] = useState<PayrollRow[]>([]);
-  const [pct, setPct] = useState<{ pct: number; base: number } | null>(null);
+  const [pct, setPct] = useState<PctInfo>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -65,10 +65,7 @@ export function AllowanceEntry() {
     setBusy(true);
     try {
       // nhập theo % thì ghi luôn cách tính vào nội dung (DB chỉ lưu SỐ TIỀN chốt)
-      const row = payroll.find((p) => p.worker_id === wid);
-      const auto = pct && !note.trim() && row
-        ? `${String(pct.pct).replace(".", ",")}% ${pctBaseOf(row).label} (${money(pct.base)}đ)`
-        : note;
+      const auto = pct && !note.trim() ? calcNote(pct) : note;
       await addPayrollAllowance(ym, wid, num(amt), auto);
       toast(`Đã ghi phụ cấp ${money(num(amt))} cho ${nameOf(wid)}`, "ok");
       setAmt("");
@@ -123,6 +120,8 @@ export function AllowanceEntry() {
           noteSuggestions={PC_GOI_Y} busy={busy} onSubmit={submit}
           pctBase={(() => { const row = wid ? payroll.find((p) => p.worker_id === wid) : null;
             return row ? pctBaseOf(row) : null; })()}
+          dayBase={(() => { const row = wid ? payroll.find((p) => p.worker_id === wid) : null;
+            return row ? { days: row.cong || 0 } : null; })()}
           onPct={setPct}
           before={<SelectPopup value={wid} options={wopts} onChange={(v) => setWid(Number(v))}
             searchable placeholder="Chọn thợ…" title="Chọn thợ" />} />

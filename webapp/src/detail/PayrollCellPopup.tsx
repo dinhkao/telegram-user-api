@@ -6,6 +6,8 @@
 // công thức; P.cấp/Ứng = panel thêm/vô hiệu khoản ngay tại chỗ (detail/EntryPanel);
 // BHXH = số trừ hằng tháng của THÁNG ĐANG XEM (kế thừa theo tháng như mốc — 0 khác
 // "bỏ đặt riêng", xem salary_store/bhxh.py).
+// 4 ô Mốc/P.cấp/Ứng/BHXH đều có khung TRAO ĐỔI gắn theo THỢ (scope worker_moc/pc/
+// ung/bhxh, entity_id = worker_id) → luồng trao đổi XUYÊN THÁNG, office-only.
 // Data: getAttendanceSummary, payroll allowance/advance API. Cha (MonthlyPayroll)
 // giữ state {wid, col} và truyền row TƯƠI mỗi lần data đổi.
 import { useEffect, useState } from "preact/hooks";
@@ -110,7 +112,9 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
     return reason.trim();
   };
   const addAllow = async (a: number, note: string) => {
-    try { apply(await addPayrollAllowance(ym, wid, a, note)); setAllows(await listPayrollAllowances(ym, wid)); }
+    // PHẢI toast: thêm xong mà im lặng thì người dùng tưởng bấm hụt, bấm lại → ghi 2 lần
+    try { apply(await addPayrollAllowance(ym, wid, a, note)); setAllows(await listPayrollAllowances(ym, wid));
+      toast(`Đã ghi phụ cấp ${money(a)}đ cho ${r.name}`, "ok"); }
     catch (e: any) { toast(e?.message || "Lỗi thêm phụ cấp", "err"); }
   };
   const voidAllow = async (id: number) => {
@@ -137,7 +141,8 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
     catch (e: any) { toast(e?.message || "Lỗi lưu ghi chú", "err"); }
   };
   const addAdv = async (a: number, note: string, date: string) => {
-    try { apply(await addPayrollAdvance(ym, wid, a, date, note)); setAdvs(await listPayrollAdvances(ym, wid)); }
+    try { apply(await addPayrollAdvance(ym, wid, a, date, note)); setAdvs(await listPayrollAdvances(ym, wid));
+      toast(`Đã ghi ứng ${money(a)}đ cho ${r.name}`, "ok"); }
     catch (e: any) { toast(e?.message || "Lỗi thêm ứng", "err"); }
   };
   const voidAdv = async (id: number) => {
@@ -305,6 +310,8 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
             <button class="btn block" onClick={() => editBhxh(r)}>
               ✏️ {r.bhxh ? `Sửa mức BHXH ${ymLabel(ym).toLowerCase()}` : `Đặt mức BHXH ${ymLabel(ym).toLowerCase()}`}
             </button>
+            <Comments base={`/api/media/worker_bhxh/${wid}`} allowPin={false} />
+            <p class="muted small">Trao đổi về BHXH của {r.name} — dùng chung cho mọi tháng.</p>
           </>
         )}
 
@@ -313,9 +320,11 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
             <EntryPanel entries={allows} addPlaceholder="Số tiền phụ cấp"
               submitLabel="Thêm phụ cấp" noteLabel="Nội dung phụ cấp"
               notePlaceholder="VD: ăn trưa, xăng xe…" noteSuggestions={PC_GOI_Y}
-              pctBase={pctBaseOf(r)}
+              pctBase={pctBaseOf(r)} dayBase={{ days: r.cong || 0 }}
               onAdd={(a, note) => addAllow(a, note)} onDel={voidAllow} onNote={noteAllow} />
             <a class="btn block" href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>📋 Trang nhập phụ cấp</a>
+            <Comments base={`/api/media/worker_pc/${wid}`} allowPin={false} />
+            <p class="muted small">Trao đổi về phụ cấp của {r.name} — dùng chung cho mọi tháng.</p>
           </>
         )}
 
@@ -331,6 +340,8 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
                 </div>
               ) : null} />
             <a class="btn block" href={`#/nhap-ung?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>📋 Trang nhập ứng</a>
+            <Comments base={`/api/media/worker_ung/${wid}`} allowPin={false} />
+            <p class="muted small">Trao đổi về ứng lương của {r.name} — dùng chung cho mọi tháng.</p>
           </>
         )}
 
