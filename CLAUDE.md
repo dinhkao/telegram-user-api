@@ -352,7 +352,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   **bấm ô TÊN → POPUP hồ sơ lương (`detail/PayrollWorkerPopup.tsx`, ở NGAY trang bảng
   — không rời trang rồi phải back + tải lại; nút ↗ trong popup mở thành TRANG
   `#/luong-thang/:worker_id?ym=`
-  = `pages/PayrollWorker.tsx` + `detail/PayrollWorkerSheet.tsx` = HỒ SƠ LƯƠNG THÁNG**:
+  = `pages/PayrollWorker.tsx` + `detail/PayrollWorkerSheet.tsx` = HỒ SƠ LƯƠNG THÁNG** (2 khối dài nhất — **Lương** và **Chấm công** — MẶC ĐỊNH GẬP,
+  tiêu đề chỉ hiện TỔNG, bấm mới bung; hàng vừa thao tác ở bảng/thẻ/pivot được TÔ SÁNG
+  giữ nguyên sau khi đóng popup để khỏi lạc chỗ):
   thực lãnh + thanh tỉ lệ cộng/trừ, nguồn lương [SP: view **CHI TIẾT = từng PHIẾU SX của
   từng NGÀY kèm tiền mỗi phiếu** HOẶC **theo NGÀY**, từ `getWorkerReport` — view "theo mã
   SP" cũ BỎ 2026-08-04 · TG mốc→công→tăng ca], **CHẤM CÔNG luôn hiện cho MỌI thợ** (khối

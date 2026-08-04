@@ -49,6 +49,8 @@ export function WagePivot() {
   const [ym, setYm] = useState(() => _saved?.ym || curYM());
   const [view, setView] = useState<"day" | "slip">(() => _saved?.view || "day");
   const [cell, setCell] = useState<PivotCell | null>(null);
+  // hàng vừa bấm (ngày, hoặc phiếu trong ngày) — giữ sáng sau khi đóng popup
+  const [activeRow, setActiveRow] = useState<string>("");
   const [data, setData] = useState<Pivot | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -165,7 +167,7 @@ export function WagePivot() {
                 <tbody>
                   {data.days.map((d) => (
                     <>
-                      <tr key={d.ymd} class={view === "slip" ? "wp-dayrow grouped" : "wp-dayrow"}>
+                      <tr key={d.ymd} class={`${view === "slip" ? "wp-dayrow grouped" : "wp-dayrow"}${activeRow === d.ymd ? " is-active" : ""}`}>
                         <th class="wp-day" title={d.ymd}>
                           <b>{dayNum(d.ymd)}</b> <span class="muted">{dowOf(d.ymd)}</span>
                         </th>
@@ -175,16 +177,17 @@ export function WagePivot() {
                           // để thang màu dành riêng cho các ô phiếu bên dưới cho dễ so
                           return (
                             <td key={w.id} class="wp-cell" style={view === "slip" ? "" : heat(v, data.max_cell)}
-                              onClick={() => v && setCell({ kind: "day", day: d, wid: w.id })}
+                              onClick={() => { setActiveRow(d.ymd); if (v) setCell({ kind: "day", day: d, wid: w.id }); }}
                               title={v ? `${w.name} · ${d.ymd} — ${money(v)}đ · bấm xem chi tiết` : ""}>{k(v)}</td>
                           );
                         })}
-                        <td class="wp-tot wp-cell" onClick={() => d.total && setCell({ kind: "dayTotal", day: d })}
+                        <td class="wp-tot wp-cell" onClick={() => { setActiveRow(d.ymd); if (d.total) setCell({ kind: "dayTotal", day: d }); }}
                           title={d.total ? "Bấm xem ngày này chia cho thợ nào" : ""}>{k(d.total)}</td>
                       </tr>
                       {/* view CHI TIẾT: mỗi phiếu SX trong ngày là 1 hàng con */}
                       {view === "slip" && d.slips.map((s) => (
-                        <tr key={`${d.ymd}-${s.thread_id}`} class="wp-sliprow">
+                        <tr key={`${d.ymd}-${s.thread_id}`}
+                          class={activeRow === `${d.ymd}#${s.thread_id}` ? "wp-sliprow is-active" : "wp-sliprow"}>
                           <th class="wp-slip" title={`Phiếu #${s.thread_id}`}>
                             <a href={`#/san_xuat/${s.thread_id}`}>{s.code || "—"}</a>
                             {s.start ? <span class="muted"> {s.start}</span> : null}
@@ -193,7 +196,7 @@ export function WagePivot() {
                             const v = s.cells[String(w.id)] || 0;
                             return (
                               <td key={w.id} class="wp-cell" style={heat(v, maxSlip)}
-                                onClick={() => v && setCell({ kind: "slip", day: d, slip: s, wid: w.id })}
+                                onClick={() => { setActiveRow(`${d.ymd}#${s.thread_id}`); if (v) setCell({ kind: "slip", day: d, slip: s, wid: w.id }); }}
                                 title={v ? `${w.name} · ${s.code} — ${money(v)}đ · bấm xem cách tính` : ""}>{k(v)}</td>
                             );
                           })}

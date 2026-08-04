@@ -4112,3 +4112,15 @@ body.has-nop .wp-thead-bar { top: 72px; }
 .pr-pop-day.off { opacity: .45; }
 .pr-pop-day.sunday { background: var(--warn-wash, #fff6e0); border-radius: var(--r-sm); }
 .pr-pop-day.sunday > span:first-child { font-weight: 700; color: #7a5a00; }
+/* Khối gập trong hồ sơ lương thợ (Lương / Chấm công) — mũi tên + dòng "xem thêm" */
+.pws-fold { color: var(--muted); font-size: .9rem; width: 15px; text-align: center; }
+.pws-more { justify-content: space-between; color: var(--primary); }
+.pws-more b { color: var(--primary); }
+/* HÀNG VỪA THAO TÁC — giữ sáng cả sau khi đóng popup để khỏi lạc chỗ trong bảng dài.
+   Phải đủ đặc hiệu để thắng .pr-table tbody tr:hover td và nền ô ghim trái. */
+.pr-table tbody tr.is-active > td,
+.pr-table tbody tr.is-active > td.pr-sticky { background: var(--accent-wash); }
+.pr-table tbody tr.is-active > td:first-child { box-shadow: inset 3px 0 0 var(--primary), 3px 0 5px -3px rgba(0,0,0,.25); }
+.pr-card.is-active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.wp-table tr.is-active > td, .wp-table tr.is-active > th { background: var(--accent-wash); }
+.wp-table tr.is-active > th:first-child { box-shadow: inset 3px 0 0 var(--primary); }
