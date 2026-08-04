@@ -1,12 +1,13 @@
 """Unit tests thuần cho web_auth: PIN hash (user_store.pin), token HMAC
-(web_auth.token), luật miễn chặn (web_auth.middleware.is_exempt/extract_token).
+(web_auth.token), luật miễn chặn (web_auth.middleware.is_exempt/extract_token)
++ luật 401-khi-token-hỏng (stale_token_401).
 Không DB, không aiohttp server.
 """
 from __future__ import annotations
 
 import unittest
 
-from server_app.web_auth.middleware import extract_token, is_exempt
+from server_app.web_auth.middleware import extract_token, is_exempt, stale_token_401
 from server_app.web_auth.token import issue_token, verify_token
 from user_store.pin import hash_pin, verify_pin
 
@@ -127,3 +128,33 @@ class DigitUsernameRejected(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StaleToken401(unittest.TestCase):
+    """Token client gửi lên mà hỏng/hết hạn → 401 (kể cả khi chưa bật chặn)."""
+
+    def test_api_thuong_bi_401(self):
+        self.assertTrue(stale_token_401("POST", "/api/order/task"))
+        self.assertTrue(stale_token_401("GET", "/api/orders"))
+
+    def test_auth_me_cung_401_de_client_ve_login(self):
+        self.assertTrue(stale_token_401("GET", "/api/auth/me"))
+
+    def test_dang_nhap_lai_khong_bi_chan(self):
+        self.assertFalse(stale_token_401("POST", "/api/auth/login"))
+
+    def test_bearer_cua_he_khac_khong_bi_401(self):
+        # máy chấm công + tg_api dùng bearer/API-key RIÊNG, không phải token web
+        self.assertFalse(stale_token_401("POST", "/api/attendance/events"))
+        self.assertFalse(stale_token_401("POST", "/api/tg/edit-message"))
+
+    def test_ngoai_api_va_options_bo_qua(self):
+        self.assertFalse(stale_token_401("GET", "/app/"))
+        self.assertFalse(stale_token_401("GET", "/ws"))
+        self.assertFalse(stale_token_401("OPTIONS", "/api/orders"))
+
+    def test_khong_dung_luat_loopback(self):
+        # is_exempt miễn mọi thứ từ 127.0.0.1 (sau Tailscale serve là TẤT CẢ) —
+        # stale_token_401 KHÔNG được thừa hưởng chỗ đó, nếu không 401 chẳng bao giờ bắn.
+        self.assertTrue(is_exempt("POST", "/api/order/task", "127.0.0.1"))
+        self.assertTrue(stale_token_401("POST", "/api/order/task"))

@@ -2,7 +2,7 @@
 // + thanh nav dưới + banner offline/hàng đợi. Connects to: pages/*, api.ts.
 import { render } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { currentUser, getJSON, isOffice, replayQueue, netOk, onNetStatus, refreshMe, soVN } from "./api";
+import { currentUser, getJSON, isOffice, replayQueue, netOk, onNetStatus, refreshMe, soVN, tokenExpired } from "./api";
 import { clearQueue, getQueue } from "./offline";
 import { getStatus, onStatus, onRealtime, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
@@ -385,10 +385,14 @@ function RealtimeDot() {
 function App() {
   const hash = useHash();
   const user = currentUser();
+  // Token 30 ngày hết hạn = coi như CHƯA đăng nhập. Không kiểm thì app vẫn chạy
+  // bình thường mà server không nhận ra ai → thao tác ghi mất tên người làm
+  // (giao hàng rơi vào "Két chưa rõ", việc không ai nhận).
+  const expired = !!user && tokenExpired();
   // Webapp luôn cùng origin với server (APK nạp URL từ xa qua Tailscale) nên không
   // còn màn hình cài server_url — chỉ cần đăng nhập.
-  const showLogin = hash === "#/login" || !user;
-  const authed = !!user;
+  const showLogin = hash === "#/login" || !user || expired;
+  const authed = !!user && !expired;
 
   // Đồng bộ role từ server lúc mở app — role cache lúc login có thể CŨ (admin đổi
   // role sau đó, vd cấp quyền văn phòng). Role đổi → ép render lại để nút theo quyền hiện đúng.

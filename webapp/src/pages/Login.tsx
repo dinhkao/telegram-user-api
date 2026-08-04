@@ -2,7 +2,7 @@
 // nên không cần nhập server URL nữa — gọi API bằng đường dẫn tương đối.
 // Đã đăng nhập → trang CÀI ĐẶT (thông tin + đăng xuất; admin thêm toggle hệ thống).
 import { useEffect, useState } from "preact/hooks";
-import { currentUser, login, setAuth, getAppSettings, setAppSetting, type AppSettings } from "../api";
+import { currentUser, login, setAuth, getAppSettings, setAppSetting, tokenExpired, type AppSettings } from "../api";
 import { AppUpdate } from "../detail/AppUpdate";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
@@ -52,11 +52,16 @@ function AdminSettings() {
 }
 
 export function Login() {
-  const [username, setUsername] = useState("");
+  const saved = currentUser();
+  // Token hết hạn (30 ngày) → PHẢI hiện form đăng nhập lại, không được hiện
+  // "Đang đăng nhập: X" như bình thường: bấm "Quay lại" sẽ bị đá về đây ngay, mà
+  // ở lại thì server không nhận ra ai → thao tác mất tên người làm.
+  const expired = !!saved && tokenExpired();
+  const [username, setUsername] = useState(expired ? saved!.username : "");
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const user = currentUser();
+  const user = expired ? null : saved;
 
   const submit = async (e: Event) => {
     e.preventDefault();
@@ -91,6 +96,10 @@ export function Login() {
         </>
       ) : (
         <form onSubmit={submit} class="card">
+          {expired && (
+            <p class="error">Phiên đăng nhập của <b>{saved!.display_name}</b> đã hết hạn.
+              Đăng nhập lại để mọi thao tác vẫn ghi đúng tên bạn.</p>
+          )}
           <label>Tên đăng nhập</label>
           <input type="text" autocapitalize="none" value={username} onInput={(e: any) => setUsername(e.target.value)} />
           <label>PIN</label>
