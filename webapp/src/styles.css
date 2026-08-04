@@ -4107,3 +4107,8 @@ body.has-nop .wp-thead-bar { top: 72px; }
 .pr-table tfoot .pr-worker-avg { font-size: .86em; }
 /* nhãn công thức của khoản phụ cấp ("10% lương gốc") — đứng trên ghi chú */
 .ua-calc { font-size: .74rem; font-weight: 700; color: var(--primary); }
+/* popup Công/TC: hiện ĐỦ mọi ngày — ngày không chấm mờ đi, CHỦ NHẬT tô nền cảnh báo
+   (đi làm CN tính tăng ca toàn bộ) */
+.pr-pop-day.off { opacity: .45; }
+.pr-pop-day.sunday { background: var(--warn-wash, #fff6e0); border-radius: var(--r-sm); }
+.pr-pop-day.sunday > span:first-child { font-weight: 700; color: #7a5a00; }

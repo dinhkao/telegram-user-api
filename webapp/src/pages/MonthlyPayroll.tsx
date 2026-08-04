@@ -41,6 +41,9 @@ const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ","
 // Gương của salary_store/bonus.THUONG_VE_SINH_MOI_NGAY — CHỈ dùng cho chú thích
 // ("12.000đ × N công"); số tiền thật luôn do server tính, client không tự cộng.
 const VS_MOI_NGAY = 12000;
+/** TỔNG TIỀN NHẬN của 1 thợ trong tháng (CHƯA trừ ứng/BHXH) — phải gồm CẢ 2 khoản
+ *  thưởng chuyên cần/vệ sinh, không thì bật/tắt thưởng mà số xanh dưới tên đứng im. */
+const tongNhan = (r: PayrollRow) => r.luong + r.phu_cap + r.thuong + r.thuong_cc + r.thuong_vs;
 
 /** Màn hẹp (cùng mốc 720px với media query bảng lương trong styles.css) — dùng để
  *  thu cột Thợ ghim trái, thứ CSS không đè được vì width nằm inline trên <col>. */
@@ -160,6 +163,10 @@ export function MonthlyPayroll() {
                   <a class="pr-stat advance" href={`#/nhap-ung?ym=${encodeURIComponent(ym)}`}><span>Đã ứng</span><b>−{money(totals.ung)}</b></a>
                   {/* BHXH chỉ vào tổng quan khi tháng này CÓ trừ — xưởng chưa đóng thì
                       đừng chiếm 1 ô của thanh tóm tắt */}
+                  {totals.thuong_cc + totals.thuong_vs ? (
+                    <div class="pr-stat allowance"><span>Thưởng CC+VS</span>
+                      <b>+{money(totals.thuong_cc + totals.thuong_vs)}</b></div>
+                  ) : null}
                   {totals.bhxh ? <div class="pr-stat advance"><span>Trừ BHXH</span><b>−{money(totals.bhxh)}</b></div> : null}
                 </div>
               </section>
@@ -308,14 +315,14 @@ function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleWeekly, 
                     <span class="pr-worker-main">
                       <span class="pr-worker-nm">{r.name}</span>
                       <span class="pr-worker-net"
-                        title={`Tổng tiền lương ${ymLabel(data.ym).toLowerCase()} = lương + phụ cấp (chưa trừ ứng)`}>
-                        {money(r.luong + r.phu_cap + r.thuong)}
+                        title={`Tổng tiền nhận ${ymLabel(data.ym).toLowerCase()} = lương + phụ cấp + thưởng (chưa trừ ứng/BHXH)`}>
+                        {money(tongNhan(r))}
                       </span>
                       <span class={r.cong > 0 ? "pr-worker-avg" : "pr-worker-avg is-zero"}
                         title={r.cong > 0
-                          ? `Trung bình 1 ngày công = ${money(r.luong + r.phu_cap + r.thuong)} ÷ ${congVN(r.cong)} công`
+                          ? `Trung bình 1 ngày công = ${money(tongNhan(r))} ÷ ${congVN(r.cong)} công`
                           : "Tháng này chưa có ngày công nào nên chưa tính được trung bình"}>
-                        {r.cong > 0 ? `${money((r.luong + r.phu_cap + r.thuong) / r.cong)}/ngày` : "—/ngày"}
+                        {r.cong > 0 ? `${money(tongNhan(r) / r.cong)}/ngày` : "—/ngày"}
                       </span>
                     </span>
                   </span>
@@ -409,14 +416,14 @@ function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleWeekly, 
               <td class="pr-sticky pr-td-name">
                 <span class="pr-worker-main">
                   <span class="pr-worker-nm">Tổng</span>
-                  <span class="pr-worker-net" title="Tổng tiền lương cả xưởng (lương + phụ cấp, chưa trừ ứng)">
-                    {money(t.luong + t.phu_cap + t.thuong)}
+                  <span class="pr-worker-net" title="Tổng tiền nhận cả xưởng (lương + phụ cấp + thưởng, chưa trừ ứng/BHXH)">
+                    {money(t.luong + t.phu_cap + t.thuong + t.thuong_cc + t.thuong_vs)}
                   </span>
                   {(() => {
                     const c = data.workers.reduce((a, r) => a + (r.cong || 0), 0);
                     return <span class={c > 0 ? "pr-worker-avg" : "pr-worker-avg is-zero"}
                       title="Trung bình 1 ngày công của cả xưởng">
-                      {c > 0 ? `${money((t.luong + t.phu_cap + t.thuong) / c)}/ngày` : "—/ngày"}
+                      {c > 0 ? `${money((t.luong + t.phu_cap + t.thuong + t.thuong_cc + t.thuong_vs) / c)}/ngày` : "—/ngày"}
                     </span>;
                   })()}
                 </span>

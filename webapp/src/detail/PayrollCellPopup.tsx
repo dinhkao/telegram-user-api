@@ -32,7 +32,7 @@ import { Comments } from "./Comments";
 import { EntryPanel, PC_GOI_Y, UNG_GOI_Y } from "./EntryPanel";
 import { isTimeWage, otInCong, wageLabel } from "./wageType";
 import { moneyR as money, ymLabel } from "../format";
-import { workStats } from "./attendanceStats";
+import { isSunday, workStats } from "./attendanceStats";
 const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 
 const DOW = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -160,30 +160,39 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
     </button>
   );
 
-  const attList = (hl: "work" | "ot") => (
-    att === null ? <p class="muted small"><LoadingInline label="Đang tải chấm công…" /></p>
-    : !att.length ? <p class="muted small">Tháng này chưa có dữ liệu chấm công của {r.name}.</p>
-    : (
+  // ĐỦ MỌI NGÀY trong tháng, kể cả ngày KHÔNG chấm công (để thấy ngay hôm nào nghỉ,
+  // chứ danh sách nhảy cóc thì phải tự dò). CHỦ NHẬT tô nền riêng — ngày đó đi làm là
+  // tính TĂNG CA toàn bộ (attendance_store/domain.work_stats).
+  const attList = (hl: "work" | "ot") => {
+    if (att === null) return <p class="muted small"><LoadingInline label="Đang tải chấm công…" /></p>;
+    const [y, mo] = ym.split("-").map(Number);
+    const last = new Date(y, mo, 0).getDate();
+    const byDay = new Map(att.map((d) => [d.day, d]));
+    return (
       <div class="pr-pop-days">
-        {att.map((d) => {
-          const st = workStats(d.times || [], d.day);
-          if (!st.work && !st.ot) return null;
+        {Array.from({ length: last }, (_, i) => {
+          const ymd = `${ym}-${String(i + 1).padStart(2, "0")}`;
+          const d = byDay.get(ymd);
+          const st = d ? workStats(d.times || [], ymd) : { work: 0, ot: 0 };
+          const cn = isSunday(ymd);
           return (
-            <div class="pr-pop-day" key={`${d.day}:${d.employee_code}`}>
-              <span class="muted small">{dayVN(d.day)}{d.edited ? " ✏️" : ""}</span>
-              <span class="pr-pop-times">{(d.times || []).join(" · ")}</span>
+            <div class={`pr-pop-day${cn ? " sunday" : ""}${d ? "" : " off"}`} key={ymd}>
+              <span class="muted small">{dayVN(ymd)}{d?.edited ? " ✏️" : ""}</span>
+              <span class="pr-pop-times">{d ? (d.times || []).join(" · ") : "—"}</span>
               {/* TG*: công của NGÀY cũng phải gộp giờ TC, không thì tổng ở trên (r.cong,
                   server đã gộp) không khớp tổng các dòng dưới */}
-              <b class={hl === "work" ? "" : "muted"}>{congVN((st.work + (otCong ? st.ot : 0)) / 480)} công</b>
+              <b class={hl === "work" ? "" : "muted"}>
+                {st.work ? `${congVN((st.work + (otCong ? st.ot : 0)) / 480)} công` : "—"}
+              </b>
               <b class={hl === "ot" ? "t-warn" : "muted"}>
-                {st.ot ? `${congVN(st.ot / 60)}g TC${otCong ? " → gộp" : ""}` : "—"}
+                {st.ot ? `${congVN(st.ot / 60)}g TC${otCong || cn ? " → gộp" : ""}` : "—"}
               </b>
             </div>
           );
         })}
       </div>
-    )
-  );
+    );
+  };
 
   return (
     <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
