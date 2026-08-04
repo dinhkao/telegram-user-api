@@ -3,16 +3,20 @@
 // PHỤ CẤP nhiều khoản, ỨNG lương nhiều lần → thực lãnh. Phụ cấp + ứng quản lý giống
 // nhau (panel thêm/VÔ HIỆU khoản — không xoá, dòng giữ lại kèm ai/lúc nào/lý do).
 // API: getMonthlyPayroll + payroll allowance/advance.
+// 2 NGUỒN LƯƠNG là 2 CỘT RIÊNG, không gộp: "Lương công+TC" (thợ lương thời gian =
+// lương ngày công + lương tăng ca) và "Lương SP" (thợ lương sản phẩm). Mỗi thợ chỉ ăn
+// 1 trong 2 nên cột kia là "—"; chi tiết công/TC vẫn xem trong popup của ô.
 // TRỪ BHXH = cột riêng, số lưu theo TỪNG THÁNG + kế thừa như Mốc lương (đặt tháng nào
 // áp từ tháng đó trở đi — salary_store/bhxh.py); đã trừ trong cột Lãnh.
 // 2 cột THƯỞNG "Ch.cần" + "Vệ sinh" = NÚT BẬT/TẮT, bấm thẳng vào ô (chuyên cần cố
 // định, vệ sinh = 12.000đ × ngày công — salary_store/bonus.py). KHÁC BHXH/Mốc:
 // 2 cờ này KHÔNG kế thừa, bật tháng nào chỉ ăn tháng đó.
 // MỌI Ô SỐ bấm được → popup xem/thao tác đúng ô (detail/PayrollCellPopup:
-// Công/TC = chấm công từng ngày, L.công/L.TC/Lương/Lãnh = diễn giải công thức,
+// Công/TC = chấm công từng ngày, 2 cột NGUỒN LƯƠNG + Lãnh = diễn giải công thức,
 // P.cấp/Ứng = thêm/vô hiệu khoản tại chỗ qua detail/EntryPanel, BHXH = sửa mức trừ).
-// Ô TÊN thì KHÁC: mở TRANG riêng #/luong-thang/:worker_id (pages/PayrollWorker.tsx =
-// hồ sơ lương tháng đầy đủ) — trước là popup, nội dung dài nên tách trang.
+// Ô TÊN thì KHÁC: mở POPUP hồ sơ lương tháng đầy đủ ngay tại trang này
+// (detail/PayrollWorkerPopup, nội dung dùng chung detail/PayrollWorkerSheet với
+// trang riêng #/luong-thang/:worker_id — trang vẫn giữ để chia sẻ link).
 // (Cột THƯỞNG bỏ 2026-07-19 — phụ cấp nhiều khoản có nhãn đã thay thế; backend giữ
 // field thuong cho tương thích, compute vẫn cộng nếu tháng cũ có dữ liệu.)
 // SẮP XẾP: bấm tiêu đề cột (luật + định nghĩa cột ở detail/payrollSort.ts) — áp cho
@@ -25,6 +29,7 @@ import {
 import { moneyR as money, curYM, shiftYM, ymLabel } from "../format";
 import { PayrollCellPopup, type PayrollCol } from "../detail/PayrollCellPopup";
 import { PayrollCard } from "../detail/PayrollCard";
+import { PayrollWorkerPopup } from "../detail/PayrollWorkerPopup";
 import { payrollActions } from "../detail/payrollActions";
 import { COLS, loadSort, nextSort, saveSort, sortRows, type Sort } from "../detail/payrollSort";
 import { isTimeWage, otInCong, wageChip, wageLabel } from "../detail/wageType";
@@ -99,8 +104,10 @@ export function MonthlyPayroll() {
   // 4 thao tác hồ sơ lương dùng CHUNG với trang #/luong-thang/:id (detail/payrollActions)
   const { toggleType, editMoc, editBhxh, toggleWeekly, toggleThuongCC, toggleThuongVS } =
     payrollActions(ym, apply, load);
-  // Ô TÊN → TRANG lương của thợ (trước là popup; nội dung dài nên tách trang riêng)
-  const openWorker = (wid: number) => { window.location.hash = `#/luong-thang/${wid}?ym=${encodeURIComponent(ym)}`; };
+  // Ô TÊN → POPUP hồ sơ lương của thợ (ở NGAY trang này, khỏi rời bảng rồi phải
+  // back + tải lại; vẫn mở được thành trang riêng bằng nút ↗ trong popup)
+  const [sheetWid, setSheetWid] = useState<number | null>(null);
+  const openWorker = (wid: number) => setSheetWid(wid);
 
   const loadAdvances = async (wid: number) => {
     try { setAdvs((m) => ({ ...m, [wid]: [] })); const a = await listPayrollAdvances(ym, wid); setAdvs((m) => ({ ...m, [wid]: a })); } catch { /**/ }
@@ -177,6 +184,13 @@ export function MonthlyPayroll() {
             )}
           </>
         )}
+      {sheetWid !== null && data && (() => {
+        const r = data.workers.find((w) => w.worker_id === sheetWid);
+        return r ? (
+          <PayrollWorkerPopup ym={ym} r={r} onClose={() => setSheetWid(null)} apply={apply}
+            toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc} editBhxh={editBhxh} />
+        ) : null;
+      })()}
       {pop && data && (() => {
         const r = data.workers.find((w) => w.worker_id === pop.wid);
         return r ? (
@@ -225,7 +239,7 @@ function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleWeekly, 
   // ĐO LẠI 2026-08-04 bằng Playwright với nội dung DÀI NHẤT có thể của từng cột
   // (kể cả dòng TỔNG + các dấu ↩/⁺/số khoản) rồi + 0,35em đệm — tổng 106,7em ≈
   // 1366px, tức lọt màn 1440px không phải cuộn. Sửa số nào phải đo lại số đó.
-  const COL_EM = [narrow ? 7 : 10.2, 4.9, 4.9, 8.3, 5.4, 7.0, 3.3, 7.0, 8.2, 8.6, 7.2, 7.2, 9.3, 7.7, 7.5];
+  const COL_EM = [narrow ? 7 : 10.2, 4.9, 4.9, 8.3, 5.4, 3.3, 9.2, 8.2, 8.6, 7.2, 7.2, 9.3, 7.7, 7.5];
   const totalEm = COL_EM.reduce((a, b) => a + b, 0);
   const tableStyle = `min-width:${totalEm}em`;
   const headRef = useRef<HTMLDivElement>(null);
@@ -328,27 +342,27 @@ function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleWeekly, 
                   {r.cong > 0 ? congVN(r.cong) : "—"}
                   {otCong && r.ot_gio > 0 ? <sup title="đã gộp giờ tăng ca vào công"> +TC</sup> : null}
                 </td>
-                <td class={`pr-td-tap ${isTime && r.luong_cong ? "pr-num" : "pr-num is-zero"}`} {...tap("luong_cong")}
-                  title={otCong ? "Lương = mốc/26 × công (công đã gồm tăng ca) — bấm xem cách tính"
-                                : "Lương theo ngày công = mốc/26 × công — bấm xem cách tính"}>
-                  {isTime ? money(r.luong_cong) : "—"}
-                </td>
                 <td class={`pr-td-tap ${r.ot_gio > 0 ? "pr-num" : "pr-num is-zero"}`} {...tap("tc")}
                   title={otCong ? "Giờ tăng ca — loại TG* đã gộp số này vào ngày công, không trả riêng"
                                 : "Số giờ tăng ca — bấm xem từng ngày"}>
                   {r.ot_gio > 0 ? congVN(r.ot_gio) : "—"}
                 </td>
-                <td class={`pr-td-tap ${isTime && r.luong_tc ? "pr-num" : "pr-num is-zero"}`} {...tap("luong_tc")}
-                  title={otCong ? "TG* không trả lương tăng ca riêng (đã gộp vào ngày công)"
-                                : "Lương tăng ca ×1,2 — bấm xem cách tính"}>
-                  {isTime && !otCong ? money(r.luong_tc) : "—"}
+                {/* 2 NGUỒN LƯƠNG tách bạch — mỗi thợ chỉ ăn 1 trong 2, cột kia là "—".
+                    Bấm mở popup diễn giải đúng cách tính của nguồn đó. */}
+                <td class={`pr-td-tap ${r.luong_tg ? "pr-num" : "pr-num is-zero"}`} {...tap("luong_cong")}
+                  title={!isTime ? `${r.name} ăn lương sản phẩm — không có lương theo công`
+                    : otCong ? `Lương thời gian = mốc/26 × ${congVN(r.cong)} công (đã gồm ${congVN(r.ot_gio)}g tăng ca) — bấm xem cách tính`
+                             : `Lương thời gian = lương ${congVN(r.cong)} công + lương tăng ca ×1,2 — bấm xem cách tính`}>
+                  {isTime ? money(r.luong_tg) : "—"}
                 </td>
-                {/* Lương thợ SP ĐÃ GỒM phụ cấp ghi trong phiếu SX (cột P.cấp là phụ cấp
+                {/* Lương SP ĐÃ GỒM phụ cấp ghi trong phiếu SX (cột P.cấp là phụ cấp
                     THÁNG, khác hẳn) → nói trong tooltip + dấu ⁺ cho khỏi tưởng bỏ sót */}
-                <td class={`pr-td-tap ${!r.luong ? "pr-num is-zero" : "pr-num"}`} {...tap("luong")}
-                  title={r.pc_phieu ? `Gồm ${money(r.pc_phieu)}đ phụ cấp ghi trong phiếu SX — bấm xem cách tính`
-                                    : "Bấm xem cách tính lương"}>
-                  {money(r.luong)}{r.pc_phieu ? <sup title="đã gộp phụ cấp phiếu SX"> ⁺</sup> : null}
+                <td class={`pr-td-tap ${r.luong_sp ? "pr-num" : "pr-num is-zero"}`} {...tap("luong")}
+                  title={!isTime
+                    ? (r.pc_phieu ? `Lương sản phẩm — gồm ${money(r.pc_phieu)}đ phụ cấp ghi trong phiếu SX. Bấm xem cách tính`
+                                  : "Lương sản phẩm tự tính từ báo cáo SX — bấm xem cách tính")
+                    : `${r.name} ăn lương thời gian — không có lương sản phẩm`}>
+                  {isTime ? "—" : <>{money(r.luong_sp)}{r.pc_phieu ? <sup title="đã gộp phụ cấp phiếu SX"> ⁺</sup> : null}</>}
                 </td>
                 <td class="pr-num pr-td-tap" title="Phụ cấp — bấm thêm/vô hiệu khoản" {...tap("pc")}>
                   <span class="pr-ung-btn">{money(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}</span>
@@ -395,10 +409,9 @@ function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleWeekly, 
                 </span>
               </td><td></td><td></td><td></td>
               <td class="pr-num">{congVN(data.workers.reduce((a, r) => a + (r.cong || 0), 0))}</td>
-              <td class="pr-num">{money(data.workers.reduce((a, r) => a + (r.luong_cong || 0), 0))}</td>
               <td class="pr-num">{congVN(data.workers.reduce((a, r) => a + (r.ot_gio || 0), 0))}</td>
-              <td class="pr-num">{money(data.workers.reduce((a, r) => a + (r.luong_tc || 0), 0))}</td>
-              <td class="pr-num">{money(t.luong)}</td>
+              <td class="pr-num">{money(data.workers.reduce((a, r) => a + (r.luong_tg || 0), 0))}</td>
+              <td class="pr-num">{money(data.workers.reduce((a, r) => a + (r.luong_sp || 0), 0))}</td>
               <td class="pr-num">{money(t.phu_cap)}</td>
               <td class="pr-num">{money(t.thuong_cc)}</td>
               <td class="pr-num">{money(t.thuong_vs)}</td>

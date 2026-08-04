@@ -7,16 +7,17 @@
 // Số hiện theo NGHÌN đồng cho gọn (rê chuột thấy số đầy đủ).
 // Data: GET /api/production/wage-pivot (production_store/wage_pivot.py) — tiền lấy
 // nguyên từ compute_range_report nên khớp phiếu báo cáo SX và bảng lương tháng.
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { getWagePivot, isOffice, type WagePivot as Pivot } from "../api";
 import { moneyR as money, curYM, shiftYM, ymLabel } from "../format";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 
-/** Tiền → NGHÌN đồng, gọn nhất có thể ("487.540" → "488"). 0/rỗng → "" (ô trống
- *  đọc nhanh hơn ô đầy số 0 — sheet cũ đầy số 0 nhìn rất rối). */
-const k = (v?: number) => (v ? String(Math.round(v / 1000)) : "");
+/** Tiền → NGHÌN đồng, gọn nhất có thể ("487.540" → "488"). Không có tiền thì in
+ *  đúng số "0" (không bỏ trống): ô trống dễ bị đọc nhầm là thiếu dữ liệu, còn 0 là
+ *  khẳng định "ngày đó thợ này không có tiền công". */
+const k = (v?: number) => String(Math.round((v || 0) / 1000));
 const dayNum = (ymd: string) => Number(ymd.slice(8, 10));
 const DOW = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 const dowOf = (ymd: string) => DOW[new Date(`${ymd}T00:00:00`).getDay()];
@@ -43,6 +44,25 @@ export function WagePivot() {
   const [data, setData] = useState<Pivot | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Khung bảng phải cao ĐÚNG phần màn hình còn lại: đo vị trí thật của nó rồi trừ
+  // thanh nav dưới. Trước dùng max-height: calc(100vh - 200px) — số phỏng đoán, nên
+  // trên điện thoại đáy khung chui XUỐNG DƯỚI thanh nav (mất luôn hàng Tổng dính
+  // đáy) và sinh 2 vùng cuộn lồng nhau (cuộn hết khung là kẹt, trang không đi tiếp).
+  // Đo runtime cũng tự đúng khi có banner "ai đang giao" đẩy nội dung xuống.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const fit = () => {
+      const top = el.getBoundingClientRect().top;
+      const dock = document.querySelector(".bottom-dock")?.getBoundingClientRect().height || 56;
+      el.style.maxHeight = `${Math.max(220, Math.round(window.innerHeight - top - dock - 10))}px`;
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [view, data, loading]);
 
   const load = () => {
     setLoading(true);
@@ -65,7 +85,7 @@ export function WagePivot() {
   const head = (
     <PageHead fallback="#/home"
       title={<><Icon name="wallet" size={18} /> Lương SP theo ngày</>}
-      sub="thợ theo cột · ngày theo hàng · đơn vị NGHÌN đồng" />
+      sub="thợ theo cột · đủ mọi ngày trong tháng · đơn vị NGHÌN đồng" />
   );
   if (!isOffice()) return <div class="pr-page">{head}<EmptyState icon="🔒">Chỉ văn phòng.</EmptyState></div>;
 
@@ -92,9 +112,11 @@ export function WagePivot() {
           <>
             <div class="wp-sum">
               <span>Tổng tiền công <b>{money(data.grand)}đ</b></span>
-              <span class="muted small">{ws.length} thợ · {data.days.length} ngày có làm</span>
+              <span class="muted small">{ws.length} thợ · {data.days.length} ngày</span>
             </div>
-            <div class="wp-wrap">
+            <p class="muted small wp-note">Số theo <b>nghìn đồng</b> · ô càng đậm tiền càng nhiều ·
+              chạm giữ 1 ô để xem số đầy đủ.</p>
+            <div class="wp-wrap" ref={wrapRef}>
               <table class="wp-table">
                 <thead>
                   <tr>
@@ -112,8 +134,10 @@ export function WagePivot() {
                         </th>
                         {ws.map((w) => {
                           const v = d.cells[String(w.id)] || 0;
+                          // view CHI TIẾT: hàng ngày chỉ là TIÊU ĐỀ NHÓM → không tô màu,
+                          // để thang màu dành riêng cho các ô phiếu bên dưới cho dễ so
                           return (
-                            <td key={w.id} style={heat(v, data.max_cell)}
+                            <td key={w.id} style={view === "slip" ? "" : heat(v, data.max_cell)}
                               title={v ? `${w.name} · ${d.ymd} — ${money(v)}đ` : ""}>{k(v)}</td>
                           );
                         })}
@@ -148,8 +172,6 @@ export function WagePivot() {
                 </tfoot>
               </table>
             </div>
-            <p class="muted small wp-note">Số hiện theo <b>nghìn đồng</b> (rê chuột / chạm giữ để xem số đầy đủ).
-              Ô càng đậm là tiền công càng nhiều. Cột <b>Chi tiết phiếu</b> bấm được để mở phiếu SX.</p>
           </>
         )}
     </div>

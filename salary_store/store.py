@@ -394,6 +394,11 @@ def compute_month_payroll(conn, ym: str) -> dict:
             "cong": round(cong, 2),
             "ot_gio": round(ot_min / 60.0, 1),
             "luong_cong": round(luong_cong), "luong_tc": round(luong_tc),
+            # 2 NGUỒN lương tách bạch cho bảng lương khỏi mập mờ: `luong_tg` = lương
+            # THỜI GIAN (công + tăng ca), `luong_sp` = lương SẢN PHẨM. Mỗi thợ chỉ ăn
+            # 1 trong 2 (theo wage_type) nên luong_tg + luong_sp == luong.
+            "luong_tg": round(luong_cong + luong_tc) if wt != "product" else 0,
+            "luong_sp": round(luong) if wt == "product" else 0,
             # phụ cấp ghi trong PHIẾU SX (production_allowances) — ĐÃ nằm TRONG `luong`,
             # tách ra để bảng lương nói rõ, đừng cộng lần nữa
             "pc_phieu": round(pc_phieu),

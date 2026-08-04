@@ -334,18 +334,25 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   rồi ghi lại; khoản đã vô hiệu khoá luôn ghi chú). UI `MonthlyPayroll.tsx`
   (`#/luong-thang`, view Bảng/Thẻ — view Thẻ tách ra `detail/PayrollCard.tsx`;
   **SẮP XẾP bấm tiêu đề cột** = `detail/payrollSort.ts` (`COLS` là NGUỒN DUY NHẤT của
-  nhãn/tooltip 15 cột — thứ tự phải khớp `<td>` thân bảng LẪN mảng `COL_EM` colgroup;
+  nhãn/tooltip 14 cột — thứ tự phải khớp `<td>` thân bảng LẪN mảng `COL_EM` colgroup;
   cột Thợ GHIM trái nên `COL_EM[0]` hẹp lại ở mobile qua hook `useNarrow`
   (matchMedia 720px — width nằm inline trên `<col>`, CSS media query KHÔNG đè được);
   **`COL_EM` đo bằng Playwright** với nội dung dài nhất có thể + 0,35em đệm — tổng
-  106,7em ≈ 1366px để LỌT màn 1440px không phải cuộn (đệm ngang ô `.pr-table td`
+  101,9em ≈ 1304px để LỌT màn 1366px không phải cuộn (đệm ngang ô `.pr-table td`
   cũng đã hạ 9px→6px cho đủ chỗ); sửa cột nào phải đo lại cột đó;
+  **2 NGUỒN LƯƠNG là 2 CỘT RIÊNG** (2026-08-04): `luong_tg` = lương THỜI GIAN (công +
+  tăng ca) · `luong_sp` = lương SẢN PHẨM; mỗi thợ chỉ ăn 1 trong 2 nên
+  `luong_tg + luong_sp == luong`, cột kia hiện "—" (3 cột cũ L.công/L.TC/Lương gộp
+  lại còn 2 — chi tiết công/TC vẫn xem trong popup của ô);
   bấm: sắp → đảo chiều → bỏ sắp, cột số lớn-trước, cột Thợ A→Z theo `localeCompare('vi')`,
   nhớ ở localStorage `payroll_sort`, áp cho CẢ view Thẻ; dòng TỔNG ở tfoot không đổi chỗ);
-  **bấm ô TÊN → TRANG `#/luong-thang/:worker_id?ym=`
+  **bấm ô TÊN → POPUP hồ sơ lương (`detail/PayrollWorkerPopup.tsx`, ở NGAY trang bảng
+  — không rời trang rồi phải back + tải lại; nút ↗ trong popup mở thành TRANG
+  `#/luong-thang/:worker_id?ym=`
   = `pages/PayrollWorker.tsx` + `detail/PayrollWorkerSheet.tsx` = HỒ SƠ LƯƠNG THÁNG**:
-  thực lãnh + thanh tỉ lệ cộng/trừ, nguồn lương [SP gộp **theo mã SP HOẶC theo NGÀY** từ
-  `getWorkerReport` · TG mốc→công→tăng ca], **CHẤM CÔNG luôn hiện cho MỌI thợ** (khối
+  thực lãnh + thanh tỉ lệ cộng/trừ, nguồn lương [SP: view **CHI TIẾT = từng PHIẾU SX của
+  từng NGÀY kèm tiền mỗi phiếu** HOẶC **theo NGÀY**, từ `getWorkerReport` — view "theo mã
+  SP" cũ BỎ 2026-08-04 · TG mốc→công→tăng ca], **CHẤM CÔNG luôn hiện cho MỌI thợ** (khối
   "Chấm công" = tổng công/TC + từng ngày qua `detail/AttendanceDays.tsx`, dùng chung với
   `#/cham-cong/:id`; view "Theo ngày" của thợ SX còn GHÉP công/giờ chấm vào từng ngày →
   thấy ngay ngày đi làm mà chưa có báo cáo SX, hoặc có báo cáo mà quên chấm),

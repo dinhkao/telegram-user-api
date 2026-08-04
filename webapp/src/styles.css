@@ -4022,8 +4022,11 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .wp-sum { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: .8rem; }
 .wp-sum b { font-variant-numeric: tabular-nums; }
 /* width:max-content = khung ÔM SÁT bảng (15 thợ chỉ chiếm ~620px trên màn rộng —
-   để khung kéo hết bề ngang thì viền chạy tít bên phải, nhìn như bảng bị hỏng) */
-.wp-wrap { max-height: calc(100vh - 200px); width: max-content; max-width: 100%;
+   để khung kéo hết bề ngang thì viền chạy tít bên phải, nhìn như bảng bị hỏng).
+   ⚠ max-height do JS đặt (pages/WagePivot.tsx) = đúng phần màn hình còn lại, KHÔNG
+   hardcode 100vh-Xpx: số phỏng đoán làm đáy khung chui xuống dưới thanh nav và sinh
+   2 vùng cuộn lồng nhau. */
+.wp-wrap { max-height: 60vh; width: max-content; max-width: 100%;
   overflow: auto; overscroll-behavior: contain;
   border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); }
 .wp-table { border-collapse: separate; border-spacing: 0; font-size: .62rem; font-variant-numeric: tabular-nums; }
@@ -4046,4 +4049,15 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .wp-table .wp-slip .muted { font-size: .55rem; }
 .wp-table .wp-tot { font-weight: 700; background: var(--bg); }
 .wp-table tfoot th, .wp-table tfoot td { position: sticky; bottom: 0; z-index: 3; background: var(--bg); font-weight: 800; border-top: 1px solid var(--border); }
-.wp-note { margin-top: 6px; }
+.wp-note { margin: 0 0 6px; }
+
+/* POPUP hồ sơ lương 1 thợ (detail/PayrollWorkerPopup) — dùng chung thân sheet với
+   trang #/luong-thang/:id. Cao hơn popup ô vì nội dung dài (lương, chấm công, phụ
+   cấp, ứng). */
+.pws-popup { max-height: 88vh; }
+.pws-popup .modal-head { align-items: baseline; gap: 6px; }
+.pws-popup-title { font-weight: 800; }
+.pws-popup-open { margin-left: auto; padding: 0 4px; color: var(--primary); text-decoration: none; font-size: 1rem; }
+/* CHI TIẾT lương SP: dòng NGÀY đậm, dòng PHIẾU thụt vào dưới nó */
+.pws-dayhead { background: var(--bg); font-weight: 700; }
+.pws-subitem { padding-left: 18px; }
