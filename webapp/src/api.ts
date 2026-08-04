@@ -1149,6 +1149,9 @@ export type PayrollRow = {
   note: string; thuc_lanh: number;
   monthly_salary: number; cong: number; ot_gio: number;   // lương thời gian: mốc + công + TC (giờ)
   luong_cong: number; luong_tc: number;                   // tách lương theo công / lương tăng ca
+  // 2 NGUỒN lương tách bạch (bảng lương hiện thành 2 cột riêng): thời gian (công +
+  // tăng ca) ↔ sản phẩm. Mỗi thợ chỉ ăn 1 trong 2 → luong_tg + luong_sp === luong.
+  luong_tg: number; luong_sp: number;
   // pc_phieu = phụ cấp ghi trong PHIẾU SX (production_allowances) — ĐÃ nằm TRONG luong
   // của thợ lương SP; KHÁC phu_cap (phụ cấp THÁNG, salary_allowances). Đừng cộng 2 lần.
   pc_phieu: number;

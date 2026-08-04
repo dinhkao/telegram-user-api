@@ -1,4 +1,4 @@
-// SẮP XẾP bảng lương tháng (#/luong-thang) + ĐỊNH NGHĨA 15 CỘT dùng chung cho header.
+// SẮP XẾP bảng lương tháng (#/luong-thang) + ĐỊNH NGHĨA 14 CỘT dùng chung cho header.
 // Bấm tiêu đề cột: lần 1 sắp (cột số → LỚN trước, cột chữ → A→Z), lần 2 đảo chiều,
 // lần 3 về thứ tự mặc định của server (sort_order hồ sơ thợ). Lựa chọn nhớ trong
 // localStorage nên mở lại vẫn giữ.
@@ -6,8 +6,8 @@
 // MonthlyPayroll.tsx — lệch 1 ô là cả bảng lệch cột.
 import type { PayrollRow } from "../api";
 
-export type SortKey = "name" | "type" | "weekly" | "moc" | "cong" | "luong_cong"
-  | "tc" | "luong_tc" | "luong" | "pc" | "cc" | "vs" | "ung" | "bhxh" | "net";
+export type SortKey = "name" | "type" | "weekly" | "moc" | "cong"
+  | "tc" | "luong_tg" | "luong_sp" | "pc" | "cc" | "vs" | "ung" | "bhxh" | "net";
 export type Sort = { key: SortKey; dir: 1 | -1 };
 
 export const COLS: { key: SortKey; label: string; title: string; num: boolean }[] = [
@@ -16,10 +16,9 @@ export const COLS: { key: SortKey; label: string; title: string; num: boolean }[
   { key: "weekly", label: "Tuần", title: "Nhận lương tuần", num: true },
   { key: "moc", label: "Mốc", title: "Mốc lương tháng (thợ lương thời gian)", num: true },
   { key: "cong", label: "Công", title: "Ngày công", num: true },
-  { key: "luong_cong", label: "L.công", title: "Lương theo ngày công", num: true },
   { key: "tc", label: "TC", title: "Giờ tăng ca", num: true },
-  { key: "luong_tc", label: "L.TC", title: "Lương tăng ca ×1,2", num: true },
-  { key: "luong", label: "Lương", title: "Lương tháng", num: true },
+  { key: "luong_tg", label: "Lương công+TC", title: "Lương THỜI GIAN = lương ngày công + lương tăng ca", num: true },
+  { key: "luong_sp", label: "Lương SP", title: "Lương SẢN PHẨM (tự tính từ báo cáo sản xuất)", num: true },
   { key: "pc", label: "P.cấp", title: "Phụ cấp tháng", num: true },
   { key: "cc", label: "Ch.cần", title: "Thưởng chuyên cần — cố định, bấm để bật/tắt (chỉ tháng này)", num: true },
   { key: "vs", label: "Vệ sinh", title: "Thưởng vệ sinh — 12.000đ × ngày công, bấm để bật/tắt (chỉ tháng này)", num: true },
@@ -36,10 +35,9 @@ function val(r: PayrollRow, key: SortKey): number | string {
     case "weekly": return r.weekly ? 1 : 0;
     case "moc": return r.monthly_salary || 0;
     case "cong": return r.cong || 0;
-    case "luong_cong": return r.luong_cong || 0;
     case "tc": return r.ot_gio || 0;
-    case "luong_tc": return r.luong_tc || 0;
-    case "luong": return r.luong || 0;
+    case "luong_tg": return r.luong_tg || 0;
+    case "luong_sp": return r.luong_sp || 0;
     case "pc": return r.phu_cap || 0;
     case "cc": return r.thuong_cc || 0;
     case "vs": return r.thuong_vs || 0;

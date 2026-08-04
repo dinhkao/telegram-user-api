@@ -1,6 +1,6 @@
 // HỒ SƠ LƯƠNG THÁNG của 1 thợ — nội dung popup khi bấm Ô TÊN ở bảng lương (#/luong-thang).
 // Gom MỌI khoản của tháng vào 1 màn: thực lãnh + thanh tỉ lệ (lương/phụ cấp/thưởng ↔ ứng),
-// NGUỒN lương (thợ SP: gộp theo mã SP từ báo cáo sản xuất · thợ TG: mốc → công → tăng ca),
+// NGUỒN lương (thợ SP: CHI TIẾT từng phiếu SX của từng ngày · thợ TG: mốc → công → tăng ca),
 // TỪNG khoản phụ cấp, TỪNG lần ứng (kèm lương tuần tự động), thưởng tháng cũ.
 // CHỈ ĐỌC + điều hướng: mỗi khối bấm được để nhảy sang tab sửa tương ứng của popup
 // (pc/ung/luong/cong/tc) — cố tình KHÔNG dựng editor thứ 2 ở đây, thao tác thêm/vô
@@ -30,18 +30,28 @@ const monthTo = (ym: string) => {
   return `${ym}-${pad2(new Date(y, m, 0).getDate())}`;
 };
 
-/** Gộp dòng báo cáo SX của tháng theo MÃ SP: bao nhiêu cây, mấy phiếu, ra bao nhiêu tiền. */
-function byProduct(rep: WorkerReport | null) {
-  const m = new Map<string, { code: string; cay: number; money: number; phieu: Set<number> }>();
+/** CHI TIẾT: mỗi NGÀY có những PHIẾU SX nào, mỗi phiếu bao nhiêu cây / bao nhiêu tiền.
+ *  (Thay cho view "theo mã SP" cũ — xem lương thì cái cần biết là phiếu nào ra tiền
+ *  nào, còn tổng theo mã SP đã có ở trang sản xuất của thợ.) */
+function byDaySlip(rep: WorkerReport | null) {
+  const days = new Map<string, { ymd: string; money: number; cay: number;
+    slips: Map<number, { tid: number; codes: Set<string>; cay: number; money: number }> }>();
   for (const row of rep?.rows || []) {
-    const code = row.product_code || "—";
-    const it = m.get(code) || { code, cay: 0, money: 0, phieu: new Set<number>() };
-    it.cay += row.tong_calc || 0;
-    it.money += row.money || 0;
-    it.phieu.add(row.thread_id);
-    m.set(code, it);
+    const ymd = row.ymd || "";
+    const d = days.get(ymd) || { ymd, money: 0, cay: 0, slips: new Map() };
+    d.cay += row.tong_calc || 0;
+    d.money += row.money || 0;
+    const sl = d.slips.get(row.thread_id)
+      || { tid: row.thread_id, codes: new Set<string>(), cay: 0, money: 0 };
+    if (row.product_code) sl.codes.add(row.product_code);
+    sl.cay += row.tong_calc || 0;
+    sl.money += row.money || 0;
+    d.slips.set(row.thread_id, sl);
+    days.set(ymd, d);
   }
-  return [...m.values()].sort((a, b) => b.money - a.money || b.cay - a.cay);
+  return [...days.values()]
+    .sort((a, b) => a.ymd.localeCompare(b.ymd))
+    .map((d) => ({ ...d, slips: [...d.slips.values()].sort((a, b) => b.money - a.money) }));
 }
 
 /** Gộp dòng báo cáo SX theo NGÀY (report_ymd) — xem lương SP rơi vào ngày nào. */
@@ -87,7 +97,7 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
   const [advs, setAdvs] = useState<SalaryAdvance[] | null>(null);
   const [rep, setRep] = useState<WorkerReport | null | "err">(null);
   const [att, setAtt] = useState<AttendanceDay[] | null>(null);
-  const [spView, setSpView] = useState<"sp" | "ngay">("sp");   // lương SP: gộp theo mã SP hay theo ngày
+  const [spView, setSpView] = useState<"chitiet" | "ngay">("chitiet");   // lương SP: chi tiết từng phiếu hay gộp theo ngày
 
   useEffect(() => {
     setAllows(null); setAdvs(null); setAtt(null);
@@ -107,7 +117,7 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
   const pct = (v: number) => (tong > 0 ? Math.max(v > 0 ? 2 : 0, Math.round((v / tong) * 100)) : 0);
   const ungPct = cong > 0 ? Math.round((r.ung / cong) * 100) : 0;
 
-  const sp = byProduct(rep === "err" ? null : rep);
+  const detail = byDaySlip(rep === "err" ? null : rep);
   const days = byDay(rep === "err" ? null : rep);
   // Chấm công tháng của thợ + tra theo ngày (ghép vào bảng lương SP theo ngày)
   const attList = attRows(att, wid);
@@ -115,8 +125,8 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
   const attByDay = new Map(attList.map((a) => [a.day, a]));
   // MỌI ngày trong tháng có phát sinh: có báo cáo SX HOẶC có chấm công
   const dayKeys = [...new Set([...days.map((d) => d.ymd), ...attList.map((a) => a.day)])].sort();
-  const spCay = sp.reduce((s, i) => s + i.cay, 0);
-  const spPhieu = new Set(sp.flatMap((i) => [...i.phieu])).size;
+  const spCay = detail.reduce((s, d) => s + d.cay, 0);
+  const spPhieu = new Set(detail.flatMap((d) => d.slips.map((x) => x.tid))).size;
 
   return (
     <>
@@ -184,20 +194,31 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
         </div>
       ) : rep === null ? (
         <p class="muted small pws-pad"><LoadingInline label="Đang tính lương sản phẩm…" /></p>
-      ) : rep === "err" || !sp.length ? (
+      ) : rep === "err" || !detail.length ? (
         <p class="muted small pws-pad">Tháng này chưa có báo cáo sản xuất nào của {r.name}.</p>
       ) : (
         <>
           <div class="seg pws-seg-view" role="group" aria-label="Cách xem lương sản phẩm">
-            <button class={spView === "sp" ? "seg-btn active" : "seg-btn"} onClick={() => setSpView("sp")}>Theo sản phẩm</button>
+            <button class={spView === "chitiet" ? "seg-btn active" : "seg-btn"} onClick={() => setSpView("chitiet")}>Chi tiết</button>
             <button class={spView === "ngay" ? "seg-btn active" : "seg-btn"} onClick={() => setSpView("ngay")}>Theo ngày</button>
           </div>
           <div class="pws-list">
-            {spView === "sp" ? sp.map((it) => (
-              <a class="pws-item tappable" key={it.code} href={`#/kho/${encodeURIComponent(it.code)}`}>
-                <span><b class="pws-day">{it.code}</b> <span class="muted small">· {cayVN(it.cay)} cây · {it.phieu.size} phiếu</span></span>
-                <b>{money(it.money)}đ</b>
-              </a>
+            {spView === "chitiet" ? detail.map((d) => (
+              <>
+                {/* mỗi NGÀY 1 dòng đậm, dưới là TỪNG PHIẾU SX của ngày đó + tiền phiếu */}
+                <div class="pws-item pws-dayhead" key={d.ymd}>
+                  <span><b class="pws-day">{dmy(d.ymd)}</b>
+                    <span class="muted small"> · {d.slips.length} phiếu · {cayVN(d.cay)} cây</span></span>
+                  <b>{money(d.money)}đ</b>
+                </div>
+                {d.slips.map((sl) => (
+                  <a class="pws-item pws-subitem tappable" key={`${d.ymd}-${sl.tid}`} href={`#/san_xuat/${sl.tid}`}>
+                    <span><b>{[...sl.codes].join(", ") || "—"}</b>
+                      <span class="muted small"> · {cayVN(sl.cay)} cây</span></span>
+                    <b>{money(sl.money)}đ</b>
+                  </a>
+                ))}
+              </>
             )) : dayKeys.map((ymd) => {
               // Ngày = báo cáo SX (nếu có) + CHẤM CÔNG (nếu có) → thấy ngay hôm đi làm
               // mà không có báo cáo, hoặc có báo cáo mà quên chấm công.
@@ -232,7 +253,7 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
                 : <div class="pws-item" key={ymd}>{inner}</div>;
             })}
             <div class="pws-item pws-sum">
-              <span>{spView === "sp" ? `Tổng ${cayVN(spCay)} cây`
+              <span>{spView === "chitiet" ? `${detail.length} ngày · ${spPhieu} phiếu · ${cayVN(spCay)} cây`
                 : `${days.length} ngày SX · ${cayVN(spCay)} cây · ${congVN(attTot.cong)} công`}</span>
               <b>{money(r.luong)}đ</b>
             </div>

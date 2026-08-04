@@ -20,6 +20,25 @@ Nối: production_store.report_slips, worker_store. Client: webapp/src/pages/Wag
 """
 from __future__ import annotations
 
+from datetime import date, timedelta
+
+
+def _all_days(dfrom: str, dto: str) -> list[str]:
+    """Mọi ngày YYYY-MM-DD trong [dfrom, dto]. Mốc hỏng / khoảng > 400 ngày → rỗng
+    (chỉ giữ các ngày CÓ dữ liệu, không dựng bảng khổng lồ)."""
+    try:
+        start = date(*(int(x) for x in dfrom.split("-")))
+        end = date(*(int(x) for x in dto.split("-")))
+    except (AttributeError, ValueError, TypeError):
+        return []
+    if end < start or (end - start).days > 400:
+        return []
+    out, cur = [], start
+    while cur <= end:
+        out.append(cur.isoformat())
+        cur += timedelta(days=1)
+    return out
+
 
 def wage_pivot(conn, dfrom: str, dto: str) -> dict:
     """Bảng pivot lương SP trong [dfrom, dto] (ngày YYYY-MM-DD, bao gồm 2 đầu)."""
@@ -71,6 +90,11 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
                     s["code"] = it["code"]
 
     # ── sắp xếp + dọn ───────────────────────────────────────────────────────────
+    # ĐỦ MỌI NGÀY trong kỳ (ngày không ai làm vẫn có hàng, tiền 0) — bảng lương phải
+    # nhìn ra được ngày nghỉ, chứ nhảy cóc 24→27 thì tưởng thiếu dữ liệu.
+    for ymd in _all_days(dfrom, dto):
+        days.setdefault(ymd, {"ymd": ymd, "total": 0, "cells": {}, "slips": {}})
+
     day_list = []
     max_cell = 0
     for ymd in sorted(days):
