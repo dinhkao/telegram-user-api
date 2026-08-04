@@ -14,7 +14,8 @@ Hình dạng trả về (tiền = ĐỒNG, số nguyên):
      workers: [{id, name, total}],                       # thứ tự cột, đã bỏ thợ 0đ
      days: [{ymd, total, cells: {worker_id: money},
              slips: [{thread_id, code, start, end, total, cells: {...},
-                      parts: {worker_id: [{code, cay, wage, gio, rate, money}]}}]}],
+                      parts: {worker_id: [{code, cay, wage, gio, rate, money}]},
+                      notes/pc/cay: {worker_id: ghi chú | phụ cấp | số cây}}]}],
      totals: {worker_id: money}, grand, max_cell, max_day}
 `max_cell`/`max_day` để client tô đậm nhạt (heatmap) khỏi phải quét lại.
 Nối: production_store.report_slips, worker_store. Client: webapp/src/pages/WagePivot.tsx.
@@ -54,6 +55,26 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
     by_name = {(w["name"] or "").strip().casefold(): w for w in workers}
     rep = compute_range_report(conn, dfrom, dto, worker_ids=[w["id"] for w in workers])
 
+    # GHI CHÚ + PHỤ CẤP theo (phiếu, thợ) — để popup chi tiết 1 ô nói đủ chuyện, khỏi
+    # phải mở phiếu ra xem. Ghi chú lấy từ dòng báo cáo; nhiều dòng thì nối bằng " · ".
+    notes: dict[tuple, str] = {}
+    cays: dict[tuple, float] = {}
+    for r in conn.execute(
+        "SELECT thread_id, worker_id, note, tong_calc FROM production_report_rows "
+        "WHERE report_ymd >= ? AND report_ymd <= ?", (dfrom, dto),
+    ).fetchall():
+        key = (r["thread_id"], r["worker_id"])
+        n = (r["note"] or "").strip()
+        if n and n not in notes.get(key, ""):
+            notes[key] = f"{notes[key]} · {n}" if notes.get(key) else n
+        cays[key] = cays.get(key, 0.0) + float(r["tong_calc"] or 0)
+    pcs: dict[tuple, float] = {}
+    wid_by_name = {(w["name"] or "").strip(): w["id"] for w in workers}
+    for r in conn.execute("SELECT thread_id, worker_name, amount FROM production_allowances").fetchall():
+        wid2 = wid_by_name.get((r["worker_name"] or "").strip())
+        if wid2 is not None:
+            pcs[(r["thread_id"], wid2)] = float(r["amount"] or 0)
+
     # ── gom theo NGÀY rồi theo PHIẾU ────────────────────────────────────────────
     # days[ymd]["cells"][wid] = tiền của thợ đó trong ngày
     # days[ymd]["slips"][tid] = 1 phiếu SX (mã SP + giờ) kèm cells riêng
@@ -82,7 +103,7 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
                 s = d["slips"].setdefault(tid, {
                     "thread_id": tid, "code": it.get("code") or "",
                     "start": it.get("start") or "", "end": it.get("end") or "",
-                    "total": 0, "cells": {}, "parts": {},
+                    "total": 0, "cells": {}, "parts": {}, "notes": {}, "pc": {}, "cay": {},
                 })
                 m = int(it.get("money") or 0)
                 s["cells"][wid] = s["cells"].get(wid, 0) + m
@@ -98,6 +119,13 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
                 })
                 if not s["code"] and it.get("code"):
                     s["code"] = it["code"]
+                nt = notes.get((tid, wid))
+                if nt:
+                    s["notes"][wid] = nt
+                if pcs.get((tid, wid)):
+                    s["pc"][wid] = pcs[(tid, wid)]
+                if cays.get((tid, wid)):
+                    s["cay"][wid] = round(cays[(tid, wid)], 1)
 
     # ── sắp xếp + dọn ───────────────────────────────────────────────────────────
     # ĐỦ MỌI NGÀY trong kỳ (ngày không ai làm vẫn có hàng, tiền 0) — bảng lương phải
@@ -113,6 +141,8 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
         for s in slips:
             s["cells"] = {str(k): v for k, v in s["cells"].items() if v}
             s["parts"] = {str(k): v for k, v in s.get("parts", {}).items() if s["cells"].get(str(k))}
+            for fld in ("notes", "pc", "cay"):
+                s[fld] = {str(k): v for k, v in s.get(fld, {}).items()}
         # thang màu heatmap lấy theo ô THEO NGÀY (ô phiếu luôn ≤ ô ngày nên cùng thang
         # thì view chi tiết nhạt đều — client tự chia thang riêng cho view phiếu)
         if d["cells"]:

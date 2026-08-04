@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import hmac
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 MAX_EVENTS_PER_BATCH = 5000
 
@@ -109,10 +109,26 @@ def _mins(t: str) -> int:
     return int(t[:2]) * 60 + int(t[3:5])
 
 
-def work_stats(times: list[str]) -> tuple[int, int]:
-    """['HH:MM' tăng dần] 1 ngày → (phút CÔNG trong 2 ca, phút TĂNG CA)."""
+def is_sunday(ymd: str | None) -> bool:
+    """'YYYY-MM-DD' có phải CHỦ NHẬT không. Chuỗi hỏng/rỗng → False (không dám đoán)."""
+    try:
+        y, m, d = (int(x) for x in str(ymd).split("-")[:3])
+        return date(y, m, d).weekday() == 6
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+
+def work_stats(times: list[str], ymd: str | None = None) -> tuple[int, int]:
+    """['HH:MM' tăng dần] 1 ngày → (phút CÔNG trong 2 ca, phút TĂNG CA).
+
+    ⚠ ĐI LÀM CHỦ NHẬT = TĂNG CA TOÀN BỘ (Duy chốt 2026-08-04): ngày chủ nhật không
+    sinh ngày công nào, mọi phút CÓ MẶT đều là tăng ca (giờ nghỉ trưa vẫn không tính
+    nếu có chấm ra/vào). Phải truyền `ymd` mới biết là chủ nhật — thiếu ymd thì tính
+    như ngày thường (giữ nguyên hành vi cũ cho chỗ gọi chưa có ngày)."""
     ts = sorted(_mins(t) for t in times)
     spans = [(ts[i], ts[i + 1]) for i in range(0, len(ts) - 1, 2) if ts[i + 1] > ts[i]]
+    if is_sunday(ymd):
+        return 0, sum(min(e, OT_END_OF_DAY) - s for s, e in spans)
     work = ot = 0
     for s, e in spans:
         for a, b in SHIFT_WINDOWS:

@@ -1176,7 +1176,9 @@ export type SalaryAllowance = { id: number; worker_id: number; ym: string; amoun
 // parts = cấu thành số tiền của TỪNG Ô phiếu (cây × đơn giá / giờ × đơn giá giờ).
 // ⚠ phụ cấp phiếu đã GỘP sẵn vào money nên phần dôi ra = tiền ô − Σ(cây × đơn giá).
 export type WagePivotPart = { code: string; cay: number; wage: number; gio: number; rate: number; money: number };
-export type WagePivotSlip = { thread_id: number; code: string; start: string; end: string; total: number; cells: Record<string, number>; parts?: Record<string, WagePivotPart[]> };
+export type WagePivotSlip = { thread_id: number; code: string; start: string; end: string; total: number; cells: Record<string, number>; parts?: Record<string, WagePivotPart[]>;
+  // ghi chú / phụ cấp / số cây của TỪNG THỢ trong phiếu (cho popup chi tiết ô)
+  notes?: Record<string, string>; pc?: Record<string, number>; cay?: Record<string, number> };
 export type WagePivotDay = { ymd: string; total: number; cells: Record<string, number>; slips: WagePivotSlip[] };
 export type WagePivot = {
   from: string; to: string;

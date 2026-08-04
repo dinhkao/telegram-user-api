@@ -59,10 +59,11 @@ export function WagePivot() {
   // sticky top và đồng bộ scrollLeft từ thân. Trước đây ép max-height theo màn hình
   // → khung cứng đơ, cuộn lồng nhau, không hợp với các trang khác.
   const headRef = useRef<HTMLDivElement>(null);
+  const footRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const head = headRef.current, body = wrapRef.current;
+    const head = headRef.current, body = wrapRef.current, foot = footRef.current;
     if (!head || !body) return;
-    const sync = () => { head.scrollLeft = body.scrollLeft; };
+    const sync = () => { head.scrollLeft = body.scrollLeft; if (foot) foot.scrollLeft = body.scrollLeft; };
     const ro = new ResizeObserver(sync);
     ro.observe(body);
     window.addEventListener("resize", sync);
@@ -100,7 +101,8 @@ export function WagePivot() {
   // Bề rộng cột theo EM (font bảng .62rem) — số hiện theo nghìn nên 4 chữ số là đủ;
   // tên thợ ở tiêu đề tự xuống 2 dòng trong bề rộng này.
   const ws0 = data?.workers || [];
-  const COL_EM = [5.8, ...ws0.map(() => 4.3), 5.0];
+  // view chi tiết: ô đầu còn phải chứa "MÃ SP 07:45" nên rộng hơn hẳn view ngày
+  const COL_EM = [view === "slip" ? 9.6 : 5.8, ...ws0.map(() => 4.3), 5.0];
   const tableStyle = `min-width:${COL_EM.reduce((a, b) => a + b, 0)}em`;
   const cols = <colgroup>{COL_EM.map((w, i) => <col key={i} style={`width:${w}em`} />)}</colgroup>;
 
@@ -151,7 +153,13 @@ export function WagePivot() {
                   </thead>
                 </table>
               </div>
-              <div class="wp-tbody-scroll" ref={wrapRef}>
+              <div class="wp-tbody-scroll" ref={wrapRef}
+                onScroll={(e: any) => {
+                  const x = e.currentTarget.scrollLeft;
+                  _saved = { ym, view, left: x };
+                  if (headRef.current) headRef.current.scrollLeft = x;
+                  if (footRef.current) footRef.current.scrollLeft = x;
+                }}>
               <table class="wp-table" style={tableStyle}>
                 {cols}
                 <tbody>
@@ -195,14 +203,23 @@ export function WagePivot() {
                     </>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr>
-                    <th class="wp-cnr">Tổng</th>
-                    {ws.map((w) => <td key={w.id} title={`${w.name} — ${money(w.total)}đ`}>{k(w.total)}</td>)}
-                    <td class="wp-tot">{k(data.grand)}</td>
-                  </tr>
-                </tfoot>
               </table>
+              </div>
+              {/* Dòng TỔNG tách thành thanh riêng DÍNH ĐÁY màn hình (trên thanh nav):
+                  để trong <tfoot> của bảng thân thì không dính được — .wp-tbody-scroll
+                  có overflow-x nên là vùng cuộn riêng, sticky bottom sẽ bám đáy BẢNG
+                  chứ không bám đáy màn hình. */}
+              <div class="wp-tfoot-bar" ref={footRef}>
+                <table class="wp-table" style={tableStyle}>
+                  {cols}
+                  <tfoot>
+                    <tr>
+                      <th class="wp-cnr">Tổng</th>
+                      {ws.map((w) => <td key={w.id} title={`${w.name} — ${money(w.total)}đ`}>{k(w.total)}</td>)}
+                      <td class="wp-tot">{k(data.grand)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
           </>

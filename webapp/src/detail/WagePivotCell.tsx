@@ -28,7 +28,7 @@ export function WagePivotCell({ cell, data, onClose }: {
 
   let title = "";
   let sub = "";
-  let rows: { l: any; r: string; href?: string }[] = [];
+  let rows: { l: any; r: string; href?: string; zero?: boolean }[] = [];
   let total = 0;
 
   if (cell.kind === "dayTotal") {
@@ -44,20 +44,39 @@ export function WagePivotCell({ cell, data, onClose }: {
     title = `${nameOf(cell.wid)} · ${dmyOf(cell.day.ymd)}`;
     sub = "ngày này làm những phiếu nào";
     total = cell.day.cells[String(cell.wid)] || 0;
-    rows = cell.day.slips
-      .map((s) => ({ s, v: s.cells[String(cell.wid)] || 0 }))
-      .filter((x) => x.v)
-      .map((x) => ({
-        l: <>{x.s.code || "—"}{x.s.start ? <span class="muted small"> · {x.s.start}{x.s.end ? `–${x.s.end}` : ""}</span> : null}</>,
-        r: `${money(x.v)}đ`,
-        href: `#/san_xuat/${x.s.thread_id}`,
-      }));
+    // HIỆN CẢ PHIẾU 0đ: thợ có mặt trong ngày mà phiếu này không ra tiền cũng phải
+    // thấy (biết là "đã tính rồi, bằng 0" chứ không phải "bị bỏ sót").
+    const w = String(cell.wid);
+    rows = cell.day.slips.map((s) => {
+      const v = s.cells[w] || 0;
+      const cay = s.cay?.[w] || 0;
+      const pc = s.pc?.[w] || 0;
+      const note = s.notes?.[w] || "";
+      const bits: string[] = [];
+      if (cay) bits.push(`${String(cay).replace(".", ",")} cây`);
+      if (note) bits.push(note);
+      if (pc) bits.push(`phụ cấp ${money(pc)}đ`);
+      return {
+        l: (
+          <span class="wpc-l">
+            <b>{s.code || "—"}</b>
+            {s.start ? <span class="muted small"> · {s.start}{s.end ? `–${s.end}` : ""}</span> : null}
+            {bits.length ? <span class="muted small wpc-sub">{bits.join(" · ")}</span> : null}
+          </span>
+        ),
+        r: `${money(v)}đ`,
+        href: `#/san_xuat/${s.thread_id}`,
+        zero: !v,
+      };
+    });
   } else {
     const { slip, wid } = cell;
     title = `${nameOf(wid)} · ${slip.code || "—"}`;
     sub = `phiếu #${slip.thread_id}${slip.start ? ` · ${slip.start}${slip.end ? `–${slip.end}` : ""}` : ""} · ${dmyOf(cell.day.ymd)}`;
     total = slip.cells[String(wid)] || 0;
     const parts = slip.parts?.[String(wid)] || [];
+    const cay = slip.cay?.[String(wid)] || 0;
+    if (cay) rows.push({ l: <span class="muted">Sản lượng</span>, r: `${String(cay).replace(".", ",")} cây` });
     let counted = 0;
     for (const p of parts) {
       if (p.gio > 0) {
@@ -75,6 +94,8 @@ export function WagePivotCell({ cell, data, onClose }: {
     if (Math.abs(rest) >= 1) {
       rows.push({ l: <span class="t-ok">Phụ cấp ghi trong phiếu</span>, r: `${money(rest)}đ` });
     }
+    const note = slip.notes?.[String(wid)] || "";
+    if (note) rows.push({ l: <span class="muted">Ghi chú báo cáo: {note}</span>, r: "" });
     if (!rows.length) rows.push({ l: <span class="muted">không có dòng cấu thành</span>, r: `${money(total)}đ` });
   }
 
@@ -85,7 +106,7 @@ export function WagePivotCell({ cell, data, onClose }: {
         <p class="muted small">{sub}</p>
         {rows.map((r, i) => (
           r.href
-            ? <a class="pr-pop-row tappable" key={i} href={r.href} onClick={onClose}><span>{r.l}</span><b>{r.r}</b></a>
+            ? <a class={`pr-pop-row tappable${r.zero ? " wpc-zero" : ""}`} key={i} href={r.href} onClick={onClose}><span>{r.l}</span><b>{r.r}</b></a>
             : <div class="pr-pop-row" key={i}><span>{r.l}</span><b>{r.r}</b></div>
         ))}
         <div class="pr-pop-row hl"><span><b>Tổng ô này</b></span><b>{money(total)}đ</b></div>

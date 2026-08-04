@@ -403,7 +403,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (ô Công/TC, hồ sơ lương thợ); tóm tắt công/TC + từng ngày, bấm ngày mở popup giờ
   DÙNG CHUNG với bảng cả xưởng (`detail/AttendanceCellEditor.tsx`). Số công/TC trên
   app tính bằng `detail/attendanceStats.ts::workStats` = GƯƠNG của `domain.work_stats`
-  — đổi luật phải đổi CẢ HAI, không thì app lệch số tính lương. Luật thuần
+  — đổi luật phải đổi CẢ HAI, không thì app lệch số tính lương.
+  ⚠ **ĐI LÀM CHỦ NHẬT = TĂNG CA TOÀN BỘ** (2026-08-04): ngày CN không sinh ngày công
+  nào, mọi phút có mặt vào `ot_min`. `work_stats(times, ymd)` phải được TRUYỀN NGÀY mới
+  biết là CN (thiếu ymd = tính như ngày thường, giữ hành vi cũ) — chỗ gọi:
+  `attendance_store.store.month_worker_stats`, client `AttendanceDays` +
+  `PayrollCellPopup`. Lưu ý loại **TG\*** gộp TC vào công nên luật này KHÔNG đổi tiền
+  của họ; chỉ thợ **TG** mới được trả CN theo đơn giá tăng ca ×1,2. Luật thuần
   `domain.py` (validate batch + token). Tính LƯƠNG/ca từ raw CHƯA làm (nối vào
   `salary_store` wage_type 'time' sau — đừng suy ca từ punch đầu/cuối khi chưa chốt luật).
   KHÔNG sửa phía collector từ repo này (máy Windows riêng). Tests:
