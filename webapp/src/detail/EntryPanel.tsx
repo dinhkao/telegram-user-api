@@ -1,15 +1,17 @@
 // PANEL KHOẢN TIỀN theo tháng (phụ cấp / ứng lương) — liệt kê + THÊM + VÔ HIỆU +
 // SỬA GHI CHÚ. Dùng ở popup ô P.cấp/Ứng của bảng lương tháng (detail/PayrollCellPopup)
 // và view Thẻ (detail/PayrollCard).
-// Ô nhập = ui/MoneyEntryForm (ô tiền to, đọc lại bằng chữ, chip cộng nhanh) — trước
-// đây là 3 input bé xíu nằm ngang, gõ tiền trên điện thoại rất dễ sai số 0.
+// Ô nhập nằm ở POPUP RIÊNG (detail/EntryAddPopup → ui/MoneyEntryForm): form khá cao
+// (3 kiểu nhập + chip + ngày + ghi chú) nên để chung một popup với danh sách thì
+// đẩy danh sách trôi mất. Panel này chỉ còn danh sách + nút "＋ Thêm…".
 // ⚠ ĐỒNG BỘ 2 CHỖ: panel này và 2 trang nhập (pages/AdvanceEntry.tsx +
 // pages/AllowanceEntry.tsx) hiện CÙNG một khoản → thêm/sửa tính năng nào (nút, cột,
 // thông tin dòng) phải làm ở CẢ HAI, đừng để 1 bên có 1 bên không.
 // Dòng hiện: ngày (ứng) · tiền · badge VÔ HIỆU · ghi chú · ai tạo lúc nào · lý do vô hiệu.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Icon } from "../ui/Icon";
-import { MoneyEntryForm, type DayBase, type PctBase } from "../ui/MoneyEntryForm";
+import { type DayBase, type PctBase } from "../ui/MoneyEntryForm";
+import { EntryAddPopup } from "./EntryAddPopup";
 
 /** Cách tính đã dùng để ra số tiền — ghi vào ghi chú khoản cho tra lại được. */
 export type PctInfo = { kind: "pct" | "day"; n: number; base: number; label: string } | null;
@@ -65,13 +67,14 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
     }
     maxIdRef.current = max;
   }, [entries]);
+  const [adding, setAdding] = useState(false);   // form nhập nằm ở POPUP RIÊNG
   const add = () => {
     const a = Number(amt || 0);
     if (a <= 0) { toast("Nhập số tiền", "err"); return; }
     // có công thức thì KHÔNG nhét số gốc vào ghi chú nữa: gốc đổi là ghi chú sai
     const auto = note;
     onAdd(a, auto, date, pct ? { kind: pct.kind, value: pct.n } : null);
-    setAmt(""); setNote(""); setPct(null);
+    setAmt(""); setNote(""); setPct(null); setAdding(false);
   };
   return (
     <div class="pr-adv">
@@ -104,12 +107,18 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
         </div>
       ))}
       {entries && !entries.length ? <div class="muted small">Chưa có khoản nào.</div> : null}
-      <MoneyEntryForm compact amount={amt} onAmount={setAmt} note={note} onNote={setNote}
-        date={showDate ? date : undefined} onDate={showDate ? setDate : undefined}
-        amountLabel={addPlaceholder} submitLabel={submitLabel || "Thêm"}
-        noteLabel={noteLabel || "Ghi chú"} notePlaceholder={notePlaceholder || "Ghi chú (tuỳ chọn)"}
-        noteSuggestions={noteSuggestions} pctBase={pctBase} dayBase={dayBase}
-        onPct={setPct} onSubmit={add} />
+      <button class="btn primary block pr-adv-addbtn" onClick={() => setAdding(true)}>
+        ＋ {submitLabel || "Thêm khoản"}
+      </button>
+      {adding ? (
+        <EntryAddPopup title={submitLabel || "Thêm khoản"}
+          amount={amt} onAmount={setAmt} note={note} onNote={setNote}
+          date={showDate ? date : undefined} onDate={showDate ? setDate : undefined}
+          amountLabel={addPlaceholder} submitLabel={submitLabel || "Thêm"}
+          noteLabel={noteLabel || "Ghi chú"} notePlaceholder={notePlaceholder || "Ghi chú (tuỳ chọn)"}
+          noteSuggestions={noteSuggestions} pctBase={pctBase} dayBase={dayBase}
+          onPct={setPct} onSubmit={add} onClose={() => setAdding(false)} />
+      ) : null}
     </div>
   );
 }

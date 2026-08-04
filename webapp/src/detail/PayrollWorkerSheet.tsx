@@ -274,7 +274,7 @@ export function PayrollWorkerSheet({ ym, r, onCol, toggleType, toggleWeekly }: {
         </>
       )}
       {openLuong ? (
-        <button class="pws-item tappable pws-more" onClick={() => onCol("luong")}>
+        <button class="pws-item tappable pws-more" onClick={() => onCol(isTime ? "luong_cong" : "luong")}>
           <span class="muted small">Xem cách tính lương</span><b>›</b>
         </button>
       ) : null}
