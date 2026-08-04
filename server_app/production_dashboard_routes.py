@@ -7,6 +7,7 @@ Client: webapp/src/pages/ProductionDashboard.tsx.
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import date, timedelta
 
 from aiohttp import web
@@ -14,6 +15,10 @@ from aiohttp import web
 from utils.db import get_connection
 from utils.paths import SHARED_DB_PATH
 from production_store.report_rows import dashboard, worker_detail
+from production_store.wage_pivot import wage_pivot
+from server_app.production_wages import office_user
+
+_YMD = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def _fill_days(dfrom: str | None, dto: str | None, days: list[dict]) -> list[dict]:
@@ -43,6 +48,30 @@ async def production_report_dashboard_handler(request: web.Request):
         conn = get_connection(SHARED_DB_PATH)
         try:
             return dashboard(conn, dfrom, dto)
+        finally:
+            conn.close()
+
+    data = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, **data})
+
+
+async def production_wage_pivot_handler(request: web.Request):
+    """GET /api/production/wage-pivot?from=&to= → bảng PIVOT lương SP (thợ theo cột,
+    ngày theo hàng, kèm từng phiếu SX trong ngày). CHỈ VĂN PHÒNG — đây là tiền lương.
+    Số tiền lấy nguyên từ compute_range_report nên khớp phiếu báo cáo + bảng lương
+    tháng (xem production_store/wage_pivot.py). Client: pages/WagePivot.tsx."""
+    if not office_user(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng"}, status=403)
+    dfrom = (request.query.get("from") or "").strip()
+    dto = (request.query.get("to") or "").strip()
+    if not (_YMD.match(dfrom) and _YMD.match(dto)) or dto < dfrom:
+        return web.json_response({"ok": False, "error": "from/to phải dạng YYYY-MM-DD và from ≤ to"},
+                                 status=400)
+
+    def _run():
+        conn = get_connection(SHARED_DB_PATH)
+        try:
+            return wage_pivot(conn, dfrom, dto)
         finally:
             conn.close()
 

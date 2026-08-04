@@ -1168,6 +1168,20 @@ export type PayrollMonth = { ym: string; workers: PayrollRow[]; totals: { luong:
 export type SalaryAdvance = { id: number; worker_id: number; ym: string; amount: number; adv_date: string; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string };
 export type SalaryAllowance = { id: number; worker_id: number; ym: string; amount: number; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string };
 
+// PIVOT lương SP: thợ theo CỘT, ngày theo HÀNG (+ từng phiếu SX trong ngày).
+// cells khoá theo worker_id dạng CHUỖI (JSON object key). Tiền = đồng.
+export type WagePivotSlip = { thread_id: number; code: string; start: string; end: string; total: number; cells: Record<string, number> };
+export type WagePivotDay = { ymd: string; total: number; cells: Record<string, number>; slips: WagePivotSlip[] };
+export type WagePivot = {
+  from: string; to: string;
+  workers: { id: number; name: string; total: number }[];
+  days: WagePivotDay[];
+  totals: Record<string, number>; grand: number; max_cell: number; max_day: number;
+};
+export async function getWagePivot(from: string, to: string): Promise<WagePivot> {
+  return getJSON(`/api/production/wage-pivot?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, { cache: false });
+}
+
 export async function getMonthlyPayroll(ym: string): Promise<PayrollMonth> {
   return getJSON(`/api/payroll/month?ym=${encodeURIComponent(ym)}`, { cache: false });
 }

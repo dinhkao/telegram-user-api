@@ -835,6 +835,15 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     chọn đủ thùng NL mọi nguyên liệu → trừ kho (`allocate_picks kind='production'`).
     NGUYÊN LIỆU PHỤ (`aux=1`) trừ ở CẢ 2 loại phiếu khi `products.aux_required` bật
     (toggle ở RecipeEditor) — xem mục `recipe_store/` phần Data stores.
+  - **PIVOT lương SP theo ngày (`production_store/wage_pivot.py` + GET
+    `/api/production/wage-pivot?from=&to=`, office-only)**: THỢ theo CỘT, NGÀY theo HÀNG
+    (ngược sheet cũ — thêm ngày là dài xuống, khỏi kéo ngang), kèm TỪNG PHIẾU SX trong
+    ngày cho view "Chi tiết phiếu". KHÔNG tính tiền lại — chỉ XOAY BẢNG kết quả
+    `report_slips.compute_range_report` (nguồn sự thật duy nhất của tiền công) nên số
+    luôn khớp phiếu báo cáo + bảng lương tháng; chỉ lấy thợ `wage_type='product'`.
+    Trả kèm `max_cell` để client tô heatmap. UI `pages/WagePivot.tsx` (`#/luong-ngay`,
+    ☰ Thêm → Lương): bảng siêu gọn (chữ .62rem, đệm 1–3px), sticky 2 trục trong khung
+    tự cuộn, ô đậm nhạt theo tiền, số hiện theo NGHÌN đồng (title = số đầy đủ).
   - **Phiếu BÁO CÁO SX** (`production_store/report_slips.py` + `server_app/report_slip_routes.py`,
     office-only — tiền lương): văn phòng tạo phiếu chọn khoảng ngày (`production_report_slips`);
     nội dung TÍNH LIVE mỗi lần xem (tổng SP + tiền theo THỢ, tiền TỪNG PHIẾU SX, tổng cộng —
