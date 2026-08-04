@@ -27,6 +27,29 @@ export function getToken(): string {
   return localStorage.getItem("token") || "";
 }
 
+/** Token web = base64url(JSON {u, exp}) + "." + hmac — đọc hạn KHÔNG cần server.
+ *  Trả 0 nếu không có token / không đọc được (coi như không rõ hạn). */
+export function tokenExp(): number {
+  const t = getToken();
+  const body = t.split(".")[0] || "";
+  if (!body) return 0;
+  try {
+    const b64 = body.replace(/-/g, "+").replace(/_/g, "/");
+    const exp = Number(JSON.parse(atob(b64 + "===".slice((b64.length + 3) % 4)))?.exp);
+    return Number.isFinite(exp) ? exp : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Token đã hết hạn? Dùng lúc mở app để ĐÁ VỀ ĐĂNG NHẬP NGAY thay vì chạy tiếp
+ *  như khách vô danh — server cũ chỉ bỏ qua token hỏng nên mọi thao tác mất tên
+ *  người làm (giao hàng rơi vào "Két chưa rõ"). Chưa hết hạn/không đọc được → false. */
+export function tokenExpired(): boolean {
+  const exp = tokenExp();
+  return exp > 0 && exp * 1000 <= Date.now();
+}
+
 export function setAuth(token: string, user: { username: string; display_name: string; role: string } | null) {
   if (token) localStorage.setItem("token", token);
   else localStorage.removeItem("token");
