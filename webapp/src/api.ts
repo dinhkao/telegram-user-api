@@ -1173,7 +1173,10 @@ export type SalaryAllowance = { id: number; worker_id: number; ym: string; amoun
 
 // PIVOT lương SP: thợ theo CỘT, ngày theo HÀNG (+ từng phiếu SX trong ngày).
 // cells khoá theo worker_id dạng CHUỖI (JSON object key). Tiền = đồng.
-export type WagePivotSlip = { thread_id: number; code: string; start: string; end: string; total: number; cells: Record<string, number> };
+// parts = cấu thành số tiền của TỪNG Ô phiếu (cây × đơn giá / giờ × đơn giá giờ).
+// ⚠ phụ cấp phiếu đã GỘP sẵn vào money nên phần dôi ra = tiền ô − Σ(cây × đơn giá).
+export type WagePivotPart = { code: string; cay: number; wage: number; gio: number; rate: number; money: number };
+export type WagePivotSlip = { thread_id: number; code: string; start: string; end: string; total: number; cells: Record<string, number>; parts?: Record<string, WagePivotPart[]> };
 export type WagePivotDay = { ymd: string; total: number; cells: Record<string, number>; slips: WagePivotSlip[] };
 export type WagePivot = {
   from: string; to: string;

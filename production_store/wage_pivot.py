@@ -13,7 +13,8 @@ Hình dạng trả về (tiền = ĐỒNG, số nguyên):
     {from, to,
      workers: [{id, name, total}],                       # thứ tự cột, đã bỏ thợ 0đ
      days: [{ymd, total, cells: {worker_id: money},
-             slips: [{thread_id, code, start, end, total, cells: {...}}]}],
+             slips: [{thread_id, code, start, end, total, cells: {...},
+                      parts: {worker_id: [{code, cay, wage, gio, rate, money}]}}]}],
      totals: {worker_id: money}, grand, max_cell, max_day}
 `max_cell`/`max_day` để client tô đậm nhạt (heatmap) khỏi phải quét lại.
 Nối: production_store.report_slips, worker_store. Client: webapp/src/pages/WagePivot.tsx.
@@ -81,11 +82,20 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
                 s = d["slips"].setdefault(tid, {
                     "thread_id": tid, "code": it.get("code") or "",
                     "start": it.get("start") or "", "end": it.get("end") or "",
-                    "total": 0, "cells": {},
+                    "total": 0, "cells": {}, "parts": {},
                 })
                 m = int(it.get("money") or 0)
                 s["cells"][wid] = s["cells"].get(wid, 0) + m
                 s["total"] += m
+                # CẤU THÀNH của ô: dòng cây (cay × wage) hoặc dòng giờ (gio × rate).
+                # ⚠ phụ cấp phiếu đã được compute_range_report GỘP vào `money` của dòng
+                # đầu, nên client phải tự lấy money − cay×wage làm phần "phụ cấp/khác"
+                # chứ đừng tưởng cộng thiếu.
+                s["parts"].setdefault(wid, []).append({
+                    "code": it.get("code") or "", "cay": float(it.get("cay") or 0),
+                    "wage": float(it.get("wage") or 0), "gio": float(it.get("gio") or 0),
+                    "rate": float(it.get("hourly_rate") or 0), "money": m,
+                })
                 if not s["code"] and it.get("code"):
                     s["code"] = it["code"]
 
@@ -102,6 +112,7 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
         slips = sorted(d["slips"].values(), key=lambda s: (s.get("start") or "", s["thread_id"]))
         for s in slips:
             s["cells"] = {str(k): v for k, v in s["cells"].items() if v}
+            s["parts"] = {str(k): v for k, v in s.get("parts", {}).items() if s["cells"].get(str(k))}
         # thang màu heatmap lấy theo ô THEO NGÀY (ô phiếu luôn ≤ ô ngày nên cùng thang
         # thì view chi tiết nhạt đều — client tự chia thang riêng cho view phiếu)
         if d["cells"]:

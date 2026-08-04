@@ -854,7 +854,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     luôn khớp phiếu báo cáo + bảng lương tháng; chỉ lấy thợ `wage_type='product'`.
     Trả kèm `max_cell` để client tô heatmap. UI `pages/WagePivot.tsx` (`#/luong-ngay`,
     ☰ Thêm → Lương): bảng siêu gọn (chữ .62rem, đệm 1–3px), sticky 2 trục trong khung
-    tự cuộn, ô đậm nhạt theo tiền, số hiện theo NGHÌN đồng (title = số đầy đủ).
+    tự cuộn (chiều cao khung do JS đo phần màn hình còn lại — KHÔNG hardcode
+    `100vh - Xpx`, số phỏng đoán làm đáy khung chui dưới thanh nav + sinh 2 vùng cuộn
+    lồng nhau), ô đậm nhạt theo tiền, số hiện theo NGHÌN đồng (title = số đầy đủ),
+    **bấm 1 ô = popup CẤU THÀNH số tiền ô đó** (`detail/WagePivotCell.tsx`: ô ngày →
+    các phiếu trong ngày · ô phiếu → cây × đơn giá + phụ cấp phiếu · ô Tổng ngày →
+    chia theo thợ), nhớ tháng/kiểu xem/vị trí cuộn theo phiên.
   - **Phiếu BÁO CÁO SX** (`production_store/report_slips.py` + `server_app/report_slip_routes.py`,
     office-only — tiền lương): văn phòng tạo phiếu chọn khoảng ngày (`production_report_slips`);
     nội dung TÍNH LIVE mỗi lần xem (tổng SP + tiền theo THỢ, tiền TỪNG PHIẾU SX, tổng cộng —

@@ -4,7 +4,8 @@
 //   · Theo ngày  — 1 hàng = 1 ngày (tổng tiền công ngày đó của từng thợ),
 //   · Chi tiết   — dưới mỗi ngày là TỪNG PHIẾU SX (mã SP + giờ), mỗi phiếu 1 hàng.
 // Ô tô ĐẬM NHẠT theo số tiền (heatmap) để nhìn phát thấy ai/ngày nào làm nhiều.
-// Số hiện theo NGHÌN đồng cho gọn (rê chuột thấy số đầy đủ).
+// Số hiện theo NGHÌN đồng cho gọn (rê chuột thấy số đầy đủ). BẤM 1 Ô = popup chi
+// tiết cấu thành số tiền ô đó (detail/WagePivotCell). Nhớ tháng/kiểu xem/vị trí cuộn.
 // Data: GET /api/production/wage-pivot (production_store/wage_pivot.py) — tiền lấy
 // nguyên từ compute_range_report nên khớp phiếu báo cáo SX và bảng lương tháng.
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -13,6 +14,7 @@ import { moneyR as money, curYM, shiftYM, ymLabel } from "../format";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
+import { WagePivotCell, type PivotCell } from "../detail/WagePivotCell";
 
 /** Tiền → NGHÌN đồng, gọn nhất có thể ("487.540" → "488"). Không có tiền thì in
  *  đúng số "0" (không bỏ trống): ô trống dễ bị đọc nhầm là thiếu dữ liệu, còn 0 là
@@ -32,6 +34,11 @@ function heat(v: number, max: number): string {
   return `background:rgba(214,69,69,${(0.06 + 0.62 * Math.pow(t, 0.7)).toFixed(3)})`;
 }
 
+// NHỚ theo PHIÊN: tháng + kiểu xem + vị trí cuộn (cả 2 chiều) của khung bảng. Bảng
+// rất rộng và dài — mở 1 ô rồi quay lại mà bảng nhảy về góc trên trái thì phải dò
+// lại từ đầu. Module scope: reset khi tải lại app, giống các trang lazy-load khác.
+let _saved: { ym: string; view: "day" | "slip"; top: number; left: number } | null = null;
+
 const monthRange = (ym: string) => {
   const [y, m] = ym.split("-").map(Number);
   const last = new Date(y, m, 0).getDate();
@@ -39,8 +46,9 @@ const monthRange = (ym: string) => {
 };
 
 export function WagePivot() {
-  const [ym, setYm] = useState(curYM);
-  const [view, setView] = useState<"day" | "slip">("day");
+  const [ym, setYm] = useState(() => _saved?.ym || curYM());
+  const [view, setView] = useState<"day" | "slip">(() => _saved?.view || "day");
+  const [cell, setCell] = useState<PivotCell | null>(null);
   const [data, setData] = useState<Pivot | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -64,6 +72,15 @@ export function WagePivot() {
     return () => window.removeEventListener("resize", fit);
   }, [view, data, loading]);
 
+  // KHÔI PHỤC vị trí cuộn sau khi bảng đã dựng xong (chỉ khi đúng tháng + kiểu xem
+  // đã lưu — đổi tháng thì về đầu bảng cho khỏi lạc).
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || !data || !_saved || _saved.ym !== ym || _saved.view !== view) return;
+    el.scrollTop = _saved.top;
+    el.scrollLeft = _saved.left;
+  }, [data, view, ym]);
+
   const load = () => {
     setLoading(true);
     const { from, to } = monthRange(ym);
@@ -73,6 +90,8 @@ export function WagePivot() {
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [ym]);
+  // ghi nhớ tháng/kiểu xem ngay khi đổi (vị trí cuộn ghi trong onScroll)
+  useEffect(() => { _saved = { ...(_saved || { top: 0, left: 0 }), ym, view }; }, [ym, view]);
 
   // View chi tiết có thang màu RIÊNG (ô phiếu luôn nhỏ hơn ô ngày — dùng chung
   // thang thì cả bảng chi tiết nhạt thếch, không phân biệt được gì)
@@ -137,11 +156,13 @@ export function WagePivot() {
                           // view CHI TIẾT: hàng ngày chỉ là TIÊU ĐỀ NHÓM → không tô màu,
                           // để thang màu dành riêng cho các ô phiếu bên dưới cho dễ so
                           return (
-                            <td key={w.id} style={view === "slip" ? "" : heat(v, data.max_cell)}
-                              title={v ? `${w.name} · ${d.ymd} — ${money(v)}đ` : ""}>{k(v)}</td>
+                            <td key={w.id} class="wp-cell" style={view === "slip" ? "" : heat(v, data.max_cell)}
+                              onClick={() => v && setCell({ kind: "day", day: d, wid: w.id })}
+                              title={v ? `${w.name} · ${d.ymd} — ${money(v)}đ · bấm xem chi tiết` : ""}>{k(v)}</td>
                           );
                         })}
-                        <td class="wp-tot">{k(d.total)}</td>
+                        <td class="wp-tot wp-cell" onClick={() => d.total && setCell({ kind: "dayTotal", day: d })}
+                          title={d.total ? "Bấm xem ngày này chia cho thợ nào" : ""}>{k(d.total)}</td>
                       </tr>
                       {/* view CHI TIẾT: mỗi phiếu SX trong ngày là 1 hàng con */}
                       {view === "slip" && d.slips.map((s) => (
@@ -153,8 +174,9 @@ export function WagePivot() {
                           {ws.map((w) => {
                             const v = s.cells[String(w.id)] || 0;
                             return (
-                              <td key={w.id} style={heat(v, maxSlip)}
-                                title={v ? `${w.name} · ${s.code} ${s.start}–${s.end} — ${money(v)}đ` : ""}>{k(v)}</td>
+                              <td key={w.id} class="wp-cell" style={heat(v, maxSlip)}
+                                onClick={() => v && setCell({ kind: "slip", day: d, slip: s, wid: w.id })}
+                                title={v ? `${w.name} · ${s.code} — ${money(v)}đ · bấm xem cách tính` : ""}>{k(v)}</td>
                             );
                           })}
                           <td class="wp-tot">{k(s.total)}</td>
@@ -174,6 +196,7 @@ export function WagePivot() {
             </div>
           </>
         )}
+      {cell && data && <WagePivotCell cell={cell} data={data} onClose={() => setCell(null)} />}
     </div>
   );
 }

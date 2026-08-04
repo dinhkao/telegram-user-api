@@ -9,7 +9,7 @@
 // Dòng hiện: ngày (ứng) · tiền · badge VÔ HIỆU · ghi chú · ai tạo lúc nào · lý do vô hiệu.
 import { useState } from "preact/hooks";
 import { Icon } from "../ui/Icon";
-import { MoneyEntryForm } from "../ui/MoneyEntryForm";
+import { MoneyEntryForm, type PctBase } from "../ui/MoneyEntryForm";
 import { toast } from "../ui/feedback";
 import { moneyR as money, dmy, isoDate, tsLabel } from "../format";
 
@@ -24,12 +24,13 @@ export type MoneyEntry = {
 };
 
 export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, noteLabel,
-  notePlaceholder, noteSuggestions, onAdd, onDel, onNote, extra }: {
+  notePlaceholder, noteSuggestions, pctBase, onAdd, onDel, onNote, extra }: {
   entries?: MoneyEntry[];
   showDate?: boolean;
   addPlaceholder: string;               // nhãn ô tiền ("Số tiền phụ cấp"…)
   submitLabel?: string;
   noteLabel?: string; notePlaceholder?: string; noteSuggestions?: string[];
+  pctBase?: PctBase | null;             // có = cho nhập theo % lương tháng
   onAdd: (amount: number, note: string, date: string) => void;
   onDel: (id: number) => void;
   onNote?: (id: number, current: string) => void;   // ✏️ sửa ghi chú (tiền bất biến)
@@ -38,10 +39,16 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
   const [amt, setAmt] = useState("");
   const [date, setDate] = useState(() => isoDate(new Date()));   // mặc định HÔM NAY
   const [note, setNote] = useState("");
+  // Nhập theo % thì GHI LUÔN cách tính vào ghi chú (nếu người dùng chưa tự ghi) —
+  // tháng sau nhìn lại phải biết 904.261đ ở đâu ra, vì DB chỉ lưu SỐ TIỀN chốt.
+  const [pct, setPct] = useState<{ pct: number; base: number } | null>(null);
   const add = () => {
     const a = Number(amt || 0);
     if (a <= 0) { toast("Nhập số tiền", "err"); return; }
-    onAdd(a, note, date); setAmt(""); setNote("");
+    const auto = pct && !note.trim()
+      ? `${String(pct.pct).replace(".", ",")}% ${pctBase?.label || "lương"} (${money(pct.base)}đ)`
+      : note;
+    onAdd(a, auto, date); setAmt(""); setNote(""); setPct(null);
   };
   return (
     <div class="pr-adv">
@@ -74,7 +81,7 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
         date={showDate ? date : undefined} onDate={showDate ? setDate : undefined}
         amountLabel={addPlaceholder} submitLabel={submitLabel || "Thêm"}
         noteLabel={noteLabel || "Ghi chú"} notePlaceholder={notePlaceholder || "Ghi chú (tuỳ chọn)"}
-        noteSuggestions={noteSuggestions} onSubmit={add} />
+        noteSuggestions={noteSuggestions} pctBase={pctBase} onPct={setPct} onSubmit={add} />
     </div>
   );
 }
