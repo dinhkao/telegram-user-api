@@ -4012,3 +4012,38 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .prv-chip.on.t-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .prv-chip:disabled { opacity: .5; }
 .cf-textarea { min-height: 120px; resize: vertical; font: inherit; }
+
+/* ── LƯƠNG SP THEO NGÀY (#/luong-ngay) — bảng pivot thợ×ngày ────────────────
+   Ưu tiên MẬT ĐỘ: đệm 1–3px, chữ .62rem, số căn phải tabular. Khung tự cuộn CẢ
+   2 chiều (không để cả trang trôi) + sticky 2 trục: hàng tiêu đề (tên thợ) dính
+   trên, cột Ngày dính trái, ô góc dính cả hai. Sticky chỉ ăn khi CHÍNH khung này
+   là thứ cuộn — đừng đổi .wp-wrap sang overflow:visible. */
+.wp-page .pr-controlbar { margin-bottom: 6px; }
+.wp-sum { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: .8rem; }
+.wp-sum b { font-variant-numeric: tabular-nums; }
+/* width:max-content = khung ÔM SÁT bảng (15 thợ chỉ chiếm ~620px trên màn rộng —
+   để khung kéo hết bề ngang thì viền chạy tít bên phải, nhìn như bảng bị hỏng) */
+.wp-wrap { max-height: calc(100vh - 200px); width: max-content; max-width: 100%;
+  overflow: auto; overscroll-behavior: contain;
+  border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); }
+.wp-table { border-collapse: separate; border-spacing: 0; font-size: .62rem; font-variant-numeric: tabular-nums; }
+.wp-table th, .wp-table td { padding: 1px 3px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  text-align: right; white-space: nowrap; line-height: 1.35; }
+.wp-table thead th { position: sticky; top: 0; z-index: 3; background: var(--bg); color: var(--muted);
+  font-size: .58rem; font-weight: 700; text-align: center; white-space: normal; word-break: break-word;
+  max-width: 4.6em; line-height: 1.05; padding: 3px 3px; }
+/* cột NGÀY + ô góc: dính trái; góc phải cao hơn để không bị hàng tiêu đề đè */
+.wp-table .wp-day, .wp-table .wp-slip, .wp-table .wp-cnr { position: sticky; left: 0; z-index: 2;
+  background: var(--card); text-align: left; font-weight: 600; }
+.wp-table thead .wp-cnr, .wp-table tfoot .wp-cnr { background: var(--bg); z-index: 4; }
+.wp-table .wp-day b { font-size: .72rem; }
+.wp-table .wp-day .muted { font-size: .55rem; }
+/* view CHI TIẾT: hàng NGÀY thành tiêu đề nhóm, hàng phiếu thụt vào cho dễ đọc */
+.wp-dayrow.grouped th, .wp-dayrow.grouped td { background: var(--bg); font-weight: 700; }
+.wp-sliprow th, .wp-sliprow td { color: var(--ink); }
+.wp-table .wp-slip { padding-left: 12px; font-weight: 400; }
+.wp-table .wp-slip a { color: var(--primary); text-decoration: none; font-weight: 600; }
+.wp-table .wp-slip .muted { font-size: .55rem; }
+.wp-table .wp-tot { font-weight: 700; background: var(--bg); }
+.wp-table tfoot th, .wp-table tfoot td { position: sticky; bottom: 0; z-index: 3; background: var(--bg); font-weight: 800; border-top: 1px solid var(--border); }
+.wp-note { margin-top: 6px; }

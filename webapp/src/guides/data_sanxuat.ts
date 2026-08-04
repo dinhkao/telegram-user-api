@@ -284,6 +284,36 @@ export const GUIDES_SANXUAT: Guide[] = [
     ],
   },
   {
+    key: "luong-ngay", icon: "grid", cat: "Sản xuất", office: true,
+    title: "Lương SP theo ngày (bảng pivot)",
+    desc: "Thợ theo cột, ngày theo hàng — nhìn phát thấy ngày nào ai làm nhiều, mở ra được từng phiếu SX.",
+    routes: ["#/luong-ngay"],
+    sections: [
+      { title: "Bảng này đọc thế nào?", html: `
+        <p><a href="#/luong-ngay">#/luong-ngay</a> (chỉ <b>văn phòng</b>, menu <b>☰ Thêm → Lương</b>)
+        bày <b>tiền công sản phẩm</b> của cả xưởng trong 1 tháng:</p>
+        <ul>
+          <li><b>Mỗi thợ một cột</b>, thợ làm nhiều tiền nhất đứng trước.</li>
+          <li><b>Mỗi ngày một hàng</b> — ngày nào không ai làm thì không có hàng.</li>
+          <li>Ô càng <b>đậm màu</b> là tiền công ngày đó càng nhiều → lướt mắt là thấy ngay
+            ngày cao điểm và người làm chính.</li>
+          <li>Cột <b>Tổng</b> bên phải = cả ngày; hàng <b>Tổng</b> dưới cùng = cả tháng của từng thợ.</li>
+        </ul>
+        <p>Số hiện theo <b>nghìn đồng</b> cho gọn (ví dụ <b>488</b> = 488.000đ) — rê chuột hoặc
+        chạm giữ vào ô để thấy <b>số đầy đủ</b> kèm tên thợ và ngày.</p>` },
+      { title: "Xem chi tiết từng phiếu", html: `
+        <p>Bấm <b>「Chi tiết phiếu」</b> ở thanh trên: dưới mỗi ngày sẽ xổ ra <b>từng phiếu sản xuất</b>
+        của ngày đó (mã SP + giờ bắt đầu), mỗi phiếu một hàng, cho biết <b>phiếu đó trả cho ai bao nhiêu</b>.
+        Bấm vào <b>mã SP</b> để mở thẳng phiếu SX.</p>
+        <p>Dùng khi cần soi "ngày này sao tiền cao vậy" — nhìn ra ngay là do mẻ nào.</p>` },
+      { title: "Số ở đây có khớp chỗ khác không?", html: `
+        <p><b>Khớp.</b> Bảng này <b>không tự tính lại</b> đồng nào — nó lấy nguyên số tiền mà
+        <a href="#/bao-cao">phiếu báo cáo SX</a> và <a href="#/luong-thang">bảng lương tháng</a> đang dùng
+        (cây × đơn giá chốt theo phiếu + tiền giờ + phụ cấp phiếu). Sửa báo cáo SX thì cả 3 nơi cùng đổi.</p>
+        <p>Bảng chỉ có <b>thợ ăn lương sản phẩm</b>. Thợ lương thời gian không có tiền theo phiếu nên không lên cột.</p>` },
+    ],
+  },
+  {
     key: "tho", icon: "users", cat: "Sản xuất",
     title: "Thợ (nhân công)",
     desc: "Danh sách thợ, danh tính bất biến, đơn giá giờ, cờ lương tuần, sắp xếp thứ tự.",
