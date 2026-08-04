@@ -367,7 +367,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   hạng đó trong CÙNG phiếu. ⚠ Tên phải là **TÊN ĐẦY ĐỦ** đúng như `production_workers`
   ("bao xuyen", KHÔNG tách "bao"/"xuyen" — tách ra thì thợ trượt hết rule mà "Bảo" lại là
   người khác), và từ khoá phải khớp ĐÚNG chữ thợ hay ghi (Thủy Đặng ghi "vít kẹo" chứ
-  không phải "quậy kẹo"). Rule CHỈ áp lúc **lưu báo cáo** (`set_bang`) → sửa `RULES` KHÔNG
+  không phải "quậy kẹo"; Bảo Xuyên từ 21/7 đổi sang ghi "vít" nên rule của cô ấy có CẢ
+  2 từ khoá). ⚠ **HẠNG ĐI THEO NGƯỜI, KHÔNG theo việc** — cùng ghi "vít" mà Kim hạng 0
+  còn Thủy Đặng/Duy hạng 1; thợ đổi việc thì THÊM TỪ KHOÁ vào rule sẵn có của họ, đừng
+  tạo rule mới hạng khác (Duy chốt 2026-08-04, có bằng chứng: văn phòng trả tay Bảo Xuyên
+  đúng số hạng 0 cho phiếu #40998). Rule CHỈ áp lúc **lưu báo cáo** (`set_bang`) → sửa `RULES` KHÔNG
   tự tính lại phiếu cũ; chạy bù bằng `tools/backfill_auto_allowances.py --from --to`
   (mặc định CHẠY THỬ in ra, `--apply` mới ghi; tôn trọng số văn phòng nhập tay). Logic
   thuần = `compute_auto_allowances`, dự tính 1 phiếu = `plan_auto_allowances` (chỉ đọc).
