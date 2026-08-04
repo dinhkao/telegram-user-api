@@ -45,6 +45,15 @@ const TITLES: Record<PayrollCol, string> = {
   pc: "Phụ cấp", ung: "Ứng lương", bhxh: "Trừ BHXH", net: "Thực lãnh",
 };
 
+
+/** GỐC tính phụ cấp theo %: thợ lương SP → lương sản phẩm; thợ lương thời gian →
+ *  lương theo NGÀY CÔNG (cố ý KHÔNG gồm lương tăng ca — Duy chốt 2026-08-04). */
+export function pctBaseOf(r: PayrollRow): { label: string; value: number } {
+  return isTimeWage(r.wage_type)
+    ? { label: "lương ngày công", value: r.luong_cong || 0 }
+    : { label: "lương sản phẩm", value: r.luong_sp || 0 };
+}
+
 /** Số trừ BHXH này ở đâu ra — cùng cách nói với mocNguon (kế thừa theo tháng). */
 export function bhxhNguon(r: PayrollRow, ym: string): string {
   if (r.bhxh_own) return `đặt riêng ${ymLabel(ym).toLowerCase()}`;
@@ -304,6 +313,7 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
             <EntryPanel entries={allows} addPlaceholder="Số tiền phụ cấp"
               submitLabel="Thêm phụ cấp" noteLabel="Nội dung phụ cấp"
               notePlaceholder="VD: ăn trưa, xăng xe…" noteSuggestions={PC_GOI_Y}
+              pctBase={pctBaseOf(r)}
               onAdd={(a, note) => addAllow(a, note)} onDel={voidAllow} onNote={noteAllow} />
             <a class="btn block" href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>📋 Trang nhập phụ cấp</a>
           </>

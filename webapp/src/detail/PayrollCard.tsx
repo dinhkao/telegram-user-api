@@ -10,6 +10,7 @@ import {
 } from "../api";
 import { moneyR as money } from "../format";
 import { EntryPanel, PC_GOI_Y, UNG_GOI_Y } from "./EntryPanel";
+import { pctBaseOf } from "./PayrollCellPopup";
 import { isTimeWage, otInCong, wageLabel } from "./wageType";
 import { toast, promptDialog } from "../ui/feedback";
 
@@ -144,7 +145,7 @@ export function PayrollCard({ r, ym, toggleType, toggleWeekly, editMoc, editBhxh
       </div>
       {openPc && <EntryPanel entries={allowances} addPlaceholder="Số tiền phụ cấp"
         submitLabel="Thêm phụ cấp" noteLabel="Nội dung phụ cấp"
-        notePlaceholder="VD: ăn trưa, xăng xe…" noteSuggestions={PC_GOI_Y}
+        notePlaceholder="VD: ăn trưa, xăng xe…" noteSuggestions={PC_GOI_Y} pctBase={pctBaseOf(r)}
         onAdd={(a, note) => addAllow(a, note)} onDel={voidAllow} onNote={noteAllow} />}
       <div class="pr-adv-toggle">
         <span>Chi tiết ứng lương {r.adv_count ? <span class="muted small">· {r.adv_count} lần nhập tay</span> : null}</span>

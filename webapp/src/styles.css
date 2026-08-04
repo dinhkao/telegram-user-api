@@ -4061,3 +4061,9 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 /* CHI TIẾT lương SP: dòng NGÀY đậm, dòng PHIẾU thụt vào dưới nó */
 .pws-dayhead { background: var(--bg); font-weight: 700; }
 .pws-subitem { padding-left: 18px; }
+/* ô bấm được ở bảng pivot — con trỏ + phản hồi chạm, KHÔNG đổi nền để không phá heatmap */
+.wp-cell { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.wp-cell:active { outline: 2px solid var(--primary); outline-offset: -2px; }
+/* segmented chọn kiểu nhập tiền / % trong ô nhập tiền dùng chung */
+.me-modeseg { align-self: flex-start; }
+.me-modeseg .seg-btn { padding: 5px 14px; font-size: .8rem; white-space: nowrap; }
