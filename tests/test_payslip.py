@@ -92,6 +92,18 @@ def test_chu_nhat_danh_dau_va_toan_bo_la_tang_ca():
     assert cn["dow"] == "CN" and cn["sunday"] and cn["gio"] == 0.0 and cn["tc"] > 0
 
 
+def test_bang_cham_cong_o_0_de_trong():
+    """Cột Giờ/TC: số 0 in ra Ô TRỐNG (không phải '0,0') — ngày nghỉ / không tăng ca
+    để trống thì mắt bắt ngay ngày CÓ số."""
+    from renderers.phieu_luong_thang import _hrs0, _day_row
+    assert _hrs0(0) == "" and _hrs0(0.04) == "" and _hrs0(None) == ""
+    assert _hrs0(7.95) == "8,0" and _hrs0(0.6) == "0,6"
+    # ngày nghỉ: 4 ô giờ là ":" (thiếu mốc chấm) còn 2 ô số thì rỗng hẳn
+    row = _day_row({"d": "02/07", "dow": "T.5", "slots": ["", "", "", ""], "gio": 0, "tc": 0})
+    assert row.count('<td class="num"></td>') == 2
+    assert "0,0" not in row
+
+
 def test_slots_chia_theo_buoi_khong_ghep_tuan_tu():
     # chỉ làm buổi chiều → 2 ô SAU, 2 ô sáng để trống (nhìn là biết nghỉ buổi nào)
     assert _slots(["12:48", "17:33"]) == (["", "", "12:48", "17:33"], 0)
