@@ -106,6 +106,70 @@ def test_nguoi_tinh_theo_gio_khong_nhan_phu_cap():
     assert compute_auto_allowances(ws) == {}
 
 
+def test_tam_vo_keo_bang_dung_tien_cua_trong():
+    # Mốc theo TÊN, không theo hạng: Trọng chỉ đứng hạng 3 mà Tâm vẫn lấy đúng tiền
+    # của anh ấy (số thật phiếu #40963: Trọng 79 cây × 1.000).
+    ws = [_w("Tâm", 8_000, "vô kẹo"), _w("Hiền", 112_000), _w("Hằng", 111_000),
+          _w("Mai", 107_000), _w("Trọng", 79_000)]
+    assert compute_auto_allowances(ws) == {"Tâm": 79_000}
+
+
+def test_tam_rac_com_dua_cung_bang_trong():
+    ws = [_w("Tâm", 0, "rắc cơm dừa"), _w("Hiền", 48_070), _w("Trọng", 29_260)]
+    assert compute_auto_allowances(ws) == {"Tâm": 29_260}
+
+
+def test_tam_moi_cach_ghi_viec_dua_deu_bang_trong():
+    # 3 cách Tâm ghi việc dừa đều là 1 việc (Duy chốt 2026-08-05). Lưu ý "rac com dua"
+    # KHÔNG chứa chuỗi "rac dua" → phải có đủ cả 2 từ khoá trong rule.
+    for note in ("rắc cơm dừa", "rắc dừa", "Gắn dừa"):
+        ws = [_w("Tâm", 0, note), _w("Hiền", 48_070), _w("Trọng", 29_260)]
+        assert compute_auto_allowances(ws) == {"Tâm": 29_260}, note
+
+
+def test_vi_viec_dua_cung_bang_trong():
+    # Vĩ làm việc dừa giống Tâm → cũng bằng Trọng (Duy chốt 2026-08-05)
+    for note in ("rắc dừa", "rắc cơm dừa", "Gắn dừa"):
+        ws = [_w("Vĩ", 0, note), _w("Hằng", 189_600), _w("Trọng", 120_000)]
+        assert compute_auto_allowances(ws) == {"Vĩ": 120_000}, note
+
+
+def test_vi_ghi_chu_mam_thi_khong_co_phu_cap():
+    # Ghi chú thường ngày của Vĩ ("Đã +1 mâm") KHÔNG được kích rule
+    ws = [_w("Vĩ", 78_000, "Đã +1 mâm"), _w("Trọng", 120_000)]
+    assert compute_auto_allowances(ws) == {}
+
+
+def test_duy_viec_dua_bang_cao_nhi():
+    # Duy làm việc dừa → vẫn HẠNG NHÌ như mọi việc khác của anh ấy (hạng đi theo người)
+    ws = [_w("Duy", 0, "rắc dừa"), _w("Hằng", 189_600), _w("Hiền", 150_000),
+          _w("Trọng", 120_000)]
+    assert compute_auto_allowances(ws) == {"Duy": 150_000}
+
+
+def test_kim_dung_chien_dau_bang_cao_nhat():
+    # "chien" bắt cả "Chiên đậu" lẫn "Chiên"; Kim Dung giữ hạng 0 như khi quậy kẹo
+    for note in ("Chiên đậu", "Chiên"):
+        ws = [_w("Kim Dung", 0, note), _w("Hằng", 212_300), _w("Hiền", 200_000)]
+        assert compute_auto_allowances(ws) == {"Kim Dung": 212_300}, note
+
+
+def test_tam_ghi_chu_khac_thi_khong_co_phu_cap():
+    ws = [_w("Tâm", 50_000, "Đã -1 mâm"), _w("Trọng", 29_260)]
+    assert compute_auto_allowances(ws) == {}
+
+
+def test_tam_khong_ghi_gi_khi_trong_vang_mat():
+    # Trọng nghỉ/không có dòng → không có mốc → KHÔNG ghi gì (giữ số văn phòng nhập tay)
+    ws = [_w("Tâm", 0, "vô kẹo"), _w("Hiền", 112_000), _w("Hằng", 111_000)]
+    assert compute_auto_allowances(ws) == {}
+
+
+def test_tam_nghi_van_bi_xoa_phu_cap():
+    ws = [_w("Tâm", 0, "vô kẹo nghỉ"), _w("Trọng", 79_000)]
+    assert compute_auto_allowances(ws) == {"Tâm": 0.0}
+
+
 def test_tran_khong_lam_moc():
     # Trân cao nhất nhưng bị loại khỏi mốc → Kim lấy theo người kế (Duy 90k)
     ws = [_wh("Kim", 0, "vít kẹo"), _wh("Trân", 200_000), _wh("Duy", 90_000)]

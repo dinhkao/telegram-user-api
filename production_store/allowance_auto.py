@@ -1,8 +1,8 @@
 """PHỤ CẤP TỰ ĐỘNG theo GHI CHÚ báo cáo thợ — chạy mỗi lần lưu báo cáo (set_bang).
 
 Rule (sửa bảng RULES bên dưới): thợ X có ghi chú chứa từ khoá Y → phụ cấp = TIỀN SP
-(không tính phụ cấp) của người cao nhất/nhì bảng phiếu đó. Ai có ghi chú "nghỉ" →
-xoá phụ cấp. Ghi với updated_by='auto' — văn phòng sửa tay (updated_by khác) thì
+(không tính phụ cấp) của người cao nhất/nhì bảng phiếu đó, HOẶC của 1 thợ ĐÍCH DANH
+(mốc ghi bằng tên thay vì hạng). Ai có ghi chú "nghỉ" → xoá phụ cấp. Ghi với updated_by='auto' — văn phòng sửa tay (updated_by khác) thì
 auto KHÔNG đè nữa (trừ rule "nghỉ" vẫn ép xoá). Nối: production_allowances (qua
 allowances.set_allowance), production_slips + production_workers (tính tiền SP),
 production_store.wages, vn.vn_normalize.
@@ -13,11 +13,19 @@ import re
 
 from vn import vn_normalize
 
-# ── Bảng RULE: ({tên thợ đã bỏ dấu}, (từ khoá ghi chú đã bỏ dấu, ...), hạng) ──
-# hạng: 0 = bằng tiền SP người CAO NHẤT bảng, 1 = cao NHÌ, 2 = cao BA.
-RULES: list[tuple[set[str], tuple[str, ...], int]] = [
+# ── Bảng RULE: ({tên thợ đã bỏ dấu}, (từ khoá ghi chú đã bỏ dấu, ...), mốc) ──
+# MỐC có 2 kiểu:
+#   • SỐ  = HẠNG trong bảng phiếu: 0 = bằng tiền SP người CAO NHẤT, 1 = cao NHÌ, 2 = ba.
+#   • CHỮ = TÊN 1 THỢ CỤ THỂ (đã bỏ dấu) → bằng tiền SP của ĐÍCH DANH người đó trong
+#     cùng phiếu, dù người đó đứng hạng mấy. Thợ đó không có mặt trong phiếu → KHÔNG
+#     ghi gì (giữ nguyên số cũ, kể cả số văn phòng nhập tay).
+# 3 cách thợ ghi việc DỪA, TẤT CẢ là 1 việc (Duy chốt 2026-08-05: "Gắn dừa or rắc cơm
+# dừa should do the same"). ⚠ "rac com dua" KHÔNG chứa chuỗi "rac dua" → phải đủ cả hai.
+_DUA = ("rac com dua", "rac dua", "gan dua")
+
+RULES: list[tuple[set[str], tuple[str, ...], int | str]] = [
     ({"kim"}, ("vit",), 0),                          # Kim + "vít…" → cao nhất
-    ({"duy"}, ("vit", "rac me"), 1),                 # Duy + "vít"/"rắc mè" → cao nhì
+    ({"duy"}, ("vit", "rac me", *_DUA), 1),          # Duy + vít/rắc mè/việc dừa → cao nhì
     # ⚠ TÊN PHẢI LÀ TÊN ĐẦY ĐỦ đã bỏ dấu, đúng như trong production_workers ("bao xuyen",
     # KHÔNG tách "bao"/"xuyen" — tách ra thì "Bảo Xuyên" không khớp rule nào, mà "Bảo" lại
     # là thợ KHÁC).
@@ -25,9 +33,16 @@ RULES: list[tuple[set[str], tuple[str, ...], int]] = [
     # Đặng/Duy là hạng 1. Nên khi 1 thợ đổi việc (Bảo Xuyên từ 21/7 chuyển "quậy kẹo"
     # → "vít kẹo") thì hạng của cô ấy GIỮ NGUYÊN — chỉ cần thêm từ khoá vào rule sẵn
     # có, đừng tạo rule mới với hạng khác. (Duy chốt 2026-08-04.)
-    ({"kim dung"}, ("quay keo",), 0),                # Kim Dung quậy kẹo → cao nhất
+    # Kim Dung quậy kẹo / chiên đậu → cao nhất. Từ khoá "chien" bắt CẢ "Chiên đậu" LẪN
+    # "Chiên" (khớp theo ranh giới từ). Duy chốt 2026-08-05.
+    ({"kim dung"}, ("quay keo", "chien"), 0),
     ({"bao xuyen"}, ("quay keo", "vit"), 0),         # Bảo Xuyên quậy kẹo/vít → cao nhất
     ({"thuy dang"}, ("quay keo", "vit"), 1),         # Thủy Đặng quậy kẹo/vít → cao nhì
+    # Tâm vô kẹo / việc DỪA → BẰNG TIỀN SP CỦA TRỌNG (mốc theo TÊN, không theo hạng:
+    # dữ liệu thật cho thấy Trọng lúc hạng 3, lúc hạng 4 — Duy chốt 2026-08-05, khớp 2
+    # khoản văn phòng đã trả tay: phiếu 40963 = 79.000, phiếu 40527 = 29.260).
+    ({"tam"}, ("vo keo", *_DUA), "trong"),
+    ({"vi"}, _DUA, "trong"),                         # Vĩ việc dừa → cũng bằng Trọng
 ]
 _NGHI = "nghi"   # ghi chú "nghỉ" → không phụ cấp (ưu tiên trên mọi rule)
 # Thợ KHÔNG dùng làm MỐC xếp hạng phụ cấp (sản lượng cao bất thường — không nên là
@@ -48,13 +63,19 @@ def compute_auto_allowances(workers: list[dict]) -> dict[str, float]:
 
     Trả {name: amount} CHỈ cho thợ có rule khớp; amount 0 = xoá phụ cấp (rule nghỉ).
     MỐC xếp hạng = thợ làm CÂY: bỏ người tính theo GIỜ (tiền giờ không làm mốc) và bỏ
-    thợ trong RANK_EXCLUDE (Trân). Người tính theo GIỜ cũng KHÔNG nhận phụ cấp."""
+    thợ trong RANK_EXCLUDE (Trân). Người tính theo GIỜ cũng KHÔNG nhận phụ cấp.
+    Mốc kiểu TÊN (rule chữ) thì lấy đúng tiền của người đó, KHÔNG lọc gì thêm."""
     ranked = sorted(
         (w for w in workers
          if not w.get("hour")
          and vn_normalize(str(w.get("name") or "")).strip() not in RANK_EXCLUDE),
         key=lambda w: (-float(w.get("piece") or 0), vn_normalize(str(w.get("name") or ""))),
     )
+    by_name: dict[str, float] = {}          # tiền theo TÊN — cho mốc đích danh
+    for w in workers:
+        nf = vn_normalize(str(w.get("name") or "")).strip()
+        if nf:
+            by_name[nf] = by_name.get(nf, 0.0) + float(w.get("piece") or 0)
     out: dict[str, float] = {}
     for w in workers:
         name = str(w.get("name") or "").strip()
@@ -67,10 +88,14 @@ def compute_auto_allowances(workers: list[dict]) -> dict[str, float]:
         if w.get("hour"):        # tính lương theo giờ → không có phụ cấp
             continue
         nfold = vn_normalize(name).strip()
-        for names, kws, rank in RULES:
+        for names, kws, moc in RULES:
             if nfold in names and any(_has_kw(note, k) for k in kws):
-                if rank < len(ranked):
-                    out[name] = float(ranked[rank].get("piece") or 0)
+                if isinstance(moc, str):          # mốc = ĐÍCH DANH 1 thợ
+                    peer = by_name.get(moc)
+                    if peer is not None:          # vắng mặt → không ghi gì
+                        out[name] = float(peer)
+                elif moc < len(ranked):           # mốc = HẠNG trong bảng
+                    out[name] = float(ranked[moc].get("piece") or 0)
                 break
     return out
 
