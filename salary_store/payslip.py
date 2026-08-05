@@ -99,7 +99,9 @@ def _wage_lines(r: dict) -> list[dict]:
             # đã NẰM TRONG lương sản phẩm — ghi để thợ đối chiếu, KHÔNG cộng lần nữa
             lines.append(_money_line("  (trong đó phụ cấp phiếu SX)", r.get("pc_phieu")))
         return lines
-    lines.append(_money_line("Mốc lương tháng", r.get("monthly_salary")))
+    # KHÔNG in mốc lương tháng (Duy chốt 2026-08-05): nó là số nội bộ để tính ra
+    # "lương theo ngày công", không phải khoản thợ được nhận. Bỏ luôn dòng đó thì
+    # MỌI dòng tiền trên phiếu đều là khoản cộng/trừ thật → cộng dọc ra đúng THỰC NHẬN.
     lines.append(_money_line("Lương theo ngày công", r.get("luong_cong")))
     if wt != "time_flat":
         lines.append(_money_line("Lương tăng ca", r.get("luong_tc")))
