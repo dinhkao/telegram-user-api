@@ -30,6 +30,13 @@ def _hrs(n) -> str:
     return f"{float(n or 0):.1f}".replace(".", ",")
 
 
+def _hrs0(n) -> str:
+    """Như _hrs nhưng SỐ 0 = Ô TRỐNG (Duy chốt 2026-08-05): bảng chấm công đầy '0,0'
+    ở ngày nghỉ/không tăng ca làm rối mắt, để trống thì mắt bắt ngay ngày có số."""
+    s = _hrs(n)
+    return "" if s == "0,0" else s
+
+
 def _line_row(ln: dict) -> str:
     cls = "tong" if ln.get("total") else ""
     if ln.get("kind") == "num":
@@ -53,8 +60,8 @@ def _day_row(d: dict) -> str:
     if d.get("more"):
         day += f'<sup>+{int(d["more"])}</sup>'   # còn mốc chấm không đủ ô để hiện
     return (f'<tr><td class="ngay">{day}</td><td class="thu">{esc(dow)}</td>{cells}'
-            f'<td class="num">{esc(_hrs(d.get("gio")))}</td>'
-            f'<td class="num">{esc(_hrs(d.get("tc")))}</td></tr>')
+            f'<td class="num">{esc(_hrs0(d.get("gio")))}</td>'
+            f'<td class="num">{esc(_hrs0(d.get("tc")))}</td></tr>')
 
 
 def _cham_cong(p: dict) -> str:
@@ -70,8 +77,8 @@ def _cham_cong(p: dict) -> str:
         '<th>Giờ</th><th>TC</th></tr>\n'
         f'{rows}\n'
         f'  <tr class="tong"><td colspan="6">TỔNG ({_num(tot.get("cong"))} công)</td>'
-        f'<td class="num">{_hrs(tot.get("gio"))}</td>'
-        f'<td class="num">{_hrs(tot.get("tc"))}</td></tr>\n'
+        f'<td class="num">{_hrs0(tot.get("gio"))}</td>'
+        f'<td class="num">{_hrs0(tot.get("tc"))}</td></tr>\n'
         '</table>'
     )
 
@@ -97,7 +104,9 @@ def _ung_luong(p: dict) -> str:
 _CSS = """
   @page { size: 76mm auto; margin: 0; }
   html, body { margin: 0; padding: 0; }
-  body { width: 280px; font-family: Arial, sans-serif; padding: 3mm 2mm 6mm; box-sizing: border-box; }
+  /* Lề TRÁI rộng hơn 3 phía còn lại: mép trái là chỗ hay bị máy in xén / chỗ kẹp
+     tay khi phát phiếu, sát quá là mất chữ. (Duy chốt 2026-08-05.) */
+  body { width: 280px; font-family: Arial, sans-serif; padding: 3mm 2mm 6mm 6mm; box-sizing: border-box; }
   .title { text-align: center; font-weight: bold; font-size: 19px; margin-bottom: 4px; }
   table { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
   td, th { padding: 2px 3px; font-size: 13px; vertical-align: middle; }
