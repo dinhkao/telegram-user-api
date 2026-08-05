@@ -5,7 +5,7 @@
 // Tách khỏi pages/MonthlyPayroll.tsx (file đó chạm trần 400 dòng khi thêm sắp xếp).
 import {
   addPayrollAdvance, addPayrollAllowance, listPayrollAdvances, listPayrollAllowances,
-  setPayrollAdvanceNote, setPayrollAllowanceNote, voidPayrollAdvance, voidPayrollAllowance,
+  setPayrollAdvanceNote, setPayrollAllowanceNote, setPayrollAllowancePrintNote, voidPayrollAdvance, voidPayrollAllowance,
   type PayrollMonth, type PayrollRow, type SalaryAdvance, type SalaryAllowance,
 } from "../api";
 import { moneyR as money } from "../format";
@@ -34,9 +34,10 @@ export function PayrollCard({ r, ym, active, toggleType, toggleWeekly, editMoc, 
   const otCong = otInCong(r.wage_type);     // TG*: giờ TC gộp vào công, không trả riêng
   const wid = r.worker_id;
 
-  const addAllow = async (a: number, note: string, calc?: { kind: "pct" | "day"; value: number } | null) => {
+  const addAllow = async (a: number, note: string, calc?: { kind: "pct" | "day"; value: number } | null,
+                         printNote?: string) => {
     // PHẢI toast: thêm xong mà im lặng thì người dùng tưởng bấm hụt, bấm lại → ghi 2 lần
-    try { apply(await addPayrollAllowance(ym, wid, a, note, calc)); const l = await listPayrollAllowances(ym, wid); setAllows((m) => ({ ...m, [wid]: l }));
+    try { apply(await addPayrollAllowance(ym, wid, a, note, calc, printNote)); const l = await listPayrollAllowances(ym, wid); setAllows((m) => ({ ...m, [wid]: l }));
       toast(`Đã ghi phụ cấp ${money(a)}đ cho ${r.name}`, "ok"); }
     catch (e: any) { toast(e?.message || "Lỗi thêm phụ cấp", "err"); }
   };
@@ -51,6 +52,16 @@ export function PayrollCard({ r, ym, active, toggleType, toggleWeekly, editMoc, 
   const askNote = async (title: string, cur: string) => {
     const next = await promptDialog(title, { initial: cur, placeholder: "VD: ăn trưa, xăng xe…", okLabel: "Lưu" });
     return next === null || next.trim() === cur ? null : next.trim();
+  };
+  // 🖨 chữ IN TRÊN PHIẾU của khoản (rỗng = phiếu in nội dung khoản như cũ)
+  const printAllow = async (id: number, cur: string) => {
+    const next = await promptDialog(
+      "Chữ in trên phiếu lương cho khoản này\nĐể trống = in theo nội dung khoản.",
+      { initial: cur, placeholder: "VD: Phụ cấp tháng 7", okLabel: "Lưu" });
+    if (next === null || next.trim() === cur) return;
+    try { apply(await setPayrollAllowancePrintNote(ym, id, next.trim())); const l = await listPayrollAllowances(ym, wid); setAllows((m) => ({ ...m, [wid]: l }));
+      toast("Đã lưu chữ in trên phiếu", "ok"); }
+    catch (e: any) { toast(e?.message || "Lỗi lưu chữ in", "err"); }
   };
   const noteAllow = async (id: number, cur: string) => {
     const next = await askNote("Nội dung khoản phụ cấp", cur);
@@ -157,7 +168,8 @@ export function PayrollCard({ r, ym, active, toggleType, toggleWeekly, editMoc, 
       {openPc && <EntryPanel entries={allowances} addPlaceholder="Số tiền phụ cấp"
         submitLabel="Thêm phụ cấp" noteLabel="Nội dung phụ cấp"
         notePlaceholder="VD: ăn trưa, xăng xe…" noteSuggestions={PC_GOI_Y} pctBase={pctBaseOf(r)} dayBase={{ days: r.cong || 0 }}
-        onAdd={(a, note, _d, calc) => addAllow(a, note, calc)} onDel={voidAllow} onNote={noteAllow} />}
+        onAdd={(a, note, _d, calc, pn) => addAllow(a, note, calc, pn)} onDel={voidAllow}
+        onNote={noteAllow} onPrintNote={printAllow} />}
       <div class="pr-adv-toggle">
         <span>Chi tiết ứng lương {r.adv_count ? <span class="muted small">· {r.adv_count} lần nhập tay</span> : null}</span>
         <button class="pr-toggle-btn" onClick={onToggleUng} aria-label={openUng ? "Đóng chi tiết ứng lương" : "Mở chi tiết ứng lương"}>{openUng ? "▾" : "▸"}</button>

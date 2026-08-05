@@ -310,7 +310,7 @@ def create_app():
         payroll_month_handler, payroll_advances_handler, payroll_adjust_handler,
         payroll_advance_add_handler, payroll_advance_void_handler, payroll_advance_note_handler,
         payroll_allowances_handler, payroll_allowance_add_handler, payroll_allowance_void_handler,
-        payroll_allowance_note_handler,
+        payroll_allowance_note_handler, payroll_allowance_print_note_handler,
     )
     r.add_get("/api/payroll/month", payroll_month_handler)
     r.add_get("/api/payroll/advances", payroll_advances_handler)
@@ -322,6 +322,7 @@ def create_app():
     r.add_post("/api/payroll/allowance", payroll_allowance_add_handler)   # TRƯỚC {id}
     r.add_post("/api/payroll/allowance/{id}/void", payroll_allowance_void_handler)
     r.add_post("/api/payroll/allowance/{id}/note", payroll_allowance_note_handler)
+    r.add_post("/api/payroll/allowance/{id}/print-note", payroll_allowance_print_note_handler)
     from server_app.payslip_routes import payslip_month_html_handler
     r.add_get("/api/payroll/payslip-html", payslip_month_html_handler)   # phiếu lương tháng in giấy
     # ─── chấm công (máy Ronald Jack — ingest = bearer riêng, còn lại office) ─

@@ -365,6 +365,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   âm thầm. Row trả `cc_on`/`vs_on` (cờ) + `thuong_cc`/`thuong_vs` (tiền, đã vào
   `thuc_lanh`). API
   `server_app/payroll_routes.py` (`/api/payroll/month|adjust|advance*|allowance*`,
+  gồm `allowance/{id}/print-note` = **CHỮ IN TRÊN PHIẾU** của khoản phụ cấp — cột
+  `salary_allowances.print_note`: có chữ thì phiếu lương in ĐÚNG chữ đó và KHÔNG kèm
+  công thức (nội dung nội bộ + "10% lương gốc" không lộ cho thợ), rỗng = in nội dung
+  khoản + công thức như cũ. Ô nhập ở `ui/MoneyEntryForm` (prop `printNote`, chỉ phụ
+  cấp truyền), sửa sau bằng nút 🖨 ở CẢ 3 chỗ hiện khoản (EntryPanel · trang
+  `#/nhap-phu-cap` view Thẻ · view Bảng `EntryTable`),
   TẤT CẢ chặn `office_user`). Khoản đã ghi: **VÔ HIỆU** (`.../{id}/void`, kèm lý do)
   hoặc **SỬA GHI CHÚ** (`.../{id}/note` — SỐ TIỀN/ngày BẤT BIẾN, sai tiền thì vô hiệu
   rồi ghi lại; khoản đã vô hiệu khoá luôn ghi chú). UI `MonthlyPayroll.tsx`

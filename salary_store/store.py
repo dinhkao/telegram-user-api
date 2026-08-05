@@ -93,6 +93,11 @@ def ensure_schema(conn) -> None:
     if "calc_kind" not in acols:
         conn.execute("ALTER TABLE salary_allowances ADD COLUMN calc_kind TEXT")
         conn.execute("ALTER TABLE salary_allowances ADD COLUMN calc_value REAL")
+    if "print_note" not in acols:
+        # CHỮ IN TRÊN PHIẾU của khoản phụ cấp: rỗng = phiếu in như cũ (nội dung khoản
+        # + công thức). Có chữ = phiếu in ĐÚNG chữ này, KHÔNG kèm công thức — để văn
+        # phòng ghi nội bộ một đằng mà chữ phát cho thợ một nẻo.
+        conn.execute("ALTER TABLE salary_allowances ADD COLUMN print_note TEXT DEFAULT ''")
     # vô hiệu hoá thay cho xoá (giữ dòng đối chiếu): ai + lúc nào + lý do
     for table in ("salary_advances", "salary_allowances"):
         tcols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
@@ -286,7 +291,8 @@ def list_allowances(conn, ym: str, worker_id: int | None = None, *,
     from salary_store.allowance_calc import allowance_amount, calc_label
     ensure_schema(conn)
     q = ("SELECT id, worker_id, ym, amount, note, created_by, created_at, "
-         "voided_at, voided_by, void_reason, calc_kind, calc_value FROM salary_allowances WHERE ym = ?")
+         "voided_at, voided_by, void_reason, calc_kind, calc_value, print_note "
+         "FROM salary_allowances WHERE ym = ?")
     args: list = [ym]
     if worker_id is not None:
         q += " AND worker_id = ?"
@@ -302,7 +308,8 @@ def list_allowances(conn, ym: str, worker_id: int | None = None, *,
                     "created_at": r["created_at"] or "", "voided_at": r["voided_at"] or "",
                     "voided_by": r["voided_by"] or "", "void_reason": r["void_reason"] or "",
                     "calc_kind": kind or "", "calc_value": float(val) if val is not None else 0,
-                    "calc_label": calc_label(kind, val)})
+                    "calc_label": calc_label(kind, val),
+                    "print_note": r["print_note"] or ""})
     return out
 
 
@@ -321,10 +328,12 @@ def allowance_rows_by_worker(conn, ym: str) -> dict:
 
 
 def add_allowance(conn, worker_id: int, ym: str, amount: float, note: str = "", by: str = "",
-                  calc_kind: str | None = None, calc_value=None) -> dict:
+                  calc_kind: str | None = None, calc_value=None,
+                  print_note: str = "") -> dict:
     """Thêm 1 khoản phụ cấp. calc_kind='pct'/'day' + calc_value = CÔNG THỨC (%, hoặc
     đơn giá 1 ngày công) → số tiền sẽ được tính lại theo lương gốc mỗi lần xem;
-    `amount` khi đó chỉ là số chụp lúc nhập. Không có công thức = tiền cố định."""
+    `amount` khi đó chỉ là số chụp lúc nhập. Không có công thức = tiền cố định.
+    print_note = CHỮ IN TRÊN PHIẾU (rỗng = in như cũ: nội dung + công thức)."""
     from salary_store.allowance_calc import normalize
     ensure_schema(conn)
     kind, val = normalize(calc_kind, calc_value)
@@ -335,19 +344,33 @@ def add_allowance(conn, worker_id: int, ym: str, amount: float, note: str = "", 
         raise ValueError("Số tiền phụ cấp phải > 0")
     with transaction(conn):
         cur = conn.execute(
-            "INSERT INTO salary_allowances (worker_id, ym, amount, note, created_by, calc_kind, calc_value) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (worker_id, ym, max(0.0, amt), (note or "").strip(), by or "", kind, val),
+            "INSERT INTO salary_allowances (worker_id, ym, amount, note, created_by, calc_kind, calc_value, print_note) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (worker_id, ym, max(0.0, amt), (note or "").strip(), by or "", kind, val,
+             (print_note or "").strip()),
         )
         aid = cur.lastrowid
     return {"id": aid, "worker_id": worker_id, "ym": ym, "amount": amt,
-            "note": (note or "").strip(), "calc_kind": kind or "", "calc_value": val or 0}
+            "note": (note or "").strip(), "calc_kind": kind or "", "calc_value": val or 0,
+            "print_note": (print_note or "").strip()}
 
 
 def update_allowance_note(conn, allowance_id: int, note: str) -> bool:
     """Sửa nhãn/ghi chú 1 khoản phụ cấp (số tiền không đổi). Xem _set_note."""
     ensure_schema(conn)
     return _set_note(conn, "salary_allowances", allowance_id, note)
+
+
+def update_allowance_print_note(conn, allowance_id: int, text: str) -> bool:
+    """Sửa CHỮ IN TRÊN PHIẾU của 1 khoản phụ cấp (rỗng = quay về in như cũ). Số tiền
+    và nội dung nội bộ không đổi; khoản ĐÃ VÔ HIỆU thì khoá luôn (giống _set_note)."""
+    ensure_schema(conn)
+    with transaction(conn):
+        cur = conn.execute(
+            "UPDATE salary_allowances SET print_note = ? WHERE id = ? AND voided_at IS NULL",
+            ((text or "").strip(), allowance_id),
+        )
+        return cur.rowcount > 0
 
 
 def void_allowance(conn, allowance_id: int, reason: str, by: str = "") -> bool:

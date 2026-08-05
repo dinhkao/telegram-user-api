@@ -148,3 +148,17 @@ def test_slots_chia_theo_buoi_khong_ghep_tuan_tu():
     assert _slots(["07:33"]) == (["07:33", "", "", ""], 0)
     # buổi có nhiều hơn 2 mốc: giữ đầu–cuối, đếm phần dôi để phiếu không giấu số liệu
     assert _slots(["07:00", "09:00", "11:00"]) == (["07:00", "11:00", "", ""], 1)
+
+
+def test_chu_in_tren_phieu_thang_noi_dung_noi_bo():
+    """Khoản phụ cấp có CHỮ IN TRÊN PHIẾU thì phiếu in đúng chữ đó và KHÔNG kèm công
+    thức (không lộ "10% lương gốc" cho thợ); để trống thì in như cũ."""
+    allow = [{"amount": 300_000, "note": "bù lỗi tháng trước", "calc_label": "10% lương gốc",
+              "print_note": "Phụ cấp tháng 6"}]
+    lb = _labels(build_payslip(_row(), allow, [], {}, ym="2026-06"))
+    assert "Phụ cấp Phụ cấp tháng 6" in lb
+    assert not any("bù lỗi" in x or "10%" in x for x in lb)
+    # để trống → giữ nguyên cách in cũ
+    allow[0]["print_note"] = ""
+    lb2 = _labels(build_payslip(_row(), allow, [], {}, ym="2026-06"))
+    assert "Phụ cấp bù lỗi tháng trước (10% lương gốc)" in lb2

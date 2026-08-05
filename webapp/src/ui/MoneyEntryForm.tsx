@@ -37,6 +37,7 @@ export function MoneyEntryForm({
   amount, onAmount, note, onNote, date, onDate,
   amountLabel = "Số tiền", notePlaceholder = "Ghi chú", noteLabel = "Ghi chú",
   noteSuggestions, submitLabel = "Thêm", onSubmit, busy, before, compact,
+  printNote, onPrintNote,
   pctBase, dayBase, onPct,
 }: {
   amount: string;                       // CHUỖI CHỈ CHỮ SỐ (cha giữ)
@@ -45,6 +46,10 @@ export function MoneyEntryForm({
   date?: string; onDate?: (v: string) => void;   // có onDate = hiện ô ngày
   amountLabel?: string; noteLabel?: string; notePlaceholder?: string;
   noteSuggestions?: string[];           // chip điền nhanh nội dung
+  // CHỮ IN TRÊN PHIẾU LƯƠNG (chỉ phụ cấp truyền vào — ứng lương không in
+  // theo khoản nên bỏ trống): có chữ thì phiếu in ĐÚNG chữ này, không kèm
+  // công thức; để trống thì phiếu in nội dung khoản như cũ.
+  printNote?: string; onPrintNote?: (v: string) => void;
   submitLabel?: string;
   onSubmit: () => void;
   busy?: boolean;
@@ -186,6 +191,15 @@ export function MoneyEntryForm({
               onClick={() => onNote(note === s ? "" : s)}>{s}</button>
           ))}
         </div>
+      ) : null}
+
+      {onPrintNote ? (
+        <>
+          <label class="me-label" for="me-pnote">Chữ in trên phiếu lương</label>
+          <input id="me-pnote" class="me-note" placeholder="để trống = in theo nội dung ở trên"
+            value={printNote || ""} onInput={(e: any) => onPrintNote(e.target.value)}
+            onKeyDown={(e: any) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }} />
+        </>
       ) : null}
 
       <button class="btn primary block me-submit" type="button" disabled={busy || n <= 0} onClick={submit}>

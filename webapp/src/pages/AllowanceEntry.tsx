@@ -9,7 +9,7 @@
 import { useEffect, useState } from "preact/hooks";
 import {
   addPayrollAllowance, getMonthlyPayroll, isOffice, listAllAllowances, listPayrollAllowances, listWorkers,
-  setPayrollAllowanceNote, soVN, voidPayrollAllowance,
+  setPayrollAllowanceNote, setPayrollAllowancePrintNote, soVN, voidPayrollAllowance,
   type PayrollRow, type SalaryAllowance, type Worker,
 } from "../api";
 import { EntryTable, type EntryRow } from "../detail/EntryTable";
@@ -41,6 +41,7 @@ export function AllowanceEntry() {
   const [filterWid, setFilterWid] = useState<number | null>(initial.wid);
   const [amt, setAmt] = useState("");
   const [note, setNote] = useState("");
+  const [pnote, setPnote] = useState("");   // chữ in trên phiếu lương của khoản
   // Bảng lương tháng — chỉ để lấy GỐC tính phụ cấp theo % của thợ đang chọn
   // (thợ SP → lương sản phẩm, thợ TG → lương ngày công). Xem detail/EntryPanel.
   const [payroll, setPayroll] = useState<PayrollRow[]>([]);
@@ -70,10 +71,11 @@ export function AllowanceEntry() {
       // nhập theo % thì ghi luôn cách tính vào nội dung (DB chỉ lưu SỐ TIỀN chốt)
       // có công thức thì lưu công thức, số tiền sẽ tự tính lại theo lương gốc
       await addPayrollAllowance(ym, wid, num(amt), note,
-        pct ? { kind: pct.kind, value: pct.n } : null);
+        pct ? { kind: pct.kind, value: pct.n } : null, pnote);
       toast(`Đã ghi phụ cấp ${money(num(amt))} cho ${nameOf(wid)}`, "ok");
       setAmt("");
       setNote("");
+      setPnote("");
       setPct(null);
       load();
     } catch (e: any) { toast(e?.message || "Lỗi ghi phụ cấp", "err"); }
@@ -87,6 +89,17 @@ export function AllowanceEntry() {
     if (next === null || next.trim() === (item.note || "")) return;
     try { await setPayrollAllowanceNote(ym, item.id, next.trim()); toast("Đã lưu nội dung", "ok"); load(); }
     catch (e: any) { toast(e?.message || "Lỗi lưu nội dung", "err"); }
+  };
+
+  // 🖨 CHỮ IN TRÊN PHIẾU của khoản (rỗng = phiếu in nội dung khoản + công thức)
+  const editPrintNote = async (item: SalaryAllowance) => {
+    const cur = item.print_note || "";
+    const next = await promptDialog(
+      `Chữ in trên phiếu lương cho khoản ${money(item.amount)} của ${nameOf(item.worker_id)}\nĐể trống = in theo nội dung khoản.`,
+      { initial: cur, placeholder: "VD: Phụ cấp tháng 7", okLabel: "Lưu" });
+    if (next === null || next.trim() === cur) return;
+    try { await setPayrollAllowancePrintNote(ym, item.id, next.trim()); toast("Đã lưu chữ in trên phiếu", "ok"); load(); }
+    catch (e: any) { toast(e?.message || "Lỗi lưu chữ in", "err"); }
   };
 
   const voidIt = async (id: number) => {
@@ -127,6 +140,7 @@ export function AllowanceEntry() {
       <section class="card ua-create">
         <label class="card-label"><Icon name="plus" size={15} /> Ghi phụ cấp</label>
         <MoneyEntryForm amount={amt} onAmount={setAmt} note={note} onNote={setNote}
+          printNote={pnote} onPrintNote={setPnote}
           amountLabel="Số tiền phụ cấp" submitLabel="Ghi phụ cấp"
           noteLabel="Nội dung phụ cấp" notePlaceholder="VD: ăn trưa, xăng xe…"
           noteSuggestions={PC_GOI_Y} busy={busy} onSubmit={submit}
@@ -157,10 +171,13 @@ export function AllowanceEntry() {
                 key: String(item.id), worker: nameOf(item.worker_id), ymd: "",
                 amount: item.amount,
                 // khoản theo CÔNG THỨC: ghi kèm công thức để bảng nói rõ số ở đâu ra
-                note: [item.note, item.calc_label].filter(Boolean).join(" · "),
+                // chữ IN TRÊN PHIẾU (nếu có) hiện ngay để đối chiếu với phiếu phát ra
+                note: [item.note, item.calc_label, item.print_note ? `🖨 ${item.print_note}` : ""]
+                  .filter(Boolean).join(" · "),
                 created: item.created_at, createdBy: item.created_by,
                 voidedAt: item.voided_at, voidedBy: item.voided_by, voidReason: item.void_reason,
                 onNote: () => editNote(item), onVoid: () => voidIt(item.id),
+                onPrintNote: () => editPrintNote(item),
               }))} />
            ) : (
             list.map((item) => (
@@ -170,6 +187,7 @@ export function AllowanceEntry() {
                   {item.voided_at ? <span class="ua-void-badge">VÔ HIỆU</span> : null}
                   {item.note ? <div class="muted small">{item.note}</div>
                     : !item.voided_at ? <div class="muted small ua-note-empty">chưa ghi nội dung</div> : null}
+                  {item.print_note ? <div class="ua-print-note">🖨 in trên phiếu: <b>{item.print_note}</b></div> : null}
                   {tsLabel(item.created_at) ? <div class="muted small ua-ts">tạo {tsLabel(item.created_at)}{item.created_by ? ` · ${item.created_by}` : ""}</div> : null}
                   {item.voided_at ? (
                     <div class="small ua-void-info">vô hiệu {tsLabel(item.voided_at)}{item.voided_by ? ` · ${item.voided_by}` : ""}{item.void_reason ? ` — ${item.void_reason}` : ""}</div>
@@ -179,6 +197,7 @@ export function AllowanceEntry() {
                 {!item.voided_at ? (
                   <>
                     <button class="ua-note-edit" onClick={() => editNote(item)} aria-label="Sửa nội dung" title="Sửa nội dung"><Icon name="edit" size={15} /></button>
+                    <button class="ua-note-edit" onClick={() => editPrintNote(item)} aria-label="Sửa chữ in trên phiếu" title="Sửa chữ in trên phiếu lương">🖨</button>
                     <button class="pr-adv-del" onClick={() => voidIt(item.id)} aria-label="Vô hiệu">✕</button>
                   </>
                 ) : null}

@@ -254,7 +254,9 @@ async def payroll_advance_void_handler(request: web.Request):
 
 async def _note_edit(request: web.Request, kind: str):
     """Thân chung POST .../{id}/note {ym, note} — sửa GHI CHÚ 1 khoản ứng/phụ cấp
-    (số tiền bất biến; khoản đã vô hiệu không sửa). Trả bảng tháng mới như void."""
+    (số tiền bất biến; khoản đã vô hiệu không sửa). Trả bảng tháng mới như void.
+    kind='allowance_print' = sửa CHỮ IN TRÊN PHIẾU của khoản phụ cấp (rỗng = phiếu
+    in lại nội dung + công thức như cũ)."""
     d = _deny(request)
     if d:
         return d
@@ -266,6 +268,7 @@ async def _note_edit(request: web.Request, kind: str):
     ym = str(body.get("ym") or "").strip()
     note = str(body.get("note") or "")
     update = (salary_store.update_advance_note if kind == "advance"
+              else salary_store.update_allowance_print_note if kind == "allowance_print"
               else salary_store.update_allowance_note)
 
     def _run():
@@ -282,6 +285,12 @@ async def _note_edit(request: web.Request, kind: str):
         return web.json_response({"ok": False, "error": "Không sửa được (khoản không tồn tại hoặc đã vô hiệu)"},
                                  status=400)
     return web.json_response({"ok": True, **data})
+
+
+async def payroll_allowance_print_note_handler(request: web.Request):
+    """POST /api/payroll/allowance/{id}/print-note {ym, note} — sửa CHỮ IN TRÊN PHIẾU
+    của 1 khoản phụ cấp. Rỗng = phiếu in lại nội dung khoản + công thức như cũ."""
+    return await _note_edit(request, "allowance_print")
 
 
 async def payroll_advance_note_handler(request: web.Request):
@@ -337,10 +346,13 @@ def _pc_base(conn, ym: str, worker_id: int) -> tuple[float, float]:
 
 
 async def payroll_allowance_add_handler(request: web.Request):
-    """POST /api/payroll/allowance {worker_id, ym, amount, note?, calc_kind?, calc_value?}
+    """POST /api/payroll/allowance
+    {worker_id, ym, amount, note?, print_note?, calc_kind?, calc_value?}
     — thêm 1 khoản phụ cấp. calc_kind='pct'/'day' + calc_value = CÔNG THỨC (% lương gốc
     / đơn giá 1 ngày công): số tiền được TÍNH LẠI theo lương gốc mỗi lần xem, nên
-    amount khi đó chỉ là số chụp lúc nhập và ĐƯỢC PHÉP bằng 0."""
+    amount khi đó chỉ là số chụp lúc nhập và ĐƯỢC PHÉP bằng 0.
+    print_note = CHỮ IN TRÊN PHIẾU LƯƠNG của khoản này (rỗng = phiếu in nội dung
+    khoản + công thức như cũ)."""
     d = _deny(request)
     if d:
         return d
@@ -362,7 +374,8 @@ async def payroll_allowance_add_handler(request: web.Request):
         conn = get_connection(SHARED_DB_PATH)
         try:
             salary_store.add_allowance(conn, worker_id, ym, amount, note=str(body.get("note") or ""),
-                                       by=by, calc_kind=kind, calc_value=body.get("calc_value"))
+                                       by=by, calc_kind=kind, calc_value=body.get("calc_value"),
+                                       print_note=str(body.get("print_note") or ""))
             return salary_store.compute_month_payroll(conn, ym)
         finally:
             conn.close()
