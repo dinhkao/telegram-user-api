@@ -116,6 +116,14 @@ _CSS = """
   .cc sup { font-size: 8px; }
   .ul td { font-size: 12px; }
   .ky { margin-top: 10px; text-align: center; font-size: 26px; font-weight: bold; }
+  /* Nút IN nổi góc dưới-phải: bấm là ra hộp thoại in của máy (window.print).
+     KHÔNG được lên giấy → ẩn hẳn trong @media print. */
+  .btn-in { position: fixed; right: 10px; bottom: 14px; z-index: 9;
+    padding: 11px 18px; border: none; border-radius: 999px;
+    background: #0b57d0; color: #fff; font-size: 15px; font-weight: bold;
+    box-shadow: 0 2px 8px rgba(0,0,0,.35); cursor: pointer; }
+  .btn-in:active { background: #08409b; }
+  @media print { .btn-in { display: none !important; } }
 """
 
 
@@ -141,5 +149,6 @@ def generate_payslip_month_html(p: dict) -> str:
         f'{_ung_luong(p)}\n'
         f'  <div class="ky">{name}</div>\n'
         '  <div class="cut">- - - - - - - - - - - - - - - -</div>\n'
+        '  <button class="btn-in" onclick="window.print()">🖨 In phiếu</button>\n'
         '</body></html>'
     )
