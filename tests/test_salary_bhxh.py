@@ -110,7 +110,12 @@ class SalaryBhxhTest(unittest.TestCase):
         # lương = 0 (chưa chấm công) → 0 + 300k − 1tr − 500k
         self.assertEqual(r["thuc_lanh"], r["luong"] + 300_000 - 1_000_000 - 500_000)
         self.assertEqual(d["totals"]["bhxh"], 500_000)
-        self.assertEqual(d["totals"]["thuc_lanh"], sum(x["thuc_lanh"] for x in d["workers"]))
+        # TỔNG cột Lãnh chỉ cộng thợ DƯƠNG (2026-08-05): thợ này đang âm nên vào
+        # thuc_lanh_am, không kéo tổng xuống — xem compute_month_payroll.
+        self.assertEqual(d["totals"]["thuc_lanh"],
+                         sum(max(0, x["thuc_lanh"]) for x in d["workers"]))
+        self.assertEqual(d["totals"]["thuc_lanh_am"],
+                         sum(-x["thuc_lanh"] for x in d["workers"] if x["thuc_lanh"] < 0))
 
     def test_lich_su_bhxh_cua_tho(self):
         salary_store.set_month_bhxh(self.conn, "2026-08", self.a, 750_000, by="duy")

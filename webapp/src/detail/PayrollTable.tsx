@@ -21,6 +21,12 @@ const VS_MOI_NGAY = 12000;
 const tongNhan = (r: PayrollRow) =>
   r.luong + r.phu_cap + r.thuong + r.thuong_cc + r.thuong_vs + r.cho_hang;
 const sum = (rows: PayrollRow[], f: (r: PayrollRow) => number) => rows.reduce((a, r) => a + (f(r) || 0), 0);
+/** TỔNG cột LÃNH = tiền THỰC SỰ phải chi → CHỈ cộng thợ dương (Duy chốt 2026-08-05).
+ *  Thợ âm (ứng/BHXH vượt lương) tháng này nhận 0 và nợ lại, không làm giảm tiền phải
+ *  trả cho người khác. Luật này PHẢI khớp server (salary_store/store.compute_month_payroll)
+ *  — lệch 1 bên là chân bảng khác thanh tóm tắt. */
+const sumLanh = (rows: PayrollRow[]) => rows.reduce((a, r) => a + Math.max(0, r.thuc_lanh || 0), 0);
+const sumAm = (rows: PayrollRow[]) => rows.reduce((a, r) => a + Math.max(0, -(r.thuc_lanh || 0)), 0);
 
 /** Màn hẹp (cùng mốc 720px với media query bảng lương trong styles.css) — dùng để
  *  thu cột Thợ ghim trái, thứ CSS không đè được vì width nằm inline trên <col>. */
@@ -96,6 +102,8 @@ export function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleW
   }, []);
   const cols = <colgroup>{COL_EM.map((w, i) => <col key={i} style={`width:${w}em`} />)}</colgroup>;
   const congAll = sum(rows, (r) => r.cong);
+  const amAll = sumAm(rows);                       // tổng phần ÂM (thợ nợ lại)
+  const amCount = rows.filter((r) => r.thuc_lanh < 0).length;
   const nhanAll = sum(rows, tongNhan);
   return (
     <div class="pr-table-wrap">
@@ -284,7 +292,12 @@ export function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleW
               <td class="pr-num">{money(sum(rows, (r) => r.cho_hang))}</td>
               <td class="pr-num">{money(sum(rows, (r) => r.ung))}</td>
               <td class="pr-num">{money(sum(rows, (r) => r.bhxh))}</td>
-              <td class="pr-num pr-net-td">{money(sum(rows, (r) => r.thuc_lanh))}</td>
+              <td class="pr-num pr-net-td" title={amAll
+                ? `Chỉ cộng thợ dương. ${amCount} thợ đang âm ${money(amAll)}đ (ứng/BHXH vượt lương) — tháng này nhận 0 và nợ lại.`
+                : "Tổng tiền thực phải chi tháng này"}>
+                {money(sumLanh(rows))}
+                {amAll ? <sup class="t-danger" title={`${amCount} thợ đang âm ${money(amAll)}đ — không trừ vào tổng`}> *</sup> : null}
+              </td>
             </tr>
           </tfoot>
         </table>

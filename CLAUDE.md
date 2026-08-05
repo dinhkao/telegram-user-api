@@ -314,7 +314,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   lập, KHÁC `production_workers.weekly_salary`) + `salary_advances` (ỨNG lương NHIỀU
   lần/tháng) + `salary_allowances` (PHỤ CẤP NHIỀU KHOẢN/tháng — amount + nhãn, cộng
   dồn; giống ứng). `compute_month_payroll(ym)`: thực lãnh = lương + phụ cấp (Σ khoản)
-  + thưởng − ứng − **BHXH**; `weekly` (nhận lương tuần) bật → ứng tự động += lương
+  + thưởng − ứng − **BHXH**. ⚠ **TỔNG cột Lãnh CHỈ cộng thợ DƯƠNG** (2026-08-05):
+  tổng = tiền THỰC phải chi; thợ âm (ứng/BHXH vượt lương) tháng này nhận 0 và nợ lại,
+  cộng cả âm là tổng ra thiếu → rút quỹ theo đó là hụt tiền. Phần âm gom riêng ở
+  `totals.thuc_lanh_am` + `am_count` (hiện ở thanh tóm tắt + dấu `*` ở chân bảng) để
+  không mất dấu. Luật này có ở CẢ server lẫn `detail/PayrollTable.tsx::sumLanh` —
+  lệch 1 bên là chân bảng khác thanh tóm tắt.
+  `weekly` (nhận lương tuần) bật → ứng tự động += lương
   của tháng **TRƯỚC khi trừ ẩn**. ⚠ Lương tuần áp cho **CẢ lương SP LẪN lương THỜI
   GIAN** (Duy chốt 2026-08-05) — thợ TG bật cờ này thì lương thời gian cũng khử hết,
   đúng ý đồ. Phải lấy lương TRƯỚC trừ ẩn, lấy lương sau-trừ thì 2 số khử nhau
