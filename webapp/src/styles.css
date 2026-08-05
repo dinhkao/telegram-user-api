@@ -1358,8 +1358,17 @@ a.pr-stat:active { background: var(--accent-wash); }
    (overflow hidden, scrollLeft do JS đồng bộ từ thân); .pr-tbody-scroll = thân cuộn
    NGANG; cột Thợ sticky trái ở cả hai. colgroup px cố định giữ 2 bảng thẳng cột. */
 .pr-table-wrap { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card); box-shadow: var(--e1); }
-.pr-thead-bar { position: sticky; top: 44px; z-index: 6; overflow-x: hidden; background: var(--bg); border-radius: var(--r-md) var(--r-md) 0 0; }
-body.has-nop .pr-thead-bar { top: 72px; }
+/* Ô TÌM THỢ ghim dưới app-bar; tiêu đề bảng ghim ngay DƯỚI nó (--pr-search-h =
+   chiều cao thật của hàng tìm, do MonthlyPayroll đo bằng ResizeObserver rồi đặt —
+   hằng số cứng sẽ lúc hở lúc chồng khi đổi cỡ chữ/màn). Fallback 46px = cỡ thường. */
+.pr-searchrow { position: sticky; top: 44px; z-index: 7; display: flex; align-items: center; gap: 8px;
+  padding: 6px 0 8px; background: var(--bg); }
+body.has-nop .pr-searchrow { top: 72px; }
+.pr-searchn { flex: none; color: var(--muted); font-size: .76rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pr-thead-bar { position: sticky; top: calc(44px + var(--pr-search-h, 46px)); z-index: 6; overflow-x: hidden; background: var(--bg); border-radius: var(--r-md) var(--r-md) 0 0; }
+body.has-nop .pr-thead-bar { top: calc(72px + var(--pr-search-h, 46px)); }
+/* chân bảng: "Tổng 3/24" khi đang lọc — số nhỏ hơn chữ Tổng, không hút mắt */
+.pr-foot-n { color: var(--muted); font-size: .78em; font-weight: 600; }
 .pr-tbody-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 /* ⚠ table-layout:fixed CHỈ ăn khi bảng có bề rộng XÁC ĐỊNH. `width:max-content`
    (bản cũ) là bề rộng nội tại → Chrome phải đo bằng auto-layout, colgroup mất tác
