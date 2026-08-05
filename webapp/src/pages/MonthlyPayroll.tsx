@@ -167,7 +167,11 @@ export function MonthlyPayroll() {
                 <div class="pr-summary-net">
                   <span>Thực lãnh toàn bộ</span>
                   <strong>{money(totals.thuc_lanh)}</strong>
-                  <small>{data.workers.length} nhân viên · {data.workers.filter((r) => r.weekly).length} nhận lương tuần</small>
+                  {/* Tổng = tiền THỰC PHẢI CHI (không cộng thợ âm) → phải nói rõ có
+                      bao nhiêu thợ đang âm, không thì số nợ lại biến mất im lặng */}
+                  <small>{data.workers.length} nhân viên · {data.workers.filter((r) => r.weekly).length} nhận lương tuần
+                    {totals.am_count ? <> · <b class="t-danger">{totals.am_count} thợ âm {money(totals.thuc_lanh_am)}</b> (nhận 0, nợ lại)</> : null}
+                  </small>
                 </div>
                 <div class="pr-summary-breakdown">
                   <div class="pr-stat gross"><span>Lương gốc</span><b>{money(totals.luong)}</b></div>

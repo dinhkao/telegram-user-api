@@ -251,6 +251,17 @@ class SalaryStoreTest(unittest.TestCase):
         self.assertEqual(r["ung_weekly"], 1_000_000)   # đã trả nguyên lương theo tuần
         self.assertEqual(r["thuc_lanh"], -300_000)     # còn nợ đúng số trừ ẩn
 
+    def test_tong_thuc_lanh_khong_cong_tho_am(self):
+        """TỔNG cột Lãnh = tiền THỰC phải chi → chỉ cộng thợ dương (Duy chốt
+        2026-08-05). Thợ âm (ứng vượt lương) nhận 0 và nợ lại, gom riêng ở
+        thuc_lanh_am/am_count chứ không trừ vào tổng."""
+        salary_store.add_allowance(self.conn, self.a, "2026-07", 500_000, note="phụ cấp")
+        salary_store.add_advance(self.conn, self.b, "2026-07", 800_000)   # b không có lương → âm
+        t = salary_store.compute_month_payroll(self.conn, "2026-07")["totals"]
+        self.assertEqual(t["thuc_lanh"], 500_000)        # KHÔNG bị 800k của b kéo xuống
+        self.assertEqual(t["thuc_lanh_am"], 800_000)     # phần âm gom riêng (số dương)
+        self.assertEqual(t["am_count"], 1)
+
     def test_phu_cap_nhieu_khoan_cong_don(self):
         salary_store.add_allowance(self.conn, self.a, "2026-07", 100_000, note="ăn trưa")
         salary_store.add_allowance(self.conn, self.a, "2026-07", 50_000, note="xăng xe")

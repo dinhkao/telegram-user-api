@@ -1184,7 +1184,10 @@ export type PayrollRow = {
   // lương in cho thợ không có dòng nào về chúng.
   cong_auto: number; cong_manual: boolean; tru_an: number; luong_goc: number;
 };
-export type PayrollMonth = { ym: string; workers: PayrollRow[]; totals: { luong: number; phu_cap: number; thuong: number; thuong_cc: number; thuong_vs: number; cho_hang: number; tru_an: number; ung: number; bhxh: number; thuc_lanh: number } };
+export type PayrollMonth = { ym: string; workers: PayrollRow[]; totals: { luong: number; phu_cap: number; thuong: number; thuong_cc: number; thuong_vs: number; cho_hang: number; tru_an: number; ung: number; bhxh: number;
+  // thuc_lanh = tiền THỰC PHẢI CHI (chỉ cộng thợ dương). Thợ âm gom riêng ở
+  // thuc_lanh_am (số dương = tổng nợ lại) + am_count để không mất dấu.
+  thuc_lanh: number; thuc_lanh_am: number; am_count: number } };
 export type SalaryAdvance = { id: number; worker_id: number; ym: string; amount: number; adv_date: string; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string };
 // calc_kind 'pct'/'day' + calc_value = CÔNG THỨC: amount được server TÍNH LẠI theo
 // lương gốc của tháng mỗi lần trả về (rỗng = khoản tiền cố định, bất biến).

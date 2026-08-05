@@ -413,7 +413,8 @@ def compute_month_payroll(conn, ym: str) -> dict:
 
     out = []
     tot = {"luong": 0.0, "phu_cap": 0.0, "thuong": 0.0, "thuong_cc": 0.0, "thuong_vs": 0.0,
-           "cho_hang": 0.0, "tru_an": 0.0, "ung": 0.0, "bhxh": 0.0, "thuc_lanh": 0.0}
+           "cho_hang": 0.0, "tru_an": 0.0, "ung": 0.0, "bhxh": 0.0, "thuc_lanh": 0.0,
+           "thuc_lanh_am": 0.0, "am_count": 0}
     for w in workers:
         wid, wt = w["id"], (w.get("wage_type") or "product")
         # mốc tháng (lương TG mong muốn): bản đặt gần nhất ≤ ym; chưa đặt bao giờ thì
@@ -534,5 +535,13 @@ def compute_month_payroll(conn, ym: str) -> dict:
         tot["tru_an"] += row["tru_an"]
         tot["ung"] += row["ung"]
         tot["bhxh"] += row["bhxh"]
-        tot["thuc_lanh"] += row["thuc_lanh"]
+        # TỔNG CỘT LÃNH = TIỀN THỰC SỰ PHẢI CHI, nên CHỈ cộng thợ dương (Duy chốt
+        # 2026-08-05). Thợ âm = ứng/BHXH vượt lương → tháng này họ nhận 0 và nợ lại,
+        # KHÔNG làm giảm tiền phải trả cho người khác; cộng cả âm là tổng ra thiếu,
+        # văn phòng rút quỹ theo đó là hụt tiền. Phần âm gom riêng để không mất dấu.
+        if row["thuc_lanh"] > 0:
+            tot["thuc_lanh"] += row["thuc_lanh"]
+        elif row["thuc_lanh"] < 0:
+            tot["thuc_lanh_am"] += -row["thuc_lanh"]
+            tot["am_count"] += 1
     return {"ym": ym, "workers": out, "totals": {k: round(v) for k, v in tot.items()}}
