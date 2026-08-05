@@ -94,10 +94,11 @@ def _wage_lines(r: dict) -> list[dict]:
     wt = (r.get("wage_type") or "product")
     lines: list[dict] = []
     if wt == "product":
+        # CHỈ 1 dòng lương sản phẩm. KHÔNG in dòng "trong đó phụ cấp phiếu SX" (Duy
+        # chốt 2026-08-05): số đó đã NẰM TRONG lương sản phẩm, in ra thành dòng tiền
+        # riêng thì cộng dọc phiếu dư đúng bằng nó — thợ bấm máy tính ra số khác
+        # THỰC NHẬN. Văn phòng vẫn xem tách được ở popup ô Lương SP của bảng lương.
         lines.append(_money_line("Lương sản phẩm", r.get("luong_sp")))
-        if round(float(r.get("pc_phieu") or 0)):
-            # đã NẰM TRONG lương sản phẩm — ghi để thợ đối chiếu, KHÔNG cộng lần nữa
-            lines.append(_money_line("  (trong đó phụ cấp phiếu SX)", r.get("pc_phieu")))
         return lines
     # KHÔNG in mốc lương tháng (Duy chốt 2026-08-05): nó là số nội bộ để tính ra
     # "lương theo ngày công", không phải khoản thợ được nhận. Bỏ luôn dòng đó thì

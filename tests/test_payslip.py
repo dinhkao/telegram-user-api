@@ -46,7 +46,21 @@ def test_tho_luong_san_pham_khong_co_dong_tang_ca():
     r = _row(wage_type="product", luong_sp=5_000_000, luong_cong=0, luong_tc=0, pc_phieu=300_000)
     lb = _labels(build_payslip(r, [], [], {}, ym="2026-06"))
     assert "Lương sản phẩm" in lb and "Lương tăng ca" not in lb and "Mốc lương tháng" not in lb
-    assert "  (trong đó phụ cấp phiếu SX)" in lb
+    # KHÔNG in dòng "trong đó phụ cấp phiếu SX": số đó đã nằm TRONG lương sản phẩm,
+    # in thành dòng tiền riêng là cộng dọc phiếu bị dư đúng bằng nó
+    assert not any("phụ cấp phiếu" in x for x in lb)
+
+
+def test_tho_san_pham_co_phu_cap_phieu_van_cong_dung_thuc_nhan():
+    """Chốt lại bằng phép cộng: thợ SP có phụ cấp phiếu SX + phụ cấp tháng, cộng MỌI
+    dòng tiền vẫn ra đúng THỰC NHẬN (không dòng nào bị đếm 2 lần)."""
+    r = _row(wage_type="product", luong_sp=5_000_000, luong_cong=0, luong_tc=0,
+             pc_phieu=300_000, cc_on=False, vs_on=False, thuong_cc=0, thuong_vs=0,
+             ung_manual=1_000_000, bhxh=0, thuc_lanh=5_000_000 + 50_000 - 1_000_000)
+    p = build_payslip(r, [{"amount": 50_000, "note": "điện thoại", "calc_label": ""}],
+                      [], {}, ym="2026-06")
+    s = sum(ln["value"] for ln in p["lines"] if ln["kind"] == "money" and not ln["total"])
+    assert s == p["lines"][-1]["value"] == 4_050_000
 
 
 def test_time_flat_gop_tang_ca_vao_ngay_cong():
