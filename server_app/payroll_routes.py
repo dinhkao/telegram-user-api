@@ -90,7 +90,7 @@ async def payroll_advances_handler(request: web.Request):
 async def payroll_adjust_handler(request: web.Request):
     """POST /api/payroll/adjust
     {ym, worker_id, thuong?, note?, weekly?, thuong_cc?, thuong_vs?, cho_hang?,
-     monthly_salary?, bhxh?}
+     tru_an?, cong_override?, monthly_salary?, bhxh?}
     — sửa thưởng/ghi chú/nhận-lương-tuần/2 cờ THƯỞNG (chuyên cần, vệ sinh)/MỐC LƯƠNG/
     TRỪ BHXH theo tháng (field vắng = giữ nguyên). thuong_cc/thuong_vs là cờ bật-tắt,
     số tiền tính live (salary_store/bonus.py) và KHÔNG kế thừa sang tháng sau.
@@ -100,7 +100,11 @@ async def payroll_adjust_handler(request: web.Request):
     bhxh = số TRỪ BHXH của tháng ym, cùng luật kế thừa nhưng 0 KHÁC "bỏ đặt riêng":
     số ≥ 0 = đặt riêng tháng này (0 = từ tháng này thôi trừ), null = bỏ đặt riêng →
     kế thừa lại bản trước (xem salary_store/bhxh.py). Phụ cấp = nhiều khoản, dùng
-    /api/payroll/allowance."""
+    /api/payroll/allowance.
+    tru_an = SỐ TRỪ ẨN khỏi lương SP (0 = bỏ) — phiếu lương in cho thợ KHÔNG hiện
+    dòng/lý do nào, chỉ thấy lương SP đã trừ.
+    cong_override = NGÀY CÔNG gõ tay đè số máy chấm công; như bhxh, số ≥ 0 = đặt
+    (0 = ép 0 công), null = BỎ ghi đè, vắng field = giữ nguyên."""
     d = _deny(request)
     if d:
         return d
@@ -123,6 +127,23 @@ async def payroll_adjust_handler(request: web.Request):
         cho_hang = _money(cho_hang, positive=False)
         if cho_hang is None:
             return web.json_response({"ok": False, "error": "Tiền lương chờ hàng không hợp lệ"}, status=400)
+    # SỐ TRỪ ẨN khỏi lương SP (0 = bỏ). Vắng field = giữ nguyên.
+    tru_an = body.get("tru_an")
+    if tru_an is not None:
+        tru_an = _money(tru_an, positive=False)
+        if tru_an is None:
+            return web.json_response({"ok": False, "error": "Số trừ ẩn không hợp lệ"}, status=400)
+    # NGÀY CÔNG gõ tay: như BHXH, phải phân biệt "vắng field" (giữ nguyên) ↔ "null"
+    # (bỏ ghi đè, quay về máy chấm công) ↔ "0" (ép 0 công) → dùng `in body`.
+    has_cong = "cong_override" in body
+    cong_ov = None
+    if has_cong and body["cong_override"] is not None:
+        try:
+            cong_ov = float(str(body["cong_override"]).replace(",", "."))
+        except (TypeError, ValueError):
+            cong_ov = None
+        if cong_ov is None or not math.isfinite(cong_ov) or not (0 <= cong_ov <= 62):
+            return web.json_response({"ok": False, "error": "Ngày công phải từ 0 đến 62"}, status=400)
     moc = body.get("monthly_salary")
     if moc is not None:
         moc = _money(moc, positive=False)   # 0 = bỏ mốc riêng tháng này; None (vắng) = giữ nguyên
@@ -144,14 +165,16 @@ async def payroll_adjust_handler(request: web.Request):
         try:
             salary_store.ensure_schema(conn)
             if any(body.get(k) is not None for k in ("note", "weekly", "thuong_cc", "thuong_vs")) \
-                    or thuong is not None or cho_hang is not None:
+                    or thuong is not None or cho_hang is not None or tru_an is not None:
                 salary_store.set_month_adjust(
                     conn, ym, worker_id,
                     thuong=thuong, note=body.get("note"),
                     weekly=body.get("weekly"),
                     thuong_cc=body.get("thuong_cc"), thuong_vs=body.get("thuong_vs"),
-                    cho_hang=cho_hang, by=by,
+                    cho_hang=cho_hang, tru_an=tru_an, by=by,
                 )
+            if has_cong:   # cong_ov=None ở đây = BỎ ghi đè, quay về số máy chấm công
+                salary_store.set_cong_override(conn, ym, worker_id, cong_ov, by=by)
             if has_moc:   # mốc lương ghi vào ĐÚNG tháng ym (không đụng tháng khác)
                 salary_store.set_month_moc(conn, ym, worker_id, moc, by=by)
             if has_bhxh:  # bhxh=None ở đây nghĩa là BỎ đặt riêng tháng này

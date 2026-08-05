@@ -163,6 +163,64 @@ class SalaryStoreTest(unittest.TestCase):
         self.assertEqual(r["cho_hang"], 0)
         self.assertEqual(r["thuc_lanh"], 0)
 
+    def test_ngay_cong_go_tay_de_so_may_cham(self):
+        """Ghi đè ngày công: đè hẳn số máy chấm, kéo theo mọi thứ ăn theo công
+        (lương ngày công, thưởng vệ sinh); None = bỏ đè, quay về số máy."""
+        update_worker(self.conn, self.a, wage_type="time", monthly_salary=5_200_000)
+        r0 = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)
+        self.assertFalse(r0["cong_manual"])
+        salary_store.set_cong_override(self.conn, "2026-07", self.a, 26)
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)
+        self.assertEqual(r["cong"], 26)
+        self.assertTrue(r["cong_manual"])
+        self.assertEqual(r["cong_auto"], r0["cong"])       # số máy chấm vẫn giữ để đối chiếu
+        self.assertEqual(r["luong_cong"], 5_200_000)       # 5.2tr/26 × 26 công
+        # 0 là số CÓ NGHĨA (ép 0 công), khác hẳn "bỏ ghi đè"
+        salary_store.set_cong_override(self.conn, "2026-07", self.a, 0)
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)
+        self.assertEqual(r["cong"], 0)
+        self.assertTrue(r["cong_manual"])
+        salary_store.set_cong_override(self.conn, "2026-07", self.a, None)
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)
+        self.assertFalse(r["cong_manual"])
+        self.assertEqual(r["cong"], r0["cong"])
+        # KHÔNG kế thừa sang tháng sau
+        salary_store.set_cong_override(self.conn, "2026-07", self.a, 20)
+        self.assertFalse(self._row(salary_store.compute_month_payroll(self.conn, "2026-08"), self.a)["cong_manual"])
+
+    def test_so_tru_an_tru_thang_vao_luong_sp(self):
+        """Trừ ẩn: lương SP giảm ĐÚNG số đó, thực lãnh giảm y hệt, giữ luong_goc để
+        đối chiếu. Trừ quá lương thì kẹp ở 0 (không cho lương âm)."""
+        wid = self._seed_product_worker("Cường", tong_calc=1000, gia=1000)   # lương SP = 1tr
+        salary_store.set_month_adjust(self.conn, "2026-07", wid, tru_an=200_000)
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), wid)
+        self.assertEqual(r["tru_an"], 200_000)
+        self.assertEqual(r["luong_goc"], 1_000_000)
+        self.assertEqual(r["luong_goc"] - r["luong_sp"], 200_000)
+        self.assertEqual(r["luong_sp"], r["luong"])
+        # kẹp ở 0, không âm
+        salary_store.set_month_adjust(self.conn, "2026-07", wid, tru_an=99_000_000)
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), wid)
+        self.assertEqual(r["luong_sp"], 0)
+        # 0 = bỏ
+        salary_store.set_month_adjust(self.conn, "2026-07", wid, tru_an=0)
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), wid)
+        self.assertEqual(r["tru_an"], 0)
+        self.assertEqual(r["luong_sp"], r["luong_goc"])
+
+    def test_tru_an_khong_keo_phu_cap_phan_tram_xuong(self):
+        """Phụ cấp % tính trên lương TRƯỚC khi trừ ẩn → thực lãnh giảm ĐÚNG bằng số
+        trừ, không nhân thêm hệ số nào."""
+        wid = self._seed_product_worker("Dũng", tong_calc=1000, gia=1000)    # lương SP = 1tr
+        salary_store.add_allowance(self.conn, wid, "2026-07", 0, note="10%",
+                                   calc_kind="pct", calc_value=10)
+        before = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), wid)
+        self.assertEqual(before["phu_cap"], 100_000)        # 10% của 1tr
+        salary_store.set_month_adjust(self.conn, "2026-07", wid, tru_an=100_000)
+        after = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), wid)
+        self.assertEqual(after["phu_cap"], before["phu_cap"])          # phụ cấp % KHÔNG đổi
+        self.assertEqual(before["thuc_lanh"] - after["thuc_lanh"], 100_000)
+
     def test_phu_cap_nhieu_khoan_cong_don(self):
         salary_store.add_allowance(self.conn, self.a, "2026-07", 100_000, note="ăn trưa")
         salary_store.add_allowance(self.conn, self.a, "2026-07", 50_000, note="xăng xe")

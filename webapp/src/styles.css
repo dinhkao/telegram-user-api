@@ -1369,6 +1369,20 @@ body.has-nop .pr-searchrow { top: 72px; }
 body.has-nop .pr-thead-bar { top: calc(72px + var(--pr-search-h, 46px)); }
 /* chân bảng: "Tổng 3/24" khi đang lọc — số nhỏ hơn chữ Tổng, không hút mắt */
 .pr-foot-n { color: var(--muted); font-size: .78em; font-weight: 600; }
+/* 2 ô nhập nhanh trong popup ô bảng lương (detail/PayrollQuickEdit): ngày công gõ
+   tay + số trừ ẩn. Ô to hết chiều ngang — đây là ô nhập SỐ LƯƠNG, đừng thu nhỏ. */
+.pq-box { margin: 10px 0; padding: 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); }
+.pq-lb { font-size: .78rem; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+.pq-row { display: flex; gap: 8px; align-items: stretch; }
+.pq-in { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--ink); font-size: 1.05rem; font-weight: 700;
+  text-align: right; font-variant-numeric: tabular-nums; }
+.pq-in:focus { outline: none; border-color: var(--primary); }
+.pq-ok { flex: none; padding: 0 16px; }
+.pq-note { margin-top: 6px; font-size: .76rem; line-height: 1.35; }
+.pq-note.muted { color: var(--muted); }
+.pq-link { margin-left: 6px; padding: 0; border: none; background: none; color: var(--primary);
+  font-size: .76rem; font-weight: 700; text-decoration: underline; }
 .pr-tbody-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 /* ⚠ table-layout:fixed CHỈ ăn khi bảng có bề rộng XÁC ĐỊNH. `width:max-content`
    (bản cũ) là bề rộng nội tại → Chrome phải đo bằng auto-layout, colgroup mất tác
