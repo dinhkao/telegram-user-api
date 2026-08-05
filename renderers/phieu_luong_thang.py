@@ -101,6 +101,36 @@ def _ung_luong(p: dict) -> str:
     )
 
 
+def _nav(p: dict) -> str:
+    """Thanh CHUYỂN THỢ trên đầu phiếu: in xong 1 người bấm tên người kế là ra phiếu
+    của họ, khỏi quay về bảng lương. Chỉ hiện trên màn — @media print ẩn hẳn.
+
+    href gắn bằng JS từ CHÍNH URL đang mở (đổi mỗi worker_id) nên token/tháng giữ
+    nguyên — cố ý KHÔNG nhúng token vào HTML để phiếu lỡ lưu/chia sẻ không lộ khoá.
+    """
+    ws = p.get("workers") or []
+    if len(ws) < 2:
+        return ""
+    chips = "".join(
+        f'<a class="nav-w{" on" if w.get("current") else ""}" data-w="{int(w["id"])}">'
+        f'{esc(w.get("name") or "?")}</a>' for w in ws if w.get("id") is not None
+    )
+    return (
+        '<div class="nav-bar">\n'
+        '  <div class="nav-lb">Chuyển thợ</div>\n'
+        f'  <div class="nav-ws">{chips}</div>\n'
+        '</div>\n'
+        '<script>\n'
+        '(function(){var q=new URLSearchParams(location.search);\n'
+        ' document.querySelectorAll(".nav-w").forEach(function(a){\n'
+        '  q.set("worker_id", a.dataset.w); a.href = location.pathname + "?" + q.toString();});\n'
+        ' var on=document.querySelector(".nav-w.on");\n'
+        ' if(on&&on.scrollIntoView) on.scrollIntoView({block:"nearest"});\n'
+        '})();\n'
+        '</script>'
+    )
+
+
 _CSS = """
   @page { size: 76mm auto; margin: 0; }
   html, body { margin: 0; padding: 0; }
@@ -132,7 +162,16 @@ _CSS = """
     background: #0b57d0; color: #fff; font-size: 15px; font-weight: bold;
     box-shadow: 0 2px 8px rgba(0,0,0,.35); cursor: pointer; }
   .btn-in:active { background: #08409b; }
-  @media print { .btn-in { display: none !important; } }
+  /* Thanh chuyển thợ — chỉ để thao tác trên màn, KHÔNG lên giấy */
+  .nav-bar { margin: 0 0 8px; padding-bottom: 6px; border-bottom: 1px dashed #bbb; }
+  .nav-lb { font-size: 11px; font-weight: bold; color: #555; margin-bottom: 3px; }
+  /* Cả xưởng ~30 người = 7 hàng chip, đẩy phiếu xuống mất tiêu → chặn chiều cao
+     (~3 hàng) rồi cho cuộn trong khung; JS tự kéo tên ĐANG XEM vào tầm mắt. */
+  .nav-ws { display: flex; flex-wrap: wrap; gap: 4px; max-height: 104px; overflow-y: auto; }
+  .nav-w { display: inline-block; padding: 4px 8px; border: 1px solid #bbb; border-radius: 999px;
+    font-size: 12px; color: #0b57d0; text-decoration: none; background: #fff; white-space: nowrap; }
+  .nav-w.on { background: #0b57d0; border-color: #0b57d0; color: #fff; font-weight: bold; }
+  @media print { .btn-in, .nav-bar { display: none !important; } }
 """
 
 
@@ -147,6 +186,7 @@ def generate_payslip_month_html(p: dict) -> str:
         f'<title>Phiếu lương {name} — {esc(p.get("ym_label") or "")}</title>\n'
         f'<style>{_CSS}</style>\n'
         '</head><body>\n'
+        f'{_nav(p)}\n'
         '  <div class="title">PHIẾU LƯƠNG THÁNG</div>\n'
         '  <table border="1">\n'
         f'    <tr><td>Kỳ lương</td><td class="money">{esc(p.get("ym_label") or "")}</td></tr>\n'

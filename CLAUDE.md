@@ -323,6 +323,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   phân biệt bằng `"bhxh" in body` (vắng = giữ nguyên · số ≥ 0 = đặt riêng · **null =
   bỏ đặt riêng**), đừng đổi sang `.get() is not None`. Row trả `bhxh`/`bhxh_ym`/
   `bhxh_own` (↩ = kế thừa) như bộ `moc_*`.
+  **LƯƠNG CHỜ HÀNG (2026-08-05, cột `salary_month.cho_hang`)**: tiền trả cho thời gian
+  thợ ngồi chờ nguyên liệu/hàng về — khoản **CỘNG**, văn phòng **bấm thẳng vào ô** cột
+  "Chờ hàng" của bảng lương để gõ số (1 số/tháng nên KHÔNG dùng panel nhiều khoản như
+  phụ cấp/ứng; thao tác dùng chung `detail/payrollActions.ts::editChoHang`). Ghi qua
+  `/api/payroll/adjust {cho_hang}` (0 = xoá; vắng field = giữ nguyên). **KHÔNG kế thừa**
+  sang tháng sau (giống `weekly`/2 cờ thưởng, KHÁC mốc/BHXH). Đã vào `thuc_lanh` +
+  `totals.cho_hang` + phiếu lương in. Tests: `tests/test_salary_store.py`.
   **2 khoản THƯỞNG bật/tắt (2026-08-04, `salary_store/bonus.py` + cột
   `salary_month.thuong_cc`/`.thuong_vs`, tests/test_salary_bonus.py)**: CHUYÊN CẦN =
   cố định `THUONG_CHUYEN_CAN` (200k); VỆ SINH = `THUONG_VE_SINH_MOI_NGAY` (12k) ×
@@ -382,7 +389,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   3 khối: bảng tiền → THỰC NHẬN · CHẤM CÔNG từng ngày (4 mốc giờ chia theo BUỔI + giờ
   công + giờ TC, đủ mọi ngày của tháng, tháng đang chạy dừng ở hôm nay) · ỨNG LƯƠNG
   từng lần, cuối phiếu in TÊN cỡ lớn. Nút **🖨 In phiếu** nổi góc dưới-phải gọi
-  `window.print()` (ẩn trong `@media print` để không lên giấy). ⚠ Phiếu **KHÔNG tính lại tiền** — lấy nguyên
+  `window.print()` + **thanh CHUYỂN THỢ** trên đầu (chip tên mọi thợ của tháng, in
+  xong 1 người bấm sang người kế) — cả hai ẩn trong `@media print`. href của chip do
+  JS dựng từ CHÍNH URL đang mở (chỉ đổi `worker_id`) nên giữ nguyên tháng + token và
+  **token không bị nhúng vào HTML**; khung chip cao tối đa ~3 hàng rồi cuộn, tự kéo
+  tên đang xem vào tầm mắt. ⚠ Phiếu **KHÔNG tính lại tiền** — lấy nguyên
   dòng `compute_month_payroll` nên luôn khớp bảng lương; giờ công quy bằng
   `attendance_store.domain.work_stats` (cùng luật CN = tăng ca). Nội dung thuần =
   `salary_store/payslip.py` (tests: `tests/test_payslip.py`, có test "cộng mọi dòng =

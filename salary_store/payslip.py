@@ -123,6 +123,8 @@ def build_payslip(r: dict, allowances: list[dict], advances: list[dict],
         lines.append(_money_line("Thưởng chuyên cần", r.get("thuong_cc")))
     if r.get("vs_on"):
         lines.append(_money_line("Thưởng vệ sinh", r.get("thuong_vs")))
+    if round(float(r.get("cho_hang") or 0)):
+        lines.append(_money_line("Lương chờ hàng", r.get("cho_hang")))
     if round(float(r.get("thuong") or 0)):
         lines.append(_money_line("Thưởng khác", r.get("thuong")))
     for a in allowances:

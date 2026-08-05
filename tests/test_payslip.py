@@ -92,6 +92,29 @@ def test_chu_nhat_danh_dau_va_toan_bo_la_tang_ca():
     assert cn["dow"] == "CN" and cn["sunday"] and cn["gio"] == 0.0 and cn["tc"] > 0
 
 
+def test_luong_cho_hang_vao_phieu_va_vao_tong():
+    """Lương chờ hàng = khoản CỘNG, phải in ra phiếu và nằm trong THỰC NHẬN."""
+    r = _row(cho_hang=300_000, thuc_lanh=1_326_958 + 300_000)
+    p = build_payslip(r, [], [], {}, ym="2026-06")
+    by = {ln["label"]: ln for ln in p["lines"]}
+    assert by["Lương chờ hàng"]["value"] == 300_000
+    s = sum(ln["value"] for ln in p["lines"] if ln["kind"] == "money" and not ln["total"])
+    assert s == by["THỰC NHẬN"]["value"]
+    # không có khoản chờ hàng thì KHÔNG in dòng rỗng
+    assert "Lương chờ hàng" not in _labels(build_payslip(_row(cho_hang=0), [], [], {}, ym="2026-06"))
+
+
+def test_thanh_chuyen_tho_chi_hien_khi_co_tu_2_nguoi():
+    """Thanh chuyển thợ: tên có link, người đang xem được đánh dấu, 1 thợ thì bỏ hẳn."""
+    from renderers.phieu_luong_thang import _nav
+    html = _nav({"workers": [{"id": 7, "name": "Trí", "current": True},
+                             {"id": 9, "name": "Phượng", "current": False}]})
+    assert 'data-w="7"' in html and 'class="nav-w on"' in html and "Phượng" in html
+    assert "token" not in html          # token KHÔNG được nhúng vào HTML
+    assert _nav({"workers": [{"id": 7, "name": "Trí", "current": True}]}) == ""
+    assert _nav({}) == ""
+
+
 def test_bang_cham_cong_o_0_de_trong():
     """Cột Giờ/TC: số 0 in ra Ô TRỐNG (không phải '0,0') — ngày nghỉ / không tăng ca
     để trống thì mắt bắt ngay ngày CÓ số."""

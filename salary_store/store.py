@@ -70,6 +70,11 @@ def ensure_schema(conn) -> None:
     for flag in ("thuong_cc", "thuong_vs"):
         if flag not in cols:
             conn.execute(f"ALTER TABLE salary_month ADD COLUMN {flag} INTEGER DEFAULT 0")
+    if "cho_hang" not in cols:
+        # LƯƠNG CHỜ HÀNG: tiền trả cho thời gian thợ phải ngồi chờ nguyên liệu/hàng
+        # về, văn phòng gõ tay từng tháng. Khoản CỘNG, KHÔNG kế thừa sang tháng sau
+        # (giống thưởng — tháng nào chờ mới có; để nó bò sang là trả thừa âm thầm).
+        conn.execute("ALTER TABLE salary_month ADD COLUMN cho_hang REAL DEFAULT 0")
     if "bhxh" not in cols:
         # TRỪ BHXH hằng tháng, cũng đặt RIÊNG từng tháng + kế thừa (NULL = tháng đó
         # không đặt riêng, KHÁC 0 = đặt riêng bằng 0) — luật ở salary_store/bhxh.py
@@ -102,21 +107,25 @@ def month_range(ym: str) -> tuple[str, str]:
 # ── Phụ cấp / thưởng theo tháng ─────────────────────────────────────────────────
 
 def get_month_adjust(conn, ym: str) -> dict:
-    """{worker_id: {'thuong', 'note', 'weekly', 'thuong_cc', 'thuong_vs'}} của 1 tháng.
-    (Phụ cấp giờ là NHIỀU KHOẢN ở salary_allowances — xem allowance_rows_by_worker; thuong_cc/
-    thuong_vs là 2 CỜ bật/tắt thưởng, số tiền tính ở salary_store/bonus.py.)"""
+    """{worker_id: {'thuong', 'note', 'weekly', 'thuong_cc', 'thuong_vs', 'cho_hang'}}
+    của 1 tháng. (Phụ cấp giờ là NHIỀU KHOẢN ở salary_allowances — xem
+    allowance_rows_by_worker; thuong_cc/thuong_vs là 2 CỜ bật/tắt thưởng, số tiền tính
+    ở salary_store/bonus.py; cho_hang = tiền chờ hàng gõ tay.)"""
     ensure_schema(conn)
     rows = conn.execute(
-        "SELECT worker_id, thuong, note, weekly, thuong_cc, thuong_vs FROM salary_month WHERE ym = ?", (ym,)
+        "SELECT worker_id, thuong, note, weekly, thuong_cc, thuong_vs, cho_hang "
+        "FROM salary_month WHERE ym = ?", (ym,)
     ).fetchall()
     return {r["worker_id"]: {"thuong": float(r["thuong"] or 0),
                              "note": r["note"] or "", "weekly": bool(r["weekly"]),
-                             "thuong_cc": bool(r["thuong_cc"]), "thuong_vs": bool(r["thuong_vs"])}
+                             "thuong_cc": bool(r["thuong_cc"]), "thuong_vs": bool(r["thuong_vs"]),
+                             "cho_hang": float(r["cho_hang"] or 0)}
             for r in rows}
 
 
 def set_month_adjust(conn, ym: str, worker_id: int, *, thuong=None, note=None,
-                     weekly=None, thuong_cc=None, thuong_vs=None, by: str = "") -> None:
+                     weekly=None, thuong_cc=None, thuong_vs=None, cho_hang=None,
+                     by: str = "") -> None:
     """Cập nhật thưởng/ghi chú/nhận-lương-tuần/2 cờ THƯỞNG của 1 (tháng, thợ). Field
     None = giữ nguyên. weekly = nhận lương tuần THEO THÁNG (riêng bảng lương, không
     phải hồ sơ thợ); thuong_cc/thuong_vs = bật thưởng chuyên cần / vệ sinh của tháng
@@ -125,7 +134,7 @@ def set_month_adjust(conn, ym: str, worker_id: int, *, thuong=None, note=None,
     ensure_schema(conn)
     with transaction(conn):
         cur = conn.execute(
-            "SELECT thuong, note, weekly, thuong_cc, thuong_vs FROM salary_month "
+            "SELECT thuong, note, weekly, thuong_cc, thuong_vs, cho_hang FROM salary_month "
             "WHERE ym = ? AND worker_id = ?", (ym, worker_id),
         ).fetchone()
         th = float(cur["thuong"] or 0) if cur else 0.0
@@ -133,6 +142,7 @@ def set_month_adjust(conn, ym: str, worker_id: int, *, thuong=None, note=None,
         wk = int(cur["weekly"] or 0) if cur else 0
         cc = int(cur["thuong_cc"] or 0) if cur else 0
         vs = int(cur["thuong_vs"] or 0) if cur else 0
+        ch = float(cur["cho_hang"] or 0) if cur else 0.0
         if thuong is not None:
             th = max(0.0, float(thuong))
         if note is not None:
@@ -143,13 +153,16 @@ def set_month_adjust(conn, ym: str, worker_id: int, *, thuong=None, note=None,
             cc = 1 if thuong_cc else 0
         if thuong_vs is not None:
             vs = 1 if thuong_vs else 0
+        if cho_hang is not None:
+            ch = max(0.0, float(cho_hang))   # 0 = xoá khoản chờ hàng của tháng này
         conn.execute(
-            "INSERT INTO salary_month (ym, worker_id, thuong, note, weekly, thuong_cc, thuong_vs, updated_at, updated_by) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'), ?) "
+            "INSERT INTO salary_month (ym, worker_id, thuong, note, weekly, thuong_cc, thuong_vs, cho_hang, updated_at, updated_by) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'), ?) "
             "ON CONFLICT(ym, worker_id) DO UPDATE SET thuong=excluded.thuong, "
             "note=excluded.note, weekly=excluded.weekly, thuong_cc=excluded.thuong_cc, "
-            "thuong_vs=excluded.thuong_vs, updated_at=excluded.updated_at, updated_by=excluded.updated_by",
-            (ym, worker_id, th, nt, wk, cc, vs, by or ""),
+            "thuong_vs=excluded.thuong_vs, cho_hang=excluded.cho_hang, "
+            "updated_at=excluded.updated_at, updated_by=excluded.updated_by",
+            (ym, worker_id, th, nt, wk, cc, vs, ch, by or ""),
         )
 
 
@@ -368,7 +381,7 @@ def compute_month_payroll(conn, ym: str) -> dict:
 
     out = []
     tot = {"luong": 0.0, "phu_cap": 0.0, "thuong": 0.0, "thuong_cc": 0.0, "thuong_vs": 0.0,
-           "ung": 0.0, "bhxh": 0.0, "thuc_lanh": 0.0}
+           "cho_hang": 0.0, "ung": 0.0, "bhxh": 0.0, "thuc_lanh": 0.0}
     for w in workers:
         wid, wt = w["id"], (w.get("wage_type") or "product")
         # mốc tháng (lương TG mong muốn): bản đặt gần nhất ≤ ym; chưa đặt bao giờ thì
@@ -418,12 +431,15 @@ def compute_month_payroll(conn, ym: str) -> dict:
         # định, vệ sinh = đơn giá × ĐÚNG số công đang hiện ở cột Công
         cc_on, vs_on = bool(a.get("thuong_cc")), bool(a.get("thuong_vs"))
         thuong_cc, thuong_vs = bonus_amounts(cong_hien, chuyen_can=cc_on, ve_sinh=vs_on)
-        thuc_lanh = luong + phu_cap + thuong + thuong_cc + thuong_vs - ung - bhxh
+        # LƯƠNG CHỜ HÀNG: khoản CỘNG gõ tay từng tháng (ngồi chờ nguyên liệu/hàng về)
+        cho_hang = float(a.get("cho_hang") or 0)
+        thuc_lanh = luong + phu_cap + thuong + thuong_cc + thuong_vs + cho_hang - ung - bhxh
         out.append({
             "worker_id": wid, "name": w["name"], "wage_type": wt, "weekly": weekly,
             "luong": round(luong), "phu_cap": round(phu_cap), "pc_count": pc_count, "thuong": round(thuong),
             "cc_on": cc_on, "vs_on": vs_on,
             "thuong_cc": round(thuong_cc), "thuong_vs": round(thuong_vs),
+            "cho_hang": round(cho_hang),
             "ung": round(ung), "ung_manual": round(ung_manual), "ung_weekly": round(ung_weekly),
             "adv_count": adv_count, "note": note, "thuc_lanh": round(thuc_lanh),
             "bhxh": round(bhxh),
@@ -454,6 +470,7 @@ def compute_month_payroll(conn, ym: str) -> dict:
         tot["thuong"] += row["thuong"]
         tot["thuong_cc"] += row["thuong_cc"]
         tot["thuong_vs"] += row["thuong_vs"]
+        tot["cho_hang"] += row["cho_hang"]
         tot["ung"] += row["ung"]
         tot["bhxh"] += row["bhxh"]
         tot["thuc_lanh"] += row["thuc_lanh"]

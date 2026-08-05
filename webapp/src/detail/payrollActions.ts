@@ -53,6 +53,21 @@ export function payrollActions(ym: string, apply: (d: PayrollMonth) => void, rel
             : `${ymLabel(ym)} trở đi: KHÔNG trừ BHXH`, "ok");
     } catch (e: any) { toast(e?.message || "Lỗi lưu mức BHXH", "err"); }
   };
+  // LƯƠNG CHỜ HÀNG — tiền trả cho thời gian ngồi chờ nguyên liệu/hàng về. Bấm ô là
+  // gõ số tiền, khỏi qua panel khoản như phụ cấp/ứng (mỗi tháng 1 số, không cần
+  // nhiều dòng). CHỈ ăn tháng đang xem — không kế thừa, giống thưởng.
+  const editChoHang = async (r: PayrollRow) => {
+    const v = await promptDialog(
+      `Lương chờ hàng ${ymLabel(ym)} của ${r.name}\nTiền trả cho thời gian chờ nguyên liệu/hàng về.\nĐể trống hoặc 0 = xoá khoản này.`,
+      { initial: r.cho_hang ? String(r.cho_hang) : "", placeholder: "vd 300000", okLabel: "Lưu" });
+    if (v === null) return;
+    const amount = num(v);
+    try {
+      apply(await setPayrollAdjust(ym, r.worker_id, { cho_hang: amount }));
+      toast(amount > 0 ? `Lương chờ hàng ${ymLabel(ym).toLowerCase()}: ${money(amount)}đ`
+                       : `Đã xoá lương chờ hàng ${ymLabel(ym).toLowerCase()}`, "ok");
+    } catch (e: any) { toast(e?.message || "Lỗi lưu lương chờ hàng", "err"); }
+  };
   const toggleWeekly = async (r: PayrollRow) => {
     try {
       apply(await setPayrollAdjust(ym, r.worker_id, { weekly: !r.weekly }));
@@ -73,5 +88,5 @@ export function payrollActions(ym: string, apply: (d: PayrollMonth) => void, rel
       toast(!r.vs_on ? `BẬT thưởng vệ sinh ${ymLabel(ym).toLowerCase()}` : "TẮT thưởng vệ sinh", "ok");
     } catch (e: any) { toast(e?.message || "Lỗi lưu", "err"); }
   };
-  return { toggleType, editMoc, editBhxh, toggleWeekly, toggleThuongCC, toggleThuongVS };
+  return { toggleType, editMoc, editBhxh, editChoHang, toggleWeekly, toggleThuongCC, toggleThuongVS };
 }

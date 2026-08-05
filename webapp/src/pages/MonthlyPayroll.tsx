@@ -94,7 +94,7 @@ export function MonthlyPayroll() {
 
   const apply = (d: PayrollMonth) => setData(d);
   // 4 thao tác hồ sơ lương dùng CHUNG với trang #/luong-thang/:id (detail/payrollActions)
-  const { toggleType, editMoc, editBhxh, toggleWeekly, toggleThuongCC, toggleThuongVS } =
+  const { toggleType, editMoc, editBhxh, editChoHang, toggleWeekly, toggleThuongCC, toggleThuongVS } =
     payrollActions(ym, apply, load);
   // Ô TÊN → POPUP hồ sơ lương của thợ (ở NGAY trang này, khỏi rời bảng rồi phải
   // back + tải lại; vẫn mở được thành trang riêng bằng nút ↗ trong popup)
@@ -179,6 +179,9 @@ export function MonthlyPayroll() {
                     <div class="pr-stat allowance"><span>Thưởng CC+VS</span>
                       <b>+{money(totals.thuong_cc + totals.thuong_vs)}</b></div>
                   ) : null}
+                  {totals.cho_hang ? (
+                    <div class="pr-stat allowance"><span>Chờ hàng</span><b>+{money(totals.cho_hang)}</b></div>
+                  ) : null}
                   {totals.bhxh ? <div class="pr-stat advance"><span>Trừ BHXH</span><b>−{money(totals.bhxh)}</b></div> : null}
                 </div>
               </section>
@@ -188,7 +191,7 @@ export function MonthlyPayroll() {
             ) : view === "table" ? (
               <PayrollTable data={data} rows={rows} sort={sort} onSort={onSort} ym={ym}
                 toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc}
-                toggleThuongCC={toggleThuongCC} toggleThuongVS={toggleThuongVS}
+                toggleThuongCC={toggleThuongCC} toggleThuongVS={toggleThuongVS} editChoHang={editChoHang}
                 onCell={(wid, col) => { setActiveWid(wid); setPop({ wid, col }); }} onName={openWorker}
                 activeWid={activeWid} filtered={filtering} />
             ) : (
@@ -196,7 +199,7 @@ export function MonthlyPayroll() {
                 {rows.map((r) => (
                   <PayrollCard key={r.worker_id} r={r} ym={ym} active={r.worker_id === activeWid}
                     toggleType={toggleType} toggleWeekly={toggleWeekly} editMoc={editMoc} editBhxh={editBhxh}
-                    toggleThuongCC={toggleThuongCC} toggleThuongVS={toggleThuongVS}
+                    toggleThuongCC={toggleThuongCC} toggleThuongVS={toggleThuongVS} editChoHang={editChoHang}
                     openUng={openUng === r.worker_id} onToggleUng={() => toggleUng(r.worker_id)} advances={advs[r.worker_id]}
                     openPc={openPc === r.worker_id} onTogglePc={() => togglePc(r.worker_id)} allowances={allows[r.worker_id]}
                     apply={apply} setAdvs={setAdvs} setAllows={setAllows} />

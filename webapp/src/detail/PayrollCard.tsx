@@ -17,12 +17,13 @@ import { toast, promptDialog } from "../ui/feedback";
 const initials = (name: string) => name.trim().split(/\s+/).slice(-2).map((part) => part[0] || "").join("").toUpperCase();
 
 export function PayrollCard({ r, ym, active, toggleType, toggleWeekly, editMoc, editBhxh,
-  toggleThuongCC, toggleThuongVS,
+  toggleThuongCC, toggleThuongVS, editChoHang,
   openUng, onToggleUng, advances, openPc, onTogglePc, allowances, apply, setAdvs, setAllows }: {
   r: PayrollRow; ym: string; active?: boolean;
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
   editMoc: (r: PayrollRow) => void; editBhxh: (r: PayrollRow) => void;
   toggleThuongCC: (r: PayrollRow) => void; toggleThuongVS: (r: PayrollRow) => void;
+  editChoHang: (r: PayrollRow) => void;
   openUng: boolean; onToggleUng: () => void; advances?: SalaryAdvance[];
   openPc: boolean; onTogglePc: () => void; allowances?: SalaryAllowance[];
   apply: (d: PayrollMonth) => void;
@@ -104,6 +105,13 @@ export function PayrollCard({ r, ym, active, toggleType, toggleWeekly, editMoc, 
           <button class={r.vs_on ? "pr-bon on" : "pr-bon"} onClick={() => toggleThuongVS(r)}
             title={`Thưởng vệ sinh = 12.000đ × ${r.cong} công — bấm để ${r.vs_on ? "tắt" : "bật"} cho tháng này`}>
             {r.vs_on ? money(r.thuong_vs) : "— bật"}
+          </button>
+        </div>
+        {/* LƯƠNG CHỜ HÀNG: bấm là gõ số tiền cho THÁNG ĐANG XEM (không kế thừa) */}
+        <div class="pr-card-metric"><span>Chờ hàng</span>
+          <button class="pr-bon" onClick={() => editChoHang(r)}
+            title="Lương chờ hàng — bấm để nhập số tiền cho tháng này">
+            {r.cho_hang ? money(r.cho_hang) : "— nhập"}
           </button>
         </div>
         {/* BHXH: luôn hiện (kể cả chưa đặt) để bấm đặt được ngay — giống cột BHXH

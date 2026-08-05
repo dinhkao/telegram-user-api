@@ -142,6 +142,27 @@ class SalaryStoreTest(unittest.TestCase):
         self.assertEqual(r["thuong"], 100_000)
         self.assertTrue(r["weekly"])
 
+    def test_luong_cho_hang_cong_vao_thuc_lanh_va_khong_ke_thua(self):
+        """Lương chờ hàng = khoản CỘNG gõ tay của TỪNG THÁNG. 0 = xoá; tháng sau
+        KHÔNG tự kế thừa (giống thưởng, khác mốc/BHXH)."""
+        salary_store.set_month_adjust(self.conn, "2026-07", self.a, cho_hang=300_000)
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)
+        self.assertEqual(r["cho_hang"], 300_000)
+        self.assertEqual(r["thuc_lanh"], 300_000)
+        self.assertEqual(salary_store.compute_month_payroll(self.conn, "2026-07")["totals"]["cho_hang"],
+                         300_000)
+        # tháng sau: không kế thừa
+        self.assertEqual(self._row(salary_store.compute_month_payroll(self.conn, "2026-08"), self.a)["cho_hang"], 0)
+        # sửa field khác KHÔNG được xoá mất khoản chờ hàng đã ghi
+        salary_store.set_month_adjust(self.conn, "2026-07", self.a, weekly=True)
+        self.assertEqual(self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)["cho_hang"],
+                         300_000)
+        # 0 = xoá
+        salary_store.set_month_adjust(self.conn, "2026-07", self.a, cho_hang=0)
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)
+        self.assertEqual(r["cho_hang"], 0)
+        self.assertEqual(r["thuc_lanh"], 0)
+
     def test_phu_cap_nhieu_khoan_cong_don(self):
         salary_store.add_allowance(self.conn, self.a, "2026-07", 100_000, note="ăn trưa")
         salary_store.add_allowance(self.conn, self.a, "2026-07", 50_000, note="xăng xe")
