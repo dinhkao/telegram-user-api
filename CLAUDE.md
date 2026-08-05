@@ -414,7 +414,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   office-only). Khổ giấy = HOÁ ĐƠN KiotViet của đơn (body 280px, `@page 76mm auto`).
   3 khối: bảng tiền → THỰC NHẬN · CHẤM CÔNG từng ngày (4 mốc giờ chia theo BUỔI + giờ
   công + giờ TC, đủ mọi ngày của tháng, tháng đang chạy dừng ở hôm nay) · ỨNG LƯƠNG
-  từng lần, cuối phiếu in TÊN cỡ lớn. Nút **🖨 In phiếu** nổi góc dưới-phải gọi
+  từng lần, cuối phiếu in TÊN cỡ lớn. ⚠ Phiếu KHÔNG in mốc lương và KHÔNG in dòng
+  "trong đó phụ cấp phiếu SX" — 2 số đó là số nội bộ / đã nằm TRONG dòng lương,
+  in ra thành dòng tiền riêng là cộng dọc phiếu sai. Luật phiếu: **mọi dòng tiền
+  in ra đều là khoản cộng/trừ thật, cộng dọc phải ra đúng THỰC NHẬN** (test khoá). Nút **🖨 In phiếu** nổi góc dưới-phải gọi
   `window.print()` + **thanh CHUYỂN THỢ** trên đầu (chip tên mọi thợ của tháng, in
   xong 1 người bấm sang người kế) — cả hai ẩn trong `@media print`. href của chip do
   JS dựng từ CHÍNH URL đang mở (chỉ đổi `worker_id`) nên giữ nguyên tháng + token và
