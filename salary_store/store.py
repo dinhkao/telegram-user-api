@@ -70,6 +70,14 @@ def ensure_schema(conn) -> None:
     for flag in ("thuong_cc", "thuong_vs"):
         if flag not in cols:
             conn.execute(f"ALTER TABLE salary_month ADD COLUMN {flag} INTEGER DEFAULT 0")
+    if "cong_override" not in cols:
+        # NGÀY CÔNG GÕ TAY: NULL = lấy số quy từ máy chấm công (mặc định); có số =
+        # ĐÈ hẳn số đó (máy hỏng/quên chấm/công thoả thuận). Chỉ ăn tháng ghi.
+        conn.execute("ALTER TABLE salary_month ADD COLUMN cong_override REAL")
+    if "tru_an" not in cols:
+        # SỐ TRỪ ẨN: trừ thẳng vào LƯƠNG SẢN PHẨM, KHÔNG in lý do/dòng riêng lên
+        # phiếu lương của thợ (phiếu chỉ thấy lương SP đã trừ). Chỉ ăn tháng ghi.
+        conn.execute("ALTER TABLE salary_month ADD COLUMN tru_an REAL DEFAULT 0")
     if "cho_hang" not in cols:
         # LƯƠNG CHỜ HÀNG: tiền trả cho thời gian thợ phải ngồi chờ nguyên liệu/hàng
         # về, văn phòng gõ tay từng tháng. Khoản CỘNG, KHÔNG kế thừa sang tháng sau
@@ -113,19 +121,39 @@ def get_month_adjust(conn, ym: str) -> dict:
     ở salary_store/bonus.py; cho_hang = tiền chờ hàng gõ tay.)"""
     ensure_schema(conn)
     rows = conn.execute(
-        "SELECT worker_id, thuong, note, weekly, thuong_cc, thuong_vs, cho_hang "
-        "FROM salary_month WHERE ym = ?", (ym,)
+        "SELECT worker_id, thuong, note, weekly, thuong_cc, thuong_vs, cho_hang, "
+        "cong_override, tru_an FROM salary_month WHERE ym = ?", (ym,)
     ).fetchall()
     return {r["worker_id"]: {"thuong": float(r["thuong"] or 0),
                              "note": r["note"] or "", "weekly": bool(r["weekly"]),
                              "thuong_cc": bool(r["thuong_cc"]), "thuong_vs": bool(r["thuong_vs"]),
-                             "cho_hang": float(r["cho_hang"] or 0)}
+                             "cho_hang": float(r["cho_hang"] or 0),
+                             # None = KHÔNG ghi đè (dùng số máy chấm công)
+                             "cong_override": (None if r["cong_override"] is None
+                                               else float(r["cong_override"])),
+                             "tru_an": float(r["tru_an"] or 0)}
             for r in rows}
+
+
+def set_cong_override(conn, ym: str, worker_id: int, cong, by: str = "") -> None:
+    """Ghi đè NGÀY CÔNG của (tháng, thợ). cong=None → BỎ ghi đè (quay về số máy chấm
+    công). Hàm riêng chứ không nhét vào set_month_adjust vì ở đó `None` đã mang nghĩa
+    "giữ nguyên" — không diễn tả được "xoá"; còn 0 ở đây là số CÓ NGHĨA (ép 0 công)."""
+    ensure_schema(conn)
+    val = None if cong is None else max(0.0, float(cong))
+    with transaction(conn):
+        conn.execute(
+            "INSERT INTO salary_month (ym, worker_id, cong_override, updated_at, updated_by) "
+            "VALUES (?, ?, ?, datetime('now','+7 hours'), ?) "
+            "ON CONFLICT(ym, worker_id) DO UPDATE SET cong_override=excluded.cong_override, "
+            "updated_at=excluded.updated_at, updated_by=excluded.updated_by",
+            (ym, worker_id, val, by or ""),
+        )
 
 
 def set_month_adjust(conn, ym: str, worker_id: int, *, thuong=None, note=None,
                      weekly=None, thuong_cc=None, thuong_vs=None, cho_hang=None,
-                     by: str = "") -> None:
+                     tru_an=None, by: str = "") -> None:
     """Cập nhật thưởng/ghi chú/nhận-lương-tuần/2 cờ THƯỞNG của 1 (tháng, thợ). Field
     None = giữ nguyên. weekly = nhận lương tuần THEO THÁNG (riêng bảng lương, không
     phải hồ sơ thợ); thuong_cc/thuong_vs = bật thưởng chuyên cần / vệ sinh của tháng
@@ -134,7 +162,7 @@ def set_month_adjust(conn, ym: str, worker_id: int, *, thuong=None, note=None,
     ensure_schema(conn)
     with transaction(conn):
         cur = conn.execute(
-            "SELECT thuong, note, weekly, thuong_cc, thuong_vs, cho_hang FROM salary_month "
+            "SELECT thuong, note, weekly, thuong_cc, thuong_vs, cho_hang, tru_an FROM salary_month "
             "WHERE ym = ? AND worker_id = ?", (ym, worker_id),
         ).fetchone()
         th = float(cur["thuong"] or 0) if cur else 0.0
@@ -143,6 +171,7 @@ def set_month_adjust(conn, ym: str, worker_id: int, *, thuong=None, note=None,
         cc = int(cur["thuong_cc"] or 0) if cur else 0
         vs = int(cur["thuong_vs"] or 0) if cur else 0
         ch = float(cur["cho_hang"] or 0) if cur else 0.0
+        ta = float(cur["tru_an"] or 0) if cur else 0.0
         if thuong is not None:
             th = max(0.0, float(thuong))
         if note is not None:
@@ -155,14 +184,16 @@ def set_month_adjust(conn, ym: str, worker_id: int, *, thuong=None, note=None,
             vs = 1 if thuong_vs else 0
         if cho_hang is not None:
             ch = max(0.0, float(cho_hang))   # 0 = xoá khoản chờ hàng của tháng này
+        if tru_an is not None:
+            ta = max(0.0, float(tru_an))     # 0 = bỏ số trừ ẩn của tháng này
         conn.execute(
-            "INSERT INTO salary_month (ym, worker_id, thuong, note, weekly, thuong_cc, thuong_vs, cho_hang, updated_at, updated_by) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'), ?) "
+            "INSERT INTO salary_month (ym, worker_id, thuong, note, weekly, thuong_cc, thuong_vs, cho_hang, tru_an, updated_at, updated_by) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'), ?) "
             "ON CONFLICT(ym, worker_id) DO UPDATE SET thuong=excluded.thuong, "
             "note=excluded.note, weekly=excluded.weekly, thuong_cc=excluded.thuong_cc, "
-            "thuong_vs=excluded.thuong_vs, cho_hang=excluded.cho_hang, "
+            "thuong_vs=excluded.thuong_vs, cho_hang=excluded.cho_hang, tru_an=excluded.tru_an, "
             "updated_at=excluded.updated_at, updated_by=excluded.updated_by",
-            (ym, worker_id, th, nt, wk, cc, vs, ch, by or ""),
+            (ym, worker_id, th, nt, wk, cc, vs, ch, ta, by or ""),
         )
 
 
@@ -381,27 +412,41 @@ def compute_month_payroll(conn, ym: str) -> dict:
 
     out = []
     tot = {"luong": 0.0, "phu_cap": 0.0, "thuong": 0.0, "thuong_cc": 0.0, "thuong_vs": 0.0,
-           "cho_hang": 0.0, "ung": 0.0, "bhxh": 0.0, "thuc_lanh": 0.0}
+           "cho_hang": 0.0, "tru_an": 0.0, "ung": 0.0, "bhxh": 0.0, "thuc_lanh": 0.0}
     for w in workers:
         wid, wt = w["id"], (w.get("wage_type") or "product")
         # mốc tháng (lương TG mong muốn): bản đặt gần nhất ≤ ym; chưa đặt bao giờ thì
         # lùi về mốc hồ sơ thợ (dữ liệu cũ trước khi mốc tách theo tháng)
         mc = moc.get(wid)
         base = float(mc["value"]) if mc else float(w.get("monthly_salary") or 0)
+        a = adjust.get(wid, {})        # sửa tay của (tháng, thợ): thưởng/cờ/số gõ tay
         st = att.get(wid, {})
         work_min, ot_min = int(st.get("work_min") or 0), int(st.get("ot_min") or 0)
         # TG* ('time_flat'): giờ TĂNG CA GỘP THẲNG vào ngày công (trả cố định theo công,
         # KHÔNG có tiền tăng ca ×1,2 riêng). TG ('time') giữ nguyên: công tách, TC ×1,2.
         ot_in_cong = wt == "time_flat"
         cong = (work_min + (ot_min if ot_in_cong else 0)) / 480.0   # ngày đủ 2 ca = 1 công
+        cong_auto = round(cong, 2)      # số MÁY CHẤM quy ra (giữ để UI đối chiếu)
+        # NGÀY CÔNG GÕ TAY đè hẳn số máy chấm (máy hỏng/quên chấm/công thoả thuận).
+        # Đè NGAY ở đây nên mọi thứ ăn theo công đều chạy theo: lương ngày công,
+        # thưởng vệ sinh, phụ cấp theo đơn giá×ngày, số in trên phiếu lương.
+        cong_ov = a.get("cong_override")
+        if cong_ov is not None:
+            cong = float(cong_ov)
         # SỐ CÔNG DÙNG ĐỂ NHÂN TIỀN = đúng số IN RA BẢNG (làm tròn 2 số lẻ). Nhân với
         # công thô thì "12.000đ × 2,41 công" người ta bấm máy tính ra 28.920đ mà bảng
         # trả 28.900đ — cùng nguyên tắc "cộng dồn số đã làm tròn" ở dòng TỔNG bên dưới.
         cong_hien = round(cong, 2)
         luong_cong = luong_tc = 0.0
         pc_phieu = 0.0            # phụ cấp PHIẾU SX đã gộp trong lương SP (để UI tách ra)
+        tru_an = float(a.get("tru_an") or 0)
+        luong_goc = 0.0   # lương SP TRƯỚC khi trừ ẩn (gốc tính phụ cấp %)
         if wt == "product":
             luong, pc_phieu = wage_by_name.get(w["name"].strip().casefold(), (0.0, 0.0))
+            # SỐ TRỪ ẨN: trừ thẳng vào lương SP. Chặn ở 0 — lương âm in ra phiếu là
+            # hỏng; trừ quá lương thì UI cảnh báo để văn phòng chuyển sang ghi ứng.
+            luong_goc = luong
+            luong = max(0.0, luong - tru_an)
         else:
             # lương TG = lương CÔNG (mốc/26 × công) + lương TĂNG CA (giờ TC ×1,2).
             # TG*: `cong` đã gồm giờ TC ở trên → chỉ có lương công, luong_tc = 0.
@@ -410,12 +455,14 @@ def compute_month_payroll(conn, ym: str) -> dict:
             if not ot_in_cong:
                 luong_tc = day_rate * 1.2 * ot_min / 480.0
             luong = luong_cong + luong_tc
-        a = adjust.get(wid, {})
         thuong, note = a.get("thuong", 0.0), a.get("note", "")
         # PHỤ CẤP: khoản theo CÔNG THỨC quy ra tiền theo lương gốc của CHÍNH thợ này
         # (thợ SP → lương sản phẩm · thợ TG → lương ngày công, không gồm tăng ca) và
         # số ngày công của tháng → sửa báo cáo/chấm công là phụ cấp tự chạy theo.
-        pc_base = luong if wt == "product" else luong_cong
+        # Gốc phụ cấp % = lương TRƯỚC khi trừ ẩn: số trừ ẩn là khoản phạt/khấu riêng,
+        # không được kéo theo phụ cấp % xuống → tác động của nó lên thực lãnh đúng
+        # BẰNG số đã nhập, không nhân thêm hệ số nào.
+        pc_base = luong_goc if wt == "product" else luong_cong
         rows_pc = allow_rows.get(wid, [])
         phu_cap = sum(allowance_amount(k, v, amt, base=pc_base, cong=cong_hien) for k, v, amt in rows_pc)
         pc_count = len(rows_pc)
@@ -440,6 +487,11 @@ def compute_month_payroll(conn, ym: str) -> dict:
             "cc_on": cc_on, "vs_on": vs_on,
             "thuong_cc": round(thuong_cc), "thuong_vs": round(thuong_vs),
             "cho_hang": round(cho_hang),
+            # NGÀY CÔNG gõ tay: cong_auto = số máy chấm quy ra, cong_manual = đang đè
+            "cong_auto": cong_auto, "cong_manual": cong_ov is not None,
+            # SỐ TRỪ ẨN + lương SP TRƯỚC khi trừ (chỉ để bảng lương của văn phòng đối
+            # chiếu — phiếu in của thợ KHÔNG hiện 2 số này, chỉ thấy lương SP đã trừ)
+            "tru_an": round(tru_an), "luong_goc": round(luong_goc),
             "ung": round(ung), "ung_manual": round(ung_manual), "ung_weekly": round(ung_weekly),
             "adv_count": adv_count, "note": note, "thuc_lanh": round(thuc_lanh),
             "bhxh": round(bhxh),
@@ -471,6 +523,7 @@ def compute_month_payroll(conn, ym: str) -> dict:
         tot["thuong_cc"] += row["thuong_cc"]
         tot["thuong_vs"] += row["thuong_vs"]
         tot["cho_hang"] += row["cho_hang"]
+        tot["tru_an"] += row["tru_an"]
         tot["ung"] += row["ung"]
         tot["bhxh"] += row["bhxh"]
         tot["thuc_lanh"] += row["thuc_lanh"]

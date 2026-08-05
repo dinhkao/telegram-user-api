@@ -185,10 +185,13 @@ export function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleW
                 ) : <td class="pr-num is-zero">—</td>}
                 {/* TG*: công ĐÃ gồm giờ tăng ca (dấu +TC), nên cột L.TC là "—" */}
                 <td class={`pr-td-tap ${r.cong > 0 ? "pr-num" : "pr-num is-zero"}`} {...tap("cong")}
-                  title={otCong ? "Ngày công (ĐÃ gộp giờ tăng ca — loại TG*) — bấm xem từng ngày"
-                                : "Ngày công từ máy chấm — bấm xem từng ngày"}>
+                  title={r.cong_manual
+                    ? `Ngày công GÕ TAY (máy chấm quy ra ${congVN(r.cong_auto ?? r.cong)}) — bấm để sửa`
+                    : otCong ? "Ngày công (ĐÃ gộp giờ tăng ca — loại TG*) — bấm xem/nhập tay"
+                             : "Ngày công từ máy chấm — bấm xem từng ngày / nhập tay"}>
                   {r.cong > 0 ? congVN(r.cong) : "—"}
                   {otCong && r.ot_gio > 0 ? <sup title="đã gộp giờ tăng ca vào công"> +TC</sup> : null}
+                  {r.cong_manual ? <sup title={`gõ tay — máy chấm quy ra ${congVN(r.cong_auto ?? r.cong)}`}> ✎</sup> : null}
                 </td>
                 <td class={`pr-td-tap ${r.ot_gio > 0 ? "pr-num" : "pr-num is-zero"}`} {...tap("tc")}
                   title={otCong ? "Giờ tăng ca — loại TG* đã gộp số này vào ngày công, không trả riêng"
@@ -210,7 +213,8 @@ export function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleW
                     ? (r.pc_phieu ? `Lương sản phẩm — gồm ${money(r.pc_phieu)}đ phụ cấp ghi trong phiếu SX. Bấm xem cách tính`
                                   : "Lương sản phẩm tự tính từ báo cáo SX — bấm xem cách tính")
                     : `${r.name} ăn lương thời gian — không có lương sản phẩm`}>
-                  {isTime ? "—" : <>{money(r.luong_sp)}{r.pc_phieu ? <sup title="đã gộp phụ cấp phiếu SX"> ⁺</sup> : null}</>}
+                  {isTime ? "—" : <>{money(r.luong_sp)}{r.pc_phieu ? <sup title="đã gộp phụ cấp phiếu SX"> ⁺</sup> : null}
+                    {r.tru_an ? <sup class="t-danger" title={`đã trừ ẩn ${money(r.tru_an)}đ (phiếu in của thợ không hiện)`}> ▾</sup> : null}</>}
                 </td>
                 <td class="pr-num pr-td-tap" title="Phụ cấp — bấm thêm/vô hiệu khoản" {...tap("pc")}>
                   <span class="pr-ung-btn">{money(r.phu_cap)}{r.pc_count ? <sup> {r.pc_count}</sup> : null}</span>

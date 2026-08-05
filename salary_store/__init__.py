@@ -26,6 +26,7 @@ from salary_store.store import (
     month_range,
     get_month_adjust,
     set_month_adjust,
+    set_cong_override,
     list_advances,
     advance_totals,
     add_advance,
@@ -40,7 +41,7 @@ from salary_store.store import (
 )
 
 __all__ = [
-    "ensure_schema", "month_range", "get_month_adjust", "set_month_adjust",
+    "ensure_schema", "month_range", "get_month_adjust", "set_month_adjust", "set_cong_override",
     "list_advances", "advance_totals", "add_advance", "update_advance_note", "void_advance",
     "list_allowances", "allowance_rows_by_worker", "add_allowance", "update_allowance_note",
     "void_allowance", "compute_month_payroll",

@@ -323,6 +323,22 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   phân biệt bằng `"bhxh" in body` (vắng = giữ nguyên · số ≥ 0 = đặt riêng · **null =
   bỏ đặt riêng**), đừng đổi sang `.get() is not None`. Row trả `bhxh`/`bhxh_ym`/
   `bhxh_own` (↩ = kế thừa) như bộ `moc_*`.
+  **NGÀY CÔNG GÕ TAY + SỐ TRỪ ẨN (2026-08-05, cột `salary_month.cong_override` /
+  `.tru_an`, ô nhập ở `detail/PayrollQuickEdit.tsx`)**: 2 ô nhập nằm TRONG popup ô
+  bảng lương (`PayrollCellPopup`) — tab **Công** có ô gõ thẳng số ngày công **ĐÈ** số
+  quy từ máy chấm (máy hỏng/quên chấm/công thoả thuận; `cong_auto` = số máy giữ lại để
+  đối chiếu, `cong_manual` = đang đè, dấu ✎ trên ô bảng, nút "Bỏ ghi đè" quay về số
+  máy) — đè NGAY tại nguồn nên **mọi thứ ăn theo công chạy theo**: lương ngày công,
+  thưởng vệ sinh, phụ cấp đơn-giá×ngày, số in trên phiếu. Tab **Lương SP** có ô **SỐ
+  TRỪ ẨN**: trừ thẳng vào lương sản phẩm, **phiếu lương in cho thợ KHÔNG có dòng/lý do
+  nào** (chỉ thấy lương SP đã trừ), bảng lương của văn phòng thì hiện dấu ▾ + dòng
+  "Trừ ẩn" trong popup. ⚠ Phụ cấp **%** tính trên `luong_goc` (lương TRƯỚC khi trừ ẩn)
+  → tác động lên thực lãnh đúng BẰNG số đã nhập, không nhân thêm hệ số; trừ quá lương
+  thì kẹp ở 0 (không cho lương âm). API: `/api/payroll/adjust {tru_an}` (0 = bỏ) và
+  `{cong_override}` (**như bhxh**: số ≥ 0 = đặt · null = bỏ ghi đè · vắng = giữ nguyên
+  → ghi qua `salary_store.set_cong_override`, KHÔNG nhét vào `set_month_adjust` vì ở
+  đó `None` đã mang nghĩa "giữ nguyên"). Cả 2 **KHÔNG kế thừa** sang tháng sau.
+  Tests: `tests/test_salary_store.py`.
   **LƯƠNG CHỜ HÀNG (2026-08-05, cột `salary_month.cho_hang`)**: tiền trả cho thời gian
   thợ ngồi chờ nguyên liệu/hàng về — khoản **CỘNG**, văn phòng **bấm thẳng vào ô** cột
   "Chờ hàng" của bảng lương để gõ số (1 số/tháng nên KHÔNG dùng panel nhiều khoản như
