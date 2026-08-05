@@ -221,6 +221,36 @@ class SalaryStoreTest(unittest.TestCase):
         self.assertEqual(after["phu_cap"], before["phu_cap"])          # phụ cấp % KHÔNG đổi
         self.assertEqual(before["thuc_lanh"] - after["thuc_lanh"], 100_000)
 
+    def test_luong_tuan_ap_cho_ca_2_loai_luong(self):
+        """NHẬN LƯƠNG TUẦN áp cho CẢ lương SP lẫn lương THỜI GIAN (Duy chốt
+        2026-08-05): ứng tự động = đúng lương của tháng → phần lương khử hết,
+        thực lãnh chỉ còn các khoản khác."""
+        import attendance_store
+        attendance_store.ensure_schema(self.conn)
+        update_worker(self.conn, self.a, wage_type="time", monthly_salary=5_200_000)
+        attendance_store.map_employee_code(self.conn, "77", self.a)
+        for t in ("07:00", "11:00", "13:00", "17:00"):
+            attendance_store.add_manual(self.conn, "77", "2026-07-06", t)
+        salary_store.set_month_adjust(self.conn, "2026-07", self.a, weekly=True)
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), self.a)
+        self.assertEqual(r["luong"], 200_000)          # 1 công × 200k
+        self.assertEqual(r["ung_weekly"], 200_000)     # thợ TG cũng ăn luật lương tuần
+        self.assertEqual(r["thuc_lanh"], 0)
+
+    def test_luong_tuan_khong_nuot_mat_so_tru_an(self):
+        """Thợ nhận lương tuần MÀ có số trừ ẩn: ứng tự động phải lấy lương TRƯỚC khi
+        trừ (= số đã trả trong tháng) → thực lãnh ÂM đúng bằng số trừ. Lấy lương
+        sau-trừ thì 2 số khử nhau, gõ trừ ẩn xong thực lãnh đứng im."""
+        wid = self._seed_product_worker("Em", tong_calc=1000, gia=1000)   # lương SP 1tr
+        salary_store.set_month_adjust(self.conn, "2026-07", wid, weekly=True)
+        r0 = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), wid)
+        self.assertEqual((r0["luong"], r0["ung_weekly"], r0["thuc_lanh"]), (1_000_000, 1_000_000, 0))
+        salary_store.set_month_adjust(self.conn, "2026-07", wid, tru_an=300_000)
+        r = self._row(salary_store.compute_month_payroll(self.conn, "2026-07"), wid)
+        self.assertEqual(r["luong"], 700_000)          # lương SP đã trừ
+        self.assertEqual(r["ung_weekly"], 1_000_000)   # đã trả nguyên lương theo tuần
+        self.assertEqual(r["thuc_lanh"], -300_000)     # còn nợ đúng số trừ ẩn
+
     def test_phu_cap_nhieu_khoan_cong_don(self):
         salary_store.add_allowance(self.conn, self.a, "2026-07", 100_000, note="ăn trưa")
         salary_store.add_allowance(self.conn, self.a, "2026-07", 50_000, note="xăng xe")

@@ -377,7 +377,8 @@ def compute_month_payroll(conn, ym: str) -> dict:
       `cong` đã gồm TC, `luong_tc` = 0 (`ot_gio` vẫn trả để biết đã gộp bao nhiêu).
     Công/TC quy từ máy chấm công (attendance_store.month_worker_stats); mọi loại rồi
     + phụ cấp + thưởng (gồm 2 khoản bật/tắt: CHUYÊN CẦN cố định + VỆ SINH theo ngày
-    công, salary_store.bonus) − ứng − BHXH = thực lãnh.
+    công, salary_store.bonus) − ứng − BHXH = thực lãnh. `weekly` (nhận lương tuần, áp
+    cho CẢ 2 loại lương) → ứng tự động += lương của tháng TRƯỚC khi trừ ẩn.
     Mốc lấy theo TỪNG THÁNG (salary_store.moc: bản đặt gần nhất ≤ ym, chưa
     có thì mốc hồ sơ thợ) nên sửa mốc không tính lại tháng cũ; TRỪ BHXH cũng theo từng
     tháng + kế thừa y hệt (salary_store.bhxh), chưa đặt bao giờ = 0.
@@ -440,7 +441,10 @@ def compute_month_payroll(conn, ym: str) -> dict:
         luong_cong = luong_tc = 0.0
         pc_phieu = 0.0            # phụ cấp PHIẾU SX đã gộp trong lương SP (để UI tách ra)
         tru_an = float(a.get("tru_an") or 0)
-        luong_goc = 0.0   # lương SP TRƯỚC khi trừ ẩn (gốc tính phụ cấp %)
+        # LƯƠNG TRƯỚC KHI TRỪ ẨN — dùng 2 chỗ: gốc tính phụ cấp %, và số coi như
+        # ĐÃ TRẢ khi thợ nhận lương tuần. Thợ lương thời gian không có trừ ẩn nên
+        # bằng chính lương của họ.
+        luong_goc = 0.0
         if wt == "product":
             luong, pc_phieu = wage_by_name.get(w["name"].strip().casefold(), (0.0, 0.0))
             # SỐ TRỪ ẨN: trừ thẳng vào lương SP. Chặn ở 0 — lương âm in ra phiếu là
@@ -455,6 +459,7 @@ def compute_month_payroll(conn, ym: str) -> dict:
             if not ot_in_cong:
                 luong_tc = day_rate * 1.2 * ot_min / 480.0
             luong = luong_cong + luong_tc
+            luong_goc = luong
         thuong, note = a.get("thuong", 0.0), a.get("note", "")
         # PHỤ CẤP: khoản theo CÔNG THỨC quy ra tiền theo lương gốc của CHÍNH thợ này
         # (thợ SP → lương sản phẩm · thợ TG → lương ngày công, không gồm tăng ca) và
@@ -468,8 +473,11 @@ def compute_month_payroll(conn, ym: str) -> dict:
         pc_count = len(rows_pc)
         weekly = bool(a.get("weekly"))   # nhận lương tuần THEO THÁNG (riêng bảng lương)
         ung_manual, adv_count = adv.get(wid, (0.0, 0))
-        # NHẬN LƯƠNG TUẦN → ứng tự động = đúng lương sản phẩm (đã trả theo tuần trong tháng)
-        ung_weekly = luong if weekly else 0.0
+        # NHẬN LƯƠNG TUẦN (áp cho CẢ lương SP lẫn lương THỜI GIAN — Duy chốt
+        # 2026-08-05): ứng tự động = đúng số đã trả trong tháng, tức lương TRƯỚC
+        # khi trừ ẩn. Lấy lương sau-trừ thì số trừ ẩn tự khử nhau ((L−T)−(L−T)=0)
+        # → gõ trừ ẩn cho thợ lương tuần mà thực lãnh đứng im, không báo gì.
+        ung_weekly = luong_goc if weekly else 0.0
         ung = ung_manual + ung_weekly
         # TRỪ BHXH: số hiệu lực tháng này (kế thừa bản gần nhất ≤ ym), chưa đặt = 0
         bhr = bh.get(wid)

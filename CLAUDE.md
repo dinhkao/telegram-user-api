@@ -314,7 +314,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   lập, KHÁC `production_workers.weekly_salary`) + `salary_advances` (ỨNG lương NHIỀU
   lần/tháng) + `salary_allowances` (PHỤ CẤP NHIỀU KHOẢN/tháng — amount + nhãn, cộng
   dồn; giống ứng). `compute_month_payroll(ym)`: thực lãnh = lương + phụ cấp (Σ khoản)
-  + thưởng − ứng − **BHXH**; `weekly` bật → ứng tự động += lương SP (đã trả theo tuần).
+  + thưởng − ứng − **BHXH**; `weekly` (nhận lương tuần) bật → ứng tự động += lương
+  của tháng **TRƯỚC khi trừ ẩn**. ⚠ Lương tuần áp cho **CẢ lương SP LẪN lương THỜI
+  GIAN** (Duy chốt 2026-08-05) — thợ TG bật cờ này thì lương thời gian cũng khử hết,
+  đúng ý đồ. Phải lấy lương TRƯỚC trừ ẩn, lấy lương sau-trừ thì 2 số khử nhau
+  ((L−T)−(L−T)=0) → gõ trừ ẩn cho thợ lương tuần mà thực lãnh đứng im, không báo gì.
   **TRỪ BHXH (2026-08-04, `salary_store/bhxh.py` + cột `salary_month.bhxh`,
   tests/test_salary_bhxh.py)**: khoản TRỪ hằng tháng, cùng luật KẾ THỪA THEO THÁNG với
   mốc lương (đặt tháng nào áp TỪ THÁNG ĐÓ trở đi, tháng sau tự kế thừa, tháng trước

@@ -13,7 +13,7 @@ export type Sort = { key: SortKey; dir: 1 | -1 };
 export const COLS: { key: SortKey; label: string; title: string; num: boolean }[] = [
   { key: "name", label: "Thợ", title: "Tên thợ — bấm để sắp A→Z", num: false },
   { key: "type", label: "Loại", title: "Loại lương (SP → TG → TG*)", num: true },
-  { key: "weekly", label: "Tuần", title: "Nhận lương tuần", num: true },
+  { key: "weekly", label: "Tuần", title: "Nhận lương tuần — áp cho cả lương SP lẫn lương thời gian; bật thì lương tháng coi như đã trả, trừ hết vào ứng", num: true },
   { key: "moc", label: "Mốc", title: "Mốc lương tháng (thợ lương thời gian)", num: true },
   { key: "cong", label: "Công", title: "Ngày công", num: true },
   { key: "tc", label: "TC", title: "Giờ tăng ca", num: true },
