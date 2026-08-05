@@ -813,6 +813,15 @@ export function payslipsHtmlUrl(names: string[], from?: string, to?: string): st
   return `${serverUrl()}/api/production/payslips-html${q ? `?${q}` : ""}`;
 }
 
+/** URL trang HTML PHIẾU LƯƠNG THÁNG của 1 thợ (in giấy khổ hoá đơn) — office-only.
+ *  Mở từ hồ sơ lương thợ ở #/luong-thang. Xem server_app/payslip_routes.py. */
+export function payslipMonthHtmlUrl(workerId: number, ym: string): string {
+  const qs = new URLSearchParams({ ym, worker_id: String(workerId) });
+  const t = getToken();
+  if (t) qs.set("token", t);
+  return `${serverUrl()}/api/payroll/payslip-html?${qs.toString()}`;
+}
+
 // ── Ảnh đính kèm đơn ─────────────────────────────────────────────────────────
 
 /** Header chỉ có Authorization (KHÔNG set Content-Type — để browser tự gắn
