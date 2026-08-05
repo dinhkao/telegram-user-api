@@ -18,7 +18,8 @@ const congVN = (n: number) => String(Math.round(n * 100) / 100).replace(".", ","
 const VS_MOI_NGAY = 12000;
 /** TỔNG TIỀN NHẬN của 1 thợ trong tháng (CHƯA trừ ứng/BHXH) — phải gồm CẢ 2 khoản
  *  thưởng chuyên cần/vệ sinh, không thì bật/tắt thưởng mà số xanh dưới tên đứng im. */
-const tongNhan = (r: PayrollRow) => r.luong + r.phu_cap + r.thuong + r.thuong_cc + r.thuong_vs;
+const tongNhan = (r: PayrollRow) =>
+  r.luong + r.phu_cap + r.thuong + r.thuong_cc + r.thuong_vs + r.cho_hang;
 const sum = (rows: PayrollRow[], f: (r: PayrollRow) => number) => rows.reduce((a, r) => a + (f(r) || 0), 0);
 
 /** Màn hẹp (cùng mốc 720px với media query bảng lương trong styles.css) — dùng để
@@ -39,7 +40,7 @@ function useNarrow() {
 }
 
 export function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleWeekly, editMoc,
-  toggleThuongCC, toggleThuongVS, onCell, onName, activeWid, filtered }: {
+  toggleThuongCC, toggleThuongVS, editChoHang, onCell, onName, activeWid, filtered }: {
   data: PayrollMonth;
   rows: PayrollRow[];              // đã lọc + sắp theo cột đang chọn (cha lo)
   sort: Sort | null;
@@ -48,6 +49,7 @@ export function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleW
   toggleType: (r: PayrollRow) => void; toggleWeekly: (r: PayrollRow) => void;
   editMoc: (r: PayrollRow) => void;
   toggleThuongCC: (r: PayrollRow) => void; toggleThuongVS: (r: PayrollRow) => void;
+  editChoHang: (r: PayrollRow) => void;   // ô Chờ hàng: bấm là gõ số tiền
   onCell: (wid: number, col: PayrollCol) => void;
   onName: (wid: number) => void;   // ô TÊN → popup lương của thợ
   activeWid: number | null;        // hàng vừa thao tác → tô sáng
@@ -75,7 +77,8 @@ export function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleW
   // ĐO LẠI 2026-08-04 bằng Playwright với nội dung DÀI NHẤT có thể của từng cột
   // (kể cả dòng TỔNG + các dấu ↩/⁺/số khoản) rồi + 0,35em đệm — tổng 106,7em ≈
   // 1366px, tức lọt màn 1440px không phải cuộn. Sửa số nào phải đo lại số đó.
-  const COL_EM = [narrow ? 7 : 10.2, 4.9, 4.9, 8.3, 5.4, 3.3, 9.2, 8.2, 8.6, 7.2, 7.2, 9.3, 7.7, 7.5];
+  // (cột "Chờ hàng" thêm 2026-08-05 — 8em: nhãn 8 ký tự + số tới 7 chữ số)
+  const COL_EM = [narrow ? 7 : 10.2, 4.9, 4.9, 8.3, 5.4, 3.3, 9.2, 8.2, 8.6, 7.2, 7.2, 8, 9.3, 7.7, 7.5];
   const totalEm = COL_EM.reduce((a, b) => a + b, 0);
   const tableStyle = `min-width:${totalEm}em`;
   const headRef = useRef<HTMLDivElement>(null);
@@ -226,6 +229,14 @@ export function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleW
                     {r.vs_on ? money(r.thuong_vs) : "—"}
                   </button>
                 </td>
+                {/* LƯƠNG CHỜ HÀNG: bấm ô là gõ thẳng số tiền (1 số/tháng nên không
+                    cần panel nhiều khoản như phụ cấp). Chỉ ăn tháng đang xem. */}
+                <td class={`pr-num pr-td-tap ${r.cho_hang ? "" : "is-zero"}`}
+                  title={`Lương chờ hàng ${ymLabel(ym).toLowerCase()} — bấm để nhập số tiền`}>
+                  <button class="pr-bon" onClick={() => editChoHang(r)}>
+                    {r.cho_hang ? money(r.cho_hang) : "—"}
+                  </button>
+                </td>
                 <td class="pr-num pr-td-tap" title="Ứng lương — bấm thêm/vô hiệu lần ứng" {...tap("ung")}>
                   <span class="pr-ung-btn">{money(r.ung)}{r.adv_count ? <sup> {r.adv_count}</sup> : null}</span>
                 </td>
@@ -266,6 +277,7 @@ export function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleW
               <td class="pr-num">{money(sum(rows, (r) => r.phu_cap))}</td>
               <td class="pr-num">{money(sum(rows, (r) => r.thuong_cc))}</td>
               <td class="pr-num">{money(sum(rows, (r) => r.thuong_vs))}</td>
+              <td class="pr-num">{money(sum(rows, (r) => r.cho_hang))}</td>
               <td class="pr-num">{money(sum(rows, (r) => r.ung))}</td>
               <td class="pr-num">{money(sum(rows, (r) => r.bhxh))}</td>
               <td class="pr-num pr-net-td">{money(sum(rows, (r) => r.thuc_lanh))}</td>

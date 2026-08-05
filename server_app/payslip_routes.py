@@ -52,7 +52,12 @@ def _collect(ym: str, worker_id: int, username: str | None, today: str):
         attendance_store.ensure_schema(conn)
         times = {d["day"]: (d.get("times") or [])
                  for d in attendance_store.day_summary(conn, ym) if d.get("worker_id") == worker_id}
-        return build_payslip(row, allow, adv, times, ym=ym, today_ymd=today)
+        p = build_payslip(row, allow, adv, times, ym=ym, today_ymd=today)
+        # DANH SÁCH THỢ của tháng → thanh chuyển nhanh trên đầu phiếu (in xong 1 người
+        # bấm sang người kế, khỏi quay lại bảng lương). Giữ ĐÚNG thứ tự bảng lương.
+        p["workers"] = [{"id": w["worker_id"], "name": w["name"],
+                         "current": w["worker_id"] == worker_id} for w in data["workers"]]
+        return p
     finally:
         conn.close()
 

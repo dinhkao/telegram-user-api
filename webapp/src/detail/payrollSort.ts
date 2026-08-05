@@ -7,7 +7,7 @@
 import type { PayrollRow } from "../api";
 
 export type SortKey = "name" | "type" | "weekly" | "moc" | "cong"
-  | "tc" | "luong_tg" | "luong_sp" | "pc" | "cc" | "vs" | "ung" | "bhxh" | "net";
+  | "tc" | "luong_tg" | "luong_sp" | "pc" | "cc" | "vs" | "cho_hang" | "ung" | "bhxh" | "net";
 export type Sort = { key: SortKey; dir: 1 | -1 };
 
 export const COLS: { key: SortKey; label: string; title: string; num: boolean }[] = [
@@ -22,9 +22,10 @@ export const COLS: { key: SortKey; label: string; title: string; num: boolean }[
   { key: "pc", label: "P.cấp", title: "Phụ cấp tháng", num: true },
   { key: "cc", label: "Ch.cần", title: "Thưởng chuyên cần — cố định, bấm để bật/tắt (chỉ tháng này)", num: true },
   { key: "vs", label: "Vệ sinh", title: "Thưởng vệ sinh — 12.000đ × ngày công, bấm để bật/tắt (chỉ tháng này)", num: true },
+  { key: "cho_hang", label: "Chờ hàng", title: "Lương chờ hàng — bấm ô để nhập số tiền (chỉ tháng này)", num: true },
   { key: "ung", label: "Ứng", title: "Đã ứng", num: true },
   { key: "bhxh", label: "BHXH", title: "Trừ BHXH hằng tháng (BHXH/BHYT/BHTN phần NV đóng)", num: true },
-  { key: "net", label: "Lãnh", title: "Thực lãnh = lương + phụ cấp + thưởng − ứng − BHXH", num: true },
+  { key: "net", label: "Lãnh", title: "Thực lãnh = lương + phụ cấp + thưởng + chờ hàng − ứng − BHXH", num: true },
 ];
 
 /** Giá trị đem so của 1 dòng theo cột. Cột chữ trả string, còn lại trả số. */
@@ -41,6 +42,7 @@ function val(r: PayrollRow, key: SortKey): number | string {
     case "pc": return r.phu_cap || 0;
     case "cc": return r.thuong_cc || 0;
     case "vs": return r.thuong_vs || 0;
+    case "cho_hang": return r.cho_hang || 0;
     case "ung": return r.ung || 0;
     case "bhxh": return r.bhxh || 0;
     case "net": return r.thuc_lanh || 0;
