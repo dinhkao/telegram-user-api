@@ -170,7 +170,7 @@ export function PayrollTable({ data, rows, sort, onSort, ym, toggleType, toggleW
                 </td>
                 <td class="pr-td-mid">
                   <span class={r.weekly ? "tgl on" : "tgl"} role="switch" aria-checked={r.weekly}
-                    onClick={() => toggleWeekly(r)} style="cursor:pointer" title="Nhận lương tuần"><span class="tgl-knob" /></span>
+                    onClick={() => toggleWeekly(r)} style="cursor:pointer" title="Nhận lương tuần (áp cho cả lương SP lẫn lương thời gian) — bật thì lương tháng coi như đã trả, trừ hết vào ứng"><span class="tgl-knob" /></span>
                 </td>
                 {/* Mốc = mốc lương THÁNG ĐANG XEM (lưu theo từng tháng). Dấu ↩ = tháng
                     này không đặt riêng, đang kế thừa mốc đặt ở tháng trước đó. Bấm ô
