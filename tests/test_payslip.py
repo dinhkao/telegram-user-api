@@ -20,7 +20,9 @@ def test_lines_theo_dung_thu_tu_va_dau_am():
     p = build_payslip(_row(), [], [], {}, ym="2026-06", today_ymd="2026-08-05")
     lb = _labels(p)
     assert lb[:2] == ["Số ngày công", "Số giờ tăng ca"]
-    assert "Mốc lương tháng" in lb and "Lương theo ngày công" in lb and "Lương tăng ca" in lb
+    assert "Lương theo ngày công" in lb and "Lương tăng ca" in lb
+    # mốc lương = số nội bộ để tính ra lương ngày công, KHÔNG in lên phiếu phát cho thợ
+    assert "Mốc lương tháng" not in lb
     assert lb[-1] == "THỰC NHẬN"
     by = {ln["label"]: ln for ln in p["lines"]}
     assert by["Trừ tạm ứng"]["value"] == -10_000_000      # khoản TRỪ ghi số âm
@@ -30,13 +32,12 @@ def test_lines_theo_dung_thu_tu_va_dau_am():
 
 
 def test_tong_cac_dong_bang_dung_thuc_nhan():
-    """Cộng mọi dòng tiền (trừ dòng tổng) phải ra đúng THỰC NHẬN — phiếu in không
-    được để người ta bấm máy tính ra số khác."""
+    """Cộng MỌI dòng tiền (trừ dòng tổng) phải ra đúng THỰC NHẬN — phiếu in không
+    được để người ta bấm máy tính ra số khác. Không còn dòng thông tin nào phải
+    chừa ra kể từ khi bỏ mốc lương."""
     p = build_payslip(_row(), [{"amount": 50_000, "note": "điện thoại", "calc_label": ""}],
                       [], {}, ym="2026-06", today_ymd="2026-08-05")
-    money = [ln for ln in p["lines"] if ln["kind"] == "money" and not ln["total"]]
-    # bỏ dòng thông tin: mốc lương (không phải khoản cộng)
-    s = sum(ln["value"] for ln in money if ln["label"] != "Mốc lương tháng")
+    s = sum(ln["value"] for ln in p["lines"] if ln["kind"] == "money" and not ln["total"])
     assert s == 1_326_958 + 50_000
     assert p["lines"][-1]["value"] == 1_326_958
 

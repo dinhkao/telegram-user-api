@@ -335,7 +335,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   TẤT CẢ chặn `office_user`). Khoản đã ghi: **VÔ HIỆU** (`.../{id}/void`, kèm lý do)
   hoặc **SỬA GHI CHÚ** (`.../{id}/note` — SỐ TIỀN/ngày BẤT BIẾN, sai tiền thì vô hiệu
   rồi ghi lại; khoản đã vô hiệu khoá luôn ghi chú). UI `MonthlyPayroll.tsx`
-  (`#/luong-thang`, view Bảng/Thẻ — view Thẻ tách ra `detail/PayrollCard.tsx`;
+  (`#/luong-thang`, view Bảng/Thẻ — **2 view đều tách file riêng**: Bảng =
+  `detail/PayrollTable.tsx`, Thẻ = `detail/PayrollCard.tsx` (trần 400 dòng);
+  **Ô TÌM THỢ ghim (sticky) dưới app-bar** — không dấu (`foldVN`), lọc cho CẢ 2 view,
+  dòng TỔNG của bảng cộng theo thợ ĐANG HIỆN + hiện "n/N" (thanh tóm tắt trên cùng
+  vẫn là tổng CẢ THÁNG, cố ý). Thanh tiêu đề bảng ghim NGAY DƯỚI ô tìm nhờ biến CSS
+  `--pr-search-h` = chiều cao thật của hàng tìm, do trang đo bằng ResizeObserver —
+  đừng thay bằng hằng số px, đổi cỡ chữ là lúc hở lúc chồng;
   **SẮP XẾP bấm tiêu đề cột** = `detail/payrollSort.ts` (`COLS` là NGUỒN DUY NHẤT của
   nhãn/tooltip 14 cột — thứ tự phải khớp `<td>` thân bảng LẪN mảng `COL_EM` colgroup;
   cột Thợ GHIM trái nên `COL_EM[0]` hẹp lại ở mobile qua hook `useNarrow`
@@ -375,7 +381,8 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   office-only). Khổ giấy = HOÁ ĐƠN KiotViet của đơn (body 280px, `@page 76mm auto`).
   3 khối: bảng tiền → THỰC NHẬN · CHẤM CÔNG từng ngày (4 mốc giờ chia theo BUỔI + giờ
   công + giờ TC, đủ mọi ngày của tháng, tháng đang chạy dừng ở hôm nay) · ỨNG LƯƠNG
-  từng lần, cuối phiếu in TÊN cỡ lớn. ⚠ Phiếu **KHÔNG tính lại tiền** — lấy nguyên
+  từng lần, cuối phiếu in TÊN cỡ lớn. Nút **🖨 In phiếu** nổi góc dưới-phải gọi
+  `window.print()` (ẩn trong `@media print` để không lên giấy). ⚠ Phiếu **KHÔNG tính lại tiền** — lấy nguyên
   dòng `compute_month_payroll` nên luôn khớp bảng lương; giờ công quy bằng
   `attendance_store.domain.work_stats` (cùng luật CN = tăng ca). Nội dung thuần =
   `salary_store/payslip.py` (tests: `tests/test_payslip.py`, có test "cộng mọi dòng =
