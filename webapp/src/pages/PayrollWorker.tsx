@@ -6,7 +6,7 @@
 // (giữ 1 chỗ thao tác duy nhất — xem luật ĐỒNG BỘ 2 CHỖ ở PayrollCellPopup).
 // Thanh tháng ‹ › đổi tháng ngay trên trang (ghi vào URL để back/chia sẻ đúng kỳ).
 import { useEffect, useState } from "preact/hooks";
-import { getMonthlyPayroll, isOffice, type PayrollMonth } from "../api";
+import { getMonthlyPayroll, isOffice, payslipMonthHtmlUrl, type PayrollMonth } from "../api";
 import { curYM, shiftYM, ymLabel } from "../format";
 import { PayrollWorkerSheet } from "../detail/PayrollWorkerSheet";
 import { PayrollCellPopup, type PayrollCol } from "../detail/PayrollCellPopup";
@@ -45,7 +45,13 @@ export function PayrollWorker({ wid }: { wid: number }) {
   const head = (
     <PageHead fallback={`#/luong-thang`}
       title={<><Icon name="wallet" size={18} /> {r ? r.name : "Lương tháng"}</>}
-      sub={r ? `lương ${wageLabel(r.wage_type).toLowerCase()}` : "lương tháng của thợ"} />
+      sub={r ? `lương ${wageLabel(r.wage_type).toLowerCase()}` : "lương tháng của thợ"}
+      right={r ? (
+        <button class="pws-popup-print" title="In phiếu lương tháng"
+          onClick={() => window.open(payslipMonthHtmlUrl(r.worker_id, ym), "_blank")}>
+          <Icon name="printer" size={16} /> In phiếu
+        </button>
+      ) : undefined} />
   );
   if (!isOffice()) return <div class="pr-page">{head}<EmptyState icon="🔒">Chỉ văn phòng.</EmptyState></div>;
 

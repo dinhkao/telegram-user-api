@@ -6,7 +6,7 @@
 // Bấm 1 khối trong sheet → mở tiếp PayrollCellPopup đúng tab (popup chồng popup:
 // cell popup render SAU nên nằm trên).
 import { useState } from "preact/hooks";
-import { type PayrollMonth, type PayrollRow } from "../api";
+import { payslipMonthHtmlUrl, type PayrollMonth, type PayrollRow } from "../api";
 import { PayrollWorkerSheet } from "./PayrollWorkerSheet";
 import { PayrollCellPopup, type PayrollCol } from "./PayrollCellPopup";
 import { Icon } from "../ui/Icon";
@@ -36,7 +36,12 @@ export function PayrollWorkerPopup({ ym, r, onClose, apply, toggleType, toggleWe
             <Icon name="wallet" size={18} />
             <span class="pws-popup-title">{r.name}</span>
             <span class="muted small">lương {wageLabel(r.wage_type).toLowerCase()} · {ymLabel(ym).toLowerCase()}</span>
-            {/* mở TRANG riêng khi cần link chia sẻ / in / xem cạnh nhau */}
+            {/* PHIẾU LƯƠNG THÁNG in giấy (khổ hoá đơn) — tab mới, không rời bảng lương */}
+            <button class="pws-popup-print" title="In phiếu lương tháng"
+              onClick={() => window.open(payslipMonthHtmlUrl(r.worker_id, ym), "_blank")}>
+              <Icon name="printer" size={16} /> In phiếu
+            </button>
+            {/* mở TRANG riêng khi cần link chia sẻ / xem cạnh nhau */}
             <a class="pws-popup-open" href={`#/luong-thang/${r.worker_id}?ym=${encodeURIComponent(ym)}`}
               title="Mở thành trang riêng">↗</a>
           </div>

@@ -369,6 +369,18 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   + `AdvanceEntry.tsx` (`#/nhap-ung` nhập ứng nhanh); ☰ Thêm
   → nhóm **Lương**. Tests: `tests/test_salary_store.py`. (Khác `production_allowances`
   = phụ cấp per-PHIẾU SX; đây là lương theo THÁNG.)
+  **PHIẾU LƯƠNG THÁNG IN GIẤY (2026-08-05)** — nút "In phiếu" ở đầu popup hồ sơ lương
+  thợ (`PayrollWorkerPopup`) + trang `#/luong-thang/:id` → tab mới
+  `GET /api/payroll/payslip-html?ym=&worker_id=` (`server_app/payslip_routes.py`,
+  office-only). Khổ giấy = HOÁ ĐƠN KiotViet của đơn (body 280px, `@page 76mm auto`).
+  3 khối: bảng tiền → THỰC NHẬN · CHẤM CÔNG từng ngày (4 mốc giờ chia theo BUỔI + giờ
+  công + giờ TC, đủ mọi ngày của tháng, tháng đang chạy dừng ở hôm nay) · ỨNG LƯƠNG
+  từng lần, cuối phiếu in TÊN cỡ lớn. ⚠ Phiếu **KHÔNG tính lại tiền** — lấy nguyên
+  dòng `compute_month_payroll` nên luôn khớp bảng lương; giờ công quy bằng
+  `attendance_store.domain.work_stats` (cùng luật CN = tăng ca). Nội dung thuần =
+  `salary_store/payslip.py` (tests: `tests/test_payslip.py`, có test "cộng mọi dòng =
+  THỰC NHẬN"), vẽ HTML = `renderers/phieu_luong_thang.py`. (Khác `#/in-luong` =
+  phiếu lương TUẦN theo sản xuất, `renderers/phieu_luong.py`.)
   **PHỤ CẤP TỰ ĐỘNG theo ghi chú báo cáo (`production_store/allowance_auto.py`)**: bảng
   `RULES` = (tên thợ đã bỏ dấu, từ khoá ghi chú, hạng) → phụ cấp = tiền SP của người
   hạng đó trong CÙNG phiếu. ⚠ Tên phải là **TÊN ĐẦY ĐỦ** đúng như `production_workers`

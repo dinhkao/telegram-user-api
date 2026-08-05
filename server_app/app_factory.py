@@ -322,6 +322,8 @@ def create_app():
     r.add_post("/api/payroll/allowance", payroll_allowance_add_handler)   # TRƯỚC {id}
     r.add_post("/api/payroll/allowance/{id}/void", payroll_allowance_void_handler)
     r.add_post("/api/payroll/allowance/{id}/note", payroll_allowance_note_handler)
+    from server_app.payslip_routes import payslip_month_html_handler
+    r.add_get("/api/payroll/payslip-html", payslip_month_html_handler)   # phiếu lương tháng in giấy
     # ─── chấm công (máy Ronald Jack — ingest = bearer riêng, còn lại office) ─
     from server_app.attendance_routes import (
         attendance_ingest_handler, attendance_list_handler,

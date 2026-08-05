@@ -4063,7 +4063,15 @@ body.has-nop .wp-thead-bar { top: 72px; }
 .pws-popup { max-height: 88vh; }
 .pws-popup .modal-head { align-items: baseline; gap: 6px; }
 .pws-popup-title { font-weight: 800; }
-.pws-popup-open { margin-left: auto; padding: 0 4px; color: var(--primary); text-decoration: none; font-size: 1rem; }
+.pws-popup-open { margin-left: 2px; padding: 0 4px; color: var(--primary); text-decoration: none; font-size: 1rem; }
+/* nút IN PHIẾU LƯƠNG THÁNG (popup + trang riêng) — đẩy sát mép phải của đầu popup */
+.pws-popup-print {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--card); color: var(--primary); font-size: .78rem; font-weight: 700;
+  white-space: nowrap;
+}
+.pws-popup-print:active { background: var(--bg); }
 /* CHI TIẾT lương SP: dòng NGÀY đậm, dòng PHIẾU thụt vào dưới nó */
 .pws-dayhead { background: var(--bg); font-weight: 700; }
 .pws-subitem { padding-left: 18px; }
