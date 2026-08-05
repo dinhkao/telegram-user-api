@@ -1191,7 +1191,9 @@ export type PayrollMonth = { ym: string; workers: PayrollRow[]; totals: { luong:
 export type SalaryAdvance = { id: number; worker_id: number; ym: string; amount: number; adv_date: string; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string };
 // calc_kind 'pct'/'day' + calc_value = CÔNG THỨC: amount được server TÍNH LẠI theo
 // lương gốc của tháng mỗi lần trả về (rỗng = khoản tiền cố định, bất biến).
-export type SalaryAllowance = { id: number; worker_id: number; ym: string; amount: number; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string; calc_kind?: string; calc_value?: number; calc_label?: string };
+export type SalaryAllowance = { id: number; worker_id: number; ym: string; amount: number; note: string; created_by?: string; created_at?: string; voided_at?: string; voided_by?: string; void_reason?: string; calc_kind?: string; calc_value?: number; calc_label?: string;
+  // chữ in trên phiếu lương (rỗng = in nội dung khoản + công thức như cũ)
+  print_note?: string };
 
 // PIVOT lương SP: thợ theo CỘT, ngày theo HÀNG (+ từng phiếu SX trong ngày).
 // cells khoá theo worker_id dạng CHUỖI (JSON object key). Tiền = đồng.
@@ -1233,8 +1235,8 @@ export async function listAllAllowances(ym: string): Promise<SalaryAllowance[]> 
   return d.allowances || [];
 }
 export async function addPayrollAllowance(ym: string, worker_id: number, amount: number, note?: string,
-  calc?: { kind: "pct" | "day"; value: number } | null): Promise<PayrollMonth> {
-  return postJSON(`/api/payroll/allowance`, { ym, worker_id, amount, note,
+  calc?: { kind: "pct" | "day"; value: number } | null, print_note?: string): Promise<PayrollMonth> {
+  return postJSON(`/api/payroll/allowance`, { ym, worker_id, amount, note, print_note,
     calc_kind: calc?.kind, calc_value: calc?.value });
 }
 // Vô hiệu (không xoá): dòng giữ nguyên kèm ai/lúc nào/lý do, totals bỏ qua
@@ -1244,6 +1246,10 @@ export async function voidPayrollAllowance(ym: string, id: number, reason: strin
 // Sửa GHI CHÚ khoản đã ghi (số tiền bất biến — sai tiền thì vô hiệu rồi ghi lại)
 export async function setPayrollAllowanceNote(ym: string, id: number, note: string): Promise<PayrollMonth> {
   return postJSON(`/api/payroll/allowance/${id}/note`, { ym, note });
+}
+/** CHỮ IN TRÊN PHIẾU của 1 khoản phụ cấp (rỗng = phiếu in nội dung khoản như cũ). */
+export async function setPayrollAllowancePrintNote(ym: string, id: number, note: string): Promise<PayrollMonth> {
+  return postJSON(`/api/payroll/allowance/${id}/print-note`, { ym, note });
 }
 export async function listPayrollAdvances(ym: string, worker_id: number): Promise<SalaryAdvance[]> {
   const d = await getJSON(`/api/payroll/advances?ym=${encodeURIComponent(ym)}&worker_id=${worker_id}`, { cache: false });

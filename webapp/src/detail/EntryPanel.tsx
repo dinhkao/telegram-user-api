@@ -30,7 +30,7 @@ export type MoneyEntry = {
 };
 
 export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, noteLabel,
-  notePlaceholder, noteSuggestions, pctBase, dayBase, onAdd, onDel, onNote, extra }: {
+  notePlaceholder, noteSuggestions, pctBase, dayBase, onAdd, onDel, onNote, onPrintNote, extra }: {
   entries?: MoneyEntry[];
   showDate?: boolean;
   addPlaceholder: string;               // nhãn ô tiền ("Số tiền phụ cấp"…)
@@ -39,14 +39,18 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
   pctBase?: PctBase | null;             // có = cho nhập theo % lương tháng
   dayBase?: DayBase | null;             // có = cho nhập đơn giá × ngày công
   // calc = CÔNG THỨC đã dùng (nếu có) → chỗ gọi lưu xuống để tính lại sau này
-  onAdd: (amount: number, note: string, date: string, calc?: { kind: "pct" | "day"; value: number } | null) => void;
+  onAdd: (amount: number, note: string, date: string, calc?: { kind: "pct" | "day"; value: number } | null,
+          printNote?: string) => void;
   onDel: (id: number) => void;
   onNote?: (id: number, current: string) => void;   // ✏️ sửa ghi chú (tiền bất biến)
+  // 🖨 sửa CHỮ IN TRÊN PHIẾU của khoản (chỉ phụ cấp truyền vào)
+  onPrintNote?: (id: number, current: string) => void;
   extra?: any;
 }) {
   const [amt, setAmt] = useState("");
   const [date, setDate] = useState(() => isoDate(new Date()));   // mặc định HÔM NAY
   const [note, setNote] = useState("");
+  const [pnote, setPnote] = useState("");   // chữ in trên phiếu (phụ cấp)
   // Nhập theo % thì GHI LUÔN cách tính vào ghi chú (nếu người dùng chưa tự ghi) —
   // tháng sau nhìn lại phải biết 904.261đ ở đâu ra, vì DB chỉ lưu SỐ TIỀN chốt.
   const [pct, setPct] = useState<PctInfo>(null);
@@ -73,8 +77,8 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
     if (a <= 0) { toast("Nhập số tiền", "err"); return; }
     // có công thức thì KHÔNG nhét số gốc vào ghi chú nữa: gốc đổi là ghi chú sai
     const auto = note;
-    onAdd(a, auto, date, pct ? { kind: pct.kind, value: pct.n } : null);
-    setAmt(""); setNote(""); setPct(null); setAdding(false);
+    onAdd(a, auto, date, pct ? { kind: pct.kind, value: pct.n } : null, pnote);
+    setAmt(""); setNote(""); setPnote(""); setPct(null); setAdding(false);
   };
   return (
     <div class="pr-adv">
@@ -93,6 +97,10 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
             {(e as any).calc_label ? <div class="ua-calc">{(e as any).calc_label}</div> : null}
             {e.note ? <div class="ua-note-txt">{e.note}</div>
               : !e.voided_at ? <div class="muted small ua-note-empty">chưa có ghi chú</div> : null}
+            {/* chữ ĐANG IN trên phiếu lương của khoản này (nếu văn phòng có đặt riêng) */}
+            {(e as any).print_note ? (
+              <div class="ua-print-note">🖨 in trên phiếu: <b>{(e as any).print_note}</b></div>
+            ) : null}
             {tsLabel(e.created_at) ? (
               <div class="muted small ua-ts">tạo {tsLabel(e.created_at)}{e.created_by ? ` · ${e.created_by}` : ""}</div>
             ) : null}
@@ -102,6 +110,10 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
           </div>
           {!e.voided_at && onNote ? (
             <button class="ua-note-edit" onClick={() => onNote(e.id, e.note || "")} aria-label="Sửa ghi chú" title="Sửa ghi chú"><Icon name="edit" size={14} /></button>
+          ) : null}
+          {!e.voided_at && onPrintNote ? (
+            <button class="ua-note-edit" onClick={() => onPrintNote(e.id, (e as any).print_note || "")}
+              aria-label="Sửa chữ in trên phiếu" title="Sửa chữ in trên phiếu lương">🖨</button>
           ) : null}
           {!e.voided_at ? <button class="pr-adv-del" onClick={() => onDel(e.id)} aria-label="Vô hiệu">✕</button> : null}
         </div>
@@ -113,6 +125,8 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
       {adding ? (
         <EntryAddPopup title={submitLabel || "Thêm khoản"}
           amount={amt} onAmount={setAmt} note={note} onNote={setNote}
+          printNote={onPrintNote ? pnote : undefined}
+          onPrintNote={onPrintNote ? setPnote : undefined}
           date={showDate ? date : undefined} onDate={showDate ? setDate : undefined}
           amountLabel={addPlaceholder} submitLabel={submitLabel || "Thêm"}
           noteLabel={noteLabel || "Ghi chú"} notePlaceholder={notePlaceholder || "Ghi chú (tuỳ chọn)"}

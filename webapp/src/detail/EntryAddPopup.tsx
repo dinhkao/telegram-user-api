@@ -9,11 +9,14 @@ import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
 
 export function EntryAddPopup({ title, amount, onAmount, note, onNote, date, onDate,
+  printNote, onPrintNote,
   amountLabel, submitLabel, noteLabel, notePlaceholder, noteSuggestions,
   pctBase, dayBase, onPct, onSubmit, onClose }: {
   title: string;
   amount: string; onAmount: (v: string) => void;
   note: string; onNote: (v: string) => void;
+  // chữ in trên phiếu lương (chỉ phụ cấp truyền vào — xem ui/MoneyEntryForm)
+  printNote?: string; onPrintNote?: (v: string) => void;
   date?: string; onDate?: (v: string) => void;
   amountLabel: string; submitLabel: string;
   noteLabel?: string; notePlaceholder?: string; noteSuggestions?: string[];
@@ -28,6 +31,7 @@ export function EntryAddPopup({ title, amount, onAmount, note, onNote, date, onD
       <div class="modal-sheet pr-pop-sheet" onClick={(e: any) => e.stopPropagation()}>
         <div class="modal-head"><Icon name="plus" size={18} /> {title}</div>
         <MoneyEntryForm amount={amount} onAmount={onAmount} note={note} onNote={onNote}
+          printNote={printNote} onPrintNote={onPrintNote}
           date={date} onDate={onDate} amountLabel={amountLabel} submitLabel={submitLabel}
           noteLabel={noteLabel} notePlaceholder={notePlaceholder} noteSuggestions={noteSuggestions}
           pctBase={pctBase} dayBase={dayBase} onPct={onPct} onSubmit={onSubmit} />

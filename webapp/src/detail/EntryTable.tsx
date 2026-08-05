@@ -25,6 +25,7 @@ export type EntryRow = {
   auto?: boolean;           // dòng TỰ ĐỘNG (lương tuần) — không sửa/vô hiệu được
   onNote?: () => void;
   onVoid?: () => void;
+  onPrintNote?: () => void;   // chỉ phụ cấp: sửa CHỮ IN TRÊN PHIẾU lương
 };
 
 type Col = "worker" | "ymd" | "amount" | "note" | "created";
@@ -125,6 +126,8 @@ export function EntryTable({ rows, sortKey, emptyNote }: {
                   <>
                     {r.onNote ? <button class="ua-note-edit" onClick={r.onNote} title="Sửa nội dung"
                       aria-label="Sửa nội dung"><Icon name="edit" size={14} /></button> : null}
+                    {r.onPrintNote ? <button class="ua-note-edit" onClick={r.onPrintNote}
+                      title="Sửa chữ in trên phiếu lương" aria-label="Sửa chữ in trên phiếu">🖨</button> : null}
                     {r.onVoid ? <button class="pr-adv-del" onClick={r.onVoid} aria-label="Vô hiệu">✕</button> : null}
                   </>
                 ) : null}

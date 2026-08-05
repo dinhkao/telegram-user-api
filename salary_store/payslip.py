@@ -129,9 +129,16 @@ def build_payslip(r: dict, allowances: list[dict], advances: list[dict],
     if round(float(r.get("thuong") or 0)):
         lines.append(_money_line("Thưởng khác", r.get("thuong")))
     for a in allowances:
-        label = (a.get("note") or "").strip() or "khác"
-        if a.get("calc_label"):
-            label = f"{label} ({a['calc_label']})"
+        # CHỮ IN TRÊN PHIẾU (nếu văn phòng có ghi) thắng nội dung nội bộ, và khi đó
+        # KHÔNG kèm công thức — chữ phát cho thợ do văn phòng quyết, không lộ "10%
+        # lương gốc". Rỗng thì in như cũ: nội dung khoản + công thức.
+        printed = (a.get("print_note") or "").strip()
+        if printed:
+            label = printed
+        else:
+            label = (a.get("note") or "").strip() or "khác"
+            if a.get("calc_label"):
+                label = f"{label} ({a['calc_label']})"
         lines.append(_money_line(f"Phụ cấp {label}", a.get("amount")))
     if round(float(r.get("ung_weekly") or 0)):
         lines.append(_money_line("Trừ lương tuần đã nhận", r.get("ung_weekly"), neg=True))

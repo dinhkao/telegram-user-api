@@ -16,7 +16,7 @@ import { useEffect, useState } from "preact/hooks";
 import {
   addPayrollAdvance, addPayrollAllowance, getAttendanceSummary,
   listPayrollAdvances, listPayrollAllowances,
-  setPayrollAdvanceNote, setPayrollAllowanceNote,
+  setPayrollAdvanceNote, setPayrollAllowanceNote, setPayrollAllowancePrintNote,
   voidPayrollAdvance, voidPayrollAllowance,
   type AttendanceDay, type PayrollMonth, type PayrollRow,
   type SalaryAdvance, type SalaryAllowance,
@@ -114,9 +114,10 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
     if (!reason.trim()) { toast("Phải nhập lý do vô hiệu", "err"); return null; }
     return reason.trim();
   };
-  const addAllow = async (a: number, note: string, calc?: { kind: "pct" | "day"; value: number } | null) => {
+  const addAllow = async (a: number, note: string, calc?: { kind: "pct" | "day"; value: number } | null,
+                         printNote?: string) => {
     // PHẢI toast: thêm xong mà im lặng thì người dùng tưởng bấm hụt, bấm lại → ghi 2 lần
-    try { apply(await addPayrollAllowance(ym, wid, a, note, calc)); setAllows(await listPayrollAllowances(ym, wid));
+    try { apply(await addPayrollAllowance(ym, wid, a, note, calc, printNote)); setAllows(await listPayrollAllowances(ym, wid));
       toast(`Đã ghi phụ cấp ${money(a)}đ cho ${r.name}`, "ok"); }
     catch (e: any) { toast(e?.message || "Lỗi thêm phụ cấp", "err"); }
   };
@@ -130,6 +131,16 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
   const askNote = async (title: string, cur: string) => {
     const next = await promptDialog(title, { initial: cur, placeholder: "VD: ăn trưa, xăng xe…", okLabel: "Lưu" });
     return next === null || next.trim() === cur ? null : next.trim();
+  };
+  // 🖨 chữ IN TRÊN PHIẾU của khoản (rỗng = phiếu in nội dung khoản như cũ)
+  const printAllow = async (id: number, cur: string) => {
+    const next = await promptDialog(
+      "Chữ in trên phiếu lương cho khoản này\nĐể trống = in theo nội dung khoản.",
+      { initial: cur, placeholder: "VD: Phụ cấp tháng 7", okLabel: "Lưu" });
+    if (next === null || next.trim() === cur) return;
+    try { apply(await setPayrollAllowancePrintNote(ym, id, next.trim())); setAllows(await listPayrollAllowances(ym, wid));
+      toast("Đã lưu chữ in trên phiếu", "ok"); }
+    catch (e: any) { toast(e?.message || "Lỗi lưu chữ in", "err"); }
   };
   const noteAllow = async (id: number, cur: string) => {
     const next = await askNote("Nội dung khoản phụ cấp", cur);
@@ -356,7 +367,8 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
               submitLabel="Thêm phụ cấp" noteLabel="Nội dung phụ cấp"
               notePlaceholder="VD: ăn trưa, xăng xe…" noteSuggestions={PC_GOI_Y}
               pctBase={pctBaseOf(r)} dayBase={{ days: r.cong || 0 }}
-              onAdd={(a, note, _d, calc) => addAllow(a, note, calc)} onDel={voidAllow} onNote={noteAllow} />
+              onAdd={(a, note, _d, calc, pn) => addAllow(a, note, calc, pn)} onDel={voidAllow}
+              onNote={noteAllow} onPrintNote={printAllow} />
             <a class="btn block" href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>📋 Trang nhập phụ cấp</a>
             <Comments base={`/api/media/worker_pc/${wid}`} allowPin={false} />
             <p class="muted small">Trao đổi về phụ cấp của {r.name} — dùng chung cho mọi tháng.</p>

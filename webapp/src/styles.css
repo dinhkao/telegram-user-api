@@ -4176,3 +4176,6 @@ body.has-nop .wp-thead-bar { top: 72px; }
 .et-voided td { opacity: .62; text-decoration: line-through; }
 .et-voided .ua-void-info { text-decoration: none; }
 .et-table tfoot td { border-bottom: none; border-top: 2px solid var(--border); font-weight: 800; background: var(--bg); }
+/* CHỮ IN TRÊN PHIẾU của khoản phụ cấp — hiện ở dòng khoản (panel + trang nhập) để
+   đối chiếu với phiếu phát cho thợ; rỗng thì phiếu in nội dung khoản như cũ. */
+.ua-print-note { margin-top: 2px; color: var(--primary); font-size: .74rem; }
