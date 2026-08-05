@@ -14,11 +14,13 @@ import {
   setPayrollAdvanceNote, soVN, voidPayrollAdvance,
   type PayrollRow, type SalaryAdvance, type Worker,
 } from "../api";
+import { EntryTable, type EntryRow } from "../detail/EntryTable";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
 import { MoneyEntryForm } from "../ui/MoneyEntryForm";
 import { UNG_GOI_Y } from "../detail/EntryPanel";
+import { useEntryView } from "../detail/useEntryView";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
 
@@ -45,6 +47,7 @@ export function AdvanceEntry() {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [view, setView] = useEntryView("ua_view_ung");
 
   const load = () => {
     setAdvs(null);
@@ -105,10 +108,18 @@ export function AdvanceEntry() {
   return (
     <div class="pr-page">
       {head}
-      <div class="pr-monthbar">
-        <button class="pr-mnav" onClick={() => setYm(shiftYM(ym, -1))} aria-label="Tháng trước">‹</button>
-        <b>{ymLabel(ym)}</b>
-        <button class="pr-mnav" onClick={() => setYm(shiftYM(ym, 1))} aria-label="Tháng sau">›</button>
+      <div class="pr-controlbar">
+        <div class="pr-monthbar">
+          <button class="pr-mnav" onClick={() => setYm(shiftYM(ym, -1))} aria-label="Tháng trước">‹</button>
+          <b>{ymLabel(ym)}</b>
+          <button class="pr-mnav" onClick={() => setYm(shiftYM(ym, 1))} aria-label="Tháng sau">›</button>
+        </div>
+        <div class="seg pr-viewseg" role="group" aria-label="Kiểu hiển thị">
+          <button class={view === "card" ? "seg-btn active" : "seg-btn"} onClick={() => setView("card")}>
+            <Icon name="grid" size={16} /> Thẻ</button>
+          <button class={view === "table" ? "seg-btn active" : "seg-btn"} onClick={() => setView("table")}>
+            <Icon name="menu" size={16} /> Bảng</button>
+        </div>
       </div>
 
       <section class="card ua-create">
@@ -133,7 +144,22 @@ export function AdvanceEntry() {
           <div class="card pr-totals">
             <span>Tổng ứng {ymLabel(ym).toLowerCase()} <b class="t-danger">{money(total)}</b> · {entryCount} khoản{voidedCount ? ` · ${voidedCount} vô hiệu` : ""}</span>
           </div>
-          {entryCount === 0 && voidedCount === 0 ? <EmptyState icon="💰">Chưa có khoản ứng nào trong tháng.</EmptyState> : (
+          {entryCount === 0 && voidedCount === 0 ? <EmptyState icon="💰">Chưa có khoản ứng nào trong tháng.</EmptyState>
+           : view === "table" ? (
+            <EntryTable sortKey="ua_sort_ung" emptyNote="chưa có ghi chú"
+              rows={[
+                ...weeklyRows.map((row): EntryRow => ({
+                  key: `weekly-${row.worker_id}`, worker: row.name, ymd: "",
+                  amount: row.ung_weekly, note: "Lương tuần tự động", auto: true,
+                })),
+                ...list.map((a): EntryRow => ({
+                  key: String(a.id), worker: nameOf(a.worker_id), ymd: a.adv_date,
+                  amount: a.amount, note: a.note, created: a.created_at, createdBy: a.created_by,
+                  voidedAt: a.voided_at, voidedBy: a.voided_by, voidReason: a.void_reason,
+                  onNote: () => editNote(a), onVoid: () => voidIt(a.id),
+                })),
+              ]} />
+           ) : (
             <>
               {weeklyRows.map((row) => (
                 <div class="card ua-row" key={`weekly-${row.worker_id}`}>

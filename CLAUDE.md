@@ -436,7 +436,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   thuần = `compute_auto_allowances`, dự tính 1 phiếu = `plan_auto_allowances` (chỉ đọc).
   Tests: `tests/test_allowance_auto.py`.
   ⚠ **KHOẢN ứng/phụ cấp HIỆN Ở 2 CHỖ — sửa gì phải đồng bộ CẢ HAI**: (1) 2 trang nhập
-  `pages/AdvanceEntry.tsx` + `pages/AllowanceEntry.tsx` (`#/nhap-ung`, `#/nhap-phu-cap`),
+  `pages/AdvanceEntry.tsx` + `pages/AllowanceEntry.tsx` (`#/nhap-ung`, `#/nhap-phu-cap`
+  — mỗi trang có 2 kiểu xem **Thẻ / Bảng** (`detail/useEntryView.ts` nhớ theo trang);
+  view **Bảng dùng chung `detail/EntryTable.tsx`**: cột Thợ/Ngày/Số tiền/Nội dung/Tạo,
+  **bấm tiêu đề để sắp xếp** [sắp → đảo chiều → bỏ sắp, nhớ localStorage], dòng vô hiệu
+  gạch ngang + lý do, dòng "lương tuần tự động" không sửa/vô hiệu được, chân bảng =
+  tổng khoản CÒN HIỆU LỰC),
   (2) panel `detail/EntryPanel.tsx` — dùng cho popup ô P.cấp/Ứng của bảng lương tháng
   LẪN view Thẻ. Cùng dữ liệu, cùng API; thêm nút/cột/thông tin dòng ở 1 bên mà quên bên
   kia là người dùng thấy tính năng "lúc có lúc không". **Ô NHẬP TIỀN của CẢ HAI = `ui/

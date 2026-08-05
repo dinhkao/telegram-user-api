@@ -4156,3 +4156,23 @@ body.has-nop .wp-thead-bar { top: 72px; }
 .wp-table tr.is-active > td, .wp-table tr.is-active > th { background: var(--accent-wash); }
 .wp-table tr.is-active > th:first-child { box-shadow: inset 3px 0 0 var(--primary); }
 .pr-adv-addbtn { margin-top: 4px; padding: 10px; font-weight: 700; }
+
+/* BẢNG khoản tiền theo tháng (detail/EntryTable) — view "Bảng" của 2 trang
+   #/nhap-ung + #/nhap-phu-cap. Tiêu đề bấm để sắp xếp; dòng vô hiệu gạch ngang. */
+.et-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--card); box-shadow: var(--e1); }
+.et-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .82rem; }
+.et-table th, .et-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.et-th { position: sticky; top: 0; z-index: 1; background: var(--bg); color: var(--muted);
+  font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em;
+  white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.et-th:active { color: var(--primary); }
+.et-num, .et-table td.et-num { text-align: right; }
+.et-w { font-weight: 700; white-space: nowrap; }
+.et-amt { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.et-note { min-width: 10em; }
+.et-ts { white-space: nowrap; }
+.et-act { width: 62px; white-space: nowrap; text-align: right; }
+.et-voided td { opacity: .62; text-decoration: line-through; }
+.et-voided .ua-void-info { text-decoration: none; }
+.et-table tfoot td { border-bottom: none; border-top: 2px solid var(--border); font-weight: 800; background: var(--bg); }

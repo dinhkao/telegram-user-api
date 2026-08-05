@@ -12,6 +12,8 @@ import {
   setPayrollAllowanceNote, soVN, voidPayrollAllowance,
   type PayrollRow, type SalaryAllowance, type Worker,
 } from "../api";
+import { EntryTable, type EntryRow } from "../detail/EntryTable";
+import { useEntryView } from "../detail/useEntryView";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
@@ -45,6 +47,7 @@ export function AllowanceEntry() {
   const [pct, setPct] = useState<PctInfo>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [view, setView] = useEntryView("ua_view_pc");
 
   const load = () => {
     setAllows(null);
@@ -107,10 +110,18 @@ export function AllowanceEntry() {
   return (
     <div class="pr-page">
       {head}
-      <div class="pr-monthbar">
-        <button class="pr-mnav" onClick={() => setYm(shiftYM(ym, -1))} aria-label="Tháng trước">‹</button>
-        <b>{ymLabel(ym)}</b>
-        <button class="pr-mnav" onClick={() => setYm(shiftYM(ym, 1))} aria-label="Tháng sau">›</button>
+      <div class="pr-controlbar">
+        <div class="pr-monthbar">
+          <button class="pr-mnav" onClick={() => setYm(shiftYM(ym, -1))} aria-label="Tháng trước">‹</button>
+          <b>{ymLabel(ym)}</b>
+          <button class="pr-mnav" onClick={() => setYm(shiftYM(ym, 1))} aria-label="Tháng sau">›</button>
+        </div>
+        <div class="seg pr-viewseg" role="group" aria-label="Kiểu hiển thị">
+          <button class={view === "card" ? "seg-btn active" : "seg-btn"} onClick={() => setView("card")}>
+            <Icon name="grid" size={16} /> Thẻ</button>
+          <button class={view === "table" ? "seg-btn active" : "seg-btn"} onClick={() => setView("table")}>
+            <Icon name="menu" size={16} /> Bảng</button>
+        </div>
       </div>
 
       <section class="card ua-create">
@@ -139,7 +150,19 @@ export function AllowanceEntry() {
           <div class="card pr-totals">
             <span>Tổng phụ cấp {ymLabel(ym).toLowerCase()} <b>{money(total)}</b> · {active.length} khoản{voidedCount ? ` · ${voidedCount} vô hiệu` : ""}</span>
           </div>
-          {list.length === 0 ? <EmptyState icon="💵">Chưa có khoản phụ cấp nào trong tháng.</EmptyState> : (
+          {list.length === 0 ? <EmptyState icon="💵">Chưa có khoản phụ cấp nào trong tháng.</EmptyState>
+           : view === "table" ? (
+            <EntryTable sortKey="ua_sort_pc" emptyNote="chưa ghi nội dung"
+              rows={list.map((item): EntryRow => ({
+                key: String(item.id), worker: nameOf(item.worker_id), ymd: "",
+                amount: item.amount,
+                // khoản theo CÔNG THỨC: ghi kèm công thức để bảng nói rõ số ở đâu ra
+                note: [item.note, item.calc_label].filter(Boolean).join(" · "),
+                created: item.created_at, createdBy: item.created_by,
+                voidedAt: item.voided_at, voidedBy: item.voided_by, voidReason: item.void_reason,
+                onNote: () => editNote(item), onVoid: () => voidIt(item.id),
+              }))} />
+           ) : (
             list.map((item) => (
               <div class={`card ua-row${item.voided_at ? " ua-voided" : ""}`} key={item.id}>
                 <div class="ua-row-main">
