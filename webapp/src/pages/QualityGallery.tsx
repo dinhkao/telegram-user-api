@@ -24,7 +24,11 @@ export function QualityGallery() {
   const [days, setDays] = useState(14);
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
-  const [view, setView] = useState<{ rid: number; idx: number } | null>(null);
+  const [todo, setTodo] = useState(false);     // chỉ hiện ảnh TÔI chưa chấm
+  // ids = ẢNH ĐANG MỞ chốt lúc bấm vào. Không lấy thẳng danh sách đã lọc, vì khi
+  // đang lọc "chưa chấm" mà chấm xong thì ảnh rớt khỏi bộ lọc → viewer nhảy ảnh
+  // giữa chừng. Chốt danh sách rồi mới tra điểm mới nhất theo id.
+  const [view, setView] = useState<{ rid: number; idx: number; ids: number[] } | null>(null);
 
   const load = async (d = days) => {
     try {
@@ -38,9 +42,19 @@ export function QualityGallery() {
   }), [days]);
 
   const nq = foldVN(q.trim());
-  const shown = useMemo(
-    () => (nq ? (groups || []).filter((g) => foldVN(g.worker_name).includes(nq)) : (groups || [])),
-    [groups, nq]);
+  // số ảnh CHÍNH TÔI chưa chấm (my_score = null) — hiện lên nút lọc
+  const todoCount = useMemo(
+    () => (groups || []).reduce((n, g) => n + g.images.filter((im) => im.my_score == null).length, 0),
+    [groups]);
+  const shown = useMemo(() => {
+    let gs = groups || [];
+    if (nq) gs = gs.filter((g) => foldVN(g.worker_name).includes(nq));
+    if (todo) {
+      gs = gs.map((g) => ({ ...g, images: g.images.filter((im) => im.my_score == null) }))
+             .filter((g) => g.images.length > 0);
+    }
+    return gs;
+  }, [groups, nq, todo]);
 
   // gom theo NGÀY để có tiêu đề ngày, trong mỗi ngày là các thợ
   const byDay = useMemo(() => {
@@ -52,7 +66,12 @@ export function QualityGallery() {
     return [...m.entries()];
   }, [shown]);
 
+  // Ảnh cho viewer: theo danh sách ĐÃ CHỐT lúc mở, nhưng lấy bản mới nhất (điểm vừa
+  // chấm cập nhật ngay) — nên chấm xong ảnh KHÔNG biến mất khỏi viewer.
   const viewGroup = view ? (groups || []).find((g) => g.report_id === view.rid) : null;
+  const viewImages = view && viewGroup
+    ? view.ids.map((id) => viewGroup.images.find((im) => im.id === id)).filter(Boolean) as typeof viewGroup.images
+    : [];
 
   if (err && !groups) return <ErrorState msg={err} onRetry={() => load()} />;
   if (!groups) return <Loading />;
@@ -67,12 +86,19 @@ export function QualityGallery() {
           <button key={d} class={"btn small" + (d === days ? " primary" : "")}
             onClick={() => setDays(d)}>{d} ngày</button>
         ))}
+        {/* Lọc "tôi chưa chấm" — điểm là riêng từng người nên đây là việc CỦA BẠN */}
+        <button class={"btn small qg-todo" + (todo ? " primary" : "")}
+          title="Chỉ hiện ảnh bạn chưa chấm điểm"
+          onClick={() => setTodo((v) => !v)}>
+          <Icon name="star" size={14} /> Chưa chấm{todoCount ? ` (${todoCount})` : ""}
+        </button>
       </div>
 
       <SearchBar value={q} onInput={setQ} placeholder="Lọc theo tên thợ…" />
 
       {byDay.length === 0 ? (
-        <EmptyState>{q.trim() ? `Không có ảnh của thợ khớp "${q.trim()}".`
+        <EmptyState>{todo ? "🎉 Bạn đã chấm hết ảnh trong khoảng này."
+          : q.trim() ? `Không có ảnh của thợ khớp "${q.trim()}".`
           : "Chưa có ảnh mâm kẹo nào trong khoảng này."}</EmptyState>
       ) : byDay.map(([ymd, gs]) => (
         <section class="card qg-day" key={ymd}>
@@ -97,7 +123,8 @@ export function QualityGallery() {
               </div>
               <div class="area-thumbs">
                 {g.images.map((im, i) => (
-                  <button class="prd-thumb" key={im.id} onClick={() => setView({ rid: g.report_id, idx: i })}
+                  <button class={"prd-thumb" + (im.my_score == null ? " qg-todo-thumb" : "")} key={im.id}
+                    onClick={() => setView({ rid: g.report_id, idx: i, ids: g.images.map((x) => x.id) })}
                     title={im.score == null ? "Chạm để chấm điểm / trao đổi" : `TB ${im.score}/10`}>
                     <img class="area-thumb-sm" loading="lazy" alt=""
                       src={mediaImageUrl(`/api/media/quality_report/${g.report_id}`, im.id, "thumb")} />
@@ -115,11 +142,11 @@ export function QualityGallery() {
         </section>
       ))}
 
-      {view && viewGroup && (
+      {view && viewGroup && viewImages.length > 0 && (
         <PhotoReportViewer
           scope={QUALITY_SCOPE} entityId={viewGroup.report_id} ymd={viewGroup.ymd}
-          images={viewGroup.images} index={Math.min(view.idx, viewGroup.images.length - 1)}
-          onIndex={(i) => setView({ rid: viewGroup.report_id, idx: i })}
+          images={viewImages} index={Math.min(view.idx, viewImages.length - 1)}
+          onIndex={(i) => setView({ ...view, idx: i })}
           onClose={() => setView(null)}
           subject={viewGroup.worker_name} subjectLabel="Thợ"
           reportBy={viewGroup.created_by} reportAt={viewGroup.created_at}

@@ -4011,7 +4011,10 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
   font-size: .76rem; font-weight: 800; }
 .qb-colbtn.c1 { background: var(--ink); color: var(--card); border-color: var(--ink); }
 /* ── Trang XEM TẤT CẢ ẢNH mâm kẹo (#/chat-luong/anh) ────────────────────────── */
-.qg-range { display: flex; gap: 6px; margin: 8px 0; }
+.qg-range { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.qg-todo { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
+/* ảnh CHÍNH TÔI chưa chấm: viền nhắc nhẹ, không đập vào mắt như báo lỗi */
+.qg-todo-thumb { outline: 2px dashed var(--warn); outline-offset: -2px; border-radius: 8px; }
 .qg-day { margin-top: 10px; }
 .qg-worker { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
 .qg-worker:first-of-type { border-top: none; padding-top: 2px; }
