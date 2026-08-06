@@ -23,7 +23,6 @@ import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
 import { ReorderList, type RItem } from "../detail/ReorderList";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "../detail/CameraBox";
-import { scoreClass } from "../detail/PhotoReportViewer";
 
 let qualityCache: QualityRow[] | null = null;
 onRealtime((e) => {
@@ -128,16 +127,8 @@ export function QualityBoard() {
         )}
         <div class="area-card-body">
           <div class="area-card-name">{w.name}</div>
-          <div class={"area-badge " + (w.today.reported ? "t-ok" : "t-danger")}>
-            {w.today.reported
-              ? `✓ Đã chụp${w.today.photo_count > 1 ? ` · ${w.today.photo_count}` : ""}`
-              : "Chưa chụp mâm"}
-            {w.today.score_avg != null && (
-              <span class={"area-score " + scoreClass(w.today.score_avg)}>
-                <Icon name="star" size={11} /> {w.today.score_avg}/10
-              </span>
-            )}
-          </div>
+          {/* Không hiện "đã chụp/chưa chụp" và điểm trên card cho gọn — trạng thái
+              theo ngày vẫn xem được ở dải 7 chấm bên dưới và trong trang chi tiết. */}
           {!compact && (
             <div class="area-week">
               {w.week.map((d) => (

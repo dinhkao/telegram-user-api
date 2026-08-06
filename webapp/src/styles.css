@@ -3979,10 +3979,12 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 /* ── Chất lượng mâm kẹo: HAI CỘT + nút chụp nhanh trên từng card ────────────── */
 /* Mỗi cột là một danh sách RIÊNG (thợ nào ở cột nào chọn trong ⚙ Cài đặt) — dùng
    2 khối flex chứ không phải grid, để cột trái/phải độc lập, không so hàng nhau. */
+/* 2 cột BẰNG NHAU tuyệt đối: mỗi cột đúng 1fr (minmax(0,1fr) để nội dung dài không
+   đẩy cột phình ra), cùng gap, cùng bắt đầu từ trên. Card giãn đầy bề ngang cột. */
 .qb-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
   align-items: start; }
-.qb-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.qb-cell { position: relative; display: flex; }
+.qb-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; width: 100%; }
+.qb-cell { position: relative; display: flex; width: 100%; min-width: 0; }
 /* card 2 cột: xếp DỌC (ảnh trên, chữ dưới) cho vừa bề ngang hẹp trên điện thoại */
 .qb-card { flex: 1; min-width: 0; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; }
 .qb-card .area-thumb.qb-thumb { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: 8px; }
