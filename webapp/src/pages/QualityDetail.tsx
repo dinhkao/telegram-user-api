@@ -8,6 +8,7 @@ import {
   getQualityWorker, createQualityReport, deleteQualityReport,
   currentUser, QUALITY_SCOPE, type DayReport, type QualityReport,
 } from "../api";
+import { fmtHourVN } from "../format";
 import { onRealtime } from "../realtime";
 import { PageHead } from "../ui/PageHead";
 import { Icon } from "../ui/Icon";
@@ -101,7 +102,7 @@ export function QualityDetail({ id }: { id: string }) {
         <div class="area-today-ok">
           <Icon name="check" size={18} />
           <span>Hôm nay đã chụp {todayReport?.photo_count || todayReport?.images.length} mâm
-            {todayReport?.created_at ? ` (lúc ${String(todayReport.created_at).slice(11, 16)})` : ""}.</span>
+            {todayReport?.created_at ? ` (lúc ${fmtHourVN(todayReport.created_at)})` : ""}.</span>
         </div>
       ) : null}
 
@@ -116,10 +117,12 @@ export function QualityDetail({ id }: { id: string }) {
         isAdmin={isAdmin} busy={busy}
         onDelete={(r) => doDeleteReport(r as QualityReport)}
         onChanged={load}
+        subject={data.worker.name} subjectLabel="Thợ"
         emptyText="Chưa có ảnh mâm kẹo nào của thợ này. Bấm nút trên để chụp lần đầu." />
 
       {camOpen && (
         <CameraBox base={`/api/media/quality_report/0`}
+          captureOnly
           onCapture={(p) => capsRef.current.push(p)}
           onUploaded={() => { /* collect mode — không upload ngay */ }}
           onClose={() => { setCamOpen(false); finalizeReport(capsRef.current, true); }} />

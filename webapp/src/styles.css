@@ -4015,9 +4015,20 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
   border-bottom: 1px solid var(--border); }
 .prv-x { border: none; background: none; color: var(--ink); cursor: pointer; padding: 2px 4px; line-height: 0; }
 .prv-title { font-weight: 700; font-size: .92rem; }
+.prv-zoomx { margin-left: auto; border: 1px solid var(--border); background: var(--card); color: var(--ink);
+  border-radius: 8px; padding: 3px 8px; font-size: .78rem; font-weight: 700; cursor: pointer; }
+/* Nhân viên · người chụp · giờ chụp của ĐÚNG bức ảnh đang xem */
+.prv-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 6px 10px; font-size: .84rem;
+  background: var(--card); border-bottom: 1px solid var(--border); }
+.prv-meta-i { display: inline-flex; align-items: center; gap: 4px; }
 .prv-stage { position: relative; display: flex; align-items: center; justify-content: center;
-  background: #000; flex: 0 0 auto; }
-.prv-img { max-width: 100%; max-height: 46vh; object-fit: contain; }
+  background: #000; flex: 0 0 auto; overflow: hidden;
+  /* cử chỉ do JS xử lý (chụm zoom + vuốt sang ảnh) → trình duyệt đừng cuộn/zoom hộ */
+  touch-action: none; user-select: none; -webkit-user-select: none; }
+.prv-img { max-width: 100%; max-height: 46vh; object-fit: contain;
+  transform-origin: center center; will-change: transform; -webkit-user-drag: none; }
+.prv-img.zoomed { cursor: grab; }
+.prv-hint { margin: 4px 10px 0; text-align: center; }
 .prv-nav { position: absolute; top: 50%; transform: translateY(-50%); border: none; cursor: pointer;
   background: rgba(0,0,0,.45); color: #fff; font-size: 1.7rem; line-height: 1; padding: 6px 12px; border-radius: 10px; }
 .prv-nav:disabled { opacity: .25; }
@@ -4034,6 +4045,8 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .prv-chip.on.t-warn { background: var(--warn); border-color: var(--warn); color: #fff; }
 .prv-chip.on.t-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .prv-chip:disabled { opacity: .5; }
+/* Chất lượng mâm kẹo: chỉ cho CHỤP → ô giữ chỗ để thanh dưới không lệch nút chụp */
+.cam-pick-off { visibility: hidden; pointer-events: none; }
 .cf-textarea { min-height: 120px; resize: vertical; font: inherit; }
 
 /* ── LƯƠNG SP THEO NGÀY (#/luong-ngay) — bảng pivot thợ×ngày ────────────────

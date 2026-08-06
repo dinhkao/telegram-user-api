@@ -7,6 +7,7 @@ import {
   getArea, createAreaReport, updateArea, deleteArea, deleteAreaReport,
   currentUser, isOffice, AREA_SCOPE, type AreaReport, type DayReport,
 } from "../api";
+import { fmtHourVN } from "../format";
 import { onRealtime } from "../realtime";
 import { PageHead } from "../ui/PageHead";
 import { Icon } from "../ui/Icon";
@@ -142,7 +143,7 @@ export function AreaDetail({ id }: { id: string }) {
       {todayDone ? (
         <div class="area-today-ok">
           <Icon name="check" size={18} />
-          <span>Hôm nay đã báo cáo{todayReport?.created_at ? ` lúc ${String(todayReport.created_at).slice(11, 16)}` : ""}.</span>
+          <span>Hôm nay đã báo cáo{todayReport?.created_at ? ` lúc ${fmtHourVN(todayReport.created_at)}` : ""}.</span>
         </div>
       ) : null}
 
@@ -157,6 +158,7 @@ export function AreaDetail({ id }: { id: string }) {
         isAdmin={isAdmin} busy={busy}
         onDelete={(r) => doDeleteReport(r as AreaReport)}
         onChanged={load}
+        subject={data.area.name} subjectLabel="Khu vực"
         emptyText="Chưa có báo cáo vệ sinh nào. Bấm nút trên để báo cáo lần đầu." />
 
       {isAdmin && (

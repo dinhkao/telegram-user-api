@@ -56,6 +56,7 @@ export function CameraBox({
   onClose,
   onUploaded,
   onCapture,
+  captureOnly,
 }: {
   base: string;
   kind?: string;                       // loại ảnh đơn (soạn hàng/nộp tiền…) — gắn cho mỗi tấm
@@ -64,6 +65,8 @@ export function CameraBox({
   onUploaded: (image?: any) => void;   // truyền ảnh vừa upload (id…) cho caller cần
   onCapture?: (p: Processed) => void;  // chế độ COLLECT: có prop này ⇒ KHÔNG upload,
                                        // chỉ trả ảnh đã nén cho caller giữ lại (tạo entity xong mới upload)
+  captureOnly?: boolean;               // CHỈ CHO CHỤP: ẩn nút "Chọn ảnh" (ảnh bằng chứng
+                                       // phải chụp tại chỗ, không lấy từ thư viện)
 }) {
   const [busy, setBusy] = useState(false);
   const [shots, setShots] = useState(0);
@@ -188,11 +191,18 @@ export function CameraBox({
           <button class="cam-shot" disabled={busy} onClick={shoot} aria-label="Chụp">
             {busy && <span class="img-spin" />}
           </button>
-          <button class="btn cam-pick" disabled={busy} onClick={() => fileInput.current?.click()}>
-            <Icon name="image" size={16} /> Chọn ảnh
-          </button>
-          <input ref={fileInput} type="file" accept="image/*" multiple hidden
-            onChange={(e: any) => pickFiles(e.target.files)} />
+          {captureOnly ? (
+            // chỗ của nút "Chọn ảnh" — giữ để 3 ô của thanh dưới không lệch
+            <span class="btn cam-pick cam-pick-off" aria-hidden="true" />
+          ) : (
+            <>
+              <button class="btn cam-pick" disabled={busy} onClick={() => fileInput.current?.click()}>
+                <Icon name="image" size={16} /> Chọn ảnh
+              </button>
+              <input ref={fileInput} type="file" accept="image/*" multiple hidden
+                onChange={(e: any) => pickFiles(e.target.files)} />
+            </>
+          )}
         </div>
         {err && <ErrorState msg={err} />}
       </div>

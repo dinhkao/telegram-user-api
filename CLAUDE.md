@@ -693,6 +693,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `#/chat-luong/:worker_id` (QualityDetail — photo-first qua CameraBox, nút sang
   `#/sx-tho/:name`); menu ☰ Thêm → Sản xuất → "Chất lượng mâm kẹo"; **CSS dùng chung
   `.area-*`** với trang vệ sinh. Tests: `tests/test_quality_store.py`.
+  ⚠ Ảnh mâm kẹo là BẰNG CHỨNG → CameraBox nhận prop **`captureOnly`** (QualityDetail
+  bật) để ẩn nút "Chọn ảnh": chỉ được chụp tại chỗ, không lấy từ thư viện. Các trang
+  khác vẫn chọn ảnh bình thường (mặc định `captureOnly` = false).
+  ⚠ GIỜ hiển thị: **luôn dùng `fmtHourVN`/`fmtDateTimeVN` (webapp/src/format.ts)**,
+  TUYỆT ĐỐI không `String(created_at).slice(11,16)` — server lưu UTC nên cắt thô ra
+  sớm 7 tiếng. Test hồi quy: `webapp/tests/fmtHourVN.test.ts` (chạy được ở mọi TZ máy).
   ⚠ Logic THUẦN của CẢ HAI trang (mốc ngày VN + ghép hàng dashboard 7 ngày) nằm ở
   **`utils/daily_photo_report.py`** (`today_vn`/`last_n_days`/`build_dashboard_rows`,
   tham số `entity_key='area_id'|'worker_id'`); `area_store/domain.py` +
@@ -711,6 +717,15 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     `/api/media/{scope}/{entity_id}/images/{image_id}/score` (mọi user đăng nhập chấm
     được — đổi thành office chỉ cần thêm gate ở 2 handler đó). `avg_by_entity` JOIN
     `entity_images` cho điểm TB theo ngày/hôm nay.
+  - **Trang xem 1 ảnh** = `webapp/src/detail/PhotoReportViewer.tsx` (dùng chung 2 trang).
+    Đầu trang hiện **tên thợ/khu vực** (props `subject` + `subjectLabel` do trang cha
+    truyền) · **người chụp** · **giờ chụp** — lấy theo TỪNG ảnh từ
+    `entity_images.uploaded_by/created_at`, do `photo_report_view._image_row` trả kèm;
+    ảnh cũ chưa có 2 trường này thì lùi về `created_by`/`created_at` của báo cáo
+    (props `reportBy`/`reportAt`). Thao tác ảnh tự xử lý bằng Pointer Events:
+    chụm 2 ngón / chạm 2 lần = zoom (tối đa 4×), kéo = rê khi đã zoom, **vuốt
+    trái/phải = sang ảnh trước/sau** (chỉ khi chưa zoom), phím ← → cũng chạy.
+    `.prv-stage` phải giữ `touch-action: none` nếu không trình duyệt cướp cử chỉ.
   - Dựng payload xem cho cả 2 trang: **`server_app/photo_report_view.py`**
     (`enrich_reports` → images[{id,score,scored_by,comment_count}] + photo_count +
     comment_count + score_avg/score_count; `attach_today_scores` → today.score_avg).

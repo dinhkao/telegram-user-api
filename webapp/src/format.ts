@@ -146,6 +146,19 @@ function absVN(ms: number): string {
   return new Date(ms).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
 }
 
+/** CHỈ giờ:phút theo giờ VN — "HH:MM". Rỗng nếu không parse được.
+ *  Dùng cho "lúc HH:MM" ở báo cáo ảnh theo ngày. KHÔNG được cắt chuỗi kiểu
+ *  String(at).slice(11,16): server lưu UTC nên cắt thô ra sai 7 tiếng. */
+export function fmtHourVN(at: any): string {
+  // 0 = "chưa có giờ" (ảnh cũ lưu trước khi có created_at), KHÔNG phải mốc 1970
+  if (!at) return "";
+  const ms = toMs(at);
+  if (ms == null) return "";
+  return new Date(ms).toLocaleTimeString("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+}
+
 /** Ngày+giờ tuyệt đối theo giờ VN: "dd/mm/yyyy HH:MM". Rỗng nếu không parse được. */
 export function fmtDateTimeVN(at: any): string {
   const ms = toMs(at);

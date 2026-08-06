@@ -546,6 +546,9 @@ export async function deleteDisposal(id: number): Promise<any> {
 /** 1 ảnh trong báo cáo: điểm 0–10 (null = chưa chấm) + số bình luận của ẢNH đó. */
 export type ReportImage = {
   id: number; score: number | null; scored_by: string; scored_at: number | null; comment_count: number;
+  /** Ai chụp + chụp lúc nào của CHÍNH bức ảnh này (epoch giây UTC) — khác
+   *  created_by/created_at của báo cáo (người mở báo cáo của ngày đó). */
+  uploaded_by: string; created_at: number;
 };
 /** 1 NGÀY báo cáo: ảnh + bình luận của cả ngày + điểm trung bình các ảnh đã chấm. */
 export type DayReport = {

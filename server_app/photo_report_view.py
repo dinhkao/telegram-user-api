@@ -12,8 +12,8 @@ from entity_media_store import avg_by_entity, comment_counts, image_counts, list
 
 
 def enrich_reports(report_scope: str, image_scope: str, reports: list[dict]) -> None:
-    """Gắn images[] (id/score/comment_count) + photo_count + comment_count +
-    score_avg/score_count vào TỪNG báo cáo (sửa tại chỗ)."""
+    """Gắn images[] (id/score/comment_count/người chụp/giờ chụp) + photo_count +
+    comment_count + score_avg/score_count vào TỪNG báo cáo (sửa tại chỗ)."""
     rids = [int(r["id"]) for r in reports]
     if not rids:
         return
@@ -51,6 +51,11 @@ def _image_row(img: dict, img_scores: dict[int, dict], img_comments: dict[int, i
         "scored_by": s["scored_by"] if s else "",
         "scored_at": s["scored_at"] if s else None,
         "comment_count": int(img_comments.get(iid, 0)),
+        # ai chụp + chụp lúc nào của CHÍNH bức ảnh này (entity_images.uploaded_by/
+        # created_at, epoch giây UTC) — trang xem ảnh hiện "người chụp · giờ chụp".
+        # Khác created_by/created_at của BÁO CÁO (người mở báo cáo ngày đó).
+        "uploaded_by": str(img.get("uploaded_by") or ""),
+        "created_at": int(img.get("created_at") or 0),
     }
 
 
