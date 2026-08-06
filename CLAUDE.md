@@ -696,6 +696,15 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   ⚠ Ảnh mâm kẹo là BẰNG CHỨNG → CameraBox nhận prop **`captureOnly`** (QualityDetail
   + nút chụp nhanh ở QualityBoard bật) để ẩn nút "Chọn ảnh": chỉ được chụp tại chỗ,
   không lấy từ thư viện. Các trang khác vẫn chọn ảnh bình thường (mặc định false).
+  ⚠ VAI TRÒ **`chat_luong`** (user_store ROLES): chỉ xem/thao tác trang này, không
+  thấy đơn/kho/lương/khách. Chặn THẬT ở **`server_app/web_auth/role_scope.py`** —
+  middleware `web_auth` từ chối 403 mọi `/api/*` ngoài `auth` · `quality` ·
+  `media/{quality_report,quality_image}` (mặc định TỪ CHỐI, so khớp theo TỪNG ĐOẠN
+  đường dẫn để `/api/quality-secret` không lọt). Webapp `isQualityOnly()` chỉ ẩn
+  menu/nhốt hash trong `#/chat-luong` cho gọn mắt — KHÔNG phải hàng rào. Vai trò này
+  KHÔNG thuộc OFFICE_ROLES nên mọi gate office/admin sẵn có tự động vẫn chặn.
+  Thêm tính năng cho vai trò này thì mở đường trong `role_scope.py`.
+  Test: `tests/test_web_auth_role_scope.py`.
   ⚠ BẢNG #/chat-luong: lưới **2 CỘT**, mỗi card có **nút chụp nhanh** (mở camera ngay
   tại bảng, khỏi vào trang thợ — nút nằm NGOÀI thẻ `<a>` để bấm không nhảy trang).
   Chỉ vài thợ sửa kẹo → nút **⚙ Cài đặt** (văn phòng) chọn thợ nào hiện + KÉO sắp thứ

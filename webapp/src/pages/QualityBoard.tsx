@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import {
   listQuality, setQualityBoardWorkers, createQualityReport, mediaImageUrl,
-  isOffice, type QualityRow,
+  isOffice, isQualityOnly, type QualityRow,
 } from "../api";
 import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
@@ -114,7 +114,8 @@ export function QualityBoard() {
                 <Icon name="settings" size={15} /> Cài đặt
               </button>
             )}
-            <a class="btn small" href="#/tho"><Icon name="users" size={15} /> Thợ</a>
+            {/* vai trò chat_luong không được vào trang thợ → ẩn link */}
+            {!isQualityOnly() && <a class="btn small" href="#/tho"><Icon name="users" size={15} /> Thợ</a>}
           </span>
         } />
 
@@ -126,7 +127,9 @@ export function QualityBoard() {
       <SearchBar value={q} onInput={setQ} placeholder="Tìm tên thợ…" />
 
       {rows.length === 0 ? (
-        <EmptyState>Chưa có thợ nào. Thêm thợ ở <a href="#/tho">Danh sách thợ</a>.</EmptyState>
+        <EmptyState>Chưa có thợ nào.{isQualityOnly()
+          ? " Nhờ văn phòng thêm thợ."
+          : <> Thêm thợ ở <a href="#/tho">Danh sách thợ</a>.</>}</EmptyState>
       ) : onBoard.length === 0 ? (
         <EmptyState>
           Cài đặt đang không chọn thợ nào.{" "}

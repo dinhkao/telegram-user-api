@@ -18,7 +18,8 @@ const SWIPE_Y = 110;   // ngưỡng vuốt-xuống-đóng (px)
 type Pt = { x: number; y: number };
 
 export function useImageGestures({
-  imgRef, overlayRef, onPrev, onNext, onClose, ignoreSelector, resetKey, dim = true,
+  imgRef, overlayRef, onPrev, onNext, onClose, ignoreSelector, resetKey,
+  dim = true, swipeClose = true, tapOutsideClose = true,
 }: {
   imgRef: RefObject<HTMLImageElement>;
   overlayRef: RefObject<HTMLDivElement>;
@@ -27,7 +28,11 @@ export function useImageGestures({
   onClose: () => void;                // vuốt xuống / chạm nền ngoài ảnh
   ignoreSelector?: string;            // vùng KHÔNG bắt cử chỉ (nút, panel, dải thumb)
   resetKey?: unknown;                 // đổi (vd chỉ số ảnh) → về 1× và canh giữa
-  dim?: boolean;                      // làm mờ nền khi vuốt xuống
+  dim?: boolean;                      // làm mờ nền khi vuốt xuống (trình xem full-screen)
+  // Ảnh NHÚNG trong khung (không chiếm cả màn) thì tắt 2 cái dưới: vùng đen quanh
+  // ảnh rất hẹp nên chạm/vuốt vào đó mà đóng cả trang là bấm nhầm liên tục.
+  swipeClose?: boolean;               // vuốt xuống = đóng
+  tapOutsideClose?: boolean;          // chạm nền ngoài ảnh = đóng
 }) {
   const g = useRef({
     scale: 1, tx: 0, ty: 0,
@@ -169,9 +174,9 @@ export function useImageGestures({
         else if (s.tx < -SWIPE_X) onNext();
         else reset(true);
       } else if (s.axis === "v") {
-        if (s.ty > SWIPE_Y) onClose();
+        if (swipeClose && s.ty > SWIPE_Y) onClose();
         else reset(true);
-      } else if (!s.moved) {
+      } else if (!s.moved && tapOutsideClose) {
         // chạm nền (ngoài ảnh) → đóng; chạm lên ảnh → để double-tap lo zoom
         const r = imgRef.current?.getBoundingClientRect();
         if (!r || e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) onClose();

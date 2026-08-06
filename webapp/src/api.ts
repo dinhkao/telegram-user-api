@@ -88,6 +88,13 @@ export function isOffice(): boolean {
   return r === "admin" || r === "van_phong";
 }
 
+/** Vai trò BÓ HẸP: chỉ xem/thao tác trang Chất lượng mâm kẹo (#/chat-luong).
+ *  Ẩn menu theo cờ này chỉ để gọn mắt — chặn THẬT nằm ở server
+ *  (server_app/web_auth/role_scope.py), gõ thẳng URL API vẫn 403. */
+export function isQualityOnly(): boolean {
+  return currentUser()?.role === "chat_luong";
+}
+
 function headers(): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json" };
   const t = getToken();
@@ -1577,7 +1584,10 @@ export async function setUserPin(username: string, pin: string): Promise<any> {
   return postJSON(`/api/users/${encodeURIComponent(username)}/pin`, { pin });
 }
 
-export const ROLE_LABEL: Record<string, string> = { admin: "Admin", van_phong: "Văn phòng", staff: "Nhân viên" };
+export const ROLE_LABEL: Record<string, string> = {
+  admin: "Admin", van_phong: "Văn phòng", staff: "Nhân viên",
+  chat_luong: "Chất lượng mâm (chỉ trang này)",
+};
 
 // ── Notification center ───────────────────────────────────────────────────────
 

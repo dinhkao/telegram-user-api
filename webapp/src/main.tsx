@@ -2,7 +2,7 @@
 // + thanh nav dưới + banner offline/hàng đợi. Connects to: pages/*, api.ts.
 import { render } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { currentUser, getJSON, isOffice, replayQueue, netOk, onNetStatus, refreshMe, soVN, tokenExpired } from "./api";
+import { currentUser, getJSON, isOffice, isQualityOnly, replayQueue, netOk, onNetStatus, refreshMe, soVN, tokenExpired } from "./api";
 import { clearQueue, getQueue } from "./offline";
 import { getStatus, onStatus, onRealtime, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
@@ -409,6 +409,15 @@ function App() {
     if (showLogin && hash !== "#/login") window.location.hash = "#/login";
   }, [showLogin, hash]);
 
+  // Vai trò chat_luong: NHỐT trong #/chat-luong. Gõ/back sang trang khác là bị kéo
+  // về ngay. Đây chỉ là cho gọn mắt — server đã chặn API ngoài phạm vi (403).
+  const qualityOnly = authed && isQualityOnly();
+  useEffect(() => {
+    if (qualityOnly && !hash.startsWith("#/chat-luong") && hash !== "#/login") {
+      window.location.hash = "#/chat-luong";
+    }
+  }, [qualityOnly, hash]);
+
   // Kênh realtime (/ws): bật khi đã đăng nhập, tắt khi đăng xuất.
   useEffect(() => {
     if (authed) startRealtime();
@@ -655,17 +664,18 @@ function App() {
           <span class="app-title">{isHome && <span class="app-logo" aria-hidden="true">🍬</span>}{pageTitle}</span>
           <div class="app-bar-right">
             <RealtimeDot />
-            <TaskBell />
-            <NotifCenter />
+            {/* chuông việc / thông báo gọi API ngoài phạm vi → ẩn với vai trò chat_luong */}
+            {!qualityOnly && <TaskBell />}
+            {!qualityOnly && <NotifCenter />}
             <button class="icon-btn" title="Tải lại" onClick={() => window.location.reload()}><Icon name="refresh" size={19} /></button>
             <a class="icon-btn" href="#/login" title="Cài đặt"><Icon name="settings" size={19} /></a>
           </div>
         </header>
       )}
       <OfflineBanner />
-      {!showLogin && <NopBanner />}
+      {!showLogin && !qualityOnly && <NopBanner />}
       <main class="page">{page}</main>
-      {!showLogin && (
+      {!showLogin && !qualityOnly && (
         <div class="bottom-dock">
           {isHome && <DeliveringBanner />}
           <nav class="bottom-nav">
@@ -678,7 +688,7 @@ function App() {
           </nav>
         </div>
       )}
-      {!showLogin && !hash.startsWith("#/huong-dan") && <HelpFab />}
+      {!showLogin && !qualityOnly && !hash.startsWith("#/huong-dan") && <HelpFab />}
     </div>
   );
 }

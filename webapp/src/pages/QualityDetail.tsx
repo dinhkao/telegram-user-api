@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   getQualityWorker, createQualityReport, deleteQualityReport,
-  currentUser, QUALITY_SCOPE, type DayReport, type QualityReport,
+  currentUser, isQualityOnly, QUALITY_SCOPE, type DayReport, type QualityReport,
 } from "../api";
 import { fmtHourVN } from "../format";
 import { onRealtime } from "../realtime";
@@ -94,9 +94,10 @@ export function QualityDetail({ id }: { id: string }) {
     <div class="inv-dash">
       <PageHead title={<span><Icon name="star" size={18} /> {data.worker.name}</span>}
         sub="Chất lượng mâm kẹo" fallback="#/chat-luong"
-        right={<a class="btn small" href={`#/sx-tho/${encodeURIComponent(data.worker.name)}`}>
-          <Icon name="factory" size={15} /> Sản xuất của thợ
-        </a>} />
+        right={isQualityOnly() ? undefined :   /* vai trò chat_luong không vào được trang SX */
+          <a class="btn small" href={`#/sx-tho/${encodeURIComponent(data.worker.name)}`}>
+            <Icon name="factory" size={15} /> Sản xuất của thợ
+          </a>} />
 
       {todayDone ? (
         <div class="area-today-ok">
