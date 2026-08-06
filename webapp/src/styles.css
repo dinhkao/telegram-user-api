@@ -3976,6 +3976,34 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .area-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); opacity: .8; }
 .area-dot.on { background: var(--ok); opacity: 1; }
 .area-dot.today { box-shadow: 0 0 0 2px var(--card), 0 0 0 3px var(--ink); }
+/* ── Chất lượng mâm kẹo: LƯỚI 2 CỘT + nút chụp nhanh trên từng card ─────────── */
+/* Thứ tự ô = thứ tự đã sắp trong ⚙ Cài đặt (trái→phải, trên→dưới). */
+.area-grid.qb-2col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.qb-cell { position: relative; display: flex; }
+/* card 2 cột: xếp DỌC (ảnh trên, chữ dưới) cho vừa bề ngang hẹp trên điện thoại */
+.qb-card { flex: 1; min-width: 0; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; }
+.qb-card .area-thumb.qb-thumb { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: 8px; }
+.qb-card .area-card-name { font-size: .92rem; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qb-card .area-badge { font-size: .74rem; display: flex; flex-wrap: wrap; gap: 2px 5px; align-items: center; }
+.qb-card .kg-arrow { display: none; }             /* hẹp rồi, bỏ mũi tên ›  */
+/* nút chụp nhanh: nằm NGOÀI thẻ <a> (sibling) nên bấm không bị nhảy trang */
+.qb-shot { position: absolute; right: 6px; top: 6px; z-index: 1; width: 38px; height: 38px;
+  border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; color: #fff; background: rgba(0, 0, 0, .55);
+  backdrop-filter: blur(2px); box-shadow: 0 1px 4px rgba(0, 0, 0, .3); }
+.qb-shot:active { transform: scale(.93); }
+.qb-shot:disabled { opacity: .5; }
+/* popup ⚙ cài đặt (dùng lại nền .cam-overlay) */
+.qb-set { width: min(520px, 94vw); max-height: 86vh; display: flex; flex-direction: column;
+  background: var(--card); border-radius: 14px; overflow: hidden; }
+.qb-set-head { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.qb-set-hint { margin: 8px 12px 4px; }
+.qb-set-list { flex: 1; overflow-y: auto; padding: 4px 12px 8px; }
+.qb-set-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border); }
+
 .area-today-ok { display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 8px 12px;
   background: var(--ok-wash); color: var(--ok); border-radius: 10px; font-weight: 600; font-size: .9rem; }
 .area-report-btn { margin: 8px 0 14px; padding: 14px; font-size: 1rem; }
@@ -4009,32 +4037,13 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 
 /* ── Xem 1 ảnh: phóng to + chấm điểm 0–10 + trao đổi của ảnh đó ──────────────── */
 /* z-index 200: trên thanh nav/app-bar, DƯỚI camera (300) + hộp thoại/toast (400+) */
-.prv-overlay { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column;
-  background: var(--bg); }
-.prv-bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--card);
-  border-bottom: 1px solid var(--border); }
 .prv-x { border: none; background: none; color: var(--ink); cursor: pointer; padding: 2px 4px; line-height: 0; }
-.prv-title { font-weight: 700; font-size: .92rem; }
-.prv-zoomx { margin-left: auto; border: 1px solid var(--border); background: var(--card); color: var(--ink);
-  border-radius: 8px; padding: 3px 8px; font-size: .78rem; font-weight: 700; cursor: pointer; }
-/* Nhân viên · người chụp · giờ chụp của ĐÚNG bức ảnh đang xem */
-.prv-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 6px 10px; font-size: .84rem;
-  background: var(--card); border-bottom: 1px solid var(--border); }
-.prv-meta-i { display: inline-flex; align-items: center; gap: 4px; }
-.prv-stage { position: relative; display: flex; align-items: center; justify-content: center;
-  background: #000; flex: 0 0 auto; overflow: hidden;
-  /* cử chỉ do JS xử lý (chụm zoom + vuốt sang ảnh) → trình duyệt đừng cuộn/zoom hộ */
-  touch-action: none; user-select: none; -webkit-user-select: none; }
-.prv-img { max-width: 100%; max-height: 46vh; object-fit: contain;
-  transform-origin: center center; will-change: transform; -webkit-user-drag: none; }
-.prv-img.zoomed { cursor: grab; }
-.prv-hint { margin: 4px 10px 0; text-align: center; }
-.prv-nav { position: absolute; top: 50%; transform: translateY(-50%); border: none; cursor: pointer;
-  background: rgba(0,0,0,.45); color: #fff; font-size: 1.7rem; line-height: 1; padding: 6px 12px; border-radius: 10px; }
-.prv-nav:disabled { opacity: .25; }
-.prv-nav.left { left: 6px; }
-.prv-nav.right { right: 6px; }
-.prv-scroll { flex: 1; overflow-y: auto; padding: 8px 10px calc(14px + env(safe-area-inset-bottom, 0px)); }
+/* Tấm trượt chấm điểm + trao đổi trong trình xem ảnh báo cáo (nền tối .pv-panel) */
+.prv-panel { gap: 6px; }
+.prv-panel-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  margin-top: 8px; }
+.prv-panel .prv-chip { background: #23262b; color: #e8e8e8; border-color: #35393f; }
+.prv-panel .prv-chip.on { background: #e8e8e8; color: #14161a; border-color: #e8e8e8; }
 .prv-score-now { font-weight: 800; }
 /* 11 nút 0–10 trên MỘT hàng đều nhau (wrap sẽ cho hàng 2 bị kéo dãn, xấu + dễ bấm nhầm) */
 .prv-chips { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 4px; margin-top: 8px; }

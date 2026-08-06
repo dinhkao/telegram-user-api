@@ -694,8 +694,18 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `#/sx-tho/:name`); menu ☰ Thêm → Sản xuất → "Chất lượng mâm kẹo"; **CSS dùng chung
   `.area-*`** với trang vệ sinh. Tests: `tests/test_quality_store.py`.
   ⚠ Ảnh mâm kẹo là BẰNG CHỨNG → CameraBox nhận prop **`captureOnly`** (QualityDetail
-  bật) để ẩn nút "Chọn ảnh": chỉ được chụp tại chỗ, không lấy từ thư viện. Các trang
-  khác vẫn chọn ảnh bình thường (mặc định `captureOnly` = false).
+  + nút chụp nhanh ở QualityBoard bật) để ẩn nút "Chọn ảnh": chỉ được chụp tại chỗ,
+  không lấy từ thư viện. Các trang khác vẫn chọn ảnh bình thường (mặc định false).
+  ⚠ BẢNG #/chat-luong: lưới **2 CỘT**, mỗi card có **nút chụp nhanh** (mở camera ngay
+  tại bảng, khỏi vào trang thợ — nút nằm NGOÀI thẻ `<a>` để bấm không nhảy trang).
+  Chỉ vài thợ sửa kẹo → nút **⚙ Cài đặt** (văn phòng) chọn thợ nào hiện + KÉO sắp thứ
+  tự ô (dùng lại `detail/ReorderList`). Cấu hình lưu SERVER ở
+  `settings_store['quality_board_workers']` = mảng worker_id **CÓ THỨ TỰ** (thứ tự =
+  vị trí ô), API `POST /api/quality/settings` (gate `is_office_request`); `GET
+  /api/quality` trả `board_worker_ids` + `done_count/total` đếm trên thợ ĐANG HIỆN.
+  **Mảng rỗng/thiếu key = hiện TẤT CẢ thợ** (hành vi cũ). Logic thuần
+  `quality_store/domain.py: clean_board_ids/select_board_rows`, test
+  `tests/test_quality_board_settings.py`.
   ⚠ GIỜ hiển thị: **luôn dùng `fmtHourVN`/`fmtDateTimeVN` (webapp/src/format.ts)**,
   TUYỆT ĐỐI không `String(created_at).slice(11,16)` — server lưu UTC nên cắt thô ra
   sớm 7 tiếng. Test hồi quy: `webapp/tests/fmtHourVN.test.ts` (chạy được ở mọi TZ máy).
@@ -722,10 +732,15 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     truyền) · **người chụp** · **giờ chụp** — lấy theo TỪNG ảnh từ
     `entity_images.uploaded_by/created_at`, do `photo_report_view._image_row` trả kèm;
     ảnh cũ chưa có 2 trường này thì lùi về `created_by`/`created_at` của báo cáo
-    (props `reportBy`/`reportAt`). Thao tác ảnh tự xử lý bằng Pointer Events:
-    chụm 2 ngón / chạm 2 lần = zoom (tối đa 4×), kéo = rê khi đã zoom, **vuốt
-    trái/phải = sang ảnh trước/sau** (chỉ khi chưa zoom), phím ← → cũng chạy.
-    `.prv-stage` phải giữ `touch-action: none` nếu không trình duyệt cướp cử chỉ.
+    (props `reportBy`/`reportAt`). Khung dùng ĐÚNG CSS `.pv-*` của trình xem ảnh đơn
+    hàng (ảnh full-screen + `.pv-topbar` + dải `.pv-thumbs` + `.pv-controls`; chấm
+    điểm & trao đổi nằm trong tấm trượt `.pv-panel`).
+  - ⚠ **CỬ CHỈ XEM ẢNH chỉ có MỘT bản**: `detail/useImageGestures.ts` (pinch-zoom,
+    kéo, double-tap, vuốt trái/phải đổi ảnh, vuốt xuống đóng, lăn chuột zoom).
+    `PhotoViewer` (ảnh đơn hàng) VÀ `PhotoReportViewer` cùng gọi hook này — sửa cảm
+    giác cử chỉ ở đó là cả hai cùng đổi, ĐỪNG chép lại. Mấu chốt để mượt: trạng thái
+    nằm trong `useRef` + ghi thẳng `style.transform`, **không `setState` mỗi lần ngón
+    di chuyển** (setState mỗi frame = giật, zoom "nhảy" — lỗi đã gặp).
   - Dựng payload xem cho cả 2 trang: **`server_app/photo_report_view.py`**
     (`enrich_reports` → images[{id,score,scored_by,comment_count}] + photo_count +
     comment_count + score_avg/score_count; `attach_today_scores` → today.score_avg).

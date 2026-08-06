@@ -639,6 +639,9 @@ export type QualityRow = {
 };
 export type QualityBoardData = {
   today_ymd: string; workers: QualityRow[]; done_count: number; total: number;
+  /** Thợ được chọn hiện trên bảng, THEO THỨ TỰ đã sắp (vị trí ô trong lưới 2 cột).
+   *  Mảng rỗng = chưa cấu hình → hiện tất cả thợ. */
+  board_worker_ids: number[];
 };
 export type QualityReport = DayReport & { worker_id: number };
 export type QualityWorkerData = {
@@ -649,7 +652,13 @@ export type QualityWorkerData = {
 /** Dashboard chất lượng mâm — thợ nào đã/chưa chụp mâm hôm nay + dải 7 ngày. */
 export async function listQuality(): Promise<QualityBoardData> {
   const d = await getJSON("/api/quality", { cache: false });
-  return { today_ymd: d.today_ymd, workers: d.workers || [], done_count: d.done_count || 0, total: d.total || 0 };
+  return { today_ymd: d.today_ymd, workers: d.workers || [], done_count: d.done_count || 0,
+           total: d.total || 0, board_worker_ids: d.board_worker_ids || [] };
+}
+/** Chọn thợ nào hiện trên bảng chất lượng + thứ tự ô (văn phòng). [] = hiện tất cả. */
+export async function setQualityBoardWorkers(ids: number[]): Promise<number[]> {
+  const d = await postJSON("/api/quality/settings", { worker_ids: ids });
+  return d.board_worker_ids || [];
 }
 /** Chi tiết 1 thợ + báo cáo chất lượng (mỗi báo cáo kèm images[] + photo_count). */
 export async function getQualityWorker(id: string | number): Promise<QualityWorkerData> {

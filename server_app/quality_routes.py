@@ -2,10 +2,11 @@
 
 GET list (dashboard: thợ nào đã/chưa chụp mâm hôm nay) · GET {worker_id} chi tiết
 thợ + báo cáo · POST {worker_id}/report tạo báo cáo hôm nay (mọi user, ymd tính
-SERVER) · POST report/{rid}/delete (admin). Thợ lấy từ `production_workers`
-(worker_store) — trang này KHÔNG tạo/sửa/xoá thợ, việc đó ở #/tho. Ảnh gắn báo cáo
-qua media scope 'quality_report'. Nối: quality_store, worker_store,
-entity_media_store, server_app.realtime, audit_log. Đăng ký ở app_factory.
+SERVER) · POST report/{rid}/delete (admin) · POST settings chọn thợ hiện trên bảng
+(văn phòng). Thợ lấy từ `production_workers` (worker_store) — trang này KHÔNG
+tạo/sửa/xoá thợ, việc đó ở #/tho. Ảnh gắn báo cáo qua media scope 'quality_report'.
+Nối: quality_store, worker_store, entity_media_store, settings_store,
+server_app.realtime, audit_log. Đăng ký ở app_factory.
 """
 from __future__ import annotations
 
@@ -22,6 +23,17 @@ from server_app.photo_report_view import attach_today_scores, enrich_reports
 from utils.db import get_connection
 
 log = logging.getLogger("quality_routes")
+
+# Chỉ VÀI thợ sửa kẹo → bảng #/chat-luong chỉ hiện những thợ được chọn, theo ĐÚNG
+# thứ tự đã sắp (vị trí trong lưới 2 cột). Lưu 1 key trong settings_store
+# (kv_store['app_settings']) = cấu hình CHUNG cả tiệm, mọi máy thấy giống nhau.
+# [] hoặc thiếu key = CHƯA cấu hình → hiện TẤT CẢ thợ (hành vi cũ, không phá gì).
+_BOARD_KEY = "quality_board_workers"
+
+
+def _board_ids() -> list[int]:
+    from settings_store import get_all
+    return domain.clean_board_ids(get_all().get(_BOARD_KEY))
 
 
 def _actor(request: web.Request) -> str:
@@ -91,12 +103,18 @@ async def quality_all_handler(request: web.Request):
                 row["thumb_image_id"] = img
                 # report_id chứa ảnh thumb (webapp dựng URL /api/media/quality_report/{rid})
                 row["thumb_report_id"] = rid if img else None
-            return today, rows, done, len(workers)
+            return today, rows, done, len(workers), _board_ids()
         finally:
             conn.close()
-    today, rows, done, total = await asyncio.to_thread(_run)
+    today, rows, done, total, board = await asyncio.to_thread(_run)
+    # Trả CẢ danh sách thợ (popup cài đặt cần chọn từ đủ danh sách) + cấu hình bảng;
+    # webapp tự lọc/sắp theo board_worker_ids để hiện.
+    shown = domain.select_board_rows(rows, board)
+    done_shown = sum(1 for r in shown if r["today"].get("reported"))
     return web.json_response({"ok": True, "today_ymd": today, "workers": rows,
-                              "done_count": done, "total": total})
+                              "board_worker_ids": board,
+                              "done_count": done_shown if board else done,
+                              "total": len(shown) if board else total})
 
 
 async def quality_worker_handler(request: web.Request):
@@ -165,6 +183,42 @@ async def quality_report_handler(request: web.Request):
                {"worker_id": wid, "worker_name": (worker or {}).get("name") or "",
                 "report_id": rep["id"], "ymd": ymd})
     return web.json_response({"ok": True, "report_id": rep["id"], "ymd": ymd, "created": created})
+
+
+async def quality_settings_handler(request: web.Request):
+    """POST /api/quality/settings — chọn THỢ NÀO hiện trên bảng + THỨ TỰ (vị trí ô).
+    Văn phòng (admin/van_phong) vì đây là cấu hình chung cả tiệm, không phải sở
+    thích riêng máy. Body {worker_ids: [id,…]} — mảng RỖNG = hiện lại tất cả thợ."""
+    from server_app.order_api_common import is_office_request
+    if not await is_office_request(request):
+        return web.json_response(
+            {"ok": False, "error": "Chỉ văn phòng mới đổi được cài đặt bảng"}, status=403)
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    raw = body.get("worker_ids")
+    if not isinstance(raw, list):
+        return web.json_response({"ok": False, "error": "worker_ids phải là mảng"}, status=400)
+    actor = _actor(request)
+
+    def _save():
+        conn = _conn()
+        try:
+            valid = {int(w["id"]) for w in worker_store.list_workers(conn)}
+        finally:
+            conn.close()
+        ids = domain.clean_board_ids(raw, valid)   # bỏ thợ đã xoá + trùng, GIỮ thứ tự
+        from settings_store import set_value
+        set_value(_BOARD_KEY, ids)
+        return ids
+    ids = await asyncio.to_thread(_save)
+
+    from server_app.realtime import emit_quality_changed
+    emit_quality_changed(None)                # mọi máy đang mở bảng tự tải lại
+    _audit("quality.board_settings", None, actor, _actor_type(request),
+           {"worker_ids": ids, "count": len(ids)})
+    return web.json_response({"ok": True, "board_worker_ids": ids})
 
 
 async def quality_report_delete_handler(request: web.Request):
