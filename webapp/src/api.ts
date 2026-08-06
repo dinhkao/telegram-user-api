@@ -552,7 +552,12 @@ export async function deleteDisposal(id: number): Promise<any> {
 // ── BÁO CÁO-ẢNH-HẰNG-NGÀY: kiểu dùng chung cho vệ sinh khu vực + chất lượng mâm ─
 /** 1 ảnh trong báo cáo: điểm 0–10 (null = chưa chấm) + số bình luận của ẢNH đó. */
 export type ReportImage = {
-  id: number; score: number | null; scored_by: string; scored_at: number | null; comment_count: number;
+  id: number; comment_count: number;
+  /** ĐIỂM LÀ RIÊNG TỪNG NGƯỜI: `score` = TRUNG BÌNH các người đã chấm (có thể lẻ
+   *  .5), `score_count` = số NGƯỜI đã chấm, `my_score` = điểm của CHÍNH tôi
+   *  (null = tôi chưa chấm), `raters` = ai cho mấy điểm. */
+  score: number | null; score_count: number; my_score: number | null;
+  raters: { by: string; score: number; at: number }[];
   /** Ai chụp + chụp lúc nào của CHÍNH bức ảnh này (epoch giây UTC) — khác
    *  created_by/created_at của báo cáo (người mở báo cáo của ngày đó). */
   uploaded_by: string; created_at: number;
@@ -646,9 +651,15 @@ export type QualityRow = {
 };
 export type QualityBoardData = {
   today_ymd: string; workers: QualityRow[]; done_count: number; total: number;
-  /** Thợ được chọn hiện trên bảng, THEO THỨ TỰ đã sắp (vị trí ô trong lưới 2 cột).
-   *  Mảng rỗng = chưa cấu hình → hiện tất cả thợ. */
-  board_worker_ids: number[];
+  /** Thợ nào ở CỘT nào: [[cột 1], [cột 2]], mỗi cột theo thứ tự từ trên xuống.
+   *  Cả hai cột rỗng = chưa cấu hình → hiện tất cả thợ. */
+  board_columns: number[][];
+  board_worker_ids: number[];        // gộp 2 cột (tiện lọc/đếm)
+};
+/** 1 ngày–1 thợ trong trang xem tất cả ảnh (#/chat-luong/anh). */
+export type QualityGalleryGroup = {
+  report_id: number; ymd: string; worker_id: number; worker_name: string;
+  created_by: string; created_at: string; images: ReportImage[]; score_avg: number | null;
 };
 export type QualityReport = DayReport & { worker_id: number };
 export type QualityWorkerData = {
@@ -660,12 +671,18 @@ export type QualityWorkerData = {
 export async function listQuality(): Promise<QualityBoardData> {
   const d = await getJSON("/api/quality", { cache: false });
   return { today_ymd: d.today_ymd, workers: d.workers || [], done_count: d.done_count || 0,
-           total: d.total || 0, board_worker_ids: d.board_worker_ids || [] };
+           total: d.total || 0, board_columns: d.board_columns || [[], []],
+           board_worker_ids: d.board_worker_ids || [] };
 }
-/** Chọn thợ nào hiện trên bảng chất lượng + thứ tự ô (văn phòng). [] = hiện tất cả. */
-export async function setQualityBoardWorkers(ids: number[]): Promise<number[]> {
-  const d = await postJSON("/api/quality/settings", { worker_ids: ids });
-  return d.board_worker_ids || [];
+/** Chọn thợ nào ở CỘT nào trên bảng chất lượng (văn phòng). Cả 2 cột rỗng = hiện tất cả. */
+export async function setQualityBoardColumns(columns: number[][]): Promise<number[][]> {
+  const d = await postJSON("/api/quality/settings", { columns });
+  return d.board_columns || [[], []];
+}
+/** Tất cả ảnh mâm kẹo gần đây, gom theo ngày–thợ (trang #/chat-luong/anh). */
+export async function getQualityGallery(days = 14): Promise<{ groups: QualityGalleryGroup[]; total_images: number }> {
+  const d = await getJSON(`/api/quality/gallery?days=${days}`, { cache: false });
+  return { groups: d.groups || [], total_images: d.total_images || 0 };
 }
 /** Chi tiết 1 thợ + báo cáo chất lượng (mỗi báo cáo kèm images[] + photo_count). */
 export async function getQualityWorker(id: string | number): Promise<QualityWorkerData> {

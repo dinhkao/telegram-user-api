@@ -705,15 +705,22 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   KHÔNG thuộc OFFICE_ROLES nên mọi gate office/admin sẵn có tự động vẫn chặn.
   Thêm tính năng cho vai trò này thì mở đường trong `role_scope.py`.
   Test: `tests/test_web_auth_role_scope.py`.
-  ⚠ BẢNG #/chat-luong: lưới **2 CỘT**, mỗi card có **nút chụp nhanh** (mở camera ngay
-  tại bảng, khỏi vào trang thợ — nút nằm NGOÀI thẻ `<a>` để bấm không nhảy trang).
-  Chỉ vài thợ sửa kẹo → nút **⚙ Cài đặt** (văn phòng) chọn thợ nào hiện + KÉO sắp thứ
-  tự ô (dùng lại `detail/ReorderList`). Cấu hình lưu SERVER ở
-  `settings_store['quality_board_workers']` = mảng worker_id **CÓ THỨ TỰ** (thứ tự =
-  vị trí ô), API `POST /api/quality/settings` (gate `is_office_request`); `GET
-  /api/quality` trả `board_worker_ids` + `done_count/total` đếm trên thợ ĐANG HIỆN.
-  **Mảng rỗng/thiếu key = hiện TẤT CẢ thợ** (hành vi cũ). Logic thuần
-  `quality_store/domain.py: clean_board_ids/select_board_rows`, test
+  ⚠ BẢNG #/chat-luong: **2 CỘT ĐỘC LẬP** (`.qb-cols` + 2 `.qb-col`, không phải grid
+  so hàng), mỗi card có **nút chụp nhanh** (mở camera ngay tại bảng — nút nằm NGOÀI
+  thẻ `<a>` để bấm không nhảy trang). Hai kiểu hiện: **đầy đủ** (ảnh + dải 7 ngày) và
+  **gọn** (chỉ tên + nút chụp) — nút bật/tắt ở đầu trang, lưu `localStorage`
+  (`quality_board_compact`) vì là sở thích của TỪNG MÁY. Nút **🖼 Ảnh** →
+  `#/chat-luong/anh` (`pages/QualityGallery.tsx`, API `GET /api/quality/gallery?days=`),
+  xem mọi ảnh gom theo ngày–thợ, chạm ảnh mở đúng `PhotoReportViewer` nên chấm điểm
+  ngay tại gallery được.
+  Chỉ vài thợ sửa kẹo → **⚙ Cài đặt** (văn phòng): tick thợ hiện · kéo thứ tự ·
+  bấm **C1/C2** chọn thợ nằm cột nào (`ReorderList` + prop `trailing`). Cấu hình lưu
+  SERVER ở `settings_store['quality_board_workers']` = **`{"columns": [[…],[…]]}`**;
+  vẫn ĐỌC ĐƯỢC dạng cũ (mảng phẳng → rải trái→phải) nên bản đã lưu không vỡ.
+  API `POST /api/quality/settings` nhận `columns` (hoặc `worker_ids` của client cũ),
+  gate `is_office_request`; `GET /api/quality` trả `board_columns` + `board_worker_ids`.
+  **Rỗng = hiện TẤT CẢ thợ.** Logic thuần `quality_store/domain.py:
+  clean_board_ids/clean_board_columns/flatten_columns/select_board_rows`, test
   `tests/test_quality_board_settings.py`.
   ⚠ GIỜ hiển thị: **luôn dùng `fmtHourVN`/`fmtDateTimeVN` (webapp/src/format.ts)**,
   TUYỆT ĐỐI không `String(created_at).slice(11,16)` — server lưu UTC nên cắt thô ra
@@ -730,9 +737,19 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   - **Bình luận TỪNG BỨC ẢNH** = scope MỚI `area_image`/`quality_image` với
     **entity_id = image_id** (id trong `entity_images`), chỉ dùng cho comments (ảnh
     của ảnh là vô nghĩa) — nhớ khoảng cách ngữ nghĩa này khi đọc `entity_comments`.
-  - **Điểm 0–10 mỗi ảnh** = `entity_media_store/scores.py` (bảng `entity_image_scores`,
-    PK (scope ẢNH-THUỘC-BÁO-CÁO, image_id) → 1 ảnh 1 điểm, chấm lại là ghi đè, lưu
-    `scored_by`); API `server_app/image_score_routes.py` POST/DELETE
+  - **Điểm 0–10 mỗi ảnh — RIÊNG TỪNG NGƯỜI** = `entity_media_store/scores.py`
+    (bảng `entity_image_scores`, PK **(scope, image_id, scored_by)** → 1 ảnh nhiều
+    người chấm, mỗi người giữ điểm của mình; chấm lại chỉ đè điểm CỦA MÌNH, DELETE
+    chỉ bỏ điểm CỦA MÌNH). `scored_by` = **username**. Bảng cũ PK (scope,image_id)
+    được `_migrate_per_user` tự nâng cấp (SQLite không ALTER được PK → dựng bảng mới
+    + copy + rename), dữ liệu cũ thành điểm của chính người đã chấm.
+    `scores_for(scope, ids, viewer)` trả `{score (TB), score_count (số NGƯỜI),
+    my_score, raters[]}`; `avg_by_entity` gộp **2 tầng** (TB từng ảnh rồi mới TB
+    theo báo cáo) để ảnh nhiều người chấm không nặng hơn ảnh 1 người chấm.
+    Mọi lần chấm/bỏ đều **GHI LOG** audit (`quality.image_scored` /
+    `*.image_score_cleared`, có `old_score` → nhìn log thấy sửa từ mấy lên mấy);
+    nhãn ở `server_app/event_format.py`. Test: `tests/test_image_scores.py`.
+    API `server_app/image_score_routes.py` POST/DELETE
     `/api/media/{scope}/{entity_id}/images/{image_id}/score` (mọi user đăng nhập chấm
     được — đổi thành office chỉ cần thêm gate ở 2 handler đó). `avg_by_entity` JOIN
     `entity_images` cho điểm TB theo ngày/hôm nay.

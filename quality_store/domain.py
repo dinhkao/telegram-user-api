@@ -8,7 +8,10 @@ from __future__ import annotations
 
 from utils.daily_photo_report import last_n_days, today_vn
 
-__all__ = ["today_vn", "last_n_days", "build_dashboard_rows", "clean_board_ids", "select_board_rows"]
+__all__ = ["today_vn", "last_n_days", "build_dashboard_rows", "clean_board_ids",
+           "select_board_rows", "clean_board_columns", "flatten_columns"]
+
+BOARD_COLS = 2          # bảng #/chat-luong xếp 2 cột
 
 
 def clean_board_ids(raw, valid_ids=None) -> list[int]:
@@ -29,6 +32,48 @@ def clean_board_ids(raw, valid_ids=None) -> list[int]:
             continue
         if i not in out:
             out.append(i)
+    return out
+
+
+def clean_board_columns(raw, valid_ids=None, cols: int = BOARD_COLS) -> list[list[int]]:
+    """Chuẩn hoá cấu hình "thợ nào ở CỘT nào" → danh sách `cols` cột, mỗi cột là
+    danh sách worker_id CÓ THỨ TỰ (thứ tự = từ trên xuống trong cột đó).
+
+    Chịu được 2 dạng đã từng lưu:
+      - {"columns": [[1,3],[2]]}  (dạng MỚI, chọn cột rõ ràng)
+      - [1,2,3]                   (dạng CŨ, một danh sách phẳng) → rải đều
+                                   trái→phải cho khớp đúng cái người dùng đang thấy
+    Một thợ chỉ xuất hiện MỘT lần (trùng ở cột sau bị bỏ)."""
+    if isinstance(raw, dict):
+        cols_raw = raw.get("columns")
+        if not isinstance(cols_raw, list):
+            return [[] for _ in range(cols)]
+        out: list[list[int]] = []
+        seen: set[int] = set()
+        for c in list(cols_raw)[:cols]:
+            keep: list[int] = []
+            for i in clean_board_ids(c, valid_ids):
+                if i not in seen:
+                    seen.add(i)
+                    keep.append(i)
+            out.append(keep)
+        while len(out) < cols:
+            out.append([])
+        return out
+    flat = clean_board_ids(raw, valid_ids)
+    out = [[] for _ in range(cols)]
+    for k, i in enumerate(flat):          # rải trái→phải như lưới cũ
+        out[k % cols].append(i)
+    return out
+
+
+def flatten_columns(columns: list[list[int]]) -> list[int]:
+    """Gộp các cột thành 1 danh sách (dùng cho đếm/lọc, không quan tâm vị trí)."""
+    out: list[int] = []
+    for c in columns or []:
+        for i in c:
+            if i not in out:
+                out.append(i)
     return out
 
 

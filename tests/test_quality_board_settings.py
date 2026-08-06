@@ -77,5 +77,35 @@ class SelectBoardRowsTest(unittest.TestCase):
         self.assertEqual((done, len(shown)), (1, 2))
 
 
+class BoardColumnsTest(unittest.TestCase):
+    def test_dang_moi_chon_cot_ro_rang(self):
+        got = domain.clean_board_columns({"columns": [[3, 1], [2]]})
+        self.assertEqual(got, [[3, 1], [2]])
+
+    def test_mot_tho_chi_o_MOT_cot(self):
+        # id lặp ở cột sau bị bỏ, giữ lần xuất hiện đầu
+        self.assertEqual(domain.clean_board_columns({"columns": [[1, 2], [2, 3]]}), [[1, 2], [3]])
+
+    def test_dang_CU_danh_sach_phang_thi_rai_trai_phai(self):
+        # giữ đúng cái người dùng đang thấy trước khi có tính năng chọn cột
+        self.assertEqual(domain.clean_board_columns([1, 2, 3, 4, 5]), [[1, 3, 5], [2, 4]])
+
+    def test_chua_cau_hinh_thi_hai_cot_rong(self):
+        for bad in (None, [], {}, {"columns": "x"}, "abc"):
+            self.assertEqual(domain.clean_board_columns(bad), [[], []])
+
+    def test_loc_tho_da_xoa(self):
+        self.assertEqual(domain.clean_board_columns({"columns": [[1, 99], [2]]},
+                                                    valid_ids={1, 2}), [[1], [2]])
+
+    def test_thua_cot_thi_cat_thieu_cot_thi_bu(self):
+        self.assertEqual(domain.clean_board_columns({"columns": [[1], [2], [3]]}), [[1], [2]])
+        self.assertEqual(domain.clean_board_columns({"columns": [[1]]}), [[1], []])
+
+    def test_flatten_giu_thu_tu_va_bo_trung(self):
+        self.assertEqual(domain.flatten_columns([[3, 1], [2, 3]]), [3, 1, 2])
+        self.assertEqual(domain.flatten_columns([]), [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -306,6 +306,12 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
             "area.report_created": "Báo cáo vệ sinh khu vực",
             "area.report_deleted": "Xoá báo cáo vệ sinh",
         }
+        if action == "area.image_scored":
+            old, new = p.get("old_score"), p.get("score")
+            txt = f"{old} → {new}" if old is not None else f"{new}/10"
+            return "Chấm điểm ảnh vệ sinh", _join([area_seg, [part(f"ảnh #{p.get('image_id')}"), part(txt)]])
+        if action == "area.image_score_cleared":
+            return "Bỏ điểm ảnh vệ sinh", _join([area_seg, [part(f"ảnh #{p.get('image_id')}")]])
         label = _area_labels.get(action)
         if label:
             extra = [part(f"ngày {p.get('ymd')}")] if p.get("ymd") else []
@@ -318,7 +324,15 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         _q_labels = {
             "quality.report_created": "Chụp chất lượng mâm kẹo",
             "quality.report_deleted": "Xoá báo cáo chất lượng mâm",
+            "quality.board_settings": "Đổi thợ hiện trên bảng chất lượng",
         }
+        # chấm điểm ảnh: mỗi người một điểm riêng → log ghi rõ điểm cũ → điểm mới
+        if action == "quality.image_scored":
+            old, new = p.get("old_score"), p.get("score")
+            txt = f"{old} → {new}" if old is not None else f"{new}/10"
+            return "Chấm điểm mâm kẹo", _join([w_seg, [part(f"ảnh #{p.get('image_id')}"), part(txt)]])
+        if action == "quality.image_score_cleared":
+            return "Bỏ điểm mâm kẹo", _join([w_seg, [part(f"ảnh #{p.get('image_id')}")]])
         label = _q_labels.get(action)
         if label:
             extra = [part(f"ngày {p.get('ymd')}")] if p.get("ymd") else []

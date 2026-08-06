@@ -78,8 +78,9 @@ export function PhotoReportViewer({
   const doScore = async (n: number) => {
     setBusy(true);
     try {
-      if (img.score === n) { await clearImageScore(scope.report, entityId, img.id); toast("Đã bỏ điểm", "ok"); }
-      else { await setImageScore(scope.report, entityId, img.id, n); toast(`✅ Đã chấm ${n}/10`, "ok"); }
+      // bấm lại đúng số MÌNH đang chọn = bỏ điểm CỦA MÌNH (điểm người khác giữ nguyên)
+      if (img.my_score === n) { await clearImageScore(scope.report, entityId, img.id); toast("Đã bỏ điểm của bạn", "ok"); }
+      else { await setImageScore(scope.report, entityId, img.id, n); toast(`✅ Bạn chấm ${n}/10`, "ok"); }
       onChanged();
     } catch (e: any) { toast(e?.message || "Lỗi chấm điểm", "err"); }
     finally { setBusy(false); }
@@ -133,25 +134,40 @@ export function PhotoReportViewer({
       <div class="prv-scroll">
         <section class="card prv-score">
           <div class="row space">
-            <b>Chấm điểm ảnh này</b>
-            <span class={"prv-score-now " + scoreClass(img.score)}>
-              {img.score == null ? "chưa chấm" : `${img.score}/10`}
+            <b>Điểm của bạn</b>
+            <span class={"prv-score-now " + scoreClass(img.my_score)}>
+              {img.my_score == null ? "bạn chưa chấm" : `${img.my_score}/10`}
             </span>
           </div>
           <div class="prv-chips">
             {SCORES.map((n) => (
               <button key={n} disabled={busy}
-                class={"prv-chip " + (img.score === n ? "on " + scoreClass(n) : "")}
+                class={"prv-chip " + (img.my_score === n ? "on " + scoreClass(n) : "")}
                 onClick={() => doScore(n)}>{n}</button>
             ))}
           </div>
           <p class="muted small" style={{ margin: "6px 0 0" }}>
-            {img.score == null
-              ? "Bấm 1 số để chấm (0 = rất kém, 10 = rất tốt)."
-              : (img.scored_by && img.scored_by !== "?"
-                ? `${img.scored_by} chấm · bấm lại đúng số đang chọn để bỏ điểm`
-                : "Bấm lại đúng số đang chọn để bỏ điểm.")}
+            {img.my_score == null
+              ? "Bấm 1 số để chấm (0 = rất kém, 10 = rất tốt). Mỗi người chấm điểm riêng."
+              : "Bấm lại đúng số đang chọn để bỏ điểm của bạn."}
           </p>
+
+          {/* Điểm CHUNG + ai cho mấy điểm — mỗi người một điểm riêng */}
+          {img.score_count > 0 && (
+            <div class="prv-raters">
+              <div class="row space">
+                <span class="muted small">Trung bình {img.score_count} người chấm</span>
+                <span class={"prv-score-now " + scoreClass(img.score)}>{img.score}/10</span>
+              </div>
+              <div class="prv-rater-list">
+                {img.raters.map((r) => (
+                  <span class="prv-rater" key={r.by}>
+                    {r.by || "?"} <b class={scoreClass(r.score)}>{r.score}</b>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Trao đổi RIÊNG của bức ảnh này (scope ảnh, entity = image_id) */}

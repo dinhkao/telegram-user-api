@@ -83,6 +83,7 @@ import { AreasBoard } from "./pages/AreasBoard";
 import { AreaDetail } from "./pages/AreaDetail";
 import { QualityBoard } from "./pages/QualityBoard";
 import { QualityDetail } from "./pages/QualityDetail";
+import { QualityGallery } from "./pages/QualityGallery";
 import { CashboxList } from "./pages/CashboxList";
 import { CollectMoney } from "./pages/CollectMoney";
 import { SmartCollectMoney } from "./pages/SmartCollectMoney";
@@ -582,6 +583,7 @@ function App() {
   else if (hash.startsWith("#/xuat-huy")) page = <DisposalsList />;
   else if (areaMatch) page = <AreaDetail id={areaMatch[1]} />;
   else if (hash.startsWith("#/khu-vuc")) page = <AreasBoard />;
+  else if (hash.startsWith("#/chat-luong/anh")) page = <QualityGallery />;
   else if (qualityMatch) page = <QualityDetail id={qualityMatch[1]} />;
   else if (hash.startsWith("#/chat-luong")) page = <QualityBoard />;
   else if (hash.startsWith("#/dieu-chinh")) page = <AdjustmentsList />;
@@ -609,6 +611,7 @@ function App() {
     : purEditMatch ? "Sửa phiếu nhập"
     : hash.startsWith("#/xuat-huy") ? "Xuất hủy"
     : hash.startsWith("#/khu-vuc") ? "Khu vực xưởng"
+    : hash.startsWith("#/chat-luong/anh") ? "Tất cả ảnh mâm"
     : hash.startsWith("#/chat-luong") ? "Chất lượng mâm"
     : hash.startsWith("#/dieu-chinh") ? "Điều chỉnh tồn"
     : hash.startsWith("#/nhap-hang") ? "Nhập hàng"

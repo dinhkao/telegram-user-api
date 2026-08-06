@@ -3976,9 +3976,12 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .area-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); opacity: .8; }
 .area-dot.on { background: var(--ok); opacity: 1; }
 .area-dot.today { box-shadow: 0 0 0 2px var(--card), 0 0 0 3px var(--ink); }
-/* ── Chất lượng mâm kẹo: LƯỚI 2 CỘT + nút chụp nhanh trên từng card ─────────── */
-/* Thứ tự ô = thứ tự đã sắp trong ⚙ Cài đặt (trái→phải, trên→dưới). */
-.area-grid.qb-2col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+/* ── Chất lượng mâm kẹo: HAI CỘT + nút chụp nhanh trên từng card ────────────── */
+/* Mỗi cột là một danh sách RIÊNG (thợ nào ở cột nào chọn trong ⚙ Cài đặt) — dùng
+   2 khối flex chứ không phải grid, để cột trái/phải độc lập, không so hàng nhau. */
+.qb-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+  align-items: start; }
+.qb-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .qb-cell { position: relative; display: flex; }
 /* card 2 cột: xếp DỌC (ảnh trên, chữ dưới) cho vừa bề ngang hẹp trên điện thoại */
 .qb-card { flex: 1; min-width: 0; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; }
@@ -3994,6 +3997,25 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
   backdrop-filter: blur(2px); box-shadow: 0 1px 4px rgba(0, 0, 0, .3); }
 .qb-shot:active { transform: scale(.93); }
 .qb-shot:disabled { opacity: .5; }
+/* KIỂU GỌN: bỏ ảnh, card chỉ còn tên + trạng thái; nút chụp nằm bên phải trong hàng */
+.qb-card-min { flex-direction: row; align-items: center; padding: 10px 44px 10px 10px; }
+.qb-card-min .area-card-name { white-space: normal; }
+.qb-shot-min { width: 32px; height: 32px; top: 50%; transform: translateY(-50%);
+  right: 5px; background: var(--ink); color: var(--card); }
+.qb-shot-min:active { transform: translateY(-50%) scale(.93); }
+/* nút chọn cột trong ⚙ cài đặt */
+.qb-colbtn { min-width: 34px; padding: 4px 7px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--card); color: var(--ink);
+  font-size: .76rem; font-weight: 800; }
+.qb-colbtn.c1 { background: var(--ink); color: var(--card); border-color: var(--ink); }
+/* ── Trang XEM TẤT CẢ ẢNH mâm kẹo (#/chat-luong/anh) ────────────────────────── */
+.qg-range { display: flex; gap: 6px; margin: 8px 0; }
+.qg-day { margin-top: 10px; }
+.qg-worker { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.qg-worker:first-of-type { border-top: none; padding-top: 2px; }
+.qg-worker-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-bottom: 5px; }
+.qg-worker-name { display: inline-flex; align-items: center; gap: 4px; font-weight: 700;
+  font-size: .9rem; color: var(--ink); text-decoration: none; }
 /* popup ⚙ cài đặt (dùng lại nền .cam-overlay) */
 .qb-set { width: min(520px, 94vw); max-height: 86vh; display: flex; flex-direction: column;
   background: var(--card); border-radius: 14px; overflow: hidden; }
@@ -4064,6 +4086,11 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .prv-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain;
   padding: 8px 10px calc(14px + env(safe-area-inset-bottom, 0px)); }
 .prv-score-now { font-weight: 800; }
+/* Điểm chung + ai cho mấy điểm (mỗi người chấm riêng) */
+.prv-raters { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+.prv-rater-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.prv-rater { font-size: .8rem; padding: 3px 8px; border-radius: var(--r-pill);
+  background: var(--bg); border: 1px solid var(--border); }
 /* 11 nút 0–10 trên MỘT hàng đều nhau (wrap sẽ cho hàng 2 bị kéo dãn, xấu + dễ bấm nhầm) */
 .prv-chips { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 4px; margin-top: 8px; }
 .prv-chip { padding: 10px 0; border-radius: 9px; border: 1px solid var(--border);

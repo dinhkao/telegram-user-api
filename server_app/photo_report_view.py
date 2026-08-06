@@ -11,9 +11,12 @@ from __future__ import annotations
 from entity_media_store import avg_by_entity, comment_counts, image_counts, list_images, scores_for
 
 
-def enrich_reports(report_scope: str, image_scope: str, reports: list[dict]) -> None:
-    """Gắn images[] (id/score/comment_count/người chụp/giờ chụp) + photo_count +
-    comment_count + score_avg/score_count vào TỪNG báo cáo (sửa tại chỗ)."""
+def enrich_reports(report_scope: str, image_scope: str, reports: list[dict],
+                   viewer: str | None = None) -> None:
+    """Gắn images[] (id/điểm/comment_count/người chụp/giờ chụp) + photo_count +
+    comment_count + score_avg/score_count vào TỪNG báo cáo (sửa tại chỗ).
+    `viewer` = username người đang xem → mỗi ảnh kèm `my_score` (điểm CỦA HỌ) vì
+    điểm chấm là RIÊNG TỪNG NGƯỜI."""
     rids = [int(r["id"]) for r in reports]
     if not rids:
         return
@@ -28,7 +31,7 @@ def enrich_reports(report_scope: str, image_scope: str, reports: list[dict]) -> 
         per_report_images[rid] = imgs
         all_image_ids.extend(int(i["id"]) for i in imgs)
 
-    img_scores = scores_for(report_scope, all_image_ids)
+    img_scores = scores_for(report_scope, all_image_ids, viewer)
     img_comments = comment_counts(image_scope, all_image_ids)
 
     for r in reports:
@@ -47,9 +50,11 @@ def _image_row(img: dict, img_scores: dict[int, dict], img_comments: dict[int, i
     s = img_scores.get(iid)
     return {
         "id": iid,
+        # điểm CHUNG của ảnh = trung bình các người đã chấm (mỗi người 1 điểm riêng)
         "score": s["score"] if s else None,
-        "scored_by": s["scored_by"] if s else "",
-        "scored_at": s["scored_at"] if s else None,
+        "score_count": s["score_count"] if s else 0,      # bao nhiêu NGƯỜI đã chấm
+        "my_score": s["my_score"] if s else None,         # điểm của chính người đang xem
+        "raters": s["raters"] if s else [],               # [{by, score, at}] — ai cho mấy điểm
         "comment_count": int(img_comments.get(iid, 0)),
         # ai chụp + chụp lúc nào của CHÍNH bức ảnh này (entity_images.uploaded_by/
         # created_at, epoch giây UTC) — trang xem ảnh hiện "người chụp · giờ chụp".
