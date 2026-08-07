@@ -18,13 +18,20 @@ import { PhotoReportViewer, scoreClass } from "../detail/PhotoReportViewer";
 
 const RANGES = [7, 14, 30, 60];
 
+// Nhớ bộ lọc + dữ liệu giữa các lần rời/quay lại trang (mở 1 ảnh rồi back, sang
+// bảng rồi quay lại…) — trước đây quay lại là mất hết: về 14 ngày, bỏ lọc "chưa
+// chấm", xoá ô tìm, và nháy màn hình Loading.
+const galCache: {
+  groups: QualityGalleryGroup[] | null; total: number; days: number; q: string; todo: boolean;
+} = { groups: null, total: 0, days: 14, q: "", todo: false };
+
 export function QualityGallery() {
-  const [groups, setGroups] = useState<QualityGalleryGroup[] | null>(null);
-  const [total, setTotal] = useState(0);
-  const [days, setDays] = useState(14);
+  const [groups, setGroups] = useState<QualityGalleryGroup[] | null>(galCache.groups);
+  const [total, setTotal] = useState(galCache.total);
+  const [days, setDays] = useState(galCache.days);
   const [err, setErr] = useState("");
-  const [q, setQ] = useState("");
-  const [todo, setTodo] = useState(false);     // chỉ hiện ảnh TÔI chưa chấm
+  const [q, setQ] = useState(galCache.q);
+  const [todo, setTodo] = useState(galCache.todo);   // chỉ hiện ảnh TÔI chưa chấm
   // ids = ẢNH ĐANG MỞ chốt lúc bấm vào. Không lấy thẳng danh sách đã lọc, vì khi
   // đang lọc "chưa chấm" mà chấm xong thì ảnh rớt khỏi bộ lọc → viewer nhảy ảnh
   // giữa chừng. Chốt danh sách rồi mới tra điểm mới nhất theo id.
@@ -34,6 +41,7 @@ export function QualityGallery() {
     try {
       const r = await getQualityGallery(d);
       setGroups(r.groups); setTotal(r.total_images); setErr("");
+      galCache.groups = r.groups; galCache.total = r.total_images; galCache.days = d;
     } catch (e: any) { setErr(e?.message || "Lỗi tải ảnh"); }
   };
   useEffect(() => { load(days); }, [days]);
@@ -84,17 +92,18 @@ export function QualityGallery() {
       <div class="qg-range">
         {RANGES.map((d) => (
           <button key={d} class={"btn small" + (d === days ? " primary" : "")}
-            onClick={() => setDays(d)}>{d} ngày</button>
+            onClick={() => { setDays(d); galCache.days = d; }}>{d} ngày</button>
         ))}
         {/* Lọc "tôi chưa chấm" — điểm là riêng từng người nên đây là việc CỦA BẠN */}
         <button class={"btn small qg-todo" + (todo ? " primary" : "")}
           title="Chỉ hiện ảnh bạn chưa chấm điểm"
-          onClick={() => setTodo((v) => !v)}>
+          onClick={() => setTodo((v) => { galCache.todo = !v; return !v; })}>
           <Icon name="star" size={14} /> Chưa chấm{todoCount ? ` (${todoCount})` : ""}
         </button>
       </div>
 
-      <SearchBar value={q} onInput={setQ} placeholder="Lọc theo tên thợ…" />
+      <SearchBar value={q} onInput={(v: string) => { setQ(v); galCache.q = v; }}
+        placeholder="Lọc theo tên thợ…" />
 
       {byDay.length === 0 ? (
         <EmptyState>{todo ? "🎉 Bạn đã chấm hết ảnh trong khoảng này."

@@ -25,10 +25,15 @@ import { ReorderList, type RItem } from "../detail/ReorderList";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "../detail/CameraBox";
 import { ProductPick, readProduct, saveProduct } from "../detail/ProductPick";
 
-let qualityCache: QualityRow[] | null = null;
-onRealtime((e) => {
-  if (e.type === "quality_changed" || e.type === "workers_changed" || e.type === "resync") qualityCache = null;
-});
+// Nhớ NGUYÊN trạng thái bảng giữa các lần rời/quay lại trang (vào chi tiết thợ,
+// mở gallery… rồi back). Trước đây chỉ nhớ `rows`, còn `columns` khởi tạo rỗng nên
+// mỗi lần quay lại bảng RẢI ĐỀU tất cả thợ một nhịp rồi mới nhảy về đúng cấu hình —
+// nhìn như trang tự refresh. Ô tìm cũng bị xoá. Giữ hết ở đây để quay lại là y nguyên.
+// KHÔNG xoá cache khi có realtime: cứ hiện dữ liệu cũ rồi load() nền cập nhật
+// (stale-while-revalidate) — đỡ nháy màn hình Loading.
+const boardCache: {
+  rows: QualityRow[] | null; columns: number[][]; today: string; q: string;
+} = { rows: null, columns: [[], []], today: "", q: "" };
 
 const COMPACT_KEY = "quality_board_compact";
 const readCompact = () => { try { return localStorage.getItem(COMPACT_KEY) === "1"; } catch { return false; } };
@@ -52,11 +57,11 @@ function buildColumns(rows: QualityRow[], columns: number[][]): QualityRow[][] {
 }
 
 export function QualityBoard() {
-  const [rows, setRows] = useState<QualityRow[] | null>(qualityCache);
-  const [columns, setColumns] = useState<number[][]>([[], []]);
-  const [today, setToday] = useState("");
+  const [rows, setRows] = useState<QualityRow[] | null>(boardCache.rows);
+  const [columns, setColumns] = useState<number[][]>(boardCache.columns);
+  const [today, setToday] = useState(boardCache.today);
   const [err, setErr] = useState("");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(boardCache.q);
   const [setOpen, setSetOpen] = useState(false);
   const [compact, setCompact] = useState(readCompact);
   const [product, setProduct] = useState(readProduct);   // SP gắn cho ảnh chụp sau đó
@@ -68,18 +73,16 @@ export function QualityBoard() {
   const load = async () => {
     try {
       const b = await listQuality();
-      setRows(b.workers); qualityCache = b.workers;
-      setColumns(b.board_columns);
-      setToday(b.today_ymd); setErr("");
+      setRows(b.workers); setColumns(b.board_columns); setToday(b.today_ymd); setErr("");
+      boardCache.rows = b.workers;
+      boardCache.columns = b.board_columns;
+      boardCache.today = b.today_ymd;
     } catch (e: any) { setErr(e?.message || "Lỗi tải bảng chất lượng"); }
   };
   useEffect(() => { load(); }, []);
   useEffect(() => onRealtime((e) => {
     if (e.type === "quality_changed" || e.type === "workers_changed" || e.type === "resync") load();
   }), []);
-  const rowsRef = useRef<QualityRow[]>([]);
-  rowsRef.current = rows || [];
-  useEffect(() => () => { if (rowsRef.current.length) qualityCache = rowsRef.current; }, []);
 
   // ── CHỤP NHANH ngay tại bảng: gom ảnh → tạo báo cáo hôm nay → upload ─────────
   const startShoot = (w: QualityRow) => {
@@ -176,7 +179,8 @@ export function QualityBoard() {
         {!product && <span class="muted small">Chưa chọn — ảnh sẽ không có sản phẩm</span>}
       </div>
 
-      <SearchBar value={q} onInput={setQ} placeholder="Tìm tên thợ…" />
+      <SearchBar value={q} onInput={(v: string) => { setQ(v); boardCache.q = v; }}
+        placeholder="Tìm tên thợ…" />
 
       {rows.length === 0 ? (
         <EmptyState>Chưa có thợ nào.{isQualityOnly()
