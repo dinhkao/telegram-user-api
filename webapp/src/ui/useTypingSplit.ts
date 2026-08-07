@@ -10,12 +10,14 @@
 //   3. Đang gõ mà CHẠM ra ngoài textarea (vd vùng preview) → blur NGAY. Android
 //      WebView đôi khi bỏ sót blur gốc → phải chạm 2 lần; gắn qua onClick (CHỈ
 //      kích khi chạm, KHÔNG kích khi kéo cuộn) trên .co-split.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 export function useTypingSplit(taRef: { current: HTMLTextAreaElement | null }) {
   const [typing, setTyping] = useState(false);
+  const typingAt = useRef(0);   // mốc lúc bắt đầu gõ — xem exitTypingOnOutsideTap
 
   useEffect(() => {
+    if (typing) typingAt.current = Date.now();
     document.body.classList.toggle("co-kbd", typing);
     return () => document.body.classList.remove("co-kbd");
   }, [typing]);
@@ -36,7 +38,13 @@ export function useTypingSplit(taRef: { current: HTMLTextAreaElement | null }) {
 
   const exitTypingOnOutsideTap = (e: any) => {
     const ta = taRef.current;
-    if (ta && e.target !== ta) ta.blur();
+    if (!ta || e.target === ta) return;
+    // Cú chạm MỞ bàn phím: focus làm layout chia đôi NGAY, nên lúc click được phát
+    // thì điểm chạm (nửa phải/dưới của ô nhập cũ) đã nằm trên preview → nếu blur
+    // là tắt bàn phím tức thì ("bấm góc ô không focus được"). Click là ĐUÔI của
+    // chính cú chạm focus → bỏ qua trong nhịp ngắn ngay sau khi bắt đầu gõ.
+    if (Date.now() - typingAt.current < 400) return;
+    ta.blur();
   };
 
   return { typing, setTyping, exitTypingOnOutsideTap };
