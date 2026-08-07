@@ -77,6 +77,7 @@ export function PhotoReportDays({
                   {im.comment_count > 0 && (
                     <span class="prd-cmt-tag"><Icon name="chat" size={10} /> {im.comment_count}</span>
                   )}
+                  {im.product ? <span class="prd-prod-tag">{im.product}</span> : null}
                 </button>
               ))}
             </div>

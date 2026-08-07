@@ -61,6 +61,7 @@ def _image_row(img: dict, img_scores: dict[int, dict], img_comments: dict[int, i
         # Khác created_by/created_at của BÁO CÁO (người mở báo cáo ngày đó).
         "uploaded_by": str(img.get("uploaded_by") or ""),
         "created_at": int(img.get("created_at") or 0),
+        "product": str(img.get("product") or ""),   # mâm kẹo này là sản phẩm nào ('' = ảnh cũ)
     }
 
 

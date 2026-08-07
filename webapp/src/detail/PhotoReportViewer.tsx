@@ -111,6 +111,10 @@ export function PhotoReportViewer({
           <span class="prv-meta-i"><Icon name="clock" size={13} />
             <span class="muted">Lúc</span> <b>{takenAt}</b></span>
         ) : null}
+        {img.product ? (
+          <span class="prv-meta-i"><Icon name="tag" size={13} />
+            <span class="muted">SP:</span> <b>{img.product}</b></span>
+        ) : null}
       </div>
 
       <div class="prv-stage" ref={stageRef}

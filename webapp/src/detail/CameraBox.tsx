@@ -26,13 +26,15 @@ export type Processed = { full: Blob; thumb: Blob; ext: string; width: number; h
 
 /** Upload 1 ảnh đã nén tới 1 entity base (`/api/media/…`). Tách ra để caller ở chế
  *  độ COLLECT tự upload sau khi entity được tạo. */
-export function uploadProcessed(base: string, p: Processed, kind?: string) {
+export function uploadProcessed(base: string, p: Processed, kind?: string, product?: string) {
   const fd = new FormData();
   fd.append("photo", p.full, `photo${p.ext}`);
   fd.append("thumb", p.thumb, `thumb${p.ext}`);
   fd.append("width", String(p.width));
   fd.append("height", String(p.height));
   if (kind) fd.append("kind", kind);
+  // SẢN PHẨM đang chụp (mâm kẹo của SP nào) — gắn vào TỪNG tấm lúc upload
+  if (product) fd.append("product", product);
   return postForm(`${base}/images`, fd);
 }
 

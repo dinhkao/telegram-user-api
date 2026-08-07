@@ -23,6 +23,7 @@ import { useScrollLock } from "../useScrollLock";
 import { usePopupBack } from "../ui/usePopupBack";
 import { ReorderList, type RItem } from "../detail/ReorderList";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "../detail/CameraBox";
+import { ProductPick, readProduct, saveProduct } from "../detail/ProductPick";
 
 let qualityCache: QualityRow[] | null = null;
 onRealtime((e) => {
@@ -58,6 +59,7 @@ export function QualityBoard() {
   const [q, setQ] = useState("");
   const [setOpen, setSetOpen] = useState(false);
   const [compact, setCompact] = useState(readCompact);
+  const [product, setProduct] = useState(readProduct);   // SP gắn cho ảnh chụp sau đó
   const [shootFor, setShootFor] = useState<QualityRow | null>(null);
   const [busy, setBusy] = useState(false);
   const capsRef = useRef<Processed[]>([]);
@@ -92,12 +94,12 @@ export function QualityBoard() {
       const { report_id } = await createQualityReport(w.id);
       let ok = 0;
       for (const p of caps) {
-        try { await uploadProcessed(`/api/media/quality_report/${report_id}`, p); ok++; }
+        try { await uploadProcessed(`/api/media/quality_report/${report_id}`, p, undefined, product); ok++; }
         catch { /* đếm ảnh lỗi, báo bên dưới */ }
       }
       if (ok === 0) toast("⚠ Tạo báo cáo nhưng upload ảnh LỖI — chưa tính là đã chụp mâm.", "err");
       else if (ok < caps.length) toast(`⚠ Đã lưu ${ok} ảnh, ${caps.length - ok} ảnh lỗi.`, "err");
-      else toast(`✅ ${w.name}: đã chụp ${ok} mâm`, "ok");
+      else toast(`✅ ${w.name}: đã chụp ${ok} mâm${product ? ` · ${product}` : ""}`, "ok");
       await load();
     } catch (e: any) { toast(e?.message || "Lỗi chụp mâm", "err"); }
     finally { setBusy(false); }
@@ -167,6 +169,12 @@ export function QualityBoard() {
             )}
           </span>
         } />
+
+      {/* Sản phẩm sẽ gắn cho MỌI ảnh chụp sau đó (cả nút chụp nhanh lẫn trang thợ) */}
+      <div class="qp-bar">
+        <ProductPick value={product} onChange={(c) => { setProduct(c); saveProduct(c); }} />
+        {!product && <span class="muted small">Chưa chọn — ảnh sẽ không có sản phẩm</span>}
+      </div>
 
       <SearchBar value={q} onInput={setQ} placeholder="Tìm tên thợ…" />
 

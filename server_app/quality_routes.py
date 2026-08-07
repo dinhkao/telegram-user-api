@@ -195,6 +195,37 @@ async def quality_report_handler(request: web.Request):
     return web.json_response({"ok": True, "report_id": rep["id"], "ymd": ymd, "created": created})
 
 
+async def quality_products_handler(request: web.Request):
+    """GET /api/quality/products?search= — danh sách SẢN PHẨM để chọn khi chụp mâm.
+
+    Cố ý đặt DƯỚI /api/quality thay vì dùng /api/products: vai trò `chat_luong` chỉ
+    được phép gọi /api/quality* (web_auth/role_scope), nên endpoint riêng ở đây
+    giữ nguyên nguyên tắc ít quyền nhất — khỏi mở cả kho sản phẩm cho vai trò đó.
+    Chỉ trả code + name (không giá, không tồn)."""
+    q = str(request.query.get("search", "")).strip()
+
+    def _run():
+        from product_store import get_all_products
+        from vn import vn_normalize
+        conn = get_connection()
+        try:
+            items = get_all_products(conn)
+        finally:
+            conn.close()
+        nq = vn_normalize(q)
+        if nq:
+            items = [p for p in items
+                     if nq in vn_normalize(p.get("code") or "")
+                     or nq in vn_normalize(p.get("name") or "")]
+        return [{"code": p["code"], "name": p.get("name") or ""} for p in items[:200]]
+    try:
+        out = await asyncio.to_thread(_run)
+    except Exception as e:  # noqa: BLE001
+        log.warning("quality products lỗi: %s", e)
+        return web.json_response({"ok": True, "products": []})
+    return web.json_response({"ok": True, "products": out})
+
+
 async def quality_gallery_handler(request: web.Request):
     """GET /api/quality/gallery?days=N — MỌI ảnh mâm kẹo gần đây, gom theo NGÀY rồi
     theo THỢ (mới nhất trước) cho trang xem tất cả hình. Kèm điểm từng ảnh (trung

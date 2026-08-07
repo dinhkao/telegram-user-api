@@ -561,6 +561,8 @@ export type ReportImage = {
   /** Ai chụp + chụp lúc nào của CHÍNH bức ảnh này (epoch giây UTC) — khác
    *  created_by/created_at của báo cáo (người mở báo cáo của ngày đó). */
   uploaded_by: string; created_at: number;
+  /** Mâm kẹo này là SẢN PHẨM nào (mã SP chọn lúc chụp). '' = ảnh cũ/không rõ. */
+  product: string;
 };
 /** 1 NGÀY báo cáo: ảnh + bình luận của cả ngày + điểm trung bình các ảnh đã chấm. */
 export type DayReport = {
@@ -678,6 +680,13 @@ export async function listQuality(): Promise<QualityBoardData> {
 export async function setQualityBoardColumns(columns: number[][]): Promise<number[][]> {
   const d = await postJSON("/api/quality/settings", { columns });
   return d.board_columns || [[], []];
+}
+/** Danh sách SP để chọn khi chụp mâm. Nằm dưới /api/quality nên vai trò chat_luong
+ *  gọi được mà không phải mở quyền vào cả kho sản phẩm. */
+export async function listQualityProducts(search = ""): Promise<{ code: string; name: string }[]> {
+  const d = await getJSON(`/api/quality/products${search ? `?search=${encodeURIComponent(search)}` : ""}`,
+                          { cache: false });
+  return d.products || [];
 }
 /** Tất cả ảnh mâm kẹo gần đây, gom theo ngày–thợ (trang #/chat-luong/anh). */
 export async function getQualityGallery(days = 14): Promise<{ groups: QualityGalleryGroup[]; total_images: number }> {

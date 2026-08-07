@@ -693,6 +693,14 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `#/chat-luong/:worker_id` (QualityDetail — photo-first qua CameraBox, nút sang
   `#/sx-tho/:name`); menu ☰ Thêm → Sản xuất → "Chất lượng mâm kẹo"; **CSS dùng chung
   `.area-*`** với trang vệ sinh. Tests: `tests/test_quality_store.py`.
+  ⚠ **SẢN PHẨM của tấm ảnh**: cột `product` trên `entity_images` (ADD COLUMN cho DB
+  cũ; ảnh cũ = `''`). Client gắn field `product` vào multipart lúc upload
+  (`uploadProcessed(base, p, kind, product)`). Người dùng chọn SP ở `detail/ProductPick`
+  (nút trên bảng + trang chi tiết thợ) — lựa chọn nhớ theo **MÁY** (localStorage
+  `quality_product`), CỐ Ý không lưu server: hai người có thể đang sửa hai loại kẹo
+  cùng lúc, lưu chung sẽ gắn nhầm SP cho ảnh của người kia. Danh sách SP lấy từ
+  **`GET /api/quality/products`** (không phải `/api/products`) để vai trò `chat_luong`
+  gọi được mà không phải mở quyền vào cả kho SP.
   ⚠ Ảnh mâm kẹo là BẰNG CHỨNG → CameraBox nhận prop **`captureOnly`** (QualityDetail
   + nút chụp nhanh ở QualityBoard bật) để ẩn nút "Chọn ảnh": chỉ được chụp tại chỗ,
   không lấy từ thư viện. Các trang khác vẫn chọn ảnh bình thường (mặc định false).

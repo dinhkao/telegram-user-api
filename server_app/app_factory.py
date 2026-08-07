@@ -473,6 +473,7 @@ def create_app():
     r.add_post("/api/areas/report/{rid}/delete", area_report_delete_handler)  # admin xoá báo cáo
 
     from server_app.quality_routes import (quality_all_handler, quality_gallery_handler,
+                                            quality_products_handler,
                                             quality_report_delete_handler,
                                             quality_report_handler, quality_settings_handler,
                                             quality_worker_handler)
@@ -480,6 +481,7 @@ def create_app():
     # ĐẶT TRƯỚC "/api/quality/{id}": chọn thợ hiện trên bảng + thứ tự ô (văn phòng)
     r.add_post("/api/quality/settings", quality_settings_handler)
     r.add_get("/api/quality/gallery", quality_gallery_handler)     # xem tất cả ảnh mâm
+    r.add_get("/api/quality/products", quality_products_handler)   # chọn SP khi chụp
     r.add_get("/api/quality/{id}", quality_worker_handler)         # 1 thợ + báo cáo
     r.add_post("/api/quality/{id}/report", quality_report_handler)  # mọi user chụp mâm hôm nay
     r.add_post("/api/quality/report/{rid}/delete", quality_report_delete_handler)  # admin xoá

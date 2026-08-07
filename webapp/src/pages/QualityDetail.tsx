@@ -15,6 +15,7 @@ import { Icon } from "../ui/Icon";
 import { toast, confirmDialog } from "../ui/feedback";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "../detail/CameraBox";
+import { ProductPick, readProduct, saveProduct } from "../detail/ProductPick";
 import { PhotoReportDays } from "../detail/PhotoReportDays";
 
 export function QualityDetail({ id }: { id: string }) {
@@ -25,6 +26,7 @@ export function QualityDetail({ id }: { id: string }) {
   const [camOpen, setCamOpen] = useState(false);
   const capsRef = useRef<Processed[]>([]);
   const isAdmin = currentUser()?.role === "admin";
+  const [product, setProduct] = useState(readProduct);   // dùng chung lựa chọn với bảng
 
   const load = async () => {
     try { setData(await getQualityWorker(wid)); setErr(""); }
@@ -60,7 +62,7 @@ export function QualityDetail({ id }: { id: string }) {
       const { report_id } = await createQualityReport(wid);
       let okCount = 0;
       for (const p of caps) {
-        try { await uploadProcessed(`/api/media/quality_report/${report_id}`, p); okCount++; }
+        try { await uploadProcessed(`/api/media/quality_report/${report_id}`, p, undefined, product); okCount++; }
         catch { /* đếm ảnh lỗi, báo bên dưới */ }
       }
       if (caps.length && okCount === 0)
@@ -68,7 +70,7 @@ export function QualityDetail({ id }: { id: string }) {
       else if (okCount < caps.length)
         toast(`⚠ Đã lưu ${okCount} ảnh, ${caps.length - okCount} ảnh upload lỗi.`, "err");
       else
-        toast(`✅ Đã chụp mâm kẹo${caps.length ? ` · ${caps.length} ảnh` : ""}`, "ok");
+        toast(`✅ Đã chụp mâm kẹo${caps.length ? ` · ${caps.length} ảnh` : ""}${product ? ` · ${product}` : ""}`, "ok");
       await load();
     } catch (e: any) {
       toast(e?.message || "Lỗi báo cáo chất lượng mâm", "err");
@@ -106,6 +108,11 @@ export function QualityDetail({ id }: { id: string }) {
             {todayReport?.created_at ? ` (lúc ${fmtHourVN(todayReport.created_at)})` : ""}.</span>
         </div>
       ) : null}
+
+      <div class="qp-bar">
+        <ProductPick value={product} onChange={(c) => { setProduct(c); saveProduct(c); }} />
+        {!product && <span class="muted small">Chưa chọn — ảnh sẽ không có sản phẩm</span>}
+      </div>
 
       <button class="btn primary block area-report-btn" disabled={busy} onClick={startReport}>
         <Icon name="camera" size={18} /> {todayDone ? "Chụp thêm mâm" : "Chụp mâm kẹo hôm nay"}
