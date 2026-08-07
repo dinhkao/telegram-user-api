@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS entity_images (
     width INTEGER,
     height INTEGER,
     uploaded_by TEXT,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    product TEXT DEFAULT ''
 )
 """
 _CREATE_IDX = "CREATE INDEX IF NOT EXISTS idx_entity_images ON entity_images(scope, entity_id, created_at)"
@@ -36,24 +37,30 @@ def _conn(path: str | None = None):
     if key not in _ensured:
         conn.execute(_CREATE_SQL)
         conn.execute(_CREATE_IDX)
+        # SẢN PHẨM của tấm ảnh (mâm kẹo đang chụp là sản phẩm nào). Bảng có từ
+        # trước nên phải ADD COLUMN cho DB cũ; ảnh cũ = '' (không rõ sản phẩm).
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(entity_images)").fetchall()}
+        if "product" not in cols:
+            conn.execute("ALTER TABLE entity_images ADD COLUMN product TEXT DEFAULT ''")
         _ensured.add(key)
     return conn
 
 
 def add_image(scope: str, entity_id: int, filename: str, thumb: str, mime: str, *,
               size: int = 0, width: int = 0, height: int = 0, uploaded_by: str = "?",
-              db_path: str | None = None) -> dict:
+              product: str = "", db_path: str | None = None) -> dict:
     now = int(time.time())
     conn = _conn(db_path)
     try:
         cur = conn.execute(
-            "INSERT INTO entity_images (scope, entity_id, filename, thumb, mime, size, width, height, uploaded_by, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (scope, int(entity_id), filename, thumb, mime, int(size), int(width), int(height), uploaded_by or "?", now),
+            "INSERT INTO entity_images (scope, entity_id, filename, thumb, mime, size, width, height, uploaded_by, created_at, product)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (scope, int(entity_id), filename, thumb, mime, int(size), int(width), int(height),
+             uploaded_by or "?", now, str(product or "").strip()),
         )
         return {"id": cur.lastrowid, "scope": scope, "entity_id": int(entity_id), "filename": filename,
                 "thumb": thumb, "mime": mime, "size": int(size), "width": int(width), "height": int(height),
-                "uploaded_by": uploaded_by or "?", "created_at": now}
+                "uploaded_by": uploaded_by or "?", "created_at": now, "product": str(product or "").strip()}
     finally:
         conn.close()
 
@@ -62,7 +69,7 @@ def list_images(scope: str, entity_id: int, *, db_path: str | None = None) -> li
     conn = _conn(db_path)
     try:
         rows = conn.execute(
-            "SELECT id, filename, thumb, mime, size, width, height, uploaded_by, created_at"
+            "SELECT id, filename, thumb, mime, size, width, height, uploaded_by, created_at, product"
             " FROM entity_images WHERE scope = ? AND entity_id = ? ORDER BY created_at DESC, id DESC",
             (scope, int(entity_id)),
         ).fetchall()

@@ -88,6 +88,13 @@ export function isOffice(): boolean {
   return r === "admin" || r === "van_phong";
 }
 
+/** Vai trò BÓ HẸP: chỉ xem/thao tác trang Chất lượng mâm kẹo (#/chat-luong).
+ *  Ẩn menu theo cờ này chỉ để gọn mắt — chặn THẬT nằm ở server
+ *  (server_app/web_auth/role_scope.py), gõ thẳng URL API vẫn 403. */
+export function isQualityOnly(): boolean {
+  return currentUser()?.role === "chat_luong";
+}
+
 function headers(): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json" };
   const t = getToken();
@@ -545,7 +552,17 @@ export async function deleteDisposal(id: number): Promise<any> {
 // ── BÁO CÁO-ẢNH-HẰNG-NGÀY: kiểu dùng chung cho vệ sinh khu vực + chất lượng mâm ─
 /** 1 ảnh trong báo cáo: điểm 0–10 (null = chưa chấm) + số bình luận của ẢNH đó. */
 export type ReportImage = {
-  id: number; score: number | null; scored_by: string; scored_at: number | null; comment_count: number;
+  id: number; comment_count: number;
+  /** ĐIỂM LÀ RIÊNG TỪNG NGƯỜI: `score` = TRUNG BÌNH các người đã chấm (có thể lẻ
+   *  .5), `score_count` = số NGƯỜI đã chấm, `my_score` = điểm của CHÍNH tôi
+   *  (null = tôi chưa chấm), `raters` = ai cho mấy điểm. */
+  score: number | null; score_count: number; my_score: number | null;
+  raters: { by: string; score: number; at: number }[];
+  /** Ai chụp + chụp lúc nào của CHÍNH bức ảnh này (epoch giây UTC) — khác
+   *  created_by/created_at của báo cáo (người mở báo cáo của ngày đó). */
+  uploaded_by: string; created_at: number;
+  /** Mâm kẹo này là SẢN PHẨM nào (mã SP chọn lúc chụp). '' = ảnh cũ/không rõ. */
+  product: string;
 };
 /** 1 NGÀY báo cáo: ảnh + bình luận của cả ngày + điểm trung bình các ảnh đã chấm. */
 export type DayReport = {
@@ -636,6 +653,15 @@ export type QualityRow = {
 };
 export type QualityBoardData = {
   today_ymd: string; workers: QualityRow[]; done_count: number; total: number;
+  /** Thợ nào ở CỘT nào: [[cột 1], [cột 2]], mỗi cột theo thứ tự từ trên xuống.
+   *  Cả hai cột rỗng = chưa cấu hình → hiện tất cả thợ. */
+  board_columns: number[][];
+  board_worker_ids: number[];        // gộp 2 cột (tiện lọc/đếm)
+};
+/** 1 ngày–1 thợ trong trang xem tất cả ảnh (#/chat-luong/anh). */
+export type QualityGalleryGroup = {
+  report_id: number; ymd: string; worker_id: number; worker_name: string;
+  created_by: string; created_at: string; images: ReportImage[]; score_avg: number | null;
 };
 export type QualityReport = DayReport & { worker_id: number };
 export type QualityWorkerData = {
@@ -646,7 +672,26 @@ export type QualityWorkerData = {
 /** Dashboard chất lượng mâm — thợ nào đã/chưa chụp mâm hôm nay + dải 7 ngày. */
 export async function listQuality(): Promise<QualityBoardData> {
   const d = await getJSON("/api/quality", { cache: false });
-  return { today_ymd: d.today_ymd, workers: d.workers || [], done_count: d.done_count || 0, total: d.total || 0 };
+  return { today_ymd: d.today_ymd, workers: d.workers || [], done_count: d.done_count || 0,
+           total: d.total || 0, board_columns: d.board_columns || [[], []],
+           board_worker_ids: d.board_worker_ids || [] };
+}
+/** Chọn thợ nào ở CỘT nào trên bảng chất lượng (văn phòng). Cả 2 cột rỗng = hiện tất cả. */
+export async function setQualityBoardColumns(columns: number[][]): Promise<number[][]> {
+  const d = await postJSON("/api/quality/settings", { columns });
+  return d.board_columns || [[], []];
+}
+/** Danh sách SP để chọn khi chụp mâm. Nằm dưới /api/quality nên vai trò chat_luong
+ *  gọi được mà không phải mở quyền vào cả kho sản phẩm. */
+export async function listQualityProducts(search = ""): Promise<{ code: string; name: string }[]> {
+  const d = await getJSON(`/api/quality/products${search ? `?search=${encodeURIComponent(search)}` : ""}`,
+                          { cache: false });
+  return d.products || [];
+}
+/** Tất cả ảnh mâm kẹo gần đây, gom theo ngày–thợ (trang #/chat-luong/anh). */
+export async function getQualityGallery(days = 14): Promise<{ groups: QualityGalleryGroup[]; total_images: number }> {
+  const d = await getJSON(`/api/quality/gallery?days=${days}`, { cache: false });
+  return { groups: d.groups || [], total_images: d.total_images || 0 };
 }
 /** Chi tiết 1 thợ + báo cáo chất lượng (mỗi báo cáo kèm images[] + photo_count). */
 export async function getQualityWorker(id: string | number): Promise<QualityWorkerData> {
@@ -1565,7 +1610,10 @@ export async function setUserPin(username: string, pin: string): Promise<any> {
   return postJSON(`/api/users/${encodeURIComponent(username)}/pin`, { pin });
 }
 
-export const ROLE_LABEL: Record<string, string> = { admin: "Admin", van_phong: "Văn phòng", staff: "Nhân viên" };
+export const ROLE_LABEL: Record<string, string> = {
+  admin: "Admin", van_phong: "Văn phòng", staff: "Nhân viên",
+  chat_luong: "Chất lượng mâm (chỉ trang này)",
+};
 
 // ── Notification center ───────────────────────────────────────────────────────
 

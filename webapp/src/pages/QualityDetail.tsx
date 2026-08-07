@@ -6,14 +6,16 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   getQualityWorker, createQualityReport, deleteQualityReport,
-  currentUser, QUALITY_SCOPE, type DayReport, type QualityReport,
+  currentUser, isQualityOnly, QUALITY_SCOPE, type DayReport, type QualityReport,
 } from "../api";
+import { fmtHourVN } from "../format";
 import { onRealtime } from "../realtime";
 import { PageHead } from "../ui/PageHead";
 import { Icon } from "../ui/Icon";
 import { toast, confirmDialog } from "../ui/feedback";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { CameraBox, cameraSupported, uploadProcessed, type Processed } from "../detail/CameraBox";
+import { ProductPick, readProduct, saveProduct } from "../detail/ProductPick";
 import { PhotoReportDays } from "../detail/PhotoReportDays";
 
 export function QualityDetail({ id }: { id: string }) {
@@ -24,6 +26,7 @@ export function QualityDetail({ id }: { id: string }) {
   const [camOpen, setCamOpen] = useState(false);
   const capsRef = useRef<Processed[]>([]);
   const isAdmin = currentUser()?.role === "admin";
+  const [product, setProduct] = useState(readProduct);   // dùng chung lựa chọn với bảng
 
   const load = async () => {
     try { setData(await getQualityWorker(wid)); setErr(""); }
@@ -59,7 +62,7 @@ export function QualityDetail({ id }: { id: string }) {
       const { report_id } = await createQualityReport(wid);
       let okCount = 0;
       for (const p of caps) {
-        try { await uploadProcessed(`/api/media/quality_report/${report_id}`, p); okCount++; }
+        try { await uploadProcessed(`/api/media/quality_report/${report_id}`, p, undefined, product); okCount++; }
         catch { /* đếm ảnh lỗi, báo bên dưới */ }
       }
       if (caps.length && okCount === 0)
@@ -67,7 +70,7 @@ export function QualityDetail({ id }: { id: string }) {
       else if (okCount < caps.length)
         toast(`⚠ Đã lưu ${okCount} ảnh, ${caps.length - okCount} ảnh upload lỗi.`, "err");
       else
-        toast(`✅ Đã chụp mâm kẹo${caps.length ? ` · ${caps.length} ảnh` : ""}`, "ok");
+        toast(`✅ Đã chụp mâm kẹo${caps.length ? ` · ${caps.length} ảnh` : ""}${product ? ` · ${product}` : ""}`, "ok");
       await load();
     } catch (e: any) {
       toast(e?.message || "Lỗi báo cáo chất lượng mâm", "err");
@@ -93,17 +96,23 @@ export function QualityDetail({ id }: { id: string }) {
     <div class="inv-dash">
       <PageHead title={<span><Icon name="star" size={18} /> {data.worker.name}</span>}
         sub="Chất lượng mâm kẹo" fallback="#/chat-luong"
-        right={<a class="btn small" href={`#/sx-tho/${encodeURIComponent(data.worker.name)}`}>
-          <Icon name="factory" size={15} /> Sản xuất của thợ
-        </a>} />
+        right={isQualityOnly() ? undefined :   /* vai trò chat_luong không vào được trang SX */
+          <a class="btn small" href={`#/sx-tho/${encodeURIComponent(data.worker.name)}`}>
+            <Icon name="factory" size={15} /> Sản xuất của thợ
+          </a>} />
 
       {todayDone ? (
         <div class="area-today-ok">
           <Icon name="check" size={18} />
           <span>Hôm nay đã chụp {todayReport?.photo_count || todayReport?.images.length} mâm
-            {todayReport?.created_at ? ` (lúc ${String(todayReport.created_at).slice(11, 16)})` : ""}.</span>
+            {todayReport?.created_at ? ` (lúc ${fmtHourVN(todayReport.created_at)})` : ""}.</span>
         </div>
       ) : null}
+
+      <div class="qp-bar">
+        <ProductPick value={product} onChange={(c) => { setProduct(c); saveProduct(c); }} />
+        {!product && <span class="muted small">Chưa chọn — ảnh sẽ không có sản phẩm</span>}
+      </div>
 
       <button class="btn primary block area-report-btn" disabled={busy} onClick={startReport}>
         <Icon name="camera" size={18} /> {todayDone ? "Chụp thêm mâm" : "Chụp mâm kẹo hôm nay"}
@@ -116,10 +125,12 @@ export function QualityDetail({ id }: { id: string }) {
         isAdmin={isAdmin} busy={busy}
         onDelete={(r) => doDeleteReport(r as QualityReport)}
         onChanged={load}
+        subject={data.worker.name} subjectLabel="Thợ"
         emptyText="Chưa có ảnh mâm kẹo nào của thợ này. Bấm nút trên để chụp lần đầu." />
 
       {camOpen && (
         <CameraBox base={`/api/media/quality_report/0`}
+          captureOnly
           onCapture={(p) => capsRef.current.push(p)}
           onUploaded={() => { /* collect mode — không upload ngay */ }}
           onClose={() => { setCamOpen(false); finalizeReport(capsRef.current, true); }} />

@@ -77,25 +77,33 @@ def extract_token(headers, query) -> str:
 # Token sống tới 30 ngày nhưng user bị KHOÁ (disabled) phải văng ngay — re-check cờ
 # disabled mỗi request qua cache TTL 60s (khỏi 1 DB hit / request; login đã chặn
 # disabled nhưng token cũ vẫn chạy nếu chỉ check lúc login).
+# Cache luôn giữ ROLE để chặn phạm vi API theo vai trò (role_scope) mà không thêm
+# DB hit — đổi role thì chậm nhất 60s là có hiệu lực.
 _DISABLED_TTL = 60.0
-_disabled_cache: dict[str, tuple[bool, float]] = {}
+_flags_cache: dict[str, tuple[bool, str, float]] = {}
 
 log = logging.getLogger("server")
 
 
-def _user_disabled(username: str) -> bool:
+def _user_flags(username: str) -> tuple[bool, str]:
+    """(disabled, role) của user, cache TTL 60s."""
     now = time.time()
-    hit = _disabled_cache.get(username)
-    if hit is not None and now - hit[1] < _DISABLED_TTL:
-        return hit[0]
+    hit = _flags_cache.get(username)
+    if hit is not None and now - hit[2] < _DISABLED_TTL:
+        return hit[0], hit[1]
     try:
         from user_store import get_user
         u = get_user(username)
         disabled = (u is None) or bool(u.get("disabled"))   # user đã xoá → coi như khoá
+        role = str((u or {}).get("role") or "")
     except Exception:
-        disabled = False   # DB trục trặc → không khoá oan cả app
-    _disabled_cache[username] = (disabled, now)
-    return disabled
+        disabled, role = False, ""   # DB trục trặc → không khoá oan cả app
+    _flags_cache[username] = (disabled, role, now)
+    return disabled, role
+
+
+def _user_disabled(username: str) -> bool:
+    return _user_flags(username)[0]
 
 
 @web.middleware
@@ -104,8 +112,18 @@ async def web_auth_middleware(request: web.Request, handler):
     if token:
         username = verify_token(get_web_auth_secret(), token, now=int(time.time()))
         # user disabled = token vô hiệu (cùng đường với token sai)
-        if username and not _user_disabled(username):
+        disabled, role = _user_flags(username) if username else (True, "")
+        if username and not disabled:
             request["web_user"] = username
+            request["web_role"] = role
+            # Vai trò bó hẹp (chat_luong): chặn NGAY, trước mọi handler. Đây mới là
+            # hàng rào thật — webapp ẩn menu chỉ là cho gọn mắt.
+            from server_app.web_auth.role_scope import api_scope_denied
+            if api_scope_denied(role, request.method, request.path):
+                log.info("web_auth: role %s bị chặn %s %s", role, request.method, request.path)
+                return web.json_response(
+                    {"ok": False, "error": "Tài khoản này chỉ dùng được trang Chất lượng mâm kẹo",
+                     "code": "role_scope"}, status=403)
         elif stale_token_401(request.method, request.path):
             # Có token mà không nhận ra được (hết hạn 30 ngày / bị khoá / sai chữ
             # ký) — KHÔNG được chạy tiếp như khách vô danh, nếu không mọi thao tác

@@ -220,6 +220,8 @@ async def images_upload_handler(request: web.Request):
 
     width, height = _to_int(data.get("width")), _to_int(data.get("height"))
     uploaded_by = str(request.get("web_user") or data.get("user") or "?")
+    # SẢN PHẨM đang chụp (mâm kẹo của SP nào) — client gắn kèm mỗi tấm; rỗng = không rõ
+    product = str(data.get("product") or "").strip()[:120]
 
     uid = uuid.uuid4().hex
     fname, tname = f"{uid}{ext}", f"{uid}_t{thumb_ext}"
@@ -239,6 +241,7 @@ async def images_upload_handler(request: web.Request):
         image = await asyncio.to_thread(
             add_image, scope, entity_id, fname, tname, photo_mime,
             size=len(photo_bytes), width=width, height=height, uploaded_by=uploaded_by,
+            product=product,
         )
     except Exception as e:  # noqa: BLE001
         log.error("ghi file ảnh lỗi: %s", e)

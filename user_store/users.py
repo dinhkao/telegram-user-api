@@ -145,13 +145,21 @@ def set_disabled(username: str, disabled: bool, *, db_path: str | None = None) -
 
 # Vai trò: admin (toàn quyền) ⊃ van_phong (văn phòng: nhận tiền + tạo thanh toán) ⊃
 # staff (nhân viên). "Văn phòng" = admin hoặc van_phong.
-ROLES = ("admin", "van_phong", "staff")
+# chat_luong = vai trò BÓ HẸP, đứng NGOÀI thang trên: chỉ xem/thao tác trang CHẤT
+# LƯỢNG MÂM KẸO, không thấy đơn/kho/lương/khách. Chặn thật ở
+# server_app/web_auth/role_scope.py (middleware), không phải chỉ ẩn menu.
+ROLES = ("admin", "van_phong", "staff", "chat_luong")
 OFFICE_ROLES = ("admin", "van_phong")
 
 
 def is_office(role: str | None) -> bool:
     """True nếu role thuộc nhóm 'văn phòng' (admin/van_phong)."""
     return (role or "") in OFFICE_ROLES
+
+
+def is_quality_only(role: str | None) -> bool:
+    """True nếu role chỉ được dùng trang chất lượng mâm kẹo."""
+    return (role or "") == "chat_luong"
 
 
 def set_role(username: str, role: str, *, db_path: str | None = None) -> bool:

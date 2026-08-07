@@ -693,6 +693,46 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `#/chat-luong/:worker_id` (QualityDetail — photo-first qua CameraBox, nút sang
   `#/sx-tho/:name`); menu ☰ Thêm → Sản xuất → "Chất lượng mâm kẹo"; **CSS dùng chung
   `.area-*`** với trang vệ sinh. Tests: `tests/test_quality_store.py`.
+  ⚠ **SẢN PHẨM của tấm ảnh**: cột `product` trên `entity_images` (ADD COLUMN cho DB
+  cũ; ảnh cũ = `''`). Client gắn field `product` vào multipart lúc upload
+  (`uploadProcessed(base, p, kind, product)`). Người dùng chọn SP ở `detail/ProductPick`
+  (nút trên bảng + trang chi tiết thợ) — lựa chọn nhớ theo **MÁY** (localStorage
+  `quality_product`), CỐ Ý không lưu server: hai người có thể đang sửa hai loại kẹo
+  cùng lúc, lưu chung sẽ gắn nhầm SP cho ảnh của người kia. Danh sách SP lấy từ
+  **`GET /api/quality/products`** (không phải `/api/products`) để vai trò `chat_luong`
+  gọi được mà không phải mở quyền vào cả kho SP.
+  ⚠ Ảnh mâm kẹo là BẰNG CHỨNG → CameraBox nhận prop **`captureOnly`** (QualityDetail
+  + nút chụp nhanh ở QualityBoard bật) để ẩn nút "Chọn ảnh": chỉ được chụp tại chỗ,
+  không lấy từ thư viện. Các trang khác vẫn chọn ảnh bình thường (mặc định false).
+  ⚠ VAI TRÒ **`chat_luong`** (user_store ROLES): chỉ xem/thao tác trang này, không
+  thấy đơn/kho/lương/khách. Chặn THẬT ở **`server_app/web_auth/role_scope.py`** —
+  middleware `web_auth` từ chối 403 mọi `/api/*` ngoài `auth` · `quality` ·
+  `media/{quality_report,quality_image}` (mặc định TỪ CHỐI, so khớp theo TỪNG ĐOẠN
+  đường dẫn để `/api/quality-secret` không lọt). Webapp `isQualityOnly()` chỉ ẩn
+  menu/nhốt hash trong `#/chat-luong` cho gọn mắt — KHÔNG phải hàng rào. Vai trò này
+  KHÔNG thuộc OFFICE_ROLES nên mọi gate office/admin sẵn có tự động vẫn chặn.
+  Thêm tính năng cho vai trò này thì mở đường trong `role_scope.py`.
+  Test: `tests/test_web_auth_role_scope.py`.
+  ⚠ BẢNG #/chat-luong: **2 CỘT ĐỘC LẬP** (`.qb-cols` + 2 `.qb-col`, không phải grid
+  so hàng), mỗi card có **nút chụp nhanh** (mở camera ngay tại bảng — nút nằm NGOÀI
+  thẻ `<a>` để bấm không nhảy trang). Hai kiểu hiện: **đầy đủ** (ảnh + dải 7 ngày) và
+  **gọn** (chỉ tên + nút chụp) — nút bật/tắt ở đầu trang, lưu `localStorage`
+  (`quality_board_compact`) vì là sở thích của TỪNG MÁY. Nút **🖼 Ảnh** →
+  `#/chat-luong/anh` (`pages/QualityGallery.tsx`, API `GET /api/quality/gallery?days=`),
+  xem mọi ảnh gom theo ngày–thợ, chạm ảnh mở đúng `PhotoReportViewer` nên chấm điểm
+  ngay tại gallery được.
+  Chỉ vài thợ sửa kẹo → **⚙ Cài đặt** (văn phòng): tick thợ hiện · kéo thứ tự ·
+  bấm **C1/C2** chọn thợ nằm cột nào (`ReorderList` + prop `trailing`). Cấu hình lưu
+  SERVER ở `settings_store['quality_board_workers']` = **`{"columns": [[…],[…]]}`**;
+  vẫn ĐỌC ĐƯỢC dạng cũ (mảng phẳng → rải trái→phải) nên bản đã lưu không vỡ.
+  API `POST /api/quality/settings` nhận `columns` (hoặc `worker_ids` của client cũ),
+  gate `is_office_request`; `GET /api/quality` trả `board_columns` + `board_worker_ids`.
+  **Rỗng = hiện TẤT CẢ thợ.** Logic thuần `quality_store/domain.py:
+  clean_board_ids/clean_board_columns/flatten_columns/select_board_rows`, test
+  `tests/test_quality_board_settings.py`.
+  ⚠ GIỜ hiển thị: **luôn dùng `fmtHourVN`/`fmtDateTimeVN` (webapp/src/format.ts)**,
+  TUYỆT ĐỐI không `String(created_at).slice(11,16)` — server lưu UTC nên cắt thô ra
+  sớm 7 tiếng. Test hồi quy: `webapp/tests/fmtHourVN.test.ts` (chạy được ở mọi TZ máy).
   ⚠ Logic THUẦN của CẢ HAI trang (mốc ngày VN + ghép hàng dashboard 7 ngày) nằm ở
   **`utils/daily_photo_report.py`** (`today_vn`/`last_n_days`/`build_dashboard_rows`,
   tham số `entity_key='area_id'|'worker_id'`); `area_store/domain.py` +
@@ -705,12 +745,36 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   - **Bình luận TỪNG BỨC ẢNH** = scope MỚI `area_image`/`quality_image` với
     **entity_id = image_id** (id trong `entity_images`), chỉ dùng cho comments (ảnh
     của ảnh là vô nghĩa) — nhớ khoảng cách ngữ nghĩa này khi đọc `entity_comments`.
-  - **Điểm 0–10 mỗi ảnh** = `entity_media_store/scores.py` (bảng `entity_image_scores`,
-    PK (scope ẢNH-THUỘC-BÁO-CÁO, image_id) → 1 ảnh 1 điểm, chấm lại là ghi đè, lưu
-    `scored_by`); API `server_app/image_score_routes.py` POST/DELETE
+  - **Điểm 0–10 mỗi ảnh — RIÊNG TỪNG NGƯỜI** = `entity_media_store/scores.py`
+    (bảng `entity_image_scores`, PK **(scope, image_id, scored_by)** → 1 ảnh nhiều
+    người chấm, mỗi người giữ điểm của mình; chấm lại chỉ đè điểm CỦA MÌNH, DELETE
+    chỉ bỏ điểm CỦA MÌNH). `scored_by` = **username**. Bảng cũ PK (scope,image_id)
+    được `_migrate_per_user` tự nâng cấp (SQLite không ALTER được PK → dựng bảng mới
+    + copy + rename), dữ liệu cũ thành điểm của chính người đã chấm.
+    `scores_for(scope, ids, viewer)` trả `{score (TB), score_count (số NGƯỜI),
+    my_score, raters[]}`; `avg_by_entity` gộp **2 tầng** (TB từng ảnh rồi mới TB
+    theo báo cáo) để ảnh nhiều người chấm không nặng hơn ảnh 1 người chấm.
+    Mọi lần chấm/bỏ đều **GHI LOG** audit (`quality.image_scored` /
+    `*.image_score_cleared`, có `old_score` → nhìn log thấy sửa từ mấy lên mấy);
+    nhãn ở `server_app/event_format.py`. Test: `tests/test_image_scores.py`.
+    API `server_app/image_score_routes.py` POST/DELETE
     `/api/media/{scope}/{entity_id}/images/{image_id}/score` (mọi user đăng nhập chấm
     được — đổi thành office chỉ cần thêm gate ở 2 handler đó). `avg_by_entity` JOIN
     `entity_images` cho điểm TB theo ngày/hôm nay.
+  - **Trang xem 1 ảnh** = `webapp/src/detail/PhotoReportViewer.tsx` (dùng chung 2 trang).
+    Đầu trang hiện **tên thợ/khu vực** (props `subject` + `subjectLabel` do trang cha
+    truyền) · **người chụp** · **giờ chụp** — lấy theo TỪNG ảnh từ
+    `entity_images.uploaded_by/created_at`, do `photo_report_view._image_row` trả kèm;
+    ảnh cũ chưa có 2 trường này thì lùi về `created_by`/`created_at` của báo cáo
+    (props `reportBy`/`reportAt`). Khung dùng ĐÚNG CSS `.pv-*` của trình xem ảnh đơn
+    hàng (ảnh full-screen + `.pv-topbar` + dải `.pv-thumbs` + `.pv-controls`; chấm
+    điểm & trao đổi nằm trong tấm trượt `.pv-panel`).
+  - ⚠ **CỬ CHỈ XEM ẢNH chỉ có MỘT bản**: `detail/useImageGestures.ts` (pinch-zoom,
+    kéo, double-tap, vuốt trái/phải đổi ảnh, vuốt xuống đóng, lăn chuột zoom).
+    `PhotoViewer` (ảnh đơn hàng) VÀ `PhotoReportViewer` cùng gọi hook này — sửa cảm
+    giác cử chỉ ở đó là cả hai cùng đổi, ĐỪNG chép lại. Mấu chốt để mượt: trạng thái
+    nằm trong `useRef` + ghi thẳng `style.transform`, **không `setState` mỗi lần ngón
+    di chuyển** (setState mỗi frame = giật, zoom "nhảy" — lỗi đã gặp).
   - Dựng payload xem cho cả 2 trang: **`server_app/photo_report_view.py`**
     (`enrich_reports` → images[{id,score,scored_by,comment_count}] + photo_count +
     comment_count + score_avg/score_count; `attach_today_scores` → today.score_avg).

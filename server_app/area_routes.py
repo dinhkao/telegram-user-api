@@ -93,6 +93,8 @@ async def area_detail_handler(request: web.Request):
     except (TypeError, ValueError):
         return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
 
+    viewer = str(request.get("web_user") or "")   # điểm chấm RIÊNG mỗi người → cần biết ai xem
+
     def _get():
         conn = _conn()
         try:
@@ -101,7 +103,7 @@ async def area_detail_handler(request: web.Request):
                 return None, None, None
             reports = area_store.list_reports(conn, aid)
             # ảnh + điểm 0–10 + số bình luận (từng ảnh và cả ngày)
-            enrich_reports("area_report", "area_image", reports)
+            enrich_reports("area_report", "area_image", reports, viewer)
             return area, reports, domain.today_vn()
         finally:
             conn.close()

@@ -5,7 +5,7 @@
 // PhotoReportViewer (phóng to + chấm điểm 0–10 + trao đổi riêng ảnh đó).
 import { useState } from "preact/hooks";
 import { mediaImageUrl, type DayReport, type PhotoScope } from "../api";
-import { dayLabel } from "../format";
+import { dayLabel, fmtHourVN } from "../format";
 import { Icon } from "../ui/Icon";
 import { EmptyState } from "../ui/states";
 import { Comments } from "./Comments";
@@ -13,6 +13,7 @@ import { PhotoReportViewer, scoreClass } from "./PhotoReportViewer";
 
 export function PhotoReportDays({
   scope, reports, isAdmin, busy, onDelete, onChanged, emptyText,
+  subject, subjectLabel,
 }: {
   scope: PhotoScope;
   reports: DayReport[];
@@ -21,6 +22,8 @@ export function PhotoReportDays({
   onDelete: (r: DayReport) => void;
   onChanged: () => void;          // tải lại dữ liệu trang cha (sau khi chấm điểm)
   emptyText: string;
+  subject?: string;               // tên thợ / tên khu vực — hiện ở đầu trang xem ảnh
+  subjectLabel?: string;
 }) {
   const [openChat, setOpenChat] = useState<number | null>(null);   // report id đang mở trao đổi
   const [view, setView] = useState<{ rid: number; idx: number } | null>(null);
@@ -36,7 +39,7 @@ export function PhotoReportDays({
           <div class="row space">
             <b>{dayLabel(r.ymd)}</b>
             <span class="muted small">
-              {r.created_by ? `${r.created_by}` : ""}{r.created_at ? ` · ${String(r.created_at).slice(11, 16)}` : ""}
+              {r.created_by ? `${r.created_by}` : ""}{r.created_at ? ` · ${fmtHourVN(r.created_at)}` : ""}
               {isAdmin && (
                 <button class="area-del-rep" disabled={busy}
                   title="Xoá báo cáo" onClick={() => onDelete(r)}>
@@ -74,6 +77,7 @@ export function PhotoReportDays({
                   {im.comment_count > 0 && (
                     <span class="prd-cmt-tag"><Icon name="chat" size={10} /> {im.comment_count}</span>
                   )}
+                  {im.product ? <span class="prd-prod-tag">{im.product}</span> : null}
                 </button>
               ))}
             </div>
@@ -96,6 +100,8 @@ export function PhotoReportDays({
           images={viewReport.images} index={Math.min(view.idx, viewReport.images.length - 1)}
           onIndex={(i) => setView({ rid: viewReport.id, idx: i })}
           onClose={() => setView(null)}
+          subject={subject} subjectLabel={subjectLabel}
+          reportBy={viewReport.created_by} reportAt={viewReport.created_at}
           onChanged={onChanged} />
       )}
     </>

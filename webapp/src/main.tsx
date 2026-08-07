@@ -2,7 +2,7 @@
 // + thanh nav dưới + banner offline/hàng đợi. Connects to: pages/*, api.ts.
 import { render } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { currentUser, getJSON, isOffice, replayQueue, netOk, onNetStatus, refreshMe, soVN, tokenExpired } from "./api";
+import { currentUser, getJSON, isOffice, isQualityOnly, replayQueue, netOk, onNetStatus, refreshMe, soVN, tokenExpired } from "./api";
 import { clearQueue, getQueue } from "./offline";
 import { getStatus, onStatus, onRealtime, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
@@ -83,6 +83,7 @@ import { AreasBoard } from "./pages/AreasBoard";
 import { AreaDetail } from "./pages/AreaDetail";
 import { QualityBoard } from "./pages/QualityBoard";
 import { QualityDetail } from "./pages/QualityDetail";
+import { QualityGallery } from "./pages/QualityGallery";
 import { CashboxList } from "./pages/CashboxList";
 import { CollectMoney } from "./pages/CollectMoney";
 import { SmartCollectMoney } from "./pages/SmartCollectMoney";
@@ -409,6 +410,15 @@ function App() {
     if (showLogin && hash !== "#/login") window.location.hash = "#/login";
   }, [showLogin, hash]);
 
+  // Vai trò chat_luong: NHỐT trong #/chat-luong. Gõ/back sang trang khác là bị kéo
+  // về ngay. Đây chỉ là cho gọn mắt — server đã chặn API ngoài phạm vi (403).
+  const qualityOnly = authed && isQualityOnly();
+  useEffect(() => {
+    if (qualityOnly && !hash.startsWith("#/chat-luong") && hash !== "#/login") {
+      window.location.hash = "#/chat-luong";
+    }
+  }, [qualityOnly, hash]);
+
   // Kênh realtime (/ws): bật khi đã đăng nhập, tắt khi đăng xuất.
   useEffect(() => {
     if (authed) startRealtime();
@@ -573,6 +583,7 @@ function App() {
   else if (hash.startsWith("#/xuat-huy")) page = <DisposalsList />;
   else if (areaMatch) page = <AreaDetail id={areaMatch[1]} />;
   else if (hash.startsWith("#/khu-vuc")) page = <AreasBoard />;
+  else if (hash.startsWith("#/chat-luong/anh")) page = <QualityGallery />;
   else if (qualityMatch) page = <QualityDetail id={qualityMatch[1]} />;
   else if (hash.startsWith("#/chat-luong")) page = <QualityBoard />;
   else if (hash.startsWith("#/dieu-chinh")) page = <AdjustmentsList />;
@@ -600,6 +611,7 @@ function App() {
     : purEditMatch ? "Sửa phiếu nhập"
     : hash.startsWith("#/xuat-huy") ? "Xuất hủy"
     : hash.startsWith("#/khu-vuc") ? "Khu vực xưởng"
+    : hash.startsWith("#/chat-luong/anh") ? "Tất cả ảnh mâm"
     : hash.startsWith("#/chat-luong") ? "Chất lượng mâm"
     : hash.startsWith("#/dieu-chinh") ? "Điều chỉnh tồn"
     : hash.startsWith("#/nhap-hang") ? "Nhập hàng"
@@ -655,17 +667,18 @@ function App() {
           <span class="app-title">{isHome && <span class="app-logo" aria-hidden="true">🍬</span>}{pageTitle}</span>
           <div class="app-bar-right">
             <RealtimeDot />
-            <TaskBell />
-            <NotifCenter />
+            {/* chuông việc / thông báo gọi API ngoài phạm vi → ẩn với vai trò chat_luong */}
+            {!qualityOnly && <TaskBell />}
+            {!qualityOnly && <NotifCenter />}
             <button class="icon-btn" title="Tải lại" onClick={() => window.location.reload()}><Icon name="refresh" size={19} /></button>
             <a class="icon-btn" href="#/login" title="Cài đặt"><Icon name="settings" size={19} /></a>
           </div>
         </header>
       )}
       <OfflineBanner />
-      {!showLogin && <NopBanner />}
+      {!showLogin && !qualityOnly && <NopBanner />}
       <main class="page">{page}</main>
-      {!showLogin && (
+      {!showLogin && !qualityOnly && (
         <div class="bottom-dock">
           {isHome && <DeliveringBanner />}
           <nav class="bottom-nav">
@@ -678,7 +691,7 @@ function App() {
           </nav>
         </div>
       )}
-      {!showLogin && !hash.startsWith("#/huong-dan") && <HelpFab />}
+      {!showLogin && !qualityOnly && !hash.startsWith("#/huong-dan") && <HelpFab />}
     </div>
   );
 }
