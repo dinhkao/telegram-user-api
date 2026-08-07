@@ -213,8 +213,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `order_photo_sync.import_sent_image`. Loop-prevention: self-sent message-ids
   (set+deque FIFO) + a `UNIQUE(thread_id, tg_message_id)` index. Add/delete emit
   realtime `order_changed`, an `order.image_added` audit event (→ shows in **Lịch sử
-  thao tác** with a thumbnail), and an **FCM push** (`server_app/fcm.py`, topic
-  `orders`) — same as new comments (`comment_routes`). Tapping a push **deep-links**
+  thao tác** with a thumbnail), and an **FCM push** (`server_app/fcm.py` — gửi THEO
+  TOKEN từng máy, bảng `fcm_tokens` trong `notif_store/fcm_tokens.py`, APK đăng ký
+  qua `POST /api/fcm/register` [cầu JS `AndroidApp.fcmToken()`, client
+  `webapp/src/fcmRegister.ts`]; lọc bỏ role `chat_luong` + user khoá; topic `orders`
+  chỉ còn là FALLBACK cho máy APK cũ — tắt bằng `FCM_TOPIC_FALLBACK=false` khi mọi
+  máy đã cập nhật) — same as new comments (`comment_routes`). Tapping a push **deep-links**
   to `#/order/<id>?focus=<type>:<id>` → OrderDetail scrolls to + highlights the item
   (APK reads FCM `data` extras in `MainActivity`).
 - **Dashboard card thumbnail** — `orders_api._attach_thumbs` batch-fetches each
@@ -707,11 +711,15 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   ⚠ VAI TRÒ **`chat_luong`** (user_store ROLES): chỉ xem/thao tác trang này, không
   thấy đơn/kho/lương/khách. Chặn THẬT ở **`server_app/web_auth/role_scope.py`** —
   middleware `web_auth` từ chối 403 mọi `/api/*` ngoài `auth` · `quality` ·
-  `media/{quality_report,quality_image}` (mặc định TỪ CHỐI, so khớp theo TỪNG ĐOẠN
-  đường dẫn để `/api/quality-secret` không lọt). Webapp `isQualityOnly()` chỉ ẩn
-  menu/nhốt hash trong `#/chat-luong` cho gọn mắt — KHÔNG phải hàng rào. Vai trò này
-  KHÔNG thuộc OFFICE_ROLES nên mọi gate office/admin sẵn có tự động vẫn chặn.
-  Thêm tính năng cho vai trò này thì mở đường trong `role_scope.py`.
+  `media/{quality_report,quality_image}` · `fcm/register` (mặc định TỪ CHỐI, so khớp
+  theo TỪNG ĐOẠN đường dẫn để `/api/quality-secret` không lọt; `fcm/register` mở để
+  máy dùng chung đổi chủ row token → server loại máy khỏi push). Webapp
+  `isQualityOnly()` chỉ ẩn menu/nhốt hash trong `#/chat-luong` cho gọn mắt — KHÔNG
+  phải hàng rào. Vai trò này KHÔNG thuộc OFFICE_ROLES nên mọi gate office/admin sẵn
+  có tự động vẫn chặn. Thêm tính năng cho vai trò này thì mở đường trong
+  `role_scope.py`. **Realtime /ws cũng lọc theo role**: client chat_luong chỉ nhận
+  `ping`/`app_reload`/`quality_changed` (`role_scope.ws_event_allowed_for_quality`,
+  đánh dấu socket ở `websocket_routes` → lọc trong `realtime._send`).
   Test: `tests/test_web_auth_role_scope.py`.
   ⚠ BẢNG #/chat-luong: **2 CỘT ĐỘC LẬP** (`.qb-cols` + 2 `.qb-col`, không phải grid
   so hàng), mỗi card có **nút chụp nhanh** (mở camera ngay tại bảng — nút nằm NGOÀI

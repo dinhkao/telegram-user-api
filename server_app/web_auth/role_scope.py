@@ -49,6 +49,11 @@ def allowed_for_quality_only(method: str, path: str) -> bool:
         return True
     if root == "media" and len(seg) >= 3 and seg[2] in _ALLOWED_MEDIA_SCOPES:
         return True
+    # Đăng ký token FCM: chat_luong CŨNG phải gọi được — máy dùng chung từng đăng ký
+    # dưới user khác, họ đăng nhập thì row token đổi về username bó hẹp → server loại
+    # máy đó khỏi push. CHỈ mở đúng /api/fcm/register, không mở cả nhánh /api/fcm.
+    if root == "fcm" and len(seg) == 3 and seg[2] == "register":
+        return True
     return False
 
 

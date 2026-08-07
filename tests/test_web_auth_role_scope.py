@@ -87,6 +87,14 @@ class ApiScopeDeniedTest(unittest.TestCase):
         self.assertFalse(api_scope_denied(QUALITY_ONLY_ROLE, "GET", "/api/quality"))
         self.assertFalse(api_scope_denied(QUALITY_ONLY_ROLE, "POST", "/api/quality/3/report"))
 
+    def test_fcm_register_mo_rieng_cho_chat_luong(self):
+        # Máy dùng chung: chat_luong đăng nhập phải đăng ký lại token để row đổi
+        # username → server loại máy khỏi push. CHỈ mở đúng /api/fcm/register.
+        self.assertFalse(api_scope_denied(QUALITY_ONLY_ROLE, "POST", "/api/fcm/register"))
+        self.assertTrue(api_scope_denied(QUALITY_ONLY_ROLE, "POST", "/api/fcm"))
+        self.assertTrue(api_scope_denied(QUALITY_ONLY_ROLE, "POST", "/api/fcm/register/extra"))
+        self.assertTrue(api_scope_denied(QUALITY_ONLY_ROLE, "POST", "/api/fcm/other"))
+
     def test_ws_event_chi_nhan_trang_chat_luong(self):
         from server_app.web_auth.role_scope import ws_event_allowed_for_quality
         # được nhận: event trang chất lượng + keepalive + lệnh reload toàn app

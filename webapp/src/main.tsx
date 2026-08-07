@@ -3,6 +3,7 @@
 import { render } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { currentUser, getJSON, isOffice, isQualityOnly, replayQueue, netOk, onNetStatus, refreshMe, soVN, tokenExpired } from "./api";
+import { registerFcmToken } from "./fcmRegister";
 import { clearQueue, getQueue } from "./offline";
 import { getStatus, onStatus, onRealtime, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
@@ -403,6 +404,9 @@ function App() {
     if (!authed) return;
     refreshMe().then((changed) => { if (changed) bumpRole((x) => x + 1); }).catch(() => {});
   }, [authed]);
+
+  // Đăng ký token FCM của máy này theo user (để push lọc được người nhận).
+  useEffect(() => { if (authed) registerFcmToken(); }, [authed]);
 
   // Chuẩn hoá URL hash về #/login khi cần đăng nhập — làm trong effect,
   // KHÔNG sửa location trong lúc render (gây trắng trang lần đầu, phải reload).
