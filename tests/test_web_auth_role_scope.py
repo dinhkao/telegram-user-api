@@ -87,6 +87,17 @@ class ApiScopeDeniedTest(unittest.TestCase):
         self.assertFalse(api_scope_denied(QUALITY_ONLY_ROLE, "GET", "/api/quality"))
         self.assertFalse(api_scope_denied(QUALITY_ONLY_ROLE, "POST", "/api/quality/3/report"))
 
+    def test_ws_event_chi_nhan_trang_chat_luong(self):
+        from server_app.web_auth.role_scope import ws_event_allowed_for_quality
+        # được nhận: event trang chất lượng + keepalive + lệnh reload toàn app
+        for ev in ("quality_changed", "ping", "app_reload"):
+            self.assertTrue(ws_event_allowed_for_quality(ev), ev)
+        # bị chặn: mọi event phần không liên quan (mang PII đơn/khách/tiền/chuông)
+        for ev in ("order_changed", "orders_changed", "notif_added", "cashbox_changed",
+                   "customer_changed", "inventory_changed", "area_changed",
+                   "production_changed", "report_draft", "", None):
+            self.assertFalse(ws_event_allowed_for_quality(ev), repr(ev))
+
     def test_vai_tro_nam_trong_danh_sach_ROLES(self):
         from user_store.users import ROLES, OFFICE_ROLES, is_office, is_quality_only
         self.assertIn(QUALITY_ONLY_ROLE, ROLES)

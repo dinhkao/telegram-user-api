@@ -44,6 +44,12 @@ async def websocket_handler(request: web.Request):
     ws = web.WebSocketResponse(heartbeat=30)
     await ws.prepare(request)
     state.ws_clients.add(ws)
+    # Vai trò bó hẹp chat_luong (middleware đã giải token → web_role): đánh dấu để
+    # vòng phát chỉ gửi event trang chất lượng — order_changed/notif_added mang PII
+    # đơn/khách/tiền không được đổ về máy họ.
+    from server_app.web_auth.role_scope import QUALITY_ONLY_ROLE
+    if request.get("web_role") == QUALITY_ONLY_ROLE:
+        state.ws_quality_only.add(ws)
     try:
         async for msg in ws:
             if msg.type == web.WSMsgType.ERROR:
@@ -51,4 +57,5 @@ async def websocket_handler(request: web.Request):
             # client không cần gửi gì — mọi tin nhắn vào đều bỏ qua
     finally:
         state.ws_clients.discard(ws)
+        state.ws_quality_only.discard(ws)
     return ws

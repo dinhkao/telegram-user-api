@@ -52,6 +52,17 @@ def allowed_for_quality_only(method: str, path: str) -> bool:
     return False
 
 
+# Sự kiện realtime /ws vai trò chat_luong ĐƯỢC nhận — còn lại chặn ở vòng phát
+# (server_app/realtime.py): order_changed mang row PII khách/tiền, notif_added là
+# chuông của phần không liên quan… không được đổ về máy vai trò bó hẹp.
+_QUALITY_WS_EVENTS = frozenset({"ping", "app_reload", "quality_changed"})
+
+
+def ws_event_allowed_for_quality(event_type: str) -> bool:
+    """Vai trò chat_luong có được nhận event realtime loại này không."""
+    return (event_type or "") in _QUALITY_WS_EVENTS
+
+
 def api_scope_denied(role: str | None, method: str, path: str) -> bool:
     """True nếu vai trò này KHÔNG được phép gọi đường dẫn đó (→ middleware trả 403).
     Vai trò khác (admin/van_phong/staff) không bị bó → luôn False."""

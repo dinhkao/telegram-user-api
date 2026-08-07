@@ -19,7 +19,7 @@ import asyncio
 import json
 import logging
 
-from server_app.state import ws_clients
+from server_app.state import ws_clients, ws_quality_only
 
 log = logging.getLogger("server")
 
@@ -31,6 +31,7 @@ async def _send_one(ws, data: str) -> None:
         await asyncio.wait_for(ws.send_str(data), timeout=_SEND_TIMEOUT)
     except Exception:
         ws_clients.discard(ws)
+        ws_quality_only.discard(ws)
         try:
             await ws.close()  # đóng để client nhận close → tự nối lại (tránh orphan im lặng)
         except Exception:
@@ -40,6 +41,12 @@ async def _send_one(ws, data: str) -> None:
 async def _send(payload: dict) -> None:
     data = json.dumps(payload, default=str)
     clients = list(ws_clients)
+    # Vai trò bó hẹp chat_luong chỉ được nhận event trang chất lượng + keepalive —
+    # order_changed/notif_added/cashbox… mang PII phần không liên quan thì bỏ qua họ.
+    if ws_quality_only:
+        from server_app.web_auth.role_scope import ws_event_allowed_for_quality
+        if not ws_event_allowed_for_quality(str(payload.get("type") or "")):
+            clients = [w for w in clients if w not in ws_quality_only]
     if not clients:
         return
     await asyncio.gather(*(_send_one(ws, data) for ws in clients), return_exceptions=True)

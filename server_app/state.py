@@ -9,6 +9,9 @@ if TYPE_CHECKING:
     from telethon import TelegramClient
 
 ws_clients: set["web.WebSocketResponse"] = set()
+# Tập con của ws_clients: client vai trò bó hẹp chat_luong — vòng phát realtime chỉ
+# gửi cho họ event của trang chất lượng (server_app/web_auth/role_scope.py).
+ws_quality_only: set["web.WebSocketResponse"] = set()
 _client: "TelegramClient | None" = None
 _tg_gateway: "TelegramGateway | None" = None
 _donhang_db: "DonHangDB | None" = None
