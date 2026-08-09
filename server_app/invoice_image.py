@@ -37,7 +37,8 @@ async def add_invoice_image_to_gallery(thread_id: int, uploaded_by: str = "KiotV
         c = get_customer_by_key(conn, str(kh_id_fb))
         if c:
             kh_name = c.get("name", "Khách hàng")
-    hints = {"customerNameOverride": kh_name, "expectedVAT": 0, "expectedPVC": 0, "disableQR": True}
+    hints = {"customerNameOverride": kh_name, "expectedVAT": 0, "expectedPVC": 0, "disableQR": True,
+             "hideZeroPrice": bool(order.get("invoice_hide_zero_price"))}
 
     # 1) HTML hoá đơn (giống api_invoice_html_handler)
     try:

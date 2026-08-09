@@ -792,9 +792,10 @@ export async function fetchCustomerPrice(customerId: string, product: string): P
   return { price: d.price || 0, source: d.source || null, list_name: d.list_name || null };
 }
 
-/** Tạo hoá đơn KiotViet cho đơn (tương đương lệnh 'tạo hd'). */
-export async function createKiotVietInvoice(threadId: string | number): Promise<any> {
-  return postJSON("/api/order/invoice/create-kiotviet", { thread_id: Number(threadId) });
+/** Tạo hoá đơn KiotViet cho đơn (tương đương lệnh 'tạo hd').
+ *  hideZeroPrice: chốt 1 lần lúc tạo — ẩn dòng hàng tặng (giá 0) khi in/xem HĐ. */
+export async function createKiotVietInvoice(threadId: string | number, hideZeroPrice = false): Promise<any> {
+  return postJSON("/api/order/invoice/create-kiotviet", { thread_id: Number(threadId), hide_zero_price: hideZeroPrice });
 }
 
 /** Xoá hoá đơn KiotViet (chỉ admin 'duy'). */

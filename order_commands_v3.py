@@ -386,14 +386,19 @@ def _invoice_create_lock(thread_id: int) -> asyncio.Lock:
     return lk
 
 
-async def _process_create_invoice_core(thread_id: int, user_id: int | None) -> dict:
+async def _process_create_invoice_core(thread_id: int, user_id: int | None,
+                                       hide_zero_price: bool | None = None) -> dict:
     """Tạo hoá đơn KiotViet — KHOÁ theo đơn rồi gọi lõi. Giữ tên cũ cho mọi caller
-    (Telethon 'tạo hd', REST /api/order/invoice/create-kiotviet)."""
+    (Telethon 'tạo hd', REST /api/order/invoice/create-kiotviet).
+
+    hide_zero_price: cờ chọn 1 lần lúc bấm tạo HĐ — ẩn dòng hàng tặng (giá 0) trên
+    HTML hoá đơn. None = không đụng tới (giữ giá trị cũ của đơn)."""
     async with _invoice_create_lock(int(thread_id)):
-        return await _process_create_invoice_core_inner(thread_id, user_id)
+        return await _process_create_invoice_core_inner(thread_id, user_id, hide_zero_price)
 
 
-async def _process_create_invoice_core_inner(thread_id: int, user_id: int | None) -> dict:
+async def _process_create_invoice_core_inner(thread_id: int, user_id: int | None,
+                                             hide_zero_price: bool | None = None) -> dict:
     """Lõi tạo hoá đơn KiotViet (DB + KiotViet). Trả dict {success, error, kv_code,
     kv_id, old_debt, kh_name} — caller tự hiển thị. GỌI QUA _process_create_invoice_core
     (đã khoá theo đơn) — đừng gọi trực tiếp kẻo mất chống-trùng."""
@@ -452,6 +457,8 @@ async def _process_create_invoice_core_inner(thread_id: int, user_id: int | None
         fresh["kiotvietInvoiceCode"] = invoice_code
         fresh["nguoi_tao_HD"] = [user_id or 1809874974]
         fresh["invoice_debt_snapshot"] = snapshot_debt
+        if hide_zero_price is not None:
+            fresh["invoice_hide_zero_price"] = bool(hide_zero_price)
         if old_debt is not None:
             fresh["khDebt"] = old_debt
         if not _save_order(db_conn, thread_id, fresh):
@@ -729,7 +736,7 @@ async def _send_invoice_html_file(
     client, chat_id: int, thread_id: int,
     invoice_id, invoice_code: str,
     customer_name: str, debt: int = 0,
-    *, push_to_print: bool = True,
+    *, push_to_print: bool = True, hide_zero_price: bool = False,
 ) -> None:
     """Generate invoice HTML (Node.js style), send as doc + push to printers.
     
@@ -750,6 +757,7 @@ async def _send_invoice_html_file(
             "expectedVAT": 0,
             "expectedPVC": 0,
             "disableQR": True,
+            "hideZeroPrice": hide_zero_price,
         })
 
         vn_now = datetime.now(timezone(timedelta(hours=7)))
@@ -1096,7 +1104,8 @@ def register_order_commands_v3(client):
         # tao hd: only html-to-png, NO meta/to_print
         client.loop.create_task(
             _send_invoice_html_file(client, msg.chat_id, thread_id, invoice_id, invoice_code,
-                                    kh_name, debt=snapshot_debt, push_to_print=False)
+                                    kh_name, debt=snapshot_debt, push_to_print=False,
+                                    hide_zero_price=bool((order or {}).get("invoice_hide_zero_price")))
         )
 
         # Firebase sync + refresh (non-blocking)
@@ -1138,7 +1147,8 @@ def register_order_commands_v3(client):
         # get html: only html-to-png, NO meta/to_print (user explicitly requested)
         client.loop.create_task(
             _send_invoice_html_file(client, msg.chat_id, thread_id, invoice_id, invoice_code,
-                                    kh_name, debt=snapshot_debt, push_to_print=False)
+                                    kh_name, debt=snapshot_debt, push_to_print=False,
+                                    hide_zero_price=bool((order or {}).get("invoice_hide_zero_price")))
         )
 
         # Firebase sync + refresh (non-blocking)

@@ -7,6 +7,7 @@ import { onRealtime } from "../realtime";
 import { money, initial, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
 import { InvoiceTable } from "../detail/InvoiceTable";
+import { CreateInvoiceConfirm } from "../detail/CreateInvoiceConfirm";
 import { CustomerPicker } from "../detail/CustomerPicker";
 import { Payments } from "../detail/Payments";
 import { Tasks } from "../detail/Tasks";
@@ -375,7 +376,13 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const createHD = async () => {
     // Người khác đang tạo → KHÔNG hiện popup xác nhận (tránh tạo trùng); chỉ báo nhẹ.
     if (invCreatingByOther) { toast(`${invCreatingBy} đang tạo HĐ — chờ họ xong`, "info"); return; }
-    if (!(await confirmDialog("Tạo hoá đơn KiotViet cho đơn này?"))) return;
+    // Tuỳ chọn chốt 1 lần: ẩn dòng giá 0đ (hàng tặng) khi in/xem HĐ. Chỉ hỏi khi
+    // đơn thực sự có dòng như vậy; tick ghi vào `opt` (hộp xác nhận trả boolean).
+    const zeroCount = (j.invoice || []).filter((it: any) => !(Number(it.price) || 0)).length;
+    const opt = { hideZero: false };
+    if (!(await confirmDialog("Tạo hoá đơn KiotViet cho đơn này?", {
+      content: <CreateInvoiceConfirm opt={opt} zeroCount={zeroCount} />, okLabel: "Tạo HĐ",
+    }))) return;
     // Trong lúc mở popup có thể có người khác vừa bấm tạo → đọc REF (state trong
     // closure đã cũ) để chặn kịp, khỏi tạo trùng.
     const other = invCreatingRef.current;
@@ -383,7 +390,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     setInvCreatingBy(myName); invCreatingRef.current = myName;   // khoá nút của chính mình ngay (đợi realtime server xác nhận)
     setBusy(true);
     try {
-      const r = await createKiotVietInvoice(threadId);
+      const r = await createKiotVietInvoice(threadId, opt.hideZero);
       toast(`🧾 Đã tạo HĐ ${r.kv_code || ""}${r.old_debt ? ` · nợ cũ ${money(r.old_debt)}` : ""}`, "ok");
       changed();
     } catch (ex: any) { toast(ex.message, "err"); } finally { setBusy(false); }

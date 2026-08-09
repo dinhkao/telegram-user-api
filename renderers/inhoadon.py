@@ -18,7 +18,9 @@ def generate_invoice_html(invoice_or_id, debt: int = 0, hints: dict | None = Non
     else:
         raise ValueError("Expected invoice ID (int) or invoice dict")
     details = invoice.get("invoiceDetails", [])
-    product_rows, tong_tien_hang = build_product_rows(details)
+    # hints["hideZeroPrice"]: ẩn dòng hàng tặng (đơn giá 0 + thành tiền 0). Cờ được
+    # chốt 1 lần lúc bấm tạo HĐ KiotViet, lưu ở đơn ($.invoice_hide_zero_price).
+    product_rows, tong_tien_hang = build_product_rows(details, bool(hints.get("hideZeroPrice")))
     discount = invoice.get("discount", 0)
     surcharges = get_surcharges(invoice, hints)
     summary_rows, _, _, _ = build_summary_rows(tong_tien_hang, surcharges, discount, debt)

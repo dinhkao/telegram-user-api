@@ -42,6 +42,9 @@ async def api_create_invoice_handler(request: web.Request):
     thread_id, user_id = body.get("thread_id"), body.get("user_id")
     if not thread_id:
         return web.json_response({"ok": False, "error": "Missing thread_id"}, status=400)
+    # Chọn 1 lần lúc bấm tạo HĐ: ẩn dòng hàng tặng (giá 0) trên HTML/ảnh hoá đơn.
+    # Lõi lưu cờ vào đơn ($.invoice_hide_zero_price) → mọi lần in/xem sau đều theo.
+    hide_zero_price = bool(body.get("hide_zero_price"))
     # Phối hợp UI: báo cho các client KHÁC "đang có người tạo HĐ" → khoá nút + tắt
     # popup xác nhận của họ (backend vẫn chống trùng bằng _invoice_create_lock). Nhả
     # tín hiệu trong finally dù thành công hay lỗi.
@@ -51,7 +54,7 @@ async def api_create_invoice_handler(request: web.Request):
     emit_invoice_creating(int(thread_id), holder)
     try:
         from order_commands_v3 import _process_create_invoice_core
-        result = await _process_create_invoice_core(int(thread_id), user_id)
+        result = await _process_create_invoice_core(int(thread_id), user_id, hide_zero_price)
     except Exception as e:
         log.error("create invoice API error: %s", e, exc_info=True)
         return web.json_response({"ok": False, "error": str(e)}, status=500)
@@ -288,7 +291,8 @@ async def api_invoice_html_handler(request: web.Request):
         from renderers.inhoadon import generate_invoice_html
         html = await asyncio.to_thread(
             generate_invoice_html, int(invoice_id), debt,
-            {"customerNameOverride": kh_name, "expectedVAT": 0, "expectedPVC": 0, "disableQR": True},
+            {"customerNameOverride": kh_name, "expectedVAT": 0, "expectedPVC": 0, "disableQR": True,
+             "hideZeroPrice": bool(order.get("invoice_hide_zero_price"))},
         )
     except Exception as e:
         log.error("invoice-html render failed thread=%s: %s", thread_id, e)

@@ -51,6 +51,7 @@ async def execute_print_giao(conn, order, user_id=None) -> dict:
         "expectedPVC": int(order.get("pvc", 0)),
         "customerNameOverride": customer_name,
         "disableQR": True,
+        "hideZeroPrice": bool(order.get("invoice_hide_zero_price")),
     })
     await _enqueue_html_for_print(invoice_html, copies=2)
 

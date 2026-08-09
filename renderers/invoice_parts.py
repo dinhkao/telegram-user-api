@@ -60,17 +60,27 @@ def get_surcharges(invoice: dict, hints: dict | None = None) -> list[dict]:
     return surcharges
 
 
-def build_product_rows(details):
+def build_product_rows(details, hide_zero_price: bool = False):
+    """Dựng các dòng sản phẩm + tổng tiền hàng.
+
+    hide_zero_price=True → ẨN dòng có đơn giá 0 VÀ thành tiền 0 (hàng tặng/khuyến
+    mãi). Chỉ ẩn khi thành tiền cũng 0 nên TỔNG in ra không đổi — dòng giá 0 mà
+    thành tiền khác 0 vẫn hiện, không được giấu tiền. Số thứ tự đánh lại sau khi lọc.
+    """
     rows = []
     total = 0
-    for i, item in enumerate(details):
+    stt = 0
+    for item in details:
         name = item.get("productName") or item.get("productCode", "?")
         qty = item.get("quantity", 0)
         price = item.get("price", 0)
         sub = item.get("subTotal") or (price * qty)
         total += sub
+        if hide_zero_price and parse_number(price) == 0 and parse_number(sub) == 0:
+            continue
+        stt += 1
         rows.append(f"""<tr>
-        <td class="stt">{i + 1}</td>
+        <td class="stt">{stt}</td>
         <td>{name}</td>
         <td class="so-luong">{qty}</td>
         <td class="so-luong">{format_currency(price)}</td>
