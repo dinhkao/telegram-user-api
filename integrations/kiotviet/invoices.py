@@ -13,6 +13,15 @@ def get_invoices_by_order(order_code: str | int, limit: int = 10) -> list[dict]:
     return result.get("data", [])
 
 
+def list_customer_invoices(customer_id: int, limit: int = 20) -> list[dict]:
+    """HĐ gần nhất của 1 khách (mới trước), KÈM invoiceDetails. Dùng để dò HĐ
+    'mồ côi' khi POST /invoices bị timeout (xem integrations/kiotviet/recover.py)."""
+    result = _request("GET", "/invoices", query_params={
+        "customerIds": int(customer_id), "pageSize": limit,
+        "orderBy": "createdDate", "orderDirection": "Desc"})
+    return result.get("data", [])
+
+
 def get_invoice_detail(invoice_id: int) -> dict | None:
     return _request("GET", f"/invoices/{invoice_id}")
 

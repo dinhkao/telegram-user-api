@@ -426,15 +426,27 @@ async def _process_create_invoice_core_inner(thread_id: int, user_id: int | None
     discount = int(order.get("discount", 0)); pvc = int(order.get("pvc", 0)); vat = int(order.get("vat", 0))
     # Nợ cũ lấy song song (thread) trong lúc tạo HĐ
     old_debt_future = asyncio.get_running_loop().run_in_executor(None, get_customer_debt_kv, kv_id)
+    from product_store import kv_ids_for_items
+    kv_ids = kv_ids_for_items(db_conn, invoice)   # DB (nhanh) — giữ trên loop
+    # Mốc TRƯỚC khi gửi (giờ VN, lùi 30s cho lệch đồng hồ) — dùng để dò HĐ mồ côi
+    # nếu POST lỗi: KiotViet có thể đã tạo HĐ xong mà response không về kịp.
+    sent_at = datetime.now(timezone(timedelta(hours=7))).replace(tzinfo=None) - timedelta(seconds=30)
     try:
-        from product_store import kv_ids_for_items
-        kv_ids = kv_ids_for_items(db_conn, invoice)   # DB (nhanh) — giữ trên loop
         inv = await asyncio.to_thread(
             create_kiotviet_invoice, customer_id=kv_id, invoice_items=invoice,
             discount=discount, pvc=pvc, vat=vat, kv_ids=kv_ids)
     except Exception as e:
         log.error("KiotViet create invoice failed: %s", e)
-        result["error"] = f"Lỗi tạo hoá đơn KiotViet: {e}"; return result
+        # HĐ có thể đã được tạo THẬT bên KiotViet → dò lại trước khi báo lỗi, kẻo
+        # người dùng bấm lại và tạo HĐ TRÙNG (đã xảy ra 2026-08-09, HD085869).
+        from api_helpers.invoice_recover import find_orphan_invoice
+        from integrations.kiotviet.invoices import build_invoice_details
+        inv = await find_orphan_invoice(db_conn, kv_id,
+                                        build_invoice_details(invoice, kv_ids), sent_at)
+        if not inv:
+            result["error"] = f"Lỗi tạo hoá đơn KiotViet: {e}"; return result
+        log.warning("Nhận HĐ mồ côi sau lỗi POST: đơn %s ← HĐ %s (id %s)",
+                    thread_id, inv.get("code"), inv.get("id"))
     old_debt = None
     try:
         det = await old_debt_future; old_debt = det.get("debt")
