@@ -90,7 +90,7 @@ export function BeanBoard() {
       )}
 
       {view === "bean" && rows.map((r: any) => (
-        <div class="bean-card" key={r.id}>
+        <a class="bean-card" href={`#/kho-dau/dau/${r.id}`} key={r.id}>
           <div class="bean-card-main">
             <div class="bean-card-name">{r.name}</div>
             <div class="bean-card-sub muted small">
@@ -103,11 +103,12 @@ export function BeanBoard() {
             <span class={"bean-qty" + (r.total > 0 ? "" : " zero")}>{soVN(r.total)}</span>
             <span class="muted small">{r.unit}</span>
           </div>
-        </div>
+          <Icon name="chevronRight" size={18} class="kg-arrow" />
+        </a>
       ))}
 
       {view === "place" && rows.map((r: any) => (
-        <div class="bean-card" key={r.id}>
+        <a class="bean-card" href={`#/kho-dau/kho/${r.id}`} key={r.id}>
           <div class="bean-card-main">
             <div class="bean-card-name"><Icon name="box" size={14} /> {r.name}</div>
             <div class="bean-card-sub muted small">
@@ -120,7 +121,8 @@ export function BeanBoard() {
             <span class={"bean-qty" + (r.total > 0 ? "" : " zero")}>{soVN(r.total)}</span>
             <span class="muted small">{r.beans.length} loại</span>
           </div>
-        </div>
+          <Icon name="chevronRight" size={18} class="kg-arrow" />
+        </a>
       ))}
 
       <a class="btn bean-more" href="#/kho-dau/phieu">

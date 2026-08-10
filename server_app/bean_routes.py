@@ -102,6 +102,75 @@ async def beans_dashboard_handler(request: web.Request):
     })
 
 
+# ── Chi tiết 1 loại đậu / 1 kho ──────────────────────────────────────────────
+_SLIP_LIMIT = 30   # phiếu gần đây hiện ở trang chi tiết
+
+
+async def bean_detail_handler(request: web.Request):
+    """GET /api/beans/items/{id} — 1 loại đậu: thông tin + đơn vị quy đổi + tồn
+    theo từng kho + phiếu gần đây có dính loại đậu này."""
+    bid = _int(request)
+    if bid is None:
+        return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            bean = bean_store.get_bean(conn, bid)
+            if not bean:
+                return None
+            bean["units"] = bean_store.list_units(conn, bid)
+            places = bean_store.list_places(conn)
+            cells = [c for c in bean_store.stock_cells(conn) if c["bean_id"] == bid]
+            table = domain.build_stock_table([bean], places, cells)
+            row = table["by_bean"][0]
+            by_place = [{"place_id": p["id"], "place_name": p["name"],
+                         "qty": next((c["qty"] for c in row["places"]
+                                      if c["place_id"] == p["id"]), 0.0)}
+                        for p in places]
+            slips, total = bean_store.list_slips(conn, bean_id=bid, limit=_SLIP_LIMIT)
+            return {"bean": bean, "total": row["total"],
+                    "by_place": [r for r in by_place if r["qty"]],
+                    "slips": slips, "slip_count": total}
+        finally:
+            conn.close()
+    data = await asyncio.to_thread(_run)
+    if not data:
+        return web.json_response({"ok": False, "error": "Không tìm thấy loại đậu"}, status=404)
+    return web.json_response({"ok": True, **data})
+
+
+async def bean_place_detail_handler(request: web.Request):
+    """GET /api/beans/places/{id} — 1 kho: thông tin + tồn từng loại đậu + phiếu gần đây."""
+    pid = _int(request)
+    if pid is None:
+        return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
+
+    def _run():
+        conn = _conn()
+        try:
+            place = bean_store.get_place(conn, pid)
+            if not place:
+                return None
+            beans = bean_store.list_beans(conn)
+            cells = [c for c in bean_store.stock_cells(conn) if c["place_id"] == pid]
+            table = domain.build_stock_table(beans, [place], cells)
+            row = table["by_place"][0]
+            qty = {int(c["bean_id"]): c["qty"] for c in row["beans"]}
+            by_bean = [{"bean_id": b["id"], "bean_name": b["name"], "unit": b["unit"],
+                        "qty": qty.get(int(b["id"]), 0.0)} for b in beans]
+            slips, total = bean_store.list_slips(conn, place_id=pid, limit=_SLIP_LIMIT)
+            return {"place": place, "total": row["total"],
+                    "by_bean": [r for r in by_bean if r["qty"]],
+                    "slips": slips, "slip_count": total}
+        finally:
+            conn.close()
+    data = await asyncio.to_thread(_run)
+    if not data:
+        return web.json_response({"ok": False, "error": "Không tìm thấy kho"}, status=404)
+    return web.json_response({"ok": True, **data})
+
+
 # ── Loại đậu ─────────────────────────────────────────────────────────────────
 async def bean_create_handler(request: web.Request):
     """POST /api/beans/items — mọi user đăng nhập thêm loại đậu."""

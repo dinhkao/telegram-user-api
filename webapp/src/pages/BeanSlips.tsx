@@ -1,23 +1,14 @@
 // Danh sách PHIẾU KHO ĐẬU (#/kho-dau/phieu) — nhập/xuất/điều chỉnh, mới → cũ,
 // nhóm theo ngày phiếu. Chip lọc theo loại phiếu; "Xem thêm" tải trang kế.
-// Card → #/kho-dau/phieu/:id. Realtime: bean_changed → tải lại từ đầu.
+// Card (detail/BeanSlipRows) → #/kho-dau/phieu/:id. Realtime: bean_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
-import { listBeanSlips, soVN, BEAN_KIND_LABEL, type BeanSlip, type BeanSlipKind } from "../api";
+import { listBeanSlips, BEAN_KIND_LABEL, type BeanSlip, type BeanSlipKind } from "../api";
+import { BeanSlipCard } from "../detail/BeanSlipRows";
 import { dayLabel } from "../format";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { EmptyState, ErrorState, LoadingInline, SkeletonList } from "../ui/states";
-
-const KIND_ICON: Record<BeanSlipKind, string> = {
-  nhap: "plus", xuat: "truck", dieu_chinh: "edit",
-};
-
-/** Dấu + / − / ± trước số của phiếu (điều chỉnh có thể lên hoặc xuống). */
-function deltaText(s: BeanSlip): string {
-  const sum = s.items.reduce((t, i) => t + (i.delta || 0), 0);
-  return (sum > 0 ? "+" : sum < 0 ? "−" : "") + soVN(Math.abs(sum));
-}
 
 export function BeanSlips() {
   const [kind, setKind] = useState<BeanSlipKind | "">("");
@@ -74,27 +65,7 @@ export function BeanSlips() {
       {groups.map((g) => (
         <div class="prod-group" key={g.key}>
           <div class="prod-group-head">{dayLabel(g.key)} <span class="muted small">({g.items.length})</span></div>
-          {g.items.map((s) => (
-            <a class={"bean-slip-card k-" + s.kind} href={`#/kho-dau/phieu/${s.id}`} key={s.id}>
-              <div class="bean-slip-top">
-                <span class="bean-slip-kind">
-                  <Icon name={KIND_ICON[s.kind]} size={14} /> {BEAN_KIND_LABEL[s.kind]}
-                </span>
-                <span class="bean-slip-amt">{deltaText(s)}</span>
-              </div>
-              <div class="bean-slip-sub muted small">
-                {s.place_name}
-                {" · "}
-                {/* Dòng gõ bằng đơn vị quy đổi hiện "2 bao (100 kg)" */}
-                {s.items.map((i) => (i.converted
-                  ? `${i.bean_name} ${soVN(i.entered_qty)} ${i.entered_unit} (${soVN(i.quantity)} ${i.unit})`
-                  : `${i.bean_name} ${soVN(i.quantity)}${i.unit ? " " + i.unit : ""}`)).join(", ")}
-                {s.partner ? ` · ${s.partner}` : ""}
-                {s.created_by ? ` · ${s.created_by}` : ""}
-              </div>
-              {s.note ? <div class="bean-slip-note muted small">“{s.note}”</div> : null}
-            </a>
-          ))}
+          {g.items.map((s) => <BeanSlipCard slip={s} key={s.id} />)}
         </div>
       ))}
 

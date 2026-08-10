@@ -474,7 +474,9 @@ def create_app():
 
     # ─── KHO ĐẬU (hệ kho riêng, không dính kho hàng hoá) ─────────────────────
     from server_app.bean_routes import (bean_create_handler, bean_delete_handler,
+                                        bean_detail_handler,
                                         bean_place_create_handler, bean_place_delete_handler,
+                                        bean_place_detail_handler,
                                         bean_place_update_handler, bean_update_handler,
                                         beans_dashboard_handler)
     from server_app.bean_slip_routes import (bean_slip_create_handler,
@@ -498,9 +500,11 @@ def create_app():
     r.add_post("/api/beans/items/{id}/units/{uid}/base", bean_unit_set_base_handler)  # văn phòng
     r.add_post("/api/beans/items/{id}/units/{uid}", bean_unit_update_handler)   # văn phòng
     r.add_delete("/api/beans/items/{id}/units/{uid}", bean_unit_delete_handler)  # admin
+    r.add_get("/api/beans/items/{id}", bean_detail_handler)         # trang chi tiết loại đậu
     r.add_post("/api/beans/items/{id}", bean_update_handler)        # văn phòng sửa
     r.add_delete("/api/beans/items/{id}", bean_delete_handler)      # admin xoá mềm
     r.add_post("/api/beans/places", bean_place_create_handler)      # mọi user thêm kho
+    r.add_get("/api/beans/places/{id}", bean_place_detail_handler)  # trang chi tiết kho
     r.add_post("/api/beans/places/{id}", bean_place_update_handler)  # văn phòng sửa
     r.add_delete("/api/beans/places/{id}", bean_place_delete_handler)  # admin xoá mềm
 

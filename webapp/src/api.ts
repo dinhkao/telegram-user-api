@@ -784,6 +784,28 @@ export async function createBeanSlip(body: {
 export async function deleteBeanSlip(id: number): Promise<any> {
   return postJSON(`/api/beans/slips/${id}/delete`, {});
 }
+/** Chi tiết 1 loại đậu: thông tin + đơn vị quy đổi + tồn theo kho + phiếu gần đây. */
+export type BeanDetailData = {
+  bean: Bean; total: number;
+  by_place: { place_id: number; place_name: string; qty: number }[];
+  slips: BeanSlip[]; slip_count: number;
+};
+/** Chi tiết 1 kho đậu: thông tin + tồn từng loại đậu + phiếu gần đây. */
+export type BeanPlaceDetailData = {
+  place: BeanPlace; total: number;
+  by_bean: { bean_id: number; bean_name: string; unit: string; qty: number }[];
+  slips: BeanSlip[]; slip_count: number;
+};
+export async function getBeanDetail(id: string | number): Promise<BeanDetailData> {
+  const d = await getJSON(`/api/beans/items/${id}`, { cache: false });
+  return { bean: d.bean, total: d.total || 0, by_place: d.by_place || [],
+           slips: d.slips || [], slip_count: d.slip_count || 0 };
+}
+export async function getBeanPlaceDetail(id: string | number): Promise<BeanPlaceDetailData> {
+  const d = await getJSON(`/api/beans/places/${id}`, { cache: false });
+  return { place: d.place, total: d.total || 0, by_bean: d.by_bean || [],
+           slips: d.slips || [], slip_count: d.slip_count || 0 };
+}
 export async function createBean(name: string, unit = "kg", note = ""): Promise<Bean> {
   return (await postJSON("/api/beans/items", { name, unit, note })).bean;
 }

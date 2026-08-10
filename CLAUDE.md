@@ -705,7 +705,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   audit scope `bean` (`bean.slip_nhap/xuat/dieu_chinh`, `bean.item_*`, `bean.place_*`,
   `bean.unit_*`).
   UI: `#/kho-dau` (BeanBoard — tồn xem theo LOẠI ĐẬU hoặc theo KHO, cùng dữ liệu đổi
-  trục) · `#/kho-dau/phieu` (BeanSlips) → `#/kho-dau/phieu/:id` (BeanSlipDetail) ·
+  trục; card bấm được) · **`#/kho-dau/dau/:id` (BeanDetail) + `#/kho-dau/kho/:id`
+  (BeanPlaceDetail)** = trang chi tiết loại đậu / kho, **SỬA NGAY TẠI TRANG** (tên ·
+  đơn vị chính · ghi chú, văn phòng) + tồn chia theo kho/loại + phiếu gần đây + xoá
+  (admin) ← `GET /api/beans/items/{id}` · `GET /api/beans/places/{id}`; trang thiết
+  lập chỉ còn LIỆT KÊ (bấm dòng để mở chi tiết) · `#/kho-dau/phieu` (BeanSlips) →
+  `#/kho-dau/phieu/:id` (BeanSlipDetail) · card phiếu dùng chung `detail/BeanSlipRows.tsx` ·
   `#/kho-dau/tao?kind=` (BeanSlipCreate — mỗi dòng có ô chọn đơn vị, hiện "= n <gốc>"
   và tồn để đối chiếu) · `#/kho-dau/thiet-lap` (BeanSetup — thêm kho/loại đậu bằng
   POPUP `detail/BeanAddPopup.tsx`, nút ⇄ mở POPUP `detail/BeanUnits.tsx` = khai quy

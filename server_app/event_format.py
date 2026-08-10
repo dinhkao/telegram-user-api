@@ -333,18 +333,24 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
             "bean.unit_updated": "Sửa đơn vị quy đổi (đậu)",
             "bean.unit_deleted": "Xoá đơn vị quy đổi (đậu)",
         }
+        # tên loại đậu / kho link thẳng sang trang chi tiết của nó
+        bean_seg = ([part(str(p.get("bean_name")), href_for("bean_item", p.get("bean_id")))]
+                    if p.get("bean_name") else [])
         if action == "bean.base_unit_changed":
             return "Đổi đơn vị chính (đậu)", [
-                part(str(p.get("bean_name") or "")),
-                part(f"{p.get('old_base')} → {p.get('base_unit')}"),
-            ]
+                *bean_seg, part(f"{p.get('old_base')} → {p.get('base_unit')}")]
         if action.startswith("bean.unit_"):
             label = _bean_labels[action]
-            seg = [part(str(p.get("bean_name") or ""))]
+            seg = list(bean_seg)
             if p.get("unit_name"):
                 seg.append(part(f"1 {p['unit_name']} = {p.get('factor')} {p.get('base_unit') or ''}".strip()))
             return label, seg
         label = _bean_labels.get(action)
+        if label and action.startswith("bean.item_"):
+            return label, bean_seg or [part(f"loại đậu #{p.get('bean_id')}")]
+        if label and action.startswith("bean.place_"):
+            name = str(p.get("place_name") or "") or f"kho #{p.get('place_id')}"
+            return label, [part(name, href_for("bean_place", p.get("place_id")))]
         if label and action.startswith("bean.slip_"):
             sid = p.get("slip_id")
             seg = [part(f"phiếu #{sid}", href_for("bean_slip", sid))] if sid else []

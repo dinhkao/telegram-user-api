@@ -4351,3 +4351,11 @@ body.has-nop .wp-thead-bar { top: 72px; }
 .bean-unit-pick { flex: 0 0 6.5em; min-width: 0; }
 .bean-unit-fixed { flex: 0 0 auto; }
 .bean-conv { color: var(--primary); }
+
+/* Trang chi tiết loại đậu / kho đậu */
+.bean-row-main { min-width: 0; flex: 1; color: inherit; text-decoration: none; display: block; }
+.bean-row-go { display: inline-flex; align-items: center; color: inherit; }
+a.bean-row, a.bean-card { color: inherit; text-decoration: none; }
+.bean-edit { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md);
+  padding: 10px 12px; margin-bottom: 8px; box-shadow: var(--e1); }
+.bean-unit-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }

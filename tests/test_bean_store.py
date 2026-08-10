@@ -402,6 +402,60 @@ class BeanUnitTest(unittest.TestCase):
         self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho["id"]), 150)
 
 
+class BeanDetailPayloadTest(unittest.TestCase):
+    """Dữ liệu 2 trang chi tiết (loại đậu / kho) — ghép từ store + domain giống route."""
+
+    def setUp(self):
+        fd, self.path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        self.conn = get_connection(self.path)
+        bean_store.ensure_tables(self.conn)
+        self.a, _ = bean_store.add_place(self.conn, "Kho A", by="duy")
+        self.b, _ = bean_store.add_place(self.conn, "Kho B", by="duy")
+        self.xanh, _ = bean_store.add_bean(self.conn, "Đậu xanh", by="duy")
+        self.do, _ = bean_store.add_bean(self.conn, "Đậu đỏ", by="duy")
+        for place, bean, qty in ((self.a, self.xanh, 100), (self.b, self.xanh, 20),
+                                 (self.a, self.do, 7)):
+            bean_store.create_slip(self.conn, "nhap", place["id"],
+                                   [{"bean_id": bean["id"], "quantity": qty}], by="duy")
+
+    def tearDown(self):
+        self.conn.close()
+        os.unlink(self.path)
+
+    def test_chi_tiet_loai_dau(self):
+        bean = bean_store.get_bean(self.conn, self.xanh["id"])
+        places = bean_store.list_places(self.conn)
+        cells = [c for c in bean_store.stock_cells(self.conn) if c["bean_id"] == self.xanh["id"]]
+        row = domain.build_stock_table([bean], places, cells)["by_bean"][0]
+        self.assertEqual(row["total"], 120)
+        self.assertEqual({c["place_id"]: c["qty"] for c in row["places"]},
+                         {self.a["id"]: 100, self.b["id"]: 20})
+        slips, total = bean_store.list_slips(self.conn, bean_id=self.xanh["id"])
+        self.assertEqual(total, 2)          # chỉ phiếu có Đậu xanh, không dính Đậu đỏ
+
+    def test_chi_tiet_kho(self):
+        place = bean_store.get_place(self.conn, self.a["id"])
+        beans = bean_store.list_beans(self.conn)
+        cells = [c for c in bean_store.stock_cells(self.conn) if c["place_id"] == self.a["id"]]
+        row = domain.build_stock_table(beans, [place], cells)["by_place"][0]
+        self.assertEqual(row["total"], 107)
+        self.assertEqual({c["bean_id"]: c["qty"] for c in row["beans"]},
+                         {self.xanh["id"]: 100, self.do["id"]: 7})
+        slips, total = bean_store.list_slips(self.conn, place_id=self.a["id"])
+        self.assertEqual(total, 2)
+        self.assertTrue(all(s["place_id"] == self.a["id"] for s in slips))
+
+    def test_sua_ten_don_vi_giu_nguyen_so(self):
+        """Sửa ở trang chi tiết = đổi CHỮ; tồn không đổi (khác set_base_unit)."""
+        upd, err = bean_store.update_bean(self.conn, self.xanh["id"], name="Đậu xanh loại 1",
+                                          unit="ký", note="hàng Đà Lạt")
+        self.assertIsNone(err)
+        self.assertEqual((upd["name"], upd["unit"], upd["note"]),
+                         ("Đậu xanh loại 1", "ký", "hàng Đà Lạt"))
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.a["id"]), 100)
+
+
 class BeanDomainTest(unittest.TestCase):
     def test_parse_qty(self):
         self.assertEqual(domain.parse_qty("12,5"), 12.5)
