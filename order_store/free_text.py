@@ -3,6 +3,7 @@ import re
 
 from product_store.queries import get_all_products
 
+from .last_prices import last_order_prices
 from .search import get_customer_price_list
 from .quy_cach import load_quy_cach, thung_qty, bich_qty
 
@@ -27,6 +28,8 @@ def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None, *, 
         pass
     valid_codes |= set(alias_codes)
     price_list = get_customer_price_list(conn, kh_id) if kh_id else {}
+    # Giá GẦN NHẤT khách đã mua ĐÈ bảng giá (khách quen thường giữ giá lần trước)
+    last_prices = last_order_prices(conn, kh_id) if kh_id else {}
     cfg = load_quy_cach(conn)
     cleaned = re.sub(r"[,\n]+", " ", text)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
@@ -71,9 +74,10 @@ def parse_invoice_free_text(conn, text: str, kh_id: str | int | None = None, *, 
             sl = int(sl1pc)
             for v in so_qc:
                 sl *= v
-            # Giá: mặc định theo bảng giá khách; nếu token kế tiếp là SỐ (và không
-            # phải mã SP) → dùng làm GIÁ BÁN ghi đè (user tự nhập giá sau số lượng).
-            price = price_list.get(sp, 0)
+            # Giá: mặc định = giá lần mua GẦN NHẤT của khách, không có thì bảng giá;
+            # nếu token kế tiếp là SỐ (và không phải mã SP) → dùng làm GIÁ BÁN ghi
+            # đè (user tự nhập giá sau số lượng).
+            price = last_prices.get(sp) or price_list.get(sp, 0)
             if i < len(tokens) and tokens[i].upper() not in valid_codes:
                 try:
                     price = int(tokens[i])

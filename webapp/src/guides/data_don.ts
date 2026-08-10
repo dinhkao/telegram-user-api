@@ -116,10 +116,24 @@ export const GUIDES_DON: Guide[] = [
         <ol>
           <li><b>① Khách hàng</b>: bấm <b>「Chọn khách hàng」</b>. Chọn xong thấy <b>nợ</b> và <b>bảng giá</b> đang áp
             (Giá chung hoặc bảng giá riêng của khách) — có nút <b>「Xem giá」</b>.</li>
-          <li><b>② Sản phẩm & hoá đơn</b>: thêm từng mặt hàng; <b>giá tự gợi ý theo bảng giá</b> của khách ở bước ①.</li>
+          <li><b>② Sản phẩm & hoá đơn</b>: thêm từng mặt hàng; <b>giá tự gợi ý theo giá khách mua lần gần nhất</b>,
+            chưa mua bao giờ thì lấy <b>bảng giá</b> của khách ở bước ①.</li>
           <li>Bấm <b>「Lưu & tạo đơn」</b>.</li>
         </ol>
         <p class="muted small">Chưa chọn khách thì bước ② bị khoá ("Chọn khách hàng ở bước 1 trước").</p>` },
+      { title: "Giá tự điền lấy từ đâu?", html: `
+        <p>Thứ tự ưu tiên khi hệ thống tự điền giá cho 1 mặt hàng:</p>
+        <ol>
+          <li><b>Giá bạn gõ tay</b> trong text (số đứng sau số lượng) — luôn thắng.</li>
+          <li><b>Giá khách đó đã mua lần gần nhất</b> — lấy từ hoá đơn đơn cũ của chính khách này.</li>
+          <li><b>Bảng giá</b> của khách (bảng giá riêng đè bảng giá chung).</li>
+        </ol>
+        <p>Vậy nên khách quen <b>giữ nguyên giá lần trước</b>, kể cả khi giá đó khác bảng giá
+        (giá thoả thuận riêng không bị bảng giá kéo về). Ở phần xem trước, nếu giá khác bảng giá thì
+        <b>giá bảng hiện gạch mờ bên dưới</b> để đối chiếu; tab <b>📋 Nâng cao</b> ghi <b>「✓ lần trước」</b>
+        và vẫn có nút ↻ để đặt lại về giá bảng.</p>
+        <p class="muted small">Muốn đổi giá cho lần này (và các lần sau): gõ giá mới ngay trên dòng hàng —
+        đơn sau sẽ lấy theo giá vừa gõ.</p>` },
       { title: "Sau khi bấm Tạo đơn", html: `
         <p>Hệ thống <b>đăng text đơn vào kênh #don_hang</b> như tài khoản người dùng, rồi <b>tự tạo topic + đơn thật</b>
         và <b>nhảy thẳng vào đơn vừa tạo</b> để bạn làm tiếp (soạn, xuất kho, giao…).</p>
@@ -128,7 +142,7 @@ export const GUIDES_DON: Guide[] = [
         <ul>
           <li>Ở tab Nhanh, nếu tên khách trong text <b>khác</b> khách bạn đang định, phần xem trước sẽ <b>cảnh báo đổi khách</b> — đọc kỹ trước khi tạo.</li>
           <li>Trên điện thoại, khi gõ màn hình <b>chia đôi</b> (ô gõ trên, xem trước dưới) để vừa gõ vừa soi.</li>
-          <li>Giá và tổng ở xem trước là <b>tạm tính theo bảng giá hiện tại</b> — kiểm lại số tiền trước khi tạo.</li>
+          <li>Giá và tổng ở xem trước là <b>tạm tính</b> (giá lần trước / bảng giá hiện tại) — kiểm lại số tiền trước khi tạo.</li>
         </ul>` },
     ],
   },

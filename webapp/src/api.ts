@@ -923,13 +923,14 @@ export async function deleteCustomer(key: string): Promise<void> {
   await delJSON(`/api/customers/${encodeURIComponent(key)}`);
 }
 
-export type PriceInfo = { price: number; source: "personal" | "shared" | null; list_name: string | null };
+/** price = giá BẢNG của khách; last_price = giá khách MUA LẦN GẦN NHẤT (0 nếu chưa mua). */
+export type PriceInfo = { price: number; source: "personal" | "shared" | null; list_name: string | null; last_price: number };
 
 /** Giá SP theo khách + bảng giá nào (price 0 nếu không có). */
 export async function fetchCustomerPrice(customerId: string, product: string): Promise<PriceInfo> {
-  if (!customerId || !product) return { price: 0, source: null, list_name: null };
+  if (!customerId || !product) return { price: 0, source: null, list_name: null, last_price: 0 };
   const d = await postJSON("/api/customer/price", { customer_id: customerId, product });
-  return { price: d.price || 0, source: d.source || null, list_name: d.list_name || null };
+  return { price: d.price || 0, source: d.source || null, list_name: d.list_name || null, last_price: d.last_price || 0 };
 }
 
 /** Tạo hoá đơn KiotViet cho đơn (tương đương lệnh 'tạo hd').

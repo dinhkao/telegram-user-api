@@ -6,6 +6,7 @@ from .tasks import _all_steps_done, set_task_status, clear_task_status, get_all_
 from .custom_tasks import add_custom_task, remove_custom_task
 from .customers import customer_stats, search_customers, add_customer, update_customer, get_customer_kv_id, get_customer_by_key, touch_customer_last_order, update_customer_debt
 from .search import search_products, get_customer_price_list, _invalidate_customer_patterns_cache
+from .last_prices import last_order_prices, invalidate_last_price_cache
 from .comma_parser import _parse_no_qc, _parse_qc, parse_comma_text
 from .free_text import parse_invoice_free_text
 from .task_admin import delete_all_tasks, migrate_tasks_to_v2
@@ -44,6 +45,8 @@ __all__ = [
     "update_customer_debt",
     "search_products",
     "get_customer_price_list",
+    "last_order_prices",
+    "invalidate_last_price_cache",
     "detect_customer_free_text",
     "_invalidate_customer_patterns_cache",
     "_parse_no_qc",

@@ -67,7 +67,7 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   // Tra 1 lần giá bảng cho 1 mã (cache trong listRef); trả PriceInfo
   const loadListPrice = async (code: string): Promise<PriceInfo> => {
     const key = (code || "").trim().toUpperCase();
-    const empty: PriceInfo = { price: 0, source: null, list_name: null };
+    const empty: PriceInfo = { price: 0, source: null, list_name: null, last_price: 0 };
     if (!key || !customerId) return empty;
     if (key in listRef.current) return listRef.current[key];
     const info = await fetchCustomerPrice(customerId, key).catch(() => empty);
@@ -142,10 +142,13 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const removeRow = (i: number) => setRows((prev) => prev.filter((_, idx) => idx !== i));
 
   // Tự lấy giá theo khách khi chốt mã SP — chỉ điền khi giá đang trống (không đè giá tay).
+  // ƯU TIÊN giá khách MUA LẦN GẦN NHẤT, chưa mua bao giờ mới lấy giá bảng (cùng luật
+  // với parse text ở tab Nhanh — order_store/last_prices.py).
   // Áp theo MÃ chứ không theo index: dòng có thể bị xoá/xáo trong lúc tra giá.
   const autoPrice = async (code: string) => {
     if (!customerId || !code.trim()) return;
-    const { price } = await loadListPrice(code);
+    const info = await loadListPrice(code);
+    const price = info.last_price || info.price;
     if (custRef.current !== customerId) return;   // khách đổi khi đang tra — giá là của khách cũ, bỏ
     const key = code.trim().toUpperCase();
     if (price) setRows((prev) => prev.map((r) => ((r.sp || "").trim().toUpperCase() === key && !r.price ? { ...r, price } : r)));
@@ -160,8 +163,13 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
 
   const priceTag = (sp: string, price: number) => {
     const info = listPrices[(sp || "").trim().toUpperCase()];
-    if (!info || !info.price) return null;
+    if (!info) return null;
     const name = info.list_name || "bảng giá";
+    // Đang dùng ĐÚNG giá lần trước (khác giá bảng) → nói rõ, kèm giá bảng để đối chiếu
+    if (info.last_price && Number(price) === info.last_price && info.last_price !== info.price) {
+      return <span class="pricetag ok">✓ lần trước{info.price ? ` · ${name}: ${money(info.price)}` : ""}</span>;
+    }
+    if (!info.price) return null;
     return Number(price) === info.price
       ? <span class="pricetag ok">✓ {name}</span>
       : <span class="pricetag">{name}: {money(info.price)}</span>;

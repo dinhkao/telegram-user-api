@@ -32,6 +32,10 @@ def _save_order(conn, thread_id: int, data: dict) -> bool:
             "UPDATE orders SET json = ?, updated_at = ? WHERE thread_id = ? AND deleted_at IS NULL",
             (json.dumps(data, ensure_ascii=False), int(time.time() * 1000), thread_id),
         )
+        kh = data.get("khach_hang_id") or data.get("khID")
+        if kh:  # hoá đơn có thể vừa đổi → bỏ cache "giá mua lần gần nhất" của khách
+            from .last_prices import invalidate_last_price_cache
+            invalidate_last_price_cache(kh)
         from .mutation_audit import record_order_change
         record_order_change(conn, thread_id, before, data)
         return True

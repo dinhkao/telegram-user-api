@@ -1,6 +1,7 @@
 from __future__ import annotations
 import re
 
+from .last_prices import last_order_prices
 from .search import get_customer_price_list
 
 _RE_NO_QC = re.compile(r"^\s*([A-Za-z0-9-]+)\s{2,}(\d+(?:\.\d+)?)(?:\s+(\d+(?:\.\d+)?))?(?:\s+(.+))?\s*$")
@@ -35,6 +36,8 @@ def _parse_qc(qc: str) -> tuple[str | None, list[int]]:
 def parse_comma_text(text: str, conn, kh_id: str | int | None) -> list[dict]:
     cleaned = text.replace(",", "").strip()
     price_list = get_customer_price_list(conn, kh_id) if kh_id else {}
+    # Giá GẦN NHẤT khách đã mua ĐÈ bảng giá (giá gõ tay trên dòng vẫn thắng cả hai)
+    last_prices = last_order_prices(conn, kh_id) if kh_id else {}
     lines = [l.strip() for l in cleaned.split("\n") if l.strip()]
     while lines and lines[-1].lower().replace(" ", "") in ("taohd", "taohoadon"):
         lines.pop()
@@ -66,7 +69,7 @@ def parse_comma_text(text: str, conn, kh_id: str | int | None) -> list[dict]:
                 except (ValueError, TypeError):
                     continue
                 price_override, note = (words[2] if len(words) > 2 else None), (" ".join(words[3:]) if len(words) > 3 else None)
-        price = price_list.get(sp, 0)
+        price = last_prices.get(sp) or price_list.get(sp, 0)
         if price_override is not None:
             try:
                 price = int(price_override)

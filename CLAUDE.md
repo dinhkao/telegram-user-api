@@ -145,6 +145,21 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   topic + order (positive thread_id, flow_version 2), returns thread_id so the web
   navigates straight to it. **No more DB-only web orders** (the old negative-thread_id
   `flow_version:"web"` path is gone). Client: `webapp/src/pages/CreateOrder.tsx`.
+- **GIÁ MẶC ĐỊNH KHI PARSE HOÁ ĐƠN = GIÁ MUA LẦN GẦN NHẤT (2026-08-10,
+  `order_store/last_prices.py`)** — thứ tự ưu tiên: **giá gõ tay trong text** >
+  **giá khách đó đã mua lần gần nhất** > **bảng giá** (riêng đè chung) > 0.
+  `last_order_prices(conn, kh_id)` quét 30 đơn gần nhất của khách (chưa xoá, sắp theo
+  `order_created` — dùng index `idx_orders_created_tid`), lấy giá > 0 của lần XUẤT HIỆN
+  ĐẦU (đơn mới nhất thắng); khớp SP theo `sp_id` rồi tới mã + alias mã cũ → key là MÃ
+  HIỆN HÀNH. Cache RAM 60s/khách (parse chạy mỗi lần gõ ở trang tạo đơn), `_save_order`
+  bỏ cache của khách đó. Dùng bởi CẢ 2 parser (`free_text.parse_invoice_free_text`,
+  `comma_parser.parse_comma_text`) ⇒ mọi đường tạo/sửa hoá đơn bằng text (tạo đơn tab
+  ⚡ Nhanh + preview, auto_parse, `fix`, lệnh `,` Telegram) đều theo luật này. Tab
+  📋 Nâng cao cùng luật: `/api/customer/price` trả thêm `last_price`, `InvoiceEditor`
+  tự điền nó (chú thích/nút đặt-lại vẫn theo bảng giá, nhãn "✓ lần trước").
+  ⚠ Giá đơn là snapshot vĩnh viễn → sửa lại text của CHÍNH đơn đó sẽ lấy lại giá của
+  chính nó (đơn gần nhất của khách chính là nó) — muốn về giá bảng thì gõ giá tay.
+  Tests: `tests/test_last_prices.py`.
 - `donhang_indexer_pkg/` — live + backfill indexing of `#don_hang` → `donhang_store`.
 - **Feed khách (`server_app/customer_feed.py`)** — GET `/api/customers/{key}/feed`:
   đơn + thanh toán 1 dòng thời gian (rail nợ, dây SVG nối payment↔đơn). Nợ sau mỗi

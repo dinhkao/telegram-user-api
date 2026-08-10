@@ -212,4 +212,12 @@ async def api_customer_price_handler(request: web.Request):
     conn = _get_connection()
     from order_store.search import get_customer_price_source
     price, source, list_name = get_customer_price_source(conn, str(customer_id), product)
-    return web.json_response({"ok": True, "price": price, "product": product, "source": source, "list_name": list_name})
+    # Giá khách đã mua LẦN GẦN NHẤT (nếu có) — client tự điền số này thay giá bảng;
+    # chú thích/nút đặt-lại vẫn theo bảng giá.
+    from order_store.last_prices import last_order_prices
+    from product_store import resolve_code
+    prod = resolve_code(conn, product)
+    code = (prod["code"] if prod else product).upper().strip()
+    last_price = int(last_order_prices(conn, str(customer_id)).get(code) or 0)
+    return web.json_response({"ok": True, "price": price, "product": product, "source": source,
+                              "list_name": list_name, "last_price": last_price})
