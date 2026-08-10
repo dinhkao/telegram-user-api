@@ -336,15 +336,16 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         # tên loại đậu / kho link thẳng sang trang chi tiết của nó
         bean_seg = ([part(str(p.get("bean_name")), href_for("bean_item", p.get("bean_id")))]
                     if p.get("bean_name") else [])
+        # _join xen dấu " · " giữa các đoạn — client render parts liền nhau, thiếu
+        # dấu là dòng lịch sử dính chữ ("phiếu #1kho Kho A").
         if action == "bean.base_unit_changed":
-            return "Đổi đơn vị chính (đậu)", [
-                *bean_seg, part(f"{p.get('old_base')} → {p.get('base_unit')}")]
+            return "Đổi đơn vị chính (đậu)", _join(
+                [bean_seg, [part(f"{p.get('old_base')} → {p.get('base_unit')}")]])
         if action.startswith("bean.unit_"):
             label = _bean_labels[action]
-            seg = list(bean_seg)
-            if p.get("unit_name"):
-                seg.append(part(f"1 {p['unit_name']} = {p.get('factor')} {p.get('base_unit') or ''}".strip()))
-            return label, seg
+            extra = ([part(f"1 {p['unit_name']} = {p.get('factor')} {p.get('base_unit') or ''}".strip())]
+                     if p.get("unit_name") else [])
+            return label, _join([bean_seg, extra])
         label = _bean_labels.get(action)
         if label and action.startswith("bean.item_"):
             return label, bean_seg or [part(f"loại đậu #{p.get('bean_id')}")]
@@ -354,16 +355,16 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         if label and action.startswith("bean.slip_"):
             sid = p.get("slip_id")
             seg = [part(f"phiếu #{sid}", href_for("bean_slip", sid))] if sid else []
-            if p.get("place_name"):
-                seg.append(part(f"kho {p['place_name']}"))
+            place_seg = [part(f"kho {p['place_name']}")] if p.get("place_name") else []
             lines = p.get("lines") or []
+            line_seg = []
             if isinstance(lines, list) and lines:
                 txt = ", ".join(f"{l.get('bean')} {l.get('qty')}" for l in lines[:4]
                                 if isinstance(l, dict))
                 if len(lines) > 4:
                     txt += f" +{len(lines) - 4} dòng"
-                seg.append(part(txt))
-            return label, seg
+                line_seg = [part(txt)]
+            return label, _join([seg, place_seg, line_seg])
         if label:
             name = str(p.get("bean_name") or p.get("place_name") or "").strip()
             return label, [part(name)] if name else []

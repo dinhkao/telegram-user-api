@@ -8,6 +8,7 @@ import {
 } from "../api";
 import { BeanSlipCard } from "../detail/BeanSlipRows";
 import { BeanUnits } from "../detail/BeanUnits";
+import { History } from "../detail/History";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
@@ -145,6 +146,9 @@ export function BeanDetail({ id }: { id: string }) {
       {data.slips.length ? data.slips.map((s) => (
         <BeanSlipCard slip={s} showBean={false} key={s.id} />
       )) : <EmptyState>Chưa có phiếu nào cho loại đậu này.</EmptyState>}
+
+      {/* Lịch sử riêng của loại đậu (audit scope 'bean_item') — ảnh/trao đổi nằm ở PHIẾU */}
+      <History base={`/api/media/bean_item/${id}`} />
 
       {admin && (
         <button class="btn danger bean-more" disabled={busy} onClick={del}>

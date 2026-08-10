@@ -702,8 +702,17 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   — ⚠ route `/api/beans/items/{id}/units*` phải đăng ký TRƯỚC `POST /api/beans/items/{id}`):
   tạo phiếu/danh mục/đơn vị = MỌI user đăng nhập, sửa tên/tỉ lệ =
   văn phòng, xoá = admin (xoá mềm, chặn khi còn phiếu). Realtime `bean_changed`;
-  audit scope `bean` (`bean.slip_nhap/xuat/dieu_chinh`, `bean.item_*`, `bean.place_*`,
-  `bean.unit_*`).
+  **ẢNH + TRAO ĐỔI trên từng PHIẾU** = entity media scope **`bean_slip`** (giống đơn
+  hàng: `Images`/`Comments`/`History` ở BeanSlipDetail; `entity_media_routes._emit`
+  bắn `bean_changed`, `realtime.ts::eventMatchesBase` nhận `bean_changed` cho base
+  `/bean_slip/`). ⚠ **Audit tách 3 scope THEO THỰC THỂ** (2026-08-10):
+  `bean_slip` (id phiếu) · `bean_item` (id loại đậu, gồm cả `bean.unit_*` +
+  `bean.base_unit_changed`) · `bean_place` (id kho) — 3 bảng có id riêng nên gộp 1
+  scope `bean` là lịch sử phiếu #5 lẫn với loại đậu #5; scope `bean` cũ còn trong dữ
+  liệu trước ngày đó nên `activity_format._SCOPE_LABEL` giữ cả 4. Action giữ nguyên
+  tiền tố `bean.*` (`bean.slip_nhap/xuat/dieu_chinh`, `bean.item_*`, `bean.place_*`,
+  `bean.unit_*`, `bean.base_unit_changed`); parts ghép bằng `_join` (client render
+  parts LIỀN NHAU — thiếu dấu là dòng lịch sử dính chữ).
   UI: `#/kho-dau` (BeanBoard — tồn xem theo LOẠI ĐẬU hoặc theo KHO, cùng dữ liệu đổi
   trục; card bấm được) · **`#/kho-dau/dau/:id` (BeanDetail) + `#/kho-dau/kho/:id`
   (BeanPlaceDetail)** = trang chi tiết loại đậu / kho, **SỬA NGAY TẠI TRANG** (tên ·

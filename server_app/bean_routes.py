@@ -38,12 +38,19 @@ def _conn():
     return conn
 
 
-def audit(action: str, entity_id, request: web.Request, payload: dict) -> None:
-    """Ghi lịch sử thao tác (scope 'bean') — dùng chung với bean_slip_routes."""
+def audit(action: str, entity_id, request: web.Request, payload: dict,
+          scope: str = "bean_item") -> None:
+    """Ghi lịch sử thao tác — dùng chung cho cả 3 file route của kho đậu.
+
+    ⚠ scope phải khớp THỰC THỂ của entity_id: `bean_item` (id loại đậu) ·
+    `bean_place` (id kho) · `bean_slip` (id phiếu). 3 bảng có id riêng nên gộp chung
+    1 scope là lịch sử của phiếu #5 sẽ lẫn với loại đậu #5. Cùng tên với media scope
+    nên trang chi tiết đọc được lịch sử của chính nó.
+    """
     from audit_log import async_log_event
     from server_app.tasks import spawn_tracked
     spawn_tracked(f"audit.{action}", async_log_event(
-        action, scope="bean", thread_id=entity_id, actor_type=_actor_type(request),
+        action, scope=scope, thread_id=entity_id, actor_type=_actor_type(request),
         actor_id=_actor(request), source=action, payload=payload))
 
 
@@ -266,7 +273,7 @@ async def bean_place_create_handler(request: web.Request):
         return web.json_response({"ok": False, "error": err}, status=400)
     _emit()
     audit("bean.place_created", place["id"], request,
-          {"place_id": place["id"], "place_name": place["name"]})
+          {"place_id": place["id"], "place_name": place["name"]}, scope="bean_place")
     return web.json_response({"ok": True, "place": place})
 
 
@@ -292,7 +299,8 @@ async def bean_place_update_handler(request: web.Request):
     if err:
         return web.json_response({"ok": False, "error": err}, status=400)
     _emit()
-    audit("bean.place_updated", pid, request, {"place_id": pid, "place_name": place["name"]})
+    audit("bean.place_updated", pid, request, {"place_id": pid, "place_name": place["name"]},
+          scope="bean_place")
     return web.json_response({"ok": True, "place": place})
 
 
@@ -318,5 +326,5 @@ async def bean_place_delete_handler(request: web.Request):
         return web.json_response({"ok": False, "error": err}, status=400)
     _emit()
     audit("bean.place_deleted", pid, request,
-          {"place_id": pid, "place_name": (place or {}).get("name") or ""})
+          {"place_id": pid, "place_name": (place or {}).get("name") or ""}, scope="bean_place")
     return web.json_response({"ok": True})

@@ -63,6 +63,17 @@ export const GUIDES_DAU: Guide[] = [
           <li><b>Theo kho</b> — mỗi kho một dòng, kèm các loại đậu đang có trong kho đó.</li>
         </ul>
         <p class="muted small">Cùng một dữ liệu, chỉ đổi cách nhìn. Có ô tìm để lọc nhanh.</p>` },
+      { title: "Chụp ảnh & trao đổi trong phiếu", html: `
+        <p>Mở một phiếu (<a href="#/kho-dau/phieu">danh sách phiếu</a> → bấm vào phiếu) sẽ
+        thấy phần <b>Ảnh</b> và <b>Trao đổi</b> ở dưới, <b>dùng y như trong đơn hàng</b>:</p>
+        <ul>
+          <li><b>Ảnh</b> — bấm để chụp tại chỗ hoặc chọn từ máy. Hợp để chụp bao hàng lúc
+            nhận, cân, hay hàng bị ẩm mốc làm bằng chứng.</li>
+          <li><b>Trao đổi</b> — nhắn qua lại ngay trong phiếu, ai viết gì đều có tên và giờ.</li>
+          <li><b>Lịch sử thao tác</b> — ai tạo phiếu, ai xoá, lúc nào.</li>
+        </ul>
+        <p class="muted small">Ảnh và trao đổi gắn theo <b>từng phiếu</b>. Trang loại đậu và
+        trang kho thì chỉ có phần lịch sử.</p>` },
       { title: "Sửa sai thì làm sao?", html: `
         <p>Phiếu <b>không sửa được</b> — ghi sai thì <b>xoá phiếu</b> (chỉ admin) rồi ghi lại,
         tồn tự hoàn về như trước. Mở phiếu ở <a href="#/kho-dau/phieu">danh sách phiếu</a>

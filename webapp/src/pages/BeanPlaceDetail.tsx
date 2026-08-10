@@ -7,6 +7,7 @@ import {
   type BeanPlaceDetailData,
 } from "../api";
 import { BeanSlipCard } from "../detail/BeanSlipRows";
+import { History } from "../detail/History";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
@@ -126,6 +127,9 @@ export function BeanPlaceDetail({ id }: { id: string }) {
       {data.slips.length ? data.slips.map((s) => (
         <BeanSlipCard slip={s} showPlace={false} key={s.id} />
       )) : <EmptyState>Chưa có phiếu nào ở kho này.</EmptyState>}
+
+      {/* Lịch sử riêng của kho (audit scope 'bean_place') — ảnh/trao đổi nằm ở PHIẾU */}
+      <History base={`/api/media/bean_place/${id}`} />
 
       {admin && (
         <button class="btn danger bean-more" disabled={busy} onClick={del}>

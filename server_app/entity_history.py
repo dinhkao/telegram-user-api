@@ -404,7 +404,8 @@ async def entity_history_handler(request: web.Request):
     scope = request.match_info.get("scope", "")
     if scope not in ("production", "box", "return", "task", "place",
                      "customer", "product", "unit", "worker", "price", "quy",
-                     "supplier", "purchase", "disposal", "stocktake"):
+                     "supplier", "purchase", "disposal", "stocktake",
+                     "bean_slip", "bean_item", "bean_place"):
         return web.json_response({"ok": False, "error": "scope không hợp lệ"}, status=400)
     try:
         entity_id = int(request.match_info.get("entity_id", ""))

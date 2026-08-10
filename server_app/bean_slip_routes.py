@@ -119,7 +119,7 @@ async def bean_slip_create_handler(request: web.Request):
         "slip_id": slip["id"], "kind": slip["kind"], "place_name": slip.get("place_name") or "",
         "lines": [{"bean": i["bean_name"], "qty": i["quantity"], "delta": i["delta"]}
                   for i in slip["items"]],
-    })
+    }, scope="bean_slip")
     return web.json_response({"ok": True, "slip": slip})
 
 
@@ -149,5 +149,5 @@ async def bean_slip_delete_handler(request: web.Request):
     audit("bean.slip_deleted", sid, request, {
         "slip_id": sid, "kind": slip["kind"], "place_name": slip.get("place_name") or "",
         "lines": [{"bean": i["bean_name"], "qty": i["quantity"]} for i in slip["items"]],
-    })
+    }, scope="bean_slip")
     return web.json_response({"ok": True})

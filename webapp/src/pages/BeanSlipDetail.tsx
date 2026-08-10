@@ -1,10 +1,14 @@
 // Chi tiết 1 PHIẾU KHO ĐẬU (#/kho-dau/phieu/:id) — loại phiếu, kho, ngày, người
-// tạo + từng dòng đậu (số ghi trên phiếu, tồn trước, biến động). Xoá = admin
-// (tồn tự hoàn lại). Realtime: bean_changed → tải lại.
+// tạo + từng dòng đậu (số ghi trên phiếu, tồn trước, biến động), kèm ẢNH + TRAO ĐỔI
+// + LỊCH SỬ như đơn hàng (entity media scope 'bean_slip'). Xoá = admin (tồn tự hoàn
+// lại). Realtime: bean_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
 import {
   BEAN_KIND_LABEL, currentUser, deleteBeanSlip, getBeanSlip, soVN, type BeanSlip,
 } from "../api";
+import { Comments } from "../detail/Comments";
+import { History } from "../detail/History";
+import { Images } from "../detail/Images";
 import { fmtDateTimeVN } from "../format";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
@@ -99,6 +103,11 @@ export function BeanSlipDetail({ id }: { id: string }) {
           ))}
         </tbody>
       </table>
+
+      {/* Ảnh + trao đổi + lịch sử — cùng bộ dùng chung với đơn hàng/phiếu khác */}
+      <Images base={`/api/media/bean_slip/${slip.id}`} />
+      <Comments base={`/api/media/bean_slip/${slip.id}`} />
+      <History base={`/api/media/bean_slip/${slip.id}`} />
 
       <a class="btn bean-more" href="#/kho-dau"><Icon name="box" size={15} /> Xem tồn kho đậu</a>
     </div>
