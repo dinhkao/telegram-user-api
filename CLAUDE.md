@@ -1098,7 +1098,14 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 - `webapp/` — Vite + Preact + TS mobile UI (Vietnamese). Hash router `main.tsx`, nav
   bottom **📋 Đơn · 👤 Khách · ➕ Tạo · 🏭 SX · 📦 Kho** + ⚙️ cài đặt ở top bar
   (đăng xuất; kèm `TaskBell` badge việc-của-tôi + chuông thông báo). Dashboard Đơn:
-  view-slider 4 ô (chi tiết/gọn/siêu gọn/**📅 lịch giao**). Menu ☰ Thêm có **Việc**. Trang: orders list/detail, tasks, payments, comments, create order,
+  view-slider 4 ô (chi tiết/gọn/siêu gọn/**📅 lịch giao**). **Menu ☰ Thêm (`#/home`)**:
+  danh mục mục nằm ở **`webapp/src/homeMenu.ts`** (nguồn DUY NHẤT — thêm tính năng mới =
+  thêm 1 dòng vào `GROUPS`; `findMenuItem(hash)` khớp route DÀI NHẤT theo TỪNG ĐOẠN nên
+  `#/kho` không nuốt `#/kho-dau`, `#/tho` không nuốt `#/thung`), đầu trang có khối
+  **GẦN ĐÂY 6 mục vừa mở** (`webapp/src/recent.ts` — ghi theo hashchange TOÀN CỤC ở
+  `main.tsx::initRecent` nên vào từ menu/thanh dưới/deep-link đều tính; lưu localStorage
+  `home_recent_v1` THEO MÁY, lọc lại theo quyền lúc hiện, ẩn khi đang tìm kiếm).
+  Tests: `webapp/tests/homeMenu.test.ts`. Trang: orders list/detail, tasks, payments, comments, create order,
   **thu tiền = `pages/OrderPayment.tsx` (`#/order/:id/thanh-toan`) — trên cùng có
   khối **THU NHANH** (`detail/QuickCollect.tsx`): 1 CHẠM thu ĐÚNG số nợ của ĐƠN ĐANG
   MỞ, không gộp nợ cũ / đơn khác, cố ý KHÔNG hỏi xác nhận (nút in sẵn số tiền + hình

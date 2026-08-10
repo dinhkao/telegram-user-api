@@ -99,6 +99,7 @@ import { NhanTienDashboard } from "./pages/NhanTienDashboard";
 import { HelpFab } from "./ui/HelpFab";
 import { CashboxDetail } from "./pages/CashboxDetail";
 import { GuidesList, GuideDetail } from "./pages/Guides";
+import { initRecent } from "./recent";
 import { initUsage } from "./usage";
 import "./styles.css";
 
@@ -716,3 +717,4 @@ function App() {
 
 render(<App />, document.getElementById("app")!);
 initUsage();
+initRecent();   // nhớ mục vừa mở → khối "Gần đây" ở trang ☰ Thêm
