@@ -4335,13 +4335,16 @@ body.has-nop .wp-thead-bar { top: 72px; }
 .bean-table .num, .bean-table td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .bean-table tr:last-child td { border-bottom: none; }
 
-/* Quy đổi đơn vị của loại đậu (detail/BeanUnits + ô chọn đơn vị khi tạo phiếu) */
-.bean-row-wrap { margin-bottom: 6px; }
-.bean-row-wrap .bean-row { margin-bottom: 0; }
-.bean-units { border: 1px solid var(--border); border-top: none; background: var(--card2);
-  border-radius: 0 0 var(--r-md) var(--r-md); padding: 8px 10px; }
-.bean-units-base { margin-bottom: 6px; }
-.bean-unit-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+/* Quy đổi đơn vị của loại đậu (popup detail/BeanUnits + ô chọn đơn vị khi tạo phiếu) */
+/* .modal-sheet gốc là overflow:hidden → 2 popup này tự cuộn khi danh sách dài */
+.bean-units-sheet, .bean-add-sheet { overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; }
+.bean-head-add { margin-left: auto; }
+.bean-unit-row { display: flex; align-items: center; gap: 6px; padding: 6px 0;
+  border-bottom: 1px solid var(--border); }
+.bean-unit-row:last-of-type { border-bottom: none; }
+.bean-unit-base { background: var(--accent-wash); border-radius: var(--r-sm);
+  padding: 8px 10px; border-bottom: none; }
 .bean-unit-txt { flex: 1; min-width: 0; font-size: .9rem; }
 .bean-unit-add { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 .bean-unit-add .bean-in { flex: 1; min-width: 0; }

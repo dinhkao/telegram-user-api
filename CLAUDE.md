@@ -686,7 +686,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   luôn theo ĐƠN VỊ GỐC; `unit_id` gửi lên lúc tạo phiếu chỉ là CÁCH GÕ — server quy
   về gốc ngay (`to_base`) rồi lưu snapshot `bean_moves.entered_qty/unit_name/unit_factor`
   để in lại đúng thứ đã nhập ("2 bao (100 kg)"). Hệ quả cố ý: **đổi tỉ lệ hay xoá đơn
-  vị KHÔNG tính lại phiếu cũ** (tồn quá khứ đứng yên). Guard tồn âm so bằng số GỐC nên
+  vị KHÔNG tính lại phiếu cũ** (tồn quá khứ đứng yên) — KHÁC hẳn `set_base_unit`
+  (ĐỔI ĐƠN VỊ CHÍNH, vd kg→bao): cái đó CÓ quy đổi lại MỌI số của loại đậu đó
+  (`bean_moves.quantity/delta/before_qty/unit_factor` + factor các đơn vị còn lại,
+  chia cho factor đơn vị được chọn, làm tròn 6 số) nên **lượng hàng thực không đổi,
+  chỉ đổi thước đo**; đơn vị gốc CŨ tự thành đơn vị quy đổi (1/factor) → đặt ngược
+  lại được. Đổi TÊN đơn vị chính (`updateBean {unit}`) thì chỉ đổi CHỮ, số giữ nguyên.
+  Guard tồn âm so bằng số GỐC nên
   xuất "3 bao" khi chỉ còn 100 kg vẫn bị chặn. Tên đơn vị so bằng `vn_normalize`
   (bỏ dấu, không phân biệt hoa thường), trùng đơn vị gốc bị chặn.
   DDL ensure per-module (`schema.py`, gọi từ route — KHÔNG qua db_migrate); 3 cột
@@ -701,8 +707,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   UI: `#/kho-dau` (BeanBoard — tồn xem theo LOẠI ĐẬU hoặc theo KHO, cùng dữ liệu đổi
   trục) · `#/kho-dau/phieu` (BeanSlips) → `#/kho-dau/phieu/:id` (BeanSlipDetail) ·
   `#/kho-dau/tao?kind=` (BeanSlipCreate — mỗi dòng có ô chọn đơn vị, hiện "= n <gốc>"
-  và tồn để đối chiếu) · `#/kho-dau/thiet-lap` (BeanSetup + `detail/BeanUnits.tsx`
-  khai quy đổi cho từng loại đậu). ⚠ Route
+  và tồn để đối chiếu) · `#/kho-dau/thiet-lap` (BeanSetup — thêm kho/loại đậu bằng
+  POPUP `detail/BeanAddPopup.tsx`, nút ⇄ mở POPUP `detail/BeanUnits.tsx` = khai quy
+  đổi + đổi tên đơn vị chính + nút ★ đổi đơn vị chính). ⚠ Route
   `#/kho-dau` phải đứng TRƯỚC nhánh `#/kho` trong `main.tsx` (startsWith nuốt). Guide:
   `webapp/src/guides/data_dau.ts`. Tests: `tests/test_bean_store.py`.
 - `area_store/` — KHU VỰC XƯỞNG (`workshop_areas`) + BÁO CÁO VỆ SINH hằng ngày

@@ -490,9 +490,12 @@ def create_app():
     # Đơn vị quy đổi ĐẶT TRƯỚC "/api/beans/items/{id}" (POST) để không bị nuốt
     from server_app.bean_unit_routes import (bean_unit_add_handler,
                                              bean_unit_delete_handler,
+                                             bean_unit_set_base_handler,
                                              bean_unit_update_handler, bean_units_handler)
     r.add_get("/api/beans/items/{id}/units", bean_units_handler)
     r.add_post("/api/beans/items/{id}/units", bean_unit_add_handler)      # mọi user
+    # "/base" TRƯỚC "{uid}" chung: đổi đơn vị chính (quy đổi lại mọi số cũ)
+    r.add_post("/api/beans/items/{id}/units/{uid}/base", bean_unit_set_base_handler)  # văn phòng
     r.add_post("/api/beans/items/{id}/units/{uid}", bean_unit_update_handler)   # văn phòng
     r.add_delete("/api/beans/items/{id}/units/{uid}", bean_unit_delete_handler)  # admin
     r.add_post("/api/beans/items/{id}", bean_update_handler)        # văn phòng sửa

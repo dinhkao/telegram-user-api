@@ -16,7 +16,12 @@ from vn import vn_normalize
 from .domain import round_qty
 
 __all__ = ["list_units", "get_unit", "add_unit", "update_unit", "delete_unit",
-           "units_by_bean", "resolve_unit", "to_base"]
+           "units_by_bean", "resolve_unit", "to_base", "set_base_unit"]
+
+# Quy đổi lại toàn bộ số khi ĐỔI ĐƠN VỊ CHÍNH: giữ 6 chữ số thập phân (rộng hơn
+# round_qty 3 chữ số lúc hiển thị) để chia rồi nhân ngược không bị trôi số.
+def _r6(v) -> float:
+    return round(float(v or 0), 6)
 
 
 def list_units(conn, bean_id) -> list[dict]:
@@ -139,3 +144,57 @@ def resolve_unit(conn, bean_id, unit_id) -> tuple[str, float, str | None]:
 def to_base(qty: float, factor: float) -> float:
     """Số theo đơn vị đã chọn → số theo ĐƠN VỊ GỐC (mọi thứ trong DB là gốc)."""
     return round_qty(float(qty or 0) * float(factor or 1))
+
+
+def set_base_unit(conn, bean_id, unit_id) -> tuple[dict | None, str | None]:
+    """ĐỔI ĐƠN VỊ CHÍNH của loại đậu sang 1 đơn vị quy đổi đã khai (vd kg → bao).
+
+    LƯỢNG HÀNG THỰC KHÔNG ĐỔI — chỉ đổi thước đo, nên phải quy đổi lại MỌI số đang
+    tính theo đơn vị gốc cũ (chia cho factor của đơn vị được chọn):
+      · `bean_moves.quantity/delta/before_qty` của loại đậu này (tồn = Σ delta nên
+        tồn tự ra đúng lượng cũ, chỉ khác thước đo),
+      · `bean_moves.unit_factor` (hệ số snapshot cũng biểu diễn theo đơn vị gốc),
+      · factor của các đơn vị quy đổi CÒN LẠI.
+    Đơn vị gốc CŨ trở thành 1 đơn vị quy đổi (1 <gốc cũ> = 1/factor <gốc mới>), còn
+    đơn vị được chọn thì rời khỏi bảng quy đổi vì nó chính là gốc mới.
+    Đảo ngược được: đặt lại đơn vị cũ làm chính là số về như trước.
+    """
+    unit = get_unit(conn, unit_id)
+    if not unit or int(unit["bean_id"]) != int(bean_id):
+        return None, "Đơn vị không thuộc loại đậu này"
+    f = float(unit["factor"] or 0)
+    if f <= 0:
+        return None, "Tỉ lệ quy đổi của đơn vị không hợp lệ"
+
+    with transaction(conn):
+        row = conn.execute("SELECT unit FROM beans WHERE id = ? AND deleted_at IS NULL",
+                           (bean_id,)).fetchone()
+        if not row:
+            return None, "Không tìm thấy loại đậu"
+        old_base = str(row["unit"] or "").strip()
+        if vn_normalize(old_base) == vn_normalize(unit["name"]):
+            return None, "Đơn vị này đang là đơn vị chính rồi"
+
+        conn.execute(
+            "UPDATE bean_moves SET quantity = ROUND(quantity / ?, 6), "
+            "delta = ROUND(delta / ?, 6), "
+            "before_qty = CASE WHEN before_qty IS NULL THEN NULL ELSE ROUND(before_qty / ?, 6) END, "
+            "unit_factor = ROUND(COALESCE(unit_factor, 1) / ?, 6) WHERE bean_id = ?",
+            (f, f, f, f, bean_id),
+        )
+        conn.execute(
+            "UPDATE bean_units SET factor = ROUND(factor / ?, 6) WHERE bean_id = ? AND id <> ?",
+            (f, bean_id, unit_id),
+        )
+        # gốc CŨ thành đơn vị quy đổi (bỏ qua nếu tên rỗng — dữ liệu hỏng)
+        if old_base:
+            conn.execute(
+                "INSERT INTO bean_units (bean_id, name, factor, note, created_by) "
+                "VALUES (?, ?, ?, '', 'doi-don-vi-chinh')",
+                (bean_id, old_base, _r6(1 / f)),
+            )
+        conn.execute("DELETE FROM bean_units WHERE id = ?", (unit_id,))
+        conn.execute("UPDATE beans SET unit = ? WHERE id = ?", (unit["name"], bean_id))
+
+    return {"bean_id": int(bean_id), "old_base": old_base,
+            "new_base": unit["name"], "factor": f}, None

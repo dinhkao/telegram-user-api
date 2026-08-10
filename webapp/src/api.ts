@@ -815,6 +815,12 @@ export async function addBeanUnit(beanId: number, name: string, factor: number |
 export async function updateBeanUnit(beanId: number, unitId: number, body: { name?: string; factor?: number | string }): Promise<BeanUnit> {
   return (await postJSON(`/api/beans/items/${beanId}/units/${unitId}`, body)).unit;
 }
+/** ĐỔI ĐƠN VỊ CHÍNH sang 1 đơn vị quy đổi (văn phòng) — mọi số tồn + phiếu cũ tự
+ *  quy đổi theo tỉ lệ nên LƯỢNG HÀNG THỰC không đổi; đơn vị cũ thành đơn vị quy đổi. */
+export async function setBeanBaseUnit(beanId: number, unitId: number): Promise<{ base_unit: string; old_base: string }> {
+  const d = await postJSON(`/api/beans/items/${beanId}/units/${unitId}/base`, {});
+  return { base_unit: d.base_unit, old_base: d.old_base };
+}
 /** Xoá đơn vị quy đổi (admin). Phiếu cũ không hỏng (đã lưu snapshot). */
 export async function deleteBeanUnit(beanId: number, unitId: number): Promise<any> {
   return delJSON(`/api/beans/items/${beanId}/units/${unitId}`);

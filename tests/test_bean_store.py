@@ -301,6 +301,62 @@ class BeanUnitTest(unittest.TestCase):
         self.assertEqual(again["items"][0]["unit_factor"], 50)   # snapshot hệ số cũ
         self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho["id"]), 100)
 
+    # ── Đổi ĐƠN VỊ CHÍNH (kg → bao) ──────────────────────────────────────────
+    def test_doi_don_vi_chinh_giu_nguyen_luong_hang(self):
+        bean_store.create_slip(self.conn, "nhap", self.kho["id"],
+                               [{"bean_id": self.xanh["id"], "quantity": 2,
+                                 "unit_id": self.bao["id"]}], by="duy")   # 100 kg
+        bean_store.create_slip(self.conn, "xuat", self.kho["id"],
+                               [{"bean_id": self.xanh["id"], "quantity": 25}], by="duy")
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho["id"]), 75)
+
+        res, err = bean_store.set_base_unit(self.conn, self.xanh["id"], self.bao["id"])
+        self.assertIsNone(err)
+        self.assertEqual((res["old_base"], res["new_base"]), ("kg", "bao"))
+        # 75 kg = 1,5 bao — lượng hàng y nguyên, chỉ đổi thước đo
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho["id"]), 1.5)
+        self.assertEqual(bean_store.get_bean(self.conn, self.xanh["id"])["unit"], "bao")
+        # đơn vị gốc CŨ thành đơn vị quy đổi: 1 kg = 0,02 bao
+        units = bean_store.list_units(self.conn, self.xanh["id"])
+        self.assertEqual([(u["name"], u["factor"]) for u in units], [("kg", 0.02)])
+
+    def test_doi_don_vi_chinh_dao_nguoc_duoc(self):
+        bean_store.create_slip(self.conn, "nhap", self.kho["id"],
+                               [{"bean_id": self.xanh["id"], "quantity": 130}], by="duy")
+        bean_store.set_base_unit(self.conn, self.xanh["id"], self.bao["id"])
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho["id"]), 2.6)
+        kg = bean_store.list_units(self.conn, self.xanh["id"])[0]
+        bean_store.set_base_unit(self.conn, self.xanh["id"], kg["id"])
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho["id"]), 130)
+        self.assertEqual(bean_store.get_bean(self.conn, self.xanh["id"])["unit"], "kg")
+        self.assertEqual([(u["name"], u["factor"])
+                          for u in bean_store.list_units(self.conn, self.xanh["id"])],
+                         [("bao", 50.0)])
+
+    def test_doi_don_vi_chinh_quy_doi_ca_don_vi_khac(self):
+        bean_store.add_unit(self.conn, self.xanh["id"], "tạ", 100, "kg", by="duy")
+        bean_store.set_base_unit(self.conn, self.xanh["id"], self.bao["id"])
+        units = {u["name"]: u["factor"] for u in bean_store.list_units(self.conn, self.xanh["id"])}
+        self.assertEqual(units["tạ"], 2)      # 1 tạ = 100 kg = 2 bao
+        self.assertEqual(units["kg"], 0.02)
+
+    def test_doi_don_vi_chinh_giu_snapshot_phieu_dung_thuoc_do_moi(self):
+        slip, _ = bean_store.create_slip(
+            self.conn, "nhap", self.kho["id"],
+            [{"bean_id": self.xanh["id"], "quantity": 2, "unit_id": self.bao["id"]}], by="duy")
+        bean_store.set_base_unit(self.conn, self.xanh["id"], self.bao["id"])
+        it = bean_store.get_slip(self.conn, slip["id"])["items"][0]
+        self.assertEqual(it["quantity"], 2)      # 100 kg = 2 bao
+        self.assertEqual(it["entered_qty"], 2)   # người dùng vẫn đã gõ "2 bao"
+        self.assertEqual(it["unit_factor"], 1)   # 1 bao = 1 bao (gốc mới)
+
+    def test_doi_don_vi_chinh_loi(self):
+        _, err = bean_store.set_base_unit(self.conn, self.xanh["id"], 9999)
+        self.assertIn("không thuộc", err)
+        other, _ = bean_store.add_bean(self.conn, "Đậu đỏ", by="duy")
+        _, err = bean_store.set_base_unit(self.conn, other["id"], self.bao["id"])
+        self.assertIn("không thuộc", err)
+
     def test_db_cu_thieu_cot_duoc_va_tai_cho(self):
         """DB tạo bởi bản TRƯỚC khi có quy đổi đơn vị (bean_moves thiếu 3 cột
         snapshot) — ensure_tables phải ALTER thêm, dòng cũ vẫn đọc được."""

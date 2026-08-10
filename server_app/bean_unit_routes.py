@@ -146,6 +146,42 @@ async def bean_unit_update_handler(request: web.Request):
     return web.json_response({"ok": True, "unit": unit})
 
 
+async def bean_unit_set_base_handler(request: web.Request):
+    """POST /api/beans/items/{id}/units/{uid}/base — ĐỔI ĐƠN VỊ CHÍNH (văn phòng).
+
+    Đơn vị quy đổi được chọn trở thành đơn vị gốc; MỌI số của loại đậu này (tồn +
+    phiếu cũ) quy đổi lại theo tỉ lệ nên lượng hàng thực không đổi. Đơn vị gốc cũ
+    tự thành 1 đơn vị quy đổi → đặt ngược lại được.
+    """
+    from server_app.order_api_common import is_office_request
+    if not await is_office_request(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng mới được đổi đơn vị chính"}, status=403)
+    bid, uid = _ids(request)
+    if bid is None or uid is None:
+        return web.json_response({"ok": False, "error": "id không hợp lệ"}, status=400)
+
+    def _save():
+        conn = _conn()
+        try:
+            bean = bean_store.get_bean(conn, bid)
+            if not bean:
+                return None, None, "Không tìm thấy loại đậu"
+            res, err = bean_store.set_base_unit(conn, bid, uid)
+            return bean, res, err
+        finally:
+            conn.close()
+    bean, res, err = await asyncio.to_thread(_save)
+    if err:
+        return web.json_response({"ok": False, "error": err},
+                                 status=404 if bean is None else 400)
+    _emit()
+    audit("bean.base_unit_changed", bid, request,
+          {"bean_id": bid, "bean_name": bean["name"], "old_base": res["old_base"],
+           "base_unit": res["new_base"], "factor": res["factor"]})
+    return web.json_response({"ok": True, "base_unit": res["new_base"],
+                              "old_base": res["old_base"]})
+
+
 async def bean_unit_delete_handler(request: web.Request):
     """DELETE /api/beans/items/{id}/units/{uid} — CHỈ admin."""
     from server_app.order_api_common import is_admin_request

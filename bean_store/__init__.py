@@ -16,7 +16,7 @@ from .schema import ensure_tables
 from .slips import create_slip, get_slip, list_slips, soft_delete_slip
 from .stock import stock_by_bean, stock_cells, stock_of
 from .units import (add_unit, delete_unit, get_unit, list_units, resolve_unit,
-                    units_by_bean, update_unit)
+                    set_base_unit, units_by_bean, update_unit)
 
 __all__ = [
     "ensure_tables",
@@ -25,5 +25,5 @@ __all__ = [
     "create_slip", "get_slip", "list_slips", "soft_delete_slip",
     "stock_cells", "stock_of", "stock_by_bean",
     "list_units", "units_by_bean", "get_unit", "add_unit", "update_unit",
-    "delete_unit", "resolve_unit",
+    "delete_unit", "resolve_unit", "set_base_unit",
 ]

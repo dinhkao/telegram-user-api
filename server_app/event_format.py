@@ -333,6 +333,11 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
             "bean.unit_updated": "Sửa đơn vị quy đổi (đậu)",
             "bean.unit_deleted": "Xoá đơn vị quy đổi (đậu)",
         }
+        if action == "bean.base_unit_changed":
+            return "Đổi đơn vị chính (đậu)", [
+                part(str(p.get("bean_name") or "")),
+                part(f"{p.get('old_base')} → {p.get('base_unit')}"),
+            ]
         if action.startswith("bean.unit_"):
             label = _bean_labels[action]
             seg = [part(str(p.get("bean_name") or ""))]
