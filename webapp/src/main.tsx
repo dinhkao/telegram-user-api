@@ -82,6 +82,11 @@ import { AdjustmentsList } from "./pages/AdjustmentsList";
 import { DisposalDetail } from "./pages/DisposalDetail";
 import { AreasBoard } from "./pages/AreasBoard";
 import { AreaDetail } from "./pages/AreaDetail";
+import { BeanBoard } from "./pages/BeanBoard";
+import { BeanSlips } from "./pages/BeanSlips";
+import { BeanSlipCreate } from "./pages/BeanSlipCreate";
+import { BeanSlipDetail } from "./pages/BeanSlipDetail";
+import { BeanSetup } from "./pages/BeanSetup";
 import { QualityBoard } from "./pages/QualityBoard";
 import { QualityDetail } from "./pages/QualityDetail";
 import { QualityGallery } from "./pages/QualityGallery";
@@ -511,6 +516,7 @@ function App() {
   const retMatch = hash.match(/^#\/tra-hang\/(\d+)/);
   const dispMatch = hash.match(/^#\/xuat-huy\/(\d+)/);
   const areaMatch = hash.match(/^#\/khu-vuc\/(\d+)/);
+  const beanSlipMatch = hash.match(/^#\/kho-dau\/phieu\/(\d+)/);
   const qualityMatch = hash.match(/^#\/chat-luong\/(\d+)/);
   const ketMatch = hash.match(/^#\/ket\/([^?]+)/);
   const purEditMatch = hash.match(/^#\/nhap-hang\/(\d+)\/sua/);
@@ -552,6 +558,13 @@ function App() {
   else if (placeMatch) page = <PlaceDetail id={placeMatch[1]} />;
   else if (stocktakeMatch) page = <StocktakeDetail id={stocktakeMatch[1]} />;
   else if (hash.startsWith("#/vi-tri")) page = <PlacesList />;
+  // KHO ĐẬU — phải đứng TRƯỚC nhánh "#/kho" (kho hàng hoá) vì "#/kho-dau" cũng
+  // startsWith("#/kho"); để sau là mọi trang đậu rơi hết vào KhoBoxes.
+  else if (hash.startsWith("#/kho-dau/thiet-lap")) page = <BeanSetup />;
+  else if (hash.startsWith("#/kho-dau/tao")) page = <BeanSlipCreate />;
+  else if (beanSlipMatch) page = <BeanSlipDetail id={beanSlipMatch[1]} />;
+  else if (hash.startsWith("#/kho-dau/phieu")) page = <BeanSlips />;
+  else if (hash.startsWith("#/kho-dau")) page = <BeanBoard />;
   else if (khoTLMatch) page = <ProductTimeline code={decodeURIComponent(khoTLMatch[1])} focus={focusEl} />;
   else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;
   else if (hash.startsWith("#/san-pham")) page = <InventoryList />;
@@ -644,6 +657,7 @@ function App() {
     : stocktakeMatch ? "Kiểm kho"
     : (hash.startsWith("#/vi-tri") || placeMatch) ? "Vị trí kho"
     : khoTLMatch ? "Biến động tồn"
+    : hash.startsWith("#/kho-dau") ? "Kho đậu"
     : (hash.startsWith("#/kho") || khoMatch || boxMatch) ? "Kho hàng"
     : hash.startsWith("#/nop-tien") ? "Nộp tiền"
     : hash.startsWith("#/nhan-tien") ? "Nhận tiền"

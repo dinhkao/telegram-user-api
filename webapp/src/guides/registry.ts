@@ -5,6 +5,7 @@ import { GUIDES_DON } from "./data_don";
 import { GUIDES_KHACH } from "./data_khach";
 import { GUIDES_KHO } from "./data_kho";
 import { GUIDES_KHONHAP } from "./data_khonhap";
+import { GUIDES_DAU } from "./data_dau";
 import { GUIDES_SANXUAT } from "./data_sanxuat";
 import { GUIDES_TAICHINH } from "./data_taichinh";
 import { GUIDES_KHAC } from "./data_khac";
@@ -14,6 +15,7 @@ export const GUIDES: Guide[] = [
   ...GUIDES_KHACH,
   ...GUIDES_KHO,
   ...GUIDES_KHONHAP,
+  ...GUIDES_DAU,
   ...GUIDES_SANXUAT,
   ...GUIDES_TAICHINH,
   ...GUIDES_KHAC,

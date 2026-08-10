@@ -60,6 +60,7 @@ _HREF = {
     "stocktake": lambda e: f"#/kiem-kho/{e}",
     "area": lambda e: f"#/khu-vuc/{e}",
     "quality": lambda e: f"#/chat-luong/{e}",   # e = worker_id (báo cáo chất lượng mâm)
+    "bean_slip": lambda e: f"#/kho-dau/phieu/{e}",   # phiếu kho đậu (scope audit = 'bean')
 }
 
 

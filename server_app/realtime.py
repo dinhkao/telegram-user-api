@@ -202,6 +202,13 @@ def emit_quality_changed(worker_id=None) -> None:
                              "quality_changed"))
 
 
+def emit_bean_changed() -> None:
+    """KHO ĐẬU đổi (danh mục/kho/phiếu nhập-xuất-điều chỉnh) → dashboard tồn đậu
+    + danh sách phiếu tải lại. Hệ kho riêng, không đụng inventory_changed."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.bean_changed", _broadcast({"type": "bean_changed"}, "bean_changed"))
+
+
 def emit_cashbox_changed() -> None:
     """Hệ két tiền đổi (chuyển tay tạo/xoá) → trang Két refetch. Biến động từ
     đơn hàng thì client nghe order_changed/orders_changed sẵn có."""

@@ -28,13 +28,13 @@ _SCOPE_LABEL = {"order": "Đơn", "production": "Phiếu SX", "box": "Thùng", "
                 "purchase": "Nhập hàng", "supplier": "NCC", "product": "Sản phẩm", "unit": "Đơn vị",
                 "worker": "Thợ", "price": "Bảng giá", "quy": "Quỹ", "stocktake": "Kiểm kho",
                 "report_slip": "Báo cáo SX", "settings": "Cài đặt", "user": "User", "app": "Hệ thống",
-                "area": "Khu vực", "quality": "Chất lượng mâm"}
+                "area": "Khu vực", "quality": "Chất lượng mâm", "bean": "Kho đậu"}
 
 # event → scope hiển thị khi row.scope trống (event cũ ghi thiếu scope)
 _EVENT_SCOPE = {"order": "order", "box": "box", "production": "production", "return": "return",
                 "purchase": "purchase", "supplier": "supplier", "product": "product",
                 "quy": "quy", "disposal": "disposal", "stocktake": "place", "settings": "settings",
-                "customer": "customer", "area": "area", "quality": "quality"}
+                "customer": "customer", "area": "area", "quality": "quality", "bean": "bean"}
 
 # Event nhân bản: box.* ghi cho CẢ thùng lẫn vị trí → feed giữ 1 bản (scope box);
 # moved_in/out là bản phụ của box.moved; allocated/released đã có bản gộp theo ĐƠN.

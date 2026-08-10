@@ -472,6 +472,27 @@ def create_app():
     r.add_post("/api/areas/{id}/report", area_report_handler)    # mọi user báo cáo hôm nay
     r.add_post("/api/areas/report/{rid}/delete", area_report_delete_handler)  # admin xoá báo cáo
 
+    # ─── KHO ĐẬU (hệ kho riêng, không dính kho hàng hoá) ─────────────────────
+    from server_app.bean_routes import (bean_create_handler, bean_delete_handler,
+                                        bean_place_create_handler, bean_place_delete_handler,
+                                        bean_place_update_handler, bean_update_handler,
+                                        beans_dashboard_handler)
+    from server_app.bean_slip_routes import (bean_slip_create_handler,
+                                             bean_slip_delete_handler,
+                                             bean_slip_detail_handler, bean_slips_handler)
+    r.add_get("/api/beans", beans_dashboard_handler)               # dashboard tồn đậu
+    # Phiếu ĐẶT TRƯỚC các route con khác để "slips" không rơi vào {id} nào
+    r.add_get("/api/beans/slips", bean_slips_handler)
+    r.add_post("/api/beans/slips", bean_slip_create_handler)        # mọi user tạo phiếu
+    r.add_get("/api/beans/slips/{id}", bean_slip_detail_handler)
+    r.add_post("/api/beans/slips/{id}/delete", bean_slip_delete_handler)   # admin
+    r.add_post("/api/beans/items", bean_create_handler)             # mọi user thêm loại đậu
+    r.add_post("/api/beans/items/{id}", bean_update_handler)        # văn phòng sửa
+    r.add_delete("/api/beans/items/{id}", bean_delete_handler)      # admin xoá mềm
+    r.add_post("/api/beans/places", bean_place_create_handler)      # mọi user thêm kho
+    r.add_post("/api/beans/places/{id}", bean_place_update_handler)  # văn phòng sửa
+    r.add_delete("/api/beans/places/{id}", bean_place_delete_handler)  # admin xoá mềm
+
     from server_app.quality_routes import (quality_all_handler, quality_gallery_handler,
                                             quality_products_handler,
                                             quality_report_delete_handler,

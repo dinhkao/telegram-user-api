@@ -316,6 +316,37 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         if label:
             extra = [part(f"ngày {p.get('ymd')}")] if p.get("ymd") else []
             return label, _join([area_seg, extra])
+    # ── KHO ĐẬU (bean.*) — scope='bean'; hệ kho riêng, tách kho hàng hoá ───────
+    if action.startswith("bean."):
+        _bean_labels = {
+            "bean.item_created": "Thêm loại đậu",
+            "bean.item_updated": "Sửa loại đậu",
+            "bean.item_deleted": "Xoá loại đậu",
+            "bean.place_created": "Thêm kho đậu",
+            "bean.place_updated": "Sửa kho đậu",
+            "bean.place_deleted": "Xoá kho đậu",
+            "bean.slip_nhap": "Phiếu NHẬP kho đậu",
+            "bean.slip_xuat": "Phiếu XUẤT kho đậu",
+            "bean.slip_dieu_chinh": "Phiếu ĐIỀU CHỈNH kho đậu",
+            "bean.slip_deleted": "Xoá phiếu kho đậu",
+        }
+        label = _bean_labels.get(action)
+        if label and action.startswith("bean.slip_"):
+            sid = p.get("slip_id")
+            seg = [part(f"phiếu #{sid}", href_for("bean_slip", sid))] if sid else []
+            if p.get("place_name"):
+                seg.append(part(f"kho {p['place_name']}"))
+            lines = p.get("lines") or []
+            if isinstance(lines, list) and lines:
+                txt = ", ".join(f"{l.get('bean')} {l.get('qty')}" for l in lines[:4]
+                                if isinstance(l, dict))
+                if len(lines) > 4:
+                    txt += f" +{len(lines) - 4} dòng"
+                seg.append(part(txt))
+            return label, seg
+        if label:
+            name = str(p.get("bean_name") or p.get("place_name") or "").strip()
+            return label, [part(name)] if name else []
     # ── CHẤT LƯỢNG MÂM KẸO (quality.*) — scope='quality', entity = THỢ ─────────
     if action.startswith("quality."):
         wid = p.get("worker_id")

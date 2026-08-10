@@ -708,6 +708,91 @@ export async function deleteQualityReport(rid: number): Promise<any> {
   return postJSON(`/api/quality/report/${rid}/delete`, {});
 }
 
+// ── KHO ĐẬU (hệ kho RIÊNG, không dính kho hàng hoá) — /api/beans ─────────────
+export type Bean = { id: number; name: string; unit: string; note: string; created_at: string; created_by: string };
+export type BeanPlace = { id: number; name: string; note: string; created_at: string; created_by: string };
+export type BeanSlipKind = "nhap" | "xuat" | "dieu_chinh";
+export type BeanSlipItem = {
+  id: number; bean_id: number; bean_name: string; unit: string;
+  /** Số CỘNG vào tồn: +nhập / −xuất / ±điều chỉnh. */
+  delta: number;
+  /** Số ghi trên phiếu (điều chỉnh: SỐ ĐẾM THỰC TẾ). */
+  quantity: number;
+  before_qty: number | null; note: string;
+};
+export type BeanSlip = {
+  id: number; kind: BeanSlipKind; place_id: number; place_name: string;
+  partner: string; note: string; ymd: string; created_at: string; created_by: string;
+  items: BeanSlipItem[]; total_quantity: number;
+};
+/** Tồn 1 loại đậu, chia theo kho. */
+export type BeanStockRow = { id: number; name: string; unit: string; note: string; total: number; places: { place_id: number; qty: number }[] };
+/** Tồn 1 kho, chia theo loại đậu. */
+export type BeanPlaceRow = { id: number; name: string; note: string; total: number; beans: { bean_id: number; qty: number }[] };
+export type BeanBoardData = {
+  beans: Bean[]; places: BeanPlace[];
+  by_bean: BeanStockRow[]; by_place: BeanPlaceRow[]; total: number;
+  recent_slips: BeanSlip[]; slip_count: number; today_ymd: string;
+};
+
+export const BEAN_KIND_LABEL: Record<BeanSlipKind, string> = {
+  nhap: "Nhập kho", xuat: "Xuất kho", dieu_chinh: "Điều chỉnh",
+};
+
+/** Dashboard kho đậu — danh mục + kho + tồn (đọc được theo đậu HOẶC theo kho). */
+export async function getBeanBoard(): Promise<BeanBoardData> {
+  const d = await getJSON("/api/beans", { cache: false });
+  return {
+    beans: d.beans || [], places: d.places || [],
+    by_bean: d.by_bean || [], by_place: d.by_place || [], total: d.total || 0,
+    recent_slips: d.recent_slips || [], slip_count: d.slip_count || 0, today_ymd: d.today_ymd,
+  };
+}
+/** Danh sách phiếu kho đậu (lọc theo loại/kho/đậu, 30 phiếu/trang). */
+export async function listBeanSlips(opts: { kind?: BeanSlipKind | ""; place_id?: number; bean_id?: number; page?: number } = {}): Promise<{ slips: BeanSlip[]; page: number; total: number; total_pages: number }> {
+  const q = new URLSearchParams();
+  if (opts.kind) q.set("kind", opts.kind);
+  if (opts.place_id) q.set("place_id", String(opts.place_id));
+  if (opts.bean_id) q.set("bean_id", String(opts.bean_id));
+  q.set("page", String(opts.page || 1));
+  const d = await getJSON(`/api/beans/slips?${q}`, { cache: false });
+  return { slips: d.slips || [], page: d.page || 1, total: d.total || 0, total_pages: d.total_pages || 1 };
+}
+export async function getBeanSlip(id: string | number): Promise<BeanSlip> {
+  const d = await getJSON(`/api/beans/slips/${id}`, { cache: false });
+  return d.slip;
+}
+/** Tạo phiếu (mọi user). Điều chỉnh: quantity mỗi dòng = SỐ ĐẾM THỰC TẾ. */
+export async function createBeanSlip(body: {
+  kind: BeanSlipKind; place_id: number; items: { bean_id: number; quantity: number; note?: string }[];
+  partner?: string; note?: string; ymd?: string;
+}): Promise<BeanSlip> {
+  const d = await postJSON("/api/beans/slips", body);
+  return d.slip;
+}
+/** Xoá phiếu (admin) — tồn tự hoàn lại. */
+export async function deleteBeanSlip(id: number): Promise<any> {
+  return postJSON(`/api/beans/slips/${id}/delete`, {});
+}
+export async function createBean(name: string, unit = "kg", note = ""): Promise<Bean> {
+  return (await postJSON("/api/beans/items", { name, unit, note })).bean;
+}
+export async function updateBean(id: number, body: { name?: string; unit?: string; note?: string }): Promise<Bean> {
+  return (await postJSON(`/api/beans/items/${id}`, body)).bean;
+}
+export async function deleteBean(id: number): Promise<any> {
+  return delJSON(`/api/beans/items/${id}`);
+}
+export async function createBeanPlace(name: string, note = ""): Promise<BeanPlace> {
+  return (await postJSON("/api/beans/places", { name, note })).place;
+}
+export async function updateBeanPlace(id: number, body: { name?: string; note?: string }): Promise<BeanPlace> {
+  return (await postJSON(`/api/beans/places/${id}`, body)).place;
+}
+export async function deleteBeanPlace(id: number): Promise<any> {
+  return delJSON(`/api/beans/places/${id}`);
+}
+
 /** Feed đơn + thanh toán của 1 khách, gộp 1 dòng thời gian (trang chi tiết khách). */
 export async function getCustomerFeed(key: string, page = 1): Promise<{ items: CustFeedItem[]; page: number; total_pages: number; total: number }> {
   const d = await getJSON(`/api/customers/${encodeURIComponent(key)}/feed?page=${page}`, { cache: false });

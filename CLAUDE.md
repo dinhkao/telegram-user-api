@@ -668,6 +668,28 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `disposal_routes.py` (`/api/disposals*`); realtime `disposal_changed`; media scope
   `disposal`. UI: `#/xuat-huy` (DisposalsList) → `#/xuat-huy/:id` (DisposalDetail).
   Tests: `tests/test_disposal_store.py`, `tests/test_return_goods.py`.
+- **`bean_store/` — KHO ĐẬU (2026-08-10, app.db 100% local, HỆ KHO RIÊNG).** Tách
+  HẲN kho hàng hoá (`inventory_store`): hàng hoá riêng, vị trí riêng, phiếu riêng —
+  không dùng chung `products`/`inventory_boxes`/`inventory_places` và KHÔNG đụng
+  `inventory_changed`. 4 bảng: `bean_places` (Kho A/B…) · `beans` (danh mục đậu,
+  cột `unit` kg/bao…) · `bean_slips` (kind `nhap`|`xuat`|`dieu_chinh`, 1 kho/phiếu)
+  + `bean_moves` (1 dòng = 1 loại đậu trong phiếu). **KHÔNG có bảng tồn** — tồn =
+  `SUM(delta)` các dòng của phiếu CÒN SỐNG (`stock.py`), nên xoá mềm phiếu là tồn tự
+  đúng, khỏi bút toán hoàn. Luật dấu ở `domain.delta_for`: nhập `+q` · xuất `−q` ·
+  **điều chỉnh: `quantity` là SỐ ĐẾM THỰC TẾ, delta = đếm − tồn** (đừng nhập chênh
+  lệch vào đó). Guard tồn âm ở CẢ 2 chiều: tạo phiếu xuất/điều chỉnh quá tồn bị chặn,
+  xoá phiếu mà làm tồn âm cũng bị chặn. Trùng tên đậu/kho so bằng Python `.lower()`
+  chứ KHÔNG `COLLATE NOCASE` (SQLite chỉ fold ASCII → "Đậu xanh" vs "đậu xanh" lọt).
+  DDL ensure per-module (`schema.py`, gọi từ route — KHÔNG qua db_migrate).
+  API `server_app/bean_routes.py` (dashboard tồn + danh mục + kho) và
+  `bean_slip_routes.py` (phiếu): tạo phiếu/danh mục = MỌI user đăng nhập, sửa tên =
+  văn phòng, xoá = admin (xoá mềm, chặn khi còn phiếu). Realtime `bean_changed`;
+  audit scope `bean` (`bean.slip_nhap/xuat/dieu_chinh`, `bean.item_*`, `bean.place_*`).
+  UI: `#/kho-dau` (BeanBoard — tồn xem theo LOẠI ĐẬU hoặc theo KHO, cùng dữ liệu đổi
+  trục) · `#/kho-dau/phieu` (BeanSlips) → `#/kho-dau/phieu/:id` (BeanSlipDetail) ·
+  `#/kho-dau/tao?kind=` (BeanSlipCreate) · `#/kho-dau/thiet-lap` (BeanSetup). ⚠ Route
+  `#/kho-dau` phải đứng TRƯỚC nhánh `#/kho` trong `main.tsx` (startsWith nuốt). Guide:
+  `webapp/src/guides/data_dau.ts`. Tests: `tests/test_bean_store.py`.
 - `area_store/` — KHU VỰC XƯỞNG (`workshop_areas`) + BÁO CÁO VỆ SINH hằng ngày
   (`area_hygiene_reports`), app.db 100% local. Nhân viên chụp ảnh báo cáo vệ sinh
   từng khu vực mỗi ngày; dashboard cho biết khu nào đã/chưa báo cáo hôm nay. Ảnh

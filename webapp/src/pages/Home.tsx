@@ -38,6 +38,15 @@ const GROUPS: Group[] = [
     { label: "Vị trí kho", href: "#/vi-tri", icon: "box" },
     { label: "Số thùng", href: "#/so-thung", icon: "grid" },
   ] },
+  // Kho ĐẬU = hệ kho RIÊNG (hàng hoá riêng, vị trí riêng, phiếu riêng) — cố ý
+  // tách nhóm để không lẫn với kho hàng hoá ở trên.
+  { title: "Kho đậu", icon: "box", items: [
+    { label: "Tồn kho đậu", href: "#/kho-dau", icon: "box" },
+    { label: "Phiếu kho đậu", href: "#/kho-dau/phieu", icon: "receipt" },
+    { label: "Nhập đậu", href: "#/kho-dau/tao?kind=nhap", icon: "plus" },
+    { label: "Xuất đậu", href: "#/kho-dau/tao?kind=xuat", icon: "truck" },
+    { label: "Thiết lập kho đậu", href: "#/kho-dau/thiet-lap", icon: "settings" },
+  ] },
   { title: "Sản xuất", icon: "factory", items: [
     { label: "Phiếu sản xuất", href: "#/san_xuat", icon: "factory" },
     { label: "Dashboard SX", href: "#/sx-bang", icon: "chart" },

@@ -4265,3 +4265,72 @@ body.has-nop .wp-thead-bar { top: 72px; }
 /* CHỮ IN TRÊN PHIẾU của khoản phụ cấp — hiện ở dòng khoản (panel + trang nhập) để
    đối chiếu với phiếu phát cho thợ; rỗng thì phiếu in nội dung khoản như cũ. */
 .ua-print-note { margin-top: 2px; color: var(--primary); font-size: .74rem; }
+
+/* ─── KHO ĐẬU (#/kho-dau) — hệ kho RIÊNG, dùng lại .btn/.chips/.seg/.ie-head sẵn có,
+   chỉ thêm phần đặc thù: thẻ tồn, dòng phiếu, form tạo phiếu. */
+.bean-actions { display: flex; gap: 6px; margin: 8px 0; }
+.bean-actions .btn { flex: 1; justify-content: center; }
+.bean-hint { background: var(--accent-wash); border-radius: var(--r-md); padding: 10px 12px;
+  font-size: .84rem; margin-bottom: 8px; }
+.bean-hint-foot { margin-top: 12px; }
+.bean-total { display: flex; align-items: baseline; justify-content: space-between;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md);
+  padding: 8px 12px; box-shadow: var(--e1); margin-bottom: 8px; }
+.bean-total b { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.bean-seg { margin-bottom: 8px; }
+.bean-card { display: flex; align-items: center; gap: 10px; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px 12px;
+  box-shadow: var(--e1); margin-bottom: 6px; }
+.bean-card-main { flex: 1; min-width: 0; }
+.bean-card-name { font-weight: 700; }
+.bean-card-sub { margin-top: 2px; overflow-wrap: anywhere; }
+.bean-card-stat { text-align: right; white-space: nowrap; }
+.bean-qty { display: block; font-size: 1.1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.bean-qty.zero { color: var(--muted); font-weight: 600; }
+.bean-more { width: 100%; justify-content: center; margin-top: 10px; }
+
+/* Danh sách phiếu — viền trái theo loại (nhập xanh lá / xuất đỏ / điều chỉnh vàng) */
+.bean-slip-card { display: block; background: var(--card); border: 1px solid var(--border);
+  border-left: 3px solid var(--muted); border-radius: var(--r-md); padding: 8px 10px;
+  margin-bottom: 6px; box-shadow: var(--e1); color: inherit; text-decoration: none; }
+.bean-slip-card.k-nhap { border-left-color: var(--ok); }
+.bean-slip-card.k-xuat { border-left-color: var(--danger); }
+.bean-slip-card.k-dieu_chinh { border-left-color: #b06000; }
+.bean-slip-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bean-slip-kind { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: .88rem; }
+.bean-slip-amt { font-weight: 800; font-variant-numeric: tabular-nums; }
+.bean-slip-sub, .bean-slip-note { margin-top: 2px; overflow-wrap: anywhere; }
+
+/* Form tạo phiếu + thiết lập danh mục */
+.bean-form-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.bean-lbl { width: 5.5em; flex: none; color: var(--muted); font-size: .82rem; }
+.bean-in { flex: 1; min-width: 0; padding: 9px 10px; border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--card); font-size: .95rem; }
+.bean-unit-in { flex: 0 0 5.5em; }
+.bean-line { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md);
+  padding: 8px; margin-bottom: 6px; }
+.bean-line-top { display: flex; align-items: center; gap: 6px; }
+.bean-line-top > :first-child { flex: 1; min-width: 0; }
+.bean-qty-in { flex: 0 0 7.5em; padding: 9px 10px; border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--card); font-size: .95rem; text-align: right; }
+.bean-line-sub { margin-top: 4px; }
+.bean-submit { width: 100%; justify-content: center; margin-top: 12px; padding: 12px; font-weight: 700; }
+.bean-add { gap: 6px; margin-bottom: 8px; }
+.bean-row { display: flex; align-items: center; gap: 6px; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--r-md); padding: 8px 10px; margin-bottom: 6px; }
+.bean-row-main { flex: 1; min-width: 0; }
+.bean-row-name { font-weight: 700; display: flex; align-items: center; gap: 4px; }
+.bean-link { background: none; border: none; padding: 0; color: var(--primary);
+  font: inherit; cursor: pointer; text-decoration: underline; }
+
+/* Bảng dòng phiếu ở trang chi tiết */
+.bean-meta { margin-bottom: 6px; }
+.bean-note { background: var(--card2); border-radius: var(--r-sm); padding: 6px 10px;
+  font-size: .86rem; margin-bottom: 8px; }
+.bean-table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; font-size: .88rem; }
+.bean-table th, .bean-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+.bean-table th { background: var(--bg); color: var(--muted); font-size: .72rem;
+  text-transform: uppercase; letter-spacing: .03em; }
+.bean-table .num, .bean-table td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bean-table tr:last-child td { border-bottom: none; }
