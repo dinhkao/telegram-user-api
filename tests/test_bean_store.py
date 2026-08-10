@@ -181,6 +181,171 @@ class BeanStoreTest(unittest.TestCase):
         self.assertEqual(bean_store.stock_by_bean(self.conn)[self.xanh["id"]], 120)
 
 
+class BeanUnitTest(unittest.TestCase):
+    """QUY ĐỔI ĐƠN VỊ: mọi số trong DB theo đơn vị GỐC, snapshot giữ cách người gõ."""
+
+    def setUp(self):
+        fd, self.path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        self.conn = get_connection(self.path)
+        bean_store.ensure_tables(self.conn)
+        self.kho, _ = bean_store.add_place(self.conn, "Kho A", by="duy")
+        self.xanh, _ = bean_store.add_bean(self.conn, "Đậu xanh", unit="kg", by="duy")
+        self.bao, _ = bean_store.add_unit(self.conn, self.xanh["id"], "bao", 50, "kg", by="duy")
+
+    def tearDown(self):
+        self.conn.close()
+        os.unlink(self.path)
+
+    def test_add_validate(self):
+        _, err = bean_store.add_unit(self.conn, self.xanh["id"], "  ", 10, "kg")
+        self.assertIn("tên", err.lower())
+        _, err = bean_store.add_unit(self.conn, self.xanh["id"], "tạ", 0, "kg")
+        self.assertIn("lớn hơn 0", err)
+        _, err = bean_store.add_unit(self.conn, self.xanh["id"], "tạ", "abc", "kg")
+        self.assertIn("không hợp lệ", err)
+        _, err = bean_store.add_unit(self.conn, self.xanh["id"], "kg", 2, "kg")
+        self.assertIn("đơn vị gốc", err)
+        # trùng tên (bỏ dấu, không phân biệt hoa thường)
+        _, err = bean_store.add_unit(self.conn, self.xanh["id"], "BAO", 25, "kg")
+        self.assertIn("đã có", err)
+        # tỉ lệ gõ kiểu Việt
+        u, err = bean_store.add_unit(self.conn, self.xanh["id"], "lon", "0,5", "kg")
+        self.assertIsNone(err)
+        self.assertEqual(u["factor"], 0.5)
+
+    def test_units_list_and_update_delete(self):
+        units = bean_store.list_units(self.conn, self.xanh["id"])
+        self.assertEqual([u["name"] for u in units], ["bao"])
+        upd, err = bean_store.update_unit(self.conn, self.bao["id"], name="bao lớn",
+                                          factor=60, base_unit="kg")
+        self.assertIsNone(err)
+        self.assertEqual((upd["name"], upd["factor"]), ("bao lớn", 60))
+        by_bean = bean_store.units_by_bean(self.conn)
+        self.assertEqual(by_bean[self.xanh["id"]][0]["factor"], 60)
+        gone, err = bean_store.delete_unit(self.conn, self.bao["id"])
+        self.assertIsNone(err)
+        self.assertEqual(gone["name"], "bao lớn")
+        self.assertEqual(bean_store.list_units(self.conn, self.xanh["id"]), [])
+
+    def test_resolve_unit(self):
+        self.assertEqual(bean_store.resolve_unit(self.conn, self.xanh["id"], None), ("", 1.0, None))
+        self.assertEqual(bean_store.resolve_unit(self.conn, self.xanh["id"], 0), ("", 1.0, None))
+        self.assertEqual(bean_store.resolve_unit(self.conn, self.xanh["id"], self.bao["id"]),
+                         ("bao", 50.0, None))
+        other, _ = bean_store.add_bean(self.conn, "Đậu đỏ", by="duy")
+        _, _, err = bean_store.resolve_unit(self.conn, other["id"], self.bao["id"])
+        self.assertIn("không thuộc", err)
+
+    def test_slip_converts_to_base_unit(self):
+        slip, err = bean_store.create_slip(
+            self.conn, "nhap", self.kho["id"],
+            [{"bean_id": self.xanh["id"], "quantity": 2, "unit_id": self.bao["id"]}], by="duy")
+        self.assertIsNone(err)
+        it = slip["items"][0]
+        self.assertEqual(it["quantity"], 100)      # 2 bao × 50 = 100 kg (đơn vị gốc)
+        self.assertEqual(it["delta"], 100)
+        self.assertEqual(it["entered_qty"], 2)     # snapshot: người dùng gõ "2 bao"
+        self.assertEqual(it["entered_unit"], "bao")
+        self.assertTrue(it["converted"])
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho["id"]), 100)
+
+        # xuất bằng đơn vị gốc trên cùng tồn đó
+        out, err = bean_store.create_slip(
+            self.conn, "xuat", self.kho["id"],
+            [{"bean_id": self.xanh["id"], "quantity": 30}], by="duy")
+        self.assertIsNone(err)
+        self.assertEqual(out["items"][0]["entered_unit"], "kg")   # rơi về đơn vị gốc
+        self.assertFalse(out["items"][0]["converted"])
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho["id"]), 70)
+
+    def test_xuat_theo_don_vi_phu_chan_theo_ton_goc(self):
+        bean_store.create_slip(self.conn, "nhap", self.kho["id"],
+                               [{"bean_id": self.xanh["id"], "quantity": 60}], by="duy")
+        # 2 bao = 100 kg > 60 kg đang có → chặn, báo lỗi nói CẢ 2 đơn vị
+        _, err = bean_store.create_slip(
+            self.conn, "xuat", self.kho["id"],
+            [{"bean_id": self.xanh["id"], "quantity": 2, "unit_id": self.bao["id"]}], by="duy")
+        self.assertIn("không đủ", err.lower())
+        self.assertIn("còn 60 kg", err)
+        self.assertIn("100 kg (2 bao)", err)
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho["id"]), 60)
+
+    def test_dieu_chinh_theo_don_vi_phu(self):
+        bean_store.create_slip(self.conn, "nhap", self.kho["id"],
+                               [{"bean_id": self.xanh["id"], "quantity": 120}], by="duy")
+        slip, err = bean_store.create_slip(
+            self.conn, "dieu_chinh", self.kho["id"],
+            [{"bean_id": self.xanh["id"], "quantity": 2, "unit_id": self.bao["id"]}], by="duy")
+        self.assertIsNone(err)
+        it = slip["items"][0]
+        self.assertEqual(it["quantity"], 100)   # đếm được 2 bao = 100 kg
+        self.assertEqual(it["before_qty"], 120)
+        self.assertEqual(it["delta"], -20)
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho["id"]), 100)
+
+    def test_unit_id_la_cua_dau_khac_bi_chan(self):
+        other, _ = bean_store.add_bean(self.conn, "Đậu đỏ", by="duy")
+        _, err = bean_store.create_slip(
+            self.conn, "nhap", self.kho["id"],
+            [{"bean_id": other["id"], "quantity": 1, "unit_id": self.bao["id"]}], by="duy")
+        self.assertIn("không thuộc", err)
+
+    def test_doi_ti_le_khong_tinh_lai_phieu_cu(self):
+        slip, _ = bean_store.create_slip(
+            self.conn, "nhap", self.kho["id"],
+            [{"bean_id": self.xanh["id"], "quantity": 2, "unit_id": self.bao["id"]}], by="duy")
+        bean_store.update_unit(self.conn, self.bao["id"], factor=70, base_unit="kg")
+        again = bean_store.get_slip(self.conn, slip["id"])
+        self.assertEqual(again["items"][0]["quantity"], 100)     # vẫn 100 kg như lúc nhập
+        self.assertEqual(again["items"][0]["unit_factor"], 50)   # snapshot hệ số cũ
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho["id"]), 100)
+
+    def test_db_cu_thieu_cot_duoc_va_tai_cho(self):
+        """DB tạo bởi bản TRƯỚC khi có quy đổi đơn vị (bean_moves thiếu 3 cột
+        snapshot) — ensure_tables phải ALTER thêm, dòng cũ vẫn đọc được."""
+        fd, path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        conn = get_connection(path)
+        try:
+            conn.execute("""CREATE TABLE bean_moves (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, slip_id INTEGER NOT NULL,
+                bean_id INTEGER NOT NULL, place_id INTEGER NOT NULL, delta REAL NOT NULL,
+                quantity REAL NOT NULL, before_qty REAL, note TEXT DEFAULT '')""")
+            bean_store.ensure_tables(conn)
+            cols = {r["name"] for r in conn.execute("PRAGMA table_info(bean_moves)").fetchall()}
+            self.assertTrue({"entered_qty", "unit_name", "unit_factor"} <= cols)
+
+            place, _ = bean_store.add_place(conn, "Kho A", by="duy")
+            bean, _ = bean_store.add_bean(conn, "Đậu xanh", by="duy")
+            # dòng kiểu CŨ: không có snapshot đơn vị
+            conn.execute("INSERT INTO bean_slips (kind, place_id, ymd, created_at) "
+                         "VALUES ('nhap', ?, '2026-08-09', '2026-08-09T00:00:00+00:00')",
+                         (place["id"],))
+            conn.execute("INSERT INTO bean_moves (slip_id, bean_id, place_id, delta, quantity) "
+                         "VALUES (1, ?, ?, 40, 40)", (bean["id"], place["id"]))
+            slip = bean_store.get_slip(conn, 1)
+            it = slip["items"][0]
+            self.assertEqual(it["entered_qty"], 40)      # suy về chính số đã ghi
+            self.assertEqual(it["entered_unit"], "kg")   # đơn vị gốc
+            self.assertEqual(it["unit_factor"], 1)
+            self.assertFalse(it["converted"])
+            self.assertEqual(bean_store.stock_of(conn, bean["id"], place["id"]), 40)
+        finally:
+            conn.close()
+            os.unlink(path)
+
+    def test_xoa_don_vi_khong_lam_hong_phieu_cu(self):
+        slip, _ = bean_store.create_slip(
+            self.conn, "nhap", self.kho["id"],
+            [{"bean_id": self.xanh["id"], "quantity": 3, "unit_id": self.bao["id"]}], by="duy")
+        bean_store.delete_unit(self.conn, self.bao["id"])
+        again = bean_store.get_slip(self.conn, slip["id"])
+        self.assertEqual(again["items"][0]["quantity"], 150)
+        self.assertEqual(again["items"][0]["entered_unit"], "bao")
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho["id"]), 150)
+
+
 class BeanDomainTest(unittest.TestCase):
     def test_parse_qty(self):
         self.assertEqual(domain.parse_qty("12,5"), 12.5)

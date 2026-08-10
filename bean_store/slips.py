@@ -13,6 +13,7 @@ from utils.db import transaction
 from .catalog import get_bean, get_place
 from .domain import KINDS, delta_for, fmt_qty, parse_qty, round_qty, today_vn
 from .stock import stock_of
+from .units import resolve_unit, to_base
 
 
 def _now() -> str:
@@ -20,7 +21,11 @@ def _now() -> str:
 
 
 def _clean_items(conn, kind: str, items) -> tuple[list[dict], str | None]:
-    """Chuẩn hoá dòng phiếu: bean có thật, số hợp lệ, không trùng loại đậu."""
+    """Chuẩn hoá dòng phiếu: bean có thật, số hợp lệ, không trùng loại đậu.
+
+    `unit_id` (tuỳ chọn) = đơn vị quy đổi người dùng chọn — số gõ vào được ĐỔI VỀ
+    ĐƠN VỊ GỐC ngay ở đây (`quantity`), số gõ giữ lại ở `entered_qty` để in lại.
+    """
     if not isinstance(items, (list, tuple)) or not items:
         return [], "Phiếu cần ít nhất 1 dòng đậu"
     out: list[dict] = []
@@ -45,8 +50,14 @@ def _clean_items(conn, kind: str, items) -> tuple[list[dict], str | None]:
             return [], f'Số lượng của "{bean["name"]}" không được âm'
         if qty == 0 and kind != "dieu_chinh":
             return [], f'Số lượng của "{bean["name"]}" phải lớn hơn 0'
+        unit_name, factor, uerr = resolve_unit(conn, bean_id, raw.get("unit_id"))
+        if uerr:
+            return [], f'{uerr} ("{bean["name"]}")'
         out.append({"bean_id": bean_id, "bean_name": bean["name"],
-                    "quantity": qty, "note": str(raw.get("note") or "").strip()})
+                    "base_unit": bean["unit"] or "",
+                    "quantity": to_base(qty, factor),   # DB luôn theo đơn vị GỐC
+                    "entered_qty": qty, "unit_name": unit_name, "unit_factor": factor,
+                    "note": str(raw.get("note") or "").strip()})
     return out, None
 
 
@@ -78,8 +89,14 @@ def create_slip(conn, kind: str, place_id, items, *, partner: str = "", note: st
             delta = delta_for(kind, it["quantity"], before)
             after = round_qty(before + delta)
             if after < 0:
-                return None, (f'Kho không đủ "{it["bean_name"]}": còn {fmt_qty(before)}, '
-                              f'xuất {fmt_qty(it["quantity"])}')
+                # Nói bằng ĐƠN VỊ GỐC (tồn tính theo nó), kèm cách người dùng đã gõ
+                # nếu có quy đổi — "cần 150 kg (3 bao)" dễ hiểu hơn số trần trụi.
+                bu = f' {it["base_unit"]}' if it["base_unit"] else ""
+                asked = f'{fmt_qty(it["quantity"])}{bu}'
+                if it["unit_name"]:
+                    asked += f' ({fmt_qty(it["entered_qty"])} {it["unit_name"]})'
+                return None, (f'Kho không đủ "{it["bean_name"]}": còn {fmt_qty(before)}{bu}, '
+                              f'cần {asked}')
             moves.append({**it, "delta": delta, "before": before})
 
         cur = conn.execute(
@@ -92,11 +109,26 @@ def create_slip(conn, kind: str, place_id, items, *, partner: str = "", note: st
         for m in moves:
             conn.execute(
                 "INSERT INTO bean_moves (slip_id, bean_id, place_id, delta, quantity, "
-                "before_qty, note) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (slip_id, m["bean_id"], place_id, m["delta"], m["quantity"],
-                 m["before"], m["note"]),
+                "before_qty, entered_qty, unit_name, unit_factor, note) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (slip_id, m["bean_id"], place_id, m["delta"], m["quantity"], m["before"],
+                 m["entered_qty"], m["unit_name"], m["unit_factor"], m["note"]),
             )
     return get_slip(conn, slip_id), None
+
+
+def _item_row(it: dict) -> dict:
+    """Dòng phiếu cho người đọc: `unit` = đơn vị GỐC (mọi số quantity/delta theo nó),
+    `entered_qty` + `entered_unit` = đúng thứ người dùng đã gõ. Dòng CŨ (trước khi có
+    quy đổi đơn vị) không có snapshot → coi như gõ thẳng bằng đơn vị gốc."""
+    factor = float(it.get("unit_factor") or 1) or 1
+    entered = it.get("entered_qty")
+    it["unit_factor"] = factor
+    it["entered_qty"] = round_qty(entered if entered is not None else it.get("quantity") or 0)
+    it["unit_name"] = it.get("unit_name") or ""
+    it["entered_unit"] = it["unit_name"] or (it.get("unit") or "")
+    it["converted"] = bool(it["unit_name"]) and factor != 1
+    return it
 
 
 def get_slip(conn, slip_id) -> dict | None:
@@ -113,7 +145,7 @@ def get_slip(conn, slip_id) -> dict | None:
         "SELECT m.*, b.name AS bean_name, b.unit AS unit FROM bean_moves m "
         "LEFT JOIN beans b ON b.id = m.bean_id WHERE m.slip_id = ? ORDER BY m.id", (slip_id,)
     ).fetchall()
-    slip["items"] = [dict(i) for i in items]
+    slip["items"] = [_item_row(dict(i)) for i in items]
     slip["total_quantity"] = round_qty(sum(abs(float(i["delta"] or 0)) for i in slip["items"]))
     return slip
 

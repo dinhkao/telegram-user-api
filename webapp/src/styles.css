@@ -4334,3 +4334,17 @@ body.has-nop .wp-thead-bar { top: 72px; }
   text-transform: uppercase; letter-spacing: .03em; }
 .bean-table .num, .bean-table td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .bean-table tr:last-child td { border-bottom: none; }
+
+/* Quy đổi đơn vị của loại đậu (detail/BeanUnits + ô chọn đơn vị khi tạo phiếu) */
+.bean-row-wrap { margin-bottom: 6px; }
+.bean-row-wrap .bean-row { margin-bottom: 0; }
+.bean-units { border: 1px solid var(--border); border-top: none; background: var(--card2);
+  border-radius: 0 0 var(--r-md) var(--r-md); padding: 8px 10px; }
+.bean-units-base { margin-bottom: 6px; }
+.bean-unit-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+.bean-unit-txt { flex: 1; min-width: 0; font-size: .9rem; }
+.bean-unit-add { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.bean-unit-add .bean-in { flex: 1; min-width: 0; }
+.bean-unit-pick { flex: 0 0 6.5em; min-width: 0; }
+.bean-unit-fixed { flex: 0 0 auto; }
+.bean-conv { color: var(--primary); }

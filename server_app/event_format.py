@@ -329,7 +329,16 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
             "bean.slip_xuat": "Phiếu XUẤT kho đậu",
             "bean.slip_dieu_chinh": "Phiếu ĐIỀU CHỈNH kho đậu",
             "bean.slip_deleted": "Xoá phiếu kho đậu",
+            "bean.unit_created": "Thêm đơn vị quy đổi (đậu)",
+            "bean.unit_updated": "Sửa đơn vị quy đổi (đậu)",
+            "bean.unit_deleted": "Xoá đơn vị quy đổi (đậu)",
         }
+        if action.startswith("bean.unit_"):
+            label = _bean_labels[action]
+            seg = [part(str(p.get("bean_name") or ""))]
+            if p.get("unit_name"):
+                seg.append(part(f"1 {p['unit_name']} = {p.get('factor')} {p.get('base_unit') or ''}".strip()))
+            return label, seg
         label = _bean_labels.get(action)
         if label and action.startswith("bean.slip_"):
             sid = p.get("slip_id")

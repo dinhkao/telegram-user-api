@@ -487,6 +487,14 @@ def create_app():
     r.add_get("/api/beans/slips/{id}", bean_slip_detail_handler)
     r.add_post("/api/beans/slips/{id}/delete", bean_slip_delete_handler)   # admin
     r.add_post("/api/beans/items", bean_create_handler)             # mọi user thêm loại đậu
+    # Đơn vị quy đổi ĐẶT TRƯỚC "/api/beans/items/{id}" (POST) để không bị nuốt
+    from server_app.bean_unit_routes import (bean_unit_add_handler,
+                                             bean_unit_delete_handler,
+                                             bean_unit_update_handler, bean_units_handler)
+    r.add_get("/api/beans/items/{id}/units", bean_units_handler)
+    r.add_post("/api/beans/items/{id}/units", bean_unit_add_handler)      # mọi user
+    r.add_post("/api/beans/items/{id}/units/{uid}", bean_unit_update_handler)   # văn phòng
+    r.add_delete("/api/beans/items/{id}/units/{uid}", bean_unit_delete_handler)  # admin
     r.add_post("/api/beans/items/{id}", bean_update_handler)        # văn phòng sửa
     r.add_delete("/api/beans/items/{id}", bean_delete_handler)      # admin xoá mềm
     r.add_post("/api/beans/places", bean_place_create_handler)      # mọi user thêm kho

@@ -6,6 +6,7 @@ import {
   createBean, createBeanPlace, currentUser, deleteBean, deleteBeanPlace, getBeanBoard,
   isOffice, soVN, updateBean, updateBeanPlace, type BeanBoardData,
 } from "../api";
+import { BeanUnits } from "../detail/BeanUnits";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
@@ -19,6 +20,7 @@ export function BeanSetup() {
   const [newBean, setNewBean] = useState("");
   const [newUnit, setNewUnit] = useState("kg");
   const [busy, setBusy] = useState(false);
+  const [openUnits, setOpenUnits] = useState<number | null>(null);   // loại đậu đang mở khối quy đổi
   const office = isOffice();
   const admin = currentUser()?.role === "admin";
 
@@ -124,24 +126,31 @@ export function BeanSetup() {
       </div>
       {!data.beans.length && <p class="muted small">Chưa có loại đậu nào.</p>}
       {data.beans.map((b) => (
-        <div class="bean-row" key={b.id}>
-          <div class="bean-row-main">
-            <div class="bean-row-name">{b.name}</div>
-            <div class="muted small">
-              tồn {soVN(beanTotal(b.id))} ·{" "}
-              {office
-                ? <button class="bean-link" onClick={() => editUnit(b.id, b.unit)}>đơn vị: {b.unit}</button>
-                : <>đơn vị: {b.unit}</>}
+        <div class="bean-row-wrap" key={b.id}>
+          <div class="bean-row">
+            <div class="bean-row-main">
+              <div class="bean-row-name">{b.name}</div>
+              <div class="muted small">
+                tồn {soVN(beanTotal(b.id))} ·{" "}
+                {office
+                  ? <button class="bean-link" onClick={() => editUnit(b.id, b.unit)}>đơn vị: {b.unit}</button>
+                  : <>đơn vị: {b.unit}</>}
+              </div>
             </div>
+            <button class={"btn small" + (openUnits === b.id ? " primary" : "")}
+              title="Quy đổi đơn vị" onClick={() => setOpenUnits(openUnits === b.id ? null : b.id)}>
+              ⇄ {(b.units || []).length || ""}
+            </button>
+            {office && (
+              <button class="btn small" title="Đổi tên" disabled={busy}
+                onClick={() => renameBean(b.id, b.name, b.unit)}><Icon name="edit" size={14} /></button>
+            )}
+            {admin && (
+              <button class="btn small danger" title="Xoá" disabled={busy}
+                onClick={() => delBean(b.id, b.name)}><Icon name="trash" size={14} /></button>
+            )}
           </div>
-          {office && (
-            <button class="btn small" title="Đổi tên" disabled={busy}
-              onClick={() => renameBean(b.id, b.name, b.unit)}><Icon name="edit" size={14} /></button>
-          )}
-          {admin && (
-            <button class="btn small danger" title="Xoá" disabled={busy}
-              onClick={() => delBean(b.id, b.name)}><Icon name="trash" size={14} /></button>
-          )}
+          {openUnits === b.id && <BeanUnits bean={b} onChanged={load} />}
         </div>
       ))}
 

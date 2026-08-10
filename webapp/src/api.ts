@@ -709,16 +709,24 @@ export async function deleteQualityReport(rid: number): Promise<any> {
 }
 
 // ── KHO ĐẬU (hệ kho RIÊNG, không dính kho hàng hoá) — /api/beans ─────────────
-export type Bean = { id: number; name: string; unit: string; note: string; created_at: string; created_by: string };
+/** Đơn vị QUY ĐỔI của 1 loại đậu: 1 <name> = <factor> đơn vị GỐC (beans.unit). */
+export type BeanUnit = { id: number; bean_id: number; name: string; factor: number; note: string };
+export type Bean = { id: number; name: string; unit: string; note: string; created_at: string; created_by: string; units?: BeanUnit[] };
 export type BeanPlace = { id: number; name: string; note: string; created_at: string; created_by: string };
 export type BeanSlipKind = "nhap" | "xuat" | "dieu_chinh";
 export type BeanSlipItem = {
-  id: number; bean_id: number; bean_name: string; unit: string;
+  id: number; bean_id: number; bean_name: string;
+  /** Đơn vị GỐC của loại đậu — mọi số dưới đây tính theo nó. */
+  unit: string;
   /** Số CỘNG vào tồn: +nhập / −xuất / ±điều chỉnh. */
   delta: number;
-  /** Số ghi trên phiếu (điều chỉnh: SỐ ĐẾM THỰC TẾ). */
+  /** Số ghi trên phiếu (điều chỉnh: SỐ ĐẾM THỰC TẾ), theo đơn vị GỐC. */
   quantity: number;
   before_qty: number | null; note: string;
+  /** Snapshot cách người dùng đã gõ: số + đơn vị đã chọn lúc tạo phiếu. */
+  entered_qty: number; entered_unit: string; unit_name: string; unit_factor: number;
+  /** true = đã quy đổi (gõ bằng đơn vị phụ), false = gõ thẳng đơn vị gốc. */
+  converted: boolean;
 };
 export type BeanSlip = {
   id: number; kind: BeanSlipKind; place_id: number; place_name: string;
@@ -762,9 +770,11 @@ export async function getBeanSlip(id: string | number): Promise<BeanSlip> {
   const d = await getJSON(`/api/beans/slips/${id}`, { cache: false });
   return d.slip;
 }
-/** Tạo phiếu (mọi user). Điều chỉnh: quantity mỗi dòng = SỐ ĐẾM THỰC TẾ. */
+/** Tạo phiếu (mọi user). Điều chỉnh: quantity mỗi dòng = SỐ ĐẾM THỰC TẾ.
+ *  `unit_id` = đơn vị quy đổi đã chọn (bỏ trống = đơn vị gốc); server tự quy về gốc. */
 export async function createBeanSlip(body: {
-  kind: BeanSlipKind; place_id: number; items: { bean_id: number; quantity: number; note?: string }[];
+  kind: BeanSlipKind; place_id: number;
+  items: { bean_id: number; quantity: number; unit_id?: number | null; note?: string }[];
   partner?: string; note?: string; ymd?: string;
 }): Promise<BeanSlip> {
   const d = await postJSON("/api/beans/slips", body);
@@ -791,6 +801,23 @@ export async function updateBeanPlace(id: number, body: { name?: string; note?: 
 }
 export async function deleteBeanPlace(id: number): Promise<any> {
   return delJSON(`/api/beans/places/${id}`);
+}
+/** Đơn vị quy đổi của 1 loại đậu (không gồm đơn vị gốc). */
+export async function listBeanUnits(beanId: number): Promise<{ base_unit: string; units: BeanUnit[] }> {
+  const d = await getJSON(`/api/beans/items/${beanId}/units`, { cache: false });
+  return { base_unit: d.base_unit || "", units: d.units || [] };
+}
+/** Thêm đơn vị quy đổi (mọi user): 1 <name> = <factor> đơn vị gốc. */
+export async function addBeanUnit(beanId: number, name: string, factor: number | string): Promise<BeanUnit> {
+  return (await postJSON(`/api/beans/items/${beanId}/units`, { name, factor })).unit;
+}
+/** Sửa tên/tỉ lệ đơn vị (văn phòng). KHÔNG tính lại phiếu cũ — phiếu giữ hệ số lúc nhập. */
+export async function updateBeanUnit(beanId: number, unitId: number, body: { name?: string; factor?: number | string }): Promise<BeanUnit> {
+  return (await postJSON(`/api/beans/items/${beanId}/units/${unitId}`, body)).unit;
+}
+/** Xoá đơn vị quy đổi (admin). Phiếu cũ không hỏng (đã lưu snapshot). */
+export async function deleteBeanUnit(beanId: number, unitId: number): Promise<any> {
+  return delJSON(`/api/beans/items/${beanId}/units/${unitId}`);
 }
 
 /** Feed đơn + thanh toán của 1 khách, gộp 1 dòng thời gian (trang chi tiết khách). */

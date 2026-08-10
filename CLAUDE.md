@@ -671,23 +671,38 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 - **`bean_store/` — KHO ĐẬU (2026-08-10, app.db 100% local, HỆ KHO RIÊNG).** Tách
   HẲN kho hàng hoá (`inventory_store`): hàng hoá riêng, vị trí riêng, phiếu riêng —
   không dùng chung `products`/`inventory_boxes`/`inventory_places` và KHÔNG đụng
-  `inventory_changed`. 4 bảng: `bean_places` (Kho A/B…) · `beans` (danh mục đậu,
-  cột `unit` kg/bao…) · `bean_slips` (kind `nhap`|`xuat`|`dieu_chinh`, 1 kho/phiếu)
-  + `bean_moves` (1 dòng = 1 loại đậu trong phiếu). **KHÔNG có bảng tồn** — tồn =
+  `inventory_changed`. 5 bảng: `bean_places` (Kho A/B…) · `beans` (danh mục đậu,
+  cột `unit` = ĐƠN VỊ GỐC kg/bao…) · **`bean_units`** (đơn vị quy đổi của từng loại
+  đậu: `factor` = 1 đơn vị này bằng bao nhiêu đơn vị GỐC) · `bean_slips` (kind
+  `nhap`|`xuat`|`dieu_chinh`, 1 kho/phiếu) + `bean_moves` (1 dòng = 1 loại đậu
+  trong phiếu). **KHÔNG có bảng tồn** — tồn =
   `SUM(delta)` các dòng của phiếu CÒN SỐNG (`stock.py`), nên xoá mềm phiếu là tồn tự
   đúng, khỏi bút toán hoàn. Luật dấu ở `domain.delta_for`: nhập `+q` · xuất `−q` ·
   **điều chỉnh: `quantity` là SỐ ĐẾM THỰC TẾ, delta = đếm − tồn** (đừng nhập chênh
   lệch vào đó). Guard tồn âm ở CẢ 2 chiều: tạo phiếu xuất/điều chỉnh quá tồn bị chặn,
   xoá phiếu mà làm tồn âm cũng bị chặn. Trùng tên đậu/kho so bằng Python `.lower()`
   chứ KHÔNG `COLLATE NOCASE` (SQLite chỉ fold ASCII → "Đậu xanh" vs "đậu xanh" lọt).
-  DDL ensure per-module (`schema.py`, gọi từ route — KHÔNG qua db_migrate).
-  API `server_app/bean_routes.py` (dashboard tồn + danh mục + kho) và
-  `bean_slip_routes.py` (phiếu): tạo phiếu/danh mục = MỌI user đăng nhập, sửa tên =
+  **QUY ĐỔI ĐƠN VỊ (`bean_store/units.py`)**: MỌI số trong DB (tồn/`delta`/`quantity`)
+  luôn theo ĐƠN VỊ GỐC; `unit_id` gửi lên lúc tạo phiếu chỉ là CÁCH GÕ — server quy
+  về gốc ngay (`to_base`) rồi lưu snapshot `bean_moves.entered_qty/unit_name/unit_factor`
+  để in lại đúng thứ đã nhập ("2 bao (100 kg)"). Hệ quả cố ý: **đổi tỉ lệ hay xoá đơn
+  vị KHÔNG tính lại phiếu cũ** (tồn quá khứ đứng yên). Guard tồn âm so bằng số GỐC nên
+  xuất "3 bao" khi chỉ còn 100 kg vẫn bị chặn. Tên đơn vị so bằng `vn_normalize`
+  (bỏ dấu, không phân biệt hoa thường), trùng đơn vị gốc bị chặn.
+  DDL ensure per-module (`schema.py`, gọi từ route — KHÔNG qua db_migrate); 3 cột
+  snapshot thêm sau nên `ensure_tables` tự `ALTER TABLE` bù cho DB tạo bởi bản trước.
+  API `server_app/bean_routes.py` (dashboard tồn + danh mục + kho; mỗi loại đậu trả
+  kèm `units`), `bean_slip_routes.py` (phiếu), `bean_unit_routes.py` (đơn vị quy đổi
+  — ⚠ route `/api/beans/items/{id}/units*` phải đăng ký TRƯỚC `POST /api/beans/items/{id}`):
+  tạo phiếu/danh mục/đơn vị = MỌI user đăng nhập, sửa tên/tỉ lệ =
   văn phòng, xoá = admin (xoá mềm, chặn khi còn phiếu). Realtime `bean_changed`;
-  audit scope `bean` (`bean.slip_nhap/xuat/dieu_chinh`, `bean.item_*`, `bean.place_*`).
+  audit scope `bean` (`bean.slip_nhap/xuat/dieu_chinh`, `bean.item_*`, `bean.place_*`,
+  `bean.unit_*`).
   UI: `#/kho-dau` (BeanBoard — tồn xem theo LOẠI ĐẬU hoặc theo KHO, cùng dữ liệu đổi
   trục) · `#/kho-dau/phieu` (BeanSlips) → `#/kho-dau/phieu/:id` (BeanSlipDetail) ·
-  `#/kho-dau/tao?kind=` (BeanSlipCreate) · `#/kho-dau/thiet-lap` (BeanSetup). ⚠ Route
+  `#/kho-dau/tao?kind=` (BeanSlipCreate — mỗi dòng có ô chọn đơn vị, hiện "= n <gốc>"
+  và tồn để đối chiếu) · `#/kho-dau/thiet-lap` (BeanSetup + `detail/BeanUnits.tsx`
+  khai quy đổi cho từng loại đậu). ⚠ Route
   `#/kho-dau` phải đứng TRƯỚC nhánh `#/kho` trong `main.tsx` (startsWith nuốt). Guide:
   `webapp/src/guides/data_dau.ts`. Tests: `tests/test_bean_store.py`.
 - `area_store/` — KHU VỰC XƯỞNG (`workshop_areas`) + BÁO CÁO VỆ SINH hằng ngày

@@ -80,7 +80,17 @@ export function BeanSlipDetail({ id }: { id: string }) {
                 {i.bean_name}
                 {i.note ? <div class="muted small">{i.note}</div> : null}
               </td>
-              <td class="num">{soVN(i.quantity)} <span class="muted small">{i.unit}</span></td>
+              <td class="num">
+                {/* Gõ bằng đơn vị quy đổi thì hiện ĐÚNG thứ đã gõ + số quy về đơn vị gốc */}
+                {i.converted ? (
+                  <>
+                    {soVN(i.entered_qty)} <span class="muted small">{i.entered_unit}</span>
+                    <div class="muted small">= {soVN(i.quantity)} {i.unit}</div>
+                  </>
+                ) : (
+                  <>{soVN(i.quantity)} <span class="muted small">{i.unit}</span></>
+                )}
+              </td>
               {isAdj && <td class="num muted">{i.before_qty == null ? "—" : soVN(i.before_qty)}</td>}
               <td class={"num " + (i.delta > 0 ? "t-ok" : i.delta < 0 ? "t-danger" : "muted")}>
                 {i.delta > 0 ? "+" : i.delta < 0 ? "−" : ""}{soVN(Math.abs(i.delta))}

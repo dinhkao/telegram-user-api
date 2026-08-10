@@ -22,6 +22,17 @@ export const GUIDES_DAU: Guide[] = [
         </ul>
         <p class="muted small">Thêm mới: ai đăng nhập cũng làm được. Đổi tên/đơn vị: văn phòng.
         Xoá: admin, và chỉ xoá được khi chưa dính phiếu nào.</p>` },
+      { title: "Quy đổi đơn vị (bao ↔ kg…)", html: `
+        <p>Mỗi loại đậu có <b>một đơn vị gốc</b> (khai lúc tạo, vd <i>kg</i>) — <b>mọi số
+        tồn kho đều tính theo đơn vị gốc</b>. Ngoài ra khai thêm bao nhiêu <b>đơn vị quy đổi</b>
+        cũng được: ở <a href="#/kho-dau/thiet-lap">Thiết lập</a> bấm nút <b>⇄</b> ở dòng loại đậu
+        rồi nhập <i>1 bao = 50 kg</i>.</p>
+        <p>Khi nhập/xuất, mỗi dòng có <b>ô chọn đơn vị</b> (chỉ hiện khi loại đậu đó có khai
+        quy đổi). Gõ "2 bao" thì ngay dưới hiện <b>= 100 kg</b> — số vào kho là 100 kg,
+        nhưng phiếu vẫn ghi nhớ là bạn đã nhập <i>2 bao</i>.</p>
+        <p class="muted small">Xuất cũng so theo đơn vị gốc: còn 100 kg mà xuất 3 bao (150 kg)
+        thì bị chặn. <b>Sửa tỉ lệ hay xoá đơn vị KHÔNG làm đổi phiếu cũ</b> — phiếu giữ nguyên
+        số đã quy đổi lúc nhập, nên tồn quá khứ không tự nhảy.</p>` },
       { title: "3 loại phiếu", html: `
         <ul>
           <li><b>Nhập kho</b> — đậu về kho. Số lượng <b>cộng</b> vào tồn.</li>

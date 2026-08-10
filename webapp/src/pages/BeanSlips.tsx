@@ -85,7 +85,10 @@ export function BeanSlips() {
               <div class="bean-slip-sub muted small">
                 {s.place_name}
                 {" · "}
-                {s.items.map((i) => `${i.bean_name} ${soVN(i.quantity)}${i.unit ? " " + i.unit : ""}`).join(", ")}
+                {/* Dòng gõ bằng đơn vị quy đổi hiện "2 bao (100 kg)" */}
+                {s.items.map((i) => (i.converted
+                  ? `${i.bean_name} ${soVN(i.entered_qty)} ${i.entered_unit} (${soVN(i.quantity)} ${i.unit})`
+                  : `${i.bean_name} ${soVN(i.quantity)}${i.unit ? " " + i.unit : ""}`)).join(", ")}
                 {s.partner ? ` · ${s.partner}` : ""}
                 {s.created_by ? ` · ${s.created_by}` : ""}
               </div>

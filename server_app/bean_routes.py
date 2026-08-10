@@ -1,9 +1,10 @@
 """HTTP KHO ĐẬU — danh mục + vị trí + dashboard tồn: /api/beans (100% local).
 
-GET /api/beans = dashboard tồn (bảng đậu × kho, đọc được theo đậu HOẶC theo kho) ·
-CRUD loại đậu (/api/beans/items*) và kho đậu (/api/beans/places*): tạo = mọi user
-đăng nhập, sửa = văn phòng, xoá = admin (xoá mềm, chặn khi còn phiếu).
-Phiếu nhập/xuất/điều chỉnh ở server_app/bean_slip_routes.py. Nối: bean_store,
+GET /api/beans = dashboard tồn (bảng đậu × kho, đọc được theo đậu HOẶC theo kho;
+mỗi loại đậu kèm `units` = đơn vị quy đổi) · CRUD loại đậu (/api/beans/items*) và
+kho đậu (/api/beans/places*): tạo = mọi user đăng nhập, sửa = văn phòng, xoá =
+admin (xoá mềm, chặn khi còn phiếu). Phiếu nhập/xuất/điều chỉnh ở
+server_app/bean_slip_routes.py, đơn vị quy đổi ở bean_unit_routes.py. Nối: bean_store,
 server_app.realtime, audit_log. Đăng ký ở app_factory.
 """
 from __future__ import annotations
@@ -83,6 +84,9 @@ async def beans_dashboard_handler(request: web.Request):
         conn = _conn()
         try:
             beans = bean_store.list_beans(conn)
+            units = bean_store.units_by_bean(conn)   # 1 query cho mọi loại đậu
+            for b in beans:
+                b["units"] = units.get(int(b["id"]), [])
             places = bean_store.list_places(conn)
             cells = bean_store.stock_cells(conn)
             table = domain.build_stock_table(beans, places, cells)
