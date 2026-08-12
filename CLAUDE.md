@@ -149,7 +149,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `order_store/last_prices.py`)** — thứ tự ưu tiên: **giá gõ tay trong text** >
   **giá khách đó đã mua lần gần nhất** > **bảng giá** (riêng đè chung) > 0.
   `last_order_prices(conn, kh_id)` quét 30 đơn gần nhất của khách (chưa xoá, sắp theo
-  `order_created` — dùng index `idx_orders_created_tid`), lấy giá > 0 của lần XUẤT HIỆN
+  `order_created`) — lọc qua **cột generated `cust_key`** (= coalesce khach_hang_id/khID)
+  + `idx_orders_cust_created`, xem `orders_db.ensure_orders_stats_columns`; viết thẳng
+  biểu thức `json_extract` là QUÉT TRỌN BẢNG (khách chưa mua bao giờ ~70ms CHẶN event
+  loop, mỗi 60s 1 lần lúc đang gõ). DB chưa có cột → tự rơi về biểu thức gốc, cùng kết
+  quả. Lấy giá > 0 của lần XUẤT HIỆN
   ĐẦU (đơn mới nhất thắng); khớp SP theo `sp_id` rồi tới mã + alias mã cũ → key là MÃ
   HIỆN HÀNH. Cache RAM 60s/khách (parse chạy mỗi lần gõ ở trang tạo đơn), `_save_order`
   bỏ cache của khách đó. Dùng bởi CẢ 2 parser (`free_text.parse_invoice_free_text`,
@@ -205,7 +209,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   the list-row shape (reused by realtime). Kept fast by SQLite VIRTUAL generated
   columns `has_customer` / `is_done` + partial indexes `idx_orders_stats` (chip
   counts) and `idx_orders_list` (default `created` sort — no temp-btree), added by
-  `orders_db.ensure_orders_stats_columns` (PG already has these). Search uses a
+  `orders_db.ensure_orders_stats_columns` (PG already has these). Cùng chỗ đó còn
+  `cust_key` + `idx_orders_cust_created` = đơn CỦA 1 KHÁCH mới-nhất-trước (cho
+  `order_store/last_prices.py` — xem mục giá mua lần gần nhất). Search uses a
   trigram FTS5 table (`orders_fts`); it + the indexes are **prewarmed in a
   background thread at startup** (`orders_db.prewarm_orders_indexes`) so the first
   search doesn't pay the ~460ms cold build. If you change the row shape or these
@@ -1148,6 +1154,17 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   khách bước 1 — đổi khách là editor xoá cache giá bảng, tra lại; KHOÁ nếu đã có HĐ
   KiotViet; popup bảng giá dùng chung `detail/PriceListModal.tsx`; chế độ gõ chia
   đôi màn dùng chung `ui/useTypingSplit.ts` với CreateOrder)**,
+  - ⚠ **`ui/useTypingSplit.ts` — CẤM đoán bằng ngưỡng/đồng hồ** (2026-08-12): focus ô
+    nhập là layout chia đôi NGAY nên `click` (phát SAU focus) rơi vào preview → phải bỏ
+    qua ĐÚNG 1 click "đuôi" mỗi lần focus (đếm sự kiện) + xét `getBoundingClientRect`,
+    KHÔNG dùng cửa sổ thời gian (bản cũ bỏ qua 400ms đầu: máy khựng là click tới muộn
+    hơn → blur oan, "bấm vào ô nhập không gõ được"). Dò bàn phím đóng cũng so với mốc
+    chiều cao lúc CHƯA có bàn phím, KHÔNG dùng ngưỡng tương đối (bàn phím chỉ ĐỔI CỠ —
+    emoji/clipboard/đổi bàn phím/IME bật hàng gợi ý — cũng bị tính là "đã đóng").
+  - ⚠ **Preview khi gõ (2 trang) gửi TRỄ 120ms + `AbortController`** huỷ request lỗi
+    thời; nháp ghi localStorage trễ 500ms (I/O đồng bộ). Trước đây 1 request/phím +
+    1 lượt ghi/phím → gõ nhanh là khựng. `postJSON` nhận `signal`, và huỷ KHÔNG bị
+    tính là mất mạng (đừng để AbortError rơi vào nhánh offline queue).
   customers/debt (bảng giá riêng `personal_price_list`), **photos (camera in-page HTTPS +
   gallery, 2-way Telegram sync)**, **phiếu sản xuất (🏭 SX)** + sửa báo cáo thợ + dashboard SX,
   **kho (📦 Kho: thùng/vị trí/sản phẩm — xem `inventory_store`)**, lịch giao (`#/lich`),
