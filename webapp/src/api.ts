@@ -140,15 +140,18 @@ export async function getJSON(path: string, opts?: { cache?: boolean }): Promise
   }
 }
 
-/** POST; queueable=true → mất mạng thì xếp hàng đợi, có mạng gửi lại. */
-export async function postJSON(path: string, body: any, opts?: { queueable?: boolean }): Promise<any> {
+/** POST; queueable=true → mất mạng thì xếp hàng đợi, có mạng gửi lại.
+ *  signal: huỷ request đã lỗi thời (vd preview gõ phím) — huỷ KHÔNG phải mất mạng
+ *  nên không đụng cờ online/hàng đợi, chỉ ném AbortError cho chỗ gọi tự bỏ qua. */
+export async function postJSON(path: string, body: any, opts?: { queueable?: boolean; signal?: AbortSignal }): Promise<any> {
   const url = serverUrl() + path;
   try {
-    const res = await fetch(url, { method: "POST", headers: headers(), body: JSON.stringify(body) });
+    const res = await fetch(url, { method: "POST", headers: headers(), body: JSON.stringify(body), signal: opts?.signal });
     setNet(true);
     return await parse(res);
   } catch (e) {
     if (e instanceof ApiError) throw e;
+    if ((e as any)?.name === "AbortError") throw e;
     setNet(false);
     if (opts?.queueable) {
       queuePost(path, body);
@@ -893,8 +896,8 @@ export async function getCustomerOrders(key: string, page = 1): Promise<{ orders
 
 /** Xem trước kết quả parse text đơn (khách + SP + tổng) — không tạo/lưu.
  *  customerKey: chọn khách tay (đè lên tự nhận diện). */
-export async function previewOrder(text: string, customerKey?: string): Promise<OrderPreview> {
-  return postJSON("/api/order/preview", { text, customer_key: customerKey || null });
+export async function previewOrder(text: string, customerKey?: string, signal?: AbortSignal): Promise<OrderPreview> {
+  return postJSON("/api/order/preview", { text, customer_key: customerKey || null }, { signal });
 }
 
 /** Kéo nợ MỚI của khách từ KiotViet (cập nhật snapshot) → trả nợ mới. */

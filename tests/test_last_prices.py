@@ -144,5 +144,48 @@ class ParsersUseLastPrice(unittest.TestCase):
         self.assertEqual([it["price"] for it in parse_comma_text("SP1  10  12000", self.conn, KH)], [12000])
 
 
+class LastPricesCustKeyColumn(unittest.TestCase):
+    """Đường CÓ cột generated `cust_key` (+ idx_orders_cust_created) phải cho ĐÚNG
+    kết quả như đường dự phòng dùng thẳng biểu thức json_extract.
+
+    Bảng thật (app.db) có cột đó do `server_app.orders_db.ensure_orders_stats_columns`
+    thêm; bảng test ở lớp trên thì không → 2 lớp này phủ cả 2 nhánh.
+    """
+
+    def setUp(self):
+        invalidate_last_price_cache()
+        _invalidate_products_cache()
+        self.conn = _conn()
+        self.conn.execute(
+            "ALTER TABLE orders ADD COLUMN cust_key GENERATED ALWAYS AS ("
+            " coalesce(json_extract(json, '$.khach_hang_id'), json_extract(json, '$.khID'))) VIRTUAL"
+        )
+        self.conn.execute(
+            "CREATE INDEX idx_orders_cust_created ON orders(cust_key, order_created DESC, thread_id DESC)"
+            " WHERE deleted_at IS NULL"
+        )
+
+    def tearDown(self):
+        self.conn.close()
+        invalidate_last_price_cache()
+
+    def test_uses_index_and_matches_expression_path(self):
+        from order_store.last_prices import _SQL_BY_COL, _SQL_BY_EXPR
+        _add_order(self.conn, 1, "2026-08-01T00:00:00.000Z", [_item("SP1", 19000)])
+        _add_order(self.conn, 2, "2026-08-05T00:00:00.000Z", [_item("SP1", 16000)])
+        _add_order(self.conn, 3, "2026-08-06T00:00:00.000Z", [_item("SP1", 99000)], deleted=1)
+        _add_order(self.conn, 4, "2026-08-06T00:00:00.000Z", [_item("SP1", 88000)], kh="99")
+
+        plan = self.conn.execute("EXPLAIN QUERY PLAN " + _SQL_BY_COL, (KH, 30)).fetchall()
+        self.assertIn("idx_orders_cust_created", " ".join(r[3] for r in plan))
+        for key in (KH, "99", "khach-chua-mua-bao-gio"):
+            self.assertEqual(
+                [r[0] for r in self.conn.execute(_SQL_BY_COL, (key, 30)).fetchall()],
+                [r[0] for r in self.conn.execute(_SQL_BY_EXPR, (key, 30)).fetchall()],
+                f"2 đường query lệch nhau ở khách {key!r}",
+            )
+        self.assertEqual(last_order_prices(self.conn, KH), {"SP1": 16000})   # đơn mới thắng, bỏ đơn đã xoá
+
+
 if __name__ == "__main__":
     unittest.main()

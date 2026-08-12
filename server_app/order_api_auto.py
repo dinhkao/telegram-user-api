@@ -75,10 +75,10 @@ async def order_preview_handler(request: web.Request):
         kh_id = a["customerID"] if a else None
         assigned_out = {"id": a["customerID"], "name": a["customerName"], "score": a["score"], "manual": False} if a else None
 
-    invoice = parse_invoice_free_text(conn, text, kh_id) if text else []
-    if invoice and kh_id and get_customer_price_list(conn, kh_id):
-        invoice = parse_invoice_free_text(conn, text, kh_id)
-    invoice = invoice or []
+    # 1 lượt parse THÔI: trước đây parse lại lần 2 với ĐÚNG tham số cũ (cùng conn,
+    # text, kh_id) nên kết quả không thể khác — chỉ tốn gấp đôi thời gian, mà
+    # handler này chạy mỗi lần gõ phím ở trang tạo đơn.
+    invoice = (parse_invoice_free_text(conn, text, kh_id) if text else []) or []
     total = sum((it.get("sl", 0) or 0) * (it.get("price", 0) or 0) for it in invoice)
 
     customer_out = {**assigned_out, **_customer_extra(conn, kh_id)} if assigned_out else None

@@ -159,18 +159,23 @@ export function OrderInvoiceEdit({ threadId }: { threadId: string }) {
     return () => { alive = false; };
   }, [cust?.id]);
 
-  // Tab Nhanh: xem trước tức thời khi gõ — LUÔN tính giá theo KHÁCH CỦA ĐƠN (ô khách
-  // dùng chung ở trên), KHÔNG tự nhận diện khách từ text. Khách hiển thị/đổi ở ô trên
-  // và ghi đè mọi suy đoán từ text. seq chặn kết quả cũ đè mới.
+  // Tab Nhanh: xem trước khi gõ — LUÔN tính giá theo KHÁCH CỦA ĐƠN (ô khách dùng
+  // chung ở trên), KHÔNG tự nhận diện khách từ text. Khách hiển thị/đổi ở ô trên và
+  // ghi đè mọi suy đoán từ text. Gửi TRỄ 120ms + huỷ request lỗi thời (như trang tạo
+  // đơn — 1 request/phím làm nghẽn kết nối WebView); seq chặn kết quả cũ đè mới.
   useEffect(() => {
     const t = text.trim();
     if (!t) { seq.current++; setPreview(null); setPreviewing(false); return; }
     const my = ++seq.current;
+    const ac = new AbortController();
     setPreviewing(true);
-    previewOrder(t, custKey || undefined)
-      .then((r) => { if (my === seq.current) setPreview(r); })
-      .catch(() => { if (my === seq.current) setPreview(null); })
-      .finally(() => { if (my === seq.current) setPreviewing(false); });
+    const timer = window.setTimeout(() => {
+      previewOrder(t, custKey || undefined, ac.signal)
+        .then((r) => { if (my === seq.current) setPreview(r); })
+        .catch((e: any) => { if (my === seq.current && e?.name !== "AbortError") setPreview(null); })
+        .finally(() => { if (my === seq.current) setPreviewing(false); });
+    }, 120);
+    return () => { window.clearTimeout(timer); ac.abort(); };
   }, [text, custKey]);
 
   // Giữ khoá "1 người sửa hoá đơn" khi trang mở (cả 2 tab đều sửa hoá đơn):

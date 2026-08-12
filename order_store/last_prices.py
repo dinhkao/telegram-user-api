@@ -27,6 +27,20 @@ def invalidate_last_price_cache(kh_id=None) -> None:
         _cache.pop(str(kh_id).strip(), None)
 
 
+_SELECT = """
+    SELECT coalesce(json_extract(json, '$.invoice'),
+                    json_extract(json, '$.invoice_items')) AS inv
+    FROM orders
+    WHERE deleted_at IS NULL AND %s = ?
+    ORDER BY order_created DESC, thread_id DESC
+    LIMIT ?
+"""
+_SQL_BY_COL = _SELECT % "cust_key"
+_SQL_BY_EXPR = _SELECT % (
+    "coalesce(json_extract(json, '$.khach_hang_id'), json_extract(json, '$.khID'))"
+)
+
+
 def _code_maps(conn) -> tuple[dict, dict]:
     """(id → mã hiện hành, mã cũ → mã hiện hành)."""
     from product_store.queries import get_all_products
@@ -57,22 +71,18 @@ def last_order_prices(conn, kh_id: str | int | None, limit: int = _ORDERS_SCANNE
     hit = _cache.get(key)
     if hit and now - hit[0] < _TTL:
         return hit[1]
+    n = max(1, int(limit))
+    # Lọc qua cột generated `cust_key` (+ idx_orders_cust_created, xem
+    # server_app.orders_db.ensure_orders_stats_columns): viết thẳng biểu thức
+    # json_extract thì SQLite QUÉT TRỌN 18k đơn — khách chưa mua bao giờ tốn ~70ms
+    # chặn event loop. DB cũ/test chưa có cột → rơi về biểu thức gốc (cùng kết quả).
     try:
-        rows = conn.execute(
-            """
-            SELECT coalesce(json_extract(json, '$.invoice'),
-                            json_extract(json, '$.invoice_items')) AS inv
-            FROM orders
-            WHERE deleted_at IS NULL
-              AND coalesce(json_extract(json, '$.khach_hang_id'),
-                           json_extract(json, '$.khID')) = ?
-            ORDER BY order_created DESC, thread_id DESC
-            LIMIT ?
-            """,
-            (key, max(1, int(limit))),
-        ).fetchall()
-    except Exception:  # noqa: BLE001 — thiếu cột/bảng (test) → coi như chưa có lịch sử
-        return {}
+        rows = conn.execute(_SQL_BY_COL, (key, n)).fetchall()
+    except Exception:  # noqa: BLE001 — chưa có cột cust_key
+        try:
+            rows = conn.execute(_SQL_BY_EXPR, (key, n)).fetchall()
+        except Exception:  # noqa: BLE001 — thiếu cột/bảng (test) → coi như chưa có lịch sử
+            return {}
     by_id, alias = _code_maps(conn) if rows else ({}, {})
     out: dict[str, int] = {}
     for row in rows:                                  # đơn mới → cũ

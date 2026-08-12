@@ -45,6 +45,21 @@ def ensure_orders_stats_columns(conn):
             " THEN 1 ELSE 0 END"
         )
         hidden = [r[1] for r in conn.execute("PRAGMA table_xinfo(orders)").fetchall() if r[6] == 2]
+        # Đơn CỦA 1 KHÁCH, mới nhất trước — dùng bởi order_store.last_prices (giá mua
+        # lần gần nhất, chạy khi parse hoá đơn). Không có index thì lọc bằng
+        # json_extract = QUÉT TRỌN BẢNG: khách quen ~3ms nhưng khách mới/hiếm mua phải
+        # duyệt hết 18k đơn (~70ms) NGAY TRONG event loop, mỗi 60s một lần lúc đang gõ.
+        # KHÔNG khai kiểu cho cột → không có affinity, so sánh giữ nguyên storage class
+        # y như biểu thức gốc (dữ liệu có cả khach_hang_id kiểu số lẫn kiểu chuỗi).
+        if "cust_key" not in hidden:
+            conn.executescript("""
+                ALTER TABLE orders ADD COLUMN cust_key
+                    GENERATED ALWAYS AS (
+                        coalesce(json_extract(json, '$.khach_hang_id'),
+                                 json_extract(json, '$.khID'))
+                    ) VIRTUAL;
+            """)
+            conn.commit()
         if "has_customer" not in hidden:
             conn.executescript(f"""
                 ALTER TABLE orders ADD COLUMN has_customer INTEGER
@@ -89,6 +104,9 @@ def ensure_orders_stats_columns(conn):
                 WHERE deleted_at IS NULL;
             CREATE INDEX IF NOT EXISTS idx_orders_updated_tid
                 ON orders(updated_at DESC, thread_id DESC)
+                WHERE deleted_at IS NULL;
+            CREATE INDEX IF NOT EXISTS idx_orders_cust_created
+                ON orders(cust_key, order_created DESC, thread_id DESC)
                 WHERE deleted_at IS NULL;
         """)
         conn.commit()

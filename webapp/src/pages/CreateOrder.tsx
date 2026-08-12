@@ -59,11 +59,36 @@ export function CreateOrder() {
     return () => { alive = false; };
   }, [advCust?.id]);
 
-  // Lưu nháp mỗi lần đổi — rời trang / thoát app giữa chừng thì quay lại gõ tiếp.
+  // Lưu nháp — rời trang / thoát app giữa chừng thì quay lại gõ tiếp. GHI TRỄ:
+  // localStorage là I/O ĐỒNG BỘ trên main thread, ghi mỗi phím gõ thì thỉnh thoảng
+  // khựng ngay lúc đang gõ. Ghi sau 500ms yên phím là đủ an toàn cho nháp.
+  // `done` = đơn đã tạo xong → KHÔNG ghi nữa, kẻo lượt ghi trễ/lượt ghi lúc rời
+  // trang dựng lại đúng cái nháp mà submitQuick vừa xoá.
+  const done = useRef(false);
+  const draftRef = useRef({ text, picked });
+  draftRef.current = { text, picked };
+  const saveDraft = () => {
+    if (done.current) return;
+    const { text: t, picked: p } = draftRef.current;
+    try {
+      if (!t.trim() && !p) localStorage.removeItem(DRAFT_KEY);
+      else localStorage.setItem(DRAFT_KEY, JSON.stringify({ text: t, picked: p }));
+    } catch { /* hết chỗ thì thôi */ }
+  };
   useEffect(() => {
-    if (!text.trim() && !picked) localStorage.removeItem(DRAFT_KEY);
-    else localStorage.setItem(DRAFT_KEY, JSON.stringify({ text, picked }));
+    const t = window.setTimeout(saveDraft, 500);
+    return () => window.clearTimeout(t);
   }, [text, picked]);
+  // Rời trang / ẩn app trước khi kịp ghi trễ → ghi ngay, không mất nháp.
+  useEffect(() => {
+    window.addEventListener("pagehide", saveDraft);
+    document.addEventListener("visibilitychange", saveDraft);
+    return () => {
+      window.removeEventListener("pagehide", saveDraft);
+      document.removeEventListener("visibilitychange", saveDraft);
+      saveDraft();
+    };
+  }, []);
 
   // Khách vừa nhận diện → kéo nợ MỚI từ KiotViet 1 lần (theo id, không mỗi phím)
   useEffect(() => {
@@ -78,17 +103,24 @@ export function CreateOrder() {
     return () => { alive = false; };
   }, [preview?.customer?.id]);
 
-  // Xem trước tức thời khi gõ ở tab Nhanh — không delay; seq chặn kết quả cũ về sau
+  // Xem trước khi gõ ở tab Nhanh. GỬI TRỄ 120ms sau khi ngưng phím + HUỶ request
+  // đã lỗi thời: gõ nhanh trước đây bắn 1 request/phím, 8-10 cái bay song song đụng
+  // trần 6 kết nối của WebView (và mỗi cái tốn 1 lượt parse ở server) — gõ càng
+  // nhanh càng khựng. seq vẫn giữ để kết quả cũ về muộn không đè kết quả mới.
   useEffect(() => {
     if (mode !== "quick") { setPreview(null); return; }
     const t = text.trim();
     if (!t && !picked) { seq.current++; setPreview(null); setPreviewing(false); return; } // ++ huỷ kết quả đang bay — xoá hết text không bị preview cũ đè lại
     const my = ++seq.current;
+    const ac = new AbortController();
     setPreviewing(true);
-    previewOrder(t, picked?.key)
-      .then((r) => { if (my === seq.current) setPreview(r); })
-      .catch(() => { if (my === seq.current) setPreview(null); })
-      .finally(() => { if (my === seq.current) setPreviewing(false); });
+    const timer = window.setTimeout(() => {
+      previewOrder(t, picked?.key, ac.signal)
+        .then((r) => { if (my === seq.current) setPreview(r); })
+        .catch((e: any) => { if (my === seq.current && e?.name !== "AbortError") setPreview(null); })
+        .finally(() => { if (my === seq.current) setPreviewing(false); });
+    }, 120);
+    return () => { window.clearTimeout(timer); ac.abort(); };
   }, [text, mode, picked?.key]);
 
   const submitQuick = async () => {
@@ -98,6 +130,7 @@ export function CreateOrder() {
       // Đăng vào kênh #don_hang → tạo topic Telegram + đơn (như gõ tay trên Telegram).
       // Khách chọn tay (picked) ĐÈ lên tự nhận diện từ text — cả gán khách lẫn giá.
       const r = await postJSON("/api/order/create", { text: text.trim(), customer_key: picked?.key || null });
+      done.current = true;                // khoá mọi lượt ghi nháp sau đó
       localStorage.removeItem(DRAFT_KEY); // đơn đã tạo → bỏ nháp
       if (r.thread_id) window.location.hash = `#/order/${r.thread_id}`;
       else { toast("Đã gửi vào #don_hang — đang tạo đơn, sẽ hiện ở danh sách.", "ok"); window.location.hash = "#/"; }
