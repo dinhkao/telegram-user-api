@@ -3,6 +3,8 @@
 Chỉ giữ danh sách client đang kết nối trong state.ws_clients; nội dung đẩy do
 server_app/realtime.py phát. heartbeat giữ kết nối sống qua mobile/Tailscale.
 Client (webapp/src/realtime.ts) chỉ nhận, không gửi lệnh gì (tin nhắn vào bị bỏ qua).
+Ngay khi mở, server gửi {"type":"hello","build":...} = build id webapp đang phục vụ
+(server_app/app_build.py) để máy đang chạy bundle CŨ tự tải lại.
 Kèm ws_ping_loop (spawn từ bootstrap): phát {"type":"ping"} app-level mỗi 25s —
 ping/pong protocol-level của aiohttp browser JS KHÔNG thấy được, client cần tin
 nhắn thật để watchdog phát hiện socket "nửa sống" (WebView suspend, TCP đứt không FIN).
@@ -43,6 +45,16 @@ async def websocket_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "unauthorized"}, status=401)
     ws = web.WebSocketResponse(heartbeat=30)
     await ws.prepare(request)
+    # "hello" mang BUILD ID webapp server đang phục vụ. Client so với bundle của
+    # chính nó → máy chạy bản cũ (WebView sống nhiều ngày) tự tải lại. Gửi TRƯỚC
+    # khi vào vòng nhận; client bản cũ không biết type này thì bỏ qua, vô hại.
+    from server_app.app_build import build_id
+    bid = build_id()
+    if bid:
+        try:
+            await ws.send_json({"type": "hello", "build": bid})
+        except Exception as e:  # noqa: BLE001 — socket hỏng ngay lúc mở, để vòng dưới dọn
+            log.warning("WS hello: %s", e)
     state.ws_clients.add(ws)
     # Vai trò bó hẹp chat_luong (middleware đã giải token → web_role): đánh dấu để
     # vòng phát chỉ gửi event trang chất lượng — order_changed/notif_added mang PII

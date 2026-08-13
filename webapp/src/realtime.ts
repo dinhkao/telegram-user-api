@@ -120,6 +120,62 @@ export function onStatus(h: StatusHandler): () => void {
   };
 }
 
+// ── Tự tải lại khi server đã có bản mới ──────────────────────────────────────
+// APK giữ WebView sống rất dai (foreground service + wake lock): máy để cả tuần
+// rồi mở lại vẫn chạy đúng bundle nạp từ lần khởi động trước, trong khi server đã
+// deploy bản mới → giao diện cũ gọi API mới. Server gửi
+// {"type":"hello","build":"index-XXXX.js"} mỗi lần socket mở (mọi lần resume đều
+// nối lại) → so với tên file bundle ĐANG CHẠY; khác nhau là tải lại.
+const BUILD_RE = /^index-[A-Za-z0-9_-]+\.js$/;
+const RELOADED_KEY = "build_reload";
+let pendingReload = false;
+
+/** Tên file bundle đang chạy, đọc từ chính module này. "" khi không xác định được
+ *  (dev server, tên không có hash) → BỎ QUA kiểm tra, thà không reload còn hơn reload nhầm. */
+function runningBuild(): string {
+  try {
+    const name = new URL(import.meta.url).pathname.split("/").pop() || "";
+    return BUILD_RE.test(name) ? name : "";
+  } catch {
+    return "";
+  }
+}
+
+/** Đang gõ dở (ô nhập / vùng soạn) → HOÃN tải lại: reload giữa chừng là mất nội
+ *  dung đang soạn (báo cáo SX, hoá đơn, bình luận). Thử lại ở watchdog + lúc resume. */
+function isEditing(): boolean {
+  const el: any = document.activeElement;
+  if (!el) return false;
+  return !!el.isContentEditable || el.tagName === "TEXTAREA" || el.tagName === "INPUT";
+}
+
+function doReload() {
+  pendingReload = false;
+  try {
+    window.location.reload();
+  } catch {
+    /* ignore */
+  }
+}
+
+function onHello(serverBuild: string) {
+  const mine = runningBuild();
+  if (!mine || !BUILD_RE.test(serverBuild) || serverBuild === mine) return;
+  // Chống lặp: đã tải lại vì build này rồi mà vẫn lệch (bundle không đổi tên vì lý
+  // do nào đó) thì thôi — chạy tiếp còn hơn reload vô tận.
+  try {
+    if (sessionStorage.getItem(RELOADED_KEY) === serverBuild) return;
+    sessionStorage.setItem(RELOADED_KEY, serverBuild);
+  } catch {
+    /* sessionStorage bị chặn → vẫn tải lại, chỉ mất lớp chống lặp */
+  }
+  if (isEditing()) {
+    pendingReload = true;
+    return;
+  }
+  doReload();
+}
+
 function wsUrl(): string {
   // Web: same-origin. APK/WebView: serverUrl() là IP Tailscale đã cấu hình.
   const base = serverUrl() || location.origin;
@@ -170,6 +226,8 @@ function connect() {
       return;
     }
     if (data?.type === "ping") { sawPing = true; return; } // keepalive — không phát cho subscriber
+    // Build id server đang phục vụ → máy đang chạy bundle cũ tự tải lại.
+    if (data?.type === "hello") { onHello(String(data.build || "")); return; }
     // ÉP tải lại: admin bấm "Buộc mọi máy tải lại" → server broadcast → reload ngay.
     if (data?.type === "app_reload") { try { window.location.reload(); } catch { /* ignore */ } return; }
     if (data && _SERVER_EVENTS.has(data.type)) emit(data);
@@ -203,6 +261,8 @@ function kick() {
 }
 
 function checkStale() {
+  // Reload đang hoãn vì người dùng gõ dở → gõ xong là tải lại.
+  if (pendingReload && !isEditing()) { doReload(); return; }
   // Chỉ hoạt động khi server ĐÃ chứng minh có phát ping (sawPing) — server bản cũ
   // không ping thì watchdog im lặng, không tự đóng socket khoẻ mạnh.
   if (stopped || !ws || !sawPing) return;
@@ -221,6 +281,8 @@ function installLifecycleListeners() {
     }
     const hiddenFor = hiddenAt ? Date.now() - hiddenAt : 0;
     hiddenAt = 0;
+    // Quay lại app mà đang nợ 1 lần tải lại (bản mới) → làm luôn, khỏi chờ watchdog.
+    if (pendingReload && !isEditing()) { doReload(); return; }
     if (stopped) return;
     if (!ws || hiddenFor > HIDDEN_FORCE_MS) kick();
     else checkStale();

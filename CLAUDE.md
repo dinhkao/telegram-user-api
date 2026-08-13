@@ -1205,9 +1205,24 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   để về đúng vị trí tức thì, khỏi refetch). **Camera cần HTTPS** (WebView phải load URL
   `https://…/app` qua tailscale serve :443 — nếu load `http://…:8090` thì nút Mở camera ẩn;
   push-update.sh default URL = HTTPS). Offline cache+queue. Build
-  `cd webapp && npm run build` →
+  `cd webapp && npm run build` (= `vite build` + **`scripts/precompress.mjs`** sinh
+  `.br`/`.gz` cạnh mỗi asset — `web.FileResponse` của aiohttp tự phục vụ bản nén theo
+  Accept-Encoding; server KHÔNG có middleware nén, mà APK đặt `cacheMode=LOAD_NO_CACHE`
+  nên mỗi lần mở nguội là tải lại TOÀN BỘ bundle: 1,3MB → ~280KB) →
   served at `/app` (`server_app/webapp_routes.py`). Image UI: `webapp/src/detail/
   Images.tsx` (+ `imageProcess.ts` client-side WebP resize/thumbnail).
+  - **TỰ TẢI LẠI KHI CÓ BẢN MỚI (2026-08-13)** — APK giữ WebView sống nhiều ngày
+    (foreground service + wake lock) nên máy để lâu rồi mở lại vẫn chạy bundle nạp từ
+    lần khởi động trước ⇒ **giao diện cũ gọi API mới**; `/api/app/reload` chỉ tới được
+    máy ĐANG kết nối lúc admin bấm. Chốt: `/ws` gửi `{"type":"hello","build":"index-XXXX.js"}`
+    ngay khi mở socket (`server_app/app_build.py` = tên file bundle trong dist/index.html,
+    cache theo mtime → deploy xong đổi ngay, KHÔNG cần restart); client so với bundle
+    của CHÍNH nó (`import.meta.url` trong `webapp/src/realtime.ts`) → khác là
+    `location.reload()`. Mọi lần resume đều nối lại socket nên kiểm tra chạy đúng lúc
+    cần. 2 lớp an toàn: **hoãn reload khi đang gõ dở** (ô nhập/textarea — làm tiếp ở
+    watchdog 15s + lúc resume) và **chống lặp** (sessionStorage `build_reload`: đã tải
+    lại vì build đó rồi mà vẫn lệch thì thôi, chạy tiếp còn hơn reload vô tận). Build id
+    rỗng (chưa build/không đọc được) = client bỏ qua. Tests: `tests/test_app_build.py`.
 - **APK for phones** — built by the EXTERNAL generic builder at
   `~/Documents/ultimate-webview-android` (a thin WebView loading the server URL over
   Tailscale), NOT the in-repo `android/`. To push an update run
