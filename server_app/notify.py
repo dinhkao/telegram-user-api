@@ -2,7 +2,9 @@
 để notification center trong app luôn khớp với push FCM.
 
 push_bg(title, body, data): data giống payload FCM cũ ({thread_id, type, comment_id/
-image_id}). Dùng thay server_app.fcm.notify_bg ở các điểm sự kiện (comment/ảnh…).
+image_id}). Thông báo KHÔNG thuộc đơn hàng đặt data['route'] = hash webapp
+('#/kho-dau/phieu/12') → NotifCenter mở thẳng route đó.
+Dùng thay server_app.fcm.notify_bg ở các điểm sự kiện (comment/ảnh…).
 Đọc: GET /api/notifications (notifications_list_handler). Kết nối: notif_store,
 server_app.fcm, server_app.realtime.
 """
@@ -62,6 +64,7 @@ async def _push(title: str, body: str, data: dict | None) -> None:
     except (ValueError, TypeError):
         thread_id = None
     ntype = (data or {}).get("type") or "info"
+    route = str((data or {}).get("route") or "") or None
     image_id = None
     try:
         image_id = int(data["image_id"]) if data and data.get("image_id") else None
@@ -80,7 +83,8 @@ async def _push(title: str, body: str, data: dict | None) -> None:
             from notif_store import create_notif_table, add_notification, prune_old
             create_notif_table(conn)
             row = add_notification(conn, type=ntype, title=title, body=fb,
-                                   thread_id=thread_id, focus=focus, image_id=image_id)
+                                   thread_id=thread_id, focus=focus, image_id=image_id,
+                                   route=route)
             prune_old(conn)
             return row, fb
         finally:

@@ -1770,6 +1770,7 @@ export type Notif = {
   thread_id?: number | null;
   focus?: string | null;
   image_id?: number | null;   // ảnh liên quan → thumbnail ở popup
+  route?: string | null;      // hash mở thẳng (thông báo ngoài đơn: '#/kho-dau/phieu/12')
   created_at?: string | null;
 };
 

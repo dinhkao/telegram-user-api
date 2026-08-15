@@ -723,6 +723,16 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   — ⚠ route `/api/beans/items/{id}/units*` phải đăng ký TRƯỚC `POST /api/beans/items/{id}`):
   tạo phiếu/danh mục/đơn vị = MỌI user đăng nhập, sửa tên/tỉ lệ =
   văn phòng, xoá = admin (xoá mềm, chặn khi còn phiếu). Realtime `bean_changed`;
+  **THÔNG BÁO mỗi phiếu nhập/xuất/điều chỉnh** (2026-08-15, `server_app/bean_notify.py`)
+  — `notify_bean_slip(slip, actor)` gọi ở `bean_slip_create_handler` → chuông trong app
+  + push FCM qua `server_app.notify.push_bg`, type `bean_slip`. Nội dung dựng THUẦN ở
+  `build_bean_notif` (tests/test_bean_notify.py): nhập/xuất nói theo ĐƠN VỊ NGƯỜI GÕ
+  ("3 bao"), điều chỉnh nói số ĐẾM + chênh lệch theo ĐƠN VỊ GỐC (delta luôn là gốc,
+  ghép với "bao" là sai nghĩa), tối đa 3 dòng rồi "+N dòng nữa". ⚠ Thông báo này KHÔNG
+  thuộc đơn hàng nên deep-link bằng **cột MỚI `notifications.route`** (hash webapp,
+  `#/kho-dau/phieu/<id>`; `notif_store/schema._migrate` tự ALTER cho DB cũ) —
+  `NotifCenter.go()` ưu tiên `route` trước nhánh `thread_id`. Thêm thông báo cho thực
+  thể ngoài đơn thì dùng lại `data['route']`, đừng mượn `thread_id`;
   **ẢNH + TRAO ĐỔI trên từng PHIẾU** = entity media scope **`bean_slip`** (giống đơn
   hàng: `Images`/`Comments`/`History` ở BeanSlipDetail; `entity_media_routes._emit`
   bắn `bean_changed`, `realtime.ts::eventMatchesBase` nhận `bean_changed` cho base

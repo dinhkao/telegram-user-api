@@ -10,11 +10,12 @@ def _now_iso() -> str:
 
 def add_notification(conn, *, type: str, title: str, body: str,
                      thread_id: int | None = None, focus: str | None = None,
-                     image_id: int | None = None) -> dict:
+                     image_id: int | None = None, route: str | None = None) -> dict:
+    """route = hash webapp cho thông báo KHÔNG thuộc đơn (vd '#/kho-dau/phieu/12')."""
     cur = conn.execute(
-        "INSERT INTO notifications (type, title, body, thread_id, focus, image_id, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (type, title, body, thread_id, focus, image_id, _now_iso()),
+        "INSERT INTO notifications (type, title, body, thread_id, focus, image_id, route, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (type, title, body, thread_id, focus, image_id, route, _now_iso()),
     )
     conn.commit()
     return get_notification(conn, cur.lastrowid)

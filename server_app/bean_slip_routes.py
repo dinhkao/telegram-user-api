@@ -1,9 +1,10 @@
 """HTTP PHIẾU KHO ĐẬU — nhập / xuất / điều chỉnh: /api/beans/slips (100% local).
 
 GET danh sách (lọc theo loại/kho/đậu, phân trang) · GET {id} chi tiết · POST tạo
-(mọi user đăng nhập) · POST {id}/delete (admin, xoá mềm — tồn tự hoàn).
+(mọi user đăng nhập, đẩy THÔNG BÁO qua server_app.bean_notify) · POST {id}/delete
+(admin, xoá mềm — tồn tự hoàn).
 Nối: bean_store.slips, server_app.bean_routes (_conn/audit dùng chung),
-server_app.realtime. Đăng ký ở app_factory.
+server_app.bean_notify, server_app.realtime. Đăng ký ở app_factory.
 """
 from __future__ import annotations
 
@@ -115,6 +116,8 @@ async def bean_slip_create_handler(request: web.Request):
         return web.json_response({"ok": False, "error": err}, status=400)
 
     _emit()
+    from server_app.bean_notify import notify_bean_slip
+    notify_bean_slip(slip, actor)   # chuông trong app + push FCM
     audit(f"bean.slip_{slip['kind']}", slip["id"], request, {
         "slip_id": slip["id"], "kind": slip["kind"], "place_name": slip.get("place_name") or "",
         "lines": [{"bean": i["bean_name"], "qty": i["quantity"], "delta": i["delta"]}

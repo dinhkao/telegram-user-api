@@ -1,7 +1,8 @@
 // Trung tâm thông báo trong app — chuông 🔔 + panel danh sách. Đồng bộ với FCM:
 // server ghi 1 notification row CÙNG LÚC push FCM (server_app/notify.py) nên list ở
 // đây khớp push. Realtime notif_added → cập nhật tức thì. Chưa đọc = id > seen (lưu
-// localStorage). Bấm 1 thông báo → deep-link #/order/<id>?focus=<type>:<id>.
+// localStorage). Bấm 1 thông báo → deep-link #/order/<id>?focus=<type>:<id>, hoặc
+// route sẵn có nếu thông báo không thuộc đơn (phiếu kho đậu: #/kho-dau/phieu/<id>).
 import { useEffect, useRef, useState } from "preact/hooks";
 import { usePopupBack } from "./ui/usePopupBack";
 import { useScrollLock } from "./useScrollLock";
@@ -16,7 +17,7 @@ const SEEN_KEY = "notif_seen_id";
 const getSeen = (): number => { try { return Number(localStorage.getItem(SEEN_KEY) || "0") || 0; } catch { return 0; } };
 const setSeen = (id: number) => { try { localStorage.setItem(SEEN_KEY, String(id)); } catch { /* im */ } };
 
-const ICON: Record<string, string> = { comment: "💬", image: "🖼", order: "🆕", info: "🔔", stock_alert: "⚠️" };
+const ICON: Record<string, string> = { comment: "💬", image: "🖼", order: "🆕", info: "🔔", stock_alert: "⚠️", bean_slip: "🫘", task: "📋", debt: "💰" };
 
 export function NotifCenter() {
   const [open, setOpen] = useState(false);
@@ -57,6 +58,11 @@ export function NotifCenter() {
 
   const go = (n: Notif) => {
     setOpen(false);
+    // Thông báo NGOÀI đơn hàng (phiếu kho đậu…) mang sẵn route → mở thẳng.
+    if (n.route && n.route.startsWith("#/")) {
+      window.location.hash = n.route;
+      return;
+    }
     // Nhắc CÔNG NỢ QUÁ HẠN → mở thẳng trang thu tiền của khách (không có đơn thì
     // về danh sách nợ quá hạn).
     if (n.type === "debt") {
@@ -91,7 +97,7 @@ export function NotifCenter() {
             ) : (
               <ul class="notif-list">
                 {items.map((n) => (
-                  <li class={"notif-item" + (n.thread_id ? " tappable" : "")} key={n.id} onClick={() => go(n)}>
+                  <li class={"notif-item" + (n.thread_id || n.route ? " tappable" : "")} key={n.id} onClick={() => go(n)}>
                     <span class="notif-ico">{ICON[n.type] || "🔔"}</span>
                     <div class="notif-body">
                       <div class="notif-title">{n.title}</div>
