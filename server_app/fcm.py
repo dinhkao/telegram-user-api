@@ -36,15 +36,15 @@ _DEAD_EXC_NAMES = ("UNREGISTEREDERROR", "SENDERIDMISMATCHERROR")
 _DEAD_CODES = ("UNREGISTERED", "SENDER_ID_MISMATCH", "INVALID_ARGUMENT")
 
 
-def _eligible_tokens() -> list[str]:
-    """Token của user ĐƯỢC nhận push (bỏ vai trò bó hẹp + user bị khoá)."""
+def _eligible_rows() -> list[tuple[str, str]]:
+    """(token, username) của user ĐƯỢC nhận push (bỏ vai trò bó hẹp + user bị khoá)."""
     try:
-        from notif_store.fcm_tokens import eligible_tokens
+        from notif_store.fcm_tokens import eligible_rows
         from server_app.web_auth.role_scope import QUALITY_ONLY_ROLE
         from utils.db import get_connection
         conn = get_connection()
         try:
-            return eligible_tokens(conn, exclude_roles=(QUALITY_ONLY_ROLE,))
+            return eligible_rows(conn, exclude_roles=(QUALITY_ONLY_ROLE,))
         finally:
             conn.close()
     except Exception as e:  # noqa: BLE001
@@ -77,10 +77,16 @@ def _is_dead_token(resp) -> bool:
     return code in _DEAD_CODES
 
 
-def _send_tokens(messaging, app, notification, payload, android, tokens: list[str]) -> tuple[int, int]:
-    """Gửi theo từng token (chia lô ≤500). Trả (ok, lỗi) + dọn token chết."""
-    ok = fail = 0
+def _send_tokens(messaging, app, notification, payload, android,
+                 rows: list[tuple[str, str]]) -> tuple[list[str], list[str]]:
+    """Gửi theo từng token (chia lô ≤500). Trả (tên người NHẬN, tên người LỖI) + dọn
+    token chết. Trả TÊN chứ không phải số: "token 4 ok" không cho biết máy của ai
+    vắng mặt — mà đó chính là câu hỏi khi có người kêu không nhận được push."""
+    ok: list[str] = []
+    fail: list[str] = []
     dead: list[str] = []
+    tokens = [t for t, _ in rows]
+    users = dict(rows)
     for i in range(0, len(tokens), _BATCH):
         batch = tokens[i:i + _BATCH]
         msg = messaging.MulticastMessage(
@@ -88,10 +94,11 @@ def _send_tokens(messaging, app, notification, payload, android, tokens: list[st
         )
         resp = messaging.send_each_for_multicast(msg, app=app)
         for tok, r in zip(batch, resp.responses, strict=False):
+            who = users.get(tok, "?")
             if getattr(r, "success", False):
-                ok += 1
+                ok.append(who)
                 continue
-            fail += 1
+            fail.append(who)
             if _is_dead_token(r):
                 dead.append(tok)
     _drop_dead(dead)
@@ -119,12 +126,14 @@ def _send(title: str, body: str, data: dict | None = None, image_url: str | None
             payload.setdefault("image_url", image_url)
         notification = messaging.Notification(title=title, body=body, image=image_url or None)
 
-        tokens = _eligible_tokens()
-        if tokens:
+        rows = _eligible_rows()
+        if rows:
             try:
-                ok, fail = _send_tokens(messaging, app, notification, payload, android, tokens)
-                log.info("FCM sent: %s%s — token %d ok / %d lỗi", title,
-                         " (+img)" if image_url else "", ok, fail)
+                ok, fail = _send_tokens(messaging, app, notification, payload, android, rows)
+                log.info("FCM sent: %s%s — máy nhận: %s%s", title,
+                         " (+img)" if image_url else "",
+                         ", ".join(sorted(ok)) or "(không máy nào)",
+                         f" | LỖI: {', '.join(sorted(fail))}" if fail else "")
             except Exception as e:  # noqa: BLE001
                 log.warning("FCM multicast failed: %s", e)
 

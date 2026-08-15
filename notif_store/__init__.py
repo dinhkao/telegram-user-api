@@ -6,7 +6,7 @@ Kèm bảng `fcm_tokens` (fcm_tokens.py): token thiết bị đăng ký theo use
 gửi theo từng máy, lọc bỏ vai trò bó hẹp / user bị khoá."""
 from .schema import create_notif_table
 from .queries import add_notification, get_notification, list_notifications, latest_id, prune_old
-from .fcm_tokens import delete_tokens, eligible_tokens, ensure_table, register_token
+from .fcm_tokens import delete_tokens, eligible_rows, eligible_tokens, ensure_table, register_token
 
 __all__ = [
     "create_notif_table",
@@ -17,6 +17,7 @@ __all__ = [
     "prune_old",
     "ensure_table",
     "register_token",
+    "eligible_rows",
     "eligible_tokens",
     "delete_tokens",
 ]

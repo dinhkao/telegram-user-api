@@ -66,13 +66,15 @@ def register_token(conn, token: str, username: str) -> None:
         )
 
 
-def eligible_tokens(conn, exclude_roles: tuple[str, ...] = ("chat_luong",)) -> list[str]:
-    """Token ĐƯỢC nhận push: JOIN web_users nên token của username không còn trong
-    bảng user tự rụng; loại user bị khoá (disabled) và vai trò trong exclude_roles."""
+def eligible_rows(conn, exclude_roles: tuple[str, ...] = ("chat_luong",)) -> list[tuple[str, str]]:
+    """(token, username) ĐƯỢC nhận push: JOIN web_users nên token của username không
+    còn trong bảng user tự rụng; loại user bị khoá (disabled) và vai trò trong
+    exclude_roles. Kèm username để log push nói RÕ máy của ai nhận/không nhận —
+    "token 4 ok" trần trụi che mất việc một người vắng mặt khỏi danh sách."""
     ensure_table(conn)
     roles = tuple(exclude_roles or ())
     sql = (
-        "SELECT t.token FROM fcm_tokens t "
+        "SELECT t.token, t.username FROM fcm_tokens t "
         "JOIN web_users u ON u.username = t.username "
         "WHERE COALESCE(u.disabled, 0) = 0"
     )
@@ -80,8 +82,12 @@ def eligible_tokens(conn, exclude_roles: tuple[str, ...] = ("chat_luong",)) -> l
     if roles:
         sql += " AND COALESCE(u.role, '') NOT IN (%s)" % ",".join("?" * len(roles))
         params = roles
-    rows = conn.execute(sql, params).fetchall()
-    return [r[0] for r in rows]
+    return [(r[0], r[1]) for r in conn.execute(sql, params).fetchall()]
+
+
+def eligible_tokens(conn, exclude_roles: tuple[str, ...] = ("chat_luong",)) -> list[str]:
+    """Chỉ danh sách token (xem eligible_rows)."""
+    return [t for t, _ in eligible_rows(conn, exclude_roles)]
 
 
 def delete_tokens(conn, tokens) -> int:

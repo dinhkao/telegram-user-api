@@ -7,7 +7,9 @@ import os
 import tempfile
 import unittest
 
-from notif_store.fcm_tokens import delete_tokens, eligible_tokens, ensure_table, register_token
+from notif_store.fcm_tokens import (
+    delete_tokens, eligible_rows, eligible_tokens, ensure_table, register_token,
+)
 from user_store.schema import _CREATE_SQL as USERS_SQL
 from utils.db import get_connection
 
@@ -68,6 +70,13 @@ class FcmTokensTest(unittest.TestCase):
     def test_eligible_rong_khi_chua_ai_dang_ky(self):
         self._user("duy")
         self.assertEqual(eligible_tokens(self.conn), [])
+
+    def test_eligible_rows_kem_ten_nguoi_de_log_noi_ro_may_cua_ai(self):
+        self._user("duy", role="admin")
+        self._user("cl", role="chat_luong")
+        register_token(self.conn, "tok_duy", "duy")
+        register_token(self.conn, "tok_cl", "cl")
+        self.assertEqual(eligible_rows(self.conn), [("tok_duy", "duy")])
 
     # ── dọn token chết ───────────────────────────────────────────────────────
     def test_delete_tokens(self):
