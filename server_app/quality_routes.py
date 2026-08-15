@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 from aiohttp import web
 
@@ -201,7 +202,11 @@ async def quality_products_handler(request: web.Request):
     Cố ý đặt DƯỚI /api/quality thay vì dùng /api/products: vai trò `chat_luong` chỉ
     được phép gọi /api/quality* (web_auth/role_scope), nên endpoint riêng ở đây
     giữ nguyên nguyên tắc ít quyền nhất — khỏi mở cả kho sản phẩm cho vai trò đó.
-    Chỉ trả code + name (không giá, không tồn)."""
+    Chỉ trả code + name (không giá, không tồn).
+
+    Kèm `recent` = mã SP GẦN ĐÂY NHẤT đã gắn cho ảnh mâm kẹo — của CẢ XƯỞNG, không
+    phải riêng máy đang gọi (mọi người thường chụp cùng loại kẹo trong ngày, đẩy
+    mã đó lên đầu là bớt cuộn tìm). Cache RAM dùng chung, TTL ngắn."""
     q = str(request.query.get("search", "")).strip()
 
     def _run():
@@ -212,18 +217,43 @@ async def quality_products_handler(request: web.Request):
             items = get_all_products(conn)
         finally:
             conn.close()
+        recent = _recent_products_cached()
         nq = vn_normalize(q)
         if nq:
             items = [p for p in items
                      if nq in vn_normalize(p.get("code") or "")
                      or nq in vn_normalize(p.get("name") or "")]
-        return [{"code": p["code"], "name": p.get("name") or ""} for p in items[:200]]
+        out = [{"code": p["code"], "name": p.get("name") or ""} for p in items[:200]]
+        # chỉ giữ mã còn trong danh mục (SP đổi mã/xoá thì thôi không gợi ý nữa)
+        codes = {p["code"] for p in out}
+        return out, [c for c in recent if c in codes]
     try:
-        out = await asyncio.to_thread(_run)
+        out, recent = await asyncio.to_thread(_run)
     except Exception as e:  # noqa: BLE001
         log.warning("quality products lỗi: %s", e)
-        return web.json_response({"ok": True, "products": []})
-    return web.json_response({"ok": True, "products": out})
+        return web.json_response({"ok": True, "products": [], "recent": []})
+    return web.json_response({"ok": True, "products": out, "recent": recent})
+
+
+_RECENT_TTL = 30.0
+_recent_cache: tuple[float, list[str]] = (0.0, [])
+
+
+def _recent_products_cached() -> list[str]:
+    """Mã SP dùng gần đây (scope quality_report) — 1 cache dùng CHUNG mọi user."""
+    global _recent_cache
+    now = time.time()
+    ts, val = _recent_cache
+    if now - ts < _RECENT_TTL:
+        return val
+    try:
+        from entity_media_store import recent_products
+        val = recent_products("quality_report", limit=8)
+    except Exception as e:  # noqa: BLE001
+        log.warning("quality recent products lỗi: %s", e)
+        val = []
+    _recent_cache = (now, val)
+    return val
 
 
 async def quality_gallery_handler(request: web.Request):

@@ -114,6 +114,28 @@ def image_counts(scope: str, entity_ids: list[int], *, db_path: str | None = Non
         conn.close()
 
 
+def recent_products(scope: str, *, limit: int = 8, scan: int = 400,
+                    db_path: str | None = None) -> list[str]:
+    """MÃ SP gắn cho ảnh GẦN ĐÂY NHẤT của 1 scope, mới-dùng-trước, không trùng.
+
+    Dùng CHUNG cho mọi user (số liệu của cả xưởng, không phải sở thích từng máy) —
+    trang chất lượng đẩy các mã này lên đầu danh sách chọn SP.
+    Chỉ quét `scan` ảnh mới nhất để không phải đọc cả bảng: mã dùng lâu rồi thì
+    cũng không còn là "gần đây".
+    """
+    conn = _conn(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT product FROM (SELECT product, id FROM entity_images"
+            "  WHERE scope = ? ORDER BY id DESC LIMIT ?)"
+            " WHERE product <> '' GROUP BY product ORDER BY MAX(id) DESC LIMIT ?",
+            (scope, int(scan), int(limit)),
+        ).fetchall()
+        return [str(r["product"]) for r in rows]
+    finally:
+        conn.close()
+
+
 def get_image(image_id: int, *, db_path: str | None = None) -> dict | None:
     conn = _conn(db_path)
     try:

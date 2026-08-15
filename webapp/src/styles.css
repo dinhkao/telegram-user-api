@@ -4019,6 +4019,9 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
   border: 1px solid var(--border); border-radius: 10px; background: var(--card);
   color: var(--ink); font-size: .9rem; cursor: pointer; }
 .qp-item.on { border-color: var(--ink); background: var(--bg); }
+/* nhãn nhóm trong popup chọn SP ("Dùng gần đây" / "Tất cả sản phẩm") */
+.qp-sec { margin: 8px 2px 4px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .03em; }
 /* nhãn SP trên thumbnail */
 .prd-prod-tag { position: absolute; left: 3px; bottom: 3px; max-width: calc(100% - 6px);
   padding: 1px 5px; border-radius: 5px; font-size: .64rem; font-weight: 700; line-height: 1.5;

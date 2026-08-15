@@ -793,7 +793,14 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `quality_product`), CỐ Ý không lưu server: hai người có thể đang sửa hai loại kẹo
   cùng lúc, lưu chung sẽ gắn nhầm SP cho ảnh của người kia. Danh sách SP lấy từ
   **`GET /api/quality/products`** (không phải `/api/products`) để vai trò `chat_luong`
-  gọi được mà không phải mở quyền vào cả kho SP.
+  gọi được mà không phải mở quyền vào cả kho SP. Response kèm **`recent` = mã SP gắn
+  cho ảnh GẦN ĐÂY NHẤT của CẢ XƯỞNG** (`entity_media_store.recent_products` — quét
+  400 ảnh mới nhất scope `quality_report`, gộp mã, mới-dùng-trước; cache RAM 30s DÙNG
+  CHUNG mọi user, `quality_routes._recent_products_cached`) → popup ProductPick hiện
+  khối "Dùng gần đây" trên đầu, phần còn lại là danh mục đầy đủ (đang gõ tìm thì bỏ
+  tách khối). Đây là số liệu CHUNG (ai cũng thấy cùng gợi ý), KHÁC lựa chọn SP đang
+  chụp vốn nhớ theo máy. Mã đã đổi/xoá khỏi danh mục tự rụng khỏi gợi ý.
+  Tests: `tests/test_recent_products.py`.
   ⚠ Ảnh mâm kẹo là BẰNG CHỨNG → CameraBox nhận prop **`captureOnly`** (QualityDetail
   + nút chụp nhanh ở QualityBoard bật) để ẩn nút "Chọn ảnh": chỉ được chụp tại chỗ,
   không lấy từ thư viện. Các trang khác vẫn chọn ảnh bình thường (mặc định false).

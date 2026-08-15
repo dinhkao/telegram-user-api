@@ -685,11 +685,14 @@ export async function setQualityBoardColumns(columns: number[][]): Promise<numbe
   return d.board_columns || [[], []];
 }
 /** Danh sách SP để chọn khi chụp mâm. Nằm dưới /api/quality nên vai trò chat_luong
- *  gọi được mà không phải mở quyền vào cả kho sản phẩm. */
-export async function listQualityProducts(search = ""): Promise<{ code: string; name: string }[]> {
+ *  gọi được mà không phải mở quyền vào cả kho sản phẩm.
+ *  `recent` = mã gắn cho ảnh gần đây nhất của CẢ XƯỞNG (server tính, dùng chung
+ *  mọi user) để đẩy lên đầu danh sách chọn. */
+export async function listQualityProducts(search = ""):
+  Promise<{ products: { code: string; name: string }[]; recent: string[] }> {
   const d = await getJSON(`/api/quality/products${search ? `?search=${encodeURIComponent(search)}` : ""}`,
                           { cache: false });
-  return d.products || [];
+  return { products: d.products || [], recent: d.recent || [] };
 }
 /** Tất cả ảnh mâm kẹo gần đây, gom theo ngày–thợ (trang #/chat-luong/anh). */
 export async function getQualityGallery(days = 14): Promise<{ groups: QualityGalleryGroup[]; total_images: number }> {

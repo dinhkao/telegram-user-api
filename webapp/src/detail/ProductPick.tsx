@@ -55,16 +55,28 @@ function ProductPopup({ value, onPick, onClose }: {
   onClose: () => void;
 }) {
   const [all, setAll] = useState<{ code: string; name: string }[] | null>(null);
+  const [recent, setRecent] = useState<string[]>([]);
   const [q, setQ] = useState("");
   const inp = useRef<HTMLInputElement>(null);
   useScrollLock(true);
   usePopupBack(true, onClose);
 
-  useEffect(() => { listQualityProducts().then(setAll).catch(() => setAll([])); }, []);
+  useEffect(() => {
+    listQualityProducts()
+      .then((d) => { setAll(d.products); setRecent(d.recent); })
+      .catch(() => setAll([]));
+  }, []);
 
   const nq = foldVN(q.trim());
   const shown = (all || []).filter((p) =>
     !nq || foldVN(p.code).includes(nq) || foldVN(p.name).includes(nq));
+  // Đang tìm thì hiện đúng kết quả tìm; không tìm thì tách khối "Dùng gần đây"
+  // lên đầu (mã của cả xưởng, do server tính) rồi mới tới danh mục đầy đủ.
+  const byCode = new Map(shown.map((p) => [p.code, p]));
+  const recentRows = nq ? [] : recent.map((c) => byCode.get(c)).filter(Boolean) as
+    { code: string; name: string }[];
+  const restRows = recentRows.length
+    ? shown.filter((p) => !recent.includes(p.code)) : shown;
 
   return createPortal(
     <div class="cam-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -86,7 +98,19 @@ function ProductPopup({ value, onPick, onClose }: {
               <button class={"qp-item" + (value ? "" : " on")} onClick={() => onPick("")}>
                 <span class="muted">— Không gắn sản phẩm —</span>
               </button>
-              {shown.map((p) => (
+              {recentRows.length > 0 && (
+                <>
+                  <div class="qp-sec muted small">Dùng gần đây</div>
+                  {recentRows.map((p) => (
+                    <button class={"qp-item" + (p.code === value ? " on" : "")} key={"r-" + p.code}
+                      onClick={() => onPick(p.code)}>
+                      <b>{p.code}</b>{p.name ? <span class="muted"> · {p.name}</span> : null}
+                    </button>
+                  ))}
+                  <div class="qp-sec muted small">Tất cả sản phẩm</div>
+                </>
+              )}
+              {restRows.map((p) => (
                 <button class={"qp-item" + (p.code === value ? " on" : "")} key={p.code}
                   onClick={() => onPick(p.code)}>
                   <b>{p.code}</b>{p.name ? <span class="muted"> · {p.name}</span> : null}
