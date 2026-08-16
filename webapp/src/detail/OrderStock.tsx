@@ -259,20 +259,19 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
               )}
             </div>
 
-            {/* SP đóng gói được: hết thùng thành phẩm vẫn có thể đóng thêm → cho thấy
-                tồn nguyên liệu ngay đây. Đỏ = không đủ NL để đóng nốt phần còn thiếu. */}
-            {mats.length > 0 && (
+            {/* SP đóng gói được mà CÒN THIẾU: hết thùng thành phẩm vẫn đóng thêm được
+                → cho thấy tồn nguyên liệu ngay đây (đỏ = không đủ NL để đóng nốt phần
+                thiếu). Xuất đủ rồi thì ẩn — không còn phải quyết định gì. */}
+            {mats.length > 0 && inInvoice && short && (
               <div class="stock-mats">
                 <span class="sm-lb">Nguyên liệu</span>
                 {mats.map((m) => {
-                  const needMat = m.ratio * Math.max(need - got, 0);
-                  const low = needMat > 1e-6 && m.stock + 1e-6 < needMat;
+                  const needMat = m.ratio * (need - got);
+                  const low = m.stock + 1e-6 < needMat;
                   return (
                     <a class={"sm-it" + (low ? " low" : "")} key={m.code}
                       href={`#/kho/${encodeURIComponent(m.code)}`}
-                      title={needMat > 1e-6
-                        ? `Cần ${soVN(needMat)} ${m.unit} để đóng gói ${soVN(need - got)} còn thiếu`
-                        : "Tồn nguyên liệu hiện tại"}>
+                      title={`Cần ${soVN(needMat)} ${m.unit} để đóng gói ${soVN(need - got)} còn thiếu`}>
                       <b>{m.code}</b> tồn {soVN(m.stock)} {m.unit}
                     </a>
                   );
