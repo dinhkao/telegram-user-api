@@ -4,7 +4,7 @@
 // CHỐT xuất kho: xuất đủ mọi mã → bấm Chốt → KHOÁ sửa/thu hồi VỚI TẤT CẢ (server
 // cũng chặn); admin muốn sửa phải bấm Huỷ chốt. Nút bị khoá = mờ + toast lý do.
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { orderAllocations, allocatePicks, releaseAllocations, stockConfirmOrder, currentUser, soVN, lockStockPick, unlockStockPick, stockPickStatus, type Allocation } from "../api";
+import { orderAllocations, allocatePicks, releaseAllocations, stockConfirmOrder, currentUser, soVN, lockStockPick, unlockStockPick, stockPickStatus, type Allocation, type MaterialStock } from "../api";
 import { StockPickerModal } from "./StockPickerModal";
 import { confirmDialog, toast } from "../ui/feedback";
 import { onRealtime } from "../realtime";
@@ -28,6 +28,8 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
 }) {
   const [allocs, setAllocs] = useState<Allocation[]>([]);
   const [stock, setStock] = useState<Record<string, number>>({});   // tồn hiện tại theo mã SP
+  // Tồn NGUYÊN LIỆU theo mã SP — chỉ SP đóng gói được & đã khai công thức mới có
+  const [materials, setMaterials] = useState<Record<string, MaterialStock[]>>({});
   const [pickCode, setPickCode] = useState("");
   const pickSid = useMemo(() => Math.random().toString(36).slice(2) + Date.now().toString(36), []);
   const [busy, setBusy] = useState(false);
@@ -46,6 +48,7 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
       const r = await orderAllocations(threadId);
       setAllocs(r.allocations);
       setStock(r.stock);
+      setMaterials(r.materials);
     } catch {
       /* im lặng */
     }
@@ -229,6 +232,7 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
         const enough = inInvoice && !over && !short;          // xuất đúng đủ
         const onhand = stock[code] ?? 0;                      // tồn hiện tại của kho
         const lowStock = short && onhand < (need - got);      // kho không đủ xuất nốt phần còn thiếu
+        const mats = materials[code] || [];                   // NL của SP đóng gói (có công thức)
         const pickBy = pickLocks[code];                       // ai đang chọn thùng mã này
         const heldByOther = !!pickBy && pickBy !== myName;    // NGƯỜI KHÁC đang chọn → khoá nút
         return (
@@ -254,6 +258,27 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
                 </button>
               )}
             </div>
+
+            {/* SP đóng gói được: hết thùng thành phẩm vẫn có thể đóng thêm → cho thấy
+                tồn nguyên liệu ngay đây. Đỏ = không đủ NL để đóng nốt phần còn thiếu. */}
+            {mats.length > 0 && (
+              <div class="stock-mats">
+                <span class="sm-lb">Nguyên liệu</span>
+                {mats.map((m) => {
+                  const needMat = m.ratio * Math.max(need - got, 0);
+                  const low = needMat > 1e-6 && m.stock + 1e-6 < needMat;
+                  return (
+                    <a class={"sm-it" + (low ? " low" : "")} key={m.code}
+                      href={`#/kho/${encodeURIComponent(m.code)}`}
+                      title={needMat > 1e-6
+                        ? `Cần ${soVN(needMat)} ${m.unit} để đóng gói ${soVN(need - got)} còn thiếu`
+                        : "Tồn nguyên liệu hiện tại"}>
+                      <b>{m.code}</b> tồn {soVN(m.stock)} {m.unit}
+                    </a>
+                  );
+                })}
+              </div>
+            )}
 
             {mine.length > 0 && (
               <BoxTileGrid

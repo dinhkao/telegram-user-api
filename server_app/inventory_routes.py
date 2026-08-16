@@ -1435,19 +1435,24 @@ async def product_orders_handler(request: web.Request):
 
 
 # ─── xuất / thu thùng cho đơn ─────────────────────────────────────────────────
-def _order_product_stock(conn, thread_id) -> dict:
-    """{MÃ SP (hoa) trong hoá đơn: tồn hiện tại của kho}. Tồn = tổng CÒN LẠI của thùng
-    còn hiệu lực; khớp theo product_id nên mã cũ (alias) vẫn ra đúng SP. 1 lượt
-    product_summary (đã trừ mọi phân bổ, kể cả của đơn này = tồn thực còn lại)."""
-    from product_store import resolve_code_to_id
+def _invoice_codes(conn, thread_id) -> list[str]:
+    """Mã SP (hoa, không trùng) trong hoá đơn của đơn."""
     order = get_order_by_thread_id(conn, thread_id)
     if not order:
-        return {}
+        return []
     codes: list[str] = []
     for it in (order.get("invoice") or []):
         c = str(it.get("sp") or "").strip().upper()
         if c and c not in codes:
             codes.append(c)
+    return codes
+
+
+def _order_product_stock(conn, codes) -> dict:
+    """{MÃ SP (hoa) trong hoá đơn: tồn hiện tại của kho}. Tồn = tổng CÒN LẠI của thùng
+    còn hiệu lực; khớp theo product_id nên mã cũ (alias) vẫn ra đúng SP. 1 lượt
+    product_summary (đã trừ mọi phân bổ, kể cả của đơn này = tồn thực còn lại)."""
+    from product_store import resolve_code_to_id
     if not codes:
         return {}
     summ = product_summary(conn)
@@ -1462,7 +1467,8 @@ def _order_product_stock(conn, thread_id) -> dict:
 
 async def order_allocations_handler(request: web.Request):
     """Các phần thùng đã xuất cho đơn này (1 dòng = 1 phần thùng) + tồn hiện tại của
-    từng mã SP trong đơn (để trang xuất kho hiện tồn kho từng SP)."""
+    từng mã SP trong đơn (để trang xuất kho hiện tồn kho từng SP) + tồn NGUYÊN LIỆU
+    của mã SP đóng gói được & đã có công thức (hết thành phẩm còn đóng thêm được không)."""
     thread_id = _thread_id(request)
     if thread_id is None:
         return web.json_response({"ok": False, "error": "thread_id không hợp lệ"}, status=400)
@@ -1471,11 +1477,15 @@ async def order_allocations_handler(request: web.Request):
         conn = _conn()
         try:
             _ensure(conn)
-            return list_order_allocations(conn, thread_id), _order_product_stock(conn, thread_id)
+            from server_app.order_material_stock import order_material_stock
+            codes = _invoice_codes(conn, thread_id)
+            return (list_order_allocations(conn, thread_id), _order_product_stock(conn, codes),
+                    order_material_stock(conn, codes))
         finally:
             conn.close()
-    allocs, stock = await asyncio.to_thread(_run)
-    return web.json_response({"ok": True, "allocations": allocs, "stock": stock})
+    allocs, stock, materials = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, "allocations": allocs, "stock": stock,
+                              "materials": materials})
 
 
 async def order_allocate_handler(request: web.Request):

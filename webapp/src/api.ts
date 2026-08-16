@@ -2377,11 +2377,18 @@ export async function updateBox(
   return d.ok ? d.box : null;
 }
 
-/** Phần thùng đã xuất cho đơn (1 dòng = 1 phần) + tồn hiện tại {MÃ SP: tồn}. */
-export type OrderStockInfo = { allocations: Allocation[]; stock: Record<string, number> };
+/** 1 nguyên liệu chính của SP đóng gói: tỉ lệ / 1 cây thành phẩm + tồn hiện tại. */
+export type MaterialStock = { code: string; ratio: number; stock: number; unit: string };
+/** Phần thùng đã xuất cho đơn (1 dòng = 1 phần) + tồn hiện tại {MÃ SP: tồn} +
+ *  tồn NGUYÊN LIỆU {MÃ SP: [nguyên liệu]} (chỉ SP đóng gói được & đã có công thức). */
+export type OrderStockInfo = {
+  allocations: Allocation[];
+  stock: Record<string, number>;
+  materials: Record<string, MaterialStock[]>;
+};
 export async function orderAllocations(id: string | number): Promise<OrderStockInfo> {
   const d = await getJSON(`/api/order/${id}/allocations`);
-  return { allocations: d.allocations || [], stock: d.stock || {} };
+  return { allocations: d.allocations || [], stock: d.stock || {}, materials: d.materials || {} };
 }
 
 /** Xuất kho cho đơn — lấy 1 phần được: picks=[{box_id, quantity?}] (thiếu qty = hết còn lại). */

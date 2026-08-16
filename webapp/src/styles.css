@@ -1630,6 +1630,13 @@ body.has-nop .pr-thead-bar { top: calc(72px + var(--pr-search-h, 46px)); }
 .stock-onhand { font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .stock-onhand.low { color: var(--danger); font-weight: 700; }
 .stock-head .btn.small { margin-left: auto; }
+/* Dòng tồn NGUYÊN LIỆU của SP đóng gói được (dưới mỗi mã SP trong khối xuất kho) */
+.stock-mats { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin: 2px 0 4px; font-size: .8rem; }
+.stock-mats .sm-lb { color: var(--muted); }
+.stock-mats .sm-it { color: var(--muted); text-decoration: none; border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; font-variant-numeric: tabular-nums; }
+.stock-mats .sm-it b { color: var(--text); }
+.stock-mats .sm-it.low { color: var(--danger); background: #fff0f0; font-weight: 600; }
+.stock-mats .sm-it.low b { color: var(--danger); }
 /* Banner: phân bổ kho không khớp hoá đơn (thường do vừa sửa SL hoá đơn) */
 .stock-mismatch { display: flex; gap: 8px; align-items: flex-start; background: #fff5f5; border: 1px solid #f3c2c2; color: #8a2b2b; border-radius: 8px; padding: 8px 10px; margin: 6px 0 8px; font-size: .85rem; line-height: 1.5; }
 .stock-mismatch .sm-ic { flex: none; }
