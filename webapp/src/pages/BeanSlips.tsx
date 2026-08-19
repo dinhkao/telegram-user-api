@@ -65,7 +65,7 @@ export function BeanSlips() {
       {groups.map((g) => (
         <div class="prod-group" key={g.key}>
           <div class="prod-group-head">{dayLabel(g.key)} <span class="muted small">({g.items.length})</span></div>
-          {g.items.map((s) => <BeanSlipCard slip={s} key={s.id} />)}
+          {g.items.map((s) => <BeanSlipCard slip={s} showDate={false} key={s.id} />)}
         </div>
       ))}
 

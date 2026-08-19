@@ -4309,6 +4309,8 @@ body.has-nop .wp-thead-bar { top: 72px; }
 .bean-slip-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .bean-slip-kind { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: .88rem; }
 .bean-slip-amt { font-weight: 800; font-variant-numeric: tabular-nums; }
+/* Giờ tạo phiếu: bám ngay sau nhãn loại, đẩy số biến động về mép phải. */
+.bean-slip-time { margin-right: auto; font-variant-numeric: tabular-nums; }
 .bean-slip-sub, .bean-slip-note { margin-top: 2px; overflow-wrap: anywhere; }
 
 /* Form tạo phiếu + thiết lập danh mục */
