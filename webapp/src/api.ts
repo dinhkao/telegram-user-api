@@ -88,7 +88,8 @@ export function isOffice(): boolean {
   return r === "admin" || r === "van_phong";
 }
 
-/** Vai trò BÓ HẸP: chỉ xem/thao tác trang Chất lượng mâm kẹo (#/chat-luong).
+/** Vai trò BÓ HẸP: chỉ xem/thao tác 2 trang báo cáo ảnh — Chất lượng mâm kẹo
+ *  (#/chat-luong) và Vệ sinh khu vực (#/khu-vuc).
  *  Ẩn menu theo cờ này chỉ để gọn mắt — chặn THẬT nằm ở server
  *  (server_app/web_auth/role_scope.py), gõ thẳng URL API vẫn 403. */
 export function isQualityOnly(): boolean {
@@ -1760,7 +1761,7 @@ export async function setUserPin(username: string, pin: string): Promise<any> {
 
 export const ROLE_LABEL: Record<string, string> = {
   admin: "Admin", van_phong: "Văn phòng", staff: "Nhân viên",
-  chat_luong: "Chất lượng mâm (chỉ trang này)",
+  chat_luong: "Chất lượng mâm + Vệ sinh (chỉ 2 trang này)",
 };
 
 // ── Notification center ───────────────────────────────────────────────────────

@@ -804,17 +804,24 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   ⚠ Ảnh mâm kẹo là BẰNG CHỨNG → CameraBox nhận prop **`captureOnly`** (QualityDetail
   + nút chụp nhanh ở QualityBoard bật) để ẩn nút "Chọn ảnh": chỉ được chụp tại chỗ,
   không lấy từ thư viện. Các trang khác vẫn chọn ảnh bình thường (mặc định false).
-  ⚠ VAI TRÒ **`chat_luong`** (user_store ROLES): chỉ xem/thao tác trang này, không
-  thấy đơn/kho/lương/khách. Chặn THẬT ở **`server_app/web_auth/role_scope.py`** —
-  middleware `web_auth` từ chối 403 mọi `/api/*` ngoài `auth` · `quality` ·
-  `media/{quality_report,quality_image}` · `fcm/register` (mặc định TỪ CHỐI, so khớp
+  ⚠ VAI TRÒ **`chat_luong`** (user_store ROLES): chỉ xem/thao tác **2 trang báo cáo
+  ảnh hằng ngày** — chất lượng mâm kẹo (`#/chat-luong`) + **vệ sinh khu vực
+  (`#/khu-vuc`, mở 2026-08-19: cùng người chụp cả 2 loại báo cáo)** — không thấy
+  đơn/kho/lương/khách. Chặn THẬT ở **`server_app/web_auth/role_scope.py`** —
+  middleware `web_auth` từ chối 403 mọi `/api/*` ngoài `auth` · `quality` · `areas` ·
+  `media/{quality_report,quality_image,area_report,area_image}` · `fcm/register`
+  (mặc định TỪ CHỐI, so khớp
   theo TỪNG ĐOẠN đường dẫn để `/api/quality-secret` không lọt; `fcm/register` mở để
   máy dùng chung đổi chủ row token → server loại máy khỏi push). Webapp
-  `isQualityOnly()` chỉ ẩn menu/nhốt hash trong `#/chat-luong` cho gọn mắt — KHÔNG
-  phải hàng rào. Vai trò này KHÔNG thuộc OFFICE_ROLES nên mọi gate office/admin sẵn
-  có tự động vẫn chặn. Thêm tính năng cho vai trò này thì mở đường trong
+  `isQualityOnly()` chỉ ẩn menu/nhốt hash trong `QUALITY_PAGES` (main.tsx — PHẢI khớp
+  danh sách mở API ở server) cho gọn mắt — KHÔNG
+  phải hàng rào; thanh dưới của vai trò này rút gọn còn 2 tab (không có thì kẹt ở
+  trang đang mở vì menu ☰ Thêm bị ẩn). Vai trò này KHÔNG thuộc OFFICE_ROLES nên mọi
+  gate office/admin sẵn có tự động vẫn chặn (sửa tên khu vực = văn phòng, xoá báo cáo
+  = admin — họ chỉ chụp + xem). Thêm tính năng cho vai trò này thì mở đường trong
   `role_scope.py`. **Realtime /ws cũng lọc theo role**: client chat_luong chỉ nhận
-  `ping`/`app_reload`/`quality_changed` (`role_scope.ws_event_allowed_for_quality`,
+  `ping`/`app_reload`/`quality_changed`/`area_changed`
+  (`role_scope.ws_event_allowed_for_quality`,
   đánh dấu socket ở `websocket_routes` → lọc trong `realtime._send`).
   Test: `tests/test_web_auth_role_scope.py`.
   ⚠ BẢNG #/chat-luong: **2 CỘT ĐỘC LẬP** (`.qb-cols` + 2 `.qb-col`, không phải grid

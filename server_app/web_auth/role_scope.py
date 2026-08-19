@@ -1,7 +1,8 @@
 """Giới hạn PHẠM VI API theo vai trò — logic THUẦN (không IO, unit-tested).
 
 Hiện chỉ có một vai trò bị bó hẹp: **`chat_luong`** — user chỉ được xem và thao tác
-trang CHẤT LƯỢNG MÂM KẸO (#/chat-luong), không thấy đơn hàng / kho / lương / khách.
+2 trang BÁO CÁO ẢNH HẰNG NGÀY: CHẤT LƯỢNG MÂM KẸO (#/chat-luong) và VỆ SINH KHU VỰC
+(#/khu-vuc) — không thấy đơn hàng / kho / lương / khách.
 
 ⚠ Đây là hàng rào THẬT (chặn ở middleware, trước mọi handler). Ẩn menu ở webapp chỉ
 là cho gọn mắt — người dùng gõ thẳng URL API vẫn phải bị 403. Nguyên tắc: **mặc định
@@ -16,14 +17,18 @@ from __future__ import annotations
 # sẵn có (xoá báo cáo, đổi cài đặt bảng…) tự động vẫn từ chối.
 QUALITY_ONLY_ROLE = "chat_luong"
 
-# Ảnh + bình luận + chấm điểm của trang chất lượng đi qua /api/media/{scope}/…
-# CHỈ hai scope này được phép (area_* của trang vệ sinh KHÔNG).
-_ALLOWED_MEDIA_SCOPES = frozenset({"quality_report", "quality_image"})
+# Ảnh + bình luận + chấm điểm của 2 trang báo cáo ảnh đi qua /api/media/{scope}/…
+# CHỈ bốn scope này được phép (*_report = báo cáo 1 ngày, *_image = trao đổi 1 bức ảnh).
+_ALLOWED_MEDIA_SCOPES = frozenset({
+    "quality_report", "quality_image",   # chất lượng mâm kẹo
+    "area_report", "area_image",         # vệ sinh khu vực
+})
 
 # Nhánh /api/<đây> được mở trọn cho vai trò này.
 _ALLOWED_ROOTS = frozenset({
     "auth",       # /api/auth/login · /api/auth/me — không có thì không đăng nhập được
     "quality",    # /api/quality* — bảng + chi tiết thợ + tạo báo cáo hôm nay
+    "areas",      # /api/areas* — dashboard vệ sinh + chi tiết khu + tạo báo cáo hôm nay
 })
 
 
@@ -60,7 +65,7 @@ def allowed_for_quality_only(method: str, path: str) -> bool:
 # Sự kiện realtime /ws vai trò chat_luong ĐƯỢC nhận — còn lại chặn ở vòng phát
 # (server_app/realtime.py): order_changed mang row PII khách/tiền, notif_added là
 # chuông của phần không liên quan… không được đổ về máy vai trò bó hẹp.
-_QUALITY_WS_EVENTS = frozenset({"ping", "app_reload", "quality_changed"})
+_QUALITY_WS_EVENTS = frozenset({"ping", "app_reload", "quality_changed", "area_changed"})
 
 
 def ws_event_allowed_for_quality(event_type: str) -> bool:

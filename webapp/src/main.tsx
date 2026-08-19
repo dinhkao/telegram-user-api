@@ -393,6 +393,10 @@ function RealtimeDot() {
   );
 }
 
+// 2 trang vai trò chat_luong được vào (trang đầu = nơi bị kéo về khi lạc chỗ).
+// Phải khớp danh sách mở API ở server_app/web_auth/role_scope.py.
+const QUALITY_PAGES = ["#/chat-luong", "#/khu-vuc"];
+
 function App() {
   const hash = useHash();
   const user = currentUser();
@@ -422,12 +426,13 @@ function App() {
     if (showLogin && hash !== "#/login") window.location.hash = "#/login";
   }, [showLogin, hash]);
 
-  // Vai trò chat_luong: NHỐT trong #/chat-luong. Gõ/back sang trang khác là bị kéo
-  // về ngay. Đây chỉ là cho gọn mắt — server đã chặn API ngoài phạm vi (403).
+  // Vai trò chat_luong: NHỐT trong 2 trang báo cáo ảnh (chất lượng mâm + vệ sinh khu
+  // vực). Gõ/back sang trang khác là bị kéo về ngay. Đây chỉ là cho gọn mắt — server
+  // đã chặn API ngoài phạm vi (403), xem web_auth/role_scope.py.
   const qualityOnly = authed && isQualityOnly();
   useEffect(() => {
-    if (qualityOnly && !hash.startsWith("#/chat-luong") && hash !== "#/login") {
-      window.location.hash = "#/chat-luong";
+    if (qualityOnly && !QUALITY_PAGES.some((p) => hash.startsWith(p)) && hash !== "#/login") {
+      window.location.hash = QUALITY_PAGES[0];
     }
   }, [qualityOnly, hash]);
 
@@ -713,6 +718,16 @@ function App() {
           <a class={tab("#/san_xuat")} href="#/san_xuat" onClick={() => fastScrollTop()}><Icon name="factory" size={22} class="tab-ico" /><span class="tab-lbl">SX</span></a>
           <a class={tab("#/kho")} href="#/kho" onClick={() => fastScrollTop()}><Icon name="box" size={22} class="tab-ico" /><span class="tab-lbl">Kho</span></a>
           <a class={hash.startsWith("#/home") ? "tab nav-more active" : "tab nav-more"} href="#/home" title="Thêm" onClick={() => fastScrollTop()}><Icon name="menu" size={22} class="tab-ico" /><span class="tab-lbl">Thêm</span></a>
+          </nav>
+        </div>
+      )}
+      {/* Vai trò chat_luong: thanh dưới RÚT GỌN 2 tab — không có nó thì vào được
+          trang này là kẹt luôn ở đó (menu ☰ Thêm bị ẩn với vai trò này). */}
+      {!showLogin && qualityOnly && (
+        <div class="bottom-dock">
+          <nav class="bottom-nav">
+            <a class={tab("#/chat-luong")} href="#/chat-luong" onClick={() => fastScrollTop()}><Icon name="star" size={22} class="tab-ico" /><span class="tab-lbl">Chất lượng</span></a>
+            <a class={tab("#/khu-vuc")} href="#/khu-vuc" onClick={() => fastScrollTop()}><Icon name="leaf" size={22} class="tab-ico" /><span class="tab-lbl">Vệ sinh</span></a>
           </nav>
         </div>
       )}

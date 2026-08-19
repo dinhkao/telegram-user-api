@@ -2,7 +2,7 @@
 // HÔM NAY (✓ đã vệ sinh / chưa báo cáo) + dải 7 ngày. Tạo khu vực (mọi user) →
 // vào chi tiết chụp ảnh. Data: listAreas. Realtime area_changed → tải lại.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { listAreas, createArea, mediaImageUrl, type AreaRow } from "../api";
+import { isQualityOnly, listAreas, createArea, mediaImageUrl, type AreaRow } from "../api";
 import { foldVN } from "../format";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
@@ -66,7 +66,7 @@ export function AreasBoard() {
   return (
     <div class="inv-dash">
       <PageHead title={<span><Icon name="leaf" size={18} /> Khu vực xưởng</span>}
-        sub="Báo cáo vệ sinh hàng ngày" fallback="#/orders"
+        sub="Báo cáo vệ sinh hàng ngày" fallback={isQualityOnly() ? "#/chat-luong" : "#/orders"}
         right={<button class="btn small primary" disabled={adding} onClick={doAdd}><Icon name="plus" size={15} /> Thêm khu vực</button>} />
 
       <div class={"area-summary " + (total > 0 && done >= total ? "all-done" : "")}>
