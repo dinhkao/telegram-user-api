@@ -4,6 +4,28 @@ import type { Guide } from "./types";
 
 export const GUIDES_TAICHINH: Guide[] = [
   {
+    key: "loi-nhuan", icon: "chart", cat: "Tài chính", office: true,
+    title: "Lợi nhuận — dashboard lãi theo đơn / SP / khách",
+    desc: "Xem lãi từng ngày, từng đơn, từng sản phẩm, từng khách; nhập giá vốn; cấu hình tiền vay.",
+    routes: ["#/loi-nhuan"],
+    sections: [
+      { title: "Trang này để làm gì?", html: `
+        <p>Mục <b>☰ Thêm → Tài chính → Lợi nhuận</b> mở <b>dashboard lợi nhuận</b>:
+        doanh thu − giá vốn − chi phí (kể cả phân bổ <b>tiền vay</b>) theo khoảng ngày.
+        Xem được theo <b>đơn hàng</b>, theo <b>sản phẩm</b> và theo <b>khách hàng</b> —
+        bấm vào từng dòng để xuống chi tiết.</p>
+        <p class="muted small"><b>Chỉ văn phòng</b> xem được. Trang mở toàn màn hình riêng —
+        bấm <b>Back</b> để quay về app.</p>` },
+      { title: "Giá vốn & tiền vay", html: `
+        <ul>
+          <li>Tab <b>Sản phẩm</b> trong dashboard: nhập <b>giá vốn</b> hàng loạt; đơn tạo sau đó
+          sẽ <b>đóng băng</b> giá vốn tại thời điểm tạo (sửa giá vốn không đổi lãi đơn cũ).</li>
+          <li>Trang <b>⚙️ Cấu hình</b>: tiền <b>vay phải trả mỗi năm</b> + trọng số từng tháng —
+          hệ thống phân bổ vào chi phí mỗi ngày để lãi hiện sát thật.</li>
+        </ul>` },
+    ],
+  },
+  {
     key: "no-qua-han", icon: "clock", cat: "Tài chính", office: true,
     title: "Nợ quá hạn — nhắc thu tiền mỗi ngày",
     desc: "Khách đã nhận hàng nhưng chưa trả tiền: xem ai nợ mấy ngày, bao nhiêu đơn, thu ngay.",

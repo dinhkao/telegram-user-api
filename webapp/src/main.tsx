@@ -77,6 +77,7 @@ import { BoxTimeline } from "./pages/BoxTimeline";
 import { OrderTimeline } from "./pages/OrderTimeline";
 import { CameraGallery } from "./pages/CameraGallery";
 import { UsageStats } from "./pages/UsageStats";
+import { ProfitRedirect } from "./pages/ProfitRedirect";
 import { DisposalsList } from "./pages/DisposalsList";
 import { AdjustmentsList } from "./pages/AdjustmentsList";
 import { DisposalDetail } from "./pages/DisposalDetail";
@@ -597,6 +598,7 @@ function App() {
   else if (hash.startsWith("#/lich-su")) page = <ActivityLog />;
   else if (hash.startsWith("#/camera")) page = <CameraGallery />;
   else if (hash.startsWith("#/usage")) page = <UsageStats />;
+  else if (hash.startsWith("#/loi-nhuan")) page = <ProfitRedirect />;
   else if (hash.startsWith("#/dang-giao")) page = <DeliveringOrders />;
   else if (hash.startsWith("#/lich")) page = <DeliveryCalendar />;
   else if (hash.startsWith("#/create")) page = <CreateOrder />;
@@ -685,6 +687,7 @@ function App() {
     : hash.startsWith("#/lich-su") ? "Lịch sử thao tác"
     : hash.startsWith("#/camera") ? "Camera 2026"
     : hash.startsWith("#/usage") ? "Thống kê sử dụng"
+    : hash.startsWith("#/loi-nhuan") ? "Lợi nhuận"
     : hash.startsWith("#/dang-giao") ? "Ai đang giao"
     : hash.startsWith("#/lich") ? "Lịch giao"
     : (hash.startsWith("#/bang-gia") || bangGiaMatch) ? "Bảng giá"

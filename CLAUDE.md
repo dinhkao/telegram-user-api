@@ -1026,6 +1026,22 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   điều hướng = "→ route"), gom buffer gửi batch 20s (`POST /api/usage/batch`, nằm
   trong `_NO_AUDIT`, offline→queue). Admin xem `#/usage` (UsageStats, menu Thêm) ←
   `GET /api/usage/stats?days=&user=` (`server_app/usage_routes.py`).
+- **`profit_dashboard/` — dashboard LỢI NHUẬN `/loi-nhuan/*` (2026-08-25, CHỈ VĂN
+  PHÒNG).** Port nguyên trang từ repo anh em `profit-dashboard` (app riêng port 8091
+  — từ nay là LEGACY, đừng sửa bên đó nữa): trang HTML server-render (tailwind CDN +
+  alpinejs, KHÔNG thuộc webapp/) — lãi theo đơn/SP/khách theo khoảng ngày, nhập giá
+  vốn bulk, freeze giá vốn vào đơn cũ, cấu hình tiền vay năm + trọng số tháng
+  (file JSON `PROFIT_SETTINGS_FILE`, mặc định `~/letrang-db/profit_settings.json`).
+  Routes = `server_app/profit_routes.py` (đăng ký app_factory): gate văn phòng theo
+  token — lượt đầu mang `?token=` (webapp `#/loi-nhuan` = `pages/ProfitRedirect.tsx`
+  chuyển CẢ cửa sổ kèm token, mục ☰ Thêm → Tài chính → Lợi nhuận, office) → server
+  đóng dấu cookie `pd_token` (Path=/loi-nhuan) nên link giữa các trang không cần
+  token. Mọi generator quét FULL bảng orders (thread_id ≥ 460000) nên chạy trong
+  `asyncio.to_thread` với connection riêng — đừng gọi thẳng trên event loop. Logic
+  JSON feed + freeze tách ở `profit_dashboard/queries.py` (tests:
+  `tests/test_profit_queries.py`). ⚠ Nợ kỹ thuật: `pages/dashboard.py` ~990 dòng
+  (vượt trần 400 — vendored nguyên khối, tách sau). Mọi URL nội bộ trong pages đã
+  prefix cứng `/loi-nhuan` — thêm trang/endpoint mới nhớ prefix + thêm route.
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
 - **Lịch sử thao tác — 3 mặt hiển thị, 1 bảng tra nhãn (2026-07-14).** Mọi dòng
   lịch sử có `parts: [{t, href?}]` = đoạn chữ + LINK tới thực thể được nhắc
