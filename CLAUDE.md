@@ -1026,22 +1026,29 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   điều hướng = "→ route"), gom buffer gửi batch 20s (`POST /api/usage/batch`, nằm
   trong `_NO_AUDIT`, offline→queue). Admin xem `#/usage` (UsageStats, menu Thêm) ←
   `GET /api/usage/stats?days=&user=` (`server_app/usage_routes.py`).
-- **`profit_dashboard/` — dashboard LỢI NHUẬN `/loi-nhuan/*` (2026-08-25, CHỈ VĂN
-  PHÒNG).** Port nguyên trang từ repo anh em `profit-dashboard` (app riêng port 8091
-  — từ nay là LEGACY, đừng sửa bên đó nữa): trang HTML server-render (tailwind CDN +
-  alpinejs, KHÔNG thuộc webapp/) — lãi theo đơn/SP/khách theo khoảng ngày, nhập giá
-  vốn bulk, freeze giá vốn vào đơn cũ, cấu hình tiền vay năm + trọng số tháng
-  (file JSON `PROFIT_SETTINGS_FILE`, mặc định `~/letrang-db/profit_settings.json`).
-  Routes = `server_app/profit_routes.py` (đăng ký app_factory): gate văn phòng theo
-  token — lượt đầu mang `?token=` (webapp `#/loi-nhuan` = `pages/ProfitRedirect.tsx`
-  chuyển CẢ cửa sổ kèm token, mục ☰ Thêm → Tài chính → Lợi nhuận, office) → server
-  đóng dấu cookie `pd_token` (Path=/loi-nhuan) nên link giữa các trang không cần
-  token. Mọi generator quét FULL bảng orders (thread_id ≥ 460000) nên chạy trong
-  `asyncio.to_thread` với connection riêng — đừng gọi thẳng trên event loop. Logic
-  JSON feed + freeze tách ở `profit_dashboard/queries.py` (tests:
-  `tests/test_profit_queries.py`). ⚠ Nợ kỹ thuật: `pages/dashboard.py` ~990 dòng
-  (vượt trần 400 — vendored nguyên khối, tách sau). Mọi URL nội bộ trong pages đã
-  prefix cứng `/loi-nhuan` — thêm trang/endpoint mới nhớ prefix + thêm route.
+- **`profit_dashboard/` — lõi tính LỢI NHUẬN cho UI NATIVE `#/loi-nhuan` (2026-08-26,
+  CHỈ VĂN PHÒNG).** Bộ trang HTML server-render `/loi-nhuan/*` cũ (tailwind CDN +
+  cookie token, port từ repo anh em `profit-dashboard` 8091 — legacy) đã GỠ HẲN;
+  giờ là 5 trang Preact trong webapp + API JSON. Server: `compute.py` (số liệu
+  thuần, quét full orders thread_id ≥ 460000 theo ngày VN — dashboard/khách/SP,
+  so % kỳ trước cùng độ dài, lãi thực = lãi gộp − tiền vay phân bổ
+  `utils.calc_prorated_loan`; test `tests/test_profit_compute.py`) · `queries.py`
+  (feed đơn phân trang + `freeze_all_costs`; test test_profit_queries) ·
+  `settings.py` (tiền vay năm + trọng số tháng, file JSON `PROFIT_SETTINGS_FILE`).
+  Routes `server_app/profit_api_routes.py` (`/api/profit/dashboard|orders|
+  customers|customer|product/{code}|settings|costs|freeze-costs`) — auth Bearer
+  chuẩn + `is_office_request` (hết cơ chế cookie `pd_token` riêng), mọi generator
+  chạy `_run` = thread + connection RIÊNG, đừng gọi trên event loop. Sửa giá vốn
+  (bulk/1 mã) + freeze có audit `product.costs_updated`/`costs_frozen`.
+  UI: `pages/ProfitDashboard.tsx` (`#/loi-nhuan` — chọn kỳ `detail/ProfitDateBar`,
+  thẻ tóm tắt + LÃI THỰC, top 5 khách/SP, 3 tab: Đơn hàng = `detail/
+  ProfitOrdersFeed.tsx` (bung dòng xem lãi từng SP) · Sản phẩm = sửa giá vốn hàng
+  loạt · Biểu đồ = SVG thuần không thư viện) · `ProfitCustomers/ProfitCustomer`
+  (`#/loi-nhuan/khach[/:name]`) · `ProfitProduct` (`#/loi-nhuan/sp/:code`, sửa giá
+  vốn tại chỗ) · `ProfitSettings` (`#/loi-nhuan/cai-dat`, tiền vay + trọng số +
+  nút freeze). ⚠ Route `#/loi-nhuan/khach/…` phải đứng TRƯỚC `#/loi-nhuan` trong
+  main.tsx (startsWith nuốt). Giá vốn đơn là snapshot (`cost_price` frozen trong
+  invoice) — đổi giá vốn chỉ áp đơn chưa đóng băng.
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
 - **Lịch sử thao tác — 3 mặt hiển thị, 1 bảng tra nhãn (2026-07-14).** Mọi dòng
   lịch sử có `parts: [{t, href?}]` = đoạn chữ + LINK tới thực thể được nhắc

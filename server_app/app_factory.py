@@ -327,9 +327,10 @@ def create_app():
     r.add_post("/api/payroll/allowance/{id}/print-note", payroll_allowance_print_note_handler)
     from server_app.payslip_routes import payslip_month_html_handler
     r.add_get("/api/payroll/payslip-html", payslip_month_html_handler)   # phiếu lương tháng in giấy
-    # ─── dashboard lợi nhuận /loi-nhuan/* (HTML, CHỈ văn phòng — profit_dashboard/) ─
-    from server_app.profit_routes import register as register_profit_routes
-    register_profit_routes(r)
+    # ─── dashboard lợi nhuận NATIVE /api/profit/* (JSON, CHỈ văn phòng) ─
+    # (bộ trang HTML /loi-nhuan/* cũ đã gỡ 2026-08-26 — UI giờ là webapp #/loi-nhuan)
+    from server_app.profit_api_routes import register as register_profit_api_routes
+    register_profit_api_routes(r)
     # ─── chấm công (máy Ronald Jack — ingest = bearer riêng, còn lại office) ─
     from server_app.attendance_routes import (
         attendance_ingest_handler, attendance_list_handler,

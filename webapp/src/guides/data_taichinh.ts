@@ -13,9 +13,11 @@ export const GUIDES_TAICHINH: Guide[] = [
         <p>Mục <b>☰ Thêm → Tài chính → Lợi nhuận</b> mở <b>dashboard lợi nhuận</b>:
         doanh thu − giá vốn − chi phí (kể cả phân bổ <b>tiền vay</b>) theo khoảng ngày.
         Xem được theo <b>đơn hàng</b>, theo <b>sản phẩm</b> và theo <b>khách hàng</b> —
-        bấm vào từng dòng để xuống chi tiết.</p>
-        <p class="muted small"><b>Chỉ văn phòng</b> xem được. Trang mở toàn màn hình riêng —
-        bấm <b>Back</b> để quay về app.</p>` },
+        bấm vào từng dòng để xuống chi tiết. Thẻ <b>LÃI THỰC</b> = lãi gộp − tiền vay phân bổ;
+        các thẻ có <b>% so kỳ trước</b> (cùng độ dài, lùi sát trước kỳ đang xem).</p>
+        <p class="muted small"><b>Chỉ văn phòng</b> xem được. Trang là 1 phần của app
+        (không còn mở cửa sổ riêng): <a href="#/loi-nhuan">#/loi-nhuan</a> →
+        khách <a href="#/loi-nhuan/khach">#/loi-nhuan/khach</a>, cấu hình #/loi-nhuan/cai-dat.</p>` },
       { title: "Giá vốn & tiền vay", html: `
         <ul>
           <li>Tab <b>Sản phẩm</b> trong dashboard: nhập <b>giá vốn</b> hàng loạt; đơn tạo sau đó
