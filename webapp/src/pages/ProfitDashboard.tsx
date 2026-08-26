@@ -215,6 +215,9 @@ export function ProfitDashboard() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<string>(() => sessionStorage.getItem("pf_tab") || "don");
+  // Chỉ tính đơn ĐÃ thanh toán (≥1 phiếu thu) — đơn chưa thu loại khỏi mọi số
+  const [paidOnly, setPaidOnly] = useState(() => sessionStorage.getItem("pf_paid") === "1");
+  const togglePaid = () => setPaidOnly((v) => { sessionStorage.setItem("pf_paid", v ? "" : "1"); return !v; });
   const pickTab = (t: string) => { setTab(t); sessionStorage.setItem("pf_tab", t); };
   const t = useRef<number>();
   useEffect(() => {
@@ -228,10 +231,11 @@ export function ProfitDashboard() {
     const p = new URLSearchParams({ since: range.since, until: range.until });
     if (flt.product.trim()) p.set("product", flt.product.trim());
     if (flt.customer.trim()) p.set("customer", flt.customer.trim());
+    if (paidOnly) p.set("paid", "1");
     getJSON(`/api/profit/dashboard?${p}`, { cache: false })
       .then(setData).catch((e: any) => setErr(e?.message || "Lỗi tải"));
   };
-  useEffect(load, [range.since, range.until, flt.product, flt.customer]);
+  useEffect(load, [range.since, range.until, flt.product, flt.customer, paidOnly]);
 
   // 🔒 đóng băng giá vốn — như nút trên thanh lọc của bản gốc
   const freeze = async () => {
@@ -264,6 +268,10 @@ export function ProfitDashboard() {
         <input class="note-inp" placeholder="Lọc theo khách hàng" value={fc}
           onInput={(e: any) => setFc(e.target.value)} />
         {(fp || fc) && <button class="btn small" onClick={() => { setFp(""); setFc(""); }}>Xoá lọc</button>}
+        <button class={"chip" + (paidOnly ? " active" : "")} onClick={togglePaid}
+          title="Bật: đơn chưa có thanh toán nào bị LOẠI khỏi mọi số lợi nhuận">
+          💰 Chỉ đơn đã thanh toán
+        </button>
         <button class="btn small" disabled={busy} onClick={freeze}>🔒 Đóng băng giá vốn</button>
       </div>
       {!data ? <Loading /> : (
@@ -275,7 +283,7 @@ export function ProfitDashboard() {
               <button key={k} class={"seg-btn" + (tab === k ? " active" : "")} onClick={() => pickTab(k)}>{label}</button>
             ))}
           </div>
-          {tab === "don" && <ProfitOrdersFeed range={range} product={flt.product} customer={flt.customer} />}
+          {tab === "don" && <ProfitOrdersFeed range={range} product={flt.product} customer={flt.customer} paidOnly={paidOnly} />}
           {tab === "sp" && <ProductCostTable products={data.products || []} onSaved={load} />}
           {tab === "chart" && <ProfitChart chart={data.chart || []} />}
         </>

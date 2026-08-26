@@ -34,8 +34,9 @@ def _created_vn(created):
 
 
 def orders_feed(conn, page: int, per_page: int, since_date, until_date,
-                filter_product, filter_customer) -> dict:
-    """Feed đơn + lợi nhuận phân trang cho bảng infinite-scroll của dashboard."""
+                filter_product, filter_customer, paid_only: bool = False) -> dict:
+    """Feed đơn + lợi nhuận phân trang cho bảng infinite-scroll của dashboard.
+    paid_only=True: chỉ đơn ĐÃ có thanh toán (≥1 phiếu thu)."""
     cur = conn.execute(
         "SELECT thread_id, json FROM orders WHERE deleted_at IS NULL "
         "AND json IS NOT NULL AND thread_id >= ? ORDER BY thread_id DESC",
@@ -56,6 +57,10 @@ def orders_feed(conn, page: int, per_page: int, since_date, until_date,
                 continue
             if until_date and created_date > until_date:
                 continue
+
+        has_payment = bool(order.get("payments"))
+        if paid_only and not has_payment:
+            continue
 
         result = calculate_order_profit(conn, order)
         if not result["items"]:
@@ -79,6 +84,7 @@ def orders_feed(conn, page: int, per_page: int, since_date, until_date,
             "cost": result["total_cost"],
             "profit": result["total_profit"],
             "has_cost": result["total_cost"] > 0,
+            "has_payment": has_payment,
             "items": items_summary,
             "fees": result.get("fees", {}),
             "order_text": (order.get("text") or "").strip()[:80],

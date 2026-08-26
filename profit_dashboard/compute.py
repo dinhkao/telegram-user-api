@@ -43,6 +43,7 @@ def scan_orders(conn, since: str | None, until: str | None) -> list[dict]:
         out.append({
             "thread_id": row[0],
             "customer": str(resolve_customer_name(conn, order) or "") or "Khách lẻ",
+            "has_payment": bool(order.get("payments")),
             "ymd": ymd,
             "date": date_display,
             "revenue": res["total_revenue"],
@@ -121,8 +122,13 @@ def _apply_filters(rows: list[dict], filter_product: str | None,
 def dashboard_data(conn, since: str | None, until: str | None,
                    yearly_loan: int, weights: dict | None,
                    filter_product: str | None = None,
-                   filter_customer: str | None = None) -> dict:
+                   filter_customer: str | None = None,
+                   paid_only: bool = False) -> dict:
     all_rows = scan_orders(conn, since, until)
+    # paid_only: CHỈ tính đơn ĐÃ có thanh toán (≥1 phiếu thu) — áp cho TẤT CẢ
+    # (tóm tắt, bảng SP, chart, top 5, kỳ trước): đơn chưa thu không vào lợi nhuận
+    if paid_only:
+        all_rows = [r for r in all_rows if r["has_payment"]]
     # Filter áp vào summary/bảng SP/chart; TOP 5 vẫn tính trên dữ liệu KHÔNG lọc
     # (như bản gốc — top là "toàn cảnh kỳ này")
     rows = _apply_filters(all_rows, filter_product, filter_customer)
@@ -135,7 +141,10 @@ def dashboard_data(conn, since: str | None, until: str | None,
     prev_label = ""
     pr = _prev_range(since, until)
     if pr:
-        prows = _apply_filters(scan_orders(conn, pr[0], pr[1]), filter_product, filter_customer)
+        prows = scan_orders(conn, pr[0], pr[1])
+        if paid_only:
+            prows = [r for r in prows if r["has_payment"]]
+        prows = _apply_filters(prows, filter_product, filter_customer)
         prev = {"revenue": sum(r["revenue"] for r in prows),
                 "cost": sum(r["cost"] for r in prows),
                 "profit": sum(r["profit"] for r in prows), "orders": len(prows)}

@@ -56,9 +56,10 @@ async def profit_dashboard_handler(request: web.Request):
     st = load_settings()
     product = (request.query.get("product") or "").strip().upper() or None
     customer = (request.query.get("customer") or "").strip() or None
+    paid_only = request.query.get("paid") == "1"
     data = await _run(dashboard_data, since, until,
                       int(st.get("yearly_loan_payment") or 0), st.get("monthly_weights"),
-                      filter_product=product, filter_customer=customer)
+                      filter_product=product, filter_customer=customer, paid_only=paid_only)
     return web.json_response({"ok": True, **data})
 
 
@@ -74,7 +75,9 @@ async def profit_orders_handler(request: web.Request):
         page, per_page = 1, 50
     product = (request.query.get("product") or "").strip().upper() or None
     customer = (request.query.get("customer") or "").strip() or None
-    data = await _run(orders_feed, page, per_page, since, until, product, customer)
+    paid_only = request.query.get("paid") == "1"
+    data = await _run(orders_feed, page, per_page, since, until, product, customer,
+                      paid_only=paid_only)
     return web.json_response({"ok": True, **data})
 
 

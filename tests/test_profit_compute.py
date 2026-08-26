@@ -105,6 +105,22 @@ class ProfitComputeTest(unittest.TestCase):
         self.assertEqual(d2["summary"]["orders"], 1)
         self.assertEqual(d2["summary"]["profit"], 10000)
 
+    def test_dashboard_paid_only(self):
+        # thêm 1 đơn ĐÃ thanh toán cùng ngày; bật paid_only → chỉ đơn đó được tính
+        _add_order(self.conn, MIN_THREAD_ID + 10, {
+            "created": "2026-08-20T05:00:00.000Z", "customer_name": "Chị Hoa",
+            "payments": [{"amount": 20000}],
+            "invoice": [{"sp": "SP1", "sl": 1, "price": 10000}]})
+        d = dashboard_data(self.conn, "2026-08-20", "2026-08-20", 0, None, paid_only=True)
+        self.assertEqual(d["summary"]["orders"], 1)
+        self.assertEqual(d["summary"]["revenue"], 10000)
+        self.assertEqual(d["summary"]["profit"], 5000)
+        # top cũng chỉ tính đơn đã thanh toán
+        self.assertEqual(d["top_customers"][0]["orders"], 1)
+        # tắt toggle → đủ 3 đơn như thường
+        d2 = dashboard_data(self.conn, "2026-08-20", "2026-08-20", 0, None)
+        self.assertEqual(d2["summary"]["orders"], 3)
+
     def test_customers_data(self):
         d = customers_data(self.conn, "2026-08-19", "2026-08-20")
         self.assertEqual(d["customers"][0]["name"], "Chị Hoa")   # lãi cao nhất trước

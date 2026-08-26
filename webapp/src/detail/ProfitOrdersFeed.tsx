@@ -15,13 +15,14 @@ type FeedItem = {
 };
 type FeedOrder = {
   thread_id: number; customer: string; date: string; revenue: number;
-  cost: number; profit: number; has_cost: boolean; items: FeedItem[];
+  cost: number; profit: number; has_cost: boolean; has_payment?: boolean;
+  items: FeedItem[];
   fees: { vat: number; pvc: number; discount: number; fee_total: number };
   order_text: string;
 };
 
-export function ProfitOrdersFeed({ range, product, customer }: {
-  range: DateRange; product?: string; customer?: string;
+export function ProfitOrdersFeed({ range, product, customer, paidOnly }: {
+  range: DateRange; product?: string; customer?: string; paidOnly?: boolean;
 }) {
   const [orders, setOrders] = useState<FeedOrder[]>([]);
   const [page, setPage] = useState(1);
@@ -35,6 +36,7 @@ export function ProfitOrdersFeed({ range, product, customer }: {
     const p = new URLSearchParams({ since: range.since, until: range.until, per_page: "50" });
     if (product?.trim()) p.set("product", product.trim());
     if (customer?.trim()) p.set("customer", customer.trim());
+    if (paidOnly) p.set("paid", "1");
     return p;
   };
   const load = (p: number, reset: boolean) => {
@@ -52,7 +54,7 @@ export function ProfitOrdersFeed({ range, product, customer }: {
       .catch((e: any) => setErr(e?.message || "Lỗi tải"))
       .finally(() => setBusy(false));
   };
-  useEffect(() => { load(1, true); }, [range.since, range.until, product, customer]);
+  useEffect(() => { load(1, true); }, [range.since, range.until, product, customer, paidOnly]);
 
   if (err && !orders.length) return <ErrorState msg={err} onRetry={() => load(1, true)} />;
   return (
@@ -70,6 +72,7 @@ export function ProfitOrdersFeed({ range, product, customer }: {
                     {" "}<span class="muted small">{o.date}</span><br />
                     <a href={`#/loi-nhuan/khach/${encodeURIComponent(o.customer)}`}
                       onClick={(e) => e.stopPropagation()}>{o.customer || "Khách lẻ"}</a>
+                    {o.has_payment === false && <span class="t-warn small"> · chưa TT</span>}
                     {/* chip SP như bản gốc: mã ×SL, vàng = chưa có giá vốn */}
                     <span class="pf-prod-chips">
                       {o.items.slice(0, 5).map((it) => (

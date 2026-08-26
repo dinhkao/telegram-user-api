@@ -89,6 +89,19 @@ class OrdersFeedTest(unittest.TestCase):
         d = orders_feed(self.conn, 1, 50, "2026-08-01", "2026-08-31", None, "hoa")
         self.assertEqual([o["thread_id"] for o in d["orders"]], [MIN_THREAD_ID + 1])
 
+    def test_paid_only_filter(self):
+        _add_order(self.conn, MIN_THREAD_ID + 3, {
+            "created": "2026-08-20T05:00:00.000Z", "customer_name": "Chị Hoa",
+            "payments": [{"amount": 1}],
+            "invoice": [{"sp": "SP1", "sl": 1, "price": 10000}]})
+        d = orders_feed(self.conn, 1, 50, "2026-08-01", "2026-08-31", None, None, paid_only=True)
+        self.assertEqual([o["thread_id"] for o in d["orders"]], [MIN_THREAD_ID + 3])
+        self.assertTrue(d["orders"][0]["has_payment"])
+        # không bật: mọi đơn, row nào cũng có cờ has_payment
+        d2 = orders_feed(self.conn, 1, 50, "2026-08-01", "2026-08-31", None, None)
+        self.assertEqual(d2["total"], 3)
+        self.assertFalse(d2["orders"][1]["has_payment"])
+
     def test_pagination(self):
         d = orders_feed(self.conn, 1, 1, "2026-08-01", "2026-08-31", None, None)
         self.assertEqual(len(d["orders"]), 1)
