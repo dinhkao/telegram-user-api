@@ -9,6 +9,7 @@ import { ErrorState, EmptyState, SkeletonList } from "../ui/states";
 import { PageHead } from "../ui/PageHead";
 import { SearchBar } from "../ui/SearchBar";
 import { Icon } from "../ui/Icon";
+import { VatChip } from "../detail/OrderCards";
 import { toast } from "../ui/feedback";
 import type { OrderRow } from "../detail/OrderCards";
 
@@ -227,7 +228,7 @@ export function NhanTienDashboard() {
                       {receipt ? "GỬI TOA" : "CHỜ NHẬN TIỀN"}
                     </div>
                     <a href={`#/order/${o.thread_id}`} class="nopdash-order-title">{label}</a>
-                    <div class="nopdash-sub"><span class="nopdash-customer">{o.customer || "Chưa gán khách"}</span><span>#{o.thread_id}</span><span>{age || fmtDateTimeVN(o.created)}</span></div>
+                    <div class="nopdash-sub"><span class="nopdash-customer">{o.customer || "Chưa gán khách"}</span><VatChip vnpt={(o as any).vnpt} /><span>#{o.thread_id}</span><span>{age || fmtDateTimeVN(o.created)}</span></div>
                   </div>
                   <span class="nopdash-amount">{money(o.remaining)} đ</span>
                   <a class="nopdash-open" href={`#/order/${o.thread_id}`} title="Mở chi tiết đơn"><Icon name="chevronRight" size={17} /></a>

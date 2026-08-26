@@ -367,12 +367,20 @@ export function TaskBadges({ o }: { o: OrderRow }) {
           <span class="tlbl">{icons[5] === "😡" ? "Nợ" : icons[5] === "😑" ? "Bỏ nợ" : "Tiền"}</span>
         </span>
       )}
-      {o.vnpt && (
-        <span class={"tstat vat-chip" + (o.vnpt.published ? " ok" : "")} key="vat"
-          title={o.vnpt.published ? "HĐ điện tử VNPT — ĐÃ PHÁT HÀNH" : "HĐ điện tử VNPT — nháp chưa phát hành"}>
-          <span class="tlbl">VAT{o.vnpt.published ? "✓" : ""}</span>
-        </span>
-      )}
+      <VatChip vnpt={o.vnpt} />
+    </span>
+  );
+}
+
+// Chip VAT (đơn có HĐ điện tử VNPT — vàng = nháp, xanh ✓ = đã phát hành).
+// Xuất riêng để các trang có markup RIÊNG (NopTien/NhanTien/DeliveringOrders…)
+// gắn được — badge phải có mặt Ở MỌI VIEW hiện đơn (Duy yêu cầu 2026-08-26).
+export function VatChip({ vnpt }: { vnpt?: { published: boolean } | null }) {
+  if (!vnpt) return null;
+  return (
+    <span class={"tstat vat-chip" + (vnpt.published ? " ok" : "")}
+      title={vnpt.published ? "HĐ điện tử VNPT — ĐÃ PHÁT HÀNH" : "HĐ điện tử VNPT — nháp chưa phát hành"}>
+      <span class="tlbl">VAT{vnpt.published ? "✓" : ""}</span>
     </span>
   );
 }

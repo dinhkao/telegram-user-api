@@ -4,6 +4,7 @@ import { getJSON, soVN } from "../api";
 import { money, fmtRelative } from "../format";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
+import { VatChip } from "../detail/OrderCards";
 import { PageHead } from "../ui/PageHead";
 import { EmptyState, ErrorState, SkeletonList } from "../ui/states";
 
@@ -64,6 +65,7 @@ export function DeliveringOrders() {
               <div class="dl-meta">
                 <span title={o.delivery_since}><Icon name="clock" size={13} /> {o.delivery_since ? (fmtRelative(o.delivery_since) || "vừa xong") : "Không rõ thời gian"}</span>
                 <span>{o.hd_code ? `HĐ ${o.hd_code}` : `#${o.thread_id}`}</span>
+                <VatChip vnpt={(o as any).vnpt} />
                 <Icon name="chevronRight" size={16} />
               </div>
             </a>
