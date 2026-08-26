@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
 import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, deleteVnptInvoice, ensureInvoiceImage, vnptInvoicePdfUrl, vnptInvoicePngUrl, getCustomerOrders, getJSON, invoiceEditStatus, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, setOrderNoTrack, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
-import { money, initial, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
+import { money, initial, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtQty, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
 import { InvoiceTable } from "../detail/InvoiceTable";
 import { CreateInvoiceConfirm } from "../detail/CreateInvoiceConfirm";
@@ -667,10 +667,33 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         <div class="ie-head">HĐ điện tử VNPT (nháp)</div>
         {j.vnpt_invoice ? (
           <>
+            {/* Chi tiết nháp: người mua + từng dòng hàng + tổng (bảng .inv-mini dùng chung) */}
             <div class="small">
-              {(j.vnpt_invoice.lines || []).length} dòng · thuế {j.vnpt_invoice.vat_rate < 0 ? "KCT" : `${j.vnpt_invoice.vat_rate}%`}
-              {" · tổng "}<b class="num">{money(j.vnpt_invoice.amount)}</b>
+              <b>{j.vnpt_invoice.buyer?.cus_name}</b>
+              {j.vnpt_invoice.buyer?.tax_code ? <> · MST {j.vnpt_invoice.buyer.tax_code}</> : null}
             </div>
+            <div class="muted small">
+              {j.vnpt_invoice.buyer?.address}
+              {j.vnpt_invoice.buyer?.email ? <> · ✉ {j.vnpt_invoice.buyer.email}</> : null}
+            </div>
+            <table class="inv-mini">
+              <thead>
+                <tr><th>Tên hàng (ĐVT)</th><th class="num">SL</th><th class="num">Giá</th><th class="num">Tiền</th></tr>
+              </thead>
+              <tbody>
+                {(j.vnpt_invoice.lines || []).map((ln: any, i: number) => (
+                  <tr key={i}>
+                    <td>{ln.name}{ln.unit ? <span class="muted"> ({ln.unit})</span> : null}</td>
+                    <td class="num">{fmtQty(Number(ln.qty) || 0)}</td>
+                    <td class="num">{money(ln.price)}</td>
+                    <td class="num">{money(ln.amount ?? Math.round((Number(ln.qty) || 0) * (Number(ln.price) || 0)))}</td>
+                  </tr>
+                ))}
+                <tr class="sub"><td colSpan={3} class="lbl">Cộng tiền hàng</td><td class="num">{money(j.vnpt_invoice.total)}</td></tr>
+                <tr class="sub"><td colSpan={3} class="lbl">Thuế GTGT {j.vnpt_invoice.vat_rate < 0 ? "(KCT)" : `${j.vnpt_invoice.vat_rate}%`}</td><td class="num">+{money(j.vnpt_invoice.vat_amount)}</td></tr>
+                <tr class="tot"><td colSpan={3} class="lbl">Tổng thanh toán</td><td class="num">{money(j.vnpt_invoice.amount)}</td></tr>
+              </tbody>
+            </table>
             <div class="muted small">
               {j.vnpt_invoice.serial} · nháp chưa phát hành
               {j.vnpt_invoice.updated_at ? ` · sửa ${fmtDateTimeVN(j.vnpt_invoice.updated_at)}` : ""}
