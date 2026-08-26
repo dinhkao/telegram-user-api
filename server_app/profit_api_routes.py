@@ -54,8 +54,11 @@ async def profit_dashboard_handler(request: web.Request):
     from profit_dashboard.settings import load_settings
     since, until = _dates(request)
     st = load_settings()
+    product = (request.query.get("product") or "").strip().upper() or None
+    customer = (request.query.get("customer") or "").strip() or None
     data = await _run(dashboard_data, since, until,
-                      int(st.get("yearly_loan_payment") or 0), st.get("monthly_weights"))
+                      int(st.get("yearly_loan_payment") or 0), st.get("monthly_weights"),
+                      filter_product=product, filter_customer=customer)
     return web.json_response({"ok": True, **data})
 
 

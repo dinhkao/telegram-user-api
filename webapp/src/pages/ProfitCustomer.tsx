@@ -1,5 +1,7 @@
 // Chi tiết LỢI NHUẬN 1 KHÁCH (#/loi-nhuan/khach/:name, office)
-// ← GET /api/profit/customer?name=. Tóm tắt + SP hay mua + từng đơn (bung dòng).
+// ← GET /api/profit/customer?name=. Như bản gốc: tóm tắt + Ô LỌC THEO MÃ SP
+// (tóm tắt tính lại theo lọc) + SP hay mua + lịch sử đơn (chip SP, cột giá vốn,
+// bung dòng xem chi tiết từng SP).
 import { useEffect, useState } from "preact/hooks";
 import { getJSON } from "../api";
 import { money, fmtQty } from "../format";
@@ -12,6 +14,7 @@ export function ProfitCustomer({ name }: { name: string }) {
   const [data, setData] = useState<any>(null);
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<number | null>(null);
+  const [fp, setFp] = useState("");   // lọc theo mã SP (client-side, như bản gốc)
   const load = () => {
     setErr("");
     getJSON(`/api/profit/customer?name=${encodeURIComponent(name)}&since=${range.since}&until=${range.until}`, { cache: false })
@@ -19,13 +22,30 @@ export function ProfitCustomer({ name }: { name: string }) {
   };
   useEffect(load, [name, range.since, range.until]);
   if (err && !data) return <div class="prod-detail"><PageHead fallback="#/loi-nhuan/khach" title={name} /><ErrorState msg={err} onRetry={load} /></div>;
-  const t = data?.totals;
+
+  const fpc = fp.trim().toUpperCase();
+  const orders = (data?.orders || []).filter((o: any) =>
+    !fpc || (o.items || []).some((it: any) => String(it.code).includes(fpc)));
+  // Tóm tắt tính lại theo lọc (bản gốc cũng vậy khi ?product=)
+  const t = fpc
+    ? {
+        revenue: orders.reduce((s: number, o: any) => s + o.revenue, 0),
+        cost: orders.reduce((s: number, o: any) => s + o.cost, 0),
+        profit: orders.reduce((s: number, o: any) => s + o.profit, 0),
+        orders: orders.length,
+      }
+    : data?.totals;
   return (
     <div class="prod-detail">
       <PageHead fallback="#/loi-nhuan/khach" title={name} sub={`Lợi nhuận · ${range.since} → ${range.until}`} />
       <ProfitDateBar range={range} onChange={setRange} />
       {!data ? <Loading /> : (
         <>
+          <div class="card pf-filterbar">
+            <input class="note-inp" placeholder="Lọc theo mã SP" value={fp}
+              onInput={(e: any) => setFp(e.target.value)} />
+            {fp && <button class="btn small" onClick={() => setFp("")}>Xoá lọc</button>}
+          </div>
           <div class="pf-cards">
             <div class="card pf-card"><h4>Doanh thu</h4><b>{money(t.revenue)}</b></div>
             <div class="card pf-card"><h4>Giá vốn</h4><b>{money(t.cost)}</b></div>
@@ -49,20 +69,32 @@ export function ProfitCustomer({ name }: { name: string }) {
             )}
           </div>
           <div class="card">
-            <div class="ie-head">Từng đơn <span class="ie-count">{data.orders.length}</span></div>
+            <div class="ie-head">Lịch sử đơn hàng <span class="ie-count">{orders.length}</span></div>
             <table class="inv-mini pf-table">
-              <thead><tr><th>Đơn</th><th class="num">DT</th><th class="num">Lãi</th></tr></thead>
+              <thead><tr><th>Đơn / SP</th><th class="num">DT</th><th class="num">Vốn</th><th class="num">Lãi</th></tr></thead>
               <tbody>
-                {data.orders.map((o: any) => (
+                {orders.map((o: any) => (
                   <>
                     <tr key={o.thread_id} onClick={() => setOpen(open === o.thread_id ? null : o.thread_id)}>
                       <td><a href={`#/order/${o.thread_id}`} onClick={(e) => e.stopPropagation()}>#{o.thread_id}</a>
-                        {" "}<span class="muted small">{o.date}</span></td>
+                        {" "}<span class="muted small">{o.date}</span>
+                        <span class="pf-prod-chips">
+                          {(o.items || []).slice(0, 5).map((it: any) => (
+                            <span key={it.code} class={"pf-prod-chip" + (it.has_cost ? "" : " warn")}>
+                              {it.code}<span class="q">×{fmtQty(it.qty)}</span>
+                            </span>
+                          ))}
+                          {(o.items || []).length > 5 && <span class="pf-prod-chip">+{o.items.length - 5}</span>}
+                        </span>
+                      </td>
                       <td class="num">{money(o.revenue)}</td>
-                      <td class="num"><b class={o.profit >= 0 ? "t-ok" : "t-danger"}>{money(o.profit)}</b></td>
+                      <td class="num">{money(o.cost)}</td>
+                      <td class="num">{o.cost > 0
+                        ? <b class={o.profit >= 0 ? "t-ok" : "t-danger"}>{money(o.profit)}</b>
+                        : <span class="t-warn small">chưa có vốn</span>}</td>
                     </tr>
                     {open === o.thread_id && (
-                      <tr class="pf-expand"><td colSpan={3}>
+                      <tr class="pf-expand"><td colSpan={4}>
                         <table class="inv-mini"><tbody>
                           {o.items.map((it: any, i: number) => (
                             <tr key={i}><td>{it.code}</td><td class="num">{fmtQty(it.qty)}</td>

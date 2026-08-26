@@ -91,6 +91,20 @@ class ProfitComputeTest(unittest.TestCase):
         self.assertEqual(s["loan"], int(1_000_000 / 31))
         self.assertEqual(s["real_profit"], s["profit"] - s["loan"])
 
+    def test_dashboard_filters_summary_but_not_tops(self):
+        # lọc theo SP2 (chỉ đơn của Anh Ba, chưa có vốn): summary/products theo lọc,
+        # TOP 5 vẫn tính trên toàn bộ kỳ (như bản gốc)
+        d = dashboard_data(self.conn, "2026-08-20", "2026-08-20", 0, None,
+                           filter_product="SP2")
+        self.assertEqual(d["summary"]["orders"], 1)
+        self.assertEqual(d["summary"]["revenue"], 8000)
+        self.assertEqual([p["code"] for p in d["products"]], ["SP2"])
+        self.assertEqual(d["top_customers"][0]["name"], "Chị Hoa")   # top KHÔNG lọc
+        d2 = dashboard_data(self.conn, "2026-08-20", "2026-08-20", 0, None,
+                            filter_customer="hoa")
+        self.assertEqual(d2["summary"]["orders"], 1)
+        self.assertEqual(d2["summary"]["profit"], 10000)
+
     def test_customers_data(self):
         d = customers_data(self.conn, "2026-08-19", "2026-08-20")
         self.assertEqual(d["customers"][0]["name"], "Chị Hoa")   # lãi cao nhất trước

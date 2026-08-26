@@ -67,16 +67,44 @@ export function ProfitSettings() {
         <div class="muted small mt-1">Lãi thực = lãi gộp − tiền vay phân bổ theo kỳ (chia 12 tháng × trọng số dưới).</div>
       </div>
       <div class="card">
-        <div class="ie-head">Trọng số từng tháng</div>
-        <div class="pf-weights">
-          {Array.from({ length: 12 }, (_, i) => String(i + 1)).map((m) => (
-            <label key={m} class="pf-weight">
-              <span class="muted small">Th{m}</span>
-              <input inputMode="decimal" value={weights[m] ?? "1"}
-                onInput={(e: any) => setWeights((prev) => ({ ...prev, [m]: e.target.value }))} />
-            </label>
-          ))}
+        <div class="row space">
+          <div class="ie-head">Trọng số từng tháng</div>
+          <button class="btn small" onClick={() => {
+            const w: Record<string, string> = {};
+            for (let m = 1; m <= 12; m++) w[String(m)] = "1";
+            setWeights(w);
+          }}>↺ Reset về 1.0</button>
         </div>
+        {/* XEM TRƯỚC như bản gốc: số tiền phân bổ từng tháng cập nhật sống khi gõ */}
+        {(() => {
+          const w: Record<string, number> = {};
+          for (let m = 1; m <= 12; m++) {
+            const v = parseFloat(String(weights[String(m)] ?? "1").replace(",", "."));
+            w[String(m)] = isNaN(v) || v < 0 ? 0 : v;
+          }
+          const avg = Object.values(w).reduce((a, b) => a + b, 0) / 12;
+          const monthly = yearly / 12;
+          const alloc = (m: string) => (avg > 0 ? Math.round((monthly * w[m]) / avg) : 0);
+          return (
+            <>
+              <div class="pf-weights">
+                {Array.from({ length: 12 }, (_, i) => String(i + 1)).map((m) => (
+                  <label key={m} class="pf-weight">
+                    <span class="muted small">Th{m}</span>
+                    <input inputMode="decimal" value={weights[m] ?? "1"}
+                      onInput={(e: any) => setWeights((prev) => ({ ...prev, [m]: e.target.value }))} />
+                    <span class="pf-alloc">{yearly > 0 ? money(alloc(m)) : ""}</span>
+                  </label>
+                ))}
+              </div>
+              {yearly > 0 && (
+                <div class="muted small mt-1">
+                  Tổng lãi vay/năm: <b>{money(yearly)}</b> · trung bình/tháng: <b>{money(Math.round(monthly))}</b>
+                </div>
+              )}
+            </>
+          );
+        })()}
         <div class="muted small mt-1">Tháng cao điểm đặt số lớn hơn (vd Tết = 2) — tiền vay dồn vào tháng đó nhiều hơn.</div>
         <button class="btn block primary mt-2" disabled={busy} onClick={save}>
           <Icon name="save" size={16} /> Lưu cấu hình

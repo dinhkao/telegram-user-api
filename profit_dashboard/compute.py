@@ -104,34 +104,54 @@ def _prev_range(since: str | None, until: str | None) -> tuple[str, str] | None:
         return None
 
 
+def _apply_filters(rows: list[dict], filter_product: str | None,
+                   filter_customer: str | None) -> list[dict]:
+    """Lọc theo mã SP (đơn có mã đó) + tên khách (chứa chuỗi, không phân biệt hoa
+    thường) — cùng luật với bản legacy."""
+    out = rows
+    if filter_product:
+        fp = filter_product.upper().strip()
+        out = [r for r in out if any(it["code"] == fp for it in r["items"])]
+    if filter_customer:
+        fc = filter_customer.lower().strip()
+        out = [r for r in out if fc in r["customer"].lower()]
+    return out
+
+
 def dashboard_data(conn, since: str | None, until: str | None,
-                   yearly_loan: int, weights: dict | None) -> dict:
-    rows = scan_orders(conn, since, until)
+                   yearly_loan: int, weights: dict | None,
+                   filter_product: str | None = None,
+                   filter_customer: str | None = None) -> dict:
+    all_rows = scan_orders(conn, since, until)
+    # Filter áp vào summary/bảng SP/chart; TOP 5 vẫn tính trên dữ liệu KHÔNG lọc
+    # (như bản gốc — top là "toàn cảnh kỳ này")
+    rows = _apply_filters(all_rows, filter_product, filter_customer)
     revenue = sum(r["revenue"] for r in rows)
     cost = sum(r["cost"] for r in rows)
     profit = sum(r["profit"] for r in rows)
 
-    # Kỳ trước (cùng độ dài) để so sánh %
+    # Kỳ trước (cùng độ dài, CÙNG bộ lọc) để so sánh %
     prev = {"revenue": 0, "cost": 0, "profit": 0, "orders": 0}
     prev_label = ""
     pr = _prev_range(since, until)
     if pr:
-        prows = scan_orders(conn, pr[0], pr[1])
+        prows = _apply_filters(scan_orders(conn, pr[0], pr[1]), filter_product, filter_customer)
         prev = {"revenue": sum(r["revenue"] for r in prows),
                 "cost": sum(r["cost"] for r in prows),
                 "profit": sum(r["profit"] for r in prows), "orders": len(prows)}
         prev_label = f"{pr[0][8:10]}/{pr[0][5:7]} - {pr[1][8:10]}/{pr[1][5:7]}"
 
-    # Top 5 khách / SP theo lãi
-    cust_map = _agg_customers(rows)
+    # Top 5 khách / SP theo lãi (không lọc)
+    cust_map = _agg_customers(all_rows)
     top_customers = [
         {"name": n, "revenue": d["revenue"], "profit": d["profit"], "orders": d["orders"]}
         for n, d in sorted(cust_map.items(), key=lambda x: x[1]["profit"], reverse=True)[:5]]
+    top_map = _agg_products(all_rows)
     prod_map = _agg_products(rows)
     product_info = {p["code"]: p for p in get_all_products(conn)}
     top_products = [
         {"code": c, "qty": d["qty"], "revenue": d["revenue"], "profit": d["profit"]}
-        for c, d in sorted(prod_map.items(), key=lambda x: x[1]["profit"], reverse=True)[:5]]
+        for c, d in sorted(top_map.items(), key=lambda x: x[1]["profit"], reverse=True)[:5]]
     products = [{
         "code": c, "qty": d["qty"], "revenue": d["revenue"], "profit": d["profit"],
         "cost_price": int((product_info.get(c) or {}).get("cost_price") or 0),
@@ -171,7 +191,7 @@ def dashboard_data(conn, since: str | None, until: str | None,
             except ValueError:
                 dl = 0
         chart.append({"day": dstr, "revenue": daily[dstr]["revenue"],
-                      "profit": daily[dstr]["profit"],
+                      "cost": daily[dstr]["cost"], "profit": daily[dstr]["profit"],
                       "real_profit": daily[dstr]["profit"] - dl})
 
     return {

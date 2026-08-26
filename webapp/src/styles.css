@@ -4415,3 +4415,13 @@ a.bean-row, a.bean-card { color: inherit; text-decoration: none; }
   border-radius: 999px; padding: 2px 8px; font-size: .72rem; cursor: pointer; }
 .ph-chip .ph-sub { color: var(--muted); font-size: .66rem; }
 .ph-chip.on { border-color: #16a34a; color: #16a34a; font-weight: 600; }
+
+/* Lợi nhuận: chip SP trên dòng đơn + thanh lọc + số phân bổ tháng (cài đặt) */
+.pf-prod-chips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
+.pf-prod-chip { display: inline-flex; align-items: center; gap: 2px; padding: 1px 5px; border-radius: 4px;
+  font-size: .68rem; background: color-mix(in srgb, var(--accent, #3b82f6) 12%, transparent); color: var(--text); }
+.pf-prod-chip .q { color: var(--muted); }
+.pf-prod-chip.warn { background: rgba(245, 158, 11, .18); color: #b45309; }
+.pf-filterbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; align-items: center; }
+.pf-filterbar .note-inp { flex: 1; min-width: 130px; }
+.pf-alloc { font-size: .62rem; color: var(--muted); text-align: center; min-height: 1em; }
