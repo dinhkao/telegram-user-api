@@ -426,6 +426,10 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .tstat.vat-chip .tlbl { font-weight: 700; color: #b45309; border: 1px solid currentColor;
   border-radius: 4px; padding: 1px 3px; }
 .tstat.vat-chip.ok .tlbl { color: #15803d; }
+/* View ẩn nhãn badge (ultra + feed khách) vẫn PHẢI hiện chip VAT — chip chỉ có
+   nhãn, không icon, để display:none theo là biến mất (bug 2026-08-26) */
+.ultra-row .tstat.vat-chip .tlbl,
+.cust-feed .badges .tstat.vat-chip .tlbl { display: inline-block; font-size: .56rem; padding: 0 2px; }
 
 /* Chế độ xem gọn dashboard */
 /* Nhóm đơn theo ngày tạo (kiểu siêu gọn) */
