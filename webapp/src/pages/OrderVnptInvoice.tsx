@@ -115,7 +115,7 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
       <section class="card">
         <div class="ie-head">Người mua</div>
         {fld("Tên đơn vị (in trên HĐ)", "cus_name", "Công ty TNHH …", true)}
-        {fld("Mã số thuế", "tax_code", "10 số (hoặc 10 số-3 số)", true)}
+        {fld("Mã số thuế / số định danh", "tax_code", "MST 10 số hoặc CCCD 12 số", true)}
         {fld("Địa chỉ", "address", "", true)}
         {fld("Người mua hàng", "buyer_name")}
         {fld("Điện thoại", "phone")}

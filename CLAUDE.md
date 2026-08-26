@@ -1090,7 +1090,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   PHẢI có `<Total>` (= cột Thành tiền trên mẫu in — thiếu là cột TRỐNG dù tổng vẫn
   đúng, thực nghiệm); VNPT **ÂM THẦM BỎ TRỐNG MST sai CHECKSUM** trên hoá đơn →
   buyer bắt buộc MST+tên+địa chỉ, MST validate số kiểm tra ở
-  `vnpt_invoice_domain.mst_valid` (10 số, trọng số 31,29,23,19,17,13,7,5,3 mod 11).
+  `vnpt_invoice_domain.mst_valid` (10 số, trọng số 31,29,23,19,17,13,7,5,3 mod 11;
+  nhận thêm **12 số = số định danh cá nhân/CCCD** — chỉ kiểm dạng, VNPT in
+  bình thường, thực nghiệm 2026-08-26).
   **PDF nháp**: `portal.download_draft_pdf` (PortalService `downloadNewInvPDFFkey`,
   tài khoản service, base64→bytes — nhóm op KHÔNG-New chỉ cho HĐ đã phát hành,
   trả ERR:6) → GET `/api/order/{tid}/vnpt-invoice/pdf` (office, mở tab kèm

@@ -15,11 +15,16 @@ from integrations.vnpt_invoice import VAT_RATES
 # MST Việt Nam: 10 số (số thứ 10 = số KIỂM TRA), hoặc 10 số + "-" + 3 số (đơn vị
 # phụ thuộc). VNPT ÂM THẦM BỎ TRỐNG MST sai checksum trên hoá đơn (thực nghiệm
 # 2026-08-26) → phải chặn ở đây cho người dùng biết ngay.
+# NGOÀI RA nhận **12 số = SỐ ĐỊNH DANH CÁ NHÂN (CCCD)** — thay MST cho cá nhân/hộ
+# kinh doanh từ 01/07/2025; không có thuật toán checksum công khai nên chỉ kiểm
+# dạng, và VNPT in bình thường (thực nghiệm 2026-08-26, Duy gặp 031082011991).
 _MST_RE = re.compile(r"(\d{10})(?:-(\d{3}))?")
 _MST_WEIGHTS = (31, 29, 23, 19, 17, 13, 7, 5, 3)
 
 
 def mst_valid(mst: str) -> bool:
+    if re.fullmatch(r"\d{12}", mst):
+        return True                     # số định danh cá nhân (CCCD)
     m = _MST_RE.fullmatch(mst)
     if not m:
         return False
@@ -57,8 +62,8 @@ def normalize_body(body: dict) -> tuple[dict, list[dict], int]:
         raise ValueError("thiếu mã số thuế (bắt buộc)")
     if not mst_valid(mst):
         raise ValueError(
-            "mã số thuế không hợp lệ (sai số kiểm tra) — kiểm lại MST của khách; "
-            "MST sai VNPT sẽ bỏ trống trên hoá đơn")
+            "mã số thuế không hợp lệ — nhận MST 10 số (hoặc 10 số-3 số, có số kiểm "
+            "tra) hoặc số định danh cá nhân 12 số; MST sai VNPT sẽ bỏ trống trên hoá đơn")
     buyer["tax_code"] = mst
     # Email nhận hoá đơn: TUỲ CHỌN; có nhập thì từng địa chỉ phải đúng dạng
     if buyer["email"]:

@@ -58,9 +58,13 @@ def test_mst_valid_checksum():
     # 2 MST thật (Lê Trang Phát, VNPT-Vinaphone) + dạng chi nhánh -NNN
     assert mst_valid("3901220366") and mst_valid("0106869738")
     assert mst_valid("3901220366-001")
+    # 12 số = SỐ ĐỊNH DANH CÁ NHÂN (CCCD, thay MST cho cá nhân từ 01/07/2025) —
+    # chỉ kiểm dạng, VNPT in bình thường (thực nghiệm 2026-08-26)
+    assert mst_valid("031082011991")
     assert not mst_valid("0123456789")
-    assert not mst_valid("39012203")      # thiếu số
+    assert not mst_valid("39012203")       # thiếu số
     assert not mst_valid("3901220366-01")
+    assert not mst_valid("0310820119911")  # 13 số liền không phải CCCD/MST
 
 
 def test_normalize_body_email():
