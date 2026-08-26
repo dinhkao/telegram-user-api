@@ -228,8 +228,67 @@ async def vnpt_invoice_pdf_handler(request: web.Request):
         headers={"Content-Disposition": f'inline; filename="HD-nhap-{tid}.pdf"'})
 
 
+# PNG bản thể hiện nháp — cache theo fkey (fkey ĐỔI mỗi lần lưu nên cache tự
+# đúng, không cần invalidation); render Playwright ~1-2s nên cache đáng tiền.
+_png_cache: dict[str, bytes] = {}
+
+
+async def vnpt_invoice_png_handler(request: web.Request):
+    """GET .../vnpt-invoice/png — ảnh PNG bản thể hiện nháp để XEM NGAY TRONG APP
+    (WebView không render PDF). HTML từ VNPT (getNewInvViewFkey) → PNG qua đúng
+    pipeline Playwright của ảnh HĐ KiotViet (integrations/firebase_html_to_png)."""
+    from server_app.order_api_common import is_office_request
+    if not await is_office_request(request):
+        return web.Response(text="Chỉ văn phòng mới xem được HĐ điện tử", status=403)
+    tid = _tid(request)
+    if tid is None:
+        return web.Response(text="thread_id không hợp lệ", status=400)
+    conn = _get_connection()
+    order = get_order_by_thread_id(conn, tid)
+    if not order:
+        return web.Response(text="Không tìm thấy đơn", status=404)
+    draft = order.get("vnpt_invoice") or {}
+    fkey = draft.get("fkey")
+    if not (draft.get("synced") and fkey):
+        return web.Response(text="Đơn chưa có HĐ điện tử nháp — tạo nháp trước.", status=400)
+    png = _png_cache.get(fkey)
+    if png is None:
+        from integrations.vnpt_invoice import get_draft_view_html
+        try:
+            html = await asyncio.to_thread(get_draft_view_html, fkey)
+        except VnptError as e:
+            log.error("vnpt png: lấy HTML lỗi tid=%s fkey=%s: %s", tid, fkey, e)
+            return web.Response(text=f"Lỗi lấy bản xem từ VNPT: {e}", status=502)
+        import os
+        from integrations.firebase_html_to_png.core import _executor, _html_to_png
+        from server_app.invoice_image import _read_bytes
+        png_path = None
+        try:
+            loop = asyncio.get_running_loop()
+            # viewport 900px: bản thể hiện VNPT là khổ A4 (mặc định 360px là bể layout)
+            png_path = await loop.run_in_executor(_executor, _html_to_png, html, log, 900, 300)
+            png = await asyncio.to_thread(_read_bytes, png_path)
+        except Exception as e:  # noqa: BLE001
+            log.error("vnpt png: render lỗi tid=%s: %s", tid, e)
+            return web.Response(text="Lỗi render ảnh hoá đơn — thử lại", status=502)
+        finally:
+            if png_path:
+                try:
+                    os.unlink(png_path)
+                except OSError:
+                    pass
+        if len(_png_cache) > 20:
+            _png_cache.clear()
+        _png_cache[fkey] = png
+    # no-store: URL cố định theo đơn nhưng nội dung đổi theo fkey — để browser cache
+    # là sửa nháp xong 5' vẫn thấy ảnh cũ; tốc độ đã có RAM cache theo fkey lo.
+    return web.Response(body=png, content_type="image/png",
+                        headers={"Cache-Control": "no-store"})
+
+
 def register_vnpt_invoice_routes(r) -> None:
     r.add_get("/api/order/{thread_id}/vnpt-invoice", vnpt_invoice_get_handler)
     r.add_post("/api/order/{thread_id}/vnpt-invoice", vnpt_invoice_save_handler)
     r.add_delete("/api/order/{thread_id}/vnpt-invoice", vnpt_invoice_delete_handler)
     r.add_get("/api/order/{thread_id}/vnpt-invoice/pdf", vnpt_invoice_pdf_handler)
+    r.add_get("/api/order/{thread_id}/vnpt-invoice/png", vnpt_invoice_png_handler)

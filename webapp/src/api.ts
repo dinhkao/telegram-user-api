@@ -1014,6 +1014,11 @@ export function vnptInvoicePdfUrl(threadId: string | number): string {
   const t = getToken();
   return `${serverUrl()}/api/order/${Number(threadId)}/vnpt-invoice/pdf${t ? `?token=${encodeURIComponent(t)}` : ""}`;
 }
+/** URL PNG bản thể hiện nháp — XEM NGAY TRONG APP (WebView không render PDF). */
+export function vnptInvoicePngUrl(threadId: string | number): string {
+  const t = getToken();
+  return `${serverUrl()}/api/order/${Number(threadId)}/vnpt-invoice/png${t ? `?token=${encodeURIComponent(t)}` : ""}`;
+}
 
 /** URL HTML hoá đơn để mở tab mới (kèm token cho WebView/khi bật auth). */
 export function invoiceHtmlUrl(threadId: string | number): string {

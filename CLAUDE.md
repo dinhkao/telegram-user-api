@@ -1083,7 +1083,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   **PDF nháp**: `portal.download_draft_pdf` (PortalService `downloadNewInvPDFFkey`,
   tài khoản service, base64→bytes — nhóm op KHÔNG-New chỉ cho HĐ đã phát hành,
   trả ERR:6) → GET `/api/order/{tid}/vnpt-invoice/pdf` (office, mở tab kèm
-  ?token= như invoice-html). Mẫu số/ký
+  ?token= như invoice-html). **XEM TRONG APP**: GET `.../vnpt-invoice/png` —
+  HTML bản thể hiện (`portal.get_draft_view_html`) → PNG qua pipeline Playwright
+  của ảnh HĐ KiotViet (`firebase_html_to_png._html_to_png`, viewport 900 vì khổ
+  A4), RAM-cache theo fkey (fkey đổi mỗi lần lưu nên khỏi invalidation; response
+  no-store); client mở bằng **`detail/SingleImageViewer.tsx`** = trình xem 1 ảnh
+  từ URL bất kỳ, cử chỉ dùng chung `useImageGestures` + CSS `.pv-*`. Mẫu số/ký
   hiệu CỐ ĐỊNH `1/001`/`C26TTP` (env đổi được); thuế = 1 MỨC CHUNG cả HĐ
   (KCT=-1/0/5/8/10), giá nhập CHƯA gồm VAT (Duy chốt 2026-08-26). `xml_build.py`
   + `amount_words.py` (đọc số VND thành chữ) thuần, test `tests/test_vnpt_invoice.py`.

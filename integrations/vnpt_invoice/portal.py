@@ -32,6 +32,13 @@ def _portal(operation: str, fkey: str) -> str:
     return result
 
 
+def get_draft_view_html(fkey: str) -> str:
+    """HTML bản thể hiện của hoá đơn NHÁP (getNewInvViewFkey) — để render PNG xem trong app."""
+    if not fkey:
+        raise VnptError("thiếu fkey khi xem hoá đơn")
+    return _portal("getNewInvViewFkey", fkey)
+
+
 def download_draft_pdf(fkey: str) -> bytes:
     """PDF bản thể hiện của hoá đơn NHÁP (chưa phát hành, Số = 00000000)."""
     if not fkey:

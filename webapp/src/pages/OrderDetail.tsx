@@ -2,7 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, deleteVnptInvoice, ensureInvoiceImage, vnptInvoicePdfUrl, getCustomerOrders, getJSON, invoiceEditStatus, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, setOrderNoTrack, type OrderImage } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, deleteVnptInvoice, ensureInvoiceImage, vnptInvoicePdfUrl, vnptInvoicePngUrl, getCustomerOrders, getJSON, invoiceEditStatus, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, setOrderNoTrack, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
 import { money, initial, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
@@ -15,6 +15,8 @@ import { History } from "../detail/History";
 import { Images } from "../detail/Images";
 import { ImageStrip } from "../detail/ImageStrip";
 import { PhotoViewer } from "../detail/PhotoViewer";
+import { SingleImageViewer } from "../detail/SingleImageViewer";
+import { downloadFileFromUrl } from "../downloadFile";
 import { OrderStock } from "../detail/OrderStock";
 import { invalidateListCache, markLastOrder, filterNeighbors, onFilterNeighborsChanged } from "./OrdersList";
 import { applyCustomerOrderChange } from "./orderNavigation";
@@ -401,6 +403,9 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     try { await deleteKiotVietInvoice(threadId); toast("🗑️ Đã xoá hoá đơn KiotViet", "ok"); changed(); }
     catch (ex: any) { toast(ex.message, "err"); } finally { setBusy(false); }
   };
+  // Xem HĐ điện tử nháp VNPT ngay trong app: server render PNG bản thể hiện
+  // (WebView không render PDF) → SingleImageViewer (cùng cử chỉ zoom/pan PhotoViewer)
+  const [vnptView, setVnptView] = useState(false);
   // Xoá HĐ điện tử nháp VNPT (admin) — xoá trên VNPT + gỡ khỏi đơn
   const deleteVnpt = async () => {
     if (!(await confirmDialog("XOÁ hoá đơn điện tử nháp VNPT của đơn này?", { danger: true, okLabel: "Xoá nháp" }))) return;
@@ -672,8 +677,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
               {j.vnpt_invoice.updated_by ? ` (${j.vnpt_invoice.updated_by})` : ""}
             </div>
             <div class="row mt-2">
-              <button class="btn fill" onClick={() => window.open(vnptInvoicePdfUrl(threadId), "_blank")}>
-                <Icon name="download" size={16} /> Tải PDF
+              <button class="btn fill" onClick={() => setVnptView(true)}>
+                <Icon name="eye" size={16} /> Xem
+              </button>
+              <button class="btn fill" onClick={() => downloadFileFromUrl(vnptInvoicePdfUrl(threadId), `HD-nhap-${threadId}.pdf`)}>
+                <Icon name="download" size={16} /> PDF
               </button>
               <button class="btn fill" onClick={() => (window.location.hash = `#/order/${threadId}/vnpt`)}>
                 <Icon name="edit" size={16} /> Sửa nháp
@@ -682,6 +690,10 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
                 <Icon name="trash" size={16} /> Xoá nháp
               </button>}
             </div>
+            {vnptView && (
+              <SingleImageViewer src={vnptInvoicePngUrl(threadId)} title="hoá đơn nháp"
+                onClose={() => setVnptView(false)} />
+            )}
           </>
         ) : (
           <button class="btn block mt-2" onClick={() => (window.location.hash = `#/order/${threadId}/vnpt`)}>

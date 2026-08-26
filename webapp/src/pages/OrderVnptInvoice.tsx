@@ -4,7 +4,9 @@
 // với dòng hàng của đơn); Lưu = đẩy nháp lên VNPT (chưa phát hành) + cập nhật
 // cache khách. Server: server_app/vnpt_invoice_routes.py.
 import { useEffect, useState } from "preact/hooks";
-import { getVnptInvoice, saveVnptInvoice, vnptInvoicePdfUrl, type VnptBuyer, type VnptLine } from "../api";
+import { getVnptInvoice, saveVnptInvoice, vnptInvoicePdfUrl, vnptInvoicePngUrl, type VnptBuyer, type VnptLine } from "../api";
+import { SingleImageViewer } from "../detail/SingleImageViewer";
+import { downloadFileFromUrl } from "../downloadFile";
 import { money, parseMoney, parseQty, fmtQty } from "../format";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
@@ -21,6 +23,7 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [vatRate, setVatRate] = useState(8);
   const [busy, setBusy] = useState(false);
+  const [viewing, setViewing] = useState(false);   // xem PNG bản thể hiện trong app
 
   const load = () => {
     setErr("");
@@ -86,10 +89,19 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
         title={loaded.draft ? "Sửa HĐ điện tử nháp" : "Tạo HĐ điện tử nháp"}
         sub={`VNPT · ${loaded.pattern} · ${loaded.serial} — chưa phát hành`}
         right={loaded.draft ? (
-          <button class="btn small" onClick={() => window.open(vnptInvoicePdfUrl(threadId), "_blank")}>
-            <Icon name="download" size={14} /> PDF
-          </button>
+          <span class="row">
+            <button class="btn small" onClick={() => setViewing(true)}>
+              <Icon name="eye" size={14} /> Xem
+            </button>
+            <button class="btn small" onClick={() => downloadFileFromUrl(vnptInvoicePdfUrl(threadId), `HD-nhap-${threadId}.pdf`)}>
+              <Icon name="download" size={14} /> PDF
+            </button>
+          </span>
         ) : undefined} />
+      {viewing && (
+        <SingleImageViewer src={vnptInvoicePngUrl(threadId)} title="hoá đơn nháp"
+          onClose={() => setViewing(false)} />
+      )}
       {!loaded.configured && (
         <div class="card"><span class="t-danger">Server chưa cấu hình VNPT_INV_* trong .env — lưu sẽ lỗi.</span></div>
       )}
