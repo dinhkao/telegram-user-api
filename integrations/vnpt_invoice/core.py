@@ -41,8 +41,9 @@ def configured() -> bool:
     return bool(VNPT_INV_BASE and VNPT_INV_SERVICE_USER and VNPT_INV_SERVICE_PASS)
 
 
-def soap_call(operation: str, params: dict[str, object], timeout: int = 40) -> str:
-    """Gọi 1 operation của PublishService.asmx, trả string <XxxResult>.
+def soap_call(operation: str, params: dict[str, object], timeout: int = 40,
+              service: str = "PublishService.asmx") -> str:
+    """Gọi 1 operation SOAP của VNPT (mặc định PublishService), trả string <XxxResult>.
 
     params giữ NGUYÊN THỨ TỰ khai báo (dict Python có thứ tự) — .asmx không
     khắt khe thứ tự nhưng cứ gửi đúng như trang mô tả cho chắc.
@@ -59,7 +60,7 @@ def soap_call(operation: str, params: dict[str, object], timeout: int = 40) -> s
         "</soap:Envelope>"
     )
     req = urllib.request.Request(
-        f"{VNPT_INV_BASE}/PublishService.asmx",
+        f"{VNPT_INV_BASE}/{service}",
         data=envelope.encode("utf-8"),
         headers={
             "Content-Type": "text/xml; charset=utf-8",

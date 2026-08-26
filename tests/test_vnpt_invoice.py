@@ -70,7 +70,8 @@ def test_build_invoice_xml_shape():
     assert inv.findtext("VATRate") == "8"
     p = inv.find(".//Product")
     assert p.findtext("ProdQuantity") == "3.5"
-    assert p.findtext("Amount") == str(int(round(3.5 * 390000)))
+    # Total per-line = cột Thành tiền trên mẫu in (thiếu là cột trống)
+    assert p.findtext("Total") == p.findtext("Amount") == str(int(round(3.5 * 390000)))
     total = int(inv.findtext("Total"))
     assert int(inv.findtext("Amount")) == total + int(inv.findtext("VATAmount"))
     assert inv.findtext("AmountInWords").endswith("đồng chẵn")

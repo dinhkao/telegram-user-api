@@ -2,7 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, deleteVnptInvoice, ensureInvoiceImage, getCustomerOrders, getJSON, invoiceEditStatus, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, setOrderNoTrack, type OrderImage } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, deleteVnptInvoice, ensureInvoiceImage, vnptInvoicePdfUrl, getCustomerOrders, getJSON, invoiceEditStatus, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, setOrderNoTrack, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
 import { money, initial, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
@@ -672,6 +672,9 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
               {j.vnpt_invoice.updated_by ? ` (${j.vnpt_invoice.updated_by})` : ""}
             </div>
             <div class="row mt-2">
+              <button class="btn fill" onClick={() => window.open(vnptInvoicePdfUrl(threadId), "_blank")}>
+                <Icon name="download" size={16} /> Tải PDF
+              </button>
               <button class="btn fill" onClick={() => (window.location.hash = `#/order/${threadId}/vnpt`)}>
                 <Icon name="edit" size={16} /> Sửa nháp
               </button>

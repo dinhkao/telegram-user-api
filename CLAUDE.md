@@ -1075,7 +1075,15 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   ⚠ `updateInvoice` bị VNPT KHOÁ trên TT78 ("deprecated function", thực nghiệm)
   → SỬA nháp = import fkey MỚI trước rồi xoá fkey cũ (thứ tự đó để lỗi giữa chừng
   không mất nháp); xoá fkey đã mất trên portal → ERR:5, `delete_draft(missing_ok=True)`
-  nuốt. XSD của VNPT chặt: KHÔNG có thẻ `Email` trong Invoice (đã thử). Mẫu số/ký
+  nuốt. XSD của VNPT chặt: KHÔNG có thẻ `Email` trong Invoice (đã thử); per-line
+  PHẢI có `<Total>` (= cột Thành tiền trên mẫu in — thiếu là cột TRỐNG dù tổng vẫn
+  đúng, thực nghiệm); VNPT **ÂM THẦM BỎ TRỐNG MST sai CHECKSUM** trên hoá đơn →
+  buyer bắt buộc MST+tên+địa chỉ, MST validate số kiểm tra ở
+  `vnpt_invoice_domain.mst_valid` (10 số, trọng số 31,29,23,19,17,13,7,5,3 mod 11).
+  **PDF nháp**: `portal.download_draft_pdf` (PortalService `downloadNewInvPDFFkey`,
+  tài khoản service, base64→bytes — nhóm op KHÔNG-New chỉ cho HĐ đã phát hành,
+  trả ERR:6) → GET `/api/order/{tid}/vnpt-invoice/pdf` (office, mở tab kèm
+  ?token= như invoice-html). Mẫu số/ký
   hiệu CỐ ĐỊNH `1/001`/`C26TTP` (env đổi được); thuế = 1 MỨC CHUNG cả HĐ
   (KCT=-1/0/5/8/10), giá nhập CHƯA gồm VAT (Duy chốt 2026-08-26). `xml_build.py`
   + `amount_words.py` (đọc số VND thành chữ) thuần, test `tests/test_vnpt_invoice.py`.

@@ -4,7 +4,7 @@
 // với dòng hàng của đơn); Lưu = đẩy nháp lên VNPT (chưa phát hành) + cập nhật
 // cache khách. Server: server_app/vnpt_invoice_routes.py.
 import { useEffect, useState } from "preact/hooks";
-import { getVnptInvoice, saveVnptInvoice, type VnptBuyer, type VnptLine } from "../api";
+import { getVnptInvoice, saveVnptInvoice, vnptInvoicePdfUrl, type VnptBuyer, type VnptLine } from "../api";
 import { money, parseMoney, parseQty, fmtQty } from "../format";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
@@ -51,6 +51,10 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
 
   const save = async () => {
     if (busy) return;
+    // chặn sớm 3 trường bắt buộc cho đỡ 1 vòng server (server vẫn validate + checksum MST)
+    if (!(buyer.cus_name || "").trim()) { toast("Thiếu tên đơn vị (bắt buộc)", "err"); return; }
+    if (!(buyer.tax_code || "").trim()) { toast("Thiếu mã số thuế (bắt buộc)", "err"); return; }
+    if (!(buyer.address || "").trim()) { toast("Thiếu địa chỉ (bắt buộc)", "err"); return; }
     setBusy(true);
     try {
       const lines = rows
@@ -67,9 +71,10 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
     }
   };
 
-  const fld = (label: string, k: keyof VnptBuyer, ph = "") => (
+  // required: MST + tên đơn vị + địa chỉ BẮT BUỘC (Duy chốt 2026-08-26) — server cùng rule
+  const fld = (label: string, k: keyof VnptBuyer, ph = "", required = false) => (
     <div class="mt-1">
-      <div class="page-head-sub">{label}</div>
+      <div class="page-head-sub">{label}{required && <span class="t-danger"> *</span>}</div>
       <input class="note-inp" style="width:100%" placeholder={ph} value={(buyer[k] as string) || ""}
         onInput={(e: any) => setB(k, e.target.value)} />
     </div>
@@ -79,16 +84,21 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
     <div class="prod-detail">
       <PageHead fallback={`#/order/${threadId}`}
         title={loaded.draft ? "Sửa HĐ điện tử nháp" : "Tạo HĐ điện tử nháp"}
-        sub={`VNPT · ${loaded.pattern} · ${loaded.serial} — chưa phát hành`} />
+        sub={`VNPT · ${loaded.pattern} · ${loaded.serial} — chưa phát hành`}
+        right={loaded.draft ? (
+          <button class="btn small" onClick={() => window.open(vnptInvoicePdfUrl(threadId), "_blank")}>
+            <Icon name="download" size={14} /> PDF
+          </button>
+        ) : undefined} />
       {!loaded.configured && (
         <div class="card"><span class="t-danger">Server chưa cấu hình VNPT_INV_* trong .env — lưu sẽ lỗi.</span></div>
       )}
 
       <section class="card">
         <div class="ie-head">Người mua</div>
-        {fld("Tên đơn vị (in trên HĐ)", "cus_name", "Công ty TNHH …")}
-        {fld("Mã số thuế", "tax_code")}
-        {fld("Địa chỉ", "address")}
+        {fld("Tên đơn vị (in trên HĐ)", "cus_name", "Công ty TNHH …", true)}
+        {fld("Mã số thuế", "tax_code", "10 số (hoặc 10 số-3 số)", true)}
+        {fld("Địa chỉ", "address", "", true)}
         {fld("Người mua hàng", "buyer_name")}
         {fld("Điện thoại", "phone")}
         <div class="mt-1">

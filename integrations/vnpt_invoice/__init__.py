@@ -13,6 +13,7 @@ from .invoices import (
     delete_draft,
     get_draft_status,
 )
+from .portal import download_draft_pdf
 
 __all__ = [
     "VnptError",
@@ -26,4 +27,5 @@ __all__ = [
     "import_draft",
     "delete_draft",
     "get_draft_status",
+    "download_draft_pdf",
 ]

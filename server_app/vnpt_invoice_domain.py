@@ -8,7 +8,24 @@ lại (Duy yêu cầu 2026-08-26; tên/giá/ĐVT trên HĐ được phép KHÁC 
 """
 from __future__ import annotations
 
+import re
+
 from integrations.vnpt_invoice import VAT_RATES
+
+# MST Việt Nam: 10 số (số thứ 10 = số KIỂM TRA), hoặc 10 số + "-" + 3 số (đơn vị
+# phụ thuộc). VNPT ÂM THẦM BỎ TRỐNG MST sai checksum trên hoá đơn (thực nghiệm
+# 2026-08-26) → phải chặn ở đây cho người dùng biết ngay.
+_MST_RE = re.compile(r"(\d{10})(?:-(\d{3}))?")
+_MST_WEIGHTS = (31, 29, 23, 19, 17, 13, 7, 5, 3)
+
+
+def mst_valid(mst: str) -> bool:
+    m = _MST_RE.fullmatch(mst)
+    if not m:
+        return False
+    d = [int(c) for c in m.group(1)]
+    s = sum(w * x for w, x in zip(_MST_WEIGHTS, d[:9]))
+    return d[9] == 10 - (s % 11)
 
 _BUYER_KEYS = (
     "cus_name", "buyer_name", "tax_code", "address", "phone",
@@ -28,8 +45,19 @@ def normalize_body(body: dict) -> tuple[dict, list[dict], int]:
         if len(v) > 500:
             raise ValueError(f"trường {k} quá dài")
         buyer[k] = v
-    if not buyer["cus_name"] and not buyer["buyer_name"]:
-        raise ValueError("thiếu tên người mua / tên đơn vị")
+    # BẮT BUỘC: MST + tên đơn vị + địa chỉ (Duy chốt 2026-08-26)
+    if not buyer["cus_name"]:
+        raise ValueError("thiếu tên đơn vị (bắt buộc)")
+    if not buyer["address"]:
+        raise ValueError("thiếu địa chỉ (bắt buộc)")
+    mst = buyer["tax_code"].replace(" ", "")
+    if not mst:
+        raise ValueError("thiếu mã số thuế (bắt buộc)")
+    if not mst_valid(mst):
+        raise ValueError(
+            "mã số thuế không hợp lệ (sai số kiểm tra) — kiểm lại MST của khách; "
+            "MST sai VNPT sẽ bỏ trống trên hoá đơn")
+    buyer["tax_code"] = mst
 
     raw_lines = body.get("lines")
     if not isinstance(raw_lines, list) or not raw_lines:

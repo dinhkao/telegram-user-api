@@ -212,7 +212,9 @@ export const GUIDES_DON: Guide[] = [
           <li>Chọn <b>1 mức thuế GTGT chung</b> cho cả hoá đơn (KCT/0/5/8/10%), bấm <b>Lưu</b> — nháp lên VNPT ngay.</li>
         </ol>
         <p><b>Sửa</b> = mở lại trang đó, đổi gì tuỳ ý rồi Lưu (hệ thống tạo nháp mới thay nháp cũ trên VNPT).
-        <b>Xoá nháp</b> = admin.</p>` },
+        <b>Xoá nháp</b> = admin. Nút <b>「Tải PDF」</b> tải bản thể hiện của nháp (Số HĐ = 00000000 vì chưa phát hành).</p>
+        <p><b>Bắt buộc</b> phải có <b>tên đơn vị + mã số thuế + địa chỉ</b>. MST được kiểm tra
+        <b>số kiểm tra</b> (checksum) — MST sai thì VNPT sẽ âm thầm bỏ trống trên hoá đơn, nên app chặn ngay từ lúc lưu.</p>` },
       { title: "Nhớ theo khách — khỏi nhập lại", html: `
         <p>Mỗi lần Lưu, app <b>nhớ theo TỪNG KHÁCH</b>: thông tin người mua, mức thuế, và
         <b>tên/giá/ĐVT riêng từng sản phẩm</b> (kể cả dòng thêm tay như phí giao).

@@ -1009,6 +1009,11 @@ export async function saveVnptInvoice(threadId: string | number,
 export async function deleteVnptInvoice(threadId: string | number): Promise<any> {
   return delJSON(`/api/order/${Number(threadId)}/vnpt-invoice`);
 }
+/** URL PDF bản thể hiện nháp (mở tab mới, kèm token — như invoiceHtmlUrl). */
+export function vnptInvoicePdfUrl(threadId: string | number): string {
+  const t = getToken();
+  return `${serverUrl()}/api/order/${Number(threadId)}/vnpt-invoice/pdf${t ? `?token=${encodeURIComponent(t)}` : ""}`;
+}
 
 /** URL HTML hoá đơn để mở tab mới (kèm token cho WebView/khi bật auth). */
 export function invoiceHtmlUrl(threadId: string | number): string {

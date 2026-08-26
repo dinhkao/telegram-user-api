@@ -69,6 +69,9 @@ def build_invoice_xml(
             f"<ProdUnit>{escape(str(ln.get('unit') or '').strip())}</ProdUnit>"
             f"<ProdQuantity>{_fmt_qty(ln['qty'])}</ProdQuantity>"
             f"<ProdPrice>{int(ln['price'])}</ProdPrice>"
+            # <Total> = cột THÀNH TIỀN trên mẫu in (thiếu là cột trống — thực nghiệm);
+            # <Amount> giữ kèm cùng giá trị (chưa thuế, 1 mức thuế chung cả HĐ)
+            f"<Total>{ln['amount']}</Total>"
             f"<Amount>{ln['amount']}</Amount>"
             "</Product>"
         )

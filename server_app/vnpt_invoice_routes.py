@@ -201,7 +201,35 @@ async def vnpt_invoice_delete_handler(request: web.Request):
     return web.json_response({"ok": True})
 
 
+async def vnpt_invoice_pdf_handler(request: web.Request):
+    """GET .../vnpt-invoice/pdf — tải PDF bản thể hiện nháp từ VNPT (văn phòng).
+    Mở tab mới kèm ?token= như invoice-html; Số HĐ trên PDF = 00000000 (chưa phát hành)."""
+    from server_app.order_api_common import is_office_request
+    if not await is_office_request(request):
+        return web.Response(text="Chỉ văn phòng mới tải được PDF HĐ điện tử", status=403)
+    tid = _tid(request)
+    if tid is None:
+        return web.Response(text="thread_id không hợp lệ", status=400)
+    conn = _get_connection()
+    order = get_order_by_thread_id(conn, tid)
+    if not order:
+        return web.Response(text="Không tìm thấy đơn", status=404)
+    draft = order.get("vnpt_invoice") or {}
+    if not (draft.get("synced") and draft.get("fkey")):
+        return web.Response(text="Đơn chưa có HĐ điện tử nháp — tạo nháp trước.", status=400)
+    from integrations.vnpt_invoice import download_draft_pdf
+    try:
+        pdf = await asyncio.to_thread(download_draft_pdf, draft["fkey"])
+    except VnptError as e:
+        log.error("vnpt pdf failed tid=%s fkey=%s: %s", tid, draft.get("fkey"), e)
+        return web.Response(text=f"Lỗi tải PDF từ VNPT: {e}", status=502)
+    return web.Response(
+        body=pdf, content_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="HD-nhap-{tid}.pdf"'})
+
+
 def register_vnpt_invoice_routes(r) -> None:
     r.add_get("/api/order/{thread_id}/vnpt-invoice", vnpt_invoice_get_handler)
     r.add_post("/api/order/{thread_id}/vnpt-invoice", vnpt_invoice_save_handler)
     r.add_delete("/api/order/{thread_id}/vnpt-invoice", vnpt_invoice_delete_handler)
+    r.add_get("/api/order/{thread_id}/vnpt-invoice/pdf", vnpt_invoice_pdf_handler)

@@ -10,7 +10,7 @@ from server_app.vnpt_invoice_domain import (
 
 def _body(**over):
     b = {
-        "buyer": {"cus_name": "Cty A", "tax_code": "123"},
+        "buyer": {"cus_name": "Cty A", "tax_code": "3901220366", "address": "1 Lê Lợi"},
         "lines": [{"name": "Kẹo X", "unit": "bịch", "qty": 2, "price": 100000, "sp_id": 7}],
         "vat_rate": 8,
     }
@@ -39,6 +39,34 @@ def test_normalize_body_rejects():
         normalize_body(_body(lines=[{"name": "A", "qty": 1, "price": -5}]))
     with pytest.raises(ValueError):
         normalize_body(_body(buyer={}))
+    # MST + tên + địa chỉ BẮT BUỘC (Duy chốt 2026-08-26)
+    with pytest.raises(ValueError, match="tên đơn vị"):
+        normalize_body(_body(buyer={"tax_code": "3901220366", "address": "x"}))
+    with pytest.raises(ValueError, match="địa chỉ"):
+        normalize_body(_body(buyer={"cus_name": "A", "tax_code": "3901220366"}))
+    with pytest.raises(ValueError, match="mã số thuế"):
+        normalize_body(_body(buyer={"cus_name": "A", "address": "x"}))
+    with pytest.raises(ValueError, match="không hợp lệ"):
+        normalize_body(_body(buyer={"cus_name": "A", "address": "x", "tax_code": "12ab"}))
+    # sai SỐ KIỂM TRA (checksum) — VNPT sẽ bỏ trống MST kiểu này trên hoá đơn
+    with pytest.raises(ValueError, match="số kiểm tra"):
+        normalize_body(_body(buyer={"cus_name": "A", "address": "x", "tax_code": "0123456789"}))
+
+
+def test_mst_valid_checksum():
+    from server_app.vnpt_invoice_domain import mst_valid
+    # 2 MST thật (Lê Trang Phát, VNPT-Vinaphone) + dạng chi nhánh -NNN
+    assert mst_valid("3901220366") and mst_valid("0106869738")
+    assert mst_valid("3901220366-001")
+    assert not mst_valid("0123456789")
+    assert not mst_valid("39012203")      # thiếu số
+    assert not mst_valid("3901220366-01")
+
+
+def test_normalize_body_mst_formats():
+    for mst in ("3901220366", "3901220366-001", "39 0122 0366"):
+        buyer, _, _ = normalize_body(_body(buyer={"cus_name": "A", "address": "x", "tax_code": mst}))
+        assert buyer["tax_code"] == mst.replace(" ", "")
 
 
 ORDER = {"invoice": [
