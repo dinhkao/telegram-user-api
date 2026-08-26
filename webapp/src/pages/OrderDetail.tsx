@@ -438,6 +438,18 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       toast("Copy không được (trình duyệt chặn)", "err");
     } finally { setMsg(""); }
   };
+  // Tải NHANH ảnh hoá đơn về máy (không cần mở xem): cùng cách lấy ảnh với copyHD,
+  // tải qua downloadFileFromUrl (chạy được cả APK WebView lẫn trình duyệt).
+  const downloadHD = async () => {
+    setMsg("⏳ Đang tải ảnh hoá đơn…");
+    try {
+      const imgs = await listOrderImages(threadId).catch(() => [] as OrderImage[]);
+      let inv = imgs.find((x) => x.kind === "hoa_don" || x.uploaded_by === "KiotViet HĐ");
+      if (!inv) inv = (await ensureInvoiceImage(threadId)) || undefined;
+      if (!inv) { toast("Chưa tạo được ảnh hoá đơn — thử lại", "err"); return; }
+      await downloadFileFromUrl(orderImageUrl(threadId, inv.id, "full"), `HD-${j.kiotvietInvoiceCode || threadId}.png`);
+    } finally { setMsg(""); }
+  };
   const copyVnpt = async () => {
     setMsg("⏳ Đang copy ảnh HĐ điện tử…");
     try {
@@ -665,6 +677,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
             <div class="row mt-2">
               <button class="btn fill" onClick={viewHD}><Icon name="eye" size={16} /> Xem HĐ</button>
               <button class="btn fill" onClick={copyHD}><Icon name="copy" size={16} /> Copy</button>
+              <button class="btn fill" onClick={downloadHD}><Icon name="download" size={16} /> Tải</button>
               <button class="btn fill" disabled={busy} onClick={doPrint}><Icon name="printer" size={16} /> In</button>
               {isAdmin && <button class="btn danger fill" disabled={busy} onClick={deleteHD}><Icon name="trash" size={16} /> Xoá HĐ</button>}
             </div>
