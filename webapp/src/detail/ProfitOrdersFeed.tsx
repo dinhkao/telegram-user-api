@@ -3,7 +3,7 @@
 // hiện CHIP SP (mã ×SL, vàng = chưa có giá vốn — như bản legacy) + biên LN;
 // chạm dòng → bung chi tiết từng SP (giá bán/vốn/lãi) + phí. Lọc SP/khách do
 // trang cha truyền (ô lọc trên dashboard).
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON } from "../api";
 import { money, fmtQty } from "../format";
 import { LoadingInline, ErrorState, EmptyState } from "../ui/states";
@@ -55,6 +55,25 @@ export function ProfitOrdersFeed({ range, product, customer, paidOnly }: {
       .finally(() => setBusy(false));
   };
   useEffect(() => { load(1, true); }, [range.since, range.until, product, customer, paidOnly]);
+
+  // Sentinel TỰ TẢI trang kế khi cuộn tới đáy (nút "Tải thêm" giữ làm dự phòng).
+  // Cần cho cả hệ nhớ-vị-trí-cuộn: BACK về giữa danh sách dài → vòng khôi phục
+  // cuộn xuống làm lộ sentinel → tự tải tiếp → về đúng chỗ cũ.
+  const sentinel = useRef<HTMLDivElement>(null);
+  const st = useRef({ busy, hasMore, page, load });
+  st.current = { busy, hasMore, page, load };
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el) return;
+    const io = new IntersectionObserver((es) => {
+      if (es.some((e) => e.isIntersecting)) {
+        const s = st.current;
+        if (!s.busy && s.hasMore) s.load(s.page + 1, false);
+      }
+    }, { rootMargin: "400px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   if (err && !orders.length) return <ErrorState msg={err} onRetry={() => load(1, true)} />;
   return (
@@ -119,6 +138,7 @@ export function ProfitOrdersFeed({ range, product, customer, paidOnly }: {
         </table>
       )}
       {busy && <LoadingInline />}
+      <div ref={sentinel} style="height:1px" />
       {hasMore && !busy && (
         <button class="btn block mt-2" onClick={() => load(page + 1, false)}>Tải thêm…</button>
       )}

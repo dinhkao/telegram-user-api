@@ -24,7 +24,7 @@ import { OrderInvoiceEdit } from "./pages/OrderInvoiceEdit";
 import { OrderVnptInvoice } from "./pages/OrderVnptInvoice";
 import { OrderPayment } from "./pages/OrderPayment";
 import { OrdersList, resetOrdersScroll } from "./pages/OrdersList";
-import { fastScrollTop } from "./scroll";
+import { fastScrollTop, windowScrollClaimed } from "./scroll";
 import { DeliveryCalendar } from "./pages/DeliveryCalendar";
 import { DeliveringOrders } from "./pages/DeliveringOrders";
 import { ActivityLog } from "./pages/ActivityLog";
@@ -145,6 +145,9 @@ window.addEventListener("hashchange", () => {
 function useScrollMemory(hash: string, hasFocus: boolean) {
   useEffect(() => {
     if (hasFocus) return;                              // deep-link (?focus) tự cuộn tới phần tử
+    // Trang có thành phần TỰ QUẢN cuộn window (ScrollCalendar — claim lúc mount,
+    // effect con chạy TRƯỚC effect này) → đứng ngoài, kể cả forward-về-đầu
+    if (windowScrollClaimed()) return;
     if (!_navBack) { window.scrollTo(0, 0); return; }  // FORWARD → lên đầu
     const target = scrollMem.get(cleanHash(hash)) ?? 0; // BACK → khôi phục
     if (target <= 4) { window.scrollTo(0, 0); return; }
@@ -155,7 +158,7 @@ function useScrollMemory(hash: string, hasFocus: boolean) {
     evs.forEach((ev) => window.addEventListener(ev, onUser, { passive: true }));
     const cleanup = () => { cancelAnimationFrame(raf); evs.forEach((ev) => window.removeEventListener(ev, onUser)); };
     const step = () => {
-      if (cancelled) return cleanup();
+      if (cancelled || windowScrollClaimed()) return cleanup();   // lịch mở muộn (đổi view) cũng nhả
       const reached = Math.abs(window.scrollY - target) <= 2;
       if (!reached) window.scrollTo(0, target); // chỉ ép khi lệch — ép mỗi frame gây giật cuộn
       const now = performance.now();

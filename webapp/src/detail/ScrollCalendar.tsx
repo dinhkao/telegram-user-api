@@ -1,6 +1,7 @@
 // Lịch cuộn liền mạch dùng chung cho lịch giao, lịch việc và lịch khách.
 import type { ComponentChildren } from "preact";
-import { useRef } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
+import { claimWindowScroll } from "../scroll";
 import { CalendarCell } from "./calendar/CalendarCell";
 import { CalendarHeader } from "./calendar/CalendarHeader";
 import { continuousDays, dateKey } from "./calendar/calendarDates";
@@ -17,6 +18,9 @@ export function ScrollCalendar({ days, legend, onPick, headExtra }: {
   onPick: (day: string) => void;
   headExtra?: ComponentChildren;
 }) {
+  // Lịch TỰ neo vị trí cuộn (về hôm nay + bù prepend) → claim để hệ nhớ-cuộn
+  // trung tâm không khôi phục scrollY cũ đè lên (2 bên giằng co scrollTo)
+  useEffect(() => claimWindowScroll(), []);
   const now = new Date();
   const current: Ym = { y: now.getFullYear(), m: now.getMonth() };
   const top = useRef<HTMLDivElement>(null);

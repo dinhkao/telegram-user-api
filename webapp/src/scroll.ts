@@ -72,3 +72,18 @@ export function fastScrollLeft(el: Element, target: number, dur = DUR): void {
   };
   requestAnimationFrame(step);
 }
+
+// ── QUYỀN SỞ HỮU cuộn window ─────────────────────────────────────────────
+// Trang có thành phần TỰ QUẢN vị trí cuộn window (ScrollCalendar: neo hôm nay,
+// bù chiều cao khi prepend tháng) claim lúc mount → hệ nhớ-vị-trí-cuộn trung tâm
+// (useScrollMemory, main.tsx) đứng ngoài, không giằng co scrollTo suốt 6s.
+let _scrollClaims = 0;
+/** Trả về hàm release — gọi trong cleanup của useEffect. */
+export function claimWindowScroll(): () => void {
+  _scrollClaims++;
+  let done = false;
+  return () => { if (!done) { done = true; _scrollClaims--; } };
+}
+export function windowScrollClaimed(): boolean {
+  return _scrollClaims > 0;
+}
