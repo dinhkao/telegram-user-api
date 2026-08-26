@@ -24,9 +24,10 @@ function SummaryCards({ s }: { s: any }) {
         <div class="card pf-card"><h4>Số đơn</h4><b>{s.orders}</b><Chg v={s.changes?.orders} /></div>
       </div>
       <div class="card pf-real">
-        <h4>LÃI THỰC (sau tiền vay)</h4>
+        <h4>💎 Lợi nhuận thực (sau lãi vay ngân hàng)</h4>
         <b>{money(s.real_profit)}</b>
-        <div class="small">vay phân bổ kỳ này: {money(s.loan)} · biên {s.margin}%</div>
+        <div class="small">Trừ lãi vay: −{money(s.loan)} <span class="pf-margin-badge">Biên: {s.margin}%</span></div>
+        <div class="small" style="opacity:.85">= Lãi gộp {money(s.profit)} − lãi vay phân bổ kỳ này (cấu hình ở ⚙)</div>
         {s.prev_label ? <div class="small" style="opacity:.8">so kỳ trước {s.prev_label}: lãi {money(s.prev?.profit || 0)}</div> : null}
       </div>
     </>

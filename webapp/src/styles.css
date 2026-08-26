@@ -4425,3 +4425,4 @@ a.bean-row, a.bean-card { color: inherit; text-decoration: none; }
 .pf-filterbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; align-items: center; }
 .pf-filterbar .note-inp { flex: 1; min-width: 130px; }
 .pf-alloc { font-size: .62rem; color: var(--muted); text-align: center; min-height: 1em; }
+.pf-margin-badge { background: rgba(255,255,255,.22); padding: 1px 8px; border-radius: 10px; font-size: .68rem; font-weight: 600; margin-left: 4px; }
