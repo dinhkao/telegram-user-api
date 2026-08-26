@@ -18,6 +18,7 @@ import { PhotoViewer } from "../detail/PhotoViewer";
 import { SingleImageViewer } from "../detail/SingleImageViewer";
 import { downloadFileFromUrl } from "../downloadFile";
 import { copyImageFromUrl } from "../copyImage";
+import { suggestNoTrackOldOrders } from "../detail/suggestNoTrack";
 import { OrderStock } from "../detail/OrderStock";
 import { invalidateListCache, markLastOrder, filterNeighbors, onFilterNeighborsChanged } from "./OrdersList";
 import { applyCustomerOrderChange } from "./orderNavigation";
@@ -434,9 +435,27 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       if (!inv) { toast("Chưa tạo được ảnh hoá đơn — thử lại", "err"); return; }
       await copyImageFromUrl(orderImageUrl(threadId, inv.id, "full"));
       toast("Đã copy ảnh hoá đơn", "ok");
+      setGuiToaOffer(true);
     } catch {
       toast("Copy không được (trình duyệt chặn)", "err");
     } finally { setMsg(""); }
+  };
+  // Sau khi Copy/Tải ảnh HĐ (= vừa gửi toa cho khách qua Zalo…) → mời hoàn tất
+  // nhanh bước 'Gửi toa cho khách' (task nhan_tien khi nộp kiểu ký toa) ngay tại
+  // khối Hoá đơn, khỏi cuộn lên khối Tiến độ. Chỉ hiện khi bước còn treo + văn phòng
+  // (nhan_tien là việc văn phòng — cùng gate với khối Tasks).
+  const [guiToaOffer, setGuiToaOffer] = useState(false);
+  const guiToaPending = guiToa && !(ts.nhan_tien || {}).done && isOffice();
+  const markGuiToa = async () => {
+    setBusy(true);
+    try {
+      // Việc tiền: KHÔNG xếp hàng offline (giống khối Tasks) — phải chắc tới server.
+      await postJSON("/api/order/task", { thread_id: Number(threadId), type: "nhan_tien" }, { queueable: false });
+      toast("📄 Đã hoàn tất: Gửi toa cho khách", "ok");
+      setGuiToaOffer(false);
+      changed();
+      suggestNoTrackOldOrders(threadId);
+    } catch (ex: any) { toast(ex.message, "err"); } finally { setBusy(false); }
   };
   // Tải NHANH ảnh hoá đơn về máy (không cần mở xem): cùng cách lấy ảnh với copyHD,
   // tải qua downloadFileFromUrl (chạy được cả APK WebView lẫn trình duyệt).
@@ -448,6 +467,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       if (!inv) inv = (await ensureInvoiceImage(threadId)) || undefined;
       if (!inv) { toast("Chưa tạo được ảnh hoá đơn — thử lại", "err"); return; }
       await downloadFileFromUrl(orderImageUrl(threadId, inv.id, "full"), `HD-${j.kiotvietInvoiceCode || threadId}.png`);
+      setGuiToaOffer(true);
     } finally { setMsg(""); }
   };
   const copyVnpt = async () => {
@@ -681,6 +701,11 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
               <button class="btn fill" disabled={busy} onClick={doPrint}><Icon name="printer" size={16} /> In</button>
               {isAdmin && <button class="btn danger fill" disabled={busy} onClick={deleteHD}><Icon name="trash" size={16} /> Xoá HĐ</button>}
             </div>
+            {guiToaOffer && guiToaPending && (
+              <button class="btn block primary mt-2" disabled={busy} onClick={markGuiToa}>
+                📄 Hoàn tất: Gửi toa cho khách
+              </button>
+            )}
             <div class="muted small" style={{ marginTop: "6px" }}>🔒 Đã tạo HĐ KiotViet — muốn sửa sản phẩm phải xoá HĐ trước.</div>
           </>
         ) : (
