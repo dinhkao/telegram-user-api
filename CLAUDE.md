@@ -1108,10 +1108,15 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   no-store); client mở bằng **`detail/SingleImageViewer.tsx`** = trình xem 1 ảnh
   từ URL bất kỳ, cử chỉ dùng chung `useImageGestures` + CSS `.pv-*`.
   **TỰ DÒ ĐÃ-PHÁT-HÀNH (2026-08-26)**: kế toán phát hành trên portal NGOÀI app →
-  `invoices.get_invoice_status(fkey)` (GetInvoiceByFkey notax='0', comtaxcode =
-  env `VNPT_INV_TAXCODE`; parse thuần `parse_invoice_status`: `<No>0</No>` =
-  nháp · No>0 = ĐÃ PHÁT HÀNH kèm MTC · MSGCODE ERR:404 = mất trên VNPT — thực
-  nghiệm). Mở trang đơn / trang sửa là client gọi nền GET `.../vnpt-invoice/status`
+  `invoices.get_invoice_status(fkey)` — 2 BƯỚC (thực nghiệm 2026-08-26, sửa bug
+  cùng ngày): GetInvoiceByFkey notax='0' CHỈ thấy hoá đơn SỐ 0 (= nháp) — HĐ ĐÃ
+  PHÁT HÀNH mang số thật nên trả ERR:404 Y NHƯ ĐÃ XOÁ (từng hiển thị nhầm "không
+  còn trên VNPT"); gặp 404 phải dò tiếp `portal.get_invoice_links`
+  (GetLinkInvViewFkey: OK = ĐÃ PHÁT HÀNH, trả LinkView/XML/PDF công khai có
+  token; nháp/mất thật → ERR:6) rồi đọc số HĐ + mã CQT từ LinkXML
+  (`parse_published_xml`: `<SHDon>`/`<MCCQT>`). PDF/Xem sau phát hành: chuỗi
+  fallback `*New*` (nháp) → `*NoPay` (đã phát hành chưa gạch thanh toán) → bản
+  thường (đã thanh toán; gọi sớm trả ERR:11). Mở trang đơn / trang sửa là client gọi nền GET `.../vnpt-invoice/status`
   → `_refresh_vnpt_status` (throttle 30s/fkey) vá blob (`published`/`invoice_no`/
   `mtc`/`missing_on_vnpt`) + emit order_changed + audit
   `order.vnpt_published_detected`. **ĐÃ PHÁT HÀNH = KHOÁ sửa + KHOÁ xoá** (server

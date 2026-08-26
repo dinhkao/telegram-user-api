@@ -85,8 +85,23 @@ def parse_invoice_status(raw: str) -> dict:
             "mtc": (root.findtext(".//MTC") or "").strip()}
 
 
+def parse_published_xml(xml_text: str) -> tuple[int, str]:
+    """XML hoá đơn TT78 (LinkXML công khai) → (số hoá đơn SHDon, mã CQT MCCQT).
+    Thuần, unit-tested."""
+    import re
+    m = re.search(r"<SHDon>\s*(\d+)\s*</SHDon>", xml_text)
+    no = int(m.group(1)) if m else 0
+    m2 = re.search(r"<MCCQT[^>]*>\s*([^<]+?)\s*</MCCQT>", xml_text)
+    return no, (m2.group(1) if m2 else "")
+
+
 def get_invoice_status(fkey: str) -> dict:
-    """Tra trạng thái phát hành của hoá đơn theo fkey (GetInvoiceByFkey notax='0')."""
+    """Tra trạng thái phát hành của hoá đơn theo fkey.
+
+    2 bước (thực nghiệm 2026-08-26): GetInvoiceByFkey notax='0' chỉ thấy hoá đơn
+    SỐ 0 (= nháp) — hoá đơn ĐÃ PHÁT HÀNH mang số thật nên trả ERR:404 y như đã
+    xoá. Gặp 404 phải dò tiếp GetLinkInvViewFkey (chỉ OK khi ĐÃ phát hành; nháp/
+    đã xoá → ERR:6) rồi đọc số hoá đơn từ LinkXML (<SHDon>)."""
     if not fkey:
         raise VnptError("thiếu fkey khi tra trạng thái")
     raw = soap_call(
@@ -100,7 +115,24 @@ def get_invoice_status(fkey: str) -> dict:
             "fkey": fkey,
         },
     )
-    return parse_invoice_status(raw)
+    st = parse_invoice_status(raw)
+    if st["exists"]:
+        return st
+    # notax=0 báo 404: hoặc ĐÃ PHÁT HÀNH (mang số thật) hoặc mất thật — dò link
+    from .portal import get_invoice_links
+    try:
+        links = get_invoice_links(fkey)
+    except VnptError:
+        return {"exists": False, "published": False, "no": 0, "mtc": ""}
+    no, mtc = 0, ""
+    if links.get("xml"):
+        try:
+            import urllib.request
+            with urllib.request.urlopen(links["xml"], timeout=20) as resp:
+                no, mtc = parse_published_xml(resp.read().decode("utf-8", "replace"))
+        except Exception as e:  # noqa: BLE001 — thiếu số vẫn hơn báo sai trạng thái
+            log.warning("get_invoice_status %s: đọc LinkXML lỗi: %s", fkey, e)
+    return {"exists": True, "published": True, "no": no, "mtc": mtc}
 
 
 def get_draft_status(fkey: str) -> str:

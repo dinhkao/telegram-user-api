@@ -45,17 +45,42 @@ def _portal_try(ops: tuple[str, ...], fkey: str) -> str:
 
 
 def get_draft_view_html(fkey: str) -> str:
-    """HTML bản thể hiện của hoá đơn (nháp HOẶC đã phát hành) — để render PNG xem trong app."""
+    """HTML bản thể hiện của hoá đơn (nháp HOẶC đã phát hành) — để render PNG xem
+    trong app. Thứ tự op (thực nghiệm 2026-08-26): *New* = nháp; *NoPay = đã phát
+    hành nhưng CHƯA gạch thanh toán; bản thường = đã phát hành + đã thanh toán
+    (gọi sớm hơn trả ERR:11)."""
     if not fkey:
         raise VnptError("thiếu fkey khi xem hoá đơn")
-    return _portal_try(("getNewInvViewFkey", "getInvViewFkey"), fkey)
+    return _portal_try(("getNewInvViewFkey", "getInvViewFkeyNoPay", "getInvViewFkey"), fkey)
+
+
+def parse_links(b64: str) -> dict:
+    """Payload base64 của GetLinkInvViewFkey → {view, xml, pdf} (URL công khai có
+    token). Thuần, unit-tested."""
+    import re
+    try:
+        text = base64.b64decode(b64).decode("utf-8", "replace")
+    except Exception as e:
+        raise VnptError("Không đọc được link hoá đơn từ VNPT") from e
+    def g(tag: str) -> str:
+        m = re.search(rf"<Link{tag}>([^<]+)</Link{tag}>", text)
+        return m.group(1) if m else ""
+    return {"view": g("View"), "xml": g("XML"), "pdf": g("PDF")}
+
+
+def get_invoice_links(fkey: str) -> dict:
+    """Link công khai (view/xml/pdf) của hoá đơn ĐÃ PHÁT HÀNH. Nháp chưa phát
+    hành → ERR:6 (VnptError) — chính là TÍN HIỆU trạng thái phát hành."""
+    if not fkey:
+        raise VnptError("thiếu fkey")
+    return parse_links(_portal("GetLinkInvViewFkey", fkey))
 
 
 def download_draft_pdf(fkey: str) -> bytes:
     """PDF bản thể hiện của hoá đơn (nháp: Số = 00000000; đã phát hành: op thường)."""
     if not fkey:
         raise VnptError("thiếu fkey khi tải PDF")
-    b64 = _portal_try(("downloadNewInvPDFFkey", "downloadInvPDFFkey"), fkey)
+    b64 = _portal_try(("downloadNewInvPDFFkey", "downloadInvPDFFkeyNoPay", "downloadInvPDFFkey"), fkey)
     try:
         pdf = base64.b64decode(b64)
     except Exception as e:

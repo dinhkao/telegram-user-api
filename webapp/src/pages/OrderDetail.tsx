@@ -739,6 +739,9 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
               {j.vnpt_invoice.updated_at ? ` · sửa ${fmtDateTimeVN(j.vnpt_invoice.updated_at)}` : ""}
               {j.vnpt_invoice.updated_by ? ` (${j.vnpt_invoice.updated_by})` : ""}
             </div>
+            {j.vnpt_invoice.published && j.vnpt_invoice.mtc ? (
+              <div class="muted small" style="word-break:break-all">Mã CQT: {j.vnpt_invoice.mtc}</div>
+            ) : null}
             <div class="row mt-2">
               <button class="btn fill" onClick={() => setVnptView(true)}>
                 <Icon name="eye" size={16} /> Xem

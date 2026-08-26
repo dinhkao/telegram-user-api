@@ -123,3 +123,22 @@ def test_build_invoice_xml_rejects_bad_input():
             lines=[{"name": " ", "qty": 1, "price": 1}],
             vat_rate=8,
         )
+
+
+def test_parse_links_and_published_xml():
+    import base64
+    from integrations.vnpt_invoice.portal import parse_links
+    from integrations.vnpt_invoice.invoices import parse_published_xml
+
+    raw = ("<LinkInv><LinkView>https://x/view?token=a</LinkView>"
+           "<LinkXML>https://x/xml?token=b</LinkXML>"
+           "<LinkPDF>https://x/pdf?token=c</LinkPDF></LinkInv>")
+    links = parse_links(base64.b64encode(raw.encode()).decode())
+    assert links == {"view": "https://x/view?token=a", "xml": "https://x/xml?token=b",
+                     "pdf": "https://x/pdf?token=c"}
+    # mẫu XML TT78 thật (rút gọn) — SHDon = số hoá đơn đã cấp
+    no, mtc = parse_published_xml(
+        "<HDon><DLHDon><TTChung><KHHDon>C26TTP</KHHDon><SHDon>299</SHDon>"
+        "<MCCQT>M1-26-ABCDE-00000000123</MCCQT></TTChung></DLHDon></HDon>")
+    assert no == 299 and mtc == "M1-26-ABCDE-00000000123"
+    assert parse_published_xml("<HDon></HDon>") == (0, "")
