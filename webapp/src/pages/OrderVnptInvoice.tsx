@@ -113,6 +113,7 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
         {fld("Địa chỉ", "address", "", true)}
         {fld("Người mua hàng", "buyer_name")}
         {fld("Điện thoại", "phone")}
+        {fld("Email nhận hoá đơn", "email", "vd: ketoan@congty.vn (nhiều mail cách nhau ;)")}
         <div class="mt-1">
           <div class="page-head-sub">Hình thức thanh toán</div>
           <div class="chips">

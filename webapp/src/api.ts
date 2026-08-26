@@ -992,7 +992,7 @@ export async function setOrderBypassDebt(threadId: string | number, on: boolean)
 // ── HĐ ĐIỆN TỬ VNPT (NHÁP — chưa phát hành, độc lập với HĐ KiotViet) ─────────
 export type VnptBuyer = {
   cus_name: string; buyer_name?: string; tax_code?: string; address?: string;
-  phone?: string; cus_code?: string; payment_method?: string;
+  phone?: string; email?: string; payment_method?: string;
 };
 export type VnptLine = { name: string; unit?: string; qty: number; price: number; sp_id?: number };
 

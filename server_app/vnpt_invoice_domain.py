@@ -29,8 +29,10 @@ def mst_valid(mst: str) -> bool:
 
 _BUYER_KEYS = (
     "cus_name", "buyer_name", "tax_code", "address", "phone",
-    "cus_code", "payment_method",
+    "email", "payment_method",
 )
+# email nhận hoá đơn: cho nhiều địa chỉ cách nhau ; hoặc ,
+_EMAIL_RE = re.compile(r"[^@\s;,]+@[^@\s;,]+\.[^@\s;,]+")
 DEFAULT_VAT_RATE = 8
 
 
@@ -58,6 +60,12 @@ def normalize_body(body: dict) -> tuple[dict, list[dict], int]:
             "mã số thuế không hợp lệ (sai số kiểm tra) — kiểm lại MST của khách; "
             "MST sai VNPT sẽ bỏ trống trên hoá đơn")
     buyer["tax_code"] = mst
+    # Email nhận hoá đơn: TUỲ CHỌN; có nhập thì từng địa chỉ phải đúng dạng
+    if buyer["email"]:
+        parts = [p.strip() for p in re.split(r"[;,]", buyer["email"]) if p.strip()]
+        if not parts or any(not _EMAIL_RE.fullmatch(p) for p in parts):
+            raise ValueError("email nhận hoá đơn không hợp lệ")
+        buyer["email"] = ";".join(parts)
 
     raw_lines = body.get("lines")
     if not isinstance(raw_lines, list) or not raw_lines:
@@ -115,8 +123,7 @@ def build_prefill(order: dict, customer: dict | None,
         buyer["cus_name"] = str(customer.get("name") or "")
     buyer.setdefault("address", str(customer.get("address") or ""))
     buyer.setdefault("phone", str(customer.get("contactNumber") or ""))
-    if not buyer.get("cus_code") and customer.get("kh_id"):
-        buyer["cus_code"] = str(customer["kh_id"])
+    buyer.pop("cus_code", None)   # mã khách hàng — Duy bỏ 2026-08-26 (profile cũ có thì lọc)
 
     lines: list[dict] = []
     for it in order.get("invoice") or []:

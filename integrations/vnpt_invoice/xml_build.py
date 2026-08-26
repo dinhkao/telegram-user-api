@@ -77,12 +77,16 @@ def build_invoice_xml(
         )
     invoice = (
         "<Invoice>"
-        f"<CusCode>{e('cus_code')}</CusCode>"
+        # <CusCode> BẮT BUỘC có mặt theo XSD (thiếu = ERR:3 "incomplete content")
+        # nhưng luôn để TRỐNG — Duy bỏ mã khách hàng 2026-08-26.
+        # <Email> bị XSD từ chối; email NHẬN hoá đơn đúng thẻ là <EmailDeliver>.
+        "<CusCode></CusCode>"
         f"<Buyer>{e('buyer_name')}</Buyer>"
         f"<CusName>{e('cus_name')}</CusName>"
         f"<CusAddress>{e('address')}</CusAddress>"
         f"<CusPhone>{e('phone')}</CusPhone>"
         f"<CusTaxCode>{e('tax_code')}</CusTaxCode>"
+        f"<EmailDeliver>{e('email')}</EmailDeliver>"
         f"<PaymentMethod>{e('payment_method') or 'TM/CK'}</PaymentMethod>"
         f"<Products>{''.join(prods)}</Products>"
         f"<Total>{t['total']}</Total>"

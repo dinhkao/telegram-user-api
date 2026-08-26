@@ -1075,7 +1075,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   ⚠ `updateInvoice` bị VNPT KHOÁ trên TT78 ("deprecated function", thực nghiệm)
   → SỬA nháp = import fkey MỚI trước rồi xoá fkey cũ (thứ tự đó để lỗi giữa chừng
   không mất nháp); xoá fkey đã mất trên portal → ERR:5, `delete_draft(missing_ok=True)`
-  nuốt. XSD của VNPT chặt: KHÔNG có thẻ `Email` trong Invoice (đã thử); per-line
+  nuốt. XSD của VNPT chặt: KHÔNG có thẻ `Email` trong Invoice — email NHẬN hoá
+  đơn đúng thẻ là `<EmailDeliver>` (nhiều mail cách `;`, tuỳ chọn — form có ô,
+  validate dạng mail ở domain); `<CusCode>` XSD BẮT BUỘC CÓ MẶT (thiếu = ERR:3
+  incomplete content) nhưng luôn gửi TRỐNG (Duy bỏ mã khách hàng 2026-08-26);
+  per-line
   PHẢI có `<Total>` (= cột Thành tiền trên mẫu in — thiếu là cột TRỐNG dù tổng vẫn
   đúng, thực nghiệm); VNPT **ÂM THẦM BỎ TRỐNG MST sai CHECKSUM** trên hoá đơn →
   buyer bắt buộc MST+tên+địa chỉ, MST validate số kiểm tra ở

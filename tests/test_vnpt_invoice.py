@@ -56,8 +56,7 @@ def test_build_invoice_xml_shape():
             "tax_code": "0123456789",
             "address": "1 Lê Lợi, Q1 <TPHCM>",
             "phone": "0900000000",
-            "email": "",
-            "cus_code": "62",
+            "email": "kt@congty.vn",
         },
         lines=[{"name": "Kẹo đậu phộng", "unit": "bịch", "qty": 3.5, "price": 390000}],
         vat_rate=8,
@@ -67,6 +66,10 @@ def test_build_invoice_xml_shape():
     inv = root.find(".//Invoice")
     assert inv.findtext("CusName") == "Công ty A & B"
     assert inv.findtext("CusAddress") == "1 Lê Lợi, Q1 <TPHCM>"
+    # CusCode: XSD bắt buộc CÓ MẶT nhưng luôn TRỐNG (bỏ mã khách hàng, Duy 2026-08-26)
+    assert inv.find("CusCode") is not None and not (inv.findtext("CusCode") or "")
+    assert inv.find("Email") is None              # XSD từ chối thẻ Email
+    assert inv.findtext("EmailDeliver") == "kt@congty.vn"   # email NHẬN hoá đơn
     assert inv.findtext("VATRate") == "8"
     p = inv.find(".//Product")
     assert p.findtext("ProdQuantity") == "3.5"

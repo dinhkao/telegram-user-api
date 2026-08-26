@@ -63,6 +63,16 @@ def test_mst_valid_checksum():
     assert not mst_valid("3901220366-01")
 
 
+def test_normalize_body_email():
+    ok = {"cus_name": "A", "address": "x", "tax_code": "3901220366"}
+    buyer, _, _ = normalize_body(_body(buyer={**ok, "email": " a@b.vn ; c@d.com "}))
+    assert buyer["email"] == "a@b.vn;c@d.com"
+    buyer, _, _ = normalize_body(_body(buyer=ok))
+    assert buyer["email"] == ""               # email là TUỲ CHỌN
+    with pytest.raises(ValueError, match="email"):
+        normalize_body(_body(buyer={**ok, "email": "khong-phai-mail"}))
+
+
 def test_normalize_body_mst_formats():
     for mst in ("3901220366", "3901220366-001", "39 0122 0366"):
         buyer, _, _ = normalize_body(_body(buyer={"cus_name": "A", "address": "x", "tax_code": mst}))
@@ -79,7 +89,7 @@ def test_prefill_no_profile_uses_order_and_catalog():
     cust = {"name": "Cty B", "address": "1 Lê Lợi", "contactNumber": "090", "kh_id": 55}
     p = build_prefill(ORDER, cust, {7: "bịch", 10: "hũ"})
     assert p["buyer"]["cus_name"] == "Cty B"
-    assert p["buyer"]["cus_code"] == "55"
+    assert "cus_code" not in p["buyer"]   # mã khách hàng đã bỏ (Duy 2026-08-26)
     assert p["vat_rate"] == 8
     assert p["lines"][0] == {"name": "Kẹo đậu 3kg", "unit": "bịch", "qty": 3.0,
                              "price": 390000, "sp_id": 7}
