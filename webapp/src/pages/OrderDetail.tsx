@@ -17,6 +17,7 @@ import { ImageStrip } from "../detail/ImageStrip";
 import { PhotoViewer } from "../detail/PhotoViewer";
 import { SingleImageViewer } from "../detail/SingleImageViewer";
 import { downloadFileFromUrl } from "../downloadFile";
+import { copyImageFromUrl } from "../copyImage";
 import { OrderStock } from "../detail/OrderStock";
 import { invalidateListCache, markLastOrder, filterNeighbors, onFilterNeighborsChanged } from "./OrdersList";
 import { applyCustomerOrderChange } from "./orderNavigation";
@@ -422,6 +423,30 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     try { await deleteVnptInvoice(threadId); toast("🗑️ Đã xoá nháp VNPT", "ok"); changed(); }
     catch (ex: any) { toast(ex.message, "err"); } finally { setBusy(false); }
   };
+  // Copy NHANH ảnh hoá đơn (không cần mở ảnh): KiotViet lấy/ render ảnh gallery
+  // như Xem HĐ; VNPT lấy PNG bản thể hiện. Lõi copy dùng chung src/copyImage.ts.
+  const copyHD = async () => {
+    setMsg("⏳ Đang copy ảnh hoá đơn…");
+    try {
+      const imgs = await listOrderImages(threadId).catch(() => [] as OrderImage[]);
+      let inv = imgs.find((x) => x.kind === "hoa_don" || x.uploaded_by === "KiotViet HĐ");
+      if (!inv) inv = (await ensureInvoiceImage(threadId)) || undefined;
+      if (!inv) { toast("Chưa tạo được ảnh hoá đơn — thử lại", "err"); return; }
+      await copyImageFromUrl(orderImageUrl(threadId, inv.id, "full"));
+      toast("Đã copy ảnh hoá đơn", "ok");
+    } catch {
+      toast("Copy không được (trình duyệt chặn)", "err");
+    } finally { setMsg(""); }
+  };
+  const copyVnpt = async () => {
+    setMsg("⏳ Đang copy ảnh HĐ điện tử…");
+    try {
+      await copyImageFromUrl(vnptInvoicePngUrl(threadId));
+      toast("Đã copy ảnh HĐ điện tử", "ok");
+    } catch {
+      toast("Copy không được (trình duyệt chặn)", "err");
+    } finally { setMsg(""); }
+  };
   // Xem HĐ: mở ảnh hoá đơn trong PhotoViewer (zoom/pan như ảnh đơn);
   // chưa có ảnh → gọi server render PNG ngay rồi mở; lỗi mới fallback HTML tab.
   const [invViewer, setInvViewer] = useState<OrderImage | null>(null);
@@ -639,6 +664,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           <>
             <div class="row mt-2">
               <button class="btn fill" onClick={viewHD}><Icon name="eye" size={16} /> Xem HĐ</button>
+              <button class="btn fill" onClick={copyHD}><Icon name="copy" size={16} /> Copy</button>
               <button class="btn fill" disabled={busy} onClick={doPrint}><Icon name="printer" size={16} /> In</button>
               {isAdmin && <button class="btn danger fill" disabled={busy} onClick={deleteHD}><Icon name="trash" size={16} /> Xoá HĐ</button>}
             </div>
@@ -716,6 +742,9 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
             <div class="row mt-2">
               <button class="btn fill" onClick={() => setVnptView(true)}>
                 <Icon name="eye" size={16} /> Xem
+              </button>
+              <button class="btn fill" onClick={copyVnpt}>
+                <Icon name="copy" size={16} /> Copy
               </button>
               <button class="btn fill" onClick={() => downloadFileFromUrl(vnptInvoicePdfUrl(threadId), `HD-${threadId}.pdf`)}>
                 <Icon name="download" size={16} /> PDF

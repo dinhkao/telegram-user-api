@@ -3,6 +3,7 @@
 // với PhotoReportViewer — sửa cảm giác cử chỉ ở đó, đừng chép lại). Dùng bởi: detail/Images.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { mediaImageUrl, type OrderImage } from "../api";
+import { copyImageFromUrl } from "../copyImage";
 import { fmtTime } from "../format";
 import { toast } from "../ui/feedback";
 import { ImageInfoPanel } from "./ImageInfoPanel";
@@ -80,35 +81,12 @@ export function PhotoViewer({
 
   const cur = images[idx];
 
-  // Copy ảnh vào clipboard (đổi sang PNG vì clipboard chỉ chắc ăn với PNG).
-  // ClipboardItem nhận Promise → hợp lệ cả Safari (yêu cầu tạo trong cùng cử chỉ).
+  // Copy ảnh vào clipboard — lõi dùng chung src/copyImage.ts (cầu native APK +
+  // ClipboardItem PNG trình duyệt); ở đây chỉ còn thông báo.
   const copyImage = async () => {
     if (!cur) return;
     try {
-      const res = await fetch(mediaImageUrl(base, cur.id, "full"));
-      const blob = await res.blob();
-      // WebView Android không copy ảnh được → ưu tiên cầu native copyImage.
-      const bridge: any = (window as any).AndroidApp;
-      if (bridge?.copyImage) {
-        const dataUrl: string = await new Promise((ok, no) => {
-          const fr = new FileReader();
-          fr.onload = () => ok(String(fr.result));
-          fr.onerror = () => no(new Error("read"));
-          fr.readAsDataURL(blob);
-        });
-        const ok = bridge.copyImage(dataUrl);
-        flash(ok === false ? "Copy ảnh lỗi" : "Đã copy ảnh", ok === false ? "err" : "ok");
-        return;
-      }
-      // Trình duyệt: clipboard.write PNG (cần HTTPS)
-      const bmp = await createImageBitmap(blob);
-      const c = document.createElement("canvas");
-      c.width = bmp.width;
-      c.height = bmp.height;
-      c.getContext("2d")!.drawImage(bmp, 0, 0);
-      bmp.close?.();
-      const png = await new Promise<Blob>((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error("png"))), "image/png"));
-      await navigator.clipboard.write([new (window as any).ClipboardItem({ "image/png": png })]);
+      await copyImageFromUrl(mediaImageUrl(base, cur.id, "full"));
       flash("Đã copy ảnh", "ok");
     } catch {
       flash("Copy không được (trình duyệt chặn)", "err");
