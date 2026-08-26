@@ -6,7 +6,7 @@
 // KHÔNG còn chế độ xem / nút HĐ KiotViet — phần đó nằm ở khối Hoá đơn của
 // OrderDetail. Parent quyết định onSave làm gì và điều hướng sau khi lưu.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { fetchCustomerPrice, searchProducts, type PriceInfo } from "../api";
+import { fetchCustomerPrice, fetchCustomerPriceHistory, searchProducts, type PriceHistEntry, type PriceInfo } from "../api";
 import { money, parseMoney, parseQty, fmtQty } from "../format";
 import { toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
@@ -55,6 +55,18 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
   const [v, setV] = useState(0);
   const [vat8Enabled, setVat8Enabled] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // LỊCH SỬ GIÁ theo khách: {MÃ: tối đa 5 lần mua gần nhất} — hiện chip dưới
+  // từng dòng, bấm chip đặt luôn giá đó. Tải 1 phát/khách (đổi khách tải lại).
+  const [priceHist, setPriceHist] = useState<Record<string, PriceHistEntry[]>>({});
+  useEffect(() => {
+    if (!customerId) { setPriceHist({}); return; }
+    let live = true;
+    fetchCustomerPriceHistory(customerId)
+      .then((h) => { if (live && custRef.current === customerId) setPriceHist(h); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [customerId]);
 
   // Giá + bảng giá theo mã SP (đã hoa) — để ghi rõ giá lấy từ bảng giá nào.
   // Cache theo MÃ, không theo khách → đổi khách phải xoá cache (effect dưới).
@@ -214,6 +226,23 @@ export function InvoiceEditor({ customerId, invoice, discount, pvc, vat, onSave,
                 onFocus={selectAll} onInput={(e: any) => setRow(i, "note", e.target.value)} />
               <span class="eq">= <b class="num">{money((it.price || 0) * (it.sl || 0))}</b></span>
             </div>
+            {/* Lịch sử giá món này trong 5 đơn gần nhất của khách — bấm chip đặt giá */}
+            {(() => {
+              const h = priceHist[(it.sp || "").trim().toUpperCase()];
+              if (!h || !h.length) return null;
+              return (
+                <div class="ph-row">
+                  {h.map((e, k) => (
+                    <button type="button" key={k}
+                      class={"ph-chip" + (Number(it.price) === e.price ? " on" : "")}
+                      title={`Đơn #${e.thread_id} ngày ${e.date} — bấm để lấy giá này`}
+                      onClick={() => setRow(i, "price", e.price)}>
+                      {money(e.price)}<span class="ph-sub"> ×{fmtQty(e.sl)} · {e.date}</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         ))}
       </div>

@@ -205,6 +205,8 @@ def create_app():
     r.add_delete("/api/products/{product_code}/recipe/{line_id}", recipe_delete_handler)
     r.add_post("/api/order/reply", api_reply_handler)
     r.add_post("/api/customer/price", api_customer_price_handler)
+    from server_app.order_api_payments import api_customer_price_history_handler
+    r.add_post("/api/customer/price-history", api_customer_price_history_handler)
     r.add_post("/api/order/{id}/task_status/clear", api_task_status_clear_handler)
     r.add_post("/api/order/{id}/custom-task", add_custom_task_handler)
     r.add_post("/api/order/{id}/custom-task/remove", remove_custom_task_handler)

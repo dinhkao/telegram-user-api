@@ -221,3 +221,21 @@ async def api_customer_price_handler(request: web.Request):
     last_price = int(last_order_prices(conn, str(customer_id)).get(code) or 0)
     return web.json_response({"ok": True, "price": price, "product": product, "source": source,
                               "list_name": list_name, "last_price": last_price})
+
+
+async def api_customer_price_history_handler(request: web.Request):
+    """POST {customer_id} → {history: {MÃ: [{price, sl, thread_id, date}]}} — đơn
+    giá từng món trong tối đa 5 đơn gần nhất của khách (trang sửa hoá đơn hiện
+    chip lịch sử giá, bấm chip đặt giá). Logic: order_store.last_prices.price_history."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON"}, status=400)
+    customer_id = body.get("customer_id")
+    if not customer_id:
+        return web.json_response({"ok": False, "error": "Missing customer_id"}, status=400)
+    from order_store.last_prices import price_history
+    conn = _get_connection()
+    # chạy thẳng trên loop như last_order_prices (30 đơn/khách qua idx cust_key — vài ms)
+    hist = price_history(conn, str(customer_id))
+    return web.json_response({"ok": True, "history": hist})

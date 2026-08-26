@@ -189,3 +189,45 @@ class LastPricesCustKeyColumn(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PriceHistory(unittest.TestCase):
+    """price_history: đơn giá từng món trong tối đa 5 đơn gần nhất (trang sửa HĐ)."""
+
+    def setUp(self):
+        self.conn = _conn()
+        _invalidate_products_cache()
+        invalidate_last_price_cache()
+        self.conn.execute("INSERT INTO products(id, code, name) VALUES (1, 'SP1', 'SP một')")
+
+    def tearDown(self):
+        self.conn.close()
+        _invalidate_products_cache()
+
+    def test_caps_at_5_newest_first_with_date(self):
+        from order_store.last_prices import price_history
+        for i in range(7):   # 7 đơn cùng SP → chỉ lấy 5 đơn mới nhất
+            _add_order(self.conn, i + 1, f"2026-08-{i + 1:02d}T00:00:00.000Z",
+                       [_item("SP1", 10000 + i * 1000)])
+        h = price_history(self.conn, KH)
+        self.assertEqual([e["price"] for e in h["SP1"]],
+                         [16000, 15000, 14000, 13000, 12000])   # mới → cũ
+        self.assertEqual(h["SP1"][0]["date"], "07/08")
+        self.assertEqual(h["SP1"][0]["thread_id"], 7)
+        self.assertEqual(h["SP1"][0]["sl"], 10.0)
+
+    def test_one_entry_per_order_and_skip_zero(self):
+        from order_store.last_prices import price_history
+        # 1 đơn có SP1 hai dòng → chỉ tính dòng đầu; giá 0 bỏ qua
+        _add_order(self.conn, 1, "2026-08-01T00:00:00.000Z",
+                   [_item("SP1", 15000), _item("SP1", 14000)])
+        _add_order(self.conn, 2, "2026-08-02T00:00:00.000Z", [_item("SP1", 0)])
+        h = price_history(self.conn, KH)
+        self.assertEqual([e["price"] for e in h["SP1"]], [15000])
+
+    def test_old_code_maps_to_current(self):
+        from order_store.last_prices import price_history
+        # đơn cũ ghi theo sp_id → key là mã hiện hành SP1
+        _add_order(self.conn, 1, "2026-08-01T00:00:00.000Z", [_item("SPX", 12000, sp_id=1)])
+        h = price_history(self.conn, KH)
+        self.assertEqual(h["SP1"][0]["price"], 12000)

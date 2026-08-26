@@ -933,6 +933,13 @@ export async function deleteCustomer(key: string): Promise<void> {
 /** price = giá BẢNG của khách; last_price = giá khách MUA LẦN GẦN NHẤT (0 nếu chưa mua). */
 export type PriceInfo = { price: number; source: "personal" | "shared" | null; list_name: string | null; last_price: number };
 
+/** Lịch sử giá: {MÃ: các lần mua gần nhất (tối đa 5, mới trước)} của 1 khách. */
+export type PriceHistEntry = { price: number; sl: number; thread_id: number; date: string };
+export async function fetchCustomerPriceHistory(customerId: string): Promise<Record<string, PriceHistEntry[]>> {
+  const j = await postJSON("/api/customer/price-history", { customer_id: customerId });
+  return j.history || {};
+}
+
 /** Giá SP theo khách + bảng giá nào (price 0 nếu không có). */
 export async function fetchCustomerPrice(customerId: string, product: string): Promise<PriceInfo> {
   if (!customerId || !product) return { price: 0, source: null, list_name: null, last_price: 0 };

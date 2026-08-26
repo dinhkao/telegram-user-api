@@ -62,6 +62,75 @@ def _price(raw) -> int:
     return v if v > 0 else 0
 
 
+_HIST_SELECT = """
+    SELECT thread_id, order_created,
+           coalesce(json_extract(json, '$.invoice'),
+                    json_extract(json, '$.invoice_items')) AS inv
+    FROM orders
+    WHERE deleted_at IS NULL AND %s = ?
+    ORDER BY order_created DESC, thread_id DESC
+    LIMIT ?
+"""
+_HSQL_BY_COL = _HIST_SELECT % "cust_key"
+_HSQL_BY_EXPR = _HIST_SELECT % (
+    "coalesce(json_extract(json, '$.khach_hang_id'), json_extract(json, '$.khID'))"
+)
+
+
+def price_history(conn, kh_id: str | int | None, per_code: int = 5,
+                  limit: int = _ORDERS_SCANNED) -> dict[str, list[dict]]:
+    """{MÃ HIỆN HÀNH: [{price, sl, thread_id, date 'dd/mm'}]} — đơn giá của khách
+    trong tối đa `per_code` ĐƠN GẦN NHẤT có mã đó (đơn mới trước, mỗi đơn 1 dòng).
+    Cho trang sửa hoá đơn hiện lịch sử giá từng món. Không cache — gọi 1 lần/lần
+    mở trang (POST /api/customer/price-history)."""
+    key = str(kh_id or "").strip()
+    if not key or conn is None:
+        return {}
+    n = max(1, int(limit))
+    try:
+        rows = conn.execute(_HSQL_BY_COL, (key, n)).fetchall()
+    except Exception:  # noqa: BLE001 — chưa có cột cust_key (DB cũ/test)
+        try:
+            rows = conn.execute(_HSQL_BY_EXPR, (key, n)).fetchall()
+        except Exception:  # noqa: BLE001
+            return {}
+    by_id, alias = _code_maps(conn) if rows else ({}, {})
+    out: dict[str, list[dict]] = {}
+    for row in rows:                                  # đơn mới → cũ
+        try:
+            items = json.loads(row["inv"]) if row["inv"] else []
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(items, list):
+            continue
+        created = str(row["order_created"] or "")
+        date = f"{created[8:10]}/{created[5:7]}" if len(created) >= 10 else ""
+        seen = set()                                  # 1 đơn chỉ tính 1 dòng/mã
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            code = by_id.get(it.get("sp_id")) if it.get("sp_id") is not None else None
+            if not code:
+                raw = str(it.get("sp") or "").upper().strip()
+                code = alias.get(raw, raw)
+            if not code or code in seen:
+                continue
+            price = _price(it.get("price"))
+            if not price:
+                continue
+            lst = out.setdefault(code, [])
+            if len(lst) >= per_code:
+                continue
+            try:
+                sl = float(it.get("sl") or 0)
+            except (TypeError, ValueError):
+                sl = 0.0
+            lst.append({"price": price, "sl": sl,
+                        "thread_id": row["thread_id"], "date": date})
+            seen.add(code)
+    return out
+
+
 def last_order_prices(conn, kh_id: str | int | None, limit: int = _ORDERS_SCANNED) -> dict[str, int]:
     """{MÃ HIỆN HÀNH: giá bán lần gần nhất} của khách. Rỗng nếu chưa mua bao giờ."""
     key = str(kh_id or "").strip()
