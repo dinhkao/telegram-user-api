@@ -106,6 +106,19 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         return "Chốt xuất kho", [part("khoá sửa phân bổ, đơn sẵn sàng soạn")]
     if action == "order.stock_unconfirmed":
         return "Bỏ chốt xuất kho", []
+    if action == "order.vnpt_draft_saved":
+        label = "Tạo HĐ điện tử nháp (VNPT)" if p.get("created") else "Sửa HĐ điện tử nháp (VNPT)"
+        seg = [part(money(p.get("amount")))]
+        if p.get("line_count"):
+            seg.append(part(f" · {p['line_count']} dòng"))
+        if p.get("fkey"):
+            seg.append(part(f" · {p['fkey']}"))
+        return label, seg
+    if action == "order.vnpt_draft_deleted":
+        seg = [part(money(p.get("amount")))] if p.get("amount") is not None else []
+        if p.get("fkey"):
+            seg.append(part(f" · {p['fkey']}" if seg else str(p["fkey"])))
+        return "Xoá HĐ điện tử nháp (VNPT)", seg
     if action == "order.bulk_payment":
         seg = [part(money(p.get("amount")))]
         m = {"cash": "tiền mặt", "transfer": "chuyển khoản", "Transfer": "chuyển khoản"}.get(str(p.get("method") or ""))

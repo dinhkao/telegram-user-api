@@ -2,7 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, ensureInvoiceImage, getCustomerOrders, getJSON, invoiceEditStatus, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, setOrderNoTrack, type OrderImage } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, deleteVnptInvoice, ensureInvoiceImage, getCustomerOrders, getJSON, invoiceEditStatus, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, setOrderNoTrack, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
 import { money, initial, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
@@ -401,6 +401,13 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     try { await deleteKiotVietInvoice(threadId); toast("🗑️ Đã xoá hoá đơn KiotViet", "ok"); changed(); }
     catch (ex: any) { toast(ex.message, "err"); } finally { setBusy(false); }
   };
+  // Xoá HĐ điện tử nháp VNPT (admin) — xoá trên VNPT + gỡ khỏi đơn
+  const deleteVnpt = async () => {
+    if (!(await confirmDialog("XOÁ hoá đơn điện tử nháp VNPT của đơn này?", { danger: true, okLabel: "Xoá nháp" }))) return;
+    setBusy(true);
+    try { await deleteVnptInvoice(threadId); toast("🗑️ Đã xoá nháp VNPT", "ok"); changed(); }
+    catch (ex: any) { toast(ex.message, "err"); } finally { setBusy(false); }
+  };
   // Xem HĐ: mở ảnh hoá đơn trong PhotoViewer (zoom/pan như ảnh đơn);
   // chưa có ảnh → gọi server render PNG ngay rồi mở; lỗi mới fallback HTML tab.
   const [invViewer, setInvViewer] = useState<OrderImage | null>(null);
@@ -647,6 +654,40 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
         )}
       </section>
       </div>{/* #od-invoice */}
+      {/* HĐ ĐIỆN TỬ VNPT (nháp) — ĐỘC LẬP với HĐ KiotViet, chỉ văn phòng thấy.
+          Tạo/sửa ở trang riêng #/order/:id/vnpt; xoá = admin. */}
+      {isOffice() && (
+      <div id="od-vnpt">
+      <section class="card">
+        <div class="ie-head">HĐ điện tử VNPT (nháp)</div>
+        {j.vnpt_invoice ? (
+          <>
+            <div class="small">
+              {(j.vnpt_invoice.lines || []).length} dòng · thuế {j.vnpt_invoice.vat_rate < 0 ? "KCT" : `${j.vnpt_invoice.vat_rate}%`}
+              {" · tổng "}<b class="num">{money(j.vnpt_invoice.amount)}</b>
+            </div>
+            <div class="muted small">
+              {j.vnpt_invoice.serial} · nháp chưa phát hành
+              {j.vnpt_invoice.updated_at ? ` · sửa ${fmtDateTimeVN(j.vnpt_invoice.updated_at)}` : ""}
+              {j.vnpt_invoice.updated_by ? ` (${j.vnpt_invoice.updated_by})` : ""}
+            </div>
+            <div class="row mt-2">
+              <button class="btn fill" onClick={() => (window.location.hash = `#/order/${threadId}/vnpt`)}>
+                <Icon name="edit" size={16} /> Sửa nháp
+              </button>
+              {isAdmin && <button class="btn danger fill" disabled={busy} onClick={deleteVnpt}>
+                <Icon name="trash" size={16} /> Xoá nháp
+              </button>}
+            </div>
+          </>
+        ) : (
+          <button class="btn block mt-2" onClick={() => (window.location.hash = `#/order/${threadId}/vnpt`)}>
+            <Icon name="receipt" size={16} /> Tạo HĐ điện tử nháp
+          </button>
+        )}
+      </section>
+      </div>
+      )}
       <div id="od-stock">
       <OrderStock threadId={threadId} invoice={j.invoice || []} stockConfirmed={j.stock_confirmed || null}
         onCompleteSoanHang={(j.task_status || {}).soan_hang?.done ? undefined : () => setSoanOpenRequest((n) => n + 1)} />

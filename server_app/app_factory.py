@@ -185,6 +185,8 @@ def create_app():
     r.add_post("/api/order/refresh-debt", api_refresh_debt_handler)
     r.add_get("/api/order/{thread_id}/invoice-html", api_invoice_html_handler)
     r.add_post("/api/order/{thread_id}/invoice-image/ensure", api_ensure_invoice_image_handler)
+    from server_app.vnpt_invoice_routes import register_vnpt_invoice_routes
+    register_vnpt_invoice_routes(r)   # /api/order/{tid}/vnpt-invoice — HĐ điện tử NHÁP VNPT
     r.add_get("/api/products", products_search_handler)
     r.add_post("/api/products", product_create_handler)
     r.add_get("/api/products/kiotviet", product_kiotviet_search_handler)

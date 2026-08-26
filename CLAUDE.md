@@ -1068,6 +1068,28 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 
 **Integrations / IO**
 - `integrations/` — external systems (KiotViet, firebase_sync, …).
+- **`integrations/vnpt_invoice/` — HĐ ĐIỆN TỬ VNPT NHÁP (TT78, 2026-08-26).** SOAP
+  client tự dựng (lxml + urllib blocking → caller bọc `asyncio.to_thread`), env
+  `VNPT_INV_*` (.env). **CHỈ nháp chưa phát hành** — dùng ImportInvByPattern
+  (convert=0) / deleteInvoiceByFkey / getStatusInv, CẤM gọi nhóm `Publish*`.
+  ⚠ `updateInvoice` bị VNPT KHOÁ trên TT78 ("deprecated function", thực nghiệm)
+  → SỬA nháp = import fkey MỚI trước rồi xoá fkey cũ (thứ tự đó để lỗi giữa chừng
+  không mất nháp); xoá fkey đã mất trên portal → ERR:5, `delete_draft(missing_ok=True)`
+  nuốt. XSD của VNPT chặt: KHÔNG có thẻ `Email` trong Invoice (đã thử). Mẫu số/ký
+  hiệu CỐ ĐỊNH `1/001`/`C26TTP` (env đổi được); thuế = 1 MỨC CHUNG cả HĐ
+  (KCT=-1/0/5/8/10), giá nhập CHƯA gồm VAT (Duy chốt 2026-08-26). `xml_build.py`
+  + `amount_words.py` (đọc số VND thành chữ) thuần, test `tests/test_vnpt_invoice.py`.
+  **App-side**: routes `server_app/vnpt_invoice_routes.py` (GET/POST/DELETE
+  `/api/order/{tid}/vnpt-invoice` — xem/tạo/sửa văn phòng, xoá admin, khoá theo
+  đơn kiểu `_invoice_create_lock`), logic thuần `server_app/vnpt_invoice_domain.py`
+  (test `tests/test_vnpt_invoice_domain.py`). **Độc lập hoàn toàn với HĐ KiotViet**;
+  dữ liệu nháp = key `$.vnpt_invoice` blob đơn; **CACHE THEO KHÁCH** = key
+  `$.vnpt_profile` blob customers (buyer + vat_rate + tên/giá/ĐVT từng SP theo
+  sp_id + extra_lines thêm tay) — GET trộn cache với dòng hàng đơn thành `prefill`,
+  mỗi lần POST tự cập nhật cache. Tên/giá/ĐVT trên HĐ điện tử ĐƯỢC PHÉP khác dữ
+  liệu đơn/KiotViet (cố ý). UI: khối `#od-vnpt` OrderDetail (office) + trang
+  `#/order/:id/vnpt` (`pages/OrderVnptInvoice.tsx`); event
+  `order.vnpt_draft_saved/deleted` (event_format); guide `hddt-vnpt` (data_don.ts).
 - `telegram/` — Telethon gateway (`TelegramGateway` = rate-limit-safe send/edit
   wrapper, edit-state, flood-wait handling). Self-contained.
 - `tg_api/` — aiohttp HTTP endpoints wrapping Telegram edit/send-file ops, API-key

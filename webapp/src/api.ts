@@ -989,6 +989,27 @@ export async function setOrderBypassDebt(threadId: string | number, on: boolean)
   await postJSON("/api/order/bypass-debt", { thread_id: Number(threadId), on });
 }
 
+// ── HĐ ĐIỆN TỬ VNPT (NHÁP — chưa phát hành, độc lập với HĐ KiotViet) ─────────
+export type VnptBuyer = {
+  cus_name: string; buyer_name?: string; tax_code?: string; address?: string;
+  phone?: string; cus_code?: string; payment_method?: string;
+};
+export type VnptLine = { name: string; unit?: string; qty: number; price: number; sp_id?: number };
+
+/** Nháp hiện có + prefill từ cache khách (vnpt_profile) — office. */
+export async function getVnptInvoice(threadId: string | number): Promise<any> {
+  return getJSON(`/api/order/${Number(threadId)}/vnpt-invoice`, { cache: false });
+}
+/** Tạo/sửa nháp trên VNPT (server tự xoá nháp cũ, fkey mới) — office. */
+export async function saveVnptInvoice(threadId: string | number,
+  payload: { buyer: VnptBuyer; lines: VnptLine[]; vat_rate: number }): Promise<any> {
+  return postJSON(`/api/order/${Number(threadId)}/vnpt-invoice`, payload);
+}
+/** Xoá nháp (trên VNPT + gỡ khỏi đơn) — admin. */
+export async function deleteVnptInvoice(threadId: string | number): Promise<any> {
+  return delJSON(`/api/order/${Number(threadId)}/vnpt-invoice`);
+}
+
 /** URL HTML hoá đơn để mở tab mới (kèm token cho WebView/khi bật auth). */
 export function invoiceHtmlUrl(threadId: string | number): string {
   const t = getToken();

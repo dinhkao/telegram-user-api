@@ -191,4 +191,32 @@ export const GUIDES_DON: Guide[] = [
         </ul>` },
     ],
   },
+
+  {
+    key: "hddt-vnpt", icon: "receipt", cat: "Đơn hàng & khách", office: true,
+    title: "HĐ điện tử VNPT (nháp)",
+    desc: "Tạo/sửa/xoá hoá đơn điện tử NHÁP trên VNPT-Invoice từ chi tiết đơn — chưa phát hành.",
+    routes: ["#/order"],
+    sections: [
+      { title: "Là gì — khác gì HĐ KiotViet?", html: `
+        <p>Khối <b>「HĐ điện tử VNPT (nháp)」</b> ở chi tiết đơn tạo hoá đơn <b>NHÁP</b> trên hệ thống
+        VNPT-Invoice (TT78) — <b>hoàn toàn tách biệt</b> với hoá đơn KiotViet: không cần đơn có HĐ KiotViet,
+        và <b>tên hàng, đơn giá, đơn vị tính</b> trên HĐ điện tử được phép <b>khác</b> dữ liệu đơn.</p>
+        <p class="cash-badge">App chỉ tạo <b>nháp chưa phát hành</b> (chưa cấp số, chưa có giá trị pháp lý).
+        Việc phát hành làm trên trang quản trị VNPT như bình thường.</p>` },
+      { title: "Tạo & sửa nháp", html: `
+        <ol>
+          <li>Chi tiết đơn → khối HĐ điện tử VNPT → <b>「Tạo HĐ điện tử nháp」</b> (chỉ văn phòng).</li>
+          <li>Form <b>tự điền sẵn</b>: thông tin người mua (tên đơn vị, MST, địa chỉ…) + dòng hàng của đơn.
+            Sửa tự do từng dòng: <b>tên in trên HĐ · ĐVT · SL · đơn giá</b> (giá <b>chưa gồm thuế</b>).</li>
+          <li>Chọn <b>1 mức thuế GTGT chung</b> cho cả hoá đơn (KCT/0/5/8/10%), bấm <b>Lưu</b> — nháp lên VNPT ngay.</li>
+        </ol>
+        <p><b>Sửa</b> = mở lại trang đó, đổi gì tuỳ ý rồi Lưu (hệ thống tạo nháp mới thay nháp cũ trên VNPT).
+        <b>Xoá nháp</b> = admin.</p>` },
+      { title: "Nhớ theo khách — khỏi nhập lại", html: `
+        <p>Mỗi lần Lưu, app <b>nhớ theo TỪNG KHÁCH</b>: thông tin người mua, mức thuế, và
+        <b>tên/giá/ĐVT riêng từng sản phẩm</b> (kể cả dòng thêm tay như phí giao).
+        Lần sau tạo HĐ cho khách đó là <b>tự điền lại</b> — chỉ số lượng lấy theo đơn mới.</p>` },
+    ],
+  },
 ];
