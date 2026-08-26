@@ -4,7 +4,7 @@
 // với dòng hàng của đơn); Lưu = đẩy nháp lên VNPT (chưa phát hành) + cập nhật
 // cache khách. Server: server_app/vnpt_invoice_routes.py.
 import { useEffect, useState } from "preact/hooks";
-import { getVnptInvoice, saveVnptInvoice, vnptInvoicePdfUrl, vnptInvoicePngUrl, type VnptBuyer, type VnptLine } from "../api";
+import { getJSON, getVnptInvoice, saveVnptInvoice, vnptInvoicePdfUrl, vnptInvoicePngUrl, type VnptBuyer, type VnptLine } from "../api";
 import { SingleImageViewer } from "../detail/SingleImageViewer";
 import { downloadFileFromUrl } from "../downloadFile";
 import { money, parseMoney, parseQty, fmtQty } from "../format";
@@ -24,6 +24,22 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
   const [vatRate, setVatRate] = useState(8);
   const [busy, setBusy] = useState(false);
   const [viewing, setViewing] = useState(false);   // xem PNG bản thể hiện trong app
+  const [mstBusy, setMstBusy] = useState(false);
+
+  // Tra MST trên dữ liệu Cục Thuế (server proxy VietQR) → tự điền tên + địa chỉ
+  const lookupMst = async () => {
+    const mst = (buyer.tax_code || "").replace(/\s/g, "");
+    if (!mst) return;
+    setMstBusy(true);
+    try {
+      const j = await getJSON(`/api/mst-lookup?mst=${encodeURIComponent(mst)}`, { cache: false });
+      if (!j.found) { toast("Không tìm thấy MST này trên dữ liệu Cục Thuế", "err"); return; }
+      setBuyer((p) => ({ ...p, tax_code: mst, cus_name: j.name || p.cus_name, address: j.address || p.address }));
+      toast(j.active ? `✓ ${j.status}` : `⚠ ${j.status || "Không rõ trạng thái"}`, j.active ? "ok" : "err");
+    } catch (e: any) {
+      toast(e?.message || "Lỗi tra MST", "err");
+    } finally { setMstBusy(false); }
+  };
 
   const load = () => {
     setErr("");
@@ -114,8 +130,19 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
 
       <section class="card">
         <div class="ie-head">Người mua</div>
+        {/* MST đặt TRÊN cùng: gõ MST → 「Tra」 (tra cứu công khai từ dữ liệu Cục
+            Thuế qua /api/mst-lookup) tự điền tên đơn vị + địa chỉ bên dưới */}
+        <div class="mt-1">
+          <div class="page-head-sub">Mã số thuế / số định danh<span class="t-danger"> *</span></div>
+          <div class="row">
+            <input class="note-inp" style="flex:1;min-width:0" placeholder="MST 10 số hoặc CCCD 12 số"
+              value={buyer.tax_code || ""} onInput={(e: any) => setB("tax_code", e.target.value)} />
+            <button class="btn small" disabled={mstBusy || !(buyer.tax_code || "").trim()} onClick={lookupMst}>
+              {mstBusy ? "…" : <><Icon name="search" size={14} /> Tra</>}
+            </button>
+          </div>
+        </div>
         {fld("Tên đơn vị (in trên HĐ)", "cus_name", "Công ty TNHH …", true)}
-        {fld("Mã số thuế / số định danh", "tax_code", "MST 10 số hoặc CCCD 12 số", true)}
         {fld("Địa chỉ", "address", "", true)}
         {fld("Người mua hàng", "buyer_name")}
         {fld("Điện thoại", "phone")}

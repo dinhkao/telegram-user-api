@@ -187,6 +187,8 @@ def create_app():
     r.add_post("/api/order/{thread_id}/invoice-image/ensure", api_ensure_invoice_image_handler)
     from server_app.vnpt_invoice_routes import register_vnpt_invoice_routes
     register_vnpt_invoice_routes(r)   # /api/order/{tid}/vnpt-invoice — HĐ điện tử NHÁP VNPT
+    from server_app.mst_lookup import register as register_mst_lookup
+    register_mst_lookup(r)            # /api/mst-lookup — tra tên/địa chỉ theo MST (VietQR)
     r.add_get("/api/products", products_search_handler)
     r.add_post("/api/products", product_create_handler)
     r.add_get("/api/products/kiotviet", product_kiotviet_search_handler)

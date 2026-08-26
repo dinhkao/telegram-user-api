@@ -1092,7 +1092,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   buyer bắt buộc MST+tên+địa chỉ, MST validate số kiểm tra ở
   `vnpt_invoice_domain.mst_valid` (10 số, trọng số 31,29,23,19,17,13,7,5,3 mod 11;
   nhận thêm **12 số = số định danh cá nhân/CCCD** — chỉ kiểm dạng, VNPT in
-  bình thường, thực nghiệm 2026-08-26).
+  bình thường, thực nghiệm 2026-08-26). **TRA MST tự điền**: nút 「Tra」 cạnh ô
+  MST → GET `/api/mst-lookup?mst=` (`server_app/mst_lookup.py`, office) — trang
+  GDT chính thức có CAPTCHA nên proxy qua API công khai VietQR
+  (api.vietqr.io/v2/business/{mst}, dữ liệu tổng hợp từ gdt.gov.vn trễ ~15 ngày,
+  nhận cả CCCD 12 số của hộ KD), cache RAM 24h/MST; điền tên đơn vị + địa chỉ +
+  báo trạng thái NNT.
   **PDF nháp**: `portal.download_draft_pdf` (PortalService `downloadNewInvPDFFkey`,
   tài khoản service, base64→bytes — nhóm op KHÔNG-New chỉ cho HĐ đã phát hành,
   trả ERR:6) → GET `/api/order/{tid}/vnpt-invoice/pdf` (office, mở tab kèm
