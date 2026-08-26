@@ -54,6 +54,7 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
 
   const save = async () => {
     if (busy) return;
+    if (loaded?.draft?.published) { toast("Hoá đơn đã PHÁT HÀNH — không sửa được nữa", "err"); return; }
     // chặn sớm 3 trường bắt buộc cho đỡ 1 vòng server (server vẫn validate + checksum MST)
     if (!(buyer.cus_name || "").trim()) { toast("Thiếu tên đơn vị (bắt buộc)", "err"); return; }
     if (!(buyer.tax_code || "").trim()) { toast("Thiếu mã số thuế (bắt buộc)", "err"); return; }
@@ -104,6 +105,11 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
       )}
       {!loaded.configured && (
         <div class="card"><span class="t-danger">Server chưa cấu hình VNPT_INV_* trong .env — lưu sẽ lỗi.</span></div>
+      )}
+      {loaded.draft?.published && (
+        <div class="card"><b class="t-ok">✅ Hoá đơn ĐÃ PHÁT HÀNH trên VNPT
+          {loaded.draft.invoice_no ? ` · Số ${String(loaded.draft.invoice_no).padStart(8, "0")}` : ""}</b>
+          <div class="muted small">Không sửa/xoá được nữa — cần điều chỉnh thì xử lý trên trang VNPT.</div></div>
       )}
 
       <section class="card">
@@ -170,8 +176,9 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
         </div>
 
         <div class="ie-actions">
-          <button class="btn primary" disabled={busy} onClick={save}>
-            {busy ? "Đang lưu…" : <><Icon name="save" size={16} /> {loaded.draft ? "Cập nhật nháp VNPT" : "Tạo nháp VNPT"} · {money(grand)}</>}
+          <button class="btn primary" disabled={busy || !!loaded.draft?.published} onClick={save}>
+            {busy ? "Đang lưu…" : loaded.draft?.published ? "Đã phát hành — khoá sửa"
+              : <><Icon name="save" size={16} /> {loaded.draft ? "Cập nhật nháp VNPT" : "Tạo nháp VNPT"} · {money(grand)}</>}
           </button>
           <button class="btn" disabled={busy} onClick={() => (window.location.hash = `#/order/${threadId}`)}>Huỷ</button>
         </div>

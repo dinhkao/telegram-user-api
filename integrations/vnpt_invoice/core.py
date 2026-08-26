@@ -25,6 +25,8 @@ VNPT_INV_SERVICE_PASS = os.getenv("VNPT_INV_SERVICE_PASS", "")
 # Mẫu số / ký hiệu — Duy chốt 2026-08-26: cố định 1/001 · C26TTP
 VNPT_INV_PATTERN = os.getenv("VNPT_INV_PATTERN", "1/001")
 VNPT_INV_SERIAL = os.getenv("VNPT_INV_SERIAL", "C26TTP")
+# MST công ty (comtaxcode của GetInvoiceByFkey — tra trạng thái phát hành)
+VNPT_INV_TAXCODE = os.getenv("VNPT_INV_TAXCODE", "")
 
 _NS = "http://tempuri.org/"
 

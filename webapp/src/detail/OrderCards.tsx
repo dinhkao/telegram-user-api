@@ -54,6 +54,7 @@ export type OrderRow = {
   soan_img_ids?: number[];   // ảnh chốt soạn hàng — ưu tiên làm thumbnail
   nop_img_id?: number | null;
   task_bys?: string[];   // tên người HOÀN THÀNH từng bước (badge hiện tên thay nhãn)
+  vnpt?: { published: boolean } | null;   // đơn có HĐ điện tử VNPT → badge VAT trên card
 };
 
 // Mã ghi chú nộp tiền → tiếng Việt đầy đủ
@@ -364,6 +365,12 @@ export function TaskBadges({ o }: { o: OrderRow }) {
         <span class="tstat" key="no">
           <span class="tico">{icons[5]}</span>
           <span class="tlbl">{icons[5] === "😡" ? "Nợ" : icons[5] === "😑" ? "Bỏ nợ" : "Tiền"}</span>
+        </span>
+      )}
+      {o.vnpt && (
+        <span class={"tstat vat-chip" + (o.vnpt.published ? " ok" : "")} key="vat"
+          title={o.vnpt.published ? "HĐ điện tử VNPT — ĐÃ PHÁT HÀNH" : "HĐ điện tử VNPT — nháp chưa phát hành"}>
+          <span class="tlbl">VAT{o.vnpt.published ? "✓" : ""}</span>
         </span>
       )}
     </span>

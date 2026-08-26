@@ -80,6 +80,30 @@ def test_build_invoice_xml_shape():
     assert inv.findtext("AmountInWords").endswith("đồng chẵn")
 
 
+def test_parse_invoice_status():
+    from integrations.vnpt_invoice import parse_invoice_status
+    from integrations.vnpt_invoice.core import VnptError
+
+    # nháp còn trên VNPT, chưa phát hành (mẫu thật 2026-08-26)
+    st = parse_invoice_status(
+        "<Results><QRCode></QRCode><MTC></MTC><No>0</No><Pattern>1/001</Pattern><Serial>C26TTP</Serial></Results>")
+    assert st == {"exists": True, "published": False, "no": 0, "mtc": ""}
+    # đã phát hành: No > 0 + mã CQT
+    st = parse_invoice_status(
+        "<Results><QRCode>abc</QRCode><MTC>M123</MTC><No>15</No><Pattern>1/001</Pattern><Serial>C26TTP</Serial></Results>")
+    assert st["exists"] and st["published"] and st["no"] == 15 and st["mtc"] == "M123"
+    # không còn trên VNPT (mẫu thật)
+    st = parse_invoice_status(
+        "<RV><Type>0</Type><Result><MSGCODE>ERR:404</MSGCODE></Result><LastSync>20260826114013</LastSync></RV>")
+    assert st == {"exists": False, "published": False, "no": 0, "mtc": ""}
+    # lỗi khác → raise
+    import pytest
+    with pytest.raises(VnptError):
+        parse_invoice_status("<RV><Result><MSGCODE>ERR:5</MSGCODE></Result></RV>")
+    with pytest.raises(VnptError):
+        parse_invoice_status("không phải xml")
+
+
 def test_build_invoice_xml_rejects_bad_input():
     import pytest
 

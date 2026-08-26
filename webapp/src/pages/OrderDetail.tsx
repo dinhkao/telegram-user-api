@@ -249,6 +249,15 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     return () => io.disconnect();
   }, [detail]);
 
+  // Mỗi lần mở trang: hỏi VNPT nền xem nháp ĐÃ PHÁT HÀNH chưa (kế toán phát hành
+  // trên portal ngoài app). Trạng thái đổi → server vá blob + emit order_changed
+  // → trang tự reload; throttle 30s/fkey phía server. (Hook phải đứng TRƯỚC
+  // early-return Loading — không thì vi phạm luật hooks.)
+  const vnptFkey = detail?.data?.vnpt_invoice?.fkey || "";
+  useEffect(() => {
+    if (vnptFkey) getJSON(`/api/order/${threadId}/vnpt-invoice/status`, { cache: false }).catch(() => {});
+  }, [threadId, vnptFkey]);
+
   if (err && !detail) return <ErrorState msg={err} onRetry={reload} />;
   if (!detail) return <Loading />;
 
@@ -695,7 +704,12 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
               </tbody>
             </table>
             <div class="muted small">
-              {j.vnpt_invoice.serial} · nháp chưa phát hành
+              {j.vnpt_invoice.serial}
+              {j.vnpt_invoice.published
+                ? <> · <b class="t-ok">✅ ĐÃ PHÁT HÀNH{j.vnpt_invoice.invoice_no ? ` · Số ${String(j.vnpt_invoice.invoice_no).padStart(8, "0")}` : ""}</b></>
+                : j.vnpt_invoice.missing_on_vnpt
+                  ? <> · <b class="t-danger">⚠ không còn trên VNPT (đã bị xoá trên portal?)</b></>
+                  : " · nháp chưa phát hành"}
               {j.vnpt_invoice.updated_at ? ` · sửa ${fmtDateTimeVN(j.vnpt_invoice.updated_at)}` : ""}
               {j.vnpt_invoice.updated_by ? ` (${j.vnpt_invoice.updated_by})` : ""}
             </div>
@@ -703,13 +717,16 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
               <button class="btn fill" onClick={() => setVnptView(true)}>
                 <Icon name="eye" size={16} /> Xem
               </button>
-              <button class="btn fill" onClick={() => downloadFileFromUrl(vnptInvoicePdfUrl(threadId), `HD-nhap-${threadId}.pdf`)}>
+              <button class="btn fill" onClick={() => downloadFileFromUrl(vnptInvoicePdfUrl(threadId), `HD-${threadId}.pdf`)}>
                 <Icon name="download" size={16} /> PDF
               </button>
-              <button class="btn fill" onClick={() => (window.location.hash = `#/order/${threadId}/vnpt`)}>
-                <Icon name="edit" size={16} /> Sửa nháp
-              </button>
-              {isAdmin && <button class="btn danger fill" disabled={busy} onClick={deleteVnpt}>
+              {/* Đã phát hành → hết sửa/xoá nháp (server cũng chặn); xử lý tiếp trên portal VNPT */}
+              {!j.vnpt_invoice.published && (
+                <button class="btn fill" onClick={() => (window.location.hash = `#/order/${threadId}/vnpt`)}>
+                  <Icon name="edit" size={16} /> Sửa nháp
+                </button>
+              )}
+              {isAdmin && !j.vnpt_invoice.published && <button class="btn danger fill" disabled={busy} onClick={deleteVnpt}>
                 <Icon name="trash" size={16} /> Xoá nháp
               </button>}
             </div>

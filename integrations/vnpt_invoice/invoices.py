@@ -62,6 +62,47 @@ def delete_draft(fkey: str, *, missing_ok: bool = False) -> str:
         raise
 
 
+def parse_invoice_status(raw: str) -> dict:
+    """Parse phản hồi GetInvoiceByFkey notax='0' (thực nghiệm 2026-08-26):
+    <Results>…<No>0</No>…</Results> = còn NHÁP · <No> > 0 = ĐÃ PHÁT HÀNH (kèm
+    MTC/QRCode của CQT) · <RV>…<MSGCODE>ERR:404</MSGCODE> = không còn trên VNPT.
+    Thuần, unit-tested. Trả {exists, published, no, mtc}."""
+    from lxml import etree
+    try:
+        root = etree.fromstring(raw.encode("utf-8"))
+    except Exception as e:
+        raise VnptError("Không đọc được trạng thái hoá đơn từ VNPT") from e
+    msg = (root.findtext(".//MSGCODE") or "").strip().upper()
+    if msg:
+        if msg == "ERR:404":
+            return {"exists": False, "published": False, "no": 0, "mtc": ""}
+        raise VnptError(f"VNPT báo lỗi khi tra trạng thái ({msg})", code=msg)
+    try:
+        no = int(root.findtext(".//No") or 0)
+    except ValueError:
+        no = 0
+    return {"exists": True, "published": no > 0, "no": no,
+            "mtc": (root.findtext(".//MTC") or "").strip()}
+
+
+def get_invoice_status(fkey: str) -> dict:
+    """Tra trạng thái phát hành của hoá đơn theo fkey (GetInvoiceByFkey notax='0')."""
+    if not fkey:
+        raise VnptError("thiếu fkey khi tra trạng thái")
+    raw = soap_call(
+        "GetInvoiceByFkey",
+        {
+            **_service_auth(),
+            "comtaxcode": core.VNPT_INV_TAXCODE,
+            "pattern": core.VNPT_INV_PATTERN,
+            "serial": core.VNPT_INV_SERIAL,
+            "notax": "0",
+            "fkey": fkey,
+        },
+    )
+    return parse_invoice_status(raw)
+
+
 def get_draft_status(fkey: str) -> str:
     """Tra trạng thái hoá đơn theo fkey (getStatusInv) — trả chuỗi thô VNPT.
     (Hoá đơn CHƯA phát hành trả '<Invoices></Invoices>' rỗng — thực nghiệm.)"""

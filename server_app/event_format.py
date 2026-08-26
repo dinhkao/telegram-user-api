@@ -114,6 +114,11 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         if p.get("fkey"):
             seg.append(part(f" · {p['fkey']}"))
         return label, seg
+    if action == "order.vnpt_published_detected":
+        seg = [part(f"Số {p['no']:08d}")] if p.get("no") else []
+        if p.get("fkey"):
+            seg.append(part(f" · {p['fkey']}" if seg else str(p["fkey"])))
+        return "HĐ điện tử VNPT đã PHÁT HÀNH", seg
     if action == "order.vnpt_draft_deleted":
         seg = [part(money(p.get("amount")))] if p.get("amount") is not None else []
         if p.get("fkey"):

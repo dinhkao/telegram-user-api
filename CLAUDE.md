@@ -1092,7 +1092,19 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   của ảnh HĐ KiotViet (`firebase_html_to_png._html_to_png`, viewport 900 vì khổ
   A4), RAM-cache theo fkey (fkey đổi mỗi lần lưu nên khỏi invalidation; response
   no-store); client mở bằng **`detail/SingleImageViewer.tsx`** = trình xem 1 ảnh
-  từ URL bất kỳ, cử chỉ dùng chung `useImageGestures` + CSS `.pv-*`. Mẫu số/ký
+  từ URL bất kỳ, cử chỉ dùng chung `useImageGestures` + CSS `.pv-*`.
+  **TỰ DÒ ĐÃ-PHÁT-HÀNH (2026-08-26)**: kế toán phát hành trên portal NGOÀI app →
+  `invoices.get_invoice_status(fkey)` (GetInvoiceByFkey notax='0', comtaxcode =
+  env `VNPT_INV_TAXCODE`; parse thuần `parse_invoice_status`: `<No>0</No>` =
+  nháp · No>0 = ĐÃ PHÁT HÀNH kèm MTC · MSGCODE ERR:404 = mất trên VNPT — thực
+  nghiệm). Mở trang đơn / trang sửa là client gọi nền GET `.../vnpt-invoice/status`
+  → `_refresh_vnpt_status` (throttle 30s/fkey) vá blob (`published`/`invoice_no`/
+  `mtc`/`missing_on_vnpt`) + emit order_changed + audit
+  `order.vnpt_published_detected`. **ĐÃ PHÁT HÀNH = KHOÁ sửa + KHOÁ xoá** (server
+  400 cả 2 handler, client ẩn nút — Duy chốt); PDF/Xem vẫn chạy (`_portal_try`
+  fallback op thường cho HĐ đã phát hành). Card dashboard có **badge VAT**
+  (row `vnpt` từ `_build_order_row`, chip trong `TaskBadges` — vàng nháp,
+  xanh ✓ đã phát hành). Mẫu số/ký
   hiệu CỐ ĐỊNH `1/001`/`C26TTP` (env đổi được); thuế = 1 MỨC CHUNG cả HĐ
   (KCT=-1/0/5/8/10), giá nhập CHƯA gồm VAT (Duy chốt 2026-08-26). `xml_build.py`
   + `amount_words.py` (đọc số VND thành chữ) thuần, test `tests/test_vnpt_invoice.py`.

@@ -421,6 +421,11 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 .tstat { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
 .tico { font-size: .95rem; }
 .tlbl { font-size: .6rem; color: var(--muted); }
+/* Badge VAT: đơn có HĐ điện tử VNPT — vàng = nháp, xanh + ✓ = đã phát hành */
+.tstat.vat-chip { justify-content: center; }
+.tstat.vat-chip .tlbl { font-weight: 700; color: #b45309; border: 1px solid currentColor;
+  border-radius: 4px; padding: 1px 3px; }
+.tstat.vat-chip.ok .tlbl { color: #15803d; }
 
 /* Chế độ xem gọn dashboard */
 /* Nhóm đơn theo ngày tạo (kiểu siêu gọn) */

@@ -12,6 +12,8 @@ from .invoices import (
     import_draft,
     delete_draft,
     get_draft_status,
+    get_invoice_status,
+    parse_invoice_status,
 )
 from .portal import download_draft_pdf, get_draft_view_html
 
@@ -27,6 +29,8 @@ __all__ = [
     "import_draft",
     "delete_draft",
     "get_draft_status",
+    "get_invoice_status",
+    "parse_invoice_status",
     "download_draft_pdf",
     "get_draft_view_html",
 ]

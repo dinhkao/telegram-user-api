@@ -62,8 +62,83 @@ def _units_by_spid(conn, order: dict) -> dict[int, str]:
     return {int(r["id"]): str(r["unit"] or "") for r in rows}
 
 
+# Throttle tra trạng thái phát hành: mỗi fkey hỏi VNPT tối đa 1 lần/30s
+_status_checked: dict[str, float] = {}
+
+
+async def _refresh_vnpt_status(conn, tid: int, draft: dict) -> dict:
+    """Hỏi VNPT xem nháp đã PHÁT HÀNH chưa (kế toán phát hành trên portal, ngoài
+    app) → vá blob nếu trạng thái đổi + realtime. Lỗi mạng/VNPT thì giữ nguyên
+    trạng thái cũ, không được làm hỏng trang. Trả draft mới nhất."""
+    fkey = draft.get("fkey")
+    if not (draft.get("synced") and fkey):
+        return draft
+    now = time.time()
+    if now - _status_checked.get(fkey, 0) < 30:
+        return draft
+    from integrations.vnpt_invoice import get_invoice_status
+    try:
+        st = await asyncio.to_thread(get_invoice_status, fkey)
+    except Exception as e:  # noqa: BLE001 — kể cả VnptError: chỉ log, giữ trạng thái cũ
+        log.warning("vnpt status check lỗi tid=%s fkey=%s: %s", tid, fkey, e)
+        return draft
+    if len(_status_checked) > 512:
+        _status_checked.clear()
+    _status_checked[fkey] = now
+    same = (bool(draft.get("published")) == st["published"]
+            and int(draft.get("invoice_no") or 0) == st["no"]
+            and bool(draft.get("missing_on_vnpt")) == (not st["exists"]))
+    if same:
+        return draft
+    with transaction(conn):
+        fresh = get_order_by_thread_id(conn, tid)
+        d2 = (fresh or {}).get("vnpt_invoice")
+        if not d2 or d2.get("fkey") != fkey:      # nháp vừa bị thay/xoá song song — bỏ
+            return d2 or draft
+        d2["published"] = st["published"]
+        d2["invoice_no"] = st["no"]
+        d2["mtc"] = st.get("mtc") or ""
+        d2["missing_on_vnpt"] = not st["exists"]
+        d2["status_checked_at"] = datetime.now(UTC).isoformat()
+        _save_order(conn, tid, fresh)
+        draft = d2
+    from server_app.realtime import emit_order_changed
+    emit_order_changed(tid)
+    if st["published"]:
+        from audit_log import async_log_event
+        from server_app.tasks import spawn_tracked
+        spawn_tracked("audit.vnpt_published", async_log_event(
+            "order.vnpt_published_detected", actor_type="system", actor_id="vnpt",
+            thread_id=tid, payload={"fkey": fkey, "no": st["no"]}))
+    return draft
+
+
+async def vnpt_invoice_status_handler(request: web.Request):
+    """GET .../vnpt-invoice/status — webapp gọi NỀN mỗi lần mở trang đơn để cập
+    nhật 'đã phát hành chưa'. Trạng thái đổi → blob được vá + emit order_changed
+    (trang tự reload). Throttle 30s/fkey."""
+    from server_app.order_api_common import is_office_request
+    if not await is_office_request(request):
+        return _err("Chỉ văn phòng mới xem được HĐ điện tử", 403)
+    tid = _tid(request)
+    if tid is None:
+        return _err("thread_id không hợp lệ")
+    conn = _get_connection()
+    order = get_order_by_thread_id(conn, tid)
+    if not order:
+        return _err("Không tìm thấy đơn", 404)
+    draft = order.get("vnpt_invoice")
+    if not draft:
+        return web.json_response({"ok": True, "draft": None})
+    draft = await _refresh_vnpt_status(conn, tid, draft)
+    return web.json_response({"ok": True, "published": bool(draft.get("published")),
+                              "invoice_no": int(draft.get("invoice_no") or 0),
+                              "missing_on_vnpt": bool(draft.get("missing_on_vnpt"))})
+
+
 async def vnpt_invoice_get_handler(request: web.Request):
-    """Nháp hiện có (blob) + prefill (cache khách ⊕ dòng hàng đơn ⊕ danh mục SP)."""
+    """Nháp hiện có (blob, đã làm tươi trạng thái phát hành) + prefill
+    (cache khách ⊕ dòng hàng đơn ⊕ danh mục SP)."""
     from server_app.order_api_common import is_office_request
     if not await is_office_request(request):
         return _err("Chỉ văn phòng mới xem được HĐ điện tử", 403)
@@ -79,12 +154,15 @@ async def vnpt_invoice_get_handler(request: web.Request):
     if kh_key:
         customer = get_customer_by_key(conn, kh_key)
     prefill = build_prefill(order, customer, _units_by_spid(conn, order))
+    draft = order.get("vnpt_invoice")
+    if draft:
+        draft = await _refresh_vnpt_status(conn, tid, draft)
     return web.json_response({
         "ok": True,
         "configured": vnpt_core.configured(),
         "pattern": vnpt_core.VNPT_INV_PATTERN,
         "serial": vnpt_core.VNPT_INV_SERIAL,
-        "draft": order.get("vnpt_invoice"),
+        "draft": draft,
         "prefill": prefill,
     })
 
@@ -115,6 +193,8 @@ async def vnpt_invoice_save_handler(request: web.Request):
     actor = str(request.get("web_user") or body.get("user_id") or "?")
     async with _lock(tid):
         old = (get_order_by_thread_id(conn, tid) or {}).get("vnpt_invoice") or {}
+        if old.get("published"):
+            return _err("Hoá đơn đã PHÁT HÀNH trên VNPT — không sửa nháp được nữa")
         old_fkey = old.get("fkey") if old.get("synced") else None
         try:
             await asyncio.to_thread(import_draft, xml)
@@ -181,6 +261,8 @@ async def vnpt_invoice_delete_handler(request: web.Request):
         draft = order.get("vnpt_invoice")
         if not draft:
             return _err("Đơn không có HĐ điện tử nháp")
+        if draft.get("published"):
+            return _err("Hoá đơn đã PHÁT HÀNH trên VNPT — không xoá được; xử lý (huỷ/thay thế) trên trang VNPT")
         if draft.get("synced") and draft.get("fkey"):
             try:
                 await asyncio.to_thread(delete_draft, draft["fkey"], missing_ok=True)
@@ -292,3 +374,4 @@ def register_vnpt_invoice_routes(r) -> None:
     r.add_delete("/api/order/{thread_id}/vnpt-invoice", vnpt_invoice_delete_handler)
     r.add_get("/api/order/{thread_id}/vnpt-invoice/pdf", vnpt_invoice_pdf_handler)
     r.add_get("/api/order/{thread_id}/vnpt-invoice/png", vnpt_invoice_png_handler)
+    r.add_get("/api/order/{thread_id}/vnpt-invoice/status", vnpt_invoice_status_handler)

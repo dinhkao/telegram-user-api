@@ -32,18 +32,30 @@ def _portal(operation: str, fkey: str) -> str:
     return result
 
 
+def _portal_try(ops: tuple[str, ...], fkey: str) -> str:
+    """Thử lần lượt các operation (nhóm *New* cho nháp, nhóm thường cho HĐ ĐÃ
+    PHÁT HÀNH) — cái nào được thì lấy."""
+    last: VnptError | None = None
+    for op in ops:
+        try:
+            return _portal(op, fkey)
+        except VnptError as e:
+            last = e
+    raise last  # type: ignore[misc]
+
+
 def get_draft_view_html(fkey: str) -> str:
-    """HTML bản thể hiện của hoá đơn NHÁP (getNewInvViewFkey) — để render PNG xem trong app."""
+    """HTML bản thể hiện của hoá đơn (nháp HOẶC đã phát hành) — để render PNG xem trong app."""
     if not fkey:
         raise VnptError("thiếu fkey khi xem hoá đơn")
-    return _portal("getNewInvViewFkey", fkey)
+    return _portal_try(("getNewInvViewFkey", "getInvViewFkey"), fkey)
 
 
 def download_draft_pdf(fkey: str) -> bytes:
-    """PDF bản thể hiện của hoá đơn NHÁP (chưa phát hành, Số = 00000000)."""
+    """PDF bản thể hiện của hoá đơn (nháp: Số = 00000000; đã phát hành: op thường)."""
     if not fkey:
         raise VnptError("thiếu fkey khi tải PDF")
-    b64 = _portal("downloadNewInvPDFFkey", fkey)
+    b64 = _portal_try(("downloadNewInvPDFFkey", "downloadInvPDFFkey"), fkey)
     try:
         pdf = base64.b64decode(b64)
     except Exception as e:

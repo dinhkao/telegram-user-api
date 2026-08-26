@@ -216,6 +216,11 @@ export const GUIDES_DON: Guide[] = [
         nút <b>「PDF」</b> tải file PDF (Số HĐ = 00000000 vì chưa phát hành).</p>
         <p><b>Bắt buộc</b> phải có <b>tên đơn vị + mã số thuế + địa chỉ</b>. MST được kiểm tra
         <b>số kiểm tra</b> (checksum) — MST sai thì VNPT sẽ âm thầm bỏ trống trên hoá đơn, nên app chặn ngay từ lúc lưu.</p>` },
+      { title: "Khi kế toán PHÁT HÀNH trên VNPT", html: `
+        <p>Mỗi lần mở trang đơn, app <b>tự hỏi VNPT</b> xem hoá đơn đã được <b>phát hành</b> chưa.
+        Đã phát hành → khối hiện <b>✅ ĐÃ PHÁT HÀNH + Số hoá đơn</b>, và <b>khoá luôn sửa/xoá</b>
+        (cần điều chỉnh thì xử lý hủy/thay thế trên trang VNPT). Xem/PDF vẫn dùng bình thường.</p>
+        <p>Ở dashboard đơn, card có <b>badge VAT</b>: vàng = có HĐ điện tử nháp, xanh ✓ = đã phát hành.</p>` },
       { title: "Nhớ theo khách — khỏi nhập lại", html: `
         <p>Mỗi lần Lưu, app <b>nhớ theo TỪNG KHÁCH</b>: thông tin người mua, mức thuế, và
         <b>tên/giá/ĐVT riêng từng sản phẩm</b> (kể cả dòng thêm tay như phí giao).
