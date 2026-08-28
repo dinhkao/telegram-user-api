@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { mediaImageUrl, type OrderImage } from "../api";
 import { copyImageFromUrl } from "../copyImage";
+import { preferShareSheet } from "../downloadFile";
 import { fmtTime } from "../format";
 import { toast } from "../ui/feedback";
 import { ImageInfoPanel } from "./ImageInfoPanel";
@@ -120,7 +121,7 @@ export function PhotoViewer({
 
       const nav: any = navigator;
       const file = new File([blob], name, { type: blob.type || "image/webp" });
-      if (nav.canShare && nav.canShare({ files: [file] })) {
+      if (preferShareSheet() && nav.canShare && nav.canShare({ files: [file] })) {
         await nav.share({ files: [file], title: name }); // share sheet có "Lưu ảnh"
         return; // sheet tự báo; không cần toast
       }

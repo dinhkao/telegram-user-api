@@ -24,6 +24,7 @@ import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
 import { Loading, LoadingInline, EmptyState, ErrorState } from "../ui/states";
 import { toast, confirmDialog } from "../ui/feedback";
+import { preferShareSheet } from "../downloadFile";
 import { CellEditor } from "../detail/AttendanceCellEditor";
 
 const NAME_W = 112;   // bề rộng CỐ ĐỊNH cột tên (px) — CHUNG cho header + thân lưới
@@ -297,7 +298,7 @@ export function AttendanceBoard() {
       }
       const nav: any = navigator;
       const file = new File([reportImage.blob], reportImage.name, { type: "image/png" });
-      if (nav.canShare?.({ files: [file] })) {
+      if (preferShareSheet() && nav.canShare?.({ files: [file] })) {
         await nav.share({ files: [file], title: reportImage.name });
         return;
       }
