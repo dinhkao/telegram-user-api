@@ -40,8 +40,13 @@ async def ws_ping_loop() -> None:
 
 async def websocket_handler(request: web.Request):
     # Khi bật chặn: /ws đẩy PII (khách, sđt, tiền) nên phải có token hợp lệ.
-    # Middleware đã giải ?token= → request["web_user"]; loopback (bot role) miễn.
-    if WEB_AUTH_ENABLED and "web_user" not in request and request.remote not in _LOOPBACK:
+    # Middleware đã giải ?token= → request["web_user"]; loopback THẬT (bot role) miễn
+    # — qua tailscale serve/funnel remote luôn là 127.0.0.1 nên phải lấy IP thật
+    # từ X-Forwarded-For (web_auth.middleware.effective_remote), không thì Funnel
+    # mở là cả internet nghe được kênh realtime.
+    from server_app.web_auth.middleware import effective_remote
+    if WEB_AUTH_ENABLED and "web_user" not in request and \
+            effective_remote(request.remote, request.headers) not in _LOOPBACK:
         return web.json_response({"ok": False, "error": "unauthorized"}, status=401)
     ws = web.WebSocketResponse(heartbeat=30)
     await ws.prepare(request)

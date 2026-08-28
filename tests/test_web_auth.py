@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import unittest
 
-from server_app.web_auth.middleware import extract_token, is_exempt, stale_token_401
+from server_app.web_auth.middleware import (
+    effective_remote, extract_token, is_exempt, stale_token_401,
+)
 from server_app.web_auth.token import issue_token, verify_token
 from user_store.pin import hash_pin, verify_pin
 
@@ -89,6 +91,25 @@ class Exempt(unittest.TestCase):
         self.assertFalse(is_exempt("GET", "/api/orders"))
         self.assertFalse(is_exempt("POST", "/api/order/payment/tm"))
         self.assertFalse(is_exempt("POST", "/api/order/soan"))
+
+
+class EffectiveRemote(unittest.TestCase):
+    """Qua tailscale serve/funnel mọi request là 127.0.0.1 + X-Forwarded-For = IP thật.
+    Bot role gọi thẳng localhost thì KHÔNG có header — chỉ trường hợp đó mới là loopback."""
+
+    def test_direct_loopback(self):
+        self.assertEqual(effective_remote("127.0.0.1", {}), "127.0.0.1")
+
+    def test_proxied_uses_forwarded(self):
+        h = {"X-Forwarded-For": "100.64.1.5"}
+        self.assertEqual(effective_remote("127.0.0.1", h), "100.64.1.5")
+        # Funnel: IP internet công cộng — tuyệt đối không được ra loopback
+        h2 = {"X-Forwarded-For": "203.0.113.7, 127.0.0.1"}
+        self.assertEqual(effective_remote("127.0.0.1", h2), "203.0.113.7")
+
+    def test_funnel_not_exempt(self):
+        remote = effective_remote("127.0.0.1", {"X-Forwarded-For": "203.0.113.7"})
+        self.assertFalse(is_exempt("GET", "/api/orders", remote))
 
 
 class ExtractToken(unittest.TestCase):

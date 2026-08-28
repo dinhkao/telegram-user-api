@@ -35,12 +35,26 @@ _LOOPBACK = {"127.0.0.1", "::1", "localhost"}
 _STALE_TOKEN_OK = {"/api/auth/login", "/api/attendance/events"}
 
 
+def effective_remote(remote: str | None, headers) -> str | None:
+    """IP thật của client (logic thuần, unit-test).
+
+    Qua `tailscale serve`/`funnel` MỌI request đều tới server là 127.0.0.1 — nếu
+    tin `request.remote` thì miễn-loopback mở toang cả internet khi bật Funnel.
+    Tailscale proxy luôn gắn `X-Forwarded-For` (IP thật đứng đầu), còn bot role
+    gọi thẳng localhost (bot_core/utils.py post_json) thì không có header này.
+    Client tự bịa XFF trên kết nối trực tiếp chỉ tự làm mình BỚT quyền — vô hại."""
+    fwd = (headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+    return fwd or remote
+
+
 def is_exempt(method: str, path: str, remote: str | None = None) -> bool:
-    """Request này có được miễn kiểm token không (logic thuần, unit-test)."""
+    """Request này có được miễn kiểm token không (logic thuần, unit-test).
+
+    `remote` phải là IP THẬT (qua effective_remote) — đừng đưa thẳng request.remote."""
     if method == "OPTIONS":
         return True
     if remote in _LOOPBACK:
-        return True   # bot role nội bộ (cùng máy); Tailscale/LAN không bao giờ là loopback
+        return True   # bot role nội bộ (cùng máy) gọi thẳng localhost, không qua proxy
     if not path.startswith("/api/"):
         return True
     if path in _EXEMPT_EXACT:
@@ -132,7 +146,9 @@ async def web_auth_middleware(request: web.Request, handler):
             return web.json_response(
                 {"ok": False, "error": "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại",
                  "code": "token_expired"}, status=401)
-    if WEB_AUTH_ENABLED and not is_exempt(request.method, request.path, request.remote) and "web_user" not in request:
+    if WEB_AUTH_ENABLED and "web_user" not in request and \
+            not is_exempt(request.method, request.path,
+                          effective_remote(request.remote, request.headers)):
         return web.json_response({"ok": False, "error": "unauthorized"}, status=401)
     from order_store.mutation_audit import reset_actor, set_actor
     actor = request.get("web_user") or request.remote or "Hệ thống"

@@ -1463,10 +1463,14 @@ tracked files:
 - **Secrets:** KiotViet `client_id`/`client_secret` were hardcoded in
   `integrations/kiotviet/core.py`; now read from `.env` (`KIOTVIET_CLIENT_ID/SECRET`).
   ⚠ The old secret is in git history — **rotate it** (see `REVIEW_REPORT.md`).
-- **Security debt (Tailscale-mitigated):** `WEB_AUTH_ENABLED` defaults false (all
-  `/api/*` unauthenticated), and `tg_api` auth (`tg_api/common.py`) fails OPEN when
-  `TG_EDIT_API_KEY` is unset. Safe only because deployment is Tailscale/LAN-only.
-  Remediation steps in `REVIEW_REPORT.md` (repo root — full autonomous review 2026-07-03).
+- **App ĐANG PUBLIC qua Tailscale Funnel (2026-08-28)** — không còn là mạng kín.
+  Trên máy prod `.env` đã bật `WEB_AUTH_ENABLED=true` + đặt `TG_EDIT_API_KEY`/
+  `USER_API_KEY` (cùng giá trị — bot gửi X-API-Key từ `USER_API_KEY`). Code default
+  vẫn là false/fail-open, nên môi trường THIẾU `.env` đó là mở toang. ⚠ Qua
+  `tailscale serve`/`funnel` MỌI request tới server là 127.0.0.1 — miễn-loopback
+  (bot role) phải soi IP THẬT qua `web_auth.middleware.effective_remote`
+  (X-Forwarded-For, áp cả `/ws`); đừng bao giờ tin `request.remote` trần khi thêm
+  gate mới. Endpoint mới thêm vào `_EXEMPT_*` là mở cho CẢ internet — cân nhắc kỹ.
 - **Stale docs:** `docs/app-overview.md` still describes 3 separate processes and
   root-level handlers as live code. Reality: single process, packages + shims.
   Trust this file + `bootstrap.py` over older docs.
