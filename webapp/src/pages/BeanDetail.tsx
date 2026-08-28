@@ -144,7 +144,7 @@ export function BeanDetail({ id }: { id: string }) {
         <a class="btn small bean-head-add" href="#/kho-dau/phieu">Tất cả phiếu</a>
       </div>
       {data.slips.length ? data.slips.map((s) => (
-        <BeanSlipCard slip={s} showBean={false} key={s.id} />
+        <BeanSlipCard slip={s} showBean={false} beanId={data.bean.id} key={s.id} />
       )) : <EmptyState>Chưa có phiếu nào cho loại đậu này.</EmptyState>}
 
       {/* Lịch sử riêng của loại đậu (audit scope 'bean_item') — ảnh/trao đổi nằm ở PHIẾU */}
