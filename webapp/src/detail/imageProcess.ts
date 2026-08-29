@@ -1,12 +1,21 @@
 // Nén ảnh phía client TRƯỚC khi upload — điểm mấu chốt về tốc độ. Ảnh gốc điện
 // thoại 3–8MB → giảm còn ~100–250KB: co về cạnh dài tối đa 1600px, mã hoá WebP
-// (rớt về JPEG nếu thiết bị không hỗ trợ WebP), đồng thời tạo thumbnail ~400px
+// (rớt về JPEG với mức nén RIÊNG nếu thiết bị không encode được WebP), tạo thumbnail ~400px
 // (~10–20KB) để lưới gallery tải tức thì. Tôn trọng xoay EXIF. Dùng: detail/Images.
 
 const FULL_MAX = 1600;
 const THUMB_MAX = 400;
-const FULL_Q = 0.82;
-const THUMB_Q = 0.7;
+
+// Chất lượng nén ĐỂ RIÊNG THEO ĐỊNH DẠNG. WebP nén tốt hơn JPEG rất nhiều ở
+// cùng mức q, nên dùng chung một con số là máy rớt về JPEG (iPhone/Safari không
+// encode được WebP qua canvas) tải lên file nặng gấp 2–3,7 lần cùng kích thước
+// ảnh — đo 29/08/2026 trên kho ảnh thật: 384KB/ảnh JPEG vs 151KB/ảnh WebP ở
+// scope `box`, 487KB vs 130KB ở `report_bg`. Hạ q của JPEG cho cân lại.
+const QUALITY: Record<string, { full: number; thumb: number }> = {
+  "image/webp": { full: 0.82, thumb: 0.7 },
+  "image/jpeg": { full: 0.7, thumb: 0.62 },
+};
+const JPEG_Q = QUALITY["image/jpeg"];
 
 export type Processed = {
   full: Blob;
@@ -37,7 +46,7 @@ function scaled(w: number, h: number, max: number): [number, number] {
   return [Math.round(w * r), Math.round(h * r)];
 }
 
-async function encode(src: CanvasImageSource, w: number, h: number, mime: string, q: number): Promise<Blob> {
+async function encode(src: CanvasImageSource, w: number, h: number, mime: string, q: number, jpegQ: number): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
@@ -46,9 +55,10 @@ async function encode(src: CanvasImageSource, w: number, h: number, mime: string
   ctx.drawImage(src, 0, 0, w, h);
   const blob: Blob | null = await new Promise((res) => canvas.toBlob(res, mime, q));
   if (blob) return blob;
-  // rớt về JPEG nếu mime không được hỗ trợ
+  // rớt về JPEG nếu mime không được hỗ trợ — dùng q của JPEG, không phải q của
+  // định dạng vừa hỏng (q của WebP đem sang JPEG là ra file nặng gấp mấy lần).
   return await new Promise((res, rej) =>
-    canvas.toBlob((b) => (b ? res(b) : rej(new Error("encode ảnh thất bại"))), "image/jpeg", q)
+    canvas.toBlob((b) => (b ? res(b) : rej(new Error("encode ảnh thất bại"))), "image/jpeg", jpegQ)
   );
 }
 
@@ -97,12 +107,13 @@ export async function processSource(src: CanvasImageSource, width: number, heigh
   const useWebp = webpSupported();
   const mime = useWebp ? "image/webp" : "image/jpeg";
   const ext = useWebp ? ".webp" : ".jpg";
+  const q = QUALITY[mime];
 
   const [fw, fh] = scaled(width, height, FULL_MAX);
   const [tw, th] = scaled(width, height, THUMB_MAX);
   const [full, thumb] = await Promise.all([
-    encode(src, fw, fh, mime, FULL_Q),
-    encode(src, tw, th, mime, THUMB_Q),
+    encode(src, fw, fh, mime, q.full, JPEG_Q.full),
+    encode(src, tw, th, mime, q.thumb, JPEG_Q.thumb),
   ]);
   return { full, thumb, width: fw, height: fh, ext, mime };
 }
