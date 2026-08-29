@@ -1613,7 +1613,9 @@ export async function getProductionDashboard(from?: string, to?: string): Promis
   if (from) qs.set("from", from);
   if (to) qs.set("to", to);
   const q = qs.toString();
-  return getJSON(`/api/production/report-dashboard${q ? "?" + q : ""}`, { cache: false });
+  // cache localStorage BẬT (mặc định): số liệu chỉ-đọc, mất mạng thì hiện số lần
+  // trước kèm _stale còn hơn quay vòng/ErrorState với màn hình trống.
+  return getJSON(`/api/production/report-dashboard${q ? "?" + q : ""}`);
 }
 
 // ── Hao hụt nguyên liệu phụ (#/hao-hut-nl, office-only) ────────────────────
