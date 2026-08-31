@@ -82,24 +82,34 @@ function SalesChart({ chart }: { chart: any[] }) {
   );
 }
 
+// Cache theo MÃ (module scope): back về trang chi tiết SP là khối render ngay với
+// đúng khoảng ngày đã chọn → useScrollMemory khôi phục vị trí không hụt chiều cao.
+const _cache = new Map<string, { range: DateRange; data: any }>();
+
 export function ProductSales({ code }: { code: string }) {
-  const [range, setRange] = useState<DateRange>(() => presetRange("this_month"));
-  const [data, setData] = useState<any>(null);
+  const cached = _cache.get(code);
+  const [range, setRange] = useState<DateRange>(() => cached?.range || presetRange("this_month"));
+  const [data, setData] = useState<any>(cached?.data || null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-  const started = useRef(false);
+  const started = useRef(!!cached);
   const secRef = useRef<HTMLElement>(null);
 
   const load = () => {
     setErr("");
     setLoading(true);
     getJSON(`/api/profit/product/${encodeURIComponent(code)}?since=${range.since}&until=${range.until}`, { cache: false })
-      .then(setData)
+      .then((j) => { setData(j); _cache.set(code, { range, data: j }); })
       .catch((e: any) => setErr(e?.message || "Lỗi tải báo cáo bán ra"))
       .finally(() => setLoading(false));
   };
-  // Đổi mã SP → về trạng thái chưa tải (chờ khối lộ ra lại)
-  useEffect(() => { started.current = false; setData(null); }, [code]);
+  // Đổi mã SP → về trạng thái cache của mã đó (hoặc chưa tải, chờ khối lộ ra)
+  useEffect(() => {
+    const c = _cache.get(code);
+    started.current = !!c;
+    setData(c?.data || null);
+    if (c) setRange(c.range);
+  }, [code]);
   useEffect(() => {
     const el = secRef.current;
     if (!el) return;

@@ -21,8 +21,14 @@ import { History } from "../detail/History";
 import { usePopupBack } from "../ui/usePopupBack";
 import { BoxViewToggle, useBoxView } from "../detail/BoxViewToggle";
 
+// Cache theo MÃ ở module scope — back về trang render NGAY từ cache (useScrollMemory
+// khôi phục vị trí cuộn tức thì), rồi vẫn refetch nền cho tươi. Đơn-có-SP giữ nguyên
+// số trang đã "Xem thêm" (không reset về 20 dòng làm hụt chiều cao).
+const _invCache = new Map<string, InvDetail>();
+const _ordsCache = new Map<string, { orders: InvOrderRef[]; total: number; has_more: boolean }>();
+
 export function InventoryDetail({ code }: { code: string }) {
-  const [inv, setInv] = useState<InvDetail | null>(null);
+  const [inv, setInv] = useState<InvDetail | null>(() => _invCache.get(code) || null);
   const [err, setErr] = useState("");
   const isAdmin = currentUser()?.role === "admin";
   // Có công thức chưa? — cảnh báo khi bật Đóng gói mà SP chưa khai công thức.
@@ -165,12 +171,13 @@ export function InventoryDetail({ code }: { code: string }) {
   }, [kvQ, linkOpen]);
 
   // Đơn có SP này — LAZY: chỉ tải khi cuộn tới khối, phân trang "Xem thêm"
-  const [ords, setOrds] = useState<InvOrderRef[]>([]);
-  const [ordTotal, setOrdTotal] = useState(0);
-  const [ordMore, setOrdMore] = useState(false);
+  const ordCached = _ordsCache.get(code);
+  const [ords, setOrds] = useState<InvOrderRef[]>(ordCached?.orders || []);
+  const [ordTotal, setOrdTotal] = useState(ordCached?.total || 0);
+  const [ordMore, setOrdMore] = useState(ordCached?.has_more || false);
   const [ordLoading, setOrdLoading] = useState(false);
   const [ordErr, setOrdErr] = useState("");
-  const ordStarted = useRef(false);
+  const ordStarted = useRef(!!ordCached);
   const ordSecRef = useRef<HTMLElement>(null);
 
   const loadOrders = async (reset: boolean) => {
@@ -178,10 +185,12 @@ export function InventoryDetail({ code }: { code: string }) {
     const offset = reset ? 0 : ords.length;
     try {
       const r = await productOrders(code, offset, 20);
-      setOrds((prev) => (reset ? r.orders : [...prev, ...r.orders]));
+      const next = reset ? r.orders : [...ords, ...r.orders];
+      setOrds(next);
       setOrdTotal(r.total);
       setOrdMore(r.has_more);
       setOrdErr("");
+      _ordsCache.set(code, { orders: next, total: r.total, has_more: r.has_more });
     } catch (e: any) {
       setOrdErr(e?.message || "Lỗi tải đơn có SP này");
     } finally {
@@ -189,10 +198,11 @@ export function InventoryDetail({ code }: { code: string }) {
     }
   };
 
-  // Đổi mã SP → reset khối đơn.
+  // Đổi mã SP → về trạng thái cache của mã đó (hoặc rỗng chờ IO tải).
   useEffect(() => {
-    ordStarted.current = false;
-    setOrds([]); setOrdTotal(0); setOrdMore(false);
+    const c = _ordsCache.get(code);
+    ordStarted.current = !!c;
+    setOrds(c?.orders || []); setOrdTotal(c?.total || 0); setOrdMore(c?.has_more || false);
   }, [code]);
 
   // Gắn IntersectionObserver SAU khi khối render (inv đã tải) → tự tải lần đầu khi lộ.
@@ -280,12 +290,14 @@ export function InventoryDetail({ code }: { code: string }) {
         window.location.replace(`#/kho/${encodeURIComponent(r.product_code)}`);
         return;
       }
+      _invCache.set(code, r);
       setInv(r);
     } catch (e: any) {
       setErr(e?.message || "Lỗi tải");
     }
   };
   useEffect(() => {
+    setInv(_invCache.get(code) || null);   // render ngay bản cache, load() làm tươi sau
     load();
   }, [code]);
   useEffect(
