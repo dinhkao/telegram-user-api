@@ -1049,6 +1049,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   nút freeze). ⚠ Route `#/loi-nhuan/khach/…` phải đứng TRƯỚC `#/loi-nhuan` trong
   main.tsx (startsWith nuốt). Giá vốn đơn là snapshot (`cost_price` frozen trong
   invoice) — đổi giá vốn chỉ áp đơn chưa đóng băng.
+  **Báo cáo bán ra ở CHI TIẾT SP (2026-08-31)**: `product_detail_data` trả thêm
+  `top_customers` (gộp theo khách, sắp theo doanh thu) + `chart` (chuỗi theo ngày)
+  + `ymd` từng lần bán + `totals.customers` → khối "Báo cáo bán ra" ở `#/kho/:code`
+  (`detail/ProductSales.tsx`, office-only — staff không render, server vẫn 403;
+  LAZY qua IntersectionObserver vì endpoint quét full orders, KHÔNG reload theo
+  realtime): thẻ SL/DT/đơn/khách + biểu đồ cột SVG (Ngày/Tuần/Tháng, DT↔SL) +
+  bảng top 10 khách, dùng lại `ProfitDateBar`.
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
 - **Lịch sử thao tác — 3 mặt hiển thị, 1 bảng tra nhãn (2026-07-14).** Mọi dòng
   lịch sử có `parts: [{t, href?}]` = đoạn chữ + LINK tới thực thể được nhắc

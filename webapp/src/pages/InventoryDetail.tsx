@@ -15,6 +15,7 @@ import { Icon } from "../ui/Icon";
 import { BoxLabelGrid } from "../detail/BoxLabelGrid";
 import { CompactBoxList } from "../detail/CompactBoxList";
 import { RecipeEditor } from "../detail/RecipeEditor";
+import { ProductSales } from "../detail/ProductSales";
 import { ProductUnits } from "../detail/ProductUnits";
 import { History } from "../detail/History";
 import { usePopupBack } from "../ui/usePopupBack";
@@ -592,6 +593,8 @@ export function InventoryDetail({ code }: { code: string }) {
       </section>
 
       <RecipeEditor productCode={code} />
+
+      <ProductSales code={inv.product_code || code} />
 
       {inv.product?.id ? <History base={`/api/media/product/${inv.product.id}`} /> : null}
 

@@ -258,7 +258,7 @@ def product_detail_data(conn, code: str, since: str | None, until: str | None) -
             if it["code"] != code:
                 continue
             orders.append({"thread_id": r["thread_id"], "customer": r["customer"],
-                           "date": r["date"], "qty": it["qty"],
+                           "date": r["date"], "ymd": r["ymd"], "qty": it["qty"],
                            "sell_price": it["sell_price"], "cost_price": it["cost_price"],
                            "revenue": it["revenue"], "cost": it["cost"],
                            "profit": it["profit"], "has_cost": it["has_cost"]})
@@ -266,6 +266,26 @@ def product_detail_data(conn, code: str, since: str | None, until: str | None) -
             total["revenue"] += it["revenue"]
             total["cost"] += it["cost"]
             total["profit"] += it["profit"]
+    # Gộp cho khối "Báo cáo bán ra" ở trang chi tiết SP: top khách (theo doanh thu)
+    # + chuỗi theo NGÀY cho biểu đồ
+    cust: dict[str, dict] = {}
+    daily: dict[str, dict] = {}
+    for o in orders:
+        c = cust.setdefault(o["customer"], {"qty": 0.0, "revenue": 0, "profit": 0, "orders": 0})
+        c["qty"] += o["qty"]
+        c["revenue"] += o["revenue"]
+        c["profit"] += o["profit"]
+        c["orders"] += 1
+        if o["ymd"]:
+            d = daily.setdefault(o["ymd"], {"qty": 0.0, "revenue": 0, "profit": 0})
+            d["qty"] += o["qty"]
+            d["revenue"] += o["revenue"]
+            d["profit"] += o["profit"]
+    top_customers = [{"name": n, **d} for n, d in
+                     sorted(cust.items(), key=lambda x: x[1]["revenue"], reverse=True)]
+    chart = [{"day": d, **daily[d]} for d in sorted(daily.keys())]
+    total["customers"] = len(cust)
     return {"product": {"code": code, "name": product.get("name") or "",
                         "cost_price": int(product.get("cost_price") or 0)},
-            "orders": orders, "totals": total}
+            "orders": orders, "totals": total,
+            "top_customers": top_customers, "chart": chart}

@@ -143,6 +143,25 @@ class ProfitComputeTest(unittest.TestCase):
         self.assertEqual(d["totals"]["qty"], 3)
         self.assertEqual(d["totals"]["profit"], 15000)
 
+    def test_product_detail_sales_report(self):
+        # khối "Báo cáo bán ra": thêm khách thứ 2 mua SP1 cùng kỳ → top theo doanh thu
+        _add_order(self.conn, MIN_THREAD_ID + 20, {
+            "created": "2026-08-20T06:00:00+00:00", "customer_name": "Anh Ba",
+            "invoice": [{"sp": "SP1", "sl": 1, "price": 12000}]})
+        d = product_detail_data(self.conn, "sp1", "2026-08-19", "2026-08-20")
+        self.assertEqual(d["totals"]["customers"], 2)
+        tops = d["top_customers"]
+        self.assertEqual([c["name"] for c in tops], ["Chị Hoa", "Anh Ba"])
+        self.assertEqual(tops[0]["qty"], 3)
+        self.assertEqual(tops[0]["revenue"], 30000)
+        self.assertEqual(tops[0]["orders"], 2)
+        # chart theo ngày, tăng dần
+        self.assertEqual([c["day"] for c in d["chart"]], ["2026-08-19", "2026-08-20"])
+        self.assertEqual(d["chart"][1]["qty"], 3)
+        self.assertEqual(d["chart"][1]["revenue"], 32000)
+        # mỗi lần bán mang ymd để client vẽ được biểu đồ
+        self.assertTrue(all(o["ymd"] for o in d["orders"]))
+
 
 if __name__ == "__main__":
     unittest.main()
