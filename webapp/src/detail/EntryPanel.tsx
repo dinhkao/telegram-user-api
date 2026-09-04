@@ -30,7 +30,7 @@ export type MoneyEntry = {
 };
 
 export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, noteLabel,
-  notePlaceholder, noteSuggestions, pctBase, dayBase, onAdd, onDel, onNote, onPrintNote, extra }: {
+  notePlaceholder, noteSuggestions, pctBase, dayBase, onAdd, onDel, onNote, onPrintNote, extra, prev }: {
   entries?: MoneyEntry[];
   showDate?: boolean;
   addPlaceholder: string;               // nhãn ô tiền ("Số tiền phụ cấp"…)
@@ -46,6 +46,8 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
   // 🖨 sửa CHỮ IN TRÊN PHIẾU của khoản (chỉ phụ cấp truyền vào)
   onPrintNote?: (id: number, current: string) => void;
   extra?: any;
+  // khối "chép từ tháng trước" hiện TRONG popup thêm khoản (detail/PrevAllowances)
+  prev?: any;
 }) {
   const [amt, setAmt] = useState("");
   const [date, setDate] = useState(() => isoDate(new Date()));   // mặc định HÔM NAY
@@ -131,7 +133,7 @@ export function EntryPanel({ entries, showDate, addPlaceholder, submitLabel, not
           amountLabel={addPlaceholder} submitLabel={submitLabel || "Thêm"}
           noteLabel={noteLabel || "Ghi chú"} notePlaceholder={notePlaceholder || "Ghi chú (tuỳ chọn)"}
           noteSuggestions={noteSuggestions} pctBase={pctBase} dayBase={dayBase}
-          onPct={setPct} onSubmit={add} onClose={() => setAdding(false)} />
+          onPct={setPct} onSubmit={add} onClose={() => setAdding(false)} extra={prev} />
       ) : null}
     </div>
   );

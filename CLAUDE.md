@@ -493,6 +493,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   bằng chữ "1 triệu 500 nghìn" + chip cộng nhanh +10k…+1tr + chip gợi ý nội dung) —
   cần ô nhập tiền ở chỗ khác thì dùng lại nó, đừng quay về `<input class="pw-input">`
   rộng 82px (gõ tiền triệu trên điện thoại sai số 0 như chơi).
+  **CHÉP PHỤ CẤP THÁNG TRƯỚC (2026-09-04, `detail/PrevAllowances.tsx`)**: khối trong
+  popup "Thêm phụ cấp" (EntryPanel prop `prev` → EntryAddPopup slot `extra`) + dưới form
+  `#/nhap-phu-cap` — liệt kê khoản còn hiệu lực 3 tháng gần nhất (dùng lại
+  `listPayrollAllowances`, không API mới), nút "⧉ Chép" (confirm) ghi nguyên khoản sang
+  tháng đang xem qua addAllow sẵn có; khoản theo CÔNG THỨC chép cả `calc_kind/value` nên
+  số tự tính lại theo lương tháng này. Chép xong KHÔNG đóng popup (chép liền nhiều khoản).
 - **`attendance_store/` — CHẤM CÔNG máy Ronald Jack (`app.db`, 2026-07-19).** Collector
   Windows (PC văn phòng, task 30ph/lần, SDK ZKTeco) đọc máy chấm công LAN rồi đẩy batch
   qua Tailscale vào `POST /api/attendance/events` (`server_app/attendance_routes.py` —

@@ -19,6 +19,7 @@ import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
 import { MoneyEntryForm } from "../ui/MoneyEntryForm";
 import { PC_GOI_Y, type PctInfo } from "../detail/EntryPanel";
+import { PrevAllowances, allowCalcOf } from "../detail/PrevAllowances";
 import { pctBaseOf } from "../detail/PayrollCellPopup";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
@@ -80,6 +81,17 @@ export function AllowanceEntry() {
       load();
     } catch (e: any) { toast(e?.message || "Lỗi ghi phụ cấp", "err"); }
     finally { setBusy(false); }
+  };
+
+  // ⧉ Chép 1 khoản của tháng trước sang tháng đang xem (detail/PrevAllowances —
+  // khoản theo công thức chép cả công thức, số tự tính lại theo lương tháng này)
+  const copyPrev = async (item: SalaryAllowance) => {
+    if (!wid) return;
+    try {
+      await addPayrollAllowance(ym, wid, item.amount, item.note, allowCalcOf(item), item.print_note);
+      toast(`Đã chép phụ cấp ${money(item.amount)} cho ${nameOf(wid)}`, "ok");
+      load();
+    } catch (e: any) { toast(e?.message || "Lỗi chép phụ cấp", "err"); }
   };
 
   // Sửa NỘI DUNG/ghi chú khoản phụ cấp (số tiền bất biến — sai tiền thì vô hiệu rồi ghi lại)
@@ -151,6 +163,8 @@ export function AllowanceEntry() {
           onPct={setPct}
           before={<SelectPopup value={wid} options={wopts} onChange={(v) => setWid(Number(v))}
             searchable placeholder="Chọn thợ…" title="Chọn thợ" />} />
+        {/* Khoản của 3 tháng trước → chép nhanh sang tháng đang xem (khi đã chọn thợ) */}
+        {wid ? <PrevAllowances key={`${ym}-${wid}`} ym={ym} wid={wid} onCopy={copyPrev} /> : null}
       </section>
 
       {allows === null ? <Loading /> : (

@@ -11,7 +11,7 @@ import { useScrollLock } from "../useScrollLock";
 export function EntryAddPopup({ title, amount, onAmount, note, onNote, date, onDate,
   printNote, onPrintNote,
   amountLabel, submitLabel, noteLabel, notePlaceholder, noteSuggestions,
-  pctBase, dayBase, onPct, onSubmit, onClose }: {
+  pctBase, dayBase, onPct, onSubmit, onClose, extra }: {
   title: string;
   amount: string; onAmount: (v: string) => void;
   note: string; onNote: (v: string) => void;
@@ -23,6 +23,7 @@ export function EntryAddPopup({ title, amount, onAmount, note, onNote, date, onD
   pctBase?: PctBase | null; dayBase?: DayBase | null;
   onPct?: (p: any) => void;
   onSubmit: () => void; onClose: () => void;
+  extra?: any;   // khối phụ dưới form (VD: chép phụ cấp tháng trước — detail/PrevAllowances)
 }) {
   usePopupBack(true, onClose);
   useScrollLock(true);
@@ -35,6 +36,7 @@ export function EntryAddPopup({ title, amount, onAmount, note, onNote, date, onD
           date={date} onDate={onDate} amountLabel={amountLabel} submitLabel={submitLabel}
           noteLabel={noteLabel} notePlaceholder={notePlaceholder} noteSuggestions={noteSuggestions}
           pctBase={pctBase} dayBase={dayBase} onPct={onPct} onSubmit={onSubmit} />
+        {extra}
         <button class="btn sh-cancel" onClick={onClose}>Đóng</button>
       </div>
     </div>
