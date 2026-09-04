@@ -12,8 +12,10 @@ __all__ = ["KINDS", "KIND_LABELS", "today_vn", "parse_qty", "fmt_qty", "round_qt
            "delta_for", "build_stock_table"]
 
 # nhap = nhập kho · xuat = xuất kho · dieu_chinh = phiếu điều chỉnh (đếm thực tế)
-KINDS = ("nhap", "xuat", "dieu_chinh")
-KIND_LABELS = {"nhap": "Nhập kho", "xuat": "Xuất kho", "dieu_chinh": "Điều chỉnh"}
+# chuyen = chuyển giữa 2 kho: bút toán kép −q kho nguồn / +q kho đích, tồn tổng bảo toàn
+KINDS = ("nhap", "xuat", "dieu_chinh", "chuyen")
+KIND_LABELS = {"nhap": "Nhập kho", "xuat": "Xuất kho", "dieu_chinh": "Điều chỉnh",
+               "chuyen": "Chuyển kho"}
 
 
 def round_qty(v: float) -> float:
@@ -43,12 +45,13 @@ def delta_for(kind: str, quantity: float, before: float) -> float:
     """Số CỘNG vào tồn của 1 dòng phiếu.
 
     nhap  → +quantity · xuat → −quantity ·
-    dieu_chinh → quantity là số ĐẾM THỰC TẾ nên delta = đếm − tồn hiện tại.
+    dieu_chinh → quantity là số ĐẾM THỰC TẾ nên delta = đếm − tồn hiện tại ·
+    chuyen → −quantity (PHÍA KHO NGUỒN; dòng +q ở kho đích do slips ghi thêm).
     """
     q = round_qty(quantity)
     if kind == "nhap":
         return q
-    if kind == "xuat":
+    if kind in ("xuat", "chuyen"):
         return -q
     if kind == "dieu_chinh":
         return round_qty(q - round_qty(before))

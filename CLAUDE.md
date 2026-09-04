@@ -695,12 +695,18 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `inventory_changed`. 5 bảng: `bean_places` (Kho A/B…) · `beans` (danh mục đậu,
   cột `unit` = ĐƠN VỊ GỐC kg/bao…) · **`bean_units`** (đơn vị quy đổi của từng loại
   đậu: `factor` = 1 đơn vị này bằng bao nhiêu đơn vị GỐC) · `bean_slips` (kind
-  `nhap`|`xuat`|`dieu_chinh`, 1 kho/phiếu) + `bean_moves` (1 dòng = 1 loại đậu
+  `nhap`|`xuat`|`dieu_chinh`|`chuyen`, 1 kho/phiếu — riêng `chuyen` thêm cột
+  `dest_place_id` = KHO ĐÍCH) + `bean_moves` (1 dòng = 1 loại đậu
   trong phiếu). **KHÔNG có bảng tồn** — tồn =
   `SUM(delta)` các dòng của phiếu CÒN SỐNG (`stock.py`), nên xoá mềm phiếu là tồn tự
   đúng, khỏi bút toán hoàn. Luật dấu ở `domain.delta_for`: nhập `+q` · xuất `−q` ·
   **điều chỉnh: `quantity` là SỐ ĐẾM THỰC TẾ, delta = đếm − tồn** (đừng nhập chênh
-  lệch vào đó). Guard tồn âm ở CẢ 2 chiều: tạo phiếu xuất/điều chỉnh quá tồn bị chặn,
+  lệch vào đó) · **chuyển kho (2026-09-04) = BÚT TOÁN KÉP**: mỗi dòng đậu ghi 2 row
+  bean_moves `−q` kho nguồn / `+q` kho đích trong CÙNG phiếu → tồn tổng bảo toàn,
+  xoá phiếu là cả 2 đầu tự hoàn (`get_slip` chỉ trả items phía NGUỒN cho người đọc;
+  `list_slips` lọc theo kho khớp CẢ `dest_place_id` để trang kho đích thấy hàng
+  chuyển đến; guard xoá soi MỌI bút toán thô nên kho đích đã tiêu phần hàng đó là
+  chặn). Guard tồn âm ở CẢ 2 chiều: tạo phiếu xuất/chuyển/điều chỉnh quá tồn bị chặn,
   xoá phiếu mà làm tồn âm cũng bị chặn. Trùng tên đậu/kho so bằng Python `.lower()`
   chứ KHÔNG `COLLATE NOCASE` (SQLite chỉ fold ASCII → "Đậu xanh" vs "đậu xanh" lọt).
   **QUY ĐỔI ĐƠN VỊ (`bean_store/units.py`)**: MỌI số trong DB (tồn/`delta`/`quantity`)
@@ -741,7 +747,7 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `bean.base_unit_changed`) · `bean_place` (id kho) — 3 bảng có id riêng nên gộp 1
   scope `bean` là lịch sử phiếu #5 lẫn với loại đậu #5; scope `bean` cũ còn trong dữ
   liệu trước ngày đó nên `activity_format._SCOPE_LABEL` giữ cả 4. Action giữ nguyên
-  tiền tố `bean.*` (`bean.slip_nhap/xuat/dieu_chinh`, `bean.item_*`, `bean.place_*`,
+  tiền tố `bean.*` (`bean.slip_nhap/xuat/dieu_chinh/chuyen`, `bean.item_*`, `bean.place_*`,
   `bean.unit_*`, `bean.base_unit_changed`); parts ghép bằng `_join` (client render
   parts LIỀN NHAU — thiếu dấu là dòng lịch sử dính chữ).
   UI: `#/kho-dau` (BeanBoard — tồn xem theo LOẠI ĐẬU hoặc theo KHO, cùng dữ liệu đổi

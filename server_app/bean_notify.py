@@ -16,9 +16,9 @@ log = logging.getLogger("bean_notify")
 
 # Biểu tượng + tiêu đề theo loại phiếu. Tiêu đề viết riêng ở đây (không ghép
 # KIND_LABELS + "đậu": ra "Điều chỉnh đậu", đọc như đang chỉnh hạt đậu).
-KIND_ICONS = {"nhap": "📥", "xuat": "📤", "dieu_chinh": "⚖️"}
+KIND_ICONS = {"nhap": "📥", "xuat": "📤", "dieu_chinh": "⚖️", "chuyen": "🔄"}
 KIND_TITLES = {"nhap": "Nhập kho đậu", "xuat": "Xuất kho đậu",
-               "dieu_chinh": "Điều chỉnh kho đậu"}
+               "dieu_chinh": "Điều chỉnh kho đậu", "chuyen": "Chuyển kho đậu"}
 
 _MAX_LINES = 3   # phiếu dài → cắt bớt, phần dư gộp "+ N dòng nữa"
 
@@ -54,8 +54,13 @@ def build_bean_notif(slip: dict, actor: str = "") -> tuple[str, str, dict]:
     if len(items) > _MAX_LINES:
         lines.append(f"+{len(items) - _MAX_LINES} dòng nữa")
 
-    head = " · ".join(x for x in (str(actor or "").strip(),
-                                  str(slip.get("place_name") or "").strip()) if x)
+    place = str(slip.get("place_name") or "").strip()
+    if kind == "chuyen":
+        # Phiếu chuyển nói cả 2 đầu: "Kho A → Kho B".
+        dest = str(slip.get("dest_place_name") or "").strip()
+        if dest:
+            place = f"{place} → {dest}"
+    head = " · ".join(x for x in (str(actor or "").strip(), place) if x)
     body = f"{head}: {', '.join(lines)}" if head else ", ".join(lines)
     partner = str(slip.get("partner") or "").strip()
     if partner:

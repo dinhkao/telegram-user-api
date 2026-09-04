@@ -720,7 +720,7 @@ export async function deleteQualityReport(rid: number): Promise<any> {
 export type BeanUnit = { id: number; bean_id: number; name: string; factor: number; note: string };
 export type Bean = { id: number; name: string; unit: string; note: string; created_at: string; created_by: string; units?: BeanUnit[] };
 export type BeanPlace = { id: number; name: string; note: string; created_at: string; created_by: string };
-export type BeanSlipKind = "nhap" | "xuat" | "dieu_chinh";
+export type BeanSlipKind = "nhap" | "xuat" | "dieu_chinh" | "chuyen";
 export type BeanSlipItem = {
   id: number; bean_id: number; bean_name: string;
   /** Đơn vị GỐC của loại đậu — mọi số dưới đây tính theo nó. */
@@ -737,6 +737,8 @@ export type BeanSlipItem = {
 };
 export type BeanSlip = {
   id: number; kind: BeanSlipKind; place_id: number; place_name: string;
+  /** Phiếu CHUYỂN kho: kho ĐÍCH (place_id/place_name = kho NGUỒN); loại khác null. */
+  dest_place_id?: number | null; dest_place_name?: string | null;
   partner: string; note: string; ymd: string; created_at: string; created_by: string;
   items: BeanSlipItem[]; total_quantity: number;
 };
@@ -751,7 +753,7 @@ export type BeanBoardData = {
 };
 
 export const BEAN_KIND_LABEL: Record<BeanSlipKind, string> = {
-  nhap: "Nhập kho", xuat: "Xuất kho", dieu_chinh: "Điều chỉnh",
+  nhap: "Nhập kho", xuat: "Xuất kho", dieu_chinh: "Điều chỉnh", chuyen: "Chuyển kho",
 };
 
 /** Dashboard kho đậu — danh mục + kho + tồn (đọc được theo đậu HOẶC theo kho). */
@@ -778,9 +780,10 @@ export async function getBeanSlip(id: string | number): Promise<BeanSlip> {
   return d.slip;
 }
 /** Tạo phiếu (mọi user). Điều chỉnh: quantity mỗi dòng = SỐ ĐẾM THỰC TẾ.
+ *  Chuyển kho: place_id = kho NGUỒN, dest_place_id = kho ĐÍCH.
  *  `unit_id` = đơn vị quy đổi đã chọn (bỏ trống = đơn vị gốc); server tự quy về gốc. */
 export async function createBeanSlip(body: {
-  kind: BeanSlipKind; place_id: number;
+  kind: BeanSlipKind; place_id: number; dest_place_id?: number | null;
   items: { bean_id: number; quantity: number; unit_id?: number | null; note?: string }[];
   partner?: string; note?: string; ymd?: string;
 }): Promise<BeanSlip> {

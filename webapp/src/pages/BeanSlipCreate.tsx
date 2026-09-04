@@ -1,6 +1,7 @@
-// TẠO PHIẾU KHO ĐẬU (#/kho-dau/tao?kind=nhap|xuat|dieu_chinh) — chọn loại phiếu,
-// kho, rồi các dòng đậu × số lượng. Điều chỉnh: ô số là SỐ ĐẾM THỰC TẾ (prefill =
-// tồn đang có, hiện chênh lệch ngay bên cạnh). Xuất: hiện tồn để không xuất quá.
+// TẠO PHIẾU KHO ĐẬU (#/kho-dau/tao?kind=nhap|xuat|dieu_chinh|chuyen) — chọn loại
+// phiếu, kho, rồi các dòng đậu × số lượng. Điều chỉnh: ô số là SỐ ĐẾM THỰC TẾ
+// (prefill = tồn đang có, hiện chênh lệch ngay bên cạnh). Xuất: hiện tồn để không
+// xuất quá. Chuyển kho: chọn KHO NGUỒN + KHO ĐÍCH, số trừ nguồn cộng đích.
 import { useEffect, useMemo, useState } from "preact/hooks";
 import {
   BEAN_KIND_LABEL, createBeanSlip, getBeanBoard, soVN,
@@ -18,7 +19,7 @@ type Line = { bean_id: number | null; qty: string; unit_id: number | null; note:
 
 const EMPTY_LINE: Line = { bean_id: null, qty: "", unit_id: null, note: "" };
 
-const KINDS: BeanSlipKind[] = ["nhap", "xuat", "dieu_chinh"];
+const KINDS: BeanSlipKind[] = ["nhap", "xuat", "dieu_chinh", "chuyen"];
 
 function kindFromHash(): BeanSlipKind {
   const m = window.location.hash.match(/[?&]kind=([a-z_]+)/);
@@ -31,6 +32,7 @@ export function BeanSlipCreate() {
   const [data, setData] = useState<BeanBoardData | null>(null);
   const [err, setErr] = useState("");
   const [placeId, setPlaceId] = useState<number | null>(null);
+  const [destId, setDestId] = useState<number | null>(null);   // kho ĐÍCH (chỉ chuyển kho)
   const [lines, setLines] = useState<Line[]>([{ ...EMPTY_LINE }]);
   const [partner, setPartner] = useState("");
   const [note, setNote] = useState("");
@@ -79,13 +81,17 @@ export function BeanSlipCreate() {
                    unit_id: l.unit_id, note: l.note.trim() }));
   const valid = parsed.filter((l) => (kind === "dieu_chinh" ? l.quantity >= 0 : l.quantity > 0));
 
+  const isTransfer = kind === "chuyen";
+
   const submit = async () => {
     if (!placeId) return toast("Chọn kho trước", "info");
+    if (isTransfer && !destId) return toast("Chọn kho đích để chuyển đến", "info");
+    if (isTransfer && destId === placeId) return toast("Kho đích phải khác kho nguồn", "info");
     if (!valid.length) return toast("Nhập ít nhất 1 dòng đậu có số lượng", "info");
     setBusy(true);
     try {
       const slip = await createBeanSlip({
-        kind, place_id: placeId, items: valid,
+        kind, place_id: placeId, dest_place_id: isTransfer ? destId : undefined, items: valid,
         partner: partner.trim(), note: note.trim(), ymd,
       });
       toast(`Đã tạo phiếu ${BEAN_KIND_LABEL[kind].toLowerCase()}`, "ok");
@@ -130,11 +136,20 @@ export function BeanSlipCreate() {
       </div>
 
       <div class="bean-form-row">
-        <label class="bean-lbl">Kho</label>
-        <SelectPopup value={placeId ?? ""} title="Chọn kho"
+        <label class="bean-lbl">{isTransfer ? "Từ kho" : "Kho"}</label>
+        <SelectPopup value={placeId ?? ""} title={isTransfer ? "Chọn kho nguồn" : "Chọn kho"}
           options={data.places.map((p) => ({ value: p.id, label: p.name, sub: p.note || undefined }))}
           onChange={(v) => setPlaceId(Number(v))} placeholder="Chọn kho…" searchable />
       </div>
+      {isTransfer && (
+        <div class="bean-form-row">
+          <label class="bean-lbl">Đến kho</label>
+          <SelectPopup value={destId ?? ""} title="Chọn kho đích"
+            options={data.places.filter((p) => p.id !== placeId)
+              .map((p) => ({ value: p.id, label: p.name, sub: p.note || undefined }))}
+            onChange={(v) => setDestId(Number(v))} placeholder="Chọn kho đích…" searchable />
+        </div>
+      )}
       <div class="bean-form-row">
         <label class="bean-lbl">Ngày</label>
         <input class="bean-in" type="date" value={ymd}
@@ -183,7 +198,8 @@ export function BeanSlipCreate() {
                 ) : null}
                 {factor !== 1 && l.qty.trim() !== "" ? " · " : ""}
                 Tồn hiện tại: <b>{soVN(cur)} {bu}</b>
-                {kind === "xuat" && base > cur ? <span class="t-danger"> · xuất quá tồn</span> : null}
+                {(kind === "xuat" || isTransfer) && base > cur
+                  ? <span class="t-danger"> · {isTransfer ? "chuyển" : "xuất"} quá tồn</span> : null}
                 {diff !== null ? (
                   <span class={diff === 0 ? "" : diff > 0 ? " t-ok" : " t-danger"}>
                     {" · chênh lệch "}{diff > 0 ? "+" : diff < 0 ? "−" : ""}{soVN(Math.abs(diff))} {bu}
@@ -199,7 +215,8 @@ export function BeanSlipCreate() {
       </button>
 
       <div class="bean-form-row">
-        <label class="bean-lbl">{kind === "nhap" ? "Nhập từ" : kind === "xuat" ? "Xuất cho" : "Người kiểm"}</label>
+        <label class="bean-lbl">{kind === "nhap" ? "Nhập từ" : kind === "xuat" ? "Xuất cho"
+          : isTransfer ? "Người chuyển" : "Người kiểm"}</label>
         <input class="bean-in" type="text" placeholder="Tuỳ chọn" value={partner}
           onInput={(e: any) => setPartner(e.target.value)} />
       </div>

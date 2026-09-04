@@ -45,7 +45,7 @@ export const GUIDES_DAU: Guide[] = [
         </ul>
         <p class="muted small">Đơn vị chính cũ tự trở thành một đơn vị quy đổi (1 kg = 0,02 bao)
         nên bấm ★ ở nó là quay về như cũ. Cả hai việc này dành cho <b>văn phòng</b>.</p>` },
-      { title: "3 loại phiếu", html: `
+      { title: "4 loại phiếu", html: `
         <ul>
           <li><b>Nhập kho</b> — đậu về kho. Số lượng <b>cộng</b> vào tồn.</li>
           <li><b>Xuất kho</b> — lấy đậu ra dùng/bán. Số lượng <b>trừ</b> khỏi tồn.
@@ -53,9 +53,14 @@ export const GUIDES_DAU: Guide[] = [
           <li><b>Điều chỉnh</b> — sau khi cân/đếm lại thực tế. Ô số nhập là
             <b>SỐ ĐẾM THỰC TẾ</b> (không phải phần chênh lệch) — hệ thống tự tính chênh
             lệch và đặt tồn về đúng số đếm.</li>
+          <li><b>Chuyển kho</b> — dời đậu từ kho này sang kho khác. Chọn <b>kho nguồn</b> +
+            <b>kho đích</b>, số lượng tự <b>trừ kho nguồn, cộng kho đích</b> trong một phiếu —
+            tồn tổng không đổi, khỏi phải tạo 2 phiếu xuất/nhập tay. Không chuyển quá số
+            kho nguồn đang có.</li>
         </ul>
-        <p>Mỗi phiếu thuộc <b>một kho</b> và có thể có <b>nhiều dòng đậu</b>. Bấm
-        <b>Nhập / Xuất / Điều chỉnh</b> ở đầu trang <a href="#/kho-dau">Kho đậu</a> để tạo.</p>` },
+        <p>Mỗi phiếu thuộc <b>một kho</b> (phiếu chuyển: một cặp kho) và có thể có
+        <b>nhiều dòng đậu</b>. Bấm <b>Nhập / Xuất / Điều chỉnh / Chuyển</b> ở đầu trang
+        <a href="#/kho-dau">Kho đậu</a> để tạo.</p>` },
       { title: "Xem tồn theo 2 kiểu", html: `
         <p>Ở trang <a href="#/kho-dau">Kho đậu</a> có nút gạt:</p>
         <ul>

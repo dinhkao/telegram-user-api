@@ -41,6 +41,13 @@ def _emit() -> None:
     emit_bean_changed()
 
 
+def _place_label(slip: dict) -> str:
+    """Tên kho cho audit/lịch sử — phiếu chuyển ghi cả 2 đầu 'Kho A → Kho B'."""
+    src = str(slip.get("place_name") or "")
+    dst = str(slip.get("dest_place_name") or "")
+    return f"{src} → {dst}" if slip.get("kind") == "chuyen" and dst else src
+
+
 def _qint(request: web.Request, key: str):
     v = request.query.get(key)
     try:
@@ -91,8 +98,9 @@ async def bean_slip_detail_handler(request: web.Request):
 async def bean_slip_create_handler(request: web.Request):
     """POST /api/beans/slips — MỌI user đăng nhập tạo phiếu.
 
-    body: {kind: nhap|xuat|dieu_chinh, place_id, items: [{bean_id, quantity, note}],
-           partner, note, ymd}. Điều chỉnh: quantity = SỐ ĐẾM THỰC TẾ (không phải chênh lệch).
+    body: {kind: nhap|xuat|dieu_chinh|chuyen, place_id, items: [{bean_id, quantity, note}],
+           partner, note, ymd, dest_place_id?}. Điều chỉnh: quantity = SỐ ĐẾM THỰC TẾ
+    (không phải chênh lệch). Chuyển kho: place_id = kho NGUỒN, dest_place_id = kho ĐÍCH.
     """
     try:
         body = await request.json()
@@ -107,6 +115,7 @@ async def bean_slip_create_handler(request: web.Request):
         try:
             return bean_store.create_slip(
                 conn, body.get("kind"), body.get("place_id"), body.get("items"),
+                dest_place_id=body.get("dest_place_id"),
                 partner=str(body.get("partner") or ""), note=str(body.get("note") or ""),
                 ymd=str(body.get("ymd") or "") or None, by=actor)
         finally:
@@ -119,7 +128,7 @@ async def bean_slip_create_handler(request: web.Request):
     from server_app.bean_notify import notify_bean_slip
     notify_bean_slip(slip, actor)   # chuông trong app + push FCM
     audit(f"bean.slip_{slip['kind']}", slip["id"], request, {
-        "slip_id": slip["id"], "kind": slip["kind"], "place_name": slip.get("place_name") or "",
+        "slip_id": slip["id"], "kind": slip["kind"], "place_name": _place_label(slip),
         "lines": [{"bean": i["bean_name"], "qty": i["quantity"], "delta": i["delta"]}
                   for i in slip["items"]],
     }, scope="bean_slip")
@@ -150,7 +159,7 @@ async def bean_slip_delete_handler(request: web.Request):
 
     _emit()
     audit("bean.slip_deleted", sid, request, {
-        "slip_id": sid, "kind": slip["kind"], "place_name": slip.get("place_name") or "",
+        "slip_id": sid, "kind": slip["kind"], "place_name": _place_label(slip),
         "lines": [{"bean": i["bean_name"], "qty": i["quantity"]} for i in slip["items"]],
     }, scope="bean_slip")
     return web.json_response({"ok": True})

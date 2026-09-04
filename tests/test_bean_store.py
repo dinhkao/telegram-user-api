@@ -151,6 +151,71 @@ class BeanStoreTest(unittest.TestCase):
         self.assertIn("âm kho", err)
         self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho_a["id"]), 5)
 
+    # ── Phiếu CHUYỂN KHO (bút toán kép −q nguồn / +q đích) ───────────────────
+    def _chuyen(self, bean, src, dst, qty):
+        return bean_store.create_slip(
+            self.conn, "chuyen", src["id"], [{"bean_id": bean["id"], "quantity": qty}],
+            dest_place_id=dst["id"], by="duy")
+
+    def test_chuyen_kho(self):
+        self._nhap(self.xanh, self.kho_a, 100)
+        slip, err = self._chuyen(self.xanh, self.kho_a, self.kho_b, 30)
+        self.assertIsNone(err)
+        self.assertEqual(slip["kind"], "chuyen")
+        self.assertEqual(slip["place_name"], "Kho A")
+        self.assertEqual(slip["dest_place_name"], "Kho B")
+        # items chỉ trả phía KHO NGUỒN — 1 dòng / 1 loại đậu, delta âm
+        self.assertEqual(len(slip["items"]), 1)
+        self.assertEqual(slip["items"][0]["delta"], -30)
+        self.assertEqual(slip["items"][0]["quantity"], 30)
+        # tồn: trừ nguồn, cộng đích, TỔNG bảo toàn
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho_a["id"]), 70)
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho_b["id"]), 30)
+        self.assertEqual(bean_store.stock_by_bean(self.conn)[self.xanh["id"]], 100)
+
+    def test_chuyen_validate(self):
+        self._nhap(self.xanh, self.kho_a, 10)
+        _, err = self._chuyen(self.xanh, self.kho_a, self.kho_b, 11)
+        self.assertIn("không đủ", err.lower())
+        _, err = bean_store.create_slip(
+            self.conn, "chuyen", self.kho_a["id"],
+            [{"bean_id": self.xanh["id"], "quantity": 1}], by="duy")
+        self.assertIn("kho đích", err.lower())
+        _, err = self._chuyen(self.xanh, self.kho_a, self.kho_a, 1)
+        self.assertIn("khác kho nguồn", err)
+        _, err = bean_store.create_slip(
+            self.conn, "chuyen", self.kho_a["id"],
+            [{"bean_id": self.xanh["id"], "quantity": 1}], dest_place_id=999, by="duy")
+        self.assertIn("Kho đích không tồn tại", err)
+        # không có phiếu rác sau các lần bị chặn
+        self.assertEqual(bean_store.list_slips(self.conn)[1], 1)
+
+    def test_delete_chuyen_restores_both_sides(self):
+        self._nhap(self.xanh, self.kho_a, 50)
+        slip, _ = self._chuyen(self.xanh, self.kho_a, self.kho_b, 20)
+        _, err = bean_store.soft_delete_slip(self.conn, slip["id"], by="duy")
+        self.assertIsNone(err)
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho_a["id"]), 50)
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho_b["id"]), 0)
+
+    def test_delete_chuyen_blocked_when_dest_consumed(self):
+        # kho ĐÍCH đã xuất phần hàng chuyển sang → xoá phiếu chuyển làm đích âm, phải chặn
+        self._nhap(self.xanh, self.kho_a, 50)
+        slip, _ = self._chuyen(self.xanh, self.kho_a, self.kho_b, 20)
+        bean_store.create_slip(self.conn, "xuat", self.kho_b["id"],
+                               [{"bean_id": self.xanh["id"], "quantity": 15}], by="duy")
+        _, err = bean_store.soft_delete_slip(self.conn, slip["id"], by="duy")
+        self.assertIn("âm kho", err)
+        self.assertEqual(bean_store.stock_of(self.conn, self.xanh["id"], self.kho_b["id"]), 5)
+
+    def test_list_slips_place_filter_matches_dest(self):
+        self._nhap(self.xanh, self.kho_a, 10)
+        self._chuyen(self.xanh, self.kho_a, self.kho_b, 4)
+        # trang chi tiết KHO B phải thấy phiếu chuyển ĐẾN nó
+        self.assertEqual(bean_store.list_slips(self.conn, place_id=self.kho_b["id"])[1], 1)
+        self.assertEqual(bean_store.list_slips(self.conn, place_id=self.kho_a["id"])[1], 2)
+        self.assertEqual(bean_store.list_slips(self.conn, kind="chuyen")[1], 1)
+
     def test_list_slips_filters(self):
         self._nhap(self.xanh, self.kho_a, 10)
         self._nhap(self.phong, self.kho_b, 4)

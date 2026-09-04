@@ -4315,6 +4315,7 @@ body.has-nop .wp-thead-bar { top: 72px; }
 .bean-slip-card.k-nhap { border-left-color: var(--ok); }
 .bean-slip-card.k-xuat { border-left-color: var(--danger); }
 .bean-slip-card.k-dieu_chinh { border-left-color: #b06000; }
+.bean-slip-card.k-chuyen { border-left-color: #1971c2; }
 .bean-slip-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .bean-slip-kind { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: .88rem; }
 .bean-slip-amt { font-weight: 800; font-variant-numeric: tabular-nums; }

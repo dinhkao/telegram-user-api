@@ -51,11 +51,16 @@ export function BeanSlipDetail({ id }: { id: string }) {
   if (!slip) return <Loading />;
 
   const isAdj = slip.kind === "dieu_chinh";
+  // Phiếu chuyển: items là bút toán phía KHO NGUỒN (delta âm); tồn tổng không đổi
+  // nên bảng chỉ hiện SỐ LƯỢNG CHUYỂN, khỏi cột biến động +/−.
+  const isTransfer = slip.kind === "chuyen";
+  const placeText = isTransfer && slip.dest_place_name
+    ? `${slip.place_name} → ${slip.dest_place_name}` : slip.place_name;
   return (
     <div class="bean-detail">
       <PageHead fallback="#/kho-dau/phieu"
         title={<>{BEAN_KIND_LABEL[slip.kind]} <span class="muted small">#{slip.id}</span></>}
-        sub={`${slip.place_name} · ngày ${slip.ymd}`}
+        sub={`${placeText} · ngày ${slip.ymd}`}
         right={isAdmin ? (
           <button class="btn small danger" disabled={busy} onClick={del}>
             <Icon name="trash" size={15} />
@@ -64,7 +69,8 @@ export function BeanSlipDetail({ id }: { id: string }) {
 
       <div class="bean-meta muted small">
         Người tạo: {slip.created_by || "—"} · {fmtDateTimeVN(slip.created_at)}
-        {slip.partner ? <> · {slip.kind === "nhap" ? "nhập từ" : slip.kind === "xuat" ? "xuất cho" : "người kiểm"}: <b>{slip.partner}</b></> : null}
+        {slip.partner ? <> · {slip.kind === "nhap" ? "nhập từ" : slip.kind === "xuat" ? "xuất cho"
+          : isTransfer ? "người chuyển" : "người kiểm"}: <b>{slip.partner}</b></> : null}
       </div>
       {slip.note ? <div class="bean-note">“{slip.note}”</div> : null}
 
@@ -72,9 +78,9 @@ export function BeanSlipDetail({ id }: { id: string }) {
         <thead>
           <tr>
             <th>Loại đậu</th>
-            <th class="num">{isAdj ? "Đếm thực tế" : "Số lượng"}</th>
+            <th class="num">{isAdj ? "Đếm thực tế" : isTransfer ? "Số lượng chuyển" : "Số lượng"}</th>
             {isAdj && <th class="num">Tồn trước</th>}
-            <th class="num">Biến động</th>
+            {!isTransfer && <th class="num">Biến động</th>}
           </tr>
         </thead>
         <tbody>
@@ -96,9 +102,11 @@ export function BeanSlipDetail({ id }: { id: string }) {
                 )}
               </td>
               {isAdj && <td class="num muted">{i.before_qty == null ? "—" : soVN(i.before_qty)}</td>}
-              <td class={"num " + (i.delta > 0 ? "t-ok" : i.delta < 0 ? "t-danger" : "muted")}>
-                {i.delta > 0 ? "+" : i.delta < 0 ? "−" : ""}{soVN(Math.abs(i.delta))}
-              </td>
+              {!isTransfer && (
+                <td class={"num " + (i.delta > 0 ? "t-ok" : i.delta < 0 ? "t-danger" : "muted")}>
+                  {i.delta > 0 ? "+" : i.delta < 0 ? "−" : ""}{soVN(Math.abs(i.delta))}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

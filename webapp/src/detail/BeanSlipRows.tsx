@@ -6,12 +6,15 @@ import { fmtHourVN } from "../format";
 import { Icon } from "../ui/Icon";
 
 const KIND_ICON: Record<BeanSlipKind, string> = {
-  nhap: "plus", xuat: "truck", dieu_chinh: "edit",
+  nhap: "plus", xuat: "truck", dieu_chinh: "edit", chuyen: "refresh",
 };
 
-/** Dấu +/−/± trước tổng biến động (điều chỉnh có thể lên hoặc xuống). */
-export function slipDeltaText(items: BeanSlip["items"]): string {
+/** Dấu +/−/± trước tổng biến động (điều chỉnh có thể lên hoặc xuống).
+ *  Phiếu CHUYỂN: items là phía kho nguồn (delta âm) nhưng tồn TỔNG không đổi
+ *  → hiện số lượng chuyển KHÔNG dấu. */
+export function slipDeltaText(items: BeanSlip["items"], kind?: BeanSlipKind): string {
   const sum = items.reduce((t, i) => t + (i.delta || 0), 0);
+  if (kind === "chuyen") return soVN(Math.abs(sum));
   return (sum > 0 ? "+" : sum < 0 ? "−" : "") + soVN(Math.abs(sum));
 }
 
@@ -54,10 +57,13 @@ export function BeanSlipCard({ slip, showPlace = true, showBean = true, showDate
           <Icon name={KIND_ICON[slip.kind]} size={14} /> {BEAN_KIND_LABEL[slip.kind]}
         </span>
         {time ? <span class="bean-slip-time muted small">{time}</span> : null}
-        <span class="bean-slip-amt">{slipDeltaText(items)}</span>
+        <span class="bean-slip-amt">{slipDeltaText(items, slip.kind)}</span>
       </div>
       <div class="bean-slip-sub muted small">
-        {showPlace ? `${slip.place_name} · ` : ""}
+        {/* Phiếu chuyển luôn ghi cả 2 đầu — trang chi tiết 1 kho vẫn cần biết đầu kia */}
+        {slip.kind === "chuyen" && slip.dest_place_name
+          ? `${slip.place_name} → ${slip.dest_place_name} · `
+          : showPlace ? `${slip.place_name} · ` : ""}
         {items.map((i) => lineText(i, showBean)).join(", ")}
         {others > 0 ? ` (+${others} loại khác)` : ""}
         {slip.partner ? ` · ${slip.partner}` : ""}

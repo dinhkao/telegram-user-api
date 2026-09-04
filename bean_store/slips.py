@@ -1,8 +1,10 @@
-"""PHIẾU kho đậu — nhập / xuất / điều chỉnh (`bean_slips` + `bean_moves`, app.db).
+"""PHIẾU kho đậu — nhập / xuất / điều chỉnh / chuyển kho (`bean_slips` + `bean_moves`).
 
-1 phiếu = 1 loại thao tác + 1 kho + nhiều dòng đậu. Ghi phiếu và các dòng biến
-động trong CÙNG transaction, có guard KHÔNG cho tồn âm (lúc tạo lẫn lúc xoá).
-Tồn đọc qua bean_store.stock; luật dấu ở bean_store.domain.delta_for.
+1 phiếu = 1 loại thao tác + 1 kho + nhiều dòng đậu. Riêng kind='chuyen' có thêm
+KHO ĐÍCH (`dest_place_id`): mỗi dòng đậu ghi 2 bút toán −q/+q nên tồn tổng bảo
+toàn. Ghi phiếu và các dòng biến động trong CÙNG transaction, có guard KHÔNG cho
+tồn âm (lúc tạo lẫn lúc xoá). Tồn đọc qua bean_store.stock; luật dấu ở
+bean_store.domain.delta_for.
 """
 from __future__ import annotations
 
@@ -61,12 +63,15 @@ def _clean_items(conn, kind: str, items) -> tuple[list[dict], str | None]:
     return out, None
 
 
-def create_slip(conn, kind: str, place_id, items, *, partner: str = "", note: str = "",
+def create_slip(conn, kind: str, place_id, items, *, dest_place_id=None,
+                partner: str = "", note: str = "",
                 ymd: str | None = None, by: str | None = None) -> tuple[dict | None, str | None]:
     """Tạo phiếu + các dòng biến động (1 transaction).
 
     kind='dieu_chinh' → `quantity` mỗi dòng là số ĐẾM THỰC TẾ, delta = đếm − tồn.
-    Chặn tồn âm: xuất quá tồn / điều chỉnh về số âm đều bị từ chối.
+    kind='chuyen' → cần thêm `dest_place_id` (kho đích ≠ kho nguồn); mỗi dòng ghi
+    2 bút toán −q kho nguồn / +q kho đích. Chặn tồn âm: xuất/chuyển quá tồn /
+    điều chỉnh về số âm đều bị từ chối.
     """
     kind = str(kind or "").strip()
     if kind not in KINDS:
@@ -75,11 +80,22 @@ def create_slip(conn, kind: str, place_id, items, *, partner: str = "", note: st
         place_id = int(place_id)
     except (TypeError, ValueError):
         return None, "Cần chọn kho"
+    if kind == "chuyen":
+        try:
+            dest_place_id = int(dest_place_id)
+        except (TypeError, ValueError):
+            return None, "Cần chọn kho đích để chuyển đến"
+        if dest_place_id == place_id:
+            return None, "Kho đích phải khác kho nguồn"
+    else:
+        dest_place_id = None
     day = str(ymd or "").strip() or today_vn()
 
     with transaction(conn):
         if not get_place(conn, place_id):
             return None, "Kho không tồn tại"
+        if dest_place_id is not None and not get_place(conn, dest_place_id):
+            return None, "Kho đích không tồn tại"
         rows, err = _clean_items(conn, kind, items)
         if err:
             return None, err
@@ -100,10 +116,10 @@ def create_slip(conn, kind: str, place_id, items, *, partner: str = "", note: st
             moves.append({**it, "delta": delta, "before": before})
 
         cur = conn.execute(
-            "INSERT INTO bean_slips (kind, place_id, partner, note, ymd, created_at, created_by) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (kind, place_id, str(partner or "").strip(), str(note or "").strip(),
-             day, _now(), by or ""),
+            "INSERT INTO bean_slips (kind, place_id, dest_place_id, partner, note, ymd, "
+            "created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (kind, place_id, dest_place_id, str(partner or "").strip(),
+             str(note or "").strip(), day, _now(), by or ""),
         )
         slip_id = cur.lastrowid
         for m in moves:
@@ -114,6 +130,16 @@ def create_slip(conn, kind: str, place_id, items, *, partner: str = "", note: st
                 (slip_id, m["bean_id"], place_id, m["delta"], m["quantity"], m["before"],
                  m["entered_qty"], m["unit_name"], m["unit_factor"], m["note"]),
             )
+            if dest_place_id is not None:
+                # Bút toán kép phía KHO ĐÍCH: +q, snapshot cách gõ giữ nguyên.
+                conn.execute(
+                    "INSERT INTO bean_moves (slip_id, bean_id, place_id, delta, quantity, "
+                    "before_qty, entered_qty, unit_name, unit_factor, note) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (slip_id, m["bean_id"], dest_place_id, -m["delta"], m["quantity"],
+                     stock_of(conn, m["bean_id"], dest_place_id),
+                     m["entered_qty"], m["unit_name"], m["unit_factor"], m["note"]),
+                )
     return get_slip(conn, slip_id), None
 
 
@@ -132,10 +158,15 @@ def _item_row(it: dict) -> dict:
 
 
 def get_slip(conn, slip_id) -> dict | None:
-    """Phiếu + dòng đậu (kèm tên đậu/đơn vị/tên kho để hiện thẳng)."""
+    """Phiếu + dòng đậu (kèm tên đậu/đơn vị/tên kho để hiện thẳng).
+
+    Phiếu CHUYỂN: items chỉ trả bút toán phía KHO NGUỒN (delta −q) — mỗi loại đậu
+    1 dòng cho người đọc; phía kho đích suy ra từ `dest_place_id`/`dest_place_name`.
+    """
     row = conn.execute(
-        "SELECT s.*, p.name AS place_name FROM bean_slips s "
+        "SELECT s.*, p.name AS place_name, d.name AS dest_place_name FROM bean_slips s "
         "LEFT JOIN bean_places p ON p.id = s.place_id "
+        "LEFT JOIN bean_places d ON d.id = s.dest_place_id "
         "WHERE s.id = ? AND s.deleted_at IS NULL", (slip_id,)
     ).fetchone()
     if not row:
@@ -145,6 +176,8 @@ def get_slip(conn, slip_id) -> dict | None:
         "SELECT m.*, b.name AS bean_name, b.unit AS unit FROM bean_moves m "
         "LEFT JOIN beans b ON b.id = m.bean_id WHERE m.slip_id = ? ORDER BY m.id", (slip_id,)
     ).fetchall()
+    if slip["kind"] == "chuyen":
+        items = [i for i in items if i["place_id"] == slip["place_id"]]
     slip["items"] = [_item_row(dict(i)) for i in items]
     slip["total_quantity"] = round_qty(sum(abs(float(i["delta"] or 0)) for i in slip["items"]))
     return slip
@@ -159,8 +192,9 @@ def list_slips(conn, *, kind: str | None = None, place_id=None, bean_id=None,
         where.append("s.kind = ?")
         args.append(kind)
     if place_id:
-        where.append("s.place_id = ?")
-        args.append(int(place_id))
+        # Kho khớp cả 2 đầu phiếu chuyển: trang chi tiết kho thấy hàng chuyển ĐẾN nó.
+        where.append("(s.place_id = ? OR s.dest_place_id = ?)")
+        args.extend([int(place_id), int(place_id)])
     if bean_id:
         where.append("EXISTS (SELECT 1 FROM bean_moves m WHERE m.slip_id = s.id AND m.bean_id = ?)")
         args.append(int(bean_id))
@@ -181,8 +215,14 @@ def soft_delete_slip(conn, slip_id, by: str | None = None) -> tuple[dict | None,
     if not slip:
         return None, "Không tìm thấy phiếu"
     with transaction(conn):
-        for it in slip["items"]:
-            after = round_qty(stock_of(conn, it["bean_id"], slip["place_id"]) - float(it["delta"] or 0))
+        # Soi MỌI bút toán thô (phiếu chuyển có cả dòng +q ở kho đích — items của
+        # get_slip chỉ có phía nguồn, gỡ dòng đích cũng có thể làm kho đích âm).
+        moves = conn.execute(
+            "SELECT m.bean_id, m.place_id, m.delta, b.name AS bean_name FROM bean_moves m "
+            "LEFT JOIN beans b ON b.id = m.bean_id WHERE m.slip_id = ?", (slip_id,)
+        ).fetchall()
+        for it in moves:
+            after = round_qty(stock_of(conn, it["bean_id"], it["place_id"]) - float(it["delta"] or 0))
             if after < 0:
                 return None, (f'Xoá phiếu sẽ làm "{it["bean_name"]}" âm kho — '
                               "xoá các phiếu sau nó trước")

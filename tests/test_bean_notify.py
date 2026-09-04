@@ -39,6 +39,14 @@ class BeanNotifTest(unittest.TestCase):
         self.assertIn("Đậu phộng 20,5 kg", body)   # dấu thập phân kiểu Việt
         self.assertIn("(Xưởng 2)", body)
 
+    def test_chuyen_kho_noi_ca_hai_dau(self):
+        it = _item("Đậu xanh", 30.0, delta=-30.0)
+        title, body, _ = build_bean_notif(
+            _slip("chuyen", [it], dest_place_name="Kho B"), "duy")
+        self.assertIn("Chuyển kho đậu", title)
+        self.assertIn("Kho A → Kho B", body)
+        self.assertIn("Đậu xanh 30 kg", body)
+
     def test_dieu_chinh_hien_chenh_lech_theo_don_vi_goc(self):
         it = _item("Đậu xanh", 48.0, delta=-2.0)
         title, body, _ = build_bean_notif(_slip("dieu_chinh", [it]), "duy")

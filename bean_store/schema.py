@@ -34,18 +34,20 @@ CREATE TABLE IF NOT EXISTS beans (
 """
 
 # 1 phiếu = 1 loại thao tác, 1 vị trí kho, nhiều dòng đậu (bean_moves).
+# kind='chuyen' thêm dest_place_id = KHO ĐÍCH (place_id = kho nguồn); loại khác NULL.
 _CREATE_SLIPS = """
 CREATE TABLE IF NOT EXISTS bean_slips (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    kind       TEXT NOT NULL,
-    place_id   INTEGER NOT NULL,
-    partner    TEXT DEFAULT '',
-    note       TEXT DEFAULT '',
-    ymd        TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    created_by TEXT DEFAULT '',
-    deleted_at TEXT,
-    deleted_by TEXT
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind          TEXT NOT NULL,
+    place_id      INTEGER NOT NULL,
+    dest_place_id INTEGER,
+    partner       TEXT DEFAULT '',
+    note          TEXT DEFAULT '',
+    ymd           TEXT NOT NULL,
+    created_at    TEXT NOT NULL,
+    created_by    TEXT DEFAULT '',
+    deleted_at    TEXT,
+    deleted_by    TEXT
 )
 """
 
@@ -90,6 +92,11 @@ _MOVE_ADD_COLS = (
     ("unit_factor", "REAL DEFAULT 1"),
 )
 
+# Cột thêm sau trên bean_slips (2026-09-04, phiếu chuyển kho).
+_SLIP_ADD_COLS = (
+    ("dest_place_id", "INTEGER"),
+)
+
 _IDX = (
     "CREATE INDEX IF NOT EXISTS idx_bean_moves_slip ON bean_moves(slip_id)",
     "CREATE INDEX IF NOT EXISTS idx_bean_moves_bean ON bean_moves(bean_id, place_id)",
@@ -103,6 +110,10 @@ def _add_missing_columns(conn) -> None:
     for col, decl in _MOVE_ADD_COLS:
         if col not in have:
             conn.execute(f"ALTER TABLE bean_moves ADD COLUMN {col} {decl}")
+    have = {r["name"] for r in conn.execute("PRAGMA table_info(bean_slips)").fetchall()}
+    for col, decl in _SLIP_ADD_COLS:
+        if col not in have:
+            conn.execute(f"ALTER TABLE bean_slips ADD COLUMN {col} {decl}")
 
 
 def ensure_tables(conn) -> None:

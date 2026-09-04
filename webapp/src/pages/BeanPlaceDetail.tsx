@@ -107,6 +107,7 @@ export function BeanPlaceDetail({ id }: { id: string }) {
         <a class="btn primary" href="#/kho-dau/tao?kind=nhap"><Icon name="plus" size={16} /> Nhập</a>
         <a class="btn" href="#/kho-dau/tao?kind=xuat"><Icon name="truck" size={16} /> Xuất</a>
         <a class="btn" href="#/kho-dau/tao?kind=dieu_chinh"><Icon name="edit" size={16} /> Điều chỉnh</a>
+        <a class="btn" href="#/kho-dau/tao?kind=chuyen"><Icon name="refresh" size={16} /> Chuyển</a>
       </div>
 
       <div class="ie-head">Tồn trong kho</div>

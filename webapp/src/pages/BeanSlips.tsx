@@ -49,7 +49,7 @@ export function BeanSlips() {
 
       <div class="chips">
         <button class={"chip" + (kind === "" ? " active" : "")} onClick={() => setKind("")}>Tất cả</button>
-        {(["nhap", "xuat", "dieu_chinh"] as BeanSlipKind[]).map((k) => (
+        {(["nhap", "xuat", "dieu_chinh", "chuyen"] as BeanSlipKind[]).map((k) => (
           <button class={"chip" + (kind === k ? " active" : "")} key={k} onClick={() => setKind(k)}>
             {BEAN_KIND_LABEL[k]}
           </button>
