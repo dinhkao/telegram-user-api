@@ -7,7 +7,8 @@
 // làm xuyên trưa/về muộn đều hiện đúng chỗ. Chấm LẺ cuối ngày (thiếu vào/ra) = vạch
 // cam. Tăng ca đếm = có mặt NGOÀI 2 khung ca (trước 7h, 11–13, sau 17h; bỏ đoạn <10
 // phút khỏi nhiễu) — tổng tháng hiện cạnh tên. Kéo NGANG xem hết tháng, CN nền hồng,
-// hôm nay viền; bấm 1 ống → toast giờ chấm chi tiết. Banner: cập nhật gần nhất
+// hôm nay viền; bấm 1 ống → toast giờ chấm chi tiết. Ô LỌC THEO NHÂN VIÊN (foldVN,
+// không dấu) áp cho CẢ 2 view + thẻ "Nghi chấm thiếu". Banner: cập nhật gần nhất
 // (last_sync) + lần kế ≈ +30ph. Khu "Mã chưa gán": chọn thợ ngay tại chỗ.
 // API: getAttendanceSummary/mapAttendanceCode. Gán ID cũng ở chi tiết thợ (#/sx-tho).
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -16,9 +17,10 @@ import {
   isOffice, listWorkers, mapAttendanceCode, renderAttendanceTodayImage, suppressAttendance,
   type AttendanceDay, type AttendanceDayDetail, type AttendanceUnmapped, type Worker,
 } from "../api";
-import { dayLabel, pad2 as pad, curYM, shiftYM, ymLabel, isoDate } from "../format";
+import { dayLabel, pad2 as pad, curYM, shiftYM, ymLabel, isoDate, foldVN } from "../format";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
+import { SearchBar } from "../ui/SearchBar";
 import { SelectPopup } from "../ui/SelectPopup";
 import { usePopupBack } from "../ui/usePopupBack";
 import { useScrollLock } from "../useScrollLock";
@@ -194,6 +196,7 @@ function ListShift({ icon, times }: { icon: string; times: string[] }) {
 export function AttendanceBoard() {
   const office = isOffice();   // staff: chỉ XEM — ẩn gán mã + nút sửa giờ (server cũng chặn)
   const [ym, setYm] = useState(curYM());
+  const [q, setQ] = useState("");   // lọc theo NV — tìm không dấu (foldVN), áp cả 2 view + thẻ nghi chấm thiếu
   const [view, setViewRaw] = useState<"grid" | "list">(
     (localStorage.getItem("att_view") as "grid" | "list") || "grid");
   const setView = (v: "grid" | "list") => { setViewRaw(v); try { localStorage.setItem("att_view", v); } catch {} };
@@ -254,8 +257,13 @@ export function AttendanceBoard() {
     if (!p.codeByDay.has(d)) p.codeByDay.set(d, r.employee_code);   // popup sửa đúng mã của ngày đó
     if (r.edited) p.edDays.add(d);
   }
-  const rows = [...people.values()]
+  // Lọc theo NV: khớp không dấu trên nhãn dòng (tên thợ hoặc "Mã XXX" chưa gán).
+  // Lọc TRƯỚC khi quét nghi-chấm-thiếu để thẻ cảnh báo cũng chỉ còn người đang lọc.
+  const qf = foldVN(q.trim());
+  const nameMatch = (label: string) => !qf || foldVN(label).includes(qf);
+  const allRows = [...people.values()]
     .sort((a, b) => (a.mapped !== b.mapped ? (a.mapped ? -1 : 1) : a.label.localeCompare(b.label, "vi")));
+  const rows = allRows.filter((p) => nameMatch(p.label));
   const dayNums = Array.from({ length: nDays }, (_, i) => i + 1);
   const isSun = (d: number) => new Date(Y, M - 1, d).getDay() === 0;
 
@@ -335,6 +343,13 @@ export function AttendanceBoard() {
         </button>
       </div>
 
+      <div class="att-filter">
+        <SearchBar value={q} onInput={setQ} placeholder="Lọc theo nhân viên…" />
+        {qf && rows.length > 0 && (
+          <div class="muted small att-filter-n">Đang hiện {rows.length}/{allRows.length} nhân viên</div>
+        )}
+      </div>
+
       {office && unmapped.length > 0 && (
         <section class="card">
           <label class="card-label t-warn"><Icon name="users" size={16} /> Mã máy chưa gán thợ ({unmapped.length})</label>
@@ -369,12 +384,16 @@ export function AttendanceBoard() {
       ) : err ? (
         <ErrorState msg={err} onRetry={load} />
       ) : !rows.length ? (
-        <EmptyState icon="🕐">Chưa có chấm công tháng này.</EmptyState>
+        allRows.length
+          ? <EmptyState icon="🔎">Không có nhân viên khớp "{q.trim()}".</EmptyState>
+          : <EmptyState icon="🕐">Chưa có chấm công tháng này.</EmptyState>
       ) : view === "list" ? (
         (() => {
-          // View DÒNG: gộp theo ngày (server đã sort DESC), mỗi người 1 dòng đủ mọi giờ chấm
+          // View DÒNG: gộp theo ngày (server đã sort DESC), mỗi người 1 dòng đủ mọi giờ chấm.
+          // Đang lọc NV: bỏ dòng không khớp NGAY tại đây → ngày không còn ai tự biến mất.
           const groups: { day: string; rows: AttendanceDay[] }[] = [];
           for (const r of days || []) {
+            if (!nameMatch(r.worker_name || `Mã ${r.employee_code}`)) continue;
             let g = groups.find((x) => x.day === r.day);
             if (!g) { g = { day: r.day, rows: [] }; groups.push(g); }
             g.rows.push(r);
