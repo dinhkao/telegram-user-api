@@ -20,6 +20,17 @@ export function allowCalcOf(e: SalaryAllowance): { kind: "pct" | "day"; value: n
     ? { kind: e.calc_kind, value: e.calc_value || 0 } : null;
 }
 
+/** Số tiền khi CHÉP khoản sang tháng đang xem: khoản theo công thức tính lại theo
+ *  base/cong của THÁNG NÀY (gương của salary_store/allowance_calc.allowance_amount —
+ *  server cũng tự tính lại lúc ghi, số này chỉ để toast/confirm nói đúng), khoản cố
+ *  định giữ nguyên. ĐỪNG truyền e.amount thô — đó là số của THÁNG CŨ. */
+export function copyAmount(e: SalaryAllowance, base: number, cong: number): number {
+  const c = allowCalcOf(e);
+  if (!c) return e.amount;
+  return c.kind === "pct" ? Math.round(Math.max(0, base) * c.value / 100)
+    : Math.round(c.value * Math.max(0, cong));
+}
+
 export function PrevAllowances({ ym, wid, onCopy }: {
   ym: string; wid: number;
   // chỗ gọi tự ghi khoản vào tháng ym (dùng lại addAllow sẵn có: apply + refresh + toast)
@@ -47,7 +58,8 @@ export function PrevAllowances({ ym, wid, onCopy }: {
     if (busy) return;
     const what = [e.note, e.calc_label || `${money(e.amount)}đ`].filter(Boolean).join(" — ");
     const ok = await confirmDialog(
-      `Chép khoản "${what}" của ${ymLabel(gym).toLowerCase()} sang ${ymLabel(ym).toLowerCase()}?`,
+      `Chép khoản "${what}" của ${ymLabel(gym).toLowerCase()} sang ${ymLabel(ym).toLowerCase()}?`
+      + (e.calc_label ? `\nSố tiền sẽ TÍNH LẠI theo lương ${ymLabel(ym).toLowerCase()}, không lấy số cũ.` : ""),
       { okLabel: "Chép" });
     if (!ok) return;
     setBusy(true);

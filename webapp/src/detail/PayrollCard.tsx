@@ -10,7 +10,7 @@ import {
 } from "../api";
 import { moneyR as money } from "../format";
 import { EntryPanel, PC_GOI_Y, UNG_GOI_Y } from "./EntryPanel";
-import { PrevAllowances, allowCalcOf } from "./PrevAllowances";
+import { PrevAllowances, allowCalcOf, copyAmount } from "./PrevAllowances";
 import { pctBaseOf } from "./PayrollCellPopup";
 import { isTimeWage, otInCong, wageLabel } from "./wageType";
 import { toast, promptDialog } from "../ui/feedback";
@@ -172,7 +172,8 @@ export function PayrollCard({ r, ym, active, toggleType, toggleWeekly, editMoc, 
         onAdd={(a, note, _d, calc, pn) => addAllow(a, note, calc, pn)} onDel={voidAllow}
         onNote={noteAllow} onPrintNote={printAllow}
         prev={<PrevAllowances ym={ym} wid={wid}
-          onCopy={(e) => addAllow(e.amount, e.note, allowCalcOf(e), e.print_note)} />} />}
+          onCopy={(e) => addAllow(copyAmount(e, pctBaseOf(r).value, r.cong || 0),
+            e.note, allowCalcOf(e), e.print_note)} />} />}
       <div class="pr-adv-toggle">
         <span>Chi tiết ứng lương {r.adv_count ? <span class="muted small">· {r.adv_count} lần nhập tay</span> : null}</span>
         <button class="pr-toggle-btn" onClick={onToggleUng} aria-label={openUng ? "Đóng chi tiết ứng lương" : "Mở chi tiết ứng lương"}>{openUng ? "▾" : "▸"}</button>

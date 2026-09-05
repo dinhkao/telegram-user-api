@@ -371,9 +371,18 @@ async def payroll_allowance_add_handler(request: web.Request):
     by = request.get("web_user") or ""
 
     def _run():
+        from salary_store.allowance_calc import allowance_amount, normalize
         conn = get_connection(SHARED_DB_PATH)
         try:
-            salary_store.add_allowance(conn, worker_id, ym, amount, note=str(body.get("note") or ""),
+            # Khoản có CÔNG THỨC: snapshot amount TỰ TÍNH theo lương gốc/ngày công của
+            # THÁNG ĐÍCH, bỏ qua số client gửi — đường "chép từ tháng trước" gửi số của
+            # tháng cũ, lưu nguyên là toast + list không-base hiện sai số (2026-09-05).
+            amt = amount
+            k, v = normalize(kind, body.get("calc_value"))
+            if k:
+                base, cong = _pc_base(conn, ym, worker_id)
+                amt = allowance_amount(k, v, amount, base=base, cong=cong)
+            salary_store.add_allowance(conn, worker_id, ym, amt, note=str(body.get("note") or ""),
                                        by=by, calc_kind=kind, calc_value=body.get("calc_value"),
                                        print_note=str(body.get("print_note") or ""))
             return salary_store.compute_month_payroll(conn, ym)

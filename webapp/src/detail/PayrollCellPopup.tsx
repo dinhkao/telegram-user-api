@@ -32,7 +32,7 @@ export type PayrollCol = "moc" | "cong" | "tc" | "luong_cong" | "luong_tc" | "lu
 
 import { Comments } from "./Comments";
 import { EntryPanel, PC_GOI_Y, UNG_GOI_Y } from "./EntryPanel";
-import { PrevAllowances, allowCalcOf } from "./PrevAllowances";
+import { PrevAllowances, allowCalcOf, copyAmount } from "./PrevAllowances";
 import { CongOverride, TruAn } from "./PayrollQuickEdit";
 import { isTimeWage, otInCong, wageLabel } from "./wageType";
 import { moneyR as money, ymLabel } from "../format";
@@ -371,7 +371,8 @@ export function PayrollCellPopup({ ym, r, col, onClose, onCol, apply, editMoc, e
               onAdd={(a, note, _d, calc, pn) => addAllow(a, note, calc, pn)} onDel={voidAllow}
               onNote={noteAllow} onPrintNote={printAllow}
               prev={<PrevAllowances ym={ym} wid={wid}
-                onCopy={(e) => addAllow(e.amount, e.note, allowCalcOf(e), e.print_note)} />} />
+                onCopy={(e) => addAllow(copyAmount(e, pctBaseOf(r).value, r.cong || 0),
+                  e.note, allowCalcOf(e), e.print_note)} />} />
             <a class="btn block" href={`#/nhap-phu-cap?ym=${encodeURIComponent(ym)}&worker_id=${wid}`}>📋 Trang nhập phụ cấp</a>
             <Comments base={`/api/media/worker_pc/${wid}`} allowPin={false} />
             <p class="muted small">Trao đổi về phụ cấp của {r.name} — dùng chung cho mọi tháng.</p>

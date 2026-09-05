@@ -19,7 +19,7 @@ import { PageHead } from "../ui/PageHead";
 import { SelectPopup } from "../ui/SelectPopup";
 import { MoneyEntryForm } from "../ui/MoneyEntryForm";
 import { PC_GOI_Y, type PctInfo } from "../detail/EntryPanel";
-import { PrevAllowances, allowCalcOf } from "../detail/PrevAllowances";
+import { PrevAllowances, allowCalcOf, copyAmount } from "../detail/PrevAllowances";
 import { pctBaseOf } from "../detail/PayrollCellPopup";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { toast, promptDialog } from "../ui/feedback";
@@ -87,9 +87,13 @@ export function AllowanceEntry() {
   // khoản theo công thức chép cả công thức, số tự tính lại theo lương tháng này)
   const copyPrev = async (item: SalaryAllowance) => {
     if (!wid) return;
+    // khoản theo công thức: số tiền TÍNH LẠI theo lương tháng đang xem (server cũng
+    // tự tính lại lúc ghi) — đừng gửi/toast item.amount thô, đó là số của tháng cũ
+    const row = payroll.find((p) => p.worker_id === wid);
+    const a = copyAmount(item, row ? pctBaseOf(row).value : 0, row?.cong || 0);
     try {
-      await addPayrollAllowance(ym, wid, item.amount, item.note, allowCalcOf(item), item.print_note);
-      toast(`Đã chép phụ cấp ${money(item.amount)} cho ${nameOf(wid)}`, "ok");
+      await addPayrollAllowance(ym, wid, a, item.note, allowCalcOf(item), item.print_note);
+      toast(`Đã chép phụ cấp ${money(a)} cho ${nameOf(wid)}`, "ok");
       load();
     } catch (e: any) { toast(e?.message || "Lỗi chép phụ cấp", "err"); }
   };
