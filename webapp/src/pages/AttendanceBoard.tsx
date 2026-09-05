@@ -389,13 +389,16 @@ export function AttendanceBoard() {
                 const ts = r.times || [];
                 const who = r.worker_name || `Mã ${r.employee_code}`;
                 const open = () => setEditor({ code: r.employee_code, who, day: g.day });
-                const dayOdd = ts.length % 2 === 1;   // tổng lần chấm LẺ = nghi thiếu 1 lần vào/ra
+                // Đủ 3 dấu hiệu của detectIssues (lẻ / cặp <30ph / xuyên trưa) — CÙNG
+                // heuristic với thẻ "Nghi chấm thiếu" trên đầu trang, đừng chỉ đếm lẻ.
+                const issues = detectIssues(ts);
                 // 🌙 chỉ tính khi chấm sau 17:00 + OT_GRACE (17:15) — GIỐNG ống tăng ca ở lưới;
                 // chấm ra đúng/quanh 17:00 vẫn là ca chiều, không tách thành tăng ca.
                 const OT_FROM = 17 * 60 + OT_GRACE;
                 const hasOt = ts.some((t) => mins(t) >= OT_FROM);
                 return (
-                  <div class="att-lrow" key={g.day + r.employee_code} title={office ? "Bấm để xem / sửa giờ chấm" : "Bấm để xem giờ chấm"}
+                  <div class={"att-lrow" + (issues.length ? " suspect" : "")} key={g.day + r.employee_code}
+                    title={office ? "Bấm để xem / sửa giờ chấm" : "Bấm để xem giờ chấm"}
                     role="button" tabIndex={0} onKeyDown={keyActivate(open)}
                     aria-label={`${who} — ${ts.length ? `${ts.length} lần chấm, bấm để ${office ? "sửa" : "xem"}` : "chưa chấm"}`}
                     onClick={open}>
@@ -408,7 +411,11 @@ export function AttendanceBoard() {
                       <ListShift icon="⛅" times={ts.filter((t) => mins(t) >= 12 * 60 && mins(t) < OT_FROM)} />
                       {hasOt && <ListShift icon="🌙" times={ts.filter((t) => mins(t) >= OT_FROM)} />}
                     </span>
-                    {dayOdd && <span class="att-warn-mark" title="Tổng lần chấm trong ngày LẺ — nghi thiếu 1 lần vào/ra">⚠</span>}
+                    {issues.length > 0 && <span class="att-warn-mark" title={issues.join("\n")}>⚠</span>}
+                    {/* lý do ghi THẲNG vào dòng — mobile không hover tooltip được */}
+                    {issues.length > 0 && (
+                      <div class="att-lrow-issues">{issues.map((t, j) => <div key={j}>• {t}</div>)}</div>
+                    )}
                   </div>
                 );
               })}

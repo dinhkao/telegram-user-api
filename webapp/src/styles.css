@@ -3933,6 +3933,10 @@ body.has-nop .att-ghead { top: 72px; }   /* banner nộp tiền hiện → tụt
 .att-shift-none { min-width: 34px; text-align: center; }
 .att-arrow { opacity: .45; margin: 0 2px; font-size: .8rem; }
 .att-warn-mark { font-size: .8rem; }
+/* Dòng NGHI CHẤM SAI ở view Dòng — tô nền vàng + kẻ cam trái, lý do ghi thẳng dưới dòng */
+.att-lrow.suspect { background: var(--warn-wash); box-shadow: inset 3px 0 0 var(--warn);
+  padding-left: 8px; padding-right: 6px; border-radius: 4px; }
+.att-lrow-issues { flex-basis: 100%; font-size: .74rem; color: var(--warn); line-height: 1.45; }
 
 /* chấm công: popup sửa giờ + đánh dấu ô đã sửa tay */
 .att-g-cell { position: relative; cursor: pointer; }
