@@ -187,7 +187,10 @@ async def vnpt_invoice_save_handler(request: web.Request):
     conn = _get_connection()
     if not get_order_by_thread_id(conn, tid):
         return _err("Không tìm thấy đơn", 404)
-    totals = compute_totals(lines, vat_rate)
+    try:
+        totals = compute_totals(lines, vat_rate)
+    except ValueError as e:
+        return _err(str(e))
     fkey = f"LTP{tid}-{int(time.time() * 1000)}"
     xml = build_invoice_xml(fkey=fkey, buyer=buyer, lines=lines, vat_rate=vat_rate)
     actor = str(request.get("web_user") or body.get("user_id") or "?")
@@ -219,6 +222,7 @@ async def vnpt_invoice_save_handler(request: web.Request):
                 "pattern": vnpt_core.VNPT_INV_PATTERN,
                 "serial": vnpt_core.VNPT_INV_SERIAL,
                 "buyer": buyer, "lines": totals["lines"], "vat_rate": vat_rate,
+                "goods": totals["goods"], "discount": totals["discount"],
                 "total": totals["total"], "vat_amount": totals["vat_amount"],
                 "amount": totals["amount"],
                 "synced": True,

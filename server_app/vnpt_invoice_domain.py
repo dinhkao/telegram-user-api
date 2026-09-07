@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 
 from integrations.vnpt_invoice import VAT_RATES
+from integrations.vnpt_invoice.xml_build import KIND_DISCOUNT
 
 # MST Việt Nam: 10 số (số thứ 10 = số KIỂM TRA), hoặc 10 số + "-" + 3 số (đơn vị
 # phụ thuộc). VNPT ÂM THẦM BỎ TRỐNG MST sai checksum trên hoá đơn (thực nghiệm
@@ -82,6 +83,18 @@ def normalize_body(body: dict) -> tuple[dict, list[dict], int]:
         name = str(ln.get("name") or "").strip()
         if not name:
             raise ValueError(f"dòng {i} thiếu tên hàng")
+        # Dòng CHIẾT KHẤU: chỉ có tên + số tiền (lưu ở price, qty = 1) — số DƯƠNG,
+        # trừ vào tiền hàng ở compute_totals; không gắn sp_id/đơn vị.
+        if str(ln.get("kind") or "") == KIND_DISCOUNT:
+            try:
+                amount = int(ln.get("price") if ln.get("price") is not None else ln.get("amount"))
+            except (TypeError, ValueError):
+                raise ValueError(f"dòng {i}: số tiền chiết khấu không hợp lệ")
+            if amount <= 0:
+                raise ValueError(f"dòng {i}: số tiền chiết khấu phải > 0")
+            lines.append({"name": name, "unit": "", "qty": 1.0, "price": amount,
+                          "kind": KIND_DISCOUNT})
+            continue
         try:
             qty = float(ln.get("qty"))
             price = int(ln.get("price"))
@@ -106,6 +119,12 @@ def normalize_body(body: dict) -> tuple[dict, list[dict], int]:
         raise ValueError("thiếu thuế suất")
     if vat_rate not in VAT_RATES:
         raise ValueError(f"thuế suất không hợp lệ: {vat_rate}")
+    if all(ln.get("kind") == KIND_DISCOUNT for ln in lines):
+        raise ValueError("hoá đơn phải có ít nhất 1 dòng hàng (không chỉ chiết khấu)")
+    goods = sum(int(round(ln["qty"] * ln["price"])) for ln in lines if ln.get("kind") != KIND_DISCOUNT)
+    disc = sum(ln["price"] for ln in lines if ln.get("kind") == KIND_DISCOUNT)
+    if disc > goods:
+        raise ValueError("chiết khấu vượt quá tiền hàng")
     return buyer, lines, vat_rate
 
 
@@ -143,15 +162,19 @@ def build_prefill(order: dict, customer: dict | None,
         if spid:
             ln["sp_id"] = int(spid)
         lines.append(ln)
-    # Dòng "thêm tay" của lần trước (không khớp SP nào của đơn) — điền lại luôn
+    # Dòng "thêm tay" của lần trước (không khớp SP nào của đơn) — điền lại luôn;
+    # dòng CHIẾT KHẤU cũng nằm đây (kind giữ nguyên → khách có CK cố định khỏi gõ lại)
     for ex in profile.get("extra_lines") or []:
         try:
-            lines.append({
+            ln = {
                 "name": str(ex.get("name") or "").strip(),
                 "unit": str(ex.get("unit") or "").strip(),
                 "qty": float(ex.get("qty") or 1),
                 "price": int(ex.get("price") or 0),
-            })
+            }
+            if ex.get("kind") == KIND_DISCOUNT:
+                ln["kind"] = KIND_DISCOUNT
+            lines.append(ln)
         except (TypeError, ValueError):
             continue
     return {
@@ -171,7 +194,9 @@ def updated_profile(old_profile: dict | None, buyer: dict, lines: list[dict],
     for ln in lines:
         tpl = {"name": ln["name"], "unit": ln.get("unit") or "",
                "price": int(ln.get("price") or 0)}
-        if ln.get("sp_id"):
+        if ln.get("kind") == KIND_DISCOUNT:
+            extra.append({**tpl, "qty": 1.0, "kind": KIND_DISCOUNT})
+        elif ln.get("sp_id"):
             products[str(int(ln["sp_id"]))] = tpl
         else:
             extra.append({**tpl, "qty": float(ln.get("qty") or 1)})

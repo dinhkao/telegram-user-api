@@ -134,3 +134,43 @@ def test_updated_profile_merges_products_replaces_extras():
     assert prof["extra_lines"] == [{"name": "Phí giao", "unit": "lần",
                                     "price": 30000, "qty": 1.0}]
     assert prof["vat_rate"] == 10 and prof["buyer"] == buyer
+
+
+def test_normalize_body_discount_line():
+    body = _body(lines=[
+        {"name": "Kẹo X", "unit": "bịch", "qty": 2, "price": 100000, "sp_id": 7},
+        # dòng CK: client gửi price (hoặc amount) = số tiền, qty/unit bỏ qua
+        {"name": "Chiết khấu", "kind": "chiet_khau", "price": 50000, "qty": 9, "unit": "xx", "sp_id": 7},
+    ])
+    _, lines, _ = normalize_body(body)
+    ck = lines[1]
+    assert ck == {"name": "Chiết khấu", "unit": "", "qty": 1.0, "price": 50000, "kind": "chiet_khau"}
+    # nhận cả key amount
+    body["lines"][1] = {"name": "CK", "kind": "chiet_khau", "amount": 1000}
+    assert normalize_body(body)[1][1]["price"] == 1000
+
+
+def test_normalize_body_discount_rejects():
+    with pytest.raises(ValueError):          # CK ≤ 0
+        normalize_body(_body(lines=[{"name": "A", "qty": 1, "price": 100},
+                                    {"name": "CK", "kind": "chiet_khau", "price": 0}]))
+    with pytest.raises(ValueError):          # chỉ toàn CK
+        normalize_body(_body(lines=[{"name": "CK", "kind": "chiet_khau", "price": 5}]))
+    with pytest.raises(ValueError):          # CK vượt tiền hàng
+        normalize_body(_body(lines=[{"name": "A", "qty": 1, "price": 100},
+                                    {"name": "CK", "kind": "chiet_khau", "price": 101}]))
+
+
+def test_profile_keeps_discount_line_as_extra():
+    lines = [
+        {"name": "Kẹo", "unit": "bịch", "qty": 2.0, "price": 1000, "sp_id": 7},
+        {"name": "CK khách quen", "unit": "", "qty": 1.0, "price": 500, "kind": "chiet_khau"},
+    ]
+    prof = updated_profile(None, {"cus_name": "C"}, lines, 8)
+    assert prof["products"] == {"7": {"name": "Kẹo", "unit": "bịch", "price": 1000}}
+    assert prof["extra_lines"] == [{"name": "CK khách quen", "unit": "", "price": 500,
+                                    "qty": 1.0, "kind": "chiet_khau"}]
+    # lần sau prefill: dòng CK điền lại kèm kind
+    pre = build_prefill({"invoice": [{"sp_id": 7, "sp": "K", "sl": 3, "price": 900}]},
+                        {"vnpt_profile": prof}, {})
+    assert pre["lines"][-1]["kind"] == "chiet_khau" and pre["lines"][-1]["price"] == 500

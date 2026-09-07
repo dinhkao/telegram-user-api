@@ -2,6 +2,14 @@
 
 Thuần, không IO — unit-tested. Giá nhập là giá CHƯA gồm VAT (Duy chốt
 2026-08-26); 1 mức thuế suất chung cho cả hoá đơn (-1 = không chịu thuế).
+
+DÒNG CHIẾT KHẤU (2026-09-07, thực nghiệm trên VNPT): line `kind="chiet_khau"`
+→ `<Product><IsSum>3</IsSum>` (= TChat 3 "chiết khấu thương mại" TT78),
+KHÔNG gửi ProdQuantity/ProdPrice (cột SL/đơn giá trên bản in để trống), Total/
+Amount là số DƯƠNG; tiền hàng `<Total>` cấp hoá đơn = hàng − chiết khấu (VNPT
+KHÔNG tự trừ — in y nguyên số mình gửi) + `<DiscountAmount>` = Σ chiết khấu.
+Thẻ `<Feature>` bị XSD từ chối; `DiscountAmount` một mình thì bản in không
+hiện dòng nào (người đọc không biết vì sao tổng giảm) — nên mới dùng IsSum=3.
 """
 from __future__ import annotations
 
@@ -19,17 +27,35 @@ def _fmt_qty(q: float) -> str:
     return str(int(f)) if f == int(f) else f"{f:g}"
 
 
+KIND_DISCOUNT = "chiet_khau"
+
+
+def is_discount(ln: dict) -> bool:
+    return str(ln.get("kind") or "") == KIND_DISCOUNT
+
+
 def compute_totals(lines: list[dict], vat_rate: int) -> dict:
-    """lines = [{name, unit, qty, price}] → {lines[+amount], total, vat_amount, amount}."""
+    """lines = [{name, unit, qty, price, kind?}] → {lines[+amount], goods, discount,
+    total, vat_amount, amount}. Dòng chiết khấu: amount = qty × price (số DƯƠNG),
+    TRỪ vào total; thuế tính trên total đã trừ."""
     out_lines = []
-    total = 0
+    goods = 0
+    discount = 0
     for ln in lines:
         amount = int(round(float(ln["qty"]) * float(ln["price"])))
-        total += amount
+        if is_discount(ln):
+            discount += amount
+        else:
+            goods += amount
         out_lines.append({**ln, "amount": amount})
+    total = goods - discount
+    if total < 0:
+        raise ValueError("chiết khấu vượt quá tiền hàng")
     vat_amount = 0 if vat_rate < 0 else int(round(total * vat_rate / 100))
     return {
         "lines": out_lines,
+        "goods": goods,
+        "discount": discount,
         "total": total,
         "vat_amount": vat_amount,
         "amount": total + vat_amount,
@@ -62,6 +88,15 @@ def build_invoice_xml(
         name = str(ln.get("name") or "").strip()
         if not name:
             raise ValueError("dòng hàng thiếu tên")
+        if is_discount(ln):
+            # IsSum=3 = chiết khấu thương mại; bỏ SL/đơn giá → 2 cột đó trống trên bản in
+            prods.append(
+                "<Product><IsSum>3</IsSum><Code></Code>"
+                f"<ProdName>{escape(name)}</ProdName><ProdUnit></ProdUnit>"
+                f"<Total>{ln['amount']}</Total><Amount>{ln['amount']}</Amount>"
+                "</Product>"
+            )
+            continue
         prods.append(
             "<Product>"
             f"<Code>{escape(str(ln.get('code') or ''))}</Code>"
@@ -75,6 +110,8 @@ def build_invoice_xml(
             f"<Amount>{ln['amount']}</Amount>"
             "</Product>"
         )
+    if not any(not is_discount(ln) for ln in lines):
+        raise ValueError("hoá đơn phải có ít nhất 1 dòng hàng (không chỉ chiết khấu)")
     invoice = (
         "<Invoice>"
         # <CusCode> BẮT BUỘC có mặt theo XSD (thiếu = ERR:3 "incomplete content")
@@ -90,7 +127,7 @@ def build_invoice_xml(
         f"<PaymentMethod>{e('payment_method') or 'TM/CK'}</PaymentMethod>"
         f"<Products>{''.join(prods)}</Products>"
         f"<Total>{t['total']}</Total>"
-        "<DiscountAmount>0</DiscountAmount>"
+        f"<DiscountAmount>{t['discount']}</DiscountAmount>"
         f"<VATRate>{vat_rate}</VATRate>"
         f"<VATAmount>{t['vat_amount']}</VATAmount>"
         f"<Amount>{t['amount']}</Amount>"

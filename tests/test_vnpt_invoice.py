@@ -142,3 +142,61 @@ def test_parse_links_and_published_xml():
         "<MCCQT>M1-26-ABCDE-00000000123</MCCQT></TTChung></DLHDon></HDon>")
     assert no == 299 and mtc == "M1-26-ABCDE-00000000123"
     assert parse_published_xml("<HDon></HDon>") == (0, "")
+
+
+def test_compute_totals_discount_line():
+    # dòng chiết khấu: số DƯƠNG, trừ vào tiền hàng; thuế tính trên số đã trừ
+    t = compute_totals(
+        [
+            {"name": "A", "unit": "bịch", "qty": 10, "price": 100000},
+            {"name": "Chiết khấu", "unit": "", "qty": 1, "price": 100000, "kind": "chiet_khau"},
+        ],
+        8,
+    )
+    assert t["goods"] == 1_000_000 and t["discount"] == 100_000
+    assert t["total"] == 900_000
+    assert t["vat_amount"] == 72_000 and t["amount"] == 972_000
+    assert t["lines"][1]["amount"] == 100_000       # KHÔNG âm trong dữ liệu
+
+
+def test_compute_totals_discount_over_goods_rejected():
+    import pytest
+    with pytest.raises(ValueError):
+        compute_totals(
+            [{"name": "A", "unit": "", "qty": 1, "price": 100},
+             {"name": "CK", "unit": "", "qty": 1, "price": 101, "kind": "chiet_khau"}], 8)
+
+
+def test_build_invoice_xml_discount_line():
+    """Dạng đã THỰC NGHIỆM trên VNPT 2026-09-07: IsSum=3, không SL/đơn giá,
+    Total dương; <Total> hoá đơn = hàng − CK; <DiscountAmount> = Σ CK."""
+    xml = build_invoice_xml(
+        fkey="LTP-TEST-CK",
+        buyer={"cus_name": "Cty", "tax_code": "0123456789", "address": "x"},
+        lines=[
+            {"name": "Kẹo", "unit": "bịch", "qty": 10, "price": 100000},
+            {"name": "Chiết khấu thương mại", "unit": "", "qty": 1, "price": 100000, "kind": "chiet_khau"},
+        ],
+        vat_rate=8,
+    )
+    inv = etree.fromstring(xml.encode("utf-8")).find(".//Invoice")
+    prods = inv.findall(".//Product")
+    assert len(prods) == 2
+    assert prods[0].find("IsSum") is None
+    ck = prods[1]
+    assert ck.findtext("IsSum") == "3"
+    assert ck.find("ProdQuantity") is None and ck.find("ProdPrice") is None
+    assert ck.findtext("Total") == ck.findtext("Amount") == "100000"
+    assert inv.findtext("Total") == "900000"
+    assert inv.findtext("DiscountAmount") == "100000"
+    assert inv.findtext("VATAmount") == "72000"
+    assert inv.findtext("Amount") == "972000"
+
+
+def test_build_invoice_xml_only_discount_rejected():
+    import pytest
+    with pytest.raises(ValueError):
+        build_invoice_xml(
+            fkey="k", buyer={"cus_name": "C"},
+            lines=[{"name": "CK", "unit": "", "qty": 1, "price": 1, "kind": "chiet_khau"}],
+            vat_rate=8)

@@ -754,7 +754,13 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
                 <tr><th>Tên hàng (ĐVT)</th><th class="num">SL</th><th class="num">Giá</th><th class="num">Tiền</th></tr>
               </thead>
               <tbody>
-                {(j.vnpt_invoice.lines || []).map((ln: any, i: number) => (
+                {(j.vnpt_invoice.lines || []).map((ln: any, i: number) => ln.kind === "chiet_khau" ? (
+                  /* dòng CHIẾT KHẤU: chỉ tên + tiền (âm) — server lưu số dương, trừ vào total */
+                  <tr key={i}>
+                    <td colSpan={3}><span class="muted">CK</span> {ln.name}</td>
+                    <td class="num t-danger">−{money(ln.amount ?? ln.price)}</td>
+                  </tr>
+                ) : (
                   <tr key={i}>
                     <td>{ln.name}{ln.unit ? <span class="muted"> ({ln.unit})</span> : null}</td>
                     <td class="num">{fmtQty(Number(ln.qty) || 0)}</td>

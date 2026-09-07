@@ -3,6 +3,8 @@
 // gồm VAT. Mở lần đầu tự điền từ CACHE THEO KHÁCH (vnpt_profile — server trộn
 // với dòng hàng của đơn); Lưu = đẩy nháp lên VNPT (chưa phát hành) + cập nhật
 // cache khách. Server: server_app/vnpt_invoice_routes.py.
+// Dòng CHIẾT KHẤU (kind "chiet_khau"): chỉ tên + số tiền, TRỪ vào tiền hàng
+// trước thuế — lên VNPT thành dòng IsSum=3 (SL/đơn giá trống, số dương).
 import { useEffect, useState } from "preact/hooks";
 import { getJSON, getVnptInvoice, saveVnptInvoice, vnptInvoicePdfUrl, vnptInvoicePngUrl, type VnptBuyer, type VnptLine } from "../api";
 import { SingleImageViewer } from "../detail/SingleImageViewer";
@@ -62,9 +64,13 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
   const setRow = (i: number, f: string, v: any) => setRows((p) => p.map((r, idx) => (idx === i ? { ...r, [f]: v } : r)));
   const removeRow = (i: number) => setRows((p) => p.filter((_, idx) => idx !== i));
   const addRow = () => setRows((p) => [...p, { name: "", unit: "", qty: 1, price: 0 }]);
+  const addDiscountRow = () => setRows((p) => [...p, { name: "Chiết khấu thương mại", unit: "", qty: 1, price: 0, kind: "chiet_khau" }]);
   const selectAll = (e: any) => (e.currentTarget as HTMLInputElement).select();
 
-  const total = rows.reduce((s, r) => s + Math.round((r.qty || 0) * (r.price || 0)), 0);
+  const isCK = (r: Row) => r.kind === "chiet_khau";
+  const goods = rows.filter((r) => !isCK(r)).reduce((s, r) => s + Math.round((r.qty || 0) * (r.price || 0)), 0);
+  const discount = rows.filter(isCK).reduce((s, r) => s + Math.round(r.price || 0), 0);
+  const total = goods - discount;
   const vatAmount = vatRate < 0 ? 0 : Math.round((total * vatRate) / 100);
   const grand = total + vatAmount;
 
@@ -75,6 +81,7 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
     if (!(buyer.cus_name || "").trim()) { toast("Thiếu tên đơn vị (bắt buộc)", "err"); return; }
     if (!(buyer.tax_code || "").trim()) { toast("Thiếu mã số thuế (bắt buộc)", "err"); return; }
     if (!(buyer.address || "").trim()) { toast("Thiếu địa chỉ (bắt buộc)", "err"); return; }
+    if (total < 0) { toast("Chiết khấu vượt quá tiền hàng", "err"); return; }
     setBusy(true);
     try {
       const lines = rows
@@ -161,7 +168,24 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
       <section class="card">
         <div class="ie-head">Hàng hoá <span class="ie-count">{rows.length} dòng</span></div>
         <div class="inv-edit">
-          {rows.map((r, i) => (
+          {rows.map((r, i) => isCK(r) ? (
+            /* Dòng CHIẾT KHẤU: tên + số tiền, không SL/ĐVT — hiện âm để thấy ngay là trừ */
+            <div class="edit-row vnpt-ck" key={i}>
+              <div class="er-main">
+                <span class="chip active small" title="Dòng chiết khấu — trừ vào tiền hàng">CK</span>
+                <input class="note-inp" style="flex:1;min-width:0" placeholder="Nội dung chiết khấu in trên HĐ"
+                  value={r.name} onInput={(e: any) => setRow(i, "name", e.target.value)} />
+                <button class="er-del" title="Xoá dòng" onClick={() => removeRow(i)}><Icon name="close" size={15} /></button>
+              </div>
+              <div class="er-sub">
+                <span class="muted small">Số tiền chiết khấu</span>
+                <input class="er-price" inputMode="numeric" placeholder="số tiền" title="Số tiền chiết khấu (chưa thuế)"
+                  value={r.price ? money(r.price) : ""} onFocus={selectAll}
+                  onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} />
+                <span class="eq">= <b class="num t-danger">−{money(Math.round(r.price || 0))}</b></span>
+              </div>
+            </div>
+          ) : (
             <div class="edit-row" key={i}>
               <div class="er-main">
                 <input class="note-inp" style="flex:1;min-width:0" placeholder="Tên hàng in trên HĐ"
@@ -187,7 +211,12 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
             </div>
           ))}
         </div>
-        <button class="er-add" onClick={addRow}><Icon name="plus" size={15} /> Thêm dòng</button>
+        <div class="row">
+          <button class="er-add" style="flex:1;width:auto" onClick={addRow}><Icon name="plus" size={15} /> Thêm dòng</button>
+          <button class="er-add" style="flex:1;width:auto" onClick={addDiscountRow} title="Thêm dòng chiết khấu (trừ vào tiền hàng trước thuế)">
+            <Icon name="minus" size={15} /> Thêm chiết khấu
+          </button>
+        </div>
 
         <div class="ie-sum">
           <div class="sum-row"><span>Thuế GTGT</span>
@@ -197,7 +226,13 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
               ))}
             </span>
           </div>
-          <div class="sum-row"><span>Cộng tiền hàng (chưa thuế)</span><b class="num">{money(total)}</b></div>
+          {discount > 0 && (
+            <>
+              <div class="sum-row"><span>Tiền hàng</span><b class="num">{money(goods)}</b></div>
+              <div class="sum-row"><span>Chiết khấu</span><b class="num t-danger">−{money(discount)}</b></div>
+            </>
+          )}
+          <div class="sum-row"><span>Cộng tiền hàng (chưa thuế)</span><b class={"num" + (total < 0 ? " t-danger" : "")}>{money(total)}</b></div>
           <div class="sum-row"><span>Tiền thuế {vatRate < 0 ? "(KCT)" : `${vatRate}%`}</span><b class="num">{money(vatAmount)}</b></div>
           <div class="sum-total"><span>Tổng thanh toán</span><b class="num">{money(grand)}</b></div>
         </div>
