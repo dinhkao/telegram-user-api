@@ -1447,7 +1447,10 @@ runners.
   validate còn-thiếu → tạo phiếu KiotViet → ghi local phải là 1 khối (2026-07-25,
   cùng vai `_invoice_create_lock` bên nhánh hoá đơn). Ghi local fail SAU khi KV
   đã thu → trả `kv_paid: true` để client KHÔNG mời bấm thu lại. Thêm đường thanh
-  toán mới = đi qua khoá này. SL hoá đơn có thể LẺ — parse/format qua `utils/qty.py`
+  toán mới = đi qua khoá này. **Tạo HĐ KiotViet: NỢ CŨ phải lấy XONG TRƯỚC khi gửi
+  tạo HĐ** (`_process_create_invoice_core_inner`, 2026-09-07) — từng chạy song song để
+  nhanh, KV trả nợ chậm hơn lúc HĐ tạo xong là "nợ trước" in trên HĐ gộp luôn chính
+  HĐ đó (512371, 502608). Sau tạo còn kiểm tra chéo nợ mới == nợ cũ → hạ snapshot. SL hoá đơn có thể LẺ — parse/format qua `utils/qty.py`
   (parse_qty/fmt_qty/line_total/qty_for_api), cấm `int(sl)`.
 - **Order mutations are read-modify-write on a JSON blob.** Orders live as one
   `json` column; a mutation is `get_order_by_thread_id → mutate dict → _save_order`.
