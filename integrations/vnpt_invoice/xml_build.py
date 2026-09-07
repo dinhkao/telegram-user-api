@@ -3,13 +3,15 @@
 Thuần, không IO — unit-tested. Giá nhập là giá CHƯA gồm VAT (Duy chốt
 2026-08-26); 1 mức thuế suất chung cho cả hoá đơn (-1 = không chịu thuế).
 
-DÒNG CHIẾT KHẤU (2026-09-07, thực nghiệm trên VNPT): line `kind="chiet_khau"`
-→ `<Product><IsSum>3</IsSum>` (= TChat 3 "chiết khấu thương mại" TT78),
-KHÔNG gửi ProdQuantity/ProdPrice (cột SL/đơn giá trên bản in để trống), Total/
-Amount là số DƯƠNG; tiền hàng `<Total>` cấp hoá đơn = hàng − chiết khấu (VNPT
-KHÔNG tự trừ — in y nguyên số mình gửi) + `<DiscountAmount>` = Σ chiết khấu.
-Thẻ `<Feature>` bị XSD từ chối; `DiscountAmount` một mình thì bản in không
-hiện dòng nào (người đọc không biết vì sao tổng giảm) — nên mới dùng IsSum=3.
+DÒNG CHIẾT KHẤU (2026-09-07, thực nghiệm trên VNPT + Duy soi portal): line
+`kind="chiet_khau"` → `<Product><IsSum>2</IsSum>` — `IsSum` = cột "Tính chất"
+trên portal, giá trị hợp lệ 0–4 (5 → ERR:1510): **2 = chiết khấu thương mại**,
+4 = ghi chú/diễn giải (mất STT trên bản in); ⚠ KHÔNG theo mã TChat của TCT
+(ở đó 3 = chiết khấu — gửi 3 portal hiện "hàng hoá"). Dòng CK gửi SL = 1, đơn
+giá = số tiền (Duy chốt), Total/Amount số DƯƠNG; tiền hàng `<Total>` cấp hoá
+đơn = hàng − chiết khấu (VNPT KHÔNG tự trừ — in y nguyên số mình gửi) +
+`<DiscountAmount>` = Σ chiết khấu. Thẻ `<Feature>` bị XSD từ chối;
+`DiscountAmount` một mình thì bản in không hiện dòng nào.
 """
 from __future__ import annotations
 
@@ -89,10 +91,11 @@ def build_invoice_xml(
         if not name:
             raise ValueError("dòng hàng thiếu tên")
         if is_discount(ln):
-            # IsSum=3 = chiết khấu thương mại; bỏ SL/đơn giá → 2 cột đó trống trên bản in
+            # IsSum=2 = chiết khấu thương mại (portal VNPT); SL 1 × đơn giá = số tiền CK
             prods.append(
-                "<Product><IsSum>3</IsSum><Code></Code>"
+                "<Product><IsSum>2</IsSum><Code></Code>"
                 f"<ProdName>{escape(name)}</ProdName><ProdUnit></ProdUnit>"
+                f"<ProdQuantity>1</ProdQuantity><ProdPrice>{ln['amount']}</ProdPrice>"
                 f"<Total>{ln['amount']}</Total><Amount>{ln['amount']}</Amount>"
                 "</Product>"
             )

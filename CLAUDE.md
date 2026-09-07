@@ -1147,16 +1147,18 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (KCT=-1/0/5/8/10), giá nhập CHƯA gồm VAT (Duy chốt 2026-08-26). `xml_build.py`
   + `amount_words.py` (đọc số VND thành chữ) thuần, test `tests/test_vnpt_invoice.py`.
   **DÒNG CHIẾT KHẤU (2026-09-07, thực nghiệm)**: line `kind="chiet_khau"` (chỉ tên +
-  số tiền ở `price`, qty=1, số DƯƠNG) → XML `<Product><IsSum>3</IsSum>` (= TChat 3
-  "chiết khấu thương mại"), KHÔNG gửi ProdQuantity/ProdPrice (2 cột trống trên bản in),
-  `<Total>` hoá đơn = hàng − CK (VNPT KHÔNG tự trừ, in y số mình gửi; thuế tính trên số
-  đã trừ) + `<DiscountAmount>` = Σ CK. ⚠ `<Feature>` bị XSD từ chối (danh sách thẻ Product
-  hợp lệ: Code SMay Extra1/2 MSTNGHang… ProdQuantity Total VATRate Discount ProdPrice
-  ProdName ProdUnit **IsSum** VATAmount Amount DiscountAmount Remark…); `DiscountAmount`
-  một mình = bản in KHÔNG hiện dòng nào. Guard: CK ≤ tiền hàng, phải còn ≥1 dòng hàng
-  (`compute_totals` + `normalize_body`). Blob lưu thêm `goods`/`discount`; profile khách
-  giữ dòng CK trong `extra_lines` (kèm kind) → lần sau tự điền. UI: nút "Thêm chiết khấu"
-  ở `OrderVnptInvoice.tsx`, OrderDetail hiện dòng CK âm.
+  số tiền ở `price`, qty=1, số DƯƠNG) → XML `<Product><IsSum>2</IsSum>` + SL 1 × đơn giá
+  = số tiền. `IsSum` = cột "Tính chất" trên portal VNPT, hợp lệ 0–4 (5 → ERR:1510):
+  **2 = chiết khấu thương mại** (Duy soi portal), 4 = ghi chú (mất STT bản in) — ⚠ KHÔNG
+  theo mã TChat TCT (3 = CK ở đó; gửi 3 portal hiện "hàng hoá"). `<Total>` hoá đơn =
+  hàng − CK (VNPT KHÔNG tự trừ, in y số mình gửi; thuế tính trên số đã trừ) +
+  `<DiscountAmount>` = Σ CK. `<Feature>` bị XSD từ chối (thẻ Product hợp lệ: Code SMay
+  Extra1/2 MSTNGHang… ProdQuantity Total VATRate Discount ProdPrice ProdName ProdUnit
+  **IsSum** VATAmount Amount DiscountAmount Remark…); `DiscountAmount` một mình = bản in
+  KHÔNG hiện dòng nào. Guard: CK ≤ tiền hàng, phải còn ≥1 dòng hàng (`compute_totals` +
+  `normalize_body`). Blob lưu thêm `goods`/`discount`; profile khách giữ dòng CK trong
+  `extra_lines` (kèm kind) → lần sau tự điền. UI: nút "Thêm chiết khấu" ở
+  `OrderVnptInvoice.tsx`, OrderDetail hiện dòng CK âm.
   **App-side**: routes `server_app/vnpt_invoice_routes.py` (GET/POST/DELETE
   `/api/order/{tid}/vnpt-invoice` — xem/tạo/sửa văn phòng, xoá admin, khoá theo
   đơn kiểu `_invoice_create_lock`), logic thuần `server_app/vnpt_invoice_domain.py`

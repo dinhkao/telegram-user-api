@@ -168,7 +168,8 @@ def test_compute_totals_discount_over_goods_rejected():
 
 
 def test_build_invoice_xml_discount_line():
-    """Dạng đã THỰC NGHIỆM trên VNPT 2026-09-07: IsSum=3, không SL/đơn giá,
+    """Dạng đã THỰC NGHIỆM trên VNPT 2026-09-07: IsSum=2 (= "chiết khấu thương
+    mại" trên portal — KHÔNG phải 3 như TChat của TCT), SL 1 × đơn giá = số tiền,
     Total dương; <Total> hoá đơn = hàng − CK; <DiscountAmount> = Σ CK."""
     xml = build_invoice_xml(
         fkey="LTP-TEST-CK",
@@ -184,8 +185,8 @@ def test_build_invoice_xml_discount_line():
     assert len(prods) == 2
     assert prods[0].find("IsSum") is None
     ck = prods[1]
-    assert ck.findtext("IsSum") == "3"
-    assert ck.find("ProdQuantity") is None and ck.find("ProdPrice") is None
+    assert ck.findtext("IsSum") == "2"
+    assert ck.findtext("ProdQuantity") == "1" and ck.findtext("ProdPrice") == "100000"
     assert ck.findtext("Total") == ck.findtext("Amount") == "100000"
     assert inv.findtext("Total") == "900000"
     assert inv.findtext("DiscountAmount") == "100000"
