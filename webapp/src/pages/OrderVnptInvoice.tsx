@@ -4,7 +4,10 @@
 // với dòng hàng của đơn); Lưu = đẩy nháp lên VNPT (chưa phát hành) + cập nhật
 // cache khách. Server: server_app/vnpt_invoice_routes.py.
 // Dòng CHIẾT KHẤU (kind "chiet_khau"): chỉ tên + số tiền, TRỪ vào tiền hàng
-// trước thuế — lên VNPT thành dòng IsSum=3 (SL/đơn giá trống, số dương).
+// trước thuế — lên VNPT thành dòng IsSum=2, SL 1 × đơn giá = số tiền. 2 kiểu:
+// SỐ TIỀN gõ thẳng, hoặc % (pct) = % của tổng CÁC DÒNG HÀNG — tiền + tên tự
+// sinh ("Chiết khấu thương mại 5%, số tiền 1.401.250 đồng"), server tính lại
+// (server_app/vnpt_invoice_domain.apply_discount_pct) nên số cuối luôn theo server.
 import { useEffect, useState } from "preact/hooks";
 import { getJSON, getVnptInvoice, saveVnptInvoice, vnptInvoicePdfUrl, vnptInvoicePngUrl, type VnptBuyer, type VnptLine } from "../api";
 import { SingleImageViewer } from "../detail/SingleImageViewer";
@@ -16,7 +19,12 @@ import { PageHead } from "../ui/PageHead";
 import { ErrorState, Loading } from "../ui/states";
 
 const VAT_OPTS: Array<[number, string]> = [[-1, "KCT"], [0, "0%"], [5, "5%"], [8, "8%"], [10, "10%"]];
-type Row = VnptLine & { slText?: string };
+type Row = VnptLine & { slText?: string; pctText?: string };
+
+const fmtPct = (p: number) => (Number.isInteger(p) ? String(p) : String(p).replace(".", ",")) + "%";
+/** Cùng công thức với server (discount_name) để preview khớp chữ in. */
+const discountName = (pct: number, amount: number) => `Chiết khấu thương mại ${fmtPct(pct)}, số tiền ${money(amount)} đồng`;
+const parsePct = (raw: string) => { const v = parseFloat(raw.replace(",", ".")); return Number.isFinite(v) && v > 0 ? Math.min(v, 100) : 0; };
 
 export function OrderVnptInvoice({ threadId }: { threadId: string }) {
   const [err, setErr] = useState("");
@@ -69,7 +77,9 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
 
   const isCK = (r: Row) => r.kind === "chiet_khau";
   const goods = rows.filter((r) => !isCK(r)).reduce((s, r) => s + Math.round((r.qty || 0) * (r.price || 0)), 0);
-  const discount = rows.filter(isCK).reduce((s, r) => s + Math.round(r.price || 0), 0);
+  // CK theo %: tiền = % × tổng dòng hàng (làm tròn lên .5 như server), tên tự sinh
+  const ckAmount = (r: Row) => (r.pct ? Math.floor((goods * r.pct) / 100 + 0.5) : Math.round(r.price || 0));
+  const discount = rows.filter(isCK).reduce((s, r) => s + ckAmount(r), 0);
   const total = goods - discount;
   const vatAmount = vatRate < 0 ? 0 : Math.round((total * vatRate) / 100);
   const grand = total + vatAmount;
@@ -85,8 +95,10 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
     setBusy(true);
     try {
       const lines = rows
-        .filter((r) => (r.name || "").trim())
-        .map(({ slText, ...r }) => ({ ...r, name: r.name.trim() }));
+        .filter((r) => (r.name || "").trim() || (isCK(r) && r.pct))
+        .map(({ slText, pctText, ...r }) => (isCK(r) && r.pct
+          ? { ...r, price: ckAmount(r), name: discountName(r.pct, ckAmount(r)) }
+          : { ...r, pct: undefined, name: r.name.trim() }));
       const j = await saveVnptInvoice(threadId, { buyer, lines, vat_rate: vatRate });
       toast(loaded.draft ? "Đã cập nhật nháp trên VNPT" : "Đã tạo nháp trên VNPT", "ok");
       if (j.warn) toast(j.warn, "err");
@@ -169,20 +181,44 @@ export function OrderVnptInvoice({ threadId }: { threadId: string }) {
         <div class="ie-head">Hàng hoá <span class="ie-count">{rows.length} dòng</span></div>
         <div class="inv-edit">
           {rows.map((r, i) => isCK(r) ? (
-            /* Dòng CHIẾT KHẤU: tên + số tiền, không SL/ĐVT — hiện âm để thấy ngay là trừ */
+            /* Dòng CHIẾT KHẤU: 2 kiểu — SỐ TIỀN gõ thẳng, hoặc % của tổng dòng hàng
+               (tiền + tên tự sinh, không sửa tên) — hiện âm để thấy ngay là trừ */
             <div class="edit-row vnpt-ck" key={i}>
               <div class="er-main">
                 <span class="chip active small" title="Dòng chiết khấu — trừ vào tiền hàng">CK</span>
-                <input class="note-inp" style="flex:1;min-width:0" placeholder="Nội dung chiết khấu in trên HĐ"
-                  value={r.name} onInput={(e: any) => setRow(i, "name", e.target.value)} />
+                {r.pct ? (
+                  <span class="note-inp muted" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                    title="Tên tự sinh theo %">{discountName(r.pct, ckAmount(r))}</span>
+                ) : (
+                  <input class="note-inp" style="flex:1;min-width:0" placeholder="Nội dung chiết khấu in trên HĐ"
+                    value={r.name} onInput={(e: any) => setRow(i, "name", e.target.value)} />
+                )}
                 <button class="er-del" title="Xoá dòng" onClick={() => removeRow(i)}><Icon name="close" size={15} /></button>
               </div>
               <div class="er-sub">
-                <span class="muted small">Số tiền chiết khấu</span>
-                <input class="er-price" inputMode="numeric" placeholder="số tiền" title="Số tiền chiết khấu (chưa thuế)"
-                  value={r.price ? money(r.price) : ""} onFocus={selectAll}
-                  onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} />
-                <span class="eq">= <b class="num t-danger">−{money(Math.round(r.price || 0))}</b></span>
+                <span class="seg small">
+                  <button class={"seg-btn" + (!r.pct ? " active" : "")} title="Gõ thẳng số tiền chiết khấu"
+                    onClick={() => setRows((p) => p.map((x, idx) => (idx === i ? { ...x, pct: undefined, pctText: undefined, price: ckAmount(x) } : x)))}>Số tiền</button>
+                  <button class={"seg-btn" + (r.pct ? " active" : "")} title="% của tổng các dòng hàng"
+                    onClick={() => setRows((p) => p.map((x, idx) => (idx === i ? { ...x, pct: x.pct || 5, pctText: undefined } : x)))}>%</button>
+                </span>
+                {r.pct ? (
+                  <>
+                    <input class="er-sl" inputMode="decimal" placeholder="%" title="% chiết khấu trên tổng dòng hàng"
+                      value={r.pctText ?? (r.pct ? String(r.pct).replace(".", ",") : "")} onFocus={selectAll}
+                      onInput={(e: any) => {
+                        const raw = e.target.value;
+                        setRows((p) => p.map((x, idx) => (idx === i ? { ...x, pctText: raw, pct: parsePct(raw) || x.pct } : x)));
+                      }}
+                      onBlur={() => setRows((p) => p.map((x, idx) => (idx === i ? { ...x, pctText: undefined } : x)))} />
+                    <span class="muted small">% × {money(goods)}</span>
+                  </>
+                ) : (
+                  <input class="er-price" inputMode="numeric" placeholder="số tiền" title="Số tiền chiết khấu (chưa thuế)"
+                    value={r.price ? money(r.price) : ""} onFocus={selectAll}
+                    onInput={(e: any) => setRow(i, "price", parseMoney(e.target.value))} />
+                )}
+                <span class="eq">= <b class="num t-danger">−{money(ckAmount(r))}</b></span>
               </div>
             </div>
           ) : (

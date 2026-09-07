@@ -2642,6 +2642,9 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 .seg { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-md); padding: 3px; margin: 2px 0 10px; }
 .seg-btn { flex: 1; min-height: 38px; border: none; background: transparent; border-radius: 9px; font-size: .9rem; font-weight: 600; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; -webkit-tap-highlight-color: transparent; transition: background var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
 .seg-btn.active { background: var(--card); color: var(--primary); box-shadow: var(--e1); }
+/* bản nhỏ nằm trong 1 dòng nhập (vd. chọn Số tiền / % ở dòng chiết khấu HĐ VNPT) */
+.seg.small { margin: 0; padding: 2px; flex: 0 0 auto; }
+.seg.small .seg-btn { min-height: 26px; padding: 0 9px; font-size: .78rem; }
 /* Nâng cao — flow 2 bước đánh số: 1 khách hàng → 2 sản phẩm/hoá đơn */
 .co-adv .co-adv-step { padding: 12px; }
 .co-step-head { display: flex; align-items: center; gap: 8px; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 8px; }

@@ -209,8 +209,10 @@ export const GUIDES_DON: Guide[] = [
           <li>Chi tiết đơn → khối HĐ điện tử VNPT → <b>「Tạo HĐ điện tử nháp」</b> (chỉ văn phòng).</li>
           <li>Form <b>tự điền sẵn</b>: thông tin người mua (tên đơn vị, MST, địa chỉ…) + dòng hàng của đơn.
             Sửa tự do từng dòng: <b>tên in trên HĐ · ĐVT · SL · đơn giá</b> (giá <b>chưa gồm thuế</b>).</li>
-          <li>Cần giảm giá → <b>「Thêm chiết khấu」</b>: dòng <b>CK</b> chỉ có nội dung + số tiền, <b>trừ thẳng
-            vào tiền hàng trước thuế</b> (thuế tính trên số đã trừ). Trên hoá đơn VNPT in thành dòng
+          <li>Cần giảm giá → <b>「Thêm chiết khấu」</b>: dòng <b>CK</b> <b>trừ thẳng vào tiền hàng trước thuế</b>
+            (thuế tính trên số đã trừ). Chọn <b>Số tiền</b> (gõ thẳng, tự đặt nội dung) hoặc <b>%</b>
+            (gõ %, tiền = % × tổng các dòng hàng, tên tự sinh dạng
+            "Chiết khấu thương mại 5%, số tiền 1.401.250 đồng" — đổi SL/giá hàng là tiền CK tự chạy theo). Trên hoá đơn VNPT in thành dòng
             "chiết khấu thương mại" riêng — cột SL/đơn giá trống, số tiền dương, "Cộng tiền hàng" đã trừ.
             Chiết khấu không được vượt tiền hàng, và hoá đơn phải có ít nhất 1 dòng hàng.</li>
           <li>Chọn <b>1 mức thuế GTGT chung</b> cho cả hoá đơn (KCT/0/5/8/10%), bấm <b>Lưu</b> — nháp lên VNPT ngay.</li>

@@ -3,6 +3,7 @@ import pytest
 
 from server_app.vnpt_invoice_domain import (
     build_prefill,
+    discount_name,
     normalize_body,
     updated_profile,
 )
@@ -174,3 +175,36 @@ def test_profile_keeps_discount_line_as_extra():
     pre = build_prefill({"invoice": [{"sp_id": 7, "sp": "K", "sl": 3, "price": 900}]},
                         {"vnpt_profile": prof}, {})
     assert pre["lines"][-1]["kind"] == "chiet_khau" and pre["lines"][-1]["price"] == 500
+
+
+def test_discount_name_format():
+    assert discount_name(5, 1401250) == "Chiết khấu thương mại 5%, số tiền 1.401.250 đồng"
+    assert discount_name(2.5, 900) == "Chiết khấu thương mại 2,5%, số tiền 900 đồng"
+
+
+def test_normalize_body_discount_percent():
+    body = _body(lines=[
+        {"name": "A", "unit": "bịch", "qty": 10, "price": 100000},
+        {"name": "B", "unit": "hũ", "qty": 5, "price": 80250},        # tổng hàng 1.401.250
+        {"name": "gõ gì cũng bị đè", "kind": "chiet_khau", "pct": "5", "price": 1},
+    ])
+    _, lines, _ = normalize_body(body)
+    ck = lines[2]
+    assert ck["pct"] == 5.0 and ck["price"] == 70063          # 70062.5 → làm tròn lên
+    assert ck["name"] == "Chiết khấu thương mại 5%, số tiền 70.063 đồng"
+    with pytest.raises(ValueError):
+        normalize_body(_body(lines=[{"name": "A", "qty": 1, "price": 100},
+                                    {"name": "CK", "kind": "chiet_khau", "pct": 101}]))
+
+
+def test_profile_discount_percent_recomputed_on_prefill():
+    lines = [{"name": "Kẹo", "unit": "bịch", "qty": 2.0, "price": 1000, "sp_id": 7},
+             {"name": "x", "unit": "", "qty": 1.0, "price": 100, "kind": "chiet_khau", "pct": 5.0}]
+    prof = updated_profile(None, {"cus_name": "C"}, lines, 8)
+    assert prof["extra_lines"][0]["pct"] == 5.0
+    pre = build_prefill({"invoice": [{"sp_id": 7, "sp": "K", "sl": 3, "price": 900}]},
+                        {"vnpt_profile": prof}, {})
+    ck = pre["lines"][-1]
+    # 5% × (3 × 1000): SL theo đơn mới, giá theo template hồ sơ khách
+    assert ck["pct"] == 5.0 and ck["price"] == 150
+    assert ck["name"] == "Chiết khấu thương mại 5%, số tiền 150 đồng"

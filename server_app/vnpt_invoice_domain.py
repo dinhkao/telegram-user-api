@@ -13,6 +13,31 @@ import re
 from integrations.vnpt_invoice import VAT_RATES
 from integrations.vnpt_invoice.xml_build import KIND_DISCOUNT
 
+
+def _fmt_pct(pct: float) -> str:
+    return (str(int(pct)) if pct == int(pct) else f"{pct:g}".replace(".", ",")) + "%"
+
+
+def discount_name(pct: float, amount: int) -> str:
+    """Tên dòng CK theo %: "Chiết khấu thương mại 5%, số tiền 1.401.250 đồng"."""
+    money = f"{amount:,}".replace(",", ".")
+    return f"Chiết khấu thương mại {_fmt_pct(pct)}, số tiền {money} đồng"
+
+
+def _goods_total(lines: list[dict]) -> int:
+    return sum(int(round(float(ln["qty"]) * float(ln["price"])))
+               for ln in lines if ln.get("kind") != KIND_DISCOUNT)
+
+
+def apply_discount_pct(lines: list[dict]) -> None:
+    """Dòng CK có `pct` → tiền = pct% × tổng CÁC DÒNG HÀNG (tính lại tại chỗ,
+    server là nguồn sự thật) + tên tự sinh. Mutate in place."""
+    goods = _goods_total(lines)
+    for ln in lines:
+        if ln.get("kind") == KIND_DISCOUNT and ln.get("pct"):
+            ln["price"] = int(goods * float(ln["pct"]) / 100 + 0.5)
+            ln["name"] = discount_name(float(ln["pct"]), ln["price"])
+
 # MST Việt Nam: 10 số (số thứ 10 = số KIỂM TRA), hoặc 10 số + "-" + 3 số (đơn vị
 # phụ thuộc). VNPT ÂM THẦM BỎ TRỐNG MST sai checksum trên hoá đơn (thực nghiệm
 # 2026-08-26) → phải chặn ở đây cho người dùng biết ngay.
@@ -86,6 +111,18 @@ def normalize_body(body: dict) -> tuple[dict, list[dict], int]:
         # Dòng CHIẾT KHẤU: chỉ có tên + số tiền (lưu ở price, qty = 1) — số DƯƠNG,
         # trừ vào tiền hàng ở compute_totals; không gắn sp_id/đơn vị.
         if str(ln.get("kind") or "") == KIND_DISCOUNT:
+            # 2 kiểu: THEO % (`pct` — tiền + tên tính lại ở apply_discount_pct) hoặc SỐ TIỀN
+            pct = ln.get("pct")
+            if pct not in (None, "", 0):
+                try:
+                    pct = float(pct)
+                except (TypeError, ValueError):
+                    raise ValueError(f"dòng {i}: % chiết khấu không hợp lệ")
+                if not 0 < pct <= 100:
+                    raise ValueError(f"dòng {i}: % chiết khấu phải trong (0, 100]")
+                lines.append({"name": name, "unit": "", "qty": 1.0, "price": 0,
+                              "kind": KIND_DISCOUNT, "pct": pct})
+                continue
             try:
                 amount = int(ln.get("price") if ln.get("price") is not None else ln.get("amount"))
             except (TypeError, ValueError):
@@ -121,7 +158,8 @@ def normalize_body(body: dict) -> tuple[dict, list[dict], int]:
         raise ValueError(f"thuế suất không hợp lệ: {vat_rate}")
     if all(ln.get("kind") == KIND_DISCOUNT for ln in lines):
         raise ValueError("hoá đơn phải có ít nhất 1 dòng hàng (không chỉ chiết khấu)")
-    goods = sum(int(round(ln["qty"] * ln["price"])) for ln in lines if ln.get("kind") != KIND_DISCOUNT)
+    apply_discount_pct(lines)
+    goods = _goods_total(lines)
     disc = sum(ln["price"] for ln in lines if ln.get("kind") == KIND_DISCOUNT)
     if disc > goods:
         raise ValueError("chiết khấu vượt quá tiền hàng")
@@ -174,9 +212,12 @@ def build_prefill(order: dict, customer: dict | None,
             }
             if ex.get("kind") == KIND_DISCOUNT:
                 ln["kind"] = KIND_DISCOUNT
+                if ex.get("pct"):
+                    ln["pct"] = float(ex["pct"])
             lines.append(ln)
         except (TypeError, ValueError):
             continue
+    apply_discount_pct(lines)   # CK theo % tính lại theo tiền hàng của ĐƠN NÀY
     return {
         "buyer": buyer,
         "vat_rate": profile.get("vat_rate", DEFAULT_VAT_RATE),
@@ -195,7 +236,10 @@ def updated_profile(old_profile: dict | None, buyer: dict, lines: list[dict],
         tpl = {"name": ln["name"], "unit": ln.get("unit") or "",
                "price": int(ln.get("price") or 0)}
         if ln.get("kind") == KIND_DISCOUNT:
-            extra.append({**tpl, "qty": 1.0, "kind": KIND_DISCOUNT})
+            ex = {**tpl, "qty": 1.0, "kind": KIND_DISCOUNT}
+            if ln.get("pct"):
+                ex["pct"] = float(ln["pct"])
+            extra.append(ex)
         elif ln.get("sp_id"):
             products[str(int(ln["sp_id"]))] = tpl
         else:

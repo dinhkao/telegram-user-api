@@ -1004,8 +1004,10 @@ export type VnptBuyer = {
   cus_name: string; buyer_name?: string; tax_code?: string; address?: string;
   phone?: string; email?: string; payment_method?: string;
 };
-/** kind "chiet_khau" = dòng CHIẾT KHẤU: chỉ tên + số tiền (price, qty=1), TRỪ vào tiền hàng. */
-export type VnptLine = { name: string; unit?: string; qty: number; price: number; sp_id?: number; kind?: "chiet_khau" };
+/** kind "chiet_khau" = dòng CHIẾT KHẤU: chỉ tên + số tiền (price, qty=1), TRỪ vào tiền hàng.
+ *  Có `pct` = CK theo % tổng các dòng hàng — server tự tính lại tiền + tên
+ *  ("Chiết khấu thương mại 5%, số tiền 1.401.250 đồng"), client chỉ hiện trước. */
+export type VnptLine = { name: string; unit?: string; qty: number; price: number; sp_id?: number; kind?: "chiet_khau"; pct?: number };
 
 /** Nháp hiện có + prefill từ cache khách (vnpt_profile) — office. */
 export async function getVnptInvoice(threadId: string | number): Promise<any> {

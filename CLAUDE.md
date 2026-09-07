@@ -1156,9 +1156,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   Extra1/2 MSTNGHang… ProdQuantity Total VATRate Discount ProdPrice ProdName ProdUnit
   **IsSum** VATAmount Amount DiscountAmount Remark…); `DiscountAmount` một mình = bản in
   KHÔNG hiện dòng nào. Guard: CK ≤ tiền hàng, phải còn ≥1 dòng hàng (`compute_totals` +
-  `normalize_body`). Blob lưu thêm `goods`/`discount`; profile khách giữ dòng CK trong
-  `extra_lines` (kèm kind) → lần sau tự điền. UI: nút "Thêm chiết khấu" ở
-  `OrderVnptInvoice.tsx`, OrderDetail hiện dòng CK âm.
+  `normalize_body`). **CK theo %**: dòng có `pct` (0–100] → `apply_discount_pct` tính
+  tiền = pct × tổng CÁC DÒNG HÀNG (làm tròn .5 lên) + ĐÈ tên = `discount_name` ("Chiết
+  khấu thương mại 5%, số tiền 1.401.250 đồng") — server là nguồn sự thật, client chỉ
+  preview cùng công thức. Blob lưu thêm `goods`/`discount`; profile khách giữ dòng CK
+  trong `extra_lines` (kèm kind + pct — prefill tính lại theo tiền hàng ĐƠN MỚI) → lần
+  sau tự điền. UI: nút "Thêm chiết khấu" ở `OrderVnptInvoice.tsx` (seg Số tiền / %),
+  OrderDetail hiện dòng CK âm.
   **App-side**: routes `server_app/vnpt_invoice_routes.py` (GET/POST/DELETE
   `/api/order/{tid}/vnpt-invoice` — xem/tạo/sửa văn phòng, xoá admin, khoá theo
   đơn kiểu `_invoice_create_lock`), logic thuần `server_app/vnpt_invoice_domain.py`
