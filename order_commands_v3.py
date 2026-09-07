@@ -424,8 +424,15 @@ async def _process_create_invoice_core_inner(thread_id: int, user_id: int | None
     kv_id = customer["kh_id"]
     result["kh_name"] = customer.get("name", "N/A")
     discount = int(order.get("discount", 0)); pvc = int(order.get("pvc", 0)); vat = int(order.get("vat", 0))
-    # Nợ cũ lấy song song (thread) trong lúc tạo HĐ
-    old_debt_future = asyncio.get_running_loop().run_in_executor(None, get_customer_debt_kv, kv_id)
+    # NỢ CŨ phải lấy XONG TRƯỚC khi gửi tạo HĐ (tuần tự, ~0,3s). Trước đây chạy song
+    # song với tạo HĐ → race: KV trả nợ chậm hơn lúc HĐ đã tạo xong thì "nợ cũ" đã
+    # gộp chính HĐ này (đơn 512371 Uyên cửa 2 03/09 in nợ trước 14,28tr thay vì
+    # 12,04tr; đơn 502608 Anh Long 07/08). Lỗi lấy nợ → vẫn tạo HĐ, snapshot 0 như cũ.
+    old_debt = None
+    try:
+        det = await asyncio.to_thread(get_customer_debt_kv, kv_id); old_debt = det.get("debt")
+    except Exception as e:
+        log.warning("Could not fetch old debt for customer %s: %s", kv_id, e)
     from product_store import kv_ids_for_items
     kv_ids = kv_ids_for_items(db_conn, invoice)   # DB (nhanh) — giữ trên loop
     # Mốc TRƯỚC khi gửi (giờ VN, lùi 30s cho lệch đồng hồ) — dùng để dò HĐ mồ côi
@@ -447,11 +454,6 @@ async def _process_create_invoice_core_inner(thread_id: int, user_id: int | None
             result["error"] = f"Lỗi tạo hoá đơn KiotViet: {e}"; return result
         log.warning("Nhận HĐ mồ côi sau lỗi POST: đơn %s ← HĐ %s (id %s)",
                     thread_id, inv.get("code"), inv.get("id"))
-    old_debt = None
-    try:
-        det = await old_debt_future; old_debt = det.get("debt")
-    except Exception as e:
-        log.warning("Could not fetch old debt for customer %s: %s", kv_id, e)
     if not inv:
         result["error"] = "Tạo hoá đơn KiotViet thất bại!"; return result
     invoice_code = inv.get("code", "N/A"); invoice_id = inv.get("id")
@@ -489,6 +491,22 @@ async def _process_create_invoice_core_inner(thread_id: int, user_id: int | None
     debt_to_store = new_debt if new_debt is not None else old_debt
     if debt_to_store is not None:
         update_customer_debt(db_conn, str(kh_id_fb), debt_to_store)
+    # KIỂM TRA CHÉO (phòng thủ thêm ngoài việc lấy nợ tuần tự): nợ mới đúng ra =
+    # nợ cũ + tổng HĐ. Nếu nợ mới == nợ cũ (KV đã cộng HĐ trước khi ta hỏi nợ cũ)
+    # → snapshot đang gộp chính HĐ này: hạ về nợ_mới − tổng và ghi log để soi.
+    from server_app.customer_feed import _order_total_num
+    _inv_total = _order_total_num(order)
+    if (old_debt is not None and new_debt is not None and _inv_total > 0
+            and abs(new_debt - old_debt) < 1):
+        fixed = old_debt - _inv_total
+        log.warning("Nợ cũ gộp chính HĐ (thread=%s): %s → %s (tổng HĐ %s)",
+                    thread_id, old_debt, fixed, _inv_total)
+        with transaction(db_conn):
+            f2 = get_order_by_thread_id(db_conn, thread_id)
+            if f2 and f2.get("kiotvietInvoiceID") == invoice_id:
+                f2["khDebt"] = fixed; f2["invoice_debt_snapshot"] = fixed
+                _save_order(db_conn, thread_id, f2); order = f2
+        old_debt = snapshot_debt = fixed
     # Đẩy realtime → trang Khách (công nợ) + dashboard cập nhật ngay
     from server_app.realtime import emit_customer_changed, emit_order_changed
     emit_order_changed(thread_id)
@@ -497,8 +515,6 @@ async def _process_create_invoice_core_inner(thread_id: int, user_id: int | None
     # ánh HĐ mới (= nợ_trước + tổng). Truyền kỳ vọng để resync KIỂM CHỨNG trước khi
     # vá khDebt — tránh KV trễ >30s làm hạ mốc thành số sai (ca Loan Long Đại 07-15).
     from server_app.debt_sync import schedule_debt_resync
-    from server_app.customer_feed import _order_total_num
-    _inv_total = _order_total_num(order)
     schedule_debt_resync(
         str(kh_id_fb), invoice_thread_id=thread_id,
         expected_debt=(old_debt + _inv_total) if old_debt is not None else None,

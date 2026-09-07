@@ -77,6 +77,7 @@ def create_kiotviet_invoice(customer_id: int, invoice_items: list[dict], discoun
         surcharges.append({"id": 1865, "code": "THK000001", "price": vat})
     if surcharges:
         payload["surchages"] = surcharges
-    log.info("Creating KiotViet invoice: cust=%d items=%d disc=%s pvc=%s vat=%s",
+    # cust là str (kh_id lưu chuỗi) — %d từng làm "Logging error" mỗi lần tạo HĐ
+    log.info("Creating KiotViet invoice: cust=%s items=%d disc=%s pvc=%s vat=%s",
              customer_id, len(invoice_details), discount, pvc, vat)
     return _request("POST", "/invoices", body=payload)
