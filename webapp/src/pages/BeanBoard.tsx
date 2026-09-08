@@ -1,6 +1,6 @@
 // Dashboard KHO ĐẬU (#/kho-dau) — tồn đọc được 2 KIỂU: theo LOẠI ĐẬU hoặc theo
-// KHO (cùng dữ liệu, đổi trục bằng nút gạt). 3 nút tạo phiếu nhập/xuất/điều chỉnh
-// ở trên. Hệ kho RIÊNG, không dính kho hàng hoá. Realtime: bean_changed → tải lại.
+// KHO (cùng dữ liệu, đổi trục bằng nút gạt). 4 nút tạo phiếu nhập/xuất/điều chỉnh/
+// chuyển ở trên; dưới cùng là lối sang danh sách phiếu + KIỂM KHO (#/kho-dau/kiem). Hệ kho RIÊNG, không dính kho hàng hoá. Realtime: bean_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
 import { getBeanBoard, soVN, type BeanBoardData } from "../api";
 import { foldVN } from "../format";
@@ -126,9 +126,10 @@ export function BeanBoard() {
         </a>
       ))}
 
-      <a class="btn bean-more" href="#/kho-dau/phieu">
-        <Icon name="receipt" size={15} /> Phiếu nhập / xuất / điều chỉnh
-      </a>
+      <div class="bean-actions bst-links">
+        <a class="btn" href="#/kho-dau/phieu"><Icon name="receipt" size={15} /> Phiếu nhập / xuất</a>
+        <a class="btn" href="#/kho-dau/kiem"><Icon name="clipboard" size={15} /> Kiểm kho</a>
+      </div>
     </div>
   );
 }

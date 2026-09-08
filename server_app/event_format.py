@@ -351,6 +351,11 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
             "bean.unit_created": "Thêm đơn vị quy đổi (đậu)",
             "bean.unit_updated": "Sửa đơn vị quy đổi (đậu)",
             "bean.unit_deleted": "Xoá đơn vị quy đổi (đậu)",
+            "bean.stocktake_created": "Mở phiếu KIỂM KHO đậu",
+            "bean.stocktake_counted": "Ghi số đếm kiểm kho đậu",
+            "bean.stocktake_resynced": "Đồng bộ sổ phiếu kiểm kho đậu",
+            "bean.stocktake_completed": "CHỐT kiểm kho đậu",
+            "bean.stocktake_voided": "Huỷ phiếu kiểm kho đậu",
         }
         # tên loại đậu / kho link thẳng sang trang chi tiết của nó
         bean_seg = ([part(str(p.get("bean_name")), href_for("bean_item", p.get("bean_id")))]
@@ -371,6 +376,30 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         if label and action.startswith("bean.place_"):
             name = str(p.get("place_name") or "") or f"kho #{p.get('place_id')}"
             return label, [part(name, href_for("bean_place", p.get("place_id")))]
+        if label and action.startswith("bean.stocktake_"):
+            tid = p.get("stocktake_id")
+            seg = [part(f"phiếu kiểm #{tid}", href_for("bean_stocktake", tid))] if tid else []
+            place_seg = [part(f"kho {p['place_name']}")] if p.get("place_name") else []
+            extra = []
+            lines = p.get("lines") or []
+            if isinstance(lines, list) and lines and isinstance(lines[0], dict):
+                # đếm/chốt: "Đậu xanh 190 (−10)" — số theo đơn vị gốc
+                txt = ", ".join(
+                    f"{l.get('bean')} {l.get('counted')}"
+                    + (f" ({'+' if (l.get('diff') or 0) > 0 else '−'}{abs(l.get('diff'))})"
+                       if l.get("diff") else "")
+                    for l in lines[:4])
+                if len(lines) > 4:
+                    txt += f" +{len(lines) - 4} dòng"
+                extra.append(part(txt))
+            elif isinstance(lines, int):
+                extra.append(part(f"{lines} loại đậu"))
+            tail = []
+            if action == "bean.stocktake_completed" and p.get("slip_id"):
+                tail = [part(f"→ phiếu điều chỉnh #{p['slip_id']}", href_for("bean_slip", p["slip_id"]))]
+            elif action == "bean.stocktake_completed":
+                tail = [part("mọi dòng khớp sổ, không sinh phiếu")]
+            return label, _join([seg, place_seg, extra, tail])
         if label and action.startswith("bean.slip_"):
             sid = p.get("slip_id")
             seg = [part(f"phiếu #{sid}", href_for("bean_slip", sid))] if sid else []

@@ -1,5 +1,5 @@
 // Chi tiết 1 KHO ĐẬU (#/kho-dau/kho/:id) — sửa ngay tại trang (tên · ghi chú, văn
-// phòng), tồn từng loại đậu trong kho, phiếu gần đây của kho. Xoá = admin (chặn khi
+// phòng), nút KIỂM KHO chính kho này, tồn từng loại đậu trong kho, phiếu gần đây của kho. Xoá = admin (chặn khi
 // còn phiếu). Realtime: bean_changed → tải lại.
 import { useEffect, useState } from "preact/hooks";
 import {
@@ -7,6 +7,7 @@ import {
   type BeanPlaceDetailData,
 } from "../api";
 import { BeanSlipCard } from "../detail/BeanSlipRows";
+import { openBeanStocktake } from "./BeanStocktakes";
 import { History } from "../detail/History";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
@@ -109,6 +110,15 @@ export function BeanPlaceDetail({ id }: { id: string }) {
         <a class="btn" href="#/kho-dau/tao?kind=dieu_chinh"><Icon name="edit" size={16} /> Điều chỉnh</a>
         <a class="btn" href="#/kho-dau/tao?kind=chuyen"><Icon name="refresh" size={16} /> Chuyển</a>
       </div>
+      {/* Kiểm kho CHÍNH KHO NÀY: đang có nháp → mở tiếp, chưa → chụp sổ mở phiếu mới */}
+      <button class="btn bean-more bst-place-btn" disabled={busy} onClick={async () => {
+        setBusy(true);
+        try { await openBeanStocktake(Number(id)); }
+        catch (e: any) { toast(e?.message || "Lỗi mở phiếu kiểm", "err"); }
+        finally { setBusy(false); }
+      }}>
+        <Icon name="clipboard" size={15} /> Kiểm kho {p.name}
+      </button>
 
       <div class="ie-head">Tồn trong kho</div>
       {data.by_bean.length ? data.by_bean.map((r) => (

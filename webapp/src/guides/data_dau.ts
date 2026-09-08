@@ -6,7 +6,7 @@ export const GUIDES_DAU: Guide[] = [
     key: "kho-dau", icon: "box", cat: "Kho & hàng hoá",
     title: "Kho đậu",
     desc: "Theo dõi tồn đậu riêng: vị trí kho, danh mục đậu, phiếu nhập/xuất/điều chỉnh.",
-    routes: ["#/kho-dau"],
+    routes: ["#/kho-dau", "#/kho-dau/kiem"],
     sections: [
       { title: "Dùng để làm gì?", html: `
         <p><a href="#/kho-dau">Kho đậu</a> là <b>một hệ kho riêng biệt</b>, không dính gì tới
@@ -79,6 +79,25 @@ export const GUIDES_DAU: Guide[] = [
         </ul>
         <p class="muted small">Ảnh và trao đổi gắn theo <b>từng phiếu</b>. Trang loại đậu và
         trang kho thì chỉ có phần lịch sử.</p>` },
+      { title: "Kiểm kho (đếm thực tế rồi chốt)", html: `
+        <p>Khác <b>phiếu điều chỉnh</b> (gõ số đếm rồi lưu ngay 1 lần), <b>kiểm kho</b> là
+        một đợt đếm có đầu có cuối: vào <a href="#/kho-dau/kiem">Kiểm kho đậu</a> (hoặc nút
+        <b>Kiểm kho</b> ngay trong trang kho), chọn kho → hệ thống <b>chụp sổ sách</b> của
+        <b>mọi loại đậu</b> lúc đó (kể cả loại đang 0 — để phát hiện hàng chưa vào sổ).</p>
+        <ul>
+          <li><b>Đếm</b> — mỗi dòng có ô nhập, loại đậu có quy đổi thì gõ kép <i>N bao + M kg</i>,
+            máy quy về đơn vị chính và hiện chênh lệch ngay. Rời ô là tự lưu; nhiều người có thể
+            cùng đếm một phiếu, ai đếm dòng nào có tên bên dưới. Dòng bỏ trống = <b>chưa đếm</b>,
+            chốt sẽ bỏ qua (khác đếm ra 0).</li>
+          <li><b>Chốt</b> — các dòng lệch gom thành <b>1 phiếu điều chỉnh</b> với chênh lệch đúng
+            bằng số đã đếm − sổ lúc chụp. Mọi dòng khớp thì chốt mà không sinh phiếu nào.</li>
+          <li><b>Sổ đã đổi</b> — đang đếm mà kho có nhập/xuất thì dòng đó được đánh vàng. Chốt vẫn
+            áp đúng chênh lệch đã đo (không đè phiếu nhập/xuất hợp lệ); muốn so lại với tồn hiện
+            tại thì bấm <b>Đồng bộ sổ</b> (số đã đếm giữ nguyên).</li>
+        </ul>
+        <p class="muted small">Mỗi kho chỉ có <b>1 phiếu kiểm đang mở</b>; mở lại là vào tiếp phiếu đó.
+        Đếm + chốt: ai đăng nhập cũng được. Huỷ phiếu kiểm: văn phòng (tồn không đổi). Phiếu điều
+        chỉnh sinh ra xoá được như phiếu thường (admin) — tồn hoàn về trước khi chốt.</p>` },
       { title: "Sửa sai thì làm sao?", html: `
         <p>Phiếu <b>không sửa được</b> — ghi sai thì <b>xoá phiếu</b> (chỉ admin) rồi ghi lại,
         tồn tự hoàn về như trước. Mở phiếu ở <a href="#/kho-dau/phieu">danh sách phiếu</a>

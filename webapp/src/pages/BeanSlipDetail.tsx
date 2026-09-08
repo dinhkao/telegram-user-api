@@ -73,6 +73,10 @@ export function BeanSlipDetail({ id }: { id: string }) {
           : isTransfer ? "người chuyển" : "người kiểm"}: <b>{slip.partner}</b></> : null}
       </div>
       {slip.note ? <div class="bean-note">“{slip.note}”</div> : null}
+      {slip.stocktake_id ? (
+        <div class="bean-hint">Sinh từ <a href={`#/kho-dau/kiem/${slip.stocktake_id}`}>
+          <b>phiếu kiểm kho #{slip.stocktake_id}</b></a> — chênh lệch = số đếm − sổ lúc chụp.</div>
+      ) : null}
 
       <table class="bean-table">
         <thead>

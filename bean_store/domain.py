@@ -9,7 +9,13 @@ from __future__ import annotations
 from utils.daily_photo_report import today_vn
 
 __all__ = ["KINDS", "KIND_LABELS", "today_vn", "parse_qty", "fmt_qty", "round_qty",
-           "delta_for", "build_stock_table"]
+           "delta_for", "build_stock_table", "STOCKTAKE_STATUSES", "STOCKTAKE_STATUS_LABELS",
+           "count_to_base", "stocktake_summary"]
+
+# Trạng thái phiếu KIỂM KHO: draft = đang đếm · done = đã chốt (đã sinh phiếu điều
+# chỉnh) · voided = huỷ (không đụng tồn).
+STOCKTAKE_STATUSES = ("draft", "done", "voided")
+STOCKTAKE_STATUS_LABELS = {"draft": "Đang kiểm", "done": "Đã chốt", "voided": "Đã huỷ"}
 
 # nhap = nhập kho · xuat = xuất kho · dieu_chinh = phiếu điều chỉnh (đếm thực tế)
 # chuyen = chuyển giữa 2 kho: bút toán kép −q kho nguồn / +q kho đích, tồn tổng bảo toàn
@@ -102,3 +108,43 @@ def build_stock_table(beans: list[dict], places: list[dict], cells: list[dict]) 
         "by_place": by_place,
         "total": round_qty(sum(r["total"] for r in by_bean)),
     }
+
+
+def count_to_base(bulk, loose, factor) -> float | None:
+    """Số đếm gõ kép [N đơn vị quy đổi] + [M đơn vị gốc] → số theo ĐƠN VỊ GỐC.
+
+    Cả 2 ô trống → None (= CHƯA ĐẾM, khác hẳn đếm ra 0). Một ô trống coi là 0.
+    factor = 1 đơn vị quy đổi bằng bao nhiêu gốc (không có đơn vị phụ → 1).
+    """
+    if bulk is None and loose is None:
+        return None
+    return round_qty(float(bulk or 0) * float(factor or 1) + float(loose or 0))
+
+
+def stocktake_summary(items: list[dict]) -> dict:
+    """Tóm tắt phiếu kiểm: bao nhiêu dòng đã đếm, khớp / thừa / thiếu và tổng chênh
+    lệch (theo đơn vị gốc — chỉ có nghĩa khi các loại đậu cùng đơn vị).
+
+    Mỗi item cần `expected_qty` + `counted_qty` (None = chưa đếm). `diff` từng dòng
+    = đếm − sổ; dòng chưa đếm không tính vào thừa/thiếu.
+    """
+    total = len(items)
+    counted = over = short = match = 0
+    sum_over = sum_short = 0.0
+    for it in items:
+        c = it.get("counted_qty")
+        if c is None:
+            continue
+        counted += 1
+        d = round_qty(float(c) - float(it.get("expected_qty") or 0))
+        if d > 0:
+            over += 1
+            sum_over = round_qty(sum_over + d)
+        elif d < 0:
+            short += 1
+            sum_short = round_qty(sum_short + d)
+        else:
+            match += 1
+    return {"total": total, "counted": counted, "uncounted": total - counted,
+            "match": match, "over": over, "short": short,
+            "sum_over": sum_over, "sum_short": sum_short}

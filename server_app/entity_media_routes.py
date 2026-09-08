@@ -25,7 +25,7 @@ log = logging.getLogger("entity_media_routes")
 
 _ALLOWED_SCOPES = {"production", "box", "report_bg", "task", "return", "place", "supplier", "purchase", "disposal",
                    "area_report", "quality_report", "area_image", "quality_image",
-                   "bean_slip",
+                   "bean_slip", "bean_stocktake",
                    "worker_moc", "worker_pc", "worker_ung", "worker_bhxh"}
 # area_image / quality_image = TRAO ĐỔI TRÊN TỪNG BỨC ẢNH của báo cáo vệ sinh /
 # chất lượng mâm kẹo: entity_id ở đây là **image_id** (id trong entity_images), KHÔNG
@@ -106,7 +106,7 @@ def _emit(scope: str, entity_id: int) -> None:
         elif scope == "disposal":
             from server_app.realtime import emit_disposal_changed
             emit_disposal_changed(entity_id)
-        elif scope == "bean_slip":
+        elif scope in ("bean_slip", "bean_stocktake"):
             from server_app.realtime import emit_bean_changed
             emit_bean_changed()
         elif scope in ("area_report", "area_image"):

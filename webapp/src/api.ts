@@ -796,6 +796,8 @@ export type BeanSlip = {
   dest_place_id?: number | null; dest_place_name?: string | null;
   partner: string; note: string; ymd: string; created_at: string; created_by: string;
   items: BeanSlipItem[]; total_quantity: number;
+  /** Phiếu điều chỉnh sinh từ CHỐT phiếu kiểm kho nào (null = tạo tay). */
+  stocktake_id?: number | null;
 };
 /** Tồn 1 loại đậu, chia theo kho. */
 export type BeanStockRow = { id: number; name: string; unit: string; note: string; total: number; places: { place_id: number; qty: number }[] };
@@ -890,6 +892,72 @@ export async function deleteBeanPlace(id: number): Promise<any> {
   return delJSON(`/api/beans/places/${id}`);
 }
 /** Đơn vị quy đổi của 1 loại đậu (không gồm đơn vị gốc). */
+// ── KIỂM KHO ĐẬU — /api/beans/stocktakes ────────────────────────────────────
+export type BeanStocktakeStatus = "draft" | "done" | "voided";
+export const BEAN_STOCKTAKE_STATUS_LABEL: Record<BeanStocktakeStatus, string> = {
+  draft: "Đang kiểm", done: "Đã chốt", voided: "Đã huỷ",
+};
+export type BeanStocktakeSummary = {
+  total: number; counted: number; uncounted: number; match: number; over: number; short: number;
+  sum_over: number; sum_short: number;
+};
+export type BeanStocktakeItem = {
+  id: number; bean_id: number; bean_name: string;
+  /** Đơn vị GỐC của loại đậu — expected/counted/diff theo nó. */
+  unit: string;
+  /** Sổ sách lúc CHỤP (tạo phiếu / đồng bộ sổ). */
+  expected_qty: number;
+  /** Số đếm quy về gốc; null = chưa đếm (chốt bỏ qua dòng). */
+  counted_qty: number | null;
+  /** Số THÔ người đếm gõ: N đơn vị quy đổi + M gốc. */
+  counted_bulk: number | null; counted_loose: number | null;
+  unit_id: number | null; unit_name: string; unit_factor: number;
+  note: string; counted_at: string | null; counted_by: string;
+  diff: number | null;
+  /** Chỉ phiếu NHÁP: đơn vị quy đổi để gõ kép + tồn hiện tại + cờ sổ đã đổi. */
+  units?: BeanUnit[]; live_qty?: number; stale?: boolean;
+};
+export type BeanStocktake = {
+  id: number; place_id: number; place_name: string; status: BeanStocktakeStatus; note: string;
+  created_at: string; created_by: string; updated_at: string | null; updated_by: string;
+  completed_at: string | null; completed_by: string; voided_at: string | null; voided_by: string;
+  slip_id: number | null;
+  /** Phiếu điều chỉnh đã sinh (null khi admin đã xoá phiếu đó). */
+  slip?: { id: number; ymd: string; total_quantity: number; lines: number } | null;
+  items: BeanStocktakeItem[]; summary: BeanStocktakeSummary; stale_count: number;
+};
+export type BeanStocktakeRow = Omit<BeanStocktake, "items" | "stale_count" | "slip">;
+
+export async function listBeanStocktakes(opts: { place_id?: number; status?: BeanStocktakeStatus | ""; page?: number } = {}): Promise<{ stocktakes: BeanStocktakeRow[]; page: number; total: number; total_pages: number }> {
+  const q = new URLSearchParams();
+  if (opts.place_id) q.set("place_id", String(opts.place_id));
+  if (opts.status) q.set("status", opts.status);
+  if (opts.page) q.set("page", String(opts.page));
+  const d = await getJSON(`/api/beans/stocktakes?${q}`, { cache: false });
+  return { stocktakes: d.stocktakes || [], page: d.page || 1, total: d.total || 0, total_pages: d.total_pages || 1 };
+}
+export async function getBeanStocktake(id: string | number): Promise<BeanStocktake> {
+  const d = await getJSON(`/api/beans/stocktakes/${id}`, { cache: false });
+  return d.stocktake;
+}
+/** Mở phiếu kiểm cho 1 kho (chụp sổ mọi loại đậu). Kho đang có nháp → lỗi 400. */
+export async function createBeanStocktake(place_id: number, note = ""): Promise<BeanStocktake> {
+  return (await postJSON("/api/beans/stocktakes", { place_id, note })).stocktake;
+}
+/** Ghi số đếm: bulk theo `unit_id` (đơn vị quy đổi) + loose theo đơn vị gốc; cả 2 rỗng = xoá số đếm. */
+export async function countBeanStocktake(id: number, items: { bean_id: number; bulk?: string; loose?: string; unit_id?: number | null; note?: string }[]): Promise<BeanStocktake> {
+  return (await postJSON(`/api/beans/stocktakes/${id}/count`, { items })).stocktake;
+}
+export async function resyncBeanStocktake(id: number): Promise<BeanStocktake> {
+  return (await postJSON(`/api/beans/stocktakes/${id}/resync`, {})).stocktake;
+}
+export async function completeBeanStocktake(id: number, note = ""): Promise<BeanStocktake> {
+  return (await postJSON(`/api/beans/stocktakes/${id}/complete`, { note })).stocktake;
+}
+export async function voidBeanStocktake(id: number): Promise<BeanStocktake> {
+  return (await postJSON(`/api/beans/stocktakes/${id}/void`, {})).stocktake;
+}
+
 export async function listBeanUnits(beanId: number): Promise<{ base_unit: string; units: BeanUnit[] }> {
   const d = await getJSON(`/api/beans/items/${beanId}/units`, { cache: false });
   return { base_unit: d.base_unit || "", units: d.units || [] };

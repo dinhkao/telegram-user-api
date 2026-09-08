@@ -64,6 +64,7 @@ _HREF = {
     "bean_slip": lambda e: f"#/kho-dau/phieu/{e}",
     "bean_item": lambda e: f"#/kho-dau/dau/{e}",
     "bean_place": lambda e: f"#/kho-dau/kho/{e}",
+    "bean_stocktake": lambda e: f"#/kho-dau/kiem/{e}",
 }
 
 

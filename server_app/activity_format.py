@@ -32,7 +32,7 @@ _SCOPE_LABEL = {"order": "Đơn", "production": "Phiếu SX", "box": "Thùng", "
                 # "bean" = scope CŨ gộp chung (dữ liệu trước 2026-08-10); từ đó tách
                 # 3 scope theo thực thể để lịch sử từng phiếu/loại đậu/kho không lẫn.
                 "bean": "Kho đậu", "bean_slip": "Phiếu đậu", "bean_item": "Loại đậu",
-                "bean_place": "Kho đậu"}
+                "bean_place": "Kho đậu", "bean_stocktake": "Kiểm kho đậu"}
 
 # event → scope hiển thị khi row.scope trống (event cũ ghi thiếu scope)
 _EVENT_SCOPE = {"order": "order", "box": "box", "production": "production", "return": "return",

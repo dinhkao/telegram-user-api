@@ -502,6 +502,21 @@ def create_app():
     r.add_post("/api/beans/slips", bean_slip_create_handler)        # mọi user tạo phiếu
     r.add_get("/api/beans/slips/{id}", bean_slip_detail_handler)
     r.add_post("/api/beans/slips/{id}/delete", bean_slip_delete_handler)   # admin
+    # Kiểm kho đậu: chụp sổ → đếm → chốt sinh phiếu điều chỉnh (bean_stocktake_routes)
+    from server_app.bean_stocktake_routes import (bean_stocktake_complete_handler,
+                                                  bean_stocktake_count_handler,
+                                                  bean_stocktake_create_handler,
+                                                  bean_stocktake_detail_handler,
+                                                  bean_stocktake_resync_handler,
+                                                  bean_stocktake_void_handler,
+                                                  bean_stocktakes_handler)
+    r.add_get("/api/beans/stocktakes", bean_stocktakes_handler)
+    r.add_post("/api/beans/stocktakes", bean_stocktake_create_handler)          # mọi user
+    r.add_get("/api/beans/stocktakes/{id}", bean_stocktake_detail_handler)
+    r.add_post("/api/beans/stocktakes/{id}/count", bean_stocktake_count_handler)      # mọi user
+    r.add_post("/api/beans/stocktakes/{id}/resync", bean_stocktake_resync_handler)    # mọi user
+    r.add_post("/api/beans/stocktakes/{id}/complete", bean_stocktake_complete_handler)  # mọi user
+    r.add_post("/api/beans/stocktakes/{id}/void", bean_stocktake_void_handler)        # văn phòng
     r.add_post("/api/beans/items", bean_create_handler)             # mọi user thêm loại đậu
     # Đơn vị quy đổi ĐẶT TRƯỚC "/api/beans/items/{id}" (POST) để không bị nuốt
     from server_app.bean_unit_routes import (bean_unit_add_handler,

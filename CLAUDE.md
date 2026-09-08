@@ -769,6 +769,28 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   đổi + đổi tên đơn vị chính + nút ★ đổi đơn vị chính). ⚠ Route
   `#/kho-dau` phải đứng TRƯỚC nhánh `#/kho` trong `main.tsx` (startsWith nuốt). Guide:
   `webapp/src/guides/data_dau.ts`. Tests: `tests/test_bean_store.py`.
+  **KIỂM KHO ĐẬU (2026-09-08, `bean_store/stocktakes.py` + `server_app/bean_stocktake_routes.py`,
+  tests/test_bean_stocktake.py)**: bảng `bean_stocktakes` (1 phiếu/kho, status
+  `draft`→`done`|`voided`, mỗi kho tối đa 1 nháp — partial unique index) +
+  `bean_stocktake_items` (1 dòng/loại đậu: `expected_qty` = SỔ CHỤP lúc tạo/đồng bộ,
+  `counted_qty` = đếm quy về GỐC — **NULL = chưa đếm ≠ 0**, chốt BỎ QUA dòng NULL; số thô
+  `counted_bulk/loose` + `unit_*` snapshot cách gõ kép "3 bao + 12 kg" →
+  `domain.count_to_base`). Tạo = chụp tồn MỌI loại đậu trong danh mục (kể cả 0 — phát
+  hiện hàng chưa vào sổ). **CHỐT = 1 phiếu `dieu_chinh` với delta = đếm − sổ LÚC CHỤP**
+  (`slips.create_adjustment_from_counts`, gắn cột mới `bean_slips.stocktake_id`) — KHÔNG
+  dùng `create_slip(kind='dieu_chinh')` vì nó lấy delta = đếm − tồn HIỆN TẠI, sẽ nuốt
+  phiếu nhập/xuất hợp lệ xảy ra sau khi đếm; mọi dòng khớp → done không sinh phiếu;
+  guard tồn âm all-or-nothing. Nháp: `get_stocktake` gắn `live_qty`/`stale` từng dòng +
+  `stale_count`; `resync_stocktake` đặt lại sổ theo tồn hiện tại, GIỮ số đếm, thêm dòng
+  đậu mới. Quyền: tạo/đếm/chốt = mọi user đăng nhập (cùng quyền phiếu điều chỉnh
+  thường), huỷ = văn phòng. Chốt có phiếu → `notify_bean_slip` như phiếu tạo tay. Audit
+  scope **`bean_stocktake`** (id phiếu kiểm; event `bean.stocktake_created/counted/
+  resynced/completed/voided`, href `#/kho-dau/kiem/<id>`); media scope `bean_stocktake`
+  (ảnh/trao đổi/lịch sử). UI: `#/kho-dau/kiem` (`pages/BeanStocktakes.tsx` — chọn kho →
+  `openBeanStocktake` = có nháp thì vào tiếp, không thì tạo; dùng lại ở nút "Kiểm kho"
+  trang kho) → `#/kho-dau/kiem/:id` (`BeanStocktakeDetail.tsx`, dòng đếm =
+  `detail/BeanStocktakeLine.tsx` tự lưu khi blur, lọc "chỉ dòng chưa đếm", cảnh báo stale
+  + Đồng bộ sổ, Chốt/Huỷ). ⚠ Route `#/kho-dau/kiem` đứng TRƯỚC fallback `#/kho-dau`.
 - **`forecast_store/` — DỰ BÁO HÀNG HOÁ HẰNG NGÀY (2026-09-08, app.db 100% local).**
   Bảng `daily_forecasts` (1 dòng/ngày, `ymd` UNIQUE — đăng lại trong ngày là ĐÈ giữ id;
   `data_json` = số liệu engine, `body_md` = nhận định markdown, `model` = `claude-opus-5`

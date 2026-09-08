@@ -1,7 +1,9 @@
-"""DDL KHO ĐẬU (app.db) — 5 bảng RIÊNG, không dính gì kho hàng hoá hiện tại:
+"""DDL KHO ĐẬU (app.db) — 7 bảng RIÊNG, không dính gì kho hàng hoá hiện tại:
 `bean_places` (vị trí kho A/B…), `beans` (danh mục đậu), `bean_units` (đơn vị quy
 đổi của từng loại đậu), `bean_slips` (phiếu nhập/xuất/điều chỉnh), `bean_moves`
-(dòng biến động — tồn = SUM(delta), luôn theo ĐƠN VỊ GỐC).
+(dòng biến động — tồn = SUM(delta), luôn theo ĐƠN VỊ GỐC), `bean_stocktakes` +
+`bean_stocktake_items` (PHIẾU KIỂM KHO: chụp sổ lúc bắt đầu, ghi số đếm, chốt →
+sinh 1 phiếu điều chỉnh).
 
 ensure per-module (như area_store/disposal_store): CREATE TABLE IF NOT EXISTS gọi
 từ route handler, KHÔNG qua db_migrate. Dùng bởi bean_store.*.
@@ -92,16 +94,65 @@ _MOVE_ADD_COLS = (
     ("unit_factor", "REAL DEFAULT 1"),
 )
 
-# Cột thêm sau trên bean_slips (2026-09-04, phiếu chuyển kho).
+# Cột thêm sau trên bean_slips (2026-09-04 phiếu chuyển kho; 2026-09-08 kiểm kho:
+# stocktake_id = phiếu điều chỉnh này do CHỐT phiếu kiểm kho nào sinh ra).
 _SLIP_ADD_COLS = (
     ("dest_place_id", "INTEGER"),
+    ("stocktake_id", "INTEGER"),
 )
+
+# PHIẾU KIỂM KHO: 1 phiếu = 1 kho, status draft → done | voided. Chụp sổ sách lúc tạo
+# (expected_qty từng loại đậu), người đếm ghi counted_*; chốt (done) sinh 1 phiếu
+# điều chỉnh (`slip_id`) với delta = đếm − sổ LÚC CHỤP (không đè biến động hợp lệ
+# xảy ra sau khi đếm). Mỗi kho tối đa 1 nháp (partial unique index).
+_CREATE_STOCKTAKES = """
+CREATE TABLE IF NOT EXISTS bean_stocktakes (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    place_id     INTEGER NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'draft',
+    note         TEXT DEFAULT '',
+    created_at   TEXT NOT NULL,
+    created_by   TEXT DEFAULT '',
+    updated_at   TEXT,
+    updated_by   TEXT DEFAULT '',
+    completed_at TEXT,
+    completed_by TEXT DEFAULT '',
+    voided_at    TEXT,
+    voided_by    TEXT DEFAULT '',
+    slip_id      INTEGER
+)
+"""
+
+# 1 dòng = 1 loại đậu trong phiếu kiểm. expected_qty = sổ lúc chụp (ĐƠN VỊ GỐC);
+# counted_qty = số đếm quy về gốc, NULL = chưa đếm (chốt sẽ BỎ QUA dòng này);
+# counted_bulk/loose/unit_* = số THÔ người đếm gõ ("3 bao + 12 kg") để in lại đúng.
+_CREATE_STOCKTAKE_ITEMS = """
+CREATE TABLE IF NOT EXISTS bean_stocktake_items (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    stocktake_id  INTEGER NOT NULL,
+    bean_id       INTEGER NOT NULL,
+    expected_qty  REAL NOT NULL DEFAULT 0,
+    counted_qty   REAL,
+    counted_bulk  REAL,
+    counted_loose REAL,
+    unit_id       INTEGER,
+    unit_name     TEXT DEFAULT '',
+    unit_factor   REAL DEFAULT 1,
+    note          TEXT DEFAULT '',
+    counted_at    TEXT,
+    counted_by    TEXT DEFAULT '',
+    UNIQUE(stocktake_id, bean_id)
+)
+"""
 
 _IDX = (
     "CREATE INDEX IF NOT EXISTS idx_bean_moves_slip ON bean_moves(slip_id)",
     "CREATE INDEX IF NOT EXISTS idx_bean_moves_bean ON bean_moves(bean_id, place_id)",
     "CREATE INDEX IF NOT EXISTS idx_bean_slips_day ON bean_slips(ymd)",
     "CREATE INDEX IF NOT EXISTS idx_bean_units_bean ON bean_units(bean_id)",
+    "CREATE INDEX IF NOT EXISTS idx_bean_stocktakes_place ON bean_stocktakes(place_id, status)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS ux_bean_stocktake_draft ON bean_stocktakes(place_id) "
+    "WHERE status = 'draft'",
 )
 
 
@@ -122,6 +173,8 @@ def ensure_tables(conn) -> None:
     conn.execute(_CREATE_UNITS)
     conn.execute(_CREATE_SLIPS)
     conn.execute(_CREATE_MOVES)
+    conn.execute(_CREATE_STOCKTAKES)
+    conn.execute(_CREATE_STOCKTAKE_ITEMS)
     _add_missing_columns(conn)
     for sql in _IDX:
         conn.execute(sql)

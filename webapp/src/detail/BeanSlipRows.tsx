@@ -67,6 +67,7 @@ export function BeanSlipCard({ slip, showPlace = true, showBean = true, showDate
         {items.map((i) => lineText(i, showBean)).join(", ")}
         {others > 0 ? ` (+${others} loại khác)` : ""}
         {slip.partner ? ` · ${slip.partner}` : ""}
+        {slip.stocktake_id ? ` · kiểm kho #${slip.stocktake_id}` : ""}
         {slip.created_by ? ` · ${slip.created_by}` : ""}
       </div>
       {slip.note ? <div class="bean-slip-note muted small">“{slip.note}”</div> : null}

@@ -1,4 +1,6 @@
 """PHIẾU kho đậu — nhập / xuất / điều chỉnh / chuyển kho (`bean_slips` + `bean_moves`).
+Kèm `create_adjustment_from_counts` = phiếu điều chỉnh sinh từ CHỐT KIỂM KHO
+(delta chụp sẵn, gắn `stocktake_id`).
 
 1 phiếu = 1 loại thao tác + 1 kho + nhiều dòng đậu. Riêng kind='chuyen' có thêm
 KHO ĐÍCH (`dest_place_id`): mỗi dòng đậu ghi 2 bút toán −q/+q nên tồn tổng bảo
@@ -140,6 +142,58 @@ def create_slip(conn, kind: str, place_id, items, *, dest_place_id=None,
                      stock_of(conn, m["bean_id"], dest_place_id),
                      m["entered_qty"], m["unit_name"], m["unit_factor"], m["note"]),
                 )
+    return get_slip(conn, slip_id), None
+
+
+def create_adjustment_from_counts(conn, place_id, lines, *, stocktake_id, note: str = "",
+                                  ymd: str | None = None, by: str | None = None
+                                  ) -> tuple[dict | None, str | None]:
+    """Phiếu ĐIỀU CHỈNH sinh từ CHỐT KIỂM KHO — delta ĐÃ TÍNH SẴN = đếm − sổ LÚC CHỤP.
+
+    Khác `create_slip(kind='dieu_chinh')` (delta = đếm − tồn HIỆN TẠI): ở đây tồn có
+    thể đã đổi sau khi đếm (nhập/xuất hợp lệ) nên phải áp đúng CHÊNH LỆCH đo được,
+    không đè biến động đó. lines = [{bean_id, counted, expected}] (đơn vị GỐC);
+    dòng có counted == expected bị bỏ. Guard tồn âm theo tồn hiện tại + delta.
+    Gọi trong transaction của caller (bean_store.stocktakes.complete_stocktake).
+    """
+    try:
+        place_id = int(place_id)
+    except (TypeError, ValueError):
+        return None, "Cần chọn kho"
+    moves = []
+    for ln in lines:
+        bean = get_bean(conn, ln["bean_id"])
+        if not bean:
+            return None, f"Loại đậu #{ln['bean_id']} không tồn tại"
+        counted = round_qty(ln["counted"])
+        expected = round_qty(ln.get("expected") or 0)
+        delta = round_qty(counted - expected)
+        if not delta:
+            continue
+        before = stock_of(conn, bean["id"], place_id)
+        if round_qty(before + delta) < 0:
+            bu = f' {bean["unit"]}' if bean.get("unit") else ""
+            return None, (f'Chốt sẽ làm "{bean["name"]}" âm kho (tồn {fmt_qty(before)}{bu}, '
+                          f'chênh lệch −{fmt_qty(abs(delta))}{bu}) — kho đã xuất sau khi đếm, '
+                          "bấm Đồng bộ sổ rồi kiểm lại")
+        moves.append((bean["id"], delta, counted, before))
+    if not moves:
+        return None, "Không có dòng nào chênh lệch để điều chỉnh"
+    cur = conn.execute(
+        "INSERT INTO bean_slips (kind, place_id, dest_place_id, partner, note, ymd, "
+        "created_at, created_by, stocktake_id) VALUES ('dieu_chinh', ?, NULL, '', ?, ?, ?, ?, ?)",
+        (place_id, str(note or "").strip(), str(ymd or "").strip() or today_vn(), _now(),
+         by or "", int(stocktake_id)),
+    )
+    slip_id = cur.lastrowid
+    for bean_id, delta, counted, before in moves:
+        # quantity = số ĐẾM, before_qty = tồn lúc ghi (như phiếu điều chỉnh thường);
+        # delta là chênh lệch đo được nên before + delta có thể ≠ quantity — cố ý.
+        conn.execute(
+            "INSERT INTO bean_moves (slip_id, bean_id, place_id, delta, quantity, before_qty, "
+            "entered_qty, unit_name, unit_factor, note) VALUES (?, ?, ?, ?, ?, ?, ?, '', 1, '')",
+            (slip_id, bean_id, place_id, delta, counted, before, counted),
+        )
     return get_slip(conn, slip_id), None
 
 

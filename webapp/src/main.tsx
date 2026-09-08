@@ -98,6 +98,8 @@ import { BeanSlipDetail } from "./pages/BeanSlipDetail";
 import { BeanSetup } from "./pages/BeanSetup";
 import { BeanDetail } from "./pages/BeanDetail";
 import { BeanPlaceDetail } from "./pages/BeanPlaceDetail";
+import { BeanStocktakes } from "./pages/BeanStocktakes";
+import { BeanStocktakeDetail } from "./pages/BeanStocktakeDetail";
 import { QualityBoard } from "./pages/QualityBoard";
 import { QualityDetail } from "./pages/QualityDetail";
 import { QualityGallery } from "./pages/QualityGallery";
@@ -541,6 +543,7 @@ function App() {
   const beanSlipMatch = hash.match(/^#\/kho-dau\/phieu\/(\d+)/);
   const beanItemMatch = hash.match(/^#\/kho-dau\/dau\/(\d+)/);
   const beanPlaceMatch = hash.match(/^#\/kho-dau\/kho\/(\d+)/);
+  const beanStMatch = hash.match(/^#\/kho-dau\/kiem\/(\d+)/);
   const qualityMatch = hash.match(/^#\/chat-luong\/(\d+)/);
   const ketMatch = hash.match(/^#\/ket\/([^?]+)/);
   const purEditMatch = hash.match(/^#\/nhap-hang\/(\d+)\/sua/);
@@ -591,6 +594,8 @@ function App() {
   else if (hash.startsWith("#/kho-dau/phieu")) page = <BeanSlips />;
   else if (beanItemMatch) page = <BeanDetail id={beanItemMatch[1]} />;
   else if (beanPlaceMatch) page = <BeanPlaceDetail id={beanPlaceMatch[1]} />;
+  else if (beanStMatch) page = <BeanStocktakeDetail id={beanStMatch[1]} />;
+  else if (hash.startsWith("#/kho-dau/kiem")) page = <BeanStocktakes />;
   else if (hash.startsWith("#/kho-dau")) page = <BeanBoard />;
   else if (khoTLMatch) page = <ProductTimeline code={decodeURIComponent(khoTLMatch[1])} focus={focusEl} />;
   else if (khoMatch) page = <InventoryDetail code={decodeURIComponent(khoMatch[1])} />;
