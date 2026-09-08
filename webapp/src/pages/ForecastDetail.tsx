@@ -134,6 +134,20 @@ export function ForecastDetail({ id }: { id: string }) {
         </div>
       </div>
 
+      {/* (f) sự kiện sắp tới */}
+      {d.events && d.events.length ? (
+        <>
+                    <div class="fc-events">
+            {d.events.map((ev) => (
+              <span class="fc-event" key={ev.name + ev.ymd}>
+                <b>{ev.name}</b> · còn {ev.days} ngày <span class="muted small">({dm(ev.ymd)})</span>
+              </span>
+            ))}
+          </div>
+        </>
+      ) : null}
+
+
       {/* (b) nhận định AI */}
       {fc.body_md ? (
         <section class="card fc-md">
@@ -141,6 +155,9 @@ export function ForecastDetail({ id }: { id: string }) {
         </section>
       ) : null}
 
+      {/* Bảng số chi tiết — gập mặc định: nhân viên đọc phần dặn việc ở trên là đủ */}
+      <details class="fc-details fc-more">
+        <summary>Bảng số chi tiết (cho ai muốn soi)</summary>
       {/* (c) hôm nay theo nhóm */}
       <h3 class="fc-h"><Icon name="box" size={16} /> Hôm nay theo nhóm</h3>
       {d.day.rows.length ? <DayTable rows={d.day.rows} />
@@ -173,19 +190,7 @@ export function ForecastDetail({ id }: { id: string }) {
         </table>
       </div>
 
-      {/* (f) sự kiện sắp tới */}
-      {d.events && d.events.length ? (
-        <>
-          <h3 class="fc-h"><Icon name="bell" size={16} /> Sự kiện sắp tới</h3>
-          <div class="fc-events">
-            {d.events.map((ev) => (
-              <span class="fc-event" key={ev.name + ev.ymd}>
-                <b>{ev.name}</b> · còn {ev.days} ngày <span class="muted small">({dm(ev.ymd)})</span>
-              </span>
-            ))}
-          </div>
-        </>
-      ) : null}
+      </details>
 
       <p class="muted small fc-foot">Bản dự báo tạo lúc {fmtDateTimeVN(fc.created_at)}.</p>
     </div>

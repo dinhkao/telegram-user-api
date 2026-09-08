@@ -74,9 +74,11 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(title, "Dự báo hàng hoá Thứ Ba 8/9")
         self.assertIn("Hôm nay cần khoảng", summary)
         self.assertIn("Trung thu còn 17 ngày", summary_for(d))
-        for h in ("## Hôm nay", "## Tuần này", "## Hôm qua", "## Sắp tới"):
+        for h in ("## Sáng nay làm gì", "## Tuần này", "## Chuyện âm lịch", "## Để ý"):
             self.assertIn(h, body)
         self.assertIn("dự báo hôm qua là 95", body)
+        self.assertIn("làm trước", body)
+        self.assertNotIn("|", body)   # không bảng — app tự hiện bảng số
 
 
 if __name__ == "__main__":
