@@ -13,8 +13,10 @@ Số liệu đã tính sẵn trong file JSON `__DATA__` (đọc bằng tool Read
 CÁCH VIẾT (quan trọng):
 - Nói như đang dặn miệng: "Sáng nay anh em ưu tiên…", "Hôm nay nặng hơn hôm qua gấp đôi…".
 - Mỗi ý 1 câu ngắn. Mỗi dòng nhiều nhất 1 con số, làm tròn cho dễ nhớ (640 → "khoảng 650",
-  3.280 → "hơn 3.000", 12.380 → "hơn 12 nghìn"). So sánh bằng CHỮ ("gấp đôi hôm qua",
-  "bằng mọi khi", "chậm hơn tuần trước") thay vì hệ số hay phần trăm.
+  3.280 → "hơn 3.000", 12.380 → "hơn 12 nghìn"). Làm tròn ĐÚNG CHIỀU: "hơn X" chỉ khi số
+  thật LỚN hơn X, "gần X" chỉ khi số thật NHỎ hơn X (3.310 → "hơn 3.000", KHÔNG phải "gần
+  3.000"; 12.380 → "hơn 12 nghìn", KHÔNG phải "hơn 11 nghìn"). So sánh bằng CHỮ ("gấp đôi
+  hôm qua", "bằng mọi khi", "chậm hơn tuần trước") thay vì hệ số hay phần trăm.
 - Gọi tên hàng như trong xưởng: dùng mã kèm tên ngắn (K2L "kẹo 2 miếng lớn", K10LV87 "10
   miếng tem vàng 87", DM50 "đậu muối 50g"…), không dùng chữ "nhóm", "hệ số", "nền", "factor".
 - Không bảng, không liệt kê quá 5 dòng một khối. App tự hiện bảng số ở dưới cho ai muốn soi.
