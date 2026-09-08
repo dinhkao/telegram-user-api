@@ -72,12 +72,16 @@ class EngineTest(unittest.TestCase):
         d = compute(lines, self.today, prev_day_forecast=95)
         title, summary, body = auto_narrative(d)
         self.assertEqual(title, "Dự báo hàng hoá Thứ Ba 8/9")
-        self.assertIn("Hôm nay cần khoảng", summary)
+        self.assertIn("Nhu cầu hôm nay khoảng", summary)
         self.assertIn("Trung thu còn 17 ngày", summary_for(d))
-        for h in ("## Sáng nay làm gì", "## Tuần này", "## Chuyện âm lịch", "## Để ý"):
+        for h in ("## Ưu tiên sản xuất hôm nay", "## Kế hoạch tuần", "## Yếu tố mùa vụ", "## Lưu ý"):
             self.assertIn(h, body)
         self.assertIn("dự báo hôm qua là 95", body)
-        self.assertIn("làm trước", body)
+        self.assertIn("ưu tiên 1", body)
+        # giọng nghiêm túc: không xưng hô / khẩu ngữ
+        for bad in ("anh em", "khỏi", "dư tay", "kha khá", "là ăn", "coi chừng"):
+            self.assertNotIn(bad, body.lower())
+            self.assertNotIn(bad, summary.lower())
         self.assertNotIn("|", body)   # không bảng — app tự hiện bảng số
 
 

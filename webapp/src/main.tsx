@@ -88,7 +88,6 @@ import { AdjustmentsList } from "./pages/AdjustmentsList";
 import { DisposalDetail } from "./pages/DisposalDetail";
 import { ForecastList } from "./pages/ForecastList";
 import { ForecastDetail } from "./pages/ForecastDetail";
-import { ForecastPopup } from "./detail/ForecastPopup";
 import { AreasBoard } from "./pages/AreasBoard";
 import { AreaDetail } from "./pages/AreaDetail";
 import { BeanBoard } from "./pages/BeanBoard";
@@ -765,7 +764,6 @@ function App() {
       )}
       {!showLogin && !qualityOnly && !hash.startsWith("#/huong-dan") && <HelpFab />}
       {/* Nhắc bản dự báo hàng hoá của hôm nay — tối đa 1 lần/ngày mỗi máy */}
-      {!showLogin && !qualityOnly && !hash.startsWith("#/du-bao") && <ForecastPopup />}
     </div>
   );
 }

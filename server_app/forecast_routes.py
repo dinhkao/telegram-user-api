@@ -3,8 +3,8 @@
 GET list (mới nhất trước, `viewed` theo user) · GET today (popup "chưa xem") · GET {id}
 (chi tiết + TỰ đánh dấu đã xem) · GET compute?ymd= (văn phòng — chạy engine live để soi số)
 · POST publish (CHỈ loopback: job 7h sáng `tools/forecast_publish.py` đăng bản mới → realtime
-`forecast_changed` + chuông/FCM route `#/du-bao/<id>`, chỉ báo 1 lần/ngày).
-Nối: forecast_store, server_app.notify, server_app.realtime, web_auth.middleware.effective_remote.
+`forecast_changed`; KHÔNG chuông/FCM/popup — người dùng tự vào #/du-bao xem).
+Nối: forecast_store, server_app.realtime, web_auth.middleware.effective_remote.
 Đăng ký ở app_factory.
 """
 from __future__ import annotations
@@ -157,13 +157,8 @@ async def forecast_publish_handler(request: web.Request):
         return web.json_response({"error": str(e)}, status=400)
     from server_app.realtime import emit_forecast_changed
     emit_forecast_changed(row["id"])
-    # Chuông + FCM: 1 lần/ngày (bản đầu tiên của ngày, hoặc ép notify=true khi bản
-    # tự động được agent thay bằng bản có nhận định).
-    if created or body.get("notify") is True:
-        from server_app.notify import push_bg
-        summary = str(row.get("summary") or "")
-        push_bg("📈 " + row["title"], "\n".join(summary.splitlines()[:2]),
-                {"type": "forecast", "route": f"#/du-bao/{row['id']}"})
+    # KHÔNG gửi chuông/FCM (Duy bỏ 2026-09-09: ai muốn xem thì tự vào #/du-bao) — chỉ
+    # realtime để trang đang mở tự tải lại.
     log.info("forecast published ymd=%s id=%s created=%s model=%s", row["ymd"], row["id"], created, row["model"])
     return web.json_response({"ok": True, "id": row["id"], "created": created})
 

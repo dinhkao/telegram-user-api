@@ -53,7 +53,6 @@ def main() -> int:
     ap.add_argument("--auto", action="store_true")
     ap.add_argument("--model", default=None)
     ap.add_argument("--check", default=None)
-    ap.add_argument("--notify", action="store_true", help="ép báo chuông dù ngày đã có bản")
     a = ap.parse_args()
     if a.check:
         from utils.db import get_connection
@@ -85,7 +84,7 @@ def main() -> int:
             title, summary, body = auto_narrative(data)
             model = "auto"
     payload = {"ymd": data["ymd"], "title": title, "summary": summary, "body_md": body,
-               "data": data, "model": model, "by": "cron", "notify": bool(a.notify)}
+               "data": data, "model": model, "by": "cron"}
     res = _post(payload) or _direct(payload)
     print(json.dumps(res, ensure_ascii=False))
     return 0 if res.get("ok") else 2

@@ -804,9 +804,15 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   forecast_agent_prompt.md`, chỉ Read/Write/Bash lệnh publish, max 12 lượt, timeout 15ph)
   viết title/summary/body_md vào `<ymd>.draft.json` rồi tự chạy ③ `tools/forecast_publish.py`
   → POST **`/api/forecasts/publish` (CHỈ loopback theo `effective_remote`)** → upsert +
-  realtime `forecast_changed` + chuông/FCM type `forecast` route `#/du-bao/<id>` (chỉ bản
-  ĐẦU của ngày, hoặc `--notify`); server tắt → ghi thẳng DB. Agent lỗi/hết hạn mức → script
+  realtime `forecast_changed`. **KHÔNG chuông/FCM, KHÔNG popup** (Duy bỏ 2026-09-09: "ai
+  muốn vào xem thì tự vào xem" — `detail/ForecastPopup.tsx` đã xoá, `--notify` đã gỡ; đừng
+  thêm lại push cho dự báo); server tắt → ghi thẳng DB. Agent lỗi/hết hạn mức → script
   đăng bản `--auto` (`narrative.auto_narrative` viết từ số liệu) để ô hôm nay vẫn có.
+  **GIỌNG VĂN = BẢN TIN ĐIỀU HÀNH NGHIÊM TÚC (Duy chốt 2026-09-09)**: câu chỉ thị trung
+  tính, KHÔNG xưng hô ("anh em"), KHÔNG khẩu ngữ/tiếng lóng ("là ăn", "coi chừng", "khỏi",
+  "dư tay"), không ví von/động viên — áp cho CẢ prompt agent LẪN `narrative.py`; 4 khối cố
+  định: Ưu tiên sản xuất hôm nay · Kế hoạch tuần · Yếu tố mùa vụ · Lưu ý (test khoá từ cấm).
+  Vẫn giữ luật ít số + làm tròn đúng chiều + so sánh bằng chữ.
   Công thức (test `tests/test_forecast_engine.py`): nhóm → `w4avg` 4 tuần trọn gần nhất;
   NGÀY = w4avg × tỉ trọng thứ (8 tuần) × (1+factor)/2 với factor = 7 ngày quanh CÙNG NGÀY
   ÂM LỊCH năm ngoái ÷ nền 9 tuần quanh đó; TUẦN (T2→CN) factor = cùng tuần âm lịch năm
@@ -816,10 +822,8 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   viewed) · `/today` (poll khi resume — nằm trong `_NO_AUDIT`) · `/{id}` (chi tiết, TỰ đánh
   dấu đã xem) · `/compute?ymd=` (văn phòng, chạy engine live để soi số). UI `#/du-bao`
   (`pages/ForecastList.tsx` — 1 ô/ngày) → `#/du-bao/:id` (`ForecastDetail.tsx`, markdown
-  qua `detail/markdown.ts`); **POPUP `detail/ForecastPopup.tsx`** mount toàn cục ở
-  `main.tsx`: mở app/resume/nhận `forecast_changed` → `/today`; có bản, chưa xem, và
-  localStorage `forecast_popup_ymd` ≠ hôm nay → hiện 1 lần/ngày/máy ("Xem chi tiết" /
-  "Để sau"). Chạy tay: `tools/forecast_daily.sh [ymd] [--auto]`; log
+  qua `detail/markdown.ts`). Endpoint `/today` + bảng `forecast_views` còn giữ (cờ
+  `viewed` trên danh sách) nhưng không còn popup nào dùng. Chạy tay: `tools/forecast_daily.sh [ymd] [--auto]`; log
   `~/letrang-db/logs/forecast.log`. Tests: `tests/test_forecast_{lunar,engine,store}.py`.
 - `area_store/` — KHU VỰC XƯỞNG (`workshop_areas`) + BÁO CÁO VỆ SINH hằng ngày
   (`area_hygiene_reports`), app.db 100% local. Nhân viên chụp ảnh báo cáo vệ sinh

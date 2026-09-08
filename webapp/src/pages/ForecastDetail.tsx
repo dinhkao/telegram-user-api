@@ -155,9 +155,9 @@ export function ForecastDetail({ id }: { id: string }) {
         </section>
       ) : null}
 
-      {/* Bảng số chi tiết — gập mặc định: nhân viên đọc phần dặn việc ở trên là đủ */}
+      {/* Bảng số chi tiết — gập mặc định: phần nhận định ở trên là đủ cho người đọc thường */}
       <details class="fc-details fc-more">
-        <summary>Bảng số chi tiết (cho ai muốn soi)</summary>
+        <summary>Bảng số chi tiết</summary>
       {/* (c) hôm nay theo nhóm */}
       <h3 class="fc-h"><Icon name="box" size={16} /> Hôm nay theo nhóm</h3>
       {d.day.rows.length ? <DayTable rows={d.day.rows} />
