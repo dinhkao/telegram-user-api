@@ -4452,3 +4452,67 @@ a.bean-row, a.bean-card { color: inherit; text-decoration: none; }
 .pf-filterbar .note-inp { flex: 1; min-width: 130px; }
 .pf-alloc { font-size: .62rem; color: var(--muted); text-align: center; min-height: 1em; }
 .pf-margin-badge { background: rgba(255,255,255,.22); padding: 1px 8px; border-radius: 10px; font-size: .68rem; font-weight: 600; margin-left: 4px; }
+
+/* ── DỰ BÁO HÀNG HOÁ (#/du-bao) — danh sách ô mỗi ngày, chi tiết, popup nhắc ── */
+.fc-list { display: flex; flex-direction: column; gap: 8px; }
+.fc-card { position: relative; display: block; padding: 10px 30px 10px 12px; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--e1); color: inherit; text-decoration: none; }
+.fc-card:active { background: var(--bg); }
+.fc-card.unseen { border-color: var(--accent); background: var(--accent-wash); }
+.fc-card-arrow { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--muted-2); }
+.fc-card-top { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px; }
+.fc-card-date { font-weight: 700; font-size: .96rem; }
+.fc-new { margin-left: auto; padding: 1px 7px; border-radius: var(--r-pill); background: var(--accent);
+  color: #fff; font-size: .68rem; font-weight: 700; }
+.fc-nums { display: flex; gap: 16px; margin: 6px 0 4px; }
+.fc-num { display: flex; flex-direction: column; }
+.fc-num-lbl { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .02em; }
+.fc-num-v { font-size: 1.18rem; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.fc-sum { white-space: pre-wrap; font-size: .84rem; color: var(--muted); margin: 0;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.fc-more { margin: 10px 0 4px; }
+
+/* Chi tiết */
+.fc-sumcards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 10px; }
+.fc-sumcard { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--e1); }
+.fc-big { font-size: 1.6rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.fc-h { display: flex; align-items: center; gap: 6px; font-size: 1rem; margin: 14px 0 6px; }
+.fc-tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border);
+  border-radius: var(--r-md); background: var(--card); }
+.fc-tbl { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.fc-tbl th, .fc-tbl td { padding: 6px 9px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.fc-tbl th { font-size: .74rem; color: var(--muted); font-weight: 700; white-space: nowrap; }
+.fc-tbl tr:last-child td { border-bottom: none; }
+.fc-tbl .num, .fc-tbl td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fc-details { margin-top: 6px; }
+.fc-details > summary { cursor: pointer; font-size: .82rem; color: var(--muted); padding: 4px 2px; }
+.fc-details > .fc-tbl-wrap { margin-top: 6px; }
+.fc-yday { margin: 2px 0 6px; }
+.fc-events { display: flex; flex-wrap: wrap; gap: 6px; }
+.fc-event { padding: 4px 9px; border-radius: var(--r-pill); background: var(--warn-wash); color: var(--warn); font-size: .82rem; }
+.fc-foot { margin: 14px 0 4px; }
+
+/* Nhận định AI (markdown render — detail/markdown.ts) */
+.fc-md { padding: 10px 12px; }
+.md-body h3 { font-size: 1rem; margin: 8px 0 4px; }
+.md-body h4 { font-size: .92rem; margin: 8px 0 4px; }
+.md-body h5 { font-size: .86rem; margin: 6px 0 3px; color: var(--muted); }
+.md-body h3:first-child, .md-body h4:first-child, .md-body h5:first-child { margin-top: 0; }
+.md-body p { margin: 6px 0; font-size: .9rem; }
+.md-body ul, .md-body ol { margin: 6px 0 6px 20px; font-size: .9rem; }
+.md-body li { margin: 2px 0; }
+.md-body table { width: 100%; border-collapse: collapse; font-size: .84rem; margin: 8px 0; }
+.md-body th, .md-body td { padding: 5px 8px; border: 1px solid var(--border); text-align: left; }
+.md-body th { background: var(--bg); font-weight: 700; }
+.md-body th.num, .md-body td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* Popup nhắc dự báo hôm nay (mount toàn cục ở main.tsx) */
+.fc-pop-backdrop { position: fixed; inset: 0; z-index: 120; background: rgba(16,20,32,.45);
+  display: flex; align-items: center; justify-content: center; padding: 16px; overscroll-behavior: contain; }
+.fc-pop { width: 100%; max-width: 380px; background: var(--card); border-radius: var(--r-lg);
+  box-shadow: var(--e3); padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.fc-pop-h { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 1.05rem; }
+.fc-pop-nums { margin: 8px 0 2px; }
+.fc-pop-sum { white-space: pre-wrap; font-size: .88rem; color: var(--ink); margin: 4px 0 2px; }
+.fc-pop-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }

@@ -86,6 +86,9 @@ import { ProfitSettings } from "./pages/ProfitSettings";
 import { DisposalsList } from "./pages/DisposalsList";
 import { AdjustmentsList } from "./pages/AdjustmentsList";
 import { DisposalDetail } from "./pages/DisposalDetail";
+import { ForecastList } from "./pages/ForecastList";
+import { ForecastDetail } from "./pages/ForecastDetail";
+import { ForecastPopup } from "./detail/ForecastPopup";
 import { AreasBoard } from "./pages/AreasBoard";
 import { AreaDetail } from "./pages/AreaDetail";
 import { BeanBoard } from "./pages/BeanBoard";
@@ -534,6 +537,7 @@ function App() {
   const retMatch = hash.match(/^#\/tra-hang\/(\d+)/);
   const dispMatch = hash.match(/^#\/xuat-huy\/(\d+)/);
   const areaMatch = hash.match(/^#\/khu-vuc\/(\d+)/);
+  const forecastMatch = hash.match(/^#\/du-bao\/(\d+)/);
   const beanSlipMatch = hash.match(/^#\/kho-dau\/phieu\/(\d+)/);
   const beanItemMatch = hash.match(/^#\/kho-dau\/dau\/(\d+)/);
   const beanPlaceMatch = hash.match(/^#\/kho-dau\/kho\/(\d+)/);
@@ -628,6 +632,9 @@ function App() {
   else if (purMatch) page = <PurchaseDetail id={purMatch[1]} />;
   else if (dispMatch) page = <DisposalDetail id={dispMatch[1]} />;
   else if (hash.startsWith("#/xuat-huy")) page = <DisposalsList />;
+  // Dự báo: nhánh chi tiết phải đứng TRƯỚC danh sách (startsWith nuốt).
+  else if (forecastMatch) page = <ForecastDetail id={forecastMatch[1]} />;
+  else if (hash.startsWith("#/du-bao")) page = <ForecastList />;
   else if (areaMatch) page = <AreaDetail id={areaMatch[1]} />;
   else if (hash.startsWith("#/khu-vuc")) page = <AreasBoard />;
   else if (hash.startsWith("#/chat-luong/anh")) page = <QualityGallery />;
@@ -657,6 +664,7 @@ function App() {
     : hash.startsWith("#/tra-hang") ? "Trả hàng"
     : purEditMatch ? "Sửa phiếu nhập"
     : hash.startsWith("#/xuat-huy") ? "Xuất hủy"
+    : hash.startsWith("#/du-bao") ? "Dự báo hàng hoá"
     : hash.startsWith("#/khu-vuc") ? "Khu vực xưởng"
     : hash.startsWith("#/chat-luong/anh") ? "Tất cả ảnh mâm"
     : hash.startsWith("#/chat-luong") ? "Chất lượng mâm"
@@ -751,6 +759,8 @@ function App() {
         </div>
       )}
       {!showLogin && !qualityOnly && !hash.startsWith("#/huong-dan") && <HelpFab />}
+      {/* Nhắc bản dự báo hàng hoá của hôm nay — tối đa 1 lần/ngày mỗi máy */}
+      {!showLogin && !qualityOnly && !hash.startsWith("#/du-bao") && <ForecastPopup />}
     </div>
   );
 }

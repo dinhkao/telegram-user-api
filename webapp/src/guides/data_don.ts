@@ -233,4 +233,40 @@ export const GUIDES_DON: Guide[] = [
         Lần sau tạo HĐ cho khách đó là <b>tự điền lại</b> — chỉ số lượng lấy theo đơn mới.</p>` },
     ],
   },
+  {
+    key: "du-bao", icon: "chart", cat: "Đơn hàng & khách",
+    title: "Dự báo hàng hoá hằng ngày",
+    desc: "Mỗi sáng 7h app tự tính lượng hàng cần chuẩn bị hôm nay + cả tuần, kèm nhận định.",
+    routes: ["#/du-bao"],
+    sections: [
+      { title: "Bản dự báo là gì?", html: `
+        <p>Mỗi sáng <b>7 giờ</b>, app tự dựng <b>1 bản dự báo</b> từ lịch sử đơn hàng: cần chuẩn bị
+        <b>bao nhiêu hàng cho HÔM NAY</b> và <b>cho CẢ TUẦN này</b>, chia theo nhóm hàng.</p>
+        <p>Bản dự báo có gắn <b>ngày âm lịch</b> và <b>sự kiện sắp tới</b> (rằm, Trung thu, Tết…) vì
+        sức mua của mình lên xuống theo lịch âm — nhìn "còn 17 ngày tới Trung thu" là biết phải
+        làm hàng trước bao lâu.</p>
+        <p>Vào xem ở <a href="#/du-bao">☰ Thêm → Dự báo hàng hoá</a>: mỗi ngày một ô, mới nhất ở trên.
+        Ô nào còn dấu <b>Chưa xem</b> là bạn chưa mở bản đó.</p>` },
+      { title: "Đọc số: “Dự báo” khác “Chuẩn bị”", html: `
+        <ul>
+          <li><b>Dự báo</b> = lượng hàng <i>ước tính sẽ bán</i> — con số ở giữa, sát thực tế nhất.</li>
+          <li><b>Chuẩn bị</b> = mức <i>nên có sẵn</i>, cao hơn dự báo một chút để không cháy hàng
+          khi khách đặt nhiều hơn thường lệ.</li>
+        </ul>
+        <p>Bảng <b>Tuần này theo nhóm</b> còn cho biết <b>đã bán</b> bao nhiêu từ đầu tuần và
+        <b>còn cần</b> làm thêm bao nhiêu cho tới hết tuần — đó là con số để giao việc sản xuất.</p>
+        <p class="muted small">Cuối trang có bảng <b>7 ngày qua</b> và dòng đối chiếu
+        “hôm qua dự báo bao nhiêu, thực tế bao nhiêu” để bạn tự đánh giá dự báo có sát không.</p>` },
+      { title: "Popup nhắc mỗi ngày một lần", html: `
+        <p>Sáng mở app, nếu <b>chưa xem bản của hôm nay</b>, app hiện <b>một popup</b> tóm tắt nhanh:
+        số hôm nay, số cả tuần và vài dòng nhận định.</p>
+        <ul>
+          <li>Bấm <b>「Xem chi tiết」</b> để mở bản đầy đủ.</li>
+          <li>Bấm <b>「Để sau」</b> nếu đang bận — <b>hôm nay sẽ không nhắc lại nữa</b> trên máy này,
+          nhưng bản dự báo vẫn nằm ở <a href="#/du-bao">#/du-bao</a> để xem lúc nào cũng được.</li>
+        </ul>
+        <p class="muted small">Popup nhắc <b>tối đa 1 lần/ngày trên mỗi máy</b>. Mỗi người dùng có
+        trạng thái “đã xem” riêng, nên máy của bạn tắt nhắc không ảnh hưởng người khác.</p>` },
+    ],
+  },
 ];

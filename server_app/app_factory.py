@@ -470,6 +470,10 @@ def create_app():
     r.add_get("/api/disposals/{id}", disposal_detail_handler)
     r.add_post("/api/disposals/{id}/delete", disposal_delete_handler)  # admin, hoàn tồn
 
+    # ─── DỰ BÁO HÀNG HOÁ hằng ngày (job 7h sáng + agent) ─────────────────────
+    from server_app.forecast_routes import register as register_forecast_routes
+    register_forecast_routes(r)
+
     from server_app.area_routes import (area_create_handler, area_delete_handler,
                                          area_detail_handler, area_report_delete_handler,
                                          area_report_handler, area_update_handler,

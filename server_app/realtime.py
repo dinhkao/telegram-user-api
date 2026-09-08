@@ -209,6 +209,15 @@ def emit_bean_changed() -> None:
     spawn_tracked("realtime.bean_changed", _broadcast({"type": "bean_changed"}, "bean_changed"))
 
 
+def emit_forecast_changed(forecast_id=None) -> None:
+    """Có bản DỰ BÁO HÀNG HOÁ mới/đè (job 7h sáng) → danh sách #/du-bao tải lại +
+    popup "chưa xem" kiểm tra lại."""
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("realtime.forecast_changed",
+                  _broadcast({"type": "forecast_changed", "id": str(forecast_id) if forecast_id else ""},
+                             "forecast_changed"))
+
+
 def emit_cashbox_changed() -> None:
     """Hệ két tiền đổi (chuyển tay tạo/xoá) → trang Két refetch. Biến động từ
     đơn hàng thì client nghe order_changed/orders_changed sẵn có."""

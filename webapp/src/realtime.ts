@@ -24,6 +24,7 @@ export type RealtimeEvent =
   | { type: "area_changed"; id: string }
   | { type: "quality_changed"; id: string }
   | { type: "bean_changed" }
+  | { type: "forecast_changed"; id: string }
   | { type: "cashbox_changed" }
   | { type: "banner_changed" }
   | { type: "notif_added"; notif: any }
@@ -44,7 +45,7 @@ const _SERVER_EVENTS = new Set([
   "tasks_changed", "workers_changed", "report_slips_changed", "return_changed", "stock_pick_lock", "invoice_edit_lock",
   "invoice_creating",
   "purchase_changed", "supplier_changed", "disposal_changed", "stocktake_lock",
-  "cashbox_changed", "app_reload", "area_changed", "bean_changed",
+  "cashbox_changed", "app_reload", "area_changed", "bean_changed", "forecast_changed",
 ]);
 
 type Handler = (e: RealtimeEvent) => void;

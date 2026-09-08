@@ -118,6 +118,7 @@ _EXTRA_LABELS = {
     "POST /api/order/refresh-debt": None,
     "POST /api/reminder/stop/{id}": "Tắt nhắc nộp tiền",
     "POST /api/places": "Tạo vị trí kho",
+    "POST /api/forecasts/publish": "Đăng dự báo hàng hoá",
     "POST /api/customers/{id}/link-kiotviet": "Liên kết khách với KiotViet",
     "POST /api/customers/{id}/unlink-kiotviet": "Gỡ liên kết KiotViet",
     "POST /api/price-lists": "Tạo bảng giá",

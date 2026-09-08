@@ -17,6 +17,7 @@ export const GROUPS: MenuGroup[] = [
     { label: "Nộp tiền", href: "#/nop-tien", icon: "banknote" },
     { label: "Nhận tiền", href: "#/nhan-tien", icon: "wallet", office: true },
     { label: "Việc", href: "#/viec", icon: "check" },
+    { label: "Dự báo hàng hoá", href: "#/du-bao", icon: "chart" },
   ] },
   { title: "Kho", icon: "box", items: [
     { label: "Kho hàng", href: "#/kho", icon: "box" },

@@ -645,6 +645,61 @@ export async function deleteAreaReport(rid: number): Promise<any> {
   return postJSON(`/api/areas/report/${rid}/delete`, {});
 }
 
+// ── DỰ BÁO HÀNG HOÁ HẰNG NGÀY (server sinh mỗi sáng 7h, kèm nhận định AI) ────
+// 1 bản/ngày: số cần chuẩn bị HÔM NAY + TUẦN NÀY (gắn âm lịch + sự kiện sắp tới).
+// Trang: #/du-bao (danh sách) · #/du-bao/:id (chi tiết) · popup nhắc 1 lần/ngày.
+export type ForecastRow = {
+  id: number; ymd: string;
+  dow_label: string;              // "Thứ Ba"
+  lunar_label: string;            // "28/7 ÂL Bính Ngọ"
+  title: string;
+  summary: string;                // 2–4 dòng, xuống dòng bằng "\n"
+  day_total: number; day_hi: number;
+  week_total: number; week_hi: number; week_from: string; week_to: string;
+  model: string;
+  created_at: string;             // UTC ISO
+  viewed: boolean;                // user HIỆN TẠI đã mở chi tiết chưa
+};
+export type ForecastDayRow = {
+  fam: string; name: string; unit: string;
+  fc: number; hi: number; base: number; factor: number;
+};
+export type ForecastWeekRow = {
+  fam: string; name: string; unit: string;
+  fc: number; hi: number; sofar: number; remain: number; w4avg: number; factor: number;
+};
+export type ForecastData = {
+  ymd: string;
+  lunar: { d: number; m: number; y: number; leap: number; label: string };
+  dow_label: string;
+  day: { total: number; hi: number; rows: ForecastDayRow[] };
+  week: {
+    from: string; to: string; total: number; hi: number; sofar: number; remain: number;
+    rows: ForecastWeekRow[];
+  };
+  yesterday: { ymd: string; total: number; orders: number; forecast: number | null };
+  last7: { ymd: string; total: number; orders: number }[];
+  events: { name: string; ymd: string; days: number }[];
+};
+export type ForecastFull = ForecastRow & { body_md: string; data: ForecastData };
+
+/** Danh sách bản dự báo, mới nhất trước. before = id bản cũ nhất đang có (tải thêm). */
+export async function listForecasts(before?: number | null, limit = 30): Promise<{ items: ForecastRow[]; has_more: boolean }> {
+  const q = new URLSearchParams({ limit: String(limit) });
+  if (before) q.set("before", String(before));
+  const d = await getJSON(`/api/forecasts?${q}`, { cache: false });
+  return { items: d.items || [], has_more: !!d.has_more };
+}
+/** Bản của HÔM NAY (null nếu chưa sinh) + user này đã xem chưa — cho popup nhắc. */
+export async function getTodayForecast(): Promise<{ ymd: string; forecast: ForecastRow | null; viewed: boolean }> {
+  const d = await getJSON("/api/forecasts/today", { cache: false });
+  return { ymd: d.ymd, forecast: d.forecast || null, viewed: !!d.viewed };
+}
+/** Chi tiết 1 bản — SERVER TỰ ĐÁNH DẤU đã xem khi gọi (nên popup không nhắc lại). */
+export async function getForecast(id: string | number): Promise<ForecastFull> {
+  return await getJSON(`/api/forecasts/${id}`, { cache: false });
+}
+
 // ── CHẤT LƯỢNG MÂM KẸO hằng ngày theo THỢ (media scope 'quality_report') ──────
 // Cùng hình dạng với khu vực/vệ sinh, nhưng thực thể là THỢ (production_workers).
 export type QualityRow = {

@@ -769,6 +769,36 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   đổi + đổi tên đơn vị chính + nút ★ đổi đơn vị chính). ⚠ Route
   `#/kho-dau` phải đứng TRƯỚC nhánh `#/kho` trong `main.tsx` (startsWith nuốt). Guide:
   `webapp/src/guides/data_dau.ts`. Tests: `tests/test_bean_store.py`.
+- **`forecast_store/` — DỰ BÁO HÀNG HOÁ HẰNG NGÀY (2026-09-08, app.db 100% local).**
+  Bảng `daily_forecasts` (1 dòng/ngày, `ymd` UNIQUE — đăng lại trong ngày là ĐÈ giữ id;
+  `data_json` = số liệu engine, `body_md` = nhận định markdown, `model` = `claude-opus-5`
+  | `auto`) + `forecast_views` (ai đã mở bản nào → cờ `viewed` cho popup). Luồng mỗi
+  sáng **7h (crontab của user duydinh0225)** `tools/forecast_daily.sh`: ① `tools/
+  forecast_compute.py` chạy **engine THUẦN `forecast_store/engine.py::compute`** (đọc lịch
+  sử đơn 420 ngày qua `history.load_lines` — blob orders → dòng phẳng, gộp biến thể mã
+  theo `fam` = mã gốc trước `-`; gắn âm lịch bằng `forecast_store/lunar.py` = thuật toán Hồ
+  Ngọc Đức múi +7, đã kiểm mốc Tết/Trung thu/nhuận 2025) → JSON `~/letrang-db/forecast/
+  <ymd>.json`; ② **spawn agent `claude -p --model claude-opus-5`** (prompt `tools/
+  forecast_agent_prompt.md`, chỉ Read/Write/Bash lệnh publish, max 12 lượt, timeout 15ph)
+  viết title/summary/body_md vào `<ymd>.draft.json` rồi tự chạy ③ `tools/forecast_publish.py`
+  → POST **`/api/forecasts/publish` (CHỈ loopback theo `effective_remote`)** → upsert +
+  realtime `forecast_changed` + chuông/FCM type `forecast` route `#/du-bao/<id>` (chỉ bản
+  ĐẦU của ngày, hoặc `--notify`); server tắt → ghi thẳng DB. Agent lỗi/hết hạn mức → script
+  đăng bản `--auto` (`narrative.auto_narrative` viết từ số liệu) để ô hôm nay vẫn có.
+  Công thức (test `tests/test_forecast_engine.py`): nhóm → `w4avg` 4 tuần trọn gần nhất;
+  NGÀY = w4avg × tỉ trọng thứ (8 tuần) × (1+factor)/2 với factor = 7 ngày quanh CÙNG NGÀY
+  ÂM LỊCH năm ngoái ÷ nền 9 tuần quanh đó; TUẦN (T2→CN) factor = cùng tuần âm lịch năm
+  ngoái ÷ TB 4 tuần trước + 4 tuần sau; kẹp 0,7–1,5, nền < 15 → 1,0; `hi` = ×1,2 ngày /
+  ×1,15 tuần; tuần có `sofar`/`remain`. Số giữ ĐƠN VỊ GỐC từng nhóm, không quy đổi.
+  API `server_app/forecast_routes.py`: GET `/api/forecasts` (phân trang `before`, cờ
+  viewed) · `/today` (poll khi resume — nằm trong `_NO_AUDIT`) · `/{id}` (chi tiết, TỰ đánh
+  dấu đã xem) · `/compute?ymd=` (văn phòng, chạy engine live để soi số). UI `#/du-bao`
+  (`pages/ForecastList.tsx` — 1 ô/ngày) → `#/du-bao/:id` (`ForecastDetail.tsx`, markdown
+  qua `detail/markdown.ts`); **POPUP `detail/ForecastPopup.tsx`** mount toàn cục ở
+  `main.tsx`: mở app/resume/nhận `forecast_changed` → `/today`; có bản, chưa xem, và
+  localStorage `forecast_popup_ymd` ≠ hôm nay → hiện 1 lần/ngày/máy ("Xem chi tiết" /
+  "Để sau"). Chạy tay: `tools/forecast_daily.sh [ymd] [--auto]`; log
+  `~/letrang-db/logs/forecast.log`. Tests: `tests/test_forecast_{lunar,engine,store}.py`.
 - `area_store/` — KHU VỰC XƯỞNG (`workshop_areas`) + BÁO CÁO VỆ SINH hằng ngày
   (`area_hygiene_reports`), app.db 100% local. Nhân viên chụp ảnh báo cáo vệ sinh
   từng khu vực mỗi ngày; dashboard cho biết khu nào đã/chưa báo cáo hôm nay. Ảnh
