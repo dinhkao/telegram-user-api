@@ -1378,6 +1378,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   changes don't need an APK push (WebView loads the webapp remotely — a reload gets
   them); rebuild the APK only for native changes (permissions, camera) or to force a
   fresh reopen. The in-repo `android/` is legacy (bundled dist, "not installable").
+  ⚠ **TẢI FILE trong APK (2026-09-08)**: WebView KHÔNG có Web Share lẫn DownloadListener
+  → `<a download>`/`navigator.share` im lặng không lưu gì. Mọi nút tải file (PDF HĐ điện
+  tử…) đi qua `webapp/src/downloadFile.ts::downloadFileFromUrl` → cầu native
+  `AndroidApp.saveFile(dataUrl, filename)` (APK 2026090811+, ghi `Download/LeTrangPhat`
+  qua MediaStore.Downloads + thông báo hệ thống bấm mở); APK cũ thiếu cầu → toast lỗi
+  "cập nhật app", KHÔNG báo "Đã tải" giả. Ảnh vẫn dùng `saveImage` (vào thư viện Photos).
   Full plan/status: `docs/web-app-plan.md`.
 
 **Tooling**
