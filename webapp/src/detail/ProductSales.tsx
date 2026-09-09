@@ -1,90 +1,96 @@
 // Khối "Báo cáo bán ra" ở trang chi tiết SP (#/kho/:code, CHỈ VĂN PHÒNG) ←
-// GET /api/profit/product/{code} (top_customers + chart theo ngày). Lazy-load
-// bằng IntersectionObserver (endpoint quét full bảng orders — chỉ gọi khi khối
-// lộ ra màn hình); đổi khoảng ngày qua ProfitDateBar (dùng chung trang lợi nhuận).
+// GET /api/profit/product/{code} (totals + prev/changes kỳ trước + top_customers +
+// chart theo ngày). Lazy-load bằng IntersectionObserver (endpoint quét full bảng
+// orders — chỉ gọi khi khối lộ ra màn hình); đổi khoảng ngày qua ProfitDateBar
+// (dùng chung trang lợi nhuận). Biểu đồ = ProductSalesChart.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON, isOffice } from "../api";
 import { money, fmtQty } from "../format";
-import { ProfitDateBar, presetRange, type DateRange } from "./ProfitDateBar";
+import { ProfitDateBar, presetRange, Chg, type DateRange } from "./ProfitDateBar";
+import { ProductSalesChart } from "./ProductSalesChart";
 import { Icon } from "../ui/Icon";
 import { EmptyState, ErrorState, LoadingInline } from "../ui/states";
 
-// 2 chuỗi xem 1-lúc-1: màu theo app (doanh thu xanh dương như #/loi-nhuan)
-const SERIES: [string, string, string][] = [
-  ["revenue", "Doanh thu", "#3b82f6"],
-  ["qty", "SL bán", "#a855f7"],
-];
-const AGGS: [string, string][] = [["daily", "Ngày"], ["weekly", "Tuần"], ["monthly", "Tháng"]];
-
-function aggregate(chart: any[], mode: string): any[] {
-  if (mode === "daily") return chart;
-  const groups: Record<string, any> = {};
-  for (const c of chart) {
-    let key: string;
-    if (mode === "weekly") {
-      const dt = new Date(c.day);
-      const mon = new Date(dt);
-      mon.setDate(dt.getDate() - ((dt.getDay() + 6) % 7));   // về thứ 2
-      key = `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, "0")}-${String(mon.getDate()).padStart(2, "0")}`;
-    } else key = c.day.slice(0, 7);
-    const g = groups[key] || (groups[key] = { day: key, qty: 0, revenue: 0 });
-    g.qty += c.qty; g.revenue += c.revenue;
-  }
-  return Object.keys(groups).sort().map((k) => groups[k]);
-}
-
-function SalesChart({ chart }: { chart: any[] }) {
-  const [serie, setSerie] = useState("revenue");
-  const [agg, setAgg] = useState("daily");
-  if (!chart.length) return null;
-  const data = aggregate(chart, agg);
-  const color = SERIES.find(([k]) => k === serie)![2];
-  const W = 900, H = 180, PAD = 4;
-  const vals = data.map((c) => Number(c[serie]) || 0);
-  const max = Math.max(...vals, 1);
-  const bw = (W - PAD * 2) / data.length;
-  const step = Math.max(1, Math.ceil(data.length / 10));
-  return (
-    <>
-      <div class="chips">
-        {AGGS.map(([k, label]) => (
-          <button key={k} class={"chip" + (agg === k ? " active" : "")} onClick={() => setAgg(k)}>{label}</button>
-        ))}
-        <span style="width:8px" />
-        {SERIES.map(([k, label, c]) => (
-          <button key={k} class={"chip" + (serie === k ? " active" : "")}
-            style={serie === k ? `background:${c};border-color:${c};color:#fff` : ""}
-            onClick={() => setSerie(k)}>{label}</button>
-        ))}
-      </div>
-      <div style="overflow-x:auto">
-        <svg viewBox={`0 0 ${W} ${H + 18}`} style="width:100%;min-width:480px">
-          <line x1={PAD} x2={W - PAD} y1={H - PAD} y2={H - PAD} stroke="var(--muted)" stroke-width="0.5" />
-          {data.map((c, i) => {
-            const v = Number(c[serie]) || 0;
-            const h = (v / max) * (H - PAD * 2);
-            return (
-              <g key={c.day}>
-                <rect x={PAD + i * bw + 1} y={H - PAD - h} width={Math.max(1, bw - 2)}
-                  height={Math.max(v > 0 ? 1 : 0, h)} rx={Math.min(2, bw / 4)} fill={color}>
-                  <title>{c.day}: {fmtQty(c.qty)} · {money(c.revenue)}</title>
-                </rect>
-                {i % step === 0 && (
-                  <text x={PAD + i * bw + bw / 2} y={H + 12} font-size="9" text-anchor="middle"
-                    fill="currentColor" opacity="0.6">{agg === "monthly" ? c.day.slice(5, 7) : `${c.day.slice(8, 10)}/${c.day.slice(5, 7)}`}</text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-    </>
-  );
-}
+const dmy = (ymd: string) => ymd ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}` : "";
+const RECENT_N = 6;
 
 // Cache theo MÃ (module scope): back về trang chi tiết SP là khối render ngay với
 // đúng khoảng ngày đã chọn → useScrollMemory khôi phục vị trí không hụt chiều cao.
 const _cache = new Map<string, { range: DateRange; data: any }>();
+
+function Stat({ label, value, chg, sub }: { label: string; value: any; chg?: number | null; sub?: string }) {
+  return (
+    <div class="card pf-card">
+      <h4>{label}</h4>
+      <b>{value}</b>
+      {chg !== undefined && <Chg v={chg} nullLabel="kỳ trước 0" />}
+      {sub && <div class="muted" style="font-size:.68rem">{sub}</div>}
+    </div>
+  );
+}
+
+function TopCustomers({ tops, totalRev }: { tops: any[]; totalRev: number }) {
+  const [all, setAll] = useState(false);
+  const rows = all ? tops : tops.slice(0, 10);
+  const maxRev = rows.length ? Math.max(...rows.map((c) => c.revenue), 1) : 1;
+  return (
+    <>
+      <div class="ie-head" style={{ marginTop: "8px" }}>
+        Top khách hàng <span class="ie-count">{tops.length}</span>
+      </div>
+      <table class="inv-mini pf-table">
+        <thead><tr><th>Khách</th><th class="num">SL</th><th class="num">Giá TB</th><th class="num">Doanh thu</th></tr></thead>
+        <tbody>{rows.map((c) => (
+          <tr key={c.name}>
+            <td>
+              <a href={`#/loi-nhuan/khach/${encodeURIComponent(c.name)}`}>{c.name}</a>
+              <div class="muted" style="font-size:.7rem">
+                {c.orders} đơn · gần nhất {dmy(c.last_ymd)}{totalRev > 0 && ` · ${Math.round((c.revenue / totalRev) * 100)}%`}
+              </div>
+              <div style={{ height: "3px", borderRadius: "2px", background: "#3b82f6", opacity: 0.55, width: `${Math.max(3, Math.round((c.revenue / maxRev) * 100))}%` }} />
+            </td>
+            <td class="num">{fmtQty(c.qty)}</td>
+            <td class="num">{money(c.avg_price)}</td>
+            <td class="num">{money(c.revenue)}</td>
+          </tr>
+        ))}</tbody>
+      </table>
+      {tops.length > 10 && (
+        <button class="btn small" style="margin-top:6px" onClick={() => setAll(!all)}>
+          {all ? "Thu gọn" : `Xem cả ${tops.length} khách`}
+        </button>
+      )}
+    </>
+  );
+}
+
+function RecentSales({ orders, code }: { orders: any[]; code: string }) {
+  const recent = [...orders]
+    .sort((a, b) => (b.ymd || "").localeCompare(a.ymd || "") || b.thread_id - a.thread_id)
+    .slice(0, RECENT_N);
+  return (
+    <>
+      <div class="ie-head" style={{ marginTop: "8px" }}>
+        Lần bán gần đây <span class="ie-count">{orders.length}</span>
+      </div>
+      <table class="inv-mini pf-table">
+        <tbody>{recent.map((o) => (
+          <tr key={`${o.thread_id}-${o.sell_price}`}>
+            <td class="muted small" style="white-space:nowrap">{dmy(o.ymd)}</td>
+            <td><a href={`#/loi-nhuan/khach/${encodeURIComponent(o.customer)}`}>{o.customer}</a></td>
+            <td class="num" style="white-space:nowrap">{fmtQty(o.qty)} × {money(o.sell_price)}</td>
+            <td class="num"><a href={`#/order/${o.thread_id}`}>#{o.thread_id}</a></td>
+          </tr>
+        ))}</tbody>
+      </table>
+      {orders.length > RECENT_N && (
+        <a class="btn small" style="margin-top:6px" href={`#/loi-nhuan/sp/${encodeURIComponent(code)}`}>
+          Xem cả {orders.length} lần bán →
+        </a>
+      )}
+    </>
+  );
+}
 
 export function ProductSales({ code }: { code: string }) {
   const cached = _cache.get(code);
@@ -123,8 +129,8 @@ export function ProductSales({ code }: { code: string }) {
 
   if (!isOffice()) return null;
   const t = data?.totals;
-  const tops = (data?.top_customers || []).slice(0, 10);
-  const maxRev = tops.length ? Math.max(...tops.map((c: any) => c.revenue), 1) : 1;
+  const ch = data?.changes || {};
+  const prev = data?.prev;
   return (
     <section class="card" ref={secRef}>
       <div class="row space">
@@ -138,39 +144,29 @@ export function ProductSales({ code }: { code: string }) {
       ) : err && !data ? (
         <ErrorState msg={err} onRetry={load} />
       ) : !data ? null : (
-        <>
+        <div style={loading ? "opacity:.6" : ""}>
           <ProfitDateBar range={range} onChange={setRange} />
           <div class="pf-cards">
-            <div class="card pf-card"><h4>SL bán</h4><b>{fmtQty(t.qty)}</b></div>
-            <div class="card pf-card"><h4>Doanh thu</h4><b>{money(t.revenue)}</b></div>
-            <div class="card pf-card"><h4>Số đơn</h4><b>{data.orders.length}</b></div>
-            <div class="card pf-card"><h4>Số khách</h4><b>{t.customers || 0}</b></div>
+            <Stat label="SL bán" value={fmtQty(t.qty)} chg={ch.qty} />
+            <Stat label="Doanh thu" value={money(t.revenue)} chg={ch.revenue} />
+            <Stat label="Giá bán TB" value={money(t.avg_price || 0)} chg={ch.avg_price} />
+            <Stat label="Số đơn" value={t.orders ?? data.orders.length} chg={ch.orders} />
+            <Stat label="Số khách" value={t.customers || 0} chg={ch.customers} />
+            {prev && (
+              <Stat label={`Kỳ trước ${dmy(prev.since)}–${dmy(prev.until)}`} value={money(prev.revenue)}
+                sub={`${fmtQty(prev.qty)} · ${prev.orders} đơn · ${prev.customers} khách`} />
+            )}
           </div>
           {!data.orders.length ? (
             <EmptyState>Không có lần bán nào trong khoảng ngày.</EmptyState>
           ) : (
             <>
-              <SalesChart chart={data.chart || []} />
-              <div class="ie-head" style={{ marginTop: "8px" }}>
-                Top khách hàng <span class="ie-count">{tops.length}</span>
-              </div>
-              <table class="inv-mini pf-table">
-                <thead><tr><th>Khách</th><th class="num">SL</th><th class="num">Doanh thu</th><th class="num">Đơn</th></tr></thead>
-                <tbody>{tops.map((c: any) => (
-                  <tr key={c.name}>
-                    <td>
-                      <a href={`#/loi-nhuan/khach/${encodeURIComponent(c.name)}`}>{c.name}</a>
-                      <div style={{ height: "3px", borderRadius: "2px", background: "#3b82f6", opacity: 0.55, width: `${Math.max(3, Math.round((c.revenue / maxRev) * 100))}%` }} />
-                    </td>
-                    <td class="num">{fmtQty(c.qty)}</td>
-                    <td class="num">{money(c.revenue)}</td>
-                    <td class="num">{c.orders}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
+              <ProductSalesChart chart={data.chart || []} since={range.since} until={range.until} />
+              <TopCustomers tops={data.top_customers || []} totalRev={t.revenue} />
+              <RecentSales orders={data.orders} code={code} />
             </>
           )}
-        </>
+        </div>
       )}
     </section>
   );

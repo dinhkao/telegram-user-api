@@ -4450,6 +4450,9 @@ a.bean-row, a.bean-card { color: inherit; text-decoration: none; }
 .pf-chg.up { color: #16a34a; }
 .pf-chg.down { color: #dc2626; }
 .pf-chg.new { color: var(--muted); }
+/* Báo cáo bán ra ở chi tiết SP (detail/ProductSales*.tsx): dòng đọc số của cột đang chạm */
+.ps-readout { display: flex; align-items: center; gap: 6px; min-height: 22px; font-size: .78rem; font-variant-numeric: tabular-nums; padding: 2px 2px 0; }
+.ps-readout-x { border: 0; background: var(--border); color: var(--ink); border-radius: 999px; width: 18px; height: 18px; line-height: 18px; font-size: .8rem; cursor: pointer; padding: 0; }
 /* selector 2 class để THẮNG '.prod-detail .card' (nếu không là trắng-trên-trắng — lỗi 2026-08-26) */
 .prod-detail .card.pf-real, .card.pf-real { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; text-align: center; padding: 10px; }
 .pf-real h4 { font-size: .72rem; opacity: .9; font-weight: 500; }

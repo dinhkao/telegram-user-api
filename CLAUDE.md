@@ -1118,12 +1118,18 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   main.tsx (startsWith nuốt). Giá vốn đơn là snapshot (`cost_price` frozen trong
   invoice) — đổi giá vốn chỉ áp đơn chưa đóng băng.
   **Báo cáo bán ra ở CHI TIẾT SP (2026-08-31)**: `product_detail_data` trả thêm
-  `top_customers` (gộp theo khách, sắp theo doanh thu) + `chart` (chuỗi theo ngày)
-  + `ymd` từng lần bán + `totals.customers` → khối "Báo cáo bán ra" ở `#/kho/:code`
-  (`detail/ProductSales.tsx`, office-only — staff không render, server vẫn 403;
-  LAZY qua IntersectionObserver vì endpoint quét full orders, KHÔNG reload theo
-  realtime): thẻ SL/DT/đơn/khách + biểu đồ cột SVG (Ngày/Tuần/Tháng, DT↔SL) +
-  bảng top 10 khách, dùng lại `ProfitDateBar`.
+  `top_customers` (gộp theo khách, sắp theo doanh thu, kèm `avg_price`/`last_ymd`)
+  + `chart` (chuỗi theo ngày) + `ymd` từng lần bán + `totals.customers/orders/
+  avg_price` + **`prev`/`changes` = KỲ TRƯỚC cùng độ dài** (`_product_prev_period`,
+  cùng `_prev_range`/`_pct` với dashboard; `prev` None khi thiếu since) → khối "Báo
+  cáo bán ra" ở `#/kho/:code` (`detail/ProductSales.tsx`, office-only — staff không
+  render, server vẫn 403; LAZY qua IntersectionObserver vì endpoint quét full orders,
+  KHÔNG reload theo realtime): 6 thẻ SL/DT/giá TB/đơn/khách/kỳ trước có % so kỳ
+  trước + biểu đồ `detail/ProductSalesChart.tsx` (SVG thuần, Ngày/Tuần/Tháng ×
+  DT↔SL, **điền ngày trống = 0** trong khoảng chọn để trục đều, chạm cột hiện số,
+  đường TB) + top 10 khách (giá TB · lần mua gần nhất · % doanh thu) + 6 lần bán
+  gần đây link `#/order/:tid`, dùng lại `ProfitDateBar` (chip sáng SUY TỪ range,
+  không giữ state riêng).
 - `audit/` (+ `audit_log.py`) — audit-event DB and redaction.
 - **Lịch sử thao tác — 3 mặt hiển thị, 1 bảng tra nhãn (2026-07-14).** Mọi dòng
   lịch sử có `parts: [{t, href?}]` = đoạn chữ + LINK tới thực thể được nhắc

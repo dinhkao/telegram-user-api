@@ -161,6 +161,30 @@ class ProfitComputeTest(unittest.TestCase):
         self.assertEqual(d["chart"][1]["revenue"], 32000)
         # mỗi lần bán mang ymd để client vẽ được biểu đồ
         self.assertTrue(all(o["ymd"] for o in d["orders"]))
+        # giá bán TB + lần mua gần nhất theo khách (Hoa: 30k/3 cây, mua 19 và 20/08)
+        self.assertEqual(tops[0]["avg_price"], 10000)
+        self.assertEqual(tops[0]["last_ymd"], "2026-08-20")
+        self.assertEqual(d["totals"]["avg_price"], 10500)   # 42k / 4 cây
+        self.assertEqual(d["totals"]["orders"], 3)
+
+    def test_product_detail_prev_period(self):
+        # kỳ này = 20/08 (SP1 ×2 = 20k, 1 khách), kỳ trước = 19/08 (SP1 ×1 = 10k)
+        d = product_detail_data(self.conn, "sp1", "2026-08-20", "2026-08-20")
+        self.assertEqual((d["prev"]["since"], d["prev"]["until"]), ("2026-08-19", "2026-08-19"))
+        self.assertEqual(d["prev"]["qty"], 1)
+        self.assertEqual(d["prev"]["revenue"], 10000)
+        self.assertEqual(d["prev"]["customers"], 1)
+        self.assertEqual(d["changes"]["revenue"], 100.0)
+        self.assertEqual(d["changes"]["qty"], 100.0)
+        self.assertEqual(d["changes"]["customers"], 0.0)
+        # kỳ trước không bán → % = None (client hiện "kỳ trước 0")
+        d2 = product_detail_data(self.conn, "sp1", "2026-08-19", "2026-08-19")
+        self.assertEqual(d2["prev"]["revenue"], 0)
+        self.assertIsNone(d2["changes"]["revenue"])
+        # không có since → không tính kỳ trước
+        d3 = product_detail_data(self.conn, "sp1", None, None)
+        self.assertIsNone(d3["prev"])
+        self.assertEqual(d3["changes"], {})
 
 
 if __name__ == "__main__":

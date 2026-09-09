@@ -1,7 +1,6 @@
 // Thanh chọn khoảng ngày cho các trang LỢI NHUẬN (#/loi-nhuan*): chip preset
 // (Hôm nay/Tuần này/30 ngày/Tháng N…) + 2 ô ngày tự do. Ngày tính theo đồng hồ
 // máy (như bản legacy). Dùng chung: ProfitDashboard/Customers/Customer/Product.
-import { useState } from "preact/hooks";
 
 export type DateRange = { since: string; until: string };
 
@@ -39,33 +38,44 @@ const PRESETS: [string, string][] = [
   ...Array.from({ length: 12 }, (_, i) => [`month_${i + 1}`, `Th${i + 1}`] as [string, string]),
 ];
 
+/** Chip đang sáng = preset KHỚP khoảng đang chọn (suy từ range, không giữ state
+ *  riêng — trước đây mặc định "Hôm nay" sáng dù trang mở với tháng này). */
+function activePreset(range: DateRange): string {
+  for (const [k] of PRESETS) {
+    const r = presetRange(k);
+    if (r.since === range.since && r.until === range.until) return k;
+  }
+  return "";
+}
+
 export function ProfitDateBar({ range, onChange }: {
   range: DateRange;
   onChange: (r: DateRange) => void;
 }) {
-  const [active, setActive] = useState("today");
+  const active = activePreset(range);
   return (
     <div class="card pf-datebar">
       <div class="chips pf-presets">
         {PRESETS.map(([k, label]) => (
           <button key={k} class={"chip" + (active === k ? " active" : "")}
-            onClick={() => { setActive(k); onChange(presetRange(k)); }}>{label}</button>
+            onClick={() => onChange(presetRange(k))}>{label}</button>
         ))}
       </div>
       <div class="row pf-dates">
         <input type="date" value={range.since}
-          onChange={(e: any) => { setActive(""); onChange({ ...range, since: e.target.value }); }} />
+          onChange={(e: any) => onChange({ ...range, since: e.target.value })} />
         <span class="muted">→</span>
         <input type="date" value={range.until}
-          onChange={(e: any) => { setActive(""); onChange({ ...range, until: e.target.value }); }} />
+          onChange={(e: any) => onChange({ ...range, until: e.target.value })} />
       </div>
     </div>
   );
 }
 
-// % thay đổi so kỳ trước: null = kỳ trước không có dữ liệu ("mới")
-export function Chg({ v }: { v: number | null | undefined }) {
-  if (v === null || v === undefined) return <span class="pf-chg new">mới</span>;
+// % thay đổi so kỳ trước: null = kỳ trước không có dữ liệu ("mới" — hoặc nhãn
+// riêng theo ngữ cảnh, vd "kỳ trước 0" ở báo cáo bán ra 1 SP)
+export function Chg({ v, nullLabel = "mới" }: { v: number | null | undefined; nullLabel?: string }) {
+  if (v === null || v === undefined) return <span class="pf-chg new">{nullLabel}</span>;
   const up = v >= 0;
   return <span class={"pf-chg " + (up ? "up" : "down")}>{up ? "▲" : "▼"} {Math.abs(v).toFixed(1)}%</span>;
 }

@@ -266,26 +266,58 @@ def product_detail_data(conn, code: str, since: str | None, until: str | None) -
             total["revenue"] += it["revenue"]
             total["cost"] += it["cost"]
             total["profit"] += it["profit"]
-    # Gộp cho khối "Báo cáo bán ra" ở trang chi tiết SP: top khách (theo doanh thu)
-    # + chuỗi theo NGÀY cho biểu đồ
+    # Gộp cho khối "Báo cáo bán ra" ở trang chi tiết SP: top khách (theo doanh thu,
+    # kèm giá bán TB + lần mua gần nhất) + chuỗi theo NGÀY cho biểu đồ
     cust: dict[str, dict] = {}
     daily: dict[str, dict] = {}
     for o in orders:
-        c = cust.setdefault(o["customer"], {"qty": 0.0, "revenue": 0, "profit": 0, "orders": 0})
+        c = cust.setdefault(o["customer"], {"qty": 0.0, "revenue": 0, "profit": 0,
+                                            "orders": 0, "last_ymd": ""})
         c["qty"] += o["qty"]
         c["revenue"] += o["revenue"]
         c["profit"] += o["profit"]
         c["orders"] += 1
         if o["ymd"]:
+            c["last_ymd"] = max(c["last_ymd"], o["ymd"])
             d = daily.setdefault(o["ymd"], {"qty": 0.0, "revenue": 0, "profit": 0})
             d["qty"] += o["qty"]
             d["revenue"] += o["revenue"]
             d["profit"] += o["profit"]
+    for c in cust.values():
+        c["avg_price"] = int(round(c["revenue"] / c["qty"])) if c["qty"] else 0
     top_customers = [{"name": n, **d} for n, d in
                      sorted(cust.items(), key=lambda x: x[1]["revenue"], reverse=True)]
     chart = [{"day": d, **daily[d]} for d in sorted(daily.keys())]
     total["customers"] = len(cust)
+    total["orders"] = len(orders)
+    total["avg_price"] = int(round(total["revenue"] / total["qty"])) if total["qty"] else 0
+    prev, changes = _product_prev_period(conn, code, since, until, total)
     return {"product": {"code": code, "name": product.get("name") or "",
                         "cost_price": int(product.get("cost_price") or 0)},
             "orders": orders, "totals": total,
-            "top_customers": top_customers, "chart": chart}
+            "top_customers": top_customers, "chart": chart,
+            "prev": prev, "changes": changes}
+
+
+def _product_prev_period(conn, code: str, since: str | None, until: str | None,
+                         total: dict) -> tuple[dict | None, dict]:
+    """KỲ TRƯỚC của 1 SP (cùng độ dài, lùi sát kỳ này — như dashboard): tổng SL /
+    doanh thu / số đơn / số khách / giá TB + % thay đổi. None khi khoảng ngày không
+    hợp lệ (không có `since`)."""
+    pr = _prev_range(since, until)
+    if not pr:
+        return None, {}
+    p = {"qty": 0.0, "revenue": 0, "orders": 0, "since": pr[0], "until": pr[1]}
+    custs: set[str] = set()
+    for r in scan_orders(conn, pr[0], pr[1]):
+        for it in r["items"]:
+            if it["code"] != code:
+                continue
+            p["qty"] += it["qty"]
+            p["revenue"] += it["revenue"]
+            p["orders"] += 1
+            custs.add(r["customer"])
+    p["customers"] = len(custs)
+    p["avg_price"] = int(round(p["revenue"] / p["qty"])) if p["qty"] else 0
+    changes = {k: _pct(total[k], p[k]) for k in ("qty", "revenue", "orders", "customers", "avg_price")}
+    return p, changes
