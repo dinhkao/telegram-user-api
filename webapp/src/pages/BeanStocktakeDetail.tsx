@@ -1,5 +1,6 @@
 // Chi tiết PHIẾU KIỂM KHO ĐẬU (#/kho-dau/kiem/:id) — nháp: từng dòng đậu có ô đếm
-// kép (BeanStocktakeLine, tự lưu khi rời ô), thanh tóm tắt thừa/thiếu, cảnh báo "sổ
+// kép HOẶC ô tổng số (chọn "Cách nhập" đầu danh sách, nhớ theo máy ở localStorage
+// `bean_stocktake_mode`; BeanStocktakeLine tự lưu khi rời ô), thanh tóm tắt thừa/thiếu, cảnh báo "sổ
 // đã đổi" + nút Đồng bộ sổ, nút CHỐT (sinh phiếu điều chỉnh) và Huỷ (văn phòng).
 // Đã chốt/huỷ: bảng chỉ đọc + link phiếu điều chỉnh. Ảnh + trao đổi + lịch sử scope
 // 'bean_stocktake'. Realtime: bean_changed → tải lại.
@@ -20,11 +21,21 @@ import { confirmDialog, promptDialog, toast } from "../ui/feedback";
 import { ErrorState, Loading } from "../ui/states";
 import { StocktakeSummaryText } from "./BeanStocktakes";
 
+const MODE_KEY = "bean_stocktake_mode";   // "bulk" (kiện + lẻ) | "total" (gõ thẳng tổng)
+const readMode = (): "bulk" | "total" => {
+  try { return localStorage.getItem(MODE_KEY) === "total" ? "total" : "bulk"; } catch { return "bulk"; }
+};
+
 export function BeanStocktakeDetail({ id }: { id: string }) {
   const [st, setSt] = useState<BeanStocktake | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [onlyUncounted, setOnlyUncounted] = useState(false);
+  const [mode, setModeState] = useState<"bulk" | "total">(readMode);
+  const setMode = (m: "bulk" | "total") => {
+    setModeState(m);
+    try { localStorage.setItem(MODE_KEY, m); } catch { /* private mode */ }
+  };
   const office = isOffice();
 
   const load = () => getBeanStocktake(id)
@@ -88,6 +99,8 @@ export function BeanStocktakeDetail({ id }: { id: string }) {
   if (!st) return <Loading />;
   const draft = st.status === "draft";
   const items = draft && onlyUncounted ? st.items.filter((i) => i.counted_qty == null) : st.items;
+  // Chọn cách nhập chỉ có nghĩa khi có loại đậu khai đơn vị quy đổi (không thì 1 ô sẵn rồi)
+  const anyUnits = st.items.some((i) => (i.units || []).length > 0);
 
   return (
     <div class="bean-detail bst-detail">
@@ -135,8 +148,20 @@ export function BeanStocktakeDetail({ id }: { id: string }) {
                 onChange={(e: any) => setOnlyUncounted(e.target.checked)} /> chỉ dòng chưa đếm
             </label>
           </div>
+          {anyUnits && (
+            <div class="bst-mode row">
+              <span class="muted small">Cách nhập:</span>
+              <div class="seg">
+                <button class={"seg-btn" + (mode === "bulk" ? " active" : "")} onClick={() => setMode("bulk")}>Kiện + lẻ</button>
+                <button class={"seg-btn" + (mode === "total" ? " active" : "")} onClick={() => setMode("total")}>Tổng số</button>
+              </div>
+              <span class="muted small bst-mode-hint">
+                {mode === "total" ? "Gõ thẳng số hiện có theo đơn vị gốc (vd cân được 112 kg)." : "Đếm số kiện rồi cộng phần lẻ."}
+              </span>
+            </div>
+          )}
           {items.length ? items.map((it) => (
-            <BeanStocktakeLine key={it.bean_id} item={it} readonly={false} onSave={save} />
+            <BeanStocktakeLine key={it.bean_id} item={it} readonly={false} totalMode={mode === "total"} onSave={save} />
           )) : <div class="muted small center">Đã đếm hết mọi dòng.</div>}
           <div class="bst-actions">
             <button class="btn" disabled={busy} onClick={resync} title="Đặt lại sổ theo tồn hiện tại, giữ số đếm">

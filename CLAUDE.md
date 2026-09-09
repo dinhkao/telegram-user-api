@@ -789,7 +789,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (ảnh/trao đổi/lịch sử). UI: `#/kho-dau/kiem` (`pages/BeanStocktakes.tsx` — chọn kho →
   `openBeanStocktake` = có nháp thì vào tiếp, không thì tạo; dùng lại ở nút "Kiểm kho"
   trang kho) → `#/kho-dau/kiem/:id` (`BeanStocktakeDetail.tsx`, dòng đếm =
-  `detail/BeanStocktakeLine.tsx` tự lưu khi blur, lọc "chỉ dòng chưa đếm", cảnh báo stale
+  `detail/BeanStocktakeLine.tsx` tự lưu khi blur — **2 CÁCH NHẬP** (seg "Cách nhập" đầu
+  danh sách, chỉ hiện khi có đậu khai quy đổi, nhớ localStorage `bean_stocktake_mode`):
+  "Kiện + lẻ" = ô kép, "Tổng số" = 1 ô gõ thẳng số theo đơn vị gốc, lưu dạng bulk="" +
+  loose=tổng nên server/bản chỉ đọc không đổi; lọc "chỉ dòng chưa đếm", cảnh báo stale
   + Đồng bộ sổ, Chốt/Huỷ). ⚠ Route `#/kho-dau/kiem` đứng TRƯỚC fallback `#/kho-dau`.
 - **`forecast_store/` — DỰ BÁO HÀNG HOÁ HẰNG NGÀY (2026-09-08, app.db 100% local).**
   Bảng `daily_forecasts` (1 dòng/ngày, `ymd` UNIQUE — đăng lại trong ngày là ĐÈ giữ id;

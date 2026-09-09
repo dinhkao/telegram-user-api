@@ -86,7 +86,10 @@ export const GUIDES_DAU: Guide[] = [
         <b>mọi loại đậu</b> lúc đó (kể cả loại đang 0 — để phát hiện hàng chưa vào sổ).</p>
         <ul>
           <li><b>Đếm</b> — mỗi dòng có ô nhập, loại đậu có quy đổi thì gõ kép <i>N bao + M kg</i>,
-            máy quy về đơn vị chính và hiện chênh lệch ngay. Rời ô là tự lưu; nhiều người có thể
+            máy quy về đơn vị chính và hiện chênh lệch ngay. Muốn gõ thẳng <b>tổng số hiện có</b>
+            (vd cân được 112 kg) thì đổi <b>Cách nhập → Tổng số</b> ở đầu danh sách: mỗi dòng còn
+            1 ô theo đơn vị chính, bên dưới gợi ý quy ra bao để đối chiếu; lựa chọn nhớ theo máy.
+            Rời ô là tự lưu; nhiều người có thể
             cùng đếm một phiếu, ai đếm dòng nào có tên bên dưới. Dòng bỏ trống = <b>chưa đếm</b>,
             chốt sẽ bỏ qua (khác đếm ra 0).</li>
           <li><b>Chốt</b> — các dòng lệch gom thành <b>1 phiếu điều chỉnh</b> với chênh lệch đúng
