@@ -6,7 +6,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { getProductionNoteReview, type NoteReviewGroup } from "../api";
 import { moneyD } from "../format";
-import { LoadingInline } from "../ui/states";
+import { ErrorState, LoadingInline } from "../ui/states";
 
 const dmy = (ymd?: string | null) => (ymd ? ymd.split("-").reverse().slice(0, 2).join("/") : "—");
 
@@ -37,17 +37,29 @@ function Group({ g }: { g: NoteReviewGroup }) {
 export function ProductionNoteAlerts({ from, to }: { from?: string; to?: string }) {
   const [groups, setGroups] = useState<NoteReviewGroup[] | null>(null);
   const [err, setErr] = useState("");
+  // `tick` để nút Thử lại nạp lại được: effect chỉ chạy theo [from, to] nên khi API
+  // lỗi (vd route chưa có trong tiến trình đang chạy) khối này đứng im vĩnh viễn —
+  // người dùng tưởng "không có cảnh báo nào" thay vì "chưa tải được".
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     let alive = true;
     setErr("");
+    setGroups(null);
     getProductionNoteReview(from, to)
-      .then((d) => { if (alive) setGroups(d.groups); })
+      .then((d) => { if (alive) { setGroups(d.groups); setErr(""); } })
       .catch((e: any) => { if (alive) { setGroups([]); setErr(e?.message || "Lỗi tải"); } });
     return () => { alive = false; };
-  }, [from, to]);
+  }, [from, to, tick]);
 
+  if (err) {
+    return (
+      <section class="card nra">
+        <label class="card-label t-warn">⚠️ Ghi chú cần xem lại phụ cấp</label>
+        <ErrorState msg={`Không tải được: ${err}`} onRetry={() => setTick((n) => n + 1)} />
+      </section>
+    );
+  }
   if (groups === null) return <section class="card"><LoadingInline /></section>;
-  if (err) return <section class="card"><p class="muted small">⚠️ Không tải được cảnh báo ghi chú: {err}</p></section>;
   if (!groups.length) return null;
 
   const la = groups.filter((g) => g.kind === "la");
