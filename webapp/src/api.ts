@@ -1754,6 +1754,7 @@ export async function getProductionDashboard(from?: string, to?: string): Promis
 export type NoteReviewRow = {
   thread_id: number; ymd: string | null; date: string | null; worker: string;
   note: string; kind: string; product_code: string; allowance: number; allow_by: string;
+  worker_raw: string; note_fold: string;   // khoá tick "đã xử lý"
 };
 export type NoteReviewGroup = {
   worker: string; note: string; kind: "so_tien" | "mot_phan" | "la" | "khac_tho" | "so_luong";
@@ -1761,8 +1762,17 @@ export type NoteReviewGroup = {
   last_ymd: string | null; rows: NoteReviewRow[];
 };
 export type NoteReview = {
-  groups: NoteReviewGroup[]; counts: Record<string, number>; flagged: number; truncated: boolean;
+  groups: NoteReviewGroup[]; counts: Record<string, number>; flagged: number;
+  resolved: number; truncated: boolean;
 };
+/** Tick "đã xử lý" 1 dòng (kèm thread_id + worker_raw) hoặc CẢ NHÓM (bỏ 2 field đó —
+ *  server tự tìm đủ dòng của nhóm trong khoảng, vì nhóm chỉ mang vài dòng mẫu). */
+export async function resolveNoteReview(p: {
+  worker: string; note: string; thread_id?: number; worker_raw?: string;
+  from?: string; to?: string; undo?: boolean;
+}): Promise<{ ok: boolean; n: number }> {
+  return postJSON("/api/production/note-review/resolve", p);
+}
 export async function getProductionNoteReview(from?: string, to?: string): Promise<NoteReview> {
   const qs = new URLSearchParams();
   if (from) qs.set("from", from);

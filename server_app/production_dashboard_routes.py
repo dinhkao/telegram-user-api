@@ -14,7 +14,7 @@ from aiohttp import web
 
 from utils.db import get_connection
 from utils.paths import SHARED_DB_PATH
-from production_store.note_review import review_notes
+from production_store.note_review import group_row_keys, review_notes
 from production_store.report_rows import dashboard, worker_detail
 from production_store.wage_pivot import wage_pivot
 from server_app.production_wages import office_user
@@ -77,6 +77,54 @@ async def production_note_review_handler(request: web.Request):
 
     data = await asyncio.to_thread(_run)
     return web.json_response({"ok": True, **data})
+
+
+async def production_note_resolve_handler(request: web.Request):
+    """POST /api/production/note-review/resolve — tick/bỏ tick "đã xử lý" dòng cảnh báo.
+
+    Body {worker, note, thread_id?, from?, to?, undo?}. Có `thread_id` = đúng 1 dòng;
+    không có = CẢ NHÓM (thợ, ghi chú) trong khoảng — nhóm trên UI chỉ mang vài dòng mẫu
+    nên phải để server tự tìm đủ (note_review.group_row_keys). CHỈ VĂN PHÒNG, cùng cổng
+    với chính bảng cảnh báo. Trả {ok, n} = số dòng đã ghi/xoá dấu."""
+    user = office_user(request)
+    if not user:
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng"}, status=403)
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    worker = str(body.get("worker") or "").strip()
+    note = str(body.get("note") or "").strip()
+    if not worker or not note:
+        return web.json_response({"ok": False, "error": "Thiếu worker/note"}, status=400)
+    tid = body.get("thread_id")
+    dfrom = (body.get("from") or "").strip() or None
+    dto = (body.get("to") or "").strip() or None
+    for v in (dfrom, dto):
+        if v and not _YMD.match(v):
+            return web.json_response({"ok": False, "error": "from/to phải dạng YYYY-MM-DD"}, status=400)
+    undo = bool(body.get("undo"))
+    by = str(request.get("web_user") or "")
+
+    def _run():
+        from production_store.note_resolved import mark, unmark
+        from production_store.note_review import _fold
+        conn = get_connection(SHARED_DB_PATH)
+        try:
+            if tid is not None:
+                # 1 dòng: worker_raw do client gửi kèm (tên thô trong báo cáo)
+                raw = str(body.get("worker_raw") or worker)
+                items = [(int(tid), raw, _fold(note))]
+            else:
+                items = group_row_keys(conn, worker, note, dfrom, dto)
+            return (unmark(conn, items) if undo else mark(conn, items, by))
+        finally:
+            conn.close()
+
+    n = await asyncio.to_thread(_run)
+    from server_app.realtime import emit_productions_changed
+    emit_productions_changed()
+    return web.json_response({"ok": True, "n": n})
 
 
 async def production_wage_pivot_handler(request: web.Request):

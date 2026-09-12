@@ -256,10 +256,11 @@ def create_app():
     r.add_get("/api/production/catalog", production_catalog_handler)
     r.add_get("/api/production", production_list_handler)
     r.add_post("/api/production", production_create_handler)
-    from server_app.production_dashboard_routes import production_report_dashboard_handler, production_worker_report_handler, production_payslips_html_handler, production_wage_pivot_handler, production_note_review_handler
+    from server_app.production_dashboard_routes import production_report_dashboard_handler, production_worker_report_handler, production_payslips_html_handler, production_wage_pivot_handler, production_note_review_handler, production_note_resolve_handler
     r.add_get("/api/production/report-dashboard", production_report_dashboard_handler)  # TRƯỚC {thread_id}
     r.add_get("/api/production/wage-pivot", production_wage_pivot_handler)              # TRƯỚC {thread_id}
     r.add_get("/api/production/note-review", production_note_review_handler)           # TRƯỚC {thread_id}
+    r.add_post("/api/production/note-review/resolve", production_note_resolve_handler)
     r.add_get("/api/production/payslips-html", production_payslips_html_handler)  # HTML in phiếu lương nhiều thợ
     r.add_get("/api/production/worker/{name}", production_worker_report_handler)
     from server_app.production_wages import wages_dashboard_handler
@@ -336,6 +337,9 @@ def create_app():
     # (bộ trang HTML /loi-nhuan/* cũ đã gỡ 2026-08-26 — UI giờ là webapp #/loi-nhuan)
     from server_app.profit_api_routes import register as register_profit_api_routes
     register_profit_api_routes(r)
+    # ─── báo cáo bán hàng: SL / doanh thu / khách theo ngày-tuần-tháng ──────
+    from server_app.sales_dashboard_routes import register as register_sales_dashboard_routes
+    register_sales_dashboard_routes(r)
     # ─── chấm công (máy Ronald Jack — ingest = bearer riêng, còn lại office) ─
     from server_app.attendance_routes import (
         attendance_ingest_handler, attendance_list_handler,

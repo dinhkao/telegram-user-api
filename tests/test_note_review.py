@@ -149,3 +149,55 @@ def test_review_notes_loc_theo_ngay():
     _row(conn, 2, "Chín", "dọn dẹp", ymd="2026-09-10")
     d = review_notes(conn, "2026-09-01", "2026-09-30")
     assert [g["note"] for g in d["groups"]] == ["dọn dẹp"]
+
+
+# ── Tick "đã xử lý" (production_note_resolved) ────────────────────────────────
+def test_tick_xu_ly_go_dong_khoi_canh_bao():
+    from production_store.note_resolved import mark, unmark
+    conn = _db()
+    _row(conn, 1, "Chín", "gỡ bánh")
+    _row(conn, 2, "Chín", "gỡ bánh", ymd="2026-09-11")
+    _row(conn, 5, "Phượng", "rắc mè")
+    assert review_notes(conn)["flagged"] == 3
+
+    mark(conn, [(1, "Chín", "go banh")], by="duy")      # 1 phiếu
+    d = review_notes(conn)
+    assert d["flagged"] == 2 and d["resolved"] == 1
+    assert [(g["worker"], g["count"]) for g in d["groups"]] == [("Chín", 1), ("Phượng", 1)]
+
+    unmark(conn, [(1, "Chín", "go banh")])
+    assert review_notes(conn)["flagged"] == 3
+
+
+def test_tick_ca_nhom_lay_du_dong_ke_ca_ngoai_mau():
+    """Nhóm chỉ mang `sample` dòng mẫu → tick cả nhóm phải hỏi server (group_row_keys)."""
+    from production_store.note_resolved import mark
+    from production_store.note_review import group_row_keys
+    conn = _db()
+    for i in range(12):                       # 12 > sample mặc định 8
+        _row(conn, 100 + i, "Chín", "gỡ bánh")
+    g = review_notes(conn)["groups"][0]
+    assert g["count"] == 12 and len(g["rows"]) == 8
+
+    keys = group_row_keys(conn, "Chín", "gỡ bánh")
+    assert len(keys) == 12                    # đủ 12, không phải 8
+    mark(conn, keys, by="duy")
+    d = review_notes(conn)
+    assert d["groups"] == [] and d["flagged"] == 0 and d["resolved"] == 12
+
+
+def test_tick_khong_lan_sang_phieu_khac_hay_tho_khac():
+    from production_store.note_resolved import mark
+    conn = _db()
+    _row(conn, 1, "Chín", "gỡ bánh")
+    _row(conn, 2, "Trân", "gỡ bánh")          # thợ khác, cùng chữ
+    mark(conn, [(1, "Chín", "go banh")], by="duy")
+    assert [g["worker"] for g in review_notes(conn)["groups"]] == ["Trân"]
+
+
+def test_group_row_keys_khop_du_hoa_thuong_va_khoang_trang():
+    from production_store.note_review import group_row_keys
+    conn = _db()
+    _row(conn, 1, "Chín", "Gỡ  Bánh")
+    _row(conn, 2, "Chín", "gỡ bánh")
+    assert len(group_row_keys(conn, "Chín", "gỡ bánh")) == 2

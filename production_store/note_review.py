@@ -129,7 +129,10 @@ def note_kind(worker_name: str, note: str) -> str:
 def _fmt_row(r, kind: str) -> dict:
     return {
         "thread_id": r["thread_id"], "ymd": r["ymd"], "date": r["report_date"],
-        "worker": r["worker"], "note": r["note"], "kind": kind,
+        # worker_raw + note_fold = KHOÁ đánh dấu đã-xử-lý (production_note_resolved);
+        # `worker` là tên hiển thị (có thể đã đổi tên) — đừng dùng nó làm khoá.
+        "worker": r["worker"], "worker_raw": r["worker_raw"], "note_fold": _fold(r["note"]),
+        "note": r["note"], "kind": kind,
         "product_code": r["code"] or "?",
         "allowance": round(float(r["allow"] or 0)),
         "allow_by": r["allow_by"] or "",
@@ -159,7 +162,8 @@ def review_notes(conn, dfrom: str | None = None, dto: str | None = None,
         args.append(dto)
     rows = conn.execute(
         "SELECT t.thread_id AS thread_id, t.report_ymd AS ymd, t.report_date AS report_date, "
-        "       COALESCE(w.name, t.worker_name) AS worker, TRIM(t.note) AS note, "
+        "       COALESCE(w.name, t.worker_name) AS worker, t.worker_name AS worker_raw, "
+        "       TRIM(t.note) AS note, "
         "       COALESCE(pr.code, t.product_code) AS code, "
         "       a.amount AS allow, a.updated_by AS allow_by "
         "FROM production_report_rows t "
@@ -171,6 +175,9 @@ def review_notes(conn, dfrom: str | None = None, dto: str | None = None,
         (*args, max_scan),
     ).fetchall()
 
+    from production_store.note_resolved import resolved_keys
+    done = resolved_keys(conn)
+    n_done = 0
     counts: dict[str, int] = {KIND_MATCH: 0, KIND_OTHER: 0, KIND_QTY: 0,
                               KIND_UNKNOWN: 0, KIND_AMOUNT: 0, KIND_PARTIAL: 0}
     groups: dict[tuple[str, str, str], dict] = {}
@@ -183,6 +190,9 @@ def review_notes(conn, dfrom: str | None = None, dto: str | None = None,
         if kind not in FLAG_KINDS:
             continue
         nf = _fold(r["note"])
+        if (int(r["thread_id"]), str(r["worker_raw"] or ""), nf) in done:
+            n_done += 1
+            continue                      # văn phòng đã tick xử lý → khỏi hiện lại
         key = (r["worker"] or "", nf, kind)
         dedup = (r["thread_id"], r["worker"], nf)
         if dedup in seen:
@@ -208,5 +218,33 @@ def review_notes(conn, dfrom: str | None = None, dto: str | None = None,
         "groups": out,
         "counts": counts,
         "flagged": sum(g["count"] for g in out),
+        "resolved": n_done,               # đã tick xử lý trong khoảng này
         "truncated": len(rows) >= max_scan,
     }
+
+
+def group_row_keys(conn, worker: str, note: str,
+                   dfrom: str | None = None, dto: str | None = None) -> list[tuple[int, str, str]]:
+    """Khoá của MỌI dòng thuộc nhóm (thợ, ghi chú) trong khoảng — để tick cả nhóm.
+
+    Nhóm trên UI chỉ mang tối đa `sample` dòng, nên tick-cả-nhóm phải hỏi lại server
+    chứ không gửi danh sách từ client. Khớp thợ bằng CÙNG biểu thức với review_notes
+    (COALESCE tên hiện hành) và so ghi chú theo dạng đã fold — hai bên luôn ra cùng tập.
+    """
+    where = "WHERE TRIM(COALESCE(t.note,'')) != '' AND COALESCE(w.name, t.worker_name) = ?"
+    args: list = [worker]
+    if dfrom:
+        where += " AND t.report_ymd >= ?"
+        args.append(dfrom)
+    if dto:
+        where += " AND t.report_ymd <= ?"
+        args.append(dto)
+    target = _fold(note)
+    rows = conn.execute(
+        "SELECT t.thread_id AS thread_id, t.worker_name AS worker_raw, TRIM(t.note) AS note "
+        "FROM production_report_rows t "
+        "LEFT JOIN production_workers w ON w.id = t.worker_id "
+        f"{where}", args,
+    ).fetchall()
+    return [(int(r["thread_id"]), str(r["worker_raw"] or ""), target)
+            for r in rows if _fold(r["note"]) == target]
