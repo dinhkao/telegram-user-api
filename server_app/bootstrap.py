@@ -17,11 +17,17 @@ from server_app.config import API_HASH, API_ID, PHONE, PORT, SESSION
 from server_app.donhang_bootstrap import bootstrap_donhang, init_donhang_db, register_donhang_live
 from server_app.state import set_client, set_donhang_db, set_gateway, set_duy_user_id
 from server_app.tasks import spawn_tracked
+from utils.paths import use_app_tmpdir
 
 log = logging.getLogger("server")
 
 
 async def main():
+    # Thư mục tạm phải nằm trên SSD (cạnh app.db/ảnh) TRƯỚC khi phục vụ request:
+    # upload ảnh (aiohttp request.post) và render HTML→PNG đều ghi file tạm, mặc
+    # định rơi vào /var/folders trên ổ trong vốn hay đầy → [Errno 28].
+    tmp = use_app_tmpdir()
+    log.info("Thư mục tạm: %s", tmp or "mặc định hệ thống (SSD không ghi được!)")
     client = TelegramClient(SESSION, API_ID, API_HASH)
     set_client(client)
     await client.start(phone=PHONE)

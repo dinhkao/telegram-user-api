@@ -1504,6 +1504,16 @@ runners.
   `os.path.expanduser(os.getenv("SHARED_DB_PATH", ...))` inline. Other env/config
   reads go through `server_app/config.py` (or a package's own `config.py`). Don't
   hardcode new secrets/paths — add an env var with a default.
+  ⚠ **THƯ MỤC TẠM cũng phải nằm trên SSD** (`APP_TMP_DIR`, mặc định `~/letrang-db/tmp`;
+  `bootstrap.main()` gọi `utils.paths.use_app_tmpdir()` NGAY dòng đầu → đặt
+  `tempfile.tempdir` + `TMPDIR` rồi dọn file tạm >24h). Lý do: aiohttp `request.post()`
+  ghi MỖI phần file của multipart ra `tempfile.TemporaryFile()`, và HTML→PNG
+  (`integrations/firebase_html_to_png`, `bot_core/html_to_png`, `printouts/receipt_print`,
+  `renderers/picking_sheet`) cũng ghi file tạm — mặc định rơi vào `/var/folders/…` trên
+  **ổ trong của máy**, vốn nhỏ và đã đầy 100% ⇒ `[Errno 28] No space left on device` làm
+  hỏng upload ảnh + render phiếu thu/hoá đơn (đã xảy ra 30/07 và 04/09). Đừng viết
+  `tempfile.gettempdir()`/`/tmp` cứng ở chỗ mới; nếu SSD chưa mount thì
+  `use_app_tmpdir()` trả None và giữ mặc định hệ thống. Tests: `tests/test_app_tmpdir.py`.
 - **DB connections go through `utils/db.py`** — `get_connection(path, *, readonly,
   autocommit, busy_timeout)` + `transaction(conn)`. Every `app.db` access uses this
   one gateway (no scattered `sqlite3.connect`). Default engine is **SQLite**. There
