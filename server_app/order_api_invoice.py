@@ -257,7 +257,12 @@ async def api_ensure_invoice_image_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Đơn chưa có hoá đơn KiotViet"}, status=400)
     from order_images_store import list_images
     imgs = await asyncio.to_thread(list_images, tid)
-    have = [i for i in imgs if i.get("kind") == "hoa_don" or i.get("uploaded_by") == "KiotViet HĐ"]
+    # BỎ ảnh đã xoá mềm: `list_images` trả CẢ ảnh có deleted_at (webapp hiện dấu X).
+    # Không lọc thì đơn từng bị xoá ảnh HĐ (vd render sai số "nợ trước") sẽ mãi trả
+    # lại tấm đã huỷ thay vì render lại tấm đúng.
+    have = [i for i in imgs
+            if not i.get("deleted_at")
+            and (i.get("kind") == "hoa_don" or i.get("uploaded_by") == "KiotViet HĐ")]
     if have:
         return web.json_response({"ok": True, "image": have[0], "created": False})   # list mới nhất trước
     from server_app.invoice_image import add_invoice_image_to_gallery
