@@ -18,12 +18,44 @@ KIND_MATCH = "khop"       # khớp từ khoá CỦA CHÍNH thợ đó (hoặc "n
 KIND_OTHER = "khac_tho"   # là từ khoá có phụ cấp, nhưng KHÔNG phải của thợ này
 KIND_QTY = "so_luong"     # chỉ ghi số lượng/giờ ("đã -1 mâm", "về 10h") — không phải việc
 KIND_UNKNOWN = "la"       # chữ lạ, không nằm trong bảng → cần xem lại phụ cấp
+KIND_AMOUNT = "so_tien"   # ghi chú CÓ SỐ TIỀN viết tay ("vít 25k") → auto ĐÈ số khác
+KIND_PARTIAL = "mot_phan"  # chứa từ khoá của CHÍNH thợ nhưng CÒN CHỮ THỪA → auto VẪN tính
 
-FLAG_KINDS = (KIND_UNKNOWN, KIND_OTHER)   # 2 loại đáng cảnh báo
+# 4 loại đáng cảnh báo, xếp theo mức nguy hiểm: so_tien / mot_phan là ca auto VẪN GHI
+# TIỀN (chữ thừa bị bỏ qua âm thầm) — nặng hơn la/khac_tho vốn chỉ là "không được tính".
+FLAG_KINDS = (KIND_AMOUNT, KIND_PARTIAL, KIND_UNKNOWN, KIND_OTHER)
 
 ALL_KEYWORDS: frozenset[str] = frozenset(
     [_NGHI] + [k for _, kws, _ in RULES for k in kws]
 )
+
+# ── CÂU ghi chú ĐÚNG CHUẨN (Duy chốt 2026-09-12: "bất cứ text nào ko fit 100% đều
+# filter hết") ────────────────────────────────────────────────────────────────────
+# `allowance_auto.RULES` khớp LỎNG theo từ khoá là CỐ Ý (mảnh "chien" phải bắt được
+# cả "Chiên đậu"), nên không thể so khít với chính RULES. Bảng dưới là DẠNG ĐẦY ĐỦ
+# mà thợ được phép ghi cho mỗi từ khoá. Ghi chú phải TRÙNG KHÍT một câu ở đây (sau
+# khi bỏ dấu + gộp khoảng trắng) mới coi là chuẩn; thừa một chữ cũng vào diện xem lại.
+# Số liệu 01/06→12/09/2026: 2.323 dòng được auto tính chỉ dùng 9 câu dưới đây, 12
+# dòng còn lại là ghi tay ("vít tới 8h", "chiên dauu", "vít 30p"…) — đúng thứ cần soi.
+# THÊM CÂU MỚI Ở ĐÂY khi xưởng đổi cách ghi; đừng nới lỏng lại thành so-chứa.
+_PHRASES: dict[str, tuple[str, ...]] = {
+    "vit": ("vit", "vit keo"),
+    "quay keo": ("quay keo",),
+    "chien": ("chien", "chien dau"),
+    "rac me": ("rac me",),
+    "vo keo": ("vo keo",),
+    "rac com dua": ("rac com dua",),
+    "rac dua": ("rac dua",),
+    "gan dua": ("gan dua",),
+    _NGHI: (_NGHI,),
+}
+
+_WS_RE = re.compile(r"\s+")
+
+
+def _fold(note: str) -> str:
+    """Bỏ dấu + gộp khoảng trắng — dạng dùng để so khít."""
+    return _WS_RE.sub(" ", vn_normalize(str(note or "")).strip())
 
 
 def keywords_for(worker_name: str) -> frozenset[str]:
@@ -36,9 +68,18 @@ def keywords_for(worker_name: str) -> frozenset[str]:
     return frozenset(out)
 
 
+def phrases_for(worker_name: str) -> frozenset[str]:
+    """CÂU đầy đủ mà thợ này được phép ghi (từ khoá của họ → dạng ghi hợp lệ)."""
+    out: set[str] = set()
+    for kw in keywords_for(worker_name):
+        out.update(_PHRASES.get(kw, (kw,)))
+    return frozenset(out)
+
+
 # ── Nhận diện ghi chú CHỈ CHỈNH SỐ / GIỜ (không phải việc) ─────────────────────
-# "Đã -1 mâm", "đã +1 gạch", "+2c", "về 10h", "vô 7h40", "vít 15k"… Bóc hết các mảnh
-# này ra; còn lại chữ nào thì đó mới là nội dung việc.
+# "Đã -1 mâm", "đã +1 gạch", "+2c", "về 10h", "vô 7h40"… Bóc hết các mảnh này ra;
+# còn lại chữ nào thì đó mới là nội dung việc. (Dạng "vít 15k" KHÔNG rơi vào đây —
+# `has_money` bắt trước ở note_kind, xem khối dưới.)
 _QTY_PIECES = [
     r"[+-]?\s*\d+(?:[.,]\d+)?\s*(?:mam|man|gach|cay|kg|k|c|p|ph|phut|tieng|gio)\b",
     r"\b\d{1,2}\s*[hg:]\s*\d{0,2}\b",          # 10h, 4h30, 15:40
@@ -47,6 +88,23 @@ _QTY_PIECES = [
 ]
 _QTY_RE = re.compile("|".join(_QTY_PIECES))
 _WORD_RE = re.compile(r"[a-z]+")
+
+# ── SỐ TIỀN viết tay trong ghi chú ────────────────────────────────────────────
+# "vít 25k", "rắc mè 30 nghìn", "50.000", "25000đ". Auto chỉ soi TỪ KHOÁ nên gặp
+# "vít 25k" là khớp rule "vít" rồi ghi tiền theo HẠNG, bỏ qua số người ta viết —
+# im lặng, không ai biết (2026-09-08 Kim "Vít 15k" → auto 246.000; 2026-09-09 Duy
+# "vít 25k" → auto 31.200). Bắt riêng để văn phòng đối chiếu.
+# `\bk\b` KHÔNG ăn "kg" (g là ký tự từ nên không có ranh giới) và không ăn "1h25p".
+_MONEY_RE = re.compile(
+    r"\b\d+(?:[.,]\d+)?\s*(?:k|ng|nghin|ngan)\b"   # 25k · 30 nghìn · 30 ngàn
+    r"|\b\d+\s*(?:d|dong|vnd)\b"                    # 25000đ · 25000 đồng
+    r"|\b\d{1,3}(?:[.,]\d{3})+\b"                   # 25.000 · 1.200.000
+)
+
+
+def has_money(note_fold: str) -> bool:
+    """THUẦN. Ghi chú (đã bỏ dấu) có kèm số tiền viết tay không."""
+    return _MONEY_RE.search(note_fold) is not None
 
 
 def _is_qty_only(note_fold: str) -> bool:
@@ -57,12 +115,19 @@ def _is_qty_only(note_fold: str) -> bool:
 def note_kind(worker_name: str, note: str) -> str:
     """THUẦN. Ghi chú này thuộc loại nào so với bảng RULES của thợ đó.
     Trả "" khi ghi chú trống (không có gì để xét)."""
-    nf = vn_normalize(str(note or "")).strip()
+    nf = _fold(note)
     if not nf:
         return ""
-    mine = keywords_for(worker_name)
-    if any(_has_kw(nf, k) for k in mine):
+    # TRÙNG KHÍT câu chuẩn của chính thợ đó = auto chạy đúng ý. Mọi thứ khác đều xét tiếp.
+    if nf in phrases_for(worker_name):
         return KIND_MATCH
+    # Có số tiền viết tay → nặng nhất: auto vẫn ghi số của nó, đè số người ta đã viết.
+    if has_money(nf):
+        return KIND_AMOUNT
+    # Chứa từ khoá của CHÍNH mình nhưng còn chữ thừa ("vít tới 8h", "chiên dauu") →
+    # auto VẪN tính tiền và bỏ qua phần thừa, không báo gì.
+    if any(_has_kw(nf, k) for k in keywords_for(worker_name)):
+        return KIND_PARTIAL
     if any(_has_kw(nf, k) for k in ALL_KEYWORDS):
         return KIND_OTHER
     return KIND_QTY if _is_qty_only(nf) else KIND_UNKNOWN
@@ -113,7 +178,8 @@ def review_notes(conn, dfrom: str | None = None, dto: str | None = None,
         (*args, max_scan),
     ).fetchall()
 
-    counts: dict[str, int] = {KIND_MATCH: 0, KIND_OTHER: 0, KIND_QTY: 0, KIND_UNKNOWN: 0}
+    counts: dict[str, int] = {KIND_MATCH: 0, KIND_OTHER: 0, KIND_QTY: 0,
+                              KIND_UNKNOWN: 0, KIND_AMOUNT: 0, KIND_PARTIAL: 0}
     groups: dict[tuple[str, str, str], dict] = {}
     seen: set[tuple] = set()          # (phiếu, thợ, ghi chú) — thợ nhiều dòng 1 phiếu
     for r in rows:
@@ -123,7 +189,7 @@ def review_notes(conn, dfrom: str | None = None, dto: str | None = None,
         counts[kind] = counts.get(kind, 0) + 1
         if kind not in FLAG_KINDS:
             continue
-        nf = vn_normalize(r["note"]).strip()
+        nf = _fold(r["note"])
         key = (r["worker"] or "", nf, kind)
         dedup = (r["thread_id"], r["worker"], nf)
         if dedup in seen:
@@ -140,9 +206,10 @@ def review_notes(conn, dfrom: str | None = None, dto: str | None = None,
             g["paid"] += 1
         if len(g["rows"]) < sample:
             g["rows"].append(_fmt_row(r, kind))
+    _order = {KIND_AMOUNT: 0, KIND_PARTIAL: 1, KIND_UNKNOWN: 2, KIND_OTHER: 3}
     out = sorted(
         groups.values(),
-        key=lambda g: (g["kind"] != KIND_UNKNOWN, -g["count"], g["worker"]),
+        key=lambda g: (_order.get(g["kind"], 9), -g["count"], g["worker"]),
     )
     return {
         "groups": out,

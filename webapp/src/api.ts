@@ -359,8 +359,8 @@ export async function collectBatch(payload: { method: "Cash" | "Transfer"; colle
 }
 
 /** Tạo phiếu TRẢ HÀNG (văn phòng) — HĐ KiotViet giá âm, giảm nợ khách. */
-export async function createReturn(key: string, items: { sp: string; sl: number; price: number }[], note = ""): Promise<any> {
-  return postJSON(`/api/customers/${encodeURIComponent(key)}/returns`, { items, note });
+export async function createReturn(key: string, items: { sp: string; sl: number; price: number }[], note = "", threadId?: number): Promise<any> {
+  return postJSON(`/api/customers/${encodeURIComponent(key)}/returns`, { items, note, thread_id: threadId });
 }
 export type ReturnGoodsResult = {
   restocked_existing: { sp: string; quantity: number; box_id: number; box_code: string }[];
@@ -1756,7 +1756,8 @@ export type NoteReviewRow = {
   note: string; kind: string; product_code: string; allowance: number; allow_by: string;
 };
 export type NoteReviewGroup = {
-  worker: string; note: string; kind: "la" | "khac_tho"; count: number; paid: number;
+  worker: string; note: string; kind: "so_tien" | "mot_phan" | "la" | "khac_tho";
+  count: number; paid: number;
   last_ymd: string | null; rows: NoteReviewRow[];
 };
 export type NoteReview = {

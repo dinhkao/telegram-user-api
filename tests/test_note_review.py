@@ -1,14 +1,18 @@
 """Phân loại GHI CHÚ báo cáo thợ (production_store/note_review.py) — cảnh báo ghi tay.
 
-Khoá 3 luật: ghi chú khớp từ khoá CỦA CHÍNH thợ = khớp (auto chạy đúng) · từ khoá của
-người khác = khac_tho · chữ lạ = la · chỉ số lượng/giờ = so_luong (không cảnh báo).
+Luật (Duy chốt 2026-09-12 "bất cứ text nào ko fit 100% đều filter hết"): ghi chú phải
+TRÙNG KHÍT một câu chuẩn của chính thợ đó mới là `khop`. Thừa chữ thì rơi vào 1 trong 4
+diện cảnh báo — so_tien (có số tiền viết tay) · mot_phan (đúng từ khoá + chữ thừa; 2
+loại này auto VẪN TRẢ TIỀN) · la (chữ lạ) · khac_tho (từ khoá người khác). Riêng ghi chú
+chỉ chỉnh số/giờ ("Đã -1 mâm") = so_luong, KHÔNG cảnh báo.
 """
 import sqlite3
 
 import pytest
 
 from production_store.note_review import (
-    KIND_MATCH, KIND_OTHER, KIND_QTY, KIND_UNKNOWN, keywords_for, note_kind, review_notes,
+    KIND_AMOUNT, KIND_MATCH, KIND_OTHER, KIND_PARTIAL, KIND_QTY, KIND_UNKNOWN,
+    keywords_for, note_kind, phrases_for, review_notes,
 )
 
 
@@ -39,6 +43,35 @@ def test_ghi_chu_la_can_canh_bao():
 @pytest.mark.parametrize("note", ["Đã -1 mâm", "đã +1 gạch", "về 10h", "Vô 7h40", "8h", "Đã +2 cây"])
 def test_chi_so_luong_gio_khong_canh_bao(note):
     assert note_kind("Hằng", note) == KIND_QTY
+
+
+def test_so_tien_viet_tay_thang_ca_khi_khop_tu_khoa():
+    """Ca nguy hiểm nhất: ghi chú KHỚP rule nên auto ghi tiền theo HẠNG, âm thầm bỏ
+    qua số người ta đã viết (09/09/2026 Duy "vít 25k" → auto 31.200)."""
+    assert note_kind("Duy", "vít 25k") == KIND_AMOUNT
+    assert note_kind("Kim", "Vít 15k") == KIND_AMOUNT
+    assert note_kind("Trân", "lựa đậu 30 nghìn") == KIND_AMOUNT   # chữ lạ + tiền
+    assert note_kind("Phượng", "rắc mè 50.000") == KIND_AMOUNT    # từ khoá thợ khác + tiền
+
+
+@pytest.mark.parametrize("note", [
+    "vít tới 8h", "vít 30p", "Đã -1 gạch ( vít kẹo )", "4h vít kẹo (vít 1h25p)",
+    "Vít kẹo ( về lúc 9h30)", "chiên đâuu",
+])
+def test_thua_chu_la_mot_phan_du_dung_tu_khoa(note):
+    """Auto VẪN trả tiền cho mấy dòng này (từ khoá có mặt) rồi lặng lẽ bỏ phần thừa."""
+    assert note_kind("Kim" if "chien" not in note and "chiên" not in note else "Kim Dung",
+                     note) == KIND_PARTIAL
+
+
+def test_chi_TRUNG_KHIT_cau_chuan_moi_la_khop():
+    # câu chuẩn: đúng từ khoá HOẶC dạng đầy đủ đã khai trong _PHRASES
+    assert note_kind("Kim", "vít") == KIND_MATCH
+    assert note_kind("Kim", "VÍT KẸO") == KIND_MATCH        # hoa/thường + dấu không tính
+    assert note_kind("Kim", "  vít   kẹo  ") == KIND_MATCH  # thừa khoảng trắng vẫn khớp
+    assert "vit keo" in phrases_for("Kim") and "vit" in phrases_for("Kim")
+    # "vít 5 kg" KHÔNG phải câu chuẩn → dù kg không phải tiền vẫn vào diện xem lại
+    assert note_kind("Kim", "vít 5 kg") == KIND_PARTIAL
 
 
 def test_ghi_chu_trong_khong_xet():
@@ -73,15 +106,20 @@ def test_review_notes_gom_nhom_va_bo_qua_dong_khop():
     _row(conn, 3, "Kim", "vít kẹo")          # khớp rule → không cảnh báo
     _row(conn, 4, "Hằng", "Đã -1 mâm")       # chỉ số lượng → không cảnh báo
     _row(conn, 5, "Phượng", "rắc mè")        # từ khoá người khác
+    _row(conn, 6, "Duy", "vít 25k")          # có số tiền viết tay
+    _row(conn, 8, "Kim", "vít tới 8h")       # đúng từ khoá nhưng thừa chữ
     d = review_notes(conn)
-    assert d["counts"] == {KIND_MATCH: 1, KIND_OTHER: 1, KIND_QTY: 1, KIND_UNKNOWN: 2}
-    assert d["flagged"] == 3
-    # nhóm "lạ" đứng trước nhóm "khác thợ"; gộp 2 phiếu của Chín làm 1 nhóm
+    assert d["counts"] == {KIND_MATCH: 1, KIND_OTHER: 1, KIND_QTY: 1,
+                           KIND_UNKNOWN: 2, KIND_AMOUNT: 1, KIND_PARTIAL: 1}
+    assert d["flagged"] == 5
+    # thứ tự: số tiền → một phần → lạ → khác thợ; gộp 2 phiếu của Chín làm 1 nhóm
     assert [(g["worker"], g["note"], g["count"], g["kind"]) for g in d["groups"]] == [
+        ("Duy", "vít 25k", 1, KIND_AMOUNT),
+        ("Kim", "vít tới 8h", 1, KIND_PARTIAL),
         ("Chín", "gỡ bánh", 2, KIND_UNKNOWN),
         ("Phượng", "rắc mè", 1, KIND_OTHER),
     ]
-    assert d["groups"][0]["rows"][0]["thread_id"] == 2   # dòng mới nhất trước
+    assert d["groups"][2]["rows"][0]["thread_id"] == 2   # dòng mới nhất trước
 
 
 def test_review_notes_gop_nhieu_dong_cung_phieu_va_dem_phu_cap():

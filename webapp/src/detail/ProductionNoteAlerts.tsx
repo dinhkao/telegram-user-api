@@ -62,11 +62,25 @@ export function ProductionNoteAlerts({ from, to }: { from?: string; to?: string 
   if (groups === null) return <section class="card"><LoadingInline /></section>;
   if (!groups.length) return null;
 
+  const tien = groups.filter((g) => g.kind === "so_tien");
+  const phan = groups.filter((g) => g.kind === "mot_phan");
   const la = groups.filter((g) => g.kind === "la");
   const khac = groups.filter((g) => g.kind === "khac_tho");
   return (
     <section class="card nra">
       <label class="card-label t-warn">⚠️ Ghi chú cần xem lại phụ cấp ({groups.length})</label>
+      {tien.length > 0 && (
+        <>
+          <p class="nra-hd t-danger">Có ghi SỐ TIỀN — auto đã ghi số khác đè lên</p>
+          {tien.map((g) => <Group key={g.worker + g.note} g={g} />)}
+        </>
+      )}
+      {phan.length > 0 && (
+        <>
+          <p class="nra-hd t-danger">Đúng từ khoá nhưng THỪA CHỮ — auto vẫn trả tiền, bỏ qua phần thừa</p>
+          {phan.map((g) => <Group key={g.worker + g.note} g={g} />)}
+        </>
+      )}
       {la.length > 0 && (
         <>
           <p class="nra-hd">Chữ lạ — chưa có trong bảng từ khoá</p>
@@ -80,8 +94,10 @@ export function ProductionNoteAlerts({ from, to }: { from?: string; to?: string 
         </>
       )}
       <p class="muted small nra-foot">
-        Phụ cấp tự động chỉ chạy khi ghi chú khớp từ khoá đã cài cho đúng thợ đó. Các dòng
-        trên KHÔNG được tính tự động — nếu đúng là việc có phụ cấp thì nhập tay trong phiếu.
+        Ghi chú phải TRÙNG KHÍT một câu đã cài cho đúng thợ đó thì phụ cấp tự động mới
+        chạy đúng ý. Dòng “chữ lạ” / “thợ khác” KHÔNG được tính tự động — nếu đúng là
+        việc có phụ cấp thì nhập tay trong phiếu. Hai nhóm đầu thì auto VẪN trả tiền
+        nhưng ghi số theo hạng, bỏ qua phần viết thêm — đối chiếu rồi sửa tay nếu lệch.
       </p>
     </section>
   );
