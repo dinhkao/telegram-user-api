@@ -491,22 +491,16 @@ async def _process_create_invoice_core_inner(thread_id: int, user_id: int | None
     debt_to_store = new_debt if new_debt is not None else old_debt
     if debt_to_store is not None:
         update_customer_debt(db_conn, str(kh_id_fb), debt_to_store)
-    # KIỂM TRA CHÉO (phòng thủ thêm ngoài việc lấy nợ tuần tự): nợ mới đúng ra =
-    # nợ cũ + tổng HĐ. Nếu nợ mới == nợ cũ (KV đã cộng HĐ trước khi ta hỏi nợ cũ)
-    # → snapshot đang gộp chính HĐ này: hạ về nợ_mới − tổng và ghi log để soi.
+    # KHÔNG suy ngược snapshot từ `new_debt` ở đây. `old_debt` đã lấy XONG TRƯỚC khi
+    # POST tạo HĐ (tuần tự, xem trên) nên KHÔNG THỂ gộp chính HĐ này. `new_debt ==
+    # old_debt` ngay sau tạo chỉ có nghĩa KiotViet CHƯA kịp cộng HĐ (eventual
+    # consistency) — hạ snapshot theo đó là in SAI "nợ trước" lên hoá đơn giấy:
+    # 10 ca 08→11/09/2026, 4 ca ra SỐ ÂM (HD086728 Bảy Tình in nợ trước −2.000.000,
+    # tổng thanh toán 0; HD086746 Tuyết Điểm in 180.209.440 thay vì 181.687.960).
+    # Việc chỉnh theo số KV về sau đã có `schedule_debt_resync` lo, và nó KIỂM CHỨNG
+    # bằng expected_debt/pre_invoice_debt trước khi vá.
     from server_app.customer_feed import _order_total_num
     _inv_total = _order_total_num(order)
-    if (old_debt is not None and new_debt is not None and _inv_total > 0
-            and abs(new_debt - old_debt) < 1):
-        fixed = old_debt - _inv_total
-        log.warning("Nợ cũ gộp chính HĐ (thread=%s): %s → %s (tổng HĐ %s)",
-                    thread_id, old_debt, fixed, _inv_total)
-        with transaction(db_conn):
-            f2 = get_order_by_thread_id(db_conn, thread_id)
-            if f2 and f2.get("kiotvietInvoiceID") == invoice_id:
-                f2["khDebt"] = fixed; f2["invoice_debt_snapshot"] = fixed
-                _save_order(db_conn, thread_id, f2); order = f2
-        old_debt = snapshot_debt = fixed
     # Đẩy realtime → trang Khách (công nợ) + dashboard cập nhật ngay
     from server_app.realtime import emit_customer_changed, emit_order_changed
     emit_order_changed(thread_id)
