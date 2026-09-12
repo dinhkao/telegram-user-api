@@ -66,6 +66,7 @@ export function ProductionNoteAlerts({ from, to }: { from?: string; to?: string 
   const phan = groups.filter((g) => g.kind === "mot_phan");
   const la = groups.filter((g) => g.kind === "la");
   const khac = groups.filter((g) => g.kind === "khac_tho");
+  const sl = groups.filter((g) => g.kind === "so_luong");
   return (
     <section class="card nra">
       <label class="card-label t-warn">⚠️ Ghi chú cần xem lại phụ cấp ({groups.length})</label>
@@ -91,6 +92,12 @@ export function ProductionNoteAlerts({ from, to }: { from?: string; to?: string 
         <>
           <p class="nra-hd">Từ khoá của thợ khác — thợ này chưa có luật cho việc đó</p>
           {khac.map((g) => <Group key={g.worker + g.note} g={g} />)}
+        </>
+      )}
+      {sl.length > 0 && (
+        <>
+          <p class="nra-hd">Chỉ chỉnh số lượng / giờ — không phải tên việc</p>
+          {sl.map((g) => <Group key={g.worker + g.note} g={g} />)}
         </>
       )}
       <p class="muted small nra-foot">

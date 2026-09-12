@@ -1,9 +1,10 @@
 """SOI GHI CHÚ báo cáo thợ — dòng nào ghi TAY khác từ khoá phụ cấp đã cài sẵn.
 
 Phụ cấp tự động (production_store.allowance_auto) khớp ghi chú theo TỪ KHOÁ cố định
-trong bảng RULES. Thợ ghi kiểu khác ("gỡ bánh", "đổ kẹo"…) thì auto KHÔNG ghi phụ cấp
-mà cũng không báo gì → văn phòng dễ bỏ sót. Module này phân loại từng ghi chú rồi gom
-nhóm cho dashboard sản xuất cảnh báo. Nối: allowance_auto (RULES), report_rows
+trong bảng RULES — khớp LỎNG (chỉ cần CHỨA từ khoá). Nên "vít 25k" vẫn khớp "vít" rồi
+auto ghi tiền theo hạng, bỏ qua số 25k người ta viết; còn "gỡ bánh" thì không được
+tính đồng nào — cả hai đều im lặng. Module này SO KHÍT ghi chú với câu chuẩn rồi gom
+nhóm MỌI dòng không trùng khít cho dashboard sản xuất cảnh báo. Nối: allowance_auto (RULES), report_rows
 (production_report_rows), allowances (production_allowances), vn.vn_normalize.
 """
 from __future__ import annotations
@@ -21,9 +22,11 @@ KIND_UNKNOWN = "la"       # chữ lạ, không nằm trong bảng → cần xem 
 KIND_AMOUNT = "so_tien"   # ghi chú CÓ SỐ TIỀN viết tay ("vít 25k") → auto ĐÈ số khác
 KIND_PARTIAL = "mot_phan"  # chứa từ khoá của CHÍNH thợ nhưng CÒN CHỮ THỪA → auto VẪN tính
 
-# 4 loại đáng cảnh báo, xếp theo mức nguy hiểm: so_tien / mot_phan là ca auto VẪN GHI
-# TIỀN (chữ thừa bị bỏ qua âm thầm) — nặng hơn la/khac_tho vốn chỉ là "không được tính".
-FLAG_KINDS = (KIND_AMOUNT, KIND_PARTIAL, KIND_UNKNOWN, KIND_OTHER)
+# CẢNH BÁO MỌI THỨ KHÔNG TRÙNG KHÍT (Duy chốt 2026-09-12: "đưa vào hết") — chỉ `khop`
+# là sạch. Viết theo kiểu "trừ khop" để thêm loại mới về sau không bị quên khỏi danh
+# sách. Thứ tự = mức nguy hiểm: so_tien / mot_phan là ca auto VẪN GHI TIỀN (chữ thừa
+# bị bỏ qua âm thầm); la / khac_tho là "không được tính"; so_luong chỉ là chỉnh số.
+FLAG_KINDS = (KIND_AMOUNT, KIND_PARTIAL, KIND_UNKNOWN, KIND_OTHER, KIND_QTY)
 
 ALL_KEYWORDS: frozenset[str] = frozenset(
     [_NGHI] + [k for _, kws, _ in RULES for k in kws]
@@ -206,7 +209,7 @@ def review_notes(conn, dfrom: str | None = None, dto: str | None = None,
             g["paid"] += 1
         if len(g["rows"]) < sample:
             g["rows"].append(_fmt_row(r, kind))
-    _order = {KIND_AMOUNT: 0, KIND_PARTIAL: 1, KIND_UNKNOWN: 2, KIND_OTHER: 3}
+    _order = {KIND_AMOUNT: 0, KIND_PARTIAL: 1, KIND_UNKNOWN: 2, KIND_OTHER: 3, KIND_QTY: 4}
     out = sorted(
         groups.values(),
         key=lambda g: (_order.get(g["kind"], 9), -g["count"], g["worker"]),

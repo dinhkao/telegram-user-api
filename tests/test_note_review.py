@@ -3,8 +3,8 @@
 Luật (Duy chốt 2026-09-12 "bất cứ text nào ko fit 100% đều filter hết"): ghi chú phải
 TRÙNG KHÍT một câu chuẩn của chính thợ đó mới là `khop`. Thừa chữ thì rơi vào 1 trong 4
 diện cảnh báo — so_tien (có số tiền viết tay) · mot_phan (đúng từ khoá + chữ thừa; 2
-loại này auto VẪN TRẢ TIỀN) · la (chữ lạ) · khac_tho (từ khoá người khác). Riêng ghi chú
-chỉ chỉnh số/giờ ("Đã -1 mâm") = so_luong, KHÔNG cảnh báo.
+loại này auto VẪN TRẢ TIỀN) · la (chữ lạ) · khac_tho (từ khoá người khác) · so_luong
+(chỉ chỉnh số/giờ). CẢ 5 loại đều cảnh báo — "đưa vào hết", chỉ `khop` là sạch.
 """
 import sqlite3
 
@@ -41,8 +41,15 @@ def test_ghi_chu_la_can_canh_bao():
 
 
 @pytest.mark.parametrize("note", ["Đã -1 mâm", "đã +1 gạch", "về 10h", "Vô 7h40", "8h", "Đã +2 cây"])
-def test_chi_so_luong_gio_khong_canh_bao(note):
+def test_chi_so_luong_gio(note):
     assert note_kind("Hằng", note) == KIND_QTY
+
+
+def test_moi_loai_khong_trung_khit_deu_canh_bao():
+    """Duy chốt 12/09: chỉ ghi chú TRÙNG KHÍT câu chuẩn mới sạch, còn lại vào hết."""
+    from production_store.note_review import FLAG_KINDS
+    assert set(FLAG_KINDS) == {KIND_AMOUNT, KIND_PARTIAL, KIND_UNKNOWN, KIND_OTHER, KIND_QTY}
+    assert KIND_MATCH not in FLAG_KINDS
 
 
 def test_so_tien_viet_tay_thang_ca_khi_khop_tu_khoa():
@@ -111,13 +118,14 @@ def test_review_notes_gom_nhom_va_bo_qua_dong_khop():
     d = review_notes(conn)
     assert d["counts"] == {KIND_MATCH: 1, KIND_OTHER: 1, KIND_QTY: 1,
                            KIND_UNKNOWN: 2, KIND_AMOUNT: 1, KIND_PARTIAL: 1}
-    assert d["flagged"] == 5
-    # thứ tự: số tiền → một phần → lạ → khác thợ; gộp 2 phiếu của Chín làm 1 nhóm
+    assert d["flagged"] == 6          # mọi dòng trừ "vít kẹo" của Kim
+    # thứ tự: tiền → một phần → lạ → khác thợ → số lượng; gộp 2 phiếu của Chín 1 nhóm
     assert [(g["worker"], g["note"], g["count"], g["kind"]) for g in d["groups"]] == [
         ("Duy", "vít 25k", 1, KIND_AMOUNT),
         ("Kim", "vít tới 8h", 1, KIND_PARTIAL),
         ("Chín", "gỡ bánh", 2, KIND_UNKNOWN),
         ("Phượng", "rắc mè", 1, KIND_OTHER),
+        ("Hằng", "Đã -1 mâm", 1, KIND_QTY),
     ]
     assert d["groups"][2]["rows"][0]["thread_id"] == 2   # dòng mới nhất trước
 

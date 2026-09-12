@@ -1756,7 +1756,7 @@ export type NoteReviewRow = {
   note: string; kind: string; product_code: string; allowance: number; allow_by: string;
 };
 export type NoteReviewGroup = {
-  worker: string; note: string; kind: "so_tien" | "mot_phan" | "la" | "khac_tho";
+  worker: string; note: string; kind: "so_tien" | "mot_phan" | "la" | "khac_tho" | "so_luong";
   count: number; paid: number;
   last_ymd: string | null; rows: NoteReviewRow[];
 };
