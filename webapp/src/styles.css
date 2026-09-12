@@ -4805,5 +4805,9 @@ a.bean-row, a.bean-card { color: inherit; text-decoration: none; }
   font-size: .78rem; border-left: 2px solid var(--border); margin-left: 4px; }
 .nra-sub-link { display: flex; justify-content: space-between; gap: 8px; flex: 1 1 auto;
   min-width: 0; padding: 2px 0; }
+/* đã tick xử lý: vẫn hiện, chỉ mờ đi + gạch ngang phần ghi chú */
+.nra-done .nra-w, .nra-done .nra-n, .nra-done .nra-sub-link { opacity: .45; }
+.nra-done .nra-note { opacity: .45; text-decoration: line-through; color: var(--muted); }
+.nra-done .nra-tick { color: var(--ok, #2e7d32); opacity: 1; }
 .nra-more { display: block; padding: 2px 0 4px 12px; }
 .nra-foot { margin: 10px 0 0; }

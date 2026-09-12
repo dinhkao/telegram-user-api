@@ -1755,10 +1755,11 @@ export type NoteReviewRow = {
   thread_id: number; ymd: string | null; date: string | null; worker: string;
   note: string; kind: string; product_code: string; allowance: number; allow_by: string;
   worker_raw: string; note_fold: string;   // khoá tick "đã xử lý"
+  done: boolean;                           // đã tick xử lý (vẫn hiện, tô mờ)
 };
 export type NoteReviewGroup = {
   worker: string; note: string; kind: "so_tien" | "mot_phan" | "la" | "khac_tho" | "so_luong";
-  count: number; paid: number;
+  count: number; done: number; paid: number;
   last_ymd: string | null; rows: NoteReviewRow[];
 };
 export type NoteReview = {

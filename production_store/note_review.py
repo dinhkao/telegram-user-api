@@ -146,6 +146,10 @@ def review_notes(conn, dfrom: str | None = None, dto: str | None = None,
     1 nhóm = 1 cặp (THỢ, ghi chú) — đơn vị để quyết định "có cần thêm rule phụ cấp
     cho người này không". Kèm tối đa `sample` dòng gần nhất + phụ cấp đang có của
     (phiếu, thợ) đó để văn phòng bấm vào phiếu xem lại. Chỉ đọc.
+
+    Dòng đã tick xử lý (production_note_resolved) VẪN NẰM TRONG kết quả, mang cờ
+    `done`; nhóm có `done` = số dòng đã tick. Nhóm xong hết chìm xuống cuối mục của
+    nó chứ không biến mất.
     """
     from production_store.allowances import ensure_schema
     from production_store.report_rows import ensure_report_rows_schema
@@ -190,9 +194,12 @@ def review_notes(conn, dfrom: str | None = None, dto: str | None = None,
         if kind not in FLAG_KINDS:
             continue
         nf = _fold(r["note"])
-        if (int(r["thread_id"]), str(r["worker_raw"] or ""), nf) in done:
+        # Dòng đã tick VẪN HIỆN (Duy chốt 2026-09-12) — chỉ gắn cờ để client tô mờ +
+        # tick sẵn. Giấu đi thì không còn cách xem lại mình đã xử lý cái gì, mà bỏ tick
+        # nhầm cũng không sửa được.
+        is_done = (int(r["thread_id"]), str(r["worker_raw"] or ""), nf) in done
+        if is_done:
             n_done += 1
-            continue                      # văn phòng đã tick xử lý → khỏi hiện lại
         key = (r["worker"] or "", nf, kind)
         dedup = (r["thread_id"], r["worker"], nf)
         if dedup in seen:
@@ -202,17 +209,22 @@ def review_notes(conn, dfrom: str | None = None, dto: str | None = None,
         if g is None:
             g = groups[key] = {
                 "worker": r["worker"], "note": r["note"], "kind": kind,
-                "count": 0, "paid": 0, "last_ymd": r["ymd"], "rows": [],
+                "count": 0, "done": 0, "paid": 0, "last_ymd": r["ymd"], "rows": [],
             }
         g["count"] += 1
+        if is_done:
+            g["done"] += 1
         if float(r["allow"] or 0) > 0:
             g["paid"] += 1
         if len(g["rows"]) < sample:
-            g["rows"].append(_fmt_row(r, kind))
+            row = _fmt_row(r, kind)
+            row["done"] = is_done
+            g["rows"].append(row)
     _order = {KIND_AMOUNT: 0, KIND_PARTIAL: 1, KIND_UNKNOWN: 2, KIND_OTHER: 3, KIND_QTY: 4}
     out = sorted(
         groups.values(),
-        key=lambda g: (_order.get(g["kind"], 9), -g["count"], g["worker"]),
+        key=lambda g: (_order.get(g["kind"], 9), g["done"] >= g["count"],
+                       -g["count"], g["worker"]),
     )
     return {
         "groups": out,

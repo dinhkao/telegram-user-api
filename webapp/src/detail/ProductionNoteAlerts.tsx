@@ -17,18 +17,22 @@ type Rng = { from?: string; to?: string };
 function Group({ g, rng, onDone }: { g: NoteReviewGroup; rng: Rng; onDone: () => void }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const allDone = g.count > 0 && g.done >= g.count;
+  // ☑ xong hết · ⊡ xong một phần · ☐ chưa đụng
+  const mark = allDone ? "☑" : g.done > 0 ? "⊡" : "☐";
 
-  // Tick ở dòng NHÓM = xử lý mọi lần ghi như vậy của thợ đó trong khoảng đang xem;
-  // tick ở dòng con = đúng 1 phiếu. Cả hai gọi chung 1 endpoint.
-  async function resolve(row?: NoteReviewRow) {
+  // Tick ở dòng NHÓM = mọi lần ghi như vậy của thợ đó trong khoảng đang xem; tick ở
+  // dòng con = đúng 1 phiếu. Đang xong hết thì bấm lại là BỎ tick (undo).
+  async function toggle(row?: NoteReviewRow) {
     if (busy) return;
     setBusy(true);
+    const undo = row ? row.done : allDone;
     try {
       const r = await resolveNoteReview({
-        worker: g.worker, note: g.note, ...rng,
+        worker: g.worker, note: g.note, ...rng, undo,
         ...(row ? { thread_id: row.thread_id, worker_raw: row.worker_raw } : {}),
       });
-      toast(`Đã đánh dấu xử lý ${r.n} dòng`, "ok");
+      toast(undo ? `Đã bỏ đánh dấu ${r.n} dòng` : `Đã đánh dấu xử lý ${r.n} dòng`, "ok");
       onDone();
     } catch (e: any) {
       toast(e?.message || "Lỗi đánh dấu", "err");
@@ -37,25 +41,31 @@ function Group({ g, rng, onDone }: { g: NoteReviewGroup; rng: Rng; onDone: () =>
   }
 
   return (
-    <div class="nra-g">
+    <div class={allDone ? "nra-g nra-done" : "nra-g"}>
       <div class="nra-row">
         <button
-          class="nra-tick" disabled={busy} aria-label="Đánh dấu đã xử lý cả nhóm"
-          title={g.count > 1 ? `Đánh dấu đã xử lý ${g.count} dòng` : "Đánh dấu đã xử lý"}
-          onClick={() => resolve()}
-        >☐</button>
+          class="nra-tick" disabled={busy}
+          aria-label={allDone ? "Bỏ đánh dấu cả nhóm" : "Đánh dấu đã xử lý cả nhóm"}
+          title={allDone ? `Bỏ đánh dấu ${g.count} dòng`
+                         : `Đánh dấu đã xử lý ${g.count > 1 ? g.count + " dòng" : ""}`.trim()}
+          onClick={() => toggle()}
+        >{mark}</button>
         <button class="nra-main" onClick={() => setOpen(!open)}>
           <span class="nra-w">{g.worker}</span>
           <span class="nra-note">“{g.note}”</span>
           <span class="nra-n">
-            {g.count > 1 ? `${g.count} lần · ` : ""}{dmy(g.last_ymd)} {open ? "▾" : "▸"}
+            {g.count > 1 ? `${g.count} lần · ` : ""}
+            {g.done > 0 && !allDone ? `${g.done} đã xử lý · ` : ""}
+            {dmy(g.last_ymd)} {open ? "▾" : "▸"}
           </span>
         </button>
       </div>
       {open && g.rows.map((r) => (
-        <div key={r.thread_id} class="nra-sub">
-          <button class="nra-tick" disabled={busy} title="Đánh dấu đã xử lý phiếu này"
-                  aria-label="Đánh dấu đã xử lý" onClick={() => resolve(r)}>☐</button>
+        <div key={r.thread_id} class={r.done ? "nra-sub nra-done" : "nra-sub"}>
+          <button class="nra-tick" disabled={busy}
+                  title={r.done ? "Bỏ đánh dấu phiếu này" : "Đánh dấu đã xử lý phiếu này"}
+                  aria-label={r.done ? "Bỏ đánh dấu" : "Đánh dấu đã xử lý"}
+                  onClick={() => toggle(r)}>{r.done ? "☑" : "☐"}</button>
           <a class="nra-sub-link" href={`#/san_xuat/${r.thread_id}`}>
             <span>{dmy(r.ymd)} · {r.product_code}</span>
             <span class={r.allowance > 0 ? "t-ok" : "muted"}>
@@ -78,7 +88,8 @@ const SECTIONS: { kind: NoteReviewGroup["kind"]; head: string; danger?: boolean 
 ];
 
 export function ProductionNoteAlerts({ from, to }: Rng) {
-  const [data, setData] = useState<{ groups: NoteReviewGroup[]; resolved: number } | null>(null);
+  const [data, setData] = useState<
+    { groups: NoteReviewGroup[]; resolved: number; flagged: number; left: number } | null>(null);
   const [err, setErr] = useState("");
   // `tick` để nút Thử lại + tick ✓ nạp lại được: effect chỉ chạy theo [from, to] nên khi
   // API lỗi khối này sẽ đứng im vĩnh viễn, người dùng tưởng "không có cảnh báo nào".
@@ -89,8 +100,15 @@ export function ProductionNoteAlerts({ from, to }: Rng) {
     setErr("");
     setData(null);
     getProductionNoteReview(from, to)
-      .then((d) => { if (alive) { setData({ groups: d.groups, resolved: d.resolved || 0 }); setErr(""); } })
-      .catch((e: any) => { if (alive) { setData({ groups: [], resolved: 0 }); setErr(e?.message || "Lỗi tải"); } });
+      .then((d) => {
+        if (!alive) return;
+        const resolved = d.resolved || 0;
+        setData({ groups: d.groups, resolved, flagged: d.flagged, left: d.flagged - resolved });
+        setErr("");
+      })
+      .catch((e: any) => {
+        if (alive) { setData({ groups: [], resolved: 0, flagged: 0, left: 0 }); setErr(e?.message || "Lỗi tải"); }
+      });
     return () => { alive = false; };
   }, [from, to, tick]);
 
@@ -103,19 +121,15 @@ export function ProductionNoteAlerts({ from, to }: Rng) {
     );
   }
   if (data === null) return <section class="card"><LoadingInline /></section>;
-  if (!data.groups.length) {
-    // Đã tick hết = tin tốt, nói ra; chưa có cảnh báo nào thì im lặng cho gọn trang.
-    return data.resolved > 0 ? (
-      <section class="card nra">
-        <label class="card-label t-ok">✓ Đã xử lý hết ghi chú cần xem lại ({data.resolved} dòng)</label>
-      </section>
-    ) : null;
-  }
+  if (!data.groups.length) return null;
 
   const rng: Rng = { from, to };
   return (
     <section class="card nra">
-      <label class="card-label t-warn">⚠️ Ghi chú cần xem lại phụ cấp ({data.groups.length})</label>
+      <label class={data.left > 0 ? "card-label t-warn" : "card-label t-ok"}>
+        {data.left > 0 ? `⚠️ Ghi chú cần xem lại phụ cấp (${data.left}/${data.flagged} dòng chưa xử lý)`
+                       : `✓ Đã xử lý hết ${data.flagged} dòng ghi chú cần xem lại`}
+      </label>
       {SECTIONS.map(({ kind, head, danger }) => {
         const gs = data.groups.filter((g) => g.kind === kind);
         if (!gs.length) return null;
@@ -131,7 +145,8 @@ export function ProductionNoteAlerts({ from, to }: Rng) {
         chạy đúng ý. Dòng “chữ lạ” / “thợ khác” KHÔNG được tính tự động — nếu đúng là
         việc có phụ cấp thì nhập tay trong phiếu. Dòng “thừa chữ” thì auto VẪN trả
         nhưng ghi số theo hạng và bỏ qua phần viết thêm — đối chiếu rồi sửa tay nếu lệch.
-        Xem xong bấm ☐ để dòng đó khỏi hiện lại{data.resolved > 0 ? ` (đã xử lý ${data.resolved} dòng)` : ""}.
+        Xem xong bấm ☐ để đánh dấu đã xử lý — dòng vẫn nằm đây, chỉ tô mờ và chìm
+        xuống cuối mục; bấm ☑ lần nữa là bỏ đánh dấu.
       </p>
     </section>
   );

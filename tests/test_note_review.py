@@ -152,7 +152,9 @@ def test_review_notes_loc_theo_ngay():
 
 
 # ── Tick "đã xử lý" (production_note_resolved) ────────────────────────────────
-def test_tick_xu_ly_go_dong_khoi_canh_bao():
+def test_tick_xu_ly_KHONG_giau_dong_chi_gan_co():
+    """Duy chốt 2026-09-12: dòng đã tick VẪN HIỆN — giấu đi thì không xem lại được
+    mình đã xử lý gì, mà tick nhầm cũng không sửa được."""
     from production_store.note_resolved import mark, unmark
     conn = _db()
     _row(conn, 1, "Chín", "gỡ bánh")
@@ -160,13 +162,26 @@ def test_tick_xu_ly_go_dong_khoi_canh_bao():
     _row(conn, 5, "Phượng", "rắc mè")
     assert review_notes(conn)["flagged"] == 3
 
-    mark(conn, [(1, "Chín", "go banh")], by="duy")      # 1 phiếu
+    mark(conn, [(1, "Chín", "go banh")], by="duy")      # 1 trong 2 phiếu của Chín
     d = review_notes(conn)
-    assert d["flagged"] == 2 and d["resolved"] == 1
-    assert [(g["worker"], g["count"]) for g in d["groups"]] == [("Chín", 1), ("Phượng", 1)]
+    assert d["flagged"] == 3 and d["resolved"] == 1     # tổng KHÔNG đổi
+    assert [(g["worker"], g["count"], g["done"]) for g in d["groups"]] == [
+        ("Chín", 2, 1), ("Phượng", 1, 0)]
+    assert sorted(r["done"] for r in d["groups"][0]["rows"]) == [False, True]
 
     unmark(conn, [(1, "Chín", "go banh")])
-    assert review_notes(conn)["flagged"] == 3
+    assert review_notes(conn)["resolved"] == 0
+
+
+def test_nhom_xong_het_chim_xuong_cuoi_muc_chu_khong_bien_mat():
+    from production_store.note_resolved import mark
+    conn = _db()
+    _row(conn, 1, "Chín", "gỡ bánh")
+    _row(conn, 2, "Chín", "gỡ bánh", ymd="2026-09-11")
+    _row(conn, 3, "Trân", "lựa đậu")               # cùng mục "la", ít hơn 1 dòng
+    mark(conn, [(1, "Chín", "go banh"), (2, "Chín", "go banh")], by="duy")
+    g = review_notes(conn)["groups"]
+    assert [(x["worker"], x["done"], x["count"]) for x in g] == [("Trân", 0, 1), ("Chín", 2, 2)]
 
 
 def test_tick_ca_nhom_lay_du_dong_ke_ca_ngoai_mau():
@@ -183,7 +198,7 @@ def test_tick_ca_nhom_lay_du_dong_ke_ca_ngoai_mau():
     assert len(keys) == 12                    # đủ 12, không phải 8
     mark(conn, keys, by="duy")
     d = review_notes(conn)
-    assert d["groups"] == [] and d["flagged"] == 0 and d["resolved"] == 12
+    assert d["resolved"] == 12 and d["groups"][0]["done"] == 12   # vẫn hiện, tick sẵn
 
 
 def test_tick_khong_lan_sang_phieu_khac_hay_tho_khac():
@@ -192,7 +207,8 @@ def test_tick_khong_lan_sang_phieu_khac_hay_tho_khac():
     _row(conn, 1, "Chín", "gỡ bánh")
     _row(conn, 2, "Trân", "gỡ bánh")          # thợ khác, cùng chữ
     mark(conn, [(1, "Chín", "go banh")], by="duy")
-    assert [g["worker"] for g in review_notes(conn)["groups"]] == ["Trân"]
+    assert [(g["worker"], g["done"]) for g in review_notes(conn)["groups"]] == [
+        ("Trân", 0), ("Chín", 1)]     # dấu không lan sang Trân; Chín xong nên chìm cuối
 
 
 def test_group_row_keys_khop_du_hoa_thuong_va_khoang_trang():
