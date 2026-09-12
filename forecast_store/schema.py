@@ -29,12 +29,24 @@ CREATE TABLE IF NOT EXISTS forecast_views (
 )
 """
 
-_ensured: set[int] = set()
+# DDL chạy 1 lần mỗi FILE DB mỗi process — khoá theo ĐƯỜNG DẪN, KHÔNG phải id(conn):
+# CPython tái dùng địa chỉ sau GC nên connection MỚI có thể trùng id của connection đã
+# đóng → trượt DDL, DB mới không có bảng nào (suite đỏ ngẫu nhiên ở test_forecast_store
+# khi thứ tự cấp phát đổi). Cùng cách làm với notif_store.fcm_tokens / user_store.schema.
+_ensured: set[str] = set()
+
+
+def _db_key(conn) -> str:
+    try:
+        row = conn.execute("PRAGMA database_list").fetchone()
+        return str(row[2] if row else "")
+    except Exception:      # noqa: BLE001 — không đọc được thì cứ chạy DDL (idempotent)
+        return ""
 
 
 def ensure_tables(conn) -> None:
-    key = id(conn)
-    if key in _ensured:
+    key = _db_key(conn)
+    if key and key in _ensured:
         return
     conn.execute(_CREATE_FORECASTS)
     conn.execute(_CREATE_VIEWS)
@@ -43,4 +55,5 @@ def ensure_tables(conn) -> None:
         conn.commit()
     except Exception:  # noqa: BLE001 — autocommit conn
         pass
-    _ensured.add(key)
+    if key:
+        _ensured.add(key)
