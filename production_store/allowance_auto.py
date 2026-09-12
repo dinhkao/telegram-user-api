@@ -2,7 +2,8 @@
 
 Rule (sửa bảng RULES bên dưới): thợ X có ghi chú chứa từ khoá Y → phụ cấp = TIỀN SP
 (không tính phụ cấp) của người cao nhất/nhì bảng phiếu đó, HOẶC của 1 thợ ĐÍCH DANH
-(mốc ghi bằng tên thay vì hạng). Ai có ghi chú "nghỉ" → xoá phụ cấp. Ghi với updated_by='auto' — văn phòng sửa tay (updated_by khác) thì
+(mốc ghi bằng tên thay vì hạng). ⚠ Ghi chú có SỐ TIỀN viết thẳng ("vít 25k") thì lấy
+ĐÚNG số đó, bỏ qua mốc — xem parse_note_amount. Ai có ghi chú "nghỉ" → xoá phụ cấp. Ghi với updated_by='auto' — văn phòng sửa tay (updated_by khác) thì
 auto KHÔNG đè nữa (trừ rule "nghỉ" vẫn ép xoá). Nối: production_allowances (qua
 allowances.set_allowance), production_slips + production_workers (tính tiền SP),
 production_store.wages, vn.vn_normalize.
@@ -57,6 +58,33 @@ def _has_kw(note_fold: str, kw: str) -> bool:
     return re.search(rf"\b{re.escape(kw)}\b", note_fold) is not None
 
 
+# ── SỐ TIỀN viết thẳng trong ghi chú ("vít 25k") ──────────────────────────────
+# Duy chốt 2026-09-12: số này LÀ TIỀN và nó THẮNG mốc xếp hạng — người ghi đã nói rõ
+# phải trả bao nhiêu. Trước đó auto chỉ soi từ khoá nên "vít 25k" khớp "vít" rồi trả
+# theo hạng, bỏ qua số đã viết (08/09 Kim "Vít 15k" → 246.000; 09/09 Duy "vít 25k" →
+# 31.200). CHỈ áp cho thợ ĐÃ CÓ RULE khớp ghi chú đó — không thì ai gõ số cũng được
+# trả. "nghỉ" vẫn thắng tất cả (xử lý trước trong compute_auto_allowances).
+# ⚠ `\bk\b` không ăn "kg" (g là ký tự từ) và không ăn "1h25p" — xem test.
+_MONEY_RE = re.compile(
+    r"\b(\d+(?:[.,]\d+)?)\s*(?:k|ng|nghin|ngan)\b"   # 25k · 30 nghìn · 30 ngàn → ×1000
+    r"|\b(\d+)\s*(?:d|dong|vnd)\b"                    # 25000đ · 25000 đồng → nguyên
+    r"|\b(\d{1,3}(?:[.,]\d{3})+)\b"                   # 25.000 · 1.200.000 → bỏ dấu ngăn
+)
+
+
+def parse_note_amount(note_fold: str) -> float | None:
+    """THUẦN. Số tiền viết trong ghi chú (đã bỏ dấu), None nếu không có.
+    Lấy số ĐẦU TIÊN gặp. "25k" → 25000 · "30 nghìn" → 30000 · "25.000" → 25000."""
+    m = _MONEY_RE.search(note_fold or "")
+    if not m:
+        return None
+    if m.group(1) is not None:                       # <số>k / nghìn / ngàn
+        return float(m.group(1).replace(",", ".")) * 1000
+    if m.group(2) is not None:                       # <số>đ
+        return float(m.group(2))
+    return float(re.sub(r"[.,]", "", m.group(3)))    # 25.000
+
+
 def compute_auto_allowances(workers: list[dict]) -> dict[str, float]:
     """THUẦN. workers = [{name, piece, note, hour}] (piece = tiền đã tính, không phụ
     cấp; hour = True nếu người này TÍNH LƯƠNG THEO GIỜ phiếu này).
@@ -90,6 +118,10 @@ def compute_auto_allowances(workers: list[dict]) -> dict[str, float]:
         nfold = vn_normalize(name).strip()
         for names, kws, moc in RULES:
             if nfold in names and any(_has_kw(note, k) for k in kws):
+                money = parse_note_amount(note)
+                if money is not None:             # số viết tay THẮNG mốc xếp hạng
+                    out[name] = money
+                    break
                 if isinstance(moc, str):          # mốc = ĐÍCH DANH 1 thợ
                     peer = by_name.get(moc)
                     if peer is not None:          # vắng mặt → không ghi gì

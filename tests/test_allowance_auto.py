@@ -175,3 +175,44 @@ def test_tran_khong_lam_moc():
     ws = [_wh("Kim", 0, "vít kẹo"), _wh("Trân", 200_000), _wh("Duy", 90_000)]
     out = compute_auto_allowances(ws)
     assert out["Kim"] == 90_000
+
+
+# ── SỐ TIỀN viết thẳng trong ghi chú thắng mốc xếp hạng (Duy chốt 2026-09-12) ──
+def test_parse_note_amount():
+    from production_store.allowance_auto import parse_note_amount
+    from vn import vn_normalize
+    f = lambda s: parse_note_amount(vn_normalize(s))
+    assert f("vít 25k") == 25000
+    assert f("Vít 15k") == 15000
+    assert f("rắc mè 30 nghìn") == 30000
+    assert f("25.000") == 25000 and f("1.200.000") == 1200000
+    assert f("25000đ") == 25000 and f("25,5k") == 25500
+    # KHÔNG nhầm khối lượng / giờ phút thành tiền
+    for s in ("vít 5 kg", "4h vít kẹo (vít 1h25p)", "về 10h", "Đã -1 mâm", "vít kẹo"):
+        assert f(s) is None, s
+
+
+def test_so_tien_trong_ghi_chu_thang_moc_hang():
+    """Ghi "vít 25k" → trả ĐÚNG 25.000, không lấy tiền SP của người hạng 1."""
+    ws = [
+        {"name": "Trọng", "piece": 500_000, "note": ""},
+        {"name": "Sáu", "piece": 300_000, "note": ""},
+        {"name": "Duy", "piece": 10_000, "note": "vít 25k"},
+    ]
+    assert compute_auto_allowances(ws)["Duy"] == 25000
+    # cùng phiếu, ghi chú KHÔNG có tiền → vẫn theo mốc (Duy = hạng 1 = Sáu)
+    ws[2]["note"] = "vít kẹo"
+    assert compute_auto_allowances(ws)["Duy"] == 300_000
+
+
+def test_nghi_van_thang_so_tien():
+    ws = [{"name": "Trọng", "piece": 500_000, "note": ""},
+          {"name": "Duy", "piece": 0, "note": "nghỉ, vít 25k"}]
+    assert compute_auto_allowances(ws)["Duy"] == 0
+
+
+def test_so_tien_khong_tao_phu_cap_cho_tho_khong_co_rule():
+    """Chín không có rule nào → gõ số tiền cũng KHÔNG tự được trả (chỉ vào cảnh báo)."""
+    ws = [{"name": "Trọng", "piece": 500_000, "note": ""},
+          {"name": "Chín", "piece": 10_000, "note": "gỡ bánh 30k"}]
+    assert "Chín" not in compute_auto_allowances(ws)

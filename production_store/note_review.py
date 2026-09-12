@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 
 from vn import vn_normalize
-from production_store.allowance_auto import RULES, _NGHI, _has_kw
+from production_store.allowance_auto import RULES, _NGHI, _has_kw, parse_note_amount
 
 # Phân loại 1 ghi chú (so với bảng RULES):
 KIND_MATCH = "khop"       # khớp từ khoá CỦA CHÍNH thợ đó (hoặc "nghỉ") → auto chạy đúng
@@ -93,21 +93,11 @@ _QTY_RE = re.compile("|".join(_QTY_PIECES))
 _WORD_RE = re.compile(r"[a-z]+")
 
 # ── SỐ TIỀN viết tay trong ghi chú ────────────────────────────────────────────
-# "vít 25k", "rắc mè 30 nghìn", "50.000", "25000đ". Auto chỉ soi TỪ KHOÁ nên gặp
-# "vít 25k" là khớp rule "vít" rồi ghi tiền theo HẠNG, bỏ qua số người ta viết —
-# im lặng, không ai biết (2026-09-08 Kim "Vít 15k" → auto 246.000; 2026-09-09 Duy
-# "vít 25k" → auto 31.200). Bắt riêng để văn phòng đối chiếu.
-# `\bk\b` KHÔNG ăn "kg" (g là ký tự từ nên không có ranh giới) và không ăn "1h25p".
-_MONEY_RE = re.compile(
-    r"\b\d+(?:[.,]\d+)?\s*(?:k|ng|nghin|ngan)\b"   # 25k · 30 nghìn · 30 ngàn
-    r"|\b\d+\s*(?:d|dong|vnd)\b"                    # 25000đ · 25000 đồng
-    r"|\b\d{1,3}(?:[.,]\d{3})+\b"                   # 25.000 · 1.200.000
-)
-
-
+# Dùng CHUNG bộ nhận diện với allowance_auto (nơi quyết định tiền) — 2 bản regex riêng
+# là kiểu gì cũng lệch: cảnh báo nói "có tiền" mà auto không lấy, hoặc ngược lại.
 def has_money(note_fold: str) -> bool:
     """THUẦN. Ghi chú (đã bỏ dấu) có kèm số tiền viết tay không."""
-    return _MONEY_RE.search(note_fold) is not None
+    return parse_note_amount(note_fold) is not None
 
 
 def _is_qty_only(note_fold: str) -> bool:
