@@ -479,6 +479,16 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (mặc định CHẠY THỬ in ra, `--apply` mới ghi; tôn trọng số văn phòng nhập tay). Logic
   thuần = `compute_auto_allowances`, dự tính 1 phiếu = `plan_auto_allowances` (chỉ đọc).
   Tests: `tests/test_allowance_auto.py`.
+  **CẢNH BÁO GHI CHÚ LẠ (2026-09-12, `production_store/note_review.py`)**: rule khớp theo
+  TỪ KHOÁ cố định nên thợ ghi chữ khác là auto ÂM THẦM bỏ qua. `note_kind(thợ, ghi chú)`
+  (thuần) phân 4 loại: `khop` (từ khoá CỦA CHÍNH thợ đó, hoặc "nghỉ") · `khac_tho` (là
+  từ khoá có phụ cấp nhưng của người khác — vd Phượng ghi "rắc mè") · `so_luong` (chỉ
+  chỉnh số/giờ: "Đã -1 mâm", "về 10h" → KHÔNG cảnh báo) · `la` (chữ lạ: "gỡ bánh", "đổ
+  kẹo"). `review_notes(conn, from, to)` gom theo cặp (THỢ, ghi chú) kèm phụ cấp đang có
+  → GET `/api/production/note-review` (CHỈ VĂN PHÒNG vì có số tiền) → khối "⚠️ Ghi chú
+  cần xem lại phụ cấp" ở `#/sx-bang` (`detail/ProductionNoteAlerts.tsx`). Thêm/sửa rule
+  trong `RULES` là cảnh báo tự đổi theo — không có danh sách từ khoá thứ hai.
+  Tests: `tests/test_note_review.py`.
   ⚠ **KHOẢN ứng/phụ cấp HIỆN Ở 2 CHỖ — sửa gì phải đồng bộ CẢ HAI**: (1) 2 trang nhập
   `pages/AdvanceEntry.tsx` + `pages/AllowanceEntry.tsx` (`#/nhap-ung`, `#/nhap-phu-cap`
   — mỗi trang có 2 kiểu xem **Thẻ / Bảng** (`detail/useEntryView.ts` nhớ theo trang);
