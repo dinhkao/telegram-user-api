@@ -72,7 +72,7 @@ export function ProductionNoteAlerts({ from, to }: { from?: string; to?: string 
       <label class="card-label t-warn">⚠️ Ghi chú cần xem lại phụ cấp ({groups.length})</label>
       {tien.length > 0 && (
         <>
-          <p class="nra-hd t-danger">Có ghi SỐ TIỀN — auto đã ghi số khác đè lên</p>
+          <p class="nra-hd">Có ghi SỐ TIỀN — auto trả ĐÚNG số này, không theo hạng</p>
           {tien.map((g) => <Group key={g.worker + g.note} g={g} />)}
         </>
       )}
@@ -103,8 +103,8 @@ export function ProductionNoteAlerts({ from, to }: { from?: string; to?: string 
       <p class="muted small nra-foot">
         Ghi chú phải TRÙNG KHÍT một câu đã cài cho đúng thợ đó thì phụ cấp tự động mới
         chạy đúng ý. Dòng “chữ lạ” / “thợ khác” KHÔNG được tính tự động — nếu đúng là
-        việc có phụ cấp thì nhập tay trong phiếu. Hai nhóm đầu thì auto VẪN trả tiền
-        nhưng ghi số theo hạng, bỏ qua phần viết thêm — đối chiếu rồi sửa tay nếu lệch.
+        việc có phụ cấp thì nhập tay trong phiếu. Dòng “thừa chữ” thì auto VẪN trả
+        nhưng ghi số theo hạng và bỏ qua phần viết thêm — đối chiếu rồi sửa tay nếu lệch.
       </p>
     </section>
   );
