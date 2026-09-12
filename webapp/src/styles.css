@@ -4563,3 +4563,19 @@ a.bean-row, a.bean-card { color: inherit; text-decoration: none; }
 .fc-more > summary { font-size: .9rem; font-weight: 600; color: var(--accent, #2a78d6); padding: 8px 2px; }
 .fc-more .fc-h:first-of-type { margin-top: 8px; }
 .fc-events { margin: 4px 0 8px; }
+
+/* Cảnh báo GHI CHÚ LẠ ở dashboard sản xuất (detail/ProductionNoteAlerts.tsx) */
+.nra .card-label { margin-bottom: 2px; }
+.nra-hd { font-size: .76rem; font-weight: 600; color: var(--muted); margin: 10px 0 4px; }
+.nra-g { border-top: 1px solid var(--border); }
+.nra-row { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 7px 0;
+  background: none; border: 0; text-align: left; color: inherit; font: inherit; }
+.nra-w { font-weight: 600; font-size: .86rem; flex: 0 0 auto; max-width: 40%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nra-note { flex: 1 1 auto; min-width: 0; font-size: .86rem; color: var(--warn);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nra-n { flex: 0 0 auto; font-size: .74rem; color: var(--muted); }
+.nra-sub { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0 4px 10px;
+  font-size: .78rem; border-left: 2px solid var(--border); margin-left: 4px; }
+.nra-more { display: block; padding: 2px 0 4px 12px; }
+.nra-foot { margin: 10px 0 0; }

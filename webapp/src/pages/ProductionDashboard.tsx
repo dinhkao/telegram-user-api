@@ -2,11 +2,12 @@
 // bảng quan hệ production_report_rows. Lọc kỳ: toàn bộ / tháng này / 7 ngày. Thanh bar
 // tỉ lệ (không dùng lib). API: getProductionDashboard. Realtime production_changed → tải lại.
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { getProductionDashboard, soVN, type ProdDashboard } from "../api";
+import { getProductionDashboard, isOffice, soVN, type ProdDashboard } from "../api";
 import { onRealtime } from "../realtime";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
+import { ProductionNoteAlerts } from "../detail/ProductionNoteAlerts";
 
 import { pad2 as pad, isoDate as iso } from "../format";
 const dmy = (ymd: string) => { const [y, m, d] = ymd.split("-"); return `${d}/${m}`; };
@@ -114,6 +115,10 @@ export function ProductionDashboard() {
           {/* Có số cũ để hiện nhưng lần làm mới vừa rồi lỗi → nói rõ, đừng im lặng
               để người xem tưởng đây là số mới nhất. */}
           {err && <p class="muted small">⚠️ Đang hiện số lần trước — làm mới lỗi: {err}</p>}
+          {/* Ghi chú thợ ghi TAY khác từ khoá phụ cấp tự động → auto không tính, cần
+              xem lại. Chỉ văn phòng (có số tiền phụ cấp); server cũng chặn 403. */}
+          {isOffice() && <ProductionNoteAlerts from={rangeFor(period).from} to={rangeFor(period).to} />}
+
           <div class="db-cards">
             <div class="db-card"><span class="db-card-num">{soVN(data.totals.tong)}</span><span class="db-card-lbl">Tổng SP</span></div>
             <div class="db-card"><span class="db-card-num">{data.totals.phieu}</span><span class="db-card-lbl">Phiếu</span></div>

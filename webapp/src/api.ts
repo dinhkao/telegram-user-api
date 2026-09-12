@@ -1747,6 +1747,29 @@ export async function getProductionDashboard(from?: string, to?: string): Promis
   return getJSON(`/api/production/report-dashboard${q ? "?" + q : ""}`);
 }
 
+// ── Cảnh báo GHI CHÚ LẠ trong báo cáo thợ (dashboard SX, office-only) ──────
+// Ghi chú không khớp từ khoá phụ cấp tự động → phụ cấp KHÔNG được tính, cần xem lại.
+// kind: "la" = chữ lạ · "khac_tho" = từ khoá của thợ khác. Server: production_store/
+// note_review.py. getJSON ném ApiError(403) khi staff → component tự ẩn.
+export type NoteReviewRow = {
+  thread_id: number; ymd: string | null; date: string | null; worker: string;
+  note: string; kind: string; product_code: string; allowance: number; allow_by: string;
+};
+export type NoteReviewGroup = {
+  worker: string; note: string; kind: "la" | "khac_tho"; count: number; paid: number;
+  last_ymd: string | null; rows: NoteReviewRow[];
+};
+export type NoteReview = {
+  groups: NoteReviewGroup[]; counts: Record<string, number>; flagged: number; truncated: boolean;
+};
+export async function getProductionNoteReview(from?: string, to?: string): Promise<NoteReview> {
+  const qs = new URLSearchParams();
+  if (from) qs.set("from", from);
+  if (to) qs.set("to", to);
+  const q = qs.toString();
+  return getJSON(`/api/production/note-review${q ? "?" + q : ""}`);
+}
+
 // ── Hao hụt nguyên liệu phụ (#/hao-hut-nl, office-only) ────────────────────
 // So NL phụ DÙNG theo công thức với sụt giảm THỰC (đo qua 2 lần kiểm kho liên
 // tiếp của "kho nguyên liệu đang dùng"). getJSON ném ApiError(403) khi staff.

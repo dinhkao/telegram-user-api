@@ -14,6 +14,7 @@ from aiohttp import web
 
 from utils.db import get_connection
 from utils.paths import SHARED_DB_PATH
+from production_store.note_review import review_notes
 from production_store.report_rows import dashboard, worker_detail
 from production_store.wage_pivot import wage_pivot
 from server_app.production_wages import office_user
@@ -48,6 +49,29 @@ async def production_report_dashboard_handler(request: web.Request):
         conn = get_connection(SHARED_DB_PATH)
         try:
             return dashboard(conn, dfrom, dto)
+        finally:
+            conn.close()
+
+    data = await asyncio.to_thread(_run)
+    return web.json_response({"ok": True, **data})
+
+
+async def production_note_review_handler(request: web.Request):
+    """GET /api/production/note-review?from=&to= → các dòng báo cáo có GHI CHÚ LẠ
+    (khác từ khoá phụ cấp tự động đã cài) → cần xem lại phụ cấp. CHỈ VĂN PHÒNG: kèm
+    số phụ cấp đang có. Logic phân loại: production_store/note_review.py."""
+    if not office_user(request):
+        return web.json_response({"ok": False, "error": "Chỉ văn phòng"}, status=403)
+    dfrom = (request.query.get("from") or "").strip() or None
+    dto = (request.query.get("to") or "").strip() or None
+    for v in (dfrom, dto):
+        if v and not _YMD.match(v):
+            return web.json_response({"ok": False, "error": "from/to phải dạng YYYY-MM-DD"}, status=400)
+
+    def _run():
+        conn = get_connection(SHARED_DB_PATH)
+        try:
+            return review_notes(conn, dfrom, dto)
         finally:
             conn.close()
 
