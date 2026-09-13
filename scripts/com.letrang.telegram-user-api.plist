@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.letrang.telegram-user-api</string>
+
+    <!-- Chạy THẲNG bằng python của app (.venv/bin/python → bin/python3.14). KHÔNG bọc
+         qua /bin/bash: repo nằm trên ổ ngoài, macOS chặn tiến trình của launchd ĐỌC file
+         ở đó, nên phải cấp Full Disk Access cho đúng 1 binary — và binary đó phải là
+         python (nó mới cần đọc cả repo), chứ cấp cho bash thì rộng và bẩn.
+         scripts/launchd_boot.py chỉ dọn tiến trình lạc rồi exec CHÍNH binary này chạy
+         server.py — đổi binary giữa chừng là mất quyền vừa cấp.
+         CỐ Ý KHÔNG đặt WorkingDirectory: ổ chưa mount thì launchd fail ngay; cứ để nó
+         exec hụt rồi thử lại sau ThrottleInterval — đó chính là vòng chờ ổ. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Volumes/samwinchester/letrang/telegram-user-api/.venv/bin/python</string>
+        <string>-u</string>
+        <string>/Volumes/samwinchester/letrang/telegram-user-api/scripts/launchd_boot.py</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Server phải luôn sống: thoát kiểu gì cũng bật lại. HỆ QUẢ: `kill <pid>` giờ LÀ
+         cách restart (launchd bật lại sau ThrottleInterval) — đừng kill rồi nohup tay
+         nữa, sẽ thành 2 tiến trình cùng nghe 8090. Restart đúng:
+             launchctl kickstart -k gui/$UID/com.letrang.telegram-user-api -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>ThrottleInterval</key>
+    <integer>15</integer>
+
+    <key>ProcessType</key>
+    <string>Interactive</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- launchd cho PATH tối thiểu; app có chỗ gọi tailscale/ffmpeg ở /opt/homebrew -->
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <!-- Log CỦA APP do launchd_boot.py tự đổ vào app_nohup.log trong repo. File này chỉ
+         hứng lỗi TRƯỚC lúc đó (ổ chưa mount / thiếu quyền) nên phải nằm trên ổ trong. -->
+    <key>StandardErrorPath</key>
+    <string>/Users/duydinh0225/Library/Logs/letrang-app.boot.log</string>
+</dict>
+</plist>

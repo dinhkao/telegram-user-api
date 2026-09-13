@@ -43,6 +43,35 @@ Run:
 `start_all.sh` / `scripts/` also boot the sibling Node app + others for the full
 system; for Python work you usually only need `server.py`.
 
+### Máy prod: launchd TỰ KHỞI ĐỘNG (2026-09-13)
+
+Trên Mac mini, server chạy dưới **LaunchAgent `com.letrang.telegram-user-api`**
+(bản gốc: `scripts/com.letrang.telegram-user-api.plist`, cài ở
+`~/Library/LaunchAgents/`). Máy bật là app lên, không cần ai đăng nhập bấm gì —
+máy đã bật auto-login nên LaunchAgent chạy ngay sau khi boot.
+
+```bash
+launchctl kickstart -k gui/$UID/com.letrang.telegram-user-api   # RESTART (dùng cái này)
+launchctl print gui/$UID/com.letrang.telegram-user-api | head   # trạng thái + pid
+launchctl bootout gui/$UID/com.letrang.telegram-user-api        # TẮT hẳn (để chạy tay)
+launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.letrang.telegram-user-api.plist
+```
+
+⚠ `KeepAlive=true` → **`kill <pid>` không còn là "tắt"**, launchd bật lại sau 15s.
+Cách restart cũ (kill hết PID rồi `nohup … &`) giờ SAI: sẽ có 2 tiến trình tranh nhau.
+Muốn chạy tay để soi thì `bootout` trước.
+
+`scripts/launchd_boot.py` là mồi: dọn tiến trình `server.py` lạc (launchd phải là chủ
+duy nhất) → đổ log vào `app_nohup.log` → `exec` server.py. Lỗi TRƯỚC khi đổ log được
+(ổ chưa mount, thiếu quyền) nằm ở `~/Library/Logs/letrang-app.boot.log`.
+
+⚠ Mồi viết bằng **python chứ không phải shell** là CỐ Ý: repo nằm trên ổ ngoài
+`/Volumes/samwinchester`, macOS (TCC) chặn tiến trình do launchd sinh ra ĐỌC file ở đó
+— `stat`/`exec` thì cho, `open()` để đọc trả "Operation not permitted" (đã thử: bash
+đọc `server.py` bị chặn, python thì không). Đừng bọc lại bằng `/bin/bash`.
+Không cần vòng lặp chờ ổ mount: ổ chưa lên thì launchd exec hụt rồi tự thử lại sau
+`ThrottleInterval` — đó chính là vòng chờ.
+
 ---
 
 ## 3. Architecture — ONE process, TWO Telethon clients, three roles
