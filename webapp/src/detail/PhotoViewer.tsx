@@ -89,8 +89,8 @@ export function PhotoViewer({
     try {
       await copyImageFromUrl(mediaImageUrl(base, cur.id, "full"));
       flash("Đã copy ảnh", "ok");
-    } catch {
-      flash("Copy không được (trình duyệt chặn)", "err");
+    } catch (ex: any) {
+      flash(ex?.message || "Copy ảnh không được", "err");
     }
   };
 

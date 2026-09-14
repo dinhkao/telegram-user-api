@@ -17,7 +17,7 @@ import { ImageStrip } from "../detail/ImageStrip";
 import { PhotoViewer } from "../detail/PhotoViewer";
 import { SingleImageViewer } from "../detail/SingleImageViewer";
 import { downloadFileFromUrl } from "../downloadFile";
-import { copyImageFromUrl } from "../copyImage";
+import { CopyImageError, copyImageFromUrl, copyImageLazy } from "../copyImage";
 import { suggestNoTrackOldOrders } from "../detail/suggestNoTrack";
 import { OrderStock } from "../detail/OrderStock";
 import { invalidateListCache, markLastOrder, filterNeighbors, onFilterNeighborsChanged } from "./OrdersList";
@@ -429,15 +429,22 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const copyHD = async () => {
     setMsg("⏳ Đang copy ảnh hoá đơn…");
     try {
-      const imgs = await listOrderImages(threadId).catch(() => [] as OrderImage[]);
-      let inv = imgs.find((x) => x.kind === "hoa_don" || x.uploaded_by === "KiotViet HĐ");
-      if (!inv) inv = (await ensureInvoiceImage(threadId)) || undefined;
-      if (!inv) { toast("Chưa tạo được ảnh hoá đơn — thử lại", "err"); return; }
-      await copyImageFromUrl(orderImageUrl(threadId, inv.id, "full"));
+      // ⚠ copyImageLazy phải được GỌI NGAY ở đây, mọi thứ cần await nằm TRONG callback:
+      // tìm/render ảnh HĐ mất từ 1 tới vài giây, await trước rồi mới ghi clipboard là
+      // hết user activation của cú bấm → trình duyệt từ chối (xem src/copyImage.ts).
+      await copyImageLazy(async () => {
+        const imgs = await listOrderImages(threadId).catch(() => [] as OrderImage[]);
+        let inv = imgs.find((x) => x.kind === "hoa_don" || x.uploaded_by === "KiotViet HĐ");
+        if (!inv) inv = (await ensureInvoiceImage(threadId)) || undefined;
+        if (!inv) throw new CopyImageError("Chưa tạo được ảnh hoá đơn — thử lại");
+        const res = await fetch(orderImageUrl(threadId, inv.id, "full"));
+        if (!res.ok) throw new CopyImageError(`Tải ảnh hoá đơn lỗi (HTTP ${res.status})`);
+        return res.blob();
+      });
       toast("Đã copy ảnh hoá đơn", "ok");
       setGuiToaOffer(true);
-    } catch {
-      toast("Copy không được (trình duyệt chặn)", "err");
+    } catch (ex: any) {
+      toast(ex?.message || "Copy ảnh hoá đơn không được", "err");
     } finally { setMsg(""); }
   };
   // Sau khi Copy/Tải ảnh HĐ (= vừa gửi toa cho khách qua Zalo…) → mời hoàn tất
@@ -475,8 +482,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     try {
       await copyImageFromUrl(vnptInvoicePngUrl(threadId));
       toast("Đã copy ảnh HĐ điện tử", "ok");
-    } catch {
-      toast("Copy không được (trình duyệt chặn)", "err");
+    } catch (ex: any) {
+      toast(ex?.message || "Copy ảnh HĐ điện tử không được", "err");
     } finally { setMsg(""); }
   };
   // Xem HĐ: mở ảnh hoá đơn trong PhotoViewer (zoom/pan như ảnh đơn);
