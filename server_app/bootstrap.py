@@ -17,6 +17,22 @@ from server_app.config import API_HASH, API_ID, PHONE, PORT, SESSION
 from server_app.donhang_bootstrap import bootstrap_donhang, init_donhang_db, register_donhang_live
 from server_app.state import set_client, set_donhang_db, set_gateway, set_duy_user_id
 from server_app.tasks import spawn_tracked
+
+
+def _check_html_to_png() -> None:
+    """Báo NGAY lúc boot nếu thiếu Chromium — render ảnh chạy lười nên không kiểm thì
+    hỏng âm thầm tới lần xuất hoá đơn đầu tiên (xem check_browser_ready)."""
+    import logging
+
+    log = logging.getLogger("server")
+    try:
+        from integrations.firebase_html_to_png.core import check_browser_ready
+        why = check_browser_ready(log)
+    except Exception as e:  # noqa: BLE001 — kiểm tra hỏng thì đừng chặn boot
+        log.warning("Playwright: không tự kiểm tra được: %s", e)
+        return
+    if why:
+        log.error("Playwright: %s", why)
 from utils.paths import use_app_tmpdir
 
 log = logging.getLogger("server")
@@ -53,6 +69,7 @@ async def main():
     # Dựng sẵn FTS + index đơn ở thread nền → lần search đầu không phải chờ ~460ms
     from server_app.orders_db import prewarm_orders_indexes
     spawn_tracked("orders.prewarm", asyncio.to_thread(prewarm_orders_indexes))
+    spawn_tracked("html_to_png.check", asyncio.to_thread(_check_html_to_png))
     spawn_tracked("donhang.bootstrap", bootstrap_donhang(client, db))
     # Keepalive /ws: phát {"type":"ping"} 25s/lần để client phát hiện socket chết ngầm
     from server_app.websocket_routes import ws_ping_loop

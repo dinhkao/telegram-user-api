@@ -35,6 +35,34 @@ def _init_browser(log):
     log.info("Playwright browser started (persistent)")
 
 
+def check_browser_ready(log) -> str | None:
+    """Soi xem Chromium của Playwright có SẴN không, KHÔNG mở browser. Trả lý do hỏng
+    (để log) hoặc None nếu ổn. Gọi lúc boot — xem server_app/bootstrap.
+
+    Vì sao cần: `_init_browser` chạy LƯỜI (lần render đầu tiên) nên thiếu browser là
+    hỏng ÂM THẦM — mọi ảnh hoá đơn/phiếu thu lỗi mà lúc khởi động không báo gì. Đã mất
+    23 giờ mới phát hiện (13→14/09/2026): đổi sang chạy bằng LaunchAgent thì mất
+    `PLAYWRIGHT_BROWSERS_PATH` vốn chỉ export trong ~/.zshrc, browser nằm ở SSD không
+    ai tìm ra. Nay biến đó ở .env, còn đây là chuông báo nếu lại lệch.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as e:  # noqa: BLE001 — thiếu package
+        return f"không import được playwright: {e}"
+    try:
+        with sync_playwright() as pw:
+            exe = pw.chromium.executable_path
+    except Exception as e:  # noqa: BLE001
+        return f"không hỏi được đường dẫn Chromium: {e}"
+    if not exe or not os.path.exists(exe):
+        store = os.environ.get("PLAYWRIGHT_BROWSERS_PATH") or "(mặc định ~/Library/Caches/ms-playwright)"
+        return (f"KHÔNG thấy Chromium tại {exe!r} — kho browser đang trỏ {store}. "
+                "Ảnh hoá đơn/phiếu thu sẽ hỏng. Sửa: đặt PLAYWRIGHT_BROWSERS_PATH trong "
+                ".env cho đúng, hoặc chạy `.venv/bin/python -m playwright install chromium`")
+    log.info("Playwright: Chromium sẵn sàng (%s)", exe)
+    return None
+
+
 def _crop_image(input_path: str, output_path: str, margin: int = 5) -> None:
     image = Image.open(input_path)
     if image.mode in ("RGBA", "LA"):
