@@ -119,6 +119,12 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         if p.get("fkey"):
             seg.append(part(f" · {p['fkey']}" if seg else str(p["fkey"])))
         return "HĐ điện tử VNPT đã PHÁT HÀNH", seg
+    if action == "order.vnpt_draft_reset":
+        # Reset = huỷ nháp cũ + tạo lại y hệt → nội dung không đổi, chỉ đổi fkey
+        seg = [part(money(p.get("amount")))] if p.get("amount") is not None else []
+        if p.get("fkey"):
+            seg.append(part(f" · {p['fkey']}" if seg else str(p["fkey"])))
+        return "Tạo lại HĐ điện tử nháp (VNPT)", seg
     if action == "order.vnpt_draft_deleted":
         seg = [part(money(p.get("amount")))] if p.get("amount") is not None else []
         if p.get("fkey"):

@@ -2,7 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, deleteVnptInvoice, ensureInvoiceImage, vnptInvoicePdfUrl, vnptInvoicePngUrl, getCustomerOrders, getJSON, invoiceEditStatus, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, setOrderNoTrack, type OrderImage } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, deleteVnptInvoice, resetVnptInvoice, ensureInvoiceImage, vnptInvoicePdfUrl, vnptInvoicePngUrl, getCustomerOrders, getJSON, invoiceEditStatus, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, setOrderNoTrack, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
 import { money, initial, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtQty, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
@@ -418,6 +418,19 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   // (WebView không render PDF) → SingleImageViewer (cùng cử chỉ zoom/pan PhotoViewer)
   const [vnptView, setVnptView] = useState(false);
   // Xoá HĐ điện tử nháp VNPT (admin) — xoá trên VNPT + gỡ khỏi đơn
+  // RESET nháp VNPT: huỷ bản hiện tại rồi tạo lại Y HỆT (fkey mới) — dùng khi bản
+  // trên VNPT kẹt/hỏng/bị xoá tay trên portal; nội dung giữ nguyên, khỏi gõ lại.
+  const resetVnpt = async () => {
+    if (!(await confirmDialog("Reset HĐ điện tử nháp: huỷ bản hiện tại trên VNPT rồi tạo lại Y HỆT nội dung?",
+      { okLabel: "Reset nháp" }))) return;
+    setBusy(true);
+    try {
+      const r = await resetVnptInvoice(threadId);
+      toast("♻️ Đã tạo lại nháp VNPT", "ok");
+      if (r?.warn) toast(r.warn, "err");
+      changed();
+    } catch (ex: any) { toast(ex.message, "err"); } finally { setBusy(false); }
+  };
   const deleteVnpt = async () => {
     if (!(await confirmDialog("XOÁ hoá đơn điện tử nháp VNPT của đơn này?", { danger: true, okLabel: "Xoá nháp" }))) return;
     setBusy(true);
@@ -807,6 +820,12 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
               {!j.vnpt_invoice.published && (
                 <button class="btn fill" onClick={() => (window.location.hash = `#/order/${threadId}/vnpt`)}>
                   <Icon name="edit" size={16} /> Sửa nháp
+                </button>
+              )}
+              {!j.vnpt_invoice.published && (
+                <button class="btn fill" disabled={busy} onClick={resetVnpt}
+                  title="Huỷ nháp hiện tại trên VNPT rồi tạo lại y hệt nội dung (fkey mới)">
+                  <Icon name="refresh" size={16} /> Reset
                 </button>
               )}
               {isAdmin && !j.vnpt_invoice.published && <button class="btn danger fill" disabled={busy} onClick={deleteVnpt}>

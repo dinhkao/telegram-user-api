@@ -1141,6 +1141,11 @@ export async function saveVnptInvoice(threadId: string | number,
   payload: { buyer: VnptBuyer; lines: VnptLine[]; vat_rate: number }): Promise<any> {
   return postJSON(`/api/order/${Number(threadId)}/vnpt-invoice`, payload);
 }
+/** RESET nháp: huỷ bản trên VNPT rồi tạo lại Y HỆT nội dung (fkey mới) — office.
+ *  Dùng khi nháp trên VNPT hỏng/kẹt/bị xoá tay trên portal. */
+export async function resetVnptInvoice(threadId: string | number): Promise<any> {
+  return postJSON(`/api/order/${Number(threadId)}/vnpt-invoice/reset`, {});
+}
 /** Xoá nháp (trên VNPT + gỡ khỏi đơn) — admin. */
 export async function deleteVnptInvoice(threadId: string | number): Promise<any> {
   return delJSON(`/api/order/${Number(threadId)}/vnpt-invoice`);

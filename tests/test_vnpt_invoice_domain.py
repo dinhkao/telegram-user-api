@@ -208,3 +208,28 @@ def test_profile_discount_percent_recomputed_on_prefill():
     # 5% × (3 × 1000): SL theo đơn mới, giá theo template hồ sơ khách
     assert ck["pct"] == 5.0 and ck["price"] == 150
     assert ck["name"] == "Chiết khấu thương mại 5%, số tiền 150 đồng"
+
+
+def test_reset_roundtrip_gives_identical_draft():
+    """RESET (POST .../vnpt-invoice/reset) đẩy lại chính nội dung ĐANG LƯU qua
+    normalize_body → phải ra hoá đơn Y HỆT. Blob lưu `lines` = totals["lines"]
+    (đã kèm `amount`, dòng CK theo % đã có tiền + tên tự sinh) nên đây là chỗ dễ
+    lệch nhất: `amount` thừa, `pct` rơi mất, hay CK bị tính 2 lần."""
+    from integrations.vnpt_invoice import compute_totals
+
+    buyer, lines, vat = normalize_body(_body(
+        buyer={"cus_name": "Cty A", "tax_code": "3901220366", "address": "1 Lê Lợi",
+               "email": "a@b.vn;c@d.vn", "payment_method": "TM/CK"},
+        lines=[
+            {"name": "Kẹo X", "unit": "bịch", "qty": 2.5, "price": 100000, "sp_id": 7},
+            {"name": "Kẹo Y", "unit": "hũ", "qty": 3, "price": 62000},
+            {"name": "CK", "kind": "chiet_khau", "pct": 5},
+        ]))
+    stored = compute_totals(lines, vat)          # đúng thứ đang nằm trong blob đơn
+
+    buyer2, lines2, vat2 = normalize_body(
+        {"buyer": buyer, "lines": stored["lines"], "vat_rate": vat})
+    again = compute_totals(lines2, vat2)
+
+    assert (buyer2, vat2) == (buyer, vat)
+    assert again == stored                        # từng đồng, từng dòng, kể cả CK

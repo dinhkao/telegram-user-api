@@ -1269,8 +1269,17 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   OrderDetail hiện dòng CK âm.
   **App-side**: routes `server_app/vnpt_invoice_routes.py` (GET/POST/DELETE
   `/api/order/{tid}/vnpt-invoice` — xem/tạo/sửa văn phòng, xoá admin, khoá theo
-  đơn kiểu `_invoice_create_lock`), logic thuần `server_app/vnpt_invoice_domain.py`
-  (test `tests/test_vnpt_invoice_domain.py`). **Độc lập hoàn toàn với HĐ KiotViet**;
+  đơn kiểu `_invoice_create_lock`; PDF/PNG bản thể hiện tách ra
+  `vnpt_invoice_view_routes.py`), logic thuần `server_app/vnpt_invoice_domain.py`
+  (test `tests/test_vnpt_invoice_domain.py`). **Lõi đẩy nháp lên VNPT =
+  `server_app/vnpt_invoice_push.py::push_draft`** (import fkey MỚI trước, xoá fkey
+  cũ sau + vá blob) — dùng chung bởi LƯU và **RESET** (`POST .../vnpt-invoice/reset`,
+  văn phòng, 2026-09-16): huỷ nháp hiện tại rồi tạo lại **Y HỆT** nội dung đang lưu
+  (fkey mới) cho trường hợp nháp trên VNPT kẹt/hỏng/bị xoá tay trên portal
+  (`missing_on_vnpt`) — nội dung đi qua `normalize_body` nên CK theo % tính lại
+  đúng như cũ (test round-trip khoá "y chang"), cờ published/missing cũ rụng theo
+  fkey mới, cache PNG cũng tự tươi. Nút ♻️ Reset ở khối `#od-vnpt` OrderDetail;
+  event `order.vnpt_draft_reset`. **Độc lập hoàn toàn với HĐ KiotViet**;
   dữ liệu nháp = key `$.vnpt_invoice` blob đơn; **CACHE THEO KHÁCH** = key
   `$.vnpt_profile` blob customers (buyer + vat_rate + tên/giá/ĐVT từng SP theo
   sp_id + extra_lines thêm tay) — GET trộn cache với dòng hàng đơn thành `prefill`,
