@@ -1,0 +1,397 @@
+{
+  "snapshot_at": "2026-09-10T18:41:28.499105+07:00",
+  "periods": [
+    {
+      "since": "2026-09-01",
+      "until": "2026-09-10",
+      "before": {
+        "orders": 253,
+        "revenue": 461910720,
+        "cost": 393497556.0,
+        "profit": 64003164.0,
+        "real_profit": 47128164.0
+      },
+      "after": {
+        "revenue": 459656000,
+        "cost": 393497556,
+        "profit": 61748444,
+        "orders": 253,
+        "returns": 0,
+        "cost_complete": false,
+        "missing_cost_orders": 3,
+        "missing_cost_returns": 0,
+        "missing_cost_lines": 4,
+        "missing_cost_revenue": 4410000,
+        "uncertain_return_revenue": 0,
+        "entries": 253,
+        "loan": 16875000,
+        "company_loan": 16875000,
+        "real_profit": 44873444,
+        "margin": null,
+        "gross_margin": null,
+        "margin_change": null,
+        "avg_order_revenue": 1816822,
+        "avg_order_profit": null,
+        "customers": 86,
+        "products": 43,
+        "active_days": 10,
+        "period_days": 10,
+        "received_orders": 172,
+        "unreceived_orders": 81,
+        "cost_coverage": 99.0,
+        "loss_orders": 0,
+        "loss_total": 0,
+        "low_margin_orders": 67,
+        "fees": {
+          "vat": 2254720,
+          "pvc": 100000,
+          "discount": 60000,
+          "fee_total": 40000,
+          "shipping_cost": 0
+        },
+        "customer_total": 461910720,
+        "sales_revenue": 459656000,
+        "returns_revenue": 0,
+        "shipping_cost_unrecorded_orders": 2,
+        "filtered": false,
+        "sales_only_filter": false,
+        "changes": {
+          "revenue": null,
+          "cost": null,
+          "profit": null,
+          "orders": null,
+          "real_profit": null
+        },
+        "prev": {
+          "revenue": 441004000,
+          "cost": 384117300,
+          "profit": 55456700,
+          "orders": 289,
+          "returns": 1,
+          "cost_complete": false,
+          "missing_cost_orders": 2,
+          "missing_cost_returns": 0,
+          "missing_cost_lines": 2,
+          "missing_cost_revenue": 1430000,
+          "uncertain_return_revenue": 0
+        },
+        "prev_label": "22/08/2026 – 31/08/2026",
+        "prev_range": {
+          "since": "2026-08-22",
+          "until": "2026-08-31"
+        },
+        "prev_real_profit": 39126055
+      },
+      "coverage": {
+        "undated_orders": 7,
+        "undated_order_ids": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "first_order_date": "2024-11-15",
+        "last_order_date": "2026-09-10",
+        "basis": "all_local_orders_by_created_date_vn",
+        "quality_errors": true,
+        "legacy_orders_included": 0
+      },
+      "independent_differences": {
+        "revenue": 0,
+        "cost": 0,
+        "profit": 0,
+        "orders": 0,
+        "returns_revenue": 0,
+        "missing_cost_revenue": 0,
+        "customer_total": 0,
+        "vat": 0
+      },
+      "chart_differences": {
+        "revenue": 0,
+        "cost": 0,
+        "profit": 0,
+        "loan": 0,
+        "real_profit": 0,
+        "orders": 0,
+        "returns": 0
+      },
+      "returns": [],
+      "elapsed_seconds": 2.01
+    },
+    {
+      "since": "2026-08-12",
+      "until": "2026-09-10",
+      "before": {
+        "orders": 801,
+        "revenue": 1374351240,
+        "cost": 1169692147.0,
+        "profit": 192109093.0,
+        "real_profit": 142572803.0
+      },
+      "after": {
+        "revenue": 1363377000,
+        "cost": 1169692147,
+        "profit": 181134853,
+        "orders": 801,
+        "returns": 1,
+        "cost_complete": false,
+        "missing_cost_orders": 7,
+        "missing_cost_returns": 0,
+        "missing_cost_lines": 9,
+        "missing_cost_revenue": 12550000,
+        "uncertain_return_revenue": 0,
+        "entries": 802,
+        "loan": 49536290,
+        "company_loan": 49536290,
+        "real_profit": 131598563,
+        "margin": null,
+        "gross_margin": null,
+        "margin_change": null,
+        "avg_order_revenue": 1703824,
+        "avg_order_profit": null,
+        "customers": 125,
+        "products": 52,
+        "active_days": 30,
+        "period_days": 30,
+        "received_orders": 631,
+        "unreceived_orders": 170,
+        "cost_coverage": 99.3,
+        "loss_orders": 10,
+        "loss_total": -1087568,
+        "low_margin_orders": 228,
+        "fees": {
+          "vat": 9588240,
+          "pvc": 700000,
+          "discount": 240000,
+          "fee_total": 460000,
+          "shipping_cost": 0
+        },
+        "customer_total": 1372965240,
+        "sales_revenue": 1364763000,
+        "returns_revenue": 1386000,
+        "shipping_cost_unrecorded_orders": 9,
+        "filtered": false,
+        "sales_only_filter": false,
+        "changes": {
+          "revenue": null,
+          "cost": null,
+          "profit": null,
+          "orders": null,
+          "real_profit": null
+        },
+        "prev": {
+          "revenue": 1317354450,
+          "cost": 1017880871,
+          "profit": 152716079,
+          "orders": 781,
+          "returns": 1,
+          "cost_complete": false,
+          "missing_cost_orders": 61,
+          "missing_cost_returns": 0,
+          "missing_cost_lines": 73,
+          "missing_cost_revenue": 146757500,
+          "uncertain_return_revenue": 0
+        },
+        "prev_label": "13/07/2026 – 11/08/2026",
+        "prev_range": {
+          "since": "2026-07-13",
+          "until": "2026-08-11"
+        },
+        "prev_real_profit": 103724144
+      },
+      "coverage": {
+        "undated_orders": 7,
+        "undated_order_ids": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "first_order_date": "2024-11-15",
+        "last_order_date": "2026-09-10",
+        "basis": "all_local_orders_by_created_date_vn",
+        "quality_errors": true,
+        "legacy_orders_included": 0
+      },
+      "independent_differences": {
+        "revenue": 0,
+        "cost": 0,
+        "profit": 0,
+        "orders": 0,
+        "returns_revenue": 0,
+        "missing_cost_revenue": 0,
+        "customer_total": 0,
+        "vat": 0
+      },
+      "chart_differences": {
+        "revenue": 0,
+        "cost": 0,
+        "profit": 0,
+        "loan": 0,
+        "real_profit": 0,
+        "orders": 0,
+        "returns": 0
+      },
+      "returns": [
+        {
+          "id": 12,
+          "amount": 1386000,
+          "goods_pending": false
+        }
+      ],
+      "elapsed_seconds": 1.9
+    },
+    {
+      "since": "2026-01-01",
+      "until": "2026-09-10",
+      "before": {
+        "orders": 2906,
+        "revenue": 5091191694,
+        "cost": 4339890700.0,
+        "profit": 714045994.0,
+        "real_profit": 190920994.0
+      },
+      "after": {
+        "revenue": 15217440454,
+        "cost": 4040466260,
+        "profit": 611909694,
+        "orders": 6234,
+        "returns": 3,
+        "cost_complete": false,
+        "missing_cost_orders": 3523,
+        "missing_cost_returns": 1,
+        "missing_cost_lines": 6031,
+        "missing_cost_revenue": 10565064500,
+        "uncertain_return_revenue": 160000,
+        "entries": 6237,
+        "loan": 523125000,
+        "company_loan": 523125000,
+        "real_profit": 88784694,
+        "margin": null,
+        "gross_margin": null,
+        "margin_change": null,
+        "avg_order_revenue": 2441332,
+        "avg_order_profit": null,
+        "customers": 226,
+        "products": 86,
+        "active_days": 249,
+        "period_days": 253,
+        "received_orders": 4444,
+        "unreceived_orders": 1790,
+        "cost_coverage": 44.0,
+        "loss_orders": 41,
+        "loss_total": -11007539,
+        "low_margin_orders": 800,
+        "fees": {
+          "vat": 95122476,
+          "pvc": 13222004,
+          "discount": 14292000,
+          "fee_total": -1069996,
+          "shipping_cost": 0
+        },
+        "customer_total": 15312562930,
+        "sales_revenue": 15219266454,
+        "returns_revenue": 1826000,
+        "shipping_cost_unrecorded_orders": 116,
+        "filtered": false,
+        "sales_only_filter": false,
+        "changes": {
+          "revenue": null,
+          "cost": null,
+          "profit": null,
+          "orders": null,
+          "real_profit": null
+        },
+        "prev": {
+          "revenue": 11672659500,
+          "cost": 0,
+          "profit": 756000,
+          "orders": 6198,
+          "returns": 0,
+          "cost_complete": false,
+          "missing_cost_orders": 6198,
+          "missing_cost_returns": 0,
+          "missing_cost_lines": 10785,
+          "missing_cost_revenue": 11671903500,
+          "uncertain_return_revenue": 0
+        },
+        "prev_label": "23/04/2025 – 31/12/2025",
+        "prev_range": {
+          "since": "2025-04-23",
+          "until": "2025-12-31"
+        },
+        "prev_real_profit": -518994000
+      },
+      "coverage": {
+        "undated_orders": 7,
+        "undated_order_ids": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "first_order_date": "2024-11-15",
+        "last_order_date": "2026-09-10",
+        "basis": "all_local_orders_by_created_date_vn",
+        "quality_errors": true,
+        "legacy_orders_included": 3328
+      },
+      "independent_differences": {
+        "revenue": 0,
+        "cost": 0,
+        "profit": 0,
+        "orders": 0,
+        "returns_revenue": 0,
+        "missing_cost_revenue": 0,
+        "customer_total": 0,
+        "vat": 0
+      },
+      "chart_differences": {
+        "revenue": 0,
+        "cost": 0,
+        "profit": 0,
+        "loan": 0,
+        "real_profit": 0,
+        "orders": 0,
+        "returns": 0
+      },
+      "returns": [
+        {
+          "id": 2,
+          "amount": 160000,
+          "goods_pending": true
+        },
+        {
+          "id": 10,
+          "amount": 280000,
+          "goods_pending": false
+        },
+        {
+          "id": 12,
+          "amount": 1386000,
+          "goods_pending": false
+        }
+      ],
+      "elapsed_seconds": 2.36
+    }
+  ],
+  "duplicate_product_check": {
+    "reported_orders": 3,
+    "distinct_orders": 3
+  },
+  "filtered_loan": {
+    "profit": 5363890,
+    "loan": null,
+    "real_profit": null,
+    "company_loan": 16875000
+  }
+}

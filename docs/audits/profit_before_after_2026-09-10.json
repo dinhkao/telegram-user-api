@@ -1,0 +1,1874 @@
+{
+  "baseline_commit": "21a3b8b8140b87c6db13541304a6237c02b9594a",
+  "snapshot_at": "2026-09-10T19:14:51.836517+07:00",
+  "periods": [
+    {
+      "since": "2026-09-01",
+      "until": "2026-09-10",
+      "before": {
+        "orders": 253,
+        "revenue": 461910720,
+        "cost": 393497556.0,
+        "profit": 64003164.0,
+        "real_profit": 47128164.0
+      },
+      "after": {
+        "cost_basis": "includes_output_vat_provision",
+        "revenue": 459656000,
+        "cost": 393497556,
+        "profit": 64003164,
+        "orders": 253,
+        "returns": 0,
+        "cost_complete": false,
+        "missing_cost_orders": 3,
+        "missing_cost_returns": 0,
+        "missing_cost_lines": 4,
+        "missing_cost_revenue": 4410000,
+        "uncertain_return_revenue": 0,
+        "entries": 253,
+        "loan": 16875000,
+        "company_loan": 16875000,
+        "real_profit": 47128164,
+        "margin": null,
+        "gross_margin": null,
+        "margin_change": null,
+        "avg_order_revenue": 1816822,
+        "avg_order_profit": null,
+        "customers": 86,
+        "products": 43,
+        "active_days": 10,
+        "period_days": 10,
+        "received_orders": 182,
+        "unreceived_orders": 71,
+        "cost_coverage": 99.0,
+        "loss_orders": 0,
+        "loss_total": 0,
+        "low_margin_orders": 66,
+        "fees": {
+          "vat": 2254720,
+          "pvc": 100000,
+          "discount": 60000,
+          "fee_total": 2294720,
+          "shipping_cost": 0
+        },
+        "customer_total": 461910720,
+        "sales_revenue": 459656000,
+        "returns_revenue": 0,
+        "shipping_cost_unrecorded_orders": 2,
+        "filtered": false,
+        "sales_only_filter": false,
+        "changes": {
+          "revenue": null,
+          "cost": null,
+          "profit": null,
+          "orders": null,
+          "real_profit": null
+        },
+        "prev": {
+          "revenue": 441004000,
+          "cost": 384117300,
+          "profit": 58091820,
+          "orders": 289,
+          "returns": 1,
+          "cost_complete": false,
+          "missing_cost_orders": 2,
+          "missing_cost_returns": 0,
+          "missing_cost_lines": 2,
+          "missing_cost_revenue": 1430000,
+          "uncertain_return_revenue": 0
+        },
+        "prev_label": "22/08/2026 – 31/08/2026",
+        "prev_range": {
+          "since": "2026-08-22",
+          "until": "2026-08-31"
+        },
+        "prev_real_profit": 41761175
+      },
+      "coverage": {
+        "undated_orders": 7,
+        "undated_order_ids": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "first_order_date": "2024-11-15",
+        "last_order_date": "2026-09-10",
+        "basis": "all_local_orders_by_created_date_vn",
+        "quality_errors": true,
+        "legacy_orders_included": 0
+      },
+      "independent_differences": {
+        "revenue": 0,
+        "cost": 0,
+        "profit": 0,
+        "orders": 0,
+        "returns_revenue": 0,
+        "missing_cost_revenue": 0,
+        "customer_total": 0,
+        "vat": 0
+      },
+      "chart_differences": {
+        "revenue": 0,
+        "cost": 0,
+        "profit": 0,
+        "loan": 0,
+        "real_profit": 0,
+        "orders": 0,
+        "returns": 0
+      },
+      "returns": [],
+      "elapsed_seconds": 1.81,
+      "profit_bridge": {
+        "change_in_existing_orders": 0.0,
+        "known_profit_from_earlier_orders_added": 0,
+        "confirmed_returns_adjustment": 0
+      },
+      "changed_existing_orders": [],
+      "profit_delta": 0.0,
+      "after_loan_delta": 0.0
+    },
+    {
+      "since": "2026-08-12",
+      "until": "2026-09-10",
+      "before": {
+        "orders": 801,
+        "revenue": 1374351240,
+        "cost": 1169692147.0,
+        "profit": 192109093.0,
+        "real_profit": 142572803.0
+      },
+      "after": {
+        "cost_basis": "includes_output_vat_provision",
+        "revenue": 1363377000,
+        "cost": 1169692147,
+        "profit": 190723093,
+        "orders": 801,
+        "returns": 1,
+        "cost_complete": false,
+        "missing_cost_orders": 7,
+        "missing_cost_returns": 0,
+        "missing_cost_lines": 9,
+        "missing_cost_revenue": 12550000,
+        "uncertain_return_revenue": 0,
+        "entries": 802,
+        "loan": 49536290,
+        "company_loan": 49536290,
+        "real_profit": 141186803,
+        "margin": null,
+        "gross_margin": null,
+        "margin_change": null,
+        "avg_order_revenue": 1703824,
+        "avg_order_profit": null,
+        "customers": 125,
+        "products": 52,
+        "active_days": 30,
+        "period_days": 30,
+        "received_orders": 641,
+        "unreceived_orders": 160,
+        "cost_coverage": 99.3,
+        "loss_orders": 7,
+        "loss_total": -1055450,
+        "low_margin_orders": 225,
+        "fees": {
+          "vat": 9588240,
+          "pvc": 700000,
+          "discount": 240000,
+          "fee_total": 10048240,
+          "shipping_cost": 0
+        },
+        "customer_total": 1372965240,
+        "sales_revenue": 1364763000,
+        "returns_revenue": 1386000,
+        "shipping_cost_unrecorded_orders": 9,
+        "filtered": false,
+        "sales_only_filter": false,
+        "changes": {
+          "revenue": null,
+          "cost": null,
+          "profit": null,
+          "orders": null,
+          "real_profit": null
+        },
+        "prev": {
+          "revenue": 1317354450,
+          "cost": 1017880871,
+          "profit": 161865835,
+          "orders": 781,
+          "returns": 1,
+          "cost_complete": false,
+          "missing_cost_orders": 61,
+          "missing_cost_returns": 0,
+          "missing_cost_lines": 73,
+          "missing_cost_revenue": 146757500,
+          "uncertain_return_revenue": 0
+        },
+        "prev_label": "13/07/2026 – 11/08/2026",
+        "prev_range": {
+          "since": "2026-07-13",
+          "until": "2026-08-11"
+        },
+        "prev_real_profit": 112873900
+      },
+      "coverage": {
+        "undated_orders": 7,
+        "undated_order_ids": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "first_order_date": "2024-11-15",
+        "last_order_date": "2026-09-10",
+        "basis": "all_local_orders_by_created_date_vn",
+        "quality_errors": true,
+        "legacy_orders_included": 0
+      },
+      "independent_differences": {
+        "revenue": 0,
+        "cost": 0,
+        "profit": 0,
+        "orders": 0,
+        "returns_revenue": 0,
+        "missing_cost_revenue": 0,
+        "customer_total": 0,
+        "vat": 0
+      },
+      "chart_differences": {
+        "revenue": 0,
+        "cost": 0,
+        "profit": 0,
+        "loan": 0,
+        "real_profit": 0,
+        "orders": 0,
+        "returns": 0
+      },
+      "returns": [
+        {
+          "id": 12,
+          "amount": 1386000,
+          "goods_pending": false
+        }
+      ],
+      "elapsed_seconds": 1.85,
+      "profit_bridge": {
+        "change_in_existing_orders": 0.0,
+        "known_profit_from_earlier_orders_added": 0,
+        "confirmed_returns_adjustment": -1386000
+      },
+      "changed_existing_orders": [],
+      "profit_delta": -1386000.0,
+      "after_loan_delta": -1386000.0
+    },
+    {
+      "since": "2026-01-01",
+      "until": "2026-09-10",
+      "before": {
+        "orders": 2906,
+        "revenue": 5091191694,
+        "cost": 4339890700.0,
+        "profit": 714045994.0,
+        "real_profit": 190920994.0
+      },
+      "after": {
+        "cost_basis": "includes_output_vat_provision",
+        "revenue": 15217440454,
+        "cost": 4040466260,
+        "profit": 707032170,
+        "orders": 6234,
+        "returns": 3,
+        "cost_complete": false,
+        "missing_cost_orders": 3523,
+        "missing_cost_returns": 1,
+        "missing_cost_lines": 6031,
+        "missing_cost_revenue": 10565064500,
+        "uncertain_return_revenue": 160000,
+        "entries": 6237,
+        "loan": 523125000,
+        "company_loan": 523125000,
+        "real_profit": 183907170,
+        "margin": null,
+        "gross_margin": null,
+        "margin_change": null,
+        "avg_order_revenue": 2441332,
+        "avg_order_profit": null,
+        "customers": 226,
+        "products": 86,
+        "active_days": 249,
+        "period_days": 253,
+        "received_orders": 4454,
+        "unreceived_orders": 1780,
+        "cost_coverage": 44.0,
+        "loss_orders": 33,
+        "loss_total": -10749251,
+        "low_margin_orders": 787,
+        "fees": {
+          "vat": 95122476,
+          "pvc": 13222004,
+          "discount": 14292000,
+          "fee_total": 94052480,
+          "shipping_cost": 0
+        },
+        "customer_total": 15312562930,
+        "sales_revenue": 15219266454,
+        "returns_revenue": 1826000,
+        "shipping_cost_unrecorded_orders": 116,
+        "filtered": false,
+        "sales_only_filter": false,
+        "changes": {
+          "revenue": null,
+          "cost": null,
+          "profit": null,
+          "orders": null,
+          "real_profit": null
+        },
+        "prev": {
+          "revenue": 11672659500,
+          "cost": 0,
+          "profit": 73263800,
+          "orders": 6198,
+          "returns": 0,
+          "cost_complete": false,
+          "missing_cost_orders": 6198,
+          "missing_cost_returns": 0,
+          "missing_cost_lines": 10785,
+          "missing_cost_revenue": 11671903500,
+          "uncertain_return_revenue": 0
+        },
+        "prev_label": "23/04/2025 – 31/12/2025",
+        "prev_range": {
+          "since": "2025-04-23",
+          "until": "2025-12-31"
+        },
+        "prev_real_profit": -446486200
+      },
+      "coverage": {
+        "undated_orders": 7,
+        "undated_order_ids": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "first_order_date": "2024-11-15",
+        "last_order_date": "2026-09-10",
+        "basis": "all_local_orders_by_created_date_vn",
+        "quality_errors": true,
+        "legacy_orders_included": 3328
+      },
+      "independent_differences": {
+        "revenue": 0,
+        "cost": 0,
+        "profit": 0,
+        "orders": 0,
+        "returns_revenue": 0,
+        "missing_cost_revenue": 0,
+        "customer_total": 0,
+        "vat": 0
+      },
+      "chart_differences": {
+        "revenue": 0,
+        "cost": 0,
+        "profit": 0,
+        "loan": 0,
+        "real_profit": 0,
+        "orders": 0,
+        "returns": 0
+      },
+      "returns": [
+        {
+          "id": 2,
+          "amount": 160000,
+          "goods_pending": true
+        },
+        {
+          "id": 10,
+          "amount": 280000,
+          "goods_pending": false
+        },
+        {
+          "id": 12,
+          "amount": 1386000,
+          "goods_pending": false
+        }
+      ],
+      "elapsed_seconds": 2.24,
+      "profit_bridge": {
+        "change_in_existing_orders": -57908660.0,
+        "known_profit_from_earlier_orders_added": 52720836,
+        "confirmed_returns_adjustment": -1826000
+      },
+      "changed_existing_orders": [
+        {
+          "id": 502356,
+          "before_profit": 442090.0,
+          "after_profit": 317090,
+          "delta": -125000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 502333,
+          "before_profit": 2838000.0,
+          "after_profit": 288000,
+          "delta": -2550000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 502025,
+          "before_profit": 782750.0,
+          "after_profit": 532750,
+          "delta": -250000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 501902,
+          "before_profit": -267300.0,
+          "after_profit": -292300,
+          "delta": -25000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 501686,
+          "before_profit": 90000.0,
+          "after_profit": 40000,
+          "delta": -50000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 501629,
+          "before_profit": 4515000.0,
+          "after_profit": 400000,
+          "delta": -4115000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 3
+        },
+        {
+          "id": 501605,
+          "before_profit": 247000.0,
+          "after_profit": 236000,
+          "delta": -11000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 501509,
+          "before_profit": 60000.0,
+          "after_profit": 0,
+          "delta": -60000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 501341,
+          "before_profit": 60000.0,
+          "after_profit": 0,
+          "delta": -60000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 501324,
+          "before_profit": 70000.0,
+          "after_profit": 0,
+          "delta": -70000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 500907,
+          "before_profit": 140000.0,
+          "after_profit": 0,
+          "delta": -140000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 500893,
+          "before_profit": 1298200.0,
+          "after_profit": 623200,
+          "delta": -675000.0,
+          "missing_cost_lines_before": 3,
+          "missing_cost_lines_after": 5
+        },
+        {
+          "id": 500816,
+          "before_profit": 400000.0,
+          "after_profit": 50000,
+          "delta": -350000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 500692,
+          "before_profit": 150000.0,
+          "after_profit": -60000,
+          "delta": -210000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 500407,
+          "before_profit": 40000.0,
+          "after_profit": 0,
+          "delta": -40000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 500258,
+          "before_profit": 11000.0,
+          "after_profit": 0,
+          "delta": -11000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 500088,
+          "before_profit": 750000.0,
+          "after_profit": 0,
+          "delta": -750000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 500057,
+          "before_profit": 50000.0,
+          "after_profit": 0,
+          "delta": -50000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 499676,
+          "before_profit": 257500.0,
+          "after_profit": 220000,
+          "delta": -37500.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 499326,
+          "before_profit": 50000.0,
+          "after_profit": 0,
+          "delta": -50000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 499197,
+          "before_profit": 2046000.0,
+          "after_profit": 1506000,
+          "delta": -540000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 498979,
+          "before_profit": 159250.0,
+          "after_profit": 119250,
+          "delta": -40000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 498974,
+          "before_profit": 198240.0,
+          "after_profit": 0,
+          "delta": -198240.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 498828,
+          "before_profit": 5424.0,
+          "after_profit": 12924,
+          "delta": 7500.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 498805,
+          "before_profit": 912000.0,
+          "after_profit": 192000,
+          "delta": -720000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 498669,
+          "before_profit": 2838000.0,
+          "after_profit": 288000,
+          "delta": -2550000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 498314,
+          "before_profit": 175000.0,
+          "after_profit": 0,
+          "delta": -175000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 498193,
+          "before_profit": 132160.0,
+          "after_profit": 0,
+          "delta": -132160.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 498091,
+          "before_profit": 674240.0,
+          "after_profit": 599240,
+          "delta": -75000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 498085,
+          "before_profit": 2067050.0,
+          "after_profit": 1842050,
+          "delta": -225000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 497923,
+          "before_profit": 105000.0,
+          "after_profit": 0,
+          "delta": -105000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 497886,
+          "before_profit": 150000.0,
+          "after_profit": -60000,
+          "delta": -210000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 497874,
+          "before_profit": 351450.0,
+          "after_profit": 281450,
+          "delta": -70000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 497747,
+          "before_profit": 801310.0,
+          "after_profit": 751310,
+          "delta": -50000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 497390,
+          "before_profit": 70000.0,
+          "after_profit": 0,
+          "delta": -70000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 497333,
+          "before_profit": 410000.0,
+          "after_profit": 330000,
+          "delta": -80000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 497302,
+          "before_profit": 297000.0,
+          "after_profit": 222000,
+          "delta": -75000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 497173,
+          "before_profit": 1199000.0,
+          "after_profit": 1009000,
+          "delta": -190000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 497161,
+          "before_profit": 70000.0,
+          "after_profit": 0,
+          "delta": -70000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 497075,
+          "before_profit": 262500.0,
+          "after_profit": 105000,
+          "delta": -157500.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 496959,
+          "before_profit": 2198000.0,
+          "after_profit": 548000,
+          "delta": -1650000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 5
+        },
+        {
+          "id": 496889,
+          "before_profit": 181550.0,
+          "after_profit": 141550,
+          "delta": -40000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 496872,
+          "before_profit": 400000.0,
+          "after_profit": 50000,
+          "delta": -350000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 496551,
+          "before_profit": 152900.0,
+          "after_profit": 42900,
+          "delta": -110000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 496532,
+          "before_profit": 50000.0,
+          "after_profit": 0,
+          "delta": -50000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 496387,
+          "before_profit": 3150000.0,
+          "after_profit": 0,
+          "delta": -3150000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 496368,
+          "before_profit": 140000.0,
+          "after_profit": 0,
+          "delta": -140000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 496220,
+          "before_profit": 150000.0,
+          "after_profit": -60000,
+          "delta": -210000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 496215,
+          "before_profit": 200000.0,
+          "after_profit": 0,
+          "delta": -200000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 496180,
+          "before_profit": 542550.0,
+          "after_profit": 442550,
+          "delta": -100000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 495982,
+          "before_profit": 105000.0,
+          "after_profit": 0,
+          "delta": -105000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 495814,
+          "before_profit": 2838000.0,
+          "after_profit": 288000,
+          "delta": -2550000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 495637,
+          "before_profit": 66080.0,
+          "after_profit": 0,
+          "delta": -66080.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 495364,
+          "before_profit": 66080.0,
+          "after_profit": 0,
+          "delta": -66080.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 494408,
+          "before_profit": 56000.0,
+          "after_profit": 11000,
+          "delta": -45000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 494108,
+          "before_profit": 105000.0,
+          "after_profit": 0,
+          "delta": -105000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 494083,
+          "before_profit": 40000.0,
+          "after_profit": 0,
+          "delta": -40000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 493862,
+          "before_profit": 1910450.0,
+          "after_profit": 1860450,
+          "delta": -50000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 493847,
+          "before_profit": 344300.0,
+          "after_profit": 224300,
+          "delta": -120000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 493680,
+          "before_profit": 70000.0,
+          "after_profit": 0,
+          "delta": -70000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 493599,
+          "before_profit": 35000.0,
+          "after_profit": 0,
+          "delta": -35000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 493381,
+          "before_profit": 1839748.0000000005,
+          "after_profit": 896648,
+          "delta": -943100.0000000005,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 3
+        },
+        {
+          "id": 493373,
+          "before_profit": 2625000.0,
+          "after_profit": 0,
+          "delta": -2625000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 492862,
+          "before_profit": 75000.0,
+          "after_profit": 0,
+          "delta": -75000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 492843,
+          "before_profit": 75000.0,
+          "after_profit": 0,
+          "delta": -75000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 492809,
+          "before_profit": 812400.0,
+          "after_profit": 0,
+          "delta": -812400.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 492777,
+          "before_profit": 75000.0,
+          "after_profit": 0,
+          "delta": -75000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 492682,
+          "before_profit": 166550.0,
+          "after_profit": 41550,
+          "delta": -125000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 492542,
+          "before_profit": 105000.0,
+          "after_profit": 0,
+          "delta": -105000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 492500,
+          "before_profit": 250000.0,
+          "after_profit": 0,
+          "delta": -250000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 492416,
+          "before_profit": 3412750.0,
+          "after_profit": 3202750,
+          "delta": -210000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 492024,
+          "before_profit": 3711600.0,
+          "after_profit": 1921600,
+          "delta": -1790000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 3
+        },
+        {
+          "id": 491839,
+          "before_profit": 1558200.0,
+          "after_profit": 713200,
+          "delta": -845000.0,
+          "missing_cost_lines_before": 3,
+          "missing_cost_lines_after": 7
+        },
+        {
+          "id": 489363,
+          "before_profit": 3942300.0,
+          "after_profit": 1934800,
+          "delta": -2007500.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 5
+        },
+        {
+          "id": 488809,
+          "before_profit": 237870.0,
+          "after_profit": 212870,
+          "delta": -25000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 488494,
+          "before_profit": 316450.0,
+          "after_profit": 246450,
+          "delta": -70000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 488444,
+          "before_profit": 2316000.0,
+          "after_profit": 1506000,
+          "delta": -810000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 487991,
+          "before_profit": 0,
+          "after_profit": 20000,
+          "delta": 20000,
+          "missing_cost_lines_before": 1,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 487721,
+          "before_profit": 839550.0,
+          "after_profit": 689550,
+          "delta": -150000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 486869,
+          "before_profit": 400000.0,
+          "after_profit": 50000,
+          "delta": -350000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 486213,
+          "before_profit": 35000.0,
+          "after_profit": 0,
+          "delta": -35000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 486051,
+          "before_profit": 171580.0,
+          "after_profit": 46580,
+          "delta": -125000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 485174,
+          "before_profit": 124630.0,
+          "after_profit": 84630,
+          "delta": -40000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 484294,
+          "before_profit": 2161950.0,
+          "after_profit": 1986950,
+          "delta": -175000.0,
+          "missing_cost_lines_before": 1,
+          "missing_cost_lines_after": 3
+        },
+        {
+          "id": 480219,
+          "before_profit": 175000.0,
+          "after_profit": 0,
+          "delta": -175000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 479778,
+          "before_profit": 154870.0,
+          "after_profit": 114870,
+          "delta": -40000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 479629,
+          "before_profit": 403000.0,
+          "after_profit": 223000,
+          "delta": -180000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 479560,
+          "before_profit": 1108400.0,
+          "after_profit": 298400,
+          "delta": -810000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 3
+        },
+        {
+          "id": 479497,
+          "before_profit": 830020.0,
+          "after_profit": 780020,
+          "delta": -50000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 479424,
+          "before_profit": 65000.0,
+          "after_profit": 0,
+          "delta": -65000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 479190,
+          "before_profit": 38880.0,
+          "after_profit": 0,
+          "delta": -38880.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 478130,
+          "before_profit": 225000.0,
+          "after_profit": 0,
+          "delta": -225000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 477960,
+          "before_profit": 170000.0,
+          "after_profit": 0,
+          "delta": -170000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 477807,
+          "before_profit": 160000.0,
+          "after_profit": 0,
+          "delta": -160000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 477752,
+          "before_profit": 62310.0,
+          "after_profit": 0,
+          "delta": -62310.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 477627,
+          "before_profit": 116350.0,
+          "after_profit": 0,
+          "delta": -116350.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 3
+        },
+        {
+          "id": 477596,
+          "before_profit": 150000.0,
+          "after_profit": 0,
+          "delta": -150000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 477559,
+          "before_profit": 38880.0,
+          "after_profit": 0,
+          "delta": -38880.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 477518,
+          "before_profit": 300000.0,
+          "after_profit": 0,
+          "delta": -300000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 477434,
+          "before_profit": 1760000.0,
+          "after_profit": 1220000,
+          "delta": -540000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 477293,
+          "before_profit": 592400.0,
+          "after_profit": 0,
+          "delta": -592400.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 477240,
+          "before_profit": 70000.0,
+          "after_profit": 0,
+          "delta": -70000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 477081,
+          "before_profit": 97200.0,
+          "after_profit": 0,
+          "delta": -97200.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 477024,
+          "before_profit": 75000.0,
+          "after_profit": 0,
+          "delta": -75000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 476965,
+          "before_profit": 75000.0,
+          "after_profit": 0,
+          "delta": -75000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 476942,
+          "before_profit": 75000.0,
+          "after_profit": 0,
+          "delta": -75000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 476909,
+          "before_profit": 1706850.0,
+          "after_profit": 1431850,
+          "delta": -275000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 3
+        },
+        {
+          "id": 476864,
+          "before_profit": 3037750.0,
+          "after_profit": 2827750,
+          "delta": -210000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 476772,
+          "before_profit": 260430.0,
+          "after_profit": 0,
+          "delta": -260430.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 3
+        },
+        {
+          "id": 476728,
+          "before_profit": 240000.0,
+          "after_profit": 0,
+          "delta": -240000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 476480,
+          "before_profit": 240000.0,
+          "after_profit": 0,
+          "delta": -240000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 476459,
+          "before_profit": 256580.0,
+          "after_profit": 0,
+          "delta": -256580.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 3
+        },
+        {
+          "id": 476411,
+          "before_profit": 246450.0,
+          "after_profit": 30000,
+          "delta": -216450.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 476302,
+          "before_profit": 19440.0,
+          "after_profit": 0,
+          "delta": -19440.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 476290,
+          "before_profit": 812400.0,
+          "after_profit": 0,
+          "delta": -812400.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 475965,
+          "before_profit": 471450.0,
+          "after_profit": 366450,
+          "delta": -105000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 475617,
+          "before_profit": 218100.0,
+          "after_profit": 0,
+          "delta": -218100.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 475586,
+          "before_profit": 20000.0,
+          "after_profit": 0,
+          "delta": -20000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 475423,
+          "before_profit": 105000.0,
+          "after_profit": 0,
+          "delta": -105000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 475265,
+          "before_profit": 130000.0,
+          "after_profit": 0,
+          "delta": -130000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 475224,
+          "before_profit": 194400.0,
+          "after_profit": 0,
+          "delta": -194400.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 475049,
+          "before_profit": 888600.0,
+          "after_profit": 0,
+          "delta": -888600.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 474980,
+          "before_profit": 54440.0,
+          "after_profit": 0,
+          "delta": -54440.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 474943,
+          "before_profit": 85000.0,
+          "after_profit": 0,
+          "delta": -85000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 474925,
+          "before_profit": 75000.0,
+          "after_profit": 0,
+          "delta": -75000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 474881,
+          "before_profit": 150000.0,
+          "after_profit": 0,
+          "delta": -150000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 474857,
+          "before_profit": 38880.0,
+          "after_profit": 0,
+          "delta": -38880.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 474830,
+          "before_profit": 75000.0,
+          "after_profit": 0,
+          "delta": -75000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 474669,
+          "before_profit": 201200.0,
+          "after_profit": 86200,
+          "delta": -115000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 474628,
+          "before_profit": 225000.0,
+          "after_profit": 0,
+          "delta": -225000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 474541,
+          "before_profit": 107630.0,
+          "after_profit": 0,
+          "delta": -107630.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 474442,
+          "before_profit": 58320.0,
+          "after_profit": 0,
+          "delta": -58320.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 474410,
+          "before_profit": 130000.0,
+          "after_profit": 0,
+          "delta": -130000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 474298,
+          "before_profit": 38880.0,
+          "after_profit": 0,
+          "delta": -38880.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 474158,
+          "before_profit": 66870.0,
+          "after_profit": 0,
+          "delta": -66870.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 5
+        },
+        {
+          "id": 473935,
+          "before_profit": 331580.0,
+          "after_profit": 0,
+          "delta": -331580.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 5
+        },
+        {
+          "id": 473918,
+          "before_profit": 85000.0,
+          "after_profit": 0,
+          "delta": -85000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 473819,
+          "before_profit": 66380.0,
+          "after_profit": 0,
+          "delta": -66380.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 473809,
+          "before_profit": 1108600.0,
+          "after_profit": 0,
+          "delta": -1108600.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 473632,
+          "before_profit": 400000.0,
+          "after_profit": 50000,
+          "delta": -350000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 473618,
+          "before_profit": 47200.0,
+          "after_profit": 0,
+          "delta": -47200.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 473416,
+          "before_profit": 65000.0,
+          "after_profit": 0,
+          "delta": -65000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 473333,
+          "before_profit": 957350.0,
+          "after_profit": 882350,
+          "delta": -75000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 473293,
+          "before_profit": 812400.0,
+          "after_profit": 0,
+          "delta": -812400.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 471954,
+          "before_profit": 40000.0,
+          "after_profit": 0,
+          "delta": -40000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 471755,
+          "before_profit": 208440.0,
+          "after_profit": 48440,
+          "delta": -160000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 471080,
+          "before_profit": 1451000.0,
+          "after_profit": 1151000,
+          "delta": -300000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 470506,
+          "before_profit": 100000.0,
+          "after_profit": 0,
+          "delta": -100000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 470362,
+          "before_profit": 154870.0,
+          "after_profit": 114870,
+          "delta": -40000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 470161,
+          "before_profit": 147100.0,
+          "after_profit": 122100,
+          "delta": -25000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 469724,
+          "before_profit": 580000.0,
+          "after_profit": 0,
+          "delta": -580000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 468348,
+          "before_profit": 110000.0,
+          "after_profit": 0,
+          "delta": -110000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 468221,
+          "before_profit": 468000.0,
+          "after_profit": 168000,
+          "delta": -300000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 468090,
+          "before_profit": 272290.0,
+          "after_profit": 87290,
+          "delta": -185000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 467992,
+          "before_profit": 530000.0,
+          "after_profit": 405000,
+          "delta": -125000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 467626,
+          "before_profit": 35000.0,
+          "after_profit": 0,
+          "delta": -35000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 467304,
+          "before_profit": 200000.0,
+          "after_profit": 0,
+          "delta": -200000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 466959,
+          "before_profit": 100000.0,
+          "after_profit": 0,
+          "delta": -100000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 466738,
+          "before_profit": 627550.0,
+          "after_profit": 452550,
+          "delta": -175000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 466567,
+          "before_profit": 100000.0,
+          "after_profit": 0,
+          "delta": -100000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 465930,
+          "before_profit": 1524000.0,
+          "after_profit": 424000,
+          "delta": -1100000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 3
+        },
+        {
+          "id": 465648,
+          "before_profit": 350000.0,
+          "after_profit": 145000,
+          "delta": -205000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 465525,
+          "before_profit": 2154000.0,
+          "after_profit": 1344000,
+          "delta": -810000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 465091,
+          "before_profit": 1046000.0,
+          "after_profit": 921000,
+          "delta": -125000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 464572,
+          "before_profit": 1401000.0,
+          "after_profit": 911000,
+          "delta": -490000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 464355,
+          "before_profit": 87700.0,
+          "after_profit": 47700,
+          "delta": -40000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 463695,
+          "before_profit": 554900.0,
+          "after_profit": 504900,
+          "delta": -50000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 463598,
+          "before_profit": 100000.0,
+          "after_profit": 0,
+          "delta": -100000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 462955,
+          "before_profit": 184460.0,
+          "after_profit": 144460,
+          "delta": -40000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 462879,
+          "before_profit": 569250.0,
+          "after_profit": 319250,
+          "delta": -250000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 462849,
+          "before_profit": 540000.0,
+          "after_profit": 360000,
+          "delta": -180000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 462811,
+          "before_profit": 115000.0,
+          "after_profit": 75000,
+          "delta": -40000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 462404,
+          "before_profit": 800000.0,
+          "after_profit": 0,
+          "delta": -800000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 462248,
+          "before_profit": 267250.0,
+          "after_profit": 197250,
+          "delta": -70000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 461951,
+          "before_profit": 555000.0,
+          "after_profit": 435000,
+          "delta": -120000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 461297,
+          "before_profit": 234000.0,
+          "after_profit": 84000,
+          "delta": -150000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 461274,
+          "before_profit": 545000.0,
+          "after_profit": 420000,
+          "delta": -125000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 460955,
+          "before_profit": 700000.0,
+          "after_profit": 0,
+          "delta": -700000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 460728,
+          "before_profit": 239550.0,
+          "after_profit": 139550,
+          "delta": -100000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 2
+        },
+        {
+          "id": 460698,
+          "before_profit": 1400000.0,
+          "after_profit": 400000,
+          "delta": -1000000.0,
+          "missing_cost_lines_before": 0,
+          "missing_cost_lines_after": 1
+        },
+        {
+          "id": 460337,
+          "before_profit": 495000.0,
+          "after_profit": 420000,
+          "delta": -75000.0,
+          "missing_cost_lines_before": 1,
+          "missing_cost_lines_after": 2
+        }
+      ],
+      "profit_delta": -7013824.0,
+      "after_loan_delta": -7013824.0
+    }
+  ],
+  "duplicate_product_check": {
+    "reported_orders": 3,
+    "distinct_orders": 3
+  },
+  "filtered_loan": {
+    "profit": 5363890,
+    "loan": null,
+    "real_profit": null,
+    "company_loan": 16875000
+  }
+}

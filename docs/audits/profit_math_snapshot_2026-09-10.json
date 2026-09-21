@@ -1,0 +1,309 @@
+{
+  "snapshot_at": "2026-09-10T17:47:33.778627+07:00",
+  "db_orders": 18913,
+  "min_thread_id": 460000,
+  "problems": {},
+  "problem_examples": {},
+  "settings": {
+    "yearly_loan_payment": 810000000,
+    "monthly_weights": {
+      "1": 3.0,
+      "2": 1.0,
+      "3": 1.0,
+      "4": 1.0,
+      "5": 1.0,
+      "6": 1.0,
+      "7": 1.0,
+      "8": 1.0,
+      "9": 1.0,
+      "10": 1.0,
+      "11": 1.0,
+      "12": 3.0
+    }
+  },
+  "periods": [
+    {
+      "since": "2026-09-01",
+      "until": "2026-09-10",
+      "orders": 252,
+      "total_revenue": 461720720,
+      "total_cost": 393326796.0,
+      "total_profit": 63983924.0,
+      "vat_orders": 6,
+      "vat_total": 2254720,
+      "vat_added_to_profit": 2254720,
+      "shipping_added_to_profit": 100000,
+      "discount_total": 60000,
+      "missing_cost_orders": 3,
+      "missing_cost_revenue": 4410000,
+      "revenue_minus_cost_differs_from_profit_orders": 3,
+      "duplicate_product_orders": 4,
+      "duplicate_product_extra_lines": 5,
+      "renamed_product_orders": 0,
+      "renamed_product_revenue": 0,
+      "quantity_fallback_orders": 0,
+      "live_cost_lines": 4,
+      "return_slips": 0,
+      "returns_total": 0,
+      "returns_with_kv_invoice": 0,
+      "returns_with_kv_invoice_total": 0,
+      "returns_goods_handled": 0,
+      "returns_linked_to_order": 0,
+      "zero_quantity_orders": 0,
+      "orders_not_marked_delivered": 10,
+      "not_marked_delivered_revenue": 10179000,
+      "negative_price_lines": 0,
+      "negative_qty_lines": 0
+    },
+    {
+      "since": "2026-08-12",
+      "until": "2026-09-10",
+      "orders": 800,
+      "total_revenue": 1374161240,
+      "total_cost": 1169521387.0,
+      "total_profit": 192089853.0,
+      "vat_orders": 25,
+      "vat_total": 9588240,
+      "vat_added_to_profit": 9588240,
+      "shipping_added_to_profit": 700000,
+      "discount_total": 240000,
+      "missing_cost_orders": 7,
+      "missing_cost_revenue": 12550000,
+      "revenue_minus_cost_differs_from_profit_orders": 7,
+      "duplicate_product_orders": 16,
+      "duplicate_product_extra_lines": 19,
+      "renamed_product_orders": 0,
+      "renamed_product_revenue": 0,
+      "quantity_fallback_orders": 0,
+      "live_cost_lines": 9,
+      "return_slips": 1,
+      "returns_total": 1386000.0,
+      "returns_with_kv_invoice": 1,
+      "returns_with_kv_invoice_total": 1386000.0,
+      "returns_goods_handled": 1,
+      "returns_linked_to_order": 0,
+      "zero_quantity_orders": 0,
+      "orders_not_marked_delivered": 18,
+      "not_marked_delivered_revenue": 11170000,
+      "negative_price_lines": 0,
+      "negative_qty_lines": 0
+    },
+    {
+      "since": "2026-01-01",
+      "until": "2026-09-10",
+      "orders": 2905,
+      "total_revenue": 5091001694,
+      "total_cost": 4339719940.0,
+      "total_profit": 714026754.0,
+      "vat_orders": 113,
+      "vat_total": 39151644,
+      "vat_added_to_profit": 39151644,
+      "shipping_added_to_profit": 3695000,
+      "discount_total": 1535000,
+      "missing_cost_orders": 19,
+      "missing_cost_revenue": 37235000,
+      "revenue_minus_cost_differs_from_profit_orders": 19,
+      "duplicate_product_orders": 46,
+      "duplicate_product_extra_lines": 53,
+      "renamed_product_orders": 4,
+      "renamed_product_revenue": 1200000.0,
+      "quantity_fallback_orders": 0,
+      "live_cost_lines": 267,
+      "return_slips": 7,
+      "returns_total": 2751000.0,
+      "returns_with_kv_invoice": 3,
+      "returns_with_kv_invoice_total": 1826000.0,
+      "returns_goods_handled": 6,
+      "returns_linked_to_order": 0,
+      "zero_quantity_orders": 0,
+      "orders_not_marked_delivered": 28,
+      "not_marked_delivered_revenue": 23128200,
+      "negative_price_lines": 0,
+      "negative_qty_lines": 0
+    }
+  ],
+  "checks": {
+    "2024": {
+      "loan": 810000000,
+      "expected_yearly": 810000000,
+      "diff": 0
+    },
+    "2025": {
+      "loan": 810000000,
+      "expected_yearly": 810000000,
+      "diff": 0
+    },
+    "2026": {
+      "loan": 810000000,
+      "expected_yearly": 810000000,
+      "diff": 0
+    },
+    "summary_vs_chart": {
+      "revenue": 0,
+      "cost": 0.0,
+      "profit": 0.0,
+      "loan": 0,
+      "real_profit": 0.0
+    },
+    "duplicate_sample": {
+      "code": "K2NV120",
+      "day": "2026-09-07",
+      "reported_orders": 4,
+      "unique_orders": 3,
+      "thread_id": 513847
+    },
+    "return_samples": [
+      {
+        "id": 2,
+        "thread_id": null,
+        "day": "2026-07-09",
+        "total": 160000.0,
+        "kv_invoice_code": "HD084993"
+      },
+      {
+        "id": 10,
+        "thread_id": null,
+        "day": "2026-08-06",
+        "total": 280000.0,
+        "kv_invoice_code": "HD085751"
+      },
+      {
+        "id": 12,
+        "thread_id": null,
+        "day": "2026-08-28",
+        "total": 1386000.0,
+        "kv_invoice_code": "HD086386"
+      }
+    ],
+    "alias_samples": [
+      {
+        "id": 480219,
+        "day": "2026-06-13",
+        "aliases": [
+          {
+            "old": "DMX",
+            "current": "DMXL",
+            "revenue": 600000.0
+          }
+        ]
+      },
+      {
+        "id": 486213,
+        "day": "2026-06-25",
+        "aliases": [
+          {
+            "old": "DMX",
+            "current": "DMXL",
+            "revenue": 120000.0
+          }
+        ]
+      },
+      {
+        "id": 492542,
+        "day": "2026-07-09",
+        "aliases": [
+          {
+            "old": "DMX",
+            "current": "DMXL",
+            "revenue": 360000.0
+          }
+        ]
+      }
+    ]
+  },
+  "additional_checks": {
+    "OLDER_THAN_CUTOFF": [
+      {
+        "first_eligible_date": "2026-05-04",
+        "last_eligible_date": "2026-09-10",
+        "excluded_2026_orders": 3328,
+        "excluded_2026_revenue": 10223197236,
+        "excluded_2026_profit_current_formula": 1078466923.0,
+        "excluded_with_cost": 3180,
+        "excluded_dates": [
+          "2026-01-01",
+          "2026-05-03"
+        ]
+      }
+    ],
+    "SUMMARY_EXTRA": [
+      {
+        "since": "2026-09-01",
+        "until": "2026-09-10",
+        "loan": 16875000,
+        "real_profit": 47108924.0,
+        "gross_margin": 13.9,
+        "net_margin": 10.2,
+        "filtered_product": {
+          "code": "K2NV120",
+          "profit": 5363890.0,
+          "loan": 16875000,
+          "real_profit": -11511110.0
+        }
+      },
+      {
+        "since": "2026-08-12",
+        "until": "2026-09-10",
+        "loan": 49536290,
+        "real_profit": 142553563.0,
+        "gross_margin": 14.0,
+        "net_margin": 10.4,
+        "filtered_product": {
+          "code": "K2NV120",
+          "profit": 10896540.0,
+          "loan": 49536290,
+          "real_profit": -38639750.0
+        }
+      },
+      {
+        "since": "2026-01-01",
+        "until": "2026-09-10",
+        "loan": 523125000,
+        "real_profit": 190901754.0,
+        "gross_margin": 14.0,
+        "net_margin": 3.7,
+        "filtered_product": {
+          "code": "K2NV120",
+          "profit": 52131720.0,
+          "loan": 523125000,
+          "real_profit": -470993280.0
+        }
+      }
+    ],
+    "REPRO": [
+      {
+        "case": "negative_qty",
+        "revenue": -100,
+        "cost": -60.0,
+        "profit": 0,
+        "sum_item_profit": -40.0
+      },
+      {
+        "case": "quantity_fallback",
+        "revenue": 0,
+        "cost": 0.0,
+        "profit": 0,
+        "sum_item_profit": 0.0
+      },
+      {
+        "case": "null_fee",
+        "error": "TypeError"
+      },
+      {
+        "case": "vat_in_profit",
+        "revenue": 108,
+        "cost": 60.0,
+        "profit": 48.0,
+        "sum_item_profit": 40.0
+      }
+    ]
+  },
+  "user_confirmed_loan_is_interest_only": true,
+  "independent_checks": {
+    "total": 11,
+    "passed": 3,
+    "failed_assertions": 7,
+    "runtime_errors": 1,
+    "command": ".venv/bin/python docs/audits/profit_math_checks.py"
+  }
+}
