@@ -5,35 +5,84 @@ import json
 from .queries import get_product
 
 
-def calculate_order_profit(conn, order: dict) -> dict:
-    invoice = order.get("invoice") or order.get("invoice_items") or []
-    vat, pvc, discount = int(order.get("vat", 0)), int(order.get("pvc", 0)), int(order.get("discount", 0))
-    fee_total = vat + pvc - discount
-    items_profit, total_revenue, total_cost = [], 0, 0
-    for item in invoice:
-        code = (item.get("sp") or "").upper().strip()
-        if not code:
-            continue
-        qty, sell_price = parse_qty(item.get("sl", 0)), int(item.get("price", 0))
-        revenue = round(qty * sell_price)
-        frozen_cost = item.get("cost_price")
-        if frozen_cost is not None:
-            cost_price, is_frozen = int(frozen_cost), True
-        else:
-            from .queries import get_product_by_id
-            from .resolve import resolve_code
+def money_value(value) -> int:
+    """Số tiền VND, chấp nhận trường tùy chọn null; từ chối NaN/Infinity."""
+    from decimal import Decimal
+    number = Decimal(str(value if value not in (None, "") else 0))
+    if not number.is_finite():
+        raise ValueError("Số tiền không hữu hạn")
+    return int(round(number))
+
+
+def product_identity(conn, item):
+    """Chỉ resolve danh tính/mã; tuyệt đối không thay giá bán/vốn lịch sử."""
+    from .queries import get_product_by_id
+    from .resolve import resolve_code
+    code = str(item.get("sp") or item.get("product_code") or "").upper().strip()
+    product = None
+    if conn is not None:
+        try:
             product = get_product_by_id(conn, item.get("sp_id")) if item.get("sp_id") else None
-            if product is None:
-                product = resolve_code(conn, code)  # đơn cũ: mã có thể là mã cũ
-            cost_price, is_frozen = (product.get("cost_price", 0) if product else 0), False
-        cost = qty * cost_price
-        profit = (revenue - cost) if cost_price > 0 else 0
-        items_profit.append({"code": code, "qty": qty, "sell_price": sell_price, "cost_price": cost_price, "revenue": revenue, "cost": cost, "profit": profit, "has_cost": cost_price > 0, "is_frozen": is_frozen})
-        total_revenue += revenue
-        if cost_price > 0:
-            total_cost += cost
-    total_profit = sum(i["profit"] for i in items_profit) + fee_total if total_cost > 0 else 0
-    return {"items": items_profit, "total_revenue": total_revenue + fee_total, "total_cost": total_cost, "total_profit": total_profit, "item_count": len(items_profit), "items_with_cost": sum(1 for i in items_profit if i["has_cost"]), "fees": {"vat": vat, "pvc": pvc, "discount": discount, "fee_total": fee_total}}
+        except (ValueError, TypeError):
+            pass
+        if product is None and code:
+            product = resolve_code(conn, code)
+    return (product or {}).get("code", code), (product or {}).get("id", item.get("sp_id"))
+
+
+def calculate_order_profit(conn, order: dict) -> dict:
+    """Doanh thu chưa VAT; lãi xác định chỉ dùng giá vốn đã lưu trong đơn.
+
+    total_profit/known_profit là phần lãi đã xác định + phí/chiết khấu cấp đơn.
+    complete_profit=None nếu thiếu vốn; dòng thiếu vốn có profit=None (không hòa vốn).
+    Quy ước chủ hệ thống xác nhận 10/09/2026: cost_price đã tính sẵn VAT BÁN RA
+    phải chịu. Vì thế lãi quản trị dùng tổng tiền khách trả GỒM VAT trừ vốn này.
+    Không tự bóc 8% khỏi vốn, không cộng thêm chi phí VAT lần thứ hai.
+    Doanh thu vẫn tách VAT; khoản VAT thu khách là điều chỉnh lãi ở cấp đơn.
+    shipping_cost là chi phí giao hàng thực tế nếu có ghi.
+    """
+    invoice = order.get("invoice") or order.get("invoice_items") or []
+    vat, pvc, discount = (money_value(order.get(k)) for k in ("vat", "pvc", "discount"))
+    shipping_cost = money_value(order.get("shipping_cost"))
+    revenue_fees = pvc - discount
+    fee_total = vat + revenue_fees
+    items_profit = []
+    for item in invoice:
+        if not isinstance(item, dict):
+            raise ValueError("Dòng hóa đơn không hợp lệ")
+        code, product_id = product_identity(conn, item)
+        if not code:
+            raise ValueError("Dòng hóa đơn thiếu mã sản phẩm")
+        qty = parse_qty(item.get("sl") if item.get("sl") not in (None, "") else item.get("quantity", 0))
+        sell_price = money_value(item.get("price"))
+        revenue = round(qty * sell_price)
+        frozen = item.get("cost_price")
+        cost_price = money_value(frozen)
+        # 0 cũ nghĩa là chưa nhập. 0 thật cần cờ xác nhận rõ ràng trong snapshot.
+        has_cost = frozen is not None and (cost_price > 0 or
+                   (cost_price == 0 and item.get("cost_confirmed") is True))
+        has_cost = has_cost and item.get("cost_source") != "backfill_current"
+        cost = round(qty * cost_price) if has_cost else 0
+        items_profit.append({"code": code, "product_id": product_id,
+            "original_code": str(item.get("sp") or ""), "qty": qty,
+            "sell_price": sell_price, "cost_price": cost_price if has_cost else None,
+            "revenue": revenue, "cost": cost,
+            "profit": revenue - cost if has_cost else None,
+            "has_cost": has_cost, "is_frozen": frozen is not None})
+    goods = sum(i["revenue"] for i in items_profit)
+    total_cost = sum(i["cost"] for i in items_profit)
+    known_profit = sum(i["profit"] or 0 for i in items_profit) + fee_total - shipping_cost
+    complete = all(i["has_cost"] for i in items_profit)
+    return {"items": items_profit, "goods_revenue": goods,
+        "total_revenue": goods + revenue_fees, "customer_total": goods + fee_total,
+        "total_cost": total_cost, "total_profit": known_profit, "known_profit": known_profit,
+        "complete_profit": known_profit if complete else None, "cost_complete": complete,
+        "missing_cost_revenue": sum(i["revenue"] for i in items_profit if not i["has_cost"]),
+        "item_count": len(items_profit), "items_with_cost": sum(i["has_cost"] for i in items_profit),
+        "fees": {"vat": vat, "pvc": pvc, "discount": discount, "fee_total": fee_total,
+                 "shipping_cost": shipping_cost},
+        "cost_basis": "includes_output_vat_provision",
+        "shipping_cost_recorded": order.get("shipping_cost") not in (None, "")}
 
 
 def freeze_invoice_cost_prices(conn, invoice: list) -> list:

@@ -41,3 +41,4 @@ sheets_sa.json
 restart.out
 .codewhale/
 node_modules
+.pi/

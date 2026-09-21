@@ -47,7 +47,7 @@ def register_product_commands_profit(client):
                 lines.append(f"{i}. {'🟢' if op['total_profit'] >= 0 else '🔴'} <b>{label}</b>: {profit(op['total_profit'])}")
             if len(orders_profit) > 15:
                 lines.append(f"... và {len(orders_profit) - 15} đơn khác")
-            lines += ["", "─" * 30, f"📦 Tổng doanh thu: <b>{money(total_revenue)}</b>", f"💵 Tổng giá vốn: <b>{money(total_cost)}</b>", f"{'🟢' if total_profit >= 0 else '🔴'} Tổng lợi nhuận: <b>{profit(total_profit)}</b>"]
+            lines += ["", "Giá vốn đã dự tính VAT bán ra; tổng lãi cộng VAT thu khách ở cấp đơn.", "─" * 30, f"📦 Tổng doanh thu chưa VAT: <b>{money(total_revenue)}</b>", f"💵 Tổng giá vốn: <b>{money(total_cost)}</b>", f"{'🟢' if total_profit >= 0 else '🔴'} Tổng lãi đã xác định: <b>{profit(total_profit)}</b>"]
             if any(op["items_with_cost"] < op["item_count"] for op in orders_profit):
                 lines.append(f"\n⚠️ {sum(1 for op in orders_profit if op['items_with_cost'] < op['item_count'])} đơn có sản phẩm chưa có giá vốn")
             await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")
@@ -71,8 +71,8 @@ def register_product_commands_profit(client):
             if item["has_cost"]:
                 lines.append(f"• <code>{item['code']}</code> x{item['qty']}\n  Bán: {money(item['sell_price'])} | Vốn: {money(item['cost_price'])}\n  → {profit(item['profit'])}")
             else:
-                lines.append(f"• <code>{item['code']}</code> x{item['qty']}\n  Bán: {money(item['sell_price'])} | Vốn: <i>chưa có</i>\n  → Dùng `sp cost {item['code']} <giá>` để thêm")
-        lines += ["", "─" * 30, f"📦 Doanh thu: <b>{money(result['total_revenue'])}</b>", f"💵 Giá vốn: <b>{money(result['total_cost'])}</b>", f"{'🟢' if result['total_profit'] >= 0 else '🔴'} Lợi nhuận: <b>{profit(result['total_profit'])}</b>"]
+                lines.append(f"• <code>{item['code']}</code> x{item['qty']}\n  Bán: {money(item['sell_price'])} | Vốn: <i>chưa có</i>\n  → Cần đối chiếu giá vốn lịch sử của dòng này")
+        lines += ["", "Giá vốn đã dự tính VAT bán ra; tổng lãi cộng VAT thu khách ở cấp đơn.", "─" * 30, f"📦 Doanh thu chưa VAT: <b>{money(result['total_revenue'])}</b>", f"💵 Giá vốn: <b>{money(result['total_cost'])}</b>", f"{'🟢' if result['total_profit'] >= 0 else '🔴'} Lãi đã xác định: <b>{profit(result['total_profit'])}</b>"]
         if result["items_with_cost"] < result["item_count"]:
             lines.append(f"\n⚠️ {result['item_count'] - result['items_with_cost']} sản phẩm chưa có giá vốn")
         await client.send_message(msg.chat_id, "\n".join(lines), reply_to=msg.id, parse_mode="html")

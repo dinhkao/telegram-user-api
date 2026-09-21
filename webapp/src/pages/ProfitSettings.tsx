@@ -32,8 +32,10 @@ export function ProfitSettings() {
     const mw: Record<string, number> = {};
     for (let m = 1; m <= 12; m++) {
       const v = parseFloat(String(weights[String(m)]).replace(",", "."));
-      mw[String(m)] = isNaN(v) || v < 0 ? 1 : v;
+      if (!Number.isFinite(v) || v < 0) { toast(`Trọng số tháng ${m} không hợp lệ`, "err"); return; }
+      mw[String(m)] = v;
     }
+    if (Object.values(mw).every(v => v === 0)) { toast("Cần ít nhất một tháng có trọng số lớn hơn 0", "err"); return; }
     setBusy(true);
     try {
       await postJSON("/api/profit/settings", { yearly_loan_payment: yearly, monthly_weights: mw });
@@ -44,7 +46,7 @@ export function ProfitSettings() {
 
   const freeze = async () => {
     if (!(await confirmDialog(
-      "ĐÓNG BĂNG giá vốn hiện tại vào MỌI đơn còn thiếu? Đơn đã có giá vốn giữ nguyên.",
+      "Ghi vốn hiện tại làm ƯỚC TÍNH vào các đơn từ mốc 460000 còn thiếu? Đây không phải xác nhận vốn lịch sử; báo cáo vẫn cảnh báo thiếu căn cứ. Đơn đã có vốn giữ nguyên.",
       { okLabel: "Đóng băng" }))) return;
     setBusy(true);
     try {
@@ -58,13 +60,16 @@ export function ProfitSettings() {
   if (!loaded) return <div class="prod-detail"><PageHead fallback="#/loi-nhuan" title="Cấu hình lợi nhuận" /><Loading /></div>;
   return (
     <div class="prod-detail">
-      <PageHead fallback="#/loi-nhuan" title="Cấu hình lợi nhuận" sub="Tiền vay + trọng số tháng + đóng băng giá vốn" />
+      <PageHead fallback="#/loi-nhuan" title="Cấu hình lợi nhuận" sub="Lãi vay + trọng số tháng + giá vốn" />
+      <div class="card"><div class="ie-head">Quy ước giá vốn và VAT</div>
+        <p class="small">Giá vốn đã tính sẵn VAT bán ra phải chịu. Lãi đơn = tổng tiền khách thanh toán gồm VAT − giá vốn đã lưu − chi phí giao hàng đã ghi. Không trừ thêm khoản VAT dự tính lần nữa. Giá vốn phải được nhập nhất quán theo quy ước này.</p>
+      </div>
       <div class="card">
-        <div class="ie-head">Tiền vay phải trả / NĂM</div>
+        <div class="ie-head">Tiền lãi vay / NĂM</div>
         <input class="note-inp" style="max-width:200px" inputMode="numeric"
           value={yearly ? money(yearly) : ""} placeholder="0"
           onInput={(e: any) => setYearly(parseMoney(e.target.value))} />
-        <div class="muted small mt-1">Lãi thực = lãi gộp − tiền vay phân bổ theo kỳ (chia 12 tháng × trọng số dưới).</div>
+        <div class="muted small mt-1">Chỉ nhập lãi vay, không gồm tiền gốc. Lãi sau lãi vay = lãi gộp − lãi vay phân bổ; chưa trừ các chi phí vận hành khác.</div>
       </div>
       <div class="card">
         <div class="row space">
@@ -112,8 +117,8 @@ export function ProfitSettings() {
       </div>
       <div class="card">
         <div class="ie-head">Đóng băng giá vốn</div>
-        <div class="muted small">Ghi giá vốn HIỆN TẠI vào mọi đơn chưa có cost_price — sau đó đổi giá vốn không làm lệch lãi của đơn cũ.</div>
-        <button class="btn block mt-2" disabled={busy} onClick={freeze}>🧊 Đóng băng giá vốn vào đơn cũ</button>
+        <div class="muted small">Ghi vốn hiện tại làm ước tính cho đơn từ mốc 460000 còn thiếu. Báo cáo không dùng giá ước tính này làm vốn lịch sử đã xác nhận.</div>
+        <button class="btn block mt-2" disabled={busy} onClick={freeze}>Ghi giá vốn ước tính vào đơn thiếu</button>
       </div>
     </div>
   );

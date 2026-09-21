@@ -49,7 +49,7 @@ class ProfitComputeTest(unittest.TestCase):
         # kỳ này (20/08): SP1 ×2 @10k → lãi 10k; khách Hoa
         _add_order(self.conn, MIN_THREAD_ID + 1, {
             "created": "2026-08-20T03:00:00+00:00", "customer_name": "Chị Hoa",
-            "invoice": [{"sp": "SP1", "sl": 2, "price": 10000}]})
+            "invoice": [{"sp": "SP1", "sl": 2, "price": 10000, "cost_price": 5000}]})
         # kỳ này: SP2 chưa có giá vốn → lãi 0, doanh thu 8k; khách Ba
         _add_order(self.conn, MIN_THREAD_ID + 2, {
             "created": "2026-08-20T04:00:00+00:00", "customer_name": "Anh Ba",
@@ -57,7 +57,7 @@ class ProfitComputeTest(unittest.TestCase):
         # kỳ TRƯỚC (19/08): SP1 ×1 → lãi 5k
         _add_order(self.conn, MIN_THREAD_ID + 3, {
             "created": "2026-08-19T03:00:00+00:00", "customer_name": "Chị Hoa",
-            "invoice": [{"sp": "SP1", "sl": 1, "price": 10000}]})
+            "invoice": [{"sp": "SP1", "sl": 1, "price": 10000, "cost_price": 5000}]})
 
     def test_dashboard_summary_and_prev(self):
         d = dashboard_data(self.conn, "2026-08-20", "2026-08-20", 0, None)
@@ -68,9 +68,9 @@ class ProfitComputeTest(unittest.TestCase):
         self.assertEqual(s["loan"], 0)
         self.assertEqual(s["real_profit"], 10000)
         # kỳ trước = 19/08 (1 ngày): 1 đơn, lãi 5000 → profit +100%
-        self.assertEqual(s["prev"], {"revenue": 10000, "cost": 5000,
+        self.assertEqual({k: s["prev"][k] for k in ("revenue", "cost", "profit", "orders")}, {"revenue": 10000, "cost": 5000,
                                      "profit": 5000, "orders": 1})
-        self.assertEqual(s["changes"]["profit"], 100.0)
+        self.assertIsNone(s["changes"]["profit"])  # kỳ này thiếu vốn, không công bố tăng trưởng lãi
         # chart có đúng 1 ngày của kỳ
         self.assertEqual([c["day"] for c in d["chart"]], ["2026-08-20"])
         self.assertEqual(d["chart"][0]["profit"], 10000)
@@ -91,15 +91,15 @@ class ProfitComputeTest(unittest.TestCase):
         self.assertEqual(s["loan"], int(1_000_000 / 31))
         self.assertEqual(s["real_profit"], s["profit"] - s["loan"])
 
-    def test_dashboard_filters_summary_but_not_tops(self):
+    def test_dashboard_filters_summary_and_tops(self):
         # lọc theo SP2 (chỉ đơn của Anh Ba, chưa có vốn): summary/products theo lọc,
-        # TOP 5 vẫn tính trên toàn bộ kỳ (như bản gốc)
+        # TOP 5 dùng cùng bộ lọc với tổng quan
         d = dashboard_data(self.conn, "2026-08-20", "2026-08-20", 0, None,
                            filter_product="SP2")
         self.assertEqual(d["summary"]["orders"], 1)
         self.assertEqual(d["summary"]["revenue"], 8000)
         self.assertEqual([p["code"] for p in d["products"]], ["SP2"])
-        self.assertEqual(d["top_customers"][0]["name"], "Chị Hoa")   # top KHÔNG lọc
+        self.assertEqual(d["top_customers"][0]["name"], "Anh Ba")
         d2 = dashboard_data(self.conn, "2026-08-20", "2026-08-20", 0, None,
                             filter_customer="hoa")
         self.assertEqual(d2["summary"]["orders"], 1)
@@ -110,7 +110,7 @@ class ProfitComputeTest(unittest.TestCase):
         _add_order(self.conn, MIN_THREAD_ID + 10, {
             "created": "2026-08-20T05:00:00.000Z", "customer_name": "Chị Hoa",
             "payments": [{"amount": 20000}],
-            "invoice": [{"sp": "SP1", "sl": 1, "price": 10000}]})
+            "invoice": [{"sp": "SP1", "sl": 1, "price": 10000, "cost_price": 5000}]})
         d = dashboard_data(self.conn, "2026-08-20", "2026-08-20", 0, None, paid_only=True)
         self.assertEqual(d["summary"]["orders"], 1)
         self.assertEqual(d["summary"]["revenue"], 10000)
@@ -147,7 +147,7 @@ class ProfitComputeTest(unittest.TestCase):
         # khối "Báo cáo bán ra": thêm khách thứ 2 mua SP1 cùng kỳ → top theo doanh thu
         _add_order(self.conn, MIN_THREAD_ID + 20, {
             "created": "2026-08-20T06:00:00+00:00", "customer_name": "Anh Ba",
-            "invoice": [{"sp": "SP1", "sl": 1, "price": 12000}]})
+            "invoice": [{"sp": "SP1", "sl": 1, "price": 12000, "cost_price": 5000}]})
         d = product_detail_data(self.conn, "sp1", "2026-08-19", "2026-08-20")
         self.assertEqual(d["totals"]["customers"], 2)
         tops = d["top_customers"]

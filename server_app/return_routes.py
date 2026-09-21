@@ -210,6 +210,20 @@ async def returns_list_handler(request: web.Request):
     return web.json_response({"ok": True, "returns": rows})
 
 
+def _validated_return_source(conn, customer_key, value):
+    """Liên kết đơn gốc phải tồn tại, chưa xóa và đúng khách trả hàng."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool) or not str(value).isdigit() or int(value) <= 0:
+        raise ValueError("Số đơn gốc không hợp lệ")
+    from order_store.serialization import get_order_by_thread_id
+    tid = int(value)
+    order = get_order_by_thread_id(conn, tid, include_deleted=False)
+    if not order or str(order.get("khach_hang_id") or "") != str(customer_key):
+        raise ValueError("Đơn gốc không tồn tại, đã xóa hoặc không thuộc khách đang chọn")
+    return tid
+
+
 async def returns_create_handler(request: web.Request):
     """Body {items: [{sp, sl, price}], note?, thread_id?} — giá DƯƠNG (tiền trả)."""
     from server_app.order_api_common import is_office_request
@@ -233,10 +247,14 @@ async def returns_create_handler(request: web.Request):
     def _save():
         conn = get_connection()
         try:
-            return add_return(conn, key, _normalize_items(conn, items), total, note=note, thread_id=thread_id, by=actor)
+            source_id = _validated_return_source(conn, key, thread_id)
+            return add_return(conn, key, _normalize_items(conn, items), total, note=note, thread_id=source_id, by=actor)
         finally:
             conn.close()
-    row = await asyncio.to_thread(_save)
+    try:
+        row = await asyncio.to_thread(_save)
+    except ValueError as exc:
+        return web.json_response({"ok": False, "error": str(exc)}, status=400)
 
     from server_app.realtime import emit_customer_changed, emit_return_changed
     emit_customer_changed(key)

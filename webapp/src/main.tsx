@@ -84,6 +84,7 @@ import { ProfitCustomers } from "./pages/ProfitCustomers";
 import { ProfitCustomer } from "./pages/ProfitCustomer";
 import { ProfitProduct } from "./pages/ProfitProduct";
 import { ProfitSettings } from "./pages/ProfitSettings";
+import { SalesDashboard } from "./pages/SalesDashboard";
 import { DisposalsList } from "./pages/DisposalsList";
 import { AdjustmentsList } from "./pages/AdjustmentsList";
 import { DisposalDetail } from "./pages/DisposalDetail";
@@ -619,6 +620,7 @@ function App() {
   else if (hash.startsWith("#/lich-su")) page = <ActivityLog />;
   else if (hash.startsWith("#/camera")) page = <CameraGallery />;
   else if (hash.startsWith("#/usage")) page = <UsageStats />;
+  else if (hash.startsWith("#/ban-hang")) page = <SalesDashboard />;
   // Lợi nhuận NATIVE (bộ trang HTML /loi-nhuan/* cũ đã gỡ 2026-08-26) — nhánh
   // DÀI đứng trước để "#/loi-nhuan" không nuốt trang con
   else if (hash.startsWith("#/loi-nhuan/khach/")) page = <ProfitCustomer name={decodeURIComponent(hash.slice("#/loi-nhuan/khach/".length).split("?")[0])} />;
@@ -718,6 +720,7 @@ function App() {
     : hash.startsWith("#/lich-su") ? "Lịch sử thao tác"
     : hash.startsWith("#/camera") ? "Camera 2026"
     : hash.startsWith("#/usage") ? "Thống kê sử dụng"
+    : hash.startsWith("#/ban-hang") ? "Bán hàng"
     : hash.startsWith("#/loi-nhuan") ? "Lợi nhuận"
     : hash.startsWith("#/dang-giao") ? "Ai đang giao"
     : hash.startsWith("#/lich") ? "Lịch giao"

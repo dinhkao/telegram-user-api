@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
+import math
+from datetime import date, datetime, timezone, timedelta
 
 from aiohttp import web
 
@@ -25,6 +26,8 @@ def _run(fn, *args, **kw):
     def work():
         conn = get_connection(SHARED_DB_PATH)
         try:
+            if fn.__module__ == "profit_dashboard.compute" or fn.__name__ == "orders_feed":
+                conn.execute("BEGIN")  # cùng một snapshot cho KPI, kỳ trước và chi tiết
             return fn(conn, *args, **kw)
         finally:
             conn.close()
@@ -32,10 +35,32 @@ def _run(fn, *args, **kw):
 
 
 def _dates(request):
-    today = time.strftime("%Y-%m-%d")
-    since = (request.query.get("since") or today).strip() or None
-    until = (request.query.get("until") or "").strip() or None
+    today = datetime.now(timezone(timedelta(hours=7))).date().isoformat()
+    since = (request.query.get("since") or today).strip()
+    until = (request.query.get("until") or today).strip()
+    try:
+        start, end = date.fromisoformat(since), date.fromisoformat(until)
+        if start.isoformat() != since or end.isoformat() != until or start > end:
+            raise ValueError
+        if (end - start).days >= 3660:
+            raise ValueError
+    except ValueError:
+        raise web.HTTPBadRequest(text='{"ok":false,"error":"Khoảng ngày không hợp lệ: ngày bắt đầu phải trước hoặc bằng ngày kết thúc, tối đa 3.660 ngày."}', content_type="application/json")
     return since, until
+
+
+def _filters(request, *, with_sort=False):
+    from profit_dashboard.filters import PAYMENT_FILTERS, PROFIT_FILTERS, COST_FILTERS, ORDER_SORTS
+    allowed = {"payment": PAYMENT_FILTERS, "profitability": PROFIT_FILTERS, "cost_status": COST_FILTERS}
+    if with_sort:
+        allowed["sort"] = ORDER_SORTS
+    result = {}
+    for key, values in allowed.items():
+        value = request.query.get(key, "newest" if key == "sort" else "all")
+        if value not in values:
+            raise web.HTTPBadRequest(text='{"ok":false,"error":"Bộ lọc lợi nhuận không hợp lệ"}', content_type="application/json")
+        result[key] = value
+    return result
 
 
 async def _office(request) -> bool:
@@ -53,13 +78,14 @@ async def profit_dashboard_handler(request: web.Request):
     from profit_dashboard.compute import dashboard_data
     from profit_dashboard.settings import load_settings
     since, until = _dates(request)
+    filters = _filters(request)
     st = load_settings()
     product = (request.query.get("product") or "").strip().upper() or None
     customer = (request.query.get("customer") or "").strip() or None
     paid_only = request.query.get("paid") == "1"
     data = await _run(dashboard_data, since, until,
                       int(st.get("yearly_loan_payment") or 0), st.get("monthly_weights"),
-                      filter_product=product, filter_customer=customer, paid_only=paid_only)
+                      filter_product=product, filter_customer=customer, paid_only=paid_only, **filters)
     return web.json_response({"ok": True, **data})
 
 
@@ -68,6 +94,7 @@ async def profit_orders_handler(request: web.Request):
         return _deny()
     from profit_dashboard.queries import orders_feed
     since, until = _dates(request)
+    filters = _filters(request, with_sort=True)
     try:
         page = max(1, int(request.query.get("page", 1)))
         per_page = min(200, max(1, int(request.query.get("per_page", 50))))
@@ -77,7 +104,7 @@ async def profit_orders_handler(request: web.Request):
     customer = (request.query.get("customer") or "").strip() or None
     paid_only = request.query.get("paid") == "1"
     data = await _run(orders_feed, page, per_page, since, until, product, customer,
-                      paid_only=paid_only)
+                      paid_only=paid_only, **filters)
     return web.json_response({"ok": True, **data})
 
 
@@ -129,8 +156,9 @@ async def profit_settings_save_handler(request: web.Request):
         if yearly < 0:
             return web.json_response({"ok": False, "error": "Số tiền không hợp lệ"}, status=400)
         raw = data.get("monthly_weights") or {}
-        weights = {str(m): max(0.0, float(raw.get(str(m), raw.get(m, 1.0))))
-                   for m in range(1, 13)}
+        weights = {str(m): float(raw.get(str(m), raw.get(m, 1.0))) for m in range(1, 13)}
+        if any(not math.isfinite(v) or v < 0 for v in weights.values()) or sum(weights.values()) <= 0:
+            raise ValueError("Trọng số không hợp lệ")
     except (TypeError, ValueError):
         return web.json_response({"ok": False, "error": "Dữ liệu không hợp lệ"}, status=400)
     if not save_settings({"yearly_loan_payment": yearly, "monthly_weights": weights}):

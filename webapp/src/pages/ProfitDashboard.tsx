@@ -1,81 +1,33 @@
-// Dashboard LỢI NHUẬN native (#/loi-nhuan, CHỈ văn phòng) — thay bộ trang HTML
-// /loi-nhuan/* cũ (gỡ 2026-08-26), giữ ĐỦ tính năng bản gốc: chọn kỳ + LỌC theo
-// mã SP/khách (debounce, áp summary/bảng/feed — top 5 vẫn toàn cảnh), thẻ tóm
-// tắt so % kỳ trước + LÃI THỰC, nút 🔒 đóng băng giá vốn, 3 tab: Đơn hàng (feed
-// + chip SP) · Sản phẩm (sửa giá vốn hàng loạt + lọc SP chưa có vốn) · Biểu đồ
-// (SVG: gộp Ngày/Tuần/Tháng, 4 chuỗi DT/Vốn/Lãi/LN sau vay + đường Biên LN%).
+// Tổng quan lợi nhuận: kỳ báo cáo, bộ lọc nghiệp vụ, cảnh báo và drill-down.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON, postJSON, isOffice } from "../api";
 import { money, fmtQty } from "../format";
-import { ProfitDateBar, Chg, presetRange, type DateRange } from "../detail/ProfitDateBar";
+import { ProfitDateBar } from "../detail/ProfitDateBar";
+import { presetRange, validRange, displayRange, type DateRange } from "../detail/profitDates";
+import { DEFAULT_FILTERS, PAYMENT_OPTIONS, PROFIT_OPTIONS, COST_OPTIONS, QUICK_FILTERS, profitParams, type ProfitFilters } from "../detail/profitFilters";
 import { ProfitOrdersFeed } from "../detail/ProfitOrdersFeed";
+import { ProfitSummary, ProfitOverview, ProfitCoverageNote } from "../detail/ProfitOverview";
+import { ProfitChart } from "../detail/ProfitChart";
 import { confirmDialog, toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { Loading, ErrorState, EmptyState } from "../ui/states";
 
-function SummaryCards({ s }: { s: any }) {
-  return (
-    <>
-      <div class="pf-cards">
-        <div class="card pf-card"><h4>Doanh thu</h4><b>{money(s.revenue)}</b><Chg v={s.changes?.revenue} /></div>
-        <div class="card pf-card"><h4>Giá vốn</h4><b>{money(s.cost)}</b><Chg v={s.changes?.cost} /></div>
-        <div class="card pf-card"><h4>Lãi gộp</h4><b class={s.profit >= 0 ? "t-ok" : "t-danger"}>{money(s.profit)}</b><Chg v={s.changes?.profit} /></div>
-        <div class="card pf-card"><h4>Số đơn</h4><b>{s.orders}</b><Chg v={s.changes?.orders} /></div>
-      </div>
-      <div class="card pf-real">
-        <h4>💎 Lợi nhuận thực (sau lãi vay ngân hàng)</h4>
-        <b>{money(s.real_profit)}</b>
-        <div class="small">Trừ lãi vay: −{money(s.loan)} <span class="pf-margin-badge">Biên: {s.margin}%</span></div>
-        <div class="small" style="opacity:.85">= Lãi gộp {money(s.profit)} − lãi vay phân bổ kỳ này (cấu hình ở ⚙)</div>
-        {s.prev_label ? <div class="small" style="opacity:.8">so kỳ trước {s.prev_label}: lãi {money(s.prev?.profit || 0)}</div> : null}
-      </div>
-    </>
-  );
-}
-
-function TopLists({ d }: { d: any }) {
-  return (
-    <div class="pf-tops">
-      <div class="card">
-        <div class="ie-head">Top khách (lãi)</div>
-        {(d.top_customers || []).map((c: any, i: number) => (
-          <a key={c.name} class="pf-top-row" href={`#/loi-nhuan/khach/${encodeURIComponent(c.name)}`}>
-            <span class="pf-rank">{i + 1}</span>
-            <span class="pf-top-name">{c.name}</span>
-            <span class="num"><b class={c.profit >= 0 ? "t-ok" : "t-danger"}>{money(c.profit)}</b>
-              <span class="muted small"> · {c.orders} đơn</span></span>
-          </a>
-        ))}
-      </div>
-      <div class="card">
-        <div class="ie-head">Top sản phẩm (lãi)</div>
-        {(d.top_products || []).map((p: any, i: number) => (
-          <a key={p.code} class="pf-top-row" href={`#/loi-nhuan/sp/${encodeURIComponent(p.code)}`}>
-            <span class="pf-rank">{i + 1}</span>
-            <span class="pf-top-name">{p.code}</span>
-            <span class="num"><b class={p.profit >= 0 ? "t-ok" : "t-danger"}>{money(p.profit)}</b>
-              <span class="muted small"> · {fmtQty(p.qty)}</span></span>
-          </a>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // Tab Sản phẩm: bảng lãi theo SP + Ô GIÁ VỐN MỚI sửa hàng loạt → POST /api/profit/costs
-function ProductCostTable({ products, onSaved }: { products: any[]; onSaved: () => void }) {
+function ProductCostTable({ products, range, onSaved }: { products: any[]; range: DateRange; onSaved: () => void }) {
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);   // "Chọn SP chưa có giá vốn" bản gốc
-  const missing = products.filter((p) => !p.cost_price).length;
-  const shown = onlyMissing ? products.filter((p) => !p.cost_price) : products;
+  const missing = products.filter((p) => p.missing_cost_lines > 0).length;
+  const shown = onlyMissing ? products.filter((p) => p.missing_cost_lines > 0) : products;
   const dirty = Object.entries(edits).filter(([, v]) => v.trim() !== "");
   const save = async () => {
     const updates: Record<string, number> = {};
     for (const [code, v] of dirty) {
-      const n = parseInt(v.replace(/[.,\s]/g, ""), 10);
-      if (!isNaN(n) && n >= 0) updates[code] = n;
+      const digits = v.replace(/[.,\s]/g, "");
+      const n = Number(digits);
+      if (!/^\d+$/.test(digits) || !Number.isSafeInteger(n)) { toast(`Giá vốn ${code} phải là số nguyên không âm`, "err"); return; }
+      updates[code] = n;
     }
     if (!Object.keys(updates).length) { toast("Chưa nhập giá vốn mới nào", "info"); return; }
     setBusy(true);
@@ -98,196 +50,123 @@ function ProductCostTable({ products, onSaved }: { products: any[]; onSaved: () 
       {missing > 0 && (
         <div class="chips">
           <button class={"chip" + (onlyMissing ? " active" : "")} onClick={() => setOnlyMissing((v) => !v)}>
-            ⚠ Chưa có giá vốn ({missing})
+            ⚠ Thiếu giá vốn trong đơn ({missing})
           </button>
         </div>
       )}
-      <table class="inv-mini pf-table">
-        <thead><tr><th>SP</th><th class="num">Vốn</th><th class="num">Vốn mới</th><th class="num">SL</th><th class="num">Lãi</th></tr></thead>
+      <p class="small muted">Giá vốn đã dự tính VAT bán ra. Lãi SP chưa cộng VAT và phí cấp đơn; xem tổng đơn để có đủ các khoản này. Giá vốn mới không thay giá đã lưu trong đơn. * Lãi chưa đầy đủ do có dòng thiếu vốn.</p>
+      {!shown.length && <EmptyState>Không có sản phẩm phù hợp.</EmptyState>}
+      <div class="pf-table-scroll"><table class="inv-mini pf-table pf-products-table">
+        <thead><tr><th>SP</th><th class="num">Vốn hiện tại</th><th class="num">Vốn mới</th><th class="num">SL / đơn</th><th class="num">Doanh thu</th><th class="num">Tổng vốn</th><th class="num">Lãi / biên</th></tr></thead>
         <tbody>
           {shown.map((p) => (
             <tr key={p.code}>
-              <td><a href={`#/loi-nhuan/sp/${encodeURIComponent(p.code)}`} title={p.name}>{p.code}</a></td>
+              <td><a href={`#/loi-nhuan/sp/${encodeURIComponent(p.code)}?${new URLSearchParams(range)}`} title={p.name}>{p.code}</a><div class="small muted">{p.name}</div>{p.missing_cost_lines > 0 && <span class="small t-warn">{p.missing_cost_lines} dòng thiếu vốn</span>}</td>
               <td class="num">{p.cost_price ? money(p.cost_price) : <span class="t-warn">chưa có</span>}</td>
               <td class="num"><input class="pf-cost-inp" inputMode="numeric" placeholder="giá"
-                value={edits[p.code] ?? ""}
+                aria-label={`Giá vốn mới ${p.code}`} value={edits[p.code] ?? ""}
                 onInput={(e: any) => setEdits((prev) => ({ ...prev, [p.code]: e.target.value }))} /></td>
-              <td class="num">{fmtQty(p.qty)}</td>
-              <td class="num"><b class={p.profit >= 0 ? "t-ok" : "t-danger"}>{money(p.profit)}</b></td>
+              <td class="num">{fmtQty(p.qty)}<div class="small muted">{p.orders} đơn</div></td><td class="num">{money(p.revenue)}</td><td class="num">{money(p.cost)}</td>
+              <td class="num"><b class={p.profit >= 0 ? "t-ok" : "t-danger"}>{money(p.profit)}{p.missing_cost_lines > 0 ? " *" : ""}</b><div class="small muted">{p.margin == null ? "—" : `${p.margin}%`}</div></td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 }
 
-// Tab Biểu đồ (SVG thuần): gộp Ngày/Tuần/Tháng + chọn chuỗi (DT/Vốn/Lãi/LN sau
-// vay) + đường Biên LN% (trục phải, như Chart.js bản gốc)
-const SERIES: [string, string, string][] = [
-  ["revenue", "Doanh thu", "#3b82f6"], ["cost", "Giá vốn", "#ef4444"],
-  ["profit", "Lãi gộp", "#22c55e"], ["real_profit", "LN sau vay", "#a855f7"],
-];
-const AGGS: [string, string][] = [["daily", "Ngày"], ["weekly", "Tuần"], ["monthly", "Tháng"]];
-
-function aggregate(chart: any[], mode: string): any[] {
-  if (mode === "daily") return chart;
-  const groups: Record<string, any> = {};
-  for (const c of chart) {
-    let key: string;
-    if (mode === "weekly") {
-      const dt = new Date(c.day);
-      const mon = new Date(dt);
-      mon.setDate(dt.getDate() - ((dt.getDay() + 6) % 7));   // về thứ 2
-      key = `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, "0")}-${String(mon.getDate()).padStart(2, "0")}`;
-    } else key = c.day.slice(0, 7);
-    const g = groups[key] || (groups[key] = { day: key, revenue: 0, cost: 0, profit: 0, real_profit: 0 });
-    g.revenue += c.revenue; g.cost += c.cost || 0; g.profit += c.profit; g.real_profit += c.real_profit;
-  }
-  return Object.keys(groups).sort().map((k) => groups[k]);
-}
-
-function ProfitChart({ chart }: { chart: any[] }) {
-  const [serie, setSerie] = useState("real_profit");
-  const [agg, setAgg] = useState("daily");
-  if (!chart.length) return <EmptyState>Chưa có dữ liệu trong khoảng ngày này.</EmptyState>;
-  const data = aggregate(chart, agg);
-  const color = SERIES.find(([k]) => k === serie)![2];
-  const W = 900, H = 240, PAD = 4;
-  const vals = data.map((c) => Number(c[serie]) || 0);
-  const max = Math.max(...vals, 1), min = Math.min(...vals, 0);
-  const span = max - min || 1;
-  const bw = (W - PAD * 2) / data.length;
-  const y0 = PAD + (max / span) * (H - PAD * 2);
-  // đường Biên LN% (profit/revenue) — scale 0..100% vào chiều cao khung
-  const marginPts = data.map((c, i) => {
-    const m = c.revenue > 0 ? (c.profit / c.revenue) * 100 : 0;
-    const y = H - PAD - Math.max(0, Math.min(100, m)) / 100 * (H - PAD * 2);
-    return `${PAD + i * bw + bw / 2},${y}`;
-  }).join(" ");
-  return (
-    <div class="card">
-      <div class="chips">
-        {AGGS.map(([k, label]) => (
-          <button key={k} class={"chip" + (agg === k ? " active" : "")} onClick={() => setAgg(k)}>{label}</button>
-        ))}
-        <span style="width:8px" />
-        {SERIES.map(([k, label, c]) => (
-          <button key={k} class={"chip" + (serie === k ? " active" : "")}
-            style={serie === k ? `background:${c};border-color:${c};color:#fff` : ""}
-            onClick={() => setSerie(k)}>{label}</button>
-        ))}
-      </div>
-      <div style="overflow-x:auto">
-        <svg viewBox={`0 0 ${W} ${H + 18}`} style="width:100%;min-width:480px">
-          <line x1={PAD} x2={W - PAD} y1={y0} y2={y0} stroke="var(--muted)" stroke-width="0.5" />
-          {data.map((c, i) => {
-            const v = Number(c[serie]) || 0;
-            const h = (Math.abs(v) / span) * (H - PAD * 2);
-            const y = v >= 0 ? y0 - h : y0;
-            const m = c.revenue > 0 ? ((c.profit / c.revenue) * 100).toFixed(1) : "0";
-            return (
-              <g key={c.day}>
-                <rect x={PAD + i * bw + 1} y={y} width={Math.max(1, bw - 2)} height={Math.max(1, h)} fill={color}>
-                  <title>{c.day}: {money(v)} · biên {m}%</title>
-                </rect>
-                {data.length <= 31 && i % Math.ceil(data.length / 10) === 0 && (
-                  <text x={PAD + i * bw + bw / 2} y={H + 12} font-size="9" text-anchor="middle"
-                    fill="currentColor" opacity="0.6">{agg === "monthly" ? c.day.slice(5, 7) : `${c.day.slice(8, 10)}/${c.day.slice(5, 7)}`}</text>
-                )}
-              </g>
-            );
-          })}
-          {data.length > 1 && <polyline points={marginPts} fill="none" stroke="#f59e0b" stroke-width="1.5" opacity="0.9" />}
-        </svg>
-      </div>
-      <div class="muted small">Đường vàng = Biên LN % (0–100%, trục phải ẩn) · cột = {SERIES.find(([k]) => k === serie)![1]}</div>
-    </div>
-  );
+function initialState(): { range: DateRange; filters: ProfitFilters } {
+  const fallback = { range: presetRange("today"), filters: { ...DEFAULT_FILTERS, payment: sessionStorage.getItem("pf_paid") === "1" ? "received" : "all" } };
+  try {
+    const saved = JSON.parse(sessionStorage.getItem("pf_dashboard_v2") || "null");
+    if (!saved || !validRange(saved.range)) return fallback;
+    const f = saved.filters;
+    if (typeof f?.product !== "string" || typeof f?.customer !== "string" || !PAYMENT_OPTIONS.some(([k]) => k === f.payment)
+      || !PROFIT_OPTIONS.some(([k]) => k === f.profitability) || !COST_OPTIONS.some(([k]) => k === f.cost_status)) return fallback;
+    return saved;
+  } catch { return fallback; }
 }
 
 export function ProfitDashboard() {
-  const [range, setRange] = useState<DateRange>(() => presetRange("today"));
-  const [fp, setFp] = useState("");            // lọc mã SP (debounce)
-  const [fc, setFc] = useState("");            // lọc khách
-  const [flt, setFlt] = useState({ product: "", customer: "" });   // bản đã debounce
+  const [initial] = useState(initialState);
+  const [range, setRange] = useState(initial.range);
+  const [filters, setFilters] = useState<ProfitFilters>(initial.filters);
+  const [applied, setApplied] = useState(filters);
   const [data, setData] = useState<any>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<string>(() => sessionStorage.getItem("pf_tab") || "don");
-  // Chỉ tính đơn ĐÃ thanh toán (≥1 phiếu thu) — đơn chưa thu loại khỏi mọi số
-  const [paidOnly, setPaidOnly] = useState(() => sessionStorage.getItem("pf_paid") === "1");
-  const togglePaid = () => setPaidOnly((v) => { sessionStorage.setItem("pf_paid", v ? "" : "1"); return !v; });
+  const [loading, setLoading] = useState(true);
+  const [reload, setReload] = useState(0);
+  const [tab, setTab] = useState(() => {
+    const stored = sessionStorage.getItem("pf_tab") || "overview";
+    return ["overview", "don", "sp", "chart"].includes(stored) ? stored : "overview";
+  });
+  const [sort, setSort] = useState("newest");
+  const requestId = useRef(0);
+  const office = isOffice();
   const pickTab = (t: string) => { setTab(t); sessionStorage.setItem("pf_tab", t); };
-  const t = useRef<number>();
   useEffect(() => {
-    clearTimeout(t.current);
-    t.current = window.setTimeout(() => setFlt({ product: fp, customer: fc }), 300);
-    return () => clearTimeout(t.current);
-  }, [fp, fc]);
-
-  const load = () => {
-    setErr("");
-    const p = new URLSearchParams({ since: range.since, until: range.until });
-    if (flt.product.trim()) p.set("product", flt.product.trim());
-    if (flt.customer.trim()) p.set("customer", flt.customer.trim());
-    if (paidOnly) p.set("paid", "1");
-    getJSON(`/api/profit/dashboard?${p}`, { cache: false })
-      .then(setData).catch((e: any) => setErr(e?.message || "Lỗi tải"));
-  };
-  useEffect(load, [range.since, range.until, flt.product, flt.customer, paidOnly]);
-
-  // 🔒 đóng băng giá vốn — như nút trên thanh lọc của bản gốc
+    const timer = window.setTimeout(() => setApplied(filters), filters.product !== applied.product || filters.customer !== applied.customer ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [filters]);
+  useEffect(() => { sessionStorage.setItem("pf_dashboard_v2", JSON.stringify({ range, filters })); }, [range, filters]);
+  useEffect(() => {
+    const id = ++requestId.current;
+    if (!office) { setLoading(false); return; }
+    setLoading(true); setErr(""); setData(null);
+    getJSON(`/api/profit/dashboard?${profitParams(range, applied)}`, { cache: false })
+      .then(d => { if (id === requestId.current) setData(d); })
+      .catch((e: any) => { if (id === requestId.current) setErr(e?.message || "Lỗi tải"); })
+      .finally(() => { if (id === requestId.current) setLoading(false); });
+    return () => { requestId.current++; };
+  }, [range.since, range.until, applied, reload, office]);
+  const refresh = () => setReload(v => v + 1);
   const freeze = async () => {
-    if (!(await confirmDialog(
-      "Đóng băng giá vốn vào tất cả đơn hàng? Giá vốn hiện tại sẽ được lưu vào đơn và không đổi khi cập nhật giá mới.",
-      { okLabel: "Đóng băng" }))) return;
+    if (!(await confirmDialog("Ghi vốn hiện tại làm ƯỚC TÍNH vào đơn từ mốc 460000 còn thiếu? Áp dụng ngoài bộ lọc đang xem. Báo cáo vẫn yêu cầu vốn lịch sử được xác nhận; giá ước tính không làm đơn thành đủ vốn.", { okLabel: "Đóng băng" }))) return;
     setBusy(true);
-    try {
-      const j = await postJSON("/api/profit/freeze-costs", {});
-      toast(`Đã đóng băng giá vốn vào ${j.updated} đơn`, "ok");
-      load();
-    } catch (e: any) { toast(e?.message || "Lỗi", "err"); }
+    try { const j = await postJSON("/api/profit/freeze-costs", {}); toast(`Đã ghi vốn ước tính vào ${j.updated} đơn`, "ok"); refresh(); }
+    catch (e: any) { toast(e?.message || "Lỗi", "err"); }
     finally { setBusy(false); }
   };
-
-  if (!isOffice()) return <div class="prod-detail"><PageHead fallback="#/home" title="Lợi nhuận" /><EmptyState>Chỉ văn phòng được xem trang lợi nhuận.</EmptyState></div>;
-  if (err && !data) return <div class="prod-detail"><PageHead fallback="#/home" title="Lợi nhuận" /><ErrorState msg={err} onRetry={load} /></div>;
-
-  return (
-    <div class="prod-detail">
-      <PageHead fallback="#/home" title="Lợi nhuận" sub={`${range.since} → ${range.until}`}
-        right={<span class="row">
-          <a class="btn small" href="#/loi-nhuan/khach"><Icon name="users" size={14} /> Khách</a>
-          <a class="btn small" href="#/loi-nhuan/cai-dat"><Icon name="settings" size={14} /></a>
-        </span>} />
-      <ProfitDateBar range={range} onChange={setRange} />
-      <div class="card pf-filterbar">
-        <input class="note-inp" placeholder="Lọc theo mã SP" value={fp}
-          onInput={(e: any) => setFp(e.target.value)} />
-        <input class="note-inp" placeholder="Lọc theo khách hàng" value={fc}
-          onInput={(e: any) => setFc(e.target.value)} />
-        {(fp || fc) && <button class="btn small" onClick={() => { setFp(""); setFc(""); }}>Xoá lọc</button>}
-        <button class={"chip" + (paidOnly ? " active" : "")} onClick={togglePaid}
-          title="Bật: đơn chưa có thanh toán nào bị LOẠI khỏi mọi số lợi nhuận">
-          💰 Chỉ đơn đã thanh toán
-        </button>
-        <button class="btn small" disabled={busy} onClick={freeze}>🔒 Đóng băng giá vốn</button>
-      </div>
-      {!data ? <Loading /> : (
-        <>
-          <SummaryCards s={data.summary} />
-          <TopLists d={data} />
-          <div class="seg mt-2">
-            {[["don", "Đơn hàng"], ["sp", "Sản phẩm"], ["chart", "Biểu đồ"]].map(([k, label]) => (
-              <button key={k} class={"seg-btn" + (tab === k ? " active" : "")} onClick={() => pickTab(k)}>{label}</button>
-            ))}
-          </div>
-          {tab === "don" && <ProfitOrdersFeed range={range} product={flt.product} customer={flt.customer} paidOnly={paidOnly} />}
-          {tab === "sp" && <ProductCostTable products={data.products || []} onSaved={load} />}
-          {tab === "chart" && <ProfitChart chart={data.chart || []} />}
-        </>
-      )}
+  const set = (key: keyof ProfitFilters, value: string) => setFilters(f => ({ ...f, [key]: value }));
+  const quick = (patch: Partial<ProfitFilters>) => setFilters(f => ({ ...DEFAULT_FILTERS, product: f.product, customer: f.customer, ...patch }));
+  const activeQuick = QUICK_FILTERS.find(q => ["payment", "profitability", "cost_status"].every(k => filters[k as keyof ProfitFilters] === ({ ...DEFAULT_FILTERS, ...q.filters })[k as keyof ProfitFilters]))?.id;
+  const filterCount = Object.entries(filters).filter(([k, v]) => v !== DEFAULT_FILTERS[k as keyof ProfitFilters]).length;
+  const pending = loading || filters !== applied;
+  if (!office) return <div class="prod-detail"><PageHead fallback="#/home" title="Lợi nhuận" /><EmptyState>Chỉ văn phòng được xem trang lợi nhuận.</EmptyState></div>;
+  return <div class="prod-detail pf-dashboard">
+    <PageHead fallback="#/home" title="Lợi nhuận" sub="Theo dõi hiệu quả từng kỳ, tìm đơn cần xử lý"
+      right={<a class="btn small" href="#/loi-nhuan/cai-dat" aria-label="Cài đặt lợi nhuận"><Icon name="settings" size={16} /></a>} />
+    <ProfitDateBar range={range} onChange={setRange} />
+    <div class="card pf-filters">
+      <div class="pf-section-label">Bộ lọc nhanh <button class="pf-reset" disabled={!filterCount} onClick={() => setFilters({ ...DEFAULT_FILTERS })}>Xoá lọc{filterCount ? ` (${filterCount})` : ""}</button></div>
+      <div class="chips pf-presets">{QUICK_FILTERS.map(q => <button class={"chip" + (activeQuick === q.id ? " active" : "")} aria-pressed={activeQuick === q.id} onClick={() => quick(q.filters)}>{q.label}</button>)}</div>
+      <div class="pf-filter-inputs"><label>Mã sản phẩm<input class="note-inp" placeholder="Nhập chính xác mã SP" value={filters.product} onInput={(e: any) => set("product", e.currentTarget.value)} /></label>
+        <label>Khách hàng<input class="note-inp" placeholder="Tìm theo tên khách" value={filters.customer} onInput={(e: any) => set("customer", e.currentTarget.value)} /></label></div>
+      <details class="pf-advanced"><summary>Kết hợp bộ lọc chi tiết</summary><div class="pf-filter-selects">
+        {([["payment", "Phiếu thu", PAYMENT_OPTIONS], ["profitability", "Mức lợi nhuận", PROFIT_OPTIONS], ["cost_status", "Giá vốn", COST_OPTIONS]] as const).map(([key, label, options]) =>
+          <label>{label}<select aria-label={label} value={filters[key]} onChange={(e: any) => set(key, e.currentTarget.value)}>{options.map(([v, l]) => <option value={v}>{l}</option>)}</select></label>)}
+      </div></details>
+      <div class="pf-filter-context" aria-live="polite">{[...PAYMENT_OPTIONS, ...PROFIT_OPTIONS, ...COST_OPTIONS].filter(([key]) => key !== "all" && [filters.payment, filters.profitability, filters.cost_status].includes(key)).map(([, label]) => <span>{label}</span>)}</div>
+      <p class="small muted">Lọc theo toàn đơn hàng. “Có phiếu thu” bao gồm cả đơn thu một phần. Bộ lọc mức lãi chỉ xét đơn đủ giá vốn.</p>
     </div>
-  );
+    <div class="pf-report-toolbar"><span>{pending ? "Đang cập nhật…" : `${data?.summary.orders || 0} đơn bán · ${data?.summary.returns || 0} phiếu trả · ${displayRange(range)}`}</span>
+      <button class="btn small" disabled={pending} onClick={refresh}>Làm mới</button></div>
+    {pending ? <Loading label="Đang tính báo cáo theo bộ lọc…" /> : err ? <ErrorState msg={err} onRetry={refresh} /> : data && <>
+      <ProfitSummary s={data.summary} /><ProfitCoverageNote coverage={data.coverage} />
+      {!data.summary.entries && <div class="card"><EmptyState>Không có đơn phù hợp. Hãy mở rộng khoảng ngày hoặc xoá bớt bộ lọc.</EmptyState></div>}
+      <div class="seg pf-tabs">{[["overview", "Tổng quan"], ["don", "Đơn hàng"], ["sp", "Sản phẩm"], ["chart", "Xu hướng"]].map(([k, label]) =>
+        <button class={"seg-btn" + (tab === k ? " active" : "")} aria-pressed={tab === k} onClick={() => pickTab(k)}>{label}</button>)}</div>
+      {tab === "overview" && <ProfitOverview data={data} range={range} onFilter={patch => { setFilters(f => ({ ...f, ...patch })); pickTab("don"); }} />}
+      {tab === "don" && <><label class="pf-sort">Sắp xếp đơn<select aria-label="Sắp xếp đơn" value={sort} onChange={(e: any) => setSort(e.currentTarget.value)}>
+        {[["newest", "Mới nhất"], ["oldest", "Cũ nhất"], ["profit_desc", "Lãi cao nhất"], ["profit_asc", "Lãi thấp nhất"], ["revenue_desc", "Doanh thu cao nhất"], ["margin_asc", "Biên lãi thấp nhất"]].map(([v, label]) => <option value={v}>{label}</option>)}
+      </select></label><ProfitOrdersFeed key={`${profitParams(range, applied)}:${sort}:${reload}`} range={range} product={applied.product} customer={applied.customer}
+        payment={applied.payment} profitability={applied.profitability} costStatus={applied.cost_status} sort={sort} /></>}
+      {tab === "sp" && <ProductCostTable products={data.products || []} range={range} onSaved={refresh} />}
+      {tab === "chart" && <ProfitChart chart={data.chart || []} />}
+    </>}
+    <div class="pf-admin-actions"><a class="btn small" href={`#/loi-nhuan/khach?${new URLSearchParams(range)}`}><Icon name="users" size={14} /> Khách hàng</a>
+      <button class="btn small" disabled={busy} onClick={freeze}>Ước tính vốn đơn thiếu</button></div>
+  </div>;
 }

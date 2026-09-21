@@ -57,6 +57,7 @@ export const GROUPS: MenuGroup[] = [
     { label: "Lương sản phẩm", href: "#/luong-sp", icon: "wallet", office: true },
   ] },
   { title: "Tài chính", icon: "wallet", items: [
+    { label: "Báo cáo bán hàng", href: "#/ban-hang", icon: "chart", office: true },
     { label: "Lợi nhuận", href: "#/loi-nhuan", icon: "chart", office: true },
     { label: "Nợ quá hạn", href: "#/no-qua-han", icon: "clock", office: true },
     { label: "Thu tiền nhanh", href: "#/thu-tien-nhanh", icon: "zap", office: true },

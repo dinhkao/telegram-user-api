@@ -9,7 +9,7 @@ export type SalesPt = { day: string; qty: number; revenue: number };
 
 const SERIES: [string, string, string][] = [
   ["revenue", "Doanh thu", "#3b82f6"],
-  ["qty", "SL bán", "#a855f7"],
+  ["qty", "SL bán − trả", "#a855f7"],
 ];
 const AGGS: [string, string][] = [["daily", "Ngày"], ["weekly", "Tuần"], ["monthly", "Tháng"]];
 const MAX_FILL_DAYS = 400;   // khoảng dài hơn thì không điền (chuỗi thô vẫn vẽ được)
@@ -64,12 +64,12 @@ export function ProductSalesChart({ chart, since, until }: { chart: SalesPt[]; s
   const [, serieLabel, color] = SERIES.find(([k]) => k === serie)!;
   const W = 900, H = 180, PAD = 4, TOP = 16;
   const vals = data.map((c) => Number((c as any)[serie]) || 0);
-  const max = Math.max(...vals, 1);
+  const max = Math.max(...vals, 1), min = Math.min(...vals, 0);
   const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
   const peak = vals.indexOf(Math.max(...vals));
   const bw = (W - PAD * 2) / data.length;
   const step = Math.max(1, Math.ceil(data.length / 10));
-  const yOf = (v: number) => H - PAD - (v / max) * (H - PAD - TOP);
+  const yOf = (v: number) => H - PAD - ((v - min) / (max - min)) * (H - PAD - TOP);
   const cur = sel >= 0 && sel < data.length ? data[sel] : null;
   const unitName = agg === "daily" ? "ngày" : agg === "weekly" ? "tuần" : "tháng";
   return (
@@ -95,8 +95,8 @@ export function ProductSalesChart({ chart, since, until }: { chart: SalesPt[]; s
       </div>
       <div style="overflow-x:auto">
         <svg viewBox={`0 0 ${W} ${H + 18}`} style="width:100%;min-width:480px" onClick={() => setSel(-1)}>
-          <line x1={PAD} x2={W - PAD} y1={H - PAD} y2={H - PAD} stroke="var(--muted)" stroke-width="0.5" />
-          {avg > 0 && (
+          <line x1={PAD} x2={W - PAD} y1={yOf(0)} y2={yOf(0)} stroke="var(--muted)" stroke-width="0.5" />
+          {avg !== 0 && (
             <g opacity="0.7">
               <line x1={PAD} x2={W - PAD} y1={yOf(avg)} y2={yOf(avg)} stroke={color} stroke-width="0.8" stroke-dasharray="4 3" />
               <text x={W - PAD - 2} y={yOf(avg) - 3} font-size="9" text-anchor="end" fill={color}>TB {fmtVal(serie, avg)}</text>
@@ -105,13 +105,13 @@ export function ProductSalesChart({ chart, since, until }: { chart: SalesPt[]; s
           <text x={PAD + 2} y={10} font-size="9" fill="currentColor" opacity="0.6">{serieLabel} · max {fmtVal(serie, max)}</text>
           {data.map((c, i) => {
             const v = vals[i];
-            const h = (v / max) * (H - PAD - TOP);
+            const h = Math.abs(yOf(v) - yOf(0));
             const on = sel === i;
             return (
               <g key={c.day} onClick={(e: Event) => { e.stopPropagation(); setSel(on ? -1 : i); }} style="cursor:pointer">
                 <rect x={PAD + i * bw} y={TOP} width={bw} height={H - TOP} fill="transparent" />
-                <rect x={PAD + i * bw + 1} y={H - PAD - h} width={Math.max(1, bw - 2)}
-                  height={Math.max(v > 0 ? 1 : 0, h)} rx={Math.min(2, bw / 4)} fill={color}
+                <rect x={PAD + i * bw + 1} y={Math.min(yOf(0), yOf(v))} width={Math.max(1, bw - 2)}
+                  height={Math.max(v !== 0 ? 1 : 0, h)} rx={Math.min(2, bw / 4)} fill={v < 0 ? "var(--danger)" : color}
                   opacity={sel < 0 || on ? 1 : 0.45} stroke={on ? "var(--ink)" : "none"} stroke-width="1">
                   <title>{ptLabel(c.day, agg)}: {fmtQty(c.qty)} · {money(c.revenue)}</title>
                 </rect>

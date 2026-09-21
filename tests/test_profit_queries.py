@@ -62,14 +62,14 @@ class OrdersFeedTest(unittest.TestCase):
         _add_order(self.conn, MIN_THREAD_ID + 1, {
             "created": "2026-08-20T03:00:00+00:00",
             "customer_name": "Chị Hoa",
-            "invoice": [{"sp": "SP1", "sl": 2, "price": 10000}],
+            "invoice": [{"sp": "SP1", "sl": 2, "price": 10000, "cost_price": 5000}],
         })
         _add_order(self.conn, MIN_THREAD_ID + 2, {
             "created": "2026-08-22T03:00:00+00:00",
             "customer_name": "Anh Ba",
             "invoice": [{"sp": "SP2", "sl": 1, "price": 8000}],
         })
-        # Đơn cũ hơn mốc thread_id → không bao giờ vào feed
+        # Đơn trước mốc cũ vẫn vào feed nếu trong kỳ
         _add_order(self.conn, MIN_THREAD_ID - 1, {
             "created": "2026-08-22T03:00:00+00:00",
             "invoice": [{"sp": "SP1", "sl": 9, "price": 9000}],
@@ -99,8 +99,9 @@ class OrdersFeedTest(unittest.TestCase):
         self.assertTrue(d["orders"][0]["has_payment"])
         # không bật: mọi đơn, row nào cũng có cờ has_payment
         d2 = orders_feed(self.conn, 1, 50, "2026-08-01", "2026-08-31", None, None)
-        self.assertEqual(d2["total"], 3)
-        self.assertFalse(d2["orders"][1]["has_payment"])
+        self.assertEqual(d2["total"], 4)
+        by_id = {o["thread_id"]: o for o in d2["orders"]}
+        self.assertFalse(by_id[MIN_THREAD_ID + 2]["has_payment"])
 
     def test_pagination(self):
         d = orders_feed(self.conn, 1, 1, "2026-08-01", "2026-08-31", None, None)
@@ -108,7 +109,10 @@ class OrdersFeedTest(unittest.TestCase):
         self.assertTrue(d["has_more"])
         d2 = orders_feed(self.conn, 2, 1, "2026-08-01", "2026-08-31", None, None)
         self.assertEqual(len(d2["orders"]), 1)
-        self.assertFalse(d2["has_more"])
+        self.assertTrue(d2["has_more"])
+        d3 = orders_feed(self.conn, 3, 1, "2026-08-01", "2026-08-31", None, None)
+        self.assertFalse(d3["has_more"])
+        self.assertEqual(d["total"], 3)
 
 
 class FreezeCostsTest(unittest.TestCase):

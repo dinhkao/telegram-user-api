@@ -1,8 +1,8 @@
 // Danh sách đơn — search (FTS server), lọc xong/chưa, phân trang "Tải thêm".
 // Data: GET /api/orders (server_app/orders_api.py). Card → #/order/:thread_id.
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-import { getJSON } from "../api";
-import { isRecent } from "../format";
+import { getJSON, isOffice } from "../api";
+import { isRecent, money } from "../format";
 
 import { onRealtime } from "../realtime";
 import { listOrderImages, type OrderImage } from "../api";
@@ -202,6 +202,9 @@ export function OrdersList() {
   const [loading, setLoading] = useState(false);
   const [stale, setStale] = useState(false);
   const [err, setErr] = useState("");
+  const canViewSalesReport = isOffice();
+  const [todayRevenue, setTodayRevenue] = useState<number | null>(null);
+  const [todayRevenueUnavailable, setTodayRevenueUnavailable] = useState(false);
   // 3 kiểu xem: full (chi tiết) · compact (gọn) · ultra (siêu gọn: 5 icon + 1 dòng text)
   const [view, setView] = useState<"full" | "compact" | "ultra">(() => {
     const v = localStorage.getItem("dash_view");
@@ -302,6 +305,24 @@ export function OrdersList() {
   // Làm mới CHỈ số đếm chip (Chưa soạn/giao/nộp/nhận) — khi vá 1 dòng tại chỗ, số đếm
   // dễ lệch. Lấy nhẹ page=1&limit=1 (stats tính riêng, không đụng danh sách/vị trí cuộn).
   const statsTimer = useRef<any>(null);
+  const revenueTimer = useRef<any>(null);
+  const loadTodayRevenue = async () => {
+    if (!canViewSalesReport) return;
+    try {
+      const data = await getJSON("/api/sales-dashboard/today");
+      const revenue = Number(data?.summary?.revenue);
+      if (!Number.isFinite(revenue)) throw new Error("Doanh thu không hợp lệ");
+      setTodayRevenue(revenue);
+      setTodayRevenueUnavailable(false);
+    } catch {
+      setTodayRevenueUnavailable(true); // danh sách đơn vẫn hoạt động nếu KPI lỗi
+    }
+  };
+  const refreshTodayRevenue = () => {
+    if (!canViewSalesReport) return;
+    clearTimeout(revenueTimer.current);
+    revenueTimer.current = setTimeout(loadTodayRevenue, 500);
+  };
   const refreshStats = () => {
     clearTimeout(statsTimer.current);
     statsTimer.current = setTimeout(async () => {
@@ -333,6 +354,11 @@ export function OrdersList() {
     const onHash = () => { applyHashFilter(); };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  useEffect(() => {
+    void loadTodayRevenue();
+    return () => clearTimeout(revenueTimer.current);
   }, []);
 
   useEffect(() => {
@@ -390,6 +416,7 @@ export function OrdersList() {
       if (e.type === "orders_changed" || e.type === "resync") {
         setPage(1);
         load(1, st.current.search, st.current.filter, false);
+        refreshTodayRevenue();
         return;
       }
       if (e.type !== "order_changed") return;
@@ -417,6 +444,7 @@ export function OrdersList() {
       });
       if (patched) flashOrder(tid); // nháy sáng + hiện thao tác vừa xảy ra
       refreshStats(); // số đếm chip có thể đổi (đơn flip trạng thái) → cập nhật
+      refreshTodayRevenue();
     });
   }, []);
 
@@ -551,6 +579,17 @@ export function OrdersList() {
             onClear={clearFilters} />
         )}
       </header>
+      {canViewSalesReport && (
+        <a class="orders-report-link" href="#/ban-hang?period=today" aria-label="Xem báo cáo bán hàng hôm nay">
+          <span class="orders-report-icon"><Icon name="chart" size={17} /></span>
+          <span class="orders-report-copy"><b>Bán hàng hôm nay</b><small>Xem báo cáo chi tiết</small></span>
+          <span class={`orders-report-revenue${todayRevenueUnavailable ? " unavailable" : ""}`}>
+            <small>Doanh thu thuần</small>
+            <b>{todayRevenue != null ? `${money(todayRevenue)} đ` : todayRevenueUnavailable ? "Chưa tải được" : "Đang tải…"}</b>
+          </span>
+          <Icon name="chevronRight" size={14} />
+        </a>
+      )}
       {stats && (
         <div class="of-tabs">
           {([

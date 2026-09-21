@@ -20,6 +20,7 @@ export function ReturnModal({ ckey, onClose, onDone }: {
 }) {
   const [pickedKey, setPickedKey] = useState<string>(ckey || "");
   const [lines, setLines] = useState<Line[]>([{ sp: "", sl: "1", price: "" }]);
+  const [sourceOrder, setSourceOrder] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   useScrollLock(true);
@@ -34,11 +35,12 @@ export function ReturnModal({ ckey, onClose, onDone }: {
 
   const submit = async () => {
     if (!pickedKey) return toast("Chọn khách hàng trước", "info");
+    if (sourceOrder && (!/^\d+$/.test(sourceOrder) || !Number.isSafeInteger(Number(sourceOrder)) || Number(sourceOrder) <= 0)) return toast("Số đơn gốc không hợp lệ", "err");
     if (!parsed.length) return toast("Nhập ít nhất 1 dòng hàng trả (SP + SL + giá)", "info");
     if (!(await confirmDialog(`Tạo phiếu trả hàng −${soVN(total)}đ? (NHÁP — chưa trừ nợ; vào phiếu bấm 'Tạo HĐ KiotViet' mới trừ)`))) return;
     setBusy(true);
     try {
-      const r = await createReturn(pickedKey, parsed, note.trim());
+      const r = await createReturn(pickedKey, parsed, note.trim(), sourceOrder ? Number(sourceOrder) : undefined);
       toast("Đã tạo phiếu trả (nháp)", "ok");
       const rid = r?.return?.id;
       // Prompt: xử lý HÀNG trả về ngay? (nhập lại kho / xuất hủy) — mở modal ở trang chi tiết.
@@ -85,6 +87,11 @@ export function ReturnModal({ ckey, onClose, onDone }: {
         <button class="btn small" onClick={() => setLines((prev) => [...prev, { sp: "", sl: "1", price: "" }])}>
           <Icon name="plus" size={14} /> Thêm dòng
         </button>
+        <label class="small">Số đơn gốc (tùy chọn)
+          <input inputMode="numeric" placeholder="Ví dụ: 513847" value={sourceOrder}
+            onInput={(e) => setSourceOrder((e.target as HTMLInputElement).value.trim())} />
+        </label>
+        <p class="small muted">Liên kết đơn của đúng khách để đối chiếu giá vốn lịch sử khi hàng được nhập lại kho. Để trống nếu chưa xác định được.</p>
         <input type="text" placeholder="Ghi chú (tuỳ chọn)" value={note}
           onInput={(e) => setNote((e.target as HTMLInputElement).value)} />
         <div class="ret-total">Tổng trả: <b>−{soVN(total)}đ</b></div>

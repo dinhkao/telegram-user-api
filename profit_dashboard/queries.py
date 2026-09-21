@@ -9,12 +9,8 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone, timedelta
 
-from product_db import calculate_order_profit
-
-from profit_dashboard.utils import resolve_customer_name
-
 _VN_TZ = timezone(timedelta(hours=7))
-# Đơn cũ hơn mốc thread_id này là dữ liệu thời tiền-webapp, bỏ qua (như app gốc).
+# Mốc lịch sử chỉ dùng ghi chú và thao tác backfill cũ; KHÔNG giới hạn báo cáo.
 MIN_THREAD_ID = 460000
 
 
@@ -27,6 +23,8 @@ def _created_vn(created):
             dt = datetime.fromtimestamp(created / 1000, tz=timezone.utc)
         else:
             dt = datetime.fromtimestamp(created, tz=timezone.utc)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
         vn = dt.astimezone(_VN_TZ)
         return vn.strftime("%Y-%m-%d"), vn.strftime("%d/%m %H:%M")
     except Exception:
@@ -34,66 +32,25 @@ def _created_vn(created):
 
 
 def orders_feed(conn, page: int, per_page: int, since_date, until_date,
-                filter_product, filter_customer, paid_only: bool = False) -> dict:
-    """Feed đơn + lợi nhuận phân trang cho bảng infinite-scroll của dashboard.
-    paid_only=True: chỉ đơn ĐÃ có thanh toán (≥1 phiếu thu)."""
-    cur = conn.execute(
-        "SELECT thread_id, json FROM orders WHERE deleted_at IS NULL "
-        "AND json IS NOT NULL AND thread_id >= ? ORDER BY thread_id DESC",
-        (MIN_THREAD_ID,))
-
-    all_orders = []
-    for row in cur.fetchall():
-        thread_id = row[0]
-        order = json.loads(row[1])
-        created = order.get("created", "")
-
-        date_display = ""
-        if created:
-            created_date, date_display = _created_vn(created)
-            if created_date is None:
-                continue
-            if since_date and created_date < since_date:
-                continue
-            if until_date and created_date > until_date:
-                continue
-
-        has_payment = bool(order.get("payments"))
-        if paid_only and not has_payment:
-            continue
-
-        result = calculate_order_profit(conn, order)
-        if not result["items"]:
-            continue
-
-        customer = str(resolve_customer_name(conn, order) or "")
-        if filter_product and not any(i["code"] == filter_product for i in result["items"]):
-            continue
-        if filter_customer and filter_customer.lower() not in customer.lower():
-            continue
-
-        items_summary = [{k: item[k] for k in (
-            "code", "qty", "sell_price", "cost_price", "revenue", "cost",
-            "profit", "has_cost")} for item in result["items"]]
-
-        all_orders.append({
-            "thread_id": thread_id,
-            "customer": customer[:30],
-            "date": date_display,
-            "revenue": result["total_revenue"],
-            "cost": result["total_cost"],
-            "profit": result["total_profit"],
-            "has_cost": result["total_cost"] > 0,
-            "has_payment": has_payment,
-            "items": items_summary,
-            "fees": result.get("fees", {}),
-            "order_text": (order.get("text") or "").strip()[:80],
-        })
-
+                filter_product, filter_customer, paid_only: bool = False,
+                payment: str = "all", profitability: str = "all",
+                cost_status: str = "all", sort: str = "newest") -> dict:
+    """Cùng dữ liệu và bộ lọc với dashboard; sắp xếp trước khi phân trang."""
+    from profit_dashboard.compute import scan_orders
+    from profit_dashboard.filters import apply_filters, sort_orders
+    from product_store.resolve import resolve_code
+    if filter_product:
+        filter_product = (resolve_code(conn, filter_product) or {}).get("code", filter_product)
+    rows = apply_filters(scan_orders(conn, since_date, until_date),
+                         filter_product, filter_customer, paid_only=paid_only,
+                         payment=payment, profitability=profitability, cost_status=cost_status)
+    rows = sort_orders(rows, sort)
     start = (page - 1) * per_page
-    end = start + per_page
-    return {"orders": all_orders[start:end], "page": page,
-            "has_more": end < len(all_orders), "total": len(all_orders)}
+    orders = [{**r, "has_cost": r["items_with_cost"] > 0,
+               "cost_complete": r["cost_complete"],
+               "order_text": r["text"]} for r in rows[start:start + per_page]]
+    return {"orders": orders, "total": len(rows), "page": page,
+            "has_more": start + per_page < len(rows)}
 
 
 def freeze_all_costs(conn) -> int:
@@ -111,7 +68,11 @@ def freeze_all_costs(conn) -> int:
         invoice = order.get("invoice") or []
         if not invoice or all("cost_price" in item for item in invoice):
             continue
-        order["invoice"] = freeze_invoice_cost_prices(conn, invoice)
+        frozen = freeze_invoice_cost_prices(conn, invoice)
+        for before, after in zip(invoice, frozen):
+            if before.get("cost_price") is None and after.get("cost_price") is not None:
+                after["cost_source"] = "backfill_current"
+        order["invoice"] = frozen
         if _save_order(conn, thread_id, order):
             updated += 1
     return updated

@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { getJSON, isOffice } from "../api";
 import { money, fmtQty } from "../format";
 import { ProfitDateBar, presetRange, Chg, type DateRange } from "./ProfitDateBar";
+import { ProfitCoverageNote } from "./ProfitOverview";
 import { ProductSalesChart } from "./ProductSalesChart";
 import { Icon } from "../ui/Icon";
 import { EmptyState, ErrorState, LoadingInline } from "../ui/states";
@@ -23,7 +24,7 @@ function Stat({ label, value, chg, sub }: { label: string; value: any; chg?: num
     <div class="card pf-card">
       <h4>{label}</h4>
       <b>{value}</b>
-      {chg !== undefined && <Chg v={chg} nullLabel="kỳ trước 0" />}
+      {chg !== undefined && <Chg v={chg} nullLabel="Chưa đủ cơ sở so sánh" />}
       {sub && <div class="muted" style="font-size:.68rem">{sub}</div>}
     </div>
   );
@@ -47,7 +48,7 @@ function TopCustomers({ tops, totalRev }: { tops: any[]; totalRev: number }) {
               <div class="muted" style="font-size:.7rem">
                 {c.orders} đơn · gần nhất {dmy(c.last_ymd)}{totalRev > 0 && ` · ${Math.round((c.revenue / totalRev) * 100)}%`}
               </div>
-              <div style={{ height: "3px", borderRadius: "2px", background: "#3b82f6", opacity: 0.55, width: `${Math.max(3, Math.round((c.revenue / maxRev) * 100))}%` }} />
+              <div style={{ height: "3px", borderRadius: "2px", background: "#3b82f6", opacity: 0.55, width: `${Math.max(0, Math.round((c.revenue / maxRev) * 100))}%` }} />
             </td>
             <td class="num">{fmtQty(c.qty)}</td>
             <td class="num">{money(c.avg_price)}</td>
@@ -71,7 +72,7 @@ function RecentSales({ orders, code }: { orders: any[]; code: string }) {
   return (
     <>
       <div class="ie-head" style={{ marginTop: "8px" }}>
-        Lần bán gần đây <span class="ie-count">{orders.length}</span>
+        Bán / trả gần đây <span class="ie-count">{orders.length}</span>
       </div>
       <table class="inv-mini pf-table">
         <tbody>{recent.map((o) => (
@@ -79,13 +80,13 @@ function RecentSales({ orders, code }: { orders: any[]; code: string }) {
             <td class="muted small" style="white-space:nowrap">{dmy(o.ymd)}</td>
             <td><a href={`#/loi-nhuan/khach/${encodeURIComponent(o.customer)}`}>{o.customer}</a></td>
             <td class="num" style="white-space:nowrap">{fmtQty(o.qty)} × {money(o.sell_price)}</td>
-            <td class="num"><a href={`#/order/${o.thread_id}`}>#{o.thread_id}</a></td>
+            <td class="num"><a href={o.kind === "return" ? `#/tra-hang/${o.return_id}` : `#/order/${o.thread_id}`}>{o.kind === "return" ? `Trả #${o.return_id}` : `#${o.thread_id}`}</a></td>
           </tr>
         ))}</tbody>
       </table>
       {orders.length > RECENT_N && (
         <a class="btn small" style="margin-top:6px" href={`#/loi-nhuan/sp/${encodeURIComponent(code)}`}>
-          Xem cả {orders.length} lần bán →
+          Xem cả {orders.length} dòng bán / trả →
         </a>
       )}
     </>
@@ -101,16 +102,20 @@ export function ProductSales({ code }: { code: string }) {
   const started = useRef(!!cached);
   const secRef = useRef<HTMLElement>(null);
 
+  const requestId = useRef(0);
   const load = () => {
+    const id = ++requestId.current;
+    setData(null);
     setErr("");
     setLoading(true);
     getJSON(`/api/profit/product/${encodeURIComponent(code)}?since=${range.since}&until=${range.until}`, { cache: false })
-      .then((j) => { setData(j); _cache.set(code, { range, data: j }); })
-      .catch((e: any) => setErr(e?.message || "Lỗi tải báo cáo bán ra"))
-      .finally(() => setLoading(false));
+      .then((j) => { if (id === requestId.current) { setData(j); _cache.set(code, { range, data: j }); } })
+      .catch((e: any) => { if (id === requestId.current) setErr(e?.message || "Lỗi tải báo cáo bán ra"); })
+      .finally(() => { if (id === requestId.current) setLoading(false); });
   };
   // Đổi mã SP → về trạng thái cache của mã đó (hoặc chưa tải, chờ khối lộ ra)
   useEffect(() => {
+    requestId.current++;
     const c = _cache.get(code);
     started.current = !!c;
     setData(c?.data || null);
@@ -125,7 +130,7 @@ export function ProductSales({ code }: { code: string }) {
     io.observe(el);
     return () => io.disconnect();
   }, [code]);
-  useEffect(() => { if (started.current) load(); }, [range.since, range.until]);
+  useEffect(() => { if (started.current) load(); return () => { requestId.current++; }; }, [code, range.since, range.until]);
 
   if (!isOffice()) return null;
   const t = data?.totals;
@@ -145,10 +150,10 @@ export function ProductSales({ code }: { code: string }) {
         <ErrorState msg={err} onRetry={load} />
       ) : !data ? null : (
         <div style={loading ? "opacity:.6" : ""}>
-          <ProfitDateBar range={range} onChange={setRange} />
+          <ProfitDateBar range={range} onChange={setRange} /><ProfitCoverageNote coverage={data.coverage} /><p class="small muted">Gồm {t.returns || 0} phiếu trả đã xác nhận. Giá bán TB chỉ tính đơn bán.</p>
           <div class="pf-cards">
-            <Stat label="SL bán" value={fmtQty(t.qty)} chg={ch.qty} />
-            <Stat label="Doanh thu" value={money(t.revenue)} chg={ch.revenue} />
+            <Stat label="SL bán − trả" value={fmtQty(t.qty)} chg={ch.qty} />
+            <Stat label="Doanh thu sau trả" value={money(t.revenue)} chg={ch.revenue} />
             <Stat label="Giá bán TB" value={money(t.avg_price || 0)} chg={ch.avg_price} />
             <Stat label="Số đơn" value={t.orders ?? data.orders.length} chg={ch.orders} />
             <Stat label="Số khách" value={t.customers || 0} chg={ch.customers} />
