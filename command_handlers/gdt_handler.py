@@ -67,18 +67,24 @@ def register_gdt_handler(client):
         if not order:
             await client.send_message(msg.chat_id, "❌ Không tìm thấy đơn hàng", reply_to=msg.id)
             return
-        gdt = order.get("giay_dan_thung")
+        from server_app.gdt_domain import gdt_of, summary
+        gdt = gdt_of(order)
         if not gdt:
             await client.send_message(msg.chat_id, "ℹ️ Chưa có thông tin giấy dán thùng", reply_to=msg.id)
             return
+        # Cùng template + cùng hàng đợi máy in với webapp (server_app/gdt_routes)
+        from renderers.giay_dan_thung import generate_gdt_html
+        from server_app.gdt_routes import enqueue_gdt_print
+        html = generate_gdt_html(gdt)
+        queued = await enqueue_gdt_print(html, 1)
         customer_name = (order.get("customer_name") or order.get("kh") or "khong_ten").strip()
         safe_name = re.sub(r"[^a-zA-Z0-9\u0080-\uffff_\- ]", "", customer_name.replace(" ", "_").replace("/", "_").replace("\\", "_"))[:50] or "gdt"
         file_path = os.path.join(tempfile.gettempdir(), f"gdt_{safe_name}.html")
-        content = f"<!DOCTYPE html><html><body><div style='writing-mode:vertical-rl;font:700 40px Arial;height:297mm;width:80mm;display:flex;flex-direction:column;justify-content:space-around;align-items:center;overflow:hidden'><p>Người gửi: Kẹo Lê Trang 0941 586 542</p><p>Người nhận:{gdt.get('ten_gdt','')} {gdt.get('sdt_gdt','')}</p><p>{gdt.get('so_thung','')} (thùng)</p><p>{gdt.get('note_gdt','')}</p></div></body></html>"
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(content)
+            f.write(html)
+        caption = ("🖨️ Đã gửi lệnh in giấy dán thùng — " if queued else "⚠️ Máy in chưa cấu hình, in tay từ file này — ") + summary(gdt)
         try:
-            await client.send_file(msg.chat_id, file_path, reply_to=msg.id, force_document=True)
+            await client.send_file(msg.chat_id, file_path, caption=caption, reply_to=msg.id, force_document=True)
         finally:
             try:
                 os.remove(file_path)

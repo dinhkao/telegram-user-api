@@ -82,6 +82,8 @@ _LABELS = {
     "/api/order/bypass-debt": "Ẩn/hiện đơn khi thu tiền",
     "/api/order/reply": "Trả lời topic",
     "/api/order/print-giao": "In hoá đơn + phiếu giao",
+    "/api/order/{id}/gdt": "Lưu giấy dán thùng",
+    "/api/order/{id}/gdt/print": "In giấy dán thùng",
     "/api/order/{id}/comments": "Bình luận",
     "/api/order/{id}/custom-task": "Thêm việc tùy chỉnh",
     "/api/order/{id}/custom-task/remove": "Xóa việc tùy chỉnh",

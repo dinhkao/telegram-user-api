@@ -2,7 +2,7 @@
 // payments, comments). Data: GET /api/order/{thread_id}. In: POST /api/order/print-giao.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { BackLink } from "../nav";
-import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, deleteVnptInvoice, resetVnptInvoice, ensureInvoiceImage, vnptInvoicePdfUrl, vnptInvoicePngUrl, getCustomerOrders, getJSON, invoiceEditStatus, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, setOrderNoTrack, type OrderImage } from "../api";
+import { createKiotVietInvoice, currentUser, deleteKiotVietInvoice, deleteOrder, deleteVnptInvoice, resetVnptInvoice, ensureInvoiceImage, vnptInvoicePdfUrl, vnptInvoicePngUrl, getCustomerOrders, getJSON, invoiceEditStatus, printGdt, invoiceHtmlUrl, isOffice, listOrderImages, orderImageUrl, postJSON, refreshOrderDebt, setOrderNgayGiao, setOrderNoTrack, type OrderImage } from "../api";
 import { onRealtime } from "../realtime";
 import { money, initial, invoiceTotal, paidTotal, fmtNgayGiao, fmtDateTimeVN, fmtQty, fmtRelative } from "../format";
 import { Comments } from "../detail/Comments";
@@ -384,6 +384,14 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
     }
   };
 
+  // In giấy dán thùng đã lưu (1 tờ) — máy in nhiệt, cùng hàng đợi hoá đơn
+  const printGdtLabel = async () => {
+    if (!(await confirmDialog("In 1 tờ giấy dán thùng?", { okLabel: "In" }))) return;
+    setBusy(true);
+    try { await printGdt(threadId, 1); toast("🖨️ Đã gửi lệnh in giấy dán thùng", "ok"); }
+    catch (ex: any) { toast(ex.message, "err"); } finally { setBusy(false); }
+  };
+
   // Thao tác HĐ KiotViet ngay tại khối Hoá đơn (trang Sửa hoá đơn bị khoá khi đã
   // có HĐ nên Tạo/Xem/Xoá phải có ở đây, như trước khi tách trang).
   const createHD = async () => {
@@ -695,6 +703,23 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           {nggDate && !savingNg && <button class="btn small" title="Xoá ngày hẹn giao" onClick={() => { setNggDate(""); setNggTime(""); commitNgg("", ""); }}>✕</button>}
         </div>
         {nggCombined ? <p class="muted small">Giao dự kiến: <b>{fmtNgayGiao(nggCombined)}</b> · tự lưu khi đổi</p> : <p class="muted small">Chưa đặt ngày giao.</p>}
+      </div>
+
+      {/* GIẤY DÁN THÙNG — nhãn dán thùng gửi xe; nhập/sửa ở trang riêng, In = máy in
+          nhiệt như hoá đơn (server_app/gdt_routes). Blob $.giay_dan_thung (chung lệnh
+          Telegram gdt/ingdt). */}
+      <div class="card" id="od-gdt">
+        <div class="row space">
+          <b><Icon name="tag" size={16} /> Giấy dán thùng</b>
+          <a class="btn small" href={`#/order/${threadId}/giay-dan-thung`}><Icon name="edit" size={14} /> {j.giay_dan_thung?.ten_gdt ? "Sửa" : "Tạo"}</a>
+        </div>
+        {j.giay_dan_thung?.ten_gdt ? (
+          <div class="row space mt-1">
+            <span class="small">Người nhận <b>{j.giay_dan_thung.ten_gdt}</b>{j.giay_dan_thung.sdt_gdt ? ` ${j.giay_dan_thung.sdt_gdt}` : ""}
+              {" · "}<b>{j.giay_dan_thung.so_thung}</b> thùng{j.giay_dan_thung.note_gdt ? ` · ${j.giay_dan_thung.note_gdt}` : ""}</span>
+            <button class="btn small" disabled={busy} onClick={printGdtLabel}><Icon name="printer" size={14} /> In</button>
+          </div>
+        ) : <p class="muted small">Chưa có — bấm Tạo để nhập người nhận, SĐT, số thùng rồi in.</p>}
       </div>
 
       <div id="od-tasks">

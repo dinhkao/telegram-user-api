@@ -1167,6 +1167,33 @@ export function invoiceHtmlUrl(threadId: string | number): string {
   return `${serverUrl()}/api/order/${Number(threadId)}/invoice-html${t ? `?token=${encodeURIComponent(t)}` : ""}`;
 }
 
+// ── GIẤY DÁN THÙNG (nhãn dán thùng gửi xe) — server_app/gdt_routes.py ──
+export type Gdt = { ten_gdt: string; sdt_gdt: string; so_thung: string; note_gdt: string };
+export type GdtBody = { ten: string; sdt: string; so_thung: string; note: string };
+export async function getGdt(threadId: string | number): Promise<{ gdt: Gdt | null; prefill: Gdt; sender: string }> {
+  return getJSON(`/api/order/${Number(threadId)}/gdt`, { cache: false });
+}
+export async function saveGdt(threadId: string | number, body: GdtBody): Promise<{ ok: boolean; gdt: Gdt }> {
+  const j = await postJSON(`/api/order/${Number(threadId)}/gdt`, body);
+  if (j?.error) throw new Error(j.error);
+  return j;
+}
+/** In N tờ qua máy in nhiệt (hàng đợi hoá đơn). Kèm body 4 trường = lưu rồi in 1 phát. */
+export async function printGdt(threadId: string | number, copies = 1, body?: GdtBody): Promise<{ ok: boolean; copies: number }> {
+  const j = await postJSON(`/api/order/${Number(threadId)}/gdt/print`, { copies, ...(body || {}) });
+  if (j?.error) throw new Error(j.error);
+  return j;
+}
+/** URL ảnh PNG xem trước nhãn — truyền `body` để xem bản ĐANG GÕ (chưa lưu). */
+export function gdtPngUrl(threadId: string | number, body?: GdtBody): string {
+  const qs = new URLSearchParams();
+  if (body) { qs.set("ten", body.ten); qs.set("sdt", body.sdt); qs.set("so_thung", body.so_thung); qs.set("note", body.note); }
+  const t = getToken();
+  if (t) qs.set("token", t);
+  const q = qs.toString();
+  return `${serverUrl()}/api/order/${Number(threadId)}/gdt/png${q ? `?${q}` : ""}`;
+}
+
 /** URL trang HTML phiếu lương cho 1..N thợ (in 1 lần, tự cắt giữa từng người) — office-only. */
 export function payslipsHtmlUrl(names: string[], from?: string, to?: string): string {
   const qs = new URLSearchParams();

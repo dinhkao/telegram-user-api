@@ -211,6 +211,8 @@ def create_app():
     r.add_post("/api/order/{id}/custom-task", add_custom_task_handler)
     r.add_post("/api/order/{id}/custom-task/remove", remove_custom_task_handler)
     r.add_post("/api/order/print-giao", api_print_giao_handler)
+    from server_app.gdt_routes import register_gdt_routes
+    register_gdt_routes(r)   # giấy dán thùng: /api/order/{tid}/gdt*
     r.add_post("/api/order/create", order_create_handler)
     r.add_get("/api/order/{thread_id}/history", order_history_handler)
     from server_app.order_timeline import order_timeline_handler

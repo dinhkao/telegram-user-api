@@ -130,6 +130,13 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
         if p.get("fkey"):
             seg.append(part(f" · {p['fkey']}" if seg else str(p["fkey"])))
         return "Xoá HĐ điện tử nháp (VNPT)", seg
+    if action == "order.gdt_saved":
+        from server_app.gdt_domain import summary as _gdt_summary
+        return ("Tạo giấy dán thùng" if p.get("created") else "Sửa giấy dán thùng"), [part(_gdt_summary(p))]
+    if action == "order.gdt_printed":
+        from server_app.gdt_domain import summary as _gdt_summary
+        n = int(p.get("copies") or 1)
+        return "In giấy dán thùng", [part((f"{n} tờ · " if n > 1 else "") + _gdt_summary(p))]
     if action == "order.bulk_payment":
         seg = [part(money(p.get("amount")))]
         m = {"cash": "tiền mặt", "transfer": "chuyển khoản", "Transfer": "chuyển khoản"}.get(str(p.get("method") or ""))

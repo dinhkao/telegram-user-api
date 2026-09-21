@@ -234,6 +234,28 @@ export const GUIDES_DON: Guide[] = [
     ],
   },
   {
+    key: "giay-dan-thung", icon: "tag", cat: "Đơn hàng & khách",
+    title: "Giấy dán thùng (gửi xe)",
+    desc: "Nhãn dán lên thùng hàng gửi xe: người nhận, SĐT, số thùng, thu hộ — in ra máy in nhiệt.",
+    routes: ["#/order"],
+    sections: [
+      { title: "Tạo & in", html: `
+        <ol>
+          <li>Chi tiết đơn → khối <b>「Giấy dán thùng」</b> → <b>Tạo</b> (hoặc <b>Sửa</b> nếu đã có).</li>
+          <li>Form tự điền: <b>tên + SĐT người nhận</b> lấy từ lần dán thùng gần nhất của khách
+            (chưa có thì lấy tên khách), <b>ghi chú</b> gợi ý sẵn <b>"Thu hộ …"</b> = tiền còn phải thu của đơn
+            (bấm chip để dùng, hoặc gõ tuỳ ý). Bắt buộc: <b>tên người nhận + số thùng</b>.</li>
+          <li><b>「Xem trước」</b> hiện đúng tờ sẽ in (chữ xoay dọc). Chọn <b>số tờ</b> (1–5) rồi
+            <b>「Lưu &amp; In」</b> — lệnh in đi ra <b>máy in nhiệt như hoá đơn</b>; file HTML cũng được gửi vào
+            topic đơn trên Telegram để in tay từ máy tính khi máy in offline.</li>
+        </ol>
+        <p>Tờ in rộng bằng hoá đơn, dài ~29 cm: <b>Người gửi</b> (cố định Kẹo Lê Trang) · <b>Người nhận + SĐT</b> ·
+        <b>N (thùng)</b> · ghi chú. Dòng dài tự thu nhỏ chữ để không bị cắt.</p>
+        <p>Ở chi tiết đơn, khối này có nút <b>In</b> nhanh (1 tờ) khi đã lưu. Trên Telegram vẫn dùng được lệnh cũ
+        <code>gdt Tên; SĐT; Số thùng; Ghi chú</code> và <code>ingdt</code> — cùng dữ liệu, cùng máy in.</p>` },
+    ],
+  },
+  {
     key: "du-bao", icon: "chart", cat: "Đơn hàng & khách",
     title: "Dự báo hàng hoá hằng ngày",
     desc: "Mỗi sáng 7h app tự tính lượng hàng cần chuẩn bị hôm nay + cả tuần, kèm nhận định.",

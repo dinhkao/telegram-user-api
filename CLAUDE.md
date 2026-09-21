@@ -168,6 +168,27 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (see below) because Telethon does NOT emit `NewMessage` for the client's own sends.
   Picking sheet (`renderers/picking_sheet.py`) prints for **every** new order now
   (the old `if invoice:` gate was removed 2026-07-04).
+- **GIẤY DÁN THÙNG (2026-09-21, `server_app/gdt_routes.py` + `gdt_domain.py` +
+  `renderers/giay_dan_thung.py`)** — nhãn dán thùng hàng gửi xe: người gửi (env
+  `GDT_SENDER`) · người nhận + SĐT · N (thùng) · ghi chú ("Thu hộ 700,000"). Dữ liệu =
+  blob đơn `$.giay_dan_thung` {ten_gdt, sdt_gdt, so_thung, note_gdt} — CHUNG key với
+  lệnh Telegram `gdt Tên; SĐT; Số thùng; Ghi chú` / `ingdt` (`command_handlers/
+  gdt_handler.py`, nay cũng dùng renderer + máy in này); nhớ tên/SĐT người nhận theo
+  KHÁCH ở `$.gdt_contact` blob customers → prefill lần sau, ghi chú gợi ý = tiền còn
+  phải thu. **IN = đẩy HTML vào Firebase `meta/to_print` Y NHƯ hoá đơn/phiếu giao**
+  (`printouts/common.queue_html_for_print`, cùng máy in nhiệt 80mm; nhánh RTDB
+  `meta/to_print_gdt` cũ của app Node đi bằng file_id Telegram — chết theo Node, đừng
+  dùng lại). Khổ nhãn: rộng **280px = bề rộng hoá đơn** (không dùng 80mm: vùng in
+  thật hẹp hơn), dài 1080px ≈ 286mm (< 297mm để driver trang cố định không đẩy sang
+  trang 2), `writing-mode: vertical-rl`, dòng dài tự hạ cỡ chữ (`fit_font_px`), không
+  tài nguyên ngoài. API `/api/order/{tid}/gdt` GET (gdt + prefill) / POST (lưu) ·
+  `/gdt/print {copies 1–5, +4 trường = lưu rồi in}` · `/gdt/png` (xem trước qua
+  Playwright, nhận query ?ten=&sdt=&so_thung=&note= cho bản đang gõ) · `/gdt/html`.
+  Mọi user đăng nhập. Sau in: file HTML gửi vào topic đơn (in tay khi máy in offline),
+  audit `order.gdt_saved/gdt_printed` (event_format). UI: khối "Giấy dán thùng" ở
+  OrderDetail (In nhanh 1 tờ) → trang `#/order/:id/giay-dan-thung`
+  (`pages/OrderBoxLabel.tsx`: form + chip thu hộ + Xem trước + số tờ + Lưu & In).
+  Tests: `tests/test_giay_dan_thung.py`.
 - **Webapp create-order (`server_app/order_api_create.py`, `POST /api/order/create`)** —
   posts the order text into `CHANNEL_DON_HANG_MOI` as the user, then calls
   `channel_handlers.create.process_new_order(client, sent)` directly → real Telegram
