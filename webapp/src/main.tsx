@@ -22,6 +22,7 @@ import { confirmDialog, FeedbackHost } from "./ui/feedback";
 import { OrderDetail } from "./pages/OrderDetail";
 import { OrderInvoiceEdit } from "./pages/OrderInvoiceEdit";
 import { OrderVnptInvoice } from "./pages/OrderVnptInvoice";
+import { OrderBoxLabel } from "./pages/OrderBoxLabel";
 import { OrderPayment } from "./pages/OrderPayment";
 import { OrdersList, resetOrdersScroll } from "./pages/OrdersList";
 import { fastScrollTop, windowScrollClaimed } from "./scroll";
@@ -518,6 +519,7 @@ function App() {
   let page;
   const invEditMatch = hash.match(/^#\/order\/(-?\d+)\/hoa-don/);
   const vnptMatch = hash.match(/^#\/order\/(-?\d+)\/vnpt/);
+  const gdtMatch = hash.match(/^#\/order\/(-?\d+)\/giay-dan-thung/);
   const payMatch = hash.match(/^#\/order\/(-?\d+)\/thanh-toan/);
   const orderTLMatch = hash.match(/^#\/order\/(-?\d+)\/timeline/);
   const orderMatch = hash.match(/^#\/order\/(-?\d+)/);
@@ -558,6 +560,7 @@ function App() {
   if (showLogin) page = <Login />;
   else if (invEditMatch) page = <OrderInvoiceEdit threadId={invEditMatch[1]} />;
   else if (vnptMatch) page = <OrderVnptInvoice threadId={vnptMatch[1]} />;
+  else if (gdtMatch) page = <OrderBoxLabel threadId={gdtMatch[1]} />;
   else if (payMatch) page = <OrderPayment threadId={payMatch[1]} />;
   else if (orderTLMatch) page = <OrderTimeline threadId={orderTLMatch[1]} />;
   else if (orderMatch) page = <OrderDetail threadId={orderMatch[1]} focus={focusEl} />;
