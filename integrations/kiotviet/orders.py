@@ -20,7 +20,7 @@ def create_order_with_payment(customer_id: int, method: str, total_payment: int 
     }
     if account_id:
         payload["accountId"] = account_id
-    log.info("Creating KiotViet order+pymt: cust=%d method=%s amt=%s acct=%s",
+    log.info("Creating KiotViet order+pymt: cust=%s method=%s amt=%s acct=%s",
              customer_id, method, total_payment, account_id)
     return _request("POST", "/orders", body=payload)
 

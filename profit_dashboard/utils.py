@@ -6,22 +6,26 @@ là webapp #/loi-nhuan, xem profit_dashboard/compute.py.)
 from __future__ import annotations
 import calendar
 import json
+import time
 
 from profit_dashboard.settings import DEFAULT_WEIGHTS
 
 
-# Cache of customers.firebase_key -> name, keyed by id(db_conn).
-# Names change rarely and legacy orders only reference existing customers,
-# so a per-connection cache is safe for the long-lived aiohttp app.
-_CUSTOMER_NAME_MAP_CACHE = {}
+# Cache {firebase_key: name} của MỌI khách, TTL ngắn toàn process.
+# ⚠ Bản cũ cache theo id(db_conn) và không bao giờ xoá: profit_api_routes._run mở
+# connection MỚI mỗi request rồi đóng → CPython cấp lại đúng địa chỉ cũ (đo: 40
+# request → 1 id) ⇒ map dựng 1 lần rồi dùng suốt đời process, khách tạo mới/đổi tên
+# về "" → "Khách lẻ". TTL 30s như order_store/display.py.
+_NAME_CACHE: tuple[float, dict] | None = None
+_NAME_TTL = 30.0
 
 
 def _customer_name_map(db_conn):
-    """Build/return {firebase_key(str): name} for all customers on this conn."""
-    cache_key = id(db_conn)
-    cached = _CUSTOMER_NAME_MAP_CACHE.get(cache_key)
-    if cached is not None:
-        return cached
+    """Build/return {firebase_key(str): name} for all customers (cache TTL 30s)."""
+    global _NAME_CACHE
+    now = time.monotonic()
+    if _NAME_CACHE is not None and now - _NAME_CACHE[0] < _NAME_TTL:
+        return _NAME_CACHE[1]
     m = {}
     try:
         cur = db_conn.execute(
@@ -36,7 +40,7 @@ def _customer_name_map(db_conn):
                 m[str(fk)] = str(name)
     except Exception:
         pass
-    _CUSTOMER_NAME_MAP_CACHE[cache_key] = m
+    _NAME_CACHE = (now, m)   # gán tuple là atomic — 2 thread cùng dựng chỉ dư 1 query
     return m
 
 

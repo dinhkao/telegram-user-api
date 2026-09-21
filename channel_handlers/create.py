@@ -132,6 +132,13 @@ async def process_new_order(client, msg, *, web_actor=None, customer_key=None) -
         return None
 
     # ── NGOÀI khoá: side-effect + welcome message + pin + auto_parse ──
+    # MIRROR 5 bước sang bảng VIỆC ngay lúc tạo — trước đây chỉ mirror khi ai đó bấm
+    # 1 bước (order_store.tasks) hoặc backfill 1 lần/process → đơn mới chưa ai đụng
+    # VÔ HÌNH ở #/viec + badge. Best-effort, không làm hỏng flow tạo đơn.
+    from task_store import mirror_order_tasks_safe
+    mirror_order_tasks_safe(thread_id, new_order)
+    from server_app.realtime import emit_tasks_changed
+    emit_tasks_changed()
     client.loop.create_task(firebase_sync(firebase_key, thread_id, msg.id, new_order))
     # Log lịch sử thao tác: tạo đơn (hiện trong Lịch sử thao tác của đơn), kèm người tạo
     from audit_log import async_log_event
