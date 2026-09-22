@@ -154,7 +154,15 @@ async def gdt_print_handler(request: web.Request):
     tid, order, err = _load(request)
     if err:
         return err
-    body = await request.json() if request.can_read_body else {}
+    # KHÔNG dùng request.can_read_body: middleware audit đã đọc payload nên cờ này
+    # luôn False → body rỗng → "Lưu & In" từ trang bị 400 (lỗi 22/09/2026). json()
+    # vẫn trả được vì aiohttp cache bytes đã đọc.
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 — body rỗng/không phải JSON = in bản đã lưu
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
     apply_web_actor(request, body)
     conn = _get_connection()
     if body.get("ten") or body.get("ten_gdt"):
