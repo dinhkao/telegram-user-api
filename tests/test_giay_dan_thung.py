@@ -108,11 +108,13 @@ class PadPngTest(unittest.TestCase):
         from server_app.gdt_routes import _pad_png
         im = Image.new("RGB", (10, 20), (0, 0, 0))
         buf = io.BytesIO(); im.save(buf, format="PNG")
-        out = Image.open(io.BytesIO(_pad_png(buf.getvalue(), 5, 7)))
-        self.assertEqual(out.size, (10, 32))
+        out = Image.open(io.BytesIO(_pad_png(buf.getvalue(), 5, 7)))   # ends=5, sides=7
+        self.assertEqual(out.size, (24, 30))
         self.assertEqual(out.getpixel((0, 0)), (255, 255, 255))
-        self.assertEqual(out.getpixel((0, 5)), (0, 0, 0))
-        self.assertEqual(out.getpixel((0, 31)), (255, 255, 255))
+        self.assertEqual(out.getpixel((7, 5)), (0, 0, 0))
+        self.assertEqual(out.getpixel((6, 15)), (255, 255, 255))      # lề trái
+        self.assertEqual(out.getpixel((23, 15)), (255, 255, 255))     # lề phải
+        self.assertEqual(out.getpixel((7, 29)), (255, 255, 255))
         self.assertEqual(_pad_png(b"x", 0, 0), b"x")
 
 

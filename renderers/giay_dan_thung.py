@@ -19,6 +19,7 @@ GDT_SENDER = os.getenv("GDT_SENDER", "Kẹo Lê Trang 0941 586 542")
 
 LABEL_W = 280          # px — bằng bề rộng hoá đơn nhiệt
 LABEL_H = 1080         # px ≈ 286mm (< 297mm)
+SIDE_PAD = 30          # px chừa 2 cạnh dài (dòng chữ không ra sát mép — chỗ dán keo)
 FONT_MAX = 40
 FONT_MIN = 16
 _CHAR_EM = 0.62        # bề rộng TB 1 ký tự Arial đậm (tính theo em) — ước lượng an toàn
@@ -60,7 +61,7 @@ def generate_gdt_html(gdt: dict, sender: str | None = None, preview: bool = Fals
   @page {{ margin: 0; }}
   html, body {{ margin: 0; padding: 0; background: #fff; }}
   body {{ width: {LABEL_W}px; }}
-  .label {{ width: {LABEL_W}px; height: {LABEL_H}px; box-sizing: border-box; {frame}
+  .label {{ width: {LABEL_W}px; height: {LABEL_H}px; box-sizing: border-box; padding: 0 {SIDE_PAD}px; {frame}
     display: flex; flex-direction: column; justify-content: space-around; align-items: center;
     writing-mode: vertical-rl; font-family: Arial, Helvetica, sans-serif; font-weight: 700;
     line-height: 1.15; overflow: hidden; color: #000; }}
