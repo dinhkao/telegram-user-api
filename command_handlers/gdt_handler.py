@@ -73,10 +73,14 @@ def register_gdt_handler(client):
             await client.send_message(msg.chat_id, "ℹ️ Chưa có thông tin giấy dán thùng", reply_to=msg.id)
             return
         # Cùng template + cùng hàng đợi máy in với webapp (server_app/gdt_routes)
-        from renderers.giay_dan_thung import generate_gdt_html
-        from server_app.gdt_routes import enqueue_gdt_print
+        from renderers.giay_dan_thung import generate_gdt_html, generate_gdt_print_html
+        from server_app.gdt_routes import enqueue_gdt_print, render_gdt_png
         html = generate_gdt_html(gdt)
-        queued = await enqueue_gdt_print(html, 1)
+        try:
+            queued = await enqueue_gdt_print(generate_gdt_print_html(await render_gdt_png(html)), 1)
+        except Exception as e:  # noqa: BLE001
+            log.warning("ingdt: render PNG lỗi: %s", e)
+            queued = False
         customer_name = (order.get("customer_name") or order.get("kh") or "khong_ten").strip()
         safe_name = re.sub(r"[^a-zA-Z0-9\u0080-\uffff_\- ]", "", customer_name.replace(" ", "_").replace("/", "_").replace("\\", "_"))[:50] or "gdt"
         file_path = os.path.join(tempfile.gettempdir(), f"gdt_{safe_name}.html")

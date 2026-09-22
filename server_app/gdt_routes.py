@@ -19,7 +19,7 @@ from aiohttp import web
 from order_db import _get_connection, _save_order, get_customer_by_key, get_order_by_thread_id, transaction
 from order_store.customers import update_customer
 from printouts.common import queue_html_for_print
-from renderers.giay_dan_thung import GDT_SENDER, generate_gdt_html
+from renderers.giay_dan_thung import GDT_SENDER, generate_gdt_html, generate_gdt_print_html
 from server_app import state
 from server_app.config import ORDER_GROUP_ID
 from server_app.gdt_domain import build_prefill, contact_from, gdt_of, normalize_body, summary
@@ -165,7 +165,12 @@ async def gdt_print_handler(request: web.Request):
     except (TypeError, ValueError):
         copies = 1
     html = generate_gdt_html(gdt)
-    queued = await enqueue_gdt_print(html, copies)
+    try:
+        png = await render_gdt_png(html)
+    except Exception as e:  # noqa: BLE001
+        log.error("gdt print: render PNG lỗi tid=%s: %s", tid, e)
+        return _err("Lỗi dựng ảnh nhãn để in — thử lại", 502)
+    queued = await enqueue_gdt_print(generate_gdt_print_html(png), copies)
     if not queued:
         return _err("Máy in chưa cấu hình (Firebase) — không gửi được lệnh in", 503)
     actor = body.get("user_id")
@@ -179,8 +184,34 @@ async def gdt_print_handler(request: web.Request):
     return web.json_response({"ok": True, "copies": copies, "gdt": gdt})
 
 
-# Xem trước PNG — cache theo nội dung nhãn (đổi chữ là hash đổi, khỏi invalidation)
+# PNG nhãn — cache theo nội dung HTML (đổi chữ là hash đổi, khỏi invalidation)
 _png_cache: dict[str, bytes] = {}
+
+
+async def render_gdt_png(html: str) -> bytes:
+    """HTML nhãn → PNG qua pipeline Playwright của ảnh HĐ (crop lề trắng). Dùng cho
+    cả XEM TRƯỚC lẫn bản GỬI MÁY IN (in = ảnh này nhúng vào HTML dòng chảy)."""
+    key = hashlib.sha1(html.encode("utf-8")).hexdigest()
+    png = _png_cache.get(key)
+    if png is not None:
+        return png
+    from integrations.firebase_html_to_png.core import _executor, _html_to_png
+    from server_app.invoice_image import _read_bytes
+    png_path = None
+    try:
+        loop = asyncio.get_running_loop()
+        png_path = await loop.run_in_executor(_executor, _html_to_png, html, log, 360, 100)
+        png = await asyncio.to_thread(_read_bytes, png_path)
+    finally:
+        if png_path:
+            try:
+                os.unlink(png_path)
+            except OSError:
+                pass
+    if len(_png_cache) > 30:
+        _png_cache.clear()
+    _png_cache[key] = png
+    return png
 
 
 def _gdt_from_query(request: web.Request, order: dict) -> dict | None:
@@ -202,29 +233,11 @@ async def gdt_png_handler(request: web.Request):
     gdt = _gdt_from_query(request, order)
     if not gdt:
         return web.Response(text="Chưa có giấy dán thùng", status=404)
-    html = generate_gdt_html(gdt, preview=True)
-    key = hashlib.sha1(html.encode("utf-8")).hexdigest()
-    png = _png_cache.get(key)
-    if png is None:
-        from integrations.firebase_html_to_png.core import _executor, _html_to_png
-        from server_app.invoice_image import _read_bytes
-        png_path = None
-        try:
-            loop = asyncio.get_running_loop()
-            png_path = await loop.run_in_executor(_executor, _html_to_png, html, log, 360, 100)
-            png = await asyncio.to_thread(_read_bytes, png_path)
-        except Exception as e:  # noqa: BLE001
-            log.error("gdt png: render lỗi tid=%s: %s", tid, e)
-            return web.Response(text="Lỗi render ảnh xem trước — thử lại", status=502)
-        finally:
-            if png_path:
-                try:
-                    os.unlink(png_path)
-                except OSError:
-                    pass
-        if len(_png_cache) > 30:
-            _png_cache.clear()
-        _png_cache[key] = png
+    try:
+        png = await render_gdt_png(generate_gdt_html(gdt, preview=True))
+    except Exception as e:  # noqa: BLE001
+        log.error("gdt png: render lỗi tid=%s: %s", tid, e)
+        return web.Response(text="Lỗi render ảnh xem trước — thử lại", status=502)
     return web.Response(body=png, content_type="image/png", headers={"Cache-Control": "no-store"})
 
 
@@ -247,4 +260,4 @@ def register_gdt_routes(r) -> None:
     r.add_get("/api/order/{thread_id}/gdt/html", gdt_html_handler)
 
 
-__all__ = ["register_gdt_routes", "enqueue_gdt_print"]
+__all__ = ["register_gdt_routes", "enqueue_gdt_print", "render_gdt_png"]

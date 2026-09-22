@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import unittest
 
-from renderers.giay_dan_thung import FONT_MAX, FONT_MIN, LABEL_W, fit_font_px, generate_gdt_html, label_lines
+from renderers.giay_dan_thung import FONT_MAX, FONT_MIN, LABEL_W, fit_font_px, generate_gdt_html, generate_gdt_print_html, label_lines
 from server_app.event_format import event_entry
 from server_app.gdt_domain import build_prefill, contact_from, fmt_thu_ho, gdt_of, normalize_body, summary
 
@@ -91,6 +91,14 @@ class RendererTest(unittest.TestCase):
         # mỗi dòng có cỡ chữ riêng, không vượt trần
         for px in re.findall(r"font-size:(\d+)px", html):
             self.assertLessEqual(int(px), FONT_MAX)
+
+
+    def test_print_html_is_plain_flow_with_embedded_image(self):
+        html = generate_gdt_print_html(b"\x89PNG\r\n\x1a\nfake")
+        self.assertIn('src="data:image/png;base64,', html)
+        self.assertIn(f"width: {LABEL_W}px", html)
+        self.assertNotIn("writing-mode", html)       # máy in chỉ thấy 1 ảnh trong dòng chảy
+        self.assertNotIn("http", html)
 
 
 class EventFormatTest(unittest.TestCase):

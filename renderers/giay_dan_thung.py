@@ -10,6 +10,7 @@ Không tài nguyên ngoài (ảnh/font) — máy in không cần mạng.
 """
 from __future__ import annotations
 
+import base64
 import os
 
 from renderers.common import esc
@@ -66,3 +67,21 @@ def generate_gdt_html(gdt: dict, sender: str | None = None, preview: bool = Fals
   .label p {{ margin: 0; white-space: nowrap; }}
 </style>
 </head><body><div class="label">{ps}</div></body></html>'''
+
+
+def generate_gdt_print_html(png: bytes, width_px: int = LABEL_W) -> str:
+    """HTML GỬI MÁY IN: chỉ 1 ảnh PNG của nhãn (render từ generate_gdt_html) nằm trong
+    dòng chảy bình thường như hoá đơn. Lý do (in thử 21/09/2026): gửi thẳng HTML chữ
+    xoay dọc + khối cao cố định thì máy in cắt ngang ở ~80mm và ép nội dung vào nửa
+    trái giấy — client in không dựng đúng layout đó, nhưng hoá đơn (dòng chảy, ảnh QR)
+    thì in dài được. Ảnh nhúng data-URI để máy in không cần mạng."""
+    b64 = base64.b64encode(png).decode("ascii")
+    return f'''<!DOCTYPE html><html lang="vi"><head>
+<meta charset="UTF-8" />
+<title>Giấy dán thùng</title>
+<style>
+  html, body {{ margin: 0; padding: 0; background: #fff; }}
+  body {{ width: {width_px}px; }}
+  img {{ display: block; max-width: {width_px}px; margin: 0 auto; }}
+</style>
+</head><body><img src="data:image/png;base64,{b64}" alt="Giấy dán thùng" /></body></html>'''
