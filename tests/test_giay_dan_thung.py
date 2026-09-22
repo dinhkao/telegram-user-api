@@ -101,6 +101,21 @@ class RendererTest(unittest.TestCase):
         self.assertNotIn("http", html)
 
 
+class PadPngTest(unittest.TestCase):
+    def test_pad_adds_white_bands_top_and_bottom(self):
+        import io
+        from PIL import Image
+        from server_app.gdt_routes import _pad_png
+        im = Image.new("RGB", (10, 20), (0, 0, 0))
+        buf = io.BytesIO(); im.save(buf, format="PNG")
+        out = Image.open(io.BytesIO(_pad_png(buf.getvalue(), 5, 7)))
+        self.assertEqual(out.size, (10, 32))
+        self.assertEqual(out.getpixel((0, 0)), (255, 255, 255))
+        self.assertEqual(out.getpixel((0, 5)), (0, 0, 0))
+        self.assertEqual(out.getpixel((0, 31)), (255, 255, 255))
+        self.assertEqual(_pad_png(b"x", 0, 0), b"x")
+
+
 class EventFormatTest(unittest.TestCase):
     def test_labels(self):
         label, parts = event_entry("order.gdt_saved", {**GDT, "created": True}, None)
