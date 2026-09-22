@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import unittest
 
-from renderers.giay_dan_thung import FONT_MAX, FONT_MIN, LABEL_W, fit_font_px, generate_gdt_html, generate_gdt_print_html, label_lines
+from renderers.giay_dan_thung import FONT_MAX, FONT_MIN, LABEL_W, TAIL_MARK, fit_font_px, generate_gdt_html, generate_gdt_print_html, label_lines
 from server_app.event_format import event_entry
 from server_app.gdt_domain import build_prefill, contact_from, fmt_thu_ho, gdt_of, normalize_body, summary
 
@@ -59,12 +59,13 @@ class RendererTest(unittest.TestCase):
     def test_lines_follow_legacy_template(self):
         self.assertEqual(label_lines(GDT, sender="Kẹo Lê Trang 0941 586 542"), [
             "Người gửi: Kẹo Lê Trang 0941 586 542",
-            "Người nhận: Vườn xoài Út Khuyến 0978 237 353",
+            "Người nhận: Vườn xoài Út Khuyến 0978 237 353" + TAIL_MARK,
             "1 (thùng)",
             "Thu hộ 700,000",
         ])
+        self.assertTrue(TAIL_MARK.endswith(".") and "\u2003" in TAIL_MARK)
         # ghi chú rỗng → không có dòng trống; không SĐT → không thừa khoảng trắng
-        self.assertEqual(label_lines({"ten_gdt": "A", "so_thung": "2"}, sender="S"), ["Người gửi: S", "Người nhận: A", "2 (thùng)"])
+        self.assertEqual(label_lines({"ten_gdt": "A", "so_thung": "2"}, sender="S"), ["Người gửi: S", "Người nhận: A" + TAIL_MARK, "2 (thùng)"])
 
     def test_fit_font_shrinks_long_lines_within_bounds(self):
         self.assertEqual(fit_font_px("1 (thùng)"), FONT_MAX)

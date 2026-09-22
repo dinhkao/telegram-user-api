@@ -19,6 +19,7 @@ GDT_SENDER = os.getenv("GDT_SENDER", "Kẹo Lê Trang 0941 586 542")
 
 LABEL_W = 280          # px — bằng bề rộng hoá đơn nhiệt
 LABEL_H = 1080         # px ≈ 286mm (< 297mm)
+TAIL_MARK = "\u2003" * 5 + "."   # ≈ 5 em trống + "." ở cuối dòng người nhận
 SIDE_PAD = 30          # px chừa 2 cạnh dài (dòng chữ không ra sát mép — chỗ dán keo)
 FONT_MAX = 40
 FONT_MIN = 16
@@ -40,7 +41,10 @@ def label_lines(gdt: dict, sender: str | None = None) -> list[str]:
     sender = sender if sender is not None else GDT_SENDER
     ten = str(gdt.get("ten_gdt") or "").strip()
     sdt = str(gdt.get("sdt_gdt") or "").strip()
-    nhan = f"Người nhận: {ten}" + (f" {sdt}" if sdt else "")
+    # Đuôi "     ." sau SĐT như mẫu cũ: máy in tự cắt phần trắng cuối tờ nên khoảng trống
+    # nướng vào ảnh không ra giấy — phải có 1 dấu chấm ở xa để máy in in tới đó, tạo
+    # chỗ trống bên phải SĐT (Duy 2026-09-22). Dùng em-space (không bị gộp như space).
+    nhan = f"Người nhận: {ten}" + (f" {sdt}" if sdt else "") + TAIL_MARK
     lines = [f"Người gửi: {sender}", nhan, f"{str(gdt.get('so_thung') or '').strip()} (thùng)"]
     note = str(gdt.get("note_gdt") or "").strip()
     if note:
