@@ -35,6 +35,9 @@ MAX_COPIES = 5
 # chữ (Duy 2026-09-22; 30px ≈ 8mm). END = 2 đầu tờ (mặc định 0).
 GDT_SIDE_MARGIN_PX = int(os.getenv("GDT_SIDE_MARGIN_PX", "30"))
 GDT_MARGIN_PX = int(os.getenv("GDT_MARGIN_PX", "0"))
+# TAIL = ĐUÔI tờ giấy — phần trống sau chữ cuối các dòng (bên phải SĐT khi cầm đọc),
+# Duy 2026-09-22; 80px ≈ 21mm. Đầu tờ vẫn theo GDT_MARGIN_PX.
+GDT_TAIL_MARGIN_PX = int(os.getenv("GDT_TAIL_MARGIN_PX", "80"))
 
 
 def _tid(request: web.Request) -> int | None:
@@ -193,27 +196,30 @@ async def gdt_print_handler(request: web.Request):
 _png_cache: dict[str, bytes] = {}
 
 
-def _pad_png(png: bytes, ends: int, sides: int) -> bytes:
-    """Thêm băng trắng quanh ảnh: `ends` = trên/dưới (2 đầu tờ giấy), `sides` = trái/phải
-    (2 cạnh dài — nơi dán keo). Pipeline HĐ đã crop sạch lề trắng nên phải cộng lại SAU
-    crop; nướng vào ảnh (không dùng CSS padding) để client in không tự cắt bỏ được."""
-    if ends <= 0 and sides <= 0:
+def _pad_png(png: bytes, head: int, sides: int, tail: int | None = None) -> bytes:
+    """Thêm băng trắng quanh ảnh: `head` = trên (đầu tờ), `tail` = dưới (đuôi tờ — sau
+    chữ cuối vì chữ chạy từ trên xuống; None = bằng head), `sides` = trái/phải (2 cạnh
+    dài — nơi dán keo). Pipeline HĐ đã crop sạch lề trắng nên phải cộng lại SAU crop;
+    nướng vào ảnh (không dùng CSS padding) để client in không tự cắt bỏ được."""
+    tail = head if tail is None else tail
+    if head <= 0 and sides <= 0 and tail <= 0:
         return png
     import io
     from PIL import Image
     im = Image.open(io.BytesIO(png)).convert("RGB")
-    out = Image.new("RGB", (im.width + 2 * sides, im.height + 2 * ends), (255, 255, 255))
-    out.paste(im, (sides, ends))
+    out = Image.new("RGB", (im.width + 2 * sides, im.height + head + tail), (255, 255, 255))
+    out.paste(im, (sides, head))
     buf = io.BytesIO()
     out.save(buf, format="PNG")
     return buf.getvalue()
 
 
-async def render_gdt_png(html: str, margin_px: int = GDT_MARGIN_PX, side_px: int = GDT_SIDE_MARGIN_PX) -> bytes:
-    """HTML nhãn → PNG qua pipeline Playwright của ảnh HĐ (crop lề trắng) + lề trắng
-    2 đầu `margin_px` và 2 cạnh dài `side_px`. Dùng cho cả XEM TRƯỚC lẫn bản GỬI MÁY
-    IN (in = ảnh này nhúng vào HTML dòng chảy)."""
-    key = hashlib.sha1(f"{margin_px}:{side_px}:{html}".encode("utf-8")).hexdigest()
+async def render_gdt_png(html: str, margin_px: int = GDT_MARGIN_PX, side_px: int = GDT_SIDE_MARGIN_PX,
+                         tail_px: int = GDT_TAIL_MARGIN_PX) -> bytes:
+    """HTML nhãn → PNG qua pipeline Playwright của ảnh HĐ (crop lề trắng) + lề trắng đầu
+    tờ `margin_px`, đuôi tờ `tail_px`, 2 cạnh dài `side_px`. Dùng cho cả XEM TRƯỚC lẫn
+    bản GỬI MÁY IN (in = ảnh này nhúng vào HTML dòng chảy)."""
+    key = hashlib.sha1(f"{margin_px}:{side_px}:{tail_px}:{html}".encode("utf-8")).hexdigest()
     png = _png_cache.get(key)
     if png is not None:
         return png
@@ -224,7 +230,7 @@ async def render_gdt_png(html: str, margin_px: int = GDT_MARGIN_PX, side_px: int
         loop = asyncio.get_running_loop()
         png_path = await loop.run_in_executor(_executor, _html_to_png, html, log, 360, 100)
         png = await asyncio.to_thread(_read_bytes, png_path)
-        png = await asyncio.to_thread(_pad_png, png, margin_px, side_px)
+        png = await asyncio.to_thread(_pad_png, png, margin_px, side_px, tail_px)
     finally:
         if png_path:
             try:

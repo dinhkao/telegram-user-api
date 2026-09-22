@@ -115,6 +115,11 @@ class PadPngTest(unittest.TestCase):
         self.assertEqual(out.getpixel((6, 15)), (255, 255, 255))      # lề trái
         self.assertEqual(out.getpixel((23, 15)), (255, 255, 255))     # lề phải
         self.assertEqual(out.getpixel((7, 29)), (255, 255, 255))
+        # đuôi riêng: head=5, sides=0, tail=12 → cao 20+5+12
+        out2 = Image.open(io.BytesIO(_pad_png(buf.getvalue(), 5, 0, 12)))
+        self.assertEqual(out2.size, (10, 37))
+        self.assertEqual(out2.getpixel((0, 24)), (0, 0, 0))
+        self.assertEqual(out2.getpixel((0, 25)), (255, 255, 255))
         self.assertEqual(_pad_png(b"x", 0, 0), b"x")
 
 
