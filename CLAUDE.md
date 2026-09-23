@@ -1522,6 +1522,8 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
 
 **Tooling**
 - `scripts/`, `tools/`, `tests/`, `docs/` — startup scripts, dev tools, tests, docs.
+- **`docs/ai-agent-doc-don-hang.md`** — hướng dẫn AI agent ĐỌC đơn hàng: blob
+  `orders.json`, đã giao/đã nộp (mã `nop_tien.note`), payments/còn nợ, ảnh HĐ/nộp tiền.
 
 > If you add a package, add a one-line entry here.
 
