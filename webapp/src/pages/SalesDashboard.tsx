@@ -88,9 +88,20 @@ function SalesTrend({ daily, selectedDay }: { daily: Daily[]; selectedDay?: stri
   const { points, unit } = chartPoints(daily);
   const [selected, setSelected] = useState(selectedDay || "");
   useEffect(() => setSelected(selectedDay || ""), [selectedDay]);
+  // Vẽ theo BỀ NGANG THẬT của khung (viewBox = px) → cỡ chữ trục là px thật, không
+  // bị co nhỏ theo tỉ lệ như viewBox cố định 600 trên màn điện thoại ~340px.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(340);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => { const w = Math.round(e.contentRect.width); if (w > 0) setW(w); });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [points.length > 0]);
   if (!points.length) return null;
   const chosen = points.find(p => p.key === selected) || points.find(p => p.key === selectedDay) || points[points.length - 1];
-  const W = 600, H = 250, L = 48, R = 42, T = 25, B = 35;
+  const H = 230, L = 46, R = 40, T = 12, B = 26;
   const plotW = W - L - R, plotH = H - T - B, step = plotW / Math.max(1, points.length);
   const revenues = points.map(p => p.revenue), quantities = points.map(p => p.net_qty);
   const revMax = Math.max(1, ...revenues), revMin = Math.min(0, ...revenues), revSpan = revMax - revMin;
@@ -99,22 +110,22 @@ function SalesTrend({ daily, selectedDay }: { daily: Daily[]; selectedDay?: stri
   const qy = (v: number) => T + (qtyMax - v) / qtySpan * plotH;
   const x = (i: number) => L + (i + .5) * step;
   const path = points.map((p, i) => `${i ? "L" : "M"}${x(i)},${qy(p.net_qty)}`).join(" ");
-  const labelEvery = Math.max(1, Math.ceil(points.length / 6));
+  const labelEvery = Math.max(1, Math.ceil(points.length / Math.max(2, Math.floor(plotW / 46))));
   return <section class="card sd-trend">
     <div class="sd-head"><div class="ie-head">Doanh thu & số lượng{selectedDay && <span class="ie-count">tuần chứa ngày đang chọn</span>}</div>
       <span class="sd-legend"><i class="bar" />Doanh thu <i class="line" />SL thuần</span></div>
-    <svg viewBox={`0 0 ${W} ${H}`} class="sd-chart" role="img" aria-label="Biểu đồ doanh thu dạng cột và số lượng bán thuần dạng đường">
-      {[0, .5, 1].map(t => <g key={t}><line x1={L} x2={W - R} y1={T + t * plotH} y2={T + t * plotH} class="sd-gridline" /><text x={L - 7} y={T + t * plotH + 4} text-anchor="end" class="sd-axis">{compactMoney(revMax - t * revSpan)}</text></g>)}
+    <div ref={wrapRef}><svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} class="sd-chart" role="img" aria-label="Biểu đồ doanh thu dạng cột và số lượng bán thuần dạng đường">
+      {[0, .5, 1].map(t => <g key={t}><line x1={L} x2={W - R} y1={T + t * plotH} y2={T + t * plotH} class="sd-gridline" /><text x={L - 6} y={T + t * plotH + 4} text-anchor="end" class="sd-axis">{compactMoney(revMax - t * revSpan)}</text></g>)}
       <line x1={L} x2={W - R} y1={ry(0)} y2={ry(0)} class="sd-zero" />
       {points.map((p, i) => <g key={p.key} class={`${selected && selected !== p.key ? "dim" : ""}${chosen.key === p.key ? " active" : ""}`.trim()}>
         <rect class={`sd-bar${p.revenue < 0 ? " neg" : ""}`} x={x(i) - step * .31} width={Math.max(2, step * .62)} y={Math.min(ry(0), ry(p.revenue))} height={Math.max(1, Math.abs(ry(p.revenue) - ry(0)))} rx={Math.min(3, step * .12)} />
         <rect class="sd-hit" x={L + i * step} y={T} width={step} height={plotH} onClick={() => setSelected(p.key)}><title>{p.label}: {money(p.revenue)}đ · {qtyVN(p.net_qty)} SP</title></rect>
-        {i % labelEvery === 0 && <text x={x(i)} y={H - 12} text-anchor="middle" class="sd-axis">{p.label.replace("Tuần ", "")}</text>}
+        {i % labelEvery === 0 && <text x={x(i)} y={H - 7} text-anchor="middle" class="sd-axis">{p.label.replace("Tuần ", "")}</text>}
       </g>)}
       <path d={path} class="sd-qty-line" />
       {points.map((p, i) => <circle key={p.key} cx={x(i)} cy={qy(p.net_qty)} r={chosen.key === p.key ? 4 : 2.5} class="sd-qty-dot" />)}
-      <text x={W - R + 7} y={T + 4} class="sd-axis sd-axis-qty">{qtyVN(qtyMax)}</text><text x={W - R + 7} y={T + plotH + 4} class="sd-axis sd-axis-qty">{qtyVN(qtyMin)}</text>
-    </svg>
+      <text x={W - R + 6} y={T + 4} class="sd-axis sd-axis-qty">{qtyVN(qtyMax)}</text><text x={W - R + 6} y={T + plotH + 4} class="sd-axis sd-axis-qty">{qtyVN(qtyMin)}</text>
+    </svg></div>
     <div class="sd-readout" aria-live="polite"><div><span>{unit === "day" ? dateLong(chosen.day) : chosen.label}</span><b>{money(chosen.revenue)}đ</b></div><div><span>SL thuần</span><b>{qtyVN(chosen.net_qty)} SP</b></div><div><span>Đơn bán</span><b>{chosen.orders}</b></div></div>
   </section>;
 }

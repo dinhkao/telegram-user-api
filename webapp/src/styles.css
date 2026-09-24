@@ -4699,13 +4699,13 @@ a.bean-row, a.bean-card { color: inherit; text-decoration: none; }
 @media (min-width: 560px) { .sd-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
 .sd-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-.sd-legend { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: .68rem; white-space: nowrap; }
+.sd-legend { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: .76rem; white-space: nowrap; }
 .sd-legend i.bar { width: 9px; height: 9px; border-radius: 2px; background: var(--primary); }
 .sd-legend i.line { width: 13px; height: 2px; margin-left: 6px; background: var(--viz-3); }
-.sd-chart { display: block; width: 100%; height: auto; min-height: 190px; }
+.sd-chart { display: block; width: 100%; height: auto; overflow: visible; }
 .sd-gridline { stroke: var(--border); stroke-dasharray: 3 4; }
 .sd-zero { stroke: var(--muted-2); stroke-width: .6; }
-.sd-axis { fill: var(--muted); font-size: 9px; }
+.sd-axis { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .sd-axis-qty { fill: var(--viz-3); }
 .sd-bar { fill: var(--primary); }
 .sd-bar.neg { fill: var(--danger); }
@@ -4715,9 +4715,9 @@ a.bean-row, a.bean-card { color: inherit; text-decoration: none; }
 .sd-trend g.active .sd-axis { fill: var(--ink); font-weight: 700; }
 .sd-qty-line { fill: none; stroke: var(--viz-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 .sd-qty-dot { fill: var(--card); stroke: var(--viz-3); stroke-width: 2; pointer-events: none; }
-.sd-readout { display: grid; grid-template-columns: 1.4fr 1fr .7fr; gap: 6px; margin-top: 6px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--bg); color: var(--muted); font-size: .7rem; }
+.sd-readout { display: grid; grid-template-columns: 1.4fr 1fr .7fr; gap: 6px; margin-top: 6px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--bg); color: var(--muted); font-size: .76rem; }
 .sd-readout div { min-width: 0; }
-.sd-readout b { display: block; margin-top: 2px; color: var(--ink); font-size: .84rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.sd-readout b { display: block; margin-top: 2px; color: var(--ink); font-size: .92rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 
 .sd-ranking .seg:not(.small) { margin-bottom: 4px; }
 .sd-ranking .seg.small .seg-btn { white-space: nowrap; }
