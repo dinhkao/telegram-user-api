@@ -1170,7 +1170,12 @@ export function invoiceHtmlUrl(threadId: string | number): string {
 // ── GIẤY DÁN THÙNG (nhãn dán thùng gửi xe) — server_app/gdt_routes.py ──
 export type Gdt = { ten_gdt: string; sdt_gdt: string; so_thung: string; note_gdt: string };
 export type GdtBody = { ten: string; sdt: string; so_thung: string; note: string };
-export async function getGdt(threadId: string | number): Promise<{ gdt: Gdt | null; prefill: Gdt; sender: string }> {
+export async function getGdt(threadId: string | number): Promise<{
+  gdt: Gdt | null; prefill: Gdt; sender: string;
+  /** nguồn của prefill: saved | order (đơn trước của khách) | contact | name */
+  prefill_source?: { kind: string; thread_id?: number; created?: string };
+  thu_ho?: string;   // gợi ý "Thu hộ …" (chip) — KHÔNG tự điền
+}> {
   return getJSON(`/api/order/${Number(threadId)}/gdt`, { cache: false });
 }
 export async function saveGdt(threadId: string | number, body: GdtBody): Promise<{ ok: boolean; gdt: Gdt }> {

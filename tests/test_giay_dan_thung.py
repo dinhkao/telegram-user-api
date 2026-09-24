@@ -7,7 +7,7 @@ import unittest
 
 from renderers.giay_dan_thung import FONT_MAX, FONT_MIN, LABEL_W, TAIL_MARK, fit_font_px, generate_gdt_html, generate_gdt_print_html, label_lines
 from server_app.event_format import event_entry
-from server_app.gdt_domain import build_prefill, contact_from, fmt_thu_ho, gdt_of, normalize_body, summary
+from server_app.gdt_domain import build_prefill, contact_from, fmt_thu_ho, gdt_of, normalize_body, strip_thu_ho, summary
 
 GDT = {"ten_gdt": "Vườn xoài Út Khuyến", "sdt_gdt": "0978 237 353", "so_thung": "1", "note_gdt": "Thu hộ 700,000"}
 
@@ -39,15 +39,30 @@ class DomainTest(unittest.TestCase):
         self.assertEqual(fmt_thu_ho("abc"), "")
 
     def test_prefill_saved_wins(self):
-        self.assertEqual(build_prefill({"giay_dan_thung": GDT}, {"name": "X", "gdt_contact": {"ten": "Y"}}, 5), GDT)
+        prev = {"thread_id": 1, "created": "2026-09-01", "gdt": {"ten_gdt": "Khác"}}
+        p, src = build_prefill({"giay_dan_thung": GDT}, {"name": "X", "gdt_contact": {"ten": "Y"}}, prev)
+        self.assertEqual((p, src), (GDT, {"kind": "saved"}))
 
-    def test_prefill_from_customer_contact_then_name(self):
-        p = build_prefill({}, {"name": "Chị Dung", "gdt_contact": {"ten": "Anh Hiệp", "sdt": "0939"}}, 250000)
-        self.assertEqual((p["ten_gdt"], p["sdt_gdt"], p["so_thung"], p["note_gdt"]), ("Anh Hiệp", "0939", "", "Thu hộ 250,000"))
-        p2 = build_prefill({"customer_name": "Đơn KH"}, {"name": "Chị Dung"}, 0)
-        self.assertEqual((p2["ten_gdt"], p2["sdt_gdt"], p2["note_gdt"]), ("Chị Dung", "", ""))
-        p3 = build_prefill({"kh": "Từ đơn"}, None, None)
+    def test_prefill_from_previous_order_drops_thu_ho_and_box_count(self):
+        prev = {"thread_id": 519282, "created": "2026-09-22T08:58:28.000Z",
+                "gdt": {"ten_gdt": "A Tân", "sdt_gdt": "0916", "so_thung": "5", "note_gdt": "Thu hộ 700,000 - bx Tân An"}}
+        p, src = build_prefill({}, {"name": "Chị Dung", "gdt_contact": {"ten": "Anh Hiệp"}}, prev)
+        self.assertEqual(p, {"ten_gdt": "A Tân", "sdt_gdt": "0916", "so_thung": "", "note_gdt": "bx Tân An"})
+        self.assertEqual(src, {"kind": "order", "thread_id": 519282, "created": "2026-09-22T08:58:28.000Z"})
+
+    def test_prefill_contact_then_name_never_defaults_thu_ho(self):
+        p, src = build_prefill({}, {"name": "Chị Dung", "gdt_contact": {"ten": "Anh Hiệp", "sdt": "0939"}}, None)
+        self.assertEqual((p["ten_gdt"], p["sdt_gdt"], p["so_thung"], p["note_gdt"], src["kind"]),
+                         ("Anh Hiệp", "0939", "", "", "contact"))
+        p2, src2 = build_prefill({"customer_name": "Đơn KH"}, {"name": "Chị Dung"})
+        self.assertEqual((p2["ten_gdt"], p2["sdt_gdt"], p2["note_gdt"], src2["kind"]), ("Chị Dung", "", "", "name"))
+        p3, _ = build_prefill({"kh": "Từ đơn"}, None, None)
         self.assertEqual(p3["ten_gdt"], "Từ đơn")
+
+    def test_strip_thu_ho(self):
+        self.assertEqual(strip_thu_ho("Thu hộ 700,000"), "")
+        self.assertEqual(strip_thu_ho("thu ho 1.200.000đ; nhà xe Phương Trang"), "nhà xe Phương Trang")
+        self.assertEqual(strip_thu_ho("bx an sương"), "bx an sương")
 
     def test_contact_and_summary(self):
         self.assertEqual(contact_from(GDT), {"ten": GDT["ten_gdt"], "sdt": GDT["sdt_gdt"]})

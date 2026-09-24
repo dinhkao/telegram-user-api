@@ -1391,6 +1391,7 @@ a.pr-stat:active { background: var(--accent-wash); }
 .pr-searchrow { position: sticky; top: 44px; z-index: 7; display: flex; align-items: center; gap: 8px;
   padding: 6px 0 8px; background: var(--bg); }
 body.has-nop .pr-searchrow { top: 72px; }
+body.has-nop .gdt-live { top: 72px; }
 .pr-searchn { flex: none; color: var(--muted); font-size: .76rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .pr-thead-bar { position: sticky; top: calc(44px + var(--pr-search-h, 46px)); z-index: 6; overflow-x: hidden; background: var(--bg); border-radius: var(--r-md) var(--r-md) 0 0; }
 body.has-nop .pr-thead-bar { top: calc(72px + var(--pr-search-h, 46px)); }
@@ -4811,3 +4812,12 @@ a.bean-row, a.bean-card { color: inherit; text-decoration: none; }
 .nra-done .nra-tick { color: var(--ok, #2e7d32); opacity: 1; }
 .nra-more { display: block; padding: 2px 0 4px 12px; }
 .nra-foot { margin: 10px 0 0; }
+/* Giấy dán thùng — nhắc nguồn nội dung tự điền (pages/OrderBoxLabel.tsx) */
+.gdt-src { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 10px; padding: 10px 12px; border: 1px solid #ecd28a; border-radius: 10px; background: var(--warn-wash); color: #6c5200; font-size: .86rem; line-height: 1.4; }
+.gdt-src svg { flex: none; margin-top: 2px; }
+.gdt-src a { color: inherit; text-decoration: underline; font-weight: 600; }
+/* Xem trước sống — ghim dưới app-bar để vẫn thấy khi đang gõ (detail/GdtLivePreview.tsx) */
+.gdt-live { position: sticky; top: 44px; z-index: 5; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.gdt-live-img { display: block; width: 100%; height: auto; margin-top: 6px; border: 1px solid var(--border); border-radius: 6px; background: #fff; transition: opacity .15s; }
+.gdt-live-img.stale { opacity: .6; }
+.gdt-live-empty { display: flex; align-items: center; justify-content: center; min-height: 80px; margin-top: 6px; border: 1px dashed var(--border); border-radius: 6px; }

@@ -48,23 +48,38 @@ def fmt_thu_ho(amount) -> str:
     return f"Thu hộ {n:,}" if n > 0 else ""
 
 
-def build_prefill(order: dict | None, customer: dict | None, remaining) -> dict:
-    """Điền sẵn form: bản đã lưu của đơn thắng; chưa có thì tên/SĐT lấy từ lần
-    dán thùng gần nhất của KHÁCH (`gdt_contact`), rồi tên khách; ghi chú gợi ý
-    'Thu hộ <còn phải thu>' khi đơn còn nợ."""
+_THU_HO_RE = re.compile(r"thu\s*h[ộo]\s*:?\s*[\d.,]+\s*(?:đ|d|k|vnđ|vnd)?", re.IGNORECASE)
+
+
+def strip_thu_ho(note) -> str:
+    """Bỏ cụm 'Thu hộ <số>' khỏi ghi chú của đơn CŨ — số tiền thu hộ là của đơn đó,
+    chép sang đơn mới là in sai tiền. Phần còn lại (vd 'bx Tân An') giữ nguyên."""
+    s = _THU_HO_RE.sub(" ", str(note or ""))
+    return _clean(re.sub(r"^[\s,;·\-–]+|[\s,;·\-–]+$", "", _clean(s)))
+
+
+def build_prefill(order: dict | None, customer: dict | None, prev: dict | None = None) -> tuple[dict, dict]:
+    """Điền sẵn form → (prefill, nguồn). Thứ tự: bản đã lưu của CHÍNH đơn này >
+    giấy dán thùng của ĐƠN TRƯỚC gần nhất của khách (`prev` = {thread_id, created,
+    gdt}) > tên/SĐT nhớ theo khách (`gdt_contact`) > tên khách. Số thùng luôn để
+    trống; ghi chú KHÔNG tự điền 'Thu hộ …' (Duy 2026-09-24 — gợi ý thu hộ trả
+    riêng để người dùng chủ động bấm). `nguồn.kind` = saved | order | contact | name."""
     saved = gdt_of(order)
     if saved:
-        return dict(saved)
+        return dict(saved), {"kind": "saved"}
+    pg = gdt_of({"giay_dan_thung": (prev or {}).get("gdt")})
+    if pg and pg["ten_gdt"]:
+        return ({"ten_gdt": pg["ten_gdt"], "sdt_gdt": pg["sdt_gdt"], "so_thung": "",
+                 "note_gdt": strip_thu_ho(pg["note_gdt"])},
+                {"kind": "order", "thread_id": prev.get("thread_id"), "created": prev.get("created") or ""})
     contact = (customer or {}).get("gdt_contact") if isinstance(customer, dict) else None
     contact = contact if isinstance(contact, dict) else {}
-    ten = _clean(contact.get("ten")) or _clean((customer or {}).get("name")) \
+    if _clean(contact.get("ten")):
+        return ({"ten_gdt": _clean(contact.get("ten")), "sdt_gdt": _clean(contact.get("sdt")),
+                 "so_thung": "", "note_gdt": ""}, {"kind": "contact"})
+    ten = _clean((customer or {}).get("name")) \
         or _clean((order or {}).get("customer_name") or (order or {}).get("kh"))
-    return {
-        "ten_gdt": ten,
-        "sdt_gdt": _clean(contact.get("sdt")),
-        "so_thung": "",
-        "note_gdt": fmt_thu_ho(remaining),
-    }
+    return {"ten_gdt": ten, "sdt_gdt": "", "so_thung": "", "note_gdt": ""}, {"kind": "name"}
 
 
 def contact_from(gdt: dict) -> dict:

@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 import os
+import sqlite3
 import tempfile
 
 from aiohttp import web
@@ -22,7 +24,7 @@ from printouts.common import queue_html_for_print
 from renderers.giay_dan_thung import GDT_SENDER, generate_gdt_html, generate_gdt_print_html
 from server_app import state
 from server_app.config import ORDER_GROUP_ID
-from server_app.gdt_domain import build_prefill, contact_from, gdt_of, normalize_body, summary
+from server_app.gdt_domain import build_prefill, contact_from, fmt_thu_ho, gdt_of, normalize_body, summary
 from server_app.order_api_common import apply_web_actor, resolve_name
 from server_app.order_api_mutations import _invoice_total, _paid_total
 from server_app.tasks import spawn_tracked
@@ -70,6 +72,36 @@ def _remaining(order: dict) -> int:
     return max(0, total - _paid_total(order))
 
 
+_PREV_SQL = """
+    SELECT thread_id, order_created, json_extract(json, '$.giay_dan_thung') AS g
+    FROM orders
+    WHERE deleted_at IS NULL AND %s = ? AND thread_id != ?
+      AND json_extract(json, '$.giay_dan_thung.ten_gdt') IS NOT NULL
+    ORDER BY order_created DESC, thread_id DESC
+    LIMIT 1
+"""
+
+
+def _prev_gdt(conn, key: str | None, tid: int) -> dict | None:
+    """Giấy dán thùng của ĐƠN TRƯỚC gần nhất của khách (đơn cũ thời app Node cũng có
+    key này). Lọc theo cột generated `cust_key` (index theo khách); DB chưa có cột
+    thì rơi về biểu thức gốc — như order_store/last_prices."""
+    if not key:
+        return None
+    try:
+        row = conn.execute(_PREV_SQL % "cust_key", (key, tid)).fetchone()
+    except sqlite3.OperationalError:
+        row = conn.execute(_PREV_SQL % "coalesce(json_extract(json, '$.khach_hang_id'), "
+                           "json_extract(json, '$.khID'))", (key, tid)).fetchone()
+    if not row:
+        return None
+    try:
+        g = json.loads(row[2]) if isinstance(row[2], str) else row[2]
+    except ValueError:
+        return None
+    return {"thread_id": row[0], "created": row[1] or "", "gdt": g}
+
+
 async def gdt_get_handler(request: web.Request):
     tid, order, err = _load(request)
     if err:
@@ -77,10 +109,14 @@ async def gdt_get_handler(request: web.Request):
     conn = _get_connection()
     key = _customer_key(order)
     customer = get_customer_by_key(conn, key) if key else None
+    prev = None if gdt_of(order) else _prev_gdt(conn, key, tid)
+    prefill, source = build_prefill(order, customer, prev)
     return web.json_response({
         "ok": True,
         "gdt": gdt_of(order),
-        "prefill": build_prefill(order, customer, _remaining(order)),
+        "prefill": prefill,
+        "prefill_source": source,          # saved | order{thread_id,created} | contact | name
+        "thu_ho": fmt_thu_ho(_remaining(order)),   # chỉ GỢI Ý (chip), không tự điền
         "sender": GDT_SENDER,
     })
 

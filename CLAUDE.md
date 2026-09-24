@@ -173,9 +173,13 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `GDT_SENDER`) · người nhận + SĐT · N (thùng) · ghi chú ("Thu hộ 700,000"). Dữ liệu =
   blob đơn `$.giay_dan_thung` {ten_gdt, sdt_gdt, so_thung, note_gdt} — CHUNG key với
   lệnh Telegram `gdt Tên; SĐT; Số thùng; Ghi chú` / `ingdt` (`command_handlers/
-  gdt_handler.py`, nay cũng dùng renderer + máy in này); nhớ tên/SĐT người nhận theo
-  KHÁCH ở `$.gdt_contact` blob customers → prefill lần sau, ghi chú gợi ý = tiền còn
-  phải thu. **IN = đẩy HTML vào Firebase `meta/to_print` Y NHƯ hoá đơn/phiếu giao**
+  gdt_handler.py`, nay cũng dùng renderer + máy in này). PREFILL đơn chưa có nhãn =
+  giấy dán thùng của **ĐƠN TRƯỚC gần nhất của khách** (`gdt_routes._prev_gdt`, lọc
+  `cust_key` — gồm cả đơn thời Node) → tên/SĐT/ghi chú (bỏ cụm "Thu hộ <số>" của đơn
+  cũ — `strip_thu_ho`), số thùng trống; fallback `$.gdt_contact` blob customers rồi tên
+  khách. GET trả `prefill_source` (saved|order{thread_id,created}|contact|name) → khung
+  vàng ở form ghi rõ nguồn + nhắc kiểm tra trước khi in. ⚠ **Thu hộ KHÔNG tự điền**
+  (Duy 2026-09-24) — chỉ trả `thu_ho` làm chip gợi ý = tiền còn phải thu. **IN = đẩy HTML vào Firebase `meta/to_print` Y NHƯ hoá đơn/phiếu giao**
   (`printouts/common.queue_html_for_print`, cùng máy in nhiệt 80mm; nhánh RTDB
   `meta/to_print_gdt` cũ của app Node đi bằng file_id Telegram — chết theo Node, đừng
   dùng lại). Khổ nhãn: rộng **280px = bề rộng hoá đơn** (không dùng 80mm: vùng in
@@ -187,7 +191,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   Mọi user đăng nhập. Sau in: file HTML gửi vào topic đơn (in tay khi máy in offline),
   audit `order.gdt_saved/gdt_printed` (event_format). UI: khối "Giấy dán thùng" ở
   OrderDetail (In nhanh 1 tờ) → trang `#/order/:id/giay-dan-thung`
-  (`pages/OrderBoxLabel.tsx`: form + chip thu hộ + Xem trước + số tờ + Lưu & In).
+  (`pages/OrderBoxLabel.tsx`: form + chip thu hộ + Xem trước + số tờ + Lưu & In;
+  **xem trước SỐNG khi gõ** = `detail/GdtLivePreview.tsx` — gọi CHÍNH `/gdt/png` bản in
+  (trễ 400ms + huỷ request cũ, ~0,2s/ảnh), xoay ngang trên canvas, khung ghim dưới app-bar).
   Tests: `tests/test_giay_dan_thung.py`.
 - **Webapp create-order (`server_app/order_api_create.py`, `POST /api/order/create`)** —
   posts the order text into `CHANNEL_DON_HANG_MOI` as the user, then calls

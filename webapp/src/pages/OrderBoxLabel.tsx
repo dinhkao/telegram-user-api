@@ -1,11 +1,15 @@
 // GIẤY DÁN THÙNG của 1 đơn — #/order/:id/giay-dan-thung. Nhãn dán lên thùng hàng
 // gửi xe: người gửi (cố định) · người nhận + SĐT · số thùng · ghi chú (vd "Thu hộ
-// 700,000"). Form tự điền: bản đã lưu của đơn, chưa có thì tên/SĐT lần dán gần nhất
-// của khách + gợi ý thu hộ = tiền còn phải thu. Xem trước = ảnh PNG server render
-// (chữ xoay dọc đúng như tờ in). In = đẩy vào máy in nhiệt như hoá đơn
+// 700,000"). Form tự điền: bản đã lưu của đơn, chưa có thì lấy từ giấy dán thùng của
+// ĐƠN TRƯỚC gần nhất của khách (khung vàng ghi rõ đơn nào + nhắc kiểm tra trước khi
+// in). Thu hộ KHÔNG tự điền — chỉ là chip gợi ý = tiền còn phải thu. Xem trước SỐNG khi
+// gõ (detail/GdtLivePreview, ghim đầu trang) + nút Xem trước toàn màn = ảnh PNG server
+// render (chữ xoay dọc đúng như tờ in). In = đẩy vào máy in nhiệt như hoá đơn
 // (server_app/gdt_routes.py), chọn số tờ 1–5.
 import { useEffect, useState } from "preact/hooks";
 import { getGdt, printGdt, saveGdt, gdtPngUrl, type GdtBody } from "../api";
+import { fmtDateTimeVN } from "../format";
+import { GdtLivePreview } from "../detail/GdtLivePreview";
 import { SingleImageViewer } from "../detail/SingleImageViewer";
 import { confirmDialog, toast } from "../ui/feedback";
 import { Icon } from "../ui/Icon";
@@ -30,7 +34,7 @@ export function OrderBoxLabel({ threadId }: { threadId: string }) {
         setLoaded(j);
         const src = j.gdt || j.prefill;
         setF({ ten: src.ten_gdt || "", sdt: src.sdt_gdt || "", so_thung: src.so_thung || "", note: src.note_gdt || "" });
-        setSuggest(j.prefill?.note_gdt || "");
+        setSuggest(j.thu_ho || "");
       })
       .catch((e: any) => setErr(e?.message || "Lỗi tải"));
   };
@@ -56,7 +60,9 @@ export function OrderBoxLabel({ threadId }: { threadId: string }) {
   };
   const doPrint = async () => {
     if (busy || !check()) return;
-    if (!(await confirmDialog(`Lưu và in ${copies} tờ giấy dán thùng?`, { okLabel: "In" }))) return;
+    const ask = loaded.gdt ? `Lưu và in ${copies} tờ giấy dán thùng?`
+      : `Lưu và in ${copies} tờ giấy dán thùng?\n\nĐã kiểm tra người nhận, số điện thoại và ghi chú chưa? Nội dung đang là gợi ý tự điền.`;
+    if (!(await confirmDialog(ask, { okLabel: "In" }))) return;
     setBusy(true);
     try {
       const r = await printGdt(threadId, copies, f);
@@ -76,11 +82,14 @@ export function OrderBoxLabel({ threadId }: { threadId: string }) {
   return (
     <div class="prod-detail">
       <PageHead fallback={`#/order/${threadId}`} title="Giấy dán thùng"
-        sub={loaded.gdt ? "Sửa nhãn đã lưu" : "Nhãn mới — tự điền theo khách"}
+        sub={loaded.gdt ? "Sửa nhãn đã lưu" : "Nhãn mới — nội dung gợi ý"}
         right={<button class="btn small" disabled={busy} onClick={() => check() && setPreview(gdtPngUrl(threadId, f))}>
           <Icon name="eye" size={14} /> Xem trước
         </button>} />
       {preview && <SingleImageViewer src={preview} title="giấy dán thùng" onClose={() => setPreview(null)} />}
+
+      {!loaded.gdt && <SourceNote src={loaded.prefill_source} />}
+      <GdtLivePreview threadId={threadId} body={f} />
 
       <section class="card">
         <div class="muted small">Người gửi: <b>{loaded.sender}</b></div>
@@ -111,6 +120,27 @@ export function OrderBoxLabel({ threadId }: { threadId: string }) {
           <button class="btn fill primary" disabled={busy} onClick={doPrint}><Icon name="printer" size={16} /> Lưu &amp; In</button>
         </div>
       </section>
+    </div>
+  );
+}
+
+/** Khung nhắc NGUỒN của nội dung tự điền (chỉ hiện khi đơn chưa lưu giấy dán thùng). */
+function SourceNote({ src }: { src?: { kind: string; thread_id?: number; created?: string } }) {
+  const kind = src?.kind || "name";
+  let what;
+  if (kind === "order" && src?.thread_id) {
+    const at = fmtDateTimeVN(src.created);
+    what = <>Người nhận, số điện thoại và ghi chú được lấy từ giấy dán thùng gần nhất của khách này —{" "}
+      <a href={`#/order/${src.thread_id}`}>đơn #{src.thread_id}</a>{at ? ` (${at})` : ""}. Số thùng và thu hộ không chép.</>;
+  } else if (kind === "contact") {
+    what = <>Người nhận và số điện thoại được lấy từ lần dán thùng trước của khách này.</>;
+  } else {
+    what = <>Khách này chưa có giấy dán thùng nào trước đây — người nhận đang tạm lấy theo tên khách.</>;
+  }
+  return (
+    <div class="gdt-src">
+      <Icon name="info" size={16} />
+      <div>{what} <b>Kiểm tra lại thông tin trước khi in.</b></div>
     </div>
   );
 }

@@ -242,9 +242,11 @@ export const GUIDES_DON: Guide[] = [
       { title: "Tạo & in", html: `
         <ol>
           <li>Chi tiết đơn → khối <b>「Giấy dán thùng」</b> → <b>Tạo</b> (hoặc <b>Sửa</b> nếu đã có).</li>
-          <li>Form tự điền: <b>tên + SĐT người nhận</b> lấy từ lần dán thùng gần nhất của khách
-            (chưa có thì lấy tên khách), <b>ghi chú</b> gợi ý sẵn <b>"Thu hộ …"</b> = tiền còn phải thu của đơn
-            (bấm chip để dùng, hoặc gõ tuỳ ý). Bắt buộc: <b>tên người nhận + số thùng</b>.</li>
+          <li>Form tự điền <b>người nhận, SĐT, ghi chú</b> từ giấy dán thùng của <b>đơn trước gần nhất</b>
+            của khách (chưa có thì lấy tên khách). Khung vàng đầu trang ghi rõ lấy từ đơn nào —
+            <b>kiểm tra lại thông tin trước khi in</b>. Số thùng luôn để trống.</li>
+          <li><b>Thu hộ không tự điền.</b> Đơn còn nợ thì có chip <b>"Thu hộ …"</b> = tiền còn phải thu —
+            bấm chip nếu cần in dòng thu hộ. Bắt buộc: <b>tên người nhận + số thùng</b>.</li>
           <li><b>「Xem trước」</b> hiện đúng tờ sẽ in (chữ xoay dọc). Chọn <b>số tờ</b> (1–5) rồi
             <b>「Lưu &amp; In」</b> — lệnh in đi ra <b>máy in nhiệt như hoá đơn</b>; file HTML cũng được gửi vào
             topic đơn trên Telegram để in tay từ máy tính khi máy in offline.</li>
