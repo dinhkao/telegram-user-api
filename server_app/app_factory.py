@@ -262,6 +262,8 @@ def create_app():
     r.add_get("/api/production", production_list_handler)
     r.add_post("/api/production", production_create_handler)
     from server_app.production_dashboard_routes import production_report_dashboard_handler, production_worker_report_handler, production_payslips_html_handler, production_wage_pivot_handler, production_note_review_handler, production_note_resolve_handler
+    from server_app.production_latest_routes import production_latest_sp_handler
+    r.add_get("/api/production/latest-sp", production_latest_sp_handler)                # TRƯỚC {thread_id}
     r.add_get("/api/production/report-dashboard", production_report_dashboard_handler)  # TRƯỚC {thread_id}
     r.add_get("/api/production/wage-pivot", production_wage_pivot_handler)              # TRƯỚC {thread_id}
     r.add_get("/api/production/note-review", production_note_review_handler)           # TRƯỚC {thread_id}

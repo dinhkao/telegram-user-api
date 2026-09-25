@@ -106,6 +106,7 @@ import { QualityDetail } from "./pages/QualityDetail";
 import { QualityGallery } from "./pages/QualityGallery";
 import { CashboxList } from "./pages/CashboxList";
 import { CollectMoney } from "./pages/CollectMoney";
+import { NavSxTag } from "./detail/NavSxTag";
 import { SmartCollectMoney } from "./pages/SmartCollectMoney";
 import { DebtAlerts } from "./pages/DebtAlerts";
 import { NopTienDashboard } from "./pages/NopTienDashboard";
@@ -752,7 +753,7 @@ function App() {
           <a class={hash === "#/orders" || orderMatch ? "tab active" : "tab"} href="#/orders" onClick={() => resetOrdersScroll()}><Icon name="clipboard" size={22} class="tab-ico" /><span class="tab-lbl">Đơn</span></a>
           <a class={tab("#/customers")} href="#/customers" onClick={() => fastScrollTop()}><Icon name="user" size={22} class="tab-ico" /><span class="tab-lbl">Khách</span></a>
           <a class={tab("#/create")} href="#/create" onClick={() => fastScrollTop()}><Icon name="plus" size={22} class="tab-ico" /><span class="tab-lbl">Tạo</span></a>
-          <a class={tab("#/san_xuat")} href="#/san_xuat" onClick={() => fastScrollTop()}><Icon name="factory" size={22} class="tab-ico" /><span class="tab-lbl">SX</span></a>
+          <a class={tab("#/san_xuat") + " tab-sx"} href="#/san_xuat" onClick={() => fastScrollTop()}><Icon name="factory" size={22} class="tab-ico" /><span class="tab-lbl">SX</span><NavSxTag /></a>
           <a class={tab("#/kho")} href="#/kho" onClick={() => fastScrollTop()}><Icon name="box" size={22} class="tab-ico" /><span class="tab-lbl">Kho</span></a>
           <a class={hash.startsWith("#/home") ? "tab nav-more active" : "tab nav-more"} href="#/home" title="Thêm" onClick={() => fastScrollTop()}><Icon name="menu" size={22} class="tab-ico" /><span class="tab-lbl">Thêm</span></a>
           </nav>
