@@ -45,7 +45,7 @@ onRealtime((e) => {
 
 /** Phiếu trả cần chen vào dashboard: nằm trong khoảng thời gian các đơn đã tải
  *  (cũ nhất = `oldest`; `exhausted` = hết đơn thì lấy hết) + khớp ô tìm. */
-export function useDashboardReturns(active: boolean, orders: OrderRow[], exhausted: boolean, search: string): ReturnSlip[] {
+export function useDashboardReturns(active: boolean, orders: OrderRow[], exhausted: boolean, search: string, custKey?: string | null): ReturnSlip[] {
   const [, force] = useState(0);
   useEffect(() => {
     const f = () => force((x) => x + 1);
@@ -65,6 +65,7 @@ export function useDashboardReturns(active: boolean, orders: OrderRow[], exhaust
   const q = foldVN(search.trim());
   return cache.rows.filter((r) => {
     if (!exhausted && ts(r.created_at) < oldest) return false;
+    if (custKey && String(r.customer_key) !== custKey) return false;   // đang lọc theo MÃ khách
     if (!q) return true;
     return foldVN(`${r.customer_name || ""} ${r.kv_invoice_code || ""} ${(r.items || []).map((x) => x.sp).join(" ")} ${r.note || ""}`).includes(q);
   });

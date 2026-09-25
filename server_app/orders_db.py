@@ -235,3 +235,18 @@ def search_orders_fts(conn, query: str):
     except Exception as e:
         log.warning("orders_fts search failed: %s", e)
         return None
+
+
+def customer_where(key: str) -> tuple[str, list]:
+    """Điều kiện WHERE lọc đơn của ĐÚNG 1 khách theo MÃ (không theo tên — tên khách
+    trùng nhau). Cột generated `cust_key` (+ idx_orders_cust_created) không có affinity,
+    dữ liệu lẫn khach_hang_id kiểu số và kiểu chuỗi → so cả 2 dạng."""
+    from utils.db import IS_POSTGRES
+    key = str(key).strip()
+    vals: list = [key]
+    if key.isdigit():
+        vals.append(int(key))
+    if IS_POSTGRES:
+        expr = "coalesce(json_extract(o.json, '$.khach_hang_id'), json_extract(o.json, '$.khID'))"
+        return f"CAST({expr} AS TEXT) = ?", [key]
+    return f"o.cust_key IN ({','.join('?' * len(vals))})", vals

@@ -8,6 +8,7 @@ import { orderImageUrl } from "../api";
 import { InvoiceTable } from "./InvoiceTable";
 import { Icon } from "../ui/Icon";
 import { SwipeText } from "./SwipeText";
+import { SearchHitItems } from "./SearchHitItems";
 
 export const NEW_ORDER_SEC = 5 * 60; // đơn tạo trong 5 phút → tô vàng + tag "Mới"
 
@@ -131,6 +132,16 @@ export function orderAllDone(o: OrderRow): boolean {
   const icons = [...(o.task_icons || "")];
   return icons.length >= 6 && icons[5] === "💰" && icons.slice(0, 5).every((ic) => DONE_ICONS.has(ic));
 }
+// Đơn CHƯA NHẬP SẢN PHẨM (hoá đơn chưa có dòng hàng nào) → dashboard tô đỏ nhạt
+// (.order-card.no-sp) + tag. Chỉ đơn từ 01/07/2026 — đơn thời app cũ nhiều đơn
+// không có dòng hàng, tô cả lịch sử là nhiễu.
+const NO_SP_SINCE = Date.parse("2026-07-01T00:00:00+07:00");
+export function orderNoProducts(o: OrderRow): boolean {
+  if ((o.invoice_count || 0) > 0 || !o.created) return false;
+  const t = Date.parse(o.created);
+  return Number.isFinite(t) && t >= NO_SP_SINCE;
+}
+const NoSpTag = ({ o }: { o: OrderRow }) => orderNoProducts(o) ? <span class="tag-nosp">Chưa nhập sản phẩm</span> : null;
 // Dòng "thao tác mới nhất" trên card (view Mới cập nhật) — giàu như Lịch sử thao tác
 export function LastAction({ o }: { o: OrderRow }) {
   if (!o.last_action) return null;
@@ -210,10 +221,14 @@ export function orderDayLabel(key: string): string {
 export function UltraBody({ o, search }: { o: OrderRow; search: string }) {
   const text = (o.text || o.topic_name || `#${o.thread_id}`).replace(/\s+/g, " ").trim();
   return (
-    <div class="ultra-row">
-      <TaskBadges o={o} />
-      <SwipeText class="ultra-text"><Highlight text={text} q={search} /></SwipeText>
-    </div>
+    <>
+      <div class="ultra-row">
+        <TaskBadges o={o} />
+        <SwipeText class="ultra-text"><SearchHitItems o={o} search={search} /><Highlight text={text} q={search} /></SwipeText>
+      </div>
+      {/* dòng 2 riêng (card cao thêm) — dòng 1 giữ nguyên chỗ cho nội dung đơn */}
+      {orderNoProducts(o) && <div class="ultra-nosp"><span class="tag-nosp">Chưa nhập sản phẩm</span></div>}
+    </>
   );
 }
 
@@ -222,7 +237,7 @@ export function UltraBody({ o, search }: { o: OrderRow; search: string }) {
 export function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }: {
   o: OrderRow; search: string; stt: string; isNew: boolean;
   openThumb: (e: Event, o: OrderRow, atId?: number) => void;
-  filterByCustomer?: (e: Event, c: string) => void;   // không truyền → ẩn nút lọc theo khách
+  filterByCustomer?: (e: Event, c: string, key?: string | number | null) => void;   // không truyền → ẩn nút lọc theo khách
 }) {
   const allIds = o.thumb_image_ids && o.thumb_image_ids.length ? o.thumb_image_ids : (o.thumb_image_id ? [o.thumb_image_id] : []);
   const total = o.image_count ?? allIds.length;
@@ -263,8 +278,8 @@ export function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }:
             ? <div class="order-text wrap-badges"><TaskBadges o={o} />{o.ngay_giao && <span class="od-deliver"><Icon name="truck" size={14} /> {fmtNgayGiao(o.ngay_giao)}</span>}<span class="ot-text"><Highlight text={o.text} q={search} /></span></div>
             : <div class="order-text muted wrap-badges"><TaskBadges o={o} />{o.ngay_giao && <span class="od-deliver"><Icon name="truck" size={14} /> {fmtNgayGiao(o.ngay_giao)}</span>}<span class="ot-text">(không có nội dung)</span></div>}
           <div class="row space">
-            <b class="cust">{isNew && <span class="tag-new">Mới</span>} <Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} />
-              {o.customer && filterByCustomer ? <button class="cust-filter" title={`Lọc đơn của ${o.customer}`} onClick={(e) => filterByCustomer(e, o.customer)}><Icon name="search" size={14} /></button> : null}</b>
+            <b class="cust">{isNew && <span class="tag-new">Mới</span>}<NoSpTag o={o} /> <Highlight text={o.customer || o.topic_name || `#${o.thread_id}`} q={search} />
+              {o.customer && filterByCustomer ? <button class="cust-filter" title={`Lọc đơn của ${o.customer}`} onClick={(e) => filterByCustomer(e, o.customer, o.customer_key)}><Icon name="search" size={14} /></button> : null}</b>
             <span class="muted small order-when">
               {o.created ? <><Icon name="clock" size={13} /> {fmtDateTimeVN(o.created)} · {fmtRelative(o.created)}</> : o.date}
             </span>
@@ -328,6 +343,8 @@ export function CompactBody({ o, search, sort, flashMsg, isNew, openThumb }: {
             {o.ngay_giao && <span class="od-deliver"><Icon name="truck" size={14} /> {fmtNgayGiao(o.ngay_giao)}</span>}
             <span class="ot-text">
               {isNew && <span class="tag-new">Mới</span>}
+              <NoSpTag o={o} />
+              <SearchHitItems o={o} search={search} />
               {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
             </span>
           </div>

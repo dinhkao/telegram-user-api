@@ -4,7 +4,7 @@ import json
 
 from aiohttp import web
 
-from server_app.orders_db import ensure_orders_fts, ensure_orders_stats_columns, get_orders_conn, search_orders_fts
+from server_app.orders_db import customer_where, ensure_orders_fts, ensure_orders_stats_columns, get_orders_conn, search_orders_fts
 
 # Cột tối thiểu để dựng 1 dòng danh sách — dùng chung cho list handler và realtime
 # (server_app/realtime.build_row_for_thread → đẩy dòng đã đổi qua /ws, khỏi refetch).
@@ -93,7 +93,7 @@ def _build_order_row(r) -> dict:
         except ValueError:
             _no = 0
         vnpt = {"published": bool(_vnpt.get("published")), "no": _no or None}
-    return {"key": r["firebase_key"], "vnpt": vnpt, "thread_id": r["thread_id"], "channel_id": r["channel_id"], "message_id": r["message_id"], "customer_key": j.get("khach_hang_id"), "customer": customer, "total": total, "paid": paid, "remaining": remaining, "phone": pc.get("sdt", ""), "date": date, "status": j.get("trang_thai", ""), "soan": j.get("soan", False), "giao": j.get("giao", False), "nop": j.get("nop", False), "nhan": j.get("nhan", False), "nhan_tien_note": (ts.get("nhan_tien", {}) or {}).get("note", ""), "done_after_20250124": j.get("done_after_20250124", False), "updated_at": r["updated_at"], "hd_code": hd_code, "creator": creator, "giao_by": giao_by, "nop_by": nop_by, "nop_note": nop_note, "task_icons": task_icons, "task_bys": task_bys, "text": (j.get("text") or j.get("text_raw") or ""), "created": j.get("created"), "topic_name": j.get("topic_name", ""), "invoice_count": len(inv), "invoice_summary": [{"sp": it["sp"], "sl": it["sl"]} for it in invoice_items[:5]], "invoice_items": invoice_items, "vat": int(j.get("vat", 0) or 0), "pvc": int(j.get("pvc", 0) or 0), "discount": int(j.get("discount", 0) or 0), "no_truoc": pc.get("no_truoc", ""), "kh_debt": (j.get("khDebt") if j.get("khDebt") is not None else j.get("invoice_debt_snapshot")), "tongtienhang": pc.get("tongtienhang", ""), "ngay_giao": j.get("ngay_giao") or "", "giao_done": bool((ts.get("giao_hang") or {}).get("done")), "giao_at": (ts.get("giao_hang") or {}).get("at") or "", "soan_img_ids": soan_img_ids, "nop_img_id": nop_img_id}
+    return {"key": r["firebase_key"], "vnpt": vnpt, "thread_id": r["thread_id"], "channel_id": r["channel_id"], "message_id": r["message_id"], "customer_key": j.get("khach_hang_id") or j.get("khID"), "customer": customer, "total": total, "paid": paid, "remaining": remaining, "phone": pc.get("sdt", ""), "date": date, "status": j.get("trang_thai", ""), "soan": j.get("soan", False), "giao": j.get("giao", False), "nop": j.get("nop", False), "nhan": j.get("nhan", False), "nhan_tien_note": (ts.get("nhan_tien", {}) or {}).get("note", ""), "done_after_20250124": j.get("done_after_20250124", False), "updated_at": r["updated_at"], "hd_code": hd_code, "creator": creator, "giao_by": giao_by, "nop_by": nop_by, "nop_note": nop_note, "task_icons": task_icons, "task_bys": task_bys, "text": (j.get("text") or j.get("text_raw") or ""), "created": j.get("created"), "topic_name": j.get("topic_name", ""), "invoice_count": len(inv), "invoice_summary": [{"sp": it["sp"], "sl": it["sl"]} for it in invoice_items[:5]], "invoice_items": invoice_items, "vat": int(j.get("vat", 0) or 0), "pvc": int(j.get("pvc", 0) or 0), "discount": int(j.get("discount", 0) or 0), "no_truoc": pc.get("no_truoc", ""), "kh_debt": (j.get("khDebt") if j.get("khDebt") is not None else j.get("invoice_debt_snapshot")), "tongtienhang": pc.get("tongtienhang", ""), "ngay_giao": j.get("ngay_giao") or "", "giao_done": bool((ts.get("giao_hang") or {}).get("done")), "giao_at": (ts.get("giao_hang") or {}).get("at") or "", "soan_img_ids": soan_img_ids, "nop_img_id": nop_img_id}
 
 
 def _ngay_giao_due() -> str:
@@ -379,6 +379,11 @@ async def orders_api_handler(request: web.Request):
         else:
             where.append("(o.json LIKE ? OR o.firebase_key LIKE ?)")
             params.extend([f"%{search}%", f"%{search}%"])
+    cust = request.query.get("customer", "").strip()   # lọc theo MÃ khách (tên có thể trùng)
+    if cust:
+        cw, cp = customer_where(cust)
+        where.append(cw)
+        params.extend(cp)
     if status:
         where.append("json_extract(o.json, '$.trang_thai') = ?")
         params.append(status)

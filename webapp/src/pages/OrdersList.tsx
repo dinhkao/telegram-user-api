@@ -9,7 +9,7 @@ import { listOrderImages, type OrderImage } from "../api";
 import { PhotoViewer } from "../detail/PhotoViewer";
 import {
   type OrderRow, statusLabel, Highlight, InvoiceMini, LastAction,
-  UltraBody, CardBody, CompactBody, NEW_ORDER_SEC, orderAllDone,
+  UltraBody, CardBody, CompactBody, NEW_ORDER_SEC, orderAllDone, orderNoProducts,
 } from "../detail/OrderCards";
 import { Loading, EmptyState, ErrorState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
@@ -66,9 +66,17 @@ function rowMatchesFilter(o: OrderRow, f: FilterKey): boolean {
 // Cache toàn danh sách + vị trí cuộn — sống ở module scope nên vẫn còn khi
 // rời trang chi tiết rồi quay lại (mount lại). Reset khi có search mới.
 let listCache: {
-  orders: OrderRow[]; stats: any; search: string;
+  orders: OrderRow[]; stats: any; search: string; cust?: CustFilter | null;
   filter: FilterKey; sort: SortKey; page: number; totalPages: number; stale?: boolean;
 } | null = null;
+
+// Lọc theo ĐÚNG 1 khách bằng MÃ khách (server `&customer=`) — không lọc bằng chữ vì
+// tên khách có thể trùng nhau. Chọn từ gợi ý ô tìm hoặc nút 🔍 cạnh tên khách.
+type CustFilter = { key: string; name: string };
+const custParam = (c?: CustFilter | null) => (c ? `&customer=${encodeURIComponent(c.key)}` : "");
+/** Dòng realtime còn thuộc khách đang lọc? (payload thiếu customer_key → coi như còn) */
+const rowInCust = (o: OrderRow, c?: CustFilter | null) =>
+  !c || o.customer_key == null || String(o.customer_key) === c.key;
 
 export type FilterNeighbors = {
   prev: number | null; next: number | null;
@@ -125,11 +133,11 @@ async function refreshCachedList(): Promise<void> {
   const sp = snapshot.sort !== "created" ? `&sort=${snapshot.sort}` : "";
   try {
     const pages = await Promise.all(Array.from({ length: Math.max(1, snapshot.page) }, (_, index) =>
-      getJSON(`/api/orders?page=${index + 1}&limit=${PAGE_SIZE}&search=${encodeURIComponent(snapshot.search)}${fp}${sp}`, { cache: false }),
+      getJSON(`/api/orders?page=${index + 1}&limit=${PAGE_SIZE}&search=${encodeURIComponent(snapshot.search)}${custParam(snapshot.cust)}${fp}${sp}`, { cache: false }),
     ));
     const current = listCache;
     // User đã đổi search/filter/sort hoặc tải thêm trang trong lúc request chạy.
-    if (seq !== cachedListRefreshSeq || !current || current.search !== snapshot.search || current.filter !== snapshot.filter
+    if (seq !== cachedListRefreshSeq || !current || current.search !== snapshot.search || current.cust?.key !== snapshot.cust?.key || current.filter !== snapshot.filter
       || current.sort !== snapshot.sort || current.page !== snapshot.page) return;
     const first = pages[0] || {};
     listCache = {
@@ -166,7 +174,7 @@ onRealtime((e) => {
   } else if (idx >= 0) {
     // Dòng đổi có thể HẾT khớp chip lọc đang cache (vd lọc "Chưa nhận" mà đơn
     // vừa được nhận ở trang chi tiết) → rút khỏi danh sách thay vì vá tại chỗ.
-    if (rowMatchesFilter(e.row as OrderRow, listCache.filter)) {
+    if (rowMatchesFilter(e.row as OrderRow, listCache.filter) && rowInCust(e.row as OrderRow, listCache.cust)) {
       const next = listCache.orders.slice();
       next[idx] = e.row as OrderRow;
       listCache = { ...listCache, orders: next };
@@ -198,6 +206,9 @@ export function OrdersList() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [search, setSearch] = useState("");
+  const custRef = useRef<CustFilter | null>(null);   // load() đọc ref → khỏi đổi chữ ký
+  const [cust, setCustState] = useState<CustFilter | null>(null);
+  const setCust = (c: CustFilter | null) => { custRef.current = c; setCustState(c); };
   const [filter, setFilter] = useState<FilterKey>("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -280,7 +291,7 @@ export function OrdersList() {
   const sentinel = useRef<HTMLDivElement>(null);
   // refs giữ state mới nhất cho observer (tránh stale closure)
   const st = useRef<any>({});
-  st.current = { page, totalPages, loading, search, filter, sort, orders, stats };
+  st.current = { page, totalPages, loading, search, filter, sort, orders, stats, cust };
 
   const load = async (p: number, q: string, f: string, append: boolean) => {
     const seq = ++reqSeq.current; // đánh dấu request này là mới nhất
@@ -291,7 +302,8 @@ export function OrdersList() {
       const fp = f && f !== "all" ? `&filter=${f}` : "";
       const sp = sortRef.current !== "created" ? `&sort=${sortRef.current}` : "";
       // chỉ cache trang không search — kết quả theo phím gõ không rác localStorage
-      const data = await getJSON(`/api/orders?page=${p}&limit=${PAGE_SIZE}&search=${encodeURIComponent(q)}${fp}${sp}`, { cache: !q });
+      const cp = custParam(custRef.current);
+      const data = await getJSON(`/api/orders?page=${p}&limit=${PAGE_SIZE}&search=${encodeURIComponent(q)}${cp}${fp}${sp}`, { cache: !q && !cp });
       if (seq !== reqSeq.current) return; // đã có query mới hơn → bỏ kết quả cũ (chống race)
       setOrders((prev) => (append ? [...prev, ...(data.orders || [])] : (data.orders || [])));
       setTotalPages(data.total_pages || 1);
@@ -331,7 +343,7 @@ export function OrdersList() {
       try {
         const { search: q, filter: f } = st.current;
         const fp = f && f !== "all" ? `&filter=${f}` : "";
-        const data = await getJSON(`/api/orders?page=1&limit=1&search=${encodeURIComponent(q)}${fp}`, { cache: false });
+        const data = await getJSON(`/api/orders?page=1&limit=1&search=${encodeURIComponent(q)}${custParam(custRef.current)}${fp}`, { cache: false });
         if (data.stats && Object.keys(data.stats).length) setStats(data.stats);
       } catch { /* im lặng */ }
     }, 400);
@@ -346,6 +358,7 @@ export function OrdersList() {
     const f = fm[1] as FilterKey;
     listCache = null;
     setSearch("");
+    setCust(null);
     setFilter(f);
     setPage(1);
     load(1, "", f, false);
@@ -382,6 +395,7 @@ export function OrdersList() {
       setOrders(c.orders);
       setStats(c.stats);
       setSearch(c.search);
+      setCust(c.cust || null);
       setFilter(c.filter);
       sortRef.current = c.sort;
       setSort(c.sort);
@@ -405,7 +419,7 @@ export function OrdersList() {
       const s = st.current;
       if (!s.orders?.length) return;
       listCache = {
-        orders: s.orders, stats: s.stats, search: s.search, filter: s.filter, sort: s.sort,
+        orders: s.orders, stats: s.stats, search: s.search, cust: s.cust, filter: s.filter, sort: s.sort,
         page: s.page, totalPages: s.totalPages,
       };
     };
@@ -431,7 +445,7 @@ export function OrdersList() {
           if (idx < 0) return prev;
           next = prev.filter((_, i) => i !== idx); // đơn bị xoá
         } else if (idx >= 0) {
-          if (rowMatchesFilter(e.row as OrderRow, st.current.filter)) {
+          if (rowMatchesFilter(e.row as OrderRow, st.current.filter) && rowInCust(e.row as OrderRow, custRef.current)) {
             next = prev.slice();
             next[idx] = e.row as OrderRow; // vá dòng đã đổi
             patched = true;
@@ -487,13 +501,21 @@ export function OrdersList() {
     load(1, q, st.current.filter, false); // gõ tới đâu tìm tới đó — không delay (reqSeq chặn race)
   };
 
-  // Lọc nhanh theo khách: bấm nút cạnh tên khách trên card → đặt ô tìm = tên khách
-  // (dùng luôn FTS server). Chặn link card + cuộn lên đầu để thấy kết quả.
-  const filterByCustomer = (e: Event, name: string) => {
+  // Lọc theo 1 khách bằng MÃ (tên trùng nhau không lẫn): xoá chữ trong ô tìm,
+  // hiện "Khách: tên" ở thanh Đang lọc. Gõ thêm chữ = tìm TRONG đơn của khách đó.
+  const pickCustomer = (c: CustFilter) => {
+    setCust(c);
+    setSearch("");
+    setPage(1);
+    load(1, "", st.current.filter, false);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  };
+  // Nút 🔍 cạnh tên khách trên card. Đơn thiếu mã khách → lùi về tìm theo chữ như cũ.
+  const filterByCustomer = (e: Event, name: string, key?: string | number | null) => {
     e.preventDefault();
     e.stopPropagation();
-    onSearch(name);
-    window.scrollTo({ top: 0, behavior: "auto" });
+    if (key != null && String(key) !== "") pickCustomer({ key: String(key), name });
+    else { onSearch(name); window.scrollTo({ top: 0, behavior: "auto" }); }
   };
 
   // Đổi chip → reset trang, tải lại từ server với filter mới (nhất quán phân trang)
@@ -517,9 +539,10 @@ export function OrdersList() {
   };
 
   // Đang lọc? (có search hoặc chip khác "tất cả") → cho phép bỏ lọc về mặc định
-  const anyFilter = search.trim() !== "" || filter !== "all";
+  const anyFilter = search.trim() !== "" || filter !== "all" || !!cust;
   const clearFilters = () => {
     setSearch("");
+    setCust(null);
     setFilter("all");
     setPage(1);
     if (autoSortPrev && sortRef.current === "ngay_giao") { // bỏ lọc = rời "Chưa giao" → trả sort cũ
@@ -536,7 +559,7 @@ export function OrdersList() {
     const onEscape = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || !window.matchMedia("(min-width: 720px)").matches || viewer) return;
       e.preventDefault();
-      if (st.current.search.trim() || st.current.filter !== "all") {
+      if (st.current.search.trim() || st.current.filter !== "all" || custRef.current) {
         clearFilters();
         return;
       }
@@ -549,7 +572,7 @@ export function OrdersList() {
 
   const visible = orders;
   // Phiếu trả hàng chen theo mốc thời gian — chỉ khi sắp "Mới tạo" + chip "Tất cả"
-  const dashReturns = useDashboardReturns(filter === "all" && sort === "created", visible, !loading && page >= totalPages, search);
+  const dashReturns = useDashboardReturns(filter === "all" && sort === "created", visible, !loading && page >= totalPages, search, cust?.key);
   const entries = interleave(visible, dashReturns);
   const lastOrder = getLastOrder(); // đơn vừa mở → tô sáng khi quay lại dashboard
   // Nhịp 60s để tag "Mới" tự hết sau 5 phút (không cần event khác)
@@ -564,7 +587,9 @@ export function OrdersList() {
       <header class="topbar">
         <div class="topbar-row osug-row">
           <SearchBar inputRef={searchInput} value={search} onInput={onSearch} placeholder="Tìm khách, sản phẩm…" />
-          <OrderSearchSuggest q={search} inputRef={searchInput} onPick={(v) => { onSearch(v); window.scrollTo({ top: 0, behavior: "auto" }); }} />
+          <OrderSearchSuggest q={search} inputRef={searchInput}
+            onPickCustomer={(key, name) => pickCustomer({ key, name })}
+            onPick={(v) => { onSearch(v); window.scrollTo({ top: 0, behavior: "auto" }); }} />
           <div class="view-slider" role="group" aria-label="Kiểu xem">
             {_VIEWS.map((v) => (
               <button key={v.m} class={view === v.m ? "vs-seg on" : "vs-seg"} title={v.t} aria-pressed={view === v.m} onClick={() => setViewMode(v.m)}>{v.ic}</button>
@@ -575,6 +600,7 @@ export function OrdersList() {
         {anyFilter && (
           <FilterActiveBar
             parts={[
+              cust && `Khách: ${cust.name}`,
               filter !== "all" && (FILTER_LABELS[filter] || filter),
               filter === "chua_giao" && "ẩn đơn hẹn giao tương lai",
               filter === "chua_nhan" && "đã nộp, chờ nhận",
@@ -632,7 +658,7 @@ export function OrdersList() {
                 <li key={`r-${e.r.id}`}><ReturnDashCard r={e.r} view="ultra" /></li>
               ) : ((o) => (
                 <li key={o.thread_id}>
-                  <a data-oid={o.thread_id} class={`order-card ultra${orderAllDone(o) ? " all-done" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
+                  <a data-oid={o.thread_id} class={`order-card ultra${orderAllDone(o) ? " all-done" : ""}${orderNoProducts(o) ? " no-sp" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
                     <UltraBody o={o} search={search} />
                   </a>
                 </li>
@@ -646,7 +672,7 @@ export function OrdersList() {
           const isNew = isRecent(o.created, NEW_ORDER_SEC);
           return (
           <li key={o.thread_id}>
-            <a data-oid={o.thread_id} class={`order-card compact${orderAllDone(o) ? " all-done" : ""}${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
+            <a data-oid={o.thread_id} class={`order-card compact${orderAllDone(o) ? " all-done" : ""}${orderNoProducts(o) ? " no-sp" : ""}${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               <CompactBody o={o} search={search} sort={sort} flashMsg={flashing[String(o.thread_id)]} isNew={isNew} openThumb={openThumb} />
             </a>
           </li>
@@ -659,7 +685,7 @@ export function OrdersList() {
           const isNew = isRecent(o.created, NEW_ORDER_SEC);
           return (
           <li key={o.thread_id}>
-            <a data-oid={o.thread_id} class={`order-card two-col${orderAllDone(o) ? " all-done" : ""}${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
+            <a data-oid={o.thread_id} class={`order-card two-col${orderAllDone(o) ? " all-done" : ""}${orderNoProducts(o) ? " no-sp" : ""}${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
               <div class="card-main">
                 {sort === "updated" && <LastAction o={o} />}
                 {flashing[String(o.thread_id)] && <div class="flash-msg">🔔 {flashing[String(o.thread_id)]}</div>}

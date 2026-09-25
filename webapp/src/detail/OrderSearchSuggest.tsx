@@ -1,20 +1,21 @@
 // Dropdown GỢI Ý dưới ô tìm dashboard Đơn — đang gõ thì hiện khách hàng + sản phẩm
-// (tên/mã) khớp, từ GET /api/orders/suggest (không dấu, xếp hạng ở server). Chọn 1 dòng
-// → onPick(tên khách | MÃ SP) → trang đặt ô tìm = giá trị đó (FTS đơn sẵn có lo phần
-// lọc; mã SP tự mở rộng mã cũ). Gắn listener vào input của SearchBar qua inputRef nên
-// SearchBar không phải đổi. Đặt trong 1 phần tử cha position:relative (.osug-row).
+// (tên/mã) khớp, từ GET /api/orders/suggest (không dấu, xếp hạng ở server). Chọn KHÁCH
+// → onPickCustomer(mã, tên) = lọc theo MÃ khách (tên trùng không lẫn); chọn SP →
+// onPick(MÃ SP) = đặt ô tìm (FTS đơn, mã SP tự mở rộng mã cũ). Gắn listener vào input
+// của SearchBar qua inputRef nên SearchBar không phải đổi. Đặt trong 1 phần tử cha position:relative (.osug-row).
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { RefObject } from "preact";
 import { getJSON } from "../api";
 import { Icon } from "../ui/Icon";
 import { Highlight } from "./OrderCards";
 
-type Sug = { kind: "cust" | "prod"; value: string; label: string; sub?: string };
+type Sug = { kind: "cust" | "prod"; value: string; label: string; sub?: string; key?: string };
 
-export function OrderSearchSuggest({ q, inputRef, onPick }: {
+export function OrderSearchSuggest({ q, inputRef, onPick, onPickCustomer }: {
   q: string;
   inputRef: RefObject<HTMLInputElement>;
-  onPick: (value: string) => void;
+  onPick: (value: string) => void;                          // SP → đặt ô tìm = mã SP
+  onPickCustomer: (key: string, name: string) => void;      // khách → lọc theo MÃ khách
 }) {
   const [items, setItems] = useState<Sug[]>([]);
   const [focused, setFocused] = useState(false);
@@ -36,8 +37,10 @@ export function OrderSearchSuggest({ q, inputRef, onPick }: {
       try {
         const d = await getJSON(`/api/orders/suggest?q=${encodeURIComponent(term)}`, { cache: false });
         if (my !== seq.current) return;
+        const cs: any[] = d.customers || [];
+        const dup = (n: string) => cs.filter((c) => c.name === n).length > 1;   // tên trùng → ghi mã để phân biệt
         setItems([
-          ...(d.customers || []).map((c: any): Sug => ({ kind: "cust", value: c.name, label: c.name })),
+          ...cs.map((c: any): Sug => ({ kind: "cust", value: c.name, label: c.name, key: String(c.key), sub: dup(c.name) ? `mã ${c.key}` : undefined })),
           ...(d.products || []).map((p: any): Sug => ({ kind: "prod", value: p.code, label: p.code, sub: p.name })),
         ]);
       } catch {
@@ -50,7 +53,8 @@ export function OrderSearchSuggest({ q, inputRef, onPick }: {
   const pick = (s: Sug) => {
     setPicked(s.value);
     setItems([]);
-    onPick(s.value);
+    if (s.kind === "cust" && s.key) onPickCustomer(s.key, s.value);
+    else onPick(s.value);
     inputRef.current?.blur();   // cụp bàn phím để thấy danh sách đơn
   };
 
@@ -94,7 +98,7 @@ export function OrderSearchSuggest({ q, inputRef, onPick }: {
   const row = (s: Sug) => {
     const i = items.indexOf(s);
     return (
-      <button key={`${s.kind}:${s.value}`} type="button" class={i === active ? "osug-it on" : "osug-it"}
+      <button key={`${s.kind}:${s.key ?? s.value}`} type="button" class={i === active ? "osug-it on" : "osug-it"}
         onMouseDown={(e) => e.preventDefault()}   // giữ focus ô tìm tới lúc click xong
         onMouseEnter={() => setActive(i)} onClick={() => pick(s)}>
         <Icon name={s.kind === "cust" ? "user" : "tag"} size={14} class="osug-ic" />

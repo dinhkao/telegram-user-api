@@ -278,6 +278,17 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   bỏ SP `can_sell=0`; trong `_NO_AUDIT`). Chọn = đặt ô tìm = tên khách / MÃ SP rồi dùng
   lại FTS đơn. Gắn listener vào input qua `inputRef` (SearchBar không đổi); ↑↓/Enter/Esc
   (Esc đầu chỉ đóng gợi ý). Tests: `tests/test_order_suggest.py`.
+  **Lọc theo KHÁCH = theo MÃ** (tên khách trùng nhau): `/api/orders?customer=<key>`
+  (`orders_db.customer_where` — cột `cust_key`, so cả dạng số lẫn chuỗi; tests
+  `test_orders_customer_filter.py`). Chọn khách ở gợi ý hoặc nút 🔍 cạnh tên khách →
+  state `cust` {key,name} ở OrdersList (thanh Đang lọc "Khách: …", đi cùng listCache,
+  realtime rút dòng khác khách, phiếu trả cũng lọc theo mã). Ô tìm vẫn gõ thêm được =
+  tìm TRONG đơn của khách đó.
+  **Tìm bằng mã SP** mà text đơn không ghi mã → card Gọn/Siêu gọn hiện chip dòng hàng
+  khớp "K10LV87 30" (`detail/SearchHitItems.tsx`).
+  **Đơn CHƯA NHẬP SẢN PHẨM** (hoá đơn chưa có dòng hàng, đơn từ 01/07/2026) → card đỏ
+  nhạt + vạch đỏ + nhãn "Chưa nhập sản phẩm" (`orderNoProducts`, class `.no-sp`; view
+  Siêu gọn nhãn nằm dòng 2).
 - **Order images (photos) — `server_app/image_routes.py` + `server_app/order_photo_sync.py`.**
   `/api/order/{thread_id}/images` GET/POST(multipart)/DELETE + `.../{id}/file`
   (FileResponse, immutable cache, path-traversal guard). Client resizes+re-encodes
