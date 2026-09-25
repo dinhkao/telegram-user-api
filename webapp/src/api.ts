@@ -365,7 +365,7 @@ export async function createReturn(key: string, items: { sp: string; sl: number;
 export type ReturnGoodsResult = {
   restocked_existing: { sp: string; quantity: number; box_id: number; box_code: string }[];
   restocked_new: { sp: string; quantity: number; box_id: number; box_code: string }[];
-  disposed: { product_code: string; quantity: number }[];
+  disposed: { product_code: string; quantity: number; disposal_id?: number | null }[];
   disposal_id?: number | null;
 };
 export type ReturnSlip = {
@@ -375,6 +375,8 @@ export type ReturnSlip = {
   debt_before?: number | null; debt_after?: number | null;
   created_by?: string; created_at?: string;
   goods_handled_at?: string | null; goods_handled_by?: string | null; goods_result?: ReturnGoodsResult | null;
+  /** Hàng CHƯA xử lý (trên phiếu − đã nhập kho/hủy) — server tính, chỉ có ở chi tiết */
+  goods_pending?: { sp: string; quantity: number }[];
 };
 export type ReturnDisposition = {
   sp: string; quantity: number;
@@ -385,6 +387,11 @@ export type ReturnDisposition = {
 export async function handleReturnGoods(id: string | number, dispositions: ReturnDisposition[]): Promise<{ return: ReturnSlip; result: ReturnGoodsResult }> {
   const d = await postJSON(`/api/returns/${Number(id)}/handle-goods`, { dispositions }, { queueable: false });
   return { return: d.return, result: d.result };
+}
+/** Gỡ 1 dòng đã xử lý hàng trả (chỉ khi hàng chưa đi đâu) → thành "chưa xử lý". */
+export async function revertReturnGoods(id: number, kind: "restocked_new" | "restocked_existing" | "disposed", index: number): Promise<ReturnSlip> {
+  const d = await postJSON(`/api/returns/${id}/goods/revert`, { kind, index }, { queueable: false });
+  return d.return;
 }
 /** Dashboard trả hàng — mọi khách, 20/trang. */
 export async function listAllReturns(page = 1): Promise<{ returns: ReturnSlip[]; page: number; total_pages: number; total: number }> {

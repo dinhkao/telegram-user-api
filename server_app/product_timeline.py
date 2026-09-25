@@ -21,7 +21,7 @@ from server_app.order_history import _actor_display, _load_names
 _CAP = 500
 # CHỈ các biến động ĐỔI TỒN của SP (bỏ chuyển kho/chuyển thùng — nội bộ, tồn SP không đổi)
 _ACTIONS = ("box.created", "box.allocated", "box.released", "box.consumed", "box.disposed", "box.disposal_released",
-            "box.purchase_in", "box.purchase_in_removed", "box.return_in",
+            "box.purchase_in", "box.purchase_in_removed", "box.return_in", "box.return_in_removed",
             "adjustment.created", "adjustment.deleted")
 _DIR_IN = {"box.created", "box.released", "box.disposal_released", "box.purchase_in", "box.return_in"}
 # Điều chỉnh tồn: chiều +/− theo DẤU delta (không cố định như action khác)
@@ -30,7 +30,7 @@ _REASON = {"box.created": "sản xuất nhập kho", "box.allocated": "xuất ch
            "box.released": "thu về từ đơn", "box.consumed": "tiêu hao đóng gói",
            "box.disposed": "xuất hủy", "box.disposal_released": "hoàn xuất hủy",
            "box.purchase_in": "nhập hàng NCC", "box.purchase_in_removed": "gỡ nhập hàng NCC",
-           "box.return_in": "khách trả về",
+           "box.return_in": "khách trả về", "box.return_in_removed": "gỡ hàng khách trả",
            "adjustment.created": "điều chỉnh tồn", "adjustment.deleted": "gỡ điều chỉnh tồn"}
 
 
@@ -57,7 +57,7 @@ def _delta(action: str, p: dict) -> float:
             "box.allocated": -taken, "box.consumed": -taken,
             "box.disposed": -taken, "box.disposal_released": taken,
             "box.purchase_in": taken, "box.purchase_in_removed": -taken,
-            "box.return_in": taken,
+            "box.return_in": taken, "box.return_in_removed": -taken,
             "adjustment.created": adj, "adjustment.deleted": -adj}.get(action, 0.0)
 
 

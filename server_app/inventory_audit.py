@@ -73,6 +73,13 @@ def log_boxes_return_in(items: list[dict], *, return_id, actor, actor_type: str)
             "taken": s.get("taken"), "return_id": return_id})
 
 
+def log_boxes_return_in_removed(items: list[dict], *, return_id, actor, actor_type: str) -> None:
+    """Gỡ phần hàng khách trả đã cộng vào thùng có sẵn (sửa xử lý hàng phiếu trả)."""
+    for s in items:
+        _box_and_place("box.return_in_removed", s, actor, actor_type, extra={
+            "taken": s.get("taken"), "return_id": return_id})
+
+
 def log_box_adjustment(action: str, snap: dict, *, adjustment_id, delta, reason,
                        actor, actor_type: str) -> None:
     """PHIẾU ĐIỀU CHỈNH tồn thùng — action 'adjustment.created' / 'adjustment.deleted',
@@ -164,6 +171,14 @@ def log_box_deleted(snap: dict, *, actor, actor_type: str) -> None:
     _emit("box.deleted", "place", snap.get("place_id"), actor, actor_type,
           {"box_id": snap.get("box_id"), "box_code": snap.get("box_code"),
            "product_code": snap.get("product_code"), "quantity": snap.get("quantity")})
+
+
+def log_box_deleted_box(snap: dict, *, actor, actor_type: str, extra: dict | None = None) -> None:
+    """Xoá thùng KHÔNG qua DELETE /box/{id} (vd gỡ thùng mới của phiếu trả) → tự ghi
+    event scope box (đường DELETE thì middleware đã ghi)."""
+    _emit("box.deleted", "box", snap.get("box_id"), actor, actor_type,
+          {"box_id": snap.get("box_id"), "box_code": snap.get("box_code"),
+           "product_code": snap.get("product_code"), "quantity": snap.get("quantity"), **(extra or {})})
 
 
 def log_transfer_places(from_snap: dict, to_snap: dict, quantity, *, actor, actor_type: str) -> None:

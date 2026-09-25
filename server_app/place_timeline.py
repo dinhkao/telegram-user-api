@@ -22,7 +22,7 @@ _CAP = 500
 _DIR_IN = {"box.created", "box.moved_in", "box.released", "box.transfer_in", "box.disposal_released",
            "box.purchase_in", "box.return_in"}
 _DIR_OUT = {"box.allocated", "box.moved_out", "box.deleted", "box.transfer_out", "box.consumed", "box.disposed",
-            "box.purchase_in_removed"}
+            "box.purchase_in_removed", "box.return_in_removed"}
 # Điều chỉnh tồn: chiều +/− theo DẤU delta (không cố định như action khác)
 _SIGNED = {"adjustment.created", "adjustment.deleted"}
 _INV_ACTIONS = _DIR_IN | _DIR_OUT | _SIGNED
@@ -32,7 +32,7 @@ _REASON = {
     "box.deleted": "xoá thùng", "box.transfer_out": "chuyển sang thùng khác", "box.consumed": "tiêu hao đóng gói",
     "box.disposed": "xuất hủy", "box.disposal_released": "hoàn xuất hủy",
     "box.purchase_in": "nhập hàng NCC", "box.purchase_in_removed": "gỡ nhập hàng NCC",
-    "box.return_in": "khách trả về",
+    "box.return_in": "khách trả về", "box.return_in_removed": "gỡ hàng khách trả",
     "adjustment.created": "điều chỉnh tồn", "adjustment.deleted": "gỡ điều chỉnh tồn",
 }
 
@@ -52,6 +52,7 @@ def _delta(action: str, p: dict) -> float:
         "box.allocated": -taken, "box.moved_out": -rem, "box.deleted": -q, "box.transfer_out": -q,
         "box.consumed": -taken, "box.disposed": -taken, "box.disposal_released": taken,
         "box.purchase_in": taken, "box.purchase_in_removed": -taken, "box.return_in": taken,
+        "box.return_in_removed": -taken,
         "adjustment.created": adj, "adjustment.deleted": -adj,   # gỡ = hoàn nguyên
     }.get(action, 0.0)
 

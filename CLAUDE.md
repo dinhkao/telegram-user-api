@@ -741,6 +741,17 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   menu Thêm) + chi tiết `#/tra-hang/:id` (ReturnDetail) + nút '↩ Trả hàng'
   (`detail/ReturnModal.tsx`) ở chi tiết khách; feed khách kind='return'
   (nháp delta 0, có HĐ delta âm).
+  - **SỬA XỬ LÝ HÀNG + sửa phiếu đã xử lý (2026-09-25, `server_app/return_goods_edit.py`
+    + `return_goods_edit_routes.py`, UI `detail/ReturnGoodsCard.tsx`)**: phần CHƯA xử lý =
+    hàng trên phiếu − `goods_result` (theo danh tính SP) → trả `goods_pending` ở chi tiết.
+    GỠ từng dòng (POST `/api/returns/{id}/goods/revert {kind,index}`, văn phòng) chỉ khi
+    hàng CHƯA đi đâu: thùng mới không có allocation nào → xoá thùng; nhập thùng có sẵn →
+    thùng còn ≥ phần đã cộng → xoá allocation return_in (event `box.return_in_removed`);
+    dòng hủy → rút khỏi phiếu hủy box-less (rỗng thì xoá mềm). Gỡ hết → phiếu về CHƯA xử
+    lý. `handle-goods` giờ chạy NHIỀU ĐỢT (trần = phần chưa xử lý, kết quả GỘP; 409 chỉ
+    khi đã xử lý hết). **Sửa hàng trên phiếu ĐÃ xử lý được** (đơn giá luôn đổi được) —
+    chỉ chặn SL mã nào < phần đã xử lý của mã đó (`check_items_cover_handled`); HĐ KV vẫn
+    khoá sửa như cũ. Tests: `tests/test_return_goods_edit.py`.
   - **ẢNH HOÁ ĐƠN TRẢ HÀNG (2026-09-25)**: nút "Tạo ảnh hoá đơn trả hàng" ở
     ReturnDetail → POST `/api/returns/{id}/image` (`server_app/return_image_routes.py`,
     mọi user đăng nhập) → `server_app/return_image.py` render HTML

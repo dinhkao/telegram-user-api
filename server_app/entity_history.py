@@ -20,6 +20,7 @@ _NUM = re.compile(r"/-?\d+(?=/|$)")
 _ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo phiếu SX",
                   "return.created": "Tạo phiếu trả", "return.invoiced": "Tạo HĐ KiotViet (trừ nợ)",
                   "return.invoice_deleted": "Xoá HĐ KiotViet (hoàn nợ)", "return.deleted": "Xoá phiếu trả",
+                  "return.goods_reverted": "Gỡ 1 dòng xử lý hàng trả",
                   # nhập hàng / nhà cung cấp (100% local)
                   "purchase.created": "Tạo phiếu nhập", "purchase.deleted": "Xoá phiếu nhập",
                   "supplier.created": "Tạo nhà cung cấp", "supplier.deleted": "Xoá nhà cung cấp",
@@ -45,7 +46,7 @@ _ACTION_LABELS = {"order.created": "Tạo đơn", "production.created": "Tạo p
 _INV_ACTIONS = {"box.created", "box.allocated", "box.released", "box.moved", "box.moved_out",
                 "box.moved_in", "box.deleted", "box.transfer_out", "box.transfer_in", "box.consumed",
                 "box.disposed", "box.disposal_released",
-                "box.purchase_in", "box.purchase_in_removed", "box.return_in"}
+                "box.purchase_in", "box.purchase_in_removed", "box.return_in", "box.return_in_removed"}
 
 
 def _numv(v) -> str:
@@ -86,6 +87,11 @@ def _inv_entry(act: str, scope: str, p: dict) -> tuple[str, str] | None:
                                        f"phiếu nhập #{pid}" if pid else "",
                                        f"thùng còn {rem}" if rem != "" else ""] if x)
         return ("Nhập hàng NCC vào thùng" if act == "box.purchase_in" else "Gỡ hàng nhập khỏi thùng"), join(extra)
+    if act == "box.return_in_removed":
+        taken = _numv(p.get("taken"))
+        rid = p.get("return_id")
+        return "Gỡ hàng trả khỏi thùng", join(" · ".join(x for x in [
+            f"gỡ {taken}" if taken else "", f"phiếu trả #{rid}" if rid else ""] if x))
     if act == "box.return_in":
         taken = _numv(p.get("taken"))
         rem = _numv(p.get("remaining")) if p.get("remaining") is not None else ""
@@ -171,6 +177,8 @@ _SKIP = {"POST /api/production/{id}/report/parse",   # xem trước, không ph�
          "POST /api/returns/{id}/invoice",           # đã có event return.invoiced
          "POST /api/returns/{id}/delete",            # đã có event return.deleted
          "POST /api/returns/{id}/delete-invoice",    # đã có event return.invoice_deleted
+         "POST /api/returns/{id}/handle-goods",      # đã có event return.goods_handled
+         "POST /api/returns/{id}/goods/revert",      # đã có event return.goods_reverted
          "POST /api/purchases/{id}/delete",          # đã có event purchase.deleted
          "POST /api/purchases/{id}/pay",             # đã có event purchase.paid
          "POST /api/purchases/{id}/payments/{id}/delete",  # đã có event purchase.payment_deleted

@@ -865,7 +865,8 @@ def _box_delete_lock(conn, box: dict, allocs: list) -> dict | None:
         rt = _get_return(conn, rid)
         if rt and not rt.get("deleted_at") and rt.get("goods_handled_at"):
             return {"kind": "return_locked", "href": f"#/tra-hang/{rid}",
-                    "reason": f"Thùng thuộc phiếu trả hàng #{rid} đã xử lý hàng — không xoá lẻ được"}
+                    "reason": (f"Thùng thuộc phiếu trả hàng #{rid} đã xử lý hàng — vào phiếu trả "
+                               f"bấm Gỡ ở dòng thùng này")}
     return None
 
 

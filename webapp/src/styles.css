@@ -3031,6 +3031,11 @@ body.kbd-open .wr-peek-btn.ie-ref-peek { top: auto; bottom: calc(80px + env(safe
 .rg-open-btn { border: 1px dashed var(--primary); color: var(--primary); }
 .rg-summary { background: var(--ok-wash); border-color: #bfe3c8; }
 .rg-sum-line { font-size: .85rem; margin-top: 4px; }
+.rg-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rg-line .rg-line-txt { min-width: 0; }
+.rg-line .btn.small { flex: none; }
+.rg-pending { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.rg-pending .rg-open-btn { margin-top: 6px; }
 
 /* ===== Thống kê sử dụng (#/usage, admin) ===== */
 .usage-page { padding-bottom: 30px; }

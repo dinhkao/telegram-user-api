@@ -9,13 +9,14 @@ audit_log. Đăng ký ở app_factory.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 
 from aiohttp import web
 
-from return_store import (add_return, clear_return_invoice, count_all_returns, get_return,
-                          get_return_full, list_all_returns, list_returns,
-                          set_return_invoice, soft_delete_return, update_return_items)
+from return_store import (add_return, clear_return_invoice, count_all_returns, ensure_returns_schema,
+                          get_return, get_return_full, list_all_returns, list_returns,
+                          set_return_invoice, soft_delete_return)
 from utils.db import get_connection
 
 log = logging.getLogger("return_routes")
@@ -107,7 +108,8 @@ async def return_detail_handler(request: web.Request):
     def _get():
         conn = get_connection()
         try:
-            return _items_display(conn, get_return_full(conn, rid))
+            from server_app.return_goods_edit import with_pending
+            return with_pending(conn, _items_display(conn, get_return_full(conn, rid)))
         finally:
             conn.close()
     row = await asyncio.to_thread(_get)
@@ -146,7 +148,8 @@ async def return_handle_goods_handler(request: web.Request):
             extra, err = apply_goods_dispositions(conn, rid, dispositions, actor=actor)
             if err:
                 return None, err, None
-            updated = _items_display(conn, get_return_full(conn, rid))
+            from server_app.return_goods_edit import with_pending
+            updated = with_pending(conn, _items_display(conn, get_return_full(conn, rid)))
             return updated, None, extra
         finally:
             conn.close()
@@ -155,7 +158,7 @@ async def return_handle_goods_handler(request: web.Request):
     if err == "not_found":
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
     if err == "already":
-        return web.json_response({"ok": False, "error": "Hàng trả của phiếu này đã xử lý rồi"}, status=409)
+        return web.json_response({"ok": False, "error": "Hàng trả của phiếu này đã xử lý hết rồi"}, status=409)
     if err:
         # Lỗi validate/ghi từ apply_goods_dispositions (validate-first 2026-07-25):
         # chuỗi tiếng Việt nêu đúng dòng lỗi — phiếu CHƯA bị claim, sửa xong gọi lại.
@@ -293,17 +296,32 @@ async def return_update_handler(request: web.Request):
         return web.json_response({"ok": False, "error": "Không tìm thấy phiếu trả"}, status=404)
     if row.get("kv_invoice_id"):
         return web.json_response({"ok": False, "error": "Phiếu đã có HĐ KiotViet — xoá HĐ mới sửa được", "locked": True}, status=400)
-    # Đã XỬ LÝ HÀNG (nhập kho / xuất hủy) rồi → items đã khớp hàng thực xử lý; sửa
-    # items lúc này làm lệch kho↔nợ mà không hoàn tác được → cấm sửa.
-    if row.get("goods_handled_at"):
-        return web.json_response({"ok": False, "error": "Phiếu đã xử lý hàng (nhập/hủy) — không sửa được nữa", "locked": True}, status=400)
+    # Đã XỬ LÝ HÀNG (nhập kho / xuất hủy): vẫn sửa được (đơn giá luôn được), miễn SL
+    # từng SP không thấp hơn phần đã xử lý — kiểm + ghi trong 1 transaction để không
+    # lọt giữa lúc người khác đang xử lý tiếp (server_app/return_goods_edit).
     def _upd():
+        from server_app.return_goods_edit import check_items_cover_handled
+        from utils.db import transaction
         conn = get_connection()
         try:
-            update_return_items(conn, rid, _normalize_items(conn, items), total, note)
+            ensure_returns_schema(conn)
+            with transaction(conn):
+                fresh = get_return(conn, rid)
+                if fresh.get("kv_invoice_id"):
+                    return "Phiếu đã có HĐ KiotViet — xoá HĐ mới sửa được"
+                norm = _normalize_items(conn, items)
+                if fresh.get("goods_handled_at"):
+                    cerr = check_items_cover_handled(conn, fresh, norm)
+                    if cerr:
+                        return cerr
+                conn.execute("UPDATE return_slips SET items = ?, total = ?, note = ? WHERE id = ?",
+                             (json.dumps(norm, ensure_ascii=False), float(total), note or "", rid))
+            return None
         finally:
             conn.close()
-    await asyncio.to_thread(_upd)
+    uerr = await asyncio.to_thread(_upd)
+    if uerr:
+        return web.json_response({"ok": False, "error": uerr, "locked": True}, status=400)
     from server_app.realtime import emit_customer_changed, emit_return_changed
     emit_return_changed(rid)
     emit_customer_changed(str(row["customer_key"]))

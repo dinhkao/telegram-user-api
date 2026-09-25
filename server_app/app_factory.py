@@ -444,6 +444,8 @@ def create_app():
     r.add_post("/api/returns/{id}/handle-goods", return_handle_goods_handler)
     from server_app.return_image_routes import return_image_handler
     r.add_post("/api/returns/{id}/image", return_image_handler)
+    from server_app.return_goods_edit_routes import return_goods_revert_handler
+    r.add_post("/api/returns/{id}/goods/revert", return_goods_revert_handler)
     # Nhập hàng + nhà cung cấp (100% local, không KiotViet)
     from server_app.supplier_routes import (suppliers_list_handler, supplier_create_handler,
                                             supplier_detail_handler, supplier_update_handler,

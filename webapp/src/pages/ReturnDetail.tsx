@@ -10,6 +10,7 @@ import {
 import { onRealtime } from "../realtime";
 import { fmtDateTimeVN, parseMoney, parseQty } from "../format";
 import { ReturnGoodsModal } from "../detail/ReturnGoodsModal";
+import { ReturnGoodsCard } from "../detail/ReturnGoodsCard";
 import { Images } from "../detail/Images";
 import { SingleImageViewer } from "../detail/SingleImageViewer";
 import { Comments } from "../detail/Comments";
@@ -60,12 +61,11 @@ export function ReturnDetail({ id }: { id: string }) {
   if (!r) return <Loading />;
   const deleted = !!(r as any).deleted_at;
   const invoiced = !!r.kv_invoice_id;
-  const goodsHandled = !!r.goods_handled_at;   // đã nhập kho / xuất hủy hàng trả
+  const goodsHandled = !!r.goods_handled_at;   // đã nhập kho / xuất hủy hàng trả (≥ 1 phần)
   const lockToast = () => toast("Phiếu đã có HĐ KiotViet — xoá HĐ (xoá phiếu) mới sửa được", "info");
 
   const startEdit = () => {
     if (invoiced) return lockToast();
-    if (goodsHandled) return toast("Phiếu đã xử lý hàng (nhập/hủy) — không sửa được nữa", "info");
     if (!office) return toast("Chỉ văn phòng mới được sửa phiếu trả", "info");
     setLines((r.items || []).map((x) => ({ sp: x.sp, sl: String(x.sl), price: String(x.price) })));
     setNote(r.note || "");
@@ -175,7 +175,7 @@ export function ReturnDetail({ id }: { id: string }) {
       <section class="card">
         <label class="card-label"><Icon name="box" size={15} /> Hàng trả
           {!editing && !deleted && (
-            <button class={"btn small ret-edit" + (invoiced || goodsHandled || !office ? " faded" : "")} onClick={startEdit}>
+            <button class={"btn small ret-edit" + (invoiced || !office ? " faded" : "")} onClick={startEdit}>
               <Icon name="edit" size={13} /> Sửa
             </button>
           )}
@@ -200,6 +200,12 @@ export function ReturnDetail({ id }: { id: string }) {
           </>
         ) : (
           <div class="ret-sheet">
+            {goodsHandled && (
+              <div class="muted small">
+                Phiếu đã xử lý hàng: đổi đơn giá thoải mái; SL từng mã không được thấp hơn phần đã
+                nhập kho/hủy — muốn giảm hoặc đổi mã thì Gỡ dòng xử lý của mã đó trước.
+              </div>
+            )}
             {lines.map((l, i) => (
               <div class="ret-line" key={i}>
                 <div class="ret-sp">
@@ -236,32 +242,8 @@ export function ReturnDetail({ id }: { id: string }) {
         )}
       </section>
 
-      {!deleted && (() => {
-        const gr = r.goods_result;
-        if (r.goods_handled_at && gr) {
-          const line = (arr: { sp?: string; product_code?: string; quantity: number; box_code?: string }[]) =>
-            arr.map((x) => `${x.sp || x.product_code} ×${soVN(x.quantity)}${x.box_code ? ` (thùng ${x.box_code})` : ""}`).join(", ");
-          return (
-            <section class="card rg-summary">
-              <label class="card-label"><Icon name="check" size={15} /> Hàng trả đã xử lý</label>
-              <div class="muted small">{r.goods_handled_by ? `${r.goods_handled_by}` : ""}{r.goods_handled_at ? ` · ${fmtDateTimeVN(r.goods_handled_at)}` : ""}</div>
-              {gr.restocked_existing?.length > 0 && <div class="rg-sum-line"><Icon name="box" size={13} /> Nhập thùng có sẵn: {line(gr.restocked_existing)}</div>}
-              {gr.restocked_new?.length > 0 && <div class="rg-sum-line"><Icon name="plus" size={13} /> Thùng mới: {line(gr.restocked_new)}</div>}
-              {gr.disposed?.length > 0 && (
-                <div class="rg-sum-line"><Icon name="trash" size={13} /> Xuất hủy: {line(gr.disposed)}
-                  {gr.disposal_id ? <> · <a href={`#/xuat-huy/${gr.disposal_id}`}>phiếu hủy #{gr.disposal_id}</a></> : null}
-                </div>
-              )}
-            </section>
-          );
-        }
-        return (
-          <button class={"btn block rg-open-btn" + (office ? "" : " faded")} disabled={busy}
-            onClick={() => office ? setShowGoods(true) : toast("Chỉ văn phòng mới được xử lý hàng trả", "info")}>
-            <Icon name="box" size={15} /> Xử lý hàng trả về (nhập kho / xuất hủy)
-          </button>
-        );
-      })()}
+      <ReturnGoodsCard r={r} office={office} locked={deleted}
+        onChanged={setR} onHandle={() => setShowGoods(true)} />
 
       {!deleted && !invoiced && (
         <button class={"btn primary block" + (office ? "" : " faded")} disabled={busy} onClick={doInvoice}>

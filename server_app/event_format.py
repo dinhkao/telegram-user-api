@@ -166,6 +166,12 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
                      [part(f"phiếu nhập #{p.get('purchase_id')} →", href_for("purchase", p.get("purchase_id")))] if p.get("purchase_id") else [],
                      [part(f"thùng còn {qty(p.get('remaining'))}")] if p.get("remaining") is not None else []])
         return label, seg
+    if action == "box.return_in_removed":
+        seg = _join([_inv_box_parts(p, resolver),
+                     [part(f"gỡ {qty(p.get('taken'))}")] if p.get("taken") is not None else [],
+                     [part(f"phiếu trả #{p.get('return_id')} →", href_for("return", p.get("return_id")))] if p.get("return_id") else [],
+                     [part(f"thùng còn {qty(p.get('remaining'))}")] if p.get("remaining") is not None else []])
+        return "Gỡ hàng trả khỏi thùng", seg
     if action == "box.return_in":
         seg = _join([_inv_box_parts(p, resolver),
                      [part(f"cộng {qty(p.get('taken'))}")] if p.get("taken") is not None else [],
@@ -242,6 +248,15 @@ def _event_entry(action: str, p: dict, resolver: Resolver | None) -> tuple[str, 
             seg_d = [part(f"hủy {nd} mục →", href_for("disposal", res.get("disposal_id")))] if res.get("disposal_id") else [part(f"hủy {nd} mục")]
             bits.append(seg_d)
         return "Xử lý hàng trả về", _join(bits)
+    if action == "return.goods_reverted":
+        ln = p.get("line") or {}
+        what = {"restocked_new": "xoá thùng mới", "restocked_existing": "gỡ phần cộng vào thùng",
+                "disposed": "rút khỏi phiếu hủy"}.get(p.get("kind"), "gỡ")
+        code = ln.get("sp") or ln.get("product_code") or ""
+        seg = _join([[part(f"{what} {code} ×{qty(ln.get('quantity'))}")],
+                     [part(f"thùng {ln.get('box_code')}")] if ln.get("box_code") else [],
+                     [part("phiếu về chưa xử lý hàng")] if p.get("reset") else []])
+        return "Gỡ xử lý hàng trả", seg
     if action.startswith("return."):
         label = {"return.created": "Tạo phiếu trả hàng", "return.invoiced": "Tạo HĐ KiotViet (trừ nợ)",
                  "return.invoice_deleted": "Xoá HĐ KiotViet (hoàn nợ)", "return.deleted": "Xoá phiếu trả"}.get(action)

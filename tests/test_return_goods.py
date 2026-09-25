@@ -104,7 +104,10 @@ class ReturnGoodsTest(unittest.TestCase):
         self.assertEqual(self._rem(self.box["id"]), 102)   # remaining +2 (allocation return_in)
 
     def test_already_handled_guard(self):
+        # Xử lý nhiều đợt được, nhưng khi đã xử lý HẾT số trên phiếu thì báo "already"
         apply_goods_dispositions(self.conn, self.ret["id"], [{"sp": "KEO1", "quantity": 1, "action": "dispose"}])
+        extra, err = apply_goods_dispositions(self.conn, self.ret["id"], [{"sp": "KEO1", "quantity": 9, "action": "dispose"}])
+        self.assertIsNone(err)
         extra, err = apply_goods_dispositions(self.conn, self.ret["id"], [{"sp": "KEO1", "quantity": 1, "action": "dispose"}])
         self.assertIsNone(extra)
         self.assertEqual(err, "already")

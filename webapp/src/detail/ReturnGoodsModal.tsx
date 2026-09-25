@@ -25,8 +25,11 @@ const ACTIONS: SPOption[] = [
 export function ReturnGoodsModal({ ret, onClose, onDone }: {
   ret: ReturnSlip; onClose: () => void; onDone: (r: ReturnSlip) => void;
 }) {
+  // Đã xử lý 1 phần (gỡ dòng / tăng SL) → chỉ đưa phần CÒN LẠI (server tính goods_pending)
+  const again = !!ret.goods_handled_at;
   const [rows, setRows] = useState<Row[]>(
-    (ret.items || []).map((it) => ({ sp: it.sp, qty: it.sl, action: "dispose" as Act })));
+    (again ? (ret.goods_pending || []).map((p) => ({ sp: p.sp, sl: p.quantity })) : (ret.items || []))
+      .map((it) => ({ sp: it.sp, qty: it.sl, action: "dispose" as Act })));
   const [boxes, setBoxes] = useState<KhoBox[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -78,7 +81,7 @@ export function ReturnGoodsModal({ ret, onClose, onDone }: {
   return (
     <div class="modal-overlay" onClick={(e: any) => { if (e.target === e.currentTarget) onClose(); }}>
       <div class="modal-sheet rg-sheet" onClick={(e: any) => e.stopPropagation()}>
-        <div class="modal-head"><Icon name="box" size={16} /> Xử lý hàng trả về</div>
+        <div class="modal-head"><Icon name="box" size={16} /> {again ? "Xử lý tiếp hàng trả" : "Xử lý hàng trả về"}</div>
         <p class="muted small list-hint">
           Khách trả hàng — chọn cách xử lý từng loại: nhập lại kho (thùng có sẵn / thùng mới) hay xuất hủy.
         </p>

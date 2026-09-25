@@ -14,8 +14,12 @@ Ba cách xử lý mỗi dòng hàng trả:
 
 KIỂM TRƯỚC — GHI SAU (khớp purchase_goods): pass 1 validate TOÀN BỘ dòng, dòng
 hỏng trả lỗi VN nêu rõ dòng nào, CHƯA claim phiếu (goods_handled_at giữ NULL →
-sửa xong gọi lại được). Chỉ khi mọi dòng hợp lệ mới CAS claim + ghi kho, tất cả
-trong 1 transaction — lỗi giữa chừng raise → rollback CẢ claim.
+sửa xong gọi lại được). Chỉ khi mọi dòng hợp lệ mới claim + ghi kho, tất cả trong
+1 transaction BEGIN IMMEDIATE — lỗi giữa chừng raise → rollback CẢ claim.
+
+XỬ LÝ NHIỀU ĐỢT (2026-09-25): trần mỗi SP = hàng trên phiếu − phần ĐÃ xử lý
+(server_app/return_goods_edit — dòng gỡ ra / SL phiếu tăng thêm thành "chưa xử lý"),
+kết quả đợt mới GỘP vào goods_result cũ; mỗi dòng hủy mang disposal_id riêng.
 """
 from __future__ import annotations
 
@@ -34,7 +38,7 @@ class _ApplyError(Exception):
     """Lỗi ghi kho giữa chừng — raise để transaction rollback cả lô (kể cả claim)."""
 
 
-def _validate_dispositions(conn, r: dict, dispositions) -> tuple[list[dict], str | None]:
+def _validate_dispositions(conn, r: dict, dispositions, handled: dict | None = None) -> tuple[list[dict], str | None]:
     """Pass 1: chuẩn hoá + kiểm MỌI dòng trước khi ghi — lỗi trả rõ dòng nào,
     KHÔNG bỏ qua lặng (dòng lặng = hàng biến mất không dấu vết, phiếu lại bị khoá).
     Trần theo phiếu trả: mỗi SP xử lý (nhập thùng / tạo thùng / hủy) không vượt
@@ -53,6 +57,9 @@ def _validate_dispositions(conn, r: dict, dispositions) -> tuple[list[dict], str
         key_i, live_i = _product_key(conn, code_i, (it or {}).get("sp_id"))
         limits[key_i] = limits.get(key_i, 0.0) + sl
         labels[key_i] = live_i or code_i
+    for k, q in (handled or {}).items():          # đợt trước đã xử lý → trừ khỏi trần
+        if k in limits:
+            limits[k] -= q
 
     used: dict = {}
     valid: list[dict] = []
@@ -94,7 +101,7 @@ def _validate_dispositions(conn, r: dict, dispositions) -> tuple[list[dict], str
             row.update({"place_id": disp.get("place_id"), "unit_id": disp.get("unit_id")})
         if used.get(key, 0.0) + q > limits[key] + 1e-9:
             return [], (f"Mã {labels.get(key) or live_code or code} xử lý vượt số trên phiếu trả "
-                        f"({used.get(key, 0.0) + q:g} > {limits[key]:g})")
+                        f"({used.get(key, 0.0) + q:g} > {max(limits[key], 0):g} còn chưa xử lý)")
         used[key] = used.get(key, 0.0) + q
         valid.append(row)
     return valid, None
@@ -123,22 +130,22 @@ def apply_goods_dispositions(conn, return_id: int, dispositions, *, actor: str =
             r = get_return(conn, return_id)
             if not r:
                 return None, "not_found"
-            if r.get("goods_handled_at"):
+            # Đọc TRONG transaction BEGIN IMMEDIATE → 2 request đồng thời xếp hàng,
+            # request sau thấy phần đã xử lý của request trước (không double-apply).
+            from server_app.return_goods_edit import goods_pending, handled_by_key
+            if r.get("goods_handled_at") and not goods_pending(conn, r):
                 return None, "already"
 
-            # ── PASS 1: validate TOÀN BỘ — lỗi trả ra khi phiếu CHƯA claim ──
-            valid, verr = _validate_dispositions(conn, r, dispositions)
+            # ── PASS 1: validate TOÀN BỘ — lỗi trả ra khi CHƯA ghi gì ──
+            prev = (r.get("goods_result") or {}) if r.get("goods_handled_at") else {}
+            valid, verr = _validate_dispositions(conn, r, dispositions, handled_by_key(conn, prev))
             if verr:
                 return None, verr
 
-            # ── PASS 2: giành quyền NGUYÊN TỬ (CAS) rồi mới ghi — 2 request đồng
-            # thời không double-apply; lỗi ghi giữa chừng raise → rollback cả CAS.
-            claimed = conn.execute(
-                "UPDATE return_slips SET goods_handled_at = ?, goods_handled_by = ? "
-                "WHERE id = ? AND goods_handled_at IS NULL",
-                (_now_vn(), actor or "", return_id))
-            if claimed.rowcount != 1:
-                return None, "already"
+            # ── PASS 2: đánh dấu đã xử lý (lần đầu) rồi ghi kho ──
+            if not r.get("goods_handled_at"):
+                conn.execute("UPDATE return_slips SET goods_handled_at = ?, goods_handled_by = ? WHERE id = ?",
+                             (_now_vn(), actor or "", return_id))
 
             result: dict = {"restocked_existing": [], "restocked_new": [], "disposed": [], "disposal_id": None}
             touched_boxes: list[int] = []
@@ -197,12 +204,18 @@ def apply_goods_dispositions(conn, return_id: int, dispositions, *, actor: str =
                     by=actor, source_return_id=return_id)
                 if not disposal:
                     raise _ApplyError(str(derr or "Không tạo được phiếu xuất hủy"))
-                result["disposed"] = disposal["items"]
+                result["disposed"] = [dict(x, disposal_id=disposal["id"]) for x in disposal["items"]]
                 result["disposal_id"] = disposal["id"]
 
-            # inline set_goods_result(conn, return_id, result) — tránh bare commit
+            # Gộp với đợt trước (xử lý tiếp sau khi gỡ dòng / tăng SL). Dòng hủy cũ
+            # thiếu disposal_id riêng → gắn disposal_id chung cũ để gỡ lẻ đúng phiếu.
+            merged = {k: [dict(x, disposal_id=x.get("disposal_id") or prev.get("disposal_id"))
+                          if k == "disposed" else x for x in (prev.get(k) or [])] + result[k]
+                      for k in ("restocked_existing", "restocked_new", "disposed")}
+            merged["disposal_id"] = result["disposal_id"] or prev.get("disposal_id")
+            # inline set_goods_result(conn, return_id, merged) — tránh bare commit
             conn.execute("UPDATE return_slips SET goods_result = ? WHERE id = ?",
-                         (_json.dumps(result, ensure_ascii=False), return_id))
+                         (_json.dumps(merged, ensure_ascii=False), return_id))
     except _ApplyError as exc:
         return None, str(exc)
     # Snapshot thùng SAU biến động (đã commit) → route ghi event kho scope box
