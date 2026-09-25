@@ -207,6 +207,8 @@ export function OrdersList() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [search, setSearch] = useState("");
+  // Ô tìm là đúng 1 mã SP → card Gọn/Siêu gọn hiện cột SL mã đó (SearchStockStrip báo lên)
+  const [qtyFilter, setQtyFilter] = useState<{ code: string; unit?: string } | null>(null);
   const custRef = useRef<CustFilter | null>(null);   // load() đọc ref → khỏi đổi chữ ký
   const [cust, setCustState] = useState<CustFilter | null>(null);
   const setCust = (c: CustFilter | null) => { custRef.current = c; setCustState(c); };
@@ -611,7 +613,7 @@ export function OrdersList() {
             count={filter !== "all" && stats ? (stats as any)[filter] : null}
             onClear={clearFilters} />
         )}
-        <SearchStockStrip search={search} />
+        <SearchStockStrip search={search} onProduct={setQtyFilter} />
       </header>
       {canViewSalesReport && (
         <a class="orders-report-link" href="#/ban-hang?period=today" aria-label="Xem báo cáo bán hàng hôm nay">
@@ -661,7 +663,7 @@ export function OrdersList() {
               ) : ((o) => (
                 <li key={o.thread_id}>
                   <a data-oid={o.thread_id} class={`order-card ultra${orderAllDone(o) ? " all-done" : ""}${orderNoProducts(o) ? " no-sp" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
-                    <UltraBody o={o} search={search} />
+                    <UltraBody o={o} search={search} qty={search.trim() ? qtyFilter : null} />
                   </a>
                 </li>
               ))(e.o))}
@@ -675,7 +677,7 @@ export function OrdersList() {
           return (
           <li key={o.thread_id}>
             <a data-oid={o.thread_id} class={`order-card compact${orderAllDone(o) ? " all-done" : ""}${orderNoProducts(o) ? " no-sp" : ""}${flashing[String(o.thread_id)] ? " flash" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}${isNew ? " new-order" : ""}`} href={`#/order/${o.thread_id}`}>
-              <CompactBody o={o} search={search} sort={sort} flashMsg={flashing[String(o.thread_id)]} isNew={isNew} openThumb={openThumb} />
+              <CompactBody o={o} search={search} sort={sort} flashMsg={flashing[String(o.thread_id)]} isNew={isNew} openThumb={openThumb} qty={search.trim() ? qtyFilter : null} />
             </a>
           </li>
           );

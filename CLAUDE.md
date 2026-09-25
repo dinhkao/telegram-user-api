@@ -296,6 +296,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   tìm TRONG đơn của khách đó.
   **Tìm bằng mã SP** mà text đơn không ghi mã → card Gọn/Siêu gọn hiện chip dòng hàng
   khớp "K10LV87 30" (`detail/SearchHitItems.tsx`; Siêu gọn đặt ở DÒNG 2 của card).
+  Ô tìm là ĐÚNG 1 mã SP (dải tồn kho nhận ra — `SearchStockStrip onProduct`) → card
+  Gọn/Siêu gọn có cột SỐ LƯỢNG mã đó ở mép phải (`CardQty`, tổng `sl` các dòng cùng mã,
+  "—" = đơn không có dòng mã đó) và bỏ chip dòng hàng. View Chi tiết không có cột (bảng
+  hàng trong card đã tô sáng mã).
   **Tồn kho khi tìm mã SP**: dải `detail/SearchStockStrip.tsx` dưới ô tìm ← GET
   `/api/orders/code-stock?code=` (`inventory_store/stock_lookup.py` — cùng luật tồn với
   `product_summary`, nhận mã cũ, kèm quy đổi vai 👁; realtime inventory/box_changed tải

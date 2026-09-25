@@ -8,7 +8,10 @@ import { orderImageUrl } from "../api";
 import { InvoiceTable } from "./InvoiceTable";
 import { Icon } from "../ui/Icon";
 import { SwipeText } from "./SwipeText";
-import { SearchHitItems, searchHitItems } from "./SearchHitItems";
+import { CardQty, SearchHitItems, searchHitItems } from "./SearchHitItems";
+
+/** Đang lọc bằng 1 mã SP → card hiện cột SL mã đó ở mép phải (thay chip dòng hàng). */
+export type QtyFilter = { code: string; unit?: string } | null;
 
 export const NEW_ORDER_SEC = 5 * 60; // đơn tạo trong 5 phút → tô vàng + tag "Mới"
 
@@ -218,21 +221,22 @@ export function orderDayLabel(key: string): string {
 }
 
 // Siêu gọn: chỉ 5 icon trạng thái + nội dung đơn 1 dòng (bỏ hết xuống dòng)
-export function UltraBody({ o, search }: { o: OrderRow; search: string }) {
+export function UltraBody({ o, search, qty }: { o: OrderRow; search: string; qty?: QtyFilter }) {
   const text = (o.text || o.topic_name || `#${o.thread_id}`).replace(/\s+/g, " ").trim();
   const noSp = orderNoProducts(o);
-  const hits = searchHitItems(o, search);
+  const hits = qty ? [] : searchHitItems(o, search);   // có cột SL rồi thì khỏi chip
   return (
     <>
       <div class="ultra-row">
         <TaskBadges o={o} />
         <SwipeText class="ultra-text"><Highlight text={text} q={search} /></SwipeText>
+        {qty && <CardQty o={o} code={qty.code} unit={qty.unit} />}
       </div>
       {/* dòng 2 riêng (card cao thêm) — dòng 1 giữ nguyên chỗ cho nội dung đơn */}
       {(noSp || hits.length > 0) && (
         <div class="ultra-line2">
           {noSp && <span class="tag-nosp">Chưa nhập sản phẩm</span>}
-          <SearchHitItems o={o} search={search} />
+          {!qty && <SearchHitItems o={o} search={search} />}
         </div>
       )}
     </>
@@ -305,8 +309,8 @@ export function CardBody({ o, search, stt, isNew, openThumb, filterByCustomer }:
 
 // Thân card COMPACT: cột thumbnail (trái) + nội dung (phải). Đo chiều cao nội dung
 // thật → đủ cho 2 ô vuông thì hiện 2 (giống card two-col, tile hẹp hơn ~68px).
-export function CompactBody({ o, search, sort, flashMsg, isNew, openThumb }: {
-  o: OrderRow; search: string; sort: string; flashMsg?: string; isNew: boolean;
+export function CompactBody({ o, search, sort, flashMsg, isNew, openThumb, qty }: {
+  o: OrderRow; search: string; sort: string; flashMsg?: string; isNew: boolean; qty?: QtyFilter;
   openThumb: (e: Event, o: OrderRow, atId?: number) => void;
 }) {
   const allIds = o.thumb_image_ids && o.thumb_image_ids.length ? o.thumb_image_ids : (o.thumb_image_id ? [o.thumb_image_id] : []);
@@ -351,7 +355,7 @@ export function CompactBody({ o, search, sort, flashMsg, isNew, openThumb }: {
             <span class="ot-text">
               {isNew && <span class="tag-new">Mới</span>}
               <NoSpTag o={o} />
-              <SearchHitItems o={o} search={search} />
+              {!qty && <SearchHitItems o={o} search={search} />}
               {o.text ? <Highlight text={o.text} q={search} /> : <span class="muted">(không có nội dung)</span>}
             </span>
           </div>
@@ -360,6 +364,7 @@ export function CompactBody({ o, search, sort, flashMsg, isNew, openThumb }: {
           </div>
         </div>
       </div>
+      {qty && <div class="compact-qty"><CardQty o={o} code={qty.code} unit={qty.unit} /></div>}
     </>
   );
 }

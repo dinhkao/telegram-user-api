@@ -26,3 +26,23 @@ export function SearchHitItems({ o, search }: { o: OrderRow; search: string }) {
     </>
   );
 }
+
+/** Đang lọc bằng ĐÚNG 1 mã SP (dải tồn kho nhận ra mã) → tổng SL của mã đó trong đơn.
+ *  null = đơn không có dòng hàng mã đó (lọt kết quả nhờ chữ trong nội dung). */
+export function qtyOfCode(o: OrderRow, code: string): number | null {
+  const c = foldVN(code);
+  const rows = (o.invoice_items || []).filter((it) => foldVN(String(it.sp || "")) === c);
+  if (!rows.length) return null;
+  return rows.reduce((s, it) => s + (Number(it.sl) || 0), 0);
+}
+
+/** Cột SỐ LƯỢNG mép phải card (view Gọn/Siêu gọn) khi lọc theo 1 mã SP. */
+export function CardQty({ o, code, unit }: { o: OrderRow; code: string; unit?: string }) {
+  const q = qtyOfCode(o, code);
+  if (q == null) return <span class="card-qty none" title={`Đơn chưa có dòng hàng ${code}`}>—</span>;
+  return (
+    <span class="card-qty" title={`${code}: ${fmtQty(q)} ${unit || ""}`.trim()}>
+      <b>{fmtQty(q)}</b>{unit ? <small>{unit}</small> : null}
+    </span>
+  );
+}

@@ -2823,6 +2823,15 @@ body.co-kbd .bottom-nav { display: none; }
 .inv-mini .po { display: block; font-size: .68rem; font-weight: 500; line-height: 1.2; white-space: nowrap; color: var(--muted); text-decoration: none; }
 .inv-mini a.po-last { color: var(--accent-ink); }
 .inv-mini .po-manual { color: var(--warn); }
+/* Lọc bằng 1 mã SP → cột SỐ LƯỢNG mã đó ở mép phải card (detail/SearchHitItems CardQty) */
+.card-qty { flex: none; display: inline-flex; flex-direction: column; align-items: flex-end; justify-content: center;
+  min-width: 34px; line-height: 1.05; text-align: right; }
+.card-qty b { font-size: 1.05rem; font-weight: 800; color: var(--accent-ink); font-variant-numeric: tabular-nums; }
+.card-qty small { font-size: .62rem; color: var(--muted); }
+.card-qty.none { color: var(--muted-2); font-weight: 600; }
+.order-card.compact .compact-qty { flex: none; display: flex; align-items: center; padding-left: 2px; }
+.ultra-row .card-qty { margin-left: 2px; }
+.ultra-row .card-qty b { font-size: .95rem; }
 /* Tìm bằng mã SP mà nội dung đơn không ghi mã → chip dòng hàng khớp (detail/SearchHitItems) */
 .hit-sp { display: inline-block; background: #fff3a8; color: var(--ink); font-weight: 700; font-size: .78rem;
   padding: 0 6px; border-radius: 6px; margin-right: 5px; white-space: nowrap; }

@@ -11,7 +11,8 @@ type CodeStock = { code: string; name: string; unit: string; stock: number; boxe
 
 const fmtN = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 3 });
 
-export function SearchStockStrip({ search }: { search: string }) {
+/** onProduct: báo lên trang mã SP (+ đơn vị) đang lọc — card hiện cột SL mã đó. */
+export function SearchStockStrip({ search, onProduct }: { search: string; onProduct?: (p: { code: string; unit: string } | null) => void }) {
   const term = search.trim();
   const isCode = term.length >= 2 && !/\s/.test(term);
   const [p, setP] = useState<CodeStock | null>(null);
@@ -31,6 +32,8 @@ export function SearchStockStrip({ search }: { search: string }) {
     }, tick ? 400 : 150);
     return () => clearTimeout(t);
   }, [term, tick]);
+
+  useEffect(() => { onProduct?.(isCode && p ? { code: p.code, unit: p.unit } : null); }, [p?.code, p?.unit, isCode]);
 
   useEffect(() => onRealtime((e: any) => {
     if (e.type === "inventory_changed" || e.type === "box_changed") setTick((x) => x + 1);
