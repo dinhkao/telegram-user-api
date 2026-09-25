@@ -224,7 +224,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `mutation_audit._actor_ctx`; hệ thống → `created_by` của đơn), `price_at`. Giá không
   đổi GIỮ dấu cũ (sửa text không đổi người nhập); dòng cũ chưa dấu để trống. Chi tiết
   đơn hiện dưới ô Giá (`InvoiceTable showOrigin`). Ghi thẳng SQL (bot_core/bot_flows)
-  không qua choke nên không có dấu. Tests: `tests/test_price_origin.py`.
+  không qua choke nên không có dấu. Tests: `tests/test_price_origin.py`. Đơn cũ (từ
+  10/08/2026) đã ĐIỀN BÙ bằng `tools/backfill_price_origin.py` (suy từ dữ liệu, cờ
+  `price_backfill`, "manual" không tên; `--revert` gỡ; không đổi updated_at).
   ⚠ Giá đơn là snapshot vĩnh viễn → sửa lại text của CHÍNH đơn đó sẽ lấy lại giá của
   chính nó (đơn gần nhất của khách chính là nó) — muốn về giá bảng thì gõ giá tay.
   Tests: `tests/test_last_prices.py`.

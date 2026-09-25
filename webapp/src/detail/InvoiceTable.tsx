@@ -34,7 +34,7 @@ function hl(text: string, q?: string) {
 }
 
 // Nguồn gốc đơn giá (server order_store/price_origin): = đơn trước / bảng giá / ai nhập.
-type PriceOrigin = { price_src?: "last" | "list" | "manual"; price_from?: number; price_from_date?: string; price_by?: string };
+type PriceOrigin = { price_src?: "last" | "list" | "manual"; price_from?: number; price_from_date?: string; price_by?: string; price_backfill?: number };
 function PriceOriginNote({ it }: { it: PriceOrigin }) {
   if (it.price_src === "last") {
     const label = `= đơn trước${it.price_from_date ? ` ${it.price_from_date}` : ""}`;
@@ -43,7 +43,10 @@ function PriceOriginNote({ it }: { it: PriceOrigin }) {
       : <span class="po po-last">{label}</span>;
   }
   if (it.price_src === "list") return <span class="po po-list" title="Giá tự lấy theo bảng giá của khách">bảng giá</span>;
-  if (it.price_src === "manual") return <span class="po po-manual" title="Giá do người dùng tự nhập">✎ {it.price_by || "nhập tay"}</span>;
+  if (it.price_src === "manual") {
+    const t = it.price_backfill ? "Đơn cũ — suy từ dữ liệu: giá không trùng đơn trước/bảng giá, không rõ ai nhập" : "Giá do người dùng tự nhập";
+    return <span class="po po-manual" title={t}>✎ {it.price_by ? `${it.price_by} nhập` : "nhập tay"}</span>;
+  }
   return null;
 }
 
