@@ -1,9 +1,10 @@
-// Tag MÃ SP ĐANG SẢN XUẤT trên ô "SX" thanh dưới = mã SP của phiếu sản xuất mới nhất
+// Tag MÃ SP ĐANG SẢN XUẤT THAY CHỖ icon nhà máy ở ô "SX" thanh dưới (chưa có mã → icon) = mã SP của phiếu sản xuất mới nhất
 // (GET /api/production/latest-sp — bỏ phiếu đóng gói/chưa chọn SP). Nhớ số cuối ở
 // localStorage để hiện ngay lúc mở app; phiếu SX đổi (realtime) → tải lại (trễ 800ms).
 import { useEffect, useState } from "preact/hooks";
 import { getJSON } from "../api";
 import { onRealtime } from "../realtime";
+import { Icon } from "../ui/Icon";
 
 const LS = "nav_sx_latest";
 const readLS = () => { try { return localStorage.getItem(LS) || ""; } catch { return ""; } };
@@ -29,6 +30,7 @@ export function NavSxTag() {
     });
     return () => { off(); clearTimeout(timer); };
   }, []);
+  if (!code) return <Icon name="factory" size={22} class="tab-ico" />;
   // Mã dài (> 9 ký tự) thu nhỏ chữ — vẫn hiện ĐỦ, không cắt "…"
-  return code ? <span class={"tab-sp" + (code.length > 9 ? " long" : "")} title={`Đang sản xuất: ${code}`}>{code}</span> : null;
+  return <span class={"tab-ico tab-sp" + (code.length > 9 ? " long" : "")} title={`Đang sản xuất: ${code}`}>{code}</span>;
 }

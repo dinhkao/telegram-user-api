@@ -1485,8 +1485,8 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   view-slider 4 ô (chi tiết/gọn/siêu gọn/**📅 lịch giao**).
   **Ô SX có tag MÃ SP ĐANG SẢN XUẤT** (`detail/NavSxTag.tsx` ← GET
   `/api/production/latest-sp`, `server_app/production_latest_routes.py` = phiếu
-  san_xuat mới nhất đã chọn SP; realtime production_changed tải lại). Tag vắt mép trên
-  thanh, KHÔNG cắt "…" (mã dài thu nhỏ chữ). **Menu ☰ Thêm (`#/home`)**:
+  san_xuat mới nhất đã chọn SP; realtime production_changed tải lại). Tag THAY CHỖ icon
+  nhà máy (chưa có mã → icon), KHÔNG cắt "…" (mã dài thu nhỏ chữ). **Menu ☰ Thêm (`#/home`)**:
   danh mục mục nằm ở **`webapp/src/homeMenu.ts`** (nguồn DUY NHẤT — thêm tính năng mới =
   thêm 1 dòng vào `GROUPS`; `findMenuItem(hash)` khớp route DÀI NHẤT theo TỪNG ĐOẠN nên
   `#/kho` không nuốt `#/kho-dau`, `#/tho` không nuốt `#/thung`), đầu trang có khối

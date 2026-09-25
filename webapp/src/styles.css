@@ -124,14 +124,14 @@ body.kbd-open .page { padding-bottom: 10px; }
 .bottom-nav .tab .tab-ico { line-height: 1; transition: transform .15s; }
 .bottom-nav .tab .tab-lbl { font-size: .66rem; font-weight: 500; letter-spacing: .01em; }
 .bottom-nav .tab.active { color: var(--primary); }
-/* Tag mã SP đang sản xuất trên ô SX (detail/NavSxTag) — ghim góc trên, không đẩy cao thanh */
+/* Tag mã SP đang sản xuất THAY CHỖ icon nhà máy ở ô SX (detail/NavSxTag) — cao đúng 22px
+   như icon nên thanh không đổi chiều cao; KHÔNG cắt "…" (mã dài thu nhỏ chữ, tràn nhẹ sang
+   2 bên cũng được). */
 .bottom-nav .tab-sx { position: relative; }
-/* KHÔNG giới hạn rộng / không "…": mã luôn hiện ĐỦ (tràn nhẹ sang ô bên cạnh ở mép trên cũng được) */
-.bottom-nav .tab-sp { position: absolute; top: -7px; left: 50%; transform: translateX(-50%); z-index: 1;
-  white-space: nowrap; background: var(--warn); color: #fff;
-  font-size: .6rem; font-weight: 700; line-height: 1; padding: 2px 5px; border-radius: 6px; letter-spacing: .01em;
-  box-shadow: 0 0 0 2px var(--card); }
-.bottom-nav .tab-sp.long { font-size: .5rem; padding: 2px 4px; }
+.bottom-nav .tab-sp { display: inline-flex; align-items: center; height: 22px; padding: 0 6px; border-radius: 6px;
+  background: var(--warn); color: #fff; font-size: .68rem; font-weight: 700; line-height: 1; white-space: nowrap; letter-spacing: .01em; }
+.bottom-nav .tab-sp.long { font-size: .55rem; padding: 0 4px; }
+.bottom-nav .tab.active .tab-sp { background: var(--primary); }
 .bottom-nav .tab.active .tab-lbl { font-weight: 600; }
 .bottom-nav .tab.active .tab-ico { transform: translateY(-1px); }
 
