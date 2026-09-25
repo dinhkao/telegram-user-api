@@ -118,6 +118,10 @@ async def _push(title: str, body: str, data: dict | None, audience: str | None =
 def push_bg(title: str, body: str, data: dict | None = None, audience: str | None = None) -> None:
     """Lên lịch ghi + push chạy nền (không chặn handler gọi). audience='office' → chỉ
     văn phòng nhận (push + danh sách + realtime) — dùng cho nội dung tiền lương."""
+    # Lớp an toàn: đang chạy dưới pytest thì KHÔNG ghi app.db thật / bắn FCM thật
+    # (test gọi handler thật từng bắn 16 push giả tới máy văn phòng — 25/09/2026).
+    if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get("NOTIFY_IN_TESTS"):
+        return
     from server_app.tasks import spawn_tracked
     spawn_tracked("notify.push", _push(title, body, data, audience))
 
