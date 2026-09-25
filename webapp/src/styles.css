@@ -2837,6 +2837,9 @@ a.inv-cust-name { text-decoration: underline; text-decoration-color: var(--borde
 .inv-cust-lock { flex: none; cursor: pointer; font-size: .85rem; }
 .inv-cust-pick { margin-bottom: 8px; }
 .inv-cust-pick .sp-trigger { width: 100%; }
+/* Tồn kho LIVE dưới mã SP (mã chưa phân bổ thùng) — InvoiceTable stockOf */
+.inv-mini .inv-stock { display: block; font-size: .68rem; font-weight: 600; color: var(--ok); line-height: 1.2; }
+.inv-mini .inv-stock.low { color: var(--danger); }
 /* Nguồn đơn giá dưới ô Giá ở chi tiết đơn (detail/InvoiceTable PriceOriginNote) */
 .inv-mini .po { display: block; font-size: .68rem; font-weight: 500; line-height: 1.2; white-space: nowrap; color: var(--muted); text-decoration: none; }
 .inv-mini a.po-last { color: var(--accent-ink); }

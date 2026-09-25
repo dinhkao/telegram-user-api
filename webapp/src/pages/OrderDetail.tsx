@@ -19,7 +19,7 @@ import { SingleImageViewer } from "../detail/SingleImageViewer";
 import { downloadFileFromUrl } from "../downloadFile";
 import { CopyImageError, copyImageFromUrl, copyImageLazy } from "../copyImage";
 import { suggestNoTrackOldOrders } from "../detail/suggestNoTrack";
-import { OrderStock } from "../detail/OrderStock";
+import { OrderStock, type StockInfo } from "../detail/OrderStock";
 import { invalidateListCache, markLastOrder, filterNeighbors, onFilterNeighborsChanged } from "./OrdersList";
 import { applyCustomerOrderChange } from "./orderNavigation";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -47,6 +47,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [editText, setEditText] = useState<string | null>(null);
   const [changingCust, setChangingCust] = useState(false);
   const [invCustOpen, setInvCustOpen] = useState(false);   // ô tìm khách trong khối Hoá đơn
+  const [stockInfo, setStockInfo] = useState<StockInfo | undefined>(undefined);   // tồn live (OrderStock báo lên)
   const [nggDate, setNggDate] = useState("");   // ngày giao (YYYY-MM-DD)
   const [nggTime, setNggTime] = useState("");   // giờ giao (HH:MM) — tách riêng
   const [savingNg, setSavingNg] = useState(false);
@@ -752,7 +753,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           </div>
         )}
         {(j.invoice || []).length > 0
-          ? <InvoiceTable items={j.invoice} discount={j.discount} pvc={j.pvc} vat={j.vat} linkSp showOrigin
+          ? <InvoiceTable items={j.invoice} discount={j.discount} pvc={j.pvc} vat={j.vat} linkSp showOrigin stockOf={stockInfo}
               debt={j.khDebt ?? j.invoice_debt_snapshot} total={pc.tongthanhtoan || undefined}
               debtCtl={!hasInvoice && (j.khach_hang_id || j.khID)
                 ? <button class="btn small" title="Kéo nợ KiotViet mới nhất" onClick={refreshDebt}><Icon name="refresh" size={14} /></button>
@@ -896,7 +897,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       </div>
       )}
       <div id="od-stock">
-      <OrderStock threadId={threadId} invoice={j.invoice || []} stockConfirmed={j.stock_confirmed || null}
+      <OrderStock threadId={threadId} invoice={j.invoice || []} stockConfirmed={j.stock_confirmed || null} onStock={setStockInfo}
         onCompleteSoanHang={(j.task_status || {}).soan_hang?.done ? undefined : () => setSoanOpenRequest((n) => n + 1)} />
       <div class="card"><Comments base={`/api/order/${threadId}`} topic="xuat_kho" allowPin={false} /></div>
       </div>

@@ -19,10 +19,15 @@ function fmtAt(at?: string): string {
   return `${at.slice(8, 10)}/${at.slice(5, 7)} ${at.slice(11, 16)}`;
 }
 
-export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHang }: {
+/** Tồn hiện tại + phần đã phân bổ cho đơn, theo mã SP — báo lên trang cho bảng hoá đơn. */
+export type StockInfo = Record<string, { onhand: number; got: number }>;
+
+export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHang, onStock }: {
   threadId: string;
   invoice: Line[];
   stockConfirmed?: Confirmed;
+  /** Mỗi lần tải lại (kể cả do realtime kho/đơn) → báo {mã: {tồn, đã phân bổ}} lên trang. */
+  onStock?: (m: StockInfo) => void;
   /** Sau khi chốt kho, mở đúng luồng hoàn thành task Soạn hàng hiện có. */
   onCompleteSoanHang?: () => void;
 }) {
@@ -116,6 +121,13 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
     const got = gotOf(code);
     return { code, need, got, over: got - need > 1e-6, short: need - got > 1e-6 };
   });
+  const stockSig = products.map((p) => `${p.code}:${stock[p.code] ?? 0}:${p.got}`).join("|");
+  useEffect(() => {
+    if (!onStock) return;
+    const m: StockInfo = {};
+    for (const p of products) m[p.code] = { onhand: stock[p.code] ?? 0, got: p.got };
+    onStock(m);
+  }, [stockSig]);
   if (!products.length) return null;
 
   // Lệch = ĐÃ xuất (got>0) nhưng KHÔNG khớp SL hoá đơn → hầu hết do vừa sửa hoá đơn.

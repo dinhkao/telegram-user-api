@@ -50,7 +50,7 @@ function PriceOriginNote({ it }: { it: PriceOrigin }) {
   return null;
 }
 
-export function InvoiceTable({ items, discount, pvc, vat, debt, total, q, debtCtl, linkSp, showOrigin }: {
+export function InvoiceTable({ items, discount, pvc, vat, debt, total, q, debtCtl, linkSp, showOrigin, stockOf }: {
   items: ({ sp: string; sl: number | string; price: number } & PriceOrigin)[];
   discount?: number; pvc?: number; vat?: number; debt?: number | null;
   total?: string;   // tổng in sẵn từ KiotViet (nếu có) — ưu tiên dòng "Tổng thanh toán"
@@ -59,8 +59,21 @@ export function InvoiceTable({ items, discount, pvc, vat, debt, total, q, debtCt
   linkSp?: boolean; // mã SP bấm được → #/kho/<mã> (BẬT ở trang chi tiết đơn; TẮT ở card
                     // dashboard vì cả card là 1 nút mở đơn, link con sẽ nuốt cú chạm)
   showOrigin?: boolean; // ghi chú nguồn đơn giá dưới ô Giá (trang chi tiết đơn)
+  // Tồn LIVE theo mã (khối Xuất kho báo lên): mã CHƯA phân bổ thùng nào → "tồn N" dưới mã
+  // SP, đỏ nếu tồn không đủ số lượng đơn cần. Phân bổ rồi thì ẩn (đã xuất kho mã đó).
+  stockOf?: Record<string, { onhand: number; got: number }>;
 }) {
   const list = items || [];
+  const needOf = (code: string) => list.filter((x) => String(x.sp || "").trim().toUpperCase() === code)
+    .reduce((s, x) => s + (Number(x.sl) || 0), 0);
+  const stockNote = (sp: string) => {
+    const code = String(sp || "").trim().toUpperCase();
+    const st = stockOf?.[code];
+    if (!st || st.got > 1e-6) return null;
+    const low = st.onhand + 1e-6 < needOf(code);
+    return <span class={"inv-stock" + (low ? " low" : "")} title={low ? "Tồn kho không đủ cho đơn này" : "Tồn kho hiện tại"}>
+      tồn {st.onhand.toLocaleString("vi-VN")}</span>;
+  };
   const tienHang = list.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.sl) || 0), 0);
   const p = pvc || 0, v = vat || 0, disc = discount || 0;
   const d = Number(debt) || 0;
@@ -78,7 +91,7 @@ export function InvoiceTable({ items, discount, pvc, vat, debt, total, q, debtCt
             <td>{linkSp && String(it.sp || "").trim()
               ? <a class="pt-inl" href={`#/kho/${encodeURIComponent(String(it.sp).trim())}`}
                 title="Mở trang sản phẩm">{hl(it.sp, q)}</a>
-              : hl(it.sp, q)}</td>
+              : hl(it.sp, q)}{stockOf ? stockNote(it.sp) : null}</td>
             <td class="num">{it.sl}</td>
             <td class="num">{money(it.price)}{showOrigin ? <PriceOriginNote it={it} /> : null}</td>
             <td class="num">{money((Number(it.price) || 0) * (Number(it.sl) || 0))}</td>
