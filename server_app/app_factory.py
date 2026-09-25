@@ -141,6 +141,12 @@ def create_app():
     r.add_get("/orders/{thread_id}", order_detail_page_handler)
     r.add_get("/api/orders", orders_api_handler)
     r.add_get("/api/orders/delivery", orders_delivery_handler)
+    from server_app.webpush_routes import (webpush_key_handler, webpush_subscribe_handler,
+                                           webpush_test_handler, webpush_unsubscribe_handler)
+    r.add_get("/api/webpush/key", webpush_key_handler)
+    r.add_post("/api/webpush/subscribe", webpush_subscribe_handler)
+    r.add_post("/api/webpush/unsubscribe", webpush_unsubscribe_handler)
+    r.add_post("/api/webpush/test", webpush_test_handler)
     r.add_get("/api/orders/suggest", orders_suggest_handler)
     r.add_get("/api/orders/code-stock", order_code_stock_handler)
     r.add_get("/api/orders/delivering", orders_delivering_handler)

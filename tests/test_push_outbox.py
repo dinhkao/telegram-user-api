@@ -154,3 +154,24 @@ def test_deliver_persists_and_resends_only_missing(monkeypatch, tmp_path):
     c = conn()
     assert c.execute("SELECT push_state, push_attempts FROM notifications").fetchone()[:] == ("sent", 2)
     assert seen == [None, ["tB"]]
+
+
+
+# ── Web Push (iPhone/PWA) đi cùng hàng đợi ──
+def test_webpush_pending_keeps_retry_even_if_fcm_done():
+    p = dict(P, wp=None)
+    st, newp, wait, s = next_state(p, {"ok_users": ["duy"], "pending_tokens": [], "topic_pending": False}, 1,
+                                   {"ok_users": [], "fail_users": ["trinh"], "pending": ["https://web.push.apple.com/x"]})
+    assert st == "retry" and newp["tokens"] == [] and newp["wp"] == ["https://web.push.apple.com/x"]
+    assert "trinh (iPhone/web)" in s
+
+
+def test_webpush_delivered_and_fcm_disabled_is_sent():
+    p = dict(P, wp=None)
+    st, newp, _, s = next_state(p, {"disabled": True}, 1, {"ok_users": ["trinh"], "pending": []})
+    assert st == "sent" and newp["wp"] == [] and "trinh (iPhone/web)" in s
+
+
+def test_old_payload_without_wp_not_sent_to_web():
+    st, newp, _, _ = next_state(dict(P), {"ok_users": ["duy"], "pending_tokens": [], "topic_pending": False}, 1)
+    assert st == "sent" and newp["wp"] == []

@@ -79,6 +79,39 @@ async def _redirect_to_slash(request: web.Request):
     raise web.HTTPMovedPermanently("/app/")
 
 
+# PWA (iPhone "Thêm vào màn hình chính" + Web Push): file TÊN CỐ ĐỊNH từ webapp/public.
+# sw.js PHẢI no-cache (trình duyệt tự kiểm bản mới của service worker); icon cache 1 ngày.
+_PWA_FILES = {
+    "sw.js": ("application/javascript", "no-cache"),
+    "manifest.webmanifest": ("application/manifest+json", "no-cache"),
+}
+
+
+async def webapp_pwa_handler(request: web.Request):
+    name = request.match_info.get("name", "")
+    if name not in _PWA_FILES:
+        return web.Response(status=404, text="not found")
+    full = os.path.join(_DIST, name)
+    if not os.path.isfile(full):
+        return web.Response(status=404, text="not found")
+    ctype, cache = _PWA_FILES[name]
+    resp = web.FileResponse(full, headers={"Content-Type": ctype})
+    resp.headers["Cache-Control"] = cache
+    return resp
+
+
+async def webapp_icon_handler(request: web.Request):
+    name = request.match_info.get("name", "")
+    if not name.endswith(".png") or "/" in name or ".." in name:
+        return web.Response(status=404, text="not found")
+    full = os.path.join(_DIST, "icons", name)
+    if not os.path.isfile(full):
+        return web.Response(status=404, text="not found")
+    resp = web.FileResponse(full)
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
 def register_webapp_routes(router) -> None:
     router.add_get("/app", _redirect_to_slash)
     router.add_get("/app/", webapp_index_handler)
@@ -86,6 +119,8 @@ def register_webapp_routes(router) -> None:
     # build xong là serve được ngay, không cần restart
     os.makedirs(_ASSETS, exist_ok=True)
     router.add_get("/app/assets/{path:.*}", webapp_asset_handler)
+    router.add_get("/app/icons/{name}", webapp_icon_handler)
+    router.add_get("/app/{name:sw\\.js|manifest\\.webmanifest}", webapp_pwa_handler)
     # Tự cập nhật APK: builder deploy version.json + app.apk vào WEBAPP_APK_DIR
     os.makedirs(_APK_DIR, exist_ok=True)
     router.add_get("/app/update/version.json", app_version_handler)

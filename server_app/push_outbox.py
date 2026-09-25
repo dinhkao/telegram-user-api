@@ -28,22 +28,34 @@ _TICK = 30
 _locks: dict[int, asyncio.Lock] = {}
 
 
-def next_state(payload: dict, res: dict, attempts: int) -> tuple[str, dict, int | None, str]:
-    """THUẦN: (state, payload mới, giây chờ lần sau | None, tóm tắt) sau 1 lần gửi."""
-    if res.get("disabled"):
-        return "disabled", payload, None, "FCM tắt (FCM_ENABLED=false)"
+def next_state(payload: dict, res: dict, attempts: int, wp: dict | None = None) -> tuple[str, dict, int | None, str]:
+    """THUẦN: (state, payload mới, giây chờ lần sau | None, tóm tắt) sau 1 lần gửi.
+    res = kết quả FCM (Android), wp = kết quả Web Push (iPhone/trình duyệt) hoặc None
+    (lượt này không gửi web push — giữ nguyên phần web push còn thiếu trong payload)."""
+    fcm_off = bool(res.get("disabled"))
+    # phần web push "không có gì để làm": tắt, hoặc lượt này không gửi và payload đã xong
+    wp_none = (wp is not None and bool(wp.get("disabled"))) or (wp is None and payload.get("wp", []) == [])
+    if fcm_off and wp_none:
+        return "disabled", payload, None, "FCM + Web Push đều tắt"
     new = dict(payload)
-    new["tokens"] = res.get("pending_tokens")      # None = chưa tới máy nào → gửi lại tất cả
-    new["topic"] = bool(res.get("topic_pending"))
+    if fcm_off:
+        new["tokens"], new["topic"] = [], False
+    else:
+        new["tokens"] = res.get("pending_tokens")      # None = chưa tới máy nào → gửi lại tất cả
+        new["topic"] = bool(res.get("topic_pending"))
+    # payload cũ (trước khi có web push) không có "wp" → coi như xong phần web push
+    new["wp"] = [] if (wp is not None and wp.get("disabled")) else (wp["pending"] if wp is not None else payload.get("wp", []))
     parts = []
-    if res.get("ok_users"):
-        parts.append("nhận: " + ", ".join(res["ok_users"]))
-    if res.get("fail_users"):
-        parts.append("chưa nhận: " + ", ".join(res["fail_users"]))
+    ok_users = list(res.get("ok_users") or []) + [f"{u} (iPhone/web)" for u in (wp or {}).get("ok_users") or []]
+    fail_users = list(res.get("fail_users") or []) + [f"{u} (iPhone/web)" for u in (wp or {}).get("fail_users") or []]
+    if ok_users:
+        parts.append("nhận: " + ", ".join(ok_users))
+    if fail_users:
+        parts.append("chưa nhận: " + ", ".join(fail_users))
     if res.get("error"):
         parts.append("lỗi: " + str(res["error"])[:300])
     summary = " | ".join(parts) or "không có máy nào đăng ký"
-    done = new["tokens"] == [] and not new["topic"]
+    done = new["tokens"] == [] and not new["topic"] and new["wp"] == []
     if done:
         return "sent", new, None, summary
     if attempts >= MAX_ATTEMPTS:
@@ -75,11 +87,18 @@ async def deliver(notif_id: int) -> None:
             if not st or st["state"] not in ("pending", "retry"):
                 return
             p = st["payload"]
-            res = await asyncio.to_thread(send_once, p.get("title", ""), p.get("body", ""), p.get("data"),
-                                          p.get("image_url"), p.get("tokens"), bool(p.get("topic", True)),
-                                          p.get("audience"))
+            fcm_done = p.get("tokens") == [] and not p.get("topic", True)
+            res = {"ok_users": [], "pending_tokens": [], "topic_pending": False} if fcm_done else \
+                await asyncio.to_thread(send_once, p.get("title", ""), p.get("body", ""), p.get("data"),
+                                        p.get("image_url"), p.get("tokens"), bool(p.get("topic", True)),
+                                        p.get("audience"))
+            wp = None
+            if p.get("wp", []) != []:      # None = chưa gửi web push máy nào; list = còn thiếu
+                from server_app import webpush
+                wp = await asyncio.to_thread(webpush.send_once, p.get("title", ""), p.get("body", ""),
+                                             p.get("data"), p.get("wp"), p.get("audience"))
             attempts = st["attempts"] + 1
-            state, newp, wait, summary = next_state(p, res, attempts)
+            state, newp, wait, summary = next_state(p, res, attempts, wp)
             if state == "failed":
                 log.error("PUSH HỎNG sau %d lần #%s «%s»: %s", attempts, notif_id, p.get("title"), summary)
             elif state == "retry":

@@ -8,9 +8,16 @@
     <!-- Ảnh camera giao từ CDN Cloudinary: mở sẵn DNS+TCP+TLS (img non-CORS → không crossorigin) -->
     <link rel="preconnect" href="https://res.cloudinary.com" />
     <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+    <!-- PWA: iPhone "Thêm vào màn hình chính" → mở như app riêng + nhận WEB PUSH (iOS ≥ 16.4,
+         chỉ khi chạy từ màn hình chính). Manifest/icon/sw.js ở public/, phục vụ dưới /app/. -->
+    <link rel="manifest" href="/app/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/app/icons/icon-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Đơn hàng" />
     <title>Đơn hàng — Lê Trang Phát</title>
-    <script type="module" crossorigin src="./assets/index-xSNzRvkW.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CwYH8yoV.css">
+    <script type="module" crossorigin src="./assets/index-BVPDQK5B.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BnDPVzex.css">
   </head>
   <body>
     <div id="app"></div>

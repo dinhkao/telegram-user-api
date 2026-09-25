@@ -4,6 +4,8 @@ import { render } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { currentUser, getJSON, isOffice, isQualityOnly, replayQueue, netOk, onNetStatus, refreshMe, soVN, tokenExpired } from "./api";
 import { registerFcmToken } from "./fcmRegister";
+import { listenWebPushOpen, syncWebPush } from "./webPush";
+import { WebPushNudge } from "./detail/WebPushCard";
 import { clearQueue, getQueue } from "./offline";
 import { getStatus, onStatus, onRealtime, startRealtime, stopRealtime, type RealtimeStatus } from "./realtime";
 import { CreateOrder } from "./pages/CreateOrder";
@@ -434,7 +436,7 @@ function App() {
   }, [authed]);
 
   // Đăng ký token FCM của máy này theo user (để push lọc được người nhận).
-  useEffect(() => { if (authed) registerFcmToken(); }, [authed]);
+  useEffect(() => { if (authed) { registerFcmToken(); syncWebPush(); } }, [authed]);
 
   // Chuẩn hoá URL hash về #/login khi cần đăng nhập — làm trong effect,
   // KHÔNG sửa location trong lúc render (gây trắng trang lần đầu, phải reload).
@@ -745,6 +747,7 @@ function App() {
       )}
       <OfflineBanner />
       {!showLogin && !qualityOnly && <NopBanner />}
+      {!showLogin && !qualityOnly && <WebPushNudge />}
       <main class="page">{page}</main>
       {!showLogin && !qualityOnly && (
         <div class="bottom-dock">
@@ -778,3 +781,4 @@ function App() {
 render(<App />, document.getElementById("app")!);
 initUsage();
 initRecent();   // nhớ mục vừa mở → khối "Gần đây" ở trang ☰ Thêm
+listenWebPushOpen();   // bấm thông báo web push khi app đang mở → mở đúng trang

@@ -91,6 +91,7 @@ async def _push(title: str, body: str, data: dict | None, audience: str | None =
             # Đưa vào HÀNG ĐỢI PUSH BỀN trước khi gửi → lỗi mạng/restart vẫn được gửi bù
             mark_pending(conn, row["id"], {"title": title, "body": fb, "data": data or {},
                                            "image_url": image_url, "tokens": None,
+                                           "wp": None,   # Web Push (iPhone/PWA): None = gửi mọi máy
                                            # topic dự phòng tới MỌI máy cũ → không dùng cho tin văn phòng
                                            "topic": audience is None, "audience": audience},
                          first_next_at())

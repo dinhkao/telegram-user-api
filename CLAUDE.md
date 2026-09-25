@@ -340,8 +340,21 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   ERROR "PUSH HỎNG"). Row 'pending' bỏ dở do restart cũng được gửi bù. `push_payload` chứa
   token → `notif_store.queries._public` KHÔNG trả ra API. Soi 1 push:
   `select id,title,push_state,push_attempts,push_result from notifications order by id desc`.
-  ⚠ Push chỉ tới máy ANDROID có APK (token trong `fcm_tokens`); iPhone/Safari không
-  nhận được gì. Tests: `tests/test_push_outbox.py`.
+  Tests: `tests/test_push_outbox.py`.
+  **WEB PUSH cho iPhone/trình duyệt (2026-09-25)**: chạy SONG SONG FCM trong cùng outbox
+  (payload `wp`: None = mọi máy, list = endpoint còn thiếu; payload cũ không có `wp` = bỏ
+  qua). `server_app/webpush.py` (pywebpush + VAPID, khoá PEM `utils.paths.
+  VAPID_PRIVATE_KEY_FILE` = `~/letrang-db/vapid_private.pem`, tạo 1 lần bằng
+  `tools/gen_vapid_key.py` — ĐỔI KHOÁ = mọi máy phải bật lại; chỉ POST tới host dịch vụ
+  push thật `endpoint_allowed` chống SSRF; 404/410 xoá đăng ký, 400/403 KHÔNG xoá vì
+  thường là lỗi cấu hình phía mình) · bảng `web_push_subs` (`notif_store/webpush_subs.py`,
+  lọc người nhận y FCM) · API `/api/webpush/key|subscribe|unsubscribe|test`
+  (`webpush_routes.py`; test = chỉ gửi máy của chính mình). Webapp: `public/sw.js` +
+  `manifest.webmanifest` + `icons/` (phục vụ `/app/sw.js`… ở `webapp_routes`), `src/webPush.ts`
+  (bật/đồng bộ mỗi lần mở app/nhận lệnh mở trang), `detail/WebPushCard.tsx` (khối ở
+  ⚙️ Cài đặt + dải nhắc iPhone). ⚠ iPhone CHỈ nhận khi app mở từ MÀN HÌNH CHÍNH (PWA,
+  iOS ≥ 16.4) và phải đăng nhập lại trong app đó (bộ nhớ tách khỏi Safari); trong APK
+  Android thì bỏ qua (APK dùng FCM). Tests: `tests/test_webpush.py` (có giải mã end-to-end).
   **PUSH TRAO ĐỔI THỰC THỂ (2026-09-25, `server_app/entity_comment_notify.py`)**: mọi bình
   luận `/api/media/{scope}/{id}/comments` (thùng, phiếu SX, nhập/trả hàng, việc, vị trí,
   NCC, xuất huỷ, kho đậu, vệ sinh, chất lượng, lương) → `push_bg` với `route` trang thực

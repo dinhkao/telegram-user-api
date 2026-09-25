@@ -1,6 +1,7 @@
 // Trang đăng nhập. Webapp cùng origin với server (APK nạp URL từ xa qua Tailscale)
 // nên không cần nhập server URL nữa — gọi API bằng đường dẫn tương đối.
 // Đã đăng nhập → trang CÀI ĐẶT (thông tin + đăng xuất; admin thêm toggle hệ thống).
+import { WebPushCard } from "../detail/WebPushCard";
 import { useEffect, useState } from "preact/hooks";
 import { currentUser, login, setAuth, getAppSettings, setAppSetting, tokenExpired, type AppSettings } from "../api";
 import { AppUpdate } from "../detail/AppUpdate";
@@ -91,6 +92,7 @@ export function Login() {
               <button class="btn danger" onClick={() => { setAuth("", null); window.location.reload(); }}>Đăng xuất</button>
             </div>
           </div>
+          <WebPushCard />
           {user.role === "admin" && <AdminSettings />}
           <AppUpdate />
         </>

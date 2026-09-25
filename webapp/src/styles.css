@@ -2819,6 +2819,13 @@ body.co-kbd .bottom-nav { display: none; }
 .ultra-line2 { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .ultra-line2 .tag-nosp { font-size: .72rem; padding: 2px 8px; margin: 0; }
 .ultra-line2 .hit-sp { margin: 0; }
+/* Web Push iPhone/trình duyệt (detail/WebPushCard) */
+.wp-card p { margin: 6px 0 10px; }
+.wp-steps { margin: 6px 0 0 18px; display: grid; gap: 6px; font-size: .92rem; }
+.wp-nudge { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; padding: 8px 10px; border-radius: 10px;
+  background: var(--accent-wash); color: var(--accent-ink); text-decoration: none; font-size: .88rem; font-weight: 600; }
+.wp-nudge span { flex: 1; min-width: 0; }
+.wp-nudge-x { border: none; background: none; color: var(--muted); font-size: 1rem; padding: 2px 6px; cursor: pointer; }
 /* Dòng KHÁCH HÀNG trong khối Hoá đơn chi tiết đơn (đổi/gán tại chỗ khi chưa có HĐ KV) */
 .inv-cust { display: flex; align-items: center; gap: 6px; margin: 4px 0 8px; font-size: .95rem; }
 .inv-cust-ic { flex: none; color: var(--muted); }

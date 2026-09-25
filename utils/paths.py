@@ -32,6 +32,9 @@ ORDER_MEDIA_DIR = os.path.expanduser(os.getenv("ORDER_MEDIA_DIR", "~/letrang-db/
 # nằm trên SSD ngoài qua ~/letrang-db. Nên trỏ thư mục tạm sang cạnh chúng: mọi byte
 # của một lần upload ảnh đi thẳng vào SSD, không chạm ổ trong.
 APP_TMP_DIR = os.path.expanduser(os.getenv("APP_TMP_DIR", "~/letrang-db/tmp"))
+# Khoá riêng VAPID (Web Push cho iPhone/PWA) — BÍ MẬT, nằm ngoài repo. Tạo 1 lần bằng
+# tools/gen_vapid_key.py; mất/đổi khoá = mọi máy đã bật thông báo phải bật lại.
+VAPID_PRIVATE_KEY_FILE = os.path.expanduser(os.getenv("VAPID_PRIVATE_KEY_FILE", "~/letrang-db/vapid_private.pem"))
 
 
 def use_app_tmpdir(max_age_hours: float = 24.0) -> str | None:

@@ -13,3 +13,4 @@ google-auth-httplib2>=0.2.0
 # Postgres backend (chỉ dùng khi DB_ENGINE=postgres — mặc định sqlite không cần).
 psycopg[binary]>=3.2
 psycopg_pool>=3.2
+pywebpush==2.5.0   # Web Push (VAPID) cho iPhone PWA — server_app/webpush.py
