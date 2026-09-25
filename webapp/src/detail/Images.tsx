@@ -7,7 +7,8 @@ import { onRealtime, eventMatchesBase } from "../realtime";
 import { processImage } from "./imageProcess";
 import { PhotoViewer } from "./PhotoViewer";
 import { CameraBox, cameraSupported } from "./CameraBox";
-import { confirmDialog } from "../ui/feedback";
+import { confirmDialog, toast } from "../ui/feedback";
+import { imagesFromPasteEvent, readClipboardImages } from "../clipboardImage";
 import { Icon } from "../ui/Icon";
 import { ErrorState } from "../ui/states";
 import { KIND_ORDER, KIND_LABEL, KIND_ICON, kindOf, isOrderBase } from "./imageKinds";
@@ -84,6 +85,40 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
     }
   };
 
+  // DÁN ảnh từ clipboard (nút "Dán" + Ctrl+V trên máy tính). Luôn HỎI trước kèm ảnh xem
+  // trước — dán nhầm = ảnh lạ lên đơn + thông báo tới mọi người.
+  const uploadPasted = async (files: File[]) => {
+    if (!files.length) return;
+    const preview = URL.createObjectURL(files[0]);
+    try {
+      const ok = await confirmDialog(files.length > 1 ? `Dán ${files.length} ảnh vào đây?` : "Dán ảnh này vào đây?",
+        { okLabel: "Dán ảnh", imageUrl: preview });
+      if (!ok) return;
+    } finally {
+      URL.revokeObjectURL(preview);
+    }
+    setErr("");
+    const oks = await Promise.all(files.map(uploadOne));
+    await load();
+    if (oks.every(Boolean)) toast(`Đã dán ${files.length} ảnh`, "ok");
+  };
+  const pasteFromClipboard = async () => {
+    try { await uploadPasted(await readClipboardImages()); }
+    catch (e: any) { toast(e?.message || "Không dán được", "err"); }
+  };
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;   // đang gõ chữ
+      const files = imagesFromPasteEvent(e);
+      if (!files.length) return;
+      e.preventDefault();
+      uploadPasted(files);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [base, uploadKind]);
+
   const onPick = async (e: any) => {
     const files: FileList = e.target.files;
     setErr("");
@@ -147,6 +182,8 @@ export function Images({ base, anchorId, openSignal }: { base: string; anchorId?
             <button class="btn small cam-primary" onClick={() => setCamOpen(true)}><Icon name="camera" size={15} /> Chụp</button>
           )}
           <button class="btn small" onClick={() => fileInput.current?.click()}><Icon name="image" size={15} /> Chọn</button>
+          <button class="btn small" title="Dán ảnh đang sao chép (Ctrl+V trên máy tính)" onClick={pasteFromClipboard}>
+            <Icon name="copy" size={15} /> Dán</button>
         </span>
       </div>
       {/* multiple: chọn nhiều ảnh 1 lượt. APK dùng gallery THUẦN (không trộn camera)

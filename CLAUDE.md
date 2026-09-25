@@ -371,6 +371,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   push tổng. Tests: `tests/test_payment_notify.py`. Tapping a push **deep-links**
   to `#/order/<id>?focus=<type>:<id>` → OrderDetail scrolls to + highlights the item
   (APK reads FCM `data` extras in `MainActivity`).
+  **DÁN ảnh (2026-09-25)**: nút "Dán" ở khối Ảnh (`detail/Images.tsx`) + Ctrl+V trên máy tính
+  (bỏ qua khi đang gõ trong ô nhập) → `webapp/src/clipboardImage.ts`: APK dùng cầu native
+  `AndroidApp.clipboardImage()` (APK ≥ 2026092517 — WebView không có quyền
+  navigator.clipboard.read), trình duyệt/iPhone dùng `navigator.clipboard.read()`. Luôn
+  hỏi xác nhận kèm ảnh xem trước rồi mới tải lên (dán nhầm = ảnh lạ + thông báo).
 - **Icon ⏺ "đang xuất kho" trên card dashboard** (`server_app/order_stock_picking.py`,
   gọi cuối `orders_api._attach_thumbs`): đơn chưa soạn + chưa chốt xuất kho mà đã chọn
   ≥1 thùng (`box_allocations` kind='order') → icon bước Soạn ❌ thành ⏺. CHỈ row webapp;
