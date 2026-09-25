@@ -339,6 +339,13 @@ async def _process_bulk_payment_locked(source_thread_id: int, method: str, amoun
                 return result
             await asyncio.sleep(0.5 * (attempt + 1))
     first_payment_id = result.pop("_first_payment_id", None)
+    # Push "💰 <người> nhận <tiền>" — SAU khi mọi phiếu local đã COMMIT (không báo phiếu rollback)
+    try:
+        from server_app.payment_notify import notify_payment_bg
+        notify_payment_bg(actor_name, [(a["thread_id"], a["amount"]) for a in result["allocations"]],
+                          first_payment_id)
+    except Exception as e:  # noqa: BLE001 — push là phụ
+        log.warning("bulk pay: payment push schedule lỗi: %s", e)
     # 6b. Mirror task + Firebase sync + realtime NGOÀI transaction. set_task_status
     # gọi TRONG transaction ngoài tự BỎ QUA mirror/auto-assign (connection thứ 2 ghi
     # cùng app.db khi thread này đang giữ write-lock → busy-wait 5s/đơn CHẶN event

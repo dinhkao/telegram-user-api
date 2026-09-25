@@ -349,7 +349,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   ở danh sách/`latest_id` (`is_office_request`), realtime (`state.ws_office`) và push
   (`fcm._eligible_rows(audience)`, không gửi topic dự phòng). APK ≥ 2026092514 bấm push
   mở thẳng `data['route']` (MainActivity.deepLinkUrl, regex ký tự an toàn); APK cũ hơn
-  chỉ deep-link theo `thread_id` → mở trang chính. Tapping a push **deep-links**
+  chỉ deep-link theo `thread_id` → mở trang chính.
+  **PUSH THANH TOÁN (2026-09-25, `server_app/payment_notify.py`)**: "💰 <người> nhận
+  <tiền>" + dòng đầu nội dung đơn. Gọi SAU khi ghi local thành công ở 2 lõi thu tiền
+  (`_process_payment_core` + `_process_bulk_payment_locked` — phủ thu 1 đơn, thu nhanh,
+  thu gộp, thu hàng loạt, lệnh tm) → phiếu rollback không báo nhầm; thu gộp > 3 đơn gộp 1
+  push tổng. Tests: `tests/test_payment_notify.py`. Tapping a push **deep-links**
   to `#/order/<id>?focus=<type>:<id>` → OrderDetail scrolls to + highlights the item
   (APK reads FCM `data` extras in `MainActivity`).
 - **Icon ⏺ "đang xuất kho" trên card dashboard** (`server_app/order_stock_picking.py`,

@@ -267,6 +267,13 @@ async def _process_payment_core_inner(thread_id: int, amount: int, user_id: int 
         except Exception as e:
             log.warning("Ghi phiếu thu sổ quỹ thất bại: %s", e)
 
+    # 4c. Push "💰 <người> nhận <tiền>" — SAU khi phiếu đã ghi local thành công
+    try:
+        from server_app.payment_notify import notify_payment_bg
+        notify_payment_bg(actor_name, [(thread_id, amount)], payment_id)
+    except Exception as e:  # noqa: BLE001 — push là phụ
+        log.warning("payment push schedule lỗi: %s", e)
+
     # 5. Auto-complete v2 tasks: nhan_tien + nop_tien
     _auto_complete_tasks_core(db_conn, thread_id, user_id)
 
