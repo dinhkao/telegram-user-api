@@ -12,6 +12,9 @@ ws_clients: set["web.WebSocketResponse"] = set()
 # Tập con của ws_clients: client vai trò bó hẹp chat_luong — vòng phát realtime chỉ
 # gửi cho họ event của trang chất lượng (server_app/web_auth/role_scope.py).
 ws_quality_only: set["web.WebSocketResponse"] = set()
+# Socket của VĂN PHÒNG (admin/van_phong) — thông báo audience='office' (trao đổi lương)
+# chỉ phát tới các socket này.
+ws_office: set["web.WebSocketResponse"] = set()
 _client: "TelegramClient | None" = None
 _tg_gateway: "TelegramGateway | None" = None
 _donhang_db: "DonHangDB | None" = None

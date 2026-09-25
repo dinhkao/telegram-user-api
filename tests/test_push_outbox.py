@@ -84,7 +84,7 @@ def fake_fcm(monkeypatch):
         monkeypatch.setattr(fcm, "FCM_ENABLED", True)
         monkeypatch.setattr(fcm, "FCM_TOPIC_FALLBACK", False)
         monkeypatch.setattr(fcm, "_INNER_WAITS", (0, 0))
-        monkeypatch.setattr(fcm, "_eligible_rows", lambda: list(rows))
+        monkeypatch.setattr(fcm, "_eligible_rows", lambda audience=None: list(rows))
         dropped = []
         monkeypatch.setattr(fcm, "_drop_dead", lambda toks: dropped.extend(toks))
         return calls, dropped
@@ -138,7 +138,7 @@ def test_deliver_persists_and_resends_only_missing(monkeypatch, tmp_path):
                {"ok_users": ["tri"], "pending_tokens": [], "topic_pending": False}]
     seen = []
 
-    def fake_send(title, body, data, image_url, tokens, topic):
+    def fake_send(title, body, data, image_url, tokens, topic, audience=None):
         seen.append(tokens)
         return results.pop(0)
     monkeypatch.setattr(fcm, "send_once", fake_send)

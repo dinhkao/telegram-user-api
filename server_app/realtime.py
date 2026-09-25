@@ -19,7 +19,7 @@ import asyncio
 import json
 import logging
 
-from server_app.state import ws_clients, ws_quality_only
+from server_app.state import ws_clients, ws_office, ws_quality_only
 
 log = logging.getLogger("server")
 
@@ -32,15 +32,16 @@ async def _send_one(ws, data: str) -> None:
     except Exception:
         ws_clients.discard(ws)
         ws_quality_only.discard(ws)
+        ws_office.discard(ws)
         try:
             await ws.close()  # đóng để client nhận close → tự nối lại (tránh orphan im lặng)
         except Exception:
             pass
 
 
-async def _send(payload: dict) -> None:
+async def _send(payload: dict, office_only: bool = False) -> None:
     data = json.dumps(payload, default=str)
-    clients = list(ws_clients)
+    clients = list(ws_office if office_only else ws_clients)
     # Vai trò bó hẹp chat_luong chỉ được nhận event trang chất lượng + keepalive —
     # order_changed/notif_added/cashbox… mang PII phần không liên quan thì bỏ qua họ.
     if ws_quality_only:
@@ -143,7 +144,15 @@ def emit_box_changed(box_id=None) -> None:
 def emit_notif_added(notif: dict) -> None:
     """Thông báo mới (notification center) → client cập nhật chuông + danh sách."""
     from server_app.tasks import spawn_tracked
-    spawn_tracked("realtime.notif_added", _broadcast({"type": "notif_added", "notif": notif}, "notif_added"))
+    # audience='office' (trao đổi lương) → chỉ socket văn phòng
+    office_only = (notif or {}).get("audience") == "office"
+
+    async def _go():
+        try:
+            await _send({"type": "notif_added", "notif": notif}, office_only=office_only)
+        except Exception as e:  # noqa: BLE001
+            log.warning("realtime notif_added failed: %s", e)
+    spawn_tracked("realtime.notif_added", _go())
 
 
 def emit_banner_changed() -> None:

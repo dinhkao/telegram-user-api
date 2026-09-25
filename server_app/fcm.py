@@ -36,15 +36,23 @@ _DEAD_EXC_NAMES = ("UNREGISTEREDERROR", "SENDERIDMISMATCHERROR")
 _DEAD_CODES = ("UNREGISTERED", "SENDER_ID_MISMATCH", "INVALID_ARGUMENT")
 
 
-def _eligible_rows() -> list[tuple[str, str]]:
-    """(token, username) của user ĐƯỢC nhận push (bỏ vai trò bó hẹp + user bị khoá)."""
+def _eligible_rows(audience: str | None = None) -> list[tuple[str, str]]:
+    """(token, username) của user ĐƯỢC nhận push (bỏ vai trò bó hẹp + user bị khoá).
+    audience='office' → CHỈ văn phòng (admin/van_phong)."""
     try:
         from notif_store.fcm_tokens import eligible_rows
         from server_app.web_auth.role_scope import QUALITY_ONLY_ROLE
         from utils.db import get_connection
         conn = get_connection()
         try:
-            return eligible_rows(conn, exclude_roles=(QUALITY_ONLY_ROLE,))
+            rows = eligible_rows(conn, exclude_roles=(QUALITY_ONLY_ROLE,))
+            if audience == "office":
+                from user_store import OFFICE_ROLES
+                ph = ",".join("?" * len(OFFICE_ROLES))
+                office = {r[0] for r in conn.execute(
+                    f"SELECT username FROM web_users WHERE role IN ({ph})", tuple(OFFICE_ROLES)).fetchall()}
+                rows = [r for r in rows if r[1] in office]
+            return rows
         finally:
             conn.close()
     except Exception as e:  # noqa: BLE001
@@ -106,7 +114,7 @@ _INNER_WAITS = (2, 5)
 
 
 def send_once(title: str, body: str, data: dict | None = None, image_url: str | None = None,
-              tokens: list[str] | None = None, topic: bool = True) -> dict:
+              tokens: list[str] | None = None, topic: bool = True, audience: str | None = None) -> dict:
     """Gửi 1 push (blocking — gọi qua to_thread). tokens=None → MỌI máy đủ điều kiện;
     list → chỉ các token đó (còn đủ điều kiện). Trả {ok_users, fail_users, pending_tokens
     (None = chưa tới được máy nào, gửi lại cho MỌI máy), topic_pending, error, disabled,
@@ -140,7 +148,7 @@ def send_once(title: str, body: str, data: dict | None = None, image_url: str | 
         payload.setdefault("image_url", image_url)
     notification = messaging.Notification(title=title, body=body, image=image_url or None)
 
-    rows = _eligible_rows()
+    rows = _eligible_rows(audience)
     users = dict(rows)
     todo = [t for t, _ in rows] if tokens is None else [t for t in tokens if t in users]
     ok_tok: list[str] = []

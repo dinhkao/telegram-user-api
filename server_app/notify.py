@@ -57,7 +57,7 @@ def _fcm_image_url(thread_id: int | None, image_id: int | None) -> str | None:
     return f"{base}/api/order/{thread_id}/images/{image_id}/file?size=full"
 
 
-async def _push(title: str, body: str, data: dict | None) -> None:
+async def _push(title: str, body: str, data: dict | None, audience: str | None = None) -> None:
     focus = _focus(data)
     thread_id = None
     try:
@@ -87,10 +87,12 @@ async def _push(title: str, body: str, data: dict | None) -> None:
             create_notif_table(conn)
             row = add_notification(conn, type=ntype, title=title, body=fb,
                                    thread_id=thread_id, focus=focus, image_id=image_id,
-                                   route=route)
+                                   route=route, audience=audience)
             # Đưa vào HÀNG ĐỢI PUSH BỀN trước khi gửi → lỗi mạng/restart vẫn được gửi bù
             mark_pending(conn, row["id"], {"title": title, "body": fb, "data": data or {},
-                                           "image_url": image_url, "tokens": None, "topic": True},
+                                           "image_url": image_url, "tokens": None,
+                                           # topic dự phòng tới MỌI máy cũ → không dùng cho tin văn phòng
+                                           "topic": audience is None, "audience": audience},
                          first_next_at())
             prune_old(conn)
             return row, fb
@@ -102,8 +104,9 @@ async def _push(title: str, body: str, data: dict | None) -> None:
         row, final_body = await asyncio.to_thread(_w)
     except Exception as e:  # noqa: BLE001 — không ghi được DB → vẫn phải push (không có gửi bù)
         log.warning("Ghi notification lỗi: %s", e)
-        from server_app.fcm import notify_bg
-        notify_bg(title, body, data, image_url=image_url)
+        if audience is None:   # tin văn phòng thì thôi — dự phòng này gửi MỌI máy
+            from server_app.fcm import notify_bg
+            notify_bg(title, body, data, image_url=image_url)
         return
     from server_app.realtime import emit_notif_added
     emit_notif_added(row)
@@ -112,10 +115,11 @@ async def _push(title: str, body: str, data: dict | None) -> None:
     await deliver(int(row["id"]))
 
 
-def push_bg(title: str, body: str, data: dict | None = None) -> None:
-    """Lên lịch ghi + push chạy nền (không chặn handler gọi)."""
+def push_bg(title: str, body: str, data: dict | None = None, audience: str | None = None) -> None:
+    """Lên lịch ghi + push chạy nền (không chặn handler gọi). audience='office' → chỉ
+    văn phòng nhận (push + danh sách + realtime) — dùng cho nội dung tiền lương."""
     from server_app.tasks import spawn_tracked
-    spawn_tracked("notify.push", _push(title, body, data))
+    spawn_tracked("notify.push", _push(title, body, data, audience))
 
 
 async def notifications_list_handler(request: web.Request):
@@ -124,12 +128,15 @@ async def notifications_list_handler(request: web.Request):
     except (ValueError, TypeError):
         limit = 30
 
+    from server_app.order_api_common import is_office_request
+    office = await is_office_request(request)
+
     def _run():
         conn = get_connection()
         try:
             from notif_store import create_notif_table, list_notifications, latest_id
             create_notif_table(conn)
-            return list_notifications(conn, limit=limit), latest_id(conn)
+            return list_notifications(conn, limit=limit, office=office), latest_id(conn, office=office)
         finally:
             conn.close()
 

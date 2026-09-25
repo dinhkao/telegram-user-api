@@ -341,7 +341,14 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   token → `notif_store.queries._public` KHÔNG trả ra API. Soi 1 push:
   `select id,title,push_state,push_attempts,push_result from notifications order by id desc`.
   ⚠ Push chỉ tới máy ANDROID có APK (token trong `fcm_tokens`); iPhone/Safari không
-  nhận được gì. Tests: `tests/test_push_outbox.py`. Tapping a push **deep-links**
+  nhận được gì. Tests: `tests/test_push_outbox.py`.
+  **PUSH TRAO ĐỔI THỰC THỂ (2026-09-25, `server_app/entity_comment_notify.py`)**: mọi bình
+  luận `/api/media/{scope}/{id}/comments` (thùng, phiếu SX, nhập/trả hàng, việc, vị trí,
+  NCC, xuất huỷ, kho đậu, vệ sinh, chất lượng, lương) → `push_bg` với `route` trang thực
+  thể. Trao đổi LƯƠNG (worker_*) → `audience='office'`: cột `notifications.audience`, lọc
+  ở danh sách/`latest_id` (`is_office_request`), realtime (`state.ws_office`) và push
+  (`fcm._eligible_rows(audience)`, không gửi topic dự phòng). ⚠ APK chỉ deep-link theo
+  `thread_id` → bấm push thực thể mở trang chính; chuông trong app thì mở đúng `route`. Tapping a push **deep-links**
   to `#/order/<id>?focus=<type>:<id>` → OrderDetail scrolls to + highlights the item
   (APK reads FCM `data` extras in `MainActivity`).
 - **Icon ⏺ "đang xuất kho" trên card dashboard** (`server_app/order_stock_picking.py`,

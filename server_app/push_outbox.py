@@ -76,7 +76,8 @@ async def deliver(notif_id: int) -> None:
                 return
             p = st["payload"]
             res = await asyncio.to_thread(send_once, p.get("title", ""), p.get("body", ""), p.get("data"),
-                                          p.get("image_url"), p.get("tokens"), bool(p.get("topic", True)))
+                                          p.get("image_url"), p.get("tokens"), bool(p.get("topic", True)),
+                                          p.get("audience"))
             attempts = st["attempts"] + 1
             state, newp, wait, summary = next_state(p, res, attempts)
             if state == "failed":

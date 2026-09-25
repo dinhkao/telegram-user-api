@@ -152,6 +152,11 @@ async def comments_add_handler(request: web.Request):
     except ValueError as e:
         return web.json_response({"ok": False, "error": str(e)}, status=400)
     _emit(scope, entity_id)
+    # Push + thông báo (hàng đợi bền) — như bình luận đơn; trao đổi lương chỉ văn phòng
+    from server_app.entity_comment_notify import notify_entity_comment
+    from server_app.tasks import spawn_tracked
+    spawn_tracked("notify.entity_comment",
+                  notify_entity_comment(scope, entity_id, user, comment.get("text", ""), comment.get("id")))
     return web.json_response({"ok": True, "comment": comment})
 
 

@@ -39,7 +39,9 @@ def _migrate(conn):
         conn.execute("ALTER TABLE notifications ADD COLUMN route TEXT")
     # HÀNG ĐỢI PUSH bền (notif_store.push_state + server_app.push_outbox): push rơi vì
     # mạng/restart được gửi bù. Row cũ (NULL) = trước tính năng, không đụng tới.
-    for col, ddl in (("push_state", "TEXT"), ("push_attempts", "INTEGER DEFAULT 0"),
+    # audience: NULL = mọi người · 'office' = chỉ văn phòng (trao đổi lương) — lọc ở
+    # danh sách thông báo, realtime và push.
+    for col, ddl in (("audience", "TEXT"), ("push_state", "TEXT"), ("push_attempts", "INTEGER DEFAULT 0"),
                      ("push_payload", "TEXT"), ("push_next_at", "INTEGER"), ("push_result", "TEXT")):
         if col not in cols:
             conn.execute(f"ALTER TABLE notifications ADD COLUMN {col} {ddl}")

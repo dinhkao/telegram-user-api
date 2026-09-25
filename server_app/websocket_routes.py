@@ -67,6 +67,9 @@ async def websocket_handler(request: web.Request):
     from server_app.web_auth.role_scope import QUALITY_ONLY_ROLE
     if request.get("web_role") == QUALITY_ONLY_ROLE:
         state.ws_quality_only.add(ws)
+    from user_store import OFFICE_ROLES
+    if request.get("web_role") in OFFICE_ROLES:
+        state.ws_office.add(ws)
     try:
         async for msg in ws:
             if msg.type == web.WSMsgType.ERROR:
@@ -75,4 +78,5 @@ async def websocket_handler(request: web.Request):
     finally:
         state.ws_clients.discard(ws)
         state.ws_quality_only.discard(ws)
+        state.ws_office.discard(ws)
     return ws
