@@ -34,6 +34,25 @@ class CommentStore(unittest.TestCase):
         self.assertIn("id", c)
         self.assertIn("created_at", c)
 
+    def test_topic_same_thread_unknown_topic_is_general(self):
+        add_comment(7, "duy", "chung", db_path=self.db)
+        add_comment(7, "duy", "sửa giá", topic="hoa_don", db_path=self.db)
+        add_comment(7, "duy", "lạ", topic="bậy", db_path=self.db)
+        cs = list_comments(7, db_path=self.db)   # 1 luồng chung, đủ cả 3
+        self.assertEqual([c["topic"] for c in cs], [None, "hoa_don", None])
+
+    def test_old_table_without_topic_is_migrated(self):
+        import sqlite3
+        from comment_store import comments as mod
+        c = sqlite3.connect(self.db)
+        c.execute("CREATE TABLE web_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, thread_id INTEGER NOT NULL,"
+                  " username TEXT NOT NULL, text TEXT NOT NULL, created_at INTEGER NOT NULL)")
+        c.execute("INSERT INTO web_comments (thread_id, username, text, created_at) VALUES (1, 'a', 'cũ', 1)")
+        c.commit(); c.close()
+        mod._ensured.discard(self.db)
+        add_comment(1, "b", "mới", topic="giao_hang", db_path=self.db)
+        self.assertEqual([x["topic"] for x in list_comments(1, db_path=self.db)], [None, "giao_hang"])
+
 
 if __name__ == "__main__":
     unittest.main()

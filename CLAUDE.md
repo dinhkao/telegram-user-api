@@ -395,6 +395,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   app (PIN hash in `pin.py`, CLI: `tools/add_web_user.py`).
 - `comment_store/` — `web_comments` table in `app.db`: web-app comments on orders
   (separate from `order_chat_messages` = read-only Telegram log).
+  **Trao đổi THEO KHU (2026-09-25)**: cột `topic` (`hoa_don`|`xuat_kho`|`giao_hang`,
+  NULL = chung; ALTER tự chạy ở `comment_store._conn`). Chi tiết đơn có 3 khung trao đổi
+  RIÊNG (cuối khối Hoá đơn · dưới Xuất kho · ngay dưới dòng Giao hàng của Tiến độ — slot
+  `Tasks afterTask`) = `Comments topic=…`: lọc theo topic + gửi kèm topic. Vẫn CÙNG 1
+  luồng: khung chính hiện tất cả, tin có topic mang nhãn bấm cuộn tới khu. Nhiều khung
+  cùng base gộp 1 request (`fetchComments` inflight). Push ghi "Bình luận mới · <khu>".
 - **`salary_store/` — LƯƠNG THÁNG (`app.db`, 2026-07-18, office-only).** Bảng lương
   từng tháng cho mọi NV. `production_workers.wage_type` phân loại NV: `'product'`
   (lương SP tự tính từ sản xuất theo tháng qua `report_slips.compute_range_report` —

@@ -298,6 +298,16 @@ label { font-size: .85rem; color: var(--muted); margin-top: 8px; display: block;
 .cmt-pin:active { color: var(--danger); }
 .cmt-pin.on { color: var(--danger); background: var(--danger-wash); border-radius: 6px; }
 .comment.web { background: var(--accent-wash); }
+/* Khung trao đổi RIÊNG của 1 khu trên chi tiết đơn (Comments topic) — gọn, nằm trong khối có sẵn */
+.topic-chat { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.card > .topic-chat:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.topic-chat-head { display: flex; align-items: center; gap: 5px; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
+.topic-chat .comment-list { margin-top: 4px; }
+.topic-chat .row input { font-size: .9rem; }
+.task-after { list-style: none; padding: 0 0 6px; }
+.task-after .topic-chat { margin-top: 2px; }
+.cmt-topic { border: 1px solid var(--border); background: var(--card); color: var(--accent-ink); font-size: .68rem; font-weight: 600;
+  padding: 1px 6px; border-radius: 999px; cursor: pointer; margin-left: 4px; }
 
 .offline-banner { background: var(--warn-wash); color: #7a5c00; text-align: center; padding: 6px; font-size: .85rem; position: sticky; top: 0; z-index: 10; }
 .offline-discard { margin-left: 10px; border: 1px solid #d6b95c; border-radius: 6px; background: #fff; color: #7a5c00; font-size: .8rem; padding: 1px 8px; }

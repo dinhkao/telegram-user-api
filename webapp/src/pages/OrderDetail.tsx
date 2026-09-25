@@ -723,7 +723,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       </div>
 
       <div id="od-tasks">
-      <Tasks threadId={threadId} taskStatus={j.task_status || {}} stockConfirmed={!!j.stock_confirmed} customTasks={j.custom_tasks || []} userNames={detail.user_names || {}} taskIds={detail.task_ids || {}} onChanged={changed} onAddPhoto={goCamera} openSoanRequest={soanOpenRequest} />
+      <Tasks threadId={threadId} taskStatus={j.task_status || {}} stockConfirmed={!!j.stock_confirmed} customTasks={j.custom_tasks || []} userNames={detail.user_names || {}} taskIds={detail.task_ids || {}} onChanged={changed} onAddPhoto={goCamera} openSoanRequest={soanOpenRequest}
+        afterTask={{ giao_hang: <Comments base={`/api/order/${threadId}`} topic="giao_hang" allowPin={false} /> }} />
       </div>
       <div id="od-invoice">
       <section class="card">
@@ -775,6 +776,8 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
           <PhotoViewer images={[invViewer]} start={0} base={`/api/order/${threadId}`}
             editable onClose={() => setInvViewer(null)} />
         )}
+        {/* Trao đổi riêng về hoá đơn — cùng luồng trao đổi chính của đơn (topic hoa_don) */}
+        <Comments base={`/api/order/${threadId}`} topic="hoa_don" allowPin={false} />
       </section>
       </div>{/* #od-invoice */}
       {/* HĐ ĐIỆN TỬ VNPT (nháp) — ĐỘC LẬP với HĐ KiotViet, chỉ văn phòng thấy.
@@ -873,6 +876,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       <div id="od-stock">
       <OrderStock threadId={threadId} invoice={j.invoice || []} stockConfirmed={j.stock_confirmed || null}
         onCompleteSoanHang={(j.task_status || {}).soan_hang?.done ? undefined : () => setSoanOpenRequest((n) => n + 1)} />
+      <div class="card"><Comments base={`/api/order/${threadId}`} topic="xuat_kho" allowPin={false} /></div>
       </div>
       <div id="od-payments">
       <Payments threadId={threadId} payments={j.payments || []} hasCustomer={!!(j.khach_hang_id || j.khID)}

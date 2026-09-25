@@ -11,6 +11,7 @@ import asyncio
 from aiohttp import web
 
 from comment_store import add_comment, list_comments
+from comment_store.comments import TOPICS
 
 
 def _thread_id(request: web.Request) -> int | None:
@@ -39,8 +40,9 @@ async def comments_add_handler(request: web.Request):
     from server_app.order_api_common import apply_web_actor
     apply_web_actor(request, body, key="user")
     username = str(body.get("user") or "").strip() or "?"
+    topic = body.get("topic") if body.get("topic") in TOPICS else None   # khung trao đổi riêng của 1 khu
     try:
-        comment = await asyncio.to_thread(add_comment, thread_id, username, str(body.get("text") or ""))
+        comment = await asyncio.to_thread(add_comment, thread_id, username, str(body.get("text") or ""), topic=topic)
     except ValueError as exc:
         return web.json_response({"ok": False, "error": str(exc)}, status=400)
     # Đẩy realtime để trang chi tiết đang mở tải lại bình luận (chạy nền)
@@ -48,5 +50,5 @@ async def comments_add_handler(request: web.Request):
     emit_order_changed(thread_id)
     # Ghi notification center + push FCM (1 chỗ → luôn khớp)
     from server_app.notify import push_bg
-    push_bg("💬 Bình luận mới", f"{username}: {comment['text'][:100]}", {"thread_id": str(thread_id), "type": "comment", "comment_id": str(comment["id"])})
+    push_bg(f"💬 Bình luận mới · {TOPICS[topic]}" if topic else "💬 Bình luận mới", f"{username}: {comment['text'][:100]}", {"thread_id": str(thread_id), "type": "comment", "comment_id": str(comment["id"])})
     return web.json_response({"ok": True, "comment": comment})

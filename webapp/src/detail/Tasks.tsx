@@ -2,6 +2,7 @@
 // tự thêm (custom). Đánh dấu / huỷ: POST /api/order/task (queueable offline) +
 // /task_status/clear. Thêm/xoá việc tự thêm: /api/order/{id}/custom-task[/remove].
 import { useEffect, useState } from "preact/hooks";
+import { Fragment, type ComponentChildren } from "preact";
 import { postJSON, isOffice, currentUser, mediaImageUrl, listMediaImages, type OrderImage } from "../api";
 import { fmtTime } from "../format";
 import { confirmDialog, toast } from "../ui/feedback";
@@ -29,7 +30,8 @@ const NOP_NOTE_LABEL: Record<string, string> = {
 
 type CustomTask = { id: string; label: string };
 
-export function Tasks({ threadId, taskStatus, stockConfirmed, customTasks, userNames, taskIds, onChanged, onAddPhoto, openSoanRequest }: { threadId: string; taskStatus: any; stockConfirmed?: boolean; customTasks?: CustomTask[]; userNames?: Record<string, string>; taskIds?: Record<string, number>; onChanged: () => void; onAddPhoto?: () => void; openSoanRequest?: number }) {
+// afterTask: nội dung chèn NGAY DƯỚI 1 bước (vd khung trao đổi giao hàng dưới dòng Giao hàng)
+export function Tasks({ threadId, taskStatus, stockConfirmed, customTasks, userNames, taskIds, onChanged, onAddPhoto, openSoanRequest, afterTask }: { threadId: string; taskStatus: any; stockConfirmed?: boolean; customTasks?: CustomTask[]; userNames?: Record<string, string>; taskIds?: Record<string, number>; onChanged: () => void; onAddPhoto?: () => void; openSoanRequest?: number; afterTask?: Record<string, ComponentChildren> }) {
   const [busy, setBusy] = useState("");
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
@@ -166,7 +168,8 @@ export function Tasks({ threadId, taskStatus, stockConfirmed, customTasks, userN
             (type === "nop_tien" && !st.skip && taskNote !== "tra_tien_mat")) ? "📄" : "✅";
           const pendingIcon = type === "soan_hang" && stockConfirmed ? "📦" : "⬜";
           return (
-            <li class={"task-row" + (done ? " done" : "")} id={`task-${type}`} key={type}>
+            <Fragment key={type}>
+            <li class={"task-row" + (done ? " done" : "")} id={`task-${type}`}>
               <div class="task-main">
                 <div class="task-head">{done ? doneIcon : pendingIcon} {taskLabel(type, showLbl)}</div>
                 {meta(st, type, locked ? "🔒 chỉ văn phòng" : undefined)}
@@ -183,6 +186,8 @@ export function Tasks({ threadId, taskStatus, stockConfirmed, customTasks, userN
                 )}
               </div>
             </li>
+            {afterTask?.[type] ? <li class="task-after">{afterTask[type]}</li> : null}
+            </Fragment>
           );
         })}
         {(customTasks || []).map((ct) => {

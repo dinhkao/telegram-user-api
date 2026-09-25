@@ -1,5 +1,8 @@
 // Khối trao đổi — bình luận web (web_comments, queueable offline) + log chat
 // Telegram của topic (order_chat_messages, chỉ đọc), trộn theo thời gian.
+// `topic` (chỉ đơn hàng): khung trao đổi RIÊNG đặt ở 1 khu của trang chi tiết đơn
+// (hoá đơn / xuất kho / giao hàng) — CÙNG luồng với khung chính, chỉ lọc theo topic và
+// gửi kèm topic; khung chính hiện tất cả, tin có topic mang nhãn bấm nhảy tới khu đó.
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { getJSON, postJSON, delJSON, currentUser } from "../api";
 import { fmtTime } from "../format";
@@ -7,7 +10,23 @@ import { toast, confirmDialog } from "../ui/feedback";
 import { onRealtime, eventMatchesBase } from "../realtime";
 import { Icon } from "../ui/Icon";
 
-type Item = { who: string; text: string; at: number; source: "web" | "tg"; id?: number };
+type Item = { who: string; text: string; at: number; source: "web" | "tg"; id?: number; topic?: string | null };
+
+export type CommentTopic = "hoa_don" | "xuat_kho" | "giao_hang";
+const TOPIC_LABEL: Record<string, string> = { hoa_don: "Hoá đơn", xuat_kho: "Xuất kho", giao_hang: "Giao hàng" };
+// Khu tương ứng trên trang chi tiết đơn (id phần tử) — nhãn ở khung chính bấm là cuộn tới
+const TOPIC_ANCHOR: Record<string, string> = { hoa_don: "od-invoice", xuat_kho: "od-stock", giao_hang: "task-giao_hang" };
+
+// Nhiều khung trên CÙNG trang (chính + 3 khu) cùng base → gộp 1 request đang bay
+const inflight = new Map<string, Promise<any>>();
+function fetchComments(base: string): Promise<any> {
+  let p = inflight.get(base);
+  if (!p) {
+    p = getJSON(`${base}/comments`).finally(() => inflight.delete(base));
+    inflight.set(base, p);
+  }
+  return p;
+}
 
 /** order_chat_messages.created_at là TEXT UTC 'YYYY-MM-DD HH:MM:SS' (sqlite
  *  datetime('now')), còn comment web là epoch giây — quy hết về epoch. */
@@ -30,14 +49,16 @@ function hrefFromBase(b: string): string {
 
 /** allowPin=false → ẩn nút 📢 ghim bảng tin. Bảng tin hiện cho MỌI người dùng nên
  *  luồng trao đổi về tiền lương (scope worker_moc) không được có nút này. */
-export function Comments({ base, chatMessages = [], allowPin = true }: { base: string; chatMessages?: any[]; allowPin?: boolean }) {
+export function Comments({ base, chatMessages = [], allowPin = true, topic }: {
+  base: string; chatMessages?: any[]; allowPin?: boolean; topic?: CommentTopic;
+}) {
   const [comments, setComments] = useState<any[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
     try {
-      const r = await getJSON(`${base}/comments`);
+      const r = await fetchComments(base);
       setComments(r.comments || []);
     } catch {
       /* offline không có cache thì thôi */
@@ -59,11 +80,11 @@ export function Comments({ base, chatMessages = [], allowPin = true }: { base: s
     if (!t) return;
     setBusy(true);
     try {
-      const r = await postJSON(`${base}/comments`, { text: t }, { queueable: true });
+      const r = await postJSON(`${base}/comments`, topic ? { text: t, topic } : { text: t }, { queueable: true });
       setText("");
       if (r._queued) {
         const user = currentUser();
-        setComments((p) => [...p, { username: user?.username || "?", text: t, created_at: Math.floor(Date.now() / 1000), _queued: true }]);
+        setComments((p) => [...p, { username: user?.username || "?", text: t, created_at: Math.floor(Date.now() / 1000), topic: topic || null, _queued: true }]);
       } else {
         // server trả comment vừa tạo — append thẳng, khỏi refetch cả danh sách
         setComments((p) => [...p, r.comment]);
@@ -109,23 +130,33 @@ export function Comments({ base, chatMessages = [], allowPin = true }: { base: s
   const items: Item[] = useMemo(
     () =>
       [
-        ...comments.map((c): Item => ({ who: c.username, text: c.text, at: toEpoch(c.created_at), source: "web", id: c.id })),
-        ...chatMessages
+        ...comments
+          .filter((c) => !topic || c.topic === topic)
+          .map((c): Item => ({ who: c.username, text: c.text, at: toEpoch(c.created_at), source: "web", id: c.id, topic: c.topic })),
+        ...(topic ? [] : chatMessages)
           .filter((m) => (m.text || "").trim())
           .map((m): Item => ({ who: m.sender_name || String(m.sender_id), text: m.text, at: toEpoch(m.created_at), source: "tg" })),
       ].sort((a, b) => a.at - b.at),
-    [comments, chatMessages]
+    [comments, chatMessages, topic]
   );
 
+  const goTopic = (t: string) => document.getElementById(TOPIC_ANCHOR[t] || "")?.scrollIntoView({ behavior: "smooth", block: "center" });
+
   return (
-    <div class="card">
-      <b>Trao đổi</b>
+    <div class={topic ? "topic-chat" : "card"}>
+      {topic
+        ? <div class="topic-chat-head"><Icon name="chat" size={13} /> Trao đổi về {TOPIC_LABEL[topic].toLowerCase()}{items.length ? ` (${items.length})` : ""}</div>
+        : <b>Trao đổi</b>}
       <ul class="comment-list">
         {items.map((it, i) => (
-          <li key={it.id ? `w${it.id}` : `t${it.source}-${it.at}-${i}`} id={it.id ? `comment-${it.id}` : undefined} class={it.source === "web" ? "comment web" : "comment tg"}>
+          // Khung khu vực KHÔNG gắn id — khỏi trùng id với khung chính (?focus=comment:N)
+          <li key={it.id ? `w${it.id}` : `t${it.source}-${it.at}-${i}`} id={it.id && !topic ? `comment-${it.id}` : undefined} class={it.source === "web" ? "comment web" : "comment tg"}>
             <div class="muted small cmt-head">
               {it.source === "tg" ? "✈️" : <Icon name="chat" size={12} />}{" "}
               {it.who} · {fmtTime(it.at)}
+              {!topic && it.topic && TOPIC_LABEL[it.topic] && (
+                <button class="cmt-topic" title="Tới khu này trên trang" onClick={() => goTopic(it.topic!)}>{TOPIC_LABEL[it.topic]}</button>
+              )}
               {allowPin && (
                 <button class={"cmt-pin" + (pinOf(it) ? " on" : "")}
                   title={pinOf(it) ? "Đang trên bảng tin — bấm để gỡ" : "Đưa lên bảng tin (24h)"}
@@ -137,10 +168,10 @@ export function Comments({ base, chatMessages = [], allowPin = true }: { base: s
             <div>{it.text}</div>
           </li>
         ))}
-        {!items.length && <li class="muted small">Chưa có trao đổi</li>}
+        {!items.length && !topic && <li class="muted small">Chưa có trao đổi</li>}
       </ul>
       <div class="row">
-        <input placeholder="Viết bình luận…" value={text} onInput={(e: any) => setText(e.target.value)} onKeyDown={(e: any) => e.key === "Enter" && send()} />
+        <input placeholder={topic ? `Trao đổi về ${TOPIC_LABEL[topic].toLowerCase()}…` : "Viết bình luận…"} value={text} onInput={(e: any) => setText(e.target.value)} onKeyDown={(e: any) => e.key === "Enter" && send()} />
         <button class="btn primary" disabled={busy} onClick={send}>Gửi</button>
       </div>
     </div>
