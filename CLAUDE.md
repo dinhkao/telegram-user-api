@@ -347,8 +347,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   NCC, xuất huỷ, kho đậu, vệ sinh, chất lượng, lương) → `push_bg` với `route` trang thực
   thể. Trao đổi LƯƠNG (worker_*) → `audience='office'`: cột `notifications.audience`, lọc
   ở danh sách/`latest_id` (`is_office_request`), realtime (`state.ws_office`) và push
-  (`fcm._eligible_rows(audience)`, không gửi topic dự phòng). ⚠ APK chỉ deep-link theo
-  `thread_id` → bấm push thực thể mở trang chính; chuông trong app thì mở đúng `route`. Tapping a push **deep-links**
+  (`fcm._eligible_rows(audience)`, không gửi topic dự phòng). APK ≥ 2026092514 bấm push
+  mở thẳng `data['route']` (MainActivity.deepLinkUrl, regex ký tự an toàn); APK cũ hơn
+  chỉ deep-link theo `thread_id` → mở trang chính. Tapping a push **deep-links**
   to `#/order/<id>?focus=<type>:<id>` → OrderDetail scrolls to + highlights the item
   (APK reads FCM `data` extras in `MainActivity`).
 - **Icon ⏺ "đang xuất kho" trên card dashboard** (`server_app/order_stock_picking.py`,
