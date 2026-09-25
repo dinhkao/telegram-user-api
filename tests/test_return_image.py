@@ -7,7 +7,7 @@ _ITEMS = [{"sp": "K10LV87", "name": "Kẹo 10m lớn", "sl": 50.0, "price": 1700
 
 def test_draft_has_only_total_and_draft_label():
     slip = {"id": 15, "items": _ITEMS, "total": 907500, "created_at": "2026-09-25T07:59:56+07:00"}
-    assert return_summary(slip) == [("Tổng tiền hàng trả", "907,500")]
+    assert return_summary(slip) == [("Tổng tiền hàng trả", "-907,500")]
     html = generate_return_html(slip, "Sạp 7 ngân")
     assert "HÓA ĐƠN TRẢ HÀNG" in html and "Phiếu trả #15 (nháp)" in html
     assert "Nợ trước" not in html
@@ -21,6 +21,7 @@ def test_invoiced_shows_debt_chain_from_debt_before():
     slip = {"id": 14, "items": _ITEMS[:1], "total": 850000, "kv_invoice_id": 1,
             "kv_invoice_code": "HD087196", "debt_before": 29440000, "debt_after": 1}
     rows = dict(return_summary(slip))
+    assert rows["Tổng tiền hàng trả"] == "-850,000"
     assert rows["Nợ trước"] == "29,440,000"
     assert rows["Trừ hàng trả"] == "-850,000"
     assert rows["Còn nợ"] == "28,590,000"      # nợ trước − tổng, không dùng debt_after

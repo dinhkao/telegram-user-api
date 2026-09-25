@@ -37,7 +37,7 @@ def return_summary(slip: dict) -> list[tuple[str, str]]:
     thêm Nợ trước / Trừ hàng trả / Còn nợ. Còn nợ = nợ trước − tổng trả (đúng số HĐ âm
     trừ), KHÔNG dùng debt_after vì resync nền có thể đã gộp biến động khác của khách."""
     total = float(slip.get("total") or 0)
-    rows = [("Tổng tiền hàng trả", format_currency(round(total)))]
+    rows = [("Tổng tiền hàng trả", "-" + format_currency(round(total)))]   # phiếu TRẢ → số âm
     before = slip.get("debt_before")
     if slip.get("kv_invoice_id") and before is not None:
         before = float(before)
