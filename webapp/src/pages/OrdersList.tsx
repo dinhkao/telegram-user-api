@@ -15,6 +15,7 @@ import { Loading, EmptyState, ErrorState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
 import { OrderSearchSuggest } from "../detail/OrderSearchSuggest";
+import { SearchStockStrip } from "../detail/SearchStockStrip";
 import { fastScrollTop } from "../scroll";
 import { useDashboardReturns, interleave, groupEntriesByDay, ReturnDashCard } from "../detail/DashboardReturns";
 
@@ -610,6 +611,7 @@ export function OrdersList() {
             count={filter !== "all" && stats ? (stats as any)[filter] : null}
             onClear={clearFilters} />
         )}
+        <SearchStockStrip search={search} />
       </header>
       {canViewSalesReport && (
         <a class="orders-report-link" href="#/ban-hang?period=today" aria-label="Xem báo cáo bán hàng hôm nay">

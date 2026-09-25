@@ -285,7 +285,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   realtime rút dòng khác khách, phiếu trả cũng lọc theo mã). Ô tìm vẫn gõ thêm được =
   tìm TRONG đơn của khách đó.
   **Tìm bằng mã SP** mà text đơn không ghi mã → card Gọn/Siêu gọn hiện chip dòng hàng
-  khớp "K10LV87 30" (`detail/SearchHitItems.tsx`).
+  khớp "K10LV87 30" (`detail/SearchHitItems.tsx`; Siêu gọn đặt ở DÒNG 2 của card).
+  **Tồn kho khi tìm mã SP**: dải `detail/SearchStockStrip.tsx` dưới ô tìm ← GET
+  `/api/orders/code-stock?code=` (`inventory_store/stock_lookup.py` — cùng luật tồn với
+  `product_summary`, nhận mã cũ, kèm quy đổi vai 👁; realtime inventory/box_changed tải
+  lại); gợi ý SP cũng kèm "tồn N <đơn vị>".
   **Đơn CHƯA NHẬP SẢN PHẨM** (hoá đơn chưa có dòng hàng, đơn từ 01/07/2026) → card đỏ
   nhạt + vạch đỏ + nhãn "Chưa nhập sản phẩm" (`orderNoProducts`, class `.no-sp`; view
   Siêu gọn nhãn nằm dòng 2).

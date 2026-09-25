@@ -8,7 +8,7 @@ import { orderImageUrl } from "../api";
 import { InvoiceTable } from "./InvoiceTable";
 import { Icon } from "../ui/Icon";
 import { SwipeText } from "./SwipeText";
-import { SearchHitItems } from "./SearchHitItems";
+import { SearchHitItems, searchHitItems } from "./SearchHitItems";
 
 export const NEW_ORDER_SEC = 5 * 60; // đơn tạo trong 5 phút → tô vàng + tag "Mới"
 
@@ -220,14 +220,21 @@ export function orderDayLabel(key: string): string {
 // Siêu gọn: chỉ 5 icon trạng thái + nội dung đơn 1 dòng (bỏ hết xuống dòng)
 export function UltraBody({ o, search }: { o: OrderRow; search: string }) {
   const text = (o.text || o.topic_name || `#${o.thread_id}`).replace(/\s+/g, " ").trim();
+  const noSp = orderNoProducts(o);
+  const hits = searchHitItems(o, search);
   return (
     <>
       <div class="ultra-row">
         <TaskBadges o={o} />
-        <SwipeText class="ultra-text"><SearchHitItems o={o} search={search} /><Highlight text={text} q={search} /></SwipeText>
+        <SwipeText class="ultra-text"><Highlight text={text} q={search} /></SwipeText>
       </div>
       {/* dòng 2 riêng (card cao thêm) — dòng 1 giữ nguyên chỗ cho nội dung đơn */}
-      {orderNoProducts(o) && <div class="ultra-nosp"><span class="tag-nosp">Chưa nhập sản phẩm</span></div>}
+      {(noSp || hits.length > 0) && (
+        <div class="ultra-line2">
+          {noSp && <span class="tag-nosp">Chưa nhập sản phẩm</span>}
+          <SearchHitItems o={o} search={search} />
+        </div>
+      )}
     </>
   );
 }

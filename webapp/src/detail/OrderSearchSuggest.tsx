@@ -9,7 +9,7 @@ import { getJSON } from "../api";
 import { Icon } from "../ui/Icon";
 import { Highlight } from "./OrderCards";
 
-type Sug = { kind: "cust" | "prod"; value: string; label: string; sub?: string; key?: string };
+type Sug = { kind: "cust" | "prod"; value: string; label: string; sub?: string; key?: string; stock?: string };
 
 export function OrderSearchSuggest({ q, inputRef, onPick, onPickCustomer }: {
   q: string;
@@ -41,7 +41,8 @@ export function OrderSearchSuggest({ q, inputRef, onPick, onPickCustomer }: {
         const dup = (n: string) => cs.filter((c) => c.name === n).length > 1;   // tên trùng → ghi mã để phân biệt
         setItems([
           ...cs.map((c: any): Sug => ({ kind: "cust", value: c.name, label: c.name, key: String(c.key), sub: dup(c.name) ? `mã ${c.key}` : undefined })),
-          ...(d.products || []).map((p: any): Sug => ({ kind: "prod", value: p.code, label: p.code, sub: p.name })),
+          ...(d.products || []).map((p: any): Sug => ({ kind: "prod", value: p.code, label: p.code, sub: p.name,
+            stock: p.stock == null ? undefined : `tồn ${Number(p.stock).toLocaleString("vi-VN")} ${p.unit || ""}`.trim() })),
         ]);
       } catch {
         if (my === seq.current) setItems([]);   // gợi ý là phụ — lỗi thì im, ô tìm vẫn chạy
@@ -104,6 +105,7 @@ export function OrderSearchSuggest({ q, inputRef, onPick, onPickCustomer }: {
         <Icon name={s.kind === "cust" ? "user" : "tag"} size={14} class="osug-ic" />
         <span class="osug-main"><Highlight text={s.label} q={term} /></span>
         {s.sub ? <span class="osug-sub"><Highlight text={s.sub} q={term} /></span> : null}
+        {s.stock ? <span class={"osug-stock" + (s.stock.startsWith("tồn 0 ") ? " out" : "")}>{s.stock}</span> : null}
       </button>
     );
   };

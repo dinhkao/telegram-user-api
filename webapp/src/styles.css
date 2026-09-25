@@ -2798,8 +2798,9 @@ body.co-kbd .bottom-nav { display: none; }
    chưa có hàng vẫn phải thấy đỏ) */
 .order-card.no-sp { background: var(--danger-wash); border-color: #f3b4ae; border-left: 4px solid var(--danger); }
 .tag-nosp { display: inline-block; background: var(--danger); color: #fff; font-size: .65rem; font-weight: 700; padding: 1px 6px; border-radius: 6px; margin-right: 4px; vertical-align: middle; }
-.ultra-nosp { margin-top: 4px; }
-.ultra-nosp .tag-nosp { font-size: .72rem; padding: 2px 8px; }
+.ultra-line2 { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.ultra-line2 .tag-nosp { font-size: .72rem; padding: 2px 8px; margin: 0; }
+.ultra-line2 .hit-sp { margin: 0; }
 /* Tìm bằng mã SP mà nội dung đơn không ghi mã → chip dòng hàng khớp (detail/SearchHitItems) */
 .hit-sp { display: inline-block; background: #fff3a8; color: var(--ink); font-weight: 700; font-size: .78rem;
   padding: 0 6px; border-radius: 6px; margin-right: 5px; white-space: nowrap; }
@@ -3446,6 +3447,18 @@ body.kbd-open .od-navbar { display: none; }
 .sbar-in::-webkit-search-cancel-button { display: none; }
 .sbar-x { position: absolute; right: 6px; display: flex; padding: 5px; border: none; background: none; color: var(--muted); }
 
+/* Dải tồn kho khi đang tìm 1 mã SP (detail/SearchStockStrip) */
+.sstock { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px; text-decoration: none;
+  color: var(--ink); background: var(--ok-wash); border: 1px solid #bfe6c3; border-left: 4px solid var(--ok); font-size: .9rem; }
+.sstock.out { background: var(--danger-wash); border-color: #f3b4ae; border-left-color: var(--danger); }
+.sstock-ic { flex: none; color: var(--ok); }
+.sstock.out .sstock-ic, .sstock.out .sstock-n { color: var(--danger); }
+.sstock-main { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sstock-name { color: var(--muted); }
+.sstock-n { flex: none; font-weight: 600; color: var(--ok); white-space: nowrap; }
+.sstock-n small { color: var(--muted); font-weight: 500; }
+.osug-stock { flex: none; margin-left: auto; padding-left: 6px; font-size: var(--fs-xs); font-weight: 600; color: var(--ok); white-space: nowrap; }
+.osug-stock.out { color: var(--danger); }
 /* Gợi ý khi gõ ô tìm dashboard Đơn (detail/OrderSearchSuggest) — khách + SP */
 .osug-row { position: relative; }
 .osug { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--card);

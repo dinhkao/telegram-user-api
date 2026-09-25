@@ -4,6 +4,8 @@
 (product_store.get_all_products, cache sẵn). Chọn 1 gợi ý thì client đặt ô tìm =
 tên khách / MÃ SP rồi dùng lại FTS đơn như cũ (orders_db.search_orders_fts — mã SP
 tự mở rộng alias mã cũ). Xếp hạng thuần ở `rank_*` (tests/test_order_suggest.py).
+GET /api/orders/code-stock?code= → tồn kho hiện tại của mã đang tìm
+(inventory_store.stock_lookup) cho dải tồn kho dưới ô tìm.
 """
 from __future__ import annotations
 
@@ -12,6 +14,7 @@ import asyncio
 from aiohttp import web
 
 from order_db import _get_connection
+from inventory_store.stock_lookup import stock_by_code, stock_of
 from order_store.customers import search_customers
 from product_store.queries import get_all_products
 from vn import vn_normalize
@@ -76,7 +79,13 @@ async def orders_suggest_handler(request: web.Request):
             rows = [{"key": c.get("_firebase_key", ""),
                      "name": c.get("name") or c.get("ten") or c.get("_firebase_key", "")} for c in custs]
             prods = rank_products(q, get_all_products(conn))
-            return rank_customers(q, rows), prods
+            stocks = {}
+            for p in prods:   # ≤6 mã — tồn hiện ngay trong gợi ý
+                try:
+                    stocks[p["code"]] = stock_of(conn, p)["stock"]
+                except Exception:  # noqa: BLE001 — chưa có bảng kho (test/DB lẻ)
+                    pass
+            return rank_customers(q, rows), [{**p, "_stock": stocks.get(p["code"])} for p in prods]
         finally:
             conn.close()
 
@@ -84,5 +93,25 @@ async def orders_suggest_handler(request: web.Request):
     return web.json_response({
         "ok": True,
         "customers": custs,
-        "products": [{"code": p["code"], "name": p.get("name") or ""} for p in prods],
+        "products": [{"code": p["code"], "name": p.get("name") or "", "unit": p.get("unit") or "cây",
+                      "stock": p.get("_stock")} for p in prods],
     })
+
+
+async def order_code_stock_handler(request: web.Request):
+    """Mã đang tìm có trong danh mục (kể cả mã cũ) → {ok, product: {code, name, unit,
+    stock, boxes, display?}}; không phải mã SP → product null (client ẩn dải)."""
+    code = request.query.get("code", "").strip()
+    if not code or len(code) > 40 or any(ch.isspace() for ch in code):
+        return web.json_response({"ok": True, "product": None})
+
+    def _run():
+        conn = _get_connection()
+        try:
+            return stock_by_code(conn, code)
+        except Exception:  # noqa: BLE001 — chưa có bảng kho: coi như không có dải
+            return None
+        finally:
+            conn.close()
+
+    return web.json_response({"ok": True, "product": await asyncio.to_thread(_run)})
