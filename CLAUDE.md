@@ -298,6 +298,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   máy đã cập nhật) — same as new comments (`comment_routes`). Tapping a push **deep-links**
   to `#/order/<id>?focus=<type>:<id>` → OrderDetail scrolls to + highlights the item
   (APK reads FCM `data` extras in `MainActivity`).
+- **Icon ⏺ "đang xuất kho" trên card dashboard** (`server_app/order_stock_picking.py`,
+  gọi cuối `orders_api._attach_thumbs`): đơn chưa soạn + chưa chốt xuất kho mà đã chọn
+  ≥1 thùng (`box_allocations` kind='order') → icon bước Soạn ❌ thành ⏺. CHỈ row webapp;
+  main message Telegram (`status_icons`) giữ nguyên. Tests: `tests/test_order_stock_picking.py`.
 - **Dashboard card thumbnail** — `orders_api._attach_thumbs` batch-fetches each
   order's latest image id per list page (and on realtime rows); the card shows it on
   the left. Updates live via the `order_changed` row-splice.

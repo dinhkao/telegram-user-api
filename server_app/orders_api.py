@@ -134,6 +134,9 @@ def _attach_thumbs(conn, orders: list[dict]) -> None:
         o["thumb_image_id"] = ordered[0] if ordered else None
         o["thumb_image_ids"] = ordered[:2]
         o["image_count"] = len(lst)
+    # Cùng bước làm giàu batch: đơn đang xuất kho dở (chưa chốt) → icon Soạn ⏺
+    from server_app.order_stock_picking import attach_stock_picking
+    attach_stock_picking(conn, orders)
 
 
 def _attach_latest_action(conn, orders: list[dict]) -> None:
