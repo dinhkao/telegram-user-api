@@ -260,18 +260,23 @@ export function OrderStock({ threadId, invoice, stockConfirmed, onCompleteSoanHa
             </div>
 
             {/* SP đóng gói được mà CÒN THIẾU: hết thùng thành phẩm vẫn đóng thêm được
-                → cho thấy tồn nguyên liệu ngay đây (đỏ = không đủ NL để đóng nốt phần
-                thiếu). Xuất đủ rồi thì ẩn — không còn phải quyết định gì. */}
+                → cho thấy tồn nguyên liệu ngay đây. Phần PHẢI ĐÓNG THÊM = còn thiếu − tồn
+                thành phẩm: thành phẩm đủ xuất thì NL không cần gì → xám, KHÔNG đỏ (NL hết
+                cũng chẳng sao). Đỏ = thành phẩm thiếu VÀ NL không đủ đóng nốt phần đó.
+                Xuất đủ rồi thì ẩn — không còn phải quyết định gì. */}
             {mats.length > 0 && inInvoice && short && (
               <div class="stock-mats">
                 <span class="sm-lb">Nguyên liệu</span>
                 {mats.map((m) => {
-                  const needMat = m.ratio * (need - got);
-                  const low = m.stock + 1e-6 < needMat;
+                  const toPack = Math.max(0, need - got - onhand);   // phải đóng gói thêm
+                  const needMat = m.ratio * toPack;
+                  const low = toPack > 0 && m.stock + 1e-6 < needMat;
                   return (
                     <a class={"sm-it" + (low ? " low" : "")} key={m.code}
                       href={`#/kho/${encodeURIComponent(m.code)}`}
-                      title={`Cần ${soVN(needMat)} ${m.unit} để đóng gói ${soVN(need - got)} còn thiếu`}>
+                      title={toPack > 0
+                        ? `Cần ${soVN(needMat)} ${m.unit} để đóng gói ${soVN(toPack)} thành phẩm còn thiếu`
+                        : "Thành phẩm trong kho đủ xuất — không cần đóng gói thêm"}>
                       <b>{m.code}</b> tồn {soVN(m.stock)} {m.unit}
                     </a>
                   );
