@@ -11,7 +11,7 @@ import { ErrorState } from "./states";
 export type PickOpt = { key: string; label: string; sub?: string };
 
 export function PickerPopup({
-  value, placeholder, title, onSearch, onPick, allowFreeText, disabled, class: cls,
+  value, placeholder, title, onSearch, onPick, allowFreeText, disabled, class: cls, autoOpen,
 }: {
   value?: string;                                   // text hiện trên trigger
   placeholder?: string;
@@ -21,8 +21,9 @@ export function PickerPopup({
   allowFreeText?: boolean;                          // cho dùng đúng text đã gõ (mã tự do)
   disabled?: boolean;
   class?: string;
+  autoOpen?: boolean;                               // mở popup ngay khi hiện (vừa bấm "Đổi")
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!autoOpen && !disabled);
   const [q, setQ] = useState("");
   const [list, setList] = useState<PickOpt[]>([]);
   const [err, setErr] = useState("");

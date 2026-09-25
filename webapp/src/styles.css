@@ -2819,6 +2819,17 @@ body.co-kbd .bottom-nav { display: none; }
 .ultra-line2 { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .ultra-line2 .tag-nosp { font-size: .72rem; padding: 2px 8px; margin: 0; }
 .ultra-line2 .hit-sp { margin: 0; }
+/* Dòng KHÁCH HÀNG trong khối Hoá đơn chi tiết đơn (đổi/gán tại chỗ khi chưa có HĐ KV) */
+.inv-cust { display: flex; align-items: center; gap: 6px; margin: 4px 0 8px; font-size: .95rem; }
+.inv-cust-ic { flex: none; color: var(--muted); }
+.inv-cust-name { flex: 1; min-width: 0; font-weight: 700; color: var(--ink); text-decoration: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.inv-cust-name { text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+.inv-cust .muted { flex: 1; }
+.inv-cust-btn { flex: none; }
+.inv-cust-lock { flex: none; cursor: pointer; font-size: .85rem; }
+.inv-cust-pick { margin-bottom: 8px; }
+.inv-cust-pick .sp-trigger { width: 100%; }
 /* Nguồn đơn giá dưới ô Giá ở chi tiết đơn (detail/InvoiceTable PriceOriginNote) */
 .inv-mini .po { display: block; font-size: .68rem; font-weight: 500; line-height: 1.2; white-space: nowrap; color: var(--muted); text-decoration: none; }
 .inv-mini a.po-last { color: var(--accent-ink); }

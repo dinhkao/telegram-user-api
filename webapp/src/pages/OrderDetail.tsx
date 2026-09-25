@@ -46,6 +46,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
   const [busy, setBusy] = useState(false);
   const [editText, setEditText] = useState<string | null>(null);
   const [changingCust, setChangingCust] = useState(false);
+  const [invCustOpen, setInvCustOpen] = useState(false);   // ô tìm khách trong khối Hoá đơn
   const [nggDate, setNggDate] = useState("");   // ngày giao (YYYY-MM-DD)
   const [nggTime, setNggTime] = useState("");   // giờ giao (HH:MM) — tách riêng
   const [savingNg, setSavingNg] = useState(false);
@@ -536,6 +537,7 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       await postJSON("/api/order/assign-customer", { thread_id: Number(threadId), customer_key: c.key });
       setMsg(`✅ Đã gán khách: ${c.name}`);
       setChangingCust(false);
+      setInvCustOpen(false);
       changed();
     } catch (ex: any) {
       setMsg(`❌ ${ex.message}`);
@@ -729,6 +731,26 @@ export function OrderDetail({ threadId, focus }: { threadId: string; focus?: str
       <div id="od-invoice">
       <section class="card">
         <div class="ie-head">Hoá đơn ({(j.invoice || []).length} món){j.kiotvietInvoiceCode ? ` · HĐ ${j.kiotvietInvoiceCode}` : ""}</div>
+        {/* KHÁCH HÀNG của hoá đơn — đổi/gán ngay tại đây khi chưa có HĐ KiotViet (và chưa
+            có thanh toán): cùng assignCustomer + custLockReason với chip khách đầu trang. */}
+        <div class="inv-cust">
+          <Icon name="user" size={15} class="inv-cust-ic" />
+          {(j.customer_name || j.khach_hang_id)
+            ? (j.khach_hang_id
+              ? <a class="inv-cust-name" href={`#/khach/${encodeURIComponent(j.khach_hang_id)}`}>{j.customer_name || pc.kh}</a>
+              : <b class="inv-cust-name">{j.customer_name || pc.kh}</b>)
+            : <span class="muted">Chưa gán khách</span>}
+          {custLockReason
+            ? <span class="inv-cust-lock" title={custLockReason} onClick={() => toast(custLockReason, "info")}>🔒</span>
+            : <button class="btn small ghost inv-cust-btn" onClick={() => setInvCustOpen((v: boolean) => !v)}>
+                {invCustOpen ? "Huỷ" : (j.customer_name || j.khach_hang_id) ? "Đổi" : "Gán khách"}
+              </button>}
+        </div>
+        {invCustOpen && !custLockReason && (
+          <div class="inv-cust-pick">
+            <CustomerPicker onPick={assignCustomer} autoOpen placeholder={(j.customer_name || j.khach_hang_id) ? "Tìm khách mới…" : "Tìm khách để gán"} />
+          </div>
+        )}
         {(j.invoice || []).length > 0
           ? <InvoiceTable items={j.invoice} discount={j.discount} pvc={j.pvc} vat={j.vat} linkSp showOrigin
               debt={j.khDebt ?? j.invoice_debt_snapshot} total={pc.tongthanhtoan || undefined}

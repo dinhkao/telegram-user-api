@@ -6,9 +6,10 @@ import { getJSON } from "../api";
 import { money } from "../format";
 import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
 
-export function CustomerPicker({ onPick, placeholder }: {
+export function CustomerPicker({ onPick, placeholder, autoOpen }: {
   onPick: (c: { key: string; name: string } | null) => void;
   placeholder?: string;
+  autoOpen?: boolean;   // mở ngay khung tìm (vừa bấm "Đổi khách")
 }) {
   const [picked, setPicked] = useState("");
   const search = async (v: string): Promise<PickOpt[]> => {
@@ -26,6 +27,7 @@ export function CustomerPicker({ onPick, placeholder }: {
       placeholder={placeholder || "Tìm khách hàng"}
       onSearch={search}
       onPick={(o) => { setPicked(o.label); onPick({ key: o.key, name: o.label }); }}
+      autoOpen={autoOpen}
     />
   );
 }
