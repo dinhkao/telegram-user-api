@@ -54,7 +54,7 @@ export type OrderRow = {
   soan_img_ids?: number[];   // ảnh chốt soạn hàng — ưu tiên làm thumbnail
   nop_img_id?: number | null;
   task_bys?: string[];   // tên người HOÀN THÀNH từng bước (badge hiện tên thay nhãn)
-  vnpt?: { published: boolean } | null;   // đơn có HĐ điện tử VNPT → badge VAT trên card
+  vnpt?: VnptBadge | null;   // đơn có HĐ điện tử VNPT → badge VAT trên card
 };
 
 // Mã ghi chú nộp tiền → tiếng Việt đầy đủ
@@ -375,12 +375,15 @@ export function TaskBadges({ o }: { o: OrderRow }) {
 // Chip VAT (đơn có HĐ điện tử VNPT — vàng = nháp, xanh ✓ = đã phát hành).
 // Xuất riêng để các trang có markup RIÊNG (NopTien/NhanTien/DeliveringOrders…)
 // gắn được — badge phải có mặt Ở MỌI VIEW hiện đơn (Duy yêu cầu 2026-08-26).
-export function VatChip({ vnpt }: { vnpt?: { published: boolean } | null }) {
+// Đã phát hành thì kèm SỐ HĐ bỏ số 0 đầu (00000338 → "VAT✓ 338").
+export type VnptBadge = { published: boolean; no?: number | null };
+export function VatChip({ vnpt }: { vnpt?: VnptBadge | null }) {
   if (!vnpt) return null;
+  const no = vnpt.published && vnpt.no ? vnpt.no : null;
   return (
     <span class={"tstat vat-chip" + (vnpt.published ? " ok" : "")}
-      title={vnpt.published ? "HĐ điện tử VNPT — ĐÃ PHÁT HÀNH" : "HĐ điện tử VNPT — nháp chưa phát hành"}>
-      <span class="tlbl">VAT{vnpt.published ? "✓" : ""}</span>
+      title={vnpt.published ? `HĐ điện tử VNPT — ĐÃ PHÁT HÀNH${no ? ` · Số ${String(no).padStart(8, "0")}` : ""}` : "HĐ điện tử VNPT — nháp chưa phát hành"}>
+      <span class="tlbl">VAT{vnpt.published ? "✓" : ""}{no ? ` ${no}` : ""}</span>
     </span>
   );
 }

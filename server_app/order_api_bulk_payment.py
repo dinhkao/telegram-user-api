@@ -102,6 +102,7 @@ def _load_customer_debt_orders(conn, key: str) -> tuple[list[dict], list[dict]]:
             "soan_img_ids": card.get("soan_img_ids") or [],
             "nop_img_id": card.get("nop_img_id"),
             "bypass_debt": bypass,
+            "vnpt": card.get("vnpt"),   # chip VAT + số HĐ điện tử
         }
         (hidden if bypass else active).append(rec)
     # cũ → mới (feed dùng created; fallback thread_id để ổn định)

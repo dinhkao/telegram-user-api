@@ -19,6 +19,7 @@ import { confirmDialog, toast } from "../ui/feedback";
 import { EmptyState, ErrorState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { QuickCollect } from "../detail/QuickCollect";
+import { VatChip } from "../detail/OrderCards";
 
 /** Mốc thời gian để xếp đơn (đơn thiếu `created` xuống cuối chiều cũ→mới). */
 function timeKey(o: DebtOrder): number {
@@ -207,6 +208,7 @@ export function OrderPayment({ threadId }: { threadId: string }) {
           <span class="pay-order-text">{o.text || o.label || "(đơn không có nội dung)"}</span>
           <span class="pay-order-icons" aria-label="Trạng thái đơn">
             {icons.length ? icons.map((ic, i) => <span key={i}>{ic}</span>) : <span>······</span>}
+            <VatChip vnpt={o.vnpt} />
           </span>
         </span>
       </a>

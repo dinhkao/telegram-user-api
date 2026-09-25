@@ -442,8 +442,9 @@ mark { background: #fff3a3; color: inherit; padding: 0 1px; border-radius: 2px; 
 /* Badge VAT: đơn có HĐ điện tử VNPT — vàng = nháp, xanh + ✓ = đã phát hành */
 .tstat.vat-chip { justify-content: center; }
 .tstat.vat-chip .tlbl { font-weight: 700; color: #b45309; border: 1px solid currentColor;
-  border-radius: 4px; padding: 1px 3px; }
+  border-radius: 4px; padding: 1px 3px; white-space: nowrap; }
 .tstat.vat-chip.ok .tlbl { color: #15803d; }
+.pay-order-icons .vat-chip { margin-left: 4px; }
 /* View ẩn nhãn badge (ultra + feed khách) vẫn PHẢI hiện chip VAT — chip chỉ có
    nhãn, không icon, để display:none theo là biến mất (bug 2026-08-26) */
 .ultra-row .tstat.vat-chip .tlbl,

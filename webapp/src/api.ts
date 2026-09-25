@@ -276,6 +276,7 @@ export type DebtOrder = {
   thread_id: number; created?: string | null; total: number; debt: number; label?: string;
   text?: string; task_icons?: string; thumb_image_id?: number | null; image_count?: number;
   bypass_debt?: boolean;
+  vnpt?: { published: boolean; no?: number | null } | null;   // HĐ điện tử VNPT (chip VAT + số)
 };
 /** Ngữ cảnh thu tiền của 1 đơn: khách + mọi đơn đang nợ (cũ→mới).
  *  total_debt là snapshot customer.debt, không phải tổng các đơn. */
