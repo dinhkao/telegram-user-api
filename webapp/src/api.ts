@@ -403,6 +403,11 @@ export async function updateReturn(id: number, items: { sp: string; sl: number; 
 export async function invoiceReturn(id: number): Promise<any> {
   return postJSON(`/api/returns/${id}/invoice`, {});
 }
+/** Tạo ẢNH HOÁ ĐƠN TRẢ HÀNG → lưu vào ảnh của phiếu (media scope 'return'). */
+export async function createReturnImage(id: number): Promise<OrderImage> {
+  const d = await postJSON(`/api/returns/${id}/image`, {}, { queueable: false });
+  return d.image;
+}
 /** Xoá HĐ KiotViet của phiếu trả (admin) — hoàn nợ, phiếu về nháp. */
 export async function deleteReturnInvoice(id: number): Promise<any> {
   return postJSON(`/api/returns/${id}/delete-invoice`, {});

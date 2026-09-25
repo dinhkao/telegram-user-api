@@ -9,12 +9,13 @@ import { listOrderImages, type OrderImage } from "../api";
 import { PhotoViewer } from "../detail/PhotoViewer";
 import {
   type OrderRow, statusLabel, Highlight, InvoiceMini, LastAction,
-  groupOrdersByDay, UltraBody, CardBody, CompactBody, NEW_ORDER_SEC, orderAllDone,
+  UltraBody, CardBody, CompactBody, NEW_ORDER_SEC, orderAllDone,
 } from "../detail/OrderCards";
 import { Loading, EmptyState, ErrorState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
 import { fastScrollTop } from "../scroll";
+import { useDashboardReturns, interleave, groupEntriesByDay, ReturnDashCard } from "../detail/DashboardReturns";
 
 
 
@@ -546,6 +547,9 @@ export function OrdersList() {
   }, [viewer]);
 
   const visible = orders;
+  // Phiếu trả hàng chen theo mốc thời gian — chỉ khi sắp "Mới tạo" + chip "Tất cả"
+  const dashReturns = useDashboardReturns(filter === "all" && sort === "created", visible, !loading && page >= totalPages, search);
+  const entries = interleave(visible, dashReturns);
   const lastOrder = getLastOrder(); // đơn vừa mở → tô sáng khi quay lại dashboard
   // Nhịp 60s để tag "Mới" tự hết sau 5 phút (không cần event khác)
   const [, setTick] = useState(0);
@@ -618,21 +622,25 @@ export function OrdersList() {
       {err && <ErrorState msg={err} onRetry={() => load(1, search, filter, false)} />}
       {loading && !visible.length && <SkeletonList rows={5} />}
       <ul class="order-list">
-        {view === "ultra" && groupOrdersByDay(visible, sort).map((g) => (
+        {view === "ultra" && groupEntriesByDay(visible, dashReturns, sort).map((g) => (
           <li key={`g-${g.key}`} class="order-day-group">
-            <div class="order-day-head">{g.label} <span class="muted small">({g.orders.length})</span></div>
+            <div class="order-day-head">{g.label} <span class="muted small">({g.count})</span></div>
             <ul class="order-list">
-              {g.orders.map((o) => (
+              {g.entries.map((e) => e.t === "r" ? (
+                <li key={`r-${e.r.id}`}><ReturnDashCard r={e.r} view="ultra" /></li>
+              ) : ((o) => (
                 <li key={o.thread_id}>
                   <a data-oid={o.thread_id} class={`order-card ultra${orderAllDone(o) ? " all-done" : ""}${String(o.thread_id) === lastOrder ? " last-visited" : ""}`} href={`#/order/${o.thread_id}`}>
                     <UltraBody o={o} search={search} />
                   </a>
                 </li>
-              ))}
+              ))(e.o))}
             </ul>
           </li>
         ))}
-        {view === "compact" && visible.map((o) => {
+        {view === "compact" && entries.map((e) => {
+          if (e.t === "r") return <li key={`r-${e.r.id}`}><ReturnDashCard r={e.r} view="compact" /></li>;
+          const o = e.o;
           const isNew = isRecent(o.created, NEW_ORDER_SEC);
           return (
           <li key={o.thread_id}>
@@ -642,7 +650,9 @@ export function OrdersList() {
           </li>
           );
         })}
-        {view === "full" && visible.map((o) => {
+        {view === "full" && entries.map((e) => {
+          if (e.t === "r") return <li key={`r-${e.r.id}`}><ReturnDashCard r={e.r} view="full" /></li>;
+          const o = e.o;
           const stt = statusLabel(o);
           const isNew = isRecent(o.created, NEW_ORDER_SEC);
           return (

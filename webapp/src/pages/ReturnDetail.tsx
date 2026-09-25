@@ -5,12 +5,13 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { PageHead } from "../ui/PageHead";
 import {
   getReturn, deleteReturn, deleteReturnInvoice, updateReturn, invoiceReturn, searchProducts,
-  currentUser, isOffice, soVN, type ReturnSlip,
+  currentUser, isOffice, soVN, createReturnImage, mediaImageUrl, type ReturnSlip,
 } from "../api";
 import { onRealtime } from "../realtime";
 import { fmtDateTimeVN, parseMoney, parseQty } from "../format";
 import { ReturnGoodsModal } from "../detail/ReturnGoodsModal";
 import { Images } from "../detail/Images";
+import { SingleImageViewer } from "../detail/SingleImageViewer";
 import { Comments } from "../detail/Comments";
 import { History } from "../detail/History";
 import { PickerPopup, type PickOpt } from "../ui/PickerPopup";
@@ -28,6 +29,8 @@ export function ReturnDetail({ id }: { id: string }) {
   const [lines, setLines] = useState<Line[]>([]);
   const [note, setNote] = useState("");
   const [showGoods, setShowGoods] = useState(false);
+  const [imgBusy, setImgBusy] = useState(false);
+  const [viewImg, setViewImg] = useState<string | null>(null);   // URL ảnh HĐ trả hàng vừa tạo
   const autoOpened = useRef(false);
   const isAdmin = currentUser()?.role === "admin";
   const office = isOffice();
@@ -112,6 +115,18 @@ export function ReturnDetail({ id }: { id: string }) {
     } catch (e: any) {
       toast(e?.message || "Lỗi xoá HĐ", "err");
     } finally { setBusy(false); }
+  };
+
+  // Ảnh hoá đơn trả hàng: server render (cùng khổ HĐ bán) + lưu vào khối Ảnh của phiếu
+  const doImage = async () => {
+    setImgBusy(true);
+    try {
+      const img = await createReturnImage(Number(id));
+      setViewImg(mediaImageUrl(`/api/media/return/${id}`, img.id, "full"));
+      toast("Đã tạo ảnh hoá đơn trả hàng — lưu ở mục Ảnh", "ok");
+    } catch (e: any) {
+      toast(e?.message || "Lỗi tạo ảnh", "err");
+    } finally { setImgBusy(false); }
   };
 
   const doDelete = async () => {
@@ -266,6 +281,11 @@ export function ReturnDetail({ id }: { id: string }) {
         </section>
       )}
 
+      {!deleted && (
+        <button class="btn block" disabled={imgBusy} onClick={doImage}>
+          <Icon name="image" size={15} /> {imgBusy ? "Đang tạo ảnh…" : "Tạo ảnh hoá đơn trả hàng"}
+        </button>
+      )}
       <Images base={`/api/media/return/${id}`} />
       <Comments base={`/api/media/return/${id}`} />
       <History base={`/api/media/return/${id}`} />
@@ -277,6 +297,7 @@ export function ReturnDetail({ id }: { id: string }) {
         </button>
       )}
 
+      {viewImg && <SingleImageViewer src={viewImg} title="hoá đơn trả hàng" onClose={() => setViewImg(null)} />}
       {showGoods && (
         <ReturnGoodsModal ret={r} onClose={() => setShowGoods(false)}
           onDone={(u) => { setR(u); setShowGoods(false); }} />

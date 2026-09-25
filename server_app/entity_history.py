@@ -141,6 +141,7 @@ _SOURCE_LABELS = {
     "POST /api/inventory/box/{id}": "Sửa thùng",
     "POST /api/inventory/box/{id}/disable": "Vô hiệu / kích hoạt thùng",
     "POST /api/returns/{id}/update": "Sửa hàng trả",
+    "POST /api/returns/{id}/image": "Tạo ảnh hoá đơn trả hàng",
     "POST /api/purchases/{id}/update": "Sửa phiếu nhập",
     "POST /api/suppliers/{id}": "Sửa nhà cung cấp",
     "POST /api/returns/{id}/invoice": "Tạo HĐ KiotViet (trừ nợ)",

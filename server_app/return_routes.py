@@ -392,6 +392,9 @@ async def return_invoice_handler(request: web.Request):
         actor_type="web_user" if request.get("web_user") else "http_client",
         actor_id=actor, source="return.invoiced",
         payload={"customer_key": key, "total": total, "kv_code": inv.get("code")}))
+    # Ảnh hoá đơn trả hàng (có nợ trước/còn nợ) → ảnh của phiếu, chạy nền
+    from server_app.return_image import add_return_image_bg
+    spawn_tracked("return.image", add_return_image_bg(rid))
     return web.json_response({"ok": True, "kv_code": inv.get("code"), "kv_id": inv.get("id"),
                               "debt_before": debt_before, "debt_after": debt_after})
 

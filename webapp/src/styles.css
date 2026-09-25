@@ -641,6 +641,13 @@ a.alloc-card:active { background: var(--accent-wash); }
 .ret-card-sub { margin-top: 2px; }
 .ret-card-note { margin-top: 6px; font-size: .8rem; color: #555; background: var(--warn-wash); border-radius: 6px; padding: 4px 8px; }
 .ret-cust-link { font-weight: 700; text-decoration: none; color: var(--primary); }
+/* Card phiếu trả hàng chen trong dashboard đơn (detail/DashboardReturns.tsx) */
+.order-card.ret-dash { border-left: 3px solid var(--warn); background: var(--warn-wash); }
+.order-card.ret-dash.compact { padding: 7px 10px; }
+.order-card.ret-dash .ret-card-top { gap: 8px; }
+.order-card.ret-dash .ret-cust { min-width: 0; }
+.ret-dash-tag { display: inline-flex; align-items: center; gap: 3px; flex: none; padding: 1px 7px; border-radius: var(--r-pill); background: var(--warn); color: #fff; font-size: .68rem; font-weight: 700; vertical-align: middle; }
+.order-card.ultra.ret-dash .ret-amt { flex: none; font-size: .82rem; }
 .ret-items { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .ret-items th, .ret-items td { padding: 6px 4px; text-align: right; border-bottom: 1px solid var(--border); }
 .ret-items th:first-child, .ret-items td:first-child { text-align: left; }

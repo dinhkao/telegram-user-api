@@ -741,6 +741,19 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   menu Thêm) + chi tiết `#/tra-hang/:id` (ReturnDetail) + nút '↩ Trả hàng'
   (`detail/ReturnModal.tsx`) ở chi tiết khách; feed khách kind='return'
   (nháp delta 0, có HĐ delta âm).
+  - **ẢNH HOÁ ĐƠN TRẢ HÀNG (2026-09-25)**: nút "Tạo ảnh hoá đơn trả hàng" ở
+    ReturnDetail → POST `/api/returns/{id}/image` (`server_app/return_image_routes.py`,
+    mọi user đăng nhập) → `server_app/return_image.py` render HTML
+    `renderers/phieu_tra_hang.py` (thuần, khổ 280px như HĐ bán; nháp ghi "Phiếu trả #id
+    (nháp)", có HĐ KV thì thêm Nợ trước / Trừ hàng trả / Còn nợ = nợ trước − tổng, KHÔNG
+    dùng debt_after) → PNG qua pipeline Playwright của ảnh HĐ bán → lưu vào ảnh của
+    phiếu (entity media scope `return`). Tạo HĐ KiotViet cũng tự sinh 1 ảnh (chạy nền).
+    Tests: `tests/test_return_image.py`.
+  - **Card phiếu trả trong DASHBOARD ĐƠN** (`webapp/src/detail/DashboardReturns.tsx`):
+    chen theo mốc `created_at` giữa các đơn (cả 3 kiểu xem), CHỈ khi sắp "Mới tạo" +
+    chip "Tất cả"; chỉ hiện phiếu nằm trong khoảng thời gian các đơn đã tải (tải thêm
+    trang `/api/returns` khi cuộn cũ hơn), ô tìm lọc client-side. Không đụng
+    `listCache.orders` nên thanh prev/next của chi tiết đơn không đổi.
   - **Xử lý HÀNG trả về** (`server_app/return_goods.py::apply_goods_dispositions`, POST
     `/api/returns/{id}/handle-goods`, văn phòng): sau khi tạo phiếu trả, prompt "Xử lý
     ngay?" → `detail/ReturnGoodsModal.tsx` mỗi dòng chọn **nhập vào thùng có sẵn**
