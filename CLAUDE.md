@@ -308,6 +308,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   gọi cuối `orders_api._attach_thumbs`): đơn chưa soạn + chưa chốt xuất kho mà đã chọn
   ≥1 thùng (`box_allocations` kind='order') → icon bước Soạn ❌ thành ⏺. CHỈ row webapp;
   main message Telegram (`status_icons`) giữ nguyên. Tests: `tests/test_order_stock_picking.py`.
+- **Card Siêu gọn kéo ngang đọc tiếp** — `webapp/src/detail/SwipeText.tsx`: chữ 1 dòng
+  cuộn ngang được, ẩn thanh cuộn; dấu "…" là phần tử GIẢ (Chromium không vẽ lại
+  text-overflow khi cuộn), nền `inherit` theo card.
 - **Dashboard card thumbnail** — `orders_api._attach_thumbs` batch-fetches each
   order's latest image id per list page (and on realtime rows); the card shows it on
   the left. Updates live via the `order_changed` row-splice.

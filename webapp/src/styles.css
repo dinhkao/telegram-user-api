@@ -468,6 +468,16 @@ body.has-nop .order-day-group .order-day-head { top: 124px; }
 .ultra-row .tlbl { display: none; }        /* ẩn nhãn HĐ/Soạn… — chỉ còn 5 icon */
 .ultra-row .tico { font-size: .9rem; }
 .ultra-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .85rem; font-weight: 500; }
+/* Card Siêu gọn: chữ kéo ngang được (detail/SwipeText) — không thanh cuộn, dấu "…"
+   giả ở mép phải khi còn chữ. Nền inherit suốt chuỗi card → row → dấu "…". */
+.order-card.ultra .ultra-row { background: inherit; }
+.swipe-text { position: relative; display: block; overflow: hidden; background: inherit; text-overflow: clip; }
+.swipe-text-sc { display: block; overflow-x: auto; overflow-y: hidden; white-space: nowrap;
+  scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior-x: contain; }
+.swipe-text-sc::-webkit-scrollbar { display: none; }
+.swipe-text-more { display: none; position: absolute; top: 0; right: 0; bottom: 0; padding-left: 2px;
+  background: inherit; pointer-events: none; }
+.swipe-text.more .swipe-text-more { display: block; }
 .order-card.compact { display: flex; align-items: stretch; gap: 10px; padding: 6px 10px; margin: 3px 0; }
 .order-card.compact .order-text { flex: 1; margin: 0; font-size: .85rem; font-weight: 500; white-space: pre-wrap; word-break: break-word; }
 .order-card.compact .badges { flex-shrink: 0; }

@@ -7,6 +7,7 @@ import { fmtDateTimeVN, fmtRelative, fmtNgayGiao, foldVN } from "../format";
 import { orderImageUrl } from "../api";
 import { InvoiceTable } from "./InvoiceTable";
 import { Icon } from "../ui/Icon";
+import { SwipeText } from "./SwipeText";
 
 export const NEW_ORDER_SEC = 5 * 60; // đơn tạo trong 5 phút → tô vàng + tag "Mới"
 
@@ -211,7 +212,7 @@ export function UltraBody({ o, search }: { o: OrderRow; search: string }) {
   return (
     <div class="ultra-row">
       <TaskBadges o={o} />
-      <span class="ultra-text"><Highlight text={text} q={search} /></span>
+      <SwipeText class="ultra-text"><Highlight text={text} q={search} /></SwipeText>
     </div>
   );
 }
