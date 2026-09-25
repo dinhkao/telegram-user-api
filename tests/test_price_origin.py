@@ -101,3 +101,20 @@ def test_save_order_stamps_origin_and_keeps_it_on_text_edit():
         assert get_order_by_thread_id(c, 200)["invoice"][2]["price_by"] == "trinh"
     finally:
         reset_actor(tok)
+
+
+
+def test_new_order_auto_parse_path_is_stamped():
+    """Đơn MỚI: auto-parse ghi hoá đơn bằng _update_order_json_field('$.invoice') — phải có dấu."""
+    from order_store.serialization import _update_order_json_field
+    c = _setup()
+    tok = set_actor("system", "Hệ thống")
+    try:
+        c.execute("UPDATE orders SET json = json_set(json, '$.created_by', 'Trinh') WHERE thread_id = 200")
+        _update_order_json_field(c, 200, "$.invoice",
+                                 [_item("SP1", 16000, sp_id=1), _item("SP2", 30000, sp_id=2), _item("SP3", 9000, sp_id=3)])
+        inv = get_order_by_thread_id(c, 200)["invoice"]
+        assert [i.get("price_src") for i in inv] == ["last", "list", "manual"]
+        assert inv[0]["price_from"] == 100 and inv[2]["price_by"] == "Trinh"
+    finally:
+        reset_actor(tok)

@@ -222,7 +222,8 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   `price_from_date` — trùng giá lần gần nhất ở ĐƠN KHÁC, `last_prices.last_price_sources`)
   | `list` (trùng bảng giá) | `manual` (+`price_by` = người đang thao tác qua
   `mutation_audit._actor_ctx`; hệ thống → `created_by` của đơn), `price_at`. Giá không
-  đổi GIỮ dấu cũ (sửa text không đổi người nhập); dòng cũ chưa dấu để trống. Chi tiết
+  đổi GIỮ dấu cũ (sửa text không đổi người nhập); dòng cũ chưa dấu để trống. Đóng dấu ở
+  CẢ `_update_order_json_field` khi ghi `$.invoice` (auto-parse đơn MỚI đi đường này). Chi tiết
   đơn hiện dưới ô Giá (`InvoiceTable showOrigin`). Ghi thẳng SQL (bot_core/bot_flows)
   không qua choke nên không có dấu. Tests: `tests/test_price_origin.py`. Đơn cũ (từ
   10/08/2026) đã ĐIỀN BÙ bằng `tools/backfill_price_origin.py` (suy từ dữ liệu, cờ

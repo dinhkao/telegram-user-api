@@ -52,6 +52,18 @@ def _save_order(conn, thread_id: int, data: dict) -> bool:
 def _update_order_json_field(conn, thread_id: int, field_path: str, value) -> bool:
     try:
         before = get_order_by_thread_id(conn, thread_id)
+        if field_path == "$.invoice" and isinstance(value, list):
+            # Ghi hoá đơn kiểu 1 trường (auto-parse đơn MỚI — channel_handlers/parse) cũng
+            # phải đóng dấu nguồn đơn giá như _save_order — trước đây lọt: đơn mới không có
+            # ghi chú "= đơn trước / bảng giá / ai nhập" cho tới lần sửa hoá đơn đầu tiên.
+            try:
+                from .price_origin import stamp_price_origin
+                preview = dict(before or {})
+                preview["invoice"] = [dict(it) if isinstance(it, dict) else it for it in value]
+                stamp_price_origin(conn, thread_id, before, preview)
+                value = preview["invoice"]
+            except Exception as e:  # noqa: BLE001 — best-effort, không chặn ghi hoá đơn
+                log.warning("price origin stamp (field) failed thread=%d: %s", thread_id, e)
         # JSON-encode EVERY value, not just dict/list. A bare string previously
         # became json('Anh Tú') — malformed JSON — so string writes (e.g.
         # $.customer_name, string customer IDs) silently failed. json.dumps makes
