@@ -2801,6 +2801,10 @@ body.co-kbd .bottom-nav { display: none; }
 .ultra-line2 { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .ultra-line2 .tag-nosp { font-size: .72rem; padding: 2px 8px; margin: 0; }
 .ultra-line2 .hit-sp { margin: 0; }
+/* Nguồn đơn giá dưới ô Giá ở chi tiết đơn (detail/InvoiceTable PriceOriginNote) */
+.inv-mini .po { display: block; font-size: .68rem; font-weight: 500; line-height: 1.2; white-space: nowrap; color: var(--muted); text-decoration: none; }
+.inv-mini a.po-last { color: var(--accent-ink); }
+.inv-mini .po-manual { color: var(--warn); }
 /* Tìm bằng mã SP mà nội dung đơn không ghi mã → chip dòng hàng khớp (detail/SearchHitItems) */
 .hit-sp { display: inline-block; background: #fff3a8; color: var(--ink); font-weight: 700; font-size: .78rem;
   padding: 0 6px; border-radius: 6px; margin-right: 5px; white-space: nowrap; }

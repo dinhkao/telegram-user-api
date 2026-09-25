@@ -175,3 +175,54 @@ def last_order_prices(conn, kh_id: str | int | None, limit: int = _ORDERS_SCANNE
                 out[code] = price
     _cache[key] = (now, out)
     return out
+
+
+_LSQL_BY_COL = """
+    SELECT thread_id, order_created,
+           coalesce(json_extract(json, '$.invoice'), json_extract(json, '$.invoice_items')) AS inv
+    FROM orders
+    WHERE deleted_at IS NULL AND cust_key = ? AND thread_id != ?
+    ORDER BY order_created DESC, thread_id DESC
+    LIMIT ?
+"""
+_LSQL_BY_EXPR = _LSQL_BY_COL.replace(
+    "cust_key", "coalesce(json_extract(json, '$.khach_hang_id'), json_extract(json, '$.khID'))")
+
+
+def last_price_sources(conn, kh_id, *, exclude_thread=None, limit: int = _ORDERS_SCANNED) -> dict[str, dict]:
+    """{MÃ HIỆN HÀNH: {price, thread_id, date 'dd/mm'}} — giá lần gần nhất của khách ở
+    ĐƠN KHÁC (bỏ `exclude_thread`), cùng luật chọn với last_order_prices. Không cache
+    (gọi lúc LƯU đơn để đóng dấu nguồn giá — order_store.price_origin)."""
+    key = str(kh_id or "").strip()
+    if not key or conn is None:
+        return {}
+    ex = int(exclude_thread) if exclude_thread is not None else -1
+    rows = []
+    for sql, k in ((_LSQL_BY_COL, key), (_LSQL_BY_EXPR, key)):
+        try:
+            rows = conn.execute(sql, (k, ex, max(1, int(limit)))).fetchall()
+            break
+        except Exception:  # noqa: BLE001 — chưa có cột cust_key → biểu thức gốc
+            continue
+    by_id, alias = _code_maps(conn) if rows else ({}, {})
+    out: dict[str, dict] = {}
+    for row in rows:
+        try:
+            items = json.loads(row[2]) if row[2] else []
+        except (TypeError, ValueError):
+            continue
+        created = str(row[1] or "")
+        date = f"{created[8:10]}/{created[5:7]}" if len(created) >= 10 else ""
+        for it in items if isinstance(items, list) else []:
+            if not isinstance(it, dict):
+                continue
+            code = by_id.get(it.get("sp_id")) if it.get("sp_id") is not None else None
+            if not code:
+                raw = str(it.get("sp") or "").upper().strip()
+                code = alias.get(raw, raw)
+            if not code or code in out:
+                continue
+            price = _price(it.get("price"))
+            if price:
+                out[code] = {"price": price, "thread_id": row[0], "date": date}
+    return out

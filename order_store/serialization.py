@@ -28,6 +28,11 @@ def _get_order_firebase_key(conn, thread_id: int) -> str | None:
 def _save_order(conn, thread_id: int, data: dict) -> bool:
     try:
         before = get_order_by_thread_id(conn, thread_id)
+        try:   # đóng dấu nguồn đơn giá từng dòng (đơn trước / bảng giá / ai nhập)
+            from .price_origin import stamp_price_origin
+            stamp_price_origin(conn, thread_id, before, data)
+        except Exception as e:  # noqa: BLE001 — best-effort, không chặn lưu đơn
+            log.warning("price origin stamp failed thread=%d: %s", thread_id, e)
         conn.execute(
             "UPDATE orders SET json = ?, updated_at = ? WHERE thread_id = ? AND deleted_at IS NULL",
             (json.dumps(data, ensure_ascii=False), int(time.time() * 1000), thread_id),

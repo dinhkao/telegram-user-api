@@ -33,14 +33,29 @@ function hl(text: string, q?: string) {
   return out;
 }
 
-export function InvoiceTable({ items, discount, pvc, vat, debt, total, q, debtCtl, linkSp }: {
-  items: { sp: string; sl: number | string; price: number }[];
+// Nguồn gốc đơn giá (server order_store/price_origin): = đơn trước / bảng giá / ai nhập.
+type PriceOrigin = { price_src?: "last" | "list" | "manual"; price_from?: number; price_from_date?: string; price_by?: string };
+function PriceOriginNote({ it }: { it: PriceOrigin }) {
+  if (it.price_src === "last") {
+    const label = `= đơn trước${it.price_from_date ? ` ${it.price_from_date}` : ""}`;
+    return it.price_from
+      ? <a class="po po-last" href={`#/order/${it.price_from}`} title="Giá tự lấy theo lần khách mua gần nhất — mở đơn đó">{label}</a>
+      : <span class="po po-last">{label}</span>;
+  }
+  if (it.price_src === "list") return <span class="po po-list" title="Giá tự lấy theo bảng giá của khách">bảng giá</span>;
+  if (it.price_src === "manual") return <span class="po po-manual" title="Giá do người dùng tự nhập">✎ {it.price_by || "nhập tay"}</span>;
+  return null;
+}
+
+export function InvoiceTable({ items, discount, pvc, vat, debt, total, q, debtCtl, linkSp, showOrigin }: {
+  items: ({ sp: string; sl: number | string; price: number } & PriceOrigin)[];
   discount?: number; pvc?: number; vat?: number; debt?: number | null;
   total?: string;   // tổng in sẵn từ KiotViet (nếu có) — ưu tiên dòng "Tổng thanh toán"
   q?: string;       // từ khoá tìm kiếm → tô sáng mã SP khớp
   debtCtl?: any;    // nút khoá 🔒 / 🔄 cập nhật nợ — render NGAY cạnh chữ "Nợ trước"
   linkSp?: boolean; // mã SP bấm được → #/kho/<mã> (BẬT ở trang chi tiết đơn; TẮT ở card
                     // dashboard vì cả card là 1 nút mở đơn, link con sẽ nuốt cú chạm)
+  showOrigin?: boolean; // ghi chú nguồn đơn giá dưới ô Giá (trang chi tiết đơn)
 }) {
   const list = items || [];
   const tienHang = list.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.sl) || 0), 0);
@@ -62,7 +77,7 @@ export function InvoiceTable({ items, discount, pvc, vat, debt, total, q, debtCt
                 title="Mở trang sản phẩm">{hl(it.sp, q)}</a>
               : hl(it.sp, q)}</td>
             <td class="num">{it.sl}</td>
-            <td class="num">{money(it.price)}</td>
+            <td class="num">{money(it.price)}{showOrigin ? <PriceOriginNote it={it} /> : null}</td>
             <td class="num">{money((Number(it.price) || 0) * (Number(it.sl) || 0))}</td>
           </tr>
         ))}

@@ -217,6 +217,14 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   ⚡ Nhanh + preview, auto_parse, `fix`, lệnh `,` Telegram) đều theo luật này. Tab
   📋 Nâng cao cùng luật: `/api/customer/price` trả thêm `last_price`, `InvoiceEditor`
   tự điền nó (chú thích/nút đặt-lại vẫn theo bảng giá, nhãn "✓ lần trước").
+  **NGUỒN ĐƠN GIÁ từng dòng (2026-09-25, `order_store/price_origin.py`)**: `_save_order`
+  đóng dấu dòng có giá MỚI/ĐỔI: `price_src` = `last` (+`price_from` thread_id,
+  `price_from_date` — trùng giá lần gần nhất ở ĐƠN KHÁC, `last_prices.last_price_sources`)
+  | `list` (trùng bảng giá) | `manual` (+`price_by` = người đang thao tác qua
+  `mutation_audit._actor_ctx`; hệ thống → `created_by` của đơn), `price_at`. Giá không
+  đổi GIỮ dấu cũ (sửa text không đổi người nhập); dòng cũ chưa dấu để trống. Chi tiết
+  đơn hiện dưới ô Giá (`InvoiceTable showOrigin`). Ghi thẳng SQL (bot_core/bot_flows)
+  không qua choke nên không có dấu. Tests: `tests/test_price_origin.py`.
   ⚠ Giá đơn là snapshot vĩnh viễn → sửa lại text của CHÍNH đơn đó sẽ lấy lại giá của
   chính nó (đơn gần nhất của khách chính là nó) — muốn về giá bảng thì gõ giá tay.
   Tests: `tests/test_last_prices.py`.
