@@ -37,6 +37,7 @@ from server_app.order_api_custom_tasks import add_custom_task_handler, remove_cu
 from server_app.order_api_invoice import api_create_invoice_handler, api_delete_invoice_handler, api_ensure_invoice_image_handler, api_invoice_html_handler, api_refresh_debt_handler, api_set_invoice_reference_image_handler
 from server_app.order_history import order_history_handler
 from server_app.orders_api import order_detail_handler, orders_api_handler, orders_delivery_handler, orders_delivering_handler
+from server_app.order_suggest_routes import orders_suggest_handler
 from server_app.product_routes import (
     products_search_handler, product_create_handler, product_kiotviet_search_handler,
     product_link_handler, product_unlink_handler, product_delete_handler, product_update_handler, product_rename_handler,
@@ -140,6 +141,7 @@ def create_app():
     r.add_get("/orders/{thread_id}", order_detail_page_handler)
     r.add_get("/api/orders", orders_api_handler)
     r.add_get("/api/orders/delivery", orders_delivery_handler)
+    r.add_get("/api/orders/suggest", orders_suggest_handler)
     r.add_get("/api/orders/delivering", orders_delivering_handler)
     r.add_get("/api/cloudinary/camera-images", camera_images_handler)
     r.add_post("/api/usage/batch", usage_batch_handler)

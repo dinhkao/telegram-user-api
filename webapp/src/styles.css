@@ -3426,6 +3426,19 @@ body.kbd-open .od-navbar { display: none; }
 .sbar-in::-webkit-search-cancel-button { display: none; }
 .sbar-x { position: absolute; right: 6px; display: flex; padding: 5px; border: none; background: none; color: var(--muted); }
 
+/* Gợi ý khi gõ ô tìm dashboard Đơn (detail/OrderSearchSuggest) — khách + SP */
+.osug-row { position: relative; }
+.osug { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--e3); padding: 4px 0;
+  max-height: min(60vh, 420px); overflow-y: auto; overscroll-behavior: contain; }
+.osug-h { padding: 6px 12px 2px; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.osug-it { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 7px 12px;
+  border: none; background: none; color: var(--ink); text-align: left; font-size: .92rem; cursor: pointer; }
+.osug-it.on, .osug-it:hover { background: var(--accent-wash); }
+.osug-ic { flex: none; color: var(--muted-2); }
+.osug-main { flex: none; max-width: 60%; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.osug-sub { flex: 1; min-width: 0; color: var(--muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .task-bell { position: relative; display: flex; }
 .tb-badge { background: var(--primary); }
 

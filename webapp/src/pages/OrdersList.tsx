@@ -14,6 +14,7 @@ import {
 import { Loading, EmptyState, ErrorState, SkeletonList } from "../ui/states";
 import { Icon } from "../ui/Icon";
 import { SearchBar, FilterActiveBar } from "../ui/SearchBar";
+import { OrderSearchSuggest } from "../detail/OrderSearchSuggest";
 import { fastScrollTop } from "../scroll";
 import { useDashboardReturns, interleave, groupEntriesByDay, ReturnDashCard } from "../detail/DashboardReturns";
 
@@ -561,8 +562,9 @@ export function OrdersList() {
   return (
     <div>
       <header class="topbar">
-        <div class="topbar-row">
+        <div class="topbar-row osug-row">
           <SearchBar inputRef={searchInput} value={search} onInput={onSearch} placeholder="Tìm khách, sản phẩm…" />
+          <OrderSearchSuggest q={search} inputRef={searchInput} onPick={(v) => { onSearch(v); window.scrollTo({ top: 0, behavior: "auto" }); }} />
           <div class="view-slider" role="group" aria-label="Kiểu xem">
             {_VIEWS.map((v) => (
               <button key={v.m} class={view === v.m ? "vs-seg on" : "vs-seg"} title={v.t} aria-pressed={view === v.m} onClick={() => setViewMode(v.m)}>{v.ic}</button>

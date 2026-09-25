@@ -272,6 +272,12 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   background thread at startup** (`orders_db.prewarm_orders_indexes`) so the first
   search doesn't pay the ~460ms cold build. If you change the row shape or these
   filters, keep the generated-column definitions and `_build_order_row` in sync.
+  **Gợi ý khi gõ ô tìm (2026-09-25)**: `webapp/src/detail/OrderSearchSuggest.tsx` —
+  dropdown khách + SP (tên/mã, không dấu) dưới ô tìm ← GET `/api/orders/suggest?q=`
+  (`server_app/order_suggest_routes.py`, xếp hạng thuần `rank_customers`/`rank_products`,
+  bỏ SP `can_sell=0`; trong `_NO_AUDIT`). Chọn = đặt ô tìm = tên khách / MÃ SP rồi dùng
+  lại FTS đơn. Gắn listener vào input qua `inputRef` (SearchBar không đổi); ↑↓/Enter/Esc
+  (Esc đầu chỉ đóng gợi ý). Tests: `tests/test_order_suggest.py`.
 - **Order images (photos) — `server_app/image_routes.py` + `server_app/order_photo_sync.py`.**
   `/api/order/{thread_id}/images` GET/POST(multipart)/DELETE + `.../{id}/file`
   (FileResponse, immutable cache, path-traversal guard). Client resizes+re-encodes
