@@ -326,7 +326,18 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   qua `POST /api/fcm/register` [cầu JS `AndroidApp.fcmToken()`, client
   `webapp/src/fcmRegister.ts`]; lọc bỏ role `chat_luong` + user khoá; topic `orders`
   chỉ còn là FALLBACK cho máy APK cũ — tắt bằng `FCM_TOPIC_FALLBACK=false` khi mọi
-  máy đã cập nhật) — same as new comments (`comment_routes`). Tapping a push **deep-links**
+  máy đã cập nhật) — same as new comments (`comment_routes`).
+  **HÀNG ĐỢI PUSH BỀN (2026-09-25, `server_app/push_outbox.py` + `notif_store/push_state.py`)**:
+  mọi `notify.push_bg` ghi row `notifications` + `push_state='pending'` (cột push_*:
+  state/attempts/payload/next_at/result) rồi gửi; `fcm.send_once` thử lại TỨC THÌ 3 lượt
+  (lỗi mạng cả lượt / token lỗi tạm; token chết thì xoá) và trả phần CÒN THIẾU (token,
+  topic; `None` = chưa tới máy nào). Còn thiếu → 'retry', `push_retry_loop` (bootstrap,
+  30s) gửi bù CHỈ máy thiếu, lùi dần 30s→30ph, tối đa 8 lần trong 6h → 'failed' (log
+  ERROR "PUSH HỎNG"). Row 'pending' bỏ dở do restart cũng được gửi bù. `push_payload` chứa
+  token → `notif_store.queries._public` KHÔNG trả ra API. Soi 1 push:
+  `select id,title,push_state,push_attempts,push_result from notifications order by id desc`.
+  ⚠ Push chỉ tới máy ANDROID có APK (token trong `fcm_tokens`); iPhone/Safari không
+  nhận được gì. Tests: `tests/test_push_outbox.py`. Tapping a push **deep-links**
   to `#/order/<id>?focus=<type>:<id>` → OrderDetail scrolls to + highlights the item
   (APK reads FCM `data` extras in `MainActivity`).
 - **Icon ⏺ "đang xuất kho" trên card dashboard** (`server_app/order_stock_picking.py`,

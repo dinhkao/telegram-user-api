@@ -37,3 +37,10 @@ def _migrate(conn):
         conn.execute("ALTER TABLE notifications ADD COLUMN image_id INTEGER")
     if "route" not in cols:
         conn.execute("ALTER TABLE notifications ADD COLUMN route TEXT")
+    # HÀNG ĐỢI PUSH bền (notif_store.push_state + server_app.push_outbox): push rơi vì
+    # mạng/restart được gửi bù. Row cũ (NULL) = trước tính năng, không đụng tới.
+    for col, ddl in (("push_state", "TEXT"), ("push_attempts", "INTEGER DEFAULT 0"),
+                     ("push_payload", "TEXT"), ("push_next_at", "INTEGER"), ("push_result", "TEXT")):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE notifications ADD COLUMN {col} {ddl}")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_notif_push ON notifications(push_state, push_next_at)")

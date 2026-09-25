@@ -21,16 +21,27 @@ def add_notification(conn, *, type: str, title: str, body: str,
     return get_notification(conn, cur.lastrowid)
 
 
+# Cột nội bộ hàng đợi push (chứa TOKEN máy) — không bao giờ trả ra API/realtime
+_HIDDEN = ("push_payload", "push_next_at")
+
+
+def _public(row) -> dict:
+    d = dict(row)
+    for k in _HIDDEN:
+        d.pop(k, None)
+    return d
+
+
 def get_notification(conn, notif_id) -> dict | None:
     row = conn.execute("SELECT * FROM notifications WHERE id = ?", (notif_id,)).fetchone()
-    return dict(row) if row else None
+    return _public(row) if row else None
 
 
 def list_notifications(conn, *, limit=30) -> list[dict]:
     rows = conn.execute(
         "SELECT * FROM notifications ORDER BY id DESC LIMIT ?", (limit,)
     ).fetchall()
-    return [dict(r) for r in rows]
+    return [_public(r) for r in rows]
 
 
 def latest_id(conn) -> int:

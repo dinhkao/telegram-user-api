@@ -77,6 +77,8 @@ async def main():
     # Nhắc CÔNG NỢ QUÁ HẠN: mỗi ngày 1 lượt (từ 8h VN) → notification + FCM
     from server_app.debt_alert_daily import debt_alert_loop
     spawn_tracked("debt_alert.daily", debt_alert_loop())
+    from server_app.push_outbox import push_retry_loop
+    spawn_tracked("push.retry_loop", push_retry_loop())   # gửi bù push FCM rơi/dở dang
 
     # Start bot client (merged from bot-don-hang)
     from server_app.bot_bootstrap import start_bot

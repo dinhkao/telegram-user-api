@@ -4,7 +4,8 @@
 push_bg(title, body, data): data giống payload FCM cũ ({thread_id, type, comment_id/
 image_id}). Thông báo KHÔNG thuộc đơn hàng đặt data['route'] = hash webapp
 ('#/kho-dau/phieu/12') → NotifCenter mở thẳng route đó.
-Dùng thay server_app.fcm.notify_bg ở các điểm sự kiện (comment/ảnh…).
+Dùng thay server_app.fcm.notify_bg ở các điểm sự kiện (comment/ảnh…). Push đi qua
+HÀNG ĐỢI BỀN server_app.push_outbox (gửi bù khi lỗi mạng/restart).
 Đọc: GET /api/notifications (notifications_list_handler). Kết nối: notif_store,
 server_app.fcm, server_app.realtime.
 """
@@ -81,25 +82,34 @@ async def _push(title: str, body: str, data: dict | None) -> None:
                 if peek:
                     fb = f"{body} {peek}"
             from notif_store import create_notif_table, add_notification, prune_old
+            from notif_store.push_state import mark_pending
+            from server_app.push_outbox import first_next_at
             create_notif_table(conn)
             row = add_notification(conn, type=ntype, title=title, body=fb,
                                    thread_id=thread_id, focus=focus, image_id=image_id,
                                    route=route)
+            # Đưa vào HÀNG ĐỢI PUSH BỀN trước khi gửi → lỗi mạng/restart vẫn được gửi bù
+            mark_pending(conn, row["id"], {"title": title, "body": fb, "data": data or {},
+                                           "image_url": image_url, "tokens": None, "topic": True},
+                         first_next_at())
             prune_old(conn)
             return row, fb
         finally:
             conn.close()
 
-    final_body = body
+    image_url = _fcm_image_url(thread_id, image_id) if ntype == "image" else None
     try:
         row, final_body = await asyncio.to_thread(_w)
-        from server_app.realtime import emit_notif_added
-        emit_notif_added(row)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001 — không ghi được DB → vẫn phải push (không có gửi bù)
         log.warning("Ghi notification lỗi: %s", e)
-    # Push FCM (best-effort, tự bỏ qua nếu FCM_ENABLED=false). Ảnh → kèm big-picture.
-    from server_app.fcm import notify_bg
-    notify_bg(title, final_body, data, image_url=_fcm_image_url(thread_id, image_id) if ntype == "image" else None)
+        from server_app.fcm import notify_bg
+        notify_bg(title, body, data, image_url=image_url)
+        return
+    from server_app.realtime import emit_notif_added
+    emit_notif_added(row)
+    # Push FCM qua hàng đợi bền (tự bỏ qua nếu FCM_ENABLED=false). Ảnh → big-picture.
+    from server_app.push_outbox import deliver
+    await deliver(int(row["id"]))
 
 
 def push_bg(title: str, body: str, data: dict | None = None) -> None:
