@@ -86,3 +86,26 @@ def test_compute_range_report_adds_overtime(conn):
     assert rep["totals"]["ot_money"] == 2000
     day_items = {it["thread_id"]: it for it in w["days"][0]["items"]}
     assert day_items[2]["ot_money"] == 2000 and day_items[1]["ot_money"] == 0
+
+
+def test_ot_toggle_off_per_worker(conn):
+    from production_store.overtime_off import off_keys, set_ot_enabled
+    conn.execute("INSERT INTO production_slips VALUES (?,?,?,?,?)",
+                 (2, "K1", 1000, "san_xuat", json.dumps({"start": "16:30", "end": "17:30"})))
+    conn.executemany(
+        "INSERT INTO production_report_rows (thread_id, report_ymd, worker_name, product_code, tong_calc)"
+        " VALUES (?,?,?,?,?)", [(2, MON, "Hiền", "K1", 20), (2, MON, "Mai", "K1", 20)])
+    # mặc định BẬT cho cả 2
+    rep = report_slips.compute_range_report(conn, MON, MON)
+    assert {w["name"]: w["ot_money"] for w in rep["workers"]} == {"Hiền": 2000, "Mai": 2000}
+    # tắt riêng Mai (khác hoa thường vẫn khớp) → chỉ Mai mất tăng ca
+    set_ot_enabled(conn, 2, "mai", False, by="duy")
+    assert off_keys(conn, [2]) == {(2, "mai")}
+    rep = report_slips.compute_range_report(conn, MON, MON)
+    ws = {w["name"]: w for w in rep["workers"]}
+    assert ws["Mai"]["ot_money"] == 0 and ws["Mai"]["money"] == 20000
+    assert ws["Hiền"]["ot_money"] == 2000
+    # bật lại — gọi 2 lần vẫn đúng 1 trạng thái
+    set_ot_enabled(conn, 2, "Mai", True)
+    set_ot_enabled(conn, 2, "Mai", True)
+    assert off_keys(conn, [2]) == set()

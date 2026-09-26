@@ -18,6 +18,7 @@ from aiohttp import web
 
 from order_db import _get_connection
 from production_store.overtime import OT_PCT, ot_money, overtime_map
+from production_store.overtime_off import is_off, off_keys
 from production_store.time_fmt import normalize_time
 from production_store.wages import wage_per_cay
 
@@ -111,6 +112,7 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
                 tids,
             ).fetchall():
                 allow[(a["thread_id"], a["worker_name"])] = float(a["amount"] or 0)
+        ot_off = off_keys(conn, tids)   # dòng văn phòng đã TẮT tăng ca
     finally:
         conn.close()
 
@@ -162,7 +164,7 @@ def compute_wages(dfrom: str | None, dto: str | None) -> dict:
         piece_sp = round(cay_piece * wage)
         piece_gio = round(gio * hrate)
         # phụ trội TĂNG CA (production_store.overtime) — gộp vào phần cây
-        ot_min, ot_frac = ots.get((tid, worker), (0, 0.0))
+        ot_min, ot_frac = (0, 0.0) if is_off(ot_off, tid, wname) else ots.get((tid, worker), (0, 0.0))
         ot = ot_money(cay_piece, wage, ot_frac)
         if ot:
             piece_sp += ot
@@ -284,11 +286,14 @@ def _slip_overtime(conn, thread_id: int) -> dict:
         (thread_id,),
     ).fetchall()
     ots = _overtime_for(rows)
+    ot_off = off_keys(conn, [thread_id])
     out = {}
     for r in rows:
         v = ots.get((r["tid"], r["worker"] or "?"))
         if r["tid"] == thread_id and v:
-            out[r["wname"]] = {"min": v[0], "frac": round(v[1], 4)}
+            # off = văn phòng đã tắt TC dòng này → client hiện nút ở trạng thái tắt, không cộng tiền
+            out[r["wname"]] = {"min": v[0], "frac": round(v[1], 4),
+                               "off": is_off(ot_off, thread_id, r["wname"])}
     return out
 
 

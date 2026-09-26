@@ -6,7 +6,7 @@
 // Data: phieuWages() (đơn giá + phụ cấp), setPhieuWage(), setAllowance().
 // Server chặn 403 nếu không office.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { phieuWages, setAllowance, setPhieuWage, soVN, type PhieuWages } from "../api";
+import { phieuWages, setAllowance, setOvertimeOn, setPhieuWage, soVN, type PhieuWages } from "../api";
 import { onRealtime } from "../realtime";
 import { Icon } from "../ui/Icon";
 import { toast } from "../ui/feedback";
@@ -44,6 +44,20 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
     });
     return () => { ok = false; off(); clearTimeout(t); };
   }, [threadId]);
+
+  // bật/tắt tăng ca 1 thợ: đổi ngay trên màn (lạc quan), lỗi thì trả lại + báo
+  const toggleOt = async (name: string, on: boolean) => {
+    const prev = ot.map[name];
+    if (!prev) return;
+    setOt((o) => ({ ...o, map: { ...o.map, [name]: { ...prev, off: !on } } }));
+    try {
+      await setOvertimeOn(threadId, name, on);
+      toast(on ? `Đã bật tăng ca cho ${name}` : `Đã tắt tăng ca cho ${name}`, "ok");
+    } catch (e: any) {
+      setOt((o) => ({ ...o, map: { ...o.map, [name]: prev } }));
+      toast(`Không lưu được: ${e?.message || e}`, "err");
+    }
+  };
 
   const saveWage = async () => {
     if (wageDraft === null) return;
@@ -99,9 +113,11 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
     const a = allow[w.name] || 0;
     // phụ trội TĂNG CA (cùng công thức server production_store/overtime.ot_money) — chỉ dòng cây
     const o = ot.map[w.name];
-    const otMoney = o && gio <= 0 ? Math.round(w.cay * wage * o.frac * ot.pct) : 0;
+    const otFull = o && gio <= 0 ? Math.round(w.cay * wage * o.frac * ot.pct) : 0;   // tiền nếu BẬT
+    const otOn = !!o && !o.off;
+    const otMoney = otOn ? otFull : 0;
     totPiece += piece; totAllow += a; totOt += otMoney;
-    return { name: w.name, cay: w.cay, gio, rate, piece, a, ot: otMoney, otMin: o?.min || 0, note: (w.note || "").trim() };
+    return { name: w.name, cay: w.cay, gio, rate, piece, a, ot: otMoney, otFull, otOn, hasOt: otFull > 0, otMin: o?.min || 0, note: (w.note || "").trim() };
   });
   // Xếp hạng theo TIỀN SP (không tính phụ cấp) cho popup "bằng người cao nhất/nhì/ba"
   const ranked = [...rows].sort((x, y) => y.piece - x.piece);
@@ -155,7 +171,17 @@ export function ProductionWages({ threadId, workers }: { threadId: string; worke
                   {r.gio > 0
                     ? <span class="muted pw-sub"> {soVN(r.gio)}giờ×{soVN(r.rate)}{r.rate <= 0 ? " ⚠ chưa đặt tiền 1 giờ" : ""}</span>
                     : <span class="muted pw-sub"> {soVN(r.cay)}×{soVN(wage)}</span>}
-                  {r.ot ? <div class="pw-sub t-warn" title={`Tăng ca theo giờ ghi trong phiếu: +${Math.round(ot.pct * 100)}% đơn giá cho phần cây làm trong giờ tăng ca`}>+{money(r.ot)} tăng ca{r.otMin ? ` ${r.otMin}p` : ""}</div> : null}
+                  {r.hasOt ? (
+                    // công tắc TĂNG CA từng thợ (mặc định bật) — tắt khi thợ không làm tới giờ ghi trên phiếu
+                    <div class={"pw-ot" + (r.otOn ? " t-warn" : " muted")}>
+                      <span class={"tgl pw-ot-tgl" + (r.otOn ? " on" : "")} role="switch" aria-checked={r.otOn}
+                        title={r.otOn ? "Đang tính tăng ca — bấm để TẮT cho thợ này" : "Đã tắt tăng ca — bấm để BẬT lại"}
+                        onClick={() => toggleOt(r.name, !r.otOn)}><span class="tgl-knob" /></span>
+                      <span class={r.otOn ? "" : "pw-ot-off"} title={`Tăng ca theo giờ ghi trong phiếu: +${Math.round(ot.pct * 100)}% đơn giá cho phần cây làm trong giờ tăng ca`}>
+                        +{money(r.otFull)} TC{r.otMin ? ` ${r.otMin}p` : ""}
+                      </span>
+                    </div>
+                  ) : null}
                 </td>
                 <td class="pw-allow">
                   {/* Mặc định readOnly (mobile không bật bàn phím) → bấm mở popup chọn

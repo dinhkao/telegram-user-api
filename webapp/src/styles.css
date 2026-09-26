@@ -1180,6 +1180,12 @@ body.kbd-open .pay-submit-bar { bottom: 8px; }
 .pw-worker-note { margin-top: 2px; color: var(--muted); font-size: .72rem; font-weight: 500; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
 .pw-piece { font-variant-numeric: tabular-nums; }
 .pw-sub { font-size: .68rem; font-weight: 400; }
+/* công tắc TĂNG CA từng thợ trong khối tiền phiếu SX (ProductionWages) */
+.pw-ot { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: .72rem; font-weight: 600; white-space: nowrap; }
+.pw-ot .tgl { width: 34px; height: 19px; border-radius: 10px; }
+.pw-ot .tgl-knob { width: 13px; height: 13px; }
+.pw-ot .tgl.on .tgl-knob { left: 17px; }
+.pw-ot-off { text-decoration: line-through; }
 .pw-total { font-weight: 700; font-variant-numeric: tabular-nums; }
 .pw-table tfoot td { font-variant-numeric: tabular-nums; }   /* nền+đậm thừa hưởng từ .prod-report-table */
 .pw-input { width: 82px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 7px; font: inherit; font-size: .85rem; text-align: right; font-variant-numeric: tabular-nums; background: var(--card); color: var(--ink); }

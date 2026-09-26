@@ -14,6 +14,7 @@ import json
 import re
 
 from production_store.overtime import ot_money, overtime_map
+from production_store.overtime_off import is_off, off_keys
 from production_store.time_fmt import normalize_time, time_minutes
 from utils.db import transaction
 
@@ -209,6 +210,7 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
     # TĂNG CA theo giờ ghi trong phiếu (production_store.overtime) — khoá (tid, thợ hiện hành)
     ots = overtime_map([(r["tid"], r["ymd"], r["worker"] or "?") for r in rows
                         if float(r["cay"] or 0) > 0], times)
+    ot_off = off_keys(conn, tids)   # dòng văn phòng đã TẮT tăng ca (production_ot_off)
     missing: set = set()
     allow_used: set = set()   # (tid, wname) đã cộng phụ cấp — chỉ cộng 1 lần
     ot_min_used: set = set()
@@ -237,7 +239,7 @@ def compute_range_report(conn, dfrom: str, dto: str, worker_ids: list[int] | Non
             a = round(allow.get((tid, wname), 0))
             allow_used.add((tid, wname))
         # phụ trội TĂNG CA — cộng vào phần CÂY (dòng giờ không có phụ trội)
-        ot_min, ot_frac = ots.get((tid, worker), (0, 0.0))
+        ot_min, ot_frac = (0, 0.0) if is_off(ot_off, tid, wname) else ots.get((tid, worker), (0, 0.0))
         ot = ot_money(cay_piece, wage, ot_frac)
         piece_sp += ot
         money = piece_sp + piece_gio + a

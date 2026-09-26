@@ -1868,7 +1868,7 @@ export type WorkerReportRow = { thread_id: number; product_code: string; date: s
 // Tiền công + phụ cấp của 1 PHIẾU (office only)
 export type PhieuWages = { product_code: string; wage: number; default_wage: number; custom: boolean; allowances: Record<string, number>; hourly_rates: Record<string, number>;
   // TĂNG CA theo giờ ghi trong phiếu (production_store/overtime.py): tên thợ → phút + tỉ lệ thời gian phiếu nằm trong TC
-  overtime: Record<string, { min: number; frac: number }>; ot_pct: number };
+  overtime: Record<string, { min: number; frac: number; off?: boolean }>; ot_pct: number };
 export async function phieuWages(threadId: string | number): Promise<PhieuWages> {
   const d = await getJSON(`/api/production/${threadId}/wages`, { cache: false });
   return { product_code: d.product_code || "", wage: d.wage || 0, default_wage: d.default_wage || 0, custom: !!d.custom, allowances: d.allowances || {}, hourly_rates: d.hourly_rates || {},
@@ -1877,6 +1877,10 @@ export async function phieuWages(threadId: string | number): Promise<PhieuWages>
 /** Chốt/sửa đơn giá lương /1SP của RIÊNG 1 phiếu (office). */
 export async function setPhieuWage(threadId: string | number, luong: number): Promise<any> {
   return await postJSON(`/api/production/${threadId}/wage`, { luong });
+}
+// Bật/tắt TĂNG CA của 1 thợ trong 1 phiếu (office) — mặc định bật
+export async function setOvertimeOn(threadId: string | number, worker_name: string, on: boolean): Promise<{ ok: boolean }> {
+  return await postJSON(`/api/production/${threadId}/overtime`, { worker_name, on });
 }
 export async function setAllowance(threadId: string | number, worker_name: string, amount: number): Promise<{ ok: boolean; amount: number }> {
   return await postJSON(`/api/production/${threadId}/allowance`, { worker_name, amount });
