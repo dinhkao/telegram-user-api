@@ -1482,7 +1482,15 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   tab 🏭 SX (`#/san_xuat`). **Sửa báo cáo = trang riêng `pages/ProductionReportEdit.tsx`**
   (`#/san_xuat/:id/bao-cao`): editable spreadsheet-grid table (type Tên/Gạch/Trừ/Lẻ/Ghi
   chú, auto-computes Mâm+Tổng from `slip.sp_mam`; builds `;`-text → existing save endpoint),
-  with the lock overlay + live draft view. **Dashboard `pages/ProductionDashboard.tsx`**
+  with the lock overlay + live draft view. **GIỜ bắt đầu/xong = 1 format "HH:MM" 24h
+  (2026-09-26, `production_store/time_fmt.py::normalize_time`, gương client
+  `format.ts::normTime`)**: gõ "7" / "7.30" / "1330" / "9h5"(=09:05) / "13g40"; giờ 1–6 =
+  buổi chiều viết tắt ("4h15" → 16:15, xưởng làm 7h–18h). Web quy đổi khi rời ô + lúc
+  dựng text lưu; `parse_report` quy đổi lần nữa nên lệnh Telegram cũng theo; không hiểu
+  được → giữ nguyên chữ, ô tô đỏ. Dữ liệu cũ đã đồng bộ bằng
+  `tools/backfill_production_times.py` (chạy thử mặc định, `--apply` ghi). Tests:
+  `tests/test_production_time_fmt.py` + `webapp/tests/normTime.test.ts`.
+  **Dashboard `pages/ProductionDashboard.tsx`**
   (`#/sx-bang`, in ☰ Thêm) → tap a thợ → `pages/ProductionWorkerDetail.tsx` (`#/sx-tho/:name`,
   per-day phiếu/SP breakdown). Chọn mã SP dùng **`detail/ProductPicker.tsx`**.
   - **Công thức/BOM** (`recipe_store`): SP có thể cần nguyên liệu (product khác) theo tỉ lệ.
