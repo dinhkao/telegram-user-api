@@ -111,11 +111,15 @@ export function RankBars({ rows, onPick }: { rows: RankRow[]; onPick?: (key: str
 
 export type LinkItem = { icon: string; label: string; href?: string; onClick?: () => void };
 
-export function LinkChips({ items, onNavigate }: { items: LinkItem[]; onNavigate: () => void }) {
+// ⚠ Link KHÔNG được gọi đóng popup lúc bấm: đóng popup = history.back() gỡ mốc popup,
+// mà back đó chạy SAU khi hash đã đổi → kéo app lùi về trang cũ, link như "không ăn".
+// Cứ để link đổi hash: trang đổi thì popup tự unmount (history.state lúc đó không còn là
+// mốc __popup nên usePopupBack không back nữa) — giống các popup khác (PayrollCellPopup).
+export function LinkChips({ items }: { items: LinkItem[] }) {
   return (
     <div class="wpc-links">
       {items.map((l) => l.href
-        ? <a key={l.label} class="wpc-link" href={l.href} onClick={onNavigate}><Icon name={l.icon} size={14} /> {l.label}</a>
+        ? <a key={l.label} class="wpc-link" href={l.href}><Icon name={l.icon} size={14} /> {l.label}</a>
         : <button key={l.label} type="button" class="wpc-link" onClick={l.onClick}><Icon name={l.icon} size={14} /> {l.label}</button>)}
     </div>
   );

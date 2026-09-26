@@ -215,7 +215,7 @@ export function WagePivotCell({ cell, data, onClose }: {
               {day.slips.map((s) => {
                 const sc = slipTotalComp(s, data);
                 return (
-                  <a key={s.thread_id} class="wpc-slip" href={`#/san_xuat/${s.thread_id}`} onClick={onClose}>
+                  <a key={s.thread_id} class="wpc-slip" href={`#/san_xuat/${s.thread_id}`}>
                     <span class="wpc-slip-time">{span(s)}</span>
                     <span class="wpc-slip-main">
                       <b>{s.code || "—"}</b>
@@ -257,7 +257,7 @@ export function WagePivotCell({ cell, data, onClose }: {
         </div>
         <div class="wpc-total"><span>{money(v.total)}</span><small>đ</small></div>
         {v.body}
-        {v.links.length ? <Section title="Mở nhanh"><LinkChips items={v.links} onNavigate={onClose} /></Section> : null}
+        {v.links.length ? <Section title="Mở nhanh"><LinkChips items={v.links} /></Section> : null}
       </div>
     </div>
   );
