@@ -49,6 +49,25 @@ async def customer_price_list_handler(request: web.Request):
     return web.json_response({"ok": True, "name": extra.get("price_list_name"), "items": items})
 
 
+def _preview_stock(conn, invoice) -> dict:
+    """Mã SP (UPPER) → {stock, unit, display?} tồn kho HIỆN TẠI — trả kèm preview để
+    người gõ đơn thấy ngay còn hàng không, khỏi thêm request (cùng luật tồn trang Kho).
+    Mã lặp tra 1 lần; mã không có trong danh mục/lỗi kho → bỏ qua (client không hiện)."""
+    from inventory_store.stock_lookup import stock_by_code
+    out: dict = {}
+    for it in invoice:
+        code = (it.get("sp") or "").strip().upper()
+        if not code or code in out:
+            continue
+        try:
+            r = stock_by_code(conn, code)
+        except Exception:  # noqa: BLE001 — chưa có bảng kho (DB cũ/test)
+            r = None
+        out[code] = ({"stock": r["stock"], "unit": r["unit"], **({"display": r["display"]} if r.get("display") else {})}
+                     if r else None)
+    return out
+
+
 async def order_preview_handler(request: web.Request):
     """Xem trước kết quả parse text đơn (khách + sản phẩm + tổng) — KHÔNG tạo/lưu/
     gửi Telegram. Dùng cho preview tức thời ở tab 'Nhanh' trang tạo đơn."""
@@ -88,6 +107,7 @@ async def order_preview_handler(request: web.Request):
     ]
     # Giá bảng của khách (để so sánh: nếu giá bán khác giá bảng = ghi đè)
     pl = get_customer_price_list(conn, kh_id) if kh_id else {}
+    stock = _preview_stock(conn, invoice)
     return web.json_response({
         "ok": True,
         "customer": customer_out,
@@ -96,6 +116,7 @@ async def order_preview_handler(request: web.Request):
             "sp": it.get("sp"), "sl": it.get("sl", 0), "price": it.get("price", 0),
             "sub": (it.get("sl", 0) or 0) * (it.get("price", 0) or 0),
             "list_price": pl.get((it.get("sp") or "").upper(), 0),
+            "stock": stock.get((it.get("sp") or "").strip().upper()),
         } for it in invoice],
         "total": total,
     })

@@ -201,6 +201,9 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   topic + order (positive thread_id, flow_version 2), returns thread_id so the web
   navigates straight to it. **No more DB-only web orders** (the old negative-thread_id
   `flow_version:"web"` path is gone). Client: `webapp/src/pages/CreateOrder.tsx`.
+  **Tồn kho trong preview (2026-09-26)**: `/api/order/preview` trả kèm `stock` từng dòng
+  (`order_api_auto._preview_stock` → `inventory_store.stock_lookup.stock_by_code`, cùng luật
+  trang Kho) → dưới mã SP hiện "tồn N cây", đỏ khi không đủ SL đơn (`PreviewStock`).
 - **GIÁ MẶC ĐỊNH KHI PARSE HOÁ ĐƠN = GIÁ MUA LẦN GẦN NHẤT (2026-08-10,
   `order_store/last_prices.py`)** — thứ tự ưu tiên: **giá gõ tay trong text** >
   **giá khách đó đã mua lần gần nhất** > **bảng giá** (riêng đè chung) > 0.

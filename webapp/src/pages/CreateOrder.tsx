@@ -21,6 +21,28 @@ const loadDraft = (): { text?: string; picked?: { key: string; name: string } | 
   try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null") || {}; } catch { return {}; }
 };
 
+// Tổng SL của 1 mã trên preview (mã có thể lặp nhiều dòng) — so với tồn.
+const needOf = (p: OrderPreview, sp: string) => {
+  const code = String(sp || "").trim().toUpperCase();
+  return p.invoice.filter((x) => String(x.sp || "").trim().toUpperCase() === code)
+    .reduce((s, x) => s + (Number(x.sl) || 0), 0);
+};
+
+/** "tồn N <đv>" dưới mã SP trong preview — đỏ khi không đủ cho đơn (tồn đi kèm
+ *  response /api/order/preview nên hiện cùng lúc với dòng hàng, không chờ thêm). */
+function PreviewStock({ st, need }: { st: OrderPreview["invoice"][number]["stock"]; need: number }) {
+  if (!st) return null;
+  const low = st.stock + 1e-6 < need;
+  const n = st.stock.toLocaleString("vi-VN");
+  const disp = st.display ? ` ≈ ${st.display.qty.toLocaleString("vi-VN")} ${st.display.name}` : "";
+  return (
+    <span class={"co-stock" + (low ? " low" : "")}
+      title={(low ? "Tồn kho không đủ cho đơn này — " : "Tồn kho hiện tại: ") + `${n} ${st.unit}${disp}`}>
+      {st.stock > 0 ? `tồn ${n} ${st.unit}` : "hết hàng"}{low && st.stock > 0 ? " · thiếu" : ""}
+    </span>
+  );
+}
+
 export function CreateOrder() {
   const [mode, setMode] = useState<"advanced" | "quick">("quick");
   const [text, setText] = useState(() => loadDraft().text || "");
@@ -246,7 +268,8 @@ export function CreateOrder() {
                           <tr key={i}>
                             {/* .co-pmini: giá rút gọn cạnh mã SP — CHỈ hiện ở chế độ
                                 chia đôi (cột đơn giá bị ẩn cho hẹp, xem styles.css) */}
-                            <td>{it.sp} <span class="co-pmini">·{moneyK(it.price)}</span></td>
+                            <td>{it.sp} <span class="co-pmini">·{moneyK(it.price)}</span>
+                              <PreviewStock st={it.stock} need={needOf(preview, it.sp)} /></td>
                             <td class="num">x{it.sl}</td>
                             <td class="num">
                               {money(it.price)}

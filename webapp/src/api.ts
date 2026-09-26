@@ -201,7 +201,11 @@ export type OrderPreview = {
     debt?: number | null; debt_updated_at?: string | null; price_list_name?: string | null;
   } | null;
   candidates: { id: string; name: string; score: number }[];
-  invoice: { sp: string; sl: number; price: number; sub: number; list_price?: number }[];
+  invoice: {
+    sp: string; sl: number; price: number; sub: number; list_price?: number;
+    /** Tồn kho hiện tại của mã (null = mã không có trong danh mục SP). */
+    stock?: { stock: number; unit: string; display?: { name: string; qty: number } } | null;
+  }[];
   total: number;
 };
 

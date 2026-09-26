@@ -2750,6 +2750,9 @@ body.kbd-open .stocktake-actions { bottom: 8px; }
 /* Giá rút gọn cạnh mã SP (.co-pmini, TSX) — thế chỗ cột đơn giá bị ẩn khi chia đôi */
 .co-pmini { display: none; font-size: .68rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .co-typing .co-pmini { display: inline; }
+/* Tồn kho dưới mã SP ở preview tạo đơn (CreateOrder PreviewStock) — đỏ khi không đủ */
+.co-stock { display: block; font-size: .68rem; font-weight: 600; color: var(--ok); line-height: 1.2; white-space: nowrap; }
+.co-stock.low { color: var(--danger); }
 .co-typing .co-total { padding: 4px 8px; font-size: .74rem; gap: 6px; flex-wrap: wrap; }
 .co-typing .co-total b { font-size: .92rem; }
 /* Đang gõ → giấu phần DƯỚI ô nhập (nút to/hint/ghi chú — đã có nút Tạo mini trong
