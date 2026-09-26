@@ -5,7 +5,9 @@ import { WebPushCard } from "../detail/WebPushCard";
 import { useEffect, useState } from "preact/hooks";
 import { currentUser, login, setAuth, getAppSettings, setAppSetting, tokenExpired, type AppSettings } from "../api";
 import { AppUpdate } from "../detail/AppUpdate";
-import { toast } from "../ui/feedback";
+import { confirmDialog, toast } from "../ui/feedback";
+import { unregisterFcmThisDevice } from "../fcmRegister";
+import { unsubscribeWebPushOnLogout } from "../webPush";
 import { Icon } from "../ui/Icon";
 
 /** Cài đặt hệ thống (admin): toggle rule vận hành, lưu server (kv_store). */
@@ -63,6 +65,24 @@ export function Login() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const user = expired ? null : saved;
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  // ĐĂNG XUẤT = gỡ thông báo của MÁY này khỏi user TRƯỚC, rồi mới xoá đăng nhập (server
+  // cần token đăng nhập để biết ai gỡ). Không gỡ thì máy vẫn đứng tên người vừa đăng
+  // xuất và tiếp tục nhận push của họ — kể cả trao đổi LƯƠNG chỉ văn phòng.
+  const logout = async () => {
+    setLoggingOut(true);
+    const [fcmOk] = await Promise.all([unregisterFcmThisDevice(), unsubscribeWebPushOnLogout()]);
+    if (!fcmOk && !(await confirmDialog(
+      "Không gỡ được thông báo của máy này (mất mạng hoặc máy chủ lỗi). Nếu vẫn đăng xuất, máy "
+      + "này CÒN NHẬN thông báo của tài khoản này cho tới khi có người khác đăng nhập. Vẫn đăng xuất?",
+      { okLabel: "Vẫn đăng xuất" }))) {
+      setLoggingOut(false);
+      return;
+    }
+    setAuth("", null);
+    window.location.reload();
+  };
 
   const submit = async (e: Event) => {
     e.preventDefault();
@@ -89,7 +109,7 @@ export function Login() {
             <p>Đang đăng nhập: <b>{user.display_name}</b> ({user.username})</p>
             <div class="row">
               <a class="btn" href="#/orders">← Quay lại</a>
-              <button class="btn danger" onClick={() => { setAuth("", null); window.location.reload(); }}>Đăng xuất</button>
+              <button class="btn danger" disabled={loggingOut} onClick={logout}>{loggingOut ? "Đang đăng xuất…" : "Đăng xuất"}</button>
             </div>
           </div>
           <WebPushCard />

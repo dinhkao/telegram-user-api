@@ -56,8 +56,9 @@ def allowed_for_quality_only(method: str, path: str) -> bool:
         return True
     # Đăng ký token FCM: chat_luong CŨNG phải gọi được — máy dùng chung từng đăng ký
     # dưới user khác, họ đăng nhập thì row token đổi về username bó hẹp → server loại
-    # máy đó khỏi push. CHỈ mở đúng /api/fcm/register, không mở cả nhánh /api/fcm.
-    if root == "fcm" and len(seg) == 3 and seg[2] == "register":
+    # máy đó khỏi push. Đăng xuất thì gỡ token (unregister). CHỈ mở đúng 2 đường này,
+    # không mở cả nhánh /api/fcm.
+    if root == "fcm" and len(seg) == 3 and seg[2] in ("register", "unregister"):
         return True
     return False
 

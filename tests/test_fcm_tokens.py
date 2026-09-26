@@ -9,6 +9,7 @@ import unittest
 
 from notif_store.fcm_tokens import (
     delete_tokens, eligible_rows, eligible_tokens, ensure_table, register_token,
+    unregister_token,
 )
 from user_store.schema import _CREATE_SQL as USERS_SQL
 from utils.db import get_connection
@@ -35,6 +36,21 @@ class FcmTokensTest(unittest.TestCase):
 
     def _rows(self):
         return {r[0]: r[1] for r in self.conn.execute("SELECT token, username FROM fcm_tokens")}
+
+    # ── đăng xuất: gỡ token của máy ─────────────────────────────────────────
+    def test_unregister_chi_go_may_cua_chinh_minh(self):
+        """Đăng xuất gỡ token máy mình → máy hết nhận push (kể cả tin lương chỉ văn
+        phòng). Không được gỡ máy người khác dù biết token."""
+        self._user("trang", "van_phong")
+        self._user("thao")
+        register_token(self.conn, "tokA", "trang")
+        register_token(self.conn, "tokB", "thao")
+        self.assertEqual(unregister_token(self.conn, "tokB", "trang"), 0)   # máy người khác
+        self.assertEqual(unregister_token(self.conn, "tokA", "trang"), 1)
+        self.assertEqual(self._rows(), {"tokB": "thao"})
+        self.assertEqual([u for _, u in eligible_rows(self.conn)], ["thao"])
+        self.assertEqual(unregister_token(self.conn, "tokA", "trang"), 0)   # gỡ lần 2 vô hại
+        self.assertEqual(unregister_token(self.conn, "", "trang"), 0)
 
     # ── upsert ───────────────────────────────────────────────────────────────
     def test_register_upsert_doi_username(self):

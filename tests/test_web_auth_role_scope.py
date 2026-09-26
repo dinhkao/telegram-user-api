@@ -105,6 +105,7 @@ class ApiScopeDeniedTest(unittest.TestCase):
         # Máy dùng chung: chat_luong đăng nhập phải đăng ký lại token để row đổi
         # username → server loại máy khỏi push. CHỈ mở đúng /api/fcm/register.
         self.assertFalse(api_scope_denied(QUALITY_ONLY_ROLE, "POST", "/api/fcm/register"))
+        self.assertFalse(api_scope_denied(QUALITY_ONLY_ROLE, "POST", "/api/fcm/unregister"))   # đăng xuất
         self.assertTrue(api_scope_denied(QUALITY_ONLY_ROLE, "POST", "/api/fcm"))
         self.assertTrue(api_scope_denied(QUALITY_ONLY_ROLE, "POST", "/api/fcm/register/extra"))
         self.assertTrue(api_scope_denied(QUALITY_ONLY_ROLE, "POST", "/api/fcm/other"))

@@ -14,7 +14,7 @@ from server_app import order_diff
 # batch đếm sử dụng 20s/lần, batch chấm công của MÁY 30ph/lần (payload nghìn event —
 # traffic máy, không phải thao tác người), đăng ký token FCM (mỗi lần mở app).
 # Nếu ghi sẽ ngập lịch sử thao tác.
-_NO_AUDIT = re.compile(r"/report/(draft|lock|unlock|parse)$|/(stock-pick|invoice-edit)/(lock|unlock)$|/api/inventory/box/-?\d+/transfer$|^/api/cloudinary/camera-images$|^/api/usage/batch$|^/api/cashbox$|^/api/cashbox/[^/]+/timeline$|^/api/attendance/events$|^/api/fcm/register$|^/api/forecasts/today$|^/api/orders/(suggest|code-stock)$|^/api/production/latest-sp$|^/api/webpush/(key|subscribe)$")
+_NO_AUDIT = re.compile(r"/report/(draft|lock|unlock|parse)$|/(stock-pick|invoice-edit)/(lock|unlock)$|/api/inventory/box/-?\d+/transfer$|^/api/cloudinary/camera-images$|^/api/usage/batch$|^/api/cashbox$|^/api/cashbox/[^/]+/timeline$|^/api/attendance/events$|^/api/fcm/(register|unregister)$|^/api/forecasts/today$|^/api/orders/(suggest|code-stock)$|^/api/production/latest-sp$|^/api/webpush/(key|subscribe)$")
 _ORDER_PATH = re.compile(r"^/api/order/(-?\d+)")
 _PRODUCTION_PATH = re.compile(r"^/api/production/(-?\d+)")
 _MEDIA_PATH = re.compile(r"^/api/media/(production|box|return|task|place|customer|product|supplier|purchase|disposal)/(-?\d+)")

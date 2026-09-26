@@ -75,3 +75,20 @@ export function registerFcmToken() {
   document.addEventListener("visibilitychange", recheck);
   window.addEventListener("focus", recheck);
 }
+
+/** ĐĂNG XUẤT: gỡ token FCM của MÁY này khỏi user đang đăng nhập (gọi TRƯỚC khi xoá
+ *  token đăng nhập — server cần biết ai đang gỡ). Không gỡ thì máy vẫn đứng tên người
+ *  vừa đăng xuất và tiếp tục nhận push của họ, kể cả trao đổi LƯƠNG chỉ văn phòng.
+ *  Trả false khi KHÔNG gỡ được (mất mạng / server lỗi) để trang hỏi lại người dùng;
+ *  không phải APK (không có token) → true. */
+export async function unregisterFcmThisDevice(): Promise<boolean> {
+  try { localStorage.removeItem(SENT_KEY); } catch { /* bỏ qua */ }
+  const token = bridgeToken();
+  if (!token) return true;
+  try {
+    await postJSON("/api/fcm/unregister", { token });
+    return true;
+  } catch {
+    return false;
+  }
+}

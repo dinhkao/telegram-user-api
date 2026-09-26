@@ -79,6 +79,20 @@ export function syncWebPush(): void {
   subscribeAndSend().catch(() => { /* lần sau thử lại */ });
 }
 
+/** ĐĂNG XUẤT: huỷ đăng ký web push của máy/trình duyệt này (gọi TRƯỚC khi xoá token đăng
+ *  nhập). Huỷ phía trình duyệt là chính — endpoint chết thì server gửi vào sẽ nhận 404/410
+ *  và tự xoá row — báo server là để gỡ ngay. Không bao giờ ném lỗi. */
+export async function unsubscribeWebPushOnLogout(): Promise<void> {
+  if (inApk() || !supported()) return;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration("/app/");
+    const sub = await reg?.pushManager.getSubscription();
+    if (!sub) return;
+    try { await postJSON("/api/webpush/unsubscribe", { endpoint: sub.endpoint }); } catch { /* bỏ qua */ }
+    await sub.unsubscribe();
+  } catch { /* bỏ qua */ }
+}
+
 /** Bấm thông báo khi app đang mở → service worker nhắn {type:'open', url} → đổi trang. */
 export function listenWebPushOpen(): void {
   if (!("serviceWorker" in navigator)) return;

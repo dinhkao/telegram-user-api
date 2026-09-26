@@ -90,6 +90,19 @@ def eligible_tokens(conn, exclude_roles: tuple[str, ...] = ("chat_luong",)) -> l
     return [t for t, _ in eligible_rows(conn, exclude_roles)]
 
 
+def unregister_token(conn, token: str, username: str) -> int:
+    """Gỡ token của MÁY này khỏi user — gọi lúc ĐĂNG XUẤT. Chỉ xoá khi row đúng là của
+    username đó (không cho gỡ máy người khác). Không gỡ thì máy vẫn đứng tên người vừa
+    đăng xuất và tiếp tục nhận push của họ (kể cả trao đổi LƯƠNG audience='office')
+    cho tới khi có người khác đăng nhập trên máy. Trả số row đã xoá."""
+    if not token or not username:
+        return 0
+    ensure_table(conn)
+    with transaction(conn):
+        cur = conn.execute("DELETE FROM fcm_tokens WHERE token = ? AND username = ?", (token, username))
+    return cur.rowcount or 0
+
+
 def delete_tokens(conn, tokens) -> int:
     """Xoá token chết (FCM báo UNREGISTERED/INVALID_ARGUMENT). Trả số row đã xoá."""
     toks = [t for t in (tokens or []) if t]

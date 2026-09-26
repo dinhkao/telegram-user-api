@@ -332,7 +332,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   thao tác** with a thumbnail), and an **FCM push** (`server_app/fcm.py` — gửi THEO
   TOKEN từng máy, bảng `fcm_tokens` trong `notif_store/fcm_tokens.py`, APK đăng ký
   qua `POST /api/fcm/register` [cầu JS `AndroidApp.fcmToken()`, client
-  `webapp/src/fcmRegister.ts`]; lọc bỏ role `chat_luong` + user khoá; topic `orders`
+  `webapp/src/fcmRegister.ts`]; **ĐĂNG XUẤT gỡ máy** — `POST /api/fcm/unregister` (chỉ gỡ token
+  của CHÍNH user đang đăng nhập) + huỷ đăng ký web push, gọi TRƯỚC khi xoá đăng nhập
+  (`pages/Login.tsx::logout`; mất mạng thì hỏi lại) — không gỡ thì máy vẫn đứng tên người
+  vừa đăng xuất và nhận cả tin LƯƠNG chỉ văn phòng (tests `test_fcm_unregister_route.py`); lọc bỏ role `chat_luong` + user khoá; topic `orders`
   chỉ còn là FALLBACK cho máy APK cũ — tắt bằng `FCM_TOPIC_FALLBACK=false` khi mọi
   máy đã cập nhật) — same as new comments (`comment_routes`).
   **HÀNG ĐỢI PUSH BỀN (2026-09-25, `server_app/push_outbox.py` + `notif_store/push_state.py`)**:

@@ -585,8 +585,9 @@ def create_app():
     from server_app.notify import notifications_list_handler
     r.add_get("/api/notifications", notifications_list_handler)
     # Máy Android đăng ký token FCM theo user → push gửi theo từng máy (lọc vai trò)
-    from server_app.fcm_routes import fcm_register_handler
+    from server_app.fcm_routes import fcm_register_handler, fcm_unregister_handler
     r.add_post("/api/fcm/register", fcm_register_handler)
+    r.add_post("/api/fcm/unregister", fcm_unregister_handler)   # đăng xuất: máy thôi nhận push
     # ─── quản lý user (chỉ admin) ────────────────────────────────────────────
     r.add_get("/api/users", users_list_handler)
     r.add_post("/api/users", users_create_handler)
