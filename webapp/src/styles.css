@@ -776,10 +776,11 @@ a.alloc-card:active { background: var(--accent-wash); }
 .prod-group + .prod-group { margin-top: 6px; }
 .prod-group-head { position: sticky; top: 44px; z-index: 3; background: var(--bg); padding: 6px 2px; font-weight: 700; font-size: .9rem; color: var(--ink); border-bottom: 1px solid var(--border); }
 .prod-card { display: block; background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 12px; text-decoration: none; color: inherit; }
-.prod-card-top { display: flex; justify-content: space-between; align-items: baseline; }
+.prod-card-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .prod-sp { font-weight: 700; font-size: 1.05rem; }
 .prod-sp.big { font-size: 1.3rem; }
 .prod-date { color: var(--muted); font-size: .8rem; }
+.prod-date.prod-time { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text, inherit); font-weight: 600; }
 .prod-card-stat { display: flex; gap: 14px; margin-top: 6px; font-size: .95rem; }
 .prod-total.done { color: var(--ok); font-weight: 700; }
 .prod-bar { height: 6px; background: #eee; border-radius: 3px; margin-top: 8px; overflow: hidden; }

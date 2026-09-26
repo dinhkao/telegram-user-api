@@ -14,7 +14,7 @@ import {
   type KhoBox,
 } from "../api";
 import { onRealtime } from "../realtime";
-import { dayLabel } from "../format";
+import { dayLabel, normTime } from "../format";
 import { ProductPicker } from "../detail/ProductPicker";
 import { BoxMiniGrid } from "../detail/BoxMiniGrid";
 import { SkeletonList, EmptyState, ErrorState } from "../ui/states";
@@ -324,7 +324,13 @@ function ProdCard({ slip, boxes }: { slip: ProdSlip; boxes: KhoBox[] }) {
             ? <span class="pk-badge sx"><Icon name="factory" size={12} /> Sản xuất</span>
             : <span class="pk-badge pack"><Icon name="box" size={12} /> Đóng gói</span>}
         </span>
-        <span class="prod-date"><Icon name="clock" size={14} /> {(() => { const c = prodCreated(slip); return c.includes(" ") ? c.split(" ")[1] : c; })()}</span>
+        {/* GIỜ LÀM ghi trong báo cáo (bắt đầu – kết thúc) — đủ cả 2 mốc; chưa ghi giờ
+            thì lùi về giờ tạo phiếu (chữ nghiêng, title nói rõ) */}
+        {slip.report_start || slip.report_end
+          ? <span class="prod-date prod-time" title="Giờ bắt đầu – kết thúc ghi trong báo cáo">
+              <Icon name="clock" size={14} /> {normTime(slip.report_start) || "?"} – {normTime(slip.report_end) || "?"}
+            </span>
+          : <span class="prod-date" title="Chưa ghi giờ làm — đây là giờ tạo phiếu"><Icon name="clock" size={14} /> <i>{(() => { const c = prodCreated(slip); return c.includes(" ") ? c.split(" ")[1] : c; })()}</i></span>}
       </div>
       {packItems && (
         <div class="prod-pack-line">

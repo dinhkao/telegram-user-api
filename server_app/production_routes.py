@@ -86,6 +86,9 @@ def build_production_row(thread_id) -> dict | None:
         "ghi_chu": slip.get("ghi_chu"),
         "kind": slip.get("kind") or "san_xuat",
         "updated_at": slip.get("updated_at"),
+        # giờ bắt đầu/kết thúc ghi trong báo cáo — CÙNG khoá với list_slips
+        "report_start": (slip.get("bang") or {}).get("start"),
+        "report_end": (slip.get("bang") or {}).get("end"),
         # Khoá phiếu: tự khoá 24h sau khi tạo; admin ghi đè. locked = hiệu lực cuối.
         "locked": _prod_is_locked(slip),
         "lock_override": slip.get("lock_override"),

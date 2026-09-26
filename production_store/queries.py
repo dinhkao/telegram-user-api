@@ -89,7 +89,10 @@ def list_slips(conn, limit: int = 20, offset: int = 0, kind: str | None = None, 
     rows = conn.execute(
         "SELECT s.thread_id, s.date, s.date_code, s.product_id, "
         "COALESCE(pr.code, s.sp_name) AS sp_name, s.sp_mam, s.sx_target, s.total, "
-        "s.ghi_chu, s.kind, s.updated_at FROM production_slips s "
+        "s.ghi_chu, s.kind, s.updated_at, "
+        # giờ bắt đầu/kết thúc ghi trong báo cáo (đã chuẩn HH:MM) — card danh sách
+        "json_extract(s.bang, '$.start') AS report_start, json_extract(s.bang, '$.end') AS report_end "
+        "FROM production_slips s "
         "LEFT JOIN products pr ON pr.id = s.product_id" + where +
         " ORDER BY s.date_code DESC, s.thread_id DESC LIMIT ? OFFSET ?",
         (*wp, limit, offset),

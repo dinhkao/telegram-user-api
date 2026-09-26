@@ -1368,6 +1368,8 @@ export type ProdSlip = {
   kind?: "san_xuat" | "dong_goi";
   box_count?: number;   // số thùng đã tạo từ phiếu — >0 thì khoá đổi loại + cấm xoá
   report_total?: number;                                // tổng SP theo báo cáo thợ
+  report_start?: string | null;                         // giờ bắt đầu ghi trong báo cáo (HH:MM)
+  report_end?: string | null;                           // giờ kết thúc ghi trong báo cáo (HH:MM)
   report_workers?: { name: string; tong: number }[];    // tổng SP từng thợ (giảm dần)
   report_notes?: { name: string; note: string }[];      // thợ 0 sản lượng nhưng có ghi chú
   boxed_total?: number;                                 // Σ quantity thùng nhập từ UI (bỏ số nhập tay)
