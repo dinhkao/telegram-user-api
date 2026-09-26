@@ -610,7 +610,11 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   THỰC NHẬN"), vẽ HTML = `renderers/phieu_luong_thang.py`. (Khác `#/in-luong` =
   phiếu lương TUẦN theo sản xuất, `renderers/phieu_luong.py`.)
   **PHỤ CẤP TỰ ĐỘNG theo ghi chú báo cáo (`production_store/allowance_auto.py`)**: bảng
-  `RULES` = (tên thợ đã bỏ dấu, từ khoá ghi chú, **mốc**) → phụ cấp = tiền SP của mốc đó
+  `RULES` = (tên thợ đã bỏ dấu, từ khoá ghi chú, **mốc**). ⚠ **Ghi chú phải TRÙNG KHÍT 1
+  câu chuẩn** trong `PHRASES` (bỏ dấu/hoa thường/khoảng trắng; từ 2026-09-26 — "vít kẹo" ăn,
+  "vít tới 8h"/"vít 25k" KHÔNG ăn; số tiền viết tay KHÔNG còn tự trả) — lệch chuẩn thì auto
+  không ghi, văn phòng nhập tay; "nghỉ" vẫn khớp theo CHỨA. Thêm cách ghi mới = thêm câu vào
+  `PHRASES` (note_review dùng chung bảng này) → phụ cấp = tiền SP của mốc đó
   trong CÙNG phiếu — **ĐÃ GỒM phụ trội TĂNG CA** của phiếu (2026-09-26; dòng văn phòng tắt TC
   thì không cộng; TC đọc qua `production_store/overtime_slip.py`). Vì TC xét theo giờ xong
   CUỐI NGÀY, `set_bang` áp lại rule cho CẢ các phiếu cùng ngày (`reapply_slip`), và bật/tắt
@@ -632,6 +636,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   (mặc định CHẠY THỬ in ra, `--apply` mới ghi; tôn trọng số văn phòng nhập tay). Logic
   thuần = `compute_auto_allowances`, dự tính 1 phiếu = `plan_auto_allowances` (chỉ đọc).
   Tests: `tests/test_allowance_auto.py`.
+  **DẤU ⚠ TRÊN Ô `#/luong-ngay` (2026-09-26)**: `note_review.needs_review` (loại so_tien/
+  mot_phan/la/khac_tho, bỏ so_luong) → `wage_pivot` trả `slips[].flag {wid: {kind, done}}`
+  (done = đã tick ở khối cảnh báo HOẶC đã nhập tay phụ cấp) → ô viền + góc CAM (đã xử lý =
+  góc xám nhỏ) ở CẢ view Theo ngày lẫn Chi tiết phiếu + khối cảnh báo trong popup ô.
   **CẢNH BÁO GHI CHÚ LẠ (2026-09-12, `production_store/note_review.py`)**: rule khớp theo
   TỪ KHOÁ cố định nên thợ ghi chữ khác là auto ÂM THẦM bỏ qua. `note_kind(thợ, ghi chú)`
   (thuần) phân 4 loại: `khop` (từ khoá CỦA CHÍNH thợ đó, hoặc "nghỉ") · `khac_tho` (là
@@ -1508,15 +1516,17 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
     ngày cho view "Chi tiết phiếu". KHÔNG tính tiền lại — chỉ XOAY BẢNG kết quả
     `report_slips.compute_range_report` (nguồn sự thật duy nhất của tiền công) nên số
     luôn khớp phiếu báo cáo + bảng lương tháng; chỉ lấy thợ `wage_type='product'`.
-    Trả kèm `max_cell` để client tô heatmap. UI `pages/WagePivot.tsx` (`#/luong-ngay`,
+    Trả kèm `max_cell` để client tô heatmap. UI `pages/WagePivot.tsx` (view Chi tiết phiếu: cột đầu 2 dòng mã SP / giờ bắt đầu–kết
+    thúc, giờ CAM = phiếu có tăng ca) (`#/luong-ngay`,
     ☰ Thêm → Lương): bảng siêu gọn (chữ .62rem, đệm 1–3px), sticky 2 trục trong khung
     cuộn GIỐNG BẢNG LƯƠNG THÁNG (KHÔNG ép chiều cao khung: trang cuộn dọc bình
     thường, bảng chỉ cuộn NGANG trong `.wp-tbody-scroll`, hàng tiêu đề tách ra thanh
     `.wp-thead-bar` sticky `top:44` + JS đồng bộ scrollLeft — cột Ngày ghim trái, tiêu
     đề ghim trên), ô đậm nhạt theo tiền, số hiện theo NGHÌN đồng (title = số đầy đủ),
-    **bấm 1 ô = popup CẤU THÀNH số tiền ô đó** (`detail/WagePivotCell.tsx`: ô ngày →
-    các phiếu trong ngày · ô phiếu → cây × đơn giá + phụ cấp phiếu · ô Tổng ngày →
-    chia theo thợ), nhớ tháng/kiểu xem/vị trí cuộn theo phiên.
+    **bấm 1 ô = popup CẤU THÀNH số tiền ô đó** (`detail/WagePivotCell.tsx` + khối hình
+    `WagePivotParts.tsx` + tính thuần `wagePivotData.ts`: thanh SP/TC/PC, trục giờ trong
+    ngày có vùng tăng ca, so với thợ cùng phiếu, link phiếu/báo cáo/SP/thợ/lương/chấm công;
+    bấm phiếu/thợ trong popup = ĐI SÂU, nút ‹ hoặc BACK lùi 1 tầng), nhớ tháng/kiểu xem/vị trí cuộn theo phiên.
   - **Phiếu BÁO CÁO SX** (`production_store/report_slips.py` + `server_app/report_slip_routes.py`,
     office-only — tiền lương): văn phòng tạo phiếu chọn khoảng ngày (`production_report_slips`);
     nội dung TÍNH LIVE mỗi lần xem (tổng SP + tiền theo THỢ, tiền TỪNG PHIẾU SX, tổng cộng —

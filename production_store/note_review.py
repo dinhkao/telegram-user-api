@@ -1,10 +1,10 @@
 """SOI GHI CHÚ báo cáo thợ — dòng nào ghi TAY khác từ khoá phụ cấp đã cài sẵn.
 
-Phụ cấp tự động (production_store.allowance_auto) khớp ghi chú theo TỪ KHOÁ cố định
-trong bảng RULES — khớp LỎNG (chỉ cần CHỨA từ khoá). Nên "vít 25k" vẫn khớp "vít" rồi
-auto ghi tiền theo hạng, bỏ qua số 25k người ta viết; còn "gỡ bánh" thì không được
-tính đồng nào — cả hai đều im lặng. Module này SO KHÍT ghi chú với câu chuẩn rồi gom
-nhóm MỌI dòng không trùng khít cho dashboard sản xuất cảnh báo. Nối: allowance_auto (RULES), report_rows
+Phụ cấp tự động (production_store.allowance_auto) CHỈ trả khi ghi chú TRÙNG KHÍT 1
+câu chuẩn (PHRASES, từ 2026-09-26). Ghi chú lệch chuẩn ("vít 25k", "vít tới 8h", "gỡ
+bánh") thì auto im lặng không ghi gì — văn phòng phải tự quyết. Module này SO KHÍT ghi
+chú với câu chuẩn rồi gom nhóm MỌI dòng không trùng khít cho dashboard sản xuất cảnh
+báo, và `needs_review` cho dấu ⚠ ở ô bảng lương SP theo ngày (wage_pivot). Nối: allowance_auto (RULES), report_rows
 (production_report_rows), allowances (production_allowances), vn.vn_normalize.
 """
 from __future__ import annotations
@@ -12,53 +12,30 @@ from __future__ import annotations
 import re
 
 from vn import vn_normalize
-from production_store.allowance_auto import RULES, _NGHI, _has_kw, parse_note_amount
+from production_store.allowance_auto import PHRASES, RULES, _NGHI, _has_kw, fold_note, parse_note_amount
 
 # Phân loại 1 ghi chú (so với bảng RULES):
 KIND_MATCH = "khop"       # khớp từ khoá CỦA CHÍNH thợ đó (hoặc "nghỉ") → auto chạy đúng
 KIND_OTHER = "khac_tho"   # là từ khoá có phụ cấp, nhưng KHÔNG phải của thợ này
 KIND_QTY = "so_luong"     # chỉ ghi số lượng/giờ ("đã -1 mâm", "về 10h") — không phải việc
 KIND_UNKNOWN = "la"       # chữ lạ, không nằm trong bảng → cần xem lại phụ cấp
-KIND_AMOUNT = "so_tien"   # ghi chú CÓ SỐ TIỀN viết tay ("vít 25k") → auto ĐÈ số khác
-KIND_PARTIAL = "mot_phan"  # chứa từ khoá của CHÍNH thợ nhưng CÒN CHỮ THỪA → auto VẪN tính
+KIND_AMOUNT = "so_tien"   # ghi chú CÓ SỐ TIỀN viết tay ("vít 25k") → auto KHÔNG trả, cần nhập tay
+KIND_PARTIAL = "mot_phan"  # chứa từ khoá của CHÍNH thợ nhưng CÒN CHỮ THỪA → auto KHÔNG trả
 
 # CẢNH BÁO MỌI THỨ KHÔNG TRÙNG KHÍT (Duy chốt 2026-09-12: "đưa vào hết") — chỉ `khop`
 # là sạch. Viết theo kiểu "trừ khop" để thêm loại mới về sau không bị quên khỏi danh
-# sách. Thứ tự = mức nguy hiểm: so_tien / mot_phan là ca auto VẪN GHI TIỀN (chữ thừa
-# bị bỏ qua âm thầm); la / khac_tho là "không được tính"; so_luong chỉ là chỉnh số.
+# sách. Thứ tự = mức cần xử lý: so_tien / mot_phan là thợ CÓ làm việc có phụ cấp mà auto
+# không trả (lệch câu chuẩn); la / khac_tho là việc lạ; so_luong chỉ là chỉnh số.
 FLAG_KINDS = (KIND_AMOUNT, KIND_PARTIAL, KIND_UNKNOWN, KIND_OTHER, KIND_QTY)
 
 ALL_KEYWORDS: frozenset[str] = frozenset(
     [_NGHI] + [k for _, kws, _ in RULES for k in kws]
 )
 
-# ── CÂU ghi chú ĐÚNG CHUẨN (Duy chốt 2026-09-12: "bất cứ text nào ko fit 100% đều
-# filter hết") ────────────────────────────────────────────────────────────────────
-# `allowance_auto.RULES` khớp LỎNG theo từ khoá là CỐ Ý (mảnh "chien" phải bắt được
-# cả "Chiên đậu"), nên không thể so khít với chính RULES. Bảng dưới là DẠNG ĐẦY ĐỦ
-# mà thợ được phép ghi cho mỗi từ khoá. Ghi chú phải TRÙNG KHÍT một câu ở đây (sau
-# khi bỏ dấu + gộp khoảng trắng) mới coi là chuẩn; thừa một chữ cũng vào diện xem lại.
-# Số liệu 01/06→12/09/2026: 2.323 dòng được auto tính chỉ dùng 9 câu dưới đây, 12
-# dòng còn lại là ghi tay ("vít tới 8h", "chiên dauu", "vít 30p"…) — đúng thứ cần soi.
-# THÊM CÂU MỚI Ở ĐÂY khi xưởng đổi cách ghi; đừng nới lỏng lại thành so-chứa.
-_PHRASES: dict[str, tuple[str, ...]] = {
-    "vit": ("vit", "vit keo"),
-    "quay keo": ("quay keo",),
-    "chien": ("chien", "chien dau"),
-    "rac me": ("rac me",),
-    "vo keo": ("vo keo",),
-    "rac com dua": ("rac com dua",),
-    "rac dua": ("rac dua",),
-    "gan dua": ("gan dua",),
-    _NGHI: (_NGHI,),
-}
-
-_WS_RE = re.compile(r"\s+")
-
-
-def _fold(note: str) -> str:
-    """Bỏ dấu + gộp khoảng trắng — dạng dùng để so khít."""
-    return _WS_RE.sub(" ", vn_normalize(str(note or "")).strip())
+# CÂU ghi chú chuẩn + cách fold dùng CHUNG với allowance_auto (auto chỉ trả khi trùng
+# khít — 2026-09-26), để "cảnh báo" và "được trả" không bao giờ lệch nhau.
+_PHRASES = PHRASES
+_fold = fold_note
 
 
 def keywords_for(worker_name: str) -> frozenset[str]:
@@ -114,16 +91,28 @@ def note_kind(worker_name: str, note: str) -> str:
     # TRÙNG KHÍT câu chuẩn của chính thợ đó = auto chạy đúng ý. Mọi thứ khác đều xét tiếp.
     if nf in phrases_for(worker_name):
         return KIND_MATCH
-    # Có số tiền viết tay → nặng nhất: auto vẫn ghi số của nó, đè số người ta đã viết.
+    # Có số tiền viết tay → auto không trả, văn phòng nhập đúng số người ta đã viết.
     if has_money(nf):
         return KIND_AMOUNT
     # Chứa từ khoá của CHÍNH mình nhưng còn chữ thừa ("vít tới 8h", "chiên dauu") →
-    # auto VẪN tính tiền và bỏ qua phần thừa, không báo gì.
+    # auto KHÔNG trả (phải trùng khít) — văn phòng tự quyết số tiền.
     if any(_has_kw(nf, k) for k in keywords_for(worker_name)):
         return KIND_PARTIAL
     if any(_has_kw(nf, k) for k in ALL_KEYWORDS):
         return KIND_OTHER
     return KIND_QTY if _is_qty_only(nf) else KIND_UNKNOWN
+
+
+# Loại ghi chú gắn dấu ⚠ ở ô bảng lương SP theo ngày: có dính tới việc/tiền mà auto
+# KHÔNG trả. Bỏ `so_luong` ("Đã -1 mâm", "về 10h") — chỉ chỉnh số, không phải việc có
+# phụ cấp, gắn dấu thì cả bảng lốm đốm mất tác dụng gây chú ý.
+PIVOT_FLAG_KINDS = (KIND_AMOUNT, KIND_PARTIAL, KIND_UNKNOWN, KIND_OTHER)
+
+
+def needs_review(worker_name: str, note: str) -> str:
+    """THUẦN. Loại ghi chú (KIND_*) nếu ô này cần văn phòng xem lại phụ cấp, "" nếu không."""
+    k = note_kind(worker_name, note)
+    return k if k in PIVOT_FLAG_KINDS else ""
 
 
 def _fmt_row(r, kind: str) -> dict:

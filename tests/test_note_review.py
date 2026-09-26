@@ -66,7 +66,7 @@ def test_so_tien_viet_tay_thang_ca_khi_khop_tu_khoa():
     "Vít kẹo ( về lúc 9h30)", "chiên đâuu",
 ])
 def test_thua_chu_la_mot_phan_du_dung_tu_khoa(note):
-    """Auto VẪN trả tiền cho mấy dòng này (từ khoá có mặt) rồi lặng lẽ bỏ phần thừa."""
+    """Có từ khoá của chính thợ nhưng thừa chữ → auto KHÔNG trả (từ 2026-09-26), phải cảnh báo."""
     assert note_kind("Kim" if "chien" not in note and "chiên" not in note else "Kim Dung",
                      note) == KIND_PARTIAL
 

@@ -13,12 +13,15 @@ Hình dạng trả về (tiền = ĐỒNG, số nguyên):
     {from, to,
      workers: [{id, name, total}],                       # thứ tự cột, đã bỏ thợ 0đ
      days: [{ymd, total, cells: {worker_id: money},
-             slips: [{thread_id, code, start, end, total, cells: {...},
-                      parts: {worker_id: [{code, cay, wage, gio, rate, money}]},
-                      notes/pc/cay: {worker_id: ghi chú | phụ cấp | số cây}}]}],
+             slips: [{thread_id, code, kind, start, end, total, cells: {...},
+                      parts: {worker_id: [{code, cay, wage, gio, rate, money, ot, ot_min}]},
+                      notes/pc/pc_by/cay/ot_off: {worker_id: ghi chú | phụ cấp |
+                      người ghi phụ cấp ("auto" = rule) | số cây | True = đã tắt TC},
+                      flag: {worker_id: {kind, done}} = ghi chú LỆCH CHUẨN → auto không
+                      trả phụ cấp, ô gắn ⚠ (done = đã tick xử lý / đã nhập tay)}]}],
      totals: {worker_id: money}, grand, max_cell, max_day}
 `max_cell`/`max_day` để client tô đậm nhạt (heatmap) khỏi phải quét lại.
-Nối: production_store.report_slips, worker_store. Client: webapp/src/pages/WagePivot.tsx.
+Nối: production_store.report_slips, note_review + note_resolved (dấu ⚠), worker_store. Client: webapp/src/pages/WagePivot.tsx.
 """
 from __future__ import annotations
 
@@ -69,8 +72,16 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
     # phải mở phiếu ra xem. Ghi chú lấy từ dòng báo cáo; nhiều dòng thì nối bằng " · ".
     notes: dict[tuple, str] = {}
     cays: dict[tuple, float] = {}
+    # GHI CHÚ LỆCH CHUẨN (production_store.note_review) → dấu ⚠ ở ô: auto phụ cấp chỉ
+    # trả khi ghi chú trùng khít câu chuẩn, lệch là văn phòng phải tự quyết.
+    # flags[(phiếu, thợ)] = (loại, đã tick xử lý ở khối cảnh báo #/sx-bang hay chưa)
+    from production_store.note_resolved import resolved_keys
+    from production_store.note_review import fold_note, needs_review
+    resolved = resolved_keys(conn)
+    wname_by_id = {w["id"]: w["name"] for w in workers}
+    flags: dict[tuple, tuple[str, bool]] = {}
     for r in conn.execute(
-        "SELECT thread_id, worker_id, note, tong_calc FROM production_report_rows "
+        "SELECT thread_id, worker_id, worker_name, note, tong_calc FROM production_report_rows "
         "WHERE report_ymd >= ? AND report_ymd <= ?", (dfrom, dto),
     ).fetchall():
         key = (r["thread_id"], r["worker_id"])
@@ -78,12 +89,29 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
         if n and n not in notes.get(key, ""):
             notes[key] = f"{notes[key]} · {n}" if notes.get(key) else n
         cays[key] = cays.get(key, 0.0) + float(r["tong_calc"] or 0)
+        kind = needs_review(wname_by_id.get(r["worker_id"]) or r["worker_name"] or "", n) if n else ""
+        if kind:
+            done = (int(r["thread_id"]), str(r["worker_name"] or ""), fold_note(n)) in resolved
+            old = flags.get(key)
+            flags[key] = (kind, done and (old is None or old[1]))
     pcs: dict[tuple, float] = {}
-    wid_by_name = {(w["name"] or "").strip(): w["id"] for w in workers}
-    for r in conn.execute("SELECT thread_id, worker_name, amount FROM production_allowances").fetchall():
-        wid2 = wid_by_name.get((r["worker_name"] or "").strip())
+    pc_by: dict[tuple, str] = {}          # ai ghi phụ cấp: "auto" (rule ghi chú) | username
+    wid_by_name = {(w["name"] or "").strip().casefold(): w["id"] for w in workers}
+    for r in conn.execute("SELECT thread_id, worker_name, amount, updated_by FROM production_allowances").fetchall():
+        wid2 = wid_by_name.get((r["worker_name"] or "").strip().casefold())
         if wid2 is not None:
             pcs[(r["thread_id"], wid2)] = float(r["amount"] or 0)
+            pc_by[(r["thread_id"], wid2)] = r["updated_by"] or ""
+    # dòng văn phòng đã TẮT tăng ca + loại phiếu — để popup nói rõ vì sao TC = 0
+    from production_store.overtime_off import off_keys
+    tids_all = {it.get("thread_id") for wk in rep.get("workers", []) for dy in (wk.get("days") or [])
+                for it in (dy.get("items") or []) if it.get("thread_id")}
+    ot_off = off_keys(conn, tids_all)
+    kinds: dict[int, str] = {}
+    if tids_all:
+        qs = ",".join("?" * len(tids_all))
+        kinds = {int(r[0]): (r[1] or "san_xuat") for r in conn.execute(
+            f"SELECT thread_id, kind FROM production_slips WHERE thread_id IN ({qs})", sorted(tids_all))}
 
     # ── gom theo NGÀY rồi theo PHIẾU ────────────────────────────────────────────
     # days[ymd]["cells"][wid] = tiền của thợ đó trong ngày
@@ -113,7 +141,9 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
                 s = d["slips"].setdefault(tid, {
                     "thread_id": tid, "code": it.get("code") or "",
                     "start": it.get("start") or "", "end": it.get("end") or "",
-                    "total": 0, "cells": {}, "parts": {}, "notes": {}, "pc": {}, "cay": {},
+                    "kind": kinds.get(tid, "san_xuat"),
+                    "total": 0, "cells": {}, "parts": {}, "notes": {}, "pc": {}, "pc_by": {},
+                    "cay": {}, "ot_off": {}, "flag": {},
                 })
                 m = int(it.get("money") or 0)
                 s["cells"][wid] = s["cells"].get(wid, 0) + m
@@ -136,6 +166,14 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
                     s["notes"][wid] = nt
                 if pcs.get((tid, wid)):
                     s["pc"][wid] = pcs[(tid, wid)]
+                    s["pc_by"][wid] = pc_by.get((tid, wid), "")
+                if (int(tid), (wk.get("name") or "").strip().casefold()) in ot_off:
+                    s["ot_off"][wid] = True
+                fl = flags.get((tid, wid))
+                if fl:
+                    # done = đã tick xử lý HOẶC văn phòng đã nhập tay phụ cấp → dấu dịu lại
+                    by = pc_by.get((tid, wid), "")
+                    s["flag"][wid] = {"kind": fl[0], "done": fl[1] or (bool(pcs.get((tid, wid))) and by not in ("", "auto"))}
                 if cays.get((tid, wid)):
                     s["cay"][wid] = round(cays[(tid, wid)], 1)
 
@@ -153,7 +191,7 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
         for s in slips:
             s["cells"] = {str(k): v for k, v in s["cells"].items() if v}
             s["parts"] = {str(k): v for k, v in s.get("parts", {}).items() if s["cells"].get(str(k))}
-            for fld in ("notes", "pc", "cay"):
+            for fld in ("notes", "pc", "pc_by", "cay", "ot_off", "flag"):
                 s[fld] = {str(k): v for k, v in s.get(fld, {}).items()}
         # thang màu heatmap lấy theo ô THEO NGÀY (ô phiếu luôn ≤ ô ngày nên cùng thang
         # thì view chi tiết nhạt đều — client tự chia thang riêng cho view phiếu)

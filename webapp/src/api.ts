@@ -1620,9 +1620,14 @@ export type SalaryAllowance = { id: number; worker_id: number; ym: string; amoun
 // ⚠ phụ cấp phiếu đã GỘP sẵn vào money nên phần dôi ra = tiền ô − Σ(cây × đơn giá).
 export type WagePivotPart = { code: string; cay: number; wage: number; gio: number; rate: number; money: number;
   ot?: number; ot_min?: number };   // ot = phụ trội TĂNG CA (đã nằm trong money)
-export type WagePivotSlip = { thread_id: number; code: string; start: string; end: string; total: number; cells: Record<string, number>; parts?: Record<string, WagePivotPart[]>;
+export type WagePivotSlip = { thread_id: number; code: string; kind?: string; start: string; end: string; total: number; cells: Record<string, number>; parts?: Record<string, WagePivotPart[]>;
   // ghi chú / phụ cấp / số cây của TỪNG THỢ trong phiếu (cho popup chi tiết ô)
-  notes?: Record<string, string>; pc?: Record<string, number>; cay?: Record<string, number> };
+  notes?: Record<string, string>; pc?: Record<string, number>; cay?: Record<string, number>;
+  pc_by?: Record<string, string>;      // ai ghi phụ cấp: "auto" = rule ghi chú, còn lại = username
+  ot_off?: Record<string, boolean>;   // văn phòng đã TẮT tăng ca của thợ này ở phiếu này
+  // ghi chú LỆCH câu chuẩn → auto KHÔNG trả phụ cấp, ô gắn ⚠. kind = loại note_review
+  // (so_tien | mot_phan | la | khac_tho); done = đã tick xử lý hoặc đã nhập tay phụ cấp
+  flag?: Record<string, { kind: string; done: boolean }> };
 export type WagePivotDay = { ymd: string; total: number; cells: Record<string, number>; slips: WagePivotSlip[] };
 export type WagePivot = {
   from: string; to: string;

@@ -192,17 +192,34 @@ def test_parse_note_amount():
         assert f(s) is None, s
 
 
-def test_so_tien_trong_ghi_chu_thang_moc_hang():
-    """Ghi "vít 25k" → trả ĐÚNG 25.000, không lấy tiền SP của người hạng 1."""
+def test_so_tien_trong_ghi_chu_khong_con_tu_tra():
+    """Từ 2026-09-26 ghi chú phải TRÙNG KHÍT câu chuẩn: "vít 25k" thừa chữ → auto KHÔNG
+    ghi gì (văn phòng tự nhập). Trước đó số viết tay thắng mốc xếp hạng."""
     ws = [
         {"name": "Trọng", "piece": 500_000, "note": ""},
         {"name": "Sáu", "piece": 300_000, "note": ""},
         {"name": "Duy", "piece": 10_000, "note": "vít 25k"},
     ]
-    assert compute_auto_allowances(ws)["Duy"] == 25000
-    # cùng phiếu, ghi chú KHÔNG có tiền → vẫn theo mốc (Duy = hạng 1 = Sáu)
+    assert "Duy" not in compute_auto_allowances(ws)
+    # cùng phiếu, ghi chú đúng chuẩn → theo mốc (Duy = hạng 1 = Sáu)
     ws[2]["note"] = "vít kẹo"
     assert compute_auto_allowances(ws)["Duy"] == 300_000
+
+
+def test_chi_tra_khi_ghi_chu_trung_khit_cau_chuan():
+    """Duy chốt 2026-09-26: dư chữ hoặc khác chữ → không tự động phụ cấp."""
+    base = [_w("Hiền", 125_000), _w("Hằng", 123_000)]
+    # trùng khít (bỏ dấu, hoa thường, khoảng trắng thừa đều được) → có
+    for note in ("vít kẹo", "Vít", "  VÍT   KẸO ", "vit keo"):
+        assert compute_auto_allowances([_w("Kim", 0, note), *base]) == {"Kim": 125_000}, note
+    for note in ("Chiên", "chiên đậu"):
+        assert compute_auto_allowances([_w("Kim Dung", 0, note), *base]) == {"Kim Dung": 125_000}, note
+    # dư chữ / khác chữ (dữ liệu thật tháng 9) → không có
+    for note in ("vít tới 8h", "vít 30p", "4h vít kẹo (vít 1h25p)", "Vít kẹo ( về lúc 9h30)",
+                 "vít kẹo.", "vít 3 chảo", "Đã -1 gạch ( vít kẹo )"):
+        assert compute_auto_allowances([_w("Kim", 0, note), *base]) == {}, note
+    assert compute_auto_allowances([_w("Kim Dung", 0, "chiên dauu"), *base]) == {}
+    assert compute_auto_allowances([_w("Tâm", 0, "vô kẹo 3 chảo"), *base, _w("Trọng", 50_000)]) == {}
 
 
 def test_nghi_van_thang_so_tien():

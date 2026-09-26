@@ -1,9 +1,12 @@
 """PHỤ CẤP TỰ ĐỘNG theo GHI CHÚ báo cáo thợ — chạy mỗi lần lưu báo cáo (set_bang).
 
-Rule (sửa bảng RULES bên dưới): thợ X có ghi chú chứa từ khoá Y → phụ cấp = TIỀN SP
-(ĐÃ GỒM phụ trội tăng ca, không tính phụ cấp) của người cao nhất/nhì bảng phiếu đó, HOẶC của 1 thợ ĐÍCH DANH
-(mốc ghi bằng tên thay vì hạng). ⚠ Ghi chú có SỐ TIỀN viết thẳng ("vít 25k") thì lấy
-ĐÚNG số đó, bỏ qua mốc — xem parse_note_amount. Ai có ghi chú "nghỉ" → xoá phụ cấp. Ghi với updated_by='auto' — văn phòng sửa tay (updated_by khác) thì
+Rule (sửa bảng RULES bên dưới): thợ X có ghi chú TRÙNG KHÍT 1 câu chuẩn của từ khoá Y
+(bảng PHRASES — bỏ dấu, không phân biệt hoa thường, gộp khoảng trắng; THỪA hay KHÁC
+một chữ là KHÔNG tự tính, Duy chốt 2026-09-26) → phụ cấp = TIỀN SP (ĐÃ GỒM phụ trội
+tăng ca, không tính phụ cấp) của người cao nhất/nhì bảng phiếu đó, HOẶC của 1 thợ ĐÍCH
+DANH (mốc ghi bằng tên thay vì hạng). Ghi chú lệch chuẩn ("vít 25k", "vít tới 8h") → auto
+không ghi gì, văn phòng tự nhập; trang lương SP theo ngày gắn dấu ⚠ vào ô đó (note_review).
+Ai có ghi chú CHỨA chữ "nghỉ" → xoá phụ cấp. Ghi với updated_by='auto' — văn phòng sửa tay (updated_by khác) thì
 auto KHÔNG đè nữa (trừ rule "nghỉ" vẫn ép xoá). Nối: production_allowances (qua
 allowances.set_allowance), production_slips + production_workers (tính tiền SP),
 production_store.wages, vn.vn_normalize.
@@ -47,6 +50,35 @@ RULES: list[tuple[set[str], tuple[str, ...], int | str]] = [
     ({"vi"}, _DUA, "trong"),                         # Vĩ việc dừa → cũng bằng Trọng
 ]
 _NGHI = "nghi"   # ghi chú "nghỉ" → không phụ cấp (ưu tiên trên mọi rule)
+
+# ── CÂU ghi chú CHUẨN cho từng từ khoá — auto CHỈ chạy khi ghi chú TRÙNG KHÍT 1 câu ở
+# đây (sau khi bỏ dấu + gộp khoảng trắng). Duy chốt 2026-09-26: "dư chữ hoặc khác chữ
+# thì không cho phụ cấp tự động" — trước đó khớp LỎNG theo từ khoá nên "vít tới 8h",
+# "vít 30p", "Vít (về 10h) -1 tiếng" vẫn ăn trọn mốc. Số liệu 07→09/2026: mọi dòng
+# được trả đúng đều dùng các câu dưới. THÊM CÂU MỚI khi xưởng đổi cách ghi; đừng nới
+# lại thành so-chứa. note_review dùng CHUNG bảng này để cảnh báo ghi chú lệch chuẩn.
+PHRASES: dict[str, tuple[str, ...]] = {
+    "vit": ("vit", "vit keo"),
+    "quay keo": ("quay keo",),
+    "chien": ("chien", "chien dau"),
+    "rac me": ("rac me",),
+    "vo keo": ("vo keo",),
+    "rac com dua": ("rac com dua",),
+    "rac dua": ("rac dua",),
+    "gan dua": ("gan dua",),
+    _NGHI: (_NGHI,),
+}
+_WS_RE = re.compile(r"\s+")
+
+
+def fold_note(note) -> str:
+    """Bỏ dấu + chữ thường + gộp khoảng trắng — dạng dùng để so khít câu chuẩn."""
+    return _WS_RE.sub(" ", vn_normalize(str(note or "")).strip())
+
+
+def phrases_of(kws) -> frozenset[str]:
+    """Các câu chuẩn của 1 nhóm từ khoá."""
+    return frozenset(p for k in kws for p in PHRASES.get(k, (k,)))
 # Thợ KHÔNG dùng làm MỐC xếp hạng phụ cấp (sản lượng cao bất thường — không nên là
 # mốc cho người khác). Tên đã bỏ dấu.
 RANK_EXCLUDE = {"tran"}
@@ -60,11 +92,9 @@ def _has_kw(note_fold: str, kw: str) -> bool:
 
 
 # ── SỐ TIỀN viết thẳng trong ghi chú ("vít 25k") ──────────────────────────────
-# Duy chốt 2026-09-12: số này LÀ TIỀN và nó THẮNG mốc xếp hạng — người ghi đã nói rõ
-# phải trả bao nhiêu. Trước đó auto chỉ soi từ khoá nên "vít 25k" khớp "vít" rồi trả
-# theo hạng, bỏ qua số đã viết (08/09 Kim "Vít 15k" → 246.000; 09/09 Duy "vít 25k" →
-# 31.200). CHỈ áp cho thợ ĐÃ CÓ RULE khớp ghi chú đó — không thì ai gõ số cũng được
-# trả. "nghỉ" vẫn thắng tất cả (xử lý trước trong compute_auto_allowances).
+# CHỈ còn dùng để PHÂN LOẠI cảnh báo (note_review.KIND_AMOUNT). Từ 2026-09-26 auto
+# KHÔNG trả theo số này nữa: "vít 25k" không trùng khít câu chuẩn → auto bỏ qua, văn
+# phòng tự nhập (trước đó 12/09→26/09 số viết tay thắng mốc xếp hạng).
 # ⚠ `\bk\b` không ăn "kg" (g là ký tự từ) và không ăn "1h25p" — xem test.
 _MONEY_RE = re.compile(
     r"\b(\d+(?:[.,]\d+)?)\s*(?:k|ng|nghin|ngan)\b"   # 25k · 30 nghìn · 30 ngàn → ×1000
@@ -117,12 +147,9 @@ def compute_auto_allowances(workers: list[dict]) -> dict[str, float]:
         if w.get("hour"):        # tính lương theo giờ → không có phụ cấp
             continue
         nfold = vn_normalize(name).strip()
+        exact = fold_note(note)
         for names, kws, moc in RULES:
-            if nfold in names and any(_has_kw(note, k) for k in kws):
-                money = parse_note_amount(note)
-                if money is not None:             # số viết tay THẮNG mốc xếp hạng
-                    out[name] = money
-                    break
+            if nfold in names and exact in phrases_of(kws):   # TRÙNG KHÍT câu chuẩn
                 if isinstance(moc, str):          # mốc = ĐÍCH DANH 1 thợ
                     peer = by_name.get(moc)
                     if peer is not None:          # vắng mặt → không ghi gì

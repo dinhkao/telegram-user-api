@@ -5,16 +5,22 @@
 //   · Chi tiết   — dưới mỗi ngày là TỪNG PHIẾU SX (mã SP + giờ), mỗi phiếu 1 hàng.
 // Ô tô ĐẬM NHẠT theo số tiền (heatmap) để nhìn phát thấy ai/ngày nào làm nhiều.
 // Số hiện theo NGHÌN đồng cho gọn (rê chuột thấy số đầy đủ). BẤM 1 Ô = popup chi
-// tiết cấu thành số tiền ô đó (detail/WagePivotCell). Nhớ tháng/kiểu xem/vị trí cuộn.
+// tiết cấu thành số tiền ô đó (detail/WagePivotCell). View chi tiết: cột đầu 2 dòng
+// = mã SP (link phiếu) / giờ bắt đầu–kết thúc (giờ tô cam = phiếu có tăng ca). Nhớ tháng/kiểu xem/vị trí cuộn.
 // Data: GET /api/production/wage-pivot (production_store/wage_pivot.py) — tiền lấy
 // nguyên từ compute_range_report nên khớp phiếu báo cáo SX và bảng lương tháng.
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { getWagePivot, isOffice, type WagePivot as Pivot } from "../api";
+import { getWagePivot, isOffice, type WagePivot as Pivot, type WagePivotSlip } from "../api";
 import { moneyR as money, curYM, shiftYM, ymLabel } from "../format";
 import { Icon } from "../ui/Icon";
 import { PageHead } from "../ui/PageHead";
 import { Loading, EmptyState, ErrorState } from "../ui/states";
 import { WagePivotCell, type PivotCell } from "../detail/WagePivotCell";
+import { dayFlag, slipFlag, type FlagState } from "../detail/wagePivotData";
+
+/** class cho ô có ghi chú lệch chuẩn (dấu góc ⚠ — xem .wp-flag trong styles.css). */
+const flagCls = (f: FlagState) => (f === "open" ? " wp-flag" : f === "done" ? " wp-flag done" : "");
+const FLAG_TIP = " · ⚠ ghi chú lệch câu chuẩn → phụ cấp KHÔNG tự tính";
 
 /** Tiền → NGHÌN đồng, gọn nhất có thể ("487.540" → "488"). Không có tiền thì in
  *  đúng số "0" (không bỏ trống): ô trống dễ bị đọc nhầm là thiếu dữ liệu, còn 0 là
@@ -23,6 +29,14 @@ const k = (v?: number) => String(Math.round((v || 0) / 1000));
 const dayNum = (ymd: string) => Number(ymd.slice(8, 10));
 const DOW = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 const dowOf = (ymd: string) => DOW[new Date(`${ymd}T00:00:00`).getDay()];
+/** "07:45" → "7:45": bỏ số 0 đầu giờ cho cột phiếu gọn hơn (không mất thông tin). */
+const hm = (t?: string) => (t || "").replace(/^0(\d)/, "$1");
+/** Giờ của 1 phiếu cho cột đầu: "7:45–11:30"; thiếu giờ xong → "7:45–?"; không giờ → "—". */
+const slipSpan = (s: { start: string; end: string }) =>
+  s.start || s.end ? `${hm(s.start) || "?"}–${hm(s.end) || "?"}` : "—";
+/** Phiếu có ai được tính TĂNG CA không → tô giờ màu cảnh báo cho dễ thấy. */
+const slipHasOt = (s: WagePivotSlip) =>
+  Object.values(s.parts || {}).some((ps) => ps.some((p) => (p.ot || 0) > 0));
 /** Tên cột: bỏ họ, giữ tối đa 2 chữ cuối ("Nguyễn Bảo Xuyên" → "Bảo Xuyên"). */
 const shortName = (n: string) => n.trim().split(/\s+/).slice(-2).join(" ");
 
@@ -100,11 +114,20 @@ export function WagePivot() {
     return m;
   }, [data]);
 
+  // Số ô ⚠ CHƯA xử lý trong tháng (theo thợ × phiếu) — hiện ở thanh tóm tắt
+  const openFlags = useMemo(() => {
+    let n = 0;
+    for (const d of data?.days || []) for (const s of d.slips) for (const f of Object.values(s.flag || {})) if (!f.done) n++;
+    return n;
+  }, [data]);
+
   // Bề rộng cột theo EM (font bảng .62rem) — số hiện theo nghìn nên 4 chữ số là đủ;
   // tên thợ ở tiêu đề tự xuống 2 dòng trong bề rộng này.
   const ws0 = data?.workers || [];
-  // view chi tiết: ô đầu còn phải chứa "MÃ SP 07:45" nên rộng hơn hẳn view ngày
-  const COL_EM = [view === "slip" ? 9.6 : 5.8, ...ws0.map(() => 4.3), 5.0];
+  // view chi tiết: ô đầu xếp 2 DÒNG (mã SP / giờ bắt đầu–kết thúc chữ nhỏ) nên chỉ
+  // nhỉnh hơn view ngày một chút — trước để 1 dòng "MÃ 07:45" tốn 9,6em mà chưa đủ giờ.
+  // 6,6em đo cho mã 8 ký tự ("KDXDB-MY") và giờ dài nhất "10:45–11:30".
+  const COL_EM = [view === "slip" ? 6.6 : 5.8, ...ws0.map(() => 4.3), 5.0];
   const tableStyle = `min-width:${COL_EM.reduce((a, b) => a + b, 0)}em`;
   const cols = <colgroup>{COL_EM.map((w, i) => <col key={i} style={`width:${w}em`} />)}</colgroup>;
 
@@ -141,7 +164,12 @@ export function WagePivot() {
               <span class="muted small">{ws.length} thợ · {data.days.length} ngày</span>
             </div>
             <p class="muted small wp-note">Số theo <b>nghìn đồng</b> · ô càng đậm tiền càng nhiều ·
-              chạm giữ 1 ô để xem số đầy đủ.</p>
+              bấm 1 ô để xem cách tính.</p>
+            {openFlags ? (
+              <p class="wp-flag-note"><span class="wp-flag-key" aria-hidden="true" />
+                <span><b>{openFlags} ô</b> có ghi chú lệch câu chuẩn — phụ cấp <b>không tự tính</b>, văn phòng cần
+                  xem và nhập tay. Bấm ô có góc cam để xem ghi chú.</span></p>
+            ) : null}
             <div class="wp-wrap">
               <div class="wp-thead-bar" ref={headRef}>
                 <table class="wp-table" style={tableStyle}>
@@ -175,10 +203,11 @@ export function WagePivot() {
                           const v = d.cells[String(w.id)] || 0;
                           // view CHI TIẾT: hàng ngày chỉ là TIÊU ĐỀ NHÓM → không tô màu,
                           // để thang màu dành riêng cho các ô phiếu bên dưới cho dễ so
+                          const fl = dayFlag(d, w.id);
                           return (
-                            <td key={w.id} class="wp-cell" style={view === "slip" ? "" : heat(v, data.max_cell)}
-                              onClick={() => { setActiveRow(d.ymd); if (v) setCell({ kind: "day", day: d, wid: w.id }); }}
-                              title={v ? `${w.name} · ${d.ymd} — ${money(v)}đ · bấm xem chi tiết` : ""}>{k(v)}</td>
+                            <td key={w.id} class={`wp-cell${flagCls(fl)}`} style={view === "slip" ? "" : heat(v, data.max_cell)}
+                              onClick={() => { setActiveRow(d.ymd); if (v || fl) setCell({ kind: "day", day: d, wid: w.id }); }}
+                              title={`${v ? `${w.name} · ${d.ymd} — ${money(v)}đ · bấm xem chi tiết` : ""}${fl ? FLAG_TIP : ""}`}>{k(v)}</td>
                           );
                         })}
                         <td class="wp-tot wp-cell" onClick={() => { setActiveRow(d.ymd); if (d.total) setCell({ kind: "dayTotal", day: d }); }}
@@ -188,16 +217,17 @@ export function WagePivot() {
                       {view === "slip" && d.slips.map((s) => (
                         <tr key={`${d.ymd}-${s.thread_id}`}
                           class={activeRow === `${d.ymd}#${s.thread_id}` ? "wp-sliprow is-active" : "wp-sliprow"}>
-                          <th class="wp-slip" title={`Phiếu #${s.thread_id}`}>
+                          <th class="wp-slip" title={`Phiếu #${s.thread_id}${s.start ? ` · ${s.start}–${s.end || "?"}` : ""}`}>
                             <a href={`#/san_xuat/${s.thread_id}`}>{s.code || "—"}</a>
-                            {s.start ? <span class="muted"> {s.start}</span> : null}
+                            <span class={slipHasOt(s) ? "wp-slip-t ot" : "wp-slip-t"}>{slipSpan(s)}</span>
                           </th>
                           {ws.map((w) => {
                             const v = s.cells[String(w.id)] || 0;
+                            const fl = slipFlag(s, w.id);
                             return (
-                              <td key={w.id} class="wp-cell" style={heat(v, maxSlip)}
-                                onClick={() => { setActiveRow(`${d.ymd}#${s.thread_id}`); if (v) setCell({ kind: "slip", day: d, slip: s, wid: w.id }); }}
-                                title={v ? `${w.name} · ${s.code} — ${money(v)}đ · bấm xem cách tính` : ""}>{k(v)}</td>
+                              <td key={w.id} class={`wp-cell${flagCls(fl)}`} style={heat(v, maxSlip)}
+                                onClick={() => { setActiveRow(`${d.ymd}#${s.thread_id}`); if (v || fl) setCell({ kind: "slip", day: d, slip: s, wid: w.id }); }}
+                                title={`${v ? `${w.name} · ${s.code} — ${money(v)}đ · bấm xem cách tính` : ""}${fl ? FLAG_TIP : ""}`}>{k(v)}</td>
                             );
                           })}
                           <td class="wp-tot">{k(s.total)}</td>
