@@ -114,12 +114,33 @@ export function WagePivot() {
     return m;
   }, [data]);
 
-  // Số ô ⚠ CHƯA xử lý trong tháng (theo thợ × phiếu) — hiện ở thanh tóm tắt
+  // Số ô ⚠ CHƯA xử lý ĐANG HIỆN (view ngày đếm ô thợ×ngày, view chi tiết đếm ô thợ×phiếu)
   const openFlags = useMemo(() => {
     let n = 0;
-    for (const d of data?.days || []) for (const s of d.slips) for (const f of Object.values(s.flag || {})) if (!f.done) n++;
+    for (const d of data?.days || []) {
+      if (view === "day") { for (const w of data?.workers || []) if (dayFlag(d, w.id) === "open") n++; }
+      else for (const s of d.slips) for (const f of Object.values(s.flag || {})) if (!f.done) n++;
+    }
     return n;
-  }, [data]);
+  }, [data, view]);
+  // Bấm dòng cảnh báo → cuộn tới ô ⚠ KẾ TIẾP (vòng lại từ đầu) + nháy sáng ô đó
+  const flagIdx = useRef(-1);
+  useEffect(() => { flagIdx.current = -1; }, [data, view]);
+  const [flagPos, setFlagPos] = useState(0);
+  const gotoNextFlag = () => {
+    const cells = Array.from(wrapRef.current?.querySelectorAll<HTMLElement>("td.wp-flag:not(.done)") || []);
+    if (!cells.length) return;
+    flagIdx.current = (flagIdx.current + 1) % cells.length;
+    const el = cells[flagIdx.current];
+    setFlagPos(flagIdx.current + 1);
+    el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    el.classList.remove("wp-flash");
+    void el.offsetWidth;            // khởi động lại animation khi bấm trúng lại ô cũ
+    el.classList.add("wp-flash");
+    const row = el.parentElement?.getAttribute("data-row");
+    if (row) setActiveRow(row);
+    window.setTimeout(() => el.classList.remove("wp-flash"), 2600);
+  };
 
   // Bề rộng cột theo EM (font bảng .62rem) — số hiện theo nghìn nên 4 chữ số là đủ;
   // tên thợ ở tiêu đề tự xuống 2 dòng trong bề rộng này.
@@ -166,9 +187,11 @@ export function WagePivot() {
             <p class="muted small wp-note">Số theo <b>nghìn đồng</b> · ô càng đậm tiền càng nhiều ·
               bấm 1 ô để xem cách tính.</p>
             {openFlags ? (
-              <p class="wp-flag-note"><span class="wp-flag-key" aria-hidden="true" />
+              <button type="button" class="wp-flag-note" onClick={gotoNextFlag}>
+                <span class="wp-flag-key" aria-hidden="true">!</span>
                 <span><b>{openFlags} ô</b> có ghi chú lệch câu chuẩn — phụ cấp <b>không tự tính</b>, văn phòng cần
-                  xem và nhập tay. Bấm ô có góc cam để xem ghi chú.</span></p>
+                  xem và nhập tay. <u>Bấm để tới ô cần xem{flagPos ? ` (${Math.min(flagPos, openFlags)}/${openFlags})` : ""}</u>.</span>
+              </button>
             ) : null}
             <div class="wp-wrap">
               <div class="wp-thead-bar" ref={headRef}>
@@ -195,7 +218,7 @@ export function WagePivot() {
                 <tbody>
                   {data.days.map((d) => (
                     <>
-                      <tr key={d.ymd} class={`${view === "slip" ? "wp-dayrow grouped" : "wp-dayrow"}${activeRow === d.ymd ? " is-active" : ""}`}>
+                      <tr key={d.ymd} data-row={d.ymd} class={`${view === "slip" ? "wp-dayrow grouped" : "wp-dayrow"}${activeRow === d.ymd ? " is-active" : ""}`}>
                         <th class="wp-day" title={d.ymd}>
                           <b>{dayNum(d.ymd)}</b> <span class="muted">{dowOf(d.ymd)}</span>
                         </th>
@@ -203,11 +226,12 @@ export function WagePivot() {
                           const v = d.cells[String(w.id)] || 0;
                           // view CHI TIẾT: hàng ngày chỉ là TIÊU ĐỀ NHÓM → không tô màu,
                           // để thang màu dành riêng cho các ô phiếu bên dưới cho dễ so
-                          const fl = dayFlag(d, w.id);
+                          // view chi tiết: dấu nằm ở ô PHIẾU bên dưới, hàng ngày chỉ là tiêu đề nhóm
+                          const fl = view === "day" ? dayFlag(d, w.id) : "";
                           return (
-                            <td key={w.id} class={`wp-cell${flagCls(fl)}`} style={view === "slip" ? "" : heat(v, data.max_cell)}
+                            <td key={w.id} class={`wp-cell${flagCls(fl)}`} style={view === "slip" || fl === "open" ? "" : heat(v, data.max_cell)}
                               onClick={() => { setActiveRow(d.ymd); if (v || fl) setCell({ kind: "day", day: d, wid: w.id }); }}
-                              title={`${v ? `${w.name} · ${d.ymd} — ${money(v)}đ · bấm xem chi tiết` : ""}${fl ? FLAG_TIP : ""}`}>{k(v)}</td>
+                              title={`${v ? `${w.name} · ${d.ymd} — ${money(v)}đ · bấm xem chi tiết` : ""}${fl ? FLAG_TIP : ""}`}>{fl === "open" ? "!" : k(v)}</td>
                           );
                         })}
                         <td class="wp-tot wp-cell" onClick={() => { setActiveRow(d.ymd); if (d.total) setCell({ kind: "dayTotal", day: d }); }}
@@ -215,7 +239,7 @@ export function WagePivot() {
                       </tr>
                       {/* view CHI TIẾT: mỗi phiếu SX trong ngày là 1 hàng con */}
                       {view === "slip" && d.slips.map((s) => (
-                        <tr key={`${d.ymd}-${s.thread_id}`}
+                        <tr key={`${d.ymd}-${s.thread_id}`} data-row={`${d.ymd}#${s.thread_id}`}
                           class={activeRow === `${d.ymd}#${s.thread_id}` ? "wp-sliprow is-active" : "wp-sliprow"}>
                           <th class="wp-slip" title={`Phiếu #${s.thread_id}${s.start ? ` · ${s.start}–${s.end || "?"}` : ""}`}>
                             <a href={`#/san_xuat/${s.thread_id}`}>{s.code || "—"}</a>
@@ -225,9 +249,9 @@ export function WagePivot() {
                             const v = s.cells[String(w.id)] || 0;
                             const fl = slipFlag(s, w.id);
                             return (
-                              <td key={w.id} class={`wp-cell${flagCls(fl)}`} style={heat(v, maxSlip)}
+                              <td key={w.id} class={`wp-cell${flagCls(fl)}`} style={fl === "open" ? "" : heat(v, maxSlip)}
                                 onClick={() => { setActiveRow(`${d.ymd}#${s.thread_id}`); if (v || fl) setCell({ kind: "slip", day: d, slip: s, wid: w.id }); }}
-                                title={`${v ? `${w.name} · ${s.code} — ${money(v)}đ · bấm xem cách tính` : ""}${fl ? FLAG_TIP : ""}`}>{k(v)}</td>
+                                title={`${v ? `${w.name} · ${s.code} — ${money(v)}đ · bấm xem cách tính` : ""}${fl ? FLAG_TIP : ""}`}>{fl === "open" ? "!" : k(v)}</td>
                             );
                           })}
                           <td class="wp-tot">{k(s.total)}</td>

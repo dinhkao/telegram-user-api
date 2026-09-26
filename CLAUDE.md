@@ -638,8 +638,10 @@ Real code lives in **packages** (dirs with `__init__.py`). Grouped by role:
   Tests: `tests/test_allowance_auto.py`.
   **DẤU ⚠ TRÊN Ô `#/luong-ngay` (2026-09-26)**: `note_review.needs_review` (loại so_tien/
   mot_phan/la/khac_tho, bỏ so_luong) → `wage_pivot` trả `slips[].flag {wid: {kind, done}}`
-  (done = đã tick ở khối cảnh báo HOẶC đã nhập tay phụ cấp) → ô viền + góc CAM (đã xử lý =
-  góc xám nhỏ) ở CẢ view Theo ngày lẫn Chi tiết phiếu + khối cảnh báo trong popup ô.
+  (done = đã tick ở khối cảnh báo SAU `wage_pivot.EXACT_RULE_SINCE` HOẶC đã nhập tay phụ cấp;
+  gắn cả ô 0đ; chỉ thợ có cột) → ô TÔ ĐỎ ĐẶC, số thay bằng "!" (đã xử lý = góc xám nhỏ) ở view
+  Theo ngày (ô thợ×ngày) lẫn Chi tiết phiếu (ô thợ×phiếu) + khối cảnh báo trong popup ô. Bấm
+  dòng cảnh báo đỏ đầu bảng = cuộn tới ô ⚠ kế tiếp (vòng lại) + nháy sáng.
   **CẢNH BÁO GHI CHÚ LẠ (2026-09-12, `production_store/note_review.py`)**: rule khớp theo
   TỪ KHOÁ cố định nên thợ ghi chữ khác là auto ÂM THẦM bỏ qua. `note_kind(thợ, ghi chú)`
   (thuần) phân 4 loại: `khop` (từ khoá CỦA CHÍNH thợ đó, hoặc "nghỉ") · `khac_tho` (là

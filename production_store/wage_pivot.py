@@ -30,6 +30,11 @@ from datetime import date, timedelta
 from production_store.time_fmt import time_minutes
 
 
+# Mốc (UTC, như production_note_resolved.resolved_at) đổi luật phụ cấp tự động sang TRÙNG
+# KHÍT câu chuẩn — tick "đã xử lý" trước mốc này không còn giá trị cho dấu ⚠.
+EXACT_RULE_SINCE = "2026-09-26 08:00:00"
+
+
 def _all_days(dfrom: str, dto: str) -> list[str]:
     """Mọi ngày YYYY-MM-DD trong [dfrom, dto]. Mốc hỏng / khoảng > 400 ngày → rỗng
     (chỉ giữ các ngày CÓ dữ liệu, không dựng bảng khổng lồ)."""
@@ -75,9 +80,14 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
     # GHI CHÚ LỆCH CHUẨN (production_store.note_review) → dấu ⚠ ở ô: auto phụ cấp chỉ
     # trả khi ghi chú trùng khít câu chuẩn, lệch là văn phòng phải tự quyết.
     # flags[(phiếu, thợ)] = (loại, đã tick xử lý ở khối cảnh báo #/sx-bang hay chưa)
-    from production_store.note_resolved import resolved_keys
+    from production_store.note_resolved import ensure_schema as _ensure_resolved
     from production_store.note_review import fold_note, needs_review
-    resolved = resolved_keys(conn)
+    # Chỉ tick "đã xử lý" SAU khi đổi luật mới tính: tick trước đó nghĩa là "auto trả thế
+    # là đúng", mà nay auto không trả nữa (đã đặt về 0) → ô phải hiện lại cho người xem.
+    _ensure_resolved(conn)
+    resolved = {(int(r[0]), str(r[1] or ""), str(r[2] or "")) for r in conn.execute(
+        "SELECT thread_id, worker_name, note_fold FROM production_note_resolved WHERE resolved_at >= ?",
+        (EXACT_RULE_SINCE,)).fetchall()}
     wname_by_id = {w["id"]: w["name"] for w in workers}
     flags: dict[tuple, tuple[str, bool]] = {}
     for r in conn.execute(
@@ -169,13 +179,25 @@ def wage_pivot(conn, dfrom: str, dto: str) -> dict:
                     s["pc_by"][wid] = pc_by.get((tid, wid), "")
                 if (int(tid), (wk.get("name") or "").strip().casefold()) in ot_off:
                     s["ot_off"][wid] = True
-                fl = flags.get((tid, wid))
-                if fl:
-                    # done = đã tick xử lý HOẶC văn phòng đã nhập tay phụ cấp → dấu dịu lại
-                    by = pc_by.get((tid, wid), "")
-                    s["flag"][wid] = {"kind": fl[0], "done": fl[1] or (bool(pcs.get((tid, wid))) and by not in ("", "auto"))}
+
                 if cays.get((tid, wid)):
                     s["cay"][wid] = round(cays[(tid, wid)], 1)
+
+    # ── DẤU ⚠ + ghi chú cho MỌI (phiếu, thợ) có ghi chú lệch chuẩn — kể cả ô 0đ: thợ
+    # không làm cây mà phụ cấp vừa bị đặt về 0 thì compute_range_report không có dòng nào,
+    # nhưng đó lại chính là ô cần văn phòng chú ý nhất.
+    slip_by_tid = {tid: sl for d in days.values() for tid, sl in d["slips"].items()}
+    for (tid, wid), fl in flags.items():
+        sl = slip_by_tid.get(tid)
+        if sl is None or wid not in wname_by_id:   # thợ lương thời gian: không có cột ở trang này
+            continue
+        # done = đã tick xử lý (sau khi đổi luật) HOẶC văn phòng đã nhập tay phụ cấp
+        by = pc_by.get((tid, wid), "")
+        sl["flag"][wid] = {"kind": fl[0], "done": fl[1] or (bool(pcs.get((tid, wid))) and by not in ("", "auto"))}
+        if notes.get((tid, wid)):
+            sl["notes"][wid] = notes[(tid, wid)]
+        if cays.get((tid, wid)):
+            sl["cay"][wid] = round(cays[(tid, wid)], 1)
 
     # ── sắp xếp + dọn ───────────────────────────────────────────────────────────
     # ĐỦ MỌI NGÀY trong kỳ (ngày không ai làm vẫn có hàng, tiền 0) — bảng lương phải
